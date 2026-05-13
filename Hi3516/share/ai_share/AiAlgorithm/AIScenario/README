@@ -1,0 +1,10 @@
+### AI场景
+- 调用例子：src/main.cpp
+- 工厂类：Factory,hpp
+- AI场景基类：AIScenario.hpp
+
+#### 目前支持的模型
+- ONNX模型
+
+#### 目前可以用的场景
+- 人像抠图：HumanCutout.hpp

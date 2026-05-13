@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>WebSocket Client</title>
+</head>
+<body>
+    <h1>WebSocket Client</h1>
+    <div id="output"></div>
+    <input type="text" id="message" placeholder="Enter your message">
+    <button onclick="sendMessage()">Send</button>~
+    <script>
+        var socket = new WebSocket("ws://172.16.25.181:7681/?userName=test");
+        socket.onopen = function(event) {
+            document.getElementById("output").innerHTML += "<p>Connected to server.</p>";
+        };
+        socket.onmessage = function(event) {
+            document.getElementById("output").innerHTML += "<p>Received message: " + event.data + "</p>";
+        };
+        socket.onclose = function(event) {
+            if (event.wasClean) {
+                document.getElementById("output").innerHTML += "<p>Connection closed cleanly, code=" + event.code + " reason=" + event.reason + "</p>";
+            } else {
+                document.getElementById("output").innerHTML += "<p>Connection abruptly closed.</p>";
+            }
+        };
+        socket.onerror = function(error) {
+            document.getElementById("output").innerHTML += "<p>Error: " + error.message + "</p>";
+        };
+
+        function sendMessage() {
+            var message = document.getElementById("message").value;
+            socket.send(message);
+            document.getElementById("output").innerHTML += "<p>Sent message: " + message + "</p>";
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,15 @@
+*.elf
+.svn
+vssver.scc
+*.orig
+*.bak
+*.ho
+*.o
+*.bz2
+*.h264
+# *.bin
+git_version.h
+core
+nohup.out
+output/*
+.vscode/*

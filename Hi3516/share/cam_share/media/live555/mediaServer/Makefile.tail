@@ -1,0 +1,36 @@
+MEDIASERVERSRC=$(wildcard ./*.cpp)
+CXXOBJS=$(patsubst %.cpp,%.o,$(MEDIASERVERSRC))
+
+CXXOBJTARGET=$(CXXOBJS):%.o:%.cpp
+
+COBJS=$(patsubst %.c,%.o,$(CCMEDIASERVERSRC))
+COBJTARGET=$(COBJS):%.o:%.c
+
+OBJS=$(COBJS) $(CXXOBJS)
+
+LDFLAGS =-shared
+
+CPLUSPLUS_COMPILER+=-Wall  -fmessage-length=0
+C_COMPILER+=-fmessage-length=0
+LIB=../liveMedia/libliveMedia.a ../groupsock/libgroupsock.a \
+../BasicUsageEnvironment/libBasicUsageEnvironment.a ../UsageEnvironment/libUsageEnvironment.a 
+ifeq ($(arm), 1)
+	MODULENAME=../../build/lib/libRtspServer.so
+else
+	MODULENAME=../../build/lib64/libRtspServer.so
+endif
+	
+all:$(OBJS)
+	$(CPLUSPLUS_COMPILER) $(LDFLAGS) -o $(MODULENAME) $^ $(LIB)
+$(CXXOBJTARGET)
+	$(CPLUSPLUS_COMPILER) $(CPLUSPLUS_FLAGS) $<  -c -fPIC -o $@ $(INCLUDES)
+$(COBJTARGET)
+	$(C_COMPILER) $(CPLUSPLUS_FLAGS) $<  -c  -fPIC -o $@ $(INCLUDES)
+	echo $(CXXOBJTARGET)
+	echo $(COBJTARGET)
+
+clean:
+	@echo Please make in directory build
+	@echo $(OBJS)
+	rm -f $(MODULENAME) 
+	rm -f $(OBJS)

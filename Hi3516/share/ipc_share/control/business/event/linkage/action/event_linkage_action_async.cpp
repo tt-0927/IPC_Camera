@@ -1,0 +1,495 @@
+/**
+ * @FilePath     : event_linkage_action_async.cpp
+ * @Author       : zhouzr@kfb.cn
+ * @Date         : 2026-04-15 16:29:58
+ * @LastEditors  : zhouzr@kfb.cn
+ * @LastEditTime : 2026-04-16 10:26:46
+ * @Description  : 事件联动异步动作执行器实现
+ */
+
+#include "event_linkage_action_async.h"
+
+#include <cerrno>
+#include <chrono>
+#include <cstring>
+#include <future>
+#include <thread>
+
+#include <fcntl.h>
+#include <pthread.h>
+#include <unistd.h>
+
+#include "av_configure.h"
+#include "capture_ctrl.h"
+#include "email_manage.h"
+#include "event_configure.h"
+#include "event_linkage_dict.h"
+#include "gpio_ctrl.h"
+#include "light_manager.h"
+#include "onvif_SubscriptionManager.hpp"
+#include "preview_manage.h"
+#include "time_utils.h"
+
+/* 音频块大小，每次读取的长度 */
+#if CAP_EVENT_AUDIO_PLAYBACK_V2
+#define AUDIO_CHUNK_SIZE 2048
+#else
+#define AUDIO_CHUNK_SIZE 320
+#endif
+
+void EventLinkageAsyncAction::execute(const LinkageTask_S &stTask, std::atomic<bool> &bRunningFlag)
+{
+    /* 根据联动类型分发到对应执行函数，运行标志用于抢占和中断控制 */
+    switch (stTask.enLinkageType)
+    {
+    case LinkageType_E::EMAIL:
+        bRunningFlag.store(true);
+        execute_email(stTask, bRunningFlag);
+        bRunningFlag.store(false);
+        break;
+    case LinkageType_E::SOUND:
+        execute_audio(stTask, bRunningFlag);
+        break;
+    case LinkageType_E::FLASHING_LIGHT:
+        bRunningFlag.store(true);
+        execute_warning_light(bRunningFlag);
+        bRunningFlag.store(false);
+        break;
+    case LinkageType_E::ALARM_IO:
+        bRunningFlag.store(true);
+        execute_alarm_io(stTask, bRunningFlag);
+        bRunningFlag.store(false);
+        break;
+    case LinkageType_E::LOG:
+        bRunningFlag.store(true);
+        execute_log(stTask);
+        bRunningFlag.store(false);
+        break;
+    default:
+        dlog_warn("未知的异步联动类型: %d", static_cast<int>(stTask.enLinkageType));
+        break;
+    }
+}
+
+void EventLinkageAsyncAction::play_audio(const std::string &strAudioPath,
+                                         int nTimes,
+                                         std::atomic<bool> &bRunningFlag)
+{
+#if CAP_EVENT_AUDIO_PLAYBACK_V2
+    /* 同一时刻只允许一条声音联动占用扬声器 */
+    if (bRunningFlag.load())
+    {
+        dlog_warn("音频已在播放中");
+        return;
+    }
+
+    bRunningFlag.store(true);
+    CAVConfigure::instance()->setAudioAoSampleRate(Audio_NS::AudioSamprate_E::AUDIO_SAMPRATE_16000);
+
+    uint8_t zero_buffer[AUDIO_CHUNK_SIZE];
+    memset(zero_buffer, 0, sizeof(zero_buffer));
+
+    Audio_NS::AoInfo_S stSilenceInfo;
+    stSilenceInfo.nChannel = 0;
+    stSilenceInfo.pData = zero_buffer;
+    stSilenceInfo.nLen = AUDIO_CHUNK_SIZE;
+    stSilenceInfo.enAudioFormat = Audio_NS::AudioFormat_E::PCM;
+
+    for (int playCount = 0; playCount < nTimes; ++playCount)
+    {
+        if (!bRunningFlag.load())
+        {
+            break;
+        }
+
+        /* 每轮播放前先补一小段静音，减轻切换音频时的突兀感 */
+        CAVConfigure::instance()->setAoSpeakInfo(stSilenceInfo);
+        int fd = open(strAudioPath.c_str(), O_RDONLY);
+        if (fd == -1)
+        {
+            break;
+        }
+
+        unsigned char header[44] = {0};
+        read(fd, header, 44);
+
+        uint32_t audio_data_len = static_cast<unsigned char>(header[40]) |
+                                  (static_cast<unsigned char>(header[41]) << 8) |
+                                  (static_cast<unsigned char>(header[42]) << 16) |
+                                  (static_cast<unsigned char>(header[43]) << 24);
+        if (audio_data_len == 0 || audio_data_len > 50 * 1024 * 1024)
+        {
+            audio_data_len = 0xFFFFFFFF;
+        }
+
+        uint32_t total_read_bytes = 0;
+        unsigned char buffer[AUDIO_CHUNK_SIZE] = {0};
+        while (total_read_bytes < audio_data_len)
+        {
+            if (!bRunningFlag.load())
+            {
+                break;
+            }
+
+            const uint32_t remaining = audio_data_len - total_read_bytes;
+            const int nToRead = remaining > AUDIO_CHUNK_SIZE ? AUDIO_CHUNK_SIZE : static_cast<int>(remaining);
+            const int nBytesRead = read(fd, buffer, nToRead);
+            if (nBytesRead <= 0)
+            {
+                break;
+            }
+
+            total_read_bytes += nBytesRead;
+            if (nBytesRead < AUDIO_CHUNK_SIZE)
+            {
+                /* 最后一块不足整帧时做补零和淡出，减少播放尾音杂音 */
+                memset(buffer + nBytesRead, 0, AUDIO_CHUNK_SIZE - nBytesRead);
+
+                int fade_len = nBytesRead / 2 > 80 ? 80 : nBytesRead / 2;
+                short *pData = reinterpret_cast<short *>(buffer);
+                int nSamples = nBytesRead / 2;
+                for (int k = 0; k < fade_len; ++k)
+                {
+                    const int idx = nSamples - 1 - k;
+                    pData[idx] = static_cast<short>(pData[idx] * k / fade_len);
+                }
+            }
+
+            Audio_NS::AoInfo_S stAoInfo;
+            stAoInfo.nChannel = 0;
+            stAoInfo.pData = reinterpret_cast<uint8_t *>(buffer);
+            stAoInfo.nLen = AUDIO_CHUNK_SIZE;
+            stAoInfo.enAudioFormat = Audio_NS::AudioFormat_E::PCM;
+            CAVConfigure::instance()->setAoSpeakInfo(stAoInfo);
+            memset(buffer, 0, sizeof(buffer));
+        }
+
+        close(fd);
+        /* 文件播放结束后继续送几帧静音，保证尾部音频完整输出 */
+        for (int i = 0; i < 5; ++i)
+        {
+            CAVConfigure::instance()->setAoSpeakInfo(stSilenceInfo);
+        }
+
+        if (playCount < nTimes - 1)
+        {
+            /* 多次播报之间保留短暂间隔，避免听感过于紧凑 */
+            std::this_thread::sleep_for(std::chrono::milliseconds(300));
+        }
+    }
+
+    bRunningFlag.store(false);
+#else
+    /* 旧播放链路按块读取PCM并同步睡眠控制节奏 */
+    if (bRunningFlag.load())
+    {
+        dlog_warn("音频已在播放中，忽略本次请求");
+        return;
+    }
+
+    bRunningFlag.store(true);
+    dlog_info("开始音频播放: 文件=%s, 次数=%d", strAudioPath.c_str(), nTimes);
+    CAVConfigure::instance()->setAudioAoSampleRate(Audio_NS::AudioSamprate_E::AUDIO_SAMPRATE_16000);
+
+    for (int playCount = 0; playCount < nTimes; ++playCount)
+    {
+        if (!bRunningFlag.load())
+        {
+            break;
+        }
+
+        /* 每次循环都重新打开文件，从头播放一遍完整音频 */
+        int fd = open(strAudioPath.c_str(), O_RDONLY);
+        if (fd == -1)
+        {
+            dlog_error("打开文件失败: %s (错误: %d: %s)", strAudioPath.c_str(), errno, strerror(errno));
+            break;
+        }
+
+        unsigned char buffer[AUDIO_CHUNK_SIZE] = {0};
+        read(fd, buffer, 44);
+
+        ssize_t nBytesRead = 0;
+        while ((nBytesRead = read(fd, buffer, AUDIO_CHUNK_SIZE)) > 0)
+        {
+            if (!bRunningFlag.load())
+            {
+                break;
+            }
+
+            Audio_NS::AoInfo_S stAoInfo;
+            stAoInfo.nChannel = 0;
+            stAoInfo.pData = reinterpret_cast<uint8_t *>(buffer);
+            stAoInfo.nLen = nBytesRead;
+            stAoInfo.enAudioFormat = Audio_NS::AudioFormat_E::PCM;
+            CAVConfigure::instance()->setAoSpeakInfo(stAoInfo);
+
+            memset(buffer, 0, sizeof(buffer));
+            /* 按采样率估算等待时间，避免写声卡过快 */
+            int sleep_ms = nBytesRead * 1000 /
+                           (static_cast<int>(Audio_NS::AudioSamprate_E::AUDIO_SAMPRATE_16000) * 2);
+#if CAP_AUDIO_PLAYBACK_SLEEP_HALF
+            sleep_ms /= 2;
+#endif
+            usleep(sleep_ms * 1000);
+        }
+
+        if (close(fd) != 0)
+        {
+            dlog_error("关闭文件错误: %s", strerror(errno));
+        }
+
+        if (playCount < nTimes - 1)
+        {
+            std::this_thread::sleep_for(std::chrono::milliseconds(500));
+        }
+    }
+
+    bRunningFlag.store(false);
+#endif
+}
+
+void EventLinkageAsyncAction::execute_email(const LinkageTask_S &stTask, std::atomic<bool> &bRunningFlag)
+{
+    pthread_setname_np(pthread_self(), "EventLinkEmail");
+
+    /* 邮件正文使用当前事件快照，避免异步执行时再访问外部共享状态 */
+    ::Network::EmailEventInfo_S stEventInfo;
+    stEventInfo.strSubject = EventLinkageDict::get_event_name(stTask.stContext.enEventType);
+    stEventInfo.strMessage = std::string("事件类型: ") + stEventInfo.strSubject + "\n" +
+                             "日期: " + stTask.stEventInfo.strDate + "\n" +
+                             "时间: " + stTask.stEventInfo.strTime;
+
+    Capture_NS::CaptureParam_S stCaptureParams;
+    CCaptureCtrl::instance()->get_captureParam(stCaptureParams);
+    if (stTask.bUploadSdCard && stCaptureParams.stCaptureEventConfig.bEnable)
+    {
+        /* 若事件同时配置了抓图，则优先等待首张图片，便于邮件带图发送 */
+        const int CHECK_INTERVAL_MS = 500;
+        const int TIMEOUT_MS = 3000;
+        const long long llStartTime = TimeUtils_NS::get_currentTimestampMs();
+
+        while (bRunningFlag.load())
+        {
+            std::string strImageFile;
+            if (CCaptureCtrl::instance()->get_event_first_capture_status(stTask.stContext.enEventType, strImageFile))
+            {
+                stEventInfo.vecImageFile.emplace_back(strImageFile);
+                break;
+            }
+
+            if (TimeUtils_NS::get_currentTimestampMs() - llStartTime >= TIMEOUT_MS)
+            {
+                dlog_warn("等待事件类型[%d]首张图片超时", static_cast<int>(stTask.stContext.enEventType));
+                break;
+            }
+
+            std::this_thread::sleep_for(std::chrono::milliseconds(CHECK_INTERVAL_MS));
+        }
+    }
+
+    if (bRunningFlag.load())
+    {
+        CEmailManage::instance()->HandleEmail(stEventInfo);
+    }
+}
+
+void EventLinkageAsyncAction::execute_audio(const LinkageTask_S &stTask, std::atomic<bool> &bRunningFlag)
+{
+    (void)stTask;
+    pthread_setname_np(pthread_self(), "EventLinkAudio");
+
+    /* 对讲占用音频输出时，不再叠加声音联动，避免互相干扰 */
+    if (CPreviewManage::instance()->get_intercom_status())
+    {
+        dlog_info("正在进行对讲，不进行声音联动");
+        return;
+    }
+
+    std::string strAudioPath;
+    int nTimes = 0;
+    /* 先从配置中选择要播报的音频文件和次数 */
+    if (select_audio_file(strAudioPath, nTimes) != OK)
+    {
+        return;
+    }
+
+    if (access(strAudioPath.c_str(), F_OK) != 0)
+    {
+        dlog_error("音频文件不存在: %s", strAudioPath.c_str());
+        return;
+    }
+
+    play_audio(strAudioPath, nTimes, bRunningFlag);
+}
+
+void EventLinkageAsyncAction::execute_warning_light(std::atomic<bool> &bRunningFlag)
+{
+    pthread_setname_np(pthread_self(), "EventLinkLight");
+
+    bool bIsFlashing = false;
+    int nRemainTime = 0;
+    /* 如果白灯已经在闪烁，则沿用当前动作，不重复发起新的闪烁请求 */
+    if (CLightManager::instance()->get_flashing_status(LIGHT_TYPE_WHITE, bIsFlashing, nRemainTime) == IpcRet_E::OK &&
+        bIsFlashing)
+    {
+        dlog_info("闪光灯已经在闪烁中，剩余时间: %d秒", nRemainTime);
+        return;
+    }
+
+    Alarm::FlashInfo_S stFlashAlarm;
+    if (CEventConfigure::instance()->get_configure(stFlashAlarm) != 0)
+    {
+        stFlashAlarm.nFlashTime = 3;
+        stFlashAlarm.enFalshFrequency = Alarm::FlashFrequency_E::FLASH_MID_FREQ;
+    }
+
+    if (stFlashAlarm.nFlashTime < 1)
+    {
+        stFlashAlarm.nFlashTime = 1;
+    }
+    else if (stFlashAlarm.nFlashTime > 300)
+    {
+        stFlashAlarm.nFlashTime = 300;
+    }
+
+    const int nRet = CLightManager::instance()->start_flashing(LIGHT_TYPE_WHITE,
+                                                               stFlashAlarm.nFlashTime,
+                                                               stFlashAlarm.enFalshFrequency);
+    if (nRet != IpcRet_E::OK)
+    {
+        dlog_error("启动闪光灯闪烁失败，错误码: %d", nRet);
+        return;
+    }
+
+    /* 线程只负责等待闪烁时长结束，便于中途被高优先级任务打断 */
+    for (int i = 0; i < stFlashAlarm.nFlashTime && bRunningFlag.load(); ++i)
+    {
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+    }
+}
+
+void EventLinkageAsyncAction::execute_alarm_io(const LinkageTask_S &stTask, std::atomic<bool> &bRunningFlag)
+{
+    pthread_setname_np(pthread_self(), "EventLinkAlmIO");
+
+    std::map<int, int> mapAlarmOutput;
+    for (const auto &nIoNum : stTask.vecAlarmOutputNum)
+    {
+        /* 先校验输出口编号，再读取每个IO独立的保持时长配置 */
+        if (nIoNum < 0 || nIoNum >= GPIO_OUTPUT_COUNT)
+        {
+            dlog_error("无效的IO序号: %d", nIoNum);
+            continue;
+        }
+
+        Alarm::IoOutputInfo_S stIoOutputInfo;
+        stIoOutputInfo.nIoNumer = nIoNum;
+        CEventConfigure::instance()->get_configure(stIoOutputInfo);
+        mapAlarmOutput[nIoNum] = stIoOutputInfo.nDelayTime;
+        CGpioCtrl::instance()->alarm_output_on(nIoNum);
+    }
+
+    std::vector<std::future<void>> futures;
+    for (const auto &item : mapAlarmOutput)
+    {
+        /* 每个输出口独立计时，互不阻塞，时间到后自动关闭 */
+        futures.emplace_back(std::async(std::launch::async, [item, &bRunningFlag]() {
+            int nWaitSec = 0;
+            while (nWaitSec < item.second && bRunningFlag.load())
+            {
+                std::this_thread::sleep_for(std::chrono::seconds(1));
+                ++nWaitSec;
+            }
+            CGpioCtrl::instance()->alarm_output_off(item.first);
+        }));
+    }
+
+    for (auto &future : futures)
+    {
+        future.wait();
+    }
+}
+
+void EventLinkageAsyncAction::execute_log(const LinkageTask_S &stTask)
+{
+    pthread_setname_np(pthread_self(), "EventLinkLog");
+    /* ONVIF订阅事件使用统一推送入口，开始事件传true，结束事件传false */
+    COnvifSubscriptionManager::instance()->pushEventToAll(stTask.stContext.enEventType, !stTask.stContext.bEventEnded);
+}
+
+int EventLinkageAsyncAction::select_audio_file(std::string &strAudioPath, int &nTimes)
+{
+    Alarm::SoundOutputAlarm_S stSoundInfo;
+    CEventConfigure::instance()->get_configure(stSoundInfo);
+    /* 声音联动次数由声音告警配置直接决定 */
+    nTimes = stSoundInfo.nTimes;
+
+    switch (stSoundInfo.enSoundType)
+    {
+    case Alarm::SoundType_E::WARN:
+        switch (stSoundInfo.enAlertSound)
+        {
+        case Alarm::AlertSoundType_E::WARNING_ZONE_LEAVE_IMMEDIATELY:
+            strAudioPath = AUDIO_CONFIG_PATH "warning_zone_leave_immediately.wav";
+            break;
+        case Alarm::AlertSoundType_E::DANGER_ZONE_DO_NOT_APPROACH:
+            strAudioPath = AUDIO_CONFIG_PATH "danger_zone_do_not_approach.wav";
+            break;
+        case Alarm::AlertSoundType_E::NO_PARKING_ZONE:
+            strAudioPath = AUDIO_CONFIG_PATH "no_parking_zone.wav";
+            break;
+        case Alarm::AlertSoundType_E::ENTERING_SURVEILLANCE_ZONE:
+            strAudioPath = AUDIO_CONFIG_PATH "entering_surveillance_zone.wav";
+            break;
+        case Alarm::AlertSoundType_E::WELCOME_GREETING:
+            strAudioPath = AUDIO_CONFIG_PATH "welcome_greeting.wav";
+            break;
+        case Alarm::AlertSoundType_E::DO_NOT_TOUCH_VALUABLES:
+            strAudioPath = AUDIO_CONFIG_PATH "do_not_touch_valuables.wav";
+            break;
+        case Alarm::AlertSoundType_E::PRIVATE_PROPERTY_NO_ENTRY:
+            strAudioPath = AUDIO_CONFIG_PATH "private_property_no_entry.wav";
+            break;
+        case Alarm::AlertSoundType_E::DEEP_WATER_WARNING:
+            strAudioPath = AUDIO_CONFIG_PATH "deep_water_warning.wav";
+            break;
+        case Alarm::AlertSoundType_E::HIGH_PLACE_DANGER:
+            strAudioPath = AUDIO_CONFIG_PATH "high_place_danger.wav";
+            break;
+        case Alarm::AlertSoundType_E::SHRIEK_ALARM:
+            strAudioPath = AUDIO_CONFIG_PATH "shriek_alarm.wav";
+            break;
+        case Alarm::AlertSoundType_E::GENERAL_WARNING_TONE:
+            strAudioPath = AUDIO_CONFIG_PATH "general_warning_tone.wav";
+            break;
+        default:
+            dlog_error("未知的警戒音类型: %d", static_cast<int>(stSoundInfo.enAlertSound));
+            return ERR;
+        }
+        break;
+    case Alarm::SoundType_E::ALERT:
+        strAudioPath = AUDIO_CONFIG_PATH "tip.wav";
+        break;
+    case Alarm::SoundType_E::CUSTOM:
+        for (const auto &customAudio : stSoundInfo.aCustomAudio)
+        {
+            if (customAudio.bChoose && !customAudio.strPath.empty())
+            {
+                strAudioPath = customAudio.strPath;
+                break;
+            }
+        }
+        if (strAudioPath.empty())
+        {
+            dlog_error("未找到有效的自定义音频文件");
+            return ERR;
+        }
+        break;
+    default:
+        dlog_error("未知的音频类型: %d", static_cast<int>(stSoundInfo.enSoundType));
+        return ERR;
+    }
+
+    return OK;
+}

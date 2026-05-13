@@ -1,0 +1,182 @@
+/**
+ * @file NetTVCapabilityCb.c
+ * @author tianl (tianl@kfb.cn)
+ * @date 2025-01-30
+ * 
+ * @brief 能力集回调 - 按照NetTVDeviceCb模式实现
+ */
+
+#include <stdio.h>
+
+#include "NetTVCapabilityCbExecute.h"
+#include "NetTVSDKServerInterface.h"
+
+/**
+ * @brief 能力集回调枚举定义
+ */
+typedef enum 
+{
+    NET_TV_CB_TYPE_CAP_VIDEO_STREAM = 0,     /* 视频编码能力集 NET_TV_CAP_VIDEO_ENCODE */
+    NET_TV_CB_TYPE_CAP_OSD,                  /* OSD参数能力集 NET_TV_CAP_OSD */
+    NET_TV_CB_TYPE_CAP_SMART,                /* 智能能力集 NET_TV_CAP_SMART */
+    NET_TV_CB_TYPE_CAP_IMAGE,                /* 图像参数能力集 NET_TV_CAP_IMAGE */
+    NET_TV_CB_TYPE_CAP_AUDIO,                /* 音频能力集 NET_TV_CAP_AUDIO */
+    NET_TV_CB_TYPE_CAP_CHANNELS_ALARM,       /* 通道告警能力集 NET_TV_CAP_CHANNELS_ALARM */
+    NET_TV_CB_TYPE_CAP_SYS,                  /* 系统能力集 NET_TV_CAP_SYS */
+    NET_TV_CB_TYPE_CAP_USER_MANAGE,          /* 用户管理能力集 NET_TV_CAP_USER_MANAGE */
+    NET_TV_CB_TYPE_CAP_MEDIA,                /* 视频通道媒体能力集 NET_TV_CAP_MEDIA */
+
+    NET_TV_CB_TYPE_CAP_MAX               
+} Net_TV_CapabilityCb_E;
+
+/**
+ * @brief 能力集回调函数联合体定义
+ */
+typedef union 
+{
+    NET_TV_COMMON_ECODE_E (*GetVideoEncodeCap)(INT32 dwChannelID, LPNET_TV_VIDEO_ENCODE_CAP_S pCap);
+    NET_TV_COMMON_ECODE_E (*GetOsdCap)(INT32 dwChannelID, LPNET_TV_OSD_CAP_S pCap);
+    NET_TV_COMMON_ECODE_E (*GetAudioCap)(INT32 dwChannelID, LPNET_TV_AUDIO_CAP_S pCap);
+    // 后续扩展
+    // NET_TV_COMMON_ECODE_E (*GetOsdCap)(INT32 dwChannelID, LPNET_TV_OSD_CAP_S pCap);
+    // NET_TV_COMMON_ECODE_E (*GetSmartCap)(INT32 dwChannelID, LPNET_TV_SMART_CAP_S pCap);
+    // NET_TV_COMMON_ECODE_E (*GetImageCap)(INT32 dwChannelID, LPNET_TV_IMAGE_CAP_S pCap);
+} Net_TV_CapabilityCb_Un;
+
+/**
+ * @brief 能力集回调项结构体
+ */
+typedef struct 
+{
+    Net_TV_CapabilityCb_E   enType;         // 回调类型
+    Net_TV_CapabilityCb_Un  unFunc;         // 回调函数指针（联合体）
+    int isRegistered;                        // 注册标记：0=未注册，1=已注册
+} NET_TV_Capability_CbItem;
+
+/**
+ * @brief 全局能力集回调注册表
+ */
+static NET_TV_Capability_CbItem g_capCbTable[NET_TV_CB_TYPE_CAP_MAX] = {0};
+
+// ========================== 注册接口实现 ==========================
+
+NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetVideoEncodeCap(NET_TV_CB_GetVideoEncodeCap pCb)
+{
+    if (pCb == NULL)
+    {
+        return FALSE;
+    } 
+
+    NET_TV_Capability_CbItem* pItem = &g_capCbTable[NET_TV_CB_TYPE_CAP_VIDEO_STREAM];
+    if (pItem->isRegistered)
+    {
+        return FALSE; // 已注册
+    }
+    
+    pItem->enType = NET_TV_CB_TYPE_CAP_VIDEO_STREAM;
+    pItem->unFunc.GetVideoEncodeCap = pCb;
+    pItem->isRegistered = 1;
+
+    return TRUE;
+}
+
+NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetAudioEncodeCap(NET_TV_CB_GetAudioEncodeCap pCb)
+{
+    if (pCb == NULL)
+    {
+        return FALSE;
+    } 
+
+    NET_TV_Capability_CbItem* pItem = &g_capCbTable[NET_TV_CB_TYPE_CAP_AUDIO];
+    if (pItem->isRegistered)
+    {
+        return FALSE; // 已注册
+    }
+    
+    pItem->enType = NET_TV_CB_TYPE_CAP_AUDIO;
+    pItem->unFunc.GetAudioCap = pCb;
+    pItem->isRegistered = 1;
+
+    return TRUE;
+}
+
+NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetOsdCap(NET_TV_CB_GetOsdCap pCb)
+{
+    if (pCb == NULL)
+    {
+        return FALSE;
+    } 
+
+    NET_TV_Capability_CbItem* pItem = &g_capCbTable[NET_TV_CB_TYPE_CAP_OSD];
+    if (pItem->isRegistered)
+    {
+        return FALSE; // 已注册
+    }
+    
+    pItem->enType = NET_TV_CB_TYPE_CAP_OSD;
+    pItem->unFunc.GetOsdCap = pCb;
+    pItem->isRegistered = 1;
+
+    return TRUE;
+}
+
+// 后续扩展其他能力集注册接口
+// NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetOsdCap(...)
+// NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetSmartCap(...)
+
+// ========================== 执行接口实现 ==========================
+
+int NetSDK_ExecuteCb_GetVideoEncodeCap(INT32 dwChannelID, LPNET_TV_VIDEO_ENCODE_CAP_S pCap) 
+{
+    if (pCap == NULL) 
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+    
+    NET_TV_Capability_CbItem* pItem = &g_capCbTable[NET_TV_CB_TYPE_CAP_VIDEO_STREAM];
+    if (!pItem->isRegistered) 
+    {
+        return NET_TV_E_NONSUPPORT;
+    }
+    
+    // 执行对应回调（类型安全）
+    return pItem->unFunc.GetVideoEncodeCap(dwChannelID, pCap);
+}
+
+int NetSDK_ExecuteCb_GetAudioCap(INT32 dwChannelID, LPNET_TV_AUDIO_CAP_S pCap) 
+{
+    if (pCap == NULL) 
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+    
+    NET_TV_Capability_CbItem* pItem = &g_capCbTable[NET_TV_CB_TYPE_CAP_AUDIO];
+    if (!pItem->isRegistered) 
+    {
+        return NET_TV_E_NONSUPPORT;
+    }
+    
+    // 执行对应回调（类型安全）
+    return pItem->unFunc.GetAudioCap(dwChannelID, pCap);
+}
+
+int NetSDK_ExecuteCb_GetOsdCap(INT32 dwChannelID, LPNET_TV_OSD_CAP_S pCap) 
+{
+    if (pCap == NULL) 
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+    
+    NET_TV_Capability_CbItem* pItem = &g_capCbTable[NET_TV_CB_TYPE_CAP_OSD];
+    if (!pItem->isRegistered) 
+    {
+        return NET_TV_E_NONSUPPORT;
+    }
+    
+    // 执行对应回调（类型安全）
+    return pItem->unFunc.GetOsdCap(dwChannelID, pCap);
+}
+
+// 后续扩展其他能力集执行接口
+// int NetSDK_ExecuteCb_GetOsdCap(...) { ... }
+// int NetSDK_ExecuteCb_GetSmartCap(...) { ... }

@@ -1,0 +1,12 @@
+# CMake generated files
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+CTestTestfile.cmake
+*.cmake
+RkModelBuild/
+CPUModelBuild/
+
+# CMake build directory
+InferenceDemo

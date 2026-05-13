@@ -1,0 +1,121 @@
+/**
+ * @FilePath     : face_detect.hpp
+ * @Author       : zhouzr@kfb.cn
+ * @Date         : 2025-06-06 16:02:10
+ * @LastEditors  : zhouzr@kfb.cn
+ * @LastEditTime : 2026-04-28 20:23:02
+ * @Description  : 人脸检测
+ */
+
+#pragma once
+
+#include <atomic>
+#include <chrono>
+#include <algorithm>
+#include <mutex>
+#include <thread>
+#include <vector>
+#include <sys/time.h>
+
+#include "blocking_queue.hpp"
+#include "algo_control_deal.h"
+#include "algo_stream_deal.h"
+#include "algorithm.hpp"
+#include "common_process.h"
+#include "YoloUltralyticsPoint_rpn.hpp"
+#include "face_detect_context.hpp"
+#include "face_capture_processor.hpp"
+#include "face_feature_processor.hpp"
+
+class CFaceDetect : public CAlgorithm
+{
+public:
+
+    CFaceDetect();
+    ~CFaceDetect();
+
+    /**
+     * @brief   : 接受媒体数据
+     * @param    {MediaData_S} stMediaData：媒体数据
+     */
+    void recvMediaData(MediaData_S stMediaData) override;
+
+    /**
+     * @brief   : 更新算法配置参数
+     * @param    {AlgorithmConfig} &stAlgoConfig：算法配置
+     */
+    void setAlgoEnCfg(const Event::AlgorithmConfig &stAlgoConfig) override;
+
+    /**
+     * @brief   : 更新人脸抓拍参数 
+     * @param    {FaceCapture_S} &stAlgoCfg：人脸侦测
+     */
+    void setAlgoParamCfg(const Alarm::FaceCapture_S &stAlgoCfg);
+
+    /**
+     * @brief   : 更新人脸比对联动 
+     * @param    {FaceCompare_S} &stAlgoCfg：人脸比对
+     */
+    void setFaceCmpCfg(const Alarm::FaceCompare_S &stAlgoCfg);
+
+    /**
+     * @brief 添加人脸名单库
+     * @param stFaceLibData 
+     */
+     bool addFaceLibGroup(FaceDataDB_NS::FaceLibsInfo_S &stFaceLibData);
+
+private:
+
+    /**
+     * @brief 初始化
+     * @return [*]
+     * @note
+     */
+    bool init();
+
+    /**
+     * @brief 反初始化
+     * @return [*]
+     */
+    bool unInit();
+
+    /**
+     * @brief 线程函数
+     * @return [*]
+     */
+    void run();
+
+    /**
+     * @brief   : 判断当前是否存在使能的人脸业务
+     * @return   {bool} true：至少有一项人脸业务使能 false：全部关闭
+     */
+    bool hasEnabledAlgorithm() const;
+
+private:
+
+    /* 人脸检测句柄 */
+    Inference_NS::CYoloUltralyticsPoint *m_pFaceDetHandle = nullptr;
+    /* 队列 */
+    BQ_NS::CBlockingQueue<MediaData_S> m_dateQueue;
+    /* 用于控制线程的运行 */
+    std::atomic<bool>       m_bRunning;
+    /* 数据获取线程 */
+    std::thread             m_thread;
+    /* 检测频率控制 */
+    EventManager m_RecvManager{3000};
+    /* 人脸抓拍 */
+    Alarm::FaceCapture_S m_stAlgoFaceCapCfg;
+    /* 人脸比对 */
+    Alarm::FaceCompare_S m_stAlgoFaceCompCfg;
+    /* NPU 推理互斥锁，检测模型与特征模型切换上下文时共享 */
+    std::mutex m_npuMutex;
+    /* 算法默认分辨率 */
+    int m_nWidth = PIXEL_WIDTH_640;
+    int m_nHeight = PIXEL_HEIGHT_384;
+    /* 目标视频帧 */
+    ot_video_frame_info m_stDstFrameInfo;
+    /* 人脸抓拍处理器 */
+    FaceDetectInternal::CFaceCaptureProcessor m_captureProcessor;
+    /* 人脸特征提取与比对处理器 */
+    FaceDetectInternal::CFaceFeatureProcessor m_featureProcessor;
+};

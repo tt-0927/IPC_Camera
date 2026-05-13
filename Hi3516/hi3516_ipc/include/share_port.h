@@ -1,0 +1,148 @@
+ 
+/** @FilePath: share_port.h
+ * @Author: yangwenyao
+ * @Date: 2022-11-21 15:11:48
+ * @LastEditors: Please set LastEditors
+ * @LastEditTime: 2022-12-01 09:17:16
+ * @Descripttion: 摄像机共享端口头文件
+ */
+#ifndef SHARE_PORT_H  
+#define SHARE_PORT_H
+
+/**************************************进程定义***************************************************************************/
+ enum{
+    MAIN_ENC_PROCESS        = 1,  /* MAIN APP */
+    SUB_ENC_PROCESS         = 2,  /* sub stream */
+    LIVE_PROCESS            = 3,  /*  LIVE ROOM */
+    RECORD_PROCESS          = 4,  /* RECORD ROOM */  
+    CONTROL_PROCESS         = 5,  /* CONTROL */
+    MAIN_UPGRADE_PROCESS    = 6,  /* MAIN upgrade */
+    CLIENT_PROCESS          = 7,  /* other client */
+    RECV_LOG_PROCESS        = 8,  /* recv hd/live log */
+    FTP_SERVER_PROCESS      = 9,  /* FTP server */
+    FILEMANAGEMENT_PROCESS  = 10, /* File management */
+    WEB_LOGSYSTEM           = 11, /* WEB SYSTEMLOG */
+    MULTICAST_COMMUNICATION = 12, /* IP search */
+    RTMP_CLIENT             = 13, /* rtmp */
+    STREAM_DEAL_UDP         = 14, /* stream_deal udp端口 */
+    PING_SERVER             = 15, /* ping进程端口 */
+    HW_CHECK_PROCESS        = 16, /* 硬件自检进程端口 */
+    MAX_PROCESS_INDEX
+};
+
+
+
+/**************************************编码定义***********************************************************************/
+enum{ 
+	VIDEO_MOIVE_HIGH			=0,//大码流
+	VIDEO_MOIVE_LOW			    =1,//低码流
+    AUDIO_MOVIE                 =2,//音频
+    AUDIO_LOWMOVIE              =3,//音频小码流
+	H264_STREAM					=4,//h264流
+	H265_STREAM					=5,//h265流
+	MJPEG_STREAM				=6,//mjpeg流
+	MAX_ENCODE_INDEX,
+};
+#define TEA_CONTROLPORT 1259
+
+/**************************************传输内容**************************************************************************/
+#define TRANSPORT_COMMUNTICATION  1
+#define TRANSPORT_STREAM          2
+
+
+
+// /**************************************内部传输地址**************************************************************************/
+// #define UP_CARD_PRIVATE_IP  		"169.254.0.4"
+// #define MAIN_CARD_PRIVATE_IP        "192.168.11.140"
+
+// #define MY_PRIVATE_IP 				"192.168.11.161"
+// #define LIVE_STREAM_PRIVATE_IP 		"192.168.11.162"
+
+#define LOCAL_IP					"127.0.0.1"
+// #define INVALID_PRIVATE_IP			"0.0.0.0"
+
+// #define IP_ADDR_LEN 16
+
+
+/**************************************端口定义**************************************************************************/
+// /*MAIN_ENC -> Live Stream*/
+// #define STREAM_MAIN_LIVE_MOVIE_H_H264		(TRANSPORT_STREAM*10000+MAIN_ENC_PROCESS*1000+LIVE_PROCESS*100+H264_STREAM*10+VIDEO_MOIVE_HIGH)	// 21340
+// #define STREAM_MAIN_LIVE_MOVIE_L_H264		(TRANSPORT_STREAM*10000+SUB_ENC_PROCESS*1000+LIVE_PROCESS*100+H264_STREAM*10+VIDEO_MOIVE_LOW)		// 22341
+// #define STREAM_MAIN_LIVE_MOVIE_H_H265		(TRANSPORT_STREAM*10000+MAIN_ENC_PROCESS*1000+LIVE_PROCESS*100+H265_STREAM*10+VIDEO_MOIVE_HIGH)	// 21350
+// #define STREAM_MAIN_LIVE_MOVIE_L_H265		(TRANSPORT_STREAM*10000+SUB_ENC_PROCESS*1000+LIVE_PROCESS*100+H265_STREAM*10+VIDEO_MOIVE_LOW)		// 22351
+#define STREAM_MAINENC_AUDIO			(TRANSPORT_STREAM*10000+MAIN_ENC_PROCESS*1000+LIVE_PROCESS*100+AUDIO_MOVIE)			// 21302
+
+#define STREAM_MAIN_LIVE_MOVIE		(TRANSPORT_STREAM*10000+MAIN_ENC_PROCESS*1000+LIVE_PROCESS*100+VIDEO_MOIVE_HIGH)	// 21300
+#define STREAM_SUB_LIVE_MOVIE		(TRANSPORT_STREAM*10000+SUB_ENC_PROCESS*1000+LIVE_PROCESS*100+VIDEO_MOIVE_LOW)		// 22301
+
+#define STREAM_MAIN_RTMP_MOVIE		(STREAM_MAIN_LIVE_MOVIE+1)	// 21301
+#define STREAM_SUB_RTMP_MOVIE		(STREAM_SUB_LIVE_MOVIE+1)	// 22302
+
+/*MAIN_ENC->Record*/
+#define STEAM_MAINENC_RECORD_MOIVE_H	(TRANSPORT_STREAM*10000+MAIN_ENC_PROCESS*1000+RECORD_PROCESS*100+VIDEO_MOIVE_HIGH)	// 21400
+// #define STEAM_MAINENC_RECORD_MOIVE_L	(TRANSPORT_STREAM*10000+MAIN_ENC_PROCESS*1000+RECORD_PROCESS*100+VIDEO_MOIVE_LOW)	// 21401
+#define STEAM_RECORD		            STEAM_MAINENC_RECORD_MOIVE_H  // 21400
+//#define STEAM_MAINENC_RECORD_AUDIO		(TRANSPORT_STREAM*10000+MAIN_ENC_PROCESS*1000+RECORD_PROCESS*100+AUDIO_MOVIE)		// 21402
+
+/*MAIN_ENC->GB28181*/
+#define STEAM_MAINENC_GB28181_STREAM		(22400)		// 22400
+
+/*commutication transport port*/
+// #define C_CONTROL_MAINENC				(TRANSPORT_COMMUNTICATION*10000+CONTROL_PROCESS*1000+MAIN_ENC_PROCESS*100+0)		// 15100
+#define C_CONTROL_LIVE					(TRANSPORT_COMMUNTICATION*10000+CONTROL_PROCESS*1000+LIVE_PROCESS*100+0)			// 15300
+#define C_CONTROL_RECORD				(TRANSPORT_COMMUNTICATION*10000+CONTROL_PROCESS*1000+RECORD_PROCESS*100+0)			// 15400
+#define C_CONTROL_FILE_MANAGEMENT		(TRANSPORT_COMMUNTICATION*10000+CONTROL_PROCESS*1000+FILEMANAGEMENT_PROCESS)		// 15010
+// #define C_CONTROL_FTP					(TRANSPORT_COMMUNTICATION*10000+CONTROL_PROCESS*1000+FTP_SERVER_PROCESS)		    // 15009
+
+/* 录制文件管理 */
+// #define C_RECORD_FILE_MANAGEMENT		(TRANSPORT_COMMUNTICATION*10000+RECORD_PROCESS*1000+FILEMANAGEMENT_PROCESS)			// 14010
+/* 升级 */
+// #define C_CONTROL_UP_UPGRADE			(TRANSPORT_COMMUNTICATION*10000+CONTROL_PROCESS*1000+MAIN_UPGRADE_PROCESS*100+0)		// 15600
+/* 硬件自检 */
+// #define C_CONTROL_HW_CHECK              (TRANSPORT_COMMUNTICATION*10000+CONTROL_PROCESS*1000+HW_CHECK_PROCESS+0) // 15016
+// #define C_CONTROL_LOGSYSTEM			(TRANSPORT_COMMUNTICATION*10000+CONTROL_PROCESS*1000+WEB_LOGSYSTEM*100+0)		// 16200
+// 																	//10000 + 5*1000+12*100
+// #define C_RTMPCLIENT_PORT		(TRANSPORT_COMMUNTICATION*10000+CLIENT_PROCESS*1000+RTMP_CLIENT+0)	//21016 //rtmp udp端口
+#define C_STREAM_DEAL_PORT		(TRANSPORT_COMMUNTICATION*10000+CLIENT_PROCESS*1000+STREAM_DEAL_UDP+0)	//21017 //stream udp端口
+
+// #define C_PING_SERVER_PORT		(TRANSPORT_COMMUNTICATION*10000+CONTROL_PROCESS*1000+PING_SERVER+0) //15022
+
+
+/********************************  对外通信端口 ********************************************************/
+// #define FTP_TOOL_COMMUNTICATION_PORT	(CONTROL_PROCESS*10000+FTP_SERVER_PROCESS)  //FTP工具通信 50009
+// #define WEB_COMMUNTICATION_PORT			(CONTROL_PROCESS*10000+4)		//WEB通信50004
+
+// #define NETWORK_STREAMSERVER_PORT			(7016)		//流媒体私有协议端口
+
+
+// //内部通信
+// #define ENC_SDKNETRTMP_PORT  9000
+// #define ENC_SDKNETRTSP_PORT  9001
+// #define DSLOG_SYSTEM_PORT 9008
+// #define WEB_SOCKET_PORT 9009
+// #define IR_PORT         (9088)
+// /* udp 发送ts流的内部通信 */
+// #define UDP_SEND_SRT_DST_PORT (6666)
+// #define UDP_SEND_SRT_SRC_PORT (5555)
+// #define SLS_SRT_SRC_PORT (8099)
+
+// #define C_REGISTER				(19000)			//
+// #define C_REGISTER_WEB				(19001)			//
+
+// #define HEARTBEAT_WEB_SOCKET_PORT 9019
+
+// #define PRIVATE_RUN_CMD_PORT 19021
+
+// #define PRIVATE_SHUT_DOWN_PORT 9023
+
+/*对外通信默认端口*/
+#define HTTP_DEFAULT_PORT	80
+#define RTMP_DEFAULT_PORT	1935
+#define RTSP_DEFAULT_PORT	554
+#define TCP_DEFAULT_PORT	5678
+#define UDP_DEFAULT_PORT	1259
+
+/* 运维程序通讯端口 */
+#define OPERATION_RECORD_PORT 13000
+
+#endif

@@ -1,0 +1,7 @@
+日期：2021-10-11
+修改者：zjc
+修改点：添加丢包检测
+	libavcodec/packet.h   -> struct  aAVPacket               add int isLostPacket;
+	libavcodec/avpacket.c -> func    av_init_packet          add pkt->isLostPacket         = 0;
+	libavformat/rtpdec.c  -> func    rtp_parse_queued_packet add pkt->isLostPacket = 1;
+	

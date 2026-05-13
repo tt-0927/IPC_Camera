@@ -1,0 +1,27 @@
+{
+    "version": "v1.0",
+    "model": "YOLOV8n",
+    "notes": "人头检测",
+    "model_path": "/opt/cam/model/Hi3516CV610_yolov8n_head_640_384_V1.0.om",
+    "pre_process": {
+        "size": [
+            640,
+            384
+        ],
+        "channel": 3,
+        "type": "YVU420SP",
+        "mean": [0,0,0],
+        "std": [255,255,255],
+        "padding": 0
+    },
+    "inference": {
+        "framework": "hi3516cv610"
+    },
+    "post_precess": {
+        "confidence": 0.25,
+        "nms": 0.25,
+        "label_name": [
+            "head"
+        ]
+    }
+}

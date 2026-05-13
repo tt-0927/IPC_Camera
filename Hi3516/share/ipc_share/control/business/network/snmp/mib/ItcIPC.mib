@@ -1,0 +1,233 @@
+ITC-MIB DEFINITIONS ::= BEGIN   -- 开始标志
+
+IMPORTS
+    enterprises, NetworkAddress FROM RFC1155-SMI -- 引入 enterprises 和 NetworkAddress 类型
+    OBJECT-TYPE FROM SNMPv2-SMI -- 引入 OBJECT-TYPE 类型
+    DisplayString FROM SNMPv2-TC;   -- 引入 DisplayString 类型
+    
+    -- 定义 itcvision 企业编号，50001 为企业标识符      
+	itcvision	OBJECT IDENTIFIER ::= { enterprises 50001 }
+
+    -- 定义 itcEntity 模块，用于管理设备信息
+	itcEntity		OBJECT IDENTIFIER ::= { itcvision 1 }
+
+-- itcvision persistent property
+
+-- 定义 itcIp 对象，用于存储设备有效的 IP 地址
+itcIp   OBJECT-TYPE  
+    SYNTAX  NetworkAddress  -- 类型为网络地址
+    ACCESS  read-only   -- 访问权限为只读
+    STATUS  mandatory   -- 状态为必需
+    DESCRIPTION
+            "itcvision device valid ip address" -- 说明设备有效的 IP 地址
+    ::= { itcEntity 1 }
+
+-- 定义 itcPort 对象，用于存储设备管理端口号，默认值为 8000
+itcPort   OBJECT-TYPE   -- 端口定义 
+    SYNTAX  INTEGER(1..65535)   -- 类型为整数，范围从 1 到 65535
+    ACCESS  read-only   -- 访问权限为只读
+    STATUS  mandatory   -- 状态为必需
+    DESCRIPTION
+            "itcvision device valid manager port,default is 8000"
+    ::= { itcEntity 2 }
+
+-- 定义 itcEntityIndex 对象，用于存储设备的唯一标识
+itcEntityIndex   OBJECT-TYPE
+    SYNTAX  DisplayString (SIZE (0..128)) -- 类型为显示字符串，最大长度为 128
+    ACCESS  read-only   -- 访问权限为只读
+    STATUS  mandatory   -- 状态为必需
+    DESCRIPTION
+            "itcvision device unique index, for DVR this is serial NO."
+    ::= { itcEntity 3 }   
+    
+    itcEntityType OBJECT IDENTIFIER ::= { itcEntity 100 } 
+
+-- 定义 itcEntityType 对象，标识设备类型，如 DVR、NVR、IPC 等
+itcEntityType OBJECT-TYPE
+    SYNTAX  INTEGER {
+                DVR(1), -- DVR 设备
+                NVR(2), -- NVR 设备
+                IPC(3), -- IPC 设备
+                Unknown(255)    -- 未知设备
+            }
+    ACCESS  read-only   -- 访问权限为只读
+    STATUS  mandatory    -- 状态为必需
+    DESCRIPTION
+            "itcvision products type"
+    ::= { itcEntity 100 }
+
+-- 定义 itcEntitySubType 对象，标识设备的子类型,这里是海康的子类型设备
+itcEntitySubType OBJECT-TYPE
+    SYNTAX  INTEGER {
+                DVR_70xx(1),    -- DVR 70xx 系列
+                DVR_71xx(2),    -- DVR 71xx 系列
+                DVR_80xx(20),   -- DVR 80xx 系列
+                DVR_81xx(21),   -- DVR 81xx 系列
+                DVR_90xx(40),   -- DVR 90xx 系列
+                DVR_91xx(41),   -- DVR 91xx 系列
+                NVR(200),   -- NVR 设备
+                IPC(400),   -- IPC 设备
+                Unknown(65535)  -- 未知类型
+            }
+    ACCESS  read-only
+    STATUS  mandatory
+    DESCRIPTION
+            "itcvision product sub type"
+    ::= { itcEntity 101 }
+
+-- 定义 itcOnline 对象，显示设备在线状态  
+itcOnline OBJECT-TYPE
+    SYNTAX  INTEGER {
+                Online(1),  -- 设备在线
+                Absent(2),  -- 设备离线
+                Unknown(255)     -- 未知状态
+            }
+    ACCESS  read-only
+    STATUS  mandatory
+    DESCRIPTION
+            "display itcvision product online status"
+    ::= { itcEntity 102 }
+
+-- 定义 itcService 对象，显示设备的服务类型
+itcService OBJECT-TYPE
+    SYNTAX  INTEGER {
+                Unknown(255)
+            }
+    ACCESS  read-only
+    STATUS  mandatory
+    DESCRIPTION
+            "display itcvision product service type, now dvr will return Unknown"
+    ::= { itcEntity 103 }
+
+itcCMSDefType OBJECT-TYPE
+    SYNTAX  INTEGER {
+                Unknown(255)
+            }
+    ACCESS  read-only
+    STATUS  mandatory
+    DESCRIPTION
+            "display itcvision product defined CMS type, now dvr will return Unknown"
+    ::= { itcEntity 104 }
+
+itcObjectID OBJECT-TYPE
+    SYNTAX  INTEGER
+    ACCESS  read-only
+    STATUS  mandatory
+    DESCRIPTION
+            "display itcvision product object ID, now dvr do not need this will return 0"
+    ::= { itcEntity 105 }
+
+itcObjectName OBJECT-TYPE
+    SYNTAX  DisplayString (SIZE (0..128))
+    ACCESS  read-only
+    STATUS  mandatory
+    DESCRIPTION
+            "display itcvision product object Name, now dvr do not need this will return nothing"
+    ::= { itcEntity 106 }
+
+-- 定义 itcTrapHostIp1 对象，显示第一 Trap 主机 IP 地址
+itcTrapHostIp1 OBJECT-TYPE
+    SYNTAX  DisplayString (SIZE (0..128)) -- 类型为显示字符串，最大长度为 128
+    ACCESS  read-only
+    STATUS  mandatory
+    DESCRIPTION
+            "display itcvision product 1st trap host ip address "
+    ::= { itcEntity 110}
+    
+    
+    
+    
+--itc cpu info
+
+-- 定义 itcCPUNum 对象，显示设备 CPU 数量
+itcCPUNum OBJECT-TYPE
+    SYNTAX  INTEGER(1..512) -- 类型为整数，范围为 1 到 512
+    ACCESS  read-only
+    STATUS  mandatory
+    DESCRIPTION
+            "the number of itcvision product's cpu "
+    ::= { itcEntity 200}
+
+-- 定义 itcCPUFrequency 对象，显示设备 CPU 频率
+itcCPUFrequency OBJECT-TYPE
+    SYNTAX  DisplayString (SIZE (0..32))    -- 类型为显示字符串，最大长度为 32
+    ACCESS  read-only
+    STATUS  mandatory
+    DESCRIPTION
+            "the frequency of itcvision product's cpu, format like '2000MHZ' "
+    ::= { itcEntity 201}
+
+--itc memery info
+
+-- 定义 itcMemoryCapability 对象，显示设备内存容量
+itcMemoryCapability OBJECT-TYPE
+    SYNTAX  INTEGER -- 类型为整数
+    ACCESS  read-only
+    STATUS  mandatory
+    DESCRIPTION
+            "the size of Memory"
+    ::= { itcEntity 220}    
+ 
+-- 定义 itcMemoryUsage 对象，显示内存使用率  
+itcMemoryUsage OBJECT-TYPE
+    SYNTAX  INTEGER(0..100) -- 类型为整数，范围为 0 到 100
+    ACCESS  read-only
+    STATUS  mandatory
+    DESCRIPTION
+            "the Usage of itcvision product's Memory, value scope  is (0-100)"
+    ::= { itcEntity 221}       
+    
+itcDeviceStatus OBJECT-TYPE
+    SYNTAX  INTEGER{
+                    Online(1),
+                    Absent(2),
+                    Unknown(255)
+                }
+    ACCESS  read-only
+    STATUS  mandatory
+    DESCRIPTION
+            "display itcvision product status"
+    ::= { itcEntity 230}
+
+-- 定义 itcDeviceLanguage 对象，显示设备的语言设置
+itcDeviceLanguage OBJECT-TYPE
+    SYNTAX  INTEGER{
+                    English(1),
+                    Simple_Chinese(2),
+                    Traditional_Chinese(3),
+                    Japanese(4),
+                    Korea(5),
+                    Unknown(255)
+                }
+    ACCESS  read-only
+    STATUS  mandatory
+    DESCRIPTION
+            "display itcvision product language"
+    ::= { itcEntity 231}
+
+-- itcvisoin trap define  
+    
+	--power status trap
+	Power_PowerOn TRAP-TYPE  -- 描述设备开机时触发的 Trap
+		ENTERPRISE itcvision
+		DESCRIPTION
+			"itcvision device power on"
+		::= 1
+
+	Power_PowerOff TRAP-TYPE
+		ENTERPRISE itcvision    -- 描述设备关机时触发的 Trap
+		DESCRIPTION
+			"itcvision device shut down"
+		::= 2
+
+	Power_ReBoot TRAP-TYPE
+		ENTERPRISE itcvision     -- 描述设备重启时触发的 Trap
+		DESCRIPTION
+			"itcvision device reboot"
+		::= 3		
+
+
+        
+END -- 结束标志
+
+

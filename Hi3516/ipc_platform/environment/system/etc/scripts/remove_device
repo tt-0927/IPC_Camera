@@ -1,0 +1,28 @@
+#!/bin/sh
+
+#MDEV_INFO=/tmp/mdev_info.txt
+MDEV_INFO=/dev/console
+
+BIND_PATH=/mnt
+
+# 检查并删除record软链接
+if [ -L "/opt/course/record" ]; then
+    if rm "/opt/course/record"; then
+        echo "成功移除 record 符号链" >${MDEV_INFO}
+    else
+        echo "错误: 移除符号链接 record 失败" >${MDEV_INFO}
+    fi
+fi
+# 检查并删除capture软链接
+if [ -L "/opt/course/capture" ]; then
+    if rm "/opt/course/capture"; then
+        echo "成功移除 capture 符号链" >${MDEV_INFO}
+    else
+        echo "错误: 移除符号链接 capture 失败" >${MDEV_INFO}
+    fi
+fi
+
+echo "tf card remove " >${MDEV_INFO}
+/bin/umount -l ${BIND_PATH}
+
+sync

@@ -1,0 +1,12 @@
+*.elf
+.svn
+vssver.scc
+*.orig
+*.bak
+*.ho
+*.o
+*.bz2
+*.h264
+.vscode/*
+rootfs_debug_musl_arm/*
+hi3516cv610_image_debug_musl/rootfs_hi3516cv610_2k_128k_120M.ubifs

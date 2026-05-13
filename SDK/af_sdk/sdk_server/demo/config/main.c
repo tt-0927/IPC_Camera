@@ -1,0 +1,6452 @@
+/**
+ * @file main.c
+ * @brief SDK服务端 配置(Get/Set) Demo
+ *
+ * 演示内容：
+ * 1. 注册设备信息回调（用于客户端登录）
+ * 2. 注册设备基本信息/网络配置的 Get/Set 配置回调
+ * 3. 启动 SDK 服务端，等待客户端通过 NET_TV_GetDevConfig/NET_TV_SetDevConfig 访问配置
+ *
+ * 说明：
+ * - 本 Demo 仅在内存中保存配置，不做持久化存储
+ * - 主要用于演示配置获取与设置的调用流程
+ */
+
+#include <stdio.h>
+#include <string.h>
+#include <signal.h>
+#ifdef _WIN32
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#include <windows.h>
+#else
+#include <unistd.h>
+#endif
+
+#include "NetSdkLog.h"
+#include "NetTVSDKServerInterface.h"
+
+/* 日志配置 */
+#define MAX_LOG_SIZE  (20 * 1024 * 1024)
+#define MAX_LOG_FILES (10)
+
+/* 服务端口与默认账号 */
+#define SDKSERVER_PORT 9888
+
+/* 运行标志，用于优雅退出 */
+static volatile sig_atomic_t g_running = 1;
+
+static void signal_handler(int signum)
+{
+    if (signum == SIGINT || signum == SIGTERM)
+    {
+        printf("\n[ConfigServerDemo] Received signal %d, exiting...\n", signum);
+        g_running = 0;
+    }
+}
+
+/* ====================== 全局配置数据（仅示例用，存放在内存） ====================== */
+
+static NET_TV_DEVICE_BASICINFO_S g_stDeviceBasicInfo;
+static NET_TV_NETWORKCFG_S       g_stNetworkCfg;
+static NET_TV_VIDEO_ENCODE_OPTION_S g_stStreamCfg;
+static NET_TV_AUDIO_CFG_S        g_stAudioCfg;
+static NET_TV_WIFI_STA_CFG_S     g_stWifiStaCfg;
+static NET_TV_WIFI_STA_CONNECT_S g_stWifiStaConnect;
+static NET_TV_4G_INFO_S          g_st4GInfo;
+static NET_TV_HOTSPOT_INFO_S     g_stHotspotInfo;
+static NET_TV_HOTSPOT_CONN_INFO_S g_stHotspotConnInfo;
+static NET_TV_VIDEO_OSD_CFG_S    g_stOsdCfg;
+static NET_TV_OSD_CAP_S          g_stOsdCapCfg;
+static NET_TV_MOTION_ALARM_INFO_S g_stMotionAlarmInfo;
+static NET_TV_TAMPER_ALARM_INFO_S g_stTamperAlarmInfo;
+static NET_TV_CROSS_LINE_ALARM_INFO_S g_stCrossLineAlarmInfo;
+static NET_TV_INTRUSION_ALARM_INFO_S g_stIntrusionAlarmInfo;
+static NET_TV_LOITERING_ALARM_INFO_S g_stLoiteringAlarmInfo;
+static NET_TV_SCENE_CHANGE_ALARM_INFO_S g_stSceneChangeAlarmInfo;
+static NET_TV_CROWD_GATHERING_ALARM_INFO_S g_stCrowdGatheringAlarmInfo;
+static NET_TV_PARKING_ALARM_INFO_S g_stParkingAlarmInfo;
+static NET_TV_UNATTENDED_OBJECT_ALARM_INFO_S g_stUnattendedObjectAlarmInfo;
+static NET_TV_OBJECT_REMOVAL_ALARM_INFO_S g_stObjectRemovalAlarmInfo;
+static NET_TV_AUDIO_ANOMALY_ALARM_INFO_S g_stAudioAnomalyAlarmInfo;
+static NET_TV_PREVIEW_INFO_S g_stPreviewInfo;
+static NET_TV_CHANNEL_INFO_S g_stChannelInfo;
+
+static NET_TV_UPGRADE_INFO_S g_stUpgradeInfo;
+static NET_TV_UPGRADE_STATUS_S g_stUpgradeStatuts;
+static NET_TV_UPGRADE_VERSION_S g_stUpgradeVersions;
+
+static NET_TV_CAPTURE_PLAN_INFO_S g_stCapturePlanInfo;
+static NET_TV_CAPTURE_PARAM_INFO_S g_stCaptureParamInfo;
+
+static NET_TV_EXPOSURE_INFO_S g_stExposureInfo;
+static NET_TV_DAYNIGHT_INFO_S g_stDayNightInfo;
+static NET_TV_BACKLIGHT_INFO_S g_stBackLightInfo;
+static NET_TV_DENOISE_INFO_S g_stDenoiseInfo;
+static NET_TV_WHITEBALANCE_INFO_S g_stWhiteBalanceInfo;
+
+static NET_TV_TALKBACK_STATE_INFO_S g_stTalkbackStateInfo;
+static NET_TV_TALKBACK_STREAM_INFO_S g_stTalkbackToStreamInfo;
+static NET_TV_TALKBACK_STREAM_INFO_S g_stTalkbackFromStreamInfo;
+static NET_TV_REPLAY_TALKBACK_INFO_S g_stReplayTalkbackInfo;
+static NET_TV_REPLAY_CTRL_INFO_S g_stReplayCtrlInfo;
+
+static NET_TV_ENTER_REGION_ALARM_INFO_S g_stEnterRegionAlarmInfo;
+static NET_TV_LEAVE_REGION_ALARM_INFO_S g_stLeaveRegionAlarmInfo;
+
+static NET_TV_FACE_CAPTURE_INFO_S g_stFaceCaptureInfo;
+static NET_TV_FACE_COMPARE_INFO_S g_stFaceCompareInfo;
+static NET_TV_FACE_LIB_LIST_S g_stFaceLibList;
+static NET_TV_FACE_INFO_LIST_S g_stFaceInfoList;
+
+static NET_TV_GARBAGE_EXPOSURE_CFG_S g_stGarbageExposureCfg;
+static NET_TV_GARBAGE_OVERFLOW_CFG_S g_stGarbageOverflowCfg;
+
+static NET_TV_PEOPLE_FLOW_STATISTICS_CFG_S g_stPeopleFlowStatisticsCfg;
+static NET_TV_PEOPLE_DENSITY_DETECTION_CFG_S g_stPeopleDensityDetectionCfg;
+
+static NET_TV_MANHOLE_COVER_ABNORMAL_CFG_S g_stManholeCoverAbnormalCfg;
+static NET_TV_SLEEP_ON_DUTY_CFG_S g_stSleepOnDutyCfg;
+static NET_TV_ELECTRIC_VEHICLE_IN_ELEVATOR_CFG_S g_stElectricVehicleInElevatorCfg;
+static NET_TV_PERSON_FALL_DOWN_CFG_S g_stPersonFallDownCfg;
+static NET_TV_CONSTRUCTION_OCCUPY_ROAD_CFG_S g_stConstructionOccupyRoadCfg;
+static NET_TV_CONGESTION_CFG_S g_stCongestionCfg;
+static NET_TV_LICENSE_PLATE_RECOGNITION_CFG_S g_stLicensePlateRecognitionCfg;
+static NET_TV_HIGH_ALTITUDE_SEATBELT_CFG_S g_stHighAltitudeSeatbeltCfg;
+static NET_TV_SAFETY_HELMET_CFG_S g_stSafetyHelmetCfg;
+static NET_TV_PERSON_FALL_CFG_S g_stPersonFallCfg;
+static NET_TV_PHONE_USAGE_CFG_S g_stPhoneUsageCfg;
+static NET_TV_SMOKING_CFG_S g_stSmokingCfg;
+static NET_TV_OPEN_FLAME_CFG_S g_stOpenFlameCfg;
+static NET_TV_BARE_SOIL_CFG_S g_stBareSoilCfg;
+static NET_TV_HOLE_PROTECTION_BAR_CFG_S g_stHoleProtectionBarCfg;
+static NET_TV_REFLECTIVE_CLOTHING_CFG_S g_stReflectiveClothingCfg;
+static NET_TV_PET_RECOGNITION_INFO_S g_stPetRecognitionInfo;
+static NET_TV_CLIMB_FENCE_INFO_S g_stClimbFenceInfo;
+static NET_TV_DIMISSION_INFO_S g_stDimissionInfo;
+static NET_TV_ILLEGAL_LANE_INFO_S g_stIllegalLaneInfo;
+static NET_TV_RETROGRADE_INFO_S g_stRetrogradeInfo;
+static NET_TV_NONMOTOR_VEHICLE_INTRUSION_INFO_S g_stNonmotorVehicleIntrusionInfo;
+static NET_TV_OCCUPATION_EMERGENCY_INFO_S g_stOccupationEmergencyInfo;
+static NET_TV_PEDESTRIAN_INTRUSION_INFO_S g_stPedestrianIntrusionInfo;
+static NET_TV_SMOKE_FIRE_CFG_S g_stSmokeFireCfg;
+static NET_TV_ROAD_PONDING_CFG_S g_stRoadPondingCfg;
+static NET_TV_SECURITY_SERVICES_INFO_S g_stSecurityServicesInfo;
+static NET_TV_SSH_COUNTDOWN_INFO_S g_stSshCountdownInfo;
+static NET_TV_LOG_SERVER_INFO_S g_stLogServerInfo;
+static NET_TV_LOG_LIST_S g_stLogList;
+static NET_TV_RECORD_INFO_S g_stRecordInfo;
+static NET_TV_RECORD_STATUS_INFO_S g_stRecordStatusInfo;
+static NET_TV_RECORD_SCHEDULE_S g_stRecordSchedule;
+static NET_TV_RECORD_ADVANCED_PARAM_S g_stRecordAdvancedParam;
+static NET_TV_RECORD_FILE_LIST_S g_stRecordFileList;
+static NET_TV_RECORD_DOWNLOAD_LIST_S g_stRecordDownloadList;
+
+static void InitSimpleAiAlarmSchedule(NET_TV_ALARM_SCHEDULE_S* pSchedule)
+{
+    if (!pSchedule)
+    {
+        return;
+    }
+
+    for (int day = 0; day < 7; day++)
+    {
+        pSchedule->dwTimeSectionCount[day] = 1;
+        pSchedule->astTimeSection[day][0].nStartHour = 0;
+        pSchedule->astTimeSection[day][0].nStartMinute = 0;
+        pSchedule->astTimeSection[day][0].nEndHour = 23;
+        pSchedule->astTimeSection[day][0].nEndMinute = 59;
+    }
+}
+
+static void InitDemoSmartRegion(NET_TV_SMART_REGION_S* pRegion)
+{
+    if (!pRegion)
+    {
+        return;
+    }
+
+    pRegion->dwPointCount = 4;
+    pRegion->afPointX[0] = 0.2f; pRegion->afPointY[0] = 0.2f;
+    pRegion->afPointX[1] = 0.8f; pRegion->afPointY[1] = 0.2f;
+    pRegion->afPointX[2] = 0.8f; pRegion->afPointY[2] = 0.8f;
+    pRegion->afPointX[3] = 0.2f; pRegion->afPointY[3] = 0.8f;
+}
+
+static void InitDemoSmartRegionRule(NET_TV_SMART_REGION_RULE_S* pRule)
+{
+    if (!pRule)
+    {
+        return;
+    }
+
+    pRule->bEnable = TRUE;
+    pRule->dwPointCount = 4;
+    pRule->afPointX[0] = 0.2f; pRule->afPointY[0] = 0.2f;
+    pRule->afPointX[1] = 0.8f; pRule->afPointY[1] = 0.2f;
+    pRule->afPointX[2] = 0.8f; pRule->afPointY[2] = 0.8f;
+    pRule->afPointX[3] = 0.2f; pRule->afPointY[3] = 0.8f;
+    pRule->nTimeThreshold = 10;
+    pRule->nSensitivity = 50;
+    pRule->dwDetectionTargetCount = 1;
+    pRule->adwDetectionTarget[0] = NET_TV_TARGET_HUMAN;
+}
+
+static void InitDemoSmartLineRule(NET_TV_SMART_LINE_RULE_S* pRule)
+{
+    if (!pRule)
+    {
+        return;
+    }
+
+    pRule->bEnable = TRUE;
+    pRule->fStartPosX = 0.2f;
+    pRule->fStartPosY = 0.5f;
+    pRule->fEndPosX = 0.8f;
+    pRule->fEndPosY = 0.5f;
+    pRule->enCrossDirection = NET_TV_CROSS_A_TO_B;
+    pRule->nSensitivity = 50;
+}
+
+static void InitDefaultConfig(void)
+{
+    memset(&g_stDeviceBasicInfo, 0, sizeof(g_stDeviceBasicInfo));
+    memset(&g_stNetworkCfg, 0, sizeof(g_stNetworkCfg));
+    memset(&g_stStreamCfg, 0, sizeof(g_stStreamCfg));
+    memset(&g_stAudioCfg, 0, sizeof(g_stAudioCfg));
+    memset(&g_stWifiStaCfg, 0, sizeof(g_stWifiStaCfg));
+    memset(&g_stWifiStaConnect, 0, sizeof(g_stWifiStaConnect));
+    memset(&g_st4GInfo, 0, sizeof(g_st4GInfo));
+    memset(&g_stHotspotInfo, 0, sizeof(g_stHotspotInfo));
+    memset(&g_stHotspotConnInfo, 0, sizeof(g_stHotspotConnInfo));
+    memset(&g_stOsdCfg, 0, sizeof(g_stOsdCfg));
+    memset(&g_stOsdCapCfg, 0, sizeof(g_stOsdCapCfg));
+    memset(&g_stMotionAlarmInfo, 0, sizeof(g_stMotionAlarmInfo));
+    memset(&g_stTamperAlarmInfo, 0, sizeof(g_stTamperAlarmInfo));
+    memset(&g_stCrossLineAlarmInfo, 0, sizeof(g_stCrossLineAlarmInfo));
+    memset(&g_stIntrusionAlarmInfo, 0, sizeof(g_stIntrusionAlarmInfo));
+    memset(&g_stLoiteringAlarmInfo, 0, sizeof(g_stLoiteringAlarmInfo));
+    memset(&g_stSceneChangeAlarmInfo, 0, sizeof(g_stSceneChangeAlarmInfo));
+    memset(&g_stCrowdGatheringAlarmInfo, 0, sizeof(g_stCrowdGatheringAlarmInfo));
+    memset(&g_stParkingAlarmInfo, 0, sizeof(g_stParkingAlarmInfo));
+    memset(&g_stUnattendedObjectAlarmInfo, 0, sizeof(g_stUnattendedObjectAlarmInfo));
+    memset(&g_stObjectRemovalAlarmInfo, 0, sizeof(g_stObjectRemovalAlarmInfo));
+    memset(&g_stAudioAnomalyAlarmInfo, 0, sizeof(g_stAudioAnomalyAlarmInfo));
+    memset(&g_stPreviewInfo, 0, sizeof(g_stPreviewInfo));
+
+    memset(&g_stUpgradeInfo, 0, sizeof(g_stUpgradeInfo));
+    memset(&g_stUpgradeStatuts, 0, sizeof(g_stUpgradeStatuts));
+    memset(&g_stUpgradeVersions, 0, sizeof(g_stUpgradeVersions));
+
+    memset(&g_stExposureInfo, 0, sizeof(g_stExposureInfo));
+    memset(&g_stDayNightInfo, 0, sizeof(g_stDayNightInfo));
+    memset(&g_stBackLightInfo, 0, sizeof(g_stBackLightInfo));
+    memset(&g_stDenoiseInfo, 0, sizeof(g_stDenoiseInfo));
+    memset(&g_stWhiteBalanceInfo, 0, sizeof(g_stWhiteBalanceInfo));
+
+    memset(&g_stTalkbackStateInfo, 0, sizeof(g_stTalkbackStateInfo));
+    memset(&g_stTalkbackToStreamInfo, 0, sizeof(g_stTalkbackToStreamInfo));
+    memset(&g_stTalkbackFromStreamInfo, 0, sizeof(g_stTalkbackFromStreamInfo));
+    memset(&g_stReplayTalkbackInfo, 0, sizeof(g_stReplayTalkbackInfo));
+
+    memset(&g_stEnterRegionAlarmInfo, 0, sizeof(g_stEnterRegionAlarmInfo));
+    memset(&g_stLeaveRegionAlarmInfo, 0, sizeof(g_stLeaveRegionAlarmInfo));
+
+    memset(&g_stFaceCaptureInfo, 0, sizeof(g_stFaceCaptureInfo));
+    memset(&g_stFaceCompareInfo, 0, sizeof(g_stFaceCompareInfo));
+    memset(&g_stFaceLibList, 0, sizeof(g_stFaceLibList));
+    memset(&g_stFaceInfoList, 0, sizeof(g_stFaceInfoList));
+
+    memset(&g_stGarbageExposureCfg, 0, sizeof(g_stGarbageExposureCfg));
+    memset(&g_stGarbageOverflowCfg, 0, sizeof(g_stGarbageOverflowCfg));
+
+    memset(&g_stPeopleFlowStatisticsCfg, 0, sizeof(g_stPeopleFlowStatisticsCfg));
+    memset(&g_stPeopleDensityDetectionCfg, 0, sizeof(g_stPeopleDensityDetectionCfg));
+    memset(&g_stManholeCoverAbnormalCfg, 0, sizeof(g_stManholeCoverAbnormalCfg));
+    memset(&g_stSleepOnDutyCfg, 0, sizeof(g_stSleepOnDutyCfg));
+    memset(&g_stElectricVehicleInElevatorCfg, 0, sizeof(g_stElectricVehicleInElevatorCfg));
+    memset(&g_stPersonFallDownCfg, 0, sizeof(g_stPersonFallDownCfg));
+    memset(&g_stConstructionOccupyRoadCfg, 0, sizeof(g_stConstructionOccupyRoadCfg));
+    memset(&g_stCongestionCfg, 0, sizeof(g_stCongestionCfg));
+    memset(&g_stLicensePlateRecognitionCfg, 0, sizeof(g_stLicensePlateRecognitionCfg));
+    memset(&g_stHighAltitudeSeatbeltCfg, 0, sizeof(g_stHighAltitudeSeatbeltCfg));
+    memset(&g_stSafetyHelmetCfg, 0, sizeof(g_stSafetyHelmetCfg));
+    memset(&g_stPersonFallCfg, 0, sizeof(g_stPersonFallCfg));
+    memset(&g_stPhoneUsageCfg, 0, sizeof(g_stPhoneUsageCfg));
+    memset(&g_stSmokingCfg, 0, sizeof(g_stSmokingCfg));
+    memset(&g_stOpenFlameCfg, 0, sizeof(g_stOpenFlameCfg));
+    memset(&g_stBareSoilCfg, 0, sizeof(g_stBareSoilCfg));
+    memset(&g_stHoleProtectionBarCfg, 0, sizeof(g_stHoleProtectionBarCfg));
+    memset(&g_stReflectiveClothingCfg, 0, sizeof(g_stReflectiveClothingCfg));
+    memset(&g_stPetRecognitionInfo, 0, sizeof(g_stPetRecognitionInfo));
+    memset(&g_stClimbFenceInfo, 0, sizeof(g_stClimbFenceInfo));
+    memset(&g_stDimissionInfo, 0, sizeof(g_stDimissionInfo));
+    memset(&g_stIllegalLaneInfo, 0, sizeof(g_stIllegalLaneInfo));
+    memset(&g_stRetrogradeInfo, 0, sizeof(g_stRetrogradeInfo));
+    memset(&g_stNonmotorVehicleIntrusionInfo, 0, sizeof(g_stNonmotorVehicleIntrusionInfo));
+    memset(&g_stOccupationEmergencyInfo, 0, sizeof(g_stOccupationEmergencyInfo));
+    memset(&g_stPedestrianIntrusionInfo, 0, sizeof(g_stPedestrianIntrusionInfo));
+    memset(&g_stSmokeFireCfg, 0, sizeof(g_stSmokeFireCfg));
+    memset(&g_stRoadPondingCfg, 0, sizeof(g_stRoadPondingCfg));
+    memset(&g_stSecurityServicesInfo, 0, sizeof(g_stSecurityServicesInfo));
+    memset(&g_stSshCountdownInfo, 0, sizeof(g_stSshCountdownInfo));
+    memset(&g_stLogServerInfo, 0, sizeof(g_stLogServerInfo));
+    memset(&g_stLogList, 0, sizeof(g_stLogList));
+    memset(&g_stRecordInfo, 0, sizeof(g_stRecordInfo));
+    memset(&g_stRecordStatusInfo, 0, sizeof(g_stRecordStatusInfo));
+    memset(&g_stRecordSchedule, 0, sizeof(g_stRecordSchedule));
+    memset(&g_stRecordAdvancedParam, 0, sizeof(g_stRecordAdvancedParam));
+    memset(&g_stRecordFileList, 0, sizeof(g_stRecordFileList));
+    memset(&g_stRecordDownloadList, 0, sizeof(g_stRecordDownloadList));
+
+    /* 人流统计配置默认值 */
+    g_stPeopleFlowStatisticsCfg.bEnable = FALSE;
+    g_stPeopleFlowStatisticsCfg.nSensitivity = 50;
+    g_stPeopleFlowStatisticsCfg.nReportInterval = 60;
+    g_stPeopleFlowStatisticsCfg.enStatisticsType = NET_TV_PEOPLE_FLOW_STAT_TOTAL;
+    g_stPeopleFlowStatisticsCfg.stTimedReset.bEnable = FALSE;
+    g_stPeopleFlowStatisticsCfg.stTimedReset.nHour = 0;
+    g_stPeopleFlowStatisticsCfg.stTimedReset.nMinute = 0;
+
+    /* 人员密度检测配置默认值 */
+    g_stPeopleDensityDetectionCfg.bEnable = FALSE;
+    g_stPeopleDensityDetectionCfg.nSensitivity = 50;
+    g_stPeopleDensityDetectionCfg.nReportInterval = 60;
+
+    /* 系统升级信息默认值*/
+    strncpy(g_stUpgradeInfo.szUpgradePath,        "/opt/course/",                    sizeof(g_stUpgradeInfo.szUpgradePath) - 1);
+    g_stUpgradeStatuts.nUpgradeStatus = -1;
+    strncpy(g_stUpgradeVersions.szVersion,        "Ver1.00.00",                    sizeof(g_stUpgradeVersions.szVersion) - 1);
+
+    /* 设备基本信息默认值 */
+    strncpy(g_stDeviceBasicInfo.szDevModel,       "Demo-IPCamera-Model", sizeof(g_stDeviceBasicInfo.szDevModel) - 1);
+    strncpy(g_stDeviceBasicInfo.szSerialNum,      "SN-DEMO-000001",      sizeof(g_stDeviceBasicInfo.szSerialNum) - 1);
+    strncpy(g_stDeviceBasicInfo.szFirmwareVersion,"V1.0.0",              sizeof(g_stDeviceBasicInfo.szFirmwareVersion) - 1);
+    strncpy(g_stDeviceBasicInfo.szMacAddress,     "00:11:22:33:44:55",   sizeof(g_stDeviceBasicInfo.szMacAddress) - 1);
+    strncpy(g_stDeviceBasicInfo.szDeviceName,     "Demo-Device",         sizeof(g_stDeviceBasicInfo.szDeviceName) - 1);
+    strncpy(g_stDeviceBasicInfo.szManufacturer,   "DemoManufacturer",    sizeof(g_stDeviceBasicInfo.szManufacturer) - 1);
+    strncpy(g_stDeviceBasicInfo.szDeviceTypeV2,   "IPC",                 sizeof(g_stDeviceBasicInfo.szDeviceTypeV2) - 1);
+
+    /* 网络配置默认值 */
+    g_stNetworkCfg.dwMTU     = 1500;
+    g_stNetworkCfg.bIPv4DHCP = 0; /* 0-手动配置，1-DHCP */
+    strncpy(g_stNetworkCfg.szIpv4Address,   "192.168.1.100", sizeof(g_stNetworkCfg.szIpv4Address) - 1);
+    strncpy(g_stNetworkCfg.szIPv4GateWay,   "192.168.1.1",   sizeof(g_stNetworkCfg.szIPv4GateWay) - 1);
+    strncpy(g_stNetworkCfg.szIPv4SubnetMask,"255.255.255.0", sizeof(g_stNetworkCfg.szIPv4SubnetMask) - 1);
+
+    /* 视频码流配置默认值 */
+    g_stStreamCfg.nId = NET_TV_LIVE_STREAM_INDEX_MAIN;
+    g_stStreamCfg.enVideoType = 0;
+    g_stStreamCfg.stVideoResolution.dwWidth = 1920;
+    g_stStreamCfg.stVideoResolution.dwHeight = 1080;
+    g_stStreamCfg.enBitrateType = 0;
+    g_stStreamCfg.enImageQuality = 60;
+    g_stStreamCfg.enFrameRate = 25;
+    g_stStreamCfg.nBitrateUpperLimit = 4096;
+    g_stStreamCfg.nAverageBitrate = 2048;
+    g_stStreamCfg.enVideoCodec = NET_TV_VIDEO_CODE_H264;
+    g_stStreamCfg.bSmartEnable = FALSE;
+    g_stStreamCfg.enEncodingComplexity = 1;
+    g_stStreamCfg.nIFrameInterval = 50;
+    g_stStreamCfg.enSvcEnable = 0;
+    g_stStreamCfg.nBitrateSmoothing = 50;
+
+    /* 音频配置默认值 */
+    g_stAudioCfg.bAudioSwitch = TRUE;
+    g_stAudioCfg.enInputType = NET_TV_AUDIO_INPUT_MICIN;
+    g_stAudioCfg.enFormat = NET_TV_AUDIO_FORMAT_AAC;
+    g_stAudioCfg.enSampRate = NET_TV_AUDIO_SAMPRATE_16000;
+    g_stAudioCfg.enBitRate = NET_TV_AUDIO_BITRATE_64K;
+    g_stAudioCfg.u32InputVolume = 60;
+    g_stAudioCfg.bDenoise = TRUE;
+    g_stAudioCfg.enOutputType = NET_TV_AUDIO_OUTPUT_SPEAKER;
+    g_stAudioCfg.u32OutputVolume = 50;
+
+    /* WiFi配置默认值 */
+    g_stWifiStaCfg.bEnableWifi = TRUE;
+    g_stWifiStaCfg.bEnableBoost = FALSE;
+
+    strncpy(g_stWifiStaConnect.szSsid, "DemoWifi", sizeof(g_stWifiStaConnect.szSsid) - 1);
+    g_stWifiStaConnect.nSecurityMode = NET_TV_WIFI_SECURITY_WPA_PERSONAL;
+    strncpy(g_stWifiStaConnect.szIpAddress, "192.168.1.120", sizeof(g_stWifiStaConnect.szIpAddress) - 1);
+    strncpy(g_stWifiStaConnect.szPassword, "12345678", sizeof(g_stWifiStaConnect.szPassword) - 1);
+    strncpy(g_stWifiStaConnect.szPairwise, "CCMP", sizeof(g_stWifiStaConnect.szPairwise) - 1);
+    g_stWifiStaConnect.nWepKeyLen = 128;
+    g_stWifiStaConnect.bWepIsHex = FALSE;
+    strncpy(g_stWifiStaConnect.szAuthAlg, "OPEN", sizeof(g_stWifiStaConnect.szAuthAlg) - 1);
+    g_stWifiStaConnect.nWepKeyCount = 1;
+    g_stWifiStaConnect.astWepKeys[0].nIndex = 1;
+    strncpy(g_stWifiStaConnect.astWepKeys[0].szValue, "1234567890", sizeof(g_stWifiStaConnect.astWepKeys[0].szValue) - 1);
+    strncpy(g_stWifiStaConnect.szCtrlInterface, "/var/run/wpa_supplicant", sizeof(g_stWifiStaConnect.szCtrlInterface) - 1);
+    strncpy(g_stWifiStaConnect.szInterfaceName, "wlan0", sizeof(g_stWifiStaConnect.szInterfaceName) - 1);
+
+    strncpy(g_st4GInfo.szApn, "ctnet", sizeof(g_st4GInfo.szApn) - 1);
+    strncpy(g_st4GInfo.szCallNumber, "*99#", sizeof(g_st4GInfo.szCallNumber) - 1);
+    g_st4GInfo.nMtu = 1500;
+    g_st4GInfo.nAuthMode = 0;
+    g_st4GInfo.nNetworkMode = 0;
+    g_st4GInfo.nDialMode = 0;
+
+    g_stHotspotInfo.bEnabled = FALSE;
+    strncpy(g_stHotspotInfo.szSsid, "DemoHotspot", sizeof(g_stHotspotInfo.szSsid) - 1);
+    strncpy(g_stHotspotInfo.szSecurityMode, "WPA2-personal", sizeof(g_stHotspotInfo.szSecurityMode) - 1);
+    strncpy(g_stHotspotInfo.szEncryptionType, "TKIP", sizeof(g_stHotspotInfo.szEncryptionType) - 1);
+    strncpy(g_stHotspotInfo.szPassword, "12345678", sizeof(g_stHotspotInfo.szPassword) - 1);
+    strncpy(g_stHotspotInfo.szConfirmPassword, "12345678", sizeof(g_stHotspotInfo.szConfirmPassword) - 1);
+
+    strncpy(g_stHotspotConnInfo.szStatus, "success", sizeof(g_stHotspotConnInfo.szStatus) - 1);
+    g_stHotspotConnInfo.nTotal = 2;
+    g_stHotspotConnInfo.nDeviceCount = 2;
+    g_stHotspotConnInfo.astDevices[0].nIndex = 1;
+    strncpy(g_stHotspotConnInfo.astDevices[0].szMac, "00:11:22:33:44:66", sizeof(g_stHotspotConnInfo.astDevices[0].szMac) - 1);
+    strncpy(g_stHotspotConnInfo.astDevices[0].szIp, "192.168.43.10", sizeof(g_stHotspotConnInfo.astDevices[0].szIp) - 1);
+    strncpy(g_stHotspotConnInfo.astDevices[0].szConnTime, "2026-04-30 10:00:00", sizeof(g_stHotspotConnInfo.astDevices[0].szConnTime) - 1);
+    g_stHotspotConnInfo.astDevices[1].nIndex = 2;
+    strncpy(g_stHotspotConnInfo.astDevices[1].szMac, "00:11:22:33:44:77", sizeof(g_stHotspotConnInfo.astDevices[1].szMac) - 1);
+    strncpy(g_stHotspotConnInfo.astDevices[1].szIp, "192.168.43.11", sizeof(g_stHotspotConnInfo.astDevices[1].szIp) - 1);
+    strncpy(g_stHotspotConnInfo.astDevices[1].szConnTime, "2026-04-30 10:05:00", sizeof(g_stHotspotConnInfo.astDevices[1].szConnTime) - 1);
+
+    /* 安全服务、日志与日志服务器默认值 */
+    g_stSecurityServicesInfo.stLoginLock.bIllegalLoginEnable = TRUE;
+    g_stSecurityServicesInfo.stLoginLock.nCheckInterval = 30;
+    g_stSecurityServicesInfo.stLoginLock.nMaxErrorTimes = 5;
+    g_stSecurityServicesInfo.stLoginLock.nLockDuration = 0;
+    g_stSecurityServicesInfo.stPwdPolicy.bPwdSecurityLevelEnable = FALSE;
+    g_stSecurityServicesInfo.stPwdPolicy.bAllowLowLevelPwdLogin = FALSE;
+    g_stSecurityServicesInfo.stSshAdmin.bSshEnable = FALSE;
+    g_stSecurityServicesInfo.stSshAdmin.nSshPort = 22;
+    strncpy(g_stSecurityServicesInfo.stSshAdmin.szSshStartTime, "2026-05-06 10:00:00", sizeof(g_stSecurityServicesInfo.stSshAdmin.szSshStartTime) - 1);
+    strncpy(g_stSecurityServicesInfo.stSshAdmin.szSshCountdown, "08:00:00", sizeof(g_stSecurityServicesInfo.stSshAdmin.szSshCountdown) - 1);
+    strncpy(g_stSshCountdownInfo.szCountdown, "08:00:00", sizeof(g_stSshCountdownInfo.szCountdown) - 1);
+
+    g_stLogServerInfo.bEnable = TRUE;
+    g_stLogServerInfo.bEnSsl = FALSE;
+    strncpy(g_stLogServerInfo.szServerAddr, "oam.itc-pa.cn", sizeof(g_stLogServerInfo.szServerAddr) - 1);
+    g_stLogServerInfo.nPort = 1883;
+
+    g_stLogList.stPage.nCurPage = 1;
+    g_stLogList.stPage.nPageSize = 20;
+    g_stLogList.stPage.nDataTotal = 2;
+    g_stLogList.stPage.nPageTotal = 1;
+    g_stLogList.nLogCount = 2;
+    strncpy(g_stLogList.astLogs[0].szStartTime, "2026-05-06 10:00:00", sizeof(g_stLogList.astLogs[0].szStartTime) - 1);
+    g_stLogList.astLogs[0].nType = 3;
+    g_stLogList.astLogs[0].nAction = 0;
+    strncpy(g_stLogList.astLogs[0].szChnName, "IPC-1", sizeof(g_stLogList.astLogs[0].szChnName) - 1);
+    strncpy(g_stLogList.astLogs[0].szUser, "admin", sizeof(g_stLogList.astLogs[0].szUser) - 1);
+    strncpy(g_stLogList.astLogs[0].szHost, "192.168.1.10", sizeof(g_stLogList.astLogs[0].szHost) - 1);
+    strncpy(g_stLogList.astLogs[0].szContext, "Demo login success", sizeof(g_stLogList.astLogs[0].szContext) - 1);
+    strncpy(g_stLogList.astLogs[1].szStartTime, "2026-05-06 10:05:00", sizeof(g_stLogList.astLogs[1].szStartTime) - 1);
+    g_stLogList.astLogs[1].nType = 4;
+    g_stLogList.astLogs[1].nAction = 0;
+    strncpy(g_stLogList.astLogs[1].szChnName, "IPC-1", sizeof(g_stLogList.astLogs[1].szChnName) - 1);
+    strncpy(g_stLogList.astLogs[1].szUser, "system", sizeof(g_stLogList.astLogs[1].szUser) - 1);
+    strncpy(g_stLogList.astLogs[1].szHost, "localhost", sizeof(g_stLogList.astLogs[1].szHost) - 1);
+    strncpy(g_stLogList.astLogs[1].szContext, "Demo log server heartbeat", sizeof(g_stLogList.astLogs[1].szContext) - 1);
+
+    /* 手动录像、录像计划、录像文件与下载默认值 */
+    g_stRecordInfo.nChnId = 0;
+    g_stRecordInfo.nVideoStatus = 1;
+    g_stRecordInfo.nAudioStatus = 1;
+    g_stRecordInfo.nRecordStatus = NET_TV_RECORD_STATUS_RECORDING;
+    g_stRecordInfo.nRecordFormat = 0;
+    g_stRecordInfo.nEventType = 0;
+    strncpy(g_stRecordInfo.szPath, "/tmp/", sizeof(g_stRecordInfo.szPath) - 1);
+    strncpy(g_stRecordInfo.szRedunPath, "/tmp/", sizeof(g_stRecordInfo.szRedunPath) - 1);
+    strncpy(g_stRecordInfo.szRecordName, "manual_record_demo.ts", sizeof(g_stRecordInfo.szRecordName) - 1);
+    strncpy(g_stRecordInfo.szRecordTime, "2026-05-06 10:00:00", sizeof(g_stRecordInfo.szRecordTime) - 1);
+    g_stRecordInfo.nStreamType = 0;
+
+    g_stRecordStatusInfo.nStatus = NET_TV_RECORD_STATUS_STOP;
+
+    g_stRecordSchedule.bEnable = TRUE;
+    g_stRecordSchedule.nDayScheduleCount = NET_TV_PLAN_DAY_NUM_AWEEK;
+    for (int i = 0; i < NET_TV_PLAN_DAY_NUM_AWEEK; ++i)
+    {
+        g_stRecordSchedule.astDaySchedules[i].nDayOfWeek = i + 1;
+        g_stRecordSchedule.astDaySchedules[i].nRecordTimeCount = 1;
+        g_stRecordSchedule.astDaySchedules[i].astRecordTimes[0].nType = 1;
+        g_stRecordSchedule.astDaySchedules[i].astRecordTimes[0].nStartTime = 0;
+        g_stRecordSchedule.astDaySchedules[i].astRecordTimes[0].nEndTime = 86400;
+    }
+
+    g_stRecordAdvancedParam.bLoopWrite = TRUE;
+    g_stRecordAdvancedParam.nPreTime = 0;
+    g_stRecordAdvancedParam.nDelayTime = 5;
+    g_stRecordAdvancedParam.nStreamType = 0;
+
+    g_stRecordFileList.stFind.nChnId = 0;
+    g_stRecordFileList.stFind.nType = 0;
+    strncpy(g_stRecordFileList.stFind.szYear, "2026", sizeof(g_stRecordFileList.stFind.szYear) - 1);
+    strncpy(g_stRecordFileList.stFind.szMonth, "05", sizeof(g_stRecordFileList.stFind.szMonth) - 1);
+    strncpy(g_stRecordFileList.stFind.szDate, "2026-05-06", sizeof(g_stRecordFileList.stFind.szDate) - 1);
+    strncpy(g_stRecordFileList.stFind.szStartTime, "2026-05-06 00:00:00", sizeof(g_stRecordFileList.stFind.szStartTime) - 1);
+    strncpy(g_stRecordFileList.stFind.szEndTime, "2026-05-06 23:59:59", sizeof(g_stRecordFileList.stFind.szEndTime) - 1);
+    g_stRecordFileList.nResultCount = 1;
+    g_stRecordFileList.astResults[0].nChnId = 0;
+    g_stRecordFileList.astResults[0].nDateCount = 1;
+    strncpy(g_stRecordFileList.astResults[0].aszDates[0], "2026-05-06", sizeof(g_stRecordFileList.astResults[0].aszDates[0]) - 1);
+    strncpy(g_stRecordFileList.astResults[0].szFilename, "manual_record_demo.ts", sizeof(g_stRecordFileList.astResults[0].szFilename) - 1);
+    g_stRecordFileList.astResults[0].nVideoTimeCount = 1;
+    g_stRecordFileList.astResults[0].astVideoTimes[0].nStartTime = 3600;
+    g_stRecordFileList.astResults[0].astVideoTimes[0].nEndTime = 7200;
+
+    g_stRecordDownloadList.nDownloadCount = 1;
+    g_stRecordDownloadList.astDownloads[0].nChnId = 0;
+    strncpy(g_stRecordDownloadList.astDownloads[0].szPath, "/tmp/manual_record_demo.ts", sizeof(g_stRecordDownloadList.astDownloads[0].szPath) - 1);
+    strncpy(g_stRecordDownloadList.astDownloads[0].szStartTime, "2026-05-06 10:00:00", sizeof(g_stRecordDownloadList.astDownloads[0].szStartTime) - 1);
+    strncpy(g_stRecordDownloadList.astDownloads[0].szEndTime, "2026-05-06 10:30:00", sizeof(g_stRecordDownloadList.astDownloads[0].szEndTime) - 1);
+    g_stRecordDownloadList.nProgressCount = 1;
+    strncpy(g_stRecordDownloadList.astProgress[0].szFilename, "manual_record_demo.ts", sizeof(g_stRecordDownloadList.astProgress[0].szFilename) - 1);
+    g_stRecordDownloadList.astProgress[0].nProgress = 0;
+
+    /* OSD能力集默认值 */
+    g_stOsdCapCfg.bSupportOsd         = TRUE;
+    g_stOsdCapCfg.bSupportName        = TRUE;
+    g_stOsdCapCfg.bSupportTime        = TRUE;
+    g_stOsdCapCfg.bSupportWeek        = TRUE;
+    g_stOsdCapCfg.bSupportCustomColor = TRUE;
+
+    /* 最大字符叠加数量 */
+    g_stOsdCapCfg.udwMaxOsdNum = 4;
+
+    /* 支持的字体大小列表 */
+    g_stOsdCapCfg.udwSupportedFontSizeNum = 3;
+    g_stOsdCapCfg.audwSupportedFontSizeList[0] = 0;
+    g_stOsdCapCfg.audwSupportedFontSizeList[1] = 1;
+    g_stOsdCapCfg.audwSupportedFontSizeList[2] = 2;
+
+    /* 支持的日期格式列表 */
+    g_stOsdCapCfg.udwSupportedDateFormatNum = 3;
+    g_stOsdCapCfg.audwSupportedDateFormatList[0] = 0;
+    g_stOsdCapCfg.audwSupportedDateFormatList[1] = 1;
+    g_stOsdCapCfg.audwSupportedDateFormatList[2] = 2;
+
+    /* 支持的时间格式列表 */
+    g_stOsdCapCfg.udwSupportedTimeFormatNum = 2;
+    g_stOsdCapCfg.audwSupportedTimeFormatList[0] = 0;
+    g_stOsdCapCfg.audwSupportedTimeFormatList[1] = 1;
+
+    /* 支持的对齐方式列表 */
+    g_stOsdCapCfg.udwSupportedAlignNum = 4;
+    g_stOsdCapCfg.audwSupportedAlignList[0] = 0;
+    g_stOsdCapCfg.audwSupportedAlignList[1] = 1;
+    g_stOsdCapCfg.audwSupportedAlignList[2] = 2;
+    g_stOsdCapCfg.audwSupportedAlignList[3] = 3;
+
+    /* OSD配置默认值 */
+    g_stOsdCfg.enAlign = OSD_ALIFN_CUSTOMIZE;
+
+    /* 1. 名称OSD默认值 */
+    g_stOsdCfg.stOsdNameInfo.bEnable = 1;
+    strncpy(g_stOsdCfg.stOsdNameInfo.strName,
+            "Demo-Camera",
+            sizeof(g_stOsdCfg.stOsdNameInfo.strName) - 1);
+
+    g_stOsdCfg.stOsdNameInfo.stOsdAttr.nX = 32;
+    g_stOsdCfg.stOsdNameInfo.stOsdAttr.nY = 32;
+    g_stOsdCfg.stOsdNameInfo.stOsdAttr.nW = -1;   /* 自适应 */
+    g_stOsdCfg.stOsdNameInfo.stOsdAttr.nH = 32;
+    g_stOsdCfg.stOsdNameInfo.stOsdAttr.enAttribute = OSD_ATTR_ALPHA_N_FLASH_N;
+    g_stOsdCfg.stOsdNameInfo.stOsdAttr.enFontSize = OSD_FONT_SIZE_32;
+    g_stOsdCfg.stOsdNameInfo.stOsdAttr.enFontColor = OSD_COLOR_WHITE;
+    strncpy(g_stOsdCfg.stOsdNameInfo.stOsdAttr.strFontColor,
+            "#FFFFFF",
+            sizeof(g_stOsdCfg.stOsdNameInfo.stOsdAttr.strFontColor) - 1);
+    strncpy(g_stOsdCfg.stOsdNameInfo.stOsdAttr.strToken,
+            "name_token_0",
+            sizeof(g_stOsdCfg.stOsdNameInfo.stOsdAttr.strToken) - 1);
+
+    /* 2. 时间OSD默认值 */
+    g_stOsdCfg.stOsdTimeInfo.bEnable = 1;
+    g_stOsdCfg.stOsdTimeInfo.bEnableWeek = 1;
+    g_stOsdCfg.stOsdTimeInfo.enTimeFormat = OSD_TIME_FORMAT_24;
+    g_stOsdCfg.stOsdTimeInfo.enDateFormat = ENGLISH_YYYY_MM_DD;
+
+    g_stOsdCfg.stOsdTimeInfo.stOsdAttr.nX = 32;
+    g_stOsdCfg.stOsdTimeInfo.stOsdAttr.nY = 80;
+    g_stOsdCfg.stOsdTimeInfo.stOsdAttr.nW = -1;   /* 自适应 */
+    g_stOsdCfg.stOsdTimeInfo.stOsdAttr.nH = 32;
+    g_stOsdCfg.stOsdTimeInfo.stOsdAttr.enAttribute = OSD_ATTR_ALPHA_N_FLASH_N;
+    g_stOsdCfg.stOsdTimeInfo.stOsdAttr.enFontSize = OSD_FONT_SIZE_32;
+    g_stOsdCfg.stOsdTimeInfo.stOsdAttr.enFontColor = OSD_COLOR_WHITE;
+    strncpy(g_stOsdCfg.stOsdTimeInfo.stOsdAttr.strFontColor,
+            "#FFFFFF",
+            sizeof(g_stOsdCfg.stOsdTimeInfo.stOsdAttr.strFontColor) - 1);
+    strncpy(g_stOsdCfg.stOsdTimeInfo.stOsdAttr.strToken,
+            "time_token_0",
+            sizeof(g_stOsdCfg.stOsdTimeInfo.stOsdAttr.strToken) - 1);
+
+    /* 3. 自定义OSD默认值 */
+    {
+        int i = 0;
+        for (i = 0; i < 32; ++i)
+        {
+            g_stOsdCfg.OsdInfo[i].nId = i + 1;
+            g_stOsdCfg.OsdInfo[i].bEnable = 0;
+        }
+    }
+
+    /* 默认启用第1个自定义OSD */
+    g_stOsdCfg.OsdInfo[0].nId = 1;
+    g_stOsdCfg.OsdInfo[0].bEnable = 1;
+    strncpy(g_stOsdCfg.OsdInfo[0].strName,
+            "Demo OSD",
+            sizeof(g_stOsdCfg.OsdInfo[0].strName) - 1);
+
+    g_stOsdCfg.OsdInfo[0].stOsdAttr.nX = 32;
+    g_stOsdCfg.OsdInfo[0].stOsdAttr.nY = 128;
+    g_stOsdCfg.OsdInfo[0].stOsdAttr.nW = -1;
+    g_stOsdCfg.OsdInfo[0].stOsdAttr.nH = 32;
+    g_stOsdCfg.OsdInfo[0].stOsdAttr.enAttribute = OSD_ATTR_ALPHA_N_FLASH_N;
+    g_stOsdCfg.OsdInfo[0].stOsdAttr.enFontSize = OSD_FONT_SIZE_32;
+    g_stOsdCfg.OsdInfo[0].stOsdAttr.enFontColor = OSD_COLOR_CUSTOMIZE;
+    strncpy(g_stOsdCfg.OsdInfo[0].stOsdAttr.strFontColor,
+            "#00FF00",
+            sizeof(g_stOsdCfg.OsdInfo[0].stOsdAttr.strFontColor) - 1);
+    strncpy(g_stOsdCfg.OsdInfo[0].stOsdAttr.strToken,
+            "custom_token_0",
+            sizeof(g_stOsdCfg.OsdInfo[0].stOsdAttr.strToken) - 1);
+
+    /* 移动侦测配置默认值 */
+    g_stMotionAlarmInfo.bEnable = TRUE;
+    g_stMotionAlarmInfo.bDynamicAnalysisEnable = FALSE;
+    g_stMotionAlarmInfo.dwMode = NET_TV_MOTION_MODE_NORMAL;
+    g_stMotionAlarmInfo.stNormalMode.nSensitivity = 50;
+    g_stMotionAlarmInfo.stNormalMode.nRegionType = 0; /* 筒型 */
+    g_stMotionAlarmInfo.stNormalMode.nRectLeft = 100;
+    g_stMotionAlarmInfo.stNormalMode.nRectTop = 100;
+    g_stMotionAlarmInfo.stNormalMode.nRectRight = 800;
+    g_stMotionAlarmInfo.stNormalMode.nRectBottom = 600;
+    /* 初始化布防时间：每天一个时间段 00:00-23:59 */
+    for (int day = 0; day < 7; day++)
+    {
+        g_stMotionAlarmInfo.stAlarmSchedule.dwTimeSectionCount[day] = 1;
+        g_stMotionAlarmInfo.stAlarmSchedule.astTimeSection[day][0].nStartHour = 0;
+        g_stMotionAlarmInfo.stAlarmSchedule.astTimeSection[day][0].nStartMinute = 0;
+        g_stMotionAlarmInfo.stAlarmSchedule.astTimeSection[day][0].nEndHour = 23;
+        g_stMotionAlarmInfo.stAlarmSchedule.astTimeSection[day][0].nEndMinute = 59;
+    }
+
+    /* 遮挡报警配置默认值 */
+    g_stTamperAlarmInfo.bEnable = FALSE;
+    g_stTamperAlarmInfo.dwSensitivity = 2;
+    g_stTamperAlarmInfo.nRectLeft = 200;
+    g_stTamperAlarmInfo.nRectTop = 200;
+    g_stTamperAlarmInfo.nRectRight = 700;
+    g_stTamperAlarmInfo.nRectBottom = 500;
+    for (int day = 0; day < 7; day++)
+    {
+        g_stTamperAlarmInfo.stAlarmSchedule.dwTimeSectionCount[day] = 1;
+        g_stTamperAlarmInfo.stAlarmSchedule.astTimeSection[day][0].nStartHour = 0;
+        g_stTamperAlarmInfo.stAlarmSchedule.astTimeSection[day][0].nStartMinute = 0;
+        g_stTamperAlarmInfo.stAlarmSchedule.astTimeSection[day][0].nEndHour = 23;
+        g_stTamperAlarmInfo.stAlarmSchedule.astTimeSection[day][0].nEndMinute = 59;
+    }
+
+    /* 越界检测配置默认值 */
+    g_stCrossLineAlarmInfo.bEnable = FALSE;
+    g_stCrossLineAlarmInfo.dwRuleCount = 1;
+    g_stCrossLineAlarmInfo.astRule[0].bEnable = TRUE;
+    g_stCrossLineAlarmInfo.astRule[0].fStartPosX = 0.1f;
+    g_stCrossLineAlarmInfo.astRule[0].fStartPosY = 0.5f;
+    g_stCrossLineAlarmInfo.astRule[0].fEndPosX = 0.9f;
+    g_stCrossLineAlarmInfo.astRule[0].fEndPosY = 0.5f;
+    g_stCrossLineAlarmInfo.astRule[0].enCrossDirection = NET_TV_CROSS_BOTH_WAYS;
+    g_stCrossLineAlarmInfo.astRule[0].nSensitivity = 50;
+    g_stCrossLineAlarmInfo.astRule[0].dwDetectionTargetCount = 1;
+    g_stCrossLineAlarmInfo.astRule[0].adwDetectionTarget[0] = NET_TV_TARGET_HUMAN;
+    for (int day = 0; day < 7; day++)
+    {
+        g_stCrossLineAlarmInfo.stAlarmSchedule.dwTimeSectionCount[day] = 1;
+        g_stCrossLineAlarmInfo.stAlarmSchedule.astTimeSection[day][0].nStartHour = 0;
+        g_stCrossLineAlarmInfo.stAlarmSchedule.astTimeSection[day][0].nStartMinute = 0;
+        g_stCrossLineAlarmInfo.stAlarmSchedule.astTimeSection[day][0].nEndHour = 23;
+        g_stCrossLineAlarmInfo.stAlarmSchedule.astTimeSection[day][0].nEndMinute = 59;
+    }
+
+    /* 入侵检测配置默认值 */
+    g_stIntrusionAlarmInfo.bEnable = FALSE;
+    g_stIntrusionAlarmInfo.dwRuleCount = 1;
+    g_stIntrusionAlarmInfo.astRule[0].bEnable = TRUE;
+    g_stIntrusionAlarmInfo.astRule[0].dwPointCount = 4;
+    /* 矩形区域：左上、右上、右下、左下 */
+    g_stIntrusionAlarmInfo.astRule[0].afPointX[0] = 0.2f; g_stIntrusionAlarmInfo.astRule[0].afPointY[0] = 0.2f;
+    g_stIntrusionAlarmInfo.astRule[0].afPointX[1] = 0.8f; g_stIntrusionAlarmInfo.astRule[0].afPointY[1] = 0.2f;
+    g_stIntrusionAlarmInfo.astRule[0].afPointX[2] = 0.8f; g_stIntrusionAlarmInfo.astRule[0].afPointY[2] = 0.8f;
+    g_stIntrusionAlarmInfo.astRule[0].afPointX[3] = 0.2f; g_stIntrusionAlarmInfo.astRule[0].afPointY[3] = 0.8f;
+    g_stIntrusionAlarmInfo.astRule[0].nTimeThreshold = 10;
+    g_stIntrusionAlarmInfo.astRule[0].nSensitivity = 50;
+    g_stIntrusionAlarmInfo.astRule[0].dwDetectionTargetCount = 1;
+    g_stIntrusionAlarmInfo.astRule[0].adwDetectionTarget[0] = NET_TV_TARGET_HUMAN;
+    for (int day = 0; day < 7; day++)
+    {
+        g_stIntrusionAlarmInfo.stAlarmSchedule.dwTimeSectionCount[day] = 1;
+        g_stIntrusionAlarmInfo.stAlarmSchedule.astTimeSection[day][0].nStartHour = 0;
+        g_stIntrusionAlarmInfo.stAlarmSchedule.astTimeSection[day][0].nStartMinute = 0;
+        g_stIntrusionAlarmInfo.stAlarmSchedule.astTimeSection[day][0].nEndHour = 23;
+        g_stIntrusionAlarmInfo.stAlarmSchedule.astTimeSection[day][0].nEndMinute = 59;
+    }
+
+    /* 进入区域侦测配置默认值 */
+    g_stEnterRegionAlarmInfo.bEnable = FALSE;
+    g_stEnterRegionAlarmInfo.dwRuleCount = 1;
+    g_stEnterRegionAlarmInfo.astRule[0].bEnable = TRUE;
+    g_stEnterRegionAlarmInfo.astRule[0].dwPointCount = 4;
+    g_stEnterRegionAlarmInfo.astRule[0].afPointX[0] = 0.2f; g_stEnterRegionAlarmInfo.astRule[0].afPointY[0] = 0.2f;
+    g_stEnterRegionAlarmInfo.astRule[0].afPointX[1] = 0.8f; g_stEnterRegionAlarmInfo.astRule[0].afPointY[1] = 0.2f;
+    g_stEnterRegionAlarmInfo.astRule[0].afPointX[2] = 0.8f; g_stEnterRegionAlarmInfo.astRule[0].afPointY[2] = 0.8f;
+    g_stEnterRegionAlarmInfo.astRule[0].afPointX[3] = 0.2f; g_stEnterRegionAlarmInfo.astRule[0].afPointY[3] = 0.8f;
+    g_stEnterRegionAlarmInfo.astRule[0].nTimeThreshold = 10;
+    g_stEnterRegionAlarmInfo.astRule[0].nSensitivity = 50;
+    g_stEnterRegionAlarmInfo.astRule[0].dwDetectionTargetCount = 1;
+    g_stEnterRegionAlarmInfo.astRule[0].adwDetectionTarget[0] = NET_TV_TARGET_HUMAN;
+    for (int day = 0; day < 7; day++)
+    {
+        g_stEnterRegionAlarmInfo.stAlarmSchedule.dwTimeSectionCount[day] = 1;
+        g_stEnterRegionAlarmInfo.stAlarmSchedule.astTimeSection[day][0].nStartHour = 0;
+        g_stEnterRegionAlarmInfo.stAlarmSchedule.astTimeSection[day][0].nStartMinute = 0;
+        g_stEnterRegionAlarmInfo.stAlarmSchedule.astTimeSection[day][0].nEndHour = 23;
+        g_stEnterRegionAlarmInfo.stAlarmSchedule.astTimeSection[day][0].nEndMinute = 59;
+    }
+
+    /* 离开区域侦测配置默认值 */
+    g_stLeaveRegionAlarmInfo.bEnable = g_stEnterRegionAlarmInfo.bEnable;
+    g_stLeaveRegionAlarmInfo.dwRuleCount = g_stEnterRegionAlarmInfo.dwRuleCount;
+    g_stLeaveRegionAlarmInfo.astRule[0] = g_stEnterRegionAlarmInfo.astRule[0];
+    for (int day = 0; day < 7; day++)
+    {
+        g_stLeaveRegionAlarmInfo.stAlarmSchedule.dwTimeSectionCount[day] = 1;
+        g_stLeaveRegionAlarmInfo.stAlarmSchedule.astTimeSection[day][0].nStartHour = 0;
+        g_stLeaveRegionAlarmInfo.stAlarmSchedule.astTimeSection[day][0].nStartMinute = 0;
+        g_stLeaveRegionAlarmInfo.stAlarmSchedule.astTimeSection[day][0].nEndHour = 23;
+        g_stLeaveRegionAlarmInfo.stAlarmSchedule.astTimeSection[day][0].nEndMinute = 59;
+    }
+
+    /* 徘徊侦测配置默认值 */
+    g_stLoiteringAlarmInfo.bEnable = FALSE;
+    g_stLoiteringAlarmInfo.dwRuleCount = 1;
+    g_stLoiteringAlarmInfo.astRule[0].bEnable = TRUE;
+    g_stLoiteringAlarmInfo.astRule[0].dwPointCount = 4;
+    /* 矩形区域：左上、右上、右下、左下 */
+    g_stLoiteringAlarmInfo.astRule[0].afPointX[0] = 0.2f; g_stLoiteringAlarmInfo.astRule[0].afPointY[0] = 0.2f;
+    g_stLoiteringAlarmInfo.astRule[0].afPointX[1] = 0.8f; g_stLoiteringAlarmInfo.astRule[0].afPointY[1] = 0.2f;
+    g_stLoiteringAlarmInfo.astRule[0].afPointX[2] = 0.8f; g_stLoiteringAlarmInfo.astRule[0].afPointY[2] = 0.8f;
+    g_stLoiteringAlarmInfo.astRule[0].afPointX[3] = 0.2f; g_stLoiteringAlarmInfo.astRule[0].afPointY[3] = 0.8f;
+    g_stLoiteringAlarmInfo.astRule[0].nTimeThreshold = 10;
+    g_stLoiteringAlarmInfo.astRule[0].nSensitivity = 50;
+    g_stLoiteringAlarmInfo.astRule[0].dwDetectionTargetCount = 1;
+    g_stLoiteringAlarmInfo.astRule[0].adwDetectionTarget[0] = NET_TV_TARGET_HUMAN;
+    for (int day = 0; day < 7; day++)
+    {
+        g_stLoiteringAlarmInfo.stAlarmSchedule.dwTimeSectionCount[day] = 1;
+        g_stLoiteringAlarmInfo.stAlarmSchedule.astTimeSection[day][0].nStartHour = 0;
+        g_stLoiteringAlarmInfo.stAlarmSchedule.astTimeSection[day][0].nStartMinute = 0;
+        g_stLoiteringAlarmInfo.stAlarmSchedule.astTimeSection[day][0].nEndHour = 23;
+        g_stLoiteringAlarmInfo.stAlarmSchedule.astTimeSection[day][0].nEndMinute = 59;
+    }
+
+    /* 场景变更侦测配置默认值 */
+    g_stSceneChangeAlarmInfo.bEnable = FALSE;
+    g_stSceneChangeAlarmInfo.nSensitivity = 50;
+    for (int day = 0; day < 7; day++)
+    {
+        g_stSceneChangeAlarmInfo.stAlarmSchedule.dwTimeSectionCount[day] = 1;
+        g_stSceneChangeAlarmInfo.stAlarmSchedule.astTimeSection[day][0].nStartHour = 0;
+        g_stSceneChangeAlarmInfo.stAlarmSchedule.astTimeSection[day][0].nStartMinute = 0;
+        g_stSceneChangeAlarmInfo.stAlarmSchedule.astTimeSection[day][0].nEndHour = 23;
+        g_stSceneChangeAlarmInfo.stAlarmSchedule.astTimeSection[day][0].nEndMinute = 59;
+    }
+
+    /* 人员聚集侦测配置默认值 */
+    g_stCrowdGatheringAlarmInfo.bEnable = FALSE;
+    g_stCrowdGatheringAlarmInfo.dwRuleCount = 1;
+    g_stCrowdGatheringAlarmInfo.astRule[0].dwPointCount = 4;
+    g_stCrowdGatheringAlarmInfo.astRule[0].afPointX[0] = 0.2f; g_stCrowdGatheringAlarmInfo.astRule[0].afPointY[0] = 0.2f;
+    g_stCrowdGatheringAlarmInfo.astRule[0].afPointX[1] = 0.8f; g_stCrowdGatheringAlarmInfo.astRule[0].afPointY[1] = 0.2f;
+    g_stCrowdGatheringAlarmInfo.astRule[0].afPointX[2] = 0.8f; g_stCrowdGatheringAlarmInfo.astRule[0].afPointY[2] = 0.8f;
+    g_stCrowdGatheringAlarmInfo.astRule[0].afPointX[3] = 0.2f; g_stCrowdGatheringAlarmInfo.astRule[0].afPointY[3] = 0.8f;
+    g_stCrowdGatheringAlarmInfo.astRule[0].nObjectOccup = 50;
+    for (int day = 0; day < 7; day++)
+    {
+        g_stCrowdGatheringAlarmInfo.stAlarmSchedule.dwTimeSectionCount[day] = 1;
+        g_stCrowdGatheringAlarmInfo.stAlarmSchedule.astTimeSection[day][0].nStartHour = 0;
+        g_stCrowdGatheringAlarmInfo.stAlarmSchedule.astTimeSection[day][0].nStartMinute = 0;
+        g_stCrowdGatheringAlarmInfo.stAlarmSchedule.astTimeSection[day][0].nEndHour = 23;
+        g_stCrowdGatheringAlarmInfo.stAlarmSchedule.astTimeSection[day][0].nEndMinute = 59;
+    }
+
+    /* 停车侦测配置默认值 */
+    g_stParkingAlarmInfo.bEnable = FALSE;
+    g_stParkingAlarmInfo.dwRuleCount = 1;
+    g_stParkingAlarmInfo.astRule[0].dwPointCount = 4;
+    g_stParkingAlarmInfo.astRule[0].afPointX[0] = 0.2f; g_stParkingAlarmInfo.astRule[0].afPointY[0] = 0.2f;
+    g_stParkingAlarmInfo.astRule[0].afPointX[1] = 0.8f; g_stParkingAlarmInfo.astRule[0].afPointY[1] = 0.2f;
+    g_stParkingAlarmInfo.astRule[0].afPointX[2] = 0.8f; g_stParkingAlarmInfo.astRule[0].afPointY[2] = 0.8f;
+    g_stParkingAlarmInfo.astRule[0].afPointX[3] = 0.2f; g_stParkingAlarmInfo.astRule[0].afPointY[3] = 0.8f;
+    g_stParkingAlarmInfo.astRule[0].nSensitivity = 50;
+    g_stParkingAlarmInfo.astRule[0].nTimeThreshold = 10;
+    for (int day = 0; day < 7; day++)
+    {
+        g_stParkingAlarmInfo.stAlarmSchedule.dwTimeSectionCount[day] = 1;
+        g_stParkingAlarmInfo.stAlarmSchedule.astTimeSection[day][0].nStartHour = 0;
+        g_stParkingAlarmInfo.stAlarmSchedule.astTimeSection[day][0].nStartMinute = 0;
+        g_stParkingAlarmInfo.stAlarmSchedule.astTimeSection[day][0].nEndHour = 23;
+        g_stParkingAlarmInfo.stAlarmSchedule.astTimeSection[day][0].nEndMinute = 59;
+    }
+
+    /* 物品遗留侦测配置默认值 */
+    g_stUnattendedObjectAlarmInfo.bEnable = FALSE;
+    g_stUnattendedObjectAlarmInfo.dwRuleCount = 1;
+    g_stUnattendedObjectAlarmInfo.astRule[0].dwPointCount = 4;
+    g_stUnattendedObjectAlarmInfo.astRule[0].afPointX[0] = 0.2f; g_stUnattendedObjectAlarmInfo.astRule[0].afPointY[0] = 0.2f;
+    g_stUnattendedObjectAlarmInfo.astRule[0].afPointX[1] = 0.8f; g_stUnattendedObjectAlarmInfo.astRule[0].afPointY[1] = 0.2f;
+    g_stUnattendedObjectAlarmInfo.astRule[0].afPointX[2] = 0.8f; g_stUnattendedObjectAlarmInfo.astRule[0].afPointY[2] = 0.8f;
+    g_stUnattendedObjectAlarmInfo.astRule[0].afPointX[3] = 0.2f; g_stUnattendedObjectAlarmInfo.astRule[0].afPointY[3] = 0.8f;
+    g_stUnattendedObjectAlarmInfo.astRule[0].nSensitivity = 50;
+    g_stUnattendedObjectAlarmInfo.astRule[0].nTimeThreshold = 30;
+    for (int day = 0; day < 7; day++)
+    {
+        g_stUnattendedObjectAlarmInfo.stAlarmSchedule.dwTimeSectionCount[day] = 1;
+        g_stUnattendedObjectAlarmInfo.stAlarmSchedule.astTimeSection[day][0].nStartHour = 0;
+        g_stUnattendedObjectAlarmInfo.stAlarmSchedule.astTimeSection[day][0].nStartMinute = 0;
+        g_stUnattendedObjectAlarmInfo.stAlarmSchedule.astTimeSection[day][0].nEndHour = 23;
+        g_stUnattendedObjectAlarmInfo.stAlarmSchedule.astTimeSection[day][0].nEndMinute = 59;
+    }
+
+    /* 物品拿取侦测配置默认值 */
+    g_stObjectRemovalAlarmInfo.bEnable = FALSE;
+    g_stObjectRemovalAlarmInfo.dwRuleCount = 1;
+    g_stObjectRemovalAlarmInfo.astRule[0].dwPointCount = 4;
+    g_stObjectRemovalAlarmInfo.astRule[0].afPointX[0] = 0.2f; g_stObjectRemovalAlarmInfo.astRule[0].afPointY[0] = 0.2f;
+    g_stObjectRemovalAlarmInfo.astRule[0].afPointX[1] = 0.8f; g_stObjectRemovalAlarmInfo.astRule[0].afPointY[1] = 0.2f;
+    g_stObjectRemovalAlarmInfo.astRule[0].afPointX[2] = 0.8f; g_stObjectRemovalAlarmInfo.astRule[0].afPointY[2] = 0.8f;
+    g_stObjectRemovalAlarmInfo.astRule[0].afPointX[3] = 0.2f; g_stObjectRemovalAlarmInfo.astRule[0].afPointY[3] = 0.8f;
+    g_stObjectRemovalAlarmInfo.astRule[0].nSensitivity = 50;
+    g_stObjectRemovalAlarmInfo.astRule[0].nTimeThreshold = 30;
+    for (int day = 0; day < 7; day++)
+    {
+        g_stObjectRemovalAlarmInfo.stAlarmSchedule.dwTimeSectionCount[day] = 1;
+        g_stObjectRemovalAlarmInfo.stAlarmSchedule.astTimeSection[day][0].nStartHour = 0;
+        g_stObjectRemovalAlarmInfo.stAlarmSchedule.astTimeSection[day][0].nStartMinute = 0;
+        g_stObjectRemovalAlarmInfo.stAlarmSchedule.astTimeSection[day][0].nEndHour = 23;
+        g_stObjectRemovalAlarmInfo.stAlarmSchedule.astTimeSection[day][0].nEndMinute = 59;
+    }
+
+    /* 音频异常侦测配置默认值 */
+    g_stAudioAnomalyAlarmInfo.bEnable = FALSE;
+    g_stAudioAnomalyAlarmInfo.bAudioInputAnomaly = TRUE;
+    g_stAudioAnomalyAlarmInfo.bUpEnable = TRUE;
+    g_stAudioAnomalyAlarmInfo.nUpSensitivity = 50;
+    g_stAudioAnomalyAlarmInfo.nUpThreshold = 50;
+    g_stAudioAnomalyAlarmInfo.bDownEnable = FALSE;
+    g_stAudioAnomalyAlarmInfo.nDownSensitivity = 50;
+    for (int day = 0; day < 7; day++)
+    {
+        g_stAudioAnomalyAlarmInfo.stAlarmSchedule.dwTimeSectionCount[day] = 1;
+        g_stAudioAnomalyAlarmInfo.stAlarmSchedule.astTimeSection[day][0].nStartHour = 0;
+        g_stAudioAnomalyAlarmInfo.stAlarmSchedule.astTimeSection[day][0].nStartMinute = 0;
+        g_stAudioAnomalyAlarmInfo.stAlarmSchedule.astTimeSection[day][0].nEndHour = 23;
+        g_stAudioAnomalyAlarmInfo.stAlarmSchedule.astTimeSection[day][0].nEndMinute = 59;
+    }
+    
+    /* 预览信息默认值 */
+    strncpy(g_stPreviewInfo.stRtspUrl.szRtspMainUrl,
+            "rtsp://127.0.0.1:554/live/main",
+            sizeof(g_stPreviewInfo.stRtspUrl.szRtspMainUrl) - 1);
+    g_stPreviewInfo.stRtspUrl.szRtspMainUrl[sizeof(g_stPreviewInfo.stRtspUrl.szRtspMainUrl) - 1] = '\0';
+    strncpy(g_stPreviewInfo.stRtspUrl.szRtspSubUrl,
+            "rtsp://127.0.0.1:554/live/sub",
+            sizeof(g_stPreviewInfo.stRtspUrl.szRtspSubUrl) - 1);
+    g_stPreviewInfo.stRtspUrl.szRtspSubUrl[sizeof(g_stPreviewInfo.stRtspUrl.szRtspSubUrl) - 1] = '\0';
+    g_stPreviewInfo.stImageParam.nBrightness = 50;
+    g_stPreviewInfo.stImageParam.nContrast = 50;
+    g_stPreviewInfo.stImageParam.nSaturation = 50;
+    g_stPreviewInfo.stImageParam.nSharpness = 50;
+
+      /* 通道信息默认值 */
+    g_stChannelInfo.byEnable = TRUE;
+    g_stChannelInfo.byOnline = TRUE;
+    g_stChannelInfo.byStreamType = 0;
+    g_stChannelInfo.dwChannel = 1;
+
+    strncpy(g_stChannelInfo.szChannelName,
+            "Demo-Channel-1",
+            sizeof(g_stChannelInfo.szChannelName) - 1);
+    strncpy(g_stChannelInfo.szRtspMainUrl,
+            g_stPreviewInfo.stRtspUrl.szRtspMainUrl,
+            sizeof(g_stChannelInfo.szRtspMainUrl) - 1);
+    strncpy(g_stChannelInfo.szRtspSubUrl,
+            g_stPreviewInfo.stRtspUrl.szRtspSubUrl,
+            sizeof(g_stChannelInfo.szRtspSubUrl) - 1);
+    strncpy(g_stChannelInfo.szPreviewMainUrl,
+            g_stPreviewInfo.stRtspUrl.szRtspMainUrl,
+            sizeof(g_stChannelInfo.szPreviewMainUrl) - 1);
+    strncpy(g_stChannelInfo.szPreviewSubUrl,
+            g_stPreviewInfo.stRtspUrl.szRtspSubUrl,
+            sizeof(g_stChannelInfo.szPreviewSubUrl) - 1);
+    strncpy(g_stChannelInfo.szDeviceIP,
+            "127.0.0.1",
+            sizeof(g_stChannelInfo.szDeviceIP) - 1);
+
+    /* 对讲相关默认值 */
+    g_stTalkbackStateInfo.bEnable = FALSE;
+    strncpy(g_stTalkbackStateInfo.szSdp,
+            "v=0\\r\\no=- 0 0 IN IP4 127.0.0.1\\r\\ns=Talkback\\r\\n",
+            sizeof(g_stTalkbackStateInfo.szSdp) - 1);
+    strncpy(g_stTalkbackStateInfo.szUrl,
+            "rtsp://127.0.0.1:554/talkback",
+            sizeof(g_stTalkbackStateInfo.szUrl) - 1);
+    strncpy(g_stTalkbackStateInfo.szLocalIP,
+            "127.0.0.1",
+            sizeof(g_stTalkbackStateInfo.szLocalIP) - 1);
+
+    strncpy(g_stTalkbackToStreamInfo.szHost, "239.0.0.1", sizeof(g_stTalkbackToStreamInfo.szHost) - 1);
+    g_stTalkbackToStreamInfo.nPort = 5004;
+    g_stTalkbackToStreamInfo.nChnId = 1;
+    g_stTalkbackToStreamInfo.nUserID = 1001;
+    g_stTalkbackToStreamInfo.bMainStream = TRUE;
+    strncpy(g_stTalkbackToStreamInfo.szProtocol, "rtp", sizeof(g_stTalkbackToStreamInfo.szProtocol) - 1);
+    strncpy(g_stTalkbackToStreamInfo.szStartTime, "2026-01-01 08:00:00", sizeof(g_stTalkbackToStreamInfo.szStartTime) - 1);
+    strncpy(g_stTalkbackToStreamInfo.szEndTime, "2026-01-01 08:30:00", sizeof(g_stTalkbackToStreamInfo.szEndTime) - 1);
+    strncpy(g_stTalkbackToStreamInfo.szFileName, "talkback_live.aac", sizeof(g_stTalkbackToStreamInfo.szFileName) - 1);
+
+    g_stTalkbackFromStreamInfo = g_stTalkbackToStreamInfo;
+    strncpy(g_stTalkbackFromStreamInfo.szHost, "239.0.0.2", sizeof(g_stTalkbackFromStreamInfo.szHost) - 1);
+
+    strncpy(g_stReplayTalkbackInfo.szNvrIp, "192.168.1.200", sizeof(g_stReplayTalkbackInfo.szNvrIp) - 1);
+    strncpy(g_stReplayTalkbackInfo.szRemoteIp, "192.168.1.10", sizeof(g_stReplayTalkbackInfo.szRemoteIp) - 1);
+    g_stReplayTalkbackInfo.stIPCInfo = g_stTalkbackToStreamInfo;
+    strncpy(g_stReplayTalkbackInfo.stIPCInfo.szFileName, "talkback_replay.aac", sizeof(g_stReplayTalkbackInfo.stIPCInfo.szFileName) - 1);
+
+    /* 抓图计划配置默认值 */
+    UINT32 i = 0;
+    memset(&g_stCapturePlanInfo, 0, sizeof(g_stCapturePlanInfo));
+    for (i = 0; i < NET_TV_PLAN_DAY_NUM_AWEEK; ++i)
+    {
+        g_stCapturePlanInfo.astDaySchedules[i].nDayOfWeek = (INT32)(i + 1);
+        g_stCapturePlanInfo.astDaySchedules[i].udwTimeCount = 1;
+        g_stCapturePlanInfo.astDaySchedules[i].astTimes[0].nStartTime = 0;
+        g_stCapturePlanInfo.astDaySchedules[i].astTimes[0].nEndTime = 24 * 60 * 60;
+    }
+
+    /* 抓图参数默认值 */
+    memset(&g_stCaptureParamInfo, 0, sizeof(g_stCaptureParamInfo));
+
+    g_stCaptureParamInfo.stCaptureTimingConfig.bEnable = TRUE;
+    g_stCaptureParamInfo.stCaptureTimingConfig.enPictureFormat = NET_TV_CAPTURE_PICTURE_FORMAT_JPEG;
+    g_stCaptureParamInfo.stCaptureTimingConfig.nWidth = 1920;
+    g_stCaptureParamInfo.stCaptureTimingConfig.nHeight = 1080;
+    g_stCaptureParamInfo.stCaptureTimingConfig.enImageQuality = NET_TV_CAPTURE_IMAGE_QUALITY_MEDIUM;
+    g_stCaptureParamInfo.stCaptureTimingConfig.unInterval = 2000;
+    g_stCaptureParamInfo.stCaptureTimingConfig.enTimeUnit = NET_TV_CAPTURE_TIME_UNIT_MILLISECONDS;
+    g_stCaptureParamInfo.stCaptureTimingConfig.unNumber = 20;
+
+    g_stCaptureParamInfo.stCaptureEventConfig.bEnable = TRUE;
+    g_stCaptureParamInfo.stCaptureEventConfig.enPictureFormat = NET_TV_CAPTURE_PICTURE_FORMAT_JPEG;
+    g_stCaptureParamInfo.stCaptureEventConfig.nWidth = 1920;
+    g_stCaptureParamInfo.stCaptureEventConfig.nHeight = 1080;
+    g_stCaptureParamInfo.stCaptureEventConfig.enImageQuality = NET_TV_CAPTURE_IMAGE_QUALITY_HIGH;
+    g_stCaptureParamInfo.stCaptureEventConfig.unInterval = 1;
+    g_stCaptureParamInfo.stCaptureEventConfig.enTimeUnit = NET_TV_CAPTURE_TIME_UNIT_SECONDS;
+    g_stCaptureParamInfo.stCaptureEventConfig.unNumber = 1;
+
+    /* 曝光信息默认值 */
+    g_stExposureInfo.enExpTime = 0;
+    g_stExposureInfo.bAntiBanding = TRUE;
+
+    /* 日夜转换信息默认值 */
+    g_stDayNightInfo.enDayNightMode = 0;
+    g_stDayNightInfo.nBeginHour = 18;
+    g_stDayNightInfo.nBeginMinute = 0;
+    g_stDayNightInfo.nBeginSecond = 0;
+    g_stDayNightInfo.nBeginMilliSec = 0;
+    g_stDayNightInfo.nEndHour = 6;
+    g_stDayNightInfo.nEndMinute = 0;
+    g_stDayNightInfo.nEndSecond = 0;
+    g_stDayNightInfo.nEndMilliSec = 0;
+    g_stDayNightInfo.nSensitivityLevel = 50;
+    g_stDayNightInfo.nFilterTime = 5;
+    g_stDayNightInfo.bFillLightExp = TRUE;
+    g_stDayNightInfo.enLightMode = 0;
+    g_stDayNightInfo.enLightType = 0;
+    g_stDayNightInfo.bWhiteLightEnable = TRUE;
+    g_stDayNightInfo.nWhiteLightLevel = 50;
+    g_stDayNightInfo.bRedLightEnable = FALSE;
+    g_stDayNightInfo.nRedLightLevel = 0;
+
+    /* 背光信息默认值 */
+    g_stBackLightInfo.enBackLightArea = 0;
+    g_stBackLightInfo.bWdrEnable = TRUE;
+    g_stBackLightInfo.nWdrLevel = 50;
+    g_stBackLightInfo.bHlsEnable = FALSE;
+    g_stBackLightInfo.nHlsLevel = 0;
+
+    /* 降噪信息默认值 */
+    g_stDenoiseInfo.enDnrMode = 0;
+    g_stDenoiseInfo.nDnrLevel = 50;
+    g_stDenoiseInfo.nSnrLevel = 50;
+    g_stDenoiseInfo.nTnrLevel = 50;
+
+    /* 白平衡信息默认值 */
+    g_stWhiteBalanceInfo.enAwbMode = 0;
+    g_stWhiteBalanceInfo.nRGain = 100;
+    g_stWhiteBalanceInfo.nBGain = 100;
+
+    /* 人脸抓拍配置默认值 */
+    g_stFaceCaptureInfo.bEnable = FALSE;
+    g_stFaceCaptureInfo.stRule.nSensitivity = 55;
+    g_stFaceCaptureInfo.stRule.stRegion.dwPointCount = 4;
+    g_stFaceCaptureInfo.stRule.stRegion.afPointX[0] = 0.20f; g_stFaceCaptureInfo.stRule.stRegion.afPointY[0] = 0.20f;
+    g_stFaceCaptureInfo.stRule.stRegion.afPointX[1] = 0.80f; g_stFaceCaptureInfo.stRule.stRegion.afPointY[1] = 0.20f;
+    g_stFaceCaptureInfo.stRule.stRegion.afPointX[2] = 0.80f; g_stFaceCaptureInfo.stRule.stRegion.afPointY[2] = 0.80f;
+    g_stFaceCaptureInfo.stRule.stRegion.afPointX[3] = 0.20f; g_stFaceCaptureInfo.stRule.stRegion.afPointY[3] = 0.80f;
+    g_stFaceCaptureInfo.stRule.dwShieldRegionCount = 1;
+    g_stFaceCaptureInfo.stRule.astShieldRegion[0].dwPointCount = 4;
+    g_stFaceCaptureInfo.stRule.astShieldRegion[0].afPointX[0] = 0.45f; g_stFaceCaptureInfo.stRule.astShieldRegion[0].afPointY[0] = 0.45f;
+    g_stFaceCaptureInfo.stRule.astShieldRegion[0].afPointX[1] = 0.55f; g_stFaceCaptureInfo.stRule.astShieldRegion[0].afPointY[1] = 0.45f;
+    g_stFaceCaptureInfo.stRule.astShieldRegion[0].afPointX[2] = 0.55f; g_stFaceCaptureInfo.stRule.astShieldRegion[0].afPointY[2] = 0.55f;
+    g_stFaceCaptureInfo.stRule.astShieldRegion[0].afPointX[3] = 0.45f; g_stFaceCaptureInfo.stRule.astShieldRegion[0].afPointY[3] = 0.55f;
+    g_stFaceCaptureInfo.stRule.nMinIpdRectLeft = 10;
+    g_stFaceCaptureInfo.stRule.nMinIpdRectTop = 10;
+    g_stFaceCaptureInfo.stRule.nMinIpdRectRight = 90;
+    g_stFaceCaptureInfo.stRule.nMinIpdRectBottom = 90;
+    g_stFaceCaptureInfo.stRule.nMinWidth = 20;
+    g_stFaceCaptureInfo.stRule.nMinHeight = 20;
+    g_stFaceCaptureInfo.stRule.nMaxWidth = 300;
+    g_stFaceCaptureInfo.stRule.nMaxHeight = 300;
+    g_stFaceCaptureInfo.stRule.nInterval = 2;
+    for (int day = 0; day < 7; day++)
+    {
+        g_stFaceCaptureInfo.stAlarmSchedule.dwTimeSectionCount[day] = 1;
+        g_stFaceCaptureInfo.stAlarmSchedule.astTimeSection[day][0].nStartHour = 0;
+        g_stFaceCaptureInfo.stAlarmSchedule.astTimeSection[day][0].nStartMinute = 0;
+        g_stFaceCaptureInfo.stAlarmSchedule.astTimeSection[day][0].nEndHour = 23;
+        g_stFaceCaptureInfo.stAlarmSchedule.astTimeSection[day][0].nEndMinute = 59;
+    }
+
+    /* 人脸比对配置默认值 */
+    g_stFaceCompareInfo.bEnable = FALSE;
+    InitSimpleAiAlarmSchedule(&g_stFaceCompareInfo.stAlarmSchedule);
+    g_stFaceCompareInfo.stLinkageListSuccess.dwSnapshotChannelCount = 1;
+    g_stFaceCompareInfo.stLinkageListSuccess.adwSnapshotChannel[0] = 1;
+    g_stFaceCompareInfo.stLinkageListFail.dwSnapshotChannelCount = 1;
+    g_stFaceCompareInfo.stLinkageListFail.adwSnapshotChannel[0] = 1;
+
+    /* 目标库默认值 */
+    g_stFaceLibList.nTargetLibCount = 1;
+    strncpy(g_stFaceLibList.astTargetLibInfos[0].szFaceLibName,
+            "default_library",
+            sizeof(g_stFaceLibList.astTargetLibInfos[0].szFaceLibName) - 1);
+    g_stFaceLibList.astTargetLibInfos[0].nTotalFace = 1;
+    g_stFaceLibList.astTargetLibInfos[0].nNormalNum = 1;
+    g_stFaceLibList.astTargetLibInfos[0].nAbnormalNum = 0;
+
+    /* 人脸信息默认值 */
+    g_stFaceInfoList.nFaceInfoCount = 1;
+    g_stFaceInfoList.astFaceInfos[0].nId = 1;
+    strncpy(g_stFaceInfoList.astFaceInfos[0].szFaceLibName,
+            "default_library",
+            sizeof(g_stFaceInfoList.astFaceInfos[0].szFaceLibName) - 1);
+    strncpy(g_stFaceInfoList.astFaceInfos[0].szName,
+            "demo_person",
+            sizeof(g_stFaceInfoList.astFaceInfos[0].szName) - 1);
+    strncpy(g_stFaceInfoList.astFaceInfos[0].szPhoneNum,
+            "13800000000",
+            sizeof(g_stFaceInfoList.astFaceInfos[0].szPhoneNum) - 1);
+    strncpy(g_stFaceInfoList.astFaceInfos[0].szPicPath,
+            "/tmp/demo_person.jpg",
+            sizeof(g_stFaceInfoList.astFaceInfos[0].szPicPath) - 1);
+    strncpy(g_stFaceInfoList.astFaceInfos[0].szBinPath,
+            "/tmp/demo_person.bin",
+            sizeof(g_stFaceInfoList.astFaceInfos[0].szBinPath) - 1);
+    strncpy(g_stFaceInfoList.astFaceInfos[0].szPicType,
+            "jpg",
+            sizeof(g_stFaceInfoList.astFaceInfos[0].szPicType) - 1);
+    g_stFaceInfoList.astFaceInfos[0].nPicSize = 1024;
+    strncpy(g_stFaceInfoList.astFaceInfos[0].szPicDate,
+            "2026-05-07 10:00:00",
+            sizeof(g_stFaceInfoList.astFaceInfos[0].szPicDate) - 1);
+    g_stFaceInfoList.astFaceInfos[0].nModelState = 1;
+    g_stFaceInfoList.astFaceInfos[0].nRatingLevel = 3;
+
+    /* 垃圾暴露配置默认值 */
+    g_stGarbageExposureCfg.bEnable = FALSE;
+    g_stGarbageExposureCfg.stRule.nSensitivity = 50;
+    g_stGarbageExposureCfg.stRule.dwPointCount = 4;
+    g_stGarbageExposureCfg.stRule.afPointX[0] = 0.2f; g_stGarbageExposureCfg.stRule.afPointY[0] = 0.2f;
+    g_stGarbageExposureCfg.stRule.afPointX[1] = 0.8f; g_stGarbageExposureCfg.stRule.afPointY[1] = 0.2f;
+    g_stGarbageExposureCfg.stRule.afPointX[2] = 0.8f; g_stGarbageExposureCfg.stRule.afPointY[2] = 0.8f;
+    g_stGarbageExposureCfg.stRule.afPointX[3] = 0.2f; g_stGarbageExposureCfg.stRule.afPointY[3] = 0.8f;
+    for (int day = 0; day < 7; day++)
+    {
+        g_stGarbageExposureCfg.stAlarmSchedule.dwTimeSectionCount[day] = 1;
+        g_stGarbageExposureCfg.stAlarmSchedule.astTimeSection[day][0].nStartHour = 0;
+        g_stGarbageExposureCfg.stAlarmSchedule.astTimeSection[day][0].nStartMinute = 0;
+        g_stGarbageExposureCfg.stAlarmSchedule.astTimeSection[day][0].nEndHour = 23;
+        g_stGarbageExposureCfg.stAlarmSchedule.astTimeSection[day][0].nEndMinute = 59;
+    }
+
+    /* 垃圾满溢配置默认值 */
+    g_stGarbageOverflowCfg.bEnable = FALSE;
+    g_stGarbageOverflowCfg.stRule.nSensitivity = 50;
+    g_stGarbageOverflowCfg.stRule.dwPointCount = 4;
+    g_stGarbageOverflowCfg.stRule.afPointX[0] = 0.2f; g_stGarbageOverflowCfg.stRule.afPointY[0] = 0.2f;
+    g_stGarbageOverflowCfg.stRule.afPointX[1] = 0.8f; g_stGarbageOverflowCfg.stRule.afPointY[1] = 0.2f;
+    g_stGarbageOverflowCfg.stRule.afPointX[2] = 0.8f; g_stGarbageOverflowCfg.stRule.afPointY[2] = 0.8f;
+    g_stGarbageOverflowCfg.stRule.afPointX[3] = 0.2f; g_stGarbageOverflowCfg.stRule.afPointY[3] = 0.8f;
+    g_stGarbageOverflowCfg.nTimeThreshold = 60;
+    for (int day = 0; day < 7; day++)
+    {
+        g_stGarbageOverflowCfg.stAlarmSchedule.dwTimeSectionCount[day] = 1;
+        g_stGarbageOverflowCfg.stAlarmSchedule.astTimeSection[day][0].nStartHour = 0;
+        g_stGarbageOverflowCfg.stAlarmSchedule.astTimeSection[day][0].nStartMinute = 0;
+        g_stGarbageOverflowCfg.stAlarmSchedule.astTimeSection[day][0].nEndHour = 23;
+        g_stGarbageOverflowCfg.stAlarmSchedule.astTimeSection[day][0].nEndMinute = 59;
+    }
+
+    g_stManholeCoverAbnormalCfg.bEnable = FALSE;
+    g_stManholeCoverAbnormalCfg.stRule.nSensitivity = 50;
+    InitSimpleAiAlarmSchedule(&g_stManholeCoverAbnormalCfg.stAlarmSchedule);
+
+    g_stSleepOnDutyCfg.bEnable = FALSE;
+    g_stSleepOnDutyCfg.stRule.nSensitivity = 50;
+    InitSimpleAiAlarmSchedule(&g_stSleepOnDutyCfg.stAlarmSchedule);
+
+    g_stElectricVehicleInElevatorCfg.bEnable = FALSE;
+    g_stElectricVehicleInElevatorCfg.stRule.nSensitivity = 50;
+    InitSimpleAiAlarmSchedule(&g_stElectricVehicleInElevatorCfg.stAlarmSchedule);
+
+    g_stPersonFallDownCfg.bEnable = FALSE;
+    g_stPersonFallDownCfg.stRule.nSensitivity = 50;
+    InitSimpleAiAlarmSchedule(&g_stPersonFallDownCfg.stAlarmSchedule);
+
+    g_stConstructionOccupyRoadCfg.bEnable = FALSE;
+    g_stConstructionOccupyRoadCfg.stRule.nSensitivity = 50;
+    InitSimpleAiAlarmSchedule(&g_stConstructionOccupyRoadCfg.stAlarmSchedule);
+
+    g_stCongestionCfg.bEnable = FALSE;
+    g_stCongestionCfg.stRule.nSensitivity = 50;
+    InitSimpleAiAlarmSchedule(&g_stCongestionCfg.stAlarmSchedule);
+
+    g_stLicensePlateRecognitionCfg.bEnable = FALSE;
+    g_stLicensePlateRecognitionCfg.stRule.nSensitivity = 50;
+    InitSimpleAiAlarmSchedule(&g_stLicensePlateRecognitionCfg.stAlarmSchedule);
+
+    g_stHighAltitudeSeatbeltCfg.bEnable = FALSE;
+    g_stHighAltitudeSeatbeltCfg.stRule.nSensitivity = 50;
+    InitSimpleAiAlarmSchedule(&g_stHighAltitudeSeatbeltCfg.stAlarmSchedule);
+
+    g_stSafetyHelmetCfg.bEnable = FALSE;
+    g_stSafetyHelmetCfg.stRule.nSensitivity = 50;
+    InitSimpleAiAlarmSchedule(&g_stSafetyHelmetCfg.stAlarmSchedule);
+
+    g_stPersonFallCfg.bEnable = FALSE;
+    g_stPersonFallCfg.stRule.nSensitivity = 50;
+    InitSimpleAiAlarmSchedule(&g_stPersonFallCfg.stAlarmSchedule);
+
+    g_stPhoneUsageCfg.bEnable = FALSE;
+    g_stPhoneUsageCfg.stRule.nSensitivity = 50;
+    InitSimpleAiAlarmSchedule(&g_stPhoneUsageCfg.stAlarmSchedule);
+
+    g_stSmokingCfg.bEnable = FALSE;
+    g_stSmokingCfg.stRule.nSensitivity = 50;
+    InitSimpleAiAlarmSchedule(&g_stSmokingCfg.stAlarmSchedule);
+
+    g_stOpenFlameCfg.bEnable = FALSE;
+    g_stOpenFlameCfg.stRule.nSensitivity = 50;
+    InitSimpleAiAlarmSchedule(&g_stOpenFlameCfg.stAlarmSchedule);
+
+    g_stBareSoilCfg.bEnable = FALSE;
+    g_stBareSoilCfg.stRule.nSensitivity = 50;
+    InitSimpleAiAlarmSchedule(&g_stBareSoilCfg.stAlarmSchedule);
+
+    g_stHoleProtectionBarCfg.bEnable = FALSE;
+    g_stHoleProtectionBarCfg.stRule.nSensitivity = 50;
+    InitSimpleAiAlarmSchedule(&g_stHoleProtectionBarCfg.stAlarmSchedule);
+
+    g_stReflectiveClothingCfg.bEnable = FALSE;
+    g_stReflectiveClothingCfg.stRule.nSensitivity = 50;
+    InitSimpleAiAlarmSchedule(&g_stReflectiveClothingCfg.stAlarmSchedule);
+
+    g_stPetRecognitionInfo.bEnable = FALSE;
+    g_stPetRecognitionInfo.bDynamicAnalysisEnable = FALSE;
+    g_stPetRecognitionInfo.nSensitivity = 50;
+    InitDemoSmartRegion(&g_stPetRecognitionInfo.stRegion);
+    InitSimpleAiAlarmSchedule(&g_stPetRecognitionInfo.stAlarmSchedule);
+
+    g_stClimbFenceInfo.bEnable = FALSE;
+    g_stClimbFenceInfo.dwRuleCount = 1;
+    InitDemoSmartRegionRule(&g_stClimbFenceInfo.astRule[0]);
+    InitSimpleAiAlarmSchedule(&g_stClimbFenceInfo.stAlarmSchedule);
+
+    g_stDimissionInfo.bEnable = FALSE;
+    g_stDimissionInfo.dwRuleCount = 1;
+    InitDemoSmartRegionRule(&g_stDimissionInfo.astRule[0]);
+    InitSimpleAiAlarmSchedule(&g_stDimissionInfo.stAlarmSchedule);
+
+    g_stIllegalLaneInfo.bEnable = FALSE;
+    g_stIllegalLaneInfo.dwRuleCount = 1;
+    InitDemoSmartLineRule(&g_stIllegalLaneInfo.astRule[0]);
+    InitSimpleAiAlarmSchedule(&g_stIllegalLaneInfo.stAlarmSchedule);
+
+    g_stRetrogradeInfo.bEnable = FALSE;
+    g_stRetrogradeInfo.dwRuleCount = 1;
+    InitDemoSmartLineRule(&g_stRetrogradeInfo.astRule[0]);
+    InitSimpleAiAlarmSchedule(&g_stRetrogradeInfo.stAlarmSchedule);
+
+    g_stNonmotorVehicleIntrusionInfo.bEnable = FALSE;
+    g_stNonmotorVehicleIntrusionInfo.dwRuleCount = 1;
+    InitDemoSmartRegionRule(&g_stNonmotorVehicleIntrusionInfo.astRule[0]);
+    InitSimpleAiAlarmSchedule(&g_stNonmotorVehicleIntrusionInfo.stAlarmSchedule);
+
+    g_stOccupationEmergencyInfo.bEnable = FALSE;
+    g_stOccupationEmergencyInfo.dwRuleCount = 1;
+    InitDemoSmartRegionRule(&g_stOccupationEmergencyInfo.astRule[0]);
+    InitSimpleAiAlarmSchedule(&g_stOccupationEmergencyInfo.stAlarmSchedule);
+
+    g_stPedestrianIntrusionInfo.bEnable = FALSE;
+    g_stPedestrianIntrusionInfo.dwRuleCount = 1;
+    InitDemoSmartRegionRule(&g_stPedestrianIntrusionInfo.astRule[0]);
+    InitSimpleAiAlarmSchedule(&g_stPedestrianIntrusionInfo.stAlarmSchedule);
+
+    g_stSmokeFireCfg.bEnable = FALSE;
+    g_stSmokeFireCfg.stRule.nSensitivity = 50;
+    InitSimpleAiAlarmSchedule(&g_stSmokeFireCfg.stAlarmSchedule);
+
+    g_stRoadPondingCfg.bEnable = FALSE;
+    g_stRoadPondingCfg.stRule.nSensitivity = 50;
+    InitSimpleAiAlarmSchedule(&g_stRoadPondingCfg.stAlarmSchedule);
+}
+
+
+/* ====================== 设备信息回调（用于登录获取基本能力） ====================== */
+
+static NET_TV_COMMON_ECODE_E MyDeviceInfoCb(LPNET_TV_DEVICE_INFO_S pInfo)
+{
+    if (!pInfo)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    printf("[ConfigServerDemo] GetDeviceInfo callback\n");
+
+    memset(pInfo, 0, sizeof(NET_TV_DEVICE_INFO_S));
+    pInfo->dwDevType        = 0;
+    pInfo->wAlarmInPortNum  = 0;
+    pInfo->wAlarmOutPortNum = 0;
+    pInfo->dwChannelNum     = 1; /* 单通道示例 */
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* ====================== 配置 Get/Set 回调实现 ====================== */
+
+/* 设备基本信息 Get 回调，对应命令 NET_TV_GET_DEVICECFG */
+static NET_TV_COMMON_ECODE_E MyGetDeviceCfgCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpOutBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_DEVICE_BASICINFO_S pOut = (LPNET_TV_DEVICE_BASICINFO_S)lpOutBuffer;
+    *pOut = g_stDeviceBasicInfo;
+
+    printf("[ConfigServerDemo] GetDeviceCfg callback, Channel=%d\n", dwChannelID);
+    printf("  DevModel=%s\n", g_stDeviceBasicInfo.szDevModel);
+    printf("  SerialNum=%s\n", g_stDeviceBasicInfo.szSerialNum);
+    printf("  DeviceName=%s\n", g_stDeviceBasicInfo.szDeviceName);
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 设备基本信息 Set 回调，对应命令 NET_TV_SET_DEVICECFG */
+static NET_TV_COMMON_ECODE_E MySetDeviceCfgCb(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpInBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_DEVICE_BASICINFO_S pIn = (LPNET_TV_DEVICE_BASICINFO_S)lpInBuffer;
+    g_stDeviceBasicInfo = *pIn;
+
+    printf("[ConfigServerDemo] SetDeviceCfg callback, Channel=%d\n", dwChannelID);
+    printf("  New DevModel=%s\n", g_stDeviceBasicInfo.szDevModel);
+    printf("  New SerialNum=%s\n", g_stDeviceBasicInfo.szSerialNum);
+    printf("  New DeviceName=%s\n", g_stDeviceBasicInfo.szDeviceName);
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 音频配置 Get 回调，对应命令 NET_TV_GET_AUDIOCFG */
+static NET_TV_COMMON_ECODE_E MyGetAudioCfgCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpOutBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_AUDIO_CFG_S pOut = (LPNET_TV_AUDIO_CFG_S)lpOutBuffer;
+    *pOut = g_stAudioCfg;
+
+    printf("[ConfigServerDemo] GetAudioCfg callback, Channel=%d\n", dwChannelID);
+    printf("  AudioSwitch=%d, InputType=%d, Format=%d, SampRate=%d, BitRate=%d, InputVolume=%u, Denoise=%d, OutputType=%d, OutputVolume=%u\n",
+           g_stAudioCfg.bAudioSwitch,
+           g_stAudioCfg.enInputType,
+           g_stAudioCfg.enFormat,
+           g_stAudioCfg.enSampRate,
+           g_stAudioCfg.enBitRate,
+           g_stAudioCfg.u32InputVolume,
+           g_stAudioCfg.bDenoise,
+           g_stAudioCfg.enOutputType,
+           g_stAudioCfg.u32OutputVolume);
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 音频配置 Set 回调，对应命令 NET_TV_SET_AUDIOCFG */
+static NET_TV_COMMON_ECODE_E MySetAudioCfgCb(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpInBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_AUDIO_CFG_S pIn = (LPNET_TV_AUDIO_CFG_S)lpInBuffer;
+    g_stAudioCfg = *pIn;
+
+    printf("[ConfigServerDemo] SetAudioCfg callback, Channel=%d\n", dwChannelID);
+    printf("  New AudioSwitch=%d, InputType=%d, Format=%d, SampRate=%d, BitRate=%d, InputVolume=%u, Denoise=%d, OutputType=%d, OutputVolume=%u\n",
+           g_stAudioCfg.bAudioSwitch, g_stAudioCfg.enInputType, g_stAudioCfg.enFormat, g_stAudioCfg.enSampRate,
+           g_stAudioCfg.enBitRate, g_stAudioCfg.u32InputVolume, g_stAudioCfg.bDenoise, g_stAudioCfg.enOutputType, g_stAudioCfg.u32OutputVolume);
+    return NET_TV_E_SUCCEED;
+}
+
+/* 视频码流配置 Get 回调，对应命令 NET_TV_GET_STREAMCFG */
+static NET_TV_COMMON_ECODE_E MyGetStreamCfgCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpOutBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_VIDEO_ENCODE_OPTION_S pOut = (LPNET_TV_VIDEO_ENCODE_OPTION_S)lpOutBuffer;
+    *pOut = g_stStreamCfg;
+
+    printf("[ConfigServerDemo] GetStreamCfg callback, Channel=%d\n", dwChannelID);
+    printf("  Id=%d, Codec=%d, Resolution=%dx%d, FrameRate=%d, AverageBitrate=%d, BitrateUpperLimit=%d\n",
+           g_stStreamCfg.nId,
+           g_stStreamCfg.enVideoCodec,
+           g_stStreamCfg.stVideoResolution.dwWidth,
+           g_stStreamCfg.stVideoResolution.dwHeight,
+           g_stStreamCfg.enFrameRate,
+           g_stStreamCfg.nAverageBitrate,
+           g_stStreamCfg.nBitrateUpperLimit);
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 视频码流配置 Set 回调，对应命令 NET_TV_SET_STREAMCFG */
+static NET_TV_COMMON_ECODE_E MySetStreamCfgCb(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpInBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_VIDEO_ENCODE_OPTION_S pIn = (LPNET_TV_VIDEO_ENCODE_OPTION_S)lpInBuffer;
+    g_stStreamCfg = *pIn;
+
+    printf("[ConfigServerDemo] SetStreamCfg callback, Channel=%d\n", dwChannelID);
+    printf("  New Id=%d, Codec=%d, Resolution=%dx%d, FrameRate=%d, AverageBitrate=%d, BitrateUpperLimit=%d\n",
+           g_stStreamCfg.nId,
+           g_stStreamCfg.enVideoCodec,
+           g_stStreamCfg.stVideoResolution.dwWidth,
+           g_stStreamCfg.stVideoResolution.dwHeight,
+           g_stStreamCfg.enFrameRate,
+           g_stStreamCfg.nAverageBitrate,
+           g_stStreamCfg.nBitrateUpperLimit);
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 网络配置 Get 回调，对应命令 NET_TV_GET_NETWORKCFG */
+static NET_TV_COMMON_ECODE_E MyGetNetworkCfgCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpOutBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_NETWORKCFG_S pOut = (LPNET_TV_NETWORKCFG_S)lpOutBuffer;
+    *pOut = g_stNetworkCfg;
+
+    printf("[ConfigServerDemo] GetNetworkCfg callback, Channel=%d\n", dwChannelID);
+    printf("  IPv4Address=%s\n", g_stNetworkCfg.szIpv4Address);
+    printf("  IPv4Gateway=%s\n", g_stNetworkCfg.szIPv4GateWay);
+    printf("  IPv4SubnetMask=%s\n", g_stNetworkCfg.szIPv4SubnetMask);
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 网络配置 Set 回调，对应命令 NET_TV_SET_NETWORKCFG */
+static NET_TV_COMMON_ECODE_E MySetNetworkCfgCb(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpInBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_NETWORKCFG_S pIn = (LPNET_TV_NETWORKCFG_S)lpInBuffer;
+    g_stNetworkCfg = *pIn;
+
+    printf("[ConfigServerDemo] SetNetworkCfg callback, Channel=%d\n", dwChannelID);
+    printf("  New IPv4Address=%s\n", g_stNetworkCfg.szIpv4Address);
+    printf("  New IPv4Gateway=%s\n", g_stNetworkCfg.szIPv4GateWay);
+    printf("  New IPv4SubnetMask=%s\n", g_stNetworkCfg.szIPv4SubnetMask);
+
+    return NET_TV_E_SUCCEED;
+}
+
+
+/* WIFI STA配置 Set 回调，对应命令 NET_TV_SET_CONFIG_WIFI_STA */
+static NET_TV_COMMON_ECODE_E MySetConfigWifiStaCb(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    if (!lpInBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    g_stWifiStaCfg = *(LPNET_TV_WIFI_STA_CFG_S)lpInBuffer;
+
+    printf("[ConfigServerDemo] SetConfigWifiSta callback, Channel=%d\n", dwChannelID);
+    printf("  EnableWifi=%d, EnableBoost=%d\n", g_stWifiStaCfg.bEnableWifi, g_stWifiStaCfg.bEnableBoost);
+    return NET_TV_E_SUCCEED;
+}
+
+/* WIFI STA连接 Set 回调，对应命令 NET_TV_CONNECT_WIFI_STA */
+static NET_TV_COMMON_ECODE_E MyConnectWifiStaCb(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    if (!lpInBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    g_stWifiStaConnect = *(LPNET_TV_WIFI_STA_CONNECT_S)lpInBuffer;
+
+    printf("[ConfigServerDemo] ConnectWifiSta callback, Channel=%d\n", dwChannelID);
+    printf("  Ssid=%s, SecurityMode=%d, Ip=%s, Interface=%s\n",
+           g_stWifiStaConnect.szSsid,
+           g_stWifiStaConnect.nSecurityMode,
+           g_stWifiStaConnect.szIpAddress,
+           g_stWifiStaConnect.szInterfaceName);
+    return NET_TV_E_SUCCEED;
+}
+
+/* WIFI STA断开 Set 回调，对应命令 NET_TV_DISCONNECT_WIFI_STA */
+static NET_TV_COMMON_ECODE_E MyDisconnectWifiStaCb(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    if (!lpInBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    g_stWifiStaConnect = *(LPNET_TV_WIFI_STA_CONNECT_S)lpInBuffer;
+    memset(g_stWifiStaConnect.szIpAddress, 0, sizeof(g_stWifiStaConnect.szIpAddress));
+
+    printf("[ConfigServerDemo] DisconnectWifiSta callback, Channel=%d\n", dwChannelID);
+    printf("  Ssid=%s disconnected\n", g_stWifiStaConnect.szSsid);
+    return NET_TV_E_SUCCEED;
+}
+
+/* 4G配置 Get 回调，对应命令 NET_TV_GET_4G_INFO */
+static NET_TV_COMMON_ECODE_E MyGet4GInfoCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    if (!lpOutBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    *(LPNET_TV_4G_INFO_S)lpOutBuffer = g_st4GInfo;
+
+    printf("[ConfigServerDemo] Get4GInfo callback, Channel=%d\n", dwChannelID);
+    printf("  APN=%s, CallNumber=%s, MTU=%d, AuthMode=%d, NetworkMode=%d, DialMode=%d\n",
+           g_st4GInfo.szApn,
+           g_st4GInfo.szCallNumber,
+           g_st4GInfo.nMtu,
+           g_st4GInfo.nAuthMode,
+           g_st4GInfo.nNetworkMode,
+           g_st4GInfo.nDialMode);
+    return NET_TV_E_SUCCEED;
+}
+
+/* 4G配置 Set 回调，对应命令 NET_TV_SET_4G_INFO */
+static NET_TV_COMMON_ECODE_E MySet4GInfoCb(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    if (!lpInBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    g_st4GInfo = *(LPNET_TV_4G_INFO_S)lpInBuffer;
+
+    printf("[ConfigServerDemo] Set4GInfo callback, Channel=%d\n", dwChannelID);
+    printf("  APN=%s, CallNumber=%s, MTU=%d, AuthMode=%d, NetworkMode=%d, DialMode=%d\n",
+           g_st4GInfo.szApn,
+           g_st4GInfo.szCallNumber,
+           g_st4GInfo.nMtu,
+           g_st4GInfo.nAuthMode,
+           g_st4GInfo.nNetworkMode,
+           g_st4GInfo.nDialMode);
+    return NET_TV_E_SUCCEED;
+}
+
+/* 热点配置 Set 回调，对应命令 NET_TV_SET_HOTSPOT_INFO */
+static NET_TV_COMMON_ECODE_E MySetHotspotInfoCb(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    if (!lpInBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    g_stHotspotInfo = *(LPNET_TV_HOTSPOT_INFO_S)lpInBuffer;
+
+    printf("[ConfigServerDemo] SetHotspotInfo callback, Channel=%d\n", dwChannelID);
+    printf("  Enabled=%d, Ssid=%s, SecurityMode=%s, EncryptionType=%s\n",
+           g_stHotspotInfo.bEnabled,
+           g_stHotspotInfo.szSsid,
+           g_stHotspotInfo.szSecurityMode,
+           g_stHotspotInfo.szEncryptionType);
+    return NET_TV_E_SUCCEED;
+}
+
+/* 热点连接设备 Get 回调，对应命令 NET_TV_GET_HOTSPOT_CONN */
+static NET_TV_COMMON_ECODE_E MyGetHotspotConnCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    int i = 0;
+    int nCount = 0;
+
+    if (!lpOutBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    *(LPNET_TV_HOTSPOT_CONN_INFO_S)lpOutBuffer = g_stHotspotConnInfo;
+
+    nCount = g_stHotspotConnInfo.nDeviceCount;
+    if (nCount > NET_TV_HOTSPOT_CONN_MAX_NUM)
+    {
+        nCount = NET_TV_HOTSPOT_CONN_MAX_NUM;
+    }
+
+    printf("[ConfigServerDemo] GetHotspotConn callback, Channel=%d\n", dwChannelID);
+    printf("  Status=%s, Total=%d, DeviceCount=%d\n",
+           g_stHotspotConnInfo.szStatus,
+           g_stHotspotConnInfo.nTotal,
+           g_stHotspotConnInfo.nDeviceCount);
+    for (i = 0; i < nCount; ++i)
+    {
+        printf("  Device[%d]: Index=%d, Mac=%s, Ip=%s, ConnTime=%s\n",
+               i,
+               g_stHotspotConnInfo.astDevices[i].nIndex,
+               g_stHotspotConnInfo.astDevices[i].szMac,
+               g_stHotspotConnInfo.astDevices[i].szIp,
+               g_stHotspotConnInfo.astDevices[i].szConnTime);
+    }
+
+    return NET_TV_E_SUCCEED;
+}
+
+static NET_TV_COMMON_ECODE_E MyGetSecurityServicesInfoCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    if (!lpOutBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    *(LPNET_TV_SECURITY_SERVICES_INFO_S)lpOutBuffer = g_stSecurityServicesInfo;
+    printf("[ConfigServerDemo] GetSecurityServicesInfo callback, Channel=%d, SshEnable=%d, SshPort=%d\n",
+           dwChannelID,
+           g_stSecurityServicesInfo.stSshAdmin.bSshEnable,
+           g_stSecurityServicesInfo.stSshAdmin.nSshPort);
+    return NET_TV_E_SUCCEED;
+}
+
+static NET_TV_COMMON_ECODE_E MySetSecurityServicesInfoCb(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    if (!lpInBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    g_stSecurityServicesInfo = *(LPNET_TV_SECURITY_SERVICES_INFO_S)lpInBuffer;
+    strncpy(g_stSshCountdownInfo.szCountdown,
+            g_stSecurityServicesInfo.stSshAdmin.szSshCountdown,
+            sizeof(g_stSshCountdownInfo.szCountdown) - 1);
+    g_stSshCountdownInfo.szCountdown[sizeof(g_stSshCountdownInfo.szCountdown) - 1] = '\0';
+    printf("[ConfigServerDemo] SetSecurityServicesInfo callback, Channel=%d, SshEnable=%d, SshPort=%d\n",
+           dwChannelID,
+           g_stSecurityServicesInfo.stSshAdmin.bSshEnable,
+           g_stSecurityServicesInfo.stSshAdmin.nSshPort);
+    return NET_TV_E_SUCCEED;
+}
+
+static NET_TV_COMMON_ECODE_E MyGetSshCountdownCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    if (!lpOutBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    *(LPNET_TV_SSH_COUNTDOWN_INFO_S)lpOutBuffer = g_stSshCountdownInfo;
+    printf("[ConfigServerDemo] GetSshCountdown callback, Channel=%d, Countdown=%s\n",
+           dwChannelID, g_stSshCountdownInfo.szCountdown);
+    return NET_TV_E_SUCCEED;
+}
+
+static NET_TV_COMMON_ECODE_E MyFindLogCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    NET_TV_LOG_LIST_S stReq;
+    if (!lpOutBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    stReq = *(LPNET_TV_LOG_LIST_S)lpOutBuffer;
+    *(LPNET_TV_LOG_LIST_S)lpOutBuffer = g_stLogList;
+    ((LPNET_TV_LOG_LIST_S)lpOutBuffer)->stCond = stReq.stCond;
+    ((LPNET_TV_LOG_LIST_S)lpOutBuffer)->stPage.nCurPage = stReq.stPage.nCurPage > 0 ? stReq.stPage.nCurPage : g_stLogList.stPage.nCurPage;
+    ((LPNET_TV_LOG_LIST_S)lpOutBuffer)->stPage.nPageSize = stReq.stPage.nPageSize > 0 ? stReq.stPage.nPageSize : g_stLogList.stPage.nPageSize;
+
+    printf("[ConfigServerDemo] FindLog callback, Channel=%d, Type=%d, Action=%d, Count=%d\n",
+           dwChannelID,
+           stReq.stCond.nType,
+           stReq.stCond.nAction,
+           g_stLogList.nLogCount);
+    return NET_TV_E_SUCCEED;
+}
+
+static NET_TV_COMMON_ECODE_E MyExportLogCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    printf("[ConfigServerDemo] ExportLog callback, Channel=%d\n", dwChannelID);
+    return MyFindLogCb(dwChannelID, lpOutBuffer);
+}
+
+static NET_TV_COMMON_ECODE_E MyGetLogServerCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    if (!lpOutBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    *(LPNET_TV_LOG_SERVER_INFO_S)lpOutBuffer = g_stLogServerInfo;
+    printf("[ConfigServerDemo] GetLogServer callback, Channel=%d, Enable=%d, Ssl=%d, Addr=%s, Port=%d\n",
+           dwChannelID,
+           g_stLogServerInfo.bEnable,
+           g_stLogServerInfo.bEnSsl,
+           g_stLogServerInfo.szServerAddr,
+           g_stLogServerInfo.nPort);
+    return NET_TV_E_SUCCEED;
+}
+
+static NET_TV_COMMON_ECODE_E MySetLogServerCb(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    if (!lpInBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    g_stLogServerInfo = *(LPNET_TV_LOG_SERVER_INFO_S)lpInBuffer;
+    printf("[ConfigServerDemo] SetLogServer callback, Channel=%d, Enable=%d, Ssl=%d, Addr=%s, Port=%d\n",
+           dwChannelID,
+           g_stLogServerInfo.bEnable,
+           g_stLogServerInfo.bEnSsl,
+           g_stLogServerInfo.szServerAddr,
+           g_stLogServerInfo.nPort);
+    return NET_TV_E_SUCCEED;
+}
+
+static NET_TV_COMMON_ECODE_E MyTestLogServerCb(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    if (!lpInBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_LOG_SERVER_INFO_S pInfo = (LPNET_TV_LOG_SERVER_INFO_S)lpInBuffer;
+    printf("[ConfigServerDemo] TestLogServer callback, Channel=%d, Addr=%s, Port=%d\n",
+           dwChannelID,
+           pInfo->szServerAddr,
+           pInfo->nPort);
+    return NET_TV_E_SUCCEED;
+}
+
+static NET_TV_COMMON_ECODE_E MyControlRecordInfoCb(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    if (!lpInBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    g_stRecordInfo = *(LPNET_TV_RECORD_INFO_S)lpInBuffer;
+    g_stRecordStatusInfo.nStatus = g_stRecordInfo.nRecordStatus;
+    printf("[ConfigServerDemo] ControlRecordInfo callback, Channel=%d, ChnId=%d, Status=%d, Name=%s\n",
+           dwChannelID,
+           g_stRecordInfo.nChnId,
+           g_stRecordInfo.nRecordStatus,
+           g_stRecordInfo.szRecordName);
+    return NET_TV_E_SUCCEED;
+}
+
+static NET_TV_COMMON_ECODE_E MyGetRecordStatusCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    if (!lpOutBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    *(LPNET_TV_RECORD_STATUS_INFO_S)lpOutBuffer = g_stRecordStatusInfo;
+    printf("[ConfigServerDemo] GetRecordStatus callback, Channel=%d, Status=%d\n",
+           dwChannelID,
+           g_stRecordStatusInfo.nStatus);
+    return NET_TV_E_SUCCEED;
+}
+
+static NET_TV_COMMON_ECODE_E MyGetRecordScheduleCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    if (!lpOutBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    *(LPNET_TV_RECORD_SCHEDULE_S)lpOutBuffer = g_stRecordSchedule;
+    printf("[ConfigServerDemo] GetRecordSchedule callback, Channel=%d, Enable=%d, DayCount=%d\n",
+           dwChannelID,
+           g_stRecordSchedule.bEnable,
+           g_stRecordSchedule.nDayScheduleCount);
+    return NET_TV_E_SUCCEED;
+}
+
+static NET_TV_COMMON_ECODE_E MySetRecordScheduleCb(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    if (!lpInBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    g_stRecordSchedule = *(LPNET_TV_RECORD_SCHEDULE_S)lpInBuffer;
+    printf("[ConfigServerDemo] SetRecordSchedule callback, Channel=%d, Enable=%d, DayCount=%d\n",
+           dwChannelID,
+           g_stRecordSchedule.bEnable,
+           g_stRecordSchedule.nDayScheduleCount);
+    return NET_TV_E_SUCCEED;
+}
+
+static NET_TV_COMMON_ECODE_E MyGetRecordAdvancedParamCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    if (!lpOutBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    *(LPNET_TV_RECORD_ADVANCED_PARAM_S)lpOutBuffer = g_stRecordAdvancedParam;
+    printf("[ConfigServerDemo] GetRecordAdvancedParam callback, Channel=%d, LoopWrite=%d, PreTime=%d, DelayTime=%d\n",
+           dwChannelID,
+           g_stRecordAdvancedParam.bLoopWrite,
+           g_stRecordAdvancedParam.nPreTime,
+           g_stRecordAdvancedParam.nDelayTime);
+    return NET_TV_E_SUCCEED;
+}
+
+static NET_TV_COMMON_ECODE_E MySetRecordAdvancedParamCb(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    if (!lpInBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    g_stRecordAdvancedParam = *(LPNET_TV_RECORD_ADVANCED_PARAM_S)lpInBuffer;
+    printf("[ConfigServerDemo] SetRecordAdvancedParam callback, Channel=%d, LoopWrite=%d, PreTime=%d, DelayTime=%d\n",
+           dwChannelID,
+           g_stRecordAdvancedParam.bLoopWrite,
+           g_stRecordAdvancedParam.nPreTime,
+           g_stRecordAdvancedParam.nDelayTime);
+    return NET_TV_E_SUCCEED;
+}
+
+static NET_TV_COMMON_ECODE_E MyFindRecordFileInfoCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    NET_TV_RECORD_FIND_COND_S stFind;
+    if (!lpOutBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    stFind = ((LPNET_TV_RECORD_FILE_LIST_S)lpOutBuffer)->stFind;
+    *(LPNET_TV_RECORD_FILE_LIST_S)lpOutBuffer = g_stRecordFileList;
+    ((LPNET_TV_RECORD_FILE_LIST_S)lpOutBuffer)->stFind = stFind;
+    printf("[ConfigServerDemo] FindRecordFileInfo callback, Channel=%d, ChnId=%d, Date=%s, Count=%d\n",
+           dwChannelID,
+           stFind.nChnId,
+           stFind.szDate,
+           g_stRecordFileList.nResultCount);
+    return NET_TV_E_SUCCEED;
+}
+
+static NET_TV_COMMON_ECODE_E MyDownloadRecordFileCb(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    NET_TV_ALARMER_S stAlarmer;
+    NET_TV_RECORD_DOWNLOAD_PROGRESS_S stProgress;
+
+    if (!lpInBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    g_stRecordDownloadList = *(LPNET_TV_RECORD_DOWNLOAD_LIST_S)lpInBuffer;
+    if (g_stRecordDownloadList.nProgressCount <= 0)
+    {
+        g_stRecordDownloadList.nProgressCount = 1;
+        strncpy(g_stRecordDownloadList.astProgress[0].szFilename,
+                "manual_record_demo.ts",
+                sizeof(g_stRecordDownloadList.astProgress[0].szFilename) - 1);
+    }
+    g_stRecordDownloadList.astProgress[0].nProgress = 35;
+
+    printf("[ConfigServerDemo] DownloadRecordFile callback, Channel=%d, DownloadCount=%d, Path=%s\n",
+           dwChannelID,
+           g_stRecordDownloadList.nDownloadCount,
+           g_stRecordDownloadList.astDownloads[0].szPath);
+
+    memset(&stAlarmer, 0, sizeof(stAlarmer));
+    strncpy(stAlarmer.szDeviceIP, "127.0.0.1", sizeof(stAlarmer.szDeviceIP) - 1);
+    stProgress = g_stRecordDownloadList.astProgress[0];
+    NET_TV_SERVER_PushAlarmInfo(&stAlarmer,
+                                NET_TV_NOTICE_DOWNLOAD_RECORD_PROGRESS,
+                                &stProgress,
+                                sizeof(stProgress));
+    return NET_TV_E_SUCCEED;
+}
+
+/* OSD能力集 Get 回调，对应命令 NET_TV_GET_OSDCAPCFG*/
+static NET_TV_COMMON_ECODE_E MyGetOSDCapCfgCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpOutBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_OSD_CAP_S pOut = (LPNET_TV_OSD_CAP_S)lpOutBuffer;
+    *pOut = g_stOsdCapCfg;
+
+    printf("[ConfigServerDemo] GetOSDCapCfg callback, Channel=%d\n", dwChannelID);
+    printf("  SupportOsd=%d\n", g_stOsdCapCfg.bSupportOsd);
+    printf("  SupportName=%d\n", g_stOsdCapCfg.bSupportName);
+    printf("  SupportTime=%d\n", g_stOsdCapCfg.bSupportTime);
+    printf("  SupportWeek=%d\n", g_stOsdCapCfg.bSupportWeek);
+    printf("  SupportCustomColor=%d\n", g_stOsdCapCfg.bSupportCustomColor);
+    printf("  MaxOsdNum=%u\n", g_stOsdCapCfg.udwMaxOsdNum);
+
+    printf("  SupportedFontSizeNum=%u\n", g_stOsdCapCfg.udwSupportedFontSizeNum);
+    for (UINT32 i = 0; i < g_stOsdCapCfg.udwSupportedFontSizeNum; ++i)
+    {
+        printf("    SupportedFontSizeList[%u]=%u\n", i, g_stOsdCapCfg.audwSupportedFontSizeList[i]);
+    }
+
+    printf("  SupportedDateFormatNum=%u\n", g_stOsdCapCfg.udwSupportedDateFormatNum);
+    for (UINT32 i = 0; i < g_stOsdCapCfg.udwSupportedDateFormatNum; ++i)
+    {
+        printf("    SupportedDateFormatList[%u]=%u\n", i, g_stOsdCapCfg.audwSupportedDateFormatList[i]);
+    }
+
+    printf("  SupportedTimeFormatNum=%u\n", g_stOsdCapCfg.udwSupportedTimeFormatNum);
+    for (UINT32 i = 0; i < g_stOsdCapCfg.udwSupportedTimeFormatNum; ++i)
+    {
+        printf("    SupportedTimeFormatList[%u]=%u\n", i, g_stOsdCapCfg.audwSupportedTimeFormatList[i]);
+    }
+
+    printf("  SupportedAlignNum=%u\n", g_stOsdCapCfg.udwSupportedAlignNum);
+    for (UINT32 i = 0; i < g_stOsdCapCfg.udwSupportedAlignNum; ++i)
+    {
+        printf("    SupportedAlignList[%u]=%u\n", i, g_stOsdCapCfg.audwSupportedAlignList[i]);
+    }
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* OSD配置 Get 回调，对应命令 NET_TV_GET_OSDCFG*/
+static NET_TV_COMMON_ECODE_E MyGetOSDCfgCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    int i = 0;
+
+    (void)dwChannelID;
+
+    if (!lpOutBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+
+    LPNET_TV_VIDEO_OSD_CFG_S pOut = (LPNET_TV_VIDEO_OSD_CFG_S)lpOutBuffer;
+    *pOut = g_stOsdCfg;
+
+    printf("[ConfigServerDemo] GetOSDCfg callback, Channel=%d\n", dwChannelID);
+    printf("  Align=%d\n", g_stOsdCfg.enAlign);
+
+    printf("  [NameOSD] Enable=%d, Name=%s\n",
+        g_stOsdCfg.stOsdNameInfo.bEnable,
+        g_stOsdCfg.stOsdNameInfo.strName);
+
+    printf("  [TimeOSD] Enable=%d, EnableWeek=%d, TimeFormat=%d, DateFormat=%d\n",
+        g_stOsdCfg.stOsdTimeInfo.bEnable,
+        g_stOsdCfg.stOsdTimeInfo.bEnableWeek,
+        g_stOsdCfg.stOsdTimeInfo.enTimeFormat,
+        g_stOsdCfg.stOsdTimeInfo.enDateFormat);
+
+    for (i = 0; i < 32; ++i)
+    {
+        if (!g_stOsdCfg.OsdInfo[i].bEnable)
+        {
+            continue;
+        }
+
+        printf("  [CustomOSD-%d] Id=%d, Enable=%d, Name=%s\n",
+            i,
+            g_stOsdCfg.OsdInfo[i].nId,
+            g_stOsdCfg.OsdInfo[i].bEnable,
+            g_stOsdCfg.OsdInfo[i].strName);
+    }
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* OSD配置 Set 回调，对应命令 NET_TV_SET_OSDCFG */
+static NET_TV_COMMON_ECODE_E MySetOSDCfgCb(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    int i = 0;
+
+    (void)dwChannelID;
+
+    if (!lpInBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_VIDEO_OSD_CFG_S pIn = (LPNET_TV_VIDEO_OSD_CFG_S)lpInBuffer;
+    g_stOsdCfg = *pIn;
+
+    printf("[ConfigServerDemo] SetOSDCfg callback, Channel=%d\n", dwChannelID);
+    printf("  New Align=%d\n", g_stOsdCfg.enAlign);
+
+    printf("  [NameOSD] Enable=%d, Name=%s\n",
+        g_stOsdCfg.stOsdNameInfo.bEnable,
+        g_stOsdCfg.stOsdNameInfo.strName);
+
+    printf("  [TimeOSD] Enable=%d, EnableWeek=%d, TimeFormat=%d, DateFormat=%d\n",
+        g_stOsdCfg.stOsdTimeInfo.bEnable,
+        g_stOsdCfg.stOsdTimeInfo.bEnableWeek,
+        g_stOsdCfg.stOsdTimeInfo.enTimeFormat,
+        g_stOsdCfg.stOsdTimeInfo.enDateFormat);
+
+    for (i = 0; i < 32; ++i)
+    {
+        if (!g_stOsdCfg.OsdInfo[i].bEnable)
+        {
+            continue;
+        }
+
+        printf("  [CustomOSD-%d] Id=%d, Enable=%d, Name=%s\n",
+            i,
+            g_stOsdCfg.OsdInfo[i].nId,
+            g_stOsdCfg.OsdInfo[i].bEnable,
+            g_stOsdCfg.OsdInfo[i].strName);
+    }
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 移动侦测配置 Get 回调，对应命令 NET_TV_GET_MOTIONALARM */
+static NET_TV_COMMON_ECODE_E MyGetMotionAlarmCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpOutBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_MOTION_ALARM_INFO_S pOut = (LPNET_TV_MOTION_ALARM_INFO_S)lpOutBuffer;
+    *pOut = g_stMotionAlarmInfo;
+
+    printf("[ConfigServerDemo] GetMotionAlarm callback, Channel=%d\n", dwChannelID);
+    printf("  Enable=%d, Mode=%d, Sensitivity=%d\n", 
+           g_stMotionAlarmInfo.bEnable, g_stMotionAlarmInfo.dwMode, 
+           g_stMotionAlarmInfo.stNormalMode.nSensitivity);
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 移动侦测配置 Set 回调，对应命令 NET_TV_SET_MOTIONALARM */
+static NET_TV_COMMON_ECODE_E MySetMotionAlarmCb(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpInBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_MOTION_ALARM_INFO_S pIn = (LPNET_TV_MOTION_ALARM_INFO_S)lpInBuffer;
+    g_stMotionAlarmInfo = *pIn;
+
+    printf("[ConfigServerDemo] SetMotionAlarm callback, Channel=%d\n", dwChannelID);
+    printf("  New Enable=%d, Mode=%d, Sensitivity=%d\n", 
+           g_stMotionAlarmInfo.bEnable, g_stMotionAlarmInfo.dwMode,
+           g_stMotionAlarmInfo.stNormalMode.nSensitivity);
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 遮挡报警配置 Get 回调，对应命令 NET_TV_GET_TAMPERALARM */
+static NET_TV_COMMON_ECODE_E MyGetTamperAlarmCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpOutBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_TAMPER_ALARM_INFO_S pOut = (LPNET_TV_TAMPER_ALARM_INFO_S)lpOutBuffer;
+    *pOut = g_stTamperAlarmInfo;
+
+    printf("[ConfigServerDemo] GetTamperAlarm callback, Channel=%d\n", dwChannelID);
+    printf("  Enable=%d, Sensitivity=%d, Rect=[%d,%d,%d,%d]\n",
+           g_stTamperAlarmInfo.bEnable, g_stTamperAlarmInfo.dwSensitivity,
+           g_stTamperAlarmInfo.nRectLeft, g_stTamperAlarmInfo.nRectTop,
+           g_stTamperAlarmInfo.nRectRight, g_stTamperAlarmInfo.nRectBottom);
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 遮挡报警配置 Set 回调，对应命令 NET_TV_SET_TAMPERALARM */
+static NET_TV_COMMON_ECODE_E MySetTamperAlarmCb(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpInBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_TAMPER_ALARM_INFO_S pIn = (LPNET_TV_TAMPER_ALARM_INFO_S)lpInBuffer;
+    g_stTamperAlarmInfo = *pIn;
+
+    printf("[ConfigServerDemo] SetTamperAlarm callback, Channel=%d\n", dwChannelID);
+    printf("  New Enable=%d, Sensitivity=%d\n", 
+           g_stTamperAlarmInfo.bEnable, g_stTamperAlarmInfo.dwSensitivity);
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 越界检测配置 Get 回调，对应命令 NET_TV_GET_CROSSLINEALARM */
+static NET_TV_COMMON_ECODE_E MyGetCrossLineAlarmCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpOutBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_CROSS_LINE_ALARM_INFO_S pOut = (LPNET_TV_CROSS_LINE_ALARM_INFO_S)lpOutBuffer;
+    *pOut = g_stCrossLineAlarmInfo;
+
+    printf("[ConfigServerDemo] GetCrossLineAlarm callback, Channel=%d\n", dwChannelID);
+    printf("  Enable=%d, RuleCount=%d\n", 
+           g_stCrossLineAlarmInfo.bEnable, g_stCrossLineAlarmInfo.dwRuleCount);
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 越界检测配置 Set 回调，对应命令 NET_TV_SET_CROSSLINEALARM */
+static NET_TV_COMMON_ECODE_E MySetCrossLineAlarmCb(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpInBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_CROSS_LINE_ALARM_INFO_S pIn = (LPNET_TV_CROSS_LINE_ALARM_INFO_S)lpInBuffer;
+    g_stCrossLineAlarmInfo = *pIn;
+
+    printf("[ConfigServerDemo] SetCrossLineAlarm callback, Channel=%d\n", dwChannelID);
+    printf("  New Enable=%d, RuleCount=%d\n", 
+           g_stCrossLineAlarmInfo.bEnable, g_stCrossLineAlarmInfo.dwRuleCount);
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 入侵检测配置 Get 回调，对应命令 NET_TV_GET_INTRUSIONALARM */
+static NET_TV_COMMON_ECODE_E MyGetIntrusionAlarmCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpOutBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_INTRUSION_ALARM_INFO_S pOut = (LPNET_TV_INTRUSION_ALARM_INFO_S)lpOutBuffer;
+    *pOut = g_stIntrusionAlarmInfo;
+
+    printf("[ConfigServerDemo] GetIntrusionAlarm callback, Channel=%d\n", dwChannelID);
+    printf("  Enable=%d, RuleCount=%d\n", 
+           g_stIntrusionAlarmInfo.bEnable, g_stIntrusionAlarmInfo.dwRuleCount);
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 入侵检测配置 Set 回调，对应命令 NET_TV_SET_INTRUSIONALARM */
+static NET_TV_COMMON_ECODE_E MySetIntrusionAlarmCb(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpInBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_INTRUSION_ALARM_INFO_S pIn = (LPNET_TV_INTRUSION_ALARM_INFO_S)lpInBuffer;
+    g_stIntrusionAlarmInfo = *pIn;
+
+    printf("[ConfigServerDemo] SetIntrusionAlarm callback, Channel=%d\n", dwChannelID);
+    printf("  New Enable=%d, RuleCount=%d\n", 
+           g_stIntrusionAlarmInfo.bEnable, g_stIntrusionAlarmInfo.dwRuleCount);
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 进入区域侦测配置 Get 回调，对应命令 NET_TV_GET_ENTERREGIONALARM */
+static NET_TV_COMMON_ECODE_E MyGetEnterRegionAlarmCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpOutBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_ENTER_REGION_ALARM_INFO_S pOut = (LPNET_TV_ENTER_REGION_ALARM_INFO_S)lpOutBuffer;
+    *pOut = g_stEnterRegionAlarmInfo;
+
+    printf("[ConfigServerDemo] GetEnterRegionAlarm callback, Channel=%d\n", dwChannelID);
+    printf("  Enable=%d, RuleCount=%d\n",
+           g_stEnterRegionAlarmInfo.bEnable,
+           g_stEnterRegionAlarmInfo.dwRuleCount);
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 进入区域侦测配置 Set 回调，对应命令 NET_TV_SET_ENTERREGIONALARM */
+static NET_TV_COMMON_ECODE_E MySetEnterRegionAlarmCb(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpInBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_ENTER_REGION_ALARM_INFO_S pIn = (LPNET_TV_ENTER_REGION_ALARM_INFO_S)lpInBuffer;
+    g_stEnterRegionAlarmInfo = *pIn;
+
+    printf("[ConfigServerDemo] SetEnterRegionAlarm callback, Channel=%d\n", dwChannelID);
+    printf("  New Enable=%d, RuleCount=%d\n",
+           g_stEnterRegionAlarmInfo.bEnable,
+           g_stEnterRegionAlarmInfo.dwRuleCount);
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 离开区域侦测配置 Get 回调，对应命令 NET_TV_GET_LEAVEREGIONALARM */
+static NET_TV_COMMON_ECODE_E MyGetLeaveRegionAlarmCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpOutBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_LEAVE_REGION_ALARM_INFO_S pOut = (LPNET_TV_LEAVE_REGION_ALARM_INFO_S)lpOutBuffer;
+    *pOut = g_stLeaveRegionAlarmInfo;
+
+    printf("[ConfigServerDemo] GetLeaveRegionAlarm callback, Channel=%d\n", dwChannelID);
+    printf("  Enable=%d, RuleCount=%d\n",
+           g_stLeaveRegionAlarmInfo.bEnable,
+           g_stLeaveRegionAlarmInfo.dwRuleCount);
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 离开区域侦测配置 Set 回调，对应命令 NET_TV_SET_LEAVEREGIONALARM */
+static NET_TV_COMMON_ECODE_E MySetLeaveRegionAlarmCb(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpInBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_LEAVE_REGION_ALARM_INFO_S pIn = (LPNET_TV_LEAVE_REGION_ALARM_INFO_S)lpInBuffer;
+    g_stLeaveRegionAlarmInfo = *pIn;
+
+    printf("[ConfigServerDemo] SetLeaveRegionAlarm callback, Channel=%d\n", dwChannelID);
+    printf("  New Enable=%d, RuleCount=%d\n",
+           g_stLeaveRegionAlarmInfo.bEnable,
+           g_stLeaveRegionAlarmInfo.dwRuleCount);
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 徘徊侦测配置 Get 回调，对应命令 NET_TV_GET_LOITERINGALARM */
+static NET_TV_COMMON_ECODE_E MyGetLoiteringAlarmCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpOutBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_LOITERING_ALARM_INFO_S pOut = (LPNET_TV_LOITERING_ALARM_INFO_S)lpOutBuffer;
+    *pOut = g_stLoiteringAlarmInfo;
+
+    printf("[ConfigServerDemo] GetIntrusionAlarm callback, Channel=%d\n", dwChannelID);
+    printf("  Enable=%d, RuleCount=%d\n", 
+           g_stLoiteringAlarmInfo.bEnable, g_stLoiteringAlarmInfo.dwRuleCount);
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 徘徊侦测配置 Set 回调，对应命令 NET_TV_SET_LOITERINGALARM */
+static NET_TV_COMMON_ECODE_E MySetLoiteringAlarmCb(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpInBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_LOITERING_ALARM_INFO_S pIn = (LPNET_TV_LOITERING_ALARM_INFO_S)lpInBuffer;
+    g_stLoiteringAlarmInfo = *pIn;
+
+    printf("[ConfigServerDemo] SetIntrusionAlarm callback, Channel=%d\n", dwChannelID);
+    printf("  New Enable=%d, RuleCount=%d\n", 
+           g_stLoiteringAlarmInfo.bEnable, g_stLoiteringAlarmInfo.dwRuleCount);
+
+    return NET_TV_E_SUCCEED;
+}
+
+
+/* 场景变更侦测配置 Get 回调，对应命令 NET_TV_GET_SCENECHANGEALARM */
+static NET_TV_COMMON_ECODE_E MyGetSceneChangeAlarmCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpOutBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_SCENE_CHANGE_ALARM_INFO_S pOut = (LPNET_TV_SCENE_CHANGE_ALARM_INFO_S)lpOutBuffer;
+    *pOut = g_stSceneChangeAlarmInfo;
+
+    printf("[ConfigServerDemo] GetSceneChangeAlarm callback, Channel=%d\n", dwChannelID);
+    printf("  Enable=%d, Sensitivity=%d\n",
+           g_stSceneChangeAlarmInfo.bEnable,
+           g_stSceneChangeAlarmInfo.nSensitivity);
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 场景变更侦测配置 Set 回调，对应命令 NET_TV_SET_SCENECHANGEALARM */
+static NET_TV_COMMON_ECODE_E MySetSceneChangeAlarmCb(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpInBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_SCENE_CHANGE_ALARM_INFO_S pIn = (LPNET_TV_SCENE_CHANGE_ALARM_INFO_S)lpInBuffer;
+    g_stSceneChangeAlarmInfo = *pIn;
+
+    printf("[ConfigServerDemo] SetSceneChangeAlarm callback, Channel=%d\n", dwChannelID);
+    printf("  New Enable=%d, Sensitivity=%d\n",
+           g_stSceneChangeAlarmInfo.bEnable,
+           g_stSceneChangeAlarmInfo.nSensitivity);
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 人员聚集侦测配置 Get 回调，对应命令 NET_TV_GET_CROWDGATHERINGALARM */
+static NET_TV_COMMON_ECODE_E MyGetCrowdGatheringAlarmCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpOutBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_CROWD_GATHERING_ALARM_INFO_S pOut = (LPNET_TV_CROWD_GATHERING_ALARM_INFO_S)lpOutBuffer;
+    *pOut = g_stCrowdGatheringAlarmInfo;
+
+    printf("[ConfigServerDemo] GetCrowdGatheringAlarm callback, Channel=%d\n", dwChannelID);
+    printf("  Enable=%d, RuleCount=%d\n",
+           g_stCrowdGatheringAlarmInfo.bEnable,
+           g_stCrowdGatheringAlarmInfo.dwRuleCount);
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 人员聚集侦测配置 Set 回调，对应命令 NET_TV_SET_CROWDGATHERINGALARM */
+static NET_TV_COMMON_ECODE_E MySetCrowdGatheringAlarmCb(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpInBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_CROWD_GATHERING_ALARM_INFO_S pIn = (LPNET_TV_CROWD_GATHERING_ALARM_INFO_S)lpInBuffer;
+    g_stCrowdGatheringAlarmInfo = *pIn;
+
+    printf("[ConfigServerDemo] SetCrowdGatheringAlarm callback, Channel=%d\n", dwChannelID);
+    printf("  New Enable=%d, RuleCount=%d\n",
+           g_stCrowdGatheringAlarmInfo.bEnable,
+           g_stCrowdGatheringAlarmInfo.dwRuleCount);
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 垃圾暴露配置 Get 回调，对应命令 NET_TV_GET_GARBAGE_EXPOSURE_CFG */
+static NET_TV_COMMON_ECODE_E MyGetGarbageExposureCfgCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpOutBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_GARBAGE_EXPOSURE_CFG_S pOut = (LPNET_TV_GARBAGE_EXPOSURE_CFG_S)lpOutBuffer;
+    *pOut = g_stGarbageExposureCfg;
+
+    printf("[ConfigServerDemo] GetGarbageExposureCfg callback, Channel=%d\n", dwChannelID);
+    printf("  Enable=%d, Sensitivity=%d, PointCount=%d\n",
+           g_stGarbageExposureCfg.bEnable,
+           g_stGarbageExposureCfg.stRule.nSensitivity,
+           g_stGarbageExposureCfg.stRule.dwPointCount);
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 垃圾暴露配置 Set 回调，对应命令 NET_TV_SET_GARBAGE_EXPOSURE_CFG */
+static NET_TV_COMMON_ECODE_E MySetGarbageExposureCfgCb(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpInBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_GARBAGE_EXPOSURE_CFG_S pIn = (LPNET_TV_GARBAGE_EXPOSURE_CFG_S)lpInBuffer;
+    g_stGarbageExposureCfg = *pIn;
+
+    printf("[ConfigServerDemo] SetGarbageExposureCfg callback, Channel=%d\n", dwChannelID);
+    printf("  New Enable=%d, Sensitivity=%d, PointCount=%d\n",
+           g_stGarbageExposureCfg.bEnable,
+           g_stGarbageExposureCfg.stRule.nSensitivity,
+           g_stGarbageExposureCfg.stRule.dwPointCount);
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 垃圾满溢配置 Get 回调，对应命令 NET_TV_GET_GARBAGE_OVERFLOW_CFG */
+static NET_TV_COMMON_ECODE_E MyGetGarbageOverflowCfgCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpOutBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_GARBAGE_OVERFLOW_CFG_S pOut = (LPNET_TV_GARBAGE_OVERFLOW_CFG_S)lpOutBuffer;
+    *pOut = g_stGarbageOverflowCfg;
+
+    printf("[ConfigServerDemo] GetGarbageOverflowCfg callback, Channel=%d\n", dwChannelID);
+    printf("  Enable=%d, Sensitivity=%d, PointCount=%d\n",
+           g_stGarbageOverflowCfg.bEnable,
+           g_stGarbageOverflowCfg.stRule.nSensitivity,
+           g_stGarbageOverflowCfg.stRule.dwPointCount);
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 垃圾满溢配置 Set 回调，对应命令 NET_TV_SET_GARBAGE_OVERFLOW_CFG */
+static NET_TV_COMMON_ECODE_E MySetGarbageOverflowCfgCb(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpInBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_GARBAGE_OVERFLOW_CFG_S pIn = (LPNET_TV_GARBAGE_OVERFLOW_CFG_S)lpInBuffer;
+    g_stGarbageOverflowCfg = *pIn;
+
+    printf("[ConfigServerDemo] SetGarbageOverflowCfg callback, Channel=%d\n", dwChannelID);
+    printf("  New Enable=%d, Sensitivity=%d, PointCount=%d\n",
+           g_stGarbageOverflowCfg.bEnable,
+           g_stGarbageOverflowCfg.stRule.nSensitivity,
+           g_stGarbageOverflowCfg.stRule.dwPointCount);
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 人流统计配置 Get 回调，对应命令 NET_TV_GET_PEOPLE_FLOW_STATISTICS_CFG */
+static NET_TV_COMMON_ECODE_E MyGetPeopleFlowStatisticsCfgCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpOutBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_PEOPLE_FLOW_STATISTICS_CFG_S pOut = (LPNET_TV_PEOPLE_FLOW_STATISTICS_CFG_S)lpOutBuffer;
+    *pOut = g_stPeopleFlowStatisticsCfg;
+
+    printf("[ConfigServerDemo] GetPeopleFlowStatisticsCfg callback, Channel=%d\n", dwChannelID);
+    printf("  Enable=%d, Sensitivity=%d, StatisticsType=%d\n",
+           g_stPeopleFlowStatisticsCfg.bEnable,
+           g_stPeopleFlowStatisticsCfg.nSensitivity,
+           g_stPeopleFlowStatisticsCfg.enStatisticsType);
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 人流统计配置 Set 回调，对应命令 NET_TV_SET_PEOPLE_FLOW_STATISTICS_CFG */
+static NET_TV_COMMON_ECODE_E MySetPeopleFlowStatisticsCfgCb(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpInBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_PEOPLE_FLOW_STATISTICS_CFG_S pIn = (LPNET_TV_PEOPLE_FLOW_STATISTICS_CFG_S)lpInBuffer;
+    g_stPeopleFlowStatisticsCfg = *pIn;
+
+    printf("[ConfigServerDemo] SetPeopleFlowStatisticsCfg callback, Channel=%d\n", dwChannelID);
+    printf("  New Enable=%d, Sensitivity=%d, StatisticsType=%d\n",
+           g_stPeopleFlowStatisticsCfg.bEnable,
+           g_stPeopleFlowStatisticsCfg.nSensitivity,
+           g_stPeopleFlowStatisticsCfg.enStatisticsType);
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 人流统计清零回调，对应命令 NET_TV_RESET_PEOPLE_FLOW_STATISTICS */
+static NET_TV_COMMON_ECODE_E MyResetPeopleFlowStatisticsCb(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    (void)dwChannelID;
+
+    printf("[ConfigServerDemo] ResetPeopleFlowStatistics callback, Channel=%d\n", dwChannelID);
+
+    /* 清零操作：将配置中的统计值置零 */
+    g_stPeopleFlowStatisticsCfg.nReportInterval = 0;
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 人员密度检测配置 Get 回调，对应命令 NET_TV_GET_PEOPLE_DENSITY_DETECTION_CFG */
+static NET_TV_COMMON_ECODE_E MyGetPeopleDensityDetectionCfgCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpOutBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_PEOPLE_DENSITY_DETECTION_CFG_S pOut = (LPNET_TV_PEOPLE_DENSITY_DETECTION_CFG_S)lpOutBuffer;
+    *pOut = g_stPeopleDensityDetectionCfg;
+
+    printf("[ConfigServerDemo] GetPeopleDensityDetectionCfg callback, Channel=%d\n", dwChannelID);
+    printf("  Enable=%d, Sensitivity=%d\n",
+           g_stPeopleDensityDetectionCfg.bEnable,
+           g_stPeopleDensityDetectionCfg.nSensitivity);
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 人员密度检测配置 Set 回调，对应命令 NET_TV_SET_PEOPLE_DENSITY_DETECTION_CFG */
+static NET_TV_COMMON_ECODE_E MySetPeopleDensityDetectionCfgCb(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpInBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_PEOPLE_DENSITY_DETECTION_CFG_S pIn = (LPNET_TV_PEOPLE_DENSITY_DETECTION_CFG_S)lpInBuffer;
+    g_stPeopleDensityDetectionCfg = *pIn;
+
+    printf("[ConfigServerDemo] SetPeopleDensityDetectionCfg callback, Channel=%d\n", dwChannelID);
+    printf("  New Enable=%d, Sensitivity=%d\n",
+           g_stPeopleDensityDetectionCfg.bEnable,
+           g_stPeopleDensityDetectionCfg.nSensitivity);
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 井盖异常检测配置 Get 回调，对应命令 NET_TV_GET_MANHOLE_COVER_ABNORMAL_CFG */
+static NET_TV_COMMON_ECODE_E MyGetManholeCoverAbnormalCfgCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpOutBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_MANHOLE_COVER_ABNORMAL_CFG_S pOut = (LPNET_TV_MANHOLE_COVER_ABNORMAL_CFG_S)lpOutBuffer;
+    *pOut = g_stManholeCoverAbnormalCfg;
+
+    printf("[ConfigServerDemo] GetManholeCoverAbnormalCfg callback, Channel=%d\n", dwChannelID);
+    printf("  Enable=%d, Sensitivity=%d\n",
+           g_stManholeCoverAbnormalCfg.bEnable,
+           g_stManholeCoverAbnormalCfg.stRule.nSensitivity);
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 井盖异常检测配置 Set 回调，对应命令 NET_TV_SET_MANHOLE_COVER_ABNORMAL_CFG */
+static NET_TV_COMMON_ECODE_E MySetManholeCoverAbnormalCfgCb(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpInBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_MANHOLE_COVER_ABNORMAL_CFG_S pIn = (LPNET_TV_MANHOLE_COVER_ABNORMAL_CFG_S)lpInBuffer;
+    g_stManholeCoverAbnormalCfg = *pIn;
+
+    printf("[ConfigServerDemo] SetManholeCoverAbnormalCfg callback, Channel=%d\n", dwChannelID);
+    printf("  New Enable=%d, Sensitivity=%d\n",
+           g_stManholeCoverAbnormalCfg.bEnable,
+           g_stManholeCoverAbnormalCfg.stRule.nSensitivity);
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 睡岗识别配置 Get 回调，对应命令 NET_TV_GET_SLEEP_ON_DUTY_CFG */
+static NET_TV_COMMON_ECODE_E MyGetSleepOnDutyCfgCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpOutBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_SLEEP_ON_DUTY_CFG_S pOut = (LPNET_TV_SLEEP_ON_DUTY_CFG_S)lpOutBuffer;
+    *pOut = g_stSleepOnDutyCfg;
+
+    printf("[ConfigServerDemo] GetSleepOnDutyCfg callback, Channel=%d\n", dwChannelID);
+    printf("  Enable=%d, Sensitivity=%d\n",
+           g_stSleepOnDutyCfg.bEnable,
+           g_stSleepOnDutyCfg.stRule.nSensitivity);
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 睡岗识别配置 Set 回调，对应命令 NET_TV_SET_SLEEP_ON_DUTY_CFG */
+static NET_TV_COMMON_ECODE_E MySetSleepOnDutyCfgCb(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpInBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_SLEEP_ON_DUTY_CFG_S pIn = (LPNET_TV_SLEEP_ON_DUTY_CFG_S)lpInBuffer;
+    g_stSleepOnDutyCfg = *pIn;
+
+    printf("[ConfigServerDemo] SetSleepOnDutyCfg callback, Channel=%d\n", dwChannelID);
+    printf("  New Enable=%d, Sensitivity=%d\n",
+           g_stSleepOnDutyCfg.bEnable,
+           g_stSleepOnDutyCfg.stRule.nSensitivity);
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 电瓶车进电梯识别配置 Get 回调，对应命令 NET_TV_GET_ELECTRIC_VEHICLE_IN_ELEVATOR_CFG */
+static NET_TV_COMMON_ECODE_E MyGetElectricVehicleInElevatorCfgCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpOutBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_ELECTRIC_VEHICLE_IN_ELEVATOR_CFG_S pOut = (LPNET_TV_ELECTRIC_VEHICLE_IN_ELEVATOR_CFG_S)lpOutBuffer;
+    *pOut = g_stElectricVehicleInElevatorCfg;
+
+    printf("[ConfigServerDemo] GetElectricVehicleInElevatorCfg callback, Channel=%d\n", dwChannelID);
+    printf("  Enable=%d, Sensitivity=%d\n",
+           g_stElectricVehicleInElevatorCfg.bEnable,
+           g_stElectricVehicleInElevatorCfg.stRule.nSensitivity);
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 电瓶车进电梯识别配置 Set 回调，对应命令 NET_TV_SET_ELECTRIC_VEHICLE_IN_ELEVATOR_CFG */
+static NET_TV_COMMON_ECODE_E MySetElectricVehicleInElevatorCfgCb(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpInBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_ELECTRIC_VEHICLE_IN_ELEVATOR_CFG_S pIn = (LPNET_TV_ELECTRIC_VEHICLE_IN_ELEVATOR_CFG_S)lpInBuffer;
+    g_stElectricVehicleInElevatorCfg = *pIn;
+
+    printf("[ConfigServerDemo] SetElectricVehicleInElevatorCfg callback, Channel=%d\n", dwChannelID);
+    printf("  New Enable=%d, Sensitivity=%d\n",
+           g_stElectricVehicleInElevatorCfg.bEnable,
+           g_stElectricVehicleInElevatorCfg.stRule.nSensitivity);
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 人员倒地识别配置 Get 回调，对应命令 NET_TV_GET_PERSON_FALL_DOWN_CFG */
+static NET_TV_COMMON_ECODE_E MyGetPersonFallDownCfgCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpOutBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_PERSON_FALL_DOWN_CFG_S pOut = (LPNET_TV_PERSON_FALL_DOWN_CFG_S)lpOutBuffer;
+    *pOut = g_stPersonFallDownCfg;
+
+    printf("[ConfigServerDemo] GetPersonFallDownCfg callback, Channel=%d\n", dwChannelID);
+    printf("  Enable=%d, Sensitivity=%d\n",
+           g_stPersonFallDownCfg.bEnable,
+           g_stPersonFallDownCfg.stRule.nSensitivity);
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 人员倒地识别配置 Set 回调，对应命令 NET_TV_SET_PERSON_FALL_DOWN_CFG */
+static NET_TV_COMMON_ECODE_E MySetPersonFallDownCfgCb(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpInBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_PERSON_FALL_DOWN_CFG_S pIn = (LPNET_TV_PERSON_FALL_DOWN_CFG_S)lpInBuffer;
+    g_stPersonFallDownCfg = *pIn;
+
+    printf("[ConfigServerDemo] SetPersonFallDownCfg callback, Channel=%d\n", dwChannelID);
+    printf("  New Enable=%d, Sensitivity=%d\n",
+           g_stPersonFallDownCfg.bEnable,
+           g_stPersonFallDownCfg.stRule.nSensitivity);
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 施工占道识别配置 Get 回调，对应命令 NET_TV_GET_CONSTRUCTION_OCCUPY_ROAD_CFG */
+static NET_TV_COMMON_ECODE_E MyGetConstructionOccupyRoadCfgCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpOutBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_CONSTRUCTION_OCCUPY_ROAD_CFG_S pOut = (LPNET_TV_CONSTRUCTION_OCCUPY_ROAD_CFG_S)lpOutBuffer;
+    *pOut = g_stConstructionOccupyRoadCfg;
+
+    printf("[ConfigServerDemo] GetConstructionOccupyRoadCfg callback, Channel=%d\n", dwChannelID);
+    printf("  Enable=%d, Sensitivity=%d\n",
+           g_stConstructionOccupyRoadCfg.bEnable,
+           g_stConstructionOccupyRoadCfg.stRule.nSensitivity);
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 施工占道识别配置 Set 回调，对应命令 NET_TV_SET_CONSTRUCTION_OCCUPY_ROAD_CFG */
+static NET_TV_COMMON_ECODE_E MySetConstructionOccupyRoadCfgCb(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpInBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_CONSTRUCTION_OCCUPY_ROAD_CFG_S pIn = (LPNET_TV_CONSTRUCTION_OCCUPY_ROAD_CFG_S)lpInBuffer;
+    g_stConstructionOccupyRoadCfg = *pIn;
+
+    printf("[ConfigServerDemo] SetConstructionOccupyRoadCfg callback, Channel=%d\n", dwChannelID);
+    printf("  New Enable=%d, Sensitivity=%d\n",
+           g_stConstructionOccupyRoadCfg.bEnable,
+           g_stConstructionOccupyRoadCfg.stRule.nSensitivity);
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 拥堵识别配置 Get 回调，对应命令 NET_TV_GET_CONGESTION_CFG */
+static NET_TV_COMMON_ECODE_E MyGetCongestionCfgCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpOutBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_CONGESTION_CFG_S pOut = (LPNET_TV_CONGESTION_CFG_S)lpOutBuffer;
+    *pOut = g_stCongestionCfg;
+
+    printf("[ConfigServerDemo] GetCongestionCfg callback, Channel=%d\n", dwChannelID);
+    printf("  Enable=%d, Sensitivity=%d\n",
+           g_stCongestionCfg.bEnable,
+           g_stCongestionCfg.stRule.nSensitivity);
+
+    return NET_TV_E_SUCCEED;
+}
+
+static NET_TV_COMMON_ECODE_E MyGetChannelListCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpOutBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_CHANNEL_LIST_S pOut = (LPNET_TV_CHANNEL_LIST_S)lpOutBuffer;
+    memset(pOut, 0, sizeof(*pOut));
+    pOut->dwSize = sizeof(*pOut);
+    pOut->dwChannelCount = 1;
+    pOut->stChannels[0] = g_stChannelInfo;
+
+    printf("[ConfigServerDemo] GetChannelList callback\n");
+    printf("  ChannelCount=%u\n", pOut->dwChannelCount);
+    printf("  Channel[0].Name=%s\n", pOut->stChannels[0].szChannelName);
+    printf("  Channel[0].PreviewMainUrl=%s\n", pOut->stChannels[0].szPreviewMainUrl);
+    printf("  Channel[0].PreviewSubUrl=%s\n", pOut->stChannels[0].szPreviewSubUrl);
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 拥堵识别配置 Set 回调，对应命令 NET_TV_SET_CONGESTION_CFG */
+static NET_TV_COMMON_ECODE_E MySetCongestionCfgCb(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpInBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_CONGESTION_CFG_S pIn = (LPNET_TV_CONGESTION_CFG_S)lpInBuffer;
+    g_stCongestionCfg = *pIn;
+
+    printf("[ConfigServerDemo] SetCongestionCfg callback, Channel=%d\n", dwChannelID);
+    printf("  New Enable=%d, Sensitivity=%d\n",
+           g_stCongestionCfg.bEnable,
+           g_stCongestionCfg.stRule.nSensitivity);
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 车牌识别配置 Get 回调，对应命令 NET_TV_GET_LICENSE_PLATE_RECOGNITION_CFG */
+static NET_TV_COMMON_ECODE_E MyGetLicensePlateRecognitionCfgCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpOutBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_LICENSE_PLATE_RECOGNITION_CFG_S pOut = (LPNET_TV_LICENSE_PLATE_RECOGNITION_CFG_S)lpOutBuffer;
+    *pOut = g_stLicensePlateRecognitionCfg;
+
+    printf("[ConfigServerDemo] GetLicensePlateRecognitionCfg callback, Channel=%d\n", dwChannelID);
+    printf("  Enable=%d, Sensitivity=%d\n",
+           g_stLicensePlateRecognitionCfg.bEnable,
+           g_stLicensePlateRecognitionCfg.stRule.nSensitivity);
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 车牌识别配置 Set 回调，对应命令 NET_TV_SET_LICENSE_PLATE_RECOGNITION_CFG */
+static NET_TV_COMMON_ECODE_E MySetLicensePlateRecognitionCfgCb(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpInBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_LICENSE_PLATE_RECOGNITION_CFG_S pIn = (LPNET_TV_LICENSE_PLATE_RECOGNITION_CFG_S)lpInBuffer;
+    g_stLicensePlateRecognitionCfg = *pIn;
+
+    printf("[ConfigServerDemo] SetLicensePlateRecognitionCfg callback, Channel=%d\n", dwChannelID);
+    printf("  New Enable=%d, Sensitivity=%d\n",
+           g_stLicensePlateRecognitionCfg.bEnable,
+           g_stLicensePlateRecognitionCfg.stRule.nSensitivity);
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 高空安全带识别配置 Get 回调，对应命令 NET_TV_GET_HIGH_ALTITUDE_SEATBELT_CFG */
+static NET_TV_COMMON_ECODE_E MyGetHighAltitudeSeatbeltCfgCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpOutBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_HIGH_ALTITUDE_SEATBELT_CFG_S pOut = (LPNET_TV_HIGH_ALTITUDE_SEATBELT_CFG_S)lpOutBuffer;
+    *pOut = g_stHighAltitudeSeatbeltCfg;
+
+    printf("[ConfigServerDemo] GetHighAltitudeSeatbeltCfg callback, Channel=%d\n", dwChannelID);
+    printf("  Enable=%d, Sensitivity=%d\n",
+           g_stHighAltitudeSeatbeltCfg.bEnable,
+           g_stHighAltitudeSeatbeltCfg.stRule.nSensitivity);
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 高空安全带识别配置 Set 回调，对应命令 NET_TV_SET_HIGH_ALTITUDE_SEATBELT_CFG */
+static NET_TV_COMMON_ECODE_E MySetHighAltitudeSeatbeltCfgCb(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpInBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_HIGH_ALTITUDE_SEATBELT_CFG_S pIn = (LPNET_TV_HIGH_ALTITUDE_SEATBELT_CFG_S)lpInBuffer;
+    g_stHighAltitudeSeatbeltCfg = *pIn;
+
+    printf("[ConfigServerDemo] SetHighAltitudeSeatbeltCfg callback, Channel=%d\n", dwChannelID);
+    printf("  New Enable=%d, Sensitivity=%d\n",
+           g_stHighAltitudeSeatbeltCfg.bEnable,
+           g_stHighAltitudeSeatbeltCfg.stRule.nSensitivity);
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 安全帽识别配置 Get 回调，对应命令 NET_TV_GET_SAFETY_HELMET_CFG */
+static NET_TV_COMMON_ECODE_E MyGetSafetyHelmetCfgCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpOutBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_SAFETY_HELMET_CFG_S pOut = (LPNET_TV_SAFETY_HELMET_CFG_S)lpOutBuffer;
+    *pOut = g_stSafetyHelmetCfg;
+
+    printf("[ConfigServerDemo] GetSafetyHelmetCfg callback, Channel=%d\n", dwChannelID);
+    printf("  Enable=%d, Sensitivity=%d\n",
+           g_stSafetyHelmetCfg.bEnable,
+           g_stSafetyHelmetCfg.stRule.nSensitivity);
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 安全帽识别配置 Set 回调，对应命令 NET_TV_SET_SAFETY_HELMET_CFG */
+static NET_TV_COMMON_ECODE_E MySetSafetyHelmetCfgCb(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpInBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_SAFETY_HELMET_CFG_S pIn = (LPNET_TV_SAFETY_HELMET_CFG_S)lpInBuffer;
+    g_stSafetyHelmetCfg = *pIn;
+
+    printf("[ConfigServerDemo] SetSafetyHelmetCfg callback, Channel=%d\n", dwChannelID);
+    printf("  New Enable=%d, Sensitivity=%d\n",
+           g_stSafetyHelmetCfg.bEnable,
+           g_stSafetyHelmetCfg.stRule.nSensitivity);
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 摔倒识别配置 Get 回调，对应命令 NET_TV_GET_PERSON_FALL_CFG */
+static NET_TV_COMMON_ECODE_E MyGetPersonFallCfgCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpOutBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_PERSON_FALL_CFG_S pOut = (LPNET_TV_PERSON_FALL_CFG_S)lpOutBuffer;
+    *pOut = g_stPersonFallCfg;
+
+    printf("[ConfigServerDemo] GetPersonFallCfg callback, Channel=%d\n", dwChannelID);
+    printf("  Enable=%d, Sensitivity=%d\n",
+           g_stPersonFallCfg.bEnable,
+           g_stPersonFallCfg.stRule.nSensitivity);
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 摔倒识别配置 Set 回调，对应命令 NET_TV_SET_PERSON_FALL_CFG */
+static NET_TV_COMMON_ECODE_E MySetPersonFallCfgCb(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpInBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_PERSON_FALL_CFG_S pIn = (LPNET_TV_PERSON_FALL_CFG_S)lpInBuffer;
+    g_stPersonFallCfg = *pIn;
+
+    printf("[ConfigServerDemo] SetPersonFallCfg callback, Channel=%d\n", dwChannelID);
+    printf("  New Enable=%d, Sensitivity=%d\n",
+           g_stPersonFallCfg.bEnable,
+           g_stPersonFallCfg.stRule.nSensitivity);
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 玩手机识别配置 Get 回调，对应命令 NET_TV_GET_PHONE_USAGE_CFG */
+static NET_TV_COMMON_ECODE_E MyGetPhoneUsageCfgCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpOutBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_PHONE_USAGE_CFG_S pOut = (LPNET_TV_PHONE_USAGE_CFG_S)lpOutBuffer;
+    *pOut = g_stPhoneUsageCfg;
+
+    printf("[ConfigServerDemo] GetPhoneUsageCfg callback, Channel=%d\n", dwChannelID);
+    printf("  Enable=%d, Sensitivity=%d\n",
+           g_stPhoneUsageCfg.bEnable,
+           g_stPhoneUsageCfg.stRule.nSensitivity);
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 玩手机识别配置 Set 回调，对应命令 NET_TV_SET_PHONE_USAGE_CFG */
+static NET_TV_COMMON_ECODE_E MySetPhoneUsageCfgCb(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpInBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_PHONE_USAGE_CFG_S pIn = (LPNET_TV_PHONE_USAGE_CFG_S)lpInBuffer;
+    g_stPhoneUsageCfg = *pIn;
+
+    printf("[ConfigServerDemo] SetPhoneUsageCfg callback, Channel=%d\n", dwChannelID);
+    printf("  New Enable=%d, Sensitivity=%d\n",
+           g_stPhoneUsageCfg.bEnable,
+           g_stPhoneUsageCfg.stRule.nSensitivity);
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 抽烟识别配置 Get 回调，对应命令 NET_TV_GET_SMOKING_CFG */
+static NET_TV_COMMON_ECODE_E MyGetSmokingCfgCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpOutBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_SMOKING_CFG_S pOut = (LPNET_TV_SMOKING_CFG_S)lpOutBuffer;
+    *pOut = g_stSmokingCfg;
+
+    printf("[ConfigServerDemo] GetSmokingCfg callback, Channel=%d\n", dwChannelID);
+    printf("  Enable=%d, Sensitivity=%d\n",
+           g_stSmokingCfg.bEnable,
+           g_stSmokingCfg.stRule.nSensitivity);
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 抽烟识别配置 Set 回调，对应命令 NET_TV_SET_SMOKING_CFG */
+static NET_TV_COMMON_ECODE_E MySetSmokingCfgCb(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpInBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_SMOKING_CFG_S pIn = (LPNET_TV_SMOKING_CFG_S)lpInBuffer;
+    g_stSmokingCfg = *pIn;
+
+    printf("[ConfigServerDemo] SetSmokingCfg callback, Channel=%d\n", dwChannelID);
+    printf("  New Enable=%d, Sensitivity=%d\n",
+           g_stSmokingCfg.bEnable,
+           g_stSmokingCfg.stRule.nSensitivity);
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 明火识别配置 Get 回调，对应命令 NET_TV_GET_OPEN_FLAME_CFG */
+static NET_TV_COMMON_ECODE_E MyGetOpenFlameCfgCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpOutBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_OPEN_FLAME_CFG_S pOut = (LPNET_TV_OPEN_FLAME_CFG_S)lpOutBuffer;
+    *pOut = g_stOpenFlameCfg;
+
+    printf("[ConfigServerDemo] GetOpenFlameCfg callback, Channel=%d\n", dwChannelID);
+    printf("  Enable=%d, Sensitivity=%d\n",
+           g_stOpenFlameCfg.bEnable,
+           g_stOpenFlameCfg.stRule.nSensitivity);
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 明火识别配置 Set 回调，对应命令 NET_TV_SET_OPEN_FLAME_CFG */
+static NET_TV_COMMON_ECODE_E MySetOpenFlameCfgCb(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpInBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_OPEN_FLAME_CFG_S pIn = (LPNET_TV_OPEN_FLAME_CFG_S)lpInBuffer;
+    g_stOpenFlameCfg = *pIn;
+
+    printf("[ConfigServerDemo] SetOpenFlameCfg callback, Channel=%d\n", dwChannelID);
+    printf("  New Enable=%d, Sensitivity=%d\n",
+           g_stOpenFlameCfg.bEnable,
+           g_stOpenFlameCfg.stRule.nSensitivity);
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 黄土裸露识别配置 Get 回调，对应命令 NET_TV_GET_BARE_SOIL_CFG */
+static NET_TV_COMMON_ECODE_E MyGetBareSoilCfgCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpOutBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_BARE_SOIL_CFG_S pOut = (LPNET_TV_BARE_SOIL_CFG_S)lpOutBuffer;
+    *pOut = g_stBareSoilCfg;
+
+    printf("[ConfigServerDemo] GetBareSoilCfg callback, Channel=%d\n", dwChannelID);
+    printf("  Enable=%d, Sensitivity=%d\n",
+           g_stBareSoilCfg.bEnable,
+           g_stBareSoilCfg.stRule.nSensitivity);
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 黄土裸露识别配置 Set 回调，对应命令 NET_TV_SET_BARE_SOIL_CFG */
+static NET_TV_COMMON_ECODE_E MySetBareSoilCfgCb(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpInBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_BARE_SOIL_CFG_S pIn = (LPNET_TV_BARE_SOIL_CFG_S)lpInBuffer;
+    g_stBareSoilCfg = *pIn;
+
+    printf("[ConfigServerDemo] SetBareSoilCfg callback, Channel=%d\n", dwChannelID);
+    printf("  New Enable=%d, Sensitivity=%d\n",
+           g_stBareSoilCfg.bEnable,
+           g_stBareSoilCfg.stRule.nSensitivity);
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 洞口防护栏识别配置 Get 回调，对应命令 NET_TV_GET_HOLE_PROTECTION_BAR_CFG */
+static NET_TV_COMMON_ECODE_E MyGetHoleProtectionBarCfgCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpOutBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_HOLE_PROTECTION_BAR_CFG_S pOut = (LPNET_TV_HOLE_PROTECTION_BAR_CFG_S)lpOutBuffer;
+    *pOut = g_stHoleProtectionBarCfg;
+
+    printf("[ConfigServerDemo] GetHoleProtectionBarCfg callback, Channel=%d\n", dwChannelID);
+    printf("  Enable=%d, Sensitivity=%d\n",
+           g_stHoleProtectionBarCfg.bEnable,
+           g_stHoleProtectionBarCfg.stRule.nSensitivity);
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 洞口防护栏识别配置 Set 回调，对应命令 NET_TV_SET_HOLE_PROTECTION_BAR_CFG */
+static NET_TV_COMMON_ECODE_E MySetHoleProtectionBarCfgCb(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpInBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_HOLE_PROTECTION_BAR_CFG_S pIn = (LPNET_TV_HOLE_PROTECTION_BAR_CFG_S)lpInBuffer;
+    g_stHoleProtectionBarCfg = *pIn;
+
+    printf("[ConfigServerDemo] SetHoleProtectionBarCfg callback, Channel=%d\n", dwChannelID);
+    printf("  New Enable=%d, Sensitivity=%d\n",
+           g_stHoleProtectionBarCfg.bEnable,
+           g_stHoleProtectionBarCfg.stRule.nSensitivity);
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 反光衣识别配置 Get 回调，对应命令 NET_TV_GET_REFLECTIVE_CLOTHING_CFG */
+static NET_TV_COMMON_ECODE_E MyGetReflectiveClothingCfgCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpOutBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_REFLECTIVE_CLOTHING_CFG_S pOut = (LPNET_TV_REFLECTIVE_CLOTHING_CFG_S)lpOutBuffer;
+    *pOut = g_stReflectiveClothingCfg;
+
+    printf("[ConfigServerDemo] GetReflectiveClothingCfg callback, Channel=%d\n", dwChannelID);
+    printf("  Enable=%d, Sensitivity=%d\n",
+           g_stReflectiveClothingCfg.bEnable,
+           g_stReflectiveClothingCfg.stRule.nSensitivity);
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 反光衣识别配置 Set 回调，对应命令 NET_TV_SET_REFLECTIVE_CLOTHING_CFG */
+static NET_TV_COMMON_ECODE_E MySetReflectiveClothingCfgCb(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpInBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_REFLECTIVE_CLOTHING_CFG_S pIn = (LPNET_TV_REFLECTIVE_CLOTHING_CFG_S)lpInBuffer;
+    g_stReflectiveClothingCfg = *pIn;
+
+    printf("[ConfigServerDemo] SetReflectiveClothingCfg callback, Channel=%d\n", dwChannelID);
+    printf("  New Enable=%d, Sensitivity=%d\n",
+           g_stReflectiveClothingCfg.bEnable,
+           g_stReflectiveClothingCfg.stRule.nSensitivity);
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 宠物识别配置 Get 回调，对应命令 NET_TV_GET_PET_RECOGNITION_INFO */
+static NET_TV_COMMON_ECODE_E MyGetPetRecognitionInfoCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpOutBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_PET_RECOGNITION_INFO_S pOut = (LPNET_TV_PET_RECOGNITION_INFO_S)lpOutBuffer;
+    *pOut = g_stPetRecognitionInfo;
+
+    printf("[ConfigServerDemo] GetPetRecognitionInfo callback, Channel=%d\n", dwChannelID);
+    printf("  Enable=%d, DynamicAnalysisEnable=%d, Sensitivity=%d, PointCount=%d\n",
+           g_stPetRecognitionInfo.bEnable,
+           g_stPetRecognitionInfo.bDynamicAnalysisEnable,
+           g_stPetRecognitionInfo.nSensitivity,
+           g_stPetRecognitionInfo.stRegion.dwPointCount);
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 宠物识别配置 Set 回调，对应命令 NET_TV_SET_PET_RECOGNITION_INFO */
+static NET_TV_COMMON_ECODE_E MySetPetRecognitionInfoCb(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpInBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_PET_RECOGNITION_INFO_S pIn = (LPNET_TV_PET_RECOGNITION_INFO_S)lpInBuffer;
+    g_stPetRecognitionInfo = *pIn;
+
+    printf("[ConfigServerDemo] SetPetRecognitionInfo callback, Channel=%d\n", dwChannelID);
+    printf("  New Enable=%d, DynamicAnalysisEnable=%d, Sensitivity=%d, PointCount=%d\n",
+           g_stPetRecognitionInfo.bEnable,
+           g_stPetRecognitionInfo.bDynamicAnalysisEnable,
+           g_stPetRecognitionInfo.nSensitivity,
+           g_stPetRecognitionInfo.stRegion.dwPointCount);
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 翻越围栏配置 Get 回调，对应命令 NET_TV_GET_CLIMB_FENCE_INFO */
+static NET_TV_COMMON_ECODE_E MyGetClimbFenceInfoCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpOutBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_CLIMB_FENCE_INFO_S pOut = (LPNET_TV_CLIMB_FENCE_INFO_S)lpOutBuffer;
+    *pOut = g_stClimbFenceInfo;
+
+    printf("[ConfigServerDemo] GetClimbFenceInfo callback, Channel=%d\n", dwChannelID);
+    printf("  Enable=%d, RuleCount=%d, FirstSensitivity=%d, FirstTimeThreshold=%d\n",
+           g_stClimbFenceInfo.bEnable,
+           g_stClimbFenceInfo.dwRuleCount,
+           g_stClimbFenceInfo.astRule[0].nSensitivity,
+           g_stClimbFenceInfo.astRule[0].nTimeThreshold);
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 翻越围栏配置 Set 回调，对应命令 NET_TV_SET_CLIMB_FENCE_INFO */
+static NET_TV_COMMON_ECODE_E MySetClimbFenceInfoCb(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpInBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_CLIMB_FENCE_INFO_S pIn = (LPNET_TV_CLIMB_FENCE_INFO_S)lpInBuffer;
+    g_stClimbFenceInfo = *pIn;
+
+    printf("[ConfigServerDemo] SetClimbFenceInfo callback, Channel=%d\n", dwChannelID);
+    printf("  New Enable=%d, RuleCount=%d, FirstSensitivity=%d, FirstTimeThreshold=%d\n",
+           g_stClimbFenceInfo.bEnable,
+           g_stClimbFenceInfo.dwRuleCount,
+           g_stClimbFenceInfo.astRule[0].nSensitivity,
+           g_stClimbFenceInfo.astRule[0].nTimeThreshold);
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 离岗配置 Get 回调，对应命令 NET_TV_GET_DIMISSION_INFO */
+static NET_TV_COMMON_ECODE_E MyGetDimissionInfoCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpOutBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_DIMISSION_INFO_S pOut = (LPNET_TV_DIMISSION_INFO_S)lpOutBuffer;
+    *pOut = g_stDimissionInfo;
+
+    printf("[ConfigServerDemo] GetDimissionInfo callback, Channel=%d\n", dwChannelID);
+    printf("  Enable=%d, RuleCount=%d, FirstSensitivity=%d, FirstTimeThreshold=%d\n",
+           g_stDimissionInfo.bEnable,
+           g_stDimissionInfo.dwRuleCount,
+           g_stDimissionInfo.astRule[0].nSensitivity,
+           g_stDimissionInfo.astRule[0].nTimeThreshold);
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 离岗配置 Set 回调，对应命令 NET_TV_SET_DIMISSION_INFO */
+static NET_TV_COMMON_ECODE_E MySetDimissionInfoCb(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpInBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_DIMISSION_INFO_S pIn = (LPNET_TV_DIMISSION_INFO_S)lpInBuffer;
+    g_stDimissionInfo = *pIn;
+
+    printf("[ConfigServerDemo] SetDimissionInfo callback, Channel=%d\n", dwChannelID);
+    printf("  New Enable=%d, RuleCount=%d, FirstSensitivity=%d, FirstTimeThreshold=%d\n",
+           g_stDimissionInfo.bEnable,
+           g_stDimissionInfo.dwRuleCount,
+           g_stDimissionInfo.astRule[0].nSensitivity,
+           g_stDimissionInfo.astRule[0].nTimeThreshold);
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 违规变道配置 Get 回调，对应命令 NET_TV_GET_ILLEGAL_LANE_INFO */
+static NET_TV_COMMON_ECODE_E MyGetIllegalLaneInfoCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpOutBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_ILLEGAL_LANE_INFO_S pOut = (LPNET_TV_ILLEGAL_LANE_INFO_S)lpOutBuffer;
+    *pOut = g_stIllegalLaneInfo;
+
+    printf("[ConfigServerDemo] GetIllegalLaneInfo callback, Channel=%d\n", dwChannelID);
+    printf("  Enable=%d, RuleCount=%d, FirstDirection=%d, FirstSensitivity=%d\n",
+           g_stIllegalLaneInfo.bEnable,
+           g_stIllegalLaneInfo.dwRuleCount,
+           g_stIllegalLaneInfo.astRule[0].enCrossDirection,
+           g_stIllegalLaneInfo.astRule[0].nSensitivity);
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 违规变道配置 Set 回调，对应命令 NET_TV_SET_ILLEGAL_LANE_INFO */
+static NET_TV_COMMON_ECODE_E MySetIllegalLaneInfoCb(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpInBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_ILLEGAL_LANE_INFO_S pIn = (LPNET_TV_ILLEGAL_LANE_INFO_S)lpInBuffer;
+    g_stIllegalLaneInfo = *pIn;
+
+    printf("[ConfigServerDemo] SetIllegalLaneInfo callback, Channel=%d\n", dwChannelID);
+    printf("  New Enable=%d, RuleCount=%d, FirstDirection=%d, FirstSensitivity=%d\n",
+           g_stIllegalLaneInfo.bEnable,
+           g_stIllegalLaneInfo.dwRuleCount,
+           g_stIllegalLaneInfo.astRule[0].enCrossDirection,
+           g_stIllegalLaneInfo.astRule[0].nSensitivity);
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 逆行配置 Get 回调，对应命令 NET_TV_GET_RETROGRADE_INFO */
+static NET_TV_COMMON_ECODE_E MyGetRetrogradeInfoCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpOutBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_RETROGRADE_INFO_S pOut = (LPNET_TV_RETROGRADE_INFO_S)lpOutBuffer;
+    *pOut = g_stRetrogradeInfo;
+
+    printf("[ConfigServerDemo] GetRetrogradeInfo callback, Channel=%d\n", dwChannelID);
+    printf("  Enable=%d, RuleCount=%d, FirstDirection=%d, FirstSensitivity=%d\n",
+           g_stRetrogradeInfo.bEnable,
+           g_stRetrogradeInfo.dwRuleCount,
+           g_stRetrogradeInfo.astRule[0].enCrossDirection,
+           g_stRetrogradeInfo.astRule[0].nSensitivity);
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 逆行配置 Set 回调，对应命令 NET_TV_SET_RETROGRADE_INFO */
+static NET_TV_COMMON_ECODE_E MySetRetrogradeInfoCb(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpInBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_RETROGRADE_INFO_S pIn = (LPNET_TV_RETROGRADE_INFO_S)lpInBuffer;
+    g_stRetrogradeInfo = *pIn;
+
+    printf("[ConfigServerDemo] SetRetrogradeInfo callback, Channel=%d\n", dwChannelID);
+    printf("  New Enable=%d, RuleCount=%d, FirstDirection=%d, FirstSensitivity=%d\n",
+           g_stRetrogradeInfo.bEnable,
+           g_stRetrogradeInfo.dwRuleCount,
+           g_stRetrogradeInfo.astRule[0].enCrossDirection,
+           g_stRetrogradeInfo.astRule[0].nSensitivity);
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 非机动车闯入配置 Get 回调，对应命令 NET_TV_GET_NONMOTOR_VEHICLE_INTRUSION_INFO */
+static NET_TV_COMMON_ECODE_E MyGetNonmotorVehicleIntrusionInfoCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpOutBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_NONMOTOR_VEHICLE_INTRUSION_INFO_S pOut = (LPNET_TV_NONMOTOR_VEHICLE_INTRUSION_INFO_S)lpOutBuffer;
+    *pOut = g_stNonmotorVehicleIntrusionInfo;
+
+    printf("[ConfigServerDemo] GetNonmotorVehicleIntrusionInfo callback, Channel=%d\n", dwChannelID);
+    printf("  Enable=%d, RuleCount=%d, FirstSensitivity=%d, FirstTimeThreshold=%d\n",
+           g_stNonmotorVehicleIntrusionInfo.bEnable,
+           g_stNonmotorVehicleIntrusionInfo.dwRuleCount,
+           g_stNonmotorVehicleIntrusionInfo.astRule[0].nSensitivity,
+           g_stNonmotorVehicleIntrusionInfo.astRule[0].nTimeThreshold);
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 非机动车闯入配置 Set 回调，对应命令 NET_TV_SET_NONMOTOR_VEHICLE_INTRUSION_INFO */
+static NET_TV_COMMON_ECODE_E MySetNonmotorVehicleIntrusionInfoCb(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpInBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_NONMOTOR_VEHICLE_INTRUSION_INFO_S pIn = (LPNET_TV_NONMOTOR_VEHICLE_INTRUSION_INFO_S)lpInBuffer;
+    g_stNonmotorVehicleIntrusionInfo = *pIn;
+
+    printf("[ConfigServerDemo] SetNonmotorVehicleIntrusionInfo callback, Channel=%d\n", dwChannelID);
+    printf("  New Enable=%d, RuleCount=%d, FirstSensitivity=%d, FirstTimeThreshold=%d\n",
+           g_stNonmotorVehicleIntrusionInfo.bEnable,
+           g_stNonmotorVehicleIntrusionInfo.dwRuleCount,
+           g_stNonmotorVehicleIntrusionInfo.astRule[0].nSensitivity,
+           g_stNonmotorVehicleIntrusionInfo.astRule[0].nTimeThreshold);
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 应急车道占用识别配置 Get 回调，对应命令 NET_TV_GET_OCCUPATION_EMERGENCY_INFO */
+static NET_TV_COMMON_ECODE_E MyGetOccupationEmergencyInfoCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpOutBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_OCCUPATION_EMERGENCY_INFO_S pOut = (LPNET_TV_OCCUPATION_EMERGENCY_INFO_S)lpOutBuffer;
+    *pOut = g_stOccupationEmergencyInfo;
+
+    printf("[ConfigServerDemo] GetOccupationEmergencyInfo callback, Channel=%d\n", dwChannelID);
+    printf("  Enable=%d, RuleCount=%d, FirstSensitivity=%d, FirstTimeThreshold=%d\n",
+           g_stOccupationEmergencyInfo.bEnable,
+           g_stOccupationEmergencyInfo.dwRuleCount,
+           g_stOccupationEmergencyInfo.astRule[0].nSensitivity,
+           g_stOccupationEmergencyInfo.astRule[0].nTimeThreshold);
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 应急车道占用识别配置 Set 回调，对应命令 NET_TV_SET_OCCUPATION_EMERGENCY_INFO */
+static NET_TV_COMMON_ECODE_E MySetOccupationEmergencyInfoCb(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpInBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_OCCUPATION_EMERGENCY_INFO_S pIn = (LPNET_TV_OCCUPATION_EMERGENCY_INFO_S)lpInBuffer;
+    g_stOccupationEmergencyInfo = *pIn;
+
+    printf("[ConfigServerDemo] SetOccupationEmergencyInfo callback, Channel=%d\n", dwChannelID);
+    printf("  New Enable=%d, RuleCount=%d, FirstSensitivity=%d, FirstTimeThreshold=%d\n",
+           g_stOccupationEmergencyInfo.bEnable,
+           g_stOccupationEmergencyInfo.dwRuleCount,
+           g_stOccupationEmergencyInfo.astRule[0].nSensitivity,
+           g_stOccupationEmergencyInfo.astRule[0].nTimeThreshold);
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 行人闯入配置 Get 回调，对应命令 NET_TV_GET_PEDESTRIAN_INTRUSION_INFO */
+static NET_TV_COMMON_ECODE_E MyGetPedestrianIntrusionInfoCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpOutBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_PEDESTRIAN_INTRUSION_INFO_S pOut = (LPNET_TV_PEDESTRIAN_INTRUSION_INFO_S)lpOutBuffer;
+    *pOut = g_stPedestrianIntrusionInfo;
+
+    printf("[ConfigServerDemo] GetPedestrianIntrusionInfo callback, Channel=%d\n", dwChannelID);
+    printf("  Enable=%d, RuleCount=%d, FirstSensitivity=%d, FirstTimeThreshold=%d\n",
+           g_stPedestrianIntrusionInfo.bEnable,
+           g_stPedestrianIntrusionInfo.dwRuleCount,
+           g_stPedestrianIntrusionInfo.astRule[0].nSensitivity,
+           g_stPedestrianIntrusionInfo.astRule[0].nTimeThreshold);
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 行人闯入配置 Set 回调，对应命令 NET_TV_SET_PEDESTRIAN_INTRUSION_INFO */
+static NET_TV_COMMON_ECODE_E MySetPedestrianIntrusionInfoCb(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpInBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_PEDESTRIAN_INTRUSION_INFO_S pIn = (LPNET_TV_PEDESTRIAN_INTRUSION_INFO_S)lpInBuffer;
+    g_stPedestrianIntrusionInfo = *pIn;
+
+    printf("[ConfigServerDemo] SetPedestrianIntrusionInfo callback, Channel=%d\n", dwChannelID);
+    printf("  New Enable=%d, RuleCount=%d, FirstSensitivity=%d, FirstTimeThreshold=%d\n",
+           g_stPedestrianIntrusionInfo.bEnable,
+           g_stPedestrianIntrusionInfo.dwRuleCount,
+           g_stPedestrianIntrusionInfo.astRule[0].nSensitivity,
+           g_stPedestrianIntrusionInfo.astRule[0].nTimeThreshold);
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 烟火识别配置 Get 回调，对应命令 NET_TV_GET_SMOKE_FIRE_CFG */
+static NET_TV_COMMON_ECODE_E MyGetSmokeFireCfgCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpOutBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_SMOKE_FIRE_CFG_S pOut = (LPNET_TV_SMOKE_FIRE_CFG_S)lpOutBuffer;
+    *pOut = g_stSmokeFireCfg;
+
+    printf("[ConfigServerDemo] GetSmokeFireCfg callback, Channel=%d\n", dwChannelID);
+    printf("  Enable=%d, Sensitivity=%d\n",
+           g_stSmokeFireCfg.bEnable,
+           g_stSmokeFireCfg.stRule.nSensitivity);
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 烟火识别配置 Set 回调，对应命令 NET_TV_SET_SMOKE_FIRE_CFG */
+static NET_TV_COMMON_ECODE_E MySetSmokeFireCfgCb(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpInBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_SMOKE_FIRE_CFG_S pIn = (LPNET_TV_SMOKE_FIRE_CFG_S)lpInBuffer;
+    g_stSmokeFireCfg = *pIn;
+
+    printf("[ConfigServerDemo] SetSmokeFireCfg callback, Channel=%d\n", dwChannelID);
+    printf("  New Enable=%d, Sensitivity=%d\n",
+           g_stSmokeFireCfg.bEnable,
+           g_stSmokeFireCfg.stRule.nSensitivity);
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 道路积水检测配置 Get 回调，对应命令 NET_TV_GET_ROAD_PONDING_CFG */
+static NET_TV_COMMON_ECODE_E MyGetRoadPondingCfgCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpOutBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_ROAD_PONDING_CFG_S pOut = (LPNET_TV_ROAD_PONDING_CFG_S)lpOutBuffer;
+    *pOut = g_stRoadPondingCfg;
+
+    printf("[ConfigServerDemo] GetRoadPondingCfg callback, Channel=%d\n", dwChannelID);
+    printf("  Enable=%d, Sensitivity=%d\n",
+           g_stRoadPondingCfg.bEnable,
+           g_stRoadPondingCfg.stRule.nSensitivity);
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 道路积水检测配置 Set 回调，对应命令 NET_TV_SET_ROAD_PONDING_CFG */
+static NET_TV_COMMON_ECODE_E MySetRoadPondingCfgCb(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpInBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_ROAD_PONDING_CFG_S pIn = (LPNET_TV_ROAD_PONDING_CFG_S)lpInBuffer;
+    g_stRoadPondingCfg = *pIn;
+
+    printf("[ConfigServerDemo] SetRoadPondingCfg callback, Channel=%d\n", dwChannelID);
+    printf("  New Enable=%d, Sensitivity=%d\n",
+           g_stRoadPondingCfg.bEnable,
+           g_stRoadPondingCfg.stRule.nSensitivity);
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 停车侦测配置 Get 回调，对应命令 NET_TV_GET_PARKINGALARM */
+static NET_TV_COMMON_ECODE_E MyGetParkingAlarmCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpOutBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_PARKING_ALARM_INFO_S pOut = (LPNET_TV_PARKING_ALARM_INFO_S)lpOutBuffer;
+    *pOut = g_stParkingAlarmInfo;
+
+    printf("[ConfigServerDemo] GetParkingAlarm callback, Channel=%d\n", dwChannelID);
+    printf("  Enable=%d, RuleCount=%d\n",
+           g_stParkingAlarmInfo.bEnable,
+           g_stParkingAlarmInfo.dwRuleCount);
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 停车侦测配置 Set 回调，对应命令 NET_TV_SET_PARKINGALARM */
+static NET_TV_COMMON_ECODE_E MySetParkingAlarmCb(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpInBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_PARKING_ALARM_INFO_S pIn = (LPNET_TV_PARKING_ALARM_INFO_S)lpInBuffer;
+    g_stParkingAlarmInfo = *pIn;
+
+    printf("[ConfigServerDemo] SetParkingAlarm callback, Channel=%d\n", dwChannelID);
+    printf("  New Enable=%d, RuleCount=%d\n",
+           g_stParkingAlarmInfo.bEnable,
+           g_stParkingAlarmInfo.dwRuleCount);
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 物品遗留侦测配置 Get 回调，对应命令 NET_TV_GET_UNATTENDEDOBJECTALARM */
+static NET_TV_COMMON_ECODE_E MyGetUnattendedObjectAlarmCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpOutBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_UNATTENDED_OBJECT_ALARM_INFO_S pOut = (LPNET_TV_UNATTENDED_OBJECT_ALARM_INFO_S)lpOutBuffer;
+    *pOut = g_stUnattendedObjectAlarmInfo;
+
+    printf("[ConfigServerDemo] GetUnattendedObjectAlarm callback, Channel=%d\n", dwChannelID);
+    printf("  Enable=%d, RuleCount=%d\n",
+           g_stUnattendedObjectAlarmInfo.bEnable,
+           g_stUnattendedObjectAlarmInfo.dwRuleCount);
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 物品遗留侦测配置 Set 回调，对应命令 NET_TV_SET_UNATTENDEDOBJECTALARM */
+static NET_TV_COMMON_ECODE_E MySetUnattendedObjectAlarmCb(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpInBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_UNATTENDED_OBJECT_ALARM_INFO_S pIn = (LPNET_TV_UNATTENDED_OBJECT_ALARM_INFO_S)lpInBuffer;
+    g_stUnattendedObjectAlarmInfo = *pIn;
+
+    printf("[ConfigServerDemo] SetUnattendedObjectAlarm callback, Channel=%d\n", dwChannelID);
+    printf("  New Enable=%d, RuleCount=%d\n",
+           g_stUnattendedObjectAlarmInfo.bEnable,
+           g_stUnattendedObjectAlarmInfo.dwRuleCount);
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 物品拿取侦测配置 Get 回调，对应命令 NET_TV_GET_OBJECTREMOVALALARM */
+static NET_TV_COMMON_ECODE_E MyGetObjectRemovalAlarmCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpOutBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_OBJECT_REMOVAL_ALARM_INFO_S pOut = (LPNET_TV_OBJECT_REMOVAL_ALARM_INFO_S)lpOutBuffer;
+    *pOut = g_stObjectRemovalAlarmInfo;
+
+    printf("[ConfigServerDemo] GetObjectRemovalAlarm callback, Channel=%d\n", dwChannelID);
+    printf("  Enable=%d, RuleCount=%d\n",
+           g_stObjectRemovalAlarmInfo.bEnable,
+           g_stObjectRemovalAlarmInfo.dwRuleCount);
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 物品拿取侦测配置 Set 回调，对应命令 NET_TV_SET_OBJECTREMOVALALARM */
+static NET_TV_COMMON_ECODE_E MySetObjectRemovalAlarmCb(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpInBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_OBJECT_REMOVAL_ALARM_INFO_S pIn = (LPNET_TV_OBJECT_REMOVAL_ALARM_INFO_S)lpInBuffer;
+    g_stObjectRemovalAlarmInfo = *pIn;
+
+    printf("[ConfigServerDemo] SetObjectRemovalAlarm callback, Channel=%d\n", dwChannelID);
+    printf("  New Enable=%d, RuleCount=%d\n",
+           g_stObjectRemovalAlarmInfo.bEnable,
+           g_stObjectRemovalAlarmInfo.dwRuleCount);
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 音频异常侦测配置 Get 回调，对应命令 NET_TV_GET_AUDIOANOMALYALARM */
+static NET_TV_COMMON_ECODE_E MyGetAudioAnomalyAlarmCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpOutBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_AUDIO_ANOMALY_ALARM_INFO_S pOut = (LPNET_TV_AUDIO_ANOMALY_ALARM_INFO_S)lpOutBuffer;
+    *pOut = g_stAudioAnomalyAlarmInfo;
+
+    printf("[ConfigServerDemo] GetAudioAnomalyAlarm callback, Channel=%d\n", dwChannelID);
+    printf("  Enable=%d, AudioInputAnomaly=%d, UpEnable=%d, UpSensitivity=%d, UpThreshold=%d, DownEnable=%d, DownSensitivity=%d\n",
+           g_stAudioAnomalyAlarmInfo.bEnable,
+           g_stAudioAnomalyAlarmInfo.bAudioInputAnomaly,
+           g_stAudioAnomalyAlarmInfo.bUpEnable,
+           g_stAudioAnomalyAlarmInfo.nUpSensitivity,
+           g_stAudioAnomalyAlarmInfo.nUpThreshold,
+           g_stAudioAnomalyAlarmInfo.bDownEnable,
+           g_stAudioAnomalyAlarmInfo.nDownSensitivity);
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 音频异常侦测配置 Set 回调，对应命令 NET_TV_SET_AUDIOANOMALYALARM */
+static NET_TV_COMMON_ECODE_E MySetAudioAnomalyAlarmCb(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpInBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_AUDIO_ANOMALY_ALARM_INFO_S pIn = (LPNET_TV_AUDIO_ANOMALY_ALARM_INFO_S)lpInBuffer;
+    g_stAudioAnomalyAlarmInfo = *pIn;
+
+    printf("[ConfigServerDemo] SetAudioAnomalyAlarm callback, Channel=%d\n", dwChannelID);
+    printf("  New Enable=%d, AudioInputAnomaly=%d, UpEnable=%d, UpSensitivity=%d, UpThreshold=%d, DownEnable=%d, DownSensitivity=%d\n",
+           g_stAudioAnomalyAlarmInfo.bEnable,
+           g_stAudioAnomalyAlarmInfo.bAudioInputAnomaly,
+           g_stAudioAnomalyAlarmInfo.bUpEnable,
+           g_stAudioAnomalyAlarmInfo.nUpSensitivity,
+           g_stAudioAnomalyAlarmInfo.nUpThreshold,
+           g_stAudioAnomalyAlarmInfo.bDownEnable,
+           g_stAudioAnomalyAlarmInfo.nDownSensitivity);
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 预览信息配置 Get 回调，对应命令 NET_TV_GET_PREVIEW_INFO */
+static NET_TV_COMMON_ECODE_E MyGetPreviewInfoCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpOutBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_PREVIEW_INFO_S pOut = (LPNET_TV_PREVIEW_INFO_S)lpOutBuffer;
+    *pOut = g_stPreviewInfo;
+
+    printf("[ConfigServerDemo] GetPreviewInfo callback, Channel=%d\n", dwChannelID);
+    printf("  MainUrl=%s\n", g_stPreviewInfo.stRtspUrl.szRtspMainUrl);
+    printf("  SubUrl=%s\n", g_stPreviewInfo.stRtspUrl.szRtspSubUrl);
+    printf("  Brightness=%d, Contrast=%d, Saturation=%d, Sharpness=%d\n",
+           g_stPreviewInfo.stImageParam.nBrightness,
+           g_stPreviewInfo.stImageParam.nContrast,
+           g_stPreviewInfo.stImageParam.nSaturation,
+           g_stPreviewInfo.stImageParam.nSharpness);
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 预览信息配置 Set 回调，对应命令 NET_TV_SET_PREVIEW_INFO */
+static NET_TV_COMMON_ECODE_E MySetPreviewInfoCb(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpInBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_PREVIEW_INFO_S pIn = (LPNET_TV_PREVIEW_INFO_S)lpInBuffer;
+    g_stPreviewInfo = *pIn;
+
+    printf("[ConfigServerDemo] SetPreviewInfo callback, Channel=%d\n", dwChannelID);
+    printf("  MainUrl=%s\n", g_stPreviewInfo.stRtspUrl.szRtspMainUrl);
+    printf("  SubUrl=%s\n", g_stPreviewInfo.stRtspUrl.szRtspSubUrl);
+    printf("  Brightness=%d, Contrast=%d, Saturation=%d, Sharpness=%d\n",
+           g_stPreviewInfo.stImageParam.nBrightness,
+           g_stPreviewInfo.stImageParam.nContrast,
+           g_stPreviewInfo.stImageParam.nSaturation,
+           g_stPreviewInfo.stImageParam.nSharpness);
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 通道信息 Get 回调，对应命令 NET_TV_GET_CHANNEL_INFO */
+static NET_TV_COMMON_ECODE_E MyGetChannelInfoCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    if (!lpOutBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_CHANNEL_INFO_S pOut = (LPNET_TV_CHANNEL_INFO_S)lpOutBuffer;
+    *pOut = g_stChannelInfo;
+    pOut->dwChannel = (UINT32)dwChannelID;
+
+    printf("[ConfigServerDemo] GetChannelInfo callback, Channel=%d\n", dwChannelID);
+    printf("  Enable=%u, Online=%u, Name=%s\n",
+           pOut->byEnable,
+           pOut->byOnline,
+           pOut->szChannelName);
+    printf("  MainUrl=%s\n", pOut->szRtspMainUrl);
+    printf("  SubUrl=%s\n", pOut->szRtspSubUrl);
+    printf("  PreviewMainUrl=%s\n", pOut->szPreviewMainUrl);
+    printf("  PreviewSubUrl=%s\n", pOut->szPreviewSubUrl);
+
+    return NET_TV_E_SUCCEED;
+}
+
+static NET_TV_COMMON_ECODE_E MySetTalkbackStateCb(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpInBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    g_stTalkbackStateInfo = *(LPNET_TV_TALKBACK_STATE_INFO_S)lpInBuffer;
+    printf("[ConfigServerDemo] SetTalkbackState callback, Channel=%d\n", dwChannelID);
+    printf("  Enable=%d, Url=%s, LocalIp=%s\n",
+           g_stTalkbackStateInfo.bEnable,
+           g_stTalkbackStateInfo.szUrl,
+           g_stTalkbackStateInfo.szLocalIP);
+    return NET_TV_E_SUCCEED;
+}
+
+static NET_TV_COMMON_ECODE_E MySetTalkbackToStreamCb(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpInBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    g_stTalkbackToStreamInfo = *(LPNET_TV_TALKBACK_STREAM_INFO_S)lpInBuffer;
+    /* demo: mirror to from-stream cache so client can read back */
+    g_stTalkbackFromStreamInfo = g_stTalkbackToStreamInfo;
+
+    printf("[ConfigServerDemo] SetTalkbackToStream callback, Channel=%d\n", dwChannelID);
+    printf("  Host=%s, Port=%d, ChnId=%d, UserId=%d, Protocol=%s\n",
+           g_stTalkbackToStreamInfo.szHost,
+           g_stTalkbackToStreamInfo.nPort,
+           g_stTalkbackToStreamInfo.nChnId,
+           g_stTalkbackToStreamInfo.nUserID,
+           g_stTalkbackToStreamInfo.szProtocol);
+    return NET_TV_E_SUCCEED;
+}
+
+static NET_TV_COMMON_ECODE_E MyGetTalkbackFromStreamCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpOutBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    *(LPNET_TV_TALKBACK_STREAM_INFO_S)lpOutBuffer = g_stTalkbackFromStreamInfo;
+    printf("[ConfigServerDemo] GetTalkbackFromStream callback, Channel=%d\n", dwChannelID);
+    printf("  Host=%s, Port=%d, ChnId=%d, UserId=%d, Protocol=%s\n",
+           g_stTalkbackFromStreamInfo.szHost,
+           g_stTalkbackFromStreamInfo.nPort,
+           g_stTalkbackFromStreamInfo.nChnId,
+           g_stTalkbackFromStreamInfo.nUserID,
+           g_stTalkbackFromStreamInfo.szProtocol);
+    return NET_TV_E_SUCCEED;
+}
+
+static NET_TV_COMMON_ECODE_E MyGetReplayUrlCb(LPNET_TV_REPLAY_URL_INFO_S pInfo)
+{
+    if (!pInfo)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    snprintf(pInfo->szUrl,
+             sizeof(pInfo->szUrl),
+             "rtsp://127.0.0.1:554/replay/channel%d?start=%s&end=%s",
+             pInfo->dwChannel,
+             pInfo->szStartTime,
+             pInfo->szEndTime);
+
+    printf("[ConfigServerDemo] GetReplayUrl callback\n");
+    printf("  Channel=%d, Start=%s, End=%s\n",
+           pInfo->dwChannel,
+           pInfo->szStartTime,
+           pInfo->szEndTime);
+    printf("  Url=%s\n", pInfo->szUrl);
+    return NET_TV_E_SUCCEED;
+}
+
+static NET_TV_COMMON_ECODE_E MyControlReplayCb(LPNET_TV_REPLAY_CTRL_INFO_S pInfo)
+{
+    if (!pInfo)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    g_stReplayCtrlInfo = *pInfo;
+    if (g_stReplayCtrlInfo.dwCtrlType == NET_TV_REPLAY_CTRL_START)
+    {
+        if (g_stReplayCtrlInfo.szSessionId[0] == '\0')
+        {
+            snprintf(g_stReplayCtrlInfo.szSessionId,
+                     sizeof(g_stReplayCtrlInfo.szSessionId),
+                     "demo_replay_%d",
+                     g_stReplayCtrlInfo.dwChannel);
+        }
+
+        if (g_stReplayCtrlInfo.fSpeed <= 0.0f)
+        {
+            g_stReplayCtrlInfo.fSpeed = 1.0f;
+        }
+
+        snprintf(g_stReplayCtrlInfo.szUrl,
+                 sizeof(g_stReplayCtrlInfo.szUrl),
+                 "rtp://127.0.0.1:6000/playback/%s?channel=%d&start=%s&end=%s",
+                 g_stReplayCtrlInfo.szSessionId,
+                 g_stReplayCtrlInfo.dwChannel,
+                 g_stReplayCtrlInfo.szStartTime,
+                 g_stReplayCtrlInfo.szEndTime);
+    }
+
+    *pInfo = g_stReplayCtrlInfo;
+
+    printf("[ConfigServerDemo] ControlReplay callback\n");
+    printf("  Channel=%d, CtrlType=%d, Session=%s, Speed=%.2f\n",
+           pInfo->dwChannel,
+           pInfo->dwCtrlType,
+           pInfo->szSessionId,
+           pInfo->fSpeed);
+    printf("  Start=%s, End=%s, Url=%s\n",
+           pInfo->szStartTime,
+           pInfo->szEndTime,
+           pInfo->szUrl);
+    return NET_TV_E_SUCCEED;
+}
+
+static void FillReplayRecordSegment(NET_TV_REPLAY_RECORD_TIME_S* pSegment, INT32 nStartTime, INT32 nEndTime)
+{
+    if (!pSegment)
+    {
+        return;
+    }
+
+    memset(pSegment, 0, sizeof(*pSegment));
+    pSegment->nStartTime = nStartTime;
+    pSegment->nEndTime = nEndTime;
+}
+
+static NET_TV_COMMON_ECODE_E MyGetReplayRecordListCb(LPNET_TV_REPLAY_RECORD_LIST_S pInfo)
+{
+    if (!pInfo)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    if (pInfo->szDate[0] == '\0')
+    {
+        strncpy(pInfo->szDate, "2026-05-06", sizeof(pInfo->szDate) - 1);
+    }
+    if (pInfo->szStartTime[0] == '\0')
+    {
+        strncpy(pInfo->szStartTime, "2026-05-06 00:00:00", sizeof(pInfo->szStartTime) - 1);
+    }
+    if (pInfo->szEndTime[0] == '\0')
+    {
+        strncpy(pInfo->szEndTime, "2026-05-06 23:59:59", sizeof(pInfo->szEndTime) - 1);
+    }
+
+    pInfo->nVideoCount = 2;
+    FillReplayRecordSegment(&pInfo->astVideoTimes[0], 8 * 60 * 60, 8 * 60 * 60 + 30 * 60);
+    FillReplayRecordSegment(&pInfo->astVideoTimes[1], 14 * 60 * 60, 14 * 60 * 60 + 45 * 60);
+
+    pInfo->nPersonEventCount = 2;
+    FillReplayRecordSegment(&pInfo->astPersonEventTimes[0], 8 * 60 * 60 + 5 * 60, 8 * 60 * 60 + 8 * 60);
+    FillReplayRecordSegment(&pInfo->astPersonEventTimes[1], 14 * 60 * 60 + 10 * 60, 14 * 60 * 60 + 12 * 60);
+
+    pInfo->nVehicleEventCount = 1;
+    FillReplayRecordSegment(&pInfo->astVehicleEventTimes[0], 9 * 60 * 60 + 30 * 60, 9 * 60 * 60 + 33 * 60);
+
+    pInfo->nOtherEventCount = 1;
+    FillReplayRecordSegment(&pInfo->astOtherEventTimes[0], 16 * 60 * 60 + 20 * 60, 16 * 60 * 60 + 24 * 60);
+
+    printf("[ConfigServerDemo] GetReplayRecordList callback\n");
+    printf("  Channel=%d, FilterByEventType=%d, EventType=%d, Date=%s, Start=%s, End=%s, Video=%d, Person=%d, Vehicle=%d, Other=%d\n",
+           pInfo->dwChannel,
+           pInfo->bFilterByEventType,
+           pInfo->dwEventType,
+           pInfo->szDate,
+           pInfo->szStartTime,
+           pInfo->szEndTime,
+           pInfo->nVideoCount,
+           pInfo->nPersonEventCount,
+           pInfo->nVehicleEventCount,
+           pInfo->nOtherEventCount);
+    return NET_TV_E_SUCCEED;
+}
+
+static NET_TV_COMMON_ECODE_E MySetReplayTalkbackCb(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpInBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    g_stReplayTalkbackInfo = *(LPNET_TV_REPLAY_TALKBACK_INFO_S)lpInBuffer;
+    printf("[ConfigServerDemo] SetReplayTalkback callback, Channel=%d\n", dwChannelID);
+    printf("  NvrIp=%s, RemoteIp=%s, File=%s\n",
+           g_stReplayTalkbackInfo.szNvrIp,
+           g_stReplayTalkbackInfo.szRemoteIp,
+           g_stReplayTalkbackInfo.stIPCInfo.szFileName);
+    return NET_TV_E_SUCCEED;
+}
+
+/* 升级状态 Get 回调，对应命令 NET_TV_GET_UPGRADESTATUS */
+static NET_TV_COMMON_ECODE_E MyGetUpgradeStatus(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    if (!lpOutBuffer)
+        return NET_TV_E_INVALID_PARAM;
+
+    LPNET_TV_UPGRADE_STATUS_S pOut = (LPNET_TV_UPGRADE_STATUS_S)lpOutBuffer;
+    *pOut = g_stUpgradeStatuts;
+
+    printf("[ConfigServerDemo] MyGetUpgradeStatus callback, Channel=%d\n", dwChannelID);
+    printf("    nUpgradeStatus=%d\n", pOut->nUpgradeStatus);
+    return NET_TV_E_SUCCEED;
+}
+
+/* 升级文件 Set 回调，对应命令 NET_TV_SET_UPGRADE */
+static NET_TV_COMMON_ECODE_E MySetUpgrade(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    if (!lpInBuffer)
+        return NET_TV_E_INVALID_PARAM;
+
+    LPNET_TV_UPGRADE_INFO_S pIn = (LPNET_TV_UPGRADE_INFO_S)lpInBuffer;
+
+    memset(&g_stUpgradeInfo, 0, sizeof(g_stUpgradeInfo));
+    strncpy(g_stUpgradeInfo.szUpgradePath, pIn->szUpgradePath, sizeof(g_stUpgradeInfo.szUpgradePath) - 1);
+    g_stUpgradeInfo.szUpgradePath[sizeof(g_stUpgradeInfo.szUpgradePath) - 1] = '\0';
+    
+    printf("[ConfigServerDemo] MySetUpgrade callback, Channel=%d\n", dwChannelID);
+    printf("    szUpgradePath=%s\n", pIn->szUpgradePath);
+    printf("    Demo only: skip AC_SET_UPGRADE / AC_CHECK_UPGRADE.\n");
+    return NET_TV_E_SUCCEED;
+}
+
+/* 升级版本 Get 回调，对应命令 NET_TV_GET_UPGRADEVERSION */
+static NET_TV_COMMON_ECODE_E MyGetUpgradeVersion(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    if (!lpOutBuffer)
+        return NET_TV_E_INVALID_PARAM;
+
+    LPNET_TV_UPGRADE_VERSION_S pOut = (LPNET_TV_UPGRADE_VERSION_S)lpOutBuffer;
+    *pOut = g_stUpgradeVersions;
+
+    printf("[ConfigServerDemo] MyGetUpgradeVersion callback, Channel=%d\n", dwChannelID);
+    printf("    szVersion=%s\n", pOut->szVersion);
+    return NET_TV_E_SUCCEED;
+}
+
+/* 打印抓图计划信息 */
+static void PrintCapturePlanInfo(const NET_TV_CAPTURE_PLAN_INFO_S *pstCfg)
+{
+    UINT32 i = 0;
+    if (!pstCfg)
+        return;
+
+    for (i = 0; i < NET_TV_PLAN_DAY_NUM_AWEEK; ++i)
+    {
+        UINT32 j = 0;
+        UINT32 nTimeCount = pstCfg->astDaySchedules[i].udwTimeCount;
+        if (nTimeCount > NET_TV_PLAN_TIME_SECTION_NUM_ADAY)
+            nTimeCount = NET_TV_PLAN_TIME_SECTION_NUM_ADAY;
+
+        printf("    Day[%u] week=%d timeCount=%u\n",
+               i,
+               pstCfg->astDaySchedules[i].nDayOfWeek,
+               nTimeCount);
+
+        for (j = 0; j < nTimeCount; ++j)
+        {
+            printf("      Time[%u] start=%d end=%d\n",
+                   j,
+                   pstCfg->astDaySchedules[i].astTimes[j].nStartTime,
+                   pstCfg->astDaySchedules[i].astTimes[j].nEndTime);
+        }
+    }
+}
+
+/* 打印单张抓图参数*/
+static void PrintOneCaptureConfig(const char *prefix, const NET_TV_CAPTURE_CONFIG_S *pstCfg)
+{
+    if (!pstCfg)
+        return;
+
+    printf("    %s enable=%d format=%d resolution=%dx%d quality=%d interval=%u unit=%d number=%u\n",
+           prefix ? prefix : "CaptureCfg",
+           pstCfg->bEnable,
+           pstCfg->enPictureFormat,
+           pstCfg->nWidth,
+           pstCfg->nHeight,
+           pstCfg->enImageQuality,
+           pstCfg->unInterval,
+           pstCfg->enTimeUnit,
+           pstCfg->unNumber);
+}
+
+/* 抓图计划信息 Get 回调，对应命令 NET_TV_GET_CAPTURE_PLAN_INFO */
+static NET_TV_COMMON_ECODE_E MyGetCapturePlanInfo(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    LPNET_TV_CAPTURE_PLAN_INFO_S pOut = NULL;
+
+    if (!lpOutBuffer)
+        return NET_TV_E_INVALID_PARAM;
+
+    pOut = (LPNET_TV_CAPTURE_PLAN_INFO_S)lpOutBuffer;
+    *pOut = g_stCapturePlanInfo;
+
+    printf("[ConfigServerDemo] MyGetCapturePlanInfo callback, Channel=%d\n", dwChannelID);
+    PrintCapturePlanInfo(pOut);
+    return NET_TV_E_SUCCEED;
+}
+
+/* 抓图计划信息 Set 回调，对应命令 NET_TV_SET_CAPTURE_PLAN_INFO */
+static NET_TV_COMMON_ECODE_E MySetCapturePlanInfo(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    LPNET_TV_CAPTURE_PLAN_INFO_S pIn = NULL;
+
+    if (!lpInBuffer)
+        return NET_TV_E_INVALID_PARAM;
+
+    pIn = (LPNET_TV_CAPTURE_PLAN_INFO_S)lpInBuffer;
+    g_stCapturePlanInfo = *pIn;
+
+    printf("[ConfigServerDemo] MySetCapturePlanInfo callback, Channel=%d\n", dwChannelID);
+    PrintCapturePlanInfo(&g_stCapturePlanInfo);
+    return NET_TV_E_SUCCEED;
+}
+
+/* 抓图参数 Get 回调，对应命令 NET_TV_GET_CAPTURE_PARAM_INFO */
+static NET_TV_COMMON_ECODE_E MyGetCaptureParamInfo(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    LPNET_TV_CAPTURE_PARAM_INFO_S pOut = NULL;
+
+    if (!lpOutBuffer)
+        return NET_TV_E_INVALID_PARAM;
+
+    pOut = (LPNET_TV_CAPTURE_PARAM_INFO_S)lpOutBuffer;
+    *pOut = g_stCaptureParamInfo;
+
+    printf("[ConfigServerDemo] MyGetCaptureParamInfo callback, Channel=%d\n", dwChannelID);
+    PrintOneCaptureConfig("TimingCfg", &pOut->stCaptureTimingConfig);
+    PrintOneCaptureConfig("EventCfg", &pOut->stCaptureEventConfig);
+    return NET_TV_E_SUCCEED;
+}
+
+/* 抓图参数 Set 回调，对应命令 NET_TV_SET_CAPTURE_PARAM_INFO */
+static NET_TV_COMMON_ECODE_E MySetCaptureParamInfo(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    LPNET_TV_CAPTURE_PARAM_INFO_S pIn = NULL;
+
+    if (!lpInBuffer)
+        return NET_TV_E_INVALID_PARAM;
+
+    pIn = (LPNET_TV_CAPTURE_PARAM_INFO_S)lpInBuffer;
+    g_stCaptureParamInfo = *pIn;
+
+    printf("[ConfigServerDemo] MySetCaptureParamInfo callback, Channel=%d\n", dwChannelID);
+    PrintOneCaptureConfig("TimingCfg", &g_stCaptureParamInfo.stCaptureTimingConfig);
+    PrintOneCaptureConfig("EventCfg", &g_stCaptureParamInfo.stCaptureEventConfig);
+    return NET_TV_E_SUCCEED;
+}
+
+/**
+ * @brief 打印曝光信息
+ * @param pstCfg 曝光信息结构体指针
+ */
+static void PrintExposureInfo(const NET_TV_EXPOSURE_INFO_S *pstCfg)
+{
+    if (!pstCfg)
+        return;
+    printf("    enExpTime=%d antiBanding=%d\n", pstCfg->enExpTime, pstCfg->bAntiBanding);
+}
+
+/**
+ * @brief 打印日夜信息
+ * @param pstCfg 日夜信息结构体指针
+ */
+static void PrintDayNightInfo(const NET_TV_DAYNIGHT_INFO_S *pstCfg)
+{
+    if (!pstCfg)
+        return;
+    printf("    mode=%d begin=%02d:%02d:%02d.%03d end=%02d:%02d:%02d.%03d\n",
+           pstCfg->enDayNightMode,
+           pstCfg->nBeginHour,
+           pstCfg->nBeginMinute,
+           pstCfg->nBeginSecond,
+           pstCfg->nBeginMilliSec,
+           pstCfg->nEndHour,
+           pstCfg->nEndMinute,
+           pstCfg->nEndSecond,
+           pstCfg->nEndMilliSec);
+    printf("    sensitivity=%u filterTime=%u fillLightExp=%d lightMode=%d lightType=%d\n",
+           pstCfg->nSensitivityLevel,
+           pstCfg->nFilterTime,
+           pstCfg->bFillLightExp,
+           pstCfg->enLightMode,
+           pstCfg->enLightType);
+    printf("    whiteEnable=%d whiteLevel=%d redEnable=%d redLevel=%d\n",
+           pstCfg->bWhiteLightEnable,
+           pstCfg->nWhiteLightLevel,
+           pstCfg->bRedLightEnable,
+           pstCfg->nRedLightLevel);
+}
+
+/**
+ * @brief 打印背光信息
+ * @param pstCfg 背光信息结构体指针
+ */
+static void PrintBackLightInfo(const NET_TV_BACKLIGHT_INFO_S *pstCfg)
+{
+    if (!pstCfg)
+        return;
+    printf("    area=%d wdrEnable=%d wdrLevel=%d hlsEnable=%d hlsLevel=%d\n",
+           pstCfg->enBackLightArea,
+           pstCfg->bWdrEnable,
+           pstCfg->nWdrLevel,
+           pstCfg->bHlsEnable,
+           pstCfg->nHlsLevel);
+}
+
+/**
+ * @brief 打印降噪信息
+ * @param pstCfg 降噪信息结构体指针
+ */
+
+static void PrintDenoiseInfo(const NET_TV_DENOISE_INFO_S *pstCfg)
+{
+    if (!pstCfg)
+        return;
+    printf("    mode=%d dnrLevel=%u snrLevel=%u tnrLevel=%u\n",
+           pstCfg->enDnrMode,
+           pstCfg->nDnrLevel,
+           pstCfg->nSnrLevel,
+           pstCfg->nTnrLevel);
+}
+/**
+ * @brief 打印白平衡信息
+ * @param pstCfg 白平衡信息结构体指针
+ */
+static void PrintWhiteBalanceInfo(const NET_TV_WHITEBALANCE_INFO_S *pstCfg)
+{
+    if (!pstCfg)
+        return;
+    printf("    mode=%d rGain=%u bGain=%u\n",
+           pstCfg->enAwbMode,
+           pstCfg->nRGain,
+           pstCfg->nBGain);
+}
+
+/**
+ * @brief 获取曝光信息的回调函数
+ */
+static NET_TV_COMMON_ECODE_E MyGetExposureInfo(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    LPNET_TV_EXPOSURE_INFO_S pOut = NULL;
+
+    if (!lpOutBuffer)
+        return NET_TV_E_INVALID_PARAM;
+
+    pOut = (LPNET_TV_EXPOSURE_INFO_S)lpOutBuffer;
+    *pOut = g_stExposureInfo;
+
+    printf("[ConfigServerDemo] MyGetExposureInfo callback, Channel=%d\n", dwChannelID);
+    PrintExposureInfo(pOut);
+    return NET_TV_E_SUCCEED;
+}
+
+/**
+ * @brief 设置曝光信息的回调函数
+ */
+static NET_TV_COMMON_ECODE_E MySetExposureInfo(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    LPNET_TV_EXPOSURE_INFO_S pIn = NULL;
+
+    if (!lpInBuffer)
+        return NET_TV_E_INVALID_PARAM;
+
+    pIn = (LPNET_TV_EXPOSURE_INFO_S)lpInBuffer;
+    g_stExposureInfo = *pIn;
+
+    printf("[ConfigServerDemo] MySetExposureInfo callback, Channel=%d\n", dwChannelID);
+    PrintExposureInfo(&g_stExposureInfo);
+    return NET_TV_E_SUCCEED;
+}
+
+/**
+ * @brief 获取日夜信息的回调函数
+ */
+static NET_TV_COMMON_ECODE_E MyGetDayNightInfo(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    LPNET_TV_DAYNIGHT_INFO_S pOut = NULL;
+
+    if (!lpOutBuffer)
+        return NET_TV_E_INVALID_PARAM;
+
+    pOut = (LPNET_TV_DAYNIGHT_INFO_S)lpOutBuffer;
+    *pOut = g_stDayNightInfo;
+
+    printf("[ConfigServerDemo] MyGetDayNightInfo callback, Channel=%d\n", dwChannelID);
+    PrintDayNightInfo(pOut);
+    return NET_TV_E_SUCCEED;
+}
+
+/**
+ * @brief 设置日夜信息的回调函数
+ */
+static NET_TV_COMMON_ECODE_E MySetDayNightInfo(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    LPNET_TV_DAYNIGHT_INFO_S pIn = NULL;
+
+    if (!lpInBuffer)
+        return NET_TV_E_INVALID_PARAM;
+
+    pIn = (LPNET_TV_DAYNIGHT_INFO_S)lpInBuffer;
+    g_stDayNightInfo = *pIn;
+
+    printf("[ConfigServerDemo] MySetDayNightInfo callback, Channel=%d\n", dwChannelID);
+    PrintDayNightInfo(&g_stDayNightInfo);
+    return NET_TV_E_SUCCEED;
+}
+
+/**
+ * @brief 获取背光信息的回调函数
+ */
+static NET_TV_COMMON_ECODE_E MyGetBackLightInfo(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    LPNET_TV_BACKLIGHT_INFO_S pOut = NULL;
+
+    if (!lpOutBuffer)
+        return NET_TV_E_INVALID_PARAM;
+
+    pOut = (LPNET_TV_BACKLIGHT_INFO_S)lpOutBuffer;
+    *pOut = g_stBackLightInfo;
+
+    printf("[ConfigServerDemo] MyGetBackLightInfo callback, Channel=%d\n", dwChannelID);
+    PrintBackLightInfo(pOut);
+    return NET_TV_E_SUCCEED;
+}
+
+/**
+ * @brief 设置背光信息的回调函数
+ */
+static NET_TV_COMMON_ECODE_E MySetBackLightInfo(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    LPNET_TV_BACKLIGHT_INFO_S pIn = NULL;
+
+    if (!lpInBuffer)
+        return NET_TV_E_INVALID_PARAM;
+
+    pIn = (LPNET_TV_BACKLIGHT_INFO_S)lpInBuffer;
+    g_stBackLightInfo = *pIn;
+
+    printf("[ConfigServerDemo] MySetBackLightInfo callback, Channel=%d\n", dwChannelID);
+    PrintBackLightInfo(&g_stBackLightInfo);
+    return NET_TV_E_SUCCEED;
+}
+
+/**
+ * @brief 获取降噪信息的回调函数
+ */
+static NET_TV_COMMON_ECODE_E MyGetDenoiseInfo(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    LPNET_TV_DENOISE_INFO_S pOut = NULL;
+
+    if (!lpOutBuffer)
+        return NET_TV_E_INVALID_PARAM;
+
+    pOut = (LPNET_TV_DENOISE_INFO_S)lpOutBuffer;
+    *pOut = g_stDenoiseInfo;
+
+    printf("[ConfigServerDemo] MyGetDenoiseInfo callback, Channel=%d\n", dwChannelID);
+    PrintDenoiseInfo(pOut);
+    return NET_TV_E_SUCCEED;
+}
+
+/**
+ * @brief 设置降噪信息的回调函数
+ */
+static NET_TV_COMMON_ECODE_E MySetDenoiseInfo(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    LPNET_TV_DENOISE_INFO_S pIn = NULL;
+
+    if (!lpInBuffer)
+        return NET_TV_E_INVALID_PARAM;
+
+    pIn = (LPNET_TV_DENOISE_INFO_S)lpInBuffer;
+    g_stDenoiseInfo = *pIn;
+
+    printf("[ConfigServerDemo] MySetDenoiseInfo callback, Channel=%d\n", dwChannelID);
+    PrintDenoiseInfo(&g_stDenoiseInfo);
+    return NET_TV_E_SUCCEED;
+}
+
+/**
+ * @brief 获取白平衡信息的回调函数
+ */
+static NET_TV_COMMON_ECODE_E MyGetWhiteBalanceInfo(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    LPNET_TV_WHITEBALANCE_INFO_S pOut = NULL;
+
+    if (!lpOutBuffer)
+        return NET_TV_E_INVALID_PARAM;
+
+    pOut = (LPNET_TV_WHITEBALANCE_INFO_S)lpOutBuffer;
+    *pOut = g_stWhiteBalanceInfo;
+
+    printf("[ConfigServerDemo] MyGetWhiteBalanceInfo callback, Channel=%d\n", dwChannelID);
+    PrintWhiteBalanceInfo(pOut);
+    return NET_TV_E_SUCCEED;
+}
+
+/**
+ * @brief 设置白平衡信息的回调函数
+ */
+static NET_TV_COMMON_ECODE_E MySetWhiteBalanceInfo(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    LPNET_TV_WHITEBALANCE_INFO_S pIn = NULL;
+
+    if (!lpInBuffer)
+        return NET_TV_E_INVALID_PARAM;
+
+    pIn = (LPNET_TV_WHITEBALANCE_INFO_S)lpInBuffer;
+    g_stWhiteBalanceInfo = *pIn;
+
+    printf("[ConfigServerDemo] MySetWhiteBalanceInfo callback, Channel=%d\n", dwChannelID);
+    PrintWhiteBalanceInfo(&g_stWhiteBalanceInfo);
+    return NET_TV_E_SUCCEED;
+}
+
+/* 人脸抓拍配置 Get 回调，对应命令 NET_TV_GET_FACECAPTUREINFO */
+static NET_TV_COMMON_ECODE_E MyGetFaceCaptureInfoCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpOutBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_FACE_CAPTURE_INFO_S pOut = (LPNET_TV_FACE_CAPTURE_INFO_S)lpOutBuffer;
+    *pOut = g_stFaceCaptureInfo;
+
+    printf("[ConfigServerDemo] GetFaceCaptureInfo callback, Channel=%d\n", dwChannelID);
+    printf("  Enable=%d, Sensitivity=%d, RegionPointCount=%d, ShieldRegionCount=%d\n",
+           g_stFaceCaptureInfo.bEnable,
+           g_stFaceCaptureInfo.stRule.nSensitivity,
+           g_stFaceCaptureInfo.stRule.stRegion.dwPointCount,
+           g_stFaceCaptureInfo.stRule.dwShieldRegionCount);
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 人脸抓拍配置 Set 回调，对应命令 NET_TV_SET_FACECAPTUREINFO */
+static NET_TV_COMMON_ECODE_E MySetFaceCaptureInfoCb(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpInBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_FACE_CAPTURE_INFO_S pIn = (LPNET_TV_FACE_CAPTURE_INFO_S)lpInBuffer;
+    g_stFaceCaptureInfo = *pIn;
+
+    printf("[ConfigServerDemo] SetFaceCaptureInfo callback, Channel=%d\n", dwChannelID);
+    printf("  New Enable=%d, Sensitivity=%d, RegionPointCount=%d, ShieldRegionCount=%d\n",
+           g_stFaceCaptureInfo.bEnable,
+           g_stFaceCaptureInfo.stRule.nSensitivity,
+           g_stFaceCaptureInfo.stRule.stRegion.dwPointCount,
+           g_stFaceCaptureInfo.stRule.dwShieldRegionCount);
+
+    return NET_TV_E_SUCCEED;
+}
+
+static INT32 FindTargetLibIndex(const CHAR* szFaceLibName)
+{
+    if (!szFaceLibName || szFaceLibName[0] == '\0')
+    {
+        return -1;
+    }
+
+    for (INT32 i = 0; i < g_stFaceLibList.nTargetLibCount && i < NET_TV_FACE_LIB_MAX_NUM; ++i)
+    {
+        if (strcmp(g_stFaceLibList.astTargetLibInfos[i].szFaceLibName, szFaceLibName) == 0)
+        {
+            return i;
+        }
+    }
+
+    return -1;
+}
+
+static INT32 FindFaceInfoIndex(INT32 nId)
+{
+    for (INT32 i = 0; i < g_stFaceInfoList.nFaceInfoCount && i < NET_TV_FACE_INFO_MAX_NUM; ++i)
+    {
+        if (g_stFaceInfoList.astFaceInfos[i].nId == nId)
+        {
+            return i;
+        }
+    }
+
+    return -1;
+}
+
+/* 人脸比对配置 Set 回调，对应命令 NET_TV_SET_FACE_COMPARE_INFO */
+static NET_TV_COMMON_ECODE_E MySetFaceCompareInfoCb(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpInBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_FACE_COMPARE_INFO_S pIn = (LPNET_TV_FACE_COMPARE_INFO_S)lpInBuffer;
+    g_stFaceCompareInfo = *pIn;
+
+    printf("[ConfigServerDemo] SetFaceCompareInfo callback, Channel=%d\n", dwChannelID);
+    printf("  Enable=%d, SuccessSnapshotCount=%d, FailSnapshotCount=%d\n",
+           g_stFaceCompareInfo.bEnable,
+           g_stFaceCompareInfo.stLinkageListSuccess.dwSnapshotChannelCount,
+           g_stFaceCompareInfo.stLinkageListFail.dwSnapshotChannelCount);
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 添加目标库 Set 回调，对应命令 NET_TV_ADD_TARGET_LIB */
+static NET_TV_COMMON_ECODE_E MyAddTargetLibCb(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpInBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_FACE_LIB_INFO_S pIn = (LPNET_TV_FACE_LIB_INFO_S)lpInBuffer;
+    INT32 nIndex = FindTargetLibIndex(pIn->szFaceLibName);
+    if (nIndex < 0)
+    {
+        if (g_stFaceLibList.nTargetLibCount >= NET_TV_FACE_LIB_MAX_NUM)
+        {
+            return NET_TV_E_NOENOUGH_BUF;
+        }
+        nIndex = g_stFaceLibList.nTargetLibCount++;
+    }
+
+    g_stFaceLibList.astTargetLibInfos[nIndex] = *pIn;
+    printf("[ConfigServerDemo] AddTargetLib callback, LibId=%s, Count=%d\n",
+           pIn->szFaceLibName, g_stFaceLibList.nTargetLibCount);
+    return NET_TV_E_SUCCEED;
+}
+
+/* 删除目标库 Set 回调，对应命令 NET_TV_DEL_TARGET_LIB */
+static NET_TV_COMMON_ECODE_E MyDelTargetLibCb(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpInBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_FACE_LIB_INFO_S pIn = (LPNET_TV_FACE_LIB_INFO_S)lpInBuffer;
+    INT32 nIndex = FindTargetLibIndex(pIn->szFaceLibName);
+    if (nIndex >= 0)
+    {
+        for (INT32 i = nIndex; i < g_stFaceLibList.nTargetLibCount - 1; ++i)
+        {
+            g_stFaceLibList.astTargetLibInfos[i] = g_stFaceLibList.astTargetLibInfos[i + 1];
+        }
+        memset(&g_stFaceLibList.astTargetLibInfos[g_stFaceLibList.nTargetLibCount - 1],
+               0,
+               sizeof(g_stFaceLibList.astTargetLibInfos[0]));
+        g_stFaceLibList.nTargetLibCount--;
+    }
+
+    printf("[ConfigServerDemo] DelTargetLib callback, LibId=%s, Count=%d\n",
+           pIn->szFaceLibName, g_stFaceLibList.nTargetLibCount);
+    return NET_TV_E_SUCCEED;
+}
+
+/* 修改目标库 Set 回调，对应命令 NET_TV_SET_TARGET_LIB */
+static NET_TV_COMMON_ECODE_E MySetTargetLibCb(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpInBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_FACE_LIB_INFO_S pIn = (LPNET_TV_FACE_LIB_INFO_S)lpInBuffer;
+    INT32 nIndex = FindTargetLibIndex(pIn->szFaceLibName);
+    if (nIndex < 0)
+    {
+        if (g_stFaceLibList.nTargetLibCount >= NET_TV_FACE_LIB_MAX_NUM)
+        {
+            return NET_TV_E_NOENOUGH_BUF;
+        }
+        nIndex = g_stFaceLibList.nTargetLibCount++;
+    }
+
+    g_stFaceLibList.astTargetLibInfos[nIndex] = *pIn;
+    printf("[ConfigServerDemo] SetTargetLib callback, LibId=%s, Count=%d\n",
+           pIn->szFaceLibName, g_stFaceLibList.nTargetLibCount);
+    return NET_TV_E_SUCCEED;
+}
+
+/* 获取目标库 Get 回调，对应命令 NET_TV_GET_TARGET_LIB */
+static NET_TV_COMMON_ECODE_E MyGetTargetLibCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpOutBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_FACE_LIB_LIST_S pOut = (LPNET_TV_FACE_LIB_LIST_S)lpOutBuffer;
+    *pOut = g_stFaceLibList;
+
+    printf("[ConfigServerDemo] GetTargetLib callback, Count=%d\n", pOut->nTargetLibCount);
+    return NET_TV_E_SUCCEED;
+}
+
+/* 添加人脸 Set 回调，对应命令 NET_TV_ADD_FACE_INFO */
+static NET_TV_COMMON_ECODE_E MyAddFaceInfoCb(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpInBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_FACE_INFO_S pIn = (LPNET_TV_FACE_INFO_S)lpInBuffer;
+    INT32 nIndex = FindFaceInfoIndex(pIn->nId);
+    if (nIndex < 0)
+    {
+        if (g_stFaceInfoList.nFaceInfoCount >= NET_TV_FACE_INFO_MAX_NUM)
+        {
+            return NET_TV_E_NOENOUGH_BUF;
+        }
+        nIndex = g_stFaceInfoList.nFaceInfoCount++;
+    }
+
+    g_stFaceInfoList.astFaceInfos[nIndex] = *pIn;
+    printf("[ConfigServerDemo] AddFaceInfo callback, Id=%d, Name=%s, Count=%d\n",
+           pIn->nId, pIn->szName, g_stFaceInfoList.nFaceInfoCount);
+    return NET_TV_E_SUCCEED;
+}
+
+/* 删除人脸 Set 回调，对应命令 NET_TV_DEL_FACE_INFO */
+static NET_TV_COMMON_ECODE_E MyDelFaceInfoCb(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpInBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_FACE_ID_INFO_S pIn = (LPNET_TV_FACE_ID_INFO_S)lpInBuffer;
+    for (INT32 idIndex = 0; idIndex < pIn->nIdCount && idIndex < NET_TV_FACE_ID_MAX_NUM; ++idIndex)
+    {
+        INT32 nIndex = FindFaceInfoIndex(pIn->anIds[idIndex]);
+        if (nIndex < 0)
+        {
+            continue;
+        }
+
+        for (INT32 i = nIndex; i < g_stFaceInfoList.nFaceInfoCount - 1; ++i)
+        {
+            g_stFaceInfoList.astFaceInfos[i] = g_stFaceInfoList.astFaceInfos[i + 1];
+        }
+        memset(&g_stFaceInfoList.astFaceInfos[g_stFaceInfoList.nFaceInfoCount - 1],
+               0,
+               sizeof(g_stFaceInfoList.astFaceInfos[0]));
+        g_stFaceInfoList.nFaceInfoCount--;
+    }
+
+    printf("[ConfigServerDemo] DelFaceInfo callback, IdCount=%d, Count=%d\n",
+           pIn->nIdCount, g_stFaceInfoList.nFaceInfoCount);
+    return NET_TV_E_SUCCEED;
+}
+
+/* 修改人脸 Set 回调，对应命令 NET_TV_SET_FACE_INFO */
+static NET_TV_COMMON_ECODE_E MySetFaceInfoCb(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpInBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_FACE_INFO_S pIn = (LPNET_TV_FACE_INFO_S)lpInBuffer;
+    INT32 nIndex = FindFaceInfoIndex(pIn->nId);
+    if (nIndex < 0)
+    {
+        if (g_stFaceInfoList.nFaceInfoCount >= NET_TV_FACE_INFO_MAX_NUM)
+        {
+            return NET_TV_E_NOENOUGH_BUF;
+        }
+        nIndex = g_stFaceInfoList.nFaceInfoCount++;
+    }
+
+    g_stFaceInfoList.astFaceInfos[nIndex] = *pIn;
+    printf("[ConfigServerDemo] SetFaceInfo callback, Id=%d, Name=%s, Count=%d\n",
+           pIn->nId, pIn->szName, g_stFaceInfoList.nFaceInfoCount);
+    return NET_TV_E_SUCCEED;
+}
+
+/* 获取人脸 Get 回调，对应命令 NET_TV_GET_FACE_INFO */
+static NET_TV_COMMON_ECODE_E MyGetFaceInfoCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpOutBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_FACE_INFO_LIST_S pOut = (LPNET_TV_FACE_INFO_LIST_S)lpOutBuffer;
+    *pOut = g_stFaceInfoList;
+
+    printf("[ConfigServerDemo] GetFaceInfo callback, Count=%d\n", pOut->nFaceInfoCount);
+    return NET_TV_E_SUCCEED;
+}
+
+/* 注册所有需要的回调 */
+static void RegisterCallbacks(void)
+{
+    /* 设备信息回调（登录时会用到） */
+    if (NET_TV_SERVER_RegisterCb_GetDeviceInfo(MyDeviceInfoCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetDeviceInfo SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetDeviceInfo FAILED\n");
+    }
+
+    /* 设备基本信息配置回调 */
+    if (NET_TV_SERVER_RegisterCb_GetDeviceCfg(MyGetDeviceCfgCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetDeviceCfg SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetDeviceCfg FAILED\n");
+    }
+
+    if (NET_TV_SERVER_RegisterCb_SetDeviceCfg(MySetDeviceCfgCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetDeviceCfg SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetDeviceCfg FAILED\n");
+    }
+
+    /* 网络配置回调 */
+    if (NET_TV_SERVER_RegisterCb_GetNetworkCfg(MyGetNetworkCfgCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetNetworkCfg SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetNetworkCfg FAILED\n");
+    }
+
+    if (NET_TV_SERVER_RegisterCb_SetNetworkCfg(MySetNetworkCfgCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetNetworkCfg SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetNetworkCfg FAILED\n");
+    }
+
+    /* 音频配置回调 */
+    if (NET_TV_SERVER_RegisterCb_GetAudioCfg(MyGetAudioCfgCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetAudioCfg SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetAudioCfg FAILED\n");
+    }
+
+    if (NET_TV_SERVER_RegisterCb_SetAudioCfg(MySetAudioCfgCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetAudioCfg SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetAudioCfg FAILED\n");
+    }
+
+    /* 视频码流配置回调 */
+    if (NET_TV_SERVER_RegisterCb_GetStreamCfg(MyGetStreamCfgCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetStreamCfg SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetStreamCfg FAILED\n");
+    }
+
+    if (NET_TV_SERVER_RegisterCb_SetStreamCfg(MySetStreamCfgCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetStreamCfg SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetStreamCfg FAILED\n");
+    }
+    
+    /* WIFI/4G/热点配置回调 */
+    if (NET_TV_SERVER_RegisterCb_SetConfigWifiSta(MySetConfigWifiStaCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetConfigWifiSta SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetConfigWifiSta FAILED\n");
+    }
+
+    if (NET_TV_SERVER_RegisterCb_ConnectWifiSta(MyConnectWifiStaCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_ConnectWifiSta SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_ConnectWifiSta FAILED\n");
+    }
+
+    if (NET_TV_SERVER_RegisterCb_DisconnectWifiSta(MyDisconnectWifiStaCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_DisconnectWifiSta SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_DisconnectWifiSta FAILED\n");
+    }
+
+    if (NET_TV_SERVER_RegisterCb_Get4GInfo(MyGet4GInfoCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_Get4GInfo SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_Get4GInfo FAILED\n");
+    }
+
+    if (NET_TV_SERVER_RegisterCb_Set4GInfo(MySet4GInfoCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_Set4GInfo SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_Set4GInfo FAILED\n");
+    }
+
+    if (NET_TV_SERVER_RegisterCb_SetHotspotInfo(MySetHotspotInfoCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetHotspotInfo SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetHotspotInfo FAILED\n");
+    }
+
+    if (NET_TV_SERVER_RegisterCb_GetHotspotConn(MyGetHotspotConnCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetHotspotConn SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetHotspotConn FAILED\n");
+    }
+
+    if (NET_TV_SERVER_RegisterCb_GetSecurityServicesInfo(MyGetSecurityServicesInfoCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetSecurityServicesInfo SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetSecurityServicesInfo FAILED\n");
+    }
+
+    if (NET_TV_SERVER_RegisterCb_SetSecurityServicesInfo(MySetSecurityServicesInfoCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetSecurityServicesInfo SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetSecurityServicesInfo FAILED\n");
+    }
+
+    if (NET_TV_SERVER_RegisterCb_GetSshCountdown(MyGetSshCountdownCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetSshCountdown SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetSshCountdown FAILED\n");
+    }
+
+    if (NET_TV_SERVER_RegisterCb_FindLog(MyFindLogCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_FindLog SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_FindLog FAILED\n");
+    }
+
+    if (NET_TV_SERVER_RegisterCb_ExportLog(MyExportLogCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_ExportLog SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_ExportLog FAILED\n");
+    }
+
+    if (NET_TV_SERVER_RegisterCb_GetLogServer(MyGetLogServerCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetLogServer SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetLogServer FAILED\n");
+    }
+
+    if (NET_TV_SERVER_RegisterCb_SetLogServer(MySetLogServerCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetLogServer SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetLogServer FAILED\n");
+    }
+
+    if (NET_TV_SERVER_RegisterCb_TestLogServer(MyTestLogServerCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_TestLogServer SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_TestLogServer FAILED\n");
+    }
+
+    if (NET_TV_SERVER_RegisterCb_ControlRecordInfo(MyControlRecordInfoCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_ControlRecordInfo SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_ControlRecordInfo FAILED\n");
+    }
+
+    if (NET_TV_SERVER_RegisterCb_GetRecordStatus(MyGetRecordStatusCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetRecordStatus SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetRecordStatus FAILED\n");
+    }
+
+    if (NET_TV_SERVER_RegisterCb_GetRecordSchedule(MyGetRecordScheduleCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetRecordSchedule SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetRecordSchedule FAILED\n");
+    }
+
+    if (NET_TV_SERVER_RegisterCb_SetRecordSchedule(MySetRecordScheduleCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetRecordSchedule SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetRecordSchedule FAILED\n");
+    }
+
+    if (NET_TV_SERVER_RegisterCb_GetRecordAdvancedParam(MyGetRecordAdvancedParamCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetRecordAdvancedParam SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetRecordAdvancedParam FAILED\n");
+    }
+
+    if (NET_TV_SERVER_RegisterCb_SetRecordAdvancedParam(MySetRecordAdvancedParamCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetRecordAdvancedParam SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetRecordAdvancedParam FAILED\n");
+    }
+
+    if (NET_TV_SERVER_RegisterCb_FindRecordFileInfo(MyFindRecordFileInfoCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_FindRecordFileInfo SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_FindRecordFileInfo FAILED\n");
+    }
+
+    if (NET_TV_SERVER_RegisterCb_DownloadRecordFile(MyDownloadRecordFileCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_DownloadRecordFile SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_DownloadRecordFile FAILED\n");
+    }
+
+    /* OSD配置回调 */
+    if (NET_TV_SERVER_RegisterCb_GetOsdCfg(MyGetOSDCfgCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetOSDCfg SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetOSDCfg FAILED\n");
+    }
+
+    if (NET_TV_SERVER_RegisterCb_SetOsdCfg(MySetOSDCfgCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetOSDCfg SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetOSDCfg FAILED\n");
+    }
+
+    /* 移动侦测配置回调 */
+    if (NET_TV_SERVER_RegisterCb_GetMotionAlarm(MyGetMotionAlarmCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetMotionAlarm SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetMotionAlarm FAILED\n");
+    }
+
+    if (NET_TV_SERVER_RegisterCb_SetMotionAlarm(MySetMotionAlarmCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetMotionAlarm SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetMotionAlarm FAILED\n");
+    }
+
+    /* 遮挡报警配置回调 */
+    if (NET_TV_SERVER_RegisterCb_GetTamperAlarm(MyGetTamperAlarmCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetTamperAlarm SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetTamperAlarm FAILED\n");
+    }
+
+    if (NET_TV_SERVER_RegisterCb_SetTamperAlarm(MySetTamperAlarmCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetTamperAlarm SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetTamperAlarm FAILED\n");
+    }
+
+    /* 越界检测配置回调 */
+    if (NET_TV_SERVER_RegisterCb_GetCrossLineAlarm(MyGetCrossLineAlarmCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetCrossLineAlarm SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetCrossLineAlarm FAILED\n");
+    }
+
+    if (NET_TV_SERVER_RegisterCb_SetCrossLineAlarm(MySetCrossLineAlarmCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetCrossLineAlarm SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetCrossLineAlarm FAILED\n");
+    }
+
+    /* 入侵检测配置回调 */
+    if (NET_TV_SERVER_RegisterCb_GetIntrusionAlarm(MyGetIntrusionAlarmCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetIntrusionAlarm SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetIntrusionAlarm FAILED\n");
+    }
+
+    /* 进入区域侦测配置回调 */
+    if (NET_TV_SERVER_RegisterCb_GetEnterRegionAlarm(MyGetEnterRegionAlarmCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetEnterRegionAlarm SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetEnterRegionAlarm FAILED\n");
+    }
+
+    if (NET_TV_SERVER_RegisterCb_SetEnterRegionAlarm(MySetEnterRegionAlarmCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetEnterRegionAlarm SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetEnterRegionAlarm FAILED\n");
+    }
+
+    /* 离开区域侦测配置回调 */
+    if (NET_TV_SERVER_RegisterCb_GetLeaveRegionAlarm(MyGetLeaveRegionAlarmCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetLeaveRegionAlarm SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetLeaveRegionAlarm FAILED\n");
+    }
+
+    if (NET_TV_SERVER_RegisterCb_SetLeaveRegionAlarm(MySetLeaveRegionAlarmCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetLeaveRegionAlarm SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetLeaveRegionAlarm FAILED\n");
+    }
+
+    /* 徘徊侦测配置回调 */
+    if (NET_TV_SERVER_RegisterCb_GetLoiteringAlarm(MyGetLoiteringAlarmCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetLoiteringAlarm SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetLoiteringAlarm FAILED\n");
+    }
+
+    if (NET_TV_SERVER_RegisterCb_SetLoiteringAlarm(MySetLoiteringAlarmCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetLoiteringAlarm SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetLoiteringAlarm FAILED\n");
+    }
+
+    /* 场景变更侦测配置回调 */
+    if (NET_TV_SERVER_RegisterCb_GetSceneChangeAlarm(MyGetSceneChangeAlarmCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetSceneChangeAlarm SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetSceneChangeAlarm FAILED\n");
+    }
+
+    if (NET_TV_SERVER_RegisterCb_SetSceneChangeAlarm(MySetSceneChangeAlarmCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetSceneChangeAlarm SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetSceneChangeAlarm FAILED\n");
+    }
+
+    /* 人员聚集侦测配置回调 */
+    if (NET_TV_SERVER_RegisterCb_GetCrowGatheringAlarm(MyGetCrowdGatheringAlarmCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetCrowdGatheringAlarm SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetCrowdGatheringAlarm FAILED\n");
+    }
+
+    if (NET_TV_SERVER_RegisterCb_SetCrowGatheringAlarm(MySetCrowdGatheringAlarmCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetCrowdGatheringAlarm SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetCrowdGatheringAlarm FAILED\n");
+    }
+
+    /* 垃圾暴露配置回调 */
+    if (NET_TV_SERVER_RegisterCb_GetGarbageExposureCfg(MyGetGarbageExposureCfgCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetGarbageExposureCfg SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetGarbageExposureCfg FAILED\n");
+    }
+
+    if (NET_TV_SERVER_RegisterCb_SetGarbageExposureCfg(MySetGarbageExposureCfgCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetGarbageExposureCfg SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetGarbageExposureCfg FAILED\n");
+    }
+
+    /* 垃圾满溢配置回调 */
+    if (NET_TV_SERVER_RegisterCb_GetGarbageOverflowCfg(MyGetGarbageOverflowCfgCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetGarbageOverflowCfg SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetGarbageOverflowCfg FAILED\n");
+    }
+
+    if (NET_TV_SERVER_RegisterCb_SetGarbageOverflowCfg(MySetGarbageOverflowCfgCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetGarbageOverflowCfg SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetGarbageOverflowCfg FAILED\n");
+    }
+
+    /* 人流统计配置回调 */
+    if (NET_TV_SERVER_RegisterCb_GetPeopleFlowStatisticsCfg(MyGetPeopleFlowStatisticsCfgCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetPeopleFlowStatisticsCfg SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetPeopleFlowStatisticsCfg FAILED\n");
+    }
+
+    if (NET_TV_SERVER_RegisterCb_SetPeopleFlowStatisticsCfg(MySetPeopleFlowStatisticsCfgCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetPeopleFlowStatisticsCfg SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetPeopleFlowStatisticsCfg FAILED\n");
+    }
+
+    if (NET_TV_SERVER_RegisterCb_ResetPeopleFlowStatistics(MyResetPeopleFlowStatisticsCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_ResetPeopleFlowStatistics SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_ResetPeopleFlowStatistics FAILED\n");
+    }
+
+    /* 人员密度检测配置回调 */
+    if (NET_TV_SERVER_RegisterCb_GetPeopleDensityDetectionCfg(MyGetPeopleDensityDetectionCfgCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetPeopleDensityDetectionCfg SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetPeopleDensityDetectionCfg FAILED\n");
+    }
+
+    if (NET_TV_SERVER_RegisterCb_SetPeopleDensityDetectionCfg(MySetPeopleDensityDetectionCfgCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetPeopleDensityDetectionCfg SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetPeopleDensityDetectionCfg FAILED\n");
+    }
+
+    /* 井盖异常检测配置回调 */
+    if (NET_TV_SERVER_RegisterCb_GetManholeCoverAbnormalCfg(MyGetManholeCoverAbnormalCfgCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetManholeCoverAbnormalCfg SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetManholeCoverAbnormalCfg FAILED\n");
+    }
+
+    if (NET_TV_SERVER_RegisterCb_SetManholeCoverAbnormalCfg(MySetManholeCoverAbnormalCfgCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetManholeCoverAbnormalCfg SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetManholeCoverAbnormalCfg FAILED\n");
+    }
+
+    /* 睡岗识别配置回调 */
+    if (NET_TV_SERVER_RegisterCb_GetSleepOnDutyCfg(MyGetSleepOnDutyCfgCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetSleepOnDutyCfg SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetSleepOnDutyCfg FAILED\n");
+    }
+
+    if (NET_TV_SERVER_RegisterCb_SetSleepOnDutyCfg(MySetSleepOnDutyCfgCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetSleepOnDutyCfg SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetSleepOnDutyCfg FAILED\n");
+    }
+
+    /* 电瓶车进电梯识别配置回调 */
+    if (NET_TV_SERVER_RegisterCb_GetElectricVehicleInElevatorCfg(MyGetElectricVehicleInElevatorCfgCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetElectricVehicleInElevatorCfg SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetElectricVehicleInElevatorCfg FAILED\n");
+    }
+
+    if (NET_TV_SERVER_RegisterCb_SetElectricVehicleInElevatorCfg(MySetElectricVehicleInElevatorCfgCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetElectricVehicleInElevatorCfg SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetElectricVehicleInElevatorCfg FAILED\n");
+    }
+
+    /* 人员倒地识别配置回调 */
+    if (NET_TV_SERVER_RegisterCb_GetPersonFallDownCfg(MyGetPersonFallDownCfgCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetPersonFallDownCfg SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetPersonFallDownCfg FAILED\n");
+    }
+
+    if (NET_TV_SERVER_RegisterCb_SetPersonFallDownCfg(MySetPersonFallDownCfgCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetPersonFallDownCfg SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetPersonFallDownCfg FAILED\n");
+    }
+
+    /* 施工占道识别配置回调 */
+    if (NET_TV_SERVER_RegisterCb_GetConstructionOccupyRoadCfg(MyGetConstructionOccupyRoadCfgCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetConstructionOccupyRoadCfg SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetConstructionOccupyRoadCfg FAILED\n");
+    }
+
+    if (NET_TV_SERVER_RegisterCb_SetConstructionOccupyRoadCfg(MySetConstructionOccupyRoadCfgCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetConstructionOccupyRoadCfg SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetConstructionOccupyRoadCfg FAILED\n");
+    }
+
+    /* 拥堵识别配置回调 */
+    if (NET_TV_SERVER_RegisterCb_GetCongestionCfg(MyGetCongestionCfgCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetCongestionCfg SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetCongestionCfg FAILED\n");
+    }
+
+    if (NET_TV_SERVER_RegisterCb_SetCongestionCfg(MySetCongestionCfgCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetCongestionCfg SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetCongestionCfg FAILED\n");
+    }
+
+    /* 车牌识别配置回调 */
+    if (NET_TV_SERVER_RegisterCb_GetLicensePlateRecognitionCfg(MyGetLicensePlateRecognitionCfgCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetLicensePlateRecognitionCfg SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetLicensePlateRecognitionCfg FAILED\n");
+    }
+
+    if (NET_TV_SERVER_RegisterCb_SetLicensePlateRecognitionCfg(MySetLicensePlateRecognitionCfgCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetLicensePlateRecognitionCfg SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetLicensePlateRecognitionCfg FAILED\n");
+    }
+
+    /* 高空安全带识别配置回调 */
+    if (NET_TV_SERVER_RegisterCb_GetHighAltitudeSeatbeltCfg(MyGetHighAltitudeSeatbeltCfgCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetHighAltitudeSeatbeltCfg SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetHighAltitudeSeatbeltCfg FAILED\n");
+    }
+
+    if (NET_TV_SERVER_RegisterCb_SetHighAltitudeSeatbeltCfg(MySetHighAltitudeSeatbeltCfgCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetHighAltitudeSeatbeltCfg SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetHighAltitudeSeatbeltCfg FAILED\n");
+    }
+
+    /* 安全帽识别配置回调 */
+    if (NET_TV_SERVER_RegisterCb_GetSafetyHelmetCfg(MyGetSafetyHelmetCfgCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetSafetyHelmetCfg SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetSafetyHelmetCfg FAILED\n");
+    }
+
+    if (NET_TV_SERVER_RegisterCb_SetSafetyHelmetCfg(MySetSafetyHelmetCfgCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetSafetyHelmetCfg SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetSafetyHelmetCfg FAILED\n");
+    }
+
+    /* 摔倒识别配置回调 */
+    if (NET_TV_SERVER_RegisterCb_GetPersonFallCfg(MyGetPersonFallCfgCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetPersonFallCfg SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetPersonFallCfg FAILED\n");
+    }
+
+    if (NET_TV_SERVER_RegisterCb_SetPersonFallCfg(MySetPersonFallCfgCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetPersonFallCfg SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetPersonFallCfg FAILED\n");
+    }
+
+    /* 玩手机识别配置回调 */
+    if (NET_TV_SERVER_RegisterCb_GetPhoneUsageCfg(MyGetPhoneUsageCfgCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetPhoneUsageCfg SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetPhoneUsageCfg FAILED\n");
+    }
+
+    if (NET_TV_SERVER_RegisterCb_SetPhoneUsageCfg(MySetPhoneUsageCfgCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetPhoneUsageCfg SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetPhoneUsageCfg FAILED\n");
+    }
+
+    /* 抽烟识别配置回调 */
+    if (NET_TV_SERVER_RegisterCb_GetSmokingCfg(MyGetSmokingCfgCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetSmokingCfg SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetSmokingCfg FAILED\n");
+    }
+
+    if (NET_TV_SERVER_RegisterCb_SetSmokingCfg(MySetSmokingCfgCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetSmokingCfg SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetSmokingCfg FAILED\n");
+    }
+
+    /* 明火识别配置回调 */
+    if (NET_TV_SERVER_RegisterCb_GetOpenFlameCfg(MyGetOpenFlameCfgCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetOpenFlameCfg SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetOpenFlameCfg FAILED\n");
+    }
+
+    if (NET_TV_SERVER_RegisterCb_SetOpenFlameCfg(MySetOpenFlameCfgCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetOpenFlameCfg SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetOpenFlameCfg FAILED\n");
+    }
+
+    /* 黄土裸露识别配置回调 */
+    if (NET_TV_SERVER_RegisterCb_GetBareSoilCfg(MyGetBareSoilCfgCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetBareSoilCfg SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetBareSoilCfg FAILED\n");
+    }
+
+    if (NET_TV_SERVER_RegisterCb_SetBareSoilCfg(MySetBareSoilCfgCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetBareSoilCfg SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetBareSoilCfg FAILED\n");
+    }
+
+    /* 洞口防护栏识别配置回调 */
+    if (NET_TV_SERVER_RegisterCb_GetHoleProtectionBarCfg(MyGetHoleProtectionBarCfgCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetHoleProtectionBarCfg SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetHoleProtectionBarCfg FAILED\n");
+    }
+
+    if (NET_TV_SERVER_RegisterCb_SetHoleProtectionBarCfg(MySetHoleProtectionBarCfgCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetHoleProtectionBarCfg SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetHoleProtectionBarCfg FAILED\n");
+    }
+
+    /* 反光衣识别配置回调 */
+    if (NET_TV_SERVER_RegisterCb_GetReflectiveClothingCfg(MyGetReflectiveClothingCfgCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetReflectiveClothingCfg SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetReflectiveClothingCfg FAILED\n");
+    }
+
+    if (NET_TV_SERVER_RegisterCb_SetReflectiveClothingCfg(MySetReflectiveClothingCfgCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetReflectiveClothingCfg SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetReflectiveClothingCfg FAILED\n");
+    }
+
+    /* 宠物识别配置回调 */
+    if (NET_TV_SERVER_RegisterCb_GetPetRecognitionInfo(MyGetPetRecognitionInfoCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetPetRecognitionInfo SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetPetRecognitionInfo FAILED\n");
+    }
+
+    if (NET_TV_SERVER_RegisterCb_SetPetRecognitionInfo(MySetPetRecognitionInfoCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetPetRecognitionInfo SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetPetRecognitionInfo FAILED\n");
+    }
+
+    /* 翻越围栏配置回调 */
+    if (NET_TV_SERVER_RegisterCb_GetClimbFenceInfo(MyGetClimbFenceInfoCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetClimbFenceInfo SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetClimbFenceInfo FAILED\n");
+    }
+
+    if (NET_TV_SERVER_RegisterCb_SetClimbFenceInfo(MySetClimbFenceInfoCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetClimbFenceInfo SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetClimbFenceInfo FAILED\n");
+    }
+    
+    /* 离岗配置回调 */
+    if (NET_TV_SERVER_RegisterCb_GetDimissionInfo(MyGetDimissionInfoCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetDimissionInfo SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetDimissionInfo FAILED\n");
+    }
+
+    if (NET_TV_SERVER_RegisterCb_SetDimissionInfo(MySetDimissionInfoCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetDimissionInfo SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetDimissionInfo FAILED\n");
+    }
+
+    /* 违规变道配置回调 */
+    if (NET_TV_SERVER_RegisterCb_GetIllegalLaneInfo(MyGetIllegalLaneInfoCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetIllegalLaneInfo SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetIllegalLaneInfo FAILED\n");
+    }
+
+    if (NET_TV_SERVER_RegisterCb_SetIllegalLaneInfo(MySetIllegalLaneInfoCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetIllegalLaneInfo SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetIllegalLaneInfo FAILED\n");
+    }
+
+    /* 逆行配置回调 */
+    if (NET_TV_SERVER_RegisterCb_GetRetrogradeInfo(MyGetRetrogradeInfoCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetRetrogradeInfo SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetRetrogradeInfo FAILED\n");
+    }
+
+    if (NET_TV_SERVER_RegisterCb_SetRetrogradeInfo(MySetRetrogradeInfoCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetRetrogradeInfo SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetRetrogradeInfo FAILED\n");
+    }
+
+    /* 非机动车闯入配置回调 */
+    if (NET_TV_SERVER_RegisterCb_GetNonmotorVehicleIntrusionInfo(MyGetNonmotorVehicleIntrusionInfoCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetNonmotorVehicleIntrusionInfo SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetNonmotorVehicleIntrusionInfo FAILED\n");
+    }
+
+    if (NET_TV_SERVER_RegisterCb_SetNonmotorVehicleIntrusionInfo(MySetNonmotorVehicleIntrusionInfoCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetNonmotorVehicleIntrusionInfo SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetNonmotorVehicleIntrusionInfo FAILED\n");
+    }
+
+    /* 应急车道占用识别配置回调 */
+    if (NET_TV_SERVER_RegisterCb_GetOccupationEmergencyInfo(MyGetOccupationEmergencyInfoCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetOccupationEmergencyInfo SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetOccupationEmergencyInfo FAILED\n");
+    }
+
+    if (NET_TV_SERVER_RegisterCb_SetOccupationEmergencyInfo(MySetOccupationEmergencyInfoCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetOccupationEmergencyInfo SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetOccupationEmergencyInfo FAILED\n");
+    }
+
+    /* 行人闯入配置回调 */
+    if (NET_TV_SERVER_RegisterCb_GetPedestrianIntrusionInfo(MyGetPedestrianIntrusionInfoCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetPedestrianIntrusionInfo SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetPedestrianIntrusionInfo FAILED\n");
+    }
+
+    if (NET_TV_SERVER_RegisterCb_SetPedestrianIntrusionInfo(MySetPedestrianIntrusionInfoCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetPedestrianIntrusionInfo SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetPedestrianIntrusionInfo FAILED\n");
+    }
+
+    /* 烟火识别配置回调 */
+    if (NET_TV_SERVER_RegisterCb_GetSmokeFireCfg(MyGetSmokeFireCfgCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetSmokeFireCfg SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetSmokeFireCfg FAILED\n");
+    }
+
+    if (NET_TV_SERVER_RegisterCb_SetSmokeFireCfg(MySetSmokeFireCfgCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetSmokeFireCfg SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetSmokeFireCfg FAILED\n");
+    }
+
+    /* 道路积水检测配置回调 */
+    if (NET_TV_SERVER_RegisterCb_GetRoadPondingCfg(MyGetRoadPondingCfgCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetRoadPondingCfg SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetRoadPondingCfg FAILED\n");
+    }
+
+    if (NET_TV_SERVER_RegisterCb_SetRoadPondingCfg(MySetRoadPondingCfgCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetRoadPondingCfg SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetRoadPondingCfg FAILED\n");
+    }
+    
+    /* 停车侦测配置回调 */
+    if (NET_TV_SERVER_RegisterCb_GetParkingAlarm(MyGetParkingAlarmCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetParkingAlarm SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetParkingAlarm FAILED\n");
+    }
+
+    if (NET_TV_SERVER_RegisterCb_SetParkingAlarm(MySetParkingAlarmCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetParkingAlarm SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetParkingAlarm FAILED\n");
+    }
+
+    /* 物品遗留侦测配置回调 */
+    if (NET_TV_SERVER_RegisterCb_GetUnattendedObjectAlarm(MyGetUnattendedObjectAlarmCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetUnattendedObjectAlarm SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetUnattendedObjectAlarm FAILED\n");
+    }
+
+    if (NET_TV_SERVER_RegisterCb_SetUnattendedObjectAlarm(MySetUnattendedObjectAlarmCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetUnattendedObjectAlarm SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetUnattendedObjectAlarm FAILED\n");
+    }
+
+    /* 物品拿取侦测配置回调 */
+    if (NET_TV_SERVER_RegisterCb_GetObjectRemovalAlarm(MyGetObjectRemovalAlarmCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetObjectRemovalAlarm SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetObjectRemovalAlarm FAILED\n");
+    }
+
+    if (NET_TV_SERVER_RegisterCb_SetObjectRemovalAlarm(MySetObjectRemovalAlarmCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetObjectRemovalAlarm SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetObjectRemovalAlarm FAILED\n");
+    }
+
+    /* 音频异常侦测配置回调 */
+    if (NET_TV_SERVER_RegisterCb_GetAudioAnomalyAlarm(MyGetAudioAnomalyAlarmCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetAudioAnomalyAlarm SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetAudioAnomalyAlarm FAILED\n");
+    }
+    if (NET_TV_SERVER_RegisterCb_SetAudioAnomalyAlarm(MySetAudioAnomalyAlarmCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetAudioAnomalyAlarm SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetAudioAnomalyAlarm FAILED\n");
+    }
+
+    /* 预览信息配置回调 */
+    if (NET_TV_SERVER_RegisterCb_GetPreviewInfo(MyGetPreviewInfoCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetPreviewInfo SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetPreviewInfo FAILED\n");
+    }
+
+    if (NET_TV_SERVER_RegisterCb_SetPreviewInfo(MySetPreviewInfoCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetPreviewInfo SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetPreviewInfo FAILED\n");
+    }
+
+    /*通道信息*/
+    if (NET_TV_SERVER_RegisterCb_GetChannelInfo(MyGetChannelInfoCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetChannelInfo SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetChannelInfo FAILED\n");
+    }
+
+    if (NET_TV_SERVER_RegisterCb_GetChannelList(MyGetChannelListCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetChannelList SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetChannelList FAILED\n");
+    }
+
+    if (NET_TV_SERVER_RegisterCb_SetAudioAnomalyAlarm(MySetAudioAnomalyAlarmCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetAudioAnomalyAlarm SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetAudioAnomalyAlarm FAILED\n");
+    }
+
+    /* 系统升级相关回调*/
+    if(NET_TV_SERVER_RegisterCb_GetUpgradeStatus(MyGetUpgradeStatus))
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetUpgradeStatus SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetUpgradeStatus FAILED\n");
+    }
+
+    if(NET_TV_SERVER_RegisterCb_GetUpgradeVersion(MyGetUpgradeVersion))
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetUpgradeVersion SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetUpgradeVersion FAILED\n");
+    }
+
+    if(NET_TV_SERVER_RegisterCb_SetUpgrade(MySetUpgrade))
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetUpgrade SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetUpgrade FAILED\n");
+    }
+
+    /* 抓图参数回调 */
+    if (NET_TV_SERVER_RegisterCb_GetCaptureParamInfo(MyGetCaptureParamInfo))
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetCaptureParamInfo SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetCaptureParamInfo FAILED\n");
+    }
+
+    if (NET_TV_SERVER_RegisterCb_SetCaptureParamInfo(MySetCaptureParamInfo))
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetCaptureParamInfo SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetCaptureParamInfo FAILED\n");
+    }
+
+    /* 抓图任务回调 */
+    if (NET_TV_SERVER_RegisterCb_GetCapturePlanInfo(MyGetCapturePlanInfo))
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetCapturePlanInfo SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetCapturePlanInfo FAILED\n");
+    }
+
+    if (NET_TV_SERVER_RegisterCb_SetCapturePlanInfo(MySetCapturePlanInfo))
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetSapturePlanInfo SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetSapturePlanInfo FAILED\n");
+    }
+
+    /* 曝光信息回调 */
+    if(NET_TV_SERVER_RegisterCb_GetExposureInfo(MyGetExposureInfo))
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetExposureInfo SUCCESS\n");
+    }
+    else{
+        printf("[ConfigServerDemo] RegisterCb_GetExposureInfo FAILED\n");
+    }
+
+    if(NET_TV_SERVER_RegisterCb_SetExposureInfo(MySetExposureInfo))
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetExposureInfo SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetExposureInfo FAILED\n");
+    }
+
+    /* 日夜转换信息回调*/
+    if(NET_TV_SERVER_RegisterCb_GetDayNightInfo(MyGetDayNightInfo))
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetDayNightInfo SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetDayNightInfo FAILED\n");
+    }
+
+    if(NET_TV_SERVER_RegisterCb_SetDayNightInfo(MySetDayNightInfo))
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetDayNightInfo SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetDayNightInfo FAILED\n");
+    }
+
+    /* 背光信息回调 */
+    if(NET_TV_SERVER_RegisterCb_GetBackLightInfo(MyGetBackLightInfo))
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetBackLightInfo SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetBackLightInfo FAILED\n");
+    }
+
+    if(NET_TV_SERVER_RegisterCb_SetBackLightInfo(MySetBackLightInfo))
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetBackLightInfo SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetBackLightInfo FAILED\n");
+    }
+    
+    /* 降噪信息回调 */
+    if(NET_TV_SERVER_RegisterCb_GetDenoiseInfo(MyGetDenoiseInfo))
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetDenoiseInfo SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetDenoiseInfo FAILED\n");
+    }
+
+    if(NET_TV_SERVER_RegisterCb_SetDenoiseInfo(MySetDenoiseInfo))
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetDenoiseInfo SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetDenoiseInfo FAILED\n");
+    }
+
+    /* 白平衡回调*/
+    if(NET_TV_SERVER_RegisterCb_GetWhiteBalanceInfo(MyGetWhiteBalanceInfo))
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetWhiteBalanceInfo SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetWhiteBalanceInfo SUCCESS\n");
+    }
+
+    if(NET_TV_SERVER_RegisterCb_SetWhiteBalanceInfo(MySetWhiteBalanceInfo))
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetWhiteBalanceInfo SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetWhiteBalanceInfo SUCCESS\n");
+    }
+
+    /* 对讲相关*/
+    if (NET_TV_SERVER_RegisterCb_SetTalkbackState(MySetTalkbackStateCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetTalkbackState SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetTalkbackState FAILED\n");
+    }
+
+    if (NET_TV_SERVER_RegisterCb_SetTalkbackToStream(MySetTalkbackToStreamCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetTalkbackToStream SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetTalkbackToStream FAILED\n");
+    }
+
+    if (NET_TV_SERVER_RegisterCb_GetTalkbackFromStream(MyGetTalkbackFromStreamCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetTalkbackFromStream SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetTalkbackFromStream FAILED\n");
+    }
+
+    if (NET_TV_SERVER_RegisterCb_GetReplayUrl(MyGetReplayUrlCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetReplayUrl SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetReplayUrl FAILED\n");
+    }
+
+    if (NET_TV_SERVER_RegisterCb_ControlReplay(MyControlReplayCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_ControlReplay SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_ControlReplay FAILED\n");
+    }
+
+    if (NET_TV_SERVER_RegisterCb_GetReplayRecordList(MyGetReplayRecordListCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetReplayRecordList SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetReplayRecordList FAILED\n");
+    }
+
+    if (NET_TV_SERVER_RegisterCb_SetReplayTalkback(MySetReplayTalkbackCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetReplayTalkback SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetReplayTalkback FAILED\n");
+    }
+
+    /* 人脸抓拍配置回调 */
+    if (NET_TV_SERVER_RegisterCb_GetFaceCaptureInfo(MyGetFaceCaptureInfoCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetFaceCaptureInfo SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetFaceCaptureInfo FAILED\n");
+    }
+
+    if (NET_TV_SERVER_RegisterCb_SetFaceCaptureInfo(MySetFaceCaptureInfoCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetFaceCaptureInfo SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetFaceCaptureInfo FAILED\n");
+    }
+
+    /* 人脸比对配置回调 */
+    if (NET_TV_SERVER_RegisterCb_SetFaceCompareInfo(MySetFaceCompareInfoCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetFaceCompareInfo SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetFaceCompareInfo FAILED\n");
+    }
+
+    /* 目标库配置回调 */
+    if (NET_TV_SERVER_RegisterCb_AddTargetLib(MyAddTargetLibCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_AddTargetLib SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_AddTargetLib FAILED\n");
+    }
+
+    if (NET_TV_SERVER_RegisterCb_DelTargetLib(MyDelTargetLibCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_DelTargetLib SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_DelTargetLib FAILED\n");
+    }
+
+    if (NET_TV_SERVER_RegisterCb_SetTargetLib(MySetTargetLibCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetTargetLib SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetTargetLib FAILED\n");
+    }
+
+    if (NET_TV_SERVER_RegisterCb_GetTargetLib(MyGetTargetLibCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetTargetLib SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetTargetLib FAILED\n");
+    }
+
+    /* 人脸信息配置回调 */
+    if (NET_TV_SERVER_RegisterCb_AddFaceInfo(MyAddFaceInfoCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_AddFaceInfo SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_AddFaceInfo FAILED\n");
+    }
+
+    if (NET_TV_SERVER_RegisterCb_DelFaceInfo(MyDelFaceInfoCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_DelFaceInfo SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_DelFaceInfo FAILED\n");
+    }
+
+    if (NET_TV_SERVER_RegisterCb_SetFaceInfo(MySetFaceInfoCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetFaceInfo SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetFaceInfo FAILED\n");
+    }
+
+    if (NET_TV_SERVER_RegisterCb_GetFaceInfo(MyGetFaceInfoCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetFaceInfo SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetFaceInfo FAILED\n");
+    }
+}
+
+int main(int argc, char* argv[])
+{
+    (void)argc;
+    (void)argv;
+
+    printf("===========================================\n");
+    printf("   NetTVSDK Server Config Demo\n");
+    printf("   - 支持 NET_TV_GetDevConfig/NET_TV_SetDevConfig\n");
+    printf("   - 示例命令：DEVICECFG / NETWORKCFG / MOTIONALARM / TAMPERALARM / CROSSLINEALARM / INTRUSIONALARM\n");
+    printf("===========================================\n");
+    printf("Press Ctrl+C to stop.\n\n");
+
+    /* 注册信号处理，支持 Ctrl+C 退出 */
+    signal(SIGINT,  signal_handler);
+    signal(SIGTERM, signal_handler);
+
+    /* 初始化日志 */
+    initSdkLogBySize("ConfigServerDemo", "/opt/course/ConfigServerDemo.log", MAX_LOG_SIZE, MAX_LOG_FILES);
+    syncPrintf(1);
+    setLogLevel(NETSDK_LOG_TRACE);
+
+    /* 初始化默认配置 */
+    InitDefaultConfig();
+
+    /* 注册业务相关回调 */
+    RegisterCallbacks();
+
+    /* 启动 SDK 服务端 */
+    CHAR szUserName[NET_TV_LEN_132] = "admin";
+    CHAR szPassword[NET_TV_LEN_132] = "sj2@2025";
+
+    printf("[ConfigServerDemo] Starting server on port %d ...\n", SDKSERVER_PORT);
+    if (!NET_TV_SERVER_Init(SDKSERVER_PORT, szUserName, szPassword))
+    {
+        printf("[ConfigServerDemo] NET_TV_SERVER_Init FAILED!\n");
+        return -1;
+    }
+
+    printf("[ConfigServerDemo] Server started successfully.\n");
+    printf("[ConfigServerDemo] Waiting for client config requests...\n");
+
+    while (g_running)
+    {
+#ifdef _WIN32
+        Sleep(1000);
+#else
+        sleep(1);
+#endif
+    }
+
+    printf("[ConfigServerDemo] Cleaning up server...\n");
+    NET_TV_SERVER_Cleanup();
+    printf("[ConfigServerDemo] Bye.\n");
+
+    return 0;
+}
+

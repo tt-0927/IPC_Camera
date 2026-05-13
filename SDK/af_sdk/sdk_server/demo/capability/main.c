@@ -1,0 +1,408 @@
+/**
+ * @file main.c
+ * @author tianl (tianl@kfb.cn)
+ * @date 2025-01-30
+ * 
+ * @brief SDK服务端 设备能力集Demo
+ */
+#include <stdio.h>
+#include <string.h>
+#include <unistd.h>
+
+#include "NetSdkLog.h"
+#include "NetTVSDKServerInterface.h"
+
+/* 日志记录单个日志文件的最大大小 */
+#define MAX_LOG_SIZE  (20 * 1024 * 1024)
+/* 日志记录最大保留的日志文件数量 */
+#define MAX_LOG_FILES (10)
+/* 服务端口 */
+#define SDKSERVER_PORT 8888
+
+/**
+ * @brief 视频编码能力集回调实现
+ * @note 模拟填充2个码流(主/子码流)的能力集数据
+ */
+NET_TV_COMMON_ECODE_E MyVideoEncodeCb(INT32 dwChannelID, LPNET_TV_VIDEO_ENCODE_CAP_S pCap)
+{
+    if (!pCap)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+    
+    printf("[Server] GetVideoEncodeCap callback, channelID=%d\n", dwChannelID);
+    
+    // 填充2个码流的能力集
+    pCap->dwStreamCount = 2;
+    
+    // ============ 主码流能力 (索引0) ============
+    pCap->astStreamCap[0].dwStreamType = 0;          // NET_TV_LIVE_STREAM_INDEX_MAIN
+    pCap->astStreamCap[0].bSupportMultiStream = 1;   // 支持复合流
+    pCap->astStreamCap[0].dwEncodeCapSize = 2;
+    pCap->astStreamCap[0].stQuality.dwMin = 1;
+    pCap->astStreamCap[0].stQuality.dwMax = 6;
+    pCap->astStreamCap[0].stStreamSmooth.dwMin = 1;
+    pCap->astStreamCap[0].stStreamSmooth.dwMax = 100;
+    
+    // H.264编码配置示例
+    pCap->astStreamCap[0].astEncodeCap[0].nId = NET_TV_LIVE_STREAM_INDEX_MAIN;
+    pCap->astStreamCap[0].astEncodeCap[0].enVideoType = 0;
+    pCap->astStreamCap[0].astEncodeCap[0].stVideoResolution.dwWidth = 1920;
+    pCap->astStreamCap[0].astEncodeCap[0].stVideoResolution.dwHeight = 1080;
+    pCap->astStreamCap[0].astEncodeCap[0].enBitrateType = 0;
+    pCap->astStreamCap[0].astEncodeCap[0].enImageQuality = 60;
+    pCap->astStreamCap[0].astEncodeCap[0].enFrameRate = 30;
+    pCap->astStreamCap[0].astEncodeCap[0].nBitrateUpperLimit = 8192;
+    pCap->astStreamCap[0].astEncodeCap[0].nAverageBitrate = 4096;
+    pCap->astStreamCap[0].astEncodeCap[0].enVideoCodec = NET_TV_VIDEO_CODE_H264;
+    pCap->astStreamCap[0].astEncodeCap[0].bSmartEnable = FALSE;
+    pCap->astStreamCap[0].astEncodeCap[0].enEncodingComplexity = 1;
+    pCap->astStreamCap[0].astEncodeCap[0].nIFrameInterval = 50;
+    pCap->astStreamCap[0].astEncodeCap[0].enSvcEnable = 1;
+    pCap->astStreamCap[0].astEncodeCap[0].nBitrateSmoothing = 50;
+    
+    // H.265编码配置示例
+    pCap->astStreamCap[0].astEncodeCap[1].nId = NET_TV_LIVE_STREAM_INDEX_MAIN;
+    pCap->astStreamCap[0].astEncodeCap[1].enVideoType = 0;
+    pCap->astStreamCap[0].astEncodeCap[1].stVideoResolution.dwWidth = 2560;
+    pCap->astStreamCap[0].astEncodeCap[1].stVideoResolution.dwHeight = 1440;
+    pCap->astStreamCap[0].astEncodeCap[1].enBitrateType = 0;
+    pCap->astStreamCap[0].astEncodeCap[1].enImageQuality = 60;
+    pCap->astStreamCap[0].astEncodeCap[1].enFrameRate = 25;
+    pCap->astStreamCap[0].astEncodeCap[1].nBitrateUpperLimit = 16384;
+    pCap->astStreamCap[0].astEncodeCap[1].nAverageBitrate = 8192;
+    pCap->astStreamCap[0].astEncodeCap[1].enVideoCodec = NET_TV_VIDEO_CODE_H265;
+    pCap->astStreamCap[0].astEncodeCap[1].bSmartEnable = FALSE;
+    pCap->astStreamCap[0].astEncodeCap[1].enEncodingComplexity = 1;
+    pCap->astStreamCap[0].astEncodeCap[1].nIFrameInterval = 50;
+    pCap->astStreamCap[0].astEncodeCap[1].enSvcEnable = 0;
+    pCap->astStreamCap[0].astEncodeCap[1].nBitrateSmoothing = 50;
+    
+    // ============ 子码流能力 (索引1) ============
+    pCap->astStreamCap[1].dwStreamType = 1;          // NET_TV_LIVE_STREAM_INDEX_SUB
+    pCap->astStreamCap[1].bSupportMultiStream = 0;   // 不支持复合流
+    pCap->astStreamCap[1].dwEncodeCapSize = 1;
+    pCap->astStreamCap[1].stQuality.dwMin = 1;
+    pCap->astStreamCap[1].stQuality.dwMax = 6;
+    pCap->astStreamCap[1].stStreamSmooth.dwMin = 1;
+    pCap->astStreamCap[1].stStreamSmooth.dwMax = 50;
+    
+    // H.264编码配置示例
+    pCap->astStreamCap[1].astEncodeCap[0].nId = NET_TV_LIVE_STREAM_INDEX_AUX;
+    pCap->astStreamCap[1].astEncodeCap[0].enVideoType = 1;
+    pCap->astStreamCap[1].astEncodeCap[0].stVideoResolution.dwWidth = 640;
+    pCap->astStreamCap[1].astEncodeCap[0].stVideoResolution.dwHeight = 480;
+    pCap->astStreamCap[1].astEncodeCap[0].enBitrateType = 0;
+    pCap->astStreamCap[1].astEncodeCap[0].enImageQuality = 60;
+    pCap->astStreamCap[1].astEncodeCap[0].enFrameRate = 15;
+    pCap->astStreamCap[1].astEncodeCap[0].nBitrateUpperLimit = 1024;
+    pCap->astStreamCap[1].astEncodeCap[0].nAverageBitrate = 512;
+    pCap->astStreamCap[1].astEncodeCap[0].enVideoCodec = NET_TV_VIDEO_CODE_H264;
+    pCap->astStreamCap[1].astEncodeCap[0].bSmartEnable = FALSE;
+    pCap->astStreamCap[1].astEncodeCap[0].enEncodingComplexity = 1;
+    pCap->astStreamCap[1].astEncodeCap[0].nIFrameInterval = 50;
+    pCap->astStreamCap[1].astEncodeCap[0].enSvcEnable = 0;
+    pCap->astStreamCap[1].astEncodeCap[0].nBitrateSmoothing = 50;
+    
+    printf("[Server] Filled %d streams capability\n", pCap->dwStreamCount);
+    return NET_TV_E_SUCCEED;
+}
+
+/**
+ * @brief 音频编码能力集回调实现
+ * @note 模拟填充音频编码能力集的能力集数据
+ */
+NET_TV_COMMON_ECODE_E MyAudioEncodeCb(INT32 dwChannelID, LPNET_TV_AUDIO_CAP_S pCap)
+{
+    if (!pCap)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    printf("[Server] GetAudioEncodeCap callback, channelID=%d\n", dwChannelID);
+
+    memset(pCap, 0, sizeof(NET_TV_AUDIO_CAP_S));
+
+    // ================= 输入类型能力 =================
+    pCap->dwInputTypeSize = 2;
+    pCap->adwInputType[0] = NET_TV_AUDIO_INPUT_MICIN;
+    pCap->adwInputType[1] = NET_TV_AUDIO_INPUT_LINEIN;
+
+    // ================= 输出类型能力 =================
+    pCap->dwOutputTypeSize = 3;
+    pCap->adwOutputType[0] = NET_TV_AUDIO_OUTPUT_SPEAKER;
+    pCap->adwOutputType[1] = NET_TV_AUDIO_OUTPUT_LINEOUT;
+    pCap->adwOutputType[2] = NET_TV_AUDIO_OUTPUT_MUTE;
+
+    // ================= 音频格式能力 =================
+    pCap->dwFormatSize = 4;
+    pCap->adwFormat[0] = NET_TV_AUDIO_FORMAT_G711A;
+    pCap->adwFormat[1] = NET_TV_AUDIO_FORMAT_G711U;
+    pCap->adwFormat[2] = NET_TV_AUDIO_FORMAT_AAC;
+    pCap->adwFormat[3] = NET_TV_AUDIO_FORMAT_MP3;
+
+    // 格式详细能力数量
+    pCap->dwFormatDetailSize = 4;
+
+    // =========================================================
+    // G711A 能力
+    // =========================================================
+    pCap->astFormatDetail[0].dwFormat = NET_TV_AUDIO_FORMAT_G711A;
+
+    pCap->astFormatDetail[0].dwSampleRateSize = 1;
+    pCap->astFormatDetail[0].adwSampleRate[0] = NET_TV_AUDIO_SAMPRATE_8000;
+
+    pCap->astFormatDetail[0].dwBitRateSize = 1;
+    pCap->astFormatDetail[0].adwBitRate[0] = NET_TV_AUDIO_BITRATE_64K;
+
+    pCap->astFormatDetail[0].stSampleRateRange.bEnable = 1;
+    pCap->astFormatDetail[0].stSampleRateRange.dwMin = 8000;
+    pCap->astFormatDetail[0].stSampleRateRange.dwMax = 8000;
+    pCap->astFormatDetail[0].stSampleRateRange.dwStep = 0;
+
+    pCap->astFormatDetail[0].stBitRateRange.bEnable = 1;
+    pCap->astFormatDetail[0].stBitRateRange.dwMin = 64000;
+    pCap->astFormatDetail[0].stBitRateRange.dwMax = 64000;
+    pCap->astFormatDetail[0].stBitRateRange.dwStep = 0;
+
+    // =========================================================
+    // G711U 能力
+    // =========================================================
+    pCap->astFormatDetail[1].dwFormat = NET_TV_AUDIO_FORMAT_G711U;
+
+    pCap->astFormatDetail[1].dwSampleRateSize = 1;
+    pCap->astFormatDetail[1].adwSampleRate[0] = NET_TV_AUDIO_SAMPRATE_8000;
+
+    pCap->astFormatDetail[1].dwBitRateSize = 1;
+    pCap->astFormatDetail[1].adwBitRate[0] = NET_TV_AUDIO_BITRATE_64K;
+
+    pCap->astFormatDetail[1].stSampleRateRange.bEnable = 1;
+    pCap->astFormatDetail[1].stSampleRateRange.dwMin = 8000;
+    pCap->astFormatDetail[1].stSampleRateRange.dwMax = 8000;
+    pCap->astFormatDetail[1].stSampleRateRange.dwStep = 0;
+
+    pCap->astFormatDetail[1].stBitRateRange.bEnable = 1;
+    pCap->astFormatDetail[1].stBitRateRange.dwMin = 64000;
+    pCap->astFormatDetail[1].stBitRateRange.dwMax = 64000;
+    pCap->astFormatDetail[1].stBitRateRange.dwStep = 0;
+
+    // =========================================================
+    // AAC 能力
+    // =========================================================
+    pCap->astFormatDetail[2].dwFormat = NET_TV_AUDIO_FORMAT_AAC;
+
+    pCap->astFormatDetail[2].dwSampleRateSize = 4;
+    pCap->astFormatDetail[2].adwSampleRate[0] = NET_TV_AUDIO_SAMPRATE_16000;
+    pCap->astFormatDetail[2].adwSampleRate[1] = NET_TV_AUDIO_SAMPRATE_32000;
+    pCap->astFormatDetail[2].adwSampleRate[2] = NET_TV_AUDIO_SAMPRATE_44100;
+    pCap->astFormatDetail[2].adwSampleRate[3] = NET_TV_AUDIO_SAMPRATE_48000;
+
+    pCap->astFormatDetail[2].dwBitRateSize = 5;
+    pCap->astFormatDetail[2].adwBitRate[0] = NET_TV_AUDIO_BITRATE_48K;
+    pCap->astFormatDetail[2].adwBitRate[1] = NET_TV_AUDIO_BITRATE_64K;
+    pCap->astFormatDetail[2].adwBitRate[2] = NET_TV_AUDIO_BITRATE_96K;
+    pCap->astFormatDetail[2].adwBitRate[3] = NET_TV_AUDIO_BITRATE_128K;
+    pCap->astFormatDetail[2].adwBitRate[4] = NET_TV_AUDIO_BITRATE_256K;
+
+    pCap->astFormatDetail[2].stSampleRateRange.bEnable = 1;
+    pCap->astFormatDetail[2].stSampleRateRange.dwMin = 16000;
+    pCap->astFormatDetail[2].stSampleRateRange.dwMax = 48000;
+    pCap->astFormatDetail[2].stSampleRateRange.dwStep = 0;
+
+    pCap->astFormatDetail[2].stBitRateRange.bEnable = 1;
+    pCap->astFormatDetail[2].stBitRateRange.dwMin = 48000;
+    pCap->astFormatDetail[2].stBitRateRange.dwMax = 256000;
+    pCap->astFormatDetail[2].stBitRateRange.dwStep = 0;
+
+    // =========================================================
+    // MP3 能力
+    // =========================================================
+    pCap->astFormatDetail[3].dwFormat = NET_TV_AUDIO_FORMAT_MP3;
+
+    pCap->astFormatDetail[3].dwSampleRateSize = 3;
+    pCap->astFormatDetail[3].adwSampleRate[0] = NET_TV_AUDIO_SAMPRATE_32000;
+    pCap->astFormatDetail[3].adwSampleRate[1] = NET_TV_AUDIO_SAMPRATE_44100;
+    pCap->astFormatDetail[3].adwSampleRate[2] = NET_TV_AUDIO_SAMPRATE_48000;
+
+    pCap->astFormatDetail[3].dwBitRateSize = 6;
+    pCap->astFormatDetail[3].adwBitRate[0] = NET_TV_AUDIO_BITRATE_32K;
+    pCap->astFormatDetail[3].adwBitRate[1] = NET_TV_AUDIO_BITRATE_48K;
+    pCap->astFormatDetail[3].adwBitRate[2] = NET_TV_AUDIO_BITRATE_64K;
+    pCap->astFormatDetail[3].adwBitRate[3] = NET_TV_AUDIO_BITRATE_96K;
+    pCap->astFormatDetail[3].adwBitRate[4] = NET_TV_AUDIO_BITRATE_128K;
+    pCap->astFormatDetail[3].adwBitRate[5] = NET_TV_AUDIO_BITRATE_256K;
+
+    pCap->astFormatDetail[3].stSampleRateRange.bEnable = 1;
+    pCap->astFormatDetail[3].stSampleRateRange.dwMin = 32000;
+    pCap->astFormatDetail[3].stSampleRateRange.dwMax = 48000;
+    pCap->astFormatDetail[3].stSampleRateRange.dwStep = 0;
+
+    pCap->astFormatDetail[3].stBitRateRange.bEnable = 1;
+    pCap->astFormatDetail[3].stBitRateRange.dwMin = 32000;
+    pCap->astFormatDetail[3].stBitRateRange.dwMax = 256000;
+    pCap->astFormatDetail[3].stBitRateRange.dwStep = 0;
+
+    printf("[Server] Filled %d audio formats capability\n", pCap->dwFormatDetailSize);
+    return NET_TV_E_SUCCEED;
+}
+
+/**
+ * @brief OSD能力集回调实现
+ */
+NET_TV_COMMON_ECODE_E MyOsdCapCb(INT32 dwChannelID, LPNET_TV_OSD_CAP_S pCap)
+{
+    if (!pCap)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+    
+    printf("[Server] GetOsdCap callback, channelID=%d\n", dwChannelID);
+    
+    // 基础能力
+    pCap->bSupportOsd = TRUE;
+    pCap->bSupportName = TRUE;
+    pCap->bSupportTime = TRUE;
+    pCap->bSupportWeek = TRUE;
+    pCap->bSupportCustomColor = TRUE;
+    
+    // 字符叠加能力
+    pCap->udwMaxOsdNum = 4;
+    
+    // 字体大小能力
+    pCap->udwSupportedFontSizeNum = 5;
+    pCap->audwSupportedFontSizeList[0] = NET_TV_OSD_FONT_SIZE_ADAPTIVE;
+    pCap->audwSupportedFontSizeList[1] = NET_TV_OSD_FONT_SIZE_16;
+    pCap->audwSupportedFontSizeList[2] = NET_TV_OSD_FONT_SIZE_32;
+    pCap->audwSupportedFontSizeList[3] = NET_TV_OSD_FONT_SIZE_48;
+    
+    // 日期格式能力
+    pCap->udwSupportedDateFormatNum = 9;
+    pCap->audwSupportedDateFormatList[0] = NET_TV_OSD_DATE_YYYY_MM_DD;
+    pCap->audwSupportedDateFormatList[1] = NET_TV_OSD_DATE_MM_DD_YYYY;
+    pCap->audwSupportedDateFormatList[2] = NET_TV_OSD_DATE_DD_MM_YYYY;
+    pCap->audwSupportedDateFormatList[3] = NET_TV_OSD_DATE_YYYY_MM_DD_CHN;
+    pCap->audwSupportedDateFormatList[4] = NET_TV_OSD_DATE_MM_DD_YYYY_CHN;
+    pCap->audwSupportedDateFormatList[5] = NET_TV_OSD_DATE_DD_MM_YYYY_CHN;
+    pCap->audwSupportedDateFormatList[6] = NET_TV_OSD_DATE_YYYY_MM_DD_SLASH;
+    pCap->audwSupportedDateFormatList[7] = NET_TV_OSD_DATE_MM_DD_YYYY_SLASH;
+    pCap->audwSupportedDateFormatList[8] = NET_TV_OSD_DATE_DD_MM_YYYY_SLASH;
+    
+    // 时间格式能力
+    pCap->udwSupportedTimeFormatNum = 2;
+    pCap->audwSupportedTimeFormatList[0] = NET_TV_OSD_TIME_FORMAT_24;
+    pCap->audwSupportedTimeFormatList[1] = NET_TV_OSD_TIME_FORMAT_12;
+    
+    // 对齐方式能力
+    pCap->udwSupportedAlignNum = 6;
+    pCap->audwSupportedAlignList[0] = NET_TV_OSD_ALIGN_CUSTOMIZE;
+    pCap->audwSupportedAlignList[1] = NET_TV_OSD_ALIGN_CHAR_LEFT;
+    pCap->audwSupportedAlignList[2] = NET_TV_OSD_ALIGN_CHAR_RIGHT;
+    pCap->audwSupportedAlignList[3] = NET_TV_OSD_ALIGN_ALL_LEFT;
+    pCap->audwSupportedAlignList[4] = NET_TV_OSD_ALIGN_ALL_RIGHT;
+    pCap->audwSupportedAlignList[5] = NET_TV_OSD_ALIGN_GB_MODE;
+    
+    return NET_TV_E_SUCCEED;
+}
+
+/**
+ * @brief 设备信息回调实现
+ */
+NET_TV_COMMON_ECODE_E MyDeviceInfoCb(LPNET_TV_DEVICE_INFO_S pInfo)
+{
+    if (!pInfo)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+    
+    printf("[Server] GetDeviceInfo callback\n");
+    
+    // 填充设备信息
+    pInfo->dwDevType = 0;           // 设备类型
+    pInfo->wAlarmInPortNum = 4;     // 报警输入端口数
+    pInfo->wAlarmOutPortNum = 2;    // 报警输出端口数
+    pInfo->dwChannelNum = 4;        // 通道数
+    
+    return NET_TV_E_SUCCEED;
+}
+
+/**
+ * @brief 注册回调函数
+ */
+void AddRegisterCb()
+{
+    // 注册设备信息回调
+    if (NET_TV_SERVER_RegisterCb_GetDeviceInfo(MyDeviceInfoCb))
+    {
+        printf("[Server] RegisterCb_GetDeviceInfo SUCCESS\n");
+    }
+    else
+    {
+        printf("[Server] RegisterCb_GetDeviceInfo FAILED\n");
+    }
+
+    // 注册视频编码能力集回调
+    if (NET_TV_SERVER_RegisterCb_GetVideoEncodeCap(MyVideoEncodeCb))
+    {
+        printf("[Server] RegisterCb_GetVideoEncodeCap SUCCESS\n");
+    }
+    else
+    {
+        printf("[Server] RegisterCb_GetVideoEncodeCap FAILED\n");
+    }
+
+    // 注册音频编码能力集回调
+    if (NET_TV_SERVER_RegisterCb_GetAudioEncodeCap(MyAudioEncodeCb))
+    {
+        printf("[Server] RegisterCb_GetAudioEncodeCap SUCCESS\n");
+    }
+    else
+    {
+        printf("[Server] RegisterCb_GetAudioEncodeCap FAILED\n");
+    }
+
+    // 注册OSD能力集回调
+    if (NET_TV_SERVER_RegisterCb_GetOsdCap(MyOsdCapCb))
+    {
+        printf("[Server] RegisterCb_GetOsdCap SUCCESS\n");
+    }
+    else
+    {
+        printf("[Server] RegisterCb_GetOsdCap FAILED\n");
+    }
+}
+
+int main()
+{
+    printf("=============== SDK Server Capability Demo ================\n");
+    
+    /* 初始化日志 */
+    initSdkLogBySize("CapabilityDemo", "/opt/course/CapabilityDemo.log", MAX_LOG_SIZE, MAX_LOG_FILES);
+    syncPrintf(1);
+    setLogLevel(NETSDK_LOG_TRACE);
+    
+    /* 注册回调 */
+    AddRegisterCb();
+    
+    /* 启动服务 */
+    printf("[Server] Starting on port %d...\n", SDKSERVER_PORT);
+    if (NET_TV_SERVER_Init(SDKSERVER_PORT, "admin", "Admin@123456"))
+    {
+        printf("[Server] Server started successfully!\n");
+    }
+    else
+    {
+        printf("[Server] Server start FAILED!\n");
+        return -1;
+    }
+    
+    printf("[Server] Waiting for client requests...\n");
+    printf("Press Ctrl+C to stop.\n");
+    
+    while (1)
+    {
+        sleep(1);
+    }
+    
+    NET_TV_SERVER_Cleanup();
+    return 0;
+}
