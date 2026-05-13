@@ -1,0 +1,101 @@
+#!/bin/sh
+
+MDEV_INFO=/dev/console
+
+BIND_PATH=/mnt
+
+if [ ! -d $BIND_PATH ]; then
+        mkdir -p $BIND_PATH
+fi
+
+echo "tf card insert " >${MDEV_INFO}
+
+# 创建软链接的函数（复用逻辑） 仅在挂载成功后执行
+create_symlinks() {
+    if [ ! -d "$BIND_PATH/record" ]; then
+        mkdir "$BIND_PATH/record"
+    fi
+    if [ ! -d "$BIND_PATH/capture" ]; then
+        mkdir "$BIND_PATH/capture"
+    fi
+
+    # 删除 /opt/course 下名为 capture 或 record 的任何类型文件/目录
+    for name in capture record; do
+        [ -e "/opt/course/$name" ] && rm -rf "/opt/course/$name"
+    done
+
+    # 检查并创建record软链接
+    if [ -d "$BIND_PATH/record" ] && [ ! -L "/opt/course/record" ]; then
+                if ln -s "$BIND_PATH/record" "/opt/course/record"; then
+            echo "创建 record 符号链接成功" >${MDEV_INFO}
+        else
+            echo "创建 record 符号链接失败" >${MDEV_INFO}
+        fi
+    fi
+    # 检查并创建capture软链接
+    if [ -d "$BIND_PATH/capture" ] && [ ! -L "/opt/course/capture" ]; then
+                        if ln -s "$BIND_PATH/capture" "/opt/course/capture"; then
+            echo "创建 capture 符号链接成功" >${MDEV_INFO}
+        else
+            echo "创建 capture 符号链接失败" >${MDEV_INFO}
+        fi
+    fi
+}
+
+# 使用blkid检测文件系统类型
+FS_TYPE=$(blkid /dev/$MDEV  | awk -F 'TYPE="' '{print $2}' | awk -F '"' '{print $1}')
+
+# 根据文件系统类型挂载
+case "$FS_TYPE" in
+    ntfs)
+        echo "Mounting as NTFS" > $MDEV_INFO
+        if ntfs-3g -o iocharset=utf8 /dev/$MDEV  $BIND_PATH; then
+            echo "NTFS mount successful" > $MDEV_INFO
+            create_symlinks
+        else
+            echo "NTFS mount failed" > $MDEV_INFO
+        fi
+        ;;
+    exfat)
+        echo "Mounting as exFAT" > $MDEV_INFO
+        if mount -t exfat -o iocharset=utf8 /dev/$MDEV  $BIND_PATH; then
+            echo "exFAT mount successful" > $MDEV_INFO
+            create_symlinks
+        else
+            echo "exFAT mount failed" > $MDEV_INFO
+        fi
+        ;;
+    vfat|fat32)
+        echo "Mounting as FAT" > $MDEV_INFO
+        if mount -t vfat -o iocharset=utf8 /dev/$MDEV  $BIND_PATH; then
+            echo "FAT mount successful" > $MDEV_INFO
+            create_symlinks
+        else
+            echo "FAT mount failed" > $MDEV_INFO
+        fi
+        ;;
+    *)
+        echo "Unknown filesystem: $FS_TYPE" > $MDEV_INFO
+        echo "Trying vfat mount..." > $MDEV_INFO
+        if mount -t vfat -o iocharset=utf8 /dev/$MDEV  $BIND_PATH; then
+            echo "vfat mount successful" > $MDEV_INFO
+            create_symlinks
+        else
+            echo "vfat mount failed, trying exfat..." > $MDEV_INFO
+            if mount -t exfat -o iocharset=utf8 /dev/$MDEV  $BIND_PATH; then
+                echo "exfat mount successful" > $MDEV_INFO
+                create_symlinks
+            else
+                echo "exfat mount failed, trying ntfs..." > $MDEV_INFO
+                if ntfs-3g -o iocharset=utf8 /dev/$MDEV  $BIND_PATH; then
+                    echo "ntfs mount successful" > $MDEV_INFO
+                    create_symlinks
+                else
+                    echo "All mount attempts failed" > $MDEV_INFO
+                fi
+            fi
+        fi
+        ;;
+esac
+
+exit 0

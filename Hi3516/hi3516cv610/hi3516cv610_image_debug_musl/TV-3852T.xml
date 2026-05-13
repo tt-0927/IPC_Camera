@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="GB2312" ?>
+<Partition_Info>
+<Part Sel="1" PartitionName="boot" FlashType="nand" FileSystem="none" Start="0" Length="512K" SelectFile="boot_image.bin"/>
+<Part Sel="1" PartitionName="env" FlashType="nand" FileSystem="none" Start="512K" Length="512K" SelectFile="nand_env.bin"/>
+<Part Sel="1" PartitionName="kernel" FlashType="nand" FileSystem="none" Start="1M" Length="5M" SelectFile="uImage"/>
+<Part Sel="1" PartitionName="rootfs" FlashType="nand" FileSystem="none" Start="6M" Length="120M" SelectFile="rootfs_hi3516cv610_2k_128k_120M.ubifs"/>
+</Partition_Info>

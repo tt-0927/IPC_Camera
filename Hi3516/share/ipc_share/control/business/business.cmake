@@ -1,0 +1,15 @@
+# business.cmake
+
+include(${CMAKE_CURRENT_LIST_DIR}/av/av.cmake)
+include(${CMAKE_CURRENT_LIST_DIR}/capture/capture.cmake)
+include(${CMAKE_CURRENT_LIST_DIR}/event/event.cmake)
+include(${CMAKE_CURRENT_LIST_DIR}/log/log.cmake)
+include(${CMAKE_CURRENT_LIST_DIR}/network/network.cmake)
+include(${CMAKE_CURRENT_LIST_DIR}/record/record.cmake)
+include(${CMAKE_CURRENT_LIST_DIR}/storage/storage.cmake)
+include(${CMAKE_CURRENT_LIST_DIR}/system/system.cmake)
+include(${CMAKE_CURRENT_LIST_DIR}/system/gpioCtrl/gpioCtrl.cmake)
+include(${CMAKE_CURRENT_LIST_DIR}/system/pwmCtrl/pwmCtrl.cmake)
+include(${CMAKE_CURRENT_LIST_DIR}/preview/preview.cmake)
+include(${CMAKE_CURRENT_LIST_DIR}/isp/isp.cmake)
+include(${CMAKE_CURRENT_LIST_DIR}/ai_student_business/ai_student_business.cmake)

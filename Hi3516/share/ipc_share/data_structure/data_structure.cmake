@@ -1,0 +1,6 @@
+include( ${CMAKE_CURRENT_LIST_DIR}/blocking_queue/blocking_queue.cmake )
+include( ${CMAKE_CURRENT_LIST_DIR}/buffer/buffer.cmake )
+include( ${CMAKE_CURRENT_LIST_DIR}/hash/hash.cmake )
+include( ${CMAKE_CURRENT_LIST_DIR}/list/list.cmake )
+include( ${CMAKE_CURRENT_LIST_DIR}/que/que.cmake )
+include( ${CMAKE_CURRENT_LIST_DIR}/ring_buffer/ring_buffer.cmake )

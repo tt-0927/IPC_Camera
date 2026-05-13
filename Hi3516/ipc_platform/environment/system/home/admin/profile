@@ -1,0 +1,83 @@
+#!/bin/ash
+# 安全受限Shell
+
+# 忽略退出信号
+trap '' INT TERM HUP QUIT TSTP
+
+# 清屏并显示欢迎信息
+clear_screen() {
+    i=0
+    while [ $i -lt 30 ]; do
+        echo ""
+        i=$((i + 1))
+    done
+}
+
+clear_screen
+echo "=========================================="
+echo "  安全监控Shell"
+echo "  用户: admin"
+echo "  可用命令:"
+echo "    ps     - 查看进程"
+echo "    top    - 系统监控"
+echo "    exit   - 断开连接"
+echo "    help   - 帮助"
+echo "=========================================="
+
+# 安全命令列表
+ALLOWED_COMMANDS="ps top"
+
+# 获取当前shell的PID
+SHELL_PID=$$
+
+while true; do
+    # 显示提示符
+    echo -n "admin> "
+
+    # 读取输入
+    read -r user_input
+
+    # 跳过空行
+    [ -z "$user_input" ] && continue
+
+    # 提取命令（第一个单词）
+    cmd=$(echo "$user_input" | awk '{print $1}')
+
+    # 检查是否是help命令
+    if [ "$user_input" = "help" ]; then
+        echo "命令示例:"
+        echo "  ps      查看进程"
+        echo "  top     系统监控"
+        echo "  exit    断开连接"
+        continue
+    fi
+
+    # 检查是否是exit命令 - 直接杀死当前shell进程
+    if [ "$user_input" = "exit" ] || [ "$user_input" = "logout" ] || [ "$user_input" = "quit" ] ||
+        [ "$cmd" = "exit" ] || [ "$cmd" = "logout" ] || [ "$cmd" = "quit" ]; then
+        echo "正在断开连接..."
+        # 延迟一下，让用户看到消息
+        sleep 1
+        # 杀死当前shell进程，强制断开连接
+        kill -9 $SHELL_PID
+        exit 0
+    fi
+
+    # 检查是否是允许的命令
+    if echo "$ALLOWED_COMMANDS" | grep -qw "$cmd"; then
+        # 安全地执行预定义命令
+        case "$cmd" in
+        ps)
+            # 只显示有限信息
+            ps -ef
+            ;;
+        top)
+            # 只运行一次
+            top
+            ;;
+        esac
+    else
+        echo "错误: 命令 '$cmd' 不允许"
+        echo "提示: 只允许以下命令: $ALLOWED_COMMANDS"
+    fi
+done

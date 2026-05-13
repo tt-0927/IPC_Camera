@@ -1,0 +1,4 @@
+/home/qinjt/workdir/sdk/af_sdk/build/output/server_32/CMakeFiles/rebuild_cache.dir
+/home/qinjt/workdir/sdk/af_sdk/build/output/server_32/CMakeFiles/edit_cache.dir
+/home/qinjt/workdir/sdk/af_sdk/build/output/server_32/CMakeFiles/NetTVSDKServer-shared.dir
+/home/qinjt/workdir/sdk/af_sdk/build/output/server_32/CMakeFiles/NetTVSDKServer-static.dir

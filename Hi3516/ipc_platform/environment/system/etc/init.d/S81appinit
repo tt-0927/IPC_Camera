@@ -1,0 +1,126 @@
+#!/bin/sh
+
+# 设置环境变量
+export LD_LIBRARY_PATH=/lib
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/cam/lib
+export PATH=$PATH:/opt/cam/tools
+
+# 初始化系统
+# /root/init.sh
+/root/insmod.sh
+
+# 同步硬件时间，必须在程序起来前
+hwclock -s
+
+# 设置发送缓冲区最大768KB (默认通常128KB)
+sysctl -w net.core.wmem_max=786432
+# 设置默认发送缓冲区512KB
+sysctl -w net.core.wmem_default=524288
+# 开启地址空间随机化
+echo 2 > /proc/sys/kernel/randomize_va_space
+# 最大限度使用所有物理内存
+echo 0 > /proc/sys/vm/swappiness
+# 预留最小空闲内存
+echo 1024 > /proc/sys/vm/min_free_kbytes
+
+# -----------------优化内核网络内存-----------------
+# 限制路由缓存 (ip_dst_cache)
+# 默认值通常是 20多亿，限制为 2048 或 4096
+echo 2048 > /proc/sys/net/ipv4/route/max_size
+
+# 加快路由缓存的垃圾回收 (GC)
+# 原值通常很大，改为 5秒 或 10秒 回收一次
+echo 5 > /proc/sys/net/ipv4/route/gc_timeout
+echo 1 > /proc/sys/net/ipv4/route/gc_interval
+# 降低开始 GC 的阈值
+echo 128 > /proc/sys/net/ipv4/route/gc_thresh
+echo 5 > /proc/sys/net/ipv4/route/gc_elasticity
+
+# 限制 IP 分片重组内存 (针对 ip4-frags )
+# 默认通常是 4MB (4194304)，对64MB设备太大
+# 意味着如果分片包太多，内核直接丢弃，不再尝试重组，从而保护内存
+echo 262144 > /proc/sys/net/ipv4/ipfrag_high_thresh  # 256KB上限
+echo 131072 > /proc/sys/net/ipv4/ipfrag_low_thresh   # 128KB下限
+# 缩短分片包在内存中的存活时间 (默认30秒 -> 改为5秒)
+echo 5 > /proc/sys/net/ipv4/ipfrag_time
+
+# 限制conntrack表大小（如果启用）
+if [ -f /proc/sys/net/netfilter/nf_conntrack_max ]; then
+    echo 1024 > /proc/sys/net/netfilter/nf_conntrack_max
+fi
+
+# 减少ARP缓存
+echo 128 > /proc/sys/net/ipv4/neigh/default/gc_thresh1
+echo 256 > /proc/sys/net/ipv4/neigh/default/gc_thresh2
+echo 512 > /proc/sys/net/ipv4/neigh/default/gc_thresh3
+
+# -----------------优化内核网络内存结束-----------------
+
+# 获取所有IpcComponents-V*.exe文件（版本排序）
+file_list=$(find /opt/cam/third-party/ -maxdepth 1 -type f -name "IpcComponents-V*.exe" 2>/dev/null | sort -V)
+
+# 计数器初始化
+count=0
+last_file=""
+
+# 遍历文件，保留最后一个
+for file in $file_list; do
+    count=$((count + 1))
+    if [ -n "$last_file" ]; then
+        echo "删除旧文件: $last_file"
+        rm -f "$last_file"
+    fi
+    last_file="$file"
+done
+
+# 创建软链接
+if [ -n "$last_file" ]; then
+    echo "使用最新文件: $last_file"
+    rm -f /opt/cam/third-party/IpcComponents.exe
+    ln -s "$last_file" /opt/cam/third-party/IpcComponents.exe
+fi
+
+#在/var/www/html下，创建/opt相关目录的软链接
+#用于网页资源访问
+if [ ! -d "/var/www/html/opt" ]; then
+    echo "ln opt"
+    ln -s /opt /var/www/html/opt
+fi
+
+# 国密sm2密钥对路径
+GM_SM2_KEY_PATH="/opt/cam/gm_cert/device/deviceKey.pem"
+# 判断国密sm2密钥对是否存在
+if [ ! -f "$GM_SM2_KEY_PATH" ]; then
+    echo "国密sm2密钥文件 $GM_SM2_KEY_PATH 不存在,执行gmssl命令创建..."
+    gmssl sm2keygen -pass 12345678 -out $GM_SM2_KEY_PATH
+fi
+
+# 修改权限
+chmod 770 -R /opt/cam
+chmod 770 -R /opt/course
+# ssh admin连接需赋权限
+chmod 777 /etc
+chmod 777 /lib
+
+# 升级程序
+/opt/cam/bin/upgrade &
+
+# 运维程序
+/opt/cam/bin/operation &
+
+# 主控程序
+/opt/cam/bin/stream &
+# 启动主控程序后延迟4秒启动其他程序
+# 在S01led_open 启动的，这里关闭索引
+sleep 2
+echo 0 > /sys/class/pwm/pwmchip0/pwm0/enable
+echo 0 > /sys/class/pwm/pwmchip0/unexport
+sleep 2
+
+# 录制程序
+/opt/cam/bin/record &
+# nginx
+# /opt/cam/third-party/nginx/sbin/nginx -p /opt/cam/third-party/nginx
+
+# 所有程序启动后启动守护进程
+/opt/cam/bin/daemon &
