@@ -436,6 +436,9 @@ extern "C" {
 #define NET_TV_FACE_ANALYSIS_SKILL_NUM              16              /* 设备支持的人脸分析能力数量 */
 #define NET_TV_FACE_MEMBER_BIRTHDAY_LEN             31              /* 成员出生日期字符串最大长度 */
 #define NET_TV_FACE_IDNUMBER_LEN                    128             /* 证件号最大范围*/
+#define NET_TV_FACE_LIB_MAX_NUM                     64              /* 目标库最大数量 */
+#define NET_TV_FACE_INFO_MAX_NUM                    128             /* 人脸信息最大数量 */
+#define NET_TV_FACE_ID_MAX_NUM                      128             /* 人脸ID最大数量 */
 #define NET_TV_LABEL_ID_MAX_LEN                     32
 #define NET_TV_TIME_RANGE_NUM                       8               /* 时间模板时间范围个数(周一到周日再加假日) */
 #define NET_TV_TIME_DURATION_NUM                    8               /* 时间模板中一天最多8个片段 */
@@ -1140,6 +1143,16 @@ typedef enum tagNETTVCfgCmd
     NET_TV_FIND_RECORD_FILE_INFO          = 479,           /* 查找录像文件 参见NET_TV_RECORD_FILE_LIST_S */
     NET_TV_DOWNLOAD_RECORD_FILE           = 480,           /* 下载录像文件 参见NET_TV_RECORD_DOWNLOAD_LIST_S */
     NET_TV_NOTICE_DOWNLOAD_RECORD_PROGRESS = 481,          /* 录像下载进度通知 参见NET_TV_RECORD_DOWNLOAD_PROGRESS_S */
+    NET_TV_SET_FACE_COMPARE_INFO          = 482,           /* 设置人脸比对配置 参见NET_TV_FACE_COMPARE_INFO_S */
+    NET_TV_ADD_TARGET_LIB                 = 483,           /* 添加目标库 参见NET_TV_FACE_LIB_INFO_S */
+    NET_TV_DEL_TARGET_LIB                 = 484,           /* 删除目标库 参见NET_TV_FACE_LIB_INFO_S */
+    NET_TV_SET_TARGET_LIB                 = 485,           /* 修改目标库 参见NET_TV_FACE_LIB_INFO_S */
+    NET_TV_GET_TARGET_LIB                 = 486,           /* 获取目标库 参见NET_TV_FACE_LIB_LIST_S */
+    NET_TV_ADD_FACE_INFO                  = 487,           /* 添加人脸 参见NET_TV_FACE_INFO_S */
+    NET_TV_DEL_FACE_INFO                  = 488,           /* 删除人脸 参见NET_TV_FACE_ID_INFO_S */
+    NET_TV_SET_FACE_INFO                  = 489,           /* 修改人脸 参见NET_TV_FACE_INFO_S */
+    NET_TV_GET_FACE_INFO                  = 490,           /* 获取人脸 参见NET_TV_FACE_INFO_LIST_S */
+    NET_TV_GET_FACE_COMPARE_INFO          = 491,           /* 获取人脸比对配置 参见NET_TV_FACE_COMPARE_INFO_S */
  
     NET_TV_CFG_INVALID                  = 0xFFFF            /* 无效值  Invalid value */
 
@@ -3771,6 +3784,91 @@ typedef struct tagNETTVFaceCaptureInfo
 }NET_TV_FACE_CAPTURE_INFO_S, *LPNET_TV_FACE_CAPTURE_INFO_S;
 
 /**
+ * @struct tagNETTVFaceCompareInfo
+ * @brief 人脸比对配置信息 Face compare configuration
+ * @note 用于NET_TV_GET_FACE_COMPARE_INFO/NET_TV_SET_FACE_COMPARE_INFO
+ */
+typedef struct tagNETTVFaceCompareInfo
+{
+    BOOL                    bEnable;                    /* 是否启用 0-不启用 1-启用 */
+    NET_TV_ALARM_SCHEDULE_S stAlarmSchedule;            /* 布防时间 */
+    NET_TV_LINKAGE_LIST_S   stLinkageListSuccess;       /* 比对成功联动配置 */
+    NET_TV_LINKAGE_LIST_S   stLinkageListFail;          /* 比对失败联动配置 */
+    BYTE                    byRes[256];                 /* 保留字段 */
+}NET_TV_FACE_COMPARE_INFO_S, *LPNET_TV_FACE_COMPARE_INFO_S;
+
+/**
+ * @struct tagNETTVFaceLibInfo
+ * @brief 目标库信息 Face library information
+ * @note 用于NET_TV_ADD_TARGET_LIB/NET_TV_DEL_TARGET_LIB/NET_TV_SET_TARGET_LIB
+ */
+typedef struct tagNETTVFaceLibInfo
+{
+    CHAR    szFaceLibName[NET_TV_FACE_DB_NAME_LEN];     /* 目标库名称 */
+    INT32   nTotalFace;                                 /* 总人脸数 */
+    INT32   nNormalNum;                                 /* 正常个数 */
+    INT32   nAbnormalNum;                               /* 异常个数 */
+    BYTE    byRes[256];                                 /* 保留字段 */
+}NET_TV_FACE_LIB_INFO_S, *LPNET_TV_FACE_LIB_INFO_S;
+
+/**
+ * @struct tagNETTVFaceLibList
+ * @brief 目标库列表 Face library list
+ * @note 用于NET_TV_GET_TARGET_LIB
+ */
+typedef struct tagNETTVFaceLibList
+{
+    INT32                   nTargetLibCount;                            /* 目标库数量 */
+    NET_TV_FACE_LIB_INFO_S  astTargetLibInfos[NET_TV_FACE_LIB_MAX_NUM]; /* 目标库信息列表 */
+    BYTE                    byRes[256];                                 /* 保留字段 */
+}NET_TV_FACE_LIB_LIST_S, *LPNET_TV_FACE_LIB_LIST_S;
+
+/**
+ * @struct tagNETTVFaceIdInfo
+ * @brief 人脸ID信息 Face id information
+ * @note 用于NET_TV_DEL_FACE_INFO
+ */
+typedef struct tagNETTVFaceIdInfo
+{
+    INT32   nIdCount;                                   /* 人脸ID数量 */
+    INT32   anIds[NET_TV_FACE_ID_MAX_NUM];              /* 人脸ID列表 */
+    BYTE    byRes[256];                                 /* 保留字段 */
+}NET_TV_FACE_ID_INFO_S, *LPNET_TV_FACE_ID_INFO_S;
+
+/**
+ * @struct tagNETTVFaceInfo
+ * @brief 人脸信息 Face information
+ * @note 用于NET_TV_ADD_FACE_INFO/NET_TV_SET_FACE_INFO
+ */
+typedef struct tagNETTVFaceInfo
+{
+    INT32   nId;                                        /* 人脸ID */
+    CHAR    szFaceLibName[NET_TV_FACE_DB_NAME_LEN];     /* 名单组名称 */
+    CHAR    szName[NET_TV_FACE_MEMBER_NAME_LEN];        /* 名字 */
+    CHAR    szPhoneNum[NET_TV_FACE_IDNUMBER_LEN];       /* 联系方式 */
+    CHAR    szPicPath[NET_TV_LEN_260];                  /* 图片完整路径/名称 */
+    CHAR    szBinPath[NET_TV_LEN_260];                  /* 图片二进制完整路径/名称 */
+    CHAR    szPicType[NET_TV_LEN_64];                   /* 图片类型 */
+    INT32   nPicSize;                                   /* 图片大小 */
+    CHAR    szPicDate[NET_TV_LEN_64];                   /* 图片日期 */
+    INT32   nModelState;                                /* 模型状态, 0未处理，1成功，-1失败 */
+    INT32   nRatingLevel;                               /* 评估等级, 0全部，1评分未知，2低，3高 */
+    BYTE    byRes[256];                                 /* 保留字段 */
+}NET_TV_FACE_INFO_S, *LPNET_TV_FACE_INFO_S;
+
+/**
+ * @struct tagNETTVFaceInfoList
+ * @brief 人脸信息列表 Face information list
+ * @note 用于NET_TV_GET_FACE_INFO
+ */
+typedef struct tagNETTVFaceInfoList
+{
+    INT32               nFaceInfoCount;                         /* 人脸信息数量 */
+    NET_TV_FACE_INFO_S  astFaceInfos[NET_TV_FACE_INFO_MAX_NUM]; /* 人脸信息列表 */
+    BYTE                byRes[256];                             /* 保留字段 */
+}NET_TV_FACE_INFO_LIST_S, *LPNET_TV_FACE_INFO_LIST_S;
+
+/**
  * @struct tagNET_TV_ALARMER
  * @brief 报警设备信息
  */
@@ -4840,6 +4938,16 @@ NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetLeaveRegionAlarm(NET_TV_CB_S
 
 NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetFaceCaptureInfo(NET_TV_CB_GetDevConfigByCommand pCb);
 NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetFaceCaptureInfo(NET_TV_CB_SetDevConfigByCommand pCb);
+NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetFaceCompareInfo(NET_TV_CB_GetDevConfigByCommand pCb);
+NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetFaceCompareInfo(NET_TV_CB_SetDevConfigByCommand pCb);
+NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_AddTargetLib(NET_TV_CB_SetDevConfigByCommand pCb);
+NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_DelTargetLib(NET_TV_CB_SetDevConfigByCommand pCb);
+NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetTargetLib(NET_TV_CB_SetDevConfigByCommand pCb);
+NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetTargetLib(NET_TV_CB_GetDevConfigByCommand pCb);
+NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_AddFaceInfo(NET_TV_CB_SetDevConfigByCommand pCb);
+NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_DelFaceInfo(NET_TV_CB_SetDevConfigByCommand pCb);
+NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetFaceInfo(NET_TV_CB_SetDevConfigByCommand pCb);
+NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetFaceInfo(NET_TV_CB_GetDevConfigByCommand pCb);
 
 NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetPeopleFlowStatisticsCfg(NET_TV_CB_GetDevConfigByCommand pCb);
 NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetPeopleFlowStatisticsCfg(NET_TV_CB_SetDevConfigByCommand pCb);

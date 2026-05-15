@@ -305,6 +305,9 @@ std::string CDeviceConfigBusiness::GetDevConfig(const std::string& req_data, con
         case NET_TV_GET_FACECAPTUREINFO:
             return HandleGetConfig<NET_TV_FACE_CAPTURE_INFO_S>(channelId, command);
 
+        case NET_TV_GET_FACE_COMPARE_INFO:
+            return HandleGetConfig<NET_TV_FACE_COMPARE_INFO_S>(channelId, command);
+
         case NET_TV_GET_TARGET_LIB:
             return HandleGetConfig<NET_TV_FACE_LIB_LIST_S>(channelId, command);
 

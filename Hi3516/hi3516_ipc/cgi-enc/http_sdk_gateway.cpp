@@ -34,6 +34,7 @@ namespace WebCGI
         constexpr int SDK_NET_TV_DEL_FACE_INFO = 488;
         constexpr int SDK_NET_TV_SET_FACE_INFO = 489;
         constexpr int SDK_NET_TV_GET_FACE_INFO = 490;
+        constexpr int SDK_NET_TV_GET_FACE_COMPARE_INFO = 491;
 
         /**
          * @brief SDK 命令到内部 ActionCode 的映射项
@@ -51,6 +52,7 @@ namespace WebCGI
             {"NET_TV_GET_FACE_CAPTURE_INFO", SDK_NET_TV_GET_FACECAPTUREINFO, AC_GET_FACE_CAPTURE_INFO, "获取人脸抓拍配置"},
             {"NET_TV_SET_FACECAPTUREINFO", SDK_NET_TV_SET_FACECAPTUREINFO, AC_SET_FACE_CAPTURE_INFO, "设置人脸抓拍配置"},
             {"NET_TV_SET_FACE_CAPTURE_INFO", SDK_NET_TV_SET_FACECAPTUREINFO, AC_SET_FACE_CAPTURE_INFO, "设置人脸抓拍配置"},
+            {"NET_TV_GET_FACE_COMPARE_INFO", SDK_NET_TV_GET_FACE_COMPARE_INFO, AC_GET_FACE_COMPARE_INFO, "获取人脸比对配置"},
             {"NET_TV_SET_FACE_COMPARE_INFO", SDK_NET_TV_SET_FACE_COMPARE_INFO, AC_SET_FACE_COMPARE_INFO, "设置人脸比对配置"},
             {"NET_TV_ADD_TARGET_LIB", SDK_NET_TV_ADD_TARGET_LIB, AC_ADD_TARGET_LIB, "添加目标库"},
             {"NET_TV_DEL_TARGET_LIB", SDK_NET_TV_DEL_TARGET_LIB, AC_DEL_TARGET_LIB, "删除目标库"},
@@ -220,16 +222,32 @@ namespace WebCGI
         }
     } // namespace
 
+    /**
+     * @brief 判断 URI 是否命中 HTTP-SDK 通用命令入口
+     * @param strUri 请求 URI，允许带 CGI 前缀和 query 参数
+     * @return true：命中 false：未命中
+     */
     bool CHttpSdkGateway::isGatewayUri(const std::string &strUri)
     {
         return uriMatches(strUri, HTTP_SDK_COMMAND_URI);
     }
 
+    /**
+     * @brief 判断当前请求是否需要按 HTTP-SDK 转发规则处理
+     * @param strMethod HTTP 方法
+     * @param strUri 请求 URI
+     * @return true：需要转发 false：不需要转发
+     */
     bool CHttpSdkGateway::isGatewayRequest(const std::string &strMethod, const std::string &strUri)
     {
         return isGatewayUri(strUri) && (strMethod == "POST" || strMethod == "PUT");
     }
 
+    /**
+     * @brief 解析 SDK 命令名或命令码
+     * @param strCommand SDK 命令名或十进制命令码字符串
+     * @return 返回 SDK 命令码，解析失败返回 0
+     */
     int CHttpSdkGateway::resolveSdkCommand(const std::string &strCommand)
     {
         const std::string strNormalized = normalizeCommandName(strCommand);
@@ -249,6 +267,11 @@ namespace WebCGI
         return 0;
     }
 
+    /**
+     * @brief 将 SDK 命令码映射为设备内部 ActionCode
+     * @param nSdkCommand SDK 命令码
+     * @return 返回内部 ActionCode，未配置映射返回 0
+     */
     int CHttpSdkGateway::sdkCommandToActionCode(int nSdkCommand)
     {
         for (const auto &stItem : g_astCommandMap)
@@ -262,6 +285,12 @@ namespace WebCGI
         return 0;
     }
 
+    /**
+     * @brief 构造内部后端可处理的 ActionCode JSON 报文
+     * @param strRequestBody HTTP-SDK 原始请求体
+     * @param nActionCode 输出内部 ActionCode
+     * @return 返回包含 ActionCode、SdkCommand、SdkCommandName、Data 的 JSON 报文
+     */
     std::string CHttpSdkGateway::buildBackendJson(const std::string &strRequestBody, int &nActionCode)
     {
         JsonPtr pRoot(cJSON_Parse(strRequestBody.c_str()), cJSON_Delete);

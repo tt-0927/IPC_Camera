@@ -9,6 +9,7 @@
 
 #include "cgi.hpp"
 #include "fcgi_stdio.h"
+#include "http_sdk_gateway.hpp"
 #include "share_os.h"
 #include "share_port.h"
 
@@ -17,6 +18,19 @@ extern char *cgiRemoteAddr;
 
 namespace WebCGI
 {
+	namespace
+	{
+		/**
+		 * @brief 获取CGI运行环境变量
+		 * @param pKey 环境变量名称
+		 * @return 返回环境变量值，未配置时返回空字符串
+		 */
+		std::string getEnvString(const char *pKey)
+		{
+			const char *pValue = getenv(pKey);
+			return pValue ? std::string(pValue) : std::string();
+		}
+	}
 
 	JsonPtr JsonHelper::parseJson(const std::string &strJson)
 	{
@@ -122,6 +136,23 @@ namespace WebCGI
 		return OK;
 	}
 
+	/**
+	 * @brief 执行通用JSON命令处理逻辑
+	 * @param pMsg 短链接回调消息指针，包含后端返回JSON数据
+	 * @return 返回JSON命令处理结果码
+	 */
+	int JsonCommandHandler::execute(ShortCallbackMsg_t *pMsg)
+	{
+		if (!pMsg || !pMsg->value)
+		{
+			throw CGIException("Invalid message parameters", ERR_PARAM_NULL);
+		}
+
+		fprintf(cgiOut, "Content-Type: application/json\r\n\r\n");
+		fprintf(cgiOut, "%s\n", pMsg->value);
+		return OK;
+	}
+
 	// NetworkClient实现
 	int NetworkClient::sendRequest(const ShortLink_Send_t &stRequest)
 	{
@@ -141,14 +172,33 @@ namespace WebCGI
 	void CGIProcessor::registerHandlers()
 	{
 		commandHandlers[AC_LOGIN] = std::make_unique<LoginCommandHandler>();
-		// 可以继续添加其他命令处理器
+
+		/* 人脸抓拍配置 */
+		commandHandlers[AC_GET_FACE_CAPTURE_INFO] = std::make_unique<JsonCommandHandler>(AC_GET_FACE_CAPTURE_INFO);
+		commandHandlers[AC_SET_FACE_CAPTURE_INFO] = std::make_unique<JsonCommandHandler>(AC_SET_FACE_CAPTURE_INFO);
+
+		/* 人脸比对配置 */
+		commandHandlers[AC_GET_FACE_COMPARE_INFO] = std::make_unique<JsonCommandHandler>(AC_GET_FACE_COMPARE_INFO);
+		commandHandlers[AC_SET_FACE_COMPARE_INFO] = std::make_unique<JsonCommandHandler>(AC_SET_FACE_COMPARE_INFO);
+
+		/* 目标库管理 */
+		commandHandlers[AC_ADD_TARGET_LIB] = std::make_unique<JsonCommandHandler>(AC_ADD_TARGET_LIB);
+		commandHandlers[AC_DEL_TARGET_LIB] = std::make_unique<JsonCommandHandler>(AC_DEL_TARGET_LIB);
+		commandHandlers[AC_SET_TARGET_LIB] = std::make_unique<JsonCommandHandler>(AC_SET_TARGET_LIB);
+		commandHandlers[AC_GET_TARGET_LIB] = std::make_unique<JsonCommandHandler>(AC_GET_TARGET_LIB);
+
+		/* 人脸人员管理 */
+		commandHandlers[AC_ADD_FACE_INFO] = std::make_unique<JsonCommandHandler>(AC_ADD_FACE_INFO);
+		commandHandlers[AC_DEL_FACE_INFO] = std::make_unique<JsonCommandHandler>(AC_DEL_FACE_INFO);
+		commandHandlers[AC_SET_FACE_INFO] = std::make_unique<JsonCommandHandler>(AC_SET_FACE_INFO);
+		commandHandlers[AC_GET_FACE_INFO] = std::make_unique<JsonCommandHandler>(AC_GET_FACE_INFO);
 	}
 
 	void CGIProcessor::setupCORSHeaders()
 	{
 		fprintf(cgiOut, "Access-Control-Allow-Origin: *\n");
-		fprintf(cgiOut, "Access-Control-Allow-Methods: POST, OPTIONS\n");
-		fprintf(cgiOut, "Access-Control-Allow-Headers: Content-Type\n");
+		fprintf(cgiOut, "Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS\n");
+		fprintf(cgiOut, "Access-Control-Allow-Headers: Content-Type, Authorization\n");
 	}
 
 	void CGIProcessor::sendErrorResponse(int nErrorCode, const std::string &strMessage, int nActionCode)
@@ -158,11 +208,13 @@ namespace WebCGI
 		try
 		{
 			std::string strJson = JsonHelper::createJsonResponse(stResponse);
+			setupCORSHeaders();
 			fprintf(cgiOut, "Content-Type: application/json\r\n\r\n");
 			fprintf(cgiOut, "%s\n", strJson.c_str());
 		}
 		catch (const CGIException &e)
 		{
+			setupCORSHeaders();
 			fprintf(cgiOut, "Content-type: text/plain\r\n\r\n");
 			fprintf(cgiOut, "{\"result\": %d, \"message\": \"%s\"}", nErrorCode, strMessage.c_str());
 		}
@@ -173,13 +225,13 @@ namespace WebCGI
 		const char *pContentLengthStr = getenv("CONTENT_LENGTH");
 		if (!pContentLengthStr)
 		{
-			throw CGIException("No CONTENT_LENGTH header", ERR_PARAM_NULL);
+			return "{}";
 		}
 
 		int nContentLength = atoi(pContentLengthStr);
 		if (nContentLength <= 0)
 		{
-			throw CGIException("Invalid content length", ERR_PARAM_NULL);
+			return "{}";
 		}
 
 		/*限制最大请求体大小，防止内存溢出*/
@@ -200,6 +252,31 @@ namespace WebCGI
 		}
 
 		return std::string(vBuffer.data(), bytesRead);
+	}
+
+	/**
+	 * @brief 构造后端任务报文
+	 * @param strRequestBody HTTP请求体
+	 * @param nActionCode 输出内部动作码
+	 * @return 返回后端可识别的JSON报文
+	 * @note 旧ActionCode JSON原样透传；HTTP-SDK命令由CHttpSdkGateway转换为ActionCode JSON。
+	 */
+	std::string CGIProcessor::buildBackendJson(const std::string &strRequestBody, int &nActionCode)
+	{
+		if (JsonHelper::validateJsonStructure(strRequestBody))
+		{
+			nActionCode = JsonHelper::extractActionCode(strRequestBody);
+			return strRequestBody;
+		}
+
+		const std::string strMethod = getEnvString("REQUEST_METHOD");
+		const std::string strUri = getEnvString("REQUEST_URI");
+		if (CHttpSdkGateway::isGatewayRequest(strMethod, strUri))
+		{
+			return CHttpSdkGateway::buildBackendJson(strRequestBody, nActionCode);
+		}
+
+		throw CGIException("Invalid JSON structure", ERR_PARSE);
 	}
 
 	int CGIProcessor::processCommand(int nActionCode, const std::string &strJsonData)
@@ -228,6 +305,8 @@ namespace WebCGI
 
 			// 设置CORS头
 			fprintf(cgiOut, "Access-Control-Allow-Origin: *\n");
+			fprintf(cgiOut, "Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS\n");
+			fprintf(cgiOut, "Access-Control-Allow-Headers: Content-Type, Authorization\n");
 
 			// 根据命令类型处理
 			CGIProcessor processor;
@@ -255,18 +334,20 @@ namespace WebCGI
 	{
 		try
 		{
+			const std::string strMethod = getEnvString("REQUEST_METHOD");
+			if (strMethod == "OPTIONS")
+			{
+				setupCORSHeaders();
+				fprintf(cgiOut, "\r\n");
+				return OK;
+			}
+
 			/*读取请求体*/
 			std::string strJsonData = readRequestBody();
 
-			/*验证JSON格式*/
-			if (!JsonHelper::validateJsonStructure(strJsonData))
-			{
-				sendErrorResponse(ERR_PARSE, "Invalid JSON structure");
-				return ERR_PARSE;
-			}
-
-			/*提取ActionCode*/
-			int nActionCode = JsonHelper::extractActionCode(strJsonData);
+			/*兼容旧ActionCode报文和HTTP-SDK转发命令*/
+			int nActionCode = 0;
+			strJsonData = buildBackendJson(strJsonData, nActionCode);
 
 			/*验证ActionCode*/
 			if (!isValidActionCode(nActionCode))
@@ -298,14 +379,7 @@ namespace WebCGI
 
 	bool CGIProcessor::isValidActionCode(int nActionCode)
 	{
-		// 定义有效的ActionCode范围或列表
-		switch (nActionCode)
-		{
-		case AC_LOGIN:
-			return true;
-		default:
-			return false;
-		}
+		return commandHandlers.find(nActionCode) != commandHandlers.end();
 	}
 
 	// Utils命名空间实现

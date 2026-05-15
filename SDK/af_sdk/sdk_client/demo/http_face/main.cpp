@@ -12,6 +12,7 @@
  *
  * 说明:
  *   HTTP 模式不走 NET_TV_Login / NET_TV_SetAlarmCallBack。
+ *   命令交互通过 /api/v1/sdk/command 承载 NET_TV_* 命令名，由设备侧转发到内部业务链路。
  *   “注册回调”等价于平台启动 HTTP 服务，并把服务地址配置到设备侧 HTTP 推送配置中。
  */
 
@@ -123,6 +124,35 @@ HttpResult sendJsonCommand(const std::string &strMethod,
 }
 
 /**
+ * @brief   : 构造 HTTP-SDK 转发命令 JSON
+ * @param    {std::string} &strCommand：SDK 命令名，例如 NET_TV_GET_FACECAPTUREINFO
+ * @param    {std::string} &strDataJson：业务数据 JSON，传空时使用空对象
+ * @return   {std::string} 可发送给 /api/v1/sdk/command 的 JSON 请求体
+ */
+std::string buildSdkCommandBody(const std::string &strCommand, const std::string &strDataJson = "{}")
+{
+    const std::string strData = strDataJson.empty() ? "{}" : strDataJson;
+    return std::string("{\"Command\":\"") + strCommand + "\",\"Data\":" + strData + "}";
+}
+
+/**
+ * @brief   : 通过 HTTP-SDK 转发入口发送 SDK 命令
+ * @param    {std::string} &strBaseUrl：设备 CGI 基础 URL
+ * @param    {std::string} &strCommand：SDK 命令名
+ * @param    {std::string} &strDataJson：业务数据 JSON
+ * @return   {HttpResult} HTTP 响应结果
+ */
+HttpResult sendSdkCommand(const std::string &strBaseUrl,
+                          const std::string &strCommand,
+                          const std::string &strDataJson = "{}")
+{
+    return sendJsonCommand("POST",
+                           strBaseUrl,
+                           "/api/v1/sdk/command",
+                           buildSdkCommandBody(strCommand, strDataJson));
+}
+
+/**
  * @brief   : 打印 multipart 普通字段
  * @param    {httplib::Request} &req：HTTP 请求
  * @return   {void}
@@ -183,6 +213,7 @@ bool isFaceCaptureEvent(const httplib::Request &req)
 void printFaceCompareSummary(const httplib::Request &req)
 {
     std::cout << "  [人脸比对 FACE_COMPARE]"
+              << " 命令=" << req.form.get_field("Command")
               << " 结果=" << req.form.get_field("CompareResult")
               << " 人员ID=" << req.form.get_field("FaceID")
               << " 姓名=" << req.form.get_field("FaceName")
@@ -199,6 +230,7 @@ void printFaceCompareSummary(const httplib::Request &req)
 void printFaceCaptureSummary(const httplib::Request &req)
 {
     std::cout << "  [人脸抓拍 FACE_CAPTURE]"
+              << " 命令=" << req.form.get_field("Command")
               << " 目标数=" << req.form.get_field("TargetCount")
               << " 通道=" << req.form.get_field("Channel")
               << std::endl;
@@ -256,9 +288,7 @@ void startCallbackServer(int nListenPort, httplib::Server &server)
 void sendCommandExamples(const std::string &strDeviceBaseUrl)
 {
     printHttpResult("获取人脸抓拍配置",
-                    sendJsonCommand("GET",
-                                    strDeviceBaseUrl,
-                                    "/api/v1/face/capture/config"));
+                    sendSdkCommand(strDeviceBaseUrl, "NET_TV_GET_FACECAPTUREINFO"));
 
     const std::string strCaptureConfig = R"({
         "Enable": true,
@@ -267,30 +297,47 @@ void sendCommandExamples(const std::string &strDeviceBaseUrl)
         }
     })";
     printHttpResult("设置人脸抓拍配置",
-                    sendJsonCommand("PUT",
-                                    strDeviceBaseUrl,
-                                    "/api/v1/face/capture/config",
-                                    strCaptureConfig));
+                    sendSdkCommand(strDeviceBaseUrl, "NET_TV_SET_FACECAPTUREINFO", strCaptureConfig));
+
+    printHttpResult("获取人脸比对配置",
+                    sendSdkCommand(strDeviceBaseUrl, "NET_TV_GET_FACE_COMPARE_INFO"));
+
+    const std::string strCompareConfig = R"({
+        "Enable": true,
+        "LinkageSuccessMode": {
+            "Tradition": [6, 7],
+            "AlarmLinkage": [],
+            "RecordChn": []
+        },
+        "LinkageFailMode": {
+            "Tradition": [6],
+            "AlarmLinkage": [],
+            "RecordChn": []
+        }
+    })";
+    printHttpResult("设置人脸比对配置",
+                    sendSdkCommand(strDeviceBaseUrl, "NET_TV_SET_FACE_COMPARE_INFO", strCompareConfig));
 
     const std::string strAddLib = R"({
-        "LibName": "员工库"
+        "LibId": "员工库"
     })";
     printHttpResult("添加目标库",
-                    sendJsonCommand("POST",
-                                    strDeviceBaseUrl,
-                                    "/api/v1/face/libs",
-                                    strAddLib));
+                    sendSdkCommand(strDeviceBaseUrl, "NET_TV_ADD_TARGET_LIB", strAddLib));
 
     const std::string strAddPerson = R"({
-        "FaceLibID": 1,
+        "LibId": "员工库",
         "Name": "张三",
-        "PicPath": "/opt/cam/face/zhangsan.jpg"
+        "PhoneNum": "13800000000",
+        "PicPath": "/opt/cam/face/zhangsan.jpg",
+        "BinPath": "",
+        "PicType": "jpg",
+        "PicSize": 102400,
+        "PicDate": "2026-05-14 10:00:00",
+        "PicWidth": 640,
+        "PicHeight": 480
     })";
     printHttpResult("添加人脸",
-                    sendJsonCommand("POST",
-                                    strDeviceBaseUrl,
-                                    "/api/v1/face/persons",
-                                    strAddPerson));
+                    sendSdkCommand(strDeviceBaseUrl, "NET_TV_ADD_FACE_INFO", strAddPerson));
 }
 
 /**
@@ -302,15 +349,17 @@ void printCommandMenu()
     std::cout << "\n========== HTTP人脸命令菜单 ==========\n"
               << "1. 获取人脸抓拍配置\n"
               << "2. 设置人脸抓拍配置\n"
-              << "3. 添加目标库\n"
-              << "4. 删除目标库\n"
-              << "5. 修改目标库\n"
-              << "6. 获取目标库\n"
-              << "7. 添加人脸\n"
-              << "8. 删除人脸\n"
-              << "9. 修改人脸\n"
-              << "10. 获取人脸\n"
-              << "11. 自动发送一组示例命令\n"
+              << "3. 获取人脸比对配置\n"
+              << "4. 设置人脸比对配置\n"
+              << "5. 添加目标库\n"
+              << "6. 删除目标库\n"
+              << "7. 修改目标库\n"
+              << "8. 获取目标库\n"
+              << "9. 添加人脸\n"
+              << "10. 删除人脸\n"
+              << "11. 修改人脸\n"
+              << "12. 获取人脸\n"
+              << "13. 自动发送一组示例命令\n"
               << "q. 退出\n"
               << "请输入命令编号: ";
 }
@@ -331,7 +380,7 @@ bool handleMenuChoice(const std::string &strDeviceBaseUrl, const std::string &st
     if (strChoice == "1")
     {
         printHttpResult("获取人脸抓拍配置",
-                        sendJsonCommand("GET", strDeviceBaseUrl, "/api/v1/face/capture/config"));
+                        sendSdkCommand(strDeviceBaseUrl, "NET_TV_GET_FACECAPTUREINFO"));
     }
     else if (strChoice == "2")
     {
@@ -342,73 +391,116 @@ bool handleMenuChoice(const std::string &strDeviceBaseUrl, const std::string &st
             }
         })";
         printHttpResult("设置人脸抓拍配置",
-                        sendJsonCommand("PUT", strDeviceBaseUrl, "/api/v1/face/capture/config", strBody));
+                        sendSdkCommand(strDeviceBaseUrl, "NET_TV_SET_FACECAPTUREINFO", strBody));
     }
     else if (strChoice == "3")
     {
-        const std::string strBody = R"({
-            "LibName": "员工库"
-        })";
-        printHttpResult("添加目标库",
-                        sendJsonCommand("POST", strDeviceBaseUrl, "/api/v1/face/libs", strBody));
+        printHttpResult("获取人脸比对配置",
+                        sendSdkCommand(strDeviceBaseUrl, "NET_TV_GET_FACE_COMPARE_INFO"));
     }
     else if (strChoice == "4")
     {
         const std::string strBody = R"({
-            "FaceLibID": 1
+            "Enable": true,
+            "LinkageSuccessMode": {
+                "Tradition": [6, 7],
+                "AlarmLinkage": [],
+                "RecordChn": []
+            },
+            "LinkageFailMode": {
+                "Tradition": [6],
+                "AlarmLinkage": [],
+                "RecordChn": []
+            }
         })";
-        printHttpResult("删除目标库",
-                        sendJsonCommand("DELETE", strDeviceBaseUrl, "/api/v1/face/libs", strBody));
+        printHttpResult("设置人脸比对配置",
+                        sendSdkCommand(strDeviceBaseUrl, "NET_TV_SET_FACE_COMPARE_INFO", strBody));
     }
     else if (strChoice == "5")
     {
         const std::string strBody = R"({
-            "FaceLibID": 1,
-            "LibName": "员工库-修改"
+            "LibId": "员工库"
         })";
-        printHttpResult("修改目标库",
-                        sendJsonCommand("PUT", strDeviceBaseUrl, "/api/v1/face/libs", strBody));
+        printHttpResult("添加目标库",
+                        sendSdkCommand(strDeviceBaseUrl, "NET_TV_ADD_TARGET_LIB", strBody));
     }
     else if (strChoice == "6")
     {
-        printHttpResult("获取目标库",
-                        sendJsonCommand("GET", strDeviceBaseUrl, "/api/v1/face/libs"));
+        const std::string strBody = R"({
+            "LibId": "员工库"
+        })";
+        printHttpResult("删除目标库",
+                        sendSdkCommand(strDeviceBaseUrl, "NET_TV_DEL_TARGET_LIB", strBody));
     }
     else if (strChoice == "7")
     {
         const std::string strBody = R"({
-            "FaceLibID": 1,
-            "Name": "张三",
-            "PicPath": "/opt/cam/face/zhangsan.jpg"
+            "LibId_old": "员工库",
+            "LibId_new": "员工库-修改"
         })";
-        printHttpResult("添加人脸",
-                        sendJsonCommand("POST", strDeviceBaseUrl, "/api/v1/face/persons", strBody));
+        printHttpResult("修改目标库",
+                        sendSdkCommand(strDeviceBaseUrl, "NET_TV_SET_TARGET_LIB", strBody));
     }
     else if (strChoice == "8")
     {
-        const std::string strBody = R"({
-            "FaceID": 10001
-        })";
-        printHttpResult("删除人脸",
-                        sendJsonCommand("DELETE", strDeviceBaseUrl, "/api/v1/face/persons", strBody));
+        printHttpResult("获取目标库",
+                        sendSdkCommand(strDeviceBaseUrl, "NET_TV_GET_TARGET_LIB"));
     }
     else if (strChoice == "9")
     {
         const std::string strBody = R"({
-            "FaceID": 10001,
-            "FaceLibID": 1,
-            "Name": "张三-修改",
-            "PicPath": "/opt/cam/face/zhangsan_new.jpg"
+            "LibId": "员工库",
+            "Name": "张三",
+            "PhoneNum": "13800000000",
+            "PicPath": "/opt/cam/face/zhangsan.jpg",
+            "BinPath": "",
+            "PicType": "jpg",
+            "PicSize": 102400,
+            "PicDate": "2026-05-14 10:00:00",
+            "PicWidth": 640,
+            "PicHeight": 480
         })";
-        printHttpResult("修改人脸",
-                        sendJsonCommand("PUT", strDeviceBaseUrl, "/api/v1/face/persons", strBody));
+        printHttpResult("添加人脸",
+                        sendSdkCommand(strDeviceBaseUrl, "NET_TV_ADD_FACE_INFO", strBody));
     }
     else if (strChoice == "10")
     {
-        printHttpResult("获取人脸",
-                        sendJsonCommand("GET", strDeviceBaseUrl, "/api/v1/face/persons"));
+        const std::string strBody = R"({
+            "Ids": [
+                10001
+            ]
+        })";
+        printHttpResult("删除人脸",
+                        sendSdkCommand(strDeviceBaseUrl, "NET_TV_DEL_FACE_INFO", strBody));
     }
     else if (strChoice == "11")
+    {
+        const std::string strBody = R"({
+            "Id": 10001,
+            "LibId": "员工库",
+            "Name": "张三-修改",
+            "PhoneNum": "13900000000",
+            "PicPath": "/opt/cam/face/zhangsan_new.jpg",
+            "PicType": "jpg",
+            "PicSize": 120000,
+            "PicDate": "2026-05-14 11:00:00"
+        })";
+        printHttpResult("修改人脸",
+                        sendSdkCommand(strDeviceBaseUrl, "NET_TV_SET_FACE_INFO", strBody));
+    }
+    else if (strChoice == "12")
+    {
+        const std::string strBody = R"({
+            "LibId": "员工库",
+            "Name": "",
+            "PhoneNum": "",
+            "ModelState": -1,
+            "RatingLevel": -1
+        })";
+        printHttpResult("获取人脸",
+                        sendSdkCommand(strDeviceBaseUrl, "NET_TV_GET_FACE_INFO", strBody));
+    }
+    else if (strChoice == "13")
     {
         sendCommandExamples(strDeviceBaseUrl);
     }
