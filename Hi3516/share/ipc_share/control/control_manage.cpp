@@ -849,6 +849,7 @@ void ControlManage::bind_task(std::shared_ptr<CTaskManage> &pTaskManage)
     pTaskManage->bind<Task::Event::GetFaceCaptureInfo>(AC_GET_FACE_CAPTURE_INFO);
     pTaskManage->bind<Task::Event::SetFaceCaptureInfo>(AC_SET_FACE_CAPTURE_INFO);
     /*人脸比对 */
+    pTaskManage->bind<Task::Event::GetFaceCompareInfo>(AC_GET_FACE_COMPARE_INFO);
     pTaskManage->bind<Task::Event::SetFaceCompareInfo>(AC_SET_FACE_COMPARE_INFO);
     /* 人脸抓拍叠加信息 */
     pTaskManage->bind<Task::Event::GetFaceCaptureOverlayInfo>(AC_GET_FACE_CAPTURE_OVERLAY_INFO_INFO);

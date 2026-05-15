@@ -4659,6 +4659,28 @@ static INT32 FindFaceInfoIndex(INT32 nId)
     return -1;
 }
 
+/* 人脸比对配置 Get 回调，对应命令 NET_TV_GET_FACE_COMPARE_INFO */
+static NET_TV_COMMON_ECODE_E MyGetFaceCompareInfoCb(INT32 dwChannelID, LPVOID lpOutBuffer, INT32 dwOutBufferSize)
+{
+    (void)dwChannelID;
+
+    if (!lpOutBuffer || dwOutBufferSize < (INT32)sizeof(NET_TV_FACE_COMPARE_INFO_S))
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_FACE_COMPARE_INFO_S pOut = (LPNET_TV_FACE_COMPARE_INFO_S)lpOutBuffer;
+    *pOut = g_stFaceCompareInfo;
+
+    printf("[ConfigServerDemo] GetFaceCompareInfo callback, Channel=%d\n", dwChannelID);
+    printf("  Enable=%d, SuccessSnapshotCount=%d, FailSnapshotCount=%d\n",
+           pOut->bEnable,
+           pOut->stLinkageListSuccess.dwSnapshotChannelCount,
+           pOut->stLinkageListFail.dwSnapshotChannelCount);
+
+    return NET_TV_E_SUCCEED;
+}
+
 /* 人脸比对配置 Set 回调，对应命令 NET_TV_SET_FACE_COMPARE_INFO */
 static NET_TV_COMMON_ECODE_E MySetFaceCompareInfoCb(INT32 dwChannelID, LPVOID lpInBuffer)
 {
@@ -6309,6 +6331,15 @@ static void RegisterCallbacks(void)
     }
 
     /* 人脸比对配置回调 */
+    if (NET_TV_SERVER_RegisterCb_GetFaceCompareInfo(MyGetFaceCompareInfoCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetFaceCompareInfo SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetFaceCompareInfo FAILED\n");
+    }
+
     if (NET_TV_SERVER_RegisterCb_SetFaceCompareInfo(MySetFaceCompareInfoCb))
     {
         printf("[ConfigServerDemo] RegisterCb_SetFaceCompareInfo SUCCESS\n");

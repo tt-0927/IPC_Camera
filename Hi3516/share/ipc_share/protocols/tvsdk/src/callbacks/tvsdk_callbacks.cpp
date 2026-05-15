@@ -3439,6 +3439,7 @@ static NET_TV_COMMON_ECODE_E cb_get_face_capture_info(INT32 dwChannelID, LPVOID 
     TvSdkConvert::FillFaceCaptureInfo(stCfg, *pOut);
     return NET_TV_E_SUCCEED;
 }
+
 static NET_TV_COMMON_ECODE_E cb_set_face_capture_info(INT32 dwChannelID, LPVOID lpInBuffer)
 {
     (void)dwChannelID;
@@ -3452,6 +3453,37 @@ static NET_TV_COMMON_ECODE_E cb_set_face_capture_info(INT32 dwChannelID, LPVOID 
     stInfo.data = wrap_data_json(inJson);
     int nExec = s_taskManage ? s_taskManage->execute(AC_SET_FACE_CAPTURE_INFO, stInfo) : -1;
     return (nExec == 0) ? NET_TV_E_SUCCEED : NET_TV_E_SET_CFG_FAILED;
+}
+
+/**
+ * @brief 获取人脸比对配置回调
+ * @param dwChannelID 通道号，当前配置为设备级配置，暂不使用
+ * @param lpOutBuffer 输出缓冲区，类型为NET_TV_FACE_COMPARE_INFO_S
+ * @param dwOutBufferSize 输出缓冲区大小，当前由SDK层保证结构体大小
+ * @return NET_TV_E_SUCCEED表示成功，其他值表示获取失败
+ */
+static NET_TV_COMMON_ECODE_E cb_get_face_compare_info(INT32 dwChannelID, LPVOID lpOutBuffer, INT32 dwOutBufferSize)
+{
+    (void)dwChannelID;
+    (void)dwOutBufferSize;
+    if (!lpOutBuffer)
+        return NET_TV_E_INVALID_PARAM;
+    LPNET_TV_FACE_COMPARE_INFO_S pOut = (LPNET_TV_FACE_COMPARE_INFO_S)lpOutBuffer;
+
+    std::string outJson;
+    std::string strJson;
+    if (execute_get_result(AC_GET_FACE_COMPARE_INFO, "{}", outJson) != 0 || outJson.empty())
+        return NET_TV_E_GET_CFG_FAILED;
+    int nRet = -1;
+    Json::get(outJson.c_str(), "Return", nRet);
+    if (nRet != 0)
+        return NET_TV_E_GET_CFG_FAILED;
+
+    Alarm::FaceCompare_S stCfg;
+    strJson = normalize_data_json(outJson);
+    Convert::to_struct(strJson, stCfg);
+    TvSdkConvert::FillFaceCompareInfo(stCfg, *pOut);
+    return NET_TV_E_SUCCEED;
 }
 
 static NET_TV_COMMON_ECODE_E cb_set_face_compare_info(INT32 dwChannelID, LPVOID lpInBuffer)
@@ -3786,6 +3818,7 @@ void register_all()
 
     NET_TV_SERVER_RegisterCb_GetFaceCaptureInfo(cb_get_face_capture_info);
     NET_TV_SERVER_RegisterCb_SetFaceCaptureInfo(cb_set_face_capture_info);
+    NET_TV_SERVER_RegisterCb_GetFaceCompareInfo(cb_get_face_compare_info);
     NET_TV_SERVER_RegisterCb_SetFaceCompareInfo(cb_set_face_compare_info);
     NET_TV_SERVER_RegisterCb_AddTargetLib(cb_add_target_lib);
     NET_TV_SERVER_RegisterCb_DelTargetLib(cb_del_target_lib);

@@ -828,6 +828,8 @@ NET_TV_API BOOL STDCALL NET_TV_GetDevConfig(IN  LPVOID  lpUserID,
             return NetTV_GetDevConfig_Impl<NET_TV_TALKBACK_STREAM_INFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
         case NET_TV_GET_FACECAPTUREINFO:
             return NetTV_GetDevConfig_Impl<NET_TV_FACE_CAPTURE_INFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_GET_FACE_COMPARE_INFO:
+            return NetTV_GetDevConfig_Impl<NET_TV_FACE_COMPARE_INFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
         case NET_TV_GET_TARGET_LIB:
             return NetTV_GetDevConfig_Impl<NET_TV_FACE_LIB_LIST_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
         case NET_TV_GET_FACE_INFO:

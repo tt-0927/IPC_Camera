@@ -157,6 +157,34 @@ namespace WebCGI
         int getActionCode() const override { return AC_LOGIN; }
     };
 
+    //info 通用JSON命令处理器 - 用于透传后端JSON响应
+    class JsonCommandHandler : public CommandHandler
+    {
+    public:
+        /**
+         * @brief 构造通用JSON命令处理器
+         * @param nActionCode 当前处理器绑定的动作码
+         */
+        explicit JsonCommandHandler(int nActionCode) : m_nActionCode(nActionCode) {}
+
+        /**
+         * @brief 执行JSON命令响应输出
+         * @param pMsg 短链接回调消息指针，包含后端返回的JSON字符串
+         * @return 返回处理结果码
+         */
+        int execute(ShortCallbackMsg_t *pMsg) override;
+
+        /**
+         * @brief 获取当前处理器绑定的动作码
+         * @return 返回内部ActionCode
+         */
+        int getActionCode() const override { return m_nActionCode; }
+
+    private:
+        /* 当前命令处理器对应的内部动作码 */
+        int m_nActionCode;
+    };
+
     //info JSON工具类 - 提供JSON解析和生成的静态工具方法
     class JsonHelper
     {
@@ -254,6 +282,15 @@ namespace WebCGI
          * @return 返回请求体字符串数据
          */
         std::string readRequestBody();
+
+        /**
+         * @brief 构造后端业务报文
+         * @param strRequestBody HTTP请求体
+         * @param nActionCode 输出动作码
+         * @return 返回后端可识别的JSON报文
+         * @note 支持旧ActionCode JSON和新增HTTP-SDK转发命令两种格式。
+         */
+        std::string buildBackendJson(const std::string &strRequestBody, int &nActionCode);
 
         /**
          * @brief 处理具体的命令请求

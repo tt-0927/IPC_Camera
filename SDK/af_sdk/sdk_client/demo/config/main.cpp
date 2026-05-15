@@ -207,15 +207,16 @@ static void PrintMenu()
     printf("152 - 设置录像高级参数 (NET_TV_SET_RECORD_ADVANCED_PARAM)\n");
     printf("153 - 查找录像文件 (NET_TV_FIND_RECORD_FILE_INFO)\n");
     printf("154 - 下载录像文件 (NET_TV_DOWNLOAD_RECORD_FILE)\n");
-    printf("155 - 设置人脸比对配置 (NET_TV_SET_FACE_COMPARE_INFO)\n");
-    printf("156 - 添加目标库 (NET_TV_ADD_TARGET_LIB)\n");
-    printf("157 - 删除目标库 (NET_TV_DEL_TARGET_LIB)\n");
-    printf("158 - 修改目标库 (NET_TV_SET_TARGET_LIB)\n");
-    printf("159 - 获取目标库 (NET_TV_GET_TARGET_LIB)\n");
-    printf("160 - 添加人脸 (NET_TV_ADD_FACE_INFO)\n");
-    printf("161 - 删除人脸 (NET_TV_DEL_FACE_INFO)\n");
-    printf("162 - 修改人脸 (NET_TV_SET_FACE_INFO)\n");
-    printf("163 - 获取人脸 (NET_TV_GET_FACE_INFO)\n");
+    printf("155 - 获取人脸比对配置 (NET_TV_GET_FACE_COMPARE_INFO)\n");
+    printf("156 - 设置人脸比对配置 (NET_TV_SET_FACE_COMPARE_INFO)\n");
+    printf("157 - 添加目标库 (NET_TV_ADD_TARGET_LIB)\n");
+    printf("158 - 删除目标库 (NET_TV_DEL_TARGET_LIB)\n");
+    printf("159 - 修改目标库 (NET_TV_SET_TARGET_LIB)\n");
+    printf("160 - 获取目标库 (NET_TV_GET_TARGET_LIB)\n");
+    printf("161 - 添加人脸 (NET_TV_ADD_FACE_INFO)\n");
+    printf("162 - 删除人脸 (NET_TV_DEL_FACE_INFO)\n");
+    printf("163 - 修改人脸 (NET_TV_SET_FACE_INFO)\n");
+    printf("164 - 获取人脸 (NET_TV_GET_FACE_INFO)\n");
     printf("3213 - 平台点播开始播放 (触发服务端 AC_PLATFORM_PLAY)\n");
     printf("3214 - 平台点播暂停播放 (NET_TV_SET_REPLAY_CTRL/PAUSE)\n");
     printf(" 0 - 退出\n");
@@ -7136,6 +7137,29 @@ static void PrintFaceCompareInfo(const NET_TV_FACE_COMPARE_INFO_S* pInfo)
     printf("=================================\n");
 }
 
+static void DoGetFaceCompareInfo()
+{
+    NET_TV_FACE_COMPARE_INFO_S stInfo;
+    memset(&stInfo, 0, sizeof(stInfo));
+
+    printf("[Client] 调用 NET_TV_GetDevConfig 获取人脸比对配置...\n");
+    INT32 dwBytesReturned = 0;
+    BOOL bRet = NET_TV_GetDevConfig(
+        g_lpUserID, 1, NET_TV_GET_FACE_COMPARE_INFO,
+        &stInfo, (INT32)sizeof(stInfo), &dwBytesReturned
+    );
+
+    if (bRet)
+    {
+        printf("[Client] 获取人脸比对配置成功! BytesReturned=%d\n", dwBytesReturned);
+        PrintFaceCompareInfo(&stInfo);
+    }
+    else
+    {
+        printf("[Client] 获取人脸比对配置失败! Error=%d\n", NET_TV_GetLastError());
+    }
+}
+
 static void DoSetFaceCompareInfo()
 {
     NET_TV_FACE_COMPARE_INFO_S stInfo;
@@ -7159,6 +7183,7 @@ static void DoSetFaceCompareInfo()
     {
         printf("[Client] 设置人脸比对配置成功! BytesReturned=%d\n", dwBytesReturned);
         PrintFaceCompareInfo(&stInfo);
+        DoGetFaceCompareInfo();
     }
     else
     {
@@ -7900,30 +7925,33 @@ static void ProcessCommand(int cmd)
             DoDownloadRecordFile();
             break;
         case 155:
-            DoSetFaceCompareInfo();
+            DoGetFaceCompareInfo();
             break;
         case 156:
-            DoAddTargetLib();
+            DoSetFaceCompareInfo();
             break;
         case 157:
-            DoDelTargetLib();
+            DoAddTargetLib();
             break;
         case 158:
-            DoSetTargetLib();
+            DoDelTargetLib();
             break;
         case 159:
-            DoGetTargetLib();
+            DoSetTargetLib();
             break;
         case 160:
-            DoAddFaceInfo();
+            DoGetTargetLib();
             break;
         case 161:
-            DoDelFaceInfo();
+            DoAddFaceInfo();
             break;
         case 162:
-            DoSetFaceInfo();
+            DoDelFaceInfo();
             break;
         case 163:
+            DoSetFaceInfo();
+            break;
+        case 164:
             DoGetFaceInfo();
             break;
         case DEMO_REPLAY_PAUSE_CMD:

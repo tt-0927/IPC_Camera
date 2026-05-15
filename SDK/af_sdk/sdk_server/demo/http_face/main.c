@@ -11,7 +11,7 @@
  *
  * 说明:
  *   本 Demo 用于模拟设备侧 HTTP 能力：
- *   1. 提供人脸 REST 命令接口，便于客户端 Demo 发送配置/库/人员命令；
+ *   1. 提供 HTTP-SDK 转发命令接口，便于客户端 Demo 发送 NET_TV_* 命令；
  *   2. 定时向客户端 HTTP 回调地址推送人脸抓拍和人脸比对事件。
  */
 
@@ -461,6 +461,23 @@ static void handle_http_client(socket_handle_t client)
     if (strcmp(method, "OPTIONS") == 0)
     {
         send_json_response(client, 200, "{\"Ret\":0,\"Message\":\"OK\",\"Data\":{}}");
+    }
+    else if ((strcmp(method, "POST") == 0 || strcmp(method, "PUT") == 0) &&
+             path_matches(path, "/api/v1/sdk/command"))
+    {
+        print_command_request("HTTP-SDK转发命令", method, path, body);
+        if (strstr(body, "NET_TV_GET_FACE_COMPARE_INFO") != NULL)
+        {
+            send_json_response(client, 200, "{\"ActionCode\":2529,\"Return\":0,\"Data\":{\"Enable\":true,\"LinkageSuccessMode\":{\"Tradition\":[6,7],\"AlarmLinkage\":[],\"RecordChn\":[]},\"LinkageFailMode\":{\"Tradition\":[6],\"AlarmLinkage\":[],\"RecordChn\":[]}}}");
+        }
+        else if (strstr(body, "NET_TV_SET_FACE_COMPARE_INFO") != NULL)
+        {
+            send_json_response(client, 200, "{\"ActionCode\":2528,\"Return\":0,\"Data\":{}}");
+        }
+        else
+        {
+            send_json_response(client, 200, "{\"Ret\":0,\"Message\":\"HTTP-SDK command forwarded\",\"Data\":{}}");
+        }
     }
     else if (strcmp(method, "GET") == 0 && path_matches(path, "/api/v1/face/capture/config"))
     {
@@ -929,7 +946,7 @@ static void push_face_capture_event(const char *callback_url)
     char timestamp[32];
     char jpeg_len[32];
     HttpResult result;
-    FormPart parts[13];
+    FormPart parts[16];
     int index = 0;
 
     snprintf(timestamp, sizeof(timestamp), "%lld", current_timestamp_ms());
@@ -937,6 +954,9 @@ static void push_face_capture_event(const char *callback_url)
     (void)jpeg_len;
 
     parts[index++] = make_text_part("EventType", "FACE_CAPTURE");
+    parts[index++] = make_text_part("Command", "NET_TV_ALARM_FACE_CAPTURE");
+    parts[index++] = make_text_part("AlarmType", "NET_TV_ALARM_FACE_CAPTURE");
+    parts[index++] = make_text_part("AlarmCode", "12290");
     parts[index++] = make_text_part("DeviceCode", "SDK_HTTP_FACE_SERVER");
     parts[index++] = make_text_part("Channel", "0");
     parts[index++] = make_text_part("TimestampMs", timestamp);
@@ -967,7 +987,7 @@ static void push_face_compare_event(const char *callback_url, int success)
     char capture_len[32];
     char lib_len[32];
     HttpResult result;
-    FormPart parts[18];
+    FormPart parts[21];
     int index = 0;
 
     snprintf(timestamp, sizeof(timestamp), "%lld", current_timestamp_ms());
@@ -975,6 +995,9 @@ static void push_face_compare_event(const char *callback_url, int success)
     snprintf(lib_len, sizeof(lib_len), "%u", success ? (unsigned int)sizeof(g_demo_jpeg) : 0U);
 
     parts[index++] = make_text_part("EventType", "FACE_COMPARE");
+    parts[index++] = make_text_part("Command", "NET_TV_ALARM_FACE_COMPARE");
+    parts[index++] = make_text_part("AlarmType", "NET_TV_ALARM_FACE_COMPARE");
+    parts[index++] = make_text_part("AlarmCode", "12295");
     parts[index++] = make_text_part("DeviceCode", "SDK_HTTP_FACE_SERVER");
     parts[index++] = make_text_part("Channel", "0");
     parts[index++] = make_text_part("TimestampMs", timestamp);

@@ -1151,6 +1151,7 @@ typedef enum tagNETTVCfgCmd
     NET_TV_DEL_FACE_INFO                  = 488,           /* 删除人脸 参见NET_TV_FACE_ID_INFO_S */
     NET_TV_SET_FACE_INFO                  = 489,           /* 修改人脸 参见NET_TV_FACE_INFO_S */
     NET_TV_GET_FACE_INFO                  = 490,           /* 获取人脸 参见NET_TV_FACE_INFO_LIST_S */
+    NET_TV_GET_FACE_COMPARE_INFO          = 491,           /* 获取人脸比对配置 参见NET_TV_FACE_COMPARE_INFO_S */
  
     NET_TV_CFG_INVALID                  = 0xFFFF            /* 无效值  Invalid value */
 
@@ -3785,7 +3786,7 @@ typedef struct tagNETTVFaceCaptureInfo
 /**
  * @struct tagNETTVFaceCompareInfo
  * @brief 人脸比对配置信息 Face compare configuration
- * @note 用于NET_TV_SET_FACE_COMPARE_INFO
+ * @note 用于NET_TV_GET_FACE_COMPARE_INFO/NET_TV_SET_FACE_COMPARE_INFO
  */
 typedef struct tagNETTVFaceCompareInfo
 {
