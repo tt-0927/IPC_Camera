@@ -713,7 +713,7 @@ NET_TV_API BOOL STDCALL NET_TV_GetDevConfig(IN  LPVOID  lpUserID,
         case NET_TV_FIND_RECORD_FILE_INFO:
             return NetTV_GetRecordFileList_Impl(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
         case NET_TV_GET_PRIVACYMASKCFG:
-            return NetTV_GetDevConfig_Impl<NET_TV_ALARM_RULE_INFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+            return NetTV_GetDevConfig_Impl<NET_TV_PRIVACY_MASK_CFG_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
         case NET_TV_GET_TAMPERALARM:
             return NetTV_GetDevConfig_Impl<NET_TV_TAMPER_ALARM_INFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
         case NET_TV_GET_MOTIONALARM:
@@ -890,7 +890,7 @@ NET_TV_API BOOL STDCALL NET_TV_SetDevConfig(IN  LPVOID  lpUserID,
         case NET_TV_DOWNLOAD_RECORD_FILE:
             return NetTV_SetDevConfig_Impl<NET_TV_RECORD_DOWNLOAD_LIST_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
         case NET_TV_SET_PRIVACYMASKCFG:
-            return NetTV_SetDevConfig_Impl<NET_TV_ALARM_RULE_INFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+            return NetTV_SetDevConfig_Impl<NET_TV_PRIVACY_MASK_CFG_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
         case NET_TV_SET_TAMPERALARM:
             return NetTV_SetDevConfig_Impl<NET_TV_TAMPER_ALARM_INFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
         case NET_TV_SET_MOTIONALARM:
