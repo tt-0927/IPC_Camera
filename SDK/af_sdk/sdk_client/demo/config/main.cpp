@@ -48,6 +48,8 @@ static char g_szReplaySessionId[NET_TV_REPLAY_SESSION_ID_LEN] = {0};
 #define DEMO_AC_PLATFORM_PLAY 3213
 /* demo 本地命令码：暂停也走 NET_TV_ControlReplay，不是新增 SDK 接口 */
 #define DEMO_REPLAY_PAUSE_CMD 3214
+/* demo 本地命令码：恢复播放 */
+#define DEMO_REPLAY_RESUME_CMD 3215
 
 static void PrintMenu()
 {
@@ -207,18 +209,20 @@ static void PrintMenu()
     printf("152 - 设置录像高级参数 (NET_TV_SET_RECORD_ADVANCED_PARAM)\n");
     printf("153 - 查找录像文件 (NET_TV_FIND_RECORD_FILE_INFO)\n");
     printf("154 - 下载录像文件 (NET_TV_DOWNLOAD_RECORD_FILE)\n");
-    printf("155 - 获取人脸比对配置 (NET_TV_GET_FACE_COMPARE_INFO)\n");
-    printf("156 - 设置人脸比对配置 (NET_TV_SET_FACE_COMPARE_INFO)\n");
-    printf("157 - 添加目标库 (NET_TV_ADD_TARGET_LIB)\n");
-    printf("158 - 删除目标库 (NET_TV_DEL_TARGET_LIB)\n");
-    printf("159 - 修改目标库 (NET_TV_SET_TARGET_LIB)\n");
-    printf("160 - 获取目标库 (NET_TV_GET_TARGET_LIB)\n");
-    printf("161 - 添加人脸 (NET_TV_ADD_FACE_INFO)\n");
-    printf("162 - 删除人脸 (NET_TV_DEL_FACE_INFO)\n");
-    printf("163 - 修改人脸 (NET_TV_SET_FACE_INFO)\n");
-    printf("164 - 获取人脸 (NET_TV_GET_FACE_INFO)\n");
-    printf("3213 - 平台点播开始播放 (触发服务端 AC_PLATFORM_PLAY)\n");
+    printf("155 - 设置人脸比对配置 (NET_TV_SET_FACE_COMPARE_INFO)\n");
+    printf("156 - 添加目标库 (NET_TV_ADD_TARGET_LIB)\n");
+    printf("157 - 删除目标库 (NET_TV_DEL_TARGET_LIB)\n");
+    printf("158 - 修改目标库 (NET_TV_SET_TARGET_LIB)\n");
+    printf("159 - 获取目标库 (NET_TV_GET_TARGET_LIB)\n");
+    printf("160 - 添加人脸 (NET_TV_ADD_FACE_INFO)\n");
+    printf("161 - 删除人脸 (NET_TV_DEL_FACE_INFO)\n");
+    printf("162 - 修改人脸 (NET_TV_SET_FACE_INFO)\n");
+    printf("163 - 获取人脸 (NET_TV_GET_FACE_INFO)\n");
+    printf("164 - 获取隐私遮盖配置 (NET_TV_GET_PRIVACYMASKCFG)\n");
+    printf("165 - 设置隐私遮盖配置 (NET_TV_SET_PRIVACYMASKCFG)\n");
+    printf("3213 - 平台点播回放控制类型 (自定义选择 1~8)\n");
     printf("3214 - 平台点播暂停播放 (NET_TV_SET_REPLAY_CTRL/PAUSE)\n");
+    printf("3215 - 平台点播恢复播放 (NET_TV_SET_REPLAY_CTRL/RESUME)\n");
     printf(" 0 - 退出\n");
     printf("=======================================\n");
     printf("请输入命令码: ");
@@ -2250,6 +2254,42 @@ static void PrintTamperAlarmInfo(const NET_TV_TAMPER_ALARM_INFO_S* pInfo)
     printf("=================================\n");
 }
 
+/* 打印隐私遮盖配置 */
+static void PrintPrivacyMaskCfg(const NET_TV_PRIVACY_MASK_CFG_S* pInfo)
+{
+    if (!pInfo)
+    {
+        return;
+    }
+
+    INT32 nCount = pInfo->dwAreaCount;
+    if (nCount < 0)
+    {
+        nCount = 0;
+    }
+    if (nCount > NET_TV_MAX_PRIVACY_MASK_AREA_NUM)
+    {
+        nCount = NET_TV_MAX_PRIVACY_MASK_AREA_NUM;
+    }
+
+    printf("\n[Client] ===== 隐私遮盖配置 =====\n");
+    printf("  Enable    : %s\n", pInfo->bEnable ? "ON" : "OFF");
+    printf("  AreaCount : %d\n", pInfo->dwAreaCount);
+    for (int i = 0; i < nCount; ++i)
+    {
+        const NET_TV_PRIVACY_MASK_AREA_S* pArea = &pInfo->astArea[i];
+        printf("  Area[%d]   : ID=%d, Enable=%s, Rect=[%d,%d,%d,%d]\n",
+               i,
+               pArea->nAreaID,
+               pArea->bEnable ? "ON" : "OFF",
+               pArea->nRectLeft,
+               pArea->nRectTop,
+               pArea->nRectRight,
+               pArea->nRectBottom);
+    }
+    printf("=================================\n");
+}
+
 /* 打印越界检测配置 */
 static void PrintCrossLineAlarmInfo(const NET_TV_CROSS_LINE_ALARM_INFO_S* pInfo)
 {
@@ -2502,6 +2542,76 @@ static void DoSetTamperAlarm()
     else
     {
         printf("[Client] 设置遮挡报警配置失败! Error=%d\n", NET_TV_GetLastError());
+    }
+}
+
+/* 获取隐私遮盖配置 */
+static void DoGetPrivacyMaskCfg()
+{
+    NET_TV_PRIVACY_MASK_CFG_S stInfo;
+    memset(&stInfo, 0, sizeof(stInfo));
+
+    INT32 dwBytesReturned = 0;
+
+    printf("[Client] 调用 NET_TV_GetDevConfig 获取隐私遮盖配置...\n");
+    BOOL bRet = NET_TV_GetDevConfig(
+        g_lpUserID, 1, NET_TV_GET_PRIVACYMASKCFG,
+        &stInfo, (INT32)sizeof(stInfo), &dwBytesReturned
+    );
+
+    if (bRet)
+    {
+        printf("[Client] 获取隐私遮盖配置成功! BytesReturned=%d\n", dwBytesReturned);
+        PrintPrivacyMaskCfg(&stInfo);
+    }
+    else
+    {
+        printf("[Client] 获取隐私遮盖配置失败! Error=%d\n", NET_TV_GetLastError());
+    }
+}
+
+/* 设置隐私遮盖配置 */
+static void DoSetPrivacyMaskCfg()
+{
+    NET_TV_PRIVACY_MASK_CFG_S stInfo;
+    memset(&stInfo, 0, sizeof(stInfo));
+
+    INT32 dwBytesReturned = 0;
+    BOOL bRetGet = NET_TV_GetDevConfig(
+        g_lpUserID, 1, NET_TV_GET_PRIVACYMASKCFG,
+        &stInfo, (INT32)sizeof(stInfo), &dwBytesReturned
+    );
+
+    if (!bRetGet)
+    {
+        printf("[Client] 预获取隐私遮盖配置失败，使用默认值. Error=%d\n", NET_TV_GetLastError());
+        memset(&stInfo, 0, sizeof(stInfo));
+    }
+
+    stInfo.bEnable = TRUE;
+    stInfo.dwAreaCount = 1;
+    stInfo.astArea[0].nAreaID = 0;
+    stInfo.astArea[0].bEnable = TRUE;
+    stInfo.astArea[0].nRectLeft = 120;
+    stInfo.astArea[0].nRectTop = 120;
+    stInfo.astArea[0].nRectRight = 420;
+    stInfo.astArea[0].nRectBottom = 320;
+
+    printf("[Client] 调用 NET_TV_SetDevConfig 设置隐私遮盖配置...\n");
+    INT32 dwBytesReturnedSet = 0;
+    BOOL bRet = NET_TV_SetDevConfig(
+        g_lpUserID, 1, NET_TV_SET_PRIVACYMASKCFG,
+        &stInfo, (INT32)sizeof(stInfo), &dwBytesReturnedSet
+    );
+
+    if (bRet)
+    {
+        printf("[Client] 设置隐私遮盖配置成功! BytesReturned=%d\n", dwBytesReturnedSet);
+        DoGetPrivacyMaskCfg();
+    }
+    else
+    {
+        printf("[Client] 设置隐私遮盖配置失败! Error=%d\n", NET_TV_GetLastError());
     }
 }
 
@@ -6712,6 +6822,8 @@ static void PrintReplayCtrlInfo(const NET_TV_REPLAY_CTRL_INFO_S* pInfo)
     printf("  CtrlType   : %d\n", pInfo->dwCtrlType);
     printf("  SessionId  : %s\n", pInfo->szSessionId);
     printf("  Speed      : %.2f\n", pInfo->fSpeed);
+    printf("  SeekTime   : %d\n", pInfo->nSeekTime);
+    printf("  ReplayType : %d\n", pInfo->nReplayType);
     printf("  StartTime  : %s\n", pInfo->szStartTime);
     printf("  EndTime    : %s\n", pInfo->szEndTime);
     printf("  Url        : %s\n", pInfo->szUrl);
@@ -6797,7 +6909,7 @@ static void DoControlReplayStart()
     memset(&stInfo, 0, sizeof(stInfo));
 
     int nChannel = 1;
-    char szDate[32] = "2026-05-07";
+    char szDate[32] = "2026-05-11";
     char szStartClock[32] = "00:00:00";
     char szEndClock[32] = "23:59:59";
     float fSpeed = 1.0f;
@@ -6900,6 +7012,39 @@ static void DoControlReplayPause()
     }
 }
 
+static void DoControlReplayResume()
+{
+    NET_TV_REPLAY_CTRL_INFO_S stInfo;
+    memset(&stInfo, 0, sizeof(stInfo));
+
+    int nChannel = 1;
+    char szSessionId[NET_TV_REPLAY_SESSION_ID_LEN] = {0};
+    strncpy(szSessionId,
+            g_szReplaySessionId[0] ? g_szReplaySessionId : "demo_replay_1",
+            sizeof(szSessionId) - 1);
+
+    FlushInputLine();
+    nChannel = ReadIntWithDefault("[Client] 请输入恢复播放通道号", nChannel);
+    ReadTextWithDefault("[Client] 请输入回放会话ID", szSessionId, sizeof(szSessionId), szSessionId);
+
+    stInfo.dwChannel = nChannel;
+    stInfo.dwCtrlType = NET_TV_REPLAY_CTRL_RESUME;
+    strncpy(stInfo.szSessionId, szSessionId, sizeof(stInfo.szSessionId) - 1);
+
+    INT32 dwBytesReturned = 0;
+    BOOL bRet = NET_TV_ControlReplay(g_lpUserID, &stInfo, &dwBytesReturned);
+
+    if (bRet)
+    {
+        printf("[Client] Control replay resume success! BytesReturned=%d\n", dwBytesReturned);
+        PrintReplayCtrlInfo(&stInfo);
+    }
+    else
+    {
+        printf("[Client] Control replay resume failed! Error=%d\n", NET_TV_GetLastError());
+    }
+}
+
 static void DoControlReplaySpeed()
 {
     NET_TV_REPLAY_CTRL_INFO_S stInfo;
@@ -6934,6 +7079,140 @@ static void DoControlReplaySpeed()
     {
         printf("[Client] Control replay speed failed! Error=%d\n", NET_TV_GetLastError());
     }
+}
+
+static void DoControlReplaySeek()
+{
+    NET_TV_REPLAY_CTRL_INFO_S stInfo;
+    memset(&stInfo, 0, sizeof(stInfo));
+
+    int nChannel = 1;
+    int nSeekTime = 60;
+    char szSessionId[NET_TV_REPLAY_SESSION_ID_LEN] = {0};
+    strncpy(szSessionId,
+            g_szReplaySessionId[0] ? g_szReplaySessionId : "demo_replay_1",
+            sizeof(szSessionId) - 1);
+
+    FlushInputLine();
+    nChannel = ReadIntWithDefault("[Client] 请输入跳转播放通道号", nChannel);
+    nSeekTime = ReadIntWithDefault("[Client] 请输入跳转秒数(相对回放时间轴)", nSeekTime);
+    ReadTextWithDefault("[Client] 请输入回放会话ID", szSessionId, sizeof(szSessionId), szSessionId);
+
+    stInfo.dwChannel = nChannel;
+    stInfo.dwCtrlType = NET_TV_REPLAY_CTRL_SET_SEEK;
+    stInfo.nSeekTime = nSeekTime;
+    strncpy(stInfo.szSessionId, szSessionId, sizeof(stInfo.szSessionId) - 1);
+
+    INT32 dwBytesReturned = 0;
+    BOOL bRet = NET_TV_ControlReplay(g_lpUserID, &stInfo, &dwBytesReturned);
+
+    if (bRet)
+    {
+        printf("[Client] Control replay seek success! BytesReturned=%d\n", dwBytesReturned);
+        PrintReplayCtrlInfo(&stInfo);
+    }
+    else
+    {
+        printf("[Client] Control replay seek failed! Error=%d\n", NET_TV_GetLastError());
+    }
+}
+
+static void DoPlatformReplayControlByType(int nReplayType)
+{
+    NET_TV_REPLAY_CTRL_INFO_S stInfo;
+    memset(&stInfo, 0, sizeof(stInfo));
+
+    int nChannel = 1;
+    int nSeekTime = 60;
+    float fSpeed = 2.0f;
+    char szDate[32] = "2026-05-07";
+    char szStartClock[32] = "00:00:00";
+    char szEndClock[32] = "23:59:59";
+    char szSessionId[NET_TV_REPLAY_SESSION_ID_LEN] = {0};
+    strncpy(szSessionId,
+            g_szReplaySessionId[0] ? g_szReplaySessionId : "demo_replay_1",
+            sizeof(szSessionId) - 1);
+
+    nChannel = ReadIntWithDefault("[Client] 请输入平台点播通道号", nChannel);
+
+    stInfo.dwChannel = nChannel;
+    stInfo.nReplayType = nReplayType;
+
+    switch (nReplayType)
+    {
+        case NET_TV_REPLAY_PLATFORM_CTRL_JUMP_TIME:
+            ReadTextWithDefault("[Client] 请输入回放会话ID", szSessionId, sizeof(szSessionId), szSessionId);
+            ReadTextWithDefault("[Client] 请输入跳转日期(YYYY-MM-DD)", szDate, sizeof(szDate), szDate);
+            ReadTextWithDefault("[Client] 请输入跳转开始时间(HH:MM:SS)", szStartClock, sizeof(szStartClock), szStartClock);
+            ReadTextWithDefault("[Client] 请输入跳转结束时间(HH:MM:SS)", szEndClock, sizeof(szEndClock), szEndClock);
+            stInfo.dwCtrlType = NET_TV_REPLAY_CTRL_SET_SEEK;
+            strncpy(stInfo.szSessionId, szSessionId, sizeof(stInfo.szSessionId) - 1);
+            snprintf(stInfo.szStartTime, sizeof(stInfo.szStartTime), "%s %s", szDate, szStartClock);
+            snprintf(stInfo.szEndTime, sizeof(stInfo.szEndTime), "%s %s", szDate, szEndClock);
+            break;
+        case NET_TV_REPLAY_PLATFORM_CTRL_BACKWARD_30S:
+        case NET_TV_REPLAY_PLATFORM_CTRL_FORWARD_30S:
+        case NET_TV_REPLAY_PLATFORM_CTRL_PERSON_EVENT:
+        case NET_TV_REPLAY_PLATFORM_CTRL_VEHICLE_EVENT:
+        case NET_TV_REPLAY_PLATFORM_CTRL_PERSON_VEHICLE_EVENT:
+        case NET_TV_REPLAY_PLATFORM_CTRL_CANCEL_EVENT:
+            ReadTextWithDefault("[Client] 请输入回放会话ID", szSessionId, sizeof(szSessionId), szSessionId);
+            stInfo.dwCtrlType = NET_TV_REPLAY_CTRL_SET_SEEK;
+            strncpy(stInfo.szSessionId, szSessionId, sizeof(stInfo.szSessionId) - 1);
+            break;
+        case NET_TV_REPLAY_PLATFORM_CTRL_SPEED:
+            ReadTextWithDefault("[Client] 请输入回放会话ID", szSessionId, sizeof(szSessionId), szSessionId);
+            fSpeed = ReadFloatWithDefault("[Client] 请输入播放倍速", fSpeed);
+            stInfo.dwCtrlType = NET_TV_REPLAY_CTRL_SET_SPEED;
+            stInfo.fSpeed = fSpeed > 0.0f ? fSpeed : 1.0f;
+            strncpy(stInfo.szSessionId, szSessionId, sizeof(stInfo.szSessionId) - 1);
+            break;
+        case NET_TV_REPLAY_PLATFORM_CTRL_NONE:
+        default:
+            printf("[Client] 无效的平台点播回放控制类型: %d\n", nReplayType);
+            return;
+    }
+
+    if (nReplayType == NET_TV_REPLAY_PLATFORM_CTRL_BACKWARD_30S ||
+        nReplayType == NET_TV_REPLAY_PLATFORM_CTRL_FORWARD_30S)
+    {
+        nSeekTime = ReadIntWithDefault("[Client] 请输入跳转秒数(默认30秒，可自定义)", 30);
+        // stInfo.nSeekTime = nSeekTime;
+        stInfo.nSeekTime = 1777341741;
+    }
+
+    INT32 dwBytesReturned = 0;
+    BOOL bRet = NET_TV_ControlReplay(g_lpUserID, &stInfo, &dwBytesReturned);
+
+    if (bRet)
+    {
+        printf("[Client] Platform replay control success! BytesReturned=%d\n", dwBytesReturned);
+        PrintReplayCtrlInfo(&stInfo);
+    }
+    else
+    {
+        printf("[Client] Platform replay control failed! Error=%d\n", NET_TV_GetLastError());
+    }
+}
+
+static void DoReplayControlCustomMenu()
+{
+    int nType = 1;
+
+    FlushInputLine();
+    printf("\n[Client] ===== 平台点播回放控制类型 =====\n");
+    printf("  1 - 跳进度条\n");
+    printf("  2 - 后退30秒\n");
+    printf("  3 - 前进30秒\n");
+    printf("  4 - 倍速\n");
+    printf("  5 - 人员事件\n");
+    printf("  6 - 车辆事件\n");
+    printf("  7 - 人车事件\n");
+    printf("  8 - 取消事件\n");
+    printf("=====================================\n");
+    nType = ReadIntWithDefault("[Client] 请选择控制类型", nType);
+
+    DoPlatformReplayControlByType(nType);
 }
 
 static void PrintReplayRecordSegments(const char* title, const NET_TV_REPLAY_RECORD_TIME_S* pSegments, int nCount)
@@ -7137,29 +7416,6 @@ static void PrintFaceCompareInfo(const NET_TV_FACE_COMPARE_INFO_S* pInfo)
     printf("=================================\n");
 }
 
-static void DoGetFaceCompareInfo()
-{
-    NET_TV_FACE_COMPARE_INFO_S stInfo;
-    memset(&stInfo, 0, sizeof(stInfo));
-
-    printf("[Client] 调用 NET_TV_GetDevConfig 获取人脸比对配置...\n");
-    INT32 dwBytesReturned = 0;
-    BOOL bRet = NET_TV_GetDevConfig(
-        g_lpUserID, 1, NET_TV_GET_FACE_COMPARE_INFO,
-        &stInfo, (INT32)sizeof(stInfo), &dwBytesReturned
-    );
-
-    if (bRet)
-    {
-        printf("[Client] 获取人脸比对配置成功! BytesReturned=%d\n", dwBytesReturned);
-        PrintFaceCompareInfo(&stInfo);
-    }
-    else
-    {
-        printf("[Client] 获取人脸比对配置失败! Error=%d\n", NET_TV_GetLastError());
-    }
-}
-
 static void DoSetFaceCompareInfo()
 {
     NET_TV_FACE_COMPARE_INFO_S stInfo;
@@ -7183,7 +7439,6 @@ static void DoSetFaceCompareInfo()
     {
         printf("[Client] 设置人脸比对配置成功! BytesReturned=%d\n", dwBytesReturned);
         PrintFaceCompareInfo(&stInfo);
-        DoGetFaceCompareInfo();
     }
     else
     {
@@ -7883,11 +8138,11 @@ static void ProcessCommand(int cmd)
             DoGetReplayUrl();
             break;
         case 142:
-        case DEMO_AC_PLATFORM_PLAY:
-        {
             DoControlReplayStart();
             break;
-        }
+        case DEMO_AC_PLATFORM_PLAY:
+            DoReplayControlCustomMenu();
+            break;
         case 143:
             DoControlReplayStop();
             break;
@@ -7925,37 +8180,43 @@ static void ProcessCommand(int cmd)
             DoDownloadRecordFile();
             break;
         case 155:
-            DoGetFaceCompareInfo();
-            break;
-        case 156:
             DoSetFaceCompareInfo();
             break;
-        case 157:
+        case 156:
             DoAddTargetLib();
             break;
-        case 158:
+        case 157:
             DoDelTargetLib();
             break;
-        case 159:
+        case 158:
             DoSetTargetLib();
             break;
-        case 160:
+        case 159:
             DoGetTargetLib();
             break;
-        case 161:
+        case 160:
             DoAddFaceInfo();
             break;
-        case 162:
+        case 161:
             DoDelFaceInfo();
             break;
-        case 163:
+        case 162:
             DoSetFaceInfo();
             break;
-        case 164:
+        case 163:
             DoGetFaceInfo();
+            break;
+        case 164:
+            DoGetPrivacyMaskCfg();
+            break;
+        case 165:
+            DoSetPrivacyMaskCfg();
             break;
         case DEMO_REPLAY_PAUSE_CMD:
             DoControlReplayPause();
+            break;
+        case DEMO_REPLAY_RESUME_CMD:
+            DoControlReplayResume();
             break;
         default:
             printf("[Client] 无效的命令码: %d\n", cmd);
