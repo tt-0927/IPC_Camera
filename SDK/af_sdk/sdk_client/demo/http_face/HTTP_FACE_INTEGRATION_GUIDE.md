@@ -217,16 +217,15 @@ http://192.168.1.100/cgi-bin/encoder.cgi/api/v1/sdk/command
 | ---: | --- | --- | ---: | ---: | --- |
 | 1 | 获取人脸抓拍配置 | `NET_TV_GET_FACECAPTUREINFO` | `246` | `2518` | `POST` |
 | 2 | 设置人脸抓拍配置 | `NET_TV_SET_FACECAPTUREINFO` | `247` | `2519` | `POST` |
-| 3 | 获取人脸比对配置 | `NET_TV_GET_FACE_COMPARE_INFO` | `491` | `2529` | `POST` |
-| 4 | 设置人脸比对配置 | `NET_TV_SET_FACE_COMPARE_INFO` | `482` | `2528` | `POST` |
-| 5 | 添加人脸 | `NET_TV_ADD_FACE_INFO` | `487` | `7204` | `POST` |
-| 6 | 删除人脸 | `NET_TV_DEL_FACE_INFO` | `488` | `7205` | `POST` |
-| 7 | 修改人脸 | `NET_TV_SET_FACE_INFO` | `489` | `7206` | `POST` |
-| 8 | 获取人脸 | `NET_TV_GET_FACE_INFO` | `490` | `7207` | `POST` |
-| 9 | 添加目标库 | `NET_TV_ADD_TARGET_LIB` | `483` | `7200` | `POST` |
-| 10 | 删除目标库 | `NET_TV_DEL_TARGET_LIB` | `484` | `7201` | `POST` |
-| 11 | 修改目标库 | `NET_TV_SET_TARGET_LIB` | `485` | `7202` | `POST` |
-| 12 | 获取目标库 | `NET_TV_GET_TARGET_LIB` | `486` | `7203` | `POST` |
+| 3 | 设置人脸比对配置 | `NET_TV_SET_FACE_COMPARE_INFO` | `482` | `2528` | `POST` |
+| 4 | 添加人脸 | `NET_TV_ADD_FACE_INFO` | `487` | `7204` | `POST` |
+| 5 | 删除人脸 | `NET_TV_DEL_FACE_INFO` | `488` | `7205` | `POST` |
+| 6 | 修改人脸 | `NET_TV_SET_FACE_INFO` | `489` | `7206` | `POST` |
+| 7 | 获取人脸 | `NET_TV_GET_FACE_INFO` | `490` | `7207` | `POST` |
+| 8 | 添加目标库 | `NET_TV_ADD_TARGET_LIB` | `483` | `7200` | `POST` |
+| 9 | 删除目标库 | `NET_TV_DEL_TARGET_LIB` | `484` | `7201` | `POST` |
+| 10 | 修改目标库 | `NET_TV_SET_TARGET_LIB` | `485` | `7202` | `POST` |
+| 11 | 获取目标库 | `NET_TV_GET_TARGET_LIB` | `486` | `7203` | `POST` |
 
 字段命名重点：
 
@@ -459,91 +458,7 @@ HttpResult ret = PostSdkCommand(
 2. 检测区域、屏蔽区域、布防时间属于复杂配置，第三方需要按设备返回结构原样维护。
 3. 如果开启 HTTP 推送，还需要同时配置设备 HTTP 推送地址，见“设备向平台推送配置”章节。
 
-## 9. 命令 3：获取人脸比对配置
-
-### 9.1 使用场景
-
-平台在展示设备当前人脸比对配置前调用该接口，例如页面打开时读取：
-
-1. 人脸比对是否启用。
-2. 比对成功后的联动方式。
-3. 比对失败后的联动方式。
-4. 人脸比对布防时间。
-
-### 9.2 请求信息
-
-| 项目 | 内容 |
-| --- | --- |
-| URL | `http://<device-ip>/cgi-bin/encoder.cgi/api/v1/sdk/command` |
-| Method | `POST` |
-| Content-Type | `application/json` |
-| Command | `NET_TV_GET_FACE_COMPARE_INFO` |
-
-### 9.3 请求 JSON
-
-```json
-{
-  "Command": "NET_TV_GET_FACE_COMPARE_INFO",
-  "Data": {}
-}
-```
-
-### 9.4 curl 示例
-
-```bash
-curl -X POST "http://192.168.1.100/cgi-bin/encoder.cgi/api/v1/sdk/command" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "Command": "NET_TV_GET_FACE_COMPARE_INFO",
-    "Data": {}
-  }'
-```
-
-### 9.5 C++ 调用示例
-
-```cpp
-HttpResult ret = PostSdkCommand(
-    "http://192.168.1.100/cgi-bin/encoder.cgi",
-    "NET_TV_GET_FACE_COMPARE_INFO",
-    "{}");
-```
-
-### 9.6 成功响应示例
-
-```json
-{
-  "ActionCode": 2529,
-  "DeviceName": "IPC",
-  "UserName": "admin",
-  "Return": 0,
-  "Data": {
-    "Enable": true,
-    "LinkageSuccessMode": {
-      "Tradition": [
-        6,
-        7
-      ],
-      "AlarmLinkage": [],
-      "RecordChn": []
-    },
-    "LinkageFailMode": {
-      "Tradition": [
-        6
-      ],
-      "AlarmLinkage": [],
-      "RecordChn": []
-    }
-  }
-}
-```
-
-### 9.7 平台处理建议
-
-1. `LinkageSuccessMode` 表示比对成功后触发的联动。
-2. `LinkageFailMode` 表示比对失败后触发的联动。
-3. 平台修改配置时建议先获取原配置，再只调整需要变更的字段后整体下发。
-
-## 10. 命令 4：设置人脸比对配置
+## 9. 命令 3：设置人脸比对配置
 
 ### 10.1 使用场景
 
@@ -669,10 +584,9 @@ HttpResult ret = PostSdkCommand(
 ### 10.8 注意事项
 
 1. 人脸比对依赖目标库和人员底图，建议先完成目标库、人脸添加，再开启比对。
-2. 如果平台只修改联动配置，建议先调用“获取人脸比对配置”后在原配置基础上修改。
-3. `NET_TV_SET_FACE_COMPARE_INFO` 的命令码为 `482`，这是已有 SDK 命令码；新增的获取命令为 `491`，不会影响原有目标库和人脸命令码。
+2. `NET_TV_SET_FACE_COMPARE_INFO` 的命令码为 `482`，这是已有 SDK 命令码。
 
-## 11. 命令 5：添加人脸
+## 10. 命令 4：添加人脸
 
 ### 11.1 使用场景
 
@@ -785,7 +699,7 @@ HttpResult ret = PostSdkCommand(
 3. 如果平台只有图片二进制，需要先通过设备已有文件上传通道、SFTP、运维脚本或后续扩展接口将图片放到设备本地。
 4. 添加目标库后再添加人脸，否则人脸可能无法写入对应库。
 
-## 12. 命令 6：删除人脸
+## 11. 命令 5：删除人脸
 
 ### 12.1 使用场景
 
@@ -864,7 +778,7 @@ HttpResult ret = PostSdkCommand(
 2. `Ids` 必须是数组，即使只删除一个人员也建议传数组。
 3. 删除后如平台仍缓存人员信息，需要同步清理平台缓存。
 
-## 13. 命令 7：修改人脸
+## 12. 命令 6：修改人脸
 
 ### 13.1 使用场景
 
@@ -968,7 +882,7 @@ HttpResult ret = PostSdkCommand(
 2. 如果修改图片，新的 `PicPath` 也必须是设备本地可访问路径。
 3. 修改后设备可能需要重新建模或更新特征，平台应以查询结果中的 `ModelState` 为准。
 
-## 14. 命令 8：获取人脸
+## 13. 命令 7：获取人脸
 
 ### 14.1 使用场景
 
@@ -1081,7 +995,7 @@ HttpResult ret = PostSdkCommand(
 2. 如果 `FaceInfos` 为空，表示没有符合条件的记录。
 3. `ModelState` 非成功时，平台可展示为“建模中”或“建模失败”。
 
-## 15. 命令 9：添加目标库
+## 14. 命令 8：添加目标库
 
 ### 15.1 使用场景
 
@@ -1157,7 +1071,7 @@ HttpResult ret = PostSdkCommand(
 2. 同名库重复添加时，设备返回结果以实际业务处理为准。
 3. 添加人脸前必须先创建目标库。
 
-## 16. 命令 10：删除目标库
+## 15. 命令 9：删除目标库
 
 ### 16.1 使用场景
 
@@ -1247,7 +1161,7 @@ HttpResult ret = PostSdkCommand(
 2. 删除后建议立即调用“获取目标库”刷新平台列表。
 3. 如果库中人员仍在平台侧缓存，需要同步清理。
 
-## 17. 命令 11：修改目标库
+## 16. 命令 10：修改目标库
 
 ### 17.1 使用场景
 
@@ -1327,7 +1241,7 @@ HttpResult ret = PostSdkCommand(
 2. 平台应同步更新本地库名缓存。
 3. 新库名不要与已有库冲突。
 
-## 18. 命令 12：获取目标库
+## 17. 命令 11：获取目标库
 
 ### 18.1 使用场景
 
@@ -1418,7 +1332,7 @@ HttpResult ret = PostSdkCommand(
 2. 添加、删除、修改库后，应重新调用该接口刷新。
 3. 如果 `TargetLibInfos` 为空，表示设备暂无目标库。
 
-## 19. 设备向平台推送配置
+## 18. 设备向平台推送配置
 
 设备侧 HTTP 推送配置文件：
 
@@ -1465,7 +1379,7 @@ HttpResult ret = PostSdkCommand(
 3. 如果平台使用域名，设备必须能解析该域名。
 4. 如果平台启用 Token 校验，设备配置中的 `Token` 必须与平台一致。
 
-## 20. 平台接收人脸抓拍推送
+## 19. 平台接收人脸抓拍推送
 
 ### 20.1 接口要求
 
@@ -1533,7 +1447,7 @@ TargetImages[0]=<jpeg file>
 3. 图片字段按 multipart 文件保存，不要按普通文本字段处理。
 4. `TimestampMs` 为毫秒时间戳，平台可转换为本地时间。
 
-## 21. 平台接收人脸比对推送
+## 20. 平台接收人脸比对推送
 
 ### 21.1 接口要求
 
@@ -1628,7 +1542,7 @@ CaptureFaceImage=<jpeg file>
 4. `Similarity` 更适合算法分析或日志记录。
 5. 图片字段可能为空，平台保存前需要判断文件是否存在。
 
-## 22. 第三方平台 C++ 回调服务示例
+## 21. 第三方平台 C++ 回调服务示例
 
 下面示例展示平台如何接收设备推送。实际项目中需要将图片保存到平台存储，并把事件写入平台数据库。
 
@@ -1697,7 +1611,7 @@ void StartFaceEventServer(int listenPort)
 }
 ```
 
-## 23. 推荐业务调用顺序
+## 22. 推荐业务调用顺序
 
 第三方平台首次接入一台设备时，推荐按以下顺序：
 
@@ -1708,13 +1622,12 @@ void StartFaceEventServer(int listenPort)
 5. 调用 `NET_TV_GET_FACE_INFO` 检查人员是否写入成功。
 6. 调用 `NET_TV_GET_FACECAPTUREINFO` 读取当前抓拍配置。
 7. 调用 `NET_TV_SET_FACECAPTUREINFO` 开启或修改抓拍配置。
-8. 调用 `NET_TV_GET_FACE_COMPARE_INFO` 读取当前比对配置。
-9. 调用 `NET_TV_SET_FACE_COMPARE_INFO` 开启或修改比对配置。
+8. 调用 `NET_TV_SET_FACE_COMPARE_INFO` 开启或修改比对配置。
 10. 配置设备 HTTP 推送地址。
 11. 平台启动 `/face/event` 回调服务。
 12. 触发抓拍或比对，检查平台是否收到推送。
 
-## 24. 错误处理建议
+## 23. 错误处理建议
 
 ### 24.1 HTTP 层错误
 
@@ -1737,7 +1650,7 @@ void StartFaceEventServer(int listenPort)
 | 设置比对配置失败 | 检查设备智能资源是否冲突、配置 JSON 是否完整。 |
 | 收不到推送 | 检查设备推送配置、平台监听端口、防火墙、Token。 |
 
-## 25. 对接检查清单
+## 24. 对接检查清单
 
 上线前逐项确认：
 
@@ -1754,5 +1667,5 @@ void StartFaceEventServer(int listenPort)
 11. 平台回调成功时返回 HTTP `2xx`。
 12. 如启用 Token，平台校验 `Authorization: Bearer <Token>`。
 13. 平台日志记录 `DeviceCode`、`EventType`、`TimestampMs`、`Command`。
-14. 已测试 `NET_TV_GET_FACE_COMPARE_INFO` 和 `NET_TV_SET_FACE_COMPARE_INFO`。
+14. 已测试 `NET_TV_SET_FACE_COMPARE_INFO`。
 

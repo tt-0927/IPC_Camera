@@ -299,9 +299,6 @@ void sendCommandExamples(const std::string &strDeviceBaseUrl)
     printHttpResult("设置人脸抓拍配置",
                     sendSdkCommand(strDeviceBaseUrl, "NET_TV_SET_FACECAPTUREINFO", strCaptureConfig));
 
-    printHttpResult("获取人脸比对配置",
-                    sendSdkCommand(strDeviceBaseUrl, "NET_TV_GET_FACE_COMPARE_INFO"));
-
     const std::string strCompareConfig = R"({
         "Enable": true,
         "LinkageSuccessMode": {
@@ -349,17 +346,16 @@ void printCommandMenu()
     std::cout << "\n========== HTTP人脸命令菜单 ==========\n"
               << "1. 获取人脸抓拍配置\n"
               << "2. 设置人脸抓拍配置\n"
-              << "3. 获取人脸比对配置\n"
-              << "4. 设置人脸比对配置\n"
-              << "5. 添加目标库\n"
-              << "6. 删除目标库\n"
-              << "7. 修改目标库\n"
-              << "8. 获取目标库\n"
-              << "9. 添加人脸\n"
-              << "10. 删除人脸\n"
-              << "11. 修改人脸\n"
-              << "12. 获取人脸\n"
-              << "13. 自动发送一组示例命令\n"
+              << "3. 设置人脸比对配置\n"
+              << "4. 添加目标库\n"
+              << "5. 删除目标库\n"
+              << "6. 修改目标库\n"
+              << "7. 获取目标库\n"
+              << "8. 添加人脸\n"
+              << "9. 删除人脸\n"
+              << "10. 修改人脸\n"
+              << "11. 获取人脸\n"
+              << "12. 自动发送一组示例命令\n"
               << "q. 退出\n"
               << "请输入命令编号: ";
 }
@@ -395,11 +391,6 @@ bool handleMenuChoice(const std::string &strDeviceBaseUrl, const std::string &st
     }
     else if (strChoice == "3")
     {
-        printHttpResult("获取人脸比对配置",
-                        sendSdkCommand(strDeviceBaseUrl, "NET_TV_GET_FACE_COMPARE_INFO"));
-    }
-    else if (strChoice == "4")
-    {
         const std::string strBody = R"({
             "Enable": true,
             "LinkageSuccessMode": {
@@ -416,7 +407,7 @@ bool handleMenuChoice(const std::string &strDeviceBaseUrl, const std::string &st
         printHttpResult("设置人脸比对配置",
                         sendSdkCommand(strDeviceBaseUrl, "NET_TV_SET_FACE_COMPARE_INFO", strBody));
     }
-    else if (strChoice == "5")
+    else if (strChoice == "4")
     {
         const std::string strBody = R"({
             "LibId": "员工库"
@@ -424,7 +415,7 @@ bool handleMenuChoice(const std::string &strDeviceBaseUrl, const std::string &st
         printHttpResult("添加目标库",
                         sendSdkCommand(strDeviceBaseUrl, "NET_TV_ADD_TARGET_LIB", strBody));
     }
-    else if (strChoice == "6")
+    else if (strChoice == "5")
     {
         const std::string strBody = R"({
             "LibId": "员工库"
@@ -432,7 +423,7 @@ bool handleMenuChoice(const std::string &strDeviceBaseUrl, const std::string &st
         printHttpResult("删除目标库",
                         sendSdkCommand(strDeviceBaseUrl, "NET_TV_DEL_TARGET_LIB", strBody));
     }
-    else if (strChoice == "7")
+    else if (strChoice == "6")
     {
         const std::string strBody = R"({
             "LibId_old": "员工库",
@@ -441,12 +432,12 @@ bool handleMenuChoice(const std::string &strDeviceBaseUrl, const std::string &st
         printHttpResult("修改目标库",
                         sendSdkCommand(strDeviceBaseUrl, "NET_TV_SET_TARGET_LIB", strBody));
     }
-    else if (strChoice == "8")
+    else if (strChoice == "7")
     {
         printHttpResult("获取目标库",
                         sendSdkCommand(strDeviceBaseUrl, "NET_TV_GET_TARGET_LIB"));
     }
-    else if (strChoice == "9")
+    else if (strChoice == "8")
     {
         const std::string strBody = R"({
             "LibId": "员工库",
@@ -463,7 +454,7 @@ bool handleMenuChoice(const std::string &strDeviceBaseUrl, const std::string &st
         printHttpResult("添加人脸",
                         sendSdkCommand(strDeviceBaseUrl, "NET_TV_ADD_FACE_INFO", strBody));
     }
-    else if (strChoice == "10")
+    else if (strChoice == "9")
     {
         const std::string strBody = R"({
             "Ids": [
@@ -473,7 +464,7 @@ bool handleMenuChoice(const std::string &strDeviceBaseUrl, const std::string &st
         printHttpResult("删除人脸",
                         sendSdkCommand(strDeviceBaseUrl, "NET_TV_DEL_FACE_INFO", strBody));
     }
-    else if (strChoice == "11")
+    else if (strChoice == "10")
     {
         const std::string strBody = R"({
             "Id": 10001,
@@ -488,7 +479,7 @@ bool handleMenuChoice(const std::string &strDeviceBaseUrl, const std::string &st
         printHttpResult("修改人脸",
                         sendSdkCommand(strDeviceBaseUrl, "NET_TV_SET_FACE_INFO", strBody));
     }
-    else if (strChoice == "12")
+    else if (strChoice == "11")
     {
         const std::string strBody = R"({
             "LibId": "员工库",
@@ -500,7 +491,7 @@ bool handleMenuChoice(const std::string &strDeviceBaseUrl, const std::string &st
         printHttpResult("获取人脸",
                         sendSdkCommand(strDeviceBaseUrl, "NET_TV_GET_FACE_INFO", strBody));
     }
-    else if (strChoice == "13")
+    else if (strChoice == "12")
     {
         sendCommandExamples(strDeviceBaseUrl);
     }
