@@ -10,6 +10,7 @@
 #include "log_define.h"
 #include "record_define.h"
 #include "event_define.h"
+#include "osd_define.h"
 
 #include "NetTVSDKServer.h"
 
@@ -84,6 +85,11 @@ void ToCaptureParam(const NET_TV_CAPTURE_PARAM_INFO_S &src, Capture_NS::CaptureP
 void FillVideoEncodeCap(const Video_NS::VideoCapabilitySet_S &src, NET_TV_VIDEO_ENCODE_CAP_S &dst);
 void FillAudioEncodeCap(const Audio_NS::AudioCapabilitySet_S &src, NET_TV_AUDIO_CAP_S &dst);
 void FillVideoOSDCap(const Video_NS::VideoCapabilitySet_S &src, NET_TV_OSD_CAP_S &dst);
+void FillOsdConfig(const Osd::OsdConfig_S &src, NET_TV_VIDEO_OSD_CFG_S &dst);
+void ToOsdConfig(const NET_TV_VIDEO_OSD_CFG_S &src, Osd::OsdConfig_S &dst);
+
+void FillPrivacyMaskCfg(const Osd::CoverConfig_S &src, NET_TV_PRIVACY_MASK_CFG_S &dst);
+void ToPrivacyMaskCfg(const NET_TV_PRIVACY_MASK_CFG_S &src, Osd::CoverConfig_S &dst);
 
 // --------- 智能告警配置（对应 NET_TV_GET/SET_*ALARM） ---------
 void FillMotionAlarmInfo(const Alarm::MotionDetection_S &src, NET_TV_MOTION_ALARM_INFO_S &dst);
@@ -221,7 +227,6 @@ void ToAudioConfig(const NET_TV_AUDIO_CFG_S &src, Audio_NS::AudioConfig_S &dst);
 
 void FillFaceCaptureInfo(const Alarm::FaceCapture_S &src, NET_TV_FACE_CAPTURE_INFO_S &dst);
 void ToFaceCapture(const NET_TV_FACE_CAPTURE_INFO_S &src, Alarm::FaceCapture_S &dst);
-void FillFaceCompareInfo(const Alarm::FaceCompare_S &src, NET_TV_FACE_COMPARE_INFO_S &dst);
 void ToFaceCompare(const NET_TV_FACE_COMPARE_INFO_S &src, Alarm::FaceCompare_S &dst);
 void FillFaceLibInfo(const Event::FaceLibInfo_S &src, NET_TV_FACE_LIB_INFO_S &dst);
 void ToFaceLibInfo(const NET_TV_FACE_LIB_INFO_S &src, Event::FaceLibInfo_S &dst);

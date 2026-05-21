@@ -839,6 +839,18 @@ static void ParseResolutionName(const std::string &name, NET_TV_VIDEO_RESOLUTION
     }
 }
 
+static INT32 ToSdkFrameRate(Video_NS::FrameRate_E frameRate)
+{
+    Video_NS::VideoConfig_S cfg;
+    cfg.enFrameRate = frameRate;
+    return (INT32)cfg.getFrameRateAsInt();
+}
+
+static INT32 ClampInt(int value, int minValue, int maxValue)
+{
+    return (INT32)std::max(minValue, std::min(value, maxValue));
+}
+
 static void FillOneEncodeOption(const Video_NS::VideoCapability_S &src,
                                 const Video_NS::EncodeAbility_S *ability,
                                 NET_TV_VIDEO_ENCODE_OPTION_S &dst,
@@ -853,8 +865,10 @@ static void FillOneEncodeOption(const Video_NS::VideoCapability_S &src,
     if (!src.aResolution.empty())
     {
         ParseResolutionName(src.aResolution[0].strName, dst.stVideoResolution);
-        dst.enFrameRate = (INT32)src.aResolution[0].enFrameRateMax;
-        dst.nAverageBitrate = (INT32)src.aResolution[0].nBitRateMin;
+        dst.enFrameRate = ToSdkFrameRate(src.aResolution[0].enFrameRateMax);
+        dst.nAverageBitrate = ClampInt(DEFAULTE_BITRATE,
+                                       (int)src.aResolution[0].nBitRateMin,
+                                       (int)src.aResolution[0].nBitRateMax);
         dst.nBitrateUpperLimit = (INT32)src.aResolution[0].nBitRateMax;
     }
 
@@ -873,7 +887,7 @@ static void FillOneEncodeOption(const Video_NS::VideoCapability_S &src,
         dst.enSvcEnable = Video_NS::SVC_MODE_DISABLE;
     }
 
-    dst.nIFrameInterval = src.nIFrameIntervalMax;
+    dst.nIFrameInterval = ClampInt(DEFAULTE_GOP, src.nIFrameIntervalMin, src.nIFrameIntervalMax);
 }
 
 static void FillOneStreamCap(const Video_NS::VideoCapability_S &src, NET_TV_VIDEO_STREAM_CAP_S &dst, INT32 streamType)
@@ -895,8 +909,18 @@ static void FillOneStreamCap(const Video_NS::VideoCapability_S &src, NET_TV_VIDE
         }
     }
 
-    dst.stQuality.dwMin = src.nStreamSmoothMin;
-    dst.stQuality.dwMax = src.nStreamSmoothMax;
+    // 填充完整分辨率列表
+    dst.dwResolutionNum = (INT32)std::min(src.aResolution.size(),
+                                          (size_t)NET_TV_RESOLUTION_NUM_MAX);
+    for (INT32 i = 0; i < dst.dwResolutionNum; ++i)
+    {
+        ParseResolutionName(src.aResolution[i].strName, dst.astResolution[i]);
+    }
+
+    dst.stQuality.dwMin = (INT32)Video_NS::ImageQuality_E::LOWEST;
+    dst.stQuality.dwMax = (INT32)Video_NS::ImageQuality_E::HIGHEST;
+    dst.stStreamSmooth.dwMin = src.nStreamSmoothMin;
+    dst.stStreamSmooth.dwMax = src.nStreamSmoothMax;
 }
 
 void FillVideoEncodeCap(const Video_NS::VideoCapabilitySet_S &src, NET_TV_VIDEO_ENCODE_CAP_S &dst)
@@ -3363,14 +3387,14 @@ void TvSdkConvert::ToFaceCapture(const NET_TV_FACE_CAPTURE_INFO_S &src, Alarm::F
     }
 }
 
-// --------- FaceCompare / FaceLib / FaceInfo ---------
-void TvSdkConvert::FillFaceCompareInfo(const Alarm::FaceCompare_S &src, NET_TV_FACE_COMPARE_INFO_S &dst)
+// ---------  FaceLib / FaceInfo ---------
+void TvSdkConvert::FillFaceLibInfo(const Event::FaceLibInfo_S &src, NET_TV_FACE_LIB_INFO_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));
-    dst.bEnable = src.bEnable ? TRUE : FALSE;
-    FillSingleRuleAlarmSchedule(src.aAlarmTime, dst.stAlarmSchedule);
-    FillLinkageList(src.stLinkageListSuccess, dst.stLinkageListSuccess);
-    FillLinkageList(src.stLinkageListFail, dst.stLinkageListFail);
+    copy_string(dst.szFaceLibName, src.strFaceLibName);
+    dst.nTotalFace = (INT32)src.nTotalFace;
+    dst.nNormalNum = (INT32)src.nNormalNum;
+    dst.nAbnormalNum = (INT32)src.nAbnormalNum;
 }
 
 void TvSdkConvert::ToFaceCompare(const NET_TV_FACE_COMPARE_INFO_S &src, Alarm::FaceCompare_S &dst)
@@ -3379,15 +3403,6 @@ void TvSdkConvert::ToFaceCompare(const NET_TV_FACE_COMPARE_INFO_S &src, Alarm::F
     ToSingleRuleAlarmSchedule(src.stAlarmSchedule, dst.aAlarmTime);
     ToLinkageList(src.stLinkageListSuccess, dst.stLinkageListSuccess);
     ToLinkageList(src.stLinkageListFail, dst.stLinkageListFail);
-}
-
-void TvSdkConvert::FillFaceLibInfo(const Event::FaceLibInfo_S &src, NET_TV_FACE_LIB_INFO_S &dst)
-{
-    std::memset(&dst, 0, sizeof(dst));
-    copy_string(dst.szFaceLibName, src.strFaceLibName);
-    dst.nTotalFace = (INT32)src.nTotalFace;
-    dst.nNormalNum = (INT32)src.nNormalNum;
-    dst.nAbnormalNum = (INT32)src.nAbnormalNum;
 }
 
 void TvSdkConvert::ToFaceLibInfo(const NET_TV_FACE_LIB_INFO_S &src, Event::FaceLibInfo_S &dst)
@@ -3458,5 +3473,147 @@ void TvSdkConvert::FillFaceInfoList(const std::vector<Event::FaceInfo_S> &src, N
     for (size_t i = 0; i < nCount; ++i)
     {
         FillFaceInfo(src[i], dst.astFaceInfos[i]);
+    }
+}
+
+/* 将内部 "0xRRGGBB" 格式转换为 SDK "#RRGGBB" 格式 */
+static void convert_font_color(char *dst, size_t dstSize, const std::string &src)
+{
+    std::memset(dst, 0, dstSize);
+    if (src.empty())
+        return;
+    if (src.size() >= 2 && src[0] == '0' && (src[1] == 'x' || src[1] == 'X'))
+        std::snprintf(dst, dstSize, "#%s", src.c_str() + 2);
+    else
+        std::strncpy(dst, src.c_str(), dstSize - 1);
+}
+
+static void fill_osd_attr(const Osd::OsdAttribute_S &src, OsdAttribute_S &dst)
+{
+    dst.nX          = (INT32)src.nX;
+    dst.nY          = (INT32)src.nY;
+    dst.nW          = (INT32)src.nW;
+    dst.nH          = (INT32)src.nH;
+    dst.enAttribute = (OSD_ATTRIBUTE_E)src.enAttribute;
+    dst.enFontSize  = (OSD_FONT_SIZE_E)src.enFontSize;
+    dst.enFontColor = (OSD_COLOR_E)src.enFontColor;
+    convert_font_color(dst.strFontColor, sizeof(dst.strFontColor), src.strFontColor);
+    TvSdkConvert::copy_string(dst.strToken, src.strToken);
+}
+
+void TvSdkConvert::FillOsdConfig(const Osd::OsdConfig_S &src, NET_TV_VIDEO_OSD_CFG_S &dst)
+{
+    std::memset(&dst, 0, sizeof(dst));
+
+    dst.enAlign = (OSD_ALIGN_E)src.enAlign;
+
+    /* 名称信息 */
+    dst.stOsdNameInfo.bEnable = src.stOsdNameInfo.bEnable ? TRUE : FALSE;
+    copy_string(dst.stOsdNameInfo.strName, src.stOsdNameInfo.strName);
+    fill_osd_attr(src.stOsdNameInfo.stOsdAttr, dst.stOsdNameInfo.stOsdAttr);
+
+    /* 时间信息 */
+    dst.stOsdTimeInfo.bEnable     = src.stOsdTimeInfo.bEnable ? TRUE : FALSE;
+    dst.stOsdTimeInfo.bEnableWeek = src.stOsdTimeInfo.bEnableWeek ? TRUE : FALSE;
+    dst.stOsdTimeInfo.enTimeFormat = (OSD_TIME_FORMAT_E)src.stOsdTimeInfo.enTimeFormat;
+    dst.stOsdTimeInfo.enDateFormat = (OSD_DATE_FORMAT_E)src.stOsdTimeInfo.enDateFormat;
+    fill_osd_attr(src.stOsdTimeInfo.stOsdAttr, dst.stOsdTimeInfo.stOsdAttr);
+
+    /* 字符叠加信息 */
+    size_t nCount = std::min(src.vecOsdInfo.size(), (size_t)32);
+    for (size_t i = 0; i < nCount; ++i)
+    {
+        dst.OsdInfo[i].nId    = (INT32)src.vecOsdInfo[i].nId;
+        dst.OsdInfo[i].bEnable = src.vecOsdInfo[i].bEnable ? TRUE : FALSE;
+        copy_string(dst.OsdInfo[i].strName, src.vecOsdInfo[i].strName);
+        fill_osd_attr(src.vecOsdInfo[i].stOsdAttr, dst.OsdInfo[i].stOsdAttr);
+    }
+}
+
+/* 将 SDK "#RRGGBB" 格式转换为内部 "0xRRGGBB" 格式 */
+static void revert_font_color(std::string &dst, const char *src)
+{
+    if (!src || src[0] == '\0')
+    {
+        dst.clear();
+        return;
+    }
+    if (src[0] == '#')
+        dst = std::string("0x") + (src + 1);
+    else
+        dst = src;
+}
+
+static void to_osd_attr(const OsdAttribute_S &src, Osd::OsdAttribute_S &dst)
+{
+    dst.nX          = (int)src.nX;
+    dst.nY          = (int)src.nY;
+    dst.nW          = (int)src.nW;
+    dst.nH          = (int)src.nH;
+    dst.enAttribute = (Osd::OSD_ATTRIBUTE_E)src.enAttribute;
+    dst.enFontSize  = (Osd::OSD_FONT_SIZE_E)src.enFontSize;
+    dst.enFontColor = (Osd::OSD_COLOR_E)src.enFontColor;
+    revert_font_color(dst.strFontColor, src.strFontColor);
+    dst.strToken    = src.strToken;
+}
+
+void TvSdkConvert::ToOsdConfig(const NET_TV_VIDEO_OSD_CFG_S &src, Osd::OsdConfig_S &dst)
+{
+    dst.enAlign = (Osd::OSD_ALIGN_E)src.enAlign;
+
+    /* 名称信息 */
+    dst.stOsdNameInfo.bEnable  = (src.stOsdNameInfo.bEnable == TRUE);
+    dst.stOsdNameInfo.strName  = src.stOsdNameInfo.strName;
+    to_osd_attr(src.stOsdNameInfo.stOsdAttr, dst.stOsdNameInfo.stOsdAttr);
+
+    /* 时间信息 */
+    dst.stOsdTimeInfo.bEnable      = (src.stOsdTimeInfo.bEnable == TRUE);
+    dst.stOsdTimeInfo.bEnableWeek  = (src.stOsdTimeInfo.bEnableWeek == TRUE);
+    dst.stOsdTimeInfo.enTimeFormat = (Osd::OSD_TIME_FORMAT_E)src.stOsdTimeInfo.enTimeFormat;
+    dst.stOsdTimeInfo.enDateFormat = (Osd::OSD_DATE_FORMAT_E)src.stOsdTimeInfo.enDateFormat;
+    to_osd_attr(src.stOsdTimeInfo.stOsdAttr, dst.stOsdTimeInfo.stOsdAttr);
+
+    /* 字符叠加信息 */
+    dst.vecOsdInfo.resize(32);
+    for (size_t i = 0; i < 32; ++i)
+    {
+        dst.vecOsdInfo[i].nId     = (int)src.OsdInfo[i].nId;
+        dst.vecOsdInfo[i].bEnable = (src.OsdInfo[i].bEnable == TRUE);
+        dst.vecOsdInfo[i].strName = src.OsdInfo[i].strName;
+        to_osd_attr(src.OsdInfo[i].stOsdAttr, dst.vecOsdInfo[i].stOsdAttr);
+    }
+}
+
+void TvSdkConvert::FillPrivacyMaskCfg(const Osd::CoverConfig_S &src, NET_TV_PRIVACY_MASK_CFG_S &dst)
+{
+    std::memset(&dst, 0, sizeof(dst));
+    dst.bEnable = src.bEnable ? TRUE : FALSE;
+    size_t nCount = std::min(src.vecCoverAttr.size(), (size_t)NET_TV_MAX_PRIVACY_MASK_AREA_NUM);
+    dst.dwAreaCount = (INT32)nCount;
+    for (size_t i = 0; i < nCount; ++i)
+    {
+        dst.astArea[i].nAreaID    = src.vecCoverAttr[i].nId - 1; /* 内部1-based → SDK 0-based */
+        dst.astArea[i].bEnable    = src.vecCoverAttr[i].bEnable ? TRUE : FALSE;
+        dst.astArea[i].nRectLeft  = src.vecCoverAttr[i].nX;
+        dst.astArea[i].nRectTop   = src.vecCoverAttr[i].nY;
+        dst.astArea[i].nRectRight = src.vecCoverAttr[i].nX + src.vecCoverAttr[i].nWidth;
+        dst.astArea[i].nRectBottom = src.vecCoverAttr[i].nY + src.vecCoverAttr[i].nHeight;
+    }
+}
+
+void TvSdkConvert::ToPrivacyMaskCfg(const NET_TV_PRIVACY_MASK_CFG_S &src, Osd::CoverConfig_S &dst)
+{
+    dst.clear();
+    dst.bEnable = (src.bEnable == TRUE);
+    INT32 nCount = std::max<INT32>(0, std::min(src.dwAreaCount, (INT32)NET_TV_MAX_PRIVACY_MASK_AREA_NUM));
+    size_t nUpdateCount = std::min((size_t)nCount, dst.vecCoverAttr.size());
+    for (size_t i = 0; i < nUpdateCount; ++i)
+    {
+        dst.vecCoverAttr[i].nId      = src.astArea[i].nAreaID + 1; /* SDK 0-based → 内部1-based */
+        dst.vecCoverAttr[i].bEnable  = (src.astArea[i].bEnable == TRUE);
+        dst.vecCoverAttr[i].nX       = src.astArea[i].nRectLeft;
+        dst.vecCoverAttr[i].nY       = src.astArea[i].nRectTop;
+        dst.vecCoverAttr[i].nWidth   = src.astArea[i].nRectRight - src.astArea[i].nRectLeft;
+        dst.vecCoverAttr[i].nHeight  = src.astArea[i].nRectBottom - src.astArea[i].nRectTop;
     }
 }

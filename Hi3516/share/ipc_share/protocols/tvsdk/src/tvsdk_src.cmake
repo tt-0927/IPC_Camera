@@ -16,7 +16,7 @@ endfunction()
 # 本目录头文件
 recursive_include(${TVSDK_DIR})
 
-# include_directories(${TVSDK_DIR})
+include_directories(${TVSDK_DIR})
 # lib 中的头文件（如 NetTVSDKServer.h）
 include_directories(${TVSDK_LIB_DIR})
 

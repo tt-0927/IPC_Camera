@@ -358,8 +358,12 @@ static NET_TV_COMMON_ECODE_E cb_get_video_encode_cap(INT32 dwChannelID, LPNET_TV
     if (nRet != 0)
         return NET_TV_E_GET_CFG_FAILED;
 
+    std::string dataJson = normalize_data_json(outJson);
+    if (dataJson.empty())
+        return NET_TV_E_GET_CFG_FAILED;
+
     Video_NS::VideoCapabilitySet_S stCapSet;
-    Convert::to_struct(outJson, stCapSet);
+    Convert::to_struct(dataJson, stCapSet);
     TvSdkConvert::FillVideoEncodeCap(stCapSet, *pCap);
 
     return NET_TV_E_SUCCEED;
@@ -383,8 +387,12 @@ static NET_TV_COMMON_ECODE_E cb_get_audio_encode_cap(INT32 dwChannelID, LPNET_TV
     if (nRet != 0)
         return NET_TV_E_GET_CFG_FAILED;
 
+    std::string dataJson = normalize_data_json(outJson);
+    if (dataJson.empty())
+        return NET_TV_E_GET_CFG_FAILED;
+
     Audio_NS::AudioCapabilitySet_S stCapSet;
-    Convert::to_struct(outJson, stCapSet);
+    Convert::to_struct(dataJson, stCapSet);
     TvSdkConvert::FillAudioEncodeCap(stCapSet, *pCap);
 
     return NET_TV_E_SUCCEED;
@@ -405,12 +413,45 @@ static NET_TV_COMMON_ECODE_E cb_get_osd_cap(INT32 dwChannelID, LPNET_TV_OSD_CAP_
         Json::get(outJson.c_str(), "Return", nRet);
         if (nRet == 0)
         {
-#ifdef IPC_TVSDK_DEFINE_OSD_CAP
-            pCap->dwOsdNum = 1;
-#endif
+            pCap->bSupportOsd = TRUE;
+            pCap->bSupportName = TRUE;
+            pCap->bSupportTime = TRUE;
+            pCap->bSupportWeek = TRUE;
+            pCap->bSupportCustomColor = TRUE;
+            pCap->udwMaxOsdNum = NET_TV_OSD_MAX_NUM_EX;
+            pCap->udwSupportedFontSizeNum = 4;
+            pCap->audwSupportedFontSizeList[0] = OSD_FONT_SIZE_ADAPTIVE;
+            pCap->audwSupportedFontSizeList[1] = OSD_FONT_SIZE_16;
+            pCap->audwSupportedFontSizeList[2] = OSD_FONT_SIZE_32;
+            pCap->audwSupportedFontSizeList[3] = OSD_FONT_SIZE_48;
+            pCap->udwSupportedDateFormatNum = 9;
+            pCap->audwSupportedDateFormatList[0] = ENGLISH_YYYY_MM_DD;
+            pCap->audwSupportedDateFormatList[1] = ENGLISH_MM_DD_YYYY;
+            pCap->audwSupportedDateFormatList[2] = ENGLISH_DD_MM_YYYY;
+            pCap->audwSupportedDateFormatList[3] = CHINESE_YYYYMMDD;
+            pCap->audwSupportedDateFormatList[4] = CHINESE_MMDDYYYY;
+            pCap->audwSupportedDateFormatList[5] = CHINESE_DDMMYYYY;
+            pCap->audwSupportedDateFormatList[6] = ENGLISH_YYYYMMDD;
+            pCap->audwSupportedDateFormatList[7] = ENGLISH_MMDDYYYY;
+            pCap->audwSupportedDateFormatList[8] = ENGLISH_DDMMYYYY;
+            pCap->udwSupportedTimeFormatNum = 2;
+            pCap->audwSupportedTimeFormatList[0] = OSD_TIME_FORMAT_24;
+            pCap->audwSupportedTimeFormatList[1] = OSD_TIME_FORMAT_12;
+            pCap->udwSupportedAlignNum = 6;
+            pCap->audwSupportedAlignList[0] = OSD_ALIFN_CUSTOMIZE;
+            pCap->audwSupportedAlignList[1] = OSD_ALIFN_CHARACTER_LEFT;
+            pCap->audwSupportedAlignList[2] = OSD_ALIFN_CHARACTER_RIGHT;
+            pCap->audwSupportedAlignList[3] = OSD_ALIFN_ALL_LEFT;
+            pCap->audwSupportedAlignList[4] = OSD_ALIFN_ALL_RIGHT;
+            pCap->audwSupportedAlignList[5] = OSD_ALIFN_GB_MODE;
         }
     }
     return NET_TV_E_SUCCEED;
+}
+
+static NET_TV_COMMON_ECODE_E cb_get_osd_cap_cfg(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    return cb_get_osd_cap(dwChannelID, (LPNET_TV_OSD_CAP_S)lpOutBuffer);
 }
 
 static NET_TV_COMMON_ECODE_E cb_get_device_cfg(INT32 dwChannelID, LPVOID lpOutBuffer)
@@ -487,6 +528,90 @@ static NET_TV_COMMON_ECODE_E cb_set_ntp_cfg(INT32 dwChannelID, LPVOID lpInBuffer
 {
     return set_cfg_by_action(dwChannelID, AC_SET_TIME_INFO, lpInBuffer);
 }
+
+static bool parse_stream_cfg_json(const std::string &strJson, Video_NS::VideoConfig_S &stCfg)
+{
+    if (strJson.empty())
+    {
+        dlog_warn("[TVSDK][VideoCfg] parse failed: empty data json");
+        return false;
+    }
+
+    Json::Object *pRoot = Json::init(strJson.c_str());
+    if (!pRoot)
+    {
+        dlog_warn("[TVSDK][VideoCfg] parse failed: invalid data json, len=%u", (unsigned)strJson.size());
+        return false;
+    }
+
+    const bool bIsConfigList = (Json::get(pRoot, "VideoConfig") != nullptr);
+    Json::deinit(pRoot);
+    dlog_info("[TVSDK][VideoCfg] data json len=%u, has VideoConfig list=%d",
+              (unsigned)strJson.size(), bIsConfigList ? 1 : 0);
+
+    if (bIsConfigList)
+    {
+        std::vector<Video_NS::VideoConfig_S> vecCfg;
+        Convert::to_struct(strJson, vecCfg);
+        if (vecCfg.empty())
+        {
+            dlog_warn("[TVSDK][VideoCfg] parse failed: VideoConfig list is empty");
+            return false;
+        }
+
+        dlog_info("[TVSDK][VideoCfg] parsed VideoConfig count=%u", (unsigned)vecCfg.size());
+        for (const auto &cfg : vecCfg)
+        {
+            dlog_info("[TVSDK][VideoCfg] candidate id=%d type=%d %dx%d fps=%d bitrateType=%d upper=%d avg=%d codec=%d smart=%d iframe=%d svc=%d smooth=%d",
+                      cfg.nId,
+                      (int)cfg.enVideoType,
+                      cfg.stVideoResolution.nWidth,
+                      cfg.stVideoResolution.nHeight,
+                      cfg.getFrameRateAsInt(),
+                      (int)cfg.enBitrateType,
+                      cfg.nBitrateUpperLimit,
+                      cfg.nAverageBitrate,
+                      (int)cfg.enVideoCodec,
+                      cfg.bSmartEnable ? 1 : 0,
+                      cfg.nIFrameInterval,
+                      (int)cfg.enSvcEnable,
+                      cfg.nBitrateSmoothing);
+        }
+
+        for (const auto &cfg : vecCfg)
+        {
+            if (cfg.nId == NET_TV_LIVE_STREAM_INDEX_MAIN)
+            {
+                stCfg = cfg;
+                dlog_info("[TVSDK][VideoCfg] selected main stream id=%d", stCfg.nId);
+                return true;
+            }
+        }
+
+        stCfg = vecCfg.front();
+        dlog_warn("[TVSDK][VideoCfg] main stream id=%d not found, use first id=%d",
+                  NET_TV_LIVE_STREAM_INDEX_MAIN, stCfg.nId);
+        return true;
+    }
+
+    Convert::to_struct(strJson, stCfg);
+    dlog_info("[TVSDK][VideoCfg] parsed single config id=%d type=%d %dx%d fps=%d bitrateType=%d upper=%d avg=%d codec=%d smart=%d iframe=%d svc=%d smooth=%d",
+              stCfg.nId,
+              (int)stCfg.enVideoType,
+              stCfg.stVideoResolution.nWidth,
+              stCfg.stVideoResolution.nHeight,
+              stCfg.getFrameRateAsInt(),
+              (int)stCfg.enBitrateType,
+              stCfg.nBitrateUpperLimit,
+              stCfg.nAverageBitrate,
+              (int)stCfg.enVideoCodec,
+              stCfg.bSmartEnable ? 1 : 0,
+              stCfg.nIFrameInterval,
+              (int)stCfg.enSvcEnable,
+              stCfg.nBitrateSmoothing);
+    return true;
+}
+
 static NET_TV_COMMON_ECODE_E cb_get_stream_cfg(INT32 dwChannelID, LPVOID lpOutBuffer)
 {
     (void)dwChannelID;
@@ -496,21 +621,65 @@ static NET_TV_COMMON_ECODE_E cb_get_stream_cfg(INT32 dwChannelID, LPVOID lpOutBu
     LPNET_TV_VIDEO_ENCODE_OPTION_S pOut = (LPNET_TV_VIDEO_ENCODE_OPTION_S)lpOutBuffer;
 
     std::string outJson;
-    if (execute_get_result(AC_GET_VIDEO_CONFIG, "{}", outJson) != 0 || outJson.empty())
+    int nExecResult = execute_get_result(AC_GET_VIDEO_CONFIG, "{}", outJson);
+    dlog_info("[TVSDK][VideoCfg] AC_GET_VIDEO_CONFIG exec=%d, outJson.len=%u",
+              nExecResult, (unsigned)outJson.size());
+    if (nExecResult != 0 || outJson.empty())
+    {
+        dlog_warn("[TVSDK][VideoCfg] get video config failed: exec=%d, outJson.empty=%d",
+                  nExecResult, outJson.empty() ? 1 : 0);
         return NET_TV_E_GET_CFG_FAILED;
+    }
 
     int nRet = -1;
     Json::get(outJson.c_str(), "Return", nRet);
     if (nRet != 0)
+    {
+        dlog_warn("[TVSDK][VideoCfg] get video config return failed: Return=%d, body=%s",
+                  nRet, outJson.c_str());
         return NET_TV_E_GET_CFG_FAILED;
+    }
 
     std::string strJson = normalize_data_json(outJson);
     if (strJson.empty())
+    {
+        dlog_warn("[TVSDK][VideoCfg] normalize Data failed, body=%s", outJson.c_str());
         return NET_TV_E_GET_CFG_FAILED;
+    }
+    dlog_info("[TVSDK][VideoCfg] normalized data=%s", strJson.c_str());
 
     Video_NS::VideoConfig_S stCfg;
-    Convert::to_struct(strJson, stCfg);
+    if (!parse_stream_cfg_json(strJson, stCfg))
+        return NET_TV_E_GET_CFG_FAILED;
+    dlog_info("[TVSDK][VideoCfg] selected ipc config id=%d type=%d %dx%d fps=%d bitrateType=%d upper=%d avg=%d codec=%d smart=%d iframe=%d svc=%d smooth=%d",
+              stCfg.nId,
+              (int)stCfg.enVideoType,
+              stCfg.stVideoResolution.nWidth,
+              stCfg.stVideoResolution.nHeight,
+              stCfg.getFrameRateAsInt(),
+              (int)stCfg.enBitrateType,
+              stCfg.nBitrateUpperLimit,
+              stCfg.nAverageBitrate,
+              (int)stCfg.enVideoCodec,
+              stCfg.bSmartEnable ? 1 : 0,
+              stCfg.nIFrameInterval,
+              (int)stCfg.enSvcEnable,
+              stCfg.nBitrateSmoothing);
     TvSdkConvert::FillVideoEncodeOption(stCfg, *pOut);
+    dlog_info("[TVSDK][VideoCfg] sdk output id=%d type=%d %dx%d fps=%d bitrateType=%d upper=%d avg=%d codec=%d smart=%d iframe=%d svc=%d smooth=%d",
+              pOut->nId,
+              pOut->enVideoType,
+              pOut->stVideoResolution.dwWidth,
+              pOut->stVideoResolution.dwHeight,
+              pOut->enFrameRate,
+              pOut->enBitrateType,
+              pOut->nBitrateUpperLimit,
+              pOut->nAverageBitrate,
+              pOut->enVideoCodec,
+              pOut->bSmartEnable,
+              pOut->nIFrameInterval,
+              pOut->enSvcEnable,
+              pOut->nBitrateSmoothing);
     return NET_TV_E_SUCCEED;
 }
 static NET_TV_COMMON_ECODE_E cb_set_stream_cfg(INT32 dwChannelID, LPVOID lpInBuffer)
@@ -528,13 +697,48 @@ static NET_TV_COMMON_ECODE_E cb_set_stream_cfg(INT32 dwChannelID, LPVOID lpInBuf
     int nExec = s_taskManage ? s_taskManage->execute(AC_SET_VIDEO_CONFIG, stInfo) : -1;
     return (nExec == 0) ? NET_TV_E_SUCCEED : NET_TV_E_SET_CFG_FAILED;
 }
+
 static NET_TV_COMMON_ECODE_E cb_get_osd_cfg(INT32 dwChannelID, LPVOID lpOutBuffer)
 {
-    return get_cfg_by_action(dwChannelID, AC_GET_OSD_CONFIG, lpOutBuffer);
+    (void)dwChannelID;
+    if (!lpOutBuffer)
+        return NET_TV_E_NULL_POINT;
+
+    LPNET_TV_VIDEO_OSD_CFG_S pOut = (LPNET_TV_VIDEO_OSD_CFG_S)lpOutBuffer;
+
+    std::string outJson;
+    if (execute_get_result(AC_GET_OSD_CONFIG, "{}", outJson) != 0 || outJson.empty())
+        return NET_TV_E_GET_CFG_FAILED;
+
+    int nRet = -1;
+    Json::get(outJson.c_str(), "Return", nRet);
+    if (nRet != 0)
+        return NET_TV_E_GET_CFG_FAILED;
+
+    std::string dataJson = normalize_data_json(outJson);
+    if (dataJson.empty())
+        return NET_TV_E_GET_CFG_FAILED;
+
+    Osd::OsdConfig_S stOsdConfig;
+    Convert::to_struct(dataJson, stOsdConfig);
+    TvSdkConvert::FillOsdConfig(stOsdConfig, *pOut);
+    return NET_TV_E_SUCCEED;
 }
+
 static NET_TV_COMMON_ECODE_E cb_set_osd_cfg(INT32 dwChannelID, LPVOID lpInBuffer)
 {
-    return set_cfg_by_action(dwChannelID, AC_SET_OSD_CONFIG, lpInBuffer);
+    (void)dwChannelID;
+    if (!lpInBuffer)
+        return NET_TV_E_INVALID_PARAM;
+
+    const NET_TV_VIDEO_OSD_CFG_S *pIn = (const NET_TV_VIDEO_OSD_CFG_S *)lpInBuffer;
+    Osd::OsdConfig_S stOsdConfig;
+    TvSdkConvert::ToOsdConfig(*pIn, stOsdConfig);
+
+    Task::Info_S stInfo;
+    stInfo.data = wrap_data_json(Convert::to_string(stOsdConfig));
+    int nExec = s_taskManage ? s_taskManage->execute(AC_SET_OSD_CONFIG, stInfo) : -1;
+    return (nExec == 0) ? NET_TV_E_SUCCEED : NET_TV_E_SET_CFG_FAILED;
 }
 static NET_TV_COMMON_ECODE_E cb_get_image_cfg(INT32 dwChannelID, LPVOID lpOutBuffer)
 {
@@ -1114,12 +1318,46 @@ static NET_TV_COMMON_ECODE_E cb_set_preview_info(INT32 dwChannelID, LPVOID lpInB
 
 static NET_TV_COMMON_ECODE_E cb_get_privacy_mask_cfg(INT32 dwChannelID, LPVOID lpOutBuffer)
 {
-    return get_cfg_by_action(dwChannelID, AC_GET_SHELTER_INFO, lpOutBuffer);
+    (void)dwChannelID;
+    if (!lpOutBuffer)
+        return NET_TV_E_NULL_POINT;
+
+    LPNET_TV_PRIVACY_MASK_CFG_S pOut = (LPNET_TV_PRIVACY_MASK_CFG_S)lpOutBuffer;
+    std::string outJson;
+    if (execute_get_result(AC_GET_COVER_CONFIG, "{}", outJson) != 0 || outJson.empty())
+        return NET_TV_E_GET_CFG_FAILED;
+
+    int nRet = -1;
+    Json::get(outJson.c_str(), "Return", nRet);
+    if (nRet != 0)
+        return NET_TV_E_GET_CFG_FAILED;
+
+    std::string dataJson = normalize_data_json(outJson);
+    if (dataJson.empty())
+        return NET_TV_E_GET_CFG_FAILED;
+
+    Osd::CoverConfig_S stCoverConfig;
+    Convert::to_struct(dataJson, stCoverConfig);
+    TvSdkConvert::FillPrivacyMaskCfg(stCoverConfig, *pOut);
+    return NET_TV_E_SUCCEED;
 }
+
 static NET_TV_COMMON_ECODE_E cb_set_privacy_mask_cfg(INT32 dwChannelID, LPVOID lpInBuffer)
 {
-    return set_cfg_by_action(dwChannelID, AC_SET_SHELTER_INFO, lpInBuffer);
+    (void)dwChannelID;
+    if (!lpInBuffer)
+        return NET_TV_E_INVALID_PARAM;
+
+    const NET_TV_PRIVACY_MASK_CFG_S *pIn = (const NET_TV_PRIVACY_MASK_CFG_S *)lpInBuffer;
+    Osd::CoverConfig_S stCoverConfig;
+    TvSdkConvert::ToPrivacyMaskCfg(*pIn, stCoverConfig);
+
+    Task::Info_S stInfo;
+    stInfo.data = wrap_data_json(Convert::to_string(stCoverConfig));
+    int nExec = s_taskManage ? s_taskManage->execute(AC_SET_COVER_CONFIG, stInfo) : -1;
+    return (nExec == 0) ? NET_TV_E_SUCCEED : NET_TV_E_SET_CFG_FAILED;
 }
+
 static NET_TV_COMMON_ECODE_E cb_get_tamper_alarm(INT32 dwChannelID, LPVOID lpOutBuffer)
 {
     (void)dwChannelID;
@@ -3455,37 +3693,6 @@ static NET_TV_COMMON_ECODE_E cb_set_face_capture_info(INT32 dwChannelID, LPVOID 
     return (nExec == 0) ? NET_TV_E_SUCCEED : NET_TV_E_SET_CFG_FAILED;
 }
 
-/**
- * @brief 获取人脸比对配置回调
- * @param dwChannelID 通道号，当前配置为设备级配置，暂不使用
- * @param lpOutBuffer 输出缓冲区，类型为NET_TV_FACE_COMPARE_INFO_S
- * @param dwOutBufferSize 输出缓冲区大小，当前由SDK层保证结构体大小
- * @return NET_TV_E_SUCCEED表示成功，其他值表示获取失败
- */
-static NET_TV_COMMON_ECODE_E cb_get_face_compare_info(INT32 dwChannelID, LPVOID lpOutBuffer, INT32 dwOutBufferSize)
-{
-    (void)dwChannelID;
-    (void)dwOutBufferSize;
-    if (!lpOutBuffer)
-        return NET_TV_E_INVALID_PARAM;
-    LPNET_TV_FACE_COMPARE_INFO_S pOut = (LPNET_TV_FACE_COMPARE_INFO_S)lpOutBuffer;
-
-    std::string outJson;
-    std::string strJson;
-    if (execute_get_result(AC_GET_FACE_COMPARE_INFO, "{}", outJson) != 0 || outJson.empty())
-        return NET_TV_E_GET_CFG_FAILED;
-    int nRet = -1;
-    Json::get(outJson.c_str(), "Return", nRet);
-    if (nRet != 0)
-        return NET_TV_E_GET_CFG_FAILED;
-
-    Alarm::FaceCompare_S stCfg;
-    strJson = normalize_data_json(outJson);
-    Convert::to_struct(strJson, stCfg);
-    TvSdkConvert::FillFaceCompareInfo(stCfg, *pOut);
-    return NET_TV_E_SUCCEED;
-}
-
 static NET_TV_COMMON_ECODE_E cb_set_face_compare_info(INT32 dwChannelID, LPVOID lpInBuffer)
 {
     (void)dwChannelID;
@@ -3644,6 +3851,7 @@ void register_all()
     NET_TV_SERVER_RegisterCb_GetVideoEncodeCap(cb_get_video_encode_cap);
     NET_TV_SERVER_RegisterCb_GetAudioEncodeCap(cb_get_audio_encode_cap);
     NET_TV_SERVER_RegisterCb_GetOsdCap(cb_get_osd_cap);
+    NET_TV_SERVER_RegisterCb_GetOsdCapCfg(cb_get_osd_cap_cfg);
     NET_TV_SERVER_RegisterCb_GetDeviceCfg(cb_get_device_cfg);
     NET_TV_SERVER_RegisterCb_SetDeviceCfg(cb_set_device_cfg);
     NET_TV_SERVER_RegisterCb_GetNtpCfg(cb_get_ntp_cfg);
@@ -3818,7 +4026,6 @@ void register_all()
 
     NET_TV_SERVER_RegisterCb_GetFaceCaptureInfo(cb_get_face_capture_info);
     NET_TV_SERVER_RegisterCb_SetFaceCaptureInfo(cb_set_face_capture_info);
-    NET_TV_SERVER_RegisterCb_GetFaceCompareInfo(cb_get_face_compare_info);
     NET_TV_SERVER_RegisterCb_SetFaceCompareInfo(cb_set_face_compare_info);
     NET_TV_SERVER_RegisterCb_AddTargetLib(cb_add_target_lib);
     NET_TV_SERVER_RegisterCb_DelTargetLib(cb_del_target_lib);

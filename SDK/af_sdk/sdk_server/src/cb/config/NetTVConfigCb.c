@@ -91,7 +91,7 @@ static NET_TV_CONFIG_CMD_CB_ITEM_S g_astConfigCmdCbTable[] =
     {NET_TV_GET_UNATTENDEDOBJECTALARM,  NET_TV_SET_UNATTENDEDOBJECTALARM,   NULL,   NULL},
     {NET_TV_GET_OBJECTREMOVALALARM,     NET_TV_SET_OBJECTREMOVALALARM,      NULL,   NULL},
     {NET_TV_GET_FACECAPTUREINFO,        NET_TV_SET_FACECAPTUREINFO,         NULL,   NULL},
-    {NET_TV_GET_FACE_COMPARE_INFO,      NET_TV_SET_FACE_COMPARE_INFO,       NULL,   NULL},
+    {NET_TV_CFG_INVALID,                NET_TV_SET_FACE_COMPARE_INFO,       NULL,   NULL},
     {NET_TV_GET_TARGET_LIB,             NET_TV_ADD_TARGET_LIB,              NULL,   NULL},
     {NET_TV_CFG_INVALID,                NET_TV_DEL_TARGET_LIB,              NULL,   NULL},
     {NET_TV_CFG_INVALID,                NET_TV_SET_TARGET_LIB,              NULL,   NULL},
@@ -747,11 +747,6 @@ NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetFaceCaptureInfo(NET_TV_CB_Se
     return NetTV_RegisterSetCmdCb(NET_TV_SET_FACECAPTUREINFO, pCb);
 }
 
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetFaceCompareInfo(NET_TV_CB_GetDevConfigByCommand pCb)
-{
-    return NetTV_RegisterGetCmdCb(NET_TV_GET_FACE_COMPARE_INFO, pCb);
-}
-
 NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetFaceCompareInfo(NET_TV_CB_SetDevConfigByCommand pCb)
 {
     return NetTV_RegisterSetCmdCb(NET_TV_SET_FACE_COMPARE_INFO, pCb);
@@ -1196,6 +1191,9 @@ int NetSDK_ExecuteCb_ControlReplay(LPNET_TV_REPLAY_CTRL_INFO_S pInfo)
     {
         return NET_TV_E_INVALID_PARAM;
     }
+
+    printf("[NetTVConfigCb] ControlReplay callback: channel=%d, ctrlType=%d, startTime=[%s], endTime=[%s], sessionId=[%s]\n",
+           pInfo->dwChannel, pInfo->dwCtrlType, pInfo->szStartTime, pInfo->szEndTime, pInfo->szSessionId);
 
     if (g_stConfigCbTable.cbControlReplay != NULL)
     {
