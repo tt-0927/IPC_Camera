@@ -34,7 +34,6 @@ namespace WebCGI
         constexpr int SDK_NET_TV_DEL_FACE_INFO = 488;
         constexpr int SDK_NET_TV_SET_FACE_INFO = 489;
         constexpr int SDK_NET_TV_GET_FACE_INFO = 490;
-        constexpr int SDK_NET_TV_GET_FACE_COMPARE_INFO = 491;
 
         /**
          * @brief SDK 命令到内部 ActionCode 的映射项
@@ -52,7 +51,6 @@ namespace WebCGI
             {"NET_TV_GET_FACE_CAPTURE_INFO", SDK_NET_TV_GET_FACECAPTUREINFO, AC_GET_FACE_CAPTURE_INFO, "获取人脸抓拍配置"},
             {"NET_TV_SET_FACECAPTUREINFO", SDK_NET_TV_SET_FACECAPTUREINFO, AC_SET_FACE_CAPTURE_INFO, "设置人脸抓拍配置"},
             {"NET_TV_SET_FACE_CAPTURE_INFO", SDK_NET_TV_SET_FACECAPTUREINFO, AC_SET_FACE_CAPTURE_INFO, "设置人脸抓拍配置"},
-            {"NET_TV_GET_FACE_COMPARE_INFO", SDK_NET_TV_GET_FACE_COMPARE_INFO, AC_GET_FACE_COMPARE_INFO, "获取人脸比对配置"},
             {"NET_TV_SET_FACE_COMPARE_INFO", SDK_NET_TV_SET_FACE_COMPARE_INFO, AC_SET_FACE_COMPARE_INFO, "设置人脸比对配置"},
             {"NET_TV_ADD_TARGET_LIB", SDK_NET_TV_ADD_TARGET_LIB, AC_ADD_TARGET_LIB, "添加目标库"},
             {"NET_TV_DEL_TARGET_LIB", SDK_NET_TV_DEL_TARGET_LIB, AC_DEL_TARGET_LIB, "删除目标库"},

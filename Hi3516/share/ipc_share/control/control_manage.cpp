@@ -705,18 +705,18 @@ void ControlManage::bind_task(std::shared_ptr<CTaskManage> &pTaskManage)
     pTaskManage->bind<Task::Network::GmUploadCrlFile>(AC_GM_UPLOAD_CRL_FILE);
     pTaskManage->bind<Task::Network::GmGetCertInfo>(AC_GM_GET_CERT_INFO);
     pTaskManage->bind<Task::Network::GmDeleteCertFile>(AC_GM_DELETE_CERT_FILE);
-    #ifdef CAP_NETWORK_WIFI
+    #if CAP_NETWORK_WIFI
     /*WIFI */
     pTaskManage->bind<Task::Network::SetWifiStaInfo>(AC_SET_CONFIG_WIFI_STA);
     pTaskManage->bind<Task::Network::ConnectWifiSta>(AC_CONNECT_WIFI_STA);
     pTaskManage->bind<Task::Network::DisconnectWifiSta>(AC_DISCONNECT_WIFI_STA);
     #endif
-    #ifdef CAP_NETWORK_4G
+    #if CAP_NETWORK_4G
     /*4G */
     pTaskManage->bind<Task::Network::Get4GInfo>(AC_GET_4G_INFO);
     pTaskManage->bind<Task::Network::Set4GInfo>(AC_SET_4G_INFO);
     #endif
-    #ifdef CAP_NETWORK_WIFI
+    #if CAP_NETWORK_WIFI
     /*热点 */
     pTaskManage->bind<Task::Network::SetHotspot>(AC_SET_HOTSPOT_INFO);
     pTaskManage->bind<Task::Network::GetHotspotConn>(AC_GET_HOTSPOT_CONN);
@@ -849,7 +849,6 @@ void ControlManage::bind_task(std::shared_ptr<CTaskManage> &pTaskManage)
     pTaskManage->bind<Task::Event::GetFaceCaptureInfo>(AC_GET_FACE_CAPTURE_INFO);
     pTaskManage->bind<Task::Event::SetFaceCaptureInfo>(AC_SET_FACE_CAPTURE_INFO);
     /*人脸比对 */
-    pTaskManage->bind<Task::Event::GetFaceCompareInfo>(AC_GET_FACE_COMPARE_INFO);
     pTaskManage->bind<Task::Event::SetFaceCompareInfo>(AC_SET_FACE_COMPARE_INFO);
     /* 人脸抓拍叠加信息 */
     pTaskManage->bind<Task::Event::GetFaceCaptureOverlayInfo>(AC_GET_FACE_CAPTURE_OVERLAY_INFO_INFO);

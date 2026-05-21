@@ -113,6 +113,10 @@ void Convert::deal(Json::Object *pRootJson, Alarm::MotionNormalMode_S &stInfo, b
     {
         if(stInfo.nRegionType)
         {
+            if (!std::holds_alternative<Alarm::MotionNormalMode_S::AreaGrid>(stInfo.varRegion))
+            {
+                stInfo.varRegion = Alarm::MotionNormalMode_S::AreaGrid();
+            }
             auto &grid = std::get<Alarm::MotionNormalMode_S::AreaGrid>(stInfo.varRegion);
             Json::Object *pArray = Json::get(pRootJson, "Region");
             if (nullptr != pArray)
@@ -140,6 +144,10 @@ void Convert::deal(Json::Object *pRootJson, Alarm::MotionNormalMode_S &stInfo, b
         }
         else
         {
+            if (!std::holds_alternative<Common::Rect_S>(stInfo.varRegion))
+            {
+                stInfo.varRegion = Common::Rect_S();
+            }
             auto &rect = std::get<Common::Rect_S>(stInfo.varRegion);
             convert.structure(pRootJson, "Region", rect);
         }
@@ -148,6 +156,10 @@ void Convert::deal(Json::Object *pRootJson, Alarm::MotionNormalMode_S &stInfo, b
     {
         if(stInfo.nRegionType)
         {
+            if (!std::holds_alternative<Alarm::MotionNormalMode_S::AreaGrid>(stInfo.varRegion))
+            {
+                stInfo.varRegion = Alarm::MotionNormalMode_S::AreaGrid();
+            }
             auto &grid = std::get<Alarm::MotionNormalMode_S::AreaGrid>(stInfo.varRegion);
             auto pArray = Json::Array::init();
             for (auto pVec : grid)
@@ -167,6 +179,10 @@ void Convert::deal(Json::Object *pRootJson, Alarm::MotionNormalMode_S &stInfo, b
         }
         else
         {
+            if (!std::holds_alternative<Common::Rect_S>(stInfo.varRegion))
+            {
+                stInfo.varRegion = Common::Rect_S();
+            }
             auto &rect = std::get<Common::Rect_S>(stInfo.varRegion);
             convert.structure(pRootJson, "Region", rect);
         }
