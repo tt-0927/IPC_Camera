@@ -77,7 +77,18 @@ NET_TV_COMMON_ECODE_E MyVideoEncodeCb(INT32 dwChannelID, LPNET_TV_VIDEO_ENCODE_C
     pCap->astStreamCap[0].astEncodeCap[1].nIFrameInterval = 50;
     pCap->astStreamCap[0].astEncodeCap[1].enSvcEnable = 0;
     pCap->astStreamCap[0].astEncodeCap[1].nBitrateSmoothing = 50;
-    
+
+    // 主码流支持的分辨率列表
+    pCap->astStreamCap[0].dwResolutionNum = 4;
+    pCap->astStreamCap[0].astResolution[0].dwWidth = 2560;
+    pCap->astStreamCap[0].astResolution[0].dwHeight = 1440;
+    pCap->astStreamCap[0].astResolution[1].dwWidth = 1920;
+    pCap->astStreamCap[0].astResolution[1].dwHeight = 1080;
+    pCap->astStreamCap[0].astResolution[2].dwWidth = 1280;
+    pCap->astStreamCap[0].astResolution[2].dwHeight = 720;
+    pCap->astStreamCap[0].astResolution[3].dwWidth = 704;
+    pCap->astStreamCap[0].astResolution[3].dwHeight = 576;
+
     // ============ 子码流能力 (索引1) ============
     pCap->astStreamCap[1].dwStreamType = 1;          // NET_TV_LIVE_STREAM_INDEX_SUB
     pCap->astStreamCap[1].bSupportMultiStream = 0;   // 不支持复合流
@@ -103,7 +114,16 @@ NET_TV_COMMON_ECODE_E MyVideoEncodeCb(INT32 dwChannelID, LPNET_TV_VIDEO_ENCODE_C
     pCap->astStreamCap[1].astEncodeCap[0].nIFrameInterval = 50;
     pCap->astStreamCap[1].astEncodeCap[0].enSvcEnable = 0;
     pCap->astStreamCap[1].astEncodeCap[0].nBitrateSmoothing = 50;
-    
+
+    // 子码流支持的分辨率列表
+    pCap->astStreamCap[1].dwResolutionNum = 3;
+    pCap->astStreamCap[1].astResolution[0].dwWidth = 704;
+    pCap->astStreamCap[1].astResolution[0].dwHeight = 576;
+    pCap->astStreamCap[1].astResolution[1].dwWidth = 640;
+    pCap->astStreamCap[1].astResolution[1].dwHeight = 480;
+    pCap->astStreamCap[1].astResolution[2].dwWidth = 352;
+    pCap->astStreamCap[1].astResolution[2].dwHeight = 288;
+
     printf("[Server] Filled %d streams capability\n", pCap->dwStreamCount);
     return NET_TV_E_SUCCEED;
 }

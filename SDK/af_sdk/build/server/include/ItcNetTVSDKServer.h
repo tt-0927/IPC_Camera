@@ -1152,7 +1152,6 @@ typedef enum tagNETTVCfgCmd
     NET_TV_DEL_FACE_INFO                  = 488,           /* 删除人脸 参见NET_TV_FACE_ID_INFO_S */
     NET_TV_SET_FACE_INFO                  = 489,           /* 修改人脸 参见NET_TV_FACE_INFO_S */
     NET_TV_GET_FACE_INFO                  = 490,           /* 获取人脸 参见NET_TV_FACE_INFO_LIST_S */
-    NET_TV_GET_FACE_COMPARE_INFO          = 491,           /* 获取人脸比对配置 参见NET_TV_FACE_COMPARE_INFO_S */
  
     NET_TV_CFG_INVALID                  = 0xFFFF            /* 无效值  Invalid value */
 
@@ -2940,6 +2939,37 @@ typedef struct tagNETTVMotionAlarmInfo
     BYTE        byRes[256];                          /* 保留字段 */
 }NET_TV_MOTION_ALARM_INFO_S, *LPNET_TV_MOTION_ALARM_INFO_S;
 
+/* ==================== 隐私遮盖配置相关结构体 ==================== */
+
+/**
+ * @struct tagNETTVPrivacyMaskArea
+ * @brief 单个隐私遮盖区域 Privacy mask area
+ * @note 用于NET_TV_PRIVACY_MASK_CFG_S中配置单个遮盖区域
+ */
+typedef struct tagNETTVPrivacyMaskArea
+{
+    INT32       nAreaID;                              /* 遮盖区域ID [0, NET_TV_MAX_PRIVACY_MASK_AREA_NUM) */
+    BOOL        bEnable;                              /* 是否启用 0-不启用 1-启用 */
+    INT32       nRectLeft;                            /* 遮盖区域左坐标 [0, 8191] */
+    INT32       nRectTop;                             /* 遮盖区域上坐标 [0, 8191] */
+    INT32       nRectRight;                           /* 遮盖区域右坐标 [0, 8191] */
+    INT32       nRectBottom;                          /* 遮盖区域下坐标 [0, 8191] */
+    BYTE        byRes[32];                            /* 保留字段 */
+}NET_TV_PRIVACY_MASK_AREA_S, *LPNET_TV_PRIVACY_MASK_AREA_S;
+
+/**
+ * @struct tagNETTVPrivacyMaskCfg
+ * @brief 隐私遮盖配置信息 Privacy mask configuration
+ * @note 用于NET_TV_GET_PRIVACYMASKCFG/NET_TV_SET_PRIVACYMASKCFG
+ */
+typedef struct tagNETTVPrivacyMaskCfg
+{
+    BOOL        bEnable;                              /* 是否启用隐私遮盖 0-不启用 1-启用 */
+    INT32       dwAreaCount;                          /* 遮盖区域数量 [0, NET_TV_MAX_PRIVACY_MASK_AREA_NUM] */
+    NET_TV_PRIVACY_MASK_AREA_S astArea[NET_TV_MAX_PRIVACY_MASK_AREA_NUM]; /* 遮盖区域数组 */
+    BYTE        byRes[256];                           /* 保留字段 */
+}NET_TV_PRIVACY_MASK_CFG_S, *LPNET_TV_PRIVACY_MASK_CFG_S;
+
 /* ==================== 遮挡报警相关结构体 ==================== */
 
 /**
@@ -3786,7 +3816,7 @@ typedef struct tagNETTVFaceCaptureInfo
 /**
  * @struct tagNETTVFaceCompareInfo
  * @brief 人脸比对配置信息 Face compare configuration
- * @note 用于NET_TV_GET_FACE_COMPARE_INFO/NET_TV_SET_FACE_COMPARE_INFO
+ * @note 用于NET_TV_SET_FACE_COMPARE_INFO
  */
 typedef struct tagNETTVFaceCompareInfo
 {
@@ -4938,7 +4968,6 @@ NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetLeaveRegionAlarm(NET_TV_CB_S
 
 NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetFaceCaptureInfo(NET_TV_CB_GetDevConfigByCommand pCb);
 NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetFaceCaptureInfo(NET_TV_CB_SetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetFaceCompareInfo(NET_TV_CB_GetDevConfigByCommand pCb);
 NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetFaceCompareInfo(NET_TV_CB_SetDevConfigByCommand pCb);
 NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_AddTargetLib(NET_TV_CB_SetDevConfigByCommand pCb);
 NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_DelTargetLib(NET_TV_CB_SetDevConfigByCommand pCb);
