@@ -15,6 +15,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <signal.h>
+#include <time.h>
 #ifdef _WIN32
 #include <winsock2.h>
 #include <ws2tcpip.h>
@@ -59,6 +60,7 @@ static NET_TV_HOTSPOT_CONN_INFO_S g_stHotspotConnInfo;
 static NET_TV_VIDEO_OSD_CFG_S    g_stOsdCfg;
 static NET_TV_OSD_CAP_S          g_stOsdCapCfg;
 static NET_TV_MOTION_ALARM_INFO_S g_stMotionAlarmInfo;
+static NET_TV_PRIVACY_MASK_CFG_S g_stPrivacyMaskCfg;
 static NET_TV_TAMPER_ALARM_INFO_S g_stTamperAlarmInfo;
 static NET_TV_CROSS_LINE_ALARM_INFO_S g_stCrossLineAlarmInfo;
 static NET_TV_INTRUSION_ALARM_INFO_S g_stIntrusionAlarmInfo;
@@ -222,6 +224,7 @@ static void InitDefaultConfig(void)
     memset(&g_stOsdCfg, 0, sizeof(g_stOsdCfg));
     memset(&g_stOsdCapCfg, 0, sizeof(g_stOsdCapCfg));
     memset(&g_stMotionAlarmInfo, 0, sizeof(g_stMotionAlarmInfo));
+    memset(&g_stPrivacyMaskCfg, 0, sizeof(g_stPrivacyMaskCfg));
     memset(&g_stTamperAlarmInfo, 0, sizeof(g_stTamperAlarmInfo));
     memset(&g_stCrossLineAlarmInfo, 0, sizeof(g_stCrossLineAlarmInfo));
     memset(&g_stIntrusionAlarmInfo, 0, sizeof(g_stIntrusionAlarmInfo));
@@ -627,6 +630,16 @@ static void InitDefaultConfig(void)
         g_stMotionAlarmInfo.stAlarmSchedule.astTimeSection[day][0].nEndHour = 23;
         g_stMotionAlarmInfo.stAlarmSchedule.astTimeSection[day][0].nEndMinute = 59;
     }
+
+    /* 隐私遮盖配置默认值 */
+    g_stPrivacyMaskCfg.bEnable = TRUE;
+    g_stPrivacyMaskCfg.dwAreaCount = 1;
+    g_stPrivacyMaskCfg.astArea[0].nAreaID = 0;
+    g_stPrivacyMaskCfg.astArea[0].bEnable = TRUE;
+    g_stPrivacyMaskCfg.astArea[0].nRectLeft = 100;
+    g_stPrivacyMaskCfg.astArea[0].nRectTop = 100;
+    g_stPrivacyMaskCfg.astArea[0].nRectRight = 400;
+    g_stPrivacyMaskCfg.astArea[0].nRectBottom = 300;
 
     /* 遮挡报警配置默认值 */
     g_stTamperAlarmInfo.bEnable = FALSE;
@@ -2023,6 +2036,62 @@ static NET_TV_COMMON_ECODE_E MySetMotionAlarmCb(INT32 dwChannelID, LPVOID lpInBu
     printf("  New Enable=%d, Mode=%d, Sensitivity=%d\n", 
            g_stMotionAlarmInfo.bEnable, g_stMotionAlarmInfo.dwMode,
            g_stMotionAlarmInfo.stNormalMode.nSensitivity);
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 隐私遮盖配置 Get 回调，对应命令 NET_TV_GET_PRIVACYMASKCFG */
+static NET_TV_COMMON_ECODE_E MyGetPrivacyMaskCfgCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpOutBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_PRIVACY_MASK_CFG_S pOut = (LPNET_TV_PRIVACY_MASK_CFG_S)lpOutBuffer;
+    *pOut = g_stPrivacyMaskCfg;
+
+    printf("[ConfigServerDemo] GetPrivacyMaskCfg callback, Channel=%d\n", dwChannelID);
+    printf("  Enable=%d, AreaCount=%d\n",
+           g_stPrivacyMaskCfg.bEnable, g_stPrivacyMaskCfg.dwAreaCount);
+    for (int i = 0; i < g_stPrivacyMaskCfg.dwAreaCount && i < NET_TV_MAX_PRIVACY_MASK_AREA_NUM; i++)
+    {
+        const NET_TV_PRIVACY_MASK_AREA_S* pArea = &g_stPrivacyMaskCfg.astArea[i];
+        printf("  Area[%d]: ID=%d, Enable=%d, Rect=[%d,%d,%d,%d]\n",
+               i, pArea->nAreaID, pArea->bEnable,
+               pArea->nRectLeft, pArea->nRectTop,
+               pArea->nRectRight, pArea->nRectBottom);
+    }
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 隐私遮盖配置 Set 回调，对应命令 NET_TV_SET_PRIVACYMASKCFG */
+static NET_TV_COMMON_ECODE_E MySetPrivacyMaskCfgCb(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpInBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_PRIVACY_MASK_CFG_S pIn = (LPNET_TV_PRIVACY_MASK_CFG_S)lpInBuffer;
+    g_stPrivacyMaskCfg = *pIn;
+    if (g_stPrivacyMaskCfg.dwAreaCount < 0)
+    {
+        g_stPrivacyMaskCfg.dwAreaCount = 0;
+    }
+    if (g_stPrivacyMaskCfg.dwAreaCount > NET_TV_MAX_PRIVACY_MASK_AREA_NUM)
+    {
+        g_stPrivacyMaskCfg.dwAreaCount = NET_TV_MAX_PRIVACY_MASK_AREA_NUM;
+    }
+
+    printf("[ConfigServerDemo] SetPrivacyMaskCfg callback, Channel=%d\n", dwChannelID);
+    printf("  New Enable=%d, AreaCount=%d\n",
+           g_stPrivacyMaskCfg.bEnable, g_stPrivacyMaskCfg.dwAreaCount);
 
     return NET_TV_E_SUCCEED;
 }
@@ -4030,46 +4099,264 @@ static NET_TV_COMMON_ECODE_E MyGetReplayUrlCb(LPNET_TV_REPLAY_URL_INFO_S pInfo)
     return NET_TV_E_SUCCEED;
 }
 
+static int HasTextValue(const CHAR* text)
+{
+    return (text != NULL && text[0] != '\0');
+}
+
+static void CopyTextIfPresent(char* dst, size_t dstSize, const char* src)
+{
+    if (!dst || dstSize == 0 || !HasTextValue(src))
+    {
+        return;
+    }
+
+    strncpy(dst, src, dstSize - 1);
+    dst[dstSize - 1] = '\0';
+}
+
+static int ParseDateTimeText(const char* text, struct tm* outTm)
+{
+    int year = 0;
+    int month = 0;
+    int day = 0;
+    int hour = 0;
+    int minute = 0;
+    int second = 0;
+
+    if (!HasTextValue(text) || !outTm)
+    {
+        return 0;
+    }
+
+    memset(outTm, 0, sizeof(*outTm));
+    if (sscanf(text, "%d-%d-%d %d:%d:%d",
+               &year, &month, &day, &hour, &minute, &second) != 6)
+    {
+        return 0;
+    }
+
+    outTm->tm_year = year - 1900;
+    outTm->tm_mon = month - 1;
+    outTm->tm_mday = day;
+    outTm->tm_hour = hour;
+    outTm->tm_min = minute;
+    outTm->tm_sec = second;
+    outTm->tm_isdst = -1;
+    return 1;
+}
+
+static int ShiftDateTimeText(const char* src, int deltaSeconds, char* dst, size_t dstSize)
+{
+    struct tm timeInfo;
+    time_t rawTime = 0;
+    struct tm* shiftedTm = NULL;
+
+    if (!dst || dstSize == 0 || !ParseDateTimeText(src, &timeInfo))
+    {
+        return 0;
+    }
+
+    rawTime = mktime(&timeInfo);
+    if (rawTime == (time_t)-1)
+    {
+        return 0;
+    }
+
+    rawTime += deltaSeconds;
+    shiftedTm = localtime(&rawTime);
+    if (!shiftedTm)
+    {
+        return 0;
+    }
+
+    if (strftime(dst, dstSize, "%Y-%m-%d %H:%M:%S", shiftedTm) == 0)
+    {
+        return 0;
+    }
+
+    return 1;
+}
+
+static void BuildReplayUrl(NET_TV_REPLAY_CTRL_INFO_S* pInfo)
+{
+    if (!pInfo)
+    {
+        return;
+    }
+
+    snprintf(pInfo->szUrl,
+             sizeof(pInfo->szUrl),
+             "rtp://127.0.0.1:6000/playback/%s?channel=%d&start=%s&end=%s&speed=%.2f&replayType=%d&seek=%d",
+             pInfo->szSessionId,
+             pInfo->dwChannel,
+             pInfo->szStartTime,
+             pInfo->szEndTime,
+             pInfo->fSpeed,
+             pInfo->nReplayType,
+             pInfo->nSeekTime);
+}
+
+static void MergeReplayCtrlState(NET_TV_REPLAY_CTRL_INFO_S* pDst, const NET_TV_REPLAY_CTRL_INFO_S* pSrc)
+{
+    if (!pDst || !pSrc)
+    {
+        return;
+    }
+
+    if (pSrc->dwChannel > 0)
+    {
+        pDst->dwChannel = pSrc->dwChannel;
+    }
+    pDst->dwCtrlType = pSrc->dwCtrlType;
+    if (pSrc->fSpeed > 0.0f)
+    {
+        pDst->fSpeed = pSrc->fSpeed;
+    }
+    if (pSrc->nSeekTime != 0)
+    {
+        pDst->nSeekTime = pSrc->nSeekTime;
+    }
+    if (pSrc->nReplayType != NET_TV_REPLAY_PLATFORM_CTRL_NONE)
+    {
+        pDst->nReplayType = pSrc->nReplayType;
+    }
+    CopyTextIfPresent(pDst->szSessionId, sizeof(pDst->szSessionId), pSrc->szSessionId);
+    CopyTextIfPresent(pDst->szStartTime, sizeof(pDst->szStartTime), pSrc->szStartTime);
+    CopyTextIfPresent(pDst->szEndTime, sizeof(pDst->szEndTime), pSrc->szEndTime);
+    CopyTextIfPresent(pDst->szUrl, sizeof(pDst->szUrl), pSrc->szUrl);
+}
+
 static NET_TV_COMMON_ECODE_E MyControlReplayCb(LPNET_TV_REPLAY_CTRL_INFO_S pInfo)
 {
+    NET_TV_REPLAY_CTRL_INFO_S stNewState;
+    int nDeltaSeconds = 0;
+
     if (!pInfo)
     {
         return NET_TV_E_INVALID_PARAM;
     }
 
-    g_stReplayCtrlInfo = *pInfo;
-    if (g_stReplayCtrlInfo.dwCtrlType == NET_TV_REPLAY_CTRL_START)
+    memset(&stNewState, 0, sizeof(stNewState));
+    MergeReplayCtrlState(&stNewState, &g_stReplayCtrlInfo);
+    MergeReplayCtrlState(&stNewState, pInfo);
+
+    if (stNewState.dwCtrlType == NET_TV_REPLAY_CTRL_START)
     {
-        if (g_stReplayCtrlInfo.szSessionId[0] == '\0')
+        if (!HasTextValue(stNewState.szSessionId))
         {
-            snprintf(g_stReplayCtrlInfo.szSessionId,
-                     sizeof(g_stReplayCtrlInfo.szSessionId),
+            snprintf(stNewState.szSessionId,
+                     sizeof(stNewState.szSessionId),
                      "demo_replay_%d",
-                     g_stReplayCtrlInfo.dwChannel);
+                     stNewState.dwChannel);
         }
 
-        if (g_stReplayCtrlInfo.fSpeed <= 0.0f)
+        if (stNewState.fSpeed <= 0.0f)
         {
-            g_stReplayCtrlInfo.fSpeed = 1.0f;
+            stNewState.fSpeed = 1.0f;
+        }
+        stNewState.nReplayType = NET_TV_REPLAY_PLATFORM_CTRL_NONE;
+        stNewState.nSeekTime = 0;
+        BuildReplayUrl(&stNewState);
+    }
+    else
+    {
+        if (!HasTextValue(stNewState.szSessionId))
+        {
+            return NET_TV_E_INVALID_PARAM;
         }
 
-        snprintf(g_stReplayCtrlInfo.szUrl,
-                 sizeof(g_stReplayCtrlInfo.szUrl),
-                 "rtp://127.0.0.1:6000/playback/%s?channel=%d&start=%s&end=%s",
-                 g_stReplayCtrlInfo.szSessionId,
-                 g_stReplayCtrlInfo.dwChannel,
-                 g_stReplayCtrlInfo.szStartTime,
-                 g_stReplayCtrlInfo.szEndTime);
+        if (stNewState.dwCtrlType == NET_TV_REPLAY_CTRL_STOP)
+        {
+            stNewState.szUrl[0] = '\0';
+        }
+        else if (stNewState.dwCtrlType == NET_TV_REPLAY_CTRL_PAUSE)
+        {
+            BuildReplayUrl(&stNewState);
+        }
+        else if (stNewState.dwCtrlType == NET_TV_REPLAY_CTRL_RESUME)
+        {
+            BuildReplayUrl(&stNewState);
+        }
+        else if (stNewState.dwCtrlType == NET_TV_REPLAY_CTRL_SET_SPEED)
+        {
+            if (stNewState.nReplayType == NET_TV_REPLAY_PLATFORM_CTRL_NONE)
+            {
+                stNewState.nReplayType = NET_TV_REPLAY_PLATFORM_CTRL_SPEED;
+            }
+            if (stNewState.nReplayType != NET_TV_REPLAY_PLATFORM_CTRL_SPEED || stNewState.fSpeed <= 0.0f)
+            {
+                return NET_TV_E_INVALID_PARAM;
+            }
+            BuildReplayUrl(&stNewState);
+        }
+        else if (stNewState.dwCtrlType == NET_TV_REPLAY_CTRL_SET_SEEK)
+        {
+            if (stNewState.nReplayType == NET_TV_REPLAY_PLATFORM_CTRL_NONE &&
+                HasTextValue(stNewState.szStartTime) &&
+                HasTextValue(stNewState.szEndTime))
+            {
+                stNewState.nReplayType = NET_TV_REPLAY_PLATFORM_CTRL_JUMP_TIME;
+            }
+
+            switch (stNewState.nReplayType)
+            {
+                case NET_TV_REPLAY_PLATFORM_CTRL_JUMP_TIME:
+                    if (!HasTextValue(stNewState.szStartTime) || !HasTextValue(stNewState.szEndTime))
+                    {
+                        return NET_TV_E_INVALID_PARAM;
+                    }
+                    break;
+                case NET_TV_REPLAY_PLATFORM_CTRL_BACKWARD_30S:
+                    nDeltaSeconds = -(stNewState.nSeekTime > 0 ? stNewState.nSeekTime : 30);
+                    if (!ShiftDateTimeText(g_stReplayCtrlInfo.szStartTime, nDeltaSeconds,
+                                           stNewState.szStartTime, sizeof(stNewState.szStartTime)) ||
+                        !ShiftDateTimeText(g_stReplayCtrlInfo.szEndTime, nDeltaSeconds,
+                                           stNewState.szEndTime, sizeof(stNewState.szEndTime)))
+                    {
+                        return NET_TV_E_INVALID_PARAM;
+                    }
+                    stNewState.nSeekTime = -nDeltaSeconds;
+                    break;
+                case NET_TV_REPLAY_PLATFORM_CTRL_FORWARD_30S:
+                    nDeltaSeconds = (stNewState.nSeekTime > 0 ? stNewState.nSeekTime : 30);
+                    if (!ShiftDateTimeText(g_stReplayCtrlInfo.szStartTime, nDeltaSeconds,
+                                           stNewState.szStartTime, sizeof(stNewState.szStartTime)) ||
+                        !ShiftDateTimeText(g_stReplayCtrlInfo.szEndTime, nDeltaSeconds,
+                                           stNewState.szEndTime, sizeof(stNewState.szEndTime)))
+                    {
+                        return NET_TV_E_INVALID_PARAM;
+                    }
+                    stNewState.nSeekTime = nDeltaSeconds;
+                    break;
+                case NET_TV_REPLAY_PLATFORM_CTRL_PERSON_EVENT:
+                case NET_TV_REPLAY_PLATFORM_CTRL_VEHICLE_EVENT:
+                case NET_TV_REPLAY_PLATFORM_CTRL_PERSON_VEHICLE_EVENT:
+                case NET_TV_REPLAY_PLATFORM_CTRL_CANCEL_EVENT:
+                case NET_TV_REPLAY_PLATFORM_CTRL_NONE:
+                    break;
+                default:
+                    return NET_TV_E_INVALID_PARAM;
+            }
+            BuildReplayUrl(&stNewState);
+        }
+        else
+        {
+            return NET_TV_E_INVALID_PARAM;
+        }
     }
 
+    g_stReplayCtrlInfo = stNewState;
     *pInfo = g_stReplayCtrlInfo;
 
     printf("[ConfigServerDemo] ControlReplay callback\n");
-    printf("  Channel=%d, CtrlType=%d, Session=%s, Speed=%.2f\n",
+    printf("  Channel=%d, CtrlType=%d, ReplayType=%d, Session=%s, Speed=%.2f, SeekTime=%d\n",
            pInfo->dwChannel,
            pInfo->dwCtrlType,
+           pInfo->nReplayType,
            pInfo->szSessionId,
-           pInfo->fSpeed);
+           pInfo->fSpeed,
+           pInfo->nSeekTime);
     printf("  Start=%s, End=%s, Url=%s\n",
            pInfo->szStartTime,
            pInfo->szEndTime,
@@ -4659,28 +4946,6 @@ static INT32 FindFaceInfoIndex(INT32 nId)
     return -1;
 }
 
-/* 人脸比对配置 Get 回调，对应命令 NET_TV_GET_FACE_COMPARE_INFO */
-static NET_TV_COMMON_ECODE_E MyGetFaceCompareInfoCb(INT32 dwChannelID, LPVOID lpOutBuffer, INT32 dwOutBufferSize)
-{
-    (void)dwChannelID;
-
-    if (!lpOutBuffer || dwOutBufferSize < (INT32)sizeof(NET_TV_FACE_COMPARE_INFO_S))
-    {
-        return NET_TV_E_INVALID_PARAM;
-    }
-
-    LPNET_TV_FACE_COMPARE_INFO_S pOut = (LPNET_TV_FACE_COMPARE_INFO_S)lpOutBuffer;
-    *pOut = g_stFaceCompareInfo;
-
-    printf("[ConfigServerDemo] GetFaceCompareInfo callback, Channel=%d\n", dwChannelID);
-    printf("  Enable=%d, SuccessSnapshotCount=%d, FailSnapshotCount=%d\n",
-           pOut->bEnable,
-           pOut->stLinkageListSuccess.dwSnapshotChannelCount,
-           pOut->stLinkageListFail.dwSnapshotChannelCount);
-
-    return NET_TV_E_SUCCEED;
-}
-
 /* 人脸比对配置 Set 回调，对应命令 NET_TV_SET_FACE_COMPARE_INFO */
 static NET_TV_COMMON_ECODE_E MySetFaceCompareInfoCb(INT32 dwChannelID, LPVOID lpInBuffer)
 {
@@ -5206,6 +5471,15 @@ static void RegisterCallbacks(void)
     }
 
     /* OSD配置回调 */
+    if (NET_TV_SERVER_RegisterCb_GetOsdCapCfg(MyGetOSDCapCfgCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetOSDCapCfg SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetOSDCapCfg FAILED\n");
+    }
+
     if (NET_TV_SERVER_RegisterCb_GetOsdCfg(MyGetOSDCfgCb))
     {
         printf("[ConfigServerDemo] RegisterCb_GetOSDCfg SUCCESS\n");
@@ -5241,6 +5515,25 @@ static void RegisterCallbacks(void)
     else
     {
         printf("[ConfigServerDemo] RegisterCb_SetMotionAlarm FAILED\n");
+    }
+
+    /* 隐私遮盖配置回调 */
+    if (NET_TV_SERVER_RegisterCb_GetPrivacyMaskCfg(MyGetPrivacyMaskCfgCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetPrivacyMaskCfg SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetPrivacyMaskCfg FAILED\n");
+    }
+
+    if (NET_TV_SERVER_RegisterCb_SetPrivacyMaskCfg(MySetPrivacyMaskCfgCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetPrivacyMaskCfg SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetPrivacyMaskCfg FAILED\n");
     }
 
     /* 遮挡报警配置回调 */
@@ -6331,15 +6624,6 @@ static void RegisterCallbacks(void)
     }
 
     /* 人脸比对配置回调 */
-    if (NET_TV_SERVER_RegisterCb_GetFaceCompareInfo(MyGetFaceCompareInfoCb))
-    {
-        printf("[ConfigServerDemo] RegisterCb_GetFaceCompareInfo SUCCESS\n");
-    }
-    else
-    {
-        printf("[ConfigServerDemo] RegisterCb_GetFaceCompareInfo FAILED\n");
-    }
-
     if (NET_TV_SERVER_RegisterCb_SetFaceCompareInfo(MySetFaceCompareInfoCb))
     {
         printf("[ConfigServerDemo] RegisterCb_SetFaceCompareInfo SUCCESS\n");
