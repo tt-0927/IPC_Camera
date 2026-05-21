@@ -388,8 +388,6 @@ typedef enum
     
     /* 设置人脸比对配置 */
     AC_SET_FACE_COMPARE_INFO = 2528,
-    /* 获取人脸比对配置 */
-    AC_GET_FACE_COMPARE_INFO = 2529,
 
     /**
     * @brief   : 场景智能分析

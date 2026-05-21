@@ -110,7 +110,6 @@ namespace Task
         TaskSubClass(GetFaceCaptureInfo)
         TaskSubClass(SetFaceCaptureInfo)
         /* 人脸比对 */
-        TaskSubClass(GetFaceCompareInfo)
         TaskSubClass(SetFaceCompareInfo)
         /* 人脸抓拍叠加信息 */
         TaskSubClass(GetFaceCaptureOverlayInfo)

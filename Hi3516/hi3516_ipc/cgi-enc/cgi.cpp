@@ -178,7 +178,6 @@ namespace WebCGI
 		commandHandlers[AC_SET_FACE_CAPTURE_INFO] = std::make_unique<JsonCommandHandler>(AC_SET_FACE_CAPTURE_INFO);
 
 		/* 人脸比对配置 */
-		commandHandlers[AC_GET_FACE_COMPARE_INFO] = std::make_unique<JsonCommandHandler>(AC_GET_FACE_COMPARE_INFO);
 		commandHandlers[AC_SET_FACE_COMPARE_INFO] = std::make_unique<JsonCommandHandler>(AC_SET_FACE_COMPARE_INFO);
 
 		/* 目标库管理 */

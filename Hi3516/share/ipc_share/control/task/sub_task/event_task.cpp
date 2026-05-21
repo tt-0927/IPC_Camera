@@ -300,23 +300,50 @@ void Task::Event::SetMotionDetectionInfo::handle()
     }
 
     /* 普通模式区域参数有效性判断 */
-    auto &grid = std::get<Alarm::MotionNormalMode_S::AreaGrid>(stInfo.stMotionNormalMode.varRegion);
-    if (grid.empty())
+    if (stInfo.stMotionNormalMode.nRegionType)
     {
-        dlog_error("设置移动侦测信息参数错误");
-        result(ERR_WEB_PARAM);
-        return;
+        if (!std::holds_alternative<Alarm::MotionNormalMode_S::AreaGrid>(stInfo.stMotionNormalMode.varRegion))
+        {
+            dlog_error("设置移动侦测网格区域参数错误");
+            result(ERR_WEB_PARAM);
+            return;
+        }
+
+        auto &grid = std::get<Alarm::MotionNormalMode_S::AreaGrid>(stInfo.stMotionNormalMode.varRegion);
+        if (grid.size() < GRID_HEIGHT_DEFAULT)
+        {
+            dlog_error("设置移动侦测信息参数错误");
+            result(ERR_WEB_PARAM);
+            return;
+        }
+        else
+        {
+            for (auto &AreaGrid : grid)
+            {
+                if (AreaGrid.size() < GRID_WIDTH_DEFAULT)
+                {
+                    dlog_error("设置移动侦测信息参数错误");
+                    result(ERR_WEB_PARAM);
+                    return;
+                }
+            }
+        }
     }
     else
     {
-        for (auto &AreaGrid : grid)
+        if (!std::holds_alternative<Common::Rect_S>(stInfo.stMotionNormalMode.varRegion))
         {
-            if (AreaGrid.empty())
-            {
-                dlog_error("设置移动侦测信息参数错误");
-                result(ERR_WEB_PARAM);
-                return;
-            }
+            dlog_error("设置移动侦测矩形区域参数错误");
+            result(ERR_WEB_PARAM);
+            return;
+        }
+
+        const auto &rect = std::get<Common::Rect_S>(stInfo.stMotionNormalMode.varRegion);
+        if (!rect.IsValid() || rect.isEmpty())
+        {
+            dlog_error("设置移动侦测信息区域绘制异常");
+            result(ERR_WEB_REGION);
+            return;
         }
     }
 
@@ -1289,14 +1316,6 @@ void Task::Event::SetPetRecognitionInfo::handle()
     CEventManage::instance()->update_event_schedule();
     result(nRet);
 }
-/* 获取人脸比对信息 */
-void Task::Event::GetFaceCompareInfo::handle()
-{
-    Alarm::FaceCompare_S stInfo;
-    CEventConfigure::instance()->get_configure(stInfo);
-    result(Convert::to_string(stInfo));
-}
-
 /*人脸比对设置*/
 void Task::Event::SetFaceCompareInfo::handle()
 {

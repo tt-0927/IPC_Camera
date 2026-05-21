@@ -91,8 +91,34 @@ void CMotionDetect::setAlgoParamCfg(const Alarm::MotionDetection_S &stAlgoCfg)
     {
         if(m_stMotionDetCfg.stMotionNormalMode.nRegionType) // 网格
         {
+            if (!std::holds_alternative<Alarm::MotionNormalMode_S::AreaGrid>(m_stMotionDetCfg.stMotionNormalMode.varRegion))
+            {
+                dlog_error("[移动侦测] 网格区域类型与配置数据不匹配");
+                m_stMotionDetCfg.bEnable = false;
+                m_bIsDraw = false;
+                goto reboot;
+            }
+
             /* 网格二维向量 */
             auto &grid = std::get<Alarm::MotionNormalMode_S::AreaGrid>(m_stMotionDetCfg.stMotionNormalMode.varRegion);
+            if (grid.size() < GRID_HEIGHT_DEFAULT)
+            {
+                dlog_error("[移动侦测] 网格区域行数错误");
+                m_stMotionDetCfg.bEnable = false;
+                m_bIsDraw = false;
+                goto reboot;
+            }
+            for (const auto &row : grid)
+            {
+                if (row.size() < GRID_WIDTH_DEFAULT)
+                {
+                    dlog_error("[移动侦测] 网格区域列数错误");
+                    m_stMotionDetCfg.bEnable = false;
+                    m_bIsDraw = false;
+                    goto reboot;
+                }
+            }
+
             Common::Rect_S stRect;
             /* 转换网格区域至矩形数据结构 */
             convert_gridRegion_to_rect(grid, m_nWidth, m_nHeight, stRect);
@@ -106,6 +132,7 @@ void CMotionDetect::setAlgoParamCfg(const Alarm::MotionDetection_S &stAlgoCfg)
             if(stRect.nWidth == 0 || stRect.nHeight == 0)
             {
                 /* 未正确设置区域，不使能侦测 */
+                dlog_error("[移动侦测] 网格区域未选中有效宏块，不使能侦测");
                 m_stMotionDetCfg.bEnable = false;
                 m_bIsDraw = false;
                 goto reboot;
@@ -115,9 +142,51 @@ void CMotionDetect::setAlgoParamCfg(const Alarm::MotionDetection_S &stAlgoCfg)
             /* 如果改变了侦测区域的宽高，就重启 */
             if(stRect.nWidth != m_stRect.nWidth || stRect.nHeight != m_stRect.nHeight)
             {
-                m_stRect = stRect;
                 bReboot = true;
             }
+            m_stRect = stRect;
+        }
+        else // 矩形
+        {
+            if (!std::holds_alternative<Common::Rect_S>(m_stMotionDetCfg.stMotionNormalMode.varRegion))
+            {
+                dlog_error("[移动侦测] 矩形区域类型与配置数据不匹配");
+                m_stMotionDetCfg.bEnable = false;
+                m_bIsDraw = false;
+                goto reboot;
+            }
+
+            Common::Rect_S stRect = std::get<Common::Rect_S>(m_stMotionDetCfg.stMotionNormalMode.varRegion);
+            if (!stRect.ConvertResolution(PIXEL_WIDTH_1920, PIXEL_HEIGHT_1080, m_nWidth, m_nHeight))
+            {
+                m_stMotionDetCfg.bEnable = false;
+                m_bIsDraw = false;
+                goto reboot;
+            }
+
+            /* 必须是宏块宽的偶数倍，宽度需16字节向下对齐，防止超限 */
+            stRect.nX = ALIGN_BACK(stRect.nX, 16);
+            stRect.nY = ALIGN_BACK(stRect.nY, 4);
+            stRect.nWidth = ALIGN_BACK(stRect.nWidth, 16);
+            stRect.nHeight = ALIGN_BACK(stRect.nHeight, 4);
+            dlog_debug("[移动侦测] : m_stRect: [%d,%d][%d,%d]", m_stRect.nX, m_stRect.nY, m_stRect.nWidth, m_stRect.nHeight);
+            dlog_debug("[移动侦测] :   stRect: [%d,%d][%d,%d]", stRect.nX, stRect.nY, stRect.nWidth, stRect.nHeight);
+            if(stRect.nWidth == 0 || stRect.nHeight == 0)
+            {
+                /* 未正确设置区域，不使能侦测 */
+                dlog_error("[移动侦测] 矩形区域为空，不使能侦测");
+                m_stMotionDetCfg.bEnable = false;
+                m_bIsDraw = false;
+                goto reboot;
+            }
+
+            m_bIsDraw = true;
+            /* 如果改变了侦测区域的宽高，就重启 */
+            if(stRect.nWidth != m_stRect.nWidth || stRect.nHeight != m_stRect.nHeight)
+            {
+                bReboot = true;
+            }
+            m_stRect = stRect;
         }
     }
     else if(m_stMotionDetCfg.enMode == Alarm::MotionType_E::MOTION_EXPERT) // 专家模式
