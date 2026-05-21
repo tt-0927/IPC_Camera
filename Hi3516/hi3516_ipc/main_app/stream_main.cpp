@@ -22,7 +22,6 @@
 #include "path_define.h"
 #include "control_manage.h"
 #include "config_manager.h"
-// #include "event_manage.h"
 
 /* 日志记录单个日志文件的最大大小 */
 #define MAX_LOG_SIZE  (1 * 1024 * 1024) // 1MB
@@ -109,24 +108,15 @@ bool initModules()
         goto exit_control_manage;
     }
 
-    /* 事件管理初始化 */
-    // nRet = CEventManage::instance()->init();
-    // if (nRet < OK)
-    // {
-    //     dlog_error("事件管理模块初始化失败：%d", nRet);
-    //     goto exit_event_manage;
-    // }
+    /*
+     * 事件管理器当前采用 CEventManage::instance() 懒加载方式启动内部调度线程。
+     * AI_APP 在 CStreamVideo::init() -> algo_detect_init() 中注册事件管理器回调，
+     * 这里无需再调用旧版 init/deinit 接口。
+     */
 
     dlog_trace("初始化所有模块成功");
     return true;
 
-// exit_event_manage:
-    /* 去初始化事件管理 */
-    // nRet = CEventManage::instance()->deinit();
-    // if (nRet < OK)
-    // {
-    //     dlog_error("事件管理模块去初始化失败：%d", nRet);
-    // }
 exit_control_manage:
     /* 控制管理模块去初始化 */
     nRet = ControlManage::instance()->deinit();
@@ -180,12 +170,10 @@ void deinitModules()
     //     dlog_error("性能监控模块去初始化失败：%d", nRet);
     // }
 
-    /* 去初始化事件管理 */
-    // nRet = CEventManage::instance()->deinit();
-    // if (nRet < OK)
-    // {
-    //     dlog_error("事件管理模块去初始化失败：%d", nRet);
-    // }
+    /*
+     * CEventManage 没有显式 deinit 接口，进程退出时由单例析构停止内部线程。
+     * 若后续要支持显式生命周期，需要先给 CEventManage 增加成对的 start/stop 接口。
+     */
 
     /* 控制管理模块去初始化 */
     nRet = ControlManage::instance()->deinit();

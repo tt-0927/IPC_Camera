@@ -16,6 +16,8 @@ include(${CAM_SHARE_PATH}/data/osa_base/container/container.cmake)
 include(${CAM_SHARE_PATH}/data/osa_base/ipc/ipc.cmake)
 include(${CAM_SHARE_PATH}/data/osa_base/srt/srt.cmake)
 include(${CAM_SHARE_PATH}/data/osa_base/networkEvent/networkEvent.cmake)
+include(${CAM_SHARE_PATH}/communication/network/curl_http/curl_http.cmake)
+include(${CAM_SHARE_PATH}/utils/curl/curl.cmake)
 include(${CAM_SHARE_PATH}/device_system/get_time/get_time.cmake)
 include(${CAM_SHARE_PATH}/device_system/system/system.cmake)
 include(${CAM_SHARE_PATH}/common/common.cmake)
@@ -133,6 +135,7 @@ target_link_libraries(${PROJECT_NAME}
     libpugixml
     # libatomic
 	libsqlite3
+    libcurl
     libgmssl
     libopenssl
 	# -lMemoryCheck
