@@ -1,4 +1,4 @@
-#ifdef CAP_NETWORK_WIFI
+#if CAP_NETWORK_WIFI
 #ifndef WIFI_MANAGER_H
 #define WIFI_MANAGER_H
 

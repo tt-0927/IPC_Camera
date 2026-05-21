@@ -1,4 +1,4 @@
-#ifdef CAP_NETWORK_4G
+#if CAP_NETWORK_4G
 #ifndef _4G_MANAGE_H
 #define _4G_MANAGE_H
 

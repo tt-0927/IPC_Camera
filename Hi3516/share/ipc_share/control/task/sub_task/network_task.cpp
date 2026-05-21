@@ -685,7 +685,7 @@ void Task::Network::SetGat1400Info::handle()
 #endif
 
 
-#ifdef CAP_NETWORK_WIFI
+#if CAP_NETWORK_WIFI
 void Task::Network::SetWifiStaInfo::handle()
 {
     ::Network::WifiStaInfo_S stInfo;
@@ -802,7 +802,7 @@ void Task::Network::DisconnectWifiSta::handle()
     }
 }
 #endif
-#ifdef CAP_NETWORK_4G
+#if CAP_NETWORK_4G
 void Task::Network::Get4GInfo::handle()
 {
     ::Network::SIM_Info_t info;
@@ -839,7 +839,7 @@ void Task::Network::Set4GInfo::handle()
 
 #endif
 
-#ifdef CAP_NETWORK_WIFI
+#if CAP_NETWORK_WIFI
 void Task::Network::SetHotspot::handle()
 {
     ::Network::HotspotConfig stInfo;

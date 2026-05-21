@@ -1,5 +1,5 @@
 // 包含头文件
-#ifdef CAP_NETWORK_WIFI
+#if CAP_NETWORK_WIFI
 #include <iostream>
 #include <fstream>
 #include <sstream>
