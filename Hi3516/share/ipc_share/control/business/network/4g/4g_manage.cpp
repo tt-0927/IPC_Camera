@@ -1,4 +1,4 @@
-#ifdef CAP_NETWORK_4G
+#if CAP_NETWORK_4G
 #include "4g_manage.h"
 #include <iostream>
 #include <cstring>

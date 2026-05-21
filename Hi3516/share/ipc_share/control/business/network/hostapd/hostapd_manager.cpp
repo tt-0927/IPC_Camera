@@ -1,4 +1,4 @@
-#ifdef CAP_NETWORK_WIFI
+#if CAP_NETWORK_WIFI
 #include "hostapd_manager.h"
 #include <iostream>
 #include <sstream>
