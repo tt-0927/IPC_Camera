@@ -217,18 +217,23 @@ void CUserSession::HeartbeatLoop()
         } 
         else 
 		{
-            failCount++;
-            NSDK_LOG_WARN("[User-%p] Heartbeat failed (%d/%d). Status: %d", 
-                userHand_, failCount, maxRetry_, res ? res->status : -1);
+            // 心跳失败处理
+            failCount++;                                                                       // 累计失败次数
+            NSDK_LOG_WARN("[User-%p] Heartbeat failed (%d/%d). Status: %d",                   // 打印警告日志
+                userHand_,                                                                     // 用户会话句柄（内存地址，用于区分不同连接）
+                failCount,                                                                     // 当前失败次数
+                maxRetry_,                                                                     // 最大允许失败次数
+                res ? res->status : -1);                                                      // HTTP响应状态码（-1表示连接完全失败）
 
+            // 判断是否达到最大重试次数
             if (failCount >= maxRetry_) 
 			{
-                NSDK_LOG_ERROR("[User-%p] Session Lost (Heartbeat timeout).", userHand_);
-                isOnline_ = false;
+                NSDK_LOG_ERROR("[User-%p] Session Lost (Heartbeat timeout).", userHand_);      // 会话超时，断开连接
+                isOnline_ = false;                                                             // 标记为离线状态
                 
-                if (notifyLost_) notifyLost_(userHand_);
+                if (notifyLost_) notifyLost_(userHand_);                                        // 通知上层会话丢失
                 
-                isRunning_ = false;
+                isRunning_ = false;                                                            // 停止心跳线程
             }
         }
     }
