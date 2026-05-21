@@ -18,9 +18,9 @@
 
 #include "Singleton.h"
 
-// 禁用HTTP服务端口复用，防止多个服务意外绑定同一端口
-// Disable HTTP server port reuse to prevent multiple services from accidentally binding to the same port
-#define SDK_HTTP_DISABLE_PORT_REUSE
+// 启用端口复用(SO_REUSEADDR)，允许服务端在TIME_WAIT状态下快速重启绑定同一端口
+// Enable port reuse (SO_REUSEADDR), allowing the server to quickly rebind the same port during TIME_WAIT
+// #define SDK_HTTP_DISABLE_PORT_REUSE
 
 #include "tvsdkhttplib.h"
 #include "HttpBasicCommand.hpp"

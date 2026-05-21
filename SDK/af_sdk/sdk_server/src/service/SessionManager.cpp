@@ -14,6 +14,7 @@
 #include "NetTVSDKServerInterface.h"
 #include "SDKConvert.h"
 #include "HttpAuthHandler.h"
+#include <sstream>
 
 CSessionManager::CSessionManager()
 {
@@ -38,7 +39,7 @@ std::string CSessionManager::GenerateSessionId()
 	return "session_" + std::to_string(Dis(Gen));
 }
 
-bool CSessionManager::Login(std::string& OutSessionId) 
+bool CSessionManager::Login(std::string& OutSessionId, const std::string& clientIP) 
 {
 	std::lock_guard<std::mutex> Lock(Mtx_);
 	
@@ -46,10 +47,12 @@ bool CSessionManager::Login(std::string& OutSessionId)
 	auto newSession = std::make_shared<CServerSession>(OutSessionId);
     newSession->SetLogined(true);
     newSession->SetConnected(true);
+    newSession->SetClientIP(clientIP);
     
     m_sessions[OutSessionId] = newSession;
 
-	NSDK_LOG_DEBUG("[SessionManager] Login Sucessfull! SessionId[%s]",OutSessionId.c_str());
+	NSDK_LOG_INFO("[SessionManager] Client logged in: SessionId=%s, ClientIP=%s, TotalSessions=%zu", 
+                  OutSessionId.c_str(), clientIP.c_str(), m_sessions.size());
 	
 	return true;
 }
@@ -60,9 +63,12 @@ bool CSessionManager::Logout(const std::string& SessionId)
 	auto It = m_sessions.find(SessionId);
 	if (It == m_sessions.end())
 	{
+		NSDK_LOG_WARN("[SessionManager] Logout failed: SessionId=%s not found", SessionId.c_str());
 		return false;
 	}
-	NSDK_LOG_DEBUG("[SessionManager] Logout Sucessfull! SessionId[%s]",SessionId.c_str());
+	std::string clientIP = It->second->GetClientIP();
+	NSDK_LOG_INFO("[SessionManager] Client logged out: SessionId=%s, ClientIP=%s, TotalSessions=%zu", 
+                  SessionId.c_str(), clientIP.c_str(), m_sessions.size() - 1);
 	It->second->SetLogined(false);
     It->second->SetConnected(false);
     m_sessions.erase(It);
@@ -77,9 +83,13 @@ bool CSessionManager::EnablePush(const std::string& SessionId)
     if (session && session->IsLogined()) 
 	{
         session->SetPushEnabled(true);
-        NSDK_LOG_INFO("[SessionManager] Push enabled for %s", SessionId.c_str());
+        std::string clientIP = session->GetClientIP();
+        NSDK_LOG_INFO("[SessionManager] Client subscribed to alarms: SessionId=%s, ClientIP=%s, Status=Subscribed", 
+                      SessionId.c_str(), clientIP.c_str());
         return true;
     }
+    NSDK_LOG_WARN("[SessionManager] Failed to enable push: SessionId=%s not found or not logged in", 
+                  SessionId.c_str());
     return false;
 }
 
@@ -134,21 +144,67 @@ size_t CSessionManager::PushToAll(const std::string& json, const std::vector<CSe
 {
 	std::lock_guard<std::mutex> Lock(Mtx_);
     size_t count = 0;
+    size_t totalSessions = m_sessions.size();
+    size_t notLogined = 0;
+    size_t notConnected = 0;
+    size_t pushDisabled = 0;
 
     CServerSession::AlarmData data;
     data.json = json;
     data.attachments = attachments;
 
+    std::string forwardedClients;
+    
     for (auto& pair : m_sessions) 
     {
         auto session = pair.second;
+        std::string clientIP = session->GetClientIP();
+        std::string sessionId = session->GetSessionId();
+        
+        NSDK_LOG_DEBUG("[SessionManager] Checking client: SessionId=%s, ClientIP=%s, Logined=%d, Connected=%d, PushEnabled=%d",
+                      sessionId.c_str(), clientIP.c_str(), 
+                      session->IsLogined(), session->IsConnected(), session->IsPushEnabled());
+        
         // 只有 登录 + 连接 + 开启推送 的客户端才发送
         if (session->IsLogined() && session->IsConnected() && session->IsPushEnabled()) 
 		{
             session->EnqueueMessage(data);
             count++;
+            if (!forwardedClients.empty()) forwardedClients += ", ";
+            forwardedClients += clientIP;
+        }
+        else
+        {
+            if (!session->IsLogined()) {
+                notLogined++;
+                NSDK_LOG_WARN("[SessionManager] Client skipped (Not Logined): SessionId=%s, ClientIP=%s",
+                             sessionId.c_str(), clientIP.c_str());
+            }
+            else if (!session->IsConnected()) {
+                notConnected++;
+                NSDK_LOG_WARN("[SessionManager] Client skipped (Not Connected): SessionId=%s, ClientIP=%s",
+                             sessionId.c_str(), clientIP.c_str());
+            }
+            else if (!session->IsPushEnabled()) {
+                pushDisabled++;
+                NSDK_LOG_WARN("[SessionManager] Client skipped (Push Disabled/Not Subscribed): SessionId=%s, ClientIP=%s",
+                             sessionId.c_str(), clientIP.c_str());
+            }
         }
     }
+    
+    if (count == 0 && totalSessions > 0)
+    {
+        NSDK_LOG_WARN("[SessionManager] Alarm not forwarded: No eligible clients. "
+                      "Total=%zu, NotLogined=%zu, NotConnected=%zu, PushDisabled=%zu",
+                      totalSessions, notLogined, notConnected, pushDisabled);
+    }
+    else if (count > 0)
+    {
+        NSDK_LOG_INFO("[SessionManager] Alarm forwarded: Success=%zu, Total=%zu, Clients=[%s]", 
+                      count, totalSessions, forwardedClients.c_str());
+    }
+    
     return count;
 }
 
@@ -156,6 +212,34 @@ size_t CSessionManager::GetSessionCount()
 {
     std::lock_guard<std::mutex> Lock(Mtx_);
     return m_sessions.size();
+}
+
+std::string CSessionManager::GetSessionDiagnosticInfo()
+{
+    std::lock_guard<std::mutex> Lock(Mtx_);
+    std::stringstream ss;
+
+    if (m_sessions.empty())
+    {
+        ss << "No active sessions (no clients logged in)";
+        return ss.str();
+    }
+
+    ss << "TotalSessions=" << m_sessions.size() << ": ";
+    int idx = 0;
+    for (const auto& pair : m_sessions)
+    {
+        auto& session = pair.second;
+        if (idx > 0) ss << "; ";
+        ss << "[" << idx << "] "
+           << "IP=" << session->GetClientIP() << ", "
+           << "Login=" << (session->IsLogined() ? "Y" : "N") << ", "
+           << "Conn=" << (session->IsConnected() ? "Y" : "N") << ", "
+           << "Subscribed=" << (session->IsPushEnabled() ? "Y" : "N");
+        idx++;
+    }
+
+    return ss.str();
 }
 
 void CSessionManager::HttpCommandLogin(const httplib::Request& req, httplib::Response& res)
@@ -170,7 +254,8 @@ void CSessionManager::HttpCommandLogin(const httplib::Request& req, httplib::Res
 	int nRespCode = NET_TV_E_SUCCEED;
 	std::string SessionId;
 	
-	Login(SessionId);
+	std::string clientIP = req.remote_addr;
+	Login(SessionId, clientIP);
 	stSeesionMessage.SeesionId = SessionId;
 	res.status = HTTP_RESP_CODE_SUCCESS;
 	res.set_content(SDKConvert::to_respString(nRespCode,stSeesionMessage), JSON_CONTENT_TYPE);
@@ -245,7 +330,8 @@ void CSessionManager::HttpCommandAlarmListen(const httplib::Request& req, httpli
     res.set_header("Connection", "keep-alive");
     res.set_header("Cache-Control", "no-cache");
 
-    NSDK_LOG_INFO("[SessionManager] Alarm Subscribe Start: %s", SessionId.c_str());
+    NSDK_LOG_INFO("[SessionManager] Alarm Subscribe Start: SessionId=%s, ClientIP=%s, TotalSessions=%zu", 
+                  SessionId.c_str(), session->GetClientIP().c_str(), m_sessions.size());
 
     res.set_content_provider(
         "multipart/form-data; boundary=" + boundary,
@@ -298,11 +384,12 @@ void CSessionManager::HttpCommandAlarmListen(const httplib::Request& req, httpli
         },
         [this, SessionId](bool) 
         {
-            NSDK_LOG_INFO("[SessionManager] Alarm Listen Closed: %s", SessionId.c_str());
+            auto sess = GetSession(SessionId);
+            std::string clientIP = sess ? sess->GetClientIP() : "unknown";
+            NSDK_LOG_INFO("[SessionManager] Alarm Listen Closed: SessionId=%s, ClientIP=%s", SessionId.c_str(), clientIP.c_str());
             MarkDisconnected(SessionId);
         }
-
-        // NSDK_LOG_INFO("[SessionManager] Alarm Listen Closed: %s", SessionId.c_str());
+        
     );
 }
 

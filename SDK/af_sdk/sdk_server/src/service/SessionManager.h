@@ -37,13 +37,19 @@ public:
 	size_t PushToAll(const std::string& json, const std::vector<CServerSession::Attachment>& attachments = {});
 	size_t GetSessionCount();
 
+	/**
+	 * @brief 获取所有会话的诊断状态信息（用于日志排查）
+	 * @return 诊断信息字符串，包含每个客户端的IP、登录/连接/订阅状态
+	 */
+	std::string GetSessionDiagnosticInfo();
+
 	void HttpCommandLogin(const httplib::Request& req, httplib::Response& res);
 	void HttpCommandLout(const httplib::Request& req, httplib::Response& res);
 	void HttpCommandKeepAlive(const httplib::Request& req, httplib::Response& res);
 	void HttpCommandAlarmListen(const httplib::Request& req, httplib::Response& res);
 
 private:
-	bool Login(std::string& OutSessionId);
+	bool Login(std::string& OutSessionId, const std::string& clientIP = "");
 	bool Logout(const std::string& SessionId);
 	std::string GenerateSessionId();
     std::shared_ptr<CServerSession> GetSession(const std::string& SessionId);

@@ -27,6 +27,9 @@ public:
     // --- 状态查询与设置 ---
     std::string GetSessionId() const { return m_sessionId; }
     
+    std::string GetClientIP() const { return m_clientIP; }
+    void SetClientIP(const std::string& ip) { m_clientIP = ip; }
+    
     bool IsLogined() const { return m_isLogined; }
     void SetLogined(bool val) { m_isLogined = val; }
 
@@ -66,6 +69,7 @@ public:
 
 private:
     const std::string m_sessionId;
+    std::string m_clientIP;
     
     std::atomic<bool> m_isLogined{false};
     std::atomic<bool> m_isConnected{false};

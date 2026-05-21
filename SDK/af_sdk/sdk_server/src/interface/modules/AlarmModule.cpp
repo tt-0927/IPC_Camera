@@ -168,13 +168,15 @@ BOOL AlarmModule::PushAlarmInfo(NET_TV_ALARMER_S* pAlarmer,
     size_t pushCount = CSessionManager::instance()->PushToAll(jsonStr);
     if (pushCount == 0)
     {
-        NSDK_LOG_WARN("AlarmModule::PushAlarmInfo: no active clients, cmd=0x%x, device=%s, totalSessions=%zu, bufLen=%d",
-                      lCommand, pAlarmer->szDeviceIP, totalSessions, dwBufLen);
+        std::string diagInfo = CSessionManager::instance()->GetSessionDiagnosticInfo();
+        NSDK_LOG_WARN("AlarmModule::PushAlarmInfo: FAILED - No eligible clients, cmd=0x%x, device=%s, totalSessions=%zu, bufLen=%d. "
+                      "Client status: %s",
+                      lCommand, pAlarmer->szDeviceIP, totalSessions, dwBufLen, diagInfo.c_str());
     }
     else
     {
-        NSDK_LOG_INFO("AlarmModule::PushAlarmInfo: pushed alarm, cmd=0x%x, device=%s, pushed=%zu, totalSessions=%zu, bufLen=%d",
-                      lCommand, pAlarmer->szDeviceIP, pushCount, totalSessions, dwBufLen);
+        NSDK_LOG_INFO("AlarmModule::PushAlarmInfo: SUCCESS - Forwarded to %zu client(s), cmd=0x%x, device=%s, totalSessions=%zu, bufLen=%d",
+                      pushCount, lCommand, pAlarmer->szDeviceIP, totalSessions, dwBufLen);
     }
 
     m_pushCount++;
