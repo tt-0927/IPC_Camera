@@ -392,6 +392,13 @@ namespace SDKConvert
         deal(pRootJson, data, bStruct);
     }
 
+    
+    // 空参数包的终止版本
+    inline void process_data(bool /*bStruct*/, Json::Object * /*pRootJson*/)
+    {
+        // 空参数包，什么也不做
+    }
+
     // 递归展开的函数模板，用于处理多个参数
     template <typename T, typename... Args>
     void process_data(bool bStruct, Json::Object *pRootJson, T &data, Args &... args)

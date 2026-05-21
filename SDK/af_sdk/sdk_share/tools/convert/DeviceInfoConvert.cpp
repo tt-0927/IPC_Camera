@@ -1200,6 +1200,8 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_REPLAY_CTRL_INFO_S& stInfo
     convert.field(pRootJson, "Channel", stInfo.dwChannel);
     convert.field(pRootJson, "CtrlType", stInfo.dwCtrlType);
     convert.field(pRootJson, "Speed", stInfo.fSpeed);
+    convert.field(pRootJson, "SeekTime", stInfo.nSeekTime);
+    convert.field(pRootJson, "ReplayType", stInfo.nReplayType);
     convert.field(pRootJson, "SessionId", stInfo.szSessionId);
     convert.field(pRootJson, "StartTime", stInfo.szStartTime);
     convert.field(pRootJson, "EndTime", stInfo.szEndTime);
@@ -1753,6 +1755,91 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_MOTION_ALARM_INFO_S& stInf
     convert.structure(pRootJson, "ExpertMode", stInfo.stExpertMode);
     convert.structure(pRootJson, "AlarmSchedule", stInfo.stAlarmSchedule);
     convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
+}
+
+/* ==================== 隐私遮盖配置相关转换函数 ==================== */
+
+void SDKConvert::deal(Json::Object* pRootJson, NET_TV_PRIVACY_MASK_AREA_S& stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+
+    SDKConvert::CSDKConvert convert(bOutStruct);
+    convert.field(pRootJson, "AreaID", stInfo.nAreaID);
+    convert.field(pRootJson, "Enable", stInfo.bEnable);
+    convert.field(pRootJson, "RectLeft", stInfo.nRectLeft);
+    convert.field(pRootJson, "RectTop", stInfo.nRectTop);
+    convert.field(pRootJson, "RectRight", stInfo.nRectRight);
+    convert.field(pRootJson, "RectBottom", stInfo.nRectBottom);
+}
+
+void SDKConvert::deal(Json::Object* pRootJson, NET_TV_PRIVACY_MASK_CFG_S& stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+
+    SDKConvert::CSDKConvert convert(bOutStruct);
+    convert.field(pRootJson, "Enable", stInfo.bEnable);
+    convert.field(pRootJson, "AreaCount", stInfo.dwAreaCount);
+
+    auto clamp_area_count = [](int nCount) -> int
+    {
+        if (nCount < 0)
+        {
+            return 0;
+        }
+        if (nCount > NET_TV_MAX_PRIVACY_MASK_AREA_NUM)
+        {
+            return NET_TV_MAX_PRIVACY_MASK_AREA_NUM;
+        }
+        return nCount;
+    };
+
+    /* 逐个转换遮盖区域 */
+    if (bOutStruct)
+    {
+        /* Json -> Struct */
+        Json::Object* pAreas = Json::get(pRootJson, "Areas");
+        int nSize = pAreas ? Json::Array::size(pAreas) : 0;
+        nSize = clamp_area_count(nSize);
+
+        int nCount = clamp_area_count(stInfo.dwAreaCount);
+        if (nCount == 0 || nCount > nSize)
+        {
+            nCount = nSize;
+        }
+        stInfo.dwAreaCount = nCount;
+
+        for (int i = 0; i < nCount; i++)
+        {
+            Json::Object* pItem = Json::Array::get(pAreas, i);
+            if (pItem)
+            {
+                deal(pItem, stInfo.astArea[i], bOutStruct);
+            }
+        }
+    }
+    else
+    {
+        /* Struct -> Json */
+        Json::Object* pAreas = Json::Array::init();
+        int nCount = clamp_area_count(stInfo.dwAreaCount);
+        stInfo.dwAreaCount = nCount;
+        for (int i = 0; i < nCount; i++)
+        {
+            Json::Object* pItem = Json::init();
+            if (pItem)
+            {
+                deal(pItem, stInfo.astArea[i], bOutStruct);
+                Json::Array::add(pAreas, pItem);
+            }
+        }
+        Json::add(pRootJson, "Areas", pAreas);
+    }
 }
 
 /* ==================== 遮挡报警相关转换函数 ==================== */

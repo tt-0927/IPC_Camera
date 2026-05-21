@@ -92,6 +92,10 @@ namespace SDKConvert
     void deal(Json::Object* pRootJson, NET_TV_MOTION_NORMAL_MODE_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_TV_MOTION_ALARM_INFO_S& stInfo, bool bOutStruct);
     
+    // 隐私遮盖配置相关
+    void deal(Json::Object* pRootJson, NET_TV_PRIVACY_MASK_AREA_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_TV_PRIVACY_MASK_CFG_S& stInfo, bool bOutStruct);
+
     // 遮挡报警相关
     void deal(Json::Object* pRootJson, NET_TV_TAMPER_ALARM_INFO_S& stInfo, bool bOutStruct);
     
