@@ -111,6 +111,35 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_VIDEO_STREAM_CAP_S& stInfo
     convert.structure(pRootJson, "Quality", stInfo.stQuality);
     // 码流平滑范围
     convert.structure(pRootJson, "StreamSmooth", stInfo.stStreamSmooth);
+
+    // 分辨率列表
+    convert.field(pRootJson, "ResolutionNum", (int&)stInfo.dwResolutionNum);
+    if (bOutStruct)
+    {
+        // JSON -> Struct
+        Json::Object* pResArray = Json::get(pRootJson, "Resolution");
+        int nResSize = Json::Array::size(pResArray);
+        for (int i = 0; i < nResSize && i < NET_TV_RESOLUTION_NUM_MAX; i++)
+        {
+            Json::Object* pItem = Json::Array::get(pResArray, i);
+            if (pItem)
+            {
+                deal(pItem, stInfo.astResolution[i], bOutStruct);
+            }
+        }
+    }
+    else
+    {
+        // Struct -> JSON
+        Json::Object* pResArray = Json::Array::init();
+        for (int i = 0; i < stInfo.dwResolutionNum && i < NET_TV_RESOLUTION_NUM_MAX; i++)
+        {
+            Json::Object* pItem = Json::init();
+            deal(pItem, stInfo.astResolution[i], bOutStruct);
+            Json::Array::add(pResArray, pItem);
+        }
+        Json::add(pRootJson, "Resolution", pResArray);
+    }
 }
 
 /**
