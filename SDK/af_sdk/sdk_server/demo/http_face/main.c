@@ -466,11 +466,7 @@ static void handle_http_client(socket_handle_t client)
              path_matches(path, "/api/v1/sdk/command"))
     {
         print_command_request("HTTP-SDK转发命令", method, path, body);
-        if (strstr(body, "NET_TV_GET_FACE_COMPARE_INFO") != NULL)
-        {
-            send_json_response(client, 200, "{\"ActionCode\":2529,\"Return\":0,\"Data\":{\"Enable\":true,\"LinkageSuccessMode\":{\"Tradition\":[6,7],\"AlarmLinkage\":[],\"RecordChn\":[]},\"LinkageFailMode\":{\"Tradition\":[6],\"AlarmLinkage\":[],\"RecordChn\":[]}}}");
-        }
-        else if (strstr(body, "NET_TV_SET_FACE_COMPARE_INFO") != NULL)
+        if (strstr(body, "NET_TV_SET_FACE_COMPARE_INFO") != NULL)
         {
             send_json_response(client, 200, "{\"ActionCode\":2528,\"Return\":0,\"Data\":{}}");
         }
