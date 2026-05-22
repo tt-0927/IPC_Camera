@@ -4,6 +4,7 @@ include(${CMAKE_CURRENT_LIST_DIR}/uds/uds.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/websocket/websocket.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/http/http.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/rtp/rtp.cmake)
+include(${CMAKE_CURRENT_LIST_DIR}/mqtt/mqtt.cmake)
 
 #源文件
 set (SYS_NETWORK_PATH
