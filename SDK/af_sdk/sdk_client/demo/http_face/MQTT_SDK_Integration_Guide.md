@@ -815,14 +815,11 @@ if (jResponse["Return"] == 0) {
     const json &jCfg = jResponse["Data"];
     std::cout << "启用: " << jCfg["Enable"] << std::endl;
     std::cout << "灵敏度: " << jCfg["Rule"]["Sensitivity"] << std::endl;
-    std::cout << "区域顶点数: " << jCfg["Rule"]["PointCount"] << std::endl;
+    std::cout << "区域顶点数: " << jCfg["Rule"]["Region"]["PointNum"] << std::endl;
 
     // 遍历检测区域坐标
-    const json &jX = jCfg["Rule"]["PointX"];
-    const json &jY = jCfg["Rule"]["PointY"];
-    int nPoints = jCfg["Rule"]["PointCount"];
-    for (int i = 0; i < nPoints; i++) {
-        std::cout << "  顶点" << i << ": (" << jX[i] << ", " << jY[i] << ")" << std::endl;
+    for (const auto &pt : jCfg["Rule"]["Region"]["Points"]) {
+        std::cout << "  顶点: (" << pt["X"] << ", " << pt["Y"] << ")" << std::endl;
     }
 }
 ```
@@ -838,29 +835,27 @@ if (jResponse["Return"] == 0) {
         "Enable": true,
         "Rule": {
             "Sensitivity": 60,
-            "PointCount": 4,
-            "PointX": [0.1, 0.9, 0.9, 0.1],
-            "PointY": [0.1, 0.1, 0.9, 0.9]
+            "Region": {
+                "PointNum": 4,
+                "Points": [
+                    {"X": 0.1, "Y": 0.1},
+                    {"X": 0.9, "Y": 0.1},
+                    {"X": 0.9, "Y": 0.9},
+                    {"X": 0.1, "Y": 0.9}
+                ]
+            }
         },
-        "AlarmSchedule": {
-            "TimeSectionCount": [1, 1, 1, 1, 1, 1, 1],
-            "TimeSection": [
-                [{"StartHour": 0, "StartMinute": 0, "EndHour": 23, "EndMinute": 59}],
-                [{"StartHour": 0, "StartMinute": 0, "EndHour": 23, "EndMinute": 59}],
-                [{"StartHour": 0, "StartMinute": 0, "EndHour": 23, "EndMinute": 59}],
-                [{"StartHour": 0, "StartMinute": 0, "EndHour": 23, "EndMinute": 59}],
-                [{"StartHour": 0, "StartMinute": 0, "EndHour": 23, "EndMinute": 59}],
-                [{"StartHour": 0, "StartMinute": 0, "EndHour": 23, "EndMinute": 59}],
-                [{"StartHour": 0, "StartMinute": 0, "EndHour": 23, "EndMinute": 59}]
-            ]
-        },
-        "LinkageList": {
-            "AlarmOutputCount": 0,
-            "AlarmOutput": [],
-            "RecordChannelCount": 1,
-            "RecordChannel": [0],
-            "SnapshotChannelCount": 1,
-            "SnapshotChannel": [0]
+        "AlarmTime1": [{"StartTime": {"Hour": 0, "Min": 0, "Sec": 0, "MSec": 0}, "StopTime": {"Hour": 23, "Min": 59, "Sec": 59, "MSec": 0}}],
+        "AlarmTime2": [{"StartTime": {"Hour": 0, "Min": 0, "Sec": 0, "MSec": 0}, "StopTime": {"Hour": 23, "Min": 59, "Sec": 59, "MSec": 0}}],
+        "AlarmTime3": [{"StartTime": {"Hour": 0, "Min": 0, "Sec": 0, "MSec": 0}, "StopTime": {"Hour": 23, "Min": 59, "Sec": 59, "MSec": 0}}],
+        "AlarmTime4": [{"StartTime": {"Hour": 0, "Min": 0, "Sec": 0, "MSec": 0}, "StopTime": {"Hour": 23, "Min": 59, "Sec": 59, "MSec": 0}}],
+        "AlarmTime5": [{"StartTime": {"Hour": 0, "Min": 0, "Sec": 0, "MSec": 0}, "StopTime": {"Hour": 23, "Min": 59, "Sec": 59, "MSec": 0}}],
+        "AlarmTime6": [{"StartTime": {"Hour": 0, "Min": 0, "Sec": 0, "MSec": 0}, "StopTime": {"Hour": 23, "Min": 59, "Sec": 59, "MSec": 0}}],
+        "AlarmTime7": [{"StartTime": {"Hour": 0, "Min": 0, "Sec": 0, "MSec": 0}, "StopTime": {"Hour": 23, "Min": 59, "Sec": 59, "MSec": 0}}],
+        "LinkageMode": {
+            "Tradition": [],
+            "AlarmLinkage": [],
+            "RecordChn": []
         }
     }
 }
@@ -870,11 +865,10 @@ if (jResponse["Return"] == 0) {
 |----------|------|------|
 | `Enable` | bool | 是否启用垃圾暴露检测 |
 | `Rule.Sensitivity` | int | 灵敏度 [1-100]，值越大越灵敏 |
-| `Rule.PointCount` | int | 检测区域顶点数（最多 32 个） |
-| `Rule.PointX` | float[] | 检测区域顶点 X 坐标 [0.0-1.0]，相对于画面宽度 |
-| `Rule.PointY` | float[] | 检测区域顶点 Y 坐标 [0.0-1.0]，相对于画面高度 |
-| `AlarmSchedule` | object | 布防时间，一周 7 天，每天最多 8 个时间段 |
-| `LinkageList` | object | 联动配置（报警输出、录像通道、抓拍通道） |
+| `Rule.Region.PointNum` | int | 检测区域顶点数（最多 32 个） |
+| `Rule.Region.Points` | array | 检测区域顶点数组，每个元素包含 `X`、`Y`（float，归一化坐标 [0.0-1.0]） |
+| `AlarmTime1` ~ `AlarmTime7` | array | 布防时间，周一到周日，每天的时间段数组 |
+| `LinkageMode` | object | 联动配置（`Tradition` 传统联动、`AlarmLinkage` 报警输出、`RecordChn` 录像通道） |
 
 ---
 
@@ -889,29 +883,34 @@ json jData = {
     {"Enable", true},
     {"Rule", {
         {"Sensitivity", 80},
-        {"PointCount", 4},
-        {"PointX", {0.05, 0.95, 0.95, 0.05}},
-        {"PointY", {0.05, 0.05, 0.95, 0.95}}
-    }},
-    {"AlarmSchedule", {
-        {"TimeSectionCount", {1, 1, 1, 1, 1, 1, 1}},
-        {"TimeSection", {
-            {{{"StartHour", 0}, {"StartMinute", 0}, {"EndHour", 23}, {"EndMinute", 59}}},
-            {{{"StartHour", 0}, {"StartMinute", 0}, {"EndHour", 23}, {"EndMinute", 59}}},
-            {{{"StartHour", 0}, {"StartMinute", 0}, {"EndHour", 23}, {"EndMinute", 59}}},
-            {{{"StartHour", 0}, {"StartMinute", 0}, {"EndHour", 23}, {"EndMinute", 59}}},
-            {{{"StartHour", 0}, {"StartMinute", 0}, {"EndHour", 23}, {"EndMinute", 59}}},
-            {{{"StartHour", 0}, {"StartMinute", 0}, {"EndHour", 23}, {"EndMinute", 59}}},
-            {{{"StartHour", 0}, {"StartMinute", 0}, {"EndHour", 23}, {"EndMinute", 59}}}
+        {"Region", {
+            {"PointNum", 4},
+            {"Points", {
+                {{"X", 0.05f}, {"Y", 0.05f}},
+                {{"X", 0.95f}, {"Y", 0.05f}},
+                {{"X", 0.95f}, {"Y", 0.95f}},
+                {{"X", 0.05f}, {"Y", 0.95f}}
+            }}
         }}
     }},
-    {"LinkageList", {
-        {"AlarmOutputCount", 1},
-        {"AlarmOutput", {0}},
-        {"RecordChannelCount", 1},
-        {"RecordChannel", {0}},
-        {"SnapshotChannelCount", 1},
-        {"SnapshotChannel", {0}}
+    {"AlarmTime1", {{{"StartTime", {{"Hour", 0}, {"Min", 0}, {"Sec", 0}, {"MSec", 0}}},
+                     {"StopTime",  {{"Hour", 23}, {"Min", 59}, {"Sec", 59}, {"MSec", 0}}}}}},
+    {"AlarmTime2", {{{"StartTime", {{"Hour", 0}, {"Min", 0}, {"Sec", 0}, {"MSec", 0}}},
+                     {"StopTime",  {{"Hour", 23}, {"Min", 59}, {"Sec", 59}, {"MSec", 0}}}}}},
+    {"AlarmTime3", {{{"StartTime", {{"Hour", 0}, {"Min", 0}, {"Sec", 0}, {"MSec", 0}}},
+                     {"StopTime",  {{"Hour", 23}, {"Min", 59}, {"Sec", 59}, {"MSec", 0}}}}}},
+    {"AlarmTime4", {{{"StartTime", {{"Hour", 0}, {"Min", 0}, {"Sec", 0}, {"MSec", 0}}},
+                     {"StopTime",  {{"Hour", 23}, {"Min", 59}, {"Sec", 59}, {"MSec", 0}}}}}},
+    {"AlarmTime5", {{{"StartTime", {{"Hour", 0}, {"Min", 0}, {"Sec", 0}, {"MSec", 0}}},
+                     {"StopTime",  {{"Hour", 23}, {"Min", 59}, {"Sec", 59}, {"MSec", 0}}}}}},
+    {"AlarmTime6", {{{"StartTime", {{"Hour", 0}, {"Min", 0}, {"Sec", 0}, {"MSec", 0}}},
+                     {"StopTime",  {{"Hour", 23}, {"Min", 59}, {"Sec", 59}, {"MSec", 0}}}}}},
+    {"AlarmTime7", {{{"StartTime", {{"Hour", 0}, {"Min", 0}, {"Sec", 0}, {"MSec", 0}}},
+                     {"StopTime",  {{"Hour", 23}, {"Min", 59}, {"Sec", 59}, {"MSec", 0}}}}}},
+    {"LinkageMode", {
+        {"Tradition", {0}},
+        {"AlarmLinkage", {0}},
+        {"RecordChn", {0}}
     }}
 };
 
@@ -946,7 +945,7 @@ json jResponse = client.sendCommand("NET_TV_SET_GARBAGE_EXPOSURE_CFG", jData);
 
 ### 8.11 获取垃圾满溢识别配置（NET_TV_GET_GARBAGE_OVERFLOW_CFG）
 
-查询垃圾满溢智能检测功能的配置。与垃圾暴露配置类似，额外包含时间阈值参数。
+查询垃圾满溢智能检测功能的配置。与垃圾暴露配置结构相同。
 
 **C++ 完整示例：**
 
@@ -956,13 +955,9 @@ if (jResponse["Return"] == 0) {
     const json &jCfg = jResponse["Data"];
     std::cout << "启用: " << jCfg["Enable"] << std::endl;
     std::cout << "灵敏度: " << jCfg["Rule"]["Sensitivity"] << std::endl;
-    std::cout << "满溢时间阈值(秒): " << jCfg["TimeThreshold"] << std::endl;
 
-    const json &jX = jCfg["Rule"]["PointX"];
-    const json &jY = jCfg["Rule"]["PointY"];
-    int nPoints = jCfg["Rule"]["PointCount"];
-    for (int i = 0; i < nPoints; i++) {
-        std::cout << "  顶点" << i << ": (" << jX[i] << ", " << jY[i] << ")" << std::endl;
+    for (const auto &pt : jCfg["Rule"]["Region"]["Points"]) {
+        std::cout << "  顶点: (" << pt["X"] << ", " << pt["Y"] << ")" << std::endl;
     }
 }
 ```
@@ -978,30 +973,27 @@ if (jResponse["Return"] == 0) {
         "Enable": true,
         "Rule": {
             "Sensitivity": 50,
-            "PointCount": 4,
-            "PointX": [0.2, 0.8, 0.8, 0.2],
-            "PointY": [0.2, 0.2, 0.8, 0.8]
+            "Region": {
+                "PointNum": 4,
+                "Points": [
+                    {"X": 0.2, "Y": 0.2},
+                    {"X": 0.8, "Y": 0.2},
+                    {"X": 0.8, "Y": 0.8},
+                    {"X": 0.2, "Y": 0.8}
+                ]
+            }
         },
-        "TimeThreshold": 300,
-        "AlarmSchedule": {
-            "TimeSectionCount": [1, 1, 1, 1, 1, 1, 1],
-            "TimeSection": [
-                [{"StartHour": 0, "StartMinute": 0, "EndHour": 23, "EndMinute": 59}],
-                [{"StartHour": 0, "StartMinute": 0, "EndHour": 23, "EndMinute": 59}],
-                [{"StartHour": 0, "StartMinute": 0, "EndHour": 23, "EndMinute": 59}],
-                [{"StartHour": 0, "StartMinute": 0, "EndHour": 23, "EndMinute": 59}],
-                [{"StartHour": 0, "StartMinute": 0, "EndHour": 23, "EndMinute": 59}],
-                [{"StartHour": 0, "StartMinute": 0, "EndHour": 23, "EndMinute": 59}],
-                [{"StartHour": 0, "StartMinute": 0, "EndHour": 23, "EndMinute": 59}]
-            ]
-        },
-        "LinkageList": {
-            "AlarmOutputCount": 0,
-            "AlarmOutput": [],
-            "RecordChannelCount": 1,
-            "RecordChannel": [0],
-            "SnapshotChannelCount": 1,
-            "SnapshotChannel": [0]
+        "AlarmTime1": [{"StartTime": {"Hour": 0, "Min": 0, "Sec": 0, "MSec": 0}, "StopTime": {"Hour": 23, "Min": 59, "Sec": 59, "MSec": 0}}],
+        "AlarmTime2": [{"StartTime": {"Hour": 0, "Min": 0, "Sec": 0, "MSec": 0}, "StopTime": {"Hour": 23, "Min": 59, "Sec": 59, "MSec": 0}}],
+        "AlarmTime3": [{"StartTime": {"Hour": 0, "Min": 0, "Sec": 0, "MSec": 0}, "StopTime": {"Hour": 23, "Min": 59, "Sec": 59, "MSec": 0}}],
+        "AlarmTime4": [{"StartTime": {"Hour": 0, "Min": 0, "Sec": 0, "MSec": 0}, "StopTime": {"Hour": 23, "Min": 59, "Sec": 59, "MSec": 0}}],
+        "AlarmTime5": [{"StartTime": {"Hour": 0, "Min": 0, "Sec": 0, "MSec": 0}, "StopTime": {"Hour": 23, "Min": 59, "Sec": 59, "MSec": 0}}],
+        "AlarmTime6": [{"StartTime": {"Hour": 0, "Min": 0, "Sec": 0, "MSec": 0}, "StopTime": {"Hour": 23, "Min": 59, "Sec": 59, "MSec": 0}}],
+        "AlarmTime7": [{"StartTime": {"Hour": 0, "Min": 0, "Sec": 0, "MSec": 0}, "StopTime": {"Hour": 23, "Min": 59, "Sec": 59, "MSec": 0}}],
+        "LinkageMode": {
+            "Tradition": [],
+            "AlarmLinkage": [],
+            "RecordChn": []
         }
     }
 }
@@ -1011,50 +1003,52 @@ if (jResponse["Return"] == 0) {
 |----------|------|------|
 | `Enable` | bool | 是否启用垃圾满溢检测 |
 | `Rule.Sensitivity` | int | 灵敏度 [1-100] |
-| `Rule.PointCount` | int | 检测区域顶点数 |
-| `Rule.PointX` | float[] | 检测区域 X 坐标 [0.0-1.0] |
-| `Rule.PointY` | float[] | 检测区域 Y 坐标 [0.0-1.0] |
-| `TimeThreshold` | int | 满溢持续时间阈值（秒），超过此时间才触发告警 |
-| `AlarmSchedule` | object | 布防时间 |
-| `LinkageList` | object | 联动配置 |
+| `Rule.Region.PointNum` | int | 检测区域顶点数 |
+| `Rule.Region.Points` | array | 检测区域顶点数组，每个元素包含 `X`、`Y` |
+| `AlarmTime1` ~ `AlarmTime7` | array | 布防时间，周一到周日 |
+| `LinkageMode` | object | 联动配置 |
 
 ---
 
 ### 8.12 设置垃圾满溢识别配置（NET_TV_SET_GARBAGE_OVERFLOW_CFG）
 
-修改垃圾满溢智能检测配置。与垃圾暴露配置类似，额外支持设置时间阈值。
+修改垃圾满溢智能检测配置。与垃圾暴露配置结构相同。
 
-**C++ 完整示例（启用检测，设置灵敏度、区域和时间阈值）：**
+**C++ 完整示例（启用检测，设置灵敏度和区域）：**
 
 ```cpp
 json jData = {
     {"Enable", true},
-    {"TimeThreshold", 600},
     {"Rule", {
         {"Sensitivity", 70},
-        {"PointCount", 4},
-        {"PointX", {0.1, 0.9, 0.9, 0.1}},
-        {"PointY", {0.1, 0.1, 0.9, 0.9}}
-    }},
-    {"AlarmSchedule", {
-        {"TimeSectionCount", {1, 1, 1, 1, 1, 1, 1}},
-        {"TimeSection", {
-            {{{"StartHour", 0}, {"StartMinute", 0}, {"EndHour", 23}, {"EndMinute", 59}}},
-            {{{"StartHour", 0}, {"StartMinute", 0}, {"EndHour", 23}, {"EndMinute", 59}}},
-            {{{"StartHour", 0}, {"StartMinute", 0}, {"EndHour", 23}, {"EndMinute", 59}}},
-            {{{"StartHour", 0}, {"StartMinute", 0}, {"EndHour", 23}, {"EndMinute", 59}}},
-            {{{"StartHour", 0}, {"StartMinute", 0}, {"EndHour", 23}, {"EndMinute", 59}}},
-            {{{"StartHour", 0}, {"StartMinute", 0}, {"EndHour", 23}, {"EndMinute", 59}}},
-            {{{"StartHour", 0}, {"StartMinute", 0}, {"EndHour", 23}, {"EndMinute", 59}}}
+        {"Region", {
+            {"PointNum", 4},
+            {"Points", {
+                {{"X", 0.1f}, {"Y", 0.1f}},
+                {{"X", 0.9f}, {"Y", 0.1f}},
+                {{"X", 0.9f}, {"Y", 0.9f}},
+                {{"X", 0.1f}, {"Y", 0.9f}}
+            }}
         }}
     }},
-    {"LinkageList", {
-        {"AlarmOutputCount", 1},
-        {"AlarmOutput", {0}},
-        {"RecordChannelCount", 1},
-        {"RecordChannel", {0}},
-        {"SnapshotChannelCount", 1},
-        {"SnapshotChannel", {0}}
+    {"AlarmTime1", {{{"StartTime", {{"Hour", 0}, {"Min", 0}, {"Sec", 0}, {"MSec", 0}}},
+                     {"StopTime",  {{"Hour", 23}, {"Min", 59}, {"Sec", 59}, {"MSec", 0}}}}}},
+    {"AlarmTime2", {{{"StartTime", {{"Hour", 0}, {"Min", 0}, {"Sec", 0}, {"MSec", 0}}},
+                     {"StopTime",  {{"Hour", 23}, {"Min", 59}, {"Sec", 59}, {"MSec", 0}}}}}},
+    {"AlarmTime3", {{{"StartTime", {{"Hour", 0}, {"Min", 0}, {"Sec", 0}, {"MSec", 0}}},
+                     {"StopTime",  {{"Hour", 23}, {"Min", 59}, {"Sec", 59}, {"MSec", 0}}}}}},
+    {"AlarmTime4", {{{"StartTime", {{"Hour", 0}, {"Min", 0}, {"Sec", 0}, {"MSec", 0}}},
+                     {"StopTime",  {{"Hour", 23}, {"Min", 59}, {"Sec", 59}, {"MSec", 0}}}}}},
+    {"AlarmTime5", {{{"StartTime", {{"Hour", 0}, {"Min", 0}, {"Sec", 0}, {"MSec", 0}}},
+                     {"StopTime",  {{"Hour", 23}, {"Min", 59}, {"Sec", 59}, {"MSec", 0}}}}}},
+    {"AlarmTime6", {{{"StartTime", {{"Hour", 0}, {"Min", 0}, {"Sec", 0}, {"MSec", 0}}},
+                     {"StopTime",  {{"Hour", 23}, {"Min", 59}, {"Sec", 59}, {"MSec", 0}}}}}},
+    {"AlarmTime7", {{{"StartTime", {{"Hour", 0}, {"Min", 0}, {"Sec", 0}, {"MSec", 0}}},
+                     {"StopTime",  {{"Hour", 23}, {"Min", 59}, {"Sec", 59}, {"MSec", 0}}}}}},
+    {"LinkageMode", {
+        {"Tradition", {0}},
+        {"AlarmLinkage", {0}},
+        {"RecordChn", {0}}
     }}
 };
 
@@ -1089,31 +1083,28 @@ json jResponse = client.sendCommand("NET_TV_SET_GARBAGE_OVERFLOW_CFG", jData);
 
 ## 9. 布防时间说明
 
-布防时间（`AlarmSchedule`）结构为一周 7 天，每天最多 8 个时间段。
+布防时间使用 `AlarmTime1` ~ `AlarmTime7` 字段，分别对应周一到周日。每个字段是时间段数组，每天最多 8 个时间段。
+
+每个时间段包含 `StartTime` 和 `StopTime`，各自包含：
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
-| `TimeSectionCount` | int[7] | 每天的时间段数量 [0-8] |
-| `TimeSection` | object[7][8] | 一周 7 天，每天的时间段数组 |
-
-- 数组索引 `0` = 周日，`1` = 周一，`2` = 周二 ... `6` = 周六
-- 每个时间段包含 `StartHour`、`StartMinute`、`EndHour`、`EndMinute`
-- 时间范围：小时 [0-23]，分钟 [0-59]
+| `Hour` | int | 小时 [0-23] |
+| `Min` | int | 分钟 [0-59] |
+| `Sec` | int | 秒 [0-59] |
+| `MSec` | int | 毫秒 [0-999] |
 
 **全天布防示例：**
 
 ```json
 {
-    "TimeSectionCount": [1, 1, 1, 1, 1, 1, 1],
-    "TimeSection": [
-        [{"StartHour": 0, "StartMinute": 0, "EndHour": 23, "EndMinute": 59}],
-        [{"StartHour": 0, "StartMinute": 0, "EndHour": 23, "EndMinute": 59}],
-        [{"StartHour": 0, "StartMinute": 0, "EndHour": 23, "EndMinute": 59}],
-        [{"StartHour": 0, "StartMinute": 0, "EndHour": 23, "EndMinute": 59}],
-        [{"StartHour": 0, "StartMinute": 0, "EndHour": 23, "EndMinute": 59}],
-        [{"StartHour": 0, "StartMinute": 0, "EndHour": 23, "EndMinute": 59}],
-        [{"StartHour": 0, "StartMinute": 0, "EndHour": 23, "EndMinute": 59}]
-    ]
+    "AlarmTime1": [{"StartTime": {"Hour": 0, "Min": 0, "Sec": 0, "MSec": 0}, "StopTime": {"Hour": 23, "Min": 59, "Sec": 59, "MSec": 0}}],
+    "AlarmTime2": [{"StartTime": {"Hour": 0, "Min": 0, "Sec": 0, "MSec": 0}, "StopTime": {"Hour": 23, "Min": 59, "Sec": 59, "MSec": 0}}],
+    "AlarmTime3": [{"StartTime": {"Hour": 0, "Min": 0, "Sec": 0, "MSec": 0}, "StopTime": {"Hour": 23, "Min": 59, "Sec": 59, "MSec": 0}}],
+    "AlarmTime4": [{"StartTime": {"Hour": 0, "Min": 0, "Sec": 0, "MSec": 0}, "StopTime": {"Hour": 23, "Min": 59, "Sec": 59, "MSec": 0}}],
+    "AlarmTime5": [{"StartTime": {"Hour": 0, "Min": 0, "Sec": 0, "MSec": 0}, "StopTime": {"Hour": 23, "Min": 59, "Sec": 59, "MSec": 0}}],
+    "AlarmTime6": [{"StartTime": {"Hour": 0, "Min": 0, "Sec": 0, "MSec": 0}, "StopTime": {"Hour": 23, "Min": 59, "Sec": 59, "MSec": 0}}],
+    "AlarmTime7": [{"StartTime": {"Hour": 0, "Min": 0, "Sec": 0, "MSec": 0}, "StopTime": {"Hour": 23, "Min": 59, "Sec": 59, "MSec": 0}}]
 }
 ```
 
@@ -1121,24 +1112,23 @@ json jResponse = client.sendCommand("NET_TV_SET_GARBAGE_OVERFLOW_CFG", jData);
 
 ```json
 {
-    "TimeSectionCount": [0, 1, 1, 1, 1, 1, 0],
-    "TimeSection": [
-        [],
-        [{"StartHour": 8, "StartMinute": 0, "EndHour": 18, "EndMinute": 0}],
-        [{"StartHour": 8, "StartMinute": 0, "EndHour": 18, "EndMinute": 0}],
-        [{"StartHour": 8, "StartMinute": 0, "EndHour": 18, "EndMinute": 0}],
-        [{"StartHour": 8, "StartMinute": 0, "EndHour": 18, "EndMinute": 0}],
-        [{"StartHour": 8, "StartMinute": 0, "EndHour": 18, "EndMinute": 0}],
-        []
-    ]
+    "AlarmTime1": [],
+    "AlarmTime2": [{"StartTime": {"Hour": 8, "Min": 0, "Sec": 0, "MSec": 0}, "StopTime": {"Hour": 18, "Min": 0, "Sec": 0, "MSec": 0}}],
+    "AlarmTime3": [{"StartTime": {"Hour": 8, "Min": 0, "Sec": 0, "MSec": 0}, "StopTime": {"Hour": 18, "Min": 0, "Sec": 0, "MSec": 0}}],
+    "AlarmTime4": [{"StartTime": {"Hour": 8, "Min": 0, "Sec": 0, "MSec": 0}, "StopTime": {"Hour": 18, "Min": 0, "Sec": 0, "MSec": 0}}],
+    "AlarmTime5": [{"StartTime": {"Hour": 8, "Min": 0, "Sec": 0, "MSec": 0}, "StopTime": {"Hour": 18, "Min": 0, "Sec": 0, "MSec": 0}}],
+    "AlarmTime6": [{"StartTime": {"Hour": 8, "Min": 0, "Sec": 0, "MSec": 0}, "StopTime": {"Hour": 18, "Min": 0, "Sec": 0, "MSec": 0}}],
+    "AlarmTime7": []
 }
 ```
+
+> 如果某天不需要布防，对应字段传空数组 `[]` 或不传该字段。
 
 ---
 
 ## 10. 检测区域坐标说明
 
-检测区域使用归一化坐标系：
+检测区域使用 `Region` 对象，包含 `PointNum`（顶点数）和 `Points`（顶点数组）。每个顶点包含 `X`、`Y` 归一化坐标（float 类型）。
 
 ```
 (0,0) ─────────────────── (1,0)
@@ -1152,6 +1142,22 @@ json jResponse = client.sendCommand("NET_TV_SET_GARBAGE_OVERFLOW_CFG", jData);
 - Y 坐标：0.0 = 画面最上，1.0 = 画面最下
 - 至少需要 3 个顶点构成检测区域，最多 32 个顶点
 - 顶点按顺时针或逆时针顺序排列
+
+**JSON 格式：**
+
+```json
+{
+    "Region": {
+        "PointNum": 4,
+        "Points": [
+            {"X": 0.1, "Y": 0.1},
+            {"X": 0.9, "Y": 0.1},
+            {"X": 0.9, "Y": 0.9},
+            {"X": 0.1, "Y": 0.9}
+        ]
+    }
+}
+```
 
 ---
 
@@ -1178,5 +1184,6 @@ json jResponse = client.sendCommand("NET_TV_SET_GARBAGE_OVERFLOW_CFG", jData);
 4. **超时处理**：建议设置 10 秒响应超时，超时后可重试
 5. **并发控制**：同一设备建议串行下发命令，避免并发执行导致状态冲突
 6. **图片传输**：人脸图片需先通过 FTP/SCP 等方式上传至设备，命令中传入设备上的路径即可
-7. **坐标系**：检测区域坐标使用归一化坐标 [0.0-1.0]，左上角为 (0,0)，右下角为 (1,1)
-8. **布防时间**：一周 7 天（索引 0=周日，1=周一...6=周六），每天最多 8 个时间段
+7. **坐标系**：检测区域使用 `Region.Points` 数组，坐标为归一化 float [0.0-1.0]，左上角为 (0,0)，右下角为 (1,1)
+8. **布防时间**：使用 `AlarmTime1`~`AlarmTime7`（周一到周日），每天是时间段数组，每个时间段包含 `StartTime` 和 `StopTime`（含 `Hour`/`Min`/`Sec`/`MSec`）
+9. **联动配置**：使用 `LinkageMode` 对象，包含 `Tradition`（传统联动）、`AlarmLinkage`（报警输出）、`RecordChn`（录像通道）三个 int 数组

@@ -19,6 +19,9 @@
 #include "task_manage.h"
 #include "task.h"
 
+/* cJSON 用于 SET 数据包装（与 tvsdk_callbacks.cpp 的 wrap_data_json 对齐） */
+#include "cJSON.h"
+
 /* ==================== 静态成员 ==================== */
 static CTaskManage *s_pTaskManage = nullptr;
 
@@ -372,6 +375,37 @@ int CMqttSdkGateway::execute_get_result(int nActionCode, const std::string &strD
 }
 
 /**
+ * @brief  : 将裸 JSON 配置包装为 {"Data": ...} 格式
+ * @note   : 任务系统 set_info() 通过 get_data(stInfo.data) 提取 "Data" 字段赋给 m_taskData，
+ *           因此 SET 命令必须将配置对象包装在 "Data" 键下，与 tvsdk_callbacks.cpp 的 wrap_data_json 对齐
+ */
+static std::string wrap_set_data(const std::string &strRawJson)
+{
+    if (strRawJson.empty())
+        return "{}";
+
+    cJSON *pConfig = cJSON_Parse(strRawJson.c_str());
+    if (!pConfig)
+        return strRawJson;
+
+    cJSON *pRoot = cJSON_CreateObject();
+    if (!pRoot)
+    {
+        cJSON_Delete(pConfig);
+        return strRawJson;
+    }
+
+    cJSON_AddItemToObject(pRoot, "Data", pConfig);
+
+    char *pOut = cJSON_PrintUnformatted(pRoot);
+    std::string strResult = pOut ? pOut : strRawJson;
+    free(pOut);
+    cJSON_Delete(pRoot);
+
+    return strResult;
+}
+
+/**
  * @brief  : 通过 CTaskManage 执行 SET 命令
  */
 int CMqttSdkGateway::execute_set_action(int nActionCode, const std::string &strData)
@@ -383,7 +417,7 @@ int CMqttSdkGateway::execute_set_action(int nActionCode, const std::string &strD
     }
 
     Task::Info_S stInfo;
-    stInfo.data = strData;
+    stInfo.data = wrap_set_data(strData);
     return s_pTaskManage->execute(nActionCode, stInfo);
 }
 
