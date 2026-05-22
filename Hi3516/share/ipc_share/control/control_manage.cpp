@@ -3,7 +3,7 @@
  * @Author       : huangjunda
  * @Date         : 2025-03-27 19:38:25
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-04-28 10:38:37
+ * @LastEditTime : 2026-05-15 16:16:29
  * @Description  : 控制事务任务管理
  */
 
@@ -27,7 +27,7 @@
 #include "upnp_manage.h"
 #include "qos_manage.h"
 #include "network_manage.h"
-
+#include "platform_manager.h"
 #include "register_manage.h"
 #include "preview_manage.h"
 #include "https_manage.h"
@@ -207,6 +207,15 @@ int ControlManage::init_business()
         dlog_error("qos管理模块初始化失败：%d", nRet);
         return nRet;
     }
+#if CAP_GARBAGE_STATION_PLATFORM
+    /* 平台管理初始化 */
+    nRet = CPlatformManager::instance()->init();
+    if (nRet < OK)
+    {
+        dlog_error("平台管理模块初始化失败：%d", nRet);
+        /* 平台管理初始化失败不阻塞主流程，记录日志后继续 */
+    }
+#endif
     /* 注册激活初始化 */
     nRet = CRegisterManage::instance()->init();
     if (nRet < OK)
@@ -301,6 +310,14 @@ void ControlManage::deinit_business()
     {
         dlog_error("注册激活模块去初始化失败：%d", nRet);
     }
+#if CAP_GARBAGE_STATION_PLATFORM
+    /* 平台管理去初始化 */
+    nRet = CPlatformManager::instance()->deinit();
+    if (nRet < OK)
+    {
+        dlog_error("平台管理模块去初始化失败：%d", nRet);
+    }
+#endif
     /* qos去初始化 */
     nRet = CQosManage::instance()->deinit();
     if (nRet < OK)
@@ -460,6 +477,11 @@ int ControlManage::init_server(std::shared_ptr<CTaskManage> &pTaskManage)
         dlog_error("TVSDK服务端初始化失败：%d", nRet);
         return nRet;
     }
+#endif
+
+#if CAP_GARBAGE_STATION_PLATFORM
+    /* 平台管理模块注入 CTaskManage，用于 MQTT SDK 网关命令转发 */
+    CPlatformManager::instance()->set_taskManage(pTaskManage.get());
 #endif
 
     /* 设备激活客户端初始化 */
@@ -705,22 +727,33 @@ void ControlManage::bind_task(std::shared_ptr<CTaskManage> &pTaskManage)
     pTaskManage->bind<Task::Network::GmUploadCrlFile>(AC_GM_UPLOAD_CRL_FILE);
     pTaskManage->bind<Task::Network::GmGetCertInfo>(AC_GM_GET_CERT_INFO);
     pTaskManage->bind<Task::Network::GmDeleteCertFile>(AC_GM_DELETE_CERT_FILE);
+
     #if CAP_NETWORK_WIFI
     /*WIFI */
     pTaskManage->bind<Task::Network::SetWifiStaInfo>(AC_SET_CONFIG_WIFI_STA);
     pTaskManage->bind<Task::Network::ConnectWifiSta>(AC_CONNECT_WIFI_STA);
     pTaskManage->bind<Task::Network::DisconnectWifiSta>(AC_DISCONNECT_WIFI_STA);
     #endif
+
     #if CAP_NETWORK_4G
     /*4G */
     pTaskManage->bind<Task::Network::Get4GInfo>(AC_GET_4G_INFO);
     pTaskManage->bind<Task::Network::Set4GInfo>(AC_SET_4G_INFO);
     #endif
+
     #if CAP_NETWORK_WIFI
     /*热点 */
     pTaskManage->bind<Task::Network::SetHotspot>(AC_SET_HOTSPOT_INFO);
     pTaskManage->bind<Task::Network::GetHotspotConn>(AC_GET_HOTSPOT_CONN);
     #endif
+
+    #if CAP_GARBAGE_STATION_PLATFORM
+    /* 平台管理 */
+    pTaskManage->bind<Task::Network::ConnPlatform>(AC_PLATFORM_CONN);
+    pTaskManage->bind<Task::Network::storePlatformDevices>(AC_PLATFORM_STOREDEVICE);
+    pTaskManage->bind<Task::Network::GetConnPlatformInfo>(AC_PLATFORM_GETINFO);
+    #endif
+
     #ifdef ENABLE_GAT1400_SRC
     /* GAT1400相关 */
     pTaskManage->bind<Task::Network::GetGat1400Info>(AC_GET_GAT1400_INFO);
@@ -850,6 +883,7 @@ void ControlManage::bind_task(std::shared_ptr<CTaskManage> &pTaskManage)
     pTaskManage->bind<Task::Event::SetFaceCaptureInfo>(AC_SET_FACE_CAPTURE_INFO);
     /*人脸比对 */
     pTaskManage->bind<Task::Event::SetFaceCompareInfo>(AC_SET_FACE_COMPARE_INFO);
+    //pTaskManage->bind<Task::Event::GetFaceCompareInfo>(AC_GET_FACE_COMPARE_INFO);
     /* 人脸抓拍叠加信息 */
     pTaskManage->bind<Task::Event::GetFaceCaptureOverlayInfo>(AC_GET_FACE_CAPTURE_OVERLAY_INFO_INFO);
     pTaskManage->bind<Task::Event::SetFaceCaptureOverlayInfo>(AC_SET_FACE_CAPTURE_OVERLAY_INFO_INFO);
