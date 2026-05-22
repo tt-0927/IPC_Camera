@@ -155,6 +155,7 @@ target_link_libraries(${PROJECT_NAME}
     libonvif
     libffmpeg
     # libNetTVSDKServer
+    libmqtt
 
     # ai_share
     YoloUltralytics_rpn
