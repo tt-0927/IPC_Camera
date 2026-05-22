@@ -3,7 +3,7 @@
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2026-04-15 16:29:58
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-04-28 10:27:40
+ * @LastEditTime : 2026-05-18 17:41:33
  * @Description  : 事件联动字典与协议映射基础实现
  */
 
@@ -15,6 +15,7 @@
 #include <algorithm>
 #include <cstdlib>
 #include <cstring>
+#include <fstream>
 #include <memory>
 #endif
 
@@ -63,6 +64,66 @@ bool copy_tvsdk_image(const EventTvSdkImage_S &stImage, BYTE *pDst, UINT32 &dwDs
     memcpy(pDst, stImage.vecJpeg.data(), stImage.vecJpeg.size());
     dwDstLen = static_cast<UINT32>(stImage.vecJpeg.size());
     return true;
+}
+
+template <size_t N>
+void copy_tvsdk_string(CHAR (&szDst)[N], const std::string &strSrc)
+{
+    if (N == 0)
+    {
+        return;
+    }
+
+    strncpy(szDst, strSrc.c_str(), N - 1);
+    szDst[N - 1] = '\0';
+}
+
+/**
+ * @brief   : 读取本地 JPEG 文件到 TVSDK 告警定长缓冲区
+ * @param    {std::string} &strPath 图片路径
+ * @param    {BYTE} *pDst 目标缓冲区
+ * @param    {UINT32} &dwDstLen 目标长度字段
+ * @param    {size_t} nMaxLen 目标缓冲区最大长度
+ * @return   {void}
+ */
+void load_tvsdk_image_file(const std::string &strPath, BYTE *pDst, UINT32 &dwDstLen, size_t nMaxLen)
+{
+    dwDstLen = 0;
+    if (strPath.empty() || !pDst)
+    {
+        return;
+    }
+
+    std::ifstream file(strPath.c_str(), std::ios::binary | std::ios::ate);
+    if (!file.is_open())
+    {
+        dlog_warn("TVSDK人脸比对图片打开失败: %s", strPath.c_str());
+        return;
+    }
+
+    const std::streamoff nSize = file.tellg();
+    if (nSize <= 0)
+    {
+        return;
+    }
+    if (static_cast<size_t>(nSize) > nMaxLen)
+    {
+        dlog_warn("TVSDK人脸比对图片过大: %s, size[%lld], max[%zu]",
+                  strPath.c_str(),
+                  static_cast<long long>(nSize),
+                  nMaxLen);
+        return;
+    }
+
+    file.seekg(0, std::ios::beg);
+    file.read(reinterpret_cast<char *>(pDst), nSize);
+    if (!file)
+    {
+        dlog_warn("TVSDK人脸比对图片读取失败: %s", strPath.c_str());
+        return;
+    }
+
+    dwDstLen = static_cast<UINT32>(nSize);
 }
 
 /**
@@ -163,7 +224,15 @@ void push_basic_alarm(const EventTriggerContext_S &stContext, UINT32 dwAlarmType
         return;
     }
 
-    ControlManage::instance()->tvsdk_push_alarm(static_cast<int>(pInfo->dwAlarmType), pInfo.get(), sizeof(*pInfo));
+    int nRet = ControlManage::instance()->tvsdk_push_alarm(static_cast<int>(pInfo->dwAlarmType), pInfo.get(), sizeof(*pInfo));
+    if (nRet < 0)
+    {
+        dlog_warn("TVSDK推送普通告警失败: cmd[0x%x] ret[%d]", pInfo->dwAlarmType, nRet);
+    }
+    else
+    {
+        dlog_info("TVSDK推送普通告警成功: cmd[0x%x]", pInfo->dwAlarmType);
+    }
 }
 
 /**
@@ -189,7 +258,15 @@ void push_rule_alarm(const EventTriggerContext_S &stContext, UINT32 dwAlarmType)
         return;
     }
 
-    ControlManage::instance()->tvsdk_push_alarm(static_cast<int>(pInfo->dwAlarmType), pInfo.get(), sizeof(*pInfo));
+    int nRet = ControlManage::instance()->tvsdk_push_alarm(static_cast<int>(pInfo->dwAlarmType), pInfo.get(), sizeof(*pInfo));
+    if (nRet < 0)
+    {
+        dlog_warn("TVSDK推送周界告警失败: cmd[0x%x] ret[%d]", pInfo->dwAlarmType, nRet);
+    }
+    else
+    {
+        dlog_info("TVSDK推送周界告警成功: cmd[0x%x]", pInfo->dwAlarmType);
+    }
 }
 
 /**
@@ -206,7 +283,87 @@ void push_exception_alarm(const EventTriggerContext_S &stContext, UINT32 dwAlarm
     stInfo.dwChannel = static_cast<UINT32>(stContext.nChnId < 0 ? 0 : stContext.nChnId);
     stInfo.dwDiskNo = 0;
     stInfo.dwStatus = 1;
-    ControlManage::instance()->tvsdk_push_alarm(static_cast<int>(stInfo.dwAlarmType), &stInfo, sizeof(stInfo));
+    int nRet = ControlManage::instance()->tvsdk_push_alarm(static_cast<int>(stInfo.dwAlarmType), &stInfo, sizeof(stInfo));
+    if (nRet < 0)
+    {
+        dlog_warn("TVSDK推送异常告警失败: cmd[0x%x] ret[%d]", stInfo.dwAlarmType, nRet);
+    }
+    else
+    {
+        dlog_info("TVSDK推送异常告警成功: cmd[0x%x]", stInfo.dwAlarmType);
+    }
+}
+
+/**
+ * @brief   : 推送人脸比对 TVSDK 告警
+ * @param    {EventTriggerContext_S} &stContext 事件触发上下文
+ * @return   {void}
+ */
+void push_face_compare_alarm(const EventTriggerContext_S &stContext)
+{
+    if (!stContext.pTvSdkPayload || stContext.pTvSdkPayload->enType != EventTvSdkPayloadType_E::FACE_COMPARE)
+    {
+        return;
+    }
+
+    const Event::FaceCompareInfo_S &stSrc = stContext.pTvSdkPayload->stFaceCompare.stFaceCompareInfo;
+    std::unique_ptr<NET_TV_ALARM_FACE_COMPARE_INFO_S> pInfo(new NET_TV_ALARM_FACE_COMPARE_INFO_S());
+    memset(pInfo.get(), 0, sizeof(*pInfo));
+
+    int nChannel = stContext.nChnId;
+    if (nChannel < 0)
+    {
+        nChannel = stSrc.stInfo.nChnId;
+    }
+    if (nChannel < 0)
+    {
+        nChannel = 0;
+    }
+
+    pInfo->dwAlarmType = NET_TV_ALARM_FACE_COMPARE;
+    pInfo->dwChannel = static_cast<UINT32>(nChannel);
+    pInfo->llTimestampMs = stSrc.stInfo.lTimestamp > 0 ? stSrc.stInfo.lTimestamp : stContext.llTimestamp;
+    pInfo->nEventId = stSrc.nEventId;
+    pInfo->nCompResult = stSrc.nCompResult;
+    pInfo->nSimilarity = stSrc.nSimilarity;
+    pInfo->nFaceId = stSrc.nFaceId;
+    copy_tvsdk_string(pInfo->szFaceLibName, stSrc.strFaceLibName);
+    copy_tvsdk_string(pInfo->szFaceName, stSrc.strFaceName);
+    copy_tvsdk_string(pInfo->szLibFacePath, stSrc.strLibFacePath);
+    copy_tvsdk_string(pInfo->szCapFacePath, stSrc.strCapFacePath);
+    copy_tvsdk_string(pInfo->szCapImagePath, stSrc.strCapImagePath);
+    load_tvsdk_image_file(stSrc.strLibFacePath,
+                          pInfo->byLibFaceImg,
+                          pInfo->dwLibFaceImgLen,
+                          sizeof(pInfo->byLibFaceImg));
+    load_tvsdk_image_file(stSrc.strCapFacePath,
+                          pInfo->byCapFaceImg,
+                          pInfo->dwCapFaceImgLen,
+                          sizeof(pInfo->byCapFaceImg));
+
+    dlog_info("TVSDK人脸比对告警填充: cmd[0x%x] 通道[%u] 事件ID[%d] 结果[%d] 相似度[%d] "
+              "人脸ID[%d] 库[%s] 名称[%s] 库图长度[%u] 抓拍图长度[%u] buf_len[%zu]",
+              pInfo->dwAlarmType,
+              pInfo->dwChannel,
+              pInfo->nEventId,
+              pInfo->nCompResult,
+              pInfo->nSimilarity,
+              pInfo->nFaceId,
+              pInfo->szFaceLibName,
+              pInfo->szFaceName,
+              pInfo->dwLibFaceImgLen,
+              pInfo->dwCapFaceImgLen,
+              sizeof(*pInfo));
+
+    int nRet = ControlManage::instance()->tvsdk_push_alarm(static_cast<int>(pInfo->dwAlarmType), pInfo.get(), sizeof(*pInfo));
+    if (nRet < 0)
+    {
+        dlog_warn("TVSDK推送人脸比对告警失败: cmd[0x%x] ret[%d]", pInfo->dwAlarmType, nRet);
+    }
+    else
+    {
+        dlog_info("TVSDK推送人脸比对告警成功: cmd[0x%x]", pInfo->dwAlarmType);
+    }
 }
 
 /**
@@ -300,7 +457,15 @@ void push_statistics_alarm(const EventTriggerContext_S &stContext)
               pInfo->dwAverageStayTimeSec,
               pInfo->dwTargetCount,
               sizeof(*pInfo));
-    ControlManage::instance()->tvsdk_push_alarm(static_cast<int>(pInfo->dwAlarmType), pInfo.get(), sizeof(*pInfo));
+    int nRet = ControlManage::instance()->tvsdk_push_alarm(static_cast<int>(pInfo->dwAlarmType), pInfo.get(), sizeof(*pInfo));
+    if (nRet < 0)
+    {
+        dlog_warn("TVSDK推送统计告警失败: cmd[0x%x] ret[%d]", pInfo->dwAlarmType, nRet);
+    }
+    else
+    {
+        dlog_info("TVSDK推送统计告警成功: cmd[0x%x]", pInfo->dwAlarmType);
+    }
 }
 } // namespace
 #endif
@@ -373,6 +538,10 @@ std::string EventLinkageDict::get_event_name(Event::Type_E enType)
         return "宠物识别";
     case Event::Type_E::FACE_CAPTURE:
         return "人脸抓拍";
+    case Event::Type_E::FACE_COMPARE_SUCCESS:
+        return "人脸比对成功";
+    case Event::Type_E::FACE_COMPARE_FAIL:
+        return "人脸失败成功";   
 #ifdef SCENE_INTELLIGENCE
     case Event::Type_E::SLEEP_ON_DUTY:
         return "睡岗识别";
@@ -481,6 +650,19 @@ void EventLinkageDict::push_tvsdk_event_alarm(const EventTriggerContext_S &stCon
 #else
     if (stContext.bEventEnded || ControlManage::instance()->tvsdk_get_client_count() <= 0)
     {
+        dlog_warn("[统计推送诊断] push_tvsdk_event_alarm 丢弃: bEventEnded[%d] 客户端数[%d]",
+                  stContext.bEventEnded ? 1 : 0,
+                  ControlManage::instance()->tvsdk_get_client_count());
+        return;
+    }
+
+    dlog_info("[统计推送诊断] push_tvsdk_event_alarm 进入: 事件类型[%d] 客户端数[%d]",
+              static_cast<int>(stContext.enEventType),
+              ControlManage::instance()->tvsdk_get_client_count());
+
+    if (stContext.enEventType == Event::Type_E::FACE_COMPARE)
+    {
+        push_face_compare_alarm(stContext);
         return;
     }
 
