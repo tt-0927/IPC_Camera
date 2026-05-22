@@ -5,6 +5,7 @@
  *                 执行层复用 tvsdk_callbacks.cpp 的 execute_get_result 同步模式
  */
 
+#if CAP_GARBAGE_STATION_PLATFORM
 #include "mqtt_sdk_gateway.h"
 #include "action_code.h"
 #include "dlog.h"
@@ -435,3 +436,4 @@ int CMqttSdkGateway::execute_set(const std::string &strCommand, const std::strin
 
     return execute_set_action(nActionCode, strData);
 }
+#endif
