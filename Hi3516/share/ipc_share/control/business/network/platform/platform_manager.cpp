@@ -974,7 +974,7 @@ void CPlatformManager::on_mqtt_message(const std::string &strTopic, const std::s
  * @brief 注册 MQTT 自定义命令处理器
  * @note  注册在此的命令优先于 MQTT SDK 网关处理
  *        适用于需要特殊处理逻辑的命令（非标准 SDK 命令透传）
- *        大部分 SDK 命令（NET_TV_GET_*/SET_*）由 on_mqtt_message 自动通过网关转发
+ *        大部分 SDK 命令（NET_TV_GET_xxx / NET_TV_SET_xxx）由 on_mqtt_message 自动通过网关转发
  */
 void CPlatformManager::register_mqtt_handlers()
 {
