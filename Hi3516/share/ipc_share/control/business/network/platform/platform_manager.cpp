@@ -790,9 +790,9 @@ void CPlatformManager::relogin_and_update_stream()
 int CPlatformManager::init_mqtt()
 {
     /* 从配置获取 MQTT 参数（复用平台配置） */
-    m_strMqttBroker = g_custom ? custom_host : host_;
-    /* 测试使用 */
-    // m_strMqttBroker = g_custom ? "172.16.25.58" : "172.16.25.58";
+    /* 测试使用：临时切换到内网 Broker */
+    // m_strMqttBroker = g_custom ? custom_host : host_;
+    m_strMqttBroker = "172.16.25.58";
     m_nMqttPort = m_nMqttPort > 0 ? m_nMqttPort : MQTT_DEFAULT_PORT;
     m_strMqttUsername = login_user;
     m_strMqttPassword = login_password;
