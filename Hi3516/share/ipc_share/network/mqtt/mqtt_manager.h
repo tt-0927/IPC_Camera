@@ -23,6 +23,7 @@
 #include <vector>
 #include <mutex>
 #include <functional>
+#include <utility>
 
 extern "C"
 {
@@ -178,6 +179,7 @@ private:
     /* 已订阅 Topic 列表（用于重连后恢复订阅） */
     std::vector<std::pair<std::string, int>> m_vecSubscribedTopics;
     std::mutex m_mtxTopics;                                     /* Topic 列表锁 */
+    std::mutex m_mtxMessageCallback;                            /* 消息回调锁 */
 
     /* 重连退避参数 */
     static constexpr int RECONNECT_INITIAL_INTERVAL_SEC = 5;    /* 初始重连间隔：5 秒 */

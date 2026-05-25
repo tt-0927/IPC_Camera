@@ -9,7 +9,6 @@
 
 #pragma once
 
-#include <map>
 #include "DbBase.h"
 #include "record_define.h"
 #include "path_define.h"
@@ -177,17 +176,10 @@ namespace Db
         int create(std::string tableName, bool bAddTableKey = true);
         int create_sub(std::string tableName, bool bAddTableKey = true);
 
-        /**
-        * @brief 内部获取或创建子表句柄
-        * @param tableName 表名
-        * @return CDbBase*
-        */
-        CDbBase* get_sub_handle(std::string tableName);
-
     private:
         CDbBase m_database;
         CDbBase m_recordDirDatabase;
-        std::map<std::string, CDbBase*> m_subDbMap;
+        CDbBase *m_subDatabase = nullptr; 
         std::mutex m_mutex;
     };
 

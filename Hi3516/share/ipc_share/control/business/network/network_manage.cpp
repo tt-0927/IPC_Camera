@@ -3,7 +3,7 @@
  * @Author       : tianl (tianl@kfb.cn)
  * @Date         : 2024-11-02 16:30:03
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-04-15 11:23:05
+ * @LastEditTime : 2026-05-15 13:51:59
  * @Description  : 网络管理
  */
 
@@ -124,17 +124,30 @@ int CNetworkManage::get_system_networkInfo(Network::Info_S &stNetInfo)
 
 	stInterface = get_network_interface();
 
+	std::string network_config_file_path = NETWORK_CONFIG_FILE;
+	#if CAP_NETWORK_WIFI
+	if(CWifiManager::instance()-> isWifiConnectedAndWiredDisconnected())//WiFi连接，有线断开
+	{
+		network_config_file_path = NETWORK_WIFI_CONFIG_FILE;
+		stInterface = "wlan0";
+		m_bNetworkSetting = false;
+	}
+	else {
+		m_bNetworkSetting = false;
+	}
+	#endif
+
 	if (stInterface.empty())
 	{
 		return -1;
 	}
 
-	if (stat(NETWORK_CONFIG_FILE, &buffer) == 0)
+	if (stat(network_config_file_path.c_str(), &buffer) == 0)
 	{
-		dlog_info("网络配置文件存在");
+		dlog_info("网络配置文件存在 %s",network_config_file_path.c_str());
 		if (!m_bNetworkSetting)
 		{
-			Convert::read_file(NETWORK_CONFIG_FILE, stConfigNetInfo);
+			Convert::read_file(network_config_file_path.c_str(), stConfigNetInfo);
 			m_stInfo = stConfigNetInfo;
 			m_bNetworkSetting = true;
 		}
@@ -154,7 +167,7 @@ int CNetworkManage::get_system_networkInfo(Network::Info_S &stNetInfo)
 	{
 		dlog_info("从设备接口文件中读取网络信息并写入配置文件");
 		get_ip_and_dns(stNetInfo);
-		if (OK != Convert::write_file(NETWORK_CONFIG_FILE, stNetInfo))
+		if (OK != Convert::write_file(network_config_file_path.c_str(), stNetInfo))
         {
             dlog_error("写入设备信息配置文件失败");
             return ERR;
@@ -172,7 +185,6 @@ int CNetworkManage::get_system_networkInfo(Network::Info_S &stNetInfo)
 			dlog_info("配置文件中读取网络信息");
 		}
 		stNetInfo.stIp = stConfigNetInfo.stIp;
-
 		if(stNetInfo.stIp.bEnableDhcp)
 		{
 			stNetInfo.stIp.ipv4Ip = get_dev_ip(stNetInfo.stIp.netName);
@@ -824,16 +836,14 @@ int CNetworkManage::set_ethInterfaces(Network::Ip_S stIp, bool bIsImmediate)
     std::string strMacFileName = MAC_FILE_PATH;
     std::ifstream fs(strMacFileName);
     if (fs.is_open())
-	{
+    {
         std::string strMac((std::istreambuf_iterator<char>(fs)), {});
-        fprintf(pFile, "    %s\n", 
-                strMac.c_str());
+        fprintf(pFile, "    %s\n", strMac.c_str());
         fs.close();
     }
-	else
-	{
-        fprintf(pFile, "    ifconfig %s hw ether %s\n", 
-                stIp.netName.c_str(), stIp.physicalAddress.c_str());
+    else
+    {
+        fprintf(pFile, "    ifconfig %s hw ether %s\n", stIp.netName.c_str(), stIp.physicalAddress.c_str());
     }
 
     /* 2. 设置MTU（在网卡启用前） */
@@ -1816,7 +1826,7 @@ std::string CNetworkManage::get_netName_interface()
 
 bool CNetworkManage::need_reboot(Network::Info_S stNetInfo)
 {
-	bool bReboot = false;
+	// bool bReboot = false;
 	Network::Info_S stOldNetInfo;
 	get_system_networkInfo(stOldNetInfo);
 

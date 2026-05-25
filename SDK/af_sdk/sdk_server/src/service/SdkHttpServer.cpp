@@ -47,16 +47,20 @@ int CSdkHttpServer::startServer( uint32_t nPort)
         }
     }
 
-	m_server.set_write_timeout(5, 0); 
-	m_server.set_read_timeout(5, 0);
-	// 长连接核心配置（避免断言）
-	m_server.set_keep_alive_max_count(50);    // 单个长连接最多处理 50 个请求
-	m_server.set_keep_alive_timeout(3);       // 空闲 3 秒关闭长连接
+	// 短请求超时（登录、心跳、命令等短连接接口）
+	m_server.set_write_timeout(10, 0);
+	m_server.set_read_timeout(10, 0);
+	
+	// 长连接配置：AlarmListen 是长连接，必须设置足够大的 keep_alive_timeout
+	// 报警周期可能超过 1 分钟，空闲1分钟内没有报警不应该断连
+	m_server.set_keep_alive_max_count(10000); // 单个长连接内处理请求数上限
+	m_server.set_keep_alive_timeout(300);     // 空闲 300 秒（5分钟）无数据才关闭
 
-	// 禁用不必要的功能（减少内存占用）
-	m_server.set_tcp_nodelay(true); // 减少网络延迟
-
-	m_server.set_keep_alive_timeout(5);
+	// 减少网络延迟
+	m_server.set_tcp_nodelay(true);
+	
+	// // 设置线程池大小为4（安防平台客户端数量少，4线程足够）
+	// m_server.new_task_queue = [] { return new httplib::ThreadPool(4); };
 
 	NSDK_LOG_INFO("正在绑定端口 %s:%d...", DEFAULT_HTTP_SERVER_HOST, m_nPort);
 	bool bind_ok = m_server.bind_to_port(DEFAULT_HTTP_SERVER_HOST, m_nPort);

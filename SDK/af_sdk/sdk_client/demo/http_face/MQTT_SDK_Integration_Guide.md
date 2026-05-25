@@ -2,9 +2,7 @@
 
 ## 1. 概述
 
-本文档描述第三方平台如何通过 MQTT 协议与 IPC 摄像头设备进行远程通信，实现人脸库管理、目标库管理、智能检测配置等 SDK 能力。
-
-本文档所有示例均以 **C++** 编写，基于 **Eclipse Paho MQTT C++** 客户端库（`paho-mqttpp3`），从第三方平台视角展示完整的连接、订阅、命令发送与响应接收流程。
+本文档所有示例均以 **C++** 编写，基于 **Eclipse Paho MQTT C++** 客户端库（`paho-mqttpp3`），展示完整的连接、订阅、命令发送与响应接收流程。
 
 ### 通信架构
 
@@ -66,7 +64,7 @@ cmake --build build --target install
 | Broker 地址 | `183.129.224.253` |
 | Broker 端口 | `1883` |
 | 协议 | MQTT 3.1.1 / MQTT 5.0 |
-| 连接认证 | 由运维平台分配账号密码 |
+| 连接认证 | 平台账号密码 |
 | 心跳间隔 | 建议 60 秒 |
 | Clean Session | 建议 `true` |
 
@@ -1159,31 +1157,3 @@ json jResponse = client.sendCommand("NET_TV_SET_GARBAGE_OVERFLOW_CFG", jData);
 }
 ```
 
----
-
-## 11. 完整对接流程
-
-```
-1. 从运维平台获取 MQTT Broker 连接信息（地址、端口、账号密码）
-2. 从运维平台获取目标设备的序列号（SN）
-3. 创建 IpcMqttClient 实例并调用 connect()
-4. 通过 sendCommand() 发送命令，自动完成：
-   a. 发布命令到 device/{SN}/command
-   b. 订阅 device/{SN}/response 等待响应
-   c. 解析响应 JSON，返回结果
-5. 如需接收事件上报，通过 setEventCallback() 注册回调
-```
-
----
-
-## 12. 注意事项
-
-1. **设备必须在线**：命令仅在设备连接 Broker 时可执行，离线设备无法响应
-2. **SN 区分大小写**：Topic 中的设备序列号需与设备实际 SN 完全一致
-3. **QoS 建议**：命令和响应用 QoS 1（至少一次），事件用 QoS 0（最多一次）
-4. **超时处理**：建议设置 10 秒响应超时，超时后可重试
-5. **并发控制**：同一设备建议串行下发命令，避免并发执行导致状态冲突
-6. **图片传输**：人脸图片需先通过 FTP/SCP 等方式上传至设备，命令中传入设备上的路径即可
-7. **坐标系**：检测区域使用 `Region.Points` 数组，坐标为归一化 float [0.0-1.0]，左上角为 (0,0)，右下角为 (1,1)
-8. **布防时间**：使用 `AlarmTime1`~`AlarmTime7`（周一到周日），每天是时间段数组，每个时间段包含 `StartTime` 和 `StopTime`（含 `Hour`/`Min`/`Sec`/`MSec`）
-9. **联动配置**：使用 `LinkageMode` 对象，包含 `Tradition`（传统联动）、`AlarmLinkage`（报警输出）、`RecordChn`（录像通道）三个 int 数组

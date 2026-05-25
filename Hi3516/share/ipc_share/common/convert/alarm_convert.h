@@ -107,6 +107,7 @@ namespace Convert
     void deal(Json::Object *pRootJson, Alarm::PetRecognition_S &stInfo, bool bOutStruct);
     /*人脸比对*/
     void deal(Json::Object *pRootJson, Alarm::FaceCompare_S &stInfo, bool bOutStruct);
+    void deal(Json::Object *pRootJson, Alarm::TargetLibInfos_S &TargetLibInfos, bool bOutStruct);
     /* 人脸抓拍相关 */
     void deal(Json::Object *pRootJson, Alarm::FaceCaptureRule_S &stInfo, bool bOutStruct);
     void deal(Json::Object *pRootJson, Alarm::FaceCapture_S &stInfo, bool bOutStruct);

@@ -972,6 +972,7 @@ int CStorageManage::format_sd_card(bool bIsInitSdCard)
                         else
                         {
                             dlog_error("执行%s失败：%d", strDelCommnad.c_str(), nRet);
+                            nRet = -1;
                         }
                     }
                     else

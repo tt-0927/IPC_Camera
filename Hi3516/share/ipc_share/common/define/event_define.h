@@ -91,6 +91,8 @@ namespace Event
         FACE_CAPTURE = 21,      /* 人脸抓拍 */
         FACE_LIB = 210,      /* 人脸库 */
         FACE_COMPARE = 211,      /* 人脸比对 */
+        FACE_COMPARE_SUCCESS = 212,      /* 人脸比对成功联动 */
+        FACE_COMPARE_FAIL = 213,      /* 人脸比对 失败*/
         /**
         * @brief   : 场景智能分析
         */

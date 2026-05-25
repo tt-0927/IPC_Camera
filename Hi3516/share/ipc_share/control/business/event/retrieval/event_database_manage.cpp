@@ -8,7 +8,9 @@
 
 #include "event_database_manage.h"
 #include "convert_interface.h"
+#include "event_linkage_dict.h"
 #include <iomanip>
+#include <memory>
 #include "log_handler.h"
 #include "path_define.h"
 
@@ -73,7 +75,26 @@ int EventDatabaseManage::add(Info_S stEventInfo)
 
 int EventDatabaseManage::add(Event::FaceCompareInfo_S stFaceCompareInfo)
 {
-    return EventDatabase::instance()->add(stFaceCompareInfo);
+    int nRet = EventDatabase::instance()->add(stFaceCompareInfo);
+    // 入库成功后构造 EventTriggerContext_S，并把人脸比对结果放进 EventTvSdkPayload_S
+    if (nRet >= 0)
+    {
+        EventTriggerContext_S stContext;
+        stContext.enEventType = Event::Type_E::FACE_COMPARE;
+        stContext.bEventEnded = false;
+        stContext.nChnId = stFaceCompareInfo.stInfo.nChnId;
+        stContext.llTimestamp = stFaceCompareInfo.stInfo.lTimestamp;
+
+        EventTvSdkPayload_S stPayload;
+        stPayload.enType = EventTvSdkPayloadType_E::FACE_COMPARE;
+        stPayload.stFaceCompare.stFaceCompareInfo = stFaceCompareInfo;
+        stContext.pTvSdkPayload = std::make_shared<EventTvSdkPayload_S>(stPayload);
+
+        // 这里没有走 CEventLinkage::handleEvent()，是为了避开事件时间窗去重，避免连续的人脸比对结果被吞掉
+        EventLinkageDict::push_tvsdk_event_alarm(stContext);
+    }
+
+    return nRet;
 }
 
 

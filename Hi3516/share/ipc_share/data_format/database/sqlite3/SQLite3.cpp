@@ -16,14 +16,14 @@
 SQLite3::SQLite3()
     : m_nCommitInterval(0), m_bExit(false), m_tid(std::bind(&SQLite3::run_commit, this))
 {
-    m_tid.detach();
+    // m_tid.detach();
 }
 /**
  * @brief 析构函数
  */
 SQLite3::~SQLite3()
 {
-    m_bExit = true;
+    // m_bExit = true;
     deinit();
 }
 /**
@@ -33,6 +33,10 @@ SQLite3::~SQLite3()
  */
 int SQLite3::init(std::string path)
 {
+    if(m_handle)
+	{
+		return 0;
+	}
     m_path = std::move(path);
     int nRet = sqlite3_open(m_path.c_str(), &m_handle);
     if (nRet != SQLITE_OK)
@@ -46,6 +50,20 @@ int SQLite3::init(std::string path)
  */
 void SQLite3::deinit()
 {
+    m_bExit = true;
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        if (m_bBeginTransaction)
+        {
+            // rollback_transaction();  // 终止事务
+            commit_transaction();
+        }
+        m_cv.notify_one();  // 立即唤醒线程
+    }
+    if (m_tid.joinable())
+    {
+        m_tid.join();  // 线程已经被唤醒，join几乎不等待
+    }
     if (m_handle)
     {
         sqlite3_close(m_handle);
@@ -161,7 +179,8 @@ int SQLite3::delay_deal(std::string sql)
     int nRet = add_transaction(std::move(sql));
     if (nRet < 0)
     {
-        return rollback_transaction();
+        rollback_transaction();
+        return -1;
     }
     return nRet;
 }
@@ -180,7 +199,8 @@ int SQLite3::quick_deal(std::string sql)
     nRet = add_transaction(std::move(sql));
     if (nRet < 0)
     {
-        return rollback_transaction();
+        rollback_transaction();
+        return -1;
     }
     return commit_transaction();
 }
@@ -341,7 +361,7 @@ int SQLite3::rollback_transaction()
 
 std::vector<std::string> SQLite3::get_all_tables(const char *sql)
 {
-    sqlite3_stmt *stmt;
+    sqlite3_stmt *stmt = nullptr;
     std::vector<std::string> tables;
     if(sql == NULL)
     {
@@ -359,7 +379,10 @@ std::vector<std::string> SQLite3::get_all_tables(const char *sql)
             }
         }
     }
-    sqlite3_finalize(stmt);
+    if(stmt)
+    {
+        sqlite3_finalize(stmt);
+    }
     return tables;
 }
 
@@ -368,7 +391,7 @@ std::vector<std::string> SQLite3::get_column_data(const std::string &sql)
 {
     std::vector<std::string> result;
 
-    sqlite3_stmt *stmt;
+    sqlite3_stmt *stmt = nullptr;
     if (sqlite3_prepare_v2(m_handle, sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK)
     {
         dlog_error("SQL错误: ", sqlite3_errmsg(m_handle));
@@ -405,7 +428,7 @@ bool SQLite3::delete_record_by_field(const std::string &sql, const std::string &
     int bindResult = sqlite3_bind_text(stmt, 1, targetFile.c_str(), -1, SQLITE_STATIC);
     if (bindResult != SQLITE_OK)
     {
-        dlog_error("绑定参数失败: ", sqlite3_errmsg(m_handle));
+        dlog_error("绑定参数失败: %s", sqlite3_errmsg(m_handle));
         sqlite3_finalize(stmt);
         return false;
     }
@@ -476,18 +499,33 @@ bool SQLite3::del_table(const std::string &sql)
  */
 void SQLite3::run_commit()
 {
+    std::unique_lock<std::mutex> lock(m_mutex);
     while (!m_bExit)
     {
         if (m_nCommitInterval <= 0)
         {
+            lock.unlock();
             std::this_thread::sleep_for(std::chrono::seconds(1));
+            lock.lock();
             continue;
         }
-        std::this_thread::sleep_for(std::chrono::seconds(m_nCommitInterval));
-        std::lock_guard<std::mutex> lock(m_mutex);
-        if (m_bBeginTransaction)
+
+        // 等待超时或唤醒
+        std::cv_status status = m_cv.wait_for(
+            lock, 
+            std::chrono::seconds(m_nCommitInterval)
+        );
+
+        if (m_bExit)
         {
+            break;  // 要退出
+        }
+        // 超时了，执行commit
+        if (status == std::cv_status::timeout && m_bBeginTransaction)
+        {
+            lock.unlock();
             commit_transaction();
+            lock.lock();
         }
     }
 }

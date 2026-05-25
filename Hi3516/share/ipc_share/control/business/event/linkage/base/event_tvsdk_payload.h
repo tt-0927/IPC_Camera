@@ -14,6 +14,8 @@
 #include <string>
 #include <vector>
 
+#include "event_define.h"
+
 /* TVSDK 事件负载类型，用于区分后续不同告警结构体填充路径 */
 enum class EventTvSdkPayloadType_E
 {
@@ -23,6 +25,7 @@ enum class EventTvSdkPayloadType_E
     AI_OBJECT,
     PLATE,
     STATISTICS,
+    FACE_COMPARE,
 };
 
 /* TVSDK 统计业务子类型，数值与 NET_TV_STATISTICS_TYPE_E 保持一致 */
@@ -97,6 +100,12 @@ struct EventTvSdkStatisticsPayload_S
     EventTvSdkImage_S stPanoramaImage;
 };
 
+/* TVSDK 人脸比对结果负载，字段与 Event::FaceCompareInfo_S 保持一致 */
+struct EventTvSdkFaceComparePayload_S
+{
+    Event::FaceCompareInfo_S stFaceCompareInfo;
+};
+
 /* TVSDK 事件推送统一负载对象，通过 shared_ptr 挂载到事件上下文中传递所有权 */
 struct EventTvSdkPayload_S
 {
@@ -108,4 +117,6 @@ struct EventTvSdkPayload_S
     EventTvSdkImage_S stPanoramaImage;
     /* 统计类负载 */
     EventTvSdkStatisticsPayload_S stStatistics;
+    /* 人脸比对结果负载 */
+    EventTvSdkFaceComparePayload_S stFaceCompare;
 };

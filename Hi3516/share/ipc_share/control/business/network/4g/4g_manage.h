@@ -5,6 +5,8 @@
 #include <string>
 #include "network_define.h"
 #include "Singleton.h"
+#include <thread> 
+
 // 运营商类型枚举
 typedef enum {
     OPERATOR_UNKNOWN = 0,
@@ -101,27 +103,33 @@ public:
     RetCode getSimInfo(::Network::SIM_Info_t &info);
     RetCode setConfig(const ::Network::Network_4G_Config_t &config);
     RetCode connect();
+    bool isWiredConnected();
+    void updateRouteIfNeeded();
 
 private:
     std::string port_name;
     int fd;
     RetCode init_status;
     bool is_initialized; 
+    std::thread m_routeMonitorThread; 
     ::Network::Network_4G_Config_t m_config; // 保存当前配置
     std::string m_net_interface;// 用于存储网卡名称
     ::Network::SIM_Info_t last_cached_info; // 缓存上一次成功获取的信息
     std::chrono::steady_clock::time_point last_query_time; // 记录上一次查询的时间
     static constexpr int UPDATE_INTERVAL_MS = 2000; // 更新间隔：2000毫秒 (2秒)
-    
+    std::mutex port_mutex;
+
     // 自动识别相关
     void autoDetectOperator(); 
     std::string getApnForOperator(Operator_Type op);
     Operator_Type parseOperatorFromImsi(const std::string& imsi);
+    bool parseNetworkConfig(std::string& outIp, std::string& outGateway);
 
     // 串口操作
     RetCode openPort();
     void closePort();
     RetCode sendCommand(const std::string cmd, std::string &response, int timeout_ms);
+    static void* routeMonitorThread(void* arg);
 };
 
 #endif

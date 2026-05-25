@@ -3,7 +3,7 @@
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2026-04-15 16:29:58
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-04-16 14:20:59
+ * @LastEditTime : 2026-05-07 15:28:43
  * @Description  : 事件联动内部公共类型定义模块
  */
 
@@ -55,6 +55,62 @@ struct EventTriggerContext_S
     /* TVSDK 推送扩展负载，承载图片、统计目标等大对象并保持所有权 */
     std::shared_ptr<const EventTvSdkPayload_S> pTvSdkPayload;
 };
+
+/**
+ * @brief   : 根据事件类型获取对应的 TVSDK 负载类型
+ * @param    {Event::Type_E} enEventType 事件类型
+ * @return   {EventTvSdkPayloadType_E} TVSDK 负载类型，未知事件返回 NONE
+ */
+inline EventTvSdkPayloadType_E get_tvsdk_payload_type(Event::Type_E enEventType)
+{
+    switch (enEventType)
+    {
+    /* 普通事件 */
+    case Event::Type_E::MOTION_DETECT:
+    case Event::Type_E::OCCLUSION_DETECT:
+    case Event::Type_E::ANOMALY_ALARM:
+    case Event::Type_E::ALARM_INPUT:
+    case Event::Type_E::PIR_ALARM:
+        return EventTvSdkPayloadType_E::BASIC;
+
+    /* 周界规则事件 */
+    case Event::Type_E::LINE_CROSSING:
+    case Event::Type_E::INTRUSION:
+    case Event::Type_E::ENTER_REGION:
+    case Event::Type_E::LEAVE_REGION:
+    case Event::Type_E::UNATTENDED_OBJECT:
+    case Event::Type_E::OBJECT_REMOVAL:
+        return EventTvSdkPayloadType_E::RULE;
+
+    /* AI 检测类事件 */
+    case Event::Type_E::FACE_DETECT:
+    case Event::Type_E::PET_RECOGNITION:
+    case Event::Type_E::LOITERING_DETECT:
+    case Event::Type_E::PARKING_DETECT:
+    case Event::Type_E::GARBAGE_EXPOSURE:
+    case Event::Type_E::GARBAGE_OVERFLOW:
+    case Event::Type_E::SCENE_CHANGE:
+    case Event::Type_E::AUDIO_ANOMALY:
+    case Event::Type_E::AUDIO_SUDDEN_RISE:
+    case Event::Type_E::AUDIO_SUDDEN_DROP:
+        return EventTvSdkPayloadType_E::AI_OBJECT;
+
+    /* 统计类事件 */
+#if CAP_AI_PEOPLE_STATISTICS
+    case Event::Type_E::PEOPLE_FLOW_STATISTICS:
+    case Event::Type_E::PEOPLE_DENSITY_DETECTION:
+    case Event::Type_E::PEOPLE_FLOW_STAY_NORMAL:
+    case Event::Type_E::PEOPLE_FLOW_STAY_MEDIUM:
+    case Event::Type_E::PEOPLE_FLOW_STAY_SEVERE:
+    case Event::Type_E::PEOPLE_DENSITY_NORMAL:
+    case Event::Type_E::PEOPLE_DENSITY_MEDIUM:
+    case Event::Type_E::PEOPLE_DENSITY_SEVERE:
+        return EventTvSdkPayloadType_E::STATISTICS;
+#endif
+    default:
+        return EventTvSdkPayloadType_E::NONE;
+    }
+}
 
 /**
  * @brief   : 联动属性匹配操作符

@@ -96,10 +96,11 @@ target_link_libraries(${PRO_NAME}
     -lpthread
     -static-libstdc++
     -lstdc++
-    # -latomic
+    -latomic
 
     # third
     libffmpeg
+    libopenssl
     libzlog
     ${_extra_libs}
 )

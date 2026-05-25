@@ -1316,6 +1316,16 @@ void Task::Event::SetPetRecognitionInfo::handle()
     CEventManage::instance()->update_event_schedule();
     result(nRet);
 }
+
+
+/*人脸获取比对设置*/
+void Task::Event::GetFaceCompareInfo::handle()
+{
+    Alarm::FaceCompare_S stInfo;
+    CEventConfigure::instance()->get_configure(stInfo);
+    result(Convert::to_string(stInfo));
+
+}
 /*人脸比对设置*/
 void Task::Event::SetFaceCompareInfo::handle()
 {
@@ -1338,6 +1348,8 @@ void Task::Event::SetFaceCompareInfo::handle()
     CEventManage::instance()->update_event_schedule();
     result(nRet);
 }
+
+
 
 /* 获取人脸抓拍信息 */
 void Task::Event::GetFaceCaptureInfo::handle()

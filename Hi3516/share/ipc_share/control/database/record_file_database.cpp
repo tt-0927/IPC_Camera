@@ -19,6 +19,18 @@ RecordFileDatabase::RecordFileDatabase()
     // 创建主表
     create(RECORD_FILE_TABLE_NAME);
     create(RECORD_DIR_INFO_TABLE_NAME);
+
+    // 获取当前时间点
+    std::time_t now = std::time(nullptr);
+    // 转换为本地时间
+    std::tm today;
+    localtime_r(&now, &today); // 使用线程安全版本的 localtime
+    // 使用 strftime 格式化日期
+    char buffer[11] = {0}; // YYYY-MM-DD + 1 字符长度
+    std::strftime(buffer, sizeof(buffer), "%Y-%m-%d", &today);
+    std::string tableName = "\"" + std::string(buffer) + "\"";
+    /* 创建一个记录录制ts信息的表 */
+    create_sub(tableName);
 }
 
 RecordFileDatabase::~RecordFileDatabase()
@@ -88,24 +100,44 @@ int RecordFileDatabase::deinit()
     m_database.deinit();
     m_recordDirDatabase.deinit();
     
-    std::unique_lock<std::mutex> lock(m_mutex);
-    for (auto& pair : m_subDbMap) 
+    if(m_subDatabase)
     {
-        if (pair.second) 
-        {
-            pair.second->deinit();
-            delete pair.second;
-        }
+        m_subDatabase->deinit();
+        delete m_subDatabase;
+        m_subDatabase = nullptr;
     }
-    m_subDbMap.clear();
-
     return 0;
 }  
 
 /* 创建一个表格 */
-int RecordFileDatabase::create_sub(std::string tableName, bool bAddTableKey) {
-    std::unique_lock<std::mutex> lock(m_mutex);
-    get_sub_handle(tableName);
+int RecordFileDatabase::create_sub(std::string tableName, bool bAddTableKey)
+{
+    if (m_subDatabase)
+    {
+        /* 表名一样 */
+        if (m_subDatabase->get_tableName() == tableName)
+        {
+            return 0;
+        }
+        delete m_subDatabase;
+        m_subDatabase = nullptr;
+    }
+    bool bAddDefault = false;
+    m_subDatabase = new CDbBase(RECORD_FILE_DATABASE_PATH, tableName);
+
+    if(bAddTableKey)
+    {
+        m_subDatabase->add_tableKey(TableKey(RECORD_FILE_FIELD_CHN_ID, CDbBase::type_int()));
+        m_subDatabase->add_tableKey(TableKey(RECORD_FILE_FIELD_TYPE, CDbBase::type_int()));
+        m_subDatabase->add_tableKey(TableKey(RECORD_FILE_FIELD_PATH, CDbBase::type_string(MAX_DB_STRING_SIZE)));
+        m_subDatabase->add_tableKey(TableKey(RECORD_FILE_FIELD_FILENAME, CDbBase::type_string(MAX_DB_STRING_SIZE)));
+        m_subDatabase->add_tableKey(TableKey(RECORD_FILE_FIELD_SIZE, CDbBase::type_int()));
+        m_subDatabase->add_tableKey(TableKey(RECORD_FILE_FIELD_CREATE_TIME, CDbBase::type_string(MAX_DB_STRING_SIZE)));
+        m_subDatabase->add_tableKey(TableKey(RECORD_FILE_FIELD_FILE_INDEX, CDbBase::type_int()));
+        m_subDatabase->add_tableKey(TableKey(RECORD_FILE_FIELD_DURATION, CDbBase::type_int()));
+    }
+
+    m_subDatabase->init(bAddDefault);
     return 0;
 }
 
@@ -116,40 +148,6 @@ int RecordFileDatabase::init_sub(std::string strDate)
     std::string tableName = "\"" + date + "\"";
     create_sub(tableName);
     return 0;
-}
-
-CDbBase* RecordFileDatabase::get_sub_handle(std::string tableName)
-{
-    //调用此函数的地方要加 m_mutex 锁
-    if (m_subDbMap.count(tableName)) 
-    {
-        return m_subDbMap[tableName];
-    }
-
-    // 限制缓存数量：保留最近 2 天的句柄
-    if (m_subDbMap.size() >= 2) 
-    {
-        auto it = m_subDbMap.begin();
-        it->second->deinit();
-        delete it->second;
-        m_subDbMap.erase(it);
-    }
-
-    CDbBase* pNewDb = new CDbBase(RECORD_FILE_DATABASE_PATH, tableName);
-    
-    pNewDb->add_tableKey(TableKey(RECORD_FILE_FIELD_CHN_ID, CDbBase::type_int()));
-    pNewDb->add_tableKey(TableKey(RECORD_FILE_FIELD_TYPE, CDbBase::type_int()));
-    pNewDb->add_tableKey(TableKey(RECORD_FILE_FIELD_PATH, CDbBase::type_string(MAX_DB_STRING_SIZE)));
-    pNewDb->add_tableKey(TableKey(RECORD_FILE_FIELD_FILENAME, CDbBase::type_string(MAX_DB_STRING_SIZE)));
-    pNewDb->add_tableKey(TableKey(RECORD_FILE_FIELD_SIZE, CDbBase::type_int()));
-    pNewDb->add_tableKey(TableKey(RECORD_FILE_FIELD_CREATE_TIME, CDbBase::type_string(MAX_DB_STRING_SIZE)));
-    pNewDb->add_tableKey(TableKey(RECORD_FILE_FIELD_FILE_INDEX, CDbBase::type_int()));
-    pNewDb->add_tableKey(TableKey(RECORD_FILE_FIELD_DURATION, CDbBase::type_int()));
-
-    pNewDb->init(false);
-    m_subDbMap[tableName] = pNewDb;
-    
-    return pNewDb;
 }
 
 int RecordFileDatabase::add(const Record_NS::FileInfo_S &stInfo)
@@ -171,43 +169,26 @@ int RecordFileDatabase::add(const Record_NS::FileInfo_S &stInfo)
     item.push_back(Element(DB_COMMON_FIELD_RESERVE2, std::string()));
     item.push_back(Element(DB_COMMON_FIELD_RESERVE3, std::string()));
     item.push_back(Element(DB_COMMON_FIELD_RESERVE4, std::string()));
-
-    std::string date = stInfo.createTime;
-    if (date.length() >= 10) 
-    {
-        std::string subTableName = "\"" + date.substr(0, 10) + "\"";
-        get_sub_handle(subTableName);
-    }
+    /* 新建表格 */
+    std::string date(stInfo.createTime);
+    date.resize(strlen("YYYY-MM-DD"));
+    std::string tableName = "\"" + date + "\"";
+    create_sub(tableName);
 
     return m_database.add(item);
 }
-
 int RecordFileDatabase::add(const Record_NS::TsFileInfo_S &stInfo)
 {
-    std::unique_lock<std::mutex> lock(m_mutex); 
-    // 获取完整的日期和时间
-    std::string fullTime = stInfo.createTime; // 格式 "2024-10-29 18:25:33"
-    
-    if (fullTime.length() < 10) 
+    if(m_subDatabase == nullptr)
     {
-        dlog_error("Time format error, too short: %s", fullTime.c_str());
+        dlog_error("subDatabase is nullptr");
         return -1;
     }
 
-    // 提取日期作为表名路由
-    std::string datePart = fullTime.substr(0, 10); // "2024-10-29"
-    std::string tableName = "\"" + datePart + "\"";
-
-    // 提取时间部分用于存入子表字段 (HH:MM:SS)
-    std::string timeOnly = fullTime;
-    size_t pos = fullTime.find(' ');
-    if (pos != std::string::npos) 
-    {
-        timeOnly = fullTime.substr(pos + 1); // "18:25:33"
-    }
-
-    // 获取数据库句柄
-    CDbBase* db = get_sub_handle(tableName);
+    /* 找到空格的位置 */
+    size_t pos = stInfo.createTime.find(' ');
+    /* 如果找到空格，裁剪出后面的部分 */
+    std::string strCreateTime = (pos != std::string::npos) ? stInfo.createTime.substr(pos + 1) : stInfo.createTime;
 
     Item item;
     item.push_back(Element(RECORD_FILE_FIELD_CHN_ID, stInfo.nChnId));
@@ -215,11 +196,16 @@ int RecordFileDatabase::add(const Record_NS::TsFileInfo_S &stInfo)
     item.push_back(Element(RECORD_FILE_FIELD_PATH, stInfo.path));
     item.push_back(Element(RECORD_FILE_FIELD_FILENAME, stInfo.filename));
     item.push_back(Element(RECORD_FILE_FIELD_SIZE, stInfo.nSize));
-    item.push_back(Element(RECORD_FILE_FIELD_CREATE_TIME, timeOnly));
+    item.push_back(Element(RECORD_FILE_FIELD_CREATE_TIME, strCreateTime));
     item.push_back(Element(RECORD_FILE_FIELD_FILE_INDEX, stInfo.nIndex));
     item.push_back(Element(RECORD_FILE_FIELD_DURATION, stInfo.nDuration));
 
-    return db->add(item);
+    std::string date(stInfo.createTime);
+    date.resize(strlen("YYYY-MM-DD"));
+    std::string strTargetTableName = "\"" + date + "\"";
+
+    std::unique_lock<std::mutex> lock(m_mutex);
+    return m_subDatabase->add(item, strTargetTableName);
 }
 
 int RecordFileDatabase::add(const Record_NS::RecordDirInfo_S &stInfo)
@@ -242,7 +228,6 @@ int RecordFileDatabase::find(const Element &elem, std::vector<Record_NS::FileInf
 
     return 0;
 }
-
 int RecordFileDatabase::find(const Element &elem, std::vector<Record_NS::TsFileInfo_S> &infos)
 {
     MatchMethods methods;
@@ -353,20 +338,21 @@ int RecordFileDatabase::find(const MatchMethods &methods, std::vector<Record_NS:
 
 int RecordFileDatabase::find(const MatchMethods &methods, std::vector<Record_NS::TsFileInfo_S> &infos, std::string strTargetTableName)
 {
-    std::unique_lock<std::mutex> lock(m_mutex);
-
-    std::string actualTableName = strTargetTableName;
-    if (actualTableName.empty()) 
+    if(m_subDatabase == nullptr)
     {
-        std::time_t now = std::time(nullptr);
-        char buffer[11] = {0};
-        std::strftime(buffer, sizeof(buffer), "%Y-%m-%d", std::localtime(&now));
-        actualTableName = "\"" + std::string(buffer) + "\"";
+        dlog_error("subDatabase is nullptr");
+        return -1;
     }
-
-    CDbBase* db = get_sub_handle(actualTableName);
     std::vector<Item> items;
-    db->find(methods, items, actualTableName);
+    std::unique_lock<std::mutex> lock(m_mutex);
+    if(strTargetTableName.empty())
+    {
+        m_subDatabase->find(methods, items);
+    }
+    else 
+    {
+        m_subDatabase->find(methods, items, strTargetTableName);
+    }
 
     for (Item &item : items)
     {
@@ -412,19 +398,14 @@ int RecordFileDatabase::find(const MatchMethods &methods, std::vector<Record_NS:
 
 int Db::RecordFileDatabase::find(std::string cmd, std::vector<Record_NS::TsFileInfo_S> &infos)
 {
-    std::unique_lock<std::mutex> lock(m_mutex);
-    if (m_subDbMap.empty()) 
+    if(m_subDatabase == nullptr)
     {
-        // 如果缓存是空的，默认打开今天的表
-        std::time_t now = std::time(nullptr);
-        char buf[11];
-        std::strftime(buf, sizeof(buf), "%Y-%m-%d", std::localtime(&now));
-        get_sub_handle("\"" + std::string(buf) + "\"");
+        dlog_error("subDatabase is nullptr");
+        return -1;
     }
-
-    auto it = m_subDbMap.begin();
+    std::unique_lock<std::mutex> lock(m_mutex);
     std::vector<Item> items;
-    it->second->find(cmd, items);
+    m_subDatabase->find(cmd, items);
 
     for (Item &item : items)
     {
@@ -467,31 +448,29 @@ int Db::RecordFileDatabase::find(std::string cmd, std::vector<Record_NS::TsFileI
     }
     return 0;
 }
-
 int RecordFileDatabase::get_count(const MatchMethods &methods, int &nCount, const std::string field)
 {
     std::unique_lock<std::mutex> lock(m_mutex);
     return m_database.get_count(methods, nCount, field);
 }
-
 int RecordFileDatabase::get_subDataCount(const MatchMethods &methods, int &nCount, const std::string field, std::string strTargetTableName)
 {
-    std::unique_lock<std::mutex> lock(m_mutex);
-    std::string actualTable = strTargetTableName;
-    if (actualTable.empty()) 
+    if(m_subDatabase == nullptr)
     {
-        std::time_t now = std::time(nullptr);
-        char buffer[11] = {0};
-        std::strftime(buffer, sizeof(buffer), "%Y-%m-%d", std::localtime(&now));
-        actualTable = "\"" + std::string(buffer) + "\"";
+        dlog_error("subDatabase is nullptr");
+        return -1;
     }
-
-    CDbBase* db = get_sub_handle(actualTable);
-    return db->get_count(methods, nCount, field, actualTable);
+    std::unique_lock<std::mutex> lock(m_mutex);
+    return m_subDatabase->get_count(methods, nCount, field, strTargetTableName);
 }
 
 int RecordFileDatabase::update(const Item &item, const MatchMethods &methods, std::string strTargetTableName)
 {
+    if(m_subDatabase == nullptr)
+    {
+        dlog_error("subDatabase is nullptr");
+        return -1;
+    }
     std::unique_lock<std::mutex> lock(m_mutex);
     if(strTargetTableName.empty())
     {
@@ -499,8 +478,7 @@ int RecordFileDatabase::update(const Item &item, const MatchMethods &methods, st
     }
     else 
     {
-        CDbBase* db = get_sub_handle(strTargetTableName);
-        return db->update(item, methods, strTargetTableName);
+        return m_subDatabase->update(item, methods, strTargetTableName);
     }
     
 }

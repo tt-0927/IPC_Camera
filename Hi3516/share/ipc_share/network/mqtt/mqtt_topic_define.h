@@ -14,6 +14,12 @@
 /* MQTT 默认端口 */
 #define MQTT_DEFAULT_PORT   1883
 
+/* 跨局域网平台 MQTT 默认连接参数 */
+#define MQTT_PLATFORM_DEFAULT_BROKER    "183.129.224.253"
+#define MQTT_PLATFORM_DEFAULT_PORT      1884
+#define MQTT_PLATFORM_DEFAULT_USERNAME  "itc"
+#define MQTT_PLATFORM_DEFAULT_PASSWORD  "itc.rt.pass"
+
 /* MQTT QoS 级别定义 */
 #define MQTT_QOS_COMMAND    1   /* 命令下发：至少一次 */
 #define MQTT_QOS_EVENT      0   /* 事件推送：最多一次 */
@@ -30,3 +36,9 @@
 
 /* 设备 → 平台：命令响应 */
 #define MQTT_TOPIC_RESPONSE(sn)     (MQTT_TOPIC_PREFIX(sn) + "/response")
+
+/* 平台 → 设备：人脸列表请求 */
+#define MQTT_TOPIC_FACES(sn)        (MQTT_TOPIC_PREFIX(sn) + "/faces")
+
+/* 设备 → 平台：人脸列表响应 */
+#define MQTT_TOPIC_FACES_RESPONSE(sn) (MQTT_TOPIC_FACES(sn) + "/response")

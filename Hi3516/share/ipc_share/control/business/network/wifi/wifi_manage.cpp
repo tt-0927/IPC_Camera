@@ -11,7 +11,7 @@
 #include <chrono>
 #include <algorithm>
 #include "wifi_manage.h" 
-
+#include "rtsp_server.h"
 // --- 全局配置实现 ---
 GlobalConfig::GlobalConfig() 
     : config_file_path("/etc/wpa_supplicant.conf"),
@@ -66,7 +66,7 @@ std::string CWifiManager::sendCommand(const std::string& cmd) {
     // 去掉末尾换行符
     if (!result.empty() && result.back() == '\n') result.pop_back();
 
-    dlog_error("[TX] 执行 wpa_cli: %s", cli_cmd.c_str());
+    dlog_error("[TX] 执行 wpa_cli : %s", cli_cmd.c_str());
     dlog_error("[RX] 响应: %s", result.c_str());
 
     return result;
@@ -76,10 +76,10 @@ std::string CWifiManager::sendCommand(const std::string& cmd) {
 bool CWifiManager::startDaemon() {
     execShell("killall wpa_supplicant 2>/dev/null");
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
-
+    
     std::string ctrl_dir = config.ctrl_interface;
     execShell("mkdir -p " + ctrl_dir + " && chmod 777 " + ctrl_dir);
-
+   
     std::ofstream file(config.config_file_path);
     if (file.is_open()) {
         file << "ctrl_interface=" << config.ctrl_interface << "\n";
@@ -94,7 +94,7 @@ bool CWifiManager::startDaemon() {
     std::string cmd = "wpa_supplicant -D" + config.driver + " -i" + config.interface_name + " -c" + config.config_file_path + " -B";
 
     execShell(cmd);
-
+    
     const int max_wait = 5; // 最多 5 秒
     bool socket_ready = false;
     for (int i = 0; i < max_wait * 2; i++) { // 每 0.5 秒检查一次
@@ -154,13 +154,35 @@ void CWifiManager::monitorLoop() {
             // 情况 A: 网线插好了
             // 只要网线插着，我们就强制走有线
             // 注意：这里不需要 Ping 网关，物理连接在我们就信任它
-            system("ip route replace default via 172.16.25.254 dev eth0");
+            Network::Info_S stNetInfo;
+            CNetworkManage::instance()->get_system_networkInfo(stNetInfo);
+            if (stNetInfo.stIp.ipv4Ip.length() >= 4 && stNetInfo.stIp.ipv4Ip.substr(0, 4) == "192.") {
+                system("ip route replace default via 192.168.1.254 dev eth0");
+            }
+            else {
+                system("ip route replace default via 172.16.25.254 dev eth0");
+            }
+            
+            is_rebootrtsp_wlan0 = true;
+            if(is_rebootrtsp_eth0)
+            {
+                CRtspServer::instance()->reboot();
+                is_rebootrtsp_eth0 = false;
+            }
         } else {
             // 情况 B: 网线没插 (或者 carrier 检测失败)
             // 只有当 WiFi 连接时，才切换路由
             if (is_connected) {
                 std::cout << "[监控] 检测到 eth0 网线断开，切换至 WiFi..." << std::endl;
                 system("ip route replace default dev wlan0");
+                if(is_rebootrtsp_wlan0)
+                {
+                    CRtspServer::instance()->reboot();
+                    is_rebootrtsp_wlan0 = false;
+
+                    is_rebootrtsp_eth0 =true;
+                }
+                
             }
         }
 
@@ -1075,6 +1097,30 @@ void CWifiManager::lockCurrentIp() {
             Convert::write_file(NETWORK_WIFI_CONFIG_FILE, stConfigNetInfo);
         
         }
+    }
+}
+
+// --- 检测 WiFi 连接且有线断开 ---
+bool CWifiManager::isWifiConnectedAndWiredDisconnected() {
+
+    std::string status = sendCommand("STATUS");
+    
+    bool isWifiConnected = (status.find("wpa_state=COMPLETED") != std::string::npos);
+    
+    int eth0_link_up = system("cat /sys/class/net/eth0/carrier 2>/dev/null | grep 1 > /dev/null 2>&1");
+    bool isWiredDisconnected = (eth0_link_up != 0); 
+    std::cout << "[检测] WiFi和线网络。" << std::endl;
+    if (isWifiConnected && isWiredDisconnected) {
+        std::cout << "[检测] WiFi已连接，且有线网络已断开。" << std::endl;
+        return true;
+    } else {
+        if (!isWifiConnected) {
+            std::cout << "[检测] WiFi未连接 (状态: " << (status.empty() ? "空" : status.substr(0, 20)) << "...)" << std::endl;
+        }
+        if (!isWiredDisconnected) {
+            std::cout << "[检测] 有线网络仍连接。" << std::endl;
+        }
+        return false;
     }
 }
 #endif

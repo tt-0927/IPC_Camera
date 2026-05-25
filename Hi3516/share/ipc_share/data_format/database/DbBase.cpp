@@ -98,7 +98,7 @@ void CDbBase::deinit()
     m_sqlite3.deinit();
 }
 
-int CDbBase::add(const Item &item)
+int CDbBase::add(const Item &item, std::string strTargetTableName)
 {
     if (item.size() != m_tableKey.size() - 1)
     {
@@ -108,7 +108,18 @@ int CDbBase::add(const Item &item)
     std::string key;
     std::string value;
     cut(item, key, value);
-    std::string cmd = "INSERT INTO " + m_tableName + "(" + key + ")" + "VALUES(" + value + ");";
+
+    std::string cmd;
+
+    if(strTargetTableName.empty())
+    {
+        cmd = "INSERT INTO " + m_tableName + "(" + key + ")" + "VALUES(" + value + ");";
+    }
+    else 
+    {
+        cmd = "INSERT INTO " + strTargetTableName + "(" + key + ")" + "VALUES(" + value + ");";
+    }
+
     int nRet = m_sqlite3.deal_sql(std::move(cmd.c_str()));
     if (nRet < 0)
     {

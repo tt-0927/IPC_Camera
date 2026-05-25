@@ -149,9 +149,10 @@ namespace Db
         /*
          * @description: 添加数据
          * @param[out]: items 数据集
+         * @param[in]: strTargetTableName 指定的表
          * @return:  <0 失败
          */
-        int add(const Item &item);
+        int add(const Item &item, std::string strTargetTableName = std::string());
 
         /*
          * @description: 删除数据

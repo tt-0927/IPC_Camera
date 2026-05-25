@@ -3137,8 +3137,6 @@ typedef struct tagNET_TVVideoStreamCap
     NET_TV_VIDEO_ENCODE_OPTION_S    astEncodeCap[NET_TV_VIDEO_ENCODE_TYPE_MAX];     /* 编码能力 Encode capability */
     NET_TV_RANGE_S                  stQuality;                                      /* 图像质量范围 Quality range */
     NET_TV_RANGE_S                  stStreamSmooth;                                 /* 码流平滑范围 Stream smooth range */
-    INT32                           dwResolutionNum;                                /* 支持的分辨率个数 Number of supported resolutions */
-    NET_TV_VIDEO_RESOLUTION_S       astResolution[NET_TV_RESOLUTION_NUM_MAX];       /* 支持的分辨率列表 Supported resolution list */
 }NET_TV_VIDEO_STREAM_CAP_S, *LPNET_TV_VIDEO_STREAM_CAP_S;
 
 #define NET_TV_VIDEO_STREAM_MAX         4             /* 最大码流数量 */

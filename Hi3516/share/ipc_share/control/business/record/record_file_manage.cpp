@@ -62,7 +62,7 @@ int RecordFileManage::add(Record_NS::TsFileInfo_S stTsFileInfo)
         std::string date_str;
         date_str = TimeUtils_NS::get_currentDate();
         std::string strFullPath = stTsFileInfo.path + "/normal_" + date_str + ".m3u8";
-        CRecordCtrl::instance()->set_event_ts_info(stTsFileInfo.nSize, strFullPath);    
+        CRecordCtrl::instance()->set_event_ts_info(stTsFileInfo.nSize, strFullPath);
     }
     else 
     {
@@ -1343,6 +1343,7 @@ int RecordFileManage::loop_write()
     if(strRecordDbName == strCurrentDate)
     {
         CRecordCtrl::instance()->stop_record();
+        dlog_info("停止录制");
         /* 等待停止录制 */
         sleep(1);
     }
@@ -2159,7 +2160,7 @@ void RecordFileManage::record_file_manage_thread()
         }
         
         dTimeDiff = stTimeJumpCheck.probe();
-        if(dTimeDiff < 0)
+        if(dTimeDiff != 0.0)
         {
             dlog_info("时间发生跳变 %lf", dTimeDiff);
             CRecordCtrl::instance()->stop_record();
@@ -2168,14 +2169,14 @@ void RecordFileManage::record_file_manage_thread()
             time_t nCurTime = time(NULL);
             dealTimeChange(nCurTime);
         }
-        else if(dTimeDiff > 0)
-        {
-            dlog_info("时间发生跳变 %lf", dTimeDiff);
-            CRecordCtrl::instance()->stop_record();
-            /* 等待录制进程停止操作m3u8文件 */
-            sleep(1);
-            CRecordCtrl::instance()->start_record();
-        }
+        // else if(dTimeDiff > 0)
+        // {
+        //     dlog_info("时间发生跳变 %lf", dTimeDiff);
+        //     CRecordCtrl::instance()->stop_record();
+        //     /* 等待录制进程停止操作m3u8文件 */
+        //     sleep(1);
+        //     CRecordCtrl::instance()->start_record();
+        // }
 
         usleep(500 * 1000);
     }

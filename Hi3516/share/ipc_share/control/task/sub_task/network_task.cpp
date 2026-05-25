@@ -22,6 +22,9 @@
 #include "wifi_manage.h" 
 #include "4g_manage.h"
 #include "hostapd_manager.h"
+#include "platform_manager.h"
+#include "av_configure.h"
+#include "storage_manage.h"
 // #include "SipModule.h"
 // #include "SipType.h"
 #include "path_define.h"
@@ -665,26 +668,6 @@ void Task::Network::GmDeleteCertFile::handle()
     result(Convert::to_string(astInfo));
 }
 
-#ifdef ENABLE_GAT1400_SRC
-void Task::Network::GetGat1400Info::handle()
-{
-    ::Network::Gat1400Client_S stInfo;
-    GAT1400::CGAT1400::instance()->getGat1400Config(stInfo);
-    result(Convert::to_string(stInfo));
-}
-
-void Task::Network::SetGat1400Info::handle()
-{
-    ::Network::Gat1400Client_S stInfo;
-    Convert::to_struct(m_taskData, stInfo);
-    /* 设置的参数写入配置文件 */
-    Convert::write_file(GAT1400_CONFIG_FILE, stInfo);
-
-    result(GAT1400::CGAT1400::instance()->init());
-}
-#endif
-
-
 #if CAP_NETWORK_WIFI
 void Task::Network::SetWifiStaInfo::handle()
 {
@@ -802,6 +785,7 @@ void Task::Network::DisconnectWifiSta::handle()
     }
 }
 #endif
+
 #if CAP_NETWORK_4G
 void Task::Network::Get4GInfo::handle()
 {
@@ -819,7 +803,6 @@ void Task::Network::Get4GInfo::handle()
     }
 }
 
-
 void Task::Network::Set4GInfo::handle()
 {
     ::Network::Network_4G_Config_t stInfo;
@@ -836,7 +819,6 @@ void Task::Network::Set4GInfo::handle()
         result(0);
     }
 }
-
 #endif
 
 #if CAP_NETWORK_WIFI
@@ -948,5 +930,213 @@ void Task::Network::GetHotspotConn::handle()
     free(json_string);
     
     cJSON_Delete(root);
+}
+#endif
+
+#if CAP_GARBAGE_STATION_PLATFORM
+void Task::Network::ConnPlatform::handle()
+{
+    ::Network::Platform_Info_t stInfo;
+    CPlatformManager::LoginResponse out_response;
+    
+    Convert::to_struct(m_taskData, stInfo);
+
+   
+
+    bool success = CPlatformManager::instance()->login(
+        stInfo.server_ip, 
+        stInfo.server_port, 
+        stInfo.user, 
+        stInfo.password, 
+        stInfo.enable,
+        stInfo.Custom,
+        out_response
+    );
+    if (!stInfo.enable) /* 关闭平台接入 */
+    {
+        /* login() 在 enable=false 时不会保存配置，需手动持久化禁用状态 */
+        CPlatformManager::instance()->save_config();
+        /* 停止 RTMP 推流 */
+        CPlatformManager::instance()->relogin_and_update_stream();
+        result(0);
+        return;
+    }
+    if(success){
+
+        cJSON *root = cJSON_CreateObject();
+        
+        cJSON_AddNumberToObject(root, "status_code", out_response.status_code);
+        cJSON_AddStringToObject(root, "status", out_response.status.c_str());
+        cJSON_AddStringToObject(root, "message", out_response.message.c_str());
+
+        cJSON *data_obj = cJSON_CreateObject();
+        cJSON_AddItemToObject(root, "data", data_obj); // 将 data 对象挂载到 root 下
+        cJSON_AddStringToObject(data_obj, "access_token", out_response.data.access_token.c_str());
+        cJSON_AddStringToObject(data_obj, "token_type", out_response.data.token_type.c_str());
+        cJSON_AddNumberToObject(data_obj, "expires_in", out_response.data.expires_in);
+        cJSON_AddStringToObject(data_obj, "phone", out_response.data.phone.c_str());
+        cJSON_AddBoolToObject(data_obj, "need_modify_password", out_response.data.need_modify_password);
+        char *json_string = cJSON_PrintUnformatted(root);
+
+        if (json_string) {
+            result(json_string);
+            cJSON_free(json_string);
+        }
+
+        // 6. 清理资源
+        cJSON_Delete(root); // 删除整个 JSON 树
+
+        ::System::DeviceInfo_S stDeviceInfo;
+        CPlatformManager::StoreDevice req;
+        CPlatformManager::StoreResponse resp;
+        ::Network::Info_S NetstInfo;
+        Video_NS::VideoConfig_S stVideoConfig;
+        StorageManage_NS::StorageManage_S stStorageManageParam;
+
+        SystemManage::instance()->get_device_info(stDeviceInfo);
+        
+        CNetworkManage::instance()->get_system_networkInfo(NetstInfo);
+        
+        /* 仅判断第一码流 */
+        stVideoConfig.nId = 0;
+        CAVConfigure::instance()->get_configure(stVideoConfig);
+        
+        CStorageManage::instance()->get_storageManage_param(stStorageManageParam);
+        
+        req.sn =  std::to_string(stDeviceInfo.deviceID);
+        req.name = stDeviceInfo.deviceName;
+        req.version = stDeviceInfo.systemVersion;
+        req.account = stInfo.user;
+        req.password = stInfo.password;
+        req.ip = NetstInfo.stIp.ipv4Ip;
+        req.port=554;
+        req.mac_address =NetstInfo.stIp.physicalAddress;
+        req.resolution =  std::to_string(stVideoConfig.stVideoResolution.nWidth) +"x" +  std::to_string(stVideoConfig.stVideoResolution.nHeight);
+        req.storage = stStorageManageParam.strAvailableSpace;
+        if (!stStorageManageParam.strAvailableSpace.empty() && !stStorageManageParam.strRecordRemainingSpace.empty()) {
+            req.use_storage = std::to_string(std::stof(stStorageManageParam.strAvailableSpace)-std::stof(stStorageManageParam.strRecordRemainingSpace));
+        }
+        else {
+            req.use_storage ="";
+        }
+        
+        CPlatformManager::instance()->storeDevice(req, out_response.data.access_token,resp);
+
+        /* 登录成功，触发 RTMP 推流地址热更新 */
+        CPlatformManager::instance()->relogin_and_update_stream();
+    }
+    else {
+        result(-1);
+    }
+}
+
+void Task::Network::storePlatformDevices::handle()
+{
+
+    ::Network::Platform_Store_Info_t stInfo;
+    
+    Convert::to_struct(m_taskData, stInfo);
+    if(!stInfo.access_token.empty()){
+    
+        ::System::DeviceInfo_S stDeviceInfo;
+        CPlatformManager::StoreDevice req;
+        CPlatformManager::StoreResponse resp;
+        ::Network::Info_S NetstInfo;
+        Video_NS::VideoConfig_S stVideoConfig;
+        StorageManage_NS::StorageManage_S stStorageManageParam;
+
+        SystemManage::instance()->get_device_info(stDeviceInfo);
+        
+        CNetworkManage::instance()->get_system_networkInfo(NetstInfo);
+        
+        /* 仅判断第一码流 */
+        stVideoConfig.nId = 0;
+        CAVConfigure::instance()->get_configure(stVideoConfig);
+        
+        CStorageManage::instance()->get_storageManage_param(stStorageManageParam);
+        
+        req.sn =  std::to_string(stDeviceInfo.deviceID);
+        req.name = stDeviceInfo.deviceName;
+        req.version = stDeviceInfo.systemVersion;
+        req.account = stInfo.user;
+        req.password = stInfo.password;
+        req.ip = NetstInfo.stIp.ipv4Ip;
+        req.port=554;
+        req.mac_address =NetstInfo.stIp.physicalAddress;
+        req.protocol = "rtsp"; 
+        req.resolution =  std::to_string(stVideoConfig.stVideoResolution.nWidth) +"x" +  std::to_string(stVideoConfig.stVideoResolution.nHeight);
+        req.storage = stStorageManageParam.strAvailableSpace;
+        if (!stStorageManageParam.strAvailableSpace.empty() && !stStorageManageParam.strRecordRemainingSpace.empty()) {
+            req.use_storage = std::to_string(std::stof(stStorageManageParam.strAvailableSpace)-std::stof(stStorageManageParam.strRecordRemainingSpace));
+        }
+        else {
+            req.use_storage ="10";
+            req.storage = "10";
+        }
+        
+        CPlatformManager::instance()->storeDevice(req, stInfo.access_token,resp);
+        if(resp.status=="success" && resp.status_code == 200)
+        {
+            result(0);
+        }
+        else {
+            result(-1);
+        }
+
+    }
+    else {
+        result(-1);
+    }
+}
+
+void Task::Network::GetConnPlatformInfo::handle()
+{
+    ::Network::LoginInfo info;
+    
+    CPlatformManager::instance()->getlogininfo(info);
+
+    cJSON *root = cJSON_CreateObject();
+    if (root == NULL) {
+        std::cerr << "Failed to create JSON object " << std::endl;
+        return;
+    }
+
+    cJSON_AddStringToObject(root, "host", info.host.c_str());
+    cJSON_AddNumberToObject(root, "port", info.port);
+    cJSON_AddStringToObject(root, "login_user", info.login_user.c_str());
+    cJSON_AddStringToObject(root, "login_password", info.login_password.c_str());
+    cJSON_AddBoolToObject(root, "enable", info.enable);
+    cJSON_AddBoolToObject(root, "Custom", info.Custom);
+
+    char *json_string = cJSON_PrintUnformatted(root);
+    if (json_string != NULL) {
+        std::string json_str = json_string;
+        std::cout << "Generated JSON: " << json_str << std::endl;
+        result(json_str);
+        cJSON_free(json_string);
+    } else {
+        std::cerr << "Failed to print JSON object" << std::endl;
+        result(-1);
+    }
+    cJSON_Delete(root);
+}
+#endif
+
+#ifdef ENABLE_GAT1400_SRC
+void Task::Network::GetGat1400Info::handle()
+{
+    ::Network::Gat1400Client_S stInfo;
+    GAT1400::CGAT1400::instance()->getGat1400Config(stInfo);
+    result(Convert::to_string(stInfo));
+}
+
+void Task::Network::SetGat1400Info::handle()
+{
+    ::Network::Gat1400Client_S stInfo;
+    Convert::to_struct(m_taskData, stInfo);
+    /* 设置的参数写入配置文件 */
+    Convert::write_file(GAT1400_CONFIG_FILE, stInfo);
+
+    result(GAT1400::CGAT1400::instance()->init());
 }
 #endif

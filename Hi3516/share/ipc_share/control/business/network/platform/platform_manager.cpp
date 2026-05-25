@@ -27,6 +27,41 @@
 #include <vector>
 #include <chrono>
 
+static std::string platform_json_object_to_string(cJSON *pRoot)
+{
+    if (!pRoot)
+    {
+        return "{}";
+    }
+
+    char *pJson = cJSON_PrintUnformatted(pRoot);
+    std::string strPayload = pJson ? pJson : "{}";
+    free(pJson);
+    return strPayload;
+}
+
+static std::string platform_data_or_empty(const std::string &strJson)
+{
+    if (strJson.empty())
+    {
+        return "{}";
+    }
+
+    cJSON *pRoot = cJSON_Parse(strJson.c_str());
+    if (!pRoot)
+    {
+        return "{}";
+    }
+
+    cJSON *pData = cJSON_GetObjectItemCaseSensitive(pRoot, "Data");
+    cJSON *pTarget = pData ? pData : pRoot;
+    char *pJson = cJSON_PrintUnformatted(pTarget);
+    std::string strResult = pJson ? pJson : "{}";
+    free(pJson);
+    cJSON_Delete(pRoot);
+    return strResult;
+}
+
 // --- Base64 编码实现 ---
 static const std::string base64_chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
                                         "abcdefghijklmnopqrstuvwxyz"
@@ -706,6 +741,7 @@ bool CPlatformManager::save_config()
     Network::Platform_Info_t stInfo;
     stInfo.server_ip = custom_host.empty() ? host_ : custom_host;
     stInfo.server_port = custom_post > 0 ? custom_post : port_;
+    stInfo.mqtt_port = m_nMqttPort > 0 ? m_nMqttPort : MQTT_PLATFORM_DEFAULT_PORT;
     stInfo.user = login_user;
     stInfo.password = login_password;
     stInfo.enable = g_enable;
@@ -789,13 +825,11 @@ void CPlatformManager::relogin_and_update_stream()
 
 int CPlatformManager::init_mqtt()
 {
-    /* 从配置获取 MQTT 参数（复用平台配置） */
-    /* 测试使用：临时切换到内网 Broker */
-    // m_strMqttBroker = g_custom ? custom_host : host_;
-    m_strMqttBroker = "172.16.25.58";
-    m_nMqttPort = m_nMqttPort > 0 ? m_nMqttPort : MQTT_DEFAULT_PORT;
-    m_strMqttUsername = login_user;
-    m_strMqttPassword = login_password;
+    /* MQTT 使用跨局域网平台提供的独立 Broker 参数，不复用 HTTP 登录账号 */
+    m_strMqttBroker = MQTT_PLATFORM_DEFAULT_BROKER;
+    m_nMqttPort = MQTT_PLATFORM_DEFAULT_PORT;
+    m_strMqttUsername = MQTT_PLATFORM_DEFAULT_USERNAME;
+    m_strMqttPassword = MQTT_PLATFORM_DEFAULT_PASSWORD;
     
     /* 使用设备SN作为 ClientID */
     System::DeviceInfo_S stDeviceInfo;
@@ -833,6 +867,8 @@ int CPlatformManager::init_mqtt()
     /* 订阅命令 Topic （异步连接，会加入待订阅列表，连接成功后自动订阅） */
     std::string strCommandTopic = MQTT_TOPIC_COMMAND(m_strMqttClientId);
     m_pstMqtt->subscribe(strCommandTopic, MQTT_QOS_COMMAND);
+    std::string strFacesTopic = MQTT_TOPIC_FACES(m_strMqttClientId);
+    m_pstMqtt->subscribe(strFacesTopic, MQTT_QOS_COMMAND);
 
     dlog_info("MQTT 初始化成功，Broker[%s:%d]，ClientID[%s]",
               m_strMqttBroker.c_str(), m_nMqttPort, m_strMqttClientId.c_str());
@@ -873,8 +909,14 @@ void CPlatformManager::on_mqtt_message(const std::string &strTopic, const std::s
 {
     dlog_debug("收到 MQTT 消息，Topic[%s]：\n%s", strTopic.c_str(), strPayload.c_str());
 
+    if (strTopic == MQTT_TOPIC_FACES(m_strMqttClientId))
+    {
+        handle_faces_request("", strPayload.empty() ? "{}" : strPayload);
+        return;
+    }
+
     /* 解析 JSON */
-    cJSON *pRoot = cJSON_Parse(strPayload.c_str());
+    cJSON *pRoot = strPayload.empty() ? nullptr : cJSON_Parse(strPayload.c_str());
     if (!pRoot)
     {
         dlog_error("MQTT 消息 JSON 解析失败");
@@ -980,10 +1022,52 @@ void CPlatformManager::register_mqtt_handlers()
 {
     std::lock_guard<std::mutex> lock(m_mtxMqttHandlers);
 
-    /* 自定义命令处理器示例：平台特有命令（非标准 SDK 命令） */
-    /* 如需对某些 SDK 命令做特殊处理，在此处注册覆盖网关默认行为 */
+    m_mapMqttHandlers["faces"] = [this](const std::string &strRequestId, const std::string &strData) {
+        this->handle_faces_request(strRequestId, strData);
+    };
+    m_mapMqttHandlers["FACES"] = m_mapMqttHandlers["faces"];
 
     dlog_info("MQTT 命令处理器注册完成，标准 SDK 命令将通过网关自动转发");
+}
+
+void CPlatformManager::handle_faces_request(const std::string &strRequestId, const std::string &strData)
+{
+    std::string strResult;
+    int nRet = CMqttSdkGateway::execute_get("NET_TV_GET_FACE_INFO", strData.empty() ? "{}" : strData, strResult);
+    if (nRet != 0)
+    {
+        dlog_error("MQTT faces 请求执行失败：%d", nRet);
+        strResult = "{\"error\":\"get faces failed\"}";
+    }
+
+    cJSON *pRoot = cJSON_CreateObject();
+    cJSON_AddNumberToObject(pRoot, "Return", nRet);
+    if (!strRequestId.empty())
+    {
+        cJSON_AddStringToObject(pRoot, "RequestId", strRequestId.c_str());
+    }
+
+    const std::string strDataJson = platform_data_or_empty(strResult);
+    cJSON *pData = cJSON_Parse(strDataJson.c_str());
+    if (pData)
+    {
+        cJSON_AddItemToObject(pRoot, "Data", pData);
+    }
+    else
+    {
+        cJSON_AddObjectToObject(pRoot, "Data");
+    }
+
+    std::string strPayload = platform_json_object_to_string(pRoot);
+    cJSON_Delete(pRoot);
+
+    if (!m_pstMqtt || !m_pstMqtt->is_connected())
+    {
+        dlog_warn("MQTT 未连接，无法发布 faces 响应");
+        return;
+    }
+
+    m_pstMqtt->publish(MQTT_TOPIC_FACES_RESPONSE(m_strMqttClientId), strPayload, MQTT_QOS_RESPONSE);
 }
 
 int CPlatformManager::publish_event(const std::string &strCommand,

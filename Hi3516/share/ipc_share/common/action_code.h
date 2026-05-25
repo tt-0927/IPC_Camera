@@ -1,9 +1,9 @@
 /**
  * @FilePath     : action_code.h
- * @Author       : 严泽辉 (yanzeh@kfb.cn)
+ * @Author       : zhouzr@kfb.cn
  * @Date         : 2024-10-06 15:23:25
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-04-20 14:36:09
+ * @LastEditTime : 2026-05-15 10:45:02
  * @Description  : 通讯命令码
  */
 
@@ -388,7 +388,7 @@ typedef enum
     
     /* 设置人脸比对配置 */
     AC_SET_FACE_COMPARE_INFO = 2528,
-
+    AC_GET_FACE_COMPARE_INFO = 2529,
     /**
     * @brief   : 场景智能分析
     */
@@ -858,9 +858,12 @@ typedef enum
 
     /// @brief 热点配置
     AC_SET_HOTSPOT_INFO = 6074,
-
     AC_GET_HOTSPOT_CONN = 6075,
 
+    /// @brief 平台管理
+    AC_PLATFORM_CONN = 6076,
+    AC_PLATFORM_STOREDEVICE = 6077,
+    AC_PLATFORM_GETINFO = 6078,
 
     /**
      * @brief 数据检索/事件相关

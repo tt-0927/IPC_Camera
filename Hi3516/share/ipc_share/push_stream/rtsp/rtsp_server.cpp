@@ -228,7 +228,6 @@ IpcRet_E CRtspServer::init()
     /*获取网络信息*/
     Network::Info_S stNetInfo;
     CNetworkManage::instance()->get_system_networkInfo(stNetInfo);
-
     /* 设置握手认证回调函数 */
     set_handshakeAuth_callback(m_pLiveInfo->pServerHandle, handshakeAuth_callback);
 

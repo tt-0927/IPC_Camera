@@ -338,6 +338,11 @@ private:
      */
     void register_mqtt_handlers();
 
+    /**
+     * @brief   : 处理跨局域网平台人脸列表请求
+     */
+    void handle_faces_request(const std::string &strRequestId, const std::string &strData);
+
     // 服务器配置
     const std::string host_ = "183.129.224.253";
     const int port_ = 4910;

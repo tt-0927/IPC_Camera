@@ -10,6 +10,7 @@
 #include "mqtt_manager.h"
 #include "dlog.h"
 #include "IpcRet.h"
+#include <algorithm>
 #include <cstring>
 
 /* 静态全局实例指针，用于 C 回调转 C++ 成员函数 */
@@ -132,21 +133,27 @@ int CMqttManager::publish(const std::string &strTopic, const std::string &strPay
 
 int CMqttManager::subscribe(const std::string &strTopic, int nQos)
 {
+    /* 参数校验 */
+    if (strTopic.empty())
+    {
+        dlog_error("MQTT 订阅失败：Topic 为空");
+        return ERR_PARAM_NULL;
+    }
+
     /* 检查连接状态 */
     if (!m_bConnected.load() || m_pstMqtt == nullptr)
     {
         dlog_warn("MQTT 订阅失败：未连接，Topic[%s] 将在连接后自动订阅", strTopic.c_str());
         /* 记录到待订阅列表，连接成功后自动订阅 */
         std::lock_guard<std::mutex> lock(m_mtxTopics);
-        m_vecSubscribedTopics.emplace_back(strTopic, nQos);
+        if (std::find_if(m_vecSubscribedTopics.begin(), m_vecSubscribedTopics.end(),
+                         [&strTopic](const std::pair<std::string, int> &item) {
+                             return item.first == strTopic;
+                         }) == m_vecSubscribedTopics.end())
+        {
+            m_vecSubscribedTopics.emplace_back(strTopic, nQos);
+        }
         return ERR_UNINIT;
-    }
-
-    /* 参数校验 */
-    if (strTopic.empty())
-    {
-        dlog_error("MQTT 订阅失败：Topic 为空");
-        return ERR_PARAM_NULL;
     }
 
     /* 执行订阅 */
@@ -159,7 +166,13 @@ int CMqttManager::subscribe(const std::string &strTopic, int nQos)
 
         /* 记录到已订阅列表 */
         std::lock_guard<std::mutex> lock(m_mtxTopics);
-        m_vecSubscribedTopics.emplace_back(strTopic, nQos);
+        if (std::find_if(m_vecSubscribedTopics.begin(), m_vecSubscribedTopics.end(),
+                         [&strTopic](const std::pair<std::string, int> &item) {
+                             return item.first == strTopic;
+                         }) == m_vecSubscribedTopics.end())
+        {
+            m_vecSubscribedTopics.emplace_back(strTopic, nQos);
+        }
     }
     else
     {
@@ -176,6 +189,7 @@ bool CMqttManager::is_connected() const
 
 void CMqttManager::set_message_callback(MqttRawMessageCallback callback)
 {
+    std::lock_guard<std::mutex> lock(m_mtxMessageCallback);
     m_fnMessageCallback = callback;
     dlog_info("MQTT 消息回调已设置");
 }
@@ -207,17 +221,26 @@ void CMqttManager::on_mqtt_message(BlMqttMsg_S stMsg)
     case BL_MQTT_MSG_TOPIC:
     {
         /* 收到订阅主题的消息 */
-        if (stMsg.pMsg != nullptr && stMsg.nMsgLen > 0)
+        if (stMsg.pTopicName != nullptr)
         {
             std::string strTopic(stMsg.pTopicName ? stMsg.pTopicName : "");
-            std::string strPayload(stMsg.pMsg, stMsg.nMsgLen);
+            std::string strPayload;
+            if (stMsg.pMsg != nullptr && stMsg.nMsgLen > 0)
+            {
+                strPayload.assign(stMsg.pMsg, stMsg.nMsgLen);
+            }
 
             dlog_debug("MQTT 收到消息，Topic[%s]，长度[%d]", strTopic.c_str(), stMsg.nMsgLen);
 
             /* 透传给业务层回调 */
-            if (m_fnMessageCallback)
+            MqttRawMessageCallback fnCallback;
             {
-                m_fnMessageCallback(strTopic, strPayload);
+                std::lock_guard<std::mutex> lock(m_mtxMessageCallback);
+                fnCallback = m_fnMessageCallback;
+            }
+            if (fnCallback)
+            {
+                fnCallback(strTopic, strPayload);
             }
         }
         break;
