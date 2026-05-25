@@ -26,6 +26,7 @@
 #include "Singleton.h"
 #include "path_define.h"
 #include "convert_interface.h"
+#include "wifi_manage.h" 
 
 #define ETH0_INTERFACE "eth0"  /* 网卡 */
 

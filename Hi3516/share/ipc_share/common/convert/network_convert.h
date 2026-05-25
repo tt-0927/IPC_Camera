@@ -55,6 +55,8 @@ namespace Convert
 	void deal(Json::Object* pJson, Network::SIM_Info_t &stInfo, bool bOutStruct);
 	void deal(Json::Object* pJson, Network::Network_4G_Config_t &stInfo, bool bOutStruct);
 	void deal(Json::Object* pJson, Network::HotspotConfig &stInfo, bool bOutStruct);
+	void deal(Json::Object* pJson, Network::Platform_Info_t &stInfo, bool bOutStruct);
+	void deal(Json::Object* pJson, Network::Platform_Store_Info_t &stInfo, bool bOutStruct);
 #ifdef ENABLE_GAT1400_SRC
 	void deal(Json::Object* pRootJson, Network::Gat1400Client_S &stInfo, bool bOutStruct);
 #endif

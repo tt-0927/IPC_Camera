@@ -117,6 +117,8 @@ private:
     
     std::atomic<bool> is_running;
     std::atomic<bool> is_connected;
+    std::atomic<bool> is_rebootrtsp_wlan0 = false;
+    std::atomic<bool> is_rebootrtsp_eth0 = false;
     std::thread monitor_thread;
     int reconnect_attempts;
     static const int MAX_RECONNECT_ATTEMPTS = 3;
@@ -177,7 +179,7 @@ public:
     // // 5. 获取当前配置（可选）
     // GlobalConfig getConfig() const { return config; }
 
-    
+    bool isWifiConnectedAndWiredDisconnected();
     Network::WifiStaInfo_S load_wifi_config();
 };
 

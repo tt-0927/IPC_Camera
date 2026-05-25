@@ -106,11 +106,12 @@ namespace Task
         /* 宠物识别 */
         TaskSubClass(GetPetRecognitionInfo)
         TaskSubClass(SetPetRecognitionInfo)
+        /* 人脸比对 */
+        TaskSubClass(GetFaceCompareInfo)
+        TaskSubClass(SetFaceCompareInfo)
         /* 人脸抓拍 */
         TaskSubClass(GetFaceCaptureInfo)
         TaskSubClass(SetFaceCaptureInfo)
-        /* 人脸比对 */
-        TaskSubClass(SetFaceCompareInfo)
         /* 人脸抓拍叠加信息 */
         TaskSubClass(GetFaceCaptureOverlayInfo)
         TaskSubClass(SetFaceCaptureOverlayInfo)

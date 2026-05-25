@@ -407,11 +407,7 @@ namespace ISP
 
         _ExposureAttr_S_()
         {
-#if defined(DEVICE_TV_3882TI) || defined(DEVICE_TV_3881T)
-            enExpTime = One_50;
-#else
             enExpTime = One_12;
-#endif
             bAntiBanding = false;
         }
 
@@ -582,7 +578,7 @@ namespace ISP
         _ImageParam_S_() : nContrast(50), nSaturation(50), nSharpness(50)
         {
 #ifdef DEVICE_TV_3882TI
-            nBrightness = 32;
+            nBrightness = 50;
 #elif DEVICE_TV_3881T
             nBrightness = 30;
 #else

@@ -350,12 +350,14 @@
 #define PERIPHERAL_CONFIG_FILE      USER_DATA_PATH "peripheral_info.json"
 
 /* 网络配置 */
-#define NETWORK_INTERFACES          "/etc/network/interfaces" 
+#define NETWORK_INTERFACES          "/etc/network/interfaces"
 #define NETWORK_INTERFACES_TMP      "/etc/network/interfaces.tmp"
-#define NETWORK_INIT_SCRIPT         "/etc/init.d/S80network" 
+#define NETWORK_INIT_SCRIPT         "/etc/init.d/S80network"
 #define NETWORK_INIT_SCRIPT_TMP     "/etc/init.d/S80network.tmp"
 #define NETWORK_CONFIG_FILE         USER_DATA_PATH  "network.json"
 #define NETWORK_WIFI_CONFIG_FILE    USER_DATA_PATH  "network_wifi.json"
+/* 垃圾站平台管理配置 */
+#define PLATFORM_CONFIG_FILE        USER_DATA_PATH  "platform_config.json"
 /* 日志服务器 */
 #define LOG_SERVER_INFO_FILE        USER_DATA_PATH  "log_server.json"
 /* 设备注册信息 */

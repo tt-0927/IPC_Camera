@@ -16,7 +16,7 @@
 #include <chrono>
 #include <functional>
 #include "dlog.h"
-
+#include <condition_variable>  // C++11
 class SQLite3
 {
 public:
@@ -184,4 +184,5 @@ private:
     bool m_bExit = false;              // 退出标志
     std::thread m_tid;                 // 提交线程
     std::mutex m_mutex;                // 互斥锁
+    std::condition_variable m_cv;
 };

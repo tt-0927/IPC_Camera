@@ -378,7 +378,7 @@ void CRecordFile::slice()
 		}
 	}
 #endif
-
+	
 	/*判断年月日不等,日期变更*/
 	if (is_newDay())
 	{
@@ -389,6 +389,7 @@ void CRecordFile::slice()
 
 		nVptsMs = 0;
 		nAptsMs = 0;
+		m_stSliceInfo.nIndex = 0;
 	}
 	auto stSliceInfo = m_ffmpegRecord.get_mediaInfo();
 	m_m3u8.add_ts(std::move(stSliceInfo));
@@ -552,7 +553,8 @@ void CRecordFile::write_record()
 
 	/*判断当前片段时间有没有 SLICING_TIME 秒,并且是否为关键帧，写尾，分片*/
 	
-	if (stFfData.nType == AVMEDIA_TYPE_VIDEO && stFfData.nKey && (m_ffmpegRecord.get_durationMs() / 1000) >= SLICING_TIME && m_ffmpegRecord.get_videoCount() != 0)
+	if( (stFfData.nType == AVMEDIA_TYPE_VIDEO && stFfData.nKey && (m_ffmpegRecord.get_durationMs() / 1000) >= SLICING_TIME && m_ffmpegRecord.get_videoCount() != 0)
+		|| (is_newDay() && stFfData.nType == AVMEDIA_TYPE_VIDEO && stFfData.nKey && m_ffmpegRecord.get_videoCount() != 0))
 	{
 		/* 分片 */
 		slice();

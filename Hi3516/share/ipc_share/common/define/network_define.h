@@ -497,7 +497,8 @@ namespace Network
 
 #ifdef ENABLE_GAT1400_SRC
     /* GAT1400接入配置信息 */
-    typedef struct _Gat1400Client_ {
+    typedef struct _Gat1400Client_
+    {
         bool enableGat1400 = false;         /* 是否启用GAT1400协议 */
         bool status = false;                /* 接入状态 */
         int port = -1;                      /* 接入 GAT1400 平台端口 */
@@ -515,62 +516,63 @@ namespace Network
     } Gat1400Client_S;
 #endif
 
-
     typedef struct _WifiStaInfo_S_
     {
-        bool bEnableWifi = false; /* 是否开启wifi */
+        bool bEnableWifi = false;  /* 是否开启wifi */
         bool bEnableBoost = false; /* 是否开启增强功能 */
     } WifiStaInfo_S;
 
     // 安全模式枚举
-    enum class WifiSecurityMode {
-        WPA_PERSONAL,   // WPA-个人版
-        OPEN,           // 开放网络
-        WEP,            // WEP加密
-        EAP_PEAP,       // WPA企业版 (PEAP)
-        EAP_TLS,         // WPA企业版 (TLS)
+    enum class WifiSecurityMode
+    {
+        WPA_PERSONAL, // WPA-个人版
+        OPEN,         // 开放网络
+        WEP,          // WEP加密
+        EAP_PEAP,     // WPA企业版 (PEAP)
+        EAP_TLS,      // WPA企业版 (TLS)
         EAP_TTLS
     };
 
     // WEP 密钥配置结构
-    struct WepKeyConfig {
-        int index;          // 密钥索引 1-4
-        std::string value;  // 密钥内容
+    struct WepKeyConfig
+    {
+        int index;         // 密钥索引 1-4
+        std::string value; // 密钥内容
     };
 
     typedef struct _WifiStaConncet_S_
     {
-        std::string ssid;           // SSID
-        WifiSecurityMode mode;      // 安全模式
+        std::string ssid;      // SSID
+        WifiSecurityMode mode; // 安全模式
         std::string ip_address;
-        
+
         // --- 通用配置 ---
-        std::string password;       // 密码 (用于 WPA-Personal, WEP, EAP-PEAP)
-        
+        std::string password; // 密码 (用于 WPA-Personal, WEP, EAP-PEAP)
+
         // --- WPA-Personal 特有 ---
-        std::string pairwise;       // 加密类型 (TKIP/CCMP), 默认 CCMP
-        
+        std::string pairwise; // 加密类型 (TKIP/CCMP), 默认 CCMP
+
         // --- WEP 特有 ---
-        int wep_key_len;            // 64 or 128
-        bool wep_is_hex;            // true=16进制, false=ASCII
-        std::string auth_alg;       // "OPEN" or "SHARED"
+        int wep_key_len;                    // 64 or 128
+        bool wep_is_hex;                    // true=16进制, false=ASCII
+        std::string auth_alg;               // "OPEN" or "SHARED"
         std::vector<WepKeyConfig> wep_keys; // 密钥列表
-        
+
         // --- EAP-PEAP 特有 ---
-        std::string eap_identity;   // 用户名
-        std::string eap_password;   // 密码
-        std::string peap_version;   // "0" or "1"
-        std::string phase2;         // 内部认证, 如 "auth=GTC"
+        std::string eap_identity;       // 用户名
+        std::string eap_password;       // 密码
+        std::string peap_version;       // "0" or "1"
+        std::string phase2;             // 内部认证, 如 "auth=GTC"
         std::string anonymous_identity; // 匿名身份
-        std::string ca_cert_path;   // CA证书路径
-        std::string peap_label;     //PEAP标签（old)
-        
+        std::string ca_cert_path;       // CA证书路径
+        std::string peap_label;         // PEAP标签（old)
+
         // --- EAP-TLS 特有 ---
-        std::string tls_identity;   // 身份
+        std::string tls_identity;       // 身份
         std::string private_key_passwd; // 私钥密码
-        std::string eapol_version;  // EAPOL版本
-        std::string client_cert_path; // 用户证书路径
-        std::string private_key_path; // 私钥路径
+        std::string eapol_version;      // EAPOL版本
+        std::string client_cert_path;   // 用户证书路径
+        std::string private_key_path;   // 私钥路径
 
         // --- EAP-TTLS 特有配置  ---
         std::string eap_anonymous_identity; // 匿名身份 (必填)
@@ -579,100 +581,142 @@ namespace Network
         std::string ctrl_interface;
 
         std::string interface_name;
-            // 构造函数初始化默认值
-        _WifiStaConncet_S_() 
-            : mode(WifiSecurityMode::OPEN), 
-            pairwise("CCMP"),
-            wep_key_len(128),
-            wep_is_hex(false),
-            auth_alg("OPEN"),
-            peap_version("0"),
-            eapol_version("2"),
-            eap_anonymous_identity(""),
-            eap_ttls_phase2("PAP"), // 默认设为 PAP
-            ctrl_interface("/var/run/wpa_supplicant"),
-            interface_name("wlan0") {}
+        // 构造函数初始化默认值
+        _WifiStaConncet_S_()
+            : mode(WifiSecurityMode::OPEN), pairwise("CCMP"), wep_key_len(128), wep_is_hex(false), auth_alg("OPEN"),
+              peap_version("0"), eapol_version("2"), eap_anonymous_identity(""), eap_ttls_phase2("PAP"), // 默认设为 PAP
+              ctrl_interface("/var/run/wpa_supplicant"), interface_name("wlan0")
+        {
+        }
     } WifiStaConncet_S;
-    struct WifiConnectResult {
+
+    struct WifiConnectResult
+    {
         bool success;           // 连接是否成功
         std::string ip_address; // 获取到的 IP 地址
         int error_code;         // 错误码 (0: 成功, 1: 超时, 2: 认证失败等)
-        
+
         // 构造函数，方便初始化
-        WifiConnectResult() : success(false), ip_address(""), error_code(0) {}
+        WifiConnectResult() : success(false), ip_address(""), error_code(0)
+        {
+        }
     };
 
-    typedef struct SIM_Info_t
+    // 4G
+    typedef enum
     {
-        std::string status;
-        std::string ip_address;
-        std::string subnet_mask;
-        std::string gateway;
-        std::string dns_address;
-        std::string signal_quality;
-        std::string operator_name; // 运营商名称（如 "China Telecom"）
-        bool is_registered;
-    }SIM_Info_t;
-
-//4G
-    typedef enum {
-        AUTH_NONE = 0,  // 无鉴权
-        AUTH_PAP = 1,   // PAP
-        AUTH_CHAP = 2,   // CHAP
-        AUTH_PAP_CHAP = 3 //3=PAP&CHAP
+        AUTH_NONE = 0,    // 无鉴权
+        AUTH_PAP = 1,     // PAP
+        AUTH_CHAP = 2,    // CHAP
+        AUTH_PAP_CHAP = 3 // 3=PAP&CHAP
     } Auth_Mode_t;
-    
+
     // 网络制式枚举 (对应网页上的 "网络切换方式" 下拉框)
-    typedef enum {
-        NET_AUTO = 0,       // 自动
-        NET_4G_ONLY = 1,    // 仅4G
-        NET_3G_ONLY = 2,    // 仅3G
-        NET_2G_ONLY = 3     // 仅2G
+    typedef enum
+    {
+        NET_AUTO = 0,    // 自动
+        NET_4G_ONLY = 1, // 仅4G
+        NET_3G_ONLY = 2, // 仅3G
+        NET_2G_ONLY = 3  // 仅2G
     } Network_Mode_t;
-    
+
     // 拨号方式枚举 (对应网页上的 "拨号方式" 下拉框)
-    typedef enum {
-        DIAL_AUTO = 0,      // 自动拨号 (模块内部处理)
-        DIAL_MANUAL = 1     // 手动拨号 (主机发送ATD指令)
+    typedef enum
+    {
+        DIAL_AUTO = 0,  // 自动拨号 (模块内部处理)
+        DIAL_MANUAL = 1 // 手动拨号 (主机发送ATD指令)
     } Dial_Mode_t;
-    typedef struct Network_4G_Config_t {
+
+    typedef struct Network_4G_Config_t
+    {
         std::string apn;          // APN (例如: ctnet, cmnet)
         std::string username;     // 用户名 (专网参数)
         std::string password;     // 密码 (专网参数)
         std::string call_number;  // 拨号号码 (通常为 *99# 或 *99***1#)
-    
+        std::string phone_number; // 拨号号码 (通常为 *99# 或 *99***1#)
         int mtu;                  // MTU大小 (例如: 1500, 1400)
-        
-        // 以下使用int存储枚举值，比string更高效
-        int auth_mode;            // 鉴权方式 (0:None, 1:PAP, 2:CHAP,3=PAP&CHAP)
-        int network_mode;         // 网络模式 (0:Auto, 1:4G, 2:3G...)
-        int dial_mode;            // 拨号方式 (0:Auto, 1:Manual)
-    
-        // 构造函数：提供默认初始化值，防止空数据导致崩溃
-        Network_4G_Config_t() : 
-            apn(""), 
-            username(""), 
-            password(""), 
-            call_number("*99#"), 
-            mtu(1500), 
-            auth_mode(AUTH_NONE), 
-            network_mode(NET_AUTO), 
-            dial_mode(DIAL_AUTO) {}
-    }Network_4G_Config_t;
 
-    typedef struct _HotspotConfig_ {
-        bool enabled;                   // 启用状态
-        std::string ssid;               // 网络名称 
-        std::string securityMode;       // 安全模式
-        std::string encryptionType;     // 加密类型 
-        std::string password;           // 密码
-        std::string confirmPassword;    // 确认密码
-        _HotspotConfig_() : 
-            enabled (false),
-            ssid ("MyHotspot"), 
-            securityMode ("WPA2-personal"), 
-            password("12345678"), 
-            encryptionType("TKIP"), 
-            confirmPassword ("") {}
-    }HotspotConfig;
+        // 以下使用int存储枚举值，比string更高效
+        int auth_mode;    // 鉴权方式 (0:None, 1:PAP, 2:CHAP,3=PAP&CHAP)
+        int network_mode; // 网络模式 (0:Auto, 1:4G, 2:3G...)
+        int dial_mode;    // 拨号方式 (0:Auto, 1:Manual)
+
+        // 构造函数：提供默认初始化值，防止空数据导致崩溃
+        Network_4G_Config_t()
+            : apn(""), username(""), password(""), call_number("*99#"), mtu(1500), auth_mode(AUTH_NONE), network_mode(NET_AUTO),
+              dial_mode(DIAL_AUTO)
+        {
+        }
+    } Network_4G_Config_t;
+
+    typedef struct _HotspotConfig_
+    {
+        bool enabled;                // 启用状态
+        std::string ssid;            // 网络名称
+        std::string securityMode;    // 安全模式
+        std::string encryptionType;  // 加密类型
+        std::string password;        // 密码
+        std::string confirmPassword; // 确认密码
+        _HotspotConfig_()
+            : enabled(false), ssid("MyHotspot"), securityMode("WPA2-personal"), password("12345678"), encryptionType("TKIP"),
+              confirmPassword("")
+        {
+        }
+    } HotspotConfig;
+
+    typedef struct SIM_Info_t
+    {
+        std::string status;         // 状态
+        std::string ip_address;     // ip地址
+        std::string subnet_mask;    // 子网掩码
+        std::string gateway;        // 网关地址
+        std::string dns_address;    // dns地址
+        std::string signal_quality; // 信号强度
+        std::string operator_name;  // 运营商名称（如 "China Telecom"）
+        std::string imei;           // 手机设备识别码
+        std::string iccid;          // SIM卡识别码
+        std::string network_type;
+        bool is_registered;
+
+        Network_4G_Config_t set_config_ret;
+    } SIM_Info_t;
+
+    typedef struct _Platform_Info_t_
+    {
+        std::string server_ip; /* 服务器地址 */
+        int server_port;       /* 端口 */
+        int rtmp_port;         // RTMP推流端口
+        int mqtt_port;         /* MQTT Broker 端口 */
+        std::string user;      /* 账号 */
+        std::string password;  /* 密码 */
+        bool enable;           /* 是否开启 */
+        bool Custom;           /* 是否自定义 */
+
+        _Platform_Info_t_()
+            : server_ip("183.129.224.253"), server_port(4910), mqtt_port(1884), user("itc"), password("itc.rt.pass"), enable(false), Custom(false),
+              rtmp_port(4920)
+        {
+        }
+    } Platform_Info_t;
+
+    typedef struct _Platform_Store_Info_t_
+    {
+        std::string access_token;//服务器地址
+        std::string user;//账号
+        std::string password;//密码
+
+        _Platform_Store_Info_t_() : access_token(""), user("admin"), password("Aa@135791")
+        {
+        }
+    }Platform_Store_Info_t;
+
+    typedef struct LoginInfo
+    {
+        std::string host = "";
+        int port;
+        std::string login_user = "";
+        std::string login_password = "";
+        bool enable;
+        bool Custom;
+    } LoginInfo;
 }

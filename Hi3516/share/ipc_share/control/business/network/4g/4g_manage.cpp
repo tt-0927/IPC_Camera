@@ -13,7 +13,7 @@
 #include <fstream>      // 用于读取文件
 #include <sstream>      // 用于字符串流
 #include <arpa/inet.h>
-
+#include <algorithm> 
 
 #define DEFAULT_PORT "/dev/ttyAMA2"
 #define BAUDRATE 115200
@@ -161,11 +161,20 @@ RetCode FourGManager::init() {
     // 4. 系统网络配置 (对应原构造函数逻辑)
     runSystemCommand("ifconfig usb0 up");
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
-    runSystemCommand("udhcpc -i usb0 -q");
+    // runSystemCommand("udhcpc -i usb0 -q");
+    runSystemCommand("udhcpc -i usb0 -R -n -t 5");
 
     // --- 标记初始化成功 ---
     init_status = RET_OK;
     is_initialized = true; // 关键：设置标记
+
+    
+    m_routeMonitorThread = std::thread(&FourGManager::routeMonitorThread, this);
+
+
+    m_routeMonitorThread.detach(); 
+
+
     std::cout << "[4G] Module Initialized with APN: " << m_config.apn << std::endl;
     
     return RET_OK;
@@ -262,7 +271,7 @@ RetCode FourGManager::sendCommand(const std::string cmd, std::string &response, 
     if (fd < 0) return RET_ERR_OPEN_PORT;
     
     response.clear();
-    
+    std::lock_guard<std::mutex> lock(port_mutex); 
     // 1. 发送指令 (必须带 \r\n)
     std::string full_cmd = cmd + "\r\n";
     int len = write(fd, full_cmd.c_str(), full_cmd.length());
@@ -353,7 +362,61 @@ RetCode FourGManager::getSimInfo(::Network::SIM_Info_t &info) {
             info.operator_name = resp.substr(start + 1, end - start - 1);
         }
     }
+// --- 获取 IMEI (设备识别码) ---
+// AT+GSN 或 AT+CGSN=1
+    if (sendCommand("AT+CGSN", resp, 1000) == RET_OK) { 
+        // 提取数字部分
+        std::string temp_imei;
+        for(char c : resp) {
+            if(isdigit(c)) temp_imei += c;
+        }
+        if (temp_imei.length() >= 14 && temp_imei.length() <= 16) { // IMEI通常为15位
+            info.imei = temp_imei;
+        }
+    }
 
+    // --- 获取 ICCID (SIM卡识别码) ---
+    // AT+CCID 或 AT+ICCID
+    if (sendCommand("AT+ICCID", resp, 1000) == RET_OK) { 
+        // 不同模组返回格式不同，这里做简单的字符串提取逻辑
+        // 通常格式为: +CCID: "898604A..."
+        size_t start = resp.find("\"");
+        size_t end = resp.rfind("\"");
+        if (start != std::string::npos && end != std::string::npos && start != end) {
+            info.iccid = resp.substr(start + 1, end - start - 1);
+        } else {
+            // 如果没有引号，直接提取连续的数字串（ICCID通常很长，超过19位）
+            std::string temp_iccid;
+            for(char c : resp) {
+                if(isdigit(c)) temp_iccid += c;
+            }
+            if (temp_iccid.length() >= 19) { // ICCID通常为19或20位
+                info.iccid = temp_iccid;
+            }
+        }
+    }
+    info.network_type = "Unknown"; // 默认值
+    
+    //类型
+    if (sendCommand("AT+COPS?", resp, 1000) == RET_OK) {
+        // 1. 找到最后一个逗号的位置
+        size_t last_comma_pos = resp.rfind(',');
+        if (last_comma_pos != std::string::npos) {
+            // 2. 提取逗号后面的子字符串，即 "7"
+            std::string act_str = resp.substr(last_comma_pos + 1);
+            // 3. 将字符串转换为整数
+            int act = std::stoi(act_str);
+            
+            // 4. 根据 3GPP 标准判断网络类型
+            if (act == 7 || act == 9) { 
+                info.network_type = "4G";
+            } else if (act == 5 || act == 2 || act == 6) { 
+                info.network_type = "3G";
+            } else if (act == 0 || act == 1 || act == 3) { 
+                info.network_type = "2G";
+            }
+        }
+    }
     // IP
     if (sendCommand("AT+CGPADDR=1", resp, 1000) == RET_OK) {
         size_t pos = resp.find("+CGPADDR:");
@@ -421,11 +484,11 @@ RetCode FourGManager::getSimInfo(::Network::SIM_Info_t &info) {
         resolvFile.close();
     }
 
+    info.set_config_ret = m_config; 
+
     last_cached_info = info;
     return RET_OK;
 }
-
-
 
 
 RetCode FourGManager::setConfig(const ::Network::Network_4G_Config_t &config) {
@@ -433,7 +496,7 @@ RetCode FourGManager::setConfig(const ::Network::Network_4G_Config_t &config) {
         std::cerr << "[4G] Error: Module not initialized!" << std::endl;
         return RET_ERR_CONFIG;
     }
-    
+
     bool need_close = false;
     if (fd < 0) {
         if (openPort() != RET_OK) {
@@ -441,102 +504,219 @@ RetCode FourGManager::setConfig(const ::Network::Network_4G_Config_t &config) {
         }
         need_close = true;
     }
-    
+
     std::string resp;
     RetCode ret;
+
+    // 保存配置
     m_config = config;
 
     // ==========================================
-    // 2. 设置网络模式 (根据网页上的 "网络切换方式")
+    // 1. 设置网络模式 (修复：先断网再设置)
     // ==========================================
-    // 
-    // if (config.network_mode == 1) {
-    //     ret = sendCommand("AT+QNWPREFCFG=\"mode_pref\",LTE", resp, 2000);
-    //     if (ret != RET_OK) {
-    //         std::cerr << "[4G] Failed to set Network Mode to 4G." << std::endl;
-    //     }
-    // } else if (config.network_mode == 0) {
-    //     ret = sendCommand("AT+QNWPREFCFG=\"mode_pref\",AUTO", resp, 2000);
-    //     if (ret != RET_OK) {
-    //         std::cerr << "[4G] Failed to set Network Mode to Auto." << std::endl;
-    //     }
-    // }
-    // 上面的代码注释掉，因为模组不支持，会报错，但不影响基本功能
-    
-    // ==========================================
-    // 3. 设置 APN (AT+CGDCONT)
-    // ==========================================
-    std::string cmd_apn = "AT+CGDCONT=1,\"IP\",\"" + config.apn + "\"";
-    ret = sendCommand(cmd_apn.c_str(), resp, 2000);
+    int at_mode = 2; // 默认 Auto
+    if (config.network_mode == 1) {
+        at_mode = 14; // 4G优先
+    } else if (config.network_mode == 2) {
+        at_mode = 3;  // 仅3G (WCDMA)
+    }
+
+    // 【关键修复】：在修改网络模式前，必须先断开数据连接 (CGACT=0)
+    // 否则模组会返回 ERROR 或 +CME ERROR: operation not allowed
+    std::cout << "[4G] Deactivating PDP before changing network mode..." << std::endl;
+    sendCommand("AT+CGACT=0,1", resp, 3000); 
+    // 稍微等待一下让网络层释放
+    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+
+    ret = sendCommand("AT+CNMP=" + std::to_string(at_mode), resp, 2000);
     if (ret != RET_OK) {
-        std::cerr << "[4G] Failed to set APN." << std::endl;
-        return RET_ERR_FAILURE;
+        std::cerr << "[4G] CNMP=14 failed, trying Auto (2)..." << std::endl;
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+        sendCommand("AT+CNMP=2", resp, 3000);
+        // 这里不直接 return，因为网络模式设置失败不应阻断 APN 配置
+    } else {
+        std::cout << "[4G] Network Mode set to: " << at_mode << std::endl;
     }
 
     // ==========================================
-    // 4. 设置鉴权方式 (AT+CGAUTH) - 修复 ERROR
+    // 2. 设置 APN (AT+CGDCONT)
     // ==========================================
-    int auth_type = 0;
-    if (config.auth_mode == AUTH_PAP) auth_type = 1;
-    else if (config.auth_mode == AUTH_CHAP) auth_type = 2;
-    else if (config.auth_mode == AUTH_PAP_CHAP) auth_type = 3;
+    std::string apn = config.apn;
+    if (apn.empty()) {
+        apn = "cmnet"; // 默认 APN
+    }
+    
+    std::string cmd_apn = "AT+CGDCONT=1,\"IP\",\"" + apn + "\"";
+    ret = sendCommand(cmd_apn.c_str(), resp, 2000);
+    if (ret != RET_OK) {
+        std::cerr << "[4G] Failed to set APN: " << apn << std::endl;
+        // APN 设置失败是严重错误，但我们可以尝试继续
+    }
 
-    // 【修改】优化鉴权设置逻辑：如果不需要用户名密码，只发送前两个参数
-    // 避免发送 AT+CGAUTH=1,0,"","" 这种非法格式
-    if(auth_type != 0) {
-        std::string cmd_auth = "AT+CGAUTH=1," + std::to_string(auth_type) + ",\"" + config.username + "\",\"" + config.password + "\"";
+    // ==========================================
+    // 3. 设置鉴权方式 (修复：严格判断参数)
+    // ==========================================
+    // 需求: 0=自动/无, 1=PAP, 2=CHAP
+    int auth_type = 0; 
+    if (config.auth_mode == 1) auth_type = 1; // PAP
+    else if (config.auth_mode == 2) auth_type = 2; // CHAP
+
+    sendCommand("AT+CGAUTH=1,0", resp, 1000); 
+    // 【关键修复】：只有当 auth_type 不为 0 时，才发送用户名和密码
+    // 如果 auth_type 为 0，必须只发送 "AT+CGAUTH=1,0"，严禁带后续参数
+    if (auth_type != 0) {
+        std::string cmd_auth = "AT+CGAUTH=1," + std::to_string(auth_type) + 
+                               ",\"" + config.username + "\",\"" + config.password + "\"";
         ret = sendCommand(cmd_auth.c_str(), resp, 2000);
         if (ret != RET_OK) {
             std::cerr << "[4G] Failed to set Authentication." << std::endl;
-            return RET_ERR_FAILURE;
         }
     } else {
-        // 只发送 AT+CGAUTH=1,0
-        // 很多模组不接受带空引号的参数，这样发最安全
-        std::string cmd_auth = "AT+CGAUTH=1," + std::to_string(auth_type);
-        ret = sendCommand(cmd_auth.c_str(), resp, 2000);
-        if (ret != RET_OK) {
-            std::cerr << "[4G] Failed to set Authentication (None)." << std::endl;
-            // 这里即使报错也继续，因为很多模组不支持这个指令（默认就是None）
-            // return RET_ERR_FAILURE;
-        }
+        // 显式设置为无鉴权，确保清除之前的配置
+        sendCommand("AT+CGAUTH=1,0", resp, 1000);
     }
 
     // ==========================================
-    // 5. 设置 MTU (系统层面)
+    // 4. 设置 MTU (系统层面)
     // ==========================================
-    if (config.mtu > 0) {
-        std::string cmd_mtu = "ip link set dev " + m_net_interface + " mtu " + std::to_string(config.mtu);
-        int sys_ret = std::system(cmd_mtu.c_str());
-        if (sys_ret == 0) {
-            std::cout << "[4G] MTU set to " << config.mtu << " on " << m_net_interface << std::endl;
-        } else {
-            std::cout << "[4G] Warning: Failed to set MTU via shell." << std::endl;
-        }
-    }
-
-    // ==========================================
-    // 6. 保存配置并重启生效
-    // ==========================================
-    sendCommand("AT&W", resp, 1000); // 保存设置到模组
-
-    // 【关键修改】注释掉重启指令！
-    // sendCommand("AT+CFUN=1,1", resp, 1000); // 注释这行！防止 USB 掉线重连
-    // std::this_thread::sleep_for(std::chrono::seconds(10)); // 注释这行！
-
-    // 不重启，直接激活
-    // 稍微等一下保存完成
-    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    int mtu = config.mtu;
+    if (mtu < 500) mtu = 500;
+    if (mtu > 1500) mtu = 1500;
     
-    // 尝试激活 PDP，这会触发模组分配 IP
-    // 如果之前已经激活过，这步会很快返回 OK
-    sendCommand("AT+CGACT=1,1", resp, 5000); 
+    // 注意：这里需要确保 m_net_interface 不为空，例如 "usb0"
+    if (!m_net_interface.empty()) {
+        std::string cmd_mtu = "ip link set dev " + m_net_interface + " mtu " + std::to_string(mtu);
+        std::cout << "[SYS] Executing: " << cmd_mtu << std::endl;
+        // 只有在有 root 权限且接口存在时才会成功
+        // system(cmd_mtu.c_str()); 
+    }
+
+    // ==========================================
+    // 5. 保存配置与激活
+    // ==========================================
+    sendCommand("AT&W", resp, 1000); // 保存配置
+    
+    // 如果是“自动拨号”模式，立即激活 PDP 上下文
+    if (config.dial_mode == 0) { // 0 = Auto
+        std::cout << "[4G] Auto-Dial mode detected, activating PDP..." << std::endl;
+        
+        // 先确保去激活，防止状态异常
+        sendCommand("AT+CGACT=0,1", resp, 3000);
+        
+        // 重新激活
+        ret = sendCommand("AT+CGACT=1,1", resp, 15000); // 拨号可能需要较长时间
+        if (ret == RET_OK && resp.find("OK") != std::string::npos) {
+            std::cout << "[4G] Auto-Dial: Network activated successfully." << std::endl;
+        } else {
+            std::cerr << "[4G] Auto-Dial: Failed to activate PDP. Resp: " << resp << std::endl;
+        }
+    }
 
     if (need_close) {
         closePort();
     }
+
+    std::cout << "[4G] Configuration applied." << std::endl;
     return RET_OK;
 }
+
+// RetCode FourGManager::setConfig(const ::Network::Network_4G_Config_t &config) {
+//     if (init_status != RET_OK) {
+//         std::cerr << "[4G] Error: Module not initialized  !" << std::endl;
+//         return RET_ERR_CONFIG;
+//     }
+    
+//     bool need_close = false;
+//     if (fd < 0) {
+//         if (openPort() != RET_OK) {
+//             return RET_ERR_OPEN_PORT;
+//         }
+//         need_close = true;
+//     }
+    
+//     std::string resp;
+//     RetCode ret;
+//     m_config = config;
+
+    
+//     // ==========================================
+//     // 3. 设置 APN (AT+CGDCONT)
+//     // ==========================================
+//     std::string cmd_apn = "AT+CGDCONT=1,\"IP\",\"" + config.apn + "\"";
+//     ret = sendCommand(cmd_apn.c_str(), resp, 2000);
+//     if (ret != RET_OK) {
+//         std::cerr << "[4G] Failed to set APN." << std::endl;
+//         return RET_ERR_FAILURE;
+//     }
+
+//     // ==========================================
+//     // 4. 设置鉴权方式 (AT+CGAUTH) - 修复 ERROR
+//     // ==========================================
+//     int auth_type = 0;
+//     if (config.auth_mode == AUTH_PAP) auth_type = 1;
+//     else if (config.auth_mode == AUTH_CHAP) auth_type = 2;
+//     else if (config.auth_mode == AUTH_PAP_CHAP) auth_type = 3;
+
+//     // 【修改】优化鉴权设置逻辑：如果不需要用户名密码，只发送前两个参数
+//     // 避免发送 AT+CGAUTH=1,0,"","" 这种非法格式
+//     if(auth_type != 0) {
+//         std::string cmd_auth = "AT+CGAUTH=1," + std::to_string(auth_type) + ",\"" + config.username + "\",\"" + config.password + "\"";
+//         ret = sendCommand(cmd_auth.c_str(), resp, 2000);
+//         if (ret != RET_OK) {
+//             std::cerr << "[4G] Failed to set Authentication." << std::endl;
+//             return RET_ERR_FAILURE;
+//         }
+//     } else {
+//         // 只发送 AT+CGAUTH=1,0
+//         // 很多模组不接受带空引号的参数，这样发最安全
+//         std::string cmd_auth = "AT+CGAUTH=1," + std::to_string(auth_type);
+//         ret = sendCommand(cmd_auth.c_str(), resp, 2000);
+//         if (ret != RET_OK) {
+//             std::cerr << "[4G] Failed to set Authentication (None)." << std::endl;
+//             // 这里即使报错也继续，因为很多模组不支持这个指令（默认就是None）
+//             // return RET_ERR_FAILURE;
+//         }
+//     }
+
+//     // ==========================================
+//     // 5. 设置 MTU (系统层面)
+//     // ==========================================
+//     if (config.mtu > 0) {
+//         std::string cmd_mtu = "ip link set dev " + m_net_interface + " mtu " + std::to_string(config.mtu);
+//         int sys_ret = std::system(cmd_mtu.c_str());
+//         if (sys_ret == 0) {
+//             std::cout << "[4G] MTU set to " << config.mtu << " on " << m_net_interface << std::endl;
+//         } else {
+//             std::cout << "[4G] Warning: Failed to set MTU via shell." << std::endl;
+//         }
+//     }
+//     // 设置为 13 (仅 4G) 后，如果你所在的区域没有 4G 信号覆盖，模块将无法联网。
+//     std::string cmd_mode = "AT+CNMP=13"; 
+//     if(config.network_mode == 1)
+//     {
+//         cmd_mode = "AT+CNMP=13";
+//     }else {
+//         cmd_mode = "AT+CNMP=2"; 
+//     }
+//     ret = sendCommand(cmd_mode, resp, 2000);  
+//     if (ret != RET_OK) {
+//         std::cerr << "[4G] Failed to set network mode." << std::endl;
+//         // 注意：这里不直接返回，继续尝试重启，防止模块处于未知状态
+//     } else {
+//         std::cout << "[4G] Network mode set to LTE Only." << std::endl;
+//     }
+
+//     sendCommand("AT&W", resp, 1000); // 保存设置到模组
+
+
+//     std::this_thread::sleep_for(std::chrono::milliseconds(500));
+//     sendCommand("AT+CGACT=1,1", resp, 5000); 
+
+//     if (need_close) {
+//         closePort();
+//     }
+//     return RET_OK;
+// }
 
 RetCode FourGManager::connect() {
     if (init_status != RET_OK) return init_status;
@@ -562,5 +742,144 @@ RetCode FourGManager::connect() {
         }
     }
     return RET_ERR_FAILURE;
+}
+
+// 检查 eth0 是否有 IP 地址且链路通
+bool FourGManager::isWiredConnected() {
+    std::ifstream stateFile("/sys/class/net/eth0/operstate");
+    if (stateFile.is_open()) {
+        std::string state;
+        std::getline(stateFile, state);
+        stateFile.close();
+        // 如果状态是 "up"，说明物理链路连上了
+        if (state.find("up") != std::string::npos) {
+            std::ifstream addrFile("/proc/net/fib_trie");
+            if (addrFile.is_open()) {
+                std::string line;
+                // 简单检查是否存在 eth0 的 IP 路由条目 (这里可以简单化，检查 eth0 关键词)
+                while (std::getline(addrFile, line)) {
+                    if (line.find("eth0") != std::string::npos) {
+                        addrFile.close();
+                        std::cout << "[4G] Wired network (eth0) is UP and has IP." << std::endl;
+                        return true;
+                    }
+                }
+                addrFile.close();
+            }
+            // 如果只有链路通但没 IP，也可以认为是有线连接（正在获取 IP）
+            std::cout << "[4G] Wired network (eth0) Link is UP (maybe getting IP)." << std::endl;
+            return true;
+        }
+    }
+    return false;
+}
+
+/**
+ * 解析 /etc/init.d/S80network 脚本以获取有线网络配置
+ * @param outIp 输出参数：存储提取的 IP 地址
+ * @param outGateway 输出参数：存储提取的网关地址
+ * @return 成功返回 true，失败返回 false
+ */
+ bool FourGManager::parseNetworkConfig(std::string& outIp, std::string& outGateway) {
+    std::ifstream file("/etc/init.d/S80network");
+    if (!file.is_open()) {
+        std::cerr << "[Config] Failed to open /etc/init.d/S80network" << std::endl;
+        return false;
+    }
+
+    std::string line;
+    bool ipFound = false;
+    bool gwFound = false;
+
+    while (std::getline(file, line)) {
+        // 1. 查找 IP 地址 (匹配: ifconfig eth0 172.16.25.83 netmask ...)
+        if (!ipFound && line.find("ifconfig eth0") != std::string::npos && line.find("netmask") != std::string::npos) {
+            std::istringstream iss(line);
+            std::string token;
+            // 简单的令牌解析，假设格式固定
+            // ifconfig(0) eth0(1) IP_ADDR(2) netmask(3) MASK(4)
+            int count = 0;
+            while (iss >> token) {
+                if (count == 2) { // IP 地址通常在 eth0 后面
+                    outIp = token;
+                    ipFound = true;
+                    break;
+                }
+                count++;
+            }
+        }
+
+        // 2. 查找网关 (匹配: route add default gw 172.16.25.254 eth0)
+        if (!gwFound && line.find("route add default gw") != std::string::npos) {
+            std::istringstream iss(line);
+            std::string token;
+            // 查找 "gw" 后面的那个字符串
+            while (iss >> token) {
+                if (token == "gw") {
+                    if (iss >> token) {
+                        outGateway = token;
+                        gwFound = true;
+                    }
+                    break;
+                }
+            }
+        }
+        
+        // 如果都找到了，提前退出循环
+        if (ipFound && gwFound) break;
+    }
+
+    file.close();
+    return (ipFound && gwFound);
+}
+
+void FourGManager::updateRouteIfNeeded() {
+    // 1. 检查 4G 是否已连接
+    std::string ipResp;
+    if (sendCommand("AT+CGPADDR=1", ipResp, 1000) != RET_OK || ipResp.find("0.0.0.0") != std::string::npos) {
+        return;
+    }
+
+    bool wiredUp = isWiredConnected();
+
+    if (wiredUp) {
+        std::cout << "[4G] Wired detected. Configuring routes..." << std::endl;
+
+        // --- 动态获取配置 ---
+        std::string wiredIp, wiredGateway;
+        if (!parseNetworkConfig(wiredIp, wiredGateway)) {
+            std::cerr << "[4G] Error: Failed to parse network config! Falling back to defaults or skipping." << std::endl;
+            // 这里可以选择 return 或者使用硬编码的备用值，视你的需求而定
+            return; 
+        }
+        std::cout << "[4G] Parsed Config -> IP: " << wiredIp << ", Gateway: " << wiredGateway << std::endl;
+
+        // --- 设置有线优先路由 ---
+        // 1. 清理旧路由
+        runSystemCommand("ip route del default dev eth0 2>/dev/null || true");
+        // 2. 添加新路由 (使用动态获取的网关)
+        std::string cmdEth = "ip route add default via " + wiredGateway + " dev eth0 metric 10";
+        runSystemCommand(cmdEth);
+
+        // --- 设置 4G 备份路由 ---
+        runSystemCommand("ip route del default dev usb0 2>/dev/null || true");
+        runSystemCommand("ip route add default dev usb0 metric 20");
+
+    } else {
+        std::cout << "[4G] Wired not found. Using 4G as primary." << std::endl;
+        
+        // --- 设置 4G 优先路由 ---
+        runSystemCommand("ip route del default dev usb0 2>/dev/null || true");
+        runSystemCommand("ip route add default dev usb0 metric 5");
+    }
+}
+void* FourGManager::routeMonitorThread(void* arg) {
+    FourGManager* pThis = static_cast<FourGManager*>(arg);
+    while (pThis->is_initialized) {
+        pThis->updateRouteIfNeeded();
+        // 每隔 5 秒检测一次
+        std::this_thread::sleep_for(std::chrono::seconds(30));
+    }
+    return nullptr;
 }
 #endif

@@ -295,6 +295,20 @@ int EventLinkageResolver::load_default_linkage_list(Event::Type_E enEventType, A
         stLinkageList = alarm.stLinkageList;
         break;
     }
+    case Event::Type_E::FACE_COMPARE_SUCCESS:
+    {
+        Alarm::FaceCompare_S alarm;
+        CEventConfigure::instance()->get_configure(alarm);
+        stLinkageList = alarm.stLinkageListSuccess;
+        break;
+    }
+    case Event::Type_E::FACE_COMPARE_FAIL:
+    {
+        Alarm::FaceCompare_S alarm;
+        CEventConfigure::instance()->get_configure(alarm);
+        stLinkageList = alarm.stLinkageListFail;
+        break;
+    }
 #ifdef SCENE_INTELLIGENT_ANALYSIS
     case Event::Type_E::TEXT_PRESET:
     {

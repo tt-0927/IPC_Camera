@@ -13,6 +13,7 @@ include(${CMAKE_CURRENT_LIST_DIR}/upnp/upnp.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/wifi/wifi.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/4g/4g.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/hostapd/hostapd.cmke)
+include(${CMAKE_CURRENT_LIST_DIR}/platform/platform.cmke)
 
 # 头文件
 set (INCLUDE_PATH

@@ -3,7 +3,7 @@
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2026-03-02 15:32:46
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-04-20 14:57:13
+ * @LastEditTime : 2026-05-15 17:06:12
  * @Description  : 系统管理
  */
 
@@ -332,7 +332,10 @@ std::string SystemManage::get_cpu_serialNumber()
             size_t pos = line.find(':');
             if (pos != std::string::npos)
             {
-                return line.substr(pos + 1);
+                std::string serial = line.substr(pos + 1);
+                size_t start = serial.find_first_not_of(" \t");
+                serial = (start == std::string::npos) ? "" : serial.substr(start);
+                return serial;
             }
         }
     }

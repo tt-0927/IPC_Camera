@@ -73,23 +73,41 @@ namespace Task
         TaskSubClass(GmUploadCrlFile)
         TaskSubClass(GmGetCertInfo)
         TaskSubClass(GmDeleteCertFile)
+
+#if CAP_NETWORK_WIFI
         /** 
         *  @brief ：WiFi功能
         */
         TaskSubClass(SetWifiStaInfo)
         TaskSubClass(ConnectWifiSta)
         TaskSubClass(DisconnectWifiSta)
+#endif
 
-         /** 
+#if CAP_NETWORK_4G
+        /** 
         *  @brief ：4G功能
         */
         TaskSubClass(Get4GInfo)
         TaskSubClass(Set4GInfo)
+#endif
+
+#if CAP_NETWORK_WIFI
         /** 
         *  @brief ：热点功能
         */
         TaskSubClass(SetHotspot)
         TaskSubClass(GetHotspotConn)
+#endif
+
+#if CAP_GARBAGE_STATION_PLATFORM
+        /** 
+        *  @brief ：平台功能
+        */
+        TaskSubClass(ConnPlatform)
+        TaskSubClass(storePlatformDevices)
+        TaskSubClass(GetConnPlatformInfo)
+#endif
+
 #ifdef ENABLE_GAT1400_SRC       
         /**
          * @brief   : GAT1400相关

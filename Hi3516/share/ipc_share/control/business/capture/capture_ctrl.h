@@ -152,7 +152,7 @@ public:
      * @return   {string} 人脸抓拍当前全景图片文件名
      */
     std::string get_face_capture_file();
-
+    int write_to_file(std::string filePath, unsigned char *pData, int nDataLen);
 private:
     /**
      * @brief   : 线程函数 检测定时抓图计划
@@ -166,7 +166,7 @@ private:
      * @param    {int} nDataLen 数据长度
      * @return   {int} 文件大小（字节），<0 失败
      */
-    int write_to_file(std::string filePath, unsigned char *pData, int nDataLen);
+    
 
     /**
      * @brief   : 抓图

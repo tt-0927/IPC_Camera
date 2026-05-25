@@ -177,6 +177,12 @@ namespace Alarm
         std::vector<int> recordChn;   /* 录制联动 */
         // bool recordChn = false;       /* 录制联动 */
     } LinkageList_S;
+    /*人脸相似度设置*/
+    typedef struct TargetLibInfos
+    {
+        std::string LibId;
+        float Similarity = 0.7;
+    }TargetLibInfos_S;
 
     /* 区域数据结构 */
     typedef struct _Region_S_
@@ -1979,6 +1985,7 @@ typedef struct _FaceCompare_S_
 {
     bool bEnable;    /* 是否启用 */
 
+    TargetLibInfos_S TargetLibInfos;
     /* 布防时间:一周7天，每天可以设置8个时间段 */
     std::vector<std::vector<Common::SchedTime_S>> aAlarmTime;
     /* 成功联动 */

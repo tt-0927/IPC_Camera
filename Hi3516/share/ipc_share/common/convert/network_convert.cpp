@@ -1,3 +1,12 @@
+/**
+ * @FilePath     : network_convert.cpp
+ * @Author       : zhouzr@kfb.cn
+ * @Date         : 2026-05-08 17:44:21
+ * @LastEditors  : zhouzr@kfb.cn
+ * @LastEditTime : 2026-05-21 14:32:04
+ * @Description  : 网络相关定义结构体转换
+ */
+
 #include "network_convert.h"
 #include "convert.h" /* 这个要放在network_convert.h的后面 */
 
@@ -641,10 +650,13 @@ void Convert::deal(Json::Object* pJson, Network::WepKeyConfig &key, bool bOutStr
 void Convert::deal(Json::Object* pJson, Network::SIM_Info_t &stInfo, bool bOutStruct)
 {
     if (!pJson)
-        return;
+	{
+    	return;
+	}
+
 	Convert::CConvert convert(bOutStruct);
 
-		// 字符串类型字段映射
+	// 字符串类型字段映射
 	convert.field(pJson, "status", stInfo.status);
 	convert.field(pJson, "ip_address", stInfo.ip_address);
 	convert.field(pJson, "subnet_mask", stInfo.subnet_mask);
@@ -653,8 +665,22 @@ void Convert::deal(Json::Object* pJson, Network::SIM_Info_t &stInfo, bool bOutSt
 	convert.field(pJson, "signal_quality", stInfo.signal_quality);
 	convert.field(pJson, "operator_name", stInfo.operator_name);
 	
-		// 布尔类型字段映射
+	// 布尔类型字段映射
 	convert.field(pJson, "is_registered", stInfo.is_registered);
+
+	convert.field(pJson, "imei", stInfo.imei);
+	convert.field(pJson, "iccid", stInfo.iccid);
+	convert.field(pJson, "network_type",stInfo.network_type);
+
+	convert.field(pJson, "apn", stInfo.set_config_ret.apn);
+    convert.field(pJson, "username", stInfo.set_config_ret.username);
+    convert.field(pJson, "password", stInfo.set_config_ret.password);
+    convert.field(pJson, "call_number", stInfo.set_config_ret.call_number);
+	convert.field(pJson, "phone_number", stInfo.set_config_ret.phone_number);
+    convert.field(pJson, "mtu", stInfo.set_config_ret.mtu);
+    convert.field(pJson, "auth_mode", stInfo.set_config_ret.auth_mode);
+    convert.field(pJson, "network_mode", stInfo.set_config_ret.network_mode);
+    convert.field(pJson, "dial_mode", stInfo.set_config_ret.dial_mode);
 	
 
 }
@@ -662,13 +688,16 @@ void Convert::deal(Json::Object* pJson, Network::SIM_Info_t &stInfo, bool bOutSt
 void Convert::deal(Json::Object* pJson, Network::Network_4G_Config_t &stInfo, bool bOutStruct)
 {
     if (!pJson)
-        return;
-	Convert::CConvert convert(bOutStruct);
+	{
+    	return;
+	}
 
+	Convert::CConvert convert(bOutStruct);
 	convert.field(pJson, "apn", stInfo.apn);
     convert.field(pJson, "username", stInfo.username);
     convert.field(pJson, "password", stInfo.password);
     convert.field(pJson, "call_number", stInfo.call_number);
+	convert.field(pJson, "phone_number", stInfo.phone_number);
     convert.field(pJson, "mtu", stInfo.mtu);
     convert.field(pJson, "auth_mode", stInfo.auth_mode);
     convert.field(pJson, "network_mode", stInfo.network_mode);
@@ -680,9 +709,11 @@ void Convert::deal(Json::Object* pJson, Network::Network_4G_Config_t &stInfo, bo
 void Convert::deal(Json::Object* pJson, Network::HotspotConfig &stInfo, bool bOutStruct)
 {
     if (!pJson)
-        return;
-	Convert::CConvert convert(bOutStruct);
+	{
+    	return;
+	}
 
+	Convert::CConvert convert(bOutStruct);
 	convert.field(pJson, "enabled", stInfo.enabled);
     convert.field(pJson, "ssid", stInfo.ssid);
     convert.field(pJson, "password", stInfo.password);
@@ -690,4 +721,35 @@ void Convert::deal(Json::Object* pJson, Network::HotspotConfig &stInfo, bool bOu
     convert.field(pJson, "encryptionType", stInfo.encryptionType);
     convert.field(pJson, "confirmPassword", stInfo.confirmPassword);
 	
+}
+
+void Convert::deal(Json::Object* pJson, Network::Platform_Info_t &stInfo, bool bOutStruct)
+{
+    if (!pJson)
+	{
+    	return;
+	}
+
+	Convert::CConvert convert(bOutStruct);
+	convert.field(pJson, "server_ip", stInfo.server_ip);
+    convert.field(pJson, "server_port", stInfo.server_port);
+    convert.field(pJson, "RtmpPort", stInfo.rtmp_port);
+    convert.field(pJson, "MqttPort", stInfo.mqtt_port);
+    convert.field(pJson, "user", stInfo.user);
+    convert.field(pJson, "password", stInfo.password);
+	convert.field(pJson, "enable", stInfo.enable);
+	convert.field(pJson, "Custom", stInfo.Custom);
+}
+
+void Convert::deal(Json::Object* pJson, Network::Platform_Store_Info_t &stInfo, bool bOutStruct)
+{
+    if (!pJson)
+	{
+    	return;
+	}
+
+	Convert::CConvert convert(bOutStruct);
+    convert.field(pJson, "access_token", stInfo.access_token);
+    convert.field(pJson, "user", stInfo.user);
+    convert.field(pJson, "password", stInfo.password);
 }

@@ -145,21 +145,22 @@ static bool isValidDateTime(const std::string &datetime)
  * @param secondsToAdd 相加的秒数
  * @return 结束时间字符串
  */
-static std::string addSeconds(const std::string &timeStr, int secondsToAdd)
+static std::string addSeconds(const std::string &timeStr, int add)
 {
-    int hours, minutes, seconds;
-    sscanf(timeStr.c_str(), "%d:%d:%d", &hours, &minutes, &seconds);
+    int h = 0, m = 0, s = 0;
 
-    int totalSeconds = hours * 3600 + minutes * 60 + seconds + secondsToAdd;
+    if (sscanf(timeStr.c_str(), "%d:%d:%d", &h, &m, &s) != 3)
+    {
+        return "";
+    }
 
-    /* 处理溢出（24小时制） */
-    int newHours   = totalSeconds / 3600 % 24;
-    int newMinutes = (totalSeconds % 3600) / 60;
-    int newSeconds = totalSeconds % 60;
+    int total = h * 3600 + m * 60 + s + add;
+    total     = ((total % 86400) + 86400) % 86400;
 
-    char buffer[9];
-    sprintf(buffer, "%02d:%02d:%02d", newHours, newMinutes, newSeconds);
-    return std::string(buffer);
+    char buf[9];
+    snprintf(buf, sizeof(buf), "%02d:%02d:%02d", total / 3600, (total % 3600) / 60, total % 60);
+
+    return buf;
 }
 
 /**
@@ -571,7 +572,7 @@ static bool isRegularFile(const std::string &path)
     if (stat(path.c_str(), &st) != 0)
     {
         return false;
-    } 
+    }
     return S_ISREG(st.st_mode);
 }
 
@@ -618,7 +619,7 @@ static std::vector<std::string> scanJpgFiles(const std::string &dir)
             files.push_back(name);
         }
     }
-    
+
     closedir(pDir);
     return files;
 }
@@ -649,7 +650,7 @@ static int createTarAndRemove(const std::string &strSrcDir, const std::string &s
         dlog_error("执行[%s]失败", strCmd.c_str());
         return -1;
     }
-        
+
     for (auto &f : files)
     {
         std::string path = strSrcDir + "/" + f;
@@ -658,13 +659,12 @@ static int createTarAndRemove(const std::string &strSrcDir, const std::string &s
         {
             dlog_error("unlink error");
         }
-            
     }
 
     return 0;
 }
 
-void Task::Retrieval::DownloadImageFileInfo::handle()  
+void Task::Retrieval::DownloadImageFileInfo::handle()
 {
     /* sd卡异常以及图片信息数据库不存在都不允许下载 */
     if (!(std::filesystem::exists(CAPTURE_DATABASE_PATH)) || (CStorageManage::instance()->get_SdCardStatus() != SD_CARD_STATUS_E::NORMAL))
@@ -709,12 +709,12 @@ void Task::Retrieval::DownloadImageFileInfo::handle()
 
     if (!(WIFEXITED(nRet) && WEXITSTATUS(nRet) == 0))
     {
-        dlog_error("图片拷贝到临时文件失败"); 
+        dlog_error("图片拷贝到临时文件失败");
         result(std::string(), -1);
     }
 
     std::string strTarFile = tmpDir.string() + std::string("/") + TimeUtils_NS::get_currentDateAndFormat("%Y%m%d") + "_" + TimeUtils_NS::get_currentTimeAndFormat("%H%M%S") + ".tgz";
-    
+
     createTarAndRemove(tmpDir, strTarFile);
 
     std::string retrievalResult = "{\"Path\": \"" + strTarFile + "\"}";
