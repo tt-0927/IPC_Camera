@@ -57,6 +57,11 @@ int CMqttManager::init(const std::string &strBroker,
     m_strPassword = strPassword;
     m_strClientId = strClientId;
 
+    {
+        std::lock_guard<std::mutex> lock(m_mtxTopics);
+        m_vecSubscribedTopics.clear();
+    }
+
     /* 设置全局实例指针，供 C 回调使用 */
     g_pstMqttManagerInstance = this;
 
@@ -92,6 +97,10 @@ void CMqttManager::deinit()
     }
 
     m_bConnected.store(false);
+    {
+        std::lock_guard<std::mutex> lock(m_mtxTopics);
+        m_vecSubscribedTopics.clear();
+    }
     g_pstMqttManagerInstance = nullptr;
 
     dlog_info("MQTT 管理器已反初始化");
@@ -138,6 +147,12 @@ int CMqttManager::subscribe(const std::string &strTopic, int nQos)
     {
         dlog_error("MQTT 订阅失败：Topic 为空");
         return ERR_PARAM_NULL;
+    }
+
+    if (strTopic.find("/faces") != std::string::npos)
+    {
+        dlog_warn("MQTT 忽略废弃订阅Topic[%s]", strTopic.c_str());
+        return OK;
     }
 
     /* 检查连接状态 */
