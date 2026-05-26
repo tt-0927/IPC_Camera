@@ -442,8 +442,7 @@ namespace SDKConvert
         std::string data = Json::to_string(pRootJson);
           fprintf(stderr, "[SDKConvert::to_respString] after to_string len=%zu\n", data.size());
 
-        Json::deinit(pRespJson); 
-        Json::deinit(pRootJson); 
+        Json::deinit(pRootJson);
 
          fprintf(stderr, "[SDKConvert::to_respString] leave\n");
 
@@ -464,8 +463,7 @@ namespace SDKConvert
 
         std::string data = Json::to_string(pRootJson);
 
-        Json::deinit(pRespJson); 
-        Json::deinit(pRootJson); 
+        Json::deinit(pRootJson);
 
         return data;
     }

@@ -32,7 +32,7 @@ namespace Json {
     void add(Object *pObj, std::string key, char* pValue);
     void add(Object *pObj, std::string key, const char* pValue);
     void add(Object *pObj, std::string key, std::string value);
-    void add(Object *pObj, std::string key, Object *&pItem);
+    void add(Object *pObj, std::string key, Object *pItem);
     /*新增:在 JSON 对象中添加一个键值对，值为null*/
     void add(Object *pObj, std::string key);
     Object *get(Object *pObj, std::string item);
@@ -89,7 +89,7 @@ namespace Json {
         Object *get(Object *pObj, int nIndex);
         bool get(Object *pObj, std::vector<int> &value);
         bool get(Object *pObj, std::vector<std::string> &value);
-        void add(Object *pArr, Object *&pItem);
+        void add(Object *pArr, Object *pItem);
         void add(Object *pArr, const char *string);
         void add(Object *pArr, const int nValue);
         void add(Object *pArr, const float fValue);
