@@ -49,7 +49,13 @@ bool CServerSession::IsZombie(int timeoutSec) const
 void CServerSession::EnqueueMessage(const AlarmData& data)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
-     m_msgQueue.push(data);
+    // 队列上限 100 条，防止客户端长时断线时内存无限增长
+    // 超出时丢弃最旧的一条（滑动窗口，保留最新数据）
+    if (m_msgQueue.size() >= 100)
+    {
+        m_msgQueue.pop(); // 丢弃最旧的一条
+    }
+    m_msgQueue.push(data);
 }
 
 bool CServerSession::DequeueMessage(AlarmData& outMsg)
@@ -67,4 +73,11 @@ bool CServerSession::HasMessages()
 {
     std::lock_guard<std::mutex> lock(m_mutex);
     return !m_msgQueue.empty();
+}
+
+void CServerSession::ClearMessageQueue()
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    std::queue<AlarmData> empty;
+    std::swap(m_msgQueue, empty);
 }

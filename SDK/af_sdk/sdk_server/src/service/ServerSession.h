@@ -26,10 +26,10 @@ public:
 
     // --- 状态查询与设置 ---
     std::string GetSessionId() const { return m_sessionId; }
-    
+
     std::string GetClientIP() const { return m_clientIP; }
     void SetClientIP(const std::string& ip) { m_clientIP = ip; }
-    
+
     bool IsLogined() const { return m_isLogined; }
     void SetLogined(bool val) { m_isLogined = val; }
 
@@ -46,15 +46,28 @@ public:
     // 检查是否长时间无心跳（僵尸连接）
     bool IsZombie(int timeoutSec) const;
 
-      // --- 消息推送机制 ---
-    struct Attachment 
+    // 检查是否应该发送心跳包（间隔 intervalSec 秒），是则自动更新时间戳
+    bool ShouldSendHeartbeat(int intervalSec)
     {
-        std::string contentType; 
+        std::lock_guard<std::mutex> lk(m_mutex);
+        auto now = std::chrono::steady_clock::now();
+        if (std::chrono::duration_cast<std::chrono::seconds>(now - m_lastHeartbeatSent).count() >= intervalSec)
+        {
+            m_lastHeartbeatSent = now;
+            return true;
+        }
+        return false;
+    }
+
+      // --- 消息推送机制 ---
+    struct Attachment
+    {
+        std::string contentType;
         std::string data;
         std::string name;     // form field name, e.g. "image"
         std::string filename; // e.g. "snap.jpg"
     };
-    struct AlarmData 
+    struct AlarmData
     {
         std::string json;
         std::vector<Attachment> attachments;
@@ -66,20 +79,25 @@ public:
     bool DequeueMessage(AlarmData& outMsg);
     // 队列是否为空
     bool HasMessages();
+    // 清空消息队列（客户端断线时调用，避免重连后收到大量过期报警）
+    void ClearMessageQueue();
 
 private:
     const std::string m_sessionId;
     std::string m_clientIP;
-    
+
     std::atomic<bool> m_isLogined{false};
     std::atomic<bool> m_isConnected{false};
     std::atomic<bool> m_pushEnabled{false};
 
     // 活跃时间 (用于超时清理)
     std::chrono::steady_clock::time_point m_lastActive;
-    
+
+    // 心跳发送时间（用于 content_provider 中限速心跳包发送，归属于连接而非线程）
+    std::chrono::steady_clock::time_point m_lastHeartbeatSent{};
+
     // 消息队列 (用于 SSE 推送)
     std::queue<AlarmData> m_msgQueue;
-    
+
     mutable std::mutex m_mutex; // 保护 m_lastActive 和 m_msgQueue
 };
