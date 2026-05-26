@@ -180,7 +180,7 @@ BOOL AlarmModule::PushAlarmInfo(NET_TV_ALARMER_S* pAlarmer,
     }
 
     m_pushCount++;
-    return TRUE;
+    return (pushCount > 0) ? TRUE : FALSE;
 }
 
 BOOL AlarmModule::PushChannelStatusInfo(NET_TV_CHANNEL_INFO_S* pChannelInfo)
