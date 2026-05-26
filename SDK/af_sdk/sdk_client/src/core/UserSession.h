@@ -2,7 +2,7 @@
  * @file UserSession.h
  * @author tianl (tianl@kfb.cn)
  * @date 2025-12-22
- * 
+ *
  * @brief 用户会话类
  */
 #pragma once
@@ -27,16 +27,16 @@ typedef void* LPUSER_HANDLE;
 /* 会话断开回调函数类型 */
 using OnSessionLostCallback = std::function<void(LPUSER_HANDLE)>;
 
-struct CommandRequest 
+struct CommandRequest
 {
     // 基础信息
     std::string method;         // "GET", "POST", "PUT", "DELETE"
     std::string url;            // 基础 URL
-    
+
     // 数据部分
     std::string jsonBody;       // JSON 字符串 body
     std::map<std::string, std::string> queryParams; // URL 查询参数 ?key=val
-    
+
     // 二进制拓展 (如果需要上传文件)
     const char* binData = nullptr;
     size_t binSize = 0;
@@ -46,10 +46,10 @@ struct CommandRequest
     CommandRequest() = default;
 };
 
-class CUserSession : public std::enable_shared_from_this<CUserSession> 
+class CUserSession : public std::enable_shared_from_this<CUserSession>
 {
 public:
-    CUserSession(LPUSER_HANDLE userHand,  const std::string& host, int port, 
+    CUserSession(LPUSER_HANDLE userHand,  const std::string& host, int port,
                  const std::string& user, const std::string& pass,
                  int hbInterval, int maxRetry,
 				 int connectTimeout, int receiveTimeout,
@@ -64,6 +64,9 @@ public:
 
     // 停止会话 (线程安全)
     void Stop();
+
+    // 重连循环（内部使用）
+    void ReconnectLoop();
 
 	bool SendRequest(const CommandRequest& req, std::string& outRespBody);
 
@@ -104,7 +107,7 @@ private:
 
     // 命令发送锁 (保护 CmdClient 串行发送)
     std::mutex cmdMutex_;
-    
+
     std::thread sseThread_;
 	std::thread heartbeatThread_;
 
@@ -115,6 +118,13 @@ private:
     std::unique_ptr<httplib::Client> sseClient_; // 长连接：SSE心跳
 
 	OnSessionLostCallback notifyLost_;		// 会话断开 回调处理
+
+
+	// Reconnect members
+    std::atomic<bool> isReconnecting_{false};  // 重连中标志
+    std::atomic<int> reconnectDelay_{1};       // 当前重连延迟（秒）
+    std::thread reconnectThread_;              // 重连线程
+    std::mutex reconnectMutex_;                // 重连互斥锁
 
 	// Alarm members
     std::shared_ptr<CClientAlarmManager> m_alarmMgr;

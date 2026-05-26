@@ -2,6 +2,10 @@
 #ifndef _NETTVSDKCLIENTINTERFACE_H
 #define _NETTVSDKCLIENTINTERFACE_H
 
+#ifdef NET_TV_SDK_CLIENT_API
+    #include "NetTVSDK.h"
+#else
+
 #include "NetTVSDKCommon.h"
  
 #ifdef __cplusplus
@@ -246,6 +250,8 @@ NET_TV_API BOOL STDCALL NET_TV_SetDevConfig(IN  LPVOID  lpUserID,
                                                                 OUT   INT32   *pdwBytesReturned);
 #ifdef __cplusplus
 }
+#endif
+
 #endif
 
 #endif
