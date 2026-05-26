@@ -650,15 +650,8 @@ void EventLinkageDict::push_tvsdk_event_alarm(const EventTriggerContext_S &stCon
 #else
     if (stContext.bEventEnded || ControlManage::instance()->tvsdk_get_client_count() <= 0)
     {
-        dlog_warn("[统计推送诊断] push_tvsdk_event_alarm 丢弃: bEventEnded[%d] 客户端数[%d]",
-                  stContext.bEventEnded ? 1 : 0,
-                  ControlManage::instance()->tvsdk_get_client_count());
         return;
     }
-
-    dlog_info("[统计推送诊断] push_tvsdk_event_alarm 进入: 事件类型[%d] 客户端数[%d]",
-              static_cast<int>(stContext.enEventType),
-              ControlManage::instance()->tvsdk_get_client_count());
 
     if (stContext.enEventType == Event::Type_E::FACE_COMPARE)
     {

@@ -13,7 +13,6 @@
 #include <string>
 
 #include "event_linkage_dict.h"
-#include "dlog.h"
 
 namespace
 {
@@ -111,8 +110,6 @@ void CTvSdkEventStatisticsReporter::report(const EventStatistics_NS::Report_S &s
     stContext.enEventType = get_event_type(stReport.enStatisticsType);
     if (stContext.enEventType == Event::Type_E::UNKNOWN)
     {
-        dlog_warn("[统计推送诊断] reporter::get_event_type 返回 UNKNOWN, 统计类型[%d]",
-                  static_cast<int>(stReport.enStatisticsType));
         return;
     }
 
@@ -122,10 +119,6 @@ void CTvSdkEventStatisticsReporter::report(const EventStatistics_NS::Report_S &s
     stContext.mapAttrs = stReport.mapExtras;
     stContext.mapAttrs["rule_id"] = std::to_string(stReport.nRuleId);
     stContext.pTvSdkPayload = std::make_shared<EventTvSdkPayload_S>(build_tvsdk_payload(stReport));
-
-    dlog_info("[统计推送诊断] reporter::report 构建上下文完成: 事件类型[%d] 通道[%d] 目标数[%zu] 全景图大小[%zu]",
-              static_cast<int>(stContext.enEventType), stContext.nChnId,
-              stReport.vecTargets.size(), stReport.stPanoramaImage.vecJpeg.size());
 
     EventLinkageDict::push_tvsdk_event_alarm(stContext);
 }
