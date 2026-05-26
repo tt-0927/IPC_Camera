@@ -365,10 +365,10 @@ int main() {
     NET_TV_DEVICE_LOGIN_INFO_S struLoginInfo = {0};
     NET_TV_DEVICE_INFO_S struDeviceInfo = {0};
 
-    struLoginInfo.dwPort = 9888;
-    strcpy(struLoginInfo.szIPAddr, "127.0.0.1");
+    struLoginInfo.dwPort = 9019;
+    strcpy(struLoginInfo.szIPAddr, "172.16.25.199");
     strcpy(struLoginInfo.szUserName, "admin");
-    strcpy(struLoginInfo.szPassword, "Admin@123456");
+    strcpy(struLoginInfo.szPassword, "sj2@2025");
 
     printf("Logging in to %s:%d...\n", struLoginInfo.szIPAddr, struLoginInfo.dwPort);
     LPVOID lpUserID = NET_TV_Login(&struLoginInfo, &struDeviceInfo);
