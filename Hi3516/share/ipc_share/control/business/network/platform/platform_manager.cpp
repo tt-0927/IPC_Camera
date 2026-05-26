@@ -15,6 +15,8 @@
 #include "convert_interface.h"
 #include "push_stream.h"
 #include "av_configure.h"
+#include "network_manage.h"
+#include "storage_manage.h"
 #include "IpcRet.h"
 #include "dlog.h"
 #include "mqtt_manager.h"
@@ -24,43 +26,9 @@
 
 #include <iostream>
 #include <cstring>
+#include <cstdlib>
 #include <vector>
 #include <chrono>
-
-static std::string platform_json_object_to_string(cJSON *pRoot)
-{
-    if (!pRoot)
-    {
-        return "{}";
-    }
-
-    char *pJson = cJSON_PrintUnformatted(pRoot);
-    std::string strPayload = pJson ? pJson : "{}";
-    free(pJson);
-    return strPayload;
-}
-
-static std::string platform_data_or_empty(const std::string &strJson)
-{
-    if (strJson.empty())
-    {
-        return "{}";
-    }
-
-    cJSON *pRoot = cJSON_Parse(strJson.c_str());
-    if (!pRoot)
-    {
-        return "{}";
-    }
-
-    cJSON *pData = cJSON_GetObjectItemCaseSensitive(pRoot, "Data");
-    cJSON *pTarget = pData ? pData : pRoot;
-    char *pJson = cJSON_PrintUnformatted(pTarget);
-    std::string strResult = pJson ? pJson : "{}";
-    free(pJson);
-    cJSON_Delete(pRoot);
-    return strResult;
-}
 
 // --- Base64 编码实现 ---
 static const std::string base64_chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -159,11 +127,11 @@ bool CPlatformManager::login(const std::string &host,
     auto res = cli.Post(login_path_, headers, body_str, "application/x-www-form-urlencoded");
     if (res)
     {
-        std::cout << res->body << std::endl; // 打印服务器返回的原始 JSON
+        dlog_info("平台登录响应: %s", res->body.c_str());
     }
     else
     {
-        std::cout << "Request Failed: No response body" << std::endl;
+        dlog_error("平台登录请求失败: 无响应");
     }
     // 3. 处理响应
     if (res && res->status == 200)
@@ -228,11 +196,11 @@ bool CPlatformManager::login(const std::string &host,
     {
         if (res)
         {
-            std::cerr << "HTTP Error: " << res->status << std::endl;
+            dlog_error("平台登录 HTTP 错误: %d", res->status);
         }
         else
         {
-            std::cerr << "Connection Error" << std::endl;
+            dlog_error("平台登录连接错误: %s:%d", target_host.c_str(), target_port);
         }
     }
 
@@ -285,6 +253,7 @@ bool CPlatformManager::storeDevice(const StoreDevice &device, const std::string 
     cJSON_AddStringToObject(json_root, "resolution", device.resolution.c_str());
     cJSON_AddStringToObject(json_root, "storage", device.storage.c_str());
     cJSON_AddStringToObject(json_root, "use_storage", device.use_storage.c_str());
+    cJSON_AddNumberToObject(json_root, "type_id", 1);
 
     // 可选字段
     if (!device.version.empty())
@@ -296,14 +265,16 @@ bool CPlatformManager::storeDevice(const StoreDevice &device, const std::string 
     if (!device.playback_url.empty())
         cJSON_AddStringToObject(json_root, "playback_url", device.playback_url.c_str());
 
-    // ⭐ 序列化 JSON
+    // 序列化 JSON
     char *json_string = cJSON_PrintUnformatted(json_root);
     std::string body_str = json_string;
     cJSON_free(json_string);
     cJSON_Delete(json_root);
 
     // 2. 发起 HTTP 请求
-    httplib::Client cli(host_, port_);
+    const std::string target_host = g_custom ? custom_host : host_;
+    const int target_port = g_custom ? custom_post : port_;
+    httplib::Client cli(target_host, target_port);
     cli.set_connection_timeout(5, 0);
 
     // 设置 Headers
@@ -312,18 +283,15 @@ bool CPlatformManager::storeDevice(const StoreDevice &device, const std::string 
         { "Authorization",  "Bearer " + token }  // 拼接 Bearer
     };
 
-    // 发送 POST 请求
-    // 注意：发送 JSON 字符串时，最后一个参数是 Content-Type，但我们已经在 Headers 里定义了
-    // 这里使用 (headers, body, content_type) 的重载，为了保险可以再次指定
-    std::cout << "HTTP POST: " << body_str << std::endl;
+    dlog_info("平台注册设备请求: %s", body_str.c_str());
     auto res = cli.Post(store_path_, headers, body_str, "application/json");
     if (res)
     {
-        std::cout << res->body << std::endl; // 打印服务器返回的原始 JSON
+        dlog_info("平台注册设备响应: %s", res->body.c_str());
     }
     else
     {
-        std::cout << "Request Failed: No response body" << std::endl;
+        dlog_error("平台注册设备请求失败: 无响应");
     }
 
     // 3. 解析响应
@@ -348,7 +316,8 @@ bool CPlatformManager::storeDevice(const StoreDevice &device, const std::string 
                 out_response.message = message_item->valuestring;
             if (out_response.status_code != 200)
             {
-                std::cerr << "HTTP Error: " << out_response.status_code << std::endl;
+                dlog_error("平台注册设备 HTTP 错误: %d, message: %s", out_response.status_code, out_response.message.c_str());
+                cJSON_Delete(response_root);
                 return false;
             }
             // Data 数据
@@ -380,9 +349,7 @@ bool CPlatformManager::storeDevice(const StoreDevice &device, const std::string 
                 if (cJSON_IsString(mac))
                     out_response.data.mac_address = mac->valuestring;
                 if (cJSON_IsString(account))
-                {
-                }
-                out_response.data.account = account->valuestring;
+                    out_response.data.account = account->valuestring;
                 if (cJSON_IsString(password))
                     out_response.data.password = password->valuestring;
                 if (cJSON_IsString(live))
@@ -407,11 +374,11 @@ bool CPlatformManager::storeDevice(const StoreDevice &device, const std::string 
     {
         if (res)
         {
-            std::cerr << "HTTP Error: " << res->status << std::endl;
+            dlog_error("平台注册设备 HTTP 错误: %d", res->status);
         }
         else
         {
-            std::cerr << "Connection Failed" << std::endl;
+            dlog_error("平台注册设备连接失败: %s:%d", target_host.c_str(), target_port);
         }
     }
     return false;
@@ -443,7 +410,9 @@ bool CPlatformManager::reportWorkOrder(const WorkOrderRequest &workOrder,
     cJSON_Delete(json_root);
 
     // 2. 发起 HTTP 请求
-    httplib::Client cli(host_, port_);
+    const std::string target_host = g_custom ? custom_host : host_;
+    const int target_port = g_custom ? custom_post : port_;
+    httplib::Client cli(target_host, target_port);
     cli.set_connection_timeout(5, 0);
 
     httplib::Headers headers = {
@@ -481,11 +450,11 @@ bool CPlatformManager::reportWorkOrder(const WorkOrderRequest &workOrder,
     {
         if (res)
         {
-            std::cerr << "WorkOrder HTTP Error: " << res->status << std::endl;
+            dlog_error("平台注册设备 HTTP 错误: %d", res->status);
         }
         else
         {
-            std::cerr << "WorkOrder Connection Failed" << std::endl;
+            dlog_error("平台注册设备连接失败: %s:%d", target_host.c_str(), target_port);
         }
     }
     return false;
@@ -500,7 +469,9 @@ bool CPlatformManager::reportWorkOrder(const WorkOrderRequest &workOrder,
 bool CPlatformManager::getDeviceList(const std::string &token, DeviceListResponse &out_response)
 {
     // 1. 发起 GET 请求
-    httplib::Client cli(host_, port_);
+    const std::string target_host = g_custom ? custom_host : host_;
+    const int target_port = g_custom ? custom_post : port_;
+    httplib::Client cli(target_host, target_port);
     cli.set_connection_timeout(5, 0);
 
     httplib::Headers headers = {
@@ -758,6 +729,67 @@ bool CPlatformManager::save_config()
     return true;
 }
 
+bool CPlatformManager::register_current_device(const std::string &strToken,
+                                               const std::string &strAccount,
+                                               const std::string &strPassword)
+{
+    if (strToken.empty())
+    {
+        dlog_error("平台注册设备失败：access_token 为空");
+        return false;
+    }
+
+    ::System::DeviceInfo_S stDeviceInfo;
+    ::Network::Info_S stNetInfo;
+    Video_NS::VideoConfig_S stVideoConfig;
+    StorageManage_NS::StorageManage_S stStorageManageParam;
+
+    SystemManage::instance()->get_device_info(stDeviceInfo);
+    CNetworkManage::instance()->get_system_networkInfo(stNetInfo);
+
+    stVideoConfig.nId = 0;
+    CAVConfigure::instance()->get_configure(stVideoConfig);
+    CStorageManage::instance()->get_storageManage_param(stStorageManageParam);
+
+    CPlatformManager::StoreDevice req;
+    CPlatformManager::StoreResponse resp;
+
+    req.sn = stDeviceInfo.serialNumber.empty() ? std::to_string(stDeviceInfo.deviceID) : stDeviceInfo.serialNumber;
+    req.name = stDeviceInfo.deviceName;
+    req.version = stDeviceInfo.systemVersion;
+    req.account = strAccount;
+    req.password = strPassword;
+    req.ip = stNetInfo.stIp.ipv4Ip;
+    req.port = 554;
+    req.mac_address = stNetInfo.stIp.physicalAddress;
+    req.protocol = "rtsp";
+    req.resolution = std::to_string(stVideoConfig.stVideoResolution.nWidth) + "x" +
+                     std::to_string(stVideoConfig.stVideoResolution.nHeight);
+    req.storage = stStorageManageParam.strAvailableSpace;
+    if (!stStorageManageParam.strAvailableSpace.empty() && !stStorageManageParam.strRecordRemainingSpace.empty())
+    {
+        req.use_storage = std::to_string(std::stof(stStorageManageParam.strAvailableSpace) -
+                                         std::stof(stStorageManageParam.strRecordRemainingSpace));
+    }
+    else
+    {
+        req.use_storage = "10";
+        req.storage = "10";
+    }
+
+    const bool bRegistered = storeDevice(req, strToken, resp);
+    if (!bRegistered || resp.status != "success" || resp.status_code != 200)
+    {
+        dlog_error("平台注册设备失败：status[%s] status_code[%d] message[%s]",
+                   resp.status.c_str(), resp.status_code, resp.message.c_str());
+        return false;
+    }
+
+    dlog_info("平台注册设备成功：sn[%s] name[%s] device_uuid[%s]",
+              resp.data.sn.c_str(), resp.data.name.c_str(), resp.data.device_uuid.c_str());
+    return true;
+}
+
 void CPlatformManager::auto_login_loop()
 {
     while (!m_bStopAutoLogin.load())
@@ -787,6 +819,7 @@ void CPlatformManager::auto_login_loop()
         if (bSuccess)
         {
             dlog_info("平台自动登录成功");
+            register_current_device(out_response.data.access_token, login_user, login_password);
             /* 登录成功后，更新推流地址 */
             relogin_and_update_stream();
             break;
@@ -866,9 +899,8 @@ int CPlatformManager::init_mqtt()
 
     /* 订阅命令 Topic （异步连接，会加入待订阅列表，连接成功后自动订阅） */
     std::string strCommandTopic = MQTT_TOPIC_COMMAND(m_strMqttClientId);
+    dlog_info("MQTT 业务订阅Topic[%s]", strCommandTopic.c_str());
     m_pstMqtt->subscribe(strCommandTopic, MQTT_QOS_COMMAND);
-    std::string strFacesTopic = MQTT_TOPIC_FACES(m_strMqttClientId);
-    m_pstMqtt->subscribe(strFacesTopic, MQTT_QOS_COMMAND);
 
     dlog_info("MQTT 初始化成功，Broker[%s:%d]，ClientID[%s]",
               m_strMqttBroker.c_str(), m_nMqttPort, m_strMqttClientId.c_str());
@@ -908,12 +940,6 @@ void CPlatformManager::set_taskManage(CTaskManage *pTaskManage)
 void CPlatformManager::on_mqtt_message(const std::string &strTopic, const std::string &strPayload)
 {
     dlog_debug("收到 MQTT 消息，Topic[%s]：\n%s", strTopic.c_str(), strPayload.c_str());
-
-    if (strTopic == MQTT_TOPIC_FACES(m_strMqttClientId))
-    {
-        handle_faces_request("", strPayload.empty() ? "{}" : strPayload);
-        return;
-    }
 
     /* 解析 JSON */
     cJSON *pRoot = strPayload.empty() ? nullptr : cJSON_Parse(strPayload.c_str());
@@ -1022,52 +1048,7 @@ void CPlatformManager::register_mqtt_handlers()
 {
     std::lock_guard<std::mutex> lock(m_mtxMqttHandlers);
 
-    m_mapMqttHandlers["faces"] = [this](const std::string &strRequestId, const std::string &strData) {
-        this->handle_faces_request(strRequestId, strData);
-    };
-    m_mapMqttHandlers["FACES"] = m_mapMqttHandlers["faces"];
-
     dlog_info("MQTT 命令处理器注册完成，标准 SDK 命令将通过网关自动转发");
-}
-
-void CPlatformManager::handle_faces_request(const std::string &strRequestId, const std::string &strData)
-{
-    std::string strResult;
-    int nRet = CMqttSdkGateway::execute_get("NET_TV_GET_FACE_INFO", strData.empty() ? "{}" : strData, strResult);
-    if (nRet != 0)
-    {
-        dlog_error("MQTT faces 请求执行失败：%d", nRet);
-        strResult = "{\"error\":\"get faces failed\"}";
-    }
-
-    cJSON *pRoot = cJSON_CreateObject();
-    cJSON_AddNumberToObject(pRoot, "Return", nRet);
-    if (!strRequestId.empty())
-    {
-        cJSON_AddStringToObject(pRoot, "RequestId", strRequestId.c_str());
-    }
-
-    const std::string strDataJson = platform_data_or_empty(strResult);
-    cJSON *pData = cJSON_Parse(strDataJson.c_str());
-    if (pData)
-    {
-        cJSON_AddItemToObject(pRoot, "Data", pData);
-    }
-    else
-    {
-        cJSON_AddObjectToObject(pRoot, "Data");
-    }
-
-    std::string strPayload = platform_json_object_to_string(pRoot);
-    cJSON_Delete(pRoot);
-
-    if (!m_pstMqtt || !m_pstMqtt->is_connected())
-    {
-        dlog_warn("MQTT 未连接，无法发布 faces 响应");
-        return;
-    }
-
-    m_pstMqtt->publish(MQTT_TOPIC_FACES_RESPONSE(m_strMqttClientId), strPayload, MQTT_QOS_RESPONSE);
 }
 
 int CPlatformManager::publish_event(const std::string &strCommand,

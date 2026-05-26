@@ -260,6 +260,17 @@ public:
     bool storeDevice(const StoreDevice &device, const std::string &token, StoreResponse &out_response);
 
     /**
+     * @brief   : 使用当前设备信息向平台注册摄像头
+     * @param    {const std::string &} strToken：平台登录返回的 access_token
+     * @param    {const std::string &} strAccount：注册到平台的设备账号
+     * @param    {const std::string &} strPassword：注册到平台的设备密码
+     * @return   {bool} true：注册成功，false：注册失败
+     */
+    bool register_current_device(const std::string &strToken,
+                                 const std::string &strAccount,
+                                 const std::string &strPassword);
+
+    /**
      * @brief   : 将当前平台登录信息保存到配置文件
      * @return   {bool} true：成功，false：失败
      */
@@ -337,11 +348,6 @@ private:
      * @note    : 在 init_mqtt() 中调用，注册所有业务命令
      */
     void register_mqtt_handlers();
-
-    /**
-     * @brief   : 处理跨局域网平台人脸列表请求
-     */
-    void handle_faces_request(const std::string &strRequestId, const std::string &strData);
 
     // 服务器配置
     const std::string host_ = "183.129.224.253";

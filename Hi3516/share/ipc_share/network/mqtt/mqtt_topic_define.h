@@ -36,9 +36,3 @@
 
 /* 设备 → 平台：命令响应 */
 #define MQTT_TOPIC_RESPONSE(sn)     (MQTT_TOPIC_PREFIX(sn) + "/response")
-
-/* 平台 → 设备：人脸列表请求 */
-#define MQTT_TOPIC_FACES(sn)        (MQTT_TOPIC_PREFIX(sn) + "/faces")
-
-/* 设备 → 平台：人脸列表响应 */
-#define MQTT_TOPIC_FACES_RESPONSE(sn) (MQTT_TOPIC_FACES(sn) + "/response")
