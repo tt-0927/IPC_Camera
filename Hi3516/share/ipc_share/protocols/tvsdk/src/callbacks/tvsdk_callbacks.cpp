@@ -285,7 +285,6 @@ static int execute_action_expect_success(int actionCode, const std::string &inJs
 
     // 某些下游动作只返回执行码，不返回 JSON，此时 outJson 为空也视作成功。
     if (!outJson.empty())
-    if (!outJson.empty())
     {
         int nRet = -1;
         Json::get(outJson.c_str(), "Return", nRet);
