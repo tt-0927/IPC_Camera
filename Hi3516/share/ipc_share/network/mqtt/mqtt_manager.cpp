@@ -88,10 +88,7 @@ void CMqttManager::deinit()
     /* 断开 MQTT 连接 */
     if (m_pstMqtt != nullptr)
     {
-        if (m_pstMqtt->bConnected == 1)
-        {
-            m_pstMqtt->uninit(m_pstMqtt);
-        }
+        m_pstMqtt->uninit(m_pstMqtt);
         bl_mqtt_release(m_pstMqtt);
         m_pstMqtt = nullptr;
     }
@@ -354,10 +351,7 @@ bool CMqttManager::do_connect()
     /* 如果已有连接，先释放 */
     if (m_pstMqtt != nullptr)
     {
-        if (m_pstMqtt->bConnected == 1)
-        {
-            m_pstMqtt->uninit(m_pstMqtt);
-        }
+        m_pstMqtt->uninit(m_pstMqtt);
         bl_mqtt_release(m_pstMqtt);
         m_pstMqtt = nullptr;
     }

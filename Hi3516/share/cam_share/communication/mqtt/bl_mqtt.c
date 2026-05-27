@@ -286,7 +286,29 @@ static int bl_mqtt_publish(BlMqtt_S *pHandle, char *pTopicName, char *pMsg, int 
 static void connlost(void *context, char *cause)
 {
     BlMqtt_S *pHandle = (BlMqtt_S *)context;
-    MQTTAsync client = (MQTTAsync)pHandle->stClient;
+    if (NULL == pHandle)
+    {
+        return;
+    }
+
+    pHandle->bConnected = 0;
+    dlog_debug("mqtt连接丢失: %s", cause ? cause : "");
+
+    if (!pHandle->stExParam.bAutoReconnect)
+    {
+        if (pHandle->stNeedParam.pfnCallback)
+        {
+            BlMqttMsg_S stMsg = {
+                .enMsgType = BL_MQTT_MSG_DISCONNECT_SUCCESS,
+                .pTopicName = NULL,
+                .nTopicLen = 0,
+                .pMsg = NULL,
+                .nMsgLen = 0,
+            };
+            pHandle->stNeedParam.pfnCallback(stMsg);
+        }
+        return;
+    }
 
     dlog_debug("重新连接mqtt服务器");
 
@@ -302,7 +324,13 @@ static void connlost(void *context, char *cause)
     stConnOpts.onSuccess = bl_mqtt_connSuccess;
     stConnOpts.onFailure = bl_mqtt_connFailure;
     stConnOpts.context = pHandle;
-    stConnOpts.automaticReconnect = true;
+    stConnOpts.automaticReconnect = pHandle->stExParam.bAutoReconnect ? 1 : 0;
+
+    if (NULL == pHandle->stClient)
+    {
+        dlog_error("mqtt重连失败，客户端句柄为空");
+        return;
+    }
 
     /* 开始连接 */
     int nRet = MQTTAsync_connect(pHandle->stClient, &stConnOpts);
@@ -355,7 +383,7 @@ static int bl_mqtt_init(BlMqtt_S *pHandle)
     stConnOpts.onSuccess = bl_mqtt_connSuccess;
     stConnOpts.onFailure = bl_mqtt_connFailure;
     stConnOpts.context = pHandle;
-    stConnOpts.automaticReconnect = true;
+    stConnOpts.automaticReconnect = pHandle->stExParam.bAutoReconnect ? 1 : 0;
 
     dlog_debug("正在连接mqtt服务器[%s]", achServerUrl);
     /* 开始连接 */
@@ -370,6 +398,7 @@ static int bl_mqtt_init(BlMqtt_S *pHandle)
 
 EXIT:
     MQTTAsync_destroy(&pHandle->stClient);
+    pHandle->stClient = NULL;
     pHandle->bConnected = 0;
     return nRet;
 }
@@ -382,6 +411,14 @@ static int bl_mqtt_uninit(BlMqtt_S *pHandle)
     }
 
     int nRet = 0;
+    if (NULL == pHandle->stClient)
+    {
+        pHandle->bConnected = 0;
+        return 0;
+    }
+
+    MQTTAsync_setCallbacks(pHandle->stClient, NULL, NULL, NULL, NULL);
+
     /* 设置默认的连接值(MQTT 3.1.1 的TCP连接) */
     MQTTAsync_disconnectOptions stDiscOpts = MQTTAsync_disconnectOptions_initializer;
 
@@ -395,6 +432,7 @@ static int bl_mqtt_uninit(BlMqtt_S *pHandle)
     }
     /* NOTE 直接销毁，理论上需要等待断开连接成功后才能进行销毁 */
     MQTTAsync_destroy(&pHandle->stClient);
+    pHandle->stClient = NULL;
     pHandle->bConnected = 0;
 
     return nRet;
@@ -450,7 +488,14 @@ int bl_mqtt_release(BlMqtt_S *pstMqtt)
 {
     if (pstMqtt)
     {
-        /* TODO 释放其他资源 */
+        if (pstMqtt->stClient)
+        {
+            MQTTAsync_setCallbacks(pstMqtt->stClient, NULL, NULL, NULL, NULL);
+            MQTTAsync_destroy(&pstMqtt->stClient);
+            pstMqtt->stClient = NULL;
+        }
+
+        pstMqtt->stNeedParam.pfnCallback = NULL;
 
         free(pstMqtt);
         pstMqtt = NULL;
