@@ -241,6 +241,18 @@ IpcRet_E COsdManage::get_osd_config(Osd::OsdConfig_S &stInfo)
 
 IpcRet_E COsdManage::set_osd_config(Osd::OsdConfig_S stInfo)
 {
+    /* 防御空数组/缺失字段：vecOsdInfo 为空时补充默认项，避免 at() 越界崩溃 */
+    if (stInfo.vecOsdInfo.empty())
+    {
+        stInfo.vecOsdInfo.resize(4);
+        for (size_t i = 0; i < stInfo.vecOsdInfo.size(); i++)
+        {
+            stInfo.vecOsdInfo[i].clear();
+            stInfo.vecOsdInfo[i].nId = i + 1;
+            stInfo.vecOsdInfo[i].stOsdAttr.strToken = "OsdToken_" + std::to_string(i + 1);
+        }
+    }
+
     std::vector<Osd::OverplayInfo_S> vecInfo;
     vecInfo = m_vecOverplayInfo;
     stInfo.stOsdNameInfo.strName.reserve(100);
