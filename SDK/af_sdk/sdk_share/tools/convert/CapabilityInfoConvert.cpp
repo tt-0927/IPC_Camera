@@ -21,6 +21,8 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_VIDEO_RESOLUTION_S& stInfo
     SDKConvert::CSDKConvert convert(bOutStruct);
     convert.field(pRootJson, "Width", (int&)stInfo.dwWidth);
     convert.field(pRootJson, "Height", (int&)stInfo.dwHeight);
+    convert.field(pRootJson, "FrameRateMin", (int&)stInfo.dwFrameRateMin);
+    convert.field(pRootJson, "FrameRateMax", (int&)stInfo.dwFrameRateMax);
 }
 
 /**

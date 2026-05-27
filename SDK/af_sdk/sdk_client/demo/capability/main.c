@@ -64,9 +64,11 @@ void PrintVideoEncodeCap(const NET_TV_VIDEO_ENCODE_CAP_S* pCap)
         printf("    支持的分辨率数量: %d\n", pStream->dwResolutionNum);
         for (int r = 0; r < pStream->dwResolutionNum && r < NET_TV_RESOLUTION_NUM_MAX; r++)
         {
-            printf("      分辨率[%d]: %dx%d\n", r,
+            printf("      分辨率[%d]: %dx%d (帧率范围: %d~%d)\n", r,
                    pStream->astResolution[r].dwWidth,
-                   pStream->astResolution[r].dwHeight);
+                   pStream->astResolution[r].dwHeight,
+                   pStream->astResolution[r].dwFrameRateMin,
+                   pStream->astResolution[r].dwFrameRateMax);
         }
 
         for (int j = 0; j < pStream->dwEncodeCapSize && j < NET_TV_VIDEO_ENCODE_TYPE_MAX; j++)
