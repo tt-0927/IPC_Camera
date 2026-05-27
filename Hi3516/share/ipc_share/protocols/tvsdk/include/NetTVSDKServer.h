@@ -3510,6 +3510,8 @@ typedef struct tagNETTVVideoResolution
 {
     INT32 dwWidth;                                             /*  视频编码分辨率 */
     INT32 dwHeight;                                            /*  视频编码分辨率 */
+    INT32 dwFrameRateMin;                                      /*  该分辨率支持的最小帧率 */
+    INT32 dwFrameRateMax;                                      /*  该分辨率支持的最大帧率 */
 }NET_TV_VIDEO_RESOLUTION_S, *LPNET_TV_VIDEO_RESOLUTION_S;
 
 /**

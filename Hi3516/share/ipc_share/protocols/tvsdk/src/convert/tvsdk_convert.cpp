@@ -865,7 +865,9 @@ static void FillOneEncodeOption(const Video_NS::VideoCapability_S &src,
     if (!src.aResolution.empty())
     {
         ParseResolutionName(src.aResolution[0].strName, dst.stVideoResolution);
-        dst.enFrameRate = ToSdkFrameRate(src.aResolution[0].enFrameRateMax);
+        dst.stVideoResolution.dwFrameRateMin = ToSdkFrameRate(src.aResolution[0].enFrameRateMin);
+        dst.stVideoResolution.dwFrameRateMax = ToSdkFrameRate(src.aResolution[0].enFrameRateMax);
+        dst.enFrameRate = dst.stVideoResolution.dwFrameRateMax;
         dst.nAverageBitrate = ClampInt(DEFAULTE_BITRATE,
                                        (int)src.aResolution[0].nBitRateMin,
                                        (int)src.aResolution[0].nBitRateMax);
@@ -915,6 +917,8 @@ static void FillOneStreamCap(const Video_NS::VideoCapability_S &src, NET_TV_VIDE
     for (INT32 i = 0; i < dst.dwResolutionNum; ++i)
     {
         ParseResolutionName(src.aResolution[i].strName, dst.astResolution[i]);
+        dst.astResolution[i].dwFrameRateMin = ToSdkFrameRate(src.aResolution[i].enFrameRateMin);
+        dst.astResolution[i].dwFrameRateMax = ToSdkFrameRate(src.aResolution[i].enFrameRateMax);
     }
 
     dst.stQuality.dwMin = (INT32)Video_NS::ImageQuality_E::LOWEST;

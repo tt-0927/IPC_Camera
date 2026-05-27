@@ -82,12 +82,20 @@ NET_TV_COMMON_ECODE_E MyVideoEncodeCb(INT32 dwChannelID, LPNET_TV_VIDEO_ENCODE_C
     pCap->astStreamCap[0].dwResolutionNum = 4;
     pCap->astStreamCap[0].astResolution[0].dwWidth = 2560;
     pCap->astStreamCap[0].astResolution[0].dwHeight = 1440;
+    pCap->astStreamCap[0].astResolution[0].dwFrameRateMin = 1;
+    pCap->astStreamCap[0].astResolution[0].dwFrameRateMax = 25;
     pCap->astStreamCap[0].astResolution[1].dwWidth = 1920;
     pCap->astStreamCap[0].astResolution[1].dwHeight = 1080;
+    pCap->astStreamCap[0].astResolution[1].dwFrameRateMin = 1;
+    pCap->astStreamCap[0].astResolution[1].dwFrameRateMax = 30;
     pCap->astStreamCap[0].astResolution[2].dwWidth = 1280;
     pCap->astStreamCap[0].astResolution[2].dwHeight = 720;
+    pCap->astStreamCap[0].astResolution[2].dwFrameRateMin = 1;
+    pCap->astStreamCap[0].astResolution[2].dwFrameRateMax = 30;
     pCap->astStreamCap[0].astResolution[3].dwWidth = 704;
     pCap->astStreamCap[0].astResolution[3].dwHeight = 576;
+    pCap->astStreamCap[0].astResolution[3].dwFrameRateMin = 1;
+    pCap->astStreamCap[0].astResolution[3].dwFrameRateMax = 30;
 
     // ============ 子码流能力 (索引1) ============
     pCap->astStreamCap[1].dwStreamType = 1;          // NET_TV_LIVE_STREAM_INDEX_SUB
@@ -119,10 +127,16 @@ NET_TV_COMMON_ECODE_E MyVideoEncodeCb(INT32 dwChannelID, LPNET_TV_VIDEO_ENCODE_C
     pCap->astStreamCap[1].dwResolutionNum = 3;
     pCap->astStreamCap[1].astResolution[0].dwWidth = 704;
     pCap->astStreamCap[1].astResolution[0].dwHeight = 576;
+    pCap->astStreamCap[1].astResolution[0].dwFrameRateMin = 1;
+    pCap->astStreamCap[1].astResolution[0].dwFrameRateMax = 30;
     pCap->astStreamCap[1].astResolution[1].dwWidth = 640;
     pCap->astStreamCap[1].astResolution[1].dwHeight = 480;
+    pCap->astStreamCap[1].astResolution[1].dwFrameRateMin = 1;
+    pCap->astStreamCap[1].astResolution[1].dwFrameRateMax = 30;
     pCap->astStreamCap[1].astResolution[2].dwWidth = 352;
     pCap->astStreamCap[1].astResolution[2].dwHeight = 288;
+    pCap->astStreamCap[1].astResolution[2].dwFrameRateMin = 1;
+    pCap->astStreamCap[1].astResolution[2].dwFrameRateMax = 30;
 
     printf("[Server] Filled %d streams capability\n", pCap->dwStreamCount);
     return NET_TV_E_SUCCEED;
