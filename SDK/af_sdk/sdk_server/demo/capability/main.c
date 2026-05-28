@@ -19,6 +19,40 @@
 /* 服务端口 */
 #define SDKSERVER_PORT 8888
 
+static void FillDemoResolution(LPNET_TV_VIDEO_RESOLUTION_S pResolution,
+                               INT32 width,
+                               INT32 height,
+                               INT32 frameRateMin,
+                               INT32 frameRateMax,
+                               INT32 bitRateMin,
+                               INT32 bitRateMax)
+{
+    static const INT32 kFrameRates[] = {1, 5, 10, 15, 20, 25, 30};
+    int i = 0;
+
+    if (!pResolution)
+    {
+        return;
+    }
+
+    memset(pResolution, 0, sizeof(NET_TV_VIDEO_RESOLUTION_S));
+    pResolution->dwWidth = width;
+    pResolution->dwHeight = height;
+    pResolution->dwFrameRateMin = frameRateMin;
+    pResolution->dwFrameRateMax = frameRateMax;
+    pResolution->dwBitRateMin = bitRateMin;
+    pResolution->dwBitRateMax = bitRateMax;
+
+    for (i = 0; i < (int)(sizeof(kFrameRates) / sizeof(kFrameRates[0])) &&
+                pResolution->dwFrameRateNum < NET_TV_VIDEO_FRAME_RATE_MAX_NUM; ++i)
+    {
+        if (kFrameRates[i] >= frameRateMin && kFrameRates[i] <= frameRateMax)
+        {
+            pResolution->adwFrameRate[pResolution->dwFrameRateNum++] = kFrameRates[i];
+        }
+    }
+}
+
 /**
  * @brief 视频编码能力集回调实现
  * @note 模拟填充2个码流(主/子码流)的能力集数据
@@ -31,6 +65,8 @@ NET_TV_COMMON_ECODE_E MyVideoEncodeCb(INT32 dwChannelID, LPNET_TV_VIDEO_ENCODE_C
     }
     
     printf("[Server] GetVideoEncodeCap callback, channelID=%d\n", dwChannelID);
+
+    memset(pCap, 0, sizeof(NET_TV_VIDEO_ENCODE_CAP_S));
     
     // 填充2个码流的能力集
     pCap->dwStreamCount = 2;
@@ -47,8 +83,7 @@ NET_TV_COMMON_ECODE_E MyVideoEncodeCb(INT32 dwChannelID, LPNET_TV_VIDEO_ENCODE_C
     // H.264编码配置示例
     pCap->astStreamCap[0].astEncodeCap[0].nId = NET_TV_LIVE_STREAM_INDEX_MAIN;
     pCap->astStreamCap[0].astEncodeCap[0].enVideoType = 0;
-    pCap->astStreamCap[0].astEncodeCap[0].stVideoResolution.dwWidth = 1920;
-    pCap->astStreamCap[0].astEncodeCap[0].stVideoResolution.dwHeight = 1080;
+    FillDemoResolution(&pCap->astStreamCap[0].astEncodeCap[0].stVideoResolution, 1920, 1080, 1, 30, 256, 8192);
     pCap->astStreamCap[0].astEncodeCap[0].enBitrateType = 0;
     pCap->astStreamCap[0].astEncodeCap[0].enImageQuality = 60;
     pCap->astStreamCap[0].astEncodeCap[0].enFrameRate = 30;
@@ -64,8 +99,7 @@ NET_TV_COMMON_ECODE_E MyVideoEncodeCb(INT32 dwChannelID, LPNET_TV_VIDEO_ENCODE_C
     // H.265编码配置示例
     pCap->astStreamCap[0].astEncodeCap[1].nId = NET_TV_LIVE_STREAM_INDEX_MAIN;
     pCap->astStreamCap[0].astEncodeCap[1].enVideoType = 0;
-    pCap->astStreamCap[0].astEncodeCap[1].stVideoResolution.dwWidth = 2560;
-    pCap->astStreamCap[0].astEncodeCap[1].stVideoResolution.dwHeight = 1440;
+    FillDemoResolution(&pCap->astStreamCap[0].astEncodeCap[1].stVideoResolution, 2560, 1440, 1, 25, 512, 16384);
     pCap->astStreamCap[0].astEncodeCap[1].enBitrateType = 0;
     pCap->astStreamCap[0].astEncodeCap[1].enImageQuality = 60;
     pCap->astStreamCap[0].astEncodeCap[1].enFrameRate = 25;
@@ -80,22 +114,10 @@ NET_TV_COMMON_ECODE_E MyVideoEncodeCb(INT32 dwChannelID, LPNET_TV_VIDEO_ENCODE_C
 
     // 主码流支持的分辨率列表
     pCap->astStreamCap[0].dwResolutionNum = 4;
-    pCap->astStreamCap[0].astResolution[0].dwWidth = 2560;
-    pCap->astStreamCap[0].astResolution[0].dwHeight = 1440;
-    pCap->astStreamCap[0].astResolution[0].dwFrameRateMin = 1;
-    pCap->astStreamCap[0].astResolution[0].dwFrameRateMax = 25;
-    pCap->astStreamCap[0].astResolution[1].dwWidth = 1920;
-    pCap->astStreamCap[0].astResolution[1].dwHeight = 1080;
-    pCap->astStreamCap[0].astResolution[1].dwFrameRateMin = 1;
-    pCap->astStreamCap[0].astResolution[1].dwFrameRateMax = 30;
-    pCap->astStreamCap[0].astResolution[2].dwWidth = 1280;
-    pCap->astStreamCap[0].astResolution[2].dwHeight = 720;
-    pCap->astStreamCap[0].astResolution[2].dwFrameRateMin = 1;
-    pCap->astStreamCap[0].astResolution[2].dwFrameRateMax = 30;
-    pCap->astStreamCap[0].astResolution[3].dwWidth = 704;
-    pCap->astStreamCap[0].astResolution[3].dwHeight = 576;
-    pCap->astStreamCap[0].astResolution[3].dwFrameRateMin = 1;
-    pCap->astStreamCap[0].astResolution[3].dwFrameRateMax = 30;
+    FillDemoResolution(&pCap->astStreamCap[0].astResolution[0], 2560, 1440, 1, 25, 512, 16384);
+    FillDemoResolution(&pCap->astStreamCap[0].astResolution[1], 1920, 1080, 1, 30, 256, 8192);
+    FillDemoResolution(&pCap->astStreamCap[0].astResolution[2], 1280, 720, 1, 30, 256, 4096);
+    FillDemoResolution(&pCap->astStreamCap[0].astResolution[3], 704, 576, 1, 30, 128, 2048);
 
     // ============ 子码流能力 (索引1) ============
     pCap->astStreamCap[1].dwStreamType = 1;          // NET_TV_LIVE_STREAM_INDEX_SUB
@@ -109,8 +131,7 @@ NET_TV_COMMON_ECODE_E MyVideoEncodeCb(INT32 dwChannelID, LPNET_TV_VIDEO_ENCODE_C
     // H.264编码配置示例
     pCap->astStreamCap[1].astEncodeCap[0].nId = NET_TV_LIVE_STREAM_INDEX_AUX;
     pCap->astStreamCap[1].astEncodeCap[0].enVideoType = 1;
-    pCap->astStreamCap[1].astEncodeCap[0].stVideoResolution.dwWidth = 640;
-    pCap->astStreamCap[1].astEncodeCap[0].stVideoResolution.dwHeight = 480;
+    FillDemoResolution(&pCap->astStreamCap[1].astEncodeCap[0].stVideoResolution, 640, 480, 1, 30, 64, 1024);
     pCap->astStreamCap[1].astEncodeCap[0].enBitrateType = 0;
     pCap->astStreamCap[1].astEncodeCap[0].enImageQuality = 60;
     pCap->astStreamCap[1].astEncodeCap[0].enFrameRate = 15;
@@ -125,18 +146,9 @@ NET_TV_COMMON_ECODE_E MyVideoEncodeCb(INT32 dwChannelID, LPNET_TV_VIDEO_ENCODE_C
 
     // 子码流支持的分辨率列表
     pCap->astStreamCap[1].dwResolutionNum = 3;
-    pCap->astStreamCap[1].astResolution[0].dwWidth = 704;
-    pCap->astStreamCap[1].astResolution[0].dwHeight = 576;
-    pCap->astStreamCap[1].astResolution[0].dwFrameRateMin = 1;
-    pCap->astStreamCap[1].astResolution[0].dwFrameRateMax = 30;
-    pCap->astStreamCap[1].astResolution[1].dwWidth = 640;
-    pCap->astStreamCap[1].astResolution[1].dwHeight = 480;
-    pCap->astStreamCap[1].astResolution[1].dwFrameRateMin = 1;
-    pCap->astStreamCap[1].astResolution[1].dwFrameRateMax = 30;
-    pCap->astStreamCap[1].astResolution[2].dwWidth = 352;
-    pCap->astStreamCap[1].astResolution[2].dwHeight = 288;
-    pCap->astStreamCap[1].astResolution[2].dwFrameRateMin = 1;
-    pCap->astStreamCap[1].astResolution[2].dwFrameRateMax = 30;
+    FillDemoResolution(&pCap->astStreamCap[1].astResolution[0], 704, 576, 1, 30, 128, 2048);
+    FillDemoResolution(&pCap->astStreamCap[1].astResolution[1], 640, 480, 1, 30, 64, 1024);
+    FillDemoResolution(&pCap->astStreamCap[1].astResolution[2], 352, 288, 1, 30, 64, 512);
 
     printf("[Server] Filled %d streams capability\n", pCap->dwStreamCount);
     return NET_TV_E_SUCCEED;
@@ -300,7 +312,7 @@ NET_TV_COMMON_ECODE_E MyOsdCapCb(INT32 dwChannelID, LPNET_TV_OSD_CAP_S pCap)
     pCap->bSupportCustomColor = TRUE;
     
     // 字符叠加能力
-    pCap->udwMaxOsdNum = 4;
+    pCap->udwMaxOsdNum = NET_TV_OSD_CUSTOM_MAX_NUM;
     
     // 字体大小能力
     pCap->udwSupportedFontSizeNum = 5;

@@ -417,7 +417,7 @@ static NET_TV_COMMON_ECODE_E cb_get_osd_cap(INT32 dwChannelID, LPNET_TV_OSD_CAP_
             pCap->bSupportTime = TRUE;
             pCap->bSupportWeek = TRUE;
             pCap->bSupportCustomColor = TRUE;
-            pCap->udwMaxOsdNum = NET_TV_OSD_MAX_NUM_EX;
+            pCap->udwMaxOsdNum = NET_TV_OSD_CUSTOM_MAX_NUM;
             pCap->udwSupportedFontSizeNum = 4;
             pCap->audwSupportedFontSizeList[0] = OSD_FONT_SIZE_ADAPTIVE;
             pCap->audwSupportedFontSizeList[1] = OSD_FONT_SIZE_16;
