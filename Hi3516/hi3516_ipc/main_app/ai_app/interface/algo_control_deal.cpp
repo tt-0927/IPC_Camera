@@ -81,12 +81,18 @@ void AlgoControlDeal::deal_message(int nCode, std::string strData, void *pData)
 
         if (pData != nullptr)
         {
-            int* nRetData = (int*)pData;
+            std::string* pOutString = (std::string*)pData;
             if(nRet!=true)
             {
-                *nRetData = -1;
+                *pOutString = "{\"Return\":-1}";
             }else {
-                *nRetData = 0;
+                Json::Object *pResult = Json::init();
+                Json::add(pResult, "Id", stFaceList.nId);
+                Json::add(pResult, "LibId", stFaceList.strFaceLibName);
+                Json::add(pResult, "Name", stFaceList.strName);
+                Json::add(pResult, "PhoneNum", stFaceList.strPhoneNum);
+                *pOutString = Json::to_string(pResult);
+                Json::deinit(pResult);
             }
             dlog_debug("添加名单组成员 %d",nRet);
         }

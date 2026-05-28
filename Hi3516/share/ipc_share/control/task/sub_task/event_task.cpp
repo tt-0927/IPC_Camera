@@ -1517,11 +1517,19 @@ void Task::Event::GetTargetLib::handle()
 /* 添加人脸信息 */
 void Task::Event::AddFaceInfo::handle()
 {
-    int nRet = 0;
+    auto pData = std::make_shared<std::string>();
     CEventManage::instance()->send_algo_controlData(AC_ADD_FACE_INFO,
-                                                    m_taskData.c_str(),&nRet);
-    
-    result(nRet);
+                                                    m_taskData.c_str(), pData.get());
+
+    int nRet = 0;
+    Json::get(pData->c_str(), "Return", nRet);
+    if (nRet != 0)
+    {
+        result(nRet);
+        return;
+    }
+
+    result(*pData);
 }
 /* 删除人脸信息 */
 void Task::Event::DelFaceInfo::handle()

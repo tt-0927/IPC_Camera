@@ -20,6 +20,7 @@
 #include "face_capture_processor.hpp"
 #include "face_capture_temp_file.hpp"
 #include "face_manage.h"
+#include "IpcRet.h"
 #include "storage_manage.h"
 #include "video_frame_jpeg_encoder.hpp"
 
@@ -331,7 +332,11 @@ bool CFaceFeatureProcessor::addFaceLibGroup(FaceDataDB_NS::FaceLibsInfo_S &stFac
 
     stFaceLibData.vfData = vecFeature;
     stFaceLibData.nModelState = 1;
-    FaceManage::AIFaceManage::instance()->addFaceLibInfo(stFaceLibData);
+    if (FaceManage::AIFaceManage::instance()->addFaceLibInfo(stFaceLibData) != OK)
+    {
+        dlog_error("人脸库添加到数据库失败");
+        return false;
+    }
     dlog_info("人脸特征向量 (共 %d 维):", static_cast<int>(stFaceLibData.vfData.size()));
     for (size_t i = 0; i < 10 && i < stFaceLibData.vfData.size(); ++i)
     {
