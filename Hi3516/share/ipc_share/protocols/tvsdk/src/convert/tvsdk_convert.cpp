@@ -854,42 +854,24 @@ static float ToFloatFrameRate(Video_NS::FrameRate_E frameRate)
     return cfg.getFrameRateAsFloat();
 }
 
-static bool IsValidFrameRate(Video_NS::FrameRate_E frameRate)
-{
-    return frameRate > Video_NS::FRAME_RATE_ALL && frameRate < Video_NS::FRAME_RATE_TOTAL;
-}
-
 static std::vector<Video_NS::FrameRate_E> BuildSupportedFrameRates(const Video_NS::Resolution_S &src)
 {
     std::vector<Video_NS::FrameRate_E> frameRates;
 
-    if (!src.aFrameRates.empty())
+    float minFrameRate = ToFloatFrameRate(src.enFrameRateMin);
+    float maxFrameRate = ToFloatFrameRate(src.enFrameRateMax);
+    if (minFrameRate > maxFrameRate)
     {
-        for (size_t i = 0; i < src.aFrameRates.size(); ++i)
-        {
-            if (IsValidFrameRate(src.aFrameRates[i]))
-            {
-                frameRates.push_back(src.aFrameRates[i]);
-            }
-        }
+        std::swap(minFrameRate, maxFrameRate);
     }
-    else
-    {
-        float minFrameRate = ToFloatFrameRate(src.enFrameRateMin);
-        float maxFrameRate = ToFloatFrameRate(src.enFrameRateMax);
-        if (minFrameRate > maxFrameRate)
-        {
-            std::swap(minFrameRate, maxFrameRate);
-        }
 
-        for (int value = (int)Video_NS::FRAME_RATE_ALL + 1; value < (int)Video_NS::FRAME_RATE_TOTAL; ++value)
+    for (int value = (int)Video_NS::FRAME_RATE_ALL + 1; value < (int)Video_NS::FRAME_RATE_TOTAL; ++value)
+    {
+        Video_NS::FrameRate_E frameRate = (Video_NS::FrameRate_E)value;
+        float currentFrameRate = ToFloatFrameRate(frameRate);
+        if (currentFrameRate >= minFrameRate && currentFrameRate <= maxFrameRate)
         {
-            Video_NS::FrameRate_E frameRate = (Video_NS::FrameRate_E)value;
-            float currentFrameRate = ToFloatFrameRate(frameRate);
-            if (currentFrameRate >= minFrameRate && currentFrameRate <= maxFrameRate)
-            {
-                frameRates.push_back(frameRate);
-            }
+            frameRates.push_back(frameRate);
         }
     }
 

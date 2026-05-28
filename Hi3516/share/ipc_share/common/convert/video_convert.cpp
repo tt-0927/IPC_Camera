@@ -194,33 +194,6 @@ void Convert::deal(Json::Object *pRootJson, Video_NS::Resolution_S &stInfo, bool
     convert.field(pRootJson, "Name", stInfo.strName);
     convert.field(pRootJson, "FrameRateMin", (int &)stInfo.enFrameRateMin);
     convert.field(pRootJson, "FrameRateMax", (int &)stInfo.enFrameRateMax);
-    if (bOutStruct)
-    {
-        std::vector<int> frameRates;
-        convert.field(pRootJson, "FrameRates", frameRates);
-        stInfo.aFrameRates.clear();
-        for (size_t i = 0; i < frameRates.size(); ++i)
-        {
-            Video_NS::VideoConfig_S stVideoConfig;
-            stVideoConfig.setFrameRate(frameRates[i]);
-            if (stVideoConfig.getFrameRateAsInt() == frameRates[i])
-            {
-                stInfo.aFrameRates.push_back(stVideoConfig.enFrameRate);
-            }
-        }
-    }
-    else
-    {
-        std::vector<int> frameRates;
-        frameRates.reserve(stInfo.aFrameRates.size());
-        for (size_t i = 0; i < stInfo.aFrameRates.size(); ++i)
-        {
-            Video_NS::VideoConfig_S stVideoConfig;
-            stVideoConfig.enFrameRate = stInfo.aFrameRates[i];
-            frameRates.push_back(stVideoConfig.getFrameRateAsInt());
-        }
-        convert.field(pRootJson, "FrameRates", frameRates);
-    }
     convert.field(pRootJson, "BitRateMin", stInfo.nBitRateMin);
     convert.field(pRootJson, "BitRateMax", stInfo.nBitRateMax);
 }
