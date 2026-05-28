@@ -340,6 +340,7 @@ extern "C" {
 
 #define NET_TV_VIID_CODE_LEN                        48          /* 视图编码长度 */
 #define NET_TV_VIDEO_FORMAT_CAP_NUM                 64          /* 编码制式能力集 */
+#define NET_TV_VIDEO_FRAME_RATE_MAX_NUM             64          /* 视频能力集支持帧率最大数量 */
 #define NET_TV_LAYOUT_CAP_NUM                       64          /* 分屏能力集 */
 
 #define NET_TV_DA_POINT_CODE_LEN                    48          /* 代理设备 点位 编码长度 */
@@ -348,6 +349,7 @@ extern "C" {
 #define NET_TV_EVENT_STORE_TYPE_NUM                 128         /* 时间存储类型数量 */
 #define NET_TV_MAX_PANE_NUM                         36          /* DC业务分屏数量最大为36分屏 */
 #define NET_TV_OSD_MAX_NUM_EX                       8           /* 通道 OSD 最大数量  Maximum Number of OSD */
+#define NET_TV_OSD_CUSTOM_MAX_NUM                   4           /* 设备自定义字符叠加最大数量 */
 #define NET_TV_RSA_MAX_VALUE                        3           /* 表示最多尝试密钥生成次数 */
 
 #define NET_TV_MAX_VIDEO_BRIGHT_EFFECT_VALUE        199             /* 图像参数（亮度）最大值 */
@@ -3921,6 +3923,12 @@ typedef struct tagNETTVVideoResolution
 {
     INT32 dwWidth;                                             /*  视频编码分辨率 */
     INT32 dwHeight;                                            /*  视频编码分辨率 */
+    INT32 dwFrameRateMin;                                      /*  该分辨率支持的最小帧率 */
+    INT32 dwFrameRateMax;                                      /*  该分辨率支持的最大帧率 */
+    INT32 dwFrameRateNum;                                      /*  该分辨率支持的帧率数量 */
+    INT32 adwFrameRate[NET_TV_VIDEO_FRAME_RATE_MAX_NUM];       /*  该分辨率支持的帧率数组 */
+    INT32 dwBitRateMin;                                        /*  该分辨率支持的最小码率kbps */
+    INT32 dwBitRateMax;                                        /*  该分辨率支持的最大码率kbps */
 }NET_TV_VIDEO_RESOLUTION_S, *LPNET_TV_VIDEO_RESOLUTION_S;
 
 /**

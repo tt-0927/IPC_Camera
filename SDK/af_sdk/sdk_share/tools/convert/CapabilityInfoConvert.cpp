@@ -23,6 +23,22 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_VIDEO_RESOLUTION_S& stInfo
     convert.field(pRootJson, "Height", (int&)stInfo.dwHeight);
     convert.field(pRootJson, "FrameRateMin", (int&)stInfo.dwFrameRateMin);
     convert.field(pRootJson, "FrameRateMax", (int&)stInfo.dwFrameRateMax);
+    convert.field(pRootJson, "FrameRateNum", (int&)stInfo.dwFrameRateNum);
+    if (stInfo.dwFrameRateNum < 0)
+    {
+        stInfo.dwFrameRateNum = 0;
+    }
+    else if (stInfo.dwFrameRateNum > NET_TV_VIDEO_FRAME_RATE_MAX_NUM)
+    {
+        stInfo.dwFrameRateNum = NET_TV_VIDEO_FRAME_RATE_MAX_NUM;
+    }
+    convert.field_array(pRootJson,
+                        "FrameRateList",
+                        stInfo.adwFrameRate,
+                        (UINT32)stInfo.dwFrameRateNum,
+                        NET_TV_VIDEO_FRAME_RATE_MAX_NUM);
+    convert.field(pRootJson, "BitRateMin", (int&)stInfo.dwBitRateMin);
+    convert.field(pRootJson, "BitRateMax", (int&)stInfo.dwBitRateMax);
 }
 
 /**

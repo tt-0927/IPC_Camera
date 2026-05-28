@@ -548,6 +548,7 @@ namespace Video_NS
         std::string strName;                          /* 分辨率名称(如:1280*720) */
         FrameRate_E enFrameRateMin = FRAME_RATE_1_16; /*最小视频帧率fps*/
         FrameRate_E enFrameRateMax = FRAME_RATE_30;   /*最大视频帧率fps*/
+        std::vector<FrameRate_E> aFrameRates;         /*支持的帧率列表，为空时按最小/最大帧率推导*/
         unsigned int nBitRateMin = 256;               /*最小码率kbps min="256" */
         unsigned int nBitRateMax = 16384;             /*最大码率kbps max="16384"*/
 

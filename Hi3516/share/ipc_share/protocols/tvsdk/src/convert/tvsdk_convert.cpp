@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <cstdio>
 #include <cstring>
+#include <vector>
 
 
 
@@ -846,6 +847,83 @@ static INT32 ToSdkFrameRate(Video_NS::FrameRate_E frameRate)
     return (INT32)cfg.getFrameRateAsInt();
 }
 
+static float ToFloatFrameRate(Video_NS::FrameRate_E frameRate)
+{
+    Video_NS::VideoConfig_S cfg;
+    cfg.enFrameRate = frameRate;
+    return cfg.getFrameRateAsFloat();
+}
+
+static bool IsValidFrameRate(Video_NS::FrameRate_E frameRate)
+{
+    return frameRate > Video_NS::FRAME_RATE_ALL && frameRate < Video_NS::FRAME_RATE_TOTAL;
+}
+
+static std::vector<Video_NS::FrameRate_E> BuildSupportedFrameRates(const Video_NS::Resolution_S &src)
+{
+    std::vector<Video_NS::FrameRate_E> frameRates;
+
+    if (!src.aFrameRates.empty())
+    {
+        for (size_t i = 0; i < src.aFrameRates.size(); ++i)
+        {
+            if (IsValidFrameRate(src.aFrameRates[i]))
+            {
+                frameRates.push_back(src.aFrameRates[i]);
+            }
+        }
+    }
+    else
+    {
+        float minFrameRate = ToFloatFrameRate(src.enFrameRateMin);
+        float maxFrameRate = ToFloatFrameRate(src.enFrameRateMax);
+        if (minFrameRate > maxFrameRate)
+        {
+            std::swap(minFrameRate, maxFrameRate);
+        }
+
+        for (int value = (int)Video_NS::FRAME_RATE_ALL + 1; value < (int)Video_NS::FRAME_RATE_TOTAL; ++value)
+        {
+            Video_NS::FrameRate_E frameRate = (Video_NS::FrameRate_E)value;
+            float currentFrameRate = ToFloatFrameRate(frameRate);
+            if (currentFrameRate >= minFrameRate && currentFrameRate <= maxFrameRate)
+            {
+                frameRates.push_back(frameRate);
+            }
+        }
+    }
+
+    std::sort(frameRates.begin(), frameRates.end(),
+              [](Video_NS::FrameRate_E left, Video_NS::FrameRate_E right) {
+                  return ToFloatFrameRate(left) < ToFloatFrameRate(right);
+              });
+
+    frameRates.erase(std::unique(frameRates.begin(), frameRates.end(),
+                                 [](Video_NS::FrameRate_E left, Video_NS::FrameRate_E right) {
+                                     return ToSdkFrameRate(left) == ToSdkFrameRate(right);
+                                 }),
+                     frameRates.end());
+
+    return frameRates;
+}
+
+static void FillResolutionCap(const Video_NS::Resolution_S &src, NET_TV_VIDEO_RESOLUTION_S &dst)
+{
+    std::memset(&dst, 0, sizeof(dst));
+    ParseResolutionName(src.strName, dst);
+    dst.dwFrameRateMin = ToSdkFrameRate(src.enFrameRateMin);
+    dst.dwFrameRateMax = ToSdkFrameRate(src.enFrameRateMax);
+    dst.dwBitRateMin = (INT32)src.nBitRateMin;
+    dst.dwBitRateMax = (INT32)src.nBitRateMax;
+
+    std::vector<Video_NS::FrameRate_E> frameRates = BuildSupportedFrameRates(src);
+    dst.dwFrameRateNum = (INT32)std::min(frameRates.size(), (size_t)NET_TV_VIDEO_FRAME_RATE_MAX_NUM);
+    for (INT32 i = 0; i < dst.dwFrameRateNum; ++i)
+    {
+        dst.adwFrameRate[i] = ToSdkFrameRate(frameRates[(size_t)i]);
+    }
+}
+
 static INT32 ClampInt(int value, int minValue, int maxValue)
 {
     return (INT32)std::max(minValue, std::min(value, maxValue));
@@ -864,14 +942,12 @@ static void FillOneEncodeOption(const Video_NS::VideoCapability_S &src,
 
     if (!src.aResolution.empty())
     {
-        ParseResolutionName(src.aResolution[0].strName, dst.stVideoResolution);
-        dst.stVideoResolution.dwFrameRateMin = ToSdkFrameRate(src.aResolution[0].enFrameRateMin);
-        dst.stVideoResolution.dwFrameRateMax = ToSdkFrameRate(src.aResolution[0].enFrameRateMax);
+        FillResolutionCap(src.aResolution[0], dst.stVideoResolution);
         dst.enFrameRate = dst.stVideoResolution.dwFrameRateMax;
         dst.nAverageBitrate = ClampInt(DEFAULTE_BITRATE,
-                                       (int)src.aResolution[0].nBitRateMin,
-                                       (int)src.aResolution[0].nBitRateMax);
-        dst.nBitrateUpperLimit = (INT32)src.aResolution[0].nBitRateMax;
+                                       (int)dst.stVideoResolution.dwBitRateMin,
+                                       (int)dst.stVideoResolution.dwBitRateMax);
+        dst.nBitrateUpperLimit = dst.stVideoResolution.dwBitRateMax;
     }
 
     if (ability)
@@ -916,9 +992,7 @@ static void FillOneStreamCap(const Video_NS::VideoCapability_S &src, NET_TV_VIDE
                                           (size_t)NET_TV_RESOLUTION_NUM_MAX);
     for (INT32 i = 0; i < dst.dwResolutionNum; ++i)
     {
-        ParseResolutionName(src.aResolution[i].strName, dst.astResolution[i]);
-        dst.astResolution[i].dwFrameRateMin = ToSdkFrameRate(src.aResolution[i].enFrameRateMin);
-        dst.astResolution[i].dwFrameRateMax = ToSdkFrameRate(src.aResolution[i].enFrameRateMax);
+        FillResolutionCap(src.aResolution[i], dst.astResolution[i]);
     }
 
     dst.stQuality.dwMin = (INT32)Video_NS::ImageQuality_E::LOWEST;

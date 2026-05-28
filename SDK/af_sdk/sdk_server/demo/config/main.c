@@ -511,7 +511,7 @@ static void InitDefaultConfig(void)
     g_stOsdCapCfg.bSupportCustomColor = TRUE;
 
     /* 最大字符叠加数量 */
-    g_stOsdCapCfg.udwMaxOsdNum = 4;
+    g_stOsdCapCfg.udwMaxOsdNum = NET_TV_OSD_CUSTOM_MAX_NUM;
 
     /* 支持的字体大小列表 */
     g_stOsdCapCfg.udwSupportedFontSizeNum = 3;

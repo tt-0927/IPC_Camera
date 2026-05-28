@@ -46,6 +46,35 @@ void PrintMenu()
 }
 
 /**
+ * @brief 打印分辨率支持的帧率数组
+ */
+static void PrintFrameRateList(const char* indent, const NET_TV_VIDEO_RESOLUTION_S* pResolution)
+{
+    int frameRateNum = pResolution->dwFrameRateNum;
+    if (frameRateNum < 0)
+    {
+        frameRateNum = 0;
+    }
+    if (frameRateNum > NET_TV_VIDEO_FRAME_RATE_MAX_NUM)
+    {
+        frameRateNum = NET_TV_VIDEO_FRAME_RATE_MAX_NUM;
+    }
+
+    printf("%s支持帧率数组(%d):", indent, frameRateNum);
+    if (frameRateNum == 0)
+    {
+        printf(" 空\n");
+        return;
+    }
+
+    for (int i = 0; i < frameRateNum; i++)
+    {
+        printf(" %d", pResolution->adwFrameRate[i]);
+    }
+    printf("\n");
+}
+
+/**
  * @brief 打印视频编码能力集信息
  */
 void PrintVideoEncodeCap(const NET_TV_VIDEO_ENCODE_CAP_S* pCap)
@@ -64,11 +93,14 @@ void PrintVideoEncodeCap(const NET_TV_VIDEO_ENCODE_CAP_S* pCap)
         printf("    支持的分辨率数量: %d\n", pStream->dwResolutionNum);
         for (int r = 0; r < pStream->dwResolutionNum && r < NET_TV_RESOLUTION_NUM_MAX; r++)
         {
-            printf("      分辨率[%d]: %dx%d (帧率范围: %d~%d)\n", r,
+            printf("      分辨率[%d]: %dx%d (帧率范围: %d~%d, 码率范围: %d~%d kbps)\n", r,
                    pStream->astResolution[r].dwWidth,
                    pStream->astResolution[r].dwHeight,
                    pStream->astResolution[r].dwFrameRateMin,
-                   pStream->astResolution[r].dwFrameRateMax);
+                   pStream->astResolution[r].dwFrameRateMax,
+                   pStream->astResolution[r].dwBitRateMin,
+                   pStream->astResolution[r].dwBitRateMax);
+            PrintFrameRateList("        ", &pStream->astResolution[r]);
         }
 
         for (int j = 0; j < pStream->dwEncodeCapSize && j < NET_TV_VIDEO_ENCODE_TYPE_MAX; j++)
@@ -79,6 +111,12 @@ void PrintVideoEncodeCap(const NET_TV_VIDEO_ENCODE_CAP_S* pCap)
             printf("      分辨率: %dx%d\n",
                    pEncode->stVideoResolution.dwWidth,
                    pEncode->stVideoResolution.dwHeight);
+            printf("      分辨率能力: 帧率范围=%d~%d, 码率范围=%d~%d kbps\n",
+                   pEncode->stVideoResolution.dwFrameRateMin,
+                   pEncode->stVideoResolution.dwFrameRateMax,
+                   pEncode->stVideoResolution.dwBitRateMin,
+                   pEncode->stVideoResolution.dwBitRateMax);
+            PrintFrameRateList("      ", &pEncode->stVideoResolution);
             printf("      码率类型: %d\n", pEncode->enBitrateType);
             printf("      图像质量: %d\n", pEncode->enImageQuality);
             printf("      帧率: %d\n", pEncode->enFrameRate);
