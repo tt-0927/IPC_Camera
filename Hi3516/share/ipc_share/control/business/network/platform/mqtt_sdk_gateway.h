@@ -49,6 +49,16 @@ public:
     static int execute_set(const std::string &strCommand, const std::string &strData);
 
     /**
+     * @brief  : 执行 MQTT SET 命令并获取任务返回 Data
+     * @param  {const std::string &} strCommand：SDK 命令名
+     * @param  {const std::string &} strData：请求数据（JSON）
+     * @param  {std::string &} strResult：输出结果（JSON）
+     * @return {int} 0：成功，非0：失败
+     * @note   : 用于新增人脸等 SET 成功后也需要返回设备侧生成字段的命令
+     */
+    static int execute_set(const std::string &strCommand, const std::string &strData, std::string &strResult);
+
+    /**
      * @brief  : 判断命令是否为 GET 类型
      * @param  {const std::string &} strCommand：SDK 命令名
      * @return {bool} true：GET 命令，false：SET 或未知命令
@@ -100,4 +110,5 @@ private:
      * @return {int} 0：成功，非0：失败
      */
     static int execute_set_action(int nActionCode, const std::string &strData);
+    static int execute_set_action(int nActionCode, const std::string &strData, std::string &strResult);
 };

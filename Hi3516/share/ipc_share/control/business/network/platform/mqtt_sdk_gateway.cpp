@@ -421,6 +421,29 @@ int CMqttSdkGateway::execute_set_action(int nActionCode, const std::string &strD
     return s_pTaskManage->execute(nActionCode, stInfo);
 }
 
+int CMqttSdkGateway::execute_set_action(int nActionCode, const std::string &strData, std::string &strResult)
+{
+    if (!s_pTaskManage)
+    {
+        dlog_error("MQTT SDK 网关：CTaskManage 未设置");
+        return -1;
+    }
+
+    strResult.clear();
+
+    Task::Info_S stInfo;
+    stInfo.data = wrap_set_data(strData);
+    stInfo.fnResultCallbacks = [&strResult](const void *pData, int nLen, int /*nActionCode*/, void * /*pHandler*/) -> int {
+        if (pData && nLen > 0)
+        {
+            strResult.assign(static_cast<const char *>(pData), static_cast<size_t>(nLen));
+        }
+        return 0;
+    };
+
+    return s_pTaskManage->execute(nActionCode, stInfo);
+}
+
 /**
  * @brief  : 执行 MQTT GET 命令
  */
@@ -469,5 +492,27 @@ int CMqttSdkGateway::execute_set(const std::string &strCommand, const std::strin
               strCommand.c_str(), nSdkCommand, nActionCode);
 
     return execute_set_action(nActionCode, strData);
+}
+
+int CMqttSdkGateway::execute_set(const std::string &strCommand, const std::string &strData, std::string &strResult)
+{
+    const int nSdkCommand = resolve_sdk_command(strCommand);
+    if (nSdkCommand == 0)
+    {
+        dlog_error("MQTT SDK 网关：未知命令[%s]", strCommand.c_str());
+        return -1;
+    }
+
+    const int nActionCode = sdk_command_to_action_code(nSdkCommand);
+    if (nActionCode == 0)
+    {
+        dlog_error("MQTT SDK 网关：命令[%s]无ActionCode映射", strCommand.c_str());
+        return -2;
+    }
+
+    dlog_info("MQTT SDK 网关：执行 SET 命令并返回结果[%s] SDK码[%d] ActionCode[%d]",
+              strCommand.c_str(), nSdkCommand, nActionCode);
+
+    return execute_set_action(nActionCode, strData, strResult);
 }
 #endif
