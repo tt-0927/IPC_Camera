@@ -344,6 +344,23 @@ private:
     void on_mqtt_message(const std::string &strTopic, const std::string &strPayload);
 
     /**
+     * @brief   : MQTT 人脸命令预处理，确保平台 NV21 文件已下载到设备本地
+     * @param    {const std::string &} strCommand：MQTT 命令名
+     * @param    {std::string &} strData：命令 Data，成功时会回写规范后的 JSON
+     * @param    {std::string &} strError：失败原因
+     * @return   {bool} true：成功，false：失败
+     */
+    bool prepare_face_image_command(const std::string &strCommand,
+                                    std::string &strData,
+                                    std::string &strError);
+
+    bool ensure_face_nv21_local(cJSON *pData, std::string &strError);
+    bool download_file_to_path(const std::string &strUrl,
+                               const std::string &strLocalPath,
+                               std::string &strError);
+    std::string resolve_platform_file_url(const std::string &strPathOrUrl) const;
+
+    /**
      * @brief   : 注册 MQTT 命令处理器
      * @note    : 在 init_mqtt() 中调用，注册所有业务命令
      */

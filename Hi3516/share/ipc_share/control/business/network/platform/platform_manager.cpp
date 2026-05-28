@@ -27,13 +27,240 @@
 #include <iostream>
 #include <cstring>
 #include <cstdlib>
+#include <cstdio>
+#include <cctype>
 #include <vector>
 #include <chrono>
+#include <cerrno>
+#include <fstream>
+#include <sstream>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 // --- Base64 编码实现 ---
 static const std::string base64_chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
                                         "abcdefghijklmnopqrstuvwxyz"
                                         "0123456789+/";
+
+static const char *FACE_NV21_UPLOAD_DIR = "/opt/course/upload";
+
+static bool file_exists(const std::string &path)
+{
+    return !path.empty() && access(path.c_str(), F_OK) == 0;
+}
+
+static long long file_size(const std::string &path)
+{
+    struct stat st;
+    if (stat(path.c_str(), &st) != 0)
+    {
+        return -1;
+    }
+    return (long long)st.st_size;
+}
+
+static std::string dirname_of(const std::string &path)
+{
+    const size_t pos = path.find_last_of('/');
+    if (pos == std::string::npos)
+    {
+        return ".";
+    }
+    if (pos == 0)
+    {
+        return "/";
+    }
+    return path.substr(0, pos);
+}
+
+static std::string basename_of(const std::string &path)
+{
+    const size_t queryPos = path.find_first_of("?#");
+    const std::string cleanPath = (queryPos == std::string::npos) ? path : path.substr(0, queryPos);
+    const size_t pos = cleanPath.find_last_of("/\\");
+    if (pos == std::string::npos)
+    {
+        return cleanPath;
+    }
+    return cleanPath.substr(pos + 1);
+}
+
+static bool ensure_directory(const std::string &dir)
+{
+    if (dir.empty())
+    {
+        return false;
+    }
+    if (dir == "/")
+    {
+        return true;
+    }
+
+    std::string current;
+    size_t pos = 0;
+    if (dir[0] == '/')
+    {
+        current = "/";
+        pos = 1;
+    }
+
+    while (pos <= dir.size())
+    {
+        size_t next = dir.find('/', pos);
+        std::string part = dir.substr(pos, next == std::string::npos ? std::string::npos : next - pos);
+        if (!part.empty())
+        {
+            if (!current.empty() && current.back() != '/')
+            {
+                current += '/';
+            }
+            current += part;
+
+            struct stat st;
+            if (stat(current.c_str(), &st) != 0)
+            {
+                if (mkdir(current.c_str(), 0755) != 0 && errno != EEXIST)
+                {
+                    return false;
+                }
+            }
+            else if (!S_ISDIR(st.st_mode))
+            {
+                return false;
+            }
+        }
+
+        if (next == std::string::npos)
+        {
+            break;
+        }
+        pos = next + 1;
+    }
+
+    return true;
+}
+
+static bool get_json_string(cJSON *pObj, const char *key, std::string &out)
+{
+    cJSON *pItem = cJSON_GetObjectItemCaseSensitive(pObj, key);
+    if (cJSON_IsString(pItem) && pItem->valuestring)
+    {
+        out = pItem->valuestring;
+        return true;
+    }
+    return false;
+}
+
+static bool get_json_int(cJSON *pObj, const char *key, int &out)
+{
+    cJSON *pItem = cJSON_GetObjectItemCaseSensitive(pObj, key);
+    if (cJSON_IsNumber(pItem))
+    {
+        out = pItem->valueint;
+        return true;
+    }
+    return false;
+}
+
+static std::string normalize_mqtt_command(const std::string &command)
+{
+    std::string result;
+    result.reserve(command.size());
+    for (char ch : command)
+    {
+        unsigned char uch = static_cast<unsigned char>(ch);
+        if (!std::isspace(uch))
+        {
+            result.push_back(static_cast<char>(std::toupper(uch)));
+        }
+    }
+    return result;
+}
+
+static void set_json_string(cJSON *pObj, const char *key, const std::string &value)
+{
+    cJSON *pItem = cJSON_GetObjectItemCaseSensitive(pObj, key);
+    if (cJSON_IsString(pItem))
+    {
+        cJSON_SetValuestring(pItem, value.c_str());
+    }
+    else if (pItem)
+    {
+        cJSON_ReplaceItemInObjectCaseSensitive(pObj, key, cJSON_CreateString(value.c_str()));
+    }
+    else
+    {
+        cJSON_AddStringToObject(pObj, key, value.c_str());
+    }
+}
+
+static void set_json_int(cJSON *pObj, const char *key, int value)
+{
+    cJSON *pItem = cJSON_GetObjectItemCaseSensitive(pObj, key);
+    if (pItem)
+    {
+        cJSON_ReplaceItemInObjectCaseSensitive(pObj, key, cJSON_CreateNumber(value));
+    }
+    else
+    {
+        cJSON_AddNumberToObject(pObj, key, value);
+    }
+}
+
+static std::string make_error_json(const std::string &error)
+{
+    cJSON *pRoot = cJSON_CreateObject();
+    if (!pRoot)
+    {
+        return "{\"error\":\"unknown\"}";
+    }
+
+    cJSON_AddStringToObject(pRoot, "error", error.c_str());
+    char *pJson = cJSON_PrintUnformatted(pRoot);
+    std::string strPayload = pJson ? pJson : "{\"error\":\"unknown\"}";
+    if (pJson)
+    {
+        free(pJson);
+    }
+    cJSON_Delete(pRoot);
+    return strPayload;
+}
+
+static bool extract_task_response(const std::string &strTaskResult, int &nReturn, std::string &strData)
+{
+    cJSON *pRoot = cJSON_Parse(strTaskResult.c_str());
+    if (!pRoot)
+    {
+        return false;
+    }
+
+    bool bParsed = false;
+    cJSON *pReturn = cJSON_GetObjectItemCaseSensitive(pRoot, "Return");
+    if (cJSON_IsNumber(pReturn))
+    {
+        nReturn = pReturn->valueint;
+        bParsed = true;
+    }
+
+    cJSON *pData = cJSON_GetObjectItemCaseSensitive(pRoot, "Data");
+    if (pData)
+    {
+        char *pJson = cJSON_PrintUnformatted(pData);
+        if (pJson)
+        {
+            strData = pJson;
+            free(pJson);
+        }
+    }
+    else
+    {
+        strData = "{}";
+    }
+
+    cJSON_Delete(pRoot);
+    return bParsed;
+}
 
 std::string CPlatformManager::base64_encode(const std::string &input)
 {
@@ -953,6 +1180,10 @@ void CPlatformManager::on_mqtt_message(const std::string &strTopic, const std::s
     cJSON *pCommand = cJSON_GetObjectItemCaseSensitive(pRoot, "Command");
     cJSON *pRequestId = cJSON_GetObjectItemCaseSensitive(pRoot, "RequestId");
     cJSON *pData = cJSON_GetObjectItemCaseSensitive(pRoot, "Data");
+    if (!pData)
+    {
+        pData = cJSON_GetObjectItemCaseSensitive(pRoot, "data");
+    }
 
     if (!cJSON_IsString(pCommand))
     {
@@ -1001,6 +1232,18 @@ void CPlatformManager::on_mqtt_message(const std::string &strTopic, const std::s
     {
         dlog_info("MQTT SDK 网关转发命令：%s", strCommand.c_str());
 
+        const std::string strNormalizedCommand = normalize_mqtt_command(strCommand);
+        if (strNormalizedCommand == "NET_TV_ADD_FACE_INFO" || strNormalizedCommand == "NET_TV_SET_FACE_INFO")
+        {
+            std::string strError;
+            if (!prepare_face_image_command(strNormalizedCommand, strData, strError))
+            {
+                dlog_error("MQTT 人脸命令预处理失败：%s", strError.c_str());
+                publish_response(strCommand, strRequestId, -1, make_error_json(strError));
+                return;
+            }
+        }
+
         if (CMqttSdkGateway::is_get_command(strCommand))
         {
             /* GET 命令：同步执行并返回结果 */
@@ -1019,10 +1262,22 @@ void CPlatformManager::on_mqtt_message(const std::string &strTopic, const std::s
         else
         {
             /* SET 命令：执行后返回状态 */
-            int nRet = CMqttSdkGateway::execute_set(strCommand, strData);
+            std::string strSetResult;
+            int nRet = CMqttSdkGateway::execute_set(strCommand, strData, strSetResult);
+            if (!strSetResult.empty())
+            {
+                int nTaskReturn = nRet;
+                std::string strTaskData = "{}";
+                if (extract_task_response(strSetResult, nTaskReturn, strTaskData))
+                {
+                    nRet = nTaskReturn;
+                    strSetResult = strTaskData;
+                }
+            }
+
             if (nRet == 0)
             {
-                publish_response(strCommand, strRequestId, 0, "{}");
+                publish_response(strCommand, strRequestId, 0, strSetResult.empty() ? "{}" : strSetResult);
             }
             else
             {
@@ -1036,6 +1291,297 @@ void CPlatformManager::on_mqtt_message(const std::string &strTopic, const std::s
         dlog_warn("MQTT 未知命令：%s", strCommand.c_str());
         publish_response(strCommand, strRequestId, -1, "{\"error\":\"unsupported command\"}");
     }
+}
+
+bool CPlatformManager::prepare_face_image_command(const std::string &strCommand,
+                                                  std::string &strData,
+                                                  std::string &strError)
+{
+    const std::string strNormalizedCommand = normalize_mqtt_command(strCommand);
+    if (strNormalizedCommand != "NET_TV_ADD_FACE_INFO" && strNormalizedCommand != "NET_TV_SET_FACE_INFO")
+    {
+        return true;
+    }
+
+    cJSON *pData = cJSON_Parse(strData.c_str());
+    if (!pData || !cJSON_IsObject(pData))
+    {
+        strError = "face command data is not json";
+        if (pData)
+        {
+            cJSON_Delete(pData);
+        }
+        return false;
+    }
+
+    cJSON *pId = cJSON_GetObjectItemCaseSensitive(pData, "Id");
+    int nLowerId = 0;
+    if (!pId && get_json_int(pData, "id", nLowerId))
+    {
+        set_json_int(pData, "Id", nLowerId);
+    }
+
+    bool bRet = true;
+    if (strNormalizedCommand == "NET_TV_ADD_FACE_INFO")
+    {
+        bRet = ensure_face_nv21_local(pData, strError);
+    }
+
+    if (bRet)
+    {
+        char *pOut = cJSON_PrintUnformatted(pData);
+        if (pOut)
+        {
+            strData = pOut;
+            free(pOut);
+        }
+    }
+
+    cJSON_Delete(pData);
+    return bRet;
+}
+
+bool CPlatformManager::ensure_face_nv21_local(cJSON *pData, std::string &strError)
+{
+    if (!pData)
+    {
+        strError = "face data is null";
+        return false;
+    }
+
+    std::string strBinPath;
+    get_json_string(pData, "BinPath", strBinPath);
+
+    int nWidth = 0;
+    int nHeight = 0;
+    get_json_int(pData, "PicWidth", nWidth);
+    get_json_int(pData, "PicHeight", nHeight);
+    if (nWidth <= 0 || nHeight <= 0)
+    {
+        strError = "PicWidth/PicHeight is invalid";
+        return false;
+    }
+    const long long nExpectSize = (long long)nWidth * (long long)nHeight * 3 / 2;
+
+    std::string strDownloadUrl;
+    if (!get_json_string(pData, "PicUrl", strDownloadUrl) &&
+        !get_json_string(pData, "DownloadUrl", strDownloadUrl) &&
+        !get_json_string(pData, "Nv21Url", strDownloadUrl) &&
+        !get_json_string(pData, "FileUrl", strDownloadUrl))
+    {
+        get_json_string(pData, "PicPath", strDownloadUrl);
+    }
+
+    if (strBinPath.empty())
+    {
+        std::string strName = basename_of(strDownloadUrl);
+        if (strName.empty())
+        {
+            strName = "face.nv21";
+        }
+        strBinPath = std::string(FACE_NV21_UPLOAD_DIR) + "/" + strName;
+        set_json_string(pData, "BinPath", strBinPath);
+    }
+
+    bool bNeedDownload = !file_exists(strBinPath);
+    if (!bNeedDownload && nExpectSize > 0)
+    {
+        const long long nActualSize = file_size(strBinPath);
+        if (nActualSize != nExpectSize)
+        {
+            dlog_warn("本地人脸 NV21 大小不匹配，将重新下载：path[%s] expect[%lld] actual[%lld]",
+                      strBinPath.c_str(), nExpectSize, nActualSize);
+            bNeedDownload = true;
+        }
+    }
+
+    if (!bNeedDownload)
+    {
+        dlog_info("人脸 NV21 文件已存在：%s", strBinPath.c_str());
+    }
+    else
+    {
+        if (strDownloadUrl.empty())
+        {
+            strError = "BinPath not exists and PicUrl/DownloadUrl/Nv21Url/FileUrl/PicPath is empty";
+            return false;
+        }
+
+        const std::string strResolvedUrl = resolve_platform_file_url(strDownloadUrl);
+        if (!download_file_to_path(strResolvedUrl, strBinPath, strError))
+        {
+            return false;
+        }
+    }
+
+    if (nExpectSize > 0)
+    {
+        const long long nActualSize = file_size(strBinPath);
+        if (nActualSize != nExpectSize)
+        {
+            std::ostringstream oss;
+            oss << "NV21 size mismatch path=" << strBinPath
+                << " expect=" << nExpectSize
+                << " actual=" << nActualSize;
+            strError = oss.str();
+            return false;
+        }
+        if (nActualSize <= 2147483647LL)
+        {
+            set_json_int(pData, "PicSize", (int)nActualSize);
+        }
+    }
+
+    return true;
+}
+
+bool CPlatformManager::download_file_to_path(const std::string &strUrl,
+                                             const std::string &strLocalPath,
+                                             std::string &strError)
+{
+    if (strUrl.empty() || strLocalPath.empty())
+    {
+        strError = "download url or local path is empty";
+        return false;
+    }
+
+    const std::string httpPrefix = "http://";
+    const std::string httpsPrefix = "https://";
+    bool bHttps = false;
+    size_t nSchemeLen = 0;
+    if (strUrl.compare(0, httpPrefix.size(), httpPrefix) == 0)
+    {
+        nSchemeLen = httpPrefix.size();
+    }
+    else if (strUrl.compare(0, httpsPrefix.size(), httpsPrefix) == 0)
+    {
+        bHttps = true;
+        nSchemeLen = httpsPrefix.size();
+    }
+    else
+    {
+        strError = "unsupported download url: " + strUrl;
+        return false;
+    }
+
+    if (bHttps)
+    {
+        strError = "https download is not supported by current httplib build";
+        return false;
+    }
+
+    const size_t nPathPos = strUrl.find('/', nSchemeLen);
+    const std::string strHostPort = (nPathPos == std::string::npos) ? strUrl.substr(nSchemeLen) : strUrl.substr(nSchemeLen, nPathPos - nSchemeLen);
+    const std::string strPath = (nPathPos == std::string::npos) ? "/" : strUrl.substr(nPathPos);
+    if (strHostPort.empty())
+    {
+        strError = "download host is empty: " + strUrl;
+        return false;
+    }
+
+    std::string strHost = strHostPort;
+    int nPort = 80;
+    const size_t nColonPos = strHostPort.find(':');
+    if (nColonPos != std::string::npos)
+    {
+        strHost = strHostPort.substr(0, nColonPos);
+        nPort = std::atoi(strHostPort.substr(nColonPos + 1).c_str());
+        if (nPort <= 0)
+        {
+            strError = "invalid download port: " + strUrl;
+            return false;
+        }
+    }
+
+    if (!ensure_directory(dirname_of(strLocalPath)))
+    {
+        strError = "create local directory failed: " + dirname_of(strLocalPath);
+        return false;
+    }
+
+    httplib::Client cli(strHost, nPort);
+    cli.set_connection_timeout(5, 0);
+    cli.set_read_timeout(30, 0);
+
+    dlog_info("开始下载人脸 NV21 文件：%s -> %s", strUrl.c_str(), strLocalPath.c_str());
+
+    httplib::Headers headers;
+    const std::string strPlatformHost = g_custom ? custom_host : host_;
+    if (!access_token_.empty() && strHost == strPlatformHost)
+    {
+        headers.emplace("Authorization", "Bearer " + access_token_);
+    }
+
+    auto res = headers.empty() ? cli.Get(strPath) : cli.Get(strPath, headers);
+    if (!res)
+    {
+        strError = "download request failed: " + strUrl;
+        return false;
+    }
+    if (res->status != 200)
+    {
+        std::ostringstream oss;
+        oss << "download http status " << res->status << ": " << strUrl;
+        strError = oss.str();
+        return false;
+    }
+    if (res->body.empty())
+    {
+        strError = "download body is empty: " + strUrl;
+        return false;
+    }
+
+    const std::string strTmpPath = strLocalPath + ".tmp";
+    {
+        std::ofstream ofs(strTmpPath.c_str(), std::ios::binary | std::ios::trunc);
+        if (!ofs.is_open())
+        {
+            strError = "open tmp file failed: " + strTmpPath;
+            return false;
+        }
+        ofs.write(res->body.data(), (std::streamsize)res->body.size());
+        if (!ofs.good())
+        {
+            strError = "write tmp file failed: " + strTmpPath;
+            ofs.close();
+            std::remove(strTmpPath.c_str());
+            return false;
+        }
+    }
+
+    if (std::rename(strTmpPath.c_str(), strLocalPath.c_str()) != 0)
+    {
+        strError = "rename tmp file failed: " + strLocalPath;
+        std::remove(strTmpPath.c_str());
+        return false;
+    }
+
+    dlog_info("人脸 NV21 文件下载完成：%s，大小[%zu]", strLocalPath.c_str(), res->body.size());
+    return true;
+}
+
+std::string CPlatformManager::resolve_platform_file_url(const std::string &strPathOrUrl) const
+{
+    if (strPathOrUrl.compare(0, 7, "http://") == 0 ||
+        strPathOrUrl.compare(0, 8, "https://") == 0)
+    {
+        return strPathOrUrl;
+    }
+
+    const std::string strHost = g_custom ? custom_host : host_;
+    const int nPort = g_custom ? custom_post : port_;
+    std::string strUrl = "http://" + strHost;
+    if (nPort > 0 && nPort != 80)
+    {
+        strUrl += ":" + std::to_string(nPort);
+    }
+
+    if (strPathOrUrl.empty() || strPathOrUrl[0] != '/')
+    {
+        strUrl += "/";
+    }
+    strUrl += strPathOrUrl;
+    return strUrl;
 }
 
 /**
