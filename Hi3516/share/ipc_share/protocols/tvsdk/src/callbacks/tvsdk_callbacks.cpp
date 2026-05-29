@@ -720,6 +720,11 @@ static NET_TV_COMMON_ECODE_E cb_get_osd_cfg(INT32 dwChannelID, LPVOID lpOutBuffe
 
     Osd::OsdConfig_S stOsdConfig;
     Convert::to_struct(dataJson, stOsdConfig);
+    /* 防御配置文件损坏导致 vecOsdInfo 超过 SDK 结构体上限 */
+    if (stOsdConfig.vecOsdInfo.size() > 4)
+    {
+        stOsdConfig.vecOsdInfo.resize(4);
+    }
     TvSdkConvert::FillOsdConfig(stOsdConfig, *pOut);
     return NET_TV_E_SUCCEED;
 }
@@ -3845,8 +3850,7 @@ static NET_TV_COMMON_ECODE_E cb_get_face_info(INT32 dwChannelID, LPVOID lpOutBuf
 
 void register_all()
 {
-    NET_TV_SERVER_RegisterCb_GetDeviceInfo(
-        reinterpret_cast<NET_TV_COMMON_ECODE_E (*)(NET_TV_DEVICE_INFO_S)>(cb_get_device_info_impl));
+    NET_TV_SERVER_RegisterCb_GetDeviceInfo(cb_get_device_info_impl);
     NET_TV_SERVER_RegisterCb_GetVideoEncodeCap(cb_get_video_encode_cap);
     NET_TV_SERVER_RegisterCb_GetAudioEncodeCap(cb_get_audio_encode_cap);
     NET_TV_SERVER_RegisterCb_GetOsdCap(cb_get_osd_cap);
