@@ -840,15 +840,20 @@ static void ParseResolutionName(const std::string &name, NET_TV_VIDEO_RESOLUTION
     }
 }
 
-static INT32 ToSdkFrameRate(Video_NS::FrameRate_E frameRate)
+static INT32 ToSdkFrameRateValue(Video_NS::FrameRate_E frameRate)
 {
     Video_NS::VideoConfig_S cfg;
     cfg.enFrameRate = frameRate;
     return (INT32)cfg.getFrameRateAsInt();
 }
 
-static float ToFloatFrameRate(Video_NS::FrameRate_E frameRate)
+static float ToFrameRateFps(Video_NS::FrameRate_E frameRate)
 {
+    if (frameRate == Video_NS::FRAME_RATE_8_3)
+    {
+        return 8.3f;
+    }
+
     Video_NS::VideoConfig_S cfg;
     cfg.enFrameRate = frameRate;
     return cfg.getFrameRateAsFloat();
@@ -858,8 +863,8 @@ static std::vector<Video_NS::FrameRate_E> BuildSupportedFrameRates(const Video_N
 {
     std::vector<Video_NS::FrameRate_E> frameRates;
 
-    float minFrameRate = ToFloatFrameRate(src.enFrameRateMin);
-    float maxFrameRate = ToFloatFrameRate(src.enFrameRateMax);
+    float minFrameRate = ToFrameRateFps(src.enFrameRateMin);
+    float maxFrameRate = ToFrameRateFps(src.enFrameRateMax);
     if (minFrameRate > maxFrameRate)
     {
         std::swap(minFrameRate, maxFrameRate);
@@ -868,7 +873,7 @@ static std::vector<Video_NS::FrameRate_E> BuildSupportedFrameRates(const Video_N
     for (int value = (int)Video_NS::FRAME_RATE_ALL + 1; value < (int)Video_NS::FRAME_RATE_TOTAL; ++value)
     {
         Video_NS::FrameRate_E frameRate = (Video_NS::FrameRate_E)value;
-        float currentFrameRate = ToFloatFrameRate(frameRate);
+        float currentFrameRate = ToFrameRateFps(frameRate);
         if (currentFrameRate >= minFrameRate && currentFrameRate <= maxFrameRate)
         {
             frameRates.push_back(frameRate);
@@ -877,12 +882,12 @@ static std::vector<Video_NS::FrameRate_E> BuildSupportedFrameRates(const Video_N
 
     std::sort(frameRates.begin(), frameRates.end(),
               [](Video_NS::FrameRate_E left, Video_NS::FrameRate_E right) {
-                  return ToFloatFrameRate(left) < ToFloatFrameRate(right);
+                  return ToFrameRateFps(left) < ToFrameRateFps(right);
               });
 
     frameRates.erase(std::unique(frameRates.begin(), frameRates.end(),
                                  [](Video_NS::FrameRate_E left, Video_NS::FrameRate_E right) {
-                                     return ToSdkFrameRate(left) == ToSdkFrameRate(right);
+                                     return ToFrameRateFps(left) == ToFrameRateFps(right);
                                  }),
                      frameRates.end());
 
@@ -893,8 +898,8 @@ static void FillResolutionCap(const Video_NS::Resolution_S &src, NET_TV_VIDEO_RE
 {
     std::memset(&dst, 0, sizeof(dst));
     ParseResolutionName(src.strName, dst);
-    dst.dwFrameRateMin = ToSdkFrameRate(src.enFrameRateMin);
-    dst.dwFrameRateMax = ToSdkFrameRate(src.enFrameRateMax);
+    dst.dwFrameRateMin = ToFrameRateFps(src.enFrameRateMin);
+    dst.dwFrameRateMax = ToFrameRateFps(src.enFrameRateMax);
     dst.dwBitRateMin = (INT32)src.nBitRateMin;
     dst.dwBitRateMax = (INT32)src.nBitRateMax;
 
@@ -902,7 +907,7 @@ static void FillResolutionCap(const Video_NS::Resolution_S &src, NET_TV_VIDEO_RE
     dst.dwFrameRateNum = (INT32)std::min(frameRates.size(), (size_t)NET_TV_VIDEO_FRAME_RATE_MAX_NUM);
     for (INT32 i = 0; i < dst.dwFrameRateNum; ++i)
     {
-        dst.adwFrameRate[i] = ToSdkFrameRate(frameRates[(size_t)i]);
+        dst.adwFrameRate[i] = ToFrameRateFps(frameRates[(size_t)i]);
     }
 }
 
@@ -925,7 +930,7 @@ static void FillOneEncodeOption(const Video_NS::VideoCapability_S &src,
     if (!src.aResolution.empty())
     {
         FillResolutionCap(src.aResolution[0], dst.stVideoResolution);
-        dst.enFrameRate = dst.stVideoResolution.dwFrameRateMax;
+        dst.enFrameRate = ToSdkFrameRateValue(src.aResolution[0].enFrameRateMax);
         dst.nAverageBitrate = ClampInt(DEFAULTE_BITRATE,
                                        (int)dst.stVideoResolution.dwBitRateMin,
                                        (int)dst.stVideoResolution.dwBitRateMax);
