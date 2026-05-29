@@ -3580,7 +3580,7 @@ void TvSdkConvert::FillOsdConfig(const Osd::OsdConfig_S &src, NET_TV_VIDEO_OSD_C
     fill_osd_attr(src.stOsdTimeInfo.stOsdAttr, dst.stOsdTimeInfo.stOsdAttr);
 
     /* 字符叠加信息 */
-    size_t nCount = std::min(src.vecOsdInfo.size(), (size_t)32);
+    size_t nCount = std::min(src.vecOsdInfo.size(), (size_t)NET_TV_OSD_CUSTOM_MAX_NUM);
     for (size_t i = 0; i < nCount; ++i)
     {
         dst.OsdInfo[i].nId    = (INT32)src.vecOsdInfo[i].nId;
@@ -3634,8 +3634,8 @@ void TvSdkConvert::ToOsdConfig(const NET_TV_VIDEO_OSD_CFG_S &src, Osd::OsdConfig
     to_osd_attr(src.stOsdTimeInfo.stOsdAttr, dst.stOsdTimeInfo.stOsdAttr);
 
     /* 字符叠加信息 */
-    dst.vecOsdInfo.resize(32);
-    for (size_t i = 0; i < 32; ++i)
+    dst.vecOsdInfo.resize(NET_TV_OSD_CUSTOM_MAX_NUM);
+    for (size_t i = 0; i < (size_t)NET_TV_OSD_CUSTOM_MAX_NUM; ++i)
     {
         dst.vecOsdInfo[i].nId     = (int)src.OsdInfo[i].nId;
         dst.vecOsdInfo[i].bEnable = (src.OsdInfo[i].bEnable == TRUE);

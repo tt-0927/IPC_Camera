@@ -583,7 +583,7 @@ static void InitDefaultConfig(void)
     /* 3. 自定义OSD默认值 */
     {
         int i = 0;
-        for (i = 0; i < 32; ++i)
+        for (i = 0; i < NET_TV_OSD_CUSTOM_MAX_NUM; ++i)
         {
             g_stOsdCfg.OsdInfo[i].nId = i + 1;
             g_stOsdCfg.OsdInfo[i].bEnable = 0;
@@ -1936,7 +1936,7 @@ static NET_TV_COMMON_ECODE_E MyGetOSDCfgCb(INT32 dwChannelID, LPVOID lpOutBuffer
         g_stOsdCfg.stOsdTimeInfo.enTimeFormat,
         g_stOsdCfg.stOsdTimeInfo.enDateFormat);
 
-    for (i = 0; i < 32; ++i)
+    for (i = 0; i < NET_TV_OSD_CUSTOM_MAX_NUM; ++i)
     {
         if (!g_stOsdCfg.OsdInfo[i].bEnable)
         {
@@ -1981,7 +1981,7 @@ static NET_TV_COMMON_ECODE_E MySetOSDCfgCb(INT32 dwChannelID, LPVOID lpInBuffer)
         g_stOsdCfg.stOsdTimeInfo.enTimeFormat,
         g_stOsdCfg.stOsdTimeInfo.enDateFormat);
 
-    for (i = 0; i < 32; ++i)
+    for (i = 0; i < NET_TV_OSD_CUSTOM_MAX_NUM; ++i)
     {
         if (!g_stOsdCfg.OsdInfo[i].bEnable)
         {
