@@ -4169,7 +4169,7 @@ typedef struct tagNETTVObsConfigInfo
     OSD_ALIGN_E enAlign;                            /* OSD对齐方式 */
     OsdNameInfo_S stOsdNameInfo;                    /* OSD名称信息 */
     OsdTimeInfo_S stOsdTimeInfo;                    /* OSD时间信息 */
-    OsdInfo_S OsdInfo[32];                          /* OSD字符叠加信息 */
+    OsdInfo_S OsdInfo[NET_TV_OSD_CUSTOM_MAX_NUM];   /* OSD字符叠加信息 */
     BYTE        byRes[64];                          /* 保留字段 */
 }NET_TV_VIDEO_OSD_CFG_S, *LPNET_TV_VIDEO_OSD_CFG_S;
 

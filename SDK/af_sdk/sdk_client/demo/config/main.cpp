@@ -821,7 +821,7 @@ static void PrintOSDCfg(const NET_TV_VIDEO_OSD_CFG_S* pCfg)
     printf("    Token          : %s\n", pCfg->stOsdTimeInfo.stOsdAttr.strToken);
 
     printf("\n  [Custom OSD]\n");
-    for (i = 0; i < 32; ++i)
+    for (i = 0; i < NET_TV_OSD_CUSTOM_MAX_NUM; ++i)
     {
         if (!pCfg->OsdInfo[i].bEnable)
         {
@@ -2102,7 +2102,7 @@ static void DoSetOSDCfg()
             sizeof(stCfg.stOsdTimeInfo.stOsdAttr.strToken) - 1);
 
     /* 4. 自定义OSD，先清空全部 */
-    for (int i = 0; i < 32; ++i)
+    for (int i = 0; i < NET_TV_OSD_CUSTOM_MAX_NUM; ++i)
     {
         stCfg.OsdInfo[i].nId = i + 1;
         stCfg.OsdInfo[i].bEnable = 0;

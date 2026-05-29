@@ -1094,8 +1094,8 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_VIDEO_OSD_CFG_S& stInfo, b
     convert.field(pRootJson, "TimeCustomColor", stInfo.stOsdTimeInfo.stOsdAttr.strFontColor);
     convert.field(pRootJson, "TimeToken",       stInfo.stOsdTimeInfo.stOsdAttr.strToken);
 
-    /* 自定义 OSD[32] */
-    for (int i = 0; i < 32; ++i)
+    /* 自定义 OSD */
+    for (int i = 0; i < NET_TV_OSD_CUSTOM_MAX_NUM; ++i)
     {
         char szKey[64] = {0};
 
