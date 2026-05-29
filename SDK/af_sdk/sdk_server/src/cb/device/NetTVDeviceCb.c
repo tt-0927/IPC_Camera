@@ -47,7 +47,7 @@ typedef struct
 static NET_TV_Device_CbItem g_cbTable[NET_TV_CB_TYPE_MAX] = {0};
 
 // ========================== 注册接口实现 ==========================
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetDeviceInfo(NET_TV_COMMON_ECODE_E (*CB)(NET_TV_DEVICE_INFO_S pInfo))
+NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetDeviceInfo(NET_TV_COMMON_ECODE_E (*CB)(LPNET_TV_DEVICE_INFO_S pInfo))
 {
     if (CB == NULL)
     {

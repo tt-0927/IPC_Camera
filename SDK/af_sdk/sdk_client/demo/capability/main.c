@@ -60,7 +60,7 @@ static void PrintFrameRateList(const char* indent, const NET_TV_VIDEO_RESOLUTION
         frameRateNum = NET_TV_VIDEO_FRAME_RATE_MAX_NUM;
     }
 
-    printf("%s支持帧率数组(%d):", indent, frameRateNum);
+    printf("%s支持帧率fps数组(%d):", indent, frameRateNum);
     if (frameRateNum == 0)
     {
         printf(" 空\n");
@@ -69,7 +69,7 @@ static void PrintFrameRateList(const char* indent, const NET_TV_VIDEO_RESOLUTION
 
     for (int i = 0; i < frameRateNum; i++)
     {
-        printf(" %d", pResolution->adwFrameRate[i]);
+        printf(" %.4g", pResolution->adwFrameRate[i]);
     }
     printf("\n");
 }
@@ -93,7 +93,7 @@ void PrintVideoEncodeCap(const NET_TV_VIDEO_ENCODE_CAP_S* pCap)
         printf("    支持的分辨率数量: %d\n", pStream->dwResolutionNum);
         for (int r = 0; r < pStream->dwResolutionNum && r < NET_TV_RESOLUTION_NUM_MAX; r++)
         {
-            printf("      分辨率[%d]: %dx%d (帧率范围: %d~%d, 码率范围: %d~%d kbps)\n", r,
+            printf("      分辨率[%d]: %dx%d (帧率范围: %.4g~%.4g fps, 码率范围: %d~%d kbps)\n", r,
                    pStream->astResolution[r].dwWidth,
                    pStream->astResolution[r].dwHeight,
                    pStream->astResolution[r].dwFrameRateMin,
@@ -111,7 +111,7 @@ void PrintVideoEncodeCap(const NET_TV_VIDEO_ENCODE_CAP_S* pCap)
             printf("      分辨率: %dx%d\n",
                    pEncode->stVideoResolution.dwWidth,
                    pEncode->stVideoResolution.dwHeight);
-            printf("      分辨率能力: 帧率范围=%d~%d, 码率范围=%d~%d kbps\n",
+            printf("      分辨率能力: 帧率范围=%.4g~%.4g fps, 码率范围=%d~%d kbps\n",
                    pEncode->stVideoResolution.dwFrameRateMin,
                    pEncode->stVideoResolution.dwFrameRateMax,
                    pEncode->stVideoResolution.dwBitRateMin,

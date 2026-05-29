@@ -9,6 +9,60 @@
 #include "CapabilityInfoConvert.h"
 #include "SDKConvert.h"
 
+#include <cstring>
+
+static INT32 NormalizeFrameRateNum(INT32 frameRateNum)
+{
+    if (frameRateNum < 0)
+    {
+        return 0;
+    }
+    if (frameRateNum > NET_TV_VIDEO_FRAME_RATE_MAX_NUM)
+    {
+        return NET_TV_VIDEO_FRAME_RATE_MAX_NUM;
+    }
+    return frameRateNum;
+}
+
+static void DealFrameRateList(Json::Object* pRootJson, NET_TV_VIDEO_RESOLUTION_S& stInfo, bool bOutStruct)
+{
+    if (bOutStruct)
+    {
+        std::memset(stInfo.adwFrameRate, 0, sizeof(stInfo.adwFrameRate));
+
+        Json::Object* pArray = Json::get(pRootJson, "FrameRateList");
+        if (pArray)
+        {
+            int frameRateNum = Json::Array::size(pArray);
+            if (frameRateNum > 0)
+            {
+                stInfo.dwFrameRateNum = NormalizeFrameRateNum((INT32)frameRateNum);
+                for (INT32 i = 0; i < stInfo.dwFrameRateNum; ++i)
+                {
+                    double frameRate = 0.0;
+                    Json::Object* pItem = Json::Array::get(pArray, i);
+                    if (pItem && Json::Value::get(pItem, frameRate))
+                    {
+                        stInfo.adwFrameRate[i] = (FLOAT)frameRate;
+                    }
+                }
+                return;
+            }
+        }
+
+        stInfo.dwFrameRateNum = NormalizeFrameRateNum(stInfo.dwFrameRateNum);
+        return;
+    }
+
+    stInfo.dwFrameRateNum = NormalizeFrameRateNum(stInfo.dwFrameRateNum);
+    Json::Object* pArray = Json::Array::init();
+    for (INT32 i = 0; i < stInfo.dwFrameRateNum; ++i)
+    {
+        Json::Array::add(pArray, (float)stInfo.adwFrameRate[i]);
+    }
+    Json::add(pRootJson, "FrameRateList", pArray);
+}
+
 /**
  * @brief 视频分辨率结构体转换
  */
@@ -19,24 +73,16 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_VIDEO_RESOLUTION_S& stInfo
         return;
     }
     SDKConvert::CSDKConvert convert(bOutStruct);
+    if (!bOutStruct)
+    {
+        stInfo.dwFrameRateNum = NormalizeFrameRateNum(stInfo.dwFrameRateNum);
+    }
     convert.field(pRootJson, "Width", (int&)stInfo.dwWidth);
     convert.field(pRootJson, "Height", (int&)stInfo.dwHeight);
-    convert.field(pRootJson, "FrameRateMin", (int&)stInfo.dwFrameRateMin);
-    convert.field(pRootJson, "FrameRateMax", (int&)stInfo.dwFrameRateMax);
+    convert.field(pRootJson, "FrameRateMin", stInfo.dwFrameRateMin);
+    convert.field(pRootJson, "FrameRateMax", stInfo.dwFrameRateMax);
     convert.field(pRootJson, "FrameRateNum", (int&)stInfo.dwFrameRateNum);
-    if (stInfo.dwFrameRateNum < 0)
-    {
-        stInfo.dwFrameRateNum = 0;
-    }
-    else if (stInfo.dwFrameRateNum > NET_TV_VIDEO_FRAME_RATE_MAX_NUM)
-    {
-        stInfo.dwFrameRateNum = NET_TV_VIDEO_FRAME_RATE_MAX_NUM;
-    }
-    convert.field_array(pRootJson,
-                        "FrameRateList",
-                        stInfo.adwFrameRate,
-                        (UINT32)stInfo.dwFrameRateNum,
-                        NET_TV_VIDEO_FRAME_RATE_MAX_NUM);
+    DealFrameRateList(pRootJson, stInfo, bOutStruct);
     convert.field(pRootJson, "BitRateMin", (int&)stInfo.dwBitRateMin);
     convert.field(pRootJson, "BitRateMax", (int&)stInfo.dwBitRateMax);
 }

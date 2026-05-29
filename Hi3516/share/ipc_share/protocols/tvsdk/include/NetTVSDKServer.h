@@ -3512,10 +3512,10 @@ typedef struct tagNETTVVideoResolution
 {
     INT32 dwWidth;                                             /*  视频编码分辨率 */
     INT32 dwHeight;                                            /*  视频编码分辨率 */
-    INT32 dwFrameRateMin;                                      /*  该分辨率支持的最小帧率 */
-    INT32 dwFrameRateMax;                                      /*  该分辨率支持的最大帧率 */
+    FLOAT dwFrameRateMin;                                      /*  该分辨率支持的最小帧率fps */
+    FLOAT dwFrameRateMax;                                      /*  该分辨率支持的最大帧率fps */
     INT32 dwFrameRateNum;                                      /*  该分辨率支持的帧率数量 */
-    INT32 adwFrameRate[NET_TV_VIDEO_FRAME_RATE_MAX_NUM];       /*  该分辨率支持的帧率数组 */
+    FLOAT adwFrameRate[NET_TV_VIDEO_FRAME_RATE_MAX_NUM];       /*  该分辨率支持的帧率fps数组 */
     INT32 dwBitRateMin;                                        /*  该分辨率支持的最小码率kbps */
     INT32 dwBitRateMax;                                        /*  该分辨率支持的最大码率kbps */
 }NET_TV_VIDEO_RESOLUTION_S, *LPNET_TV_VIDEO_RESOLUTION_S;
@@ -4451,7 +4451,7 @@ NET_TV_API BOOL STDCALL NET_TV_SERVER_PushAlarmInfo(IN NET_TV_ALARMER_S *pAlarme
                                                     IN LPVOID pAlarmInfo,
                                                     IN INT32 dwBufLen);
 
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetDeviceInfo(NET_TV_COMMON_ECODE_E (*CB)(NET_TV_DEVICE_INFO_S pInfo));
+NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetDeviceInfo(NET_TV_COMMON_ECODE_E (*CB)(LPNET_TV_DEVICE_INFO_S pInfo));
 
 /**
  * @brief 视频编码能力集回调类型 (NET_TV_CAP_VIDEO_ENCODE)

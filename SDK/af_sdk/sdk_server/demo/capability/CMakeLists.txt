@@ -17,6 +17,7 @@ set(SDK_SHARE_PATH  ${CMAKE_CURRENT_LIST_DIR}/../../../sdk_share)
 
 set(OPENSSL_ROOT_CANDIDATES
     "${CMAKE_CURRENT_LIST_DIR}/../../../build/environment/third-party/openssl"
+    "${CMAKE_CURRENT_LIST_DIR}/../../../build/third-party/openssl"
     "${CMAKE_CURRENT_LIST_DIR}/../../../sdk/build/environment/third-party/openssl"
 )
 

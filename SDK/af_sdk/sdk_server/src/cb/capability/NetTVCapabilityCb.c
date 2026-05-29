@@ -58,6 +58,81 @@ typedef struct
  */
 static NET_TV_Capability_CbItem g_capCbTable[NET_TV_CB_TYPE_CAP_MAX] = {0};
 
+static INT32 ClampFrameRateNum(INT32 frameRateNum)
+{
+    if (frameRateNum < 0)
+    {
+        return 0;
+    }
+    if (frameRateNum > NET_TV_VIDEO_FRAME_RATE_MAX_NUM)
+    {
+        return NET_TV_VIDEO_FRAME_RATE_MAX_NUM;
+    }
+    return frameRateNum;
+}
+
+static void NormalizeResolutionFrameRate(LPNET_TV_VIDEO_RESOLUTION_S pResolution)
+{
+    if (!pResolution)
+    {
+        return;
+    }
+
+    pResolution->dwFrameRateNum = ClampFrameRateNum(pResolution->dwFrameRateNum);
+}
+
+static void NormalizeVideoEncodeCap(LPNET_TV_VIDEO_ENCODE_CAP_S pCap)
+{
+    INT32 i = 0;
+    INT32 j = 0;
+
+    if (!pCap)
+    {
+        return;
+    }
+
+    if (pCap->dwStreamCount < 0)
+    {
+        pCap->dwStreamCount = 0;
+    }
+    else if (pCap->dwStreamCount > NET_TV_VIDEO_STREAM_MAX)
+    {
+        pCap->dwStreamCount = NET_TV_VIDEO_STREAM_MAX;
+    }
+
+    for (i = 0; i < pCap->dwStreamCount; ++i)
+    {
+        LPNET_TV_VIDEO_STREAM_CAP_S pStream = &pCap->astStreamCap[i];
+        if (pStream->dwEncodeCapSize < 0)
+        {
+            pStream->dwEncodeCapSize = 0;
+        }
+        else if (pStream->dwEncodeCapSize > NET_TV_VIDEO_ENCODE_TYPE_MAX)
+        {
+            pStream->dwEncodeCapSize = NET_TV_VIDEO_ENCODE_TYPE_MAX;
+        }
+
+        if (pStream->dwResolutionNum < 0)
+        {
+            pStream->dwResolutionNum = 0;
+        }
+        else if (pStream->dwResolutionNum > NET_TV_RESOLUTION_NUM_MAX)
+        {
+            pStream->dwResolutionNum = NET_TV_RESOLUTION_NUM_MAX;
+        }
+
+        for (j = 0; j < pStream->dwEncodeCapSize; ++j)
+        {
+            NormalizeResolutionFrameRate(&pStream->astEncodeCap[j].stVideoResolution);
+        }
+
+        for (j = 0; j < pStream->dwResolutionNum; ++j)
+        {
+            NormalizeResolutionFrameRate(&pStream->astResolution[j]);
+        }
+    }
+}
+
 // ========================== 注册接口实现 ==========================
 
 NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetVideoEncodeCap(NET_TV_CB_GetVideoEncodeCap pCb)
@@ -140,7 +215,12 @@ int NetSDK_ExecuteCb_GetVideoEncodeCap(INT32 dwChannelID, LPNET_TV_VIDEO_ENCODE_
     }
     
     // 执行对应回调（类型安全）
-    return pItem->unFunc.GetVideoEncodeCap(dwChannelID, pCap);
+    int ret = pItem->unFunc.GetVideoEncodeCap(dwChannelID, pCap);
+    if (ret == NET_TV_E_SUCCEED)
+    {
+        NormalizeVideoEncodeCap(pCap);
+    }
+    return ret;
 }
 
 int NetSDK_ExecuteCb_GetAudioCap(INT32 dwChannelID, LPNET_TV_AUDIO_CAP_S pCap) 
