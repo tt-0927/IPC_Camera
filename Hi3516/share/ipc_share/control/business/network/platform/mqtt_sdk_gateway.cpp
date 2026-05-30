@@ -86,10 +86,6 @@ static const SdkCommandMap_S g_astCommandMap[] = {
     {"NET_TV_GET_OSD_CAP_CONFIG",         140, AC_GET_OSD_CONFIG,             true,  "获取OSD能力集配置"},
     {"NET_TV_SET_OSDCAPCFG",              141, AC_SET_OSD_CONFIG,             false, "设置OSD能力集配置"},
     {"NET_TV_SET_OSD_CAP_CONFIG",         141, AC_SET_OSD_CONFIG,             false, "设置OSD能力集配置"},
-    {"NET_TV_GET_OSDCFG",                 142, AC_GET_OSD_CONFIG,             true,  "获取OSD配置"},
-    {"NET_TV_GET_OSD_CONFIG",             142, AC_GET_OSD_CONFIG,             true,  "获取OSD配置"},
-    {"NET_TV_SET_OSDCFG",                 143, AC_SET_OSD_CONFIG,             false, "设置OSD配置"},
-    {"NET_TV_SET_OSD_CONFIG",             143, AC_SET_OSD_CONFIG,             false, "设置OSD配置"},
 
     /* ==================== 图像配置 (160-169) ==================== */
     {"NET_TV_GET_IMAGECFG",               160, AC_GET_VIDEO_EFFECT_INFO,      true,  "获取图像配置"},

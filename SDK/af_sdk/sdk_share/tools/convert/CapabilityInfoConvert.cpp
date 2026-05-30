@@ -206,6 +206,15 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_VIDEO_STREAM_CAP_S& stInfo
     }
 }
 
+static void NormalizeOsdCap(NET_TV_OSD_CAP_S& stInfo)
+{
+    stInfo.udwMaxOsdNum = std::min<UINT32>(stInfo.udwMaxOsdNum, 4);
+    stInfo.udwSupportedFontSizeNum = std::min<UINT32>(stInfo.udwSupportedFontSizeNum, NET_TV_OSD_FONT_SIZE_TYPE_MAX_NUM);
+    stInfo.udwSupportedDateFormatNum = std::min<UINT32>(stInfo.udwSupportedDateFormatNum, NET_TV_OSD_DATE_FORMAT_MAX_NUM);
+    stInfo.udwSupportedTimeFormatNum = std::min<UINT32>(stInfo.udwSupportedTimeFormatNum, NET_TV_OSD_TIME_FORMAT_MAX_NUM);
+    stInfo.udwSupportedAlignNum = std::min<UINT32>(stInfo.udwSupportedAlignNum, 8);
+}
+
 /**
  * @brief 视频编码能力集转换 (多码流, NET_TV_CAP_VIDEO_ENCODE)
  */
@@ -454,6 +463,11 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_OSD_CAP_S& stInfo, bool bO
         return;
     }
     SDKConvert::CSDKConvert convert(bOutStruct);
+
+    if (!bOutStruct)
+    {
+        NormalizeOsdCap(stInfo);
+    }
     
     // 基础能力
     convert.field(pRootJson, "SupportOsd", (int&)stInfo.bSupportOsd);
@@ -480,4 +494,9 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_OSD_CAP_S& stInfo, bool bO
     // 对齐方式能力
     convert.field(pRootJson, "SupportedAlignNum", (UINT32&)stInfo.udwSupportedAlignNum);
     convert.field_array(pRootJson, "SupportedAlignList", (int*)stInfo.audwSupportedAlignList, stInfo.udwSupportedAlignNum, 8);
+
+    if (bOutStruct)
+    {
+        NormalizeOsdCap(stInfo);
+    }
 }

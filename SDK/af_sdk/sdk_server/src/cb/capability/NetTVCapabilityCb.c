@@ -133,6 +133,28 @@ static void NormalizeVideoEncodeCap(LPNET_TV_VIDEO_ENCODE_CAP_S pCap)
     }
 }
 
+static UINT32 ClampUint32(UINT32 value, UINT32 maxValue)
+{
+    return (value > maxValue) ? maxValue : value;
+}
+
+static void NormalizeOsdCap(LPNET_TV_OSD_CAP_S pCap)
+{
+    if (!pCap)
+    {
+        return;
+    }
+
+    pCap->udwMaxOsdNum = ClampUint32(pCap->udwMaxOsdNum, 4);
+    pCap->udwSupportedFontSizeNum = ClampUint32(pCap->udwSupportedFontSizeNum,
+                                                NET_TV_OSD_FONT_SIZE_TYPE_MAX_NUM);
+    pCap->udwSupportedDateFormatNum = ClampUint32(pCap->udwSupportedDateFormatNum,
+                                                  NET_TV_OSD_DATE_FORMAT_MAX_NUM);
+    pCap->udwSupportedTimeFormatNum = ClampUint32(pCap->udwSupportedTimeFormatNum,
+                                                  NET_TV_OSD_TIME_FORMAT_MAX_NUM);
+    pCap->udwSupportedAlignNum = ClampUint32(pCap->udwSupportedAlignNum, 8);
+}
+
 // ========================== 注册接口实现 ==========================
 
 NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetVideoEncodeCap(NET_TV_CB_GetVideoEncodeCap pCb)
@@ -254,7 +276,12 @@ int NetSDK_ExecuteCb_GetOsdCap(INT32 dwChannelID, LPNET_TV_OSD_CAP_S pCap)
     }
     
     // 执行对应回调（类型安全）
-    return pItem->unFunc.GetOsdCap(dwChannelID, pCap);
+    int ret = pItem->unFunc.GetOsdCap(dwChannelID, pCap);
+    if (ret == NET_TV_E_SUCCEED)
+    {
+        NormalizeOsdCap(pCap);
+    }
+    return ret;
 }
 
 // 后续扩展其他能力集执行接口

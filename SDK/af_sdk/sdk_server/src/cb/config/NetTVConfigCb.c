@@ -38,7 +38,6 @@ static NET_TV_CONFIG_CMD_CB_ITEM_S g_astConfigCmdCbTable[] =
     {NET_TV_GET_RTSPURLCFG,             NET_TV_CFG_INVALID,                 NULL,   NULL},
     {NET_TV_GET_REPLAY_URLCFG,          NET_TV_CFG_INVALID,                 NULL,   NULL},
     {NET_TV_GET_OSDCAPCFG,              NET_TV_SET_OSDCAPCFG,               NULL,   NULL},
-    {NET_TV_GET_OSDCFG,                 NET_TV_SET_OSDCFG,                  NULL,   NULL},
     {NET_TV_GET_IMAGECFG,               NET_TV_SET_IMAGECFG,                NULL,   NULL},
     {NET_TV_GET_AUDIOCFG,               NET_TV_SET_AUDIOCFG,                NULL,   NULL},
     {NET_TV_GET_NETWORKCFG,             NET_TV_SET_NETWORKCFG,              NULL,   NULL},
@@ -327,16 +326,6 @@ NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetOsdCapCfg(NET_TV_CB_GetDevCo
 NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetOsdCapCfg(NET_TV_CB_SetDevConfigByCommand pCb)
 {
     return NetTV_RegisterSetCmdCb(NET_TV_SET_OSDCAPCFG, pCb);
-}
-
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetOsdCfg(NET_TV_CB_GetDevConfigByCommand pCb)
-{
-    return NetTV_RegisterGetCmdCb(NET_TV_GET_OSDCFG, pCb);
-}
-
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetOsdCfg(NET_TV_CB_SetDevConfigByCommand pCb)
-{
-    return NetTV_RegisterSetCmdCb(NET_TV_SET_OSDCFG, pCb);
 }
 
 NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetImageCfg(NET_TV_CB_GetDevConfigByCommand pCb)

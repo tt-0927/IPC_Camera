@@ -13,6 +13,7 @@
  */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <signal.h>
 #include <time.h>
@@ -33,6 +34,14 @@
 
 /* 服务端口与默认账号 */
 #define SDKSERVER_PORT 9888
+#define SDKSERVER_USERNAME "admin"
+#define SDKSERVER_PASSWORD "sj2@2025"
+#define DEMO_OSD_CUSTOM_MAX_NUM 4
+#define DEMO_OSD_TOTAL_SLOT_NUM 32
+
+static INT32 g_serverPort = SDKSERVER_PORT;
+static CHAR g_serverUsername[NET_TV_LEN_132] = SDKSERVER_USERNAME;
+static CHAR g_serverPassword[NET_TV_LEN_132] = SDKSERVER_PASSWORD;
 
 /* 运行标志，用于优雅退出 */
 static volatile sig_atomic_t g_running = 1;
@@ -43,6 +52,58 @@ static void signal_handler(int signum)
     {
         printf("\n[ConfigServerDemo] Received signal %d, exiting...\n", signum);
         g_running = 0;
+    }
+}
+
+static void CopyString(char* pDst, size_t dstSize, const char* pSrc)
+{
+    if (!pDst || dstSize == 0)
+    {
+        return;
+    }
+
+    pDst[0] = '\0';
+    if (!pSrc)
+    {
+        return;
+    }
+
+    strncpy(pDst, pSrc, dstSize - 1);
+    pDst[dstSize - 1] = '\0';
+}
+
+static void PrintUsage(const char* pProgram)
+{
+    printf("Usage: %s [port] [username] [password]\n",
+           pProgram ? pProgram : "ConfigServerDemo");
+    printf("Example: %s 9888 admin sj2@2025\n",
+           pProgram ? pProgram : "ConfigServerDemo");
+}
+
+static void ConfigureByArgs(int argc, char* argv[])
+{
+    if (argc > 4)
+    {
+        PrintUsage(argv[0]);
+    }
+
+    if (argc > 1)
+    {
+        int port = atoi(argv[1]);
+        if (port > 0)
+        {
+            g_serverPort = port;
+        }
+    }
+
+    if (argc > 2)
+    {
+        CopyString(g_serverUsername, sizeof(g_serverUsername), argv[2]);
+    }
+
+    if (argc > 3)
+    {
+        CopyString(g_serverPassword, sizeof(g_serverPassword), argv[3]);
     }
 }
 
@@ -58,7 +119,6 @@ static NET_TV_4G_INFO_S          g_st4GInfo;
 static NET_TV_HOTSPOT_INFO_S     g_stHotspotInfo;
 static NET_TV_HOTSPOT_CONN_INFO_S g_stHotspotConnInfo;
 static NET_TV_VIDEO_OSD_CFG_S    g_stOsdCfg;
-static NET_TV_OSD_CAP_S          g_stOsdCapCfg;
 static NET_TV_MOTION_ALARM_INFO_S g_stMotionAlarmInfo;
 static NET_TV_PRIVACY_MASK_CFG_S g_stPrivacyMaskCfg;
 static NET_TV_TAMPER_ALARM_INFO_S g_stTamperAlarmInfo;
@@ -210,6 +270,199 @@ static void InitDemoSmartLineRule(NET_TV_SMART_LINE_RULE_S* pRule)
     pRule->nSensitivity = 50;
 }
 
+static void FillOsdAttr(OsdAttribute_S* pAttr,
+                        INT32 x,
+                        INT32 y,
+                        INT32 width,
+                        INT32 height,
+                        OSD_FONT_SIZE_E fontSize,
+                        OSD_COLOR_E fontColor,
+                        const char* pColor,
+                        const char* pToken)
+{
+    if (!pAttr)
+    {
+        return;
+    }
+
+    memset(pAttr, 0, sizeof(*pAttr));
+    pAttr->nX = x;
+    pAttr->nY = y;
+    pAttr->nW = width;
+    pAttr->nH = height;
+    pAttr->enAttribute = OSD_ATTR_ALPHA_N_FLASH_N;
+    pAttr->enFontSize = fontSize;
+    pAttr->enFontColor = fontColor;
+    if (pColor)
+    {
+        strncpy(pAttr->strFontColor, pColor, sizeof(pAttr->strFontColor) - 1);
+    }
+    if (pToken)
+    {
+        strncpy(pAttr->strToken, pToken, sizeof(pAttr->strToken) - 1);
+    }
+}
+
+static void InitDemoOsdConfig(NET_TV_VIDEO_OSD_CFG_S* pCfg)
+{
+    int i = 0;
+
+    if (!pCfg)
+    {
+        return;
+    }
+
+    memset(pCfg, 0, sizeof(*pCfg));
+    pCfg->enAlign = OSD_ALIFN_CUSTOMIZE;
+
+    pCfg->stOsdNameInfo.bEnable = TRUE;
+    strncpy(pCfg->stOsdNameInfo.strName,
+            "Demo-Camera",
+            sizeof(pCfg->stOsdNameInfo.strName) - 1);
+    FillOsdAttr(&pCfg->stOsdNameInfo.stOsdAttr,
+                32,
+                32,
+                -1,
+                32,
+                OSD_FONT_SIZE_32,
+                OSD_COLOR_WHITE,
+                "#FFFFFF",
+                "name_token_0");
+
+    pCfg->stOsdTimeInfo.bEnable = TRUE;
+    pCfg->stOsdTimeInfo.bEnableWeek = TRUE;
+    pCfg->stOsdTimeInfo.enTimeFormat = OSD_TIME_FORMAT_24;
+    pCfg->stOsdTimeInfo.enDateFormat = ENGLISH_YYYY_MM_DD;
+    FillOsdAttr(&pCfg->stOsdTimeInfo.stOsdAttr,
+                32,
+                80,
+                -1,
+                32,
+                OSD_FONT_SIZE_32,
+                OSD_COLOR_WHITE,
+                "#FFFFFF",
+                "time_token_0");
+
+    for (i = 0; i < DEMO_OSD_TOTAL_SLOT_NUM; ++i)
+    {
+        pCfg->OsdInfo[i].nId = i + 1;
+        pCfg->OsdInfo[i].bEnable = FALSE;
+    }
+
+    for (i = 0; i < DEMO_OSD_CUSTOM_MAX_NUM; ++i)
+    {
+        char name[NET_TV_LEN_128] = {0};
+        char color[NET_TV_LEN_16] = {0};
+        char token[NET_TV_LEN_512] = {0};
+
+        snprintf(name, sizeof(name), "SDK Demo OSD %d", i + 1);
+        snprintf(color, sizeof(color), "#%02X%02X%02X", 0, 255 - i * 32, i * 48);
+        snprintf(token, sizeof(token), "custom_token_%d", i);
+
+        pCfg->OsdInfo[i].nId = i + 1;
+        pCfg->OsdInfo[i].bEnable = (i < 2) ? TRUE : FALSE;
+        strncpy(pCfg->OsdInfo[i].strName, name, sizeof(pCfg->OsdInfo[i].strName) - 1);
+        FillOsdAttr(&pCfg->OsdInfo[i].stOsdAttr,
+                    32,
+                    128 + i * 40,
+                    -1,
+                    32,
+                    OSD_FONT_SIZE_32,
+                    OSD_COLOR_CUSTOMIZE,
+                    color,
+                    token);
+    }
+}
+
+static void PrintOsdAttr(const char* pPrefix, const OsdAttribute_S* pAttr)
+{
+    if (!pAttr)
+    {
+        return;
+    }
+
+    printf("%sPos=(%d,%d,%d,%d), Attr=%d, FontSize=%d, FontColor=%d, CustomColor=%s, Token=%s\n",
+           pPrefix ? pPrefix : "",
+           pAttr->nX,
+           pAttr->nY,
+           pAttr->nW,
+           pAttr->nH,
+           pAttr->enAttribute,
+           pAttr->enFontSize,
+           pAttr->enFontColor,
+           pAttr->strFontColor,
+           pAttr->strToken);
+}
+
+static void PrintOsdConfigSummary(const char* pTitle, const NET_TV_VIDEO_OSD_CFG_S* pCfg)
+{
+    int i = 0;
+    int enabledCustomCount = 0;
+
+    if (!pCfg)
+    {
+        return;
+    }
+
+    printf("[ConfigServerDemo] %s\n", pTitle ? pTitle : "OSD config");
+    printf("  Align=%d\n", pCfg->enAlign);
+    printf("  [NameOSD] Enable=%d, Name=%s\n",
+           pCfg->stOsdNameInfo.bEnable,
+           pCfg->stOsdNameInfo.strName);
+    PrintOsdAttr("    ", &pCfg->stOsdNameInfo.stOsdAttr);
+    printf("  [TimeOSD] Enable=%d, EnableWeek=%d, TimeFormat=%d, DateFormat=%d\n",
+           pCfg->stOsdTimeInfo.bEnable,
+           pCfg->stOsdTimeInfo.bEnableWeek,
+           pCfg->stOsdTimeInfo.enTimeFormat,
+           pCfg->stOsdTimeInfo.enDateFormat);
+    PrintOsdAttr("    ", &pCfg->stOsdTimeInfo.stOsdAttr);
+
+    for (i = 0; i < DEMO_OSD_CUSTOM_MAX_NUM; ++i)
+    {
+        if (pCfg->OsdInfo[i].bEnable)
+        {
+            ++enabledCustomCount;
+        }
+
+        printf("  [CustomOSD-%d] Id=%d, Enable=%d, Name=%s\n",
+               i,
+               pCfg->OsdInfo[i].nId,
+               pCfg->OsdInfo[i].bEnable,
+               pCfg->OsdInfo[i].strName);
+        PrintOsdAttr("    ", &pCfg->OsdInfo[i].stOsdAttr);
+    }
+
+    printf("  Enabled custom OSD count in first %d slots=%d\n",
+           DEMO_OSD_CUSTOM_MAX_NUM,
+           enabledCustomCount);
+}
+
+static void NormalizeDemoOsdConfig(NET_TV_VIDEO_OSD_CFG_S* pCfg)
+{
+    int i = 0;
+
+    if (!pCfg)
+    {
+        return;
+    }
+
+    for (i = 0; i < DEMO_OSD_TOTAL_SLOT_NUM; ++i)
+    {
+        if (pCfg->OsdInfo[i].nId <= 0)
+        {
+            pCfg->OsdInfo[i].nId = i + 1;
+        }
+    }
+
+    for (i = DEMO_OSD_CUSTOM_MAX_NUM; i < DEMO_OSD_TOTAL_SLOT_NUM; ++i)
+    {
+        pCfg->OsdInfo[i].bEnable = FALSE;
+        memset(pCfg->OsdInfo[i].strName, 0, sizeof(pCfg->OsdInfo[i].strName));
+        memset(&pCfg->OsdInfo[i].stOsdAttr, 0, sizeof(pCfg->OsdInfo[i].stOsdAttr));
+        pCfg->OsdInfo[i].nId = i + 1;
+    }
+}
+
 static void InitDefaultConfig(void)
 {
     memset(&g_stDeviceBasicInfo, 0, sizeof(g_stDeviceBasicInfo));
@@ -222,7 +475,6 @@ static void InitDefaultConfig(void)
     memset(&g_stHotspotInfo, 0, sizeof(g_stHotspotInfo));
     memset(&g_stHotspotConnInfo, 0, sizeof(g_stHotspotConnInfo));
     memset(&g_stOsdCfg, 0, sizeof(g_stOsdCfg));
-    memset(&g_stOsdCapCfg, 0, sizeof(g_stOsdCapCfg));
     memset(&g_stMotionAlarmInfo, 0, sizeof(g_stMotionAlarmInfo));
     memset(&g_stPrivacyMaskCfg, 0, sizeof(g_stPrivacyMaskCfg));
     memset(&g_stTamperAlarmInfo, 0, sizeof(g_stTamperAlarmInfo));
@@ -503,113 +755,8 @@ static void InitDefaultConfig(void)
     strncpy(g_stRecordDownloadList.astProgress[0].szFilename, "manual_record_demo.ts", sizeof(g_stRecordDownloadList.astProgress[0].szFilename) - 1);
     g_stRecordDownloadList.astProgress[0].nProgress = 0;
 
-    /* OSD能力集默认值 */
-    g_stOsdCapCfg.bSupportOsd         = TRUE;
-    g_stOsdCapCfg.bSupportName        = TRUE;
-    g_stOsdCapCfg.bSupportTime        = TRUE;
-    g_stOsdCapCfg.bSupportWeek        = TRUE;
-    g_stOsdCapCfg.bSupportCustomColor = TRUE;
-
-    /* 最大字符叠加数量 */
-    g_stOsdCapCfg.udwMaxOsdNum = NET_TV_OSD_CUSTOM_MAX_NUM;
-
-    /* 支持的字体大小列表 */
-    g_stOsdCapCfg.udwSupportedFontSizeNum = 3;
-    g_stOsdCapCfg.audwSupportedFontSizeList[0] = 0;
-    g_stOsdCapCfg.audwSupportedFontSizeList[1] = 1;
-    g_stOsdCapCfg.audwSupportedFontSizeList[2] = 2;
-
-    /* 支持的日期格式列表 */
-    g_stOsdCapCfg.udwSupportedDateFormatNum = 3;
-    g_stOsdCapCfg.audwSupportedDateFormatList[0] = 0;
-    g_stOsdCapCfg.audwSupportedDateFormatList[1] = 1;
-    g_stOsdCapCfg.audwSupportedDateFormatList[2] = 2;
-
-    /* 支持的时间格式列表 */
-    g_stOsdCapCfg.udwSupportedTimeFormatNum = 2;
-    g_stOsdCapCfg.audwSupportedTimeFormatList[0] = 0;
-    g_stOsdCapCfg.audwSupportedTimeFormatList[1] = 1;
-
-    /* 支持的对齐方式列表 */
-    g_stOsdCapCfg.udwSupportedAlignNum = 4;
-    g_stOsdCapCfg.audwSupportedAlignList[0] = 0;
-    g_stOsdCapCfg.audwSupportedAlignList[1] = 1;
-    g_stOsdCapCfg.audwSupportedAlignList[2] = 2;
-    g_stOsdCapCfg.audwSupportedAlignList[3] = 3;
-
     /* OSD配置默认值 */
-    g_stOsdCfg.enAlign = OSD_ALIFN_CUSTOMIZE;
-
-    /* 1. 名称OSD默认值 */
-    g_stOsdCfg.stOsdNameInfo.bEnable = 1;
-    strncpy(g_stOsdCfg.stOsdNameInfo.strName,
-            "Demo-Camera",
-            sizeof(g_stOsdCfg.stOsdNameInfo.strName) - 1);
-
-    g_stOsdCfg.stOsdNameInfo.stOsdAttr.nX = 32;
-    g_stOsdCfg.stOsdNameInfo.stOsdAttr.nY = 32;
-    g_stOsdCfg.stOsdNameInfo.stOsdAttr.nW = -1;   /* 自适应 */
-    g_stOsdCfg.stOsdNameInfo.stOsdAttr.nH = 32;
-    g_stOsdCfg.stOsdNameInfo.stOsdAttr.enAttribute = OSD_ATTR_ALPHA_N_FLASH_N;
-    g_stOsdCfg.stOsdNameInfo.stOsdAttr.enFontSize = OSD_FONT_SIZE_32;
-    g_stOsdCfg.stOsdNameInfo.stOsdAttr.enFontColor = OSD_COLOR_WHITE;
-    strncpy(g_stOsdCfg.stOsdNameInfo.stOsdAttr.strFontColor,
-            "#FFFFFF",
-            sizeof(g_stOsdCfg.stOsdNameInfo.stOsdAttr.strFontColor) - 1);
-    strncpy(g_stOsdCfg.stOsdNameInfo.stOsdAttr.strToken,
-            "name_token_0",
-            sizeof(g_stOsdCfg.stOsdNameInfo.stOsdAttr.strToken) - 1);
-
-    /* 2. 时间OSD默认值 */
-    g_stOsdCfg.stOsdTimeInfo.bEnable = 1;
-    g_stOsdCfg.stOsdTimeInfo.bEnableWeek = 1;
-    g_stOsdCfg.stOsdTimeInfo.enTimeFormat = OSD_TIME_FORMAT_24;
-    g_stOsdCfg.stOsdTimeInfo.enDateFormat = ENGLISH_YYYY_MM_DD;
-
-    g_stOsdCfg.stOsdTimeInfo.stOsdAttr.nX = 32;
-    g_stOsdCfg.stOsdTimeInfo.stOsdAttr.nY = 80;
-    g_stOsdCfg.stOsdTimeInfo.stOsdAttr.nW = -1;   /* 自适应 */
-    g_stOsdCfg.stOsdTimeInfo.stOsdAttr.nH = 32;
-    g_stOsdCfg.stOsdTimeInfo.stOsdAttr.enAttribute = OSD_ATTR_ALPHA_N_FLASH_N;
-    g_stOsdCfg.stOsdTimeInfo.stOsdAttr.enFontSize = OSD_FONT_SIZE_32;
-    g_stOsdCfg.stOsdTimeInfo.stOsdAttr.enFontColor = OSD_COLOR_WHITE;
-    strncpy(g_stOsdCfg.stOsdTimeInfo.stOsdAttr.strFontColor,
-            "#FFFFFF",
-            sizeof(g_stOsdCfg.stOsdTimeInfo.stOsdAttr.strFontColor) - 1);
-    strncpy(g_stOsdCfg.stOsdTimeInfo.stOsdAttr.strToken,
-            "time_token_0",
-            sizeof(g_stOsdCfg.stOsdTimeInfo.stOsdAttr.strToken) - 1);
-
-    /* 3. 自定义OSD默认值 */
-    {
-        int i = 0;
-        for (i = 0; i < NET_TV_OSD_CUSTOM_MAX_NUM; ++i)
-        {
-            g_stOsdCfg.OsdInfo[i].nId = i + 1;
-            g_stOsdCfg.OsdInfo[i].bEnable = 0;
-        }
-    }
-
-    /* 默认启用第1个自定义OSD */
-    g_stOsdCfg.OsdInfo[0].nId = 1;
-    g_stOsdCfg.OsdInfo[0].bEnable = 1;
-    strncpy(g_stOsdCfg.OsdInfo[0].strName,
-            "Demo OSD",
-            sizeof(g_stOsdCfg.OsdInfo[0].strName) - 1);
-
-    g_stOsdCfg.OsdInfo[0].stOsdAttr.nX = 32;
-    g_stOsdCfg.OsdInfo[0].stOsdAttr.nY = 128;
-    g_stOsdCfg.OsdInfo[0].stOsdAttr.nW = -1;
-    g_stOsdCfg.OsdInfo[0].stOsdAttr.nH = 32;
-    g_stOsdCfg.OsdInfo[0].stOsdAttr.enAttribute = OSD_ATTR_ALPHA_N_FLASH_N;
-    g_stOsdCfg.OsdInfo[0].stOsdAttr.enFontSize = OSD_FONT_SIZE_32;
-    g_stOsdCfg.OsdInfo[0].stOsdAttr.enFontColor = OSD_COLOR_CUSTOMIZE;
-    strncpy(g_stOsdCfg.OsdInfo[0].stOsdAttr.strFontColor,
-            "#00FF00",
-            sizeof(g_stOsdCfg.OsdInfo[0].stOsdAttr.strFontColor) - 1);
-    strncpy(g_stOsdCfg.OsdInfo[0].stOsdAttr.strToken,
-            "custom_token_0",
-            sizeof(g_stOsdCfg.OsdInfo[0].stOsdAttr.strToken) - 1);
+    InitDemoOsdConfig(&g_stOsdCfg);
 
     /* 移动侦测配置默认值 */
     g_stMotionAlarmInfo.bEnable = TRUE;
@@ -1859,59 +2006,9 @@ static NET_TV_COMMON_ECODE_E MyDownloadRecordFileCb(INT32 dwChannelID, LPVOID lp
     return NET_TV_E_SUCCEED;
 }
 
-/* OSD能力集 Get 回调，对应命令 NET_TV_GET_OSDCAPCFG*/
+/* OSD能力集配置 Get 回调，对应命令 NET_TV_GET_OSDCAPCFG */
 static NET_TV_COMMON_ECODE_E MyGetOSDCapCfgCb(INT32 dwChannelID, LPVOID lpOutBuffer)
 {
-    (void)dwChannelID;
-
-    if (!lpOutBuffer)
-    {
-        return NET_TV_E_INVALID_PARAM;
-    }
-
-    LPNET_TV_OSD_CAP_S pOut = (LPNET_TV_OSD_CAP_S)lpOutBuffer;
-    *pOut = g_stOsdCapCfg;
-
-    printf("[ConfigServerDemo] GetOSDCapCfg callback, Channel=%d\n", dwChannelID);
-    printf("  SupportOsd=%d\n", g_stOsdCapCfg.bSupportOsd);
-    printf("  SupportName=%d\n", g_stOsdCapCfg.bSupportName);
-    printf("  SupportTime=%d\n", g_stOsdCapCfg.bSupportTime);
-    printf("  SupportWeek=%d\n", g_stOsdCapCfg.bSupportWeek);
-    printf("  SupportCustomColor=%d\n", g_stOsdCapCfg.bSupportCustomColor);
-    printf("  MaxOsdNum=%u\n", g_stOsdCapCfg.udwMaxOsdNum);
-
-    printf("  SupportedFontSizeNum=%u\n", g_stOsdCapCfg.udwSupportedFontSizeNum);
-    for (UINT32 i = 0; i < g_stOsdCapCfg.udwSupportedFontSizeNum; ++i)
-    {
-        printf("    SupportedFontSizeList[%u]=%u\n", i, g_stOsdCapCfg.audwSupportedFontSizeList[i]);
-    }
-
-    printf("  SupportedDateFormatNum=%u\n", g_stOsdCapCfg.udwSupportedDateFormatNum);
-    for (UINT32 i = 0; i < g_stOsdCapCfg.udwSupportedDateFormatNum; ++i)
-    {
-        printf("    SupportedDateFormatList[%u]=%u\n", i, g_stOsdCapCfg.audwSupportedDateFormatList[i]);
-    }
-
-    printf("  SupportedTimeFormatNum=%u\n", g_stOsdCapCfg.udwSupportedTimeFormatNum);
-    for (UINT32 i = 0; i < g_stOsdCapCfg.udwSupportedTimeFormatNum; ++i)
-    {
-        printf("    SupportedTimeFormatList[%u]=%u\n", i, g_stOsdCapCfg.audwSupportedTimeFormatList[i]);
-    }
-
-    printf("  SupportedAlignNum=%u\n", g_stOsdCapCfg.udwSupportedAlignNum);
-    for (UINT32 i = 0; i < g_stOsdCapCfg.udwSupportedAlignNum; ++i)
-    {
-        printf("    SupportedAlignList[%u]=%u\n", i, g_stOsdCapCfg.audwSupportedAlignList[i]);
-    }
-
-    return NET_TV_E_SUCCEED;
-}
-
-/* OSD配置 Get 回调，对应命令 NET_TV_GET_OSDCFG*/
-static NET_TV_COMMON_ECODE_E MyGetOSDCfgCb(INT32 dwChannelID, LPVOID lpOutBuffer)
-{
-    int i = 0;
-
     (void)dwChannelID;
 
     if (!lpOutBuffer)
@@ -1923,41 +2020,15 @@ static NET_TV_COMMON_ECODE_E MyGetOSDCfgCb(INT32 dwChannelID, LPVOID lpOutBuffer
     LPNET_TV_VIDEO_OSD_CFG_S pOut = (LPNET_TV_VIDEO_OSD_CFG_S)lpOutBuffer;
     *pOut = g_stOsdCfg;
 
-    printf("[ConfigServerDemo] GetOSDCfg callback, Channel=%d\n", dwChannelID);
-    printf("  Align=%d\n", g_stOsdCfg.enAlign);
-
-    printf("  [NameOSD] Enable=%d, Name=%s\n",
-        g_stOsdCfg.stOsdNameInfo.bEnable,
-        g_stOsdCfg.stOsdNameInfo.strName);
-
-    printf("  [TimeOSD] Enable=%d, EnableWeek=%d, TimeFormat=%d, DateFormat=%d\n",
-        g_stOsdCfg.stOsdTimeInfo.bEnable,
-        g_stOsdCfg.stOsdTimeInfo.bEnableWeek,
-        g_stOsdCfg.stOsdTimeInfo.enTimeFormat,
-        g_stOsdCfg.stOsdTimeInfo.enDateFormat);
-
-    for (i = 0; i < NET_TV_OSD_CUSTOM_MAX_NUM; ++i)
-    {
-        if (!g_stOsdCfg.OsdInfo[i].bEnable)
-        {
-            continue;
-        }
-
-        printf("  [CustomOSD-%d] Id=%d, Enable=%d, Name=%s\n",
-            i,
-            g_stOsdCfg.OsdInfo[i].nId,
-            g_stOsdCfg.OsdInfo[i].bEnable,
-            g_stOsdCfg.OsdInfo[i].strName);
-    }
+    printf("[ConfigServerDemo] GetOSDCapCfg callback, Channel=%d\n", dwChannelID);
+    PrintOsdConfigSummary("Return OSD config", &g_stOsdCfg);
 
     return NET_TV_E_SUCCEED;
 }
 
-/* OSD配置 Set 回调，对应命令 NET_TV_SET_OSDCFG */
-static NET_TV_COMMON_ECODE_E MySetOSDCfgCb(INT32 dwChannelID, LPVOID lpInBuffer)
+/* OSD能力集配置 Set 回调，对应命令 NET_TV_SET_OSDCAPCFG */
+static NET_TV_COMMON_ECODE_E MySetOSDCapCfgCb(INT32 dwChannelID, LPVOID lpInBuffer)
 {
-    int i = 0;
-
     (void)dwChannelID;
 
     if (!lpInBuffer)
@@ -1967,33 +2038,10 @@ static NET_TV_COMMON_ECODE_E MySetOSDCfgCb(INT32 dwChannelID, LPVOID lpInBuffer)
 
     LPNET_TV_VIDEO_OSD_CFG_S pIn = (LPNET_TV_VIDEO_OSD_CFG_S)lpInBuffer;
     g_stOsdCfg = *pIn;
+    NormalizeDemoOsdConfig(&g_stOsdCfg);
 
-    printf("[ConfigServerDemo] SetOSDCfg callback, Channel=%d\n", dwChannelID);
-    printf("  New Align=%d\n", g_stOsdCfg.enAlign);
-
-    printf("  [NameOSD] Enable=%d, Name=%s\n",
-        g_stOsdCfg.stOsdNameInfo.bEnable,
-        g_stOsdCfg.stOsdNameInfo.strName);
-
-    printf("  [TimeOSD] Enable=%d, EnableWeek=%d, TimeFormat=%d, DateFormat=%d\n",
-        g_stOsdCfg.stOsdTimeInfo.bEnable,
-        g_stOsdCfg.stOsdTimeInfo.bEnableWeek,
-        g_stOsdCfg.stOsdTimeInfo.enTimeFormat,
-        g_stOsdCfg.stOsdTimeInfo.enDateFormat);
-
-    for (i = 0; i < NET_TV_OSD_CUSTOM_MAX_NUM; ++i)
-    {
-        if (!g_stOsdCfg.OsdInfo[i].bEnable)
-        {
-            continue;
-        }
-
-        printf("  [CustomOSD-%d] Id=%d, Enable=%d, Name=%s\n",
-            i,
-            g_stOsdCfg.OsdInfo[i].nId,
-            g_stOsdCfg.OsdInfo[i].bEnable,
-            g_stOsdCfg.OsdInfo[i].strName);
-    }
+    printf("[ConfigServerDemo] SetOSDCapCfg callback, Channel=%d\n", dwChannelID);
+    PrintOsdConfigSummary("Saved OSD config", &g_stOsdCfg);
 
     return NET_TV_E_SUCCEED;
 }
@@ -5470,7 +5518,7 @@ static void RegisterCallbacks(void)
         printf("[ConfigServerDemo] RegisterCb_DownloadRecordFile FAILED\n");
     }
 
-    /* OSD配置回调 */
+    /* OSD能力集配置回调 */
     if (NET_TV_SERVER_RegisterCb_GetOsdCapCfg(MyGetOSDCapCfgCb))
     {
         printf("[ConfigServerDemo] RegisterCb_GetOSDCapCfg SUCCESS\n");
@@ -5480,22 +5528,13 @@ static void RegisterCallbacks(void)
         printf("[ConfigServerDemo] RegisterCb_GetOSDCapCfg FAILED\n");
     }
 
-    if (NET_TV_SERVER_RegisterCb_GetOsdCfg(MyGetOSDCfgCb))
+    if (NET_TV_SERVER_RegisterCb_SetOsdCapCfg(MySetOSDCapCfgCb))
     {
-        printf("[ConfigServerDemo] RegisterCb_GetOSDCfg SUCCESS\n");
+        printf("[ConfigServerDemo] RegisterCb_SetOSDCapCfg SUCCESS\n");
     }
     else
     {
-        printf("[ConfigServerDemo] RegisterCb_GetOSDCfg FAILED\n");
-    }
-
-    if (NET_TV_SERVER_RegisterCb_SetOsdCfg(MySetOSDCfgCb))
-    {
-        printf("[ConfigServerDemo] RegisterCb_SetOSDCfg SUCCESS\n");
-    }
-    else
-    {
-        printf("[ConfigServerDemo] RegisterCb_SetOSDCfg FAILED\n");
+        printf("[ConfigServerDemo] RegisterCb_SetOSDCapCfg FAILED\n");
     }
 
     /* 移动侦测配置回调 */
@@ -6710,13 +6749,11 @@ static void RegisterCallbacks(void)
 
 int main(int argc, char* argv[])
 {
-    (void)argc;
-    (void)argv;
-
+    ConfigureByArgs(argc, argv);
     printf("===========================================\n");
     printf("   NetTVSDK Server Config Demo\n");
     printf("   - 支持 NET_TV_GetDevConfig/NET_TV_SetDevConfig\n");
-    printf("   - 示例命令：DEVICECFG / NETWORKCFG / MOTIONALARM / TAMPERALARM / CROSSLINEALARM / INTRUSIONALARM\n");
+    printf("   - 示例命令：DEVICECFG / NETWORKCFG / OSDCAPCFG / MOTIONALARM / TAMPERALARM / CROSSLINEALARM / INTRUSIONALARM\n");
     printf("===========================================\n");
     printf("Press Ctrl+C to stop.\n\n");
 
@@ -6736,11 +6773,10 @@ int main(int argc, char* argv[])
     RegisterCallbacks();
 
     /* 启动 SDK 服务端 */
-    CHAR szUserName[NET_TV_LEN_132] = "admin";
-    CHAR szPassword[NET_TV_LEN_132] = "sj2@2025";
-
-    printf("[ConfigServerDemo] Starting server on port %d ...\n", SDKSERVER_PORT);
-    if (!NET_TV_SERVER_Init(SDKSERVER_PORT, szUserName, szPassword))
+    printf("[ConfigServerDemo] Starting server on port %d, username=%s ...\n",
+           g_serverPort,
+           g_serverUsername);
+    if (!NET_TV_SERVER_Init(g_serverPort, g_serverUsername, g_serverPassword))
     {
         printf("[ConfigServerDemo] NET_TV_SERVER_Init FAILED!\n");
         return -1;

@@ -23,9 +23,72 @@
 #define SERVER_PORT 8888
 #define USERNAME    "admin"
 #define PASSWORD    "Admin@123456"
+#define CLIENT_OSD_ALIGN_MAX_NUM 8
+
+static char g_serverIp[64] = SERVER_IP;
+static INT32 g_serverPort = SERVER_PORT;
+static char g_username[64] = USERNAME;
+static char g_password[64] = PASSWORD;
 
 /* 全局用户句柄 */
 static LPVOID g_lpUserID = NULL;
+
+static void CopyString(char* pDst, size_t dstSize, const char* pSrc)
+{
+    if (!pDst || dstSize == 0)
+    {
+        return;
+    }
+
+    pDst[0] = '\0';
+    if (!pSrc)
+    {
+        return;
+    }
+
+    strncpy(pDst, pSrc, dstSize - 1);
+    pDst[dstSize - 1] = '\0';
+}
+
+static void PrintUsage(const char* pProgram)
+{
+    printf("Usage: %s [server_ip] [port] [username] [password]\n",
+           pProgram ? pProgram : "CapabilityClientDemo");
+    printf("Example: %s 172.16.25.199 8888 admin Admin@123456\n",
+           pProgram ? pProgram : "CapabilityClientDemo");
+}
+
+static void ConfigureByArgs(int argc, char* argv[])
+{
+    if (argc > 5)
+    {
+        PrintUsage(argv[0]);
+    }
+
+    if (argc > 1)
+    {
+        CopyString(g_serverIp, sizeof(g_serverIp), argv[1]);
+    }
+
+    if (argc > 2)
+    {
+        int port = atoi(argv[2]);
+        if (port > 0)
+        {
+            g_serverPort = port;
+        }
+    }
+
+    if (argc > 3)
+    {
+        CopyString(g_username, sizeof(g_username), argv[3]);
+    }
+
+    if (argc > 4)
+    {
+        CopyString(g_password, sizeof(g_password), argv[4]);
+    }
+}
 
 /**
  * @brief 打印命令菜单
@@ -185,6 +248,107 @@ static const char* AudioFormatToString(INT32 enFormat)
         return "UNKNOWN";
     }
 }
+
+static const char* OsdFontSizeToString(UINT32 enValue)
+{
+    switch (enValue)
+    {
+    case NET_TV_OSD_FONT_SIZE_ADAPTIVE:
+        return "ADAPTIVE";
+    case NET_TV_OSD_FONT_SIZE_16:
+        return "16x16";
+    case NET_TV_OSD_FONT_SIZE_32:
+        return "32x32";
+    case NET_TV_OSD_FONT_SIZE_48:
+        return "48x48";
+    case NET_TV_OSD_FONT_SIZE_64:
+        return "64x64";
+    default:
+        return "UNKNOWN";
+    }
+}
+
+static const char* OsdDateFormatToString(UINT32 enValue)
+{
+    switch (enValue)
+    {
+    case NET_TV_OSD_DATE_YYYY_MM_DD:
+        return "YYYY-MM-DD";
+    case NET_TV_OSD_DATE_MM_DD_YYYY:
+        return "MM-DD-YYYY";
+    case NET_TV_OSD_DATE_DD_MM_YYYY:
+        return "DD-MM-YYYY";
+    case NET_TV_OSD_DATE_YYYY_MM_DD_CHN:
+        return "YYYY年MM月DD日";
+    case NET_TV_OSD_DATE_MM_DD_YYYY_CHN:
+        return "MM月DD日YYYY年";
+    case NET_TV_OSD_DATE_DD_MM_YYYY_CHN:
+        return "DD日MM月YYYY年";
+    case NET_TV_OSD_DATE_YYYY_MM_DD_SLASH:
+        return "YYYY/MM/DD";
+    case NET_TV_OSD_DATE_MM_DD_YYYY_SLASH:
+        return "MM/DD/YYYY";
+    case NET_TV_OSD_DATE_DD_MM_YYYY_SLASH:
+        return "DD/MM/YYYY";
+    default:
+        return "UNKNOWN";
+    }
+}
+
+static const char* OsdTimeFormatToString(UINT32 enValue)
+{
+    switch (enValue)
+    {
+    case NET_TV_OSD_TIME_FORMAT_24:
+        return "24H";
+    case NET_TV_OSD_TIME_FORMAT_12:
+        return "12H";
+    default:
+        return "UNKNOWN";
+    }
+}
+
+static const char* OsdAlignToString(UINT32 enValue)
+{
+    switch (enValue)
+    {
+    case NET_TV_OSD_ALIGN_CUSTOMIZE:
+        return "CUSTOMIZE";
+    case NET_TV_OSD_ALIGN_CHAR_LEFT:
+        return "CHAR_LEFT";
+    case NET_TV_OSD_ALIGN_CHAR_RIGHT:
+        return "CHAR_RIGHT";
+    case NET_TV_OSD_ALIGN_ALL_LEFT:
+        return "ALL_LEFT";
+    case NET_TV_OSD_ALIGN_ALL_RIGHT:
+        return "ALL_RIGHT";
+    case NET_TV_OSD_ALIGN_GB_MODE:
+        return "GB_MODE";
+    default:
+        return "UNKNOWN";
+    }
+}
+
+static UINT32 ClampUint32(UINT32 value, UINT32 maxValue)
+{
+    return (value > maxValue) ? maxValue : value;
+}
+
+static void PrintNamedUint32List(const char* pName,
+                                 const UINT32* pList,
+                                 UINT32 count,
+                                 const char* (*toString)(UINT32))
+{
+    UINT32 i = 0;
+
+    printf("  %s(%u):", pName, count);
+    for (i = 0; pList && i < count; ++i)
+    {
+        printf(" %s(%u)", toString ? toString(pList[i]) : "UNKNOWN", pList[i]);
+    }
+    printf("\n");
+}
+
 /**
  * @brief 打印音频编码能力集信息
  */
@@ -270,29 +434,80 @@ void PrintAudioEncodeCap(const NET_TV_AUDIO_CAP_S* pCap)
  */
 void PrintOsdCap(const NET_TV_OSD_CAP_S* pCap)
 {
-    printf("\n[Client] ===== OSD Ability =====\n");
+    UINT32 fontSizeNum = 0;
+    UINT32 dateFormatNum = 0;
+    UINT32 timeFormatNum = 0;
+    UINT32 alignNum = 0;
+
+    if (!pCap)
+    {
+        return;
+    }
+
+    fontSizeNum = ClampUint32(pCap->udwSupportedFontSizeNum, NET_TV_OSD_FONT_SIZE_TYPE_MAX_NUM);
+    dateFormatNum = ClampUint32(pCap->udwSupportedDateFormatNum, NET_TV_OSD_DATE_FORMAT_MAX_NUM);
+    timeFormatNum = ClampUint32(pCap->udwSupportedTimeFormatNum, NET_TV_OSD_TIME_FORMAT_MAX_NUM);
+    alignNum = ClampUint32(pCap->udwSupportedAlignNum, CLIENT_OSD_ALIGN_MAX_NUM);
+
+    printf("\n[Client] ===== OSD能力集 =====\n");
     
     // 基础能力
-    printf("  Support OSD: %s\n", pCap->bSupportOsd ? "Yes" : "No");
-    printf("  Support Name: %s\n", pCap->bSupportName ? "Yes" : "No");
-    printf("  Support Time: %s\n", pCap->bSupportTime ? "Yes" : "No");
-    printf("  Support Week: %s\n", pCap->bSupportWeek ? "Yes" : "No");
-    printf("  Support Custom Color: %s\n", pCap->bSupportCustomColor ? "Yes" : "No");
+    printf("  支持OSD: %s\n", pCap->bSupportOsd ? "是" : "否");
+    printf("  支持通道名称: %s\n", pCap->bSupportName ? "是" : "否");
+    printf("  支持时间: %s\n", pCap->bSupportTime ? "是" : "否");
+    printf("  支持星期: %s\n", pCap->bSupportWeek ? "是" : "否");
+    printf("  支持自定义颜色: %s\n", pCap->bSupportCustomColor ? "是" : "否");
     
     // 字符叠加能力
-    printf("  Max OSD Num: %d\n", pCap->udwMaxOsdNum);
+    printf("  最大字符叠加数量: %u\n", pCap->udwMaxOsdNum);
     
     // 字体大小能力
-    printf("  Supported Font Size Num: %d\n", pCap->udwSupportedFontSizeNum);
+    printf("  字体大小数量: %u", pCap->udwSupportedFontSizeNum);
+    if (fontSizeNum != pCap->udwSupportedFontSizeNum)
+    {
+        printf("，按数组上限截断为%u", fontSizeNum);
+    }
+    printf("\n");
+    PrintNamedUint32List("字体大小列表",
+                         pCap->audwSupportedFontSizeList,
+                         fontSizeNum,
+                         OsdFontSizeToString);
     
     // 日期格式能力
-    printf("  Supported Date Format Num: %d\n", pCap->udwSupportedDateFormatNum);
+    printf("  日期格式数量: %u", pCap->udwSupportedDateFormatNum);
+    if (dateFormatNum != pCap->udwSupportedDateFormatNum)
+    {
+        printf("，按数组上限截断为%u", dateFormatNum);
+    }
+    printf("\n");
+    PrintNamedUint32List("日期格式列表",
+                         pCap->audwSupportedDateFormatList,
+                         dateFormatNum,
+                         OsdDateFormatToString);
     
     // 时间格式能力        
-    printf("  Supported Time Format Num: %d\n", pCap->udwSupportedTimeFormatNum);
+    printf("  时间格式数量: %u", pCap->udwSupportedTimeFormatNum);
+    if (timeFormatNum != pCap->udwSupportedTimeFormatNum)
+    {
+        printf("，按数组上限截断为%u", timeFormatNum);
+    }
+    printf("\n");
+    PrintNamedUint32List("时间格式列表",
+                         pCap->audwSupportedTimeFormatList,
+                         timeFormatNum,
+                         OsdTimeFormatToString);
     
     // 对齐方式能力
-    printf("  Supported Align Num: %d\n", pCap->udwSupportedAlignNum);
+    printf("  对齐方式数量: %u", pCap->udwSupportedAlignNum);
+    if (alignNum != pCap->udwSupportedAlignNum)
+    {
+        printf("，按数组上限截断为%u", alignNum);
+    }
+    printf("\n");
+    PrintNamedUint32List("对齐方式列表",
+                         pCap->audwSupportedAlignList,
+                         alignNum,
+                         OsdAlignToString);
 
     printf("===================================\n");
 }
@@ -376,7 +591,9 @@ BOOL GetOsdCap(INT32 dwChannelID)
     
     INT32 dwBytesReturned = 0;
     
-    printf("[Client] Get OSD Cap, channelID=%d ...\n", dwChannelID);
+    printf("[Client] 正在获取OSD能力集, channelID=%d, command=%d ...\n",
+           dwChannelID,
+           NET_TV_CAP_OSD);
     
     BOOL bRet = NET_TV_GetDeviceCapability(
         g_lpUserID,
@@ -389,13 +606,13 @@ BOOL GetOsdCap(INT32 dwChannelID)
     
     if (bRet)
     {
-        printf("[Client] Get OSD Cap Success!\n");
+        printf("[Client] 获取OSD能力集成功! bytesReturned=%d\n", dwBytesReturned);
         PrintOsdCap(&stCap);
         return TRUE;
     }
     else
     {
-        printf("[Client] Get OSD Cap Failed! Error=%d\n", NET_TV_GetLastError());
+        printf("[Client] 获取OSD能力集失败! Error=%d\n", NET_TV_GetLastError());
         return FALSE;
     }
 }
@@ -433,9 +650,10 @@ void ProcessCommand(int cmd)
     }
 }
 
-int main()
+int main(int argc, char* argv[])
 {
     printf("=============== SDK Client Capability Demo ================\n");
+    ConfigureByArgs(argc, argv);
     
     /* 初始化日志 */
     initSdkLogBySize("CapabilityClientDemo", "/tmp/CapabilityClientDemo.log", MAX_LOG_SIZE, MAX_LOG_FILES);
@@ -457,12 +675,15 @@ int main()
     memset(&struLoginInfo, 0, sizeof(NET_TV_DEVICE_LOGIN_INFO_S));
     memset(&struDeviceInfo, 0, sizeof(NET_TV_DEVICE_INFO_S));
     
-    struLoginInfo.dwPort = SERVER_PORT;
-    strncpy(struLoginInfo.szIPAddr, SERVER_IP, sizeof(struLoginInfo.szIPAddr) - 1);
-    strncpy(struLoginInfo.szUserName, USERNAME, sizeof(struLoginInfo.szUserName) - 1);
-    strncpy(struLoginInfo.szPassword, PASSWORD, sizeof(struLoginInfo.szPassword) - 1);
+    struLoginInfo.dwPort = g_serverPort;
+    strncpy(struLoginInfo.szIPAddr, g_serverIp, sizeof(struLoginInfo.szIPAddr) - 1);
+    strncpy(struLoginInfo.szUserName, g_username, sizeof(struLoginInfo.szUserName) - 1);
+    strncpy(struLoginInfo.szPassword, g_password, sizeof(struLoginInfo.szPassword) - 1);
     
-    printf("[Client] Logging in to %s:%d...\n", SERVER_IP, SERVER_PORT);
+    printf("[Client] Logging in to %s:%d, username=%s...\n",
+           g_serverIp,
+           g_serverPort,
+           g_username);
     g_lpUserID = NET_TV_Login(&struLoginInfo, &struDeviceInfo);
     
     if (!g_lpUserID)
