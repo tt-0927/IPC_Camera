@@ -207,9 +207,6 @@ std::string CDeviceConfigBusiness::GetDevConfig(const std::string& req_data, con
             return HandleGetConfig<NET_TV_RTSP_URL_INFO_S>(channelId, command);
 
         case NET_TV_GET_OSDCAPCFG:
-            return HandleGetConfig<NET_TV_OSD_CAP_S>(channelId, command);
-
-        case NET_TV_GET_OSDCFG:
             return HandleGetConfig<NET_TV_VIDEO_OSD_CFG_S>(channelId, command);
 
         case NET_TV_GET_IMAGECFG:
@@ -462,7 +459,7 @@ std::string CDeviceConfigBusiness::SetDevConfig(const std::string& req_data, con
         case NET_TV_SET_STREAMCFG:
             return HandleSetConfig<NET_TV_VIDEO_ENCODE_OPTION_S>(channelId, command, req_data);
 
-        case NET_TV_SET_OSDCFG:
+        case NET_TV_SET_OSDCAPCFG:
             return HandleSetConfig<NET_TV_VIDEO_OSD_CFG_S>(channelId, command, req_data);
    
         case NET_TV_SET_IMAGECFG:

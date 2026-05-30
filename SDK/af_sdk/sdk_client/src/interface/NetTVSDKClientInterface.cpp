@@ -682,8 +682,6 @@ NET_TV_API BOOL STDCALL NET_TV_GetDevConfig(IN  LPVOID  lpUserID,
         case NET_TV_GET_STREAMCFG:
             return NetTV_GetDevConfig_Impl<NET_TV_VIDEO_ENCODE_OPTION_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
         case NET_TV_GET_OSDCAPCFG:
-            return NetTV_GetDevConfig_Impl<NET_TV_OSD_CAP_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_TV_GET_OSDCFG:
             return NetTV_GetDevConfig_Impl<NET_TV_VIDEO_OSD_CFG_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
         case NET_TV_GET_IMAGECFG:
             return NetTV_GetDevConfig_Impl<NET_TV_ALARM_EXCEPTION_INFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
@@ -859,7 +857,7 @@ NET_TV_API BOOL STDCALL NET_TV_SetDevConfig(IN  LPVOID  lpUserID,
             return NetTV_SetDevConfig_Impl<NET_TV_AUDIO_CFG_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
         case NET_TV_SET_STREAMCFG:
             return NetTV_SetDevConfig_Impl<NET_TV_VIDEO_ENCODE_OPTION_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_TV_SET_OSDCFG:
+        case NET_TV_SET_OSDCAPCFG:
             return NetTV_SetDevConfig_Impl<NET_TV_VIDEO_OSD_CFG_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
         case NET_TV_SET_IMAGECFG:
             return NetTV_SetDevConfig_Impl<NET_TV_ALARM_EXCEPTION_INFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);

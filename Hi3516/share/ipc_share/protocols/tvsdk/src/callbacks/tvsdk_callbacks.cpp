@@ -7,7 +7,6 @@
 
 #include <string>
 #include <cstring>
-#include <vector>
 
 #include "task_manage.h"
 #include "task.h"
@@ -17,7 +16,6 @@
 #include "system_define.h"
 #include "network_define.h"
 #include "alarm_define.h"
-#include "event_define.h"
 #include "preview_define.h"
 #include "Json.h"
 #include "convert_interface.h"
@@ -285,6 +283,7 @@ static int execute_action_expect_success(int actionCode, const std::string &inJs
 
     // 某些下游动作只返回执行码，不返回 JSON，此时 outJson 为空也视作成功。
     if (!outJson.empty())
+    if (!outJson.empty())
     {
         int nRet = -1;
         Json::get(outJson.c_str(), "Return", nRet);
@@ -357,12 +356,8 @@ static NET_TV_COMMON_ECODE_E cb_get_video_encode_cap(INT32 dwChannelID, LPNET_TV
     if (nRet != 0)
         return NET_TV_E_GET_CFG_FAILED;
 
-    std::string dataJson = normalize_data_json(outJson);
-    if (dataJson.empty())
-        return NET_TV_E_GET_CFG_FAILED;
-
     Video_NS::VideoCapabilitySet_S stCapSet;
-    Convert::to_struct(dataJson, stCapSet);
+    Convert::to_struct(outJson, stCapSet);
     TvSdkConvert::FillVideoEncodeCap(stCapSet, *pCap);
 
     return NET_TV_E_SUCCEED;
@@ -386,18 +381,14 @@ static NET_TV_COMMON_ECODE_E cb_get_audio_encode_cap(INT32 dwChannelID, LPNET_TV
     if (nRet != 0)
         return NET_TV_E_GET_CFG_FAILED;
 
-    std::string dataJson = normalize_data_json(outJson);
-    if (dataJson.empty())
-        return NET_TV_E_GET_CFG_FAILED;
-
     Audio_NS::AudioCapabilitySet_S stCapSet;
-    Convert::to_struct(dataJson, stCapSet);
+    Convert::to_struct(outJson, stCapSet);
     TvSdkConvert::FillAudioEncodeCap(stCapSet, *pCap);
 
     return NET_TV_E_SUCCEED;
 }
 
-/* ---------- GetOsdCap：AC_GET_OSD_CONFIG ---------- */
+/* ---------- GetOsdCap：OSD能力集 ---------- */
 static NET_TV_COMMON_ECODE_E cb_get_osd_cap(INT32 dwChannelID, LPNET_TV_OSD_CAP_S pCap)
 {
     (void)dwChannelID;
@@ -405,52 +396,43 @@ static NET_TV_COMMON_ECODE_E cb_get_osd_cap(INT32 dwChannelID, LPNET_TV_OSD_CAP_
         return NET_TV_E_NULL_POINT;
     memset(pCap, 0, sizeof(NET_TV_OSD_CAP_S));
 
-    std::string outJson;
-    if (execute_get_result(AC_GET_OSD_CONFIG, "{}", outJson) == 0 && !outJson.empty())
-    {
-        int nRet = -1;
-        Json::get(outJson.c_str(), "Return", nRet);
-        if (nRet == 0)
-        {
-            pCap->bSupportOsd = TRUE;
-            pCap->bSupportName = TRUE;
-            pCap->bSupportTime = TRUE;
-            pCap->bSupportWeek = TRUE;
-            pCap->bSupportCustomColor = TRUE;
-            pCap->udwMaxOsdNum = NET_TV_OSD_CUSTOM_MAX_NUM;
-            pCap->udwSupportedFontSizeNum = 4;
-            pCap->audwSupportedFontSizeList[0] = OSD_FONT_SIZE_ADAPTIVE;
-            pCap->audwSupportedFontSizeList[1] = OSD_FONT_SIZE_16;
-            pCap->audwSupportedFontSizeList[2] = OSD_FONT_SIZE_32;
-            pCap->audwSupportedFontSizeList[3] = OSD_FONT_SIZE_48;
-            pCap->udwSupportedDateFormatNum = 9;
-            pCap->audwSupportedDateFormatList[0] = ENGLISH_YYYY_MM_DD;
-            pCap->audwSupportedDateFormatList[1] = ENGLISH_MM_DD_YYYY;
-            pCap->audwSupportedDateFormatList[2] = ENGLISH_DD_MM_YYYY;
-            pCap->audwSupportedDateFormatList[3] = CHINESE_YYYYMMDD;
-            pCap->audwSupportedDateFormatList[4] = CHINESE_MMDDYYYY;
-            pCap->audwSupportedDateFormatList[5] = CHINESE_DDMMYYYY;
-            pCap->audwSupportedDateFormatList[6] = ENGLISH_YYYYMMDD;
-            pCap->audwSupportedDateFormatList[7] = ENGLISH_MMDDYYYY;
-            pCap->audwSupportedDateFormatList[8] = ENGLISH_DDMMYYYY;
-            pCap->udwSupportedTimeFormatNum = 2;
-            pCap->audwSupportedTimeFormatList[0] = OSD_TIME_FORMAT_24;
-            pCap->audwSupportedTimeFormatList[1] = OSD_TIME_FORMAT_12;
-            pCap->udwSupportedAlignNum = 6;
-            pCap->audwSupportedAlignList[0] = OSD_ALIFN_CUSTOMIZE;
-            pCap->audwSupportedAlignList[1] = OSD_ALIFN_CHARACTER_LEFT;
-            pCap->audwSupportedAlignList[2] = OSD_ALIFN_CHARACTER_RIGHT;
-            pCap->audwSupportedAlignList[3] = OSD_ALIFN_ALL_LEFT;
-            pCap->audwSupportedAlignList[4] = OSD_ALIFN_ALL_RIGHT;
-            pCap->audwSupportedAlignList[5] = OSD_ALIFN_GB_MODE;
-        }
-    }
-    return NET_TV_E_SUCCEED;
-}
+    pCap->bSupportOsd = TRUE;
+    pCap->bSupportName = TRUE;
+    pCap->bSupportTime = TRUE;
+    pCap->bSupportWeek = TRUE;
+    pCap->bSupportCustomColor = TRUE;
+    pCap->udwMaxOsdNum = 4;
 
-static NET_TV_COMMON_ECODE_E cb_get_osd_cap_cfg(INT32 dwChannelID, LPVOID lpOutBuffer)
-{
-    return cb_get_osd_cap(dwChannelID, (LPNET_TV_OSD_CAP_S)lpOutBuffer);
+    pCap->udwSupportedFontSizeNum = 4;
+    pCap->audwSupportedFontSizeList[0] = NET_TV_OSD_FONT_SIZE_ADAPTIVE;
+    pCap->audwSupportedFontSizeList[1] = NET_TV_OSD_FONT_SIZE_16;
+    pCap->audwSupportedFontSizeList[2] = NET_TV_OSD_FONT_SIZE_32;
+    pCap->audwSupportedFontSizeList[3] = NET_TV_OSD_FONT_SIZE_48;
+
+    pCap->udwSupportedDateFormatNum = 9;
+    pCap->audwSupportedDateFormatList[0] = NET_TV_OSD_DATE_YYYY_MM_DD;
+    pCap->audwSupportedDateFormatList[1] = NET_TV_OSD_DATE_MM_DD_YYYY;
+    pCap->audwSupportedDateFormatList[2] = NET_TV_OSD_DATE_DD_MM_YYYY;
+    pCap->audwSupportedDateFormatList[3] = NET_TV_OSD_DATE_YYYY_MM_DD_CHN;
+    pCap->audwSupportedDateFormatList[4] = NET_TV_OSD_DATE_MM_DD_YYYY_CHN;
+    pCap->audwSupportedDateFormatList[5] = NET_TV_OSD_DATE_DD_MM_YYYY_CHN;
+    pCap->audwSupportedDateFormatList[6] = NET_TV_OSD_DATE_YYYY_MM_DD_SLASH;
+    pCap->audwSupportedDateFormatList[7] = NET_TV_OSD_DATE_MM_DD_YYYY_SLASH;
+    pCap->audwSupportedDateFormatList[8] = NET_TV_OSD_DATE_DD_MM_YYYY_SLASH;
+
+    pCap->udwSupportedTimeFormatNum = 2;
+    pCap->audwSupportedTimeFormatList[0] = NET_TV_OSD_TIME_FORMAT_24;
+    pCap->audwSupportedTimeFormatList[1] = NET_TV_OSD_TIME_FORMAT_12;
+
+    pCap->udwSupportedAlignNum = 6;
+    pCap->audwSupportedAlignList[0] = NET_TV_OSD_ALIGN_CUSTOMIZE;
+    pCap->audwSupportedAlignList[1] = NET_TV_OSD_ALIGN_CHAR_LEFT;
+    pCap->audwSupportedAlignList[2] = NET_TV_OSD_ALIGN_CHAR_RIGHT;
+    pCap->audwSupportedAlignList[3] = NET_TV_OSD_ALIGN_ALL_LEFT;
+    pCap->audwSupportedAlignList[4] = NET_TV_OSD_ALIGN_ALL_RIGHT;
+    pCap->audwSupportedAlignList[5] = NET_TV_OSD_ALIGN_GB_MODE;
+
+    return NET_TV_E_SUCCEED;
 }
 
 static NET_TV_COMMON_ECODE_E cb_get_device_cfg(INT32 dwChannelID, LPVOID lpOutBuffer)
@@ -527,90 +509,6 @@ static NET_TV_COMMON_ECODE_E cb_set_ntp_cfg(INT32 dwChannelID, LPVOID lpInBuffer
 {
     return set_cfg_by_action(dwChannelID, AC_SET_TIME_INFO, lpInBuffer);
 }
-
-static bool parse_stream_cfg_json(const std::string &strJson, Video_NS::VideoConfig_S &stCfg)
-{
-    if (strJson.empty())
-    {
-        dlog_warn("[TVSDK][VideoCfg] parse failed: empty data json");
-        return false;
-    }
-
-    Json::Object *pRoot = Json::init(strJson.c_str());
-    if (!pRoot)
-    {
-        dlog_warn("[TVSDK][VideoCfg] parse failed: invalid data json, len=%u", (unsigned)strJson.size());
-        return false;
-    }
-
-    const bool bIsConfigList = (Json::get(pRoot, "VideoConfig") != nullptr);
-    Json::deinit(pRoot);
-    dlog_info("[TVSDK][VideoCfg] data json len=%u, has VideoConfig list=%d",
-              (unsigned)strJson.size(), bIsConfigList ? 1 : 0);
-
-    if (bIsConfigList)
-    {
-        std::vector<Video_NS::VideoConfig_S> vecCfg;
-        Convert::to_struct(strJson, vecCfg);
-        if (vecCfg.empty())
-        {
-            dlog_warn("[TVSDK][VideoCfg] parse failed: VideoConfig list is empty");
-            return false;
-        }
-
-        dlog_info("[TVSDK][VideoCfg] parsed VideoConfig count=%u", (unsigned)vecCfg.size());
-        for (const auto &cfg : vecCfg)
-        {
-            dlog_info("[TVSDK][VideoCfg] candidate id=%d type=%d %dx%d fps=%d bitrateType=%d upper=%d avg=%d codec=%d smart=%d iframe=%d svc=%d smooth=%d",
-                      cfg.nId,
-                      (int)cfg.enVideoType,
-                      cfg.stVideoResolution.nWidth,
-                      cfg.stVideoResolution.nHeight,
-                      cfg.getFrameRateAsInt(),
-                      (int)cfg.enBitrateType,
-                      cfg.nBitrateUpperLimit,
-                      cfg.nAverageBitrate,
-                      (int)cfg.enVideoCodec,
-                      cfg.bSmartEnable ? 1 : 0,
-                      cfg.nIFrameInterval,
-                      (int)cfg.enSvcEnable,
-                      cfg.nBitrateSmoothing);
-        }
-
-        for (const auto &cfg : vecCfg)
-        {
-            if (cfg.nId == NET_TV_LIVE_STREAM_INDEX_MAIN)
-            {
-                stCfg = cfg;
-                dlog_info("[TVSDK][VideoCfg] selected main stream id=%d", stCfg.nId);
-                return true;
-            }
-        }
-
-        stCfg = vecCfg.front();
-        dlog_warn("[TVSDK][VideoCfg] main stream id=%d not found, use first id=%d",
-                  NET_TV_LIVE_STREAM_INDEX_MAIN, stCfg.nId);
-        return true;
-    }
-
-    Convert::to_struct(strJson, stCfg);
-    dlog_info("[TVSDK][VideoCfg] parsed single config id=%d type=%d %dx%d fps=%d bitrateType=%d upper=%d avg=%d codec=%d smart=%d iframe=%d svc=%d smooth=%d",
-              stCfg.nId,
-              (int)stCfg.enVideoType,
-              stCfg.stVideoResolution.nWidth,
-              stCfg.stVideoResolution.nHeight,
-              stCfg.getFrameRateAsInt(),
-              (int)stCfg.enBitrateType,
-              stCfg.nBitrateUpperLimit,
-              stCfg.nAverageBitrate,
-              (int)stCfg.enVideoCodec,
-              stCfg.bSmartEnable ? 1 : 0,
-              stCfg.nIFrameInterval,
-              (int)stCfg.enSvcEnable,
-              stCfg.nBitrateSmoothing);
-    return true;
-}
-
 static NET_TV_COMMON_ECODE_E cb_get_stream_cfg(INT32 dwChannelID, LPVOID lpOutBuffer)
 {
     (void)dwChannelID;
@@ -620,65 +518,21 @@ static NET_TV_COMMON_ECODE_E cb_get_stream_cfg(INT32 dwChannelID, LPVOID lpOutBu
     LPNET_TV_VIDEO_ENCODE_OPTION_S pOut = (LPNET_TV_VIDEO_ENCODE_OPTION_S)lpOutBuffer;
 
     std::string outJson;
-    int nExecResult = execute_get_result(AC_GET_VIDEO_CONFIG, "{}", outJson);
-    dlog_info("[TVSDK][VideoCfg] AC_GET_VIDEO_CONFIG exec=%d, outJson.len=%u",
-              nExecResult, (unsigned)outJson.size());
-    if (nExecResult != 0 || outJson.empty())
-    {
-        dlog_warn("[TVSDK][VideoCfg] get video config failed: exec=%d, outJson.empty=%d",
-                  nExecResult, outJson.empty() ? 1 : 0);
+    if (execute_get_result(AC_GET_VIDEO_CONFIG, "{}", outJson) != 0 || outJson.empty())
         return NET_TV_E_GET_CFG_FAILED;
-    }
 
     int nRet = -1;
     Json::get(outJson.c_str(), "Return", nRet);
     if (nRet != 0)
-    {
-        dlog_warn("[TVSDK][VideoCfg] get video config return failed: Return=%d, body=%s",
-                  nRet, outJson.c_str());
         return NET_TV_E_GET_CFG_FAILED;
-    }
 
     std::string strJson = normalize_data_json(outJson);
     if (strJson.empty())
-    {
-        dlog_warn("[TVSDK][VideoCfg] normalize Data failed, body=%s", outJson.c_str());
         return NET_TV_E_GET_CFG_FAILED;
-    }
-    dlog_info("[TVSDK][VideoCfg] normalized data=%s", strJson.c_str());
 
     Video_NS::VideoConfig_S stCfg;
-    if (!parse_stream_cfg_json(strJson, stCfg))
-        return NET_TV_E_GET_CFG_FAILED;
-    dlog_info("[TVSDK][VideoCfg] selected ipc config id=%d type=%d %dx%d fps=%d bitrateType=%d upper=%d avg=%d codec=%d smart=%d iframe=%d svc=%d smooth=%d",
-              stCfg.nId,
-              (int)stCfg.enVideoType,
-              stCfg.stVideoResolution.nWidth,
-              stCfg.stVideoResolution.nHeight,
-              stCfg.getFrameRateAsInt(),
-              (int)stCfg.enBitrateType,
-              stCfg.nBitrateUpperLimit,
-              stCfg.nAverageBitrate,
-              (int)stCfg.enVideoCodec,
-              stCfg.bSmartEnable ? 1 : 0,
-              stCfg.nIFrameInterval,
-              (int)stCfg.enSvcEnable,
-              stCfg.nBitrateSmoothing);
+    Convert::to_struct(strJson, stCfg);
     TvSdkConvert::FillVideoEncodeOption(stCfg, *pOut);
-    dlog_info("[TVSDK][VideoCfg] sdk output id=%d type=%d %dx%d fps=%d bitrateType=%d upper=%d avg=%d codec=%d smart=%d iframe=%d svc=%d smooth=%d",
-              pOut->nId,
-              pOut->enVideoType,
-              pOut->stVideoResolution.dwWidth,
-              pOut->stVideoResolution.dwHeight,
-              pOut->enFrameRate,
-              pOut->enBitrateType,
-              pOut->nBitrateUpperLimit,
-              pOut->nAverageBitrate,
-              pOut->enVideoCodec,
-              pOut->bSmartEnable,
-              pOut->nIFrameInterval,
-              pOut->enSvcEnable,
-              pOut->nBitrateSmoothing);
     return NET_TV_E_SUCCEED;
 }
 static NET_TV_COMMON_ECODE_E cb_set_stream_cfg(INT32 dwChannelID, LPVOID lpInBuffer)
@@ -696,12 +550,11 @@ static NET_TV_COMMON_ECODE_E cb_set_stream_cfg(INT32 dwChannelID, LPVOID lpInBuf
     int nExec = s_taskManage ? s_taskManage->execute(AC_SET_VIDEO_CONFIG, stInfo) : -1;
     return (nExec == 0) ? NET_TV_E_SUCCEED : NET_TV_E_SET_CFG_FAILED;
 }
-
-static NET_TV_COMMON_ECODE_E cb_get_osd_cfg(INT32 dwChannelID, LPVOID lpOutBuffer)
+static NET_TV_COMMON_ECODE_E cb_get_osd_cap_cfg(INT32 dwChannelID, LPVOID lpOutBuffer)
 {
     (void)dwChannelID;
     if (!lpOutBuffer)
-        return NET_TV_E_NULL_POINT;
+        return NET_TV_E_INVALID_PARAM;
 
     LPNET_TV_VIDEO_OSD_CFG_S pOut = (LPNET_TV_VIDEO_OSD_CFG_S)lpOutBuffer;
 
@@ -714,33 +567,29 @@ static NET_TV_COMMON_ECODE_E cb_get_osd_cfg(INT32 dwChannelID, LPVOID lpOutBuffe
     if (nRet != 0)
         return NET_TV_E_GET_CFG_FAILED;
 
-    std::string dataJson = normalize_data_json(outJson);
-    if (dataJson.empty())
+    std::string strJson = normalize_data_json(outJson);
+    if (strJson.empty())
         return NET_TV_E_GET_CFG_FAILED;
 
-    Osd::OsdConfig_S stOsdConfig;
-    Convert::to_struct(dataJson, stOsdConfig);
-    /* 防御配置文件损坏导致 vecOsdInfo 超过 SDK 结构体上限 */
-    if (stOsdConfig.vecOsdInfo.size() > 4)
-    {
-        stOsdConfig.vecOsdInfo.resize(4);
-    }
-    TvSdkConvert::FillOsdConfig(stOsdConfig, *pOut);
+    Osd::OsdConfig_S stCfg;
+    stCfg.clear();
+    Convert::to_struct(strJson, stCfg);
+    TvSdkConvert::FillOsdConfig(stCfg, *pOut);
     return NET_TV_E_SUCCEED;
 }
 
-static NET_TV_COMMON_ECODE_E cb_set_osd_cfg(INT32 dwChannelID, LPVOID lpInBuffer)
+static NET_TV_COMMON_ECODE_E cb_set_osd_cap_cfg(INT32 dwChannelID, LPVOID lpInBuffer)
 {
     (void)dwChannelID;
     if (!lpInBuffer)
         return NET_TV_E_INVALID_PARAM;
 
     const NET_TV_VIDEO_OSD_CFG_S *pIn = (const NET_TV_VIDEO_OSD_CFG_S *)lpInBuffer;
-    Osd::OsdConfig_S stOsdConfig;
-    TvSdkConvert::ToOsdConfig(*pIn, stOsdConfig);
+    Osd::OsdConfig_S stCfg;
+    TvSdkConvert::ToOsdConfig(*pIn, stCfg);
 
     Task::Info_S stInfo;
-    stInfo.data = wrap_data_json(Convert::to_string(stOsdConfig));
+    stInfo.data = wrap_data_json(Convert::to_string(stCfg));
     int nExec = s_taskManage ? s_taskManage->execute(AC_SET_OSD_CONFIG, stInfo) : -1;
     return (nExec == 0) ? NET_TV_E_SUCCEED : NET_TV_E_SET_CFG_FAILED;
 }
@@ -893,393 +742,6 @@ static NET_TV_COMMON_ECODE_E cb_set_hotspot_info(INT32 dwChannelID, LPVOID lpInB
     return (nExec == 0) ? NET_TV_E_SUCCEED : NET_TV_E_SET_CFG_FAILED;
 }
 
-static NET_TV_COMMON_ECODE_E cb_get_hotspot_conn(INT32 dwChannelID, LPVOID lpOutBuffer)
-{
-    (void)dwChannelID;
-    if (!lpOutBuffer)
-        return NET_TV_E_INVALID_PARAM;
-
-    LPNET_TV_HOTSPOT_CONN_INFO_S pOut = (LPNET_TV_HOTSPOT_CONN_INFO_S)lpOutBuffer;
-    std::string outJson;
-    if (execute_get_result(AC_GET_HOTSPOT_CONN, "{}", outJson) != 0 || outJson.empty())
-        return NET_TV_E_GET_CFG_FAILED;
-
-    if (!TvSdkConvert::FillHotspotConnInfoFromJson(outJson, *pOut))
-        return NET_TV_E_GET_CFG_FAILED;
-
-    return NET_TV_E_SUCCEED;
-}
-
-static NET_TV_COMMON_ECODE_E cb_get_security_services_info(INT32 dwChannelID, LPVOID lpOutBuffer)
-{
-    (void)dwChannelID;
-    if (!lpOutBuffer)
-        return NET_TV_E_INVALID_PARAM;
-
-    LPNET_TV_SECURITY_SERVICES_INFO_S pOut = (LPNET_TV_SECURITY_SERVICES_INFO_S)lpOutBuffer;
-    std::string outJson;
-    if (execute_get_result(AC_GET_SECURITY_SERVICES_INFO, "{}", outJson) != 0 || outJson.empty())
-        return NET_TV_E_GET_CFG_FAILED;
-
-    int nRet = -1;
-    Json::get(outJson.c_str(), "Return", nRet);
-    if (nRet != 0)
-        return NET_TV_E_GET_CFG_FAILED;
-
-    std::string dataJson = normalize_data_json(outJson);
-    if (dataJson.empty())
-        return NET_TV_E_GET_CFG_FAILED;
-
-    ::System::SecurityServices_S stInfo;
-    Convert::to_struct(dataJson, stInfo);
-    TvSdkConvert::FillSecurityServices(stInfo, *pOut);
-    return NET_TV_E_SUCCEED;
-}
-
-static NET_TV_COMMON_ECODE_E cb_set_security_services_info(INT32 dwChannelID, LPVOID lpInBuffer)
-{
-    (void)dwChannelID;
-    if (!lpInBuffer)
-        return NET_TV_E_INVALID_PARAM;
-
-    const NET_TV_SECURITY_SERVICES_INFO_S *pIn = (const NET_TV_SECURITY_SERVICES_INFO_S *)lpInBuffer;
-    ::System::SecurityServices_S stInfo;
-    TvSdkConvert::ToSecurityServices(*pIn, stInfo);
-
-    std::string inJson = wrap_data_json(Convert::to_string(stInfo));
-    return (execute_action_expect_success(AC_SET_SECURITY_SERVICES_INFO, inJson) == 0) ? NET_TV_E_SUCCEED : NET_TV_E_SET_CFG_FAILED;
-}
-
-static NET_TV_COMMON_ECODE_E cb_get_ssh_countdown(INT32 dwChannelID, LPVOID lpOutBuffer)
-{
-    (void)dwChannelID;
-    if (!lpOutBuffer)
-        return NET_TV_E_INVALID_PARAM;
-
-    LPNET_TV_SSH_COUNTDOWN_INFO_S pOut = (LPNET_TV_SSH_COUNTDOWN_INFO_S)lpOutBuffer;
-    std::string outJson;
-    if (execute_get_result(AC_GET_SSH_COUNTDOWN, "{}", outJson) != 0 || outJson.empty())
-        return NET_TV_E_GET_CFG_FAILED;
-
-    int nRet = -1;
-    Json::get(outJson.c_str(), "Return", nRet);
-    if (nRet != 0)
-        return NET_TV_E_GET_CFG_FAILED;
-
-    std::string dataJson = normalize_data_json(outJson);
-    if (dataJson.empty())
-        return NET_TV_E_GET_CFG_FAILED;
-
-    ::System::SshCountdown_S stInfo;
-    Convert::to_struct(dataJson, stInfo);
-    TvSdkConvert::FillSshCountdown(stInfo, *pOut);
-    return NET_TV_E_SUCCEED;
-}
-
-static NET_TV_COMMON_ECODE_E cb_query_log_by_action(int actionCode, LPVOID lpOutBuffer)
-{
-    if (!lpOutBuffer)
-        return NET_TV_E_INVALID_PARAM;
-
-    LPNET_TV_LOG_LIST_S pOut = (LPNET_TV_LOG_LIST_S)lpOutBuffer;
-
-    Log::RetrievalCond_S stCond;
-    Common::PageInfo_S stPage;
-    TvSdkConvert::ToLogRetrievalCond(pOut->stCond, stCond);
-    TvSdkConvert::ToPageInfo(pOut->stPage, stPage);
-    if (stPage.nCurPage == 0)
-        stPage.nCurPage = 1;
-    if (stPage.nPageSize <= 0)
-        stPage.nPageSize = NET_TV_LOG_QUERY_COND_NUM;
-
-    std::string outJson;
-    std::string inJson = wrap_data_json(Convert::to_string(stCond, stPage));
-    if (execute_get_result(actionCode, inJson, outJson) != 0 || outJson.empty())
-        return NET_TV_E_GET_CFG_FAILED;
-
-    int nRet = -1;
-    Json::get(outJson.c_str(), "Return", nRet);
-    if (nRet != 0)
-        return NET_TV_E_GET_CFG_FAILED;
-
-    std::string dataJson = normalize_data_json(outJson);
-    if (dataJson.empty())
-        return NET_TV_E_GET_CFG_FAILED;
-
-    std::vector<Log::Info_S> vecLogInfo;
-    Common::PageInfo_S stRespPage = stPage;
-    Convert::to_struct(dataJson, vecLogInfo, stRespPage);
-    TvSdkConvert::FillLogList(vecLogInfo, stRespPage, *pOut);
-    return NET_TV_E_SUCCEED;
-}
-
-static NET_TV_COMMON_ECODE_E cb_find_log(INT32 dwChannelID, LPVOID lpOutBuffer)
-{
-    (void)dwChannelID;
-    return cb_query_log_by_action(AC_FIND_LOG, lpOutBuffer);
-}
-
-static NET_TV_COMMON_ECODE_E cb_export_log(INT32 dwChannelID, LPVOID lpOutBuffer)
-{
-    (void)dwChannelID;
-    return cb_query_log_by_action(AC_EXPORT_LOG, lpOutBuffer);
-}
-
-static NET_TV_COMMON_ECODE_E cb_get_log_server(INT32 dwChannelID, LPVOID lpOutBuffer)
-{
-    (void)dwChannelID;
-    if (!lpOutBuffer)
-        return NET_TV_E_INVALID_PARAM;
-
-    LPNET_TV_LOG_SERVER_INFO_S pOut = (LPNET_TV_LOG_SERVER_INFO_S)lpOutBuffer;
-    std::string outJson;
-    if (execute_get_result(AC_GET_LOG_SERVER, "{}", outJson) != 0 || outJson.empty())
-        return NET_TV_E_GET_CFG_FAILED;
-
-    int nRet = -1;
-    Json::get(outJson.c_str(), "Return", nRet);
-    if (nRet != 0)
-        return NET_TV_E_GET_CFG_FAILED;
-
-    std::string dataJson = normalize_data_json(outJson);
-    if (dataJson.empty())
-        return NET_TV_E_GET_CFG_FAILED;
-
-    ::System::LogServerInfo_S stInfo;
-    Convert::to_struct(dataJson, stInfo);
-    TvSdkConvert::FillLogServerInfo(stInfo, *pOut);
-    return NET_TV_E_SUCCEED;
-}
-
-static NET_TV_COMMON_ECODE_E cb_set_log_server(INT32 dwChannelID, LPVOID lpInBuffer)
-{
-    (void)dwChannelID;
-    if (!lpInBuffer)
-        return NET_TV_E_INVALID_PARAM;
-
-    const NET_TV_LOG_SERVER_INFO_S *pIn = (const NET_TV_LOG_SERVER_INFO_S *)lpInBuffer;
-    ::System::LogServerInfo_S stInfo;
-    TvSdkConvert::ToLogServerInfo(*pIn, stInfo);
-
-    std::string inJson = wrap_data_json(Convert::to_string(stInfo));
-    return (execute_action_expect_success(AC_SET_LOG_SERVER, inJson) == 0) ? NET_TV_E_SUCCEED : NET_TV_E_SET_CFG_FAILED;
-}
-
-static NET_TV_COMMON_ECODE_E cb_test_log_server(INT32 dwChannelID, LPVOID lpInBuffer)
-{
-    (void)dwChannelID;
-    if (!lpInBuffer)
-        return NET_TV_E_INVALID_PARAM;
-
-    const NET_TV_LOG_SERVER_INFO_S *pIn = (const NET_TV_LOG_SERVER_INFO_S *)lpInBuffer;
-    ::System::LogServerInfo_S stInfo;
-    TvSdkConvert::ToLogServerInfo(*pIn, stInfo);
-
-    std::string inJson = wrap_data_json(Convert::to_string(stInfo));
-    return (execute_action_expect_success(AC_TEST_LOG_SERVER, inJson) == 0) ? NET_TV_E_SUCCEED : NET_TV_E_SET_CFG_FAILED;
-}
-
-static NET_TV_COMMON_ECODE_E cb_control_record_info(INT32 dwChannelID, LPVOID lpInBuffer)
-{
-    (void)dwChannelID;
-    if (!lpInBuffer)
-        return NET_TV_E_INVALID_PARAM;
-
-    const NET_TV_RECORD_INFO_S *pIn = (const NET_TV_RECORD_INFO_S *)lpInBuffer;
-    Record_NS::Info_S stInfo;
-    TvSdkConvert::ToRecordInfo(*pIn, stInfo);
-
-    std::string inJson = wrap_data_json(Convert::to_string(stInfo));
-    return (execute_action_expect_success(AC_SET_HUMAN_RECORD, inJson) == 0) ? NET_TV_E_SUCCEED : NET_TV_E_SET_CFG_FAILED;
-}
-
-static NET_TV_COMMON_ECODE_E cb_get_record_status(INT32 dwChannelID, LPVOID lpOutBuffer)
-{
-    (void)dwChannelID;
-    if (!lpOutBuffer)
-        return NET_TV_E_INVALID_PARAM;
-
-    LPNET_TV_RECORD_STATUS_INFO_S pOut = (LPNET_TV_RECORD_STATUS_INFO_S)lpOutBuffer;
-    std::string outJson;
-    if (execute_get_result(AC_GET_RECORD_STATUS, "{}", outJson) != 0 || outJson.empty())
-        return NET_TV_E_GET_CFG_FAILED;
-
-    int nRet = -1;
-    Json::get(outJson.c_str(), "Return", nRet);
-    if (nRet != 0)
-        return NET_TV_E_GET_CFG_FAILED;
-
-    std::string dataJson = normalize_data_json(outJson);
-    if (dataJson.empty())
-        return NET_TV_E_GET_CFG_FAILED;
-
-    Record_NS::RecordStatusInfo_S stInfo;
-    Convert::to_struct(dataJson, stInfo);
-    TvSdkConvert::FillRecordStatusInfo(stInfo, *pOut);
-    return NET_TV_E_SUCCEED;
-}
-
-static NET_TV_COMMON_ECODE_E cb_get_record_schedule(INT32 dwChannelID, LPVOID lpOutBuffer)
-{
-    (void)dwChannelID;
-    if (!lpOutBuffer)
-        return NET_TV_E_INVALID_PARAM;
-
-    LPNET_TV_RECORD_SCHEDULE_S pOut = (LPNET_TV_RECORD_SCHEDULE_S)lpOutBuffer;
-    std::string outJson;
-    if (execute_get_result(AC_GET_RECORD_SCHEDULE, "{}", outJson) != 0 || outJson.empty())
-        return NET_TV_E_GET_CFG_FAILED;
-
-    int nRet = -1;
-    Json::get(outJson.c_str(), "Return", nRet);
-    if (nRet != 0)
-        return NET_TV_E_GET_CFG_FAILED;
-
-    std::string dataJson = normalize_data_json(outJson);
-    if (dataJson.empty())
-        return NET_TV_E_GET_CFG_FAILED;
-
-    Record_NS::Schedule_S stInfo;
-    Convert::to_struct(dataJson, stInfo);
-    TvSdkConvert::FillRecordSchedule(stInfo, *pOut);
-    return NET_TV_E_SUCCEED;
-}
-
-static NET_TV_COMMON_ECODE_E cb_set_record_schedule(INT32 dwChannelID, LPVOID lpInBuffer)
-{
-    (void)dwChannelID;
-    if (!lpInBuffer)
-        return NET_TV_E_INVALID_PARAM;
-
-    const NET_TV_RECORD_SCHEDULE_S *pIn = (const NET_TV_RECORD_SCHEDULE_S *)lpInBuffer;
-    Record_NS::Schedule_S stInfo;
-    TvSdkConvert::ToRecordSchedule(*pIn, stInfo);
-
-    std::string inJson = wrap_data_json(Convert::to_string(stInfo));
-    return (execute_action_expect_success(AC_SET_RECORD_SCHEDULE, inJson) == 0) ? NET_TV_E_SUCCEED : NET_TV_E_SET_CFG_FAILED;
-}
-
-static NET_TV_COMMON_ECODE_E cb_get_record_advanced_param(INT32 dwChannelID, LPVOID lpOutBuffer)
-{
-    (void)dwChannelID;
-    if (!lpOutBuffer)
-        return NET_TV_E_INVALID_PARAM;
-
-    LPNET_TV_RECORD_ADVANCED_PARAM_S pOut = (LPNET_TV_RECORD_ADVANCED_PARAM_S)lpOutBuffer;
-    std::string outJson;
-    if (execute_get_result(AC_GET_RECORD_ADVANCED_PARAM, "{}", outJson) != 0 || outJson.empty())
-        return NET_TV_E_GET_CFG_FAILED;
-
-    int nRet = -1;
-    Json::get(outJson.c_str(), "Return", nRet);
-    if (nRet != 0)
-        return NET_TV_E_GET_CFG_FAILED;
-
-    std::string dataJson = normalize_data_json(outJson);
-    if (dataJson.empty())
-        return NET_TV_E_GET_CFG_FAILED;
-
-    Record_NS::AdvancedParam_S stInfo;
-    Convert::to_struct(dataJson, stInfo);
-    TvSdkConvert::FillRecordAdvancedParam(stInfo, *pOut);
-    return NET_TV_E_SUCCEED;
-}
-
-static NET_TV_COMMON_ECODE_E cb_set_record_advanced_param(INT32 dwChannelID, LPVOID lpInBuffer)
-{
-    (void)dwChannelID;
-    if (!lpInBuffer)
-        return NET_TV_E_INVALID_PARAM;
-
-    const NET_TV_RECORD_ADVANCED_PARAM_S *pIn = (const NET_TV_RECORD_ADVANCED_PARAM_S *)lpInBuffer;
-    Record_NS::AdvancedParam_S stInfo;
-    TvSdkConvert::ToRecordAdvancedParam(*pIn, stInfo);
-
-    std::string inJson = wrap_data_json(Convert::to_string(stInfo));
-    return (execute_action_expect_success(AC_SET_RECORD_ADVANCED_PARAM, inJson) == 0) ? NET_TV_E_SUCCEED : NET_TV_E_SET_CFG_FAILED;
-}
-
-static NET_TV_COMMON_ECODE_E cb_find_record_file_info(INT32 dwChannelID, LPVOID lpOutBuffer)
-{
-    (void)dwChannelID;
-    if (!lpOutBuffer)
-        return NET_TV_E_INVALID_PARAM;
-
-    LPNET_TV_RECORD_FILE_LIST_S pOut = (LPNET_TV_RECORD_FILE_LIST_S)lpOutBuffer;
-    Record_NS::Find_S stFind;
-    TvSdkConvert::ToRecordFind(pOut->stFind, stFind);
-
-    std::string outJson;
-    std::string inJson = wrap_data_json(Convert::to_string(stFind));
-    if (execute_get_result(AC_FIND_RECORD_FILE_INFO, inJson, outJson) != 0 || outJson.empty())
-        return NET_TV_E_GET_CFG_FAILED;
-
-    int nRet = -1;
-    Json::get(outJson.c_str(), "Return", nRet);
-    if (nRet != 0)
-        return NET_TV_E_GET_CFG_FAILED;
-
-    std::string dataJson = normalize_data_json(outJson);
-    if (dataJson.empty())
-        return NET_TV_E_GET_CFG_FAILED;
-
-    std::vector<Record_NS::FindResult_S> vecInfo;
-    Convert::to_struct(dataJson, vecInfo);
-    TvSdkConvert::FillRecordFileList(vecInfo, *pOut);
-    return NET_TV_E_SUCCEED;
-}
-
-static NET_TV_COMMON_ECODE_E cb_download_record_file(INT32 dwChannelID, LPVOID lpInBuffer)
-{
-    (void)dwChannelID;
-    if (!lpInBuffer)
-        return NET_TV_E_INVALID_PARAM;
-
-    LPNET_TV_RECORD_DOWNLOAD_LIST_S pIn = (LPNET_TV_RECORD_DOWNLOAD_LIST_S)lpInBuffer;
-    std::vector<Record_NS::DownloadInfo_S> vecInfo;
-    TvSdkConvert::ToRecordDownloadList(*pIn, vecInfo);
-
-    std::string outJson;
-    std::string inJson = wrap_data_json(Convert::to_string(vecInfo));
-    if (execute_action_expect_success(AC_DOWNLOAD_RECORD_FILE, inJson, &outJson) != 0)
-        return NET_TV_E_SET_CFG_FAILED;
-
-    std::string dataJson = normalize_data_json(outJson);
-    if (!dataJson.empty())
-    {
-        std::vector<Record_NS::DownloadProgress_S> vecProgress;
-        Convert::to_struct(dataJson, vecProgress);
-        TvSdkConvert::FillRecordDownloadListProgress(vecProgress, *pIn);
-    }
-    return NET_TV_E_SUCCEED;
-}
-
-static int cb_notice_download_record_progress_publish(const void *pData, int nLen, int nActionCode, void *pHandle)
-{
-    (void)pHandle;
-    if (nActionCode != AC_NOTICE_DOWNLOAD_RECORD_PROGRESS || !pData || nLen <= 0)
-        return 0;
-
-    std::string outJson(static_cast<const char *>(pData), static_cast<size_t>(nLen));
-    std::string dataJson = normalize_data_json(outJson);
-    if (dataJson.empty())
-        dataJson = outJson;
-
-    Record_NS::DownloadProgress_S stProgress;
-    Convert::to_struct(dataJson, stProgress);
-
-    NET_TV_RECORD_DOWNLOAD_PROGRESS_S stTvProgress;
-    TvSdkConvert::FillRecordDownloadProgress(stProgress, stTvProgress);
-
-    NET_TV_ALARMER_S stAlarmer;
-    std::memset(&stAlarmer, 0, sizeof(stAlarmer));
-    BOOL bRet = NET_TV_SERVER_PushAlarmInfo(&stAlarmer,
-                                            NET_TV_NOTICE_DOWNLOAD_RECORD_PROGRESS,
-                                            &stTvProgress,
-                                            (INT32)sizeof(stTvProgress));
-    return bRet ? 0 : -1;
-}
-
 static NET_TV_COMMON_ECODE_E cb_get_preview_info(INT32 dwChannelID, LPVOID lpOutBuffer)
 {
     (void)dwChannelID;
@@ -1322,46 +784,12 @@ static NET_TV_COMMON_ECODE_E cb_set_preview_info(INT32 dwChannelID, LPVOID lpInB
 
 static NET_TV_COMMON_ECODE_E cb_get_privacy_mask_cfg(INT32 dwChannelID, LPVOID lpOutBuffer)
 {
-    (void)dwChannelID;
-    if (!lpOutBuffer)
-        return NET_TV_E_NULL_POINT;
-
-    LPNET_TV_PRIVACY_MASK_CFG_S pOut = (LPNET_TV_PRIVACY_MASK_CFG_S)lpOutBuffer;
-    std::string outJson;
-    if (execute_get_result(AC_GET_COVER_CONFIG, "{}", outJson) != 0 || outJson.empty())
-        return NET_TV_E_GET_CFG_FAILED;
-
-    int nRet = -1;
-    Json::get(outJson.c_str(), "Return", nRet);
-    if (nRet != 0)
-        return NET_TV_E_GET_CFG_FAILED;
-
-    std::string dataJson = normalize_data_json(outJson);
-    if (dataJson.empty())
-        return NET_TV_E_GET_CFG_FAILED;
-
-    Osd::CoverConfig_S stCoverConfig;
-    Convert::to_struct(dataJson, stCoverConfig);
-    TvSdkConvert::FillPrivacyMaskCfg(stCoverConfig, *pOut);
-    return NET_TV_E_SUCCEED;
+    return get_cfg_by_action(dwChannelID, AC_GET_SHELTER_INFO, lpOutBuffer);
 }
-
 static NET_TV_COMMON_ECODE_E cb_set_privacy_mask_cfg(INT32 dwChannelID, LPVOID lpInBuffer)
 {
-    (void)dwChannelID;
-    if (!lpInBuffer)
-        return NET_TV_E_INVALID_PARAM;
-
-    const NET_TV_PRIVACY_MASK_CFG_S *pIn = (const NET_TV_PRIVACY_MASK_CFG_S *)lpInBuffer;
-    Osd::CoverConfig_S stCoverConfig;
-    TvSdkConvert::ToPrivacyMaskCfg(*pIn, stCoverConfig);
-
-    Task::Info_S stInfo;
-    stInfo.data = wrap_data_json(Convert::to_string(stCoverConfig));
-    int nExec = s_taskManage ? s_taskManage->execute(AC_SET_COVER_CONFIG, stInfo) : -1;
-    return (nExec == 0) ? NET_TV_E_SUCCEED : NET_TV_E_SET_CFG_FAILED;
+    return set_cfg_by_action(dwChannelID, AC_SET_SHELTER_INFO, lpInBuffer);
 }
-
 static NET_TV_COMMON_ECODE_E cb_get_tamper_alarm(INT32 dwChannelID, LPVOID lpOutBuffer)
 {
     (void)dwChannelID;
@@ -2383,6 +1811,7 @@ static NET_TV_COMMON_ECODE_E cb_set_reflective_clothing_cfg(INT32 dwChannelID, L
     int nExec = s_taskManage ? s_taskManage->execute(AC_SET_REFLECTIVE_CLOTHING_CFG, stInfo) : -1;
     return (nExec == 0) ? NET_TV_E_SUCCEED : NET_TV_E_SET_CFG_FAILED;
 }
+#endif
 
 static NET_TV_COMMON_ECODE_E cb_get_pet_recognition_info(INT32 dwChannelID, LPVOID lpOutBuffer)
 {
@@ -2783,7 +2212,6 @@ static NET_TV_COMMON_ECODE_E cb_set_road_ponding_cfg(INT32 dwChannelID, LPVOID l
     int nExec = s_taskManage ? s_taskManage->execute(AC_SET_ROAD_PONDING_CFG, stInfo) : -1;
     return (nExec == 0) ? NET_TV_E_SUCCEED : NET_TV_E_SET_CFG_FAILED;
 }
-#endif
 
 #if CAP_AI_PEOPLE_STATISTICS
 /* ---------- Get/SetPeopleFlowStatisticsCfg：AC_GET/SET_PEOPLE_FLOW_STATISTICS_INFO ---------- */
@@ -3681,7 +3109,6 @@ static NET_TV_COMMON_ECODE_E cb_get_face_capture_info(INT32 dwChannelID, LPVOID 
     TvSdkConvert::FillFaceCaptureInfo(stCfg, *pOut);
     return NET_TV_E_SUCCEED;
 }
-
 static NET_TV_COMMON_ECODE_E cb_set_face_capture_info(INT32 dwChannelID, LPVOID lpInBuffer)
 {
     (void)dwChannelID;
@@ -3697,164 +3124,14 @@ static NET_TV_COMMON_ECODE_E cb_set_face_capture_info(INT32 dwChannelID, LPVOID 
     return (nExec == 0) ? NET_TV_E_SUCCEED : NET_TV_E_SET_CFG_FAILED;
 }
 
-static NET_TV_COMMON_ECODE_E cb_set_face_compare_info(INT32 dwChannelID, LPVOID lpInBuffer)
-{
-    (void)dwChannelID;
-    if (!lpInBuffer)
-        return NET_TV_E_INVALID_PARAM;
-    const NET_TV_FACE_COMPARE_INFO_S *pIn = (const NET_TV_FACE_COMPARE_INFO_S *)lpInBuffer;
-    Alarm::FaceCompare_S stCfg;
-    TvSdkConvert::ToFaceCompare(*pIn, stCfg);
-    std::string inJson = Convert::to_string(stCfg);
-    Task::Info_S stInfo;
-    stInfo.data = wrap_data_json(inJson);
-    int nExec = s_taskManage ? s_taskManage->execute(AC_SET_FACE_COMPARE_INFO, stInfo) : -1;
-    return (nExec == 0) ? NET_TV_E_SUCCEED : NET_TV_E_SET_CFG_FAILED;
-}
-
-static NET_TV_COMMON_ECODE_E cb_add_target_lib(INT32 dwChannelID, LPVOID lpInBuffer)
-{
-    (void)dwChannelID;
-    if (!lpInBuffer)
-        return NET_TV_E_INVALID_PARAM;
-    const NET_TV_FACE_LIB_INFO_S *pIn = (const NET_TV_FACE_LIB_INFO_S *)lpInBuffer;
-    Event::FaceLibInfo_S stInfoIn;
-    TvSdkConvert::ToFaceLibInfo(*pIn, stInfoIn);
-    std::string inJson = Convert::to_string(stInfoIn);
-    Task::Info_S stInfo;
-    stInfo.data = wrap_data_json(inJson);
-    int nExec = s_taskManage ? s_taskManage->execute(AC_ADD_TARGET_LIB, stInfo) : -1;
-    return (nExec == 0) ? NET_TV_E_SUCCEED : NET_TV_E_SET_CFG_FAILED;
-}
-
-static NET_TV_COMMON_ECODE_E cb_del_target_lib(INT32 dwChannelID, LPVOID lpInBuffer)
-{
-    (void)dwChannelID;
-    if (!lpInBuffer)
-        return NET_TV_E_INVALID_PARAM;
-    const NET_TV_FACE_LIB_INFO_S *pIn = (const NET_TV_FACE_LIB_INFO_S *)lpInBuffer;
-    Event::FaceLibInfo_S stInfoIn;
-    TvSdkConvert::ToFaceLibInfo(*pIn, stInfoIn);
-    std::string inJson = Convert::to_string(stInfoIn);
-    Task::Info_S stInfo;
-    stInfo.data = wrap_data_json(inJson);
-    int nExec = s_taskManage ? s_taskManage->execute(AC_DEL_TARGET_LIB, stInfo) : -1;
-    return (nExec == 0) ? NET_TV_E_SUCCEED : NET_TV_E_SET_CFG_FAILED;
-}
-
-static NET_TV_COMMON_ECODE_E cb_set_target_lib(INT32 dwChannelID, LPVOID lpInBuffer)
-{
-    (void)dwChannelID;
-    if (!lpInBuffer)
-        return NET_TV_E_INVALID_PARAM;
-    const NET_TV_FACE_LIB_INFO_S *pIn = (const NET_TV_FACE_LIB_INFO_S *)lpInBuffer;
-    Event::FaceLibInfo_S stInfoIn;
-    TvSdkConvert::ToFaceLibInfo(*pIn, stInfoIn);
-    std::string inJson = Convert::to_string(stInfoIn);
-    Task::Info_S stInfo;
-    stInfo.data = wrap_data_json(inJson);
-    int nExec = s_taskManage ? s_taskManage->execute(AC_SET_TARGET_LIB, stInfo) : -1;
-    return (nExec == 0) ? NET_TV_E_SUCCEED : NET_TV_E_SET_CFG_FAILED;
-}
-
-static NET_TV_COMMON_ECODE_E cb_get_target_lib(INT32 dwChannelID, LPVOID lpOutBuffer)
-{
-    (void)dwChannelID;
-    if (!lpOutBuffer)
-        return NET_TV_E_INVALID_PARAM;
-    LPNET_TV_FACE_LIB_LIST_S pOut = (LPNET_TV_FACE_LIB_LIST_S)lpOutBuffer;
-
-    std::string outJson;
-    if (execute_get_result(AC_GET_TARGET_LIB, "{}", outJson) != 0 || outJson.empty())
-        return NET_TV_E_GET_CFG_FAILED;
-    int nRet = 0;
-    if (Json::get(outJson.c_str(), "Return", nRet) && nRet != 0)
-        return NET_TV_E_GET_CFG_FAILED;
-
-    std::string strJson = normalize_data_json(outJson);
-    if (strJson.empty())
-        strJson = outJson;
-    std::vector<Event::FaceLibInfo_S> vecInfo;
-    Convert::to_struct(strJson, vecInfo);
-    TvSdkConvert::FillFaceLibList(vecInfo, *pOut);
-    return NET_TV_E_SUCCEED;
-}
-
-static NET_TV_COMMON_ECODE_E cb_add_face_info(INT32 dwChannelID, LPVOID lpInBuffer)
-{
-    (void)dwChannelID;
-    if (!lpInBuffer)
-        return NET_TV_E_INVALID_PARAM;
-    const NET_TV_FACE_INFO_S *pIn = (const NET_TV_FACE_INFO_S *)lpInBuffer;
-    Event::FaceInfo_S stInfoIn;
-    TvSdkConvert::ToFaceInfo(*pIn, stInfoIn);
-    std::string inJson = Convert::to_string(stInfoIn);
-    Task::Info_S stInfo;
-    stInfo.data = wrap_data_json(inJson);
-    int nExec = s_taskManage ? s_taskManage->execute(AC_ADD_FACE_INFO, stInfo) : -1;
-    return (nExec == 0) ? NET_TV_E_SUCCEED : NET_TV_E_SET_CFG_FAILED;
-}
-
-static NET_TV_COMMON_ECODE_E cb_del_face_info(INT32 dwChannelID, LPVOID lpInBuffer)
-{
-    (void)dwChannelID;
-    if (!lpInBuffer)
-        return NET_TV_E_INVALID_PARAM;
-    const NET_TV_FACE_ID_INFO_S *pIn = (const NET_TV_FACE_ID_INFO_S *)lpInBuffer;
-    Event::FaceIdInfo_S stInfoIn;
-    TvSdkConvert::ToFaceIdInfo(*pIn, stInfoIn);
-    std::string inJson = Convert::to_string(stInfoIn);
-    Task::Info_S stInfo;
-    stInfo.data = wrap_data_json(inJson);
-    int nExec = s_taskManage ? s_taskManage->execute(AC_DEL_FACE_INFO, stInfo) : -1;
-    return (nExec == 0) ? NET_TV_E_SUCCEED : NET_TV_E_SET_CFG_FAILED;
-}
-
-static NET_TV_COMMON_ECODE_E cb_set_face_info(INT32 dwChannelID, LPVOID lpInBuffer)
-{
-    (void)dwChannelID;
-    if (!lpInBuffer)
-        return NET_TV_E_INVALID_PARAM;
-    const NET_TV_FACE_INFO_S *pIn = (const NET_TV_FACE_INFO_S *)lpInBuffer;
-    Event::FaceInfo_S stInfoIn;
-    TvSdkConvert::ToFaceInfo(*pIn, stInfoIn);
-    std::string inJson = Convert::to_string(stInfoIn);
-    Task::Info_S stInfo;
-    stInfo.data = wrap_data_json(inJson);
-    int nExec = s_taskManage ? s_taskManage->execute(AC_SET_FACE_INFO, stInfo) : -1;
-    return (nExec == 0) ? NET_TV_E_SUCCEED : NET_TV_E_SET_CFG_FAILED;
-}
-
-static NET_TV_COMMON_ECODE_E cb_get_face_info(INT32 dwChannelID, LPVOID lpOutBuffer)
-{
-    (void)dwChannelID;
-    if (!lpOutBuffer)
-        return NET_TV_E_INVALID_PARAM;
-    LPNET_TV_FACE_INFO_LIST_S pOut = (LPNET_TV_FACE_INFO_LIST_S)lpOutBuffer;
-
-    std::string outJson;
-    if (execute_get_result(AC_GET_FACE_INFO, "{}", outJson) != 0 || outJson.empty())
-        return NET_TV_E_GET_CFG_FAILED;
-    int nRet = 0;
-    if (Json::get(outJson.c_str(), "Return", nRet) && nRet != 0)
-        return NET_TV_E_GET_CFG_FAILED;
-
-    std::string strJson = normalize_data_json(outJson);
-    if (strJson.empty())
-        strJson = outJson;
-    std::vector<Event::FaceInfo_S> vecInfo;
-    Convert::to_struct(strJson, vecInfo);
-    TvSdkConvert::FillFaceInfoList(vecInfo, *pOut);
-    return NET_TV_E_SUCCEED;
-}
 
 void register_all()
 {
-    NET_TV_SERVER_RegisterCb_GetDeviceInfo(cb_get_device_info_impl);
+    NET_TV_SERVER_RegisterCb_GetDeviceInfo(
+        reinterpret_cast<NET_TV_COMMON_ECODE_E (*)(NET_TV_DEVICE_INFO_S)>(cb_get_device_info_impl));
     NET_TV_SERVER_RegisterCb_GetVideoEncodeCap(cb_get_video_encode_cap);
     NET_TV_SERVER_RegisterCb_GetAudioEncodeCap(cb_get_audio_encode_cap);
     NET_TV_SERVER_RegisterCb_GetOsdCap(cb_get_osd_cap);
-    NET_TV_SERVER_RegisterCb_GetOsdCapCfg(cb_get_osd_cap_cfg);
     NET_TV_SERVER_RegisterCb_GetDeviceCfg(cb_get_device_cfg);
     NET_TV_SERVER_RegisterCb_SetDeviceCfg(cb_set_device_cfg);
     NET_TV_SERVER_RegisterCb_GetNtpCfg(cb_get_ntp_cfg);
@@ -3862,9 +3139,9 @@ void register_all()
     NET_TV_SERVER_RegisterCb_GetStreamCfg(cb_get_stream_cfg);
     NET_TV_SERVER_RegisterCb_SetStreamCfg(cb_set_stream_cfg);
     NET_TV_SERVER_RegisterCb_GetRtspUrl(cb_get_rtsp_url);
-    NET_TV_SERVER_RegisterCb_GetOsdCfg(cb_get_osd_cfg);
-    NET_TV_SERVER_RegisterCb_SetOsdCfg(cb_set_osd_cfg);
-    
+    NET_TV_SERVER_RegisterCb_GetOsdCapCfg(cb_get_osd_cap_cfg);
+    NET_TV_SERVER_RegisterCb_SetOsdCapCfg(cb_set_osd_cap_cfg);
+
     NET_TV_SERVER_RegisterCb_GetImageCfg(cb_get_image_cfg);
     NET_TV_SERVER_RegisterCb_SetImageCfg(cb_set_image_cfg);
     NET_TV_SERVER_RegisterCb_GetNetworkCfg(cb_get_network_cfg);
@@ -3883,34 +3160,6 @@ void register_all()
     NET_TV_SERVER_RegisterCb_SetCrowGatheringAlarm(cb_set_crowd_gathering_alarm);
     NET_TV_SERVER_RegisterCb_GetCrossLineAlarm(cb_get_cross_line_alarm);
     NET_TV_SERVER_RegisterCb_SetCrossLineAlarm(cb_set_cross_line_alarm);
-
-    NET_TV_SERVER_RegisterCb_SetConfigWifiSta(cb_set_config_wifi_sta);
-    NET_TV_SERVER_RegisterCb_ConnectWifiSta(cb_connect_wifi_sta);
-    NET_TV_SERVER_RegisterCb_DisconnectWifiSta(cb_disconnect_wifi_sta);
-    NET_TV_SERVER_RegisterCb_SetHotspotInfo(cb_set_hotspot_info);
-    NET_TV_SERVER_RegisterCb_GetHotspotConn(cb_get_hotspot_conn);
-    NET_TV_SERVER_RegisterCb_Get4GInfo(cb_get_4g_info);
-    NET_TV_SERVER_RegisterCb_Set4GInfo(cb_set_4g_info);
-    NET_TV_SERVER_RegisterCb_GetSecurityServicesInfo(cb_get_security_services_info);
-    NET_TV_SERVER_RegisterCb_SetSecurityServicesInfo(cb_set_security_services_info);
-    NET_TV_SERVER_RegisterCb_GetSshCountdown(cb_get_ssh_countdown);
-    NET_TV_SERVER_RegisterCb_FindLog(cb_find_log);
-    NET_TV_SERVER_RegisterCb_ExportLog(cb_export_log);
-    NET_TV_SERVER_RegisterCb_GetLogServer(cb_get_log_server);
-    NET_TV_SERVER_RegisterCb_SetLogServer(cb_set_log_server);
-    NET_TV_SERVER_RegisterCb_TestLogServer(cb_test_log_server);
-    NET_TV_SERVER_RegisterCb_ControlRecordInfo(cb_control_record_info);
-    NET_TV_SERVER_RegisterCb_GetRecordStatus(cb_get_record_status);
-    NET_TV_SERVER_RegisterCb_GetRecordSchedule(cb_get_record_schedule);
-    NET_TV_SERVER_RegisterCb_SetRecordSchedule(cb_set_record_schedule);
-    NET_TV_SERVER_RegisterCb_GetRecordAdvancedParam(cb_get_record_advanced_param);
-    NET_TV_SERVER_RegisterCb_SetRecordAdvancedParam(cb_set_record_advanced_param);
-    NET_TV_SERVER_RegisterCb_FindRecordFileInfo(cb_find_record_file_info);
-    NET_TV_SERVER_RegisterCb_DownloadRecordFile(cb_download_record_file);
-    if (s_taskManage)
-    {
-        s_taskManage->register_subscribe(AC_NOTICE_DOWNLOAD_RECORD_PROGRESS, cb_notice_download_record_progress_publish);
-    }
 
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_GARBAGE_DETECT
     NET_TV_SERVER_RegisterCb_GetGarbageExposureCfg(cb_get_garbage_exposure_cfg);
@@ -3952,6 +3201,8 @@ void register_all()
     NET_TV_SERVER_RegisterCb_SetHoleProtectionBarCfg(cb_set_hole_protection_bar_cfg);
     NET_TV_SERVER_RegisterCb_GetReflectiveClothingCfg(cb_get_reflective_clothing_cfg);
     NET_TV_SERVER_RegisterCb_SetReflectiveClothingCfg(cb_set_reflective_clothing_cfg);
+#endif
+
     NET_TV_SERVER_RegisterCb_GetPetRecognitionInfo(cb_get_pet_recognition_info);
     NET_TV_SERVER_RegisterCb_SetPetRecognitionInfo(cb_set_pet_recognition_info);
     NET_TV_SERVER_RegisterCb_GetClimbFenceInfo(cb_get_climb_fence_info);
@@ -3972,7 +3223,6 @@ void register_all()
     NET_TV_SERVER_RegisterCb_SetSmokeFireCfg(cb_set_smoke_fire_cfg);
     NET_TV_SERVER_RegisterCb_GetRoadPondingCfg(cb_get_road_ponding_cfg);
     NET_TV_SERVER_RegisterCb_SetRoadPondingCfg(cb_set_road_ponding_cfg);
-#endif
 
 #if CAP_AI_PEOPLE_STATISTICS
     NET_TV_SERVER_RegisterCb_GetPeopleFlowStatisticsCfg(cb_get_people_flow_statistics_cfg);
@@ -4029,15 +3279,7 @@ void register_all()
 
     NET_TV_SERVER_RegisterCb_GetFaceCaptureInfo(cb_get_face_capture_info);
     NET_TV_SERVER_RegisterCb_SetFaceCaptureInfo(cb_set_face_capture_info);
-    NET_TV_SERVER_RegisterCb_SetFaceCompareInfo(cb_set_face_compare_info);
-    NET_TV_SERVER_RegisterCb_AddTargetLib(cb_add_target_lib);
-    NET_TV_SERVER_RegisterCb_DelTargetLib(cb_del_target_lib);
-    NET_TV_SERVER_RegisterCb_SetTargetLib(cb_set_target_lib);
-    NET_TV_SERVER_RegisterCb_GetTargetLib(cb_get_target_lib);
-    NET_TV_SERVER_RegisterCb_AddFaceInfo(cb_add_face_info);
-    NET_TV_SERVER_RegisterCb_DelFaceInfo(cb_del_face_info);
-    NET_TV_SERVER_RegisterCb_SetFaceInfo(cb_set_face_info);
-    NET_TV_SERVER_RegisterCb_GetFaceInfo(cb_get_face_info);
+
 }
 
 } // namespace TvSdkCallbacks

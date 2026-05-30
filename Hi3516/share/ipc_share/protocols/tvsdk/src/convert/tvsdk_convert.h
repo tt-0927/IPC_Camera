@@ -1,15 +1,10 @@
 #pragma once
-#include <string>
-#include <vector>
+
 #include "system_define.h"
 #include "video_define.h"
 #include "network_define.h"
 #include "alarm_define.h"
 #include "replay_define.h"
-#include "common_define.h"
-#include "log_define.h"
-#include "record_define.h"
-#include "event_define.h"
 #include "osd_define.h"
 
 #include "NetTVSDKServer.h"
@@ -36,42 +31,10 @@ void Fill4GInfo(const Network::Network_4G_Config_t &src, NET_TV_4G_INFO_S &dst);
 void To4GConfig(const NET_TV_4G_INFO_S &src, Network::Network_4G_Config_t &dst);
 void FillHotspotInfo(const Network::HotspotConfig &src, NET_TV_HOTSPOT_INFO_S &dst);
 void ToHotspotConfig(const NET_TV_HOTSPOT_INFO_S &src, Network::HotspotConfig &dst);
-bool FillHotspotConnInfoFromJson(const std::string &srcJson, NET_TV_HOTSPOT_CONN_INFO_S &dst);
-void FillLoginLock(const ::System::LoginLock_S &src, NET_TV_LOGIN_LOCK_INFO_S &dst);
-void ToLoginLock(const NET_TV_LOGIN_LOCK_INFO_S &src, ::System::LoginLock_S &dst);
-void FillPwdPolicy(const ::System::PwdPolicy_S &src, NET_TV_PWD_POLICY_INFO_S &dst);
-void ToPwdPolicy(const NET_TV_PWD_POLICY_INFO_S &src, ::System::PwdPolicy_S &dst);
-void FillSshAdmin(const ::System::SshAdmin_S &src, NET_TV_SSH_ADMIN_INFO_S &dst);
-void ToSshAdmin(const NET_TV_SSH_ADMIN_INFO_S &src, ::System::SshAdmin_S &dst);
-void FillSecurityServices(const ::System::SecurityServices_S &src, NET_TV_SECURITY_SERVICES_INFO_S &dst);
-void ToSecurityServices(const NET_TV_SECURITY_SERVICES_INFO_S &src, ::System::SecurityServices_S &dst);
-void FillSshCountdown(const ::System::SshCountdown_S &src, NET_TV_SSH_COUNTDOWN_INFO_S &dst);
-void FillLogServerInfo(const ::System::LogServerInfo_S &src, NET_TV_LOG_SERVER_INFO_S &dst);
-void ToLogServerInfo(const NET_TV_LOG_SERVER_INFO_S &src, ::System::LogServerInfo_S &dst);
-void FillPageInfo(const Common::PageInfo_S &src, NET_TV_PAGE_INFO_S &dst);
-void ToPageInfo(const NET_TV_PAGE_INFO_S &src, Common::PageInfo_S &dst);
-void ToLogRetrievalCond(const NET_TV_LOG_RETRIEVAL_COND_S &src, Log::RetrievalCond_S &dst);
-void FillLogList(const std::vector<Log::Info_S> &srcLogs, const Common::PageInfo_S &srcPage, NET_TV_LOG_LIST_S &dst);
-void FillRecordInfo(const Record_NS::Info_S &src, NET_TV_RECORD_INFO_S &dst);
-void ToRecordInfo(const NET_TV_RECORD_INFO_S &src, Record_NS::Info_S &dst);
-void FillRecordStatusInfo(const Record_NS::RecordStatusInfo_S &src, NET_TV_RECORD_STATUS_INFO_S &dst);
-void FillRecordTime(const Record_NS::RecordTime_S &src, NET_TV_RECORD_TIME_S &dst);
-void ToRecordTime(const NET_TV_RECORD_TIME_S &src, Record_NS::RecordTime_S &dst);
-void FillRecordDaySchedule(const Record_NS::DaySchedule_S &src, NET_TV_RECORD_DAY_SCHEDULE_S &dst);
-void ToRecordDaySchedule(const NET_TV_RECORD_DAY_SCHEDULE_S &src, Record_NS::DaySchedule_S &dst);
-void FillRecordSchedule(const Record_NS::Schedule_S &src, NET_TV_RECORD_SCHEDULE_S &dst);
-void ToRecordSchedule(const NET_TV_RECORD_SCHEDULE_S &src, Record_NS::Schedule_S &dst);
-void FillRecordAdvancedParam(const Record_NS::AdvancedParam_S &src, NET_TV_RECORD_ADVANCED_PARAM_S &dst);
-void ToRecordAdvancedParam(const NET_TV_RECORD_ADVANCED_PARAM_S &src, Record_NS::AdvancedParam_S &dst);
-void ToRecordFind(const NET_TV_RECORD_FIND_COND_S &src, Record_NS::Find_S &dst);
-void FillRecordVideoTime(const Record_NS::VideoTime_S &src, NET_TV_RECORD_VIDEO_TIME_S &dst);
-void FillRecordFindResult(const Record_NS::FindResult_S &src, NET_TV_RECORD_FIND_RESULT_S &dst);
-void FillRecordFileList(const std::vector<Record_NS::FindResult_S> &src, NET_TV_RECORD_FILE_LIST_S &dst);
-void ToRecordDownloadList(const NET_TV_RECORD_DOWNLOAD_LIST_S &src, std::vector<Record_NS::DownloadInfo_S> &dst);
-void FillRecordDownloadProgress(const Record_NS::DownloadProgress_S &src, NET_TV_RECORD_DOWNLOAD_PROGRESS_S &dst);
-void FillRecordDownloadListProgress(const std::vector<Record_NS::DownloadProgress_S> &src, NET_TV_RECORD_DOWNLOAD_LIST_S &dst);
 void FillVideoEncodeOption(const Video_NS::VideoConfig_S &src, NET_TV_VIDEO_ENCODE_OPTION_S &dst);
 void ToVideoConfig(const NET_TV_VIDEO_ENCODE_OPTION_S &src, Video_NS::VideoConfig_S &dst);
+void FillOsdConfig(const Osd::OsdConfig_S &src, NET_TV_VIDEO_OSD_CFG_S &dst);
+void ToOsdConfig(const NET_TV_VIDEO_OSD_CFG_S &src, Osd::OsdConfig_S &dst);
 
 void ToUpgradeInfo(const NET_TV_UPGRADE_INFO_S &src, ::System::UpgradeInfo_S &dst);
 void FillUpgradeStatus(const ::System::UpgradeStatus_S &src, NET_TV_UPGRADE_STATUS_S &dst);
@@ -85,11 +48,6 @@ void ToCaptureParam(const NET_TV_CAPTURE_PARAM_INFO_S &src, Capture_NS::CaptureP
 void FillVideoEncodeCap(const Video_NS::VideoCapabilitySet_S &src, NET_TV_VIDEO_ENCODE_CAP_S &dst);
 void FillAudioEncodeCap(const Audio_NS::AudioCapabilitySet_S &src, NET_TV_AUDIO_CAP_S &dst);
 void FillVideoOSDCap(const Video_NS::VideoCapabilitySet_S &src, NET_TV_OSD_CAP_S &dst);
-void FillOsdConfig(const Osd::OsdConfig_S &src, NET_TV_VIDEO_OSD_CFG_S &dst);
-void ToOsdConfig(const NET_TV_VIDEO_OSD_CFG_S &src, Osd::OsdConfig_S &dst);
-
-void FillPrivacyMaskCfg(const Osd::CoverConfig_S &src, NET_TV_PRIVACY_MASK_CFG_S &dst);
-void ToPrivacyMaskCfg(const NET_TV_PRIVACY_MASK_CFG_S &src, Osd::CoverConfig_S &dst);
 
 // --------- 智能告警配置（对应 NET_TV_GET/SET_*ALARM） ---------
 void FillMotionAlarmInfo(const Alarm::MotionDetection_S &src, NET_TV_MOTION_ALARM_INFO_S &dst);
@@ -227,14 +185,6 @@ void ToAudioConfig(const NET_TV_AUDIO_CFG_S &src, Audio_NS::AudioConfig_S &dst);
 
 void FillFaceCaptureInfo(const Alarm::FaceCapture_S &src, NET_TV_FACE_CAPTURE_INFO_S &dst);
 void ToFaceCapture(const NET_TV_FACE_CAPTURE_INFO_S &src, Alarm::FaceCapture_S &dst);
-void ToFaceCompare(const NET_TV_FACE_COMPARE_INFO_S &src, Alarm::FaceCompare_S &dst);
-void FillFaceLibInfo(const Event::FaceLibInfo_S &src, NET_TV_FACE_LIB_INFO_S &dst);
-void ToFaceLibInfo(const NET_TV_FACE_LIB_INFO_S &src, Event::FaceLibInfo_S &dst);
-void FillFaceLibList(const std::vector<Event::FaceLibInfo_S> &src, NET_TV_FACE_LIB_LIST_S &dst);
-void ToFaceIdInfo(const NET_TV_FACE_ID_INFO_S &src, Event::FaceIdInfo_S &dst);
-void FillFaceInfo(const Event::FaceInfo_S &src, NET_TV_FACE_INFO_S &dst);
-void ToFaceInfo(const NET_TV_FACE_INFO_S &src, Event::FaceInfo_S &dst);
-void FillFaceInfoList(const std::vector<Event::FaceInfo_S> &src, NET_TV_FACE_INFO_LIST_S &dst);
 
 } // namespace TvSdkConvert
 

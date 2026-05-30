@@ -349,7 +349,6 @@ extern "C" {
 #define NET_TV_EVENT_STORE_TYPE_NUM                 128         /* 时间存储类型数量 */
 #define NET_TV_MAX_PANE_NUM                         36          /* DC业务分屏数量最大为36分屏 */
 #define NET_TV_OSD_MAX_NUM_EX                       8           /* 通道 OSD 最大数量  Maximum Number of OSD */
-#define NET_TV_OSD_CUSTOM_MAX_NUM                   4           /* 设备自定义字符叠加最大数量 */
 #define NET_TV_RSA_MAX_VALUE                        3           /* 表示最多尝试密钥生成次数 */
 
 #define NET_TV_MAX_VIDEO_BRIGHT_EFFECT_VALUE        199             /* 图像参数（亮度）最大值 */
@@ -984,8 +983,6 @@ typedef enum tagNETTVCfgCmd
 
     NET_TV_GET_OSDCAPCFG                = 140,              /* 获取OSD能力集配置信息,参见#NET_TV_VIDEO_OSD_CFG_S  Get OSD configuration information, see #NET_TV_VIDEO_OSD_CFG_S */
     NET_TV_SET_OSDCAPCFG                = 141,              /* 设置OSD能力集配置信息,参见#NET_TV_VIDEO_OSD_CFG_S  Set OSD configuration information, see #NET_TV_VIDEO_OSD_CFG_S */
-    NET_TV_GET_OSDCFG                   = 142,              /* 获取OSD配置信息 */
-    NET_TV_SET_OSDCFG                   = 143,              /* 设置OSD配置信息 */
 
     NET_TV_GET_IMAGECFG                 = 160,              /* 获取图像配置信息,参见#NET_TV_IMAGE_SETTING_S  Get image configuration information, see #NET_TV_IMAGE_SETTING_S */
     NET_TV_SET_IMAGECFG                 = 161,              /* 设置图像配置信息,参见#NET_TV_IMAGE_SETTING_S  Set image configuration information, see #NET_TV_IMAGE_SETTING_S */
@@ -4877,9 +4874,6 @@ NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_ControlReplay(NET_TV_CB_Control
 NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetReplayRecordList(NET_TV_CB_GetReplayRecordList pCb);
 NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetOsdCapCfg(NET_TV_CB_GetDevConfigByCommand pCb);
 NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetOsdCapCfg(NET_TV_CB_SetDevConfigByCommand pCb);
-
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetOsdCfg(NET_TV_CB_GetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetOsdCfg(NET_TV_CB_SetDevConfigByCommand pCb);
 NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetImageCfg(NET_TV_CB_GetDevConfigByCommand pCb);
 NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetImageCfg(NET_TV_CB_SetDevConfigByCommand pCb);
 NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetNetworkCfg(NET_TV_CB_GetDevConfigByCommand pCb);

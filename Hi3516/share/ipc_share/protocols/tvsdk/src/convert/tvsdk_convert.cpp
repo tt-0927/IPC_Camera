@@ -8,21 +8,12 @@
 #include <algorithm>
 #include <cstdio>
 #include <cstring>
-#include <vector>
 
 
 
 #include "dlog.h"
-#include "Json.h"
 namespace TvSdkConvert
 {
-
-template <size_t N>
-static void copy_string(CHAR (&dst)[N], const std::string &src)
-{
-    std::memset(dst, 0, N);
-    std::strncpy(dst, src.c_str(), N - 1);
-}
 
 static void FillSchedTime(const Common::SchedTime_S &src, NET_TV_SCHED_TIME_S &dst)
 {
@@ -296,446 +287,6 @@ void ToHotspotConfig(const NET_TV_HOTSPOT_INFO_S &src, Network::HotspotConfig &d
     dst.confirmPassword = src.szConfirmPassword;
 }
 
-static bool get_string_alias(Json::Object *pObj, const char *key1, const char *key2, std::string &out)
-{
-    if (!pObj)
-        return false;
-    if (key1 && Json::get(pObj, key1, out))
-        return true;
-    if (key2 && Json::get(pObj, key2, out))
-        return true;
-    return false;
-}
-
-static bool get_int_alias(Json::Object *pObj, const char *key1, const char *key2, int &out)
-{
-    if (!pObj)
-        return false;
-    if (key1 && Json::get(pObj, key1, out))
-        return true;
-    if (key2 && Json::get(pObj, key2, out))
-        return true;
-    return false;
-}
-
-bool FillHotspotConnInfoFromJson(const std::string &srcJson, NET_TV_HOTSPOT_CONN_INFO_S &dst)
-{
-    std::memset(&dst, 0, sizeof(dst));
-    if (srcJson.empty())
-        return false;
-
-    Json::Object *pRoot = Json::init(srcJson.c_str());
-    if (!pRoot)
-        return false;
-
-    Json::Object *pData = Json::get(pRoot, "Data");
-    if (!pData)
-        pData = pRoot;
-
-    std::string strStatus;
-    int nTotal = 0;
-    get_string_alias(pData, "status", "Status", strStatus);
-    get_int_alias(pData, "total", "Total", nTotal);
-    copy_string(dst.szStatus, strStatus);
-    dst.nTotal = nTotal;
-
-    Json::Object *pDevices = Json::get(pData, "devices");
-    if (!pDevices)
-        pDevices = Json::get(pData, "Devices");
-
-    int nSize = pDevices ? Json::Array::size(pDevices) : 0;
-    int nCount = std::max(0, std::min(nSize, (int)NET_TV_HOTSPOT_CONN_MAX_NUM));
-    dst.nDeviceCount = nCount;
-    if (dst.nTotal == 0)
-        dst.nTotal = nSize;
-
-    for (int i = 0; i < nCount; ++i)
-    {
-        Json::Object *pItem = Json::Array::get(pDevices, i);
-        if (!pItem)
-            continue;
-
-        int nIndex = 0;
-        std::string strMac;
-        std::string strIp;
-        std::string strConnTime;
-        get_int_alias(pItem, "index", "Index", nIndex);
-        get_string_alias(pItem, "mac", "Mac", strMac);
-        get_string_alias(pItem, "ip", "Ip", strIp);
-        get_string_alias(pItem, "conn_time", "ConnTime", strConnTime);
-
-        dst.astDevices[i].nIndex = nIndex;
-        copy_string(dst.astDevices[i].szMac, strMac);
-        copy_string(dst.astDevices[i].szIp, strIp);
-        copy_string(dst.astDevices[i].szConnTime, strConnTime);
-    }
-
-    Json::deinit(pRoot);
-    return true;
-}
-
-void FillLoginLock(const ::System::LoginLock_S &src, NET_TV_LOGIN_LOCK_INFO_S &dst)
-{
-    std::memset(&dst, 0, sizeof(dst));
-    dst.bIllegalLoginEnable = src.bIllegalLoginEnable ? TRUE : FALSE;
-    dst.nCheckInterval = (INT32)src.nCheckInterval;
-    dst.nMaxErrorTimes = (INT32)src.nMaxErrorTimes;
-    dst.nLockDuration = (INT32)src.nLockDuration;
-}
-
-void ToLoginLock(const NET_TV_LOGIN_LOCK_INFO_S &src, ::System::LoginLock_S &dst)
-{
-    dst.bIllegalLoginEnable = (src.bIllegalLoginEnable == TRUE);
-    dst.nCheckInterval = (int)src.nCheckInterval;
-    dst.nMaxErrorTimes = (int)src.nMaxErrorTimes;
-    dst.nLockDuration = (::System::LockDuration_E)src.nLockDuration;
-}
-
-void FillPwdPolicy(const ::System::PwdPolicy_S &src, NET_TV_PWD_POLICY_INFO_S &dst)
-{
-    std::memset(&dst, 0, sizeof(dst));
-    dst.bPwdSecurityLevelEnable = src.bPwdSecurityLevelEnable ? TRUE : FALSE;
-    dst.bAllowLowLevelPwdLogin = src.bAllowLowLevelPwdLogin ? TRUE : FALSE;
-}
-
-void ToPwdPolicy(const NET_TV_PWD_POLICY_INFO_S &src, ::System::PwdPolicy_S &dst)
-{
-    dst.bPwdSecurityLevelEnable = (src.bPwdSecurityLevelEnable == TRUE);
-    dst.bAllowLowLevelPwdLogin = (src.bAllowLowLevelPwdLogin == TRUE);
-}
-
-void FillSshAdmin(const ::System::SshAdmin_S &src, NET_TV_SSH_ADMIN_INFO_S &dst)
-{
-    std::memset(&dst, 0, sizeof(dst));
-    dst.bSshEnable = src.bSshEnable ? TRUE : FALSE;
-    dst.nSshPort = (INT32)src.nSshPort;
-    copy_string(dst.szSshStartTime, src.strSshStartTime);
-    copy_string(dst.szSshCountdown, src.strSshCountdown);
-}
-
-void ToSshAdmin(const NET_TV_SSH_ADMIN_INFO_S &src, ::System::SshAdmin_S &dst)
-{
-    dst.bSshEnable = (src.bSshEnable == TRUE);
-    dst.nSshPort = (int)src.nSshPort;
-    dst.strSshStartTime = src.szSshStartTime;
-    dst.strSshCountdown = src.szSshCountdown;
-}
-
-void FillSecurityServices(const ::System::SecurityServices_S &src, NET_TV_SECURITY_SERVICES_INFO_S &dst)
-{
-    std::memset(&dst, 0, sizeof(dst));
-    FillLoginLock(src.stLoginLock, dst.stLoginLock);
-    FillPwdPolicy(src.stPwdPolicy, dst.stPwdPolicy);
-    FillSshAdmin(src.stSshAdmin, dst.stSshAdmin);
-}
-
-void ToSecurityServices(const NET_TV_SECURITY_SERVICES_INFO_S &src, ::System::SecurityServices_S &dst)
-{
-    ToLoginLock(src.stLoginLock, dst.stLoginLock);
-    ToPwdPolicy(src.stPwdPolicy, dst.stPwdPolicy);
-    ToSshAdmin(src.stSshAdmin, dst.stSshAdmin);
-}
-
-void FillSshCountdown(const ::System::SshCountdown_S &src, NET_TV_SSH_COUNTDOWN_INFO_S &dst)
-{
-    std::memset(&dst, 0, sizeof(dst));
-    copy_string(dst.szCountdown, src.strCountdown);
-}
-
-void FillLogServerInfo(const ::System::LogServerInfo_S &src, NET_TV_LOG_SERVER_INFO_S &dst)
-{
-    std::memset(&dst, 0, sizeof(dst));
-    dst.bEnable = src.bEnable ? TRUE : FALSE;
-    dst.bEnSsl = src.bEnSsl ? TRUE : FALSE;
-    copy_string(dst.szServerAddr, src.strServerAddr);
-    dst.nPort = (INT32)src.nPort;
-}
-
-void ToLogServerInfo(const NET_TV_LOG_SERVER_INFO_S &src, ::System::LogServerInfo_S &dst)
-{
-    dst.bEnable = (src.bEnable == TRUE);
-    dst.bEnSsl = (src.bEnSsl == TRUE);
-    dst.strServerAddr = src.szServerAddr;
-    dst.nPort = (int)src.nPort;
-}
-
-void FillPageInfo(const Common::PageInfo_S &src, NET_TV_PAGE_INFO_S &dst)
-{
-    std::memset(&dst, 0, sizeof(dst));
-    dst.nCurPage = (INT32)src.nCurPage;
-    dst.nPageSize = (INT32)src.nPageSize;
-    dst.nDataTotal = (INT32)src.nDataTotal;
-    dst.nPageTotal = (INT32)src.nPageTotal;
-}
-
-void ToPageInfo(const NET_TV_PAGE_INFO_S &src, Common::PageInfo_S &dst)
-{
-    dst.nCurPage = (int)src.nCurPage;
-    dst.nPageSize = (int)src.nPageSize;
-    dst.nDataTotal = (int)src.nDataTotal;
-    dst.nPageTotal = (int)src.nPageTotal;
-}
-
-void ToLogRetrievalCond(const NET_TV_LOG_RETRIEVAL_COND_S &src, Log::RetrievalCond_S &dst)
-{
-    dst.enType = (Log::Type_E)src.nType;
-    dst.enAction = (Log::Action_E)src.nAction;
-    dst.startTime = src.szStartTime;
-    dst.endTime = src.szEndTime;
-}
-
-static void FillLogInfo(const Log::Info_S &src, NET_TV_LOG_INFO_S &dst)
-{
-    std::memset(&dst, 0, sizeof(dst));
-    copy_string(dst.szStartTime, src.startTime);
-    dst.nType = (INT32)src.nType;
-    dst.nAction = (INT32)src.nAction;
-    copy_string(dst.szChnName, src.chnName);
-    copy_string(dst.szUser, src.user);
-    copy_string(dst.szHost, src.host);
-    copy_string(dst.szContext, src.context);
-}
-
-void FillLogList(const std::vector<Log::Info_S> &srcLogs, const Common::PageInfo_S &srcPage, NET_TV_LOG_LIST_S &dst)
-{
-    NET_TV_LOG_RETRIEVAL_COND_S stCond = dst.stCond;
-    std::memset(&dst, 0, sizeof(dst));
-    dst.stCond = stCond;
-    FillPageInfo(srcPage, dst.stPage);
-
-    const int nCount = std::max(0, std::min((int)srcLogs.size(), (int)NET_TV_LOG_QUERY_COND_NUM));
-    dst.nLogCount = nCount;
-    for (int i = 0; i < nCount; ++i)
-    {
-        FillLogInfo(srcLogs[(size_t)i], dst.astLogs[i]);
-    }
-}
-
-void FillRecordInfo(const Record_NS::Info_S &src, NET_TV_RECORD_INFO_S &dst)
-{
-    std::memset(&dst, 0, sizeof(dst));
-    dst.nChnId = (INT32)src.nChnId;
-    dst.nVideoStatus = (INT32)src.nVideoStatus;
-    dst.nAudioStatus = (INT32)src.nAudioStatus;
-    dst.nRecordStatus = (INT32)src.nRecordStatus;
-    dst.nRecordFormat = (INT32)src.nRecordFormat;
-    dst.nEventType = (INT32)src.nEventType;
-    copy_string(dst.szPath, src.path);
-    copy_string(dst.szRedunPath, src.redunPath);
-    copy_string(dst.szRecordName, src.strRecordName);
-    copy_string(dst.szRecordTime, src.strRecordTime);
-    dst.nStreamType = (INT32)src.nStreamType;
-}
-
-void ToRecordInfo(const NET_TV_RECORD_INFO_S &src, Record_NS::Info_S &dst)
-{
-    dst.nChnId = (int)src.nChnId;
-    dst.nVideoStatus = (int)src.nVideoStatus;
-    dst.nAudioStatus = (int)src.nAudioStatus;
-    dst.nRecordStatus = (int)src.nRecordStatus;
-    dst.nRecordFormat = (int)src.nRecordFormat;
-    dst.nEventType = (int)src.nEventType;
-    dst.path = src.szPath;
-    dst.redunPath = src.szRedunPath;
-    dst.strRecordName = src.szRecordName;
-    dst.strRecordTime = src.szRecordTime;
-    dst.nStreamType = (int)src.nStreamType;
-}
-
-void FillRecordStatusInfo(const Record_NS::RecordStatusInfo_S &src, NET_TV_RECORD_STATUS_INFO_S &dst)
-{
-    std::memset(&dst, 0, sizeof(dst));
-    dst.nStatus = (INT32)src.enStatus;
-}
-
-void FillRecordTime(const Record_NS::RecordTime_S &src, NET_TV_RECORD_TIME_S &dst)
-{
-    std::memset(&dst, 0, sizeof(dst));
-    dst.nType = (INT32)src.nType;
-    dst.nStartTime = (INT32)src.nStartTime;
-    dst.nEndTime = (INT32)src.nEndTime;
-}
-
-void ToRecordTime(const NET_TV_RECORD_TIME_S &src, Record_NS::RecordTime_S &dst)
-{
-    dst.nType = (int)src.nType;
-    dst.nStartTime = (int)src.nStartTime;
-    dst.nEndTime = (int)src.nEndTime;
-}
-
-void FillRecordDaySchedule(const Record_NS::DaySchedule_S &src, NET_TV_RECORD_DAY_SCHEDULE_S &dst)
-{
-    std::memset(&dst, 0, sizeof(dst));
-    dst.nDayOfWeek = (INT32)src.enDayOfWeek;
-    const int nCount = std::max(0, std::min((int)src.recordTimes.size(), (int)NET_TV_TIME_DURATION_NUM));
-    dst.nRecordTimeCount = nCount;
-    for (int i = 0; i < nCount; ++i)
-    {
-        FillRecordTime(src.recordTimes[(size_t)i], dst.astRecordTimes[i]);
-    }
-}
-
-void ToRecordDaySchedule(const NET_TV_RECORD_DAY_SCHEDULE_S &src, Record_NS::DaySchedule_S &dst)
-{
-    dst.enDayOfWeek = (Record_NS::DayOfWeek_E)src.nDayOfWeek;
-    dst.recordTimes.clear();
-    int nCount = (int)src.nRecordTimeCount;
-    if (nCount < 0)
-    {
-        nCount = 0;
-    }
-    if (nCount > NET_TV_TIME_DURATION_NUM)
-    {
-        nCount = NET_TV_TIME_DURATION_NUM;
-    }
-    dst.recordTimes.resize((size_t)nCount);
-    for (int i = 0; i < nCount; ++i)
-    {
-        ToRecordTime(src.astRecordTimes[i], dst.recordTimes[(size_t)i]);
-    }
-}
-
-void FillRecordSchedule(const Record_NS::Schedule_S &src, NET_TV_RECORD_SCHEDULE_S &dst)
-{
-    std::memset(&dst, 0, sizeof(dst));
-    dst.bEnable = src.bEnable ? TRUE : FALSE;
-    const int nCount = std::max(0, std::min((int)src.daySchedules.size(), (int)NET_TV_PLAN_DAY_NUM_AWEEK));
-    dst.nDayScheduleCount = nCount;
-    for (int i = 0; i < nCount; ++i)
-    {
-        FillRecordDaySchedule(src.daySchedules[(size_t)i], dst.astDaySchedules[i]);
-    }
-}
-
-void ToRecordSchedule(const NET_TV_RECORD_SCHEDULE_S &src, Record_NS::Schedule_S &dst)
-{
-    dst.bEnable = (src.bEnable == TRUE);
-    dst.daySchedules.clear();
-    int nCount = (int)src.nDayScheduleCount;
-    if (nCount < 0)
-    {
-        nCount = 0;
-    }
-    if (nCount > NET_TV_PLAN_DAY_NUM_AWEEK)
-    {
-        nCount = NET_TV_PLAN_DAY_NUM_AWEEK;
-    }
-    dst.daySchedules.resize((size_t)nCount);
-    for (int i = 0; i < nCount; ++i)
-    {
-        ToRecordDaySchedule(src.astDaySchedules[i], dst.daySchedules[(size_t)i]);
-    }
-}
-
-void FillRecordAdvancedParam(const Record_NS::AdvancedParam_S &src, NET_TV_RECORD_ADVANCED_PARAM_S &dst)
-{
-    std::memset(&dst, 0, sizeof(dst));
-    dst.bLoopWrite = src.bLoopWrite ? TRUE : FALSE;
-    dst.nPreTime = (INT32)src.ePreTime;
-    dst.nDelayTime = (INT32)src.eDelayTime;
-    dst.nStreamType = (INT32)src.nStreamType;
-}
-
-void ToRecordAdvancedParam(const NET_TV_RECORD_ADVANCED_PARAM_S &src, Record_NS::AdvancedParam_S &dst)
-{
-    dst.bLoopWrite = (src.bLoopWrite == TRUE);
-    dst.ePreTime = (Record_NS::RecordPreTime_E)src.nPreTime;
-    dst.eDelayTime = (Record_NS::RecordDelayTime_E)src.nDelayTime;
-    dst.nStreamType = (int)src.nStreamType;
-}
-
-void ToRecordFind(const NET_TV_RECORD_FIND_COND_S &src, Record_NS::Find_S &dst)
-{
-    dst.nChnId = (int)src.nChnId;
-    dst.nType = (int)src.nType;
-    dst.year = src.szYear;
-    dst.month = src.szMonth;
-    dst.date = src.szDate;
-    dst.startTime = src.szStartTime;
-    dst.endTime = src.szEndTime;
-    dst.filename = src.szFilename;
-}
-
-void FillRecordVideoTime(const Record_NS::VideoTime_S &src, NET_TV_RECORD_VIDEO_TIME_S &dst)
-{
-    std::memset(&dst, 0, sizeof(dst));
-    dst.nStartTime = (INT32)src.nStartTime;
-    dst.nEndTime = (INT32)src.nEndTime;
-}
-
-void FillRecordFindResult(const Record_NS::FindResult_S &src, NET_TV_RECORD_FIND_RESULT_S &dst)
-{
-    std::memset(&dst, 0, sizeof(dst));
-    dst.nChnId = (INT32)src.nChnId;
-    int nDateCount = std::max(0, std::min((int)src.dates.size(), (int)NET_TV_RECORD_DATE_MAX_NUM));
-    dst.nDateCount = nDateCount;
-    for (int i = 0; i < nDateCount; ++i)
-    {
-        std::strncpy(dst.aszDates[i], src.dates[(size_t)i].c_str(), sizeof(dst.aszDates[i]) - 1);
-    }
-    copy_string(dst.szFilename, src.filename);
-    int nVideoTimeCount = std::max(0, std::min((int)src.videoTimes.size(), (int)NET_TV_TIME_DURATION_NUM));
-    dst.nVideoTimeCount = nVideoTimeCount;
-    for (int i = 0; i < nVideoTimeCount; ++i)
-    {
-        FillRecordVideoTime(src.videoTimes[(size_t)i], dst.astVideoTimes[i]);
-    }
-}
-
-void FillRecordFileList(const std::vector<Record_NS::FindResult_S> &src, NET_TV_RECORD_FILE_LIST_S &dst)
-{
-    NET_TV_RECORD_FIND_COND_S stFind = dst.stFind;
-    std::memset(&dst, 0, sizeof(dst));
-    dst.stFind = stFind;
-    int nCount = std::max(0, std::min((int)src.size(), (int)NET_TV_RECORD_FILE_MAX_NUM));
-    dst.nResultCount = nCount;
-    for (int i = 0; i < nCount; ++i)
-    {
-        FillRecordFindResult(src[(size_t)i], dst.astResults[i]);
-    }
-}
-
-void ToRecordDownloadList(const NET_TV_RECORD_DOWNLOAD_LIST_S &src, std::vector<Record_NS::DownloadInfo_S> &dst)
-{
-    dst.clear();
-    int nCount = (int)src.nDownloadCount;
-    if (nCount < 0)
-    {
-        nCount = 0;
-    }
-    if (nCount > NET_TV_RECORD_DOWNLOAD_MAX_NUM)
-    {
-        nCount = NET_TV_RECORD_DOWNLOAD_MAX_NUM;
-    }
-    dst.reserve((size_t)nCount);
-    for (int i = 0; i < nCount; ++i)
-    {
-        Record_NS::DownloadInfo_S stInfo;
-        stInfo.nChnId = (int)src.astDownloads[i].nChnId;
-        stInfo.path = src.astDownloads[i].szPath;
-        stInfo.startTime = src.astDownloads[i].szStartTime;
-        stInfo.endTime = src.astDownloads[i].szEndTime;
-        dst.push_back(stInfo);
-    }
-}
-
-void FillRecordDownloadProgress(const Record_NS::DownloadProgress_S &src, NET_TV_RECORD_DOWNLOAD_PROGRESS_S &dst)
-{
-    std::memset(&dst, 0, sizeof(dst));
-    copy_string(dst.szFilename, src.filename);
-    dst.nProgress = (INT32)src.nProgress;
-}
-
-void FillRecordDownloadListProgress(const std::vector<Record_NS::DownloadProgress_S> &src, NET_TV_RECORD_DOWNLOAD_LIST_S &dst)
-{
-    int nCount = std::max(0, std::min((int)src.size(), (int)NET_TV_RECORD_DOWNLOAD_MAX_NUM));
-    dst.nProgressCount = nCount;
-    for (int i = 0; i < nCount; ++i)
-    {
-        FillRecordDownloadProgress(src[(size_t)i], dst.astProgress[i]);
-    }
-}
-
 static INT32 ToSdkVideoCodec(Video_NS::VideoCodec_E src)
 {
     switch (src)
@@ -805,6 +356,84 @@ void ToVideoConfig(const NET_TV_VIDEO_ENCODE_OPTION_S &src, Video_NS::VideoConfi
     dst.nBitrateSmoothing = (int)src.nBitrateSmoothing;
 }
 
+static void FillOsdAttribute(const Osd::OsdAttribute_S &src, OsdAttribute_S &dst)
+{
+    dst.nX = (INT32)src.nX;
+    dst.nY = (INT32)src.nY;
+    dst.nW = (INT32)src.nW;
+    dst.nH = (INT32)src.nH;
+    dst.enAttribute = (OSD_ATTRIBUTE_E)src.enAttribute;
+    dst.enFontSize = (OSD_FONT_SIZE_E)src.enFontSize;
+    dst.enFontColor = (OSD_COLOR_E)src.enFontColor;
+    std::strncpy(dst.strFontColor, src.strFontColor.c_str(), sizeof(dst.strFontColor) - 1);
+    std::strncpy(dst.strToken, src.strToken.c_str(), sizeof(dst.strToken) - 1);
+}
+
+static void ToOsdAttribute(const OsdAttribute_S &src, Osd::OsdAttribute_S &dst)
+{
+    dst.nX = (int)src.nX;
+    dst.nY = (int)src.nY;
+    dst.nW = (int)src.nW;
+    dst.nH = (int)src.nH;
+    dst.enAttribute = (Osd::OSD_ATTRIBUTE_E)src.enAttribute;
+    dst.enFontSize = (Osd::OSD_FONT_SIZE_E)src.enFontSize;
+    dst.enFontColor = (Osd::OSD_COLOR_E)src.enFontColor;
+    dst.strFontColor = src.strFontColor;
+    dst.strToken = src.strToken;
+}
+
+void FillOsdConfig(const Osd::OsdConfig_S &src, NET_TV_VIDEO_OSD_CFG_S &dst)
+{
+    std::memset(&dst, 0, sizeof(dst));
+    dst.enAlign = (OSD_ALIGN_E)src.enAlign;
+
+    dst.stOsdNameInfo.bEnable = src.stOsdNameInfo.bEnable ? TRUE : FALSE;
+    std::strncpy(dst.stOsdNameInfo.strName, src.stOsdNameInfo.strName.c_str(), sizeof(dst.stOsdNameInfo.strName) - 1);
+    FillOsdAttribute(src.stOsdNameInfo.stOsdAttr, dst.stOsdNameInfo.stOsdAttr);
+
+    dst.stOsdTimeInfo.bEnable = src.stOsdTimeInfo.bEnable ? TRUE : FALSE;
+    dst.stOsdTimeInfo.bEnableWeek = src.stOsdTimeInfo.bEnableWeek ? TRUE : FALSE;
+    dst.stOsdTimeInfo.enTimeFormat = (OSD_TIME_FORMAT_E)src.stOsdTimeInfo.enTimeFormat;
+    dst.stOsdTimeInfo.enDateFormat = (OSD_DATE_FORMAT_E)src.stOsdTimeInfo.enDateFormat;
+    FillOsdAttribute(src.stOsdTimeInfo.stOsdAttr, dst.stOsdTimeInfo.stOsdAttr);
+
+    const size_t nCount = std::min(src.vecOsdInfo.size(), sizeof(dst.OsdInfo) / sizeof(dst.OsdInfo[0]));
+    for (size_t i = 0; i < nCount; ++i)
+    {
+        dst.OsdInfo[i].nId = (INT32)src.vecOsdInfo[i].nId;
+        dst.OsdInfo[i].bEnable = src.vecOsdInfo[i].bEnable ? TRUE : FALSE;
+        std::strncpy(dst.OsdInfo[i].strName, src.vecOsdInfo[i].strName.c_str(), sizeof(dst.OsdInfo[i].strName) - 1);
+        FillOsdAttribute(src.vecOsdInfo[i].stOsdAttr, dst.OsdInfo[i].stOsdAttr);
+    }
+}
+
+void ToOsdConfig(const NET_TV_VIDEO_OSD_CFG_S &src, Osd::OsdConfig_S &dst)
+{
+    dst.clear();
+    dst.enAlign = (Osd::OSD_ALIGN_E)src.enAlign;
+
+    dst.stOsdNameInfo.bEnable = (src.stOsdNameInfo.bEnable == TRUE);
+    dst.stOsdNameInfo.strName = src.stOsdNameInfo.strName;
+    ToOsdAttribute(src.stOsdNameInfo.stOsdAttr, dst.stOsdNameInfo.stOsdAttr);
+
+    dst.stOsdTimeInfo.bEnable = (src.stOsdTimeInfo.bEnable == TRUE);
+    dst.stOsdTimeInfo.bEnableWeek = (src.stOsdTimeInfo.bEnableWeek == TRUE);
+    dst.stOsdTimeInfo.enTimeFormat = (Osd::OSD_TIME_FORMAT_E)src.stOsdTimeInfo.enTimeFormat;
+    dst.stOsdTimeInfo.enDateFormat = (Osd::OSD_DATE_FORMAT_E)src.stOsdTimeInfo.enDateFormat;
+    ToOsdAttribute(src.stOsdTimeInfo.stOsdAttr, dst.stOsdTimeInfo.stOsdAttr);
+
+    const size_t nCount = std::min(dst.vecOsdInfo.size(), sizeof(src.OsdInfo) / sizeof(src.OsdInfo[0]));
+    for (size_t i = 0; i < nCount; ++i)
+    {
+        dst.vecOsdInfo[i].nId = (int)src.OsdInfo[i].nId;
+        dst.vecOsdInfo[i].bEnable = (src.OsdInfo[i].bEnable == TRUE);
+        dst.vecOsdInfo[i].strName = src.OsdInfo[i].strName;
+        ToOsdAttribute(src.OsdInfo[i].stOsdAttr, dst.vecOsdInfo[i].stOsdAttr);
+    }
+
+    dst.init_token();
+}
+
 
 
 void FillPreviewInfo(const Preview::PreviewInfo_S &src, NET_TV_PREVIEW_INFO_S &dst)
@@ -840,82 +469,6 @@ static void ParseResolutionName(const std::string &name, NET_TV_VIDEO_RESOLUTION
     }
 }
 
-static INT32 ToSdkFrameRateValue(Video_NS::FrameRate_E frameRate)
-{
-    Video_NS::VideoConfig_S cfg;
-    cfg.enFrameRate = frameRate;
-    return (INT32)cfg.getFrameRateAsInt();
-}
-
-static float ToFrameRateFps(Video_NS::FrameRate_E frameRate)
-{
-    if (frameRate == Video_NS::FRAME_RATE_8_3)
-    {
-        return 8.3f;
-    }
-
-    Video_NS::VideoConfig_S cfg;
-    cfg.enFrameRate = frameRate;
-    return cfg.getFrameRateAsFloat();
-}
-
-static std::vector<Video_NS::FrameRate_E> BuildSupportedFrameRates(const Video_NS::Resolution_S &src)
-{
-    std::vector<Video_NS::FrameRate_E> frameRates;
-
-    float minFrameRate = ToFrameRateFps(src.enFrameRateMin);
-    float maxFrameRate = ToFrameRateFps(src.enFrameRateMax);
-    if (minFrameRate > maxFrameRate)
-    {
-        std::swap(minFrameRate, maxFrameRate);
-    }
-
-    for (int value = (int)Video_NS::FRAME_RATE_ALL + 1; value < (int)Video_NS::FRAME_RATE_TOTAL; ++value)
-    {
-        Video_NS::FrameRate_E frameRate = (Video_NS::FrameRate_E)value;
-        float currentFrameRate = ToFrameRateFps(frameRate);
-        if (currentFrameRate >= minFrameRate && currentFrameRate <= maxFrameRate)
-        {
-            frameRates.push_back(frameRate);
-        }
-    }
-
-    std::sort(frameRates.begin(), frameRates.end(),
-              [](Video_NS::FrameRate_E left, Video_NS::FrameRate_E right) {
-                  return ToFrameRateFps(left) < ToFrameRateFps(right);
-              });
-
-    frameRates.erase(std::unique(frameRates.begin(), frameRates.end(),
-                                 [](Video_NS::FrameRate_E left, Video_NS::FrameRate_E right) {
-                                     return ToFrameRateFps(left) == ToFrameRateFps(right);
-                                 }),
-                     frameRates.end());
-
-    return frameRates;
-}
-
-static void FillResolutionCap(const Video_NS::Resolution_S &src, NET_TV_VIDEO_RESOLUTION_S &dst)
-{
-    std::memset(&dst, 0, sizeof(dst));
-    ParseResolutionName(src.strName, dst);
-    dst.dwFrameRateMin = ToFrameRateFps(src.enFrameRateMin);
-    dst.dwFrameRateMax = ToFrameRateFps(src.enFrameRateMax);
-    dst.dwBitRateMin = (INT32)src.nBitRateMin;
-    dst.dwBitRateMax = (INT32)src.nBitRateMax;
-
-    std::vector<Video_NS::FrameRate_E> frameRates = BuildSupportedFrameRates(src);
-    dst.dwFrameRateNum = (INT32)std::min(frameRates.size(), (size_t)NET_TV_VIDEO_FRAME_RATE_MAX_NUM);
-    for (INT32 i = 0; i < dst.dwFrameRateNum; ++i)
-    {
-        dst.adwFrameRate[i] = ToFrameRateFps(frameRates[(size_t)i]);
-    }
-}
-
-static INT32 ClampInt(int value, int minValue, int maxValue)
-{
-    return (INT32)std::max(minValue, std::min(value, maxValue));
-}
-
 static void FillOneEncodeOption(const Video_NS::VideoCapability_S &src,
                                 const Video_NS::EncodeAbility_S *ability,
                                 NET_TV_VIDEO_ENCODE_OPTION_S &dst,
@@ -929,12 +482,10 @@ static void FillOneEncodeOption(const Video_NS::VideoCapability_S &src,
 
     if (!src.aResolution.empty())
     {
-        FillResolutionCap(src.aResolution[0], dst.stVideoResolution);
-        dst.enFrameRate = ToSdkFrameRateValue(src.aResolution[0].enFrameRateMax);
-        dst.nAverageBitrate = ClampInt(DEFAULTE_BITRATE,
-                                       (int)dst.stVideoResolution.dwBitRateMin,
-                                       (int)dst.stVideoResolution.dwBitRateMax);
-        dst.nBitrateUpperLimit = dst.stVideoResolution.dwBitRateMax;
+        ParseResolutionName(src.aResolution[0].strName, dst.stVideoResolution);
+        dst.enFrameRate = (INT32)src.aResolution[0].enFrameRateMax;
+        dst.nAverageBitrate = (INT32)src.aResolution[0].nBitRateMin;
+        dst.nBitrateUpperLimit = (INT32)src.aResolution[0].nBitRateMax;
     }
 
     if (ability)
@@ -952,7 +503,7 @@ static void FillOneEncodeOption(const Video_NS::VideoCapability_S &src,
         dst.enSvcEnable = Video_NS::SVC_MODE_DISABLE;
     }
 
-    dst.nIFrameInterval = ClampInt(DEFAULTE_GOP, src.nIFrameIntervalMin, src.nIFrameIntervalMax);
+    dst.nIFrameInterval = src.nIFrameIntervalMax;
 }
 
 static void FillOneStreamCap(const Video_NS::VideoCapability_S &src, NET_TV_VIDEO_STREAM_CAP_S &dst, INT32 streamType)
@@ -974,18 +525,8 @@ static void FillOneStreamCap(const Video_NS::VideoCapability_S &src, NET_TV_VIDE
         }
     }
 
-    // 填充完整分辨率列表
-    dst.dwResolutionNum = (INT32)std::min(src.aResolution.size(),
-                                          (size_t)NET_TV_RESOLUTION_NUM_MAX);
-    for (INT32 i = 0; i < dst.dwResolutionNum; ++i)
-    {
-        FillResolutionCap(src.aResolution[i], dst.astResolution[i]);
-    }
-
-    dst.stQuality.dwMin = (INT32)Video_NS::ImageQuality_E::LOWEST;
-    dst.stQuality.dwMax = (INT32)Video_NS::ImageQuality_E::HIGHEST;
-    dst.stStreamSmooth.dwMin = src.nStreamSmoothMin;
-    dst.stStreamSmooth.dwMax = src.nStreamSmoothMax;
+    dst.stQuality.dwMin = src.nStreamSmoothMin;
+    dst.stQuality.dwMax = src.nStreamSmoothMax;
 }
 
 void FillVideoEncodeCap(const Video_NS::VideoCapabilitySet_S &src, NET_TV_VIDEO_ENCODE_CAP_S &dst)
@@ -3449,236 +2990,5 @@ void TvSdkConvert::ToFaceCapture(const NET_TV_FACE_CAPTURE_INFO_S &src, Alarm::F
         {
             ToSchedTime(src.stAlarmSchedule.astTimeSection[day][seg], dst.aAlarmTime[day][seg]);
         }
-    }
-}
-
-// ---------  FaceLib / FaceInfo ---------
-void TvSdkConvert::FillFaceLibInfo(const Event::FaceLibInfo_S &src, NET_TV_FACE_LIB_INFO_S &dst)
-{
-    std::memset(&dst, 0, sizeof(dst));
-    copy_string(dst.szFaceLibName, src.strFaceLibName);
-    dst.nTotalFace = (INT32)src.nTotalFace;
-    dst.nNormalNum = (INT32)src.nNormalNum;
-    dst.nAbnormalNum = (INT32)src.nAbnormalNum;
-}
-
-void TvSdkConvert::ToFaceCompare(const NET_TV_FACE_COMPARE_INFO_S &src, Alarm::FaceCompare_S &dst)
-{
-    dst.bEnable = (src.bEnable == TRUE);
-    ToSingleRuleAlarmSchedule(src.stAlarmSchedule, dst.aAlarmTime);
-    ToLinkageList(src.stLinkageListSuccess, dst.stLinkageListSuccess);
-    ToLinkageList(src.stLinkageListFail, dst.stLinkageListFail);
-}
-
-void TvSdkConvert::ToFaceLibInfo(const NET_TV_FACE_LIB_INFO_S &src, Event::FaceLibInfo_S &dst)
-{
-    dst.strFaceLibName = src.szFaceLibName;
-    dst.nTotalFace = (int)src.nTotalFace;
-    dst.nNormalNum = (int)src.nNormalNum;
-    dst.nAbnormalNum = (int)src.nAbnormalNum;
-}
-
-void TvSdkConvert::FillFaceLibList(const std::vector<Event::FaceLibInfo_S> &src, NET_TV_FACE_LIB_LIST_S &dst)
-{
-    std::memset(&dst, 0, sizeof(dst));
-    size_t nCount = std::min(src.size(), (size_t)NET_TV_FACE_LIB_MAX_NUM);
-    dst.nTargetLibCount = (INT32)nCount;
-    for (size_t i = 0; i < nCount; ++i)
-    {
-        FillFaceLibInfo(src[i], dst.astTargetLibInfos[i]);
-    }
-}
-
-void TvSdkConvert::ToFaceIdInfo(const NET_TV_FACE_ID_INFO_S &src, Event::FaceIdInfo_S &dst)
-{
-    dst.ids.clear();
-    int nCount = std::max(0, std::min(src.nIdCount, (INT32)NET_TV_FACE_ID_MAX_NUM));
-    for (int i = 0; i < nCount; ++i)
-    {
-        dst.ids.push_back((int)src.anIds[i]);
-    }
-}
-
-void TvSdkConvert::FillFaceInfo(const Event::FaceInfo_S &src, NET_TV_FACE_INFO_S &dst)
-{
-    std::memset(&dst, 0, sizeof(dst));
-    dst.nId = (INT32)src.nId;
-    copy_string(dst.szFaceLibName, src.strFaceLibName);
-    copy_string(dst.szName, src.strName);
-    copy_string(dst.szPhoneNum, src.strPhoneNum);
-    copy_string(dst.szPicPath, src.strPicPath);
-    copy_string(dst.szBinPath, src.BinPath);
-    copy_string(dst.szPicType, src.strPicType);
-    dst.nPicSize = (INT32)src.nPicSize;
-    copy_string(dst.szPicDate, src.strPicDate);
-    dst.nModelState = (INT32)src.nModelState;
-    dst.nRatingLevel = (INT32)src.nRatingLevel;
-}
-
-void TvSdkConvert::ToFaceInfo(const NET_TV_FACE_INFO_S &src, Event::FaceInfo_S &dst)
-{
-    dst.nId = (int)src.nId;
-    dst.strFaceLibName = src.szFaceLibName;
-    dst.strName = src.szName;
-    dst.strPhoneNum = src.szPhoneNum;
-    dst.strPicPath = src.szPicPath;
-    dst.BinPath = src.szBinPath;
-    dst.strPicType = src.szPicType;
-    dst.nPicSize = (int)src.nPicSize;
-    dst.strPicDate = src.szPicDate;
-    dst.nModelState = (int)src.nModelState;
-    dst.nRatingLevel = (int)src.nRatingLevel;
-}
-
-void TvSdkConvert::FillFaceInfoList(const std::vector<Event::FaceInfo_S> &src, NET_TV_FACE_INFO_LIST_S &dst)
-{
-    std::memset(&dst, 0, sizeof(dst));
-    size_t nCount = std::min(src.size(), (size_t)NET_TV_FACE_INFO_MAX_NUM);
-    dst.nFaceInfoCount = (INT32)nCount;
-    for (size_t i = 0; i < nCount; ++i)
-    {
-        FillFaceInfo(src[i], dst.astFaceInfos[i]);
-    }
-}
-
-/* 将内部 "0xRRGGBB" 格式转换为 SDK "#RRGGBB" 格式 */
-static void convert_font_color(char *dst, size_t dstSize, const std::string &src)
-{
-    std::memset(dst, 0, dstSize);
-    if (src.empty())
-        return;
-    if (src.size() >= 2 && src[0] == '0' && (src[1] == 'x' || src[1] == 'X'))
-        std::snprintf(dst, dstSize, "#%s", src.c_str() + 2);
-    else
-        std::strncpy(dst, src.c_str(), dstSize - 1);
-}
-
-static void fill_osd_attr(const Osd::OsdAttribute_S &src, OsdAttribute_S &dst)
-{
-    dst.nX          = (INT32)src.nX;
-    dst.nY          = (INT32)src.nY;
-    dst.nW          = (INT32)src.nW;
-    dst.nH          = (INT32)src.nH;
-    dst.enAttribute = (OSD_ATTRIBUTE_E)src.enAttribute;
-    dst.enFontSize  = (OSD_FONT_SIZE_E)src.enFontSize;
-    dst.enFontColor = (OSD_COLOR_E)src.enFontColor;
-    convert_font_color(dst.strFontColor, sizeof(dst.strFontColor), src.strFontColor);
-    TvSdkConvert::copy_string(dst.strToken, src.strToken);
-}
-
-void TvSdkConvert::FillOsdConfig(const Osd::OsdConfig_S &src, NET_TV_VIDEO_OSD_CFG_S &dst)
-{
-    std::memset(&dst, 0, sizeof(dst));
-
-    dst.enAlign = (OSD_ALIGN_E)src.enAlign;
-
-    /* 名称信息 */
-    dst.stOsdNameInfo.bEnable = src.stOsdNameInfo.bEnable ? TRUE : FALSE;
-    copy_string(dst.stOsdNameInfo.strName, src.stOsdNameInfo.strName);
-    fill_osd_attr(src.stOsdNameInfo.stOsdAttr, dst.stOsdNameInfo.stOsdAttr);
-
-    /* 时间信息 */
-    dst.stOsdTimeInfo.bEnable     = src.stOsdTimeInfo.bEnable ? TRUE : FALSE;
-    dst.stOsdTimeInfo.bEnableWeek = src.stOsdTimeInfo.bEnableWeek ? TRUE : FALSE;
-    dst.stOsdTimeInfo.enTimeFormat = (OSD_TIME_FORMAT_E)src.stOsdTimeInfo.enTimeFormat;
-    dst.stOsdTimeInfo.enDateFormat = (OSD_DATE_FORMAT_E)src.stOsdTimeInfo.enDateFormat;
-    fill_osd_attr(src.stOsdTimeInfo.stOsdAttr, dst.stOsdTimeInfo.stOsdAttr);
-
-    /* 字符叠加信息 */
-    size_t nCount = std::min(src.vecOsdInfo.size(), (size_t)NET_TV_OSD_CUSTOM_MAX_NUM);
-    for (size_t i = 0; i < nCount; ++i)
-    {
-        dst.OsdInfo[i].nId    = (INT32)src.vecOsdInfo[i].nId;
-        dst.OsdInfo[i].bEnable = src.vecOsdInfo[i].bEnable ? TRUE : FALSE;
-        copy_string(dst.OsdInfo[i].strName, src.vecOsdInfo[i].strName);
-        fill_osd_attr(src.vecOsdInfo[i].stOsdAttr, dst.OsdInfo[i].stOsdAttr);
-    }
-}
-
-/* 将 SDK "#RRGGBB" 格式转换为内部 "0xRRGGBB" 格式 */
-static void revert_font_color(std::string &dst, const char *src)
-{
-    if (!src || src[0] == '\0')
-    {
-        dst.clear();
-        return;
-    }
-    if (src[0] == '#')
-        dst = std::string("0x") + (src + 1);
-    else
-        dst = src;
-}
-
-static void to_osd_attr(const OsdAttribute_S &src, Osd::OsdAttribute_S &dst)
-{
-    dst.nX          = (int)src.nX;
-    dst.nY          = (int)src.nY;
-    dst.nW          = (int)src.nW;
-    dst.nH          = (int)src.nH;
-    dst.enAttribute = (Osd::OSD_ATTRIBUTE_E)src.enAttribute;
-    dst.enFontSize  = (Osd::OSD_FONT_SIZE_E)src.enFontSize;
-    dst.enFontColor = (Osd::OSD_COLOR_E)src.enFontColor;
-    revert_font_color(dst.strFontColor, src.strFontColor);
-    dst.strToken    = src.strToken;
-}
-
-void TvSdkConvert::ToOsdConfig(const NET_TV_VIDEO_OSD_CFG_S &src, Osd::OsdConfig_S &dst)
-{
-    dst.enAlign = (Osd::OSD_ALIGN_E)src.enAlign;
-
-    /* 名称信息 */
-    dst.stOsdNameInfo.bEnable  = (src.stOsdNameInfo.bEnable == TRUE);
-    dst.stOsdNameInfo.strName  = src.stOsdNameInfo.strName;
-    to_osd_attr(src.stOsdNameInfo.stOsdAttr, dst.stOsdNameInfo.stOsdAttr);
-
-    /* 时间信息 */
-    dst.stOsdTimeInfo.bEnable      = (src.stOsdTimeInfo.bEnable == TRUE);
-    dst.stOsdTimeInfo.bEnableWeek  = (src.stOsdTimeInfo.bEnableWeek == TRUE);
-    dst.stOsdTimeInfo.enTimeFormat = (Osd::OSD_TIME_FORMAT_E)src.stOsdTimeInfo.enTimeFormat;
-    dst.stOsdTimeInfo.enDateFormat = (Osd::OSD_DATE_FORMAT_E)src.stOsdTimeInfo.enDateFormat;
-    to_osd_attr(src.stOsdTimeInfo.stOsdAttr, dst.stOsdTimeInfo.stOsdAttr);
-
-    /* 字符叠加信息 */
-    dst.vecOsdInfo.resize(NET_TV_OSD_CUSTOM_MAX_NUM);
-    for (size_t i = 0; i < (size_t)NET_TV_OSD_CUSTOM_MAX_NUM; ++i)
-    {
-        dst.vecOsdInfo[i].nId     = (int)src.OsdInfo[i].nId;
-        dst.vecOsdInfo[i].bEnable = (src.OsdInfo[i].bEnable == TRUE);
-        dst.vecOsdInfo[i].strName = src.OsdInfo[i].strName;
-        to_osd_attr(src.OsdInfo[i].stOsdAttr, dst.vecOsdInfo[i].stOsdAttr);
-    }
-}
-
-void TvSdkConvert::FillPrivacyMaskCfg(const Osd::CoverConfig_S &src, NET_TV_PRIVACY_MASK_CFG_S &dst)
-{
-    std::memset(&dst, 0, sizeof(dst));
-    dst.bEnable = src.bEnable ? TRUE : FALSE;
-    size_t nCount = std::min(src.vecCoverAttr.size(), (size_t)NET_TV_MAX_PRIVACY_MASK_AREA_NUM);
-    dst.dwAreaCount = (INT32)nCount;
-    for (size_t i = 0; i < nCount; ++i)
-    {
-        dst.astArea[i].nAreaID    = src.vecCoverAttr[i].nId - 1; /* 内部1-based → SDK 0-based */
-        dst.astArea[i].bEnable    = src.vecCoverAttr[i].bEnable ? TRUE : FALSE;
-        dst.astArea[i].nRectLeft  = src.vecCoverAttr[i].nX;
-        dst.astArea[i].nRectTop   = src.vecCoverAttr[i].nY;
-        dst.astArea[i].nRectRight = src.vecCoverAttr[i].nX + src.vecCoverAttr[i].nWidth;
-        dst.astArea[i].nRectBottom = src.vecCoverAttr[i].nY + src.vecCoverAttr[i].nHeight;
-    }
-}
-
-void TvSdkConvert::ToPrivacyMaskCfg(const NET_TV_PRIVACY_MASK_CFG_S &src, Osd::CoverConfig_S &dst)
-{
-    dst.clear();
-    dst.bEnable = (src.bEnable == TRUE);
-    INT32 nCount = std::max<INT32>(0, std::min(src.dwAreaCount, (INT32)NET_TV_MAX_PRIVACY_MASK_AREA_NUM));
-    size_t nUpdateCount = std::min((size_t)nCount, dst.vecCoverAttr.size());
-    for (size_t i = 0; i < nUpdateCount; ++i)
-    {
-        dst.vecCoverAttr[i].nId      = src.astArea[i].nAreaID + 1; /* SDK 0-based → 内部1-based */
-        dst.vecCoverAttr[i].bEnable  = (src.astArea[i].bEnable == TRUE);
-        dst.vecCoverAttr[i].nX       = src.astArea[i].nRectLeft;
-        dst.vecCoverAttr[i].nY       = src.astArea[i].nRectTop;
-        dst.vecCoverAttr[i].nWidth   = src.astArea[i].nRectRight - src.astArea[i].nRectLeft;
-        dst.vecCoverAttr[i].nHeight  = src.astArea[i].nRectBottom - src.astArea[i].nRectTop;
     }
 }

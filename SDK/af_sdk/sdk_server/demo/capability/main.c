@@ -6,6 +6,7 @@
  * @brief SDK服务端 设备能力集Demo
  */
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -18,6 +19,101 @@
 #define MAX_LOG_FILES (10)
 /* 服务端口 */
 #define SDKSERVER_PORT 8888
+/* 服务端默认账号 */
+#define SDKSERVER_USERNAME "admin"
+#define SDKSERVER_PASSWORD "Admin@123456"
+/* Demo声明的最大字符叠加数量，需与当前IPC OSD能力保持一致 */
+#define SDKSERVER_OSD_MAX_NUM 4
+#define SDKSERVER_OSD_ALIGN_MAX_NUM 8
+
+static INT32 g_serverPort = SDKSERVER_PORT;
+static char g_serverUsername[64] = SDKSERVER_USERNAME;
+static char g_serverPassword[64] = SDKSERVER_PASSWORD;
+
+static void CopyString(char* pDst, size_t dstSize, const char* pSrc)
+{
+    if (!pDst || dstSize == 0)
+    {
+        return;
+    }
+
+    pDst[0] = '\0';
+    if (!pSrc)
+    {
+        return;
+    }
+
+    strncpy(pDst, pSrc, dstSize - 1);
+    pDst[dstSize - 1] = '\0';
+}
+
+static void PrintUsage(const char* pProgram)
+{
+    printf("Usage: %s [port] [username] [password]\n", pProgram ? pProgram : "CapabilityServerDemo");
+    printf("Example: %s 8888 admin Admin@123456\n", pProgram ? pProgram : "CapabilityServerDemo");
+}
+
+static void ConfigureByArgs(int argc, char* argv[])
+{
+    if (argc > 4)
+    {
+        PrintUsage(argv[0]);
+    }
+
+    if (argc > 1)
+    {
+        int port = atoi(argv[1]);
+        if (port > 0)
+        {
+            g_serverPort = port;
+        }
+    }
+
+    if (argc > 2)
+    {
+        CopyString(g_serverUsername, sizeof(g_serverUsername), argv[2]);
+    }
+
+    if (argc > 3)
+    {
+        CopyString(g_serverPassword, sizeof(g_serverPassword), argv[3]);
+    }
+}
+
+static UINT32 FillUint32List(UINT32* pDst, UINT32 dstCount, const UINT32* pSrc, UINT32 srcCount)
+{
+    UINT32 i = 0;
+    UINT32 count = srcCount;
+
+    if (!pDst || !pSrc || dstCount == 0)
+    {
+        return 0;
+    }
+
+    if (count > dstCount)
+    {
+        count = dstCount;
+    }
+
+    for (i = 0; i < count; ++i)
+    {
+        pDst[i] = pSrc[i];
+    }
+
+    return count;
+}
+
+static void PrintUint32List(const char* pName, const UINT32* pList, UINT32 count)
+{
+    UINT32 i = 0;
+
+    printf("[Server]   %s(%u):", pName, count);
+    for (i = 0; pList && i < count; ++i)
+    {
+        printf(" %u", pList[i]);
+    }
+    printf("\n");
+}
 
 static void FillDemoResolution(LPNET_TV_VIDEO_RESOLUTION_S pResolution,
                                INT32 width,
@@ -306,6 +402,103 @@ NET_TV_COMMON_ECODE_E MyAudioEncodeCb(INT32 dwChannelID, LPNET_TV_AUDIO_CAP_S pC
     return NET_TV_E_SUCCEED;
 }
 
+static void FillDemoOsdCap(LPNET_TV_OSD_CAP_S pCap)
+{
+    static const UINT32 kFontSizeList[] = {
+        NET_TV_OSD_FONT_SIZE_ADAPTIVE,
+        NET_TV_OSD_FONT_SIZE_16,
+        NET_TV_OSD_FONT_SIZE_32,
+        NET_TV_OSD_FONT_SIZE_48
+    };
+    static const UINT32 kDateFormatList[] = {
+        NET_TV_OSD_DATE_YYYY_MM_DD,
+        NET_TV_OSD_DATE_MM_DD_YYYY,
+        NET_TV_OSD_DATE_DD_MM_YYYY,
+        NET_TV_OSD_DATE_YYYY_MM_DD_CHN,
+        NET_TV_OSD_DATE_MM_DD_YYYY_CHN,
+        NET_TV_OSD_DATE_DD_MM_YYYY_CHN,
+        NET_TV_OSD_DATE_YYYY_MM_DD_SLASH,
+        NET_TV_OSD_DATE_MM_DD_YYYY_SLASH,
+        NET_TV_OSD_DATE_DD_MM_YYYY_SLASH
+    };
+    static const UINT32 kTimeFormatList[] = {
+        NET_TV_OSD_TIME_FORMAT_24,
+        NET_TV_OSD_TIME_FORMAT_12
+    };
+    static const UINT32 kAlignList[] = {
+        NET_TV_OSD_ALIGN_CUSTOMIZE,
+        NET_TV_OSD_ALIGN_CHAR_LEFT,
+        NET_TV_OSD_ALIGN_CHAR_RIGHT,
+        NET_TV_OSD_ALIGN_ALL_LEFT,
+        NET_TV_OSD_ALIGN_ALL_RIGHT,
+        NET_TV_OSD_ALIGN_GB_MODE
+    };
+
+    if (!pCap)
+    {
+        return;
+    }
+
+    memset(pCap, 0, sizeof(NET_TV_OSD_CAP_S));
+
+    pCap->bSupportOsd = TRUE;
+    pCap->bSupportName = TRUE;
+    pCap->bSupportTime = TRUE;
+    pCap->bSupportWeek = TRUE;
+    pCap->bSupportCustomColor = TRUE;
+    pCap->udwMaxOsdNum = SDKSERVER_OSD_MAX_NUM;
+
+    pCap->udwSupportedFontSizeNum =
+        FillUint32List(pCap->audwSupportedFontSizeList,
+                       NET_TV_OSD_FONT_SIZE_TYPE_MAX_NUM,
+                       kFontSizeList,
+                       (UINT32)(sizeof(kFontSizeList) / sizeof(kFontSizeList[0])));
+    pCap->udwSupportedDateFormatNum =
+        FillUint32List(pCap->audwSupportedDateFormatList,
+                       NET_TV_OSD_DATE_FORMAT_MAX_NUM,
+                       kDateFormatList,
+                       (UINT32)(sizeof(kDateFormatList) / sizeof(kDateFormatList[0])));
+    pCap->udwSupportedTimeFormatNum =
+        FillUint32List(pCap->audwSupportedTimeFormatList,
+                       NET_TV_OSD_TIME_FORMAT_MAX_NUM,
+                       kTimeFormatList,
+                       (UINT32)(sizeof(kTimeFormatList) / sizeof(kTimeFormatList[0])));
+    pCap->udwSupportedAlignNum =
+        FillUint32List(pCap->audwSupportedAlignList,
+                       SDKSERVER_OSD_ALIGN_MAX_NUM,
+                       kAlignList,
+                       (UINT32)(sizeof(kAlignList) / sizeof(kAlignList[0])));
+}
+
+static void PrintDemoOsdCap(const NET_TV_OSD_CAP_S* pCap)
+{
+    if (!pCap)
+    {
+        return;
+    }
+
+    printf("[Server] OSD cap prepared:\n");
+    printf("[Server]   SupportOsd=%d, SupportName=%d, SupportTime=%d, SupportWeek=%d, SupportCustomColor=%d\n",
+           pCap->bSupportOsd,
+           pCap->bSupportName,
+           pCap->bSupportTime,
+           pCap->bSupportWeek,
+           pCap->bSupportCustomColor);
+    printf("[Server]   MaxOsdNum=%u\n", pCap->udwMaxOsdNum);
+    PrintUint32List("SupportedFontSizeList",
+                    pCap->audwSupportedFontSizeList,
+                    pCap->udwSupportedFontSizeNum);
+    PrintUint32List("SupportedDateFormatList",
+                    pCap->audwSupportedDateFormatList,
+                    pCap->udwSupportedDateFormatNum);
+    PrintUint32List("SupportedTimeFormatList",
+                    pCap->audwSupportedTimeFormatList,
+                    pCap->udwSupportedTimeFormatNum);
+    PrintUint32List("SupportedAlignList",
+                    pCap->audwSupportedAlignList,
+                    pCap->udwSupportedAlignNum);
+}
+
 /**
  * @brief OSD能力集回调实现
  */
@@ -317,49 +510,9 @@ NET_TV_COMMON_ECODE_E MyOsdCapCb(INT32 dwChannelID, LPNET_TV_OSD_CAP_S pCap)
     }
     
     printf("[Server] GetOsdCap callback, channelID=%d\n", dwChannelID);
-    
-    // 基础能力
-    pCap->bSupportOsd = TRUE;
-    pCap->bSupportName = TRUE;
-    pCap->bSupportTime = TRUE;
-    pCap->bSupportWeek = TRUE;
-    pCap->bSupportCustomColor = TRUE;
-    
-    // 字符叠加能力
-    pCap->udwMaxOsdNum = NET_TV_OSD_CUSTOM_MAX_NUM;
-    
-    // 字体大小能力
-    pCap->udwSupportedFontSizeNum = 5;
-    pCap->audwSupportedFontSizeList[0] = NET_TV_OSD_FONT_SIZE_ADAPTIVE;
-    pCap->audwSupportedFontSizeList[1] = NET_TV_OSD_FONT_SIZE_16;
-    pCap->audwSupportedFontSizeList[2] = NET_TV_OSD_FONT_SIZE_32;
-    pCap->audwSupportedFontSizeList[3] = NET_TV_OSD_FONT_SIZE_48;
-    
-    // 日期格式能力
-    pCap->udwSupportedDateFormatNum = 9;
-    pCap->audwSupportedDateFormatList[0] = NET_TV_OSD_DATE_YYYY_MM_DD;
-    pCap->audwSupportedDateFormatList[1] = NET_TV_OSD_DATE_MM_DD_YYYY;
-    pCap->audwSupportedDateFormatList[2] = NET_TV_OSD_DATE_DD_MM_YYYY;
-    pCap->audwSupportedDateFormatList[3] = NET_TV_OSD_DATE_YYYY_MM_DD_CHN;
-    pCap->audwSupportedDateFormatList[4] = NET_TV_OSD_DATE_MM_DD_YYYY_CHN;
-    pCap->audwSupportedDateFormatList[5] = NET_TV_OSD_DATE_DD_MM_YYYY_CHN;
-    pCap->audwSupportedDateFormatList[6] = NET_TV_OSD_DATE_YYYY_MM_DD_SLASH;
-    pCap->audwSupportedDateFormatList[7] = NET_TV_OSD_DATE_MM_DD_YYYY_SLASH;
-    pCap->audwSupportedDateFormatList[8] = NET_TV_OSD_DATE_DD_MM_YYYY_SLASH;
-    
-    // 时间格式能力
-    pCap->udwSupportedTimeFormatNum = 2;
-    pCap->audwSupportedTimeFormatList[0] = NET_TV_OSD_TIME_FORMAT_24;
-    pCap->audwSupportedTimeFormatList[1] = NET_TV_OSD_TIME_FORMAT_12;
-    
-    // 对齐方式能力
-    pCap->udwSupportedAlignNum = 6;
-    pCap->audwSupportedAlignList[0] = NET_TV_OSD_ALIGN_CUSTOMIZE;
-    pCap->audwSupportedAlignList[1] = NET_TV_OSD_ALIGN_CHAR_LEFT;
-    pCap->audwSupportedAlignList[2] = NET_TV_OSD_ALIGN_CHAR_RIGHT;
-    pCap->audwSupportedAlignList[3] = NET_TV_OSD_ALIGN_ALL_LEFT;
-    pCap->audwSupportedAlignList[4] = NET_TV_OSD_ALIGN_ALL_RIGHT;
-    pCap->audwSupportedAlignList[5] = NET_TV_OSD_ALIGN_GB_MODE;
+
+    FillDemoOsdCap(pCap);
+    PrintDemoOsdCap(pCap);
     
     return NET_TV_E_SUCCEED;
 }
@@ -431,9 +584,10 @@ void AddRegisterCb()
     }
 }
 
-int main()
+int main(int argc, char* argv[])
 {
     printf("=============== SDK Server Capability Demo ================\n");
+    ConfigureByArgs(argc, argv);
     
     /* 初始化日志 */
     initSdkLogBySize("CapabilityDemo", "/opt/course/CapabilityDemo.log", MAX_LOG_SIZE, MAX_LOG_FILES);
@@ -444,8 +598,8 @@ int main()
     AddRegisterCb();
     
     /* 启动服务 */
-    printf("[Server] Starting on port %d...\n", SDKSERVER_PORT);
-    if (NET_TV_SERVER_Init(SDKSERVER_PORT, "admin", "Admin@123456"))
+    printf("[Server] Starting on port %d, username=%s...\n", g_serverPort, g_serverUsername);
+    if (NET_TV_SERVER_Init(g_serverPort, g_serverUsername, g_serverPassword))
     {
         printf("[Server] Server started successfully!\n");
     }
