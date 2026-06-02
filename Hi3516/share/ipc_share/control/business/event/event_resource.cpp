@@ -3,7 +3,7 @@
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2025-09-04 19:47:13
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-04-20 14:44:25
+ * @LastEditTime : 2026-05-25 15:27:04
  * @Description  : 事件资源管理
  */
 
@@ -164,6 +164,14 @@ const std::set<Event::Type_E> CEventResource::m_independent_events = {
     // Event::Type_E::AUDIO_ANOMALY
 };
 
+/* 定义兼容组：key 组可以与 value 中的所有组同时激活 */
+const std::map<Event::SmartCategory_E, std::set<Event::SmartCategory_E>> CEventResource::m_compatible_groups = {
+#if CAP_AI_PEOPLE_STATISTICS
+    {Event::SmartCategory_E::FACE_CAPTURE, {Event::SmartCategory_E::PEOPLE_STATISTICS}},
+    {Event::SmartCategory_E::PEOPLE_STATISTICS, {Event::SmartCategory_E::FACE_CAPTURE}},
+#endif
+};
+
 /* 定义每个组包含的所有事件 */
 const std::map<Event::SmartCategory_E, std::set<Event::Type_E>> CEventResource::m_group_events = {
     {
@@ -301,9 +309,9 @@ int CEventResource::get_canEventResource_rules(const Event::SmartEventEnableStat
 
 #endif
     std::set<Event::Type_E> enabled_events;
-    Event::SmartCategory_E active_group = Event::SmartCategory_E::UNKNOWN;
+    std::set<Event::SmartCategory_E> active_groups;
 
-    /* 遍历当前状态，找出所有已启用的事件，并确定当前激活的互斥组 */
+    /* 遍历当前状态，找出所有已启用的事件，并确定当前激活的所有互斥组 */
     for (const auto &pair : m_event_to_status_map)
     {
         Event::Type_E event_type = pair.first;
@@ -315,7 +323,7 @@ int CEventResource::get_canEventResource_rules(const Event::SmartEventEnableStat
             auto it = m_event_to_group_map.find(event_type);
             if (it != m_event_to_group_map.end())
             {
-                active_group = it->second;
+                active_groups.insert(it->second);
             }
         }
     }
@@ -323,7 +331,7 @@ int CEventResource::get_canEventResource_rules(const Event::SmartEventEnableStat
     std::set<Event::Type_E> can_enable_set;
 
     /* 根据激活的互斥组，确定哪些事件可以被启用 */
-    if (active_group == Event::SmartCategory_E::UNKNOWN)
+    if (active_groups.empty())
     {
         /* 如果没有任何互斥组被激活，说明所有事件组都可以被选择 */
         /* 因此，所有互斥组内的事件都可以启用 */
@@ -334,11 +342,33 @@ int CEventResource::get_canEventResource_rules(const Event::SmartEventEnableStat
     }
     else
     {
-        /* 如果某个互斥组已被激活，则只有该组内的事件可以继续启用 */
-        can_enable_set = m_group_events.at(active_group);
+        /* 如果某个互斥组已被激活，则只有该组及其兼容组内的事件可以继续启用 */
+        for (const auto &active_group : active_groups)
+        {
+            /* 添加当前激活组的所有事件 */
+            auto group_it = m_group_events.find(active_group);
+            if (group_it != m_group_events.end())
+            {
+                can_enable_set.insert(group_it->second.begin(), group_it->second.end());
+            }
+
+            /* 添加兼容组的所有事件 */
+            auto compat_it = m_compatible_groups.find(active_group);
+            if (compat_it != m_compatible_groups.end())
+            {
+                for (const auto &compat_group : compat_it->second)
+                {
+                    auto compat_group_it = m_group_events.find(compat_group);
+                    if (compat_group_it != m_group_events.end())
+                    {
+                        can_enable_set.insert(compat_group_it->second.begin(), compat_group_it->second.end());
+                    }
+                }
+            }
+        }
 
         /* 特殊规则：示例：假设目标检测组内，人脸侦测和宠物识别互斥 */
-        if (active_group == Event::SmartCategory_E::TARGET_DETECTION)
+        if (active_groups.count(Event::SmartCategory_E::TARGET_DETECTION))
         {
             /* 如果已启用一个，另一个就不能再启用了(它们都在enabled_events里，之后会被过滤掉) */
             /* 如果想更明确，可以这样： */

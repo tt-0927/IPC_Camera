@@ -109,41 +109,47 @@ int CTvSdkServer::push_alarm(const void *pAlarmer, int lCommand, const void *pAl
 
         pUseAlarmer = &stAlarmer;
     }
-    // if ((lCommand & 0xF000) == NET_TV_ALARM_BASE_STATISTICS)
-    // {
-    //     dlog_info("TVSDK转发统计告警: cmd[0x%x] buf_len[%d] expect_size[%zu]", lCommand, dwBufLen,
-    //               sizeof(NET_TV_ALARM_STATISTICS_INFO_S));
-    //     if (dwBufLen >= static_cast<int>(sizeof(NET_TV_ALARM_STATISTICS_INFO_S)))
-    //     {
-    //         const NET_TV_ALARM_STATISTICS_INFO_S *pStatistics =
-    //             static_cast<const NET_TV_ALARM_STATISTICS_INFO_S *>(pAlarmInfo);
-    //         dlog_info("TVSDK转发统计内容: alarm_type[0x%x] 通道[%u] 类型[%u] 规则[%u] 时间戳[%lld] 序号[%u] "
-    //                   "进入[%u] 离开[%u] 总数[%u] 当前人数[%u] 目标数[%u] 全景图长度[%u]",
-    //                   pStatistics->dwAlarmType,
-    //                   pStatistics->dwChannel,
-    //                   pStatistics->dwStatisticsType,
-    //                   pStatistics->dwRuleID,
-    //                   static_cast<long long>(pStatistics->llTimestampMs),
-    //                   pStatistics->dwReportSeq,
-    //                   pStatistics->dwEnterCount,
-    //                   pStatistics->dwLeaveCount,
-    //                   pStatistics->dwTotalCount,
-    //                   pStatistics->dwCurrentPeopleCount,
-    //                   pStatistics->dwTargetCount,
-    //                   pStatistics->dwPanoramaImgLen);
-    //     }
-    //     else
-    //     {
-    //         dlog_warn("TVSDK转发统计告警缓冲区过小: cmd[0x%x] buf_len[%d] expect_size[%zu]", lCommand, dwBufLen,
-    //                   sizeof(NET_TV_ALARM_STATISTICS_INFO_S));
-    //     }
-    // }
+    if ((lCommand & 0xF000) == NET_TV_ALARM_BASE_STATISTICS)
+    {
+        dlog_info("[统计推送诊断] push_alarm 进入TVSDK层: cmd[0x%x] buf_len[%d] expect_size[%zu]", lCommand, dwBufLen,
+                  sizeof(NET_TV_ALARM_STATISTICS_INFO_S));
+        if (dwBufLen >= static_cast<int>(sizeof(NET_TV_ALARM_STATISTICS_INFO_S)))
+        {
+            const NET_TV_ALARM_STATISTICS_INFO_S *pStatistics =
+                static_cast<const NET_TV_ALARM_STATISTICS_INFO_S *>(pAlarmInfo);
+            dlog_info("[统计推送诊断] push_alarm 统计内容: alarm_type[0x%x] 通道[%u] 类型[%u] 规则[%u] 时间戳[%lld] 序号[%u] "
+                      "进入[%u] 离开[%u] 总数[%u] 当前人数[%u] 目标数[%u] 全景图长度[%u]",
+                      pStatistics->dwAlarmType,
+                      pStatistics->dwChannel,
+                      pStatistics->dwStatisticsType,
+                      pStatistics->dwRuleID,
+                      static_cast<long long>(pStatistics->llTimestampMs),
+                      pStatistics->dwReportSeq,
+                      pStatistics->dwEnterCount,
+                      pStatistics->dwLeaveCount,
+                      pStatistics->dwTotalCount,
+                      pStatistics->dwCurrentPeopleCount,
+                      pStatistics->dwTargetCount,
+                      pStatistics->dwPanoramaImgLen);
+        }
+        else
+        {
+            dlog_warn("[统计推送诊断] push_alarm 缓冲区过小: cmd[0x%x] buf_len[%d] expect_size[%zu]", lCommand, dwBufLen,
+                      sizeof(NET_TV_ALARM_STATISTICS_INFO_S));
+        }
+    }
 
     BOOL bRet = NET_TV_SERVER_PushAlarmInfo(
          pUseAlarmer,
         (INT32)lCommand,
         (LPVOID)pAlarmInfo,
         (INT32)dwBufLen);
+
+    if ((lCommand & 0xF000) == NET_TV_ALARM_BASE_STATISTICS)
+    {
+        dlog_info("[统计推送诊断] push_alarm NET_TV_SERVER_PushAlarmInfo 返回: cmd[0x%x] bRet[%d]", lCommand, bRet);
+    }
+
     return bRet ? OK : -1;
 }
 

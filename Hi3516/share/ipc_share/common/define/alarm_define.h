@@ -4614,7 +4614,7 @@ typedef struct _FaceCompare_S_
     {
         bool bIsMale;           /* 是否是男性 */
         int  nAgeLabel;         /* 年龄标签:1, 2, 3, 4 */
-        bool bBag;              /* 是否有包 */
+        bool bBag = false;              /* 是否有包 */
         PMNAttributeColor_E  eTopColorLabel;    /* 上衣颜色标签 */
         PMNAttributeColor_E  eBottomColorLabel; /* 下衣颜色标签 */
         _PersonAlarmAttribute_S_() :
