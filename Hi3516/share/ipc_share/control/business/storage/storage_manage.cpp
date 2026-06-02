@@ -2,7 +2,7 @@
  * @Author: 梁浩尧 lianghaoyao@kfb.cn
  * @Date: 2025-08-11 14:26:15
  * @LastEditors: lianghy lianghy@kfb.cn
- * @LastEditTime: 2026-04-01 11:45:52
+ * @LastEditTime: 2026-05-27 14:09:29
  * @FilePath: /hisi/share/ipc_share/control/business/storage/storage_manage.cpp
  * @Description: 存储管理
  */
@@ -1148,7 +1148,7 @@ void CStorageManage::run()
         if (nCount >= 15)
         {
             std::lock_guard<std::mutex> lock(m_mutex);
-            if (m_SdCardStatus == SD_CARD_STATUS_E::NORMAL || m_SdCardStatus == SD_CARD_STATUS_E::ABNORMAL)
+            if (m_SdCardStatus == SD_CARD_STATUS_E::NORMAL || m_SdCardStatus == SD_CARD_STATUS_E::WRITE_ERROR)
             {
                 if (!test_write_operation())
                 {
@@ -1157,7 +1157,7 @@ void CStorageManage::run()
                 else
                 {
                     unAbnormalCount = 0;
-                    if (m_SdCardStatus == SD_CARD_STATUS_E::ABNORMAL)
+                    if (m_SdCardStatus == SD_CARD_STATUS_E::WRITE_ERROR)
                     {
                         dlog_info("SD卡异常状态恢复正常\n");
                         m_SdCardStatus = SD_CARD_STATUS_E::NORMAL;
@@ -1166,7 +1166,7 @@ void CStorageManage::run()
                 /* 连续检测到sd卡三次写入失败 */
                 if (unAbnormalCount >= 3)
                 {
-                    m_SdCardStatus = SD_CARD_STATUS_E::ABNORMAL;
+                    m_SdCardStatus = SD_CARD_STATUS_E::WRITE_ERROR;
                     dlog_error("SD卡写入异常\n");
                 }
             }

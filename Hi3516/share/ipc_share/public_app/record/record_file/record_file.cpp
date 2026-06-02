@@ -113,6 +113,7 @@ void CRecordFile::start(Record_NS::Info_S &stRecordInfos)
 	clear_mediaDataQueue();
 
 	m_stSliceInfo.nEventFlag = (Record_NS::Event_E)stRecordInfos.nEventType;
+	m_ffmpegRecord.reset_lastPts();
 	m_ffmpegRecord.init(m_stSliceInfo);
 	m_stRecordInfo = stRecordInfos;
 	m_strRecvStratTime = Time::get_hhmmss();
