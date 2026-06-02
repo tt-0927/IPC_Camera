@@ -304,8 +304,8 @@ void STDCALL AlarmCallBack(OUT INT64 lCommand,
                    *dwBufLen >= (INT32)sizeof(NET_TV_ALARM_STATISTICS_INFO_S)) {
             auto* info = (NET_TV_ALARM_STATISTICS_INFO_S*)pAlarmInfo;
             printf("  [STATISTICS] AlarmType: 0x%x (%s), Channel: %u, StatisticsType: %u (%s), RuleID: %u, TimestampMs: %lld\n",
-                   info->dwAlarmType, GetAlarmTypeName(info->dwAlarmType), info->dwChannel, info->dwStatisticsType, info->dwRuleID,
-                   GetStatisticsTypeName(info->dwStatisticsType), (long long)info->llTimestampMs);
+                   info->dwAlarmType, GetAlarmTypeName(info->dwAlarmType), info->dwChannel, info->dwStatisticsType,
+                   GetStatisticsTypeName(info->dwStatisticsType), info->dwRuleID, (long long)info->llTimestampMs);
             printf("  [STATISTICS] Enter: %u, Leave: %u, Total: %u, "
                    "CurrentPeople: %u, AverageStayTimeSec: %u, TargetCount: "
                    "%u, PanoramaImgLen: %u\n",
