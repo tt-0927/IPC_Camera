@@ -2,7 +2,7 @@
  * @Author: 梁浩尧 lianghaoyao@kfb.cn
  * @Date: 2025-08-11 14:26:04
  * @LastEditors: lianghy lianghy@kfb.cn
- * @LastEditTime: 2026-03-31 10:57:57
+ * @LastEditTime: 2026-05-27 14:09:19
  * @FilePath: /hisi/share/ipc_share/control/business/storage/storage_manage.h
  * @Description: 存储管理
  */
@@ -24,7 +24,7 @@
 typedef enum _SD_CARD_STATUS_E_
 {
     /* 异常 */
-    ABNORMAL = -1,
+    WRITE_ERROR = -1,
     /* 插入 */
     INSERT = 0,
     /* 拔出 */

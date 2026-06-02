@@ -91,13 +91,14 @@ void Json::add(Object *pObj, std::string key, double dValue)
     }
 }
 
-void Json::add(Object *pObj, std::string key, Object *pItem)
+void Json::add(Object *pObj, std::string key, Object *&pItem)
 {
     if (!pObj || key.empty())
     {
         return;
     }
     cJSON_AddItemToObject(pObj, key.c_str(), pItem);
+    pItem = nullptr;
 }
 
 /*新增:在 JSON 对象中添加一个键值对，值为null*/
@@ -691,9 +692,10 @@ void Json::Array::add(Object *pArr, const float fValue)
     cJSON_AddItemToArray(pArr, cJSON_CreateNumber(fValue));
 }
 
-void Json::Array::add(Object *pArr, Object *pItem)
+void Json::Array::add(Object *pArr, Object *&pItem)
 {
     cJSON_AddItemToArray(pArr, pItem);
+    pItem = nullptr;
 }
 
 void Json::Array::add(Object *pArr, std::string value)

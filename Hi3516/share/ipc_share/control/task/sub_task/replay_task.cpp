@@ -2,7 +2,7 @@
  * @Author: zhangjc zhangjc@kfb.cn
  * @Date: 2024-10-29 19:33:17
  * @LastEditors: lianghy lianghy@kfb.cn
- * @LastEditTime: 2026-01-23 09:07:17
+ * @LastEditTime: 2026-05-29 11:13:56
  * @FilePath: /hisi/share/ipc_share/control/task/sub_task/replay_task.cpp
  * @Description: 录像回放
  */
@@ -115,8 +115,10 @@ static const Event::Type_E ATTRIBUTE_RECOGNITION_EVENT_MAP[] =
 /* 设置回放布局信息 */
 void Task::Replay::SetLayoutInfo::handle()
 {
+    SD_CARD_STATUS_E eSdCardStatus = CStorageManage::instance()->get_SdCardStatus();
     /* sd卡异常以及录制ts文件信息数据库不存在都返回空数据 */
-    if(!(std::filesystem::exists(RECORD_DATABASE_PATH)) || (CStorageManage::instance()->get_SdCardStatus() != SD_CARD_STATUS_E::NORMAL))
+    if (!(std::filesystem::exists(RECORD_DATABASE_PATH)) ||
+         (eSdCardStatus != SD_CARD_STATUS_E::NORMAL && eSdCardStatus != SD_CARD_STATUS_E::WRITE_ERROR))
     {
         std::string retrievalResult = "{\"reason\":\"record data is empty.\"}";
         result(retrievalResult, -1);
@@ -124,7 +126,7 @@ void Task::Replay::SetLayoutInfo::handle()
     }
     ::Replay::LayoutInfo_S stLayoutInfo;
     Convert::to_struct(m_taskData, stLayoutInfo);
- 
+
     /* 找到对应日期的录制文件 */
     ::Record_NS::Find_S stFind;
     stFind.date = stLayoutInfo.date;
@@ -138,7 +140,7 @@ void Task::Replay::SetLayoutInfo::handle()
         }
         stFind.chnIds.push_back(stChnInfo.stItem.nChnId);
     }
-    
+
     std::vector<::Record_NS::FindResult_S> outInfos;
     RecordFileManage::instance()->find(stFind, outInfos);
 
@@ -167,7 +169,7 @@ void Task::Replay::SetLayoutInfo::handle()
     }
 
     for (auto &outInfo : outInfos)
-    {        
+    {
         for (auto &findInfo :  stLayoutInfo.chnInfos)
         {
             if (findInfo.stItem.nChnId == outInfo.nChnId)
@@ -188,11 +190,11 @@ void Task::Replay::SetLayoutInfo::handle()
     stEventCond.enType = ::Event::Type::UNKNOWN;
 
     if(stLayoutInfo.bSmartVideoSummary)
-    {  
+    {
         stEventCond.strStartTime = stLayoutInfo.strStartTime;
         stEventCond.strEndTime = stLayoutInfo.strEndTime;
 
-        switch (stLayoutInfo.enSummaryType) 
+        switch (stLayoutInfo.enSummaryType)
         {
             case ::Replay::SummaryType_E::ORDINARY_TYPE:
             {
@@ -299,13 +301,13 @@ void Task::Replay::SetLayoutInfo::handle()
     for (auto &eventInfo : eventInfos)
     {
         /* 时间转换 */
-        auto timeToSeconds = [](const std::string& timeStr) 
+        auto timeToSeconds = [](const std::string& timeStr)
         {
             std::tm timeStruct = {};
             std::istringstream timeStream(timeStr);
             // 解析 "HH:MM:SS" 部分
             timeStream >> std::get_time(&timeStruct, "%Y-%m-%d %H:%M:%S");
-            if (timeStream.fail()) 
+            if (timeStream.fail())
             {
                 return -1;
             }
@@ -313,16 +315,16 @@ void Task::Replay::SetLayoutInfo::handle()
             int totalSeconds = timeStruct.tm_hour * 3600 + timeStruct.tm_min * 60 + timeStruct.tm_sec;
             return totalSeconds;
         };
-        ::Record_NS::VideoTime_S stVideoTime; 
+        ::Record_NS::VideoTime_S stVideoTime;
         stVideoTime.nStartTime = timeToSeconds(eventInfo.strStartTime);                /* 录像开始时间 */
         stVideoTime.nEndTime = timeToSeconds(eventInfo.strEndTime);                    /* 录像开始时间 */
-        
+
         /* 无效时间直接丢掉 */
         if (stVideoTime.nStartTime == -1 || stVideoTime.nEndTime == -1)
         {
             continue;
         }
-            
+
         auto &events = stLayoutInfo.recordTime.EventTimes;
 
         /* 第一段，直接加入 */
@@ -355,7 +357,7 @@ void Task::Replay::SetLayoutInfo::handle()
         ::Replay::RecordTime_S stRecordTime;
         stRecordTime.videoTimes = stLayoutInfo.recordTime.videoTimes;
         stRecordTime.EventTimes = stLayoutInfo.recordTime.EventTimes;
-        stRecordTime.nEventType = (int)stLayoutInfo.enSummaryType; 
+        stRecordTime.nEventType = (int)stLayoutInfo.enSummaryType;
         str = Convert::to_string(stRecordTime);
         result(str);
         return;
