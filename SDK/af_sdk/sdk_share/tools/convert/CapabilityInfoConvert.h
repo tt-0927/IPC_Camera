@@ -35,6 +35,11 @@ namespace SDKConvert
     void deal(Json::Object* pRootJson, NET_TV_VIDEO_ENCODE_OPTION_S& stInfo, bool bOutStruct);
 
     /**
+     * @brief 视频编码格式能力转换
+     */
+    void deal(Json::Object* pRootJson, NET_TV_VIDEO_ENCODE_ABILITY_S& stInfo, bool bOutStruct);
+
+    /**
      * @brief 视频码流参数能力集转换 (单个码流)
      */
     void deal(Json::Object* pRootJson, NET_TV_VIDEO_STREAM_CAP_S& stInfo, bool bOutStruct);

@@ -244,7 +244,18 @@ namespace SDKConvert
             if (m_bOutStruct)
             {
                 Json::Object *pArray = Json::get(pRootJson, key);
+                vec.clear();
+                if (!pArray)
+                {
+                    return;
+                }
+
                 int nSize = Json::Array::size(pArray);
+                if (nSize <= 0)
+                {
+                    return;
+                }
+                vec.resize(static_cast<size_t>(nSize));
                 for (int i = 0; i < nSize; i++)
                 {
                     Json::Object *item = Json::Array::get(pArray, i);
@@ -255,7 +266,7 @@ namespace SDKConvert
                     T info;
                     structure(item, info);
 
-                    vec.push_back(info);
+                    vec[static_cast<size_t>(i)] = info;
                 }
             }
             else
@@ -291,7 +302,17 @@ namespace SDKConvert
             if (m_bOutStruct)
             {
                 Json::Object *pArray = Json::get(pRootJson, key);
+                list.clear();
+                if (!pArray)
+                {
+                    return;
+                }
+
                 int nSize = Json::Array::size(pArray);
+                if (nSize <= 0)
+                {
+                    return;
+                }
                 for (int i = 0; i < nSize; i++)
                 {
                     Json::Object *item = Json::Array::get(pArray, i);
@@ -549,4 +570,3 @@ namespace SDKConvert
     }
 
 }
-

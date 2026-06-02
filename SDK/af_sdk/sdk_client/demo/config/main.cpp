@@ -1001,12 +1001,6 @@ static void BuildDemoOSDCfg(NET_TV_VIDEO_OSD_CFG_S* pCfg)
                 "#FFFFFF",
                 "client_time_token");
 
-    for (i = 0; i < DEMO_OSD_TOTAL_SLOT_NUM; ++i)
-    {
-        pCfg->OsdInfo[i].nId = i + 1;
-        pCfg->OsdInfo[i].bEnable = FALSE;
-    }
-
     for (i = 0; i < DEMO_OSD_CUSTOM_MAX_NUM; ++i)
     {
         char name[NET_TV_LEN_128] = {0};
@@ -1029,6 +1023,11 @@ static void BuildDemoOSDCfg(NET_TV_VIDEO_OSD_CFG_S* pCfg)
                     OSD_COLOR_CUSTOMIZE,
                     color,
                     token);
+    }
+
+    for (i = DEMO_OSD_CUSTOM_MAX_NUM; i < DEMO_OSD_TOTAL_SLOT_NUM; ++i)
+    {
+        memset(&pCfg->OsdInfo[i], 0, sizeof(pCfg->OsdInfo[i]));
     }
 }
 
@@ -2242,7 +2241,7 @@ static void DoSetOSDCapCfg()
         memset(&stCfg, 0, sizeof(stCfg));
     }
 
-    /* 修改为 Demo 值，固定只使用当前能力集声明的4个自定义字符叠加槽位 */
+    /* 修改为 Demo 值，固定只使用当前能力声明的前4个自定义字符叠加槽位 */
     BuildDemoOSDCfg(&stCfg);
 
     printf("[Client] 调用 NET_TV_SetDevConfig 设置OSD能力集配置(示例值)...\n");

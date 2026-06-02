@@ -245,6 +245,7 @@ extern "C" {
 #define NET_TV_OSD_TEXT_MAX_LEN                 (64 + 4)    /* 通道 OSD 字符长度  Length of OSD texts */
 #define NET_TV_OSD_TEXT_MAX_LEN_EX              (512 + 4)   /* 通道 OSD 字符长度(扩展)  Length of OSD texts */
 #define NET_TV_OSD_TYPE_MAX_NUM                 32          /* 通道 OSD 最大类型个数  Maximum number of OSD type */
+#define NET_TV_OSD_CUSTOM_MAX_NUM               4           /* 通道 OSD 自定义字符叠加最大个数  Maximum number of custom OSD texts */
 #define NET_TV_OSD_FONT_SIZE_TYPE_MAX_NUM       4           /* 通道 OSD 字体最大类型个数  Maximum number of OSD font size type */
 #define NET_TV_OSD_FONT_STYLE_TYPE_MAX_NUM      4           /* 通道 OSD 样式最大类型个数  Maximum number of OSD font style type */
 #define NET_TV_OSD_TIME_FORMAT_MAX_NUM          7           /* 通道 OSD 最大时间格式个数  Maximum number of OSD time format type */
@@ -341,6 +342,7 @@ extern "C" {
 #define NET_TV_VIID_CODE_LEN                        48          /* 视图编码长度 */
 #define NET_TV_VIDEO_FORMAT_CAP_NUM                 64          /* 编码制式能力集 */
 #define NET_TV_VIDEO_FRAME_RATE_MAX_NUM             64          /* 视频能力集支持帧率最大数量 */
+#define NET_TV_VIDEO_ENCODE_COMPLEXITY_MAX_NUM      3           /* 编码复杂度最大数量 */
 #define NET_TV_LAYOUT_CAP_NUM                       64          /* 分屏能力集 */
 
 #define NET_TV_DA_POINT_CODE_LEN                    48          /* 代理设备 点位 编码长度 */
@@ -609,7 +611,7 @@ extern "C" {
 #define NET_TV_ALARM_BASE_STATISTICS             0x6000
 #define NET_TV_ALARM_PEOPLE_FLOW_STATISTICS      (NET_TV_ALARM_BASE_STATISTICS + 0x01) // 人流统计
 #define NET_TV_ALARM_PEOPLE_DENSITY_STATISTICS   (NET_TV_ALARM_BASE_STATISTICS + 0x02) // 人员密度统计
-#define NET_TV_ALARM_STATISTICS_TARGET_MAX_NUM   64
+#define NET_TV_ALARM_STATISTICS_TARGET_MAX_NUM   2
 
 /**
  * SDK事件通知 (0x7000 - 0x70FF)
@@ -1174,6 +1176,9 @@ typedef enum tagNETTVVideoCodeType
     NET_TV_VIDEO_CODE_MJPEG     = 0,          /* MJPEG */
     NET_TV_VIDEO_CODE_H264      = 1,          /* H.264 */
     NET_TV_VIDEO_CODE_H265      = 2,          /* H.265 */
+    NET_TV_VIDEO_CODE_JPEG      = 3,          /* JPEG */
+    NET_TV_VIDEO_CODE_SVAC3     = 4,          /* SVAC3 */
+    NET_TV_VIDEO_CODE_MPEG4     = 5,          /* MPEG4 */
     NET_TV_VIDEO_CODE_INVALID
 }NET_TV_VIDEO_CODE_TYPE_E;
 
@@ -3918,12 +3923,13 @@ typedef struct tagNET_TV_ALARMER
 */
 typedef struct tagNETTVVideoResolution
 {
+    CHAR  szName[NET_TV_LEN_32];                              /* 分辨率名称, 如 1920*1080 */
     INT32 dwWidth;                                             /*  视频编码分辨率 */
     INT32 dwHeight;                                            /*  视频编码分辨率 */
-    INT32 dwFrameRateMin;                                      /*  该分辨率支持的最小帧率 */
-    INT32 dwFrameRateMax;                                      /*  该分辨率支持的最大帧率 */
+    FLOAT dwFrameRateMin;                                      /*  该分辨率支持的最小帧率fps */
+    FLOAT dwFrameRateMax;                                      /*  该分辨率支持的最大帧率fps */
     INT32 dwFrameRateNum;                                      /*  该分辨率支持的帧率数量 */
-    INT32 adwFrameRate[NET_TV_VIDEO_FRAME_RATE_MAX_NUM];       /*  该分辨率支持的帧率数组 */
+    FLOAT adwFrameRate[NET_TV_VIDEO_FRAME_RATE_MAX_NUM];       /*  该分辨率支持的帧率fps数组 */
     INT32 dwBitRateMin;                                        /*  该分辨率支持的最小码率kbps */
     INT32 dwBitRateMax;                                        /*  该分辨率支持的最大码率kbps */
 }NET_TV_VIDEO_RESOLUTION_S, *LPNET_TV_VIDEO_RESOLUTION_S;
@@ -3964,6 +3970,24 @@ typedef struct tagNET_TVVideoEncodeOption
 }NET_TV_VIDEO_ENCODE_OPTION_S, *LPNET_TV_VIDEO_ENCODE_OPTION_S;
 
 /**
+ * @struct tagNET_TVVideoEncodeAbility
+ * @brief 单个编码格式能力 Video encode ability
+ * @attention 对应 Video_NS::EncodeAbility_S
+*/
+typedef struct tagNET_TVVideoEncodeAbility
+{
+    CHAR                        szVideoCodec[NET_TV_LEN_32];                       /* 视频编码字符串, 如 H.264/H.265 */
+    INT32                       enVideoCodec;                                      /* 视频编码 NET_TV_VIDEO_CODE_TYPE_E */
+    INT32                       nSupportAdjustComplexity;                          /* 是否支持调整编码复杂度 */
+    INT32                       anEncodeComplexity[NET_TV_VIDEO_ENCODE_COMPLEXITY_MAX_NUM]; /* 支持的编码复杂度 */
+    INT32                       nEncodeComplexityNum;                              /* 编码复杂度有效个数 */
+    UINT32                      nDefaultComplexity;                                /* 默认编码复杂度 */
+    INT32                       bSupportSVC;                                       /* 是否支持 SVC */
+    INT32                       bSupportStreamSmooth;                              /* 是否支持码流平滑 */
+    BYTE                        byRes[64];                                         /* 保留字段 */
+}NET_TV_VIDEO_ENCODE_ABILITY_S, *LPNET_TV_VIDEO_ENCODE_ABILITY_S;
+
+/**
  * @struct tagNET_TVVideoStreamCap
  * @brief 视频码流参数能力集 Video stream CapNET_TV_CAP_OSD
  * @attention 无
@@ -3976,6 +4000,13 @@ typedef struct tagNET_TVVideoStreamCap
     NET_TV_VIDEO_ENCODE_OPTION_S    astEncodeCap[NET_TV_VIDEO_ENCODE_TYPE_MAX];     /* 编码能力 Encode capability */
     NET_TV_RANGE_S                  stQuality;                                      /* 图像质量范围 Quality range */
     NET_TV_RANGE_S                  stStreamSmooth;                                 /* 码流平滑范围 Stream smooth range */
+    INT32                           dwResolutionNum;                                /* 支持的分辨率个数 Number of supported resolutions */
+    NET_TV_VIDEO_RESOLUTION_S       astResolution[NET_TV_RESOLUTION_NUM_MAX];       /* 支持的分辨率列表 Supported resolution list */
+    INT32                           dwEncodeTypeNum;                                /* 编码格式有效个数 */
+    INT32                           dwEncodeAbilityNum;                             /* 编码能力有效个数 */
+    NET_TV_VIDEO_ENCODE_ABILITY_S   astEncodeAbility[NET_TV_VIDEO_ENCODE_TYPE_MAX]; /* 编码格式能力列表 */
+    INT32                           dwIFrameIntervalMin;                            /* I帧间隔最小值 */
+    INT32                           dwIFrameIntervalMax;                            /* I帧间隔最大值 */
 }NET_TV_VIDEO_STREAM_CAP_S, *LPNET_TV_VIDEO_STREAM_CAP_S;
 
 #define NET_TV_VIDEO_STREAM_MAX         4             /* 最大码流数量 */

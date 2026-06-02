@@ -11,6 +11,19 @@
 
 #include <cstring>
 
+static INT32 NormalizeEncodeComplexityNum(INT32 complexityNum)
+{
+    if (complexityNum < 0)
+    {
+        return 0;
+    }
+    if (complexityNum > NET_TV_VIDEO_ENCODE_COMPLEXITY_MAX_NUM)
+    {
+        return NET_TV_VIDEO_ENCODE_COMPLEXITY_MAX_NUM;
+    }
+    return complexityNum;
+}
+
 static INT32 NormalizeFrameRateNum(INT32 frameRateNum)
 {
     if (frameRateNum < 0)
@@ -77,6 +90,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_VIDEO_RESOLUTION_S& stInfo
     {
         stInfo.dwFrameRateNum = NormalizeFrameRateNum(stInfo.dwFrameRateNum);
     }
+    convert.field(pRootJson, "Name", stInfo.szName);
     convert.field(pRootJson, "Width", (int&)stInfo.dwWidth);
     convert.field(pRootJson, "Height", (int&)stInfo.dwHeight);
     convert.field(pRootJson, "FrameRateMin", stInfo.dwFrameRateMin);
@@ -130,6 +144,41 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_VIDEO_ENCODE_OPTION_S& stI
 }
 
 /**
+ * @brief 视频编码格式能力转换
+ */
+void SDKConvert::deal(Json::Object* pRootJson, NET_TV_VIDEO_ENCODE_ABILITY_S& stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+
+    SDKConvert::CSDKConvert convert(bOutStruct);
+    if (!bOutStruct)
+    {
+        stInfo.nEncodeComplexityNum = NormalizeEncodeComplexityNum(stInfo.nEncodeComplexityNum);
+    }
+
+    convert.field(pRootJson, "VideoCodec", stInfo.szVideoCodec);
+    convert.field(pRootJson, "VideoCodecType", stInfo.enVideoCodec);
+    convert.field(pRootJson, "SupportAdjustComplexity", stInfo.nSupportAdjustComplexity);
+    convert.field(pRootJson, "EncodeComplexityNum", stInfo.nEncodeComplexityNum);
+    convert.field_array(pRootJson,
+                        "EncodeComplexity",
+                        stInfo.anEncodeComplexity,
+                        stInfo.nEncodeComplexityNum,
+                        NET_TV_VIDEO_ENCODE_COMPLEXITY_MAX_NUM);
+    convert.field(pRootJson, "DefaultComplexity", stInfo.nDefaultComplexity);
+    convert.field(pRootJson, "SupportSVC", stInfo.bSupportSVC);
+    convert.field(pRootJson, "SupportStreamSmooth", stInfo.bSupportStreamSmooth);
+
+    if (bOutStruct)
+    {
+        stInfo.nEncodeComplexityNum = NormalizeEncodeComplexityNum(stInfo.nEncodeComplexityNum);
+    }
+}
+
+/**
  * @brief 视频码流参数能力集转换 (NET_TV_CAP_VIDEO_ENCODE)
  */
 void SDKConvert::deal(Json::Object* pRootJson, NET_TV_VIDEO_STREAM_CAP_S& stInfo, bool bOutStruct)
@@ -142,6 +191,10 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_VIDEO_STREAM_CAP_S& stInfo
     convert.field(pRootJson, "StreamType", (int&)stInfo.dwStreamType);
     convert.field(pRootJson, "SupportMultiStream", (int&)stInfo.bSupportMultiStream);
     convert.field(pRootJson, "EncodeCapSize", (int&)stInfo.dwEncodeCapSize);
+    convert.field(pRootJson, "EncodeTypeNum", (int&)stInfo.dwEncodeTypeNum);
+    convert.field(pRootJson, "EncodeAbilityNum", (int&)stInfo.dwEncodeAbilityNum);
+    convert.field(pRootJson, "IFrameIntervalMin", (int&)stInfo.dwIFrameIntervalMin);
+    convert.field(pRootJson, "IFrameIntervalMax", (int&)stInfo.dwIFrameIntervalMax);
     
     // 编码能力数组处理
     if (bOutStruct)
@@ -149,13 +202,19 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_VIDEO_STREAM_CAP_S& stInfo
         // JSON -> Struct
         Json::Object* pArray = Json::get(pRootJson, "EncodeCap");
         int nSize = Json::Array::size(pArray);
+        int nParsedSize = 0;
         for (int i = 0; i < nSize && i < NET_TV_VIDEO_ENCODE_TYPE_MAX; i++)
         {
             Json::Object* pItem = Json::Array::get(pArray, i);
             if (pItem)
             {
                 deal(pItem, stInfo.astEncodeCap[i], bOutStruct);
+                ++nParsedSize;
             }
+        }
+        if (nParsedSize > 0)
+        {
+            stInfo.dwEncodeCapSize = nParsedSize;
         }
     }
     else
@@ -171,6 +230,41 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_VIDEO_STREAM_CAP_S& stInfo
         Json::add(pRootJson, "EncodeCap", pArray);
     }
     
+    if (bOutStruct)
+    {
+        Json::Object* pAbilityArray = Json::get(pRootJson, "EncodeAbility");
+        int nAbilitySize = Json::Array::size(pAbilityArray);
+        int nParsedAbilitySize = 0;
+        for (int i = 0; i < nAbilitySize && i < NET_TV_VIDEO_ENCODE_TYPE_MAX; i++)
+        {
+            Json::Object* pItem = Json::Array::get(pAbilityArray, i);
+            if (pItem)
+            {
+                deal(pItem, stInfo.astEncodeAbility[i], bOutStruct);
+                ++nParsedAbilitySize;
+            }
+        }
+        if (nParsedAbilitySize > 0)
+        {
+            stInfo.dwEncodeAbilityNum = nParsedAbilitySize;
+            if (stInfo.dwEncodeTypeNum <= 0)
+            {
+                stInfo.dwEncodeTypeNum = nParsedAbilitySize;
+            }
+        }
+    }
+    else
+    {
+        Json::Object* pAbilityArray = Json::Array::init();
+        for (int i = 0; i < stInfo.dwEncodeAbilityNum && i < NET_TV_VIDEO_ENCODE_TYPE_MAX; i++)
+        {
+            Json::Object* pItem = Json::init();
+            deal(pItem, stInfo.astEncodeAbility[i], bOutStruct);
+            Json::Array::add(pAbilityArray, pItem);
+        }
+        Json::add(pRootJson, "EncodeAbility", pAbilityArray);
+    }
+
     // 图像质量范围
     convert.structure(pRootJson, "Quality", stInfo.stQuality);
     // 码流平滑范围
@@ -183,13 +277,19 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_VIDEO_STREAM_CAP_S& stInfo
         // JSON -> Struct
         Json::Object* pResArray = Json::get(pRootJson, "Resolution");
         int nResSize = Json::Array::size(pResArray);
+        int nParsedResSize = 0;
         for (int i = 0; i < nResSize && i < NET_TV_RESOLUTION_NUM_MAX; i++)
         {
             Json::Object* pItem = Json::Array::get(pResArray, i);
             if (pItem)
             {
                 deal(pItem, stInfo.astResolution[i], bOutStruct);
+                ++nParsedResSize;
             }
+        }
+        if (nParsedResSize > 0)
+        {
+            stInfo.dwResolutionNum = nParsedResSize;
         }
     }
     else
@@ -208,7 +308,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_VIDEO_STREAM_CAP_S& stInfo
 
 static void NormalizeOsdCap(NET_TV_OSD_CAP_S& stInfo)
 {
-    stInfo.udwMaxOsdNum = std::min<UINT32>(stInfo.udwMaxOsdNum, 4);
+    stInfo.udwMaxOsdNum = std::min<UINT32>(stInfo.udwMaxOsdNum, NET_TV_OSD_CUSTOM_MAX_NUM);
     stInfo.udwSupportedFontSizeNum = std::min<UINT32>(stInfo.udwSupportedFontSizeNum, NET_TV_OSD_FONT_SIZE_TYPE_MAX_NUM);
     stInfo.udwSupportedDateFormatNum = std::min<UINT32>(stInfo.udwSupportedDateFormatNum, NET_TV_OSD_DATE_FORMAT_MAX_NUM);
     stInfo.udwSupportedTimeFormatNum = std::min<UINT32>(stInfo.udwSupportedTimeFormatNum, NET_TV_OSD_TIME_FORMAT_MAX_NUM);
@@ -233,13 +333,19 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_VIDEO_ENCODE_CAP_S& stInfo
         // JSON -> Struct
         Json::Object* pArray = Json::get(pRootJson, "StreamCap");
         int nSize = Json::Array::size(pArray);
+        int nParsedSize = 0;
         for (int i = 0; i < nSize && i < NET_TV_VIDEO_STREAM_MAX; i++)
         {
             Json::Object* pItem = Json::Array::get(pArray, i);
             if (pItem)
             {
                 deal(pItem, stInfo.astStreamCap[i], bOutStruct);
+                ++nParsedSize;
             }
+        }
+        if (nParsedSize > 0)
+        {
+            stInfo.dwStreamCount = nParsedSize;
         }
     }
     else

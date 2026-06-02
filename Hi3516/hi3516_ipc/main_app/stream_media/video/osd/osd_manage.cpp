@@ -34,6 +34,65 @@ uint64_t get_steady_time_ms()
     return static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(now).count());
 }
 #endif
+
+constexpr size_t CUSTOM_OSD_MAX_NUM = static_cast<size_t>(RGN_OSD_MAX_NUM);
+
+bool normalize_osd_config(Osd::OsdConfig_S &stInfo, bool bLogTrim)
+{
+    bool bChanged = false;
+
+    if (stInfo.vecOsdInfo.size() > CUSTOM_OSD_MAX_NUM)
+    {
+        if (bLogTrim)
+        {
+            dlog_warn("OSD字符叠加数量[%u]超过设备上限[%u]，已裁剪",
+                      static_cast<unsigned int>(stInfo.vecOsdInfo.size()),
+                      static_cast<unsigned int>(CUSTOM_OSD_MAX_NUM));
+        }
+        stInfo.vecOsdInfo.resize(CUSTOM_OSD_MAX_NUM);
+        bChanged = true;
+    }
+
+    while (stInfo.vecOsdInfo.size() < CUSTOM_OSD_MAX_NUM)
+    {
+        Osd::OsdInfo_S stOsdInfo;
+        stOsdInfo.clear();
+        stOsdInfo.nId = static_cast<int>(stInfo.vecOsdInfo.size() + 1);
+        stOsdInfo.stOsdAttr.strToken = "OsdToken_" + std::to_string(stOsdInfo.nId);
+        stInfo.vecOsdInfo.push_back(stOsdInfo);
+        bChanged = true;
+    }
+
+    if (stInfo.stOsdNameInfo.stOsdAttr.strToken.empty())
+    {
+        stInfo.stOsdNameInfo.stOsdAttr.strToken = "OsdToken_name";
+        bChanged = true;
+    }
+
+    if (stInfo.stOsdTimeInfo.stOsdAttr.strToken.empty())
+    {
+        stInfo.stOsdTimeInfo.stOsdAttr.strToken = "OsdToken_time";
+        bChanged = true;
+    }
+
+    for (size_t i = 0; i < stInfo.vecOsdInfo.size(); ++i)
+    {
+        if (stInfo.vecOsdInfo[i].nId <= 0)
+        {
+            stInfo.vecOsdInfo[i].nId = static_cast<int>(i + 1);
+            bChanged = true;
+        }
+
+        if (stInfo.vecOsdInfo[i].stOsdAttr.strToken.empty())
+        {
+            stInfo.vecOsdInfo[i].stOsdAttr.strToken =
+                "OsdToken_" + std::to_string(stInfo.vecOsdInfo[i].nId);
+            bChanged = true;
+        }
+    }
+
+    return bChanged;
+}
 } // namespace
 
 COsdManage::COsdManage() : m_bInit(false),
@@ -111,6 +170,13 @@ IpcRet_E COsdManage::init()
         dlog_error("没有找到osd_config.json文件, 重新创建");
         m_stOsdConfig.clear();
         Convert::write_file(m_strOsdConfigFile, m_stOsdConfig);
+    }
+    else if (normalize_osd_config(m_stOsdConfig, true))
+    {
+        if (Convert::write_file(m_strOsdConfigFile, m_stOsdConfig))
+        {
+            dlog_error("修正osd_config.json文件失败");
+        }
     }
     
     if (Convert::read_file(m_strCoverConfigFile, m_stCoverConfig))
@@ -235,18 +301,24 @@ IpcRet_E COsdManage::get_osd_config(Osd::OsdConfig_S &stInfo)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
     stInfo = m_stOsdConfig;
+    normalize_osd_config(stInfo, false);
 
     return OK;
 }
 
 IpcRet_E COsdManage::set_osd_config(Osd::OsdConfig_S stInfo)
 {
+    normalize_osd_config(stInfo, true);
+
     std::vector<Osd::OverplayInfo_S> vecInfo;
-    vecInfo = m_vecOverplayInfo;
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        vecInfo = m_vecOverplayInfo;
+    }
+
     stInfo.stOsdNameInfo.strName.reserve(100);
     for (size_t i = 0; i < vecInfo.size(); i++)
     {
-        std::lock_guard<std::mutex> lock(m_mutex);
         if(vecInfo[i].stuOverplay.enElementType == Osd::ElementType_E::ELEMENT_TYPE_PEOPLE)
         {
             // note AI 动态分析专用 网页设置，避免影响 AI
@@ -255,9 +327,25 @@ IpcRet_E COsdManage::set_osd_config(Osd::OsdConfig_S stInfo)
 
         if (vecInfo.at(i).stuOverplay.enElementType == Osd::ElementType_E::ELEMENT_TYPE_CUSTOMIZE)
         {
-            /* 字符叠加元素在Osd::OsdConfig_S stInfo中的索引 */
-            int nOsdInfoIndex = i - 2;
             /* 四个字符叠加在 overplay 的[2,5] 元素种类 enElementType 为 ELEMENT_TYPE_CUSTOMIZE */
+            const size_t nCustomBaseIndex = static_cast<size_t>(Osd::ElementType_E::ELEMENT_TYPE_CUSTOMIZE);
+            if (i < nCustomBaseIndex)
+            {
+                dlog_warn("字符叠加overplay索引异常: overplay_index[%u]",
+                          static_cast<unsigned int>(i));
+                continue;
+            }
+
+            const size_t nOsdInfoIndex = i - nCustomBaseIndex;
+            if (nOsdInfoIndex >= stInfo.vecOsdInfo.size())
+            {
+                dlog_warn("字符叠加数量超过设备上限: overplay_index[%u] osd_index[%u] max[%u]",
+                          static_cast<unsigned int>(i),
+                          static_cast<unsigned int>(nOsdInfoIndex),
+                          static_cast<unsigned int>(stInfo.vecOsdInfo.size()));
+                continue;
+            }
+
             if (stInfo.vecOsdInfo.at(nOsdInfoIndex).strName.size() > OSD_NAME_LENGTH_LIMIT)
             {
                 dlog_error("字符叠加 ID:[%d] 字符串名称:[%s] 参数错误",
@@ -313,7 +401,7 @@ IpcRet_E COsdManage::set_osd_config(Osd::OsdConfig_S stInfo)
             /* 通道名称 ID 8 */
             if(stInfo.stOsdNameInfo.strName.size() > OSD_NAME_LENGTH_LIMIT)
             {
-                dlog_error("通道名称:[%s] 参数错误", stInfo.vecOsdInfo[i].strName.c_str());
+                dlog_error("通道名称:[%s] 参数错误", stInfo.stOsdNameInfo.strName.c_str());
                 return ERR_PARAM;
             }
             vecInfo.at(i).stuInfo.bEnable = stInfo.stOsdNameInfo.bEnable;
@@ -336,8 +424,11 @@ IpcRet_E COsdManage::set_osd_config(Osd::OsdConfig_S stInfo)
         dlog_error("写入osd_config.json文件失败");
         return ERR;
     }
-    m_stOsdConfig.clear();
-    m_stOsdConfig = stInfo;
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        m_stOsdConfig.clear();
+        m_stOsdConfig = stInfo;
+    }
 
     set_overplay_info(vecInfo);
 

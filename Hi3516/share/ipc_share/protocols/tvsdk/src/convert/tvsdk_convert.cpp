@@ -8,12 +8,50 @@
 #include <algorithm>
 #include <cstdio>
 #include <cstring>
+#include <vector>
 
 
 
 #include "dlog.h"
 namespace TvSdkConvert
 {
+static constexpr size_t kOsdCustomSlotCount = 4;
+
+static bool HasCustomOsdPayload(const Osd::OsdInfo_S &info)
+{
+    return info.bEnable ||
+           !info.strName.empty() ||
+           info.stOsdAttr.nX != 0 ||
+           info.stOsdAttr.nY != 0 ||
+           info.stOsdAttr.nW != 0 ||
+           info.stOsdAttr.nH != 0 ||
+           info.stOsdAttr.enAttribute != Osd::OSD_ATTR_ALPHA_N_FLASH_N ||
+           info.stOsdAttr.enFontSize != Osd::OSD_FONT_SIZE_ADAPTIVE ||
+           info.stOsdAttr.enFontColor != Osd::OSD_COLOR_BLACK;
+}
+
+static size_t GetOsdCopyStart(const std::vector<Osd::OsdInfo_S> &infos)
+{
+    if (infos.size() <= kOsdCustomSlotCount)
+    {
+        return 0;
+    }
+
+    bool bFirstBlockHasPayload = false;
+    for (size_t i = 0; i < kOsdCustomSlotCount && i < infos.size(); ++i)
+    {
+        bFirstBlockHasPayload = bFirstBlockHasPayload || HasCustomOsdPayload(infos[i]);
+    }
+
+    bool bSecondBlockHasPayload = false;
+    const size_t nSecondEnd = std::min(infos.size(), kOsdCustomSlotCount * 2);
+    for (size_t i = kOsdCustomSlotCount; i < nSecondEnd; ++i)
+    {
+        bSecondBlockHasPayload = bSecondBlockHasPayload || HasCustomOsdPayload(infos[i]);
+    }
+
+    return (!bFirstBlockHasPayload && bSecondBlockHasPayload) ? kOsdCustomSlotCount : 0;
+}
 
 static void FillSchedTime(const Common::SchedTime_S &src, NET_TV_SCHED_TIME_S &dst)
 {
@@ -295,8 +333,14 @@ static INT32 ToSdkVideoCodec(Video_NS::VideoCodec_E src)
             return NET_TV_VIDEO_CODE_H264;
         case Video_NS::VideoCodec_E::H265:
             return NET_TV_VIDEO_CODE_H265;
+        case Video_NS::VideoCodec_E::JPEG:
+            return NET_TV_VIDEO_CODE_JPEG;
         case Video_NS::VideoCodec_E::MJPEG:
             return NET_TV_VIDEO_CODE_MJPEG;
+        case Video_NS::VideoCodec_E::SVAC3:
+            return NET_TV_VIDEO_CODE_SVAC3;
+        case Video_NS::VideoCodec_E::MPEG4:
+            return NET_TV_VIDEO_CODE_MPEG4;
         default:
             return NET_TV_VIDEO_CODE_INVALID;
     }
@@ -310,8 +354,14 @@ static Video_NS::VideoCodec_E ToIpcVideoCodec(INT32 src)
             return Video_NS::VideoCodec_E::H264;
         case NET_TV_VIDEO_CODE_H265:
             return Video_NS::VideoCodec_E::H265;
+        case NET_TV_VIDEO_CODE_JPEG:
+            return Video_NS::VideoCodec_E::JPEG;
         case NET_TV_VIDEO_CODE_MJPEG:
             return Video_NS::VideoCodec_E::MJPEG;
+        case NET_TV_VIDEO_CODE_SVAC3:
+            return Video_NS::VideoCodec_E::SVAC3;
+        case NET_TV_VIDEO_CODE_MPEG4:
+            return Video_NS::VideoCodec_E::MPEG4;
         default:
             return Video_NS::VideoCodec_E::H264;
     }
@@ -397,13 +447,15 @@ void FillOsdConfig(const Osd::OsdConfig_S &src, NET_TV_VIDEO_OSD_CFG_S &dst)
     dst.stOsdTimeInfo.enDateFormat = (OSD_DATE_FORMAT_E)src.stOsdTimeInfo.enDateFormat;
     FillOsdAttribute(src.stOsdTimeInfo.stOsdAttr, dst.stOsdTimeInfo.stOsdAttr);
 
-    const size_t nCount = std::min(src.vecOsdInfo.size(), sizeof(dst.OsdInfo) / sizeof(dst.OsdInfo[0]));
+    const size_t nStart = GetOsdCopyStart(src.vecOsdInfo);
+    const size_t nCount = std::min(src.vecOsdInfo.size() - nStart, kOsdCustomSlotCount);
     for (size_t i = 0; i < nCount; ++i)
     {
-        dst.OsdInfo[i].nId = (INT32)src.vecOsdInfo[i].nId;
-        dst.OsdInfo[i].bEnable = src.vecOsdInfo[i].bEnable ? TRUE : FALSE;
-        std::strncpy(dst.OsdInfo[i].strName, src.vecOsdInfo[i].strName.c_str(), sizeof(dst.OsdInfo[i].strName) - 1);
-        FillOsdAttribute(src.vecOsdInfo[i].stOsdAttr, dst.OsdInfo[i].stOsdAttr);
+        const Osd::OsdInfo_S &srcInfo = src.vecOsdInfo[nStart + i];
+        dst.OsdInfo[i].nId = (INT32)srcInfo.nId;
+        dst.OsdInfo[i].bEnable = srcInfo.bEnable ? TRUE : FALSE;
+        std::strncpy(dst.OsdInfo[i].strName, srcInfo.strName.c_str(), sizeof(dst.OsdInfo[i].strName) - 1);
+        FillOsdAttribute(srcInfo.stOsdAttr, dst.OsdInfo[i].stOsdAttr);
     }
 }
 
@@ -422,7 +474,7 @@ void ToOsdConfig(const NET_TV_VIDEO_OSD_CFG_S &src, Osd::OsdConfig_S &dst)
     dst.stOsdTimeInfo.enDateFormat = (Osd::OSD_DATE_FORMAT_E)src.stOsdTimeInfo.enDateFormat;
     ToOsdAttribute(src.stOsdTimeInfo.stOsdAttr, dst.stOsdTimeInfo.stOsdAttr);
 
-    const size_t nCount = std::min(dst.vecOsdInfo.size(), sizeof(src.OsdInfo) / sizeof(src.OsdInfo[0]));
+    const size_t nCount = std::min(dst.vecOsdInfo.size(), kOsdCustomSlotCount);
     for (size_t i = 0; i < nCount; ++i)
     {
         dst.vecOsdInfo[i].nId = (int)src.OsdInfo[i].nId;
@@ -469,6 +521,120 @@ static void ParseResolutionName(const std::string &name, NET_TV_VIDEO_RESOLUTION
     }
 }
 
+static void FillFrameRateList(FLOAT frameRateMin, FLOAT frameRateMax, NET_TV_VIDEO_RESOLUTION_S &dst)
+{
+    static const FLOAT kFrameRates[] = {
+        1.0f / 16.0f, 1.0f / 8.0f, 1.0f / 4.0f, 1.0f / 2.0f,
+        1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f, 8.3f,
+        9.0f, 10.0f, 12.0f, 13.0f, 14.0f, 15.0f, 16.0f, 17.0f,
+        18.0f, 19.0f, 20.0f, 21.0f, 22.0f, 23.0f, 24.0f, 25.0f,
+        26.0f, 27.0f, 28.0f, 29.0f, 30.0f, 35.0f, 40.0f, 45.0f,
+        48.0f, 50.0f, 55.0f, 60.0f, 100.0f, 120.0f
+    };
+
+    if (frameRateMin > frameRateMax)
+    {
+        const FLOAT tmp = frameRateMin;
+        frameRateMin = frameRateMax;
+        frameRateMax = tmp;
+    }
+
+    dst.dwFrameRateNum = 0;
+    for (size_t i = 0; i < sizeof(kFrameRates) / sizeof(kFrameRates[0]) &&
+                       dst.dwFrameRateNum < NET_TV_VIDEO_FRAME_RATE_MAX_NUM; ++i)
+    {
+        if (kFrameRates[i] >= frameRateMin && kFrameRates[i] <= frameRateMax)
+        {
+            dst.adwFrameRate[dst.dwFrameRateNum++] = kFrameRates[i];
+        }
+    }
+}
+
+/**
+ * @brief 将 IPC 侧 FrameRate_E 枚举值转换为 SDK 侧的浮点帧率值
+ */
+static FLOAT FrameRateEnumToFloat(Video_NS::FrameRate_E enFrameRate)
+{
+    switch (enFrameRate)
+    {
+        case Video_NS::FRAME_RATE_1_16: return 0.0625f;
+        case Video_NS::FRAME_RATE_1_8:  return 0.125f;
+        case Video_NS::FRAME_RATE_1_4:  return 0.25f;
+        case Video_NS::FRAME_RATE_1_2:  return 0.5f;
+        case Video_NS::FRAME_RATE_1:    return 1.0f;
+        case Video_NS::FRAME_RATE_2:    return 2.0f;
+        case Video_NS::FRAME_RATE_3:    return 3.0f;
+        case Video_NS::FRAME_RATE_4:    return 4.0f;
+        case Video_NS::FRAME_RATE_5:    return 5.0f;
+        case Video_NS::FRAME_RATE_6:    return 6.0f;
+        case Video_NS::FRAME_RATE_7:    return 7.0f;
+        case Video_NS::FRAME_RATE_8:    return 8.0f;
+        case Video_NS::FRAME_RATE_9:    return 9.0f;
+        case Video_NS::FRAME_RATE_10:   return 10.0f;
+        case Video_NS::FRAME_RATE_12:   return 12.0f;
+        case Video_NS::FRAME_RATE_13:   return 13.0f;
+        case Video_NS::FRAME_RATE_14:   return 14.0f;
+        case Video_NS::FRAME_RATE_15:   return 15.0f;
+        case Video_NS::FRAME_RATE_16:   return 16.0f;
+        case Video_NS::FRAME_RATE_17:   return 17.0f;
+        case Video_NS::FRAME_RATE_18:   return 18.0f;
+        case Video_NS::FRAME_RATE_19:   return 19.0f;
+        case Video_NS::FRAME_RATE_20:   return 20.0f;
+        case Video_NS::FRAME_RATE_21:   return 21.0f;
+        case Video_NS::FRAME_RATE_22:   return 22.0f;
+        case Video_NS::FRAME_RATE_23:   return 23.0f;
+        case Video_NS::FRAME_RATE_24:   return 24.0f;
+        case Video_NS::FRAME_RATE_25:   return 25.0f;
+        case Video_NS::FRAME_RATE_26:   return 26.0f;
+        case Video_NS::FRAME_RATE_27:   return 27.0f;
+        case Video_NS::FRAME_RATE_28:   return 28.0f;
+        case Video_NS::FRAME_RATE_29:   return 29.0f;
+        case Video_NS::FRAME_RATE_30:   return 30.0f;
+        case Video_NS::FRAME_RATE_35:   return 35.0f;
+        case Video_NS::FRAME_RATE_40:   return 40.0f;
+        case Video_NS::FRAME_RATE_45:   return 45.0f;
+        case Video_NS::FRAME_RATE_48:   return 48.0f;
+        case Video_NS::FRAME_RATE_50:   return 50.0f;
+        case Video_NS::FRAME_RATE_55:   return 55.0f;
+        case Video_NS::FRAME_RATE_60:   return 60.0f;
+        case Video_NS::FRAME_RATE_100:  return 100.0f;
+        case Video_NS::FRAME_RATE_120:  return 120.0f;
+        case Video_NS::FRAME_RATE_8_3:  return 8.3f;
+        default:                        return 30.0f;
+    }
+}
+
+/**
+ * @brief 将 IPC 侧 Resolution_S 转换为 SDK 侧 NET_TV_VIDEO_RESOLUTION_S
+ */
+static void FillOneResolution(const Video_NS::Resolution_S &src, NET_TV_VIDEO_RESOLUTION_S &dst)
+{
+    std::memset(&dst, 0, sizeof(dst));
+    std::strncpy(dst.szName, src.strName.c_str(), sizeof(dst.szName) - 1);
+    ParseResolutionName(src.strName, dst);
+    dst.dwFrameRateMin = FrameRateEnumToFloat(src.enFrameRateMin);
+    dst.dwFrameRateMax = FrameRateEnumToFloat(src.enFrameRateMax);
+    FillFrameRateList(dst.dwFrameRateMin, dst.dwFrameRateMax, dst);
+    dst.dwBitRateMin = (INT32)src.nBitRateMin;
+    dst.dwBitRateMax = (INT32)src.nBitRateMax;
+}
+
+static void FillOneEncodeAbility(const Video_NS::EncodeAbility_S &src, NET_TV_VIDEO_ENCODE_ABILITY_S &dst)
+{
+    std::memset(&dst, 0, sizeof(dst));
+    std::strncpy(dst.szVideoCodec, src.strVideoCodec.c_str(), sizeof(dst.szVideoCodec) - 1);
+    dst.enVideoCodec = ToSdkVideoCodec(Video_NS::string_toVideoCodec(src.strVideoCodec));
+    dst.nSupportAdjustComplexity = (INT32)src.nSupportAdjustComplexity;
+    dst.nEncodeComplexityNum = (INT32)std::min(src.vEncodeComplexity.size(), (size_t)NET_TV_VIDEO_ENCODE_COMPLEXITY_MAX_NUM);
+    for (INT32 i = 0; i < dst.nEncodeComplexityNum; ++i)
+    {
+        dst.anEncodeComplexity[i] = (INT32)src.vEncodeComplexity[(size_t)i];
+    }
+    dst.nDefaultComplexity = (UINT32)src.nDefaultComplexity;
+    dst.bSupportSVC = (INT32)src.bSupportSVC;
+    dst.bSupportStreamSmooth = (INT32)src.bSupportStreamSmooth;
+}
+
 static void FillOneEncodeOption(const Video_NS::VideoCapability_S &src,
                                 const Video_NS::EncodeAbility_S *ability,
                                 NET_TV_VIDEO_ENCODE_OPTION_S &dst,
@@ -483,7 +649,7 @@ static void FillOneEncodeOption(const Video_NS::VideoCapability_S &src,
     if (!src.aResolution.empty())
     {
         ParseResolutionName(src.aResolution[0].strName, dst.stVideoResolution);
-        dst.enFrameRate = (INT32)src.aResolution[0].enFrameRateMax;
+        dst.enFrameRate = (INT32)FrameRateEnumToFloat(src.aResolution[0].enFrameRateMax);
         dst.nAverageBitrate = (INT32)src.aResolution[0].nBitRateMin;
         dst.nBitrateUpperLimit = (INT32)src.aResolution[0].nBitRateMax;
     }
@@ -511,7 +677,21 @@ static void FillOneStreamCap(const Video_NS::VideoCapability_S &src, NET_TV_VIDE
     memset(&dst, 0, sizeof(dst));
     dst.dwStreamType = streamType;
     dst.bSupportMultiStream = (INT32)src.bSupportMultiStream;
-    dst.dwEncodeCapSize = (INT32)std::min(src.aEncodeAbility.size(), (size_t)NET_TV_VIDEO_ENCODE_TYPE_MAX);
+
+    /* 编码能力列表 */
+    dst.dwEncodeTypeNum = src.nEncodeTypeNum;
+    dst.dwEncodeAbilityNum = (INT32)std::min(src.aEncodeAbility.size(), (size_t)NET_TV_VIDEO_ENCODE_TYPE_MAX);
+    if (dst.dwEncodeTypeNum <= 0)
+    {
+        dst.dwEncodeTypeNum = dst.dwEncodeAbilityNum;
+    }
+
+    for (INT32 i = 0; i < dst.dwEncodeAbilityNum; ++i)
+    {
+        FillOneEncodeAbility(src.aEncodeAbility[(size_t)i], dst.astEncodeAbility[i]);
+    }
+
+    dst.dwEncodeCapSize = dst.dwEncodeAbilityNum;
     if (dst.dwEncodeCapSize == 0)
     {
         dst.dwEncodeCapSize = 1;
@@ -525,8 +705,23 @@ static void FillOneStreamCap(const Video_NS::VideoCapability_S &src, NET_TV_VIDE
         }
     }
 
-    dst.stQuality.dwMin = src.nStreamSmoothMin;
-    dst.stQuality.dwMax = src.nStreamSmoothMax;
+    /*
+     * IPC 视频能力集只返回码流平滑范围，没有单独的图像质量能力范围。
+     * 这里保留质量范围的兼容默认值，同时把真实的 StreamSmooth 范围填到对应字段。
+     */
+    dst.stQuality.dwMin = 1;
+    dst.stQuality.dwMax = 100;
+    dst.stStreamSmooth.dwMin = src.nStreamSmoothMin;
+    dst.stStreamSmooth.dwMax = src.nStreamSmoothMax;
+    dst.dwIFrameIntervalMin = src.nIFrameIntervalMin;
+    dst.dwIFrameIntervalMax = src.nIFrameIntervalMax;
+
+    /* 分辨率列表 */
+    dst.dwResolutionNum = (INT32)std::min(src.aResolution.size(), (size_t)NET_TV_RESOLUTION_NUM_MAX);
+    for (INT32 i = 0; i < dst.dwResolutionNum; ++i)
+    {
+        FillOneResolution(src.aResolution[i], dst.astResolution[i]);
+    }
 }
 
 void FillVideoEncodeCap(const Video_NS::VideoCapabilitySet_S &src, NET_TV_VIDEO_ENCODE_CAP_S &dst)
@@ -1601,6 +1796,7 @@ void ToReflectiveClothing(const NET_TV_REFLECTIVE_CLOTHING_CFG_S &src, Alarm::Re
     ToSingleRuleAlarmSchedule(src.stAlarmSchedule, dst.aAlarmTime);
     ToLinkageList(src.stLinkageList, dst.stLinkageList);
 }
+#endif
 
 void FillPetRecognitionInfo(const Alarm::PetRecognition_S &src, NET_TV_PET_RECOGNITION_INFO_S &dst)
 {
@@ -1623,6 +1819,7 @@ void ToPetRecognition(const NET_TV_PET_RECOGNITION_INFO_S &src, Alarm::PetRecogn
     ToLinkageList(src.stLinkageList, dst.stLinkageList);
 }
 
+#ifdef SCENE_INTELLIGENCE
 void FillClimbFenceInfo(const Alarm::FenceClimbingDetection_S &src, NET_TV_CLIMB_FENCE_INFO_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));

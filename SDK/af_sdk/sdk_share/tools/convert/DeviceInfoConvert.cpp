@@ -4,6 +4,8 @@
 #include <string>
 #include <cstring>
 
+static constexpr int kOsdCustomSlotCount = NET_TV_OSD_CUSTOM_MAX_NUM;
+
 static UINT32 clamp_time_count(UINT32 count)
 {
     return (count > NET_TV_PLAN_TIME_SECTION_NUM_ADAY) ? NET_TV_PLAN_TIME_SECTION_NUM_ADAY : count;
@@ -1051,6 +1053,10 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_VIDEO_OSD_CFG_S& stInfo, b
     }
 
     SDKConvert::CSDKConvert convert(bOutStruct);
+    if (bOutStruct)
+    {
+        std::memset(stInfo.OsdInfo, 0, sizeof(stInfo.OsdInfo));
+    }
 
 #define CONVERT_ENUM_FIELD(jsonKey, enumField, enumType)      \
     do                                                        \
@@ -1094,8 +1100,8 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_VIDEO_OSD_CFG_S& stInfo, b
     convert.field(pRootJson, "TimeCustomColor", stInfo.stOsdTimeInfo.stOsdAttr.strFontColor);
     convert.field(pRootJson, "TimeToken",       stInfo.stOsdTimeInfo.stOsdAttr.strToken);
 
-    /* 自定义 OSD[32] */
-    for (int i = 0; i < 32; ++i)
+    /* 当前IPC能力只开放4个自定义字符叠加槽位，结构体保留32槽位用于兼容。 */
+    for (int i = 0; i < kOsdCustomSlotCount; ++i)
     {
         char szKey[64] = {0};
 

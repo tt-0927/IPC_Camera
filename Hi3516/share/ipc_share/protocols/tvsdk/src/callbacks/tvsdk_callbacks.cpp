@@ -7,6 +7,7 @@
 
 #include <string>
 #include <cstring>
+#include <vector>
 
 #include "task_manage.h"
 #include "task.h"
@@ -96,6 +97,19 @@ static std::string normalize_data_json(const std::string &srcJson)
     Json::deinit(pRoot);
     
     return out;
+}
+
+static const Video_NS::VideoConfig_S *FindVideoConfigById(const std::vector<Video_NS::VideoConfig_S> &vecCfg, int nId)
+{
+    for (const auto &stCfg : vecCfg)
+    {
+        if (stCfg.nId == nId)
+        {
+            return &stCfg;
+        }
+    }
+
+    return vecCfg.empty() ? nullptr : &vecCfg.front();
 }
 
 static std::string wrap_data_json(const std::string &srcJson)
@@ -356,8 +370,12 @@ static NET_TV_COMMON_ECODE_E cb_get_video_encode_cap(INT32 dwChannelID, LPNET_TV
     if (nRet != 0)
         return NET_TV_E_GET_CFG_FAILED;
 
+    std::string strJson = normalize_data_json(outJson);
+    if (strJson.empty())
+        return NET_TV_E_GET_CFG_FAILED;
+
     Video_NS::VideoCapabilitySet_S stCapSet;
-    Convert::to_struct(outJson, stCapSet);
+    Convert::to_struct(strJson, stCapSet);
     TvSdkConvert::FillVideoEncodeCap(stCapSet, *pCap);
 
     return NET_TV_E_SUCCEED;
@@ -530,9 +548,14 @@ static NET_TV_COMMON_ECODE_E cb_get_stream_cfg(INT32 dwChannelID, LPVOID lpOutBu
     if (strJson.empty())
         return NET_TV_E_GET_CFG_FAILED;
 
-    Video_NS::VideoConfig_S stCfg;
-    Convert::to_struct(strJson, stCfg);
-    TvSdkConvert::FillVideoEncodeOption(stCfg, *pOut);
+    std::vector<Video_NS::VideoConfig_S> vecCfg;
+    Convert::to_struct(strJson, vecCfg);
+
+    const Video_NS::VideoConfig_S *pSelectedCfg = FindVideoConfigById(vecCfg, NET_TV_LIVE_STREAM_INDEX_MAIN);
+    if (!pSelectedCfg)
+        return NET_TV_E_GET_CFG_FAILED;
+
+    TvSdkConvert::FillVideoEncodeOption(*pSelectedCfg, *pOut);
     return NET_TV_E_SUCCEED;
 }
 static NET_TV_COMMON_ECODE_E cb_set_stream_cfg(INT32 dwChannelID, LPVOID lpInBuffer)
@@ -1853,6 +1876,7 @@ static NET_TV_COMMON_ECODE_E cb_set_pet_recognition_info(INT32 dwChannelID, LPVO
     return (nExec == 0) ? NET_TV_E_SUCCEED : NET_TV_E_SET_CFG_FAILED;
 }
 
+#ifdef SCENE_INTELLIGENCE
 static NET_TV_COMMON_ECODE_E cb_get_climb_fence_info(INT32 dwChannelID, LPVOID lpOutBuffer)
 {
     (void)dwChannelID;
@@ -2212,6 +2236,7 @@ static NET_TV_COMMON_ECODE_E cb_set_road_ponding_cfg(INT32 dwChannelID, LPVOID l
     int nExec = s_taskManage ? s_taskManage->execute(AC_SET_ROAD_PONDING_CFG, stInfo) : -1;
     return (nExec == 0) ? NET_TV_E_SUCCEED : NET_TV_E_SET_CFG_FAILED;
 }
+#endif
 
 #if CAP_AI_PEOPLE_STATISTICS
 /* ---------- Get/SetPeopleFlowStatisticsCfg：AC_GET/SET_PEOPLE_FLOW_STATISTICS_INFO ---------- */
@@ -3205,6 +3230,7 @@ void register_all()
 
     NET_TV_SERVER_RegisterCb_GetPetRecognitionInfo(cb_get_pet_recognition_info);
     NET_TV_SERVER_RegisterCb_SetPetRecognitionInfo(cb_set_pet_recognition_info);
+#ifdef SCENE_INTELLIGENCE
     NET_TV_SERVER_RegisterCb_GetClimbFenceInfo(cb_get_climb_fence_info);
     NET_TV_SERVER_RegisterCb_SetClimbFenceInfo(cb_set_climb_fence_info);
     NET_TV_SERVER_RegisterCb_GetDimissionInfo(cb_get_dimission_info);
@@ -3223,6 +3249,7 @@ void register_all()
     NET_TV_SERVER_RegisterCb_SetSmokeFireCfg(cb_set_smoke_fire_cfg);
     NET_TV_SERVER_RegisterCb_GetRoadPondingCfg(cb_get_road_ponding_cfg);
     NET_TV_SERVER_RegisterCb_SetRoadPondingCfg(cb_set_road_ponding_cfg);
+#endif
 
 #if CAP_AI_PEOPLE_STATISTICS
     NET_TV_SERVER_RegisterCb_GetPeopleFlowStatisticsCfg(cb_get_people_flow_statistics_cfg);
