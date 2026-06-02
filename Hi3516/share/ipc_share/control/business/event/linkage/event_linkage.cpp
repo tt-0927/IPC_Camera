@@ -139,7 +139,7 @@ bool CEventLinkage::handleEvent(const EventTriggerContext_S &stInputContext)
                 stEventState.nEventStatus = 0;
                 stEventState.stEventInfo.strEndTime = stCreatedEventInfo.strEndTime;
                 stEventState.stEventInfo.strDate = stCreatedEventInfo.strDate;
-                stEventState.stEventInfo.strTime = stCreatedEventInfo.strTime;
+                // stEventState.stEventInfo.strTime = stCreatedEventInfo.strTime;
             }
             else
             {

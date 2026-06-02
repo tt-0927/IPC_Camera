@@ -41,7 +41,23 @@ BOOL AlarmModule::PushAlarmInfo(NET_TV_ALARMER_S* pAlarmer,
         return FALSE;
     }
 
+    // [诊断] 注入入队时间戳，方便下游测量队列延迟
+    {
+        auto tp_now = std::chrono::steady_clock::now();
+        long long ts_now = std::chrono::duration_cast<std::chrono::milliseconds>(
+            tp_now.time_since_epoch()).count();
+        Json::add(pRoot, "enqueue_ts", ts_now);
+    }
+
     Json::add(pRoot, "Command", (long long)lCommand);
+
+    // [诊断] 注入入队时间戳，方便下游测量队列延迟
+    {
+        auto tp_now = std::chrono::steady_clock::now();
+        long long ts_now = std::chrono::duration_cast<std::chrono::milliseconds>(
+            tp_now.time_since_epoch()).count();
+        Json::add(pRoot, "enqueue_ts", ts_now);
+    }
 
     // 添加Alarmer信息
     {
@@ -164,8 +180,19 @@ BOOL AlarmModule::PushAlarmInfo(NET_TV_ALARMER_S* pAlarmer,
     std::string jsonStr = Json::to_string(pRoot);
     Json::deinit(pRoot);
 
+    // [诊断] 记录 PushToAll 前的时间戳，用于定位报警转发延迟
+    auto tp_before_push = std::chrono::steady_clock::now();
+    long long ts_before_push = std::chrono::duration_cast<std::chrono::milliseconds>(
+        tp_before_push.time_since_epoch()).count();
+
     // 推送到所有会话
     size_t pushCount = CSessionManager::instance()->PushToAll(jsonStr);
+
+    auto tp_after_push = std::chrono::steady_clock::now();
+    long long ts_after_push = std::chrono::duration_cast<std::chrono::milliseconds>(
+        tp_after_push.time_since_epoch()).count();
+    NSDK_LOG_INFO("[DIAG] PushToAll done: cmd=0x%x, enqueue_ts=%lld, cost_ms=%lld",
+                  lCommand, ts_before_push, ts_after_push - ts_before_push);
     if (pushCount == 0)
     {
         std::string diagInfo = CSessionManager::instance()->GetSessionDiagnosticInfo();
@@ -185,21 +212,40 @@ BOOL AlarmModule::PushAlarmInfo(NET_TV_ALARMER_S* pAlarmer,
 
 BOOL AlarmModule::PushChannelStatusInfo(NET_TV_CHANNEL_INFO_S* pChannelInfo)
 {
+    NSDK_LOG_INFO("[AlarmModule] ===== PushChannelStatusInfo Start ===== ");
+
     if (!pChannelInfo)
     {
-        NSDK_LOG_ERROR("PushChannelStatusInfo: Invalid parameters");
+        NSDK_LOG_ERROR("[AlarmModule] PushChannelStatusInfo: Invalid parameters (NULL)");
+        NSDK_LOG_INFO("[AlarmModule] ===== PushChannelStatusInfo End (Failed) ===== ");
         return FALSE;
     }
+
+    // 打印输入参数详情
+    NSDK_LOG_INFO("[AlarmModule] Input Channel Info:");
+    NSDK_LOG_INFO("[AlarmModule]   Channel:      %u", pChannelInfo->dwChannel);
+    NSDK_LOG_INFO("[AlarmModule]   ChannelName:  %s", pChannelInfo->szChannelName);
+    NSDK_LOG_INFO("[AlarmModule]   DeviceName:   %s", pChannelInfo->szDevName);
+    NSDK_LOG_INFO("[AlarmModule]   DeviceIP:     %s", pChannelInfo->szDeviceIP);
+    NSDK_LOG_INFO("[AlarmModule]   SerialNum:    %s", pChannelInfo->szSerialNum);
+    NSDK_LOG_INFO("[AlarmModule]   Enable:       %d (%s)", pChannelInfo->byEnable,
+                  pChannelInfo->byEnable ? "ENABLED" : "DISABLED");
+    NSDK_LOG_INFO("[AlarmModule]   Online:       %d (%s)", pChannelInfo->byOnline,
+                  pChannelInfo->byOnline ? "ONLINE" : "OFFLINE");
+    NSDK_LOG_INFO("[AlarmModule]   RecordStatus: %d", pChannelInfo->nRecordStatus);
+    NSDK_LOG_INFO("[AlarmModule]   DevState:     %d", pChannelInfo->nDevState);
 
     Json::Object* pRoot = Json::init();
     if (!pRoot)
     {
-        NSDK_LOG_ERROR("PushChannelStatusInfo: Failed to init JSON");
+        NSDK_LOG_ERROR("[AlarmModule] PushChannelStatusInfo: Failed to init JSON");
+        NSDK_LOG_INFO("[AlarmModule] ===== PushChannelStatusInfo End (JSON init failed) ===== ");
         return FALSE;
     }
 
     Json::add(pRoot, "Event", "ChannelStatus");
     Json::add(pRoot, "Command", (long long)NET_TV_NOTIFY_CHANNEL_STATUS);
+    NSDK_LOG_INFO("[AlarmModule] Command: NET_TV_NOTIFY_CHANNEL_STATUS (0x%X)", NET_TV_NOTIFY_CHANNEL_STATUS);
 
     Json::Object* pChannelJson = Json::init();
     NET_TV_CHANNEL_INFO_S info = *pChannelInfo;
@@ -209,19 +255,34 @@ BOOL AlarmModule::PushChannelStatusInfo(NET_TV_CHANNEL_INFO_S* pChannelInfo)
     std::string jsonStr = Json::to_string(pRoot);
     Json::deinit(pRoot);
 
+    // 打印将要推送的JSON数据
+    NSDK_LOG_DEBUG("[AlarmModule] Channel Status JSON: %s", jsonStr.c_str());
+
+    // 获取在线客户端数量
+    size_t clientCount = CSessionManager::instance()->GetSessionCount();
+    NSDK_LOG_INFO("[AlarmModule] Current online clients: %zu", clientCount);
+
+    // 执行推送
+    NSDK_LOG_INFO("[AlarmModule] Calling PushToAll...");
     size_t pushCount = CSessionManager::instance()->PushToAll(jsonStr);
+
     if (pushCount == 0)
     {
-        NSDK_LOG_WARN("No active clients for channel status, channel=%u, online=%u",
-            pChannelInfo->dwChannel, pChannelInfo->byOnline);
+        NSDK_LOG_WARN("[AlarmModule] No active clients for channel status!");
+        NSDK_LOG_WARN("[AlarmModule]   Channel: %u, Online: %u",
+                      pChannelInfo->dwChannel, pChannelInfo->byOnline);
     }
     else
     {
-        NSDK_LOG_DEBUG("Channel status pushed to %zu clients, channel=%u, online=%u",
-            pushCount, pChannelInfo->dwChannel, pChannelInfo->byOnline);
+        NSDK_LOG_INFO("[AlarmModule] Channel status pushed to %zu client(s) SUCCESS", pushCount);
+        NSDK_LOG_INFO("[AlarmModule]   Channel: %u, Online: %s",
+                      pChannelInfo->dwChannel,
+                      pChannelInfo->byOnline ? "ONLINE" : "OFFLINE");
     }
 
     m_pushCount++;
+    NSDK_LOG_INFO("[AlarmModule] Total push count: %lld", m_pushCount);
+    NSDK_LOG_INFO("[AlarmModule] ===== PushChannelStatusInfo End ===== ");
     return TRUE;
 }
 

@@ -354,6 +354,20 @@ void CSessionManager::HttpCommandAlarmListen(const httplib::Request& req, httpli
              CServerSession::AlarmData msg;
              if (sess->DequeueMessage(msg))
              {
+                 auto tp_dequeue = std::chrono::steady_clock::now();
+                 long long ts_dequeue = std::chrono::duration_cast<std::chrono::milliseconds>(
+                     tp_dequeue.time_since_epoch()).count();
+                 long long ts_alarm = 0;
+                 // 尝试从 JSON 中提取入队时间戳 (enqueue_ts)
+                 auto pos = msg.json.find("\"enqueue_ts\":");
+                 if (pos != std::string::npos) {
+                     auto end = msg.json.find_first_of(",}\n\r", pos + 14);
+                     ts_alarm = std::stoll(msg.json.substr(pos + 14, end - pos - 14));
+                 }
+                 long long queue_delay = ts_alarm > 0 ? ts_dequeue - ts_alarm : -1;
+                 NSDK_LOG_INFO("[DIAG] content_provider dequeued alarm: queue_delay_ms=%lld, dequeue_ts=%lld, enqueue_ts=%lld",
+                               queue_delay, ts_dequeue, ts_alarm);
+
                  std::stringstream ss;
                  // JSON Part
                  ss << "--" << boundary << "\r\n";
@@ -383,9 +397,17 @@ void CSessionManager::HttpCommandAlarmListen(const httplib::Request& req, httpli
                  }
 
                  std::string data = ss.str();
+                 auto tp_before_write = std::chrono::steady_clock::now();
                  if (sink.write(data.data(), data.size())) {
+                     auto tp_after_write = std::chrono::steady_clock::now();
+                     long long write_cost = std::chrono::duration_cast<std::chrono::milliseconds>(
+                         tp_after_write - tp_before_write).count();
+                     NSDK_LOG_INFO("[DIAG] sink.write done: data_size=%zu, write_cost_ms=%lld",
+                                   data.size(), write_cost);
                      sess->UpdateLastActive();
                  } else {
+                     NSDK_LOG_WARN("[SessionManager] sink.write FAILED: SessionId=%s, ClientIP=%s, dataSize=%zu, marking disconnected",
+                                   SessionId.c_str(), sess->GetClientIP().c_str(), data.size());
                      MarkDisconnected(SessionId);
                      return false;
                  }
@@ -405,6 +427,8 @@ void CSessionManager::HttpCommandAlarmListen(const httplib::Request& req, httpli
                          MarkDisconnected(SessionId);
                          return false;
                      }
+                     NSDK_LOG_INFO("[SessionManager] Heartbeat sent: SessionId=%s, ClientIP=%s",
+                                  SessionId.c_str(), sess->GetClientIP().c_str());
                  }
              }
              std::this_thread::sleep_for(std::chrono::milliseconds(100));

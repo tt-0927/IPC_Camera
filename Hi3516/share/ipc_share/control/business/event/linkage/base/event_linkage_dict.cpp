@@ -17,6 +17,7 @@
 #include <cstring>
 #include <fstream>
 #include <memory>
+#include <new>
 #endif
 
 #ifdef ENABLE_TVSDK_SRC
@@ -307,7 +308,13 @@ void push_face_compare_alarm(const EventTriggerContext_S &stContext)
     }
 
     const Event::FaceCompareInfo_S &stSrc = stContext.pTvSdkPayload->stFaceCompare.stFaceCompareInfo;
-    std::unique_ptr<NET_TV_ALARM_FACE_COMPARE_INFO_S> pInfo(new NET_TV_ALARM_FACE_COMPARE_INFO_S());
+    std::unique_ptr<NET_TV_ALARM_FACE_COMPARE_INFO_S> pInfo(new (std::nothrow) NET_TV_ALARM_FACE_COMPARE_INFO_S);
+    if (!pInfo)
+    {
+        dlog_warn("TVSDK人脸比对告警内存分配失败，丢弃本次推送: buf_len[%zu]", sizeof(NET_TV_ALARM_FACE_COMPARE_INFO_S));
+        return;
+    }
+
     memset(pInfo.get(), 0, sizeof(*pInfo));
 
     int nChannel = stContext.nChnId;
@@ -397,74 +404,88 @@ void push_statistics_alarm(const EventTriggerContext_S &stContext)
         return;
     }
 
-    const EventTvSdkStatisticsPayload_S &stPayload = stContext.pTvSdkPayload->stStatistics;
-    std::unique_ptr<NET_TV_ALARM_STATISTICS_INFO_S> pInfo(new NET_TV_ALARM_STATISTICS_INFO_S());
-    memset(pInfo.get(), 0, sizeof(*pInfo));
-    pInfo->dwChannel = static_cast<UINT32>(stContext.nChnId < 0 ? 0 : stContext.nChnId);
-    pInfo->dwRuleID = static_cast<UINT32>(std::max(0, stPayload.nRuleId));
-    pInfo->llTimestampMs = stPayload.llTimestampMs > 0 ? stPayload.llTimestampMs : stContext.llTimestamp;
-    pInfo->dwReportSeq = stPayload.nReportSeq;
-    pInfo->dwEnterCount = stPayload.nEnterCount;
-    pInfo->dwLeaveCount = stPayload.nLeaveCount;
-    pInfo->dwTotalCount = stPayload.nTotalCount;
-    pInfo->dwCurrentPeopleCount = stPayload.nCurrentPeopleCount;
-    pInfo->dwAverageStayTimeSec = stPayload.nAverageStayTimeSec;
+    try
+    {
+        const EventTvSdkStatisticsPayload_S &stPayload = stContext.pTvSdkPayload->stStatistics;
+        std::unique_ptr<NET_TV_ALARM_STATISTICS_INFO_S> pInfo(new (std::nothrow) NET_TV_ALARM_STATISTICS_INFO_S);
+        if (!pInfo)
+        {
+            dlog_warn("TVSDK统计告警内存分配失败，丢弃本次推送: buf_len[%zu]", sizeof(NET_TV_ALARM_STATISTICS_INFO_S));
+            return;
+        }
 
-    if (stPayload.nStatisticsType == static_cast<int>(EventTvSdkStatisticsType_E::PEOPLE_FLOW))
-    {
-        pInfo->dwAlarmType = NET_TV_ALARM_PEOPLE_FLOW_STATISTICS;
-        pInfo->dwStatisticsType = NET_TV_STATISTICS_TYPE_PEOPLE_FLOW;
-    }
-    else if (stPayload.nStatisticsType == static_cast<int>(EventTvSdkStatisticsType_E::PEOPLE_DENSITY))
-    {
-        pInfo->dwAlarmType = NET_TV_ALARM_PEOPLE_DENSITY_STATISTICS;
-        pInfo->dwStatisticsType = NET_TV_STATISTICS_TYPE_PEOPLE_DENSITY;
-    }
-    else
-    {
-        return;
-    }
+        memset(pInfo.get(), 0, sizeof(*pInfo));
+        pInfo->dwChannel = static_cast<UINT32>(stContext.nChnId < 0 ? 0 : stContext.nChnId);
+        pInfo->dwRuleID = static_cast<UINT32>(std::max(0, stPayload.nRuleId));
+        pInfo->llTimestampMs = stPayload.llTimestampMs > 0 ? stPayload.llTimestampMs : stContext.llTimestamp;
+        pInfo->dwReportSeq = stPayload.nReportSeq;
+        pInfo->dwEnterCount = stPayload.nEnterCount;
+        pInfo->dwLeaveCount = stPayload.nLeaveCount;
+        pInfo->dwTotalCount = stPayload.nTotalCount;
+        pInfo->dwCurrentPeopleCount = stPayload.nCurrentPeopleCount;
+        const UINT32 dwAverageStayTimeSec = static_cast<UINT32>(stPayload.nAverageStayTimeSec);
+        pInfo->dwAverageStayTimeSec = dwAverageStayTimeSec;
 
-    const size_t nTargetCount = std::min(stPayload.vecTargets.size(),
-                                         static_cast<size_t>(NET_TV_ALARM_STATISTICS_TARGET_MAX_NUM));
-    pInfo->dwTargetCount = static_cast<UINT32>(nTargetCount);
-    for (size_t i = 0; i < nTargetCount; ++i)
-    {
-        fill_statistics_target(stPayload.vecTargets[i], pInfo->stTargets[i]);
-    }
+        if (stPayload.nStatisticsType == static_cast<int>(EventTvSdkStatisticsType_E::PEOPLE_FLOW))
+        {
+            pInfo->dwAlarmType = NET_TV_ALARM_PEOPLE_FLOW_STATISTICS;
+            pInfo->dwStatisticsType = NET_TV_STATISTICS_TYPE_PEOPLE_FLOW;
+        }
+        else if (stPayload.nStatisticsType == static_cast<int>(EventTvSdkStatisticsType_E::PEOPLE_DENSITY))
+        {
+            pInfo->dwAlarmType = NET_TV_ALARM_PEOPLE_DENSITY_STATISTICS;
+            pInfo->dwStatisticsType = NET_TV_STATISTICS_TYPE_PEOPLE_DENSITY;
+        }
+        else
+        {
+            return;
+        }
 
-    if (!copy_tvsdk_image(stPayload.stPanoramaImage,
-                          pInfo->byPanoramaImg,
-                          pInfo->dwPanoramaImgLen,
-                          sizeof(pInfo->byPanoramaImg)))
-    {
-        dlog_warn("TVSDK统计告警全景图超过协议上限，丢弃图片但保留统计数据");
-        pInfo->dwPanoramaImgLen = 0;
-    }
+        const size_t nTargetCount = std::min(stPayload.vecTargets.size(),
+                                             static_cast<size_t>(NET_TV_ALARM_STATISTICS_TARGET_MAX_NUM));
+        pInfo->dwTargetCount = static_cast<UINT32>(nTargetCount);
+        for (size_t i = 0; i < nTargetCount; ++i)
+        {
+            fill_statistics_target(stPayload.vecTargets[i], pInfo->stTargets[i]);
+        }
 
-    dlog_info("TVSDK统计告警填充: cmd[0x%x] 通道[%u] 类型[%u] 规则[%u] 时间戳[%lld] 序号[%u] "
-              "进入[%u] 离开[%u] 总数[%u] 当前人数[%u] 平均停留[%u] 目标数[%u] buf_len[%zu]",
-              pInfo->dwAlarmType,
-              pInfo->dwChannel,
-              pInfo->dwStatisticsType,
-              pInfo->dwRuleID,
-              static_cast<long long>(pInfo->llTimestampMs),
-              pInfo->dwReportSeq,
-              pInfo->dwEnterCount,
-              pInfo->dwLeaveCount,
-              pInfo->dwTotalCount,
-              pInfo->dwCurrentPeopleCount,
-              pInfo->dwAverageStayTimeSec,
-              pInfo->dwTargetCount,
-              sizeof(*pInfo));
-    int nRet = ControlManage::instance()->tvsdk_push_alarm(static_cast<int>(pInfo->dwAlarmType), pInfo.get(), sizeof(*pInfo));
-    if (nRet < 0)
-    {
-        dlog_warn("TVSDK推送统计告警失败: cmd[0x%x] ret[%d]", pInfo->dwAlarmType, nRet);
+        if (!copy_tvsdk_image(stPayload.stPanoramaImage,
+                              pInfo->byPanoramaImg,
+                              pInfo->dwPanoramaImgLen,
+                              sizeof(pInfo->byPanoramaImg)))
+        {
+            dlog_warn("TVSDK统计告警全景图超过协议上限，丢弃图片但保留统计数据");
+            pInfo->dwPanoramaImgLen = 0;
+        }
+
+        dlog_info("TVSDK统计告警填充: cmd[0x%x] 通道[%u] 类型[%u] 规则[%u] 时间戳[%lld] 序号[%u] "
+                  "进入[%u] 离开[%u] 总数[%u] 当前人数[%u] 平均停留[%u] 目标数[%u] buf_len[%zu]",
+                  pInfo->dwAlarmType,
+                  pInfo->dwChannel,
+                  pInfo->dwStatisticsType,
+                  pInfo->dwRuleID,
+                  static_cast<long long>(pInfo->llTimestampMs),
+                  pInfo->dwReportSeq,
+                  pInfo->dwEnterCount,
+                  pInfo->dwLeaveCount,
+                  pInfo->dwTotalCount,
+                  pInfo->dwCurrentPeopleCount,
+                  dwAverageStayTimeSec,
+                  pInfo->dwTargetCount,
+                  sizeof(*pInfo));
+        int nRet = ControlManage::instance()->tvsdk_push_alarm(static_cast<int>(pInfo->dwAlarmType), pInfo.get(), sizeof(*pInfo));
+        if (nRet < 0)
+        {
+            dlog_warn("TVSDK推送统计告警失败: cmd[0x%x] ret[%d]", pInfo->dwAlarmType, nRet);
+        }
+        else
+        {
+            dlog_info("TVSDK推送统计告警成功: cmd[0x%x]", pInfo->dwAlarmType);
+        }
     }
-    else
+    catch (const std::bad_alloc &e)
     {
-        dlog_info("TVSDK推送统计告警成功: cmd[0x%x]", pInfo->dwAlarmType);
+        dlog_warn("TVSDK统计告警内存不足，丢弃本次推送: %s", e.what());
     }
 }
 } // namespace

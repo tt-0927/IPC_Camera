@@ -39,7 +39,21 @@ CUserSession::CUserSession(LPUSER_HANDLE userHand, const std::string& host, int 
 
     // Initialize Alarm Manager
     m_alarmMgr = std::make_shared<CClientAlarmManager>(host_, port_, username_, password_);
+
+    // 设置 session 过期回调：当报警监听连接收到 401 时，触发重新登录流程
+    m_alarmMgr->SetSessionExpiredCallback([this]() {
+        NSDK_LOG_ERROR("[DIAG-SESSION] User-%p AlarmManager reported session EXPIRED, starting ReconnectLoop", userHand_);
+        isOnline_ = false;
+        std::lock_guard<std::mutex> lock(reconnectMutex_);
+        if (!isReconnecting_) {
+            isReconnecting_ = true;
+            reconnectDelay_ = 1;
+            if (reconnectThread_.joinable()) reconnectThread_.detach();
+            reconnectThread_ = std::thread(&CUserSession::ReconnectLoop, this);
+        }
+    });
 }
+
 CUserSession::~CUserSession()
 {
     Stop();
@@ -64,7 +78,7 @@ bool CUserSession::ConnectAndLogin()
 		}
     }
 
-    NSDK_LOG_ERROR("[User-%p] Login Failed. Status: %d", userHand_, res ? res->status : -1);
+    NSDK_LOG_ERROR("[DIAG-SESSION] User-%p Login FAILED, httpStatus=%d", userHand_, res ? res->status : -1);
     return false;
 }
 
@@ -82,8 +96,13 @@ void CUserSession::Stop()
     bool expected = true;
     if (isRunning_.compare_exchange_strong(expected, false))
     {
-        NSDK_LOG_INFO("[User-%p] Stopping session flag set...", userHand_);
+        NSDK_LOG_INFO("[DIAG-SESSION] User-%p Stopping session", userHand_);
         if (sseClient_) sseClient_->stop();
+        // 中断正在进行的命令请求，加速 ReconnectLoop 退出
+        {
+            std::lock_guard<std::mutex> lock(cmdMutex_);
+            if (cmdClient_) cmdClient_->stop();
+        }
     }
 
     // 停止重连线程
@@ -108,7 +127,7 @@ void CUserSession::Stop()
         }
         else
         {
-            sseThread_.detach(); // 防止自己 join 自己（虽然这种情况很少见）
+            sseThread_.detach();
         }
     }
 
@@ -130,7 +149,7 @@ void CUserSession::Stop()
         m_alarmMgr->Stop();
     }
 
-    NSDK_LOG_INFO("[User-%p] Stopped and threads joined.", userHand_);
+    NSDK_LOG_INFO("[DIAG-SESSION] User-%p Stopped, all threads joined", userHand_);
 }
 
 void CUserSession::SseLoop()
@@ -176,7 +195,7 @@ void CUserSession::SseLoop()
  		isOnline_ = false;
         if (!isRunning_) break; // 主动停止
 
-        NSDK_LOG_ERROR("[User-%p] Connection Lost.", userHand_);
+        NSDK_LOG_ERROR("[DIAG-SESSION] User-%p SSE Connection Lost", userHand_);
 
         // 重连机制
         if (retryCount < maxRetry_)
@@ -198,7 +217,7 @@ void CUserSession::SseLoop()
                 // 赋值前必须先 detach 旧线程，否则 joinable 时赋值会 std::terminate
                 if (reconnectThread_.joinable()) reconnectThread_.detach();
                 reconnectThread_ = std::thread(&CUserSession::ReconnectLoop, this);
-                NSDK_LOG_INFO("[User-%p] Reconnect thread started from SseLoop.", userHand_);
+                NSDK_LOG_INFO("[DIAG-SESSION] User-%p ReconnectLoop thread started from SseLoop", userHand_);
             }
 
             // 退出 SSE 循环，由 ReconnectLoop 接管重连
@@ -235,23 +254,25 @@ void CUserSession::HeartbeatLoop()
             if (!isOnline_)
 			{
                 isOnline_ = true;
-                NSDK_LOG_INFO("[User-%p] Heartbeat recovered.", userHand_);
+                NSDK_LOG_INFO("[DIAG-SESSION] User-%p Heartbeat recovered, session=%s", userHand_, sessionId_.c_str());
             }
         }
         else
 		{
             // 心跳失败处理
             failCount++;                                                                       // 累计失败次数
-            NSDK_LOG_WARN("[User-%p] Heartbeat failed (%d/%d). Status: %d",                   // 打印警告日志
+            NSDK_LOG_WARN("[DIAG-SESSION] User-%p Heartbeat FAIL #%d/%d (http=%d), session=%s",                   // 打印警告日志
                 userHand_,                                                                     // 用户会话句柄（内存地址，用于区分不同连接）
                 failCount,                                                                     // 当前失败次数
                 maxRetry_,                                                                     // 最大允许失败次数
-                res ? res->status : -1);                                                      // HTTP响应状态码（-1表示连接完全失败）
+                res ? res->status : -1,
+                sessionId_.c_str());                                                           // 当前会话ID
 
             // 判断是否达到最大重试次数
             if (failCount >= maxRetry_)
 			{
-                NSDK_LOG_ERROR("[User-%p] Session Lost (Heartbeat timeout). Starting reconnect...", userHand_);
+                NSDK_LOG_ERROR("[DIAG-SESSION] User-%p Heartbeat DEAD (fail=%d, maxRetry=%d), starting ReconnectLoop, session=%s",
+                              userHand_, failCount, maxRetry_, sessionId_.c_str());
                 isOnline_ = false;
 
                 // 启动异步重连线程（只启动一次）
@@ -263,7 +284,7 @@ void CUserSession::HeartbeatLoop()
                     // 赋值前必须先 detach 旧线程，否则 joinable 时赋值会 std::terminate
                     if (reconnectThread_.joinable()) reconnectThread_.detach();
                     reconnectThread_ = std::thread(&CUserSession::ReconnectLoop, this);
-                    NSDK_LOG_INFO("[User-%p] Reconnect thread started.", userHand_);
+                    NSDK_LOG_INFO("[DIAG-SESSION] User-%p ReconnectLoop thread started from HeartbeatLoop", userHand_);
                 }
 
                 // 退出心跳循环，由 ReconnectLoop 接管重连
@@ -275,7 +296,7 @@ void CUserSession::HeartbeatLoop()
 
 void CUserSession::ReconnectLoop()
 {
-    NSDK_LOG_INFO("[User-%p] Reconnect loop started.", userHand_);
+    NSDK_LOG_INFO("[DIAG-SESSION] User-%p ReconnectLoop STARTED, host=%s:%d", userHand_, host_.c_str(), port_);
 
     // 停止心跳线程，避免与重连线程竞争
     if (heartbeatThread_.joinable())
@@ -285,13 +306,13 @@ void CUserSession::ReconnectLoop()
         else
             heartbeatThread_.detach();
     }
-    NSDK_LOG_INFO("[User-%p] Heartbeat thread stopped for reconnect.", userHand_);
+    NSDK_LOG_INFO("[DIAG-SESSION] User-%p Heartbeat thread stopped for reconnect", userHand_);
 
     while (isReconnecting_ && isRunning_)
     {
         // 等待重连延迟（指数退避）
         int delay = reconnectDelay_.load();
-        NSDK_LOG_INFO("[User-%p] Reconnect attempt in %d seconds...", userHand_, delay);
+        NSDK_LOG_INFO("[DIAG-SESSION] User-%p Reconnect attempt #%d seconds", userHand_, delay);
 
         for (int i = 0; i < delay && isReconnecting_ && isRunning_; ++i)
         {
@@ -304,7 +325,7 @@ void CUserSession::ReconnectLoop()
         }
 
         // 尝试重新登录
-        NSDK_LOG_INFO("[User-%p] Attempting reconnect to %s:%d ...", userHand_, host_.c_str(), port_);
+        NSDK_LOG_INFO("[DIAG-SESSION] User-%p Attempting reconnect to %s:%d", userHand_, host_.c_str(), port_);
 
         // 重建 cmdClient_，防止旧连接 keep-alive 状态失效导致 Status: -1
         {
@@ -318,10 +339,17 @@ void CUserSession::ReconnectLoop()
 
         if (ConnectAndLogin())
         {
-            NSDK_LOG_INFO("[User-%p] Reconnect successful!", userHand_);
+            NSDK_LOG_INFO("[DIAG-SESSION] User-%p Reconnect SUCCESS, new sessionId=%s", userHand_, sessionId_.c_str());
             isOnline_ = true;
             isReconnecting_ = false;
             reconnectDelay_ = 1; // 重置延迟
+
+            // 重连成功后立即更新 AlarmManager 的 sessionId
+            // AlarmLoop 如果正在连接就用老 session，断线后下次循环会自动拶取新 session
+            if (m_alarmMgr) {
+                m_alarmMgr->UpdateSessionId(sessionId_);
+                NSDK_LOG_INFO("[DIAG-SESSION] User-%p AlarmManager sessionId updated to %s", userHand_, sessionId_.c_str());
+            }
 
             // 重启心跳线程
             // 注意：HeartbeatLoop 已经 break 退出，线程已结束但仍 joinable，需先 join 再重启
@@ -333,7 +361,7 @@ void CUserSession::ReconnectLoop()
                     heartbeatThread_.detach();
             }
             heartbeatThread_ = std::thread(&CUserSession::HeartbeatLoop, this);
-            NSDK_LOG_INFO("[User-%p] Heartbeat thread restarted after reconnect.", userHand_);
+            NSDK_LOG_INFO("[DIAG-SESSION] User-%p Heartbeat thread restarted after reconnect", userHand_);
 
             // 重启 SSE 线程（SseLoop 已退出，join 后重启）
             if (sseThread_.joinable())
@@ -346,12 +374,24 @@ void CUserSession::ReconnectLoop()
             // SSE 功能已由 AlarmManager 替代，不重启 SseLoop
             // sseThread_ = std::thread(&CUserSession::SseLoop, this);
 
-            // 重启报警管理器（如果已经停止）
+            // 重启报警管理器
+            // 如果 AlarmLoop 还在运行，就不要强行停止：它下次断线重连时会自动拶取上面已更新的 sessionId
+            // 如果 AlarmLoop 已经停止（如收到 401 break 出去），才需要重新启动
             if (m_alarmMgr)
             {
-                m_alarmMgr->Stop(); // 先确保停止
-                m_alarmMgr->StartListen(userHand_, sessionId_);
-                NSDK_LOG_INFO("[User-%p] Alarm manager restarted after reconnect.", userHand_);
+                if (!m_alarmMgr->IsRunning())
+                {
+                    // AlarmLoop 已退出（401 视为 session 失效），重新启动
+                    m_alarmMgr->Stop(); // 确保旧线程 join完毕
+                    m_alarmMgr->StartListen(userHand_, sessionId_);
+                    NSDK_LOG_INFO("[DIAG-SESSION] User-%p AlarmManager restarted (was stopped) after reconnect", userHand_);
+                }
+                else
+                {
+                    // AlarmLoop 还在运行，主动触发它尽快断线，下次循环会自动拶取新 sessionId 重连
+                    NSDK_LOG_INFO("[DIAG-SESSION] User-%p AlarmManager still running, ForceReconnect with new session=%s", userHand_, sessionId_.c_str());
+                    m_alarmMgr->ForceReconnect();
+                }
             }
 
             break;
@@ -361,11 +401,11 @@ void CUserSession::ReconnectLoop()
             // 重连失败，增加延迟（指数退避，最大30秒）
             int newDelay = reconnectDelay_ * 2;
             reconnectDelay_ = std::min(newDelay, 30);
-            NSDK_LOG_ERROR("[User-%p] Reconnect failed. Next attempt in %d seconds.", userHand_, reconnectDelay_.load());
+            NSDK_LOG_ERROR("[DIAG-SESSION] User-%p Reconnect FAILED, next attempt in %d seconds", userHand_, reconnectDelay_.load());
         }
     }
 
-    NSDK_LOG_INFO("[User-%p] Reconnect loop exited.", userHand_);
+    NSDK_LOG_INFO("[DIAG-SESSION] User-%p ReconnectLoop EXITED", userHand_);
 }
 
 

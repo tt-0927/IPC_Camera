@@ -45,8 +45,9 @@ static std::string SaveAlarmImage(const char* deviceIp,
 #ifdef _WIN32
         _mkdir(dir.c_str());
 #else
-        mkdir(dir.c_str(), 0755);
+         mkdir(dir.c_str(), 0755);
 #endif
+
 
         const auto now = std::chrono::system_clock::now();
         const auto ts = std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -83,6 +84,7 @@ static void SleepSeconds(unsigned int seconds) {
 #endif
 }
 
+
 static const char* GetStatisticsTypeName(UINT32 type) {
     switch (type) {
         case NET_TV_STATISTICS_TYPE_PEOPLE_FLOW: return "PeopleFlow";
@@ -103,7 +105,8 @@ static const char* GetAlarmBaseName(INT64 command) {
     }
 }
 
-static const char* GetAlarmTypeName(UINT32 alarmType) {
+static const char* GetAlarmTypeName(UINT32 alarmType)
+{
     switch (alarmType) {
         case NET_TV_ALARM_MOTION_DETECT: return "MOTION_DETECT";
         case NET_TV_ALARM_OCCLUSION: return "OCCLUSION";
@@ -167,7 +170,16 @@ void STDCALL AlarmCallBack(OUT INT64 lCommand,
                            OUT CHAR* pAlarmInfo,
                            OUT INT32* dwBufLen,
                            OUT LPVOID lpUserData) {
-    printf("[AlarmCallBack] Received Alarm!\n");
+    // 打印当前时间戳
+    {
+        auto now = std::chrono::system_clock::now();
+        auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
+        std::time_t t = ms / 1000;
+        std::tm* tm_info = std::localtime(&t);
+        char timebuf[32];
+        std::strftime(timebuf, sizeof(timebuf), "%Y-%m-%d %H:%M:%S", tm_info);
+        printf("[%s.%03lld] [AlarmCallBack] Received Alarm!\n", timebuf, (long long)(ms % 1000));
+    }
     printf("  Command: 0x%llx (%s), Base=%s\n",
            (long long)lCommand,
            GetAlarmCommandName(lCommand),
@@ -194,40 +206,44 @@ void STDCALL AlarmCallBack(OUT INT64 lCommand,
         } else if (lCommand == NET_TV_ALARM_FACE_COMPARE &&
                    *dwBufLen >= (INT32)sizeof(NET_TV_ALARM_FACE_COMPARE_INFO_S)) {
             auto* info = (NET_TV_ALARM_FACE_COMPARE_INFO_S*)pAlarmInfo;
-            printf("  [FACE_COMPARE] AlarmType: 0x%x (%s), Channel: %u, EventId: %d, Result: %d, FaceId: %d, Similarity: %d, FaceName: %s, FaceLibName: %s, CapFaceImgLen: %u, LibImgLen: %u\n",
+            printf("  [FACE_COMPARE] AlarmType: 0x%x (%s), Channel: %u, EventId: %d, Result: %d, Similarity: %d, FaceId: %d, TimestampMs: %lld\n",
                    info->dwAlarmType,
                    GetAlarmTypeName(info->dwAlarmType),
                    info->dwChannel,
                    info->nEventId,
                    info->nCompResult,
-                   info->nFaceId,
                    info->nSimilarity,
-                   info->szFaceName,
+                   info->nFaceId,
+                   (long long)info->llTimestampMs);
+            printf("  [FACE_COMPARE] LibName: %s, FaceName: %s\n",
                    info->szFaceLibName,
-                   info->dwCapFaceImgLen,
-                   info->dwLibFaceImgLen);
-            if (info->dwCapFaceImgLen > 0) {
-                const UINT32 imgLen = std::min<UINT32>(info->dwCapFaceImgLen, NET_TV_FACE_IMAGE_MAX_LEN);
-                const std::string path = SaveAlarmImage(
-                    pAlarmer ? pAlarmer->szDeviceIP : "unknown",
-                    "face_compare",
-                    "capture",
-                    info->byCapFaceImg,
-                    imgLen);
-                if (!path.empty()) {
-                    printf("  [FACE_COMPARE] CaptureFaceSaved: %s\n", path.c_str());
-                }
-            }
+                   info->szFaceName);
+            printf("  [FACE_COMPARE] LibFacePath: %s, CapFacePath: %s, CapImagePath: %s\n",
+                   info->szLibFacePath,
+                   info->szCapFacePath,
+                   info->szCapImagePath);
             if (info->dwLibFaceImgLen > 0) {
                 const UINT32 imgLen = std::min<UINT32>(info->dwLibFaceImgLen, NET_TV_FACE_IMAGE_MAX_LEN);
                 const std::string path = SaveAlarmImage(
                     pAlarmer ? pAlarmer->szDeviceIP : "unknown",
                     "face_compare",
-                    "library",
+                    "lib_face",
                     info->byLibFaceImg,
                     imgLen);
                 if (!path.empty()) {
-                    printf("  [FACE_COMPARE] LibFaceSaved: %s\n", path.c_str());
+                    printf("  [FACE_COMPARE] LibFaceImageSaved: %s\n", path.c_str());
+                }
+            }
+            if (info->dwCapFaceImgLen > 0) {
+                const UINT32 imgLen = std::min<UINT32>(info->dwCapFaceImgLen, NET_TV_FACE_IMAGE_MAX_LEN);
+                const std::string path = SaveAlarmImage(
+                    pAlarmer ? pAlarmer->szDeviceIP : "unknown",
+                    "face_compare",
+                    "capture_face",
+                    info->byCapFaceImg,
+                    imgLen);
+                if (!path.empty()) {
+                    printf("  [FACE_COMPARE] CapFaceImageSaved: %s\n", path.c_str());
                 }
             }
         } else if (alarmBase == NET_TV_ALARM_BASE_AI &&
@@ -237,16 +253,23 @@ void STDCALL AlarmCallBack(OUT INT64 lCommand,
                    info->dwAlarmType, GetAlarmTypeName(info->dwAlarmType), info->dwChannel, info->dwObjectType, info->fConfidence,
                    info->nLeft, info->nTop, info->nRight, info->nBottom, info->szObjectID, info->dwImgLen);
             if (lCommand == NET_TV_ALARM_FACE_DETECT ||
-                lCommand == NET_TV_ALARM_FACE_CAPTURE) {
-                const char* imageKind = info->fConfidence == 1.0f ? "Panorama" : "Thumbnail";
+                lCommand == NET_TV_ALARM_FACE_CAPTURE ||
+                lCommand == NET_TV_ALARM_FACE_COMPARE) {
+                const bool isFaceCompare = lCommand == NET_TV_ALARM_FACE_COMPARE;
+                const char* imageKind = isFaceCompare ? "CompareTarget" :
+                    (info->fConfidence == 1.0f ? "Panorama" : "Thumbnail");
                 printf("  [AI] FaceImageKind: %s\n", imageKind);
                 printf("  [AI] FaceDetails : dwAlarmType=0x%x channel=%u objectType=%u confidence=%.3f objectId=%s\n",
                        info->dwAlarmType, info->dwChannel, info->dwObjectType, info->fConfidence, info->szObjectID);
+                if (isFaceCompare) {
+                    printf("  [AI] FaceCompareSimilarity: %.3f\n", info->fConfidence);
+                }
                 if (info->dwImgLen > 0) {
                     const UINT32 imgLen = std::min<UINT32>(info->dwImgLen, NET_TV_PIC_DATA_MAX_LEN);
                     const std::string path = SaveAlarmImage(
                         pAlarmer ? pAlarmer->szDeviceIP : "unknown",
-                        lCommand == NET_TV_ALARM_FACE_CAPTURE ? "face_capture" : "face_detect",
+                        isFaceCompare ? "face_compare" :
+                            (lCommand == NET_TV_ALARM_FACE_CAPTURE ? "face_capture" : "face_detect"),
                         imageKind,
                         info->byImgData,
                         imgLen);
@@ -281,8 +304,8 @@ void STDCALL AlarmCallBack(OUT INT64 lCommand,
                    *dwBufLen >= (INT32)sizeof(NET_TV_ALARM_STATISTICS_INFO_S)) {
             auto* info = (NET_TV_ALARM_STATISTICS_INFO_S*)pAlarmInfo;
             printf("  [STATISTICS] AlarmType: 0x%x (%s), Channel: %u, StatisticsType: %u (%s), RuleID: %u, TimestampMs: %lld\n",
-                   info->dwAlarmType, GetAlarmTypeName(info->dwAlarmType), info->dwChannel, info->dwStatisticsType,
-                   GetStatisticsTypeName(info->dwStatisticsType), info->dwRuleID, (long long)info->llTimestampMs);
+                   info->dwAlarmType, GetAlarmTypeName(info->dwAlarmType), info->dwChannel, info->dwStatisticsType, info->dwRuleID,
+                   GetStatisticsTypeName(info->dwStatisticsType), (long long)info->llTimestampMs);
             printf("  [STATISTICS] Enter: %u, Leave: %u, Total: %u, "
                    "CurrentPeople: %u, AverageStayTimeSec: %u, TargetCount: "
                    "%u, PanoramaImgLen: %u\n",
