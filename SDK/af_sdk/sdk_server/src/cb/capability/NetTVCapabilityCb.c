@@ -81,6 +81,60 @@ static void NormalizeResolutionFrameRate(LPNET_TV_VIDEO_RESOLUTION_S pResolution
     pResolution->dwFrameRateNum = ClampFrameRateNum(pResolution->dwFrameRateNum);
 }
 
+static void FillEncodeAbilityFromOption(const NET_TV_VIDEO_ENCODE_OPTION_S* pOption,
+                                        LPNET_TV_VIDEO_ENCODE_ABILITY_S pAbility)
+{
+    if (!pOption || !pAbility)
+    {
+        return;
+    }
+
+    memset(pAbility, 0, sizeof(NET_TV_VIDEO_ENCODE_ABILITY_S));
+    pAbility->enVideoCodec = pOption->enVideoCodec;
+    switch (pOption->enVideoCodec)
+    {
+        case NET_TV_VIDEO_CODE_H264:
+            strncpy(pAbility->szVideoCodec, "H.264", sizeof(pAbility->szVideoCodec) - 1);
+            break;
+        case NET_TV_VIDEO_CODE_H265:
+            strncpy(pAbility->szVideoCodec, "H.265", sizeof(pAbility->szVideoCodec) - 1);
+            break;
+        case NET_TV_VIDEO_CODE_JPEG:
+            strncpy(pAbility->szVideoCodec, "JPEG", sizeof(pAbility->szVideoCodec) - 1);
+            break;
+        case NET_TV_VIDEO_CODE_MJPEG:
+            strncpy(pAbility->szVideoCodec, "MJPEG", sizeof(pAbility->szVideoCodec) - 1);
+            break;
+        case NET_TV_VIDEO_CODE_SVAC3:
+            strncpy(pAbility->szVideoCodec, "SVAC3", sizeof(pAbility->szVideoCodec) - 1);
+            break;
+        case NET_TV_VIDEO_CODE_MPEG4:
+            strncpy(pAbility->szVideoCodec, "MPEG4", sizeof(pAbility->szVideoCodec) - 1);
+            break;
+        default:
+            strncpy(pAbility->szVideoCodec, "UNKNOWN", sizeof(pAbility->szVideoCodec) - 1);
+            break;
+    }
+    pAbility->nEncodeComplexityNum = 1;
+    pAbility->anEncodeComplexity[0] = pOption->enEncodingComplexity;
+    pAbility->nDefaultComplexity = (UINT32)pOption->enEncodingComplexity;
+    pAbility->bSupportSVC = pOption->enSvcEnable;
+    pAbility->bSupportStreamSmooth = pOption->nBitrateSmoothing > 0 ? 1 : 0;
+}
+
+static INT32 ClampEncodeComplexityNum(INT32 complexityNum)
+{
+    if (complexityNum < 0)
+    {
+        return 0;
+    }
+    if (complexityNum > NET_TV_VIDEO_ENCODE_COMPLEXITY_MAX_NUM)
+    {
+        return NET_TV_VIDEO_ENCODE_COMPLEXITY_MAX_NUM;
+    }
+    return complexityNum;
+}
+
 static void NormalizeVideoEncodeCap(LPNET_TV_VIDEO_ENCODE_CAP_S pCap)
 {
     INT32 i = 0;
@@ -112,6 +166,24 @@ static void NormalizeVideoEncodeCap(LPNET_TV_VIDEO_ENCODE_CAP_S pCap)
             pStream->dwEncodeCapSize = NET_TV_VIDEO_ENCODE_TYPE_MAX;
         }
 
+        if (pStream->dwEncodeAbilityNum < 0)
+        {
+            pStream->dwEncodeAbilityNum = 0;
+        }
+        else if (pStream->dwEncodeAbilityNum > NET_TV_VIDEO_ENCODE_TYPE_MAX)
+        {
+            pStream->dwEncodeAbilityNum = NET_TV_VIDEO_ENCODE_TYPE_MAX;
+        }
+
+        if (pStream->dwEncodeTypeNum < 0)
+        {
+            pStream->dwEncodeTypeNum = 0;
+        }
+        else if (pStream->dwEncodeTypeNum > NET_TV_VIDEO_ENCODE_TYPE_MAX)
+        {
+            pStream->dwEncodeTypeNum = NET_TV_VIDEO_ENCODE_TYPE_MAX;
+        }
+
         if (pStream->dwResolutionNum < 0)
         {
             pStream->dwResolutionNum = 0;
@@ -126,9 +198,29 @@ static void NormalizeVideoEncodeCap(LPNET_TV_VIDEO_ENCODE_CAP_S pCap)
             NormalizeResolutionFrameRate(&pStream->astEncodeCap[j].stVideoResolution);
         }
 
+        if (pStream->dwEncodeAbilityNum == 0 && pStream->dwEncodeCapSize > 0)
+        {
+            pStream->dwEncodeAbilityNum = pStream->dwEncodeCapSize;
+            for (j = 0; j < pStream->dwEncodeAbilityNum; ++j)
+            {
+                FillEncodeAbilityFromOption(&pStream->astEncodeCap[j], &pStream->astEncodeAbility[j]);
+            }
+        }
+
+        if (pStream->dwEncodeTypeNum == 0)
+        {
+            pStream->dwEncodeTypeNum = pStream->dwEncodeAbilityNum;
+        }
+
         for (j = 0; j < pStream->dwResolutionNum; ++j)
         {
             NormalizeResolutionFrameRate(&pStream->astResolution[j]);
+        }
+
+        for (j = 0; j < pStream->dwEncodeAbilityNum; ++j)
+        {
+            pStream->astEncodeAbility[j].nEncodeComplexityNum =
+                ClampEncodeComplexityNum(pStream->astEncodeAbility[j].nEncodeComplexityNum);
         }
     }
 }
@@ -145,7 +237,7 @@ static void NormalizeOsdCap(LPNET_TV_OSD_CAP_S pCap)
         return;
     }
 
-    pCap->udwMaxOsdNum = ClampUint32(pCap->udwMaxOsdNum, 4);
+    pCap->udwMaxOsdNum = ClampUint32(pCap->udwMaxOsdNum, NET_TV_OSD_CUSTOM_MAX_NUM);
     pCap->udwSupportedFontSizeNum = ClampUint32(pCap->udwSupportedFontSizeNum,
                                                 NET_TV_OSD_FONT_SIZE_TYPE_MAX_NUM);
     pCap->udwSupportedDateFormatNum = ClampUint32(pCap->udwSupportedDateFormatNum,

@@ -137,6 +137,33 @@ static void PrintFrameRateList(const char* indent, const NET_TV_VIDEO_RESOLUTION
     printf("\n");
 }
 
+static void PrintEncodeComplexityList(const char* indent, const NET_TV_VIDEO_ENCODE_ABILITY_S* pAbility)
+{
+    int complexityNum = 0;
+
+    if (!pAbility)
+    {
+        return;
+    }
+
+    complexityNum = pAbility->nEncodeComplexityNum;
+    if (complexityNum < 0)
+    {
+        complexityNum = 0;
+    }
+    if (complexityNum > NET_TV_VIDEO_ENCODE_COMPLEXITY_MAX_NUM)
+    {
+        complexityNum = NET_TV_VIDEO_ENCODE_COMPLEXITY_MAX_NUM;
+    }
+
+    printf("%s编码复杂度列表(%d):", indent, complexityNum);
+    for (int i = 0; i < complexityNum; ++i)
+    {
+        printf(" %d", pAbility->anEncodeComplexity[i]);
+    }
+    printf("\n");
+}
+
 /**
  * @brief 打印视频编码能力集信息
  */
@@ -151,6 +178,9 @@ void PrintVideoEncodeCap(const NET_TV_VIDEO_ENCODE_CAP_S* pCap)
         printf("\n  [码流 %d] StreamType=%d\n", i, pStream->dwStreamType);
         printf("    是否支持复合流: %s\n", pStream->bSupportMultiStream ? "是" : "否");
         printf("    编码类型数: %d\n", pStream->dwEncodeCapSize);
+        printf("    EncodeTypeNum: %d\n", pStream->dwEncodeTypeNum);
+        printf("    EncodeAbilityNum: %d\n", pStream->dwEncodeAbilityNum);
+        printf("    I帧间隔范围: %d ~ %d\n", pStream->dwIFrameIntervalMin, pStream->dwIFrameIntervalMax);
         printf("    图像质量范围: %d ~ %d\n", pStream->stQuality.dwMin, pStream->stQuality.dwMax);
         printf("    码流平滑范围: %d ~ %d\n", pStream->stStreamSmooth.dwMin, pStream->stStreamSmooth.dwMax);
         printf("    支持的分辨率数量: %d\n", pStream->dwResolutionNum);
@@ -191,6 +221,17 @@ void PrintVideoEncodeCap(const NET_TV_VIDEO_ENCODE_CAP_S* pCap)
             printf("      I帧间隔: %d\n", pEncode->nIFrameInterval);
             printf("      SVC: %d\n", pEncode->enSvcEnable);
             printf("      码流平滑: %d\n", pEncode->nBitrateSmoothing);
+        }
+
+        for (int j = 0; j < pStream->dwEncodeAbilityNum && j < NET_TV_VIDEO_ENCODE_TYPE_MAX; j++)
+        {
+            const NET_TV_VIDEO_ENCODE_ABILITY_S* pAbility = &pStream->astEncodeAbility[j];
+            printf("    [编码能力 %d] Codec=%s(%d)\n", j, pAbility->szVideoCodec, pAbility->enVideoCodec);
+            printf("      支持调整复杂度: %d\n", pAbility->nSupportAdjustComplexity);
+            PrintEncodeComplexityList("      ", pAbility);
+            printf("      默认复杂度: %u\n", pAbility->nDefaultComplexity);
+            printf("      支持SVC: %d\n", pAbility->bSupportSVC);
+            printf("      支持码流平滑: %d\n", pAbility->bSupportStreamSmooth);
         }
     }
     printf("===================================\n");

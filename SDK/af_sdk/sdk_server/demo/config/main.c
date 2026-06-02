@@ -343,12 +343,6 @@ static void InitDemoOsdConfig(NET_TV_VIDEO_OSD_CFG_S* pCfg)
                 "#FFFFFF",
                 "time_token_0");
 
-    for (i = 0; i < DEMO_OSD_TOTAL_SLOT_NUM; ++i)
-    {
-        pCfg->OsdInfo[i].nId = i + 1;
-        pCfg->OsdInfo[i].bEnable = FALSE;
-    }
-
     for (i = 0; i < DEMO_OSD_CUSTOM_MAX_NUM; ++i)
     {
         char name[NET_TV_LEN_128] = {0};
@@ -371,6 +365,11 @@ static void InitDemoOsdConfig(NET_TV_VIDEO_OSD_CFG_S* pCfg)
                     OSD_COLOR_CUSTOMIZE,
                     color,
                     token);
+    }
+
+    for (i = DEMO_OSD_CUSTOM_MAX_NUM; i < DEMO_OSD_TOTAL_SLOT_NUM; ++i)
+    {
+        memset(&pCfg->OsdInfo[i], 0, sizeof(pCfg->OsdInfo[i]));
     }
 }
 
@@ -446,7 +445,7 @@ static void NormalizeDemoOsdConfig(NET_TV_VIDEO_OSD_CFG_S* pCfg)
         return;
     }
 
-    for (i = 0; i < DEMO_OSD_TOTAL_SLOT_NUM; ++i)
+    for (i = 0; i < DEMO_OSD_CUSTOM_MAX_NUM; ++i)
     {
         if (pCfg->OsdInfo[i].nId <= 0)
         {
@@ -456,10 +455,7 @@ static void NormalizeDemoOsdConfig(NET_TV_VIDEO_OSD_CFG_S* pCfg)
 
     for (i = DEMO_OSD_CUSTOM_MAX_NUM; i < DEMO_OSD_TOTAL_SLOT_NUM; ++i)
     {
-        pCfg->OsdInfo[i].bEnable = FALSE;
-        memset(pCfg->OsdInfo[i].strName, 0, sizeof(pCfg->OsdInfo[i].strName));
-        memset(&pCfg->OsdInfo[i].stOsdAttr, 0, sizeof(pCfg->OsdInfo[i].stOsdAttr));
-        pCfg->OsdInfo[i].nId = i + 1;
+        memset(&pCfg->OsdInfo[i], 0, sizeof(pCfg->OsdInfo[i]));
     }
 }
 

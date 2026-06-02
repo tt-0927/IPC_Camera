@@ -23,7 +23,7 @@
 #define SDKSERVER_USERNAME "admin"
 #define SDKSERVER_PASSWORD "Admin@123456"
 /* Demo声明的最大字符叠加数量，需与当前IPC OSD能力保持一致 */
-#define SDKSERVER_OSD_MAX_NUM 4
+#define SDKSERVER_OSD_MAX_NUM NET_TV_OSD_CUSTOM_MAX_NUM
 #define SDKSERVER_OSD_ALIGN_MAX_NUM 8
 
 static INT32 g_serverPort = SDKSERVER_PORT;
@@ -138,6 +138,7 @@ static void FillDemoResolution(LPNET_TV_VIDEO_RESOLUTION_S pResolution,
     }
 
     memset(pResolution, 0, sizeof(NET_TV_VIDEO_RESOLUTION_S));
+    snprintf(pResolution->szName, sizeof(pResolution->szName), "%d*%d", width, height);
     if (frameRateMin > frameRateMax)
     {
         FLOAT tmp = frameRateMin;
@@ -163,6 +164,47 @@ static void FillDemoResolution(LPNET_TV_VIDEO_RESOLUTION_S pResolution,
     }
 }
 
+static void FillDemoEncodeAbility(LPNET_TV_VIDEO_ENCODE_ABILITY_S pAbility,
+                                  const char* pCodec,
+                                  INT32 enVideoCodec,
+                                  INT32 supportAdjustComplexity,
+                                  const INT32* pComplexity,
+                                  INT32 complexityNum,
+                                  UINT32 defaultComplexity,
+                                  INT32 supportSvc,
+                                  INT32 supportStreamSmooth)
+{
+    int i = 0;
+
+    if (!pAbility)
+    {
+        return;
+    }
+
+    memset(pAbility, 0, sizeof(NET_TV_VIDEO_ENCODE_ABILITY_S));
+    CopyString(pAbility->szVideoCodec, sizeof(pAbility->szVideoCodec), pCodec);
+    pAbility->enVideoCodec = enVideoCodec;
+    pAbility->nSupportAdjustComplexity = supportAdjustComplexity;
+    pAbility->nEncodeComplexityNum = complexityNum;
+    if (pAbility->nEncodeComplexityNum < 0)
+    {
+        pAbility->nEncodeComplexityNum = 0;
+    }
+    if (pAbility->nEncodeComplexityNum > NET_TV_VIDEO_ENCODE_COMPLEXITY_MAX_NUM)
+    {
+        pAbility->nEncodeComplexityNum = NET_TV_VIDEO_ENCODE_COMPLEXITY_MAX_NUM;
+    }
+
+    for (i = 0; pComplexity && i < pAbility->nEncodeComplexityNum; ++i)
+    {
+        pAbility->anEncodeComplexity[i] = pComplexity[i];
+    }
+
+    pAbility->nDefaultComplexity = defaultComplexity;
+    pAbility->bSupportSVC = supportSvc;
+    pAbility->bSupportStreamSmooth = supportStreamSmooth;
+}
+
 /**
  * @brief 视频编码能力集回调实现
  * @note 模拟填充2个码流(主/子码流)的能力集数据
@@ -184,11 +226,22 @@ NET_TV_COMMON_ECODE_E MyVideoEncodeCb(INT32 dwChannelID, LPNET_TV_VIDEO_ENCODE_C
     // ============ 主码流能力 (索引0) ============
     pCap->astStreamCap[0].dwStreamType = 0;          // NET_TV_LIVE_STREAM_INDEX_MAIN
     pCap->astStreamCap[0].bSupportMultiStream = 1;   // 支持复合流
-    pCap->astStreamCap[0].dwEncodeCapSize = 2;
+    pCap->astStreamCap[0].dwEncodeCapSize = 3;
+    pCap->astStreamCap[0].dwEncodeTypeNum = 3;
+    pCap->astStreamCap[0].dwEncodeAbilityNum = 3;
+    pCap->astStreamCap[0].dwIFrameIntervalMin = 1;
+    pCap->astStreamCap[0].dwIFrameIntervalMax = 400;
     pCap->astStreamCap[0].stQuality.dwMin = 1;
-    pCap->astStreamCap[0].stQuality.dwMax = 6;
+    pCap->astStreamCap[0].stQuality.dwMax = 100;
     pCap->astStreamCap[0].stStreamSmooth.dwMin = 1;
     pCap->astStreamCap[0].stStreamSmooth.dwMax = 100;
+    {
+        const INT32 complexityAll[] = {0, 1, 2};
+        const INT32 complexityMain[] = {1};
+        FillDemoEncodeAbility(&pCap->astStreamCap[0].astEncodeAbility[0], "H.264", NET_TV_VIDEO_CODE_H264, 1, complexityAll, 3, 0, 1, 1);
+        FillDemoEncodeAbility(&pCap->astStreamCap[0].astEncodeAbility[1], "H.265", NET_TV_VIDEO_CODE_H265, 0, complexityMain, 1, 1, 1, 1);
+        FillDemoEncodeAbility(&pCap->astStreamCap[0].astEncodeAbility[2], "MJPEG", NET_TV_VIDEO_CODE_MJPEG, 0, complexityMain, 1, 1, 0, 0);
+    }
     
     // H.264编码配置示例
     pCap->astStreamCap[0].astEncodeCap[0].nId = NET_TV_LIVE_STREAM_INDEX_MAIN;
@@ -222,6 +275,22 @@ NET_TV_COMMON_ECODE_E MyVideoEncodeCb(INT32 dwChannelID, LPNET_TV_VIDEO_ENCODE_C
     pCap->astStreamCap[0].astEncodeCap[1].enSvcEnable = 0;
     pCap->astStreamCap[0].astEncodeCap[1].nBitrateSmoothing = 50;
 
+    // MJPEG编码配置示例
+    pCap->astStreamCap[0].astEncodeCap[2].nId = NET_TV_LIVE_STREAM_INDEX_MAIN;
+    pCap->astStreamCap[0].astEncodeCap[2].enVideoType = 1;
+    FillDemoResolution(&pCap->astStreamCap[0].astEncodeCap[2].stVideoResolution, 1920, 1080, 1.0f / 16.0f, 30.0f, 256, 8192);
+    pCap->astStreamCap[0].astEncodeCap[2].enBitrateType = 0;
+    pCap->astStreamCap[0].astEncodeCap[2].enImageQuality = 60;
+    pCap->astStreamCap[0].astEncodeCap[2].enFrameRate = 25;
+    pCap->astStreamCap[0].astEncodeCap[2].nBitrateUpperLimit = 8192;
+    pCap->astStreamCap[0].astEncodeCap[2].nAverageBitrate = 4096;
+    pCap->astStreamCap[0].astEncodeCap[2].enVideoCodec = NET_TV_VIDEO_CODE_MJPEG;
+    pCap->astStreamCap[0].astEncodeCap[2].bSmartEnable = FALSE;
+    pCap->astStreamCap[0].astEncodeCap[2].enEncodingComplexity = 1;
+    pCap->astStreamCap[0].astEncodeCap[2].nIFrameInterval = 50;
+    pCap->astStreamCap[0].astEncodeCap[2].enSvcEnable = 0;
+    pCap->astStreamCap[0].astEncodeCap[2].nBitrateSmoothing = 0;
+
     // 主码流支持的分辨率列表
     pCap->astStreamCap[0].dwResolutionNum = 4;
     FillDemoResolution(&pCap->astStreamCap[0].astResolution[0], 2560, 1440, 1.0f / 16.0f, 25.0f, 512, 16384);
@@ -232,11 +301,21 @@ NET_TV_COMMON_ECODE_E MyVideoEncodeCb(INT32 dwChannelID, LPNET_TV_VIDEO_ENCODE_C
     // ============ 子码流能力 (索引1) ============
     pCap->astStreamCap[1].dwStreamType = 1;          // NET_TV_LIVE_STREAM_INDEX_SUB
     pCap->astStreamCap[1].bSupportMultiStream = 0;   // 不支持复合流
-    pCap->astStreamCap[1].dwEncodeCapSize = 1;
+    pCap->astStreamCap[1].dwEncodeCapSize = 2;
+    pCap->astStreamCap[1].dwEncodeTypeNum = 2;
+    pCap->astStreamCap[1].dwEncodeAbilityNum = 2;
+    pCap->astStreamCap[1].dwIFrameIntervalMin = 1;
+    pCap->astStreamCap[1].dwIFrameIntervalMax = 400;
     pCap->astStreamCap[1].stQuality.dwMin = 1;
-    pCap->astStreamCap[1].stQuality.dwMax = 6;
+    pCap->astStreamCap[1].stQuality.dwMax = 100;
     pCap->astStreamCap[1].stStreamSmooth.dwMin = 1;
     pCap->astStreamCap[1].stStreamSmooth.dwMax = 50;
+    {
+        const INT32 complexityAll[] = {0, 1, 2};
+        const INT32 complexityMain[] = {1};
+        FillDemoEncodeAbility(&pCap->astStreamCap[1].astEncodeAbility[0], "H.264", NET_TV_VIDEO_CODE_H264, 1, complexityAll, 3, 0, 1, 1);
+        FillDemoEncodeAbility(&pCap->astStreamCap[1].astEncodeAbility[1], "H.265", NET_TV_VIDEO_CODE_H265, 0, complexityMain, 1, 1, 1, 1);
+    }
     
     // H.264编码配置示例
     pCap->astStreamCap[1].astEncodeCap[0].nId = NET_TV_LIVE_STREAM_INDEX_AUX;
@@ -253,6 +332,22 @@ NET_TV_COMMON_ECODE_E MyVideoEncodeCb(INT32 dwChannelID, LPNET_TV_VIDEO_ENCODE_C
     pCap->astStreamCap[1].astEncodeCap[0].nIFrameInterval = 50;
     pCap->astStreamCap[1].astEncodeCap[0].enSvcEnable = 0;
     pCap->astStreamCap[1].astEncodeCap[0].nBitrateSmoothing = 50;
+
+    // H.265编码配置示例
+    pCap->astStreamCap[1].astEncodeCap[1].nId = NET_TV_LIVE_STREAM_INDEX_AUX;
+    pCap->astStreamCap[1].astEncodeCap[1].enVideoType = 1;
+    FillDemoResolution(&pCap->astStreamCap[1].astEncodeCap[1].stVideoResolution, 704, 576, 1.0f / 16.0f, 30.0f, 128, 2048);
+    pCap->astStreamCap[1].astEncodeCap[1].enBitrateType = 0;
+    pCap->astStreamCap[1].astEncodeCap[1].enImageQuality = 60;
+    pCap->astStreamCap[1].astEncodeCap[1].enFrameRate = 15;
+    pCap->astStreamCap[1].astEncodeCap[1].nBitrateUpperLimit = 2048;
+    pCap->astStreamCap[1].astEncodeCap[1].nAverageBitrate = 1024;
+    pCap->astStreamCap[1].astEncodeCap[1].enVideoCodec = NET_TV_VIDEO_CODE_H265;
+    pCap->astStreamCap[1].astEncodeCap[1].bSmartEnable = FALSE;
+    pCap->astStreamCap[1].astEncodeCap[1].enEncodingComplexity = 1;
+    pCap->astStreamCap[1].astEncodeCap[1].nIFrameInterval = 50;
+    pCap->astStreamCap[1].astEncodeCap[1].enSvcEnable = 0;
+    pCap->astStreamCap[1].astEncodeCap[1].nBitrateSmoothing = 50;
 
     // 子码流支持的分辨率列表
     pCap->astStreamCap[1].dwResolutionNum = 3;

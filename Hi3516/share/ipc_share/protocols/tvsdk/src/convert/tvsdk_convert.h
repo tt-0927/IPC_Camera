@@ -121,8 +121,12 @@ void FillHoleProtectionBarCfg(const Alarm::HoleProtectionBarDection_S &src, NET_
 void ToHoleProtectionBar(const NET_TV_HOLE_PROTECTION_BAR_CFG_S &src, Alarm::HoleProtectionBarDection_S &dst);
 void FillReflectiveClothingCfg(const Alarm::ReflectiveClothingDection_S &src, NET_TV_REFLECTIVE_CLOTHING_CFG_S &dst);
 void ToReflectiveClothing(const NET_TV_REFLECTIVE_CLOTHING_CFG_S &src, Alarm::ReflectiveClothingDection_S &dst);
+#endif
+
 void FillPetRecognitionInfo(const Alarm::PetRecognition_S &src, NET_TV_PET_RECOGNITION_INFO_S &dst);
 void ToPetRecognition(const NET_TV_PET_RECOGNITION_INFO_S &src, Alarm::PetRecognition_S &dst);
+
+#ifdef SCENE_INTELLIGENCE
 void FillClimbFenceInfo(const Alarm::FenceClimbingDetection_S &src, NET_TV_CLIMB_FENCE_INFO_S &dst);
 void ToClimbFence(const NET_TV_CLIMB_FENCE_INFO_S &src, Alarm::FenceClimbingDetection_S &dst);
 void FillDimissionInfo(const Alarm::LeavePostDetection_S &src, NET_TV_DIMISSION_INFO_S &dst);
