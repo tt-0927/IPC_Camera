@@ -210,7 +210,7 @@ std::string CDeviceConfigBusiness::GetDevConfig(const std::string& req_data, con
             return HandleGetConfig<NET_TV_VIDEO_OSD_CFG_S>(channelId, command);
 
         case NET_TV_GET_IMAGECFG:
-            return HandleGetConfig<NET_TV_ALARM_EXCEPTION_INFO_S>(channelId, command);
+            return HandleGetConfig<NET_TV_IMAGE_SETTING_S>(channelId, command);
 
         case NET_TV_GET_PRIVACYMASKCFG:
             return HandleGetConfig<NET_TV_PRIVACY_MASK_CFG_S>(channelId, command);
@@ -463,7 +463,7 @@ std::string CDeviceConfigBusiness::SetDevConfig(const std::string& req_data, con
             return HandleSetConfig<NET_TV_VIDEO_OSD_CFG_S>(channelId, command, req_data);
    
         case NET_TV_SET_IMAGECFG:
-            return HandleSetConfig<NET_TV_ALARM_EXCEPTION_INFO_S>(channelId, command, req_data);
+            return HandleSetConfig<NET_TV_IMAGE_SETTING_S>(channelId, command, req_data);
 
         case NET_TV_SET_PRIVACYMASKCFG:
             return HandleSetConfig<NET_TV_PRIVACY_MASK_CFG_S>(channelId, command, req_data);

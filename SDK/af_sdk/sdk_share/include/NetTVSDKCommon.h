@@ -2520,6 +2520,12 @@ typedef struct tagNETTVPreviewImageParam
 }NET_TV_PREVIEW_IMAGE_PARAM_S, *LPNET_TV_PREVIEW_IMAGE_PARAM_S;
 
 /**
+ * @brief 图像配置参数 Image setting parameters
+ * @note 用于 NET_TV_GET_IMAGECFG / NET_TV_SET_IMAGECFG，字段复用 NET_TV_PREVIEW_IMAGE_PARAM_S
+ */
+typedef NET_TV_PREVIEW_IMAGE_PARAM_S NET_TV_IMAGE_SETTING_S, *LPNET_TV_IMAGE_SETTING_S;
+
+/**
  * @struct tagNETTVPreviewInfo
  * @brief 预览信息 Preview information
  * @note 用于NET_TV_GET_PREVIEW_INFO/NET_TV_SET_PREVIEW_INFO

@@ -131,6 +131,7 @@ static NET_TV_PARKING_ALARM_INFO_S g_stParkingAlarmInfo;
 static NET_TV_UNATTENDED_OBJECT_ALARM_INFO_S g_stUnattendedObjectAlarmInfo;
 static NET_TV_OBJECT_REMOVAL_ALARM_INFO_S g_stObjectRemovalAlarmInfo;
 static NET_TV_AUDIO_ANOMALY_ALARM_INFO_S g_stAudioAnomalyAlarmInfo;
+static NET_TV_IMAGE_SETTING_S g_stImageCfg;
 static NET_TV_PREVIEW_INFO_S g_stPreviewInfo;
 static NET_TV_CHANNEL_INFO_S g_stChannelInfo;
 
@@ -483,6 +484,7 @@ static void InitDefaultConfig(void)
     memset(&g_stUnattendedObjectAlarmInfo, 0, sizeof(g_stUnattendedObjectAlarmInfo));
     memset(&g_stObjectRemovalAlarmInfo, 0, sizeof(g_stObjectRemovalAlarmInfo));
     memset(&g_stAudioAnomalyAlarmInfo, 0, sizeof(g_stAudioAnomalyAlarmInfo));
+    memset(&g_stImageCfg, 0, sizeof(g_stImageCfg));
     memset(&g_stPreviewInfo, 0, sizeof(g_stPreviewInfo));
 
     memset(&g_stUpgradeInfo, 0, sizeof(g_stUpgradeInfo));
@@ -1005,6 +1007,12 @@ static void InitDefaultConfig(void)
         g_stAudioAnomalyAlarmInfo.stAlarmSchedule.astTimeSection[day][0].nEndHour = 23;
         g_stAudioAnomalyAlarmInfo.stAlarmSchedule.astTimeSection[day][0].nEndMinute = 59;
     }
+
+    /* 图像配置默认值，对应 ISP::ImageParam_S */
+    g_stImageCfg.nBrightness = 50;
+    g_stImageCfg.nContrast = 50;
+    g_stImageCfg.nSaturation = 50;
+    g_stImageCfg.nSharpness = 50;
     
     /* 预览信息默认值 */
     strncpy(g_stPreviewInfo.stRtspUrl.szRtspMainUrl,
@@ -3984,6 +3992,52 @@ static NET_TV_COMMON_ECODE_E MySetAudioAnomalyAlarmCb(INT32 dwChannelID, LPVOID 
     return NET_TV_E_SUCCEED;
 }
 
+/* 图像配置 Get 回调，对应命令 NET_TV_GET_IMAGECFG */
+static NET_TV_COMMON_ECODE_E MyGetImageCfgCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpOutBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_IMAGE_SETTING_S pOut = (LPNET_TV_IMAGE_SETTING_S)lpOutBuffer;
+    *pOut = g_stImageCfg;
+
+    printf("[ConfigServerDemo] GetImageCfg callback, Channel=%d\n", dwChannelID);
+    printf("  Brightness=%d, Contrast=%d, Saturation=%d, Sharpness=%d\n",
+           g_stImageCfg.nBrightness,
+           g_stImageCfg.nContrast,
+           g_stImageCfg.nSaturation,
+           g_stImageCfg.nSharpness);
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 图像配置 Set 回调，对应命令 NET_TV_SET_IMAGECFG */
+static NET_TV_COMMON_ECODE_E MySetImageCfgCb(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpInBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_IMAGE_SETTING_S pIn = (LPNET_TV_IMAGE_SETTING_S)lpInBuffer;
+    g_stImageCfg = *pIn;
+
+    printf("[ConfigServerDemo] SetImageCfg callback, Channel=%d\n", dwChannelID);
+    printf("  Brightness=%d, Contrast=%d, Saturation=%d, Sharpness=%d\n",
+           g_stImageCfg.nBrightness,
+           g_stImageCfg.nContrast,
+           g_stImageCfg.nSaturation,
+           g_stImageCfg.nSharpness);
+
+    return NET_TV_E_SUCCEED;
+}
+
 /* 预览信息配置 Get 回调，对应命令 NET_TV_GET_PREVIEW_INFO */
 static NET_TV_COMMON_ECODE_E MyGetPreviewInfoCb(INT32 dwChannelID, LPVOID lpOutBuffer)
 {
@@ -6366,6 +6420,25 @@ static void RegisterCallbacks(void)
     else
     {
         printf("[ConfigServerDemo] RegisterCb_SetAudioAnomalyAlarm FAILED\n");
+    }
+
+    /* 图像配置回调 */
+    if (NET_TV_SERVER_RegisterCb_GetImageCfg(MyGetImageCfgCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetImageCfg SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetImageCfg FAILED\n");
+    }
+
+    if (NET_TV_SERVER_RegisterCb_SetImageCfg(MySetImageCfgCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetImageCfg SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetImageCfg FAILED\n");
     }
 
     /* 预览信息配置回调 */
