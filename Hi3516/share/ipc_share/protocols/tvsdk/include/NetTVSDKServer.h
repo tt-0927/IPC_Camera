@@ -1895,6 +1895,25 @@ typedef struct tagNETTVRtspUrlInfo
 }NET_TV_RTSP_URL_INFO_S, *LPNET_TV_RTSP_URL_INFO_S;
 
 /**
+ * @struct tagNETTVPreviewImageParam
+ * @brief 预览图像参数 Preview image parameters
+ */
+typedef struct tagNETTVPreviewImageParam
+{
+    INT32   nBrightness;                          /* 亮度 [0,100] */
+    INT32   nContrast;                            /* 对比度 [0,100] */
+    INT32   nSaturation;                          /* 饱和度 [0,100] */
+    INT32   nSharpness;                           /* 锐度 [0,100] */
+    BYTE    byRes[64];                            /* 保留字段 */
+}NET_TV_PREVIEW_IMAGE_PARAM_S, *LPNET_TV_PREVIEW_IMAGE_PARAM_S;
+
+/**
+ * @brief 图像配置参数 Image setting parameters
+ * @note 用于 NET_TV_GET_IMAGECFG / NET_TV_SET_IMAGECFG，字段复用 NET_TV_PREVIEW_IMAGE_PARAM_S
+ */
+typedef NET_TV_PREVIEW_IMAGE_PARAM_S NET_TV_IMAGE_SETTING_S, *LPNET_TV_IMAGE_SETTING_S;
+
+/**
  * @struct tagNETTVPreviewInfo
  * @brief 预览信息 Preview information
  * @note 对应 Preview::PreviewInfo_S

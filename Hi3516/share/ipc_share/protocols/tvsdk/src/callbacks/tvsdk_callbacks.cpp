@@ -618,11 +618,44 @@ static NET_TV_COMMON_ECODE_E cb_set_osd_cap_cfg(INT32 dwChannelID, LPVOID lpInBu
 }
 static NET_TV_COMMON_ECODE_E cb_get_image_cfg(INT32 dwChannelID, LPVOID lpOutBuffer)
 {
-    return get_cfg_by_action(dwChannelID, AC_GET_VIDEO_EFFECT_INFO, lpOutBuffer);
+    (void)dwChannelID;
+    if (!lpOutBuffer)
+        return NET_TV_E_INVALID_PARAM;
+
+    LPNET_TV_IMAGE_SETTING_S pOut = (LPNET_TV_IMAGE_SETTING_S)lpOutBuffer;
+
+    std::string outJson;
+    if (execute_get_result(AC_GET_VIDEO_EFFECT_INFO, "{}", outJson) != 0 || outJson.empty())
+        return NET_TV_E_GET_CFG_FAILED;
+
+    int nRet = -1;
+    Json::get(outJson.c_str(), "Return", nRet);
+    if (nRet != 0)
+        return NET_TV_E_GET_CFG_FAILED;
+
+    std::string strJson = normalize_data_json(outJson);
+    if (strJson.empty())
+        return NET_TV_E_GET_CFG_FAILED;
+
+    ISP::ImageParam_S stCfg;
+    Convert::to_struct(strJson, stCfg);
+    TvSdkConvert::FillImageSetting(stCfg, *pOut);
+    return NET_TV_E_SUCCEED;
 }
 static NET_TV_COMMON_ECODE_E cb_set_image_cfg(INT32 dwChannelID, LPVOID lpInBuffer)
 {
-    return set_cfg_by_action(dwChannelID, AC_SET_VIDEO_EFFECT_INFO, lpInBuffer);
+    (void)dwChannelID;
+    if (!lpInBuffer)
+        return NET_TV_E_INVALID_PARAM;
+
+    const NET_TV_IMAGE_SETTING_S *pIn = (const NET_TV_IMAGE_SETTING_S *)lpInBuffer;
+    ISP::ImageParam_S stCfg;
+    TvSdkConvert::ToImageParam(*pIn, stCfg);
+
+    Task::Info_S stInfo;
+    stInfo.data = wrap_data_json(Convert::to_string(stCfg));
+    int nExec = s_taskManage ? s_taskManage->execute(AC_SET_VIDEO_EFFECT_INFO, stInfo) : -1;
+    return (nExec == 0) ? NET_TV_E_SUCCEED : NET_TV_E_SET_CFG_FAILED;
 }
 static NET_TV_COMMON_ECODE_E cb_get_network_cfg(INT32 dwChannelID, LPVOID lpOutBuffer)
 {

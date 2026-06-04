@@ -6,6 +6,7 @@
 #include "alarm_define.h"
 #include "replay_define.h"
 #include "osd_define.h"
+#include "isp_define.h"
 
 #include "NetTVSDKServer.h"
 
@@ -156,6 +157,9 @@ void ToPeopleDensityDetection(const NET_TV_PEOPLE_DENSITY_DETECTION_CFG_S &src, 
 #endif
 void FillAudioAnomalyAlarmInfo(const Alarm::AudioAnomaly_S &src, NET_TV_AUDIO_ANOMALY_ALARM_INFO_S &dst);
 void ToAudioAnomaly(const NET_TV_AUDIO_ANOMALY_ALARM_INFO_S &src, Alarm::AudioAnomaly_S &dst);
+
+void FillImageSetting(const ISP::ImageParam_S &src, NET_TV_IMAGE_SETTING_S &dst);
+void ToImageParam(const NET_TV_IMAGE_SETTING_S &src, ISP::ImageParam_S &dst);
 
 void FillPreviewInfo(const Preview::PreviewInfo_S &src, NET_TV_PREVIEW_INFO_S &dst);
 void ToPreviewInfo(const NET_TV_PREVIEW_INFO_S &src, Preview::PreviewInfo_S &dst);
