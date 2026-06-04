@@ -285,6 +285,8 @@ static void PrintMenu()
     printf("163 - 获取人脸 (NET_TV_GET_FACE_INFO)\n");
     printf("164 - 获取隐私遮盖配置 (NET_TV_GET_PRIVACYMASKCFG)\n");
     printf("165 - 设置隐私遮盖配置 (NET_TV_SET_PRIVACYMASKCFG)\n");
+    printf("167 - 获取图像配置 (NET_TV_GET_IMAGECFG)\n");
+    printf("168 - 设置图像配置 (NET_TV_SET_IMAGECFG)\n");
     printf("3213 - 平台点播回放控制类型 (自定义选择 1~8)\n");
     printf("3214 - 平台点播暂停播放 (NET_TV_SET_REPLAY_CTRL/PAUSE)\n");
     printf("3215 - 平台点播恢复播放 (NET_TV_SET_REPLAY_CTRL/RESUME)\n");
@@ -5658,6 +5660,21 @@ static void PrintPreviewInfo(const NET_TV_PREVIEW_INFO_S* pInfo)
     printf("=================================\n");
 }
 
+static void PrintImageCfg(const NET_TV_IMAGE_SETTING_S* pInfo)
+{
+    if (!pInfo)
+    {
+        return;
+    }
+
+    printf("\n[Client] ===== Image Config =====\n");
+    printf("  Brightness  : %d\n", pInfo->nBrightness);
+    printf("  Contrast    : %d\n", pInfo->nContrast);
+    printf("  Saturation  : %d\n", pInfo->nSaturation);
+    printf("  Sharpness   : %d\n", pInfo->nSharpness);
+    printf("================================\n");
+}
+
 static void PrintChannelInfo(const NET_TV_CHANNEL_INFO_S* pInfo)
 {
     if (!pInfo)
@@ -5750,6 +5767,75 @@ static void DoGetChannelList()
     else
     {
         printf("[Client] Get channel list failed! Error=%d\n", NET_TV_GetLastError());
+    }
+}
+
+/* Get image config */
+static void DoGetImageCfg()
+{
+    NET_TV_IMAGE_SETTING_S stInfo;
+    memset(&stInfo, 0, sizeof(stInfo));
+
+    INT32 dwBytesReturned = 0;
+    printf("[Client] Calling NET_TV_GetDevConfig to get image config...\n");
+    BOOL bRet = NET_TV_GetDevConfig(
+        g_lpUserID, 1, NET_TV_GET_IMAGECFG,
+        &stInfo, (INT32)sizeof(stInfo), &dwBytesReturned
+    );
+
+    if (bRet)
+    {
+        printf("[Client] Get image config success! BytesReturned=%d\n", dwBytesReturned);
+        PrintImageCfg(&stInfo);
+    }
+    else
+    {
+        printf("[Client] Get image config failed! Error=%d\n", NET_TV_GetLastError());
+    }
+}
+
+/* Set image config */
+static void DoSetImageCfg()
+{
+    NET_TV_IMAGE_SETTING_S stInfo;
+    memset(&stInfo, 0, sizeof(stInfo));
+
+    INT32 dwBytesReturned = 0;
+    BOOL bRetGet = NET_TV_GetDevConfig(
+        g_lpUserID, 1, NET_TV_GET_IMAGECFG,
+        &stInfo, (INT32)sizeof(stInfo), &dwBytesReturned
+    );
+
+    if (!bRetGet)
+    {
+        printf("[Client] Pre-get image config failed, use default values! Error=%d\n", NET_TV_GetLastError());
+        memset(&stInfo, 0, sizeof(stInfo));
+        stInfo.nBrightness = 50;
+        stInfo.nContrast = 50;
+        stInfo.nSaturation = 50;
+        stInfo.nSharpness = 50;
+    }
+
+    stInfo.nBrightness = 55;
+    stInfo.nContrast = 60;
+    stInfo.nSaturation = 58;
+    stInfo.nSharpness = 62;
+
+    printf("[Client] Calling NET_TV_SetDevConfig to set image config...\n");
+    INT32 dwBytesReturnedSet = 0;
+    BOOL bRet = NET_TV_SetDevConfig(
+        g_lpUserID, 1, NET_TV_SET_IMAGECFG,
+        &stInfo, (INT32)sizeof(stInfo), &dwBytesReturnedSet
+    );
+
+    if (bRet)
+    {
+        printf("[Client] Set image config success! BytesReturned=%d\n", dwBytesReturnedSet);
+        DoGetImageCfg();
+    }
+    else
+    {
+        printf("[Client] Set image config failed! Error=%d\n", NET_TV_GetLastError());
     }
 }
 
@@ -8312,6 +8398,12 @@ static void ProcessCommand(int cmd)
             break;
         case 166:
             DoTestOSDCapCfg();
+            break;
+        case 167:
+            DoGetImageCfg();
+            break;
+        case 168:
+            DoSetImageCfg();
             break;
         case DEMO_REPLAY_PAUSE_CMD:
             DoControlReplayPause();
