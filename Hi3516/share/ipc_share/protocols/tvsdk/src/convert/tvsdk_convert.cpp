@@ -488,6 +488,23 @@ void ToOsdConfig(const NET_TV_VIDEO_OSD_CFG_S &src, Osd::OsdConfig_S &dst)
 
 
 
+void FillImageSetting(const ISP::ImageParam_S &src, NET_TV_IMAGE_SETTING_S &dst)
+{
+    std::memset(&dst, 0, sizeof(dst));
+    dst.nBrightness = (INT32)src.nBrightness;
+    dst.nContrast = (INT32)src.nContrast;
+    dst.nSaturation = (INT32)src.nSaturation;
+    dst.nSharpness = (INT32)src.nSharpness;
+}
+
+void ToImageParam(const NET_TV_IMAGE_SETTING_S &src, ISP::ImageParam_S &dst)
+{
+    dst.nBrightness = (unsigned int)src.nBrightness;
+    dst.nContrast = (unsigned int)src.nContrast;
+    dst.nSaturation = (unsigned int)src.nSaturation;
+    dst.nSharpness = (unsigned int)src.nSharpness;
+}
+
 void FillPreviewInfo(const Preview::PreviewInfo_S &src, NET_TV_PREVIEW_INFO_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));
