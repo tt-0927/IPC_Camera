@@ -956,7 +956,7 @@ typedef enum tagNETTVCfgCmd
     NET_TV_GET_NTPCFG                   = 110,              /* 获取NTP参数,参见#NET_TV_SYSTEM_NTP_INFO_S  Get NTP parameter, see #NET_TV_SYSTEM_NTP_INFO_S */
     NET_TV_SET_NTPCFG                   = 111,              /* 设置NTP参数,参见#NET_TV_SYSTEM_NTP_INFO_S  Set NTP parameter, see #NET_TV_SYSTEM_NTP_INFO_S */
 
-    NET_TV_GET_STREAMCFG                = 120,              /* 获取视频编码参数,参见#NET_TV_VIDEO_STREAM_INFO_S  Get video encoding parameter, see #NET_TV_VIDEO_STREAM_INFO_S */
+    NET_TV_GET_STREAMCFG                = 120,              /* 获取视频编码参数, 参见#NET_TV_VIDEO_STREAM_INFO_S  Get video encoding parameter, see #NET_TV_VIDEO_STREAM_INFO_S */
     NET_TV_SET_STREAMCFG                = 121,              /* 设置视频编码参数,参见#NET_TV_VIDEO_STREAM_INFO_S  Set video encoding parameter, see #NET_TV_VIDEO_STREAM_INFO_S */
     NET_TV_GET_RTSPURLCFG               = 122,              /* 获取RTSP流地址,参见#NET_TV_RTSP_URL_INFO_S  Get RTSP URL, see #NET_TV_RTSP_URL_INFO_S */
 
@@ -1115,10 +1115,10 @@ typedef enum tagNETTVCfgCmd
  */
 typedef enum tagNETTVVideoCodeType
 {
-    NET_TV_VIDEO_CODE_MJPEG     = 0,          /* MJPEG */
-    NET_TV_VIDEO_CODE_H264      = 1,          /* H.264 */
-    NET_TV_VIDEO_CODE_H265      = 2,          /* H.265 */
-    NET_TV_VIDEO_CODE_JPEG      = 3,          /* JPEG */
+    NET_TV_VIDEO_CODE_H264      = 0,          /* H.264 */
+    NET_TV_VIDEO_CODE_H265      = 1,          /* H.265 */
+    NET_TV_VIDEO_CODE_JPEG      = 2,          /* JPEG */
+    NET_TV_VIDEO_CODE_MJPEG     = 3,          /* MJPEG */
     NET_TV_VIDEO_CODE_SVAC3     = 4,          /* SVAC3 */
     NET_TV_VIDEO_CODE_MPEG4     = 5,          /* MPEG4 */
     NET_TV_VIDEO_CODE_INVALID
