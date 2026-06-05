@@ -352,6 +352,8 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_ALARM_STATISTICS_TARGET_S&
     convert.field(pRootJson, "Bottom", (int&)stInfo.nBottom);
     convert.field(pRootJson, "TimestampMs", stInfo.llTimestampMs);
     convert.field(pRootJson, "Direction", stInfo.nDirection);
+
+    ImageBase64Field(pRootJson, "ImgDataBase64", stInfo.byImgData, stInfo.dwImgLen, bOutStruct);
 }
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_TV_ALARM_STATISTICS_INFO_S& stInfo, bool bOutStruct)

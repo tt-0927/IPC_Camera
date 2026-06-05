@@ -244,10 +244,10 @@ void CClientAlarmManager::AlarmLoop()
         }
         else if (alarmBase == NET_TV_ALARM_BASE_AI)
         {
-            NET_TV_ALARM_AI_OBJECT_INFO_S info = {0};
-            SDKConvert::deal(alarmInfoObj, info, true);
-            INT32 len = (INT32)sizeof(info);
-            alarmCb_(lCommand, &alarmer, (CHAR*)&info, &len, alarmUserData_);
+            auto info = std::make_unique<NET_TV_ALARM_AI_OBJECT_INFO_S>();
+            SDKConvert::deal(alarmInfoObj, *info, true);
+            INT32 len = (INT32)sizeof(*info);
+            alarmCb_(lCommand, &alarmer, (CHAR*)info.get(), &len, alarmUserData_);
         }
         else if (alarmBase == NET_TV_ALARM_BASE_TRAFFIC)
         {
@@ -265,10 +265,10 @@ void CClientAlarmManager::AlarmLoop()
         }
         else if (alarmBase == NET_TV_ALARM_BASE_STATISTICS)
         {
-            NET_TV_ALARM_STATISTICS_INFO_S info = {0};
-            SDKConvert::deal(alarmInfoObj, info, true);
-            INT32 len = (INT32)sizeof(info);
-            alarmCb_(lCommand, &alarmer, (CHAR*)&info, &len, alarmUserData_);
+            auto info = std::make_unique<NET_TV_ALARM_STATISTICS_INFO_S>();
+            SDKConvert::deal(alarmInfoObj, *info, true);
+            INT32 len = (INT32)sizeof(*info);
+            alarmCb_(lCommand, &alarmer, (CHAR*)info.get(), &len, alarmUserData_);
         }
         else if (lCommand == NET_TV_NOTICE_DOWNLOAD_RECORD_PROGRESS)
         {
@@ -333,11 +333,16 @@ void CClientAlarmManager::AlarmLoop()
         NSDK_LOG_INFO("[DIAG-ALARM] User-%p [CONNECT #%d] url=%s, host=%s:%d",
                       userHandle_, m_reconnectCount.load(), url.c_str(), host_.c_str(), port_);
 
+        bool bGot401 = false;  // 标记是否收到 401 响应
         auto res = localClient->Get(url.c_str(), [&](const httplib::Response& response)
         {
             NSDK_LOG_INFO("[DIAG-ALARM] User-%p [RESPONSE] status=%d, ct=%s",
                           userHandle_, response.status,
                           response.get_header_value("Content-Type").c_str());
+            if (response.status == 401) {
+                bGot401 = true;  // 记录 401，后续将触发重新登录
+                return false;    // 不读取响应体，httplib 会设置 err=Canceled(7)
+            }
             if (response.status != 200) return false;
             // HTTP 200 响应到达说明连接已建立，更新活跃时间戳防止 HealthMonitor 误判
             m_lastDataTimeMs.store(
@@ -446,10 +451,28 @@ void CClientAlarmManager::AlarmLoop()
         } else {
             // no response: 服务端关闭了 TCP 连接、网络中断、或 read_timeout 超时
             auto err = res.error();
+            
+            // 读取当前 session 信息
+            std::string currentSessionIdLog;
+            {
+                std::lock_guard<std::mutex> lk(sessionIdMutex_);
+                currentSessionIdLog = sessionId_;
+            }
+
+            // err=7(Canceled) 且之前收到过 401，识别为 session 过期，触发重新登录
+            if (bGot401) {
+                NSDK_LOG_ERROR("[DIAG-ALARM] User-%p [DISCONNECT] 401 Unauthorized (Canceled): "
+                              "conn=%llds, hb=%d, alarms=%d, session=%s, triggering re-login",
+                              userHandle_, (long long)connDuration,
+                              heartbeatRecvCount_.load(), alarmRecvCount_.load(), currentSessionIdLog.c_str());
+                if (sessionExpiredCb_) sessionExpiredCb_();
+                break; // 退出循环，由上层重新登录后重启 AlarmListen
+            }
+
             NSDK_LOG_WARN("[DIAG-ALARM] User-%p [DISCONNECT] No response (err=%d): "
-                          "conn=%llds, total=%llds, hb=%d, alarms=%d, reconnecting...",
+                          "conn=%llds, total=%llds, hb=%d, alarms=%d, session=%s, reconnecting...",
                           userHandle_, (int)err, (long long)connDuration, (long long)totalElapsed,
-                          heartbeatRecvCount_.load(), alarmRecvCount_.load());
+                          heartbeatRecvCount_.load(), alarmRecvCount_.load(), currentSessionIdLog.c_str());
         }
 
         // 清空缓冲区，避免脏数据

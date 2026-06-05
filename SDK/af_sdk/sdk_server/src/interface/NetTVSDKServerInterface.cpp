@@ -91,6 +91,34 @@ NET_TV_API BOOL STDCALL NET_TV_SERVER_PushChannelStatusInfo(IN NET_TV_CHANNEL_IN
 	return g_pServerImpl->DoPushChannelStatusInfo(pChannelInfo);
 }
 
+NET_TV_API BOOL STDCALL
+NET_TV_SERVER_RegisterCb_GetDiscoveryDeviceInfo(
+    IN NET_TV_CB_GetDiscoveryDeviceInfo cbFunc)
+{
+	if (!g_pServerImpl) {
+		g_pServerImpl = std::make_unique<CNetTVSDKServerImpl>();
+	}
+	return g_pServerImpl->DoRegisterCb_GetDiscoveryDeviceInfo(cbFunc);
+}
+
+NET_TV_API BOOL STDCALL
+NET_TV_SERVER_Discovery_Start(IN const CHAR* szInterfaceName)
+{
+	if (!g_pServerImpl) {
+		g_pServerImpl = std::make_unique<CNetTVSDKServerImpl>();
+	}
+	return g_pServerImpl->DoDiscoveryStart(szInterfaceName);
+}
+
+NET_TV_API BOOL STDCALL
+NET_TV_SERVER_Discovery_Stop(void)
+{
+	if (!g_pServerImpl) {
+		return FALSE;
+	}
+	return g_pServerImpl->DoDiscoveryStop();
+}
+
 
 #ifdef __cplusplus
 }

@@ -37,8 +37,9 @@
 #define SERVER_PORT 9888
 #define USERNAME    "admin"
 #define PASSWORD    "sj2@2025"
-#define DEMO_OSD_CUSTOM_MAX_NUM 4
-#define DEMO_OSD_TOTAL_SLOT_NUM 32
+/* 当前IPC能力只开放前4个自定义OSD槽位，结构体数组长度仍按SDK ABI保留。 */
+#define DEMO_OSD_CUSTOM_MAX_NUM NET_TV_OSD_CUSTOM_MAX_NUM
+#define DEMO_OSD_STRUCT_SLOT_NUM NET_TV_OSD_TYPE_MAX_NUM
 
 static char g_serverIp[64] = SERVER_IP;
 static INT32 g_serverPort = SERVER_PORT;
@@ -1027,7 +1028,7 @@ static void BuildDemoOSDCfg(NET_TV_VIDEO_OSD_CFG_S* pCfg)
                     token);
     }
 
-    for (i = DEMO_OSD_CUSTOM_MAX_NUM; i < DEMO_OSD_TOTAL_SLOT_NUM; ++i)
+    for (i = DEMO_OSD_CUSTOM_MAX_NUM; i < DEMO_OSD_STRUCT_SLOT_NUM; ++i)
     {
         memset(&pCfg->OsdInfo[i], 0, sizeof(pCfg->OsdInfo[i]));
     }
@@ -2243,7 +2244,7 @@ static void DoSetOSDCapCfg()
         memset(&stCfg, 0, sizeof(stCfg));
     }
 
-    /* 修改为 Demo 值，固定只使用当前能力声明的前4个自定义字符叠加槽位 */
+    /* 修改为 Demo 值，固定只使用当前能力集声明的4个自定义字符叠加槽位 */
     BuildDemoOSDCfg(&stCfg);
 
     printf("[Client] 调用 NET_TV_SetDevConfig 设置OSD能力集配置(示例值)...\n");

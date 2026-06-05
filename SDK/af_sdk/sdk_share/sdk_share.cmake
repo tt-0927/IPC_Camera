@@ -6,6 +6,7 @@ set(SDK_SHARE_PATH
     ${CMAKE_CURRENT_LIST_DIR}/tools/convert
     ${CMAKE_CURRENT_LIST_DIR}/tools/log/sdk
     ${CMAKE_CURRENT_LIST_DIR}/tools/json
+    ${CMAKE_CURRENT_LIST_DIR}/tools/discovery
     # ${CMAKE_CURRENT_LIST_DIR}/tools/json/cJSON
 )
 
@@ -18,6 +19,7 @@ set(SDK_SHARE_INCLUDE
     ${CMAKE_CURRENT_LIST_DIR}/tools/log/sdk
     ${CMAKE_CURRENT_LIST_DIR}/tools/convert
     ${CMAKE_CURRENT_LIST_DIR}/tools/json
+    ${CMAKE_CURRENT_LIST_DIR}/tools/discovery
     # ${CMAKE_CURRENT_LIST_DIR}/tools/json/cJSON
     ${CMAKE_CURRENT_LIST_DIR}/tools/design
     ${CMAKE_CURRENT_LIST_DIR}/tools/http

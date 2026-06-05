@@ -65,7 +65,7 @@ int initSdkLog(char* logname,char* logfile)
 	spdlog::set_level(spdlog::level::trace);
 
 	/* 当遇到warn消息级别以上的立刻刷新到日志 */
-    newLogger->flush_on(spdlog::level::warn);
+    newLogger->flush_on(spdlog::level::info);
 
     /* 保存 logger */
     handle->loggers[logName] = newLogger;
@@ -100,7 +100,7 @@ int initSdkLogBySize(char *logname, char *logfile, int max_file_size, int max_fi
 	spdlog::set_level(spdlog::level::trace);
 
 	/* 当遇到warn消息级别以上的立刻刷新到日志 */
-    newLogger->flush_on(spdlog::level::warn);
+    newLogger->flush_on(spdlog::level::info);
 
     /* 保存 logger */
     handle->loggers[logName] = newLogger;
@@ -415,6 +415,8 @@ int netSdk_log(int level,\
                 targetLogger->log(spdlog::source_loc{strFileName.c_str(), line_in, funcname_in}, spdlog::level::err, ptrFmt);
                 break;
             }
+			// 手动刷新确保日志写入文件
+            targetLogger->flush();
         }
 
 

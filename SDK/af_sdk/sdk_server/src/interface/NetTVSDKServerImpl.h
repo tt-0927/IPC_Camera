@@ -7,6 +7,7 @@ class ServerModule;
 class SessionModule;
 class RouteModule;
 class AlarmModule;
+class DiscoveryResponder;
 
 /**
  * @brief Server实现类 - PIMPL协调器
@@ -84,6 +85,21 @@ public:
      */
     BOOL DoPushChannelStatusInfo(NET_TV_CHANNEL_INFO_S* pChannelInfo);
 
+    /**
+     * @brief 注册设备发现信息回调
+     */
+    BOOL DoRegisterCb_GetDiscoveryDeviceInfo(NET_TV_CB_GetDiscoveryDeviceInfo cbFunc);
+
+    /**
+     * @brief 启动设备发现响应服务
+     */
+    BOOL DoDiscoveryStart(const CHAR* szInterfaceName);
+
+    /**
+     * @brief 停止设备发现响应服务
+     */
+    BOOL DoDiscoveryStop();
+
 private:
     bool m_bInitialized;  // 初始化标志
     
@@ -92,4 +108,8 @@ private:
     std::unique_ptr<SessionModule> m_pSessionModule;
     std::unique_ptr<RouteModule> m_pRouteModule;
     std::unique_ptr<AlarmModule> m_pAlarmModule;
+
+    // 设备发现
+    std::unique_ptr<DiscoveryResponder> m_pDiscoveryResponder;
+    NET_TV_CB_GetDiscoveryDeviceInfo m_cbDiscoveryDeviceInfo{nullptr};
 };

@@ -2,7 +2,7 @@
  * @file DeviceManage.cpp
  * @author tianl (tianl@kfb.cn)
  * @date 2025-12-10
- *
+ * 
  * @brief 登录设备管理
  */
 #include "DeviceManage.h"
@@ -25,22 +25,22 @@ CDeviceManage::~CDeviceManage()
     Cleanup();
 }
 
-LPUSER_HANDLE CDeviceManage::Login(const std::string& host, int port,
-                         const std::string& user, const std::string& pass)
+LPUSER_HANDLE CDeviceManage::Login(const std::string& host, int port, 
+                         const std::string& user, const std::string& pass) 
 {
     LPUSER_HANDLE hUser = GenerateHandle();
-	auto lostCallback = [this](LPUSER_HANDLE h)
+	auto lostCallback = [this](LPUSER_HANDLE h) 
 	{
         this->OnSessionLost(h);
     };
-    auto session = std::make_shared<CUserSession>(hUser, host, port, user, pass,
+    auto session = std::make_shared<CUserSession>(hUser, host, port, user, pass, 
 												hbInterval_, maxRetry_,connectTimeout_,receiveTimeout_,lostCallback);
-    if (session->ConnectAndLogin())
+    if (session->ConnectAndLogin()) 
 	{
         session->StartHeartbeat();
         std::lock_guard<std::mutex> lock(mapMutex_);
         sessions_[hUser] = session;
-
+        
 		NSDK_LOG_INFO("LogIn sucessful! Device: %s:%d UserHand: %p", host.c_str(),port, hUser);
 
         return hUser;
@@ -51,21 +51,21 @@ LPUSER_HANDLE CDeviceManage::Login(const std::string& host, int port,
 }
 
 
-bool CDeviceManage::Logout(LPUSER_HANDLE pHandle)
+bool CDeviceManage::Logout(LPUSER_HANDLE pHandle) 
 {
     std::shared_ptr<CUserSession> session = nullptr;
 
     {
         std::lock_guard<std::mutex> lock(mapMutex_);
         auto it = sessions_.find(pHandle);
-        if (it != sessions_.end())
+        if (it != sessions_.end()) 
 		{
             session = it->second;
             sessions_.erase(it);
         }
     }
 
-    if (session)
+    if (session) 
 	{
         session->Stop();
 
@@ -76,41 +76,48 @@ bool CDeviceManage::Logout(LPUSER_HANDLE pHandle)
     return false;
 }
 
-int CDeviceManage::GenerateUserId()
+int CDeviceManage::GenerateUserId() 
 {
     return idCounter_.fetch_add(1);
 }
 
 
-LPUSER_HANDLE CDeviceManage::GenerateHandle()
+LPUSER_HANDLE CDeviceManage::GenerateHandle() 
 {
 	int id = idCounter_.fetch_add(1);
 	return (LPUSER_HANDLE)(intptr_t)id;
 }
-std::shared_ptr<CUserSession> CDeviceManage::GetSession(LPUSER_HANDLE pHandle)
+std::shared_ptr<CUserSession> CDeviceManage::GetSession(LPUSER_HANDLE pHandle) 
 {
+    NSDK_LOG_INFO("[DeviceManage] GetSession called, handle=%p (as int=%d)", pHandle, (int)(intptr_t)pHandle);
 	std::lock_guard<std::mutex> lock(mapMutex_);
 	auto it = sessions_.find(pHandle);
-	return (it != sessions_.end()) ? it->second : nullptr;
+    if (it != sessions_.end()) {
+        NSDK_LOG_INFO("[DeviceManage] Session found for handle=%p", pHandle);
+        return it->second;
+    } else {
+        NSDK_LOG_WARN("[DeviceManage] Session NOT found for handle=%p", pHandle);
+        return nullptr;
+    }
 }
 
-void CDeviceManage::SetGlobalRevTimeout(int timeoutSec)
+void CDeviceManage::SetGlobalRevTimeout(int timeoutSec) 
 {
     receiveTimeout_ = timeoutSec;
 }
 
-void CDeviceManage::SetGlobalConnectTime(int waitTime, int tryTimes)
+void CDeviceManage::SetGlobalConnectTime(int waitTime, int tryTimes) 
 {
     hbInterval_ = waitTime;
     maxRetry_ = tryTimes;
 }
 
-void CDeviceManage::OnSessionLost(LPUSER_HANDLE pHandle)
+void CDeviceManage::OnSessionLost(LPUSER_HANDLE pHandle) 
 {
 //     NSDK_LOG_INFO("Handling session lost for User: %p", pHandle);
 
 //    std::lock_guard<std::mutex> lock(threadMutex_);
-
+    
 //     // 清理已经结束的线程，防止列表无限增长
 //     for (auto it = workThreads_.begin(); it != workThreads_.end(); ) {
 //         if (it->joinable()) {
@@ -119,7 +126,7 @@ void CDeviceManage::OnSessionLost(LPUSER_HANDLE pHandle)
 //              // 或者如果这是一个长时间运行的服务，建议引入标志位或 future。
 //              // 鉴于这是客户端 SDK，且掉线是低频事件，我们可以暂不通过复杂的逻辑清理，
 //              // 重点解决 Crash 问题。
-//              ++it;
+//              ++it; 
 //         } else {
 //             // 如果线程不可 join（理论上存进去的都是可 join 的），移除
 //             it = workThreads_.erase(it);
@@ -127,10 +134,10 @@ void CDeviceManage::OnSessionLost(LPUSER_HANDLE pHandle)
 //     }
 
 //     // 创建线程并存入列表
-//     workThreads_.emplace_back([this, pHandle]()
+//     workThreads_.emplace_back([this, pHandle]() 
 //     {
 //         // 缩短等待时间，或者如果逻辑允许，去掉 sleep
-//         // std::this_thread::sleep_for(std::chrono::milliseconds(100));
+//         // std::this_thread::sleep_for(std::chrono::milliseconds(100)); 
 
 //         std::shared_ptr<CUserSession> sessionToRelease = nullptr;
 //         {
@@ -139,17 +146,17 @@ void CDeviceManage::OnSessionLost(LPUSER_HANDLE pHandle)
 
 //             std::lock_guard<std::mutex> lock(mapMutex_);
 //             auto it = sessions_.find(pHandle);
-//             if (it != sessions_.end())
+//             if (it != sessions_.end()) 
 //             {
-//                 sessionToRelease = it->second;
+//                 sessionToRelease = it->second; 
 //                 sessions_.erase(it);
 //             }
 //         }
 
-//         if (sessionToRelease)
+//         if (sessionToRelease) 
 //         {
 //             // Stop 可能会阻塞等待 SSE 线程退出，这是安全的
-//             sessionToRelease->Stop();
+//             sessionToRelease->Stop(); 
 //             NSDK_LOG_INFO("User %p removed from manager.", pHandle);
 //         }
 //     });
@@ -159,7 +166,7 @@ void CDeviceManage::OnSessionLost(LPUSER_HANDLE pHandle)
     NSDK_LOG_WARN("[DeviceManage] Session lost notification for User-%p (session remains in map for reconnect)", pHandle);
 }
 
-void CDeviceManage::Cleanup()
+void CDeviceManage::Cleanup() 
 {
 	isInitialized_ = false;
 	NSDK_LOG_INFO("DeviceManage Cleanup executing...");
@@ -173,14 +180,14 @@ void CDeviceManage::Cleanup()
         }
         workThreads_.clear();
     }
-
+	
 	std::map<LPUSER_HANDLE, std::shared_ptr<CUserSession>> dyingSessions;
 	{
 		std::lock_guard<std::mutex> lock(mapMutex_);
 		dyingSessions.swap(sessions_);
 	}
 
-	for (auto& kv : dyingSessions)
+	for (auto& kv : dyingSessions) 
 	{
 		if (kv.second) kv.second->Stop();
 	}

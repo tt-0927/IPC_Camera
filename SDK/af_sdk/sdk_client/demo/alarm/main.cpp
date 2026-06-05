@@ -17,19 +17,6 @@
 extern "C" __declspec(dllimport) void __stdcall Sleep(unsigned long dwMilliseconds);
 #endif
 
-static std::string SanitizeName(const char* value) {
-    std::string out = value ? value : "unknown";
-    for (char& ch : out) {
-        const bool keep = (ch >= '0' && ch <= '9') ||
-                          (ch >= 'a' && ch <= 'z') ||
-                          (ch >= 'A' && ch <= 'Z') ||
-                          ch == '_' || ch == '-';
-        if (!keep) {
-            ch = '_';
-        }
-    }
-    return out;
-}
 
 static std::string SaveAlarmImage(const char* deviceIp,
                                   const char* eventName,
@@ -50,14 +37,17 @@ static std::string SaveAlarmImage(const char* deviceIp,
 
 
         const auto now = std::chrono::system_clock::now();
-        const auto ts = std::chrono::duration_cast<std::chrono::milliseconds>(
-            now.time_since_epoch()).count();
+        const auto time_t_now = std::chrono::system_clock::to_time_t(now);
+        const auto tm_now = std::localtime(&time_t_now);
+
+        char timeBuf[32];
+        std::strftime(timeBuf, sizeof(timeBuf), "%Y%m%d_%H%M%S", tm_now);
 
         const std::string filename =
-            SanitizeName(deviceIp) + "_" +
-            SanitizeName(eventName) + "_" +
-            SanitizeName(imageKind) + "_" +
-            std::to_string(ts) + ".jpg";
+            std::string(deviceIp ? deviceIp : "unknown") + "_" +
+            std::string(eventName ? eventName : "unknown") + "_" +
+            std::string(imageKind ? imageKind : "unknown") + "_" +
+            timeBuf + ".jpg";
         const std::string filePath = dir + "/" + filename;
 
         std::ofstream file(filePath.c_str(), std::ios::binary | std::ios::out | std::ios::trunc);
@@ -105,7 +95,7 @@ static const char* GetAlarmBaseName(INT64 command) {
     }
 }
 
-static const char* GetAlarmTypeName(UINT32 alarmType)
+static const char* GetAlarmTypeName(UINT32 alarmType) 
 {
     switch (alarmType) {
         case NET_TV_ALARM_MOTION_DETECT: return "MOTION_DETECT";
@@ -252,6 +242,25 @@ void STDCALL AlarmCallBack(OUT INT64 lCommand,
             printf("  [AI] AlarmType: 0x%x (%s), Channel: %u, ObjectType: %u, Confidence: %.3f, Rect: [%d,%d,%d,%d], ObjectID: %s, ImgLen: %u\n",
                    info->dwAlarmType, GetAlarmTypeName(info->dwAlarmType), info->dwChannel, info->dwObjectType, info->fConfidence,
                    info->nLeft, info->nTop, info->nRight, info->nBottom, info->szObjectID, info->dwImgLen);
+
+            if (info->dwImgLen > 0) {
+                bool isJpeg = (info->byImgData[0] == 0xFF && info->byImgData[1] == 0xD8);
+                printf("  [AI] ImageInfo: Format=%s, Size=%u bytes\n",
+                       isJpeg ? "JPEG" : "Unknown",
+                       info->dwImgLen);
+
+                const UINT32 imgLen = std::min<UINT32>(info->dwImgLen, NET_TV_PIC_DATA_MAX_LEN);
+                const std::string path = SaveAlarmImage(
+                    pAlarmer ? pAlarmer->szDeviceIP : "unknown",
+                    "ai_object",
+                    "alarm_image",
+                    info->byImgData,
+                    imgLen);
+                if (!path.empty()) {
+                    printf("  [AI] ImageSaved : %s\n", path.c_str());
+                }
+            }
+
             if (lCommand == NET_TV_ALARM_FACE_DETECT ||
                 lCommand == NET_TV_ALARM_FACE_CAPTURE ||
                 lCommand == NET_TV_ALARM_FACE_COMPARE) {
@@ -274,7 +283,7 @@ void STDCALL AlarmCallBack(OUT INT64 lCommand,
                         info->byImgData,
                         imgLen);
                     if (!path.empty()) {
-                        printf("  [AI] ImageSaved : %s\n", path.c_str());
+                        printf("  [AI] FaceImageSaved : %s\n", path.c_str());
                     }
                 }
             }
@@ -304,8 +313,8 @@ void STDCALL AlarmCallBack(OUT INT64 lCommand,
                    *dwBufLen >= (INT32)sizeof(NET_TV_ALARM_STATISTICS_INFO_S)) {
             auto* info = (NET_TV_ALARM_STATISTICS_INFO_S*)pAlarmInfo;
             printf("  [STATISTICS] AlarmType: 0x%x (%s), Channel: %u, StatisticsType: %u (%s), RuleID: %u, TimestampMs: %lld\n",
-                   info->dwAlarmType, GetAlarmTypeName(info->dwAlarmType), info->dwChannel, info->dwStatisticsType,
-                   GetStatisticsTypeName(info->dwStatisticsType), info->dwRuleID, (long long)info->llTimestampMs);
+                   info->dwAlarmType, GetAlarmTypeName(info->dwAlarmType), info->dwChannel, info->dwStatisticsType, info->dwRuleID,
+                   GetStatisticsTypeName(info->dwStatisticsType), (long long)info->llTimestampMs);
             printf("  [STATISTICS] Enter: %u, Leave: %u, Total: %u, "
                    "CurrentPeople: %u, AverageStayTimeSec: %u, TargetCount: "
                    "%u, PanoramaImgLen: %u\n",
@@ -316,9 +325,11 @@ void STDCALL AlarmCallBack(OUT INT64 lCommand,
             if (targetCount > NET_TV_ALARM_STATISTICS_TARGET_MAX_NUM) {
                 targetCount = NET_TV_ALARM_STATISTICS_TARGET_MAX_NUM;
             }
+            // ========== 特写图片信息 ==========
+            printf("  [STATISTICS][特写图片] 目标数量: %u\n", targetCount);
             for (UINT32 i = 0; i < targetCount; ++i) {
                 const auto& target = info->stTargets[i];
-                printf("  [STATISTICS][Target %u] TrackID=%d RuleID=%u SnapshotType=%u Rect=[%d,%d,%d,%d] TimestampMs=%lld Direction=%d\n",
+                printf("  [STATISTICS][特写图片][目标%u] TrackID=%d RuleID=%u SnapshotType=%u Rect=[%d,%d,%d,%d] TimestampMs=%lld Direction=%d target.dwImgLen=%u\n",
                        i,
                        target.nTrackID,
                        target.dwRuleID,
@@ -328,19 +339,46 @@ void STDCALL AlarmCallBack(OUT INT64 lCommand,
                        target.nRight,
                        target.nBottom,
                        (long long)target.llTimestampMs,
-                       target.nDirection);
+                       target.nDirection,
+                       target.dwImgLen
+                    );
+                if (target.dwImgLen > 0) {
+                    const UINT32 imgLen = std::min<UINT32>(target.dwImgLen, NET_TV_PIC_DATA_MAX_LEN);
+                    printf("  [STATISTICS][特写图片][目标%u] ✅ 有图片数据, 长度=%u bytes\n", i, imgLen);
+                    const std::string kind = "target_" + std::to_string(i);
+                    const std::string path = SaveAlarmImage(
+                        pAlarmer ? pAlarmer->szDeviceIP : "unknown",
+                        info->dwStatisticsType == NET_TV_STATISTICS_TYPE_PEOPLE_DENSITY ? "density" : "flow",
+                        kind.c_str(),
+                        target.byImgData,
+                        imgLen);
+                    if (!path.empty()) {
+                        printf("  [STATISTICS][特写图片][目标%u] ✅ 图片已保存: %s\n", i, path.c_str());
+                    } else {
+                        printf("  [STATISTICS][特写图片][目标%u] ❌ 图片保存失败\n", i);
+                    }
+                }else {
+                    printf("  [STATISTICS][特写图片][目标%u] ❌ 无图片数据\n", i);
+                }
             }
+            // ========== 全景图片信息 ==========
+            printf("  [STATISTICS][全景图片] ");
             if (info->dwPanoramaImgLen > 0) {
                 const UINT32 imgLen = std::min<UINT32>(info->dwPanoramaImgLen, NET_TV_PIC_DATA_MAX_LEN);
+                printf("✅ 有图片数据, 长度=%u bytes\n", imgLen);
                 const std::string path = SaveAlarmImage(
                     pAlarmer ? pAlarmer->szDeviceIP : "unknown",
-                    info->dwStatisticsType == NET_TV_STATISTICS_TYPE_PEOPLE_DENSITY ? "people_density" : "people_flow",
+                    info->dwStatisticsType == NET_TV_STATISTICS_TYPE_PEOPLE_DENSITY ? "density" : "flow",
                     "panorama",
                     info->byPanoramaImg,
                     imgLen);
                 if (!path.empty()) {
-                    printf("  [STATISTICS] PanoramaSaved: %s\n", path.c_str());
+                    printf("  [STATISTICS][全景图片] ✅ 图片已保存: %s\n", path.c_str());
+                } else {
+                    printf("  [STATISTICS][全景图片] ❌ 图片保存失败\n");
                 }
+            } else {
+                printf("❌ 无图片数据\n");
             }
         } else {
             // 未知结构：按字符串尝试打印（一般是 JSON 兜底透传）
@@ -383,6 +421,22 @@ int main() {
         return -1;
     }
     printf("NET_TV_Init success.\n");
+
+        // Set log to file
+#ifdef _WIN32
+    const char* logDir = "root/log";
+    _mkdir("root");
+    _mkdir(logDir);
+#else
+    const char* logDir = "/root/log";
+    mkdir("root", 0755);
+    mkdir(logDir, 0755);
+#endif
+    if (!NET_TV_SetLogToFile(0, (char*)logDir, 5 * 1024 * 1024, 10)) {
+        printf("NET_TV_SetLogToFile failed!\n");
+    } else {
+        printf("NET_TV_SetLogToFile success, log directory: %s\n", logDir);
+    }
 
     // Login Information (Hardcoded as per existing demo)
     NET_TV_DEVICE_LOGIN_INFO_S struLoginInfo = {0};

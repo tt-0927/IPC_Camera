@@ -248,6 +248,26 @@ NET_TV_API BOOL STDCALL NET_TV_SetDevConfig(IN  LPVOID  lpUserID,
                                                                 INOUT LPVOID  lpOutBuffer,
                                                                 OUT   INT32   dwOutBufferSize,
                                                                 OUT   INT32   *pdwBytesReturned);
+/************************************************************************/
+/*                    设备发现 Device Discovery                           */
+/************************************************************************/
+/**
+ * @brief 搜索局域网内设备（UDP 组播）
+ * @param [IN]  szInterfaceIP 网卡 IP 地址，传 NULL 使用默认网卡
+ * @param [IN]  dwTimeoutMs   等待响应超时 (ms)，建议 2000~5000
+ * @param [OUT] pDeviceList   输出设备列表缓冲区
+ * @param [IN]  nMaxCount     设备列表最大容量
+ * @param [OUT] pnOutCount    实际发现的设备数量
+ * @return TRUE 成功，FALSE 失败（调用 NET_TV_GetLastError() 获取错误码）
+ * @note 重复调用 NET_TV_Discovery_Search 前无需调用 NET_TV_Init()
+ */
+NET_TV_API BOOL STDCALL
+NET_TV_Discovery_Search(IN  const CHAR*                      szInterfaceIP,
+                        IN  UINT32                           dwTimeoutMs,
+                        OUT NET_TV_DISCOVERY_DEVICE_INFO_S*  pDeviceList,
+                        IN  int                              nMaxCount,
+                        OUT int*                             pnOutCount);
+
 #ifdef __cplusplus
 }
 #endif
