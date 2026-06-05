@@ -80,7 +80,8 @@ BOOL AlarmModule::PushAlarmInfo(NET_TV_ALARMER_S* pAlarmer,
             }
             else
             {
-                NET_TV_ALARM_FACE_COMPARE_INFO_S info = *(NET_TV_ALARM_FACE_COMPARE_INFO_S*)pAlarmInfo;
+                /* 含大图片数组，禁止栈上拷贝，直接引用原始数据 */
+                NET_TV_ALARM_FACE_COMPARE_INFO_S& info = *(NET_TV_ALARM_FACE_COMPARE_INFO_S*)pAlarmInfo;
                 SDKConvert::deal(pInfoJson, info, false);
             }
         }
@@ -92,8 +93,7 @@ BOOL AlarmModule::PushAlarmInfo(NET_TV_ALARMER_S* pAlarmer,
             }
             else
             {
-                NET_TV_ALARM_BASIC_INFO_S info = *(NET_TV_ALARM_BASIC_INFO_S*)pAlarmInfo;
-                SDKConvert::deal(pInfoJson, info, false);
+                SDKConvert::deal(pInfoJson, *(NET_TV_ALARM_BASIC_INFO_S*)pAlarmInfo, false);
             }
         }
         else if (alarmBase == NET_TV_ALARM_BASE_RULE)
@@ -104,7 +104,8 @@ BOOL AlarmModule::PushAlarmInfo(NET_TV_ALARMER_S* pAlarmer,
             }
             else
             {
-                NET_TV_ALARM_RULE_INFO_S info = *(NET_TV_ALARM_RULE_INFO_S*)pAlarmInfo;
+                /* 含大图片数组，禁止栈上拷贝，直接引用原始数据 */
+                NET_TV_ALARM_RULE_INFO_S& info = *(NET_TV_ALARM_RULE_INFO_S*)pAlarmInfo;
                 SDKConvert::deal(pInfoJson, info, false);
             }
         }
@@ -116,7 +117,8 @@ BOOL AlarmModule::PushAlarmInfo(NET_TV_ALARMER_S* pAlarmer,
             }
             else
             {
-                NET_TV_ALARM_AI_OBJECT_INFO_S info = *(NET_TV_ALARM_AI_OBJECT_INFO_S*)pAlarmInfo;
+                /* 含大图片数组，禁止栈上拷贝，直接引用原始数据 */
+                NET_TV_ALARM_AI_OBJECT_INFO_S& info = *(NET_TV_ALARM_AI_OBJECT_INFO_S*)pAlarmInfo;
                 SDKConvert::deal(pInfoJson, info, false);
             }
         }
@@ -128,8 +130,7 @@ BOOL AlarmModule::PushAlarmInfo(NET_TV_ALARMER_S* pAlarmer,
             }
             else
             {
-                NET_TV_ALARM_PLATE_INFO_S info = *(NET_TV_ALARM_PLATE_INFO_S*)pAlarmInfo;
-                SDKConvert::deal(pInfoJson, info, false);
+                SDKConvert::deal(pInfoJson, *(NET_TV_ALARM_PLATE_INFO_S*)pAlarmInfo, false);
             }
         }
         else if (alarmBase == NET_TV_ALARM_BASE_EXCEPTION)
@@ -140,8 +141,7 @@ BOOL AlarmModule::PushAlarmInfo(NET_TV_ALARMER_S* pAlarmer,
             }
             else
             {
-                NET_TV_ALARM_EXCEPTION_INFO_S info = *(NET_TV_ALARM_EXCEPTION_INFO_S*)pAlarmInfo;
-                SDKConvert::deal(pInfoJson, info, false);
+                SDKConvert::deal(pInfoJson, *(NET_TV_ALARM_EXCEPTION_INFO_S*)pAlarmInfo, false);
             }
         }
         else if (alarmBase == NET_TV_ALARM_BASE_STATISTICS)
@@ -152,7 +152,8 @@ BOOL AlarmModule::PushAlarmInfo(NET_TV_ALARMER_S* pAlarmer,
             }
             else
             {
-                NET_TV_ALARM_STATISTICS_INFO_S info = *(NET_TV_ALARM_STATISTICS_INFO_S*)pAlarmInfo;
+                /* 统计类结构体含多个 1MB 图片数组，总大小约 3MB，禁止栈上拷贝，直接使用指针引用原始数据 */
+                NET_TV_ALARM_STATISTICS_INFO_S& info = *(NET_TV_ALARM_STATISTICS_INFO_S*)pAlarmInfo;
                 SDKConvert::deal(pInfoJson, info, false);
             }
         }
@@ -164,8 +165,7 @@ BOOL AlarmModule::PushAlarmInfo(NET_TV_ALARMER_S* pAlarmer,
             }
             else
             {
-                NET_TV_RECORD_DOWNLOAD_PROGRESS_S info = *(NET_TV_RECORD_DOWNLOAD_PROGRESS_S*)pAlarmInfo;
-                SDKConvert::deal(pInfoJson, info, false);
+                SDKConvert::deal(pInfoJson, *(NET_TV_RECORD_DOWNLOAD_PROGRESS_S*)pAlarmInfo, false);
             }
         }
         else
@@ -228,9 +228,9 @@ BOOL AlarmModule::PushChannelStatusInfo(NET_TV_CHANNEL_INFO_S* pChannelInfo)
     NSDK_LOG_INFO("[AlarmModule]   DeviceName:   %s", pChannelInfo->szDevName);
     NSDK_LOG_INFO("[AlarmModule]   DeviceIP:     %s", pChannelInfo->szDeviceIP);
     NSDK_LOG_INFO("[AlarmModule]   SerialNum:    %s", pChannelInfo->szSerialNum);
-    NSDK_LOG_INFO("[AlarmModule]   Enable:       %d (%s)", pChannelInfo->byEnable,
+    NSDK_LOG_INFO("[AlarmModule]   Enable:       %d (%s)", pChannelInfo->byEnable, 
                   pChannelInfo->byEnable ? "ENABLED" : "DISABLED");
-    NSDK_LOG_INFO("[AlarmModule]   Online:       %d (%s)", pChannelInfo->byOnline,
+    NSDK_LOG_INFO("[AlarmModule]   Online:       %d (%s)", pChannelInfo->byOnline, 
                   pChannelInfo->byOnline ? "ONLINE" : "OFFLINE");
     NSDK_LOG_INFO("[AlarmModule]   RecordStatus: %d", pChannelInfo->nRecordStatus);
     NSDK_LOG_INFO("[AlarmModule]   DevState:     %d", pChannelInfo->nDevState);
@@ -269,14 +269,14 @@ BOOL AlarmModule::PushChannelStatusInfo(NET_TV_CHANNEL_INFO_S* pChannelInfo)
     if (pushCount == 0)
     {
         NSDK_LOG_WARN("[AlarmModule] No active clients for channel status!");
-        NSDK_LOG_WARN("[AlarmModule]   Channel: %u, Online: %u",
+        NSDK_LOG_WARN("[AlarmModule]   Channel: %u, Online: %u", 
                       pChannelInfo->dwChannel, pChannelInfo->byOnline);
     }
     else
     {
         NSDK_LOG_INFO("[AlarmModule] Channel status pushed to %zu client(s) SUCCESS", pushCount);
-        NSDK_LOG_INFO("[AlarmModule]   Channel: %u, Online: %s",
-                      pChannelInfo->dwChannel,
+        NSDK_LOG_INFO("[AlarmModule]   Channel: %u, Online: %s", 
+                      pChannelInfo->dwChannel, 
                       pChannelInfo->byOnline ? "ONLINE" : "OFFLINE");
     }
 

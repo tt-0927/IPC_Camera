@@ -358,6 +358,41 @@ NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetSmokeFireCfg(NET_TV_CB_SetDe
 NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetRoadPondingCfg(NET_TV_CB_GetDevConfigByCommand pCb);
 NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetRoadPondingCfg(NET_TV_CB_SetDevConfigByCommand pCb);
 
+/************************************************************************/
+/*                    设备发现 Device Discovery                           */
+/************************************************************************/
+/**
+ * @brief 获取设备发现信息的回调
+ * @param [OUT] pDeviceInfo 由宿主应用填充设备信息
+ */
+typedef void(STDCALL *NET_TV_CB_GetDiscoveryDeviceInfo)(
+    OUT NET_TV_DISCOVERY_DEVICE_INFO_S* pDeviceInfo);
+
+/**
+ * @brief 注册设备发现信息回调（启动前必须调用）
+ * @param [IN] cbFunc 回调函数指针
+ * @return TRUE 成功，FALSE 失败
+ */
+NET_TV_API BOOL STDCALL
+NET_TV_SERVER_RegisterCb_GetDiscoveryDeviceInfo(
+    IN NET_TV_CB_GetDiscoveryDeviceInfo cbFunc);
+
+/**
+ * @brief 启动设备发现响应服务（阻塞线程中运行 AF_PACKET 接收循环）
+ * @param [IN] szInterfaceName 网卡名称 (如 "eth0")
+ * @return TRUE 成功，FALSE 失败
+ * @note 需先调用 NET_TV_SERVER_RegisterCb_GetDiscoveryDeviceInfo 注册回调
+ */
+NET_TV_API BOOL STDCALL
+NET_TV_SERVER_Discovery_Start(IN const CHAR* szInterfaceName);
+
+/**
+ * @brief 停止设备发现响应服务
+ * @return TRUE 成功，FALSE 失败
+ */
+NET_TV_API BOOL STDCALL
+NET_TV_SERVER_Discovery_Stop(void);
+
 #ifdef __cplusplus
 }
 #endif

@@ -2,7 +2,7 @@
  * @file SessionManager.cpp
  * @author tianl (tianl@kfb.cn)
  * @date 2025-12-05
- *
+ * 
  * @brief 会话管理类
  */
 
@@ -25,13 +25,13 @@ CSessionManager::CSessionManager()
 CSessionManager::~CSessionManager()
 {
 	running_ = false;
-    if (cleanerThread_.joinable())
+    if (cleanerThread_.joinable()) 
 	{
         cleanerThread_.join();
     }
 }
 
-std::string CSessionManager::GenerateSessionId()
+std::string CSessionManager::GenerateSessionId() 
 {
 	static std::random_device Rd;
 	static std::mt19937 Gen(Rd());
@@ -39,25 +39,25 @@ std::string CSessionManager::GenerateSessionId()
 	return "session_" + std::to_string(Dis(Gen));
 }
 
-bool CSessionManager::Login(std::string& OutSessionId, const std::string& clientIP)
+bool CSessionManager::Login(std::string& OutSessionId, const std::string& clientIP) 
 {
 	std::lock_guard<std::mutex> Lock(Mtx_);
-
+	
 	OutSessionId = GenerateSessionId();
 	auto newSession = std::make_shared<CServerSession>(OutSessionId);
     newSession->SetLogined(true);
     newSession->SetConnected(true);
     newSession->SetClientIP(clientIP);
-
+    
     m_sessions[OutSessionId] = newSession;
 
-	NSDK_LOG_INFO("[SessionManager] Client logged in: SessionId=%s, ClientIP=%s, TotalSessions=%zu",
+	NSDK_LOG_INFO("[SessionManager] Client logged in: SessionId=%s, ClientIP=%s, TotalSessions=%zu", 
                   OutSessionId.c_str(), clientIP.c_str(), m_sessions.size());
-
+	
 	return true;
 }
 
-bool CSessionManager::Logout(const std::string& SessionId)
+bool CSessionManager::Logout(const std::string& SessionId) 
 {
 	std::lock_guard<std::mutex> Lock(Mtx_);
 	auto It = m_sessions.find(SessionId);
@@ -67,7 +67,7 @@ bool CSessionManager::Logout(const std::string& SessionId)
 		return false;
 	}
 	std::string clientIP = It->second->GetClientIP();
-	NSDK_LOG_INFO("[SessionManager] Client logged out: SessionId=%s, ClientIP=%s, TotalSessions=%zu",
+	NSDK_LOG_INFO("[SessionManager] Client logged out: SessionId=%s, ClientIP=%s, TotalSessions=%zu", 
                   SessionId.c_str(), clientIP.c_str(), m_sessions.size() - 1);
 	It->second->SetLogined(false);
     It->second->SetConnected(false);
@@ -77,29 +77,29 @@ bool CSessionManager::Logout(const std::string& SessionId)
 }
 
 
-bool CSessionManager::EnablePush(const std::string& SessionId)
+bool CSessionManager::EnablePush(const std::string& SessionId) 
 {
 	auto session = GetSession(SessionId);
-    if (session && session->IsLogined())
+    if (session && session->IsLogined()) 
 	{
         session->SetPushEnabled(true);
         std::string clientIP = session->GetClientIP();
-        NSDK_LOG_INFO("[SessionManager] Client subscribed to alarms: SessionId=%s, ClientIP=%s, Status=Subscribed",
+        NSDK_LOG_INFO("[SessionManager] Client subscribed to alarms: SessionId=%s, ClientIP=%s, Status=Subscribed", 
                       SessionId.c_str(), clientIP.c_str());
         return true;
     }
-    NSDK_LOG_WARN("[SessionManager] Failed to enable push: SessionId=%s not found or not logged in",
+    NSDK_LOG_WARN("[SessionManager] Failed to enable push: SessionId=%s not found or not logged in", 
                   SessionId.c_str());
     return false;
 }
 
-void CSessionManager::CleanTimeoutSessions()
+void CSessionManager::CleanTimeoutSessions() 
 {
 	std::lock_guard<std::mutex> Lock(Mtx_);
-    for (auto It = m_sessions.begin(); It != m_sessions.end();)
+    for (auto It = m_sessions.begin(); It != m_sessions.end();) 
     {
         // 5分钟超时清理
-        if (It->second->IsTimeout(300) || It->second->IsZombie(600))
+        if (It->second->IsTimeout(300) || It->second->IsZombie(600)) 
 		{
             NSDK_LOG_INFO("[SessionManager] Removing timeout session: %s", It->first.c_str());
             It = m_sessions.erase(It);
@@ -116,15 +116,15 @@ void CSessionManager::CleanupLoop()
         // 每 10 秒检查一次
         std::this_thread::sleep_for(std::chrono::seconds(10));
         if (!running_) break;
-
+        
         CleanTimeoutSessions();
     }
 }
 
-void CSessionManager::MarkDisconnected(const std::string& SessionId)
+void CSessionManager::MarkDisconnected(const std::string& SessionId) 
 {
 	auto session = GetSession(SessionId);
-    if (session)
+    if (session) 
 	{
         session->SetConnected(false);
         // 断线时清空队列，避免客户端重连后收到大量已过期的历史报警
@@ -145,7 +145,7 @@ std::shared_ptr<CServerSession> CSessionManager::GetSession(const std::string& S
     return nullptr;
 }
 
-size_t CSessionManager::PushToAll(const std::string& json, const std::vector<CServerSession::Attachment>& attachments)
+size_t CSessionManager::PushToAll(const std::string& json, const std::vector<CServerSession::Attachment>& attachments) 
 {
 	std::lock_guard<std::mutex> Lock(Mtx_);
     size_t count = 0;
@@ -159,17 +159,17 @@ size_t CSessionManager::PushToAll(const std::string& json, const std::vector<CSe
     data.attachments = attachments;
 
     std::string forwardedClients;
-
-    for (auto& pair : m_sessions)
+    
+    for (auto& pair : m_sessions) 
     {
         auto session = pair.second;
         std::string clientIP = session->GetClientIP();
         std::string sessionId = session->GetSessionId();
-
+        
         NSDK_LOG_DEBUG("[SessionManager] Checking client: SessionId=%s, ClientIP=%s, Logined=%d, Connected=%d, PushEnabled=%d",
-                      sessionId.c_str(), clientIP.c_str(),
+                      sessionId.c_str(), clientIP.c_str(), 
                       session->IsLogined(), session->IsConnected(), session->IsPushEnabled());
-
+        
         // 入队条件：已登录 + 已连接 + 已订阅报警
         // IsConnected 标志客户端当前是否有活跃 AlarmListen 长连接
         // 断线时不入队（MarkDisconnected 已清空队列），重连后再活跃入队
@@ -200,7 +200,7 @@ size_t CSessionManager::PushToAll(const std::string& json, const std::vector<CSe
             }
         }
     }
-
+    
     if (count == 0 && totalSessions > 0)
     {
         NSDK_LOG_WARN("[SessionManager] Alarm not forwarded: No eligible clients. "
@@ -209,10 +209,10 @@ size_t CSessionManager::PushToAll(const std::string& json, const std::vector<CSe
     }
     else if (count > 0)
     {
-        NSDK_LOG_INFO("[SessionManager] Alarm forwarded: Success=%zu, Total=%zu, Clients=[%s]",
+        NSDK_LOG_INFO("[SessionManager] Alarm forwarded: Success=%zu, Total=%zu, Clients=[%s]", 
                       count, totalSessions, forwardedClients.c_str());
     }
-
+    
     return count;
 }
 
@@ -255,13 +255,13 @@ void CSessionManager::HttpCommandLogin(const httplib::Request& req, httplib::Res
 	/* 鉴权 */
 	if(!CHttpAuthHandler::instance()->handle_authentication(req, res))
 	{
-		return;
+		return; 
 	}
 
 	SeesionMessage_S stSeesionMessage;
 	int nRespCode = NET_TV_E_SUCCEED;
 	std::string SessionId;
-
+	
 	std::string clientIP = req.remote_addr;
 	Login(SessionId, clientIP);
 	stSeesionMessage.SeesionId = SessionId;
@@ -274,12 +274,12 @@ void CSessionManager::HttpCommandLout(const httplib::Request& req, httplib::Resp
 	/* 鉴权 */
 	if(!CHttpAuthHandler::instance()->handle_authentication(req, res))
 	{
-		return;
+		return; 
 	}
 
 	std::string SessionId = req.get_param_value("session_id");
-
-	if (SessionId.empty())
+        
+	if (SessionId.empty()) 
 	{
 		res.set_content(R"({"code":-1,"msg":"Session ID required"})", JSON_CONTENT_TYPE);
 		res.status = HTTP_RESP_CODE_SUCCESS;
@@ -287,8 +287,8 @@ void CSessionManager::HttpCommandLout(const httplib::Request& req, httplib::Resp
 	}
 
 	bool LogoutOk = Logout(SessionId);
-
-	if (LogoutOk)
+	
+	if (LogoutOk) 
 	{
 		res.set_content(R"({"code":0,"msg":"Logout successful"})", JSON_CONTENT_TYPE);
 		res.status = HTTP_RESP_CODE_SUCCESS;
@@ -303,15 +303,15 @@ void CSessionManager::HttpCommandKeepAlive(const httplib::Request& req, httplib:
     std::string SessionId = req.get_param_value("session_id");
     auto session = GetSession(SessionId);
 
-    if (session && session->IsLogined())
+    if (session && session->IsLogined()) 
 	{
-        /* 刷新活跃时间 */
+        /* 刷新活跃时间 */ 
         session->UpdateLastActive();
-
+        
         res.status = HTTP_RESP_CODE_SUCCESS;
         res.set_content(R"({"code":0, "msg":"KeepAlive OK"})", "application/json");
-    }
-	else
+    } 
+	else 
 	{
         res.status = HTTP_RESP_CODE_UNAUTHORIZED;
         res.set_content(R"({"code":401, "msg":"Session Expired"})", "application/json");
@@ -322,8 +322,8 @@ void CSessionManager::HttpCommandAlarmListen(const httplib::Request& req, httpli
 {
      std::string SessionId = req.get_param_value("session_id");
     auto session = GetSession(SessionId);
-
-    if (!session || !session->IsLogined())
+    
+    if (!session || !session->IsLogined()) 
     {
         res.status = HTTP_RESP_CODE_UNAUTHORIZED;
         res.set_content(R"({"code":401, "msg":"Invalid Session"})", "application/json");
@@ -338,19 +338,19 @@ void CSessionManager::HttpCommandAlarmListen(const httplib::Request& req, httpli
     res.set_header("Connection", "keep-alive");
     res.set_header("Cache-Control", "no-cache");
 
-    NSDK_LOG_INFO("[SessionManager] Alarm Subscribe Start: SessionId=%s, ClientIP=%s, TotalSessions=%zu",
+    NSDK_LOG_INFO("[SessionManager] Alarm Subscribe Start: SessionId=%s, ClientIP=%s, TotalSessions=%zu", 
                   SessionId.c_str(), session->GetClientIP().c_str(), GetSessionCount());
 
     res.set_content_provider(
         "multipart/form-data; boundary=" + boundary,
-        [this, SessionId, boundary](size_t, httplib::DataSink& sink) -> bool
+        [this, SessionId, boundary](size_t, httplib::DataSink& sink) -> bool 
         {
              auto sess = GetSession(SessionId);
              if (!sess || !sess->IsLogined()) return false;
-
+             
              // AlarmListen 长连接期间自动刺新 session，防止 session 过期被清理
              sess->UpdateLastActive();
-
+             
              CServerSession::AlarmData msg;
              if (sess->DequeueMessage(msg))
              {
@@ -374,14 +374,14 @@ void CSessionManager::HttpCommandAlarmListen(const httplib::Request& req, httpli
                  ss << "Content-Disposition: form-data; name=\"alarm\"\r\n";
                  ss << "Content-Type: application/json\r\n\r\n";
                  ss << msg.json << "\r\n";
-
+                 
                  // Attachments Part (Images or others)
-                 for (size_t i = 0; i < msg.attachments.size(); ++i)
+                 for (size_t i = 0; i < msg.attachments.size(); ++i) 
                  {
                      const auto& att = msg.attachments[i];
                      ss << "--" << boundary << "\r\n";
                      ss << "Content-Disposition: form-data; name=\"" << (att.name.empty() ? "image" : att.name) << "\";";
-
+                     
                      if (!att.filename.empty()) {
                          ss << " filename=\"" << att.filename << "\"";
                      } else {
@@ -391,11 +391,11 @@ void CSessionManager::HttpCommandAlarmListen(const httplib::Request& req, httpli
                          }
                      }
                      ss << "\r\n";
-
+                     
                      ss << "Content-Type: " << (att.contentType.empty() ? "application/octet-stream" : att.contentType) << "\r\n\r\n";
                      ss << att.data << "\r\n";
                  }
-
+                 
                  std::string data = ss.str();
                  auto tp_before_write = std::chrono::steady_clock::now();
                  if (sink.write(data.data(), data.size())) {
@@ -431,7 +431,9 @@ void CSessionManager::HttpCommandAlarmListen(const httplib::Request& req, httpli
                                   SessionId.c_str(), sess->GetClientIP().c_str());
                  }
              }
-             std::this_thread::sleep_for(std::chrono::milliseconds(100));
+             // 等待新数据再发送（或超时 1 秒回来检查心跳包）
+             // EnqueueMessage 入队时 notify_one() 会立即唤醒此处等待
+             sess->WaitForData(1000);
              return true;
         },
         [this, SessionId](bool)

@@ -1189,10 +1189,10 @@ typedef enum tagNETTVReplayPlatformCtrlType
  */
 typedef enum tagNETTVVideoCodeType
 {
-    NET_TV_VIDEO_CODE_MJPEG     = 0,          /* MJPEG */
-    NET_TV_VIDEO_CODE_H264      = 1,          /* H.264 */
-    NET_TV_VIDEO_CODE_H265      = 2,          /* H.265 */
-    NET_TV_VIDEO_CODE_JPEG      = 3,          /* JPEG */
+    NET_TV_VIDEO_CODE_H264      = 0,          /* H.264 */
+    NET_TV_VIDEO_CODE_H265      = 1,          /* H.265 */
+    NET_TV_VIDEO_CODE_JPEG      = 2,          /* JPEG */
+    NET_TV_VIDEO_CODE_MJPEG     = 3,          /* MJPEG */
     NET_TV_VIDEO_CODE_SVAC3     = 4,          /* SVAC3 */
     NET_TV_VIDEO_CODE_MPEG4     = 5,          /* MPEG4 */
     NET_TV_VIDEO_CODE_INVALID
@@ -4753,6 +4753,32 @@ typedef struct tagNETTVSmartCap
     NET_TV_ILLEGAL_PARKING_CAP_S            stIllegalParking;           /* 违规停车  Illegal parking */
     BYTE    byRes[256];                                                 /* 保留字段  Reserved */
 } NET_TV_SMART_CAP_S, *LPNET_TV_SMART_CAP_S;
+
+/************************************************************************/
+/*              设备发现 Device Discovery                                */
+/************************************************************************/
+#define NET_TV_DISCOVERY_MCAST_ADDR               "239.225.225.106"
+#define NET_TV_DISCOVERY_MCAST_PORT               39581
+#define NET_TV_DISCOVERY_TTL                      4
+
+/**
+ * @struct tagNETTVDiscoveryDeviceInfo
+ * @brief 设备发现响应信息 Device discovery response info
+ */
+typedef struct tagNETTVDiscoveryDeviceInfo
+{
+    CHAR    szDeviceName[NET_TV_LEN_64];
+    CHAR    szDeviceID[NET_TV_LEN_64];
+    CHAR    szDeviceType[NET_TV_LEN_32];
+    CHAR    szIPv4Address[NET_TV_IPADDR_STR_MAX_LEN];
+    CHAR    szIPv4SubnetMask[NET_TV_IPADDR_STR_MAX_LEN];
+    CHAR    szIPv4Gateway[NET_TV_IPADDR_STR_MAX_LEN];
+    CHAR    szMACAddress[NET_TV_LEN_32];
+    CHAR    szFirmwareVersion[NET_TV_LEN_64];
+    UINT32  dwHttpPort;
+    CHAR    szManufacturer[NET_TV_LEN_32];
+    BYTE    byRes[128];
+} NET_TV_DISCOVERY_DEVICE_INFO_S, *LPNET_TV_DISCOVERY_DEVICE_INFO_S;
 
 #ifdef  __cplusplus
 }

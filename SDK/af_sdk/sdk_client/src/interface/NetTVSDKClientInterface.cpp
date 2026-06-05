@@ -203,20 +203,29 @@ NET_TV_API BOOL STDCALL NET_TV_SetConnectTime(IN INT32 dwWaitTime,
 NET_TV_API LPVOID STDCALL NET_TV_Login(IN LPNET_TV_DEVICE_LOGIN_INFO_S pstDevLoginInfo, 
                                                         OUT LPNET_TV_DEVICE_INFO_S pstDevInfo)
 {
+    NSDK_LOG_INFO("[NetTVSDK] NET_TV_Login called, IP=%s, Port=%d, User=%s",
+                  pstDevLoginInfo ? pstDevLoginInfo->szIPAddr : "NULL",
+                  pstDevLoginInfo ? pstDevLoginInfo->dwPort : 0,
+                  pstDevLoginInfo ? pstDevLoginInfo->szUserName : "NULL");
+
 	CHECK_SDK_INIT(NULL);
 	auto* pDevMgr = CDeviceManage::instance();
 	if (!pDevMgr) 
 	{
 		CErrorManage::instance()->SetLastError(NET_TV_E_ALLOC_RESOURCE_ERROR);
+        NSDK_LOG_ERROR("[NetTVSDK] NET_TV_Login failed, DeviceManager is NULL");
 		return NULL;
 	}
 	LPVOID lpUserID = pDevMgr->Login(pstDevLoginInfo->szIPAddr, pstDevLoginInfo->dwPort, pstDevLoginInfo->szUserName, pstDevLoginInfo->szPassword);
+    NSDK_LOG_INFO("[NetTVSDK] NET_TV_Login returned, userID=%p", lpUserID);
 
 	/* 发送获取设备信息命令 */
 	if(lpUserID != NULL)
 	{
 		if(!CommandExecutor::instance()->ExecuteGet<NET_TV_DEVICE_INFO_S>(lpUserID,TVAPI_PATH_DEVICE_GETINFO,pstDevInfo,NULL))
 		{
+            NSDK_LOG_ERROR("[NetTVSDK] NET_TV_Login failed to get device info");
+            pDevMgr->Logout(lpUserID);
 			return NULL;
 		}
 	}
@@ -1020,4 +1029,29 @@ NET_TV_API BOOL STDCALL NET_TV_SetDevConfig(IN  LPVOID  lpUserID,
             CErrorManage::instance()->SetLastError(NET_TV_E_CMD_NOT_SUPPORT);
             return FALSE;
     }
+}
+
+/* ==================== 设备发现 ==================== */
+
+#include "DiscoverySearcher.h"
+
+BOOL STDCALL
+NET_TV_Discovery_Search(IN  const CHAR*                      szInterfaceIP,
+                        IN  UINT32                           dwTimeoutMs,
+                        OUT NET_TV_DISCOVERY_DEVICE_INFO_S*  pDeviceList,
+                        IN  int                              nMaxCount,
+                        OUT int*                             pnOutCount)
+{
+    if (!pDeviceList || nMaxCount <= 0 || !pnOutCount) {
+        CErrorManage::instance()->SetLastError(NET_TV_E_INVALID_PARAM);
+        return FALSE;
+    }
+
+    DiscoverySearcher searcher;
+    int ret = searcher.search(szInterfaceIP, dwTimeoutMs, pDeviceList, nMaxCount, pnOutCount);
+    if (ret < 0) {
+        CErrorManage::instance()->SetLastError(NET_TV_E_SYSCALL_FALIED);
+        return FALSE;
+    }
+    return TRUE;
 }

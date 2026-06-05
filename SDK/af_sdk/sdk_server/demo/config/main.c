@@ -36,8 +36,9 @@
 #define SDKSERVER_PORT 9888
 #define SDKSERVER_USERNAME "admin"
 #define SDKSERVER_PASSWORD "sj2@2025"
-#define DEMO_OSD_CUSTOM_MAX_NUM 4
-#define DEMO_OSD_TOTAL_SLOT_NUM 32
+/* 当前IPC能力只开放前4个自定义OSD槽位，结构体数组长度仍按SDK ABI保留。 */
+#define DEMO_OSD_CUSTOM_MAX_NUM NET_TV_OSD_CUSTOM_MAX_NUM
+#define DEMO_OSD_STRUCT_SLOT_NUM NET_TV_OSD_TYPE_MAX_NUM
 
 static INT32 g_serverPort = SDKSERVER_PORT;
 static CHAR g_serverUsername[NET_TV_LEN_132] = SDKSERVER_USERNAME;
@@ -368,7 +369,7 @@ static void InitDemoOsdConfig(NET_TV_VIDEO_OSD_CFG_S* pCfg)
                     token);
     }
 
-    for (i = DEMO_OSD_CUSTOM_MAX_NUM; i < DEMO_OSD_TOTAL_SLOT_NUM; ++i)
+    for (i = DEMO_OSD_CUSTOM_MAX_NUM; i < DEMO_OSD_STRUCT_SLOT_NUM; ++i)
     {
         memset(&pCfg->OsdInfo[i], 0, sizeof(pCfg->OsdInfo[i]));
     }
@@ -454,7 +455,7 @@ static void NormalizeDemoOsdConfig(NET_TV_VIDEO_OSD_CFG_S* pCfg)
         }
     }
 
-    for (i = DEMO_OSD_CUSTOM_MAX_NUM; i < DEMO_OSD_TOTAL_SLOT_NUM; ++i)
+    for (i = DEMO_OSD_CUSTOM_MAX_NUM; i < DEMO_OSD_STRUCT_SLOT_NUM; ++i)
     {
         memset(&pCfg->OsdInfo[i], 0, sizeof(pCfg->OsdInfo[i]));
     }

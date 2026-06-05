@@ -36,9 +36,13 @@ mkdir -p "${TARGET_DIR}" || {
 echo -e "\033[32m开始合并头文件...\033[0m"
 
 # 1. 写入目标文件的统一开头（自定义保护宏+extern "C"）
+# 注意：需要定义 NETTVSDK_COMMON_H 以避免其他文件重复包含 NetTVSDKCommon.h
 cat > "${TARGET_H}" << 'EOF'
 #ifndef NETTVSDK_H
 #define NETTVSDK_H
+
+// 定义此宏以避免其他文件重复包含 NetTVSDKCommon.h
+#define NETTVSDK_COMMON_H
 
 #ifdef __cplusplus
 extern "C" {

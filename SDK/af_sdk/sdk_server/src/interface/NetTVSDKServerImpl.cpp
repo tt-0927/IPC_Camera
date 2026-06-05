@@ -6,6 +6,7 @@
 #include "modules/SessionModule.h"
 #include "modules/RouteModule.h"
 #include "modules/AlarmModule.h"
+#include "DiscoveryResponder.h"
 #include "NetSdkLog.h"
 
 #define NETTVSDK_MAKE_VERSION(major, minor, rev1, rev2) \
@@ -205,4 +206,56 @@ BOOL CNetTVSDKServerImpl::DoPushChannelStatusInfo(NET_TV_CHANNEL_INFO_S* pChanne
     }
 
     return m_pAlarmModule->PushChannelStatusInfo(pChannelInfo);
+}
+
+BOOL CNetTVSDKServerImpl::DoRegisterCb_GetDiscoveryDeviceInfo(
+    NET_TV_CB_GetDiscoveryDeviceInfo cbFunc)
+{
+    m_cbDiscoveryDeviceInfo = cbFunc;
+    return (cbFunc != nullptr) ? TRUE : FALSE;
+}
+
+BOOL CNetTVSDKServerImpl::DoDiscoveryStart(const CHAR* szInterfaceName)
+{
+    if (!m_cbDiscoveryDeviceInfo) {
+        NSDK_LOG_ERROR("DiscoveryStart: callback not registered");
+        return FALSE;
+    }
+    if (m_pDiscoveryResponder && m_pDiscoveryResponder->is_running()) {
+        return TRUE;  /* already running */
+    }
+
+    m_pDiscoveryResponder = std::make_unique<DiscoveryResponder>();
+
+    /* 注册回调：C 回调 → C++ lambda */
+    NET_TV_CB_GetDiscoveryDeviceInfo cb = m_cbDiscoveryDeviceInfo;
+    m_pDiscoveryResponder->set_device_info_callback(
+        [cb](NET_TV_DISCOVERY_DEVICE_INFO_S* pInfo) {
+            if (cb) cb(pInfo);
+        });
+
+    if (m_pDiscoveryResponder->init(szInterfaceName) < 0) {
+        NSDK_LOG_ERROR("DiscoveryStart: init failed for iface[%s]", szInterfaceName);
+        m_pDiscoveryResponder.reset();
+        return FALSE;
+    }
+
+    if (m_pDiscoveryResponder->start() < 0) {
+        NSDK_LOG_ERROR("DiscoveryStart: start failed");
+        m_pDiscoveryResponder.reset();
+        return FALSE;
+    }
+
+    NSDK_LOG_INFO("Discovery started on iface[%s]", szInterfaceName);
+    return TRUE;
+}
+
+BOOL CNetTVSDKServerImpl::DoDiscoveryStop()
+{
+    if (m_pDiscoveryResponder) {
+        m_pDiscoveryResponder->stop();
+        m_pDiscoveryResponder.reset();
+        NSDK_LOG_INFO("Discovery stopped");
+    }
+    return TRUE;
 }

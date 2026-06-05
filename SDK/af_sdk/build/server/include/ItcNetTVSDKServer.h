@@ -1,5 +1,8 @@
-﻿#ifndef NETTVSDK_H
+#ifndef NETTVSDK_H
 #define NETTVSDK_H
+
+// 定义此宏以避免其他文件重复包含 NetTVSDKCommon.h
+#define NETTVSDK_COMMON_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -978,7 +981,7 @@ typedef enum tagNETTVCfgCmd
     NET_TV_GET_RTSPURLCFG               = 122,              /* 获取RTSP流地址,参见#NET_TV_RTSP_URL_INFO_S  Get RTSP URL, see #NET_TV_RTSP_URL_INFO_S */
     NET_TV_GET_REPLAY_URLCFG            = 123,              /* 获取回放播放地址,参见#NET_TV_REPLAY_URL_INFO_S  Get playback URL */
     NET_TV_GET_REPLAY_RECORD_LIST       = 124,              /* 获取NVR回放录像时间段,参见#NET_TV_REPLAY_RECORD_LIST_S */
-    NET_TV_SET_REPLAY_CTRL              = 125,              /* 控制回放开始/停止/倍速,参见#NET_TV_REPLAY_CTRL_INFO_S */
+    NET_TV_SET_REPLAY_CTRL              = 125,              /* 控制回放开始/停止/暂停/倍速,参见#NET_TV_REPLAY_CTRL_INFO_S */
 
     NET_TV_GET_AUDIOCFG                 = 130,              /* 获取音频编码参数,参见#NET_TV_AUDIO_CFG_S  Get audio encoding parameter, see #NET_TV_AUDIO_CFG_S */
     NET_TV_SET_AUDIOCFG                 = 131,              /* 设置音频编码参数,参见#NET_TV_AUDIO_CFG_S  Set audio encoding parameter, see #NET_TV_AUDIO_CFG_S */
@@ -1163,8 +1166,25 @@ typedef enum tagNETTVReplayCtrlCmd
     NET_TV_REPLAY_CTRL_START            = 1,                /* 开始播放，同时返回回放URL和会话ID */
     NET_TV_REPLAY_CTRL_STOP             = 2,                /* 停止播放 */
     NET_TV_REPLAY_CTRL_SET_SPEED        = 3,                /* 倍速播放 */
+    NET_TV_REPLAY_CTRL_PAUSE            = 4,                /* 暂停播放 */
+    NET_TV_REPLAY_CTRL_SET_SEEK         = 5,                /* 跳转播放时间 */
+    NET_TV_REPLAY_CTRL_RESUME           = 6,                /* 恢复播放 */
     NET_TV_REPLAY_CTRL_INVALID          = 0xff
 } NET_TV_REPLAY_CTRL_CMD_E;
+
+typedef enum tagNETTVReplayPlatformCtrlType
+{
+    NET_TV_REPLAY_PLATFORM_CTRL_NONE                = 0,    /* 默认值/未指定 */
+    NET_TV_REPLAY_PLATFORM_CTRL_JUMP_TIME           = 1,    /* 跳进度条 */
+    NET_TV_REPLAY_PLATFORM_CTRL_BACKWARD_30S        = 2,    /* 后退30秒 */
+    NET_TV_REPLAY_PLATFORM_CTRL_FORWARD_30S         = 3,    /* 前进30秒 */
+    NET_TV_REPLAY_PLATFORM_CTRL_SPEED               = 4,    /* 倍速 */
+    NET_TV_REPLAY_PLATFORM_CTRL_PERSON_EVENT        = 5,    /* 人员事件 */
+    NET_TV_REPLAY_PLATFORM_CTRL_VEHICLE_EVENT       = 6,    /* 车辆事件 */
+    NET_TV_REPLAY_PLATFORM_CTRL_PERSON_VEHICLE_EVENT= 7,    /* 人车事件 */
+    NET_TV_REPLAY_PLATFORM_CTRL_CANCEL_EVENT        = 8,    /* 取消事件 */
+    NET_TV_REPLAY_PLATFORM_CTRL_INVALID             = 0xff
+} NET_TV_REPLAY_PLATFORM_CTRL_TYPE_E;
 
 /**
  * @enum tagNETTVVideoCodeType
@@ -1173,10 +1193,10 @@ typedef enum tagNETTVReplayCtrlCmd
  */
 typedef enum tagNETTVVideoCodeType
 {
-    NET_TV_VIDEO_CODE_MJPEG     = 0,          /* MJPEG */
-    NET_TV_VIDEO_CODE_H264      = 1,          /* H.264 */
-    NET_TV_VIDEO_CODE_H265      = 2,          /* H.265 */
-    NET_TV_VIDEO_CODE_JPEG      = 3,          /* JPEG */
+    NET_TV_VIDEO_CODE_H264      = 0,          /* H.264 */
+    NET_TV_VIDEO_CODE_H265      = 1,          /* H.265 */
+    NET_TV_VIDEO_CODE_JPEG      = 2,          /* JPEG */
+    NET_TV_VIDEO_CODE_MJPEG     = 3,          /* MJPEG */
     NET_TV_VIDEO_CODE_SVAC3     = 4,          /* SVAC3 */
     NET_TV_VIDEO_CODE_MPEG4     = 5,          /* MPEG4 */
     NET_TV_VIDEO_CODE_INVALID
@@ -2306,14 +2326,18 @@ typedef struct tagNETTVReplayUrlInfo
  * @brief 回放控制信息
  * @note
  * - `dwCtrlType=NET_TV_REPLAY_CTRL_START` 时，调用方填写通道/起止时间，服务端返回 `szSessionId` 与 `szUrl`
- * - `dwCtrlType=NET_TV_REPLAY_CTRL_STOP` 或 `NET_TV_REPLAY_CTRL_SET_SPEED` 时，优先使用 `szSessionId` 标识会话
+ * - `dwCtrlType=NET_TV_REPLAY_CTRL_STOP` / `NET_TV_REPLAY_CTRL_PAUSE` / `NET_TV_REPLAY_CTRL_SET_SPEED` / `NET_TV_REPLAY_CTRL_SET_SEEK` 时，优先使用 `szSessionId` 标识会话
  * - `fSpeed` 仅在 `NET_TV_REPLAY_CTRL_SET_SPEED` 时有效，例如 0.5 / 1.0 / 2.0 / 4.0
+ * - `nSeekTime` 仅在 `NET_TV_REPLAY_CTRL_SET_SEEK` 时有效，表示回放时间轴上的跳转秒数
+ * - `nReplayType` 表示平台点播回放控制类型，参见 `NET_TV_REPLAY_PLATFORM_CTRL_TYPE_E`
  */
 typedef struct tagNETTVReplayCtrlInfo
 {
     INT32   dwChannel;                                   /* 通道号 Channel ID */
     INT32   dwCtrlType;                                  /* 控制类型，参见 NET_TV_REPLAY_CTRL_CMD_E */
     FLOAT   fSpeed;                                      /* 播放倍速 */
+    INT32   nSeekTime;                                   /* 跳转播放时间，单位秒 */
+    INT32   nReplayType;                                 /* 平台点播回放控制类型 */
     CHAR    szSessionId[NET_TV_REPLAY_SESSION_ID_LEN];   /* 回放会话ID */
     CHAR    szStartTime[NET_TV_LEN_64];                  /* 开始时间 "YYYY-MM-DD HH:MM:SS" */
     CHAR    szEndTime[NET_TV_LEN_64];                    /* 结束时间 "YYYY-MM-DD HH:MM:SS" */
@@ -2500,6 +2524,12 @@ typedef struct tagNETTVPreviewImageParam
 }NET_TV_PREVIEW_IMAGE_PARAM_S, *LPNET_TV_PREVIEW_IMAGE_PARAM_S;
 
 /**
+ * @brief 图像配置参数 Image setting parameters
+ * @note 用于 NET_TV_GET_IMAGECFG / NET_TV_SET_IMAGECFG，字段复用 NET_TV_PREVIEW_IMAGE_PARAM_S
+ */
+typedef NET_TV_PREVIEW_IMAGE_PARAM_S NET_TV_IMAGE_SETTING_S, *LPNET_TV_IMAGE_SETTING_S;
+
+/**
  * @struct tagNETTVPreviewInfo
  * @brief 预览信息 Preview information
  * @note 用于NET_TV_GET_PREVIEW_INFO/NET_TV_SET_PREVIEW_INFO
@@ -2666,6 +2696,7 @@ typedef struct tagNETTVAlarmFaceCompareInfo
     BYTE        byRes[256];                          /* 保留字段 */
 }NET_TV_ALARM_FACE_COMPARE_INFO_S, *LPNET_TV_ALARM_FACE_COMPARE_INFO_S;
 
+
 /**
  * @struct tagNETTVAlarmPlateInfo
  * @brief 交通/车辆相关 (0x4000 - 0x40FF)
@@ -2715,6 +2746,8 @@ typedef struct tagNETTVAlarmStatisticsTarget
     INT32       nBottom;                              /* 目标框 bottom */
     INT64       llTimestampMs;                        /* 快照时间戳，单位毫秒 */
     INT32       nDirection;                           /* 目标方向，跨线类事件填业务方向枚举值 */
+    BYTE        byImgData[NET_TV_PIC_DATA_MAX_LEN];   /* 目标图片数据 */
+    UINT32      dwImgLen;                             /* 目标图片长度 */
     BYTE        byRes[64];                            /* 保留字段 */
 }NET_TV_ALARM_STATISTICS_TARGET_S, *LPNET_TV_ALARM_STATISTICS_TARGET_S;
 
@@ -5011,6 +5044,7 @@ NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_DelFaceInfo(NET_TV_CB_SetDevCon
 NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetFaceInfo(NET_TV_CB_SetDevConfigByCommand pCb);
 NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetFaceInfo(NET_TV_CB_GetDevConfigByCommand pCb);
 
+
 NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetPeopleFlowStatisticsCfg(NET_TV_CB_GetDevConfigByCommand pCb);
 NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetPeopleFlowStatisticsCfg(NET_TV_CB_SetDevConfigByCommand pCb);
 NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_ResetPeopleFlowStatistics(NET_TV_CB_SetDevConfigByCommand pCb);
@@ -5071,6 +5105,41 @@ NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetSmokeFireCfg(NET_TV_CB_GetDe
 NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetSmokeFireCfg(NET_TV_CB_SetDevConfigByCommand pCb);
 NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetRoadPondingCfg(NET_TV_CB_GetDevConfigByCommand pCb);
 NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetRoadPondingCfg(NET_TV_CB_SetDevConfigByCommand pCb);
+
+/************************************************************************/
+/*                    设备发现 Device Discovery                           */
+/************************************************************************/
+/**
+ * @brief 获取设备发现信息的回调
+ * @param [OUT] pDeviceInfo 由宿主应用填充设备信息
+ */
+typedef void(STDCALL *NET_TV_CB_GetDiscoveryDeviceInfo)(
+    OUT NET_TV_DISCOVERY_DEVICE_INFO_S* pDeviceInfo);
+
+/**
+ * @brief 注册设备发现信息回调（启动前必须调用）
+ * @param [IN] cbFunc 回调函数指针
+ * @return TRUE 成功，FALSE 失败
+ */
+NET_TV_API BOOL STDCALL
+NET_TV_SERVER_RegisterCb_GetDiscoveryDeviceInfo(
+    IN NET_TV_CB_GetDiscoveryDeviceInfo cbFunc);
+
+/**
+ * @brief 启动设备发现响应服务（阻塞线程中运行 AF_PACKET 接收循环）
+ * @param [IN] szInterfaceName 网卡名称 (如 "eth0")
+ * @return TRUE 成功，FALSE 失败
+ * @note 需先调用 NET_TV_SERVER_RegisterCb_GetDiscoveryDeviceInfo 注册回调
+ */
+NET_TV_API BOOL STDCALL
+NET_TV_SERVER_Discovery_Start(IN const CHAR* szInterfaceName);
+
+/**
+ * @brief 停止设备发现响应服务
+ * @return TRUE 成功，FALSE 失败
+ */
+NET_TV_API BOOL STDCALL
+NET_TV_SERVER_Discovery_Stop(void);
 
 
 

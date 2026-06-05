@@ -56,6 +56,7 @@ void CServerSession::EnqueueMessage(const AlarmData& data)
         m_msgQueue.pop(); // 丢弃最旧的一条
     }
     m_msgQueue.push(data);
+    m_cv.notify_one(); // 唤醒正在等待的 content_provider
 }
 
 bool CServerSession::DequeueMessage(AlarmData& outMsg)
@@ -80,4 +81,12 @@ void CServerSession::ClearMessageQueue()
     std::lock_guard<std::mutex> lock(m_mutex);
     std::queue<AlarmData> empty;
     std::swap(m_msgQueue, empty);
+}
+
+void CServerSession::WaitForData(int timeoutMs)
+{
+    std::unique_lock<std::mutex> lock(m_mutex);
+    m_cv.wait_for(lock, std::chrono::milliseconds(timeoutMs), [this] {
+        return !m_msgQueue.empty();
+    });
 }
