@@ -112,6 +112,45 @@ static const Video_NS::VideoConfig_S *FindVideoConfigById(const std::vector<Vide
     return vecCfg.empty() ? nullptr : &vecCfg.front();
 }
 
+static bool is_valid_live_stream_id(INT32 nId)
+{
+    return nId == NET_TV_LIVE_STREAM_INDEX_MAIN || nId == NET_TV_LIVE_STREAM_INDEX_AUX;
+}
+
+static bool is_valid_video_type(INT32 enVideoType)
+{
+    return enVideoType == static_cast<INT32>(Video_NS::VideoType_E::COMPOSITE_STREAM) ||
+           enVideoType == static_cast<INT32>(Video_NS::VideoType_E::VIDEO_STREAM);
+}
+
+static bool is_valid_video_codec(INT32 enVideoCodec)
+{
+    return enVideoCodec >= NET_TV_VIDEO_CODE_H264 && enVideoCodec <= NET_TV_VIDEO_CODE_MPEG4;
+}
+
+static NET_TV_COMMON_ECODE_E validate_set_stream_cfg(const NET_TV_VIDEO_ENCODE_OPTION_S &cfg)
+{
+    if (!is_valid_live_stream_id(cfg.nId))
+    {
+        dlog_warn("TVSDK设置视频编码参数失败: 非法码流ID[%d]", cfg.nId);
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    if (!is_valid_video_type(cfg.enVideoType))
+    {
+        dlog_warn("TVSDK设置视频编码参数失败: 非法视频类型[%d], 仅支持0-复合流/1-视频流", cfg.enVideoType);
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    if (!is_valid_video_codec(cfg.enVideoCodec))
+    {
+        dlog_warn("TVSDK设置视频编码参数失败: 非法视频编码[%d]", cfg.enVideoCodec);
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    return NET_TV_E_SUCCEED;
+}
+
 static std::string wrap_data_json(const std::string &srcJson)
 {
     if (srcJson.empty())
@@ -565,6 +604,10 @@ static NET_TV_COMMON_ECODE_E cb_set_stream_cfg(INT32 dwChannelID, LPVOID lpInBuf
         return NET_TV_E_INVALID_PARAM;
 
     const NET_TV_VIDEO_ENCODE_OPTION_S *pIn = (const NET_TV_VIDEO_ENCODE_OPTION_S *)lpInBuffer;
+    NET_TV_COMMON_ECODE_E nValid = validate_set_stream_cfg(*pIn);
+    if (nValid != NET_TV_E_SUCCEED)
+        return nValid;
+
     Video_NS::VideoConfig_S stCfg;
     TvSdkConvert::ToVideoConfig(*pIn, stCfg);
 
