@@ -343,42 +343,14 @@ bool CMqttSdkGateway::is_command_supported(const std::string &strCommand)
 }
 
 /**
- * @brief  : 通过 CTaskManage 同步执行 GET 命令
- * @note   : 复用 tvsdk_callbacks.cpp 的 execute_get_result 模式
- *           通过 lambda 捕获输出引用，在 fnResultCallbacks 中同步赋值
- */
-int CMqttSdkGateway::execute_get_result(int nActionCode, const std::string &strData, std::string &strResult)
-{
-    if (!s_pTaskManage)
-    {
-        dlog_error("MQTT SDK 网关：CTaskManage 未设置");
-        return -1;
-    }
-
-    strResult.clear();
-
-    Task::Info_S stInfo;
-    stInfo.data = strData;
-    stInfo.fnResultCallbacks = [&strResult](const void *pData, int nLen, int /*nActionCode*/, void * /*pHandler*/) -> int {
-        if (pData && nLen > 0)
-        {
-            strResult.assign(static_cast<const char *>(pData), static_cast<size_t>(nLen));
-        }
-        return 0;
-    };
-
-    return s_pTaskManage->execute(nActionCode, stInfo);
-}
-
-/**
  * @brief  : 将裸 JSON 配置包装为 {"Data": ...} 格式
  * @note   : 任务系统 set_info() 通过 get_data(stInfo.data) 提取 "Data" 字段赋给 m_taskData，
- *           因此 SET 命令必须将配置对象包装在 "Data" 键下，与 tvsdk_callbacks.cpp 的 wrap_data_json 对齐
+ *           因此 MQTT 网关转发 GET/SET 命令时都需要把请求 Data 包装在 "Data" 键下
  */
-static std::string wrap_set_data(const std::string &strRawJson)
+static std::string wrap_task_data(const std::string &strRawJson)
 {
     if (strRawJson.empty())
-        return "{}";
+        return "{\"Data\":{}}";
 
     cJSON *pConfig = cJSON_Parse(strRawJson.c_str());
     if (!pConfig)
@@ -402,6 +374,34 @@ static std::string wrap_set_data(const std::string &strRawJson)
 }
 
 /**
+ * @brief  : 通过 CTaskManage 同步执行 GET 命令
+ * @note   : 复用 tvsdk_callbacks.cpp 的 execute_get_result 模式
+ *           通过 lambda 捕获输出引用，在 fnResultCallbacks 中同步赋值
+ */
+int CMqttSdkGateway::execute_get_result(int nActionCode, const std::string &strData, std::string &strResult)
+{
+    if (!s_pTaskManage)
+    {
+        dlog_error("MQTT SDK 网关：CTaskManage 未设置");
+        return -1;
+    }
+
+    strResult.clear();
+
+    Task::Info_S stInfo;
+    stInfo.data = wrap_task_data(strData);
+    stInfo.fnResultCallbacks = [&strResult](const void *pData, int nLen, int /*nActionCode*/, void * /*pHandler*/) -> int {
+        if (pData && nLen > 0)
+        {
+            strResult.assign(static_cast<const char *>(pData), static_cast<size_t>(nLen));
+        }
+        return 0;
+    };
+
+    return s_pTaskManage->execute(nActionCode, stInfo);
+}
+
+/**
  * @brief  : 通过 CTaskManage 执行 SET 命令
  */
 int CMqttSdkGateway::execute_set_action(int nActionCode, const std::string &strData)
@@ -413,7 +413,7 @@ int CMqttSdkGateway::execute_set_action(int nActionCode, const std::string &strD
     }
 
     Task::Info_S stInfo;
-    stInfo.data = wrap_set_data(strData);
+    stInfo.data = wrap_task_data(strData);
     return s_pTaskManage->execute(nActionCode, stInfo);
 }
 
@@ -428,7 +428,7 @@ int CMqttSdkGateway::execute_set_action(int nActionCode, const std::string &strD
     strResult.clear();
 
     Task::Info_S stInfo;
-    stInfo.data = wrap_set_data(strData);
+    stInfo.data = wrap_task_data(strData);
     stInfo.fnResultCallbacks = [&strResult](const void *pData, int nLen, int /*nActionCode*/, void * /*pHandler*/) -> int {
         if (pData && nLen > 0)
         {
