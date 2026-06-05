@@ -164,6 +164,28 @@ public:
         }
     };
 
+    struct EventImageUploadRequest
+    {
+        std::string device_sn;   /* 设备SN，为空时自动使用当前设备SN */
+        int event_type = 0;      /* 事件类型 */
+        std::string event_name;  /* 事件名称 */
+        int channel = 0;         /* 通道号 */
+        long long timestamp = 0; /* 事件时间戳，毫秒 */
+        std::string request_id;  /* 关联的事件请求ID */
+        std::string image_path;  /* 本地图片路径 */
+        std::string file_name;   /* 上传文件名，空时自动生成 */
+    };
+
+    struct EventImageUploadResponse
+    {
+        int status_code = 0;
+        std::string status;
+        std::string message;
+        std::string image_url;
+        std::string image_path;
+        std::string file_name;
+    };
+
     // 设备列表响应中的单个设备项
     struct DeviceItem
     {
@@ -218,6 +240,14 @@ public:
      * @return true 成功, false 失败
      */
     bool reportWorkOrder(const WorkOrderRequest &workOrder, const std::string &token, WorkOrderResponse &out_response);
+
+    /**
+     * @brief 主动上传事件抓拍图片到平台
+     * @param request 事件图片上传请求
+     * @param out_response 平台响应
+     * @return true 上传成功, false 上传失败
+     */
+    bool upload_event_image(const EventImageUploadRequest &request, EventImageUploadResponse &out_response);
 
     /**
      * @brief 获取设备列表
@@ -378,6 +408,7 @@ private:
     const std::string login_path_ = "/api/auth/login";
     const std::string store_path_ = "/api/device/store_device";
     const std::string workorder_path_ = "/api/workorder/store";
+    const std::string event_image_upload_path_ = "/api/device/event/image/upload";
     const std::string device_list_path_ = "/api/device/device_list";
     std::string access_token_ = "";
     std::string token_type_ = "bearer";
