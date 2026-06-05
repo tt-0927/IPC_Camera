@@ -32,7 +32,9 @@
 #include <vector>
 #include <chrono>
 #include <cerrno>
+#include <ctime>
 #include <fstream>
+#include <iomanip>
 #include <sstream>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -225,6 +227,69 @@ static std::string make_error_json(const std::string &error)
     }
     cJSON_Delete(pRoot);
     return strPayload;
+}
+
+static bool read_binary_file(const std::string &strPath, std::string &strContent)
+{
+    strContent.clear();
+    std::ifstream ifs(strPath.c_str(), std::ios::binary);
+    if (!ifs.is_open())
+    {
+        return false;
+    }
+
+    std::ostringstream oss;
+    oss << ifs.rdbuf();
+    strContent = oss.str();
+    return ifs.good() || ifs.eof();
+}
+
+static std::string sanitize_filename_part(const std::string &strValue)
+{
+    std::string strResult;
+    strResult.reserve(strValue.size());
+    for (char ch : strValue)
+    {
+        const unsigned char uch = static_cast<unsigned char>(ch);
+        if (std::isalnum(uch) || ch == '-' || ch == '_' || ch == '.')
+        {
+            strResult.push_back(ch);
+        }
+        else
+        {
+            strResult.push_back('_');
+        }
+    }
+    return strResult.empty() ? "unknown" : strResult;
+}
+
+static std::string format_timestamp_for_filename(long long llTimestampMs)
+{
+    if (llTimestampMs <= 0)
+    {
+        llTimestampMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+                            std::chrono::system_clock::now().time_since_epoch())
+                            .count();
+    }
+
+    const std::time_t seconds = static_cast<std::time_t>(llTimestampMs / 1000);
+    const int millis = static_cast<int>(llTimestampMs % 1000);
+    struct tm tmValue;
+    localtime_r(&seconds, &tmValue);
+
+    std::ostringstream oss;
+    oss << std::put_time(&tmValue, "%Y%m%d%H%M%S") << std::setw(3) << std::setfill('0') << millis;
+    return oss.str();
+}
+
+static std::string build_event_image_file_name(const std::string &strDeviceSn,
+                                               int nEventType,
+                                               long long llTimestampMs)
+{
+    std::ostringstream oss;
+    oss << sanitize_filename_part(strDeviceSn) << "_" << nEventType << "_"
+        << format_timestamp_for_filename(llTimestampMs) << "_1.jpg";
+    return oss.str();
 }
 
 static bool extract_task_response(const std::string &strTaskResult, int &nReturn, std::string &strData)
@@ -615,8 +680,8 @@ bool CPlatformManager::storeDevice(const StoreDevice &device, const std::string 
  * @brief 上报工单实现
  */
 bool CPlatformManager::reportWorkOrder(const WorkOrderRequest &workOrder,
-                                      const std::string &token,
-                                      WorkOrderResponse &out_response)
+                                       const std::string &token,
+                                       WorkOrderResponse &out_response)
 {
     // 1. 构建 JSON 请求体
     cJSON *json_root = cJSON_CreateObject();
@@ -685,6 +750,178 @@ bool CPlatformManager::reportWorkOrder(const WorkOrderRequest &workOrder,
         }
     }
     return false;
+}
+
+bool CPlatformManager::upload_event_image(const EventImageUploadRequest &request,
+                                          EventImageUploadResponse &out_response)
+{
+    if (request.image_path.empty())
+    {
+        dlog_error("事件图片上传失败：图片路径为空");
+        return false;
+    }
+
+    std::string strDeviceSn = request.device_sn.empty() ? m_strMqttClientId : request.device_sn;
+    if (strDeviceSn.empty())
+    {
+        System::DeviceInfo_S stDeviceInfo;
+        SystemManage::instance()->get_device_info(stDeviceInfo);
+        strDeviceSn = stDeviceInfo.serialNumber;
+    }
+    const std::string strFileName = request.file_name.empty()
+                                        ? build_event_image_file_name(strDeviceSn, request.event_type, request.timestamp)
+                                        : sanitize_filename_part(request.file_name);
+    out_response.file_name = strFileName;
+    out_response.image_path = request.image_path;
+
+    if (!file_exists(request.image_path))
+    {
+        dlog_error("事件图片上传失败：图片不存在[%s]", request.image_path.c_str());
+        return false;
+    }
+
+    if (access_token_.empty())
+    {
+        dlog_error("事件图片上传失败：平台 access_token 为空");
+        return false;
+    }
+
+    std::string strImageContent;
+    if (!read_binary_file(request.image_path, strImageContent) || strImageContent.empty())
+    {
+        dlog_error("事件图片上传失败：读取图片失败[%s]", request.image_path.c_str());
+        return false;
+    }
+
+    const std::string target_host = g_custom ? custom_host : host_;
+    const int target_port = g_custom ? custom_post : port_;
+
+    httplib::Client cli(target_host, target_port);
+    cli.set_connection_timeout(5, 0);
+    cli.set_read_timeout(30, 0);
+
+    httplib::Headers headers = {
+        {"Authorization", "Bearer " + access_token_}
+    };
+
+    httplib::MultipartFormDataItems items = {
+        {"device_sn", strDeviceSn, "", ""},
+        {"event_type", std::to_string(request.event_type), "", ""},
+        {"event_name", request.event_name, "", ""},
+        {"channel", std::to_string(request.channel), "", ""},
+        {"timestamp", std::to_string(request.timestamp), "", ""},
+        {"request_id", request.request_id, "", ""},
+        {"file_name", strFileName, "", ""},
+        {"file", strImageContent, strFileName, "image/jpeg"}
+    };
+
+    dlog_info("开始上传事件图片：path[%s], file[%s], event[%d], sn[%s]",
+              request.image_path.c_str(),
+              strFileName.c_str(),
+              request.event_type,
+              strDeviceSn.c_str());
+
+    auto res = cli.Post(event_image_upload_path_, headers, items);
+    if (!res)
+    {
+        dlog_error("事件图片上传失败：平台无响应[%s:%d%s]",
+                   target_host.c_str(),
+                   target_port,
+                   event_image_upload_path_.c_str());
+        return false;
+    }
+
+    out_response.status_code = res->status;
+
+    if (res->status < 200 || res->status >= 300)
+    {
+        dlog_error("事件图片上传 HTTP 失败：status[%d], body[%s]", res->status, res->body.c_str());
+        return false;
+    }
+
+    cJSON *pRoot = cJSON_Parse(res->body.c_str());
+    if (pRoot)
+    {
+        cJSON *pStatusCode = cJSON_GetObjectItemCaseSensitive(pRoot, "status_code");
+        if (cJSON_IsNumber(pStatusCode))
+        {
+            out_response.status_code = pStatusCode->valueint;
+        }
+
+        cJSON *pStatus = cJSON_GetObjectItemCaseSensitive(pRoot, "status");
+        if (cJSON_IsString(pStatus) && pStatus->valuestring)
+        {
+            out_response.status = pStatus->valuestring;
+        }
+
+        cJSON *pMessage = cJSON_GetObjectItemCaseSensitive(pRoot, "message");
+        if (cJSON_IsString(pMessage) && pMessage->valuestring)
+        {
+            out_response.message = pMessage->valuestring;
+        }
+
+        cJSON *pData = cJSON_GetObjectItemCaseSensitive(pRoot, "data");
+        if (cJSON_IsObject(pData))
+        {
+            get_json_string(pData, "url", out_response.image_url);
+            if (out_response.image_url.empty())
+            {
+                get_json_string(pData, "image_url", out_response.image_url);
+            }
+            if (out_response.image_url.empty())
+            {
+                get_json_string(pData, "ImageUrl", out_response.image_url);
+            }
+            if (out_response.image_url.empty())
+            {
+                get_json_string(pData, "path", out_response.image_url);
+            }
+            if (out_response.image_url.empty())
+            {
+                get_json_string(pData, "Path", out_response.image_url);
+            }
+            if (out_response.image_path.empty())
+            {
+                get_json_string(pData, "image_path", out_response.image_path);
+            }
+            if (out_response.file_name.empty())
+            {
+                get_json_string(pData, "file_name", out_response.file_name);
+            }
+        }
+        else if (cJSON_IsString(pData) && pData->valuestring)
+        {
+            out_response.image_url = pData->valuestring;
+        }
+
+        if (out_response.image_url.empty())
+        {
+            get_json_string(pRoot, "url", out_response.image_url);
+        }
+        if (out_response.image_url.empty())
+        {
+            get_json_string(pRoot, "image_url", out_response.image_url);
+        }
+        if (out_response.image_url.empty())
+        {
+            get_json_string(pRoot, "path", out_response.image_url);
+        }
+
+        cJSON_Delete(pRoot);
+    }
+
+    if (out_response.status_code != 0 && out_response.status_code != 200 && out_response.status_code != res->status)
+    {
+        dlog_error("事件图片上传业务失败：status_code[%d], message[%s]",
+                   out_response.status_code,
+                   out_response.message.c_str());
+        return false;
+    }
+
+    dlog_info("事件图片上传成功：file[%s], url[%s]",
+              out_response.file_name.c_str(),
+              out_response.image_url.c_str());
+    return true;
 }
 
 /**
@@ -862,6 +1099,17 @@ int CPlatformManager::init()
     if (load_config())
     {
         dlog_info("平台管理模块从配置文件恢复登录信息成功");
+
+        /* 初始化 MQTT（仅在启用平台接入时），先启动 MQTT 连接线程并登记订阅 Topic */
+        if (g_enable)
+        {
+            int nRet = init_mqtt();
+            if (nRet != OK)
+            {
+                dlog_warn("MQTT 初始化失败，将在平台登录成功后重试");
+            }
+        }
+
         /* 若已启用平台接入，启动自动登录重试线程 */
         if (g_enable)
         {
@@ -874,16 +1122,6 @@ int CPlatformManager::init()
     else
     {
         dlog_info("平台管理模块配置文件不存在或读取失败，等待网页首次配置");
-    }
-
-    /* 初始化 MQTT（仅在启用平台接入时） */
-    if (g_enable)
-    {
-        int nRet = init_mqtt();
-        if (nRet != OK)
-        {
-            dlog_warn("MQTT 初始化失败，将在平台登录成功后重试");
-        }
     }
 
     m_bInited = true;
@@ -1249,9 +1487,20 @@ void CPlatformManager::on_mqtt_message(const std::string &strTopic, const std::s
             /* GET 命令：同步执行并返回结果 */
             std::string strResult;
             int nRet = CMqttSdkGateway::execute_get(strCommand, strData, strResult);
+            if (!strResult.empty())
+            {
+                int nTaskReturn = nRet;
+                std::string strTaskData = "{}";
+                if (extract_task_response(strResult, nTaskReturn, strTaskData))
+                {
+                    nRet = nTaskReturn;
+                    strResult = strTaskData;
+                }
+            }
+
             if (nRet == 0)
             {
-                publish_response(strCommand, strRequestId, 0, strResult);
+                publish_response(strCommand, strRequestId, 0, strResult.empty() ? "{}" : strResult);
             }
             else
             {

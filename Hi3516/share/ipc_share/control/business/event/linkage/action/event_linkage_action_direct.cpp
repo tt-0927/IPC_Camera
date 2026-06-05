@@ -13,12 +13,226 @@
 #include <chrono>
 #include <ctime>
 
+#if CAP_GARBAGE_STATION_PLATFORM
+#include <cstdlib>
+#include <sstream>
+#include <thread>
+#endif
+
 #include "capture_ctrl.h"
 #include "event_database_manage.h"
 #include "event_linkage_dict.h"
 #include "log_handler.h"
 #include "record_ctrl.h"
 #include "SipModule.h"
+
+#if CAP_GARBAGE_STATION_PLATFORM
+#include "cJSON.h"
+#include "platform_manager.h"
+#endif
+
+#if CAP_GARBAGE_STATION_PLATFORM
+namespace
+{
+constexpr const char *MQTT_EVENT_ALARM_COMMAND = "NET_TV_EVENT_ALARM";
+constexpr const char *MQTT_EVENT_IMAGE_UPLOAD_COMMAND = "NET_TV_EVENT_IMAGE_UPLOAD";
+constexpr int EVENT_IMAGE_WAIT_INTERVAL_MS = 500;
+constexpr int EVENT_IMAGE_WAIT_TIMEOUT_MS = 3000;
+
+long long get_event_timestamp_ms(const ResolvedLinkagePlan_S &stPlan)
+{
+    if (stPlan.stContext.llTimestamp > 0)
+    {
+        return stPlan.stContext.llTimestamp;
+    }
+
+    if (stPlan.stEventInfo.lTimestamp > 0)
+    {
+        return stPlan.stEventInfo.lTimestamp;
+    }
+
+    return 0;
+}
+
+void add_string_if_not_empty(cJSON *pRoot, const char *pKey, const std::string &strValue)
+{
+    if (!strValue.empty())
+    {
+        cJSON_AddStringToObject(pRoot, pKey, strValue.c_str());
+    }
+}
+
+std::string build_mqtt_event_request_id(const ResolvedLinkagePlan_S &stPlan)
+{
+    std::ostringstream oss;
+    oss << "event-" << static_cast<int>(stPlan.stContext.enEventType) << "-" << stPlan.stContext.nChnId << "-"
+        << get_event_timestamp_ms(stPlan);
+    return oss.str();
+}
+
+std::string build_mqtt_event_data(const ResolvedLinkagePlan_S &stPlan)
+{
+    cJSON *pRoot = cJSON_CreateObject();
+    if (!pRoot)
+    {
+        return "{}";
+    }
+
+    const Event::Info_S &stEventInfo = stPlan.stEventInfo;
+    const EventTriggerContext_S &stContext = stPlan.stContext;
+
+    cJSON_AddNumberToObject(pRoot, "EventType", static_cast<int>(stContext.enEventType));
+    cJSON_AddStringToObject(pRoot, "EventName", EventLinkageDict::get_event_name(stContext.enEventType).c_str());
+    cJSON_AddNumberToObject(pRoot, "EventStatus", stContext.bEventEnded ? 0 : 1);
+    cJSON_AddNumberToObject(pRoot, "Channel", stContext.nChnId);
+    cJSON_AddStringToObject(pRoot, "Timestamp", std::to_string(get_event_timestamp_ms(stPlan)).c_str());
+
+    add_string_if_not_empty(pRoot, "Date", stEventInfo.strDate);
+    add_string_if_not_empty(pRoot, "Time", stEventInfo.strTime);
+    add_string_if_not_empty(pRoot, "StartTime", stEventInfo.strStartTime);
+    add_string_if_not_empty(pRoot, "EndTime", stEventInfo.strEndTime);
+    add_string_if_not_empty(pRoot, "Label", stEventInfo.strLabel);
+    add_string_if_not_empty(pRoot, "VideoPath", stEventInfo.strVideoPath);
+
+    if (stEventInfo.nVideoSize > 0)
+    {
+        cJSON_AddNumberToObject(pRoot, "VideoSize", stEventInfo.nVideoSize);
+    }
+
+    if (!stContext.mapAttrs.empty())
+    {
+        cJSON *pAttrs = cJSON_CreateObject();
+        if (pAttrs)
+        {
+            for (const auto &item : stContext.mapAttrs)
+            {
+                cJSON_AddStringToObject(pAttrs, item.first.c_str(), item.second.c_str());
+            }
+            cJSON_AddItemToObject(pRoot, "Attrs", pAttrs);
+        }
+    }
+
+    char *pJson = cJSON_PrintUnformatted(pRoot);
+    std::string strData = pJson ? pJson : "{}";
+    if (pJson)
+    {
+        free(pJson);
+    }
+    cJSON_Delete(pRoot);
+    return strData;
+}
+
+std::string build_event_image_upload_data(const ResolvedLinkagePlan_S &stPlan,
+                                          const std::string &strAlarmRequestId,
+                                          const CPlatformManager::EventImageUploadResponse &stResponse,
+                                          bool bUploadOk,
+                                          const std::string &strError)
+{
+    cJSON *pRoot = cJSON_CreateObject();
+    if (!pRoot)
+    {
+        return "{}";
+    }
+
+    const Event::Info_S &stEventInfo = stPlan.stEventInfo;
+    const EventTriggerContext_S &stContext = stPlan.stContext;
+
+    cJSON_AddNumberToObject(pRoot, "EventType", static_cast<int>(stContext.enEventType));
+    cJSON_AddStringToObject(pRoot, "EventName", EventLinkageDict::get_event_name(stContext.enEventType).c_str());
+    cJSON_AddNumberToObject(pRoot, "EventStatus", stContext.bEventEnded ? 0 : 1);
+    cJSON_AddNumberToObject(pRoot, "Channel", stContext.nChnId);
+    cJSON_AddStringToObject(pRoot, "Timestamp", std::to_string(get_event_timestamp_ms(stPlan)).c_str());
+    cJSON_AddStringToObject(pRoot, "AlarmRequestId", strAlarmRequestId.c_str());
+    cJSON_AddNumberToObject(pRoot, "UploadStatus", bUploadOk ? 1 : 0);
+
+    add_string_if_not_empty(pRoot, "Date", stEventInfo.strDate);
+    add_string_if_not_empty(pRoot, "Time", stEventInfo.strTime);
+    add_string_if_not_empty(pRoot, "StartTime", stEventInfo.strStartTime);
+    add_string_if_not_empty(pRoot, "EndTime", stEventInfo.strEndTime);
+    add_string_if_not_empty(pRoot, "ImagePath", stResponse.image_path);
+    add_string_if_not_empty(pRoot, "FileName", stResponse.file_name);
+    add_string_if_not_empty(pRoot, "ImageUrl", stResponse.image_url);
+
+    if (stResponse.status_code != 0)
+    {
+        cJSON_AddNumberToObject(pRoot, "StatusCode", stResponse.status_code);
+    }
+    add_string_if_not_empty(pRoot, "Message", stResponse.message);
+    add_string_if_not_empty(pRoot, "Error", strError);
+
+    char *pJson = cJSON_PrintUnformatted(pRoot);
+    std::string strData = pJson ? pJson : "{}";
+    if (pJson)
+    {
+        free(pJson);
+    }
+    cJSON_Delete(pRoot);
+    return strData;
+}
+
+void publish_event_image_upload_result(const ResolvedLinkagePlan_S &stPlan,
+                                       const std::string &strAlarmRequestId,
+                                       const CPlatformManager::EventImageUploadResponse &stResponse,
+                                       bool bUploadOk,
+                                       const std::string &strError)
+{
+    std::ostringstream oss;
+    oss << strAlarmRequestId << "-image";
+    const std::string strData = build_event_image_upload_data(stPlan, strAlarmRequestId, stResponse, bUploadOk, strError);
+    const int nRet = CPlatformManager::instance()->publish_event(MQTT_EVENT_IMAGE_UPLOAD_COMMAND, strData, oss.str());
+    if (nRet != OK)
+    {
+        dlog_warn("MQTT事件图片上传结果发布失败: ret[%d], eventType[%d]",
+                  nRet,
+                  static_cast<int>(stPlan.stContext.enEventType));
+    }
+}
+
+void upload_event_image_async(ResolvedLinkagePlan_S stPlan, std::string strAlarmRequestId)
+{
+    if (stPlan.stContext.bEventEnded || !stPlan.bUploadSdCard)
+    {
+        return;
+    }
+
+    std::string strImagePath;
+    const auto start = std::chrono::steady_clock::now();
+    while (true)
+    {
+        if (CCaptureCtrl::instance()->get_event_first_capture_status(stPlan.stContext.enEventType, strImagePath) &&
+            !strImagePath.empty())
+        {
+            break;
+        }
+
+        const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+                                 std::chrono::steady_clock::now() - start)
+                                 .count();
+        if (elapsed >= EVENT_IMAGE_WAIT_TIMEOUT_MS)
+        {
+            CPlatformManager::EventImageUploadResponse stResponse;
+            publish_event_image_upload_result(stPlan, strAlarmRequestId, stResponse, false, "wait capture image timeout");
+            dlog_warn("等待事件首张抓拍图超时: eventType[%d]", static_cast<int>(stPlan.stContext.enEventType));
+            return;
+        }
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(EVENT_IMAGE_WAIT_INTERVAL_MS));
+    }
+
+    CPlatformManager::EventImageUploadRequest stRequest;
+    stRequest.event_type = static_cast<int>(stPlan.stContext.enEventType);
+    stRequest.event_name = EventLinkageDict::get_event_name(stPlan.stContext.enEventType);
+    stRequest.channel = stPlan.stContext.nChnId;
+    stRequest.timestamp = get_event_timestamp_ms(stPlan);
+    stRequest.request_id = strAlarmRequestId;
+    stRequest.image_path = strImagePath;
+
+    CPlatformManager::EventImageUploadResponse stResponse;
+    const bool bUploadOk = CPlatformManager::instance()->upload_event_image(stRequest, stResponse);
+    publish_event_image_upload_result(stPlan, strAlarmRequestId, stResponse, bUploadOk, bUploadOk ? "" : "upload event image failed");
+}
+} // namespace
+#endif
 
 int EventLinkageDirectAction::deal_record(const ResolvedLinkagePlan_S &stPlan, const Event::EventState_S &stEventState)
 {
@@ -108,6 +322,32 @@ int EventLinkageDirectAction::deal_upload(const ResolvedLinkagePlan_S &stPlan)
         stGBAlarmInfo.enTypeParam = nGbTypeParam;
         SIP::SipModule::instance()->SendAlarmInfo(stGBAlarmInfo);
     }
+
+#if CAP_GARBAGE_STATION_PLATFORM
+    const std::string strMqttData = build_mqtt_event_data(stPlan);
+    const std::string strRequestId = build_mqtt_event_request_id(stPlan);
+    int nMqttRet = CPlatformManager::instance()->publish_event(MQTT_EVENT_ALARM_COMMAND, strMqttData, strRequestId);
+    if (nMqttRet == OK)
+    {
+        dlog_info("MQTT上传中心事件发布成功: command[%s], requestId[%s], eventType[%d]",
+                  MQTT_EVENT_ALARM_COMMAND,
+                  strRequestId.c_str(),
+                  static_cast<int>(stPlan.stContext.enEventType));
+    }
+    else
+    {
+        dlog_warn("MQTT上传中心事件发布失败: ret[%d], command[%s], requestId[%s], eventType[%d]",
+                  nMqttRet,
+                  MQTT_EVENT_ALARM_COMMAND,
+                  strRequestId.c_str(),
+                  static_cast<int>(stPlan.stContext.enEventType));
+    }
+
+    if (!stPlan.stContext.bEventEnded && stPlan.bUploadSdCard)
+    {
+        std::thread(upload_event_image_async, stPlan, strRequestId).detach();
+    }
+#endif
 
     dlog_info("上传中心联动");
     return OK;
