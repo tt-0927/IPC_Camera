@@ -82,7 +82,7 @@ void CEventManage::update_event_schedule()
     dlog_info("更新事件布防时间");
 
     /* 计算当前的算法状态 */
-    // calculate_current_algorithm_state();
+    calculate_current_algorithm_state();
 
     /* 通知 AI_APP 模块，更新相关算法配置 */
     update_event_switch_status();

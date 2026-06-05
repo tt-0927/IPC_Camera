@@ -281,16 +281,23 @@ void CMqttManager::reconnect_thread()
         /* 如果需要重连或首次连接（且当前未在连接中） */
         if ((m_bNeedReconnect.load() || m_pstMqtt == nullptr) && !m_bConnecting.load())
         {
-            /* 计算退避时间 */
-            int nInterval = RECONNECT_INITIAL_INTERVAL_SEC * (1 << m_nReconnectCount);
+            /* 首次连接立即执行，失败后的重连再按退避时间等待 */
+            const bool bFirstConnect = (m_nReconnectCount == 0 && m_pstMqtt == nullptr);
+            int nInterval = bFirstConnect ? 0 : RECONNECT_INITIAL_INTERVAL_SEC * (1 << m_nReconnectCount);
             if (nInterval > RECONNECT_MAX_INTERVAL_SEC)
             {
                 nInterval = RECONNECT_MAX_INTERVAL_SEC;
             }
 
-            dlog_info("MQTT 第[%d]次重连尝试，等待[%d]秒", m_nReconnectCount + 1, nInterval);
+            dlog_info("MQTT 第[%d]次%s尝试，等待[%d]秒",
+                      m_nReconnectCount + 1,
+                      bFirstConnect ? "连接" : "重连",
+                      nInterval);
 
-            std::this_thread::sleep_for(std::chrono::seconds(nInterval));
+            if (nInterval > 0)
+            {
+                std::this_thread::sleep_for(std::chrono::seconds(nInterval));
+            }
 
             if (!m_bRunning.load())
             {
