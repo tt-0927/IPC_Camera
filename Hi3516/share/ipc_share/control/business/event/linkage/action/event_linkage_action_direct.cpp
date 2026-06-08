@@ -39,6 +39,7 @@ constexpr const char *MQTT_EVENT_IMAGE_UPLOAD_COMMAND = "NET_TV_EVENT_IMAGE_UPLO
 constexpr int EVENT_IMAGE_WAIT_INTERVAL_MS = 500;
 constexpr int EVENT_IMAGE_WAIT_TIMEOUT_MS = 3000;
 
+/* 事件链路中可能同时有上下文时间和事件信息时间，优先使用触发上下文的毫秒时间戳 */
 long long get_event_timestamp_ms(const ResolvedLinkagePlan_S &stPlan)
 {
     if (stPlan.stContext.llTimestamp > 0)
@@ -54,6 +55,7 @@ long long get_event_timestamp_ms(const ResolvedLinkagePlan_S &stPlan)
     return 0;
 }
 
+/* MQTT Data只放有值的可选字段，避免平台收到大量空字符串字段 */
 void add_string_if_not_empty(cJSON *pRoot, const char *pKey, const std::string &strValue)
 {
     if (!strValue.empty())
@@ -62,6 +64,7 @@ void add_string_if_not_empty(cJSON *pRoot, const char *pKey, const std::string &
     }
 }
 
+/* 同一次报警和后续图片上传结果共用同一个RequestId前缀，平台可据此做关联 */
 std::string build_mqtt_event_request_id(const ResolvedLinkagePlan_S &stPlan)
 {
     std::ostringstream oss;
@@ -70,6 +73,7 @@ std::string build_mqtt_event_request_id(const ResolvedLinkagePlan_S &stPlan)
     return oss.str();
 }
 
+/* 构造报警事件MQTT消息体：只描述事件本身，不等待抓拍和图片上传 */
 std::string build_mqtt_event_data(const ResolvedLinkagePlan_S &stPlan)
 {
     cJSON *pRoot = cJSON_CreateObject();
@@ -80,15 +84,16 @@ std::string build_mqtt_event_data(const ResolvedLinkagePlan_S &stPlan)
 
     const Event::Info_S &stEventInfo = stPlan.stEventInfo;
     const EventTriggerContext_S &stContext = stPlan.stContext;
+    const std::string strTimestamp = std::to_string(get_event_timestamp_ms(stPlan));
 
     cJSON_AddNumberToObject(pRoot, "EventType", static_cast<int>(stContext.enEventType));
     cJSON_AddStringToObject(pRoot, "EventName", EventLinkageDict::get_event_name(stContext.enEventType).c_str());
     cJSON_AddNumberToObject(pRoot, "EventStatus", stContext.bEventEnded ? 0 : 1);
     cJSON_AddNumberToObject(pRoot, "Channel", stContext.nChnId);
-    cJSON_AddStringToObject(pRoot, "Timestamp", std::to_string(get_event_timestamp_ms(stPlan)).c_str());
+    cJSON_AddStringToObject(pRoot, "Timestamp", strTimestamp.c_str());
 
     add_string_if_not_empty(pRoot, "Date", stEventInfo.strDate);
-    add_string_if_not_empty(pRoot, "Time", stEventInfo.strTime);
+    cJSON_AddStringToObject(pRoot, "Time", strTimestamp.c_str());
     add_string_if_not_empty(pRoot, "StartTime", stEventInfo.strStartTime);
     add_string_if_not_empty(pRoot, "EndTime", stEventInfo.strEndTime);
     add_string_if_not_empty(pRoot, "Label", stEventInfo.strLabel);
@@ -128,6 +133,7 @@ std::string build_event_image_upload_data(const ResolvedLinkagePlan_S &stPlan,
                                           bool bUploadOk,
                                           const std::string &strError)
 {
+    /* 图片上传结果单独发一条MQTT，避免图片上传耗时影响报警事件先到平台 */
     cJSON *pRoot = cJSON_CreateObject();
     if (!pRoot)
     {
@@ -136,17 +142,18 @@ std::string build_event_image_upload_data(const ResolvedLinkagePlan_S &stPlan,
 
     const Event::Info_S &stEventInfo = stPlan.stEventInfo;
     const EventTriggerContext_S &stContext = stPlan.stContext;
+    const std::string strTimestamp = std::to_string(get_event_timestamp_ms(stPlan));
 
     cJSON_AddNumberToObject(pRoot, "EventType", static_cast<int>(stContext.enEventType));
     cJSON_AddStringToObject(pRoot, "EventName", EventLinkageDict::get_event_name(stContext.enEventType).c_str());
     cJSON_AddNumberToObject(pRoot, "EventStatus", stContext.bEventEnded ? 0 : 1);
     cJSON_AddNumberToObject(pRoot, "Channel", stContext.nChnId);
-    cJSON_AddStringToObject(pRoot, "Timestamp", std::to_string(get_event_timestamp_ms(stPlan)).c_str());
+    cJSON_AddStringToObject(pRoot, "Timestamp", strTimestamp.c_str());
     cJSON_AddStringToObject(pRoot, "AlarmRequestId", strAlarmRequestId.c_str());
     cJSON_AddNumberToObject(pRoot, "UploadStatus", bUploadOk ? 1 : 0);
 
     add_string_if_not_empty(pRoot, "Date", stEventInfo.strDate);
-    add_string_if_not_empty(pRoot, "Time", stEventInfo.strTime);
+    cJSON_AddStringToObject(pRoot, "Time", strTimestamp.c_str());
     add_string_if_not_empty(pRoot, "StartTime", stEventInfo.strStartTime);
     add_string_if_not_empty(pRoot, "EndTime", stEventInfo.strEndTime);
     add_string_if_not_empty(pRoot, "ImagePath", stResponse.image_path);
@@ -176,6 +183,7 @@ void publish_event_image_upload_result(const ResolvedLinkagePlan_S &stPlan,
                                        bool bUploadOk,
                                        const std::string &strError)
 {
+    /* RequestId追加-image，既能区分报警消息，又能通过AlarmRequestId回查原报警 */
     std::ostringstream oss;
     oss << strAlarmRequestId << "-image";
     const std::string strData = build_event_image_upload_data(stPlan, strAlarmRequestId, stResponse, bUploadOk, strError);
@@ -190,11 +198,13 @@ void publish_event_image_upload_result(const ResolvedLinkagePlan_S &stPlan,
 
 void upload_event_image_async(ResolvedLinkagePlan_S stPlan, std::string strAlarmRequestId)
 {
+    /* 结束事件不上传图片；只有配置了抓图/存储联动时，才等待抓拍文件落盘 */
     if (stPlan.stContext.bEventEnded || !stPlan.bUploadSdCard)
     {
         return;
     }
 
+    /* 抓拍动作和上传中心动作是两条联动路径，这里短时间轮询首张抓拍图，避免阻塞主联动线程 */
     std::string strImagePath;
     const auto start = std::chrono::steady_clock::now();
     while (true)
@@ -219,6 +229,7 @@ void upload_event_image_async(ResolvedLinkagePlan_S stPlan, std::string strAlarm
         std::this_thread::sleep_for(std::chrono::milliseconds(EVENT_IMAGE_WAIT_INTERVAL_MS));
     }
 
+    /* 拿到本地图片后再组装上传请求；文件名和设备SN由平台管理类统一兜底处理 */
     CPlatformManager::EventImageUploadRequest stRequest;
     stRequest.event_type = static_cast<int>(stPlan.stContext.enEventType);
     stRequest.event_name = EventLinkageDict::get_event_name(stPlan.stContext.enEventType);
@@ -343,6 +354,7 @@ int EventLinkageDirectAction::deal_upload(const ResolvedLinkagePlan_S &stPlan)
                   static_cast<int>(stPlan.stContext.enEventType));
     }
 
+    /* 报警消息先发；图片上传放到后台线程，成功或失败都会再发NET_TV_EVENT_IMAGE_UPLOAD结果 */
     if (!stPlan.stContext.bEventEnded && stPlan.bUploadSdCard)
     {
         std::thread(upload_event_image_async, stPlan, strRequestId).detach();

@@ -244,6 +244,7 @@ static bool read_binary_file(const std::string &strPath, std::string &strContent
     return ifs.good() || ifs.eof();
 }
 
+/* 文件名会进入HTTP multipart和平台存储，这里只保留安全字符，避免SN或外部传参中带路径分隔符 */
 static std::string sanitize_filename_part(const std::string &strValue)
 {
     std::string strResult;
@@ -263,7 +264,8 @@ static std::string sanitize_filename_part(const std::string &strValue)
     return strResult.empty() ? "unknown" : strResult;
 }
 
-static std::string format_timestamp_for_filename(long long llTimestampMs)
+/* 平台上报统一使用毫秒时间戳；事件时间缺失时退化为设备当前时间 */
+static std::string make_timestamp_ms_tag(long long llTimestampMs)
 {
     if (llTimestampMs <= 0)
     {
@@ -272,24 +274,179 @@ static std::string format_timestamp_for_filename(long long llTimestampMs)
                             .count();
     }
 
-    const std::time_t seconds = static_cast<std::time_t>(llTimestampMs / 1000);
-    const int millis = static_cast<int>(llTimestampMs % 1000);
-    struct tm tmValue;
-    localtime_r(&seconds, &tmValue);
-
-    std::ostringstream oss;
-    oss << std::put_time(&tmValue, "%Y%m%d%H%M%S") << std::setw(3) << std::setfill('0') << millis;
-    return oss.str();
+    return std::to_string(llTimestampMs);
 }
 
+static bool is_digits_string(const std::string &strValue)
+{
+    if (strValue.empty())
+    {
+        return false;
+    }
+
+    for (char ch : strValue)
+    {
+        if (!std::isdigit(static_cast<unsigned char>(ch)))
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+/* 本地抓拍文件名格式：yyyyMMdd_HHmmssSSS_事件类型_序号.jpg，上传平台时转成Unix毫秒时间戳 */
+static bool parse_capture_timestamp_ms_from_path(const std::string &strImagePath, long long &llTimestampMs)
+{
+    llTimestampMs = 0;
+    const std::string strName = basename_of(strImagePath);
+    if (strName.size() < 19 || strName[8] != '_' || strName[18] != '_')
+    {
+        return false;
+    }
+
+    const std::string strDate = strName.substr(0, 8);
+    const std::string strTime = strName.substr(9, 9);
+    if (!is_digits_string(strDate) || !is_digits_string(strTime))
+    {
+        return false;
+    }
+
+    const int nYear = std::atoi(strDate.substr(0, 4).c_str());
+    const int nMonth = std::atoi(strDate.substr(4, 2).c_str());
+    const int nDay = std::atoi(strDate.substr(6, 2).c_str());
+    const int nHour = std::atoi(strTime.substr(0, 2).c_str());
+    const int nMin = std::atoi(strTime.substr(2, 2).c_str());
+    const int nSec = std::atoi(strTime.substr(4, 2).c_str());
+    const int nMs = std::atoi(strTime.substr(6, 3).c_str());
+
+    if (nYear < 1970 || nMonth < 1 || nMonth > 12 || nDay < 1 || nDay > 31 ||
+        nHour < 0 || nHour > 23 || nMin < 0 || nMin > 59 || nSec < 0 || nSec > 59 ||
+        nMs < 0 || nMs > 999)
+    {
+        return false;
+    }
+
+    struct tm tmValue;
+    std::memset(&tmValue, 0, sizeof(tmValue));
+    tmValue.tm_year = nYear - 1900;
+    tmValue.tm_mon = nMonth - 1;
+    tmValue.tm_mday = nDay;
+    tmValue.tm_hour = nHour;
+    tmValue.tm_min = nMin;
+    tmValue.tm_sec = nSec;
+    tmValue.tm_isdst = -1;
+
+    const std::time_t seconds = std::mktime(&tmValue);
+    if (seconds < 0)
+    {
+        return false;
+    }
+
+    struct tm tmCheck;
+    localtime_r(&seconds, &tmCheck);
+    if (tmCheck.tm_year != tmValue.tm_year || tmCheck.tm_mon != tmValue.tm_mon ||
+        tmCheck.tm_mday != tmValue.tm_mday || tmCheck.tm_hour != tmValue.tm_hour ||
+        tmCheck.tm_min != tmValue.tm_min || tmCheck.tm_sec != tmValue.tm_sec)
+    {
+        return false;
+    }
+
+    llTimestampMs = static_cast<long long>(seconds) * 1000LL + nMs;
+    return true;
+}
+
+/* 默认命名规则：设备SN_事件类型_毫秒时间戳_序号.jpg */
 static std::string build_event_image_file_name(const std::string &strDeviceSn,
                                                int nEventType,
-                                               long long llTimestampMs)
+                                               const std::string &strEventTimeTag)
 {
     std::ostringstream oss;
     oss << sanitize_filename_part(strDeviceSn) << "_" << nEventType << "_"
-        << format_timestamp_for_filename(llTimestampMs) << "_1.jpg";
+        << strEventTimeTag << "_1.jpg";
     return oss.str();
+}
+
+static void parse_event_image_upload_response(const std::string &strBody,
+                                              CPlatformManager::EventImageUploadResponse &outResponse)
+{
+    cJSON *pRoot = cJSON_Parse(strBody.c_str());
+    if (!pRoot)
+    {
+        return;
+    }
+
+    cJSON *pStatusCode = cJSON_GetObjectItemCaseSensitive(pRoot, "status_code");
+    if (cJSON_IsNumber(pStatusCode))
+    {
+        outResponse.status_code = pStatusCode->valueint;
+    }
+
+    cJSON *pStatus = cJSON_GetObjectItemCaseSensitive(pRoot, "status");
+    if (cJSON_IsString(pStatus) && pStatus->valuestring)
+    {
+        outResponse.status = pStatus->valuestring;
+    }
+
+    cJSON *pMessage = cJSON_GetObjectItemCaseSensitive(pRoot, "message");
+    if (cJSON_IsString(pMessage) && pMessage->valuestring)
+    {
+        outResponse.message = pMessage->valuestring;
+    }
+
+    cJSON *pData = cJSON_GetObjectItemCaseSensitive(pRoot, "data");
+    if (cJSON_IsObject(pData))
+    {
+        get_json_string(pData, "url", outResponse.image_url);
+        if (outResponse.image_url.empty())
+        {
+            get_json_string(pData, "image_url", outResponse.image_url);
+        }
+        if (outResponse.image_url.empty())
+        {
+            get_json_string(pData, "ImageUrl", outResponse.image_url);
+        }
+        if (outResponse.image_url.empty())
+        {
+            get_json_string(pData, "path", outResponse.image_url);
+        }
+        if (outResponse.image_url.empty())
+        {
+            get_json_string(pData, "Path", outResponse.image_url);
+        }
+        if (outResponse.image_path.empty())
+        {
+            get_json_string(pData, "image_path", outResponse.image_path);
+        }
+        if (outResponse.file_name.empty())
+        {
+            get_json_string(pData, "file_name", outResponse.file_name);
+        }
+    }
+    else if (cJSON_IsString(pData) && pData->valuestring)
+    {
+        outResponse.image_url = pData->valuestring;
+    }
+
+    if (outResponse.image_url.empty())
+    {
+        get_json_string(pRoot, "url", outResponse.image_url);
+    }
+    if (outResponse.image_url.empty())
+    {
+        get_json_string(pRoot, "image_url", outResponse.image_url);
+    }
+    if (outResponse.image_url.empty())
+    {
+        get_json_string(pRoot, "path", outResponse.image_url);
+    }
+
+    cJSON_Delete(pRoot);
+}
+
+static bool is_event_image_upload_business_ok(const CPlatformManager::EventImageUploadResponse &stResponse,
+                                              int nHttpStatus)
+{
+    return stResponse.status_code == 0 || stResponse.status_code == 200 || stResponse.status_code == nHttpStatus;
 }
 
 static bool extract_task_response(const std::string &strTaskResult, int &nReturn, std::string &strData)
@@ -761,6 +918,7 @@ bool CPlatformManager::upload_event_image(const EventImageUploadRequest &request
         return false;
     }
 
+    /* 调用方通常只传事件和图片路径；设备SN在平台登录/MQTT初始化后由管理类兜底补齐 */
     std::string strDeviceSn = request.device_sn.empty() ? m_strMqttClientId : request.device_sn;
     if (strDeviceSn.empty())
     {
@@ -768,8 +926,25 @@ bool CPlatformManager::upload_event_image(const EventImageUploadRequest &request
         SystemManage::instance()->get_device_info(stDeviceInfo);
         strDeviceSn = stDeviceInfo.serialNumber;
     }
+
+    long long llUploadTimestamp = 0;
+    if (parse_capture_timestamp_ms_from_path(request.image_path, llUploadTimestamp))
+    {
+        dlog_info("事件图片上传使用抓拍文件时间戳：path[%s], timestamp[%lld]",
+                  request.image_path.c_str(),
+                  llUploadTimestamp);
+    }
+    else
+    {
+        llUploadTimestamp = request.timestamp;
+        dlog_warn("事件图片上传解析抓拍文件名时间失败，使用事件时间戳兜底：path[%s], timestamp[%lld]",
+                  request.image_path.c_str(),
+                  llUploadTimestamp);
+    }
+
+    const std::string strEventTimeTag = make_timestamp_ms_tag(llUploadTimestamp);
     const std::string strFileName = request.file_name.empty()
-                                        ? build_event_image_file_name(strDeviceSn, request.event_type, request.timestamp)
+                                        ? build_event_image_file_name(strDeviceSn, request.event_type, strEventTimeTag)
                                         : sanitize_filename_part(request.file_name);
     out_response.file_name = strFileName;
     out_response.image_path = request.image_path;
@@ -786,6 +961,7 @@ bool CPlatformManager::upload_event_image(const EventImageUploadRequest &request
         return false;
     }
 
+    /* 图片本体按二进制读入，由httplib生成multipart/form-data，避免base64带来的体积膨胀 */
     std::string strImageContent;
     if (!read_binary_file(request.image_path, strImageContent) || strImageContent.empty())
     {
@@ -796,30 +972,38 @@ bool CPlatformManager::upload_event_image(const EventImageUploadRequest &request
     const std::string target_host = g_custom ? custom_host : host_;
     const int target_port = g_custom ? custom_post : port_;
 
-    httplib::Client cli(target_host, target_port);
-    cli.set_connection_timeout(5, 0);
-    cli.set_read_timeout(30, 0);
-
     httplib::Headers headers = {
         {"Authorization", "Bearer " + access_token_}
     };
 
-    httplib::MultipartFormDataItems items = {
-        {"device_sn", strDeviceSn, "", ""},
-        {"event_type", std::to_string(request.event_type), "", ""},
-        {"event_name", request.event_name, "", ""},
-        {"channel", std::to_string(request.channel), "", ""},
-        {"timestamp", std::to_string(request.timestamp), "", ""},
-        {"request_id", request.request_id, "", ""},
-        {"file_name", strFileName, "", ""},
-        {"file", strImageContent, strFileName, "image/jpeg"}
-    };
+    const std::string strUploadTime = request.time.empty() ? strEventTimeTag : request.time;
+    const std::string strEventType = std::to_string(request.event_type);
 
-    dlog_info("开始上传事件图片：path[%s], file[%s], event[%d], sn[%s]",
+    dlog_info("开始上传事件图片：path[%s], file[%s], size[%zu], event[%d], sn[%s]",
               request.image_path.c_str(),
               strFileName.c_str(),
+              strImageContent.size(),
               request.event_type,
               strDeviceSn.c_str());
+
+    httplib::Client cli(target_host, target_port);
+    cli.set_connection_timeout(5, 0);
+    cli.set_read_timeout(30, 0);
+
+    /* 平台upload_screen接口文档要求的字段：device_sn/event_type/time/up_screen */
+    httplib::MultipartFormDataItems items = {
+        {"device_sn", strDeviceSn, "", ""},
+        {"event_type", strEventType, "", ""},
+        {"time", strUploadTime, "", ""},
+        {"up_screen", strImageContent, strFileName, "image/jpeg"}
+    };
+
+    dlog_info("事件图片上传尝试：field[up_screen], event_type[%s], time[%s], url[%s:%d%s]",
+              strEventType.c_str(),
+              strUploadTime.c_str(),
+              target_host.c_str(),
+              target_port,
+              event_image_upload_path_.c_str());
 
     auto res = cli.Post(event_image_upload_path_, headers, items);
     if (!res)
@@ -832,93 +1016,31 @@ bool CPlatformManager::upload_event_image(const EventImageUploadRequest &request
     }
 
     out_response.status_code = res->status;
+    out_response.file_name = strFileName;
+    out_response.image_path = request.image_path;
+    parse_event_image_upload_response(res->body, out_response);
 
     if (res->status < 200 || res->status >= 300)
     {
-        dlog_error("事件图片上传 HTTP 失败：status[%d], body[%s]", res->status, res->body.c_str());
+        dlog_error("事件图片上传 HTTP 失败：event_type[%s], status[%d], body[%s]",
+                   strEventType.c_str(),
+                   res->status,
+                   res->body.c_str());
         return false;
     }
 
-    cJSON *pRoot = cJSON_Parse(res->body.c_str());
-    if (pRoot)
+    if (!is_event_image_upload_business_ok(out_response, res->status))
     {
-        cJSON *pStatusCode = cJSON_GetObjectItemCaseSensitive(pRoot, "status_code");
-        if (cJSON_IsNumber(pStatusCode))
-        {
-            out_response.status_code = pStatusCode->valueint;
-        }
-
-        cJSON *pStatus = cJSON_GetObjectItemCaseSensitive(pRoot, "status");
-        if (cJSON_IsString(pStatus) && pStatus->valuestring)
-        {
-            out_response.status = pStatus->valuestring;
-        }
-
-        cJSON *pMessage = cJSON_GetObjectItemCaseSensitive(pRoot, "message");
-        if (cJSON_IsString(pMessage) && pMessage->valuestring)
-        {
-            out_response.message = pMessage->valuestring;
-        }
-
-        cJSON *pData = cJSON_GetObjectItemCaseSensitive(pRoot, "data");
-        if (cJSON_IsObject(pData))
-        {
-            get_json_string(pData, "url", out_response.image_url);
-            if (out_response.image_url.empty())
-            {
-                get_json_string(pData, "image_url", out_response.image_url);
-            }
-            if (out_response.image_url.empty())
-            {
-                get_json_string(pData, "ImageUrl", out_response.image_url);
-            }
-            if (out_response.image_url.empty())
-            {
-                get_json_string(pData, "path", out_response.image_url);
-            }
-            if (out_response.image_url.empty())
-            {
-                get_json_string(pData, "Path", out_response.image_url);
-            }
-            if (out_response.image_path.empty())
-            {
-                get_json_string(pData, "image_path", out_response.image_path);
-            }
-            if (out_response.file_name.empty())
-            {
-                get_json_string(pData, "file_name", out_response.file_name);
-            }
-        }
-        else if (cJSON_IsString(pData) && pData->valuestring)
-        {
-            out_response.image_url = pData->valuestring;
-        }
-
-        if (out_response.image_url.empty())
-        {
-            get_json_string(pRoot, "url", out_response.image_url);
-        }
-        if (out_response.image_url.empty())
-        {
-            get_json_string(pRoot, "image_url", out_response.image_url);
-        }
-        if (out_response.image_url.empty())
-        {
-            get_json_string(pRoot, "path", out_response.image_url);
-        }
-
-        cJSON_Delete(pRoot);
-    }
-
-    if (out_response.status_code != 0 && out_response.status_code != 200 && out_response.status_code != res->status)
-    {
-        dlog_error("事件图片上传业务失败：status_code[%d], message[%s]",
+        dlog_error("事件图片上传业务失败：event_type[%s], status_code[%d], message[%s], body[%s]",
+                   strEventType.c_str(),
                    out_response.status_code,
-                   out_response.message.c_str());
+                   out_response.message.c_str(),
+                   res->body.c_str());
         return false;
     }
 
-    dlog_info("事件图片上传成功：file[%s], url[%s]",
+    dlog_info("事件图片上传成功：field[up_screen], event_type[%s], file[%s], url[%s]",
+              strEventType.c_str(),
               out_response.file_name.c_str(),
               out_response.image_url.c_str());
     return true;

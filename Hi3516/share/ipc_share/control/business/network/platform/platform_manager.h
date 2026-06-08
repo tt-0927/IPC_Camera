@@ -166,24 +166,25 @@ public:
 
     struct EventImageUploadRequest
     {
-        std::string device_sn;   /* 设备SN，为空时自动使用当前设备SN */
-        int event_type = 0;      /* 事件类型 */
-        std::string event_name;  /* 事件名称 */
-        int channel = 0;         /* 通道号 */
-        long long timestamp = 0; /* 事件时间戳，毫秒 */
-        std::string request_id;  /* 关联的事件请求ID */
-        std::string image_path;  /* 本地图片路径 */
-        std::string file_name;   /* 上传文件名，空时自动生成 */
+        std::string device_sn;   /* 设备SN，为空时自动从MQTT ClientId或设备信息中取值 */
+        int event_type = 0;      /* 事件类型，用于平台归类和文件命名 */
+        std::string event_name;  /* 事件名称，方便平台直接展示 */
+        int channel = 0;         /* 事件触发通道号 */
+        long long timestamp = 0; /* 事件时间戳，毫秒；抓拍文件名解析失败时兜底使用 */
+        std::string time;        /* 平台上传接口要求的时间字段，空时优先使用抓拍文件名解析出的毫秒时间戳 */
+        std::string request_id;  /* 关联报警事件的RequestId，便于平台串联事件和图片 */
+        std::string image_path;  /* 设备本地抓拍图片路径 */
+        std::string file_name;   /* 平台侧保存文件名，空时自动生成：SN_事件类型_时间_序号.jpg */
     };
 
     struct EventImageUploadResponse
     {
-        int status_code = 0;
-        std::string status;
-        std::string message;
-        std::string image_url;
-        std::string image_path;
-        std::string file_name;
+        int status_code = 0;     /* HTTP状态码或平台业务状态码 */
+        std::string status;      /* 平台返回状态 */
+        std::string message;     /* 平台返回说明 */
+        std::string image_url;   /* 平台返回的图片访问地址 */
+        std::string image_path;  /* 设备本地图片路径，失败时也会带回便于排查 */
+        std::string file_name;   /* 实际上传使用的文件名 */
     };
 
     // 设备列表响应中的单个设备项
@@ -408,7 +409,7 @@ private:
     const std::string login_path_ = "/api/auth/login";
     const std::string store_path_ = "/api/device/store_device";
     const std::string workorder_path_ = "/api/workorder/store";
-    const std::string event_image_upload_path_ = "/api/device/event/image/upload";
+    const std::string event_image_upload_path_ = "/api/device/upload_screen";
     const std::string device_list_path_ = "/api/device/device_list";
     std::string access_token_ = "";
     std::string token_type_ = "bearer";
