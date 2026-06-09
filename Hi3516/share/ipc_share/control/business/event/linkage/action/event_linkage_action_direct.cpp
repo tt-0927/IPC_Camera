@@ -20,6 +20,7 @@
 #endif
 
 #include "capture_ctrl.h"
+#include "capture_database.h"
 #include "event_database_manage.h"
 #include "event_linkage_dict.h"
 #include "log_handler.h"
@@ -213,6 +214,27 @@ void upload_event_image_async(ResolvedLinkagePlan_S stPlan, std::string strAlarm
             !strImagePath.empty())
         {
             break;
+        }
+
+        /* 人脸抓拍事件：通用抓图系统不处理人脸事件，回退到查询抓图数据库 */
+        if (stPlan.stContext.enEventType == Event::Type_E::FACE_CAPTURE)
+        {
+            Db::Element stElem;
+            stElem.key = Db::INFO_CAPTURE_EVENT_TYPE;
+            stElem.value = std::to_string(static_cast<int>(Event::Type_E::FACE_CAPTURE));
+            stElem.match = Db::MatchMethods::EQUAL;
+
+            std::vector<Capture_NS::CaptureInfo_S> vecInfos;
+            if (Db::CCaptureDatabase::instance()->find(stElem, vecInfos) == 0 && !vecInfos.empty())
+            {
+                /* 取最新一条（数据库按插入时间排序，最后一条即最新） */
+                strImagePath = vecInfos.back().strImagePath;
+                if (!strImagePath.empty())
+                {
+                    dlog_info("人脸抓拍图片从数据库获取: path[%s]", strImagePath.c_str());
+                    break;
+                }
+            }
         }
 
         const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
