@@ -15,8 +15,9 @@
 #define MQTT_DEFAULT_PORT   1883
 
 /* 跨局域网平台 MQTT 默认连接参数 */
+//#define MQTT_PLATFORM_DEFAULT_BROKER    "172.16.25.125"
 #define MQTT_PLATFORM_DEFAULT_BROKER    "183.129.224.253"
-#define MQTT_PLATFORM_DEFAULT_PORT      1883
+#define MQTT_PLATFORM_DEFAULT_PORT      1884
 #define MQTT_PLATFORM_DEFAULT_USERNAME  "itc"
 #define MQTT_PLATFORM_DEFAULT_PASSWORD  "itc.rt.pass"
 
@@ -36,3 +37,6 @@
 
 /* 设备 → 平台：命令响应 */
 #define MQTT_TOPIC_RESPONSE(sn)     (MQTT_TOPIC_PREFIX(sn) + "/response")
+
+/* 设备 → 平台：设备状态上报（在线/离线） */
+#define MQTT_TOPIC_STATUS(sn)       (MQTT_TOPIC_PREFIX(sn) + "/status")

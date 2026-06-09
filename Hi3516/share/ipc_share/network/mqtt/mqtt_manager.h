@@ -39,6 +39,13 @@ extern "C"
 using MqttRawMessageCallback = std::function<void(const std::string &strTopic, const std::string &strPayload)>;
 
 /**
+ * @brief 连接状态变化回调类型
+ * @param  {bool} bConnected：true=已连接, false=已断开
+ * @param  {const std::string &} strReason：状态变化原因
+ */
+using MqttConnectionCallback = std::function<void(bool bConnected, const std::string &strReason)>;
+
+/**
  * @brief MQTT 管理器类
  * @note  单例模式，提供异步 MQTT 通信能力
  *        · 内部自动重连，对上层透明
@@ -114,6 +121,26 @@ public:
      */
     void set_message_callback(MqttRawMessageCallback callback);
 
+    /**
+     * @brief   : 设置连接状态变化回调
+     * @param    {MqttConnectionCallback} callback：回调函数
+     * @note    : 连接成功或断开时触发，用于上层感知连接状态
+     */
+    void set_connection_callback(MqttConnectionCallback callback);
+
+    /**
+     * @brief   : 设置 LWT 遗嘱消息
+     * @param    {const std::string &} strWillTopic：遗嘱 Topic
+     * @param    {const std::string &} strWillPayload：遗嘱消息内容（JSON）
+     * @param    {int} nWillQos：遗嘱 QoS 等级（默认 1）
+     * @param    {bool} bWillRetain：遗嘱是否 retain（默认 true）
+     * @note    : 需在 init() 之前调用；设置后，设备异常断开时 Broker 自动发布此消息
+     */
+    void set_will_message(const std::string &strWillTopic,
+                          const std::string &strWillPayload,
+                          int nWillQos = 1,
+                          bool bWillRetain = true);
+
 private:
     /* C 回调包装函数需要访问私有成员 */
     friend int mqtt_callback_wrapper(BlMqttMsg_S stMsg);
@@ -168,6 +195,13 @@ private:
     std::string m_strUsername;                                  /* 用户名 */
     std::string m_strPassword;                                  /* 密码 */
     MqttRawMessageCallback m_fnMessageCallback;                 /* 原始消息回调 */
+    MqttConnectionCallback m_fnConnectionCallback;              /* 连接状态回调 */
+
+    /* LWT 遗嘱消息配置 */
+    std::string m_strWillTopic;                                 /* LWT Topic（空表示不启用） */
+    std::string m_strWillPayload;                               /* LWT 消息内容 */
+    int m_nWillQos = 1;                                         /* LWT QoS */
+    bool m_bWillRetain = true;                                  /* LWT retain */
 
     std::thread m_ReconnectThread;                              /* 重连守护线程 */
     std::atomic<bool> m_bRunning{false};                        /* 线程运行标志 */
