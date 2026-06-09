@@ -65,6 +65,16 @@ typedef struct bl_mqtt_ex_param
     unsigned int unConnectTimeout;
     /* 自动重连（默认：开启） */
     int bAutoReconnect;
+
+    /* ===== LWT 遗嘱配置（可选，全零表示不启用 LWT） ===== */
+    /* LWT Topic，空字符串表示不启用 LWT */
+    char achWillTopic[256];
+    /* LWT 消息内容（JSON 字符串） */
+    char achWillMessage[512];
+    /* LWT QoS 等级（0/1/2），默认 1 */
+    int  nWillQos;
+    /* LWT 是否 retain，默认 1 */
+    int  bWillRetain;
 } BlMqttExParam_S;
 
 /* MQTT服务器配置信息，默认配置ITC的运营平台 */

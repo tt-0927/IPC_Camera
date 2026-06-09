@@ -206,6 +206,25 @@ void CMqttManager::set_message_callback(MqttRawMessageCallback callback)
     dlog_info("MQTT 消息回调已设置");
 }
 
+void CMqttManager::set_connection_callback(MqttConnectionCallback callback)
+{
+    m_fnConnectionCallback = callback;
+    dlog_info("MQTT 连接状态回调已设置");
+}
+
+void CMqttManager::set_will_message(const std::string &strWillTopic,
+                                    const std::string &strWillPayload,
+                                    int nWillQos,
+                                    bool bWillRetain)
+{
+    m_strWillTopic = strWillTopic;
+    m_strWillPayload = strWillPayload;
+    m_nWillQos = nWillQos;
+    m_bWillRetain = bWillRetain;
+    dlog_info("MQTT LWT 遗嘱已设置，Topic[%s]，QoS[%d]，Retain[%d]",
+              strWillTopic.c_str(), nWillQos, bWillRetain ? 1 : 0);
+}
+
 void CMqttManager::on_mqtt_message(BlMqttMsg_S stMsg)
 {
     switch (stMsg.enMsgType)
@@ -338,6 +357,12 @@ void CMqttManager::handle_connect_success()
 
     /* 恢复订阅 */
     restore_subscriptions();
+
+    /* 通知上层连接状态变化 */
+    if (m_fnConnectionCallback)
+    {
+        m_fnConnectionCallback(true, "connect");
+    }
 }
 
 void CMqttManager::handle_disconnect(const std::string &strReason)
@@ -345,6 +370,12 @@ void CMqttManager::handle_disconnect(const std::string &strReason)
     m_bConnecting.store(false);
     m_bConnected.store(false);
     dlog_warn("MQTT 连接断开：%s", strReason.c_str());
+
+    /* 通知上层连接状态变化（异常断开时 LWT 由 Broker 自动发布，这里仅通知上层感知） */
+    if (m_fnConnectionCallback)
+    {
+        m_fnConnectionCallback(false, strReason);
+    }
 
     /* 标记需要重连 */
     m_bNeedReconnect.store(true);
@@ -386,6 +417,15 @@ bool CMqttManager::do_connect()
     stMqttInfo.unKeepAlive = 20;      /* 20 秒心跳 */
     stMqttInfo.unConnectTimeout = 30; /* 30 秒连接超时 */
     stMqttInfo.bAutoReconnect = 0;    /* 关闭库自动重连，使用自定义重连逻辑 */
+
+    /* 设置 LWT 遗嘱消息 */
+    if (!m_strWillTopic.empty())
+    {
+        snprintf(stMqttInfo.achWillTopic, sizeof(stMqttInfo.achWillTopic), "%s", m_strWillTopic.c_str());
+        snprintf(stMqttInfo.achWillMessage, sizeof(stMqttInfo.achWillMessage), "%s", m_strWillPayload.c_str());
+        stMqttInfo.nWillQos = m_nWillQos;
+        stMqttInfo.bWillRetain = m_bWillRetain ? 1 : 0;
+    }
 
     /* 分配 MQTT 句柄 */
     m_pstMqtt = bl_mqtt_alloc(&stNeedParam, &stMqttInfo);

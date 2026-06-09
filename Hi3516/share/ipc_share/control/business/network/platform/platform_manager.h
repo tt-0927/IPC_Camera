@@ -170,8 +170,8 @@ public:
         int event_type = 0;      /* 事件类型，用于平台归类和文件命名 */
         std::string event_name;  /* 事件名称，方便平台直接展示 */
         int channel = 0;         /* 事件触发通道号 */
-        long long timestamp = 0; /* 事件时间戳，毫秒；抓拍文件名解析失败时兜底使用 */
-        std::string time;        /* 平台上传接口要求的时间字段，空时优先使用抓拍文件名解析出的毫秒时间戳 */
+        long long timestamp = 0; /* 事件时间戳，毫秒；为空时文件名使用当前时间戳 */
+        std::string time;        /* 平台上传接口要求的时间字段，空时使用毫秒时间戳并与文件名时间保持一致 */
         std::string request_id;  /* 关联报警事件的RequestId，便于平台串联事件和图片 */
         std::string image_path;  /* 设备本地抓拍图片路径 */
         std::string file_name;   /* 平台侧保存文件名，空时自动生成：SN_事件类型_时间_序号.jpg */
@@ -350,6 +350,15 @@ public:
      */
     void set_taskManage(CTaskManage *pTaskManage);
 
+    /**
+     * @brief   : 发布设备在线/离线状态到平台
+     * @param    {bool} bOnline：true=在线, false=离线
+     * @param    {const std::string &} strReason：状态原因（"connect"/"shutdown"/"disconnect"）
+     * @return   {int} OK=成功, 非OK=失败
+     * @note    : 消息发布到 device/{SN}/status Topic，QoS=1
+     */
+    int publish_device_status(bool bOnline, const std::string &strReason);
+
 private:
     // 辅助函数：Base64 编码
     std::string base64_encode(const std::string &input);
@@ -396,6 +405,14 @@ private:
      * @note    : 在 init_mqtt() 中调用，注册所有业务命令
      */
     void register_mqtt_handlers();
+
+    /**
+     * @brief   : MQTT 连接状态变化回调
+     * @param    {bool} bConnected：true=已连接, false=已断开
+     * @param    {const std::string &} strReason：状态原因
+     * @note    : 注册到 CMqttManager，连接成功时主动发布在线状态
+     */
+    void on_mqtt_connection_changed(bool bConnected, const std::string &strReason);
 
     // 服务器配置
     const std::string host_ = "183.129.224.253";

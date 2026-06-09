@@ -1257,6 +1257,9 @@ int CPlatformManager::deinit()
         return OK;
     }
 
+    /* 正常关机前主动发布离线状态（比 LWT 更可靠，确保平台及时感知） */
+    publish_device_status(false, "shutdown");
+
     /* 停止自动登录重试线程 */
     m_bStopAutoLogin.store(true);
     if (m_autoLoginThread.joinable())
@@ -1470,6 +1473,29 @@ int CPlatformManager::init_mqtt()
         [this](const std::string &strTopic, const std::string &strPayload) {
             this->on_mqtt_message(strTopic, strPayload);
         });
+
+    /* 设置连接状态回调 */
+    m_pstMqtt->set_connection_callback(
+        [this](bool bConnected, const std::string &strReason) {
+            this->on_mqtt_connection_changed(bConnected, strReason);
+        });
+
+    /* 设置 LWT 遗嘱消息：设备异常断开时 Broker 自动发布离线状态 */
+    std::string strWillTopic = MQTT_TOPIC_STATUS(m_strMqttClientId);
+    cJSON *pWillRoot = cJSON_CreateObject();
+    cJSON_AddStringToObject(pWillRoot, "Command", "NET_TV_DEVICE_STATUS");
+    cJSON_AddStringToObject(pWillRoot, "RequestId", "lwt");
+    cJSON *pWillData = cJSON_CreateObject();
+    cJSON_AddStringToObject(pWillData, "Status", "offline");
+    cJSON_AddStringToObject(pWillData, "Reason", "lwt");
+    cJSON_AddItemToObject(pWillRoot, "Data", pWillData);
+    char *pWillJson = cJSON_PrintUnformatted(pWillRoot);
+    std::string strWillPayload = pWillJson ? pWillJson : "{}";
+    free(pWillJson);
+    cJSON_Delete(pWillRoot);
+
+    m_pstMqtt->set_will_message(strWillTopic, strWillPayload, MQTT_QOS_RESPONSE, true);
+    dlog_info("MQTT LWT 遗嘱已配置，Topic[%s]", strWillTopic.c_str());
 
     /* 注册命令处理器 */
     register_mqtt_handlers();
@@ -2038,6 +2064,66 @@ int CPlatformManager::publish_response(const std::string &strCommand,
     /* 发布到响应 Topic */
     std::string strTopic = MQTT_TOPIC_RESPONSE(m_strMqttClientId);
     return m_pstMqtt->publish(strTopic, strPayload, MQTT_QOS_RESPONSE);
+}
+
+void CPlatformManager::on_mqtt_connection_changed(bool bConnected, const std::string &strReason)
+{
+    dlog_info("MQTT 连接状态变化：connected=%d, reason=%s", bConnected ? 1 : 0, strReason.c_str());
+
+    if (bConnected)
+    {
+        /* 连接成功 → 主动发布在线状态 */
+        publish_device_status(true, "connect");
+    }
+    /* 离线状态由 LWT 自动发布（异常断开）或 deinit() 主动发布（正常关机），这里不需要额外处理 */
+}
+
+int CPlatformManager::publish_device_status(bool bOnline, const std::string &strReason)
+{
+    if (!m_pstMqtt || !m_pstMqtt->is_connected())
+    {
+        dlog_warn("MQTT 未连接，无法发布设备状态");
+        return ERR_UNINIT;
+    }
+
+    /* 构造 JSON */
+    cJSON *pRoot = cJSON_CreateObject();
+    cJSON_AddStringToObject(pRoot, "Command", "NET_TV_DEVICE_STATUS");
+
+    /* RequestId: status-{SN}-{timestamp} */
+    auto now = std::chrono::system_clock::now();
+    auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+        now.time_since_epoch()).count();
+    std::string strRequestId = "status-" + m_strMqttClientId + "-" + std::to_string(ms);
+    cJSON_AddStringToObject(pRoot, "RequestId", strRequestId.c_str());
+
+    cJSON *pData = cJSON_CreateObject();
+    cJSON_AddStringToObject(pData, "Status", bOnline ? "online" : "offline");
+    cJSON_AddStringToObject(pData, "Timestamp", std::to_string(ms).c_str());
+    cJSON_AddStringToObject(pData, "Reason", strReason.c_str());
+    cJSON_AddItemToObject(pRoot, "Data", pData);
+
+    char *pJson = cJSON_PrintUnformatted(pRoot);
+    std::string strPayload = pJson ? pJson : "{}";
+    free(pJson);
+    cJSON_Delete(pRoot);
+
+    /* 发布到 Status Topic（QoS=1，确保至少到达一次） */
+    std::string strTopic = MQTT_TOPIC_STATUS(m_strMqttClientId);
+    int nRet = m_pstMqtt->publish(strTopic, strPayload, MQTT_QOS_RESPONSE);
+
+    if (nRet == OK)
+    {
+        dlog_info("设备状态发布成功：online=%d, reason=%s, topic=%s",
+                  bOnline ? 1 : 0, strReason.c_str(), strTopic.c_str());
+    }
+    else
+    {
+        dlog_warn("设备状态发布失败：ret=%d, online=%d, reason=%s",
+                  nRet, bOnline ? 1 : 0, strReason.c_str());
+    }
+
+    return nRet;
 }
 
 #endif

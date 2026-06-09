@@ -326,6 +326,17 @@ static void connlost(void *context, char *cause)
     stConnOpts.context = pHandle;
     stConnOpts.automaticReconnect = pHandle->stExParam.bAutoReconnect ? 1 : 0;
 
+    /* LWT 遗嘱配置 */
+    MQTTAsync_willOptions stWillOpts = MQTTAsync_willOptions_initializer;
+    if (strlen(pHandle->stExParam.achWillTopic) > 0)
+    {
+        stWillOpts.topicName = pHandle->stExParam.achWillTopic;
+        stWillOpts.message   = pHandle->stExParam.achWillMessage;
+        stWillOpts.qos       = pHandle->stExParam.nWillQos;
+        stWillOpts.retained  = pHandle->stExParam.bWillRetain;
+        stConnOpts.will      = &stWillOpts;
+    }
+
     if (NULL == pHandle->stClient)
     {
         dlog_error("mqtt重连失败，客户端句柄为空");
@@ -384,6 +395,17 @@ static int bl_mqtt_init(BlMqtt_S *pHandle)
     stConnOpts.onFailure = bl_mqtt_connFailure;
     stConnOpts.context = pHandle;
     stConnOpts.automaticReconnect = pHandle->stExParam.bAutoReconnect ? 1 : 0;
+
+    /* LWT 遗嘱配置 */
+    MQTTAsync_willOptions stWillOpts = MQTTAsync_willOptions_initializer;
+    if (strlen(pHandle->stExParam.achWillTopic) > 0)
+    {
+        stWillOpts.topicName = pHandle->stExParam.achWillTopic;
+        stWillOpts.message   = pHandle->stExParam.achWillMessage;
+        stWillOpts.qos       = pHandle->stExParam.nWillQos;
+        stWillOpts.retained  = pHandle->stExParam.bWillRetain;
+        stConnOpts.will      = &stWillOpts;
+    }
 
     dlog_debug("正在连接mqtt服务器[%s]", achServerUrl);
     /* 开始连接 */
