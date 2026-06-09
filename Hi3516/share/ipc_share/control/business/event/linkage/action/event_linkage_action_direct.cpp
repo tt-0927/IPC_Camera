@@ -197,6 +197,29 @@ void publish_event_image_upload_result(const ResolvedLinkagePlan_S &stPlan,
     }
 }
 
+/**
+ * @brief   : 从抓图数据库查询指定事件类型的最新图片路径
+ * @param    {Event::Type_E} enEventType：事件类型
+ * @param    {std::string &} strImagePath：输出图片路径
+ * @return   {bool} true：找到图片 false：未找到
+ * @note    : 用于人脸抓拍等由 AI 算法层自行保存图片、不走通用抓图系统的事件
+ */
+static bool query_latest_capture_image(Event::Type_E enEventType, std::string &strImagePath)
+{
+    /* Element 是 std::pair<string, variant<int, string>>，用构造函数初始化 */
+    Db::Element stElem(Db::INFO_CAPTURE_EVENT_TYPE, static_cast<int>(enEventType));
+
+    std::vector<Capture_NS::CaptureInfo_S> vecInfos;
+    if (Db::CCaptureDatabase::instance()->find(stElem, vecInfos) != 0 || vecInfos.empty())
+    {
+        return false;
+    }
+
+    /* 取最新一条（数据库按插入时间排序，最后一条即最新） */
+    strImagePath = vecInfos.back().strImagePath;
+    return !strImagePath.empty();
+}
+
 void upload_event_image_async(ResolvedLinkagePlan_S stPlan, std::string strAlarmRequestId)
 {
     /* 结束事件不上传图片；只有配置了抓图/存储联动时，才等待抓拍文件落盘 */
@@ -205,53 +228,77 @@ void upload_event_image_async(ResolvedLinkagePlan_S stPlan, std::string strAlarm
         return;
     }
 
-    /* 抓拍动作和上传中心动作是两条联动路径，这里短时间轮询首张抓拍图，避免阻塞主联动线程 */
     std::string strImagePath;
-    const auto start = std::chrono::steady_clock::now();
-    while (true)
+
+    /*
+     * 人脸抓拍事件：图片由 AI 算法层(CFaceCaptureProcessor)自行生成并保存到磁盘和数据库，
+     * 不走通用抓图系统(CCaptureCtrl)，因此从数据库获取已保存的图片路径。
+     * 由于图片保存可能晚于事件触发（时序竞争），需要短时间轮询等待数据库记录落盘。
+     * 其他事件（如垃圾暴露）：图片由通用抓图系统生成，轮询 CCaptureCtrl 等待抓拍文件落盘。
+     */
+    if (stPlan.stContext.enEventType == Event::Type_E::FACE_CAPTURE)
     {
-        if (CCaptureCtrl::instance()->get_event_first_capture_status(stPlan.stContext.enEventType, strImagePath) &&
-            !strImagePath.empty())
+        const auto start = std::chrono::steady_clock::now();
+        while (true)
         {
-            break;
-        }
-
-        /* 人脸抓拍事件：通用抓图系统不处理人脸事件，回退到查询抓图数据库 */
-        if (stPlan.stContext.enEventType == Event::Type_E::FACE_CAPTURE)
-        {
-            Db::Element stElem;
-            stElem.key = Db::INFO_CAPTURE_EVENT_TYPE;
-            stElem.value = std::to_string(static_cast<int>(Event::Type_E::FACE_CAPTURE));
-            stElem.match = Db::MatchMethods::EQUAL;
-
-            std::vector<Capture_NS::CaptureInfo_S> vecInfos;
-            if (Db::CCaptureDatabase::instance()->find(stElem, vecInfos) == 0 && !vecInfos.empty())
+            if (query_latest_capture_image(Event::Type_E::FACE_CAPTURE, strImagePath))
             {
-                /* 取最新一条（数据库按插入时间排序，最后一条即最新） */
-                strImagePath = vecInfos.back().strImagePath;
-                if (!strImagePath.empty())
-                {
-                    dlog_info("人脸抓拍图片从数据库获取: path[%s]", strImagePath.c_str());
-                    break;
-                }
+                dlog_info("人脸抓拍图片从数据库获取: path[%s]", strImagePath.c_str());
+                break;
             }
-        }
 
-        const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
-                                 std::chrono::steady_clock::now() - start)
-                                 .count();
-        if (elapsed >= EVENT_IMAGE_WAIT_TIMEOUT_MS)
+            const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+                                     std::chrono::steady_clock::now() - start)
+                                     .count();
+            if (elapsed >= EVENT_IMAGE_WAIT_TIMEOUT_MS)
+            {
+                CPlatformManager::EventImageUploadResponse stResponse;
+                publish_event_image_upload_result(stPlan, strAlarmRequestId, stResponse, false, "face capture image not found in database");
+                dlog_warn("人脸抓拍图片数据库查询超时: eventType[%d]", static_cast<int>(stPlan.stContext.enEventType));
+                return;
+            }
+
+            std::this_thread::sleep_for(std::chrono::milliseconds(EVENT_IMAGE_WAIT_INTERVAL_MS));
+        }
+    }
+    else
+    {
+        /* 通用事件：轮询等待通用抓图系统完成首张图片 */
+        const auto start = std::chrono::steady_clock::now();
+        while (true)
         {
-            CPlatformManager::EventImageUploadResponse stResponse;
-            publish_event_image_upload_result(stPlan, strAlarmRequestId, stResponse, false, "wait capture image timeout");
-            dlog_warn("等待事件首张抓拍图超时: eventType[%d]", static_cast<int>(stPlan.stContext.enEventType));
-            return;
-        }
+            if (CCaptureCtrl::instance()->get_event_first_capture_status(stPlan.stContext.enEventType, strImagePath) &&
+                !strImagePath.empty())
+            {
+                break;
+            }
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(EVENT_IMAGE_WAIT_INTERVAL_MS));
+            const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+                                     std::chrono::steady_clock::now() - start)
+                                     .count();
+            if (elapsed >= EVENT_IMAGE_WAIT_TIMEOUT_MS)
+            {
+                CPlatformManager::EventImageUploadResponse stResponse;
+                publish_event_image_upload_result(stPlan, strAlarmRequestId, stResponse, false, "wait capture image timeout");
+                dlog_warn("等待事件首张抓拍图超时: eventType[%d]", static_cast<int>(stPlan.stContext.enEventType));
+                return;
+            }
+
+            std::this_thread::sleep_for(std::chrono::milliseconds(EVENT_IMAGE_WAIT_INTERVAL_MS));
+        }
     }
 
-    /* 拿到本地图片后再组装上传请求；文件名和设备SN由平台管理类统一兜底处理 */
+    /*
+     * 组装图片上传请求，字段结构与垃圾暴露事件完全一致：
+     * - event_type:    事件类型码（int）
+     * - event_name:    事件名称（string）
+     * - channel:       通道号（int）
+     * - timestamp:     毫秒级 Unix 时间戳（long long），格式与 get_event_timestamp_ms() 一致
+     * - request_id:    关联告警事件的 RequestId（string）
+     * - image_path:    设备端图片路径（string）
+     *
+     * HTTP 上传时由 CPlatformManager 统一补充 device_sn、生成文件名、读取图片二进制
+     */
     CPlatformManager::EventImageUploadRequest stRequest;
     stRequest.event_type = static_cast<int>(stPlan.stContext.enEventType);
     stRequest.event_name = EventLinkageDict::get_event_name(stPlan.stContext.enEventType);
