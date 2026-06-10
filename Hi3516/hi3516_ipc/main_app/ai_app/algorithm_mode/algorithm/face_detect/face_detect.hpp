@@ -26,11 +26,10 @@
 #include "face_detect_context.hpp"
 #include "face_capture_processor.hpp"
 #include "face_feature_processor.hpp"
-
+#include "face_detect_worker.hpp"
 class CFaceDetect : public CAlgorithm
 {
 public:
-
     CFaceDetect();
     ~CFaceDetect();
 
@@ -47,25 +46,24 @@ public:
     void setAlgoEnCfg(const Event::AlgorithmConfig &stAlgoConfig) override;
 
     /**
-     * @brief   : 更新人脸抓拍参数 
+     * @brief   : 更新人脸抓拍参数
      * @param    {FaceCapture_S} &stAlgoCfg：人脸侦测
      */
     void setAlgoParamCfg(const Alarm::FaceCapture_S &stAlgoCfg);
 
     /**
-     * @brief   : 更新人脸比对联动 
+     * @brief   : 更新人脸比对联动
      * @param    {FaceCompare_S} &stAlgoCfg：人脸比对
      */
     void setFaceCmpCfg(const Alarm::FaceCompare_S &stAlgoCfg);
 
     /**
      * @brief 添加人脸名单库
-     * @param stFaceLibData 
+     * @param stFaceLibData
      */
-     bool addFaceLibGroup(FaceDataDB_NS::FaceLibsInfo_S &stFaceLibData);
+    bool addFaceLibGroup(FaceDataDB_NS::FaceLibsInfo_S &stFaceLibData);
 
 private:
-
     /**
      * @brief 初始化
      * @return [*]
@@ -92,30 +90,38 @@ private:
     bool hasEnabledAlgorithm() const;
 
 private:
-
     /* 人脸检测句柄 */
-    Inference_NS::CYoloUltralyticsPoint *m_pFaceDetHandle = nullptr;
+    // Inference_NS::CYoloUltralyticsPoint *m_pFaceDetHandle = nullptr;
     /* 队列 */
     BQ_NS::CBlockingQueue<MediaData_S> m_dateQueue;
     /* 用于控制线程的运行 */
-    std::atomic<bool>       m_bRunning;
+    std::atomic<bool> m_bRunning;
     /* 数据获取线程 */
-    std::thread             m_thread;
+    std::thread m_thread;
     /* 检测频率控制 */
-    EventManager m_RecvManager{3000};
+    EventManager m_RecvManager{ 3000 };
     /* 人脸抓拍 */
     Alarm::FaceCapture_S m_stAlgoFaceCapCfg;
     /* 人脸比对 */
     Alarm::FaceCompare_S m_stAlgoFaceCompCfg;
     /* NPU 推理互斥锁，检测模型与特征模型切换上下文时共享 */
-    std::mutex m_npuMutex;
+    // std::mutex m_npuMutex;
+
+    float g_fSimilarity = 0.7;
+    /* 算法默认最小瞳距 */
+    int m_nMinIpd = 20;
+    /* 算法最小瞳距范围 */
+    const int MIN_IPD = 10;
+    const int MAX_IPD = 75;
     /* 算法默认分辨率 */
     int m_nWidth = PIXEL_WIDTH_640;
-    int m_nHeight = PIXEL_HEIGHT_384;
+    int m_nHeight = PIXEL_HEIGHT_640;
     /* 目标视频帧 */
     ot_video_frame_info m_stDstFrameInfo;
     /* 人脸抓拍处理器 */
     FaceDetectInternal::CFaceCaptureProcessor m_captureProcessor;
     /* 人脸特征提取与比对处理器 */
     FaceDetectInternal::CFaceFeatureProcessor m_featureProcessor;
+    /*异步人脸检测Worker*/
+    CFaceDetectWorker m_detectWorker;
 };

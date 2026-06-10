@@ -17,7 +17,7 @@
 #include "algorithm.hpp"
 #include "face_capture_types.hpp"
 #include "face_detect_context.hpp"
-#include "face_compare_sdk_event_publisher.hpp"
+#include "face_detect_worker.hpp"
 
 namespace FaceDetectInternal
 {
@@ -80,11 +80,7 @@ public:
      * @param    {int} nHeight：算法分辨率高度
      * @return   {bool} true：成功 false：失败
      */
-    bool addFaceLibGroup(FaceDataDB_NS::FaceLibsInfo_S &stFaceLibData,
-                         Inference_NS::CYoloUltralyticsPoint *pFaceDetHandle,
-                         std::mutex &npuMutex,
-                         int nWidth,
-                         int nHeight);
+    bool addFaceLibGroup(FaceDataDB_NS::FaceLibsInfo_S &stFaceLibData, CFaceDetectWorker &detectWorker, int nWidth, int nHeight);
 
     /**
      * @brief   : 获取当前是否使能
@@ -97,6 +93,10 @@ public:
      * @return   {bool} true：已初始化 false：未初始化
      */
     bool isInitialized() const;
+
+    bool collectCompareTargets(const std::vector<Inference_NS::PointData_S> &vPointDatas,
+
+                               std::vector<Common::RectInfo_S> &vstRectInfo);
 
 private:
     /**
@@ -116,9 +116,13 @@ private:
      */
     bool extractFeature(const Common::RectInfo_S &stRect,
                         ot_video_frame_info *pFrameInfo,
-                        std::mutex *pNpuMutex,
+                        CFaceDetectWorker &detectWorker,
                         std::vector<float> &vecFeature);
 
+    bool extractFeatureDirect(const Common::RectInfo_S &stRect,
+                              ot_video_frame_info *pFrameInfo,
+                              CFaceDetectWorker &detectWorker,
+                              std::vector<float> &vecFeature);
     /**
      * @brief   : 处理人脸比对成功/失败联动
      * @param    {bool} bSuccess：true：比对成功 false：比对失败
@@ -130,54 +134,15 @@ private:
      * @return   {void}
      */
     void handleCompareLinkage(bool bSuccess,
-                               const Common::RectInfo_S &stRect,
-                               ot_video_frame_info *pFrameInfo,
-                               int nChnId,
-                               CFaceCaptureProcessor &stCaptureProcessor,
-                               std::vector<std::string> &vecImageFile);
-
-    /**
-     * @brief   : 推送人脸比对结果到 TVSDK 告警回调
-     * @param    {bool} bSuccess：true：比对成功 false：比对失败
-     * @param    {int} nFaceLibId：命中的人员ID
-     * @param    {float} fSimilarity：相似度
-     * @param    {Common::RectInfo_S} &stRect：当前人脸目标框
-     * @param    {SFaceProcessContext} &stContext：单帧处理上下文
-     * @return   {void}
-     */
-    void publishCompareSdkEvent(bool bSuccess,
-                                int nFaceLibId,
-                                float fSimilarity,
-                                const Common::RectInfo_S &stRect,
-                                SFaceProcessContext &stContext);
-
-    /**
-     * @brief   : 构建人脸比对 SDK 抓拍人脸 JPEG 小图
-     * @param    {Common::RectInfo_S} &stRect：当前人脸目标框
-     * @param    {ot_video_frame_info} *pFrameInfo：当前检测帧
-     * @param    {int} nChnId：通道号
-     * @param    {std::vector<unsigned char>} &vecJpeg：输出 JPEG 二进制
-     * @return   {bool} true：成功 false：失败
-     */
-    bool buildCompareTargetImage(const Common::RectInfo_S &stRect,
-                                 ot_video_frame_info *pFrameInfo,
-                                 int nChnId,
-                                 std::vector<unsigned char> &vecJpeg) const;
-
-    /**
-     * @brief   : 读取 JPEG 文件
-     * @param    {std::string} &strFilename：文件路径
-     * @param    {std::vector<unsigned char>} &vecJpeg：输出 JPEG 二进制
-     * @return   {bool} true：成功 false：失败
-     */
-    bool loadJpegFile(const std::string &strFilename, std::vector<unsigned char> &vecJpeg) const;
-
-    /**
-     * @brief   : 构建人脸比对 SDK 临时图片路径
-     * @param    {int} nChnId：通道号
-     * @return   {std::string} 临时图片路径
-     */
-    std::string buildCompareTempFilePath(int nChnId) const;
+                              const Common::RectInfo_S &stRect,
+                              ot_video_frame_info *pFrameInfo,
+                              int nChnId,
+                              long long llTimestamp,
+                              int nFaceId,
+                              float fSimilarity,
+                              float fThreshold,
+                              CFaceCaptureProcessor &stCaptureProcessor,
+                              std::vector<std::string> &vecImageFile);
 
     /**
      * @brief   : 将 NV21 人脸图转换为特征模型输入浮点数组
@@ -201,7 +166,7 @@ private:
                              int nWidth,
                              int nHeight,
                              ot_video_frame_info &stDstFrameInfo) const;
-               
+
     /**
      * @brief   : float32 转 float16
      * @param    {float} value：输入浮点数
@@ -210,14 +175,14 @@ private:
     uint16_t float32ToFloat16(float value) const;
 
     /* 人脸特征模型句柄 */
-    Inference_NS::CImageFeature *m_pFaceFeaHandle = nullptr;
+    // Inference_NS::CImageFeature *m_pFaceFeaHandle = nullptr;
     /* 人脸比对配置 */
     Alarm::FaceCompare_S m_stAlgoCfg;
     /* 比对成功联动配置 */
     FaceCompareLinkageOptions_S m_stSuccessLinkage;
     /* 比对失败联动配置 */
     FaceCompareLinkageOptions_S m_stFailLinkage;
-    /* 人脸比对 SDK 事件推送器 */
-    CFaceCompareSdkEventPublisher m_sdkComparePublisher;
+
+    CAlarmStateMachine m_alarmStateMachine;
 };
 } // namespace FaceDetectInternal

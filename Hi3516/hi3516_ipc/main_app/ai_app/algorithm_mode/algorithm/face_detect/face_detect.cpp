@@ -12,6 +12,7 @@
 #include <unistd.h>
 
 #include "event_configure.h"
+#include "time_utils.h"
 
 namespace
 {
@@ -19,8 +20,7 @@ namespace
 constexpr int FACE_DETECT_QUEUE_MAX = 2;
 }
 
-CFaceDetect::CFaceDetect()
-    : m_dateQueue(FACE_DETECT_QUEUE_MAX)
+CFaceDetect::CFaceDetect() : m_dateQueue(FACE_DETECT_QUEUE_MAX)
 {
     memset_s(&m_stDstFrameInfo, sizeof(ot_video_frame_info), 0, sizeof(ot_video_frame_info));
     m_bRunning.store(true);
@@ -89,10 +89,30 @@ void CFaceDetect::setAlgoEnCfg(const Event::AlgorithmConfig &stAlgoConfig)
     }
 
     /* 顶层算法开关与具体业务配置同时生效，避免单侧关闭后仍进入处理链路 */
+
     m_stAlgoFaceCapCfg.bEnable = m_stAlgoFaceCapCfg.bEnable && bEnableFaceCapture;
     m_captureProcessor.setEnabled(m_stAlgoFaceCapCfg.bEnable);
     m_stAlgoFaceCompCfg.bEnable = m_stAlgoFaceCompCfg.bEnable && bEnableFaceCompare;
     m_featureProcessor.setEnabled(m_stAlgoFaceCompCfg.bEnable);
+    bool bNeedAlgo = bEnableFaceCapture || bEnableFaceCompare;
+    if (bNeedAlgo)
+    {
+        if (!m_detectWorker.isRunning())
+        {
+            dlog_info("启动FaceDetectWorker");
+
+            m_detectWorker.start();
+        }
+    }
+    else
+    {
+        /*
+         * 关闭worker
+         */
+        dlog_info("关闭FaceDetectWorker");
+
+        m_detectWorker.deinit();
+    }
 }
 
 void CFaceDetect::setAlgoParamCfg(const Alarm::FaceCapture_S &stAlgoCfg)
@@ -111,73 +131,67 @@ void CFaceDetect::setFaceCmpCfg(const Alarm::FaceCompare_S &stAlgoCfg)
 bool CFaceDetect::addFaceLibGroup(FaceDataDB_NS::FaceLibsInfo_S &stFaceLibData)
 {
     dlog_info("=== [FaceLib] 开始添加人脸库===");
-    if (!m_pFaceDetHandle)
+    bool bTempStart = false;
+
+    /*
+     * 没启动则临时启动
+     */
+
+    if (!m_detectWorker.isRunning())
     {
-        std::string strModelPath = AI_FACE_DETECTION_CONFIG_FILE;
-        m_pFaceDetHandle = new Inference_NS::CYoloUltralyticsPoint(strModelPath);
-        if (!m_pFaceDetHandle || !m_pFaceDetHandle->init())
+
+        if (!m_detectWorker.start())
         {
-            dlog_error("检测模型初始化失败");
-            delete m_pFaceDetHandle;
-            m_pFaceDetHandle = nullptr;
             return false;
         }
+
+        bTempStart = true;
     }
 
-    return m_featureProcessor.addFaceLibGroup(stFaceLibData,
-                                              m_pFaceDetHandle,
-                                              m_npuMutex,
-                                              m_nWidth,
-                                              m_nHeight);
+    bool bRet = m_featureProcessor.addFaceLibGroup(stFaceLibData, m_detectWorker, m_nWidth, m_nHeight);
+
+    /*
+     * 临时启动的则关闭
+     */
+    if (bTempStart)
+    {
+        m_detectWorker.deinit();
+    }
+
+    return bRet;
 }
 
 bool CFaceDetect::init()
 {
-    if (!m_pFaceDetHandle)
-    {
-        std::string strModelPath = AI_FACE_DETECTION_CONFIG_FILE;
-        m_pFaceDetHandle = new Inference_NS::CYoloUltralyticsPoint(strModelPath);
-        if (!m_pFaceDetHandle || !m_pFaceDetHandle->init())
-        {
-            delete m_pFaceDetHandle;
-            m_pFaceDetHandle = nullptr;
-            dlog_error("人脸检测初始化失败");
-            return false;
-        }
 
-        dlog_info("人脸检测初始化成功, %s", strModelPath.c_str());
+    if (0 == m_stDstFrameInfo.video_frame.width)
+    {
         memset_s(&m_stDstFrameInfo, sizeof(ot_video_frame_info), 0, sizeof(ot_video_frame_info));
-        if (TD_SUCCESS != mppVgs_create_video_frame_info(m_nWidth,
-                                                         m_nHeight,
-                                                         OT_PIXEL_FORMAT_YVU_SEMIPLANAR_420,
-                                                         &m_stDstFrameInfo))
+
+        if (TD_SUCCESS !=
+            mppVgs_create_video_frame_info(m_nWidth, m_nHeight, OT_PIXEL_FORMAT_YVU_SEMIPLANAR_420, &m_stDstFrameInfo))
         {
-            delete m_pFaceDetHandle;
-            m_pFaceDetHandle = nullptr;
-            dlog_error("人脸检测初始化失败-创建目标视频帧失败");
+            dlog_error("创建目标视频帧失败");
+
             return false;
         }
     }
 
+    /*
+     * 初始化特征模型
+     */
     if (m_featureProcessor.isEnabled() && !m_featureProcessor.isInitialized() && !m_featureProcessor.init())
     {
         return false;
     }
 
-    return m_pFaceDetHandle != nullptr;
+    return true;
 }
 
 bool CFaceDetect::unInit()
 {
     mppVgs_destroy_video_frame_info(&m_stDstFrameInfo);
     memset_s(&m_stDstFrameInfo, sizeof(ot_video_frame_info), 0, sizeof(ot_video_frame_info));
-
-    if (m_pFaceDetHandle)
-    {
-        delete m_pFaceDetHandle;
-        m_pFaceDetHandle = nullptr;
-    }
-
     m_featureProcessor.deinit();
     return true;
 }
@@ -193,95 +207,189 @@ void CFaceDetect::run()
 
     while (m_bRunning.load())
     {
-        if (!m_pFaceDetHandle || (m_featureProcessor.isEnabled() && !m_featureProcessor.isInitialized()))
+        if (!hasEnabledAlgorithm())
         {
-            if (!hasEnabledAlgorithm())
-            {
-                sleep(1);
-                continue;
-            }
+            sleep(1);
 
-            if (!init())
-            {
-                dlog_error("等待人脸检测初始化");
-                std::this_thread::sleep_for(std::chrono::seconds(1));
-                if (!m_bRunning.load())
-                {
-                    break;
-                }
-                continue;
-            }
+            continue;
         }
 
-        if (!m_dateQueue.pop(stMediaData, TIMEOUT_1000_MS) || stMediaData.pVideoFrameInfo == nullptr)
+        /*
+         * 初始化检测线程
+         */
+        if (!init())
+        {
+            dlog_error("等待人脸检测初始化");
+
+            std::this_thread ::sleep_for(std::chrono ::seconds(1));
+
+            continue;
+        }
+
+        /*
+         * 取视频帧
+         */
+        if (!m_dateQueue.pop(stMediaData, TIMEOUT_1000_MS))
         {
             continue;
         }
 
-        /* 当前帧原始视频帧指针 */
+        if (!stMediaData.pVideoFrameInfo)
+        {
+            continue;
+        }
+
+        /*
+         * 原始帧
+         */
         ot_video_frame_info *pSrcFrameInfo = stMediaData.pVideoFrameInfo.get();
+
         if (!pSrcFrameInfo)
         {
-            dlog_error("原始数据帧为空");
             continue;
         }
 
-        /* 当前帧是否需要缩放到算法分辨率 */
+        /*
+         * 是否需要缩放
+         */
         bool bIsScale = false;
+
         if (m_nWidth != stMediaData.stMediaParam.nVideoWidth || m_nHeight != stMediaData.stMediaParam.nVideoHeight)
         {
             bIsScale = true;
         }
 
-        /* 当前送算法的视频帧指针，必要时指向缩放后的目标帧 */
+        /*
+         * 算法输入帧
+         */
         ot_video_frame_info *pFrameInfo = pSrcFrameInfo;
+
+        /*
+         * 缩放到检测分辨率
+         */
         if (bIsScale)
         {
             if (TD_SUCCESS != mppVgs_scale(pSrcFrameInfo, &m_stDstFrameInfo))
             {
+                dlog_error("mppVgs_scale失败");
+
                 continue;
             }
+
             pFrameInfo = &m_stDstFrameInfo;
         }
 
-        Inference_NS::InputData_S stInputData;
-        stInputData.pData = reinterpret_cast<float *>(pFrameInfo->video_frame.virt_addr[0]);
-        stInputData.nDataSize = static_cast<int>(m_nWidth * m_nHeight * 1.5) * sizeof(float);
+        /*
+         * 创建异步独占frame
+         *
+         * 防止：
+         * 1. m_stDstFrameInfo被覆盖
+         * 2. MediaData释放
+         * 3. worker线程访问野指针
+         */
+        ot_video_frame_info *pAsyncFrame = new ot_video_frame_info;
 
-        /* 当前帧人脸检测模型输出结果 */
-        std::vector<Inference_NS::PointData_S> vPointDatas;
+        memset(pAsyncFrame, 0, sizeof(ot_video_frame_info));
+
+        if (TD_SUCCESS != mppVgs_create_video_frame_info(m_nWidth, m_nHeight, OT_PIXEL_FORMAT_YVU_SEMIPLANAR_420, pAsyncFrame))
         {
-            std::lock_guard<std::mutex> lock(m_npuMutex);
-            m_pFaceDetHandle->inference(stInputData, vPointDatas);
+            dlog_error("创建异步frame失败");
+
+            delete pAsyncFrame;
+
+            continue;
         }
 
-        /* 当前帧汇总角框输出数组，仅供抓拍联动与 OSD 显示复用 */
-        std::vector<Common::RectInfo_S> vstRectInfo;
-        FaceDetectInternal::SFaceProcessContext stContext{ vPointDatas,
-                                                           vstRectInfo,
-                                                           pFrameInfo,
-                                                           m_nWidth,
-                                                           m_nHeight,
-                                                           stMediaData.stMediaParam.nChannel,
-                                                           &m_npuMutex };
+        /*
+         * 拷贝NV21数据
+         */
+        const size_t frameSize = static_cast<size_t>(m_nWidth * m_nHeight * 3 / 2);
 
-        if (m_captureProcessor.isEnabled())
-        {
-            m_captureProcessor.process(stContext, vecImageFile);
-        }
+        memcpy(pAsyncFrame->video_frame.virt_addr[0],
 
-        if (m_featureProcessor.isEnabled())
-        {
-            /* 人脸比对沿用抓拍规则做前置过滤，即便抓拍功能关闭也仍可复用该过滤逻辑 */
-            std::vector<Common::RectInfo_S> vstCompareRectInfo;
-            m_captureProcessor.collectTargets(vPointDatas, vstCompareRectInfo);
-            m_featureProcessor.processCompare(stContext, vstCompareRectInfo, m_captureProcessor, vecImageFile);
-        }
+               pFrameInfo->video_frame.virt_addr[0],
 
-        if (m_captureProcessor.isEnabled() && !vstRectInfo.empty())
-        {
-            send_detectionResult_to_osd(m_nWidth, m_nHeight, vstRectInfo);
-        }
+               frameSize);
+
+        /*
+         * 投递异步检测任务
+         *
+         * 注意：
+         * worker线程内部：
+         *   detection
+         *   feature
+         * 已经串行
+         */
+        m_detectWorker.submitVideoFrame(
+            pAsyncFrame,
+            m_nWidth,
+            m_nHeight,
+
+            [this, pAsyncFrame, stMediaData](std::vector<Inference_NS ::PointData_S> vPointDatas)
+            {
+                /*
+                 * 邮件附件列表
+                 */
+                std::vector<std::string> vecImageFile;
+
+                /*
+                 * OSD框
+                 */
+                std::vector<Common::RectInfo_S> vstRectInfo;
+
+                /*
+                 * 当前处理上下文
+                 */
+                FaceDetectInternal ::SFaceProcessContext stContext{
+                    vPointDatas,
+                    vstRectInfo,
+                    pAsyncFrame,
+                    m_nWidth,
+                    m_nHeight,
+                    stMediaData.stMediaParam.nChannel,
+                    TimeUtils_NS::get_currentTimestampMs(),
+                    &m_detectWorker
+                };
+
+                /*
+                 * 人脸抓拍
+                 */
+                if (m_captureProcessor.isEnabled())
+                {
+                    m_captureProcessor.process(stContext, vecImageFile);
+                }
+
+                /*
+                 * 人脸比对
+                 */
+                if (m_featureProcessor.isEnabled())
+                {
+                    std::vector<Common::RectInfo_S> vstCompareRectInfo;
+
+                    // m_captureProcessor
+                    //     .collectTargets(
+                    //         vPointDatas,
+                    //         vstCompareRectInfo);
+                    m_featureProcessor.collectCompareTargets(vPointDatas, vstCompareRectInfo);
+
+                    m_featureProcessor.processCompare(stContext, vstCompareRectInfo, m_captureProcessor, vecImageFile);
+                }
+
+                /*
+                 * OSD显示
+                 */
+                if (m_captureProcessor.isEnabled() && !vstRectInfo.empty())
+                {
+                    send_detectionResult_to_osd(m_nWidth, m_nHeight, vstRectInfo);
+                }
+
+                /*
+                 * 释放异步frame
+                 */
+                mppVgs_destroy_video_frame_info(pAsyncFrame);
+
+                delete pAsyncFrame;
+            });
     }
 }
 

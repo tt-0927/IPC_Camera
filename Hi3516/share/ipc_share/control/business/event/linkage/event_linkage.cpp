@@ -19,6 +19,59 @@
 #include "dlog.h"
 #include "IpcRet.h"
 
+#include <ctime>
+#include <iomanip>
+#include <sstream>
+
+namespace
+{
+struct EventTimeParts_S
+{
+    std::string strDateCompact;
+    std::string strDateDash;
+    std::string strTimeCompactMs;
+    std::string strTimeColon;
+    std::string strDateTimeDash;
+};
+
+EventTimeParts_S build_event_time_parts(long long llTimestamp)
+{
+    if (llTimestamp <= 0)
+    {
+        llTimestamp = TimeUtils_NS::get_currentTimestampMs();
+    }
+
+    const std::time_t seconds = static_cast<std::time_t>(llTimestamp / 1000);
+    const int millis = static_cast<int>(llTimestamp % 1000);
+    struct tm tmValue;
+    localtime_r(&seconds, &tmValue);
+
+    EventTimeParts_S stParts;
+    {
+        std::ostringstream oss;
+        oss << std::put_time(&tmValue, "%Y%m%d");
+        stParts.strDateCompact = oss.str();
+    }
+    {
+        std::ostringstream oss;
+        oss << std::put_time(&tmValue, "%Y-%m-%d");
+        stParts.strDateDash = oss.str();
+    }
+    {
+        std::ostringstream oss;
+        oss << std::put_time(&tmValue, "%H%M%S") << std::setw(3) << std::setfill('0') << millis;
+        stParts.strTimeCompactMs = oss.str();
+    }
+    {
+        std::ostringstream oss;
+        oss << std::put_time(&tmValue, "%H:%M:%S");
+        stParts.strTimeColon = oss.str();
+    }
+    stParts.strDateTimeDash = stParts.strDateDash + " " + stParts.strTimeColon;
+    return stParts;
+}
+} // namespace
+
 CEventLinkage::CEventLinkage()
 {
     init();
@@ -217,11 +270,13 @@ Event::Info_S CEventLinkage::create_eventInfo(const EventTriggerContext_S &stCon
 {
     Event::Info_S stEventInfo;
     /* 统一生成事件时间字段，确保各联动动作读取到一致的时间快照 */
+    const EventTimeParts_S stTimeParts = build_event_time_parts(stContext.llTimestamp);
     stEventInfo.enType = stContext.enEventType;
     stEventInfo.nChnId = stContext.nChnId;
-    stEventInfo.strDate = TimeUtils_NS::get_currentDate();
-    stEventInfo.strTime = TimeUtils_NS::get_currentTimeMs();
-    stEventInfo.strStartTime = TimeUtils_NS::get_currentDateWithDash() + " " + TimeUtils_NS::get_currentTimeWithColon();
+    stEventInfo.strDate = stTimeParts.strDateCompact;
+    stEventInfo.strTime = stTimeParts.strTimeCompactMs;
+    stEventInfo.lTimestamp = stContext.llTimestamp;
+    stEventInfo.strStartTime = stTimeParts.strDateTimeDash;
     stEventInfo.strEndTime = stEventInfo.strStartTime;
     return stEventInfo;
 }
