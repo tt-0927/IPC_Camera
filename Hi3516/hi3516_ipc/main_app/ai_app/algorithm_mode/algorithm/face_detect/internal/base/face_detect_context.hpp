@@ -14,7 +14,7 @@
 
 #include "YoloUltralyticsPoint_rpn.hpp"
 #include "common_process.h"
-
+#include "face_detect_worker.hpp"
 namespace FaceDetectInternal
 {
 /**
@@ -35,7 +35,9 @@ typedef struct _SFaceProcessContext_
     int nHeight = 0;
     /* 当前媒体通道号 */
     int nChnId = 0;
+    /* 当前帧处理时间戳，单位毫秒；用于事件、抓拍文件名和上传表单保持一致 */
+    long long llTimestamp = 0;
     /* NPU 推理互斥锁，特征模型切换上下文时使用 */
-    std::mutex *pNpuMutex = nullptr;
+    CFaceDetectWorker* pDetectWorker = nullptr;
 } SFaceProcessContext;
 } // namespace FaceDetectInternal

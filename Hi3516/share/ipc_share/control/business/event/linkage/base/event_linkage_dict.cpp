@@ -560,9 +560,9 @@ std::string EventLinkageDict::get_event_name(Event::Type_E enType)
     case Event::Type_E::FACE_CAPTURE:
         return "人脸抓拍";
     case Event::Type_E::FACE_COMPARE_SUCCESS:
-        return "人脸比对成功";
+        return "人脸比对事件触发，抓拍人脸与目标库匹配";
     case Event::Type_E::FACE_COMPARE_FAIL:
-        return "人脸失败成功";   
+        return "人脸比对事件触发，抓拍人脸与目标库不匹配";
 #ifdef SCENE_INTELLIGENCE
     case Event::Type_E::SLEEP_ON_DUTY:
         return "睡岗识别";

@@ -12,6 +12,7 @@
 #include <algorithm>
 #include <chrono>
 #include <ctime>
+#include <unistd.h>
 
 #if CAP_GARBAGE_STATION_PLATFORM
 #include <cstdlib>
@@ -110,11 +111,24 @@ std::string build_mqtt_event_data(const ResolvedLinkagePlan_S &stPlan)
         cJSON *pAttrs = cJSON_CreateObject();
         if (pAttrs)
         {
+            bool bHasPublicAttr = false;
             for (const auto &item : stContext.mapAttrs)
             {
+                if (item.first == "CaptureImagePath")
+                {
+                    continue;
+                }
                 cJSON_AddStringToObject(pAttrs, item.first.c_str(), item.second.c_str());
+                bHasPublicAttr = true;
             }
-            cJSON_AddItemToObject(pRoot, "Attrs", pAttrs);
+            if (bHasPublicAttr)
+            {
+                cJSON_AddItemToObject(pRoot, "Attrs", pAttrs);
+            }
+            else
+            {
+                cJSON_Delete(pAttrs);
+            }
         }
     }
 
@@ -220,6 +234,30 @@ static bool query_latest_capture_image(Event::Type_E enEventType, std::string &s
     return !strImagePath.empty();
 }
 
+static bool get_context_capture_image_path(const EventTriggerContext_S &stContext, std::string &strImagePath)
+{
+    auto it = stContext.mapAttrs.find("CaptureImagePath");
+    if (it == stContext.mapAttrs.end() || it->second.empty())
+    {
+        return false;
+    }
+
+    if (access(it->second.c_str(), F_OK) != 0)
+    {
+        dlog_warn("事件上下文抓拍图片不存在: path[%s]", it->second.c_str());
+        return false;
+    }
+
+    strImagePath = it->second;
+    return true;
+}
+
+static bool is_face_compare_event(Event::Type_E enEventType)
+{
+    return enEventType == Event::Type_E::FACE_COMPARE_SUCCESS ||
+           enEventType == Event::Type_E::FACE_COMPARE_FAIL;
+}
+
 void upload_event_image_async(ResolvedLinkagePlan_S stPlan, std::string strAlarmRequestId)
 {
     /* 结束事件不上传图片；只有配置了抓图/存储联动时，才等待抓拍文件落盘 */
@@ -230,13 +268,18 @@ void upload_event_image_async(ResolvedLinkagePlan_S stPlan, std::string strAlarm
 
     std::string strImagePath;
 
+    if (get_context_capture_image_path(stPlan.stContext, strImagePath))
+    {
+        dlog_info("事件图片从事件上下文获取: eventType[%d], path[%s]",
+                  static_cast<int>(stPlan.stContext.enEventType),
+                  strImagePath.c_str());
+    }
     /*
-     * 人脸抓拍事件：图片由 AI 算法层(CFaceCaptureProcessor)自行生成并保存到磁盘和数据库，
-     * 不走通用抓图系统(CCaptureCtrl)，因此从数据库获取已保存的图片路径。
-     * 由于图片保存可能晚于事件触发（时序竞争），需要短时间轮询等待数据库记录落盘。
-     * 其他事件（如垃圾暴露）：图片由通用抓图系统生成，轮询 CCaptureCtrl 等待抓拍文件落盘。
+     * 人脸抓拍/人脸比对目标图由 AI 算法层直接保存，并通过 CaptureImagePath 传入。
+     * 人脸抓拍保留数据库兜底；人脸比对要求上传当前比对目标图，没有上下文路径时直接失败，
+     * 避免误传通用全景抓图。
      */
-    if (stPlan.stContext.enEventType == Event::Type_E::FACE_CAPTURE)
+    else if (stPlan.stContext.enEventType == Event::Type_E::FACE_CAPTURE)
     {
         const auto start = std::chrono::steady_clock::now();
         while (true)
@@ -260,6 +303,13 @@ void upload_event_image_async(ResolvedLinkagePlan_S stPlan, std::string strAlarm
 
             std::this_thread::sleep_for(std::chrono::milliseconds(EVENT_IMAGE_WAIT_INTERVAL_MS));
         }
+    }
+    else if (is_face_compare_event(stPlan.stContext.enEventType))
+    {
+        CPlatformManager::EventImageUploadResponse stResponse;
+        publish_event_image_upload_result(stPlan, strAlarmRequestId, stResponse, false, "face compare capture image not found in context");
+        dlog_warn("人脸比对抓拍图片未随事件上下文传入: eventType[%d]", static_cast<int>(stPlan.stContext.enEventType));
+        return;
     }
     else
     {

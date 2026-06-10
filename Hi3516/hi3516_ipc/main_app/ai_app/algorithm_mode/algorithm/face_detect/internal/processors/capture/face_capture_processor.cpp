@@ -3,15 +3,17 @@
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2026-04-28 15:07:08
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-04-28 16:18:27
+ * @LastEditTime : 2026-05-22 17:53:35
  * @Description  : 人脸抓拍处理器实现
  */
 
 #include "face_capture_processor.hpp"
 
 #include <algorithm>
+#include <ctime>
 #include <filesystem>
 #include <fstream>
+#include <iomanip>
 #include <sstream>
 #include <unistd.h>
 
@@ -19,6 +21,7 @@
 #include "capture_database.h"
 #include "email_manage.h"
 #include "storage_manage.h"
+#include "time_utils.h"
 #include "face_capture_temp_file.hpp"
 #include "video_frame_jpeg_encoder.hpp"
 
@@ -26,6 +29,83 @@ namespace
 {
 /* 人脸目标框放大倍率，用于目标小图裁剪时保留周边上下文 */
 constexpr float FACE_REGION_SCALE_RATIO = 1.5f;
+
+struct FaceCaptureTimeParts_S
+{
+    std::string strDateCompact;
+    std::string strDateDash;
+    std::string strTimeCompactMs;
+    std::string strTimeColon;
+    std::string strDateTimeDash;
+};
+
+FaceCaptureTimeParts_S build_face_capture_time_parts(long long llTimestamp)
+{
+    if (llTimestamp <= 0)
+    {
+        llTimestamp = TimeUtils_NS::get_currentTimestampMs();
+    }
+
+    const std::time_t seconds = static_cast<std::time_t>(llTimestamp / 1000);
+    const int millis = static_cast<int>(llTimestamp % 1000);
+    struct tm tmValue;
+    localtime_r(&seconds, &tmValue);
+
+    FaceCaptureTimeParts_S stParts;
+    {
+        std::ostringstream oss;
+        oss << std::put_time(&tmValue, "%Y%m%d");
+        stParts.strDateCompact = oss.str();
+    }
+    {
+        std::ostringstream oss;
+        oss << std::put_time(&tmValue, "%Y-%m-%d");
+        stParts.strDateDash = oss.str();
+    }
+    {
+        std::ostringstream oss;
+        oss << std::put_time(&tmValue, "%H%M%S") << std::setw(3) << std::setfill('0') << millis;
+        stParts.strTimeCompactMs = oss.str();
+    }
+    {
+        std::ostringstream oss;
+        oss << std::put_time(&tmValue, "%H:%M:%S");
+        stParts.strTimeColon = oss.str();
+    }
+    stParts.strDateTimeDash = stParts.strDateDash + " " + stParts.strTimeColon;
+    return stParts;
+}
+
+Event::Info_S build_face_capture_event_info(int nChnId, long long llTimestamp)
+{
+    const FaceCaptureTimeParts_S stTimeParts = build_face_capture_time_parts(llTimestamp);
+
+    Event::Info_S stEventInfo;
+    stEventInfo.enType = Event::Type_E::FACE_CAPTURE;
+    stEventInfo.strDate = stTimeParts.strDateCompact;
+    stEventInfo.strTime = stTimeParts.strTimeCompactMs;
+    stEventInfo.nChnId = nChnId < 0 ? 0 : nChnId;
+    stEventInfo.lTimestamp = llTimestamp > 0 ? llTimestamp : TimeUtils_NS::get_currentTimestampMs();
+    stEventInfo.strStartTime = stTimeParts.strDateTimeDash;
+    stEventInfo.strEndTime = stEventInfo.strStartTime;
+    return stEventInfo;
+}
+
+EventTriggerContext_S build_face_capture_event_context(int nChnId,
+                                                       long long llTimestamp,
+                                                       const std::string &strCaptureImagePath)
+{
+    EventTriggerContext_S stContext;
+    stContext.enEventType = Event::Type_E::FACE_CAPTURE;
+    stContext.nChnId = nChnId < 0 ? 0 : nChnId;
+    stContext.llTimestamp = llTimestamp > 0 ? llTimestamp : TimeUtils_NS::get_currentTimestampMs();
+    if (!strCaptureImagePath.empty())
+    {
+        /* 仅供设备内部上传线程定位图片，MQTT报警正文会过滤该内部路径 */
+        stContext.mapAttrs["CaptureImagePath"] = strCaptureImagePath;
+    }
+    return stContext;
+}
 }
 
 namespace FaceDetectInternal
@@ -102,6 +182,7 @@ void CFaceCaptureProcessor::process(SFaceProcessContext &stContext, std::vector<
                   stContext.vstRectInfo,
                   stContext.pFrameInfo,
                   stContext.nChnId,
+                  stContext.llTimestamp,
                   vecImageFile);
 }
 
@@ -210,9 +291,11 @@ bool CFaceCaptureProcessor::collectTargets(std::vector<Inference_NS::PointData_S
 }
 
 int CFaceCaptureProcessor::saveFaceImage(std::vector<Common::RectInfo_S> vstRectInfo,
-                                          ot_video_frame_info *pSrcFrameInfo,
-                                          int nChnId,
-                                          std::vector<std::string> &vecImageFile)
+                                         ot_video_frame_info *pSrcFrameInfo,
+                                         int nChnId,
+                                         std::vector<std::string> &vecImageFile,
+                                         long long llTimestamp,
+                                         bool bSaveDatabase)
 {
     if (pSrcFrameInfo == nullptr)
     {
@@ -241,10 +324,8 @@ int CFaceCaptureProcessor::saveFaceImage(std::vector<Common::RectInfo_S> vstRect
         const unsigned int unDstHeight = rect.nY2 - rect.nY1;
         /* 当前目标小图裁剪帧 */
         ot_video_frame_info stDstFrameInfo;
-        if (TD_SUCCESS != mppVgs_create_video_frame_info(unDstWidth,
-                                                         unDstHeight,
-                                                         OT_PIXEL_FORMAT_YVU_SEMIPLANAR_420,
-                                                         &stDstFrameInfo))
+        if (TD_SUCCESS !=
+            mppVgs_create_video_frame_info(unDstWidth, unDstHeight, OT_PIXEL_FORMAT_YVU_SEMIPLANAR_420, &stDstFrameInfo))
         {
             continue;
         }
@@ -271,15 +352,13 @@ int CFaceCaptureProcessor::saveFaceImage(std::vector<Common::RectInfo_S> vstRect
             return ERR;
         }
 
-        /* 当前抓图日期和时间，保存文件名和数据库记录保持一致 */
-        std::string strCurrentDate = TimeUtils_NS::get_currentDateWithDash();
-        std::string strCurrentTime = TimeUtils_NS::get_currentTimeWithColon();
-        std::string strFilename = strStoragePath + "/" +
-                                  TimeUtils_NS::get_currentDate() + "_" +
-                                  TimeUtils_NS::get_currentTimeMs() + "_" +
+        /* 当前抓图日期和时间由同一时间戳生成，保证文件名、数据库、MQTT和HTTP表单能互相对应 */
+        const FaceCaptureTimeParts_S stTimeParts = build_face_capture_time_parts(llTimestamp);
+        std::string strFilename = strStoragePath + "/" + stTimeParts.strDateCompact + "_" +
+                                  stTimeParts.strTimeCompactMs + "_" +
                                   std::to_string(static_cast<int>(Event::Type_E::FACE_CAPTURE)) + "_" +
-                                  std::to_string(int(Alarm::LinkageType::UPLOAD_TARGET_IMAGE)) + "_" +
-                                  std::to_string(i + 1) + ".jpg";
+                                  std::to_string(int(Alarm::LinkageType::UPLOAD_TARGET_IMAGE)) + "_" + std::to_string(i + 1) +
+                                  ".jpg";
 
         if (AiAppCommon::encode_video_frame_to_jpeg_file(&stDstFrameInfo, strFilename) != OK)
         {
@@ -287,7 +366,14 @@ int CFaceCaptureProcessor::saveFaceImage(std::vector<Common::RectInfo_S> vstRect
             continue;
         }
         vecImageFile.emplace_back(strFilename);
-        saveToDatabase(strFilename, strCurrentDate, strCurrentTime, nChnId);
+        dlog_info("人脸抓拍目标图保存成功: path[%s], timestamp[%lld], save_db[%d]",
+                  strFilename.c_str(),
+                  llTimestamp,
+                  bSaveDatabase ? 1 : 0);
+        if (bSaveDatabase)
+        {
+            saveToDatabase(strFilename, stTimeParts.strDateDash, stTimeParts.strTimeColon, nChnId);
+        }
         mppVgs_destroy_video_frame_info(&stDstFrameInfo);
     }
 
@@ -311,70 +397,83 @@ FaceCaptureLinkageOptions_S CFaceCaptureProcessor::buildLinkageOptions() const
 }
 
 void CFaceCaptureProcessor::handleLinkage(bool bAlarm,
-                                           const std::vector<FaceCaptureTarget_S> &vecTargets,
-                                           const std::vector<Common::RectInfo_S> &vstRectInfo,
-                                           ot_video_frame_info *pFrameInfo,
-                                           int nChnId,
-                                           std::vector<std::string> &vecImageFile)
+                                          const std::vector<FaceCaptureTarget_S> &vecTargets,
+                                          const std::vector<Common::RectInfo_S> &vstRectInfo,
+                                          ot_video_frame_info *pFrameInfo,
+                                          int nChnId,
+                                          long long llTimestamp,
+                                          std::vector<std::string> &vecImageFile)
 {
     const FaceCaptureLinkageOptions_S stOptions = buildLinkageOptions();
+    const bool bSdCardNormal = SD_CARD_STATUS_E::NORMAL == CStorageManage::instance()->get_SdCardStatus();
     if (!bAlarm)
     {
         m_sdkEventPublisher.resetEvent(nChnId);
-        m_alarmStateMachine.handleAlarmState(false, Event::Type_E::FACE_CAPTURE);
+        m_alarmStateMachine.endAlarmImmediately(build_face_capture_event_context(nChnId, llTimestamp, ""));
         return;
     }
 
+    const long long llEventTimestamp = llTimestamp > 0 ? llTimestamp : TimeUtils_NS::get_currentTimestampMs();
+    std::string strUploadImagePath;
+    Event::Info_S stEventInfo = build_face_capture_event_info(nChnId, llEventTimestamp);
+
     /* SDK 推送独立于传统联动：事件首帧先推全景图，随后每帧逐个推送当前人脸小图 */
-    m_sdkEventPublisher.publish(vecTargets,
-                                pFrameInfo,
-                                nChnId,
-                                [this](ot_video_frame_info *pFrame, std::vector<unsigned char> &vecJpeg) {
-                                    return buildSdkPanoramaImage(pFrame, vecJpeg);
-                                },
-                                [this](const Common::RectInfo_S &stRectInfo,
-                                       ot_video_frame_info *pFrame,
-                                       size_t nIndex,
-                                       std::vector<unsigned char> &vecJpeg) {
-                                    return buildSdkTargetImage(stRectInfo, pFrame, nIndex, vecJpeg);
-                                });
+    m_sdkEventPublisher.publish(
+        vecTargets,
+        pFrameInfo,
+        nChnId,
+        [this](ot_video_frame_info *pFrame, std::vector<unsigned char> &vecJpeg)
+        {
+            return buildSdkPanoramaImage(pFrame, vecJpeg);
+        },
+        [this](const Common::RectInfo_S &stRectInfo,
+               ot_video_frame_info *pFrame,
+               size_t nIndex,
+               std::vector<unsigned char> &vecJpeg)
+        {
+            return buildSdkTargetImage(stRectInfo, pFrame, nIndex, vecJpeg);
+        });
 
-    /* 传统报警状态机仍负责事件开始/结束和非 SDK 联动，确保旧功能兼容 */
-    m_alarmStateMachine.handleAlarmState(true, Event::Type_E::FACE_CAPTURE);
-
-    if (stOptions.bUploadSdCard && SD_CARD_STATUS_E::NORMAL == CStorageManage::instance()->get_SdCardStatus())
+    if (stOptions.bUploadSdCard)
     {
         if (!access("testPrint", F_OK))
         {
             dlog_trace("人脸抓拍联动保存人脸图片开始");
         }
 
-        /* 当前事件信息用于传统抓图模块创建 SD 卡存储记录 */
-        Event::Info_S stEventInfo;
-        stEventInfo.enType = Event::Type_E::FACE_CAPTURE;
-        stEventInfo.strDate = TimeUtils_NS::get_currentDate();
-        stEventInfo.strTime = TimeUtils_NS::get_currentTimeMs();
-        stEventInfo.nChnId = nChnId < 0 ? 0 : nChnId;
-        stEventInfo.strStartTime = TimeUtils_NS::get_currentDateWithDash() + " " +
-                                   TimeUtils_NS::get_currentTimeWithColon();
-        stEventInfo.strEndTime = stEventInfo.strStartTime;
-
-        const int nRet = CCaptureCtrl::instance()->set_event_capture(false, stEventInfo);
-        if (nRet == OK)
+        if (bSdCardNormal)
         {
-            if (stOptions.bPanoramaImage)
+            const int nRet = CCaptureCtrl::instance()->set_event_capture(false, stEventInfo);
+            if (nRet == OK)
             {
-                /* 全景图沿用抓图模块生成的文件，避免重复编码同一帧 */
-                auto strFaceImage = CCaptureCtrl::instance()->get_face_capture_file();
-                if (!strFaceImage.empty())
+                if (stOptions.bPanoramaImage)
                 {
-                    vecImageFile.emplace_back(strFaceImage);
+                    /* 全景图沿用抓图模块生成的文件，避免重复编码同一帧 */
+                    auto strFaceImage = CCaptureCtrl::instance()->get_face_capture_file();
+                    if (!strFaceImage.empty())
+                    {
+                        vecImageFile.emplace_back(strFaceImage);
+                        strUploadImagePath = strFaceImage;
+                    }
                 }
             }
+        }
+        else
+        {
+            dlog_warn("人脸抓拍SD卡状态异常，跳过全景图/数据库记录，仅保存目标小图用于平台上传");
+        }
 
-            if (stOptions.bTargetImage)
+        if (stOptions.bTargetImage)
+        {
+            const size_t nBeforeSaveCount = vecImageFile.size();
+            saveFaceImage(vstRectInfo, pFrameInfo, nChnId, vecImageFile, llEventTimestamp, bSdCardNormal);
+            if (vecImageFile.size() > nBeforeSaveCount)
             {
-                saveFaceImage(vstRectInfo, pFrameInfo, nChnId, vecImageFile);
+                strUploadImagePath = vecImageFile[nBeforeSaveCount];
+            }
+            else
+            {
+                dlog_warn("人脸抓拍目标图未生成，无法携带图片路径上传平台");
             }
         }
 
@@ -383,27 +482,36 @@ void CFaceCaptureProcessor::handleLinkage(bool bAlarm,
             /* 邮件联动依赖本地附件路径，仅在 SD 卡保存路径有效时发送 */
             Network::EmailEventInfo_S stEmailInfo;
             stEmailInfo.strSubject = "人脸抓拍";
+            const FaceCaptureTimeParts_S stTimeParts = build_face_capture_time_parts(llEventTimestamp);
 
             std::ostringstream oss;
             oss << "事件类型: " << stEmailInfo.strSubject << "\n"
-                << "日期: " << TimeUtils_NS::get_currentDateWithDash() << "\n"
-                << "时间: " << TimeUtils_NS::get_currentTimeWithColon();
+                << "日期: " << stTimeParts.strDateDash << "\n"
+                << "时间: " << stTimeParts.strTimeColon;
             stEmailInfo.strMessage = oss.str();
             stEmailInfo.vecImageFile = vecImageFile;
             CEmailManage::instance()->HandleEmail(stEmailInfo);
         }
 
         vecImageFile.clear();
-        CCaptureCtrl::instance()->set_event_capture(true, stEventInfo);
+        if (bSdCardNormal)
+        {
+            CCaptureCtrl::instance()->set_event_capture(true, stEventInfo);
+        }
         if (!access("testPrint", F_OK))
         {
             dlog_trace("人脸抓拍联动保存人脸图片结束");
         }
     }
+
+    /* 传统报警状态机负责触发MQTT事件；上下文携带首张抓拍图路径，上传线程无需再等待数据库 */
+    dlog_info("人脸抓拍事件上下文准备完成: timestamp[%lld], upload_image[%s]",
+              llEventTimestamp,
+              strUploadImagePath.c_str());
+    m_alarmStateMachine.handleAlarmState(true, build_face_capture_event_context(nChnId, llEventTimestamp, strUploadImagePath));
 }
 
-bool CFaceCaptureProcessor::buildSdkPanoramaImage(ot_video_frame_info *pFrameInfo,
-                                                   std::vector<unsigned char> &vecJpeg)
+bool CFaceCaptureProcessor::buildSdkPanoramaImage(ot_video_frame_info *pFrameInfo, std::vector<unsigned char> &vecJpeg)
 {
     vecJpeg.clear();
     if (pFrameInfo == nullptr)
@@ -475,10 +583,8 @@ int CFaceCaptureProcessor::encodeFaceTargetImageToFile(const Common::RectInfo_S 
     const unsigned int unDstHeight = stFaceRect.nY2 - stFaceRect.nY1;
     /* 裁剪后的视频帧，编码完成后必须销毁 */
     ot_video_frame_info stDstFrameInfo;
-    if (TD_SUCCESS != mppVgs_create_video_frame_info(unDstWidth,
-                                                     unDstHeight,
-                                                     OT_PIXEL_FORMAT_YVU_SEMIPLANAR_420,
-                                                     &stDstFrameInfo))
+    if (TD_SUCCESS !=
+        mppVgs_create_video_frame_info(unDstWidth, unDstHeight, OT_PIXEL_FORMAT_YVU_SEMIPLANAR_420, &stDstFrameInfo))
     {
         return ERR;
     }
@@ -527,8 +633,8 @@ bool CFaceCaptureProcessor::loadJpegFile(const std::string &strFilename, std::ve
 
 std::string CFaceCaptureProcessor::buildTempFilePath(const std::string &strImageType, size_t nIndex) const
 {
-    return "/tmp/face_capture_sdk_" + strImageType + "_" +
-           TimeUtils_NS::get_currentTimeMs() + "_" + std::to_string(nIndex) + ".jpg";
+    return "/tmp/face_capture_sdk_" + strImageType + "_" + TimeUtils_NS::get_currentTimeMs() + "_" + std::to_string(nIndex) +
+           ".jpg";
 }
 
 int CFaceCaptureProcessor::saveToDatabase(const std::string &strFilename,
