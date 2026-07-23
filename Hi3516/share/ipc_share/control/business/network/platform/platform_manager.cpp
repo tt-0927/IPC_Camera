@@ -1624,7 +1624,11 @@ int CPlatformManager::init_mqtt()
     free(pWillJson);
     cJSON_Delete(pWillRoot);
 
-    m_pstMqtt->set_will_message(strWillTopic, strWillPayload, MQTT_QOS_RESPONSE, true);
+    /*
+     * LWT 用于异常断电、断网后由 Broker 代发离线消息。
+     * 周期在线状态不支持 retained，故遗嘱也不保留，避免新订阅者收到过期 offline 状态。
+     */
+    m_pstMqtt->set_will_message(strWillTopic, strWillPayload, MQTT_QOS_RESPONSE, false);
     dlog_info("MQTT LWT 遗嘱已配置，Topic[%s]", strWillTopic.c_str());
 
     /* 注册命令处理器 */
@@ -1647,6 +1651,9 @@ int CPlatformManager::init_mqtt()
     dlog_info("MQTT 业务订阅Topic[%s]", strCommandTopic.c_str());
     m_pstMqtt->subscribe(strCommandTopic, MQTT_QOS_COMMAND);
 
+    /* MQTT 生命周期建立后启动状态心跳；实际发送仅在连接成功后进行。 */
+    start_status_heartbeat();
+
     dlog_info("MQTT 初始化成功，Broker[%s:%d]，ClientID[%s]",
               m_strMqttBroker.c_str(), m_nMqttPort, m_strMqttClientId.c_str());
 
@@ -1667,6 +1674,9 @@ int CPlatformManager::restart_mqtt()
 
 void CPlatformManager::deinit_mqtt()
 {
+    /* 先停止心跳，确保不会与底层 MQTT 句柄释放并发执行。 */
+    stop_status_heartbeat();
+
     if (m_pstMqtt)
     {
         m_pstMqtt->deinit();
@@ -2222,6 +2232,71 @@ void CPlatformManager::on_mqtt_connection_changed(bool bConnected, const std::st
     /* 离线状态由 LWT 自动发布（异常断开）或 deinit() 主动发布（正常关机），这里不需要额外处理 */
 }
 
+void CPlatformManager::start_status_heartbeat()
+{
+    std::lock_guard<std::mutex> lifecycleLock(m_mtxStatusHeartbeatLifecycle);
+    if (m_statusHeartbeatThread.joinable())
+    {
+        return;
+    }
+
+    m_bStopStatusHeartbeat.store(false);
+    m_statusHeartbeatThread = std::thread(&CPlatformManager::status_heartbeat_loop, this);
+    dlog_info("设备在线状态心跳线程已启动，间隔=%d秒", STATUS_HEARTBEAT_INTERVAL_SEC);
+}
+
+void CPlatformManager::stop_status_heartbeat()
+{
+    std::lock_guard<std::mutex> lifecycleLock(m_mtxStatusHeartbeatLifecycle);
+    if (!m_statusHeartbeatThread.joinable())
+    {
+        return;
+    }
+
+    /* 轮询间隔为 1 秒，停止路径最多等待 1 秒即可回收线程。 */
+    m_bStopStatusHeartbeat.store(true);
+    m_statusHeartbeatThread.join();
+    dlog_info("设备在线状态心跳线程已停止");
+}
+
+void CPlatformManager::status_heartbeat_loop()
+{
+    dlog_info("设备在线状态心跳线程运行");
+    /*
+     * 使用 steady_clock 计时配合 1 秒轮询，规避目标环境中长时间定时等待
+     * 无法观测的问题；同时不受系统时间调整影响，并保证停止及时生效。
+     */
+    auto nextHeartbeatTime = std::chrono::steady_clock::now() +
+                             std::chrono::seconds(STATUS_HEARTBEAT_INTERVAL_SEC);
+
+    while (!m_bStopStatusHeartbeat.load())
+    {
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+        if (m_bStopStatusHeartbeat.load())
+        {
+            break;
+        }
+
+        const auto now = std::chrono::steady_clock::now();
+        if (now < nextHeartbeatTime)
+        {
+            continue;
+        }
+        nextHeartbeatTime = now + std::chrono::seconds(STATUS_HEARTBEAT_INTERVAL_SEC);
+
+        if (m_pstMqtt != nullptr && m_pstMqtt->is_connected())
+        {
+            publish_device_status(true, "heartbeat");
+        }
+        else
+        {
+            dlog_info("MQTT 在线心跳到期但 MQTT 未连接，跳过发送");
+        }
+    }
+
+    dlog_info("设备在线状态心跳线程退出");
+}
+
 int CPlatformManager::publish_device_status(bool bOnline, const std::string &strReason)
 {
     if (!m_pstMqtt || !m_pstMqtt->is_connected())
@@ -2258,8 +2333,17 @@ int CPlatformManager::publish_device_status(bool bOnline, const std::string &str
 
     if (nRet == OK)
     {
-        dlog_info("设备状态发布成功：online=%d, reason=%s, topic=%s",
-                  bOnline ? 1 : 0, strReason.c_str(), strTopic.c_str());
+        if (strReason == "heartbeat")
+        {
+            /* MQTTAsync_send 返回成功表示心跳已提交给 MQTT 异步发送队列。 */
+            dlog_info("MQTT 在线心跳已提交发送：Topic[%s]，QoS[%d]，Status[online]",
+                      strTopic.c_str(), MQTT_QOS_RESPONSE);
+        }
+        else
+        {
+            dlog_info("设备状态发布成功：online=%d, reason=%s, topic=%s",
+                      bOnline ? 1 : 0, strReason.c_str(), strTopic.c_str());
+        }
     }
     else
     {

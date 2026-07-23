@@ -435,6 +435,23 @@ private:
      */
     void on_mqtt_connection_changed(bool bConnected, const std::string &strReason);
 
+    /**
+     * @brief 启动设备在线状态心跳线程
+     * @note  MQTT 连接成功后的首个在线状态仍由连接回调发送；该线程负责周期性续报。
+     */
+    void start_status_heartbeat();
+
+    /**
+     * @brief 停止设备在线状态心跳线程
+     * @note  必须在释放 MQTT 管理器前调用，避免线程访问已释放的 MQTT 句柄。
+     */
+    void stop_status_heartbeat();
+
+    /**
+     * @brief 设备在线状态心跳线程函数
+     */
+    void status_heartbeat_loop();
+
     // 服务器配置
     const std::string host_ = "183.129.224.253";
     const int port_ = 4910;
@@ -466,6 +483,13 @@ private:
     int m_nRetryCount = 0;
     /* 初始化完成标志 */
     bool m_bInited = false;
+
+    /* 平台在线状态心跳线程：使用独立生命周期锁，避免并发启停产生重复线程。 */
+    std::thread m_statusHeartbeatThread;
+    std::atomic<bool> m_bStopStatusHeartbeat{true};
+    std::mutex m_mtxStatusHeartbeatLifecycle;
+    static constexpr int STATUS_HEARTBEAT_INTERVAL_SEC = 30;
+
     // #define RTMP_DEFAULT_PORT   1935
     #define RTMP_DEFAULT_PORT   4920
     /* MQTT 相关 */
