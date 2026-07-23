@@ -208,7 +208,8 @@ private:
     std::atomic<bool> m_bConnected{false};                      /* 连接状态标志 */
     std::atomic<bool> m_bNeedReconnect{false};                  /* 需要重连标志 */
     std::atomic<bool> m_bConnecting{false};                     /* 连接中标志 */
-    std::mutex  m_mtxConnect;                                   /* 连接互斥锁 */
+    /* 保护底层 MQTT 句柄的连接、发送和释放，防止异步发送访问失效句柄。 */
+    std::mutex  m_mtxConnect;
 
     /* 已订阅 Topic 列表（用于重连后恢复订阅） */
     std::vector<std::pair<std::string, int>> m_vecSubscribedTopics;

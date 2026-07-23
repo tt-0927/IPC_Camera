@@ -85,15 +85,17 @@ void CMqttManager::deinit()
         m_ReconnectThread.join();
     }
 
-    /* 断开 MQTT 连接 */
-    if (m_pstMqtt != nullptr)
+    /* 与 publish()/do_connect() 共用句柄锁，避免释放期间仍有异步发送。 */
     {
-        m_pstMqtt->uninit(m_pstMqtt);
-        bl_mqtt_release(m_pstMqtt);
-        m_pstMqtt = nullptr;
+        std::lock_guard<std::mutex> lock(m_mtxConnect);
+        m_bConnected.store(false);
+        if (m_pstMqtt != nullptr)
+        {
+            m_pstMqtt->uninit(m_pstMqtt);
+            bl_mqtt_release(m_pstMqtt);
+            m_pstMqtt = nullptr;
+        }
     }
-
-    m_bConnected.store(false);
     {
         std::lock_guard<std::mutex> lock(m_mtxTopics);
         m_vecSubscribedTopics.clear();
@@ -105,18 +107,21 @@ void CMqttManager::deinit()
 
 int CMqttManager::publish(const std::string &strTopic, const std::string &strPayload, int nQos)
 {
+    /* 参数校验不依赖底层句柄，可在加锁前完成。 */
+    if (strTopic.empty() || strPayload.empty())
+    {
+        dlog_error("MQTT 发布失败：Topic 或 Payload 为空");
+        return ERR_PARAM_NULL;
+    }
+
+    /* 发送与重连、反初始化互斥，防止使用已释放的 m_pstMqtt。 */
+    std::lock_guard<std::mutex> lock(m_mtxConnect);
+
     /* 检查连接状态 */
     if (!m_bConnected.load() || m_pstMqtt == nullptr)
     {
         dlog_warn("MQTT 发布失败：未连接");
         return ERR_UNINIT;
-    }
-
-    /* 参数校验 */
-    if (strTopic.empty() || strPayload.empty())
-    {
-        dlog_error("MQTT 发布失败：Topic 或 Payload 为空");
-        return ERR_PARAM_NULL;
     }
 
     /* 异步发布消息 */
@@ -418,7 +423,7 @@ bool CMqttManager::do_connect()
     stMqttInfo.unConnectTimeout = 30; /* 30 秒连接超时 */
     stMqttInfo.bAutoReconnect = 0;    /* 关闭库自动重连，使用自定义重连逻辑 */
 
-    /* 设置 LWT 遗嘱消息 */
+    /* 将上层设置的 LWT 写入 CONNECT 参数，异常断电/断网后由 Broker 发布离线状态。 */
     if (!m_strWillTopic.empty())
     {
         snprintf(stMqttInfo.achWillTopic, sizeof(stMqttInfo.achWillTopic), "%s", m_strWillTopic.c_str());
