@@ -52,7 +52,7 @@ public:
      * @brief   : 重新登录平台并通知推流模块更新推流地址
      * @note    : 用于平台信息变更后，重新生成推流地址并热更新
      */
-    void relogin_and_update_stream();
+    int relogin_and_update_stream();
 
     struct LoginResponse
     {
@@ -273,7 +273,14 @@ public:
                const bool &Custom,
                LoginResponse &out_response);
 
+    /**
+     * @brief 将网页平台参数应用到运行时配置
+     * @note 自定义平台时，HTTP 与 MQTT 共用 user/password。
+     */
+    bool apply_platform_config(const ::Network::Platform_Info_t &stInfo);
+
     void getlogininfo(::Network::LoginInfo &retLoginInfo);
+    void getplatforminfo(::Network::Platform_Info_t &retPlatformIfo);
 
     /**
      * @brief   : 获取访问 token
@@ -313,6 +320,12 @@ public:
      * @note    : 在 init() 中调用，从配置文件读取 MQTT 参数
      */
     int init_mqtt();
+
+    /**
+     * @brief 按当前平台参数重建 MQTT 会话
+     * @note 先停止旧 Broker 的连接线程，再连接新 Broker。
+     */
+    int restart_mqtt();
 
     /**
      * @brief   : 反初始化 MQTT
@@ -358,6 +371,14 @@ public:
      * @note    : 消息发布到 device/{SN}/status Topic，QoS=1
      */
     int publish_device_status(bool bOnline, const std::string &strReason);
+
+    /**
+     * @brief   :网页关闭平台接入时释放MQTT连接
+     * @note    ：先发布 offline/disabled 状态，再停止 MQTT 重连线程并断开连
+     */
+    void disable_mqtt_for_platform();
+
+    int change_net_relogin();//切换无线重新登录
 
 private:
     // 辅助函数：Base64 编码
@@ -417,6 +438,8 @@ private:
     // 服务器配置
     const std::string host_ = "183.129.224.253";
     const int port_ = 4910;
+    // const std::string host_ = "172.16.25.125";
+    // const int port_ = 388;
     std::string custom_host;
     int custom_post;
     std::string login_user = "";
@@ -443,11 +466,13 @@ private:
     int m_nRetryCount = 0;
     /* 初始化完成标志 */
     bool m_bInited = false;
-
+    // #define RTMP_DEFAULT_PORT   1935
+    #define RTMP_DEFAULT_PORT   4920
     /* MQTT 相关 */
     CMqttManager *m_pstMqtt = nullptr;                      /* MQTT 管理器指针 */
     std::string m_strMqttBroker;                             /* MQTT Broker 地址 */
     int m_nMqttPort = MQTT_DEFAULT_PORT;                     /* MQTT Broker 端口 */
+    int m_nRtmpPort = RTMP_DEFAULT_PORT;                     /* RTMP Broker 端口 */
     std::string m_strMqttUsername;                           /* MQTT 用户名 */
     std::string m_strMqttPassword;                          /* MQTT 密码 */
     std::string m_strMqttClientId;                          /* MQTT 客户端标识（设备SN） */

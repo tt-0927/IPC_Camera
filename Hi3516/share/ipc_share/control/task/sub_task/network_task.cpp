@@ -940,10 +940,19 @@ void Task::Network::ConnPlatform::handle()
     CPlatformManager::LoginResponse out_response;
     
     Convert::to_struct(m_taskData, stInfo);
+    CPlatformManager *pPlatformManager = CPlatformManager::instance();
 
-   
+    /* 登录失败时恢复旧运行时配置，避免旧 MQTT/RTMP 会话与新参数混用。 */
+    ::Network::Platform_Info_t stPreviousInfo;
+    pPlatformManager->getplatforminfo(stPreviousInfo);
+    if (!pPlatformManager->apply_platform_config(stInfo))
+    {
+        dlog_error("网页提交的平台配置参数不完整或端口无效");
+        result(-1);
+        return;
+    }
 
-    bool success = CPlatformManager::instance()->login(
+    bool success = pPlatformManager->login(
         stInfo.server_ip, 
         stInfo.server_port, 
         stInfo.user, 
@@ -955,14 +964,21 @@ void Task::Network::ConnPlatform::handle()
     if (!stInfo.enable) /* 关闭平台接入 */
     {
         /* login() 在 enable=false 时不会保存配置，需手动持久化禁用状态 */
-        CPlatformManager::instance()->save_config();
+        pPlatformManager->save_config();
         /* 停止 RTMP 推流 */
-        CPlatformManager::instance()->relogin_and_update_stream();
+        pPlatformManager->relogin_and_update_stream();
+        /* 在断开 MQTT 前通知平台*/
+        pPlatformManager->disable_mqtt_for_platform();
         result(0);
         return;
     }
     if(success){
 
+        /* 切换平台时必须先释放旧 MQTT 会话，才能连接新的 Broker。 */
+        if(pPlatformManager->restart_mqtt() != OK)
+        {
+            dlog_warn("平台登陆成功，但 MQTT 初始化失败");
+        }
         cJSON *root = cJSON_CreateObject();
         
         cJSON_AddNumberToObject(root, "status_code", out_response.status_code);
@@ -1003,7 +1019,8 @@ void Task::Network::ConnPlatform::handle()
         
         CStorageManage::instance()->get_storageManage_param(stStorageManageParam);
         
-        req.sn =  std::to_string(stDeviceInfo.deviceID);
+        // req.sn =  std::to_string(stDeviceInfo.deviceID);
+        req.sn =  stDeviceInfo.serialNumber;
         req.name = stDeviceInfo.deviceName;
         req.version = stDeviceInfo.systemVersion;
         req.account = stInfo.user;
@@ -1020,12 +1037,14 @@ void Task::Network::ConnPlatform::handle()
             req.use_storage ="";
         }
         
-        CPlatformManager::instance()->storeDevice(req, out_response.data.access_token,resp);
+        pPlatformManager->storeDevice(req, out_response.data.access_token,resp);
 
         /* 登录成功，触发 RTMP 推流地址热更新 */
-        CPlatformManager::instance()->relogin_and_update_stream();
+        pPlatformManager->relogin_and_update_stream();
     }
     else {
+        /* HTTP 登录未成功时恢复原平台参数，继续保持原有连接状态。 */
+        pPlatformManager->apply_platform_config(stPreviousInfo);
         result(-1);
     }
 }
@@ -1055,7 +1074,8 @@ void Task::Network::storePlatformDevices::handle()
         
         CStorageManage::instance()->get_storageManage_param(stStorageManageParam);
         
-        req.sn =  std::to_string(stDeviceInfo.deviceID);
+        // req.sn =  std::to_string(stDeviceInfo.deviceID);
+        req.sn =  stDeviceInfo.serialNumber;
         req.name = stDeviceInfo.deviceName;
         req.version = stDeviceInfo.systemVersion;
         req.account = stInfo.user;
@@ -1091,34 +1111,34 @@ void Task::Network::storePlatformDevices::handle()
 
 void Task::Network::GetConnPlatformInfo::handle()
 {
-    ::Network::LoginInfo info;
+    ::Network::Platform_Info_t info;
     
-    CPlatformManager::instance()->getlogininfo(info);
+    CPlatformManager::instance()->getplatforminfo(info);
+    result(Convert::to_string(info));
+    // cJSON *root = cJSON_CreateObject();
+    // if (root == NULL) {
+    //     std::cerr << "Failed to create JSON object " << std::endl;
+    //     return;
+    // }
 
-    cJSON *root = cJSON_CreateObject();
-    if (root == NULL) {
-        std::cerr << "Failed to create JSON object " << std::endl;
-        return;
-    }
+    // cJSON_AddStringToObject(root, "host", info.host.c_str());
+    // cJSON_AddNumberToObject(root, "port", info.port);
+    // cJSON_AddStringToObject(root, "login_user", info.login_user.c_str());
+    // cJSON_AddStringToObject(root, "login_password", info.login_password.c_str());
+    // cJSON_AddBoolToObject(root, "enable", info.enable);
+    // cJSON_AddBoolToObject(root, "Custom", info.Custom);
 
-    cJSON_AddStringToObject(root, "host", info.host.c_str());
-    cJSON_AddNumberToObject(root, "port", info.port);
-    cJSON_AddStringToObject(root, "login_user", info.login_user.c_str());
-    cJSON_AddStringToObject(root, "login_password", info.login_password.c_str());
-    cJSON_AddBoolToObject(root, "enable", info.enable);
-    cJSON_AddBoolToObject(root, "Custom", info.Custom);
-
-    char *json_string = cJSON_PrintUnformatted(root);
-    if (json_string != NULL) {
-        std::string json_str = json_string;
-        std::cout << "Generated JSON: " << json_str << std::endl;
-        result(json_str);
-        cJSON_free(json_string);
-    } else {
-        std::cerr << "Failed to print JSON object" << std::endl;
-        result(-1);
-    }
-    cJSON_Delete(root);
+    // char *json_string = cJSON_PrintUnformatted(root);
+    // if (json_string != NULL) {
+    //     std::string json_str = json_string;
+    //     std::cout << "Generated JSON: " << json_str << std::endl;
+    //     result(json_str);
+    //     cJSON_free(json_string);
+    // } else {
+    //     std::cerr << "Failed to print JSON object" << std::endl;
+    //     result(-1);
+    // }
+    // cJSON_Delete(root);
 }
 #endif
 

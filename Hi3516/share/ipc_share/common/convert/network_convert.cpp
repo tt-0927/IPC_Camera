@@ -10,6 +10,44 @@
 #include "network_convert.h"
 #include "convert.h" /* 这个要放在network_convert.h的后面 */
 
+#include <cerrno>
+#include <cstdlib>
+
+namespace
+{
+bool read_platform_port(Json::Object *pJson, const char *pszKey, int &nPort)
+{
+    cJSON *pItem = cJSON_GetObjectItemCaseSensitive(pJson, pszKey);
+    if (pItem == nullptr)
+    {
+        return true;
+    }
+
+    if (cJSON_IsNumber(pItem))
+    {
+        nPort = pItem->valueint;
+        return true;
+    }
+
+    if (cJSON_IsString(pItem) && pItem->valuestring != nullptr)
+    {
+        char *pEnd = nullptr;
+        errno = 0;
+        const long nValue = std::strtol(pItem->valuestring, &pEnd, 10);
+        if (errno == 0 && pEnd != pItem->valuestring && *pEnd == '\0' &&
+            nValue > 0 && nValue <= 65535)
+        {
+            nPort = static_cast<int>(nValue);
+            return true;
+        }
+    }
+
+    /* 字段存在但不是合法端口，置零后由业务层统一拒绝该配置。 */
+    nPort = 0;
+    return false;
+}
+}
+
 void Convert::deal(Json::Object *pRootJson, Network::CheckMacValid_S &stInfo, bool bOutStruct)
 {
 	if (!pRootJson)
@@ -732,9 +770,19 @@ void Convert::deal(Json::Object* pJson, Network::Platform_Info_t &stInfo, bool b
 
 	Convert::CConvert convert(bOutStruct);
 	convert.field(pJson, "server_ip", stInfo.server_ip);
-    convert.field(pJson, "server_port", stInfo.server_port);
-    convert.field(pJson, "RtmpPort", stInfo.rtmp_port);
-    convert.field(pJson, "MqttPort", stInfo.mqtt_port);
+    if (bOutStruct)
+    {
+        /* 网页端可能将 input[type=number] 以字符串形式发送，需兼容两种 JSON 类型。 */
+        read_platform_port(pJson, "server_port", stInfo.server_port);
+        read_platform_port(pJson, "RtmpPort", stInfo.rtmp_port);
+        read_platform_port(pJson, "MqttPort", stInfo.mqtt_port);
+    }
+    else
+    {
+        convert.field(pJson, "server_port", stInfo.server_port);
+        convert.field(pJson, "RtmpPort", stInfo.rtmp_port);
+        convert.field(pJson, "MqttPort", stInfo.mqtt_port);
+    }
     convert.field(pJson, "user", stInfo.user);
     convert.field(pJson, "password", stInfo.password);
 	convert.field(pJson, "enable", stInfo.enable);
