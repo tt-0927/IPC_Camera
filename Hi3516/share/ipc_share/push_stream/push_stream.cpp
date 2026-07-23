@@ -99,13 +99,8 @@ std::string build_rtmp_url(const Network::Platform_Info_t &stPlatformInfo,
  */
 bool get_rtmp_platform_info(Network::Platform_Info_t &stPlatformInfo)
 {
-    Network::LoginInfo stLoginInfo;
-    CPlatformManager::instance()->getlogininfo(stLoginInfo);
-
-    stPlatformInfo.server_ip = stLoginInfo.host;
-    stPlatformInfo.server_port = stLoginInfo.port;
-    stPlatformInfo.enable = stLoginInfo.enable;
-    stPlatformInfo.Custom = stLoginInfo.Custom;
+    /* 读取完整平台配置，确保启动及按通道重推时使用网页保存的 RTMP 端口。 */
+    CPlatformManager::instance()->getplatforminfo(stPlatformInfo);
 
     if (!stPlatformInfo.enable)
     {

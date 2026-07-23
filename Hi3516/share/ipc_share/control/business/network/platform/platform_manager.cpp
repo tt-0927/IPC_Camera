@@ -557,7 +557,6 @@ bool CPlatformManager::login(const std::string &host,
     std::string encoded_password = base64_encode(password);
     // 构建表单数据: user=admin&password=QWF...
     std::string body_str = "user=" + user + "&password=" + encoded_password;
-
     // 2. 发起请求
     std::string target_host = Custom ? host : host_;
     int target_port = Custom ? port : port_;
@@ -656,6 +655,39 @@ bool CPlatformManager::login(const std::string &host,
     return result;
 }
 
+bool CPlatformManager::apply_platform_config(const ::Network::Platform_Info_t &stInfo)
+{
+    const auto is_valid_port = [](int nPort) {
+        return nPort > 0 && nPort <= 65535;
+    };
+
+    /* 关闭平台时允许保留已有参数；启用自定义平台时必须提供完整连接参数。 */
+    if (stInfo.enable && stInfo.Custom &&
+        (stInfo.server_ip.empty() || !is_valid_port(stInfo.server_port) ||
+         !is_valid_port(stInfo.rtmp_port) || !is_valid_port(stInfo.mqtt_port) ||
+         stInfo.user.empty() || stInfo.password.empty()))
+    {
+        dlog_error("平台配置参数无效: host=%s, httpPort=%d, rtmpPort=%d, mqttPort=%d, userEmpty=%d",
+                   stInfo.server_ip.c_str(),
+                   stInfo.server_port,
+                   stInfo.rtmp_port,
+                   stInfo.mqtt_port,
+                   stInfo.user.empty());
+        return false;
+    }
+
+    /* 网页的四类参数统一写入运行时状态，供 HTTP、MQTT、RTMP 三条链路使用。 */
+    custom_host = stInfo.server_ip;
+    custom_post = stInfo.server_port;
+    m_nRtmpPort = stInfo.rtmp_port;
+    m_nMqttPort = stInfo.mqtt_port;
+    login_user = stInfo.user;
+    login_password = stInfo.password;
+    g_enable = stInfo.enable;
+    g_custom = stInfo.Custom;
+    return true;
+}
+
 void CPlatformManager::getlogininfo(::Network::LoginInfo &retLoginInfo)
 {
 
@@ -665,6 +697,16 @@ void CPlatformManager::getlogininfo(::Network::LoginInfo &retLoginInfo)
     retLoginInfo.Custom = g_custom;
     retLoginInfo.host = g_custom ? custom_host : host_;
     retLoginInfo.port = g_custom ? custom_post : port_;
+}
+
+void CPlatformManager::getplatforminfo(::Network::Platform_Info_t &retPlatformIfo)
+{
+    Network::Platform_Info_t stInfo;
+    if (Convert::read_file(PLATFORM_CONFIG_FILE, stInfo) != OK)
+    {
+        dlog_warn("读取平台配置文件失败: %s", PLATFORM_CONFIG_FILE);
+    }
+    retPlatformIfo = stInfo;
 }
 
 std::string CPlatformManager::get_access_token() const
@@ -1291,9 +1333,55 @@ bool CPlatformManager::load_config()
     login_password = stInfo.password;
     g_enable      = stInfo.enable;
     g_custom      = stInfo.Custom;
+    m_nRtmpPort   = stInfo.rtmp_port;
 
-    dlog_info("加载平台配置: host=%s, port=%d, mqtt_port=%d, enable=%d, custom=%d",
-              custom_host.c_str(), custom_post, m_nMqttPort, g_enable, g_custom);
+    Network::Platform_Info_t stDefaultInfo;
+    bool bNeedSaveConfig = false;
+    // if (custom_host == "172.16.25.125")
+    // {
+    //     dlog_warn("检测到平台地址仍为临时测试平台[%s:%d]，还原为[%s:%d]",
+    //               custom_host.c_str(),
+    //               custom_post,
+    //               stDefaultInfo.server_ip.c_str(),
+    //               stDefaultInfo.server_port);
+    //     custom_host = stDefaultInfo.server_ip;
+    //     custom_post = stDefaultInfo.server_port;
+    //     bNeedSaveConfig = true;
+    // }
+
+    // if (m_nRtmpPort == 1935)
+    // {
+    //     dlog_warn("检测到RTMP端口仍为临时测试端口[%d]，还原为[%d]",
+    //               m_nRtmpPort,
+    //               stDefaultInfo.rtmp_port);
+    //     m_nRtmpPort = stDefaultInfo.rtmp_port;
+    //     bNeedSaveConfig = true;
+    // }
+
+    // if (login_user == MQTT_PLATFORM_DEFAULT_USERNAME &&
+    //     login_password == MQTT_PLATFORM_DEFAULT_PASSWORD)
+    // {
+    //     dlog_warn("检测到平台HTTP登录账号仍为MQTT账号[%s]，改用平台HTTP默认账号[%s]",
+    //               login_user.c_str(), stDefaultInfo.user.c_str());
+    //     login_user = stDefaultInfo.user;
+    //     login_password = stDefaultInfo.password;
+    //     bNeedSaveConfig = true;
+    // }
+
+    if (bNeedSaveConfig)
+    {
+        save_config();
+    }
+
+    dlog_info("加载平台配置: host=%s, port=%d, mqtt_port=%d, rtmp_port=%d, enable=%d, custom=%d, login_user=%s, login_passwordLen=%lu",
+              custom_host.c_str(),
+              custom_post,
+              m_nMqttPort,
+              m_nRtmpPort,
+              g_enable,
+              g_custom,
+              login_user.c_str(),
+              static_cast<unsigned long>(login_password.size()));
     return true;
 }
 
@@ -1307,6 +1395,7 @@ bool CPlatformManager::save_config()
     stInfo.password = login_password;
     stInfo.enable = g_enable;
     stInfo.Custom = g_custom;
+    stInfo.rtmp_port = m_nRtmpPort;
 
     if (Convert::write_file(PLATFORM_CONFIG_FILE, stInfo) != OK)
     {
@@ -1343,7 +1432,7 @@ bool CPlatformManager::register_current_device(const std::string &strToken,
 
     CPlatformManager::StoreDevice req;
     CPlatformManager::StoreResponse resp;
-
+    dlog_error("stDeviceInfo.serialNumber: %s",stDeviceInfo.serialNumber.c_str());
     req.sn = stDeviceInfo.serialNumber.empty() ? std::to_string(stDeviceInfo.deviceID) : stDeviceInfo.serialNumber;
     req.name = stDeviceInfo.deviceName;
     req.version = stDeviceInfo.systemVersion;
@@ -1424,12 +1513,36 @@ void CPlatformManager::auto_login_loop()
     }
 }
 
-void CPlatformManager::relogin_and_update_stream()
+int CPlatformManager::change_net_relogin()
+{
+    int ret = -1;
+        if (access_token_.empty())
+        {
+            dlog_info("access_token empty");
+            return ret;
+        }
+        LoginResponse out_response;
+        std::string target_host = g_custom ? custom_host : host_;
+        int target_port = g_custom ? custom_post : port_;
+        dlog_info("change_net_relogin");
+        bool bSuccess = login(target_host, target_port, login_user, login_password, g_enable, g_custom, out_response);
+        if (bSuccess)
+        {
+            dlog_info("切换网络平台自动登录成功");
+            ret = register_current_device(out_response.data.access_token, login_user, login_password);
+            /* 登录成功后，更新推流地址 */
+            ret = relogin_and_update_stream();
+        }
+        return ret;
+}
+
+int CPlatformManager::relogin_and_update_stream()
 {
     /* 构造当前平台信息 */
     Network::Platform_Info_t stPlatformInfo;
     stPlatformInfo.server_ip = g_custom ? custom_host : host_;
     stPlatformInfo.server_port = g_custom ? custom_post : port_;
+    stPlatformInfo.rtmp_port = m_nRtmpPort;
     stPlatformInfo.enable = g_enable;
     stPlatformInfo.Custom = g_custom;
 
@@ -1443,25 +1556,42 @@ void CPlatformManager::relogin_and_update_stream()
     }
 
     /* 通过推流模块更新 RTMP（enable=false 时内部会停止推流） */
-    CPushStream::instance()->restart_rtmp_stream(stPlatformInfo);
+    return CPushStream::instance()->restart_rtmp_stream(stPlatformInfo);
 }
 
 int CPlatformManager::init_mqtt()
 {
-    /* MQTT 使用跨局域网平台提供的独立 Broker 参数，不复用 HTTP 登录账号 */
-    m_strMqttBroker = MQTT_PLATFORM_DEFAULT_BROKER;
-    m_nMqttPort = MQTT_PLATFORM_DEFAULT_PORT;
-    m_strMqttUsername = MQTT_PLATFORM_DEFAULT_USERNAME;
-    m_strMqttPassword = MQTT_PLATFORM_DEFAULT_PASSWORD;
+    /* 网页重复保存启用配置时，已有 MQTT 会话无需重复创建重连线程 */
+    if (m_pstMqtt != nullptr)
+    {
+        dlog_info("MQTT 已初始化，跳过重复连接");
+        return OK;
+    }
+    if (g_custom)
+    {
+        /* 自定义平台的 MQTT Broker 与 HTTP 服务同地址，并复用网页账号密码。 */
+        m_strMqttBroker = custom_host;
+        m_strMqttUsername = login_user;
+        m_strMqttPassword = login_password;
+    }
+    else
+    {
+        m_strMqttBroker = MQTT_PLATFORM_DEFAULT_BROKER;
+        m_nMqttPort = MQTT_PLATFORM_DEFAULT_PORT;
+        m_strMqttUsername = MQTT_PLATFORM_DEFAULT_USERNAME;
+        m_strMqttPassword = MQTT_PLATFORM_DEFAULT_PASSWORD;
+    }
     
     /* 使用设备SN作为 ClientID */
     System::DeviceInfo_S stDeviceInfo;
     SystemManage::instance()->get_device_info(stDeviceInfo);
     m_strMqttClientId = stDeviceInfo.serialNumber;
 
-    if (m_strMqttBroker.empty() || m_strMqttClientId.empty())
+    if (m_strMqttBroker.empty() || m_strMqttUsername.empty() ||
+        m_strMqttPassword.empty() || m_strMqttClientId.empty() ||
+        m_nMqttPort <= 0 || m_nMqttPort > 65535)
     {
-        dlog_error("MQTT 初始化失败：Broker 或 ClientID 为空");
+        dlog_error("MQTT 初始化失败：Broker、账号、端口或 ClientID 无效");
         return ERR_PARAM_NULL;
     }
 
@@ -1507,6 +1637,8 @@ int CPlatformManager::init_mqtt()
     if (nRet != OK)
     {
         dlog_error("MQTT 初始化失败");
+        /* 初始化未成功不保留指针，后续重新勾选平台可以再次发起连接 */
+        m_pstMqtt = nullptr;
         return ERR;
     }
 
@@ -1519,6 +1651,18 @@ int CPlatformManager::init_mqtt()
               m_strMqttBroker.c_str(), m_nMqttPort, m_strMqttClientId.c_str());
 
     return OK;
+}
+
+int CPlatformManager::restart_mqtt()
+{
+    if (m_pstMqtt != nullptr)
+    {
+        /* 旧连接仍指向原 Broker，关闭前尽力发布离线状态。 */
+        publish_device_status(false, "reconfigure");
+        deinit_mqtt();
+    }
+
+    return g_enable ? init_mqtt() : OK;
 }
 
 void CPlatformManager::deinit_mqtt()
@@ -2124,6 +2268,12 @@ int CPlatformManager::publish_device_status(bool bOnline, const std::string &str
     }
 
     return nRet;
+}
+
+void CPlatformManager::disable_mqtt_for_platform()
+{
+    publish_device_status(false, "disabled");
+    deinit_mqtt();
 }
 
 #endif
