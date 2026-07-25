@@ -226,6 +226,36 @@ home/qinjt/workdir/sdk/af_sdk/sdk_server/src/business/DeviceConfigBusiness.cpp.s
 	$(MAKE) -f CMakeFiles/NetTVSDKServer-static.dir/build.make CMakeFiles/NetTVSDKServer-static.dir/home/qinjt/workdir/sdk/af_sdk/sdk_server/src/business/DeviceConfigBusiness.cpp.s
 .PHONY : home/qinjt/workdir/sdk/af_sdk/sdk_server/src/business/DeviceConfigBusiness.cpp.s
 
+home/qinjt/workdir/sdk/af_sdk/sdk_server/src/business/DeviceControlBusiness.o: home/qinjt/workdir/sdk/af_sdk/sdk_server/src/business/DeviceControlBusiness.cpp.o
+
+.PHONY : home/qinjt/workdir/sdk/af_sdk/sdk_server/src/business/DeviceControlBusiness.o
+
+# target to build an object file
+home/qinjt/workdir/sdk/af_sdk/sdk_server/src/business/DeviceControlBusiness.cpp.o:
+	$(MAKE) -f CMakeFiles/NetTVSDKServer-shared.dir/build.make CMakeFiles/NetTVSDKServer-shared.dir/home/qinjt/workdir/sdk/af_sdk/sdk_server/src/business/DeviceControlBusiness.cpp.o
+	$(MAKE) -f CMakeFiles/NetTVSDKServer-static.dir/build.make CMakeFiles/NetTVSDKServer-static.dir/home/qinjt/workdir/sdk/af_sdk/sdk_server/src/business/DeviceControlBusiness.cpp.o
+.PHONY : home/qinjt/workdir/sdk/af_sdk/sdk_server/src/business/DeviceControlBusiness.cpp.o
+
+home/qinjt/workdir/sdk/af_sdk/sdk_server/src/business/DeviceControlBusiness.i: home/qinjt/workdir/sdk/af_sdk/sdk_server/src/business/DeviceControlBusiness.cpp.i
+
+.PHONY : home/qinjt/workdir/sdk/af_sdk/sdk_server/src/business/DeviceControlBusiness.i
+
+# target to preprocess a source file
+home/qinjt/workdir/sdk/af_sdk/sdk_server/src/business/DeviceControlBusiness.cpp.i:
+	$(MAKE) -f CMakeFiles/NetTVSDKServer-shared.dir/build.make CMakeFiles/NetTVSDKServer-shared.dir/home/qinjt/workdir/sdk/af_sdk/sdk_server/src/business/DeviceControlBusiness.cpp.i
+	$(MAKE) -f CMakeFiles/NetTVSDKServer-static.dir/build.make CMakeFiles/NetTVSDKServer-static.dir/home/qinjt/workdir/sdk/af_sdk/sdk_server/src/business/DeviceControlBusiness.cpp.i
+.PHONY : home/qinjt/workdir/sdk/af_sdk/sdk_server/src/business/DeviceControlBusiness.cpp.i
+
+home/qinjt/workdir/sdk/af_sdk/sdk_server/src/business/DeviceControlBusiness.s: home/qinjt/workdir/sdk/af_sdk/sdk_server/src/business/DeviceControlBusiness.cpp.s
+
+.PHONY : home/qinjt/workdir/sdk/af_sdk/sdk_server/src/business/DeviceControlBusiness.s
+
+# target to generate assembly for a file
+home/qinjt/workdir/sdk/af_sdk/sdk_server/src/business/DeviceControlBusiness.cpp.s:
+	$(MAKE) -f CMakeFiles/NetTVSDKServer-shared.dir/build.make CMakeFiles/NetTVSDKServer-shared.dir/home/qinjt/workdir/sdk/af_sdk/sdk_server/src/business/DeviceControlBusiness.cpp.s
+	$(MAKE) -f CMakeFiles/NetTVSDKServer-static.dir/build.make CMakeFiles/NetTVSDKServer-static.dir/home/qinjt/workdir/sdk/af_sdk/sdk_server/src/business/DeviceControlBusiness.cpp.s
+.PHONY : home/qinjt/workdir/sdk/af_sdk/sdk_server/src/business/DeviceControlBusiness.cpp.s
+
 home/qinjt/workdir/sdk/af_sdk/sdk_server/src/business/PlaybackBusiness.o: home/qinjt/workdir/sdk/af_sdk/sdk_server/src/business/PlaybackBusiness.cpp.o
 
 .PHONY : home/qinjt/workdir/sdk/af_sdk/sdk_server/src/business/PlaybackBusiness.o
@@ -255,6 +285,36 @@ home/qinjt/workdir/sdk/af_sdk/sdk_server/src/business/PlaybackBusiness.cpp.s:
 	$(MAKE) -f CMakeFiles/NetTVSDKServer-shared.dir/build.make CMakeFiles/NetTVSDKServer-shared.dir/home/qinjt/workdir/sdk/af_sdk/sdk_server/src/business/PlaybackBusiness.cpp.s
 	$(MAKE) -f CMakeFiles/NetTVSDKServer-static.dir/build.make CMakeFiles/NetTVSDKServer-static.dir/home/qinjt/workdir/sdk/af_sdk/sdk_server/src/business/PlaybackBusiness.cpp.s
 .PHONY : home/qinjt/workdir/sdk/af_sdk/sdk_server/src/business/PlaybackBusiness.cpp.s
+
+home/qinjt/workdir/sdk/af_sdk/sdk_server/src/business/RecordFrameBusiness.o: home/qinjt/workdir/sdk/af_sdk/sdk_server/src/business/RecordFrameBusiness.cpp.o
+
+.PHONY : home/qinjt/workdir/sdk/af_sdk/sdk_server/src/business/RecordFrameBusiness.o
+
+# target to build an object file
+home/qinjt/workdir/sdk/af_sdk/sdk_server/src/business/RecordFrameBusiness.cpp.o:
+	$(MAKE) -f CMakeFiles/NetTVSDKServer-shared.dir/build.make CMakeFiles/NetTVSDKServer-shared.dir/home/qinjt/workdir/sdk/af_sdk/sdk_server/src/business/RecordFrameBusiness.cpp.o
+	$(MAKE) -f CMakeFiles/NetTVSDKServer-static.dir/build.make CMakeFiles/NetTVSDKServer-static.dir/home/qinjt/workdir/sdk/af_sdk/sdk_server/src/business/RecordFrameBusiness.cpp.o
+.PHONY : home/qinjt/workdir/sdk/af_sdk/sdk_server/src/business/RecordFrameBusiness.cpp.o
+
+home/qinjt/workdir/sdk/af_sdk/sdk_server/src/business/RecordFrameBusiness.i: home/qinjt/workdir/sdk/af_sdk/sdk_server/src/business/RecordFrameBusiness.cpp.i
+
+.PHONY : home/qinjt/workdir/sdk/af_sdk/sdk_server/src/business/RecordFrameBusiness.i
+
+# target to preprocess a source file
+home/qinjt/workdir/sdk/af_sdk/sdk_server/src/business/RecordFrameBusiness.cpp.i:
+	$(MAKE) -f CMakeFiles/NetTVSDKServer-shared.dir/build.make CMakeFiles/NetTVSDKServer-shared.dir/home/qinjt/workdir/sdk/af_sdk/sdk_server/src/business/RecordFrameBusiness.cpp.i
+	$(MAKE) -f CMakeFiles/NetTVSDKServer-static.dir/build.make CMakeFiles/NetTVSDKServer-static.dir/home/qinjt/workdir/sdk/af_sdk/sdk_server/src/business/RecordFrameBusiness.cpp.i
+.PHONY : home/qinjt/workdir/sdk/af_sdk/sdk_server/src/business/RecordFrameBusiness.cpp.i
+
+home/qinjt/workdir/sdk/af_sdk/sdk_server/src/business/RecordFrameBusiness.s: home/qinjt/workdir/sdk/af_sdk/sdk_server/src/business/RecordFrameBusiness.cpp.s
+
+.PHONY : home/qinjt/workdir/sdk/af_sdk/sdk_server/src/business/RecordFrameBusiness.s
+
+# target to generate assembly for a file
+home/qinjt/workdir/sdk/af_sdk/sdk_server/src/business/RecordFrameBusiness.cpp.s:
+	$(MAKE) -f CMakeFiles/NetTVSDKServer-shared.dir/build.make CMakeFiles/NetTVSDKServer-shared.dir/home/qinjt/workdir/sdk/af_sdk/sdk_server/src/business/RecordFrameBusiness.cpp.s
+	$(MAKE) -f CMakeFiles/NetTVSDKServer-static.dir/build.make CMakeFiles/NetTVSDKServer-static.dir/home/qinjt/workdir/sdk/af_sdk/sdk_server/src/business/RecordFrameBusiness.cpp.s
+.PHONY : home/qinjt/workdir/sdk/af_sdk/sdk_server/src/business/RecordFrameBusiness.cpp.s
 
 home/qinjt/workdir/sdk/af_sdk/sdk_server/src/cb/capability/NetTVCapabilityCb.o: home/qinjt/workdir/sdk/af_sdk/sdk_server/src/cb/capability/NetTVCapabilityCb.c.o
 
@@ -526,6 +586,36 @@ home/qinjt/workdir/sdk/af_sdk/sdk_server/src/interface/modules/SessionModule.cpp
 	$(MAKE) -f CMakeFiles/NetTVSDKServer-static.dir/build.make CMakeFiles/NetTVSDKServer-static.dir/home/qinjt/workdir/sdk/af_sdk/sdk_server/src/interface/modules/SessionModule.cpp.s
 .PHONY : home/qinjt/workdir/sdk/af_sdk/sdk_server/src/interface/modules/SessionModule.cpp.s
 
+home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/DiscoveryResponder.o: home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/DiscoveryResponder.cpp.o
+
+.PHONY : home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/DiscoveryResponder.o
+
+# target to build an object file
+home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/DiscoveryResponder.cpp.o:
+	$(MAKE) -f CMakeFiles/NetTVSDKServer-shared.dir/build.make CMakeFiles/NetTVSDKServer-shared.dir/home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/DiscoveryResponder.cpp.o
+	$(MAKE) -f CMakeFiles/NetTVSDKServer-static.dir/build.make CMakeFiles/NetTVSDKServer-static.dir/home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/DiscoveryResponder.cpp.o
+.PHONY : home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/DiscoveryResponder.cpp.o
+
+home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/DiscoveryResponder.i: home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/DiscoveryResponder.cpp.i
+
+.PHONY : home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/DiscoveryResponder.i
+
+# target to preprocess a source file
+home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/DiscoveryResponder.cpp.i:
+	$(MAKE) -f CMakeFiles/NetTVSDKServer-shared.dir/build.make CMakeFiles/NetTVSDKServer-shared.dir/home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/DiscoveryResponder.cpp.i
+	$(MAKE) -f CMakeFiles/NetTVSDKServer-static.dir/build.make CMakeFiles/NetTVSDKServer-static.dir/home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/DiscoveryResponder.cpp.i
+.PHONY : home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/DiscoveryResponder.cpp.i
+
+home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/DiscoveryResponder.s: home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/DiscoveryResponder.cpp.s
+
+.PHONY : home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/DiscoveryResponder.s
+
+# target to generate assembly for a file
+home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/DiscoveryResponder.cpp.s:
+	$(MAKE) -f CMakeFiles/NetTVSDKServer-shared.dir/build.make CMakeFiles/NetTVSDKServer-shared.dir/home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/DiscoveryResponder.cpp.s
+	$(MAKE) -f CMakeFiles/NetTVSDKServer-static.dir/build.make CMakeFiles/NetTVSDKServer-static.dir/home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/DiscoveryResponder.cpp.s
+.PHONY : home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/DiscoveryResponder.cpp.s
+
 home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/HttpAuthHandler.o: home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/HttpAuthHandler.cpp.o
 
 .PHONY : home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/HttpAuthHandler.o
@@ -555,6 +645,36 @@ home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/HttpAuthHandler.cpp.s:
 	$(MAKE) -f CMakeFiles/NetTVSDKServer-shared.dir/build.make CMakeFiles/NetTVSDKServer-shared.dir/home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/HttpAuthHandler.cpp.s
 	$(MAKE) -f CMakeFiles/NetTVSDKServer-static.dir/build.make CMakeFiles/NetTVSDKServer-static.dir/home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/HttpAuthHandler.cpp.s
 .PHONY : home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/HttpAuthHandler.cpp.s
+
+home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/RecordFrameServer.o: home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/RecordFrameServer.cpp.o
+
+.PHONY : home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/RecordFrameServer.o
+
+# target to build an object file
+home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/RecordFrameServer.cpp.o:
+	$(MAKE) -f CMakeFiles/NetTVSDKServer-shared.dir/build.make CMakeFiles/NetTVSDKServer-shared.dir/home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/RecordFrameServer.cpp.o
+	$(MAKE) -f CMakeFiles/NetTVSDKServer-static.dir/build.make CMakeFiles/NetTVSDKServer-static.dir/home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/RecordFrameServer.cpp.o
+.PHONY : home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/RecordFrameServer.cpp.o
+
+home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/RecordFrameServer.i: home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/RecordFrameServer.cpp.i
+
+.PHONY : home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/RecordFrameServer.i
+
+# target to preprocess a source file
+home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/RecordFrameServer.cpp.i:
+	$(MAKE) -f CMakeFiles/NetTVSDKServer-shared.dir/build.make CMakeFiles/NetTVSDKServer-shared.dir/home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/RecordFrameServer.cpp.i
+	$(MAKE) -f CMakeFiles/NetTVSDKServer-static.dir/build.make CMakeFiles/NetTVSDKServer-static.dir/home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/RecordFrameServer.cpp.i
+.PHONY : home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/RecordFrameServer.cpp.i
+
+home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/RecordFrameServer.s: home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/RecordFrameServer.cpp.s
+
+.PHONY : home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/RecordFrameServer.s
+
+# target to generate assembly for a file
+home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/RecordFrameServer.cpp.s:
+	$(MAKE) -f CMakeFiles/NetTVSDKServer-shared.dir/build.make CMakeFiles/NetTVSDKServer-shared.dir/home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/RecordFrameServer.cpp.s
+	$(MAKE) -f CMakeFiles/NetTVSDKServer-static.dir/build.make CMakeFiles/NetTVSDKServer-static.dir/home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/RecordFrameServer.cpp.s
+.PHONY : home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/RecordFrameServer.cpp.s
 
 home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/RouteRegistry.o: home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/RouteRegistry.cpp.o
 
@@ -676,6 +796,36 @@ home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/SessionManager.cpp.s:
 	$(MAKE) -f CMakeFiles/NetTVSDKServer-static.dir/build.make CMakeFiles/NetTVSDKServer-static.dir/home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/SessionManager.cpp.s
 .PHONY : home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/SessionManager.cpp.s
 
+home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/VoiceComServer.o: home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/VoiceComServer.cpp.o
+
+.PHONY : home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/VoiceComServer.o
+
+# target to build an object file
+home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/VoiceComServer.cpp.o:
+	$(MAKE) -f CMakeFiles/NetTVSDKServer-shared.dir/build.make CMakeFiles/NetTVSDKServer-shared.dir/home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/VoiceComServer.cpp.o
+	$(MAKE) -f CMakeFiles/NetTVSDKServer-static.dir/build.make CMakeFiles/NetTVSDKServer-static.dir/home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/VoiceComServer.cpp.o
+.PHONY : home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/VoiceComServer.cpp.o
+
+home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/VoiceComServer.i: home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/VoiceComServer.cpp.i
+
+.PHONY : home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/VoiceComServer.i
+
+# target to preprocess a source file
+home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/VoiceComServer.cpp.i:
+	$(MAKE) -f CMakeFiles/NetTVSDKServer-shared.dir/build.make CMakeFiles/NetTVSDKServer-shared.dir/home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/VoiceComServer.cpp.i
+	$(MAKE) -f CMakeFiles/NetTVSDKServer-static.dir/build.make CMakeFiles/NetTVSDKServer-static.dir/home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/VoiceComServer.cpp.i
+.PHONY : home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/VoiceComServer.cpp.i
+
+home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/VoiceComServer.s: home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/VoiceComServer.cpp.s
+
+.PHONY : home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/VoiceComServer.s
+
+# target to generate assembly for a file
+home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/VoiceComServer.cpp.s:
+	$(MAKE) -f CMakeFiles/NetTVSDKServer-shared.dir/build.make CMakeFiles/NetTVSDKServer-shared.dir/home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/VoiceComServer.cpp.s
+	$(MAKE) -f CMakeFiles/NetTVSDKServer-static.dir/build.make CMakeFiles/NetTVSDKServer-static.dir/home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/VoiceComServer.cpp.s
+.PHONY : home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/VoiceComServer.cpp.s
+
 home/qinjt/workdir/sdk/af_sdk/sdk_share/tools/convert/AlarmInfoConvert.o: home/qinjt/workdir/sdk/af_sdk/sdk_share/tools/convert/AlarmInfoConvert.cpp.o
 
 .PHONY : home/qinjt/workdir/sdk/af_sdk/sdk_share/tools/convert/AlarmInfoConvert.o
@@ -796,6 +946,36 @@ home/qinjt/workdir/sdk/af_sdk/sdk_share/tools/convert/DeviceInfoConvert.cpp.s:
 	$(MAKE) -f CMakeFiles/NetTVSDKServer-static.dir/build.make CMakeFiles/NetTVSDKServer-static.dir/home/qinjt/workdir/sdk/af_sdk/sdk_share/tools/convert/DeviceInfoConvert.cpp.s
 .PHONY : home/qinjt/workdir/sdk/af_sdk/sdk_share/tools/convert/DeviceInfoConvert.cpp.s
 
+home/qinjt/workdir/sdk/af_sdk/sdk_share/tools/discovery/DiscoveryProtocol.o: home/qinjt/workdir/sdk/af_sdk/sdk_share/tools/discovery/DiscoveryProtocol.cpp.o
+
+.PHONY : home/qinjt/workdir/sdk/af_sdk/sdk_share/tools/discovery/DiscoveryProtocol.o
+
+# target to build an object file
+home/qinjt/workdir/sdk/af_sdk/sdk_share/tools/discovery/DiscoveryProtocol.cpp.o:
+	$(MAKE) -f CMakeFiles/NetTVSDKServer-shared.dir/build.make CMakeFiles/NetTVSDKServer-shared.dir/home/qinjt/workdir/sdk/af_sdk/sdk_share/tools/discovery/DiscoveryProtocol.cpp.o
+	$(MAKE) -f CMakeFiles/NetTVSDKServer-static.dir/build.make CMakeFiles/NetTVSDKServer-static.dir/home/qinjt/workdir/sdk/af_sdk/sdk_share/tools/discovery/DiscoveryProtocol.cpp.o
+.PHONY : home/qinjt/workdir/sdk/af_sdk/sdk_share/tools/discovery/DiscoveryProtocol.cpp.o
+
+home/qinjt/workdir/sdk/af_sdk/sdk_share/tools/discovery/DiscoveryProtocol.i: home/qinjt/workdir/sdk/af_sdk/sdk_share/tools/discovery/DiscoveryProtocol.cpp.i
+
+.PHONY : home/qinjt/workdir/sdk/af_sdk/sdk_share/tools/discovery/DiscoveryProtocol.i
+
+# target to preprocess a source file
+home/qinjt/workdir/sdk/af_sdk/sdk_share/tools/discovery/DiscoveryProtocol.cpp.i:
+	$(MAKE) -f CMakeFiles/NetTVSDKServer-shared.dir/build.make CMakeFiles/NetTVSDKServer-shared.dir/home/qinjt/workdir/sdk/af_sdk/sdk_share/tools/discovery/DiscoveryProtocol.cpp.i
+	$(MAKE) -f CMakeFiles/NetTVSDKServer-static.dir/build.make CMakeFiles/NetTVSDKServer-static.dir/home/qinjt/workdir/sdk/af_sdk/sdk_share/tools/discovery/DiscoveryProtocol.cpp.i
+.PHONY : home/qinjt/workdir/sdk/af_sdk/sdk_share/tools/discovery/DiscoveryProtocol.cpp.i
+
+home/qinjt/workdir/sdk/af_sdk/sdk_share/tools/discovery/DiscoveryProtocol.s: home/qinjt/workdir/sdk/af_sdk/sdk_share/tools/discovery/DiscoveryProtocol.cpp.s
+
+.PHONY : home/qinjt/workdir/sdk/af_sdk/sdk_share/tools/discovery/DiscoveryProtocol.s
+
+# target to generate assembly for a file
+home/qinjt/workdir/sdk/af_sdk/sdk_share/tools/discovery/DiscoveryProtocol.cpp.s:
+	$(MAKE) -f CMakeFiles/NetTVSDKServer-shared.dir/build.make CMakeFiles/NetTVSDKServer-shared.dir/home/qinjt/workdir/sdk/af_sdk/sdk_share/tools/discovery/DiscoveryProtocol.cpp.s
+	$(MAKE) -f CMakeFiles/NetTVSDKServer-static.dir/build.make CMakeFiles/NetTVSDKServer-static.dir/home/qinjt/workdir/sdk/af_sdk/sdk_share/tools/discovery/DiscoveryProtocol.cpp.s
+.PHONY : home/qinjt/workdir/sdk/af_sdk/sdk_share/tools/discovery/DiscoveryProtocol.cpp.s
+
 home/qinjt/workdir/sdk/af_sdk/sdk_share/tools/json/Json.o: home/qinjt/workdir/sdk/af_sdk/sdk_share/tools/json/Json.cpp.o
 
 .PHONY : home/qinjt/workdir/sdk/af_sdk/sdk_share/tools/json/Json.o
@@ -905,9 +1085,15 @@ help:
 	@echo "... home/qinjt/workdir/sdk/af_sdk/sdk_server/src/business/DeviceConfigBusiness.o"
 	@echo "... home/qinjt/workdir/sdk/af_sdk/sdk_server/src/business/DeviceConfigBusiness.i"
 	@echo "... home/qinjt/workdir/sdk/af_sdk/sdk_server/src/business/DeviceConfigBusiness.s"
+	@echo "... home/qinjt/workdir/sdk/af_sdk/sdk_server/src/business/DeviceControlBusiness.o"
+	@echo "... home/qinjt/workdir/sdk/af_sdk/sdk_server/src/business/DeviceControlBusiness.i"
+	@echo "... home/qinjt/workdir/sdk/af_sdk/sdk_server/src/business/DeviceControlBusiness.s"
 	@echo "... home/qinjt/workdir/sdk/af_sdk/sdk_server/src/business/PlaybackBusiness.o"
 	@echo "... home/qinjt/workdir/sdk/af_sdk/sdk_server/src/business/PlaybackBusiness.i"
 	@echo "... home/qinjt/workdir/sdk/af_sdk/sdk_server/src/business/PlaybackBusiness.s"
+	@echo "... home/qinjt/workdir/sdk/af_sdk/sdk_server/src/business/RecordFrameBusiness.o"
+	@echo "... home/qinjt/workdir/sdk/af_sdk/sdk_server/src/business/RecordFrameBusiness.i"
+	@echo "... home/qinjt/workdir/sdk/af_sdk/sdk_server/src/business/RecordFrameBusiness.s"
 	@echo "... home/qinjt/workdir/sdk/af_sdk/sdk_server/src/cb/capability/NetTVCapabilityCb.o"
 	@echo "... home/qinjt/workdir/sdk/af_sdk/sdk_server/src/cb/capability/NetTVCapabilityCb.i"
 	@echo "... home/qinjt/workdir/sdk/af_sdk/sdk_server/src/cb/capability/NetTVCapabilityCb.s"
@@ -935,9 +1121,15 @@ help:
 	@echo "... home/qinjt/workdir/sdk/af_sdk/sdk_server/src/interface/modules/SessionModule.o"
 	@echo "... home/qinjt/workdir/sdk/af_sdk/sdk_server/src/interface/modules/SessionModule.i"
 	@echo "... home/qinjt/workdir/sdk/af_sdk/sdk_server/src/interface/modules/SessionModule.s"
+	@echo "... home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/DiscoveryResponder.o"
+	@echo "... home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/DiscoveryResponder.i"
+	@echo "... home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/DiscoveryResponder.s"
 	@echo "... home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/HttpAuthHandler.o"
 	@echo "... home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/HttpAuthHandler.i"
 	@echo "... home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/HttpAuthHandler.s"
+	@echo "... home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/RecordFrameServer.o"
+	@echo "... home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/RecordFrameServer.i"
+	@echo "... home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/RecordFrameServer.s"
 	@echo "... home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/RouteRegistry.o"
 	@echo "... home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/RouteRegistry.i"
 	@echo "... home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/RouteRegistry.s"
@@ -950,6 +1142,9 @@ help:
 	@echo "... home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/SessionManager.o"
 	@echo "... home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/SessionManager.i"
 	@echo "... home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/SessionManager.s"
+	@echo "... home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/VoiceComServer.o"
+	@echo "... home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/VoiceComServer.i"
+	@echo "... home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/VoiceComServer.s"
 	@echo "... home/qinjt/workdir/sdk/af_sdk/sdk_share/tools/convert/AlarmInfoConvert.o"
 	@echo "... home/qinjt/workdir/sdk/af_sdk/sdk_share/tools/convert/AlarmInfoConvert.i"
 	@echo "... home/qinjt/workdir/sdk/af_sdk/sdk_share/tools/convert/AlarmInfoConvert.s"
@@ -962,6 +1157,9 @@ help:
 	@echo "... home/qinjt/workdir/sdk/af_sdk/sdk_share/tools/convert/DeviceInfoConvert.o"
 	@echo "... home/qinjt/workdir/sdk/af_sdk/sdk_share/tools/convert/DeviceInfoConvert.i"
 	@echo "... home/qinjt/workdir/sdk/af_sdk/sdk_share/tools/convert/DeviceInfoConvert.s"
+	@echo "... home/qinjt/workdir/sdk/af_sdk/sdk_share/tools/discovery/DiscoveryProtocol.o"
+	@echo "... home/qinjt/workdir/sdk/af_sdk/sdk_share/tools/discovery/DiscoveryProtocol.i"
+	@echo "... home/qinjt/workdir/sdk/af_sdk/sdk_share/tools/discovery/DiscoveryProtocol.s"
 	@echo "... home/qinjt/workdir/sdk/af_sdk/sdk_share/tools/json/Json.o"
 	@echo "... home/qinjt/workdir/sdk/af_sdk/sdk_share/tools/json/Json.i"
 	@echo "... home/qinjt/workdir/sdk/af_sdk/sdk_share/tools/json/Json.s"

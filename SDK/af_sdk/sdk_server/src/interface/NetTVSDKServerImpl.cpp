@@ -5,7 +5,7 @@
 #include "modules/ServerModule.h"
 #include "modules/SessionModule.h"
 #include "modules/RouteModule.h"
-#include "modules/AlarmModule.h"
+#include "modules/VisualSecurity/AlarmModule.h"
 #include "DiscoveryResponder.h"
 #include "NetSdkLog.h"
 
@@ -183,7 +183,7 @@ BOOL CNetTVSDKServerImpl::DoSetUserPasswd(CHAR szUserName[NET_TV_LEN_132],
     return m_pSessionModule->UpdatePassword(szUserName, szPassword);
 }
 
-BOOL CNetTVSDKServerImpl::DoPushAlarmInfo(NET_TV_ALARMER_S* pAlarmer,
+BOOL CNetTVSDKServerImpl::DoPushAlarmInfo(NET_Alarmer_S* pAlarmer,
                                          INT32 lCommand,
                                          LPVOID pAlarmInfo,
                                          INT32 dwBufLen)
@@ -230,7 +230,7 @@ BOOL CNetTVSDKServerImpl::DoDiscoveryStart(const CHAR* szInterfaceName)
     /* 注册回调：C 回调 → C++ lambda */
     NET_TV_CB_GetDiscoveryDeviceInfo cb = m_cbDiscoveryDeviceInfo;
     m_pDiscoveryResponder->set_device_info_callback(
-        [cb](NET_TV_DISCOVERY_DEVICE_INFO_S* pInfo) {
+        [cb](NET_DiscoveryDeviceInfo_S* pInfo) {
             if (cb) cb(pInfo);
         });
 

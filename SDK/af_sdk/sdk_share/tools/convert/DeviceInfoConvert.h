@@ -20,12 +20,13 @@
 namespace SDKConvert
 {
     void deal(Json::Object* pRootJson, NET_TV_AUDIO_CFG_S& stInfo, bool bOutStruct);
-    void deal(Json::Object* pRootJson, NET_TV_ENTER_REGION_ALARM_INFO_S& stInfo, bool bOutStruct);
-    void deal(Json::Object* pRootJson, NET_TV_LEAVE_REGION_ALARM_INFO_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_EnterRegionAlarmInfo_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_LeaveRegionAlarmInfo_S& stInfo, bool bOutStruct);
 
-    void deal(Json::Object* pRootJson, NET_TV_DEVICE_INFO_S& stInfo, bool bOutStruct);
-    void deal(Json::Object* pRootJson, NET_TV_DEVICE_BASICINFO_S& stInfo, bool bOutStruct);
-    void deal(Json::Object* pRootJson, NET_TV_SYSTEM_NTP_INFO_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_DeviceInfo_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_DeviceBasicInfo_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_SystemNtpInfo_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_UserPasswordInfo_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_TV_NETWORKCFG_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_TV_WIFI_STA_CFG_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_TV_WIFI_WEP_KEY_S& stInfo, bool bOutStruct);
@@ -59,10 +60,10 @@ namespace SDKConvert
     void deal(Json::Object* pRootJson, NET_TV_RECORD_DOWNLOAD_LIST_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_TV_VIDEO_OSD_CFG_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_TV_RTSP_URL_INFO_S& stInfo, bool bOutStruct);
-    void deal(Json::Object* pRootJson, NET_TV_DEVICE_CONTROL_INFO_S& stInfo, bool bOutStruct);
-    void deal(Json::Object* pRootJson, NET_TV_RECORD_FRAME_STREAM_COND_S& stInfo, bool bOutStruct);
-    void deal(Json::Object* pRootJson, NET_TV_RECORD_FRAME_STREAM_INFO_S& stInfo, bool bOutStruct);
-    void deal(Json::Object* pRootJson, NET_TV_RECORD_FRAME_STOP_INFO_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_DeviceControlInfo_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_RecordFrameStreamCond_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_RecordFrameStreamInfo_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_RecordFrameStopInfo_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_TV_REPLAY_URL_INFO_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_TV_REPLAY_CTRL_INFO_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_TV_REPLAY_RECORD_TIME_S& stInfo, bool bOutStruct);
@@ -76,9 +77,10 @@ namespace SDKConvert
     void deal(Json::Object* pRootJson, NET_TV_IMAGE_SETTING_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_TV_PREVIEW_INFO_S& stInfo, bool bOutStruct);
 
-    void deal(Json::Object* pRootJson, NET_TV_TALKBACK_STATE_INFO_S& stInfo, bool bOutStruct);
-    void deal(Json::Object* pRootJson, NET_TV_TALKBACK_STREAM_INFO_S& stInfo, bool bOutStruct);
-    void deal(Json::Object* pRootJson, NET_TV_REPLAY_TALKBACK_INFO_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_TalkbackStateInfo_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_TalkbackStreamInfo_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_ReplayTalkbackInfo_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_VoiceComAudioCfg_S& stInfo, bool bOutStruct);
 
 
     // 系统升级相关
@@ -89,82 +91,82 @@ namespace SDKConvert
     
     // 布防时间和联动相关
     void deal(Json::Object* pRootJson, NET_TV_SCHED_TIME_S& stInfo, bool bOutStruct);
-    void deal(Json::Object* pRootJson, NET_TV_ALARM_SCHEDULE_S& stInfo, bool bOutStruct);
-    void deal(Json::Object* pRootJson, NET_TV_LINKAGE_LIST_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_AlarmSchedule_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_LinkageList_S& stInfo, bool bOutStruct);
     
     // 移动侦测相关
-    void deal(Json::Object* pRootJson, NET_TV_MOTION_REGION_S& stInfo, bool bOutStruct);
-    void deal(Json::Object* pRootJson, NET_TV_MOTION_EXPERT_MODE_S& stInfo, bool bOutStruct);
-    void deal(Json::Object* pRootJson, NET_TV_MOTION_NORMAL_MODE_S& stInfo, bool bOutStruct);
-    void deal(Json::Object* pRootJson, NET_TV_MOTION_ALARM_INFO_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_MotionRegion_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_MotionExpertMode_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_MotionNormalMode_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_MotionAlarmInfo_S& stInfo, bool bOutStruct);
     
     // 隐私遮盖配置相关
     void deal(Json::Object* pRootJson, NET_TV_PRIVACY_MASK_AREA_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_TV_PRIVACY_MASK_CFG_S& stInfo, bool bOutStruct);
 
     // 遮挡报警相关
-    void deal(Json::Object* pRootJson, NET_TV_TAMPER_ALARM_INFO_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_TamperAlarmInfo_S& stInfo, bool bOutStruct);
     
     // 越界检测相关
-    void deal(Json::Object* pRootJson, NET_TV_BOUNDARY_PLANE_S& stInfo, bool bOutStruct);
-    void deal(Json::Object* pRootJson, NET_TV_CROSS_LINE_ALARM_INFO_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_BoundaryPlane_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_CrossLineAlarmInfo_S& stInfo, bool bOutStruct);
     
     // 入侵检测相关
-    void deal(Json::Object* pRootJson, NET_TV_INTRUSION_RULE_S& stInfo, bool bOutStruct);
-    void deal(Json::Object* pRootJson, NET_TV_INTRUSION_ALARM_INFO_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_IntrusionRule_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_IntrusionAlarmInfo_S& stInfo, bool bOutStruct);
 
     // 徘徊侦测相关
-    void deal(Json::Object* pRootJson, NET_TV_LOITERING_RULE_S& stInfo, bool bOutStruct);
-    void deal(Json::Object* pRootJson, NET_TV_LOITERING_ALARM_INFO_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_LoiteringRule_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_LoiteringAlarmInfo_S& stInfo, bool bOutStruct);
 
-    void deal(Json::Object* pRootJson, NET_TV_AUDIO_ANOMALY_ALARM_INFO_S& stInfo, bool bOutStruct);
-    void deal(Json::Object* pRootJson, NET_TV_SCENE_CHANGE_ALARM_INFO_S& stInfo, bool bOutStruct);
-    void deal(Json::Object* pRootJson, NET_TV_CROWD_GATHERING_RULE_S& stInfo, bool bOutStruct);
-    void deal(Json::Object* pRootJson, NET_TV_CROWD_GATHERING_ALARM_INFO_S& stInfo, bool bOutStruct);
-    void deal(Json::Object* pRootJson, NET_TV_PARKING_RULE_S& stInfo, bool bOutStruct);
-    void deal(Json::Object* pRootJson, NET_TV_PARKING_ALARM_INFO_S& stInfo, bool bOutStruct);
-    void deal(Json::Object* pRootJson, NET_TV_UNATTENDED_OBJECT_RULE_S& stInfo, bool bOutStruct);
-    void deal(Json::Object* pRootJson, NET_TV_UNATTENDED_OBJECT_ALARM_INFO_S& stInfo, bool bOutStruct);
-    void deal(Json::Object* pRootJson, NET_TV_OBJECT_REMOVAL_RULE_S& stInfo, bool bOutStruct);
-    void deal(Json::Object* pRootJson, NET_TV_OBJECT_REMOVAL_ALARM_INFO_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_AudioAnomalyAlarmInfo_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_SceneChangeAlarmInfo_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_CrowdGatheringRule_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_CrowdGatheringAlarmInfo_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_ParkingRule_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_ParkingAlarmInfo_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_UnattendedObjectRule_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_UnattendedObjectAlarmInfo_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_ObjectRemovalRule_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_ObjectRemovalAlarmInfo_S& stInfo, bool bOutStruct);
 
     // 垃圾检测配置
-    void deal(Json::Object* pRootJson, NET_TV_GARBAGE_EXPOSURE_RULE_S& stInfo, bool bOutStruct);
-    void deal(Json::Object* pRootJson, NET_TV_GARBAGE_EXPOSURE_CFG_S& stInfo, bool bOutStruct);
-    void deal(Json::Object* pRootJson, NET_TV_GARBAGE_OVERFLOW_RULE_S& stInfo, bool bOutStruct);
-    void deal(Json::Object* pRootJson, NET_TV_GARBAGE_OVERFLOW_CFG_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_GarbageExposureRule_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_GarbageExposureCfg_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_GarbageOverflowRule_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_GarbageOverflowCfg_S& stInfo, bool bOutStruct);
 
     // 单规则智能检测配置
-    void deal(Json::Object* pRootJson, NET_TV_AI_SIMPLE_RULE_S& stInfo, bool bOutStruct);
-    void deal(Json::Object* pRootJson, NET_TV_MANHOLE_COVER_ABNORMAL_CFG_S& stInfo, bool bOutStruct);
-    void deal(Json::Object* pRootJson, NET_TV_SLEEP_ON_DUTY_CFG_S& stInfo, bool bOutStruct);
-    void deal(Json::Object* pRootJson, NET_TV_ELECTRIC_VEHICLE_IN_ELEVATOR_CFG_S& stInfo, bool bOutStruct);
-    void deal(Json::Object* pRootJson, NET_TV_PERSON_FALL_DOWN_CFG_S& stInfo, bool bOutStruct);
-    void deal(Json::Object* pRootJson, NET_TV_CONSTRUCTION_OCCUPY_ROAD_CFG_S& stInfo, bool bOutStruct);
-    void deal(Json::Object* pRootJson, NET_TV_CONGESTION_CFG_S& stInfo, bool bOutStruct);
-    void deal(Json::Object* pRootJson, NET_TV_LICENSE_PLATE_RECOGNITION_CFG_S& stInfo, bool bOutStruct);
-    void deal(Json::Object* pRootJson, NET_TV_HIGH_ALTITUDE_SEATBELT_CFG_S& stInfo, bool bOutStruct);
-    void deal(Json::Object* pRootJson, NET_TV_SAFETY_HELMET_CFG_S& stInfo, bool bOutStruct);
-    void deal(Json::Object* pRootJson, NET_TV_PERSON_FALL_CFG_S& stInfo, bool bOutStruct);
-    void deal(Json::Object* pRootJson, NET_TV_PHONE_USAGE_CFG_S& stInfo, bool bOutStruct);
-    void deal(Json::Object* pRootJson, NET_TV_SMOKING_CFG_S& stInfo, bool bOutStruct);
-    void deal(Json::Object* pRootJson, NET_TV_OPEN_FLAME_CFG_S& stInfo, bool bOutStruct);
-    void deal(Json::Object* pRootJson, NET_TV_BARE_SOIL_CFG_S& stInfo, bool bOutStruct);
-    void deal(Json::Object* pRootJson, NET_TV_HOLE_PROTECTION_BAR_CFG_S& stInfo, bool bOutStruct);
-    void deal(Json::Object* pRootJson, NET_TV_REFLECTIVE_CLOTHING_CFG_S& stInfo, bool bOutStruct);
-    void deal(Json::Object* pRootJson, NET_TV_SMART_REGION_S& stInfo, bool bOutStruct);
-    void deal(Json::Object* pRootJson, NET_TV_SMART_REGION_RULE_S& stInfo, bool bOutStruct);
-    void deal(Json::Object* pRootJson, NET_TV_SMART_LINE_RULE_S& stInfo, bool bOutStruct);
-    void deal(Json::Object* pRootJson, NET_TV_PET_RECOGNITION_INFO_S& stInfo, bool bOutStruct);
-    void deal(Json::Object* pRootJson, NET_TV_CLIMB_FENCE_INFO_S& stInfo, bool bOutStruct);
-    void deal(Json::Object* pRootJson, NET_TV_DIMISSION_INFO_S& stInfo, bool bOutStruct);
-    void deal(Json::Object* pRootJson, NET_TV_ILLEGAL_LANE_INFO_S& stInfo, bool bOutStruct);
-    void deal(Json::Object* pRootJson, NET_TV_RETROGRADE_INFO_S& stInfo, bool bOutStruct);
-    void deal(Json::Object* pRootJson, NET_TV_NONMOTOR_VEHICLE_INTRUSION_INFO_S& stInfo, bool bOutStruct);
-    void deal(Json::Object* pRootJson, NET_TV_OCCUPATION_EMERGENCY_INFO_S& stInfo, bool bOutStruct);
-    void deal(Json::Object* pRootJson, NET_TV_PEDESTRIAN_INTRUSION_INFO_S& stInfo, bool bOutStruct);
-    void deal(Json::Object* pRootJson, NET_TV_SMOKE_FIRE_CFG_S& stInfo, bool bOutStruct);
-    void deal(Json::Object* pRootJson, NET_TV_ROAD_PONDING_CFG_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_AiSimpleRule_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_ManholeCoverAbnormalCfg_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_SleepOnDutyCfg_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_ElectricVehicleInElevatorCfg_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_PersonFallDownCfg_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_ConstructionOccupyRoadCfg_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_CongestionCfg_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_LicensePlateRecognitionCfg_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_HighAltitudeSeatbeltCfg_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_SafetyHelmetCfg_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_PersonFallCfg_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_PhoneUsageCfg_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_SmokingCfg_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_OpenFlameCfg_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_BareSoilCfg_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_HoleProtectionBarCfg_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_ReflectiveClothingCfg_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_SmartRegion_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_SmartRegionRule_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_SmartLineRule_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_PetRecognitionInfo_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_ClimbFenceInfo_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_DimissionInfo_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_IllegalLaneInfo_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_RetrogradeInfo_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_NonmotorVehicleIntrusionInfo_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_OccupationEmergencyInfo_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_PedestrianIntrusionInfo_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_SmokeFireCfg_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_RoadPondingCfg_S& stInfo, bool bOutStruct);
     
     // 抓图计划相关
     void deal(Json::Object *pRootJson, NET_TV_CAPTURE_TIME_S &stInfo, bool bOutStruct);
@@ -172,8 +174,8 @@ namespace SDKConvert
     void deal(Json::Object *pRootJson, NET_TV_CAPTURE_PLAN_INFO_S &stInfo, bool bOutStruct);
 
     // 抓图参数相关
-    void deal(Json::Object *pRootJson, NET_TV_CAPTURE_CONFIG_S &stInfo, bool bOutStruct);
-    void deal(Json::Object *pRootJson, NET_TV_CAPTURE_PARAM_INFO_S &stInfo, bool bOutStruct);
+    void deal(Json::Object *pRootJson, NET_CaptureConfig_S &stInfo, bool bOutStruct);
+    void deal(Json::Object *pRootJson, NET_CaptureParamInfo_S &stInfo, bool bOutStruct);
 
     // ISP params
     void deal(Json::Object *pRootJson, NET_TV_EXPOSURE_INFO_S &stInfo, bool bOutStruct);
@@ -182,10 +184,10 @@ namespace SDKConvert
     void deal(Json::Object *pRootJson, NET_TV_DENOISE_INFO_S &stInfo, bool bOutStruct);
     void deal(Json::Object *pRootJson, NET_TV_WHITEBALANCE_INFO_S &stInfo, bool bOutStruct);
 
-    void deal(Json::Object* pRootJson, NET_TV_FACE_CAPTURE_REGION_S& stInfo, bool bOutStruct);
-    void deal(Json::Object* pRootJson, NET_TV_FACE_CAPTURE_RULE_S& stInfo, bool bOutStruct);
-    void deal(Json::Object* pRootJson, NET_TV_FACE_CAPTURE_INFO_S& stInfo, bool bOutStruct);
-    void deal(Json::Object* pRootJson, NET_TV_FACE_COMPARE_INFO_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_FaceCaptureRegion_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_FaceCaptureRule_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_FaceCaptureInfo_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_FaceCompareInfo_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_TV_FACE_LIB_INFO_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_TV_FACE_LIB_LIST_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_TV_FACE_ID_INFO_S& stInfo, bool bOutStruct);
@@ -193,12 +195,12 @@ namespace SDKConvert
     void deal(Json::Object* pRootJson, NET_TV_FACE_INFO_LIST_S& stInfo, bool bOutStruct);
 
     // 人流统计与人员密度检测相关
-    void deal(Json::Object* pRootJson, NET_TV_PEOPLE_FLOW_RULE_LINE_S& stInfo, bool bOutStruct);
-    void deal(Json::Object* pRootJson, NET_TV_PEOPLE_ALARM_RULE_S& stInfo, bool bOutStruct);
-    void deal(Json::Object* pRootJson, NET_TV_PEOPLE_ALARM_CONFIG_S& stInfo, bool bOutStruct);
-    void deal(Json::Object* pRootJson, NET_TV_STATISTICS_RESET_CONFIG_S& stInfo, bool bOutStruct);
-    void deal(Json::Object* pRootJson, NET_TV_PEOPLE_FLOW_STATISTICS_CFG_S& stInfo, bool bOutStruct);
-    void deal(Json::Object* pRootJson, NET_TV_PEOPLE_DENSITY_DETECTION_CFG_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_PeopleFlowRuleLine_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_PeopleAlarmRule_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_PeopleAlarmConfig_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_StatisticsResetConfig_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_PeopleFlowStatisticsCfg_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_PeopleDensityDetectionCfg_S& stInfo, bool bOutStruct);
 };
 
 #endif

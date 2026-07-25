@@ -1,0 +1,22 @@
+{
+    "version": "v1.1",
+    "model": "ImageFeature",
+    "notes": "人脸质量评估",
+    "model_path": "/opt/cam/model/RV1126B_FaceEvaluate_112x112_V1_1.rknn",
+    "pre_process": {
+        "size": [
+            112,
+            112
+        ],
+        "channel": 3,
+        "type": "rgb",
+        "mean": [127.5,127.5,127.5],
+        "std": [127.5,127.5,127.5],
+        "padding": 0
+    },
+    "inference": {
+        "framework": "rv1126b"
+    },
+    "post_precess": {
+    }
+}

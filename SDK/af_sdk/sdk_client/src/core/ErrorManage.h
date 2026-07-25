@@ -28,17 +28,28 @@ public:
 
 public:
 
+    /**
+     * @brief 设置最后错误码
+     * @param [IN] code 错误码
+     */
     void SetLastError(int code) 
 	{
         lastErrorCode_ = code;
     }
 
+    /**
+     * @brief 获取最后错误码
+     * @return 错误码
+     */
     int GetLastError() 
 	{
         return lastErrorCode_;
     }
 
-    // 获取错误描述
+    /**
+     * @brief 获取错误描述（预留接口）
+     * @return 错误描述字符串
+     */
     const char* GetErrorMsg() 
 	{
        

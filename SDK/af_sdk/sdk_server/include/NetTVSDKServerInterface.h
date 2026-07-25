@@ -1,5 +1,10 @@
 
 
+/**
+ * @file NetTVSDKServerInterface.h
+ * @brief SDK服务端接口头文件，定义服务端初始化、配置回调注册、设备发现、语音对讲、录像帧流等核心接口
+ * @note 服务端接口采用C风格API，供宿主程序（如NVR、IPC）调用，用于注册回调和推送消息
+ */
 #ifndef _NET_TV_SDKSERVER_INTERFACE_H
 #define _NET_TV_SDKSERVER_INTERFACE_H
 
@@ -14,7 +19,7 @@ extern "C" {
 #endif
 
 /************************************************************************/
-/*                          函数                                  */
+/*                          SDK服务端核心接口                           */
 /************************************************************************/
 /**
  * @brief SDK服务端初始化
@@ -74,7 +79,7 @@ NET_TV_API BOOL STDCALL NET_TV_SERVER_SetUserPasswd(IN CHAR szUserName[NET_TV_LE
  * @param [IN] dwBufLen    pAlarmInfo 长度（一般为 sizeof(对应结构体)）
  * @return TRUE表示成功,其他表示失败 TRUE means success, and any other value means failure.
  */
-NET_TV_API BOOL STDCALL NET_TV_SERVER_PushAlarmInfo(IN NET_TV_ALARMER_S *pAlarmer,
+NET_TV_API BOOL STDCALL NET_TV_SERVER_PushAlarmInfo(IN NET_Alarmer_S *pAlarmer,
                                                     IN INT32 lCommand,
                                                     IN LPVOID pAlarmInfo,
                                                     IN INT32 dwBufLen);
@@ -86,14 +91,14 @@ NET_TV_API BOOL STDCALL NET_TV_SERVER_PushAlarmInfo(IN NET_TV_ALARMER_S *pAlarme
  */
 NET_TV_API BOOL STDCALL NET_TV_SERVER_PushChannelStatusInfo(IN NET_TV_CHANNEL_INFO_S *pChannelInfo);
 
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetDeviceInfo(NET_TV_COMMON_ECODE_E (*CB)(LPNET_TV_DEVICE_INFO_S pInfo));
+NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetDeviceInfo(NET_TV_COMMON_ECODE_E (*CB)(pNET_DeviceInfo_S pInfo));
 
 /**
  * @brief 设备控制回调类型
- * @param [IN] pstCtrlInfo 设备硬件控制参数，参见 NET_TV_DEVICE_CONTROL_INFO_S
+ * @param [IN] pstCtrlInfo 设备硬件控制参数，参见 NET_DeviceControlInfo_S
  * @return NET_TV_E_SUCCEED 成功，其他值失败
  */
-typedef NET_TV_COMMON_ECODE_E (*NET_TV_CB_DeviceControl)(LPNET_TV_DEVICE_CONTROL_INFO_S pstCtrlInfo);
+typedef NET_TV_COMMON_ECODE_E (*NET_TV_CB_DeviceControl)(pNET_DeviceControlInfo_S pstCtrlInfo);
 
 /**
  * @brief 注册设备控制回调
@@ -101,6 +106,20 @@ typedef NET_TV_COMMON_ECODE_E (*NET_TV_CB_DeviceControl)(LPNET_TV_DEVICE_CONTROL
  * @return TRUE表示成功,其他表示失败
  */
 NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_DeviceControl(NET_TV_CB_DeviceControl pCb);
+
+/**
+ * @brief 修改用户密码回调类型
+ * @param [IN] pPasswordInfo 修改密码参数，包含用户名、旧密码、新密码
+ * @return NET_TV_E_SUCCEED 成功，其他值失败
+ */
+typedef NET_TV_COMMON_ECODE_E (*NET_TV_CB_SetUserPassword)(pNET_UserPasswordInfo_S pPasswordInfo);
+
+/**
+ * @brief 注册修改用户密码回调
+ * @param [IN] pCb 回调函数指针
+ * @return TRUE表示成功,其他表示失败
+ */
+NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetUserPassword(NET_TV_CB_SetUserPassword pCb);
 
 /**
  * @brief 视频编码能力集回调类型 (NET_TV_CAP_VIDEO_ENCODE)
@@ -149,14 +168,32 @@ typedef NET_TV_COMMON_ECODE_E (*NET_TV_CB_GetOsdCap)(INT32 dwChannelID, LPNET_TV
  */
 NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetOsdCap(NET_TV_CB_GetOsdCap pCb);
 
+/**
+ * @brief 通用配置回调类型（按命令码分发）
+ * @param [IN] dwChannelID 通道号
+ * @param [IN] dwCommand 命令码（标识配置类型）
+ * @param [OUT] lpOutBuffer 输出缓冲区，存放配置数据
+ * @return NET_TV_E_SUCCEED 成功，其他值失败
+ */
 typedef NET_TV_COMMON_ECODE_E (*NET_TV_CB_GetDevConfig)(INT32 dwChannelID,
                                                          INT32 dwCommand,
                                                          LPVOID lpOutBuffer);
+
+/**
+ * @brief 通用配置设置回调类型（按命令码分发）
+ * @param [IN] dwChannelID 通道号
+ * @param [IN] dwCommand 命令码（标识配置类型）
+ * @param [IN] lpInBuffer 输入缓冲区，包含要设置的配置数据
+ * @return NET_TV_E_SUCCEED 成功，其他值失败
+ */
 typedef NET_TV_COMMON_ECODE_E (*NET_TV_CB_SetDevConfig)(INT32 dwChannelID,
                                                          INT32 dwCommand,
                                                          LPVOID lpInBuffer);
 
-/* 按命令码注册配置回调，回调参数由命令码对应结构体决定 */
+/**
+ * @brief 按命令码注册的配置回调类型（专用回调）
+ * @note 回调参数由命令码对应结构体决定，比通用回调更具体
+ */
 typedef NET_TV_COMMON_ECODE_E (*NET_TV_CB_GetDevConfigByCommand)(INT32 dwChannelID, LPVOID lpOutBuffer);
 typedef NET_TV_COMMON_ECODE_E (*NET_TV_CB_SetDevConfigByCommand)(INT32 dwChannelID, LPVOID lpInBuffer);
 
@@ -189,10 +226,37 @@ typedef NET_TV_COMMON_ECODE_E (*NET_TV_CB_ControlReplay)(LPNET_TV_REPLAY_CTRL_IN
  */
 typedef NET_TV_COMMON_ECODE_E (*NET_TV_CB_GetReplayRecordList)(LPNET_TV_REPLAY_RECORD_LIST_S pInfo);
 
+/**
+ * @brief 注册通用配置获取回调（所有命令码统一处理）
+ * @param [IN] pCb 回调函数指针
+ * @return TRUE表示成功,其他表示失败
+ * @note 当没有按命令码注册的专用回调时，会调用此通用回调
+ */
 NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetDevConfig(NET_TV_CB_GetDevConfig pCb);
+
+/**
+ * @brief 注册通用配置设置回调（所有命令码统一处理）
+ * @param [IN] pCb 回调函数指针
+ * @return TRUE表示成功,其他表示失败
+ * @note 当没有按命令码注册的专用回调时，会调用此通用回调
+ */
 NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetDevConfig(NET_TV_CB_SetDevConfig pCb);
 
+/************************************************************************/
+/*                          按命令码注册的配置回调接口                     */
+/************************************************************************/
+/**
+ * @brief 注册设备基本信息获取回调 (NET_TV_GET_DEVICECFG)
+ * @param [IN] pCb 回调函数指针
+ * @return TRUE表示成功,其他表示失败
+ */
 NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetDeviceCfg(NET_TV_CB_GetDevConfigByCommand pCb);
+
+/**
+ * @brief 注册设备基本信息设置回调 (NET_TV_SET_DEVICECFG)
+ * @param [IN] pCb 回调函数指针
+ * @return TRUE表示成功,其他表示失败
+ */
 NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetDeviceCfg(NET_TV_CB_SetDevConfigByCommand pCb);
 NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetNtpCfg(NET_TV_CB_GetDevConfigByCommand pCb);
 NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetNtpCfg(NET_TV_CB_SetDevConfigByCommand pCb);
@@ -380,7 +444,7 @@ NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetRoadPondingCfg(NET_TV_CB_Set
  * @param [OUT] pDeviceInfo 由宿主应用填充设备信息
  */
 typedef void(STDCALL *NET_TV_CB_GetDiscoveryDeviceInfo)(
-    OUT NET_TV_DISCOVERY_DEVICE_INFO_S* pDeviceInfo);
+    OUT NET_DiscoveryDeviceInfo_S* pDeviceInfo);
 
 /**
  * @brief 注册设备发现信息回调（启动前必须调用）
@@ -422,7 +486,7 @@ typedef void (STDCALL *NET_TV_SERVER_VoiceComPlayCallBack)(const char* data, uns
  * @note 回调内应写入与 pstAudioParam 匹配的裸音频帧；建议每次返回 dwFrameBytes 字节。
  */
 typedef INT32 (STDCALL *NET_TV_SERVER_VoiceComCaptureCallBack)(
-    IN const NET_TV_VOICECOM_AUDIO_PARAM_S* pstAudioParam,
+    IN const NET_VoiceComAudioParam_S* pstAudioParam,
     OUT CHAR* pBuffer,
     IN UINT32 dwBufferSize,
     IN LPVOID lpUserData);
@@ -476,7 +540,7 @@ NET_TV_SERVER_SendVoiceComData(IN const CHAR* pData, IN UINT32 dwSize);
  * @return TRUE 成功，FALSE 表示尚未建立会话或参数未协商
  */
 NET_TV_API BOOL STDCALL
-NET_TV_SERVER_GetVoiceComAudioParam(OUT LPNET_TV_VOICECOM_AUDIO_PARAM_S pstAudioParam);
+NET_TV_SERVER_GetVoiceComAudioParam(OUT pNET_VoiceComAudioParam_S pstAudioParam);
 
 /************************************************************************/
 /*                       录像帧流 RecordFrame (服务端)                    */
@@ -485,8 +549,8 @@ NET_TV_SERVER_GetVoiceComAudioParam(OUT LPNET_TV_VOICECOM_AUDIO_PARAM_S pstAudio
  * @brief 录像帧流开始回调: 收到客户端起止时间查询后调用, 由宿主打开录像源并填充流信息
  */
 typedef NET_TV_COMMON_ECODE_E (STDCALL *NET_TV_SERVER_RecordFrameStartCallBack)(
-    IN LPNET_TV_RECORD_FRAME_STREAM_COND_S pstCond,
-    INOUT LPNET_TV_RECORD_FRAME_STREAM_INFO_S pstInfo,
+    IN pNET_RecordFrameStreamCond_S pstCond,
+    INOUT pNET_RecordFrameStreamInfo_S pstInfo,
     IN LPVOID lpUserData);
 
 /**
@@ -495,7 +559,7 @@ typedef NET_TV_COMMON_ECODE_E (STDCALL *NET_TV_SERVER_RecordFrameStartCallBack)(
  */
 typedef INT32 (STDCALL *NET_TV_SERVER_RecordFrameReadCallBack)(
     IN const CHAR* szStreamId,
-    OUT LPNET_TV_RECORD_FRAME_INFO_S pstFrameInfo,
+    OUT pNET_RecordFrameInfo_S pstFrameInfo,
     OUT CHAR* pBuffer,
     IN UINT32 dwBufferSize,
     IN LPVOID lpUserData);

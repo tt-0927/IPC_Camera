@@ -712,9 +712,9 @@ int main(int argc, char* argv[])
     
     /* 登录设备 */
     NET_TV_DEVICE_LOGIN_INFO_S struLoginInfo;
-    NET_TV_DEVICE_INFO_S struDeviceInfo;
+    NET_DeviceInfo_S struDeviceInfo;
     memset(&struLoginInfo, 0, sizeof(NET_TV_DEVICE_LOGIN_INFO_S));
-    memset(&struDeviceInfo, 0, sizeof(NET_TV_DEVICE_INFO_S));
+    memset(&struDeviceInfo, 0, sizeof(NET_DeviceInfo_S));
     
     struLoginInfo.dwPort = g_serverPort;
     strncpy(struLoginInfo.szIPAddr, g_serverIp, sizeof(struLoginInfo.szIPAddr) - 1);

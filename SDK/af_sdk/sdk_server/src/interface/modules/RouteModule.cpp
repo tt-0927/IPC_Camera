@@ -1,3 +1,12 @@
+/*
+ * @Author       : chenchl
+ * @Date         : 2025-01-02 16:01:20
+ * @LastEditors  : chenchl
+ * @LastEditTime : 2025-01-02 17:03:03
+ * @FilePath     : RouteModule.cpp
+ * @Description  : 路由注册管理模块实现，负责HTTP路由的注册和业务单例的生命周期管理
+ */
+
 #include "RouteModule.h"
 #ifdef DELETE
 #undef DELETE
@@ -27,10 +36,18 @@
 
 namespace
 {
+/* 上传目录路径 */
 constexpr const char* kUploadDir = "/opt/course/upload/";
+/* 最后升级文件标记路径 */
 constexpr const char* kLastUpgradeFile = "/opt/course/upload/.tvsdk_last_upgrade";
+/* 上传进度日志记录间隔（8MB） */
 constexpr size_t kUploadProgressLogStep = 8 * 1024 * 1024;
 
+/**
+ * 判断字符是否为安全的上传文件名字符
+ * @param ch 待检查字符
+ * @return true表示安全字符，false表示不安全字符
+ */
 bool IsSafeUploadFileNameChar(char ch)
 {
     return (ch >= '0' && ch <= '9') ||
@@ -39,6 +56,11 @@ bool IsSafeUploadFileNameChar(char ch)
            ch == '.' || ch == '_' || ch == '-';
 }
 
+/**
+ * 验证上传文件名是否合法
+ * @param filename 文件名
+ * @return true表示合法，false表示非法
+ */
 bool IsValidUploadFileName(const std::string& filename)
 {
     if (filename.empty() || filename.size() >= NET_TV_FILE_NAME_LEN) {
@@ -62,6 +84,11 @@ bool IsValidUploadFileName(const std::string& filename)
     return true;
 }
 
+/**
+ * 检查上传路径是否包含无效字符
+ * @param value 路径字符串
+ * @return true表示包含无效字符，false表示不包含
+ */
 bool HasInvalidUploadPathChar(const std::string& value)
 {
     for (char ch : value) {
@@ -72,6 +99,11 @@ bool HasInvalidUploadPathChar(const std::string& value)
     return false;
 }
 
+/**
+ * 判断路径是否在上传目录下
+ * @param path 待检查路径
+ * @return true表示在上传目录下，false表示不在
+ */
 bool IsPathUnderUploadDir(const std::string& path)
 {
     const std::string uploadDir(kUploadDir);
@@ -79,6 +111,11 @@ bool IsPathUnderUploadDir(const std::string& path)
            path.size() > uploadDir.size();
 }
 
+/**
+ * 规范化上传文件名参数
+ * @param value 原始文件名参数
+ * @return 规范化后的文件名，非法则返回空字符串
+ */
 std::string NormalizeUploadFileNameParam(const std::string& value)
 {
     if (value.empty() ||
@@ -98,6 +135,11 @@ std::string NormalizeUploadFileNameParam(const std::string& value)
     return IsValidUploadFileName(value) ? value : "";
 }
 
+/**
+ * 确保目录存在，不存在则创建
+ * @param path 目录路径
+ * @return true表示目录已存在或创建成功，false表示创建失败
+ */
 bool EnsureDir(const char* path)
 {
 #ifdef _WIN32
@@ -110,6 +152,13 @@ bool EnsureDir(const char* path)
     return errno == EEXIST;
 }
 
+/**
+ * 排空未授权上传请求的body数据
+ * @param contentReader HTTP内容读取器
+ * @param client 客户端地址
+ * @param filename 文件名
+ * @return true表示排空成功，false表示失败
+ */
 bool DrainUploadBody(const httplib::ContentReader& contentReader,
                      const std::string& client,
                      const std::string& filename)
@@ -140,12 +189,22 @@ bool DrainUploadBody(const httplib::ContentReader& contentReader,
     return true;
 }
 
+/**
+ * 设置SDK标准JSON响应
+ * @param res HTTP响应对象
+ * @param code SDK错误码
+ */
 void SetSdkJsonResponse(httplib::Response& res, NET_TV_COMMON_ECODE_E code)
 {
     res.status = HTTP_RESP_CODE_SUCCESS;
     res.set_content(SDKConvert::to_respString(code), JSON_CONTENT_TYPE);
 }
 
+/**
+ * 更新最后升级文件标记
+ * @param filePath 升级文件路径
+ * @return true表示更新成功，false表示失败
+ */
 bool UpdateLastUpgradeFile(const std::string& filePath)
 {
     std::ofstream marker(kLastUpgradeFile, std::ios::binary | std::ios::trunc);
@@ -158,18 +217,30 @@ bool UpdateLastUpgradeFile(const std::string& filePath)
 }
 }
 
+/**
+ * 构造函数
+ */
 RouteModule::RouteModule()
     : m_routeCount(0)
 {
     NSDK_LOG_DEBUG("RouteModule created");
 }
 
+/**
+ * 析构函数
+ * @details 自动调用ClearRoutes()清理路由和业务单例
+ */
 RouteModule::~RouteModule()
 {
     ClearRoutes();
     NSDK_LOG_DEBUG("RouteModule destroyed");
 }
 
+/**
+ * 注册所有业务路由
+ * @details 依次注册设备、能力集、配置、设备控制、视频、升级相关路由
+ * @return TRUE表示成功，FALSE表示失败
+ */
 BOOL RouteModule::RegisterAllRoutes()
 {
     NSDK_LOG_INFO("Registering all HTTP routes...");
@@ -185,6 +256,10 @@ BOOL RouteModule::RegisterAllRoutes()
     return TRUE;
 }
 
+/**
+ * 注册设备相关路由
+ * @details 注册设备信息获取路由
+ */
 void RouteModule::RegisterDeviceRoutes()
 {
     NSDK_LOG_DEBUG("Registering device routes...");
@@ -199,6 +274,10 @@ void RouteModule::RegisterDeviceRoutes()
     NSDK_LOG_DEBUG("Device routes registered");
 }
 
+/**
+ * 注册能力集相关路由
+ * @details 注册设备能力集获取路由
+ */
 void RouteModule::RegisterCapabilityRoutes()
 {
     NSDK_LOG_DEBUG("Registering capability routes...");
@@ -213,6 +292,10 @@ void RouteModule::RegisterCapabilityRoutes()
     NSDK_LOG_DEBUG("Capability routes registered");
 }
 
+/**
+ * 注册配置相关路由
+ * @details 注册设备配置获取和设置路由
+ */
 void RouteModule::RegisterConfigRoutes()
 {
     NSDK_LOG_DEBUG("Registering config routes...");
@@ -232,6 +315,10 @@ void RouteModule::RegisterConfigRoutes()
     NSDK_LOG_DEBUG("Config routes registered");
 }
 
+/**
+ * 注册设备控制相关路由
+ * @details 注册设备控制路由
+ */
 void RouteModule::RegisterDeviceControlRoutes()
 {
     NSDK_LOG_DEBUG("Registering device control routes...");
@@ -245,6 +332,10 @@ void RouteModule::RegisterDeviceControlRoutes()
     NSDK_LOG_DEBUG("Device control routes registered");
 }
 
+/**
+ * 注册视频相关路由
+ * @details 注册录像回放URL获取、回放控制、录像列表获取、录像帧流启动和停止路由
+ */
 void RouteModule::RegisterVideoRoutes()
 {
     NSDK_LOG_DEBUG("Registering video routes...");
@@ -282,6 +373,10 @@ void RouteModule::RegisterVideoRoutes()
     NSDK_LOG_DEBUG("Video routes registered");
 }
 
+/**
+ * 注册升级相关路由
+ * @details 注册固件上传路由（PUT方法，直接处理二进制数据）
+ */
 void RouteModule::RegisterUpgradeRoutes()
 {
     NSDK_LOG_DEBUG("Registering upgrade routes...");
@@ -427,6 +522,10 @@ void RouteModule::RegisterUpgradeRoutes()
     NSDK_LOG_DEBUG("Upgrade routes registered");
 }
 
+/**
+ * 清理所有路由和业务单例
+ * @details 清除路由注册表，销毁所有业务单例实例
+ */
 void RouteModule::ClearRoutes()
 {
     NSDK_LOG_INFO("Clearing all routes and business singletons...");
@@ -458,6 +557,10 @@ void RouteModule::ClearRoutes()
     NSDK_LOG_INFO("Routes and business singletons cleared");
 }
 
+/**
+ * 获取已注册的路由数量
+ * @return 路由数量
+ */
 size_t RouteModule::GetRouteCount() const
 {
     return m_routeCount;

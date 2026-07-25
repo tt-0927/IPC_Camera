@@ -1,0 +1,52 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>NET_TV_Discovery_Search</title>
+  <style>
+    body { font-family: "Microsoft YaHei", "微软雅黑", Arial, sans-serif; font-size: 10pt; color: #000; }
+    h1 { font-family: "Microsoft YaHei", "微软雅黑", Arial, sans-serif; font-size: 10pt; font-weight: bold; margin: 0 0 8px; }
+    h2 { font-family: "Microsoft YaHei", "微软雅黑", Arial, sans-serif; font-size: 10pt; font-weight: bold; margin: 18px 0 6px; }
+    p { margin: 0 0 6px; }
+    table { border-collapse: collapse; margin-top: 10px; width: 1000px; table-layout: fixed; }
+    th, td { border: 1px solid #000; padding: 5px 8px; height: 30px; min-height: 30px; vertical-align: middle; font-family: "Microsoft YaHei", "微软雅黑", Arial, sans-serif; font-size: 10pt; }
+    th { background: #d9eaf7; font-weight: bold; }
+    .code-block { background-color: #e6e6e6; border: 0; padding: 8px 10px; margin: 12px 0 14px; font-family: "Microsoft YaHei", "微软雅黑", Arial, sans-serif; font-size: 10pt; line-height: 1.45; }
+    .code-line { margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: "Microsoft YaHei", "微软雅黑", Arial, sans-serif; font-size: 10pt; line-height: 1.45; }
+    .code-line a { font-family: "Microsoft YaHei", "微软雅黑", Arial, sans-serif; font-size: 10pt; }
+    .param-name { margin-left: 0; }
+    .param-desc { margin-left: 24px; }
+  </style>
+</head>
+<body>
+  <h1>NET_TV_Discovery_Search</h1>
+  <p>搜索局域网内设备（UDP 组播）</p>
+  <div class="code-block" style="background-color: #e6e6e6; border: 0; padding: 8px 10px; margin: 12px 0 14px; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">BOOL NET_TV_Discovery_Search(</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">    IN const CHAR* szInterfaceIP,</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">    IN UINT32 dwTimeoutMs,</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">    OUT <a href="NET_TV_DISCOVERY_DEVICE_INFO_S.html">NET_TV_DISCOVERY_DEVICE_INFO_S</a>* pDeviceList,</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">    IN int nMaxCount,</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">    OUT int* pnOutCount</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">);</div>
+  </div>
+  <h2>Parameters</h2>
+  <p class="param-name">[in] szInterfaceIP</p>
+  <p class="param-desc">网卡 IP 地址，传 NULL 使用默认网卡</p>
+  <p class="param-name">[in] dwTimeoutMs</p>
+  <p class="param-desc">等待响应超时 (ms)，建议 2000~5000</p>
+  <p class="param-name">[out] pDeviceList</p>
+  <p class="param-desc">输出设备列表缓冲区</p>
+  <p class="param-name">[in] nMaxCount</p>
+  <p class="param-desc">设备列表最大容量</p>
+  <p class="param-name">[out] pnOutCount</p>
+  <p class="param-desc">实际发现的设备数量</p>
+  <h2>Return Values</h2>
+  <p>TRUE表示成功，FALSE表示失败，可调用NET_TV_GetLastError获取错误码</p>
+  <h2>Remarks</h2>
+  <p>重复调用 <a href="NET_TV_Discovery_Search.html">NET_TV_Discovery_Search</a> 前无需调用 <a href="NET_TV_Init.html">NET_TV_Init</a>()</p>
+  <h2>See Also</h2>
+  <p><a href="NET_TV_DISCOVERY_DEVICE_INFO_S.html">NET_TV_DISCOVERY_DEVICE_INFO_S</a></p>
+  <p><a href="Demo_discovery_main_cpp.html">Demo_discovery_main_cpp</a></p>
+</body>
+</html>

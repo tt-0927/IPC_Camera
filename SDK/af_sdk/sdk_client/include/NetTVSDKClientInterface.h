@@ -104,7 +104,7 @@ NET_TV_API BOOL STDCALL NET_TV_SetConnectTime(IN INT32 dwWaitTime,
 * -
 */
 NET_TV_API LPVOID STDCALL NET_TV_Login(IN LPNET_TV_DEVICE_LOGIN_INFO_S pstDevLoginInfo, 
-                                                        OUT LPNET_TV_DEVICE_INFO_S pstDevInfo);		
+                                                        OUT pNET_DeviceInfo_S pstDevInfo);		
 
 /**
 * 用户注销  User logout
@@ -118,7 +118,7 @@ NET_TV_API BOOL STDCALL NET_TV_Logout(IN LPVOID lpUserID);
 * @brief Alarm Callback Function
 */
 typedef void(STDCALL *NET_TV_AlarmCallBack)(OUT INT64 lCommand,
-                                                   OUT NET_TV_ALARMER_S *pAlarmer,
+                                                   OUT NET_Alarmer_S *pAlarmer,
                                                    OUT CHAR*   pAlarmInfo,
                                                    OUT INT32*   dwBufLen,
                                                    OUT LPVOID lpUserData);
@@ -168,11 +168,11 @@ NET_TV_API BOOL STDCALL NET_TV_StopListen(IN LPVOID lpUserID);
 /**
 * @brief 设备硬件控制统一入口
 * @param [IN] lpUserID       用户登录句柄
-* @param [IN] pstCtrlInfo    设备控制参数，参见 NET_TV_DEVICE_CONTROL_INFO_S
+* @param [IN] pstCtrlInfo    设备控制参数，参见 NET_DeviceControlInfo_S
 * @return TRUE表示成功,其他表示失败
 */
 NET_TV_API BOOL STDCALL NET_TV_DeviceControl(IN LPVOID lpUserID,
-                                             IN LPNET_TV_DEVICE_CONTROL_INFO_S pstCtrlInfo);
+                                             IN pNET_DeviceControlInfo_S pstCtrlInfo);
 
 /**
 * @brief 获取回放播放地址
@@ -289,7 +289,7 @@ NET_TV_UploadFile(IN LPVOID   lpUserID,
 NET_TV_API BOOL STDCALL
 NET_TV_Discovery_Search(IN  const CHAR*                      szInterfaceIP,
                         IN  UINT32                           dwTimeoutMs,
-                        OUT NET_TV_DISCOVERY_DEVICE_INFO_S*  pDeviceList,
+                        OUT NET_DiscoveryDeviceInfo_S*       pDeviceList,
                         IN  int                              nMaxCount,
                         OUT int*                             pnOutCount);
 
@@ -304,7 +304,7 @@ NET_TV_Discovery_Search(IN  const CHAR*                      szInterfaceIP,
  * @param [IN] dwSize       帧负载长度
  * @param [IN] lpUserData   用户数据
  */
-typedef void (STDCALL *NET_TV_RecordFrameCallBack)(IN const NET_TV_RECORD_FRAME_INFO_S* pstFrameInfo,
+typedef void (STDCALL *NET_TV_RecordFrameCallBack)(IN const NET_RecordFrameInfo_S* pstFrameInfo,
                                                    IN const CHAR* pData,
                                                    IN UINT32 dwSize,
                                                    IN LPVOID lpUserData);
@@ -320,8 +320,8 @@ typedef void (STDCALL *NET_TV_RecordFrameCallBack)(IN const NET_TV_RECORD_FRAME_
  */
 NET_TV_API BOOL STDCALL
 NET_TV_StartRecordFrameStream(IN LPVOID lpUserID,
-                              IN LPNET_TV_RECORD_FRAME_STREAM_COND_S pstCond,
-                              OUT LPNET_TV_RECORD_FRAME_STREAM_INFO_S pstStreamInfo,
+                              IN pNET_RecordFrameStreamCond_S pstCond,
+                              OUT pNET_RecordFrameStreamInfo_S pstStreamInfo,
                               IN NET_TV_RecordFrameCallBack cbRecordFrame,
                               IN LPVOID lpUserData);
 
@@ -347,7 +347,7 @@ typedef void (STDCALL *NET_TV_VoiceComCallBack)(const char* data, unsigned int s
  */
 NET_TV_API BOOL STDCALL
 NET_TV_StartVoiceCom(IN LPVOID              lpUserID,
-                     IN LPNET_TV_VOICECOM_START_INFO_S pstStartInfo,
+                     IN pNET_VoiceComStartInfo_S pstStartInfo,
                      IN NET_TV_VoiceComCallBack cbVoiceCom,
                      IN LPVOID              lpUserData);
 

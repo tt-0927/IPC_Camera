@@ -1,0 +1,28 @@
+{
+    "version": "v1.0",
+    "model": "Yolov8n",
+    "notes": "猫狗检测",
+    "model_path": "/opt/cam/model/RV1126B_DogCatDetect_yolov8n_640x384_V1.0.rknn",
+    "pre_process": {
+        "size": [
+            384,
+            640
+        ],
+        "channel": 3,
+        "type": "rgb",
+        "mean": [0,0,0],
+        "std": [255,255,255],
+        "padding": 0
+    },
+    "inference": {
+        "framework": "rv1126b"
+    },
+    "post_precess": {
+        "confidence": 0.25,
+        "nms": 0.25,
+        "label_name": [
+            "Dog",
+            "Cat"
+        ]
+    }
+}

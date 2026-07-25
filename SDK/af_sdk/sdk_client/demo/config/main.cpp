@@ -297,8 +297,10 @@ static void PrintMenu()
     printf("167 - 获取图像配置 (NET_TV_GET_IMAGECFG)\n");
     printf("168 - 设置图像配置 (NET_TV_SET_IMAGECFG)\n");
     printf("169 - VoiceCom发送音频文件 (NET_TV_StartVoiceCom/SendData)\n");
-    printf("170 - 获取系统校时配置 (NET_TV_GET_NTPCFG)\n");
-    printf("171 - 设置系统校时配置 (NET_TV_SET_NTPCFG)\n");
+    printf("170 - 获取对讲音频参数 (NET_TV_GET_VOICECOM_AUDIO_CFG)\n");
+    printf("171 - 设置对讲音频参数 (NET_TV_SET_VOICECOM_AUDIO_CFG)\n");
+    printf("172 - 获取系统校时配置 (NET_TV_GET_NTPCFG)\n");
+    printf("173 - 设置系统校时配置 (NET_TV_SET_NTPCFG)\n");
     printf("3213 - 平台点播回放控制类型 (自定义选择 1~8)\n");
     printf("3214 - 平台点播暂停播放 (NET_TV_SET_REPLAY_CTRL/PAUSE)\n");
     printf("3215 - 平台点播恢复播放 (NET_TV_SET_REPLAY_CTRL/RESUME)\n");
@@ -307,7 +309,7 @@ static void PrintMenu()
     printf("请输入命令码: ");
 }
 
-static void PrintFaceCaptureInfo(const NET_TV_FACE_CAPTURE_INFO_S* pInfo)
+static void PrintFaceCaptureInfo(const NET_FaceCaptureInfo_S* pInfo)
 {
     if (!pInfo)
     {
@@ -317,8 +319,8 @@ static void PrintFaceCaptureInfo(const NET_TV_FACE_CAPTURE_INFO_S* pInfo)
     printf("\n[Client] ===== 人脸抓拍配置 =====\n");
     printf("  Enable            : %s\n", pInfo->bEnable ? "ON" : "OFF");
     printf("  Sensitivity       : %d\n", pInfo->stRule.nSensitivity);
-    printf("  RegionPointCount  : %d\n", pInfo->stRule.stRegion.dwPointCount);
-    printf("  ShieldRegionCount : %d\n", pInfo->stRule.dwShieldRegionCount);
+    printf("  RegionPointCount  : %d\n", pInfo->stRule.stRegion.uPointCount);
+    printf("  ShieldRegionCount : %d\n", pInfo->stRule.uShieldRegionCount);
     printf("  MinIpdRect        : [%d,%d,%d,%d]\n",
            pInfo->stRule.nMinIpdRectLeft,
            pInfo->stRule.nMinIpdRectTop,
@@ -330,7 +332,7 @@ static void PrintFaceCaptureInfo(const NET_TV_FACE_CAPTURE_INFO_S* pInfo)
     printf("=================================\n");
 }
 
-static void PrintDeviceBasicInfo(const NET_TV_DEVICE_BASICINFO_S* pInfo)
+static void PrintDeviceBasicInfo(const NET_DeviceBasicInfo_S* pInfo)
 {
     if (!pInfo)
     {
@@ -338,13 +340,13 @@ static void PrintDeviceBasicInfo(const NET_TV_DEVICE_BASICINFO_S* pInfo)
     }
 
     printf("\n[Client] ===== 设备基本信息 =====\n");
-    printf("  DevModel      : %s\n", pInfo->szDevModel);
-    printf("  SerialNum     : %s\n", pInfo->szSerialNum);
-    printf("  FirmwareVer   : %s\n", pInfo->szFirmwareVersion);
-    printf("  MacAddress    : %s\n", pInfo->szMacAddress);
-    printf("  DeviceName    : %s\n", pInfo->szDeviceName);
-    printf("  Manufacturer  : %s\n", pInfo->szManufacturer);
-    printf("  DeviceTypeV2  : %s\n", pInfo->szDeviceTypeV2);
+    printf("  DevModel      : %s\n", pInfo->strDevModel);
+    printf("  SerialNum     : %s\n", pInfo->strSerialNum);
+    printf("  FirmwareVer   : %s\n", pInfo->strFirmwareVersion);
+    printf("  MacAddress    : %s\n", pInfo->strMacAddress);
+    printf("  DeviceName    : %s\n", pInfo->strDeviceName);
+    printf("  Manufacturer  : %s\n", pInfo->strManufacturer);
+    printf("  DeviceTypeV2  : %s\n", pInfo->strDeviceTypeV2);
     printf("=================================\n");
 }
 
@@ -364,7 +366,7 @@ static void PrintNetworkCfg(const NET_TV_NETWORKCFG_S* pCfg)
     printf("=================================\n");
 }
 
-static void PrintSystemNtpCfg(const NET_TV_SYSTEM_NTP_INFO_S* pInfo)
+static void PrintSystemNtpCfg(const NET_SystemNtpInfo_S* pInfo)
 {
     if (!pInfo)
     {
@@ -376,9 +378,9 @@ static void PrintSystemNtpCfg(const NET_TV_SYSTEM_NTP_INFO_S* pInfo)
     printf("  DateFormat        : %d\n", pInfo->enDateFormat);
     printf("  EnableNTPSync     : %s\n", pInfo->bEnableNTPSync ? "ON" : "OFF");
     printf("  ManualSync        : %s\n", pInfo->bManualSync ? "ON" : "OFF");
-    printf("  DateTime          : %s\n", pInfo->szDateTime);
+    printf("  DateTime          : %s\n", pInfo->strDateTime);
     printf("  SyncWithComputer  : %s\n", pInfo->bIsSyncWithComputer ? "YES" : "NO");
-    printf("  NtpAddress        : %s\n", pInfo->szAddress);
+    printf("  NtpAddress        : %s\n", pInfo->strAddress);
     printf("  NtpPort           : %d\n", pInfo->nPort);
     printf("  SyncInterval      : %d min\n", pInfo->nSyncInterval);
     printf("================================\n");
@@ -402,6 +404,25 @@ static void PrintAudioCfg(const NET_TV_AUDIO_CFG_S* pCfg)
     printf("  OutputType   : %d\n", pCfg->enOutputType);
     printf("  OutputVolume : %u\n", pCfg->u32OutputVolume);
     printf("===============================\n");
+}
+
+static void PrintVoiceComAudioCfg(const NET_VoiceComAudioCfg_S* pCfg)
+{
+    if (!pCfg)
+    {
+        return;
+    }
+
+    printf("\n[Client] ===== 对讲音频参数 =====\n");
+    printf("  Format           : %d\n", pCfg->enFormat);
+    printf("  SampleRate       : %d Hz\n", pCfg->uSampleRate);
+    printf("  BitDepth         : %d bits\n", pCfg->uBitDepth);
+    printf("  Channels         : %d\n", pCfg->uChannels);
+    printf("  FrameIntervalMs  : %d ms\n", pCfg->uFrameIntervalMs);
+    printf("  FrameBytes       : %d\n", pCfg->uFrameBytes);
+    printf("  BitRate          : %d bps\n", pCfg->uBitRate);
+    printf("  LittleEndian     : %s\n", pCfg->bLittleEndian ? "YES" : "NO");
+    printf("================================\n");
 }
 
 static void PrintStreamCfg(const NET_TV_VIDEO_ENCODE_OPTION_S* pCfg)
@@ -831,7 +852,7 @@ static void PrintRecordDownloadProgress(const NET_TV_RECORD_DOWNLOAD_PROGRESS_S*
 }
 
 static void STDCALL ConfigAlarmCallback(INT64 lCommand,
-                                        NET_TV_ALARMER_S* pAlarmer,
+                                        NET_Alarmer_S* pAlarmer,
                                         CHAR* pAlarmInfo,
                                         INT32* dwBufLen,
                                         LPVOID lpUserData)
@@ -1119,7 +1140,7 @@ static void PrintOSDCfg(const NET_TV_VIDEO_OSD_CFG_S* pCfg)
 /* 获取设备基本信息 */
 static void DoGetDeviceCfg()
 {
-    NET_TV_DEVICE_BASICINFO_S stInfo;
+    NET_DeviceBasicInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
     INT32 dwBytesReturned = 0;
@@ -1148,7 +1169,7 @@ static void DoGetDeviceCfg()
 /* 设置设备基本信息（使用示例数据） */
 static void DoSetDeviceCfg()
 {
-    NET_TV_DEVICE_BASICINFO_S stInfo;
+    NET_DeviceBasicInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
     /* 先获取一次当前配置，便于在其基础上修改 */
@@ -1314,7 +1335,7 @@ static void FormatLocalDateTime(char* pBuffer, size_t bufferSize)
 
 static void DoGetSystemNtpCfg()
 {
-    NET_TV_SYSTEM_NTP_INFO_S stInfo;
+    NET_SystemNtpInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
     INT32 dwBytesReturned = 0;
@@ -1339,7 +1360,7 @@ static void DoGetSystemNtpCfg()
     }
 }
 
-static void FillDemoSystemNtpCfg(NET_TV_SYSTEM_NTP_INFO_S* pInfo)
+static void FillDemoSystemNtpCfg(NET_SystemNtpInfo_S* pInfo)
 {
     if (!pInfo)
     {
@@ -1352,15 +1373,15 @@ static void FillDemoSystemNtpCfg(NET_TV_SYSTEM_NTP_INFO_S* pInfo)
     pInfo->bEnableNTPSync = FALSE;
     pInfo->bManualSync = TRUE;
     pInfo->bIsSyncWithComputer = TRUE;
-    FormatLocalDateTime(pInfo->szDateTime, sizeof(pInfo->szDateTime));
-    CopyString(pInfo->szAddress, sizeof(pInfo->szAddress), "time.windows.com");
+    FormatLocalDateTime(pInfo->strDateTime, sizeof(pInfo->strDateTime));
+    CopyString(pInfo->strAddress, sizeof(pInfo->strAddress), "time.windows.com");
     pInfo->nPort = 123;
     pInfo->nSyncInterval = 60;
 }
 
 static void DoSetSystemNtpCfg()
 {
-    NET_TV_SYSTEM_NTP_INFO_S stInfo;
+    NET_SystemNtpInfo_S stInfo;
     FillDemoSystemNtpCfg(&stInfo);
 
     INT32 dwBytesReturned = 0;
@@ -1465,6 +1486,88 @@ static void DoSetAudioCfg()
     else
     {
         printf("[Client] 设置音频配置失败! Error=%d\n", NET_TV_GetLastError());
+    }
+}
+
+/* 获取对讲音频参数 */
+static void DoGetVoiceComAudioCfg()
+{
+    NET_VoiceComAudioCfg_S stCfg;
+    memset(&stCfg, 0, sizeof(stCfg));
+
+    INT32 dwBytesReturned = 0;
+
+    printf("[Client] 调用 NET_TV_GetDevConfig 获取对讲音频参数...\n");
+    BOOL bRet = NET_TV_GetDevConfig(
+        g_lpUserID,
+        1,
+        NET_TV_GET_VOICECOM_AUDIO_CFG,
+        &stCfg,
+        (INT32)sizeof(stCfg),
+        &dwBytesReturned
+    );
+
+    if (bRet)
+    {
+        printf("[Client] 获取对讲音频参数成功! BytesReturned=%d\n", dwBytesReturned);
+        PrintVoiceComAudioCfg(&stCfg);
+    }
+    else
+    {
+        printf("[Client] 获取对讲音频参数失败! Error=%d\n", NET_TV_GetLastError());
+    }
+}
+
+/* 设置对讲音频参数 */
+static void DoSetVoiceComAudioCfg()
+{
+    NET_VoiceComAudioCfg_S stCfg;
+    memset(&stCfg, 0, sizeof(stCfg));
+
+    INT32 dwBytesReturned = 0;
+    BOOL bRetGet = NET_TV_GetDevConfig(
+        g_lpUserID,
+        1,
+        NET_TV_GET_VOICECOM_AUDIO_CFG,
+        &stCfg,
+        (INT32)sizeof(stCfg),
+        &dwBytesReturned
+    );
+
+    if (!bRetGet)
+    {
+        printf("[Client] 预获取对讲音频参数失败，使用默认值. Error=%d\n", NET_TV_GetLastError());
+        memset(&stCfg, 0, sizeof(stCfg));
+    }
+
+    stCfg.enFormat = NET_TV_AUDIO_FORMAT_AAC;
+    stCfg.uSampleRate = 16000;
+    stCfg.uBitDepth = 16;
+    stCfg.uChannels = 1;
+    stCfg.uFrameIntervalMs = 20;
+    stCfg.uFrameBytes = 640;
+    stCfg.uBitRate = 64000;
+    stCfg.bLittleEndian = TRUE;
+
+    printf("[Client] 调用 NET_TV_SetDevConfig 设置对讲音频参数...\n");
+    INT32 dwBytesReturnedSet = 0;
+    BOOL bRet = NET_TV_SetDevConfig(
+        g_lpUserID,
+        1,
+        NET_TV_SET_VOICECOM_AUDIO_CFG,
+        &stCfg,
+        (INT32)sizeof(stCfg),
+        &dwBytesReturnedSet
+    );
+
+    if (bRet)
+    {
+        printf("[Client] 设置对讲音频参数成功! BytesReturned=%d\n", dwBytesReturnedSet);
+        DoGetVoiceComAudioCfg();
+    }
+    else
+    {
+        printf("[Client] 设置对讲音频参数失败! Error=%d\n", NET_TV_GetLastError());
     }
 }
 
@@ -2451,7 +2554,7 @@ static void DoGetRtspUrl()
     }
 }
 /* 打印移动侦测配置 */
-static void PrintMotionAlarmInfo(const NET_TV_MOTION_ALARM_INFO_S* pInfo)
+static void PrintMotionAlarmInfo(const NET_MotionAlarmInfo_S* pInfo)
 {
     if (!pInfo)
     {
@@ -2461,8 +2564,8 @@ static void PrintMotionAlarmInfo(const NET_TV_MOTION_ALARM_INFO_S* pInfo)
     printf("\n[Client] ===== 移动侦测配置 =====\n");
     printf("  Enable              : %s\n", pInfo->bEnable ? "ON" : "OFF");
     printf("  DynamicAnalysis     : %s\n", pInfo->bDynamicAnalysisEnable ? "ON" : "OFF");
-    printf("  Mode                : %s\n", pInfo->dwMode == NET_TV_MOTION_MODE_NORMAL ? "普通模式" : "专家模式");
-    if (pInfo->dwMode == NET_TV_MOTION_MODE_NORMAL)
+    printf("  Mode                : %s\n", pInfo->uMode == NET_TV_MOTION_MODE_NORMAL ? "普通模式" : "专家模式");
+    if (pInfo->uMode == NET_TV_MOTION_MODE_NORMAL)
     {
         printf("  Sensitivity         : %d\n", pInfo->stNormalMode.nSensitivity);
         printf("  RegionType          : %s\n", pInfo->stNormalMode.nRegionType == 0 ? "筒型" : "网格");
@@ -2477,7 +2580,7 @@ static void PrintMotionAlarmInfo(const NET_TV_MOTION_ALARM_INFO_S* pInfo)
 }
 
 /* 打印遮挡报警配置 */
-static void PrintTamperAlarmInfo(const NET_TV_TAMPER_ALARM_INFO_S* pInfo)
+static void PrintTamperAlarmInfo(const NET_TamperAlarmInfo_S* pInfo)
 {
     if (!pInfo)
     {
@@ -2486,7 +2589,7 @@ static void PrintTamperAlarmInfo(const NET_TV_TAMPER_ALARM_INFO_S* pInfo)
 
     printf("\n[Client] ===== 遮挡报警配置 =====\n");
     printf("  Enable      : %s\n", pInfo->bEnable ? "ON" : "OFF");
-    printf("  Sensitivity : %d\n", pInfo->dwSensitivity);
+    printf("  Sensitivity : %d\n", pInfo->uSensitivity);
     printf("  Rect        : [%d,%d,%d,%d]\n",
            pInfo->nRectLeft, pInfo->nRectTop,
            pInfo->nRectRight, pInfo->nRectBottom);
@@ -2530,7 +2633,7 @@ static void PrintPrivacyMaskCfg(const NET_TV_PRIVACY_MASK_CFG_S* pInfo)
 }
 
 /* 打印越界检测配置 */
-static void PrintCrossLineAlarmInfo(const NET_TV_CROSS_LINE_ALARM_INFO_S* pInfo)
+static void PrintCrossLineAlarmInfo(const NET_CrossLineAlarmInfo_S* pInfo)
 {
     if (!pInfo)
     {
@@ -2539,20 +2642,20 @@ static void PrintCrossLineAlarmInfo(const NET_TV_CROSS_LINE_ALARM_INFO_S* pInfo)
 
     printf("\n[Client] ===== 越界检测配置 =====\n");
     printf("  Enable    : %s\n", pInfo->bEnable ? "ON" : "OFF");
-    printf("  RuleCount : %d\n", pInfo->dwRuleCount);
-    for (int i = 0; i < pInfo->dwRuleCount && i < 4; i++)
+    printf("  RuleCount : %d\n", pInfo->uRuleCount);
+    for (int i = 0; i < pInfo->uRuleCount && i < 4; i++)
     {
         printf("  Rule[%d]   : Enable=%s, StartPos=(%.2f,%.2f), EndPos=(%.2f,%.2f), Sensitivity=%d\n",
-               i, pInfo->astRule[i].bEnable ? "ON" : "OFF",
-               pInfo->astRule[i].fStartPosX, pInfo->astRule[i].fStartPosY,
-               pInfo->astRule[i].fEndPosX, pInfo->astRule[i].fEndPosY,
-               pInfo->astRule[i].nSensitivity);
+               i, pInfo->stRule[i].bEnable ? "ON" : "OFF",
+               pInfo->stRule[i].fStartPosX, pInfo->stRule[i].fStartPosY,
+               pInfo->stRule[i].fEndPosX, pInfo->stRule[i].fEndPosY,
+               pInfo->stRule[i].nSensitivity);
     }
     printf("=================================\n");
 }
 
 /* 打印入侵检测配置 */
-static void PrintIntrusionAlarmInfo(const NET_TV_INTRUSION_ALARM_INFO_S* pInfo)
+static void PrintIntrusionAlarmInfo(const NET_IntrusionAlarmInfo_S* pInfo)
 {
     if (!pInfo)
     {
@@ -2561,19 +2664,19 @@ static void PrintIntrusionAlarmInfo(const NET_TV_INTRUSION_ALARM_INFO_S* pInfo)
 
     printf("\n[Client] ===== 入侵检测配置 =====\n");
     printf("  Enable    : %s\n", pInfo->bEnable ? "ON" : "OFF");
-    printf("  RuleCount : %d\n", pInfo->dwRuleCount);
-    for (int i = 0; i < pInfo->dwRuleCount && i < 4; i++)
+    printf("  RuleCount : %d\n", pInfo->uRuleCount);
+    for (int i = 0; i < pInfo->uRuleCount && i < 4; i++)
     {
         printf("  Rule[%d]   : Enable=%s, PointCount=%d, Sensitivity=%d, TimeThreshold=%d\n",
                i, pInfo->astRule[i].bEnable ? "ON" : "OFF",
-               pInfo->astRule[i].dwPointCount,
+               pInfo->astRule[i].uPointCount,
                pInfo->astRule[i].nSensitivity,
                pInfo->astRule[i].nTimeThreshold);
     }
     printf("=================================\n");
 }
 
-static void PrintEnterRegionAlarmInfo(const NET_TV_ENTER_REGION_ALARM_INFO_S* pInfo)
+static void PrintEnterRegionAlarmInfo(const NET_EnterRegionAlarmInfo_S* pInfo)
 {
     if (!pInfo)
     {
@@ -2582,20 +2685,20 @@ static void PrintEnterRegionAlarmInfo(const NET_TV_ENTER_REGION_ALARM_INFO_S* pI
 
     printf("\n[Client] ===== 进入区域侦测配置 =====\n");
     printf("  Enable    : %s\n", pInfo->bEnable ? "ON" : "OFF");
-    printf("  RuleCount : %d\n", pInfo->dwRuleCount);
-    for (int i = 0; i < pInfo->dwRuleCount && i < 4; i++)
+    printf("  RuleCount : %d\n", pInfo->uRuleCount);
+    for (int i = 0; i < pInfo->uRuleCount && i < 4; i++)
     {
         printf("  Rule[%d]   : Enable=%s, PointCount=%d, Sensitivity=%d, TimeThreshold=%d\n",
                i,
                pInfo->astRule[i].bEnable ? "ON" : "OFF",
-               pInfo->astRule[i].dwPointCount,
+               pInfo->astRule[i].uPointCount,
                pInfo->astRule[i].nSensitivity,
                pInfo->astRule[i].nTimeThreshold);
     }
     printf("=====================================\n");
 }
 
-static void PrintLeaveRegionAlarmInfo(const NET_TV_LEAVE_REGION_ALARM_INFO_S* pInfo)
+static void PrintLeaveRegionAlarmInfo(const NET_LeaveRegionAlarmInfo_S* pInfo)
 {
     if (!pInfo)
     {
@@ -2604,13 +2707,13 @@ static void PrintLeaveRegionAlarmInfo(const NET_TV_LEAVE_REGION_ALARM_INFO_S* pI
 
     printf("\n[Client] ===== 离开区域侦测配置 =====\n");
     printf("  Enable    : %s\n", pInfo->bEnable ? "ON" : "OFF");
-    printf("  RuleCount : %d\n", pInfo->dwRuleCount);
-    for (int i = 0; i < pInfo->dwRuleCount && i < 4; i++)
+    printf("  RuleCount : %d\n", pInfo->uRuleCount);
+    for (int i = 0; i < pInfo->uRuleCount && i < 4; i++)
     {
         printf("  Rule[%d]   : Enable=%s, PointCount=%d, Sensitivity=%d, TimeThreshold=%d\n",
                i,
                pInfo->astRule[i].bEnable ? "ON" : "OFF",
-               pInfo->astRule[i].dwPointCount,
+               pInfo->astRule[i].uPointCount,
                pInfo->astRule[i].nSensitivity,
                pInfo->astRule[i].nTimeThreshold);
     }
@@ -2618,7 +2721,7 @@ static void PrintLeaveRegionAlarmInfo(const NET_TV_LEAVE_REGION_ALARM_INFO_S* pI
 }
 
 /* 打印徘徊侦测配置 */
-static void PrintLoiteringAlarmInfo(const NET_TV_LOITERING_ALARM_INFO_S* pInfo)
+static void PrintLoiteringAlarmInfo(const NET_LoiteringAlarmInfo_S* pInfo)
 {
     if (!pInfo)
     {
@@ -2627,12 +2730,12 @@ static void PrintLoiteringAlarmInfo(const NET_TV_LOITERING_ALARM_INFO_S* pInfo)
 
     printf("\n[Client] ===== 徘徊侦测配置 =====\n");
     printf("  Enable    : %s\n", pInfo->bEnable ? "ON" : "OFF");
-    printf("  RuleCount : %d\n", pInfo->dwRuleCount);
-    for (int i = 0; i < pInfo->dwRuleCount && i < 4; i++)
+    printf("  RuleCount : %d\n", pInfo->uRuleCount);
+    for (int i = 0; i < pInfo->uRuleCount && i < 4; i++)
     {
         printf("  Rule[%d]   : Enable=%s, PointCount=%d, Sensitivity=%d, TimeThreshold=%d\n",
                i, pInfo->astRule[i].bEnable ? "ON" : "OFF",
-               pInfo->astRule[i].dwPointCount,
+               pInfo->astRule[i].uPointCount,
                pInfo->astRule[i].nSensitivity,
                pInfo->astRule[i].nTimeThreshold);
     }
@@ -2642,7 +2745,7 @@ static void PrintLoiteringAlarmInfo(const NET_TV_LOITERING_ALARM_INFO_S* pInfo)
 /* 获取移动侦测配置 */
 static void DoGetMotionAlarm()
 {
-    NET_TV_MOTION_ALARM_INFO_S stInfo;
+    NET_MotionAlarmInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
     INT32 dwBytesReturned = 0;
@@ -2671,7 +2774,7 @@ static void DoGetMotionAlarm()
 /* 设置移动侦测配置 */
 static void DoSetMotionAlarm()
 {
-    NET_TV_MOTION_ALARM_INFO_S stInfo;
+    NET_MotionAlarmInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
     INT32 dwBytesReturned = 0;
@@ -2689,7 +2792,7 @@ static void DoSetMotionAlarm()
     /* 修改为示例值 */
     stInfo.bEnable = TRUE;
     stInfo.bDynamicAnalysisEnable = TRUE;
-    stInfo.dwMode = NET_TV_MOTION_MODE_NORMAL;
+    stInfo.uMode = NET_TV_MOTION_MODE_NORMAL;
     stInfo.stNormalMode.nSensitivity = 60;
     stInfo.stNormalMode.nRegionType = 0;
     stInfo.stNormalMode.nRectLeft = 150;
@@ -2718,7 +2821,7 @@ static void DoSetMotionAlarm()
 /* 获取遮挡报警配置 */
 static void DoGetTamperAlarm()
 {
-    NET_TV_TAMPER_ALARM_INFO_S stInfo;
+    NET_TamperAlarmInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
     INT32 dwBytesReturned = 0;
@@ -2743,7 +2846,7 @@ static void DoGetTamperAlarm()
 /* 设置遮挡报警配置 */
 static void DoSetTamperAlarm()
 {
-    NET_TV_TAMPER_ALARM_INFO_S stInfo;
+    NET_TamperAlarmInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
     INT32 dwBytesReturned = 0;
@@ -2760,7 +2863,7 @@ static void DoSetTamperAlarm()
 
     /* 修改为示例值 */
     stInfo.bEnable = TRUE;
-    stInfo.dwSensitivity = 3;
+    stInfo.uSensitivity = 3;
     stInfo.nRectLeft = 300;
     stInfo.nRectTop = 300;
     stInfo.nRectRight = 600;
@@ -2857,7 +2960,7 @@ static void DoSetPrivacyMaskCfg()
 /* 获取越界检测配置 */
 static void DoGetCrossLineAlarm()
 {
-    NET_TV_CROSS_LINE_ALARM_INFO_S stInfo;
+    NET_CrossLineAlarmInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
     INT32 dwBytesReturned = 0;
@@ -2886,7 +2989,7 @@ static void DoGetCrossLineAlarm()
 /* 设置越界检测配置 */
 static void DoSetCrossLineAlarm()
 {
-    NET_TV_CROSS_LINE_ALARM_INFO_S stInfo;
+    NET_CrossLineAlarmInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
     INT32 dwBytesReturned = 0;
@@ -2903,7 +3006,7 @@ static void DoSetCrossLineAlarm()
 
     /* 修改为示例值 */
     stInfo.bEnable = TRUE;
-    stInfo.dwRuleCount = 1;
+    stInfo.uRuleCount = 1;
     stInfo.astRule[0].bEnable = TRUE;
     stInfo.astRule[0].fStartPosX = 0.2f;
     stInfo.astRule[0].fStartPosY = 0.3f;
@@ -2911,8 +3014,8 @@ static void DoSetCrossLineAlarm()
     stInfo.astRule[0].fEndPosY = 0.7f;
     stInfo.astRule[0].enCrossDirection = NET_TV_CROSS_BOTH_WAYS;
     stInfo.astRule[0].nSensitivity = 60;
-    stInfo.astRule[0].dwDetectionTargetCount = 1;
-    stInfo.astRule[0].adwDetectionTarget[0] = NET_TV_TARGET_HUMAN;
+    stInfo.astRule[0].uDetectionTargetCount = 1;
+    stInfo.astRule[0].auDetectionTarget[0] = NET_TV_TARGET_HUMAN;
 
     printf("[Client] 调用 NET_TV_SetDevConfig 设置越界检测配置...\n");
     INT32 dwBytesReturnedSet = 0;
@@ -2935,7 +3038,7 @@ static void DoSetCrossLineAlarm()
 /* 获取入侵检测配置 */
 static void DoGetIntrusionAlarm()
 {
-    NET_TV_INTRUSION_ALARM_INFO_S stInfo;
+    NET_IntrusionAlarmInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
     INT32 dwBytesReturned = 0;
@@ -2960,7 +3063,7 @@ static void DoGetIntrusionAlarm()
 /* 设置入侵检测配置 */
 static void DoSetIntrusionAlarm()
 {
-    NET_TV_INTRUSION_ALARM_INFO_S stInfo;
+    NET_IntrusionAlarmInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
     INT32 dwBytesReturned = 0;
@@ -2977,17 +3080,17 @@ static void DoSetIntrusionAlarm()
 
     /* 修改为示例值 */
     stInfo.bEnable = TRUE;
-    stInfo.dwRuleCount = 1;
+    stInfo.uRuleCount = 1;
     stInfo.astRule[0].bEnable = TRUE;
-    stInfo.astRule[0].dwPointCount = 4;
+    stInfo.astRule[0].uPointCount = 4;
     stInfo.astRule[0].afPointX[0] = 0.3f; stInfo.astRule[0].afPointY[0] = 0.3f;
     stInfo.astRule[0].afPointX[1] = 0.7f; stInfo.astRule[0].afPointY[1] = 0.3f;
     stInfo.astRule[0].afPointX[2] = 0.7f; stInfo.astRule[0].afPointY[2] = 0.7f;
     stInfo.astRule[0].afPointX[3] = 0.3f; stInfo.astRule[0].afPointY[3] = 0.7f;
     stInfo.astRule[0].nTimeThreshold = 15;
     stInfo.astRule[0].nSensitivity = 60;
-    stInfo.astRule[0].dwDetectionTargetCount = 1;
-    stInfo.astRule[0].adwDetectionTarget[0] = NET_TV_TARGET_HUMAN;
+    stInfo.astRule[0].uDetectionTargetCount = 1;
+    stInfo.astRule[0].auDetectionTarget[0] = NET_TV_TARGET_HUMAN;
 
     printf("[Client] 调用 NET_TV_SetDevConfig 设置入侵检测配置...\n");
     INT32 dwBytesReturnedSet = 0;
@@ -3010,7 +3113,7 @@ static void DoSetIntrusionAlarm()
 /* 获取进入区域侦测配置 */
 static void DoGetEnterRegionAlarm()
 {
-    NET_TV_ENTER_REGION_ALARM_INFO_S stInfo;
+    NET_EnterRegionAlarmInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
     INT32 dwBytesReturned = 0;
@@ -3033,7 +3136,7 @@ static void DoGetEnterRegionAlarm()
 /* 设置进入区域侦测配置 */
 static void DoSetEnterRegionAlarm()
 {
-    NET_TV_ENTER_REGION_ALARM_INFO_S stInfo;
+    NET_EnterRegionAlarmInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
     INT32 dwBytesReturned = 0;
@@ -3048,14 +3151,14 @@ static void DoSetEnterRegionAlarm()
     }
 
     stInfo.bEnable = TRUE;
-    stInfo.dwRuleCount = 1;
+    stInfo.uRuleCount = 1;
     stInfo.astRule[0].bEnable = TRUE;
-    stInfo.astRule[0].dwPointCount = 4;
+    stInfo.astRule[0].uPointCount = 4;
     FillDemoPolygon4(stInfo.astRule[0].afPointX, stInfo.astRule[0].afPointY);
     stInfo.astRule[0].nTimeThreshold = 12;
     stInfo.astRule[0].nSensitivity = 58;
-    stInfo.astRule[0].dwDetectionTargetCount = 1;
-    stInfo.astRule[0].adwDetectionTarget[0] = NET_TV_TARGET_HUMAN;
+    stInfo.astRule[0].uDetectionTargetCount = 1;
+    stInfo.astRule[0].auDetectionTarget[0] = NET_TV_TARGET_HUMAN;
 
     INT32 dwBytesReturnedSet = 0;
     BOOL bRet = NET_TV_SetDevConfig(
@@ -3077,7 +3180,7 @@ static void DoSetEnterRegionAlarm()
 /* 获取离开区域侦测配置 */
 static void DoGetLeaveRegionAlarm()
 {
-    NET_TV_LEAVE_REGION_ALARM_INFO_S stInfo;
+    NET_LeaveRegionAlarmInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
     INT32 dwBytesReturned = 0;
@@ -3100,7 +3203,7 @@ static void DoGetLeaveRegionAlarm()
 /* 设置离开区域侦测配置 */
 static void DoSetLeaveRegionAlarm()
 {
-    NET_TV_LEAVE_REGION_ALARM_INFO_S stInfo;
+    NET_LeaveRegionAlarmInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
     INT32 dwBytesReturned = 0;
@@ -3115,14 +3218,14 @@ static void DoSetLeaveRegionAlarm()
     }
 
     stInfo.bEnable = TRUE;
-    stInfo.dwRuleCount = 1;
+    stInfo.uRuleCount = 1;
     stInfo.astRule[0].bEnable = TRUE;
-    stInfo.astRule[0].dwPointCount = 4;
+    stInfo.astRule[0].uPointCount = 4;
     FillDemoPolygon4(stInfo.astRule[0].afPointX, stInfo.astRule[0].afPointY);
     stInfo.astRule[0].nTimeThreshold = 12;
     stInfo.astRule[0].nSensitivity = 58;
-    stInfo.astRule[0].dwDetectionTargetCount = 1;
-    stInfo.astRule[0].adwDetectionTarget[0] = NET_TV_TARGET_HUMAN;
+    stInfo.astRule[0].uDetectionTargetCount = 1;
+    stInfo.astRule[0].auDetectionTarget[0] = NET_TV_TARGET_HUMAN;
 
     INT32 dwBytesReturnedSet = 0;
     BOOL bRet = NET_TV_SetDevConfig(
@@ -3144,7 +3247,7 @@ static void DoSetLeaveRegionAlarm()
 /* 获取徘徊侦测配置 */
 static void DoGetLoiteringAlarm()
 {
-    NET_TV_LOITERING_ALARM_INFO_S stInfo;
+    NET_LoiteringAlarmInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
     INT32 dwBytesReturned = 0;
@@ -3169,7 +3272,7 @@ static void DoGetLoiteringAlarm()
 /* 设置徘徊侦测配置 */
 static void DoSetLoiteringAlarm()
 {
-    NET_TV_LOITERING_ALARM_INFO_S stInfo;
+    NET_LoiteringAlarmInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
     INT32 dwBytesReturned = 0;
@@ -3186,17 +3289,17 @@ static void DoSetLoiteringAlarm()
 
     /* 修改为示例值 */
     stInfo.bEnable = TRUE;
-    stInfo.dwRuleCount = 1;
+    stInfo.uRuleCount = 1;
     stInfo.astRule[0].bEnable = TRUE;
-    stInfo.astRule[0].dwPointCount = 4;
+    stInfo.astRule[0].uPointCount = 4;
     stInfo.astRule[0].afPointX[0] = 0.3f; stInfo.astRule[0].afPointY[0] = 0.3f;
     stInfo.astRule[0].afPointX[1] = 0.7f; stInfo.astRule[0].afPointY[1] = 0.3f;
     stInfo.astRule[0].afPointX[2] = 0.7f; stInfo.astRule[0].afPointY[2] = 0.7f;
     stInfo.astRule[0].afPointX[3] = 0.3f; stInfo.astRule[0].afPointY[3] = 0.7f;
     stInfo.astRule[0].nTimeThreshold = 15;
     stInfo.astRule[0].nSensitivity = 60;
-    stInfo.astRule[0].dwDetectionTargetCount = 1;
-    stInfo.astRule[0].adwDetectionTarget[0] = NET_TV_TARGET_HUMAN;
+    stInfo.astRule[0].uDetectionTargetCount = 1;
+    stInfo.astRule[0].auDetectionTarget[0] = NET_TV_TARGET_HUMAN;
 
     printf("[Client] 调用 NET_TV_SetDevConfig 设置徘徊侦测配置...\n");
     INT32 dwBytesReturnedSet = 0;
@@ -3217,7 +3320,7 @@ static void DoSetLoiteringAlarm()
 }
 
 
-static void PrintSceneChangeAlarmInfo(const NET_TV_SCENE_CHANGE_ALARM_INFO_S* pInfo)
+static void PrintSceneChangeAlarmInfo(const NET_SceneChangeAlarmInfo_S* pInfo)
 {
     if (!pInfo)
     {
@@ -3232,7 +3335,7 @@ static void PrintSceneChangeAlarmInfo(const NET_TV_SCENE_CHANGE_ALARM_INFO_S* pI
 
 static void DoGetSceneChangeAlarm()
 {
-    NET_TV_SCENE_CHANGE_ALARM_INFO_S stInfo;
+    NET_SceneChangeAlarmInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
     INT32 dwBytesReturned = 0;
@@ -3256,7 +3359,7 @@ static void DoGetSceneChangeAlarm()
 
 static void DoSetSceneChangeAlarm()
 {
-    NET_TV_SCENE_CHANGE_ALARM_INFO_S stInfo;
+    NET_SceneChangeAlarmInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
     INT32 dwBytesReturned = 0;
@@ -3292,7 +3395,7 @@ static void DoSetSceneChangeAlarm()
     }
 }
 
-static void PrintCrowdGatheringAlarmInfo(const NET_TV_CROWD_GATHERING_ALARM_INFO_S* pInfo)
+static void PrintCrowdGatheringAlarmInfo(const NET_CrowdGatheringAlarmInfo_S* pInfo)
 {
     if (!pInfo)
     {
@@ -3306,7 +3409,7 @@ static void PrintCrowdGatheringAlarmInfo(const NET_TV_CROWD_GATHERING_ALARM_INFO
     {
         printf("  Rule[%d]   : PointCount=%d, ObjectOccup=%d\n",
                i,
-               pInfo->astRule[i].dwPointCount,
+               pInfo->astRule[i].uPointCount,
                pInfo->astRule[i].nObjectOccup);
     }
     printf("=================================\n");
@@ -3314,7 +3417,7 @@ static void PrintCrowdGatheringAlarmInfo(const NET_TV_CROWD_GATHERING_ALARM_INFO
 
 static void DoGetCrowdGatheringAlarm()
 {
-    NET_TV_CROWD_GATHERING_ALARM_INFO_S stInfo;
+    NET_CrowdGatheringAlarmInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
     INT32 dwBytesReturned = 0;
@@ -3338,7 +3441,7 @@ static void DoGetCrowdGatheringAlarm()
 
 static void DoSetCrowdGatheringAlarm()
 {
-    NET_TV_CROWD_GATHERING_ALARM_INFO_S stInfo;
+    NET_CrowdGatheringAlarmInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
     INT32 dwBytesReturned = 0;
@@ -3354,8 +3457,8 @@ static void DoSetCrowdGatheringAlarm()
     }
 
     stInfo.bEnable = TRUE;
-    stInfo.dwRuleCount = 1;
-    stInfo.astRule[0].dwPointCount = 4;
+    stInfo.uRuleCount = 1;
+    stInfo.astRule[0].uPointCount = 4;
     FillDemoPolygon4(stInfo.astRule[0].afPointX, stInfo.astRule[0].afPointY);
     stInfo.astRule[0].nObjectOccup = 55;
 
@@ -3377,7 +3480,7 @@ static void DoSetCrowdGatheringAlarm()
     }
 }
 
-static void PrintGarbageExposureCfgInfo(const NET_TV_GARBAGE_EXPOSURE_CFG_S* pInfo)
+static void PrintGarbageExposureCfgInfo(const NET_GarbageExposureCfg_S* pInfo)
 {
     if (!pInfo)
     {
@@ -3387,13 +3490,13 @@ static void PrintGarbageExposureCfgInfo(const NET_TV_GARBAGE_EXPOSURE_CFG_S* pIn
     printf("\n[Client] ===== 打印垃圾暴露配置 =====\n");
     printf("  Enable    : %s\n", pInfo->bEnable ? "ON" : "OFF");
     printf("  Sensitivity: %d\n", pInfo->stRule.nSensitivity);
-    printf("  PointCount: %d\n", pInfo->stRule.dwPointCount);
+    printf("  PointCount: %d\n", pInfo->stRule.uPointCount);
     printf("=================================\n");
 }
 
 static void DoGetGarbageExposureCfg()
 {
-    NET_TV_GARBAGE_EXPOSURE_CFG_S stInfo;
+    NET_GarbageExposureCfg_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
     INT32 dwBytesReturned = 0;
@@ -3417,7 +3520,7 @@ static void DoGetGarbageExposureCfg()
 
 static void DoSetGarbageExposureCfg()
 {
-    NET_TV_GARBAGE_EXPOSURE_CFG_S stInfo;
+    NET_GarbageExposureCfg_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
     INT32 dwBytesReturned = 0;
@@ -3434,7 +3537,7 @@ static void DoSetGarbageExposureCfg()
 
     stInfo.bEnable = TRUE;
     stInfo.stRule.nSensitivity = 50;
-    stInfo.stRule.dwPointCount = 4;
+    stInfo.stRule.uPointCount = 4;
     FillDemoPolygon4(stInfo.stRule.afPointX, stInfo.stRule.afPointY);
 
     printf("[Client] 调用 NET_TV_SetDevConfig 设置垃圾暴露配置...\n");
@@ -3455,7 +3558,7 @@ static void DoSetGarbageExposureCfg()
     }
 }
 
-static void PrintGarbageOverflowCfgInfo(const NET_TV_GARBAGE_OVERFLOW_CFG_S* pInfo)
+static void PrintGarbageOverflowCfgInfo(const NET_GarbageOverflowCfg_S* pInfo)
 {
     if (!pInfo)
     {
@@ -3465,14 +3568,14 @@ static void PrintGarbageOverflowCfgInfo(const NET_TV_GARBAGE_OVERFLOW_CFG_S* pIn
     printf("\n[Client] ===== 打印垃圾满溢配置 =====\n");
     printf("  Enable    : %s\n", pInfo->bEnable ? "ON" : "OFF");
     printf("  Sensitivity: %d\n", pInfo->stRule.nSensitivity);
-    printf("  PointCount: %d\n", pInfo->stRule.dwPointCount);
+    printf("  PointCount: %d\n", pInfo->stRule.uPointCount);
     printf("  TimeThreshold: %d\n", pInfo->nTimeThreshold);
     printf("=================================\n");
 }
 
 static void DoGetGarbageOverflowCfg()
 {
-    NET_TV_GARBAGE_OVERFLOW_CFG_S stInfo;
+    NET_GarbageOverflowCfg_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
     INT32 dwBytesReturned = 0;
@@ -3496,7 +3599,7 @@ static void DoGetGarbageOverflowCfg()
 
 static void DoSetGarbageOverflowCfg()
 {
-    NET_TV_GARBAGE_OVERFLOW_CFG_S stInfo;
+    NET_GarbageOverflowCfg_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
     INT32 dwBytesReturned = 0;
@@ -3513,7 +3616,7 @@ static void DoSetGarbageOverflowCfg()
 
     stInfo.bEnable = TRUE;
     stInfo.stRule.nSensitivity = 50;
-    stInfo.stRule.dwPointCount = 4;
+    stInfo.stRule.uPointCount = 4;
     FillDemoPolygon4(stInfo.stRule.afPointX, stInfo.stRule.afPointY);
     stInfo.nTimeThreshold = 60;
 
@@ -3535,7 +3638,7 @@ static void DoSetGarbageOverflowCfg()
     }
 }
 
-static void PrintPeopleFlowStatisticsCfgInfo(const NET_TV_PEOPLE_FLOW_STATISTICS_CFG_S* pInfo)
+static void PrintPeopleFlowStatisticsCfgInfo(const NET_PeopleFlowStatisticsCfg_S* pInfo)
 {
     if (!pInfo)
     {
@@ -3556,7 +3659,7 @@ static void PrintPeopleFlowStatisticsCfgInfo(const NET_TV_PEOPLE_FLOW_STATISTICS
 
 static void DoGetPeopleFlowStatisticsCfg()
 {
-    NET_TV_PEOPLE_FLOW_STATISTICS_CFG_S stInfo;
+    NET_PeopleFlowStatisticsCfg_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
     INT32 dwBytesReturned = 0;
@@ -3579,13 +3682,13 @@ static void DoGetPeopleFlowStatisticsCfg()
 
 static void DoSetPeopleFlowStatisticsCfg()
 {
-    NET_TV_PEOPLE_FLOW_STATISTICS_CFG_S stInfo;
+    NET_PeopleFlowStatisticsCfg_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
     stInfo.bEnable = TRUE;
     stInfo.nSensitivity = 60;
     stInfo.nReportInterval = 120;
-    stInfo.enStatisticsType = NET_TV_PEOPLE_FLOW_STAT_TOTAL;
+    stInfo.enStatisticsType = NET_PeopleFlowStatTotal;
 
     INT32 dwBytesReturnedSet = 0;
 
@@ -3607,7 +3710,7 @@ static void DoSetPeopleFlowStatisticsCfg()
 
 static void DoResetPeopleFlowStatistics()
 {
-    NET_TV_PEOPLE_FLOW_STATISTICS_CFG_S stInfo;
+    NET_PeopleFlowStatisticsCfg_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
     INT32 dwBytesReturnedSet = 0;
@@ -3627,7 +3730,7 @@ static void DoResetPeopleFlowStatistics()
     }
 }
 
-static void PrintPeopleDensityDetectionCfgInfo(const NET_TV_PEOPLE_DENSITY_DETECTION_CFG_S* pInfo)
+static void PrintPeopleDensityDetectionCfgInfo(const NET_PeopleDensityDetectionCfg_S* pInfo)
 {
     if (!pInfo)
     {
@@ -3643,7 +3746,7 @@ static void PrintPeopleDensityDetectionCfgInfo(const NET_TV_PEOPLE_DENSITY_DETEC
 
 static void DoGetPeopleDensityDetectionCfg()
 {
-    NET_TV_PEOPLE_DENSITY_DETECTION_CFG_S stInfo;
+    NET_PeopleDensityDetectionCfg_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
     INT32 dwBytesReturned = 0;
@@ -3666,7 +3769,7 @@ static void DoGetPeopleDensityDetectionCfg()
 
 static void DoSetPeopleDensityDetectionCfg()
 {
-    NET_TV_PEOPLE_DENSITY_DETECTION_CFG_S stInfo;
+    NET_PeopleDensityDetectionCfg_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
     stInfo.bEnable = TRUE;
@@ -3691,7 +3794,7 @@ static void DoSetPeopleDensityDetectionCfg()
     }
 }
 
-static void FillSimpleAiDemoSchedule(NET_TV_ALARM_SCHEDULE_S* pSchedule)
+static void FillSimpleAiDemoSchedule(NET_AlarmSchedule_S* pSchedule)
 {
     if (!pSchedule)
     {
@@ -3700,29 +3803,29 @@ static void FillSimpleAiDemoSchedule(NET_TV_ALARM_SCHEDULE_S* pSchedule)
 
     for (int day = 0; day < 7; day++)
     {
-        pSchedule->dwTimeSectionCount[day] = 1;
-        pSchedule->astTimeSection[day][0].nStartHour = 0;
-        pSchedule->astTimeSection[day][0].nStartMinute = 0;
-        pSchedule->astTimeSection[day][0].nEndHour = 23;
-        pSchedule->astTimeSection[day][0].nEndMinute = 59;
+        pSchedule->uTimeSectionCount[day] = 1;
+        pSchedule->stTimeSection[day][0].nStartHour = 0;
+        pSchedule->stTimeSection[day][0].nStartMinute = 0;
+        pSchedule->stTimeSection[day][0].nEndHour = 23;
+        pSchedule->stTimeSection[day][0].nEndMinute = 59;
     }
 }
 
-static void FillSmartRegionDemo(NET_TV_SMART_REGION_S* pRegion)
+static void FillSmartRegionDemo(NET_SmartRegion_S* pRegion)
 {
     if (!pRegion)
     {
         return;
     }
 
-    pRegion->dwPointCount = 4;
+    pRegion->uPointCount = 4;
     pRegion->afPointX[0] = 0.20f; pRegion->afPointY[0] = 0.20f;
     pRegion->afPointX[1] = 0.80f; pRegion->afPointY[1] = 0.20f;
     pRegion->afPointX[2] = 0.80f; pRegion->afPointY[2] = 0.80f;
     pRegion->afPointX[3] = 0.20f; pRegion->afPointY[3] = 0.80f;
 }
 
-static void FillSmartRegionRuleDemo(NET_TV_SMART_REGION_RULE_S* pRule)
+static void FillSmartRegionRuleDemo(NET_SmartRegionRule_S* pRule)
 {
     if (!pRule)
     {
@@ -3730,7 +3833,7 @@ static void FillSmartRegionRuleDemo(NET_TV_SMART_REGION_RULE_S* pRule)
     }
 
     pRule->bEnable = TRUE;
-    pRule->dwPointCount = 4;
+    pRule->uPointCount = 4;
     pRule->afPointX[0] = 0.20f; pRule->afPointY[0] = 0.20f;
     pRule->afPointX[1] = 0.80f; pRule->afPointY[1] = 0.20f;
     pRule->afPointX[2] = 0.80f; pRule->afPointY[2] = 0.80f;
@@ -3741,7 +3844,7 @@ static void FillSmartRegionRuleDemo(NET_TV_SMART_REGION_RULE_S* pRule)
     pRule->adwDetectionTarget[0] = NET_TV_TARGET_HUMAN;
 }
 
-static void FillSmartLineRuleDemo(NET_TV_SMART_LINE_RULE_S* pRule)
+static void FillSmartLineRuleDemo(NET_SmartLineRule_S* pRule)
 {
     if (!pRule)
     {
@@ -3757,7 +3860,7 @@ static void FillSmartLineRuleDemo(NET_TV_SMART_LINE_RULE_S* pRule)
     pRule->nSensitivity = 55;
 }
 
-static void PrintManholeCoverAbnormalCfgInfo(const NET_TV_MANHOLE_COVER_ABNORMAL_CFG_S* pInfo)
+static void PrintManholeCoverAbnormalCfgInfo(const NET_ManholeCoverAbnormalCfg_S* pInfo)
 {
     if (!pInfo)
     {
@@ -3772,7 +3875,7 @@ static void PrintManholeCoverAbnormalCfgInfo(const NET_TV_MANHOLE_COVER_ABNORMAL
 
 static void DoGetManholeCoverAbnormalCfg()
 {
-    NET_TV_MANHOLE_COVER_ABNORMAL_CFG_S stInfo;
+    NET_ManholeCoverAbnormalCfg_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
     INT32 dwBytesReturned = 0;
@@ -3794,7 +3897,7 @@ static void DoGetManholeCoverAbnormalCfg()
 
 static void DoSetManholeCoverAbnormalCfg()
 {
-    NET_TV_MANHOLE_COVER_ABNORMAL_CFG_S stInfo;
+    NET_ManholeCoverAbnormalCfg_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
     stInfo.bEnable = TRUE;
@@ -3818,7 +3921,7 @@ static void DoSetManholeCoverAbnormalCfg()
     }
 }
 
-static void PrintSleepOnDutyCfgInfo(const NET_TV_SLEEP_ON_DUTY_CFG_S* pInfo)
+static void PrintSleepOnDutyCfgInfo(const NET_SleepOnDutyCfg_S* pInfo)
 {
     if (!pInfo)
     {
@@ -3833,7 +3936,7 @@ static void PrintSleepOnDutyCfgInfo(const NET_TV_SLEEP_ON_DUTY_CFG_S* pInfo)
 
 static void DoGetSleepOnDutyCfg()
 {
-    NET_TV_SLEEP_ON_DUTY_CFG_S stInfo;
+    NET_SleepOnDutyCfg_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
     INT32 dwBytesReturned = 0;
@@ -3855,7 +3958,7 @@ static void DoGetSleepOnDutyCfg()
 
 static void DoSetSleepOnDutyCfg()
 {
-    NET_TV_SLEEP_ON_DUTY_CFG_S stInfo;
+    NET_SleepOnDutyCfg_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
     stInfo.bEnable = TRUE;
@@ -3879,7 +3982,7 @@ static void DoSetSleepOnDutyCfg()
     }
 }
 
-static void PrintElectricVehicleInElevatorCfgInfo(const NET_TV_ELECTRIC_VEHICLE_IN_ELEVATOR_CFG_S* pInfo)
+static void PrintElectricVehicleInElevatorCfgInfo(const NET_ElectricVehicleInElevatorCfg_S* pInfo)
 {
     if (!pInfo)
     {
@@ -3894,7 +3997,7 @@ static void PrintElectricVehicleInElevatorCfgInfo(const NET_TV_ELECTRIC_VEHICLE_
 
 static void DoGetElectricVehicleInElevatorCfg()
 {
-    NET_TV_ELECTRIC_VEHICLE_IN_ELEVATOR_CFG_S stInfo;
+    NET_ElectricVehicleInElevatorCfg_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
     INT32 dwBytesReturned = 0;
@@ -3916,7 +4019,7 @@ static void DoGetElectricVehicleInElevatorCfg()
 
 static void DoSetElectricVehicleInElevatorCfg()
 {
-    NET_TV_ELECTRIC_VEHICLE_IN_ELEVATOR_CFG_S stInfo;
+    NET_ElectricVehicleInElevatorCfg_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
     stInfo.bEnable = TRUE;
@@ -3940,7 +4043,7 @@ static void DoSetElectricVehicleInElevatorCfg()
     }
 }
 
-static void PrintPersonFallDownCfgInfo(const NET_TV_PERSON_FALL_DOWN_CFG_S* pInfo)
+static void PrintPersonFallDownCfgInfo(const NET_PersonFallDownCfg_S* pInfo)
 {
     if (!pInfo)
     {
@@ -3955,7 +4058,7 @@ static void PrintPersonFallDownCfgInfo(const NET_TV_PERSON_FALL_DOWN_CFG_S* pInf
 
 static void DoGetPersonFallDownCfg()
 {
-    NET_TV_PERSON_FALL_DOWN_CFG_S stInfo;
+    NET_PersonFallDownCfg_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
     INT32 dwBytesReturned = 0;
@@ -3977,7 +4080,7 @@ static void DoGetPersonFallDownCfg()
 
 static void DoSetPersonFallDownCfg()
 {
-    NET_TV_PERSON_FALL_DOWN_CFG_S stInfo;
+    NET_PersonFallDownCfg_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
     stInfo.bEnable = TRUE;
@@ -4001,7 +4104,7 @@ static void DoSetPersonFallDownCfg()
     }
 }
 
-static void PrintConstructionOccupyRoadCfgInfo(const NET_TV_CONSTRUCTION_OCCUPY_ROAD_CFG_S* pInfo)
+static void PrintConstructionOccupyRoadCfgInfo(const NET_ConstructionOccupyRoadCfg_S* pInfo)
 {
     if (!pInfo)
     {
@@ -4016,7 +4119,7 @@ static void PrintConstructionOccupyRoadCfgInfo(const NET_TV_CONSTRUCTION_OCCUPY_
 
 static void DoGetConstructionOccupyRoadCfg()
 {
-    NET_TV_CONSTRUCTION_OCCUPY_ROAD_CFG_S stInfo;
+    NET_ConstructionOccupyRoadCfg_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
     INT32 dwBytesReturned = 0;
@@ -4038,7 +4141,7 @@ static void DoGetConstructionOccupyRoadCfg()
 
 static void DoSetConstructionOccupyRoadCfg()
 {
-    NET_TV_CONSTRUCTION_OCCUPY_ROAD_CFG_S stInfo;
+    NET_ConstructionOccupyRoadCfg_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
     stInfo.bEnable = TRUE;
@@ -4062,7 +4165,7 @@ static void DoSetConstructionOccupyRoadCfg()
     }
 }
 
-static void PrintCongestionCfgInfo(const NET_TV_CONGESTION_CFG_S* pInfo)
+static void PrintCongestionCfgInfo(const NET_CongestionCfg_S* pInfo)
 {
     if (!pInfo)
     {
@@ -4077,7 +4180,7 @@ static void PrintCongestionCfgInfo(const NET_TV_CONGESTION_CFG_S* pInfo)
 
 static void DoGetCongestionCfg()
 {
-    NET_TV_CONGESTION_CFG_S stInfo;
+    NET_CongestionCfg_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
     INT32 dwBytesReturned = 0;
@@ -4099,7 +4202,7 @@ static void DoGetCongestionCfg()
 
 static void DoSetCongestionCfg()
 {
-    NET_TV_CONGESTION_CFG_S stInfo;
+    NET_CongestionCfg_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
     stInfo.bEnable = TRUE;
@@ -4123,7 +4226,7 @@ static void DoSetCongestionCfg()
     }
 }
 
-static void PrintLicensePlateRecognitionCfgInfo(const NET_TV_LICENSE_PLATE_RECOGNITION_CFG_S* pInfo)
+static void PrintLicensePlateRecognitionCfgInfo(const NET_LicensePlateRecognitionCfg_S* pInfo)
 {
     if (!pInfo)
     {
@@ -4138,7 +4241,7 @@ static void PrintLicensePlateRecognitionCfgInfo(const NET_TV_LICENSE_PLATE_RECOG
 
 static void DoGetLicensePlateRecognitionCfg()
 {
-    NET_TV_LICENSE_PLATE_RECOGNITION_CFG_S stInfo;
+    NET_LicensePlateRecognitionCfg_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
     INT32 dwBytesReturned = 0;
@@ -4160,7 +4263,7 @@ static void DoGetLicensePlateRecognitionCfg()
 
 static void DoSetLicensePlateRecognitionCfg()
 {
-    NET_TV_LICENSE_PLATE_RECOGNITION_CFG_S stInfo;
+    NET_LicensePlateRecognitionCfg_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
     stInfo.bEnable = TRUE;
@@ -4184,7 +4287,7 @@ static void DoSetLicensePlateRecognitionCfg()
     }
 }
 
-static void PrintHighAltitudeSeatbeltCfgInfo(const NET_TV_HIGH_ALTITUDE_SEATBELT_CFG_S* pInfo)
+static void PrintHighAltitudeSeatbeltCfgInfo(const NET_HighAltitudeSeatbeltCfg_S* pInfo)
 {
     if (!pInfo)
     {
@@ -4199,7 +4302,7 @@ static void PrintHighAltitudeSeatbeltCfgInfo(const NET_TV_HIGH_ALTITUDE_SEATBELT
 
 static void DoGetHighAltitudeSeatbeltCfg()
 {
-    NET_TV_HIGH_ALTITUDE_SEATBELT_CFG_S stInfo;
+    NET_HighAltitudeSeatbeltCfg_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
     INT32 dwBytesReturned = 0;
@@ -4221,7 +4324,7 @@ static void DoGetHighAltitudeSeatbeltCfg()
 
 static void DoSetHighAltitudeSeatbeltCfg()
 {
-    NET_TV_HIGH_ALTITUDE_SEATBELT_CFG_S stInfo;
+    NET_HighAltitudeSeatbeltCfg_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
     stInfo.bEnable = TRUE;
@@ -4245,7 +4348,7 @@ static void DoSetHighAltitudeSeatbeltCfg()
     }
 }
 
-static void PrintSafetyHelmetCfgInfo(const NET_TV_SAFETY_HELMET_CFG_S* pInfo)
+static void PrintSafetyHelmetCfgInfo(const NET_SafetyHelmetCfg_S* pInfo)
 {
     if (!pInfo)
     {
@@ -4260,7 +4363,7 @@ static void PrintSafetyHelmetCfgInfo(const NET_TV_SAFETY_HELMET_CFG_S* pInfo)
 
 static void DoGetSafetyHelmetCfg()
 {
-    NET_TV_SAFETY_HELMET_CFG_S stInfo;
+    NET_SafetyHelmetCfg_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
     INT32 dwBytesReturned = 0;
@@ -4282,7 +4385,7 @@ static void DoGetSafetyHelmetCfg()
 
 static void DoSetSafetyHelmetCfg()
 {
-    NET_TV_SAFETY_HELMET_CFG_S stInfo;
+    NET_SafetyHelmetCfg_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
     stInfo.bEnable = TRUE;
@@ -4306,7 +4409,7 @@ static void DoSetSafetyHelmetCfg()
     }
 }
 
-static void PrintPersonFallCfgInfo(const NET_TV_PERSON_FALL_CFG_S* pInfo)
+static void PrintPersonFallCfgInfo(const NET_PersonFallCfg_S* pInfo)
 {
     if (!pInfo)
     {
@@ -4321,7 +4424,7 @@ static void PrintPersonFallCfgInfo(const NET_TV_PERSON_FALL_CFG_S* pInfo)
 
 static void DoGetPersonFallCfg()
 {
-    NET_TV_PERSON_FALL_CFG_S stInfo;
+    NET_PersonFallCfg_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
     INT32 dwBytesReturned = 0;
@@ -4343,7 +4446,7 @@ static void DoGetPersonFallCfg()
 
 static void DoSetPersonFallCfg()
 {
-    NET_TV_PERSON_FALL_CFG_S stInfo;
+    NET_PersonFallCfg_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
     stInfo.bEnable = TRUE;
@@ -4367,7 +4470,7 @@ static void DoSetPersonFallCfg()
     }
 }
 
-static void PrintPhoneUsageCfgInfo(const NET_TV_PHONE_USAGE_CFG_S* pInfo)
+static void PrintPhoneUsageCfgInfo(const NET_PhoneUsageCfg_S* pInfo)
 {
     if (!pInfo)
     {
@@ -4382,7 +4485,7 @@ static void PrintPhoneUsageCfgInfo(const NET_TV_PHONE_USAGE_CFG_S* pInfo)
 
 static void DoGetPhoneUsageCfg()
 {
-    NET_TV_PHONE_USAGE_CFG_S stInfo;
+    NET_PhoneUsageCfg_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
     INT32 dwBytesReturned = 0;
@@ -4404,7 +4507,7 @@ static void DoGetPhoneUsageCfg()
 
 static void DoSetPhoneUsageCfg()
 {
-    NET_TV_PHONE_USAGE_CFG_S stInfo;
+    NET_PhoneUsageCfg_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
     stInfo.bEnable = TRUE;
@@ -4428,7 +4531,7 @@ static void DoSetPhoneUsageCfg()
     }
 }
 
-static void PrintSmokingCfgInfo(const NET_TV_SMOKING_CFG_S* pInfo)
+static void PrintSmokingCfgInfo(const NET_SmokingCfg_S* pInfo)
 {
     if (!pInfo)
     {
@@ -4443,7 +4546,7 @@ static void PrintSmokingCfgInfo(const NET_TV_SMOKING_CFG_S* pInfo)
 
 static void DoGetSmokingCfg()
 {
-    NET_TV_SMOKING_CFG_S stInfo;
+    NET_SmokingCfg_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
     INT32 dwBytesReturned = 0;
@@ -4465,7 +4568,7 @@ static void DoGetSmokingCfg()
 
 static void DoSetSmokingCfg()
 {
-    NET_TV_SMOKING_CFG_S stInfo;
+    NET_SmokingCfg_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
     stInfo.bEnable = TRUE;
@@ -4489,7 +4592,7 @@ static void DoSetSmokingCfg()
     }
 }
 
-static void PrintOpenFlameCfgInfo(const NET_TV_OPEN_FLAME_CFG_S* pInfo)
+static void PrintOpenFlameCfgInfo(const NET_OpenFlameCfg_S* pInfo)
 {
     if (!pInfo)
     {
@@ -4504,7 +4607,7 @@ static void PrintOpenFlameCfgInfo(const NET_TV_OPEN_FLAME_CFG_S* pInfo)
 
 static void DoGetOpenFlameCfg()
 {
-    NET_TV_OPEN_FLAME_CFG_S stInfo;
+    NET_OpenFlameCfg_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
     INT32 dwBytesReturned = 0;
@@ -4526,7 +4629,7 @@ static void DoGetOpenFlameCfg()
 
 static void DoSetOpenFlameCfg()
 {
-    NET_TV_OPEN_FLAME_CFG_S stInfo;
+    NET_OpenFlameCfg_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
     stInfo.bEnable = TRUE;
@@ -4550,7 +4653,7 @@ static void DoSetOpenFlameCfg()
     }
 }
 
-static void PrintBareSoilCfgInfo(const NET_TV_BARE_SOIL_CFG_S* pInfo)
+static void PrintBareSoilCfgInfo(const NET_BareSoilCfg_S* pInfo)
 {
     if (!pInfo)
     {
@@ -4565,7 +4668,7 @@ static void PrintBareSoilCfgInfo(const NET_TV_BARE_SOIL_CFG_S* pInfo)
 
 static void DoGetBareSoilCfg()
 {
-    NET_TV_BARE_SOIL_CFG_S stInfo;
+    NET_BareSoilCfg_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
     INT32 dwBytesReturned = 0;
@@ -4587,7 +4690,7 @@ static void DoGetBareSoilCfg()
 
 static void DoSetBareSoilCfg()
 {
-    NET_TV_BARE_SOIL_CFG_S stInfo;
+    NET_BareSoilCfg_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
     stInfo.bEnable = TRUE;
@@ -4611,7 +4714,7 @@ static void DoSetBareSoilCfg()
     }
 }
 
-static void PrintHoleProtectionBarCfgInfo(const NET_TV_HOLE_PROTECTION_BAR_CFG_S* pInfo)
+static void PrintHoleProtectionBarCfgInfo(const NET_HoleProtectionBarCfg_S* pInfo)
 {
     if (!pInfo)
     {
@@ -4626,7 +4729,7 @@ static void PrintHoleProtectionBarCfgInfo(const NET_TV_HOLE_PROTECTION_BAR_CFG_S
 
 static void DoGetHoleProtectionBarCfg()
 {
-    NET_TV_HOLE_PROTECTION_BAR_CFG_S stInfo;
+    NET_HoleProtectionBarCfg_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
     INT32 dwBytesReturned = 0;
@@ -4648,7 +4751,7 @@ static void DoGetHoleProtectionBarCfg()
 
 static void DoSetHoleProtectionBarCfg()
 {
-    NET_TV_HOLE_PROTECTION_BAR_CFG_S stInfo;
+    NET_HoleProtectionBarCfg_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
     stInfo.bEnable = TRUE;
@@ -4672,7 +4775,7 @@ static void DoSetHoleProtectionBarCfg()
     }
 }
 
-static void PrintReflectiveClothingCfgInfo(const NET_TV_REFLECTIVE_CLOTHING_CFG_S* pInfo)
+static void PrintReflectiveClothingCfgInfo(const NET_ReflectiveClothingCfg_S* pInfo)
 {
     if (!pInfo)
     {
@@ -4687,7 +4790,7 @@ static void PrintReflectiveClothingCfgInfo(const NET_TV_REFLECTIVE_CLOTHING_CFG_
 
 static void DoGetReflectiveClothingCfg()
 {
-    NET_TV_REFLECTIVE_CLOTHING_CFG_S stInfo;
+    NET_ReflectiveClothingCfg_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
     INT32 dwBytesReturned = 0;
@@ -4709,7 +4812,7 @@ static void DoGetReflectiveClothingCfg()
 
 static void DoSetReflectiveClothingCfg()
 {
-    NET_TV_REFLECTIVE_CLOTHING_CFG_S stInfo;
+    NET_ReflectiveClothingCfg_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
     stInfo.bEnable = TRUE;
@@ -4733,7 +4836,7 @@ static void DoSetReflectiveClothingCfg()
     }
 }
 
-static void PrintPetRecognitionInfo(const NET_TV_PET_RECOGNITION_INFO_S* pInfo)
+static void PrintPetRecognitionInfo(const NET_PetRecognitionInfo_S* pInfo)
 {
     if (!pInfo)
     {
@@ -4744,8 +4847,8 @@ static void PrintPetRecognitionInfo(const NET_TV_PET_RECOGNITION_INFO_S* pInfo)
     printf("  Enable                : %s\n", pInfo->bEnable ? "ON" : "OFF");
     printf("  DynamicAnalysisEnable : %s\n", pInfo->bDynamicAnalysisEnable ? "ON" : "OFF");
     printf("  Sensitivity           : %d\n", pInfo->nSensitivity);
-    printf("  RegionPointCount      : %d\n", pInfo->stRegion.dwPointCount);
-    for (int i = 0; i < pInfo->stRegion.dwPointCount && i < 32; i++)
+    printf("  RegionPointCount      : %d\n", pInfo->stRegion.uPointCount);
+    for (int i = 0; i < pInfo->stRegion.uPointCount && i < 32; i++)
     {
         printf("  RegionPoint[%d]        : X=%.2f, Y=%.2f\n",
                i,
@@ -4757,7 +4860,7 @@ static void PrintPetRecognitionInfo(const NET_TV_PET_RECOGNITION_INFO_S* pInfo)
 
 static void DoGetPetRecognitionInfo()
 {
-    NET_TV_PET_RECOGNITION_INFO_S stInfo;
+    NET_PetRecognitionInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
     INT32 dwBytesReturned = 0;
@@ -4779,7 +4882,7 @@ static void DoGetPetRecognitionInfo()
 
 static void DoSetPetRecognitionInfo()
 {
-    NET_TV_PET_RECOGNITION_INFO_S stInfo;
+    NET_PetRecognitionInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
     stInfo.bEnable = TRUE;
@@ -4805,7 +4908,7 @@ static void DoSetPetRecognitionInfo()
     }
 }
 
-static void PrintClimbFenceInfo(const NET_TV_CLIMB_FENCE_INFO_S* pInfo)
+static void PrintClimbFenceInfo(const NET_ClimbFenceInfo_S* pInfo)
 {
     if (!pInfo)
     {
@@ -4820,7 +4923,7 @@ static void PrintClimbFenceInfo(const NET_TV_CLIMB_FENCE_INFO_S* pInfo)
         printf("  Rule[%d]   : Enable=%s, PointCount=%d, Sensitivity=%d, TimeThreshold=%d\n",
                i,
                pInfo->astRule[i].bEnable ? "ON" : "OFF",
-               pInfo->astRule[i].dwPointCount,
+               pInfo->astRule[i].uPointCount,
                pInfo->astRule[i].nSensitivity,
                pInfo->astRule[i].nTimeThreshold);
     }
@@ -4829,7 +4932,7 @@ static void PrintClimbFenceInfo(const NET_TV_CLIMB_FENCE_INFO_S* pInfo)
 
 static void DoGetClimbFenceInfo()
 {
-    NET_TV_CLIMB_FENCE_INFO_S stInfo;
+    NET_ClimbFenceInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
     INT32 dwBytesReturned = 0;
@@ -4851,11 +4954,11 @@ static void DoGetClimbFenceInfo()
 
 static void DoSetClimbFenceInfo()
 {
-    NET_TV_CLIMB_FENCE_INFO_S stInfo;
+    NET_ClimbFenceInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
     stInfo.bEnable = TRUE;
-    stInfo.dwRuleCount = 1;
+    stInfo.uRuleCount = 1;
     FillSmartRegionRuleDemo(&stInfo.astRule[0]);
     FillSimpleAiDemoSchedule(&stInfo.stAlarmSchedule);
 
@@ -4876,7 +4979,7 @@ static void DoSetClimbFenceInfo()
     }
 }
 
-static void PrintDimissionInfo(const NET_TV_DIMISSION_INFO_S* pInfo)
+static void PrintDimissionInfo(const NET_DimissionInfo_S* pInfo)
 {
     if (!pInfo)
     {
@@ -4891,7 +4994,7 @@ static void PrintDimissionInfo(const NET_TV_DIMISSION_INFO_S* pInfo)
         printf("  Rule[%d]   : Enable=%s, PointCount=%d, Sensitivity=%d, TimeThreshold=%d\n",
                i,
                pInfo->astRule[i].bEnable ? "ON" : "OFF",
-               pInfo->astRule[i].dwPointCount,
+               pInfo->astRule[i].uPointCount,
                pInfo->astRule[i].nSensitivity,
                pInfo->astRule[i].nTimeThreshold);
     }
@@ -4900,7 +5003,7 @@ static void PrintDimissionInfo(const NET_TV_DIMISSION_INFO_S* pInfo)
 
 static void DoGetDimissionInfo()
 {
-    NET_TV_DIMISSION_INFO_S stInfo;
+    NET_DimissionInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
     INT32 dwBytesReturned = 0;
@@ -4922,11 +5025,11 @@ static void DoGetDimissionInfo()
 
 static void DoSetDimissionInfo()
 {
-    NET_TV_DIMISSION_INFO_S stInfo;
+    NET_DimissionInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
     stInfo.bEnable = TRUE;
-    stInfo.dwRuleCount = 1;
+    stInfo.uRuleCount = 1;
     FillSmartRegionRuleDemo(&stInfo.astRule[0]);
     FillSimpleAiDemoSchedule(&stInfo.stAlarmSchedule);
 
@@ -4947,7 +5050,7 @@ static void DoSetDimissionInfo()
     }
 }
 
-static void PrintIllegalLaneInfo(const NET_TV_ILLEGAL_LANE_INFO_S* pInfo)
+static void PrintIllegalLaneInfo(const NET_IllegalLaneInfo_S* pInfo)
 {
     if (!pInfo)
     {
@@ -4974,7 +5077,7 @@ static void PrintIllegalLaneInfo(const NET_TV_ILLEGAL_LANE_INFO_S* pInfo)
 
 static void DoGetIllegalLaneInfo()
 {
-    NET_TV_ILLEGAL_LANE_INFO_S stInfo;
+    NET_IllegalLaneInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
     INT32 dwBytesReturned = 0;
@@ -4996,11 +5099,11 @@ static void DoGetIllegalLaneInfo()
 
 static void DoSetIllegalLaneInfo()
 {
-    NET_TV_ILLEGAL_LANE_INFO_S stInfo;
+    NET_IllegalLaneInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
     stInfo.bEnable = TRUE;
-    stInfo.dwRuleCount = 1;
+    stInfo.uRuleCount = 1;
     FillSmartLineRuleDemo(&stInfo.astRule[0]);
     FillSimpleAiDemoSchedule(&stInfo.stAlarmSchedule);
 
@@ -5021,7 +5124,7 @@ static void DoSetIllegalLaneInfo()
     }
 }
 
-static void PrintRetrogradeInfo(const NET_TV_RETROGRADE_INFO_S* pInfo)
+static void PrintRetrogradeInfo(const NET_RetrogradeInfo_S* pInfo)
 {
     if (!pInfo)
     {
@@ -5048,7 +5151,7 @@ static void PrintRetrogradeInfo(const NET_TV_RETROGRADE_INFO_S* pInfo)
 
 static void DoGetRetrogradeInfo()
 {
-    NET_TV_RETROGRADE_INFO_S stInfo;
+    NET_RetrogradeInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
     INT32 dwBytesReturned = 0;
@@ -5070,11 +5173,11 @@ static void DoGetRetrogradeInfo()
 
 static void DoSetRetrogradeInfo()
 {
-    NET_TV_RETROGRADE_INFO_S stInfo;
+    NET_RetrogradeInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
     stInfo.bEnable = TRUE;
-    stInfo.dwRuleCount = 1;
+    stInfo.uRuleCount = 1;
     FillSmartLineRuleDemo(&stInfo.astRule[0]);
     FillSimpleAiDemoSchedule(&stInfo.stAlarmSchedule);
 
@@ -5095,7 +5198,7 @@ static void DoSetRetrogradeInfo()
     }
 }
 
-static void PrintNonmotorVehicleIntrusionInfo(const NET_TV_NONMOTOR_VEHICLE_INTRUSION_INFO_S* pInfo)
+static void PrintNonmotorVehicleIntrusionInfo(const NET_NonmotorVehicleIntrusionInfo_S* pInfo)
 {
     if (!pInfo)
     {
@@ -5110,7 +5213,7 @@ static void PrintNonmotorVehicleIntrusionInfo(const NET_TV_NONMOTOR_VEHICLE_INTR
         printf("  Rule[%d]   : Enable=%s, PointCount=%d, Sensitivity=%d, TimeThreshold=%d\n",
                i,
                pInfo->astRule[i].bEnable ? "ON" : "OFF",
-               pInfo->astRule[i].dwPointCount,
+               pInfo->astRule[i].uPointCount,
                pInfo->astRule[i].nSensitivity,
                pInfo->astRule[i].nTimeThreshold);
     }
@@ -5119,7 +5222,7 @@ static void PrintNonmotorVehicleIntrusionInfo(const NET_TV_NONMOTOR_VEHICLE_INTR
 
 static void DoGetNonmotorVehicleIntrusionInfo()
 {
-    NET_TV_NONMOTOR_VEHICLE_INTRUSION_INFO_S stInfo;
+    NET_NonmotorVehicleIntrusionInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
     INT32 dwBytesReturned = 0;
@@ -5141,13 +5244,13 @@ static void DoGetNonmotorVehicleIntrusionInfo()
 
 static void DoSetNonmotorVehicleIntrusionInfo()
 {
-    NET_TV_NONMOTOR_VEHICLE_INTRUSION_INFO_S stInfo;
+    NET_NonmotorVehicleIntrusionInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
     stInfo.bEnable = TRUE;
-    stInfo.dwRuleCount = 1;
+    stInfo.uRuleCount = 1;
     FillSmartRegionRuleDemo(&stInfo.astRule[0]);
-    stInfo.astRule[0].adwDetectionTarget[0] = NET_TV_TARGET_VEHICLE;
+    stInfo.astRule[0].auDetectionTarget[0] = NET_TV_TARGET_VEHICLE;
     FillSimpleAiDemoSchedule(&stInfo.stAlarmSchedule);
 
     INT32 dwBytesReturnedSet = 0;
@@ -5167,7 +5270,7 @@ static void DoSetNonmotorVehicleIntrusionInfo()
     }
 }
 
-static void PrintOccupationEmergencyInfo(const NET_TV_OCCUPATION_EMERGENCY_INFO_S* pInfo)
+static void PrintOccupationEmergencyInfo(const NET_OccupationEmergencyInfo_S* pInfo)
 {
     if (!pInfo)
     {
@@ -5182,7 +5285,7 @@ static void PrintOccupationEmergencyInfo(const NET_TV_OCCUPATION_EMERGENCY_INFO_
         printf("  Rule[%d]   : Enable=%s, PointCount=%d, Sensitivity=%d, TimeThreshold=%d\n",
                i,
                pInfo->astRule[i].bEnable ? "ON" : "OFF",
-               pInfo->astRule[i].dwPointCount,
+               pInfo->astRule[i].uPointCount,
                pInfo->astRule[i].nSensitivity,
                pInfo->astRule[i].nTimeThreshold);
     }
@@ -5191,7 +5294,7 @@ static void PrintOccupationEmergencyInfo(const NET_TV_OCCUPATION_EMERGENCY_INFO_
 
 static void DoGetOccupationEmergencyInfo()
 {
-    NET_TV_OCCUPATION_EMERGENCY_INFO_S stInfo;
+    NET_OccupationEmergencyInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
     INT32 dwBytesReturned = 0;
@@ -5213,11 +5316,11 @@ static void DoGetOccupationEmergencyInfo()
 
 static void DoSetOccupationEmergencyInfo()
 {
-    NET_TV_OCCUPATION_EMERGENCY_INFO_S stInfo;
+    NET_OccupationEmergencyInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
     stInfo.bEnable = TRUE;
-    stInfo.dwRuleCount = 1;
+    stInfo.uRuleCount = 1;
     FillSmartRegionRuleDemo(&stInfo.astRule[0]);
     FillSimpleAiDemoSchedule(&stInfo.stAlarmSchedule);
 
@@ -5238,7 +5341,7 @@ static void DoSetOccupationEmergencyInfo()
     }
 }
 
-static void PrintPedestrianIntrusionInfo(const NET_TV_PEDESTRIAN_INTRUSION_INFO_S* pInfo)
+static void PrintPedestrianIntrusionInfo(const NET_PedestrianIntrusionInfo_S* pInfo)
 {
     if (!pInfo)
     {
@@ -5253,7 +5356,7 @@ static void PrintPedestrianIntrusionInfo(const NET_TV_PEDESTRIAN_INTRUSION_INFO_
         printf("  Rule[%d]   : Enable=%s, PointCount=%d, Sensitivity=%d, TimeThreshold=%d\n",
                i,
                pInfo->astRule[i].bEnable ? "ON" : "OFF",
-               pInfo->astRule[i].dwPointCount,
+               pInfo->astRule[i].uPointCount,
                pInfo->astRule[i].nSensitivity,
                pInfo->astRule[i].nTimeThreshold);
     }
@@ -5262,7 +5365,7 @@ static void PrintPedestrianIntrusionInfo(const NET_TV_PEDESTRIAN_INTRUSION_INFO_
 
 static void DoGetPedestrianIntrusionInfo()
 {
-    NET_TV_PEDESTRIAN_INTRUSION_INFO_S stInfo;
+    NET_PedestrianIntrusionInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
     INT32 dwBytesReturned = 0;
@@ -5284,11 +5387,11 @@ static void DoGetPedestrianIntrusionInfo()
 
 static void DoSetPedestrianIntrusionInfo()
 {
-    NET_TV_PEDESTRIAN_INTRUSION_INFO_S stInfo;
+    NET_PedestrianIntrusionInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
     stInfo.bEnable = TRUE;
-    stInfo.dwRuleCount = 1;
+    stInfo.uRuleCount = 1;
     FillSmartRegionRuleDemo(&stInfo.astRule[0]);
     FillSimpleAiDemoSchedule(&stInfo.stAlarmSchedule);
 
@@ -5309,7 +5412,7 @@ static void DoSetPedestrianIntrusionInfo()
     }
 }
 
-static void PrintSmokeFireCfgInfo(const NET_TV_SMOKE_FIRE_CFG_S* pInfo)
+static void PrintSmokeFireCfgInfo(const NET_SmokeFireCfg_S* pInfo)
 {
     if (!pInfo)
     {
@@ -5324,7 +5427,7 @@ static void PrintSmokeFireCfgInfo(const NET_TV_SMOKE_FIRE_CFG_S* pInfo)
 
 static void DoGetSmokeFireCfg()
 {
-    NET_TV_SMOKE_FIRE_CFG_S stInfo;
+    NET_SmokeFireCfg_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
     INT32 dwBytesReturned = 0;
@@ -5346,7 +5449,7 @@ static void DoGetSmokeFireCfg()
 
 static void DoSetSmokeFireCfg()
 {
-    NET_TV_SMOKE_FIRE_CFG_S stInfo;
+    NET_SmokeFireCfg_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
     stInfo.bEnable = TRUE;
@@ -5370,7 +5473,7 @@ static void DoSetSmokeFireCfg()
     }
 }
 
-static void PrintRoadPondingCfgInfo(const NET_TV_ROAD_PONDING_CFG_S* pInfo)
+static void PrintRoadPondingCfgInfo(const NET_RoadPondingCfg_S* pInfo)
 {
     if (!pInfo)
     {
@@ -5385,7 +5488,7 @@ static void PrintRoadPondingCfgInfo(const NET_TV_ROAD_PONDING_CFG_S* pInfo)
 
 static void DoGetRoadPondingCfg()
 {
-    NET_TV_ROAD_PONDING_CFG_S stInfo;
+    NET_RoadPondingCfg_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
     INT32 dwBytesReturned = 0;
@@ -5407,7 +5510,7 @@ static void DoGetRoadPondingCfg()
 
 static void DoSetRoadPondingCfg()
 {
-    NET_TV_ROAD_PONDING_CFG_S stInfo;
+    NET_RoadPondingCfg_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
     stInfo.bEnable = TRUE;
@@ -5431,7 +5534,7 @@ static void DoSetRoadPondingCfg()
     }
 }
 
-static void PrintParkingAlarmInfo(const NET_TV_PARKING_ALARM_INFO_S* pInfo)
+static void PrintParkingAlarmInfo(const NET_ParkingAlarmInfo_S* pInfo)
 {
     if (!pInfo)
     {
@@ -5445,7 +5548,7 @@ static void PrintParkingAlarmInfo(const NET_TV_PARKING_ALARM_INFO_S* pInfo)
     {
         printf("  Rule[%d]   : PointCount=%d, Sensitivity=%d, TimeThreshold=%d\n",
                i,
-               pInfo->astRule[i].dwPointCount,
+               pInfo->astRule[i].uPointCount,
                pInfo->astRule[i].nSensitivity,
                pInfo->astRule[i].nTimeThreshold);
     }
@@ -5454,7 +5557,7 @@ static void PrintParkingAlarmInfo(const NET_TV_PARKING_ALARM_INFO_S* pInfo)
 
 static void DoGetParkingAlarm()
 {
-    NET_TV_PARKING_ALARM_INFO_S stInfo;
+    NET_ParkingAlarmInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
     INT32 dwBytesReturned = 0;
@@ -5478,7 +5581,7 @@ static void DoGetParkingAlarm()
 
 static void DoSetParkingAlarm()
 {
-    NET_TV_PARKING_ALARM_INFO_S stInfo;
+    NET_ParkingAlarmInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
     INT32 dwBytesReturned = 0;
@@ -5494,8 +5597,8 @@ static void DoSetParkingAlarm()
     }
 
     stInfo.bEnable = TRUE;
-    stInfo.dwRuleCount = 1;
-    stInfo.astRule[0].dwPointCount = 4;
+    stInfo.uRuleCount = 1;
+    stInfo.astRule[0].uPointCount = 4;
     FillDemoPolygon4(stInfo.astRule[0].afPointX, stInfo.astRule[0].afPointY);
     stInfo.astRule[0].nSensitivity = 60;
     stInfo.astRule[0].nTimeThreshold = 15;
@@ -5518,7 +5621,7 @@ static void DoSetParkingAlarm()
     }
 }
 
-static void PrintUnattendedObjectAlarmInfo(const NET_TV_UNATTENDED_OBJECT_ALARM_INFO_S* pInfo)
+static void PrintUnattendedObjectAlarmInfo(const NET_UnattendedObjectAlarmInfo_S* pInfo)
 {
     if (!pInfo)
     {
@@ -5527,21 +5630,21 @@ static void PrintUnattendedObjectAlarmInfo(const NET_TV_UNATTENDED_OBJECT_ALARM_
 
     printf("\n[Client] ===== 打印物品遗留侦测配置 =====\n");
     printf("  Enable    : %s\n", pInfo->bEnable ? "ON" : "OFF");
-    printf("  RuleCount : %d\n", pInfo->dwRuleCount);
-    for (int i = 0; i < pInfo->dwRuleCount && i < 4; i++)
+    printf("  RuleCount : %d\n", pInfo->uRuleCount);
+    for (int i = 0; i < pInfo->uRuleCount && i < 4; i++)
     {
         printf("  Rule[%d]   : PointCount=%d, Sensitivity=%d, TimeThreshold=%d\n",
                i,
-               pInfo->astRule[i].dwPointCount,
-               pInfo->astRule[i].nSensitivity,
-               pInfo->astRule[i].nTimeThreshold);
+               pInfo->stRule[i].uPointCount,
+               pInfo->stRule[i].nSensitivity,
+               pInfo->stRule[i].nTimeThreshold);
     }
     printf("=================================\n");
 }
 
 static void DoGetUnattendedObjectAlarm()
 {
-    NET_TV_UNATTENDED_OBJECT_ALARM_INFO_S stInfo;
+    NET_UnattendedObjectAlarmInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
     INT32 dwBytesReturned = 0;
@@ -5565,7 +5668,7 @@ static void DoGetUnattendedObjectAlarm()
 
 static void DoSetUnattendedObjectAlarm()
 {
-    NET_TV_UNATTENDED_OBJECT_ALARM_INFO_S stInfo;
+    NET_UnattendedObjectAlarmInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
     INT32 dwBytesReturned = 0;
@@ -5581,11 +5684,11 @@ static void DoSetUnattendedObjectAlarm()
     }
 
     stInfo.bEnable = TRUE;
-    stInfo.dwRuleCount = 1;
-    stInfo.astRule[0].dwPointCount = 4;
-    FillDemoPolygon4(stInfo.astRule[0].afPointX, stInfo.astRule[0].afPointY);
-    stInfo.astRule[0].nSensitivity = 60;
-    stInfo.astRule[0].nTimeThreshold = 30;
+    stInfo.uRuleCount = 1;
+    stInfo.stRule[0].uPointCount = 4;
+    FillDemoPolygon4(stInfo.stRule[0].afPointX, stInfo.stRule[0].afPointY);
+    stInfo.stRule[0].nSensitivity = 60;
+    stInfo.stRule[0].nTimeThreshold = 30;
 
     printf("[Client] 调用 NET_TV_SetDevConfig 设置物品遗留侦测配置...\n");
     INT32 dwBytesReturnedSet = 0;
@@ -5605,7 +5708,7 @@ static void DoSetUnattendedObjectAlarm()
     }
 }
 
-static void PrintObjectRemovalAlarmInfo(const NET_TV_OBJECT_REMOVAL_ALARM_INFO_S* pInfo)
+static void PrintObjectRemovalAlarmInfo(const NET_ObjectRemovalAlarmInfo_S* pInfo)
 {
     if (!pInfo)
     {
@@ -5614,21 +5717,21 @@ static void PrintObjectRemovalAlarmInfo(const NET_TV_OBJECT_REMOVAL_ALARM_INFO_S
 
     printf("\n[Client] ===== 打印物品拿取侦测配置 =====\n");
     printf("  Enable    : %s\n", pInfo->bEnable ? "ON" : "OFF");
-    printf("  RuleCount : %d\n", pInfo->dwRuleCount);
-    for (int i = 0; i < pInfo->dwRuleCount && i < 4; i++)
+    printf("  RuleCount : %d\n", pInfo->uRuleCount);
+    for (int i = 0; i < pInfo->uRuleCount && i < 4; i++)
     {
         printf("  Rule[%d]   : PointCount=%d, Sensitivity=%d, TimeThreshold=%d\n",
                i,
-               pInfo->astRule[i].dwPointCount,
-               pInfo->astRule[i].nSensitivity,
-               pInfo->astRule[i].nTimeThreshold);
+               pInfo->stRule[i].uPointCount,
+               pInfo->stRule[i].nSensitivity,
+               pInfo->stRule[i].nTimeThreshold);
     }
     printf("=================================\n");
 }
 
 static void DoGetObjectRemovalAlarm()
 {
-    NET_TV_OBJECT_REMOVAL_ALARM_INFO_S stInfo;
+    NET_ObjectRemovalAlarmInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
     INT32 dwBytesReturned = 0;
@@ -5653,7 +5756,7 @@ static void DoGetObjectRemovalAlarm()
 
 static void DoSetObjectRemovalAlarm()
 {
-    NET_TV_OBJECT_REMOVAL_ALARM_INFO_S stInfo;
+    NET_ObjectRemovalAlarmInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
     INT32 dwBytesReturned = 0;
@@ -5669,11 +5772,11 @@ static void DoSetObjectRemovalAlarm()
     }
 
     stInfo.bEnable = TRUE;
-    stInfo.dwRuleCount = 1;
-    stInfo.astRule[0].dwPointCount = 4;
-    FillDemoPolygon4(stInfo.astRule[0].afPointX, stInfo.astRule[0].afPointY);
-    stInfo.astRule[0].nSensitivity = 60;
-    stInfo.astRule[0].nTimeThreshold = 30;
+    stInfo.uRuleCount = 1;
+    stInfo.stRule[0].uPointCount = 4;
+    FillDemoPolygon4(stInfo.stRule[0].afPointX, stInfo.stRule[0].afPointY);
+    stInfo.stRule[0].nSensitivity = 60;
+    stInfo.stRule[0].nTimeThreshold = 30;
 
     INT32 dwBytesReturnedSet = 0;
     BOOL bRet = NET_TV_SetDevConfig(
@@ -5693,7 +5796,7 @@ static void DoSetObjectRemovalAlarm()
 }
 
 /* 打印音频异常侦测配置 */
-static void PrintAudioAnomalyAlarmInfo(const NET_TV_AUDIO_ANOMALY_ALARM_INFO_S* pInfo)
+static void PrintAudioAnomalyAlarmInfo(const NET_AudioAnomalyAlarmInfo_S* pInfo)
 {
     if (!pInfo)
     {
@@ -5714,7 +5817,7 @@ static void PrintAudioAnomalyAlarmInfo(const NET_TV_AUDIO_ANOMALY_ALARM_INFO_S* 
 /* 获取音频异常侦测配置 */
 static void DoGetAudioAnomalyAlarm()
 {
-    NET_TV_AUDIO_ANOMALY_ALARM_INFO_S stInfo;
+    NET_AudioAnomalyAlarmInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
     INT32 dwBytesReturned = 0;
@@ -5739,7 +5842,7 @@ static void DoGetAudioAnomalyAlarm()
 /* 设置音频异常侦测配置 */
 static void DoSetAudioAnomalyAlarm()
 {
-    NET_TV_AUDIO_ANOMALY_ALARM_INFO_S stInfo;
+    NET_AudioAnomalyAlarmInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
     INT32 dwBytesReturned = 0;
@@ -6196,7 +6299,7 @@ static void PrintCapturePlanCfg(const NET_TV_CAPTURE_PLAN_INFO_S *pstCfg)
 }
 
 /* 打印单词抓图配置 */
-static void PrintOneCaptureConfig(const char *prefix, const NET_TV_CAPTURE_CONFIG_S *pstCfg)
+static void PrintOneCaptureConfig(const char *prefix, const NET_CaptureConfig_S *pstCfg)
 {
     if (!pstCfg)
         return;
@@ -6214,7 +6317,7 @@ static void PrintOneCaptureConfig(const char *prefix, const NET_TV_CAPTURE_CONFI
 }
 
 /* 打印抓图参数配置 */
-static void PrintCaptureParamCfg(const NET_TV_CAPTURE_PARAM_INFO_S *pstCfg)
+static void PrintCaptureParamCfg(const NET_CaptureParamInfo_S *pstCfg)
 {
     if (!pstCfg)
         return;
@@ -6321,7 +6424,7 @@ static void DoSetCapturePlanCfg(void)
 /* 获取抓图参数配置 */
 static void DoGetCaptureParamCfg(void)
 {
-    NET_TV_CAPTURE_PARAM_INFO_S stCfg;
+    NET_CaptureParamInfo_S stCfg;
     INT32 dwBytesReturned = 0;
     BOOL bRet = FALSE;
 
@@ -6350,7 +6453,7 @@ static void DoGetCaptureParamCfg(void)
 /* 设置抓图参数配置 */
 static void DoSetCaptureParamCfg(void)
 {
-    NET_TV_CAPTURE_PARAM_INFO_S stCfg;
+    NET_CaptureParamInfo_S stCfg;
     INT32 dwBytesReturned = 0;
     BOOL bRetGet = FALSE;
     BOOL bRet = FALSE;
@@ -6961,7 +7064,7 @@ static void DoSetWhiteBalanceCfg(void)
     }
 }
 
-static void PrintTalkbackStreamInfo(const NET_TV_TALKBACK_STREAM_INFO_S* pInfo)
+static void PrintTalkbackStreamInfo(const NET_TalkbackStreamInfo_S* pInfo)
 {
     if (!pInfo)
     {
@@ -6983,7 +7086,7 @@ static void PrintTalkbackStreamInfo(const NET_TV_TALKBACK_STREAM_INFO_S* pInfo)
 
 static void DoGetTalkbackFromStream()
 {
-    NET_TV_TALKBACK_STREAM_INFO_S stInfo;
+    NET_TalkbackStreamInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
     INT32 dwBytesReturned = 0;
@@ -7005,7 +7108,7 @@ static void DoGetTalkbackFromStream()
 
 static void DoSetTalkbackState()
 {
-    NET_TV_TALKBACK_STATE_INFO_S stInfo;
+    NET_TalkbackStateInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
     stInfo.bEnable = TRUE;
@@ -7056,7 +7159,7 @@ static const char* VoiceComFormatToString(INT32 enFormat)
     }
 }
 
-static BOOL FillDemoVoiceComStartInfo(NET_TV_VOICECOM_START_INFO_S* pStartInfo, INT32 enFormat)
+static BOOL FillDemoVoiceComStartInfo(NET_VoiceComStartInfo_S* pStartInfo, INT32 enFormat)
 {
     if (!pStartInfo)
     {
@@ -7064,40 +7167,40 @@ static BOOL FillDemoVoiceComStartInfo(NET_TV_VOICECOM_START_INFO_S* pStartInfo, 
     }
 
     memset(pStartInfo, 0, sizeof(*pStartInfo));
-    pStartInfo->dwAudioPort = DEMO_VOICECOM_PORT;
-    pStartInfo->stAudioParam.dwChannels = DEMO_VOICECOM_CHANNELS;
-    pStartInfo->stAudioParam.dwFrameIntervalMs = DEMO_VOICECOM_FRAME_INTERVAL_MS;
+    pStartInfo->uAudioPort = DEMO_VOICECOM_PORT;
+    pStartInfo->stAudioParam.uChannels = DEMO_VOICECOM_CHANNELS;
+    pStartInfo->stAudioParam.uFrameIntervalMs = DEMO_VOICECOM_FRAME_INTERVAL_MS;
     pStartInfo->stAudioParam.bLittleEndian = TRUE;
 
     switch (enFormat)
     {
         case NET_TV_AUDIO_FORMAT_PCM:
             pStartInfo->stAudioParam.enFormat = NET_TV_AUDIO_FORMAT_PCM;
-            pStartInfo->stAudioParam.dwSampleRate = NET_TV_AUDIO_SAMPRATE_16000;
-            pStartInfo->stAudioParam.dwBitDepth = 16;
-            pStartInfo->stAudioParam.dwFrameBytes = 640;
+            pStartInfo->stAudioParam.uSampleRate = NET_TV_AUDIO_SAMPRATE_16000;
+            pStartInfo->stAudioParam.uBitDepth = 16;
+            pStartInfo->stAudioParam.uFrameBytes = 640;
             break;
         case NET_TV_AUDIO_FORMAT_G711A:
         case NET_TV_AUDIO_FORMAT_G711U:
             pStartInfo->stAudioParam.enFormat = enFormat;
-            pStartInfo->stAudioParam.dwSampleRate = NET_TV_AUDIO_SAMPRATE_8000;
-            pStartInfo->stAudioParam.dwBitDepth = 8;
-            pStartInfo->stAudioParam.dwFrameBytes = 160;
+            pStartInfo->stAudioParam.uSampleRate = NET_TV_AUDIO_SAMPRATE_8000;
+            pStartInfo->stAudioParam.uBitDepth = 8;
+            pStartInfo->stAudioParam.uFrameBytes = 160;
             break;
         default:
             return FALSE;
     }
 
-    pStartInfo->stAudioParam.dwBitRate =
-        pStartInfo->stAudioParam.dwSampleRate *
-        pStartInfo->stAudioParam.dwBitDepth *
-        pStartInfo->stAudioParam.dwChannels;
+    pStartInfo->stAudioParam.uBitRate =
+        pStartInfo->stAudioParam.uSampleRate *
+        pStartInfo->stAudioParam.uBitDepth *
+        pStartInfo->stAudioParam.uChannels;
     return TRUE;
 }
 
 static BOOL SetVoiceComTalkbackState(BOOL bEnable, const char* localIp)
 {
-    NET_TV_TALKBACK_STATE_INFO_S stInfo;
+    NET_TalkbackStateInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
     stInfo.bEnable = bEnable;
@@ -7170,7 +7273,7 @@ static void DoVoiceComSendAudioFile()
         return;
     }
 
-    NET_TV_VOICECOM_START_INFO_S stStartInfo;
+    NET_VoiceComStartInfo_S stStartInfo;
     if (!FillDemoVoiceComStartInfo(&stStartInfo, enFormat))
     {
         printf("[Client][VoiceCom] build audio param failed, format=%d\n", enFormat);
@@ -7179,9 +7282,9 @@ static void DoVoiceComSendAudioFile()
 
     printf("[Client][VoiceCom] Input %s file path (raw payload, %dHz/%dbit/%dch): ",
            VoiceComFormatToString(stStartInfo.stAudioParam.enFormat),
-           stStartInfo.stAudioParam.dwSampleRate,
-           stStartInfo.stAudioParam.dwBitDepth,
-           stStartInfo.stAudioParam.dwChannels);
+           stStartInfo.stAudioParam.uSampleRate,
+           stStartInfo.stAudioParam.uBitDepth,
+           stStartInfo.stAudioParam.uChannels);
     scanf("%259s", filePath);
 
     FILE* fp = fopen(filePath, "rb");
@@ -7219,13 +7322,13 @@ static void DoVoiceComSendAudioFile()
     printf("[Client][VoiceCom] connected, sending %s as %s by %d bytes/frame, %d ms/frame, %dHz/%dbit/%dch...\n",
            filePath,
            VoiceComFormatToString(stStartInfo.stAudioParam.enFormat),
-           stStartInfo.stAudioParam.dwFrameBytes,
-           stStartInfo.stAudioParam.dwFrameIntervalMs,
-           stStartInfo.stAudioParam.dwSampleRate,
-           stStartInfo.stAudioParam.dwBitDepth,
-           stStartInfo.stAudioParam.dwChannels);
+           stStartInfo.stAudioParam.uFrameBytes,
+           stStartInfo.stAudioParam.uFrameIntervalMs,
+           stStartInfo.stAudioParam.uSampleRate,
+           stStartInfo.stAudioParam.uBitDepth,
+           stStartInfo.stAudioParam.uChannels);
 
-    std::vector<char> frame(static_cast<size_t>(stStartInfo.stAudioParam.dwFrameBytes));
+    std::vector<char> frame(static_cast<size_t>(stStartInfo.stAudioParam.uFrameBytes));
     size_t totalBytes = 0;
     size_t frameCount = 0;
     bool sendOk = true;
@@ -7249,7 +7352,7 @@ static void DoVoiceComSendAudioFile()
         totalBytes += nRead;
         ++frameCount;
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(stStartInfo.stAudioParam.dwFrameIntervalMs));
+        std::this_thread::sleep_for(std::chrono::milliseconds(stStartInfo.stAudioParam.uFrameIntervalMs));
 
         if (nRead < frame.size())
         {
@@ -7272,7 +7375,7 @@ static void DoVoiceComSendAudioFile()
 
 static void DoSetTalkbackToStream()
 {
-    NET_TV_TALKBACK_STREAM_INFO_S stInfo;
+    NET_TalkbackStreamInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
     strncpy(stInfo.szHost, "239.0.0.1", sizeof(stInfo.szHost) - 1);
@@ -7304,7 +7407,7 @@ static void DoSetTalkbackToStream()
 
 static void DoSetReplayTalkback()
 {
-    NET_TV_REPLAY_TALKBACK_INFO_S stInfo;
+    NET_ReplayTalkbackInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
     strncpy(stInfo.szNvrIp, "192.168.1.200", sizeof(stInfo.szNvrIp) - 1);
@@ -7890,7 +7993,7 @@ static void DoGetReplayRecordList()
 /* 获取人脸抓拍配置 */
 static void DoGetFaceCaptureInfo()
 {
-    NET_TV_FACE_CAPTURE_INFO_S stInfo;
+    NET_FaceCaptureInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
     INT32 dwBytesReturned = 0;
@@ -7913,7 +8016,7 @@ static void DoGetFaceCaptureInfo()
 /* 设置人脸抓拍配置 */
 static void DoSetFaceCaptureInfo()
 {
-    NET_TV_FACE_CAPTURE_INFO_S stInfo;
+    NET_FaceCaptureInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
     INT32 dwBytesReturned = 0;
@@ -7929,11 +8032,11 @@ static void DoSetFaceCaptureInfo()
 
     stInfo.bEnable = TRUE;
     stInfo.stRule.nSensitivity = 65;
-    stInfo.stRule.stRegion.dwPointCount = 4;
+    stInfo.stRule.stRegion.uPointCount = 4;
     FillDemoPolygon4(stInfo.stRule.stRegion.afPointX, stInfo.stRule.stRegion.afPointY);
 
-    stInfo.stRule.dwShieldRegionCount = 1;
-    stInfo.stRule.astShieldRegion[0].dwPointCount = 4;
+    stInfo.stRule.uShieldRegionCount = 1;
+    stInfo.stRule.astShieldRegion[0].uPointCount = 4;
     stInfo.stRule.astShieldRegion[0].afPointX[0] = 0.45f; stInfo.stRule.astShieldRegion[0].afPointY[0] = 0.45f;
     stInfo.stRule.astShieldRegion[0].afPointX[1] = 0.55f; stInfo.stRule.astShieldRegion[0].afPointY[1] = 0.45f;
     stInfo.stRule.astShieldRegion[0].afPointX[2] = 0.55f; stInfo.stRule.astShieldRegion[0].afPointY[2] = 0.55f;
@@ -7966,7 +8069,7 @@ static void DoSetFaceCaptureInfo()
     }
 }
 
-static void PrintFaceCompareInfo(const NET_TV_FACE_COMPARE_INFO_S* pInfo)
+static void PrintFaceCompareInfo(const NET_FaceCompareInfo_S* pInfo)
 {
     if (!pInfo)
     {
@@ -7982,7 +8085,7 @@ static void PrintFaceCompareInfo(const NET_TV_FACE_COMPARE_INFO_S* pInfo)
 
 static void DoSetFaceCompareInfo()
 {
-    NET_TV_FACE_COMPARE_INFO_S stInfo;
+    NET_FaceCompareInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
     stInfo.bEnable = TRUE;
@@ -8789,9 +8892,15 @@ static void ProcessCommand(int cmd)
             DoVoiceComSendAudioFile();
             break;
         case 170:
-            DoGetSystemNtpCfg();
+            DoGetVoiceComAudioCfg();
             break;
         case 171:
+            DoSetVoiceComAudioCfg();
+            break;
+        case 172:
+            DoGetSystemNtpCfg();
+            break;
+        case 173:
             DoSetSystemNtpCfg();
             break;
         case DEMO_REPLAY_PAUSE_CMD:
@@ -8827,7 +8936,7 @@ int main(int argc, char* argv[])
 
     /* 登录设备 */
     NET_TV_DEVICE_LOGIN_INFO_S struLoginInfo;
-    NET_TV_DEVICE_INFO_S       struDeviceInfo;
+    NET_DeviceInfo_S           struDeviceInfo;
     memset(&struLoginInfo, 0, sizeof(struLoginInfo));
     memset(&struDeviceInfo, 0, sizeof(struDeviceInfo));
 

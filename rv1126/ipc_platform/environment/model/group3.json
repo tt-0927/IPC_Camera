@@ -1,0 +1,36 @@
+{
+    "version": "v1.0",
+    "model": "Yolov8n",
+    "notes": "第三组安防数据：smoke(烟雾)、fire(火焰)、Overflow(垃圾满溢)、expose(垃圾暴露)、Complete(井盖完好)、Damaged(井盖破损)、Lost(井盖丢失)、Uncovered(未盖井盖)、BreakoutOfOuterEdge(井盖外边沿破损)、WaterAccumulation(道路积水)",
+    "model_path": "/opt/cam/model/RV1126B_group3_yolov8n_640x384_V1.0.rknn",
+    "pre_process": {
+        "size": [
+            640,
+            384
+        ],
+        "channel": 3,
+        "type": "rgb",
+        "mean": [0,0,0],
+        "std": [255,255,255],
+        "padding": 0
+    },
+    "inference": {
+        "framework": "rv1126b"
+    },
+    "post_precess": {
+        "confidence": 0.25,
+        "nms": 0.25,
+        "label_name": [
+            "烟雾",
+            "火焰",
+            "垃圾满溢",
+            "垃圾暴露",
+            "井盖完好",
+            "井盖破损",
+            "井盖丢失",
+            "未盖井盖",
+            "井盖外边沿破损",
+            "道路积水"
+        ]
+    }
+}

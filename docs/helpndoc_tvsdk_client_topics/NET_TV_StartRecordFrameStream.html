@@ -1,0 +1,52 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>NET_TV_StartRecordFrameStream</title>
+  <style>
+    body { font-family: "Microsoft YaHei", "微软雅黑", Arial, sans-serif; font-size: 10pt; color: #000; }
+    h1 { font-family: "Microsoft YaHei", "微软雅黑", Arial, sans-serif; font-size: 10pt; font-weight: bold; margin: 0 0 8px; }
+    h2 { font-family: "Microsoft YaHei", "微软雅黑", Arial, sans-serif; font-size: 10pt; font-weight: bold; margin: 18px 0 6px; }
+    p { margin: 0 0 6px; }
+    table { border-collapse: collapse; margin-top: 10px; width: 1000px; table-layout: fixed; }
+    th, td { border: 1px solid #000; padding: 5px 8px; height: 30px; min-height: 30px; vertical-align: middle; font-family: "Microsoft YaHei", "微软雅黑", Arial, sans-serif; font-size: 10pt; }
+    th { background: #d9eaf7; font-weight: bold; }
+    .code-block { background-color: #e6e6e6; border: 0; padding: 8px 10px; margin: 12px 0 14px; font-family: "Microsoft YaHei", "微软雅黑", Arial, sans-serif; font-size: 10pt; line-height: 1.45; }
+    .code-line { margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: "Microsoft YaHei", "微软雅黑", Arial, sans-serif; font-size: 10pt; line-height: 1.45; }
+    .code-line a { font-family: "Microsoft YaHei", "微软雅黑", Arial, sans-serif; font-size: 10pt; }
+    .param-name { margin-left: 0; }
+    .param-desc { margin-left: 24px; }
+  </style>
+</head>
+<body>
+  <h1>NET_TV_StartRecordFrameStream</h1>
+  <p>启动录像帧TCP流</p>
+  <div class="code-block" style="background-color: #e6e6e6; border: 0; padding: 8px 10px; margin: 12px 0 14px; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">BOOL NET_TV_StartRecordFrameStream(</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">    IN LPVOID lpUserID,</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">    IN LP<a href="NET_TV_RECORD_FRAME_STREAM_COND_S.html">NET_TV_RECORD_FRAME_STREAM_COND_S</a> pstCond,</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">    OUT LP<a href="NET_TV_RECORD_FRAME_STREAM_INFO_S.html">NET_TV_RECORD_FRAME_STREAM_INFO_S</a> pstStreamInfo,</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">    IN NET_TV_RecordFrameCallBack cbRecordFrame,</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">    IN LPVOID lpUserData</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">);</div>
+  </div>
+  <h2>Parameters</h2>
+  <p class="param-name">[in] lpUserID</p>
+  <p class="param-desc">用户登录句柄</p>
+  <p class="param-name">[in] pstCond</p>
+  <p class="param-desc">录像帧流请求条件，包含通道、起止时间、媒体类型、TCP端口等</p>
+  <p class="param-name">[out] pstStreamInfo</p>
+  <p class="param-desc">服务端返回的流信息，包含流ID、TCP端口、编码信息等</p>
+  <p class="param-name">[in] cbRecordFrame</p>
+  <p class="param-desc">录像帧回调</p>
+  <p class="param-name">[in] lpUserData</p>
+  <p class="param-desc">回调用户数据</p>
+  <h2>Return Values</h2>
+  <p>TRUE表示成功，FALSE表示失败，可调用NET_TV_GetLastError获取错误码</p>
+  <h2>Remarks</h2>
+  <p>启动录像帧TCP流</p>
+  <h2>See Also</h2>
+  <p><a href="NET_TV_RECORD_FRAME_STREAM_COND_S.html">NET_TV_RECORD_FRAME_STREAM_COND_S</a></p>
+  <p><a href="NET_TV_RECORD_FRAME_STREAM_INFO_S.html">NET_TV_RECORD_FRAME_STREAM_INFO_S</a></p>
+</body>
+</html>

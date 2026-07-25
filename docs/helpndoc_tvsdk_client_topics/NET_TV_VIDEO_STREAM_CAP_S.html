@@ -1,0 +1,80 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>NET_TV_VIDEO_STREAM_CAP_S</title>
+  <style>
+    body { font-family: "Microsoft YaHei", "微软雅黑", Arial, sans-serif; font-size: 10pt; color: #000; }
+    h1 { font-family: "Microsoft YaHei", "微软雅黑", Arial, sans-serif; font-size: 10pt; font-weight: bold; margin: 0 0 8px; }
+    h2 { font-family: "Microsoft YaHei", "微软雅黑", Arial, sans-serif; font-size: 10pt; font-weight: bold; margin: 18px 0 6px; }
+    p { margin: 0 0 6px; }
+    table { border-collapse: collapse; margin-top: 10px; width: 1000px; table-layout: fixed; }
+    th, td { border: 1px solid #000; padding: 5px 8px; height: 30px; min-height: 30px; vertical-align: middle; font-family: "Microsoft YaHei", "微软雅黑", Arial, sans-serif; font-size: 10pt; }
+    th { background: #d9eaf7; font-weight: bold; }
+    .code-block { background-color: #e6e6e6; border: 0; padding: 8px 10px; margin: 12px 0 14px; font-family: "Microsoft YaHei", "微软雅黑", Arial, sans-serif; font-size: 10pt; line-height: 1.45; }
+    .code-line { margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: "Microsoft YaHei", "微软雅黑", Arial, sans-serif; font-size: 10pt; line-height: 1.45; }
+    .code-line a { font-family: "Microsoft YaHei", "微软雅黑", Arial, sans-serif; font-size: 10pt; }
+    .param-name { margin-left: 0; }
+    .param-desc { margin-left: 24px; }
+  </style>
+</head>
+<body>
+  <h1>NET_TV_VIDEO_STREAM_CAP_S</h1>
+  <p>视频码流参数能力集 Video stream CapNET_TV_CAP_OSD</p>
+  <div class="code-block" style="background-color: #e6e6e6; border: 0; padding: 8px 10px; margin: 12px 0 14px; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">/**</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;"> * @struct tagNET_TVVideoStreamCap</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;"> * @brief 视频码流参数能力集 Video stream CapNET_TV_CAP_OSD</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;"> * @attention 无</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">*/</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">typedef struct tagNET_TVVideoStreamCap</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">{</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">    INT32                           dwStreamType;                                   /* 码流类型 入参 参见 NET_TV_LIVES_TREAM_INDEX_E */</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">    INT32                           bSupportMultiStream;                            /* 是否支持复合流(包含音频) Support multi stream */</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">    INT32                           dwEncodeCapSize;                                /* 编码能力集个数 Encode capability size */</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">    <a href="NET_TV_VIDEO_ENCODE_OPTION_S.html">NET_TV_VIDEO_ENCODE_OPTION_S</a>    astEncodeCap[NET_TV_VIDEO_ENCODE_TYPE_MAX];     /* 编码能力 Encode capability */</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">    <a href="NET_TV_RANGE_S.html">NET_TV_RANGE_S</a>                  stQuality;                                      /* 图像质量范围 Quality range */</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">    <a href="NET_TV_RANGE_S.html">NET_TV_RANGE_S</a>                  stStreamSmooth;                                 /* 码流平滑范围 Stream smooth range */</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">    INT32                           dwResolutionNum;                                /* 支持的分辨率个数 Number of supported resolutions */</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">    <a href="NET_TV_VIDEO_RESOLUTION_S.html">NET_TV_VIDEO_RESOLUTION_S</a>       astResolution[NET_TV_RESOLUTION_NUM_MAX];       /* 支持的分辨率列表 Supported resolution list */</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">    INT32                           dwEncodeTypeNum;                                /* 编码格式有效个数 */</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">    INT32                           dwEncodeAbilityNum;                             /* 编码能力有效个数 */</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">    <a href="NET_TV_VIDEO_ENCODE_ABILITY_S.html">NET_TV_VIDEO_ENCODE_ABILITY_S</a>   astEncodeAbility[NET_TV_VIDEO_ENCODE_TYPE_MAX]; /* 编码格式能力列表 */</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">    INT32                           dwIFrameIntervalMin;                            /* I帧间隔最小值 */</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">    INT32                           dwIFrameIntervalMax;                            /* I帧间隔最大值 */</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">}<a href="NET_TV_VIDEO_STREAM_CAP_S.html">NET_TV_VIDEO_STREAM_CAP_S</a>, *LP<a href="NET_TV_VIDEO_STREAM_CAP_S.html">NET_TV_VIDEO_STREAM_CAP_S</a>;</div>
+  </div>
+  <h2>Parameters</h2>
+  <p class="param-name">[in] dwStreamType</p>
+  <p class="param-desc">码流类型 入参 参见 NET_TV_LIVES_TREAM_INDEX_E</p>
+  <p class="param-name">[in] bSupportMultiStream</p>
+  <p class="param-desc">是否支持复合流(包含音频) Support multi stream</p>
+  <p class="param-name">[in] dwEncodeCapSize</p>
+  <p class="param-desc">编码能力集个数 Encode capability size</p>
+  <p class="param-name">[in] astEncodeCap</p>
+  <p class="param-desc">编码能力 Encode capability</p>
+  <p class="param-name">[in] stQuality</p>
+  <p class="param-desc">图像质量范围 Quality range</p>
+  <p class="param-name">[in] stStreamSmooth</p>
+  <p class="param-desc">码流平滑范围 Stream smooth range</p>
+  <p class="param-name">[in] dwResolutionNum</p>
+  <p class="param-desc">支持的分辨率个数 Number of supported resolutions</p>
+  <p class="param-name">[in] astResolution</p>
+  <p class="param-desc">支持的分辨率列表 Supported resolution list</p>
+  <p class="param-name">[in] dwEncodeTypeNum</p>
+  <p class="param-desc">编码格式有效个数</p>
+  <p class="param-name">[in] dwEncodeAbilityNum</p>
+  <p class="param-desc">编码能力有效个数</p>
+  <p class="param-name">[in] astEncodeAbility</p>
+  <p class="param-desc">编码格式能力列表</p>
+  <p class="param-name">[in] dwIFrameIntervalMin</p>
+  <p class="param-desc">I帧间隔最小值</p>
+  <p class="param-name">[in] dwIFrameIntervalMax</p>
+  <p class="param-desc">I帧间隔最大值</p>
+  <h2>See Also</h2>
+  <p><a href="NET_TV_VIDEO_ENCODE_OPTION_S.html">NET_TV_VIDEO_ENCODE_OPTION_S</a></p>
+  <p><a href="NET_TV_RANGE_S.html">NET_TV_RANGE_S</a></p>
+  <p><a href="NET_TV_VIDEO_RESOLUTION_S.html">NET_TV_VIDEO_RESOLUTION_S</a></p>
+  <p><a href="NET_TV_VIDEO_ENCODE_ABILITY_S.html">NET_TV_VIDEO_ENCODE_ABILITY_S</a></p>
+</body>
+</html>

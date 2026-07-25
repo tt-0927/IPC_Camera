@@ -1,32 +1,47 @@
 /**
  * @file NetTVConfigCb.c
- * @brief Device config callback registration/execute
+ * @brief 设备配置回调注册与执行实现
+ * @note 本文件实现配置回调的注册、查找和执行逻辑，采用两级回调机制：
+ *       1. 按命令码注册的专用回调（优先级高）
+ *       2. 通用回调（优先级低，当专用回调未注册时使用）
+ *       新增配置项时需在 g_astConfigCmdCbTable 数组中添加命令码映射条目
  */
 #include <stdio.h>
 #include <stddef.h>
 #include "NetTVConfigCbExecute.h"
 #include "NetTVSDKServerInterface.h"
 
+/**
+ * @brief 通用配置回调表结构体（存储全局注册的通用回调）
+ */
 typedef struct tagNETTVConfigCbTable
 {
-    NET_TV_CB_GetDevConfig cbGet;
-    NET_TV_CB_SetDevConfig cbSet;
-    NET_TV_CB_GetRtspUrl   cbGetRtspUrl;
-    NET_TV_CB_GetReplayUrl cbGetReplayUrl;
-    NET_TV_CB_ControlReplay cbControlReplay;
-    NET_TV_CB_GetReplayRecordList cbGetReplayRecordList;
+    NET_TV_CB_GetDevConfig cbGet;                       /* 通用配置获取回调 */
+    NET_TV_CB_SetDevConfig cbSet;                       /* 通用配置设置回调 */
+    NET_TV_CB_GetRtspUrl   cbGetRtspUrl;                /* RTSP流地址获取回调 */
+    NET_TV_CB_GetReplayUrl cbGetReplayUrl;              /* 回放URL获取回调 */
+    NET_TV_CB_ControlReplay cbControlReplay;            /* 回放控制回调 */
+    NET_TV_CB_GetReplayRecordList cbGetReplayRecordList;/* 回放录像列表获取回调 */
 } NET_TV_CONFIG_CB_TABLE_S;
 
+/**
+ * @brief 按命令码注册的配置回调条目结构体（命令码与回调的映射）
+ */
 typedef struct tagNETTVConfigCmdCbItem
 {
-    INT32 nGetCommand;
-    INT32 nSetCommand;
-    NET_TV_CB_GetDevConfigByCommand cbGetByCmd;
-    NET_TV_CB_SetDevConfigByCommand cbSetByCmd;
+    INT32 nGetCommand;                                  /* Get命令码，NET_TV_CFG_INVALID表示无Get */
+    INT32 nSetCommand;                                  /* Set命令码，NET_TV_CFG_INVALID表示无Set */
+    NET_TV_CB_GetDevConfigByCommand cbGetByCmd;         /* 按命令码注册的Get回调 */
+    NET_TV_CB_SetDevConfigByCommand cbSetByCmd;         /* 按命令码注册的Set回调 */
 } NET_TV_CONFIG_CMD_CB_ITEM_S;
 
-static NET_TV_CONFIG_CB_TABLE_S g_stConfigCbTable = {0};
+static NET_TV_CONFIG_CB_TABLE_S g_stConfigCbTable = {0};   /* 通用配置回调表实例 */
 
+/**
+ * @brief 命令码与回调映射表（新增配置项时需在此添加条目）
+ * @note 格式：{Get命令码, Set命令码, Get回调指针(初始为NULL), Set回调指针(初始为NULL)}
+ *       当某个命令码不存在时填 NET_TV_CFG_INVALID
+ */
 static NET_TV_CONFIG_CMD_CB_ITEM_S g_astConfigCmdCbTable[] =
 {
     {NET_TV_GET_DEVICECFG,              NET_TV_SET_DEVICECFG,               NULL,   NULL},
@@ -86,6 +101,7 @@ static NET_TV_CONFIG_CMD_CB_ITEM_S g_astConfigCmdCbTable[] =
     {NET_TV_CFG_INVALID,                NET_TV_TO_STREAM_TALKBACK,          NULL,   NULL},
     {NET_TV_FROM_STREAM_TALKBACK,       NET_TV_CFG_INVALID,                 NULL,   NULL},
     {NET_TV_CFG_INVALID,                NET_TV_REPLAY_TALKBACK,             NULL,   NULL},
+    {NET_TV_GET_VOICECOM_AUDIO_CFG,     NET_TV_SET_VOICECOM_AUDIO_CFG,      NULL,   NULL},
     {NET_TV_GET_PARKINGALARM,           NET_TV_SET_PARKINGALARM,            NULL,   NULL},
     {NET_TV_GET_UNATTENDEDOBJECTALARM,  NET_TV_SET_UNATTENDEDOBJECTALARM,   NULL,   NULL},
     {NET_TV_GET_OBJECTREMOVALALARM,     NET_TV_SET_OBJECTREMOVALALARM,      NULL,   NULL},
@@ -128,6 +144,11 @@ static NET_TV_CONFIG_CMD_CB_ITEM_S g_astConfigCmdCbTable[] =
     {NET_TV_GET_ROAD_PONDING_CFG,              NET_TV_SET_ROAD_PONDING_CFG,               NULL,   NULL},
 };
 
+/**
+ * @brief 根据Get命令码查找回调条目
+ * @param [IN] nCommand Get命令码
+ * @return 找到返回条目指针，未找到返回NULL
+ */
 static NET_TV_CONFIG_CMD_CB_ITEM_S* NetTV_FindCmdCbItemByGetCommand(INT32 nCommand)
 {
     UINT32 i = 0;
@@ -142,6 +163,11 @@ static NET_TV_CONFIG_CMD_CB_ITEM_S* NetTV_FindCmdCbItemByGetCommand(INT32 nComma
     return NULL;
 }
 
+/**
+ * @brief 根据Set命令码查找回调条目
+ * @param [IN] nCommand Set命令码
+ * @return 找到返回条目指针，未找到返回NULL
+ */
 static NET_TV_CONFIG_CMD_CB_ITEM_S* NetTV_FindCmdCbItemBySetCommand(INT32 nCommand)
 {
     UINT32 i = 0;
@@ -156,6 +182,13 @@ static NET_TV_CONFIG_CMD_CB_ITEM_S* NetTV_FindCmdCbItemBySetCommand(INT32 nComma
     return NULL;
 }
 
+/**
+ * @brief 注册按命令码分发的Get回调
+ * @param [IN] nCommand Get命令码
+ * @param [IN] pCb 回调函数指针
+ * @return 注册成功返回TRUE，失败返回FALSE（命令码不存在或已注册）
+ * @note 必须先在 g_astConfigCmdCbTable 数组中添加对应命令码条目
+ */
 static BOOL NetTV_RegisterGetCmdCb(INT32 nCommand, NET_TV_CB_GetDevConfigByCommand pCb)
 {
     NET_TV_CONFIG_CMD_CB_ITEM_S* pItem = NULL;
@@ -174,6 +207,13 @@ static BOOL NetTV_RegisterGetCmdCb(INT32 nCommand, NET_TV_CB_GetDevConfigByComma
     return TRUE;
 }
 
+/**
+ * @brief 注册按命令码分发的Set回调
+ * @param [IN] nCommand Set命令码
+ * @param [IN] pCb 回调函数指针
+ * @return 注册成功返回TRUE，失败返回FALSE（命令码不存在或已注册）
+ * @note 必须先在 g_astConfigCmdCbTable 数组中添加对应命令码条目
+ */
 static BOOL NetTV_RegisterSetCmdCb(INT32 nCommand, NET_TV_CB_SetDevConfigByCommand pCb)
 {
     NET_TV_CONFIG_CMD_CB_ITEM_S* pItem = NULL;
@@ -1086,6 +1126,14 @@ NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetRoadPondingCfg(NET_TV_CB_Set
     return NetTV_RegisterSetCmdCb(NET_TV_SET_ROAD_PONDING_CFG, pCb);
 }
 
+/**
+ * @brief 执行配置获取回调（核心分发函数）
+ * @param [IN] dwChannelID 通道号
+ * @param [IN] dwCommand 命令码（标识配置类型）
+ * @param [OUT] lpOutBuffer 输出缓冲区，用于存放配置数据
+ * @return NET_TV_E_SUCCEED 成功，其他值失败
+ * @note 回调执行优先级：专用回调（RTSP/回放等）> 按命令码注册的回调 > 通用回调
+ */
 int NetSDK_ExecuteCb_GetDevConfig(INT32 dwChannelID, INT32 dwCommand, LPVOID lpOutBuffer)
 {
     NET_TV_CONFIG_CMD_CB_ITEM_S* pItem = NULL;
@@ -1100,6 +1148,7 @@ int NetSDK_ExecuteCb_GetDevConfig(INT32 dwChannelID, INT32 dwCommand, LPVOID lpO
         return g_stConfigCbTable.cbGetRtspUrl(dwChannelID, (LPNET_TV_RTSP_URL_INFO_S)lpOutBuffer);
     }
 
+    /* 回放URL获取：优先走专用回调 */
     if (dwCommand == NET_TV_GET_REPLAY_URLCFG && g_stConfigCbTable.cbGetReplayUrl != NULL)
     {
         LPNET_TV_REPLAY_URL_INFO_S pInfo = (LPNET_TV_REPLAY_URL_INFO_S)lpOutBuffer;
@@ -1110,6 +1159,7 @@ int NetSDK_ExecuteCb_GetDevConfig(INT32 dwChannelID, INT32 dwCommand, LPVOID lpO
         return g_stConfigCbTable.cbGetReplayUrl(pInfo);
     }
 
+    /* 回放录像列表获取：优先走专用回调 */
     if (dwCommand == NET_TV_GET_REPLAY_RECORD_LIST && g_stConfigCbTable.cbGetReplayRecordList != NULL)
     {
         LPNET_TV_REPLAY_RECORD_LIST_S pInfo = (LPNET_TV_REPLAY_RECORD_LIST_S)lpOutBuffer;
@@ -1119,11 +1169,14 @@ int NetSDK_ExecuteCb_GetDevConfig(INT32 dwChannelID, INT32 dwCommand, LPVOID lpO
         }
         return g_stConfigCbTable.cbGetReplayRecordList(pInfo);
     }
+
+    /* 重复检查RTSP URL（兼容旧逻辑） */
     if (dwCommand == NET_TV_GET_RTSPURLCFG && g_stConfigCbTable.cbGetRtspUrl != NULL)
     {
         return g_stConfigCbTable.cbGetRtspUrl(dwChannelID, (LPNET_TV_RTSP_URL_INFO_S)lpOutBuffer);
     }
 
+    /* 重复检查回放URL（兼容旧逻辑） */
     if (dwCommand == NET_TV_GET_REPLAY_URLCFG && g_stConfigCbTable.cbGetReplayUrl != NULL)
     {
         LPNET_TV_REPLAY_URL_INFO_S pInfo = (LPNET_TV_REPLAY_URL_INFO_S)lpOutBuffer;
@@ -1134,17 +1187,20 @@ int NetSDK_ExecuteCb_GetDevConfig(INT32 dwChannelID, INT32 dwCommand, LPVOID lpO
         return g_stConfigCbTable.cbGetReplayUrl(pInfo);
     }
 
+    /* 查找按命令码注册的专用回调 */
     pItem = NetTV_FindCmdCbItemByGetCommand(dwCommand);
     if (pItem != NULL && pItem->cbGetByCmd != NULL)
     {
         return pItem->cbGetByCmd(dwChannelID, lpOutBuffer);
     }
 
+    /* 降级到通用回调 */
     if (g_stConfigCbTable.cbGet != NULL)
     {
         return g_stConfigCbTable.cbGet(dwChannelID, dwCommand, lpOutBuffer);
     }
 
+    /* 无任何回调注册 */
     printf("[NetTVConfigCb] GetDevConfig callback missing, cmd=%d, item=%p, cbGetByCmd=%p, cbGet=%p\n",
            dwCommand,
            (void*)pItem,
@@ -1153,6 +1209,12 @@ int NetSDK_ExecuteCb_GetDevConfig(INT32 dwChannelID, INT32 dwCommand, LPVOID lpO
     return NET_TV_E_NONSUPPORT;
 }
 
+/**
+ * @brief 执行回放URL获取回调
+ * @param [INOUT] pInfo 回放查询条件和播放URL返回信息
+ * @return NET_TV_E_SUCCEED 成功，其他值失败
+ * @note 回调执行优先级：专用回放URL回调 > 通用配置回调
+ */
 int NetSDK_ExecuteCb_GetReplayUrl(LPNET_TV_REPLAY_URL_INFO_S pInfo)
 {
     if (pInfo == NULL)
@@ -1160,11 +1222,13 @@ int NetSDK_ExecuteCb_GetReplayUrl(LPNET_TV_REPLAY_URL_INFO_S pInfo)
         return NET_TV_E_INVALID_PARAM;
     }
 
+    /* 优先使用专用回放URL回调 */
     if (g_stConfigCbTable.cbGetReplayUrl != NULL)
     {
         return g_stConfigCbTable.cbGetReplayUrl(pInfo);
     }
 
+    /* 降级到通用配置回调 */
     if (g_stConfigCbTable.cbGet != NULL)
     {
         return g_stConfigCbTable.cbGet(pInfo->dwChannel, NET_TV_GET_REPLAY_URLCFG, pInfo);
@@ -1174,6 +1238,12 @@ int NetSDK_ExecuteCb_GetReplayUrl(LPNET_TV_REPLAY_URL_INFO_S pInfo)
     return NET_TV_E_NONSUPPORT;
 }
 
+/**
+ * @brief 执行回放控制回调
+ * @param [INOUT] pInfo 回放控制输入输出参数
+ * @return NET_TV_E_SUCCEED 成功，其他值失败
+ * @note 回调执行优先级：专用回放控制回调 > 通用配置设置回调
+ */
 int NetSDK_ExecuteCb_ControlReplay(LPNET_TV_REPLAY_CTRL_INFO_S pInfo)
 {
     if (pInfo == NULL)
@@ -1184,11 +1254,13 @@ int NetSDK_ExecuteCb_ControlReplay(LPNET_TV_REPLAY_CTRL_INFO_S pInfo)
     printf("[NetTVConfigCb] ControlReplay callback: channel=%d, ctrlType=%d, startTime=[%s], endTime=[%s], sessionId=[%s]\n",
            pInfo->dwChannel, pInfo->dwCtrlType, pInfo->szStartTime, pInfo->szEndTime, pInfo->szSessionId);
 
+    /* 优先使用专用回放控制回调 */
     if (g_stConfigCbTable.cbControlReplay != NULL)
     {
         return g_stConfigCbTable.cbControlReplay(pInfo);
     }
 
+    /* 降级到通用配置设置回调 */
     if (g_stConfigCbTable.cbSet != NULL)
     {
         return g_stConfigCbTable.cbSet(pInfo->dwChannel, NET_TV_SET_REPLAY_CTRL, pInfo);
@@ -1198,6 +1270,12 @@ int NetSDK_ExecuteCb_ControlReplay(LPNET_TV_REPLAY_CTRL_INFO_S pInfo)
     return NET_TV_E_NONSUPPORT;
 }
 
+/**
+ * @brief 执行回放录像列表获取回调
+ * @param [INOUT] pInfo 查询条件及结果
+ * @return NET_TV_E_SUCCEED 成功，其他值失败
+ * @note 回调执行优先级：专用回放录像列表回调 > 通用配置回调
+ */
 int NetSDK_ExecuteCb_GetReplayRecordList(LPNET_TV_REPLAY_RECORD_LIST_S pInfo)
 {
     if (pInfo == NULL)
@@ -1205,11 +1283,13 @@ int NetSDK_ExecuteCb_GetReplayRecordList(LPNET_TV_REPLAY_RECORD_LIST_S pInfo)
         return NET_TV_E_INVALID_PARAM;
     }
 
+    /* 优先使用专用回放录像列表回调 */
     if (g_stConfigCbTable.cbGetReplayRecordList != NULL)
     {
         return g_stConfigCbTable.cbGetReplayRecordList(pInfo);
     }
 
+    /* 降级到通用配置回调 */
     if (g_stConfigCbTable.cbGet != NULL)
     {
         return g_stConfigCbTable.cbGet(pInfo->dwChannel, NET_TV_GET_REPLAY_RECORD_LIST, pInfo);
@@ -1219,6 +1299,14 @@ int NetSDK_ExecuteCb_GetReplayRecordList(LPNET_TV_REPLAY_RECORD_LIST_S pInfo)
     return NET_TV_E_NONSUPPORT;
 }
 
+/**
+ * @brief 执行配置设置回调（核心分发函数）
+ * @param [IN] dwChannelID 通道号
+ * @param [IN] dwCommand 命令码（标识配置类型）
+ * @param [IN] lpInBuffer 输入缓冲区，包含要设置的配置数据
+ * @return NET_TV_E_SUCCEED 成功，其他值失败
+ * @note 回调执行优先级：专用回调（回放控制等）> 按命令码注册的回调 > 通用回调
+ */
 int NetSDK_ExecuteCb_SetDevConfig(INT32 dwChannelID, INT32 dwCommand, LPVOID lpInBuffer)
 {
     NET_TV_CONFIG_CMD_CB_ITEM_S* pItem = NULL;
@@ -1227,6 +1315,7 @@ int NetSDK_ExecuteCb_SetDevConfig(INT32 dwChannelID, INT32 dwCommand, LPVOID lpI
         return NET_TV_E_INVALID_PARAM;
     }
 
+    /* 回放控制：走专用回调 */
     if (dwCommand == NET_TV_SET_REPLAY_CTRL && g_stConfigCbTable.cbControlReplay != NULL)
     {
         LPNET_TV_REPLAY_CTRL_INFO_S pInfo = (LPNET_TV_REPLAY_CTRL_INFO_S)lpInBuffer;
@@ -1237,12 +1326,14 @@ int NetSDK_ExecuteCb_SetDevConfig(INT32 dwChannelID, INT32 dwCommand, LPVOID lpI
         return g_stConfigCbTable.cbControlReplay(pInfo);
     }
 
+    /* 查找按命令码注册的专用回调 */
     pItem = NetTV_FindCmdCbItemBySetCommand(dwCommand);
     if (pItem != NULL && pItem->cbSetByCmd != NULL)
     {
         return pItem->cbSetByCmd(dwChannelID, lpInBuffer);
     }
 
+    /* 降级到通用回调 */
     if (g_stConfigCbTable.cbSet != NULL)
     {
         return g_stConfigCbTable.cbSet(dwChannelID, dwCommand, lpInBuffer);
