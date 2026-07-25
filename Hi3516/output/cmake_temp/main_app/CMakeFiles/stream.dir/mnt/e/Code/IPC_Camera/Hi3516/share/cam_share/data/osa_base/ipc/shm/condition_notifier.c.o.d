@@ -1,0 +1,30 @@
+main_app/CMakeFiles/stream.dir/mnt/e/Code/IPC_Camera/Hi3516/share/cam_share/data/osa_base/ipc/shm/condition_notifier.c.o: \
+ /mnt/e/Code/IPC_Camera/Hi3516/share/cam_share/data/osa_base/ipc/shm/condition_notifier.c \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/target/usr/include/stdc-predef.h \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/target/usr/include/stdio.h \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/target/usr/include/features.h \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/target/usr/include/bits/reg.h \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/target/usr/include/bits/alltypes.h \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/target/usr/include/string.h \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/target/usr/include/strings.h \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/target/usr/include/errno.h \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/target/usr/include/bits/errno.h \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/target/usr/include/unistd.h \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/target/usr/include/bits/posix.h \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/target/usr/include/sys/ipc.h \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/target/usr/include/bits/ipc.h \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/target/usr/include/bits/ipcstat.h \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/target/usr/include/sys/shm.h \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/target/usr/include/bits/shm.h \
+ /mnt/e/Code/IPC_Camera/Hi3516/share/cam_share/data/osa_base/ipc/shm/condition_notifier.h \
+ /mnt/e/Code/IPC_Camera/Hi3516/share/ipc_share/standard/atom/os_atom.h \
+ /mnt/e/Code/IPC_Camera/Hi3516/share/cam_share/data/osa_base/ipc/shm/shm_base.h \
+ /mnt/e/Code/IPC_Camera/Hi3516/share/ipc_share/standard/os.h \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/target/usr/include/stdlib.h \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/target/usr/include/alloca.h \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/target/usr/include/signal.h \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/target/usr/include/bits/signal.h \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/target/usr/include/pthread.h \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/target/usr/include/sched.h \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/target/usr/include/time.h \
+ /mnt/e/Code/IPC_Camera/Hi3516/share/ipc_share/standard/hashCode/os_hashCode.h

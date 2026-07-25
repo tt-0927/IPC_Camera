@@ -1,0 +1,12 @@
+prefix=/home/chenyc/cam_opensource_library/libupnp/libupnp-1.14.24/../build
+exec_prefix=${prefix}
+libdir=${exec_prefix}/lib
+includedir=${prefix}/include
+
+Name: libupnp
+Description: Linux SDK for UPnP Devices
+Version: 1.14.24
+Libs: -pthread -lpthread -L${libdir} -lupnp -lixml
+Libs.private: 
+Cflags: -pthread -I${includedir}/upnp
+

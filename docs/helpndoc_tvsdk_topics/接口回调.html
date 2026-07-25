@@ -1,0 +1,1161 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>接口回调</title>
+  <style>
+    body { font-family: "Microsoft YaHei", "微软雅黑", Arial, sans-serif; font-size: 10pt; color: #000; }
+    h1 { font-family: "Microsoft YaHei", "微软雅黑", Arial, sans-serif; font-size: 10pt; font-weight: bold; margin: 0 0 14px; }
+    p { margin: 0 0 4px; }
+    table { border-collapse: collapse; margin-top: 10px; width: 1000px; table-layout: fixed; }
+    th, td { border: 1px solid #000; padding: 5px 8px; height: 30px; min-height: 30px; vertical-align: middle; font-family: "Microsoft YaHei", "微软雅黑", Arial, sans-serif; font-size: 10pt; }
+    th { background: #d9eaf7; font-weight: bold; }
+    code { font-family: "Microsoft YaHei", "微软雅黑", Arial, sans-serif; font-size: 10pt; }
+  </style>
+</head>
+<body>
+  <h1>接口回调</h1>
+  <table>
+    <tr>
+      <th>类型</th>
+      <th>功能描述</th>
+      <th>接口</th>
+      <th>相关参数</th>
+    </tr>
+    <tr>
+      <td>基础服务</td>
+      <td>初始化SDK服务端并启动监听</td>
+      <td><a href="NET_TV_SERVER_Init.html">NET_TV_SERVER_Init</a></td>
+      <td>参数: IN UINT32 udwPort,IN CHAR szUserName[NET_TV_LEN_132],IN CHAR szPassword[NET_TV_LEN_132]</td>
+    </tr>
+    <tr>
+      <td>基础服务</td>
+      <td>清理SDK服务端资源</td>
+      <td><a href="NET_TV_SERVER_Cleanup.html">NET_TV_SERVER_Cleanup</a></td>
+      <td>参数: void</td>
+    </tr>
+    <tr>
+      <td>基础服务</td>
+      <td>设置SDK日志输出文件参数</td>
+      <td><a href="NET_TV_SERVER_SetLogToFile.html">NET_TV_SERVER_SetLogToFile</a></td>
+      <td>参数: IN INT32 dwLogLevel,IN CHAR *strLogDir,IN INT32 dwLogFileSize,IN INT32 dwLogFileNum</td>
+    </tr>
+    <tr>
+      <td>基础服务</td>
+      <td>获取SDK版本号</td>
+      <td><a href="NET_TV_SERVER_GetSDKVersion.html">NET_TV_SERVER_GetSDKVersion</a></td>
+      <td>参数: void</td>
+    </tr>
+    <tr>
+      <td>基础服务</td>
+      <td>获取当前在线客户端数量</td>
+      <td><a href="NET_TV_SERVER_GetClientCount.html">NET_TV_SERVER_GetClientCount</a></td>
+      <td>参数: void</td>
+    </tr>
+    <tr>
+      <td>基础服务</td>
+      <td>设置SDK服务端鉴权用户名和密码</td>
+      <td><a href="NET_TV_SERVER_SetUserPasswd.html">NET_TV_SERVER_SetUserPasswd</a></td>
+      <td>参数: IN CHAR szUserName[NET_TV_LEN_132],IN CHAR szPassword[NET_TV_LEN_132]</td>
+    </tr>
+    <tr>
+      <td>告警推送</td>
+      <td>向NVR或SDK客户端推送告警信息</td>
+      <td><a href="NET_TV_SERVER_PushAlarmInfo.html">NET_TV_SERVER_PushAlarmInfo</a></td>
+      <td>参数: IN <a href="NET_TV_ALARMER_S.html">NET_TV_ALARMER_S</a> *pAlarmer, IN INT32 lCommand, IN LPVOID pAlarmInfo, IN INT32 dwBufLen</td>
+    </tr>
+    <tr>
+      <td>通道状态推送</td>
+      <td>推送通道上下线状态</td>
+      <td><a href="NET_TV_SERVER_PushChannelStatusInfo.html">NET_TV_SERVER_PushChannelStatusInfo</a></td>
+      <td>参数: IN <a href="NET_TV_CHANNEL_INFO_S.html">NET_TV_CHANNEL_INFO_S</a> *pChannelInfo</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册获取设备信息回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_GetDeviceInfo.html">NET_TV_SERVER_RegisterCb_GetDeviceInfo</a></td>
+      <td>参数: NET_TV_COMMON_ECODE_E (*CB)(LP<a href="NET_TV_DEVICE_INFO_S.html">NET_TV_DEVICE_INFO_S</a> pInfo)</td>
+    </tr>
+    <tr>
+      <td>能力集回调</td>
+      <td>注册获取视频编码能力集回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_GetVideoEncodeCap.html">NET_TV_SERVER_RegisterCb_GetVideoEncodeCap</a></td>
+      <td>参数: NET_TV_CB_GetVideoEncodeCap pCb</td>
+    </tr>
+    <tr>
+      <td>能力集回调</td>
+      <td>注册获取音频编码能力集回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_GetAudioEncodeCap.html">NET_TV_SERVER_RegisterCb_GetAudioEncodeCap</a></td>
+      <td>参数: NET_TV_CB_GetAudioEncodeCap pCb</td>
+    </tr>
+    <tr>
+      <td>能力集回调</td>
+      <td>注册获取OSD能力集回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_GetOsdCap.html">NET_TV_SERVER_RegisterCb_GetOsdCap</a></td>
+      <td>参数: NET_TV_CB_GetOsdCap pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册通用获取设备配置回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_GetDevConfig.html">NET_TV_SERVER_RegisterCb_GetDevConfig</a></td>
+      <td>参数: NET_TV_CB_GetDevConfig pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册通用设置设备配置回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_SetDevConfig.html">NET_TV_SERVER_RegisterCb_SetDevConfig</a></td>
+      <td>参数: NET_TV_CB_SetDevConfig pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册获取DeviceCfg回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_GetDeviceCfg.html">NET_TV_SERVER_RegisterCb_GetDeviceCfg</a></td>
+      <td>命令: NET_TV_GET_DEVICECFG; 结构体: <a href="NET_TV_DEVICE_BASICINFO_S.html">NET_TV_DEVICE_BASICINFO_S</a>; 参数: NET_TV_CB_GetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册设置设备基础信息回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_SetDeviceCfg.html">NET_TV_SERVER_RegisterCb_SetDeviceCfg</a></td>
+      <td>命令: NET_TV_SET_DEVICECFG; 结构体: <a href="NET_TV_DEVICE_BASICINFO_S.html">NET_TV_DEVICE_BASICINFO_S</a>; 参数: NET_TV_CB_SetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册获取NTP参数回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_GetNtpCfg.html">NET_TV_SERVER_RegisterCb_GetNtpCfg</a></td>
+      <td>命令: NET_TV_GET_NTPCFG; 结构体: <a href="NET_TV_SYSTEM_NTP_INFO_S.html">NET_TV_SYSTEM_NTP_INFO_S</a>; 参数: NET_TV_CB_GetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册设置NTP参数回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_SetNtpCfg.html">NET_TV_SERVER_RegisterCb_SetNtpCfg</a></td>
+      <td>命令: NET_TV_SET_NTPCFG; 结构体: <a href="NET_TV_SYSTEM_NTP_INFO_S.html">NET_TV_SYSTEM_NTP_INFO_S</a>; 参数: NET_TV_CB_SetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册获取视频编码参数回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_GetStreamCfg.html">NET_TV_SERVER_RegisterCb_GetStreamCfg</a></td>
+      <td>命令: NET_TV_GET_STREAMCFG; 结构体: <a href="NET_TV_VIDEO_ENCODE_OPTION_S.html">NET_TV_VIDEO_ENCODE_OPTION_S</a>; 参数: NET_TV_CB_GetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册设置视频编码参数回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_SetStreamCfg.html">NET_TV_SERVER_RegisterCb_SetStreamCfg</a></td>
+      <td>命令: NET_TV_SET_STREAMCFG; 结构体: <a href="NET_TV_VIDEO_ENCODE_OPTION_S.html">NET_TV_VIDEO_ENCODE_OPTION_S</a>; 参数: NET_TV_CB_SetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册获取RTSP流地址回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_GetRtspUrl.html">NET_TV_SERVER_RegisterCb_GetRtspUrl</a></td>
+      <td>参数: NET_TV_CB_GetRtspUrl pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册获取回放播放地址回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_GetReplayUrl.html">NET_TV_SERVER_RegisterCb_GetReplayUrl</a></td>
+      <td>参数: NET_TV_CB_GetReplayUrl pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册回放控制回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_ControlReplay.html">NET_TV_SERVER_RegisterCb_ControlReplay</a></td>
+      <td>参数: NET_TV_CB_ControlReplay pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册获取回放录像时间段回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_GetReplayRecordList.html">NET_TV_SERVER_RegisterCb_GetReplayRecordList</a></td>
+      <td>参数: NET_TV_CB_GetReplayRecordList pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册获取OSD能力集配置信息回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_GetOsdCapCfg.html">NET_TV_SERVER_RegisterCb_GetOsdCapCfg</a></td>
+      <td>命令: NET_TV_GET_OSDCAPCFG; 结构体: <a href="NET_TV_VIDEO_OSD_CFG_S.html">NET_TV_VIDEO_OSD_CFG_S</a>; 参数: NET_TV_CB_GetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册设置OSD能力集配置信息回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_SetOsdCapCfg.html">NET_TV_SERVER_RegisterCb_SetOsdCapCfg</a></td>
+      <td>命令: NET_TV_SET_OSDCAPCFG; 结构体: <a href="NET_TV_VIDEO_OSD_CFG_S.html">NET_TV_VIDEO_OSD_CFG_S</a>; 参数: NET_TV_CB_SetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册获取图像配置信息回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_GetImageCfg.html">NET_TV_SERVER_RegisterCb_GetImageCfg</a></td>
+      <td>命令: NET_TV_GET_IMAGECFG; 结构体: <a href="NET_TV_IMAGE_SETTING_S.html">NET_TV_IMAGE_SETTING_S</a>; 参数: NET_TV_CB_GetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册设置图像配置信息回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_SetImageCfg.html">NET_TV_SERVER_RegisterCb_SetImageCfg</a></td>
+      <td>命令: NET_TV_SET_IMAGECFG; 结构体: <a href="NET_TV_IMAGE_SETTING_S.html">NET_TV_IMAGE_SETTING_S</a>; 参数: NET_TV_CB_SetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册获取网络配置信息回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_GetNetworkCfg.html">NET_TV_SERVER_RegisterCb_GetNetworkCfg</a></td>
+      <td>命令: NET_TV_GET_NETWORKCFG; 结构体: <a href="NET_TV_NETWORKCFG_S.html">NET_TV_NETWORKCFG_S</a>; 参数: NET_TV_CB_GetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册设置网络配置信息回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_SetNetworkCfg.html">NET_TV_SERVER_RegisterCb_SetNetworkCfg</a></td>
+      <td>命令: NET_TV_SET_NETWORKCFG; 结构体: <a href="NET_TV_NETWORKCFG_S.html">NET_TV_NETWORKCFG_S</a>; 参数: NET_TV_CB_SetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册WIFI配置（STA）回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_SetConfigWifiSta.html">NET_TV_SERVER_RegisterCb_SetConfigWifiSta</a></td>
+      <td>命令: NET_TV_SET_CONFIG_WIFI_STA; 结构体: <a href="NET_TV_WIFI_STA_CFG_S.html">NET_TV_WIFI_STA_CFG_S</a>; 参数: NET_TV_CB_SetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册WIFI连接（STA）回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_ConnectWifiSta.html">NET_TV_SERVER_RegisterCb_ConnectWifiSta</a></td>
+      <td>命令: NET_TV_CONNECT_WIFI_STA; 结构体: <a href="NET_TV_WIFI_STA_CONNECT_S.html">NET_TV_WIFI_STA_CONNECT_S</a>; 参数: NET_TV_CB_SetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册WIFI断开（STA）回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_DisconnectWifiSta.html">NET_TV_SERVER_RegisterCb_DisconnectWifiSta</a></td>
+      <td>命令: NET_TV_DISCONNECT_WIFI_STA; 结构体: <a href="NET_TV_WIFI_STA_CONNECT_S.html">NET_TV_WIFI_STA_CONNECT_S</a>; 参数: NET_TV_CB_SetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册获取4G配置回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_Get4GInfo.html">NET_TV_SERVER_RegisterCb_Get4GInfo</a></td>
+      <td>命令: NET_TV_GET_4G_INFO; 结构体: <a href="NET_TV_4G_INFO_S.html">NET_TV_4G_INFO_S</a>; 参数: NET_TV_CB_GetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册设置4G配置回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_Set4GInfo.html">NET_TV_SERVER_RegisterCb_Set4GInfo</a></td>
+      <td>命令: NET_TV_SET_4G_INFO; 结构体: <a href="NET_TV_4G_INFO_S.html">NET_TV_4G_INFO_S</a>; 参数: NET_TV_CB_SetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册设置热点配置回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_SetHotspotInfo.html">NET_TV_SERVER_RegisterCb_SetHotspotInfo</a></td>
+      <td>命令: NET_TV_SET_HOTSPOT_INFO; 结构体: <a href="NET_TV_HOTSPOT_INFO_S.html">NET_TV_HOTSPOT_INFO_S</a>; 参数: NET_TV_CB_SetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册获取热点连接设备回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_GetHotspotConn.html">NET_TV_SERVER_RegisterCb_GetHotspotConn</a></td>
+      <td>命令: NET_TV_GET_HOTSPOT_CONN; 结构体: <a href="NET_TV_HOTSPOT_CONN_INFO_S.html">NET_TV_HOTSPOT_CONN_INFO_S</a>; 参数: NET_TV_CB_GetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册获取安全服务配置回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_GetSecurityServicesInfo.html">NET_TV_SERVER_RegisterCb_GetSecurityServicesInfo</a></td>
+      <td>命令: NET_TV_GET_SECURITY_SERVICES_INFO; 结构体: <a href="NET_TV_SECURITY_SERVICES_INFO_S.html">NET_TV_SECURITY_SERVICES_INFO_S</a>; 参数: NET_TV_CB_GetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册设置安全服务配置回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_SetSecurityServicesInfo.html">NET_TV_SERVER_RegisterCb_SetSecurityServicesInfo</a></td>
+      <td>命令: NET_TV_SET_SECURITY_SERVICES_INFO; 结构体: <a href="NET_TV_SECURITY_SERVICES_INFO_S.html">NET_TV_SECURITY_SERVICES_INFO_S</a>; 参数: NET_TV_CB_SetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册获取SSH倒计时回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_GetSshCountdown.html">NET_TV_SERVER_RegisterCb_GetSshCountdown</a></td>
+      <td>命令: NET_TV_GET_SSH_COUNTDOWN; 结构体: <a href="NET_TV_SSH_COUNTDOWN_INFO_S.html">NET_TV_SSH_COUNTDOWN_INFO_S</a>; 参数: NET_TV_CB_GetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册查询日志回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_FindLog.html">NET_TV_SERVER_RegisterCb_FindLog</a></td>
+      <td>命令: NET_TV_FIND_LOG; 结构体: <a href="NET_TV_LOG_LIST_S.html">NET_TV_LOG_LIST_S</a>; 参数: NET_TV_CB_GetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册导出日志回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_ExportLog.html">NET_TV_SERVER_RegisterCb_ExportLog</a></td>
+      <td>命令: NET_TV_EXPORT_LOG; 结构体: <a href="NET_TV_LOG_LIST_S.html">NET_TV_LOG_LIST_S</a>; 参数: NET_TV_CB_GetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册获取日志服务器配置回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_GetLogServer.html">NET_TV_SERVER_RegisterCb_GetLogServer</a></td>
+      <td>命令: NET_TV_GET_LOG_SERVER; 结构体: <a href="NET_TV_LOG_SERVER_INFO_S.html">NET_TV_LOG_SERVER_INFO_S</a>; 参数: NET_TV_CB_GetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>基础服务</td>
+      <td>注册设置日志服务器配置回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_SetLogServer.html">NET_TV_SERVER_RegisterCb_SetLogServer</a></td>
+      <td>命令: NET_TV_SET_LOG_SERVER; 结构体: <a href="NET_TV_LOG_SERVER_INFO_S.html">NET_TV_LOG_SERVER_INFO_S</a>; 参数: NET_TV_CB_SetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册测试日志服务器配置回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_TestLogServer.html">NET_TV_SERVER_RegisterCb_TestLogServer</a></td>
+      <td>命令: NET_TV_TEST_LOG_SERVER; 结构体: <a href="NET_TV_LOG_SERVER_INFO_S.html">NET_TV_LOG_SERVER_INFO_S</a>; 参数: NET_TV_CB_SetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册手动录像/停止录像回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_ControlRecordInfo.html">NET_TV_SERVER_RegisterCb_ControlRecordInfo</a></td>
+      <td>命令: NET_TV_CONTROL_RECORD_INFO; 结构体: <a href="NET_TV_RECORD_INFO_S.html">NET_TV_RECORD_INFO_S</a>; 参数: NET_TV_CB_SetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册获取录像状态回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_GetRecordStatus.html">NET_TV_SERVER_RegisterCb_GetRecordStatus</a></td>
+      <td>命令: NET_TV_GET_RECORD_STATUS; 结构体: <a href="NET_TV_RECORD_STATUS_INFO_S.html">NET_TV_RECORD_STATUS_INFO_S</a>; 参数: NET_TV_CB_GetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册获取录像计划回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_GetRecordSchedule.html">NET_TV_SERVER_RegisterCb_GetRecordSchedule</a></td>
+      <td>命令: NET_TV_GET_RECORD_SCHEDULE; 结构体: <a href="NET_TV_RECORD_SCHEDULE_S.html">NET_TV_RECORD_SCHEDULE_S</a>; 参数: NET_TV_CB_GetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册设置录像计划回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_SetRecordSchedule.html">NET_TV_SERVER_RegisterCb_SetRecordSchedule</a></td>
+      <td>命令: NET_TV_SET_RECORD_SCHEDULE; 结构体: <a href="NET_TV_RECORD_SCHEDULE_S.html">NET_TV_RECORD_SCHEDULE_S</a>; 参数: NET_TV_CB_SetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册获取录像高级参数回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_GetRecordAdvancedParam.html">NET_TV_SERVER_RegisterCb_GetRecordAdvancedParam</a></td>
+      <td>命令: NET_TV_GET_RECORD_ADVANCED_PARAM; 结构体: <a href="NET_TV_RECORD_ADVANCED_PARAM_S.html">NET_TV_RECORD_ADVANCED_PARAM_S</a>; 参数: NET_TV_CB_GetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册设置录像高级参数回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_SetRecordAdvancedParam.html">NET_TV_SERVER_RegisterCb_SetRecordAdvancedParam</a></td>
+      <td>命令: NET_TV_SET_RECORD_ADVANCED_PARAM; 结构体: <a href="NET_TV_RECORD_ADVANCED_PARAM_S.html">NET_TV_RECORD_ADVANCED_PARAM_S</a>; 参数: NET_TV_CB_SetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册查找录像文件回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_FindRecordFileInfo.html">NET_TV_SERVER_RegisterCb_FindRecordFileInfo</a></td>
+      <td>命令: NET_TV_FIND_RECORD_FILE_INFO; 结构体: <a href="NET_TV_RECORD_FILE_LIST_S.html">NET_TV_RECORD_FILE_LIST_S</a>; 参数: NET_TV_CB_GetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册下载录像文件回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_DownloadRecordFile.html">NET_TV_SERVER_RegisterCb_DownloadRecordFile</a></td>
+      <td>命令: NET_TV_DOWNLOAD_RECORD_FILE; 结构体: <a href="NET_TV_RECORD_DOWNLOAD_LIST_S.html">NET_TV_RECORD_DOWNLOAD_LIST_S</a>; 参数: NET_TV_CB_SetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册获取隐私遮盖配置信息回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_GetPrivacyMaskCfg.html">NET_TV_SERVER_RegisterCb_GetPrivacyMaskCfg</a></td>
+      <td>命令: NET_TV_GET_PRIVACYMASKCFG; 结构体: <a href="NET_TV_PRIVACY_MASK_CFG_S.html">NET_TV_PRIVACY_MASK_CFG_S</a>; 参数: NET_TV_CB_GetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册设置隐私遮盖配置信息回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_SetPrivacyMaskCfg.html">NET_TV_SERVER_RegisterCb_SetPrivacyMaskCfg</a></td>
+      <td>命令: NET_TV_SET_PRIVACYMASKCFG; 结构体: <a href="NET_TV_PRIVACY_MASK_CFG_S.html">NET_TV_PRIVACY_MASK_CFG_S</a>; 参数: NET_TV_CB_SetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册获取遮挡检测告警信息回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_GetTamperAlarm.html">NET_TV_SERVER_RegisterCb_GetTamperAlarm</a></td>
+      <td>命令: NET_TV_GET_TAMPERALARM; 结构体: <a href="NET_TV_TAMPER_ALARM_INFO_S.html">NET_TV_TAMPER_ALARM_INFO_S</a>; 参数: NET_TV_CB_GetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册设置遮挡检测告警信息回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_SetTamperAlarm.html">NET_TV_SERVER_RegisterCb_SetTamperAlarm</a></td>
+      <td>命令: NET_TV_SET_TAMPERALARM; 结构体: <a href="NET_TV_TAMPER_ALARM_INFO_S.html">NET_TV_TAMPER_ALARM_INFO_S</a>; 参数: NET_TV_CB_SetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册获取运动检测告警信息回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_GetMotionAlarm.html">NET_TV_SERVER_RegisterCb_GetMotionAlarm</a></td>
+      <td>命令: NET_TV_GET_MOTIONALARM; 结构体: <a href="NET_TV_MOTION_ALARM_INFO_S.html">NET_TV_MOTION_ALARM_INFO_S</a>; 参数: NET_TV_CB_GetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册设置运动检测告警信息回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_SetMotionAlarm.html">NET_TV_SERVER_RegisterCb_SetMotionAlarm</a></td>
+      <td>命令: NET_TV_SET_MOTIONALARM; 结构体: <a href="NET_TV_MOTION_ALARM_INFO_S.html">NET_TV_MOTION_ALARM_INFO_S</a>; 参数: NET_TV_CB_SetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册获取越界检测告警信息回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_GetCrossLineAlarm.html">NET_TV_SERVER_RegisterCb_GetCrossLineAlarm</a></td>
+      <td>命令: NET_TV_GET_CROSSLINEALARM; 结构体: <a href="NET_TV_CROSS_LINE_ALARM_INFO_S.html">NET_TV_CROSS_LINE_ALARM_INFO_S</a>; 参数: NET_TV_CB_GetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册设置越界检测告警信息回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_SetCrossLineAlarm.html">NET_TV_SERVER_RegisterCb_SetCrossLineAlarm</a></td>
+      <td>命令: NET_TV_SET_CROSSLINEALARM; 结构体: <a href="NET_TV_CROSS_LINE_ALARM_INFO_S.html">NET_TV_CROSS_LINE_ALARM_INFO_S</a>; 参数: NET_TV_CB_SetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册获取入侵检测告警信息回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_GetIntrusionAlarm.html">NET_TV_SERVER_RegisterCb_GetIntrusionAlarm</a></td>
+      <td>命令: NET_TV_GET_INTRUSIONALARM; 结构体: <a href="NET_TV_INTRUSION_ALARM_INFO_S.html">NET_TV_INTRUSION_ALARM_INFO_S</a>; 参数: NET_TV_CB_GetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册设置入侵检测告警信息回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_SetIntrusionAlarm.html">NET_TV_SERVER_RegisterCb_SetIntrusionAlarm</a></td>
+      <td>命令: NET_TV_SET_INTRUSIONALARM; 结构体: <a href="NET_TV_INTRUSION_ALARM_INFO_S.html">NET_TV_INTRUSION_ALARM_INFO_S</a>; 参数: NET_TV_CB_SetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册获取徘徊侦测告警信息回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_GetLoiteringAlarm.html">NET_TV_SERVER_RegisterCb_GetLoiteringAlarm</a></td>
+      <td>命令: NET_TV_GET_LOITERINGALARM; 结构体: <a href="NET_TV_LOITERING_ALARM_INFO_S.html">NET_TV_LOITERING_ALARM_INFO_S</a>; 参数: NET_TV_CB_GetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册设置徘徊侦测告警信息回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_SetLoiteringAlarm.html">NET_TV_SERVER_RegisterCb_SetLoiteringAlarm</a></td>
+      <td>命令: NET_TV_SET_LOITERINGALARM; 结构体: <a href="NET_TV_LOITERING_ALARM_INFO_S.html">NET_TV_LOITERING_ALARM_INFO_S</a>; 参数: NET_TV_CB_SetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册获取音频异常侦测告警信息回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_GetAudioAnomalyAlarm.html">NET_TV_SERVER_RegisterCb_GetAudioAnomalyAlarm</a></td>
+      <td>命令: NET_TV_GET_AUDIOANOMALYALARM; 结构体: <a href="NET_TV_AUDIO_ANOMALY_ALARM_INFO_S.html">NET_TV_AUDIO_ANOMALY_ALARM_INFO_S</a>; 参数: NET_TV_CB_GetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册设置音频异常侦测告警信息回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_SetAudioAnomalyAlarm.html">NET_TV_SERVER_RegisterCb_SetAudioAnomalyAlarm</a></td>
+      <td>命令: NET_TV_SET_AUDIOANOMALYALARM; 结构体: <a href="NET_TV_AUDIO_ANOMALY_ALARM_INFO_S.html">NET_TV_AUDIO_ANOMALY_ALARM_INFO_S</a>; 参数: NET_TV_CB_SetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册获取预览信息回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_GetPreviewInfo.html">NET_TV_SERVER_RegisterCb_GetPreviewInfo</a></td>
+      <td>命令: NET_TV_GET_PREVIEW_INFO; 结构体: <a href="NET_TV_PREVIEW_INFO_S.html">NET_TV_PREVIEW_INFO_S</a>; 参数: NET_TV_CB_GetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册设置预览信息回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_SetPreviewInfo.html">NET_TV_SERVER_RegisterCb_SetPreviewInfo</a></td>
+      <td>命令: NET_TV_SET_PREVIEW_INFO; 结构体: <a href="NET_TV_PREVIEW_INFO_S.html">NET_TV_PREVIEW_INFO_S</a>; 参数: NET_TV_CB_SetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册获取通道信息回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_GetChannelInfo.html">NET_TV_SERVER_RegisterCb_GetChannelInfo</a></td>
+      <td>命令: NET_TV_GET_CHANNEL_INFO; 结构体: <a href="NET_TV_CHANNEL_INFO_S.html">NET_TV_CHANNEL_INFO_S</a>; 参数: NET_TV_CB_GetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册获取全部通道信息回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_GetChannelList.html">NET_TV_SERVER_RegisterCb_GetChannelList</a></td>
+      <td>命令: NET_TV_GET_CHANNEL_LIST; 结构体: <a href="NET_TV_CHANNEL_LIST_S.html">NET_TV_CHANNEL_LIST_S</a>; 参数: NET_TV_CB_GetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册获取人员聚集侦测告警信息回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_GetCrowGatheringAlarm.html">NET_TV_SERVER_RegisterCb_GetCrowGatheringAlarm</a></td>
+      <td>命令: NET_TV_GET_CROWDGATHERINGALARM; 结构体: <a href="NET_TV_CROWD_GATHERING_ALARM_INFO_S.html">NET_TV_CROWD_GATHERING_ALARM_INFO_S</a>; 参数: NET_TV_CB_GetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册设置人员聚集侦测告警信息回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_SetCrowGatheringAlarm.html">NET_TV_SERVER_RegisterCb_SetCrowGatheringAlarm</a></td>
+      <td>命令: NET_TV_SET_CROWDGATHERINGALARM; 结构体: <a href="NET_TV_CROWD_GATHERING_ALARM_INFO_S.html">NET_TV_CROWD_GATHERING_ALARM_INFO_S</a>; 参数: NET_TV_CB_SetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册获取停车侦测告警信息回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_GetParkingAlarm.html">NET_TV_SERVER_RegisterCb_GetParkingAlarm</a></td>
+      <td>命令: NET_TV_GET_PARKINGALARM; 结构体: <a href="NET_TV_PARKING_ALARM_INFO_S.html">NET_TV_PARKING_ALARM_INFO_S</a>; 参数: NET_TV_CB_GetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册设置停车侦测告警信息回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_SetParkingAlarm.html">NET_TV_SERVER_RegisterCb_SetParkingAlarm</a></td>
+      <td>命令: NET_TV_SET_PARKINGALARM; 结构体: <a href="NET_TV_PARKING_ALARM_INFO_S.html">NET_TV_PARKING_ALARM_INFO_S</a>; 参数: NET_TV_CB_SetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册获取物品遗留侦测告警信息回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_GetUnattendedObjectAlarm.html">NET_TV_SERVER_RegisterCb_GetUnattendedObjectAlarm</a></td>
+      <td>命令: NET_TV_GET_UNATTENDEDOBJECTALARM; 结构体: <a href="NET_TV_UNATTENDED_OBJECT_ALARM_INFO_S.html">NET_TV_UNATTENDED_OBJECT_ALARM_INFO_S</a>; 参数: NET_TV_CB_GetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册设置物品遗留侦测告警信息回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_SetUnattendedObjectAlarm.html">NET_TV_SERVER_RegisterCb_SetUnattendedObjectAlarm</a></td>
+      <td>命令: NET_TV_SET_UNATTENDEDOBJECTALARM; 结构体: <a href="NET_TV_UNATTENDED_OBJECT_ALARM_INFO_S.html">NET_TV_UNATTENDED_OBJECT_ALARM_INFO_S</a>; 参数: NET_TV_CB_SetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册获取物品拿取侦测告警信息回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_GetObjectRemovalAlarm.html">NET_TV_SERVER_RegisterCb_GetObjectRemovalAlarm</a></td>
+      <td>命令: NET_TV_GET_OBJECTREMOVALALARM; 结构体: <a href="NET_TV_OBJECT_REMOVAL_ALARM_INFO_S.html">NET_TV_OBJECT_REMOVAL_ALARM_INFO_S</a>; 参数: NET_TV_CB_GetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册设置物品拿取侦测告警信息回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_SetObjectRemovalAlarm.html">NET_TV_SERVER_RegisterCb_SetObjectRemovalAlarm</a></td>
+      <td>命令: NET_TV_SET_OBJECTREMOVALALARM; 结构体: <a href="NET_TV_OBJECT_REMOVAL_ALARM_INFO_S.html">NET_TV_OBJECT_REMOVAL_ALARM_INFO_S</a>; 参数: NET_TV_CB_SetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册获取场景变更侦测告警信息回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_GetSceneChangeAlarm.html">NET_TV_SERVER_RegisterCb_GetSceneChangeAlarm</a></td>
+      <td>命令: NET_TV_GET_SCENECHANGEALARM; 结构体: <a href="NET_TV_SCENE_CHANGE_ALARM_INFO_S.html">NET_TV_SCENE_CHANGE_ALARM_INFO_S</a>; 参数: NET_TV_CB_GetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册设置场景变更侦测告警信息回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_SetSceneChangeAlarm.html">NET_TV_SERVER_RegisterCb_SetSceneChangeAlarm</a></td>
+      <td>命令: NET_TV_SET_SCENECHANGEALARM; 结构体: <a href="NET_TV_SCENE_CHANGE_ALARM_INFO_S.html">NET_TV_SCENE_CHANGE_ALARM_INFO_S</a>; 参数: NET_TV_CB_SetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册获取垃圾暴露配置回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_GetGarbageExposureCfg.html">NET_TV_SERVER_RegisterCb_GetGarbageExposureCfg</a></td>
+      <td>命令: NET_TV_GET_GARBAGE_EXPOSURE_CFG; 结构体: <a href="NET_TV_GARBAGE_EXPOSURE_CFG_S.html">NET_TV_GARBAGE_EXPOSURE_CFG_S</a>; 参数: NET_TV_CB_GetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册设置垃圾暴露配置回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_SetGarbageExposureCfg.html">NET_TV_SERVER_RegisterCb_SetGarbageExposureCfg</a></td>
+      <td>命令: NET_TV_SET_GARBAGE_EXPOSURE_CFG; 结构体: <a href="NET_TV_GARBAGE_EXPOSURE_CFG_S.html">NET_TV_GARBAGE_EXPOSURE_CFG_S</a>; 参数: NET_TV_CB_SetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册获取垃圾满溢配置回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_GetGarbageOverflowCfg.html">NET_TV_SERVER_RegisterCb_GetGarbageOverflowCfg</a></td>
+      <td>命令: NET_TV_GET_GARBAGE_OVERFLOW_CFG; 结构体: <a href="NET_TV_GARBAGE_OVERFLOW_CFG_S.html">NET_TV_GARBAGE_OVERFLOW_CFG_S</a>; 参数: NET_TV_CB_GetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册设置垃圾满溢配置回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_SetGarbageOverflowCfg.html">NET_TV_SERVER_RegisterCb_SetGarbageOverflowCfg</a></td>
+      <td>命令: NET_TV_SET_GARBAGE_OVERFLOW_CFG; 结构体: <a href="NET_TV_GARBAGE_OVERFLOW_CFG_S.html">NET_TV_GARBAGE_OVERFLOW_CFG_S</a>; 参数: NET_TV_CB_SetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>对讲配置回调</td>
+      <td>注册设置对讲状态信息回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_SetTalkbackState.html">NET_TV_SERVER_RegisterCb_SetTalkbackState</a></td>
+      <td>命令: NET_TV_STATE_TALKBACK; 结构体: <a href="NET_TV_TALKBACK_STATE_INFO_S.html">NET_TV_TALKBACK_STATE_INFO_S</a>; 参数: NET_TV_CB_SetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>对讲配置回调</td>
+      <td>注册流媒体对讲：发送对讲数据回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_SetTalkbackToStream.html">NET_TV_SERVER_RegisterCb_SetTalkbackToStream</a></td>
+      <td>命令: NET_TV_TO_STREAM_TALKBACK; 结构体: <a href="NET_TV_TALKBACK_STREAM_INFO_S.html">NET_TV_TALKBACK_STREAM_INFO_S</a>; 参数: NET_TV_CB_SetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>对讲配置回调</td>
+      <td>注册流媒体对讲：接收对讲数据回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_GetTalkbackFromStream.html">NET_TV_SERVER_RegisterCb_GetTalkbackFromStream</a></td>
+      <td>命令: NET_TV_FROM_STREAM_TALKBACK; 结构体: <a href="NET_TV_TALKBACK_STREAM_INFO_S.html">NET_TV_TALKBACK_STREAM_INFO_S</a>; 参数: NET_TV_CB_GetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>对讲配置回调</td>
+      <td>注册流媒体对讲：回放对讲数据回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_SetReplayTalkback.html">NET_TV_SERVER_RegisterCb_SetReplayTalkback</a></td>
+      <td>命令: NET_TV_REPLAY_TALKBACK; 结构体: <a href="NET_TV_REPLAY_TALKBACK_INFO_S.html">NET_TV_REPLAY_TALKBACK_INFO_S</a>; 参数: NET_TV_CB_SetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>升级回调</td>
+      <td>注册获取设备升级状态信息回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_GetUpgradeStatus.html">NET_TV_SERVER_RegisterCb_GetUpgradeStatus</a></td>
+      <td>命令: NET_TV_GET_UPGRADESTATUS; 结构体: <a href="NET_TV_UPGRADE_STATUS_S.html">NET_TV_UPGRADE_STATUS_S</a>; 参数: NET_TV_CB_GetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>升级回调</td>
+      <td>注册设置设备升级信息回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_SetUpgrade.html">NET_TV_SERVER_RegisterCb_SetUpgrade</a></td>
+      <td>命令: NET_TV_SET_UPGRADE; 结构体: <a href="NET_TV_UPGRADE_INFO_S.html">NET_TV_UPGRADE_INFO_S</a>; 参数: NET_TV_CB_SetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>升级回调</td>
+      <td>注册获取设备升级版本信息回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_GetUpgradeVersion.html">NET_TV_SERVER_RegisterCb_GetUpgradeVersion</a></td>
+      <td>命令: NET_TV_GET_UPGRADEVERSION; 结构体: <a href="NET_TV_UPGRADE_VERSION_S.html">NET_TV_UPGRADE_VERSION_S</a>; 参数: NET_TV_CB_GetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册获取抓图计划信息回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_GetCapturePlanInfo.html">NET_TV_SERVER_RegisterCb_GetCapturePlanInfo</a></td>
+      <td>命令: NET_TV_GET_CAPTURE_PLAN_INFO; 结构体: <a href="NET_TV_CAPTURE_PLAN_INFO_S.html">NET_TV_CAPTURE_PLAN_INFO_S</a>; 参数: NET_TV_CB_GetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册设置抓图计划信息回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_SetCapturePlanInfo.html">NET_TV_SERVER_RegisterCb_SetCapturePlanInfo</a></td>
+      <td>命令: NET_TV_SET_CAPTURE_PLAN_INFO; 结构体: <a href="NET_TV_CAPTURE_PLAN_INFO_S.html">NET_TV_CAPTURE_PLAN_INFO_S</a>; 参数: NET_TV_CB_SetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册获取抓图参数信息回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_GetCaptureParamInfo.html">NET_TV_SERVER_RegisterCb_GetCaptureParamInfo</a></td>
+      <td>命令: NET_TV_GET_CAPTURE_PARAM_INFO; 结构体: <a href="NET_TV_CAPTURE_PARAM_INFO_S.html">NET_TV_CAPTURE_PARAM_INFO_S</a>; 参数: NET_TV_CB_GetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册设置抓图参数信息回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_SetCaptureParamInfo.html">NET_TV_SERVER_RegisterCb_SetCaptureParamInfo</a></td>
+      <td>命令: NET_TV_SET_CAPTURE_PARAM_INFO; 结构体: <a href="NET_TV_CAPTURE_PARAM_INFO_S.html">NET_TV_CAPTURE_PARAM_INFO_S</a>; 参数: NET_TV_CB_SetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册获取曝光信息回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_GetExposureInfo.html">NET_TV_SERVER_RegisterCb_GetExposureInfo</a></td>
+      <td>命令: NET_TV_GET_EXPOSURE_INFO; 结构体: <a href="NET_TV_EXPOSURE_INFO_S.html">NET_TV_EXPOSURE_INFO_S</a>; 参数: NET_TV_CB_GetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册设置曝光信息回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_SetExposureInfo.html">NET_TV_SERVER_RegisterCb_SetExposureInfo</a></td>
+      <td>命令: NET_TV_SET_EXPOSURE_INFO; 结构体: <a href="NET_TV_EXPOSURE_INFO_S.html">NET_TV_EXPOSURE_INFO_S</a>; 参数: NET_TV_CB_SetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册获取日夜转换信息回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_GetDayNightInfo.html">NET_TV_SERVER_RegisterCb_GetDayNightInfo</a></td>
+      <td>命令: NET_TV_GET_DAYNIGHT_INFO; 结构体: <a href="NET_TV_DAYNIGHT_INFO_S.html">NET_TV_DAYNIGHT_INFO_S</a>; 参数: NET_TV_CB_GetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册设置日夜转换信息回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_SetDayNightInfo.html">NET_TV_SERVER_RegisterCb_SetDayNightInfo</a></td>
+      <td>命令: NET_TV_SET_DAYNIGHT_INFO; 结构体: <a href="NET_TV_DAYNIGHT_INFO_S.html">NET_TV_DAYNIGHT_INFO_S</a>; 参数: NET_TV_CB_SetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册获取背光信息回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_GetBackLightInfo.html">NET_TV_SERVER_RegisterCb_GetBackLightInfo</a></td>
+      <td>命令: NET_TV_GET_BACKLIGHT_INFO; 结构体: <a href="NET_TV_BACKLIGHT_INFO_S.html">NET_TV_BACKLIGHT_INFO_S</a>; 参数: NET_TV_CB_GetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册设置背光信息回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_SetBackLightInfo.html">NET_TV_SERVER_RegisterCb_SetBackLightInfo</a></td>
+      <td>命令: NET_TV_SET_BACKLIGHT_INFO; 结构体: <a href="NET_TV_BACKLIGHT_INFO_S.html">NET_TV_BACKLIGHT_INFO_S</a>; 参数: NET_TV_CB_SetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册获取降噪信息回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_GetDenoiseInfo.html">NET_TV_SERVER_RegisterCb_GetDenoiseInfo</a></td>
+      <td>命令: NET_TV_GET_DENOISE_INFO; 结构体: <a href="NET_TV_DENOISE_INFO_S.html">NET_TV_DENOISE_INFO_S</a>; 参数: NET_TV_CB_GetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册设置降噪信息回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_SetDenoiseInfo.html">NET_TV_SERVER_RegisterCb_SetDenoiseInfo</a></td>
+      <td>命令: NET_TV_SET_DENOISE_INFO; 结构体: <a href="NET_TV_DENOISE_INFO_S.html">NET_TV_DENOISE_INFO_S</a>; 参数: NET_TV_CB_SetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册获取白平衡信息回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_GetWhiteBalanceInfo.html">NET_TV_SERVER_RegisterCb_GetWhiteBalanceInfo</a></td>
+      <td>命令: NET_TV_GET_WHITEBALANCE_INFO; 结构体: <a href="NET_TV_WHITEBALANCE_INFO_S.html">NET_TV_WHITEBALANCE_INFO_S</a>; 参数: NET_TV_CB_GetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册设置白平衡信息回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_SetWhiteBalanceInfo.html">NET_TV_SERVER_RegisterCb_SetWhiteBalanceInfo</a></td>
+      <td>命令: NET_TV_SET_WHITEBALANCE_INFO; 结构体: <a href="NET_TV_WHITEBALANCE_INFO_S.html">NET_TV_WHITEBALANCE_INFO_S</a>; 参数: NET_TV_CB_SetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册获取音频编码参数回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_GetAudioCfg.html">NET_TV_SERVER_RegisterCb_GetAudioCfg</a></td>
+      <td>命令: NET_TV_GET_AUDIOCFG; 结构体: <a href="NET_TV_AUDIO_CFG_S.html">NET_TV_AUDIO_CFG_S</a>; 参数: NET_TV_CB_GetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册设置音频编码参数回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_SetAudioCfg.html">NET_TV_SERVER_RegisterCb_SetAudioCfg</a></td>
+      <td>命令: NET_TV_SET_AUDIOCFG; 结构体: <a href="NET_TV_AUDIO_CFG_S.html">NET_TV_AUDIO_CFG_S</a>; 参数: NET_TV_CB_SetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册获取进入区域侦测告警信息回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_GetEnterRegionAlarm.html">NET_TV_SERVER_RegisterCb_GetEnterRegionAlarm</a></td>
+      <td>命令: NET_TV_GET_ENTERREGIONALARM; 结构体: <a href="NET_TV_ENTER_REGION_ALARM_INFO_S.html">NET_TV_ENTER_REGION_ALARM_INFO_S</a>; 参数: NET_TV_CB_GetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册设置进入区域侦测告警信息回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_SetEnterRegionAlarm.html">NET_TV_SERVER_RegisterCb_SetEnterRegionAlarm</a></td>
+      <td>命令: NET_TV_SET_ENTERREGIONALARM; 结构体: <a href="NET_TV_ENTER_REGION_ALARM_INFO_S.html">NET_TV_ENTER_REGION_ALARM_INFO_S</a>; 参数: NET_TV_CB_SetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册获取离开区域侦测告警信息回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_GetLeaveRegionAlarm.html">NET_TV_SERVER_RegisterCb_GetLeaveRegionAlarm</a></td>
+      <td>命令: NET_TV_GET_LEAVEREGIONALARM; 结构体: <a href="NET_TV_LEAVE_REGION_ALARM_INFO_S.html">NET_TV_LEAVE_REGION_ALARM_INFO_S</a>; 参数: NET_TV_CB_GetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册设置离开区域侦测告警信息回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_SetLeaveRegionAlarm.html">NET_TV_SERVER_RegisterCb_SetLeaveRegionAlarm</a></td>
+      <td>命令: NET_TV_SET_LEAVEREGIONALARM; 结构体: <a href="NET_TV_LEAVE_REGION_ALARM_INFO_S.html">NET_TV_LEAVE_REGION_ALARM_INFO_S</a>; 参数: NET_TV_CB_SetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册获取人脸抓拍配置信息回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_GetFaceCaptureInfo.html">NET_TV_SERVER_RegisterCb_GetFaceCaptureInfo</a></td>
+      <td>命令: NET_TV_GET_FACECAPTUREINFO; 结构体: <a href="NET_TV_FACE_CAPTURE_INFO_S.html">NET_TV_FACE_CAPTURE_INFO_S</a>; 参数: NET_TV_CB_GetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册设置人脸抓拍配置信息回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_SetFaceCaptureInfo.html">NET_TV_SERVER_RegisterCb_SetFaceCaptureInfo</a></td>
+      <td>命令: NET_TV_SET_FACECAPTUREINFO; 结构体: <a href="NET_TV_FACE_CAPTURE_INFO_S.html">NET_TV_FACE_CAPTURE_INFO_S</a>; 参数: NET_TV_CB_SetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册设置人脸比对配置回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_SetFaceCompareInfo.html">NET_TV_SERVER_RegisterCb_SetFaceCompareInfo</a></td>
+      <td>命令: NET_TV_SET_FACE_COMPARE_INFO; 结构体: <a href="NET_TV_FACE_COMPARE_INFO_S.html">NET_TV_FACE_COMPARE_INFO_S</a>; 参数: NET_TV_CB_SetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册添加目标库回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_AddTargetLib.html">NET_TV_SERVER_RegisterCb_AddTargetLib</a></td>
+      <td>命令: NET_TV_ADD_TARGET_LIB; 结构体: <a href="NET_TV_FACE_LIB_INFO_S.html">NET_TV_FACE_LIB_INFO_S</a>; 参数: NET_TV_CB_SetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册删除目标库回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_DelTargetLib.html">NET_TV_SERVER_RegisterCb_DelTargetLib</a></td>
+      <td>命令: NET_TV_DEL_TARGET_LIB; 结构体: <a href="NET_TV_FACE_LIB_INFO_S.html">NET_TV_FACE_LIB_INFO_S</a>; 参数: NET_TV_CB_SetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册修改目标库回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_SetTargetLib.html">NET_TV_SERVER_RegisterCb_SetTargetLib</a></td>
+      <td>命令: NET_TV_SET_TARGET_LIB; 结构体: <a href="NET_TV_FACE_LIB_INFO_S.html">NET_TV_FACE_LIB_INFO_S</a>; 参数: NET_TV_CB_SetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册获取目标库回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_GetTargetLib.html">NET_TV_SERVER_RegisterCb_GetTargetLib</a></td>
+      <td>命令: NET_TV_GET_TARGET_LIB; 结构体: <a href="NET_TV_FACE_LIB_LIST_S.html">NET_TV_FACE_LIB_LIST_S</a>; 参数: NET_TV_CB_GetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册添加人脸回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_AddFaceInfo.html">NET_TV_SERVER_RegisterCb_AddFaceInfo</a></td>
+      <td>命令: NET_TV_ADD_FACE_INFO; 结构体: <a href="NET_TV_FACE_INFO_S.html">NET_TV_FACE_INFO_S</a>; 参数: NET_TV_CB_SetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册删除人脸回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_DelFaceInfo.html">NET_TV_SERVER_RegisterCb_DelFaceInfo</a></td>
+      <td>命令: NET_TV_DEL_FACE_INFO; 结构体: <a href="NET_TV_FACE_ID_INFO_S.html">NET_TV_FACE_ID_INFO_S</a>; 参数: NET_TV_CB_SetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册修改人脸回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_SetFaceInfo.html">NET_TV_SERVER_RegisterCb_SetFaceInfo</a></td>
+      <td>命令: NET_TV_SET_FACE_INFO; 结构体: <a href="NET_TV_FACE_INFO_S.html">NET_TV_FACE_INFO_S</a>; 参数: NET_TV_CB_SetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册获取人脸回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_GetFaceInfo.html">NET_TV_SERVER_RegisterCb_GetFaceInfo</a></td>
+      <td>命令: NET_TV_GET_FACE_INFO; 结构体: <a href="NET_TV_FACE_INFO_LIST_S.html">NET_TV_FACE_INFO_LIST_S</a>; 参数: NET_TV_CB_GetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册获取人流统计配置回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_GetPeopleFlowStatisticsCfg.html">NET_TV_SERVER_RegisterCb_GetPeopleFlowStatisticsCfg</a></td>
+      <td>命令: NET_TV_GET_PEOPLE_FLOW_STATISTICS_CFG; 结构体: <a href="NET_TV_PEOPLE_FLOW_STATISTICS_CFG_S.html">NET_TV_PEOPLE_FLOW_STATISTICS_CFG_S</a>; 参数: NET_TV_CB_GetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册设置人流统计配置回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_SetPeopleFlowStatisticsCfg.html">NET_TV_SERVER_RegisterCb_SetPeopleFlowStatisticsCfg</a></td>
+      <td>命令: NET_TV_SET_PEOPLE_FLOW_STATISTICS_CFG; 结构体: <a href="NET_TV_PEOPLE_FLOW_STATISTICS_CFG_S.html">NET_TV_PEOPLE_FLOW_STATISTICS_CFG_S</a>; 参数: NET_TV_CB_SetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册立即清零人流统计结果回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_ResetPeopleFlowStatistics.html">NET_TV_SERVER_RegisterCb_ResetPeopleFlowStatistics</a></td>
+      <td>命令: NET_TV_RESET_PEOPLE_FLOW_STATISTICS; 结构体: <a href="NET_TV_PEOPLE_FLOW_STATISTICS_CFG_S.html">NET_TV_PEOPLE_FLOW_STATISTICS_CFG_S</a>; 参数: NET_TV_CB_SetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册获取人员密度检测配置回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_GetPeopleDensityDetectionCfg.html">NET_TV_SERVER_RegisterCb_GetPeopleDensityDetectionCfg</a></td>
+      <td>命令: NET_TV_GET_PEOPLE_DENSITY_DETECTION_CFG; 结构体: <a href="NET_TV_PEOPLE_DENSITY_DETECTION_CFG_S.html">NET_TV_PEOPLE_DENSITY_DETECTION_CFG_S</a>; 参数: NET_TV_CB_GetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册设置人员密度检测配置回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_SetPeopleDensityDetectionCfg.html">NET_TV_SERVER_RegisterCb_SetPeopleDensityDetectionCfg</a></td>
+      <td>命令: NET_TV_SET_PEOPLE_DENSITY_DETECTION_CFG; 结构体: <a href="NET_TV_PEOPLE_DENSITY_DETECTION_CFG_S.html">NET_TV_PEOPLE_DENSITY_DETECTION_CFG_S</a>; 参数: NET_TV_CB_SetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册获取井盖异常检测配置回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_GetManholeCoverAbnormalCfg.html">NET_TV_SERVER_RegisterCb_GetManholeCoverAbnormalCfg</a></td>
+      <td>命令: NET_TV_GET_MANHOLE_COVER_ABNORMAL_CFG; 结构体: <a href="NET_TV_MANHOLE_COVER_ABNORMAL_CFG_S.html">NET_TV_MANHOLE_COVER_ABNORMAL_CFG_S</a>; 参数: NET_TV_CB_GetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册设置井盖异常检测配置回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_SetManholeCoverAbnormalCfg.html">NET_TV_SERVER_RegisterCb_SetManholeCoverAbnormalCfg</a></td>
+      <td>命令: NET_TV_SET_MANHOLE_COVER_ABNORMAL_CFG; 结构体: <a href="NET_TV_MANHOLE_COVER_ABNORMAL_CFG_S.html">NET_TV_MANHOLE_COVER_ABNORMAL_CFG_S</a>; 参数: NET_TV_CB_SetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册获取睡岗识别配置回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_GetSleepOnDutyCfg.html">NET_TV_SERVER_RegisterCb_GetSleepOnDutyCfg</a></td>
+      <td>命令: NET_TV_GET_SLEEP_ON_DUTY_CFG; 结构体: <a href="NET_TV_SLEEP_ON_DUTY_CFG_S.html">NET_TV_SLEEP_ON_DUTY_CFG_S</a>; 参数: NET_TV_CB_GetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册设置睡岗识别配置回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_SetSleepOnDutyCfg.html">NET_TV_SERVER_RegisterCb_SetSleepOnDutyCfg</a></td>
+      <td>命令: NET_TV_SET_SLEEP_ON_DUTY_CFG; 结构体: <a href="NET_TV_SLEEP_ON_DUTY_CFG_S.html">NET_TV_SLEEP_ON_DUTY_CFG_S</a>; 参数: NET_TV_CB_SetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册获取电瓶车进电梯识别配置回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_GetElectricVehicleInElevatorCfg.html">NET_TV_SERVER_RegisterCb_GetElectricVehicleInElevatorCfg</a></td>
+      <td>命令: NET_TV_GET_ELECTRIC_VEHICLE_IN_ELEVATOR_CFG; 结构体: <a href="NET_TV_ELECTRIC_VEHICLE_IN_ELEVATOR_CFG_S.html">NET_TV_ELECTRIC_VEHICLE_IN_ELEVATOR_CFG_S</a>; 参数: NET_TV_CB_GetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册设置电瓶车进电梯识别配置回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_SetElectricVehicleInElevatorCfg.html">NET_TV_SERVER_RegisterCb_SetElectricVehicleInElevatorCfg</a></td>
+      <td>命令: NET_TV_SET_ELECTRIC_VEHICLE_IN_ELEVATOR_CFG; 结构体: <a href="NET_TV_ELECTRIC_VEHICLE_IN_ELEVATOR_CFG_S.html">NET_TV_ELECTRIC_VEHICLE_IN_ELEVATOR_CFG_S</a>; 参数: NET_TV_CB_SetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册获取人员倒地识别配置回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_GetPersonFallDownCfg.html">NET_TV_SERVER_RegisterCb_GetPersonFallDownCfg</a></td>
+      <td>命令: NET_TV_GET_PERSON_FALL_DOWN_CFG; 结构体: <a href="NET_TV_PERSON_FALL_DOWN_CFG_S.html">NET_TV_PERSON_FALL_DOWN_CFG_S</a>; 参数: NET_TV_CB_GetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册设置人员倒地识别配置回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_SetPersonFallDownCfg.html">NET_TV_SERVER_RegisterCb_SetPersonFallDownCfg</a></td>
+      <td>命令: NET_TV_SET_PERSON_FALL_DOWN_CFG; 结构体: <a href="NET_TV_PERSON_FALL_DOWN_CFG_S.html">NET_TV_PERSON_FALL_DOWN_CFG_S</a>; 参数: NET_TV_CB_SetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册获取施工占道识别配置回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_GetConstructionOccupyRoadCfg.html">NET_TV_SERVER_RegisterCb_GetConstructionOccupyRoadCfg</a></td>
+      <td>命令: NET_TV_GET_CONSTRUCTION_OCCUPY_ROAD_CFG; 结构体: <a href="NET_TV_CONSTRUCTION_OCCUPY_ROAD_CFG_S.html">NET_TV_CONSTRUCTION_OCCUPY_ROAD_CFG_S</a>; 参数: NET_TV_CB_GetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册设置施工占道识别配置回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_SetConstructionOccupyRoadCfg.html">NET_TV_SERVER_RegisterCb_SetConstructionOccupyRoadCfg</a></td>
+      <td>命令: NET_TV_SET_CONSTRUCTION_OCCUPY_ROAD_CFG; 结构体: <a href="NET_TV_CONSTRUCTION_OCCUPY_ROAD_CFG_S.html">NET_TV_CONSTRUCTION_OCCUPY_ROAD_CFG_S</a>; 参数: NET_TV_CB_SetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册获取拥堵识别配置回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_GetCongestionCfg.html">NET_TV_SERVER_RegisterCb_GetCongestionCfg</a></td>
+      <td>命令: NET_TV_GET_CONGESTION_CFG; 结构体: <a href="NET_TV_CONGESTION_CFG_S.html">NET_TV_CONGESTION_CFG_S</a>; 参数: NET_TV_CB_GetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册设置拥堵识别配置回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_SetCongestionCfg.html">NET_TV_SERVER_RegisterCb_SetCongestionCfg</a></td>
+      <td>命令: NET_TV_SET_CONGESTION_CFG; 结构体: <a href="NET_TV_CONGESTION_CFG_S.html">NET_TV_CONGESTION_CFG_S</a>; 参数: NET_TV_CB_SetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册获取车牌识别配置回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_GetLicensePlateRecognitionCfg.html">NET_TV_SERVER_RegisterCb_GetLicensePlateRecognitionCfg</a></td>
+      <td>命令: NET_TV_GET_LICENSE_PLATE_RECOGNITION_CFG; 结构体: <a href="NET_TV_LICENSE_PLATE_RECOGNITION_CFG_S.html">NET_TV_LICENSE_PLATE_RECOGNITION_CFG_S</a>; 参数: NET_TV_CB_GetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册设置车牌识别配置回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_SetLicensePlateRecognitionCfg.html">NET_TV_SERVER_RegisterCb_SetLicensePlateRecognitionCfg</a></td>
+      <td>命令: NET_TV_SET_LICENSE_PLATE_RECOGNITION_CFG; 结构体: <a href="NET_TV_LICENSE_PLATE_RECOGNITION_CFG_S.html">NET_TV_LICENSE_PLATE_RECOGNITION_CFG_S</a>; 参数: NET_TV_CB_SetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册获取高空安全带识别配置回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_GetHighAltitudeSeatbeltCfg.html">NET_TV_SERVER_RegisterCb_GetHighAltitudeSeatbeltCfg</a></td>
+      <td>命令: NET_TV_GET_HIGH_ALTITUDE_SEATBELT_CFG; 结构体: <a href="NET_TV_HIGH_ALTITUDE_SEATBELT_CFG_S.html">NET_TV_HIGH_ALTITUDE_SEATBELT_CFG_S</a>; 参数: NET_TV_CB_GetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册设置高空安全带识别配置回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_SetHighAltitudeSeatbeltCfg.html">NET_TV_SERVER_RegisterCb_SetHighAltitudeSeatbeltCfg</a></td>
+      <td>命令: NET_TV_SET_HIGH_ALTITUDE_SEATBELT_CFG; 结构体: <a href="NET_TV_HIGH_ALTITUDE_SEATBELT_CFG_S.html">NET_TV_HIGH_ALTITUDE_SEATBELT_CFG_S</a>; 参数: NET_TV_CB_SetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册获取安全帽识别配置回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_GetSafetyHelmetCfg.html">NET_TV_SERVER_RegisterCb_GetSafetyHelmetCfg</a></td>
+      <td>命令: NET_TV_GET_SAFETY_HELMET_CFG; 结构体: <a href="NET_TV_SAFETY_HELMET_CFG_S.html">NET_TV_SAFETY_HELMET_CFG_S</a>; 参数: NET_TV_CB_GetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册设置安全帽识别配置回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_SetSafetyHelmetCfg.html">NET_TV_SERVER_RegisterCb_SetSafetyHelmetCfg</a></td>
+      <td>命令: NET_TV_SET_SAFETY_HELMET_CFG; 结构体: <a href="NET_TV_SAFETY_HELMET_CFG_S.html">NET_TV_SAFETY_HELMET_CFG_S</a>; 参数: NET_TV_CB_SetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册获取摔倒识别配置回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_GetPersonFallCfg.html">NET_TV_SERVER_RegisterCb_GetPersonFallCfg</a></td>
+      <td>命令: NET_TV_GET_PERSON_FALL_CFG; 结构体: <a href="NET_TV_PERSON_FALL_CFG_S.html">NET_TV_PERSON_FALL_CFG_S</a>; 参数: NET_TV_CB_GetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册设置摔倒识别配置回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_SetPersonFallCfg.html">NET_TV_SERVER_RegisterCb_SetPersonFallCfg</a></td>
+      <td>命令: NET_TV_SET_PERSON_FALL_CFG; 结构体: <a href="NET_TV_PERSON_FALL_CFG_S.html">NET_TV_PERSON_FALL_CFG_S</a>; 参数: NET_TV_CB_SetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册获取玩手机识别配置回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_GetPhoneUsageCfg.html">NET_TV_SERVER_RegisterCb_GetPhoneUsageCfg</a></td>
+      <td>命令: NET_TV_GET_PHONE_USAGE_CFG; 结构体: <a href="NET_TV_PHONE_USAGE_CFG_S.html">NET_TV_PHONE_USAGE_CFG_S</a>; 参数: NET_TV_CB_GetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册设置玩手机识别配置回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_SetPhoneUsageCfg.html">NET_TV_SERVER_RegisterCb_SetPhoneUsageCfg</a></td>
+      <td>命令: NET_TV_SET_PHONE_USAGE_CFG; 结构体: <a href="NET_TV_PHONE_USAGE_CFG_S.html">NET_TV_PHONE_USAGE_CFG_S</a>; 参数: NET_TV_CB_SetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册获取抽烟识别配置回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_GetSmokingCfg.html">NET_TV_SERVER_RegisterCb_GetSmokingCfg</a></td>
+      <td>命令: NET_TV_GET_SMOKING_CFG; 结构体: <a href="NET_TV_SMOKING_CFG_S.html">NET_TV_SMOKING_CFG_S</a>; 参数: NET_TV_CB_GetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册设置抽烟识别配置回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_SetSmokingCfg.html">NET_TV_SERVER_RegisterCb_SetSmokingCfg</a></td>
+      <td>命令: NET_TV_SET_SMOKING_CFG; 结构体: <a href="NET_TV_SMOKING_CFG_S.html">NET_TV_SMOKING_CFG_S</a>; 参数: NET_TV_CB_SetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册获取明火识别配置回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_GetOpenFlameCfg.html">NET_TV_SERVER_RegisterCb_GetOpenFlameCfg</a></td>
+      <td>命令: NET_TV_GET_OPEN_FLAME_CFG; 结构体: <a href="NET_TV_OPEN_FLAME_CFG_S.html">NET_TV_OPEN_FLAME_CFG_S</a>; 参数: NET_TV_CB_GetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册设置明火识别配置回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_SetOpenFlameCfg.html">NET_TV_SERVER_RegisterCb_SetOpenFlameCfg</a></td>
+      <td>命令: NET_TV_SET_OPEN_FLAME_CFG; 结构体: <a href="NET_TV_OPEN_FLAME_CFG_S.html">NET_TV_OPEN_FLAME_CFG_S</a>; 参数: NET_TV_CB_SetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册获取黄土裸露识别配置回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_GetBareSoilCfg.html">NET_TV_SERVER_RegisterCb_GetBareSoilCfg</a></td>
+      <td>命令: NET_TV_GET_BARE_SOIL_CFG; 结构体: <a href="NET_TV_BARE_SOIL_CFG_S.html">NET_TV_BARE_SOIL_CFG_S</a>; 参数: NET_TV_CB_GetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册设置黄土裸露识别配置回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_SetBareSoilCfg.html">NET_TV_SERVER_RegisterCb_SetBareSoilCfg</a></td>
+      <td>命令: NET_TV_SET_BARE_SOIL_CFG; 结构体: <a href="NET_TV_BARE_SOIL_CFG_S.html">NET_TV_BARE_SOIL_CFG_S</a>; 参数: NET_TV_CB_SetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册获取洞口防护栏识别配置回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_GetHoleProtectionBarCfg.html">NET_TV_SERVER_RegisterCb_GetHoleProtectionBarCfg</a></td>
+      <td>命令: NET_TV_GET_HOLE_PROTECTION_BAR_CFG; 结构体: <a href="NET_TV_HOLE_PROTECTION_BAR_CFG_S.html">NET_TV_HOLE_PROTECTION_BAR_CFG_S</a>; 参数: NET_TV_CB_GetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册设置洞口防护栏识别配置回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_SetHoleProtectionBarCfg.html">NET_TV_SERVER_RegisterCb_SetHoleProtectionBarCfg</a></td>
+      <td>命令: NET_TV_SET_HOLE_PROTECTION_BAR_CFG; 结构体: <a href="NET_TV_HOLE_PROTECTION_BAR_CFG_S.html">NET_TV_HOLE_PROTECTION_BAR_CFG_S</a>; 参数: NET_TV_CB_SetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册获取反光衣识别配置回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_GetReflectiveClothingCfg.html">NET_TV_SERVER_RegisterCb_GetReflectiveClothingCfg</a></td>
+      <td>命令: NET_TV_GET_REFLECTIVE_CLOTHING_CFG; 结构体: <a href="NET_TV_REFLECTIVE_CLOTHING_CFG_S.html">NET_TV_REFLECTIVE_CLOTHING_CFG_S</a>; 参数: NET_TV_CB_GetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册设置反光衣识别配置回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_SetReflectiveClothingCfg.html">NET_TV_SERVER_RegisterCb_SetReflectiveClothingCfg</a></td>
+      <td>命令: NET_TV_SET_REFLECTIVE_CLOTHING_CFG; 结构体: <a href="NET_TV_REFLECTIVE_CLOTHING_CFG_S.html">NET_TV_REFLECTIVE_CLOTHING_CFG_S</a>; 参数: NET_TV_CB_SetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册获取宠物识别配置回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_GetPetRecognitionInfo.html">NET_TV_SERVER_RegisterCb_GetPetRecognitionInfo</a></td>
+      <td>命令: NET_TV_GET_PET_RECOGNITION_INFO; 结构体: <a href="NET_TV_PET_RECOGNITION_INFO_S.html">NET_TV_PET_RECOGNITION_INFO_S</a>; 参数: NET_TV_CB_GetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册设置宠物识别配置回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_SetPetRecognitionInfo.html">NET_TV_SERVER_RegisterCb_SetPetRecognitionInfo</a></td>
+      <td>命令: NET_TV_SET_PET_RECOGNITION_INFO; 结构体: <a href="NET_TV_PET_RECOGNITION_INFO_S.html">NET_TV_PET_RECOGNITION_INFO_S</a>; 参数: NET_TV_CB_SetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册获取翻越围栏配置回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_GetClimbFenceInfo.html">NET_TV_SERVER_RegisterCb_GetClimbFenceInfo</a></td>
+      <td>命令: NET_TV_GET_CLIMB_FENCE_INFO; 结构体: <a href="NET_TV_CLIMB_FENCE_INFO_S.html">NET_TV_CLIMB_FENCE_INFO_S</a>; 参数: NET_TV_CB_GetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册设置翻越围栏配置回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_SetClimbFenceInfo.html">NET_TV_SERVER_RegisterCb_SetClimbFenceInfo</a></td>
+      <td>命令: NET_TV_SET_CLIMB_FENCE_INFO; 结构体: <a href="NET_TV_CLIMB_FENCE_INFO_S.html">NET_TV_CLIMB_FENCE_INFO_S</a>; 参数: NET_TV_CB_SetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册获取离岗配置回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_GetDimissionInfo.html">NET_TV_SERVER_RegisterCb_GetDimissionInfo</a></td>
+      <td>命令: NET_TV_GET_DIMISSION_INFO; 结构体: <a href="NET_TV_DIMISSION_INFO_S.html">NET_TV_DIMISSION_INFO_S</a>; 参数: NET_TV_CB_GetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册设置离岗配置回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_SetDimissionInfo.html">NET_TV_SERVER_RegisterCb_SetDimissionInfo</a></td>
+      <td>命令: NET_TV_SET_DIMISSION_INFO; 结构体: <a href="NET_TV_DIMISSION_INFO_S.html">NET_TV_DIMISSION_INFO_S</a>; 参数: NET_TV_CB_SetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册获取违规变道配置回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_GetIllegalLaneInfo.html">NET_TV_SERVER_RegisterCb_GetIllegalLaneInfo</a></td>
+      <td>命令: NET_TV_GET_ILLEGAL_LANE_INFO; 结构体: <a href="NET_TV_ILLEGAL_LANE_INFO_S.html">NET_TV_ILLEGAL_LANE_INFO_S</a>; 参数: NET_TV_CB_GetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册设置违规变道配置回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_SetIllegalLaneInfo.html">NET_TV_SERVER_RegisterCb_SetIllegalLaneInfo</a></td>
+      <td>命令: NET_TV_SET_ILLEGAL_LANE_INFO; 结构体: <a href="NET_TV_ILLEGAL_LANE_INFO_S.html">NET_TV_ILLEGAL_LANE_INFO_S</a>; 参数: NET_TV_CB_SetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册获取逆行配置回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_GetRetrogradeInfo.html">NET_TV_SERVER_RegisterCb_GetRetrogradeInfo</a></td>
+      <td>命令: NET_TV_GET_RETROGRADE_INFO; 结构体: <a href="NET_TV_RETROGRADE_INFO_S.html">NET_TV_RETROGRADE_INFO_S</a>; 参数: NET_TV_CB_GetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册设置逆行配置回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_SetRetrogradeInfo.html">NET_TV_SERVER_RegisterCb_SetRetrogradeInfo</a></td>
+      <td>命令: NET_TV_SET_RETROGRADE_INFO; 结构体: <a href="NET_TV_RETROGRADE_INFO_S.html">NET_TV_RETROGRADE_INFO_S</a>; 参数: NET_TV_CB_SetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册获取非机动车闯入配置回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_GetNonmotorVehicleIntrusionInfo.html">NET_TV_SERVER_RegisterCb_GetNonmotorVehicleIntrusionInfo</a></td>
+      <td>命令: NET_TV_GET_NONMOTOR_VEHICLE_INTRUSION_INFO; 结构体: <a href="NET_TV_NONMOTOR_VEHICLE_INTRUSION_INFO_S.html">NET_TV_NONMOTOR_VEHICLE_INTRUSION_INFO_S</a>; 参数: NET_TV_CB_GetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册设置非机动车闯入配置回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_SetNonmotorVehicleIntrusionInfo.html">NET_TV_SERVER_RegisterCb_SetNonmotorVehicleIntrusionInfo</a></td>
+      <td>命令: NET_TV_SET_NONMOTOR_VEHICLE_INTRUSION_INFO; 结构体: <a href="NET_TV_NONMOTOR_VEHICLE_INTRUSION_INFO_S.html">NET_TV_NONMOTOR_VEHICLE_INTRUSION_INFO_S</a>; 参数: NET_TV_CB_SetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册获取应急车道占用识别配置回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_GetOccupationEmergencyInfo.html">NET_TV_SERVER_RegisterCb_GetOccupationEmergencyInfo</a></td>
+      <td>命令: NET_TV_GET_OCCUPATION_EMERGENCY_INFO; 结构体: <a href="NET_TV_OCCUPATION_EMERGENCY_INFO_S.html">NET_TV_OCCUPATION_EMERGENCY_INFO_S</a>; 参数: NET_TV_CB_GetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册设置应急车道占用识别配置回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_SetOccupationEmergencyInfo.html">NET_TV_SERVER_RegisterCb_SetOccupationEmergencyInfo</a></td>
+      <td>命令: NET_TV_SET_OCCUPATION_EMERGENCY_INFO; 结构体: <a href="NET_TV_OCCUPATION_EMERGENCY_INFO_S.html">NET_TV_OCCUPATION_EMERGENCY_INFO_S</a>; 参数: NET_TV_CB_SetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册获取行人闯入配置回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_GetPedestrianIntrusionInfo.html">NET_TV_SERVER_RegisterCb_GetPedestrianIntrusionInfo</a></td>
+      <td>命令: NET_TV_GET_PEDESTRIAN_INTRUSION_INFO; 结构体: <a href="NET_TV_PEDESTRIAN_INTRUSION_INFO_S.html">NET_TV_PEDESTRIAN_INTRUSION_INFO_S</a>; 参数: NET_TV_CB_GetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册设置行人闯入配置回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_SetPedestrianIntrusionInfo.html">NET_TV_SERVER_RegisterCb_SetPedestrianIntrusionInfo</a></td>
+      <td>命令: NET_TV_SET_PEDESTRIAN_INTRUSION_INFO; 结构体: <a href="NET_TV_PEDESTRIAN_INTRUSION_INFO_S.html">NET_TV_PEDESTRIAN_INTRUSION_INFO_S</a>; 参数: NET_TV_CB_SetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册获取烟火识别配置回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_GetSmokeFireCfg.html">NET_TV_SERVER_RegisterCb_GetSmokeFireCfg</a></td>
+      <td>命令: NET_TV_GET_SMOKE_FIRE_CFG; 结构体: <a href="NET_TV_SMOKE_FIRE_CFG_S.html">NET_TV_SMOKE_FIRE_CFG_S</a>; 参数: NET_TV_CB_GetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册设置烟火识别配置回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_SetSmokeFireCfg.html">NET_TV_SERVER_RegisterCb_SetSmokeFireCfg</a></td>
+      <td>命令: NET_TV_SET_SMOKE_FIRE_CFG; 结构体: <a href="NET_TV_SMOKE_FIRE_CFG_S.html">NET_TV_SMOKE_FIRE_CFG_S</a>; 参数: NET_TV_CB_SetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册获取道路积水检测配置回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_GetRoadPondingCfg.html">NET_TV_SERVER_RegisterCb_GetRoadPondingCfg</a></td>
+      <td>命令: NET_TV_GET_ROAD_PONDING_CFG; 结构体: <a href="NET_TV_ROAD_PONDING_CFG_S.html">NET_TV_ROAD_PONDING_CFG_S</a>; 参数: NET_TV_CB_GetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>配置回调</td>
+      <td>注册设置道路积水检测配置回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_SetRoadPondingCfg.html">NET_TV_SERVER_RegisterCb_SetRoadPondingCfg</a></td>
+      <td>命令: NET_TV_SET_ROAD_PONDING_CFG; 结构体: <a href="NET_TV_ROAD_PONDING_CFG_S.html">NET_TV_ROAD_PONDING_CFG_S</a>; 参数: NET_TV_CB_SetDevConfigByCommand pCb</td>
+    </tr>
+    <tr>
+      <td>设备发现</td>
+      <td>注册获取设备发现信息回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_GetDiscoveryDeviceInfo.html">NET_TV_SERVER_RegisterCb_GetDiscoveryDeviceInfo</a></td>
+      <td>参数: IN NET_TV_CB_GetDiscoveryDeviceInfo cbFunc</td>
+    </tr>
+    <tr>
+      <td>设备发现</td>
+      <td>启动局域网设备发现响应服务</td>
+      <td><a href="NET_TV_SERVER_Discovery_Start.html">NET_TV_SERVER_Discovery_Start</a></td>
+      <td>参数: IN const CHAR* szInterfaceName</td>
+    </tr>
+    <tr>
+      <td>设备发现</td>
+      <td>停止局域网设备发现响应服务</td>
+      <td><a href="NET_TV_SERVER_Discovery_Stop.html">NET_TV_SERVER_Discovery_Stop</a></td>
+      <td>参数: void</td>
+    </tr>
+    <tr>
+      <td>语音对讲</td>
+      <td>启动语音对讲服务</td>
+      <td><a href="NET_TV_SERVER_StartVoiceComServer.html">NET_TV_SERVER_StartVoiceComServer</a></td>
+      <td>参数: IN UINT32 dwPort</td>
+    </tr>
+    <tr>
+      <td>语音对讲</td>
+      <td>停止语音对讲服务</td>
+      <td><a href="NET_TV_SERVER_StopVoiceComServer.html">NET_TV_SERVER_StopVoiceComServer</a></td>
+      <td>参数: void</td>
+    </tr>
+    <tr>
+      <td>语音对讲</td>
+      <td>注册语音对讲播放回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_VoiceComPlay.html">NET_TV_SERVER_RegisterCb_VoiceComPlay</a></td>
+      <td>参数: IN NET_TV_SERVER_VoiceComPlayCallBack cb</td>
+    </tr>
+    <tr>
+      <td>语音对讲</td>
+      <td>注册语音对讲采集回调</td>
+      <td><a href="NET_TV_SERVER_RegisterCb_VoiceComCapture.html">NET_TV_SERVER_RegisterCb_VoiceComCapture</a></td>
+      <td>参数: IN NET_TV_SERVER_VoiceComCaptureCallBack cb, IN LPVOID lpUserData</td>
+    </tr>
+    <tr>
+      <td>语音对讲</td>
+      <td>发送语音对讲数据</td>
+      <td><a href="NET_TV_SERVER_SendVoiceComData.html">NET_TV_SERVER_SendVoiceComData</a></td>
+      <td>参数: IN const CHAR* pData, IN UINT32 dwSize</td>
+    </tr>
+    <tr>
+      <td>语音对讲</td>
+      <td>SDK服务端接口</td>
+      <td><a href="NET_TV_SERVER_GetVoiceComAudioParam.html">NET_TV_SERVER_GetVoiceComAudioParam</a></td>
+      <td>参数: OUT LP<a href="NET_TV_VOICECOM_AUDIO_PARAM_S.html">NET_TV_VOICECOM_AUDIO_PARAM_S</a> pstAudioParam</td>
+    </tr>
+  </table>
+</body>
+</html>

@@ -1,0 +1,37 @@
+main_app/CMakeFiles/stream.dir/mnt/e/Code/IPC_Camera/Hi3516/share/cam_share/utils/curl/share_ftp.c.o: \
+ /mnt/e/Code/IPC_Camera/Hi3516/share/cam_share/utils/curl/share_ftp.c \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/target/usr/include/stdc-predef.h \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/target/usr/include/stdio.h \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/target/usr/include/features.h \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/target/usr/include/bits/reg.h \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/target/usr/include/bits/alltypes.h \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/target/usr/include/stdlib.h \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/target/usr/include/alloca.h \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/target/usr/include/string.h \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/target/usr/include/strings.h \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/target/usr/include/sys/types.h \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/target/usr/include/endian.h \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/target/usr/include/sys/select.h \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/target/usr/include/sys/stat.h \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/target/usr/include/bits/stat.h \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/target/usr/include/dirent.h \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/target/usr/include/bits/dirent.h \
+ /mnt/e/Code/IPC_Camera/Hi3516/share/cam_share/utils/curl/curl.h \
+ /mnt/e/Code/IPC_Camera/Hi3516/share/cam_share/utils/curl/curlver.h \
+ /mnt/e/Code/IPC_Camera/Hi3516/share/cam_share/utils/curl/system.h \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/target/usr/include/sys/socket.h \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/target/usr/include/bits/socket.h \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/target/usr/include/limits.h \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/target/usr/include/bits/limits.h \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/target/usr/include/time.h \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/target/usr/include/sys/time.h \
+ /mnt/e/Code/IPC_Camera/Hi3516/share/cam_share/utils/curl/easy.h \
+ /mnt/e/Code/IPC_Camera/Hi3516/share/cam_share/utils/curl/multi.h \
+ /mnt/e/Code/IPC_Camera/Hi3516/share/cam_share/utils/curl/urlapi.h \
+ /mnt/e/Code/IPC_Camera/Hi3516/share/cam_share/utils/curl/options.h \
+ /mnt/e/Code/IPC_Camera/Hi3516/share/cam_share/utils/curl/header.h \
+ /mnt/e/Code/IPC_Camera/Hi3516/share/cam_share/utils/curl/websockets.h \
+ /mnt/e/Code/IPC_Camera/Hi3516/share/cam_share/utils/curl/mprintf.h \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/lib/gcc/arm-linux-musleabi/10.3.0/include/stdarg.h \
+ /mnt/e/Code/IPC_Camera/Hi3516/share/cam_share/utils/curl/typecheck-gcc.h \
+ /mnt/e/Code/IPC_Camera/Hi3516/share/cam_share/utils/curl/share_ftp.h

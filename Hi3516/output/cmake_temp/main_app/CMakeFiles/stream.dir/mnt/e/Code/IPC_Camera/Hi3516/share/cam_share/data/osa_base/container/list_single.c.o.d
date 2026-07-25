@@ -1,0 +1,18 @@
+main_app/CMakeFiles/stream.dir/mnt/e/Code/IPC_Camera/Hi3516/share/cam_share/data/osa_base/container/list_single.c.o: \
+ /mnt/e/Code/IPC_Camera/Hi3516/share/cam_share/data/osa_base/container/list_single.c \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/target/usr/include/stdc-predef.h \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/target/usr/include/stdio.h \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/target/usr/include/features.h \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/target/usr/include/bits/reg.h \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/target/usr/include/bits/alltypes.h \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/target/usr/include/stdlib.h \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/target/usr/include/alloca.h \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/target/usr/include/string.h \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/target/usr/include/strings.h \
+ /mnt/e/Code/IPC_Camera/Hi3516/share/cam_share/data/osa_base/container/list_single.h \
+ /mnt/e/Code/IPC_Camera/Hi3516/share/ipc_share/standard/os.h \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/target/usr/include/signal.h \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/target/usr/include/bits/signal.h \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/target/usr/include/pthread.h \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/target/usr/include/sched.h \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/target/usr/include/time.h

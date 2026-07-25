@@ -1,0 +1,35 @@
+main_app/CMakeFiles/stream.dir/mnt/e/Code/IPC_Camera/Hi3516/share/ipc_share/control/business/network/bonjour/mdns/mdns.c.o: \
+ /mnt/e/Code/IPC_Camera/Hi3516/share/ipc_share/control/business/network/bonjour/mdns/mdns.c \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/target/usr/include/stdc-predef.h \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/target/usr/include/stdio.h \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/target/usr/include/features.h \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/target/usr/include/bits/reg.h \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/target/usr/include/bits/alltypes.h \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/target/usr/include/errno.h \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/target/usr/include/bits/errno.h \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/target/usr/include/signal.h \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/target/usr/include/bits/signal.h \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/target/usr/include/netdb.h \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/target/usr/include/netinet/in.h \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/target/usr/include/inttypes.h \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/lib/gcc/arm-linux-musleabi/10.3.0/include/stdint.h \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/target/usr/include/stdint.h \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/target/usr/include/bits/stdint.h \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/target/usr/include/sys/socket.h \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/target/usr/include/bits/socket.h \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/target/usr/include/ifaddrs.h \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/target/usr/include/net/if.h \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/target/usr/include/sys/time.h \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/target/usr/include/sys/select.h \
+ /mnt/e/Code/IPC_Camera/Hi3516/share/ipc_share/control/business/network/bonjour/mdns/mdns.h \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/lib/gcc/arm-linux-musleabi/10.3.0/include/stddef.h \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/target/usr/include/stdlib.h \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/target/usr/include/alloca.h \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/target/usr/include/string.h \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/target/usr/include/strings.h \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/target/usr/include/fcntl.h \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/target/usr/include/bits/fcntl.h \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/target/usr/include/unistd.h \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/target/usr/include/bits/posix.h \
+ /mnt/e/Code/IPC_Camera/Hi3516/share/cam_share/common/log/dlog.h \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/lib/gcc/arm-linux-musleabi/10.3.0/include/stdbool.h

@@ -1,0 +1,40 @@
+file(REMOVE_RECURSE
+  "/home/qinjt/workdir/sdk/af_sdk/build/server/lib_hisi32/libNetTVSDKServer.a"
+  "/home/qinjt/workdir/sdk/af_sdk/build/server/lib_hisi32/libNetTVSDKServer.pdb"
+  "CMakeFiles/NetTVSDKServer-static.dir/home/qinjt/workdir/sdk/af_sdk/sdk_server/src/business/DeviceBusiness.cpp.o"
+  "CMakeFiles/NetTVSDKServer-static.dir/home/qinjt/workdir/sdk/af_sdk/sdk_server/src/business/DeviceCapabilityBusiness.cpp.o"
+  "CMakeFiles/NetTVSDKServer-static.dir/home/qinjt/workdir/sdk/af_sdk/sdk_server/src/business/DeviceConfigBusiness.cpp.o"
+  "CMakeFiles/NetTVSDKServer-static.dir/home/qinjt/workdir/sdk/af_sdk/sdk_server/src/business/DeviceControlBusiness.cpp.o"
+  "CMakeFiles/NetTVSDKServer-static.dir/home/qinjt/workdir/sdk/af_sdk/sdk_server/src/business/PlaybackBusiness.cpp.o"
+  "CMakeFiles/NetTVSDKServer-static.dir/home/qinjt/workdir/sdk/af_sdk/sdk_server/src/business/RecordFrameBusiness.cpp.o"
+  "CMakeFiles/NetTVSDKServer-static.dir/home/qinjt/workdir/sdk/af_sdk/sdk_server/src/cb/capability/NetTVCapabilityCb.c.o"
+  "CMakeFiles/NetTVSDKServer-static.dir/home/qinjt/workdir/sdk/af_sdk/sdk_server/src/cb/config/NetTVConfigCb.c.o"
+  "CMakeFiles/NetTVSDKServer-static.dir/home/qinjt/workdir/sdk/af_sdk/sdk_server/src/cb/device/NetTVDeviceCb.c.o"
+  "CMakeFiles/NetTVSDKServer-static.dir/home/qinjt/workdir/sdk/af_sdk/sdk_server/src/interface/NetTVSDKServerImpl.cpp.o"
+  "CMakeFiles/NetTVSDKServer-static.dir/home/qinjt/workdir/sdk/af_sdk/sdk_server/src/interface/NetTVSDKServerInterface.cpp.o"
+  "CMakeFiles/NetTVSDKServer-static.dir/home/qinjt/workdir/sdk/af_sdk/sdk_server/src/interface/modules/AlarmModule.cpp.o"
+  "CMakeFiles/NetTVSDKServer-static.dir/home/qinjt/workdir/sdk/af_sdk/sdk_server/src/interface/modules/RouteModule.cpp.o"
+  "CMakeFiles/NetTVSDKServer-static.dir/home/qinjt/workdir/sdk/af_sdk/sdk_server/src/interface/modules/ServerModule.cpp.o"
+  "CMakeFiles/NetTVSDKServer-static.dir/home/qinjt/workdir/sdk/af_sdk/sdk_server/src/interface/modules/SessionModule.cpp.o"
+  "CMakeFiles/NetTVSDKServer-static.dir/home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/DiscoveryResponder.cpp.o"
+  "CMakeFiles/NetTVSDKServer-static.dir/home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/HttpAuthHandler.cpp.o"
+  "CMakeFiles/NetTVSDKServer-static.dir/home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/RecordFrameServer.cpp.o"
+  "CMakeFiles/NetTVSDKServer-static.dir/home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/RouteRegistry.cpp.o"
+  "CMakeFiles/NetTVSDKServer-static.dir/home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/SdkHttpServer.cpp.o"
+  "CMakeFiles/NetTVSDKServer-static.dir/home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/ServerSession.cpp.o"
+  "CMakeFiles/NetTVSDKServer-static.dir/home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/SessionManager.cpp.o"
+  "CMakeFiles/NetTVSDKServer-static.dir/home/qinjt/workdir/sdk/af_sdk/sdk_server/src/service/VoiceComServer.cpp.o"
+  "CMakeFiles/NetTVSDKServer-static.dir/home/qinjt/workdir/sdk/af_sdk/sdk_share/tools/convert/AlarmInfoConvert.cpp.o"
+  "CMakeFiles/NetTVSDKServer-static.dir/home/qinjt/workdir/sdk/af_sdk/sdk_share/tools/convert/Base64Util.cpp.o"
+  "CMakeFiles/NetTVSDKServer-static.dir/home/qinjt/workdir/sdk/af_sdk/sdk_share/tools/convert/CapabilityInfoConvert.cpp.o"
+  "CMakeFiles/NetTVSDKServer-static.dir/home/qinjt/workdir/sdk/af_sdk/sdk_share/tools/convert/DeviceInfoConvert.cpp.o"
+  "CMakeFiles/NetTVSDKServer-static.dir/home/qinjt/workdir/sdk/af_sdk/sdk_share/tools/discovery/DiscoveryProtocol.cpp.o"
+  "CMakeFiles/NetTVSDKServer-static.dir/home/qinjt/workdir/sdk/af_sdk/sdk_share/tools/json/Json.cpp.o"
+  "CMakeFiles/NetTVSDKServer-static.dir/home/qinjt/workdir/sdk/af_sdk/sdk_share/tools/json/cJSON/cJSON.c.o"
+  "CMakeFiles/NetTVSDKServer-static.dir/home/qinjt/workdir/sdk/af_sdk/sdk_share/tools/log/sdk/NetSdkLog.cpp.o"
+)
+
+# Per-language clean rules from dependency scanning.
+foreach(lang C CXX)
+  include(CMakeFiles/NetTVSDKServer-static.dir/cmake_clean_${lang}.cmake OPTIONAL)
+endforeach()

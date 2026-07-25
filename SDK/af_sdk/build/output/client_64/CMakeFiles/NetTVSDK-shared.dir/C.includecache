@@ -1,0 +1,32 @@
+#IncludeRegexLine: ^[ 	]*[#%][ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/home/qinjt/workdir/sdk/af_sdk/sdk_share/tools/json/cJSON/cJSON.c
+string.h
+-
+stdio.h
+-
+math.h
+-
+stdlib.h
+-
+limits.h
+-
+ctype.h
+-
+float.h
+-
+locale.h
+-
+cJSON.h
+/home/qinjt/workdir/sdk/af_sdk/sdk_share/tools/json/cJSON/cJSON.h
+
+/home/qinjt/workdir/sdk/af_sdk/sdk_share/tools/json/cJSON/cJSON.h
+stddef.h
+-
+
