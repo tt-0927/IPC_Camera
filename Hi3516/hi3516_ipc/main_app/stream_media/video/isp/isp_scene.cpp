@@ -117,6 +117,39 @@ int CSceneParamManager::scene_set_mode(ISP::SceneType_E enSceneType)
         }
     }
     #else 
+#if  DEVICE_TV_3852TL4G || DEVICE_TV_3852TLW
+    if(nIndex == 0)
+    {
+        ot_isp_drc_attr drc_attr;
+        if(ss_mpi_isp_get_drc_attr(0,&drc_attr) != OK)
+        {
+            dlog_error("ss_mpi_isp_get_drc_attr error");
+            return ERR;
+        }
+        drc_attr.enable = TD_FALSE;
+
+        if(ss_mpi_isp_set_drc_attr(0,&drc_attr) != OK)
+        {
+            dlog_error("ss_mpi_isp_set_drc_attr error");
+            return ERR;
+        }
+    }
+    else if (nIndex == 1 ) {
+        ot_isp_drc_attr drc_attr;
+        if(ss_mpi_isp_get_drc_attr(0,&drc_attr) != OK)
+        {
+            dlog_error("ss_mpi_isp_get_drc_attr error");
+            return ERR;
+        }
+        drc_attr.enable = TD_TRUE;
+
+        if(ss_mpi_isp_set_drc_attr(0,&drc_attr) != OK)
+        {
+            dlog_error("ss_mpi_isp_set_drc_attr error");
+            return ERR;
+        }
+    }
+#else    
     if(nIndex == 0)
     {
         ot_isp_drc_attr drc_attr;
@@ -133,7 +166,8 @@ int CSceneParamManager::scene_set_mode(ISP::SceneType_E enSceneType)
             return ERR;
         }
     }
-    #endif
+#endif
+#endif
 
     // scene_pause(false);
 

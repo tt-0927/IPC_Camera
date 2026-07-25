@@ -183,16 +183,21 @@ int CIpFilterManage::update_ip_filter_config(System::IpFilterConfigInfo_S stInfo
         }
         outfile << "allow all;\n";
     }
-    else if (System::IPFILTER_ALLOW == stInfo.eMode)
+    else if (System::IPFILTER_ALLOW == stInfo.eMode && !stInfo.vecIps.empty())
     {
+        int flag = 0;
         for (auto &ipInfo : stInfo.vecIps)
         {
             if (ipInfo.bEnable)
             {
                 outfile << "allow " << ipInfo.strIp << ";\n";
+                flag = 1;
             }
         }
+        if(flag == 1)
+        {
         outfile << "deny all;\n";
+        }
     }
     outfile.close();
     reload_nginx();

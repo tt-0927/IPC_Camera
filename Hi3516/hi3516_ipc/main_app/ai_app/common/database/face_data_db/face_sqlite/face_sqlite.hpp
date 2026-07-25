@@ -119,5 +119,7 @@ namespace FaceDataDB_NS
         
         /* 互斥锁 */
         std::mutex m_mutex;
+
+        std::string m_strFaceTableName ;
     };
 }

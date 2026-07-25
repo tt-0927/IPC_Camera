@@ -126,6 +126,14 @@ bool ClipImage_NS::CClipImageV1_0::process(
     printf("\n");
 
     vResult = vClsDatas[0].vFeature;
+
+    if (access("/ClibImage", F_OK) == 0)
+    {
+        if (!Modules_NS::saveImage(stInData.inMat, "/opt/bl/bin/ClibImage/"))
+        {
+            printf("Debug-保存图片失败[ClipImageV1_0.cpp]\n");
+        }
+    }
     return true;
 }
 

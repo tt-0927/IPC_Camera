@@ -66,11 +66,19 @@ namespace Inference_NS
          * @param [size_t&] bufSize: 设备端图像 buffer 的大小
          * @param [size_t&] stride: 图像的 stride
          * @param [svp_acl_mdl_io_dims&] inputDims: 模型输入张量的维度信息
+         * @return [*]
+         * @note
+         */
+        bool getInputAttrs(int nIndex, size_t& bufSize, size_t& stride, svp_acl_mdl_io_dims& inputDims);
+
+        /**
+         * @brief 获取模型输入参数
+         * @param [int] nIndex: 第几个输入头
          * @param [size_t&] dataSize: 总数据大小
          * @return [*]
          * @note
          */
-        bool getInputAttrs(int nIndex, size_t& bufSize, size_t& stride, svp_acl_mdl_io_dims& inputDims, size_t& dataSize);
+        bool getInputDataSize(int nIndex, size_t& dataSize);
 
         /**
          * @brief 获取模型输出参数

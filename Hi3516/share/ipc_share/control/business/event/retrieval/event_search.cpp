@@ -7,7 +7,8 @@
  */
 
 #include "event_search.h"
-
+#include "event_configure.h"
+#include "event_resource.h"
 using namespace Event;
 using namespace Db;
 

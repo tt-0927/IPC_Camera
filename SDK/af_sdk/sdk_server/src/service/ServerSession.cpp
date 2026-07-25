@@ -18,6 +18,40 @@ void CServerSession::SetConnected(bool val)
     if (val) UpdateLastActive();
 }
 
+uint64_t CServerSession::BeginAlarmListen()
+{
+    uint64_t listenSeq = 0;
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        listenSeq = m_alarmListenSeq.load() + 1;
+        m_alarmListenSeq = listenSeq;
+    }
+    m_cv.notify_all();
+    return listenSeq;
+}
+
+bool CServerSession::IsCurrentAlarmListen(uint64_t listenSeq) const
+{
+    return listenSeq != 0 && m_alarmListenSeq.load() == listenSeq;
+}
+
+bool CServerSession::MarkDisconnectedIfCurrentAlarmListen(uint64_t listenSeq)
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    if (listenSeq == 0 || m_alarmListenSeq.load() != listenSeq)
+    {
+        return false;
+    }
+
+    m_isConnected = false;
+    m_pushEnabled = false;
+    m_alarmListenSeq = listenSeq + 1;
+    std::queue<AlarmData> empty;
+    std::swap(m_msgQueue, empty);
+    m_cv.notify_all();
+    return true;
+}
+
 void CServerSession::UpdateLastActive()
 {
     std::lock_guard<std::mutex> lock(m_mutex);
@@ -83,10 +117,10 @@ void CServerSession::ClearMessageQueue()
     std::swap(m_msgQueue, empty);
 }
 
-void CServerSession::WaitForData(int timeoutMs)
+void CServerSession::WaitForData(int timeoutMs, uint64_t listenSeq)
 {
     std::unique_lock<std::mutex> lock(m_mutex);
-    m_cv.wait_for(lock, std::chrono::milliseconds(timeoutMs), [this] {
-        return !m_msgQueue.empty();
+    m_cv.wait_for(lock, std::chrono::milliseconds(timeoutMs), [this, listenSeq] {
+        return !m_msgQueue.empty() || (listenSeq != 0 && !IsCurrentAlarmListen(listenSeq));
     });
 }

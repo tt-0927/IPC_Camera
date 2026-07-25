@@ -97,7 +97,7 @@ bool HeadDetect_NS::CHeadDetectV1_0::process(
     /* 推理+后处理 */
     Inference_NS::InputData_S stInputData;
     stInputData.pData = (float*)stInData.inMat.data;
-    stInputData.nDataSize = static_cast<size_t>(stInData.inMat.total() * stInData.inMat.elemSize());
+    stInputData.nDataSize = static_cast<size_t>(stInData.inMat.total() * stInData.inMat.elemSize() * sizeof(float));
     stInputData.stBoxs.fConfidence = stInData.stParam.fBoxThreshold;
     stInputData.stBoxs.fNms = stInData.stParam.fNmsThreshold;
     

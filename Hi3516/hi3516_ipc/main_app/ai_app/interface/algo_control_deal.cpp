@@ -12,7 +12,8 @@
 #include "face_manage.h"
 #include "action_code.h"
 
-
+#include <filesystem>
+namespace fs = std::filesystem;
 void AlgoControlDeal::deal_message(int nCode, std::string strData, void *pData)
 {
     dlog_debug("AI_APP: 接收到[%d]消息：%s", nCode, strData.c_str());
@@ -60,6 +61,7 @@ void AlgoControlDeal::deal_message(int nCode, std::string strData, void *pData)
         break;
     }
 #endif
+#if CAP_AI_FACE_COMPARE
     case AC_ADD_FACE_INFO:                    /* 添加名单组成员 */
     {
         FaceLibsInfo_S stFaceList; stFaceList.clear();
@@ -77,25 +79,18 @@ void AlgoControlDeal::deal_message(int nCode, std::string strData, void *pData)
         /* 发送到 AlgoStreamDeal 通知 Algorithm */
         nRet = CAlgoStreamDeal::instance()->add_Facelib_Groups(stFaceList);
 
-        
-
         if (pData != nullptr)
         {
-            std::string* pOutString = (std::string*)pData;
+            int* nRetData = (int*)pData;
             if(nRet!=true)
             {
-                *pOutString = "{\"Return\":-1}";
+                *nRetData = -1;
             }else {
-                Json::Object *pResult = Json::init();
-                Json::add(pResult, "Id", stFaceList.nId);
-                Json::add(pResult, "LibId", stFaceList.strFaceLibName);
-                Json::add(pResult, "Name", stFaceList.strName);
-                Json::add(pResult, "PhoneNum", stFaceList.strPhoneNum);
-                *pOutString = Json::to_string(pResult);
-                Json::deinit(pResult);
+                *nRetData = 0;
             }
             dlog_debug("添加名单组成员 %d",nRet);
         }
+        
         
         break;
     }
@@ -108,7 +103,32 @@ void AlgoControlDeal::deal_message(int nCode, std::string strData, void *pData)
         {
             for (const int& id : ids)
             {
+                FaceLibsInfo_S stFaceList;
+                
+                FaceManage::AIFaceManage::instance()->searchFaceInfoById(id,stFaceList);
                 FaceManage::AIFaceManage::instance()->delFaceLibInfo(id);
+                dlog_info("读取到的 strPicPath: [%s]", stFaceList.strPicPath.empty() ? "(空)" : stFaceList.strPicPath.c_str());
+                dlog_info("读取到的 BinPath:    [%s]", stFaceList.BinPath.empty() ? "(空)" : stFaceList.BinPath.c_str());
+                if (!stFaceList.strPicPath.empty()) {
+                    try {
+                        if (fs::exists(stFaceList.strPicPath) && fs::is_regular_file(stFaceList.strPicPath)) {
+                            fs::remove(stFaceList.strPicPath);
+                            dlog_info("成功删除图片文件: %s", stFaceList.strPicPath.c_str());
+                        }
+                    } catch (const fs::filesystem_error& e) {
+                        dlog_error("删除图片文件失败: %s, 错误: %s", stFaceList.strPicPath.c_str(), e.what());
+                    }
+                }
+                if (!stFaceList.BinPath.empty()) {
+                    try {
+                        if (fs::exists(stFaceList.BinPath) && fs::is_regular_file(stFaceList.BinPath)) {
+                            fs::remove(stFaceList.BinPath);
+                            dlog_info("成功删除二进制文件: %s", stFaceList.BinPath.c_str());
+                        }
+                    } catch (const fs::filesystem_error& e) {
+                        dlog_error("删除二进制文件失败: %s, 错误: %s", stFaceList.BinPath.c_str(), e.what());
+                    }
+                }
             }
         }
         break;
@@ -132,13 +152,10 @@ void AlgoControlDeal::deal_message(int nCode, std::string strData, void *pData)
     case AC_GET_FACE_INFO: /* 查询名单组成员 */
     {      
         Event::FaceFind_S stFaceFind;
-        dlog_debug("1111")
         std::string   strData   = Json::to_string(pJsonData);
         Convert::to_struct(strData, stFaceFind);
-        dlog_debug("2222")
         std::list<FaceLibsInfo_S> listOutInfo;
         int nRet = FaceManage::AIFaceManage::instance()->searchFaceInfoByCond(stFaceFind, listOutInfo);
-        dlog_debug("3333")
         std::vector<Event::FaceInfo_S> listFaceInfo;
         for (const auto& OutInfo : listOutInfo)
         {
@@ -202,6 +219,11 @@ void AlgoControlDeal::deal_message(int nCode, std::string strData, void *pData)
             int* nRetData = (int*)pData;
             *nRetData = nRet;
             dlog_debug("添加目标库结果 %d",nRet);
+
+            Alarm::FaceCompare_S stInfo;
+            CEventConfigure::instance()->get_configure(stInfo);
+            stInfo.TargetLibInfos.LibId=strTabName;
+            CEventConfigure::instance()->set_configure(stInfo);
         }
         break;
     }
@@ -246,6 +268,11 @@ void AlgoControlDeal::deal_message(int nCode, std::string strData, void *pData)
         if (strTabNameOld != strTabNameNew)
         {
             FaceManage::AIFaceManage::instance()->renameFaceTable(strTabNameOld, strTabNameNew);
+            
+            Alarm::FaceCompare_S stInfo;
+            CEventConfigure::instance()->get_configure(stInfo);
+            stInfo.TargetLibInfos.LibId=strTabNameNew;
+            CEventConfigure::instance()->set_configure(stInfo);
         }
         break;
     }
@@ -290,6 +317,97 @@ void AlgoControlDeal::deal_message(int nCode, std::string strData, void *pData)
         }
         break;
     }
+    case AC_DEL_FACE_FILE:
+    {
+        int nRet = 0;
+
+        do
+        {
+            if (pJsonData == nullptr)
+            {
+                dlog_error("pJsonData is nullptr");
+                nRet = -1;
+                break;
+            }
+
+            cJSON *dealList = cJSON_GetObjectItem(pJsonData, "dealList");
+
+            if (dealList == nullptr || !cJSON_IsArray(dealList))
+            {
+                dlog_error("dealList invalid");
+                nRet = -1;
+                break;
+            }
+
+            int nSize = cJSON_GetArraySize(dealList);
+
+            dlog_info("dealList size=%d", nSize);
+
+            for (int i = 0; i < nSize; i++)
+            {
+                cJSON *item = cJSON_GetArrayItem(dealList, i);
+
+                if (item == nullptr || !cJSON_IsObject(item))
+                {
+                    dlog_error("dealList[%d] invalid", i);
+                    continue;
+                }
+
+                cJSON *picNode = cJSON_GetObjectItem(item, "PicPath");
+                cJSON *binNode = cJSON_GetObjectItem(item, "BinPath");
+
+                const char *picPath = (picNode && cJSON_IsString(picNode)) ? picNode->valuestring : nullptr;
+
+                const char *binPath = (binNode && cJSON_IsString(binNode)) ? binNode->valuestring : nullptr;
+
+                if (picPath)
+                {
+
+                    if (access(picPath, F_OK) == 0)
+                    {
+                        if (unlink(picPath) == 0)
+                        {
+                            dlog_info("delete pic [%s] success", picPath);
+                        }
+                        else
+                        {
+                            dlog_error("delete pic failed errno=%d", errno);
+                            nRet = -1;
+                        }
+                    }
+                }
+
+                if (binPath)
+                {
+
+                    if (access(binPath, F_OK) == 0)
+                    {
+                        if (unlink(binPath) == 0)
+                        {
+                            dlog_info("delete bin [%s] success", binPath);
+                        }
+                        else
+                        {
+                            dlog_error("delete bin failed errno=%d", errno);
+                            nRet = -1;
+                        }
+                    }
+                }
+            }
+
+            dlog_info("AC_DEL_FACE_FILE loop finish");
+        }
+        while (0);
+
+        if (pData)
+        {
+            *(int *) pData = nRet;
+        }
+
+
+        break;
+    }
+    #endif
 
     default:
         dlog_debug("AI_APP: 未知的消息代码: %d", nCode);

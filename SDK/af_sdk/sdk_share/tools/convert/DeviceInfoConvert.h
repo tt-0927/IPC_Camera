@@ -25,6 +25,7 @@ namespace SDKConvert
 
     void deal(Json::Object* pRootJson, NET_TV_DEVICE_INFO_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_TV_DEVICE_BASICINFO_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_TV_SYSTEM_NTP_INFO_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_TV_NETWORKCFG_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_TV_WIFI_STA_CFG_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_TV_WIFI_WEP_KEY_S& stInfo, bool bOutStruct);
@@ -58,6 +59,10 @@ namespace SDKConvert
     void deal(Json::Object* pRootJson, NET_TV_RECORD_DOWNLOAD_LIST_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_TV_VIDEO_OSD_CFG_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_TV_RTSP_URL_INFO_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_TV_DEVICE_CONTROL_INFO_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_TV_RECORD_FRAME_STREAM_COND_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_TV_RECORD_FRAME_STREAM_INFO_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_TV_RECORD_FRAME_STOP_INFO_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_TV_REPLAY_URL_INFO_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_TV_REPLAY_CTRL_INFO_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_TV_REPLAY_RECORD_TIME_S& stInfo, bool bOutStruct);
@@ -68,6 +73,7 @@ namespace SDKConvert
 
     void deal(Json::Object* pRootJson, NET_TV_PREVIEW_RTSP_URL_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_TV_PREVIEW_IMAGE_PARAM_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_TV_IMAGE_SETTING_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_TV_PREVIEW_INFO_S& stInfo, bool bOutStruct);
 
     void deal(Json::Object* pRootJson, NET_TV_TALKBACK_STATE_INFO_S& stInfo, bool bOutStruct);

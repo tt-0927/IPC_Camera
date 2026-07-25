@@ -3,14 +3,17 @@
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2025-07-08 17:01:53
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2025-07-22 09:57:55
+ * @LastEditTime : 2026-06-05 15:34:24
  * @Description  : ffmpeg录制类
  */
 
 #include <stdlib.h>
 #include <sys/time.h>
+#include <algorithm>
 #include "dlog.h"
 #include "ffmpeg_record.h"
+
+#include "time_utils.h"
 #include "time_tools.h"
 
 int get_spsPpsLen(unsigned char *pData, int nSize)
@@ -86,6 +89,8 @@ void FfmpegRecord::reset()
 
     /*开始录制时的实际时间戳，毫秒*/
     m_nStartTimeStampMs = 0;
+    /*开始录制时的单调时间戳，毫秒*/
+    m_nStartMonotonicTimestampMs = 0;
     /* 音频帧数 */
     m_nAudioCount = 0;
     /* 视频帧数 */
@@ -94,6 +99,10 @@ void FfmpegRecord::reset()
     m_nVptsMs = 0;
     /*记录音频时间戳*/
     m_nAptsMs = 0;
+    
+    /*重置PTS基准*/
+    m_lastVideoPts = -1;
+    m_lastAudioPts = -1;
 }
 
 int FfmpegRecord::reset_lastPts()
@@ -231,11 +240,9 @@ int FfmpegRecord::av_sync(int nType, RecordFrame_S &stFrameData, AVRational &stS
         /*判断有音频，并且音频时间戳大于视频时间戳 500ms ,同步视频时间戳*/
         if (m_nAptsMs - m_nVptsMs > 500 && m_stSliceInfo.nAudioFlag)
         {
-            /*计数实际开始录制时到现在经过的毫秒数*/
-            struct timeval stTval;
-            gettimeofday(&stTval, NULL);
-            uint64_t nCurrentTimeMs = stTval.tv_sec * 1000 + stTval.tv_usec / 1000;
-            int64_t nTimeMs = nCurrentTimeMs - m_nStartTimeStampMs + m_nRecStartTimeMs;
+            /* 使用单调时间计算录制经过时长，避免系统校时或时区切换导致PTS回退 */
+            int64_t nCurrentMonotonicMs = TimeUtils_NS::get_monotonicTimestampMs();
+            int64_t nTimeMs = nCurrentMonotonicMs - m_nStartMonotonicTimestampMs + m_nRecStartTimeMs;
             m_nVptsMs = nTimeMs;
 
             /*将毫秒单位转换到相应单位*/
@@ -243,7 +250,11 @@ int FfmpegRecord::av_sync(int nType, RecordFrame_S &stFrameData, AVRational &stS
             stFrameData.nDts = stFrameData.nPts;
 
             m_nVideoCount = stFrameData.nPts / 1000;
-            dlog_debug("同步视频时间戳,nVideoCount=%ld,nPts=%d", m_nVideoCount, stFrameData.nPts);
+            dlog_debug("同步视频时间戳,nVideoCount=%ld,nPts=%d,monoNow=%lld,monoStart=%lld",
+                       m_nVideoCount,
+                       stFrameData.nPts,
+                       nCurrentMonotonicMs,
+                       m_nStartMonotonicTimestampMs);
         }
     }
     else if (AVMEDIA_TYPE_AUDIO == nType && m_stSliceInfo.nAudioFlag && m_stAudioStream.pAvStream)
@@ -277,11 +288,9 @@ int FfmpegRecord::av_sync(int nType, RecordFrame_S &stFrameData, AVRational &stS
         /*判断有视频，并且视频时间戳大于音频时间戳 500ms ,同步音频时间戳*/
         if (m_nVptsMs - m_nAptsMs > 500 && m_stSliceInfo.nVideoFlag)
         {
-            /*计数实际开始录制时到现在经过的毫秒数*/
-            struct timeval stTval;
-            gettimeofday(&stTval, NULL);
-            uint64_t nCurrentTimeMs = stTval.tv_sec * 1000 + stTval.tv_usec / 1000;
-            int64_t nTimeMs = nCurrentTimeMs - m_nStartTimeStampMs + m_nRecStartTimeMs;
+            /* 使用单调时间计算录制经过时长，避免系统校时或时区切换导致PTS回退 */
+            int64_t nCurrentMonotonicMs = TimeUtils_NS::get_monotonicTimestampMs();
+            int64_t nTimeMs = nCurrentMonotonicMs - m_nStartMonotonicTimestampMs + m_nRecStartTimeMs;
             m_nAptsMs = nTimeMs;
 
             /*将毫秒单位转换到相应单位*/
@@ -298,7 +307,11 @@ int FfmpegRecord::av_sync(int nType, RecordFrame_S &stFrameData, AVRational &stS
             {
                 m_nAudioCount = stFrameData.nPts / 1152;
             }
-            dlog_debug("同步音频时间戳,nAudioCount=%ld,nPts=%d", m_nAudioCount, stFrameData.nPts);
+            dlog_debug("同步音频时间戳,nAudioCount=%ld,nPts=%d,monoNow=%lld,monoStart=%lld",
+                       m_nAudioCount,
+                       stFrameData.nPts,
+                       nCurrentMonotonicMs,
+                       m_nStartMonotonicTimestampMs);
         }
     }
     else
@@ -401,35 +414,42 @@ int FfmpegRecord::write(RecordData_S &stRecordDate)
 int FfmpegRecord::init_startTime(uint64_t nCurrentTimeMs)
 {
     m_nStartTimeStampMs = nCurrentTimeMs;
+    m_nStartMonotonicTimestampMs = TimeUtils_NS::get_monotonicTimestampMs();
 
-    /*获取当天00:00:00时的时间戳*/
-    struct tm stTm;
-    time_t nTimeStamp = time(NULL);
-    localtime_r(&nTimeStamp, &stTm);
-    stTm.tm_hour = 0;
-    stTm.tm_min = 0;
-    stTm.tm_sec = 0;
-    uint64_t nTimeMs = mktime(&stTm) * 1000; // 转换回毫秒
+    /* 连续分片时沿用上一片段PTS，保证PTS单调递增 */
+    if (m_nVptsMs > 0 || m_nAptsMs > 0)
+    {
+        m_nRecStartTimeMs = std::max(m_nVptsMs, m_nAptsMs);
+        dlog_debug("连续分片沿用上次PTS, recStartMs:%lld, videoPtsMs:%lld, audioPtsMs:%lld",
+                   m_nRecStartTimeMs, m_nVptsMs, m_nAptsMs);
+    }
+    else
+    {
+        /* 首次录制以本地当天00:00:00为PTS基准 */
+        struct tm stTm;
+        time_t nTimeStamp = time(NULL);
+        localtime_r(&nTimeStamp, &stTm);
+        stTm.tm_hour = 0;
+        stTm.tm_min = 0;
+        stTm.tm_sec = 0;
+        uint64_t nTimeMs = mktime(&stTm) * 1000;
 
-    /*计数00:00:00起经过的毫秒数*/
-    m_nRecStartTimeMs = nCurrentTimeMs - nTimeMs;
+        /* 从当天00:00:00起经过的毫秒数 */
+        m_nRecStartTimeMs = nCurrentTimeMs - nTimeMs;
+        m_nVptsMs = m_nRecStartTimeMs;
+        m_nAptsMs = m_nRecStartTimeMs;
+        dlog_debug("首次录制初始化PTS, recStartMs:%lld", m_nRecStartTimeMs);
+    }
 
-    dlog_debug("00:00:00起经过的毫秒数为: %lld", m_nRecStartTimeMs);
-
-    m_nVptsMs = m_nRecStartTimeMs;
-    m_nAptsMs = m_nRecStartTimeMs;
-
-    /*将毫秒单位转换到相应单位*/
+    /* 视频：毫秒转帧时间基 */
     AVRational stVideoSrcTimebase = (AVRational){1, m_stSliceInfo.nRealFrameRate * 1000};
-    int64_t nVPts = av_rescale_q(m_nVptsMs, (AVRational){1, 1000}, stVideoSrcTimebase);
-    /*重算计数值*/
+    int64_t nVPts = av_rescale_q(m_nRecStartTimeMs, (AVRational){1, 1000}, stVideoSrcTimebase);
     m_nVideoCount = nVPts / 1000;
 
-    /*将毫秒单位转换到相应单位*/
+    /* 音频：毫秒转采样时间基 */
     AVRational stAudioSrcTimebase = (AVRational){1, m_stSliceInfo.nSampleRate};
-    int64_t nAPts = av_rescale_q(m_nAptsMs, (AVRational){1, 1000}, stAudioSrcTimebase);
+    int64_t nAPts = av_rescale_q(m_nRecStartTimeMs, (AVRational){1, 1000}, stAudioSrcTimebase);
 
-    /*重算计数值 - 根据不同音频格式*/
     if (m_stSliceInfo.nAudioCodeID == (AVCodecID)AV_CODEC_ID_AAC)
     {
         m_nAudioCount = nAPts / 1024;
@@ -439,6 +459,9 @@ int FfmpegRecord::init_startTime(uint64_t nCurrentTimeMs)
     {
         m_nAudioCount = nAPts / 1152;
     }
+
+    dlog_debug("初始化PTS基准完成, recStartMs:%lld, videoCount:%lld, audioCount:%lld",
+               m_nRecStartTimeMs, m_nVideoCount, m_nAudioCount);
 
     return 0;
 }
@@ -520,13 +543,19 @@ int FfmpegRecord::write_head(unsigned char *pData, int nSize)
     }
     else
     {
-        /*计算00:00:00起到现在经过的毫秒数*/
-        int64_t nTimeMs = nCurrentTimeMs - m_nStartTimeStampMs + m_nRecStartTimeMs;
-        /*判断时间大于1秒，视频丢帧或者系统时间往后改了，同步时间*/
+        /* 使用单调时间计算00:00:00起到现在经过的毫秒数 */
+        int64_t nCurrentMonotonicMs = TimeUtils_NS::get_monotonicTimestampMs();
+        int64_t nTimeMs = nCurrentMonotonicMs - m_nStartMonotonicTimestampMs + m_nRecStartTimeMs;
+        /* 判断时间大于1秒，视频丢帧或录制线程阻塞，同步时间 */
         if (abs(nTimeMs - m_nVptsMs) > 1000)
         {
-            dlog_debug("视频丢帧或者系统时间改了,fps=%d,nRealFrameRate=%d",
-                       m_stSliceInfo.nFps, m_stSliceInfo.nRealFrameRate);
+            dlog_warn("视频丢帧或录制线程阻塞,fps=%d,nRealFrameRate=%d,monoNow=%lld,monoStart=%lld,nTimeMs=%lld,nVptsMs=%lld",
+                       m_stSliceInfo.nFps,
+                       m_stSliceInfo.nRealFrameRate,
+                       nCurrentMonotonicMs,
+                       m_nStartMonotonicTimestampMs,
+                       nTimeMs,
+                       m_nVptsMs);
             init_startTime(nCurrentTimeMs);
         }
     }
@@ -564,7 +593,8 @@ void FfmpegRecord::clear_count()
 
 int FfmpegRecord::get_durationMs()
 {
-    return Time::get_milliseconds() - m_stSliceInfo.nStartTimestampMs;
+    int64_t nCurrentMonotonicMs = TimeUtils_NS::get_monotonicTimestampMs();
+    return nCurrentMonotonicMs - m_nStartMonotonicTimestampMs;
 }
 
 std::string FfmpegRecord::get_startTime()

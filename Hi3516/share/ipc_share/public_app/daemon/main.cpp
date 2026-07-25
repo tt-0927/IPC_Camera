@@ -3,12 +3,13 @@
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2025-09-05 15:19:56
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-03-02 16:32:43
+ * @LastEditTime : 2026-06-05 15:54:36
  * @Description  : 守护进程 - 监控和管理关键业务进程
  */
 
 #include "process_manager.h"
 #include "dlog.h"
+#include "timezone_runtime.h"
 
 #include <iostream>
 #include <unistd.h>
@@ -58,6 +59,7 @@ void daemonize()
 
     if (setsid() < 0) exit(EXIT_FAILURE);
 
+    /* daemon化阶段临时忽略SIGHUP，主流程中由时区运行时恢复并通过sigwait处理 */
     signal(SIGHUP, SIG_IGN);
 
     pid = fork();
@@ -93,6 +95,9 @@ int main(int argc, char *argv[])
     }
 
     dlog_info("守护进程已启动. PID: %d", getpid());
+
+    /* 初始化进程时区运行时，并恢复 daemonize 中被忽略的 SIGHUP */
+    TimezoneRuntime_NS::init_timezone_runtime("daemon");
 
     /* 设置信号处理器 */
     signal(SIGTERM, signal_handler);

@@ -48,6 +48,12 @@ class CMainChannelHandler : public CIVencChannelHandler
 {
 public:
     /**
+     * @brief   : 构造函数
+     * @param   {CStreamVideo*} pStreamVideo：流媒体视频对象指针，用于请求IDR帧
+     */
+    explicit CMainChannelHandler(CStreamVideo* pStreamVideo);
+
+    /**
      * @brief   : 处理主码流帧数据
      * @param   {uint8_t*} pData：帧数据指针
      * @param   {int} nDataLen：帧数据长度
@@ -60,6 +66,20 @@ public:
                      Video_NS::VideoFrame_S* pVideoFrame,
                      CStreamVideoConfig& configManager,
                      int nChannel) override;
+
+private:
+    /* 流媒体视频对象指针 */
+    CStreamVideo* m_pStreamVideo;
+
+    /* 上次请求IDR帧的时间戳 */
+    long long int m_llLastIdrTimestamp;
+
+    /**
+     * @brief   : 检查并请求IDR帧
+     * @param   {CStreamVideoConfig&} configManager：配置管理器引用
+     * @param   {int} nChannel：通道号
+     */
+    void checkAndRequestIdr(CStreamVideoConfig& configManager, int nChannel);
 };
 
 /**

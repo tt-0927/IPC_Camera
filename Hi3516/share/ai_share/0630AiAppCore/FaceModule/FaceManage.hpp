@@ -19,7 +19,7 @@
 #include "VectorDb.hpp"
 
 /* 人脸比对相似度阈值 */
-#define FACE_SIMILARITY_THRESHOLD  0.35
+#define FACE_SIMILARITY_THRESHOLD  0.4
 #define HUMAN_SIMILARITY_THRESHOLD 0.65
 
 namespace Ai0630_NS

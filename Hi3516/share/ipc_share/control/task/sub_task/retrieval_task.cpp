@@ -253,7 +253,7 @@ void Task::Retrieval::SearchByRecordTS::handle()
 {
     SD_CARD_STATUS_E eSdCardStatus = CStorageManage::instance()->get_SdCardStatus();
     /* sd卡异常以及录制ts文件信息数据库不存在都返回空数据 */
-    if (!(std::filesystem::exists(RECORD_DATABASE_PATH)) ||
+    if (!(std::filesystem::exists(RECORD_DATABASE_PATH)) || 
          (eSdCardStatus != SD_CARD_STATUS_E::NORMAL && eSdCardStatus != SD_CARD_STATUS_E::WRITE_ERROR))
     {
         std::string retrievalResult = "{\"reason\":\"record data is empty.\"}";
@@ -422,7 +422,7 @@ void Task::Event::SearchByEventType::handle()
         result(retrievalResult, -1);
         return;
     }
-
+    
     /* 目标对比事件检索 */
     std::vector<::Event::Info_S> EventInfos;
     if (stEventCond.enType == ::Event::Type::TARGET_COMPARE)
@@ -433,7 +433,7 @@ void Task::Event::SearchByEventType::handle()
         EventSearch::instance()->searchByEventType(stEventCond, eventInfos, stPageInfo);
         stEventCond.nChnIds.clear();
 
-
+        
         /* 更新事件id为检索id */
         for (auto &stEventInfo : eventInfos)
         {
@@ -442,8 +442,8 @@ void Task::Event::SearchByEventType::handle()
         /* 查找出人脸数据 */
         std::vector<::Event::FaceCompareInfo_S> faceCompareInfos;
         EventManage::instance()->find(stEventCond, faceCompareInfos, stPageInfo);
-
-
+        
+    
         std::vector<::Event::Info_S> outEventInfos;
         for (auto &stFaceCompareInfo : faceCompareInfos)
         {
@@ -457,11 +457,11 @@ void Task::Event::SearchByEventType::handle()
                 }
             }
         }
-
+        
         result(Convert::to_string(outEventInfos, stPageInfo));
         return;
     }
-
+    
     int nRet = EventSearch::instance()->searchByEventType(stEventCond, EventInfos, stPageInfo);
     if (nRet < 0)
     {
@@ -482,7 +482,7 @@ void Task::Event::SearchByEventType::handle()
         {
             stCond.videoBingIds.push_back(eventInfo.nId);
         }
-
+        
         std::vector<::Event::Info_S> bindEventInfos;
         EventSearch::instance()->searchByEventType(stCond, bindEventInfos);
         for (auto &eventInfo : EventInfos)
@@ -496,9 +496,9 @@ void Task::Event::SearchByEventType::handle()
                     stBindVideo.strVideoPath = bindEventInfo.strVideoPath;
                     eventInfo.bindVideos.push_back(stBindVideo);
                 }
-
+                
                 // 排序，根据 nChnId 升序
-                std::sort(eventInfo.bindVideos.begin(), eventInfo.bindVideos.end(),
+                std::sort(eventInfo.bindVideos.begin(), eventInfo.bindVideos.end(), 
                     [](const ::Event::BindVideo_S& a, const ::Event::BindVideo_S& b) {
                         return a.nChnId < b.nChnId;
                     }
@@ -518,7 +518,7 @@ void Task::Retrieval::SearchByImageType::handle()
 {
     SD_CARD_STATUS_E eSdCardStatus = CStorageManage::instance()->get_SdCardStatus();
     /* sd卡异常以及图片信息数据库不存在都返回空数据 */
-    if (!(std::filesystem::exists(CAPTURE_DATABASE_PATH)) ||
+    if (!(std::filesystem::exists(CAPTURE_DATABASE_PATH)) || 
          (eSdCardStatus != SD_CARD_STATUS_E::NORMAL && eSdCardStatus != SD_CARD_STATUS_E::WRITE_ERROR))
     {
         std::string retrievalResult = "{\"reason\":\"Capture data is empty or sd card is no exsit\"}";
@@ -672,7 +672,7 @@ void Task::Retrieval::DownloadImageFileInfo::handle()
 {
     SD_CARD_STATUS_E eSdCardStatus = CStorageManage::instance()->get_SdCardStatus();
     /* sd卡异常以及图片信息数据库不存在都不允许下载 */
-    if (!(std::filesystem::exists(CAPTURE_DATABASE_PATH)) ||
+    if (!(std::filesystem::exists(CAPTURE_DATABASE_PATH)) || 
          (eSdCardStatus != SD_CARD_STATUS_E::NORMAL && eSdCardStatus != SD_CARD_STATUS_E::WRITE_ERROR))
     {
         std::string retrievalResult = "{\"reason\":\"Capture data is empty.\"}";

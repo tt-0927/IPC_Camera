@@ -5,7 +5,6 @@
 #include <unordered_map>
 #include <vector>
 
-
 namespace Ai0630_NS
 {
     struct TimeSegment_S
@@ -19,7 +18,7 @@ namespace Ai0630_NS
     {
     public:
 
-        explicit ExclusiveTimeline(long long mergeThresholdMs = 2000)
+        explicit ExclusiveTimeline(long long mergeThresholdMs = 500)
             : m_nMergeThreshold(mergeThresholdMs)
         {
         }
@@ -75,6 +74,7 @@ namespace Ai0630_NS
 
                 /* ---------- 原有：时间段合并 ---------- */
                 if (!info.vecSegments.empty() &&
+                    m_nMergeThreshold >= 0 &&
                     nCur - info.vecSegments.back().nEndTime <= m_nMergeThreshold)
                 {
                     info.vecSegments.back().nEndTime = nNext;

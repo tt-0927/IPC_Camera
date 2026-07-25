@@ -8,19 +8,19 @@
  */
 #include "SipNetBase.h"
 #include "MediaSession.h"
-#include "ModuleLog.h"
+#include "dlog.h"
 using namespace SIP;
 int SIP::SipNetBase::AddSession(const std::string &strCallID, std::shared_ptr<MediaSession> pSession)
 {
     m_mapSession[strCallID] = pSession;
-    MLOG_INFO("添加Session: [%s]", strCallID.c_str());
+    dlog_info("添加Session: [%s]", strCallID.c_str());
     return 0;
 }
 
 int SIP::SipNetBase::DelSession(const std::string &strCallID)
 {
     m_mapSession.erase(strCallID);
-    MLOG_INFO("删除Session: [%s]", strCallID.c_str());
+    dlog_info("删除Session: [%s]", strCallID.c_str());
     return 0;
 }
 
@@ -30,6 +30,6 @@ std::shared_ptr<MediaSession> SIP::SipNetBase::GetSession(const std::string &str
     {
         return m_mapSession[strCallID];
     }
-    MLOG_WARN("获取Session失败: [%s]", strCallID.c_str());
+    dlog_warn("获取Session失败: [%s]", strCallID.c_str());
     return nullptr;
 }

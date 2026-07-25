@@ -1,3 +1,12 @@
+/**
+ * @FilePath     : record_file_manage.cpp
+ * @Author       : zhouzr@kfb.cn
+ * @Date         : 2026-06-03 16:31:46
+ * @LastEditors  : zhouzr@kfb.cn
+ * @LastEditTime : 2026-06-05 15:52:04
+ * @Description  : 录制文件管理
+ */
+
 #include "record_file_manage.h"
 
 #include "IpcRet.h"
@@ -1401,8 +1410,18 @@ int RecordFileManage::loop_write()
     /* 删除事件数据库中符合条件的数据 */
     MatchMethods eventMethods;
     Event::RetrievalCond_S stEventCond;
-    stEventCond.strStartDate = strRecordDbName;
-    eventMethods.push_back(MatchMethod(Element(Event::INFO_EVENT_DATE, stEventCond.strStartDate), FIND_CRITERION_IE, FIND_CRITERION_AND));
+
+    if(strRecordDbName == strCurrentDate)
+    {
+        stEventCond.strStartTime = TimeUtils_NS::get_currentDateAndFormat("%Y-%m-%d %H:%M:%S");
+        eventMethods.push_back(MatchMethod(Element(Event::INFO_RECORD_STATRTIME, stEventCond.strStartTime), FIND_CRITERION_IE, FIND_CRITERION_AND));
+    }
+    else 
+    {
+        stEventCond.strStartDate = TimeUtils_NS::get_currentDateAndFormat("%Y%m%d");
+        eventMethods.push_back(MatchMethod(Element(Event::INFO_EVENT_DATE, stEventCond.strStartDate), FIND_CRITERION_IE, FIND_CRITERION_AND));
+    }
+
     if (eventMethods.size() != 0)
     {
         MatchMethod &lastMethod = eventMethods.back();
@@ -1863,8 +1882,8 @@ static std::time_t fastParseTime(const std::string& line)
         tm.tm_year -= 1900;
         tm.tm_mon -= 1;
         tm.tm_isdst = -1;
-        // 使用 UTC时间，本地时间则用 mktime
-        return timegm(&tm); 
+        /* m3u8中存储的是本地时间，使用mktime转换为UTC时间戳 */
+        return mktime(&tm);
     }
     return 0;
 }

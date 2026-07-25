@@ -108,4 +108,22 @@ namespace Preview
         bool bEnable;
     } BeepAlarm_S;
 
+    /**
+     * @brief TVSDK 设备控制参数。
+     *
+     * 当前仅支持声光报警：nControlType 为 2，nCommand 为 1/2/3。
+     * nParam1 对应闪光频率：0 常亮，1 低频，2 中频，3 高频；
+     * nDurationMs 为 0 时按 1 秒处理，最大 300 秒。
+     */
+    typedef struct DeviceControl
+    {
+        int nChannelId = 0;
+        int nControlType = 0;
+        int nCommand = 0;
+        int nDurationMs = 0;
+        int nParam1 = 0;
+        int nParam2 = 0;
+        std::string strExt;
+    } DeviceControl_S;
+
 } // namespace Preview

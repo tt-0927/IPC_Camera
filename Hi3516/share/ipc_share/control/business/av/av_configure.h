@@ -3,7 +3,7 @@
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2025-06-25 20:14:45
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-01-16 16:17:24
+ * @LastEditTime : 2026-06-03 16:12:48
  * @Description  : 音视频配置
  */
 
@@ -26,6 +26,14 @@ using SetAudioConfigCallback = std::function<int(const Audio_NS::AudioConfig_S &
 using SetAudioAoSampleRateCallback = std::function<int(const Audio_NS::AudioSamprate_E enSampRate)>;
 /* 音频对讲的回调函数类型 */
 using AudioSpeakCallback = std::function<int(const Audio_NS::AoInfo_S &stAoInfo)>;
+/* 等待 AO 通道缓冲区完全排空的回调函数类型，nTimeoutMs=-1 表示无限等待 */
+using WaitAoDrainedCallback = std::function<int(int nChn, int nTimeoutMs)>;
+
+// #if CAP_EVENT_AUDIO_PLAYBACK_V2
+/*静音功放输出的回调函数类型（用于播放结束时提前关闭功放，消除结尾噗声）*/
+using MuteAudioOutputCallback = std::function<void()>;
+// #endif
+
 /*设置ROI配置的回调函数类型*/
 using SetVideoRoiConfigCallback = std::function<int(const Video_NS::VideoRoiConfig_S &stConfig)>;
 /*设置区域裁剪配置的回调函数类型*/
@@ -203,6 +211,51 @@ public:
      */
     int setAudioAoSampleRate(const Audio_NS::AudioSamprate_E enSampRate) const;
 
+#if CAP_EVENT_AUDIO_PLAYBACK_V2
+    /**
+     * @brief   : 通知音频输出立即标记为空闲（用于播放结束时快速停止 keepalive）
+     */
+    void setAudioAoIdle() const;
+
+    /**
+     * @brief   : 立即静音功放输出（关闭 GPIO），消除播放结尾噗声
+     * @note    : 在声音联动/对讲/广播播放结束时调用，比 watchdog 2秒超时更快关闭功放
+     */
+    void muteAudioOutput() const;
+
+    /**
+     * @brief   : 设置静音功放输出回调
+     * @param    {std::function<void()>} &callback
+     */
+    void setMuteAudioOutputCallback(const std::function<void()> &callback);
+    #endif
+    /**
+     * @brief   : 设置音频输出空闲回调
+     * @param    {std::function<void()>} &callback
+     */
+    void setAudioAoIdleCallback(const std::function<void()> &callback);
+    /** @brief 立即关闭当前音频输出功放GPIO */
+    void muteAudioOutput() const;
+
+    /** @brief 设置关闭音频输出功放的回调 */
+    void setMuteAudioOutputCallback(const MuteAudioOutputCallback &callback);
+    // #endif
+
+    /**
+     * @brief   : 设置 AO 排空等待回调
+     * @param    {WaitAoDrainedCallback} &callback
+     * @return   {int} 0：成功 非0：失败
+     */
+    int setWaitAoDrainedCallback(const WaitAoDrainedCallback &callback);
+
+    /**
+     * @brief   : 等待 AO 通道硬件缓冲区完全排空
+     * @param    {int} nChn：通道号
+     * @param    {int} nTimeoutMs：最大等待时间（ms），-1 表示无限等待
+     * @return   {int} 0：已完全排空，非0：超时或错误
+     */
+    int waitAoDrained(int nChn, int nTimeoutMs) const;
+
 private:
     /**
      * @brief 校验音频配置是否在能力集范围内
@@ -230,6 +283,20 @@ private:
     AudioSpeakCallback m_setAoSpeakCallback;
     /* 设置音频模块AO采样率回调 */
     SetAudioAoSampleRateCallback m_setAudioAoSampleRateCallback;
+
+#if CAP_EVENT_AUDIO_PLAYBACK_V2
+    std::function<void()> m_setAudioAoIdleCallback;
+    /* 静音功放输出回调 */
+    std::function<void()> m_muteAudioOutputCallback;
+#endif
+    /* 静音功放输出回调，V1/V2播放路径共用 */
+    MuteAudioOutputCallback m_muteAudioOutputCallback;
+    /* 等待 AO 通道缓冲区完全排空回调 */
+    WaitAoDrainedCallback m_waitAoDrainedCallback;
+    /* 记录被强制修改前的I帧间隔值 */
+    int m_nOriginalIFrameInterval;
+    /* 标记I帧间隔是否被强制修改过 */
+    bool m_bIFrameIntervalModified;
     /*视频配置*/
     VersionedConfigStorage<Video_NS::VideoConfig_S> m_videoConfig;
     /*音频配置*/

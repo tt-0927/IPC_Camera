@@ -3,18 +3,32 @@
  * @Author       : zhouzirui
  * @Date         : 2025-04-03 09:54:47
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2025-08-27 19:54:36
+ * @LastEditTime : 2026-05-27 15:05:42
  * @Description  : HASH及HMAC摘要算法
  */
 
 #include "cipher_hash.h"
 #include "securec.h"
+
+/* 密码学检测宏，用于检查密码学操作的返回值 */
+#define CIPHER_CHECK_GOTO(expr, label)                                                                                           \
+    do                                                                                                                           \
+    {                                                                                                                            \
+        td_s32 result = (expr);                                                                                                  \
+        if (result != TD_SUCCESS)                                                                                                \
+        {                                                                                                                        \
+            mpi_cipher_log("%s failed, error code: 0x%08X", #expr, (unsigned int) result);                                       \
+            ret = result;                                                                                                        \
+            goto label;                                                                                                          \
+        }                                                                                                                        \
+    }                                                                                                                            \
+    while (0)
+
 /**
  * @brief       : 安全协议加速器HASH及HMAC摘要算法模块初始化
  * @author      : zhouzirui
  * @param        {CipherHash_S} *pHandle：句柄
  * @return       {*}成功返回0,失败返回-1
- * @note        : 
  */
 static int cipherHash_init(CipherHash_S *pHandle)
 {
@@ -33,7 +47,6 @@ static int cipherHash_init(CipherHash_S *pHandle)
  * @author      : zhouzirui
  * @param        {CipherHash_S} *pHandle：句柄
  * @return       {*}成功返回0,失败返回-1
- * @note        : 
  */
 static int cipherHash_uninit(CipherHash_S *pHandle)
 {
@@ -58,31 +71,38 @@ static int cipherHash_uninit(CipherHash_S *pHandle)
  */
 static int cipherHash_HashCompute(CipherHash_S *pHandle, crypto_hash_attr stHashAttr, const MpiBuf_S *pSrcBuf, MpiBuf_S *pDstBuf)
 {
-    if (NULL == pHandle || NULL == pSrcBuf || NULL == pDstBuf || pSrcBuf->u32Len == 0 || pSrcBuf->u32Len > 0xFFFF0000)
+    td_s32 ret = TD_SUCCESS;
+    td_handle hashHandle = 0;
+    td_bool bCreated = TD_FALSE;
+
+    if (NULL == pHandle || NULL == pSrcBuf || NULL == pDstBuf || NULL == pSrcBuf->pData || NULL == pDstBuf->pData ||
+        pSrcBuf->u32Len == 0 || pSrcBuf->u32Len > 0xFFFF0000 || pDstBuf->u32Size == 0)
     {
+        mpi_cipher_log("cipherHash_HashCompute 参数错误");
         return TD_FAILURE;
     }
-    /*HASH句柄*/
-    td_handle hashHandle;
-    /*算法参数*/
-    // crypto_hash_attr stHashAttr = {
-    //     .key = NULL,
-    //     .key_len = 0,
-    //     .drv_keyslot_handle =NULL,
-    //     .hash_type = pHandle->stNeedParam.enHashType,
-    //     .is_keyslot = TD_FALSE,
-    //     .is_long_term = TD_FALSE,
-    // };
-    /*HASH 模块初始化*/
-    CHECK_API_RETURN(ot_mpi_cipher_hash_create(&hashHandle, &stHashAttr));
-    crypto_buf_attr stBufAttr;
-    /*HASH update 计算*/
-    // td_s32 ot_mpi_cipher_hash_update(td_handle mpi_hash_handle, const crypto_buf_attr *src_buf, const td_u32 len);
-    CHECK_API_RETURN(ot_mpi_cipher_hash_update(hashHandle, &stBufAttr, pSrcBuf->u32Len));
-    /*HASH计算获取摘要信息，并在计算成功的时候销毁HASH句柄*/
-    CHECK_API_RETURN(ot_mpi_cipher_hash_finish(hashHandle, pDstBuf->pData, pDstBuf->u32Size, &pDstBuf->u32Len));
 
-    return TD_SUCCESS;
+    CIPHER_CHECK_GOTO(ot_mpi_cipher_hash_create(&hashHandle, &stHashAttr), cleanup);
+    bCreated = TD_TRUE;
+
+    crypto_buf_attr stBufAttr;
+    memset_s(&stBufAttr, sizeof(stBufAttr), 0, sizeof(stBufAttr));
+    stBufAttr.virt_addr = pSrcBuf->pData;
+    stBufAttr.buf_sec = CRYPTO_BUF_NONSECURE;
+
+    CIPHER_CHECK_GOTO(ot_mpi_cipher_hash_update(hashHandle, &stBufAttr, pSrcBuf->u32Len), cleanup);
+    CIPHER_CHECK_GOTO(ot_mpi_cipher_hash_finish(hashHandle, pDstBuf->pData, pDstBuf->u32Size, &pDstBuf->u32Len), cleanup);
+
+cleanup:
+    if (bCreated == TD_TRUE)
+    {
+        td_s32 destroy_ret = ot_mpi_cipher_hash_destroy(hashHandle);
+        if (ret == TD_SUCCESS && destroy_ret != TD_SUCCESS)
+        {
+            ret = destroy_ret;
+        }
+    }
+    return ret;
 }
 
 /**
@@ -124,9 +144,14 @@ static int cipherHash_HmacCompute(CipherHash_S *pHandle, crypto_hash_attr stHash
  * @note        : 计算HASH(Message1 || Mesage2),其中Message1的处理由hash_handle1完成，Message2的处理由hash_handle2完成，
  * 最终由hash_handle2计算出HASH(Message1 || Message2)的结果）
  */
-static int cipherHash_HashCloneCompute(CipherHash_S *pHandle, crypto_hash_attr stHashAttr, const MpiBuf_S *pSrcBuf1, const MpiBuf_S *pSrcBuf2, MpiBuf_S *pDstBuf)
+static int cipherHash_HashCloneCompute(CipherHash_S *pHandle,
+                                       crypto_hash_attr stHashAttr,
+                                       const MpiBuf_S *pSrcBuf1,
+                                       const MpiBuf_S *pSrcBuf2,
+                                       MpiBuf_S *pDstBuf)
 {
-    if (NULL == pHandle || NULL == pSrcBuf1 || NULL == pSrcBuf2 || NULL == pDstBuf || pSrcBuf1->u32Len == 0 || pSrcBuf1->u32Len > 0xFFFF0000 || pSrcBuf2->u32Len == 0 || pSrcBuf2->u32Len > 0xFFFF0000)
+    if (NULL == pHandle || NULL == pSrcBuf1 || NULL == pSrcBuf2 || NULL == pDstBuf || pSrcBuf1->u32Len == 0 ||
+        pSrcBuf1->u32Len > 0xFFFF0000 || pSrcBuf2->u32Len == 0 || pSrcBuf2->u32Len > 0xFFFF0000)
     {
         return TD_FAILURE;
     }
@@ -156,7 +181,7 @@ static int cipherHash_HashCloneCompute(CipherHash_S *pHandle, crypto_hash_attr s
     /*销毁HASH1句柄*/
     CHECK_API_RETURN(ot_mpi_cipher_hash_destroy(hashHandle1));
     /*设置HASH1句柄的中间结果到HASH2句柄*/
-    CHECK_API_RETURN(ot_mpi_cipher_hash_set(hashHandle1, &stHashCloneCtx));
+    CHECK_API_RETURN(ot_mpi_cipher_hash_set(hashHandle2, &stHashCloneCtx));
     /*HASH update 计算 传入消息数据，对消息进行摘要计算*/
     // CHECK_API_RETURN(ot_mpi_cipher_hash_update(hashHandle2, pSrcBuf2->pData, pSrcBuf2->u32Len));
     /*HASH计算获取摘要信息，并在计算成功的时候销毁HASH句柄*/
@@ -176,9 +201,14 @@ static int cipherHash_HashCloneCompute(CipherHash_S *pHandle, crypto_hash_attr s
  * @return       {*}成功返回0,失败返回-1
  * @note        : HMAC在使用硬件算法时，不支持Clone计算,HMAC在使用明文key软件算法时，支持Clone计算
  */
-static int cipherHash_HmacCloneCompute(CipherHash_S *pHandle, crypto_hash_attr stHashAttr, const MpiBuf_S *pSrcBuf1, const MpiBuf_S *pSrcBuf2, MpiBuf_S *pDstBuf)
+static int cipherHash_HmacCloneCompute(CipherHash_S *pHandle,
+                                       crypto_hash_attr stHashAttr,
+                                       const MpiBuf_S *pSrcBuf1,
+                                       const MpiBuf_S *pSrcBuf2,
+                                       MpiBuf_S *pDstBuf)
 {
-    if (NULL == pHandle || NULL == pSrcBuf1 || NULL == pSrcBuf2 || NULL == pDstBuf || pSrcBuf1->u32Len == 0 || pSrcBuf1->u32Len > 0xFFFF0000 || pSrcBuf2->u32Len == 0 || pSrcBuf2->u32Len > 0xFFFF0000)
+    if (NULL == pHandle || NULL == pSrcBuf1 || NULL == pSrcBuf2 || NULL == pDstBuf || pSrcBuf1->u32Len == 0 ||
+        pSrcBuf1->u32Len > 0xFFFF0000 || pSrcBuf2->u32Len == 0 || pSrcBuf2->u32Len > 0xFFFF0000)
     {
         return TD_FAILURE;
     }
@@ -208,7 +238,7 @@ static int cipherHash_HmacCloneCompute(CipherHash_S *pHandle, crypto_hash_attr s
     /*销毁HASH1句柄*/
     CHECK_API_RETURN(ot_mpi_cipher_hash_destroy(hashHandle1));
     /*设置HASH1句柄的中间结果到HASH2句柄*/
-    CHECK_API_RETURN(ot_mpi_cipher_hash_set(hashHandle1, &stHashCloneCtx));
+    CHECK_API_RETURN(ot_mpi_cipher_hash_set(hashHandle2, &stHashCloneCtx));
     /*HMAC update 计算 传入消息数据，对消息进行摘要计算*/
     // CHECK_API_RETURN(ot_mpi_cipher_hash_update(hashHandle2, pSrcBuf2->pData, pSrcBuf2->u32Len));
     /*HMAC计算获取摘要信息，并在计算成功的时候销毁HASH句柄*/
@@ -240,22 +270,22 @@ static int cipherHash_pbkdf2Compute(CipherHash_S *pHandle, crypto_kdf_pbkdf2_par
 
 CipherHash_S *cipherHash_alloc(CipherHashNeedParam_S stNeedParam)
 {
-    CipherHash_S *pHandle = (CipherHash_S *)malloc(sizeof(CipherHash_S));
+    CipherHash_S *pHandle = (CipherHash_S *) malloc(sizeof(CipherHash_S));
     memset_s(pHandle, sizeof(CipherHash_S), 0, sizeof(CipherHash_S));
 
-    //info /**********************必需参数***************************/
-    pHandle->stNeedParam.enHashType     = stNeedParam.enHashType;
-    
-    //info /**********************功能参数***************************/
+    // info /**********************必需参数***************************/
+    pHandle->stNeedParam.enHashType = stNeedParam.enHashType;
 
-    //info /**********************函数列表***************************/
-    pHandle->cipherHash_init                = cipherHash_init;
-    pHandle->cipherHash_uninit              = cipherHash_uninit;
-    pHandle->cipherHash_HashCompute         = cipherHash_HashCompute;
-    pHandle->cipherHash_HmacCompute         = cipherHash_HmacCompute;
-    pHandle->cipherHash_HashCloneCompute    = cipherHash_HashCloneCompute;
-    pHandle->cipherHash_HmacCloneCompute    = cipherHash_HmacCloneCompute;
-    pHandle->cipherHash_pbkdf2Compute       = cipherHash_pbkdf2Compute;
+    // info /**********************功能参数***************************/
+
+    // info /**********************函数列表***************************/
+    pHandle->cipherHash_init = cipherHash_init;
+    pHandle->cipherHash_uninit = cipherHash_uninit;
+    pHandle->cipherHash_HashCompute = cipherHash_HashCompute;
+    pHandle->cipherHash_HmacCompute = cipherHash_HmacCompute;
+    pHandle->cipherHash_HashCloneCompute = cipherHash_HashCloneCompute;
+    pHandle->cipherHash_HmacCloneCompute = cipherHash_HmacCloneCompute;
+    pHandle->cipherHash_pbkdf2Compute = cipherHash_pbkdf2Compute;
 
     return pHandle;
 }
@@ -268,4 +298,3 @@ void cipherHash_release(CipherHash_S *pHandle)
         pHandle = NULL;
     }
 }
-

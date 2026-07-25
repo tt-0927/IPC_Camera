@@ -2,7 +2,7 @@
  * @Author: lianghy lianghy@kfb.cn
  * @Date: 2026-02-02 15:33:26
  * @LastEditors: lianghy lianghy@kfb.cn
- * @LastEditTime: 2026-02-04 14:32:53
+ * @LastEditTime: 2026-04-07 14:38:47
  * @FilePath: /1126/share/ai_share/AiModules/Modules/PresonAttribute/V2_0/PresonAttributeV2_0.cpp
  * @Description: 行人属性分析
  */
@@ -247,7 +247,7 @@ bool PresonAttribute_NS::CPresonAttributeV2_0::process(InData_S stInData, std::v
     Inference_NS::InputData_S            stInputData;
     std::vector<Inference_NS::ClsData_S> vClsDatas;
     stInputData.pData     = (float *)stInData.inMat.data;
-    stInputData.nDataSize = static_cast<size_t>(stInData.inMat.total() * stInData.inMat.elemSize());
+    stInputData.nDataSize = static_cast<size_t>(stInData.inMat.total() * stInData.inMat.elemSize() * sizeof(float));
 
     bRet = m_pPedestrianAttribute->inference(stInputData, vClsDatas);
 

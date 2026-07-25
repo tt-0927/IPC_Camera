@@ -56,7 +56,7 @@ void CPeopleHeadDetect::recvMediaData(MediaData_S stMediaData)
 void CPeopleHeadDetect::setAlgoEnCfg(const Event::AlgorithmConfig &stAlgoConfig)
 {
     m_crowdGatheringProcessor.setEnabled(stAlgoConfig.nEnCrowdGathering);
-#if CAP_AI_PEOPLE_STATISTICS
+#if CAP_AI_PEOPLE_DENSITY_LEGACY
     m_densityProcessor.setEnabled(stAlgoConfig.nEnPeopleDensityDetection);
 #endif
 
@@ -67,7 +67,7 @@ void CPeopleHeadDetect::setAlgoEnCfg(const Event::AlgorithmConfig &stAlgoConfig)
         setAlgoParamCfg(stInfo);
     }
 
-#if CAP_AI_PEOPLE_STATISTICS
+#if CAP_AI_PEOPLE_DENSITY_LEGACY
     if (m_densityProcessor.isEnabled())
     {
         Alarm::PeopleDensityDetection_S stInfo;
@@ -82,7 +82,7 @@ void CPeopleHeadDetect::setAlgoParamCfg(const Alarm::CrowdGathering_S &stAlgoCfg
     m_crowdGatheringProcessor.setAlgoParamCfg(stAlgoCfg, m_nWidth, m_nHeight);
 }
 
-#if CAP_AI_PEOPLE_STATISTICS
+#if CAP_AI_PEOPLE_DENSITY_LEGACY
 void CPeopleHeadDetect::setAlgoParamCfg(const Alarm::PeopleDensityDetection_S &stAlgoCfg)
 {
     m_densityProcessor.setAlgoParamCfg(stAlgoCfg, m_nWidth, m_nHeight);
@@ -249,7 +249,7 @@ void CPeopleHeadDetect::run()
 #endif
         }
 
-#if CAP_AI_PEOPLE_STATISTICS
+#if CAP_AI_PEOPLE_DENSITY_LEGACY
         if (m_densityProcessor.isEnabled())
         {
             /* 人员密度处理上下文，复用同一帧人头模型输出 */
@@ -282,7 +282,7 @@ void CPeopleHeadDetect::run()
 bool CPeopleHeadDetect::hasEnabledAlgorithm() const
 {
     return m_crowdGatheringProcessor.isEnabled()
-#if CAP_AI_PEOPLE_STATISTICS
+#if CAP_AI_PEOPLE_DENSITY_LEGACY
            || m_densityProcessor.isEnabled()
 #endif
     ;

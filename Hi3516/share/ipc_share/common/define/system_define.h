@@ -575,10 +575,11 @@ namespace System
      */
     typedef struct LogServerInfo
     {
-        bool bEnable = true;                         /* 是否启用 */
+        bool bEnable = true;                        /* 是否启用，默认关闭 */
         bool bEnSsl = false;                          /* 是否传输加密 */
         std::string strServerAddr = "oam.itc-pa.cn";  /* 服务器地址 */
         int nPort = 1883;                             /* 服务器端口号 */
+        bool bLogUpload = true;                      /* 日志上传开关，默认关闭 */
     } LogServerInfo_S;
 
     /**

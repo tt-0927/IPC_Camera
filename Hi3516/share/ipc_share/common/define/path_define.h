@@ -3,7 +3,7 @@
  * @Author       : zhouzirui
  * @Date         : 2025-04-08 15:35:27
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-04-20 14:29:41
+ * @LastEditTime : 2026-06-06 09:58:40
  * @Description  : 文件、目录路径宏定义 
  */
 
@@ -75,6 +75,7 @@
 #define GM_CA_REQ_CSR           GM_CA_REQ_PATH      "deviceReq.pem"     /* GM证书请求路径文件 */
 #define GM_CA_TRUST_PATH        GM_CA_PATH          "trust/"            /* GM受信任证书路径 */
 #define GM_CA_TRUST_CERT        GM_CA_TRUST_PATH    "caCert.pem"        /* CA证书文件 */
+#define GM_PLATFORM_CERT        GM_CA_TRUST_PATH    "platformCert.pem"  /* 平台证书文件 */
 #define GM_CA_TRUST_CRL         GM_CA_TRUST_PATH    "caCrl.der"         /* CA证书吊销列表 */
 
 /* isp 配置 */
@@ -326,7 +327,8 @@
 #define IP_FILTER_CONFIG_FILE      USER_DATA_PATH "ip_filter.json"
 /* wifi配置 */
 #define WIFI_CONFIG_FILE           USER_DATA_PATH "wifi.json"
-
+/*热点功能配置*/
+#define HOSTAPD_CONFIG_FILE        USER_DATA_PATH "hostapd.json"
 /* 系统配置 */
 /* 设备基本配置 */
 #define DEVICE_CONFIG_FILE          USER_DATA_PATH "device.json"
@@ -375,6 +377,8 @@
 #define ACTIVATE_INFO_FILE          DESIGN_DATA_PATH "register/ActivationInfo.json"
 /* web插件配置 */
 #define WEB_PLUGIN_CONFIG_FILE      USER_DATA_PATH "web_plugin_config.json"
+/* 产测配置 */
+#define PRODUCTION_TEST_CONFIG_FILE USER_DATA_PATH "production_test.json"
 /* 设备类型 */
 #define DEVICE_PARAM_FILE           USER_DATA_PATH "IpcDeviceParams.txt"
 
@@ -420,8 +424,10 @@
 /* AI模型配置 */
 /* 人脸侦测 */
 #define AI_FACE_DETECTION_CONFIG_FILE       DESIGN_DATA_PATH "ai_face_detection.json"
+/*人脸和垃圾检测*/
+#define AI_FACE_RUBISH_DETECTION_CONFIG_FILE       DESIGN_DATA_PATH "aiRknnConfig.json"
 /* 人脸特征 */
-#define AI_FACE_FEATURE_CONFIG_FILE         DESIGN_DATA_PATH "aiHisiConfig.json"
+#define AI_FACE_FEATURE_CONFIG_FILE         DESIGN_DATA_PATH "ai_mobileface.json"
 /* 人头侦测 */
 #define AI_HEAD_DETECTION_CONFIG_FILE       DESIGN_DATA_PATH "ai_head_detection.json"
 /* 停车侦测 */

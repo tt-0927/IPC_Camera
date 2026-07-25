@@ -3,7 +3,7 @@
  * @Author       : zhouzirui
  * @Date         : 2025-04-03 09:54:59
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2025-08-27 20:02:19
+ * @LastEditTime : 2026-05-27 15:06:59
  * @Description  : 
  */
 
@@ -23,7 +23,6 @@ extern "C"
  * @author      : zhouzirui
  * @param        {td_u32} *pRandnum：指向存储生成的随机数的缓冲区的指针
  * @return       {*}成功返回0,失败返回-1
- * @note        : 
  */
 int cipherTrng_getRandom(td_u32 *pRandnum);
 
@@ -33,7 +32,6 @@ int cipherTrng_getRandom(td_u32 *pRandnum);
  * @param        {td_u32} u32Size：需要生成的随机数的字节数
  * @param        {td_u32} *pRandnum：指向存储生成的随机数的缓冲区的指针
  * @return       {*}成功返回0,失败返回-1
- * @note        : 
  */
 int cipherTrng_getMultiRandom(td_u32 u32Size,td_u8 *pRandnum);
 

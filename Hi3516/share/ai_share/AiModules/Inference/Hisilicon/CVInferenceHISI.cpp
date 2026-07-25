@@ -394,69 +394,6 @@ bool Inference_NS::CCVInferenceHISI::getSizeLimit(int nIndex, int &nWidth, int &
 /* 初始化输入输出参数 */
 bool Inference_NS::CCVInferenceHISI::initParams()
 {   
-    if (m_pInputs)
-    {   
-        /* 初始化每个 输入 实例 */
-        for (int i = 0; i < m_nInputNum; ++i)
-        {
-            size_t inputDevSize = 0; 
-            size_t inputStride = 0;  
-            size_t inputDataSize = 0;   
-            svp_acl_mdl_io_dims inputDims; 
-            void* deviceBuffer = nullptr;
-            int64_t loopTimes = 1;
-            size_t totalSize = 0;
-
-            m_pModel->getInputAttrs(i, inputDevSize, inputStride, inputDims, inputDataSize);
-
-            if (i == 0 && inputDims.dim_count > 3)
-            {
-                int64_t dimValue = inputDims.dims[inputDims.dim_count - 1];
-                m_lineSize = dimValue * inputDataSize;
-
-                // printf("第 [%d] 个输入数据的每行有效数据大小 [%zu]！ \n", i, m_lineSize);
-                // printf("dimValue: [%zu], inputDataSize: [%zu]！ \n", dimValue, inputDataSize);
-
-                for (size_t loop = 0; loop < inputDims.dim_count - 1; loop++) {
-                    m_loopTimes *= inputDims.dims[loop];  // 维度前 dim_count - 1 项相乘，计算循环次数（例如 N×C×H）
-                }
-
-                m_nLimitChannel = inputDims.dims[1];
-                m_nLimitHeight = inputDims.dims[2];
-                m_nLimitWidth = inputDims.dims[3];
-
-                printf("输入图片限制 [%d]x[%d]x[%d]\n",
-                       m_nLimitWidth,
-                       m_nLimitHeight,
-                       m_nLimitChannel);
-            }
-
-            svp_acl_error ret = svp_acl_rt_malloc(&deviceBuffer, inputDevSize, SVP_ACL_MEM_MALLOC_NORMAL_ONLY);
-            if (ret != SVP_ACL_SUCCESS) {
-                return false;
-            }
-            memset(deviceBuffer, 0, inputDevSize);
-
-            svp_acl_data_buffer* inputData = svp_acl_create_data_buffer(deviceBuffer, inputDevSize, inputStride);
-            if (inputData == nullptr) {
-                printf("创建第 [%d] 个输入数据的缓冲区失败！ \n", i);
-            }
-            ret = svp_acl_mdl_add_dataset_buffer(m_pInputs, inputData);
-            if (ret != SVP_ACL_SUCCESS) {
-                printf("将第 [%d] 个输入数据放到缓冲区失败！ \n", i);
-                /* 释放数据缓冲区 */
-                svp_acl_destroy_data_buffer(inputData);
-                inputData = nullptr;
-            }
-            
-            m_vInputDevSize.push_back(inputDevSize);
-            m_vInputStride.push_back(inputStride);
-            m_vInputDims.push_back(inputDims);
-            m_veviceBuffers.push_back(deviceBuffer);
-            m_InputData.push_back(inputData);
-        }
-    }
-    
     if (m_pOutputs)
     {
         for (int i = 0; i < m_nOutputNum; ++i)
@@ -507,6 +444,70 @@ bool Inference_NS::CCVInferenceHISI::initParams()
             m_vOutputBuffers.push_back(outData);
         }
     }
+
+
+    if (m_pInputs)
+    {   
+        /* 初始化每个 输入 实例 */
+        for (int i = 0; i < m_nInputNum; ++i)
+        {
+            size_t inputDevSize = 0; 
+            size_t inputStride = 0;  
+            size_t inputDataSize = 0;   
+            svp_acl_mdl_io_dims inputDims; 
+            void* deviceBuffer = nullptr;
+            int64_t loopTimes = 1;
+            size_t totalSize = 0;
+
+            m_pModel->getInputAttrs(i, inputDevSize, inputStride, inputDims);
+            // m_pModel->getInputAttrs(i, inputDevSize, inputStride, inputDims, inputDataSize);
+
+            if (i == 0 && inputDims.dim_count > 3)
+            {
+                m_pModel->getInputDataSize(i, inputDataSize);
+                int64_t dimValue = inputDims.dims[inputDims.dim_count - 1];
+                m_lineSize = dimValue * inputDataSize;
+                for (size_t loop = 0; loop < inputDims.dim_count - 1; loop++) {
+                    m_loopTimes *= inputDims.dims[loop];  // 维度前 dim_count - 1 项相乘，计算循环次数（例如 N×C×H）
+                }
+
+                m_nLimitChannel = inputDims.dims[1];
+                m_nLimitHeight = inputDims.dims[2];
+                m_nLimitWidth = inputDims.dims[3];
+
+                printf("输入图片限制 [%d]x[%d]x[%d]\n",
+                       m_nLimitWidth,
+                       m_nLimitHeight,
+                       m_nLimitChannel);
+            }
+
+            svp_acl_error ret = svp_acl_rt_malloc(&deviceBuffer, inputDevSize, SVP_ACL_MEM_MALLOC_NORMAL_ONLY);
+            if (ret != SVP_ACL_SUCCESS) {
+                return false;
+            }
+            memset(deviceBuffer, 0, inputDevSize);
+
+            svp_acl_data_buffer* inputData = svp_acl_create_data_buffer(deviceBuffer, inputDevSize, inputStride);
+            if (inputData == nullptr) {
+                printf("创建第 [%d] 个输入数据的缓冲区失败！ \n", i);
+            }
+            ret = svp_acl_mdl_add_dataset_buffer(m_pInputs, inputData);
+            if (ret != SVP_ACL_SUCCESS) {
+                printf("将第 [%d] 个输入数据放到缓冲区失败！ \n", i);
+                /* 释放数据缓冲区 */
+                svp_acl_destroy_data_buffer(inputData);
+                inputData = nullptr;
+            }
+            
+            m_vInputDevSize.push_back(inputDevSize);
+            m_vInputStride.push_back(inputStride);
+            m_vInputDims.push_back(inputDims);
+            m_veviceBuffers.push_back(deviceBuffer);
+            m_InputData.push_back(inputData);
+        }
+    }
+    
+    
     return true;
 }
 
@@ -516,6 +517,9 @@ void Inference_NS::CCVInferenceHISI::setInputDatas(unsigned char *pDataBuffer, i
     /* 按行将数据从 pDataBuffer 拷贝到 device 内存，考虑 stride 对齐 */
     uint8_t *pSrcPtr = pDataBuffer;
     uint8_t *pDstPtr = static_cast<uint8_t*>(m_veviceBuffers[nInputIndex]);
+
+    uint8_t* pDstStart = pDstPtr; 
+    
     if (strType == "YVU420SP")
     {
         // 1. 拷贝 Y 分量

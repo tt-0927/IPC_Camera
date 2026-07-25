@@ -119,7 +119,12 @@ void PushMotionDetectAlarm()
 void PushIntrusionAlarm()
 {
     NET_TV_ALARMER_S stAlarmInfo;
-    NET_TV_ALARM_RULE_INFO_S stRule = {0};
+    NET_TV_ALARM_RULE_INFO_S* pRule = (NET_TV_ALARM_RULE_INFO_S*)calloc(1, sizeof(NET_TV_ALARM_RULE_INFO_S));
+    if (!pRule)
+    {
+        printf("[Demo] Failed to allocate intrusion alarm info!\n");
+        return;
+    }
     
     printf("[Demo] Pushing Intrusion Alarm...\n");
     
@@ -127,12 +132,12 @@ void PushIntrusionAlarm()
     InitAlarmInfo(&stAlarmInfo, "Camera-02", "192.168.1.101", 
                   "SN202312120002", macAddr);
 
-    stRule.dwAlarmType = NET_TV_ALARM_INTRUSION;
-    stRule.dwRuleID = 1001;
-    strncpy(stRule.szRuleName, "IntrusionRule-1", sizeof(stRule.szRuleName) - 1);
-    stRule.szRuleName[sizeof(stRule.szRuleName) - 1] = '\0';
+    pRule->dwAlarmType = NET_TV_ALARM_INTRUSION;
+    pRule->dwRuleID = 1001;
+    strncpy(pRule->szRuleName, "IntrusionRule-1", sizeof(pRule->szRuleName) - 1);
+    pRule->szRuleName[sizeof(pRule->szRuleName) - 1] = '\0';
     
-    if (NET_TV_SERVER_PushAlarmInfo(&stAlarmInfo, NET_TV_ALARM_BASE_RULE, &stRule, (INT32)sizeof(stRule)))
+    if (NET_TV_SERVER_PushAlarmInfo(&stAlarmInfo, NET_TV_ALARM_BASE_RULE, pRule, (INT32)sizeof(*pRule)))
     {
         printf("[Demo] Intrusion Alarm pushed successfully!\n");
     }
@@ -140,6 +145,8 @@ void PushIntrusionAlarm()
     {
         printf("[Demo] Failed to push Intrusion Alarm!\n");
     }
+
+    free(pRule);
 }
 
 void PushVideoLossAlarm()

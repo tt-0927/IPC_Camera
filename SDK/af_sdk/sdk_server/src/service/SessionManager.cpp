@@ -16,6 +16,29 @@
 #include "HttpAuthHandler.h"
 #include <sstream>
 
+namespace
+{
+std::string BuildMultipartPart(const std::string& boundary,
+                               const std::string& name,
+                               const std::string& contentType,
+                               const std::string& body,
+                               const std::string& filename = std::string())
+{
+    std::stringstream ss;
+    ss << "--" << boundary << "\r\n";
+    ss << "Content-Disposition: form-data; name=\"" << name << "\"";
+    if (!filename.empty())
+    {
+        ss << "; filename=\"" << filename << "\"";
+    }
+    ss << "\r\n";
+    ss << "Content-Type: " << contentType << "\r\n";
+    ss << "Content-Length: " << body.size() << "\r\n\r\n";
+    ss << body << "\r\n";
+    return ss.str();
+}
+}
+
 CSessionManager::CSessionManager()
 {
 	running_ = true;
@@ -330,6 +353,7 @@ void CSessionManager::HttpCommandAlarmListen(const httplib::Request& req, httpli
         return;
     }
 
+    const uint64_t listenSeq = session->BeginAlarmListen();
      session->SetConnected(true);
     session->SetPushEnabled(true);
 
@@ -338,15 +362,24 @@ void CSessionManager::HttpCommandAlarmListen(const httplib::Request& req, httpli
     res.set_header("Connection", "keep-alive");
     res.set_header("Cache-Control", "no-cache");
 
-    NSDK_LOG_INFO("[SessionManager] Alarm Subscribe Start: SessionId=%s, ClientIP=%s, TotalSessions=%zu", 
-                  SessionId.c_str(), session->GetClientIP().c_str(), GetSessionCount());
+    NSDK_LOG_INFO("[SessionManager] Alarm Subscribe Start: SessionId=%s, ClientIP=%s, ListenSeq=%llu, TotalSessions=%zu",
+                  SessionId.c_str(), session->GetClientIP().c_str(),
+                  static_cast<unsigned long long>(listenSeq), GetSessionCount());
 
-    res.set_content_provider(
+    res.set_chunked_content_provider(
         "multipart/form-data; boundary=" + boundary,
-        [this, SessionId, boundary](size_t, httplib::DataSink& sink) -> bool 
+        [this, SessionId, boundary, listenSeq](size_t, httplib::DataSink& sink) -> bool
         {
              auto sess = GetSession(SessionId);
              if (!sess || !sess->IsLogined()) return false;
+             if (!sess->IsCurrentAlarmListen(listenSeq))
+             {
+                 NSDK_LOG_INFO("[SessionManager] Alarm Listen superseded: SessionId=%s, ClientIP=%s, ListenSeq=%llu, CurrentSeq=%llu",
+                               SessionId.c_str(), sess->GetClientIP().c_str(),
+                               static_cast<unsigned long long>(listenSeq),
+                               static_cast<unsigned long long>(sess->GetAlarmListenSeq()));
+                 return false;
+             }
              
              // AlarmListen 长连接期间自动刺新 session，防止 session 过期被清理
              sess->UpdateLastActive();
@@ -368,35 +401,28 @@ void CSessionManager::HttpCommandAlarmListen(const httplib::Request& req, httpli
                  NSDK_LOG_INFO("[DIAG] content_provider dequeued alarm: queue_delay_ms=%lld, dequeue_ts=%lld, enqueue_ts=%lld",
                                queue_delay, ts_dequeue, ts_alarm);
 
-                 std::stringstream ss;
-                 // JSON Part
-                 ss << "--" << boundary << "\r\n";
-                 ss << "Content-Disposition: form-data; name=\"alarm\"\r\n";
-                 ss << "Content-Type: application/json\r\n\r\n";
-                 ss << msg.json << "\r\n";
-                 
+                 std::string data = BuildMultipartPart(boundary, "alarm", "application/json", msg.json);
+
                  // Attachments Part (Images or others)
                  for (size_t i = 0; i < msg.attachments.size(); ++i) 
                  {
                      const auto& att = msg.attachments[i];
-                     ss << "--" << boundary << "\r\n";
-                     ss << "Content-Disposition: form-data; name=\"" << (att.name.empty() ? "image" : att.name) << "\";";
-                     
+                     std::string filename = att.filename;
                      if (!att.filename.empty()) {
-                         ss << " filename=\"" << att.filename << "\"";
+                         filename = att.filename;
                      } else {
                          // Default filename for images if missing
                          if (att.contentType.find("image") != std::string::npos) {
-                              ss << " filename=\"alarm_" << i << ".jpg\"";
+                              filename = "alarm_" + std::to_string(i) + ".jpg";
                          }
                      }
-                     ss << "\r\n";
-                     
-                     ss << "Content-Type: " << (att.contentType.empty() ? "application/octet-stream" : att.contentType) << "\r\n\r\n";
-                     ss << att.data << "\r\n";
+                     data += BuildMultipartPart(boundary,
+                                                att.name.empty() ? "image" : att.name,
+                                                att.contentType.empty() ? "application/octet-stream" : att.contentType,
+                                                att.data,
+                                                filename);
                  }
-                 
-                 std::string data = ss.str();
+
                  auto tp_before_write = std::chrono::steady_clock::now();
                  if (sink.write(data.data(), data.size())) {
                      auto tp_after_write = std::chrono::steady_clock::now();
@@ -408,7 +434,12 @@ void CSessionManager::HttpCommandAlarmListen(const httplib::Request& req, httpli
                  } else {
                      NSDK_LOG_WARN("[SessionManager] sink.write FAILED: SessionId=%s, ClientIP=%s, dataSize=%zu, marking disconnected",
                                    SessionId.c_str(), sess->GetClientIP().c_str(), data.size());
-                     MarkDisconnected(SessionId);
+                     if (sess->MarkDisconnectedIfCurrentAlarmListen(listenSeq))
+                     {
+                         NSDK_LOG_INFO("[SessionManager] Client disconnected, queue cleared: SessionId=%s, ClientIP=%s, ListenSeq=%llu",
+                                       SessionId.c_str(), sess->GetClientIP().c_str(),
+                                       static_cast<unsigned long long>(listenSeq));
+                     }
                      return false;
                  }
              }
@@ -419,12 +450,17 @@ void CSessionManager::HttpCommandAlarmListen(const httplib::Request& req, httpli
                  // session 对象级别时间戳，避免 thread_local 在线程复用时计时器混乱
                  if (sess->ShouldSendHeartbeat(8))
                  {
-                     std::string hb = "--" + boundary + "\r\n"
-                                     "Content-Disposition: form-data; name=\"heartbeat\"\r\n"
-                                     "Content-Type: application/json\r\n\r\n"
-                                     "{\"type\":\"heartbeat\"}\r\n";
+                     std::string hb = BuildMultipartPart(boundary,
+                                                         "heartbeat",
+                                                         "application/json",
+                                                         "{\"type\":\"heartbeat\"}");
                      if (!sink.write(hb.data(), hb.size())) {
-                         MarkDisconnected(SessionId);
+                         if (sess->MarkDisconnectedIfCurrentAlarmListen(listenSeq))
+                         {
+                             NSDK_LOG_INFO("[SessionManager] Client disconnected, queue cleared: SessionId=%s, ClientIP=%s, ListenSeq=%llu",
+                                           SessionId.c_str(), sess->GetClientIP().c_str(),
+                                           static_cast<unsigned long long>(listenSeq));
+                         }
                          return false;
                      }
                      NSDK_LOG_INFO("[SessionManager] Heartbeat sent: SessionId=%s, ClientIP=%s",
@@ -433,17 +469,26 @@ void CSessionManager::HttpCommandAlarmListen(const httplib::Request& req, httpli
              }
              // 等待新数据再发送（或超时 1 秒回来检查心跳包）
              // EnqueueMessage 入队时 notify_one() 会立即唤醒此处等待
-             sess->WaitForData(1000);
+             sess->WaitForData(1000, listenSeq);
              return true;
         },
-        [this, SessionId](bool)
+        [this, SessionId, listenSeq](bool)
         {
             auto sess = GetSession(SessionId);
             std::string clientIP = sess ? sess->GetClientIP() : "unknown";
-            NSDK_LOG_INFO("[SessionManager] Alarm Listen Closed: SessionId=%s, ClientIP=%s", SessionId.c_str(), clientIP.c_str());
-            MarkDisconnected(SessionId);
+            const bool currentListen = sess && sess->IsCurrentAlarmListen(listenSeq);
+            NSDK_LOG_INFO("[SessionManager] Alarm Listen Closed: SessionId=%s, ClientIP=%s, ListenSeq=%llu, CurrentSeq=%llu, Current=%d",
+                          SessionId.c_str(), clientIP.c_str(),
+                          static_cast<unsigned long long>(listenSeq),
+                          static_cast<unsigned long long>(sess ? sess->GetAlarmListenSeq() : 0),
+                          currentListen ? 1 : 0);
+            if (sess && sess->MarkDisconnectedIfCurrentAlarmListen(listenSeq))
+            {
+                NSDK_LOG_INFO("[SessionManager] Client disconnected, queue cleared: SessionId=%s, ClientIP=%s, ListenSeq=%llu",
+                              SessionId.c_str(), clientIP.c_str(),
+                              static_cast<unsigned long long>(listenSeq));
+            }
         }
 
     );
 }
-

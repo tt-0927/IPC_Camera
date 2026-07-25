@@ -164,7 +164,7 @@ bool Inference_NS::CYolov5Point::checkModelProConfig()
     Json::Object *pItemObject = NULL;
     int i, nSizeItem;
     int nSize = 0;
-    bool bRet = false;
+    bool bRet = true;
     std::vector<int> vAnchors;
 
     pJsonHandle = Json::init(pchJson);
@@ -173,6 +173,7 @@ bool Inference_NS::CYolov5Point::checkModelProConfig()
     if (!pJsonData)
     {
         printf("解析[data]字段失败\n");
+        bRet = false;
         goto EXIT;
     }
     /* 1、置信度 */
@@ -201,12 +202,14 @@ bool Inference_NS::CYolov5Point::checkModelProConfig()
     if (!pJsonObject)
     {
         printf("解析anchors字段失败\n");
+        bRet = false;
         goto EXIT;
     }
     nSize = Json::Array::size(pJsonObject);
     if (nSize <= 0)
     {
         printf("解析[数组大小异常]\n");
+        bRet = false;
         goto EXIT;
     }
 
@@ -217,6 +220,7 @@ bool Inference_NS::CYolov5Point::checkModelProConfig()
         if (NULL == pItemObject)
         {
             printf("获取数组节点失败\n");
+            bRet = false;
             goto EXIT;
         }
 
@@ -241,13 +245,11 @@ bool Inference_NS::CYolov5Point::checkModelProConfig()
         printf("anchors赋值给模型失败\n");
     }
 
-    return true;
-
 EXIT:
     if (pJsonHandle)
     {
         Json::deinit(pJsonHandle);
         pJsonHandle = NULL;
     }
-    return false;
+    return bRet;
 }

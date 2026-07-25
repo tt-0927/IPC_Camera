@@ -326,6 +326,17 @@ static void connlost(void *context, char *cause)
     stConnOpts.context = pHandle;
     stConnOpts.automaticReconnect = pHandle->stExParam.bAutoReconnect ? 1 : 0;
 
+    dlog_info("mqtt重连CONNECT参数: url=%s, clientId=%s, username=%s, password=%s, clientIdLen=%zu, usernameLen=%zu, passwordLen=%zu, keepAlive=%u, timeout=%u",
+              achServerUrl,
+              pHandle->stExParam.achClientID,
+              pHandle->stExParam.achUserName,
+              pHandle->stExParam.achPassword,
+              strlen(pHandle->stExParam.achClientID),
+              strlen(pHandle->stExParam.achUserName),
+              strlen(pHandle->stExParam.achPassword),
+              pHandle->stExParam.unKeepAlive,
+              pHandle->stExParam.unConnectTimeout);
+
     /* LWT 遗嘱配置 */
     MQTTAsync_willOptions stWillOpts = MQTTAsync_willOptions_initializer;
     if (strlen(pHandle->stExParam.achWillTopic) > 0)
@@ -395,6 +406,17 @@ static int bl_mqtt_init(BlMqtt_S *pHandle)
     stConnOpts.onFailure = bl_mqtt_connFailure;
     stConnOpts.context = pHandle;
     stConnOpts.automaticReconnect = pHandle->stExParam.bAutoReconnect ? 1 : 0;
+
+    dlog_info("mqtt首次CONNECT参数: url=%s, clientId=%s, username=%s, password=%s, clientIdLen=%zu, usernameLen=%zu, passwordLen=%zu, keepAlive=%u, timeout=%u",
+              achServerUrl,
+              pHandle->stExParam.achClientID,
+              pHandle->stExParam.achUserName,
+              pHandle->stExParam.achPassword,
+              strlen(pHandle->stExParam.achClientID),
+              strlen(pHandle->stExParam.achUserName),
+              strlen(pHandle->stExParam.achPassword),
+              pHandle->stExParam.unKeepAlive,
+              pHandle->stExParam.unConnectTimeout);
 
     /* LWT 遗嘱配置 */
     MQTTAsync_willOptions stWillOpts = MQTTAsync_willOptions_initializer;

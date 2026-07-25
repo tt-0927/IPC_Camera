@@ -1,8 +1,8 @@
 /*
  * @Author: 梁浩尧 lianghaoyao@kfb.cn
  * @Date: 2025-11-27 17:24:46
- * @LastEditors: 梁浩尧 lianghaoyao@kfb.cn
- * @LastEditTime: 2025-12-09 15:57:18
+ * @LastEditors: lianghy lianghy@kfb.cn
+ * @LastEditTime: 2026-04-07 14:40:32
  * @FilePath: /1126/share/ai_share/AiModules/Modules/VehicleDetect/V2_0/VehicleDetectV2_0.cpp
  * @Description: 车辆检测
  */
@@ -131,7 +131,7 @@ bool VehicleDetect_NS::CVehicleDetectV2_0::process(
     /* 推理+后处理 */
     Inference_NS::InputData_S stInputData;
     stInputData.pData = (float*)stInData.inMat.data;
-    stInputData.nDataSize = static_cast<size_t>(stInData.inMat.total() * stInData.inMat.elemSize());
+    stInputData.nDataSize = static_cast<size_t>(stInData.inMat.total() * stInData.inMat.elemSize() * sizeof(float));
     stInputData.stBoxs.fConfidence = stInData.stParam.fBoxThreshold;
     stInputData.stBoxs.fNms = stInData.stParam.fNmsThreshold;
     

@@ -7,7 +7,7 @@
  * @Description  : SIP工具函数
  */
 #include "SipUtils.h"
-#include "ModuleLog.h"
+#include "dlog.h"
 #include "SipType.h"
 #include "iconv.h"
 #include <ctime>
@@ -46,7 +46,7 @@ std::string SIP::LocalTime(time_t time)
 	std::ostringstream oss;
 	oss << std::put_time(&local_tm, "%Y-%m-%d %H:%M:%S");
 #if SIP_UITLS_DEBUG
-	MLOG_DEBUG("LocalTime: %s", oss.str().c_str());
+	dlog_debug("LocalTime: %s", oss.str().c_str());
 #endif
 	return oss.str();
 }
@@ -70,7 +70,7 @@ std::string SIP::GenerateRandomString(int n)
 		++i;
 	}
 #if SIP_UITLS_DEBUG
-	MLOG_DEBUG("GenerateRandomString: %s", text.c_str());
+	dlog_debug("GenerateRandomString: %s", text.c_str());
 #endif
 	return text;
 }
@@ -92,7 +92,7 @@ std::string SIP::GenerateRandomNumber(int n)
 		++i;
 	}
 #if SIP_UITLS_DEBUG
-	MLOG_DEBUG("GenerateRandomNumber: %s", text.c_str());
+	dlog_debug("GenerateRandomNumber: %s", text.c_str());
 #endif
 	return text;
 }
@@ -103,7 +103,7 @@ std::string SIP::SSRC_Hex(std::string ssrc)
 	std::stringstream ss;
 	ss << std::hex << std::setw(8) << std::setfill('0') << num;
 #if SIP_UITLS_DEBUG
-	MLOG_DEBUG("SSRC_Hex: %s", ss.str().c_str());
+	dlog_debug("SSRC_Hex: %s", ss.str().c_str());
 #endif
 	return ss.str();
 }
@@ -138,7 +138,7 @@ std::string SIP::ToUtf8String(const std::string &input)
 	delete[] outBuf;
 	iconv_close(cd);
 #if SIP_UITLS_DEBUG
-	MLOG_DEBUG("GB18030 ==========> UTF8\n%s", input.c_str());
+	dlog_debug("GB18030 ==========> UTF8\n%s", input.c_str());
 #endif
 	return strOutput;
 }
@@ -146,7 +146,7 @@ std::string SIP::ToUtf8String(const std::string &input)
 std::string SIP::ToMbcsString(const std::string &input)
 {
 #if SIP_UITLS_DEBUG
-	MLOG_DEBUG("UTF8 ==========> GB18030\n%s", input.c_str());
+	dlog_debug("UTF8 ==========> GB18030\n%s", input.c_str());
 #endif
 	iconv_t cd = iconv_open("GB18030", "UTF-8");
 	if (cd == (iconv_t)(-1))
@@ -193,7 +193,7 @@ std::string SIP::GetCurrentModuleDirectory()
 int64_t SIP::ISO8601ToTimeT(const std::string &str)
 {
 #if SIP_UITLS_DEBUG
-	MLOG_DEBUG("ISO8601ToTimeT: %s", str.c_str());
+	dlog_debug("ISO8601ToTimeT: %s", str.c_str());
 #endif
 	std::regex pattern(R"(^\d{4}-\d{2}-\d{2}[Tt]\d{2}:\d{2}:\d{2}[Zz]?$)");
 	if (std::regex_match(str, pattern))
@@ -236,7 +236,7 @@ std::string SIP::TimeTToISO8601(int64_t time)
 	char buffer[32];
 	strftime(buffer, sizeof(buffer), "%Y-%m-%dT%H:%M:%S", &t);
 #if SIP_UITLS_DEBUG
-	MLOG_DEBUG("TimeTToISO8601[%lld] ====> [%s]", time, buffer);
+	dlog_debug("TimeTToISO8601[%lld] ====> [%s]", time, buffer);
 #endif
 	return std::string(buffer);
 }
@@ -270,17 +270,17 @@ int64_t SIP::UnixToTime(const std::string &strFromatTime)
 	std::tm tm = {};
 	if (strptime(strFromatTime.c_str(), "%Y-%m-%d %H:%M:%S", &tm) == nullptr)
 	{
-		MLOG_WARN("转换的时间格式strptime错误[%s]", strFromatTime.c_str());
+		dlog_warn("转换的时间格式strptime错误[%s]", strFromatTime.c_str());
 		return -1;
 	}
 	time_t seconds = mktime(&tm);
 	if (seconds == -1)
 	{
-		MLOG_WARN("转换的时间格式mktime错误[%s]", strFromatTime.c_str());
+		dlog_warn("转换的时间格式mktime错误[%s]", strFromatTime.c_str());
 		return -2;
 	}
 #if SIP_UITLS_DEBUG
-	MLOG_DEBUG("UnixToTime[%s] ====> [%lld]", strFromatTime.c_str(), seconds);
+	dlog_debug("UnixToTime[%s] ====> [%lld]", strFromatTime.c_str(), seconds);
 #endif
 	return seconds;
 }
@@ -310,7 +310,7 @@ SIP::SDP::Map_S SIP::ToRtpMap(SipVideoType_E enType)
 	/* 通道数为0，为音频数据预留 */
 	stMap.nChannel = 0;
 #if SIP_UITLS_DEBUG
-	MLOG_DEBUG("ToRtpMap[%d] ====> [%d][%s]",
+	dlog_debug("ToRtpMap[%d] ====> [%d][%s]",
 			   enType, stMap.nPayloadType, stMap.strCodecName.c_str());
 #endif
 	return stMap;
@@ -319,7 +319,7 @@ SIP::SDP::Map_S SIP::ToRtpMap(SipVideoType_E enType)
 SipVideoType_E SIP::FromRtpMapByVideo(const SDP::Map_S &stMap)
 {
 #if SIP_UITLS_DEBUG
-	MLOG_DEBUG("FromRtpMapByVideo[%d][%s]",
+	dlog_debug("FromRtpMapByVideo[%d][%s]",
 			   stMap.nPayloadType, stMap.strCodecName.c_str());
 #endif
 	/* 根据Codec名称来转换格式类型枚举 */
@@ -378,7 +378,7 @@ SIP::SDP::Map_S SIP::ToRtpMap(SipAudioInfo_S stInfo)
 		break;
 	}
 #if SIP_UITLS_DEBUG
-	MLOG_DEBUG("ToRtpMap[%d] ====> [%d][%s]",
+	dlog_debug("ToRtpMap[%d] ====> [%d][%s]",
 			   stInfo.enType, stMap.nPayloadType, stMap.strCodecName.c_str());
 #endif
 	return stMap;
@@ -418,7 +418,7 @@ SipAudioInfo_S SIP::FromRtpMapByAudio(const SDP::Map_S &stMap)
 	stAudio.nSampleRate = stMap.nClockRate;
 	stAudio.nChannel = stMap.nChannel;
 #if SIP_UITLS_DEBUG
-	MLOG_DEBUG("FromRtpMapByAudio[%s] ====> [%d][%d][%d]",
+	dlog_debug("FromRtpMapByAudio[%s] ====> [%d][%d][%d]",
 			   stMap.strCodecName.c_str(),
 			   stAudio.enType, stAudio.nSampleRate, stAudio.nChannel);
 #endif
@@ -588,11 +588,11 @@ std::vector<std::string> SIP::SplitString(const std::string &s, char c)
 		vecRet.push_back(""); /* 添加一个空字符串 */
 	}
 #if SIP_UITLS_DEBUG
-	MLOG_DEBUG("需要分割的字符串[%s],分割后的个数[%d]",
+	dlog_debug("需要分割的字符串[%s],分割后的个数[%d]",
 			   s.c_str(), vecRet.size());
 	for (size_t i = 0; i < vecRet.size(); i++)
 	{
-		MLOG_DEBUG("分割字符串[%d][%s]", i, vecRet[i].c_str());
+		dlog_debug("分割字符串[%d][%s]", i, vecRet[i].c_str());
 	}
 #endif
 	return vecRet;
@@ -605,7 +605,7 @@ int SIP::ParseReadFileAction(const std::string &str, SipReadFileAction_S &stRead
 	 *       针对会话操作，和通道无关联
 	 */
 #if SIP_UITLS_DEBUG
-	MLOG_DEBUG("解析回放操作指令\n%s", str.c_str());
+	dlog_debug("解析回放操作指令\n%s", str.c_str());
 #endif
 	std::stringstream ss(str);
 	std::string token;
@@ -639,7 +639,7 @@ int SIP::ParseReadFileAction(const std::string &str, SipReadFileAction_S &stRead
 				::SafeStr2Num(vecSeq[1], stReadAction.nCSeq);
 			}
 #if SIP_UITLS_DEBUG
-			MLOG_INFO("CSeq:%d", stReadAction.nCSeq);
+			dlog_info("CSeq:%d", stReadAction.nCSeq);
 #endif
 			continue;
 		}
@@ -654,7 +654,7 @@ int SIP::ParseReadFileAction(const std::string &str, SipReadFileAction_S &stRead
 				stReadAction.enAction = SIP_READFILE_SPEED;
 			}
 #if SIP_UITLS_DEBUG
-			MLOG_INFO("Scale:%f", stReadAction.dSpeed);
+			dlog_info("Scale:%f", stReadAction.dSpeed);
 #endif
 			/* 倍速字段为负数时，则为倒放 */
 			if (stReadAction.dSpeed < 0.00f)

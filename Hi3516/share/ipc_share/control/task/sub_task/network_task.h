@@ -69,6 +69,7 @@ namespace Task
          */
         TaskSubClass(GmCreateCertRequestFile)
         TaskSubClass(GmUploadCaCert)
+        TaskSubClass(GmUploadPlatformCert)
         TaskSubClass(GmUploadDeviceCert)
         TaskSubClass(GmUploadCrlFile)
         TaskSubClass(GmGetCertInfo)
@@ -79,6 +80,7 @@ namespace Task
         *  @brief ：WiFi功能
         */
         TaskSubClass(SetWifiStaInfo)
+        TaskSubClass(GetWifiStaInfo)
         TaskSubClass(ConnectWifiSta)
         TaskSubClass(DisconnectWifiSta)
 #endif
@@ -96,6 +98,7 @@ namespace Task
         *  @brief ：热点功能
         */
         TaskSubClass(SetHotspot)
+        TaskSubClass(GetHotspot)
         TaskSubClass(GetHotspotConn)
 #endif
 

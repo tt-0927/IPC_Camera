@@ -305,9 +305,6 @@ std::vector<ClientInfo> HostapdManager::QueryDevicesInternal() {
             char ip_buf[32] = {0};
             char mac_buf[32] = {0};
 
-            // 【核心修复】使用 sscanf 进行更健壮的解析
-            // 尝试匹配格式："? (IP地址) at MAC地址 ..."
-            // 注意：不同系统格式可能略有不同，这里适配最常见的 BusyBox 格式
             if (sscanf(l.c_str(), "%s (%[^)]) at %s", ip_buf, ip_buf, mac_buf) >= 2) {
                 // 成功解析到 IP 和 MAC
                 // 过滤掉 "<incomplete>" 这种无效条目
@@ -426,4 +423,18 @@ std::string HostapdManager::GenerateDHCPConfigStr() const {
     oss << "option dns " << dhcp_config_.dns1 << ", " << dhcp_config_.dns2 << "\n";
     return oss.str();
 }
+
+
+void HostapdManager::set_hostapd_config(Network::HotspotConfig stHotspotConfigInfo)
+{
+    std::cout << "写入热点是否开启。" << std::endl;
+    Convert::write_file(HOSTAPD_CONFIG_FILE, stHotspotConfigInfo);
+    
+}
+
+void HostapdManager::get_hostapd_config(Network::HotspotConfig &outHotspotConfigInfo) {
+    std::cout << "读取热点配置信息。" << std::endl;
+    Convert::read_file(HOSTAPD_CONFIG_FILE, outHotspotConfigInfo);
+}
+
 #endif

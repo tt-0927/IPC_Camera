@@ -3,7 +3,7 @@
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2025-09-09 14:31:20
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2025-11-24 19:01:11
+ * @LastEditTime : 2026-06-05 11:31:42
  * @Description  : 时间工具
  */
 
@@ -13,6 +13,7 @@
 #include <chrono>
 #include <iomanip>
 #include <cmath>
+#include <time.h>
 
 /**
  * @brief   : 时间工具
@@ -93,6 +94,13 @@ namespace TimeUtils_NS
      * @return   {long long} 毫秒级别时间戳
      */
     long long get_currentTimestampMs();
+
+    /**
+     * @brief   : 获取单调递增毫秒计数
+     * @return  {long long} 单调递增毫秒计数
+     * @note    : 仅用于计算时间间隔，不受系统校时、NTP、时区切换影响，不能用于日期展示或文件命名
+     */
+    long long get_monotonicTimestampMs();
 
     /**
      * @brief   : 获取当前秒级别时间戳

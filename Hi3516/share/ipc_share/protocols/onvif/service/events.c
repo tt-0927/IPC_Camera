@@ -839,7 +839,7 @@ SOAP_FMAC5 int SOAP_FMAC6 __tev__PullMessages(struct soap* soap, struct _tev__Pu
     }
     else
     {
-        dlog_debug("wsa5__To PullMessages addr  null  ");
+        // dlog_debug("wsa5__To PullMessages addr  null  ");
     }
     tev__PullMessagesResponse->CurrentTime = time(NULL);
     tev__PullMessagesResponse->TerminationTime  = time(NULL) + stEventBatch.nExpireTime/*ONVIF_SUB_TIMEOUT*/;
@@ -853,7 +853,7 @@ SOAP_FMAC5 int SOAP_FMAC6 __tev__PullMessages(struct soap* soap, struct _tev__Pu
 #if ONVIF_LOG_SWITCH
     dlog_debug("PullMessages 事件个数 [%d] ",stEventBatch.nEventNum);
 #endif
-    dlog_debug("PullMessages 事件个数 [%d] ",stEventBatch.nEventNum);
+    // dlog_debug("PullMessages 事件个数 [%d] ",stEventBatch.nEventNum);
     tev__PullMessagesResponse->__sizeNotificationMessage = stEventBatch.nEventNum;
     if(tev__PullMessagesResponse->wsnt__NotificationMessage != NULL)
     {

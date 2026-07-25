@@ -38,14 +38,18 @@ bool Modules_NS::saveImage(const cv::Mat &image, const std::string &strOutputPat
     /* 构造完整的文件名（包含路径） */
     std::ostringstream filename;
     filename << strOutputPath << "/image_" << timestamp.str() << ".jpg";
-    #ifdef RK_3588
-    cv::Mat bgrImage;
-    cv::cvtColor(image, bgrImage, cv::COLOR_RGB2BGR);
-    bool bSaved = cv::imwrite(filename.str(), bgrImage);
-    #else
-    /* 使用 OpenCV 的 imwrite 函数保存图像 */
-    bool bSaved = cv::imwrite(filename.str(), image);
-    #endif
+    bool bSaved = false;
+    if(image.type() == CV_8UC3)
+    {
+        cv::Mat bgrImage;
+        cv::cvtColor(image, bgrImage, cv::COLOR_RGB2BGR);
+        bSaved = cv::imwrite(filename.str(), bgrImage);
+    }
+    else
+    {    
+        /* 使用 OpenCV 的 imwrite 函数保存图像 */
+        bSaved = cv::imwrite(filename.str(), image);
+    }
     return bSaved; /* 返回保存结果 */
 }
 
@@ -114,7 +118,7 @@ bool Modules_NS::saveImage(const cv::Mat &image, const std::string &strOutputPat
     int quality = 85; // 默认质量
     int totalPixels = outputImage.cols * outputImage.rows;
     if (totalPixels >= 1920 * 1080) {
-        quality = 75;
+        quality = 50;
     } else if (totalPixels < 640 * 480) {
         quality = 95;
     }

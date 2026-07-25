@@ -126,7 +126,7 @@ bool Inference_NS::CYoloOrigin::checkModelProConfig()
 
     Json::Object *pJsonHandle = NULL;
     Json::Object *pJsonData = NULL;
-    bool bRet = false;
+    bool bRet = true;
 
     pJsonHandle = Json::init(pchJson);
 
@@ -134,6 +134,7 @@ bool Inference_NS::CYoloOrigin::checkModelProConfig()
     if (!pJsonData)
     {
         printf("解析[data]字段失败\n");
+        bRet = false;
         goto EXIT;
     }
     /* 1、置信度 */
@@ -150,7 +151,6 @@ bool Inference_NS::CYoloOrigin::checkModelProConfig()
         printf("解析nms字段失败\n");
         goto EXIT;
     }
-    return true;
 
 EXIT:
     if (pJsonHandle)
@@ -158,5 +158,5 @@ EXIT:
         Json::deinit(pJsonHandle);
         pJsonHandle = NULL;
     }
-    return false;
+    return bRet;
 }

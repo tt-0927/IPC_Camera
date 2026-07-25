@@ -3,7 +3,7 @@
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2026-04-15 16:29:58
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-05-07 15:28:43
+ * @LastEditTime : 2026-07-01 09:05:01
  * @Description  : 事件联动内部公共类型定义模块
  */
 
@@ -52,6 +52,21 @@ struct EventTriggerContext_S
     long long llTimestamp = 0;
     /* 扩展属性键值对，如 result/level/source/rule_id 等 */
     std::map<std::string, std::string> mapAttrs;
+    /* TVSDK 事件全景图，事件触发当帧编码，结束事件保持为空 */
+    EventTvSdkImage_S stPanoramaImage;
+    /* TVSDK 事件目标特写图，事件触发当帧裁剪编码，结束事件保持为空 */
+    EventTvSdkImage_S stTargetImage;
+    /* TVSDK 目标跟踪 ID，未知时保持 -1 */
+    int nTargetId = -1;
+    /* TVSDK 目标类型，0:未知 1:人 2:车 */
+    int nObjectType = 0;
+    /* TVSDK 目标置信度，范围 0~1 */
+    float fConfidence = 0.0f;
+    /* TVSDK 目标框坐标 */
+    int nLeft = 0;
+    int nTop = 0;
+    int nRight = 0;
+    int nBottom = 0;
     /* TVSDK 推送扩展负载，承载图片、统计目标等大对象并保持所有权 */
     std::shared_ptr<const EventTvSdkPayload_S> pTvSdkPayload;
 };
@@ -215,6 +230,10 @@ struct LinkageTask_S
     int nPriority = INT_MAX;
     /* 任务入队时间戳 */
     long long llTimestamp = 0;
+    /* 任务过期时间戳，单位毫秒，避免异常阻塞时旧任务长期占用队列 */
+    long long llExpireTimeMs = 0;
+    /* 任务重试次数，保留给冲突退避策略使用 */
+    // int nRetryCount = 0;
 
     /* 报警输出联动的 IO 编号列表 */
     std::vector<int> vecAlarmOutputNum;

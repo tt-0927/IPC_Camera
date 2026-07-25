@@ -70,7 +70,6 @@ set (LIBS
     libagent++
     libRtspServer
     libonvif
-    libgmssl
     librtmp
     # rk_pipeline
     -lrockit

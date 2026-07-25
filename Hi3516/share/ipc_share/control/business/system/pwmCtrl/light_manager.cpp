@@ -132,6 +132,39 @@ int CLightManager::get_peripheral_config(System::Peripheral_S& config)
     return IpcRet_E::OK;
 }
 
+int CLightManager::apply_peripheral_config()
+{
+    System::Peripheral_S config;
+    {
+        std::lock_guard<std::mutex> lock(m_configMutex);
+        /* lock: 只在锁内复制配置快照，后续恢复动作可能再次进入灯光配置锁 */
+        config = m_peripheralConfig;
+    }
+    
+    dlog_info("应用外设配置 - 启用: %s, 模式: %d, 亮度: %u", 
+            config.bEnable ? "是" : "否", 
+            config.nLightMode, 
+            config.nLevel);
+    
+    /* 根据配置类型立即应用；定时模式内部会读取配置锁，必须在无锁状态调用 */
+    if (!config.bEnable) 
+    {
+        CPwmCtrl::instance()->light_turn_off(LIGHT_TYPE_WHITE);
+    }
+    else if (config.nLightMode == 0) 
+    {
+        applyScheduledWhiteLight();
+    } 
+    else if (config.nLightMode == 1) 
+    {
+        ISP::DayNightAttr_S stDayNightAttr;
+        CIspConfigure::instance()->get_configure(stDayNightAttr);
+        control_light(stDayNightAttr.stFillLight);
+    }
+    
+    return IpcRet_E::OK;
+}
+
 void CLightManager::on_dayNight_changed(bool isNight, const FillLight_S& lightConfig)
 {
     dlog_info("接收日夜切换信号: %s", isNight ? "夜间" : "白天");

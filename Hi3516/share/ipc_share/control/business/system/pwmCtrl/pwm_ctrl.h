@@ -86,6 +86,20 @@ private:
     const unsigned int red_light_output_pwm_pins = 0;
 
 #else
+
+    #if CAP_IO_EXTERNAL_DDR_00S
+
+        /* 白光灯 灯光PWM编号 */
+        const unsigned int white_light_output_pwm_num = 3;
+        /* 红外 灯光PWM编号 */
+        const unsigned int red_light_output_pwm_num = 3;
+        /* 白光灯 PWM 输出引脚 */
+        const unsigned int white_light_output_pwm_pins = 1;
+        /* 红外 PWM 输出引脚 */
+        const unsigned int red_light_output_pwm_pins = 3;
+    #else
+
+
     /* 白光灯 灯光PWM编号 */
     const unsigned int white_light_output_pwm_num = 0;
     /* 红外 灯光PWM编号 */
@@ -94,6 +108,8 @@ private:
     const unsigned int white_light_output_pwm_pins = 0;
     /* 红外 PWM 输出引脚 */
     const unsigned int red_light_output_pwm_pins = 2;
+
+    #endif//CAP_IO_EXTERNAL_DDR_00S
 #endif
        
 };

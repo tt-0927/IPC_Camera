@@ -3,14 +3,19 @@
 # 设置环境变量
 export LD_LIBRARY_PATH=/lib
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/cam/lib
-export PATH=$PATH:/opt/cam/tools
+export PATH="$PATH":/opt/cam/tools
 
 # 初始化系统
 # /root/init.sh
 /root/insmod.sh
 
-# 同步硬件时间，必须在程序起来前
-hwclock -s
+# 设置系统时区，必须在同步RTC与启动业务进程前完成
+if [ -f /opt/cam/shell/set_timezone.sh ]; then
+    . /opt/cam/shell/set_timezone.sh
+fi
+
+# 同步硬件时间，必须在程序起来前，RTC统一按UTC保存
+hwclock -s -u
 
 # 设置发送缓冲区最大768KB (默认通常128KB)
 sysctl -w net.core.wmem_max=786432
@@ -87,13 +92,7 @@ if [ ! -d "/var/www/html/opt" ]; then
     ln -s /opt /var/www/html/opt
 fi
 
-# 国密sm2密钥对路径
-GM_SM2_KEY_PATH="/opt/cam/gm_cert/device/deviceKey.pem"
-# 判断国密sm2密钥对是否存在
-if [ ! -f "$GM_SM2_KEY_PATH" ]; then
-    echo "国密sm2密钥文件 $GM_SM2_KEY_PATH 不存在,执行gmssl命令创建..."
-    gmssl sm2keygen -pass 12345678 -out $GM_SM2_KEY_PATH
-fi
+# 国密 SM2 私钥由业务代码通过 CCryptoManager 生成，避免脚本 gmssl 与 OpenSSL Provider 私钥格式不兼容
 
 # 修改权限
 chmod 770 -R /opt/cam

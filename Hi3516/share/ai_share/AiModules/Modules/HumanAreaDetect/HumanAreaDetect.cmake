@@ -34,11 +34,27 @@ execute_process(
     OUTPUT_VARIABLE dirs_list
     )
 string(REPLACE "\n" ";" dirs_list ${dirs_list})
+
+if("${AIMODULES}" STREQUAL "LINUX_X86")
+    set(dirs_list 
+        ${CMAKE_CURRENT_LIST_DIR}
+        ${CMAKE_CURRENT_LIST_DIR}/V4_0
+    )
+else()
+    set(dirs_list 
+        ${CMAKE_CURRENT_LIST_DIR}
+        ${CMAKE_CURRENT_LIST_DIR}/V1_0
+        ${CMAKE_CURRENT_LIST_DIR}/V2_0
+        ${CMAKE_CURRENT_LIST_DIR}/V3_0
+    )
+endif()
+
+
 # 添加所有源文件与头文件
 foreach(item ${dirs_list})
     target_include_directories(${MODULE_NAME} INTERFACE ${item})
-    aux_source_directory (${item} MODULE_SOURCES)
-endforeach() 
+    aux_source_directory(${item} MODULE_SOURCES)
+endforeach()
 
 # 设置的源文件
 target_sources(${MODULE_NAME} INTERFACE ${MODULE_SOURCES})
@@ -46,6 +62,8 @@ target_sources(${MODULE_NAME} INTERFACE ${MODULE_SOURCES})
 # 链接库路径
 if("${AIMODULES}" STREQUAL "RK35XX")
     set(MODULE_DEPS ByteTrack_CPU HumanDetect_RK)
+elseif("${AIMODULES}" STREQUAL "LINUX_X86")
+    
 else()
     set(MODULE_DEPS ByteTrack_CPU)
 endif()

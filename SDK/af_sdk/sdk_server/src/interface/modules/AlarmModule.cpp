@@ -93,7 +93,15 @@ BOOL AlarmModule::PushAlarmInfo(NET_TV_ALARMER_S* pAlarmer,
             }
             else
             {
-                SDKConvert::deal(pInfoJson, *(NET_TV_ALARM_BASIC_INFO_S*)pAlarmInfo, false);
+                NET_TV_ALARM_BASIC_INFO_S& info = *(NET_TV_ALARM_BASIC_INFO_S*)pAlarmInfo;
+                NSDK_LOG_INFO("[DIAG-ALARM] Basic input: cmd=0x%x, alarmType=0x%x, timestamp=%lld, panoramaLen=%u, bufLen=%d, structSize=%zu",
+                              lCommand,
+                              info.dwAlarmType,
+                              (long long)info.llTimestampMs,
+                              info.dwPanoramaImgLen,
+                              dwBufLen,
+                              sizeof(NET_TV_ALARM_BASIC_INFO_S));
+                SDKConvert::deal(pInfoJson, info, false);
             }
         }
         else if (alarmBase == NET_TV_ALARM_BASE_RULE)
@@ -106,6 +114,23 @@ BOOL AlarmModule::PushAlarmInfo(NET_TV_ALARMER_S* pAlarmer,
             {
                 /* 含大图片数组，禁止栈上拷贝，直接引用原始数据 */
                 NET_TV_ALARM_RULE_INFO_S& info = *(NET_TV_ALARM_RULE_INFO_S*)pAlarmInfo;
+                NSDK_LOG_INFO("[DIAG-ALARM] Rule input: cmd=0x%x, alarmType=0x%x, channel=%u, rule=%u, target=%u, "
+                              "objType=%u, timestamp=%lld, rect=[%d,%d,%d,%d], panoramaLen=%u, targetLen=%u, bufLen=%d, structSize=%zu",
+                              lCommand,
+                              info.dwAlarmType,
+                              info.dwChannel,
+                              info.dwRuleID,
+                              info.dwTargetID,
+                              info.dwObjectType,
+                              (long long)info.llTimestampMs,
+                              info.nLeft,
+                              info.nTop,
+                              info.nRight,
+                              info.nBottom,
+                              info.dwPanoramaImgLen,
+                              info.dwTargetImgLen,
+                              dwBufLen,
+                              sizeof(NET_TV_ALARM_RULE_INFO_S));
                 SDKConvert::deal(pInfoJson, info, false);
             }
         }
@@ -119,6 +144,22 @@ BOOL AlarmModule::PushAlarmInfo(NET_TV_ALARMER_S* pAlarmer,
             {
                 /* 含大图片数组，禁止栈上拷贝，直接引用原始数据 */
                 NET_TV_ALARM_AI_OBJECT_INFO_S& info = *(NET_TV_ALARM_AI_OBJECT_INFO_S*)pAlarmInfo;
+                NSDK_LOG_INFO("[DIAG-ALARM] AI object input: cmd=0x%x, alarmType=0x%x, channel=%u, object=%s, "
+                              "objType=%u, timestamp=%lld, rect=[%d,%d,%d,%d], panoramaLen=%u, imgLen=%u, bufLen=%d, structSize=%zu",
+                              lCommand,
+                              info.dwAlarmType,
+                              info.dwChannel,
+                              info.szObjectID,
+                              info.dwObjectType,
+                              (long long)info.llTimestampMs,
+                              info.nLeft,
+                              info.nTop,
+                              info.nRight,
+                              info.nBottom,
+                              info.dwPanoramaImgLen,
+                              info.dwImgLen,
+                              dwBufLen,
+                              sizeof(NET_TV_ALARM_AI_OBJECT_INFO_S));
                 SDKConvert::deal(pInfoJson, info, false);
             }
         }
@@ -179,6 +220,16 @@ BOOL AlarmModule::PushAlarmInfo(NET_TV_ALARMER_S* pAlarmer,
     // 转换为JSON字符串
     std::string jsonStr = Json::to_string(pRoot);
     Json::deinit(pRoot);
+    if ((lCommand & 0xF000) == NET_TV_ALARM_BASE_RULE ||
+        (lCommand & 0xF000) == NET_TV_ALARM_BASE_AI)
+    {
+        NSDK_LOG_INFO("[DIAG-ALARM] JSON output: cmd=0x%x, jsonLen=%zu, hasPanoramaB64=%d, hasTargetB64=%d, hasImgDataB64=%d",
+                      lCommand,
+                      jsonStr.size(),
+                      jsonStr.find("PanoramaImgBase64") != std::string::npos ? 1 : 0,
+                      jsonStr.find("TargetImgBase64") != std::string::npos ? 1 : 0,
+                      jsonStr.find("ImgDataBase64") != std::string::npos ? 1 : 0);
+    }
 
     // [诊断] 记录 PushToAll 前的时间戳，用于定位报警转发延迟
     auto tp_before_push = std::chrono::steady_clock::now();
@@ -212,40 +263,40 @@ BOOL AlarmModule::PushAlarmInfo(NET_TV_ALARMER_S* pAlarmer,
 
 BOOL AlarmModule::PushChannelStatusInfo(NET_TV_CHANNEL_INFO_S* pChannelInfo)
 {
-    NSDK_LOG_INFO("[AlarmModule] ===== PushChannelStatusInfo Start ===== ");
+    NSDK_LOG_WARN("[AlarmModule] ===== PushChannelStatusInfo Start ===== ");
 
     if (!pChannelInfo)
     {
         NSDK_LOG_ERROR("[AlarmModule] PushChannelStatusInfo: Invalid parameters (NULL)");
-        NSDK_LOG_INFO("[AlarmModule] ===== PushChannelStatusInfo End (Failed) ===== ");
+        NSDK_LOG_WARN("[AlarmModule] ===== PushChannelStatusInfo End (Failed) ===== ");
         return FALSE;
     }
 
     // 打印输入参数详情
-    NSDK_LOG_INFO("[AlarmModule] Input Channel Info:");
-    NSDK_LOG_INFO("[AlarmModule]   Channel:      %u", pChannelInfo->dwChannel);
-    NSDK_LOG_INFO("[AlarmModule]   ChannelName:  %s", pChannelInfo->szChannelName);
-    NSDK_LOG_INFO("[AlarmModule]   DeviceName:   %s", pChannelInfo->szDevName);
-    NSDK_LOG_INFO("[AlarmModule]   DeviceIP:     %s", pChannelInfo->szDeviceIP);
-    NSDK_LOG_INFO("[AlarmModule]   SerialNum:    %s", pChannelInfo->szSerialNum);
-    NSDK_LOG_INFO("[AlarmModule]   Enable:       %d (%s)", pChannelInfo->byEnable, 
+    NSDK_LOG_WARN("[AlarmModule] Input Channel Info:");
+    NSDK_LOG_WARN("[AlarmModule]   Channel:      %u", pChannelInfo->dwChannel);
+    NSDK_LOG_WARN("[AlarmModule]   ChannelName:  %s", pChannelInfo->szChannelName);
+    NSDK_LOG_WARN("[AlarmModule]   DeviceName:   %s", pChannelInfo->szDevName);
+    NSDK_LOG_WARN("[AlarmModule]   DeviceIP:     %s", pChannelInfo->szDeviceIP);
+    NSDK_LOG_WARN("[AlarmModule]   SerialNum:    %s", pChannelInfo->szSerialNum);
+    NSDK_LOG_WARN("[AlarmModule]   Enable:       %d (%s)", pChannelInfo->byEnable,
                   pChannelInfo->byEnable ? "ENABLED" : "DISABLED");
-    NSDK_LOG_INFO("[AlarmModule]   Online:       %d (%s)", pChannelInfo->byOnline, 
+    NSDK_LOG_WARN("[AlarmModule]   Online:       %d (%s)", pChannelInfo->byOnline,
                   pChannelInfo->byOnline ? "ONLINE" : "OFFLINE");
-    NSDK_LOG_INFO("[AlarmModule]   RecordStatus: %d", pChannelInfo->nRecordStatus);
-    NSDK_LOG_INFO("[AlarmModule]   DevState:     %d", pChannelInfo->nDevState);
+    NSDK_LOG_WARN("[AlarmModule]   RecordStatus: %d", pChannelInfo->nRecordStatus);
+    NSDK_LOG_WARN("[AlarmModule]   DevState:     %d", pChannelInfo->nDevState);
 
     Json::Object* pRoot = Json::init();
     if (!pRoot)
     {
         NSDK_LOG_ERROR("[AlarmModule] PushChannelStatusInfo: Failed to init JSON");
-        NSDK_LOG_INFO("[AlarmModule] ===== PushChannelStatusInfo End (JSON init failed) ===== ");
+        NSDK_LOG_WARN("[AlarmModule] ===== PushChannelStatusInfo End (JSON init failed) ===== ");
         return FALSE;
     }
 
     Json::add(pRoot, "Event", "ChannelStatus");
     Json::add(pRoot, "Command", (long long)NET_TV_NOTIFY_CHANNEL_STATUS);
-    NSDK_LOG_INFO("[AlarmModule] Command: NET_TV_NOTIFY_CHANNEL_STATUS (0x%X)", NET_TV_NOTIFY_CHANNEL_STATUS);
+    NSDK_LOG_WARN("[AlarmModule] Command: NET_TV_NOTIFY_CHANNEL_STATUS (0x%X)", NET_TV_NOTIFY_CHANNEL_STATUS);
 
     Json::Object* pChannelJson = Json::init();
     NET_TV_CHANNEL_INFO_S info = *pChannelInfo;
@@ -260,10 +311,10 @@ BOOL AlarmModule::PushChannelStatusInfo(NET_TV_CHANNEL_INFO_S* pChannelInfo)
 
     // 获取在线客户端数量
     size_t clientCount = CSessionManager::instance()->GetSessionCount();
-    NSDK_LOG_INFO("[AlarmModule] Current online clients: %zu", clientCount);
+    NSDK_LOG_WARN("[AlarmModule] Current online clients: %zu", clientCount);
 
     // 执行推送
-    NSDK_LOG_INFO("[AlarmModule] Calling PushToAll...");
+    NSDK_LOG_WARN("[AlarmModule] Calling PushToAll...");
     size_t pushCount = CSessionManager::instance()->PushToAll(jsonStr);
 
     if (pushCount == 0)
@@ -274,15 +325,15 @@ BOOL AlarmModule::PushChannelStatusInfo(NET_TV_CHANNEL_INFO_S* pChannelInfo)
     }
     else
     {
-        NSDK_LOG_INFO("[AlarmModule] Channel status pushed to %zu client(s) SUCCESS", pushCount);
-        NSDK_LOG_INFO("[AlarmModule]   Channel: %u, Online: %s", 
-                      pChannelInfo->dwChannel, 
+        NSDK_LOG_WARN("[AlarmModule] Channel status pushed to %zu client(s) SUCCESS", pushCount);
+        NSDK_LOG_WARN("[AlarmModule]   Channel: %u, Online: %s",
+                      pChannelInfo->dwChannel,
                       pChannelInfo->byOnline ? "ONLINE" : "OFFLINE");
     }
 
     m_pushCount++;
-    NSDK_LOG_INFO("[AlarmModule] Total push count: %lld", m_pushCount);
-    NSDK_LOG_INFO("[AlarmModule] ===== PushChannelStatusInfo End ===== ");
+    NSDK_LOG_WARN("[AlarmModule] Total push count: %lld", m_pushCount);
+    NSDK_LOG_WARN("[AlarmModule] ===== PushChannelStatusInfo End ===== ");
     return TRUE;
 }
 

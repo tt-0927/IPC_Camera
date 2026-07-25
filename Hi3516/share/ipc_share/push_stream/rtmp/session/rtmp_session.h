@@ -13,10 +13,12 @@
 #include <cstdint>
 #include <mutex>
 #include <string>
+#include <thread>
 
 #include "IpcRet.h"
 #include "audio/aac_adts_parser.h"
 #include "audio_define.h"
+#include "common/frame_queue.h"
 #include "dlog.h"
 #include "session/rtmp_stream_context.h"
 #include "video_define.h"
@@ -119,6 +121,25 @@ private:
      */
     bool is_key_frame(Video_NS::VideoFrame_S* pVideoFrame) const;
 
+    /**
+     * @brief 发送线程主循环
+     */
+    void send_loop();
+
+    /**
+     * @brief 处理视频帧发送
+     * @param pFrameData 帧数据
+     * @return 0成功，非0失败
+     */
+    int process_video_frame(std::unique_ptr<FrameData> pFrameData);
+
+    /**
+     * @brief 处理音频帧发送
+     * @param pFrameData 帧数据
+     * @return 0成功，非0失败
+     */
+    int process_audio_frame(std::unique_ptr<FrameData> pFrameData);
+
 private:
     /* FFmpeg流上下文 */
     CRtmpStreamContext m_stream_context;
@@ -132,7 +153,7 @@ private:
     Audio_NS::AudioConfig_S m_stAudioConfig;
     /* 连接状态 */
     std::atomic<bool> m_bConnected{ false };
-    /* 互斥锁 */
+    /* 互斥锁（保护流上下文和业务状态） */
     mutable std::mutex m_mutex;
     /* 视频流是否已根据首帧参数集初始化 */
     bool m_bVideoReady = false;
@@ -154,6 +175,35 @@ private:
     int64_t m_nVideoFrameDurationMs = 40;
     /* AAC帧时长（毫秒） */
     int64_t m_nAudioFrameDurationMs = 64;
+
+    /* 视频帧队列 */
+    std::unique_ptr<CThreadSafeFrameQueue> m_videoQueue;
+    /* 音频帧队列 */
+    std::unique_ptr<CThreadSafeFrameQueue> m_audioQueue;
+    /* 发送线程 */
+    std::thread m_sendThread;
+    /* 停止发送标志 */
+    std::atomic<bool> m_bStopSend{false};
+    /* 发送线程运行状态 */
+    std::atomic<bool> m_bSendThreadRunning{false};
+    /* 队列操作互斥锁（保护队列指针访问） */
+    mutable std::mutex m_mutexQueue;
+
+    /* RTMP诊断计数：用于判断是否卡在入队、出队或实际发送阶段 */
+    std::atomic<uint64_t> m_uVideoEnqueueCount{0};
+    std::atomic<uint64_t> m_uAudioEnqueueCount{0};
+    std::atomic<uint64_t> m_uVideoSendCount{0};
+    std::atomic<uint64_t> m_uAudioSendCount{0};
+    std::atomic<uint64_t> m_uVideoDropCount{0};
+    std::atomic<uint64_t> m_uAudioDropCount{0};
+    std::atomic<uint64_t> m_uVideoWaitParamCount{0};
+    std::atomic<uint64_t> m_uVideoWaitKeyCount{0};
+    /* 以下时间戳只用于日志限频，避免实时推流路径刷屏 */
+    int64_t m_nLastQueueLogMs = 0;
+    int64_t m_nLastStateLogMs = 0;
+    int64_t m_nLastWaitParamLogMs = 0;
+    int64_t m_nLastWaitAudioLogMs = 0;
+    int64_t m_nLastWaitKeyLogMs = 0;
 
     /* 禁止拷贝 */
     CRtmpSession(const CRtmpSession&) = delete;

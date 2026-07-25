@@ -27,7 +27,7 @@ namespace fs = std::filesystem;
 
 
 /*最大记录数量*/
-#define MAX_RECORD_INFO_SIZE 100
+#define MAX_RECORD_INFO_SIZE 150
 
 /**
  * @brief 深度ai任务管理类实现

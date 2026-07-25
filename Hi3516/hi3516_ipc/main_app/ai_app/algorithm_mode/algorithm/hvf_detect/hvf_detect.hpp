@@ -27,6 +27,9 @@
 #if CAP_AI_PEOPLE_STATISTICS
 #include "internal/processors/statistics/hvf_people_flow_processor.hpp"
 #endif
+#if CAP_AI_PEOPLE_DENSITY_V2
+#include "internal/processors/statistics/hvf_people_density_processor.hpp"
+#endif
 
 extern "C"
 {
@@ -111,7 +114,18 @@ public:
      * @return   {void}
      */
     void setAlgoParamCfg(const Alarm::PeopleFlowStatistics_S &stAlgoCfg);
+#endif
 
+#if CAP_AI_PEOPLE_DENSITY_V2
+    /**
+     * @brief   : 更新人员密度检测参数
+     * @param    {PeopleDensityDetection_S} &stAlgoCfg：人员密度检测配置
+     * @return   {void}
+     */
+    void setAlgoParamCfg(const Alarm::PeopleDensityDetection_S &stAlgoCfg);
+#endif
+
+#if CAP_AI_PEOPLE_STATISTICS || CAP_AI_PEOPLE_DENSITY_V2
     /**
      * @brief   : 设置事件统计上报器
      * @param    {IEventStatisticsReporter} &pReporter：统计上报器
@@ -119,7 +133,9 @@ public:
      */
     void setEventStatisticsReporter(
         const std::shared_ptr<EventStatistics_NS::IEventStatisticsReporter> &pReporter) override;
+#endif
 
+#if CAP_AI_PEOPLE_STATISTICS
     /**
      * @brief   : 处理 HVF 运行时命令
      * @param    {RuntimeCommand_S} &stCommand：运行时命令
@@ -181,9 +197,15 @@ private:
     HVFDetectInternal::CHVFParkingProcessor m_parkingProcessor;
     /* 进入/离开区域处理器 */
     HVFDetectInternal::CHVFEnterExitProcessor m_enterExitProcessor;
+    /* 目标视频帧 */
+    ot_video_frame_info m_stDstFrameInfo;
 #if CAP_AI_PEOPLE_STATISTICS
     /* 人流统计处理器 */
     HVFDetectInternal::CHVFPeopleFlowProcessor m_peopleFlowProcessor;
+#endif
+#if CAP_AI_PEOPLE_DENSITY_V2
+    /* 人员密度 V2 处理器 */
+    HVFDetectInternal::CHVFPeopleDensityProcessor m_peopleDensityProcessor;
 #endif
     /* 算法默认分辨率 */
     int m_nWidth = PIXEL_WIDTH_1024;

@@ -3,7 +3,7 @@
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2026-04-24 09:13:14
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-04-28 10:42:03
+ * @LastEditTime : 2026-05-29 14:50:13
  * @Description  : 事件联动 TVSDK 推送共享负载定义
  */
 
@@ -69,6 +69,8 @@ struct EventTvSdkTarget_S
     long long llTimestampMs = 0;
     /* 人流统计方向或业务扩展方向，未知时保持 0 */
     int nDirection = 0;
+    /* 目标小图 JPEG 二进制数据，统计类上报使用 */
+    std::vector<unsigned char> vecJpeg;
     /* 非核心扩展字段，避免为临时属性频繁扩结构 */
     std::map<std::string, std::string> mapExtras;
 };

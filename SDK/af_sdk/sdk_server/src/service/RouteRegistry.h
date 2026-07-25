@@ -19,11 +19,16 @@
 #include "tvsdkhttplib.h"
 #include "HttpBasicCommand.hpp"
 
+#ifdef DELETE
+#undef DELETE
+#endif
+
 using namespace tvsdk;
 
 /* http方法枚举 */
 enum class HttpMethod { GET, PUT, POST, DELETE };
 using HttpHandler = std::function<void(const httplib::Request&, httplib::Response&)>;
+using HttpContentReaderHandler = std::function<void(const httplib::Request&, httplib::Response&, const httplib::ContentReader&)>;
 class CRouteRegistry 
 {
 public:
@@ -33,12 +38,19 @@ public:
         std::string url;		
         HttpMethod method;
         HttpHandler handler;
+        HttpContentReaderHandler contentReaderHandler;
+        bool useContentReader;
     };
 
 public:
     static void registerRoute(const std::string& url, HttpMethod method, HttpHandler handler) 
 	{
-        m_routes.emplace_back(Route{url, method, handler});
+        m_routes.emplace_back(Route{url, method, handler, HttpContentReaderHandler(), false});
+    }
+
+    static void registerRoute(const std::string& url, HttpMethod method, HttpContentReaderHandler handler)
+    {
+        m_routes.emplace_back(Route{url, method, HttpHandler(), handler, true});
     }
     static const std::vector<Route>& getRoutes() { return m_routes; }
      static void clearRoutes() { m_routes.clear(); }

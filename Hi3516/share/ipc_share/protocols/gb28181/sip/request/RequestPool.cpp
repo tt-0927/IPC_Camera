@@ -7,6 +7,7 @@
  * @Description  : 等待响应的请求记录池
  */
 #include "RequestPool.h"
+#include "dlog.h"
 
 /* 请求响应超时时间（单位：秒）参考GB28181-2022 5.3 */
 #define CHECK_INTERVAL (4 + 2)
@@ -46,20 +47,20 @@ void RequestPool::AddRequest(const std::string &req_id, BaseRequest::Ptr request
 	{
 		request->SetRequestID(req_id);
 		m_mapRequest[req_id] = request;
-		MLOG_INFO("添加请求记录: [%s]", req_id.c_str());
+		dlog_info("添加请求记录: [%s]", req_id.c_str());
 	}
 	else
 	{
-		MLOG_INFO("已存在请求记录: [%s]", req_id.c_str());
+		dlog_info("已存在请求记录: [%s]", req_id.c_str());
 	}
-	MLOG_INFO("当前请求记录个数: [%d]", m_mapRequest.size());
+	dlog_info("当前请求记录个数: [%d]", m_mapRequest.size());
 }
 
 void RequestPool::RemoveRequest(const std::string &req_id)
 {
 	std::scoped_lock<std::mutex> lk(m_mtxRequest);
 	m_mapRequest.erase(req_id);
-	MLOG_INFO("请求已响应，移除请求记录: [%s]", req_id.c_str());
+	dlog_info("请求已响应，移除请求记录: [%s]", req_id.c_str());
 }
 
 MessageRequest::Ptr RequestPool::GetMessageRequestBySN(const std::string &sn, REQUEST_MESSAGE_TYPE type)
@@ -89,7 +90,7 @@ int RequestPool::HandleMessageRequest(const std::string &req_id, int status_code
 
 void RequestPool::CheckRequestTimeout()
 {
-	MLOG_INFO("检查请求记录是否响应超时");
+	dlog_info("检查请求记录是否响应超时");
 	std::scoped_lock<std::mutex> lk(m_mtxRequest);
 	auto now = std::time(nullptr);
 	for (auto iter = m_mapRequest.begin(); iter != m_mapRequest.end();)
@@ -98,7 +99,7 @@ void RequestPool::CheckRequestTimeout()
 		{
 			iter->second->HandleResponse(-1);
 			iter->second->Finish();
-			MLOG_INFO("请求响应超时: [%s]", iter->first.c_str());
+			dlog_info("请求响应超时: [%s]", iter->first.c_str());
 			iter = m_mapRequest.erase(iter);
 		}
 		else

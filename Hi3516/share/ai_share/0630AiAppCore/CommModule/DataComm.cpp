@@ -53,22 +53,26 @@ void DataComm::recvData(
     }
 
 #if 0
-    cv::Mat img = cv::imread("/root/test.png", cv::IMREAD_COLOR);
-    if (img.empty())
+    if (nCode == toInt(CommCode_E::AI_COM_ST_ANALYSE) ||
+        nCode == toInt(CommCode_E::AI_COM_TE_ANALYSE))
     {
-        dlog(LOG_ERROR, "【数据通讯】测试图片读取失败");
-        return;
-    }
+        cv::Mat img = cv::imread("/root/test.png", cv::IMREAD_COLOR);
+        if (img.empty())
+        {
+            dlog(LOG_ERROR, "【数据通讯】测试图片读取失败");
+            return;
+        }
 
-    std::vector<uchar> jpegBuf;
-    if (!encodeJpeg(img, jpegBuf))
-    {
-        dlog(LOG_ERROR, "【数据通讯】JPEG 编码失败");
-        return;
-    }
+        std::vector<uchar> jpegBuf;
+        if (!encodeJpeg(img, jpegBuf))
+        {
+            dlog(LOG_ERROR, "【数据通讯】JPEG 编码失败");
+            return;
+        }
 
-    pchData  = (char*)jpegBuf.data();
-    nDataLen = jpegBuf.size();
+        pchData  = (char*)jpegBuf.data();
+        nDataLen = jpegBuf.size();
+    }
 #endif
 
     HeaderInfo_S stHeader;
@@ -137,6 +141,7 @@ void DataComm::recvData(
 /* 接受班级信息，用来发送给服务器进行特诊提取 */
 void DataComm::recvClassData(ClassInfo_S stClassInfo)
 {
+    dlog(LOG_INFO, "【数据通讯】 接受班级信息，用来发送给服务器进行特诊提取");
     HeaderInfo_S stHeader;
     stHeader.clear();
     stHeader.nCode            = toInt(CommCode_E::AI_COM_FACE_FEATURE);

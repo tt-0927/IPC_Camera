@@ -3,7 +3,7 @@
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2026-04-25 09:13:14
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-04-28 10:41:30
+ * @LastEditTime : 2026-06-01 15:01:05
  * @Description  : 事件统计 TVSDK 上报适配器实现
  */
 
@@ -74,9 +74,13 @@ EventTvSdkPayload_S build_tvsdk_payload(const EventStatistics_NS::Report_S &stRe
         break;
     }
 
-    for (const auto &stTarget : stReport.vecTargets)
+    for (size_t i = 0; i < stReport.vecTargets.size(); ++i)
     {
-        stPayload.stStatistics.vecTargets.emplace_back(build_tvsdk_target(stTarget));
+        stPayload.stStatistics.vecTargets.emplace_back(build_tvsdk_target(stReport.vecTargets[i]));
+        if (i < stReport.vecTargetImages.size())
+        {
+            stPayload.stStatistics.vecTargets.back().vecJpeg = stReport.vecTargetImages[i].vecJpeg;
+        }
     }
     return stPayload;
 }
@@ -123,9 +127,13 @@ void CTvSdkEventStatisticsReporter::report(const EventStatistics_NS::Report_S &s
     stContext.mapAttrs["rule_id"] = std::to_string(stReport.nRuleId);
     stContext.pTvSdkPayload = std::make_shared<EventTvSdkPayload_S>(build_tvsdk_payload(stReport));
 
-    dlog_info("[统计推送诊断] reporter::report 构建上下文完成: 事件类型[%d] 通道[%d] 目标数[%zu] 全景图大小[%zu]",
-              static_cast<int>(stContext.enEventType), stContext.nChnId,
-              stReport.vecTargets.size(), stReport.stPanoramaImage.vecJpeg.size());
+    // dlog_info("[统计推送诊断] reporter::report 构建上下文完成: 事件类型[%d] 通道[%d] 目标数[%zu] 全景图大小[%zu] 目标图数量[%zu]",
+    //           static_cast<int>(stContext.enEventType), stContext.nChnId,
+    //           stReport.vecTargets.size(), stReport.stPanoramaImage.vecJpeg.size(), stReport.vecTargetImages.size());
+    // for (size_t i = 0; i < stReport.vecTargetImages.size(); ++i)
+    // {
+    //     dlog_info("[统计推送诊断] reporter::report 目标图[%zu] 大小[%zu字节]", i, stReport.vecTargetImages[i].vecJpeg.size());
+    // }
 
     EventLinkageDict::push_tvsdk_event_alarm(stContext);
 }

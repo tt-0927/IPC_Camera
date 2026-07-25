@@ -16,6 +16,7 @@ extern "C" {
 
 
 int NetSDK_ExecuteCb_DeviceInfo(LPNET_TV_DEVICE_INFO_S pInfo);
+int NetSDK_ExecuteCb_DeviceControl(LPNET_TV_DEVICE_CONTROL_INFO_S pstCtrlInfo);
 
 
 #ifdef __cplusplus

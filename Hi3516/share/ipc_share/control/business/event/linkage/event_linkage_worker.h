@@ -3,7 +3,7 @@
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2026-04-15 16:29:58
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-04-16 10:24:34
+ * @LastEditTime : 2026-06-30 17:46:10
  * @Description  : 事件联动异步任务工作线程
  */
 
@@ -80,10 +80,18 @@ private:
     bool is_task_running(LinkageType_E enLinkageType);
 
     /**
-     * @brief   : 重新入队任务
+     * @brief   : 判断任务是否已经过期
      * @param    {LinkageTask_S} &stTask 联动任务
+     * @return   {bool} true：已过期 false：未过期
      */
-    void requeue_task(const LinkageTask_S &stTask);
+    bool is_task_expired(const LinkageTask_S &stTask) const;
+
+    /**
+     * @brief   : 处理同类联动任务运行中的冲突
+     * @param    {LinkageTask_S} &stTask 新取出的联动任务
+     * @return   {bool} true：任务可以继续执行 false：任务已合并或丢弃
+     */
+    bool handle_running_task_conflict(const LinkageTask_S &stTask);
 
     /**
      * @brief   : 回收已完成的异步任务句柄

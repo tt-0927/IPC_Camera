@@ -252,6 +252,7 @@ void Convert::deal(Json::Object* pRootJson, System::LogServerInfo_S& stLogServer
     convert.field(pRootJson, "EnSsl", stLogServerInfo.bEnSsl);
     convert.field(pRootJson, "ServerAddr", stLogServerInfo.strServerAddr);
     convert.field(pRootJson, "Port", stLogServerInfo.nPort);
+    convert.field(pRootJson, "LogUpload", stLogServerInfo.bLogUpload);
 }
 
 void Convert::deal(Json::Object *pRootJson, System::AllDeviceParam_S &stAllDeviceParam, bool bOutStruct)

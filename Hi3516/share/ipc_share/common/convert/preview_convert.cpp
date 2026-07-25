@@ -103,3 +103,20 @@ void Convert::deal(Json::Object *pRootJson, Preview::BeepAlarm_S &stInfo, bool b
     Convert::CConvert convert(bOutStruct);
     convert.field(pRootJson, "Enable", stInfo.bEnable);
 }
+
+void Convert::deal(Json::Object *pRootJson, Preview::DeviceControl_S &stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+
+    Convert::CConvert convert(bOutStruct);
+    convert.field(pRootJson, "ChannelId", stInfo.nChannelId);
+    convert.field(pRootJson, "ControlType", stInfo.nControlType);
+    convert.field(pRootJson, "Command", stInfo.nCommand);
+    convert.field(pRootJson, "DurationMs", stInfo.nDurationMs);
+    convert.field(pRootJson, "Param1", stInfo.nParam1);
+    convert.field(pRootJson, "Param2", stInfo.nParam2);
+    convert.field(pRootJson, "Ext", stInfo.strExt);
+}

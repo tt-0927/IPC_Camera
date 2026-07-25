@@ -163,6 +163,33 @@ void ToDeviceInfo(const NET_TV_DEVICE_BASICINFO_S &src, ::System::DeviceInfo_S &
     dst.systemVersion = src.szFirmwareVersion;
 }
 
+void FillSystemNtpInfo(const ::System::TimeInfo_S &src, NET_TV_SYSTEM_NTP_INFO_S &dst)
+{
+    std::memset(&dst, 0, sizeof(dst));
+    dst.enTimeZone = static_cast<INT32>(src.enTimeZone);
+    dst.enDateFormat = static_cast<INT32>(src.enDateFormat);
+    dst.bEnableNTPSync = src.bEnableNTPSync ? TRUE : FALSE;
+    dst.bManualSync = src.bManualSync ? TRUE : FALSE;
+    dst.bIsSyncWithComputer = src.bIsSyncWithComputer ? TRUE : FALSE;
+    dst.nPort = src.stNTPInfo.nPort;
+    dst.nSyncInterval = src.stNTPInfo.nSyncInterval;
+    std::strncpy(dst.szDateTime, src.strDateTime.c_str(), sizeof(dst.szDateTime) - 1);
+    std::strncpy(dst.szAddress, src.stNTPInfo.address.c_str(), sizeof(dst.szAddress) - 1);
+}
+
+void ToTimeInfo(const NET_TV_SYSTEM_NTP_INFO_S &src, ::System::TimeInfo_S &dst)
+{
+    dst.enTimeZone = static_cast<::System::TimeZone_E>(src.enTimeZone);
+    dst.enDateFormat = static_cast<::System::DateFormat_E>(src.enDateFormat);
+    dst.bEnableNTPSync = (src.bEnableNTPSync == TRUE);
+    dst.bManualSync = (src.bManualSync == TRUE);
+    dst.bIsSyncWithComputer = (src.bIsSyncWithComputer == TRUE);
+    dst.strDateTime = src.szDateTime;
+    dst.stNTPInfo.address = src.szAddress;
+    dst.stNTPInfo.nPort = src.nPort;
+    dst.stNTPInfo.nSyncInterval = src.nSyncInterval;
+}
+
 void FillNetworkCfg(const Network::Info_S &src, NET_TV_NETWORKCFG_S &dst)
 {
     memset(&dst, 0, sizeof(dst));
@@ -486,15 +513,59 @@ void ToOsdConfig(const NET_TV_VIDEO_OSD_CFG_S &src, Osd::OsdConfig_S &dst)
     dst.init_token();
 }
 
+void FillPrivacyMaskCfg(const Osd::CoverConfig_S &src, NET_TV_PRIVACY_MASK_CFG_S &dst)
+{
+    std::memset(&dst, 0, sizeof(dst));
+    dst.bEnable = src.bEnable ? TRUE : FALSE;
+
+    const size_t nCount = std::min(src.vecCoverAttr.size(), (size_t)NET_TV_MAX_PRIVACY_MASK_AREA_NUM);
+    dst.dwAreaCount = (INT32)nCount;
+    for (size_t i = 0; i < nCount; ++i)
+    {
+        const Osd::CoverAttribute_S &srcArea = src.vecCoverAttr[i];
+        NET_TV_PRIVACY_MASK_AREA_S &dstArea = dst.astArea[i];
+
+        dstArea.nAreaID = (INT32)i;
+        dstArea.bEnable = srcArea.bEnable ? TRUE : FALSE;
+        dstArea.nRectLeft = (INT32)srcArea.nX;
+        dstArea.nRectTop = (INT32)srcArea.nY;
+        dstArea.nRectRight = (INT32)(srcArea.nX + srcArea.nWidth);
+        dstArea.nRectBottom = (INT32)(srcArea.nY + srcArea.nHeight);
+    }
+}
+
+void ToPrivacyMaskCfg(const NET_TV_PRIVACY_MASK_CFG_S &src, Osd::CoverConfig_S &dst)
+{
+    dst.clear();
+    dst.bEnable = (src.bEnable == TRUE);
+
+    const size_t nMaxCount = std::min(dst.vecCoverAttr.size(), (size_t)NET_TV_MAX_PRIVACY_MASK_AREA_NUM);
+    const size_t nCount = std::min<size_t>(std::max<INT32>(src.dwAreaCount, 0), nMaxCount);
+    for (size_t i = 0; i < nCount; ++i)
+    {
+        const NET_TV_PRIVACY_MASK_AREA_S &srcArea = src.astArea[i];
+        Osd::CoverAttribute_S &dstArea = dst.vecCoverAttr[i];
+
+        dstArea.nId = (int)i + 1;
+        dstArea.bEnable = (srcArea.bEnable == TRUE);
+        dstArea.strName = "遮挡区域" + std::to_string(i + 1);
+        dstArea.enColor = Osd::OSD_COLOR_BLACK;
+        dstArea.strColor = "#000000";
+        dstArea.nX = (int)srcArea.nRectLeft;
+        dstArea.nY = (int)srcArea.nRectTop;
+        dstArea.nWidth = std::max(0, (int)(srcArea.nRectRight - srcArea.nRectLeft));
+        dstArea.nHeight = std::max(0, (int)(srcArea.nRectBottom - srcArea.nRectTop));
+    }
+}
 
 
 void FillImageSetting(const ISP::ImageParam_S &src, NET_TV_IMAGE_SETTING_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));
-    dst.nBrightness = (INT32)src.nBrightness;
-    dst.nContrast = (INT32)src.nContrast;
-    dst.nSaturation = (INT32)src.nSaturation;
-    dst.nSharpness = (INT32)src.nSharpness;
+    dst.nBrightness = (UINT32)src.nBrightness;
+    dst.nContrast = (UINT32)src.nContrast;
+    dst.nSaturation = (UINT32)src.nSaturation;
+    dst.nSharpness = (UINT32)src.nSharpness;
 }
 
 void ToImageParam(const NET_TV_IMAGE_SETTING_S &src, ISP::ImageParam_S &dst)

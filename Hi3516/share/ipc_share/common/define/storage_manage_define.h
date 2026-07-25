@@ -36,7 +36,11 @@ namespace StorageManage_NS
         /* 抓图配额百分比 */
         int nCaptureQuotaPercentage = 10;
         /* 录像配额百分比 */
+        #if CAP_AI_FACE_COMPARE
+        int nRecordQuotaPercentage = 80;
+        #else
         int nRecordQuotaPercentage = 90;
+        #endif
         /* 存储时间 */
         int nStorageTime = 0;
 

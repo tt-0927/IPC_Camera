@@ -10,7 +10,7 @@
 
 /** 引入必要的头文件，用于网络编程、多线程、同步等功能 */
 #include "MediaNetBase.h"
-#include "ModuleLog.h"
+#include "dlog.h"
 #include <arpa/inet.h>
 #include <atomic>
 #include <cstring>
@@ -44,7 +44,7 @@ namespace SIP
         MediaClient(const std::string &remoteIP, int remotePort)
             : m_strRemoteIP(remoteIP), m_nRemotePort(remotePort)
         {
-            MLOG_INFO("[MediaClient]构造客户端，目标IP[%s]端口[%d]",
+            dlog_info("[MediaClient]构造客户端，目标IP[%s]端口[%d]",
                       m_strRemoteIP.c_str(), m_nRemotePort);
         }
 
@@ -52,13 +52,13 @@ namespace SIP
         ~MediaClient()
         {
             deinit();
-            MLOG_INFO("[MediaClient]析构客户端，目标IP[%s]端口[%d]",
+            dlog_info("[MediaClient]析构客户端，目标IP[%s]端口[%d]",
                       m_strRemoteIP.c_str(), m_nRemotePort);
         }
 
         virtual bool init(int nPort, Protocol enType) override
         {
-            MLOG_INFO("[MediaClient]初始化客户端，目标IP[%s]端口[%d]本地端口[%d]协议类型[%d]",
+            dlog_info("[MediaClient]初始化客户端，目标IP[%s]端口[%d]本地端口[%d]协议类型[%d]",
                       m_strRemoteIP.c_str(), m_nRemotePort, nPort, enType);
             m_nLocalPort = nPort;
             m_bRunning = true;
@@ -92,7 +92,7 @@ namespace SIP
                 close(m_nUdpSock); /** 关闭 UDP 套接字 */
                 m_nUdpSock = -1;
             }
-            MLOG_INFO("[MediaClient]反初始化，目标IP[%s]端口[%d]",
+            dlog_info("[MediaClient]反初始化，目标IP[%s]端口[%d]",
                       m_strRemoteIP.c_str(), m_nRemotePort);
         }
 
@@ -198,13 +198,13 @@ namespace SIP
             }
             else
             {
-                MLOG_INFO("[MediaClient]  连接成功 本地[Tcp]端口[%d] ====> 连接远端Tcp[%s:%d]",
+                dlog_info("[MediaClient]  连接成功 本地[Tcp]端口[%d] ====> 连接远端Tcp[%s:%d]",
                             m_nLocalPort, m_strRemoteIP.c_str(), m_nRemotePort);
             }
 
             std::thread([this]()
                         {
-                MLOG_INFO("[MediaClient][Tcp][%d] ====> [%s:%d]",
+                dlog_info("[MediaClient][Tcp][%d] ====> [%s:%d]",
                             m_nLocalPort, m_strRemoteIP.c_str(), m_nRemotePort);
                 std::vector<char> buffer(m_nTcpRecvBuffSize);
                 while (m_bRunning)
@@ -242,7 +242,7 @@ namespace SIP
 
             std::thread([this]()
                         {
-                MLOG_INFO("[MediaClient][Udp][%d] ====> [%s:%d]",
+                dlog_info("[MediaClient][Udp][%d] ====> [%s:%d]",
                         m_nLocalPort, m_strRemoteIP.c_str(), m_nRemotePort);
                 std::vector<char> buffer(m_nUdpRecvBuffSize);
                 sockaddr_in remoteAddr{};

@@ -1,8 +1,8 @@
-/*
+/**
  * @Author       : EasonLu
  * @Date         : 2025-04-21 09:11:43
- * @LastEditors  : EasonLu
- * @LastEditTime : 2025-04-21 09:12:43
+ * @LastEditors  : zhouzr@kfb.cn
+ * @LastEditTime : 2026-06-24 09:00:28
  * @FilePath     : SubscribeEvent.h
  * @Description  : 订阅事件
  */
@@ -11,9 +11,11 @@
 #include "BlockQueue.hpp"
 #include "BlockThread.hpp"
 #include "GbDefine.h"
+#include "IpcRet.h"
 #include "SipType.h"
 #include <atomic>
 #include <map>
+#include <memory>
 #include <mutex>
 #include <thread>
 
@@ -96,10 +98,13 @@ namespace SIP
         int SendAlarmMsg(GB28181::AlarmInfo_S &stInfo);
 
     private:
-        std::mutex m_mutexMap; /* 订阅记录互斥锁 */
-        std::mutex m_mutexCatalog; /* 目录线程互斥锁 */
+        /* lock: 保护订阅记录的新增、查询、过期删除和清理操作。 */
+        std::mutex m_mutexMap;
+        /* lock: 保护目录通知线程的创建、替换和销毁操作。 */
+        std::mutex m_mutexCatalog;
         std::map<int, Data_S> m_mapSubscribe;
-        BlockThread *m_pThrCatalog = nullptr;
+        /* memory: 目录通知线程由 SubscribeEvent 独占，reset 时同步停止并回收。 */
+        std::unique_ptr<BlockThread> m_pThrCatalog;
         BlockQueue<GB28181::AlarmInfo_S> m_queAlarm;
         std::thread *m_pThrAlarm = nullptr;
         std::atomic_bool m_bThrRun = false;

@@ -481,8 +481,14 @@ int dlog_printf(int level,\
 
 
 #ifndef RELEASE_VERSION
+
+#if CAP_PROCESS_LOG_SWITCH
+		/*Debug版默认同步输出打印*/
+		if ( logHandle != NULL && (level == LOG_ERROR || level == LOG_FAULT) )
+#else
 		/*Debug版默认同步输出打印*/
 		if (logHandle != NULL)
+#endif
 		{
 			char timeBuf[64];
 			getCurrTime(timeBuf, NULL);

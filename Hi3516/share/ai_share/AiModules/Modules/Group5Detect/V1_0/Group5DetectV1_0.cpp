@@ -2,7 +2,7 @@
  * @Author: 梁浩尧 lianghaoyao@kfb.cn
  * @Date: 2025-12-24 16:23:34
  * @LastEditors: lianghy lianghy@kfb.cn
- * @LastEditTime: 2026-01-20 11:28:38
+ * @LastEditTime: 2026-04-07 14:36:05
  * @FilePath: /1126/share/ai_share/AiModules/Modules/Group5Detect/V1_0/Group5DetectV1_0.hpp
  * @Description: metalFence(金属栅栏)、ConeTank(锥形桶)、CrashBarrels(防撞桶)、fence(防护栏)
  */
@@ -103,8 +103,26 @@ bool Group5Detect_NS::CGroup5DetectV1_0::process(
 
     /* 推理+后处理 */
     Inference_NS::InputData_S stInputData;
-    stInputData.pData              = (float *)stInData.inMat.data;
-    stInputData.nDataSize          = static_cast<size_t>(stInData.inMat.total() * stInData.inMat.elemSize());
+    if(stInData.inMat.type() == CV_8UC3)
+    {
+        if(stInData.inMat.cols != m_nLimitWidth || stInData.inMat.rows != m_nLimitHeight)
+        {
+            cv::Mat reMat;
+            resizeAndPadImage(stInData.inMat,reMat);
+            stInputData.pData              = (float *)reMat.data;
+            stInputData.nDataSize          = static_cast<size_t>(reMat.total() * reMat.elemSize() * sizeof(float));
+        }
+        else
+        {
+            stInputData.pData              = (float *)stInData.inMat.data;
+            stInputData.nDataSize          = static_cast<size_t>(stInData.inMat.total() * stInData.inMat.elemSize() * sizeof(float));
+        }
+    }
+    else
+    {
+        stInputData.pData              = (float *)stInData.inMat.data;
+        stInputData.nDataSize          = static_cast<size_t>(stInData.inMat.total() * stInData.inMat.elemSize() * sizeof(float));
+    }
     stInputData.stBoxs.fConfidence = stInData.stParam.fBoxThreshold;
     stInputData.stBoxs.fNms        = stInData.stParam.fNmsThreshold;
 
@@ -245,6 +263,48 @@ bool Group5Detect_NS::CGroup5DetectV1_0::process(
     {
         m_nConstructionEncroachmentRoadFrameCount = 0;
     }
+
+    return true;
+}
+
+/* 处理数据 */
+bool Group5Detect_NS::CGroup5DetectV1_0::resizeAndPadImage(cv::Mat inputImage, cv::Mat &outputImage)
+{
+    int imageWidth = inputImage.cols;
+    int imageHeight = inputImage.rows;
+
+    int newWidth = 0;
+    int newHeight = 0;
+    
+    cv::Mat resizedImage;
+    if(imageWidth > m_nLimitWidth || imageHeight > m_nLimitHeight)
+    {
+        m_fResizeScale = static_cast<float>(m_nLimitWidth) / std::max(imageWidth, imageHeight);
+        
+        newWidth = static_cast<int>(imageWidth * m_fResizeScale);
+        newHeight = static_cast<int>(imageHeight * m_fResizeScale);
+        
+        cv::resize(inputImage, resizedImage, cv::Size(newWidth, newHeight));
+
+        m_nXOffset = static_cast<int>((m_nLimitWidth - newWidth) / 2);
+        m_nYOffset = static_cast<int>((m_nLimitHeight - newHeight) / 2);
+    }
+    else
+    {
+        m_nXOffset = 0;
+        m_nYOffset = 0;
+        m_fResizeScale = 1.0;
+        
+        newWidth = imageWidth;
+        newHeight = imageHeight;
+        
+        resizedImage = inputImage;
+    }
+
+    cv::Mat output = cv::Mat::zeros(cv::Size(m_nLimitWidth, m_nLimitHeight), inputImage.type());
+    resizedImage.copyTo(output(cv::Rect(m_nXOffset, m_nYOffset, newWidth, newHeight)));
+    
+    outputImage = output;
 
     return true;
 }

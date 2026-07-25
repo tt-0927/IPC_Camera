@@ -222,4 +222,14 @@ private:
     long long m_llCaptureDirUseSize = 0;
     /* 录像已使用空间 */
     long long m_llRecordDirUseSize = 0;
+    
+    #if CAP_AI_FACE_COMPARE
+    #define FACE_CAPTURE_PATH (std::string(SD_CARD_MOUNT_PATH) + "/face")
+    #define FACE_QUOTA_PERCENT 10
+    /* 人脸目录可用空间 */
+    long long m_llFaceSpaceByte = 0;
+
+    /* 人脸目录已使用空间 */
+    long long m_llFaceDirUseSize = 0;
+    #endif
 };

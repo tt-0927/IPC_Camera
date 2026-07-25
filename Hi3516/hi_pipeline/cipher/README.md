@@ -35,6 +35,18 @@ CIPHER DRIVER 提供以下安全算法功能：
 
 ---
 
+### cipher_context 统一门面
+
+`cipher_context` 是业务仓库与安全子系统交互的统一入口。业务侧不直接调用 `ot_mpi_cipher_*`，而是通过 `cipherContext_alloc/init/uninit/release` 管理生命周期，通过上下文能力函数使用 SM3、SM4、TRNG、PKE 等硬件能力。
+
+`hi_pipeline` 内部日志统一使用 `mpi_common.h` 的模块日志宏，例如 `mpi_cipher_log`，禁止依赖业务侧 `dlog_*`。
+
+SM4-CBC 需要物理连续内存与 KEYSLOT/KLAD 支持，相关资源申请、绑定与释放必须封装在 `hi_pipeline/cipher` 内部。OpenSSL Provider 只负责参数适配。
+
+当前 HiSilicon OpenSSL Provider 仅通过 `cipher_context` 注册 SM3 与 TRNG。SM4-CBC 在 `cipher_context` 完成物理连续内存和 KEYSLOT/KLAD 收口前不注册硬件 Provider，避免业务侧保留伪物理内存或直接调用底层 MPI。
+
+---
+
 ### km/ - 密钥管理模块
 
 **功能描述**  

@@ -21,5 +21,6 @@ namespace Convert
     void deal(Json::Object *pRootJson, Preview::IntercomInfo_S &stInfo, bool bOutStruct);
     void deal(Json::Object *pRootJson, Preview::BroadcastInfo_S &stInfo, bool bOutStruct);
     void deal(Json::Object *pRootJson, Preview::BeepAlarm_S &stInfo, bool bOutStruct);
+    void deal(Json::Object *pRootJson, Preview::DeviceControl_S &stInfo, bool bOutStruct);
 
 } // namespace Convert

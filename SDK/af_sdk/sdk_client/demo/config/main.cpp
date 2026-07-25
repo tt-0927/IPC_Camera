@@ -14,6 +14,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #ifdef _WIN32
 #include <winsock2.h>
@@ -25,6 +26,7 @@
 
 #include <thread>
 #include <chrono>
+#include <vector>
 #include "NetSdkLog.h"
 #include "NetTVSDKClientInterface.h"
 
@@ -40,6 +42,12 @@
 /* 当前IPC能力只开放前4个自定义OSD槽位，结构体数组长度仍按SDK ABI保留。 */
 #define DEMO_OSD_CUSTOM_MAX_NUM NET_TV_OSD_CUSTOM_MAX_NUM
 #define DEMO_OSD_STRUCT_SLOT_NUM NET_TV_OSD_TYPE_MAX_NUM
+#define DEMO_VOICECOM_PORT 9006
+#define DEMO_VOICECOM_FRAME_INTERVAL_MS 20
+#define DEMO_VOICECOM_CHANNELS 1
+#define DEMO_VOICECOM_DEFAULT_LOCAL_IP "127.0.0.1"
+#define DEMO_VOICECOM_PATH_MAX 260
+#define DEMO_VOICECOM_CLIENT_RECV_DUMP "/tmp/VoiceComClientRecv.audio"
 
 static char g_serverIp[64] = SERVER_IP;
 static INT32 g_serverPort = SERVER_PORT;
@@ -288,6 +296,9 @@ static void PrintMenu()
     printf("165 - 设置隐私遮盖配置 (NET_TV_SET_PRIVACYMASKCFG)\n");
     printf("167 - 获取图像配置 (NET_TV_GET_IMAGECFG)\n");
     printf("168 - 设置图像配置 (NET_TV_SET_IMAGECFG)\n");
+    printf("169 - VoiceCom发送音频文件 (NET_TV_StartVoiceCom/SendData)\n");
+    printf("170 - 获取系统校时配置 (NET_TV_GET_NTPCFG)\n");
+    printf("171 - 设置系统校时配置 (NET_TV_SET_NTPCFG)\n");
     printf("3213 - 平台点播回放控制类型 (自定义选择 1~8)\n");
     printf("3214 - 平台点播暂停播放 (NET_TV_SET_REPLAY_CTRL/PAUSE)\n");
     printf("3215 - 平台点播恢复播放 (NET_TV_SET_REPLAY_CTRL/RESUME)\n");
@@ -351,6 +362,26 @@ static void PrintNetworkCfg(const NET_TV_NETWORKCFG_S* pCfg)
     printf("  IPv4Gateway  : %s\n", pCfg->szIPv4GateWay);
     printf("  IPv4Subnet   : %s\n", pCfg->szIPv4SubnetMask);
     printf("=================================\n");
+}
+
+static void PrintSystemNtpCfg(const NET_TV_SYSTEM_NTP_INFO_S* pInfo)
+{
+    if (!pInfo)
+    {
+        return;
+    }
+
+    printf("\n[Client] ===== 系统校时配置 =====\n");
+    printf("  TimeZone          : UTC%+d\n", pInfo->enTimeZone);
+    printf("  DateFormat        : %d\n", pInfo->enDateFormat);
+    printf("  EnableNTPSync     : %s\n", pInfo->bEnableNTPSync ? "ON" : "OFF");
+    printf("  ManualSync        : %s\n", pInfo->bManualSync ? "ON" : "OFF");
+    printf("  DateTime          : %s\n", pInfo->szDateTime);
+    printf("  SyncWithComputer  : %s\n", pInfo->bIsSyncWithComputer ? "YES" : "NO");
+    printf("  NtpAddress        : %s\n", pInfo->szAddress);
+    printf("  NtpPort           : %d\n", pInfo->nPort);
+    printf("  SyncInterval      : %d min\n", pInfo->nSyncInterval);
+    printf("================================\n");
 }
 
 static void PrintAudioCfg(const NET_TV_AUDIO_CFG_S* pCfg)
@@ -1244,6 +1275,113 @@ static void DoSetNetworkCfg()
     else
     {
         printf("[Client] 设置网络配置失败! Error=%d\n", NET_TV_GetLastError());
+    }
+}
+
+static void FormatLocalDateTime(char* pBuffer, size_t bufferSize)
+{
+    if (!pBuffer || bufferSize == 0)
+    {
+        return;
+    }
+
+    pBuffer[0] = '\0';
+
+    time_t now = time(NULL);
+    if (now == (time_t)-1)
+    {
+        CopyString(pBuffer, bufferSize, "2026-06-23 10:00:00");
+        return;
+    }
+
+    struct tm localTimeInfo;
+    memset(&localTimeInfo, 0, sizeof(localTimeInfo));
+#ifdef _WIN32
+    if (localtime_s(&localTimeInfo, &now) != 0)
+#else
+    if (localtime_r(&now, &localTimeInfo) == NULL)
+#endif
+    {
+        CopyString(pBuffer, bufferSize, "2026-06-23 10:00:00");
+        return;
+    }
+
+    if (strftime(pBuffer, bufferSize, "%Y-%m-%d %H:%M:%S", &localTimeInfo) == 0)
+    {
+        CopyString(pBuffer, bufferSize, "2026-06-23 10:00:00");
+    }
+}
+
+static void DoGetSystemNtpCfg()
+{
+    NET_TV_SYSTEM_NTP_INFO_S stInfo;
+    memset(&stInfo, 0, sizeof(stInfo));
+
+    INT32 dwBytesReturned = 0;
+    printf("[Client] 调用 NET_TV_GetDevConfig 获取系统校时配置...\n");
+    BOOL bRet = NET_TV_GetDevConfig(
+        g_lpUserID,
+        1,
+        NET_TV_GET_NTPCFG,
+        &stInfo,
+        (INT32)sizeof(stInfo),
+        &dwBytesReturned
+    );
+
+    if (bRet)
+    {
+        printf("[Client] 获取系统校时配置成功! BytesReturned=%d\n", dwBytesReturned);
+        PrintSystemNtpCfg(&stInfo);
+    }
+    else
+    {
+        printf("[Client] 获取系统校时配置失败! Error=%d\n", NET_TV_GetLastError());
+    }
+}
+
+static void FillDemoSystemNtpCfg(NET_TV_SYSTEM_NTP_INFO_S* pInfo)
+{
+    if (!pInfo)
+    {
+        return;
+    }
+
+    memset(pInfo, 0, sizeof(*pInfo));
+    pInfo->enTimeZone = 8;
+    pInfo->enDateFormat = 0;
+    pInfo->bEnableNTPSync = FALSE;
+    pInfo->bManualSync = TRUE;
+    pInfo->bIsSyncWithComputer = TRUE;
+    FormatLocalDateTime(pInfo->szDateTime, sizeof(pInfo->szDateTime));
+    CopyString(pInfo->szAddress, sizeof(pInfo->szAddress), "time.windows.com");
+    pInfo->nPort = 123;
+    pInfo->nSyncInterval = 60;
+}
+
+static void DoSetSystemNtpCfg()
+{
+    NET_TV_SYSTEM_NTP_INFO_S stInfo;
+    FillDemoSystemNtpCfg(&stInfo);
+
+    INT32 dwBytesReturned = 0;
+    printf("[Client] 调用 NET_TV_SetDevConfig 设置系统校时配置(客户端当前时间示例)...\n");
+    BOOL bRet = NET_TV_SetDevConfig(
+        g_lpUserID,
+        1,
+        NET_TV_SET_NTPCFG,
+        &stInfo,
+        (INT32)sizeof(stInfo),
+        &dwBytesReturned
+    );
+
+    if (bRet)
+    {
+        printf("[Client] 设置系统校时配置成功! BytesReturned=%d\n", dwBytesReturned);
+        DoGetSystemNtpCfg();
+    }
+    else
+    {
+        printf("[Client] 设置系统校时配置失败! Error=%d\n", NET_TV_GetLastError());
     }
 }
 
@@ -5669,10 +5807,10 @@ static void PrintImageCfg(const NET_TV_IMAGE_SETTING_S* pInfo)
     }
 
     printf("\n[Client] ===== Image Config =====\n");
-    printf("  Brightness  : %d\n", pInfo->nBrightness);
-    printf("  Contrast    : %d\n", pInfo->nContrast);
-    printf("  Saturation  : %d\n", pInfo->nSaturation);
-    printf("  Sharpness   : %d\n", pInfo->nSharpness);
+    printf("  Brightness  : %u\n", pInfo->nBrightness);
+    printf("  Contrast    : %u\n", pInfo->nContrast);
+    printf("  Saturation  : %u\n", pInfo->nSaturation);
+    printf("  Sharpness   : %u\n", pInfo->nSharpness);
     printf("================================\n");
 }
 
@@ -6889,6 +7027,247 @@ static void DoSetTalkbackState()
     {
         printf("[Client] Set talkback state failed! Error=%d\n", NET_TV_GetLastError());
     }
+}
+
+static void VoiceComRecvCallback(const char* data, unsigned int size, LPVOID lpUserData)
+{
+    printf("[Client][VoiceCom] recv audio from device, size=%u\n", size);
+
+    FILE* dumpFp = static_cast<FILE*>(lpUserData);
+    if (dumpFp && data && size > 0)
+    {
+        fwrite(data, 1, size, dumpFp);
+        fflush(dumpFp);
+    }
+}
+
+static const char* VoiceComFormatToString(INT32 enFormat)
+{
+    switch (enFormat)
+    {
+        case NET_TV_AUDIO_FORMAT_PCM:
+            return "PCM";
+        case NET_TV_AUDIO_FORMAT_G711A:
+            return "G711A";
+        case NET_TV_AUDIO_FORMAT_G711U:
+            return "G711U";
+        default:
+            return "UNKNOWN";
+    }
+}
+
+static BOOL FillDemoVoiceComStartInfo(NET_TV_VOICECOM_START_INFO_S* pStartInfo, INT32 enFormat)
+{
+    if (!pStartInfo)
+    {
+        return FALSE;
+    }
+
+    memset(pStartInfo, 0, sizeof(*pStartInfo));
+    pStartInfo->dwAudioPort = DEMO_VOICECOM_PORT;
+    pStartInfo->stAudioParam.dwChannels = DEMO_VOICECOM_CHANNELS;
+    pStartInfo->stAudioParam.dwFrameIntervalMs = DEMO_VOICECOM_FRAME_INTERVAL_MS;
+    pStartInfo->stAudioParam.bLittleEndian = TRUE;
+
+    switch (enFormat)
+    {
+        case NET_TV_AUDIO_FORMAT_PCM:
+            pStartInfo->stAudioParam.enFormat = NET_TV_AUDIO_FORMAT_PCM;
+            pStartInfo->stAudioParam.dwSampleRate = NET_TV_AUDIO_SAMPRATE_16000;
+            pStartInfo->stAudioParam.dwBitDepth = 16;
+            pStartInfo->stAudioParam.dwFrameBytes = 640;
+            break;
+        case NET_TV_AUDIO_FORMAT_G711A:
+        case NET_TV_AUDIO_FORMAT_G711U:
+            pStartInfo->stAudioParam.enFormat = enFormat;
+            pStartInfo->stAudioParam.dwSampleRate = NET_TV_AUDIO_SAMPRATE_8000;
+            pStartInfo->stAudioParam.dwBitDepth = 8;
+            pStartInfo->stAudioParam.dwFrameBytes = 160;
+            break;
+        default:
+            return FALSE;
+    }
+
+    pStartInfo->stAudioParam.dwBitRate =
+        pStartInfo->stAudioParam.dwSampleRate *
+        pStartInfo->stAudioParam.dwBitDepth *
+        pStartInfo->stAudioParam.dwChannels;
+    return TRUE;
+}
+
+static BOOL SetVoiceComTalkbackState(BOOL bEnable, const char* localIp)
+{
+    NET_TV_TALKBACK_STATE_INFO_S stInfo;
+    memset(&stInfo, 0, sizeof(stInfo));
+
+    stInfo.bEnable = bEnable;
+    CopyString(stInfo.szLocalIP, sizeof(stInfo.szLocalIP),
+               (localIp && localIp[0] != '\0') ? localIp : DEMO_VOICECOM_DEFAULT_LOCAL_IP);
+    if (bEnable)
+    {
+        CopyString(stInfo.szSdp, sizeof(stInfo.szSdp), "tvsdk_voicecom");
+        stInfo.szUrl[0] = '\0';
+    }
+
+    INT32 dwBytesReturned = 0;
+    BOOL bRet = NET_TV_SetDevConfig(
+        g_lpUserID, 1, NET_TV_STATE_TALKBACK,
+        &stInfo, (INT32)sizeof(stInfo), &dwBytesReturned
+    );
+
+    if (!bRet)
+    {
+        printf("[Client][VoiceCom] Set talkback %s failed, Error=%d\n",
+               bEnable ? "ON" : "OFF", NET_TV_GetLastError());
+    }
+    else
+    {
+        printf("[Client][VoiceCom] Set talkback %s success, BytesReturned=%d\n",
+               bEnable ? "ON" : "OFF", dwBytesReturned);
+    }
+
+    return bRet;
+}
+
+static void DoVoiceComSendAudioFile()
+{
+    if (!g_lpUserID)
+    {
+        printf("[Client][VoiceCom] Please login first.\n");
+        return;
+    }
+
+    char localIp[NET_TV_LEN_64] = {0};
+    char filePath[DEMO_VOICECOM_PATH_MAX] = {0};
+    int formatChoice = 0;
+    INT32 enFormat = NET_TV_AUDIO_FORMAT_PCM;
+
+    printf("[Client][VoiceCom] Input local/NVR IP for talkback ownership (- for default %s): ",
+           DEMO_VOICECOM_DEFAULT_LOCAL_IP);
+    scanf("%63s", localIp);
+    if (localIp[0] == '-' && localIp[1] == '\0')
+    {
+        CopyString(localIp, sizeof(localIp), DEMO_VOICECOM_DEFAULT_LOCAL_IP);
+    }
+
+    printf("[Client][VoiceCom] Input audio format (0=PCM 16k/16bit/mono, 1=G711A 8k, 2=G711U 8k): ");
+    if (scanf("%d", &formatChoice) != 1)
+    {
+        printf("[Client][VoiceCom] invalid audio format input.\n");
+        return;
+    }
+    if (formatChoice == 1)
+    {
+        enFormat = NET_TV_AUDIO_FORMAT_G711A;
+    }
+    else if (formatChoice == 2)
+    {
+        enFormat = NET_TV_AUDIO_FORMAT_G711U;
+    }
+    else if (formatChoice != 0)
+    {
+        printf("[Client][VoiceCom] unsupported audio format choice: %d\n", formatChoice);
+        return;
+    }
+
+    NET_TV_VOICECOM_START_INFO_S stStartInfo;
+    if (!FillDemoVoiceComStartInfo(&stStartInfo, enFormat))
+    {
+        printf("[Client][VoiceCom] build audio param failed, format=%d\n", enFormat);
+        return;
+    }
+
+    printf("[Client][VoiceCom] Input %s file path (raw payload, %dHz/%dbit/%dch): ",
+           VoiceComFormatToString(stStartInfo.stAudioParam.enFormat),
+           stStartInfo.stAudioParam.dwSampleRate,
+           stStartInfo.stAudioParam.dwBitDepth,
+           stStartInfo.stAudioParam.dwChannels);
+    scanf("%259s", filePath);
+
+    FILE* fp = fopen(filePath, "rb");
+    if (!fp)
+    {
+        printf("[Client][VoiceCom] open audio file failed: %s\n", filePath);
+        return;
+    }
+
+    if (!SetVoiceComTalkbackState(TRUE, localIp))
+    {
+        fclose(fp);
+        return;
+    }
+
+    FILE* dumpFp = fopen(DEMO_VOICECOM_CLIENT_RECV_DUMP, "wb");
+    if (!dumpFp)
+    {
+        printf("[Client][VoiceCom] open recv dump failed, continue without dump: %s\n",
+               DEMO_VOICECOM_CLIENT_RECV_DUMP);
+    }
+
+    if (!NET_TV_StartVoiceCom(g_lpUserID, &stStartInfo, VoiceComRecvCallback, dumpFp))
+    {
+        printf("[Client][VoiceCom] NET_TV_StartVoiceCom failed, Error=%d\n", NET_TV_GetLastError());
+        if (dumpFp)
+        {
+            fclose(dumpFp);
+        }
+        SetVoiceComTalkbackState(FALSE, localIp);
+        fclose(fp);
+        return;
+    }
+
+    printf("[Client][VoiceCom] connected, sending %s as %s by %d bytes/frame, %d ms/frame, %dHz/%dbit/%dch...\n",
+           filePath,
+           VoiceComFormatToString(stStartInfo.stAudioParam.enFormat),
+           stStartInfo.stAudioParam.dwFrameBytes,
+           stStartInfo.stAudioParam.dwFrameIntervalMs,
+           stStartInfo.stAudioParam.dwSampleRate,
+           stStartInfo.stAudioParam.dwBitDepth,
+           stStartInfo.stAudioParam.dwChannels);
+
+    std::vector<char> frame(static_cast<size_t>(stStartInfo.stAudioParam.dwFrameBytes));
+    size_t totalBytes = 0;
+    size_t frameCount = 0;
+    bool sendOk = true;
+
+    while (true)
+    {
+        size_t nRead = fread(frame.data(), 1, frame.size(), fp);
+        if (nRead == 0)
+        {
+            break;
+        }
+
+        if (!NET_TV_VoiceComSendData(g_lpUserID, frame.data(), (UINT32)nRead))
+        {
+            printf("[Client][VoiceCom] send failed at frame=%zu, Error=%d\n",
+                   frameCount, NET_TV_GetLastError());
+            sendOk = false;
+            break;
+        }
+
+        totalBytes += nRead;
+        ++frameCount;
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(stStartInfo.stAudioParam.dwFrameIntervalMs));
+
+        if (nRead < frame.size())
+        {
+            break;
+        }
+    }
+
+    printf("[Client][VoiceCom] send %s, frames=%zu, bytes=%zu\n",
+           sendOk ? "finished" : "stopped", frameCount, totalBytes);
+
+    NET_TV_StopVoiceCom(g_lpUserID);
+    if (dumpFp)
+    {
+        fclose(dumpFp);
+        printf("[Client][VoiceCom] received audio dumped to %s\n", DEMO_VOICECOM_CLIENT_RECV_DUMP);
+    }
+    SetVoiceComTalkbackState(FALSE, localIp);
+    fclose(fp);
 }
 
 static void DoSetTalkbackToStream()
@@ -8405,6 +8784,15 @@ static void ProcessCommand(int cmd)
             break;
         case 168:
             DoSetImageCfg();
+            break;
+        case 169:
+            DoVoiceComSendAudioFile();
+            break;
+        case 170:
+            DoGetSystemNtpCfg();
+            break;
+        case 171:
+            DoSetSystemNtpCfg();
             break;
         case DEMO_REPLAY_PAUSE_CMD:
             DoControlReplayPause();

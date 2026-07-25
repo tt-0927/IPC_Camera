@@ -27,9 +27,10 @@ typedef enum
 /**
  * @brief 设备通用回调函数联合体定义
  */
-typedef union 
+typedef union
 {
     int (*DeviceInfo)(LPNET_TV_DEVICE_INFO_S pInfo);
+    NET_TV_CB_DeviceControl DeviceControl;
   
 } Net_TV_DeviceCb_Un;
 
@@ -67,8 +68,28 @@ NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetDeviceInfo(NET_TV_COMMON_ECO
     return TRUE;
 }
 
+NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_DeviceControl(NET_TV_CB_DeviceControl pCb)
+{
+    if (pCb == NULL)
+    {
+        return FALSE;
+    }
+
+    NET_TV_Device_CbItem* pItem = &g_cbTable[NET_TV_CB_TYPE_DEVICE_CTRL];
+    if (pItem->isRegistered)
+    {
+        return FALSE; // 已注册
+    }
+
+    pItem->enType = NET_TV_CB_TYPE_DEVICE_CTRL;
+    pItem->unFunc.DeviceControl = pCb;
+    pItem->isRegistered = 1;
+
+    return TRUE;
+}
+
 // ========================== 执行接口实现 ==========================
-int NetSDK_ExecuteCb_DeviceInfo(LPNET_TV_DEVICE_INFO_S pInfo) 
+int NetSDK_ExecuteCb_DeviceInfo(LPNET_TV_DEVICE_INFO_S pInfo)
 {
     if (pInfo == NULL) return -2;
     NET_TV_Device_CbItem* pItem = &g_cbTable[NET_TV_CB_TYPE_DEVICE_INFO];
@@ -76,4 +97,14 @@ int NetSDK_ExecuteCb_DeviceInfo(LPNET_TV_DEVICE_INFO_S pInfo)
     
     // 执行对应回调（类型安全）
     return pItem->unFunc.DeviceInfo(pInfo);
+}
+
+int NetSDK_ExecuteCb_DeviceControl(LPNET_TV_DEVICE_CONTROL_INFO_S pstCtrlInfo)
+{
+    if (pstCtrlInfo == NULL) return NET_TV_E_INVALID_PARAM;
+
+    NET_TV_Device_CbItem* pItem = &g_cbTable[NET_TV_CB_TYPE_DEVICE_CTRL];
+    if (!pItem->isRegistered) return NET_TV_E_NOT_SUPPORT;
+
+    return pItem->unFunc.DeviceControl(pstCtrlInfo);
 }

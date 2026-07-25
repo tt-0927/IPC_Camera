@@ -28,6 +28,19 @@ execute_process(
     OUTPUT_VARIABLE dirs_list
     )
 string(REPLACE "\n" ";" dirs_list ${dirs_list})
+
+if("${AIMODULES}" STREQUAL "LINUX_X86")
+    set(dirs_list 
+        ${CMAKE_CURRENT_LIST_DIR}
+        ${CMAKE_CURRENT_LIST_DIR}/V2_0
+    )
+else()
+    set(dirs_list 
+        ${CMAKE_CURRENT_LIST_DIR}
+        ${CMAKE_CURRENT_LIST_DIR}/V1_0
+    )
+endif()
+
 # 添加所有源文件与头文件
 foreach(item ${dirs_list})
     target_include_directories(${MODULE_NAME} INTERFACE ${item})

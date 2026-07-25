@@ -1,6 +1,6 @@
 #include "MediaRtp.h"
 #include "MediaPs.h"
-#include "ModuleLog.h"
+#include "dlog.h"
 #include <iomanip> // 包含用于设置输出格式的函数
 #include <iostream>
 #include <sstream>
@@ -59,7 +59,7 @@ bool Parser::parsePacket(
     /** RTP 头部长度至少 12 字节，否则无效 */
     if (size < 12)
     {
-        MLOG_ERROR("Invalid RTP packet size: %zu", size);
+        dlog_error("Invalid RTP packet size: %zu", size);
         return false;
     }
 
@@ -146,7 +146,7 @@ bool Parser::parsePacket(
     /** 确保 RTP 包属于当前解析器处理的 SSRC */
     if (header.ssrc != m_ssrc)
     {
-        MLOG_ERROR("解析RTP包的SSRC[0x%08x]与当前解析器SSRC[0x%08x]不匹配 RTP包大小[%d]",
+        dlog_error("解析RTP包的SSRC[0x%08x]与当前解析器SSRC[0x%08x]不匹配 RTP包大小[%d]",
                    header.ssrc, m_ssrc, size);
     }
     else
@@ -159,7 +159,7 @@ bool Parser::parsePacket(
         return false;
     }
 #if RTP_DEBUG
-    MLOG_DEBUG("RTP packet: v[%d] p[%d] e[%d] csrc[%d] m[%d] payloadType[%d] sn[%d] ts[%ld] ssrc[%08x]",
+    dlog_debug("RTP packet: v[%d] p[%d] e[%d] csrc[%d] m[%d] payloadType[%d] sn[%d] ts[%ld] ssrc[%08x]",
                header.version, header.padding, header.extension, header.csrcCount, header.marker, header.payloadType, header.sequenceNumber, header.timestamp, header.ssrc);
 #endif
     /** 计算 RTP 头部总长度（含 CSRC） */
@@ -235,7 +235,7 @@ bool Parser::parsePacketTcp(const char *data, size_t size)
 #endif
     auto vecTotal = m_vecTcpBuffer.size();
 #if RTP_DEBUG
-    MLOG_DEBUG("接收的TCP数据大小[%llu]，缓存数据大小[%llu]", size, vecTotal);
+    dlog_debug("接收的TCP数据大小[%llu]，缓存数据大小[%llu]", size, vecTotal);
 #endif
     size_t nOffset = 0;
     if (vecTotal > 0)
@@ -260,13 +260,13 @@ bool Parser::parsePacketTcp(const char *data, size_t size)
         m_vecTcpBuffer.insert(m_vecTcpBuffer.end(), data, data + nOffset);
 #if RTP_DEBUG
         auto frameTotal = m_vecTcpBuffer.size();
-        MLOG_DEBUG("解析缓存数据的Rtp数据包大小[%llu][%02x][%02x]需要拼接的大小[%llu]拼好包[%llu]",
+        dlog_debug("解析缓存数据的Rtp数据包大小[%llu][%02x][%02x]需要拼接的大小[%llu]拼好包[%llu]",
                    nRtpSize, m_vecTcpBuffer[0], m_vecTcpBuffer[1], nOffset, frameTotal);
 #endif
         if (!parsePacket(m_vecTcpBuffer.data() + 2, nRtpSize,false))
         {
 #if RTP_DEBUG
-            MLOG_DEBUG("无法解析拼好包[%llu]", frameTotal);
+            dlog_debug("无法解析拼好包[%llu]", frameTotal);
 #endif
         }
         /* 清空缓存的数据 */
@@ -292,14 +292,14 @@ bool Parser::parsePacketTcp(const char *data, size_t size)
         nRtpSize |= data[nOffset + 1];
         size_t nLeftSize = nTotal - nOffset - 2;
 #if RTP_DEBUG
-        MLOG_DEBUG("解析TCP数据的Rtp数据包大小[%llu][%02x][%02x]剩余大小[%llu]Offset[%llu]Total[%llu]",
+        dlog_debug("解析TCP数据的Rtp数据包大小[%llu][%02x][%02x]剩余大小[%llu]Offset[%llu]Total[%llu]",
                    nRtpSize, data[nOffset], data[nOffset + 1], nLeftSize, nOffset, nTotal);
 #endif
         /* nLeftSize可以为0，即只有长度数据，完全没有RTP包数据 */
         if (nLeftSize < nRtpSize)
         {
 #if RTP_DEBUG
-            MLOG_DEBUG("剩余的数据长度无法满足解析出来的RTP数据长度");
+            dlog_debug("剩余的数据长度无法满足解析出来的RTP数据长度");
 #endif
             bRet = false;
             break;
@@ -308,7 +308,7 @@ bool Parser::parsePacketTcp(const char *data, size_t size)
         if (!parsePacket(data + nOffset, nRtpSize,false))
         {
 #if RTP_DEBUG
-            MLOG_DEBUG("无法解析对应RTP数据长度[%llu]", nRtpSize);
+            dlog_debug("无法解析对应RTP数据长度[%llu]", nRtpSize);
 #endif
         }
         nCount++;
@@ -318,13 +318,13 @@ bool Parser::parsePacketTcp(const char *data, size_t size)
     if (!bRet && (nTotal - nOffset) > 0)
     {
 #if RTP_DEBUG
-        MLOG_DEBUG("剩余[%llu]TCP数据无法解析", nTotal - nOffset);
+        dlog_debug("剩余[%llu]TCP数据无法解析", nTotal - nOffset);
 #endif
         /* 剩下的数据包不完整，不解析，等待下一包数据拼接后再解析 */
         m_vecTcpBuffer.insert(m_vecTcpBuffer.end(), data + nOffset, data + nTotal);
     }
 #if RTP_DEBUG
-    MLOG_DEBUG("TCP数据[%llu]解析出[%d]个RTP包", size, nCount);
+    dlog_debug("TCP数据[%llu]解析出[%d]个RTP包", size, nCount);
 #endif
     return bRet;
 }
@@ -348,7 +348,7 @@ bool Parser::processFragmentedPacket(
     if (timestamp != buff_timestamp_.load())
     {
 #if RTP_DEBUG
-        MLOG_DEBUG("RTP packet timestamp: %d => %d", buff_timestamp_.load(), timestamp);
+        dlog_debug("RTP packet timestamp: %d => %d", buff_timestamp_.load(), timestamp);
 #endif
         /* 组装上一个时间戳的分片数据 */
         bRet = makePacket(output);
@@ -366,7 +366,7 @@ bool Parser::processFragmentedPacket(
         {
 #if RTP_DEBUG
             /* 组装完整数据 */
-            MLOG_DEBUG("RTP packet marker: %d", marker);
+            dlog_debug("RTP packet marker: %d", marker);
 #endif
             bRet = makePacket(output);
         }
@@ -392,11 +392,11 @@ bool SIP::RTP::Parser::makePacket(std::vector<char> &output)
     /* 理论上，成功重组完后，buffer_ 应该为空，如果不为空，则有丢包 */
     if (!buffer_.empty())
     {
-        MLOG_ERROR("RTP packet lost: %d", buffer_.begin()->first);
+        dlog_error("RTP packet lost: %d", buffer_.begin()->first);
         buffer_.clear();
     }
 #if RTP_DEBUG
-    MLOG_DEBUG("Packet timestamp: %ld", buff_timestamp_.load());
+    dlog_debug("Packet timestamp: %ld", buff_timestamp_.load());
 #endif
     /* 组装完后数据时间戳要归零 */
     buff_timestamp_.store(0);
@@ -405,7 +405,7 @@ bool SIP::RTP::Parser::makePacket(std::vector<char> &output)
     if (!assembled.empty())
     {
 #if RTP_DEBUG
-        MLOG_DEBUG("RTP packet assembled: %d", nDebugCount);
+        dlog_debug("RTP packet assembled: %d", nDebugCount);
 #endif
         output = std::move(assembled);
         return true;
@@ -415,7 +415,7 @@ bool SIP::RTP::Parser::makePacket(std::vector<char> &output)
 
 SIP::RTP::Packer::Packer()
 {
-    MLOG_INFO("RTP Packer ssrc: %d", m_ssrc);
+    dlog_info("RTP Packer ssrc: %d", m_ssrc);
 #if RTP_DEBUG_FILE
 #if RTP_DEBUG_RTP_FILE
     m_rtpfile.open("./test.rtp", std::ios::out | std::ios::binary | std::ios::trunc);
@@ -439,7 +439,7 @@ SIP::RTP::Packer::Packer(uint32_t ssrc, int fps, bool bIsTcp)
       m_timestamp(0),
       m_psIndex(0x40BF)
 {
-    MLOG_INFO("RTP Packer ssrc: %d", m_ssrc);
+    dlog_info("RTP Packer ssrc: %d", m_ssrc);
 #if RTP_DEBUG_FILE
 #if RTP_DEBUG_RTP_FILE
     m_rtpfile.open("./test.rtp", std::ios::out | std::ios::binary | std::ios::trunc);
@@ -507,12 +507,12 @@ int RTP::Packer::packRtpPackage(
     packetInfo.enAudio = PS::StreamType_E(m_nAudioType);
     if (bIsAudio && packetInfo.enAudio == PS::StreamType_E::NONE)
     {
-        MLOG_ERROR("PS流编码音频格式为空");
+        dlog_error("PS流编码音频格式为空");
         return -1;
     }
     if ((!bIsAudio && packetInfo.enVideo == PS::StreamType_E::NONE))
     {
-        MLOG_ERROR("PS流编码视频格式为空");
+        dlog_error("PS流编码视频格式为空");
         return -2;
     }
     std::vector<char> outputPs;
@@ -580,7 +580,7 @@ int RTP::Packer::packRtpPackage(
                          outputPs.begin() + nOffSet,
                          outputPs.begin() + nOffSet + nActualSize);
 #if RTP_DEBUG_FILE
-        MLOG_DEBUG("SN[%05d]ActualSize[%d]OffSet[%ld]Total[%ld]FPS[%d]Timestamp[%ld]PacketSize[%ld]",
+        dlog_debug("SN[%05d]ActualSize[%d]OffSet[%ld]Total[%ld]FPS[%d]Timestamp[%ld]PacketSize[%ld]",
                    m_sn, nActualSize, nOffSet, nTotal, m_nVideoFps, m_timestamp, rtpPacket.size());
 #endif
         /* 输入的输出的数组中 */
@@ -606,12 +606,12 @@ int RTP::Packer::packRtpPackage(
     }
 #endif
 #if RTP_DEBUG_FILE && RTP_DEBUG_RTP_FILE
-    MLOG_DEBUG("组装了[%ld]个RTP包", output.size());
+    dlog_debug("组装了[%ld]个RTP包", output.size());
     if (m_rtpfile.is_open())
     {
         for (auto &pVec : output)
         {
-            MLOG_DEBUG("RTP包大小[%ld]", pVec.size());
+            dlog_debug("RTP包大小[%ld]", pVec.size());
             m_rtpfile.write(pVec.data(), pVec.size());
             m_rtpfile.flush();
         }

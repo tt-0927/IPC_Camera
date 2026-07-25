@@ -1,3 +1,4 @@
+#include "dlog.h"
 #if CAP_NETWORK_4G
 #include "4g_manage.h"
 #include <iostream>
@@ -123,11 +124,35 @@ FourGManager::FourGManager() : port_name(DEFAULT_PORT), fd(-1), init_status(RET_
     // std::this_thread::sleep_for(std::chrono::milliseconds(500));
     // runSystemCommand("udhcpc -i usb0 -q");
     // init_status = RET_OK;
+    #if CAP_IO_EXTERNAL_DDR_00S
+    system("bspmm 0x11130010 0x1102");/*io复用*/
+    system("bspmm 0x11130014 0x1102");
+    #else
+    system("bspmm 0x11130048 0x1105");/*io复用*/
+    system("bspmm 0x1113004c 0x1105");
+    #endif
     std::cout << "[4G] Module Initialized with APN: " << m_config.apn << std::endl;
 }
 
 FourGManager::~FourGManager() {
     deinit();
+}
+
+bool FourGManager::waitModuleReady()
+{
+    for (int i = 0; i < 30; i++)
+    {
+        std::string resp;
+
+        if (sendCommand("AT", resp, 100) == RET_OK)
+        {
+            return true;
+        }
+        std::cout << "sleep sec :" << i << std::endl;
+        sleep(1);
+    }
+
+    return false;
 }
 
 RetCode FourGManager::init() {
@@ -146,15 +171,33 @@ RetCode FourGManager::init() {
         return init_status;
     }
 
+    if (!waitModuleReady())//等待4G模块启动完成
+    {
+        return RET_ERR_FAILURE;
+    }
+
     // 2. 基础通信测试
     std::string resp;
-    if (sendCommand("AT", resp, 1000) != RET_OK || resp.find("OK") == std::string::npos) {
+    if (sendCommand("AT", resp, 700) != RET_OK || resp.find("OK") == std::string::npos) {
         std::cerr << "[4G] Module not responding." << std::endl;
         init_status = RET_ERR_FAILURE;
         return init_status;
     }
-    sendCommand("AT+CMEE=1", resp, 1000);
+    sendCommand("AT+CMEE=1", resp, 700);
 
+    std::string cpinResp;
+    if (sendCommand("AT+CPIN?", cpinResp, 700) == RET_OK) {
+        // 如果返回了 READY，说明已插卡且正常
+        if (cpinResp.find("+CPIN: READY") != std::string::npos) {
+            std::cout << "[4G] SIM card is inserted and ready." << std::endl;
+        } 
+        // 如果返回了 10 号错误码，说明没插卡
+        else if (cpinResp.find("+CME ERROR: 10") != std::string::npos) {
+            std::cerr << "[4G] Error: SIM card not inserted!" << std::endl;
+            init_status = RET_ERR_FAILURE;
+            return init_status;//确认卡正常才算初始化成功
+        }
+    }
     // 3. 自动识别运营商并设置 APN
     autoDetectOperator();
 
@@ -164,15 +207,21 @@ RetCode FourGManager::init() {
     // runSystemCommand("udhcpc -i usb0 -q");
     runSystemCommand("udhcpc -i usb0 -R -n -t 5");
 
+    int eth0_link_up =
+    system("grep -q 1 /sys/class/net/eth0/carrier");//查看有线是否存在
+    if (eth0_link_up == 0)
+    {
+        system("ip route del default dev usb0");
+    }
     // --- 标记初始化成功 ---
     init_status = RET_OK;
     is_initialized = true; // 关键：设置标记
 
     
-    m_routeMonitorThread = std::thread(&FourGManager::routeMonitorThread, this);
+    // m_routeMonitorThread = std::thread(&FourGManager::routeMonitorThread, this);
 
 
-    m_routeMonitorThread.detach(); 
+    // m_routeMonitorThread.detach(); 
 
 
     std::cout << "[4G] Module Initialized with APN: " << m_config.apn << std::endl;
@@ -212,6 +261,10 @@ void FourGManager::deinit() {
 // ==========================================
 
 RetCode FourGManager::openPort() {
+    if (fd >= 0) {
+        dlog_debug("Port is open")
+        return RET_OK;
+    }
     fd = open(port_name.c_str(), O_RDWR | O_NOCTTY); 
     if (fd < 0) {
         perror("Open port error");
@@ -516,9 +569,9 @@ RetCode FourGManager::setConfig(const ::Network::Network_4G_Config_t &config) {
     // ==========================================
     int at_mode = 2; // 默认 Auto
     if (config.network_mode == 1) {
-        at_mode = 14; // 4G优先
+        at_mode = 38; // 4G优先
     } else if (config.network_mode == 2) {
-        at_mode = 3;  // 仅3G (WCDMA)
+        at_mode = 14;  // 仅3G (WCDMA)
     }
 
     // 【关键修复】：在修改网络模式前，必须先断开数据连接 (CGACT=0)
@@ -833,53 +886,162 @@ bool FourGManager::isWiredConnected() {
     return (ipFound && gwFound);
 }
 
-void FourGManager::updateRouteIfNeeded() {
-    // 1. 检查 4G 是否已连接
-    std::string ipResp;
-    if (sendCommand("AT+CGPADDR=1", ipResp, 1000) != RET_OK || ipResp.find("0.0.0.0") != std::string::npos) {
+std::string getUsb0Gateway()
+{
+    FILE *fp = popen("ifconfig usb0 | grep 'inet addr' "
+                     "| awk -F: '{print $2}' "
+                     "| awk '{print $1}'",
+                     "r");
+
+    if (!fp)
+    {
+        return "";
+    }
+
+    char buf[64] = { 0 };
+
+    if (!fgets(buf, sizeof(buf), fp))
+    {
+        pclose(fp);
+        return "";
+    }
+
+    pclose(fp);
+
+    std::string ip(buf);
+
+    ip.erase(std::remove(ip.begin(), ip.end(), '\n'), ip.end());
+
+    size_t pos = ip.rfind('.');
+
+    if (pos == std::string::npos)
+    {
+        return "";
+    }
+
+    return ip.substr(0, pos) + ".1";
+}
+void FourGManager::updateRouteIfNeeded(bool bWiredDisconnected) {
+    
+    if (m_lastWiredDisconnected == bWiredDisconnected)
+    {
+        dlog_info("bWiredDisconnected = %d",bWiredDisconnected);
         return;
     }
+    dlog_info("bWiredDisconnected = %d",bWiredDisconnected);
+    m_lastWiredDisconnected = bWiredDisconnected;
 
-    bool wiredUp = isWiredConnected();
+    std::string ipResp;
+    bool fourgReady =
+        (sendCommand("AT+CGPADDR=1", ipResp, 1000) == RET_OK) &&
+        (ipResp.find("0.0.0.0") == std::string::npos);
 
-    if (wiredUp) {
-        std::cout << "[4G] Wired detected. Configuring routes..." << std::endl;
-
-        // --- 动态获取配置 ---
-        std::string wiredIp, wiredGateway;
-        if (!parseNetworkConfig(wiredIp, wiredGateway)) {
-            std::cerr << "[4G] Error: Failed to parse network config! Falling back to defaults or skipping." << std::endl;
-            // 这里可以选择 return 或者使用硬编码的备用值，视你的需求而定
-            return; 
+        if (!bWiredDisconnected)
+        {
+            // =========================
+            // 网线恢复
+            // =========================
+    
+            std::string wiredIp;
+            std::string wiredGateway;
+    
+            if (!parseNetworkConfig(wiredIp, wiredGateway))
+            {
+                dlog_error("parseNetworkConfig failed");
+                return;
+            }
+    
+            dlog_info("switch route to eth0, gateway=%s",
+                      wiredGateway.c_str());
+    
+            // 删除4G默认路由
+            system("ip route del default dev usb0 2>/dev/null");
+    
+            // 删除旧有线路由
+            system("ip route del default dev eth0 2>/dev/null");
+    
+            // 添加有线默认路由
+            std::string cmd =
+                "ip route add default via " +
+                wiredGateway +
+                " dev eth0";
+    
+            system(cmd.c_str());
+    
+            system("ip route flush cache");
+    
+            system("ip route");
+    
+            dlog_info("switch route to eth0");
+            usleep(50000);
+            const int max_retries = 3; 
+            for (int i = 0; i < max_retries; ++i) {
+                int ret = CPlatformManager::instance()->change_net_relogin();
+                if (ret == 0) {
+                    break; 
+                } else {
+                    if (i < max_retries - 1) {
+                        dlog_error("，准备进行第 (%d)  次重试..." ,(i+1));
+                    } else {
+                        dlog_error("，已达最大重试次数，放弃执行。");
+                    }
+                }
+            }
         }
-        std::cout << "[4G] Parsed Config -> IP: " << wiredIp << ", Gateway: " << wiredGateway << std::endl;
+        else
+        {
+            // =========================
+            // 网线断开
+            // =========================
+            if (!fourgReady)
+            {
+                dlog_warn("4G not ready");
+                return;
+            }
+            dlog_info("switch route to 4G");
+            std::string gateway = getUsb0Gateway();
 
-        // --- 设置有线优先路由 ---
-        // 1. 清理旧路由
-        runSystemCommand("ip route del default dev eth0 2>/dev/null || true");
-        // 2. 添加新路由 (使用动态获取的网关)
-        std::string cmdEth = "ip route add default via " + wiredGateway + " dev eth0 metric 10";
-        runSystemCommand(cmdEth);
+            if (gateway.empty())
+            {
+                dlog_error("usb0 gateway not found");
+                return;
+            }
 
-        // --- 设置 4G 备份路由 ---
-        runSystemCommand("ip route del default dev usb0 2>/dev/null || true");
-        runSystemCommand("ip route add default dev usb0 metric 20");
+            system("ip route del default dev eth0 2>/dev/null");
+            system("ip route del default dev usb0 2>/dev/null");
 
-    } else {
-        std::cout << "[4G] Wired not found. Using 4G as primary." << std::endl;
-        
-        // --- 设置 4G 优先路由 ---
-        runSystemCommand("ip route del default dev usb0 2>/dev/null || true");
-        runSystemCommand("ip route add default dev usb0 metric 5");
-    }
+            std::string cmd = "ip route add default via " + gateway + " dev usb0";
+
+            dlog_info("%s", cmd.c_str());
+
+            system(cmd.c_str());
+
+            system("ip route flush cache");
+            usleep(500000);
+            // CPlatformManager::instance()->change_net_relogin();
+            const int max_retries = 3; 
+            for (int i = 0; i < max_retries; ++i) {
+                int ret = CPlatformManager::instance()->change_net_relogin();
+                if (ret == 0) {
+                    break; 
+                } else {
+                    if (i < max_retries - 1) {
+                        dlog_error("，准备进行第 (%d)  次重试..." ,(i+1));
+                    } else {
+                        dlog_error("，已达最大重试次数，放弃执行。");
+                    }
+                }
+            }
+        }
+    
 }
 void* FourGManager::routeMonitorThread(void* arg) {
-    FourGManager* pThis = static_cast<FourGManager*>(arg);
-    while (pThis->is_initialized) {
-        pThis->updateRouteIfNeeded();
-        // 每隔 5 秒检测一次
-        std::this_thread::sleep_for(std::chrono::seconds(30));
-    }
+    // FourGManager* pThis = static_cast<FourGManager*>(arg);
+    // while (pThis->is_initialized) {
+    //     pThis->updateRouteIfNeeded();
+    //     // 每隔 5 秒检测一次
+    //     std::this_thread::sleep_for(std::chrono::seconds(5));
+    // }
     return nullptr;
 }
 #endif

@@ -8,7 +8,7 @@
  */
 
 #include "PtzCmd.h"
-#include "ModuleLog.h"
+#include "dlog.h"
 #include <sstream>
 #include <iomanip>
 
@@ -67,7 +67,7 @@ std::string PtzCmd::cmdString(PtzCommand_E enLeftRight, PtzCommand_E enUpDown, P
 		(0xA5 + 0x0F + 0x01 + nCmdCode + nMoveSpeed + nMoveSpeed + (nZoomSpeed << 4)) % 0x100;
 	ss << std::setfill('0') << std::setw(2) << std::hex << std::uppercase << nCheckCode;
 
-	MLOG_INFO("发送的指令码: %s", ss.str().c_str());
+	dlog_info("发送的指令码: %s", ss.str().c_str());
 	return ss.str();
 }
 
@@ -139,7 +139,7 @@ std::string PtzCmd::cmdLens(PtzCommand_E enIris, PtzCommand_E enFocus, int nIris
 		(0xA5 + 0x0F + 0x01 + nCmdCode + nIris_speed + nFocus_speed + 0x00) % 0x100;
 	ss << std::setfill('0') << std::setw(2) << std::hex << std::uppercase << nCheckCode;
 
-	MLOG_INFO("发送的指令码: %s", ss.str().c_str());
+	dlog_info("发送的指令码: %s", ss.str().c_str());
 	return ss.str();
 }
 

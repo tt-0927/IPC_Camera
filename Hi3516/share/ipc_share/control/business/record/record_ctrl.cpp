@@ -351,6 +351,17 @@ int CRecordCtrl::ctrl(int nStatus)
     dlog_debug("录制控制. nStatus:%d", nStatus);
     std::string info = Convert::to_string(stInfo);
     CRecordServer::instance()->fill_head(info, AC_CONTROL_RECORD_INFO);
+    if(nStatus == Record_NS::STOP_OPERATION)
+    {
+        /*记录因存储满停止的时间戳，供事件联动截断endTime使用*/
+        m_strLastRecordStopTime = TimeUtils_NS::get_currentDateWithDash() + " " + TimeUtils_NS::get_currentTimeWithColon();
+        m_bStoppedDueToStorage = true;
+    }
+    else if(nStatus == Record_NS::RECORD_OPERATION)
+    {
+        m_bStoppedDueToStorage = false;
+        m_strLastRecordStopTime.clear();
+    }
     return CRecordServer::instance()->send(static_cast<const void *>(info.c_str()), info.size() + 1, AC_CONTROL_RECORD_INFO);
 }
 
@@ -424,7 +435,17 @@ bool CRecordCtrl::is_newDay()
 	}
 	return true;
 }
+ 
+bool CRecordCtrl::isStoppedDueToStorage() const 
+{ 
+    return m_bStoppedDueToStorage; 
+}
 
+const std::string& CRecordCtrl::getLastRecordStopTime() const 
+{ 
+    return m_strLastRecordStopTime; 
+}
+    
 void CRecordCtrl::run()
 {
     pthread_setname_np(pthread_self(), "RecordCtrlRun");

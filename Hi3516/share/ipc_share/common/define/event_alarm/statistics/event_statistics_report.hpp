@@ -98,6 +98,8 @@ struct Report_S
     std::vector<TargetSnapshot_S> vecTargets;
     /* 统计上报全景图，人员密度周期上报使用 */
     ImagePayload_S stPanoramaImage;
+    /* 统计上报目标图列表，人流统计/人脸抓拍等需要目标小图的场景使用 */
+    std::vector<ImagePayload_S> vecTargetImages;
     /* 扩展字段，仅用于摘要或后续兼容 */
     std::map<std::string, std::string> mapExtras;
 

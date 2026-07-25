@@ -14,6 +14,8 @@
 #include "SDKConvert.h"
 #include <cstring>
 #include <string>
+#include <fstream>
+#include <vector>
 
 #include "Singleton.h"
 
@@ -133,11 +135,11 @@ public:
     // ========================================================================
     // 场景 3: 万能通用执行 (直接传 JSON 字符串或需要自定义处理)
     // ========================================================================
-    bool ExecuteRaw(LPUSER_HANDLE pHandle, const std::string& method, const std::string& url, 
-                   const std::string& body, std::string& outResp) 
+    bool ExecuteRaw(LPUSER_HANDLE pHandle, const std::string& method, const std::string& url,
+                   const std::string& body, std::string& outResp)
 		{
         auto session = CDeviceManage::instance()->GetSession(pHandle);
-        if (!session) 
+        if (!session)
 		{
             CErrorManage::instance()->SetLastError(NET_TV_E_NO_USER);
             return false;
@@ -145,6 +147,44 @@ public:
 
         CommandRequest req(method, url);
         req.jsonBody = body;
+        return session->SendRequest(req, outResp);
+    }
+
+    // ========================================================================
+    // 场景 4: 文件上传 (PUT/POST 二进制)
+    // ========================================================================
+    bool ExecuteUpload(LPUSER_HANDLE pHandle, const std::string& method, const std::string& url,
+                       const std::string& filePath, std::string& outResp)
+    {
+        auto session = CDeviceManage::instance()->GetSession(pHandle);
+        if (!session)
+        {
+            CErrorManage::instance()->SetLastError(NET_TV_E_NO_USER);
+            return false;
+        }
+
+        // 读取文件到内存
+        std::ifstream file(filePath, std::ios::binary | std::ios::ate);
+        if (!file.is_open())
+        {
+            CErrorManage::instance()->SetLastError(NET_TV_E_INVALID_PARAM);
+            return false;
+        }
+
+        const auto fileSize = file.tellg();
+        file.seekg(0, std::ios::beg);
+
+        std::vector<char> fileData(static_cast<std::size_t>(fileSize));
+        if (!file.read(fileData.data(), fileSize))
+        {
+            CErrorManage::instance()->SetLastError(NET_TV_E_SOCKET_RECV_ERR);
+            return false;
+        }
+
+        CommandRequest req(method, url);
+        req.binData = fileData.data();
+        req.binSize = static_cast<std::size_t>(fileSize);
+
         return session->SendRequest(req, outResp);
     }
 

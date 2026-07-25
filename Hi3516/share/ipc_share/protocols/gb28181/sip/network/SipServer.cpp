@@ -8,6 +8,7 @@
  */
 
 #include "SipServer.h"
+#include "dlog.h"
 #include "SipUtils.h"
 
 using namespace SIP;
@@ -19,7 +20,7 @@ bool SipServer::Init(SipServerInfo_S stInfo)
     {
         /* 自动生成一个随机字符串作为标识符 */
         m_stServerInfo.strNonce = ::GenerateRandomString(16);
-        MLOG_DEBUG("SIP服务器Nonce配置为空，随机生成[%s]",
+        dlog_debug("SIP服务器Nonce配置为空，随机生成[%s]",
                    m_stServerInfo.strNonce.c_str());
     }
     return true;
@@ -30,7 +31,7 @@ bool SipServer::Start()
     m_pSipContext = eXosip_malloc();
     if (OSIP_SUCCESS != eXosip_init(m_pSipContext))
     {
-        MLOG_ERROR("eXosip_init failed");
+        dlog_error("eXosip_init failed");
         return false;
     }
     /* 设置代理名称 */
@@ -44,13 +45,13 @@ bool SipServer::Start()
         m_stServerInfo.nPort, AF_INET, 0);
     if (nRet != OSIP_SUCCESS)
     {
-        MLOG_ERROR("eXosip_listen_addr failed");
+        dlog_error("eXosip_listen_addr failed");
         eXosip_quit(m_pSipContext);
         return false;
     }
     m_bThreadRun = true;
     m_thrListen = std::make_shared<std::thread>(&SipServer::RecvEventThread, this);
-    MLOG_INFO("SipServer Start IP[%s] Port[%d] Tcp[%d] Pw[%s] Ret[%d]",
+    dlog_info("SipServer Start IP[%s] Port[%d] Tcp[%d] Pw[%s] Ret[%d]",
               m_stServerInfo.strIP.c_str(),
               m_stServerInfo.nPort,
               m_stServerInfo.bTcp,
@@ -70,7 +71,7 @@ bool SipServer::Stop()
         m_thrListen = nullptr;
     }
 
-    MLOG_INFO("SipServer Stop");
+    dlog_info("SipServer Stop");
     eXosip_quit(m_pSipContext);
     m_pSipContext = nullptr;
     return true;
@@ -79,7 +80,7 @@ bool SipServer::Stop()
 int SIP::SipServer::on_message_new(const SipEvent::Ptr &e)
 {
     eXosip_event_t *exosip_event = e->m_pEvent;
-    MLOG_INFO("SipServer Message New Method [%s]",
+    dlog_info("SipServer Message New Method [%s]",
               exosip_event->request->sip_method);
     if (MSG_IS_REGISTER(exosip_event->request))
     {
@@ -132,14 +133,14 @@ SipEvent::Ptr SipServer::new_event(
     }
 
     size_t nLength = 0;
-    MLOG_INFO("[SipServer]处理事件: [%d][%s][%s]",
+    dlog_info("[SipServer]处理事件: [%d][%s][%s]",
               exosip_event->type, stEventDeal.achName, exosip_event->textinfo);
 #if 1 /* DEBUG 调试输出SIP消息 */
     if (exosip_event->request)
     {
         char *pRequest = nullptr;
         osip_message_to_str(exosip_event->request, &pRequest, &nLength);
-        MLOG_DEBUG("=============>>[%d] Request:\n%s", exosip_event->type, pRequest)
+        dlog_debug("=============>>[%d] Request:\n%s", exosip_event->type, pRequest)
         osip_free(pRequest);
     }
 
@@ -147,7 +148,7 @@ SipEvent::Ptr SipServer::new_event(
     {
         char *pResponse = nullptr;
         osip_message_to_str(exosip_event->response, &pResponse, &nLength);
-        MLOG_DEBUG("=============>>[%d] Response:\n%s", exosip_event->type, pResponse)
+        dlog_debug("=============>>[%d] Response:\n%s", exosip_event->type, pResponse)
         osip_free(pResponse);
     }
 
@@ -155,7 +156,7 @@ SipEvent::Ptr SipServer::new_event(
     {
         char *pAck = nullptr;
         osip_message_to_str(exosip_event->ack, &pAck, &nLength);
-        MLOG_DEBUG("=============>>[%d] Ack:\n%s", exosip_event->type, pAck)
+        dlog_debug("=============>>[%d] Ack:\n%s", exosip_event->type, pAck)
         osip_free(pAck);
     }
 #endif

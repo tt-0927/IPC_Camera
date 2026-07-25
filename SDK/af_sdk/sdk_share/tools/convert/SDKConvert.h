@@ -442,6 +442,21 @@ namespace SDKConvert
     }
 
     template <typename... Args>
+    inline bool from_string(const std::string& jsonData, Args &... args)
+    {
+        RunTimer timer(jsonData);
+        Json::Object *pRootJson = Json::init(jsonData);
+        if (!pRootJson)
+        {
+            return false;
+        }
+
+        process_data(true, pRootJson, args...);
+        Json::deinit(pRootJson);
+        return true;
+    }
+
+    template <typename... Args>
     inline std::string to_respString(int nRespCode,Args &... args)
     {
         RunTimer timer();

@@ -21,6 +21,8 @@ void FillDeviceInfo(const ::System::DeviceInfo_S &src, NET_TV_DEVICE_INFO_S &dst
 
 void FillDeviceBasicInfo(const ::System::DeviceInfo_S &src, NET_TV_DEVICE_BASICINFO_S &dst);
 void ToDeviceInfo(const NET_TV_DEVICE_BASICINFO_S &src, ::System::DeviceInfo_S &dst);
+void FillSystemNtpInfo(const ::System::TimeInfo_S &src, NET_TV_SYSTEM_NTP_INFO_S &dst);
+void ToTimeInfo(const NET_TV_SYSTEM_NTP_INFO_S &src, ::System::TimeInfo_S &dst);
 
 void FillNetworkCfg(const Network::Info_S &src, NET_TV_NETWORKCFG_S &dst);
 void ToNetworkInfo(const NET_TV_NETWORKCFG_S &src, Network::Info_S &dst);
@@ -36,6 +38,8 @@ void FillVideoEncodeOption(const Video_NS::VideoConfig_S &src, NET_TV_VIDEO_ENCO
 void ToVideoConfig(const NET_TV_VIDEO_ENCODE_OPTION_S &src, Video_NS::VideoConfig_S &dst);
 void FillOsdConfig(const Osd::OsdConfig_S &src, NET_TV_VIDEO_OSD_CFG_S &dst);
 void ToOsdConfig(const NET_TV_VIDEO_OSD_CFG_S &src, Osd::OsdConfig_S &dst);
+void FillPrivacyMaskCfg(const Osd::CoverConfig_S &src, NET_TV_PRIVACY_MASK_CFG_S &dst);
+void ToPrivacyMaskCfg(const NET_TV_PRIVACY_MASK_CFG_S &src, Osd::CoverConfig_S &dst);
 
 void ToUpgradeInfo(const NET_TV_UPGRADE_INFO_S &src, ::System::UpgradeInfo_S &dst);
 void FillUpgradeStatus(const ::System::UpgradeStatus_S &src, NET_TV_UPGRADE_STATUS_S &dst);

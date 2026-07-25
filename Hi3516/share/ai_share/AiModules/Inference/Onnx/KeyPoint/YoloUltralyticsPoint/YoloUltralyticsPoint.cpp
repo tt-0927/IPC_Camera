@@ -150,7 +150,7 @@ bool Inference_NS::CYoloUltralyticsPoint::checkModelProConfig()
 
     Json::Object* pJsonHandle = NULL;
     Json::Object* pJsonData   = NULL;
-    bool          bRet        = false;
+    bool          bRet        = true;
 
     pJsonHandle = Json::init(pchJson);
 
@@ -175,13 +175,11 @@ bool Inference_NS::CYoloUltralyticsPoint::checkModelProConfig()
         goto EXIT;
     }
 
-    return true;
-
 EXIT:
     if (pJsonHandle)
     {
         Json::deinit(pJsonHandle);
         pJsonHandle = NULL;
     }
-    return false;
+    return bRet;
 }

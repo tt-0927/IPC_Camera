@@ -1,8 +1,13 @@
 #include <stdio.h>
-#include <stdint.h> 
+#include <stdint.h>
 #include <cctype>
+#include <cstring>
 #include <iomanip>
 #include <sstream>
+#include <map>
+#include <memory>
+#include <mutex>
+#include <utility>
 
 #include "NetTVSDKClientInterface.h"
 #include "NetTVSDKHttpUrl.h"
@@ -10,6 +15,8 @@
 #include "ErrorManage.h"
 #include "DeviceManage.h"
 #include "NetSdkLog.h"
+#include "RecordFrameClient.h"
+#include "VoiceComClient.h"
 
 #define NETTVSDK_MAKE_VERSION(major, minor, rev1, rev2) \
     ((uint32_t)( \
@@ -324,13 +331,13 @@ NET_TV_API BOOL STDCALL NET_TV_StopListen(IN LPVOID lpUserID)
     if (!pDevMgr) return FALSE;
     
     auto session = pDevMgr->GetSession((LPUSER_HANDLE)lpUserID);
-    if (!session) 
+    if (!session)
     {
         CErrorManage::instance()->SetLastError(NET_TV_E_NO_USER);
         return FALSE;
     }
     
-    if (!session->StopAlarmListen()) 
+    if (!session->StopAlarmListen())
     {
         CErrorManage::instance()->SetLastError(NET_TV_E_FAILED);
         return FALSE;
@@ -338,6 +345,43 @@ NET_TV_API BOOL STDCALL NET_TV_StopListen(IN LPVOID lpUserID)
     
     CErrorManage::instance()->SetLastError(NET_TV_E_SUCCEED);
     return TRUE;
+}
+
+NET_TV_API BOOL STDCALL NET_TV_DeviceControl(IN LPVOID lpUserID,
+                                             IN LPNET_TV_DEVICE_CONTROL_INFO_S pstCtrlInfo)
+{
+    CHECK_SDK_INIT(FALSE);
+
+    if (!lpUserID || !pstCtrlInfo || pstCtrlInfo->dwChannelID <= 0 ||
+        pstCtrlInfo->dwControlType <= 0 || pstCtrlInfo->dwCommand <= 0 ||
+        pstCtrlInfo->dwDurationMs < 0)
+    {
+        CErrorManage::instance()->SetLastError(NET_TV_E_INVALID_PARAM);
+        return FALSE;
+    }
+
+    if (pstCtrlInfo->dwControlType == NET_TV_DEVICE_CTRL_TYPE_PTZ &&
+        (pstCtrlInfo->dwSpeed < NET_TV_MIN_PTZ_SPEED_LEVEL || pstCtrlInfo->dwSpeed > NET_TV_MAX_PTZ_SPEED_LEVEL))
+    {
+        CErrorManage::instance()->SetLastError(NET_TV_E_INVALID_PARAM);
+        return FALSE;
+    }
+
+    if (pstCtrlInfo->dwSize == 0)
+    {
+        pstCtrlInfo->dwSize = sizeof(NET_TV_DEVICE_CONTROL_INFO_S);
+    }
+
+    std::string body = SDKConvert::to_string(*pstCtrlInfo);
+    std::string respBody;
+    if (!CommandExecutor::instance()->ExecuteRaw((LPUSER_HANDLE)lpUserID, "POST", TVAPI_PATH_DEVICE_CONTROL, body, respBody))
+    {
+        return FALSE;
+    }
+
+    const int respCode = SDKConvert::get_respCode(respBody);
+    CErrorManage::instance()->SetLastError(respCode);
+    return respCode == NET_TV_E_SUCCEED ? TRUE : FALSE;
 }
 
 #include "CapabilityInfoConvert.h"
@@ -685,7 +729,7 @@ NET_TV_API BOOL STDCALL NET_TV_GetDevConfig(IN  LPVOID  lpUserID,
         case NET_TV_GET_DEVICECFG:
             return NetTV_GetDevConfig_Impl<NET_TV_DEVICE_BASICINFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
         case NET_TV_GET_NTPCFG:
-            return NetTV_GetDevConfig_Impl<NET_TV_ALARM_EXCEPTION_INFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+            return NetTV_GetDevConfig_Impl<NET_TV_SYSTEM_NTP_INFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
         case NET_TV_GET_AUDIOCFG:
             return NetTV_GetDevConfig_Impl<NET_TV_AUDIO_CFG_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
         case NET_TV_GET_STREAMCFG:
@@ -861,7 +905,7 @@ NET_TV_API BOOL STDCALL NET_TV_SetDevConfig(IN  LPVOID  lpUserID,
         case NET_TV_SET_DEVICECFG:
             return NetTV_SetDevConfig_Impl<NET_TV_DEVICE_BASICINFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
         case NET_TV_SET_NTPCFG:
-            return NetTV_SetDevConfig_Impl<NET_TV_ALARM_EXCEPTION_INFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+            return NetTV_SetDevConfig_Impl<NET_TV_SYSTEM_NTP_INFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
         case NET_TV_SET_AUDIOCFG:
             return NetTV_SetDevConfig_Impl<NET_TV_AUDIO_CFG_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
         case NET_TV_SET_STREAMCFG:
@@ -1029,6 +1073,367 @@ NET_TV_API BOOL STDCALL NET_TV_SetDevConfig(IN  LPVOID  lpUserID,
             CErrorManage::instance()->SetLastError(NET_TV_E_CMD_NOT_SUPPORT);
             return FALSE;
     }
+}
+
+/* ==================== 文件上传 ==================== */
+
+BOOL STDCALL
+NET_TV_UploadFile(IN LPVOID   lpUserID,
+                  IN const CHAR* szFilePath,
+                  IN const CHAR* szRemoteName)
+{
+    if (!lpUserID || !szFilePath || !szRemoteName) {
+        CErrorManage::instance()->SetLastError(NET_TV_E_INVALID_PARAM);
+        return FALSE;
+    }
+
+    std::string remoteName(szRemoteName);
+    std::string url = std::string(TVAPI_PATH_UPGRADE_UPLOAD)
+                      + "?" TVAPI_PARAM_FILENAME "=" + remoteName;
+
+    std::string ignoreResp;
+    return CommandExecutor::instance()->ExecuteUpload(
+        lpUserID, "PUT", url, std::string(szFilePath), ignoreResp);
+}
+
+/* ==================== 录像帧流 RecordFrame ==================== */
+
+static std::map<std::string, std::shared_ptr<tvsdk::RecordFrameClient>> g_recordFrameMap;
+static std::mutex g_recordFrameMutex;
+
+NET_TV_API BOOL STDCALL
+NET_TV_StartRecordFrameStream(IN LPVOID lpUserID,
+                              IN LPNET_TV_RECORD_FRAME_STREAM_COND_S pstCond,
+                              OUT LPNET_TV_RECORD_FRAME_STREAM_INFO_S pstStreamInfo,
+                              IN NET_TV_RecordFrameCallBack cbRecordFrame,
+                              IN LPVOID lpUserData)
+{
+    CHECK_SDK_INIT(FALSE);
+
+    if (!lpUserID || !pstCond || !pstStreamInfo || pstCond->dwChannel <= 0 ||
+        pstCond->szStartTime[0] == '\0' || pstCond->szEndTime[0] == '\0')
+    {
+        CErrorManage::instance()->SetLastError(NET_TV_E_INVALID_PARAM);
+        return FALSE;
+    }
+
+    if (pstCond->dwSize == 0)
+    {
+        pstCond->dwSize = sizeof(NET_TV_RECORD_FRAME_STREAM_COND_S);
+    }
+
+    std::string body = SDKConvert::to_string(*pstCond);
+    std::string respBody;
+    if (!CommandExecutor::instance()->ExecuteRaw((LPUSER_HANDLE)lpUserID,
+                                                 "POST",
+                                                 TVAPI_PATH_RECORD_FRAME_STREAM_START,
+                                                 body,
+                                                 respBody))
+    {
+        return FALSE;
+    }
+
+    const int respCode = SDKConvert::get_respCode(respBody);
+    CErrorManage::instance()->SetLastError(respCode);
+    if (respCode != NET_TV_E_SUCCEED)
+    {
+        return FALSE;
+    }
+
+    std::memset(pstStreamInfo, 0, sizeof(*pstStreamInfo));
+    SDKConvert::to_respStruct(respBody, *pstStreamInfo);
+    if (pstStreamInfo->dwSize == 0)
+    {
+        pstStreamInfo->dwSize = sizeof(NET_TV_RECORD_FRAME_STREAM_INFO_S);
+    }
+
+    if (pstStreamInfo->dwTcpPort == 0 || pstStreamInfo->szStreamId[0] == '\0')
+    {
+        CErrorManage::instance()->SetLastError(NET_TV_E_INVALID_PARAM);
+        return FALSE;
+    }
+
+    auto session = CDeviceManage::instance()->GetSession(lpUserID);
+    if (!session)
+    {
+        CErrorManage::instance()->SetLastError(NET_TV_E_NO_USER);
+        return FALSE;
+    }
+
+    const std::string host = session->GetHost();
+    if (host.empty())
+    {
+        CErrorManage::instance()->SetLastError(NET_TV_E_INVALID_PARAM);
+        return FALSE;
+    }
+
+    auto client = std::make_shared<tvsdk::RecordFrameClient>();
+    tvsdk::RecordFrameCallback cb = [cbRecordFrame, lpUserData](const NET_TV_RECORD_FRAME_INFO_S& frameInfo,
+                                                               const char* data,
+                                                               size_t size) {
+        if (cbRecordFrame) {
+            cbRecordFrame(&frameInfo, data, static_cast<UINT32>(size), lpUserData);
+        }
+    };
+
+    if (!client->start(host,
+                       static_cast<int>(pstStreamInfo->dwTcpPort),
+                       pstStreamInfo->szStreamId,
+                       std::move(cb)))
+    {
+        NET_TV_RECORD_FRAME_STOP_INFO_S stStopInfo;
+        std::memset(&stStopInfo, 0, sizeof(stStopInfo));
+        stStopInfo.dwSize = sizeof(stStopInfo);
+#ifdef _WIN32
+        strncpy_s(stStopInfo.szStreamId, pstStreamInfo->szStreamId, sizeof(stStopInfo.szStreamId) - 1);
+#else
+        std::strncpy(stStopInfo.szStreamId, pstStreamInfo->szStreamId, sizeof(stStopInfo.szStreamId) - 1);
+#endif
+        std::string stopResp;
+        CommandExecutor::instance()->ExecuteRaw((LPUSER_HANDLE)lpUserID,
+                                                "POST",
+                                                TVAPI_PATH_RECORD_FRAME_STREAM_STOP,
+                                                SDKConvert::to_string(stStopInfo),
+                                                stopResp);
+        CErrorManage::instance()->SetLastError(NET_TV_E_SYSCALL_FALIED);
+        return FALSE;
+    }
+
+    {
+        std::lock_guard<std::mutex> lock(g_recordFrameMutex);
+        auto old = g_recordFrameMap.find(pstStreamInfo->szStreamId);
+        if (old != g_recordFrameMap.end())
+        {
+            old->second->stop();
+            g_recordFrameMap.erase(old);
+        }
+        g_recordFrameMap[pstStreamInfo->szStreamId] = client;
+    }
+
+    CErrorManage::instance()->SetLastError(NET_TV_E_SUCCEED);
+    return TRUE;
+}
+
+NET_TV_API BOOL STDCALL
+NET_TV_StopRecordFrameStream(IN LPVOID lpUserID,
+                             IN const CHAR* szStreamId)
+{
+    CHECK_SDK_INIT(FALSE);
+
+    if (!lpUserID || !szStreamId || szStreamId[0] == '\0')
+    {
+        CErrorManage::instance()->SetLastError(NET_TV_E_INVALID_PARAM);
+        return FALSE;
+    }
+
+    NET_TV_RECORD_FRAME_STOP_INFO_S stStopInfo;
+    std::memset(&stStopInfo, 0, sizeof(stStopInfo));
+    stStopInfo.dwSize = sizeof(stStopInfo);
+#ifdef _WIN32
+    strncpy_s(stStopInfo.szStreamId, szStreamId, sizeof(stStopInfo.szStreamId) - 1);
+#else
+    std::strncpy(stStopInfo.szStreamId, szStreamId, sizeof(stStopInfo.szStreamId) - 1);
+#endif
+
+    std::string respBody;
+    if (!CommandExecutor::instance()->ExecuteRaw((LPUSER_HANDLE)lpUserID,
+                                                 "POST",
+                                                 TVAPI_PATH_RECORD_FRAME_STREAM_STOP,
+                                                 SDKConvert::to_string(stStopInfo),
+                                                 respBody))
+    {
+        return FALSE;
+    }
+
+    const int respCode = SDKConvert::get_respCode(respBody);
+    CErrorManage::instance()->SetLastError(respCode);
+
+    {
+        std::lock_guard<std::mutex> lock(g_recordFrameMutex);
+        auto it = g_recordFrameMap.find(szStreamId);
+        if (it != g_recordFrameMap.end())
+        {
+            it->second->stop();
+            g_recordFrameMap.erase(it);
+        }
+    }
+
+    return respCode == NET_TV_E_SUCCEED ? TRUE : FALSE;
+}
+
+/* ==================== 语音对讲 VoiceCom ==================== */
+
+static std::map<LPVOID, std::shared_ptr<tvsdk::VoiceComClient>> g_voiceComMap;
+static std::mutex g_voiceComMutex;
+
+static bool normalize_voicecom_audio_param(NET_TV_VOICECOM_AUDIO_PARAM_S& audioParam)
+{
+    if (audioParam.dwChannels != 1) {
+        return false;
+    }
+
+    int bytesPerSample = 0;
+    switch (audioParam.enFormat) {
+        case NET_TV_AUDIO_FORMAT_PCM:
+        {
+            if (audioParam.dwBitDepth <= 0) {
+                audioParam.dwBitDepth = 16;
+            }
+            if (audioParam.dwBitDepth != 16) {
+                return false;
+            }
+            switch (audioParam.dwSampleRate) {
+                case NET_TV_AUDIO_SAMPRATE_8000:
+                case NET_TV_AUDIO_SAMPRATE_16000:
+                    break;
+                default:
+                    return false;
+            }
+            bytesPerSample = audioParam.dwBitDepth / 8;
+            break;
+        }
+        case NET_TV_AUDIO_FORMAT_G711A:
+        case NET_TV_AUDIO_FORMAT_G711U:
+        {
+            if (audioParam.dwSampleRate != NET_TV_AUDIO_SAMPRATE_8000) {
+                return false;
+            }
+            if (audioParam.dwBitDepth <= 0) {
+                audioParam.dwBitDepth = 8;
+            }
+            if (audioParam.dwBitDepth != 8) {
+                return false;
+            }
+            bytesPerSample = 1;
+            break;
+        }
+        default:
+            return false;
+    }
+
+    if (audioParam.dwFrameIntervalMs <= 0) {
+        audioParam.dwFrameIntervalMs = 20;
+    }
+    if (audioParam.dwFrameIntervalMs < 10 || audioParam.dwFrameIntervalMs > 1000) {
+        return false;
+    }
+
+    const int frameBytes = audioParam.dwSampleRate * audioParam.dwChannels *
+                           bytesPerSample * audioParam.dwFrameIntervalMs / 1000;
+    if (frameBytes <= 0 || frameBytes > NET_TV_LEN_4096) {
+        return false;
+    }
+
+    if (audioParam.dwFrameBytes <= 0) {
+        audioParam.dwFrameBytes = frameBytes;
+    }
+    if (audioParam.dwFrameBytes != frameBytes) {
+        return false;
+    }
+
+    audioParam.dwBitRate = audioParam.dwSampleRate * audioParam.dwChannels * audioParam.dwBitDepth;
+    audioParam.bLittleEndian = TRUE;
+    return true;
+}
+
+BOOL STDCALL
+NET_TV_StartVoiceCom(IN LPVOID              lpUserID,
+                     IN LPNET_TV_VOICECOM_START_INFO_S pstStartInfo,
+                     IN NET_TV_VoiceComCallBack cbVoiceCom,
+                     IN LPVOID              lpUserData)
+{
+    if (!lpUserID || !pstStartInfo || pstStartInfo->dwAudioPort == 0) {
+        CErrorManage::instance()->SetLastError(NET_TV_E_INVALID_PARAM);
+        return FALSE;
+    }
+
+    NET_TV_VOICECOM_AUDIO_PARAM_S audioParam = pstStartInfo->stAudioParam;
+    if (!normalize_voicecom_audio_param(audioParam)) {
+        CErrorManage::instance()->SetLastError(NET_TV_E_INVALID_PARAM);
+        return FALSE;
+    }
+
+    auto session = CDeviceManage::instance()->GetSession(lpUserID);
+    if (!session) {
+        CErrorManage::instance()->SetLastError(NET_TV_E_NO_USER);
+        return FALSE;
+    }
+
+    const std::string host = session->GetHost();
+    if (host.empty()) {
+        CErrorManage::instance()->SetLastError(NET_TV_E_INVALID_PARAM);
+        return FALSE;
+    }
+
+    auto client = std::make_shared<tvsdk::VoiceComClient>();
+
+    // 绑定C回调到C++ callback
+    tvsdk::VoiceComCallback cb = [cbVoiceCom, lpUserData](const char* data, size_t size) {
+        if (cbVoiceCom) {
+            cbVoiceCom(data, static_cast<unsigned int>(size), lpUserData);
+        }
+    };
+
+    if (!client->start(host, static_cast<int>(pstStartInfo->dwAudioPort), audioParam, std::move(cb))) {
+        CErrorManage::instance()->SetLastError(NET_TV_E_SYSCALL_FALIED);
+        return FALSE;
+    }
+
+    {
+        std::lock_guard<std::mutex> lock(g_voiceComMutex);
+        auto old = g_voiceComMap.find(lpUserID);
+        if (old != g_voiceComMap.end()) {
+            old->second->stop();
+            g_voiceComMap.erase(old);
+        }
+        g_voiceComMap[lpUserID] = client;
+    }
+
+    return TRUE;
+}
+
+BOOL STDCALL
+NET_TV_VoiceComSendData(IN LPVOID       lpUserID,
+                        IN const CHAR*  pData,
+                        IN UINT32       dwSize)
+{
+    if (!lpUserID || !pData || dwSize == 0) {
+        CErrorManage::instance()->SetLastError(NET_TV_E_INVALID_PARAM);
+        return FALSE;
+    }
+
+    std::lock_guard<std::mutex> lock(g_voiceComMutex);
+    auto it = g_voiceComMap.find(lpUserID);
+    if (it == g_voiceComMap.end() || !it->second->is_running()) {
+        CErrorManage::instance()->SetLastError(NET_TV_E_AUDIO_NO_EXISTED);
+        return FALSE;
+    }
+
+    if (!it->second->send(pData, static_cast<size_t>(dwSize))) {
+        CErrorManage::instance()->SetLastError(NET_TV_E_AUDIO_FAILED);
+        return FALSE;
+    }
+    return TRUE;
+}
+
+BOOL STDCALL
+NET_TV_StopVoiceCom(IN LPVOID lpUserID)
+{
+    if (!lpUserID) {
+        CErrorManage::instance()->SetLastError(NET_TV_E_INVALID_PARAM);
+        return FALSE;
+    }
+
+    std::lock_guard<std::mutex> lock(g_voiceComMutex);
+    auto it = g_voiceComMap.find(lpUserID);
+    if (it == g_voiceComMap.end()) {
+        CErrorManage::instance()->SetLastError(NET_TV_E_AUDIO_NO_EXISTED);
+        return FALSE;
+    }
+
+    it->second->stop();
+    g_voiceComMap.erase(it);
+    return TRUE;
 }
 
 /* ==================== 设备发现 ==================== */

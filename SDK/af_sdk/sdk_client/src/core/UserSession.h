@@ -81,6 +81,7 @@ public:
     bool IsOnline() const { return isOnline_; }
     LPUSER_HANDLE GetUserId() const { return userHand_; }
     std::string GetSessionId() const { return sessionId_; }
+    std::string GetHost() const { return host_; }
 
 private:
     // SSE 循环线程函数
@@ -110,6 +111,9 @@ private:
     
     std::thread sseThread_;
 	std::thread heartbeatThread_;
+
+    int connectTimeout_;      // 连接超时（秒）
+    int receiveTimeout_;     // 接收超时（秒）
 
 	/**
 	 * @brief 双客户端隔离设计

@@ -16,11 +16,13 @@
 #include "SipType.h"
 #include "GbDefine.h"
 #include <chrono>
-#include <condition_variable>
 #include <mutex>
 #include <thread>
 #include <vector>
 #include <atomic>
+
+/* 注册总耗时统计开关：0关闭，1开启。 */
+#define SIP_REGISTER_DURATION_ENABLED 1
 
 namespace SIP
 {
@@ -122,6 +124,14 @@ namespace SIP
 
     protected:
         /**
+         * @brief  是否允许eXosip自动处理协议事务
+         * @param  [void]
+         * @return [bool] false：客户端禁用eXosip自动注册认证
+         * @note   GB35114注册401 challenge由on_registration_failure手动构建二次REGISTER。
+         */
+        bool ShouldRunAutomaticAction() const override { return false; }
+
+        /**
          * @brief  注册操作
          * @param  [bool] bLogin - 是否注册(默认注册)
          * @return [*]
@@ -162,6 +172,36 @@ namespace SIP
         
         void RegisterRepeated();
 
+        /**
+         * @brief  调度注册失败后的退避重试
+         * @param  [string] strReason - 触发重试的原因
+         * @return [void]
+         * @author zhouzr
+         * @note   仅用于平台二次认证失败、网络超时等可恢复场景
+         */
+        void ScheduleRegisterRetry(const std::string &strReason);
+
+        /**
+         * @brief  取消待执行的注册退避任务
+         * @param  [void]
+         * @return [void]
+         * @author zhouzr
+         * @note   停止GB28181或注册成功时必须调用，避免关闭后继续发REGISTER
+         */
+        void CancelRegisterRetry();
+
+        /**
+         * @brief  注册退避任务入口
+         * @param  [int] nDelaySec - 退避等待秒数
+         * @param  [int] nRetryCount - 当前重试次数
+         * @param  [unsigned long long] ullRetrySeq - 注册重试任务序号
+         * @param  [string] strReason - 触发重试的原因
+         * @return [void]
+         * @author zhouzr
+         * @note   任务执行前会再次检查客户端运行状态
+         */
+        void RegisterRetryAction(int nDelaySec, int nRetryCount, unsigned long long ullRetrySeq, std::string strReason);
+
         std::string EncodeChannelID(SipChannelInfo_S stChnInfo);
 
         int CloseCallByCallID(const std::string &strCallID);
@@ -178,6 +218,22 @@ namespace SIP
          void UpdateClientStatus(GB28181::GB28181ClientStatus_E enStatus, const std::string& strReason = "");
 
     private:
+#if SIP_REGISTER_DURATION_ENABLED
+        /**
+         * @brief  开始一次新的注册耗时统计
+         * @param  [void]
+         * @return [void]
+         */
+        void StartRegisterTiming();
+
+        /**
+         * @brief  输出本次注册成功耗时并结束统计
+         * @param  [void]
+         * @return [void]
+         */
+        void LogRegisterDuration();
+#endif
+
         SipClientInfo_S m_stClientInfo;
         int m_nRegisterID = -1; /* 注册ID */
         /* 用于记录连接服务器的设备信息 */
@@ -188,12 +244,30 @@ namespace SIP
         BlockThread *m_pThrHeartbeat = nullptr;
         /* 重复注册线程 */
         BlockThread *m_pThrRegister = nullptr;
+        /* 退避注册线程 */
+        std::thread m_thrRegisterRetry;
         /* 注册有效期线程 */
         BlockThread *m_pThrRegisterExpire = nullptr;
         /* 延时注销操作线程 */
         BlockThread *m_pThrLogout = nullptr;
         /* 注册状态 */
         std::atomic_bool m_bRegister = false;
+        /* 停止状态 */
+        std::atomic_bool m_bStopping = false;
+        /* 注册重试次数 */
+        std::atomic<int> m_nRegisterRetryCount{0};
+        /* 注册重试线程锁 */
+        std::mutex m_mtxRegisterRetry;
+        /* 注册重试任务序号 */
+        std::atomic<unsigned long long> m_ullRegisterRetrySeq{0};
+#if SIP_REGISTER_DURATION_ENABLED
+        /* lock: 保护注册计时起点与有效标记，避免注册事件和重试线程并发访问。 */
+        std::mutex m_mtxRegisterTiming;
+        /* 注册耗时统计起点，使用单调时钟避免系统校时影响。 */
+        std::chrono::steady_clock::time_point m_stRegisterStartTime;
+        /* 注册耗时统计是否有效。 */
+        bool m_bRegisterTimingActive = false;
+#endif
         /* 布防状态 */
         std::atomic_bool m_bGuard = false;
         /*会话ID/用来分辨不同的会话：广播*/

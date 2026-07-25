@@ -13,7 +13,7 @@
 #include <string>
 
 #include "people_head_detect_context.hpp"
-#if CAP_AI_PEOPLE_STATISTICS
+#if CAP_AI_PEOPLE_DENSITY_LEGACY
 #include "event_alarm/statistics/event_statistics_report.hpp"
 #include "event_linkage_types.h"
 #endif
@@ -29,7 +29,7 @@ namespace PeopleHeadDetectInternal
  */
 void convert_crowd_config_and_enable(Alarm::CrowdGathering_S &stAlgoCfg, int nWidth, int nHeight);
 
-#if CAP_AI_PEOPLE_STATISTICS
+#if CAP_AI_PEOPLE_DENSITY_LEGACY
 /**
  * @brief   : 转换人员密度区域配置并根据有效区域更新使能
  * @param    {PeopleDensityDetection_S} &stAlgoCfg：人员密度配置

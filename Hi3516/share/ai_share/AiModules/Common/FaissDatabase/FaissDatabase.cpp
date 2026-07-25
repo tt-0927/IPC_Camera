@@ -112,9 +112,9 @@ bool CFaceDatabase::remove(std::vector<int64_t> vIds)
 }
 
 /* 查询相似向量ID，输入的向量，最高的相似度和对应ID */
-bool CFaceDatabase::search(std::vector<float> &vFeature, SearchResult_S &stSearchRes, int nNum, int nPercent)
+bool CFaceDatabase::search(std::vector<float> &vFeature, SearchResult_S &stSearchRes, int nNum, int nSearchFrom, int nSearchTo)
 {
-    printf("查询相似向量ID: 数据库个数[%ld] 需要输出的个数[%d] 搜索范围[%d]\n", pIndex->ntotal, nNum, nPercent);
+    printf("查询相似向量ID: 数据库个数[%ld] 需要输出的个数[%d] 搜索范围[%d - %d]\n", pIndex->ntotal, nNum, nSearchFrom, nSearchTo);
     
     if (nNum > pIndex->ntotal)
     {
@@ -126,35 +126,19 @@ bool CFaceDatabase::search(std::vector<float> &vFeature, SearchResult_S &stSearc
         printf("输入向量的维度[%ld] 数据库向量的维度[%d] !=0\n", vFeature.size(), pIndex->d);
         return false;
     }
-    if (nPercent < 1 || nPercent > 100)
-    {
-        printf("输入向量的搜索范围错误[%d]\n", nPercent);
-        return false;
-    }
     
     int nFeatureNum = (vFeature.size() / pIndex->d);
     /* 查询 */
     stSearchRes.vDistances.resize(nFeatureNum * nNum);
     stSearchRes.vIndices.resize(nFeatureNum * nNum);
     
-    if (nPercent == 100)
+    if (nSearchFrom == -1 || nSearchTo == -1)
     {
         pIndex->search(nFeatureNum, vFeature.data(), nNum, stSearchRes.vDistances.data(), stSearchRes.vIndices.data());
     }
     else
     {
         /* 计算实际要搜索的向量数量 */
-        size_t nTotalVectors = pIndex->ntotal;
-        size_t nSearchTo = nTotalVectors;
-        size_t nSearchFrom = 0;
-        if (nPercent < 100) {
-            nSearchFrom = nTotalVectors * (100 - nPercent) / 100;
-            /* 确保至少有1个向量被搜索 */
-            if (nSearchFrom >= nTotalVectors) {
-                nSearchFrom = nTotalVectors > 0 ? nTotalVectors - 1 : 0;
-            }
-        }
-
         faiss::IDSelectorRange selector(nSearchFrom, nSearchTo);
         faiss::SearchParameters params;
         params.sel = &selector;
@@ -168,6 +152,51 @@ bool CFaceDatabase::search(std::vector<float> &vFeature, SearchResult_S &stSearc
         return false;
     }
 
+    return true;
+}
+
+/* 在指定 ID 列表中查询相似向量 */
+bool CFaceDatabase::searchWithIds(std::vector<float> &vFeature, SearchResult_S &stSearchRes, const std::vector<int64_t> &vIds, int nNum)
+{
+    printf("在指定ID列表中查询相似向量: 数据库个数[%ld] 指定ID个数[%ld] 需要输出的个数[%d]\n", pIndex->ntotal, vIds.size(), nNum);
+    
+    if (vIds.empty())
+    {
+        printf("指定的ID列表为空\n");
+        return false;
+    }
+    
+    if (vFeature.size() % pIndex->d != 0)
+    {
+        printf("输入向量的维度[%ld] 数据库向量的维度[%d] !=0\n", vFeature.size(), pIndex->d);
+        return false;
+    }
+    
+    int nFeatureNum = (vFeature.size() / pIndex->d);
+    
+    // 限制 nNum 不超过指定 ID 列表的大小
+    if (nNum > (int)vIds.size())
+    {
+        nNum = (int)vIds.size();
+    }
+    
+    // 查询
+    stSearchRes.vDistances.resize(nFeatureNum * nNum);
+    stSearchRes.vIndices.resize(nFeatureNum * nNum);
+    
+    // 使用 IDSelectorArray 指定要搜索的 ID
+    faiss::IDSelectorArray selector(vIds.size(), vIds.data());
+    faiss::SearchParameters params;
+    params.sel = &selector;
+    
+    pIndex->search(nFeatureNum, vFeature.data(), nNum, stSearchRes.vDistances.data(), stSearchRes.vIndices.data(), &params);
+    
+    if (stSearchRes.vDistances.size() != stSearchRes.vIndices.size())
+    {
+        printf("查询失败,输出ID个数[%ld]!=距离容器个数[%ld]\n", stSearchRes.vDistances.size(), stSearchRes.vIndices.size());
+        return false;
+    }
+    
     return true;
 }
 

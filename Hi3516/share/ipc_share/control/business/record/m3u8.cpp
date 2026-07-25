@@ -8,10 +8,15 @@
 #include "dlog.h"
 #include <cstring>
 #include <algorithm>
+#include <cmath>
+
+/*定义视频分片时长，秒*/
+#define SLICING_TIME 60
+/* EXTINF解析容忍时长，秒：实际分片需等待关键帧，可能略超过标准分片时长 */
+#define EXTINF_DURATION_TOLERANCE_SEC 5
 
 M3U8::M3U8()
 {
-    
 }
 
 M3U8::M3U8(std::string path)
@@ -58,7 +63,7 @@ int M3U8::create()
     /* 文件头 */
     m_outFile << "#EXTM3U\n";
     m_outFile << "#EXT-X-VERSION:3\n";
-    m_outFile << "#EXT-X-TARGETDURATION:10\n";
+    m_outFile << "#EXT-X-TARGETDURATION:" << SLICING_TIME << "\n";
     m_outFile << "#EXT-X-MEDIA-SEQUENCE:0\n\n";
 
     m_outFile << "#EXT-X-ENDLIST\n";
@@ -79,7 +84,7 @@ int M3U8::add_ts(Data_S stData)
     std::string line;
     while (std::getline(inFile, line))
     {
-        if (line != "#EXT-X-ENDLIST") // 忽略 ENDLIST 标记
+        if (line != "#EXT-X-ENDLIST")  // 忽略 ENDLIST 标记
         {
             content += line + "\n";
         }
@@ -102,7 +107,7 @@ int M3U8::add_ts(Data_S stData)
     m_outFile << data;
     data = stData.filename + "\n";
     m_outFile << data;
-    
+
     m_outFile << "#EXT-X-ENDLIST\n";
     m_outFile.flush();
     m_outFile.close();
@@ -119,7 +124,7 @@ int M3U8::write_head()
     /* 文件头 */
     m_outFile << "#EXTM3U\n";
     m_outFile << "#EXT-X-VERSION:3\n";
-    m_outFile << "#EXT-X-TARGETDURATION:10\n";
+    m_outFile << "#EXT-X-TARGETDURATION:" << SLICING_TIME << "\n";
     m_outFile << "#EXT-X-MEDIA-SEQUENCE:0\n\n";
 
     m_outFile << "#EXT-X-ENDLIST\n";
@@ -156,24 +161,24 @@ int M3U8::write_tail()
 }
 
 // 去除字符串首尾的空白字符
-static std::string trim(const std::string& str) 
+static std::string trim(const std::string &str)
 {
     if (str.empty())
     {
         return "";
-    } 
+    }
 
     size_t nStart = 0;
-    size_t nEnd = str.size() - 1;
+    size_t nEnd   = str.size() - 1;
 
     // 移除开头空白
-    while (nStart <= nEnd && std::isspace(static_cast<unsigned char>(str[nStart]))) 
+    while (nStart <= nEnd && std::isspace(static_cast<unsigned char>(str[nStart])))
     {
         nStart++;
     }
 
     // 移除结尾空白
-    while (nEnd >= nStart && std::isspace(static_cast<unsigned char>(str[nEnd]))) 
+    while (nEnd >= nStart && std::isspace(static_cast<unsigned char>(str[nEnd])))
     {
         nEnd--;
     }
@@ -182,10 +187,10 @@ static std::string trim(const std::string& str)
 }
 
 // 解析M3U8文件并提取.ts文件名
-std::vector<std::string> M3U8::get_M3u8TsFileName(const std::string& strFilePath) 
+std::vector<std::string> M3U8::get_M3u8TsFileName(const std::string &strFilePath)
 {
     std::vector<std::string> strTsFiles;
-    std::ifstream file(strFilePath.c_str());
+    std::ifstream            file(strFilePath.c_str());
     if (!file.is_open())
     {
         dlog_error("无法打开文件:%s", strFilePath.c_str());
@@ -193,12 +198,12 @@ std::vector<std::string> M3U8::get_M3u8TsFileName(const std::string& strFilePath
     }
 
     std::string strLine;
-    while (std::getline(file, strLine)) 
+    while (std::getline(file, strLine))
     {
         std::string strTrimmedLine = trim(strLine);
 
         // 跳过空行和注释行（以#开头）
-        if (strTrimmedLine.empty() || strTrimmedLine[0] == '#') 
+        if (strTrimmedLine.empty() || strTrimmedLine[0] == '#')
         {
             continue;
         }
@@ -219,7 +224,7 @@ int M3U8::parse_time(const std::string &timeStr)
         return -1;
     }
 
-    if (timeStr[4] != '-' || timeStr[7] != '-' || 
+    if (timeStr[4] != '-' || timeStr[7] != '-' ||
         timeStr[10] != ' ' || timeStr[13] != ':' || timeStr[16] != ':')
     {
         dlog_error("时间格式无效 (应为YYYY-MM-DD HH:MM:SS): %s", timeStr.c_str());
@@ -227,7 +232,7 @@ int M3U8::parse_time(const std::string &timeStr)
     }
 
     // 直接解析时分秒（忽略年月日，仅计算当天秒数）
-    int hour = atoi(timeStr.substr(11, 2).c_str());
+    int hour   = atoi(timeStr.substr(11, 2).c_str());
     int minute = atoi(timeStr.substr(14, 2).c_str());
     int second = atoi(timeStr.substr(17, 2).c_str());
 
@@ -255,7 +260,6 @@ int M3U8::parse()
         return -1;
     }
 
-    // 一次性读取文件内容（减少I/O操作）
     std::ifstream file(m_path, std::ios::binary);
     if (!file.is_open())
     {
@@ -263,183 +267,283 @@ int M3U8::parse()
         return -1;
     }
 
-    // 获取文件大小并预分配缓冲区
     file.seekg(0, std::ios::end);
-    size_t file_size = static_cast<size_t>(file.tellg());
+    size_t file_size = (size_t)file.tellg();
     file.seekg(0, std::ios::beg);
-    
-    // 如果文件为空，直接返回
-    if (file_size == 0) 
+
+    if (file_size == 0)
     {
-        file.close();
         return 0;
     }
 
-    std::string file_content;
-    file_content.resize(file_size);
+    std::string file_content(file_size, '\0');
     file.read(&file_content[0], file_size);
     file.close();
 
-    // 分割行（兼容LF和CRLF换行符）
+    // ================= split lines =================
     std::vector<std::string_view> lines;
-    size_t pos = 0;
+
     size_t start = 0;
-    const size_t content_len = file_content.size();
-    while (pos < content_len)
+    for (size_t i = 0; i < file_content.size(); ++i)
     {
-        if (file_content[pos] == '\n' || file_content[pos] == '\r')
+        if (file_content[i] == '\n' || file_content[i] == '\r')
         {
-            if (pos > start) // 跳过空行
+            if (i > start)
             {
-                lines.emplace_back(&file_content[start], pos - start);
+                lines.emplace_back(&file_content[start], i - start);
             }
-            start = pos + 1;
-            // 处理CRLF中的多余回车符
-            if (pos + 1 < content_len && file_content[pos] == '\r' && file_content[pos + 1] == '\n')
-            {
-                pos++;
-            }
+
+            start = i + 1;
         }
-        pos++;
     }
-    // 处理最后一行（无换行符的情况）
-    if (start < content_len)
+
+    if (start < file_content.size())
     {
-        lines.emplace_back(&file_content[start], content_len - start);
+        lines.emplace_back(&file_content[start], file_content.size() - start);
     }
 
-    // 定义M3U8标签常量
+    // ================= tags =================
     const std::string_view PDT_TAG = "#EXT-X-PROGRAM-DATE-TIME:";
-    const size_t PDT_LEN = PDT_TAG.size();
     const std::string_view INF_TAG = "#EXTINF:";
-    const size_t INF_LEN = INF_TAG.size();
-    const std::string_view ST_TAG = "#START-TIME:";
-    const size_t ST_LEN = ST_TAG.size();
+    const std::string_view ST_TAG  = "#START-TIME:";
+    const std::string_view ET_TAG  = "#END-TIME:";
 
-    // 清空容器
+    const size_t PDT_LEN = PDT_TAG.size();
+    const size_t INF_LEN = INF_TAG.size();
+    // const size_t ST_LEN  = ST_TAG.size();
+
+    // ================= clear =================
     m_segmentTimes.clear();
     m_segmentDurations.clear();
     m_videoTimes.clear();
 
-    // 解析每行内容，提取片段时间和时长
-    for (const auto& line_sv : lines)
-    {
-        if (line_sv.empty()) continue;
+    bool timePending = false;
+    bool lastSegmentMayBeGapPlaceholder = false;
+    bool invalidExtinfWaitingStartMarker = false;
+    float invalidExtinfDuration = 0.0f;
 
-        // 提取片段开始时间（#EXT-X-PROGRAM-DATE-TIME）
-        if (line_sv.size() >= PDT_LEN && line_sv.substr(0, PDT_LEN) == PDT_TAG)
+    // ================= parse =================
+    for (const auto &line_sv : lines)
+    {
+        if (line_sv.empty())
         {
+            continue;
+        }
+
+        // PDT
+        if (line_sv.rfind(PDT_TAG, 0) == 0)
+        {
+            if (invalidExtinfWaitingStartMarker)
+            {
+                dlog_warn("非法EXTINF:%f", invalidExtinfDuration);
+                invalidExtinfWaitingStartMarker = false;
+                invalidExtinfDuration = 0.0f;
+            }
+
             std::string time_str(line_sv.substr(PDT_LEN));
-            
-            // YYYY-MM-DD HH:MM:SS 长度为 19
+
             if (time_str.length() < 19)
             {
-                dlog_warn("发现截断的时间标签，已忽略: %s", time_str.c_str());
+                dlog_warn("非法PDT:%s", time_str.c_str());
                 continue;
             }
-            m_segmentTimes.push_back(std::move(time_str));
-        }
-        // 提取片段时长（#EXTINF）
-        else if (line_sv.size() >= INF_LEN && line_sv.substr(0, INF_LEN) == INF_TAG)
-        {
-            std::string_view inf_sv = line_sv.substr(INF_LEN);
-            // 移除可能的逗号
-            size_t comma_pos = inf_sv.find(',');
-            if (comma_pos != std::string_view::npos)
+
+            // 连续PDT：回滚未消费PDT
+            if (timePending)
             {
-                inf_sv = inf_sv.substr(0, comma_pos);
+                dlog_warn("连续PDT丢弃:%s", m_segmentTimes.back().c_str());
+
+                m_segmentTimes.pop_back();
             }
+
+            m_segmentTimes.push_back(std::move(time_str));
+            timePending = true;
+            lastSegmentMayBeGapPlaceholder = false;
+            invalidExtinfWaitingStartMarker = false;
+        }
+
+        // EXTINF
+        else if (line_sv.rfind(INF_TAG, 0) == 0)
+        {
+            if (!timePending || m_segmentTimes.empty())
+            {
+                dlog_warn("EXTINF无对应PDT");
+                continue;
+            }
+
+            std::string_view v = line_sv.substr(INF_LEN);
+
+            size_t comma = v.find(',');
+            if (comma != std::string_view::npos)
+            {
+                v = v.substr(0, comma);
+            }
+
+            float duration = 0.0f;
+
             try
             {
-                float duration = std::stof(std::string(inf_sv));
-                m_segmentDurations.push_back(static_cast<int>(duration)); 
-            }
-            catch (const std::exception& e)
+                duration = std::stof(std::string(v)); 
+            } catch (...)
             {
-                dlog_error("解析时长失败: %s, 行内容: %.*s", e.what(), (int)line_sv.size(), line_sv.data());
+                dlog_error("EXTINF解析失败");
+
+                if (!m_segmentTimes.empty())
+                {
+                    m_segmentTimes.pop_back();
+                }
+
+                timePending = false;
+                continue;
             }
+
+            /* note: 防NaN/inf和异常范围，旧格式间隙占位片段会在后续START-TIME处静默跳过 */
+            if (!std::isfinite(duration) || duration <= 0.0f || duration > SLICING_TIME + EXTINF_DURATION_TOLERANCE_SEC)
+            {
+                if (!m_segmentTimes.empty())
+                {
+                    m_segmentTimes.pop_back();
+                }
+
+                timePending = false;
+                lastSegmentMayBeGapPlaceholder = false;
+                invalidExtinfWaitingStartMarker = true;
+                invalidExtinfDuration = duration;
+                continue;
+            }
+
+            m_segmentDurations.push_back((int)duration);
+            timePending = false;
+            lastSegmentMayBeGapPlaceholder = true;
+            invalidExtinfWaitingStartMarker = false;
         }
-        // 处理缺失片段标记
-        else if (line_sv.size() >= ST_LEN && line_sv.substr(0, ST_LEN) == ST_TAG)
+
+        // START-TIME：按状态精准删除，防止错位
+        else if (line_sv.rfind(ST_TAG, 0) == 0)
         {
-            if (!m_segmentTimes.empty()) m_segmentTimes.pop_back();
-            if (!m_segmentDurations.empty()) m_segmentDurations.pop_back();
+            dlog_debug("START-TIME");
+
+            if (timePending)
+            {
+                // 只有PDT，未配对INF：只删时间
+                if (!m_segmentTimes.empty())
+                {
+                    m_segmentTimes.pop_back();
+                }
+            }
+            else if (invalidExtinfWaitingStartMarker)
+            {
+                /* note: 旧文件中超长间隙片段已在EXTINF处丢弃，此处只消费START-TIME，避免误删前一个真实片段 */
+                invalidExtinfWaitingStartMarker = false;
+                invalidExtinfDuration = 0.0f;
+            }
+            else if (!lastSegmentMayBeGapPlaceholder)
+            {
+                /* note: 新文件只写END-TIME/START-TIME边界，不再生成占位片段，此处不删除真实片段 */
+            }
+            else
+            {
+                // 已完整配对：同时删除旧格式中用于表达无录像间隙的占位片段
+                if (!m_segmentTimes.empty() && !m_segmentDurations.empty())
+                {
+                    m_segmentTimes.pop_back();
+                    m_segmentDurations.pop_back();
+                }
+                else
+                {
+                    dlog_warn("START-TIME无完整片段可删");
+                }
+            }
+
+            timePending = false;
+            lastSegmentMayBeGapPlaceholder = false;
+        }
+        else if (line_sv.rfind(ET_TAG, 0) == 0)
+        {
+            if (invalidExtinfWaitingStartMarker)
+            {
+                dlog_warn("非法EXTINF:%f", invalidExtinfDuration);
+            }
+
+            /* note: 真实录像片段后会写END-TIME，后续START-TIME只表示新间隙边界，不能回删该片段 */
+            lastSegmentMayBeGapPlaceholder = false;
+            invalidExtinfWaitingStartMarker = false;
+            invalidExtinfDuration = 0.0f;
+        }
+        else if (!line_sv.empty() && line_sv.front() != '#')
+        {
+            /* note: ts文件名之后若紧跟START-TIME，表示兼容旧格式的间隙占位片段 */
         }
     }
 
-
-    if (m_segmentTimes.size() != m_segmentDurations.size())
+    // ================= EOF cleanup =================
+    if (timePending)
     {
-        dlog_warn("片段数量不匹配，尝试自动修复: 时间数=%zu, 时长数=%zu", m_segmentTimes.size(), m_segmentDurations.size());
-        
-        size_t min_count = std::min(m_segmentTimes.size(), m_segmentDurations.size());
-        
-        // 如果数量过少无法组成有效数据
-        if (min_count == 0) {
-             dlog_error("有效片段数量为0，无法解析");
-             return 0;
+        dlog_warn("EOF未配对PDT丢弃");
+
+        if (!m_segmentTimes.empty())
+        {
+            m_segmentTimes.pop_back();
         }
 
-        // 裁剪到相同长度
+        timePending = false;
+    }
+
+    if (invalidExtinfWaitingStartMarker)
+    {
+        dlog_warn("非法EXTINF:%f", invalidExtinfDuration);
+    }
+
+    // ================= consistency fix =================
+    if (m_segmentTimes.size() != m_segmentDurations.size())
+    {
+        dlog_error("不一致 times=%zu durations=%zu", m_segmentTimes.size(), m_segmentDurations.size());
+
+        size_t min_count = std::min(m_segmentTimes.size(), m_segmentDurations.size());
+
+        if (min_count == 0)
+        {
+            dlog_error("无有效数据");
+            return 0;
+        }
+
         m_segmentTimes.resize(min_count);
         m_segmentDurations.resize(min_count);
     }
 
-    if (m_segmentTimes.empty()) return 0;
-
-    // 合并连续片段
-    int nStartTime1 = -1;
-    int nEndTime1 = 0;
-    size_t start_idx = 0;
-
-    for (; start_idx < m_segmentTimes.size(); ++start_idx)
+    if (m_segmentTimes.empty())
     {
-        nStartTime1 = parse_time(m_segmentTimes[start_idx]);
-        if (nStartTime1 != -1)
-        {
-            nEndTime1 = nStartTime1 + m_segmentDurations[start_idx];
-            m_videoTimes.emplace_back(Record_NS::VideoTime_S{nStartTime1, nEndTime1});
-            break; // 找到第一个有效起点
-        }
-        else
-        {
-            dlog_warn("第%zu个片段时间无效，跳过", start_idx + 1);
-        }
+        return 0;
     }
 
-    // 处理后续片段
-    for (size_t i = start_idx + 1; i < m_segmentTimes.size(); ++i)
+    // ================= merge segments =================
+    for (size_t i = 0; i < m_segmentTimes.size(); ++i)
     {
-        int nStartTime2 = parse_time(m_segmentTimes[i]);
-        
-        if (nStartTime2 == -1)
+        int t = parse_time(m_segmentTimes[i]);
+        if (t < 0)
         {
-            dlog_warn("第%zu个片段时间解析失败，跳过该片段", i + 1);
             continue;
         }
+
+        int end = t + m_segmentDurations[i];
 
         if (m_videoTimes.empty())
         {
-            nEndTime1 = nStartTime2 + m_segmentDurations[i];
-            m_videoTimes.emplace_back(Record_NS::VideoTime_S{nStartTime2, nEndTime1});
+            m_videoTimes.push_back({t, end});
             continue;
         }
 
-        int currentEndTime = m_videoTimes.back().nEndTime;
+        auto &last = m_videoTimes.back();
 
-        // 合并条件：下一片段开始时间与当前片段结束时间误差≤±2秒（确保连续）
-        if (nStartTime2 >= (currentEndTime - 2) && nStartTime2 <= (currentEndTime + 2))
+        if (t <= last.nEndTime + 2)
         {
-            // 连续，更新结束时间
-            m_videoTimes.back().nEndTime = nStartTime2 + m_segmentDurations[i];
+            last.nEndTime = end;
         }
         else
         {
-            // 不连续，新增一个片段
-            int nNewEndTime = nStartTime2 + m_segmentDurations[i];
-            m_videoTimes.emplace_back(Record_NS::VideoTime_S{nStartTime2, nNewEndTime});
+            m_videoTimes.push_back({t, end});
         }
     }
-    
+
     return 0;
 }

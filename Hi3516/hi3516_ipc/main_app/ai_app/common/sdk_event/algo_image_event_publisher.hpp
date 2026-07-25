@@ -29,6 +29,8 @@ struct SdkImageObjectRequest_S
     Common::RectInfo_S stRect;
     /* 目标置信度 */
     float fConfidence = 0.0f;
+    /* 报警时间戳，单位毫秒；为 0 时推送层使用当前时间 */
+    long long llTimestampMs = 0;
     /* JPEG 图片二进制数据指针，由调用方保证本次同步推送期间有效 */
     const std::vector<unsigned char> *pvecJpeg = nullptr;
 };

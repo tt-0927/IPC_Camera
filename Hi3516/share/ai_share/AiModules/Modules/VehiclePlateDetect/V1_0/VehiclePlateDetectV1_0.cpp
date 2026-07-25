@@ -81,13 +81,8 @@ bool VehiclePlateDetect_NS::CVehiclePlateDetectV1_0::process(
     /* 维度转换 */
     Inference_NS::InputData_S stInputData;
     /* 获取图像大小 */
-    #ifdef RK_3588
     stInputData.nDataSize = static_cast<size_t>(stInData.inMat.total() * stInData.inMat.elemSize() * sizeof(float));
     stInputData.pData = (float*)stInData.inMat.data;
-    #else
-    stInputData.nDataSize = static_cast<size_t>(stInData.inMat.total() * stInData.inMat.elemSize());
-    stInputData.pData = (float*)stInData.inMat.data;
-    #endif
     std::vector<Inference_NS::ClsData_S> vClsDatas;
     {
 

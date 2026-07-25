@@ -53,7 +53,7 @@
       * @param    {std::vector<FaceCaptureTarget_S>} *pvecTargets：输出抓拍目标列表
       * @return   {bool} true：存在满足规则的人脸 false：不存在满足规则的人脸
       */
-     bool collectTargets(std::vector<Inference_NS::PointData_S> &vPointDatas,
+     bool collectTargets(std::vector<Inference_NS::BoxData_S> &vPointDatas,
                          std::vector<Common::RectInfo_S> &vstRectInfo,
                          std::vector<FaceCaptureTarget_S> *pvecTargets = nullptr);
 

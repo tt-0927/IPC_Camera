@@ -9,7 +9,7 @@
 #pragma once
 
 #include <fstream>
-#include "./Common/ModelOpt/ModelOpt.hpp"
+#include "ModelOpt.hpp"
 #ifndef SHAREJSON_ENABLE//公共库的json文件
 #include "JsonInterfase.h"
 #else
@@ -128,7 +128,6 @@ namespace Inference_NS
 
         /* 模型推理的相关信息 */
         std::string m_strFramework;  /* 推理架构 */
-        bool m_bNeedInt8 = false;
     };
 
 }    // namespace Inference_NS

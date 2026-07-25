@@ -8,6 +8,9 @@
 #include <chrono> // 用于防抖动的时间计算
 #include "network_define.h"
 #include "Singleton.h"
+#include "path_define.h"
+#include "convert_interface.h"
+#include <map>
 // --- 配置结构体定义 ---
 
 enum class EncryptionType {
@@ -67,7 +70,9 @@ public:
 
     // 状态查询 (带防抖动)
     std::vector<ClientInfo> GetConnectedDevices();
+    void set_hostapd_config(Network::HotspotConfig stHotspotConfigInfo);
 
+    void get_hostapd_config(Network::HotspotConfig &outHotspotConfigInfo);
 private:
     // 配置数据
     APConfig ap_config_;

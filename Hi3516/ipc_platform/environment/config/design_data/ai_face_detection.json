@@ -2,11 +2,11 @@
     "version": "v1.0",
     "model": "YOLOV8n",
     "notes": "人脸检测",
-    "model_path": "/opt/cam/model/Hi3516CV610_yolov8n_pose_face_640x384_V1.0.om",
+    "model_path": "/opt/cam/model/Hi3516CV610_yolov8t_face_640_640_V1.0.om",
     "pre_process": {
         "size": [
             640,
-            384
+            640
         ],
         "channel": 3,
         "type": "YVU420SP",

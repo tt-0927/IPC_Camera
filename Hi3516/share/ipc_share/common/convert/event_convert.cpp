@@ -263,7 +263,7 @@ void Convert::deal(Json::Object* pRootJson, Event::SmartEventEnableStatus_S& stI
     convert.field(pRootJson, "FaceDetect", stInfo.bFaceDetect);
     convert.field(pRootJson, "PetRecognition", stInfo.bPetRecognition);
     convert.field(pRootJson, "FaceCapture", stInfo.bFaceCapture);
-
+    convert.field(pRootJson, "FaceCompare", stInfo.bFaceCompare);
 #ifdef SCENE_INTELLIGENCE
     // ========== 行为监管 ==========
     convert.field(pRootJson, "SleepOnDuty", stInfo.bSleepOnDuty);

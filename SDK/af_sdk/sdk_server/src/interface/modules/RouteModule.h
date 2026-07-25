@@ -53,9 +53,19 @@ private:
     void RegisterConfigRoutes();
 
     /**
+     * @brief 注册设备控制相关路由
+     */
+    void RegisterDeviceControlRoutes();
+
+    /**
      * @brief 注册视频相关路由
      */
     void RegisterVideoRoutes();
+
+    /**
+     * @brief 注册升级相关路由
+     */
+    void RegisterUpgradeRoutes();
 
     size_t m_routeCount;  // 已注册路由计数
 };

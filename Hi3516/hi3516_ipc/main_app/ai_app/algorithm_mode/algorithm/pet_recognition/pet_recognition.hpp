@@ -113,6 +113,9 @@ private:
     /* 宠物识别 */
     Alarm::PetRecognition_S m_stPetDetCfg;
 
+    /* 目标视频帧 */
+    ot_video_frame_info m_stDstFrameInfo;
+
     /* 算法默认分辨率 */
     int m_nWidth = PIXEL_WIDTH_1024;
     int m_nHeight = PIXEL_HEIGHT_576;

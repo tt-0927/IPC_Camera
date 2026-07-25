@@ -2,8 +2,8 @@
  * @FilePath     : HumanAreaDetectV3_0.cpp
  * @Author       : 廖尔涛 liaoet@kfb.cn
  * @Date         : 2024-09-23 20:19:15
- * @LastEditors: 梁浩尧 lianghaoyao@kfb.cn
- * @LastEditTime: 2025-12-11 14:34:27
+ * @LastEditors: lianghy lianghy@kfb.cn
+ * @LastEditTime: 2026-04-07 14:36:41
  * @Description  : 人少场景
  */
 #include "HumanAreaDetectV3_0.hpp"
@@ -129,7 +129,7 @@ bool HumanAreaDetect_NS::CHumanAreaDetectV3_0::process(
     /* 推理+后处理 */
     Inference_NS::InputData_S stInputData;
     stInputData.pData = (float*)stInData.inMat.data;
-    stInputData.nDataSize = static_cast<size_t>(stInData.inMat.total() * stInData.inMat.elemSize());
+    stInputData.nDataSize = static_cast<size_t>(stInData.inMat.total() * stInData.inMat.elemSize() * sizeof(float));
     stInputData.stBoxs.fConfidence = stInData.stParam.fBoxThreshold;
     stInputData.stBoxs.fNms = stInData.stParam.fNmsThreshold;
 

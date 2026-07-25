@@ -8,6 +8,7 @@
  */
 
 #include "gb28181.hpp"
+#include "dlog.h"
 #include "video_define.h"
 #include "stream_video.h"
 #include "system_define.h"
@@ -43,9 +44,6 @@ int CGB28181::init()
     /*判断是否开启GB28181服务*/
     if (m_stGbClient.bEnableGB28181)
     {
-        /* 开启日志的调试模式 */
-        enable_module_log_print(1);
-        
         // CbInfo_S stInitInfo;
         // stInitInfo.fnLog = nullptr;
         // stInitInfo.fnGetLocalInfo = [](SipLocalInfo_S &stInfo)
@@ -355,6 +353,9 @@ void CGB28181::fn_gbMediaUpdate(const SipMediaCbInfo_S &stInfo)
     stAoInfo.pData = (uint8_t *)stInfo.pData;
     stAoInfo.nLen = stInfo.nLen;
     stAoInfo.enAudioFormat = Audio_NS::AudioFormat_E::G711A;
+#if CAP_EVENT_AUDIO_PLAYBACK_V2
+    stAoInfo.enSource = Audio_NS::AoSource_E::AO_SOURCE_REALTIME;  /* GB28181广播 */
+#endif
     /* 接收到的广播数据发送到解码端 */
     CAVConfigure::instance()->setAoSpeakInfo(stAoInfo);
 }
@@ -438,7 +439,7 @@ void CGB28181::fn_gbSVACDecodeInfo(GB28181::SVACDecodeInfo_S &stSVACDecodeInfo,S
 /* GB回调函数-视频参数 */
 void CGB28181::fn_gbVideoParamAttributeInfo(GB28181::VideoParamAttributeInfo_S &stVideoParamAttributeInfo,SipCbResult_S &stResult)
 {
-    MLOG_INFO("视频参数设置");
+    dlog_info("视频参数设置");
     /* GB28181 协议参数与设备参数之间进行双向转换 */
     auto convert = [](GB28181::VideoParamAttributeItem& gb, Video_NS::VideoConfig_S& ipc, bool toGb)
     {

@@ -66,6 +66,15 @@ namespace Ai0630_NS
             return m_stClassInfo;
         }
 
+        /**
+         * @brief 获取班级信息
+         * @return m_stClassInfo
+         */
+        void setClassInfo(ClassInfo_S stInfo)
+        {
+            m_stClassInfo = stInfo;
+        }
+
     private:
 
         /**

@@ -142,6 +142,16 @@ public:
      * @return 如果是新的一天返回true，否则返回false
      */
     bool is_newDay();
+
+    /**
+    * @brief  : 获取录制是否因存储满停止
+    */
+    bool isStoppedDueToStorage() const;
+
+    /**
+    * @brief  : 获取最后一次录制停止的时间戳
+    */
+    const std::string& getLastRecordStopTime() const;
     
 private:
     /**
@@ -198,4 +208,9 @@ private:
     bool m_bRecordProcessStatus = false;
     /*用于判断日期变更*/
     std::string m_strCurRecordDate;
+
+    /*录制因存储满停止的时间戳*/
+    std::string m_strLastRecordStopTime; 
+    /* 是否录像停止*/
+    bool m_bStoppedDueToStorage = false;
 };

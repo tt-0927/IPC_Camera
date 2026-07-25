@@ -3,7 +3,7 @@
  * @Author       : zhouzirui
  * @Date         : 2025-03-21 10:29:00
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-01-20 10:19:52
+ * @LastEditTime : 2026-06-30 09:45:07
  * @Description  : VPSS 视频处理
  */
 
@@ -78,6 +78,15 @@ HiVpss_S **streamVpss_init(HiVpss_S ***pHandle, const std::vector<Video_NS::Vide
                 }
                 else if (nVpssChn == VPSS_CHANNEL_AI) // AI 检测
                 {
+#if CAP_AI_FACE_COMPARE
+                    pVpssChnAttr->nWidth = PIXEL_WIDTH_1024;
+                    pVpssChnAttr->nHeight = PIXEL_HEIGHT_576;
+                    pVpssChnAttr->nMaxWidth = PIXEL_WIDTH_1024;
+                    pVpssChnAttr->nMaxHeight = PIXEL_HEIGHT_576;
+                    pVpssChnAttr->nDepth = 2;
+                    pVpssChnAttr->nSrcFrameRate = 30;
+                    pVpssChnAttr->nDstFrameRate = 2;
+#else
                     pVpssChnAttr->nWidth = PIXEL_WIDTH_1024;
                     pVpssChnAttr->nHeight = PIXEL_HEIGHT_576;
                     pVpssChnAttr->nMaxWidth = PIXEL_WIDTH_1024;
@@ -85,6 +94,7 @@ HiVpss_S **streamVpss_init(HiVpss_S ***pHandle, const std::vector<Video_NS::Vide
                     pVpssChnAttr->nDepth = 6;
                     pVpssChnAttr->nSrcFrameRate = 30;
                     pVpssChnAttr->nDstFrameRate = 30;
+#endif
                 }
             }
         }

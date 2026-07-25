@@ -3,7 +3,7 @@
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2026-04-28 15:07:08
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-05-22 17:53:35
+ * @LastEditTime : 2026-06-12 09:50:01
  * @Description  : 人脸抓拍处理器实现
  */
 
@@ -186,7 +186,7 @@ void CFaceCaptureProcessor::process(SFaceProcessContext &stContext, std::vector<
                   vecImageFile);
 }
 
-bool CFaceCaptureProcessor::collectTargets(std::vector<Inference_NS::PointData_S> &vPointDatas,
+bool CFaceCaptureProcessor::collectTargets(std::vector<Inference_NS::BoxData_S> &vPointDatas,
                                            std::vector<Common::RectInfo_S> &vstRectInfo,
                                            std::vector<FaceCaptureTarget_S> *pvecTargets)
 {
@@ -253,25 +253,33 @@ bool CFaceCaptureProcessor::collectTargets(std::vector<Inference_NS::PointData_S
             continue;
         }
 
-        if (pointData.fConfidence < fSensitivityThreshold)
+     if (pointData.fConfidence < fSensitivityThreshold)
         {
+            dlog_info("fConfidence :%d",pointData.fConfidence)
             continue;
-        }
+        }   
 
         /* 当前目标双眼瞳距，vPoints[0] 与 vPoints[1] 分别对应两只眼睛关键点 */
-        const int nIpd = pointData.vPoints[1].nX - pointData.vPoints[0].nX;
-        if (nIpd < nMinIpd)
-        {
-            continue;
-        }
+        // const int nIpd = pointData.vPoints[1].nX - pointData.vPoints[0].nX;
+        // if (nIpd < nMinIpd)
+        // {
+        //     continue;
+        // }
 
         bIsAlarm = true;
         dlog_info("[人脸抓拍] 灵敏度[%.3f] > 阈值[%.3f] 瞳距 [%d] > [%d]",
                   pointData.fConfidence,
                   fSensitivityThreshold,
-                  nIpd,
+                //   nIpd,
                   nMinIpd);
-
+        dlog_info("[人脸抓拍][原图框] X1=%d Y1=%d X2=%d Y2=%d W=%d H=%d Confidence=%.3f",
+                  pointData.stBoxs.nX1,
+                  pointData.stBoxs.nY1,
+                  pointData.stBoxs.nX2,
+                  pointData.stBoxs.nY2,
+                  pointData.stBoxs.nX2 - pointData.stBoxs.nX1,
+                  pointData.stBoxs.nY2 - pointData.stBoxs.nY1,
+                  pointData.fConfidence);
         add_result_to_vector(pointData, vstRectInfo);
         if (pvecTargets != nullptr)
         {
@@ -282,7 +290,7 @@ bool CFaceCaptureProcessor::collectTargets(std::vector<Inference_NS::PointData_S
             stTarget.stRect.nX2 = pointData.stBoxs.nX2;
             stTarget.stRect.nY2 = pointData.stBoxs.nY2;
             stTarget.fConfidence = pointData.fConfidence;
-            stTarget.nIpd = nIpd;
+            // stTarget.nIpd = nIpd;
             pvecTargets->emplace_back(stTarget);
         }
     }

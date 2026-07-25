@@ -8,6 +8,7 @@ set (COMMON_PATH
     ${CMAKE_CURRENT_LIST_DIR}/config_compat
     ${CMAKE_CURRENT_LIST_DIR}/convert
     ${CMAKE_CURRENT_LIST_DIR}/define
+    ${CMAKE_CURRENT_LIST_DIR}/timezone
 )
 
 foreach(item ${COMMON_PATH})
@@ -19,6 +20,7 @@ set (COMMON_INCLUDE
     ${CMAKE_CURRENT_LIST_DIR}/config_compat
     ${CMAKE_CURRENT_LIST_DIR}/convert
     ${CMAKE_CURRENT_LIST_DIR}/define
+    ${CMAKE_CURRENT_LIST_DIR}/timezone
 )
 foreach(item ${COMMON_INCLUDE})
     include_directories ( ${item} ) 

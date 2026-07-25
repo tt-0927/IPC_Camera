@@ -14,6 +14,8 @@
 #include "operation_client.h"
 #include "bl_event.h"
 #include "dlog.h"
+#include "path_define.h"
+#include "convert_interface.h"
 
 using namespace Db;
 
@@ -29,6 +31,14 @@ void LogHandler::write(Log::Info_S stInfo)
     stInfo.host.resize(end != std::string::npos ? end + 1 : 0);
 
     LogDatabase::instance()->add(stInfo);
+
+    /* 日志上传开关关闭时，跳过MQTT上传 */
+    if (!m_bLogUpload.load())
+    {
+        //dlog_debug("[日志上传] 开关关闭，跳过MQTT上传");
+        return;
+    }
+
     MqttMsg_S stMsg;
     std::string  strMsg;
     memset(&stMsg, 0, sizeof(MqttMsg_S));
@@ -181,4 +191,16 @@ std::string LogHandler::get_dateTime()
     std::string time = timeStream.str();
 
     return  date + " " + time;
+}
+
+void LogHandler::initLogUpload()
+{
+    ::System::LogServerInfo_S stLogServerInfo;
+    Convert::read_file(LOG_SERVER_INFO_FILE, stLogServerInfo);
+    m_bLogUpload.store(stLogServerInfo.bLogUpload);
+}
+
+void LogHandler::setLogUpload(bool bEnable)
+{
+    m_bLogUpload.store(bEnable);
 }

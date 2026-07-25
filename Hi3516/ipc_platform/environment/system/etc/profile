@@ -33,3 +33,8 @@ echo "${GREEN}Welcome to Linux.${NORMAL}"
 export LD_LIBRARY_PATH=/lib
 # 设置环境变量
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/cam/lib
+
+# 设置系统时区
+if [ -f /opt/cam/shell/set_timezone.sh ]; then
+    . /opt/cam/shell/set_timezone.sh
+fi

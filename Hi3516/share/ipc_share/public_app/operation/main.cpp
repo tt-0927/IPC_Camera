@@ -1,9 +1,9 @@
-/*** 
+/**
  * @FilePath     : main.cpp
  * @Author       : huangjunda
  * @Date         : 2025-07-15 15:41:11
- * @LastEditors  : huangjunda
- * @LastEditTime : 2025-08-08 09:48:34
+ * @LastEditors  : zhouzr@kfb.cn
+ * @LastEditTime : 2026-06-05 15:54:46
  * @Description  : 运维记录程序
  * 
  */
@@ -13,6 +13,7 @@
 #include <thread>
 #include "dlog.h"
 #include "operation_communicate.h"
+#include "timezone_runtime.h"
 
 /* 日志记录单个日志文件的最大大小 */
 #define MAX_LOG_SIZE  (1 * 512 * 1024) // 512KB
@@ -74,6 +75,9 @@ int main(int argc, char const *argv[])
 
 
     dlog_trace("启动运维程序");
+
+    /* 初始化进程时区运行时，收到 SIGHUP 后重新加载时区配置 */
+    TimezoneRuntime_NS::init_timezone_runtime("operation");
 
     communicate_init();
 

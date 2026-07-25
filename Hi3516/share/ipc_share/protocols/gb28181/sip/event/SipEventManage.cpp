@@ -1,4 +1,5 @@
 #include "SipEventManage.h"
+#include "dlog.h"
 #include "SipClient.h"
 #include "SipServer.h"
 #include "SipType.h"
@@ -70,10 +71,10 @@ EventManage::EventDeal EventManage::GetEventDeal(eXosip_event_type_t type)
     if (value == m_mapEventDeal.end())
     {
         EventDeal stDeal = {nullptr, nullptr};
-        MLOG_ERROR("GetEventDeal error , error type [%d]", type);
+        dlog_error("GetEventDeal error , error type [%d]", type);
         return stDeal;
     }
-    MLOG_INFO("GetEventDeal type [%d]", type);
+    dlog_info("GetEventDeal type [%d]", type);
     return value->second;
 }
 
@@ -130,7 +131,7 @@ int EventManage::on_call_requestfailure(const SipEvent::Ptr &e)
 {
     if (e->m_pEvent->response)
     {
-        MLOG_ERROR("on_call_requestfailure response code [%d][%s]",
+        dlog_error("on_call_requestfailure response code [%d][%s]",
                    e->m_pEvent->response->status_code,
                    e->m_pEvent->response->reason_phrase);
     }
@@ -141,7 +142,7 @@ int EventManage::on_call_serverfailure(const SipEvent::Ptr &e)
 {
     if (e->m_pEvent->response)
     {
-        MLOG_ERROR("on_call_requestfailure response code [%d][%s]",
+        dlog_error("on_call_requestfailure response code [%d][%s]",
                    e->m_pEvent->response->status_code,
                    e->m_pEvent->response->reason_phrase);
     }
@@ -179,7 +180,7 @@ int EventManage::on_call_message_new(const SipEvent::Ptr &e)
         reqid = (const char *)tag->gvalue;
     }
 
-    MLOG_INFO("on_call_message_new response reqid:[%s]", reqid.c_str());
+    dlog_info("on_call_message_new response reqid:[%s]", reqid.c_str());
 
     if (MSG_IS_MESSAGE(e->m_pEvent->request))
     {

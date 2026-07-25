@@ -32,6 +32,38 @@ Manage::Manage()
     m_pDataComm->bindFeatureSlot(m_pFaceManage.get(), &FaceManage::recvFaceFeature);
 
     initTask();
+
+    /* 测试 */
+#if 0
+    ClassInfo_S stClassInfo;
+    stClassInfo.nClassId     = 1;
+    stClassInfo.strClassName = "测试班级";
+    FaceLibsInfo_S stFaceLibsInfo;
+    stFaceLibsInfo.nIdentity        = 0;
+    stFaceLibsInfo.nClassId         = 1;
+    stFaceLibsInfo.nMemberId        = 1;
+    stFaceLibsInfo.strName          = "严泽辉";
+    stFaceLibsInfo.strRemotePicPath = "/root/1.png";
+    stFaceLibsInfo.strLocalPicPath  = "/root/1.png";
+    stFaceLibsInfo.strPicName       = "严泽辉";
+    stClassInfo.listStuInfo.push_back(stFaceLibsInfo);
+    stFaceLibsInfo.nIdentity  = 1;
+    stFaceLibsInfo.nMemberId  = 3;
+    stFaceLibsInfo.strPicName = "严老师";
+    stFaceLibsInfo.strName    = "严老师";
+    stClassInfo.listTeaInfo.push_back(stFaceLibsInfo);
+    stFaceLibsInfo.nIdentity        = 0;
+    stFaceLibsInfo.nClassId         = 1;
+    stFaceLibsInfo.nMemberId        = 2;
+    stFaceLibsInfo.strName          = "吴才朋";
+    stFaceLibsInfo.strRemotePicPath = "/root/2.jpg";
+    stFaceLibsInfo.strLocalPicPath  = "/root/2.jpg";
+    stFaceLibsInfo.strPicName       = "吴才朋";
+    stClassInfo.listStuInfo.push_back(stFaceLibsInfo);
+    m_pGetClassInfo->setClassInfo(stClassInfo);
+    recvClassData(stClassInfo);
+    m_pDataComm->recvClassData(stClassInfo);
+#endif
 }
 
 /* 设置获取流数据的回调函数 */
@@ -80,7 +112,14 @@ BlError_E Ai0630_NS::Manage::pptSwitch()
     {
         return NOK;
     }
-    return m_pResultModule->pptSwitch();
+
+    /* 判断当前为录制状态则记录PPT切换信息 */
+    BlError_E enRet = OK;
+    if (m_bRecord.load())
+    {
+        enRet = m_pResultModule->pptSwitch();
+    }
+    return enRet;
 }
 
 /* 切换老师画面 */
@@ -93,7 +132,14 @@ BlError_E Ai0630_NS::Manage::switchTeacherScreen()
     {
         return NOK;
     }
-    return m_pResultModule->switchTeacherScreen();
+
+    /* 判断当前为录制状态则记录切换老师画面信息 */
+    BlError_E enRet = OK;
+    if (m_bRecord.load())
+    {
+        enRet = m_pResultModule->switchTeacherScreen();
+    }
+    return enRet;
 }
 
 /* 切换学生画面 */
@@ -107,7 +153,14 @@ BlError_E Ai0630_NS::Manage::switchStudentScreen()
     {
         return NOK;
     }
-    return m_pResultModule->switchStudentScreen();
+
+    /* 判断当前为录制状态则记录切换学生画面信息 */
+    BlError_E enRet = OK;
+    if (m_bRecord.load())
+    {
+        enRet = m_pResultModule->switchStudentScreen();
+    }
+    return enRet;
 }
 
 /* 切换学生特写 */
@@ -130,7 +183,14 @@ BlError_E Ai0630_NS::Manage::switchStudentCloseUp(bool bValue)
     {
         return NOK;
     }
-    return m_pResultModule->switchStudentCloseUp(stUserHeaderInfo, bValue);
+
+    /* 判断当前为录制状态则记录切换学生特写信息 */
+    BlError_E enRet = OK;
+    if (m_bRecord.load())
+    {
+        enRet = m_pResultModule->switchStudentCloseUp(stUserHeaderInfo, bValue);
+    }
+    return enRet;
 }
 
 /* 切换老师是否在讲台 */
@@ -143,7 +203,14 @@ BlError_E Ai0630_NS::Manage::switchTeacherPodium(bool bValue)
     {
         return NOK;
     }
-    return m_pResultModule->switchTeacherPodium(bValue);
+
+    /* 判断当前为录制状态则记录老师是否在讲台信息 */
+    BlError_E enRet = OK;
+    if (m_bRecord.load())
+    {
+        enRet = m_pResultModule->switchTeacherPodium(bValue);
+    }
+    return enRet;
 }
 
 /* 开始互动 */
@@ -164,7 +231,15 @@ BlError_E Ai0630_NS::Manage::startInteraction()
     {
         return NOK;
     }
-    return m_pResultModule->startInteraction(stUserHeaderInfo);
+
+    /* 判断当前为录制状态则记录互动信息 */
+    BlError_E enRet = OK;
+    if (m_bRecord.load())
+    {
+        enRet = m_pResultModule->startInteraction(stUserHeaderInfo);
+    }
+
+    return enRet;
 }
 
 /* 开始巡视行为 */
@@ -185,7 +260,14 @@ BlError_E Ai0630_NS::Manage::startTour()
     {
         return NOK;
     }
-    return m_pResultModule->startTour(stUserHeaderInfo);
+
+    /* 判断当前为录制状态则记录互动信息 */
+    BlError_E enRet = OK;
+    if (m_bRecord.load())
+    {
+        enRet = m_pResultModule->startTour(stUserHeaderInfo);
+    }
+    return enRet;
 }
 
 /* 开始教授行为 */
@@ -206,7 +288,14 @@ BlError_E Ai0630_NS::Manage::startTaught()
     {
         return NOK;
     }
-    return m_pResultModule->startTaught(stUserHeaderInfo);
+
+    /* 判断当前为录制状态则记录互动信息 */
+    BlError_E enRet = OK;
+    if (m_bRecord.load())
+    {
+        enRet = m_pResultModule->startTaught(stUserHeaderInfo);
+    }
+    return enRet;
 }
 
 /* 老师板书切换 */
@@ -227,7 +316,14 @@ BlError_E Ai0630_NS::Manage::teacherBoard(bool bValue)
     {
         return NOK;
     }
-    return m_pResultModule->teacherBoard(stUserHeaderInfo, bValue);
+
+    /* 判断当前为录制状态则记录互动信息 */
+    BlError_E enRet = OK;
+    if (m_bRecord.load())
+    {
+        enRet = m_pResultModule->teacherBoard(stUserHeaderInfo, bValue);
+    }
+    return enRet;
 }
 
 /* 设置录制时间 */
@@ -240,6 +336,7 @@ BlError_E Ai0630_NS::Manage::setRecordTime(int nRecordTime)
 /* 设置录制格式 */
 BlError_E Ai0630_NS::Manage::setRecordStatus(int nStatus)
 {
+    dlog(LOG_INFO, "设置当前录制状态为【%s】", (RECORD_RESUME == nStatus) ? "录制" : "空闲");
     if (RECORD_RESUME == nStatus)
     {
         m_bRecord.store(true);
@@ -250,6 +347,22 @@ BlError_E Ai0630_NS::Manage::setRecordStatus(int nStatus)
     }
 
     checkTask();
+
+    /* 作用：防止刚开始录制的时候缺少一些数据 */
+    if (m_bRecord.load())
+    {
+        /* 开始录制的时候判断老师是否在讲台 */
+        if (m_bTeacherPodium.load())
+        {
+            /* 在讲台，则设置当前老师为授课行为 */
+            startTaught();
+        }
+        else
+        {
+            /* 不在讲台，则设置当前老师为巡视行为 */
+            startTour();
+        }
+    }
 
     return OK;
 }
@@ -267,7 +380,7 @@ BlError_E Ai0630_NS::Manage::setServerIp(std::string strIp)
 /* 添加课堂分贝值 */
 void Ai0630_NS::Manage::addClassDb(int nDb)
 {
-    if (m_pResultModule)
+    if (m_pResultModule && m_bRecord.load())
     {
         m_pResultModule->addClassDb(nDb);
     }

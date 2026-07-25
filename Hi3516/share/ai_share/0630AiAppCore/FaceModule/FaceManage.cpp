@@ -207,6 +207,7 @@ void FaceManage::recvData(
                 stHumanInfo.nClassId      = stUserHeader.nClassId;
                 stHumanInfo.nEmoType      = nEmoType;
                 stHumanInfo.nBehaviorType = nBehavior;
+                stHumanInfo.nPostureType  = nPosture;
                 stHumanInfo.nClassTime    = stUserHeader.nClassTime;
                 stHumanInfo.lTimestamp    = stUserHeader.lTimestamp;
                 sig_sendData.emit(stHeader, stUserHeader, stOutFaceInfo, stHumanInfo);
@@ -274,6 +275,7 @@ void FaceManage::recvData(
                 stHumanLibsInfo.nClassId      = stUserHeader.nClassId;
                 stHumanLibsInfo.nEmoType      = nEmoType;
                 stHumanLibsInfo.nBehaviorType = nBehavior;
+                stHumanLibsInfo.nPostureType  = nPosture;
                 stHumanLibsInfo.nClassTime    = stUserHeader.nClassTime;
                 stHumanLibsInfo.lTimestamp    = stUserHeader.lTimestamp;
                 stHumanLibsInfo.vfFaceData    = stFaceFeatureData.vFeature;
@@ -291,6 +293,7 @@ void FaceManage::recvData(
             stHumanLibsInfo.nClassId      = stUserHeader.nClassId;
             stHumanLibsInfo.nEmoType      = nEmoType;
             stHumanLibsInfo.nBehaviorType = nBehavior;
+            stHumanLibsInfo.nPostureType  = nPosture;
             stHumanLibsInfo.nClassTime    = stUserHeader.nClassTime;
             stHumanLibsInfo.lTimestamp    = stUserHeader.lTimestamp;
             stHumanLibsInfo.vfFaceData    = stFaceFeatureData.vFeature;

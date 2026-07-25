@@ -175,6 +175,7 @@ int CGpioCtrl::ir_cut_switch_day()
 
 int CGpioCtrl::alarm_output_state(int order)
 {
+    #if CAP_ALARM_IO
     if (order < 0 || order >= GPIO_OUTPUT_COUNT)
     {
         dlog_error("Invalid order: %u",order);
@@ -200,11 +201,14 @@ int CGpioCtrl::alarm_output_state(int order)
         dlog_error("Failed to allocate GPIO handle for pin: %u",gpio_pin);
         return -1;
     }
+    #endif
+    return -1;
 }
 
 /* 报警 GPIO 控制 */
 void CGpioCtrl::alarm_output_on(int order)
 {
+    #if CAP_ALARM_IO
     if (order < 0 || order >= GPIO_OUTPUT_COUNT)
     {
         dlog_error("Invalid order: %u",order);
@@ -224,10 +228,12 @@ void CGpioCtrl::alarm_output_on(int order)
     {
         dlog_error("Failed to allocate GPIO handle for pin: %u",gpio_pin);
     }
+    #endif
 }
 
 void CGpioCtrl::alarm_output_off(int order)
 {
+    #if CAP_ALARM_IO
     if (order < 0 || order >= GPIO_OUTPUT_COUNT)
     {
         dlog_error("Invalid order: %u",order);
@@ -247,10 +253,12 @@ void CGpioCtrl::alarm_output_off(int order)
     {
         dlog_error("Failed to allocate GPIO handle for pin: %u",gpio_pin);
     }
+    #endif
 }
 
 int CGpioCtrl::alarm_input_read(int num)
 {
+    #if CAP_ALARM_IO
     if (num < 0 || num >= GPIO_INPUT_COUNT)
     {
         dlog_error("无效的序号: %d", num);
@@ -278,4 +286,6 @@ int CGpioCtrl::alarm_input_read(int num)
         dlog_error("申请gpio引脚: %d句柄失败", gpio_pin);
         return IpcRet_E::ERR;
     }
+    #endif
+    return IpcRet_E::ERR;
 }

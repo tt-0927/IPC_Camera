@@ -18,7 +18,7 @@
 #include "blocking_queue.hpp"
 #include "common_process.h"
 #include "internal/processors/crowd/people_head_crowd_gathering_processor.hpp"
-#if CAP_AI_PEOPLE_STATISTICS
+#if CAP_AI_PEOPLE_DENSITY_LEGACY
 #include "internal/processors/density/people_head_density_processor.hpp"
 #endif
 
@@ -56,7 +56,7 @@ public:
      */
     void setAlgoParamCfg(const Alarm::CrowdGathering_S &stAlgoCfg);
 
-#if CAP_AI_PEOPLE_STATISTICS
+#if CAP_AI_PEOPLE_DENSITY_LEGACY
     /**
      * @brief   : 更新人员密度检测参数
      * @param    {PeopleDensityDetection_S} &stAlgoCfg：人员密度检测配置
@@ -113,7 +113,7 @@ private:
     EventManager m_RecvManager{ 500 };
     /* 人员聚集处理器 */
     PeopleHeadDetectInternal::CPeopleHeadCrowdGatheringProcessor m_crowdGatheringProcessor;
-#if CAP_AI_PEOPLE_STATISTICS
+#if CAP_AI_PEOPLE_DENSITY_LEGACY
     /* 人员密度处理器 */
     PeopleHeadDetectInternal::CPeopleHeadDensityProcessor m_densityProcessor;
 #endif

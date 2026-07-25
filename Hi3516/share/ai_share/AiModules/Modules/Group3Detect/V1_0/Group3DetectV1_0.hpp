@@ -73,7 +73,18 @@ class CGroup3DetectV1_0 {
      */
     bool process(InData_S stInData, std::vector<Result_S> &vecResult, OutData_S *stOutData = nullptr);
 
+    bool resizeAndPadImage(cv::Mat inputImage, cv::Mat &outputImage);
   private:
+    /* 算法输入参数限制 */
+    int m_nLimitWidth   = 640;
+    int m_nLimitHeight  = 384;
+
+    /* 缩放填充后左上角的坐标 */
+    int m_nXOffset = 0;
+    int m_nYOffset = 0;
+    /* 缩放比例 */
+    float m_fResizeScale = 1.0;
+
     /* 初始化参数 */
     InParam_S m_stInParam;
 

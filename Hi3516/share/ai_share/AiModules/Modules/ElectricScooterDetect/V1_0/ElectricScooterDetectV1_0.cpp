@@ -1,8 +1,8 @@
 /*
  * @Author: 梁浩尧 lianghaoyao@kfb.cn
  * @Date: 2025-11-19 20:24:13
- * @LastEditors: 梁浩尧 lianghaoyao@kfb.cn
- * @LastEditTime: 2025-12-04 19:44:40
+ * @LastEditors: lianghy lianghy@kfb.cn
+ * @LastEditTime: 2026-04-07 14:33:04
  * @FilePath: /1126/share/ai_share/AiModules/Modules/ElectricScooterDetect/V1_0/ElectricScooterDetect.cpp
  * @Description: 电瓶车检测
  */
@@ -105,7 +105,7 @@ bool ElectricScooterDetect_NS::CElectricScooterDetectV1_0::process(
     /* 推理+后处理 */
     Inference_NS::InputData_S stInputData;
     stInputData.pData = (float*)stInData.inMat.data;
-    stInputData.nDataSize = static_cast<size_t>(stInData.inMat.total() * stInData.inMat.elemSize());
+    stInputData.nDataSize = static_cast<size_t>(stInData.inMat.total() * stInData.inMat.elemSize() * sizeof(float));
     stInputData.stBoxs.fConfidence = stInData.stParam.fBoxThreshold;
     stInputData.stBoxs.fNms = stInData.stParam.fNmsThreshold;
 

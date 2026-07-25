@@ -419,6 +419,8 @@ int CEmailManage::SendEventEmail(const Network::EmailEventInfo_S &stEventInfo)
     stSmtp.SetXPriority(XPRIORITY_NORMAL);
     stSmtp.SetXMailer(XMAILER);
 
+    stSmtp.SetCharSet("UTF-8");
+    
     dlog_info("开始发送事件邮件");
     /* 发送邮件 */
     if (!stSmtp.Send())

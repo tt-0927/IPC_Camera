@@ -3,7 +3,7 @@
  * @Author       : 廖尔涛 liaoet@kfb.cn
  * @Date         : 2024-10-09 13:59:59
  * @LastEditors: lianghy lianghy@kfb.cn
- * @LastEditTime: 2026-02-06 17:02:27
+ * @LastEditTime: 2026-04-07 15:55:39
  * @Description  : 人少场景
  */
 #include "LicensePlateCognitionV1_0.hpp"
@@ -183,7 +183,7 @@ bool LicensePlateCognition_NS::CLicensePlateCognitionV1_0::process(
 
     
     stInputData.pData = (float*)stInData.inMat.data;
-    stInputData.nDataSize = static_cast<size_t>(stInData.inMat.total() * stInData.inMat.elemSize());
+    stInputData.nDataSize = static_cast<size_t>(stInData.inMat.total() * stInData.inMat.elemSize() * sizeof(float));
     stInputData.stBoxs.fConfidence = stInData.stParam.fBoxThreshold;
     stInputData.stBoxs.fNms = stInData.stParam.fNmsThreshold;
 
@@ -260,7 +260,7 @@ bool LicensePlateCognition_NS::CLicensePlateCognitionV1_0::process(
         std::vector<Inference_NS::ClsData_S> vClsDatas;
 
         stLicensePlateNumberInputData.pData = (float*)licensePlateImage.data;
-        stLicensePlateNumberInputData.nDataSize = static_cast<size_t>(licensePlateImage.total() * licensePlateImage.elemSize());
+        stLicensePlateNumberInputData.nDataSize = static_cast<size_t>(licensePlateImage.total() * licensePlateImage.elemSize() * sizeof(float));
         stLicensePlateNumberInputData.stBoxs.fConfidence = stInData.stParam.fBoxThreshold;
         stLicensePlateNumberInputData.stBoxs.fNms = stInData.stParam.fNmsThreshold;
 

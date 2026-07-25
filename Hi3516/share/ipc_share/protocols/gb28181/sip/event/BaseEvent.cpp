@@ -7,6 +7,7 @@
  * @Description  : 事件基类实现
  */
 #include "BaseEvent.h"
+#include "dlog.h"
 #include "SipClient.h"
 #include "SipUtils.h"
 #include "XmlParser.h"
@@ -33,7 +34,7 @@ int BaseEvent::SendResponse(const SipEvent::Ptr &e, int nStatus)
     char *pMsg = nullptr;
     size_t nLen = 0;
     osip_message_to_str(answer, &pMsg, &nLen);
-    MLOG_INFO("SIP Response: \n%s", pMsg);
+    dlog_info("SIP Response: \n%s", pMsg);
     osip_free(pMsg);
     eXosip_unlock(e->m_pContext);
     return ret;
@@ -81,7 +82,7 @@ int SIP::BaseEvent::SendMessage(
         char *pMsg = nullptr;
         size_t nLen = 0;
         osip_message_to_str(message, &pMsg, &nLen);
-        MLOG_INFO("SIP Message: \n%s", pMsg);
+        dlog_info("SIP Message: \n%s", pMsg);
         osip_free(pMsg);
     }
     eXosip_unlock(e->m_pContext);
@@ -117,14 +118,14 @@ int SIP::BaseEvent::SendMessageWithCallID(
     if (pOldCallID)
     {
 #if SIP_BASE_EVENT_DEBUG
-        MLOG_DEBUG("Old Call-ID: [%s][%s]", pOldCallID->number, pOldCallID->host);
+        dlog_debug("Old Call-ID: [%s][%s]", pOldCallID->number, pOldCallID->host);
 #endif
     }
     auto pNewCallID = osip_message_get_call_id(message);
     if (pNewCallID)
     {
 #if SIP_BASE_EVENT_DEBUG
-        MLOG_DEBUG("New Call-ID: [%s][%s]", pNewCallID->number, pNewCallID->host);
+        dlog_debug("New Call-ID: [%s][%s]", pNewCallID->number, pNewCallID->host);
 #endif
         /* 需要先释放eXosip_message_build_request时申请的Call-ID */
         osip_call_id_free(pNewCallID);
@@ -135,7 +136,7 @@ int SIP::BaseEvent::SendMessageWithCallID(
     /* gb35114构建控制信令 Date、Note字段 必须在更改Call-ID之后 */
     if (OK != CGm::instance()->gm_build_control_signaling_note(message, Body.c_str()))
     {
-        MLOG_ERROR("gb35114构建控制信令 Date、Note字段失败");
+        dlog_error("gb35114构建控制信令 Date、Note字段失败");
     }
 
     eXosip_lock(e->m_pContext);
@@ -146,7 +147,7 @@ int SIP::BaseEvent::SendMessageWithCallID(
         char *pMsg = nullptr;
         size_t nLen = 0;
         osip_message_to_str(message, &pMsg, &nLen);
-        MLOG_INFO("SIP Message: \n%s", pMsg);
+        dlog_info("SIP Message: \n%s", pMsg);
         osip_free(pMsg);
 #endif
     }
@@ -197,7 +198,7 @@ int BaseEvent::SendResponseAndGetAddress(eXosip_t *excontext, int tid, int statu
     char *pMsg = nullptr;
     size_t nLen = 0;
     osip_message_to_str(answer, &pMsg, &nLen);
-    MLOG_DEBUG("SIP Response: \n%s", pMsg);
+    dlog_debug("SIP Response: \n%s", pMsg);
     eXosip_unlock(excontext);
     return ret;
 }
@@ -245,7 +246,7 @@ int SIP::BaseEvent::SendResponse(
         excontext, &request, "MESSAGE", strToUri.c_str(), strFromUri.c_str(), nullptr);
     if (ret != OSIP_SUCCESS)
     {
-        MLOG_ERROR("eXosip_message_build_request failed");
+        dlog_error("eXosip_message_build_request failed");
         return ret;
     }
 
@@ -257,7 +258,7 @@ int SIP::BaseEvent::SendResponse(
     eXosip_unlock(excontext);
     if (ret < OSIP_SUCCESS)
     {
-        MLOG_ERROR("eXosip_message_send_request failed");
+        dlog_error("eXosip_message_send_request failed");
     }
     return ret;
 }
@@ -283,18 +284,18 @@ int SIP::BaseEvent::GetExpires(const SipEvent::Ptr &e)
         osip_uri_param_get_byname(&(pGetContact->gen_params), achExpires, &tag);
         if (nullptr != tag)
         {
-            MLOG_DEBUG("Get Expires Tag From Contacts Value:%s", tag->gvalue);
+            dlog_debug("Get Expires Tag From Contacts Value:%s", tag->gvalue);
             nRetExpires = atoi(tag->gvalue);
         }
     }
     /* 如果获取不到则从Headers的Expires独立字段中获取 */
     if (nRetExpires < 0)
     {
-        MLOG_INFO("Get Expires Tag From Contacts Failed");
+        dlog_info("Get Expires Tag From Contacts Failed");
         osip_uri_param_get_byname(&(e->m_pEvent->request->headers), achExpires, &tag);
         if (nullptr != tag)
         {
-            MLOG_DEBUG("Get Expires Tag From Headers Value:%s", tag->gvalue);
+            dlog_debug("Get Expires Tag From Headers Value:%s", tag->gvalue);
             nRetExpires = atoi(tag->gvalue);
         }
     }
@@ -309,7 +310,7 @@ int SIP::BaseEvent::GetEvent(const SipEvent::Ptr &e, std::string &strEvent)
     osip_uri_param_get_byname(&(e->m_pEvent->request->headers), achEvent, &tag);
     if (nullptr != tag)
     {
-        MLOG_DEBUG("Get Event Tag From Headers Value:%s", tag->gvalue);
+        dlog_debug("Get Event Tag From Headers Value:%s", tag->gvalue);
         strEvent = tag->gvalue;
         bRet = 1;
     }
@@ -362,7 +363,7 @@ int SIP::BaseEvent::GetRequestURI(
     {
         strFromUri = pClient->GetRemoteURI();
 #if SIP_BASE_EVENT_DEBUG
-        MLOG_INFO("Get RequestURI SipClient URI: %s", strFromUri.c_str());
+        dlog_info("Get RequestURI SipClient URI: %s", strFromUri.c_str());
 #endif
     }
 
@@ -379,7 +380,7 @@ int SIP::BaseEvent::GetRequestURI(
             }
             osip_free(pFromUri);
 #if SIP_BASE_EVENT_DEBUG
-            MLOG_INFO("Get RequestURI From URI: %s", strFromUri.c_str());
+            dlog_info("Get RequestURI From URI: %s", strFromUri.c_str());
 #endif
         }
     }
@@ -393,7 +394,7 @@ int SIP::BaseEvent::GetRequestURI(
         }
         osip_free(pToUri);
 #if SIP_BASE_EVENT_DEBUG
-        MLOG_INFO("Get RequestURI To URI: %s", strToUri.c_str());
+        dlog_info("Get RequestURI To URI: %s", strToUri.c_str());
 #endif
     }
     return 0;

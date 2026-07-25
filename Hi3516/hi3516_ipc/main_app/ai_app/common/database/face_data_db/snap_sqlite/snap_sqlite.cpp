@@ -576,7 +576,6 @@ EXIT:
 
     return enRetCode;
 }
-#define DEBUG_PRINT() printf("test debug fun : %s, line : %d\n", __FUNCTION__, __LINE__);
 /* 初始化数据库 */
 IpcRet_E CSnapSqlite::init_sql()
 {
@@ -597,7 +596,6 @@ IpcRet_E CSnapSqlite::init_sql()
     {
         dlog_error("记录数据库不存在[%s]", DB_SNAP_DATA_PATH);
     }
-DEBUG_PRINT()
     /* 打开数据库 */
     nRet = sqlite3_open(DB_SNAP_DATA_PATH, &pDbhandle);
     if (nRet != SQLITE_OK)
@@ -610,11 +608,9 @@ DEBUG_PRINT()
         }
         return ERR;
     }
-DEBUG_PRINT()
     /* 数据库备份 */
     backup_database(pDbhandle, DB_SNAP_DATA_BUCKUP_PATH, bDbExit);
     m_pDb = pDbhandle;
-DEBUG_PRINT()
     /* 检验数据库表是否存在 */
     enRetCode = check_tableExist(DB_SNAP_DATA_TABLE_NAME);
     if (enRetCode >= OK)
@@ -626,7 +622,6 @@ DEBUG_PRINT()
             /* 创建表 */
             if (!create_dataTable(DB_SNAP_DATA_TABLE_NAME, CREATE_SNAP_DATA_SQL))
             {
-DEBUG_PRINT()
                 return ERR;
             }
         }
@@ -637,13 +632,13 @@ DEBUG_PRINT()
 
         /* 校验表格字段 */
         check_fieldExist(DB_SNAP_DATA_TABLE_NAME, "ID", "INTEGER ·RIMARY KEY AUTOINCREMENT");
-        dlog_trace("111");
+        
         check_fieldExist(DB_SNAP_DATA_TABLE_NAME, "ChnId", "INTEGER");
-        dlog_trace("222");
+        
         check_fieldExist(DB_SNAP_DATA_TABLE_NAME, "PicPath", "TEXT");
-        dlog_trace("333");
+        
         check_fieldExist(DB_SNAP_DATA_TABLE_NAME, "Data", "BLOB");
-        dlog_trace("444");
+        
     }
     else
     {

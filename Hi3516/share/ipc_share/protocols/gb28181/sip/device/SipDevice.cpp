@@ -2,7 +2,7 @@
 #include "CallSession.h"
 #include "MessageRequest.h"
 #include "MethodRequest.h"
-#include "ModuleLog.h"
+#include "dlog.h"
 #include "SipModule.h"
 #include "SipUtils.h"
 #include "StreamManager.h"
@@ -20,10 +20,10 @@ void Device::InsertChannel(const std::string &parent_id, const std::string &chan
 	std::lock_guard<std::mutex> lk(_mutex);
 	if(parent_id.empty() || channel_id.empty() || channel == nullptr)
 	{
-		MLOG_INFO("插入通道失败 通道信息为空");
+		dlog_info("插入通道失败 通道信息为空");
 		return;
 	}
-	MLOG_INFO("=========添加或更新通道 设备ID[%s] 父ID[%s] 通道ID[%s]=====",
+	dlog_info("=========添加或更新通道 设备ID[%s] 父ID[%s] 通道ID[%s]=====",
 	       _device_id.c_str(),
 	       parent_id.c_str(),
 			channel_id.c_str());
@@ -335,13 +335,13 @@ int Device::PtzCtrl(const std::string &strChnID, SipPtzType_E enCmd, int nSpeed)
 {
 	if (!IsRegistered() || GetStatus() == 0)
 	{
-		MLOG_WARN("设备[%s]未注册或离线，无法控制", _device_id.c_str());
+		dlog_warn("设备[%s]未注册或离线，无法控制", _device_id.c_str());
 		return -1;
 	}
 
 	if (nullptr == GetChannel(strChnID))
 	{
-		MLOG_WARN("通道[%d]不存在，无法控制", strChnID);
+		dlog_warn("通道[%d]不存在，无法控制", strChnID);
 		return -1;
 	}
 
@@ -399,7 +399,7 @@ int Device::PtzCtrl(const std::string &strChnID, SipPtzType_E enCmd, int nSpeed)
 		request = std::make_shared<LensCtlRequest>(exosip_context, device, strChnID, PtzCommand_E::IFIS_SHRINK, PtzCommand_E::NONE, nSpeed, 0);
 		break;
 	default:
-		MLOG_ERROR("Unkown ptz type:%d", enCmd);
+		dlog_error("Unkown ptz type:%d", enCmd);
 		nRet = -1;
 		break;
 	}
@@ -411,14 +411,14 @@ int SIP::Device::PresetCtrl(const std::string &strChnID, SipPresetType_E enCmd, 
 {
 	if (!IsRegistered() || GetStatus() == 0)
 	{
-		MLOG_WARN("设备[%s]未注册或离线，无法控制预置位", _device_id.c_str());
+		dlog_warn("设备[%s]未注册或离线，无法控制预置位", _device_id.c_str());
 		return -1;
 	}
 
 	/* TODO 判断预置位ID，还有支持的最大值 */
 	if (nPresetID < 1)
 	{
-		MLOG_WARN("设备[%s]无法控制预置位[%d]", _device_id.c_str(), nPresetID);
+		dlog_warn("设备[%s]无法控制预置位[%d]", _device_id.c_str(), nPresetID);
 		return -1;
 	}
 
@@ -431,7 +431,7 @@ int SIP::Device::AlarmSubscribe(const GB28181::AlarmSubscribe_S &stInfo)
 {
 	if (!IsRegistered() || GetStatus() == 0)
 	{
-		MLOG_WARN("设备[%s]未注册或离线，无法订阅报警信息", _device_id.c_str());
+		dlog_warn("设备[%s]未注册或离线，无法订阅报警信息", _device_id.c_str());
 		return -1;
 	}
 
@@ -448,7 +448,7 @@ int SIP::Device::Guard(bool bSetGuard)
 {
 	if (!IsRegistered() || GetStatus() == 0)
 	{
-		MLOG_WARN("设备[%s]未注册或离线，无法布防设备", _device_id.c_str());
+		dlog_warn("设备[%s]未注册或离线，无法布防设备", _device_id.c_str());
 		return -1;
 	}
 
@@ -486,7 +486,7 @@ int SIP::Device::PlayVideo(bool bStart)
 		{
 			if (!bStart)
 			{
-				MLOG_INFO("关闭设备[%s]通道点播", _device_id.c_str());
+				dlog_info("关闭设备[%s]通道点播", _device_id.c_str());
 				/* 停止点播 */
 				session->SendBye();
 				/* 关闭服务器 */
@@ -496,7 +496,7 @@ int SIP::Device::PlayVideo(bool bStart)
 			}
 			else
 			{
-				MLOG_INFO("设备[%s]通道已经开始点播", _device_id.c_str());
+				dlog_info("设备[%s]通道已经开始点播", _device_id.c_str());
 			}
 			return 0;
 		}
@@ -533,7 +533,7 @@ int SIP::Device::PlayAudio(bool bStart)
 	auto pChn = GetChannelByType(SipChannelType_E::NETWORK_CAMERA_IPC_ENCODE);
 	if (nullptr == pChn)
 	{
-		MLOG_ERROR("pChn is NULL");
+		dlog_error("pChn is NULL");
 		/* 无指定通道ID */
 		return -1;
 	}
@@ -547,7 +547,7 @@ int SIP::Device::PlayAudio(bool bStart)
 		{
 			if (!bStart)
 			{
-				MLOG_INFO("关闭设备[%s]通道点播", _device_id.c_str());
+				dlog_info("关闭设备[%s]通道点播", _device_id.c_str());
 				/* 停止点播 */
 				session->SendBye();
 				/* 关闭服务器 */
@@ -557,7 +557,7 @@ int SIP::Device::PlayAudio(bool bStart)
 			}
 			else
 			{
-				MLOG_INFO("设备[%s]通道已经开始点播", _device_id.c_str());
+				dlog_info("设备[%s]通道已经开始点播", _device_id.c_str());
 			}
 			return 0;
 		}

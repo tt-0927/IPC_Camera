@@ -397,7 +397,17 @@ int CEventResource::get_canEventResource_rules(const Event::SmartEventEnableStat
     {
         aCanEnableEvent.push_back(event_type);
     }
-
+#if DEVICE_TV_3852TLW || DEVICE_TV_3852TL4G || DEVICE_TV_3852HL ||DEVICE_TV_3852TL
+    std::set<int> allowSet = {21, 32, 35, 211};
+    aCanEnableEvent.erase(
+        std::remove_if(aCanEnableEvent.begin(),
+                       aCanEnableEvent.end(),
+                       [&](Event::Type_E type)
+                       {
+                           return allowSet.find(static_cast<int>(type)) == allowSet.end();
+                       }),
+        aCanEnableEvent.end());
+#endif
     return OK;
 }
 

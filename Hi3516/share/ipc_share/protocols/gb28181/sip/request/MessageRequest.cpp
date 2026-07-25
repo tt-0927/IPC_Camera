@@ -7,6 +7,7 @@
  * @Description  : 消息请求
  */
 #include "MessageRequest.h"
+#include "dlog.h"
 #include "CallSession.h"
 #include "MediaRtp.h"
 #include "RequestPool.h"
@@ -45,11 +46,11 @@ int MessageRequest::SendMessage(bool needcb)
             from_uri = SipModule::instance()->GetSipUriByContext(m_pContext);
         }
         auto to_uri = _device->GetUri();
-        MLOG_DEBUG("from_uri: %s", from_uri.c_str());
-        MLOG_DEBUG("to_uri: %s", to_uri.c_str());
+        dlog_debug("from_uri: %s", from_uri.c_str());
+        dlog_debug("to_uri: %s", to_uri.c_str());
         if (from_uri.empty() || to_uri.empty())
         {
-            MLOG_ERROR("URI为空 from_uri: %s to_uri: %s",
+            dlog_error("URI为空 from_uri: %s to_uri: %s",
                        from_uri.c_str(), to_uri.c_str());
             return -1;
         }
@@ -63,14 +64,14 @@ int MessageRequest::SendMessage(bool needcb)
         /* NOTE 派生类自行实现需要发送的业务报文 */
         auto body = make_manscdp_body();
         body = format_xml(body);
-        MLOG_DEBUG("Send Message Body: \n%s", body.c_str());
+        dlog_debug("Send Message Body: \n%s", body.c_str());
         osip_message_set_body(msg, body.c_str(), body.length());
         osip_message_set_content_type(msg, "Application/MANSCDP+xml");
 
         /*gb35114构建控制信令 Date、Note字段*/
         if (OK != CGm::instance()->gm_build_control_signaling_note(msg, body.c_str()))
         {
-            MLOG_ERROR("gb35114构建控制信令 Date、Note字段失败");
+            dlog_error("gb35114构建控制信令 Date、Note字段失败");
         }
 
         eXosip_lock(m_pContext);
@@ -202,7 +203,7 @@ int InviteRequest::SendCall(bool needcb)
         m_stRequestParam.strSubject.c_str());
     if (nRet != OSIP_SUCCESS)
     {
-        MLOG_ERROR("构建INVITE请求失败，错误值为: [%d]", nRet);
+        dlog_error("构建INVITE请求失败，错误值为: [%d]", nRet);
         return -1;
     }
 
@@ -228,11 +229,11 @@ int InviteRequest::SendCall(bool needcb)
 
     if (call_id > 0)
     {
-        MLOG_INFO("eXosip_call_send_initial_invite: [%d]", call_id);
+        dlog_info("eXosip_call_send_initial_invite: [%d]", call_id);
     }
     session->SetCallID(call_id);
     session->exosip_context = m_pContext;
-    MLOG_INFO("==================================SDP: \n%s", sdp_body.c_str());
+    dlog_info("==================================SDP: \n%s", sdp_body.c_str());
 
     if (needcb)
     {
@@ -260,7 +261,7 @@ int InviteAudioRequest::SendCall(bool needcb)
         m_stRequestParam.strSubject.c_str());
     if (nRet != OSIP_SUCCESS)
     {
-        MLOG_ERROR("构建INVITE请求失败，错误值为: [%d]", nRet);
+        dlog_error("构建INVITE请求失败，错误值为: [%d]", nRet);
         return -1;
     }
 
@@ -286,11 +287,11 @@ int InviteAudioRequest::SendCall(bool needcb)
 
     if (call_id > 0)
     {
-        MLOG_INFO("eXosip_call_send_initial_invite: [%d]", call_id);
+        dlog_info("eXosip_call_send_initial_invite: [%d]", call_id);
     }
     session->SetCallID(call_id);
     session->exosip_context = m_pContext;
-    MLOG_INFO("==================================SDP: \n%s", sdp_body.c_str());
+    dlog_info("==================================SDP: \n%s", sdp_body.c_str());
 
     if (needcb)
     {

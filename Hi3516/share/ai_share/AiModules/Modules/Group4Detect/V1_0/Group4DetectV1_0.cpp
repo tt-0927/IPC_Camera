@@ -2,7 +2,7 @@
  * @Author: lianghy lianghy@kfb.cn
  * @Date: 2026-01-08 16:28:43
  * @LastEditors: lianghy lianghy@kfb.cn
- * @LastEditTime: 2026-01-20 11:29:53
+ * @LastEditTime: 2026-04-07 14:36:00
  * @FilePath: /1126/share/ai_share/AiModules/Modules/Group4Detect/V1_0/Group4DetectV1_0.hpp
  * @Description: cigarette(香烟)、sleep(睡觉)、phone(玩手机)、fall(摔跤)、falling(摔跤中)
  */
@@ -104,8 +104,26 @@ bool Group4Detect_NS::CGroup4DetectV1_0::process(
 
     /* 推理+后处理 */
     Inference_NS::InputData_S stInputData;
-    stInputData.pData              = (float *)stInData.inMat.data;
-    stInputData.nDataSize          = static_cast<size_t>(stInData.inMat.total() * stInData.inMat.elemSize());
+    if(stInData.inMat.type() == CV_8UC3)
+    {
+        if(stInData.inMat.cols != m_nLimitWidth || stInData.inMat.rows != m_nLimitHeight)
+        {
+            cv::Mat reMat;
+            resizeAndPadImage(stInData.inMat,reMat);
+            stInputData.pData              = (float *)reMat.data;
+            stInputData.nDataSize          = static_cast<size_t>(reMat.total() * reMat.elemSize() * sizeof(float));
+        }
+        else
+        {
+            stInputData.pData              = (float *)stInData.inMat.data;
+            stInputData.nDataSize          = static_cast<size_t>(stInData.inMat.total() * stInData.inMat.elemSize() * sizeof(float));
+        }
+    }
+    else
+    {
+        stInputData.pData              = (float *)stInData.inMat.data;
+        stInputData.nDataSize          = static_cast<size_t>(stInData.inMat.total() * stInData.inMat.elemSize() * sizeof(float));
+    }
     stInputData.stBoxs.fConfidence = stInData.stParam.fBoxThreshold;
     stInputData.stBoxs.fNms        = stInData.stParam.fNmsThreshold;
 
@@ -278,7 +296,7 @@ bool Group4Detect_NS::CGroup4DetectV1_0::process(
             if (m_llCigaretteTimestamp != 0 && llCurTimestamp - m_llCigaretteTimestamp >= stInData.stParam.stCigaretteDetectParam.nDetectDuration)
             {
                 stOutData->bCigarette = true;
-                printf("【报警】识别到了吸烟！[%lld]\n", llCurTimestamp - m_llCigaretteTimestamp);
+                // printf("【报警】识别到了吸烟！[%lld]\n", llCurTimestamp - m_llCigaretteTimestamp);
             }
 
             /* 第一次检测到吸烟，记录时间 */
@@ -302,7 +320,7 @@ bool Group4Detect_NS::CGroup4DetectV1_0::process(
             if (m_llPhoneTimestamp != 0 && llCurTimestamp - m_llPhoneTimestamp >= stInData.stParam.stPhoneParam.nDetectDuration)
             {
                 stOutData->bPhone = true;
-                printf("【报警】识别到了玩手机！[%lld]\n", llCurTimestamp - m_llPhoneTimestamp);
+                // printf("【报警】识别到了玩手机！[%lld]\n", llCurTimestamp - m_llPhoneTimestamp);
             }
 
             /* 第一次检测到玩手机，记录时间 */
@@ -352,6 +370,48 @@ bool Group4Detect_NS::CGroup4DetectV1_0::process(
             m_nFallFrameCount = 0;
         }
     }
+
+    return true;
+}
+
+/* 处理数据 */
+bool Group4Detect_NS::CGroup4DetectV1_0::resizeAndPadImage(cv::Mat inputImage, cv::Mat &outputImage)
+{
+    int imageWidth = inputImage.cols;
+    int imageHeight = inputImage.rows;
+
+    int newWidth = 0;
+    int newHeight = 0;
+    
+    cv::Mat resizedImage;
+    if(imageWidth > m_nLimitWidth || imageHeight > m_nLimitHeight)
+    {
+        m_fResizeScale = static_cast<float>(m_nLimitWidth) / std::max(imageWidth, imageHeight);
+        
+        newWidth = static_cast<int>(imageWidth * m_fResizeScale);
+        newHeight = static_cast<int>(imageHeight * m_fResizeScale);
+        
+        cv::resize(inputImage, resizedImage, cv::Size(newWidth, newHeight));
+
+        m_nXOffset = static_cast<int>((m_nLimitWidth - newWidth) / 2);
+        m_nYOffset = static_cast<int>((m_nLimitHeight - newHeight) / 2);
+    }
+    else
+    {
+        m_nXOffset = 0;
+        m_nYOffset = 0;
+        m_fResizeScale = 1.0;
+        
+        newWidth = imageWidth;
+        newHeight = imageHeight;
+        
+        resizedImage = inputImage;
+    }
+
+    cv::Mat output = cv::Mat::zeros(cv::Size(m_nLimitWidth, m_nLimitHeight), inputImage.type());
+    resizedImage.copyTo(output(cv::Rect(m_nXOffset, m_nYOffset, newWidth, newHeight)));
+    
+    outputImage = output;
 
     return true;
 }

@@ -24,7 +24,9 @@ int EventLinkageDispatcher::dispatch(const ResolvedLinkagePlan_S &stPlan, const 
     if (stPlan.bUploadSdCard)
     {
         m_directAction.deal_record(stPlan, stEventState);
-        if (stPlan.stContext.enEventType != Event::Type_E::FACE_CAPTURE)
+        if (stPlan.stContext.enEventType != Event::Type_E::FACE_CAPTURE &&
+            stPlan.stContext.enEventType != Event::Type_E::FACE_COMPARE_SUCCESS && 
+            stPlan.stContext.enEventType != Event::Type_E::FACE_COMPARE_FAIL)
         {
             m_directAction.deal_capture_image(stPlan);
         }
@@ -45,7 +47,8 @@ int EventLinkageDispatcher::dispatch(const ResolvedLinkagePlan_S &stPlan, const 
     /* ONVIF日志通知固定走异步链路，便于与其他可抢占动作统一调度 */
     m_worker.pushTask(build_task(stPlan, LinkageType_E::LOG));
 
-    if (stPlan.bSendEmail)
+    if ((stPlan.bSendEmail) && (stPlan.stContext.enEventType != Event::Type_E::FACE_COMPARE_SUCCESS &&
+                                stPlan.stContext.enEventType != Event::Type_E::FACE_COMPARE_FAIL))
     {
         m_worker.pushTask(build_task(stPlan, LinkageType_E::EMAIL));
     }

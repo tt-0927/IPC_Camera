@@ -617,6 +617,64 @@ int CEventVlmManager::queryRealAlarmPushRecords(const Alarm::RealAlarmPushQueryF
               stResult.aPushRecords.size(),
               nFilteredCount);
 
+    /* 分页处理 */
+    stResult.nTotalCount = static_cast<int>(stResult.aPushRecords.size());
+    stResult.bHasMore = false;
+
+    if (stResult.nTotalCount == 0)
+    {
+        return 0;
+    }
+
+    /* 游标模式（优先） */
+    if (!stFilter.strCursor.empty())
+    {
+        int nPageSize = stFilter.nPageSize > 0 ? stFilter.nPageSize : stResult.nTotalCount;
+
+        auto it = std::find_if(stResult.aPushRecords.begin(), stResult.aPushRecords.end(),
+            [&](const Alarm::RealAlarmPushRecord_S &r) { return r.strTaskId == stFilter.strCursor; });
+
+        if (it != stResult.aPushRecords.end())
+        {
+            int nOffset = static_cast<int>(std::distance(stResult.aPushRecords.begin(), it)) + 1;
+            if (nOffset >= stResult.nTotalCount)
+            {
+                stResult.aPushRecords.clear();
+            }
+            else
+            {
+                int nEnd = std::min(nOffset + nPageSize, stResult.nTotalCount);
+                stResult.bHasMore = (nEnd < stResult.nTotalCount);
+                std::vector<Alarm::RealAlarmPushRecord_S> vstPaged(
+                    stResult.aPushRecords.begin() + nOffset,
+                    stResult.aPushRecords.begin() + nEnd);
+                stResult.aPushRecords.swap(vstPaged);
+            }
+        }
+        else
+        {
+            stResult.aPushRecords.clear();
+        }
+    }
+    /* Offset 分页（向后兼容） */
+    else if (stFilter.nPageSize > 0)
+    {
+        int nStart = stFilter.nPageIndex * stFilter.nPageSize;
+        if (nStart >= stResult.nTotalCount)
+        {
+            stResult.aPushRecords.clear();
+        }
+        else
+        {
+            int nEnd = std::min(nStart + stFilter.nPageSize, stResult.nTotalCount);
+            stResult.bHasMore = (nEnd < stResult.nTotalCount);
+            std::vector<Alarm::RealAlarmPushRecord_S> vstPaged(
+                stResult.aPushRecords.begin() + nStart,
+                stResult.aPushRecords.begin() + nEnd);
+            stResult.aPushRecords.swap(vstPaged);
+        }
+    }
+
     return 0;
 }
 

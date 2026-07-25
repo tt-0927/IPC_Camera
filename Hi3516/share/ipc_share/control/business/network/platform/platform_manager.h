@@ -396,6 +396,9 @@ private:
      */
     void auto_login_loop();
 
+    /* 确保自动登录线程存在；线程常驻以承接后续网络切换重连。 */
+    void ensure_auto_login_thread();
+
     /**
      * @brief   : 处理收到的 MQTT 消息
      * @param    {const std::string &} strTopic：消息 Topic
@@ -475,12 +478,17 @@ private:
     std::thread m_autoLoginThread;
     /* 停止自动登录标志 */
     std::atomic<bool> m_bStopAutoLogin{false};
+    /* 网络已切换但平台登录未恢复时，即使旧 token 存在也必须继续重试。 */
+    std::atomic<bool> m_bNetworkReloginPending{false};
+    /* 串行化自动重试与 WiFi 切换触发的重登，避免并发 HTTP 登录。 */
+    std::atomic<bool> m_bReloginInProgress{false};
+    std::mutex m_mtxAutoLoginLifecycle;
     /* 自动登录重试间隔（秒） */
     static constexpr int AUTO_LOGIN_RETRY_INTERVAL_SEC = 30;
     /* 自动登录最大重试次数（0 表示无限重试） */
     static constexpr int AUTO_LOGIN_MAX_RETRIES = 0;
     /* 当前已重试次数 */
-    int m_nRetryCount = 0;
+    std::atomic<int> m_nRetryCount{0};
     /* 初始化完成标志 */
     bool m_bInited = false;
 

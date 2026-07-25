@@ -3,7 +3,7 @@
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2025-06-28 10:36:11
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2025-07-08 17:27:54
+ * @LastEditTime : 2026-06-15 14:59:13
  * @Description  : M3U8文件解析/生成
  */
 
@@ -40,10 +40,8 @@ ts文件信息
 
 ts文件不连续相关时间
 #END-TIME:1736753784738
+#START-TIME:1736753786738
 
-#EXT-X-PROGRAM-DATE-TIME:2025-01-13 15:36:24
-#EXTINF:112.451000,
-20250113_153817.ts
 #EXT-X-PROGRAM-DATE-TIME:2025-01-13 15:59:31
 #EXTINF:5.932000,
 20250113_155931.ts

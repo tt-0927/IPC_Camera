@@ -33,6 +33,8 @@ bool process_boundary_detection(
 {
     /* 当前类别是否存在报警 */
     bool bIsAlarm = false;
+    const ot_aidetect_object *pAlarmObject = nullptr;
+    int nAlarmRuleId = -1;
     if (pstObjectClass && !aRules.empty())
     {
         /* 当前毫秒级时间戳 */
@@ -126,6 +128,11 @@ bool process_boundary_detection(
 
                 stTrackStatus.bAlarmed = true;
                 bIsAlarm = true;
+                if (pAlarmObject == nullptr)
+                {
+                    pAlarmObject = &stObject;
+                    nAlarmRuleId = static_cast<int>(j);
+                }
                 dlog_info("目标 ID: %u (内部索引: %d) 越过警戒线 %zu，方向: %d，触发报警",
                           stObject.track_id,
                           nInternalIndex,
@@ -158,14 +165,9 @@ bool process_boundary_detection(
     stEventContext.nChnId = stCtx.nChnId;
     stEventContext.llTimestamp = stCtx.llTimestamp;
 #ifdef ENABLE_TVSDK_SRC
-    if (bIsAlarm && stCtx.pFrameInfo != nullptr)
+    if (bIsAlarm && pAlarmObject != nullptr)
     {
-        auto pPayload = std::make_shared<EventTvSdkPayload_S>();
-        pPayload->enType = get_tvsdk_payload_type(stEventContext.enEventType);
-        if (AiAppCommon::encode_video_frame_to_jpeg_memory(stCtx.pFrameInfo, pPayload->stPanoramaImage) == OK)
-        {
-            stEventContext.pTvSdkPayload = pPayload;
-        }
+        fill_hvf_tvsdk_event_context(stEventContext, stCtx, pstObjectClass, *pAlarmObject, nAlarmRuleId);
     }
 #endif
     alarmStateMachine.handleAlarmState(bIsAlarm, stEventContext);

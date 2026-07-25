@@ -3,7 +3,7 @@
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2025-07-30 14:18:19
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-04-16 10:24:08
+ * @LastEditTime : 2026-07-01 14:34:30
  * @Description  : 事件联动门面层实现
  */
 
@@ -156,20 +156,6 @@ bool CEventLinkage::handleEvent(const EventTriggerContext_S &stInputContext)
     {
         std::lock_guard<std::mutex> lock(m_mutex);
 
-        /* 起始事件在报警窗口内重复触发时直接忽略，避免短时间连续联动 */
-        auto it = m_eventTimeStampsMap.find(stContext.enEventType);
-        if (!stContext.bEventEnded && it != m_eventTimeStampsMap.end())
-        {
-            const long long llDuration = stContext.llTimestamp - it->second;
-            if (llDuration <= m_llTimeWindow)
-            {
-                dlog_warn("当前事件在报警窗口内，事件类型: %d, 距离上次触发: %lld秒",
-                          static_cast<int>(stContext.enEventType),
-                          llDuration / 1000);
-                return false;
-            }
-        }
-
         dlog_info("事件 %s[%d] %s",
                   EventLinkageDict::get_event_name(stContext.enEventType).c_str(),
                   static_cast<int>(stContext.enEventType),
@@ -177,8 +163,6 @@ bool CEventLinkage::handleEvent(const EventTriggerContext_S &stInputContext)
 
         if (!stContext.bEventEnded)
         {
-            /* 事件开始时记录最新触发时间，并保存起始态事件信息 */
-            m_eventTimeStampsMap[stContext.enEventType] = stContext.llTimestamp;
             stEventState.stEventInfo = stCreatedEventInfo;
             stEventState.nEventStatus = 1;
         }
@@ -214,6 +198,10 @@ bool CEventLinkage::handleEvent(const EventTriggerContext_S &stInputContext)
     ResolvedLinkagePlan_S stPlan;
     if (m_resolver->resolve(stContext, stEventState.stEventInfo, stPlan) == OK)
     {
+        if(stContext.enEventType == Event::Type_E::FACE_COMPARE_SUCCESS)
+        {
+            stPlan.bSound = true;
+        }
         m_dispatcher->dispatch(stPlan, stEventState);
     }
 

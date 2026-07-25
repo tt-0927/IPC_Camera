@@ -3,7 +3,7 @@
  * @Author       : zhouzirui
  * @Date         : 2024-08-21 15:52:19
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-05-11 10:58:03
+ * @LastEditTime : 2026-07-01 09:26:40
  * @Description  : 配置宏定义
  */
 #ifndef _SHARE_DEFINE_H_
@@ -38,7 +38,7 @@ extern "C"{
 /* 硬件版本 */
 #define DEVICE_PROFILE_HARDWARE_VERSION "V1.0.0"
 /* 系统版本 */
-#define DEVICE_PROFILE_SYSTEM_VERSION   "V1.0.0"
+#define DEVICE_PROFILE_SYSTEM_VERSION   "V1.0.2"
 #elif defined(DEVICE_TV_3852TLW)
 /* 设备型号 */
 #define DEVICE_PROFILE_CODE             "TV-3852TLW"
@@ -51,7 +51,7 @@ extern "C"{
 /* 硬件版本 */
 #define DEVICE_PROFILE_HARDWARE_VERSION "V1.0.0"
 /* 系统版本 */
-#define DEVICE_PROFILE_SYSTEM_VERSION   "V1.0.0"
+#define DEVICE_PROFILE_SYSTEM_VERSION   "V1.0.2"
 #elif defined(DEVICE_TV_3852TL4G)
 /* 设备型号 */
 #define DEVICE_PROFILE_CODE             "TV-3852TL4G"
@@ -64,7 +64,7 @@ extern "C"{
 /* 硬件版本 */
 #define DEVICE_PROFILE_HARDWARE_VERSION "V1.0.0"
 /* 系统版本 */
-#define DEVICE_PROFILE_SYSTEM_VERSION   "V1.0.0"
+#define DEVICE_PROFILE_SYSTEM_VERSION   "V1.0.2"
 #elif defined(DEVICE_TV_3852TL)
 /* 设备型号 */
 #define DEVICE_PROFILE_CODE             "TV-3852TL"
@@ -77,8 +77,8 @@ extern "C"{
 /* 硬件版本 */
 #define DEVICE_PROFILE_HARDWARE_VERSION "V1.0.0"
 /* 系统版本 */
-#define DEVICE_PROFILE_SYSTEM_VERSION   "V1.0.0"
-#elif defined(DEVICE_TV_3852H)
+#define DEVICE_PROFILE_SYSTEM_VERSION   "V1.0.2"
+#elif defined(DEVICE_TV_3852H) || defined(DEVICE_TV_3852HZT)
 /* 设备型号 */
 #define DEVICE_PROFILE_CODE             "TV-3852H"
 /* 升级包前缀校验ID，不能超过3个字符, 修改后需要重新编译所有程序，包括mkpack */
@@ -90,7 +90,7 @@ extern "C"{
 /* 硬件版本 */
 #define DEVICE_PROFILE_HARDWARE_VERSION "V1.0.0"
 /* 系统版本 */
-#define DEVICE_PROFILE_SYSTEM_VERSION   "V1.1.2"
+#define DEVICE_PROFILE_SYSTEM_VERSION   "V1.1.4"
 #elif defined(DEVICE_TV_3852T)
 /* 设备型号 */
 #define DEVICE_PROFILE_CODE             "TV-3852T"
@@ -103,7 +103,7 @@ extern "C"{
 /* 硬件版本 */
 #define DEVICE_PROFILE_HARDWARE_VERSION "V1.0.0"
 /* 系统版本 */
-#define DEVICE_PROFILE_SYSTEM_VERSION   "V1.0.5"
+#define DEVICE_PROFILE_SYSTEM_VERSION   "V1.0.6"
 #else
 /* 未指定型号时，默认按 TV-3852T 兜底，保证公共设备画像字段完整 */
 /* 设备型号 */
@@ -158,9 +158,9 @@ extern "C"{
 /* 系统版本：按型号定制 */
 #define SYSTEM_VERSION       DEVICE_PROFILE_SYSTEM_VERSION
 /* 插件版本 */
-#define PLUG_VERSION         "V1.0.21"
+#define PLUG_VERSION         "V2.0.16"
 /* web版本 */
-#define WEB_VERSION          "V1.0.8"
+#define WEB_VERSION          "V1.1.2"
 
 #if CAP_ALARM_IO
 /* 报警输入GPIO个数 */

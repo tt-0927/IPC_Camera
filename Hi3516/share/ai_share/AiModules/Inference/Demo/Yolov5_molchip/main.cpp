@@ -105,7 +105,7 @@ int main(int argc, char **argv)
         demo->inference(stInputData, vBoxDatas);
         cTime.stop();
         cTime.print("模型推理");
-    }`
+    }
     /* 打印输出数据 */
     std::cout << "Detected objects: " << vBoxDatas.size() << "\n";
     for (int i = 0; i < vBoxDatas.size(); i++)

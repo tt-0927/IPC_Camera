@@ -17,10 +17,16 @@ FramedSource(env)
 	m_toDelay = 100;
 	fFrameSize = 0;
 	m_stStatus.param = NULL;
+	m_pToken = nullptr;  /* 初始化为 nullptr，避免析构时使用未初始化的值 */
 }
 MJPEG_FRAME_SOURCE::~MJPEG_FRAME_SOURCE(void)
 {
-	envir().taskScheduler().unscheduleDelayedTask(m_pToken);
+	/* 仅在 m_pToken 有效时才取消调度任务，避免使用未初始化的值 */
+	if(m_pToken != nullptr)
+	{
+		envir().taskScheduler().unscheduleDelayedTask(m_pToken);
+		m_pToken = nullptr;
+	}
 	if(m_stSourceInfo.clientFun)
 	{
 		m_stStatus.param = m_stSourceInfo.videoindex;

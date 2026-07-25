@@ -1,13 +1,15 @@
 /**
  * @FilePath     : cipher_hash.h
- * @Author       : zhouzirui
+ * @Author       : zhouzr@kfb.cn
  * @Date         : 2025-04-03 09:54:43
- * @LastEditors  : zhouzirui
- * @LastEditTime : 2025-04-03 15:48:43
+ * @LastEditors  : zhouzr@kfb.cn
+ * @LastEditTime : 2026-05-27 15:06:32
  * @Description  : HASH及HMAC摘要算法
  */
-#ifndef __CIPHER_HASH_H__
+
+ #ifndef __CIPHER_HASH_H__
 #define __CIPHER_HASH_H__
+
 #ifdef __cplusplus
 extern "C"
 {

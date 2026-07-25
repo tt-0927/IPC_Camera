@@ -154,7 +154,7 @@ bool Inference_NS::CScrfd::checkModelProConfig()
     Json::Object* pItemObject   = NULL;
     int i,nSizeItem;
     int nSize = 0;
-    bool          bRet        = false;
+    bool          bRet        = true;
     std::vector<int> vAnchors;
 
     pJsonHandle = Json::init(pchJson);
@@ -163,6 +163,7 @@ bool Inference_NS::CScrfd::checkModelProConfig()
     if (!pJsonData)
     {
         printf("解析[data]字段失败\n");
+        bRet = false;
         goto EXIT;
     }
     /* 1、置信度 */
@@ -179,8 +180,6 @@ bool Inference_NS::CScrfd::checkModelProConfig()
         printf("解析nms字段失败\n");
         goto EXIT;
     }
-    
-    return true;
 
 EXIT:
     if (pJsonHandle)
@@ -188,5 +187,5 @@ EXIT:
         Json::deinit(pJsonHandle);
         pJsonHandle = NULL;
     }
-    return false;
+    return bRet;
 }

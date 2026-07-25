@@ -3,7 +3,7 @@
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2025-07-17 17:25:12
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-04-20 14:15:32
+ * @LastEditTime : 2026-06-04 10:52:47
  * @Description  : 报警配置数据的转换
  */
 
@@ -266,9 +266,7 @@ void Convert::deal(Json::Object* pRootJson, Alarm::AbnormalDetection_S &stAbnorm
 	}
 
 	Convert::CConvert convert(bOutStruct);
-	convert.field(pRootJson, "IsEnableEventPrompt", (int &)stAbnormalDetection.bEnable);
-	convert.field(pRootJson, "PromptTypes", stAbnormalDetection.promptType);
-    convert.field(pRootJson, "AbnormalType", (int &)stAbnormalDetection.enAbnormalType);
+    convert.field(pRootJson, "AbnormalType", (int &) stAbnormalDetection.enAbnormalType);
     convert.structure(pRootJson, "LinkageMode", stAbnormalDetection.stLinkageList);
 }
 
@@ -813,6 +811,18 @@ void Convert::deal(Json::Object *pRootJson, Alarm::PetRecognition_S &stInfo, boo
     convert.structure(pRootJson, stInfo.aAlarmTime);
     convert.structure(pRootJson, "LinkageMode", stInfo.stLinkageList);
 }
+void Convert::deal(Json::Object *pRootJson, Alarm::TargetLibInfos_S &TargetLibInfos, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+
+    Convert::CConvert convert(bOutStruct);
+    convert.field(pRootJson, "LibId", TargetLibInfos.LibId);
+    convert.field(pRootJson, "Similarity", TargetLibInfos.Similarity);
+    
+}
 /*人脸比对*/
 void Convert::deal(Json::Object *pRootJson, Alarm::FaceCompare_S &stInfo, bool bOutStruct)
 {
@@ -824,6 +834,7 @@ void Convert::deal(Json::Object *pRootJson, Alarm::FaceCompare_S &stInfo, bool b
     Convert::CConvert convert(bOutStruct);
     convert.field(pRootJson, "Enable", stInfo.bEnable);
     convert.structure(pRootJson, stInfo.aAlarmTime);
+    convert.structure(pRootJson,"TargetLibInfos", stInfo.TargetLibInfos);
     convert.structure(pRootJson, "LinkageSuccessMode", stInfo.stLinkageListSuccess);
     convert.structure(pRootJson, "LinkageFailMode", stInfo.stLinkageListFail);
 }
@@ -989,6 +1000,9 @@ void Convert::deal(Json::Object *pRootJson, Alarm::AnalysisRecordIndexItem_S &st
 
 	Convert::CConvert convert(bOutStruct);
     convert.field(pRootJson, "indexKey", stInfo.indexKey);
+    convert.field(pRootJson, "Cursor", stInfo.strCursor);
+    convert.field(pRootJson, "TotalCount", stInfo.nTotalCount);
+    convert.field(pRootJson, "HasMore", stInfo.bHasMore);
     convert.structure(pRootJson, "Records", stInfo.records);
 }
 
@@ -1007,6 +1021,11 @@ void Convert::deal(Json::Object *pRootJson, Alarm::AnalysisAllRecordIndexItem_S 
     convert.field(pRootJson, "AnalysisRecordOperate", (int &)stInfo.enAnalysisRecordOperate);
     convert.field(pRootJson, "SearchKeyword", stInfo.SearchKeyword);
     convert.field(pRootJson, "DelKeyID", stInfo.DelKeyID);
+    convert.field(pRootJson, "PageSize", stInfo.nPageSize);
+    convert.field(pRootJson, "PageIndex", stInfo.nPageIndex);
+    convert.field(pRootJson, "Cursor", stInfo.strCursor);
+    convert.field(pRootJson, "TotalCount", stInfo.nTotalCount);
+    convert.field(pRootJson, "HasMore", stInfo.bHasMore);
     convert.structure(pRootJson, "AllRecords", stInfo.Allrecords);
 }
 
@@ -1160,6 +1179,8 @@ void Convert::deal(Json::Object *pRootJson, Alarm::RealAlarmPushManager_S &stInf
     convert.field(pRootJson, "NotifyUpdate", stInfo.bNotifyUpdate);
     convert.field(pRootJson, "AutoLatestAlarm", stInfo.bAutoLaestAlarm);
     convert.field(pRootJson, "AutoPlay", stInfo.bAutoPlay);
+    convert.field(pRootJson, "TotalCount", stInfo.nTotalCount);
+    convert.field(pRootJson, "HasMore", stInfo.bHasMore);
     convert.structure(pRootJson, "RealAlarmPushRecord", stInfo.aPushRecords);
 }
 
@@ -1176,6 +1197,9 @@ void Convert::deal(Json::Object *pRootJson, Alarm::RealAlarmPushQueryFilter_S &s
     convert.field(pRootJson, "DealStatus", (int &)stInfo.enDealStatusFilter);
     convert.structure(pRootJson, "StartTime", stInfo.stStartTime);
     convert.structure(pRootJson, "EndTime", stInfo.stEndTime);
+    convert.field(pRootJson, "PageSize", stInfo.nPageSize);
+    convert.field(pRootJson, "PageIndex", stInfo.nPageIndex);
+    convert.field(pRootJson, "Cursor", stInfo.strCursor);
 }
 
 void Convert::deal(Json::Object *pRootJson, Alarm::RealAlarmPushBatchRequest_S &stInfo, bool bOutStruct)

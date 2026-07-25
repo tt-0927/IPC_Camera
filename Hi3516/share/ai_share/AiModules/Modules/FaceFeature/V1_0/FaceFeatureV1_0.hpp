@@ -52,6 +52,12 @@ namespace FaceFeature_NS
          */
         bool resizeAndPadImage(cv::Mat inputImage, cv::Mat &outputImage);
 
+        /**
+         * @brief 向量归一化
+         * @param vFeature 向量容器
+         */
+        void normalize(std::vector<float> &vFeature);
+
     private:
         /* 初始化参数 */
         InParam_S m_stInParam;
@@ -59,8 +65,8 @@ namespace FaceFeature_NS
         Inference_NS::CImageFeature *m_pImageFeature = nullptr;
 
         /* 算法输入参数限制 */
-        int m_nLimitHeight = 0;
-        int m_nLimitWidth = 0;
+        int m_nLimitHeight = 160;
+        int m_nLimitWidth = 160;
         int m_nLimitChannel = 0;
     };
 

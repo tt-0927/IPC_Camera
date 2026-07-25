@@ -3,7 +3,7 @@
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2025-06-28 10:36:11
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2025-07-08 17:28:16
+ * @LastEditTime : 2026-06-16 10:29:12
  * @Description  : M3U8文件处理
  */
 
@@ -72,7 +72,7 @@ int CM3U8File::create(std::string &path)
     /* 文件头 */
     m_outFile << "#EXTM3U\n";
     m_outFile << "#EXT-X-VERSION:3\n";
-    m_outFile << "#EXT-X-TARGETDURATION:" << SLICING_TIME + 1 << "\n";
+    m_outFile << "#EXT-X-TARGETDURATION:" << SLICING_TIME << "\n";
     m_outFile << "#EXT-X-MEDIA-SEQUENCE:0\n\n";
 
     m_outFile << "#EXT-X-ENDLIST\n";
@@ -183,23 +183,7 @@ void CM3U8File::add_nullFile(std::fstream &file, int64_t nStartTime, int64_t nEn
     std::ostringstream oss;
 
     oss << "#END-TIME:" << nEndTime << "\n";
-
-    time_t nTimeStamp = nEndTime / 1000;
-    std::tm *pTm = std::localtime(&nTimeStamp);
-
-    char achStartTime[32] = {0};
-    std::strftime(achStartTime, sizeof(achStartTime), "%Y-%m-%d %H:%M:%S", pTm);
-    oss << "#EXT-X-PROGRAM-DATE-TIME:" << achStartTime << "\n";
-
-    int64_t nMs = nStartTime - nEndTime;
-    if (nMs < 0 || nMs >= 3600 * 24 * 1000)
-    {
-        nMs = 0;
-    }
-    oss << "#EXTINF:" << std::fixed << std::setprecision(3) << static_cast<double>(nMs) / 1000.0 << ",\n";
-
-    std::strftime(achStartTime, sizeof(achStartTime), "%Y%m%d_%H%M%S", pTm);
-    oss << achStartTime << ".ts\n";
+    /* note: 录像中断间隙不是实际媒体片段，只写边界标记，避免生成超长EXTINF和不存在的ts文件 */
     oss << "#START-TIME:" << nStartTime << "\n";
 
     file << oss.str();
@@ -215,7 +199,7 @@ int CM3U8File::write_head()
     /* 文件头 */
     m_outFile << "#EXTM3U\n";
     m_outFile << "#EXT-X-VERSION:3\n";
-    m_outFile << "#EXT-X-TARGETDURATION:10\n";
+    m_outFile << "#EXT-X-TARGETDURATION:" << SLICING_TIME << "\n";
     m_outFile << "#EXT-X-MEDIA-SEQUENCE:0\n\n";
 
     m_outFile << "#EXT-X-ENDLIST\n";

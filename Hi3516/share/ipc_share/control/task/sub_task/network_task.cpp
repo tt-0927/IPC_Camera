@@ -1,10 +1,12 @@
 /**
- * @file network_task.cpp
- * @author zhangjc (zhangjc@kfb.cn)
- * @date 2024-10-14
- * 
- * @brief 
+ * @FilePath     : network_task.cpp
+ * @Author       : zhouzr@kfb.cn
+ * @Date         : 2026-06-22 17:41:46
+ * @LastEditors  : zhouzr@kfb.cn
+ * @LastEditTime : 2026-06-25 10:07:40
+ * @Description  : 网络配置任务
  */
+
 #include "network_task.h"
 #include "network_convert.h"
 #include "system_convert.h"
@@ -41,6 +43,144 @@
 #include "gat1400.h"
 #endif
 #include "cJSON.h" 
+
+#include <cerrno>
+#include <climits>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <sys/stat.h>
+
+namespace {
+
+/* 国密证书网页上传临时目录 */
+constexpr const char *GM_CERT_UPLOAD_DIR = "/opt/course/upload/";
+
+/**
+ * @brief   : 清理国密证书导入失败后遗留的上传临时文件
+ * @param    {std::string} &strPath 上传临时文件路径
+ * @return   {void}
+ * @note    : 仅删除上传目录内的普通文件，拒绝符号链接和目录外路径。
+ */
+void cleanup_failed_gm_cert_upload(const std::string &strPath)
+{
+    if (strPath.empty())
+    {
+        return;
+    }
+
+    struct stat stFileInfo = {};
+    if (lstat(strPath.c_str(), &stFileInfo) != 0)
+    {
+        if (errno != ENOENT)
+        {
+            dlog_warn("检查国密证书上传临时文件失败: %s, errno=%d, error=%s",
+                      strPath.c_str(), errno, std::strerror(errno));
+        }
+        return;
+    }
+
+    /*
+     * ! 安全约束：拒绝符号链接和非普通文件，避免网页传入路径被利用删除系统文件。
+     */
+    if (!S_ISREG(stFileInfo.st_mode))
+    {
+        dlog_error("拒绝清理非普通国密证书上传文件: %s", strPath.c_str());
+        return;
+    }
+
+    char achResolvedPath[PATH_MAX] = {};
+    if (realpath(strPath.c_str(), achResolvedPath) == nullptr)
+    {
+        dlog_warn("解析国密证书上传临时文件路径失败: %s, errno=%d, error=%s",
+                  strPath.c_str(), errno, std::strerror(errno));
+        return;
+    }
+
+    const std::string strResolvedPath(achResolvedPath);
+    if (strResolvedPath.compare(0, std::strlen(GM_CERT_UPLOAD_DIR), GM_CERT_UPLOAD_DIR) != 0)
+    {
+        dlog_error("拒绝清理上传目录外的国密证书文件: %s", strResolvedPath.c_str());
+        return;
+    }
+
+    if (std::remove(strResolvedPath.c_str()) != 0)
+    {
+        dlog_error("清理国密证书上传临时文件失败: %s, errno=%d, error=%s",
+                   strResolvedPath.c_str(), errno, std::strerror(errno));
+        return;
+    }
+
+    dlog_info("国密证书导入失败，已清理上传临时文件: %s", strResolvedPath.c_str());
+}
+
+/**
+ * @brief   : 删除已安装的国密证书文件
+ * @param    {std::string} &strPath 证书文件路径
+ * @return   {int} OK：成功，非 OK：失败
+ * @note    : 删除接口需要具备幂等性，文件已不存在时按成功处理。
+ */
+int remove_gm_cert_file_if_exists(const std::string &strPath)
+{
+    if (strPath.empty())
+    {
+        dlog_warn("国密证书文件路径为空，跳过删除");
+        return OK;
+    }
+
+    errno = 0;
+    if (std::remove(strPath.c_str()) == 0)
+    {
+        dlog_info("国密证书文件已删除: %s", strPath.c_str());
+        return OK;
+    }
+
+    if (errno == ENOENT)
+    {
+        dlog_warn("国密证书文件不存在，按删除成功处理: %s", strPath.c_str());
+        return OK;
+    }
+
+    dlog_error("删除国密证书文件失败: %s, errno=%d, error=%s", strPath.c_str(), errno, std::strerror(errno));
+    return ERR;
+}
+
+/**
+ * @brief   : 按证书编号查找已保存的国密证书配置
+ * @param    {int} nNum 证书编号
+ * @param    {Network::GmCertFileInfo_S} &stMatched 匹配到的证书配置
+ * @return   {bool} true：找到，false：未找到
+ */
+bool find_gm_cert_by_num(int nNum, ::Network::GmCertFileInfo_S &stMatched)
+{
+    std::set<::Network::GmCertFileInfo_S> astInfo;
+    CGmCertConfigure::instance()->get_configure(astInfo);
+
+    for (const auto &stInfo : astInfo)
+    {
+        if (stInfo.nNum == nNum)
+        {
+            stMatched = stInfo;
+            return true;
+        }
+    }
+
+    return false;
+}
+
+/**
+ * @brief   : 重置国密 CRL 配置为默认空状态
+ * @return   {int} OK：成功，非 OK：失败
+ * @note    : 删除 CA 证书后，原 CRL 已无法按当前 CA 证书验证，必须同步清理元数据。
+ */
+int reset_gm_crl_configure()
+{
+    ::Network::GmCrlFileInfo_S stCrlInfo;
+    stCrlInfo.strPath = GM_CA_TRUST_CRL;
+    return CGmCertConfigure::instance()->set_configure(stCrlInfo);
+}
+
+}
 
 /* 检查Mac地址是否符合规范 */
 void Task::Network::GetCheckMacValid::handle()
@@ -583,6 +723,44 @@ void Task::Network::GmUploadCaCert::handle()
     }
 
 exit:
+    if (nRet != OK)
+    {
+        cleanup_failed_gm_cert_upload(strPath);
+    }
+    std::set<::Network::GmCertFileInfo_S> astInfo;
+    CGmCertConfigure::instance()->get_configure(astInfo);
+    result(Convert::to_string(astInfo), nRet);
+}
+
+/* 上传平台证书 */
+void Task::Network::GmUploadPlatformCert::handle()
+{
+    /* 证书文件路径 */
+    std::string strPath;
+    /* 解析证书文件路径 */
+    Json::Object *pRootJson = Json::init(m_taskData);
+    Json::get(pRootJson, "Path", strPath);
+    Json::deinit(pRootJson);
+    ::Network::GmCertFileInfo_S stInfo;
+    stInfo.strPath = GM_PLATFORM_CERT;
+    dlog_debug("strPath:%s stInfo.strPath:%s", strPath.c_str(), stInfo.strPath.c_str());
+
+    int nRet = CGmCertManage::instance()->cert_parse(strPath, stInfo);
+    if (nRet != OK)
+    {
+        goto exit;
+    }
+    nRet = CGmCertConfigure::instance()->set_configure(stInfo);
+    if (nRet != OK)
+    {
+        goto exit;
+    }
+
+exit:
+    if (nRet != OK)
+    {
+        cleanup_failed_gm_cert_upload(strPath);
+    }
     std::set<::Network::GmCertFileInfo_S> astInfo;
     CGmCertConfigure::instance()->get_configure(astInfo);
     result(Convert::to_string(astInfo), nRet);
@@ -599,9 +777,28 @@ void Task::Network::GmUploadDeviceCert::handle()
     Json::deinit(pRootJson);
     ::Network::GmCertFileInfo_S stInfo;
     stInfo.strPath = GM_CA_DEVICE_CERT;
+    int nRet = OK;
     dlog_debug("strPath:%s stInfo.strPath:%s", strPath.c_str(), stInfo.strPath.c_str());
 
-    int nRet = CGmCertManage::instance()->cert_parse(strPath, stInfo);
+#if 0
+    /*
+     * review: 如需验证设备证书签发链，可启用本分支并依赖当前 CA 槽位。
+     * 兼容部分平台设备证书 Issuer DN 不规范时，需要同步评估 verify_certificate_by_ca 的兼容策略。
+     */
+    if (!CGmCertManage::instance()->cert_verify(strPath, GM_CA_TRUST_CERT))
+    {
+        dlog_error("设备证书签名验证失败: cert=%s, issuer=%s", strPath.c_str(), GM_CA_TRUST_CERT);
+        nRet = ERR_CERT_FORMAT;
+        goto exit;
+    }
+#else
+    /*
+     * info: 设备证书上传只校验证书格式和终端实体用途。
+     * CA 槽位保留给 CRL 验签和后续按需启用的设备证书签发链校验。
+     */
+#endif
+
+    nRet = CGmCertManage::instance()->cert_parse(strPath, stInfo);
     if (nRet != OK)
     {
         goto exit;
@@ -613,6 +810,10 @@ void Task::Network::GmUploadDeviceCert::handle()
     }
 
 exit:
+    if (nRet != OK)
+    {
+        cleanup_failed_gm_cert_upload(strPath);
+    }
     std::set<::Network::GmCertFileInfo_S> astInfo;
     CGmCertConfigure::instance()->get_configure(astInfo);
     result(Convert::to_string(astInfo), nRet);
@@ -629,9 +830,20 @@ void Task::Network::GmUploadCrlFile::handle()
     Json::deinit(pRootJson);
     ::Network::GmCrlFileInfo_S  stInfo;
     stInfo.strPath = GM_CA_TRUST_CRL;
+    int nRet = OK;
     dlog_debug("strPath:%s stInfo.strPath:%s", strPath.c_str(), stInfo.strPath.c_str());
 
-    int nRet = CGmCertManage::instance()->crl_parse(strPath, stInfo);
+    /*
+     * info: CRL 只有由具备 CRL 签发能力的证书签发才可信。必须先验证上传临时文件，
+     * 验证通过后再解析并移动到固定路径，避免坏 CRL 覆盖已有可信 CRL。
+     */
+    if (!CGmCertManage::instance()->crl_verify(strPath, GM_CA_TRUST_CERT))
+    {
+        dlog_error("CRL签名验证失败: crl=%s, ca=%s", strPath.c_str(), GM_CA_TRUST_CERT);
+        nRet = ERR_CERT_FORMAT;
+        goto exit;
+    }
+    nRet = CGmCertManage::instance()->crl_parse(strPath, stInfo);
     if (nRet != OK)
     {
         goto exit;
@@ -642,6 +854,10 @@ void Task::Network::GmUploadCrlFile::handle()
         goto exit;
     }
 exit:
+    if (nRet != OK)
+    {
+        cleanup_failed_gm_cert_upload(strPath);
+    }
     result(nRet);
 }
 
@@ -658,17 +874,68 @@ void Task::Network::GmDeleteCertFile::handle()
 {
     ::Network::GmCertFileInfo_S stInfo;
     Convert::to_struct(m_taskData, stInfo);
-    CGmCertConfigure::instance()->del_configure(stInfo);
+
+    int nRet = OK;
+    ::Network::GmCertFileInfo_S stSavedInfo;
+    if (find_gm_cert_by_num(stInfo.nNum, stSavedInfo))
+    {
+        if (stSavedInfo.strPath == GM_CA_TRUST_CERT)
+        {
+            /*
+             * info: CRL 依赖 CA 证书验证签名。删除 CA 证书时必须同步删除 CRL 文件和配置，
+             * 否则系统会保留一份无法验证、也不应继续参与证书状态判断的吊销列表。
+             */
+            nRet = remove_gm_cert_file_if_exists(GM_CA_TRUST_CRL);
+            if (nRet != OK)
+            {
+                goto exit;
+            }
+
+            nRet = reset_gm_crl_configure();
+            if (nRet != OK)
+            {
+                goto exit;
+            }
+        }
+
+        /*
+         * info: 先删除实体文件，再删除配置项。若文件删除失败，保留配置，避免出现配置已删但证书仍在磁盘的状态。
+         */
+        nRet = remove_gm_cert_file_if_exists(stSavedInfo.strPath);
+        if (nRet != OK)
+        {
+            goto exit;
+        }
+    }
+    else
+    {
+        dlog_warn("未找到待删除的国密证书配置: Num=%d", stInfo.nNum);
+    }
+
+    nRet = CGmCertConfigure::instance()->del_configure(stInfo);
+    if (nRet != OK)
+    {
+        goto exit;
+    }
 
     /* 重新编号，从1开始依次递增 */
-    CGmCertConfigure::instance()->sort_configure(stInfo);
+    nRet = CGmCertConfigure::instance()->sort_configure(stInfo);
 
+exit:
     std::set<::Network::GmCertFileInfo_S> astInfo;
     CGmCertConfigure::instance()->get_configure(astInfo);
-    result(Convert::to_string(astInfo));
+    result(Convert::to_string(astInfo), nRet);
 }
 
 #if CAP_NETWORK_WIFI
+
+void Task::Network::GetWifiStaInfo::handle()
+{
+    ::Network::WifiStaInfo_S stInfo;
+    get_wifi_config(stInfo);
+    result(Convert::to_string(stInfo));
+}
+
 void Task::Network::SetWifiStaInfo::handle()
 {
     ::Network::WifiStaInfo_S stInfo;
@@ -848,6 +1115,7 @@ void Task::Network::SetHotspot::handle()
                 std::cerr << "Config Error" << std::endl;
                 return;
             }
+            HostapdManager::instance()->set_hostapd_config(stInfo);
             DHCPConfig dhcp_cfg;
             dhcp_cfg.interface = "wlan0";
             dhcp_cfg.gateway = "192.168.4.1";
@@ -881,11 +1149,18 @@ void Task::Network::SetHotspot::handle()
     }
     else {
         HostapdManager::instance()->Deinit();
-
+        // stInfo.clear();
+        HostapdManager::instance()->set_hostapd_config(stInfo);
         result(0);
     }
     
     
+}
+void Task::Network::GetHotspot::handle()
+{
+    ::Network::HotspotConfig stInfo;
+    HostapdManager::instance()->get_hostapd_config(stInfo);
+    result(Convert::to_string(stInfo));
 }
 void Task::Network::GetHotspotConn::handle()
 {

@@ -3,7 +3,7 @@
  * @Author       : zhouzirui
  * @Date         : 2025-03-21 10:55:08
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-01-28 13:59:20
+ * @LastEditTime : 2026-06-09 09:46:46
  * @Description  : 视频定义
  */
 #pragma once
@@ -18,7 +18,7 @@
 #define DEFAULTE_FRAMERATE (25)
 #define DEFAULTE_FRAMERATE_FLOAT (25.0f)
 #define DEFAULTE_BITRATE   (4096)
-#define DEFAULTE_GOP       (25)
+#define DEFAULTE_GOP       (50)
 
 /* 分辨率宽大小定义 */
 #define PIXEL_WIDTH_4K      (3840)

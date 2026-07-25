@@ -4,8 +4,8 @@ MDEV_INFO=/dev/console
 
 BIND_PATH=/mnt
 
-if [ ! -d $BIND_PATH ]; then
-        mkdir -p $BIND_PATH
+if [ ! -d "$BIND_PATH" ]; then
+        mkdir -p "$BIND_PATH"
 fi
 
 echo "tf card insert " >${MDEV_INFO}
@@ -43,55 +43,55 @@ create_symlinks() {
 }
 
 # 使用blkid检测文件系统类型
-FS_TYPE=$(blkid /dev/$MDEV  | awk -F 'TYPE="' '{print $2}' | awk -F '"' '{print $1}')
+FS_TYPE=$(blkid "/dev/$MDEV"  | awk -F 'TYPE="' '{print $2}' | awk -F '"' '{print $1}')
 
 # 根据文件系统类型挂载
 case "$FS_TYPE" in
     ntfs)
-        echo "Mounting as NTFS" > $MDEV_INFO
-        if ntfs-3g -o iocharset=utf8 /dev/$MDEV  $BIND_PATH; then
-            echo "NTFS mount successful" > $MDEV_INFO
+        echo "Mounting as NTFS" > "$MDEV_INFO"
+        if ntfs-3g -o iocharset=utf8 "/dev/$MDEV" "$BIND_PATH"; then
+            echo "NTFS mount successful" > "$MDEV_INFO"
             create_symlinks
         else
-            echo "NTFS mount failed" > $MDEV_INFO
+            echo "NTFS mount failed" > "$MDEV_INFO"
         fi
         ;;
     exfat)
-        echo "Mounting as exFAT" > $MDEV_INFO
-        if mount -t exfat -o iocharset=utf8 /dev/$MDEV  $BIND_PATH; then
-            echo "exFAT mount successful" > $MDEV_INFO
+        echo "Mounting as exFAT" > "$MDEV_INFO"
+        if mount -t exfat -o iocharset=utf8 "/dev/$MDEV" "$BIND_PATH"; then
+            echo "exFAT mount successful" > "$MDEV_INFO"
             create_symlinks
         else
-            echo "exFAT mount failed" > $MDEV_INFO
+            echo "exFAT mount failed" > "$MDEV_INFO"
         fi
         ;;
     vfat|fat32)
-        echo "Mounting as FAT" > $MDEV_INFO
-        if mount -t vfat -o iocharset=utf8 /dev/$MDEV  $BIND_PATH; then
-            echo "FAT mount successful" > $MDEV_INFO
+        echo "Mounting as FAT" > "$MDEV_INFO"
+        if mount -t vfat -o utf8 "/dev/$MDEV" "$BIND_PATH"; then
+            echo "FAT mount successful" > "$MDEV_INFO"
             create_symlinks
         else
-            echo "FAT mount failed" > $MDEV_INFO
+            echo "FAT mount failed" > "$MDEV_INFO"
         fi
         ;;
     *)
-        echo "Unknown filesystem: $FS_TYPE" > $MDEV_INFO
-        echo "Trying vfat mount..." > $MDEV_INFO
-        if mount -t vfat -o iocharset=utf8 /dev/$MDEV  $BIND_PATH; then
-            echo "vfat mount successful" > $MDEV_INFO
+        echo "Unknown filesystem: $FS_TYPE" > "$MDEV_INFO"
+        echo "Trying vfat mount..." > "$MDEV_INFO"
+        if mount -t vfat -o utf8 "/dev/$MDEV" "$BIND_PATH"; then
+            echo "vfat mount successful" > "$MDEV_INFO"
             create_symlinks
         else
-            echo "vfat mount failed, trying exfat..." > $MDEV_INFO
-            if mount -t exfat -o iocharset=utf8 /dev/$MDEV  $BIND_PATH; then
-                echo "exfat mount successful" > $MDEV_INFO
+            echo "vfat mount failed, trying exfat..." > "$MDEV_INFO"
+            if mount -t exfat -o iocharset=utf8 "/dev/$MDEV" "$BIND_PATH"; then
+                echo "exfat mount successful" > "$MDEV_INFO"
                 create_symlinks
             else
-                echo "exfat mount failed, trying ntfs..." > $MDEV_INFO
-                if ntfs-3g -o iocharset=utf8 /dev/$MDEV  $BIND_PATH; then
-                    echo "ntfs mount successful" > $MDEV_INFO
+                echo "exfat mount failed, trying ntfs..." > "$MDEV_INFO"
+                if ntfs-3g -o iocharset=utf8 "/dev/$MDEV" "$BIND_PATH"; then
+                    echo "ntfs mount successful" > "$MDEV_INFO"
                     create_symlinks
                 else
-                    echo "All mount attempts failed" > $MDEV_INFO
+                    echo "All mount attempts failed" > "$MDEV_INFO"
                 fi
             fi
         fi

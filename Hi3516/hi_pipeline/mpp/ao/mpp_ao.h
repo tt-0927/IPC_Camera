@@ -3,7 +3,7 @@
  * @Author       : zhouzirui
  * @Date         : 2025-03-31 17:31:10
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2025-09-04 14:58:06
+ * @LastEditTime : 2026-06-03 16:09:53
  * @Description  : 海思ao模块封装
  */
 
@@ -85,6 +85,15 @@ struct _HiAo_S
 
     /* 设置ao音量 */
     int (*mppAo_setVolume)(HiAo_S *pHandle,int nVolume);
+
+    /**
+     * @brief   : 等待 AO 通道缓冲区完全排空（chn_busy_num == 0）
+     * @param    {HiAo_S} *pHandle：句柄
+     * @param    {int} nChn：通道号
+     * @param    {int} nTimeoutMs：最大等待时间（ms），-1 表示无限等待
+     * @return   {int} 0：成功排空，-1：超时或错误
+     */
+    int (*mppAo_waitDrained)(HiAo_S *pHandle, int nChn, int nTimeoutMs);
 };
 
 /**

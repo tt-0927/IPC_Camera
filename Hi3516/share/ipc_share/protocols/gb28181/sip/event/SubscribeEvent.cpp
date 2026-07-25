@@ -1,12 +1,13 @@
-/*
+/**
  * @Author       : EasonLu
  * @Date         : 2025-04-21 09:11:48
- * @LastEditors  : EasonLu
- * @LastEditTime : 2025-04-21 09:15:21
+ * @LastEditors  : zhouzr@kfb.cn
+ * @LastEditTime : 2026-06-24 09:00:38
  * @FilePath     : SubscribeEvent.cpp
  * @Description  : 订阅事件
  */
 #include "SubscribeEvent.h"
+#include "dlog.h"
 #include "SipClient.h"
 #include "SipDevice.h"
 #include "SipUtils.h"
@@ -38,17 +39,10 @@ SIP::SubscribeEvent::SubscribeEvent()
 }
 SIP::SubscribeEvent::~SubscribeEvent()
 {
-    /* 先清理目录通知线程 */ 
-    if (m_pThrCatalog != nullptr)
     {
-        MLOG_INFO("正在停止目录通知线程");
-        m_pThrCatalog->stop();
-        
-        /* 等待线程完全停止 */ 
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
-        
-        delete m_pThrCatalog;
-        m_pThrCatalog = nullptr;
+        /* lock: BlockThread 析构会停止并 join 目录通知线程，禁止使用固定延时猜测线程状态。 */
+        std::lock_guard<std::mutex> lock(m_mutexCatalog);
+        m_pThrCatalog.reset();
     }
 
     if (m_bThrRun.load())
@@ -66,20 +60,20 @@ SIP::SubscribeEvent::~SubscribeEvent()
 bool SIP::SubscribeEvent::Handle(const SipEvent::Ptr &e)
 {
     int nExpires = GetExpires(e);
-    MLOG_DEBUG("收到订阅请求，Expires: %d 秒", nExpires);
+    dlog_debug("收到订阅请求，Expires: %d 秒", nExpires);
     pugi::xml_document doc;
     if (ParseHeader(e) < 0)
     {
         return false;
     }
 #if SUBSCRIBE_EVENT_DEBUG
-    MLOG_DEBUG("订阅一级事件[%d]二级事件[%d]时长[%d]CmdType[%s],nSubscribeID[%d]",
+    dlog_debug("订阅一级事件[%d]二级事件[%d]时长[%d]CmdType[%s],nSubscribeID[%d]",
                m_header.cmd_category,
                m_header.cmd_type,
                nExpires,
                m_header.strCmdType.c_str(),e->m_pEvent->did);
-    MLOG_DEBUG("SN[%s]", m_header.strSN.c_str());
-    MLOG_DEBUG("DevID[%s]", m_header.strDevID.c_str());
+    dlog_debug("SN[%s]", m_header.strSN.c_str());
+    dlog_debug("DevID[%s]", m_header.strDevID.c_str());
 #endif
 
     /* TODO 建立订阅列表，记录订阅的操作 */
@@ -109,8 +103,11 @@ bool SIP::SubscribeEvent::Handle(const SipEvent::Ptr &e)
     stSubData.pClient = dynamic_cast<SipClient *>(e->m_pNetBase);
     GetRequestURI(e, stSubData.strFromUri, stSubData.strToUri);
 
-    std::unique_lock<std::mutex> lock(m_mutexMap);
-    m_mapSubscribe[stSubData.enCmdType] = stSubData;
+    {
+        /* lock: 仅在更新订阅表时持锁，避免通知流程再次获取同一把非递归锁。 */
+        std::lock_guard<std::mutex> lock(m_mutexMap);
+        m_mapSubscribe[stSubData.enCmdType] = stSubData;
+    }
     /* 回复200 + 结果描述 */
     HandleResponse(e, m_header, bIsSupport);
     if (bIsSupport)
@@ -125,30 +122,30 @@ bool SIP::SubscribeEvent::Handle(const SipEvent::Ptr &e)
 
 int SIP::SubscribeEvent::NotifyCatalog()
 {
-    /* 异步操作 */
-#if 0
-    std::thread thr([this]()
-                    { thrNotifyCatalog(); });
-    thr.detach();
-#else
-    std::lock_guard<std::mutex> lock(m_mutexCatalog);
-    /* 创建一条延时发送的线程，后续继续有发送，则重新创建，确保延时期间只发送一次 */
-    if (m_pThrCatalog != nullptr)
+    Data_S stSubData;
+    if (!GetSubData(MANSCDP_QUERY_CMD_CATALOG, stSubData))
     {
-        MLOG_WARN("已存在等待发送的目录通知线程，将重新创建");
-        m_pThrCatalog->stop();
-        delete m_pThrCatalog;
-        m_pThrCatalog = nullptr;
+        dlog_debug("不存在有效的目录订阅，不创建目录通知线程");
+        return OK;
     }
-    m_pThrCatalog = new BlockThread(
+    if (stSubData.pClient == nullptr || !stSubData.pClient->GetRegister())
+    {
+        /* info: REGISTER 成功前没有可用的 SIP 会话，目录变化由后续 Catalog 订阅触发发送。 */
+        dlog_info("客户端尚未注册成功，暂不创建目录通知线程");
+        return ERR_UNINIT;
+    }
+
+    std::lock_guard<std::mutex> lock(m_mutexCatalog);
+    /* lock: reset 会同步停止并 join 旧线程，确保同一时刻只有一个目录通知任务。 */
+    m_pThrCatalog.reset();
+    m_pThrCatalog = std::make_unique<BlockThread>(
         std::bind(&SubscribeEvent::thrNotifyCatalog, this),
         std::chrono::milliseconds(SUBSCRIBE_SEND_WAIT_TIME),
         true);
     m_pThrCatalog->start();
-    MLOG_INFO("创建目录通知线程成功，将在[%d]毫秒后进行发送",
+    dlog_info("创建目录通知线程成功，将在[%d]毫秒后进行发送",
               SUBSCRIBE_SEND_WAIT_TIME);
-#endif
-    return 0;
+    return OK;
 }
 
 int SIP::SubscribeEvent::NotifyAlarm(GB28181::AlarmInfo_S &stInfo)
@@ -165,7 +162,7 @@ int SIP::SubscribeEvent::NotifyAlarm(GB28181::AlarmInfo_S &stInfo)
 #if 1
     if (!m_bThrRun.load())
     {
-        MLOG_DEBUG("启动报警通知线程");
+        dlog_debug("启动报警通知线程");
         /* 线程没跑则先开启线程 */
         m_bThrRun.store(true);
         m_pThrAlarm = new std::thread(std::bind(&SubscribeEvent::thrNotifyAlarm, this));
@@ -181,25 +178,18 @@ int SIP::SubscribeEvent::NotifyAlarm(GB28181::AlarmInfo_S &stInfo)
 
 int SIP::SubscribeEvent::Clear()
 {
-    /* 添加线程清理 */ 
     {
         std::lock_guard<std::mutex> lock(m_mutexCatalog);
-        if (m_pThrCatalog != nullptr)
-        {
-            MLOG_INFO("清理目录通知线程");
-            m_pThrCatalog->stop();
-            std::this_thread::sleep_for(std::chrono::milliseconds(100));
-            delete m_pThrCatalog;
-            m_pThrCatalog = nullptr;
-        }
+        /* memory: reset 会通过 BlockThread 析构同步停止并回收线程。 */
+        m_pThrCatalog.reset();
     }
-    
-    /* 清理报警线程 */ 
+
+    /* 清理报警线程 */
     if (m_bThrRun.load())
     {
         m_bThrRun.store(false);
         m_queAlarm.exit();
-        
+
         if (m_pThrAlarm && m_pThrAlarm->joinable())
         {
             m_pThrAlarm->join();
@@ -219,12 +209,12 @@ int SIP::SubscribeEvent::SendNotify(
 {
     if (nullptr == stSubData.pClient)
     {
-        MLOG_WARN("订阅客户端为空");
+        dlog_warn("订阅客户端为空");
         return -1;
     }
     if (!stSubData.pClient->GetRegister())
     {
-        MLOG_WARN("订阅客户端未注册或已取消注册");
+        dlog_warn("订阅客户端未注册或已取消注册");
         return -2;
     }
     auto pContext = stSubData.pClient->GetSipContext();
@@ -248,7 +238,7 @@ int SIP::SubscribeEvent::SendNotify(
     }
     else
     {
-        MLOG_WARN("构建Notify消息失败[%d]", nRet);
+        dlog_warn("构建Notify消息失败[%d]", nRet);
     }
 
 #else
@@ -271,7 +261,7 @@ int SIP::SubscribeEvent::SendNotify(
     }
     else
     {
-        MLOG_WARN("构建Message消息失败[%d]", nRet);
+        dlog_warn("构建Message消息失败[%d]", nRet);
     }
 
 #endif
@@ -286,11 +276,17 @@ void SIP::SubscribeEvent::thrNotifyCatalog()
         /* 没有相关的订阅记录或订阅过期了 */
         return;
     }
+    if (stSubData.pClient == nullptr || !stSubData.pClient->GetRegister())
+    {
+        /* ! 延迟等待期间注册状态可能变化，发送前必须再次确认 SIP 客户端在线。 */
+        dlog_info("目录通知执行前客户端已离线，取消本次发送");
+        return;
+    }
     { /* 拼装消息，逐条发送 */
         std::vector<Channel::Ptr> vecChnList;
         stSubData.pClient->GetChnInfo(vecChnList);
         auto nChnTotal = vecChnList.size();
-        MLOG_DEBUG("获取客户端的目录数量:[%d]", nChnTotal);
+        dlog_debug("获取客户端的目录数量:[%d]", nChnTotal);
         pugi::xml_document stNewDoc;
 
         auto declaration = stNewDoc.append_child(pugi::node_declaration);
@@ -363,7 +359,7 @@ void SIP::SubscribeEvent::thrNotifyAlarm()
 {
 	pthread_setname_np(pthread_self(), "SIPNotifyAlarm");
 
-    MLOG_INFO("开始处理上抛报警事件");
+    dlog_info("开始处理上抛报警事件");
     while (m_bThrRun.load())
     {
         GB28181::AlarmInfo_S stInfo;
@@ -383,11 +379,13 @@ void SIP::SubscribeEvent::thrNotifyAlarm()
             m_queAlarm.pop(stInfo);
         }
     }
-    MLOG_INFO("结束处理上抛报警事件");
+    dlog_info("结束处理上抛报警事件");
 }
 
 bool SIP::SubscribeEvent::GetSubData(int enCmdType, Data_S &stSubData)
 {
+    /* lock: 目录通知线程、SIP事件线程和清理流程可能并发访问订阅表。 */
+    std::lock_guard<std::mutex> lock(m_mutexMap);
     /* 固定类型值 */
     auto pFind = m_mapSubscribe.find(enCmdType);
     if (pFind == m_mapSubscribe.end())
@@ -399,13 +397,13 @@ bool SIP::SubscribeEvent::GetSubData(int enCmdType, Data_S &stSubData)
     auto nCurrentTime = time(nullptr);
     auto nElapsedTime = nCurrentTime - pFind->second.nStartTime;  // 已经过去的时间
     auto nLeftTime = pFind->second.nExpires - nElapsedTime;       // 剩余时间
-    
-    MLOG_DEBUG("订阅类型[%d] 当前时间[%ld] 开始时间[%ld] 已过去[%ld]秒 订阅时长[%d]秒 剩余[%ld]秒", 
+
+    dlog_debug("订阅类型[%d] 当前时间[%ld] 开始时间[%ld] 已过去[%ld]秒 订阅时长[%d]秒 剩余[%ld]秒",
                enCmdType, nCurrentTime, pFind->second.nStartTime, nElapsedTime, pFind->second.nExpires, nLeftTime);
-    
+
     if (nLeftTime <= 0)
     {
-        MLOG_INFO("订阅类型[%d]已过期，剩余时间[%ld]秒", enCmdType, nLeftTime);
+        dlog_info("订阅类型[%d]已过期，剩余时间[%ld]秒", enCmdType, nLeftTime);
         m_mapSubscribe.erase(pFind);
         return false;
     }
@@ -413,11 +411,11 @@ bool SIP::SubscribeEvent::GetSubData(int enCmdType, Data_S &stSubData)
     pFind->second.nLeftTime = nLeftTime;
     if (pFind->second.pClient == nullptr)
     {
-        MLOG_WARN("订阅记录中的客户端实例为空，无法发送订阅通知");
+        dlog_warn("订阅记录中的客户端实例为空，无法发送订阅通知");
         return false;
     }
     /* 订阅未过期，更新数据 */
-    MLOG_INFO("订阅类型[%d][%s]的Notify通知，剩余有效期[%ld]秒",
+    dlog_info("订阅类型[%d][%s]的Notify通知，剩余有效期[%ld]秒",
               enCmdType,
               pFind->second.strCmdType.c_str(),
               nLeftTime);
@@ -431,7 +429,7 @@ int SIP::SubscribeEvent::SendAlarmMsg(GB28181::AlarmInfo_S &stInfo)
     if (!GetSubData(MANSCDP_QUERY_CMD_ALARM, stSubData))
     {
         /* 没有相关的订阅记录或订阅过期了 */
-        MLOG_WARN("没有相关的订阅记录或订阅过期了");
+        dlog_warn("没有相关的订阅记录或订阅过期了");
         return -1;
     }
     std::string strXml;

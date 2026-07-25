@@ -1,9 +1,9 @@
-/***
+/**
  * @FilePath     : time_manage.cpp
- * @Author       : tianl (tianl@kfb.cn)
+ * @Author       : zhouzr@kfb.cn
  * @Date         : 2024-11-01 13:54:54
- * @LastEditors  : huangjunda
- * @LastEditTime : 2025-03-28 13:55:45
+ * @LastEditors  : zhouzr@kfb.cn
+ * @LastEditTime : 2026-06-05 15:53:09
  * @Description  : 时间管理类
  */
 
@@ -19,6 +19,9 @@
 #include "data_length.h"
 #include "convert_interface.h"
 #include "path_define.h"
+#include "timezone_runtime.h"
+#include "record_ctrl.h"
+#include "record_file_manage.h"
 
 CTimeManage::CTimeManage()
     : m_timeConfigFile(TIME_CONFIG_FILE)
@@ -32,6 +35,14 @@ IpcRet_E CTimeManage::init()
     {
         Convert::write_file(m_timeConfigFile, stNewTimeInfo);
     }
+    stTimeInfo = stNewTimeInfo;
+
+    /* time.json 是业务时区配置源，启动时同步到 shell 配置，保证其他进程读取同一份 POSIX 时区 */
+    std::string strTimezone = TimezoneRuntime_NS::to_posix_timezone(static_cast<int>(stNewTimeInfo.enTimeZone));
+    dlog_info("时间模块初始化时区, 枚举:%d, POSIX时区:%s", static_cast<int>(stNewTimeInfo.enTimeZone), strTimezone.c_str());
+    TimezoneRuntime_NS::write_timezone_config(strTimezone);
+    TimezoneRuntime_NS::reload_timezone("stream", "time_manage_init");
+
     init_time_info(stNewTimeInfo);
     return OK;
 }
@@ -67,6 +78,31 @@ int CTimeManage::init_time_info(System::TimeInfo_S stNewTimeInfo)
 int CTimeManage::set_time_info(System::TimeInfo_S stNewTimeInfo)
 {
     int nRet = 0;
+    bool bTimezoneChanged = stNewTimeInfo.enTimeZone != stTimeInfo.enTimeZone;
+
+    if (bTimezoneChanged)
+    {
+        std::string strTimezone = TimezoneRuntime_NS::to_posix_timezone(static_cast<int>(stNewTimeInfo.enTimeZone));
+        dlog_info("检测到时区配置变化, old:%d, new:%d, POSIX:%s",
+                  static_cast<int>(stTimeInfo.enTimeZone),
+                  static_cast<int>(stNewTimeInfo.enTimeZone),
+                  strTimezone.c_str());
+        if (TimezoneRuntime_NS::write_timezone_config(strTimezone) != OK)
+        {
+            dlog_error("写入时区配置失败, POSIX时区:%s", strTimezone.c_str());
+            return ERR;
+        }
+
+        TimezoneRuntime_NS::reload_timezone("stream", "set_time_info");
+        TimezoneRuntime_NS::notify_timezone_reload("stream");
+         /* 时区切换后重启录制，清理时区切换导致的"未来"录制文件并重启录制 */
+        dlog_info("时区切换, 重启录制");
+        CRecordCtrl::instance()->stop_record();
+        sleep(1);
+        time_t nCurTime = time(NULL);
+        RecordFileManage::instance()->dealTimeChange(nCurTime);
+    }
+
     stTimeInfo = stNewTimeInfo;
 
     /*设置NTP校时*/
@@ -132,11 +168,15 @@ int CTimeManage::sync_time(int nTime)
     else
     {
         dlog_info("手动设置时间成功");
-        /* 同步写到RTC（硬件时钟）中 */
-        int nRet = system("hwclock -w");
+        /* 同步写到RTC（硬件时钟）中，RTC统一保存UTC时间 */
+        int nRet = system("hwclock -w -u");
         if (nRet != OK)
         {
-            dlog_error("同步到RTC失败: %s", strerror(errno));
+            dlog_error("同步UTC时间到RTC失败: %s", strerror(errno));
+        }
+        else
+        {
+            dlog_info("同步UTC时间到RTC成功");
         }
     }
 

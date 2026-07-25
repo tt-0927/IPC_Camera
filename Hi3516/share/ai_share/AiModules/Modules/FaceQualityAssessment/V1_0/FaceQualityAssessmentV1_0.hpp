@@ -59,8 +59,8 @@ namespace FaceQualityAssessment_NS
         Inference_NS::CImageFeature *m_pImageFeature = nullptr;
 
         /* 算法输入参数限制 */
-        int m_nLimitHeight = 0;
-        int m_nLimitWidth = 0;
+        int m_nLimitHeight = 112;
+        int m_nLimitWidth = 112;
         int m_nLimitChannel = 0;
     };
 

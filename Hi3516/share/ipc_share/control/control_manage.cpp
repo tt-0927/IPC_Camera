@@ -3,7 +3,7 @@
  * @Author       : huangjunda
  * @Date         : 2025-03-27 19:38:25
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-05-15 16:16:29
+ * @LastEditTime : 2026-06-04 14:10:24
  * @Description  : 控制事务任务管理
  */
 
@@ -28,6 +28,7 @@
 #include "qos_manage.h"
 #include "network_manage.h"
 #include "platform_manager.h"
+#include "log_handler.h"
 #include "register_manage.h"
 #include "preview_manage.h"
 #include "https_manage.h"
@@ -53,12 +54,14 @@
 #include "record_ctrl.h"
 #include "capture_ctrl.h"
 #include "storage_manage.h"
-#include "onvif_FirmwareUpgradeServer.h"
+#include "onvif_firmware_upgrade_server.h"
+#include "event_abnormal_detector.h"
 #ifdef ENABLE_GAT1400_SRC
 #include "gat1400.h"
 #endif
 #include "wifi_manage.h"
-
+#include "production_test_task.h"
+#include "4g_manage.h"
 #ifdef ENABLE_AI_STUDENT
 #include "ai_student_business.hpp"
 #include "ai_student_task.h"
@@ -142,6 +145,8 @@ int ControlManage::init_business()
         dlog_error("系统管理模块初始化失败：%d", nRet);
         return nRet;
     }
+    /* 初始化日志上传开关（从配置文件读取） */
+    LogHandler::instance()->initLogUpload();
     /* ip地址过滤初始化 */
     nRet = CIpFilterManage::instance()->init();
     if (nRet < OK)
@@ -170,6 +175,14 @@ int ControlManage::init_business()
     {
         dlog_error("wifi管理模块初始化失败：%d", nRet);
         return nRet;
+    }
+#endif
+#if CAP_NETWORK_4G
+    nRet = FourGManager::instance()-> init();
+    if (nRet < OK)
+    {
+        dlog_error("4G管理模块初始化失败：%d", nRet);
+        // return nRet;
     }
 #endif
     /* 邮件初始化 */
@@ -254,8 +267,18 @@ int ControlManage::init_business()
     {
         dlog_error("抓图模块初始化失败：%d", nRet);
     }
-    /* onvif http固件升级服务启动 */
-    COnvifFirmwareUpgradeServer::instance()->start();
+    /* 异常报警检测初始化，启动检测线程并加载已持久化的联动配置 */
+    nRet = CAbnormalDetector::instance()->init();
+    if (nRet < OK)
+    {
+        dlog_error("异常报警检测初始化失败：%d", nRet);
+    }
+    /* onvif http固件升级服务初始化 */
+    nRet = COnvifFirmwareUpgradeServer::instance()->init();
+    if (nRet < OK)
+    {
+        dlog_error("onvif http 固件升级服务初始化失败：%d", nRet);
+    }
 #ifdef ENABLE_AI_STUDENT
     /* ai student */
     AiStudentBusiness_NS::CAiStudentBusiness::instance()->init();
@@ -268,6 +291,18 @@ void ControlManage::deinit_business()
 {
     int nRet = OK;
 
+    /* 异常报警检测去初始化，停止检测线程 */
+    nRet = CAbnormalDetector::instance()->deinit();
+    if (nRet < OK)
+    {
+        dlog_error("异常报警检测去初始化失败：%d", nRet);
+    }
+    /* onvif http固件升级服务去初始化 */
+    nRet = COnvifFirmwareUpgradeServer::instance()->deinit();
+    if (nRet < OK)
+    {
+        dlog_error("onvif http固件升级服务去初始化失败：%d", nRet);
+    }
     /* 抓图去初始化 */
     nRet = CCaptureCtrl::instance()->deinit();
     if (nRet < OK)
@@ -666,6 +701,13 @@ void ControlManage::bind_task(std::shared_ptr<CTaskManage> &pTaskManage)
     pTaskManage->bind<Task::System::AddIpFilterAddress>(AC_ADD_IP_FILTER_ADDRESS);
     pTaskManage->bind<Task::System::RemoveIpFilterAddress>(AC_REMOVE_IP_FILTER_ADDRESS);
     pTaskManage->bind<Task::System::ModifyIpFilterAddress>(AC_MODIFY_IP_FILTER_ADDRESS);
+    
+    /* 产测相关 */
+    pTaskManage->bind<Task::ProductionTest::GetItems>(AC_GET_PRODUCTION_TEST_ITEMS);
+    pTaskManage->bind<Task::ProductionTest::GetResult>(AC_GET_PRODUCTION_TEST_RESULT);
+    pTaskManage->bind<Task::ProductionTest::SaveResult>(AC_SAVE_PRODUCTION_TEST_RESULT);
+    pTaskManage->bind<Task::ProductionTest::UploadResult>(AC_UPLOAD_PRODUCTION_TEST);
+    pTaskManage->bind<Task::ProductionTest::ResetResult>(AC_RESET_PRODUCTION_TEST);
 
     /* 网络配置相关 */
     pTaskManage->bind<Task::Network::GetCheckMacValid>(AC_GET_CHECK_MAC_VALID);
@@ -723,6 +765,7 @@ void ControlManage::bind_task(std::shared_ptr<CTaskManage> &pTaskManage)
     /* 国标证书管理 */
     pTaskManage->bind<Task::Network::GmCreateCertRequestFile>(AC_GM_CREATE_CERT_REQUEST_FILE);
     pTaskManage->bind<Task::Network::GmUploadCaCert>(AC_GM_UPLOAD_CA_CERT);
+    pTaskManage->bind<Task::Network::GmUploadPlatformCert>(AC_GM_UPLOAD_PLATFORM_CERT);
     pTaskManage->bind<Task::Network::GmUploadDeviceCert>(AC_GM_UPLOAD_DEVICE_CERT);
     pTaskManage->bind<Task::Network::GmUploadCrlFile>(AC_GM_UPLOAD_CRL_FILE);
     pTaskManage->bind<Task::Network::GmGetCertInfo>(AC_GM_GET_CERT_INFO);
@@ -731,6 +774,7 @@ void ControlManage::bind_task(std::shared_ptr<CTaskManage> &pTaskManage)
     #if CAP_NETWORK_WIFI
     /*WIFI */
     pTaskManage->bind<Task::Network::SetWifiStaInfo>(AC_SET_CONFIG_WIFI_STA);
+    pTaskManage->bind<Task::Network::GetWifiStaInfo>(AC_GET_CONFIG_WIFI_STA);
     pTaskManage->bind<Task::Network::ConnectWifiSta>(AC_CONNECT_WIFI_STA);
     pTaskManage->bind<Task::Network::DisconnectWifiSta>(AC_DISCONNECT_WIFI_STA);
     #endif
@@ -745,6 +789,7 @@ void ControlManage::bind_task(std::shared_ptr<CTaskManage> &pTaskManage)
     /*热点 */
     pTaskManage->bind<Task::Network::SetHotspot>(AC_SET_HOTSPOT_INFO);
     pTaskManage->bind<Task::Network::GetHotspotConn>(AC_GET_HOTSPOT_CONN);
+    pTaskManage->bind<Task::Network::GetHotspot>(AC_GET_HOTSPOT_INFO);
     #endif
 
     #if CAP_GARBAGE_STATION_PLATFORM
@@ -779,6 +824,8 @@ void ControlManage::bind_task(std::shared_ptr<CTaskManage> &pTaskManage)
     pTaskManage->bind<Task::Pic::SetOsdConfigParam>(AC_SET_OSD_CONFIG);
     pTaskManage->bind<Task::Pic::GetCoverConfigParam>(AC_GET_COVER_CONFIG);
     pTaskManage->bind<Task::Pic::SetCoverConfigParam>(AC_SET_COVER_CONFIG);
+    pTaskManage->bind<Task::Pic::GetCoverConfigParam>(AC_GET_SHELTER_INFO);
+    pTaskManage->bind<Task::Pic::SetCoverConfigParam>(AC_SET_SHELTER_INFO);
     pTaskManage->bind<Task::Pic::GetSchedule>(AC_GET_IMAGE_SCHEDULE_INFO);
     pTaskManage->bind<Task::Pic::SetSchedule>(AC_SET_IMAGE_SCHEDULE_INFO);
     pTaskManage->bind<Task::Pic::GetScene>(AC_GET_VIDEO_SCENE_INFO);
@@ -881,13 +928,16 @@ void ControlManage::bind_task(std::shared_ptr<CTaskManage> &pTaskManage)
     /* 人脸抓拍 */
     pTaskManage->bind<Task::Event::GetFaceCaptureInfo>(AC_GET_FACE_CAPTURE_INFO);
     pTaskManage->bind<Task::Event::SetFaceCaptureInfo>(AC_SET_FACE_CAPTURE_INFO);
+#if CAP_AI_FACE_COMPARE
     /*人脸比对 */
     pTaskManage->bind<Task::Event::SetFaceCompareInfo>(AC_SET_FACE_COMPARE_INFO);
-    //pTaskManage->bind<Task::Event::GetFaceCompareInfo>(AC_GET_FACE_COMPARE_INFO);
+    pTaskManage->bind<Task::Event::GetFaceCompareInfo>(AC_GET_FACE_COMPARE_INFO);
+#endif
     /* 人脸抓拍叠加信息 */
     pTaskManage->bind<Task::Event::GetFaceCaptureOverlayInfo>(AC_GET_FACE_CAPTURE_OVERLAY_INFO_INFO);
     pTaskManage->bind<Task::Event::SetFaceCaptureOverlayInfo>(AC_SET_FACE_CAPTURE_OVERLAY_INFO_INFO);
-
+    
+#if CAP_AI_FACE_COMPARE
     pTaskManage->bind<Task::Event::AddTargetLib>(AC_ADD_TARGET_LIB);
     pTaskManage->bind<Task::Event::DelTargetLib>(AC_DEL_TARGET_LIB);
     pTaskManage->bind<Task::Event::SetTargetLib>(AC_SET_TARGET_LIB);
@@ -896,6 +946,8 @@ void ControlManage::bind_task(std::shared_ptr<CTaskManage> &pTaskManage)
     pTaskManage->bind<Task::Event::DelFaceInfo>(AC_DEL_FACE_INFO);
     pTaskManage->bind<Task::Event::SetFaceInfo>(AC_SET_FACE_INFO);
     pTaskManage->bind<Task::Event::GetFaceInfo>(AC_GET_FACE_INFO);
+    pTaskManage->bind<Task::Event::DelFaceFile>(AC_DEL_FACE_FILE);
+#endif
 
 #ifdef SCENE_INTELLIGENT_ANALYSIS
     /**
@@ -1090,6 +1142,7 @@ void ControlManage::bind_task(std::shared_ptr<CTaskManage> &pTaskManage)
     pTaskManage->bind<Task::Preview::SetBroadcastInfo>(AC_SET_BROADCAST_INFO);
     pTaskManage->bind<Task::Preview::SetBeepAlarm>(AC_SET_BEEP_ALARM);
     pTaskManage->bind<Task::Preview::GetIntercomAndBroadcastStatus>(AC_GET_INTERCOM_AND_BROADCAST_STATUS);
+    pTaskManage->bind<Task::Preview::DeviceControl>(AC_DEVICE_CONTROL);
 
     /* 设备激活相关 */
     pTaskManage->bind<Task::Register::GetReisterInfo>(AC_GET_REGISTER_INFO);

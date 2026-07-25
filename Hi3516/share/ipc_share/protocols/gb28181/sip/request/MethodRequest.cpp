@@ -7,6 +7,7 @@
  * @Description  : 各种方法的请求合集
  */
 #include "MethodRequest.h"
+#include "dlog.h"
 #include "PtzCmd.h"
 #include "SipUtils.h"
 #include "pugixml.hpp"
@@ -180,7 +181,7 @@ int PtzCtlRequest::HandleResponse(int statcode)
     _zoomSpeed = 0;
 
     // 收到相机回复后，立即停止云台转动
-    MLOG_INFO("PtzControlRequest HandleResponse statuscode [%d]", statcode);
+    dlog_info("PtzControlRequest HandleResponse statuscode [%d]", statcode);
     // SendMessage(false);
     return 0;
 }

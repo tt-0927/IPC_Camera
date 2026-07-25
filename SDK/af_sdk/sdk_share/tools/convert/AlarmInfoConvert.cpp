@@ -198,6 +198,9 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_ALARM_BASIC_INFO_S& stInfo
     ByteArrayField(pRootJson, "AlarmRelateChannel", stInfo.byAlarmRelateChannel, bOutStruct);
     ByteArrayField(pRootJson, "Channel", stInfo.byChannel, bOutStruct);
     ByteArrayField(pRootJson, "DiskNumber", stInfo.byDiskNumber, bOutStruct);
+    convert.field(pRootJson, "PanoramaImgLen", (int&)stInfo.dwPanoramaImgLen);
+    ImageBase64Field(pRootJson, "PanoramaImgBase64", stInfo.byPanoramaImg, stInfo.dwPanoramaImgLen, bOutStruct);
+    convert.field(pRootJson, "TimestampMs", stInfo.llTimestampMs);
 }
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_TV_ALARM_RULE_INFO_S& stInfo, bool bOutStruct)
@@ -211,6 +214,17 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_ALARM_RULE_INFO_S& stInfo,
     convert.field(pRootJson, "RuleType", (int&)stInfo.dwRuleType);
     CharArrayField(pRootJson, "RuleName", stInfo.szRuleName, bOutStruct);
     convert.field(pRootJson, "TargetID", (int&)stInfo.dwTargetID);
+    convert.field(pRootJson, "ObjectType", (int&)stInfo.dwObjectType);
+    convert.field(pRootJson, "Confidence", stInfo.fConfidence);
+    convert.field(pRootJson, "Left", (int&)stInfo.nLeft);
+    convert.field(pRootJson, "Top", (int&)stInfo.nTop);
+    convert.field(pRootJson, "Right", (int&)stInfo.nRight);
+    convert.field(pRootJson, "Bottom", (int&)stInfo.nBottom);
+    convert.field(pRootJson, "PanoramaImgLen", (int&)stInfo.dwPanoramaImgLen);
+    ImageBase64Field(pRootJson, "PanoramaImgBase64", stInfo.byPanoramaImg, stInfo.dwPanoramaImgLen, bOutStruct);
+    convert.field(pRootJson, "TargetImgLen", (int&)stInfo.dwTargetImgLen);
+    ImageBase64Field(pRootJson, "TargetImgBase64", stInfo.byTargetImg, stInfo.dwTargetImgLen, bOutStruct);
+    convert.field(pRootJson, "TimestampMs", stInfo.llTimestampMs);
 }
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_TV_ALARM_AI_OBJECT_INFO_S& stInfo, bool bOutStruct)
@@ -227,36 +241,12 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_ALARM_AI_OBJECT_INFO_S& st
     convert.field(pRootJson, "Right", (int&)stInfo.nRight);
     convert.field(pRootJson, "Bottom", (int&)stInfo.nBottom);
     CharArrayField(pRootJson, "ObjectID", stInfo.szObjectID, bOutStruct);
+    convert.field(pRootJson, "PanoramaImgLen", (int&)stInfo.dwPanoramaImgLen);
+    ImageBase64Field(pRootJson, "PanoramaImgBase64", stInfo.byPanoramaImg, stInfo.dwPanoramaImgLen, bOutStruct);
     convert.field(pRootJson, "ImgLen", (int&)stInfo.dwImgLen);
+    convert.field(pRootJson, "TimestampMs", stInfo.llTimestampMs);
 
-    // 严格仿海康：图片随结构体（JSON 里 Base64）
-    if (bOutStruct)
-    {
-        std::string b64;
-        if (Json::get(pRootJson, "ImgDataBase64", b64) && !b64.empty())
-        {
-            std::vector<unsigned char> decoded;
-            if (SDKConvert::Base64Decode(b64, decoded))
-            {
-                size_t copyLen = std::min(decoded.size(), (size_t)NET_TV_PIC_DATA_MAX_LEN);
-                if (copyLen > 0)
-                {
-                    std::memcpy(stInfo.byImgData, decoded.data(), copyLen);
-                }
-                stInfo.dwImgLen = (UINT32)copyLen;
-            }
-        }
-    }
-    else
-    {
-        UINT32 len = stInfo.dwImgLen;
-        if (len > (UINT32)NET_TV_PIC_DATA_MAX_LEN) len = (UINT32)NET_TV_PIC_DATA_MAX_LEN;
-        if (len > 0)
-        {
-            std::string b64 = SDKConvert::Base64Encode((const unsigned char*)stInfo.byImgData, (size_t)len);
-            Json::add(pRootJson, "ImgDataBase64", b64);
-        }
-    }
+    ImageBase64Field(pRootJson, "ImgDataBase64", stInfo.byImgData, stInfo.dwImgLen, bOutStruct);
 }
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_TV_ALARM_FACE_COMPARE_INFO_S& stInfo, bool bOutStruct)

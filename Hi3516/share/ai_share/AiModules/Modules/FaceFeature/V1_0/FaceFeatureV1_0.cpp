@@ -28,6 +28,11 @@ bool FaceFeature_NS::CFaceFeatureV1_0::init()
     m_pImageFeature = new Inference_NS::CImageFeature(m_stInParam.strModelPath);
     if (m_pImageFeature && m_pImageFeature->init())
     {
+        m_pImageFeature->getSizeLimit(
+                0,
+                m_nLimitWidth,
+                m_nLimitHeight,
+                m_nLimitChannel);
         bRet = true;
     }
 
@@ -84,11 +89,18 @@ bool FaceFeature_NS::CFaceFeatureV1_0::process(
     }
 
     bool bRet = true;
-    
+
+    /* 前处理 */
+    if (stInData.inMat.cols != m_nLimitWidth || stInData.inMat.rows != m_nLimitHeight)
+    {
+        cv::resize(stInData.inMat, stInData.inMat, cv::Size(m_nLimitWidth,m_nLimitHeight));
+        // resizeAndPadImage(stInData.inMat, stInData.inMat);
+    }
+
     /* 推理+后处理 */
     Inference_NS::InputData_S stInputData;
     stInputData.pData = (float*)stInData.inMat.data;
-    stInputData.nDataSize = static_cast<size_t>(stInData.inMat.total() * stInData.inMat.elemSize());
+    stInputData.nDataSize = static_cast<size_t>(stInData.inMat.total() * stInData.inMat.elemSize() * sizeof(float));
     
     std::vector<Inference_NS::ClsData_S> vClsDatas;
     bRet = m_pImageFeature->inference(stInputData, vClsDatas);
@@ -106,15 +118,16 @@ bool FaceFeature_NS::CFaceFeatureV1_0::process(
     // }
     // printf("\n");
 
-    if (numFeatures != FaceFeatureLen)
+    // if (numFeatures != FaceFeatureLen)
+    // {
+    //     bRet = false;
+    //     printf("算法推理结果异常\n");
+    //     return false;
+    // }
+    // else
     {
-        bRet = false;
-        printf("算法推理结果异常\n");
-        return false;
-    }
-    else
-    {
-        nResult = vClsDatas[0].vFeature; 
+        normalize(vClsDatas[0].vFeature); 
+        nResult = vClsDatas[0].vFeature;
     }
 
     stOutData->nChnId = stInData.nChnId;
@@ -123,6 +136,27 @@ bool FaceFeature_NS::CFaceFeatureV1_0::process(
     stOutData->nType = 5; //Type_E::TARGET_COMPARE;
 
     return true;
+}
+
+/* 向量归一化 */
+void FaceFeature_NS::CFaceFeatureV1_0::normalize(std::vector<float> &vFeature)
+{
+    float fNorm = 0.0f;
+    /* 计算向量的范数（L2 范数） */
+    for (float fFeature : vFeature)
+    {
+        fNorm += fFeature * fFeature;
+    }
+    fNorm = std::sqrt(fNorm);
+
+    /* 如果向量为很小的数，不做处理 */
+    if (fNorm > 1e-10)
+    {
+        for (size_t i = 0; i < vFeature.size(); ++i)
+        {
+            vFeature[i] /= fNorm;
+        }
+    }
 }
 
 /* 处理数据 */

@@ -40,6 +40,8 @@ extern "C"
     } while (0)
 
 /* 各模块日志宏定义 */
+#define mpi_cipher_log(fmt, ...)    mpi_module_log("CIPHER", fmt, ##__VA_ARGS__)
+
 #define mpi_adec_log(fmt, ...)      mpi_module_log("ADEC", fmt, ##__VA_ARGS__)
 #define mpi_aenc_log(fmt, ...)      mpi_module_log("AENC", fmt, ##__VA_ARGS__)
 #define mpi_ai_log(fmt, ...)        mpi_module_log("AI", fmt, ##__VA_ARGS__)

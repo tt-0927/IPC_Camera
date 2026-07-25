@@ -202,7 +202,7 @@ int CCaptureCtrl::set_event_capture(bool bEventEnded, const Event::Info_S &stEve
             dlog_info("事件[%d]结束，停止抓图", (int) enEventType);
         }
         /* 置空人脸抓拍文件名 */
-        if (enEventType == Event::Type_E::FACE_CAPTURE)
+        if (enEventType == Event::Type_E::FACE_CAPTURE || enEventType == Event::Type_E::FACE_COMPARE)
         {
             /* 使用独立的锁来清空人脸抓拍文件名 */
             std::lock_guard<std::mutex> faceLock(m_faceMutex);
@@ -235,7 +235,7 @@ int CCaptureCtrl::set_event_capture(bool bEventEnded, const Event::Info_S &stEve
     {
         /* 判断当前发生该事件类型比上一次发生该事件类型的时间间隔是否大于等于用户设定的抓图时间间隔 */
         unsigned long long ullCurrentTime = TimeUtils_NS::get_currentTimestampMs();
-        if (ullCurrentTime - it->second.ullLastCaptureTime >= ullInterval || enEventType == Event::Type_E::FACE_CAPTURE)
+        if (ullCurrentTime - it->second.ullLastCaptureTime >= ullInterval || enEventType == Event::Type_E::FACE_CAPTURE|| enEventType == Event::Type_E::FACE_COMPARE)
         {
             /* 重新开始抓图 */
             it->second.bCaptureFlag = true;
@@ -284,7 +284,7 @@ int CCaptureCtrl::send_frameData(unsigned char *pData, int nDataLen)
             {
                 stState.stEventInfo.strVideoPath = strFilePath;
                 /* 记录人脸抓拍当前全景图片文件名 */
-                if (enEventType == Event::Type_E::FACE_CAPTURE)
+                if (enEventType == Event::Type_E::FACE_CAPTURE|| enEventType == Event::Type_E::FACE_COMPARE)
                 {
                     /* 使用独立的锁来设置人脸抓拍文件名 */
                     {

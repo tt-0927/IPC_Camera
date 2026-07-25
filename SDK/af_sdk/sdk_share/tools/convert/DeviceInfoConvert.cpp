@@ -77,6 +77,25 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_DEVICE_BASICINFO_S& stInfo
     convert.field(pRootJson, "DeviceTypeV2", stInfo.szDeviceTypeV2);
 }
 
+void SDKConvert::deal(Json::Object* pRootJson, NET_TV_SYSTEM_NTP_INFO_S& stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+
+    SDKConvert::CSDKConvert convert(bOutStruct);
+    convert.field(pRootJson, "TimeZone", stInfo.enTimeZone);
+    convert.field(pRootJson, "DateFormat", stInfo.enDateFormat);
+    convert.field(pRootJson, "IsEnableNTPSync", stInfo.bEnableNTPSync);
+    convert.field(pRootJson, "IsManualSync", stInfo.bManualSync);
+    convert.field(pRootJson, "DateTime", stInfo.szDateTime);
+    convert.field(pRootJson, "IsSyncWithComputer", stInfo.bIsSyncWithComputer);
+    convert.field(pRootJson, "Address", stInfo.szAddress);
+    convert.field(pRootJson, "Port", stInfo.nPort);
+    convert.field(pRootJson, "SyncInterval", stInfo.nSyncInterval);
+}
+
 void SDKConvert::deal(Json::Object* pRootJson, NET_TV_NETWORKCFG_S& stInfo, bool bOutStruct)
 {
     if (!pRootJson)
@@ -1063,7 +1082,8 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_VIDEO_OSD_CFG_S& stInfo, b
     {                                                         \
         int nTmpValue = (int)(enumField);                     \
         convert.field(pRootJson, jsonKey, nTmpValue);         \
-        if (!bOutStruct)                                      \
+        /* JSON -> struct requires an explicit integer-to-enum cast. */ \
+        if (bOutStruct)                                       \
         {                                                     \
             (enumField) = (enumType)nTmpValue;                \
         }                                                     \
@@ -1130,7 +1150,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_VIDEO_OSD_CFG_S& stInfo, b
         {
             int nTmpValue = (int)stInfo.OsdInfo[i].stOsdAttr.enAttribute;
             convert.field(pRootJson, szKey, nTmpValue);
-            if (!bOutStruct)
+            if (bOutStruct)
             {
                 stInfo.OsdInfo[i].stOsdAttr.enAttribute = (OSD_ATTRIBUTE_E)nTmpValue;
             }
@@ -1140,7 +1160,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_VIDEO_OSD_CFG_S& stInfo, b
         {
             int nTmpValue = (int)stInfo.OsdInfo[i].stOsdAttr.enFontSize;
             convert.field(pRootJson, szKey, nTmpValue);
-            if (!bOutStruct)
+            if (bOutStruct)
             {
                 stInfo.OsdInfo[i].stOsdAttr.enFontSize = (OSD_FONT_SIZE_E)nTmpValue;
             }
@@ -1150,7 +1170,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_VIDEO_OSD_CFG_S& stInfo, b
         {
             int nTmpValue = (int)stInfo.OsdInfo[i].stOsdAttr.enFontColor;
             convert.field(pRootJson, szKey, nTmpValue);
-            if (!bOutStruct)
+            if (bOutStruct)
             {
                 stInfo.OsdInfo[i].stOsdAttr.enFontColor = (OSD_COLOR_E)nTmpValue;
             }
@@ -1179,6 +1199,73 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_RTSP_URL_INFO_S& stInfo, b
     convert.field(pRootJson, "Channel", stInfo.dwChannel);
     convert.field(pRootJson, "StreamIndex", stInfo.dwStreamIndex);
     convert.field(pRootJson, "RtspUrl", stInfo.szRtspUrl);
+}
+
+void SDKConvert::deal(Json::Object* pRootJson, NET_TV_DEVICE_CONTROL_INFO_S& stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+
+    SDKConvert::CSDKConvert convert(bOutStruct);
+    convert.field(pRootJson, "dwSize", stInfo.dwSize);
+    convert.field(pRootJson, "channel", stInfo.dwChannelID);
+    convert.field(pRootJson, "controlType", stInfo.dwControlType);
+    convert.field(pRootJson, "command", stInfo.dwCommand);
+    convert.field(pRootJson, "speed", stInfo.dwSpeed);
+    convert.field(pRootJson, "durationMs", stInfo.dwDurationMs);
+    convert.field(pRootJson, "param1", stInfo.dwParam1);
+    convert.field(pRootJson, "param2", stInfo.dwParam2);
+    convert.field(pRootJson, "ext", stInfo.szExt);
+}
+
+void SDKConvert::deal(Json::Object* pRootJson, NET_TV_RECORD_FRAME_STREAM_COND_S& stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+
+    SDKConvert::CSDKConvert convert(bOutStruct);
+    convert.field(pRootJson, "dwSize", stInfo.dwSize);
+    convert.field(pRootJson, "channel", stInfo.dwChannel);
+    convert.field(pRootJson, "startTime", stInfo.szStartTime);
+    convert.field(pRootJson, "endTime", stInfo.szEndTime);
+    convert.field(pRootJson, "streamIndex", stInfo.dwStreamIndex);
+    convert.field(pRootJson, "mediaType", stInfo.dwMediaType);
+    convert.field(pRootJson, "codecType", stInfo.dwCodecType);
+    convert.field(pRootJson, "tcpPort", stInfo.dwTcpPort);
+}
+
+void SDKConvert::deal(Json::Object* pRootJson, NET_TV_RECORD_FRAME_STREAM_INFO_S& stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+
+    SDKConvert::CSDKConvert convert(bOutStruct);
+    convert.field(pRootJson, "dwSize", stInfo.dwSize);
+    convert.field(pRootJson, "streamId", stInfo.szStreamId);
+    convert.field(pRootJson, "channel", stInfo.dwChannel);
+    convert.field(pRootJson, "tcpPort", stInfo.dwTcpPort);
+    convert.field(pRootJson, "mediaType", stInfo.dwMediaType);
+    convert.field(pRootJson, "codecType", stInfo.dwCodecType);
+    convert.field(pRootJson, "width", stInfo.dwWidth);
+    convert.field(pRootJson, "height", stInfo.dwHeight);
+}
+
+void SDKConvert::deal(Json::Object* pRootJson, NET_TV_RECORD_FRAME_STOP_INFO_S& stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+
+    SDKConvert::CSDKConvert convert(bOutStruct);
+    convert.field(pRootJson, "dwSize", stInfo.dwSize);
+    convert.field(pRootJson, "streamId", stInfo.szStreamId);
 }
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_TV_REPLAY_URL_INFO_S& stInfo, bool bOutStruct)
@@ -1467,6 +1554,20 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_PREVIEW_RTSP_URL_S& stInfo
 }
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_TV_PREVIEW_IMAGE_PARAM_S& stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+
+    SDKConvert::CSDKConvert convert(bOutStruct);
+    convert.field(pRootJson, "Brightness", stInfo.nBrightness);
+    convert.field(pRootJson, "Contrast", stInfo.nContrast);
+    convert.field(pRootJson, "Saturation", stInfo.nSaturation);
+    convert.field(pRootJson, "Sharpness", stInfo.nSharpness);
+}
+
+void SDKConvert::deal(Json::Object* pRootJson, NET_TV_IMAGE_SETTING_S& stInfo, bool bOutStruct)
 {
     if (!pRootJson)
     {

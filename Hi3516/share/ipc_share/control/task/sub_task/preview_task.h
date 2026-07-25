@@ -22,6 +22,7 @@ namespace Task
         TaskSubClass(SetBroadcastInfo);
         TaskSubClass(SetBeepAlarm);
         TaskSubClass(GetIntercomAndBroadcastStatus);
+        TaskSubClass(DeviceControl);
     } // namespace Preview
 
 } // namespace Task

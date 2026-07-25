@@ -3,19 +3,31 @@
  * @Author       : zhouzirui
  * @Date         : 2025-04-03 09:55:14
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2025-08-27 19:55:16
+ * @LastEditTime : 2026-06-22 09:34:39
  * @Description  : 对称加解密算法模块
  */
 
 #include "cipher_symc.h"
 #include "securec.h"
 
+#define CIPHER_CHECK_GOTO(expr, label)                                                                                           \
+    do                                                                                                                           \
+    {                                                                                                                            \
+        td_s32 result = (expr);                                                                                                  \
+        if (result != TD_SUCCESS)                                                                                                \
+        {                                                                                                                        \
+            mpi_cipher_log("%s failed, error code: 0x%08X", #expr, (unsigned int) result);                                       \
+            ret = result;                                                                                                        \
+            goto label;                                                                                                          \
+        }                                                                                                                        \
+    }                                                                                                                            \
+    while (0)
+
 /**
  * @brief       : 安全协议加速器对称加解密算法模块初始化
  * @author      : zhouzirui
  * @param        {CipherSymc_S} *pHandle：句柄
  * @return       {*}成功返回0,失败返回-1
- * @note        : 
  */
 static int cipherSymc_init(CipherSymc_S *pHandle)
 {
@@ -34,7 +46,6 @@ static int cipherSymc_init(CipherSymc_S *pHandle)
  * @author      : zhouzirui
  * @param        {CipherSymc_S} *pHandle：句柄
  * @return       {*}成功返回0,失败返回-1
- * @note        : 
  */
 static int cipherSymc_uninit(CipherSymc_S *pHandle)
 {
@@ -62,8 +73,19 @@ static int cipherSymc_uninit(CipherSymc_S *pHandle)
  * @return       {*}成功返回0,失败返回-1
  * @note        : src_buf和dst_buf 仅支持 phys_addr 内存类型
  */
-static int cipherSymc_encryption(CipherSymc_S *pHandle, crypto_symc_attr stSymcAttr, td_handle keyslotHandle, crypto_symc_ctrl_t stSymcCtrl, crypto_buf_attr *pSrcBuf, crypto_buf_attr *pDstBuf, td_u32 u32Length, MpiBuf_S *pDstTagBuf)
+static int cipherSymc_encryption(CipherSymc_S *pHandle,
+                                 crypto_symc_attr stSymcAttr,
+                                 td_handle keyslotHandle,
+                                 crypto_symc_ctrl_t stSymcCtrl,
+                                 crypto_buf_attr *pSrcBuf,
+                                 crypto_buf_attr *pDstBuf,
+                                 td_u32 u32Length,
+                                 MpiBuf_S *pDstTagBuf)
 {
+    td_s32 ret = TD_SUCCESS;
+    td_handle symcHandle = 0;
+    td_bool bCreated = TD_FALSE;
+
     if (NULL == pHandle || NULL == pSrcBuf || NULL == pDstBuf)
     {
         return TD_FAILURE;
@@ -72,30 +94,27 @@ static int cipherSymc_encryption(CipherSymc_S *pHandle, crypto_symc_attr stSymcA
         if (NULL == pDstTagBuf)
             return TD_FAILURE;
 
-    td_handle symcHandle;
-    // crypto_symc_attr stSymcAttr;
-    /*SYMC 模块创建通道*/
-    CHECK_API_RETURN(ot_mpi_cipher_symc_create(&symcHandle, &stSymcAttr));
-    /*SYMC 模块绑定 KEYSLOT 句柄*/
-    CHECK_API_RETURN(ot_mpi_cipher_symc_attach(symcHandle, keyslotHandle));
-    // crypto_symc_ctrl_t stSymcCtrl;
+    CIPHER_CHECK_GOTO(ot_mpi_cipher_symc_create(&symcHandle, &stSymcAttr), cleanup);
+    bCreated = TD_TRUE;
+    CIPHER_CHECK_GOTO(ot_mpi_cipher_symc_attach(symcHandle, keyslotHandle), cleanup);
+    CIPHER_CHECK_GOTO(ot_mpi_cipher_symc_set_config(symcHandle, &stSymcCtrl), cleanup);
+    CIPHER_CHECK_GOTO(ot_mpi_cipher_symc_encrypt(symcHandle, pSrcBuf, pDstBuf, u32Length), cleanup);
 
-    /*SYMC 模块设置算法参数*/
-    CHECK_API_RETURN(ot_mpi_cipher_symc_set_config(symcHandle, &stSymcCtrl));
-    /*SYMC 模块加密*/
-    CHECK_API_RETURN(ot_mpi_cipher_symc_encrypt(symcHandle, pSrcBuf, pDstBuf, u32Length));
-
-    /*工作模式为GCM、CCM时，需要获取tag值*/
     if (stSymcAttr.work_mode == CRYPTO_SYMC_WORK_MODE_GCM || stSymcAttr.work_mode == CRYPTO_SYMC_WORK_MODE_CCM)
     {
-        /*SYMC 模块获取 Tag 值*/
-        CHECK_API_RETURN(ot_mpi_cipher_symc_get_tag(symcHandle, pDstTagBuf->pData, pDstTagBuf->u32Len));
+        CIPHER_CHECK_GOTO(ot_mpi_cipher_symc_get_tag(symcHandle, pDstTagBuf->pData, pDstTagBuf->u32Len), cleanup);
     }
 
-    /*SYMC 模块销毁通道*/
-    CHECK_API_RETURN(ot_mpi_cipher_symc_destroy(symcHandle));
-
-    return TD_SUCCESS;
+cleanup:
+    if (bCreated == TD_TRUE)
+    {
+        td_s32 destroy_ret = ot_mpi_cipher_symc_destroy(symcHandle);
+        if (ret == TD_SUCCESS && destroy_ret != TD_SUCCESS)
+        {
+            ret = destroy_ret;
+        }
+    }
+    return ret;
 }
 
 /**
@@ -112,8 +131,19 @@ static int cipherSymc_encryption(CipherSymc_S *pHandle, crypto_symc_attr stSymcA
  * @return       {*}成功返回0,失败返回-1
  * @note        : src_buf和dst_buf 仅支持 phys_addr 内存类型
  */
-static int cipherSymc_decryption(CipherSymc_S *pHandle, crypto_symc_attr stSymcAttr, td_handle keyslotHandle, crypto_symc_ctrl_t stSymcCtrl, crypto_buf_attr *pSrcBuf, crypto_buf_attr *pDstBuf, td_u32 u32Length, MpiBuf_S *pDstTagBuf)
+static int cipherSymc_decryption(CipherSymc_S *pHandle,
+                                 crypto_symc_attr stSymcAttr,
+                                 td_handle keyslotHandle,
+                                 crypto_symc_ctrl_t stSymcCtrl,
+                                 crypto_buf_attr *pSrcBuf,
+                                 crypto_buf_attr *pDstBuf,
+                                 td_u32 u32Length,
+                                 MpiBuf_S *pDstTagBuf)
 {
+    td_s32 ret = TD_SUCCESS;
+    td_handle symcHandle = 0;
+    td_bool bCreated = TD_FALSE;
+
     if (NULL == pHandle || NULL == pSrcBuf || NULL == pDstBuf)
     {
         return TD_FAILURE;
@@ -122,27 +152,27 @@ static int cipherSymc_decryption(CipherSymc_S *pHandle, crypto_symc_attr stSymcA
         if (NULL == pDstTagBuf)
             return TD_FAILURE;
 
-    td_handle symcHandle;
-    // crypto_symc_attr stSymcAttr;
-    /*SYMC 模块创建通道*/
-    CHECK_API_RETURN(ot_mpi_cipher_symc_create(&symcHandle, &stSymcAttr));
-    /*SYMC 模块绑定 KEYSLOT 句柄*/
-    CHECK_API_RETURN(ot_mpi_cipher_symc_attach(symcHandle, keyslotHandle));
-    // crypto_symc_ctrl_t stSymcCtrl;
-    /*SYMC 模块设置算法参数*/
-    CHECK_API_RETURN(ot_mpi_cipher_symc_set_config(symcHandle, &stSymcCtrl));
-    /*SYMC 模块加密*/
-    CHECK_API_RETURN(ot_mpi_cipher_symc_decrypt(symcHandle, pSrcBuf, pDstBuf, u32Length));
-    /*工作模式为GCM、CCM时，需要获取tag值*/
+    CIPHER_CHECK_GOTO(ot_mpi_cipher_symc_create(&symcHandle, &stSymcAttr), cleanup);
+    bCreated = TD_TRUE;
+    CIPHER_CHECK_GOTO(ot_mpi_cipher_symc_attach(symcHandle, keyslotHandle), cleanup);
+    CIPHER_CHECK_GOTO(ot_mpi_cipher_symc_set_config(symcHandle, &stSymcCtrl), cleanup);
+    CIPHER_CHECK_GOTO(ot_mpi_cipher_symc_decrypt(symcHandle, pSrcBuf, pDstBuf, u32Length), cleanup);
+
     if (stSymcAttr.work_mode == CRYPTO_SYMC_WORK_MODE_GCM || stSymcAttr.work_mode == CRYPTO_SYMC_WORK_MODE_CCM)
     {
-        /*SYMC 模块获取 Tag 值*/
-        CHECK_API_RETURN(ot_mpi_cipher_symc_get_tag(symcHandle, pDstTagBuf->pData, pDstTagBuf->u32Len));
+        CIPHER_CHECK_GOTO(ot_mpi_cipher_symc_get_tag(symcHandle, pDstTagBuf->pData, pDstTagBuf->u32Len), cleanup);
     }
-    /*SYMC 模块销毁通道*/
-    CHECK_API_RETURN(ot_mpi_cipher_symc_destroy(symcHandle));
 
-    return TD_SUCCESS;
+cleanup:
+    if (bCreated == TD_TRUE)
+    {
+        td_s32 destroy_ret = ot_mpi_cipher_symc_destroy(symcHandle);
+        if (ret == TD_SUCCESS && destroy_ret != TD_SUCCESS)
+        {
+            ret = destroy_ret;
+        }
+    }
+    return ret;
 }
 
 /**
@@ -156,7 +186,11 @@ static int cipherSymc_decryption(CipherSymc_S *pHandle, crypto_symc_attr stSymcA
  * @return       {*}成功返回0,失败返回-1
  * @note        : length 要求为16字节的整数倍
  */
-static int cipherSymc_mac(CipherSymc_S *pHandle, crypto_symc_mac_attr stMacAttr, crypto_buf_attr *pSrcBuf, td_u32 u32Length, MpiBuf_S *pDstBuf)
+static int cipherSymc_mac(CipherSymc_S *pHandle,
+                          crypto_symc_mac_attr stMacAttr,
+                          crypto_buf_attr *pSrcBuf,
+                          td_u32 u32Length,
+                          MpiBuf_S *pDstBuf)
 {
     if (NULL == pHandle || NULL == pSrcBuf || NULL == pDstBuf || u32Length == 0 || u32Length > 0xFFFF0000)
     {
@@ -177,20 +211,20 @@ static int cipherSymc_mac(CipherSymc_S *pHandle, crypto_symc_mac_attr stMacAttr,
 
 CipherSymc_S *cipherSymc_alloc(CipherSymcNeedParam_S stNeedParam)
 {
-    CipherSymc_S *pHandle = (CipherSymc_S *)malloc(sizeof(CipherSymc_S));
+    CipherSymc_S *pHandle = (CipherSymc_S *) malloc(sizeof(CipherSymc_S));
     memset(pHandle, 0, sizeof(CipherSymc_S));
 
-    //info /**********************必需参数***************************/
-    // pHandle->stNeedParam.enHashType     = stNeedParam.enHashType;
-    
-    //info /**********************功能参数***************************/
+    // info /**********************必需参数***************************/
+    //  pHandle->stNeedParam.enHashType     = stNeedParam.enHashType;
 
-    //info /**********************函数列表***************************/
-    pHandle->cipherSymc_init                = cipherSymc_init;
-    pHandle->cipherSymc_uninit              = cipherSymc_uninit;
-    pHandle->cipherSymc_encryption          = cipherSymc_encryption;
-    pHandle->cipherSymc_decryption          = cipherSymc_decryption;
-    pHandle->cipherSymc_mac                 = cipherSymc_mac;
+    // info /**********************功能参数***************************/
+
+    // info /**********************函数列表***************************/
+    pHandle->cipherSymc_init = cipherSymc_init;
+    pHandle->cipherSymc_uninit = cipherSymc_uninit;
+    pHandle->cipherSymc_encryption = cipherSymc_encryption;
+    pHandle->cipherSymc_decryption = cipherSymc_decryption;
+    pHandle->cipherSymc_mac = cipherSymc_mac;
 
     return pHandle;
 }
@@ -203,4 +237,3 @@ void cipherSymc_release(CipherSymc_S *pHandle)
         pHandle = NULL;
     }
 }
-

@@ -3,7 +3,9 @@ set(MODULE_NAME "VehiclePlateDetect_Module")
 # 必须在前面
 add_library(${MODULE_NAME} INTERFACE)
 
-include(${CMAKE_CURRENT_LIST_DIR}/../../Inference/RK/Classification/LicensePlateRec/LicensePlateRec.cmake)
+if("${AIMODULES}" STREQUAL "RK35XX")
+    include(${CMAKE_CURRENT_LIST_DIR}/../../Inference/RK/Classification/LicensePlateRec/LicensePlateRec.cmake)
+endif()
 
 # 清除变量
 unset(MODULE_SOURCES)
@@ -43,7 +45,7 @@ else()
     set(MODULE_DEPS ByteTrack_CPU)
 endif()
 
-#target_link_libraries(${MODULE_NAME} INTERFACE ${MODULE_DEPS})
+# target_link_libraries(${MODULE_NAME} INTERFACE ${MODULE_DEPS})
 
 target_link_libraries(${MODULE_NAME} INTERFACE 
     LicensePlateRec

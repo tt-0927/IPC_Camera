@@ -3,7 +3,7 @@
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2025-10-13 10:52:02
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2025-11-19 11:10:29
+ * @LastEditTime : 2026-07-01 09:24:20
  * @Description  : 升级包升级进程
  */
 
@@ -17,6 +17,7 @@
 #include "upgrade_communicate.h"
 #include "data_manage.h"
 #include "dlog.h"
+#include "timezone_runtime.h"
 
 /* 日志记录单个日志文件的最大大小 */
 #define MAX_LOG_SIZE  (1 * 512 * 1024) // 512KB
@@ -65,6 +66,9 @@ int main(int argc, char *argv[])
     setLogLevel(LOG_TRACE);
 
     dlog_trace("启动升级程序");
+
+    /* 初始化进程时区运行时，收到 SIGHUP 后重新加载时区配置 */
+    TimezoneRuntime_NS::init_timezone_runtime("upgrade");
 
     /* 初始化升级程序 */
     dataManage_init();

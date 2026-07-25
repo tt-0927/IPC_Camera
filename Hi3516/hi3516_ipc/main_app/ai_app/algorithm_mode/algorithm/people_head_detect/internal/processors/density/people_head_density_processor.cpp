@@ -3,13 +3,13 @@
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2026-04-28 09:13:21
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-04-29 15:15:57
+ * @LastEditTime : 2026-06-02 16:07:19
  * @Description  : 人头检测-人员密度处理器实现
  */
 
 #include "people_head_density_processor.hpp"
 
-#if CAP_AI_PEOPLE_STATISTICS
+#if CAP_AI_PEOPLE_DENSITY_LEGACY
 #include <algorithm>
 #include <cstdio>
 #include <fstream>
@@ -66,8 +66,15 @@ void CPeopleHeadDensityProcessor::process(SPeopleHeadProcessContext &stContext)
 
     /* 当前区域内目标快照，用于后续业务侧上报 */
     std::vector<EventStatistics_NS::TargetSnapshot_S> vecTargets;
+    /* 当前灵敏度阈值 */
+    const float fSensitivityThreshold = 1.0f - static_cast<float>(m_stAlgoCfg.nSensitivity) / 100.0f;
     for (const auto &stBoxData : stContext.vBoxDatas)
     {
+        if (stBoxData.fConfidence < fSensitivityThreshold)
+        {
+            continue;
+        }
+
         if (!is_in_region(m_stAlgoCfg.stDetectRegion, stBoxData.stBoxs))
         {
             continue;
