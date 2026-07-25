@@ -1,0 +1,68 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>NET_TV_LICENSE_PLATE_CAP_S</title>
+  <style>
+    body { font-family: "Microsoft YaHei", "微软雅黑", Arial, sans-serif; font-size: 10pt; color: #000; }
+    h1 { font-family: "Microsoft YaHei", "微软雅黑", Arial, sans-serif; font-size: 10pt; font-weight: bold; margin: 0 0 8px; }
+    h2 { font-family: "Microsoft YaHei", "微软雅黑", Arial, sans-serif; font-size: 10pt; font-weight: bold; margin: 18px 0 6px; }
+    p { margin: 0 0 6px; }
+    table { border-collapse: collapse; margin-top: 10px; width: 1000px; table-layout: fixed; }
+    th, td { border: 1px solid #000; padding: 5px 8px; height: 30px; min-height: 30px; vertical-align: middle; font-family: "Microsoft YaHei", "微软雅黑", Arial, sans-serif; font-size: 10pt; }
+    th { background: #d9eaf7; font-weight: bold; }
+    .code-block { background-color: #e6e6e6; border: 0; padding: 8px 10px; margin: 12px 0 14px; font-family: "Microsoft YaHei", "微软雅黑", Arial, sans-serif; font-size: 10pt; line-height: 1.45; }
+    .code-line { margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: "Microsoft YaHei", "微软雅黑", Arial, sans-serif; font-size: 10pt; line-height: 1.45; }
+    .code-line a { font-family: "Microsoft YaHei", "微软雅黑", Arial, sans-serif; font-size: 10pt; }
+    .param-name { margin-left: 0; }
+    .param-desc { margin-left: 24px; }
+  </style>
+</head>
+<body>
+  <h1>NET_TV_LICENSE_PLATE_CAP_S</h1>
+  <p>车牌识别能力 License plate recognition capability</p>
+  <div class="code-block" style="background-color: #e6e6e6; border: 0; padding: 8px 10px; margin: 12px 0 14px; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">/**</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;"> * @struct tagNETTVLicensePlateCap</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;"> * @brief 车牌识别能力  License plate recognition capability</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;"> * @attention</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;"> */</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">typedef struct tagNETTVLicensePlateCap</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">{</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">    BOOL    bSupport;                           /* 是否支持车牌识别  Support license plate recognition */</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">    BOOL    bSupportRegion;                     /* 是否支持区域设置  Support region setting */</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">    UINT32  udwMaxRegions;                      /* 最大区域数  Max regions */</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">    UINT32  udwMaxPointsPerRegion;              /* 每个区域最大顶点数  Max points per region */</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">    BOOL    bSupportMultiPlate;                 /* 是否支持多车牌识别  Support multi-plate recognition */</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">    UINT32  udwMaxPlatesPerFrame;               /* 单帧最大车牌数  Max plates per frame */</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">    <a href="NET_TV_RANGE_S.html">NET_TV_RANGE_S</a> stConfidence;                /* 置信度范围  Confidence range */</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">    BOOL    bSupportPlateColor;                 /* 是否支持车牌颜色识别  Support plate color recognition */</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">    BOOL    bSupportPlateType;                  /* 是否支持车牌类型识别  Support plate type recognition */</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">    BYTE    byRes[64];                          /* 保留字段  Reserved */</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">} <a href="NET_TV_LICENSE_PLATE_CAP_S.html">NET_TV_LICENSE_PLATE_CAP_S</a>, *LP<a href="NET_TV_LICENSE_PLATE_CAP_S.html">NET_TV_LICENSE_PLATE_CAP_S</a>;</div>
+  </div>
+  <h2>Parameters</h2>
+  <p class="param-name">[in] bSupport</p>
+  <p class="param-desc">是否支持车牌识别 Support license plate recognition</p>
+  <p class="param-name">[in] bSupportRegion</p>
+  <p class="param-desc">是否支持区域设置 Support region setting</p>
+  <p class="param-name">[in] udwMaxRegions</p>
+  <p class="param-desc">最大区域数 Max regions</p>
+  <p class="param-name">[in] udwMaxPointsPerRegion</p>
+  <p class="param-desc">每个区域最大顶点数 Max points per region</p>
+  <p class="param-name">[in] bSupportMultiPlate</p>
+  <p class="param-desc">是否支持多车牌识别 Support multi-plate recognition</p>
+  <p class="param-name">[in] udwMaxPlatesPerFrame</p>
+  <p class="param-desc">单帧最大车牌数 Max plates per frame</p>
+  <p class="param-name">[in] stConfidence</p>
+  <p class="param-desc">置信度范围 Confidence range</p>
+  <p class="param-name">[in] bSupportPlateColor</p>
+  <p class="param-desc">是否支持车牌颜色识别 Support plate color recognition</p>
+  <p class="param-name">[in] bSupportPlateType</p>
+  <p class="param-desc">是否支持车牌类型识别 Support plate type recognition</p>
+  <p class="param-name">[in] byRes</p>
+  <p class="param-desc">保留字段 Reserved</p>
+  <h2>See Also</h2>
+  <p><a href="NET_TV_RANGE_S.html">NET_TV_RANGE_S</a></p>
+</body>
+</html>

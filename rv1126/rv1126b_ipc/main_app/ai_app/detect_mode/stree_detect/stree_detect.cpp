@@ -1,0 +1,269 @@
+/**
+ * @file stree_detect.cpp
+ * @author tianl (tianl@kfb.cn)
+ * @date 2025-11-13
+ * 
+ * @brief 街道检测相关
+ */
+
+#include "stree_detect.hpp"
+#include "algo_stream_deal.h"
+#include "StatisticsTimer.hpp"
+#include "SaveImage.hpp"
+
+/* 数据队列 */
+#define QUEUE_MAX (2)
+
+CStreeDetect::CStreeDetect()
+    : m_dateQueue(QUEUE_MAX)
+{
+    m_bRunning.store(true);
+    m_thread = std::thread(&CStreeDetect::run, this);
+}
+
+CStreeDetect::~CStreeDetect()
+{
+    /* 通知线程停止 */
+    m_bRunning.store(false);
+    m_condition.notify_all();
+    MediaData_S stMediaData;
+    m_dateQueue.pushOrReplace(stMediaData);
+    if (m_thread.joinable())
+    {
+        m_thread.join();
+    }
+    unInit();
+}
+
+/* 接受媒体数据 */
+void CStreeDetect::recvMediaData(MediaData_S stMediaData)
+{
+    if (!m_stAlgoRoadPondingCfg.bEnable && !m_stAlgoManholeCoverAbnormalCfg.bEnable)
+    {
+        dlog_debug("ai_app: 街道检测-开关未启用");
+        return;
+    }
+	 
+    if (m_RecvManager.handleEvent(stMediaData.stMediaParam.nChannel))
+    {
+        if (m_dateQueue.size() >= QUEUE_MAX)
+        {
+            dlog_error("街道检测-数据队列满了 [%d]" ,m_dateQueue.size());
+        }
+        m_dateQueue.pushOrReplace(stMediaData);
+    }
+}
+
+int CStreeDetect::sensitivityToFrames(int sensitivity, int minFrames, int maxFrames) 
+{
+    if (sensitivity <= 0) return maxFrames;
+    if (sensitivity >= 100) return minFrames;
+    
+    // 线性映射
+    double ratio = (100.0 - sensitivity) / 100.0;
+    int frames = minFrames + static_cast<int>(ratio * (maxFrames - minFrames));
+    
+    return frames;
+}
+
+
+bool CStreeDetect::init()
+{
+    if (!m_pHandle)
+    {
+        StreeDetect_NS::InParam_S stInParam;
+        stInParam.strModelPath = "/opt/cam/model/StreeDetect.json";
+        stInParam.bDebug = false;
+
+        m_pHandle = new StreeDetect_NS::CStreeDetectV1_0(stInParam);
+        if (m_pHandle)
+        {
+            if (m_pHandle->init())
+            {
+                dlog_debug("ai_app: 街道检测算法初始化成功, %s", stInParam.strModelPath.c_str());
+              
+                return true;
+            }
+            else
+            {
+                delete m_pHandle;
+                m_pHandle = nullptr;
+                dlog_debug("街道检测算法初始化失败");
+            }
+        }
+    }
+    return false;
+}
+
+bool CStreeDetect::unInit()
+{
+    if (m_pHandle)
+    {
+        delete m_pHandle;
+        m_pHandle = nullptr;
+    }
+    
+    return true;
+}
+
+/* 事件转换函数 */
+int CStreeDetect::convertMaskToType( int eventFlags)
+{
+    
+    { if (eventFlags & 0x02) return 47; /* Event::Type::ROAD_PONDING */ }
+    { if (eventFlags & 0x04) return 36; /* Event::Type::MANHOLE_COVER_ABNORMAL */ }
+
+    return -1;
+}
+
+/**
+ * @brief 更新算法配置参数
+ * @param stAlgoConfig 
+ */
+void CStreeDetect::setAlgoEnCfg(const Event::AlgorithmConfig &stAlgoConfig)
+{
+    m_stAlgoRoadPondingCfg.bEnable = stAlgoConfig.nEnRoadPonding;
+    m_stAlgoManholeCoverAbnormalCfg.bEnable = stAlgoConfig.nEnManholeCoverAbnormal;
+	
+	if(m_stAlgoRoadPondingCfg.bEnable)
+	{
+		Alarm::RoadPondingDetection_S stInfo;
+        CEventConfigure::instance()->get_configure(stInfo);
+        setAlgoParamCfg(stInfo);
+	}
+	if(m_stAlgoManholeCoverAbnormalCfg.bEnable)
+	{
+		Alarm::ManholeCoverAbnormalDetection_S stInfo;
+        CEventConfigure::instance()->get_configure(stInfo);
+        setAlgoParamCfg(stInfo);
+	}
+  
+}
+
+void CStreeDetect::setAlgoParamCfg(const Alarm::RoadPondingDetection_S &stAlgoCfg,Event::Type_E enType)
+{
+    dlog_debug("ai_app: 设置道路积水检测参数");
+    m_stAlgoRoadPondingCfg = stAlgoCfg;
+}
+
+void CStreeDetect::setAlgoParamCfg(const Alarm::ManholeCoverAbnormalDetection_S &stAlgoCfg,Event::Type_E enType)
+{
+    dlog_debug("ai_app: 设置 井盖异常检测参数");
+    m_stAlgoManholeCoverAbnormalCfg = stAlgoCfg;
+}
+
+
+void CStreeDetect::run()
+{
+    MediaData_S      stMediaData;   
+    std::vector<StreeDetect_NS::Result_S> vecResult;
+
+    while (m_bRunning.load())
+    {
+        if (!m_pHandle)
+        {
+            if (!init())
+            {
+                dlog_error("等待街道检测初始化");
+                /* 延迟等待 1s */
+                std::unique_lock<std::mutex> lock(m_mutex);
+                m_condition.wait_for(lock, std::chrono::seconds(1), [this] {
+                    return !m_bRunning.load();
+                });
+            }
+            continue;
+        }
+
+        /* 阻塞获取 */
+        m_dateQueue.pop(stMediaData, -1);
+        if (stMediaData.nSize == 0)
+        {
+            /* 数据为空 */
+            continue;
+        }
+      
+        CStatisticsTimer runTime("街道检测完整耗时");
+
+        /* 送分析 */
+        if (1)
+        {
+            frameRate("街道检测-分析数据", 5);
+
+            StreeDetect_NS::InData_S stInData {};
+            StreeDetect_NS::OutData_S stOutData;
+            
+             cv::Mat i420Mat(
+                stMediaData.stMediaParam.nVideoHeight * 3/2,
+                stMediaData.stMediaParam.nVideoWidth,
+                CV_8UC1,
+                stMediaData.pData.get()
+            );
+
+            stOutData.nType = 0;
+            stOutData.validResult = false;
+            /* rgb格式转换 */
+            cv::Mat rgbMat;
+            cv::cvtColor(i420Mat, rgbMat, cv::COLOR_YUV2RGB_NV12);
+
+            /* 分辨率大小转换 */
+            cv::resize(
+                rgbMat,          
+                stInData.inMat,              
+                cv::Size(m_nWidth, m_nHeight),  
+                0, 0,                    
+                cv::INTER_LINEAR 
+            );
+
+			// cv::rotate(stInData.inMat, stInData.inMat, cv::ROTATE_180);
+
+            if (!stInData.inMat.empty())
+            {
+                if (access("/stree_debugImage", F_OK) == 0)
+                {
+                    dlog_debug("============>debugImage");
+                    cv::imwrite("/opt/algo/Image/test_algo.jpg", stInData.inMat);
+                }
+
+				if(m_stAlgoRoadPondingCfg.bEnable)
+				{
+					stInData.stParam.stRoadPondingParam.bEnable = true;
+					stInData.stParam.stRoadPondingParam.nDetectFrame = sensitivityToFrames(m_stAlgoRoadPondingCfg.stRule.nSensitivity);
+				}
+
+				if(m_stAlgoManholeCoverAbnormalCfg.bEnable)
+				{
+					stInData.stParam.stManholeCoverAbnormalParam.bEnable = true;
+					stInData.stParam.stManholeCoverAbnormalParam.nDetectFrame = sensitivityToFrames(m_stAlgoManholeCoverAbnormalCfg.stRule.nSensitivity);
+				}
+                
+                /* 分析数据 */
+                {
+                    CStatisticsTimer runTime("街道检测算法耗时");
+                    m_pHandle->process(stInData, vecResult, &stOutData);
+
+                    if (stOutData.validResult)
+                    {
+                        for (const auto& result : vecResult)
+                        {
+                            int nType = convertMaskToType(stOutData.nType);
+                            if (nType != -1 )
+                            {
+                                /* 上报事件 */
+                                dlog_debug("ai_app: 街道检测报警触发 类型[%d]",nType);
+                                CEventLinkage::instance()->handleEvent(static_cast<Event::Type_E>(nType), false);
+                            }
+                        }
+                    }
+                }
+            }
+            else
+            {
+                dlog_error("ai_app: 图片数据为空");
+            }
+        }
+        else
+        {
+            dlog_error("ai_app: 街道检测-获取虚拟地址失败");
+        }
+    }
+}

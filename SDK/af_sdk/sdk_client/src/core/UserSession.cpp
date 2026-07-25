@@ -14,6 +14,20 @@
 #include "ErrorManage.h"
 #include <algorithm>
 
+/**
+ * @brief 构造函数
+ * @param [IN] userHand 用户登录句柄
+ * @param [IN] host 设备IP地址
+ * @param [IN] port 设备端口号
+ * @param [IN] user 用户名
+ * @param [IN] pass 密码
+ * @param [IN] hbInterval 心跳间隔（秒）
+ * @param [IN] maxRetry 最大重试次数
+ * @param [IN] connectTimeout 连接超时（秒）
+ * @param [IN] receiveTimeout 接收超时（秒）
+ * @param [IN] callback 会话丢失回调函数
+ * @details 创建命令客户端和SSE客户端，配置认证和超时参数，初始化报警管理器并设置session过期回调
+ */
 CUserSession::CUserSession(LPUSER_HANDLE userHand, const std::string& host, int port, 
                            const std::string& user, const std::string& pass,
                            int hbInterval, int maxRetry,
@@ -55,11 +69,20 @@ CUserSession::CUserSession(LPUSER_HANDLE userHand, const std::string& host, int 
     });
 }
 
+/**
+ * @brief 析构函数
+ * @details 调用Stop()停止会话，释放所有资源
+ */
 CUserSession::~CUserSession() 
 {
     Stop();
 }
 
+/**
+ * @brief 连接并登录设备
+ * @return 成功返回true，失败返回false
+ * @details 发送登录请求，解析响应获取sessionId，设置在线状态
+ */
 bool CUserSession::ConnectAndLogin() 
 {
     NSDK_LOG_INFO("[DIAG-SESSION] User-%p Attempting login to %s:%d", userHand_, host_.c_str(), port_);
@@ -106,6 +129,10 @@ bool CUserSession::ConnectAndLogin()
     return false;
 }
 
+/**
+ * @brief 启动心跳线程
+ * @details 设置运行标志为true，启动心跳循环线程，定时发送心跳包检测连接状态
+ */
 void CUserSession::StartHeartbeat() 
 {
     if (isRunning_) {
@@ -120,6 +147,10 @@ void CUserSession::StartHeartbeat()
 	heartbeatThread_ = std::thread(&CUserSession::HeartbeatLoop, this);
 }
 
+/**
+ * @brief 停止会话
+ * @details 停止所有线程（心跳、SSE、重连），关闭客户端连接，停止报警管理器，设置离线状态
+ */
 void CUserSession::Stop() 
 {
     bool expected = true;
@@ -181,6 +212,10 @@ void CUserSession::Stop()
     NSDK_LOG_INFO("[DIAG-SESSION] User-%p Stopped, all threads joined", userHand_);
 }
 
+/**
+ * @brief SSE长连接循环（备用心跳方式）
+ * @details 通过SSE长连接实现心跳检测，连接断开后尝试重连，达到最大重试次数后启动ReconnectLoop
+ */
 void CUserSession::SseLoop() 
 {
     int retryCount = 0;
@@ -255,6 +290,10 @@ void CUserSession::SseLoop()
     }
 }
 
+/**
+ * @brief 心跳循环线程
+ * @details 定时发送心跳包检测连接状态，累计失败次数达到阈值后启动ReconnectLoop进行完整重连
+ */
 void CUserSession::HeartbeatLoop()
 {
     NSDK_LOG_INFO("[DIAG-SESSION] User-%p HeartbeatLoop STARTED, session=%s, interval=%ds, maxRetry=%d", 
@@ -326,10 +365,19 @@ void CUserSession::HeartbeatLoop()
     }
 }
 
+/**
+ * @brief 重连循环线程
+ * @details 完整的重连流程：停止心跳和报警监听，使用指数退避策略重新登录，
+ *          登录成功后恢复心跳和报警监听，更新sessionId
+ */
 void CUserSession::ReconnectLoop()
 {
     NSDK_LOG_INFO("[DIAG-SESSION] User-%p ReconnectLoop STARTED, host=%s:%d, oldSession=%s", 
                   userHand_, host_.c_str(), port_, sessionId_.c_str());
+                  
+    // 完整重连会创建新的 server session。保存旧 ID，用新建的 HTTP 客户端尽力注销，
+    // 避免服务端持续保留同一 NVR 的历史 AlarmListen session。
+    const std::string oldSessionId = sessionId_;
     
     // 通知心跳线程退出：设 isRunning_=false 让 HeartbeatLoop 跳出 while 循环，
     // 否则 join() 会永远阻塞等待心跳线程结束
@@ -379,6 +427,29 @@ void CUserSession::ReconnectLoop()
             cmdClient_->set_connection_timeout(5);  // 重连时使用固定超时
             cmdClient_->set_read_timeout(30);
             cmdClient_->set_keep_alive(true);
+        }
+
+        if (!oldSessionId.empty())
+        {
+            const std::string logoutUrl = std::string(TVAPI_PATH_BASIC_LOGOUT) +
+                                          "?session_id=" + oldSessionId;
+            auto logoutRes = cmdClient_->Post(logoutUrl.c_str());
+            const bool logoutOk = logoutRes &&
+                                  logoutRes->status == HTTP_RESP_CODE_SUCCESS &&
+                                  SDKConvert::get_respCode(logoutRes->body) == NET_TV_E_SUCCEED;
+
+            if (logoutOk)
+            {
+                NSDK_LOG_INFO("[DIAG-SESSION] User-%p Reconnect: old session logged out, session=%s",
+                              userHand_, oldSessionId.c_str());
+            }
+            else
+            {
+                NSDK_LOG_WARN("[DIAG-SESSION] User-%p Reconnect: old session logout unavailable, session=%s, http=%d. "
+                              "Continuing with login.",
+                              userHand_, oldSessionId.c_str(),
+                              logoutRes ? logoutRes->status : -1);
+            }
         }
         
         if (ConnectAndLogin()) 
@@ -454,6 +525,14 @@ void CUserSession::ReconnectLoop()
 }
 
 
+/**
+ * @brief 发送请求到设备
+ * @param [IN] req 请求参数，包含方法、URL、body和查询参数
+ * @param [OUT] outRespBody 响应体输出
+ * @return 成功返回true，失败返回false
+ * @details 实现透明重连：重连时等待完成再发送；收到401时触发重连并重试一次；
+ *          支持GET/POST/PUT方法，支持JSON和二进制数据
+ */
 bool CUserSession::SendRequest(const CommandRequest& req, std::string& outRespBody) 
 {
         // 如果正在重连，等待重连完成（最多等 30 秒），实现海康式的透明重连
@@ -584,6 +663,11 @@ bool CUserSession::SendRequest(const CommandRequest& req, std::string& outRespBo
         return false;
     }
 
+/**
+ * @brief 设置报警回调函数
+ * @param [IN] cb 报警回调函数指针
+ * @param [IN] userData 用户数据
+ */
 void CUserSession::SetAlarmCallback(NET_TV_AlarmCallBack cb, void* userData)
 {
     if (m_alarmMgr) 
@@ -592,6 +676,11 @@ void CUserSession::SetAlarmCallback(NET_TV_AlarmCallBack cb, void* userData)
     }
 }
 
+/**
+ * @brief 设置通道状态回调函数
+ * @param [IN] cb 通道状态回调函数指针
+ * @param [IN] userData 用户数据
+ */
 void CUserSession::SetChannelStatusCallback(NET_TV_ChannelStatusCallBack cb, void* userData)
 {
     if (m_alarmMgr)
@@ -600,6 +689,10 @@ void CUserSession::SetChannelStatusCallback(NET_TV_ChannelStatusCallBack cb, voi
     }
 }
 
+/**
+ * @brief 开始监听报警消息
+ * @return 成功返回true，失败返回false
+ */
 bool CUserSession::StartAlarmListen()
 {
     if (!m_alarmMgr)
@@ -609,6 +702,11 @@ bool CUserSession::StartAlarmListen()
     
     return m_alarmMgr->StartListen(userHand_, sessionId_);
 }
+
+/**
+ * @brief 停止监听报警消息
+ * @return 成功返回true，失败返回false
+ */
 bool CUserSession::StopAlarmListen()
 {
     if (m_alarmMgr) 

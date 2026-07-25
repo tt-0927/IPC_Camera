@@ -1,0 +1,89 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>NET_TV_ALARM_FACE_COMPARE_INFO_S</title>
+  <style>
+    body { font-family: "Microsoft YaHei", "微软雅黑", Arial, sans-serif; font-size: 10pt; color: #000; }
+    h1 { font-family: "Microsoft YaHei", "微软雅黑", Arial, sans-serif; font-size: 10pt; font-weight: bold; margin: 0 0 8px; }
+    h2 { font-family: "Microsoft YaHei", "微软雅黑", Arial, sans-serif; font-size: 10pt; font-weight: bold; margin: 18px 0 6px; }
+    p { margin: 0 0 6px; }
+    table { border-collapse: collapse; margin-top: 10px; width: 1000px; table-layout: fixed; }
+    th, td { border: 1px solid #000; padding: 5px 8px; height: 30px; min-height: 30px; vertical-align: middle; font-family: "Microsoft YaHei", "微软雅黑", Arial, sans-serif; font-size: 10pt; }
+    th { background: #d9eaf7; font-weight: bold; }
+    .code-block { background-color: #e6e6e6; border: 0; padding: 8px 10px; margin: 12px 0 14px; font-family: "Microsoft YaHei", "微软雅黑", Arial, sans-serif; font-size: 10pt; line-height: 1.45; }
+    .code-line { margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: "Microsoft YaHei", "微软雅黑", Arial, sans-serif; font-size: 10pt; line-height: 1.45; }
+    .code-line a { font-family: "Microsoft YaHei", "微软雅黑", Arial, sans-serif; font-size: 10pt; }
+    .param-name { margin-left: 0; }
+    .param-desc { margin-left: 24px; }
+  </style>
+</head>
+<body>
+  <h1>NET_TV_ALARM_FACE_COMPARE_INFO_S</h1>
+  <p>人脸比对结果告警</p>
+  <div class="code-block" style="background-color: #e6e6e6; border: 0; padding: 8px 10px; margin: 12px 0 14px; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">/**</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;"> * @struct tagNETTVAlarmFaceCompareInfo</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;"> * @brief 人脸比对结果告警</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;"> * @note 约定：dwAlarmType 填写 NET_TV_ALARM_FACE_COMPARE</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;"> */</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">typedef struct tagNETTVAlarmFaceCompareInfo</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">{</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">    UINT32      dwAlarmType;                         /* 报警类型/命令码 */</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">    UINT32      dwChannel;                           /* 通道号 */</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">    INT64       llTimestampMs;                       /* 报警时间戳，单位毫秒 */</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">    INT32       nEventId;                            /* 事件ID */</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">    INT32       nCompResult;                         /* 比对结果：0-不匹配 1-匹配 */</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">    INT32       nSimilarity;                         /* 相似度 0-100 */</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">    INT32       nFaceId;                             /* 人脸ID */</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">    CHAR        szFaceLibName[NET_TV_FACE_DB_NAME_LEN];      /* 目标库名称 */</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">    CHAR        szFaceName[NET_TV_FACE_MEMBER_NAME_LEN];     /* 人脸名称 */</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">    CHAR        szLibFacePath[NET_TV_LEN_260];       /* 目标库人脸图片路径 */</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">    CHAR        szCapFacePath[NET_TV_LEN_260];       /* 抓拍人脸图片路径 */</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">    CHAR        szCapImagePath[NET_TV_LEN_260];      /* 抓拍原图路径 */</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">    BYTE        byLibFaceImg[NET_TV_FACE_IMAGE_MAX_LEN];     /* 目标库人脸 JPEG 二进制图片 */</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">    UINT32      dwLibFaceImgLen;                     /* 目标库人脸 JPEG 图片长度 */</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">    BYTE        byCapFaceImg[NET_TV_FACE_IMAGE_MAX_LEN];     /* 抓拍人脸 JPEG 二进制图片 */</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">    UINT32      dwCapFaceImgLen;                     /* 抓拍人脸 JPEG 图片长度 */</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">    BYTE        byRes[256];                          /* 保留字段 */</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">}<a href="NET_TV_ALARM_FACE_COMPARE_INFO_S.html">NET_TV_ALARM_FACE_COMPARE_INFO_S</a>, *LP<a href="NET_TV_ALARM_FACE_COMPARE_INFO_S.html">NET_TV_ALARM_FACE_COMPARE_INFO_S</a>;</div>
+  </div>
+  <h2>Parameters</h2>
+  <p class="param-name">[in] dwAlarmType</p>
+  <p class="param-desc">报警类型/命令码</p>
+  <p class="param-name">[in] dwChannel</p>
+  <p class="param-desc">通道号</p>
+  <p class="param-name">[in] llTimestampMs</p>
+  <p class="param-desc">报警时间戳，单位毫秒</p>
+  <p class="param-name">[in] nEventId</p>
+  <p class="param-desc">事件ID</p>
+  <p class="param-name">[in] nCompResult</p>
+  <p class="param-desc">比对结果：0-不匹配 1-匹配</p>
+  <p class="param-name">[in] nSimilarity</p>
+  <p class="param-desc">相似度 0-100</p>
+  <p class="param-name">[in] nFaceId</p>
+  <p class="param-desc">人脸ID</p>
+  <p class="param-name">[in] szFaceLibName</p>
+  <p class="param-desc">目标库名称</p>
+  <p class="param-name">[in] szFaceName</p>
+  <p class="param-desc">人脸名称</p>
+  <p class="param-name">[in] szLibFacePath</p>
+  <p class="param-desc">目标库人脸图片路径</p>
+  <p class="param-name">[in] szCapFacePath</p>
+  <p class="param-desc">抓拍人脸图片路径</p>
+  <p class="param-name">[in] szCapImagePath</p>
+  <p class="param-desc">抓拍原图路径</p>
+  <p class="param-name">[in] byLibFaceImg</p>
+  <p class="param-desc">目标库人脸 JPEG 二进制图片</p>
+  <p class="param-name">[in] dwLibFaceImgLen</p>
+  <p class="param-desc">目标库人脸 JPEG 图片长度</p>
+  <p class="param-name">[in] byCapFaceImg</p>
+  <p class="param-desc">抓拍人脸 JPEG 二进制图片</p>
+  <p class="param-name">[in] dwCapFaceImgLen</p>
+  <p class="param-desc">抓拍人脸 JPEG 图片长度</p>
+  <p class="param-name">[in] byRes</p>
+  <p class="param-desc">保留字段</p>
+  <h2>See Also</h2>
+  <p>无。</p>
+</body>
+</html>

@@ -1,0 +1,15 @@
+male
+child
+youth
+middle-aged
+elderly
+glasses
+beard
+mask
+neutral
+angry
+happy
+sad
+surprised
+fearful
+disgusted

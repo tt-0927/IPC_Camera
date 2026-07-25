@@ -1,0 +1,65 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>NET_TV_VOICECOM_AUDIO_PARAM_S</title>
+  <style>
+    body { font-family: "Microsoft YaHei", "微软雅黑", Arial, sans-serif; font-size: 10pt; color: #000; }
+    h1 { font-family: "Microsoft YaHei", "微软雅黑", Arial, sans-serif; font-size: 10pt; font-weight: bold; margin: 0 0 8px; }
+    h2 { font-family: "Microsoft YaHei", "微软雅黑", Arial, sans-serif; font-size: 10pt; font-weight: bold; margin: 18px 0 6px; }
+    p { margin: 0 0 6px; }
+    table { border-collapse: collapse; margin-top: 10px; width: 1000px; table-layout: fixed; }
+    th, td { border: 1px solid #000; padding: 5px 8px; height: 30px; min-height: 30px; vertical-align: middle; font-family: "Microsoft YaHei", "微软雅黑", Arial, sans-serif; font-size: 10pt; }
+    th { background: #d9eaf7; font-weight: bold; }
+    .code-block { background-color: #e6e6e6; border: 0; padding: 8px 10px; margin: 12px 0 14px; font-family: "Microsoft YaHei", "微软雅黑", Arial, sans-serif; font-size: 10pt; line-height: 1.45; }
+    .code-line { margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: "Microsoft YaHei", "微软雅黑", Arial, sans-serif; font-size: 10pt; line-height: 1.45; }
+    .code-line a { font-family: "Microsoft YaHei", "微软雅黑", Arial, sans-serif; font-size: 10pt; }
+    .param-name { margin-left: 0; }
+    .param-desc { margin-left: 24px; }
+  </style>
+</head>
+<body>
+  <h1>NET_TV_VOICECOM_AUDIO_PARAM_S</h1>
+  <p>VoiceCom 对讲音频参数</p>
+  <div class="code-block" style="background-color: #e6e6e6; border: 0; padding: 8px 10px; margin: 12px 0 14px; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">/**</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">  * @struct tagNETTVVoiceComAudioParam</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">  * @brief VoiceCom 对讲音频参数</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;"> * @note VoiceCom TCP 负载格式由 enFormat 指定，当前支持 PCM/G711A/G711U 裸流</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">  */</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">typedef struct tagNETTVVoiceComAudioParam</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">{</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">    INT32   enFormat;             /* 音频格式, 参见 NET_TV_AUDIO_FORMAT_E, 当前支持 PCM/G711A/G711U */</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">    INT32   dwSampleRate;         /* 采样率, Hz, 参见 NET_TV_AUDIO_SAMPRATE_E */</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">    INT32   dwBitDepth;           /* 位深, PCM=16, G711=8 */</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">    INT32   dwChannels;           /* 声道数, 当前支持 1(单声道) */</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">    INT32   dwFrameIntervalMs;    /* 单帧时长, ms */</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">    INT32   dwFrameBytes;         /* 单帧字节数 */</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">    INT32   dwBitRate;            /* 音频比特率, bit/s */</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">    BOOL    bLittleEndian;        /* PCM 字节序, TRUE 表示 little-endian; G711 忽略 */</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">    BYTE    byRes[128];           /* 保留字段 */</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">} <a href="NET_TV_VOICECOM_AUDIO_PARAM_S.html">NET_TV_VOICECOM_AUDIO_PARAM_S</a>, *LP<a href="NET_TV_VOICECOM_AUDIO_PARAM_S.html">NET_TV_VOICECOM_AUDIO_PARAM_S</a>;</div>
+  </div>
+  <h2>Parameters</h2>
+  <p class="param-name">[in] enFormat</p>
+  <p class="param-desc">音频格式, 参见 NET_TV_AUDIO_FORMAT_E, 当前支持 PCM/G711A/G711U</p>
+  <p class="param-name">[in] dwSampleRate</p>
+  <p class="param-desc">采样率, Hz, 参见 NET_TV_AUDIO_SAMPRATE_E</p>
+  <p class="param-name">[in] dwBitDepth</p>
+  <p class="param-desc">位深, PCM=16, G711=8</p>
+  <p class="param-name">[in] dwChannels</p>
+  <p class="param-desc">声道数, 当前支持 1(单声道)</p>
+  <p class="param-name">[in] dwFrameIntervalMs</p>
+  <p class="param-desc">单帧时长, ms</p>
+  <p class="param-name">[in] dwFrameBytes</p>
+  <p class="param-desc">单帧字节数</p>
+  <p class="param-name">[in] dwBitRate</p>
+  <p class="param-desc">音频比特率, bit/s</p>
+  <p class="param-name">[in] bLittleEndian</p>
+  <p class="param-desc">PCM 字节序, TRUE 表示 little-endian; G711 忽略</p>
+  <p class="param-name">[in] byRes</p>
+  <p class="param-desc">保留字段</p>
+  <h2>See Also</h2>
+  <p>无。</p>
+</body>
+</html>

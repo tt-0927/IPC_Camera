@@ -11,8 +11,8 @@ std::string CDeviceBusiness::GetDeviceInfo(const std::string& req_data, const st
 {
     int nRespCode = 0;
     std::string strResp;
-    NET_TV_DEVICE_INFO_S stInfo;
-    memset(&stInfo, 0, sizeof(NET_TV_DEVICE_INFO_S));
+    NET_DeviceInfo_S stInfo;
+    memset(&stInfo, 0, sizeof(NET_DeviceInfo_S));
     
     nRespCode = NetSDK_ExecuteCb_DeviceInfo(&stInfo);
     if(nRespCode != 0)

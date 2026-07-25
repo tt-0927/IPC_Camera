@@ -76,7 +76,7 @@ public:
      * @param dwBufLen 缓冲区长度
      * @return TRUE表示成功，FALSE表示失败
      */
-    BOOL DoPushAlarmInfo(NET_TV_ALARMER_S* pAlarmer, INT32 lCommand, LPVOID pAlarmInfo, INT32 dwBufLen);
+    BOOL DoPushAlarmInfo(NET_Alarmer_S* pAlarmer, INT32 lCommand, LPVOID pAlarmInfo, INT32 dwBufLen);
 
     /**
      * @brief 推送通道上下线状态

@@ -56,40 +56,102 @@ public:
 				 OnSessionLostCallback callback);
     ~CUserSession();
 
-    // 初始化并验证登录 (带 Digest)
+    /**
+     * @brief 初始化并验证登录（带Digest认证）
+     * @return 成功返回true，失败返回false
+     */
     bool ConnectAndLogin();
 
-    // 启动心跳线程
+    /**
+     * @brief 启动心跳线程
+     */
     void StartHeartbeat();
 
-    // 停止会话 (线程安全)
+    /**
+     * @brief 停止会话（线程安全）
+     * @details 停止所有线程，关闭客户端连接，设置离线状态
+     */
     void Stop();
 
-    // 重连循环（内部使用）
+    /**
+     * @brief 重连循环（内部使用）
+     * @details 使用指数退避策略重新登录，成功后恢复心跳和报警监听
+     */
     void ReconnectLoop();
 
+    /**
+     * @brief 发送请求到设备
+     * @param [IN] req 请求参数
+     * @param [OUT] outRespBody 响应体输出
+     * @return 成功返回true，失败返回false
+     */
 	bool SendRequest(const CommandRequest& req, std::string& outRespBody);
 
-	// Alarm
+	/**
+     * @brief 设置报警回调函数
+     * @param [IN] cb 报警回调函数指针
+     * @param [IN] userData 用户数据
+     */
 	void SetAlarmCallback(NET_TV_AlarmCallBack cb, void* userData);
+
+    /**
+     * @brief 设置通道状态回调函数
+     * @param [IN] cb 通道状态回调函数指针
+     * @param [IN] userData 用户数据
+     */
     void SetChannelStatusCallback(NET_TV_ChannelStatusCallBack cb, void* userData);
 
+    /**
+     * @brief 开始监听报警消息
+     * @return 成功返回true，失败返回false
+     */
     bool StartAlarmListen();
+
+    /**
+     * @brief 停止监听报警消息
+     * @return 成功返回true，失败返回false
+     */
     bool StopAlarmListen();
 
-    // Getters
+    /**
+     * @brief 获取在线状态
+     * @return 在线返回true，离线返回false
+     */
     bool IsOnline() const { return isOnline_; }
+
+    /**
+     * @brief 获取用户句柄
+     * @return 用户句柄
+     */
     LPUSER_HANDLE GetUserId() const { return userHand_; }
+
+    /**
+     * @brief 获取会话ID
+     * @return 会话ID
+     */
     std::string GetSessionId() const { return sessionId_; }
+
+    /**
+     * @brief 获取设备主机地址
+     * @return 主机地址
+     */
     std::string GetHost() const { return host_; }
 
 private:
-    // SSE 循环线程函数
+    /**
+     * @brief SSE长连接循环线程函数（备用心跳方式）
+     */
     void SseLoop();
-	// void OnSessionLost(int userId);
-	// 心跳保活
+
+    /**
+     * @brief 心跳保活循环线程函数
+     * @details 定时发送心跳包检测连接状态
+     */
 	void HeartbeatLoop();
 
+	/**
+     * @brief 报警监听由ClientAlarmManager管理
+     */
 	// AlarmLoop managed by ClientAlarmManager
 
 private:

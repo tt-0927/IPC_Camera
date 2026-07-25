@@ -1,0 +1,32 @@
+{
+    "version": "v1.0",
+    "model": "Yolov8-Face",
+    "notes": "人脸检测",
+    "model_path": "/opt/cam/model/RV1126B_FaceDetect_yolov8n_640x640_V2_0.rknn",
+    "pre_process": {
+        "size": [
+            640,
+            640
+        ],
+        "channel": 3,
+        "type": "rgb",
+        "mean": [0,0,0],
+        "std": [255,255,255],
+        "padding": 0
+    },
+    "inference": {
+        "framework": "rv1126b"
+    },
+    "post_precess": {
+        "confidence": 0.25,
+        "nms": 0.25,
+        "point_num":5,
+        "point_name": [
+            "左眼",
+            "右眼",
+            "鼻尖",
+            "左嘴角",
+            "右嘴角"
+        ]
+    }
+}

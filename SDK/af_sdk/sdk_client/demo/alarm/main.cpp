@@ -215,7 +215,7 @@ void signal_handler(int signum) {
 
 // Alarm callback function
 void STDCALL AlarmCallBack(OUT INT64 lCommand,
-                           OUT NET_TV_ALARMER_S *pAlarmer,
+                           OUT NET_Alarmer_S *pAlarmer,
                            OUT CHAR* pAlarmInfo,
                            OUT INT32* dwBufLen,
                            OUT LPVOID lpUserData) {
@@ -253,87 +253,87 @@ void STDCALL AlarmCallBack(OUT INT64 lCommand,
 
     if (pAlarmInfo && dwBufLen && *dwBufLen > 0) {
         if (alarmBase == NET_TV_ALARM_BASE_BASIC &&
-            *dwBufLen >= (INT32)sizeof(NET_TV_ALARM_BASIC_INFO_S)) {
-            auto* info = (NET_TV_ALARM_BASIC_INFO_S*)pAlarmInfo;
+            *dwBufLen >= (INT32)sizeof(NET_AlarmBasicInfo_S)) {
+            auto* info = (NET_AlarmBasicInfo_S*)pAlarmInfo;
             printf("  [BASIC/基本告警] AlarmType: 0x%x (%s), 告警输入 / AlarmInput: %u, 时间戳 / TimestampMs: %lld\n",
-                   info->dwAlarmType,
-                   GetAlarmTypeName(info->dwAlarmType),
-                   info->dwAlarmInputNumber,
+                   info->uAlarmType,
+                   GetAlarmTypeName(info->uAlarmType),
+                   info->uAlarmInputNumber,
                    (long long)info->llTimestampMs);
         } else if (alarmBase == NET_TV_ALARM_BASE_RULE &&
-                   *dwBufLen >= (INT32)sizeof(NET_TV_ALARM_RULE_INFO_S)) {
-            auto* info = (NET_TV_ALARM_RULE_INFO_S*)pAlarmInfo;
+                   *dwBufLen >= (INT32)sizeof(NET_AlarmRuleInfo_S)) {
+            auto* info = (NET_AlarmRuleInfo_S*)pAlarmInfo;
             printf("  [RULE/规则告警] AlarmType: 0x%x (%s), 通道 / Channel: %u, 规则ID / RuleID: %u, 规则类型 / RuleType: %u, 规则名 / RuleName: %s, 目标ID / TargetID: %u, 对象类型 / ObjectType: %u, 时间戳 / TimestampMs: %lld, 置信度 / Confidence: %.3f, 区域 / Rect: [%d,%d,%d,%d], 全景图 / PanoramaLen: %u, 特写图 / TargetLen: %u\n",
-                   info->dwAlarmType, GetAlarmTypeName(info->dwAlarmType), info->dwChannel, info->dwRuleID, info->dwRuleType,
-                   info->szRuleName, info->dwTargetID, info->dwObjectType, (long long)info->llTimestampMs, info->fConfidence,
+                   info->uAlarmType, GetAlarmTypeName(info->uAlarmType), info->uChannel, info->uRuleID, info->uRuleType,
+                   info->strRuleName, info->uTargetID, info->uObjectType, (long long)info->llTimestampMs, info->fConfidence,
                    info->nLeft, info->nTop, info->nRight, info->nBottom,
-                   info->dwPanoramaImgLen, info->dwTargetImgLen);
-            if (info->dwPanoramaImgLen > 0) {
-                const UINT32 imgLen = std::min<UINT32>(info->dwPanoramaImgLen, NET_TV_PIC_DATA_MAX_LEN);
+                   info->uPanoramaImgLen, info->uTargetImgLen);
+            if (info->uPanoramaImgLen > 0) {
+                const UINT32 imgLen = std::min<UINT32>(info->uPanoramaImgLen, NET_TV_PIC_DATA_MAX_LEN);
                 SubmitImageSave(pAlarmer ? pAlarmer->szDeviceIP : nullptr,
                                "rule", "panorama",
                                info->byPanoramaImg, imgLen);
             }
-            if (info->dwTargetImgLen > 0) {
-                const UINT32 imgLen = std::min<UINT32>(info->dwTargetImgLen, NET_TV_PIC_DATA_MAX_LEN);
+            if (info->uTargetImgLen > 0) {
+                const UINT32 imgLen = std::min<UINT32>(info->uTargetImgLen, NET_TV_PIC_DATA_MAX_LEN);
                 SubmitImageSave(pAlarmer ? pAlarmer->szDeviceIP : nullptr,
                                "rule", "target",
                                info->byTargetImg, imgLen);
             }
         } else if (lCommand == NET_TV_ALARM_FACE_COMPARE &&
-                   *dwBufLen >= (INT32)sizeof(NET_TV_ALARM_FACE_COMPARE_INFO_S)) {
-            auto* info = (NET_TV_ALARM_FACE_COMPARE_INFO_S*)pAlarmInfo;
+                   *dwBufLen >= (INT32)sizeof(NET_AlarmFaceCompareInfo_S)) {
+            auto* info = (NET_AlarmFaceCompareInfo_S*)pAlarmInfo;
             printf("  [FACE_COMPARE/人脸比对] AlarmType: 0x%x (%s), 通道 / Channel: %u, 事件ID / EventId: %d, 比对结果 / Result: %d, 相似度 / Similarity: %d, 人脸ID / FaceId: %d, 时间戳 / TimestampMs: %lld\n",
-                   info->dwAlarmType,
-                   GetAlarmTypeName(info->dwAlarmType),
-                   info->dwChannel,
+                   info->uAlarmType,
+                   GetAlarmTypeName(info->uAlarmType),
+                   info->uChannel,
                    info->nEventId,
                    info->nCompResult,
                    info->nSimilarity,
                    info->nFaceId,
                    (long long)info->llTimestampMs);
             printf("  [FACE_COMPARE/人脸比对] 库名称 / LibName: %s, 人脸名称 / FaceName: %s\n",
-                   info->szFaceLibName,
-                   info->szFaceName);
+                   info->strFaceLibName,
+                   info->strFaceName);
             printf("  [FACE_COMPARE/人脸比对] 库脸路径 / LibFacePath: %s, 抓拍路径 / CapFacePath: %s, 抓拍图片路径 / CapImagePath: %s\n",
-                   info->szLibFacePath,
-                   info->szCapFacePath,
-                   info->szCapImagePath);
-            if (info->dwLibFaceImgLen > 0) {
-                const UINT32 imgLen = std::min<UINT32>(info->dwLibFaceImgLen, NET_TV_FACE_IMAGE_MAX_LEN);
+                   info->strLibFacePath,
+                   info->strCapFacePath,
+                   info->strCapImagePath);
+            if (info->uLibFaceImgLen > 0) {
+                const UINT32 imgLen = std::min<UINT32>(info->uLibFaceImgLen, NET_TV_FACE_IMAGE_MAX_LEN);
                 printf("  [FACE_COMPARE/人脸比对] 库脸图片长度 / LibFaceImgLen: %u (异步保存 / saving async)\n", imgLen);
                 SubmitImageSave(pAlarmer ? pAlarmer->szDeviceIP : nullptr,
                                "face_compare", "lib_face",
                                info->byLibFaceImg, imgLen);
             }
-            if (info->dwCapFaceImgLen > 0) {
-                const UINT32 imgLen = std::min<UINT32>(info->dwCapFaceImgLen, NET_TV_FACE_IMAGE_MAX_LEN);
+            if (info->uCapFaceImgLen > 0) {
+                const UINT32 imgLen = std::min<UINT32>(info->uCapFaceImgLen, NET_TV_FACE_IMAGE_MAX_LEN);
                 printf("  [FACE_COMPARE/人脸比对] 抓拍图片长度 / CapFaceImgLen: %u (异步保存 / saving async)\n", imgLen);
                 SubmitImageSave(pAlarmer ? pAlarmer->szDeviceIP : nullptr,
                                "face_compare", "capture_face",
                                info->byCapFaceImg, imgLen);
             }
         } else if (alarmBase == NET_TV_ALARM_BASE_AI &&
-                   *dwBufLen >= (INT32)sizeof(NET_TV_ALARM_AI_OBJECT_INFO_S)) {
-            auto* info = (NET_TV_ALARM_AI_OBJECT_INFO_S*)pAlarmInfo;
+                   *dwBufLen >= (INT32)sizeof(NET_AlarmAiObjectInfo_S)) {
+            auto* info = (NET_AlarmAiObjectInfo_S*)pAlarmInfo;
             printf("  [AI/智能分析] AlarmType: 0x%x (%s), 通道 / Channel: %u, 对象类型 / ObjectType: %u, 时间戳 / TimestampMs: %lld, 置信度 / Confidence: %.3f, 区域 / Rect: [%d,%d,%d,%d], 对象ID / ObjectID: %s, 图片长度 / ImgLen: %u\n",
-                   info->dwAlarmType, GetAlarmTypeName(info->dwAlarmType), info->dwChannel, info->dwObjectType, (long long)info->llTimestampMs, info->fConfidence,
-                   info->nLeft, info->nTop, info->nRight, info->nBottom, info->szObjectID, info->dwImgLen);
+                   info->uAlarmType, GetAlarmTypeName(info->uAlarmType), info->uChannel, info->uObjectType, (long long)info->llTimestampMs, info->fConfidence,
+                   info->nLeft, info->nTop, info->nRight, info->nBottom, info->strObjectID, info->uImgLen);
 
-            if (info->dwPanoramaImgLen > 0) {
-                const UINT32 imgLen = std::min<UINT32>(info->dwPanoramaImgLen, NET_TV_PIC_DATA_MAX_LEN);
+            if (info->uPanoramaImgLen > 0) {
+                const UINT32 imgLen = std::min<UINT32>(info->uPanoramaImgLen, NET_TV_PIC_DATA_MAX_LEN);
                 SubmitImageSave(pAlarmer ? pAlarmer->szDeviceIP : nullptr,
                                "ai_object", "panorama",
                                info->byPanoramaImg, imgLen);
             }
 
-            if (info->dwImgLen > 0) {
+            if (info->uImgLen > 0) {
                 bool isJpeg = (info->byImgData[0] == 0xFF && info->byImgData[1] == 0xD8);
                 printf("  [AI/智能分析] 图片信息 / ImageInfo: 格式 / Format=%s, 大小 / Size=%u bytes (异步保存 / saving async)\n",
                        isJpeg ? "JPEG" : "Unknown",
-                       info->dwImgLen);
+                       info->uImgLen);
 
-                const UINT32 imgLen = std::min<UINT32>(info->dwImgLen, NET_TV_PIC_DATA_MAX_LEN);
+                const UINT32 imgLen = std::min<UINT32>(info->uImgLen, NET_TV_PIC_DATA_MAX_LEN);
                 SubmitImageSave(pAlarmer ? pAlarmer->szDeviceIP : nullptr,
                                "ai_object", "alarm_image",
                                info->byImgData, imgLen);
@@ -347,12 +347,12 @@ void STDCALL AlarmCallBack(OUT INT64 lCommand,
                     (info->fConfidence == 1.0f ? "Panorama/全景" : "Thumbnail/缩略图");
                 printf("  [AI/智能分析] 人脸图片类型 / FaceImageKind: %s\n", imageKind);
                 printf("  [AI/智能分析] 人脸详情 / FaceDetails: 告警类型 / AlarmType=0x%x, 通道 / channel=%u, 对象类型 / objectType=%u, 置信度 / confidence=%.3f, 对象ID / objectId=%s\n",
-                       info->dwAlarmType, info->dwChannel, info->dwObjectType, info->fConfidence, info->szObjectID);
+                       info->uAlarmType, info->uChannel, info->uObjectType, info->fConfidence, info->strObjectID);
                 if (isFaceCompare) {
                     printf("  [AI/智能分析] 人脸比对相似度 / FaceCompareSimilarity: %.3f\n", info->fConfidence);
                 }
-                if (info->dwImgLen > 0) {
-                    const UINT32 imgLen = std::min<UINT32>(info->dwImgLen, NET_TV_PIC_DATA_MAX_LEN);
+                if (info->uImgLen > 0) {
+                    const UINT32 imgLen = std::min<UINT32>(info->uImgLen, NET_TV_PIC_DATA_MAX_LEN);
                     const char* eventName = isFaceCompare ? "face_compare" :
                         (lCommand == NET_TV_ALARM_FACE_CAPTURE ? "face_capture" : "face_detect");
                     SubmitImageSave(pAlarmer ? pAlarmer->szDeviceIP : nullptr,
@@ -361,36 +361,36 @@ void STDCALL AlarmCallBack(OUT INT64 lCommand,
                 }
             }
         } else if (alarmBase == NET_TV_ALARM_BASE_TRAFFIC &&
-                   *dwBufLen >= (INT32)sizeof(NET_TV_ALARM_PLATE_INFO_S)) {
-            auto* info = (NET_TV_ALARM_PLATE_INFO_S*)pAlarmInfo;
+                   *dwBufLen >= (INT32)sizeof(NET_AlarmPlateInfo_S)) {
+            auto* info = (NET_AlarmPlateInfo_S*)pAlarmInfo;
             printf("  [TRAFFIC/交通管理] AlarmType: 0x%x (%s), 通道 / Channel: %u, 车牌 / Plate: %s, 车牌颜色 / PlateColor: %u, 车辆类型 / VehicleType: %u, 速度 / Speed: %u, 车道 / Lane: %u, 车牌图片长度 / PlateImgLen: %u\n",
-                   info->dwAlarmType, GetAlarmTypeName(info->dwAlarmType), info->dwChannel, info->szPlateNumber, info->dwPlateColor, info->dwVehicleType, info->dwSpeed, info->dwLaneNo, info->dwPlateImgLen);
-            if (info->dwPlateImgLen > 0) {
-                const UINT32 imgLen = std::min<UINT32>(info->dwPlateImgLen, NET_TV_VEH_PLATE_IMAGE_LEN);
+                   info->uAlarmType, GetAlarmTypeName(info->uAlarmType), info->uChannel, info->strPlateNumber, info->uPlateColor, info->uVehicleType, info->uSpeed, info->uLaneNo, info->uPlateImgLen);
+            if (info->uPlateImgLen > 0) {
+                const UINT32 imgLen = std::min<UINT32>(info->uPlateImgLen, NET_TV_VEH_PLATE_IMAGE_LEN);
                 printf("  [TRAFFIC/交通管理] 车牌图片长度 / PlateImgLen: %u (异步保存 / saving async)\n", imgLen);
-                const char* eventName = info->dwAlarmType == NET_TV_ALARM_PLATE_RECOGNITION ? "plate_recognition" : "traffic_congestion";
+                const char* eventName = info->uAlarmType == NET_TV_ALARM_PLATE_RECOGNITION ? "plate_recognition" : "traffic_congestion";
                 SubmitImageSave(pAlarmer ? pAlarmer->szDeviceIP : nullptr,
                                eventName, "plate",
                                info->byPlateImg, imgLen);
             }
         } else if (alarmBase == NET_TV_ALARM_BASE_EXCEPTION &&
-                   *dwBufLen >= (INT32)sizeof(NET_TV_ALARM_EXCEPTION_INFO_S)) {
-            auto* info = (NET_TV_ALARM_EXCEPTION_INFO_S*)pAlarmInfo;
+                   *dwBufLen >= (INT32)sizeof(NET_AlarmExceptionInfo_S)) {
+            auto* info = (NET_AlarmExceptionInfo_S*)pAlarmInfo;
             printf("  [EXCEPTION/异常告警] AlarmType: 0x%x (%s), 通道 / Channel: %u, 硬盘号 / DiskNo: %u, 状态 / Status: %u\n",
-                   info->dwAlarmType, GetAlarmTypeName(info->dwAlarmType), info->dwChannel, info->dwDiskNo, info->dwStatus);
+                   info->uAlarmType, GetAlarmTypeName(info->uAlarmType), info->uChannel, info->uDiskNo, info->uStatus);
         } else if (alarmBase == NET_TV_ALARM_BASE_STATISTICS &&
-                   *dwBufLen >= (INT32)sizeof(NET_TV_ALARM_STATISTICS_INFO_S)) {
-            auto* info = (NET_TV_ALARM_STATISTICS_INFO_S*)pAlarmInfo;
+                   *dwBufLen >= (INT32)sizeof(NET_AlarmStatisticsInfo_S)) {
+            auto* info = (NET_AlarmStatisticsInfo_S*)pAlarmInfo;
             printf("  [STATISTICS/统计告警] AlarmType: 0x%x (%s), 通道 / Channel: %u, 统计类型 / StatisticsType: %u (%s), 规则ID / RuleID: %u, 时间戳 / TimestampMs: %lld\n",
-                   info->dwAlarmType, GetAlarmTypeName(info->dwAlarmType), info->dwChannel, info->dwStatisticsType, info->dwRuleID,
-                   GetStatisticsTypeName(info->dwStatisticsType), (long long)info->llTimestampMs);
+                   info->uAlarmType, GetAlarmTypeName(info->uAlarmType), info->uChannel, info->uStatisticsType, info->uRuleID,
+                   GetStatisticsTypeName(info->uStatisticsType), (long long)info->llTimestampMs);
             printf("  [STATISTICS/统计告警] 进入 / Enter: %u, 离开 / Leave: %u, 总计 / Total: %u, "
                    "当前人数 / CurrentPeople: %u, 平均停留时间 / AverageStayTimeSec: %u, 目标数量 / TargetCount: "
                    "%u, 全景图片长度 / PanoramaImgLen: %u\n",
-                   info->dwEnterCount, info->dwLeaveCount, info->dwTotalCount,
-                   info->dwCurrentPeopleCount, info->dwAverageStayTimeSec,
-                   info->dwTargetCount, info->dwPanoramaImgLen);
-            UINT32 targetCount = info->dwTargetCount;
+                   info->uEnterCount, info->uLeaveCount, info->uTotalCount,
+                   info->uCurrentPeopleCount, info->uAverageStayTimeSec,
+                   info->uTargetCount, info->uPanoramaImgLen);
+            UINT32 targetCount = info->uTargetCount;
             if (targetCount > NET_TV_ALARM_STATISTICS_TARGET_MAX_NUM) {
                 targetCount = NET_TV_ALARM_STATISTICS_TARGET_MAX_NUM;
             }
@@ -401,21 +401,21 @@ void STDCALL AlarmCallBack(OUT INT64 lCommand,
                 printf("  [STATISTICS/统计告警][特写图片/Close-up][目标%u] 跟踪ID / TrackID: %d, 规则ID / RuleID: %u, 抓拍类型 / SnapshotType: %u, 区域 / Rect: [%d,%d,%d,%d], 时间戳 / TimestampMs: %lld, 方向 / Direction: %d, 图片长度 / ImgLen: %u\n",
                        i,
                        target.nTrackID,
-                       target.dwRuleID,
-                       target.dwSnapshotType,
+                       target.uRuleID,
+                       target.uSnapshotType,
                        target.nLeft,
                        target.nTop,
                        target.nRight,
                        target.nBottom,
                        (long long)target.llTimestampMs,
                        target.nDirection,
-                       target.dwImgLen
+                       target.uImgLen
                     );
-                if (target.dwImgLen > 0) {
-                    const UINT32 imgLen = std::min<UINT32>(target.dwImgLen, NET_TV_PIC_DATA_MAX_LEN);
+                if (target.uImgLen > 0) {
+                    const UINT32 imgLen = std::min<UINT32>(target.uImgLen, NET_TV_PIC_DATA_MAX_LEN);
                     printf("  [STATISTICS/统计告警][特写图片/Close-up][目标%u] ✅ 有图片数据 / Image available, 长度 / Length: %u bytes (异步保存 / saving async)\n", i, imgLen);
                     const std::string kind = "target_" + std::to_string(i);
-                    const char* eventName = info->dwStatisticsType == NET_TV_STATISTICS_TYPE_PEOPLE_DENSITY ? "density" : "flow";
+                    const char* eventName = info->uStatisticsType == NET_TV_STATISTICS_TYPE_PEOPLE_DENSITY ? "density" : "flow";
                     SubmitImageSave(pAlarmer ? pAlarmer->szDeviceIP : nullptr,
                                    eventName, kind.c_str(),
                                    target.byImgData, imgLen);
@@ -425,10 +425,10 @@ void STDCALL AlarmCallBack(OUT INT64 lCommand,
             }
             // ========== 全景图片信息 / Panorama Image Info ==========
             printf("  [STATISTICS/统计告警][全景图片/Panorama] ");
-            if (info->dwPanoramaImgLen > 0) {
-                const UINT32 imgLen = std::min<UINT32>(info->dwPanoramaImgLen, NET_TV_PIC_DATA_MAX_LEN);
+            if (info->uPanoramaImgLen > 0) {
+                const UINT32 imgLen = std::min<UINT32>(info->uPanoramaImgLen, NET_TV_PIC_DATA_MAX_LEN);
                 printf("✅ 有图片数据 / Image available, 长度 / Length: %u bytes (异步保存 / saving async)\n", imgLen);
-                const char* eventName = info->dwStatisticsType == NET_TV_STATISTICS_TYPE_PEOPLE_DENSITY ? "density" : "flow";
+                const char* eventName = info->uStatisticsType == NET_TV_STATISTICS_TYPE_PEOPLE_DENSITY ? "density" : "flow";
                 SubmitImageSave(pAlarmer ? pAlarmer->szDeviceIP : nullptr,
                                eventName, "panorama",
                                info->byPanoramaImg, imgLen);
@@ -542,12 +542,12 @@ int main() {
 
     // Login Information (Hardcoded as per existing demo)
     NET_TV_DEVICE_LOGIN_INFO_S struLoginInfo = {0};
-    NET_TV_DEVICE_INFO_S struDeviceInfo = {0};
+    NET_DeviceInfo_S struDeviceInfo = {0};
 
     struLoginInfo.dwPort = 9019;
-    strcpy(struLoginInfo.szIPAddr, "172.16.25.199");
+    strcpy(struLoginInfo.szIPAddr, "172.16.25.191");
     strcpy(struLoginInfo.szUserName, "admin");
-    strcpy(struLoginInfo.szPassword, "sj2@2025");
+    strcpy(struLoginInfo.szPassword, "itc20232024");
 
     printf("Logging in to %s:%d...\n", struLoginInfo.szIPAddr, struLoginInfo.dwPort);
     LPVOID lpUserID = NET_TV_Login(&struLoginInfo, &struDeviceInfo);

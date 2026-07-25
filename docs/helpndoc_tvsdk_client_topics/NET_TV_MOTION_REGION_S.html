@@ -1,0 +1,64 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>NET_TV_MOTION_REGION_S</title>
+  <style>
+    body { font-family: "Microsoft YaHei", "微软雅黑", Arial, sans-serif; font-size: 10pt; color: #000; }
+    h1 { font-family: "Microsoft YaHei", "微软雅黑", Arial, sans-serif; font-size: 10pt; font-weight: bold; margin: 0 0 8px; }
+    h2 { font-family: "Microsoft YaHei", "微软雅黑", Arial, sans-serif; font-size: 10pt; font-weight: bold; margin: 18px 0 6px; }
+    p { margin: 0 0 6px; }
+    table { border-collapse: collapse; margin-top: 10px; width: 1000px; table-layout: fixed; }
+    th, td { border: 1px solid #000; padding: 5px 8px; height: 30px; min-height: 30px; vertical-align: middle; font-family: "Microsoft YaHei", "微软雅黑", Arial, sans-serif; font-size: 10pt; }
+    th { background: #d9eaf7; font-weight: bold; }
+    .code-block { background-color: #e6e6e6; border: 0; padding: 8px 10px; margin: 12px 0 14px; font-family: "Microsoft YaHei", "微软雅黑", Arial, sans-serif; font-size: 10pt; line-height: 1.45; }
+    .code-line { margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: "Microsoft YaHei", "微软雅黑", Arial, sans-serif; font-size: 10pt; line-height: 1.45; }
+    .code-line a { font-family: "Microsoft YaHei", "微软雅黑", Arial, sans-serif; font-size: 10pt; }
+    .param-name { margin-left: 0; }
+    .param-desc { margin-left: 24px; }
+  </style>
+</head>
+<body>
+  <h1>NET_TV_MOTION_REGION_S</h1>
+  <p>移动侦测专家模式区域参数 Motion detection expert mode region</p>
+  <div class="code-block" style="background-color: #e6e6e6; border: 0; padding: 8px 10px; margin: 12px 0 14px; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">/**</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;"> * @struct tagNETTVMotionRegion</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;"> * @brief 移动侦测专家模式区域参数 Motion detection expert mode region</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;"> */</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">typedef struct tagNETTVMotionRegion</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">{</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">    INT32       nAreaNo;                            /* 侦测区域编号，从1开始 */</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">    INT32       nRectLeft;                           /* 区域左坐标 */</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">    INT32       nRectTop;                            /* 区域上坐标 */</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">    INT32       nRectRight;                          /* 区域右坐标 */</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">    INT32       nRectBottom;                         /* 区域下坐标 */</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">    INT32       nCloseSensitivity;                   /* 日夜参数转换为关闭时的灵敏度 [0,100] */</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">    INT32       nDaytimeSensitivity;                 /* 白天灵敏度 [0,100] */</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">    INT32       nNightSensitivity;                   /* 夜晚灵敏度 [0,100] */</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">    BYTE        byRes[32];                           /* 保留字段 */</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">}<a href="NET_TV_MOTION_REGION_S.html">NET_TV_MOTION_REGION_S</a>, *LP<a href="NET_TV_MOTION_REGION_S.html">NET_TV_MOTION_REGION_S</a>;</div>
+  </div>
+  <h2>Parameters</h2>
+  <p class="param-name">[in] nAreaNo</p>
+  <p class="param-desc">侦测区域编号，从1开始</p>
+  <p class="param-name">[in] nRectLeft</p>
+  <p class="param-desc">区域左坐标</p>
+  <p class="param-name">[in] nRectTop</p>
+  <p class="param-desc">区域上坐标</p>
+  <p class="param-name">[in] nRectRight</p>
+  <p class="param-desc">区域右坐标</p>
+  <p class="param-name">[in] nRectBottom</p>
+  <p class="param-desc">区域下坐标</p>
+  <p class="param-name">[in] nCloseSensitivity</p>
+  <p class="param-desc">日夜参数转换为关闭时的灵敏度 [0,100]</p>
+  <p class="param-name">[in] nDaytimeSensitivity</p>
+  <p class="param-desc">白天灵敏度 [0,100]</p>
+  <p class="param-name">[in] nNightSensitivity</p>
+  <p class="param-desc">夜晚灵敏度 [0,100]</p>
+  <p class="param-name">[in] byRes</p>
+  <p class="param-desc">保留字段</p>
+  <h2>See Also</h2>
+  <p>无。</p>
+</body>
+</html>

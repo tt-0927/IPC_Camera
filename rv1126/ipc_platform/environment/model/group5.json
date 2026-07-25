@@ -1,0 +1,30 @@
+{
+    "version": "v1.0",
+    "model": "Yolov8n",
+    "notes": "第五组安防数据检测",
+    "model_path": "/opt/cam/model/RV1126B_group5_yolov8n_640x384_V1_0.rknn",
+    "pre_process": {
+        "size": [
+            640,
+            384
+        ],
+        "channel": 3,
+        "type": "rgb",
+        "mean": [0,0,0],
+        "std": [255,255,255],
+        "padding": 0
+    },
+    "inference": {
+        "framework": "rv1126b"
+    },
+    "post_precess": {
+        "confidence": 0.25,
+        "nms": 0.25,
+        "label_name": [
+            "金属栅栏",
+            "锥形桶",
+            "防撞桶",
+            "防护栏"
+        ]
+    }
+}

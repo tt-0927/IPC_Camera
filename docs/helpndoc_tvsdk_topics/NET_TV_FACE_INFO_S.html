@@ -1,0 +1,66 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>NET_TV_FACE_INFO_S</title>
+  <style>
+    body { font-family: "Microsoft YaHei", "微软雅黑", Arial, sans-serif; font-size: 10pt; color: #000; }
+    h1 { font-family: "Microsoft YaHei", "微软雅黑", Arial, sans-serif; font-size: 10pt; font-weight: bold; margin: 0 0 6px; }
+    h2 { font-family: "Microsoft YaHei", "微软雅黑", Arial, sans-serif; font-size: 10pt; font-weight: bold; margin: 18px 0 6px; }
+    p { margin: 0 0 6px; }
+    .code-block { background-color: #e6e6e6; border: 0; padding: 8px 10px; margin: 14px 0 18px; font-family: "Microsoft YaHei", "微软雅黑", Arial, sans-serif; font-size: 10pt; line-height: 1.45; }
+    .code-line { margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: "Microsoft YaHei", "微软雅黑", Arial, sans-serif; font-size: 10pt; line-height: 1.45; }
+    .code-line a { font-family: "Microsoft YaHei", "微软雅黑", Arial, sans-serif; font-size: 10pt; }
+    .param-name { margin-left: 0; }
+    .param-desc { margin-left: 24px; }
+  </style>
+</head>
+<body>
+  <h1>NET_TV_FACE_INFO_S</h1>
+  <p>人脸信息</p>
+  <div class="code-block" style="background-color: #e6e6e6; border: 0; padding: 8px 10px; margin: 12px 0 14px; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">struct</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">{</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">    INT32   nId;</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">    CHAR    szFaceLibName[NET_TV_FACE_DB_NAME_LEN];</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">    CHAR    szName[NET_TV_FACE_MEMBER_NAME_LEN];</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">    CHAR    szPhoneNum[NET_TV_FACE_IDNUMBER_LEN];</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">    CHAR    szPicPath[NET_TV_LEN_260];</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">    CHAR    szBinPath[NET_TV_LEN_260];</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">    CHAR    szPicType[NET_TV_LEN_64];</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">    INT32   nPicSize;</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">    CHAR    szPicDate[NET_TV_LEN_64];</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">    INT32   nModelState;</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">    INT32   nRatingLevel;</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">    BYTE    byRes[256];</div>
+    <div class="code-line" style="margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: &quot;Microsoft YaHei&quot;, &quot;微软雅黑&quot;, Arial, sans-serif; font-size: 10pt; line-height: 1.45;">};</div>
+  </div>
+  <h2>Parameters</h2>
+  <p class="param-name">[in] nId</p>
+  <p class="param-desc">人脸ID</p>
+  <p class="param-name">[in] szFaceLibName</p>
+  <p class="param-desc">名单组名称</p>
+  <p class="param-name">[in] szName</p>
+  <p class="param-desc">名字</p>
+  <p class="param-name">[in] szPhoneNum</p>
+  <p class="param-desc">联系方式</p>
+  <p class="param-name">[in] szPicPath</p>
+  <p class="param-desc">图片完整路径/名称</p>
+  <p class="param-name">[in] szBinPath</p>
+  <p class="param-desc">图片二进制完整路径/名称</p>
+  <p class="param-name">[in] szPicType</p>
+  <p class="param-desc">图片类型</p>
+  <p class="param-name">[in] nPicSize</p>
+  <p class="param-desc">图片大小</p>
+  <p class="param-name">[in] szPicDate</p>
+  <p class="param-desc">图片日期</p>
+  <p class="param-name">[in] nModelState</p>
+  <p class="param-desc">模型状态, 0未处理，1成功，-1失败</p>
+  <p class="param-name">[in] nRatingLevel</p>
+  <p class="param-desc">评估等级, 0全部，1评分未知，2低，3高</p>
+  <p class="param-name">[in] byRes</p>
+  <p class="param-desc">保留字段，当前转换或业务实现未使用</p>
+  <h2>See Also</h2>
+  <p>无。</p>
+</body>
+</html>

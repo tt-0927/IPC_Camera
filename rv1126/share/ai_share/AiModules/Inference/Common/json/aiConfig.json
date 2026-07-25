@@ -1,0 +1,32 @@
+﻿{
+    "version": "v1.0",
+    "model": "Head-Detect",
+    "notes": "人体检测算法",
+    "model_path": "/opt/bl/aa.onnx",
+    "pre_process": {
+        "size": [
+            640,
+            640
+        ],
+        "channel": 3,
+        "type": "rgb",
+        "mean": [0,0,0],
+        "std": [255,255,255],
+        "padding": 0
+    },
+    "inference": {
+        "framework": "onnxruntime",
+        "is_gpu": false,
+        "intra_op_num_threads": 1,
+        "device_id": 0,
+        "gpu_mem_limit": 2147483648
+    },
+    "post_precess": {
+        "confidence": 0.7,
+        "nms": 0.25,
+        "label_name": [
+            "person",
+            "apple"
+        ]
+    }
+}

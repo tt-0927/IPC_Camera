@@ -48,30 +48,30 @@ void signal_handler(int signum)
 }
 
 // 初始化报警信息结构体
-void InitAlarmInfo(NET_TV_ALARMER_S* pAlarmInfo, const char* deviceName, 
+void InitAlarmInfo(NET_Alarmer_S* pAlarmInfo, const char* deviceName, 
                    const char* deviceIP, const char* serialNumber, 
                    const BYTE* macAddr)
 {
-    memset(pAlarmInfo, 0, sizeof(NET_TV_ALARMER_S));
+    memset(pAlarmInfo, 0, sizeof(NET_Alarmer_S));
     
     // 设置设备名称
     if (deviceName)
     {
-        strncpy(pAlarmInfo->szDeviceName, deviceName, NET_TV_LEN_32 - 1);
-        pAlarmInfo->szDeviceName[NET_TV_LEN_32 - 1] = '\0';
+        strncpy(pAlarmInfo->strDeviceName, deviceName, NET_TV_LEN_32 - 1);
+        pAlarmInfo->strDeviceName[NET_TV_LEN_32 - 1] = '\0';
     }
     
     // 设置设备IP
     if (deviceIP)
     {
-        strncpy(pAlarmInfo->szDeviceIP, deviceIP, 127);
-        pAlarmInfo->szDeviceIP[127] = '\0';
+        strncpy(pAlarmInfo->strDeviceIP, deviceIP, 127);
+        pAlarmInfo->strDeviceIP[127] = '\0';
     }
     
     // 设置序列号
     if (serialNumber)
     {
-        memcpy(pAlarmInfo->szSerialNumber, serialNumber, 
+        memcpy(pAlarmInfo->strSerialNumber, serialNumber, 
                strlen(serialNumber) < NET_TV_LEN_64 ? strlen(serialNumber) : NET_TV_LEN_64);
     }
     
@@ -95,16 +95,16 @@ void InitAlarmInfo(NET_TV_ALARMER_S* pAlarmInfo, const char* deviceName,
 // 模拟不同类型的报警事件
 void PushMotionDetectAlarm()
 {
-    NET_TV_ALARMER_S stAlarmInfo;
-    NET_TV_ALARM_BASIC_INFO_S stBasic = {0};
+    NET_Alarmer_S stAlarmInfo;
+    NET_AlarmBasicInfo_S stBasic = {0};
     
     printf("[Demo] Pushing Motion Detection Alarm...\n");
     
     InitAlarmInfo(&stAlarmInfo, "Camera-01", "192.168.1.100", 
                   "SN202312120001", NULL);
 
-    stBasic.dwAlarmType = NET_TV_ALARM_MOTION_DETECT;
-    stBasic.dwAlarmInputNumber = 1;
+    stBasic.uAlarmType = NET_TV_ALARM_MOTION_DETECT;
+    stBasic.uAlarmInputNumber = 1;
     
     if (NET_TV_SERVER_PushAlarmInfo(&stAlarmInfo, NET_TV_ALARM_BASE_BASIC, &stBasic, (INT32)sizeof(stBasic)))
     {
@@ -118,8 +118,8 @@ void PushMotionDetectAlarm()
 
 void PushIntrusionAlarm()
 {
-    NET_TV_ALARMER_S stAlarmInfo;
-    NET_TV_ALARM_RULE_INFO_S* pRule = (NET_TV_ALARM_RULE_INFO_S*)calloc(1, sizeof(NET_TV_ALARM_RULE_INFO_S));
+    NET_Alarmer_S stAlarmInfo;
+    NET_AlarmRuleInfo_S* pRule = (NET_AlarmRuleInfo_S*)calloc(1, sizeof(NET_AlarmRuleInfo_S));
     if (!pRule)
     {
         printf("[Demo] Failed to allocate intrusion alarm info!\n");
@@ -132,10 +132,10 @@ void PushIntrusionAlarm()
     InitAlarmInfo(&stAlarmInfo, "Camera-02", "192.168.1.101", 
                   "SN202312120002", macAddr);
 
-    pRule->dwAlarmType = NET_TV_ALARM_INTRUSION;
-    pRule->dwRuleID = 1001;
-    strncpy(pRule->szRuleName, "IntrusionRule-1", sizeof(pRule->szRuleName) - 1);
-    pRule->szRuleName[sizeof(pRule->szRuleName) - 1] = '\0';
+    pRule->uAlarmType = NET_TV_ALARM_INTRUSION;
+    pRule->uRuleID = 1001;
+    strncpy(pRule->strRuleName, "IntrusionRule-1", sizeof(pRule->strRuleName) - 1);
+    pRule->strRuleName[sizeof(pRule->strRuleName) - 1] = '\0';
     
     if (NET_TV_SERVER_PushAlarmInfo(&stAlarmInfo, NET_TV_ALARM_BASE_RULE, pRule, (INT32)sizeof(*pRule)))
     {
@@ -151,18 +151,18 @@ void PushIntrusionAlarm()
 
 void PushVideoLossAlarm()
 {
-    NET_TV_ALARMER_S stAlarmInfo;
-    NET_TV_ALARM_EXCEPTION_INFO_S stEx = {0};
+    NET_Alarmer_S stAlarmInfo;
+    NET_AlarmExceptionInfo_S stEx = {0};
     
     printf("[Demo] Pushing Video Loss Alarm...\n");
     
     InitAlarmInfo(&stAlarmInfo, "Camera-03", "192.168.1.102", 
                   "SN202312120003", NULL);
 
-    stEx.dwAlarmType = NET_TV_ALARM_VIDEO_LOSS;
-    stEx.dwChannel = 1;
-    stEx.dwDiskNo = 0;
-    stEx.dwStatus = 1; // 1=触发
+    stEx.uAlarmType = NET_TV_ALARM_VIDEO_LOSS;
+    stEx.uChannel = 1;
+    stEx.uDiskNo = 0;
+    stEx.uStatus = 1; // 1=触发
     
     if (NET_TV_SERVER_PushAlarmInfo(&stAlarmInfo, NET_TV_ALARM_BASE_EXCEPTION, &stEx, (INT32)sizeof(stEx)))
     {
@@ -176,8 +176,8 @@ void PushVideoLossAlarm()
 
 void PushDiskFullAlarm()
 {
-    NET_TV_ALARMER_S stAlarmInfo;
-    NET_TV_ALARM_EXCEPTION_INFO_S stEx = {0};
+    NET_Alarmer_S stAlarmInfo;
+    NET_AlarmExceptionInfo_S stEx = {0};
     
     printf("[Demo] Pushing Disk Full Alarm...\n");
     
@@ -185,10 +185,10 @@ void PushDiskFullAlarm()
     InitAlarmInfo(&stAlarmInfo, "NVR-01", "192.168.1.200", 
                   "SN202312120100", macAddr);
 
-    stEx.dwAlarmType = NET_TV_ALARM_DISK_FULL;
-    stEx.dwChannel = 0;
-    stEx.dwDiskNo = 1;
-    stEx.dwStatus = 1; // 1=触发
+    stEx.uAlarmType = NET_TV_ALARM_DISK_FULL;
+    stEx.uChannel = 0;
+    stEx.uDiskNo = 1;
+    stEx.uStatus = 1; // 1=触发
     
     if (NET_TV_SERVER_PushAlarmInfo(&stAlarmInfo, NET_TV_ALARM_BASE_EXCEPTION, &stEx, (INT32)sizeof(stEx)))
     {
@@ -202,8 +202,8 @@ void PushDiskFullAlarm()
 
 void PushPeopleFlowStatisticsAlarm()
 {
-    NET_TV_ALARMER_S stAlarmInfo;
-    static NET_TV_ALARM_STATISTICS_INFO_S stStat;
+    NET_Alarmer_S stAlarmInfo;
+    static NET_AlarmStatisticsInfo_S stStat;
 
     printf("[Demo] Pushing People Flow Statistics Alarm...\n");
 
@@ -211,21 +211,21 @@ void PushPeopleFlowStatisticsAlarm()
     InitAlarmInfo(&stAlarmInfo, "Camera-04", "192.168.1.103",
                   "SN202312120004", NULL);
 
-    stStat.dwAlarmType = NET_TV_ALARM_PEOPLE_FLOW_STATISTICS;
-    stStat.dwChannel = 1;
-    stStat.dwStatisticsType = NET_TV_STATISTICS_TYPE_PEOPLE_FLOW;
-    stStat.dwRuleID = 1;
+    stStat.uAlarmType = NET_TV_ALARM_PEOPLE_FLOW_STATISTICS;
+    stStat.uChannel = 1;
+    stStat.uStatisticsType = NET_TV_STATISTICS_TYPE_PEOPLE_FLOW;
+    stStat.uRuleID = 1;
     stStat.llTimestampMs = (INT64)time(NULL) * 1000;
-    stStat.dwReportSeq = 1;
-    stStat.dwEnterCount = 12;
-    stStat.dwLeaveCount = 5;
-    stStat.dwTotalCount = stStat.dwEnterCount + stStat.dwLeaveCount;
-    stStat.dwCurrentPeopleCount = 7;
-    stStat.dwAverageStayTimeSec = 5;
-    stStat.dwTargetCount = 1;
+    stStat.uReportSeq = 1;
+    stStat.uEnterCount = 12;
+    stStat.uLeaveCount = 5;
+    stStat.uTotalCount = stStat.uEnterCount + stStat.uLeaveCount;
+    stStat.uCurrentPeopleCount = 7;
+    stStat.uAverageStayTimeSec = 5;
+    stStat.uTargetCount = 1;
     stStat.stTargets[0].nTrackID = 1001;
-    stStat.stTargets[0].dwRuleID = stStat.dwRuleID;
-    stStat.stTargets[0].dwSnapshotType = 1;
+    stStat.stTargets[0].uRuleID = stStat.uRuleID;
+    stStat.stTargets[0].uSnapshotType = 1;
     stStat.stTargets[0].nLeft = 120;
     stStat.stTargets[0].nTop = 80;
     stStat.stTargets[0].nRight = 260;
@@ -245,8 +245,8 @@ void PushPeopleFlowStatisticsAlarm()
 
 void PushFaceCompareAlarm()
 {
-    NET_TV_ALARMER_S stAlarmInfo;
-    NET_TV_ALARM_FACE_COMPARE_INFO_S stCompare = {0};
+    NET_Alarmer_S stAlarmInfo;
+    NET_AlarmFaceCompareInfo_S stCompare = {0};
     static const BYTE demoJpeg[] = {
         0xFF, 0xD8, 0xFF, 0xDB, 0x00, 0x43, 0x00, 0x08,
         0x06, 0x06, 0x07, 0x06, 0x05, 0x08, 0x07, 0x07,
@@ -273,27 +273,27 @@ void PushFaceCompareAlarm()
     InitAlarmInfo(&stAlarmInfo, "Camera-05", "192.168.1.104",
                   "SN202312120005", NULL);
 
-    stCompare.dwAlarmType = NET_TV_ALARM_FACE_COMPARE;
-    stCompare.dwChannel = 1;
+    stCompare.uAlarmType = NET_TV_ALARM_FACE_COMPARE;
+    stCompare.uChannel = 1;
     stCompare.llTimestampMs = (INT64)time(NULL) * 1000;
     stCompare.nEventId = 1001;
     stCompare.nCompResult = 1;
     stCompare.nFaceId = 10001;
     stCompare.nSimilarity = 88;
-    strncpy(stCompare.szFaceName, "FaceCompareDemo", sizeof(stCompare.szFaceName) - 1);
-    stCompare.szFaceName[sizeof(stCompare.szFaceName) - 1] = '\0';
-    strncpy(stCompare.szFaceLibName, "DemoFaceLib", sizeof(stCompare.szFaceLibName) - 1);
-    stCompare.szFaceLibName[sizeof(stCompare.szFaceLibName) - 1] = '\0';
-    strncpy(stCompare.szLibFacePath, "/demo/face/lib/10001.jpg", sizeof(stCompare.szLibFacePath) - 1);
-    stCompare.szLibFacePath[sizeof(stCompare.szLibFacePath) - 1] = '\0';
-    strncpy(stCompare.szCapFacePath, "/demo/face/capture/10001.jpg", sizeof(stCompare.szCapFacePath) - 1);
-    stCompare.szCapFacePath[sizeof(stCompare.szCapFacePath) - 1] = '\0';
-    strncpy(stCompare.szCapImagePath, "/demo/face/capture/panorama.jpg", sizeof(stCompare.szCapImagePath) - 1);
-    stCompare.szCapImagePath[sizeof(stCompare.szCapImagePath) - 1] = '\0';
+    strncpy(stCompare.strFaceName, "FaceCompareDemo", sizeof(stCompare.strFaceName) - 1);
+    stCompare.strFaceName[sizeof(stCompare.strFaceName) - 1] = '\0';
+    strncpy(stCompare.strFaceLibName, "DemoFaceLib", sizeof(stCompare.strFaceLibName) - 1);
+    stCompare.strFaceLibName[sizeof(stCompare.strFaceLibName) - 1] = '\0';
+    strncpy(stCompare.strLibFacePath, "/demo/face/lib/10001.jpg", sizeof(stCompare.strLibFacePath) - 1);
+    stCompare.strLibFacePath[sizeof(stCompare.strLibFacePath) - 1] = '\0';
+    strncpy(stCompare.strCapFacePath, "/demo/face/capture/10001.jpg", sizeof(stCompare.strCapFacePath) - 1);
+    stCompare.strCapFacePath[sizeof(stCompare.strCapFacePath) - 1] = '\0';
+    strncpy(stCompare.strCapImagePath, "/demo/face/capture/panorama.jpg", sizeof(stCompare.strCapImagePath) - 1);
+    stCompare.strCapImagePath[sizeof(stCompare.strCapImagePath) - 1] = '\0';
     memcpy(stCompare.byLibFaceImg, demoJpeg, sizeof(demoJpeg));
-    stCompare.dwLibFaceImgLen = (UINT32)sizeof(demoJpeg);
+    stCompare.uLibFaceImgLen = (UINT32)sizeof(demoJpeg);
     memcpy(stCompare.byCapFaceImg, demoJpeg, sizeof(demoJpeg));
-    stCompare.dwCapFaceImgLen = (UINT32)sizeof(demoJpeg);
+    stCompare.uCapFaceImgLen = (UINT32)sizeof(demoJpeg);
 
     if (NET_TV_SERVER_PushAlarmInfo(&stAlarmInfo, NET_TV_ALARM_FACE_COMPARE, &stCompare, (INT32)sizeof(stCompare)))
     {
@@ -344,18 +344,18 @@ void PushRandomAlarm()
 }
 
 // 回调函数：获取设备信息
-NET_TV_COMMON_ECODE_E MyDeviceInfoCb(LPNET_TV_DEVICE_INFO_S pInfo) 
+NET_TV_COMMON_ECODE_E MyDeviceInfoCb(pNET_DeviceInfo_S pInfo) 
 {
     if (!pInfo)
     {
         return NET_TV_E_FAILED;
     }
 
-    // 示例：填充最基本的设备信息（字段见 NET_TV_DEVICE_INFO_S）
-    pInfo->dwDevType = 0;
-    pInfo->wAlarmInPortNum = 2;
-    pInfo->wAlarmOutPortNum = 1;
-    pInfo->dwChannelNum = 4;
+    // 示例：填充最基本的设备信息（字段见 NET_DeviceInfo_S）
+    pInfo->uDevType = 0;
+    pInfo->uAlarmInPortNum = 2;
+    pInfo->uAlarmOutPortNum = 1;
+    pInfo->uChannelNum = 4;
     return NET_TV_E_SUCCEED;
 }
 

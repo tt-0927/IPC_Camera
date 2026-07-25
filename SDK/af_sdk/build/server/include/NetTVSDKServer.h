@@ -68,7 +68,7 @@ extern "C" {
     #else
         #ifdef LINUX
             #ifndef STDCALL
-            #define STDCALL                 __attribute__((stdcall))__attribute__((visibility ("default")))
+            #define STDCALL                 
             #endif
         #else
             #ifndef STDCALL
@@ -972,15 +972,15 @@ typedef enum tagNETTVCapabilityCommond
 
 typedef enum tagNETTVCfgCmd
 {
-    NET_TV_GET_DEVICECFG                = 100,              /* 获取设备信息,参见#NET_TV_DEVICE_BASICINFO_S  Get device information, see #NET_TV_DEVICE_BASICINFO_S */
+    NET_TV_GET_DEVICECFG                = 100,              /* 获取设备信息,参见#NET_DeviceBasicInfo_S  Get device information, see #NET_DeviceBasicInfo_S */
     NET_TV_SET_DEVICECFG                = 101,              /* 保留 Reserved */
 
     NET_TV_GET_UPGRADESTATUS            = 102,              /* 获取设备升级状态信息 */
     NET_TV_SET_UPGRADE                  = 103,              /* 设置设备升级信息 */
     NET_TV_GET_UPGRADEVERSION           = 104,              /* 获取设备升级版本信息 */  
 
-    NET_TV_GET_NTPCFG                   = 110,              /* 获取NTP参数,参见#NET_TV_SYSTEM_NTP_INFO_S  Get NTP parameter, see #NET_TV_SYSTEM_NTP_INFO_S */
-    NET_TV_SET_NTPCFG                   = 111,              /* 设置NTP参数,参见#NET_TV_SYSTEM_NTP_INFO_S  Set NTP parameter, see #NET_TV_SYSTEM_NTP_INFO_S */
+    NET_TV_GET_NTPCFG                   = 110,              /* 获取NTP参数,参见#NET_SystemNtpInfo_S  Get NTP parameter, see #NET_SystemNtpInfo_S */
+    NET_TV_SET_NTPCFG                   = 111,              /* 设置NTP参数,参见#NET_SystemNtpInfo_S  Set NTP parameter, see #NET_SystemNtpInfo_S */
 
     NET_TV_GET_STREAMCFG                = 120,              /* 获取视频编码参数,参见#NET_TV_VIDEO_ENCODE_OPTION_S  Get video encoding parameter, see #NET_TV_VIDEO_ENCODE_OPTION_S */
     NET_TV_SET_STREAMCFG                = 121,              /* 设置视频编码参数,参见#NET_TV_VIDEO_ENCODE_OPTION_S  Set video encoding parameter, see #NET_TV_VIDEO_ENCODE_OPTION_S */
@@ -1162,6 +1162,8 @@ typedef enum tagNETTVCfgCmd
     NET_TV_DEL_FACE_INFO                  = 488,           /* 删除人脸 参见NET_TV_FACE_ID_INFO_S */
     NET_TV_SET_FACE_INFO                  = 489,           /* 修改人脸 参见NET_TV_FACE_INFO_S */
     NET_TV_GET_FACE_INFO                  = 490,           /* 获取人脸 参见NET_TV_FACE_INFO_LIST_S */
+    NET_TV_GET_VOICECOM_AUDIO_CFG         = 491,           /* 获取对讲音频参数 参见NET_TV_VOICECOM_AUDIO_CFG_S */
+    NET_TV_SET_VOICECOM_AUDIO_CFG         = 492,           /* 设置对讲音频参数 参见NET_TV_VOICECOM_AUDIO_CFG_S */
  
     NET_TV_CFG_INVALID                  = 0xFFFF            /* 无效值  Invalid value */
 
@@ -1203,6 +1205,8 @@ typedef enum tagNETTVDeviceControlType
     NET_TV_DEVICE_CTRL_TYPE_WIPER        = 3,       /* 雨刷控制 */
     NET_TV_DEVICE_CTRL_TYPE_FILL_LIGHT   = 4,       /* 补光灯控制 */
     NET_TV_DEVICE_CTRL_TYPE_RELAY        = 5,       /* 继电器控制 */
+    NET_TV_DEVICE_CTRL_TYPE_REBOOT       = 6,       /* 重启设备 */
+    NET_TV_DEVICE_CTRL_TYPE_RESET        = 7,       /* 配置重置，dwCommand指定重置类型 */
     NET_TV_DEVICE_CTRL_TYPE_CUSTOM       = 1000,    /* 厂商自定义控制 */
     NET_TV_DEVICE_CTRL_TYPE_INVALID      = 0xff
 } NET_TV_DEVICE_CONTROL_TYPE_E;
@@ -1244,21 +1248,39 @@ typedef enum tagNETTVAlarmLightControlCmd
 } NET_TV_ALARM_LIGHT_CONTROL_CMD_E;
 
 /**
- * @struct tagNETTVDeviceControlInfo
+ * @enum tagNETTVResetControlCmd
+ * @brief 配置重置命令枚举，dwControlType 为 NET_TV_DEVICE_CTRL_TYPE_RESET 时使用。
+ * @details 数据流向说明：
+ *          1. 客户端调用 NET_TV_DeviceControl 接口时，填充 NET_TV_DEVICE_CONTROL_INFO_S 结构体
+ *          2. 设置 dwControlType = NET_TV_DEVICE_CTRL_TYPE_RESET
+ *          3. 设置 dwCommand = NET_TV_RESET_CTRL_FULL(1) 或 NET_TV_RESET_CTRL_SIMPLE(2)
+ *          4. 服务端在 DeviceControl 回调中读取 dwCommand 字段判断重置类型
+ */
+typedef enum tagNETTVResetControlCmd
+{
+    NET_TV_RESET_CTRL_FULL       = 1,       /* 完全恢复：恢复默认参数包括IP地址，所有参数恢复至出厂默认 */
+    NET_TV_RESET_CTRL_SIMPLE     = 2,       /* 简单恢复：不包括IP地址、设备用户名、密码、激活状态 */
+    NET_TV_RESET_CTRL_INVALID    = 0xff
+} NET_TV_RESET_CONTROL_CMD_E;
+
+/**
+ * @struct tagNET_DeviceControlInfo
  * @brief 设备硬件控制统一参数结构体，可承载云台、声光、雨刷、补光灯、继电器和自定义控制。
  */
-typedef struct tagNETTVDeviceControlInfo
+typedef struct tagNET_DeviceControlInfo
 {
-    UINT32 dwSize;          /* 结构体大小，调用方填 sizeof(NET_TV_DEVICE_CONTROL_INFO_S)，用于后续兼容扩展 */
-    INT32  dwChannelID;     /* 通道号 */
-    INT32  dwControlType;   /* 控制类型，参见 NET_TV_DEVICE_CONTROL_TYPE_E */
-    INT32  dwCommand;       /* 控制命令，不同 dwControlType 对应不同命令枚举 */
-    INT32  dwSpeed;         /* 云台速度，范围 NET_TV_MIN_PTZ_SPEED_LEVEL ~ NET_TV_MAX_PTZ_SPEED_LEVEL，非云台可忽略 */
-    INT32  dwDurationMs;    /* 持续时间，单位毫秒，0 表示由设备侧按命令语义自行处理 */
-    INT32  dwParam1;        /* 扩展参数1，例如声光模式、亮度、继电器号等 */
-    INT32  dwParam2;        /* 扩展参数2，例如音量、持续次数等 */
+    UINT32 uSize;           /* 结构体大小，调用方填 sizeof(NET_DeviceControlInfo_S)，用于后续兼容扩展 */
+    INT32  uChannelID;      /* 通道号 */
+    INT32  uControlType;    /* 控制类型，参见 NET_TV_DEVICE_CONTROL_TYPE_E */
+    INT32  uCommand;        /* 控制命令，不同 uControlType 对应不同命令枚举 */
+    INT32  uSpeed;          /* 云台速度，范围 NET_TV_MIN_PTZ_SPEED_LEVEL ~ NET_TV_MAX_PTZ_SPEED_LEVEL，非云台可忽略 */
+    INT32  uDurationMs;     /* 持续时间，单位毫秒，0 表示由设备侧按命令语义自行处理 */
+    INT32  uParam1;         /* 扩展参数1，例如声光模式、亮度、继电器号等 */
+    INT32  uParam2;         /* 扩展参数2，例如音量、持续次数等 */
     CHAR   szExt[256];      /* 扩展参数，建议存放 JSON 字符串或厂商自定义参数 */
-} NET_TV_DEVICE_CONTROL_INFO_S, *LPNET_TV_DEVICE_CONTROL_INFO_S;
+} NET_DeviceControlInfo_S;
+
+typedef NET_DeviceControlInfo_S* pNET_DeviceControlInfo_S;
 
 #define NET_TV_RECORD_FRAME_FLAG_MARKER        0x00000001u  /* RTP marker，通常表示一帧结束 */
 #define NET_TV_RECORD_FRAME_FLAG_KEY_FRAME     0x00000002u  /* 视频关键帧 */
@@ -1295,66 +1317,74 @@ typedef enum tagNETTVRecordFrameCodec
 } NET_TV_RECORD_FRAME_CODEC_E;
 
 /**
- * @struct tagNETTVRecordFrameStreamCond
+ * @struct tagNET_RecordFrameStreamCond
  * @brief 录像帧流启动条件。客户端传入通道和起止时间，服务端返回TCP端口和流标识。
  */
-typedef struct tagNETTVRecordFrameStreamCond
+typedef struct tagNET_RecordFrameStreamCond
 {
-    UINT32 dwSize;
-    INT32  dwChannel;
+    UINT32 uSize;
+    INT32  uChannel;
     CHAR   szStartTime[NET_TV_LEN_64];
     CHAR   szEndTime[NET_TV_LEN_64];
-    INT32  dwStreamIndex;       /* 码流索引，参见 NET_TV_LIVE_STREAM_INDEX_E；0 表示默认主码流 */
-    INT32  dwMediaType;         /* 请求媒体类型，参见 NET_TV_RECORD_FRAME_MEDIA_TYPE_E；默认视频 */
-    INT32  dwCodecType;         /* 期望编码，参见 NET_TV_RECORD_FRAME_CODEC_E；0 表示由服务端决定 */
-    UINT32 dwTcpPort;           /* 服务端录像帧TCP端口；0 表示使用服务端默认端口 */
+    INT32  uStreamIndex;        /* 码流索引，参见 NET_TV_LIVE_STREAM_INDEX_E；0 表示默认主码流 */
+    INT32  uMediaType;          /* 请求媒体类型，参见 NET_TV_RECORD_FRAME_MEDIA_TYPE_E；默认视频 */
+    INT32  uCodecType;          /* 期望编码，参见 NET_TV_RECORD_FRAME_CODEC_E；0 表示由服务端决定 */
+    UINT32 uTcpPort;            /* 服务端录像帧TCP端口；0 表示使用服务端默认端口 */
     BYTE   byRes[128];
-} NET_TV_RECORD_FRAME_STREAM_COND_S, *LPNET_TV_RECORD_FRAME_STREAM_COND_S;
+} NET_RecordFrameStreamCond_S;
+
+typedef NET_RecordFrameStreamCond_S* pNET_RecordFrameStreamCond_S;
 
 /**
- * @struct tagNETTVRecordFrameStreamInfo
+ * @struct tagNET_RecordFrameStreamInfo
  * @brief 录像帧流启动结果。
  */
-typedef struct tagNETTVRecordFrameStreamInfo
+typedef struct tagNET_RecordFrameStreamInfo
 {
-    UINT32 dwSize;
+    UINT32 uSize;
     CHAR   szStreamId[NET_TV_STREAM_ID_LEN];
-    INT32  dwChannel;
-    UINT32 dwTcpPort;
-    INT32  dwMediaType;
-    INT32  dwCodecType;
-    INT32  dwWidth;
-    INT32  dwHeight;
+    INT32  uChannel;
+    UINT32 uTcpPort;
+    INT32  uMediaType;
+    INT32  uCodecType;
+    INT32  uWidth;
+    INT32  uHeight;
     BYTE   byRes[128];
-} NET_TV_RECORD_FRAME_STREAM_INFO_S, *LPNET_TV_RECORD_FRAME_STREAM_INFO_S;
+} NET_RecordFrameStreamInfo_S;
+
+typedef NET_RecordFrameStreamInfo_S* pNET_RecordFrameStreamInfo_S;
 
 /**
- * @struct tagNETTVRecordFrameStopInfo
+ * @struct tagNET_RecordFrameStopInfo
  * @brief 录像帧流停止参数。
  */
-typedef struct tagNETTVRecordFrameStopInfo
+typedef struct tagNET_RecordFrameStopInfo
 {
-    UINT32 dwSize;
+    UINT32 uSize;
     CHAR   szStreamId[NET_TV_STREAM_ID_LEN];
     BYTE   byRes[64];
-} NET_TV_RECORD_FRAME_STOP_INFO_S, *LPNET_TV_RECORD_FRAME_STOP_INFO_S;
+} NET_RecordFrameStopInfo_S;
+
+typedef NET_RecordFrameStopInfo_S* pNET_RecordFrameStopInfo_S;
 
 /**
- * @struct tagNETTVRecordFrameInfo
+ * @struct tagNET_RecordFrameInfo
  * @brief 录像帧信息。服务端取帧回调填充该结构，客户端收到TCP包后通过回调返回该结构。
  */
-typedef struct tagNETTVRecordFrameInfo
+typedef struct tagNET_RecordFrameInfo
 {
-    UINT32 dwSize;
-    INT32  dwMediaType;
-    INT32  dwCodecType;
-    UINT32 dwSeq;
-    UINT32 dwTimestamp;
+    UINT32 uSize;
+    INT32  uMediaType;
+    INT32  uCodecType;
+    UINT32 uSeq;
+    UINT32 uTimestamp;
     UINT64 ullPtsMs;
-    UINT32 dwPayloadLen;
-    UINT32 dwFlags;
+    UINT32 uPayloadLen;
+    UINT32 uFlags;
     BYTE   byRes[64];
-} NET_TV_RECORD_FRAME_INFO_S, *LPNET_TV_RECORD_FRAME_INFO_S;
+} NET_RecordFrameInfo_S;
+
+typedef NET_RecordFrameInfo_S* pNET_RecordFrameInfo_S;
 
 /**
  * @struct tagNETTVRecordFrameRtpHeader
@@ -1862,18 +1892,20 @@ typedef enum tagNETTVPopulationAlarmSeverity
 /* BEGIN*********** 结构体  Structure *********************************** */
 
 /**
- * @struct tagNETTVTalkbackStateInfo
+ * @struct tagNET_TalkbackStateInfo
  * @brief 对讲状态信息结构体
  * @note 对应命令：NET_TV_STATE_TALKBACK
  */
-typedef struct tagNETTVTalkbackStateInfo
+typedef struct tagNET_TalkbackStateInfo
 {
     BOOL    bEnable;                     /* 对讲功能使能标记 */
     CHAR    szSdp[NET_TV_MAX_URL_LEN];  /* SDP 协议描述地址 */
     CHAR    szUrl[NET_TV_MAX_URL_LEN];  /* 对讲服务 URL 地址 */
     CHAR    szLocalIP[NET_TV_LEN_64];    /* 本机 IP 地址 */
     BYTE    byRes[128];                 /* 保留字段，未使用 */
-} NET_TV_TALKBACK_STATE_INFO_S, *LPNET_TV_TALKBACK_STATE_INFO_S;
+} NET_TalkbackStateInfo_S;
+
+typedef NET_TalkbackStateInfo_S* pNET_TalkbackStateInfo_S;
 
  /**
   * @struct tagNETTVVoiceComAudioParam
@@ -1883,33 +1915,57 @@ typedef struct tagNETTVTalkbackStateInfo
 typedef struct tagNETTVVoiceComAudioParam
 {
     INT32   enFormat;             /* 音频格式, 参见 NET_TV_AUDIO_FORMAT_E, 当前支持 PCM/G711A/G711U */
-    INT32   dwSampleRate;         /* 采样率, Hz, 参见 NET_TV_AUDIO_SAMPRATE_E */
-    INT32   dwBitDepth;           /* 位深, PCM=16, G711=8 */
-    INT32   dwChannels;           /* 声道数, 当前支持 1(单声道) */
-    INT32   dwFrameIntervalMs;    /* 单帧时长, ms */
-    INT32   dwFrameBytes;         /* 单帧字节数 */
-    INT32   dwBitRate;            /* 音频比特率, bit/s */
+    INT32   uSampleRate;          /* 采样率, Hz, 参见 NET_TV_AUDIO_SAMPRATE_E */
+    INT32   uBitDepth;            /* 位深, PCM=16, G711=8 */
+    INT32   uChannels;            /* 声道数, 当前支持 1(单声道) */
+    INT32   uFrameIntervalMs;     /* 单帧时长, ms */
+    INT32   uFrameBytes;          /* 单帧字节数 */
+    INT32   uBitRate;             /* 音频比特率, bit/s */
     BOOL    bLittleEndian;        /* PCM 字节序, TRUE 表示 little-endian; G711 忽略 */
     BYTE    byRes[128];           /* 保留字段 */
-} NET_TV_VOICECOM_AUDIO_PARAM_S, *LPNET_TV_VOICECOM_AUDIO_PARAM_S;
+} NET_VoiceComAudioParam_S;
+
+typedef NET_VoiceComAudioParam_S* pNET_VoiceComAudioParam_S;
 
 /**
- * @struct tagNETTVVoiceComStartInfo
+ * @struct tagNETVoiceComStartInfo
  * @brief VoiceCom 启动参数
  */
-typedef struct tagNETTVVoiceComStartInfo
+typedef struct tagNETVoiceComStartInfo
 {
-    UINT32  dwAudioPort;                              /* 设备端 VoiceCom TCP 端口, 默认 9006 */
-    NET_TV_VOICECOM_AUDIO_PARAM_S stAudioParam;       /* 本次对讲会话音频参数 */
+    UINT32  uAudioPort;                               /* 设备端 VoiceCom TCP 端口, 默认 9006 */
+    NET_VoiceComAudioParam_S stAudioParam;            /* 本次对讲会话音频参数 */
     BYTE    byRes[128];                               /* 保留字段 */
-} NET_TV_VOICECOM_START_INFO_S, *LPNET_TV_VOICECOM_START_INFO_S;
+} NET_VoiceComStartInfo_S;
+
+typedef NET_VoiceComStartInfo_S* pNET_VoiceComStartInfo_S;
 
 /**
- * @struct tagNETTVTalkbackStreamInfo
+ * @struct tagNETVoiceComAudioCfg
+ * @brief 对讲音频参数配置
+ * @note 用于NET_TV_GET_VOICECOM_AUDIO_CFG/NET_TV_SET_VOICECOM_AUDIO_CFG
+ */
+typedef struct tagNETVoiceComAudioCfg
+{
+    INT32   enFormat;             /* 音频格式, 参见 NET_TV_AUDIO_FORMAT_E, 当前支持 PCM/AAC/G711A/G711U */
+    INT32   uSampleRate;          /* 采样率, Hz, 参见 NET_TV_AUDIO_SAMPRATE_E */
+    INT32   uBitDepth;            /* 位深, PCM=16, G711=8 */
+    INT32   uChannels;            /* 声道数, 当前支持 1(单声道) */
+    INT32   uFrameIntervalMs;     /* 单帧时长, ms */
+    INT32   uFrameBytes;          /* 单帧字节数 */
+    INT32   uBitRate;             /* 比特率, bps */
+    BOOL    bLittleEndian;        /* 是否小端序 */
+    BYTE    byRes[128];           /* 保留字段 */
+} NET_VoiceComAudioCfg_S;
+
+typedef NET_VoiceComAudioCfg_S* pNET_VoiceComAudioCfg_S;
+
+/**
+ * @struct tagNET_TalkbackStreamInfo
  * @brief 对讲流信息结构体
  * @note 对应命令：NET_TV_TO_STREAM_TALKBACK / NET_TV_FROM_STREAM_TALKBACK
  */
-typedef struct tagNETTVTalkbackStreamInfo
+typedef struct tagNET_TalkbackStreamInfo
 {
     CHAR    szHost[NET_TV_LEN_64];      /* 对讲服务器主机地址/IP */
     INT32   nPort;                      /* 对讲服务端口号 */
@@ -1921,20 +1977,24 @@ typedef struct tagNETTVTalkbackStreamInfo
     CHAR    szEndTime[NET_TV_LEN_64];    /* 对讲结束时间戳 */
     CHAR    szFileName[NET_TV_LEN_260]; /* 对讲音频文件名/路径 */
     BYTE    byRes[128];                 /* 保留字段，未使用 */
-} NET_TV_TALKBACK_STREAM_INFO_S, *LPNET_TV_TALKBACK_STREAM_INFO_S;
+} NET_TalkbackStreamInfo_S;
+
+typedef NET_TalkbackStreamInfo_S* pNET_TalkbackStreamInfo_S;
 
 /**
- * @struct tagNETTVReplayTalkbackInfo
+ * @struct tagNET_ReplayTalkbackInfo
  * @brief 对讲回放信息结构体
  * @note 对应命令：NET_TV_REPLAY_TALKBACK
  */
-typedef struct tagNETTVReplayTalkbackInfo
+typedef struct tagNET_ReplayTalkbackInfo
 {
     CHAR    szNvrIp[NET_TV_LEN_64];     /* NVR 网络摄像机 IP 地址 */
     CHAR    szRemoteIp[NET_TV_LEN_64];  /* 远端设备 IP 地址 */
-    NET_TV_TALKBACK_STREAM_INFO_S stIPCInfo; /* IPC 端对讲流详细信息 */
+    NET_TalkbackStreamInfo_S stIPCInfo;  /* IPC 端对讲流详细信息 */
     BYTE    byRes[128];                 /* 保留字段，未使用 */
-} NET_TV_REPLAY_TALKBACK_INFO_S, *LPNET_TV_REPLAY_TALKBACK_INFO_S;
+} NET_ReplayTalkbackInfo_S;
+
+typedef NET_ReplayTalkbackInfo_S* pNET_ReplayTalkbackInfo_S;
 
 /**
  * @struct tagNETTVExposureInfo
@@ -2088,11 +2148,11 @@ typedef struct tagNETTVCapturePlanInfo
 } NET_TV_CAPTURE_PLAN_INFO_S, *LPNET_TV_CAPTURE_PLAN_INFO_S;
 
 /**
- * @struct tagNETTVCaptureConfig
+ * @struct tagNET_CaptureConfig
  * @brief 抓图配置
  * @attention
  */
-typedef struct tagNETTVCaptureConfig
+typedef struct tagNET_CaptureConfig
 {
     BOOL                bEnable;
     INT32               enPictureFormat; /* NET_TV_CAPTURE_PICTURE_FORMAT_E */
@@ -2103,21 +2163,25 @@ typedef struct tagNETTVCaptureConfig
     INT32               enTimeUnit;      /* NET_TV_CAPTURE_TIME_UNIT_E */
     UINT32              unNumber;
     BYTE                byRes[64];
-} NET_TV_CAPTURE_CONFIG_S, *LPNET_TV_CAPTURE_CONFIG_S;
+} NET_CaptureConfig_S;
+
+typedef NET_CaptureConfig_S* pNET_CaptureConfig_S;
 
 /**
- * @struct tagNETTVCaptureParamInfo
+ * @struct tagNET_CaptureParamInfo
  * @brief 抓图参数信息
  * @attention
  */
-typedef struct tagNETTVCaptureParamInfo
+typedef struct tagNET_CaptureParamInfo
 {
-    NET_TV_CAPTURE_CONFIG_S stCaptureTimingConfig;
-    NET_TV_CAPTURE_CONFIG_S stCaptureEventConfig;
+    NET_CaptureConfig_S stCaptureTimingConfig;
+    NET_CaptureConfig_S stCaptureEventConfig;
     BYTE                byRes[128];
-} NET_TV_CAPTURE_PARAM_INFO_S, *LPNET_TV_CAPTURE_PARAM_INFO_S;
+} NET_CaptureParamInfo_S;
 
-typedef struct tagNETTVCaptureInfo
+typedef NET_CaptureParamInfo_S* pNET_CaptureParamInfo_S;
+
+typedef struct tagNET_CaptureInfo
 {
     INT32               nChnId;
     INT32               enType;
@@ -2126,7 +2190,9 @@ typedef struct tagNETTVCaptureInfo
     CHAR                szImagePath[NET_TV_FILE_NAME_LEN];
     INT32               nImageSize;
     BYTE                byRes[128];
-} NET_TV_CAPTURE_INFO_S, *LPNET_TV_CAPTURE_INFO_S;
+} NET_CaptureInfo_S;
+
+typedef NET_CaptureInfo_S* pNET_CaptureInfo_S;
 
 /**
  * @struct tagstNETTVLoginInfo
@@ -2143,54 +2209,83 @@ typedef struct tagstNETTVDeviceLoginInfo
 }NET_TV_DEVICE_LOGIN_INFO_S, *LPNET_TV_DEVICE_LOGIN_INFO_S;
 
 /**
- * @struct tagNET_TV_DeviceInfo
- * @brief 设备信息 结构体定义 Device information Structure definition
- * @attention 无 None
+ * @brief 设备信息结构体
+ * @note  用于获取设备基本能力信息，包含设备类型、报警端口数、通道数等
  */
-typedef struct tagNETTVDeviceInfo
+typedef struct tagNET_DeviceInfo
 {
-    INT32   dwDevType;                          /* 设备类型,参见枚举#NET_TV_DEVICE_TYPE_E  Device type, see enumeration # NET_TV_DEVICE_TYPE_E */
-    INT16   wAlarmInPortNum;                    /* 报警输入个数  Number of alarm inputs */
-    INT16   wAlarmOutPortNum;                   /* 报警输出个数  Number of alarm outputs */
-    INT32   dwChannelNum;                       /* 通道个数  Number of Channels */
-    BYTE    byRes[48];                          /* 保留字段  Reserved */
-}NET_TV_DEVICE_INFO_S,*LPNET_TV_DEVICE_INFO_S;
+    INT32   uDevType;                           /* 设备类型,参见枚举#NET_TV_DEVICE_TYPE_E */
+    INT16   uAlarmInPortNum;                    /* 报警输入个数 */
+    INT16   uAlarmOutPortNum;                   /* 报警输出个数 */
+    INT32   uChannelNum;                        /* 通道个数 */
+    BYTE    byReserved[48];                     /* 预留字段 */
+} NET_DeviceInfo_S;
 
 /**
- * @struct tagNET_TVDeviceBasicInfo
- * @brief 设备基本信息 结构体定义 Basic device information Structure definition
- * @attention 无 None
+ * @brief 设备信息结构体指针类型
  */
-typedef struct tagNETTVDeviceBasicInfo
+typedef NET_DeviceInfo_S* pNET_DeviceInfo_S;
+
+/**
+ * @brief 设备基本信息结构体
+ * @note  用于获取设备详细信息，包含型号、序列号、固件版本、MAC地址等
+ */
+typedef struct tagNET_DeviceBasicInfo
 { 
-    CHAR szDevModel[NET_TV_LEN_64];                     /* 设备型号  Device model */
-    CHAR szSerialNum[NET_TV_LEN_64];                    /* 硬件序列号  Hardware serial number */
-    CHAR szFirmwareVersion[NET_TV_LEN_64];              /* 软件版本号  Software version */
-    CHAR szMacAddress[NET_TV_LEN_64];                   /* IPv4的Mac地址  MAC address of IPv4 */
-    CHAR szDeviceName[NET_TV_LEN_64];                   /* 设备名称  Device name */
-    CHAR szManufacturer[NET_TV_LEN_64];                 /* 厂商信息  Manufacturer */
-    CHAR szDeviceTypeV2[NET_TV_LEN_128];                /* 设备类型 */
-    BYTE byRes[256];                                    /* 保留字段  Reserved */
-}NET_TV_DEVICE_BASICINFO_S, *LPNET_TV_DEVICE_BASICINFO_S;
+    CHAR    strDevModel[NET_TV_LEN_64];                /* 设备型号 */
+    CHAR    strSerialNum[NET_TV_LEN_64];               /* 硬件序列号 */
+    CHAR    strFirmwareVersion[NET_TV_LEN_64];         /* 软件版本号 */
+    CHAR    strMacAddress[NET_TV_LEN_64];              /* IPv4的Mac地址 */
+    CHAR    strDeviceName[NET_TV_LEN_64];              /* 设备名称 */
+    CHAR    strManufacturer[NET_TV_LEN_64];            /* 厂商信息 */
+    CHAR    strDeviceTypeV2[NET_TV_LEN_128];           /* 设备类型 */
+    BYTE    byReserved[256];                           /* 预留字段 */
+} NET_DeviceBasicInfo_S;
 
 /**
- * @struct tagNETTVSystemNtpInfo
- * @brief 系统时间/NTP校时配置，对应IPC侧System::TimeInfo_S
- * @note 用于NET_TV_GET_NTPCFG/NET_TV_SET_NTPCFG
+ * @brief 设备基本信息结构体指针类型
  */
-typedef struct tagNETTVSystemNtpInfo
+typedef NET_DeviceBasicInfo_S* pNET_DeviceBasicInfo_S;
+
+/**
+ * @brief 系统时间/NTP校时配置结构体
+ * @note  对应IPC侧System::TimeInfo_S，用于NET_TV_GET_NTPCFG/NET_TV_SET_NTPCFG
+ */
+typedef struct tagNET_SystemNtpInfo
 {
     INT32   enTimeZone;                                 /* 时区，取值对应IPC侧System::TimeZone_E */
     INT32   enDateFormat;                               /* 日期格式，取值对应IPC侧System::DateFormat_E */
     BOOL    bEnableNTPSync;                             /* 是否开启NTP校时 */
     BOOL    bManualSync;                                /* 是否手动校时 */
-    CHAR    szDateTime[NET_TV_MAX_DATE_STRING_LEN];     /* 手动校时时间，格式按enDateFormat解析 */
+    CHAR    strDateTime[NET_TV_MAX_DATE_STRING_LEN];    /* 手动校时时间，格式按enDateFormat解析 */
     BOOL    bIsSyncWithComputer;                        /* 是否与计算机时间同步 */
-    CHAR    szAddress[NET_TV_LEN_128];                  /* NTP服务器地址 */
+    CHAR    strAddress[NET_TV_LEN_128];                 /* NTP服务器地址 */
     INT32   nPort;                                      /* NTP服务器端口 */
     INT32   nSyncInterval;                              /* NTP同步间隔，单位分钟 */
-    BYTE    byRes[128];                                 /* 保留字段 */
-}NET_TV_SYSTEM_NTP_INFO_S, *LPNET_TV_SYSTEM_NTP_INFO_S;
+    BYTE    byReserved[128];                            /* 预留字段 */
+} NET_SystemNtpInfo_S;
+
+/**
+ * @brief 系统时间/NTP校时配置结构体指针类型
+ */
+typedef NET_SystemNtpInfo_S* pNET_SystemNtpInfo_S;
+
+/**
+ * @brief 修改用户密码参数结构体
+ * @note  用于 NET_TV_SERVER_RegisterCb_SetUserPassword 回调
+ */
+typedef struct tagNET_UserPasswordInfo
+{
+    CHAR    strUserName[NET_TV_USERNAME_LEN];          /* 用户名 */
+    CHAR    strOldPassword[NET_TV_PASSWORD_LEN];       /* 旧密码 */
+    CHAR    strNewPassword[NET_TV_PASSWORD_LEN];       /* 新密码 */
+    BYTE    byReserved[128];                           /* 预留字段 */
+} NET_UserPasswordInfo_S;
+
+/**
+ * @brief 修改用户密码参数结构体指针类型
+ */
+typedef NET_UserPasswordInfo_S* pNET_UserPasswordInfo_S;
 
 /**
  * @struct tagNETTVPageInfo
@@ -2856,144 +2951,174 @@ typedef struct tagNETTVRevTimeout
 }NET_TV_REV_TIMEOUT_S, *LPNET_TV_REV_TIMEOUT_S;
 
 /**
- * @struct tagNETTVAlarmBasicInfo
+ * @struct tagNET_AlarmBasicInfo
  * @brief 基础/常规报警 (0x1000 - 0x10FF)
  */
-typedef struct tagNETTVAlarmBasicInfo
+typedef struct tagNET_AlarmBasicInfo
 {
-    UINT32      dwAlarmType;                                    /* 报警类型 */
-    UINT32      dwAlarmInputNumber;                             /* 报警输入口 */
-    BYTE        byAlarmOutputNumber[NET_TV_MAX_ALARM_OUT_NUM]; /* 触发的报警输出口，为1表示触发该口 */
-    BYTE        byAlarmRelateChannel[NET_TV_MAX_ALARM_IN_NUM]; /* 触发的录像通道，为1表示触发该通道 */
-    BYTE        byChannel[NET_TV_MAX_ALARM_IN_NUM];            /* 报警通道，为1表示触发该通道 */
-    BYTE        byDiskNumber[NET_TV_LOCAL_DISK_MAX_NUM];       /* 发生报警的硬盘，为1表示该硬盘异常 */
-    BYTE        byPanoramaImg[NET_TV_PIC_DATA_MAX_LEN];        /* 全景 JPEG 二进制图片 */
-    UINT32      dwPanoramaImgLen;                              /* 全景 JPEG 图片长度 */
-    INT64       llTimestampMs;                                 /* 报警时间戳，单位毫秒 */
-    BYTE        byRes[128];                                    /* 保留字段 */
-}NET_TV_ALARM_BASIC_INFO_S, *LPNET_TV_ALARM_BASIC_INFO_S;
+    UINT32      uAlarmType;                                     /* 报警类型 */
+    UINT32      uAlarmInputNumber;                              /* 报警输入口 */
+    BYTE        byAlarmOutputNumber[NET_TV_MAX_ALARM_OUT_NUM];  /* 触发的报警输出口，为1表示触发该口 */
+    BYTE        byAlarmRelateChannel[NET_TV_MAX_ALARM_IN_NUM];  /* 触发的录像通道，为1表示触发该通道 */
+    BYTE        byChannel[NET_TV_MAX_ALARM_IN_NUM];             /* 报警通道，为1表示触发该通道 */
+    BYTE        byDiskNumber[NET_TV_LOCAL_DISK_MAX_NUM];        /* 发生报警的硬盘，为1表示该硬盘异常 */
+    BYTE        byPanoramaImg[NET_TV_PIC_DATA_MAX_LEN];         /* 全景 JPEG 二进制图片 */
+    UINT32      uPanoramaImgLen;                                /* 全景 JPEG 图片长度 */
+    INT64       llTimestampMs;                                  /* 报警时间戳，单位毫秒 */
+    BYTE        byRes[128];                                     /* 保留字段 */
+} NET_AlarmBasicInfo_S;
 
 /**
- * @struct tagNETTVAlarmRuleInfo
- * @brief 区域/周界规则报警 (0x2000 - 0x20FF)
- * @note 约定：dwAlarmType 填写命令码(如 NET_TV_ALARM_LINE_CROSSING)
+ * @brief 基础/常规报警结构体指针类型
  */
-typedef struct tagNETTVAlarmRuleInfo
+typedef NET_AlarmBasicInfo_S* pNET_AlarmBasicInfo_S;
+
+/**
+ * @struct tagNET_AlarmRuleInfo
+ * @brief 区域/周界规则报警 (0x2000 - 0x20FF)
+ * @note 约定：uAlarmType 填写命令码(如 NET_TV_ALARM_LINE_CROSSING)
+ */
+typedef struct tagNET_AlarmRuleInfo
 {
-    UINT32      dwAlarmType;                         /* 报警类型/命令码 */
-    UINT32      dwChannel;                           /* 通道号 */
-    UINT32      dwRuleID;                            /* 规则ID */
-    UINT32      dwRuleType;                          /* 规则类型(可与dwAlarmType对应) */
-    CHAR        szRuleName[NET_TV_LEN_64];           /* 规则名称(可选) */
-    UINT32      dwTargetID;                          /* 目标ID(可选) */
-    UINT32      dwObjectType;                        /* 目标类型(0:未知 1:人 2:车 ... 可扩展) */
+    UINT32      uAlarmType;                          /* 报警类型/命令码 */
+    UINT32      uChannel;                            /* 通道号 */
+    UINT32      uRuleID;                             /* 规则ID */
+    UINT32      uRuleType;                           /* 规则类型(可与uAlarmType对应) */
+    CHAR        strRuleName[NET_TV_LEN_64];          /* 规则名称(可选) */
+    UINT32      uTargetID;                           /* 目标ID(可选) */
+    UINT32      uObjectType;                         /* 目标类型(0:未知 1:人 2:车 ... 可扩展) */
     float       fConfidence;                         /* 置信度 0~1 */
     INT32       nLeft;                               /* 目标框 left */
     INT32       nTop;                                /* 目标框 top */
     INT32       nRight;                              /* 目标框 right */
     INT32       nBottom;                             /* 目标框 bottom */
     BYTE        byPanoramaImg[NET_TV_PIC_DATA_MAX_LEN]; /* 全景 JPEG 二进制图片 */
-    UINT32      dwPanoramaImgLen;                    /* 全景 JPEG 图片长度 */
+    UINT32      uPanoramaImgLen;                     /* 全景 JPEG 图片长度 */
     BYTE        byTargetImg[NET_TV_PIC_DATA_MAX_LEN]; /* 目标特写 JPEG 二进制图片 */
-    UINT32      dwTargetImgLen;                      /* 目标特写 JPEG 图片长度 */
+    UINT32      uTargetImgLen;                       /* 目标特写 JPEG 图片长度 */
     INT64       llTimestampMs;                       /* 报警时间戳，单位毫秒 */
     BYTE        byRes[128];                          /* 保留字段 */
-}NET_TV_ALARM_RULE_INFO_S, *LPNET_TV_ALARM_RULE_INFO_S;
+} NET_AlarmRuleInfo_S;
 
 /**
- * @struct tagNETTVAlarmAiObjectInfo
- * @brief Smart/AI 行为分析 (0x3000 - 0x3FFF)
- * @note 约定：dwAlarmType 填写命令码(如 NET_TV_ALARM_FACE_CAPTURE)
+ * @brief 区域/周界规则报警结构体指针类型
  */
-typedef struct tagNETTVAlarmAiObjectInfo
+typedef NET_AlarmRuleInfo_S* pNET_AlarmRuleInfo_S;
+
+/**
+ * @struct tagNET_AlarmAiObjectInfo
+ * @brief Smart/AI 行为分析 (0x3000 - 0x3FFF)
+ * @note 约定：uAlarmType 填写命令码(如 NET_TV_ALARM_FACE_CAPTURE)
+ */
+typedef struct tagNET_AlarmAiObjectInfo
 {
-    UINT32      dwAlarmType;                         /* 报警类型/命令码 */
-    UINT32      dwChannel;                           /* 通道号 */
-    UINT32      dwObjectType;                        /* 目标类型(0:未知 1:人 2:车 ... 可扩展) */
+    UINT32      uAlarmType;                          /* 报警类型/命令码 */
+    UINT32      uChannel;                            /* 通道号 */
+    UINT32      uObjectType;                         /* 目标类型(0:未知 1:人 2:车 ... 可扩展) */
     float       fConfidence;                         /* 置信度 0~1 */
     INT32       nLeft;                               /* 目标框 left */
     INT32       nTop;                                /* 目标框 top */
     INT32       nRight;                              /* 目标框 right */
     INT32       nBottom;                             /* 目标框 bottom */
-    CHAR        szObjectID[NET_TV_LEN_64];           /* 目标ID(可选) */
+    CHAR        strObjectID[NET_TV_LEN_64];          /* 目标ID(可选) */
     BYTE        byPanoramaImg[NET_TV_PIC_DATA_MAX_LEN]; /* 全景 JPEG 二进制图片 */
-    UINT32      dwPanoramaImgLen;                    /* 全景 JPEG 图片长度 */
+    UINT32      uPanoramaImgLen;                     /* 全景 JPEG 图片长度 */
     BYTE        byImgData[NET_TV_PIC_DATA_MAX_LEN];  /* 报警图片数据 */
-    UINT32      dwImgLen;                            /* 图片长度 */
+    UINT32      uImgLen;                             /* 图片长度 */
     INT64       llTimestampMs;                       /* 报警时间戳，单位毫秒 */
     BYTE        byRes[32];                           /* 保留字段 */
-}NET_TV_ALARM_AI_OBJECT_INFO_S, *LPNET_TV_ALARM_AI_OBJECT_INFO_S;
+} NET_AlarmAiObjectInfo_S;
 
 /**
- * @struct tagNETTVAlarmFaceCompareInfo
- * @brief 人脸比对结果告警
- * @note 约定：dwAlarmType 填写 NET_TV_ALARM_FACE_COMPARE
+ * @brief Smart/AI 行为分析结构体指针类型
  */
-typedef struct tagNETTVAlarmFaceCompareInfo
+typedef NET_AlarmAiObjectInfo_S* pNET_AlarmAiObjectInfo_S;
+
+/**
+ * @struct tagNET_AlarmFaceCompareInfo
+ * @brief 人脸比对结果告警
+ * @note 约定：uAlarmType 填写 NET_TV_ALARM_FACE_COMPARE
+ */
+typedef struct tagNET_AlarmFaceCompareInfo
 {
-    UINT32      dwAlarmType;                         /* 报警类型/命令码 */
-    UINT32      dwChannel;                           /* 通道号 */
+    UINT32      uAlarmType;                          /* 报警类型/命令码 */
+    UINT32      uChannel;                            /* 通道号 */
     INT64       llTimestampMs;                       /* 报警时间戳，单位毫秒 */
     INT32       nEventId;                            /* 事件ID */
     INT32       nCompResult;                         /* 比对结果：0-不匹配 1-匹配 */
     INT32       nSimilarity;                         /* 相似度 0-100 */
     INT32       nFaceId;                             /* 人脸ID */
-    CHAR        szFaceLibName[NET_TV_FACE_DB_NAME_LEN];      /* 目标库名称 */
-    CHAR        szFaceName[NET_TV_FACE_MEMBER_NAME_LEN];     /* 人脸名称 */
-    CHAR        szLibFacePath[NET_TV_LEN_260];       /* 目标库人脸图片路径 */
-    CHAR        szCapFacePath[NET_TV_LEN_260];       /* 抓拍人脸图片路径 */
-    CHAR        szCapImagePath[NET_TV_LEN_260];      /* 抓拍原图路径 */
+    CHAR        strFaceLibName[NET_TV_FACE_DB_NAME_LEN];      /* 目标库名称 */
+    CHAR        strFaceName[NET_TV_FACE_MEMBER_NAME_LEN];     /* 人脸名称 */
+    CHAR        strLibFacePath[NET_TV_LEN_260];      /* 目标库人脸图片路径 */
+    CHAR        strCapFacePath[NET_TV_LEN_260];      /* 抓拍人脸图片路径 */
+    CHAR        strCapImagePath[NET_TV_LEN_260];     /* 抓拍原图路径 */
     BYTE        byLibFaceImg[NET_TV_FACE_IMAGE_MAX_LEN];     /* 目标库人脸 JPEG 二进制图片 */
-    UINT32      dwLibFaceImgLen;                     /* 目标库人脸 JPEG 图片长度 */
+    UINT32      uLibFaceImgLen;                      /* 目标库人脸 JPEG 图片长度 */
     BYTE        byCapFaceImg[NET_TV_FACE_IMAGE_MAX_LEN];     /* 抓拍人脸 JPEG 二进制图片 */
-    UINT32      dwCapFaceImgLen;                     /* 抓拍人脸 JPEG 图片长度 */
+    UINT32      uCapFaceImgLen;                      /* 抓拍人脸 JPEG 图片长度 */
     BYTE        byRes[256];                          /* 保留字段 */
-}NET_TV_ALARM_FACE_COMPARE_INFO_S, *LPNET_TV_ALARM_FACE_COMPARE_INFO_S;
+} NET_AlarmFaceCompareInfo_S;
+
+/**
+ * @brief 人脸比对结果告警结构体指针类型
+ */
+typedef NET_AlarmFaceCompareInfo_S* pNET_AlarmFaceCompareInfo_S;
 
 
 /**
- * @struct tagNETTVAlarmPlateInfo
+ * @struct tagNET_AlarmPlateInfo
  * @brief 交通/车辆相关 (0x4000 - 0x40FF)
- * @note 约定：dwAlarmType 填写命令码(如 NET_TV_ALARM_PLATE_RECOGNITION)
+ * @note 约定：uAlarmType 填写命令码(如 NET_TV_ALARM_PLATE_RECOGNITION)
  */
-typedef struct tagNETTVAlarmPlateInfo
+typedef struct tagNET_AlarmPlateInfo
 {
-    UINT32      dwAlarmType;                         /* 报警类型/命令码 */
-    UINT32      dwChannel;                           /* 通道号 */
-    CHAR        szPlateNumber[NET_TV_LEN_32];        /* 车牌号 */
-    UINT32      dwPlateColor;                        /* 车牌颜色(枚举可扩展) */
-    UINT32      dwVehicleType;                       /* 车辆类型(枚举可扩展) */
+    UINT32      uAlarmType;                          /* 报警类型/命令码 */
+    UINT32      uChannel;                            /* 通道号 */
+    CHAR        strPlateNumber[NET_TV_LEN_32];       /* 车牌号 */
+    UINT32      uPlateColor;                         /* 车牌颜色(枚举可扩展) */
+    UINT32      uVehicleType;                        /* 车辆类型(枚举可扩展) */
     float       fConfidence;                         /* 置信度 0~1 */
-    UINT32      dwSpeed;                             /* 速度(km/h，可选) */
-    UINT32      dwLaneNo;                            /* 车道号(可选) */
+    UINT32      uSpeed;                              /* 速度(km/h，可选) */
+    UINT32      uLaneNo;                             /* 车道号(可选) */
     BYTE        byPlateImg[NET_TV_VEH_PLATE_IMAGE_LEN]; /* 车牌图片 */
-    UINT32      dwPlateImgLen;                       /* 车牌图片长度 */
+    UINT32      uPlateImgLen;                        /* 车牌图片长度 */
     BYTE        byRes[64];                           /* 保留字段 */
-}NET_TV_ALARM_PLATE_INFO_S, *LPNET_TV_ALARM_PLATE_INFO_S;
+} NET_AlarmPlateInfo_S;
 
 /**
- * @struct tagNETTVAlarmExceptionInfo
- * @brief 设备异常/状态事件 (0x5000 - 0x50FF)
- * @note 约定：dwAlarmType 填写命令码(如 NET_TV_ALARM_DISK_FULL)
+ * @brief 交通/车辆相关结构体指针类型
  */
-typedef struct tagNETTVAlarmExceptionInfo
-{
-    UINT32      dwAlarmType;                         /* 报警类型/命令码 */
-    UINT32      dwChannel;                           /* 通道号(若无则填0) */
-    UINT32      dwDiskNo;                            /* 硬盘号(若无则填0) */
-    UINT32      dwStatus;                            /* 状态(0:恢复 1:触发) */
-    BYTE        byRes[256];                          /* 保留字段 */
-}NET_TV_ALARM_EXCEPTION_INFO_S, *LPNET_TV_ALARM_EXCEPTION_INFO_S;
+typedef NET_AlarmPlateInfo_S* pNET_AlarmPlateInfo_S;
 
 /**
- * @struct tagNETTVAlarmStatisticsTarget
+ * @struct tagNET_AlarmExceptionInfo
+ * @brief 设备异常/状态事件 (0x5000 - 0x50FF)
+ * @note 约定：uAlarmType 填写命令码(如 NET_TV_ALARM_DISK_FULL)
+ */
+typedef struct tagNET_AlarmExceptionInfo
+{
+    UINT32      uAlarmType;                          /* 报警类型/命令码 */
+    UINT32      uChannel;                            /* 通道号(若无则填0) */
+    UINT32      uDiskNo;                             /* 硬盘号(若无则填0) */
+    UINT32      uStatus;                             /* 状态(0:恢复 1:触发) */
+    BYTE        byRes[256];                          /* 保留字段 */
+} NET_AlarmExceptionInfo_S;
+
+/**
+ * @brief 设备异常/状态事件结构体指针类型
+ */
+typedef NET_AlarmExceptionInfo_S* pNET_AlarmExceptionInfo_S;
+
+/**
+ * @struct tagNET_AlarmStatisticsTarget
  * @brief 统计类告警目标快照
  */
-typedef struct tagNETTVAlarmStatisticsTarget
+typedef struct tagNET_AlarmStatisticsTarget
 {
     INT32       nTrackID;                             /* 目标跟踪 ID */
-    UINT32      dwRuleID;                             /* 规则 ID */
-    UINT32      dwSnapshotType;                       /* 快照类型：进入/离开/区域当前目标 */
+    UINT32      uRuleID;                              /* 规则 ID */
+    UINT32      uSnapshotType;                        /* 快照类型：进入/离开/区域当前目标 */
     INT32       nLeft;                                /* 目标框 left */
     INT32       nTop;                                 /* 目标框 top */
     INT32       nRight;                               /* 目标框 right */
@@ -3001,33 +3126,43 @@ typedef struct tagNETTVAlarmStatisticsTarget
     INT64       llTimestampMs;                        /* 快照时间戳，单位毫秒 */
     INT32       nDirection;                           /* 目标方向，跨线类事件填业务方向枚举值 */
     BYTE        byImgData[NET_TV_PIC_DATA_MAX_LEN];   /* 目标图片数据 */
-    UINT32      dwImgLen;                             /* 目标图片长度 */
+    UINT32      uImgLen;                              /* 目标图片长度 */
     BYTE        byRes[64];                            /* 保留字段 */
-}NET_TV_ALARM_STATISTICS_TARGET_S, *LPNET_TV_ALARM_STATISTICS_TARGET_S;
+} NET_AlarmStatisticsTarget_S;
 
 /**
- * @struct tagNETTVAlarmStatisticsInfo
+ * @brief 统计类告警目标快照结构体指针类型
+ */
+typedef NET_AlarmStatisticsTarget_S* pNET_AlarmStatisticsTarget_S;
+
+/**
+ * @struct tagNET_AlarmStatisticsInfo
  * @brief 统计类通用告警，优先用于人流统计和人员密度统计
  */
-typedef struct tagNETTVAlarmStatisticsInfo
+typedef struct tagNET_AlarmStatisticsInfo
 {
-    UINT32      dwAlarmType;                          /* 报警类型/命令码 */
-    UINT32      dwChannel;                            /* 通道号 */
-    UINT32      dwStatisticsType;                     /* 统计子类型 NET_TV_STATISTICS_TYPE_E */
-    UINT32      dwRuleID;                             /* 规则 ID */
+    UINT32      uAlarmType;                           /* 报警类型/命令码 */
+    UINT32      uChannel;                             /* 通道号 */
+    UINT32      uStatisticsType;                      /* 统计子类型 NET_TV_STATISTICS_TYPE_E */
+    UINT32      uRuleID;                              /* 规则 ID */
     INT64       llTimestampMs;                        /* 报告时间戳，单位毫秒 */
-    UINT32      dwReportSeq;                          /* 统计报告序号 */
-    UINT32      dwEnterCount;                         /* 累计进入人数 */
-    UINT32      dwLeaveCount;                         /* 累计离开人数 */
-    UINT32      dwTotalCount;                         /* 累计通行总人数 */
-    UINT32      dwCurrentPeopleCount;                 /* 当前区域人数 */
-    UINT32      dwAverageStayTimeSec;                 /* 平均停留时间，单位秒 */
-    UINT32      dwTargetCount;                        /* 当前目标快照数量 */
-    NET_TV_ALARM_STATISTICS_TARGET_S stTargets[NET_TV_ALARM_STATISTICS_TARGET_MAX_NUM]; /* 目标快照列表 */
+    UINT32      uReportSeq;                           /* 统计报告序号 */
+    UINT32      uEnterCount;                          /* 累计进入人数 */
+    UINT32      uLeaveCount;                          /* 累计离开人数 */
+    UINT32      uTotalCount;                          /* 累计通行总人数 */
+    UINT32      uCurrentPeopleCount;                  /* 当前区域人数 */
+    UINT32      uAverageStayTimeSec;                  /* 平均停留时间，单位秒 */
+    UINT32      uTargetCount;                         /* 当前目标快照数量 */
+    NET_AlarmStatisticsTarget_S stTargets[NET_TV_ALARM_STATISTICS_TARGET_MAX_NUM]; /* 目标快照列表 */
     BYTE        byPanoramaImg[NET_TV_PIC_DATA_MAX_LEN]; /* 全景 JPEG 二进制图片 */
-    UINT32      dwPanoramaImgLen;                     /* 全景 JPEG 图片长度 */
+    UINT32      uPanoramaImgLen;                      /* 全景 JPEG 图片长度 */
     BYTE        byRes[256];                           /* 保留字段 */
-}NET_TV_ALARM_STATISTICS_INFO_S, *LPNET_TV_ALARM_STATISTICS_INFO_S;
+} NET_AlarmStatisticsInfo_S;
+
+/**
+ * @brief 统计类通用告警结构体指针类型
+ */
+typedef NET_AlarmStatisticsInfo_S* pNET_AlarmStatisticsInfo_S;
 
 /* ==================== 布防时间和联动相关结构体 ==================== */
 
@@ -3046,38 +3181,48 @@ typedef struct tagNETTVSchedTime
 }NET_TV_SCHED_TIME_S, *LPNET_TV_SCHED_TIME_S;
 
 /**
- * @struct tagNETTVAlarmSchedule
+ * @struct tagNET_AlarmSchedule
  * @brief 布防时间配置 Alarm schedule configuration
  * @note 一周7天，每天最多8个时间段
  */
-typedef struct tagNETTVAlarmSchedule
+typedef struct tagNET_AlarmSchedule
 {
-    INT32       dwTimeSectionCount[7];               /* 每天的时间段数量 [0-8] */
+    INT32       uTimeSectionCount[7];                /* 每天的时间段数量 [0-8] */
     NET_TV_SCHED_TIME_S astTimeSection[7][NET_TV_PLAN_SECTION_NUM]; /* 一周7天，每天最多8个时间段 */
     BYTE        byRes[64];                          /* 保留字段 */
-}NET_TV_ALARM_SCHEDULE_S, *LPNET_TV_ALARM_SCHEDULE_S;
+} NET_AlarmSchedule_S;
 
 /**
- * @struct tagNETTVLinkageList
+ * @brief 布防时间配置结构体指针类型
+ */
+typedef NET_AlarmSchedule_S* pNET_AlarmSchedule_S;
+
+/**
+ * @struct tagNET_LinkageList
  * @brief 联动配置列表 Linkage configuration list
  */
-typedef struct tagNETTVLinkageList
+typedef struct tagNET_LinkageList
 {
-    INT32       dwAlarmOutputCount;                  /* 报警输出数量 */
-    INT32       adwAlarmOutput[NET_TV_MAX_ALARM_OUT_NUM]; /* 报警输出通道号数组 */
-    INT32       dwRecordChannelCount;                /* 录像通道数量 */
-    INT32       adwRecordChannel[NET_TV_CHANNEL_MAX]; /* 录像通道号数组 */
-    INT32       dwSnapshotChannelCount;              /* 抓拍通道数量 */
-    INT32       adwSnapshotChannel[NET_TV_CHANNEL_MAX]; /* 抓拍通道号数组 */
+    INT32       uAlarmOutputCount;                   /* 报警输出数量 */
+    INT32       auAlarmOutput[NET_TV_MAX_ALARM_OUT_NUM]; /* 报警输出通道号数组 */
+    INT32       uRecordChannelCount;                 /* 录像通道数量 */
+    INT32       auRecordChannel[NET_TV_CHANNEL_MAX]; /* 录像通道号数组 */
+    INT32       uSnapshotChannelCount;               /* 抓拍通道数量 */
+    INT32       auSnapshotChannel[NET_TV_CHANNEL_MAX]; /* 抓拍通道号数组 */
     BYTE        byRes[256];                         /* 保留字段 */
-}NET_TV_LINKAGE_LIST_S, *LPNET_TV_LINKAGE_LIST_S;
+} NET_LinkageList_S;
+
+/**
+ * @brief 联动配置列表结构体指针类型
+ */
+typedef NET_LinkageList_S* pNET_LinkageList_S;
 
 
 /**
  * @struct tagNETTVPeopleFlowRuleLine
  * @brief 人流统计规则线
  */
-typedef struct tagNETTVPeopleFlowRuleLine
+typedef struct tagNET_PeopleFlowRuleLine
 {
     FLOAT       fStartPointX;                         /* 规则线起点X坐标 [0.0-1.0] */
     FLOAT       fStartPointY;                         /* 规则线起点Y坐标 [0.0-1.0] */
@@ -3085,91 +3230,103 @@ typedef struct tagNETTVPeopleFlowRuleLine
     FLOAT       fEndPointY;                           /* 规则线终点Y坐标 [0.0-1.0] */
     INT32       nDirection;                           /* 统计方向 1-A到B 2-B到A */
     BYTE        byRes[60];                            /* 保留字段 */
-} NET_TV_PEOPLE_FLOW_RULE_LINE_S;
+} NET_PeopleFlowRuleLine_S;
+
+typedef NET_PeopleFlowRuleLine_S* pNET_PeopleFlowRuleLine_S;
 
 /**
- * @struct tagNETTVPeopleAlarmRule
+ * @struct tagNET_PeopleAlarmRule
  * @brief 单档人数报警配置
  */
-typedef struct tagNETTVPeopleAlarmRule
+typedef struct tagNET_PeopleAlarmRule
 {
     BOOL        bEnable;                               /* 是否启用 */
     INT32       nThreshold;                           /* 人数触发阈值 */
-    NET_TV_LINKAGE_LIST_S stLinkageList;              /* 联动配置 */
+    NET_LinkageList_S stLinkageList;              /* 联动配置 */
     BYTE        byRes[128];                           /* 保留字段 */
-} NET_TV_PEOPLE_ALARM_RULE_S;
+} NET_PeopleAlarmRule_S;
+
+typedef NET_PeopleAlarmRule_S* pNET_PeopleAlarmRule_S;
 
 /**
- * @struct tagNETTVPeopleAlarmConfig
+ * @struct tagNET_PeopleAlarmConfig
  * @brief 三级人数报警配置
  */
-typedef struct tagNETTVPeopleAlarmConfig
+typedef struct tagNET_PeopleAlarmConfig
 {
-    NET_TV_PEOPLE_ALARM_RULE_S stNormal;              /* 普通报警 */
-    NET_TV_PEOPLE_ALARM_RULE_S stMedium;              /* 中度报警 */
-    NET_TV_PEOPLE_ALARM_RULE_S stSevere;              /* 严重报警 */
+    NET_PeopleAlarmRule_S stNormal;              /* 普通报警 */
+    NET_PeopleAlarmRule_S stMedium;              /* 中度报警 */
+    NET_PeopleAlarmRule_S stSevere;              /* 严重报警 */
     BYTE        byRes[256];                           /* 保留字段 */
-} NET_TV_PEOPLE_ALARM_CONFIG_S;
+} NET_PeopleAlarmConfig_S;
+
+typedef NET_PeopleAlarmConfig_S* pNET_PeopleAlarmConfig_S;
 
 /**
- * @struct tagNETTVStatisticsResetConfig
+ * @struct tagNET_StatisticsResetConfig
  * @brief 定时清零配置
  */
-typedef struct tagNETTVStatisticsResetConfig
+typedef struct tagNET_StatisticsResetConfig
 {
     BOOL        bEnable;                               /* 是否启用 */
     INT32       nHour;                                /* 执行小时 [0-23] */
     INT32       nMinute;                              /* 执行分钟 [0-59] */
     BYTE        byRes[16];                            /* 保留字段 */
-} NET_TV_STATISTICS_RESET_CONFIG_S;
+} NET_StatisticsResetConfig_S;
+
+typedef NET_StatisticsResetConfig_S* pNET_StatisticsResetConfig_S;
 
 /**
- * @struct tagNETTVPeopleFlowStatisticsCfg
+ * @struct tagNET_PeopleFlowStatisticsCfg
  * @brief 人流统计配置信息
  * @note 用于NET_TV_GET_PEOPLE_FLOW_STATISTICS_CFG/NET_TV_SET_PEOPLE_FLOW_STATISTICS_CFG
  */
-typedef struct tagNETTVPeopleFlowStatisticsCfg
+typedef struct tagNET_PeopleFlowStatisticsCfg
 {
     BOOL        bEnable;                               /* 是否启用人流统计 */
     INT32       nSensitivity;                           /* 灵敏度[1-100] */
-    NET_TV_PEOPLE_FLOW_RULE_LINE_S stRuleLine;        /* 规则线 */
-    INT32       dwPointCount;                         /* 检测区域顶点数，最多32个 */
+    NET_PeopleFlowRuleLine_S stRuleLine;        /* 规则线 */
+    INT32       uPointCount;                         /* 检测区域顶点数，最多32个 */
     FLOAT       afPointX[32];                         /* 检测区域X坐标数组 [0.0-1.0] */
     FLOAT       afPointY[32];                         /* 检测区域Y坐标数组 [0.0-1.0] */
     INT32       nReportInterval;                        /* 数据上报间隔(秒) */
     INT32       enStatisticsType;                      /* 统计类型 NET_TV_PEOPLE_FLOW_STAT_TYPE_E */
-    NET_TV_STATISTICS_RESET_CONFIG_S stTimedReset;     /* 定时清零 */
-    NET_TV_PEOPLE_ALARM_CONFIG_S stStayAlarm;          /* 滞留人数报警 */
-    NET_TV_ALARM_SCHEDULE_S stAlarmSchedule;           /* 布防时间 */
+    NET_StatisticsResetConfig_S stTimedReset;     /* 定时清零 */
+    NET_PeopleAlarmConfig_S stStayAlarm;          /* 滞留人数报警 */
+    NET_AlarmSchedule_S stAlarmSchedule;           /* 布防时间 */
     BYTE        byRes[256];                           /* 保留字段 */
-} NET_TV_PEOPLE_FLOW_STATISTICS_CFG_S, *LPNET_TV_PEOPLE_FLOW_STATISTICS_CFG_S;
+} NET_PeopleFlowStatisticsCfg_S;
+
+typedef NET_PeopleFlowStatisticsCfg_S* pNET_PeopleFlowStatisticsCfg_S;
 
 /**
- * @struct tagNETTVPeopleDensityDetectionCfg
+ * @struct tagNET_PeopleDensityDetectionCfg
  * @brief 人员密度检测配置信息
  * @note 用于NET_TV_GET_PEOPLE_DENSITY_DETECTION_CFG/NET_TV_SET_PEOPLE_DENSITY_DETECTION_CFG
  */
-typedef struct tagNETTVPeopleDensityDetectionCfg
+typedef struct tagNET_PeopleDensityDetectionCfg
 {
     BOOL        bEnable;                               /* 是否启用人员密度检测 */
     INT32       nSensitivity;                           /* 灵敏度[1-100] */
-    INT32       dwPointCount;                         /* 检测区域顶点数，最多32个 */
+    INT32       uPointCount;                         /* 检测区域顶点数，最多32个 */
     FLOAT       afPointX[32];                         /* 检测区域X坐标数组 [0.0-1.0] */
     FLOAT       afPointY[32];                         /* 检测区域Y坐标数组 [0.0-1.0] */
     INT32       nReportInterval;                        /* 数据上报间隔(秒) */
-    NET_TV_PEOPLE_ALARM_CONFIG_S stDensityAlarm;      /* 密度报警 */
-    NET_TV_ALARM_SCHEDULE_S stAlarmSchedule;           /* 布防时间 */
+    NET_PeopleAlarmConfig_S stDensityAlarm;      /* 密度报警 */
+    NET_AlarmSchedule_S stAlarmSchedule;           /* 布防时间 */
     BYTE        byRes[256];                           /* 保留字段 */
-} NET_TV_PEOPLE_DENSITY_DETECTION_CFG_S, *LPNET_TV_PEOPLE_DENSITY_DETECTION_CFG_S;
+} NET_PeopleDensityDetectionCfg_S;
+
+typedef NET_PeopleDensityDetectionCfg_S* pNET_PeopleDensityDetectionCfg_S;
 
 
 /* ==================== 移动侦测相关结构体 ==================== */
 
 /**
- * @struct tagNETTVMotionRegion
+ * @struct tagNET_MotionRegion
  * @brief 移动侦测专家模式区域参数 Motion detection expert mode region
  */
-typedef struct tagNETTVMotionRegion
+typedef struct tagNET_MotionRegion
 {
     INT32       nAreaNo;                            /* 侦测区域编号，从1开始 */
     INT32       nRectLeft;                           /* 区域左坐标 */
@@ -3180,26 +3337,30 @@ typedef struct tagNETTVMotionRegion
     INT32       nDaytimeSensitivity;                 /* 白天灵敏度 [0,100] */
     INT32       nNightSensitivity;                   /* 夜晚灵敏度 [0,100] */
     BYTE        byRes[32];                           /* 保留字段 */
-}NET_TV_MOTION_REGION_S, *LPNET_TV_MOTION_REGION_S;
+}NET_MotionRegion_S;
+
+typedef NET_MotionRegion_S* pNET_MotionRegion_S;
 
 /**
- * @struct tagNETTVMotionExpertMode
+ * @struct tagNET_MotionExpertMode
  * @brief 移动侦测专家模式参数 Motion detection expert mode
  */
-typedef struct tagNETTVMotionExpertMode
+typedef struct tagNET_MotionExpertMode
 {
     INT32       nExpertDayNightCtrl;                /* 日夜控制：0-关闭(默认)，1-自动切换，2-定时切换 */
     NET_TV_SCHED_TIME_S stDayTime;                  /* 日夜切换时间 定时切换时有效 */
-    INT32       dwRegionCount;                      /* 区域数量 */
-    NET_TV_MOTION_REGION_S astRegion[16];            /* 移动侦测专家模式区域参数，最多16个 */
+    INT32       uRegionCount;                       /* 区域数量 */
+    NET_MotionRegion_S astRegion[16];               /* 移动侦测专家模式区域参数，最多16个 */
     BYTE        byRes[128];                         /* 保留字段 */
-}NET_TV_MOTION_EXPERT_MODE_S, *LPNET_TV_MOTION_EXPERT_MODE_S;
+}NET_MotionExpertMode_S;
+
+typedef NET_MotionExpertMode_S* pNET_MotionExpertMode_S;
 
 /**
- * @struct tagNETTVMotionNormalMode
+ * @struct tagNET_MotionNormalMode
  * @brief 移动侦测普通模式参数 Motion detection normal mode
  */
-typedef struct tagNETTVMotionNormalMode
+typedef struct tagNET_MotionNormalMode
 {
     INT32       nSensitivity;                        /* 灵敏度 [0,100] */
     INT32       nRegionType;                         /* 区域类型 0：筒型 1：网格 */
@@ -3207,28 +3368,32 @@ typedef struct tagNETTVMotionNormalMode
     INT32       nRectTop;                            /* 筒型区域上坐标 */
     INT32       nRectRight;                          /* 筒型区域右坐标 */
     INT32       nRectBottom;                         /* 筒型区域下坐标 */
-    INT32       dwGridWidth;                         /* 网格宽度 (当nRegionType=1时有效，通常22) */
-    INT32       dwGridHeight;                        /* 网格高度 (当nRegionType=1时有效，通常18) */
+    INT32       uGridWidth;                          /* 网格宽度 (当nRegionType=1时有效，通常22) */
+    INT32       uGridHeight;                         /* 网格高度 (当nRegionType=1时有效，通常18) */
     BYTE        abyGridArea[18][22];                /* 网格区域标记，1表示移动侦测区域 (18x22) */
     BYTE        byRes[128];                          /* 保留字段 */
-}NET_TV_MOTION_NORMAL_MODE_S, *LPNET_TV_MOTION_NORMAL_MODE_S;
+}NET_MotionNormalMode_S;
+
+typedef NET_MotionNormalMode_S* pNET_MotionNormalMode_S;
 
 /**
- * @struct tagNETTVMotionAlarmInfo
+ * @struct tagNET_MotionAlarmInfo
  * @brief 移动侦测告警配置信息 Motion detection alarm configuration
  * @note 用于NET_TV_GET_MOTIONALARM/NET_TV_SET_MOTIONALARM
  */
-typedef struct tagNETTVMotionAlarmInfo
+typedef struct tagNET_MotionAlarmInfo
 {
     BOOL        bEnable;                             /* 是否启用 0-不启用 1-启用 */
     BOOL        bDynamicAnalysisEnable;              /* 是否启用动态分析 */
-    INT32       dwMode;                              /* 模式 0-普通模式 1-专家模式 NET_TV_MOTION_MODE_E */
-    NET_TV_MOTION_NORMAL_MODE_S stNormalMode;       /* 普通模式参数 */
-    NET_TV_MOTION_EXPERT_MODE_S stExpertMode;       /* 专家模式参数 */
-    NET_TV_ALARM_SCHEDULE_S stAlarmSchedule;        /* 布防时间 */
-    NET_TV_LINKAGE_LIST_S stLinkageList;            /* 联动配置 */
+    INT32       uMode;                               /* 模式 0-普通模式 1-专家模式 NET_TV_MOTION_MODE_E */
+    NET_MotionNormalMode_S stNormalMode;            /* 普通模式参数 */
+    NET_MotionExpertMode_S stExpertMode;            /* 专家模式参数 */
+    NET_AlarmSchedule_S stAlarmSchedule;            /* 布防时间 */
+    NET_LinkageList_S stLinkageList;                /* 联动配置 */
     BYTE        byRes[256];                          /* 保留字段 */
-}NET_TV_MOTION_ALARM_INFO_S, *LPNET_TV_MOTION_ALARM_INFO_S;
+}NET_MotionAlarmInfo_S;
+
+typedef NET_MotionAlarmInfo_S* pNET_MotionAlarmInfo_S;
 
 /* ==================== 隐私遮盖配置相关结构体 ==================== */
 
@@ -3264,30 +3429,32 @@ typedef struct tagNETTVPrivacyMaskCfg
 /* ==================== 遮挡报警相关结构体 ==================== */
 
 /**
- * @struct tagNETTVTamperAlarmInfo
+ * @struct tagNET_TamperAlarmInfo
  * @brief 遮挡检测告警配置信息 Tamper detection alarm configuration
  * @note 用于NET_TV_GET_TAMPERALARM/NET_TV_SET_TAMPERALARM
  */
-typedef struct tagNETTVTamperAlarmInfo
+typedef struct tagNET_TamperAlarmInfo
 {
     BOOL        bEnable;                             /* 是否启用 0-不启用 1-启用 */
-    INT32       dwSensitivity;                        /* 遮挡报警灵敏度[0,3]，值越大越灵敏 */
+    INT32       uSensitivity;                        /* 遮挡报警灵敏度[0,3]，值越大越灵敏 */
     INT32       nRectLeft;                           /* 遮挡区域左坐标 */
     INT32       nRectTop;                            /* 遮挡区域上坐标 */
     INT32       nRectRight;                          /* 遮挡区域右坐标 */
     INT32       nRectBottom;                         /* 遮挡区域下坐标 */
-    NET_TV_ALARM_SCHEDULE_S stAlarmSchedule;        /* 布防时间 */
-    NET_TV_LINKAGE_LIST_S stLinkageList;            /* 联动配置 */
+    NET_AlarmSchedule_S stAlarmSchedule;            /* 布防时间 */
+    NET_LinkageList_S stLinkageList;                /* 联动配置 */
     BYTE        byRes[256];                          /* 保留字段 */
-}NET_TV_TAMPER_ALARM_INFO_S, *LPNET_TV_TAMPER_ALARM_INFO_S;
+}NET_TamperAlarmInfo_S;
+
+typedef NET_TamperAlarmInfo_S* pNET_TamperAlarmInfo_S;
 
 /* ==================== 越界检测相关结构体 ==================== */
 
 /**
- * @struct tagNETTVBoundaryPlane
+ * @struct tagNET_BoundaryPlane
  * @brief 越界检测警戒线规则 Boundary detection plane rule
  */
-typedef struct tagNETTVBoundaryPlane
+typedef struct tagNET_BoundaryPlane
 {
     BOOL        bEnable;                             /* 是否启用 */
     FLOAT       fStartPosX;                          /* 警戒线起始点X坐标 [0.0-1.0] */
@@ -3296,195 +3463,221 @@ typedef struct tagNETTVBoundaryPlane
     FLOAT       fEndPosY;                            /* 警戒线终止点Y坐标 [0.0-1.0] */
     INT32       enCrossDirection;                    /* 警戒线的穿越方向 NET_TV_CROSS_DIRECTION_E */
     INT32       nSensitivity;                        /* 警戒线灵敏度[1,100] */
-    INT32       dwDetectionTargetCount;              /* 检测目标数量 */
-    INT32       adwDetectionTarget[8];               /* 检测目标数组 NET_TV_DETECTION_TARGET_E，最多8个 */
+    INT32       uDetectionTargetCount;               /* 检测目标数量 */
+    INT32       auDetectionTarget[8];                /* 检测目标数组 NET_TV_DETECTION_TARGET_E，最多8个 */
     BYTE        byRes[64];                           /* 保留字段 */
-}NET_TV_BOUNDARY_PLANE_S, *LPNET_TV_BOUNDARY_PLANE_S;
+}NET_BoundaryPlane_S;
+
+typedef NET_BoundaryPlane_S* pNET_BoundaryPlane_S;
 
 /**
- * @struct tagNETTVCrossLineAlarmInfo
+ * @struct tagNET_CrossLineAlarmInfo
  * @brief 越界检测告警配置信息 Cross line detection alarm configuration
  * @note 用于NET_TV_GET_CROSSLINEALARM/NET_TV_SET_CROSSLINEALARM
  */
-typedef struct tagNETTVCrossLineAlarmInfo
+typedef struct tagNET_CrossLineAlarmInfo
 {
     BOOL        bEnable;                             /* 是否启用 0-不启用 1-启用 */
-    INT32       dwRuleCount;                         /* 规则数量，最多4个 */
-    NET_TV_BOUNDARY_PLANE_S astRule[4];              /* 越界检测区域规则，最多4个 */
-    NET_TV_ALARM_SCHEDULE_S stAlarmSchedule;        /* 布防时间 */
-    NET_TV_LINKAGE_LIST_S stLinkageList;            /* 联动配置 */
+    INT32       uRuleCount;                          /* 规则数量，最多4个 */
+    NET_BoundaryPlane_S stRule[4];                   /* 越界检测区域规则，最多4个 */
+    NET_AlarmSchedule_S stAlarmSchedule;            /* 布防时间 */
+    NET_LinkageList_S stLinkageList;                /* 联动配置 */
     BYTE        byRes[256];                          /* 保留字段 */
-}NET_TV_CROSS_LINE_ALARM_INFO_S, *LPNET_TV_CROSS_LINE_ALARM_INFO_S;
+}NET_CrossLineAlarmInfo_S;
+
+typedef NET_CrossLineAlarmInfo_S* pNET_CrossLineAlarmInfo_S;
 
 /* ==================== 入侵检测相关结构体 ==================== */
 
 /**
- * @struct tagNETTVIntrusionRule
+ * @struct tagNET_IntrusionRule
  * @brief 入侵检测区域规则参数 Intrusion detection region rule
  */
-typedef struct tagNETTVIntrusionRule
+typedef struct tagNET_IntrusionRule
 {
     BOOL        bEnable;                             /* 是否启用 */
-    INT32       dwPointCount;                        /* 区域顶点数量，最多32个 */
+    INT32       uPointCount;                         /* 区域顶点数量，最多32个 */
     FLOAT       afPointX[32];                        /* 区域顶点X坐标数组 [0.0-1.0] */
     FLOAT       afPointY[32];                        /* 区域顶点Y坐标数组 [0.0-1.0] */
     INT32       nTimeThreshold;                      /* 行为事件触发时间阈值，判断有效报警的时间[0,100] 单位秒 */
     INT32       nSensitivity;                        /* 灵敏度[1,100] */
-    INT32       dwDetectionTargetCount;              /* 检测目标数量 */
-    INT32       adwDetectionTarget[8];               /* 检测目标数组 NET_TV_DETECTION_TARGET_E，最多8个 */
+    INT32       uDetectionTargetCount;               /* 检测目标数量 */
+    INT32       auDetectionTarget[8];                /* 检测目标数组 NET_TV_DETECTION_TARGET_E，最多8个 */
     BYTE        byRes[64];                           /* 保留字段 */
-}NET_TV_INTRUSION_RULE_S, *LPNET_TV_INTRUSION_RULE_S;
+}NET_IntrusionRule_S;
+
+typedef NET_IntrusionRule_S* pNET_IntrusionRule_S;
 
 /**
- * @struct tagNETTVIntrusionAlarmInfo
+ * @struct tagNET_IntrusionAlarmInfo
  * @brief 入侵检测告警配置信息 Intrusion detection alarm configuration
  * @note 用于NET_TV_GET_INTRUSIONALARM/NET_TV_SET_INTRUSIONALARM
  */
-typedef struct tagNETTVIntrusionAlarmInfo
+typedef struct tagNET_IntrusionAlarmInfo
 {
     BOOL        bEnable;                             /* 是否启用 0-不启用 1-启用 */
-    INT32       dwRuleCount;                         /* 规则数量，最多4个 */
-    NET_TV_INTRUSION_RULE_S astRule[4];              /* 区域入侵检测规则，最多4个 */
-    NET_TV_ALARM_SCHEDULE_S stAlarmSchedule;        /* 布防时间 */
-    NET_TV_LINKAGE_LIST_S stLinkageList;            /* 联动配置 */
+    INT32       uRuleCount;                          /* 规则数量，最多4个 */
+    NET_IntrusionRule_S stRule[4];                   /* 区域入侵检测规则，最多4个 */
+    NET_AlarmSchedule_S stAlarmSchedule;            /* 布防时间 */
+    NET_LinkageList_S stLinkageList;                /* 联动配置 */
     BYTE        byRes[256];                          /* 保留字段 */
-}NET_TV_INTRUSION_ALARM_INFO_S, *LPNET_TV_INTRUSION_ALARM_INFO_S;
+}NET_IntrusionAlarmInfo_S;
+
+typedef NET_IntrusionAlarmInfo_S* pNET_IntrusionAlarmInfo_S;
 
 /**
- * @struct tagNETTVEnterRegionAlarmInfo
+ * @struct tagNET_EnterRegionAlarmInfo
  * @brief 进入区域侦测告警配置信息 Enter region detection alarm configuration
  * @note 用于NET_TV_GET_ENTERREGIONALARM/NET_TV_SET_ENTERREGIONALARM
  */
-typedef struct tagNETTVEnterRegionAlarmInfo
+typedef struct tagNET_EnterRegionAlarmInfo
 {
     BOOL        bEnable;                             /* 是否启用 0-不启用 1-启用 */
-    INT32       dwRuleCount;                         /* 规则数量，最多4个 */
-    NET_TV_INTRUSION_RULE_S astRule[4];              /* 进入区域检测规则，最多4个 */
-    NET_TV_ALARM_SCHEDULE_S stAlarmSchedule;        /* 布防时间 */
-    NET_TV_LINKAGE_LIST_S stLinkageList;            /* 联动配置 */
+    INT32       uRuleCount;                          /* 规则数量，最多4个 */
+    NET_IntrusionRule_S stRule[4];                   /* 进入区域检测规则，最多4个 */
+    NET_AlarmSchedule_S stAlarmSchedule;            /* 布防时间 */
+    NET_LinkageList_S stLinkageList;                /* 联动配置 */
     BYTE        byRes[256];                          /* 保留字段 */
-}NET_TV_ENTER_REGION_ALARM_INFO_S, *LPNET_TV_ENTER_REGION_ALARM_INFO_S;
+}NET_EnterRegionAlarmInfo_S;
+
+typedef NET_EnterRegionAlarmInfo_S* pNET_EnterRegionAlarmInfo_S;
 
 /**
- * @struct tagNETTVLeaveRegionAlarmInfo
+ * @struct tagNET_LeaveRegionAlarmInfo
  * @brief 离开区域侦测告警配置信息 Leave region detection alarm configuration
  * @note 用于NET_TV_GET_LEAVEREGIONALARM/NET_TV_SET_LEAVEREGIONALARM
  */
-typedef struct tagNETTVLeaveRegionAlarmInfo
+typedef struct tagNET_LeaveRegionAlarmInfo
 {
     BOOL        bEnable;                             /* 是否启用 0-不启用 1-启用 */
-    INT32       dwRuleCount;                         /* 规则数量，最多4个 */
-    NET_TV_INTRUSION_RULE_S astRule[4];              /* 离开区域检测规则，最多4个 */
-    NET_TV_ALARM_SCHEDULE_S stAlarmSchedule;         /* 布防时间 */
-    NET_TV_LINKAGE_LIST_S stLinkageList;             /* 联动配置 */
+    INT32       uRuleCount;                          /* 规则数量，最多4个 */
+    NET_IntrusionRule_S stRule[4];                   /* 离开区域检测规则，最多4个 */
+    NET_AlarmSchedule_S stAlarmSchedule;            /* 布防时间 */
+    NET_LinkageList_S stLinkageList;                /* 联动配置 */
     BYTE        byRes[256];                          /* 保留字段 */
-}NET_TV_LEAVE_REGION_ALARM_INFO_S, *LPNET_TV_LEAVE_REGION_ALARM_INFO_S;
+}NET_LeaveRegionAlarmInfo_S;
+
+typedef NET_LeaveRegionAlarmInfo_S* pNET_LeaveRegionAlarmInfo_S;
 
 /* ==================== 徘徊侦测相关结构体 ==================== */
 
 /**
- * @struct tagNETTVLoiteringRule
+ * @struct tagNET_LoiteringRule
  * @brief 徘徊侦测区域规则参数 Loitering detection region rule
  */
-typedef struct tagNETTVLoiteringRule
+typedef struct tagNET_LoiteringRule
 {
     BOOL        bEnable;                             /* 是否启用 */
-    INT32       dwPointCount;                        /* 区域顶点数量，最多32个 */
+    INT32       uPointCount;                         /* 区域顶点数量，最多32个 */
     FLOAT       afPointX[32];                        /* 区域顶点X坐标数组 [0.0-1.0] */
     FLOAT       afPointY[32];                        /* 区域顶点Y坐标数组 [0.0-1.0] */
     INT32       nTimeThreshold;                      /* 行为事件触发时间阈值，判断有效报警的时间[0,100] 单位秒 */
     INT32       nSensitivity;                        /* 灵敏度[1,100] */
-    INT32       dwDetectionTargetCount;              /* 检测目标数量 */
-    INT32       adwDetectionTarget[8];               /* 检测目标数组 NET_TV_DETECTION_TARGET_E，最多8个 */
+    INT32       uDetectionTargetCount;               /* 检测目标数量 */
+    INT32       auDetectionTarget[8];                /* 检测目标数组 NET_TV_DETECTION_TARGET_E，最多8个 */
     BYTE        byRes[64];                           /* 保留字段 */
-}NET_TV_LOITERING_RULE_S, *LPNET_TV_LOITERING_RULE_S;
+}NET_LoiteringRule_S;
+
+typedef NET_LoiteringRule_S* pNET_LoiteringRule_S;
 
 /**
- * @struct tagNETTVLoiteringAlarmInfo
+ * @struct tagNET_LoiteringAlarmInfo
  * @brief 徘徊告警配置信息 Loitering detection alarm configuration
  * @note 用于NET_TV_GET_LOITERINGALARM/NET_TV_SET_LOITERINGALARM
  */
-typedef struct tagNETTVLoiteringAlarmInfo
+typedef struct tagNET_LoiteringAlarmInfo
 {
     BOOL        bEnable;                             /* 是否启用 0-不启用 1-启用 */
-    INT32       dwRuleCount;                         /* 规则数量，最多4个 */
-    NET_TV_LOITERING_RULE_S astRule[4];              /* 区域入侵检测规则，最多4个 */
-    NET_TV_ALARM_SCHEDULE_S stAlarmSchedule;        /* 布防时间 */
-    NET_TV_LINKAGE_LIST_S stLinkageList;            /* 联动配置 */
+    INT32       uRuleCount;                          /* 规则数量，最多4个 */
+    NET_LoiteringRule_S stRule[4];                   /* 区域入侵检测规则，最多4个 */
+    NET_AlarmSchedule_S stAlarmSchedule;            /* 布防时间 */
+    NET_LinkageList_S stLinkageList;                /* 联动配置 */
     BYTE        byRes[256];                          /* 保留字段 */
-}NET_TV_LOITERING_ALARM_INFO_S, *LPNET_TV_LOITERING_ALARM_INFO_S;
+}NET_LoiteringAlarmInfo_S;
+
+typedef NET_LoiteringAlarmInfo_S* pNET_LoiteringAlarmInfo_S;
 
 /**
- * @struct tagNETTVSceneChangeAlarmInfo
+ * @struct tagNET_SceneChangeAlarmInfo
  * @brief 场景变更侦测告警配置信息 Scene change detection alarm configuration
  * @note 用于NET_TV_GET_SCENECHANGEALARM/NET_TV_SET_SCENECHANGEALARM
  */
-typedef struct tagNETTVSceneChangeAlarmInfo
+typedef struct tagNET_SceneChangeAlarmInfo
 {
     BOOL        bEnable;                             /* 是否启用 0-不启用 1-启用 */
     INT32       nSensitivity;                        /* 灵敏度 [1,100] */
-    NET_TV_ALARM_SCHEDULE_S stAlarmSchedule;         /* 布防时间 */
-    NET_TV_LINKAGE_LIST_S stLinkageList;             /* 联动配置 */
+    NET_AlarmSchedule_S stAlarmSchedule;            /* 布防时间 */
+    NET_LinkageList_S stLinkageList;                /* 联动配置 */
     BYTE        byRes[256];                          /* 保留字段 */
-}NET_TV_SCENE_CHANGE_ALARM_INFO_S, *LPNET_TV_SCENE_CHANGE_ALARM_INFO_S;
+}NET_SceneChangeAlarmInfo_S;
+
+typedef NET_SceneChangeAlarmInfo_S* pNET_SceneChangeAlarmInfo_S;
 
 /**
- * @struct tagNETTVCrowdGatheringRule
+ * @struct tagNET_CrowdGatheringRule
  * @brief 人员聚集侦测区域规则参数 Crowd gathering detection region rule
  */
-typedef struct tagNETTVCrowdGatheringRule
+typedef struct tagNET_CrowdGatheringRule
 {
     BOOL        bEnable;                             /* 是否启用 0-不启用 1-启用 */
-    INT32       dwPointCount;                        /* 区域顶点数量，最多32个 */
+    INT32       uPointCount;                         /* 区域顶点数量，最多32个 */
     FLOAT       afPointX[32];                        /* 区域顶点X坐标数组 [0.0-1.0] */
     FLOAT       afPointY[32];                        /* 区域顶点Y坐标数组 [0.0-1.0] */
     INT32       nObjectOccup;                        /* 人体面积占用户设定区域面积的比例阈值[1,100] */
     BYTE        byRes[64];                           /* 保留字段 */
-}NET_TV_CROWD_GATHERING_RULE_S, *LPNET_TV_CROWD_GATHERING_RULE_S;
+}NET_CrowdGatheringRule_S;
+
+typedef NET_CrowdGatheringRule_S* pNET_CrowdGatheringRule_S;
 
 /**
- * @struct tagNETTVCrowdGatheringAlarmInfo
+ * @struct tagNET_CrowdGatheringAlarmInfo
  * @brief 人员聚集侦测告警配置信息 Crowd gathering detection alarm configuration
  * @note 用于NET_TV_GET_CROWDGATHERINGALARM/NET_TV_SET_CROWDGATHERINGALARM
  */
-typedef struct tagNETTVCrowdGatheringAlarmInfo
+typedef struct tagNET_CrowdGatheringAlarmInfo
 {
     BOOL        bEnable;                             /* 是否启用 0-不启用 1-启用 */
-    INT32       dwRuleCount;                         /* 规则数量，最多4个 */
-    NET_TV_CROWD_GATHERING_RULE_S astRule[4];        /* 人员聚集侦测规则，最多4个 */
-    NET_TV_ALARM_SCHEDULE_S stAlarmSchedule;         /* 布防时间 */
-    NET_TV_LINKAGE_LIST_S stLinkageList;             /* 联动配置 */
+    INT32       uRuleCount;                          /* 规则数量，最多4个 */
+    NET_CrowdGatheringRule_S astRule[4];             /* 人员聚集侦测规则，最多4个 */
+    NET_AlarmSchedule_S stAlarmSchedule;            /* 布防时间 */
+    NET_LinkageList_S stLinkageList;                /* 联动配置 */
     BYTE        byRes[256];                          /* 保留字段 */
-}NET_TV_CROWD_GATHERING_ALARM_INFO_S, *LPNET_TV_CROWD_GATHERING_ALARM_INFO_S;
+}NET_CrowdGatheringAlarmInfo_S;
+
+typedef NET_CrowdGatheringAlarmInfo_S* pNET_CrowdGatheringAlarmInfo_S;
 
 /**
- * @struct tagNETTVParkingRule
+ * @struct tagNET_ParkingRule
  * @brief 停车侦测区域规则参数 Parking detection region rule
  */
-typedef struct tagNETTVParkingRule
+typedef struct tagNET_ParkingRule
 {
-    INT32       dwPointCount;                        /* 区域顶点数量，最多32个 */
+    INT32       uPointCount;                         /* 区域顶点数量，最多32个 */
     FLOAT       afPointX[32];                        /* 区域顶点X坐标数组 [0.0-1.0] */
     FLOAT       afPointY[32];                        /* 区域顶点Y坐标数组 [0.0-1.0] */
     INT32       nSensitivity;                        /* 灵敏度[1,100] */
     INT32       nTimeThreshold;                      /* 行为事件触发时间阈值，单位秒 [0,100] */
     BYTE        byRes[64];                           /* 保留字段 */
-}NET_TV_PARKING_RULE_S, *LPNET_TV_PARKING_RULE_S;
+}NET_ParkingRule_S;
+
+typedef NET_ParkingRule_S* pNET_ParkingRule_S;
 
 /**
- * @struct tagNETTVParkingAlarmInfo
+ * @struct tagNET_ParkingAlarmInfo
  * @brief 停车侦测告警配置信息 Parking detection alarm configuration
  * @note 用于NET_TV_GET_PARKINGALARM/NET_TV_SET_PARKINGALARM
  */
-typedef struct tagNETTVParkingAlarmInfo
+typedef struct tagNET_ParkingAlarmInfo
 {
     BOOL        bEnable;                             /* 是否启用 0-不启用 1-启用 */
-    INT32       dwRuleCount;                         /* 规则数量，最多8个 */
-    NET_TV_PARKING_RULE_S astRule[8];                /* 停车侦测规则，最多8个 */
-    NET_TV_ALARM_SCHEDULE_S stAlarmSchedule;         /* 布防时间 */
-    NET_TV_LINKAGE_LIST_S stLinkageList;             /* 联动配置 */
+    INT32       uRuleCount;                          /* 规则数量，最多8个 */
+    NET_ParkingRule_S astRule[8];                   /* 停车侦测规则，最多8个 */
+    NET_AlarmSchedule_S stAlarmSchedule;            /* 布防时间 */
+    NET_LinkageList_S stLinkageList;                /* 联动配置 */
     BYTE        byRes[256];                          /* 保留字段 */
-}NET_TV_PARKING_ALARM_INFO_S, *LPNET_TV_PARKING_ALARM_INFO_S;
+}NET_ParkingAlarmInfo_S;
+
+typedef NET_ParkingAlarmInfo_S* pNET_ParkingAlarmInfo_S;
 
 /* ==================== 垃圾暴露检测相关结构体 ==================== */
 
@@ -3492,58 +3685,66 @@ typedef struct tagNETTVParkingAlarmInfo
  * @struct tagNETTVGarbageExposureRule
  * @brief 垃圾暴露检测规则参数 Garbage exposure detection region rule
  */
-typedef struct tagNETTVGarbageExposureRule
+typedef struct tagNET_GarbageExposureRule
 {
     INT32       nSensitivity;                        /* 灵敏度[1,100] */
-    INT32       dwPointCount;                          /* 区域顶点数量，最多32个 */
+    INT32       uPointCount;                          /* 区域顶点数量，最多32个 */
     FLOAT       afPointX[32];                          /* 区域顶点X坐标数组 [0.0-1.0] */
     FLOAT       afPointY[32];                          /* 区域顶点Y坐标数组 [0.0-1.0] */
     BYTE        byRes[64];                             /* 保留字段 */
-}NET_TV_GARBAGE_EXPOSURE_RULE_S, *LPNET_TV_GARBAGE_EXPOSURE_RULE_S;
+}NET_GarbageExposureRule_S;
+
+typedef NET_GarbageExposureRule_S* pNET_GarbageExposureRule_S;
 
 /**
- * @struct tagNETTVGarbageExposureCfg
+ * @struct tagNET_GarbageExposureCfg
  * @brief 垃圾暴露检测配置信息 Garbage exposure detection configuration
  * @note 用于NET_TV_GET_GARBAGE_EXPOSURE_CFG/NET_TV_SET_GARBAGE_EXPOSURE_CFG
  */
-typedef struct tagNETTVGarbageExposureCfg
+typedef struct tagNET_GarbageExposureCfg
 {
     BOOL        bEnable;                               /* 是否启用 0-不启用 1-启用 */
-    NET_TV_GARBAGE_EXPOSURE_RULE_S stRule;             /* 垃圾暴露检测规则 */
-    NET_TV_ALARM_SCHEDULE_S stAlarmSchedule;           /* 布防时间 */
-    NET_TV_LINKAGE_LIST_S stLinkageList;                /* 联动配置 */
+    NET_GarbageExposureRule_S stRule;             /* 垃圾暴露检测规则 */
+    NET_AlarmSchedule_S stAlarmSchedule;           /* 布防时间 */
+    NET_LinkageList_S stLinkageList;                /* 联动配置 */
     BYTE        byRes[256];                            /* 保留字段 */
-}NET_TV_GARBAGE_EXPOSURE_CFG_S, *LPNET_TV_GARBAGE_EXPOSURE_CFG_S;
+}NET_GarbageExposureCfg_S;
+
+typedef NET_GarbageExposureCfg_S* pNET_GarbageExposureCfg_S;
 
 /* ==================== 垃圾满溢检测相关结构体 ==================== */
 
 /**
- * @struct tagNETTVGarbageOverflowRule
+ * @struct tagNET_GarbageOverflowRule
  * @brief 垃圾满溢检测规则参数 Garbage overflow detection region rule
  */
-typedef struct tagNETTVGarbageOverflowRule
+typedef struct tagNET_GarbageOverflowRule
 {
     INT32       nSensitivity;                          /* 灵敏度[1,100] */
-    INT32       dwPointCount;                          /* 区域顶点数量，最多32个 */
+    INT32       uPointCount;                          /* 区域顶点数量，最多32个 */
     FLOAT       afPointX[32];                          /* 区域顶点X坐标数组 [0.0-1.0] */
     FLOAT       afPointY[32];                          /* 区域顶点Y坐标数组 [0.0-1.0] */
     BYTE        byRes[64];                             /* 保留字段 */
-}NET_TV_GARBAGE_OVERFLOW_RULE_S, *LPNET_TV_GARBAGE_OVERFLOW_RULE_S;
+}NET_GarbageOverflowRule_S;
+
+typedef NET_GarbageOverflowRule_S* pNET_GarbageOverflowRule_S;
 
 /**
- * @struct tagNETTVGarbageOverflowCfg
+ * @struct tagNET_GarbageOverflowCfg
  * @brief 垃圾满溢检测配置信息 Garbage overflow detection configuration
  * @note 用于NET_TV_GET_GARBAGE_OVERFLOW_CFG/NET_TV_SET_GARBAGE_OVERFLOW_CFG
  */
-typedef struct tagNETTVGarbageOverflowCfg
+typedef struct tagNET_GarbageOverflowCfg
 {
     BOOL        bEnable;                               /* 是否启用 0-不启用 1-启用 */
-    NET_TV_GARBAGE_OVERFLOW_RULE_S stRule;             /* 垃圾满溢检测规则 */
+    NET_GarbageOverflowRule_S stRule;             /* 垃圾满溢检测规则 */
     INT32       nTimeThreshold;                        /* 时间阈值(秒) */
-    NET_TV_ALARM_SCHEDULE_S stAlarmSchedule;          /* 布防时间 */
-    NET_TV_LINKAGE_LIST_S stLinkageList;               /* 联动配置 */
+    NET_AlarmSchedule_S stAlarmSchedule;          /* 布防时间 */
+    NET_LinkageList_S stLinkageList;               /* 联动配置 */
     BYTE        byRes[256];                            /* 保留字段 */
-}NET_TV_GARBAGE_OVERFLOW_CFG_S, *LPNET_TV_GARBAGE_OVERFLOW_CFG_S;
+}NET_GarbageOverflowCfg_S;
+
+typedef NET_GarbageOverflowCfg_S* pNET_GarbageOverflowCfg_S;
 
 /* ==================== 单规则智能检测配置结构体 ==================== */
 
@@ -3551,235 +3752,269 @@ typedef struct tagNETTVGarbageOverflowCfg
  * @struct tagNETTVAiSimpleRule
  * @brief 单规则智能检测通用规则参数
  */
-typedef struct tagNETTVAiSimpleRule
+typedef struct tagNET_AiSimpleRule
 {
     INT32       nSensitivity;                          /* 灵敏度[1,100] */
     BYTE        byRes[64];                             /* 保留字段 */
-}NET_TV_AI_SIMPLE_RULE_S, *LPNET_TV_AI_SIMPLE_RULE_S;
+}NET_AiSimpleRule_S;
+
+typedef NET_AiSimpleRule_S* pNET_AiSimpleRule_S;
 
 /**
  * @struct tagNETTVManholeCoverAbnormalCfg
  * @brief 井盖异常检测配置信息 Manhole cover abnormal detection configuration
  * @note 用于NET_TV_GET_MANHOLE_COVER_ABNORMAL_CFG/NET_TV_SET_MANHOLE_COVER_ABNORMAL_CFG
  */
-typedef struct tagNETTVManholeCoverAbnormalCfg
+typedef struct tagNET_ManholeCoverAbnormalCfg
 {
     BOOL        bEnable;                               /* 是否启用 0-不启用 1-启用 */
-    NET_TV_AI_SIMPLE_RULE_S stRule;                    /* 井盖异常检测规则 */
-    NET_TV_ALARM_SCHEDULE_S stAlarmSchedule;           /* 布防时间 */
-    NET_TV_LINKAGE_LIST_S stLinkageList;               /* 联动配置 */
+    NET_AiSimpleRule_S stRule;                    /* 井盖异常检测规则 */
+    NET_AlarmSchedule_S stAlarmSchedule;           /* 布防时间 */
+    NET_LinkageList_S stLinkageList;               /* 联动配置 */
     BYTE        byRes[256];                            /* 保留字段 */
-}NET_TV_MANHOLE_COVER_ABNORMAL_CFG_S, *LPNET_TV_MANHOLE_COVER_ABNORMAL_CFG_S;
+}NET_ManholeCoverAbnormalCfg_S;
+
+typedef NET_ManholeCoverAbnormalCfg_S* pNET_ManholeCoverAbnormalCfg_S;
 
 /**
- * @struct tagNETTVSleepOnDutyCfg
+ * @struct tagNET_SleepOnDutyCfg
  * @brief 睡岗识别配置信息 Sleep on duty detection configuration
  * @note 用于NET_TV_GET_SLEEP_ON_DUTY_CFG/NET_TV_SET_SLEEP_ON_DUTY_CFG
  */
-typedef struct tagNETTVSleepOnDutyCfg
+typedef struct tagNET_SleepOnDutyCfg
 {
     BOOL        bEnable;                               /* 是否启用 0-不启用 1-启用 */
-    NET_TV_AI_SIMPLE_RULE_S stRule;                    /* 睡岗识别规则 */
-    NET_TV_ALARM_SCHEDULE_S stAlarmSchedule;           /* 布防时间 */
-    NET_TV_LINKAGE_LIST_S stLinkageList;               /* 联动配置 */
+    NET_AiSimpleRule_S stRule;                    /* 睡岗识别规则 */
+    NET_AlarmSchedule_S stAlarmSchedule;           /* 布防时间 */
+    NET_LinkageList_S stLinkageList;               /* 联动配置 */
     BYTE        byRes[256];                            /* 保留字段 */
-}NET_TV_SLEEP_ON_DUTY_CFG_S, *LPNET_TV_SLEEP_ON_DUTY_CFG_S;
+}NET_SleepOnDutyCfg_S;
+
+typedef NET_SleepOnDutyCfg_S* pNET_SleepOnDutyCfg_S;
 
 /**
- * @struct tagNETTVElectricVehicleInElevatorCfg
+ * @struct tagNET_ElectricVehicleInElevatorCfg
  * @brief 电瓶车进电梯识别配置信息 Electric vehicle in elevator detection configuration
  * @note 用于NET_TV_GET_ELECTRIC_VEHICLE_IN_ELEVATOR_CFG/NET_TV_SET_ELECTRIC_VEHICLE_IN_ELEVATOR_CFG
  */
-typedef struct tagNETTVElectricVehicleInElevatorCfg
+typedef struct tagNET_ElectricVehicleInElevatorCfg
 {
     BOOL        bEnable;                               /* 是否启用 0-不启用 1-启用 */
-    NET_TV_AI_SIMPLE_RULE_S stRule;                    /* 电瓶车进电梯识别规则 */
-    NET_TV_ALARM_SCHEDULE_S stAlarmSchedule;           /* 布防时间 */
-    NET_TV_LINKAGE_LIST_S stLinkageList;               /* 联动配置 */
+    NET_AiSimpleRule_S stRule;                    /* 电瓶车进电梯识别规则 */
+    NET_AlarmSchedule_S stAlarmSchedule;           /* 布防时间 */
+    NET_LinkageList_S stLinkageList;               /* 联动配置 */
     BYTE        byRes[256];                            /* 保留字段 */
-}NET_TV_ELECTRIC_VEHICLE_IN_ELEVATOR_CFG_S, *LPNET_TV_ELECTRIC_VEHICLE_IN_ELEVATOR_CFG_S;
+}NET_ElectricVehicleInElevatorCfg_S;
+
+typedef NET_ElectricVehicleInElevatorCfg_S* pNET_ElectricVehicleInElevatorCfg_S;
 
 /**
- * @struct tagNETTVPersonFallDownCfg
+ * @struct tagNET_PersonFallDownCfg
  * @brief 人员倒地识别配置信息 Person fall down detection configuration
  * @note 用于NET_TV_GET_PERSON_FALL_DOWN_CFG/NET_TV_SET_PERSON_FALL_DOWN_CFG
  */
-typedef struct tagNETTVPersonFallDownCfg
+typedef struct tagNET_PersonFallDownCfg
 {
     BOOL        bEnable;                               /* 是否启用 0-不启用 1-启用 */
-    NET_TV_AI_SIMPLE_RULE_S stRule;                    /* 人员倒地识别规则 */
-    NET_TV_ALARM_SCHEDULE_S stAlarmSchedule;           /* 布防时间 */
-    NET_TV_LINKAGE_LIST_S stLinkageList;               /* 联动配置 */
+    NET_AiSimpleRule_S stRule;                    /* 人员倒地识别规则 */
+    NET_AlarmSchedule_S stAlarmSchedule;           /* 布防时间 */
+    NET_LinkageList_S stLinkageList;               /* 联动配置 */
     BYTE        byRes[256];                            /* 保留字段 */
-}NET_TV_PERSON_FALL_DOWN_CFG_S, *LPNET_TV_PERSON_FALL_DOWN_CFG_S;
+}NET_PersonFallDownCfg_S;
+
+typedef NET_PersonFallDownCfg_S* pNET_PersonFallDownCfg_S;
 
 /**
- * @struct tagNETTVConstructionOccupyRoadCfg
+ * @struct tagNET_ConstructionOccupyRoadCfg
  * @brief 施工占道识别配置信息 Construction occupy road detection configuration
  * @note 用于NET_TV_GET_CONSTRUCTION_OCCUPY_ROAD_CFG/NET_TV_SET_CONSTRUCTION_OCCUPY_ROAD_CFG
  */
-typedef struct tagNETTVConstructionOccupyRoadCfg
+typedef struct tagNET_ConstructionOccupyRoadCfg
 {
     BOOL        bEnable;                               /* 是否启用 0-不启用 1-启用 */
-    NET_TV_AI_SIMPLE_RULE_S stRule;                    /* 施工占道识别规则 */
-    NET_TV_ALARM_SCHEDULE_S stAlarmSchedule;           /* 布防时间 */
-    NET_TV_LINKAGE_LIST_S stLinkageList;               /* 联动配置 */
+    NET_AiSimpleRule_S stRule;                    /* 施工占道识别规则 */
+    NET_AlarmSchedule_S stAlarmSchedule;           /* 布防时间 */
+    NET_LinkageList_S stLinkageList;               /* 联动配置 */
     BYTE        byRes[256];                            /* 保留字段 */
-}NET_TV_CONSTRUCTION_OCCUPY_ROAD_CFG_S, *LPNET_TV_CONSTRUCTION_OCCUPY_ROAD_CFG_S;
+}NET_ConstructionOccupyRoadCfg_S;
+
+typedef NET_ConstructionOccupyRoadCfg_S* pNET_ConstructionOccupyRoadCfg_S;
 
 /**
- * @struct tagNETTVCongestionCfg
+ * @struct tagNET_CongestionCfg
  * @brief 拥堵识别配置信息 Congestion detection configuration
  * @note 用于NET_TV_GET_CONGESTION_CFG/NET_TV_SET_CONGESTION_CFG
  */
-typedef struct tagNETTVCongestionCfg
+typedef struct tagNET_CongestionCfg
 {
     BOOL        bEnable;                               /* 是否启用 0-不启用 1-启用 */
-    NET_TV_AI_SIMPLE_RULE_S stRule;                    /* 拥堵识别规则 */
-    NET_TV_ALARM_SCHEDULE_S stAlarmSchedule;           /* 布防时间 */
-    NET_TV_LINKAGE_LIST_S stLinkageList;               /* 联动配置 */
+    NET_AiSimpleRule_S stRule;                    /* 拥堵识别规则 */
+    NET_AlarmSchedule_S stAlarmSchedule;           /* 布防时间 */
+    NET_LinkageList_S stLinkageList;               /* 联动配置 */
     BYTE        byRes[256];                            /* 保留字段 */
-}NET_TV_CONGESTION_CFG_S, *LPNET_TV_CONGESTION_CFG_S;
+}NET_CongestionCfg_S;
+
+typedef NET_CongestionCfg_S* pNET_CongestionCfg_S;
 
 /**
  * @struct tagNETTVLicensePlateRecognitionCfg
  * @brief 车牌识别配置信息 License plate recognition configuration
  * @note 用于NET_TV_GET_LICENSE_PLATE_RECOGNITION_CFG/NET_TV_SET_LICENSE_PLATE_RECOGNITION_CFG
  */
-typedef struct tagNETTVLicensePlateRecognitionCfg
+typedef struct tagNET_LicensePlateRecognitionCfg
 {
     BOOL        bEnable;                               /* 是否启用 0-不启用 1-启用 */
-    NET_TV_AI_SIMPLE_RULE_S stRule;                    /* 车牌识别规则 */
-    NET_TV_ALARM_SCHEDULE_S stAlarmSchedule;           /* 布防时间 */
-    NET_TV_LINKAGE_LIST_S stLinkageList;               /* 联动配置 */
+    NET_AiSimpleRule_S stRule;                    /* 车牌识别规则 */
+    NET_AlarmSchedule_S stAlarmSchedule;           /* 布防时间 */
+    NET_LinkageList_S stLinkageList;               /* 联动配置 */
     BYTE        byRes[256];                            /* 保留字段 */
-}NET_TV_LICENSE_PLATE_RECOGNITION_CFG_S, *LPNET_TV_LICENSE_PLATE_RECOGNITION_CFG_S;
+}NET_LicensePlateRecognitionCfg_S;
+
+typedef NET_LicensePlateRecognitionCfg_S* pNET_LicensePlateRecognitionCfg_S;
 
 /**
- * @struct tagNETTVHighAltitudeSeatbeltCfg
+ * @struct tagNET_HighAltitudeSeatbeltCfg
  * @brief 高空安全带识别配置信息 High altitude seatbelt detection configuration
  * @note 用于NET_TV_GET_HIGH_ALTITUDE_SEATBELT_CFG/NET_TV_SET_HIGH_ALTITUDE_SEATBELT_CFG
  */
-typedef struct tagNETTVHighAltitudeSeatbeltCfg
+typedef struct tagNET_HighAltitudeSeatbeltCfg
 {
     BOOL        bEnable;                               /* 是否启用 0-不启用 1-启用 */
-    NET_TV_AI_SIMPLE_RULE_S stRule;                    /* 高空安全带识别规则 */
-    NET_TV_ALARM_SCHEDULE_S stAlarmSchedule;           /* 布防时间 */
-    NET_TV_LINKAGE_LIST_S stLinkageList;               /* 联动配置 */
+    NET_AiSimpleRule_S stRule;                    /* 高空安全带识别规则 */
+    NET_AlarmSchedule_S stAlarmSchedule;           /* 布防时间 */
+    NET_LinkageList_S stLinkageList;               /* 联动配置 */
     BYTE        byRes[256];                            /* 保留字段 */
-}NET_TV_HIGH_ALTITUDE_SEATBELT_CFG_S, *LPNET_TV_HIGH_ALTITUDE_SEATBELT_CFG_S;
+}NET_HighAltitudeSeatbeltCfg_S;
+
+typedef NET_HighAltitudeSeatbeltCfg_S* pNET_HighAltitudeSeatbeltCfg_S;
 
 /**
- * @struct tagNETTVSafetyHelmetCfg
+ * @struct tagNET_SafetyHelmetCfg
  * @brief 安全帽识别配置信息 Safety helmet detection configuration
  * @note 用于NET_TV_GET_SAFETY_HELMET_CFG/NET_TV_SET_SAFETY_HELMET_CFG
  */
-typedef struct tagNETTVSafetyHelmetCfg
+typedef struct tagNET_SafetyHelmetCfg
 {
     BOOL        bEnable;                               /* 是否启用 0-不启用 1-启用 */
-    NET_TV_AI_SIMPLE_RULE_S stRule;                    /* 安全帽识别规则 */
-    NET_TV_ALARM_SCHEDULE_S stAlarmSchedule;           /* 布防时间 */
-    NET_TV_LINKAGE_LIST_S stLinkageList;               /* 联动配置 */
+    NET_AiSimpleRule_S stRule;                    /* 安全帽识别规则 */
+    NET_AlarmSchedule_S stAlarmSchedule;           /* 布防时间 */
+    NET_LinkageList_S stLinkageList;               /* 联动配置 */
     BYTE        byRes[256];                            /* 保留字段 */
-}NET_TV_SAFETY_HELMET_CFG_S, *LPNET_TV_SAFETY_HELMET_CFG_S;
+}NET_SafetyHelmetCfg_S;
+
+typedef NET_SafetyHelmetCfg_S* pNET_SafetyHelmetCfg_S;
 
 /**
- * @struct tagNETTVPersonFallCfg
+ * @struct tagNET_PersonFallCfg
  * @brief 摔倒识别配置信息 Person fall detection configuration
  * @note 用于NET_TV_GET_PERSON_FALL_CFG/NET_TV_SET_PERSON_FALL_CFG
  */
-typedef struct tagNETTVPersonFallCfg
+typedef struct tagNET_PersonFallCfg
 {
     BOOL        bEnable;                               /* 是否启用 0-不启用 1-启用 */
-    NET_TV_AI_SIMPLE_RULE_S stRule;                    /* 摔倒识别规则 */
-    NET_TV_ALARM_SCHEDULE_S stAlarmSchedule;           /* 布防时间 */
-    NET_TV_LINKAGE_LIST_S stLinkageList;               /* 联动配置 */
+    NET_AiSimpleRule_S stRule;                    /* 摔倒识别规则 */
+    NET_AlarmSchedule_S stAlarmSchedule;           /* 布防时间 */
+    NET_LinkageList_S stLinkageList;               /* 联动配置 */
     BYTE        byRes[256];                            /* 保留字段 */
-}NET_TV_PERSON_FALL_CFG_S, *LPNET_TV_PERSON_FALL_CFG_S;
+}NET_PersonFallCfg_S;
+
+typedef NET_PersonFallCfg_S* pNET_PersonFallCfg_S;
 
 /**
- * @struct tagNETTVPhoneUsageCfg
+ * @struct tagNET_PhoneUsageCfg
  * @brief 玩手机识别配置信息 Phone usage detection configuration
  * @note 用于NET_TV_GET_PHONE_USAGE_CFG/NET_TV_SET_PHONE_USAGE_CFG
  */
-typedef struct tagNETTVPhoneUsageCfg
+typedef struct tagNET_PhoneUsageCfg
 {
     BOOL        bEnable;                               /* 是否启用 0-不启用 1-启用 */
-    NET_TV_AI_SIMPLE_RULE_S stRule;                    /* 玩手机识别规则 */
-    NET_TV_ALARM_SCHEDULE_S stAlarmSchedule;           /* 布防时间 */
-    NET_TV_LINKAGE_LIST_S stLinkageList;               /* 联动配置 */
+    NET_AiSimpleRule_S stRule;                    /* 玩手机识别规则 */
+    NET_AlarmSchedule_S stAlarmSchedule;           /* 布防时间 */
+    NET_LinkageList_S stLinkageList;               /* 联动配置 */
     BYTE        byRes[256];                            /* 保留字段 */
-}NET_TV_PHONE_USAGE_CFG_S, *LPNET_TV_PHONE_USAGE_CFG_S;
+}NET_PhoneUsageCfg_S;
+
+typedef NET_PhoneUsageCfg_S* pNET_PhoneUsageCfg_S;
 
 /**
- * @struct tagNETTVSmokingCfg
+ * @struct tagNET_SmokingCfg
  * @brief 抽烟识别配置信息 Smoking detection configuration
  * @note 用于NET_TV_GET_SMOKING_CFG/NET_TV_SET_SMOKING_CFG
  */
-typedef struct tagNETTVSmokingCfg
+typedef struct tagNET_SmokingCfg
 {
     BOOL        bEnable;                               /* 是否启用 0-不启用 1-启用 */
-    NET_TV_AI_SIMPLE_RULE_S stRule;                    /* 抽烟识别规则 */
-    NET_TV_ALARM_SCHEDULE_S stAlarmSchedule;           /* 布防时间 */
-    NET_TV_LINKAGE_LIST_S stLinkageList;               /* 联动配置 */
+    NET_AiSimpleRule_S stRule;                    /* 抽烟识别规则 */
+    NET_AlarmSchedule_S stAlarmSchedule;           /* 布防时间 */
+    NET_LinkageList_S stLinkageList;               /* 联动配置 */
     BYTE        byRes[256];                            /* 保留字段 */
-}NET_TV_SMOKING_CFG_S, *LPNET_TV_SMOKING_CFG_S;
+}NET_SmokingCfg_S;
+
+typedef NET_SmokingCfg_S* pNET_SmokingCfg_S;
 
 /**
- * @struct tagNETTVOpenFlameCfg
+ * @struct tagNET_OpenFlameCfg
  * @brief 明火识别配置信息 Open flame detection configuration
  * @note 用于NET_TV_GET_OPEN_FLAME_CFG/NET_TV_SET_OPEN_FLAME_CFG
  */
-typedef struct tagNETTVOpenFlameCfg
+typedef struct tagNET_OpenFlameCfg
 {
     BOOL        bEnable;                               /* 是否启用 0-不启用 1-启用 */
-    NET_TV_AI_SIMPLE_RULE_S stRule;                    /* 明火识别规则 */
-    NET_TV_ALARM_SCHEDULE_S stAlarmSchedule;           /* 布防时间 */
-    NET_TV_LINKAGE_LIST_S stLinkageList;               /* 联动配置 */
+    NET_AiSimpleRule_S stRule;                    /* 明火识别规则 */
+    NET_AlarmSchedule_S stAlarmSchedule;           /* 布防时间 */
+    NET_LinkageList_S stLinkageList;               /* 联动配置 */
     BYTE        byRes[256];                            /* 保留字段 */
-}NET_TV_OPEN_FLAME_CFG_S, *LPNET_TV_OPEN_FLAME_CFG_S;
+}NET_OpenFlameCfg_S;
+
+typedef NET_OpenFlameCfg_S* pNET_OpenFlameCfg_S;
 
 /**
- * @struct tagNETTVBareSoilCfg
+ * @struct tagNET_BareSoilCfg
  * @brief 黄土裸露识别配置信息 Bare soil detection configuration
  * @note 用于NET_TV_GET_BARE_SOIL_CFG/NET_TV_SET_BARE_SOIL_CFG
  */
-typedef struct tagNETTVBareSoilCfg
+typedef struct tagNET_BareSoilCfg
 {
     BOOL        bEnable;                               /* 是否启用 0-不启用 1-启用 */
-    NET_TV_AI_SIMPLE_RULE_S stRule;                    /* 黄土裸露识别规则 */
-    NET_TV_ALARM_SCHEDULE_S stAlarmSchedule;           /* 布防时间 */
-    NET_TV_LINKAGE_LIST_S stLinkageList;               /* 联动配置 */
+    NET_AiSimpleRule_S stRule;                    /* 黄土裸露识别规则 */
+    NET_AlarmSchedule_S stAlarmSchedule;           /* 布防时间 */
+    NET_LinkageList_S stLinkageList;               /* 联动配置 */
     BYTE        byRes[256];                            /* 保留字段 */
-}NET_TV_BARE_SOIL_CFG_S, *LPNET_TV_BARE_SOIL_CFG_S;
+}NET_BareSoilCfg_S;
+
+typedef NET_BareSoilCfg_S* pNET_BareSoilCfg_S;
 
 /**
- * @struct tagNETTVHoleProtectionBarCfg
+ * @struct tagNET_HoleProtectionBarCfg
  * @brief 洞口防护栏识别配置信息 Hole protection bar detection configuration
  * @note 用于NET_TV_GET_HOLE_PROTECTION_BAR_CFG/NET_TV_SET_HOLE_PROTECTION_BAR_CFG
  */
-typedef struct tagNETTVHoleProtectionBarCfg
+typedef struct tagNET_HoleProtectionBarCfg
 {
     BOOL        bEnable;                               /* 是否启用 0-不启用 1-启用 */
-    NET_TV_AI_SIMPLE_RULE_S stRule;                    /* 洞口防护栏识别规则 */
-    NET_TV_ALARM_SCHEDULE_S stAlarmSchedule;           /* 布防时间 */
-    NET_TV_LINKAGE_LIST_S stLinkageList;               /* 联动配置 */
+    NET_AiSimpleRule_S stRule;                    /* 洞口防护栏识别规则 */
+    NET_AlarmSchedule_S stAlarmSchedule;           /* 布防时间 */
+    NET_LinkageList_S stLinkageList;               /* 联动配置 */
     BYTE        byRes[256];                            /* 保留字段 */
-}NET_TV_HOLE_PROTECTION_BAR_CFG_S, *LPNET_TV_HOLE_PROTECTION_BAR_CFG_S;
+}NET_HoleProtectionBarCfg_S;
+
+typedef NET_HoleProtectionBarCfg_S* pNET_HoleProtectionBarCfg_S;
 
 /**
- * @struct tagNETTVReflectiveClothingCfg
+ * @struct tagNET_ReflectiveClothingCfg
  * @brief 反光衣识别配置信息 Reflective clothing detection configuration
  * @note 用于NET_TV_GET_REFLECTIVE_CLOTHING_CFG/NET_TV_SET_REFLECTIVE_CLOTHING_CFG
  */
-typedef struct tagNETTVReflectiveClothingCfg
+typedef struct tagNET_ReflectiveClothingCfg
 {
     BOOL        bEnable;                               /* 是否启用 0-不启用 1-启用 */
-    NET_TV_AI_SIMPLE_RULE_S stRule;                    /* 反光衣识别规则 */
-    NET_TV_ALARM_SCHEDULE_S stAlarmSchedule;           /* 布防时间 */
-    NET_TV_LINKAGE_LIST_S stLinkageList;               /* 联动配置 */
+    NET_AiSimpleRule_S stRule;                    /* 反光衣识别规则 */
+    NET_AlarmSchedule_S stAlarmSchedule;           /* 布防时间 */
+    NET_LinkageList_S stLinkageList;               /* 联动配置 */
     BYTE        byRes[256];                            /* 保留字段 */
-}NET_TV_REFLECTIVE_CLOTHING_CFG_S, *LPNET_TV_REFLECTIVE_CLOTHING_CFG_S;
+}NET_ReflectiveClothingCfg_S;
+
+typedef NET_ReflectiveClothingCfg_S* pNET_ReflectiveClothingCfg_S;
 
 /* ==================== 智能事件配置相关结构体 ==================== */
 
@@ -3787,36 +4022,40 @@ typedef struct tagNETTVReflectiveClothingCfg
  * @struct tagNETTVSmartRegion
  * @brief 智能事件检测区域 Smart event detection region
  */
-typedef struct tagNETTVSmartRegion
+typedef struct tagNET_SmartRegion
 {
-    INT32       dwPointCount;                          /* 区域顶点数量，最多32个 */
+    INT32       uPointCount;                          /* 区域顶点数量，最多32个 */
     FLOAT       afPointX[32];                          /* 区域顶点X坐标数组 [0.0-1.0] */
     FLOAT       afPointY[32];                          /* 区域顶点Y坐标数组 [0.0-1.0] */
     BYTE        byRes[64];                             /* 保留字段 */
-}NET_TV_SMART_REGION_S, *LPNET_TV_SMART_REGION_S;
+}NET_SmartRegion_S;
+
+typedef NET_SmartRegion_S* pNET_SmartRegion_S;
 
 /**
- * @struct tagNETTVSmartRegionRule
+ * @struct tagNET_SmartRegionRule
  * @brief 智能事件区域规则参数 Smart event region rule
  */
-typedef struct tagNETTVSmartRegionRule
+typedef struct tagNET_SmartRegionRule
 {
     BOOL        bEnable;                               /* 是否启用 */
-    INT32       dwPointCount;                          /* 区域顶点数量，最多32个 */
+    INT32       uPointCount;                          /* 区域顶点数量，最多32个 */
     FLOAT       afPointX[32];                          /* 区域顶点X坐标数组 [0.0-1.0] */
     FLOAT       afPointY[32];                          /* 区域顶点Y坐标数组 [0.0-1.0] */
     INT32       nTimeThreshold;                        /* 行为事件触发时间阈值，判断有效报警的时间[0,100] 单位秒 */
     INT32       nSensitivity;                          /* 灵敏度[1,100] */
-    INT32       dwDetectionTargetCount;                /* 检测目标数量 */
-    INT32       adwDetectionTarget[8];                 /* 检测目标数组 NET_TV_DETECTION_TARGET_E，最多8个 */
+    INT32       uDetectionTargetCount;                /* 检测目标数量 */
+    INT32       auDetectionTarget[8];                 /* 检测目标数组 NET_TV_DETECTION_TARGET_E，最多8个 */
     BYTE        byRes[64];                             /* 保留字段 */
-}NET_TV_SMART_REGION_RULE_S, *LPNET_TV_SMART_REGION_RULE_S;
+}NET_SmartRegionRule_S;
+
+typedef NET_SmartRegionRule_S* pNET_SmartRegionRule_S;
 
 /**
- * @struct tagNETTVSmartLineRule
+ * @struct tagNET_SmartLineRule
  * @brief 智能事件警戒线规则参数 Smart event line rule
  */
-typedef struct tagNETTVSmartLineRule
+typedef struct tagNET_SmartLineRule
 {
     BOOL        bEnable;                               /* 是否启用 */
     FLOAT       fStartPosX;                            /* 警戒线起始点X坐标 [0.0-1.0] */
@@ -3826,221 +4065,251 @@ typedef struct tagNETTVSmartLineRule
     INT32       enCrossDirection;                      /* 警戒线的穿越方向 NET_TV_CROSS_DIRECTION_E */
     INT32       nSensitivity;                          /* 警戒线灵敏度[1,100] */
     BYTE        byRes[64];                             /* 保留字段 */
-}NET_TV_SMART_LINE_RULE_S, *LPNET_TV_SMART_LINE_RULE_S;
+}NET_SmartLineRule_S;
+
+typedef NET_SmartLineRule_S* pNET_SmartLineRule_S;
 
 /**
  * @struct tagNETTVPetRecognitionInfo
  * @brief 宠物识别配置信息 Pet recognition configuration
  * @note 用于NET_TV_GET_PET_RECOGNITION_INFO/NET_TV_SET_PET_RECOGNITION_INFO
  */
-typedef struct tagNETTVPetRecognitionInfo
+typedef struct tagNET_PetRecognitionInfo
 {
     BOOL        bEnable;                               /* 是否启用 0-不启用 1-启用 */
     BOOL        bDynamicAnalysisEnable;                /* 是否启用动态分析 */
     INT32       nSensitivity;                          /* 灵敏度[1,100] */
-    NET_TV_SMART_REGION_S stRegion;                    /* 宠物识别检测区域 */
-    NET_TV_ALARM_SCHEDULE_S stAlarmSchedule;           /* 布防时间 */
-    NET_TV_LINKAGE_LIST_S stLinkageList;               /* 联动配置 */
+    NET_SmartRegion_S stRegion;                    /* 宠物识别检测区域 */
+    NET_AlarmSchedule_S stAlarmSchedule;           /* 布防时间 */
+    NET_LinkageList_S stLinkageList;               /* 联动配置 */
     BYTE        byRes[256];                            /* 保留字段 */
-}NET_TV_PET_RECOGNITION_INFO_S, *LPNET_TV_PET_RECOGNITION_INFO_S;
+}NET_PetRecognitionInfo_S;
+
+typedef NET_PetRecognitionInfo_S* pNET_PetRecognitionInfo_S;
 
 /**
- * @struct tagNETTVClimbFenceInfo
+ * @struct tagNET_ClimbFenceInfo
  * @brief 翻越围栏配置信息 Climb fence detection configuration
  * @note 用于NET_TV_GET_CLIMB_FENCE_INFO/NET_TV_SET_CLIMB_FENCE_INFO
  */
-typedef struct tagNETTVClimbFenceInfo
+typedef struct tagNET_ClimbFenceInfo
 {
     BOOL        bEnable;                               /* 是否启用 0-不启用 1-启用 */
-    INT32       dwRuleCount;                           /* 规则数量，最多4个 */
-    NET_TV_SMART_REGION_RULE_S astRule[4];             /* 翻越围栏检测规则，最多4个 */
-    NET_TV_ALARM_SCHEDULE_S stAlarmSchedule;           /* 布防时间 */
-    NET_TV_LINKAGE_LIST_S stLinkageList;               /* 联动配置 */
+    INT32       uRuleCount;                           /* 规则数量，最多4个 */
+    NET_SmartRegionRule_S stRule[4];             /* 翻越围栏检测规则，最多4个 */
+    NET_AlarmSchedule_S stAlarmSchedule;           /* 布防时间 */
+    NET_LinkageList_S stLinkageList;               /* 联动配置 */
     BYTE        byRes[256];                            /* 保留字段 */
-}NET_TV_CLIMB_FENCE_INFO_S, *LPNET_TV_CLIMB_FENCE_INFO_S;
+}NET_ClimbFenceInfo_S;
+
+typedef NET_ClimbFenceInfo_S* pNET_ClimbFenceInfo_S;
 
 /**
- * @struct tagNETTVDimissionInfo
+ * @struct tagNET_DimissionInfo
  * @brief 离岗配置信息 Leave post detection configuration
  * @note 用于NET_TV_GET_DIMISSION_INFO/NET_TV_SET_DIMISSION_INFO
  */
-typedef struct tagNETTVDimissionInfo
+typedef struct tagNET_DimissionInfo
 {
     BOOL        bEnable;                               /* 是否启用 0-不启用 1-启用 */
-    INT32       dwRuleCount;                           /* 规则数量，最多4个 */
-    NET_TV_SMART_REGION_RULE_S astRule[4];             /* 离岗检测规则，最多4个 */
-    NET_TV_ALARM_SCHEDULE_S stAlarmSchedule;           /* 布防时间 */
-    NET_TV_LINKAGE_LIST_S stLinkageList;               /* 联动配置 */
+    INT32       uRuleCount;                           /* 规则数量，最多4个 */
+    NET_SmartRegionRule_S stRule[4];             /* 离岗检测规则，最多4个 */
+    NET_AlarmSchedule_S stAlarmSchedule;           /* 布防时间 */
+    NET_LinkageList_S stLinkageList;               /* 联动配置 */
     BYTE        byRes[256];                            /* 保留字段 */
-}NET_TV_DIMISSION_INFO_S, *LPNET_TV_DIMISSION_INFO_S;
+}NET_DimissionInfo_S;
+
+typedef NET_DimissionInfo_S* pNET_DimissionInfo_S;
 
 /**
- * @struct tagNETTVIllegalLaneInfo
+ * @struct tagNET_IllegalLaneInfo
  * @brief 违规变道配置信息 Illegal lane change detection configuration
  * @note 用于NET_TV_GET_ILLEGAL_LANE_INFO/NET_TV_SET_ILLEGAL_LANE_INFO
  */
-typedef struct tagNETTVIllegalLaneInfo
+typedef struct tagNET_IllegalLaneInfo
 {
     BOOL        bEnable;                               /* 是否启用 0-不启用 1-启用 */
-    INT32       dwRuleCount;                           /* 规则数量，最多4个 */
-    NET_TV_SMART_LINE_RULE_S astRule[4];               /* 违规变道检测规则，最多4个 */
-    NET_TV_ALARM_SCHEDULE_S stAlarmSchedule;           /* 布防时间 */
-    NET_TV_LINKAGE_LIST_S stLinkageList;               /* 联动配置 */
+    INT32       uRuleCount;                           /* 规则数量，最多4个 */
+    NET_SmartLineRule_S stRule[4];               /* 违规变道检测规则，最多4个 */
+    NET_AlarmSchedule_S stAlarmSchedule;           /* 布防时间 */
+    NET_LinkageList_S stLinkageList;               /* 联动配置 */
     BYTE        byRes[256];                            /* 保留字段 */
-}NET_TV_ILLEGAL_LANE_INFO_S, *LPNET_TV_ILLEGAL_LANE_INFO_S;
+}NET_IllegalLaneInfo_S;
+
+typedef NET_IllegalLaneInfo_S* pNET_IllegalLaneInfo_S;
 
 /**
- * @struct tagNETTVRetrogradeInfo
+ * @struct tagNET_RetrogradeInfo
  * @brief 逆行配置信息 Retrograde detection configuration
  * @note 用于NET_TV_GET_RETROGRADE_INFO/NET_TV_SET_RETROGRADE_INFO
  */
-typedef struct tagNETTVRetrogradeInfo
+typedef struct tagNET_RetrogradeInfo
 {
     BOOL        bEnable;                               /* 是否启用 0-不启用 1-启用 */
-    INT32       dwRuleCount;                           /* 规则数量，最多4个 */
-    NET_TV_SMART_LINE_RULE_S astRule[4];               /* 逆行检测规则，最多4个 */
-    NET_TV_ALARM_SCHEDULE_S stAlarmSchedule;           /* 布防时间 */
-    NET_TV_LINKAGE_LIST_S stLinkageList;               /* 联动配置 */
+    INT32       uRuleCount;                           /* 规则数量，最多4个 */
+    NET_SmartLineRule_S stRule[4];               /* 逆行检测规则，最多4个 */
+    NET_AlarmSchedule_S stAlarmSchedule;           /* 布防时间 */
+    NET_LinkageList_S stLinkageList;               /* 联动配置 */
     BYTE        byRes[256];                            /* 保留字段 */
-}NET_TV_RETROGRADE_INFO_S, *LPNET_TV_RETROGRADE_INFO_S;
+}NET_RetrogradeInfo_S;
+
+typedef NET_RetrogradeInfo_S* pNET_RetrogradeInfo_S;
 
 /**
- * @struct tagNETTVNonmotorVehicleIntrusionInfo
+ * @struct tagNET_NonmotorVehicleIntrusionInfo
  * @brief 非机动车闯入配置信息 Non-motor vehicle intrusion detection configuration
  * @note 用于NET_TV_GET_NONMOTOR_VEHICLE_INTRUSION_INFO/NET_TV_SET_NONMOTOR_VEHICLE_INTRUSION_INFO
  */
-typedef struct tagNETTVNonmotorVehicleIntrusionInfo
+typedef struct tagNET_NonmotorVehicleIntrusionInfo
 {
     BOOL        bEnable;                               /* 是否启用 0-不启用 1-启用 */
-    INT32       dwRuleCount;                           /* 规则数量，最多4个 */
-    NET_TV_SMART_REGION_RULE_S astRule[4];             /* 非机动车闯入检测规则，最多4个 */
-    NET_TV_ALARM_SCHEDULE_S stAlarmSchedule;           /* 布防时间 */
-    NET_TV_LINKAGE_LIST_S stLinkageList;               /* 联动配置 */
+    INT32       uRuleCount;                           /* 规则数量，最多4个 */
+    NET_SmartRegionRule_S stRule[4];             /* 非机动车闯入检测规则，最多4个 */
+    NET_AlarmSchedule_S stAlarmSchedule;           /* 布防时间 */
+    NET_LinkageList_S stLinkageList;               /* 联动配置 */
     BYTE        byRes[256];                            /* 保留字段 */
-}NET_TV_NONMOTOR_VEHICLE_INTRUSION_INFO_S, *LPNET_TV_NONMOTOR_VEHICLE_INTRUSION_INFO_S;
+}NET_NonmotorVehicleIntrusionInfo_S;
+
+typedef NET_NonmotorVehicleIntrusionInfo_S* pNET_NonmotorVehicleIntrusionInfo_S;
 
 /**
- * @struct tagNETTVOccupationEmergencyInfo
+ * @struct tagNET_OccupationEmergencyInfo
  * @brief 应急车道占用识别配置信息 Emergency lane occupancy detection configuration
  * @note 用于NET_TV_GET_OCCUPATION_EMERGENCY_INFO/NET_TV_SET_OCCUPATION_EMERGENCY_INFO
  */
-typedef struct tagNETTVOccupationEmergencyInfo
+typedef struct tagNET_OccupationEmergencyInfo
 {
     BOOL        bEnable;                               /* 是否启用 0-不启用 1-启用 */
-    INT32       dwRuleCount;                           /* 规则数量，最多4个 */
-    NET_TV_SMART_REGION_RULE_S astRule[4];             /* 应急车道占用检测规则，最多4个 */
-    NET_TV_ALARM_SCHEDULE_S stAlarmSchedule;           /* 布防时间 */
-    NET_TV_LINKAGE_LIST_S stLinkageList;               /* 联动配置 */
+    INT32       uRuleCount;                           /* 规则数量，最多4个 */
+    NET_SmartRegionRule_S stRule[4];             /* 应急车道占用检测规则，最多4个 */
+    NET_AlarmSchedule_S stAlarmSchedule;           /* 布防时间 */
+    NET_LinkageList_S stLinkageList;               /* 联动配置 */
     BYTE        byRes[256];                            /* 保留字段 */
-}NET_TV_OCCUPATION_EMERGENCY_INFO_S, *LPNET_TV_OCCUPATION_EMERGENCY_INFO_S;
+}NET_OccupationEmergencyInfo_S;
+
+typedef NET_OccupationEmergencyInfo_S* pNET_OccupationEmergencyInfo_S;
 
 /**
- * @struct tagNETTVPedestrianIntrusionInfo
+ * @struct tagNET_PedestrianIntrusionInfo
  * @brief 行人闯入配置信息 Pedestrian intrusion detection configuration
  * @note 用于NET_TV_GET_PEDESTRIAN_INTRUSION_INFO/NET_TV_SET_PEDESTRIAN_INTRUSION_INFO
  */
-typedef struct tagNETTVPedestrianIntrusionInfo
+typedef struct tagNET_PedestrianIntrusionInfo
 {
     BOOL        bEnable;                               /* 是否启用 0-不启用 1-启用 */
-    INT32       dwRuleCount;                           /* 规则数量，最多4个 */
-    NET_TV_SMART_REGION_RULE_S astRule[4];             /* 行人闯入检测规则，最多4个 */
-    NET_TV_ALARM_SCHEDULE_S stAlarmSchedule;           /* 布防时间 */
-    NET_TV_LINKAGE_LIST_S stLinkageList;               /* 联动配置 */
+    INT32       uRuleCount;                           /* 规则数量，最多4个 */
+    NET_SmartRegionRule_S stRule[4];             /* 行人闯入检测规则，最多4个 */
+    NET_AlarmSchedule_S stAlarmSchedule;           /* 布防时间 */
+    NET_LinkageList_S stLinkageList;               /* 联动配置 */
     BYTE        byRes[256];                            /* 保留字段 */
-}NET_TV_PEDESTRIAN_INTRUSION_INFO_S, *LPNET_TV_PEDESTRIAN_INTRUSION_INFO_S;
+}NET_PedestrianIntrusionInfo_S;
+
+typedef NET_PedestrianIntrusionInfo_S* pNET_PedestrianIntrusionInfo_S;
 
 /**
- * @struct tagNETTVSmokeFireCfg
+ * @struct tagNET_SmokeFireCfg
  * @brief 烟火识别配置信息 Smoke fire detection configuration
  * @note 用于NET_TV_GET_SMOKE_FIRE_CFG/NET_TV_SET_SMOKE_FIRE_CFG
  */
-typedef struct tagNETTVSmokeFireCfg
+typedef struct tagNET_SmokeFireCfg
 {
     BOOL        bEnable;                               /* 是否启用 0-不启用 1-启用 */
-    NET_TV_AI_SIMPLE_RULE_S stRule;                    /* 烟火识别规则 */
-    NET_TV_ALARM_SCHEDULE_S stAlarmSchedule;           /* 布防时间 */
-    NET_TV_LINKAGE_LIST_S stLinkageList;               /* 联动配置 */
+    NET_AiSimpleRule_S stRule;                    /* 烟火识别规则 */
+    NET_AlarmSchedule_S stAlarmSchedule;           /* 布防时间 */
+    NET_LinkageList_S stLinkageList;               /* 联动配置 */
     BYTE        byRes[256];                            /* 保留字段 */
-}NET_TV_SMOKE_FIRE_CFG_S, *LPNET_TV_SMOKE_FIRE_CFG_S;
+}NET_SmokeFireCfg_S;
+
+typedef NET_SmokeFireCfg_S* pNET_SmokeFireCfg_S;
 
 /**
- * @struct tagNETTVRoadPondingCfg
+ * @struct tagNET_RoadPondingCfg
  * @brief 道路积水检测配置信息 Road ponding detection configuration
  * @note 用于NET_TV_GET_ROAD_PONDING_CFG/NET_TV_SET_ROAD_PONDING_CFG
  */
-typedef struct tagNETTVRoadPondingCfg
+typedef struct tagNET_RoadPondingCfg
 {
     BOOL        bEnable;                               /* 是否启用 0-不启用 1-启用 */
-    NET_TV_AI_SIMPLE_RULE_S stRule;                    /* 道路积水检测规则 */
-    NET_TV_ALARM_SCHEDULE_S stAlarmSchedule;           /* 布防时间 */
-    NET_TV_LINKAGE_LIST_S stLinkageList;               /* 联动配置 */
+    NET_AiSimpleRule_S stRule;                    /* 道路积水检测规则 */
+    NET_AlarmSchedule_S stAlarmSchedule;           /* 布防时间 */
+    NET_LinkageList_S stLinkageList;               /* 联动配置 */
     BYTE        byRes[256];                            /* 保留字段 */
-}NET_TV_ROAD_PONDING_CFG_S, *LPNET_TV_ROAD_PONDING_CFG_S;
+}NET_RoadPondingCfg_S;
+
+typedef NET_RoadPondingCfg_S* pNET_RoadPondingCfg_S;
 
 /**
  * @struct tagNETTVUnattendedObjectRule
  * @brief 物品遗留侦测区域规则参数 Unattended object detection region rule
  */
-typedef struct tagNETTVUnattendedObjectRule
+typedef struct tagNET_UnattendedObjectRule
 {
-    INT32       dwPointCount;                        /* 区域顶点数量，最多32个 */
+    INT32       uPointCount;                         /* 区域顶点数量，最多32个 */
     FLOAT       afPointX[32];                        /* 区域顶点X坐标数组 [0.0-1.0] */
     FLOAT       afPointY[32];                        /* 区域顶点Y坐标数组 [0.0-1.0] */
     INT32       nSensitivity;                        /* 灵敏度[1,100] */
     INT32       nTimeThreshold;                      /* 行为事件触发时间阈值，单位秒 [12,100] */
     BYTE        byRes[64];                           /* 保留字段 */
-}NET_TV_UNATTENDED_OBJECT_RULE_S, *LPNET_TV_UNATTENDED_OBJECT_RULE_S;
+}NET_UnattendedObjectRule_S;
+
+typedef NET_UnattendedObjectRule_S* pNET_UnattendedObjectRule_S;
 
 /**
  * @struct tagNETTVUnattendedObjectAlarmInfo
  * @brief 物品遗留侦测告警配置信息 Unattended object detection alarm configuration
  * @note 用于NET_TV_GET_UNATTENDEDOBJECTALARM/NET_TV_SET_UNATTENDEDOBJECTALARM
  */
-typedef struct tagNETTVUnattendedObjectAlarmInfo
+typedef struct tagNET_UnattendedObjectAlarmInfo
 {
     BOOL        bEnable;                             /* 是否启用 0-不启用 1-启用 */
-    INT32       dwRuleCount;                         /* 规则数量，最多4个 */
-    NET_TV_UNATTENDED_OBJECT_RULE_S astRule[4];      /* 物品遗留侦测规则，最多4个 */
-    NET_TV_ALARM_SCHEDULE_S stAlarmSchedule;         /* 布防时间 */
-    NET_TV_LINKAGE_LIST_S stLinkageList;             /* 联动配置 */
+    INT32       uRuleCount;                          /* 规则数量，最多4个 */
+    NET_UnattendedObjectRule_S stRule[4];            /* 物品遗留侦测规则，最多4个 */
+    NET_AlarmSchedule_S stAlarmSchedule;             /* 布防时间 */
+    NET_LinkageList_S stLinkageList;                 /* 联动配置 */
     BYTE        byRes[256];                          /* 保留字段 */
-}NET_TV_UNATTENDED_OBJECT_ALARM_INFO_S, *LPNET_TV_UNATTENDED_OBJECT_ALARM_INFO_S;
+}NET_UnattendedObjectAlarmInfo_S;
+
+typedef NET_UnattendedObjectAlarmInfo_S* pNET_UnattendedObjectAlarmInfo_S;
 
 /**
  * @struct tagNETTVObjectRemovalRule
  * @brief 物品拿取侦测区域规则参数 Object removal detection region rule
  */
-typedef struct tagNETTVObjectRemovalRule
+typedef struct tagNET_ObjectRemovalRule
 {
-    INT32       dwPointCount;                        /* 区域顶点数量，最多32个 */
+    INT32       uPointCount;                         /* 区域顶点数量，最多32个 */
     FLOAT       afPointX[32];                        /* 区域顶点X坐标数组 [0.0-1.0] */
     FLOAT       afPointY[32];                        /* 区域顶点Y坐标数组 [0.0-1.0] */
     INT32       nSensitivity;                        /* 灵敏度[1,100] */
     INT32       nTimeThreshold;                      /* 行为事件触发时间阈值，单位秒 [12,100] */
     BYTE        byRes[64];                           /* 保留字段 */
-}NET_TV_OBJECT_REMOVAL_RULE_S, *LPNET_TV_OBJECT_REMOVAL_RULE_S;
+}NET_ObjectRemovalRule_S;
+
+typedef NET_ObjectRemovalRule_S* pNET_ObjectRemovalRule_S;
 
 /**
  * @struct tagNETTVObjectRemovalAlarmInfo
  * @brief 物品拿取侦测告警配置信息 Object removal detection alarm configuration
  * @note 用于NET_TV_GET_OBJECTREMOVALALARM/NET_TV_SET_OBJECTREMOVALALARM
  */
-typedef struct tagNETTVObjectRemovalAlarmInfo
+typedef struct tagNET_ObjectRemovalAlarmInfo
 {
     BOOL        bEnable;                             /* 是否启用 0-不启用 1-启用 */
-    INT32       dwRuleCount;                         /* 规则数量，最多4个 */
-    NET_TV_OBJECT_REMOVAL_RULE_S astRule[4];         /* 物品拿取侦测规则，最多4个 */
-    NET_TV_ALARM_SCHEDULE_S stAlarmSchedule;         /* 布防时间 */
-    NET_TV_LINKAGE_LIST_S stLinkageList;             /* 联动配置 */
+    INT32       uRuleCount;                          /* 规则数量，最多4个 */
+    NET_ObjectRemovalRule_S stRule[4];               /* 物品拿取侦测规则，最多4个 */
+    NET_AlarmSchedule_S stAlarmSchedule;             /* 布防时间 */
+    NET_LinkageList_S stLinkageList;                 /* 联动配置 */
     BYTE        byRes[256];                          /* 保留字段 */
-}NET_TV_OBJECT_REMOVAL_ALARM_INFO_S, *LPNET_TV_OBJECT_REMOVAL_ALARM_INFO_S;
+}NET_ObjectRemovalAlarmInfo_S;
+
+typedef NET_ObjectRemovalAlarmInfo_S* pNET_ObjectRemovalAlarmInfo_S;
 
 /**
  * @struct tagNETTVAudioAnomalyAlarmInfo
  * @brief 音频异常侦测告警配置信息 Audio anomaly detection alarm configuration
  * @note 用于NET_TV_GET_AUDIOANOMALYALARM/NET_TV_SET_AUDIOANOMALYALARM
  */
-typedef struct tagNETTVAudioAnomalyAlarmInfo
+typedef struct tagNET_AudioAnomalyAlarmInfo
 {
     BOOL        bEnable;                             /* 是否启用 0-不启用 1-启用 */
     BOOL        bAudioInputAnomaly;                  /* 音频输入异常检测是否启用 */
@@ -4049,10 +4318,12 @@ typedef struct tagNETTVAudioAnomalyAlarmInfo
     INT32       nUpThreshold;                        /* 音量突升阈值 [1,100] */
     BOOL        bDownEnable;                         /* 音量突降检测是否启用 */
     INT32       nDownSensitivity;                    /* 音量突降灵敏度 [1,100] */
-    NET_TV_ALARM_SCHEDULE_S stAlarmSchedule;         /* 布防时间 */
-    NET_TV_LINKAGE_LIST_S stLinkageList;             /* 联动配置 */
+    NET_AlarmSchedule_S stAlarmSchedule;             /* 布防时间 */
+    NET_LinkageList_S stLinkageList;                 /* 联动配置 */
     BYTE        byRes[256];                          /* 保留字段 */
-}NET_TV_AUDIO_ANOMALY_ALARM_INFO_S, *LPNET_TV_AUDIO_ANOMALY_ALARM_INFO_S;
+}NET_AudioAnomalyAlarmInfo_S;
+
+typedef NET_AudioAnomalyAlarmInfo_S* pNET_AudioAnomalyAlarmInfo_S;
 
 /* ==================== FaceCapture人脸抓拍相关结构体 =================== */
 
@@ -4060,24 +4331,26 @@ typedef struct tagNETTVAudioAnomalyAlarmInfo
  * @struct tagNETTVFaceCaptureRegion
  * @brief 人脸抓拍区域（多边形）
  */
-typedef struct tagNETTVFaceCaptureRegion
+typedef struct tagNET_FaceCaptureRegion
 {
-    INT32       dwPointCount;                        /* 区域顶点数量，最多32个 */
+    INT32       uPointCount;                        /* 区域顶点数量，最多32个 */
     FLOAT       afPointX[32];                        /* 区域顶点X坐标数组 [0.0-1.0] */
     FLOAT       afPointY[32];                        /* 区域顶点Y坐标数组 [0.0-1.0] */
     BYTE        byRes[64];                           /* 保留字段 */
-}NET_TV_FACE_CAPTURE_REGION_S, *LPNET_TV_FACE_CAPTURE_REGION_S;
+}NET_FaceCaptureRegion_S;
+
+typedef NET_FaceCaptureRegion_S* pNET_FaceCaptureRegion_S;
 
 /**
- * @struct tagNETTVFaceCaptureRule
+ * @struct tagNET_FaceCaptureRule
  * @brief 人脸抓拍规则参数 Face capture rule
  */
-typedef struct tagNETTVFaceCaptureRule
+typedef struct tagNET_FaceCaptureRule
 {
     INT32                           nSensitivity;                    /* 灵敏度[1,100] */
-    NET_TV_FACE_CAPTURE_REGION_S    stRegion;                        /* 规则区域 */
-    INT32                           dwShieldRegionCount;             /* 屏蔽区域数量，最多4个 */
-    NET_TV_FACE_CAPTURE_REGION_S    astShieldRegion[4];              /* 屏蔽区域，最多4个 */
+    NET_FaceCaptureRegion_S    stRegion;                        /* 规则区域 */
+    INT32                           uShieldRegionCount;             /* 屏蔽区域数量，最多4个 */
+    NET_FaceCaptureRegion_S    astShieldRegion[4];              /* 屏蔽区域，最多4个 */
     INT32                           nMinIpdRectLeft;                 /* 最小瞳距区域左坐标 */
     INT32                           nMinIpdRectTop;                  /* 最小瞳距区域上坐标 */
     INT32                           nMinIpdRectRight;                /* 最小瞳距区域右坐标 */
@@ -4088,35 +4361,41 @@ typedef struct tagNETTVFaceCaptureRule
     INT32                           nMaxHeight;                      /* 最大瞳距高度 */
     INT32                           nInterval;                       /* 抓拍间隔 */
     BYTE                            byRes[128];                      /* 保留字段 */
-}NET_TV_FACE_CAPTURE_RULE_S, *LPNET_TV_FACE_CAPTURE_RULE_S;
+}NET_FaceCaptureRule_S;
+
+typedef NET_FaceCaptureRule_S* pNET_FaceCaptureRule_S;
 
 /**
- * @struct tagNETTVFaceCaptureInfo
+ * @struct tagNET_FaceCaptureInfo
  * @brief 人脸抓拍配置信息 Face capture configuration
  * @note 用于NET_TV_GET_FACECAPTUREINFO/NET_TV_SET_FACECAPTUREINFO
  */
-typedef struct tagNETTVFaceCaptureInfo
+typedef struct tagNET_FaceCaptureInfo
 {
     BOOL                        bEnable;                             /* 是否启用 0-不启用 1-启用 */
-    NET_TV_FACE_CAPTURE_RULE_S  stRule;                             /* 人脸抓拍规则 */
-    NET_TV_ALARM_SCHEDULE_S     stAlarmSchedule;                    /* 布防时间 */
-    NET_TV_LINKAGE_LIST_S       stLinkageList;                      /* 联动配置 */
+    NET_FaceCaptureRule_S  stRule;                             /* 人脸抓拍规则 */
+    NET_AlarmSchedule_S     stAlarmSchedule;                    /* 布防时间 */
+    NET_LinkageList_S       stLinkageList;                      /* 联动配置 */
     BYTE                        byRes[256];                         /* 保留字段 */
-}NET_TV_FACE_CAPTURE_INFO_S, *LPNET_TV_FACE_CAPTURE_INFO_S;
+}NET_FaceCaptureInfo_S;
+
+typedef NET_FaceCaptureInfo_S* pNET_FaceCaptureInfo_S;
 
 /**
- * @struct tagNETTVFaceCompareInfo
+ * @struct tagNET_FaceCompareInfo
  * @brief 人脸比对配置信息 Face compare configuration
  * @note 用于NET_TV_SET_FACE_COMPARE_INFO
  */
-typedef struct tagNETTVFaceCompareInfo
+typedef struct tagNET_FaceCompareInfo
 {
     BOOL                    bEnable;                    /* 是否启用 0-不启用 1-启用 */
-    NET_TV_ALARM_SCHEDULE_S stAlarmSchedule;            /* 布防时间 */
-    NET_TV_LINKAGE_LIST_S   stLinkageListSuccess;       /* 比对成功联动配置 */
-    NET_TV_LINKAGE_LIST_S   stLinkageListFail;          /* 比对失败联动配置 */
+    NET_AlarmSchedule_S stAlarmSchedule;            /* 布防时间 */
+    NET_LinkageList_S   stLinkageListSuccess;       /* 比对成功联动配置 */
+    NET_LinkageList_S   stLinkageListFail;          /* 比对失败联动配置 */
     BYTE                    byRes[256];                 /* 保留字段 */
-}NET_TV_FACE_COMPARE_INFO_S, *LPNET_TV_FACE_COMPARE_INFO_S;
+}NET_FaceCompareInfo_S;
+
+typedef NET_FaceCompareInfo_S* pNET_FaceCompareInfo_S;
 
 /**
  * @struct tagNETTVFaceLibInfo
@@ -4190,18 +4469,23 @@ typedef struct tagNETTVFaceInfoList
 }NET_TV_FACE_INFO_LIST_S, *LPNET_TV_FACE_INFO_LIST_S;
 
 /**
- * @struct tagNET_TV_ALARMER
- * @brief 报警设备信息
+ * @brief 报警设备信息结构体
+ * @note  用于报警推送，包含设备的序列号、名称、IP地址等信息
  */
-typedef struct tagNET_TV_ALARMER
+typedef struct tagNET_Alarmer
 {
     LPVOID lpUserID;                            /* NET_TV_Login()返回值, 布防时有效 */
-    BYTE szSerialNumber[NET_TV_LEN_64];         /* 序列号 */
-    CHAR szDeviceName[NET_TV_LEN_32];           /* 设备名字 */
-    BYTE byMacAddr[NET_TV_LEN_6];               /* MAC地址 */    
-    CHAR szDeviceIP[128];                       /* IP地址 */
-    BYTE byRes1[12];
-}NET_TV_ALARMER_S,*LPNET_TV_ALARMER_S;
+    BYTE    strSerialNumber[NET_TV_LEN_64];     /* 序列号 */
+    CHAR    strDeviceName[NET_TV_LEN_32];       /* 设备名字 */
+    BYTE    byMacAddr[NET_TV_LEN_6];           /* MAC地址 */    
+    CHAR    strDeviceIP[128];                   /* IP地址 */
+    BYTE    byReserved[12];                     /* 预留字段 */
+} NET_Alarmer_S;
+
+/**
+ * @brief 报警设备信息结构体指针类型
+ */
+typedef NET_Alarmer_S* pNET_Alarmer_S;
 
 /**
  * @struct tagNETTVVideoResolution
@@ -5015,34 +5299,44 @@ typedef struct tagNETTVSmartCap
 /************************************************************************/
 /*              设备发现 Device Discovery                                */
 /************************************************************************/
-#define NET_TV_DISCOVERY_MCAST_ADDR               "239.225.225.106"
-#define NET_TV_DISCOVERY_MCAST_PORT               39581
-#define NET_TV_DISCOVERY_TTL                      4
+#define NET_DISCOVERY_MCAST_ADDR               "239.225.225.106"
+#define NET_DISCOVERY_MCAST_PORT               39581
+#define NET_DISCOVERY_TTL                      4
 
 /**
- * @struct tagNETTVDiscoveryDeviceInfo
- * @brief 设备发现响应信息 Device discovery response info
+ * @brief 设备发现响应信息结构体
+ * @note  用于设备发现流程，接收设备上报的自身网络及固件信息
  */
-typedef struct tagNETTVDiscoveryDeviceInfo
+typedef struct tagNET_DiscoveryDeviceInfo
 {
-    CHAR    szDeviceName[NET_TV_LEN_64];
-    CHAR    szDeviceID[NET_TV_LEN_64];
-    CHAR    szDeviceType[NET_TV_LEN_32];
-    CHAR    szIPv4Address[NET_TV_IPADDR_STR_MAX_LEN];
-    CHAR    szIPv4SubnetMask[NET_TV_IPADDR_STR_MAX_LEN];
-    CHAR    szIPv4Gateway[NET_TV_IPADDR_STR_MAX_LEN];
-    CHAR    szMACAddress[NET_TV_LEN_32];
-    CHAR    szFirmwareVersion[NET_TV_LEN_64];
-    UINT32  dwHttpPort;
-    CHAR    szManufacturer[NET_TV_LEN_32];
-    BYTE    byRes[128];
-} NET_TV_DISCOVERY_DEVICE_INFO_S, *LPNET_TV_DISCOVERY_DEVICE_INFO_S;
+    CHAR    strDeviceName[NET_TV_LEN_64];               /* 设备名称 */
+    CHAR    strDeviceID[NET_TV_LEN_64];                 /* 设备唯一标识ID */
+    CHAR    strDeviceType[NET_TV_LEN_32];               /* 设备类型编码 */
+    CHAR    strIPv4Address[NET_TV_IPADDR_STR_MAX_LEN];  /* IPv4地址（点分十进制） */
+    CHAR    strIPv4SubnetMask[NET_TV_IPADDR_STR_MAX_LEN]; /* IPv4子网掩码 */
+    CHAR    strIPv4Gateway[NET_TV_IPADDR_STR_MAX_LEN];  /* IPv4默认网关 */
+    CHAR    strMACAddress[NET_TV_LEN_32];               /* MAC地址 */
+    CHAR    strFirmwareVersion[NET_TV_LEN_64];          /* 固件版本号 */
+    UINT32  uHttpPort;                                  /* HTTP服务端口号 */
+    CHAR    strManufacturer[NET_TV_LEN_32];             /* 制造商名称 */
+    BYTE    byReserved[128];                            /* 预留字段 */
+} NET_DiscoveryDeviceInfo_S;
+
+/**
+ * @brief 设备发现响应信息结构体指针类型
+ */
+typedef NET_DiscoveryDeviceInfo_S* pNET_DiscoveryDeviceInfo_S;
 
 
 
+/**
+ * @file NetTVSDKServerInterface.h
+ * @brief SDK服务端接口头文件，定义服务端初始化、配置回调注册、设备发现、语音对讲、录像帧流等核心接口
+ * @note 服务端接口采用C风格API，供宿主程序（如NVR、IPC）调用，用于注册回调和推送消息
+ */
 
 /************************************************************************/
-/*                          函数                                  */
+/*                          SDK服务端核心接口                           */
 /************************************************************************/
 /**
  * @brief SDK服务端初始化
@@ -5102,7 +5396,7 @@ NET_TV_API BOOL STDCALL NET_TV_SERVER_SetUserPasswd(IN CHAR szUserName[NET_TV_LE
  * @param [IN] dwBufLen    pAlarmInfo 长度（一般为 sizeof(对应结构体)）
  * @return TRUE表示成功,其他表示失败 TRUE means success, and any other value means failure.
  */
-NET_TV_API BOOL STDCALL NET_TV_SERVER_PushAlarmInfo(IN NET_TV_ALARMER_S *pAlarmer,
+NET_TV_API BOOL STDCALL NET_TV_SERVER_PushAlarmInfo(IN NET_Alarmer_S *pAlarmer,
                                                     IN INT32 lCommand,
                                                     IN LPVOID pAlarmInfo,
                                                     IN INT32 dwBufLen);
@@ -5114,14 +5408,14 @@ NET_TV_API BOOL STDCALL NET_TV_SERVER_PushAlarmInfo(IN NET_TV_ALARMER_S *pAlarme
  */
 NET_TV_API BOOL STDCALL NET_TV_SERVER_PushChannelStatusInfo(IN NET_TV_CHANNEL_INFO_S *pChannelInfo);
 
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetDeviceInfo(NET_TV_COMMON_ECODE_E (*CB)(LPNET_TV_DEVICE_INFO_S pInfo));
+NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetDeviceInfo(NET_TV_COMMON_ECODE_E (*CB)(pNET_DeviceInfo_S pInfo));
 
 /**
  * @brief 设备控制回调类型
- * @param [IN] pstCtrlInfo 设备硬件控制参数，参见 NET_TV_DEVICE_CONTROL_INFO_S
+ * @param [IN] pstCtrlInfo 设备硬件控制参数，参见 NET_DeviceControlInfo_S
  * @return NET_TV_E_SUCCEED 成功，其他值失败
  */
-typedef NET_TV_COMMON_ECODE_E (*NET_TV_CB_DeviceControl)(LPNET_TV_DEVICE_CONTROL_INFO_S pstCtrlInfo);
+typedef NET_TV_COMMON_ECODE_E (*NET_TV_CB_DeviceControl)(pNET_DeviceControlInfo_S pstCtrlInfo);
 
 /**
  * @brief 注册设备控制回调
@@ -5129,6 +5423,20 @@ typedef NET_TV_COMMON_ECODE_E (*NET_TV_CB_DeviceControl)(LPNET_TV_DEVICE_CONTROL
  * @return TRUE表示成功,其他表示失败
  */
 NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_DeviceControl(NET_TV_CB_DeviceControl pCb);
+
+/**
+ * @brief 修改用户密码回调类型
+ * @param [IN] pPasswordInfo 修改密码参数，包含用户名、旧密码、新密码
+ * @return NET_TV_E_SUCCEED 成功，其他值失败
+ */
+typedef NET_TV_COMMON_ECODE_E (*NET_TV_CB_SetUserPassword)(pNET_UserPasswordInfo_S pPasswordInfo);
+
+/**
+ * @brief 注册修改用户密码回调
+ * @param [IN] pCb 回调函数指针
+ * @return TRUE表示成功,其他表示失败
+ */
+NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetUserPassword(NET_TV_CB_SetUserPassword pCb);
 
 /**
  * @brief 视频编码能力集回调类型 (NET_TV_CAP_VIDEO_ENCODE)
@@ -5177,14 +5485,32 @@ typedef NET_TV_COMMON_ECODE_E (*NET_TV_CB_GetOsdCap)(INT32 dwChannelID, LPNET_TV
  */
 NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetOsdCap(NET_TV_CB_GetOsdCap pCb);
 
+/**
+ * @brief 通用配置回调类型（按命令码分发）
+ * @param [IN] dwChannelID 通道号
+ * @param [IN] dwCommand 命令码（标识配置类型）
+ * @param [OUT] lpOutBuffer 输出缓冲区，存放配置数据
+ * @return NET_TV_E_SUCCEED 成功，其他值失败
+ */
 typedef NET_TV_COMMON_ECODE_E (*NET_TV_CB_GetDevConfig)(INT32 dwChannelID,
                                                          INT32 dwCommand,
                                                          LPVOID lpOutBuffer);
+
+/**
+ * @brief 通用配置设置回调类型（按命令码分发）
+ * @param [IN] dwChannelID 通道号
+ * @param [IN] dwCommand 命令码（标识配置类型）
+ * @param [IN] lpInBuffer 输入缓冲区，包含要设置的配置数据
+ * @return NET_TV_E_SUCCEED 成功，其他值失败
+ */
 typedef NET_TV_COMMON_ECODE_E (*NET_TV_CB_SetDevConfig)(INT32 dwChannelID,
                                                          INT32 dwCommand,
                                                          LPVOID lpInBuffer);
 
-/* 按命令码注册配置回调，回调参数由命令码对应结构体决定 */
+/**
+ * @brief 按命令码注册的配置回调类型（专用回调）
+ * @note 回调参数由命令码对应结构体决定，比通用回调更具体
+ */
 typedef NET_TV_COMMON_ECODE_E (*NET_TV_CB_GetDevConfigByCommand)(INT32 dwChannelID, LPVOID lpOutBuffer);
 typedef NET_TV_COMMON_ECODE_E (*NET_TV_CB_SetDevConfigByCommand)(INT32 dwChannelID, LPVOID lpInBuffer);
 
@@ -5217,10 +5543,37 @@ typedef NET_TV_COMMON_ECODE_E (*NET_TV_CB_ControlReplay)(LPNET_TV_REPLAY_CTRL_IN
  */
 typedef NET_TV_COMMON_ECODE_E (*NET_TV_CB_GetReplayRecordList)(LPNET_TV_REPLAY_RECORD_LIST_S pInfo);
 
+/**
+ * @brief 注册通用配置获取回调（所有命令码统一处理）
+ * @param [IN] pCb 回调函数指针
+ * @return TRUE表示成功,其他表示失败
+ * @note 当没有按命令码注册的专用回调时，会调用此通用回调
+ */
 NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetDevConfig(NET_TV_CB_GetDevConfig pCb);
+
+/**
+ * @brief 注册通用配置设置回调（所有命令码统一处理）
+ * @param [IN] pCb 回调函数指针
+ * @return TRUE表示成功,其他表示失败
+ * @note 当没有按命令码注册的专用回调时，会调用此通用回调
+ */
 NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetDevConfig(NET_TV_CB_SetDevConfig pCb);
 
+/************************************************************************/
+/*                          按命令码注册的配置回调接口                     */
+/************************************************************************/
+/**
+ * @brief 注册设备基本信息获取回调 (NET_TV_GET_DEVICECFG)
+ * @param [IN] pCb 回调函数指针
+ * @return TRUE表示成功,其他表示失败
+ */
 NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetDeviceCfg(NET_TV_CB_GetDevConfigByCommand pCb);
+
+/**
+ * @brief 注册设备基本信息设置回调 (NET_TV_SET_DEVICECFG)
+ * @param [IN] pCb 回调函数指针
+ * @return TRUE表示成功,其他表示失败
+ */
 NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetDeviceCfg(NET_TV_CB_SetDevConfigByCommand pCb);
 NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetNtpCfg(NET_TV_CB_GetDevConfigByCommand pCb);
 NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetNtpCfg(NET_TV_CB_SetDevConfigByCommand pCb);
@@ -5408,7 +5761,7 @@ NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetRoadPondingCfg(NET_TV_CB_Set
  * @param [OUT] pDeviceInfo 由宿主应用填充设备信息
  */
 typedef void(STDCALL *NET_TV_CB_GetDiscoveryDeviceInfo)(
-    OUT NET_TV_DISCOVERY_DEVICE_INFO_S* pDeviceInfo);
+    OUT NET_DiscoveryDeviceInfo_S* pDeviceInfo);
 
 /**
  * @brief 注册设备发现信息回调（启动前必须调用）
@@ -5450,7 +5803,7 @@ typedef void (STDCALL *NET_TV_SERVER_VoiceComPlayCallBack)(const char* data, uns
  * @note 回调内应写入与 pstAudioParam 匹配的裸音频帧；建议每次返回 dwFrameBytes 字节。
  */
 typedef INT32 (STDCALL *NET_TV_SERVER_VoiceComCaptureCallBack)(
-    IN const NET_TV_VOICECOM_AUDIO_PARAM_S* pstAudioParam,
+    IN const NET_VoiceComAudioParam_S* pstAudioParam,
     OUT CHAR* pBuffer,
     IN UINT32 dwBufferSize,
     IN LPVOID lpUserData);
@@ -5504,7 +5857,7 @@ NET_TV_SERVER_SendVoiceComData(IN const CHAR* pData, IN UINT32 dwSize);
  * @return TRUE 成功，FALSE 表示尚未建立会话或参数未协商
  */
 NET_TV_API BOOL STDCALL
-NET_TV_SERVER_GetVoiceComAudioParam(OUT LPNET_TV_VOICECOM_AUDIO_PARAM_S pstAudioParam);
+NET_TV_SERVER_GetVoiceComAudioParam(OUT pNET_VoiceComAudioParam_S pstAudioParam);
 
 /************************************************************************/
 /*                       录像帧流 RecordFrame (服务端)                    */
@@ -5513,8 +5866,8 @@ NET_TV_SERVER_GetVoiceComAudioParam(OUT LPNET_TV_VOICECOM_AUDIO_PARAM_S pstAudio
  * @brief 录像帧流开始回调: 收到客户端起止时间查询后调用, 由宿主打开录像源并填充流信息
  */
 typedef NET_TV_COMMON_ECODE_E (STDCALL *NET_TV_SERVER_RecordFrameStartCallBack)(
-    IN LPNET_TV_RECORD_FRAME_STREAM_COND_S pstCond,
-    INOUT LPNET_TV_RECORD_FRAME_STREAM_INFO_S pstInfo,
+    IN pNET_RecordFrameStreamCond_S pstCond,
+    INOUT pNET_RecordFrameStreamInfo_S pstInfo,
     IN LPVOID lpUserData);
 
 /**
@@ -5523,7 +5876,7 @@ typedef NET_TV_COMMON_ECODE_E (STDCALL *NET_TV_SERVER_RecordFrameStartCallBack)(
  */
 typedef INT32 (STDCALL *NET_TV_SERVER_RecordFrameReadCallBack)(
     IN const CHAR* szStreamId,
-    OUT LPNET_TV_RECORD_FRAME_INFO_S pstFrameInfo,
+    OUT pNET_RecordFrameInfo_S pstFrameInfo,
     OUT CHAR* pBuffer,
     IN UINT32 dwBufferSize,
     IN LPVOID lpUserData);

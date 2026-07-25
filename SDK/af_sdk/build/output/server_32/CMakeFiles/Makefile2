@@ -76,12 +76,12 @@ clean: CMakeFiles/NetTVSDKServer-static.dir/clean
 CMakeFiles/NetTVSDKServer-shared.dir/all:
 	$(MAKE) -f CMakeFiles/NetTVSDKServer-shared.dir/build.make CMakeFiles/NetTVSDKServer-shared.dir/depend
 	$(MAKE) -f CMakeFiles/NetTVSDKServer-shared.dir/build.make CMakeFiles/NetTVSDKServer-shared.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/home/qinjt/workdir/sdk/af_sdk/build/output/server_32/CMakeFiles --progress-num=1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26 "Built target NetTVSDKServer-shared"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/home/qinjt/workdir/sdk/af_sdk/build/output/server_32/CMakeFiles --progress-num=1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32 "Built target NetTVSDKServer-shared"
 .PHONY : CMakeFiles/NetTVSDKServer-shared.dir/all
 
 # Build rule for subdir invocation for target.
 CMakeFiles/NetTVSDKServer-shared.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/qinjt/workdir/sdk/af_sdk/build/output/server_32/CMakeFiles 26
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/qinjt/workdir/sdk/af_sdk/build/output/server_32/CMakeFiles 32
 	$(MAKE) -f CMakeFiles/Makefile2 CMakeFiles/NetTVSDKServer-shared.dir/all
 	$(CMAKE_COMMAND) -E cmake_progress_start /home/qinjt/workdir/sdk/af_sdk/build/output/server_32/CMakeFiles 0
 .PHONY : CMakeFiles/NetTVSDKServer-shared.dir/rule
@@ -103,12 +103,12 @@ CMakeFiles/NetTVSDKServer-shared.dir/clean:
 CMakeFiles/NetTVSDKServer-static.dir/all:
 	$(MAKE) -f CMakeFiles/NetTVSDKServer-static.dir/build.make CMakeFiles/NetTVSDKServer-static.dir/depend
 	$(MAKE) -f CMakeFiles/NetTVSDKServer-static.dir/build.make CMakeFiles/NetTVSDKServer-static.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/home/qinjt/workdir/sdk/af_sdk/build/output/server_32/CMakeFiles --progress-num=27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52 "Built target NetTVSDKServer-static"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/home/qinjt/workdir/sdk/af_sdk/build/output/server_32/CMakeFiles --progress-num=33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64 "Built target NetTVSDKServer-static"
 .PHONY : CMakeFiles/NetTVSDKServer-static.dir/all
 
 # Build rule for subdir invocation for target.
 CMakeFiles/NetTVSDKServer-static.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/qinjt/workdir/sdk/af_sdk/build/output/server_32/CMakeFiles 26
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/qinjt/workdir/sdk/af_sdk/build/output/server_32/CMakeFiles 32
 	$(MAKE) -f CMakeFiles/Makefile2 CMakeFiles/NetTVSDKServer-static.dir/all
 	$(CMAKE_COMMAND) -E cmake_progress_start /home/qinjt/workdir/sdk/af_sdk/build/output/server_32/CMakeFiles 0
 .PHONY : CMakeFiles/NetTVSDKServer-static.dir/rule
