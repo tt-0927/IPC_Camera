@@ -1,0 +1,14 @@
+{
+	"InstallScripts" : 
+	[
+		"/mnt/e/Code/IPC_Camera/Hi3516/output/cmake_temp/cmake_install.cmake",
+		"/mnt/e/Code/IPC_Camera/Hi3516/output/cmake_temp/main_app/cmake_install.cmake",
+		"/mnt/e/Code/IPC_Camera/Hi3516/output/cmake_temp/cgi-enc/cmake_install.cmake",
+		"/mnt/e/Code/IPC_Camera/Hi3516/output/cmake_temp/daemon/cmake_install.cmake",
+		"/mnt/e/Code/IPC_Camera/Hi3516/output/cmake_temp/operation/cmake_install.cmake",
+		"/mnt/e/Code/IPC_Camera/Hi3516/output/cmake_temp/record/cmake_install.cmake",
+		"/mnt/e/Code/IPC_Camera/Hi3516/output/cmake_temp/system_monitor/cmake_install.cmake",
+		"/mnt/e/Code/IPC_Camera/Hi3516/output/cmake_temp/upgrade/cmake_install.cmake"
+	],
+	"Parallel" : false
+}

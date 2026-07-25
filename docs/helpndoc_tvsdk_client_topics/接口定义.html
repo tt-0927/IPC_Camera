@@ -1,0 +1,56 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>接口定义</title>
+  <style>
+    body { font-family: "Microsoft YaHei", "微软雅黑", Arial, sans-serif; font-size: 10pt; color: #000; }
+    h1 { font-family: "Microsoft YaHei", "微软雅黑", Arial, sans-serif; font-size: 10pt; font-weight: bold; margin: 0 0 8px; }
+    h2 { font-family: "Microsoft YaHei", "微软雅黑", Arial, sans-serif; font-size: 10pt; font-weight: bold; margin: 18px 0 6px; }
+    p { margin: 0 0 6px; }
+    table { border-collapse: collapse; margin-top: 10px; width: 1000px; table-layout: fixed; }
+    th, td { border: 1px solid #000; padding: 5px 8px; height: 30px; min-height: 30px; vertical-align: middle; font-family: "Microsoft YaHei", "微软雅黑", Arial, sans-serif; font-size: 10pt; }
+    th { background: #d9eaf7; font-weight: bold; }
+    .code-block { background-color: #e6e6e6; border: 0; padding: 8px 10px; margin: 12px 0 14px; font-family: "Microsoft YaHei", "微软雅黑", Arial, sans-serif; font-size: 10pt; line-height: 1.45; }
+    .code-line { margin: 0; padding: 0; min-height: 1.45em; white-space: pre-wrap; background-color: #e6e6e6; font-family: "Microsoft YaHei", "微软雅黑", Arial, sans-serif; font-size: 10pt; line-height: 1.45; }
+    .code-line a { font-family: "Microsoft YaHei", "微软雅黑", Arial, sans-serif; font-size: 10pt; }
+    .param-name { margin-left: 0; }
+    .param-desc { margin-left: 24px; }
+  </style>
+</head>
+<body>
+  <h1>接口定义</h1>
+  <p>本章节列出 SDK client 对外提供的接口，接口详情 topic 中包含函数原型、参数说明、返回值和关联结构体。</p>
+  <table>
+    <tr><th>类型</th><th>功能描述</th><th>接口</th><th>相关参数</th></tr>
+    <tr><td>SDK基础</td><td>SDK 清理 SDK cleaning</td><td><a href="NET_TV_Cleanup.html">NET_TV_Cleanup</a></td><td>无</td></tr>
+    <tr><td>回放/录像</td><td>控制回放开始/停止/倍速</td><td><a href="NET_TV_ControlReplay.html">NET_TV_ControlReplay</a></td><td><a href="NET_TV_REPLAY_CTRL_INFO_S.html">NET_TV_REPLAY_CTRL_INFO_S</a></td></tr>
+    <tr><td>配置/控制/升级</td><td>设备硬件控制统一入口</td><td><a href="NET_TV_DeviceControl.html">NET_TV_DeviceControl</a></td><td><a href="NET_TV_DEVICE_CONTROL_INFO_S.html">NET_TV_DEVICE_CONTROL_INFO_S</a></td></tr>
+    <tr><td>设备发现</td><td>搜索局域网内设备（UDP 组播）</td><td><a href="NET_TV_Discovery_Search.html">NET_TV_Discovery_Search</a></td><td><a href="NET_TV_DISCOVERY_DEVICE_INFO_S.html">NET_TV_DISCOVERY_DEVICE_INFO_S</a></td></tr>
+    <tr><td>配置/控制/升级</td><td>获取设备的配置信息 Get configuration information of device</td><td><a href="NET_TV_GetDevConfig.html">NET_TV_GetDevConfig</a></td><td>无</td></tr>
+    <tr><td>设备能力</td><td>获取设备能力集 Obtain device capability</td><td><a href="NET_TV_GetDeviceCapability.html">NET_TV_GetDeviceCapability</a></td><td>无</td></tr>
+    <tr><td>SDK基础</td><td>获取错误码</td><td><a href="NET_TV_GetLastError.html">NET_TV_GetLastError</a></td><td>无</td></tr>
+    <tr><td>回放/录像</td><td>获取NVR回放录像时间段</td><td><a href="NET_TV_GetReplayRecordList.html">NET_TV_GetReplayRecordList</a></td><td><a href="NET_TV_REPLAY_RECORD_LIST_S.html">NET_TV_REPLAY_RECORD_LIST_S</a></td></tr>
+    <tr><td>回放/录像</td><td>获取回放播放地址</td><td><a href="NET_TV_GetReplayUrl.html">NET_TV_GetReplayUrl</a></td><td><a href="NET_TV_REPLAY_URL_INFO_S.html">NET_TV_REPLAY_URL_INFO_S</a></td></tr>
+    <tr><td>SDK基础</td><td>获取SDK的版本信息 Get</td><td><a href="NET_TV_GetSDKVersion.html">NET_TV_GetSDKVersion</a></td><td>无</td></tr>
+    <tr><td>SDK基础</td><td>SDK初始化</td><td><a href="NET_TV_Init.html">NET_TV_Init</a></td><td>无</td></tr>
+    <tr><td>SDK基础</td><td>设备登录</td><td><a href="NET_TV_Login.html">NET_TV_Login</a></td><td><a href="NET_TV_DEVICE_LOGIN_INFO_S.html">NET_TV_DEVICE_LOGIN_INFO_S</a>、<a href="NET_TV_DEVICE_INFO_S.html">NET_TV_DEVICE_INFO_S</a></td></tr>
+    <tr><td>SDK基础</td><td>用户注销 User logout</td><td><a href="NET_TV_Logout.html">NET_TV_Logout</a></td><td>无</td></tr>
+    <tr><td>报警监听</td><td>设置报警回调函数</td><td><a href="NET_TV_SetAlarmCallBack.html">NET_TV_SetAlarmCallBack</a></td><td>无</td></tr>
+    <tr><td>报警监听</td><td>设置通道上下线状态回调函数</td><td><a href="NET_TV_SetChannelStatusCallBack.html">NET_TV_SetChannelStatusCallBack</a></td><td>无</td></tr>
+    <tr><td>SDK基础</td><td>设置保活参数 Set keep-alive parameters</td><td><a href="NET_TV_SetConnectTime.html">NET_TV_SetConnectTime</a></td><td>无</td></tr>
+    <tr><td>配置/控制/升级</td><td>设置设备的配置信息 Modify device configuration information</td><td><a href="NET_TV_SetDevConfig.html">NET_TV_SetDevConfig</a></td><td>无</td></tr>
+    <tr><td>SDK基础</td><td>接收异常.重连等消息的回调函数 Callback function to receive exception and reconnection messages</td><td><a href="NET_TV_SetExceptionCallBack.html">NET_TV_SetExceptionCallBack</a></td><td>无</td></tr>
+    <tr><td>SDK基础</td><td>设置日志</td><td><a href="NET_TV_SetLogToFile.html">NET_TV_SetLogToFile</a></td><td>无</td></tr>
+    <tr><td>SDK基础</td><td>设置超时时间 Set timeout</td><td><a href="NET_TV_SetRevTimeOut.html">NET_TV_SetRevTimeOut</a></td><td><a href="NET_TV_REV_TIMEOUT_S.html">NET_TV_REV_TIMEOUT_S</a></td></tr>
+    <tr><td>报警监听</td><td>开始监听报警消息</td><td><a href="NET_TV_StartListen.html">NET_TV_StartListen</a></td><td>无</td></tr>
+    <tr><td>回放/录像</td><td>启动录像帧TCP流</td><td><a href="NET_TV_StartRecordFrameStream.html">NET_TV_StartRecordFrameStream</a></td><td><a href="NET_TV_RECORD_FRAME_STREAM_COND_S.html">NET_TV_RECORD_FRAME_STREAM_COND_S</a>、<a href="NET_TV_RECORD_FRAME_STREAM_INFO_S.html">NET_TV_RECORD_FRAME_STREAM_INFO_S</a></td></tr>
+    <tr><td>语音对讲</td><td>开始语音对讲</td><td><a href="NET_TV_StartVoiceCom.html">NET_TV_StartVoiceCom</a></td><td><a href="NET_TV_VOICECOM_START_INFO_S.html">NET_TV_VOICECOM_START_INFO_S</a></td></tr>
+    <tr><td>报警监听</td><td>停止监听报警消息</td><td><a href="NET_TV_StopListen.html">NET_TV_StopListen</a></td><td>无</td></tr>
+    <tr><td>回放/录像</td><td>停止录像帧TCP流</td><td><a href="NET_TV_StopRecordFrameStream.html">NET_TV_StopRecordFrameStream</a></td><td>无</td></tr>
+    <tr><td>语音对讲</td><td>停止语音对讲</td><td><a href="NET_TV_StopVoiceCom.html">NET_TV_StopVoiceCom</a></td><td>无</td></tr>
+    <tr><td>配置/控制/升级</td><td>上传固件文件到设备</td><td><a href="NET_TV_UploadFile.html">NET_TV_UploadFile</a></td><td>无</td></tr>
+    <tr><td>语音对讲</td><td>发送音频数据到设备</td><td><a href="NET_TV_VoiceComSendData.html">NET_TV_VoiceComSendData</a></td><td>无</td></tr>
+  </table>
+</body>
+</html>

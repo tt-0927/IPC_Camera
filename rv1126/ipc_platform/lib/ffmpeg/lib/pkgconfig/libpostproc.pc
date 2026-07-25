@@ -1,0 +1,14 @@
+prefix=/home/chenyc/cam_opensource_library/libffmpeg-4.3.2/ffmpeg-4.3.2/../build
+exec_prefix=${prefix}
+libdir=/home/chenyc/cam_opensource_library/libffmpeg-4.3.2/ffmpeg-4.3.2/../build/lib
+includedir=/home/chenyc/cam_opensource_library/libffmpeg-4.3.2/ffmpeg-4.3.2/../build/include
+
+Name: libpostproc
+Description: FFmpeg postprocessing library
+Version: 55.7.100
+Requires: 
+Requires.private: libavutil >= 56.51.100
+Conflicts:
+Libs: -L${libdir}  -lpostproc 
+Libs.private: -lm
+Cflags: -I${includedir}

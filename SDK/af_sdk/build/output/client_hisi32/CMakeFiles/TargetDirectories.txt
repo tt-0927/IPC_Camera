@@ -1,0 +1,4 @@
+/mnt/e/Code/IPC_Camera/SDK/af_sdk/build/output/client_hisi32/CMakeFiles/NetTVSDK-static.dir
+/mnt/e/Code/IPC_Camera/SDK/af_sdk/build/output/client_hisi32/CMakeFiles/NetTVSDK-shared.dir
+/mnt/e/Code/IPC_Camera/SDK/af_sdk/build/output/client_hisi32/CMakeFiles/edit_cache.dir
+/mnt/e/Code/IPC_Camera/SDK/af_sdk/build/output/client_hisi32/CMakeFiles/rebuild_cache.dir

@@ -1,0 +1,4 @@
+/home/yanzh/ai_workdir/wcp_share/ai_share/AiScenario/Inference/CPU/CV/Demo/build/CMakeFiles/ColorCutoutDemo.dir
+/home/yanzh/ai_workdir/wcp_share/ai_share/AiScenario/Inference/CPU/CV/Demo/build/CMakeFiles/ByteTrackDemo.dir
+/home/yanzh/ai_workdir/wcp_share/ai_share/AiScenario/Inference/CPU/CV/Demo/build/CMakeFiles/edit_cache.dir
+/home/yanzh/ai_workdir/wcp_share/ai_share/AiScenario/Inference/CPU/CV/Demo/build/CMakeFiles/rebuild_cache.dir

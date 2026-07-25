@@ -1,0 +1,19 @@
+main_app/CMakeFiles/stream.dir/mnt/e/Code/IPC_Camera/Hi3516/share/ipc_share/push_stream/rtmp/audio/aac_adts_parser.cpp.o: \
+ /mnt/e/Code/IPC_Camera/Hi3516/share/ipc_share/push_stream/rtmp/audio/aac_adts_parser.cpp \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/target/usr/include/stdc-predef.h \
+ /mnt/e/Code/IPC_Camera/Hi3516/share/ipc_share/push_stream/rtmp/audio/aac_adts_parser.h \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/arm-linux-musleabi/include/c++/10.3.0/cstdint \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/arm-linux-musleabi/include/c++/10.3.0/arm-linux-musleabi/bits/c++config.h \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/arm-linux-musleabi/include/c++/10.3.0/arm-linux-musleabi/bits/os_defines.h \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/arm-linux-musleabi/include/c++/10.3.0/arm-linux-musleabi/bits/cpu_defines.h \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/arm-linux-musleabi/include/c++/10.3.0/pstl/pstl_config.h \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/lib/gcc/arm-linux-musleabi/10.3.0/include/stdint.h \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/target/usr/include/stdint.h \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/target/usr/include/bits/alltypes.h \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/target/usr/include/bits/stdint.h \
+ /mnt/e/Code/IPC_Camera/Hi3516/share/cam_share/common/log/dlog.h \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/target/usr/include/stdio.h \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/target/usr/include/features.h \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/target/usr/include/bits/reg.h \
+ /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/lib/gcc/arm-linux-musleabi/10.3.0/include/stdbool.h \
+ /mnt/e/Code/IPC_Camera/Hi3516/share/ipc_share/ret/IpcRet.h

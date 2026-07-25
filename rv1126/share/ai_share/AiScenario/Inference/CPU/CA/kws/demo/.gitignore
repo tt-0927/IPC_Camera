@@ -1,0 +1,11 @@
+# CMake generated files
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+CTestTestfile.cmake
+*.cmake
+kwsBuild
+
+# CMake build directory
+main

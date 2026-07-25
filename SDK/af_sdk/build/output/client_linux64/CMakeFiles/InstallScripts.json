@@ -1,0 +1,7 @@
+{
+	"InstallScripts" : 
+	[
+		"/mnt/e/Code/IPC_Camera/SDK/af_sdk/build/output/client_linux64/cmake_install.cmake"
+	],
+	"Parallel" : false
+}
