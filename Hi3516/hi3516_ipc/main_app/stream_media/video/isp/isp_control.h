@@ -28,13 +28,34 @@
 /* 亮度最大值 */
 #define  BRIGHT_MAX_VALUE (60)
 
-#if CAP_ISP_DAY_NIGHT_DIFFERENT_TUNING
+#if CAP_ISP_DAY_NIGHT_DIFFERENT_TUNING && DEVICE_TV_3852H
+/* 夜晚红外亮度最小值 */
+#define BRIGHT_NIGHT_IR_MIN_VALUE   (20)  
+/* 夜晚红外亮度最大值 */
+#define BRIGHT_NIGHT_IR_MAX_VALUE   (60)
+/* 夜晚红外亮度偏移：默认网页 50 映射到系统值 53 */
+#define BRIGHT_NIGHT_IR_OFFSET      (19) 
 /* 夜晚白光亮度最小值 */
 #define  BRIGHT_NIGHT_WHITE_MIN_VALUE (24)
 /* 夜晚白光亮度最大值 */
 #define  BRIGHT_NIGHT_WHITE_MAX_VALUE (64)
 /* 夜晚白光亮度偏移：默认网页 50 映射到系统值 53 */
 #define  BRIGHT_NIGHT_WHITE_OFFSET    (23)
+
+#elif (CAP_ISP_DAY_NIGHT_DIFFERENT_TUNING && DEVICE_TV_3852TL4G)||(CAP_ISP_DAY_NIGHT_DIFFERENT_TUNING && DEVICE_TV_3852TLW)
+/* 夜晚红外亮度最小值 */
+#define BRIGHT_NIGHT_IR_MIN_VALUE   (24)  // 69 - 50
+/* 夜晚红外亮度最大值 */
+#define BRIGHT_NIGHT_IR_MAX_VALUE   (64)
+/* 夜晚红外亮度偏移：默认网页 50 映射到系统值 53 */
+#define BRIGHT_NIGHT_IR_OFFSET      (23) 
+/* 夜晚白光亮度最小值 */
+#define  BRIGHT_NIGHT_WHITE_MIN_VALUE (24)
+/* 夜晚白光亮度最大值 */
+#define  BRIGHT_NIGHT_WHITE_MAX_VALUE (64)
+/* 夜晚白光亮度偏移：默认网页 50 映射到系统值 53 */
+#define  BRIGHT_NIGHT_WHITE_OFFSET    (23)
+
 #endif
 
 /* 对比度最小值 */
@@ -87,9 +108,16 @@
 #define CONTRAST_OFFSET (-26) // 24 - 50
 #define SATUR_OFFSET    (2)   // 52 - 50
 #define SHARPEN_OFFSET  (-4)  // 46 - 50
-#if CAP_ISP_DAY_NIGHT_DIFFERENT_TUNING
+#if CAP_ISP_DAY_NIGHT_DIFFERENT_TUNING && DEVICE_TV_3852H
 #define SHARPEN_NIGHT_WHITE_OFFSET SHARPEN_OFFSET // 夜晚白光当前沿用白天锐度映射，预留后续差异化
 #define SHARPEN_NIGHT_IR_OFFSET    (-10)            // 默认锐度 50 在夜晚红外映射到 22（50 - 10 = 40，40% * 35 = 14）
+#define WDR_DAY_OFFSET             (0)            // 白天保持当前线性映射
+#define WDR_NIGHT_WHITE_OFFSET     WDR_DAY_OFFSET // 夜晚白光当前沿用白天宽动态映射，预留后续差异化
+#define WDR_NIGHT_IR_OFFSET        (38)           // 默认等级 12 在夜晚红外映射到 400（12 + 38 = 50）
+
+#elif (CAP_ISP_DAY_NIGHT_DIFFERENT_TUNING && DEVICE_TV_3852TL4G)||(CAP_ISP_DAY_NIGHT_DIFFERENT_TUNING && DEVICE_TV_3852TLW)
+#define SHARPEN_NIGHT_WHITE_OFFSET SHARPEN_OFFSET // 夜晚白光当前沿用白天锐度映射，预留后续差异化
+#define SHARPEN_NIGHT_IR_OFFSET    (22)            // 默认锐度 50 在夜晚红外映射到 25（50 + 22 = 72，72% * 35 = 25）
 #define WDR_DAY_OFFSET             (0)            // 白天保持当前线性映射
 #define WDR_NIGHT_WHITE_OFFSET     WDR_DAY_OFFSET // 夜晚白光当前沿用白天宽动态映射，预留后续差异化
 #define WDR_NIGHT_IR_OFFSET        (38)           // 默认等级 12 在夜晚红外映射到 400（12 + 38 = 50）

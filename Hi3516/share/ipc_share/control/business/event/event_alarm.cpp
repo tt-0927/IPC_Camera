@@ -19,6 +19,11 @@
 
 namespace
 {
+    /* 自定义音频播放串行化锁 */
+    static std::mutex g_playMutex;
+    /* 自定义音频播放运行标志 */                 
+    static std::atomic<bool> g_playRunning{false};
+
     /**
      * @brief   : 是否支持警报IO
      * @return   {bool} true:支持 false:不支持
@@ -551,10 +556,23 @@ int CEventAlarm::set_audioAlarmCustom_info(const Alarm::CustomOperation_S &stCus
   */
 int CEventAlarm::HandleCustomPlay(const Alarm::CustomOperation_S &stCustomOperation)
 {
-    dlog_info("播放自定义音频: 路径=%s, 名称=%s", 
-            stCustomOperation.strPath.c_str(), 
+    dlog_info("播放自定义音频: 路径=%s, 名称=%s",
+            stCustomOperation.strPath.c_str(),
             stCustomOperation.strName.c_str());
-    CEventLinkage::instance()->play_audio(stCustomOperation.strPath.c_str(),1);
+
+    std::lock_guard<std::mutex> lock(g_playMutex);
+    if (g_playRunning.load())
+    {
+        dlog_warn("音频正在播放中，忽略本次请求");
+        return OK;
+    }
+    g_playRunning.store(true);
+
+    std::thread([stCustomOperation]() {
+        CEventLinkage::instance()->play_audio(stCustomOperation.strPath.c_str(), 1);
+        g_playRunning.store(false);
+    }).detach();
+
     return OK;
 }
 

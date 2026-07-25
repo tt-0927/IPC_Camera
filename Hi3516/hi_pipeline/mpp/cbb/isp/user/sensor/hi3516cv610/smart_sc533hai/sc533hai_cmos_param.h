@@ -2425,9 +2425,9 @@ static const ot_isp_dehaze_attr g_cmos_dehaze_wdr = {
 
 static const ot_isp_drc_attr g_cmos_drc = {
     /* enable */
-    0,
+    1,
     /* curve_select */
-    OT_ISP_DRC_CURVE_ASYMMETRY,
+    OT_ISP_DRC_CURVE_AUTO,
     /* purple_reduction_strength */
     35,
     /* bright_gain_limit */
@@ -2501,6 +2501,53 @@ static const ot_isp_drc_attr g_cmos_drc = {
     0,
     /* shoot_reduction_en */
     1,
+#if  DEVICE_TV_3852TL4G || DEVICE_TV_3852TLW
+/* op_type */
+    OT_OP_MODE_MANUAL,
+    /* manual_attr */
+    {
+        /* manual_strength */
+        400,
+    },
+    /* auto_attr */
+    {
+        /* auto_strength */
+        512,
+        /* auto_strength_max */
+        1023,
+        /* auto_strength_min */
+        512,
+    },
+    /* asymmetry_curve */
+    {
+        /* asymmetry */
+        6,
+        /* second_pole */
+        200,
+        /* stretch */
+        40,
+        /* compress */
+        170
+    },
+    /* auto_curve */
+    {
+        /* brightness */
+        12,
+        /* contrast */
+        0,
+        /* tolerance */
+        6,
+    },
+    /* bcnr_attr */
+    {
+        /* bcnr_en */
+        0,
+        /* bcnr_detail_restore */
+        {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+        /* bcnr_strength */
+        3,
+    }
+#else
     /* op_type */
     OT_OP_MODE_MANUAL,
     /* manual_attr */
@@ -2546,13 +2593,14 @@ static const ot_isp_drc_attr g_cmos_drc = {
         /* bcnr_strength */
         3,
     }
+#endif
 };
 
 static const ot_isp_drc_attr g_cmos_drc_wdr = {
     /* enable */
     1,
     /* curve_select */
-    OT_ISP_DRC_CURVE_ASYMMETRY,
+    OT_ISP_DRC_CURVE_AUTO,
     /* purple_reduction_strength */
     35,
     /* bright_gain_limit */
@@ -2626,6 +2674,53 @@ static const ot_isp_drc_attr g_cmos_drc_wdr = {
     4,
     /* shoot_reduction_en */
     1,
+#if  DEVICE_TV_3852TL4G || DEVICE_TV_3852TLW
+    /* op_type */
+    OT_OP_MODE_MANUAL,
+    /* manual_attr */
+    {
+        /* manual_strength */
+        400,
+    },
+    /* auto_attr */
+    {
+        /* auto_strength */
+        1023,
+        /* auto_strength_max */
+        1023,
+        /* auto_strength_min */
+        256,
+    },
+    /* asymmetry_curve */
+    {
+        /* asymmetry */
+        6,
+        /* second_pole */
+        200,
+        /* stretch */
+        40,
+        /* compress */
+        170
+    },
+    /* auto_curve */
+    {
+        /* brightness */
+        12,
+        /* contrast */
+        0,
+        /* tolerance */
+        6,
+    },
+    /* bcnr_attr */
+    {
+        /* bcnr_en */
+        0,
+        /* bcnr_detail_restore */
+        {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+        /* bcnr_strength */
+        3,
+    }
+#else
     /* op_type */
     OT_OP_MODE_AUTO,
     /* manual_attr */
@@ -2671,6 +2766,7 @@ static const ot_isp_drc_attr g_cmos_drc_wdr = {
         /* bcnr_strength */
         3,
     }
+#endif
 };
 
 #ifdef CONFIG_OT_ISP_CA_SUPPORT

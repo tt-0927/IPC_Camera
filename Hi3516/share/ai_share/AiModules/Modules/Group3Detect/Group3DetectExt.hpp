@@ -41,6 +41,8 @@ typedef struct _AnalyseParam_
 /* 检测结果 */
 typedef struct _OutData_
 {
+    std::string savedFileName; /* 分析后图片路径 */
+    
     bool bSmoke                = false; /* 是否 烟雾 触发 */
     bool bOpenFire             = false; /* 是否 火焰 触发 */
     bool bGarbageExposure      = false; /* 是否 垃圾暴露 触发 */
@@ -64,6 +66,7 @@ typedef struct _InParam_
 /* 输入数据 */
 typedef struct _InData_
 {
+    int            nChnId;  /* 通道 */
     cv::Mat        inMat;   /* 图片 */
     AnalyseParam_S stParam; /* 参数 */
 } InData_S;

@@ -178,7 +178,7 @@ bool Inference_NS::CCVInferenceMOL::checkModelConfig()
 
     Json::Object *pJsonHandle = NULL;
     pJsonHandle = Json::init(pchJson);
-    bool bRet;
+    bool bRet = true;
 
     /* 获取模型地址 */
     bRet = Json::get(pJsonHandle, "model_path", m_stModelInitInfo.strModelPath);
@@ -191,12 +191,14 @@ bool Inference_NS::CCVInferenceMOL::checkModelConfig()
     if (!checkModelPreConfig())
     {
         printf("json配置文件[%s], 预处理部分解析异常\n", m_strConfigPath.c_str());
+        bRet = false;
         goto EXIT;
     }
 
     if (!checkModelProConfig())
     {
         printf("json配置文件[%s], 后处理部分解析异常\n", m_strConfigPath.c_str());
+        bRet = false;
         goto EXIT;
     }
 
@@ -221,15 +223,13 @@ bool Inference_NS::CCVInferenceMOL::checkModelConfig()
         m_stModelInitInfo.vInputInfo.push_back(stInputInfo);
     }
 
-    return true;
-
 EXIT:
     if (pJsonHandle)
     {
         Json::deinit(pJsonHandle);
         pJsonHandle = NULL;
     }
-    return false;
+    return bRet;
 }
 
 /* 校验模型配置文件中的预处理信息 */
@@ -257,7 +257,7 @@ bool Inference_NS::CCVInferenceMOL::checkModelPreConfig()
     Json::Object *pJsonData = NULL;
     Json::Object *pJsonDataItem = NULL;
     Json::Object *pItemObject = NULL;
-    bool bRet = false;
+    bool bRet = true;
     int nSize = 0;
     int i;
     int nSizeItem, nMean, nStd;
@@ -268,6 +268,7 @@ bool Inference_NS::CCVInferenceMOL::checkModelPreConfig()
     if (!pJsonData)
     {
         printf("解析[data]字段失败\n");
+        bRet = false;
         goto EXIT;
     }
 
@@ -284,12 +285,14 @@ bool Inference_NS::CCVInferenceMOL::checkModelPreConfig()
     if (!pJsonDataItem)
     {
         printf("解析[model_size]字段失败\n");
+        bRet = false;
         goto EXIT;
     }
     nSize = Json::Array::size(pJsonDataItem);
     if (nSize <= 0)
     {
         printf("解析[数组大小异常]\n");
+        bRet = false;
         goto EXIT;
     }
     m_vModelInputSize.clear();
@@ -300,6 +303,7 @@ bool Inference_NS::CCVInferenceMOL::checkModelPreConfig()
         if (NULL == pItemObject)
         {
             printf("获取数组节点失败\n");
+            bRet = false;   
             goto EXIT;
         }
 
@@ -314,18 +318,21 @@ bool Inference_NS::CCVInferenceMOL::checkModelPreConfig()
     if (m_vModelInputSize.size() != 2)
     {
         printf("输入图片的[model_size]参数，必须为[高,宽] 两个参数\n");
+        bRet = false;
         goto EXIT;
     }
     pJsonDataItem = Json::get(pJsonData, "image_size");
     if (!pJsonDataItem)
     {
         printf("解析[image_size]字段失败\n");
+        bRet = false;
         goto EXIT;
     }
     nSize = Json::Array::size(pJsonDataItem);
     if (nSize <= 0)
     {
         printf("解析[数组大小异常]\n");
+        bRet = false;
         goto EXIT;
     }
     m_vImageInputSize.clear();
@@ -336,6 +343,7 @@ bool Inference_NS::CCVInferenceMOL::checkModelPreConfig()
         if (NULL == pItemObject)
         {
             printf("获取数组节点失败\n");
+            bRet = false;
             goto EXIT;
         }
 
@@ -350,6 +358,7 @@ bool Inference_NS::CCVInferenceMOL::checkModelPreConfig()
     if (m_vImageInputSize.size() != 2)
     {
         printf("输入图片的[image_size]参数，必须为[高,宽] 两个参数\n");
+        bRet = false;
         goto EXIT;
     }
     /* 2、图片通道 */
@@ -371,12 +380,14 @@ bool Inference_NS::CCVInferenceMOL::checkModelPreConfig()
     if (!pJsonDataItem)
     {
         printf("解析[pJsonData]字段失败\n");
+        bRet = false;
         goto EXIT;
     }
     nSize = Json::Array::size(pJsonDataItem);
     if (nSize <= 0)
     {
         printf("解析[数组大小异常]\n");
+        bRet = false;
         goto EXIT;
     }
     for (int i = 0; i < nSize; i++)
@@ -386,6 +397,7 @@ bool Inference_NS::CCVInferenceMOL::checkModelPreConfig()
         if (NULL == pItemObject)
         {
             printf("获取数组节点失败\n");
+            bRet = false;
             goto EXIT;
         }
 
@@ -402,12 +414,14 @@ bool Inference_NS::CCVInferenceMOL::checkModelPreConfig()
     if (!pJsonDataItem)
     {
         printf("解析[pJsonData]字段失败\n");
+        bRet = false;
         goto EXIT;
     }
     nSize = Json::Array::size(pJsonDataItem);
     if (nSize <= 0)
     {
         printf("解析[数组大小异常]\n");
+        bRet = false;
         goto EXIT;
     }
     for (int i = 0; i < nSize; i++)
@@ -417,6 +431,7 @@ bool Inference_NS::CCVInferenceMOL::checkModelPreConfig()
         if (NULL == pItemObject)
         {
             printf("获取数组节点失败\n");
+            bRet = false;
             goto EXIT;
         }
 
@@ -435,7 +450,6 @@ bool Inference_NS::CCVInferenceMOL::checkModelPreConfig()
         printf("解析padding字段失败\n");
         goto EXIT;
     }
-    return true;
 
 EXIT:
     if (pJsonHandle)
@@ -443,7 +457,7 @@ EXIT:
         Json::deinit(pJsonHandle);
         pJsonHandle = NULL;
     }
-    return false;
+    return bRet;
 }
 
 /* 校验模型配置文件中的模型推理信息 */
@@ -680,6 +694,9 @@ bool Inference_NS::CCVInferenceMOL::inferenceInfe(int nImgSize)
     }
 
     int nDstSize = m_vInputs[0].dataIn.size;
+
+    /* 图片输入为float字节大小，nDstSize为像素大小 */
+    nImgSize /= sizeof(float);
 
     if (nImgSize != nDstSize)
     {

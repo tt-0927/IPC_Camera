@@ -3,7 +3,7 @@
  * @Author       : cyc
  * @Date         : 2025-08-27 19:02:28
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-04-21 17:04:52
+ * @LastEditTime : 2026-06-08 10:06:04
  * @Description  : 日夜切换控制器实现
  */
 
@@ -125,6 +125,8 @@ void CDayNightController::setMode(DayNightMode_E enDayNightMode)
         dlog_info("启动自动模式");
         /* 重置自动检测状态 */
         m_needSwitch.store(false);
+        /* 重置ISP红外状态为正常，避免沿用强制夜晚模式的残留状态导致自动检测被跳过 */
+        m_irAttr.ir_status = OT_ISP_IR_STATUS_NORMAL;
         m_thresholdNeedsUpdate.store(true);
         break;
     }

@@ -3,7 +3,6 @@
 # 使用相对路径获取 的包含和库路径
 set(NET_TVSDK_LIBRARY_DIR "${CMAKE_CURRENT_LIST_DIR}/lib")
 set(NET_TVSDK_INCLUDE_DIR "${CMAKE_CURRENT_LIST_DIR}/include")
-set(NET_TVSDK_INCLUDE_DIR "${CMAKE_CURRENT_LIST_DIR}/include/mediaServer")
 
 link_directories(${NET_TVSDK_LIBRARY_DIR})
 

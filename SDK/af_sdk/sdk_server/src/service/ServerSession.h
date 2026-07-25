@@ -2,6 +2,7 @@
 
 #include <string>
 #include <atomic>
+#include <cstdint>
 #include <mutex>
 #include <chrono>
 #include <queue>
@@ -39,6 +40,13 @@ public:
 
     bool IsPushEnabled() const { return m_pushEnabled; }
     void SetPushEnabled(bool val) { m_pushEnabled = val; }
+
+    // AlarmListen 是长连接，同一 Session 只允许最新的一条连接保持有效。
+    // 新连接进来时递增序号，旧 content_provider 检测到序号变化后退出。
+    uint64_t BeginAlarmListen();
+    bool IsCurrentAlarmListen(uint64_t listenSeq) const;
+    uint64_t GetAlarmListenSeq() const { return m_alarmListenSeq.load(); }
+    bool MarkDisconnectedIfCurrentAlarmListen(uint64_t listenSeq);
 
     // --- 活跃度管理 ---
     void UpdateLastActive();
@@ -85,7 +93,7 @@ public:
 
     // 条件变量 + 超时等待：有数据或超时后返回
     // timeoutMs: 最大等待毫秒数（用于心跳定时唤醒）
-    void WaitForData(int timeoutMs);
+    void WaitForData(int timeoutMs, uint64_t listenSeq = 0);
 
 private:
     const std::string m_sessionId;
@@ -94,6 +102,7 @@ private:
     std::atomic<bool> m_isLogined{false};
     std::atomic<bool> m_isConnected{false};
     std::atomic<bool> m_pushEnabled{false};
+    std::atomic<uint64_t> m_alarmListenSeq{0};
 
     // 活跃时间 (用于超时清理)
     std::chrono::steady_clock::time_point m_lastActive;

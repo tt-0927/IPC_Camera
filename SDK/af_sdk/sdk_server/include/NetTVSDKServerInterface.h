@@ -89,6 +89,20 @@ NET_TV_API BOOL STDCALL NET_TV_SERVER_PushChannelStatusInfo(IN NET_TV_CHANNEL_IN
 NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetDeviceInfo(NET_TV_COMMON_ECODE_E (*CB)(LPNET_TV_DEVICE_INFO_S pInfo));
 
 /**
+ * @brief 设备控制回调类型
+ * @param [IN] pstCtrlInfo 设备硬件控制参数，参见 NET_TV_DEVICE_CONTROL_INFO_S
+ * @return NET_TV_E_SUCCEED 成功，其他值失败
+ */
+typedef NET_TV_COMMON_ECODE_E (*NET_TV_CB_DeviceControl)(LPNET_TV_DEVICE_CONTROL_INFO_S pstCtrlInfo);
+
+/**
+ * @brief 注册设备控制回调
+ * @param [IN] pCb 回调函数指针
+ * @return TRUE表示成功,其他表示失败
+ */
+NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_DeviceControl(NET_TV_CB_DeviceControl pCb);
+
+/**
  * @brief 视频编码能力集回调类型 (NET_TV_CAP_VIDEO_ENCODE)
  * @param [IN]  dwChannelID  通道号
  * @param [OUT] pCap         视频编码能力集结构体指针(多码流)
@@ -392,6 +406,122 @@ NET_TV_SERVER_Discovery_Start(IN const CHAR* szInterfaceName);
  */
 NET_TV_API BOOL STDCALL
 NET_TV_SERVER_Discovery_Stop(void);
+
+/************************************************************************/
+/*                       语音对讲 VoiceCom (服务端)                       */
+/************************************************************************/
+/** @brief 语音对讲播放回调: 收到NVR端音频时调用, 推送到扬声器 */
+typedef void (STDCALL *NET_TV_SERVER_VoiceComPlayCallBack)(const char* data, unsigned int size);
+/**
+ * @brief 语音对讲采集回调: SDK按协商参数主动拉取设备侧采集帧并发送到NVR
+ * @param [IN]  pstAudioParam 当前 VoiceCom 会话协商的音频参数
+ * @param [OUT] pBuffer       输出音频帧缓存
+ * @param [IN]  dwBufferSize  输出缓存长度
+ * @param [IN]  lpUserData    用户数据
+ * @return 实际写入的音频字节数，返回 <=0 表示当前无可用音频帧
+ * @note 回调内应写入与 pstAudioParam 匹配的裸音频帧；建议每次返回 dwFrameBytes 字节。
+ */
+typedef INT32 (STDCALL *NET_TV_SERVER_VoiceComCaptureCallBack)(
+    IN const NET_TV_VOICECOM_AUDIO_PARAM_S* pstAudioParam,
+    OUT CHAR* pBuffer,
+    IN UINT32 dwBufferSize,
+    IN LPVOID lpUserData);
+
+/**
+ * @brief 启动语音对讲TCP监听
+ * @param [IN]  dwPort  监听端口, 默认9006
+ * @return TRUE 成功，FALSE 失败
+ */
+NET_TV_API BOOL STDCALL
+NET_TV_SERVER_StartVoiceComServer(IN UINT32 dwPort);
+
+/**
+ * @brief 停止语音对讲TCP监听
+ * @return TRUE 成功，FALSE 失败
+ */
+NET_TV_API BOOL STDCALL
+NET_TV_SERVER_StopVoiceComServer(void);
+
+/**
+ * @brief 注册播放回调 (收到NVR音频 → 扬声器)
+ * @param [IN]  cb  播放回调
+ * @return TRUE 成功，FALSE 失败
+ */
+NET_TV_API BOOL STDCALL
+NET_TV_SERVER_RegisterCb_VoiceComPlay(IN NET_TV_SERVER_VoiceComPlayCallBack cb);
+
+/**
+ * @brief 注册采集回调 (麦克风/LineIn -> NVR)
+ * @param [IN]  cb          采集回调，传 NULL 表示注销
+ * @param [IN]  lpUserData  用户数据，回调时原样透传
+ * @return TRUE 成功，FALSE 失败
+ * @note SDK负责按当前 VoiceCom 会话参数定时拉帧并发送，业务侧只需要提供采集帧。
+ */
+NET_TV_API BOOL STDCALL
+NET_TV_SERVER_RegisterCb_VoiceComCapture(IN NET_TV_SERVER_VoiceComCaptureCallBack cb,
+                                         IN LPVOID lpUserData);
+
+/**
+ * @brief 发送麦克风采集的音频到NVR
+ * @param [IN]  pData  音频帧数据，格式需与当前 VoiceCom 会话协商参数一致
+ * @param [IN]  dwSize 数据长度(字节)
+ * @return TRUE 成功，FALSE 失败
+ */
+NET_TV_API BOOL STDCALL
+NET_TV_SERVER_SendVoiceComData(IN const CHAR* pData, IN UINT32 dwSize);
+
+/**
+ * @brief 获取当前 VoiceCom 会话协商的音频参数
+ * @param [OUT] pstAudioParam  音频参数
+ * @return TRUE 成功，FALSE 表示尚未建立会话或参数未协商
+ */
+NET_TV_API BOOL STDCALL
+NET_TV_SERVER_GetVoiceComAudioParam(OUT LPNET_TV_VOICECOM_AUDIO_PARAM_S pstAudioParam);
+
+/************************************************************************/
+/*                       录像帧流 RecordFrame (服务端)                    */
+/************************************************************************/
+/**
+ * @brief 录像帧流开始回调: 收到客户端起止时间查询后调用, 由宿主打开录像源并填充流信息
+ */
+typedef NET_TV_COMMON_ECODE_E (STDCALL *NET_TV_SERVER_RecordFrameStartCallBack)(
+    IN LPNET_TV_RECORD_FRAME_STREAM_COND_S pstCond,
+    INOUT LPNET_TV_RECORD_FRAME_STREAM_INFO_S pstInfo,
+    IN LPVOID lpUserData);
+
+/**
+ * @brief 录像帧读取回调: SDK在TCP连接建立后循环拉取帧并发送给客户端
+ * @return 实际写入 pBuffer 的负载字节数；0 表示暂时无帧；<0 表示结束/失败
+ */
+typedef INT32 (STDCALL *NET_TV_SERVER_RecordFrameReadCallBack)(
+    IN const CHAR* szStreamId,
+    OUT LPNET_TV_RECORD_FRAME_INFO_S pstFrameInfo,
+    OUT CHAR* pBuffer,
+    IN UINT32 dwBufferSize,
+    IN LPVOID lpUserData);
+
+/** @brief 录像帧流停止回调: 客户端停止或流结束时调用 */
+typedef NET_TV_COMMON_ECODE_E (STDCALL *NET_TV_SERVER_RecordFrameStopCallBack)(
+    IN const CHAR* szStreamId,
+    IN LPVOID lpUserData);
+
+NET_TV_API BOOL STDCALL
+NET_TV_SERVER_StartRecordFrameServer(IN UINT32 dwPort);
+
+NET_TV_API BOOL STDCALL
+NET_TV_SERVER_StopRecordFrameServer(void);
+
+NET_TV_API BOOL STDCALL
+NET_TV_SERVER_RegisterCb_RecordFrameStart(IN NET_TV_SERVER_RecordFrameStartCallBack cb,
+                                         IN LPVOID lpUserData);
+
+NET_TV_API BOOL STDCALL
+NET_TV_SERVER_RegisterCb_RecordFrameRead(IN NET_TV_SERVER_RecordFrameReadCallBack cb,
+                                        IN LPVOID lpUserData);
+
+NET_TV_API BOOL STDCALL
+NET_TV_SERVER_RegisterCb_RecordFrameStop(IN NET_TV_SERVER_RecordFrameStopCallBack cb,
+                                        IN LPVOID lpUserData);
 
 #ifdef __cplusplus
 }

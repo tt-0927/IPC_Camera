@@ -173,7 +173,7 @@ bool Inference_NS::CAttribute::checkModelProConfig()
     Json::Object* pJsonObject   = NULL;
     Json::Object* pObjectItem   = NULL;
     Json::Object* pItemOne   = NULL;
-    bool          bRet        = false;
+    bool          bRet        = true;
     int i,j, nISize, nJSize, nSizeItem;
     std::vector<int> vGroupOnce;
 
@@ -197,6 +197,7 @@ bool Inference_NS::CAttribute::checkModelProConfig()
     if (!bRet || m_nClassNum<=0)
     {
         printf("解析cls_num字段失败\n");
+        bRet = false;
         goto EXIT;
     }
     /* 3、同属性类别组 */
@@ -204,12 +205,14 @@ bool Inference_NS::CAttribute::checkModelProConfig()
     if (! pJsonObject)
     {
         printf("解析cls_group字段失败\n");
+        bRet = false;
         goto EXIT;
     }
     nISize = Json::Array::size(pJsonObject);
     if (nISize <= 0)
     {
         printf("解析[数组大小异常]\n");
+        bRet = false;
         goto EXIT;
     }
     for (i = 0; i < nISize; i++)
@@ -219,6 +222,7 @@ bool Inference_NS::CAttribute::checkModelProConfig()
         if (NULL == pObjectItem)
         {
             printf("获取第一层数组节点失败\n");
+            bRet = false;
             goto EXIT;
         }
 
@@ -226,6 +230,7 @@ bool Inference_NS::CAttribute::checkModelProConfig()
         if (nJSize <= 0)
         {
             printf("解析[数组大小异常]\n");
+            bRet = false;
             goto EXIT;
         }
         vGroupOnce.clear();
@@ -236,6 +241,7 @@ bool Inference_NS::CAttribute::checkModelProConfig()
             if (NULL == pItemOne)
             {
                 printf("获取第二层数组节点失败\n");
+                bRet = false;
                 goto EXIT;
             }
             bRet = Json::Value::get(pItemOne, nSizeItem);
@@ -249,13 +255,12 @@ bool Inference_NS::CAttribute::checkModelProConfig()
         m_vGroupOnce.push_back(vGroupOnce);
     }
 
-    return true;
-
 EXIT:
+
     if (pJsonHandle)
     {
         Json::deinit(pJsonHandle);
         pJsonHandle = NULL;
     }
-    return false;
+    return bRet;
 }

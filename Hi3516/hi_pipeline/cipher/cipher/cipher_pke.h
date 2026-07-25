@@ -2,13 +2,14 @@
  * @FilePath     : cipher_pke.h
  * @Author       : zhouzirui
  * @Date         : 2025-04-03 09:55:06
- * @LastEditors  : zhouzirui
- * @LastEditTime : 2025-04-07 20:54:34
+ * @LastEditors  : zhouzr@kfb.cn
+ * @LastEditTime : 2026-05-27 15:06:45
  * @Description  : 非对称加解密算法模块
  */
 
 #ifndef __CIPHER_PKE_H__
 #define __CIPHER_PKE_H__
+
 #ifdef __cplusplus
 extern "C"
 {
@@ -40,6 +41,26 @@ struct _CipherPke_S
 
     /*安全协议加速器非对称加解密算法模块去初始化*/
     int (*cipherPke_uninit)(CipherPke_S *pHandle);
+
+    /*ECC 密钥生成*/
+    int (*cipherPke_ecc_gen_key)(CipherPke_S *pHandle,
+                                 drv_pke_ecc_curve_type enCurveType,
+                                 const drv_pke_data *pInputPrivKey,
+                                 const drv_pke_data *pOutputPrivKey,
+                                 const drv_pke_ecc_point *pOutputPubKey);
+
+    /*检查公钥点是否在指定曲线上*/
+    int (*cipherPke_check_dot_on_curve)(CipherPke_S *pHandle,
+                                        drv_pke_ecc_curve_type enCurveType,
+                                        const drv_pke_ecc_point *pPubKey,
+                                        td_bool *pIsOnCurve);
+
+    /*SM2 签名验签前的 ZA HASH 计算*/
+    int (*cipherPke_sm2_dsa_hash)(CipherPke_S *pHandle,
+                                  const drv_pke_data *pSm2Id,
+                                  const drv_pke_ecc_point *pPubKey,
+                                  const drv_pke_msg *pMsg,
+                                  drv_pke_data *pHash);
 
     /*RSA 公钥加密*/
     int (*cipherPke_rsa_encryption)(CipherPke_S *pHandle, drv_pke_rsa_scheme enScheme, drv_pke_hash_type enHashType, const drv_pke_rsa_pub_key *pPubKey, const drv_pke_data *pInput, const drv_pke_data *pLabel, drv_pke_data *pOutput);

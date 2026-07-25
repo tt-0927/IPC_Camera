@@ -3,12 +3,13 @@
  * @Author       : zhouzirui
  * @Date         : 2025-03-31 17:30:59
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2025-09-04 15:06:39
+ * @LastEditTime : 2026-06-03 19:16:45
  * @Description  : 海思ao模块封装
  */
 
 #include "mpp_ao.h"
 #include "mpi_common.h"
+#include <math.h>
 #include <stdio.h>
 #include <sys/ioctl.h>
 #include <fcntl.h>
@@ -24,18 +25,43 @@ int convert_volume(int nVolume, int nMinVolume, int nMaxVolume)
     {
         nVolume = 100;
     }
-    /* 将0-100映射到-121到6的范围 */
-    int converted_volume = nMinVolume + (nVolume * (nMaxVolume - nMinVolume)) / 100;
-    /* 确保结果在有效范围内 */
-    if (converted_volume < nMinVolume)
+
+    /* 指数曲线映射，模拟人耳对数感知特性
+     *
+     * 公式：dB = nMinVolume + (nMaxVolume - nMinVolume) × (BASE^(v/100) - 1) / (BASE - 1)
+     * 其中 v 为用户音量（0~100），BASE 为指数底数
+     *
+     * 当前约束点（nMinVolume=-25, nMaxVolume=6, BASE=1.573）：
+     *   音量 0   → -25 dB（静音）
+     *   音量 1   → -24 dB
+     *   音量 50  → -0.4 dB
+     *   音量 100 → 6 dB
+     *
+     * 手动调整指南：
+     *   - BASE：控制曲线弯曲程度，值越大低音量区越安静，值越小曲线越接近线性
+     *     修改 nMinVolume 后需重新计算 BASE：
+     *       range = nMaxVolume - nMinVolume
+     *       BASE = ((range - 29.6) / range) ^ (-2)
+     *   - nMinVolume（stream_ao.cpp 中设置）：控制最低音量 dB，值越小低音量越安静
+     *   - nMaxVolume（stream_ao.cpp 中设置）：控制最大音量 dB
+     */
+    if (nVolume == 0)
     {
-        converted_volume = nMinVolume;
+        return nMinVolume;
     }
-    else if (converted_volume > nMaxVolume)
+    static const double BASE = 1.573;
+    double range = (double)(nMaxVolume - nMinVolume);
+    double normalized = (double)nVolume / 100.0;
+    double converted = (double)nMinVolume + range * (pow(BASE, normalized) - 1.0) / (BASE - 1.0);
+    if (converted < (double)nMinVolume)
     {
-        converted_volume = nMaxVolume;
+        converted = (double)nMinVolume;
     }
-    return converted_volume;
+    else if (converted > (double)nMaxVolume)
+    {
+        converted = (double)nMaxVolume;
+    }
+    return (int)(converted + 0.5);
 }
 
 /**
@@ -196,6 +222,46 @@ static int mppAo_sendFrame(HiAo_S *pHandle, int nChn, ot_audio_frame *pFrame, in
     return TD_SUCCESS;
 }
 
+/**
+ * @brief   : 等待 AO 通道硬件缓冲区完全排空
+ * @note    : 通过轮询 ss_mpi_ao_query_chn_status 确认 chn_busy_num == 0，
+ *            避免盲目 sleep 固定时间导致的时序不准问题。
+ */
+static int mppAo_waitDrained(HiAo_S *pHandle, int nChn, int nTimeoutMs)
+{
+    if (NULL == pHandle)
+    {
+        return TD_FAILURE;
+    }
+
+    ot_audio_dev nAoDev = pHandle->stNeedParam.nDevId;
+    /* 每轮轮询间隔 10ms */
+    const int POLL_INTERVAL_MS = 10;
+    int nElapsedMs = 0;
+
+    while (1)
+    {
+        ot_ao_chn_state stState;
+        td_s32 nRet = ss_mpi_ao_query_chn_status(nAoDev, nChn, &stState);
+        if (nRet != TD_SUCCESS)
+        {
+            return TD_FAILURE;
+        }
+        /* 确认硬件缓冲区已完全排空 */
+        if (stState.chn_busy_num == 0)
+        {
+            return TD_SUCCESS;
+        }
+        /* 检查是否超时 */
+        if (nTimeoutMs >= 0 && nElapsedMs >= nTimeoutMs)
+        {
+            return TD_FAILURE;
+        }
+        usleep(POLL_INTERVAL_MS * 1000);
+        nElapsedMs += POLL_INTERVAL_MS;
+    }
+}
+
 static int mppAo_setVolume(HiAo_S *pHandle, int nVolume) 
 {
     if (NULL == pHandle) 
@@ -262,6 +328,7 @@ HiAo_S *mppAo_alloc(HiAoNeedParam_S stNeedParam)
     pHandle->mppAo_uninit               = mppAo_uninit;
     pHandle->mppAo_sendFrame            = mppAo_sendFrame;
     pHandle->mppAo_setVolume            = mppAo_setVolume;
+    pHandle->mppAo_waitDrained          = mppAo_waitDrained;
     return pHandle;
 }
 

@@ -43,8 +43,8 @@ bool Inference_NS::CModelOpt::init()
     svp_acl_rt_run_mode runMode;
     uint32_t fileSize = 0;     // 用于存储模型文件的字节大小
     struct stat sBuf;          // 用于存储文件的状态信息
-    std::ifstream binFile;
     int modelSize;
+    std::ifstream binFile(m_strModelPath, std::ifstream::binary);
 
     /* 1. 初始化 ACL 环境 */
     ret = svp_acl_init(NULL);
@@ -56,7 +56,7 @@ bool Inference_NS::CModelOpt::init()
     /* 2. 设置设备 */
     ret = svp_acl_rt_set_device(deviceId);
     if (ret != SVP_ACL_SUCCESS) {
-        printf("设置设备 ID=[%d] 失败。 \n", deviceId);
+        printf("设备 ID=[%d] 失败。 \n", deviceId);
         goto EXIT;
     }
 
@@ -89,7 +89,7 @@ bool Inference_NS::CModelOpt::init()
     }
 
     /* 7. 加载模型文件 */
-    binFile.open(m_strModelPath, std::ifstream::binary);
+    
     /* 获取文件长度 */
     binFile.seekg(0, binFile.end);
     modelSize = binFile.tellg();
@@ -113,7 +113,7 @@ bool Inference_NS::CModelOpt::init()
     binFile.close();
 
     /* 8. 加载模型到设备 */
-    ret = svp_acl_mdl_load_from_mem(static_cast<uint8_t*>(modelMemPtr_ ), modelSize, &modelId_);
+    ret = svp_acl_mdl_load_from_mem(static_cast<uint8_t*>(modelMemPtr_ ), static_cast<uint32_t>(modelSize), &modelId_);
     if (ret != SVP_ACL_SUCCESS) {
         printf("模型加载失败，模型路径为 [%s]。 \n", m_strModelPath.c_str());
         goto EXIT;
@@ -270,7 +270,7 @@ bool Inference_NS::CModelOpt::getOutputSize(int& outputSize)
 
 
 /* 获取模型输入参数 */
-bool Inference_NS::CModelOpt::getInputAttrs(int nIndex, size_t& bufSize, size_t& stride, svp_acl_mdl_io_dims& inputDims, size_t& dataSize)
+bool Inference_NS::CModelOpt::getInputAttrs(int nIndex, size_t& bufSize, size_t& stride, svp_acl_mdl_io_dims& inputDims)
 {
     if (m_bInitialized)
     {
@@ -293,18 +293,22 @@ bool Inference_NS::CModelOpt::getInputAttrs(int nIndex, size_t& bufSize, size_t&
             printf("获取指定输入张量实际所需的内存大小失败 \n");
             return false;
         }
-        /* 获取模型第 0 个输入的总数据大小 */
-        svp_acl_data_type dataType = svp_acl_mdl_get_input_data_type(modelDesc_, nIndex);
-        dataSize = svp_acl_data_type_size(dataType) / BYTE_BIT_NUM;
-        // printf("dataSize: [%zu], svp_acl_data_type_size(dataType): [%zu]！ \n", dataSize, svp_acl_data_type_size(dataType));
-        if (dataSize == 0) {
-            printf("获取模型第 0 个输入的总数据大小失败 \n");
-            return false;
-        }
 
         return true;
     }
     return false;
+}
+
+bool Inference_NS::CModelOpt::getInputDataSize(int nIndex, size_t& dataSize)
+{
+    svp_acl_data_type dataType = svp_acl_mdl_get_input_data_type(modelDesc_, nIndex);
+    dataSize = svp_acl_data_type_size(dataType) / BYTE_BIT_NUM;
+    // printf("dataSize: [%zu], svp_acl_data_type_size(dataType): [%zu]！ \n", dataSize, svp_acl_data_type_size(dataType));
+    if (dataSize == 0) {
+        printf("获取模型第 0 个输入的总数据大小失败 \n");
+        return false;
+    }
+    return true;
 }
 
 /* 获取模型输出参数 */

@@ -61,7 +61,9 @@ public:
      * @brief 添加人脸名单库
      * @param stFaceLibData
      */
+#if CAP_AI_FACE_COMPARE
     bool addFaceLibGroup(FaceDataDB_NS::FaceLibsInfo_S &stFaceLibData);
+#endif
 
 private:
     /**
@@ -102,8 +104,10 @@ private:
     EventManager m_RecvManager{ 3000 };
     /* 人脸抓拍 */
     Alarm::FaceCapture_S m_stAlgoFaceCapCfg;
+    #if CAP_AI_FACE_COMPARE
     /* 人脸比对 */
     Alarm::FaceCompare_S m_stAlgoFaceCompCfg;
+    #endif
     /* NPU 推理互斥锁，检测模型与特征模型切换上下文时共享 */
     // std::mutex m_npuMutex;
 
@@ -116,12 +120,16 @@ private:
     /* 算法默认分辨率 */
     int m_nWidth = PIXEL_WIDTH_640;
     int m_nHeight = PIXEL_HEIGHT_640;
+    // int m_nWidth = PIXEL_WIDTH_1024;
+    // int m_nHeight = PIXEL_HEIGHT_576;
     /* 目标视频帧 */
     ot_video_frame_info m_stDstFrameInfo;
     /* 人脸抓拍处理器 */
     FaceDetectInternal::CFaceCaptureProcessor m_captureProcessor;
+    #if CAP_AI_FACE_COMPARE
     /* 人脸特征提取与比对处理器 */
     FaceDetectInternal::CFaceFeatureProcessor m_featureProcessor;
+    #endif
     /*异步人脸检测Worker*/
     CFaceDetectWorker m_detectWorker;
 };

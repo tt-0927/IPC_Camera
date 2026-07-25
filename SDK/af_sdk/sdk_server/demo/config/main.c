@@ -36,6 +36,8 @@
 #define SDKSERVER_PORT 9888
 #define SDKSERVER_USERNAME "admin"
 #define SDKSERVER_PASSWORD "sj2@2025"
+#define DEMO_VOICECOM_PORT 9006
+#define DEMO_VOICECOM_SERVER_RECV_DUMP "/tmp/VoiceComServerRecv.audio"
 /* 当前IPC能力只开放前4个自定义OSD槽位，结构体数组长度仍按SDK ABI保留。 */
 #define DEMO_OSD_CUSTOM_MAX_NUM NET_TV_OSD_CUSTOM_MAX_NUM
 #define DEMO_OSD_STRUCT_SLOT_NUM NET_TV_OSD_TYPE_MAX_NUM
@@ -46,6 +48,22 @@ static CHAR g_serverPassword[NET_TV_LEN_132] = SDKSERVER_PASSWORD;
 
 /* 运行标志，用于优雅退出 */
 static volatile sig_atomic_t g_running = 1;
+static unsigned long long g_voiceComFrameCount = 0;
+static unsigned long long g_voiceComBytes = 0;
+static FILE* g_voiceComDumpFp = NULL;
+
+static unsigned char VoiceComSilenceByte(INT32 enFormat)
+{
+    if (enFormat == NET_TV_AUDIO_FORMAT_G711A)
+    {
+        return 0xD5;
+    }
+    if (enFormat == NET_TV_AUDIO_FORMAT_G711U)
+    {
+        return 0xFF;
+    }
+    return 0x00;
+}
 
 static void signal_handler(int signum)
 {
@@ -112,6 +130,7 @@ static void ConfigureByArgs(int argc, char* argv[])
 
 static NET_TV_DEVICE_BASICINFO_S g_stDeviceBasicInfo;
 static NET_TV_NETWORKCFG_S       g_stNetworkCfg;
+static NET_TV_SYSTEM_NTP_INFO_S  g_stSystemNtpCfg;
 static NET_TV_VIDEO_ENCODE_OPTION_S g_stStreamCfg;
 static NET_TV_AUDIO_CFG_S        g_stAudioCfg;
 static NET_TV_WIFI_STA_CFG_S     g_stWifiStaCfg;
@@ -465,6 +484,7 @@ static void InitDefaultConfig(void)
 {
     memset(&g_stDeviceBasicInfo, 0, sizeof(g_stDeviceBasicInfo));
     memset(&g_stNetworkCfg, 0, sizeof(g_stNetworkCfg));
+    memset(&g_stSystemNtpCfg, 0, sizeof(g_stSystemNtpCfg));
     memset(&g_stStreamCfg, 0, sizeof(g_stStreamCfg));
     memset(&g_stAudioCfg, 0, sizeof(g_stAudioCfg));
     memset(&g_stWifiStaCfg, 0, sizeof(g_stWifiStaCfg));
@@ -587,6 +607,17 @@ static void InitDefaultConfig(void)
     strncpy(g_stNetworkCfg.szIpv4Address,   "192.168.1.100", sizeof(g_stNetworkCfg.szIpv4Address) - 1);
     strncpy(g_stNetworkCfg.szIPv4GateWay,   "192.168.1.1",   sizeof(g_stNetworkCfg.szIPv4GateWay) - 1);
     strncpy(g_stNetworkCfg.szIPv4SubnetMask,"255.255.255.0", sizeof(g_stNetworkCfg.szIPv4SubnetMask) - 1);
+
+    /* 系统校时配置默认值 */
+    g_stSystemNtpCfg.enTimeZone = 8;
+    g_stSystemNtpCfg.enDateFormat = 0;
+    g_stSystemNtpCfg.bEnableNTPSync = FALSE;
+    g_stSystemNtpCfg.bManualSync = TRUE;
+    strncpy(g_stSystemNtpCfg.szDateTime, "2026-06-23 10:00:00", sizeof(g_stSystemNtpCfg.szDateTime) - 1);
+    g_stSystemNtpCfg.bIsSyncWithComputer = FALSE;
+    strncpy(g_stSystemNtpCfg.szAddress, "time.windows.com", sizeof(g_stSystemNtpCfg.szAddress) - 1);
+    g_stSystemNtpCfg.nPort = 123;
+    g_stSystemNtpCfg.nSyncInterval = 60;
 
     /* 视频码流配置默认值 */
     g_stStreamCfg.nId = NET_TV_LIVE_STREAM_INDEX_MAIN;
@@ -1587,6 +1618,66 @@ static NET_TV_COMMON_ECODE_E MySetNetworkCfgCb(INT32 dwChannelID, LPVOID lpInBuf
     printf("  New IPv4Address=%s\n", g_stNetworkCfg.szIpv4Address);
     printf("  New IPv4Gateway=%s\n", g_stNetworkCfg.szIPv4GateWay);
     printf("  New IPv4SubnetMask=%s\n", g_stNetworkCfg.szIPv4SubnetMask);
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 系统校时配置 Get 回调，对应命令 NET_TV_GET_NTPCFG */
+static NET_TV_COMMON_ECODE_E MyGetNtpCfgCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpOutBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_SYSTEM_NTP_INFO_S pOut = (LPNET_TV_SYSTEM_NTP_INFO_S)lpOutBuffer;
+    *pOut = g_stSystemNtpCfg;
+
+    printf("[ConfigServerDemo] GetNtpCfg callback, Channel=%d\n", dwChannelID);
+    printf("  TimeZone=UTC%+d, DateFormat=%d, EnableNtp=%d, ManualSync=%d, DateTime=%s\n",
+           g_stSystemNtpCfg.enTimeZone,
+           g_stSystemNtpCfg.enDateFormat,
+           g_stSystemNtpCfg.bEnableNTPSync,
+           g_stSystemNtpCfg.bManualSync,
+           g_stSystemNtpCfg.szDateTime);
+    printf("  SyncWithComputer=%d, Address=%s, Port=%d, SyncInterval=%d\n",
+           g_stSystemNtpCfg.bIsSyncWithComputer,
+           g_stSystemNtpCfg.szAddress,
+           g_stSystemNtpCfg.nPort,
+           g_stSystemNtpCfg.nSyncInterval);
+
+    return NET_TV_E_SUCCEED;
+}
+
+/* 系统校时配置 Set 回调，对应命令 NET_TV_SET_NTPCFG */
+static NET_TV_COMMON_ECODE_E MySetNtpCfgCb(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    (void)dwChannelID;
+
+    if (!lpInBuffer)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    LPNET_TV_SYSTEM_NTP_INFO_S pIn = (LPNET_TV_SYSTEM_NTP_INFO_S)lpInBuffer;
+    g_stSystemNtpCfg = *pIn;
+    g_stSystemNtpCfg.szDateTime[sizeof(g_stSystemNtpCfg.szDateTime) - 1] = '\0';
+    g_stSystemNtpCfg.szAddress[sizeof(g_stSystemNtpCfg.szAddress) - 1] = '\0';
+
+    printf("[ConfigServerDemo] SetNtpCfg callback, Channel=%d\n", dwChannelID);
+    printf("  New TimeZone=UTC%+d, DateFormat=%d, EnableNtp=%d, ManualSync=%d, DateTime=%s\n",
+           g_stSystemNtpCfg.enTimeZone,
+           g_stSystemNtpCfg.enDateFormat,
+           g_stSystemNtpCfg.bEnableNTPSync,
+           g_stSystemNtpCfg.bManualSync,
+           g_stSystemNtpCfg.szDateTime);
+    printf("  New SyncWithComputer=%d, Address=%s, Port=%d, SyncInterval=%d\n",
+           g_stSystemNtpCfg.bIsSyncWithComputer,
+           g_stSystemNtpCfg.szAddress,
+           g_stSystemNtpCfg.nPort,
+           g_stSystemNtpCfg.nSyncInterval);
 
     return NET_TV_E_SUCCEED;
 }
@@ -4007,7 +4098,7 @@ static NET_TV_COMMON_ECODE_E MyGetImageCfgCb(INT32 dwChannelID, LPVOID lpOutBuff
     *pOut = g_stImageCfg;
 
     printf("[ConfigServerDemo] GetImageCfg callback, Channel=%d\n", dwChannelID);
-    printf("  Brightness=%d, Contrast=%d, Saturation=%d, Sharpness=%d\n",
+    printf("  Brightness=%u, Contrast=%u, Saturation=%u, Sharpness=%u\n",
            g_stImageCfg.nBrightness,
            g_stImageCfg.nContrast,
            g_stImageCfg.nSaturation,
@@ -4030,7 +4121,7 @@ static NET_TV_COMMON_ECODE_E MySetImageCfgCb(INT32 dwChannelID, LPVOID lpInBuffe
     g_stImageCfg = *pIn;
 
     printf("[ConfigServerDemo] SetImageCfg callback, Channel=%d\n", dwChannelID);
-    printf("  Brightness=%d, Contrast=%d, Saturation=%d, Sharpness=%d\n",
+    printf("  Brightness=%u, Contrast=%u, Saturation=%u, Sharpness=%u\n",
            g_stImageCfg.nBrightness,
            g_stImageCfg.nContrast,
            g_stImageCfg.nSaturation,
@@ -4130,6 +4221,55 @@ static NET_TV_COMMON_ECODE_E MySetTalkbackStateCb(INT32 dwChannelID, LPVOID lpIn
            g_stTalkbackStateInfo.szUrl,
            g_stTalkbackStateInfo.szLocalIP);
     return NET_TV_E_SUCCEED;
+}
+
+static void STDCALL MyVoiceComPlayCb(const char* data, unsigned int size)
+{
+    if (!data || size == 0)
+    {
+        printf("[ConfigServerDemo][VoiceCom] invalid audio frame\n");
+        return;
+    }
+
+    ++g_voiceComFrameCount;
+    g_voiceComBytes += size;
+
+    if (g_voiceComDumpFp)
+    {
+        fwrite(data, 1, size, g_voiceComDumpFp);
+        fflush(g_voiceComDumpFp);
+    }
+
+    if (g_voiceComFrameCount <= 5 || (g_voiceComFrameCount % 50) == 0)
+    {
+        printf("[ConfigServerDemo][VoiceCom] recv frame=%llu size=%u totalBytes=%llu\n",
+               g_voiceComFrameCount,
+               size,
+               g_voiceComBytes);
+    }
+
+}
+
+static INT32 STDCALL MyVoiceComCaptureCb(const NET_TV_VOICECOM_AUDIO_PARAM_S* pstAudioParam,
+                                         CHAR* pBuffer,
+                                         UINT32 dwBufferSize,
+                                         LPVOID lpUserData)
+{
+    (void)lpUserData;
+
+    if (!pstAudioParam || !pBuffer || dwBufferSize == 0 ||
+        pstAudioParam->dwFrameBytes <= 0 ||
+        pstAudioParam->dwFrameBytes > (INT32)dwBufferSize)
+    {
+        return 0;
+    }
+
+    /*
+     * 企业规范：Demo仅返回静音帧用于验证VoiceCom双向链路。
+     * 真实设备应在此回调中读取MIC/LineIn采集数据，并保证音频格式与pstAudioParam一致。
+     */
+    memset(pBuffer, VoiceComSilenceByte(pstAudioParam->enFormat), (size_t)pstAudioParam->dwFrameBytes);
+    return pstAudioParam->dwFrameBytes;
 }
 
 static NET_TV_COMMON_ECODE_E MySetTalkbackToStreamCb(INT32 dwChannelID, LPVOID lpInBuffer)
@@ -5321,6 +5461,25 @@ static void RegisterCallbacks(void)
     else
     {
         printf("[ConfigServerDemo] RegisterCb_SetNetworkCfg FAILED\n");
+    }
+
+    /* 系统校时配置回调 */
+    if (NET_TV_SERVER_RegisterCb_GetNtpCfg(MyGetNtpCfgCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetNtpCfg SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetNtpCfg FAILED\n");
+    }
+
+    if (NET_TV_SERVER_RegisterCb_SetNtpCfg(MySetNtpCfgCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetNtpCfg SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetNtpCfg FAILED\n");
     }
 
     /* 音频配置回调 */
@@ -6853,6 +7012,24 @@ int main(int argc, char* argv[])
     }
 
     printf("[ConfigServerDemo] Server started successfully.\n");
+    g_voiceComDumpFp = fopen(DEMO_VOICECOM_SERVER_RECV_DUMP, "wb");
+    if (!g_voiceComDumpFp)
+    {
+        printf("[ConfigServerDemo][VoiceCom] open recv dump failed, continue without dump: %s\n",
+               DEMO_VOICECOM_SERVER_RECV_DUMP);
+    }
+    if (NET_TV_SERVER_RegisterCb_VoiceComPlay(MyVoiceComPlayCb) &&
+        NET_TV_SERVER_RegisterCb_VoiceComCapture(MyVoiceComCaptureCb, NULL) &&
+        NET_TV_SERVER_StartVoiceComServer(DEMO_VOICECOM_PORT))
+    {
+        printf("[ConfigServerDemo][VoiceCom] Server started on port %d.\n", DEMO_VOICECOM_PORT);
+        printf("[ConfigServerDemo][VoiceCom] Received audio dump: %s\n",
+               DEMO_VOICECOM_SERVER_RECV_DUMP);
+    }
+    else
+    {
+        printf("[ConfigServerDemo][VoiceCom] Server start failed.\n");
+    }
     printf("[ConfigServerDemo] Waiting for client config requests...\n");
 
     while (g_running)
@@ -6865,6 +7042,12 @@ int main(int argc, char* argv[])
     }
 
     printf("[ConfigServerDemo] Cleaning up server...\n");
+    NET_TV_SERVER_StopVoiceComServer();
+    if (g_voiceComDumpFp)
+    {
+        fclose(g_voiceComDumpFp);
+        g_voiceComDumpFp = NULL;
+    }
     NET_TV_SERVER_Cleanup();
     printf("[ConfigServerDemo] Bye.\n");
 

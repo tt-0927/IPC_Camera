@@ -7,6 +7,7 @@
  * @Description  : 通道信息
  */
 #include "SipChannel.h"
+#include "dlog.h"
 #include "SipUtils.h"
 #include "StreamManager.h"
 using namespace SIP;
@@ -225,7 +226,7 @@ void SIP::Channel::SetStreamID(const std::string &id)
 {
     if (id.empty() && !strStreamID.empty())
     {
-        MLOG_INFO("移除通道[%s]点播会话", strStreamID.c_str());
+        dlog_info("移除通道[%s]点播会话", strStreamID.c_str());
         /* 移除实时点播记录 */
         StreamManager::instance()->RemoveStream(strStreamID);
     }
@@ -300,7 +301,7 @@ bool SIP::Channel::CreateAudioServer(int nPort)
     bool bRet = false;
     if (m_pAudioPlay && m_pAudioPlay->isRunning())
     {
-        MLOG_DEBUG("正在对讲，无需再启动");
+        dlog_debug("正在对讲，无需再启动");
         return true;
     }
     m_pAudioPlay = nullptr;
@@ -308,7 +309,7 @@ bool SIP::Channel::CreateAudioServer(int nPort)
 
     if (!m_pAudioPlay->init((nPort), MediaNetBase::Protocol::UDP))
     {
-        MLOG_ERROR("m_pAudioPlay init error");
+        dlog_error("m_pAudioPlay init error");
         return false;
     }
     else
@@ -394,7 +395,7 @@ int SIP::Channel::CreateClient(const SDP::ConnectionInfo_S &stConnInfo)
         }
         nLocalPort = bRet ? nLocalPort : -1;
     }
-    MLOG_INFO("开启GB客户端的端口[%d]", nLocalPort);
+    dlog_info("开启GB客户端的端口[%d]", nLocalPort);
     return nLocalPort;
 }
 
@@ -598,7 +599,7 @@ int SIP::Channel::UpdateMediaStatus(bool bStart)
 
 void SIP::Channel::SetSipDeviceInfo(const SipDeviceInfo_S &devInfo)
 {
-    MLOG_INFO("设置设备信息编码[%d]宽度[%d]高度[%d]帧率[%d]",
+    dlog_info("设置设备信息编码[%d]宽度[%d]高度[%d]帧率[%d]",
               devInfo.enVideo, devInfo.nWidth, devInfo.nHeight, devInfo.nFps);
     auto pRtpPacker = std::dynamic_pointer_cast<RTP::Packer>(m_pRtpPlay);
     if (enVideo != devInfo.enVideo && pRtpPacker)
@@ -717,7 +718,7 @@ void SIP::Channel::SetChannelTypeFromId(const std::string& strChannelId)
     std::string strTypeStr = strChannelId.substr(10, 3);
     int nTypeValue = std::stoi(strTypeStr);
 
-    MLOG_INFO("=======提取到通道类型字段[%d]=======", nTypeValue);
+    dlog_info("=======提取到通道类型字段[%d]=======", nTypeValue);
 
     if (nTypeValue >= 111 && nTypeValue <= 118) 
     {

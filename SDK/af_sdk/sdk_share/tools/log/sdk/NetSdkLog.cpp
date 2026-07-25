@@ -90,6 +90,19 @@ int initSdkLogBySize(char *logname, char *logfile, int max_file_size, int max_fi
 	std::string logName = logname;//"logger";
 	std::string logFile = logfile;//"vss.log";
 
+	// 在日志文件名中添加日期
+	time_t now = time(NULL);
+	struct tm *t = localtime(&now);
+	char dateStr[32];
+	strftime(dateStr, sizeof(dateStr), "_%Y-%m-%d", t);
+	
+	// 找到文件扩展名位置，在扩展名前插入日期
+	size_t dotPos = logFile.find_last_of('.');
+	if (dotPos != std::string::npos) {
+		logFile.insert(dotPos, dateStr);
+	} else {
+		logFile += dateStr;
+	}
 
 	auto newLogger = spdlog::rotating_logger_mt(logName, logFile, max_file_size, max_files);
 

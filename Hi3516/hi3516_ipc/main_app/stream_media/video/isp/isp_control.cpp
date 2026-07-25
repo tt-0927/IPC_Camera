@@ -20,7 +20,7 @@
 #include "dlog.h"
 #include "ot_mpi_isp.h"
 #include "isp_configure.h"
-#include "isp_scene.h"
+#include "isp_scene.h" 
 #include "isp_manage.h"
 #include "stream_video.h"
 #if CAP_ISP_DAY_NIGHT_DIFFERENT_TUNING && defined(SENSOR_SC533HAI)
@@ -182,9 +182,9 @@ const BrightnessTuningProfile_S &get_brightness_tuning_profile(const IspTuningSc
 
     /* 夜晚红外亮度档位，当前与白天一致，后续可独立调整。 */
     static const BrightnessTuningProfile_S k_night_ir_profile = {
-        BRIGHT_MIN_VALUE,
-        BRIGHT_MAX_VALUE,
-        BRIGHT_OFFSET
+        BRIGHT_NIGHT_IR_MIN_VALUE,
+        BRIGHT_NIGHT_IR_MAX_VALUE,
+        BRIGHT_NIGHT_IR_OFFSET
     };
 
     switch (tuning_scene)
@@ -606,7 +606,7 @@ int CIspControl::set_wdr_attr(const WdrAttr_S &stWdrAttr)
 
     if(stWdrAttr.bEnable)
     {
-#if CAP_ISP_DAY_NIGHT_DIFFERENT_TUNING
+#if CAP_ISP_DAY_NIGHT_DIFFERENT_TUNING 
         const IspTuningScene_E tuningScene = get_isp_tuning_scene();
         const WdrTuningProfile_S &tuningProfile = get_wdr_tuning_profile(tuningScene);
 
@@ -614,7 +614,7 @@ int CIspControl::set_wdr_attr(const WdrAttr_S &stWdrAttr)
         unsigned int mappedWdr = MAP_USER_TO_SYSTEM_OFFSET(stWdrAttr.nWdrLevel,
                                                            tuningProfile.min_value,
                                                            tuningProfile.max_value,
-                                                           tuningProfile.offset);
+                                                           tuningProfile.offset);                                               
 #else
         /* TV-3852T* 系列关闭差异化调参，白天黑夜统一使用白天宽动态逻辑 */
         unsigned int mappedWdr = MAP_USER_TO_SYSTEM_OFFSET(stWdrAttr.nWdrLevel,

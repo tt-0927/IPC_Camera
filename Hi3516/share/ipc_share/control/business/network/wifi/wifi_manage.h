@@ -6,6 +6,7 @@
 #include <vector>
 #include <thread>
 #include <atomic>
+#include <condition_variable>
 #include "network_define.h"
 #include "path_define.h"
 #include "convert_interface.h"
@@ -98,7 +99,7 @@ struct WifiConnectConfig {
     // 构造函数初始化默认值
     WifiConnectConfig() 
         : mode(WifiSecurityMode::OPEN), 
-          pairwise("CCMP"),
+          pairwise(""),
           wep_key_len(128),
           wep_is_hex(false),
           auth_alg("OPEN"),
@@ -117,6 +118,10 @@ private:
     
     std::atomic<bool> is_running;
     std::atomic<bool> is_connected;
+    std::atomic<bool> m_hasConnectedOnce;
+    std::atomic<bool> m_isConnecting;
+    std::condition_variable m_monitorCondition;
+    std::mutex m_monitorMutex;
     std::atomic<bool> is_rebootrtsp_wlan0 = false;
     std::atomic<bool> is_rebootrtsp_eth0 = false;
     std::thread monitor_thread;
@@ -129,6 +134,13 @@ private:
     bool m_hasLastConfig; // 标记是否有有效的配置
     const std::string PERSISTENT_CONFIG_PATH = "/etc/wifi_last_config.conf"; 
     std::mutex m_configMutex;
+    std::atomic<bool> m_bWiredDisconnected{false};
+    std::string m_wifiGateway;
+    std::string m_ethGateway;
+    /* 网线断开时临时移除的 eth0 直连路由，网线恢复后原样恢复。 */
+    std::vector<std::string> m_ethDirectRoutes;
+    bool m_ethDirectRoutesRemoved = false;
+    bool m_lastWiredDisconnected = false;
 
     // 私有辅助函数
     void execShell(const std::string& cmd);
@@ -152,6 +164,8 @@ private:
     void restoreConnectionThread();
     // 1. 声明新函数：强制锁定当前 IP 并持久化
     void lockCurrentIp();
+    bool remove_eth_direct_routes();
+    bool restore_eth_direct_routes();
 
 public:
     CWifiManager();
@@ -179,11 +193,16 @@ public:
     // // 5. 获取当前配置（可选）
     // GlobalConfig getConfig() const { return config; }
 
-    bool isWifiConnectedAndWiredDisconnected();
+    bool isWifiConnectedAndWiredDisconnected(bool bWiredDisconnected);
+    std::string getEthGateway();
+    bool switchToWifi();
+    bool switchToEth();
     Network::WifiStaInfo_S load_wifi_config();
 };
 
 void set_wifi_config(Network::WifiStaInfo_S stWifiConfigInfo);
+
+void get_wifi_config(Network::WifiStaInfo_S &outWifiConfigInfo);
 
 #endif // WIFI_MANAGER_H
 #endif

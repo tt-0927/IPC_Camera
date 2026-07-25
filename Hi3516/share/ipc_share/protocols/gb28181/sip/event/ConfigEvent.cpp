@@ -1,4 +1,4 @@
-/*** 
+/***
  * @FilePath     : ConfigEvent.cpp
  * @Author       : cyc
  * @Date         : 2025-07-02 09:33:30
@@ -8,6 +8,7 @@
  */
 
 #include "ConfigEvent.h"
+#include "dlog.h"
 #include <iostream>
 #include <sstream>
 #include <string>
@@ -19,7 +20,7 @@ bool ConfigEvent::Handle(const SipEvent::Ptr &e)
 
     /* 先响应200，说明已接收到请求 */
     SendResponse(e, SIP_OK);
-    
+
     auto root = m_doc.first_child();
     /* 根据控制指令的细分进行判断 */
     if (!root.child("BasicParam").empty())
@@ -100,7 +101,7 @@ bool ConfigEvent::HandleBasicParam(const SipEvent::Ptr &e)
     /*通道标号*/
     tBasicParam.nIndex = -1;  //通道下标，下级默认-1
     /*true--设备配置设置，false--设备配置获取*/
-    tBasicParam.bIsSet = true;                 
+    tBasicParam.bIsSet = true;
 
     auto node = root.child("BasicParam");
 
@@ -113,10 +114,10 @@ bool ConfigEvent::HandleBasicParam(const SipEvent::Ptr &e)
     tBasicParam.m_nHeartBeatCount = node.child("HeartBeatCount").text().as_int();
 
 #if 0  //代码测试
-    MLOG_INFO("HandleBasicParam Message: DeviceID = %s\n",  tBasicParam.m_szName);  
-    MLOG_INFO("HandleBasicParam Message: tBasicParam.m_nExpiration = %d\n",  tBasicParam.m_nExpiration); 
-    MLOG_INFO("HandleBasicParam Message: tBasicParam.m_nHeartBeatInterval = %d\n",  tBasicParam.m_nHeartBeatInterval); 
-    MLOG_INFO("HandleBasicParam Message: tBasicParam.m_nHeartBeatCount = %d\n",  tBasicParam.m_nHeartBeatCount);  
+    dlog_info("HandleBasicParam Message: DeviceID = %s\n",  tBasicParam.m_szName);
+    dlog_info("HandleBasicParam Message: tBasicParam.m_nExpiration = %d\n",  tBasicParam.m_nExpiration);
+    dlog_info("HandleBasicParam Message: tBasicParam.m_nHeartBeatInterval = %d\n",  tBasicParam.m_nHeartBeatInterval);
+    dlog_info("HandleBasicParam Message: tBasicParam.m_nHeartBeatCount = %d\n",  tBasicParam.m_nHeartBeatCount);
 #endif
 
     /*TODO 基本参数配置回调上抛*/
@@ -142,7 +143,7 @@ bool ConfigEvent::HandleVideoParamOpt(const SipEvent::Ptr &e)
     /*序列号*/
     tVideoParam.nSN = root.child("SN").text().as_int();
     /* 设备Id */
-    std::string strID; 
+    std::string strID;
     if(!root.child("DeviceID").empty())
     {
         strID = root.child("DeviceID").text().as_string();
@@ -156,7 +157,7 @@ bool ConfigEvent::HandleVideoParamOpt(const SipEvent::Ptr &e)
     /*通道标号*/
     tVideoParam.nIndex = -1;  //通道下标，下级默认-1
     /*true--设备配置设置，false--设备配置获取*/
-    tVideoParam.bIsSet = false;                 
+    tVideoParam.bIsSet = false;
 
     auto node = root.child("VideoParamOpt");
     //下载倍数
@@ -171,10 +172,10 @@ bool ConfigEvent::HandleVideoParamOpt(const SipEvent::Ptr &e)
     }
 
 #if 0  //代码测试
-    MLOG_INFO("HandleVideoParamOpt Message: DeviceID = %s\n",  tVideoParam.strID);  
-    MLOG_INFO("HandleVideoParamOpt Message: tBasicParam.strResult = %s\n",  tVideoParam.strResult); 
-    MLOG_INFO("HandleVideoParamOpt Message: tBasicParam.strDownloadSpeed = %d\n",  tVideoParam.strDownloadSpeed); 
-    MLOG_INFO("HandleVideoParamOpt Message: tBasicParam.strResolution = %d\n",  tVideoParam.strResolution);  
+    dlog_info("HandleVideoParamOpt Message: DeviceID = %s\n",  tVideoParam.strID);
+    dlog_info("HandleVideoParamOpt Message: tBasicParam.strResult = %s\n",  tVideoParam.strResult);
+    dlog_info("HandleVideoParamOpt Message: tBasicParam.strDownloadSpeed = %d\n",  tVideoParam.strDownloadSpeed);
+    dlog_info("HandleVideoParamOpt Message: tBasicParam.strResolution = %d\n",  tVideoParam.strResolution);
 #endif
 
      /*TODO 基本参数配置回调上抛*/
@@ -200,7 +201,7 @@ bool ConfigEvent::HandleSVACEncodeConfig(const SipEvent::Ptr &e)
     /*序列号*/
     tSVACEncode.nSN = root.child("SN").text().as_int();
     /* 设备Id */
-    std::string strID; 
+    std::string strID;
     if(!root.child("DeviceID").empty())
     {
         strID = root.child("DeviceID").text().as_string();
@@ -239,7 +240,7 @@ bool ConfigEvent::HandleSVACEncodeConfig(const SipEvent::Ptr &e)
             }
         }
     }
-    
+
     //SVC参数
     {
         auto nodeSVC = node.child("SVCParam");
@@ -310,7 +311,7 @@ bool ConfigEvent::HandleSVACDncodeConfig(const SipEvent::Ptr &e)
     /*序列号*/
     tSVACDecode.nSN = root.child("SN").text().as_int();
     /* 设备Id */
-    std::string strID; 
+    std::string strID;
     if(!root.child("DeviceID").empty())
     {
         strID = root.child("DeviceID").text().as_string();
@@ -377,7 +378,7 @@ bool ConfigEvent::HandleVideoParamAttribute(const SipEvent::Ptr &e)
     /*序列号*/
     tAttribute.nSN = root.child("SN").text().as_int();
     /* 设备Id */
-    std::string strID; 
+    std::string strID;
     if(!root.child("DeviceID").empty())
     {
         strID = root.child("DeviceID").text().as_string();
@@ -452,7 +453,7 @@ bool ConfigEvent::HandleVideoRecordPlan(const SipEvent::Ptr &e)
     /*序列号*/
     tRecordPlan.nSN = root.child("SN").text().as_int();
     /* 设备Id */
-    std::string strID; 
+    std::string strID;
     if(!root.child("DeviceID").empty())
     {
         strID = root.child("DeviceID").text().as_string();
@@ -475,8 +476,8 @@ bool ConfigEvent::HandleVideoRecordPlan(const SipEvent::Ptr &e)
      /*录像计划总天数*/
     tRecordPlan.nRecordScheduleSumNum = node.child("RecordScheduleSumNum").text().as_int();
     /*码流类型*/
-    tRecordPlan.nStreamNumber = node.child("StreamNumber").text().as_int();  
-    
+    tRecordPlan.nStreamNumber = node.child("StreamNumber").text().as_int();
+
     auto nodeSchedulechil = node.children("RecordSchedule");
     for (auto &&childS : nodeSchedulechil)
     {
@@ -484,9 +485,9 @@ bool ConfigEvent::HandleVideoRecordPlan(const SipEvent::Ptr &e)
         GB28181::RecordScheduleItem ScheduleItem;
 
         //周几
-        ScheduleItem.nWeekDayNum = childS.child("WeekDayNum").text().as_int();  
+        ScheduleItem.nWeekDayNum = childS.child("WeekDayNum").text().as_int();
         //每天录像计划时间段总数
-        ScheduleItem.nTimeSegmentSumNum = childS.child("TimeSegmentSumNum").text().as_int(); 
+        ScheduleItem.nTimeSegmentSumNum = childS.child("TimeSegmentSumNum").text().as_int();
         auto childTime = childS.children("TimeSegment");
         for (auto &&childT : childTime)
         {
@@ -531,7 +532,7 @@ bool ConfigEvent::HandleVideoAlarmRecord(const SipEvent::Ptr &e)
     /*序列号*/
     tAlarmRecord.nSN = root.child("SN").text().as_int();
     /* 设备Id */
-    std::string strID; 
+    std::string strID;
     if(!root.child("DeviceID").empty())
     {
         strID = root.child("DeviceID").text().as_string();
@@ -577,7 +578,7 @@ bool ConfigEvent::HandlePictureMask(const SipEvent::Ptr &e)
     /*序列号*/
     tPictureMask.nSN = root.child("SN").text().as_int();
     /* 设备Id */
-    std::string strID; 
+    std::string strID;
     if(!root.child("DeviceID").empty())
     {
         strID = root.child("DeviceID").text().as_string();
@@ -618,13 +619,13 @@ bool ConfigEvent::HandlePictureMask(const SipEvent::Ptr &e)
         std::vector<int> ids;
         while (std::getline(iss, token, ',')) {
             int id = std::stoi(token);
-            ids.push_back(id); 
+            ids.push_back(id);
         }
         Item.nlx = ids[0];
         Item.nly = ids[1];
         Item.nrx = ids[2];
         Item.nry = ids[3];
-        
+
         tPictureMask.vecRegionList.push_back(Item);
     }
 
@@ -651,7 +652,7 @@ bool ConfigEvent::HandleFrameMirror(const SipEvent::Ptr &e)
     /*序列号*/
     Mirror.nSN = root.child("SN").text().as_int();
     /* 设备Id */
-    std::string strID; 
+    std::string strID;
     if(!root.child("DeviceID").empty())
     {
         strID = root.child("DeviceID").text().as_string();
@@ -668,7 +669,7 @@ bool ConfigEvent::HandleFrameMirror(const SipEvent::Ptr &e)
     Mirror.bIsSet = false;
 
     /*0-不启用镜像，1-水平镜像，2-上下镜像，3-中心镜像*/
-    Mirror.nFrameMirror = root.child("FrameMirror").text().as_int();   
+    Mirror.nFrameMirror = root.child("FrameMirror").text().as_int();
 
     /*TODO 基本参数配置回调上抛*/
     { /* 配合上层实现业务功能 */
@@ -693,7 +694,7 @@ bool ConfigEvent::HandleAlarmReport(const SipEvent::Ptr &e)
     /*序列号*/
     AlarmRepor.nSN = root.child("SN").text().as_int();
     /* 设备Id */
-    std::string strID; 
+    std::string strID;
     if(!root.child("DeviceID").empty())
     {
         strID = root.child("DeviceID").text().as_string();
@@ -738,7 +739,7 @@ bool ConfigEvent::HandleOSDConfig(const SipEvent::Ptr &e)
     /*序列号*/
     OSD.nSN = root.child("SN").text().as_int();
     /* 设备Id */
-    std::string strID; 
+    std::string strID;
     if(!root.child("DeviceID").empty())
     {
         strID = root.child("DeviceID").text().as_string();
@@ -798,7 +799,7 @@ bool ConfigEvent::HandleSnapShotConfig(const SipEvent::Ptr &e)
     /*序列号*/
     Snap.nSN = root.child("SN").text().as_int();
     /* 设备Id */
-    std::string strID; 
+    std::string strID;
     if(!root.child("DeviceID").empty())
     {
         strID = root.child("DeviceID").text().as_string();

@@ -7,6 +7,7 @@
  * @Description  : 各类事件的业务处理
  */
 #include "EventBusiness.h"
+#include "dlog.h"
 #include "CallSession.h"
 #include "DeviceManage.h"
 #include "HttpDigest.h"
@@ -44,7 +45,7 @@ int RegisterEvent::HandleIncomingRequest(const SipEvent::Ptr &e)
     if (pServer == nullptr)
     {
         /* 非服务器的请求直接返回 */
-        MLOG_DEBUG("非服务器请求，服务器实例为空");
+        dlog_debug("非服务器请求，服务器实例为空");
         return 0;
     }
     osip_authorization_t *authorization = nullptr;
@@ -67,8 +68,8 @@ int RegisterEvent::HandleIncomingRequest(const SipEvent::Ptr &e)
         if (strcmp(sip_id, stSipServerInfo.strID.c_str()) != 0)
         {
             SendResponse(e, SIP_BAD_REQUEST);
-            MLOG_WARN("Device Regist Failed, sip id doesn't match");
-            MLOG_WARN("sip id = %s, server id = %s", sip_id, stSipServerInfo.strID.c_str());
+            dlog_warn("Device Regist Failed, sip id doesn't match");
+            dlog_warn("sip id = %s, server id = %s", sip_id, stSipServerInfo.strID.c_str());
             return -1;
         }
 
@@ -79,7 +80,7 @@ int RegisterEvent::HandleIncomingRequest(const SipEvent::Ptr &e)
         SIP_STRDUP(uri);
         SIP_STRDUP(username);
         SIP_STRDUP(response);
-        MLOG_DEBUG("URI[%s] Username[%s] Response[%s]", uri, username, response);
+        dlog_debug("URI[%s] Username[%s] Response[%s]", uri, username, response);
         HASHHEX HA1, calc_response;
         DigestCalcHA1("REGISTER", username, stSipServerInfo.strRealm.c_str(),
                       stSipServerInfo.strPassword.c_str(),
@@ -87,7 +88,7 @@ int RegisterEvent::HandleIncomingRequest(const SipEvent::Ptr &e)
         DigestCalcResponse(HA1, stSipServerInfo.strNonce.c_str(),
                            NULL, NULL, NULL, 0, method, uri, NULL,
                            calc_response);
-        MLOG_INFO("MD5:[%s] Response:[%s]", calc_response, response);
+        dlog_info("MD5:[%s] Response:[%s]", calc_response, response);
 
         auto client_device_id = username;
         /* 鉴权成功后判断是注册还是注销 */
@@ -99,7 +100,7 @@ int RegisterEvent::HandleIncomingRequest(const SipEvent::Ptr &e)
             uint16_t nRegPort = 0;
             SendResponseAndGetAddress(e->m_pContext, e->m_pEvent->tid, SIP_OK,
                                       strRegIP, nRegPort);
-            MLOG_INFO("Device Authentication Success");
+            dlog_info("Device Authentication Success");
             if (nRegisterExpires > 0)
             { /* 设备数据相关更新 */
                 std::string client_port = std::to_string(nRegPort);
@@ -117,7 +118,7 @@ int RegisterEvent::HandleIncomingRequest(const SipEvent::Ptr &e)
                     // 如果设备已经存在的话，就只更新在线状态和注册时间
                     if (device->GetIP() != strRegIP || device->GetPort() != client_port)
                     {
-                        MLOG_WARN("设备地址变化:ID[%s]  IP:[%s] => IP:[%s]",
+                        dlog_warn("设备地址变化:ID[%s]  IP:[%s] => IP:[%s]",
                                   client_device_id, device->GetIP().c_str(), strRegIP);
                         device->SetIP(strRegIP);
                         device->SetPort(client_port);
@@ -141,7 +142,7 @@ int RegisterEvent::HandleIncomingRequest(const SipEvent::Ptr &e)
                     auto request = std::make_shared<CatalogRequest>(e->m_pContext, device);
                     request->SendMessage();
                 }
-                MLOG_INFO("设备注册成功ID:[%s]", client_device_id);
+                dlog_info("设备注册成功ID:[%s]", client_device_id);
             }
             else if (nRegisterExpires == 0)
             {
@@ -153,19 +154,19 @@ int RegisterEvent::HandleIncomingRequest(const SipEvent::Ptr &e)
                     device->UpdateRegistTime();
                     device->UpdateLastTime();
                     device->SetExpires(nRegisterExpires);
-                    MLOG_INFO("Device Unregistered Success ID:[%s]", client_device_id);
+                    dlog_info("Device Unregistered Success ID:[%s]", client_device_id);
                 }
             }
             else
             {
-                MLOG_WARN("Device Unknow Registration Expires [%d] ID:[%s]",
+                dlog_warn("Device Unknow Registration Expires [%d] ID:[%s]",
                           nRegisterExpires, client_device_id);
             }
         }
         else
         {
             SendResponse(e, SIP_UNAUTHORIZED);
-            MLOG_INFO("Device authentication registration failed~~, ID:[%s]", client_device_id);
+            dlog_info("Device authentication registration failed~~, ID:[%s]", client_device_id);
 
             DeviceManage::instance()->RemoveDevice(client_device_id);
         }
@@ -209,11 +210,11 @@ void RegisterEvent::_response_register_401unauthorized(const SipEvent::Ptr &e)
         eXosip_lock(e->m_pContext);
         eXosip_message_send_answer(e->m_pContext, e->m_pEvent->tid, SIP_UNAUTHORIZED, response);
         eXosip_unlock(e->m_pContext);
-        MLOG_INFO("发送401响应tid[%d]", e->m_pEvent->tid);
+        dlog_info("发送401响应tid[%d]", e->m_pEvent->tid);
     }
     else
     {
-        MLOG_ERROR("response_register_401unauthorized error");
+        dlog_error("response_register_401unauthorized error");
     }
 
     osip_www_authenticate_free(www_authenticate_header);
@@ -241,11 +242,11 @@ void RegisterEvent::_response_register_302moveTemporarily(const SipEvent::Ptr &e
         eXosip_lock(e->m_pContext);
         eXosip_message_send_answer(e->m_pContext, e->m_pEvent->tid, 302, response);
         eXosip_unlock(e->m_pContext);
-        MLOG_INFO("发送302响应tid[%d]", e->m_pEvent->tid);
+        dlog_info("发送302响应tid[%d]", e->m_pEvent->tid);
     }
     else
     {
-        MLOG_ERROR("response_register_302moveTemporarily error");
+        dlog_error("response_register_302moveTemporarily error");
     }
 }
 
@@ -277,8 +278,7 @@ int MessageEvent::HandleIncomingRequest(const SipEvent::Ptr &e)
     }
 
     /* NOTE SipServer中已打印SIP消息,不再打印 */
-    MLOG_TRACE("==========> cmd_category[%d] cmd_type[%d]",
-               m_header.cmd_category, m_header.cmd_type);
+    dlog_trace("cmd_category[%d] cmd_type[%d]", m_header.cmd_category, m_header.cmd_type);
 
     switch (m_header.cmd_category)
     {
@@ -425,7 +425,7 @@ void MessageEvent::thrSendSnapShot()
 {
 	pthread_setname_np(pthread_self(), "SendSnapShot");
 
-    MLOG_INFO("开始处理上抛图像传输完成通知");
+    dlog_info("开始处理上抛图像传输完成通知");
     while (m_bThrRun.load())
     {
         GB28181::UploadSnapShotFiniInfo_S stInfo;
@@ -443,7 +443,7 @@ void MessageEvent::thrSendSnapShot()
         {
             /*删除m_mapSnapShotFini中的记录*/
             m_mapSnapShotFini.erase(stInfo.strSessionID);
-            MLOG_INFO("删除记录 SessionID:%s", stInfo.strSessionID);
+            dlog_info("删除记录 SessionID:%s", stInfo.strSessionID);
             /* 发送成功则删除队列中的数据 */
             m_queSnapShot.pop(stInfo);
         }
@@ -465,7 +465,7 @@ void MessageEvent::thrSendSnapShot()
             }
         }
     }
-    MLOG_INFO("结束处理上抛图像传输完成通知");
+    dlog_info("结束处理上抛图像传输完成通知");
 }
 
 int MessageEvent::SendUploadSnapShotFinish(GB28181::UploadSnapShotFiniInfo_S &Info)
@@ -534,7 +534,7 @@ bool HeartbeatEvent::Handle(const SipEvent::Ptr &e)
     }
 
     /* 需要让设备重新注册 */
-    MLOG_WARN("Heartbeat SIP_UNAUTHORIZED");
+    dlog_warn("Heartbeat SIP_UNAUTHORIZED");
     /* 返回Message的401不会让设备主动重新注册 */
     SendResponse(e, SIP_UNAUTHORIZED);
     /* FIXME 需要构建一个注册方法的401 */
@@ -545,7 +545,7 @@ bool HeartbeatEvent::Handle(const SipEvent::Ptr &e)
 
 bool CatalogEvent::Handle(const SipEvent::Ptr &e)
 {
-    MLOG_WARN("================设备目录查询响应====================");
+    dlog_warn("================设备目录查询响应====================");
     ParseHeader(e);
     auto root = m_doc.first_child();
 
@@ -564,7 +564,7 @@ bool CatalogEvent::Handle(const SipEvent::Ptr &e)
     if (nullptr == e->m_pNetBase)
     {
         SendResponse(e, SIP_BAD_REQUEST);
-        MLOG_WARN("事件回调网络实例为空");
+        dlog_warn("事件回调网络实例为空");
         return false;
     }
 
@@ -660,7 +660,7 @@ bool CatalogEvent::Handle(const SipEvent::Ptr &e)
         }
         channel->UploadInfo();
         /* 接收到通道信息才能上抛数据 */
-        MLOG_INFO("接收到设备[%s]的通道信息[%s]，上抛设备数据",
+        dlog_info("接收到设备[%s]的通道信息[%s]，上抛设备数据",
                   device->GetDeviceID().c_str(),
                   channel_id);
     }
@@ -695,7 +695,7 @@ bool DeviceInfoEvent::Handle(const SipEvent::Ptr &e)
             device->SetModel(root.child("Model").text().as_string());
         }
        
-        // MLOG_INFO(device->toString());
+        // dlog_info("%s", device->toString().c_str());
         // DbManager::instance()->AddOrUpdateDevice(device, true);
         SendResponse(e, SIP_OK);
         return true;
@@ -714,14 +714,14 @@ bool PresetQueryEvent::Handle(const SipEvent::Ptr &e)
     auto req = RequestPool::instance()->GetMessageRequestBySN(sn, REQUEST_MESSAGE_TYPE::DEVICE_QUERY_PRESET);
     if (req == nullptr)
     {
-        MLOG_ERROR("PresetQueryEvent can not find request by sn: [%s]", sn);
+        dlog_error("PresetQueryEvent can not find request by sn: [%s]", sn);
         SendResponse(e, SIP_INTERNAL_SERVER_ERROR);
         return false;
     }
 
     auto node = root.child("PresetList");
     auto num = node.attribute("Num").as_int();
-    MLOG_INFO("DeviceID: [%s] Preset:[%d]", device_id, num);
+    dlog_info("DeviceID: [%s] Preset:[%d]", device_id, num);
 
     auto request = std::dynamic_pointer_cast<PresetRequest>(req);
     auto children = node.children("Item");
@@ -765,7 +765,7 @@ bool PresetQueryEvent::Handle(const SipEvent::Ptr &e)
     /*预置位列表*/
     auto node = root.child("PresetList");
     auto num = node.attribute("Num").as_int();
-    MLOG_INFO("DeviceID: [%s] Preset:[%d]", Preset.strID, num);
+    dlog_info("DeviceID: [%s] Preset:[%d]", Preset.strID, num);
 
     /*预置位记录项*/
     auto children = node.children("Item");
@@ -929,7 +929,7 @@ bool DeviceCtrlEvent::HandleTeleBoot(const SipEvent::Ptr &e)
 
         if(stResult.nResult != 0)
         {
-            MLOG_WARN("回调操作执行失败[%d]", stResult.nResult);
+            dlog_warn("回调操作执行失败[%d]", stResult.nResult);
             strResult = "ERROR";
         }
         else
@@ -960,13 +960,13 @@ bool DeviceCtrlEvent::HandleIFrameCmd(const SipEvent::Ptr &e)
     auto pClient = dynamic_cast<SipClient *>(e->m_pNetBase);
     if (pClient == nullptr)
     {
-        MLOG_WARN("客户端实例为空，无法获取客户端的通道信息");
+        dlog_warn("客户端实例为空，无法获取客户端的通道信息");
         return false;
     }
     auto pChn = pClient->GetChannelByID(strID);
     if (nullptr == pChn)
     {
-        MLOG_WARN("没有找到通道[%s]", m_header.strDevID.c_str());
+        dlog_warn("没有找到通道[%s]", m_header.strDevID.c_str());
         return false;
     }
 
@@ -990,7 +990,7 @@ bool DeviceCtrlEvent::HandleIFrameCmd(const SipEvent::Ptr &e)
 
         if(stResult.nResult != 0)
         {
-            MLOG_WARN("回调操作执行失败[%d]", stResult.nResult);
+            dlog_warn("回调操作执行失败[%d]", stResult.nResult);
             strResult = "ERROR";
         }
         else
@@ -1026,13 +1026,13 @@ bool DeviceCtrlEvent::HandleDragZoomIn(const SipEvent::Ptr &e)
     auto pClient = dynamic_cast<SipClient *>(e->m_pNetBase);
     if (pClient == nullptr)
     {
-        MLOG_WARN("客户端实例为空，无法获取客户端的通道信息");
+        dlog_warn("客户端实例为空，无法获取客户端的通道信息");
         return false;
     }
     auto pChn = pClient->GetChannelByID(strID);
     if (nullptr == pChn)
     {
-        MLOG_WARN("没有找到通道[%s]", m_header.strDevID.c_str());
+        dlog_warn("没有找到通道[%s]", m_header.strDevID.c_str());
         return false;
     }
 
@@ -1056,7 +1056,7 @@ bool DeviceCtrlEvent::HandleDragZoomIn(const SipEvent::Ptr &e)
 
         if(stResult.nResult != 0)
         {
-            MLOG_WARN("回调操作执行失败[%d]", stResult.nResult);
+            dlog_warn("回调操作执行失败[%d]", stResult.nResult);
         }
     }
 
@@ -1085,13 +1085,13 @@ bool DeviceCtrlEvent::HandleDragZoomOut(const SipEvent::Ptr &e)
     auto pClient = dynamic_cast<SipClient *>(e->m_pNetBase);
     if (pClient == nullptr)
     {
-        MLOG_WARN("客户端实例为空，无法获取客户端的通道信息");
+        dlog_warn("客户端实例为空，无法获取客户端的通道信息");
         return false;
     }
     auto pChn = pClient->GetChannelByID(strID);
     if (nullptr == pChn)
     {
-        MLOG_WARN("没有找到通道[%s]", m_header.strDevID.c_str());
+        dlog_warn("没有找到通道[%s]", m_header.strDevID.c_str());
         return false;
     }
 
@@ -1115,7 +1115,7 @@ bool DeviceCtrlEvent::HandleDragZoomOut(const SipEvent::Ptr &e)
 
         if(stResult.nResult != 0)
         {
-            MLOG_WARN("回调操作执行失败[%d]", stResult.nResult);
+            dlog_warn("回调操作执行失败[%d]", stResult.nResult);
         }
     }
 
@@ -1134,7 +1134,7 @@ bool DeviceCtrlEvent::HandlePTZ(const SipEvent::Ptr &e)
     control_cmd_t stCmd;
     PtzParser ptzParser;
     ptzParser.ParseControlCmd(stCmd, strPtzCmd);
-    MLOG_INFO("设备控制PtzCmd[%d]", stCmd.ctrltype);
+    dlog_info("设备控制PtzCmd[%d]", stCmd.ctrltype);
     SipPtzInfoCb_S stPtzCb;
     SipPresetInfoCb_S stPresetCb;
     SipCbResult_S stResult;
@@ -1144,7 +1144,7 @@ bool DeviceCtrlEvent::HandlePTZ(const SipEvent::Ptr &e)
     auto pClient = dynamic_cast<SipClient *>(e->m_pNetBase);
     if (nullptr == pClient)
     {
-        MLOG_ERROR("无法转换为客户端实例")
+        dlog_error("无法转换为客户端实例")
         nRet = SIP_INTERNAL_SERVER_ERROR;
         goto EXIT;
     }
@@ -1393,7 +1393,7 @@ bool DeviceCtrlEvent::HandleControlRespone(const SipEvent::Ptr &e)
 
         if(stResult.nResult != 0)
         {
-            MLOG_WARN("回调操作执行失败[%d]", stResult.nResult);
+            dlog_warn("回调操作执行失败[%d]", stResult.nResult);
         }
     }
 
@@ -1435,7 +1435,7 @@ bool DeviceCtrlEvent::HandleConfigRespone(const SipEvent::Ptr &e)
 
         if(stResult.nResult != 0)
         {
-            MLOG_WARN("回调操作执行失败[%d]", stResult.nResult);
+            dlog_warn("回调操作执行失败[%d]", stResult.nResult);
         }
     }
 
@@ -1603,13 +1603,13 @@ bool DeviceCtrlEvent::HandleDevicePTZCtrl(const SipEvent::Ptr &e)
    auto pClient = dynamic_cast<SipClient *>(e->m_pNetBase);
    if (pClient == nullptr)
    {
-       MLOG_WARN("客户端实例为空，无法获取客户端的通道信息");
+       dlog_warn("客户端实例为空，无法获取客户端的通道信息");
        ResponeControlResult(e, nSN, m_header.strCmdType, strID, "ERROR");
    }
    auto pChn = pClient->GetChannelByID(strID);
    if (nullptr == pChn)
    {
-       MLOG_WARN("没有找到通道[%s]", m_header.strDevID.c_str());
+       dlog_warn("没有找到通道[%s]", m_header.strDevID.c_str());
        ResponeControlResult(e, nSN, m_header.strCmdType, strID, "ERROR");
    }
     tPTZInfo.nIndex = pChn->nIndex;
@@ -1630,7 +1630,7 @@ bool DeviceCtrlEvent::HandleDevicePTZCtrl(const SipEvent::Ptr &e)
 
        if(stResult.nResult != 0)
        {
-           MLOG_WARN("回调操作执行失败[%d]", stResult.nResult);
+           dlog_warn("回调操作执行失败[%d]", stResult.nResult);
        }
    }
 
@@ -1661,14 +1661,14 @@ bool DeviceCtrlEvent::HandleRecordCmd(const SipEvent::Ptr &e)
    if (pClient == nullptr)
    {
        ResponeControlResult(e, nSN, m_header.strCmdType, strID, "ERROR");
-       MLOG_WARN("客户端实例为空，无法获取客户端的通道信息");
+       dlog_warn("客户端实例为空，无法获取客户端的通道信息");
        return false;
    }
    auto pChn = pClient->GetChannelByID(strID);
    if (nullptr == pChn)
    {
        ResponeControlResult(e, nSN, m_header.strCmdType, strID, "ERROR");
-       MLOG_WARN("没有找到通道[%s]", m_header.strDevID.c_str());
+       dlog_warn("没有找到通道[%s]", m_header.strDevID.c_str());
        return false;
    }
    tRecord.nIndex = pChn->nIndex;
@@ -1711,7 +1711,7 @@ bool DeviceCtrlEvent::HandleRecordCmd(const SipEvent::Ptr &e)
        if(stResult.nResult != 0)
        {
            tRecord.strResult  = "ERROR";
-           MLOG_WARN("回调操作执行失败[%d]", stResult.nResult);
+           dlog_warn("回调操作执行失败[%d]", stResult.nResult);
        }
    }
 
@@ -1742,14 +1742,14 @@ bool DeviceCtrlEvent::HandleAlarmCmd(const SipEvent::Ptr &e)
    if (pClient == nullptr)
    {
        ResponeControlResult(e, nSN, m_header.strCmdType, strID, "ERROR");
-       MLOG_WARN("客户端实例为空，无法获取客户端的通道信息");
+       dlog_warn("客户端实例为空，无法获取客户端的通道信息");
        return false;
    }
    auto pChn = pClient->GetChannelByID(strID);
    if (nullptr == pChn)
    {
        ResponeControlResult(e, nSN, m_header.strCmdType, strID, "ERROR");
-       MLOG_WARN("没有找到通道[%s]", m_header.strDevID.c_str());
+       dlog_warn("没有找到通道[%s]", m_header.strDevID.c_str());
        return false;
    }
 
@@ -1782,7 +1782,7 @@ bool DeviceCtrlEvent::HandleAlarmCmd(const SipEvent::Ptr &e)
        if(stResult.nResult != 0)
        {
            tRAlarm.strResult  = "ERROR";
-           MLOG_WARN("回调操作执行失败[%d]", stResult.nResult);
+           dlog_warn("回调操作执行失败[%d]", stResult.nResult);
        }
    }
 
@@ -1814,14 +1814,14 @@ bool DeviceCtrlEvent::HandleHomePosition(const SipEvent::Ptr &e)
    if (pClient == nullptr)
    {
        ResponeControlResult(e, nSN, m_header.strCmdType, strID, "ERROR");
-       MLOG_WARN("客户端实例为空，无法获取客户端的通道信息");
+       dlog_warn("客户端实例为空，无法获取客户端的通道信息");
        return false;
    }
    auto pChn = pClient->GetChannelByID(strID);
    if (nullptr == pChn)
    {
        ResponeControlResult(e, nSN, m_header.strCmdType, strID, "ERROR");
-       MLOG_WARN("没有找到通道[%s]", m_header.strDevID.c_str());
+       dlog_warn("没有找到通道[%s]", m_header.strDevID.c_str());
        return false;
    }
    /*上级根据通道号赋值，下级设置成-1*/
@@ -1848,7 +1848,7 @@ bool DeviceCtrlEvent::HandleHomePosition(const SipEvent::Ptr &e)
        if(stResult.nResult != 0)
        {
           tHomePosition.strResult = "ERROR";
-           MLOG_WARN("回调操作执行失败[%d]", stResult.nResult);
+           dlog_warn("回调操作执行失败[%d]", stResult.nResult);
        }
    }
 
@@ -1880,7 +1880,7 @@ bool DeviceCtrlEvent::HandleDeviceUpgrade(const SipEvent::Ptr &e)
    if (pClient == nullptr)
    {
        ResponeControlResult(e, nSN, m_header.strCmdType, strID, "ERROR");
-       MLOG_WARN("客户端实例为空，无法获取客户端的通道信息");
+       dlog_warn("客户端实例为空，无法获取客户端的通道信息");
        return false;
    }
 
@@ -1889,7 +1889,7 @@ bool DeviceCtrlEvent::HandleDeviceUpgrade(const SipEvent::Ptr &e)
    if (nullptr == pChn)
    {
        ResponeControlResult(e, nSN, m_header.strCmdType, strID, "ERROR");
-       MLOG_WARN("没有找到通道[%s]", m_header.strDevID.c_str());
+       dlog_warn("没有找到通道[%s]", m_header.strDevID.c_str());
        return false;
    }
 #endif
@@ -1928,7 +1928,7 @@ bool DeviceCtrlEvent::HandleDeviceUpgrade(const SipEvent::Ptr &e)
        if(stResult.nResult != 0)
        {
            tUpgrade.strResult = "ERROR";
-           MLOG_WARN("回调操作执行失败[%d]", stResult.nResult);
+           dlog_warn("回调操作执行失败[%d]", stResult.nResult);
        }
    }
 
@@ -1958,13 +1958,13 @@ bool DeviceCtrlEvent::HandleTargetTrack(const SipEvent::Ptr &e)
    auto pClient = dynamic_cast<SipClient *>(e->m_pNetBase);
    if (pClient == nullptr)
    {
-       MLOG_WARN("客户端实例为空，无法获取客户端的通道信息");
+       dlog_warn("客户端实例为空，无法获取客户端的通道信息");
        return false;
    }
    auto pChn = pClient->GetChannelByID(strID);
    if (nullptr == pChn)
    {
-       MLOG_WARN("没有找到通道[%s]", m_header.strDevID.c_str());
+       dlog_warn("没有找到通道[%s]", m_header.strDevID.c_str());
        return false;
    }
 
@@ -2012,7 +2012,7 @@ bool DeviceCtrlEvent::HandleTargetTrack(const SipEvent::Ptr &e)
 
        if(stResult.nResult != 0)
        {
-           MLOG_WARN("回调操作执行失败[%d]", stResult.nResult);
+           dlog_warn("回调操作执行失败[%d]", stResult.nResult);
        }
    }
 
@@ -2074,14 +2074,14 @@ bool DeviceCtrlEvent::HandleBasicControl(const SipEvent::Ptr &e)
     //if (pClient == nullptr)
     //{
     //    ResponeControlResult(e, nSN, m_header.strCmdType, strID, "ERROR");
-    //    MLOG_WARN("客户端实例为空，无法获取客户端的通道信息");
+    //    dlog_warn("客户端实例为空，无法获取客户端的通道信息");
     //    return false;
     //}
     //auto pChn = pClient->GetChannelByID(strID);
     //if (nullptr == pChn)
     //{
     //    ResponeControlResult(e, nSN, m_header.strCmdType, strID, "ERROR");
-    //    MLOG_WARN("没有找到通道[%s]", m_header.strDevID.c_str());
+    //    dlog_warn("没有找到通道[%s]", m_header.strDevID.c_str());
     //    return false;
     //}
     /*上级根据通道号赋值，下级设置成-1*/
@@ -2111,12 +2111,12 @@ bool DeviceCtrlEvent::HandleBasicControl(const SipEvent::Ptr &e)
         if(stResult.nResult != 0)
         {
             tBasicParamInfo.strResult = "ERROR";
-            MLOG_WARN("回调操作执行失败[%d]", stResult.nResult);
+            dlog_warn("回调操作执行失败[%d]", stResult.nResult);
         }
         else
         {
             tBasicParamInfo.strResult = "OK";
-            MLOG_WARN("回调操作执行成功[%d]", stResult.nResult);
+            dlog_warn("回调操作执行成功[%d]", stResult.nResult);
         }
     }
 
@@ -2149,14 +2149,14 @@ bool DeviceCtrlEvent::HandleVideoOptControl(const SipEvent::Ptr &e)
     if (pClient == nullptr)
     {
         ResponeControlResult(e, nSN, m_header.strCmdType, strID, "ERROR");
-        MLOG_WARN("客户端实例为空，无法获取客户端的通道信息");
+        dlog_warn("客户端实例为空，无法获取客户端的通道信息");
         return false;
     }
     auto pChn = pClient->GetChannelByID(strID);
     if (nullptr == pChn)
     {
         ResponeControlResult(e, nSN, m_header.strCmdType, strID, "ERROR");
-        MLOG_WARN("没有找到通道[%s]", m_header.strDevID.c_str());
+        dlog_warn("没有找到通道[%s]", m_header.strDevID.c_str());
         return false;
     }
     /*上级根据通道号赋值，下级设置成-1*/
@@ -2189,7 +2189,7 @@ bool DeviceCtrlEvent::HandleVideoOptControl(const SipEvent::Ptr &e)
         if(stResult.nResult != 0)
         {
             tParamOpt.strResult = "ERROR";
-            MLOG_WARN("回调操作执行失败[%d]", stResult.nResult);
+            dlog_warn("回调操作执行失败[%d]", stResult.nResult);
         }
     }
 
@@ -2221,14 +2221,14 @@ bool DeviceCtrlEvent::HandleSVACEncodeControl(const SipEvent::Ptr &e)
     if (pClient == nullptr)
     {
         ResponeControlResult(e, nSN, m_header.strCmdType, strID, "ERROR");
-        MLOG_WARN("客户端实例为空，无法获取客户端的通道信息");
+        dlog_warn("客户端实例为空，无法获取客户端的通道信息");
         return false;
     }
     auto pChn = pClient->GetChannelByID(strID);
     if (nullptr == pChn)
     {
         ResponeControlResult(e, nSN, m_header.strCmdType, strID, "ERROR");
-        MLOG_WARN("没有找到通道[%s]", m_header.strDevID.c_str());
+        dlog_warn("没有找到通道[%s]", m_header.strDevID.c_str());
         return false;
     }
     /*上级根据通道号赋值，下级设置成-1*/
@@ -2331,7 +2331,7 @@ bool DeviceCtrlEvent::HandleSVACEncodeControl(const SipEvent::Ptr &e)
         if(stResult.nResult != 0)
         {
             tSVACEncode.strResult = "ERROR";
-            MLOG_WARN("回调操作执行失败[%d]", stResult.nResult);
+            dlog_warn("回调操作执行失败[%d]", stResult.nResult);
         }
     }
 
@@ -2362,14 +2362,14 @@ bool DeviceCtrlEvent::HandleSVACDncodeControl(const SipEvent::Ptr &e)
     if (pClient == nullptr)
     {
         ResponeControlResult(e, nSN, m_header.strCmdType, strID, "ERROR");
-        MLOG_WARN("客户端实例为空，无法获取客户端的通道信息");
+        dlog_warn("客户端实例为空，无法获取客户端的通道信息");
         return false;
     }
     auto pChn = pClient->GetChannelByID(strID);
     if (nullptr == pChn)
     {
         ResponeControlResult(e, nSN, m_header.strCmdType, strID, "ERROR");
-        MLOG_WARN("没有找到通道[%s]", m_header.strDevID.c_str());
+        dlog_warn("没有找到通道[%s]", m_header.strDevID.c_str());
         return false;
     }
     /*上级根据通道号赋值，下级设置成-1*/
@@ -2417,7 +2417,7 @@ bool DeviceCtrlEvent::HandleSVACDncodeControl(const SipEvent::Ptr &e)
         if(stResult.nResult != 0)
         {
             tSVACDecode.strResult = "ERROR";
-            MLOG_WARN("回调操作执行失败[%d]", stResult.nResult);
+            dlog_warn("回调操作执行失败[%d]", stResult.nResult);
         }
     }
 
@@ -2448,14 +2448,14 @@ bool DeviceCtrlEvent::HandleVideoAttriControl(const SipEvent::Ptr &e)
     if (pClient == nullptr)
     {
         ResponeControlResult(e, nSN, m_header.strCmdType, strID, "ERROR");
-        MLOG_WARN("客户端实例为空，无法获取客户端的通道信息");
+        dlog_warn("客户端实例为空，无法获取客户端的通道信息");
         return false;
     }
     auto pChn = pClient->GetChannelByID(strID);
     if (nullptr == pChn)
     {
         ResponeControlResult(e, nSN, m_header.strCmdType, strID, "ERROR");
-        MLOG_WARN("没有找到通道[%s]", m_header.strDevID.c_str());
+        dlog_warn("没有找到通道[%s]", m_header.strDevID.c_str());
         return false;
     }
     /*上级根据通道号赋值，下级设置成-1*/
@@ -2511,7 +2511,7 @@ bool DeviceCtrlEvent::HandleVideoAttriControl(const SipEvent::Ptr &e)
         if(stResult.nResult != 0)
         {
             tAttribute.strResult = "ERROR";
-            MLOG_WARN("回调操作执行失败[%d]", stResult.nResult);
+            dlog_warn("回调操作执行失败[%d]", stResult.nResult);
         }
     }
 
@@ -2542,14 +2542,14 @@ bool DeviceCtrlEvent::HandleRecordPlanControl(const SipEvent::Ptr &e)
     if (pClient == nullptr)
     {
         ResponeControlResult(e, nSN, m_header.strCmdType, strID, "ERROR");
-        MLOG_WARN("客户端实例为空，无法获取客户端的通道信息");
+        dlog_warn("客户端实例为空，无法获取客户端的通道信息");
         return false;
     }
     auto pChn = pClient->GetChannelByID(strID);
     if (nullptr == pChn)
     {
         ResponeControlResult(e, nSN, m_header.strCmdType, strID, "ERROR");
-        MLOG_WARN("没有找到通道[%s]", m_header.strDevID.c_str());
+        dlog_warn("没有找到通道[%s]", m_header.strDevID.c_str());
         return false;
     }
     /*上级根据通道号赋值，下级设置成-1*/
@@ -2609,7 +2609,7 @@ bool DeviceCtrlEvent::HandleRecordPlanControl(const SipEvent::Ptr &e)
         if(stResult.nResult != 0)
         {
             tRecordPlan.strResult = "ERROR";
-            MLOG_WARN("回调操作执行失败[%d]", stResult.nResult);
+            dlog_warn("回调操作执行失败[%d]", stResult.nResult);
         }
     }
 
@@ -2640,14 +2640,14 @@ bool DeviceCtrlEvent::HandleAlarmRecordControl(const SipEvent::Ptr &e)
     if (pClient == nullptr)
     {
         ResponeControlResult(e, nSN, m_header.strCmdType, strID, "ERROR");
-        MLOG_WARN("客户端实例为空，无法获取客户端的通道信息");
+        dlog_warn("客户端实例为空，无法获取客户端的通道信息");
         return false;
     }
     auto pChn = pClient->GetChannelByID(strID);
     if (nullptr == pChn)
     {
         ResponeControlResult(e, nSN, m_header.strCmdType, strID, "ERROR");
-        MLOG_WARN("没有找到通道[%s]", m_header.strDevID.c_str());
+        dlog_warn("没有找到通道[%s]", m_header.strDevID.c_str());
         return false;
     }
     /*上级根据通道号赋值，下级设置成-1*/
@@ -2674,7 +2674,7 @@ bool DeviceCtrlEvent::HandleAlarmRecordControl(const SipEvent::Ptr &e)
         if(stResult.nResult != 0)
         {
             tAlarmRecord.strResult = "ERROR";
-            MLOG_WARN("回调操作执行失败[%d]", stResult.nResult);
+            dlog_warn("回调操作执行失败[%d]", stResult.nResult);
         }
     }
 
@@ -2705,14 +2705,14 @@ bool DeviceCtrlEvent::HandlePictureMaskControl(const SipEvent::Ptr &e)
     if (pClient == nullptr)
     {
         ResponeControlResult(e, nSN, m_header.strCmdType, strID, "ERROR");
-        MLOG_WARN("客户端实例为空，无法获取客户端的通道信息");
+        dlog_warn("客户端实例为空，无法获取客户端的通道信息");
         return false;
     }
     auto pChn = pClient->GetChannelByID(strID);
     if (nullptr == pChn)
     {
         ResponeControlResult(e, nSN, m_header.strCmdType, strID, "ERROR");
-        MLOG_WARN("没有找到通道[%s]", m_header.strDevID.c_str());
+        dlog_warn("没有找到通道[%s]", m_header.strDevID.c_str());
         return false;
     }
     /*上级根据通道号赋值，下级设置成-1*/
@@ -2767,7 +2767,7 @@ bool DeviceCtrlEvent::HandlePictureMaskControl(const SipEvent::Ptr &e)
         if(stResult.nResult != 0)
         {
             tPictureMask.strResult = "ERROR";
-            MLOG_WARN("回调操作执行失败[%d]", stResult.nResult);
+            dlog_warn("回调操作执行失败[%d]", stResult.nResult);
         }
     }
 
@@ -2799,14 +2799,14 @@ bool DeviceCtrlEvent::HandleFrameMirrorControl(const SipEvent::Ptr &e)
     if (pClient == nullptr)
     {
         ResponeControlResult(e, nSN, m_header.strCmdType, strID, "ERROR");
-        MLOG_WARN("客户端实例为空，无法获取客户端的通道信息");
+        dlog_warn("客户端实例为空，无法获取客户端的通道信息");
         return false;
     }
     auto pChn = pClient->GetChannelByID(strID);
     if (nullptr == pChn)
     {
         ResponeControlResult(e, nSN, m_header.strCmdType, strID, "ERROR");
-        MLOG_WARN("没有找到通道[%s]", m_header.strDevID.c_str());
+        dlog_warn("没有找到通道[%s]", m_header.strDevID.c_str());
         return false;
     }
     /*上级根据通道号赋值，下级设置成-1*/
@@ -2831,7 +2831,7 @@ bool DeviceCtrlEvent::HandleFrameMirrorControl(const SipEvent::Ptr &e)
         if(stResult.nResult != 0)
         {
             Mirror.strResult = "ERROR";
-            MLOG_WARN("回调操作执行失败[%d]", stResult.nResult);
+            dlog_warn("回调操作执行失败[%d]", stResult.nResult);
         }
     }
 
@@ -2863,14 +2863,14 @@ bool DeviceCtrlEvent::HandleAlarmReportControl(const SipEvent::Ptr &e)
     if (pClient == nullptr)
     {
         ResponeControlResult(e, nSN, m_header.strCmdType, strID, "ERROR");
-        MLOG_WARN("客户端实例为空，无法获取客户端的通道信息");
+        dlog_warn("客户端实例为空，无法获取客户端的通道信息");
         return false;
     }
     auto pChn = pClient->GetChannelByID(strID);
     if (nullptr == pChn)
     {
         ResponeControlResult(e, nSN, m_header.strCmdType, strID, "ERROR");
-        MLOG_WARN("没有找到通道[%s]", m_header.strDevID.c_str());
+        dlog_warn("没有找到通道[%s]", m_header.strDevID.c_str());
         return false;
     }
     /*上级根据通道号赋值，下级设置成-1*/
@@ -2896,7 +2896,7 @@ bool DeviceCtrlEvent::HandleAlarmReportControl(const SipEvent::Ptr &e)
         if(stResult.nResult != 0)
         {
             AlarmRepor.strResult = "ERROR";
-            MLOG_WARN("回调操作执行失败[%d]", stResult.nResult);
+            dlog_warn("回调操作执行失败[%d]", stResult.nResult);
         }
     }
 
@@ -2928,14 +2928,14 @@ bool DeviceCtrlEvent::HandleOSDConfigControl(const SipEvent::Ptr &e)
     if (pClient == nullptr)
     {
         ResponeControlResult(e, nSN, m_header.strCmdType, strID, "ERROR");
-        MLOG_WARN("客户端实例为空，无法获取客户端的通道信息");
+        dlog_warn("客户端实例为空，无法获取客户端的通道信息");
         return false;
     }
     auto pChn = pClient->GetChannelByID(strID);
     if (nullptr == pChn)
     {
         ResponeControlResult(e, nSN, m_header.strCmdType, strID, "ERROR");
-        MLOG_WARN("没有找到通道[%s]", m_header.strDevID.c_str());
+        dlog_warn("没有找到通道[%s]", m_header.strDevID.c_str());
         return false;
     }
     /*上级根据通道号赋值，下级设置成-1*/
@@ -2976,7 +2976,7 @@ bool DeviceCtrlEvent::HandleOSDConfigControl(const SipEvent::Ptr &e)
         if(stResult.nResult != 0)
         {
             OSD.strResult = "ERROR";
-            MLOG_WARN("回调操作执行失败[%d]", stResult.nResult);
+            dlog_warn("回调操作执行失败[%d]", stResult.nResult);
         }
     }
 
@@ -3008,14 +3008,14 @@ bool DeviceCtrlEvent::HandleSnapShotControl(const SipEvent::Ptr &e)
     if (pClient == nullptr)
     {
         ResponeControlResult(e, nSN, m_header.strCmdType, strID, "ERROR");
-        MLOG_WARN("客户端实例为空，无法获取客户端的通道信息");
+        dlog_warn("客户端实例为空，无法获取客户端的通道信息");
         return false;
     }
     auto pChn = pClient->GetChannelByID(strID);
     if (nullptr == pChn)
     {
         ResponeControlResult(e, nSN, m_header.strCmdType, strID, "ERROR");
-        MLOG_WARN("没有找到通道[%s]", m_header.strDevID.c_str());
+        dlog_warn("没有找到通道[%s]", m_header.strDevID.c_str());
         return false;
     }
     /*上级根据通道号赋值，下级设置成-1*/
@@ -3048,7 +3048,7 @@ bool DeviceCtrlEvent::HandleSnapShotControl(const SipEvent::Ptr &e)
         if(stResult.nResult != 0)
         {
             Snap.strResult = "ERROR";
-            MLOG_WARN("回调操作执行失败[%d]", stResult.nResult);
+            dlog_warn("回调操作执行失败[%d]", stResult.nResult);
         }
     }
 
@@ -3427,7 +3427,7 @@ bool BroadcastEvent::HandleRequest(const SipEvent::Ptr &e)
         auto strGB18030 = ::ToMbcsString(os.str());
         SendMessageWithCallID(e, strGB18030);
 
-        MLOG_WARN("客户端实例为空，无法获取客户端的通道信息");
+        dlog_warn("客户端实例为空，无法获取客户端的通道信息");
         return false;
     }
     pClient->setBroadcastTid(e->m_pEvent->tid);
@@ -3440,7 +3440,7 @@ bool BroadcastEvent::HandleRequest(const SipEvent::Ptr &e)
         auto strGB18030 = ::ToMbcsString(os.str());
         SendMessageWithCallID(e, strGB18030);
 
-        MLOG_WARN("没有找到通道[%s]", m_header.strDevID.c_str());
+        dlog_warn("没有找到通道[%s]", m_header.strDevID.c_str());
         return false;
     }
     /*上级根据通道号赋值，下级设置成-1*/
@@ -3460,7 +3460,7 @@ bool BroadcastEvent::HandleRequest(const SipEvent::Ptr &e)
         if(stResult.nResult != 0)
         {
             tBroadcast.strResult = "ERROR";
-            MLOG_WARN("回调操作执行失败[%d]", stResult.nResult);
+            dlog_warn("回调操作执行失败[%d]", stResult.nResult);
         }
     }
 

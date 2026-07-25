@@ -127,6 +127,11 @@ extern "C"{
     typedef long long               INT64;
 #endif
 
+#ifndef UINT64_DEF
+#define UINT64_DEF
+    typedef unsigned long long      UINT64;
+#endif
+
 #ifndef BOOL_DEF
 #define BOOL_DEF
     #ifndef __OBJC__
@@ -570,6 +575,7 @@ extern "C"{
 #define NET_TV_ALARM_PERSON_FALL        (NET_TV_ALARM_BASE_AI + 0x05)    // 人员倒地
 #define NET_TV_ALARM_RUNNING            (NET_TV_ALARM_BASE_AI + 0x06)    // 快速奔跑
 #define NET_TV_ALARM_FACE_COMPARE       (NET_TV_ALARM_BASE_AI + 0x07)    // 人脸比对
+#define NET_TV_ALARM_PARKING_DETECT     (NET_TV_ALARM_BASE_AI + 0x08)    // 停车侦测
 
 // > 行为监管/安防
 #define NET_TV_ALARM_SLEEP_ON_DUTY      (NET_TV_ALARM_BASE_AI + 0x20)    // 睡岗
@@ -1183,6 +1189,186 @@ typedef enum tagNETTVReplayPlatformCtrlType
 } NET_TV_REPLAY_PLATFORM_CTRL_TYPE_E;
 
 /**
+ * @enum tagNETTVDeviceControlType
+ * @brief 设备硬件控制类型枚举，作为 DeviceControl 统一入口的一级分类。
+ */
+typedef enum tagNETTVDeviceControlType
+{
+    NET_TV_DEVICE_CTRL_TYPE_PTZ          = 1,       /* 云台控制 */
+    NET_TV_DEVICE_CTRL_TYPE_ALARM_LIGHT  = 2,       /* 声光控制 */
+    NET_TV_DEVICE_CTRL_TYPE_WIPER        = 3,       /* 雨刷控制 */
+    NET_TV_DEVICE_CTRL_TYPE_FILL_LIGHT   = 4,       /* 补光灯控制 */
+    NET_TV_DEVICE_CTRL_TYPE_RELAY        = 5,       /* 继电器控制 */
+    NET_TV_DEVICE_CTRL_TYPE_CUSTOM       = 1000,    /* 厂商自定义控制 */
+    NET_TV_DEVICE_CTRL_TYPE_INVALID      = 0xff
+} NET_TV_DEVICE_CONTROL_TYPE_E;
+
+/**
+ * @enum tagNETTVPtzControlCmd
+ * @brief 云台/镜头控制命令枚举，dwControlType 为 NET_TV_DEVICE_CTRL_TYPE_PTZ 时使用。
+ */
+typedef enum tagNETTVPtzControlCmd
+{
+    NET_TV_PTZ_CTRL_UP          = 1,
+    NET_TV_PTZ_CTRL_DOWN        = 2,
+    NET_TV_PTZ_CTRL_LEFT        = 3,
+    NET_TV_PTZ_CTRL_RIGHT       = 4,
+    NET_TV_PTZ_CTRL_LEFT_UP     = 5,
+    NET_TV_PTZ_CTRL_LEFT_DOWN   = 6,
+    NET_TV_PTZ_CTRL_RIGHT_UP    = 7,
+    NET_TV_PTZ_CTRL_RIGHT_DOWN  = 8,
+    NET_TV_PTZ_CTRL_ZOOM_IN     = 9,
+    NET_TV_PTZ_CTRL_ZOOM_OUT    = 10,
+    NET_TV_PTZ_CTRL_FOCUS_NEAR  = 11,
+    NET_TV_PTZ_CTRL_FOCUS_FAR   = 12,
+    NET_TV_PTZ_CTRL_IRIS_OPEN   = 13,
+    NET_TV_PTZ_CTRL_IRIS_CLOSE  = 14,
+    NET_TV_PTZ_CTRL_STOP        = 15,
+    NET_TV_PTZ_CTRL_INVALID     = 0xff
+} NET_TV_PTZ_CONTROL_CMD_E;
+
+/**
+ * @enum tagNETTVAlarmLightControlCmd
+ * @brief 声光控制命令枚举，dwControlType 为 NET_TV_DEVICE_CTRL_TYPE_ALARM_LIGHT 时使用。
+ */
+typedef enum tagNETTVAlarmLightControlCmd
+{
+    NET_TV_ALARM_LIGHT_CTRL_START    = 1,       /* 开启声光 */
+    NET_TV_ALARM_LIGHT_CTRL_STOP     = 2,       /* 停止声光 */
+    NET_TV_ALARM_LIGHT_CTRL_SET_MODE = 3,       /* 设置并立即应用声光模式，参数由 dwParam1/dwParam2 或 szExt 承载 */
+    NET_TV_ALARM_LIGHT_CTRL_INVALID  = 0xff
+} NET_TV_ALARM_LIGHT_CONTROL_CMD_E;
+
+/**
+ * @struct tagNETTVDeviceControlInfo
+ * @brief 设备硬件控制统一参数结构体，可承载云台、声光、雨刷、补光灯、继电器和自定义控制。
+ */
+typedef struct tagNETTVDeviceControlInfo
+{
+    UINT32 dwSize;          /* 结构体大小，调用方填 sizeof(NET_TV_DEVICE_CONTROL_INFO_S)，用于后续兼容扩展 */
+    INT32  dwChannelID;     /* 通道号 */
+    INT32  dwControlType;   /* 控制类型，参见 NET_TV_DEVICE_CONTROL_TYPE_E */
+    INT32  dwCommand;       /* 控制命令，不同 dwControlType 对应不同命令枚举 */
+    INT32  dwSpeed;         /* 云台速度，范围 NET_TV_MIN_PTZ_SPEED_LEVEL ~ NET_TV_MAX_PTZ_SPEED_LEVEL，非云台可忽略 */
+    INT32  dwDurationMs;    /* 持续时间，单位毫秒；声光控制支持 1~300000，0 由设备按默认 1 秒处理 */
+    INT32  dwParam1;        /* 声光控制时为闪烁频率：0常亮、1低频、2中频、3高频；其他类型由设备定义 */
+    INT32  dwParam2;        /* 扩展参数2；当前声光控制保留，其他类型由设备定义 */
+    CHAR   szExt[256];      /* 扩展参数，建议存放 JSON 字符串或厂商自定义参数 */
+} NET_TV_DEVICE_CONTROL_INFO_S, *LPNET_TV_DEVICE_CONTROL_INFO_S;
+
+#define NET_TV_RECORD_FRAME_FLAG_MARKER        0x00000001u  /* RTP marker，通常表示一帧结束 */
+#define NET_TV_RECORD_FRAME_FLAG_KEY_FRAME     0x00000002u  /* 视频关键帧 */
+#define NET_TV_RECORD_FRAME_FLAG_STREAM_END    0x00000004u  /* 录像帧流结束 */
+#define NET_TV_RECORD_FRAME_PAYLOAD_TYPE_VIDEO 96           /* 动态负载类型: 视频 */
+#define NET_TV_RECORD_FRAME_PAYLOAD_TYPE_AUDIO 97           /* 动态负载类型: 音频 */
+#define NET_TV_RECORD_FRAME_PAYLOAD_TYPE_END   127          /* 流结束包 */
+#define NET_TV_RECORD_FRAME_MAX_PAYLOAD_SIZE   (4u * 1024u * 1024u) /* 单包最大负载，4MB */
+
+/**
+ * @enum tagNETTVRecordFrameMediaType
+ * @brief 录像帧媒体类型
+ */
+typedef enum tagNETTVRecordFrameMediaType
+{
+    NET_TV_RECORD_FRAME_MEDIA_VIDEO = 1,
+    NET_TV_RECORD_FRAME_MEDIA_AUDIO = 2,
+    NET_TV_RECORD_FRAME_MEDIA_END   = 3
+} NET_TV_RECORD_FRAME_MEDIA_TYPE_E;
+
+/**
+ * @enum tagNETTVRecordFrameCodec
+ * @brief 录像帧编码类型
+ */
+typedef enum tagNETTVRecordFrameCodec
+{
+    NET_TV_RECORD_FRAME_CODEC_UNKNOWN = 0,
+    NET_TV_RECORD_FRAME_CODEC_H264    = 1,
+    NET_TV_RECORD_FRAME_CODEC_H265    = 2,
+    NET_TV_RECORD_FRAME_CODEC_AAC     = 3,
+    NET_TV_RECORD_FRAME_CODEC_G711A   = 4,
+    NET_TV_RECORD_FRAME_CODEC_G711U   = 5,
+    NET_TV_RECORD_FRAME_CODEC_PCM     = 6
+} NET_TV_RECORD_FRAME_CODEC_E;
+
+/**
+ * @struct tagNETTVRecordFrameStreamCond
+ * @brief 录像帧流启动条件。客户端传入通道和起止时间，服务端返回TCP端口和流标识。
+ */
+typedef struct tagNETTVRecordFrameStreamCond
+{
+    UINT32 dwSize;
+    INT32  dwChannel;
+    CHAR   szStartTime[NET_TV_LEN_64];
+    CHAR   szEndTime[NET_TV_LEN_64];
+    INT32  dwStreamIndex;       /* 码流索引，参见 NET_TV_LIVE_STREAM_INDEX_E；0 表示默认主码流 */
+    INT32  dwMediaType;         /* 请求媒体类型，参见 NET_TV_RECORD_FRAME_MEDIA_TYPE_E；默认视频 */
+    INT32  dwCodecType;         /* 期望编码，参见 NET_TV_RECORD_FRAME_CODEC_E；0 表示由服务端决定 */
+    UINT32 dwTcpPort;           /* 服务端录像帧TCP端口；0 表示使用服务端默认端口 */
+    BYTE   byRes[128];
+} NET_TV_RECORD_FRAME_STREAM_COND_S, *LPNET_TV_RECORD_FRAME_STREAM_COND_S;
+
+/**
+ * @struct tagNETTVRecordFrameStreamInfo
+ * @brief 录像帧流启动结果。
+ */
+typedef struct tagNETTVRecordFrameStreamInfo
+{
+    UINT32 dwSize;
+    CHAR   szStreamId[NET_TV_STREAM_ID_LEN];
+    INT32  dwChannel;
+    UINT32 dwTcpPort;
+    INT32  dwMediaType;
+    INT32  dwCodecType;
+    INT32  dwWidth;
+    INT32  dwHeight;
+    BYTE   byRes[128];
+} NET_TV_RECORD_FRAME_STREAM_INFO_S, *LPNET_TV_RECORD_FRAME_STREAM_INFO_S;
+
+/**
+ * @struct tagNETTVRecordFrameStopInfo
+ * @brief 录像帧流停止参数。
+ */
+typedef struct tagNETTVRecordFrameStopInfo
+{
+    UINT32 dwSize;
+    CHAR   szStreamId[NET_TV_STREAM_ID_LEN];
+    BYTE   byRes[64];
+} NET_TV_RECORD_FRAME_STOP_INFO_S, *LPNET_TV_RECORD_FRAME_STOP_INFO_S;
+
+/**
+ * @struct tagNETTVRecordFrameInfo
+ * @brief 录像帧信息。服务端取帧回调填充该结构，客户端收到TCP包后通过回调返回该结构。
+ */
+typedef struct tagNETTVRecordFrameInfo
+{
+    UINT32 dwSize;
+    INT32  dwMediaType;
+    INT32  dwCodecType;
+    UINT32 dwSeq;
+    UINT32 dwTimestamp;
+    UINT64 ullPtsMs;
+    UINT32 dwPayloadLen;
+    UINT32 dwFlags;
+    BYTE   byRes[64];
+} NET_TV_RECORD_FRAME_INFO_S, *LPNET_TV_RECORD_FRAME_INFO_S;
+
+/**
+ * @struct tagNETTVRecordFrameRtpHeader
+ * @brief TCP上传输的简化RTP风格包头，网络字节序，固定20字节。
+ * @note  TCP是字节流，因此比标准RTP多 dwPayloadLen 字段用于分包。
+ */
+typedef struct tagNETTVRecordFrameRtpHeader
+{
+    UCHAR  byVersion;      /* 固定为2 */
+    UCHAR  byPayloadType;  /* 96视频，97音频，127结束 */
+    UINT16 wSeq;
+    UINT32 dwTimestamp;
+    UINT32 dwSsrc;
+    UINT32 dwPayloadLen;
+    UINT32 dwFlags;
+} NET_TV_RECORD_FRAME_RTP_HEADER_S, *LPNET_TV_RECORD_FRAME_RTP_HEADER_S;
+
+/**
  * @enum tagNETTVVideoCodeType
  * @brief 视频编码格式 枚举定义  Video encoding format Enumeration definition
  * @attention 无 None
@@ -1685,6 +1871,35 @@ typedef struct tagNETTVTalkbackStateInfo
     BYTE    byRes[128];                 /* 保留字段，未使用 */
 } NET_TV_TALKBACK_STATE_INFO_S, *LPNET_TV_TALKBACK_STATE_INFO_S;
 
+ /**
+  * @struct tagNETTVVoiceComAudioParam
+  * @brief VoiceCom 对讲音频参数
+ * @note VoiceCom TCP 负载格式由 enFormat 指定，当前支持 PCM/G711A/G711U 裸流
+  */
+typedef struct tagNETTVVoiceComAudioParam
+{
+    INT32   enFormat;             /* 音频格式, 参见 NET_TV_AUDIO_FORMAT_E, 当前支持 PCM/G711A/G711U */
+    INT32   dwSampleRate;         /* 采样率, Hz, 参见 NET_TV_AUDIO_SAMPRATE_E */
+    INT32   dwBitDepth;           /* 位深, PCM=16, G711=8 */
+    INT32   dwChannels;           /* 声道数, 当前支持 1(单声道) */
+    INT32   dwFrameIntervalMs;    /* 单帧时长, ms */
+    INT32   dwFrameBytes;         /* 单帧字节数 */
+    INT32   dwBitRate;            /* 音频比特率, bit/s */
+    BOOL    bLittleEndian;        /* PCM 字节序, TRUE 表示 little-endian; G711 忽略 */
+    BYTE    byRes[128];           /* 保留字段 */
+} NET_TV_VOICECOM_AUDIO_PARAM_S, *LPNET_TV_VOICECOM_AUDIO_PARAM_S;
+
+/**
+ * @struct tagNETTVVoiceComStartInfo
+ * @brief VoiceCom 启动参数
+ */
+typedef struct tagNETTVVoiceComStartInfo
+{
+    UINT32  dwAudioPort;                              /* 设备端 VoiceCom TCP 端口, 默认 9006 */
+    NET_TV_VOICECOM_AUDIO_PARAM_S stAudioParam;       /* 本次对讲会话音频参数 */
+    BYTE    byRes[128];                               /* 保留字段 */
+} NET_TV_VOICECOM_START_INFO_S, *LPNET_TV_VOICECOM_START_INFO_S;
+
 /**
  * @struct tagNETTVTalkbackStreamInfo
  * @brief 对讲流信息结构体
@@ -1953,6 +2168,25 @@ typedef struct tagNETTVDeviceBasicInfo
     CHAR szDeviceTypeV2[NET_TV_LEN_128];                /* 设备类型 */
     BYTE byRes[256];                                    /* 保留字段  Reserved */
 }NET_TV_DEVICE_BASICINFO_S, *LPNET_TV_DEVICE_BASICINFO_S;
+
+/**
+ * @struct tagNETTVSystemNtpInfo
+ * @brief 系统时间/NTP校时配置，对应IPC侧System::TimeInfo_S
+ * @note 用于NET_TV_GET_NTPCFG/NET_TV_SET_NTPCFG
+ */
+typedef struct tagNETTVSystemNtpInfo
+{
+    INT32   enTimeZone;                                 /* 时区，取值对应IPC侧System::TimeZone_E */
+    INT32   enDateFormat;                               /* 日期格式，取值对应IPC侧System::DateFormat_E */
+    BOOL    bEnableNTPSync;                             /* 是否开启NTP校时 */
+    BOOL    bManualSync;                                /* 是否手动校时 */
+    CHAR    szDateTime[NET_TV_MAX_DATE_STRING_LEN];     /* 手动校时时间，格式按enDateFormat解析 */
+    BOOL    bIsSyncWithComputer;                        /* 是否与计算机时间同步 */
+    CHAR    szAddress[NET_TV_LEN_128];                  /* NTP服务器地址 */
+    INT32   nPort;                                      /* NTP服务器端口 */
+    INT32   nSyncInterval;                              /* NTP同步间隔，单位分钟 */
+    BYTE    byRes[128];                                 /* 保留字段 */
+}NET_TV_SYSTEM_NTP_INFO_S, *LPNET_TV_SYSTEM_NTP_INFO_S;
 
 /**
  * @struct tagNETTVPageInfo
@@ -2521,9 +2755,16 @@ typedef struct tagNETTVPreviewImageParam
 
 /**
  * @brief 图像配置参数 Image setting parameters
- * @note 用于 NET_TV_GET_IMAGECFG / NET_TV_SET_IMAGECFG，字段复用 NET_TV_PREVIEW_IMAGE_PARAM_S
+ * @note 用于 NET_TV_GET_IMAGECFG / NET_TV_SET_IMAGECFG，对应 IPC ISP::ImageParam_S
  */
-typedef NET_TV_PREVIEW_IMAGE_PARAM_S NET_TV_IMAGE_SETTING_S, *LPNET_TV_IMAGE_SETTING_S;
+typedef struct tagNETTVImageSetting
+{
+    UINT32  nBrightness;                         /* 亮度 [0,100] */
+    UINT32  nContrast;                           /* 对比度 [0,100] */
+    UINT32  nSaturation;                         /* 饱和度 [0,100] */
+    UINT32  nSharpness;                          /* 锐度 [0,100] */
+    BYTE    byRes[64];                           /* 保留字段 */
+}NET_TV_IMAGE_SETTING_S, *LPNET_TV_IMAGE_SETTING_S;
 
 /**
  * @struct tagNETTVPreviewInfo
@@ -2624,6 +2865,7 @@ typedef struct tagNETTVAlarmBasicInfo
     BYTE        byDiskNumber[NET_TV_LOCAL_DISK_MAX_NUM];       /* 发生报警的硬盘，为1表示该硬盘异常 */
     BYTE        byPanoramaImg[NET_TV_PIC_DATA_MAX_LEN];        /* 全景 JPEG 二进制图片 */
     UINT32      dwPanoramaImgLen;                              /* 全景 JPEG 图片长度 */
+    INT64       llTimestampMs;                                 /* 报警时间戳，单位毫秒 */
     BYTE        byRes[128];                                    /* 保留字段 */
 }NET_TV_ALARM_BASIC_INFO_S, *LPNET_TV_ALARM_BASIC_INFO_S;
 
@@ -2640,9 +2882,18 @@ typedef struct tagNETTVAlarmRuleInfo
     UINT32      dwRuleType;                          /* 规则类型(可与dwAlarmType对应) */
     CHAR        szRuleName[NET_TV_LEN_64];           /* 规则名称(可选) */
     UINT32      dwTargetID;                          /* 目标ID(可选) */
+    UINT32      dwObjectType;                        /* 目标类型(0:未知 1:人 2:车 ... 可扩展) */
+    float       fConfidence;                         /* 置信度 0~1 */
+    INT32       nLeft;                               /* 目标框 left */
+    INT32       nTop;                                /* 目标框 top */
+    INT32       nRight;                              /* 目标框 right */
+    INT32       nBottom;                             /* 目标框 bottom */
     BYTE        byPanoramaImg[NET_TV_PIC_DATA_MAX_LEN]; /* 全景 JPEG 二进制图片 */
     UINT32      dwPanoramaImgLen;                    /* 全景 JPEG 图片长度 */
-    BYTE        byRes[256];                          /* 保留字段 */
+    BYTE        byTargetImg[NET_TV_PIC_DATA_MAX_LEN]; /* 目标特写 JPEG 二进制图片 */
+    UINT32      dwTargetImgLen;                      /* 目标特写 JPEG 图片长度 */
+    INT64       llTimestampMs;                       /* 报警时间戳，单位毫秒 */
+    BYTE        byRes[128];                          /* 保留字段 */
 }NET_TV_ALARM_RULE_INFO_S, *LPNET_TV_ALARM_RULE_INFO_S;
 
 /**
@@ -2661,9 +2912,12 @@ typedef struct tagNETTVAlarmAiObjectInfo
     INT32       nRight;                              /* 目标框 right */
     INT32       nBottom;                             /* 目标框 bottom */
     CHAR        szObjectID[NET_TV_LEN_64];           /* 目标ID(可选) */
+    BYTE        byPanoramaImg[NET_TV_PIC_DATA_MAX_LEN]; /* 全景 JPEG 二进制图片 */
+    UINT32      dwPanoramaImgLen;                    /* 全景 JPEG 图片长度 */
     BYTE        byImgData[NET_TV_PIC_DATA_MAX_LEN];  /* 报警图片数据 */
     UINT32      dwImgLen;                            /* 图片长度 */
-    BYTE        byRes[64];                           /* 保留字段 */
+    INT64       llTimestampMs;                       /* 报警时间戳，单位毫秒 */
+    BYTE        byRes[32];                           /* 保留字段 */
 }NET_TV_ALARM_AI_OBJECT_INFO_S, *LPNET_TV_ALARM_AI_OBJECT_INFO_S;
 
 /**

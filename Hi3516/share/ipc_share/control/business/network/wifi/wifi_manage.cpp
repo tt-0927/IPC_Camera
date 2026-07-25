@@ -1,17 +1,131 @@
 // 包含头文件
+// #define CAP_NETWORK_WIFI 1
 #if CAP_NETWORK_WIFI
 #include <iostream>
 #include <fstream>
 #include <sstream>
 #include <cstring>
+#include <cctype>
+#include <cstdlib>
 #include <unistd.h>
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <sys/wait.h>
+#include <arpa/inet.h>
 #include <chrono>
 #include <algorithm>
 #include "wifi_manage.h" 
+#include "platform_manager.h"
 #include "rtsp_server.h"
+
+namespace {
+const char* WIFI_SUPPLICANT_LOG_PATH = "/tmp/wpa_supplicant_wifi.log";
+const std::streamoff WIFI_SUPPLICANT_LOG_MAX_SIZE = 256 * 1024;
+
+std::streamoff getFileSize(const char* path) {
+    std::ifstream file(path, std::ios::binary | std::ios::ate);
+    if (!file.is_open()) {
+        return 0;
+    }
+    return static_cast<std::streamoff>(file.tellg());
+}
+
+void clearSupplicantLog() {
+    std::ofstream logFile(WIFI_SUPPLICANT_LOG_PATH, std::ios::trunc);
+    logFile.close();
+}
+
+void trimSupplicantLogIfNeeded() {
+    if (getFileSize(WIFI_SUPPLICANT_LOG_PATH) > WIFI_SUPPLICANT_LOG_MAX_SIZE) {
+        clearSupplicantLog();
+    }
+}
+
+std::string readFileFromOffset(const char* path, std::streamoff offset) {
+    std::ifstream file(path, std::ios::binary);
+    if (!file.is_open()) {
+        return "";
+    }
+
+    file.seekg(0, std::ios::end);
+    const std::streamoff fileSize = static_cast<std::streamoff>(file.tellg());
+    if (offset < 0 || offset > fileSize) {
+        offset = 0;
+    }
+
+    file.seekg(offset, std::ios::beg);
+    std::stringstream content;
+    content << file.rdbuf();
+    return content.str();
+}
+
+int detectSupplicantError(const std::string& log, ::Network::WifiSecurityMode mode) {
+    const bool isPersonalMode =
+        mode == ::Network::WifiSecurityMode::WPA_PERSONAL ||
+        mode == ::Network::WifiSecurityMode::WPA3_PERSONAL;
+
+    if (log.find("Invalid passphrase length") != std::string::npos ||
+        log.find("Invalid PSK") != std::string::npos ||
+        log.find("failed to parse psk") != std::string::npos) {
+        return ::Network::WIFI_CONNECT_INVALID_CREDENTIALS;
+    }
+
+    if (log.find("reason=WRONG_KEY") != std::string::npos ||
+        log.find("pre-shared key may be incorrect") != std::string::npos ||
+        log.find("SAE: Authentication failed") != std::string::npos ||
+        (isPersonalMode && log.find("reason=AUTH_FAILED") != std::string::npos)) {
+        return ::Network::WIFI_CONNECT_WRONG_PASSWORD;
+    }
+
+    if (log.find("CTRL-EVENT-NETWORK-NOT-FOUND") != std::string::npos) {
+        return ::Network::WIFI_CONNECT_NETWORK_NOT_FOUND;
+    }
+
+    if (log.find("CTRL-EVENT-EAP-FAILURE") != std::string::npos ||
+        log.find("EAP authentication failed") != std::string::npos ||
+        log.find("CTRL-EVENT-AUTH-REJECT") != std::string::npos ||
+        log.find("reason=AUTH_FAILED") != std::string::npos) {
+        return ::Network::WIFI_CONNECT_AUTHENTICATION_FAILED;
+    }
+
+    return ::Network::WIFI_CONNECT_UNKNOWN_ERROR;
+}
+
+bool isIpv4RoutePrefix(const std::string& routePrefix) {
+    const std::size_t slashPos = routePrefix.find('/');
+    const std::string address = routePrefix.substr(0, slashPos);
+    struct in_addr ipv4Address;
+
+    if (inet_pton(AF_INET, address.c_str(), &ipv4Address) != 1) {
+        return false;
+    }
+
+    if (slashPos == std::string::npos) {
+        return true;
+    }
+
+    const std::string prefixLength = routePrefix.substr(slashPos + 1);
+    if (prefixLength.empty() ||
+        !std::all_of(prefixLength.begin(), prefixLength.end(), [](unsigned char ch) {
+            return std::isdigit(ch) != 0;
+        })) {
+        return false;
+    }
+
+    const long parsedLength = std::strtol(prefixLength.c_str(), nullptr, 10);
+    return parsedLength >= 0 && parsedLength <= 32;
+}
+
+bool executeRouteCommand(const std::string& command) {
+    const int status = std::system(command.c_str());
+    if (status == -1 || !WIFEXITED(status) || WEXITSTATUS(status) != 0) {
+        dlog_error("[路由] 命令执行失败: %s, status=%d", command.c_str(), status);
+        return false;
+    }
+    return true;
+}
+}
+
 // --- 全局配置实现 ---
 GlobalConfig::GlobalConfig() 
     : config_file_path("/etc/wpa_supplicant.conf"),
@@ -24,7 +138,7 @@ GlobalConfig::GlobalConfig()
 
 // --- CWifiManager 类实现 ---
 
-CWifiManager::CWifiManager() :  is_running(false),is_connected(false), reconnect_attempts(0), m_configFile(WIFI_CONFIG_FILE) {
+CWifiManager::CWifiManager() :  is_running(false),is_connected(false), m_hasConnectedOnce(false), m_isConnecting(false), reconnect_attempts(0), m_configFile(WIFI_CONFIG_FILE) {
     last_scan_time_ = std::chrono::steady_clock::now() - std::chrono::seconds(10);
 
     // startDaemon();
@@ -39,6 +153,7 @@ CWifiManager::CWifiManager() :  is_running(false),is_connected(false), reconnect
 
 CWifiManager::~CWifiManager() {
     is_running = false;
+    m_monitorCondition.notify_all();
     if (monitor_thread.joinable()) monitor_thread.join();
 }
 
@@ -76,6 +191,9 @@ std::string CWifiManager::sendCommand(const std::string& cmd) {
 bool CWifiManager::startDaemon() {
     execShell("killall wpa_supplicant 2>/dev/null");
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
+
+    // 每次启动时清空旧日志，避免日志无限增长和旧错误干扰本次判断。
+    clearSupplicantLog();
     
     std::string ctrl_dir = config.ctrl_interface;
     execShell("mkdir -p " + ctrl_dir + " && chmod 777 " + ctrl_dir);
@@ -91,7 +209,8 @@ bool CWifiManager::startDaemon() {
         return false;
     }
 
-    std::string cmd = "wpa_supplicant -D" + config.driver + " -i" + config.interface_name + " -c" + config.config_file_path + " -B";
+    std::string cmd = "wpa_supplicant -D" + config.driver + " -i" + config.interface_name +
+                      " -c" + config.config_file_path + " -f" + WIFI_SUPPLICANT_LOG_PATH + " -B";
 
     execShell(cmd);
     
@@ -121,24 +240,60 @@ bool CWifiManager::connectSocket() {
 }
 
 void CWifiManager::monitorLoop() {
-    while (is_running) {
-        if (!is_connected) {
-            std::this_thread::sleep_for(std::chrono::seconds(60));
-            continue; 
+    std::unique_lock<std::mutex> monitorLock(m_monitorMutex);
+
+    while (is_running.load()) {
+        // 从未成功连接过 WiFi 时一直休眠，避免无意义地轮询 STATUS。
+        // 首次连接成功或线程准备退出时，会通过 notify_all() 唤醒这里。
+        m_monitorCondition.wait(monitorLock, [this] {
+            return !is_running.load() || m_hasConnectedOnce.load();
+        });
+
+        if (!is_running.load()) {
+            break;
         }
+
+        monitorLock.unlock();
 
         std::string status = sendCommand("STATUS");
         if (status.find("wpa_state=DISCONNECTED") != std::string::npos ||
             status.find("wpa_state=SCANNING") != std::string::npos) {
             std::cout << "[后台监听] Wi-Fi 意外断开" << std::endl;
-            handleDisconnect();
+            is_connected.store(false);
 
-            if (is_connected) {
+            if (m_hasConnectedOnce.load() && !m_isConnecting.load()) {
+                handleDisconnect();
+            }
+
+            if (is_connected.load()) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(500));
                 lockCurrentIp(); // 重连后立即重新锁定 IP
+
+                const int max_retries = 3;
+                for (int i = 0; i < max_retries; ++i)
+                {
+                    int ret = CPlatformManager::instance()->change_net_relogin();
+                    if (ret == 0)
+                    {
+                        break;
+                    }
+                    else
+                    {
+                        if (i < max_retries - 1)
+                        {
+                            dlog_error("，准备进行第 (%d)  次重试...", (i + 1));
+                        }
+                        else
+                        {
+                            dlog_error("，已达最大重试次数，放弃执行。");
+                        }
+                    }
+                }
             }
         }
         else if (status.find("wpa_state=COMPLETED") != std::string::npos) {
+            is_connected.store(true);
+            trimSupplicantLogIfNeeded();
             // 每 3 分钟检查一次 IP 状态，防止静默变更
             static auto last_ip_check = std::chrono::steady_clock::now();
             auto now = std::chrono::steady_clock::now();
@@ -149,44 +304,38 @@ void CWifiManager::monitorLoop() {
         }
 
 
-        int eth0_link_up = system("cat /sys/class/net/eth0/carrier 2>/dev/null | grep 1 > /dev/null 2>&1");
-        if (eth0_link_up == 0) {
-            // 情况 A: 网线插好了
-            // 只要网线插着，我们就强制走有线
-            // 注意：这里不需要 Ping 网关，物理连接在我们就信任它
-            Network::Info_S stNetInfo;
-            CNetworkManage::instance()->get_system_networkInfo(stNetInfo);
-            if (stNetInfo.stIp.ipv4Ip.length() >= 4 && stNetInfo.stIp.ipv4Ip.substr(0, 4) == "192.") {
-                system("ip route replace default via 192.168.1.254 dev eth0");
-            }
-            else {
-                system("ip route replace default via 172.16.25.254 dev eth0");
-            }
+        // int eth0_link_up = system("cat /sys/class/net/eth0/carrier 2>/dev/null | grep 1 > /dev/null 2>&1");
+        // if (eth0_link_up == 0) {
+        //     // 情况 A: 网线插好了
+        //     // 只要网线插着，就强制走有线
             
-            is_rebootrtsp_wlan0 = true;
-            if(is_rebootrtsp_eth0)
-            {
-                CRtspServer::instance()->reboot();
-                is_rebootrtsp_eth0 = false;
-            }
-        } else {
-            // 情况 B: 网线没插 (或者 carrier 检测失败)
-            // 只有当 WiFi 连接时，才切换路由
-            if (is_connected) {
-                std::cout << "[监控] 检测到 eth0 网线断开，切换至 WiFi..." << std::endl;
-                system("ip route replace default dev wlan0");
-                if(is_rebootrtsp_wlan0)
-                {
-                    CRtspServer::instance()->reboot();
-                    is_rebootrtsp_wlan0 = false;
+        //     Network::Info_S stNetInfo;
+        //     CNetworkManage::instance()->get_system_networkInfo(stNetInfo);
+        //     if (stNetInfo.stIp.ipv4Ip.length() >= 4 && stNetInfo.stIp.ipv4Ip.substr(0, 4) == "192.") {
+        //         system("ip route replace default via 192.168.1.254 dev eth0");
+        //     }
+        //     else {
+        //         system("ip route replace default via 172.16.25.254 dev eth0");
+        //     }
+            
+        // } else {
+        //     // 情况 B: 网线没插 
+        //     // 只有当 WiFi 连接时，才切换路由
+        //     if (is_connected) {
+        //         std::cout << "[监控] 检测到 eth0 网线断开，切换至 WiFi..." << std::endl;
+        //         system("ip route replace default dev wlan0");
+        //     }
+        // }
 
-                    is_rebootrtsp_eth0 =true;
-                }
-                
-            }
-        }
-
-        std::this_thread::sleep_for(std::chrono::seconds(30));
+        monitorLock.lock();
+        // 正常情况下最多等待 30 秒，然后继续检查一次 WiFi 状态。
+        // 程序退出或用户主动断开 WiFi 时，可通过 notify_all() 提前结束等待。
+        m_monitorCondition.wait_for(
+            monitorLock,
+            std::chrono::seconds(30),
+            [this] {
+                return !is_running.load() || !m_hasConnectedOnce.load();
+            });
     }
 }
 
@@ -218,6 +367,8 @@ void CWifiManager::handleDisconnect() {
         connectToWifi(localConfig);
     } else {
         std::cout << "[重连] 达到最大重连次数。" << std::endl;
+        m_hasConnectedOnce.store(false);
+        m_monitorCondition.notify_all();
     }
 }
 
@@ -240,7 +391,7 @@ bool CWifiManager::saveConfigToFile(const ::Network::WifiStaConncet_S& config) {
 
     // 1. 写入基础信息
     file << "ssid=" << config.ssid << "\n";
-    file << "ip_address=" << config.ip_address << "\n"; // <--- 加上这一行
+    file << "ip_address=" << config.ip_address << "\n"; //
     file << "mode=" << static_cast<int>(config.mode) << "\n";
 
     // 2. 根据模式写入特定信息
@@ -499,10 +650,14 @@ void CWifiManager::deinit() {
 
     // 2. 停止监控线程
     is_running = false;
+    m_hasConnectedOnce.store(false);
+    m_monitorCondition.notify_all();
     if (monitor_thread.joinable()) {
         monitor_thread.join();
         std::cout << "[反初始化] 监控线程已停止。" << std::endl;
     }
+
+    is_connected.store(false);
 
     // 3. 断开 WiFi 连接 (发送 DISCONNECT 命令)
     // 注意：sendCommand 可能依赖 socket，需在 kill 进程前调用
@@ -518,6 +673,82 @@ void CWifiManager::deinit() {
     is_connected = false;
 
     std::cout << "[反初始化] WiFi 管理器已完全关闭。" << std::endl;
+}
+
+std::string decodeEscapedUtf8(const std::string& input)
+{
+    std::string output;
+
+    for(size_t i=0;i<input.size();)
+    {
+        // 匹配 \xHH
+        if(i+3<input.size() &&
+           input[i]=='\\' &&
+           input[i+1]=='x' &&
+           isxdigit(input[i+2]) &&
+           isxdigit(input[i+3]))
+        {
+            std::string hex=input.substr(i+2,2);
+
+            unsigned char value=
+                static_cast<unsigned char>(
+                    strtoul(
+                        hex.c_str(),
+                        nullptr,
+                        16));
+
+            output.push_back(
+                static_cast<char>(value));
+
+            i+=4;
+        }
+        else
+        {
+            output.push_back(input[i]);
+            i++;
+        }
+    }
+
+    return output;
+}
+
+
+std::map<std::string,std::string>
+parseStatus(const std::string& status)
+{
+    std::map<std::string,std::string> result;
+
+    std::stringstream ss(status);
+
+    std::string line;
+
+    while(std::getline(ss,line))
+    {
+        size_t pos=line.find('=');
+
+        if(pos==std::string::npos)
+        {
+            continue;
+        }
+
+        std::string key=
+            line.substr(0,pos);
+
+        std::string value=
+            line.substr(pos+1);
+
+        // 中文SSID自动解码
+        if(key=="ssid")
+        {
+            value=
+                decodeEscapedUtf8(
+                    value);
+        }
+
+        result[key]=value;
+    }
+
+    return result;
 }
 
 std::vector<WifiInfo> CWifiManager::scanWifi() {
@@ -542,7 +773,7 @@ std::vector<WifiInfo> CWifiManager::scanWifi() {
     }
 
     // 等待扫描完成 (通常 3-5 秒)
-    std::this_thread::sleep_for(std::chrono::seconds(5)); 
+    std::this_thread::sleep_for(std::chrono::seconds(3)); 
 
     std::string res = sendCommand("SCAN_RESULTS");
     std::cout << "[调试] SCAN_RESULTS 原始返回长度: " << res.length() << std::endl;
@@ -568,8 +799,9 @@ std::vector<WifiInfo> CWifiManager::scanWifi() {
         if (lineStream >> info.bssid >> info.frequency >> info.signal_level >> info.flags) {
             std::getline(lineStream, info.ssid);
             info.ssid.erase(0, info.ssid.find_first_not_of(" \t"));
-            info.ssid.erase(info.ssid.find_last_not_of(" \t") + 1);
+            // info.ssid.erase(info.ssid.find_last_not_of(" \t") + 1);
             
+            info.ssid = decodeEscapedUtf8(info.ssid);
             // 检查是否当前连接
             // if (info.flags.find("[CURRENT]") != std::string::npos) {
             //     info.is_current = true;
@@ -577,10 +809,39 @@ std::vector<WifiInfo> CWifiManager::scanWifi() {
             // }
             if (config.current_ssid == info.ssid) {
                 std::string status = sendCommand("STATUS");
-                if (status.find("ssid=" + info.ssid) != std::string::npos)
+                // if (status.find("ssid=" + info.ssid) != std::string::npos)
+                // {
+                //     std::cout << "已经连接的wifi " << line << std::endl;
+                //     info.is_current = true;
+                // }
+
+                auto statusInfo=
+                    parseStatus(status);
+
+                std::string current_bssid=
+                    statusInfo["bssid"];
+
+                std::string current_ssid=
+                    statusInfo["ssid"];
+
+                dlog_info(
+                    "STATUS BSSID:[%s] 扫描BSSID:[%s]",
+                    current_bssid.c_str(),
+                    info.bssid.c_str());
+
+                dlog_info(
+                    "STATUS SSID:[%s] 扫描SSID:[%s]",
+                    current_ssid.c_str(),
+                    info.ssid.c_str());
+
+                if(current_bssid==info.bssid)
                 {
-                    std::cout << "已经连接的wifi " << line << std::endl;
-                    info.is_current = true;
+                    info.is_current=true;
+
+                    std::cout
+                        << "已经连接:"
+                        << info.ssid
+                        << std::endl;
                 }
             }
 
@@ -592,7 +853,7 @@ std::vector<WifiInfo> CWifiManager::scanWifi() {
             }
 
             // 判断加密方式
-            if (info.flags.find("WPA3") != std::string::npos) {
+            if (info.flags.find("WPA3") != std::string::npos || info.flags.find("WPA2-SAE") != std::string::npos) {
                 info.security_type = "WPA3";
             } else if (info.flags.find("WPA2") != std::string::npos) {
                 info.security_type = "WPA2";
@@ -622,6 +883,8 @@ std::vector<WifiInfo> CWifiManager::scanWifi() {
     return results;
 }
 bool CWifiManager::disconnectWifi() {
+    m_hasConnectedOnce.store(false);
+    m_monitorCondition.notify_all();
     std::cout << "[断开] 正在断开当前 WiFi 连接..." << std::endl;
 
     // 我们需要先知道当前是哪个 network id
@@ -681,7 +944,7 @@ bool CWifiManager::disconnectWifi() {
             std::lock_guard<std::mutex> lock(m_configMutex);
             config.current_ssid = "";
             config.current_psk = "";
-            is_connected = false;
+            is_connected.store(false);
             m_hasLastConfig = false; 
         }
     
@@ -693,6 +956,34 @@ bool CWifiManager::disconnectWifi() {
 
 // --- 辅助函数：生成 wpa_supplicant 配置文件内容 ---
 // 这个函数负责把 C++ 结构体转换成 wpa_supplicant 能读懂的文本格式
+std::string utf8ToHex(const std::string& str)
+{
+    std::stringstream ss;
+
+    for (unsigned char c : str)
+    {
+        ss << std::uppercase
+           << std::hex
+           << std::setw(2)
+           << std::setfill('0')
+           << (int)c;
+    }
+
+    return ss.str();
+}
+
+bool containsNonAscii(const std::string& str)
+{
+    for(unsigned char c : str)
+    {
+        if(c > 127)
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
 std::string generateWpaConfContent(const ::Network::WifiStaConncet_S& config) {
     std::stringstream ss;
     
@@ -703,7 +994,23 @@ std::string generateWpaConfContent(const ::Network::WifiStaConncet_S& config) {
     ss << "network={\n";
     
     // 2. 通用 SSID 设置
-    ss << "\tssid=\"" << config.ssid << "\"\n";
+    // ss << "\tssid=\"" << config.ssid << "\"\n";
+
+    if (containsNonAscii(config.ssid))
+    {
+        std::string hex_ssid = utf8ToHex(config.ssid);
+    
+        dlog_info(
+            "[WiFi] 检测到中文SSID:[%s] -> HEX:[%s]",
+            config.ssid.c_str(),
+            hex_ssid.c_str());
+    
+        ss << "\tssid=" << hex_ssid << "\n";
+    }
+    else
+    {
+        ss << "\tssid=\"" << config.ssid << "\"\n";
+    }
 
     // 3. 根据不同模式生成配置
     switch (config.mode) {
@@ -715,11 +1022,71 @@ std::string generateWpaConfContent(const ::Network::WifiStaConncet_S& config) {
         case ::Network::WifiSecurityMode::WPA_PERSONAL:
             // --- WPA-个人版 ---
             ss << "\tkey_mgmt=WPA-PSK\n";
-            ss << "\tproto=RSN\n"; // 默认使用 RSN (WPA2)
-            ss << "\tpairwise=" << config.pairwise << "\n"; // TKIP 或 CCMP
-            ss << "\tgroup=CCMP\n";
+            // if (config.pairwise.empty()) {
+            //     // 支持 WPA 和 WPA2，组合写法让 wpa_supplicant 尝试多种协议/加密
+            //     ss << "\tproto=WPA RSN\n"; // 支持 WPA (TKIP) 和 RSN (CCMP)
+            //     ss << "\tgroup=TKIP CCMP\n"; // 允许组播/广播同时使用 TKIP 或 CCMP
+            // } else {
+            //     ss << "\tproto=RSN\n"; // 默认使用 RSN (WPA2)
+            //     ss << "\tpairwise=" << config.pairwise << "\n"; // TKIP 或 CCMP
+            //     ss << "\tgroup=CCMP\n";
+            // }
+            if (config.pairwise.empty())
+            {
+                // 自动协商，不限制算法
+            }
+            else if (config.pairwise == "AUTO")
+            {
+                // 自动协商，不限制算法
+            }
+            else if (config.pairwise == "CCMP")
+            {
+                ss << "\tproto=RSN\n";
+                ss << "\tpairwise=CCMP\n";
+                ss << "\tgroup=CCMP\n";
+            }
+            else if (config.pairwise == "TKIP")
+            {
+                ss << "\tproto=WPA\n";
+                ss << "\tpairwise=TKIP\n";
+                ss << "\tgroup=TKIP CCMP\n";
+            }
+            else if (config.pairwise == "TKIP_RSN")
+            {
+                // WPA2 TKIP
+                ss << "\tproto=RSN\n";
+                ss << "\tpairwise=TKIP\n";
+                ss << "\tgroup=TKIP\n";
+            }
             ss << "\tpsk=\"" << config.password << "\"\n";
             break;
+
+        case ::Network::WifiSecurityMode::WPA3_PERSONAL:
+        {
+            ss << "\tkey_mgmt=SAE\n";
+            ss << "\tieee80211w=2\n";
+            ss << "\tproto=RSN\n";
+            if (config.pairwise.empty())
+            {
+            }
+            else if (config.pairwise == "AUTO")
+            {
+                // 自动协商，不限制算法
+            }
+            else if (config.pairwise == "CCMP")
+            {
+                ss << "\tpairwise=CCMP\n";
+                ss << "\tgroup=CCMP\n";
+            }
+            else
+            {
+                dlog_warn("WPA3 不支持 TKIP，忽略 pairwise=%s", config.pairwise.c_str());
+            }
+
+            ss << "\tpsk=\"" << config.password << "\"\n";
+
+            break;
+        }
 
         case ::Network::WifiSecurityMode::WEP:
             // --- WEP 加密 ---
@@ -837,18 +1204,64 @@ std::string generateWpaConfContent(const ::Network::WifiStaConncet_S& config) {
     std::cout << "[连接] 正在配置连接: " << config.ssid 
               << " (模式: " << (int)config.mode << ")" << std::endl;
 
+
+              printf("SSID原始内容:[%s]\n",
+                config.ssid.c_str());
+         
+         printf("SSID HEX:[%s]\n",
+                utf8ToHex(config.ssid).c_str());
+
     ::Network::WifiConnectResult result; // 初始化返回结果
     result.success = false;
+    result.error_code = ::Network::WIFI_CONNECT_UNKNOWN_ERROR;
+
+    bool expectedConnecting = false;
+    if (!m_isConnecting.compare_exchange_strong(expectedConnecting, true)) {
+        result.error_code = ::Network::WIFI_CONNECT_BUSY;
+        return result;
+    }
+
+    struct ConnectingGuard {
+        std::atomic<bool>& connecting;
+        ~ConnectingGuard() {
+            connecting.store(false);
+        }
+    } connectingGuard{m_isConnecting};
+
+    is_connected.store(false);
     printf("DEBUG: 解析到的 SSID 是: [%s]\n", config.ssid.c_str()); 
 
     if (config.ssid.empty()) {
             std::cerr << "[错误] SSID 不能为空" << std::endl;
+            result.error_code = ::Network::WIFI_CONNECT_INVALID_SSID;
             return result;
         }
-    if (config.mode == ::Network::WifiSecurityMode::WPA_PERSONAL && config.password.empty()) {
-            std::cerr << "[错误] WPA-Personal 模式下密码不能为空" << std::endl;
+    if ((config.mode == ::Network::WifiSecurityMode::WPA_PERSONAL ||
+         config.mode == ::Network::WifiSecurityMode::WPA3_PERSONAL) &&
+        config.password.empty()) {
+            std::cerr << "[错误] WPA/WPA3-Personal 模式下密码不能为空" << std::endl;
+            result.error_code = ::Network::WIFI_CONNECT_INVALID_CREDENTIALS;
             return result;
-        }   
+        }
+    if (config.mode == ::Network::WifiSecurityMode::WEP && config.wep_keys.empty()) {
+            std::cerr << "[错误] WEP 模式下密钥不能为空" << std::endl;
+            result.error_code = ::Network::WIFI_CONNECT_INVALID_CREDENTIALS;
+            return result;
+        }
+    if ((config.mode == ::Network::WifiSecurityMode::EAP_PEAP ||
+         config.mode == ::Network::WifiSecurityMode::EAP_TTLS) &&
+        (config.eap_identity.empty() || config.eap_password.empty())) {
+            std::cerr << "[错误] 企业认证模式下用户名和密码不能为空" << std::endl;
+            result.error_code = ::Network::WIFI_CONNECT_INVALID_CREDENTIALS;
+            return result;
+        }
+    if (config.mode == ::Network::WifiSecurityMode::EAP_TLS &&
+        (config.tls_identity.empty() || config.client_cert_path.empty() ||
+         config.private_key_path.empty())) {
+            std::cerr << "[错误] EAP-TLS 模式下身份、用户证书和私钥不能为空" << std::endl;
+            result.error_code = ::Network::WIFI_CONNECT_INVALID_CREDENTIALS;
+            return result;
+        }
     // 1. 生成配置文件内容
     std::string conf_content = generateWpaConfContent(config);
     printf("DEBUG: conf_content 是: [%s]\n", conf_content.c_str()); 
@@ -858,6 +1271,7 @@ std::string generateWpaConfContent(const ::Network::WifiStaConncet_S& config) {
     std::ofstream conf_file(tmp_conf_path);
     if (!conf_file.is_open()) {
         std::cerr << "[错误] 无法创建临时配置文件: " << tmp_conf_path << std::endl;
+        result.error_code = ::Network::WIFI_CONNECT_TEMP_CONFIG_FAILED;
         return result;
     }
     conf_file << conf_content;
@@ -869,32 +1283,82 @@ std::string generateWpaConfContent(const ::Network::WifiStaConncet_S& config) {
     std::string cp_cmd = "cp " + tmp_conf_path + " " + final_conf_path;
     if (system(cp_cmd.c_str()) != 0) {
         std::cerr << "[错误] 无法复制配置文件到: " << final_conf_path << std::endl;
+        result.error_code = ::Network::WIFI_CONNECT_APPLY_CONFIG_FAILED;
         return result;
     }
 
 
-    {
-        std::lock_guard<std::mutex> lock(m_configMutex);
-        this->m_lastConnectConfig = config;
-        this->m_hasLastConfig = true;
-    }
-    if (!saveConfigToFile(config)) {
-        std::cerr << "[警告] 配置已应用，但持久化保存失败 (可能磁盘只读)" << std::endl;
-    }
+    // 清空历史日志，本次只保留当前连接产生的诊断事件。
+    clearSupplicantLog();
+    struct SupplicantLogCleanup {
+        ~SupplicantLogCleanup() {
+            clearSupplicantLog();
+        }
+    } supplicantLogCleanup;
 
-    // 4. 触发重连
+    // 记录本次连接开始前的日志位置，只分析本次连接产生的事件。
+    std::streamoff supplicantLogOffset = getFileSize(WIFI_SUPPLICANT_LOG_PATH);
+
+    // 4. 先断开旧连接，清除上一轮错误密码留下的握手状态。
+    sendCommand("DISCONNECT");
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+    // 重新加载配置文件。
     std::string res = sendCommand("RECONFIGURE");//更新配置
     if (res.find("FAIL") != std::string::npos) {
         std::cerr << "[警告] RECONFIGURE 失败，重启 wpa_supplicant 守护进程..." << std::endl;
         execShell("killall wpa_supplicant");
-        startDaemon(); // 重启
+        if (!startDaemon()) {
+            result.error_code = ::Network::WIFI_CONNECT_SUPPLICANT_START_FAILED;
+            return result;
+        }
+        supplicantLogOffset = getFileSize(WIFI_SUPPLICANT_LOG_PATH);
+        if (system(cp_cmd.c_str()) != 0) {
+            result.error_code = ::Network::WIFI_CONNECT_APPLY_CONFIG_FAILED;
+            return result;
+        }
+        res = sendCommand("RECONFIGURE");
+        if (res.find("FAIL") != std::string::npos) {
+            result.error_code = ::Network::WIFI_CONNECT_RECONFIGURE_FAILED;
+            return result;
+        }
     }
 
-    std::string rets = sendCommand("REASSOCIATE");//连接WiFi
+    // 连续密码错误后网络可能处于 TEMP-DISABLED，显式启用可清除禁用计时。
+    std::string enableResult = sendCommand("ENABLE_NETWORK all");
+    if (enableResult.find("FAIL") != std::string::npos) {
+        result.error_code = ::Network::WIFI_CONNECT_ENABLE_NETWORK_FAILED;
+        return result;
+    }
+
+    std::string rets = sendCommand("RECONNECT");//使用新配置重新连接 WiFi
     if (rets.find("FAIL") != std::string::npos) {
-        std::cerr << "[警告] REASSOCIATE 失败，重启 wpa_supplicant 守护进程..." << std::endl;
+        std::cerr << "[警告] RECONNECT 失败，重启 wpa_supplicant 守护进程..." << std::endl;
         execShell("killall wpa_supplicant");
-        startDaemon(); // 重启
+        if (!startDaemon()) {
+            result.error_code = ::Network::WIFI_CONNECT_SUPPLICANT_START_FAILED;
+            return result;
+        }
+        supplicantLogOffset = getFileSize(WIFI_SUPPLICANT_LOG_PATH);
+        if (system(cp_cmd.c_str()) != 0) {
+            result.error_code = ::Network::WIFI_CONNECT_APPLY_CONFIG_FAILED;
+            return result;
+        }
+        res = sendCommand("RECONFIGURE");
+        if (res.find("FAIL") != std::string::npos) {
+            result.error_code = ::Network::WIFI_CONNECT_RECONFIGURE_FAILED;
+            return result;
+        }
+        enableResult = sendCommand("ENABLE_NETWORK all");
+        if (enableResult.find("FAIL") != std::string::npos) {
+            result.error_code = ::Network::WIFI_CONNECT_ENABLE_NETWORK_FAILED;
+            return result;
+        }
+        rets = sendCommand("RECONNECT");
+        if (rets.find("FAIL") != std::string::npos) {
+            result.error_code = ::Network::WIFI_CONNECT_RECONNECT_FAILED;
+            return result;
+        }
     }
 
  
@@ -904,29 +1368,51 @@ std::string generateWpaConfContent(const ::Network::WifiStaConncet_S& config) {
     
     // 这样调用者能立刻知道连接是否成功
     auto start_time = std::chrono::steady_clock::now();
-    const std::chrono::seconds timeout(60);
+    const std::chrono::seconds timeout(30);
+    bool sawScanning = false;
+    bool sawAssociating = false;
+    bool sawFourWayHandshake = false;
     
     while (true) {
         auto now = std::chrono::steady_clock::now();
         if (now - start_time > timeout) {
             std::cout << "[连接] 超时！连接 " << config.ssid << " 失败。" << std::endl;
-            result.error_code=1;
+            const std::string supplicantLog =
+                readFileFromOffset(WIFI_SUPPLICANT_LOG_PATH, supplicantLogOffset);
+            const int detectedError = detectSupplicantError(supplicantLog, config.mode);
+
+            if (detectedError != ::Network::WIFI_CONNECT_UNKNOWN_ERROR) {
+                result.error_code = detectedError;
+            } else if (sawFourWayHandshake &&
+                       (config.mode == ::Network::WifiSecurityMode::WPA_PERSONAL ||
+                        config.mode == ::Network::WifiSecurityMode::WPA3_PERSONAL)) {
+                result.error_code = ::Network::WIFI_CONNECT_WRONG_PASSWORD;
+            } else if (sawScanning && !sawAssociating) {
+                result.error_code = ::Network::WIFI_CONNECT_NETWORK_NOT_FOUND;
+            } else {
+                result.error_code = ::Network::WIFI_CONNECT_TIMEOUT;
+            }
 // 如果连接失败，删除可能产生的默认网关，防止劫持有线网络
-            std::string clear_route_cmd = "route del default gw 0.0.0.0 dev " + config.interface_name + " 2>/dev/null || true";
-            system(clear_route_cmd.c_str());
+            // std::string clear_route_cmd = "route del default gw 0.0.0.0 dev " + config.interface_name + " 2>/dev/null || true";
+            // system(clear_route_cmd.c_str());
+            sendCommand("DISCONNECT");
             return result;
         }
 
         std::string status = sendCommand("STATUS");
         if (status.find("wpa_state=COMPLETED") != std::string::npos) {
             // 检查是否是当前 SSID
-            if (status.find("ssid=" + config.ssid) != std::string::npos) {
+            // if (status.find("ssid=" + config.ssid) != std::string::npos) 
+                {
                 std::cout << "[成功] 已连接到 WiFi: " << config.ssid << std::endl;
                 reconnect_attempts = 0;
-                is_connected = true;
+                is_connected.store(true);
+                m_hasConnectedOnce.store(true);
+                m_monitorCondition.notify_all();
                 this->config.current_ssid = config.ssid;
 
-                system(("udhcpc -i " + config.interface_name + " -n -q 5").c_str()); 
+                // system(("udhcpc -i " + config.interface_name + " -n -q 5").c_str());
+                system(("udhcpc -i " + config.interface_name + " -n -q").c_str());
                 std::this_thread::sleep_for(std::chrono::milliseconds(100)); 
 
                 std::string ip_info = sendCommand("STATUS");
@@ -945,11 +1431,22 @@ std::string generateWpaConfContent(const ::Network::WifiStaConncet_S& config) {
                 } else {
                     std::cout << "[警告] 连接成功但未获取到 IP 地址。" << std::endl;
                 }
+
+                {
+                    std::lock_guard<std::mutex> lock(m_configMutex);
+                    this->m_lastConnectConfig = config;
+                    this->m_hasLastConfig = true;
+                }
+
+                if (!saveConfigToFile(config)) {
+                    std::cerr << "[警告] 配置已应用，但持久化保存失败 (可能磁盘只读)" << std::endl;
+                }
+            
                 std::this_thread::sleep_for(std::chrono::milliseconds(100));
                 lockCurrentIp(); 
 
                 result.success = true;
-                result.error_code = 0;
+                result.error_code = ::Network::WIFI_CONNECT_SUCCESS;
                 
 
                 int eth0_has_default_route = system("ip route | grep default | grep eth0 > /dev/null 2>&1");
@@ -961,16 +1458,44 @@ std::string generateWpaConfContent(const ::Network::WifiStaConncet_S& config) {
                     // 确保删除 WiFi 的默认网关，防止双网关冲突
                     system("route del default dev wlan0 2>/dev/null || true");
                 } else {
-                    // 情况 B: 有线网络未连接，WiFi 接管互联网
-                    std::cout << "[路由] 未检测到有线网络，WiFi 接管默认网关。" << std::endl;
+                //     // 情况 B: 有线网络未连接，WiFi 接管互联网
+                //     std::cout << "[路由] 未检测到有线网络，WiFi 接管默认网关。" << std::endl;
                     
-                    // 添加 WiFi 默认网关
-                    system("route add default dev wlan0");
+                //     // 添加 WiFi 默认网关
+                //     system("route add default dev wlan0");
                 }
                 return result;
             }
         }
-        
+        if(status.find("wpa_state=DISCONNECTED")!=std::string::npos)
+        {
+            std::cout<<"断开"<<std::endl;
+        }
+        if(status.find("wpa_state=SCANNING")!=std::string::npos)
+        {
+            sawScanning = true;
+        }
+        if(status.find("wpa_state=ASSOCIATING")!=std::string::npos)
+        {
+            sawAssociating = true;
+        }
+        if(status.find("wpa_state=4WAY_HANDSHAKE")!=std::string::npos)
+        {
+            sawFourWayHandshake = true;
+        }
+        if(status.find("wpa_state=GROUP_HANDSHAKE")!=std::string::npos)
+        {
+        }
+
+        const std::string supplicantLog =
+            readFileFromOffset(WIFI_SUPPLICANT_LOG_PATH, supplicantLogOffset);
+        const int detectedError = detectSupplicantError(supplicantLog, config.mode);
+        if (detectedError != ::Network::WIFI_CONNECT_UNKNOWN_ERROR) {
+            std::cerr << "[连接] wpa_supplicant 返回错误码: " << detectedError << std::endl;
+            result.error_code = detectedError;
+            sendCommand("DISCONNECT");
+            return result;
+        }
         std::this_thread::sleep_for(std::chrono::milliseconds(500));
     }
 }
@@ -1017,6 +1542,38 @@ void set_wifi_config(Network::WifiStaInfo_S stWifiConfigInfo)
     
 }
 
+void get_wifi_config(Network::WifiStaInfo_S &outWifiConfigInfo) {
+    std::cout << "读取WiFi配置信息。" << std::endl;
+    Convert::read_file(WIFI_CONFIG_FILE, outWifiConfigInfo);
+}
+
+static std::string getGatewayByInterface(const std::string &iface)
+{
+    char buf[128] = { 0 };
+
+    std::string cmd = "ip route | grep default | grep " + iface + " | awk '{print $3}'";
+
+    FILE *fp = popen(cmd.c_str(), "r");
+    if (!fp)
+    {
+        return "";
+    }
+
+    if (fgets(buf, sizeof(buf), fp))
+    {
+        std::string gateway(buf);
+
+        gateway.erase(std::remove(gateway.begin(), gateway.end(), '\n'), gateway.end());
+
+        pclose(fp);
+        return gateway;
+    }
+
+    pclose(fp);
+
+    return "";
+}
+
 // --- 新增函数：强制锁定当前 IP 并持久化 ---
 void CWifiManager::lockCurrentIp() {
     // 1. 获取当前 wpa_cli 状态
@@ -1037,31 +1594,42 @@ void CWifiManager::lockCurrentIp() {
     }
 
     // 3. 提取网关 (Gateway)
-    std::string gateway = "192.168.1.1"; // 默认回退值
-    size_t gw_pos = status.find("dhcp_router=");
-    if (gw_pos != std::string::npos) {
-        size_t gw_end = status.find("\n", gw_pos);
-        gateway = status.substr(gw_pos + 12, gw_end - gw_pos - 12);
-        gateway.erase(std::remove(gateway.begin(), gateway.end(), '"'), gateway.end());
-        gateway.erase(std::remove(gateway.begin(), gateway.end(), ' '), gateway.end());
+    // std::string gateway = "192.168.1.1"; // 默认回退值
+    // size_t gw_pos = status.find("dhcp_router=");
+    // if (gw_pos != std::string::npos) {
+    //     size_t gw_end = status.find("\n", gw_pos);
+    //     gateway = status.substr(gw_pos + 12, gw_end - gw_pos - 12);
+    //     gateway.erase(std::remove(gateway.begin(), gateway.end(), '"'), gateway.end());
+    //     gateway.erase(std::remove(gateway.begin(), gateway.end(), ' '), gateway.end());
+    // }
+    std::string gateway = getGatewayByInterface(config.interface_name);
+    if (!gateway.empty())
+    {
+        m_wifiGateway = gateway;
+
+        std::cout << "[IP锁定] 缓存WiFi网关:" << m_wifiGateway << std::endl;
     }
 
     std::cout << "[IP锁定] 检测到当前 IP: " << current_ip << " 网关: " << gateway << std::endl;
 
     // 4. 强制执行 ifconfig 覆盖 (核心：防止本次运行期间 IP 变动)
-    std::string cmd_ifconfig = "ifconfig " + config.interface_name + " " + current_ip + " netmask 255.255.255.0";
-    system(cmd_ifconfig.c_str());
+    // std::string cmd_ifconfig = "ifconfig " + config.interface_name + " " + current_ip + " netmask 255.255.255.0";
+    // system(cmd_ifconfig.c_str());
 
 
-    int eth0_link_up = system("cat /sys/class/net/eth0/carrier 2>/dev/null | grep 1 > /dev/null 2>&1");
-    if (eth0_link_up != 0) {
-        std::string cmd_route = "route add default gw " + gateway + " " + config.interface_name;
-        system(cmd_route.c_str());
-        std::cout << "[IP锁定]  网线没插配置wlan网关 "  << std::endl;
-    }
+    // int eth0_link_up = system("cat /sys/class/net/eth0/carrier 2>/dev/null | grep 1 > /dev/null 2>&1");
+    // if (eth0_link_up != 0) {
+    //     // std::string cmd_route = "route add default gw " + gateway + " " + config.interface_name;
+    //     // system(cmd_route.c_str());
+    //     system("route del default 2>/dev/null");
+    //     std::string cmd_route = "ip route replace default via " + gateway + " dev " + config.interface_name;
+    //     system(cmd_route.c_str());
+    //     system("ip route flush cache");
+    //     std::cout << "[IP锁定]  网线没插配置wlan网关 "  << std::endl;
+    // }
     
        
-    std::cout << "[IP锁定] 已强制应用静态配置: " << cmd_ifconfig << std::endl;
+    // std::cout << "[IP锁定] 已强制应用静态配置: " << cmd_ifconfig << std::endl;
 
     // 5. 持久化：如果 IP 发生了变化，更新配置文件
     // 加载旧配置进行对比
@@ -1101,26 +1669,215 @@ void CWifiManager::lockCurrentIp() {
 }
 
 // --- 检测 WiFi 连接且有线断开 ---
-bool CWifiManager::isWifiConnectedAndWiredDisconnected() {
-
-    std::string status = sendCommand("STATUS");
-    
-    bool isWifiConnected = (status.find("wpa_state=COMPLETED") != std::string::npos);
-    
-    int eth0_link_up = system("cat /sys/class/net/eth0/carrier 2>/dev/null | grep 1 > /dev/null 2>&1");
-    bool isWiredDisconnected = (eth0_link_up != 0); 
-    std::cout << "[检测] WiFi和线网络。" << std::endl;
-    if (isWifiConnected && isWiredDisconnected) {
-        std::cout << "[检测] WiFi已连接，且有线网络已断开。" << std::endl;
+bool CWifiManager::isWifiConnectedAndWiredDisconnected(bool bWiredDisconnected)
+{
+    if (m_lastWiredDisconnected == bWiredDisconnected)
+    {
         return true;
-    } else {
-        if (!isWifiConnected) {
-            std::cout << "[检测] WiFi未连接 (状态: " << (status.empty() ? "空" : status.substr(0, 20)) << "...)" << std::endl;
+    }
+
+    if (bWiredDisconnected)
+    {
+        std::cout << "[路由] 检测到网线断开" << std::endl;
+
+        if (!is_connected.load())
+        {
+            std::cout << "[路由] WiFi未连接" << std::endl;
+
+            return false;
         }
-        if (!isWiredDisconnected) {
-            std::cout << "[检测] 有线网络仍连接。" << std::endl;
+
+        if (!switchToWifi())
+        {
+            /* 保留旧状态，下一轮 5 秒检测会继续尝试切换。 */
+            return false;
         }
+
+        m_lastWiredDisconnected = true;
+        return true;
+    }
+    else
+    {
+        std::cout << "[路由] 检测到网线恢复" << std::endl;
+
+        if (!switchToEth())
+        {
+            /* 保留旧状态，避免有线恢复但路由未恢复后停止重试。 */
+            return false;
+        }
+
+        m_lastWiredDisconnected = false;
+        return true;
+    }
+}
+
+std::string CWifiManager::getEthGateway()
+{
+    Network::Info_S stNetInfo;
+
+    if (CNetworkManage::instance()->get_system_networkInfo(stNetInfo) != 0)
+    {
+        dlog_error("[路由] 获取系统网络配置失败");
+
+        return "";
+    }
+
+    std::string gateway = stNetInfo.stIp.ipv4Gateway;
+
+    dlog_info("[路由] eth0 gateway:[%s]",
+              gateway.c_str());
+
+    return gateway;
+}
+
+bool CWifiManager::remove_eth_direct_routes()
+{
+    /* 默认路由添加失败时会重试切换，不能覆盖首次移除前保存的路由快照。 */
+    if (m_ethDirectRoutesRemoved)
+    {
+        return true;
+    }
+
+    m_ethDirectRoutes.clear();
+
+    /*
+     * eth0 即使 NO-CARRIER，内核仍会保留由 IPv4 地址自动生成的 scope link
+     * 路由。例如 172.16.25.0/24 dev eth0 会优先于 wlan0 默认路由，导致访问
+     * 同网段平台时仍从已断开的网线发包。
+     */
+    FILE* pipe = popen("ip -4 route show dev eth0 scope link", "r");
+    if (pipe == nullptr)
+    {
+        dlog_error("[路由] 获取 eth0 直连路由失败");
         return false;
     }
+
+    char line[256] = {0};
+    while (fgets(line, sizeof(line), pipe) != nullptr)
+    {
+        std::istringstream lineStream(line);
+        std::string routePrefix;
+        lineStream >> routePrefix;
+
+        if (isIpv4RoutePrefix(routePrefix))
+        {
+            m_ethDirectRoutes.push_back(routePrefix);
+        }
+    }
+
+    const int pipeStatus = pclose(pipe);
+    if (pipeStatus == -1 || !WIFEXITED(pipeStatus) || WEXITSTATUS(pipeStatus) != 0)
+    {
+        dlog_error("[路由] 读取 eth0 直连路由命令结束失败");
+        return false;
+    }
+
+    for (const std::string& routePrefix : m_ethDirectRoutes)
+    {
+        const std::string command = "ip -4 route del " + routePrefix + " dev eth0";
+        if (!executeRouteCommand(command))
+        {
+            return false;
+        }
+        dlog_info("[路由] 已移除失效 eth0 直连路由: %s", routePrefix.c_str());
+    }
+
+    m_ethDirectRoutesRemoved = true;
+    return true;
+}
+
+bool CWifiManager::restore_eth_direct_routes()
+{
+    for (const std::string& routePrefix : m_ethDirectRoutes)
+    {
+        const std::string command = "ip -4 route replace " + routePrefix +
+                                    " dev eth0 scope link";
+        if (!executeRouteCommand(command))
+        {
+            return false;
+        }
+        dlog_info("[路由] 已恢复 eth0 直连路由: %s", routePrefix.c_str());
+    }
+
+    m_ethDirectRoutes.clear();
+    m_ethDirectRoutesRemoved = false;
+    return true;
+}
+
+bool CWifiManager::switchToWifi()
+{
+    if (m_wifiGateway.empty())
+    {
+        std::cout << "[路由] WiFi网关为空" << std::endl;
+
+        return false;
+    }
+
+    if (!remove_eth_direct_routes())
+    {
+        return false;
+    }
+
+    /* 删除失效有线默认路由；无默认路由时返回非零属于正常情况。 */
+    system("ip route del default dev eth0 2>/dev/null");
+    system("ip route del default dev wlan0 2>/dev/null");
+
+    std::string cmd = "ip route add default via " + m_wifiGateway + " dev wlan0";
+
+    if (!executeRouteCommand(cmd))
+    {
+        return false;
+    }
+
+    system("ip route flush cache");
+
+    dlog_info("[路由] 已切换到 WiFi，gateway=%s", m_wifiGateway.c_str());
+
+    /* 平台失败后由 PlatformManager 的 30 秒后台重试接管，避免阻塞路由检测线程。 */
+    if (CPlatformManager::instance()->change_net_relogin() != OK)
+    {
+        dlog_warn("[路由] WiFi 已切换，平台立即重登失败，等待后台重试");
+    }
+    return true;
+}
+bool CWifiManager::switchToEth()
+{
+    std::string ethGateway = getEthGateway();
+
+    if (ethGateway.empty())
+    {
+        dlog_error("[路由] eth0 gateway为空");
+
+        return false;
+    }
+
+    if (!restore_eth_direct_routes())
+    {
+        return false;
+    }
+
+    system("ip route del default dev wlan0 2>/dev/null");
+    system("ip route del default dev eth0 2>/dev/null");
+
+    std::string cmd =
+        "ip route add default via " +
+        ethGateway +
+        " dev eth0";
+
+    dlog_info("[路由] %s", cmd.c_str());
+
+    if (!executeRouteCommand(cmd))
+    {
+        return false;
+    }
+
+    system("ip route flush cache");
+    dlog_info("[路由] 已切换到 eth0，gateway=%s", ethGateway.c_str());
+
+    if (CPlatformManager::instance()->change_net_relogin() != OK)
+    {
+        dlog_warn("[路由] eth0 已切换，平台立即重登失败，等待后台重试");
+    }
+    return true;
 }
 #endif

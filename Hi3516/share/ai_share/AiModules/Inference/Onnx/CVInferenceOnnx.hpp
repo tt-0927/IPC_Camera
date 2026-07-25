@@ -46,6 +46,16 @@ namespace Inference_NS
         bool getSizeLimit(int nIndex, int &nWidth, int &nHeight, int &nChannel);
 
         /**
+         * @brief 获取配置文件的均值和方差
+         * @param [std::vector<int>] vMean: 均值
+         * @param [std::vector<int>&] vStd: 方差
+         * @return [*]
+         * @note
+         */
+        bool getMeanStd(std::vector<float>& vMean, std::vector<float>& vStd);
+
+
+        /**
          * @brief 推理的使用前判断
          * @param [int] nImgSize: 传入的图片数据
          * @return [*]
@@ -97,8 +107,8 @@ namespace Inference_NS
         int m_nChannel;             /* 模型输入的通道数 */
         std::string strType;        /* 模型需要输入的数据类型 ["rgb", "bgr", ...]等 */
         std::vector<int> m_vModelInputSize; /* 模型的输入形状 */
-        std::vector<int> m_vMean;   /* 图片归一化的均值 */
-        std::vector<int> m_vStd;    /* 图片归一化的方差 */ 
+        std::vector<float> m_vMean;   /* 图片归一化的均值 */
+        std::vector<float> m_vStd;    /* 图片归一化的方差 */ 
         int m_nPadding = 0;         /* 图片缩放是否填充， 0表示不跳充，1表示填充 */
 
         /* 模型推理的相关信息 */

@@ -148,7 +148,7 @@ bool FaceAttribute_NS::CFaceAttributeV1_0::process(
     Inference_NS::InputData_S stInputData;
     std::vector<Inference_NS::ClsData_S> vClsDatas;
     stInputData.pData = (float*)stInData.inMat.data;
-    stInputData.nDataSize = static_cast<size_t>(stInData.inMat.total() * stInData.inMat.elemSize());
+    stInputData.nDataSize = static_cast<size_t>(stInData.inMat.total() * stInData.inMat.elemSize() * sizeof(float));
 
     bRet = m_pFaceAttribute->inference(stInputData, vClsDatas);
 

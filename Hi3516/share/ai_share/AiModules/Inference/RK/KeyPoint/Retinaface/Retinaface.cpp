@@ -172,7 +172,7 @@ bool Inference_NS::CRetinaface::checkModelProConfig()
     Json::Object *pJsonDataItem = NULL;
     Json::Object *pJsonDataItemObject = NULL;
     Json::Object *pItemObject = NULL;
-    bool bRet = false;
+    bool bRet = true;
     int nSize, nSizeO;
     int nStep ,nMinSizes;
     std::vector<int> vMinSizes;
@@ -183,6 +183,7 @@ bool Inference_NS::CRetinaface::checkModelProConfig()
     if (!pJsonData)
     {
         printf("解析[data]字段失败\n");
+        bRet = false;
         goto EXIT;
     }
     /* 1、置信度 */
@@ -204,12 +205,14 @@ bool Inference_NS::CRetinaface::checkModelProConfig()
     if (!pJsonDataItem)
     {
         printf("解析[steps]字段失败\n");
+        bRet = false;
         goto EXIT;
     }
     nSize = Json::Array::size(pJsonDataItem);
     if (nSize <= 0)
     {
         printf("解析[steps 数组大小异常]\n");
+        bRet = false;
         goto EXIT;
     }
     for (int i = 0; i < nSize; i++)
@@ -219,6 +222,7 @@ bool Inference_NS::CRetinaface::checkModelProConfig()
         if (NULL == pItemObject)
         {
             printf("获取数组节点失败\n");
+            bRet = false;
             goto EXIT;
         }
         bRet = Json::Value::get(pItemObject, nStep);
@@ -234,12 +238,14 @@ bool Inference_NS::CRetinaface::checkModelProConfig()
     if (!pJsonDataItem)
     {
         printf("解析[min_sizes]字段失败\n");
+        bRet = false;
         goto EXIT;
     }
     nSize = Json::Array::size(pJsonDataItem);
     if (nSize <= 0)
     {
         printf("解析[steps 数组大小异常]\n");
+        bRet = false;
         goto EXIT;
     }
     for (int i = 0; i < nSize; i++)
@@ -249,12 +255,14 @@ bool Inference_NS::CRetinaface::checkModelProConfig()
         if (NULL == pJsonDataItemObject)
         {
             printf("pJsonDataItemObject 获取数组节点失败\n");
+            bRet = false;
             goto EXIT;
         }
         nSizeO = Json::Array::size(pJsonDataItemObject);
         if (nSizeO <= 0)
         {
             printf("解析[steps 数组大小异常]\n");
+            bRet = false;
             goto EXIT;
         }
         vMinSizes.clear();
@@ -265,6 +273,7 @@ bool Inference_NS::CRetinaface::checkModelProConfig()
             if (NULL == pItemObject)
             {
                 printf("pItemObject 获取数组节点失败\n");
+                bRet = false;
                 goto EXIT;
             }
             bRet = Json::Value::get(pItemObject, nStep);
@@ -277,7 +286,6 @@ bool Inference_NS::CRetinaface::checkModelProConfig()
         }
         m_vMinSizes.push_back(vMinSizes);
     }
-    return true;
 
 EXIT:
     if (pJsonHandle)
@@ -285,5 +293,5 @@ EXIT:
         Json::deinit(pJsonHandle);
         pJsonHandle = NULL;
     }
-    return false;
+    return bRet;
 }

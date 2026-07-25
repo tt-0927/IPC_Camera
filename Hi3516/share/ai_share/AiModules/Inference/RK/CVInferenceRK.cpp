@@ -124,7 +124,7 @@ bool Inference_NS::CCVInferenceRK::checkModelConfig()
 
     Json::Object *pJsonHandle = NULL;
     pJsonHandle = Json::init(pchJson);
-    bool bRet;
+    bool bRet = true;
 
     /* 获取模型地址 */
     bRet = Json::get(pJsonHandle, "model_path", m_strModelPath);
@@ -137,21 +137,23 @@ bool Inference_NS::CCVInferenceRK::checkModelConfig()
     if (!checkModelPreConfig())
     {
         printf("json配置文件[%s], 预处理部分解析异常\n", m_strConfigPath.c_str());
+        bRet = false;
         goto EXIT;
     }
 
     if (!checkModelInferConfig())
     {
         printf("json配置文件[%s], 推理部分解析异常\n", m_strConfigPath.c_str());
+        bRet = false;
         goto EXIT;
     }
 
     if (!checkModelProConfig())
     {
         printf("json配置文件[%s], 后处理部分解析异常\n", m_strConfigPath.c_str());
+        bRet = false;
         goto EXIT;
     }
-    return true;
 
 EXIT:
     if (pJsonHandle)
@@ -159,7 +161,7 @@ EXIT:
         Json::deinit(pJsonHandle);
         pJsonHandle = NULL;
     }
-    return false;
+    return bRet;
 }
 
 /* 校验模型配置文件中的预处理信息 */
@@ -187,7 +189,7 @@ bool Inference_NS::CCVInferenceRK::checkModelPreConfig()
     Json::Object *pJsonData = NULL;
     Json::Object *pJsonDataItem = NULL;
     Json::Object *pItemObject = NULL;
-    bool bRet = false;
+    bool bRet = true;
     int nSize = 0;
     int i;
     int nSizeItem, nMean, nStd;
@@ -198,6 +200,7 @@ bool Inference_NS::CCVInferenceRK::checkModelPreConfig()
     if (!pJsonData)
     {
         printf("解析[data]字段失败\n");
+        bRet = false;
         goto EXIT;
     }
 
@@ -206,12 +209,14 @@ bool Inference_NS::CCVInferenceRK::checkModelPreConfig()
     if (!pJsonDataItem)
     {
         printf("解析[pJsonData]字段失败\n");
+        bRet = false;
         goto EXIT;
     }
     nSize = Json::Array::size(pJsonDataItem);
     if (nSize <= 0)
     {
         printf("解析[数组大小异常]\n");
+        bRet = false;
         goto EXIT;
     }
     m_vModelInputSize.clear();
@@ -222,6 +227,7 @@ bool Inference_NS::CCVInferenceRK::checkModelPreConfig()
         if (NULL == pItemObject)
         {
             printf("获取数组节点失败\n");
+            bRet = false;
             goto EXIT;
         }
 
@@ -252,12 +258,14 @@ bool Inference_NS::CCVInferenceRK::checkModelPreConfig()
     if (!pJsonDataItem)
     {
         printf("解析[pJsonData]字段失败\n");
+        bRet = false;
         goto EXIT;
     }
     nSize = Json::Array::size(pJsonDataItem);
     if (nSize <= 0)
     {
         printf("解析[数组大小异常]\n");
+        bRet = false;
         goto EXIT;
     }
     for (int i = 0; i < nSize; i++)
@@ -267,6 +275,7 @@ bool Inference_NS::CCVInferenceRK::checkModelPreConfig()
         if (NULL == pItemObject)
         {
             printf("获取数组节点失败\n");
+            bRet = false;
             goto EXIT;
         }
 
@@ -274,6 +283,7 @@ bool Inference_NS::CCVInferenceRK::checkModelPreConfig()
         if (!bRet)
         {
             printf("解析[mean]字段失败\n");
+            bRet = false;
             goto EXIT;
         }
         m_vMean.push_back(nMean);
@@ -283,12 +293,14 @@ bool Inference_NS::CCVInferenceRK::checkModelPreConfig()
     if (!pJsonDataItem)
     {
         printf("解析[pJsonData]字段失败\n");
+        bRet = false;
         goto EXIT;
     }
     nSize = Json::Array::size(pJsonDataItem);
     if (nSize <= 0)
     {
         printf("解析[数组大小异常]\n");
+        bRet = false;
         goto EXIT;
     }
     for (int i = 0; i < nSize; i++)
@@ -298,6 +310,7 @@ bool Inference_NS::CCVInferenceRK::checkModelPreConfig()
         if (NULL == pItemObject)
         {
             printf("获取数组节点失败\n");
+            bRet = false;
             goto EXIT;
         }
 
@@ -316,7 +329,6 @@ bool Inference_NS::CCVInferenceRK::checkModelPreConfig()
         printf("解析padding字段失败\n");
         goto EXIT;
     }
-    return true;
 
 EXIT:
     if (pJsonHandle)
@@ -324,7 +336,7 @@ EXIT:
         Json::deinit(pJsonHandle);
         pJsonHandle = NULL;
     }
-    return false;
+    return bRet;
 }
 
 /* 校验模型配置文件中的模型推理信息 */
@@ -350,7 +362,7 @@ bool Inference_NS::CCVInferenceRK::checkModelInferConfig()
 
     Json::Object *pJsonHandle = NULL;
     Json::Object *pJsonData = NULL;
-    bool bRet = false;
+    bool bRet = true;
 
     pJsonHandle = Json::init(pchJson);
 
@@ -358,6 +370,7 @@ bool Inference_NS::CCVInferenceRK::checkModelInferConfig()
     if (!pJsonData)
     {
         printf("解析[data]字段失败\n");
+        bRet = false;
         goto EXIT;
     }
 
@@ -368,14 +381,14 @@ bool Inference_NS::CCVInferenceRK::checkModelInferConfig()
         printf("解析framework字段失败\n");
         goto EXIT;
     }
-    return true;
+
 EXIT:
     if (pJsonHandle)
     {
         Json::deinit(pJsonHandle);
         pJsonHandle = NULL;
     }
-    return false;
+    return bRet;
 }
 
 /* 校验模型配置文件中的后处理信息 */
@@ -474,17 +487,17 @@ bool Inference_NS::CCVInferenceRK::initParams()
             std::back_inserter(strLowerStr),
             [](unsigned char c)
             { return std::tolower(c); });
-        m_bNeedInt8 = (strLowerStr.find("rv1106") != std::string::npos) || (strLowerStr.find("rv1103") != std::string::npos || (strLowerStr.find("rv1126b") != std::string::npos));
-        if(m_bNeedInt8)
+        bool bNeedInt8 = (strLowerStr.find("rv1106") != std::string::npos) || (strLowerStr.find("rv1103") != std::string::npos);
+        if(bNeedInt8)
         {
             printf("=======================================================\n");
-            printf("** 开启 {rv1103/rv1106/rv1126b} 芯片推理 **\n");
+            printf("** 开启 {rv1103/rv1106} 芯片推理 **\n");
             printf("=======================================================\n");
         }
         /* 初始化每个 rknn_output 实例 */
         for (int i = 0; i < m_vOutputAttrs.size(); ++i)
         {
-            if (m_bNeedInt8)
+            if (bNeedInt8)
             {
                 /* 申请输入数据内存 */
                 m_pOutputs[i] = rknn_create_mem(m_pModel->m_hCtx, m_vOutputAttrs[i].n_elems);
@@ -551,15 +564,9 @@ bool Inference_NS::CCVInferenceRK::inferenceInfe(int nImgSize, int nInputIndex)
     int nDstSize = 1;
     for (int nIndex = 0; nIndex < m_vInputAttrs[nInputIndex].n_dims; nIndex++)
     {
-        // printf("第[%d] m_vInputAttrs[nInputIndex].dims[nIndex] = %d  ---  nDstSize = %d \n",
-        // nIndex,m_vInputAttrs[nInputIndex].dims[nIndex],nDstSize);
         nDstSize *= m_vInputAttrs[nInputIndex].dims[nIndex];
     }
-
-    if(!m_bNeedInt8)
-    {
-        nDstSize *= sizeof(float);
-    }
+    nDstSize *= sizeof(float);
 
     if (nImgSize != nDstSize)
     {

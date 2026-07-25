@@ -1,5 +1,5 @@
 #include "MediaPs.h"
-#include "ModuleLog.h"
+#include "dlog.h"
 #include "SipUtils.h"
 #include <ctime>
 #include <map>
@@ -35,7 +35,7 @@ bool SIP::PS::parse(
     std::map<uint32_t, PSMStreamInfo> mapStreamInfo; /* 媒体流信息 */
 
 #if MEDIA_PS_DEBUG
-    MLOG_DEBUG("PS解析数据大小[%llu]", nTotal);
+    dlog_debug("PS解析数据大小[%llu]", nTotal);
 #endif
     while (1)
     {
@@ -46,7 +46,7 @@ bool SIP::PS::parse(
         /* 根据前三位判断是否为PS数据 */
         if (input[nOffset + 0] != 0x00 && input[nOffset + 1] != 0x00 && input[nOffset + 2] != 0x01)
         {
-            MLOG_WARN("不是PS数据 Offset[%llu] [%02x][%02x][%02x][%02x][%02x][%02x]",
+            dlog_warn("不是PS数据 Offset[%llu] [%02x][%02x][%02x][%02x][%02x][%02x]",
                       nOffset,
                       input[nOffset + 0], input[nOffset + 1],
                       input[nOffset + 2], input[nOffset + 3],
@@ -57,11 +57,11 @@ bool SIP::PS::parse(
         auto enHeader = checkHeaderType(input[nOffset + 3]);
         if (enHeader == Header_E::NONE)
         {
-            MLOG_WARN("无法解析的PS数据头[0x%02x]", input[nOffset + 3]);
+            dlog_warn("无法解析的PS数据头[0x%02x]", input[nOffset + 3]);
             return false;
         }
 #if MEDIA_PS_DEBUG
-        MLOG_DEBUG("PS数据头类型[0x%02x] Offset[%llu] Total[%llu]", input[nOffset + 3], nOffset, nTotal);
+        dlog_debug("PS数据头类型[0x%02x] Offset[%llu] Total[%llu]", input[nOffset + 3], nOffset, nTotal);
 #endif
         if (enHeader == Header_E::PS)
         {
@@ -85,14 +85,14 @@ bool SIP::PS::parse(
             header.stuffing_length = input[nOffset + 13] & 0x07;
             nOffset += 14 + header.stuffing_length;
 #if MEDIA_PS_DEBUG
-            MLOG_DEBUG("PS数据头,SCR[%lld],MuxRate[%lld],StufLen[%d],Offset[%d]",
+            dlog_debug("PS数据头,SCR[%lld],MuxRate[%lld],StufLen[%d],Offset[%d]",
                        header.scr_base1 << 30 | header.scr_base2 << 15 | header.scr_base3,
                        header.mux_rate,
                        header.stuffing_length,
                        nOffset);
             for (int i = 0; i < header.stuffing_length; i++)
             {
-                MLOG_DEBUG("PS数据头,Stuf[%d][0x%02x]", input[nOffset + 14 + i]);
+                dlog_debug("PS数据头,Stuf[%d][0x%02x]", input[nOffset + 14 + i]);
             }
 #endif
             continue;
@@ -132,7 +132,7 @@ bool SIP::PS::parse(
             /* NOTE 需要额外计算start_code的字节数 */
             nOffset += header.header_length + 4 + 2;
 #if MEDIA_PS_DEBUG
-            MLOG_DEBUG("SystemHeader数据头,header_length[%d],Rate[%d],AudioBound[%d],VideoBound[%d],Offset[%d]",
+            dlog_debug("SystemHeader数据头,header_length[%d],Rate[%d],AudioBound[%d],VideoBound[%d],Offset[%d]",
                        header.header_length,
                        header.rate_bound,
                        header.audio_bound,
@@ -180,7 +180,7 @@ bool SIP::PS::parse(
                 }
                 mapStreamInfo[stStreamInfo.stream_id] = stStreamInfo;
 #if MEDIA_PS_DEBUG
-                MLOG_DEBUG("PSMStreamInfo:Type[%02x],Id[%02x],InfoLen[%d]",
+                dlog_debug("PSMStreamInfo:Type[%02x],Id[%02x],InfoLen[%d]",
                            stStreamInfo.stream_type,
                            stStreamInfo.stream_id,
                            stStreamInfo.stream_info_len);
@@ -195,14 +195,14 @@ bool SIP::PS::parse(
                 header.crc_32 |= (input[nOffset + nCrcStart + 3] << 8);
                 header.crc_32 |= input[nOffset + nCrcStart + 4];
 #if MEDIA_PS_DEBUG
-                MLOG_DEBUG("PSM Header CRC_32[%08x]", header.crc_32);
+                dlog_debug("PSM Header CRC_32[%08x]", header.crc_32);
 #endif
             }
             int nPsmTotal = header.psm_length + 4 + 2;
             nOffset += nPsmTotal;
 
 #if MEDIA_PS_DEBUG
-            MLOG_DEBUG("PSM数据头,Total[%d],PsmLength[%d],CurrNextIndicator[%d],PsmVersion[%d],PsInfoLength[%d],ElementStreamMapLength[%d],Offset[%d]",
+            dlog_debug("PSM数据头,Total[%d],PsmLength[%d],CurrNextIndicator[%d],PsmVersion[%d],PsInfoLength[%d],ElementStreamMapLength[%d],Offset[%d]",
                        nPsmTotal,
                        header.psm_length,
                        header.curr_next_indicator,
@@ -221,7 +221,7 @@ bool SIP::PS::parse(
             uint64_t nOtherTotal = nOtherSize + 4 + 2;
             nOffset += nOtherTotal;
 #if MEDIA_PS_DEBUG
-            MLOG_DEBUG("其他数据头,OtherSize[%llu],OtherTotal[%llu],Offset[%llu]",
+            dlog_debug("其他数据头,OtherSize[%llu],OtherTotal[%llu],Offset[%llu]",
                        nOtherSize,
                        nOtherTotal,
                        nOffset);
@@ -271,7 +271,7 @@ bool SIP::PS::parse(
                     uint16_t pts3 = (input[nOffset + 12] << 7) | (input[nOffset + 13] >> 1);
                     nGetPts = pts1 << 30 | pts2 << 15 | pts3;
 #if MEDIA_PS_DEBUG
-                    MLOG_DEBUG("PES PTS[0x%x][0x%x][0x%x][%llu]", pts1, pts2, pts3, nGetPts);
+                    dlog_debug("PES PTS[0x%x][0x%x][0x%x][%llu]", pts1, pts2, pts3, nGetPts);
 #endif
                 }
 
@@ -282,7 +282,7 @@ bool SIP::PS::parse(
                     uint16_t dts3 = (input[nOffset + 17] << 7) | (input[nOffset + 18] >> 1);
                     nGetDts = dts1 << 30 | dts2 << 15 | dts3;
 #if MEDIA_PS_DEBUG
-                    MLOG_DEBUG("PES DTS[0x%x][0x%x][0x%x][%llu]", dts1, dts2, dts3, nGetDts);
+                    dlog_debug("PES DTS[0x%x][0x%x][0x%x][%llu]", dts1, dts2, dts3, nGetDts);
 #endif
                 }
                 /* NOTE PES数据头的总字节数，需要额外加上start_code，stream_id，packet_length的字节数 */
@@ -291,7 +291,7 @@ bool SIP::PS::parse(
                 uint32_t nDataStart = nOffset + nPesHeaderTotal;
                 uint32_t nDataSize = nOffset + nPesTotal - nDataStart;
 #if MEDIA_PS_DEBUG
-                MLOG_DEBUG("PES数据[%02x],pts_flag[%d],packet[%d],header[%d],offset[%d],start[%d][%d]nPesTotal[%d]nPesHeaderTotal[%d]",
+                dlog_debug("PES数据[%02x],pts_flag[%d],packet[%d],header[%d],offset[%d],start[%d][%d]nPesTotal[%d]nPesHeaderTotal[%d]",
                            header.stream_id,
                            header.pts_dts_flag,
                            header.packet_length,
@@ -340,7 +340,7 @@ bool SIP::PS::parse(
             if (fnCb)
             {
 #if MEDIA_PS_DEBUG
-                MLOG_DEBUG("PES数据上抛组包数[%d] [0x%02x][0x%02x][0x%02x][0x%02x][0x%02x][0x%02x]",
+                dlog_debug("PES数据上抛组包数[%d] [0x%02x][0x%02x][0x%02x][0x%02x][0x%02x][0x%02x]",
                            nPesCount,
                            vecOutput[0], vecOutput[1],
                            vecOutput[2], vecOutput[3],
@@ -454,7 +454,7 @@ int detect_nalu_type(char *data, int dataSize, bool bIsH265)
         nNaluType = checkByte & 0x1f;
     }
 #if MEDIA_PS_DEBUG
-    MLOG_DEBUG("detect_nalu_type[%d]IsH265[%d]=>[%02x][%02x][%02x][%02x][%02x][%02x]",
+    dlog_debug("detect_nalu_type[%d]IsH265[%d]=>[%02x][%02x][%02x][%02x][%02x][%02x]",
                nNaluType, bIsH265, data[0], data[1], data[2], data[3], data[4], data[5]);
 #endif
     return nNaluType;
@@ -466,7 +466,7 @@ int check_iFrame(char *pchData, int dataSize, bool bIsH265)
 #if MEDIA_PS_DEBUG
     if (dataSize >= 6)
     {
-        // MLOG_DEBUG("check_iFrame[%02x][%02x][%02x][%02x][%02x][%02x]NALU[%d]",
+        // dlog_debug("check_iFrame[%02x][%02x][%02x][%02x][%02x][%02x]NALU[%d]",
         //            pchData[0], pchData[1], pchData[2],
         //            pchData[3], pchData[4], pchData[5],
         //            nNaluType);
@@ -522,7 +522,7 @@ int SIP::PS::packet(
     int nIRet = check_iFrame(pPacket->pData, pPacket->nLen, bIsH265);
     bool bIsIFrame = nIRet > 0; /* 大于0为关键信息或I帧 */
 #ifdef MEDIA_PS_DEBUG
-    MLOG_DEBUG("当前数据是否为I帧[%d]音频帧[%d]nIRet[%d]",
+    dlog_debug("当前数据是否为I帧[%d]音频帧[%d]nIRet[%d]",
                bIsIFrame, pPacket->bIsAudio, nIRet);
 #endif
     /* 暂定填写8M码率 */
@@ -604,7 +604,7 @@ int SIP::PS::packet(
         output.insert(output.end(), vecHeader.begin(), vecHeader.end());
 #ifdef MEDIA_PS_DEBUG
         char *pHeader = vecHeader.data();
-        MLOG_DEBUG("PSHeader[%d][%02x][%02x][%02x][%02x][%02x][%02x][%02x][%02x]",
+        dlog_debug("PSHeader[%d][%02x][%02x][%02x][%02x][%02x][%02x][%02x][%02x]",
                    vecHeader.size(),
                    pHeader[0], pHeader[1], pHeader[2], pHeader[3],
                    pHeader[4], pHeader[5], pHeader[6], pHeader[7]);
@@ -681,7 +681,7 @@ int SIP::PS::packet(
             output.insert(output.end(), vecHeader.begin(), vecHeader.end());
 #ifdef MEDIA_PS_DEBUG
             char *pHeader = vecHeader.data();
-            MLOG_DEBUG("PSSystemHeader[%d][%02x][%02x][%02x][%02x][%02x][%02x][%02x][%02x]",
+            dlog_debug("PSSystemHeader[%d][%02x][%02x][%02x][%02x][%02x][%02x][%02x][%02x]",
                        vecHeader.size(),
                        pHeader[0], pHeader[1], pHeader[2], pHeader[3],
                        pHeader[4], pHeader[5], pHeader[6], pHeader[7]);
@@ -767,7 +767,7 @@ int SIP::PS::packet(
             output.insert(output.end(), vecHeader.begin(), vecHeader.end());
 #ifdef MEDIA_PS_DEBUG
             char *pHeader = vecHeader.data();
-            MLOG_DEBUG("PSMHeader[%d][%02x][%02x][%02x][%02x][%02x][%02x][%02x][%02x]",
+            dlog_debug("PSMHeader[%d][%02x][%02x][%02x][%02x][%02x][%02x][%02x][%02x]",
                        vecHeader.size(),
                        pHeader[0], pHeader[1], pHeader[2], pHeader[3],
                        pHeader[4], pHeader[5], pHeader[6], pHeader[7]);
@@ -880,7 +880,7 @@ int SIP::PS::packet(
                         if (bFindIFrame)
                         {
 #ifdef MEDIA_PS_DEBUG
-                            MLOG_DEBUG("[PES]找到I帧信息");
+                            dlog_debug("[PES]找到I帧信息");
 #endif
                             bFindIFrame = true;
                         }
@@ -896,7 +896,7 @@ int SIP::PS::packet(
                 }
             }
 #ifdef MEDIA_PS_DEBUG
-            MLOG_DEBUG("[PES]nIDROffset[%d]nOffset[%d]len[%d]",
+            dlog_debug("[PES]nIDROffset[%d]nOffset[%d]len[%d]",
                        nIDROffset, nOffset, pPacket->nLen);
 #endif
             nIDROffset = nIDROffset == 0 ? pPacket->nLen : nIDROffset;
@@ -939,7 +939,7 @@ int SIP::PS::packet(
             /* 更新偏移值 */
             nOffset += nPayload;
 #ifdef MEDIA_PS_DEBUG
-            MLOG_DEBUG("PES纯包头长度[%ld]Payload[%d]packet_len[%ld]Mod[%d]",
+            dlog_debug("PES纯包头长度[%ld]Payload[%d]packet_len[%ld]Mod[%d]",
                        vecHeader.size(),
                        nPayload,
                        nPesHeaderSize,
@@ -1062,7 +1062,7 @@ void *SIP::PS::PsEncoder::PsAllocCb(void *param, size_t bytes)
         return nullptr;
     }
 #if MEDIA_PS_DEBUG
-    MLOG_DEBUG("PS封装申请缓存[%ld]", bytes);
+    dlog_debug("PS封装申请缓存[%ld]", bytes);
 #endif
     /* 创建缓存时直接调用vector */
     pPsEncoder->m_buffer.clear();
@@ -1081,7 +1081,7 @@ int SIP::PS::PsEncoder::PsWriteCb(void *param, int stream, void *packet, size_t 
     /* NOTE 必须返回数据大小值，回调完毕后会根据返回值进行数据操作 */
 
 #if MEDIA_PS_DEBUG
-    MLOG_DEBUG("PS封装回调数据大小[%ld]", bytes);
+    dlog_debug("PS封装回调数据大小[%ld]", bytes);
 #endif
     return bytes;
 }

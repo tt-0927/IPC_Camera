@@ -46,7 +46,7 @@ namespace SIP
                 }
 
                 /* 未注册成功前，不执行eXosip_automatic_action */
-                if(m_bIsRegisterSucceed)
+                if(m_bIsRegisterSucceed && ShouldRunAutomaticAction())
                 {
                     eXosip_lock(m_pSipContext);
                     eXosip_automatic_action(m_pSipContext);
@@ -83,6 +83,14 @@ namespace SIP
         virtual std::shared_ptr<MediaSession> GetSession(const std::string &strCallID);
 
     protected:
+        /**
+         * @brief  是否允许eXosip自动处理协议事务
+         * @param  [void]
+         * @return [bool] true：允许，false：禁止
+         * @note   GB35114客户端注册认证需要手动构造Authorization，不能由eXosip自动重发REGISTER。
+         */
+        virtual bool ShouldRunAutomaticAction() const { return true; }
+
         SipServerInfo_S m_stServerInfo;        /* SIP服务器信息 */
         SipClientInfo_S m_stClientInfo;        /* SIP本地客户端信息*/   //add by lonogll 20250604
         std::atomic_bool m_bThreadRun = false; /* 线程运行标记位 */

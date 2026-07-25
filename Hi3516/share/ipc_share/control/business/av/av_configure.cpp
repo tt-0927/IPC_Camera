@@ -3,7 +3,7 @@
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2025-06-25 20:14:37
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-03-03 16:24:26
+ * @LastEditTime : 2026-06-09 09:57:58
  * @Description  : 音视频配置
  */
 
@@ -62,6 +62,9 @@ CAVConfigure::CAVConfigure()
     m_setAudioConfigCallback = nullptr;
     m_setAoSpeakCallback = nullptr;
     m_setVideoRoiConfigCallback = nullptr;
+    m_waitAoDrainedCallback = nullptr;
+    m_nOriginalIFrameInterval = DEFAULTE_GOP;
+    m_bIFrameIntervalModified = false;
 
     Audio_NS::AudioCapabilitySet_S stAudioCapabilitySet;
     m_audioCapabilitySet.get(stAudioCapabilitySet);
@@ -119,14 +122,32 @@ int CAVConfigure::set_configure(const Video_NS::VideoConfig_S& data)
     /* 帧率为分数帧率时，修改gop */
     if (stVideoConfig.getFrameRateAsInt() > 0xFFFF)
     {
+        /* 首次强制修改时，记录原始I帧间隔值 */
+        if (!m_bIFrameIntervalModified)
+        {
+            m_nOriginalIFrameInterval = stVideoConfig.nIFrameInterval;
+            m_bIFrameIntervalModified = true;
+        }
         /* I帧间隔强制为1 */
         stVideoConfig.nIFrameInterval = 1;
     }
     /* 帧率为小于5帧时，修改gop */
     else if (stVideoConfig.getFrameRateAsInt() <= 5)
     {
+        /* 首次强制修改时，记录原始I帧间隔值 */
+        if (!m_bIFrameIntervalModified)
+        {
+            m_nOriginalIFrameInterval = stVideoConfig.nIFrameInterval;
+            m_bIFrameIntervalModified = true;
+        }
         /* I帧间隔强制为1 */
         stVideoConfig.nIFrameInterval = 1;
+    }
+    /* 帧率恢复正常时，恢复I帧间隔到原始值 */
+    else if (m_bIFrameIntervalModified)
+    {
+        stVideoConfig.nIFrameInterval = m_nOriginalIFrameInterval;
+        m_bIFrameIntervalModified = false;
     }
 
     /*调用回调通知StreamVideo更新*/
@@ -279,11 +300,40 @@ void CAVConfigure::setAoSpeakCallback(const AudioSpeakCallback &callback)
 
 void CAVConfigure::setAoSpeakInfo(const Audio_NS::AoInfo_S &data) const
 {
-    if(m_setAudioConfigCallback)
+    if(m_setAoSpeakCallback)
     {
         m_setAoSpeakCallback(data);
     }
 }
+
+#if CAP_EVENT_AUDIO_PLAYBACK_V2
+void CAVConfigure::setAudioAoIdleCallback(const std::function<void()> &callback)
+{
+    m_setAudioAoIdleCallback = callback;
+}
+
+void CAVConfigure::setAudioAoIdle() const
+{
+    if (m_setAudioAoIdleCallback)
+    {
+        m_setAudioAoIdleCallback();
+    }
+}
+#endif
+void CAVConfigure::muteAudioOutput() const
+{
+    if (m_muteAudioOutputCallback)
+    {
+        m_muteAudioOutputCallback();
+    }
+}
+
+// void CAVConfigure::setMuteAudioOutputCallback(const std::function<void()> &callback)
+void CAVConfigure::setMuteAudioOutputCallback(const MuteAudioOutputCallback &callback)
+{
+    m_muteAudioOutputCallback = callback;
+}
+// #endif
 
 int CAVConfigure::setAudioAoSampleRateCallback(const SetAudioAoSampleRateCallback &callback)
 {
@@ -315,6 +365,28 @@ int CAVConfigure::setAudioAoSampleRate(const Audio_NS::AudioSamprate_E enSampRat
         return ERR;
     }
     return OK;
+}
+
+int CAVConfigure::setWaitAoDrainedCallback(const WaitAoDrainedCallback &callback)
+{
+    if (!callback)
+    {
+        dlog_error("无效的 waitAoDrained 回调函数");
+        return ERR;
+    }
+    m_waitAoDrainedCallback = callback;
+    dlog_info("设置 AO 排空等待回调函数成功");
+    return OK;
+}
+
+int CAVConfigure::waitAoDrained(int nChn, int nTimeoutMs) const
+{
+    if (!m_waitAoDrainedCallback)
+    {
+        dlog_warn("waitAoDrained 回调未设置");
+        return ERR;
+    }
+    return m_waitAoDrainedCallback(nChn, nTimeoutMs);
 }
 
 bool CAVConfigure::is_audio_config_supported(const Audio_NS::AudioConfig_S &data) const

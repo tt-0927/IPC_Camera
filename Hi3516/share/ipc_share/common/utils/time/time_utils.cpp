@@ -3,7 +3,7 @@
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2025-09-09 14:31:17
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2025-11-24 19:00:05
+ * @LastEditTime : 2026-06-05 11:32:08
  * @Description  : 时间工具
  */
 
@@ -64,6 +64,23 @@ namespace TimeUtils_NS
         auto now_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
 
         return now_ms;
+    }
+
+    /**
+     * @brief   : 获取单调递增毫秒计数
+     * @return  {long long} 单调递增毫秒计数
+     * @note    : 用于录制时长、音视频同步等间隔计算，避免系统时间跳变导致时间轴回退
+     */
+    long long get_monotonicTimestampMs()
+    {
+        struct timespec stTime;
+        if (clock_gettime(CLOCK_MONOTONIC, &stTime) != 0)
+
+        {
+            return 0;
+        }
+
+        return static_cast<long long>(stTime.tv_sec) * 1000 + stTime.tv_nsec / 1000000;
     }
 
     /**

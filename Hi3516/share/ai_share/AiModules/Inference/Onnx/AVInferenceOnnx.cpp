@@ -117,7 +117,7 @@ bool Inference_NS::CAVInferenceOnnx::checkModelConfig()
 
     Json::Object *pJsonHandle = NULL;
     pJsonHandle = Json::init(pchJson);
-    bool bRet;
+    bool bRet = true;
 
     /* 获取模型地址 */
     bRet = Json::get(pJsonHandle, "model_path", m_strModelPath);
@@ -130,15 +130,16 @@ bool Inference_NS::CAVInferenceOnnx::checkModelConfig()
     if (!checkModelPreConfig())
     {
         printf("json配置文件[%s], 预处理部分解析异常\n", m_strConfigPath.c_str());
+        bRet = false;
         goto EXIT;
     }
 
     if (!checkModelProConfig())
     {
         printf("json配置文件[%s], 后处理部分解析异常\n", m_strConfigPath.c_str());
+        bRet = false;
         goto EXIT;
     }
-    return true;
 
 EXIT:
     if (pJsonHandle)
@@ -146,7 +147,7 @@ EXIT:
         Json::deinit(pJsonHandle);
         pJsonHandle = NULL;
     }
-    return false;
+    return bRet;
 }
 
 /* 校验模型配置文件中的预处理信息 */
@@ -180,7 +181,7 @@ bool Inference_NS::CAVInferenceOnnx::checkModelInferConfig()
     Json::Object *pJsonData = NULL;
     Json::Object *pJsonDataItem = NULL;
     Json::Object *pItemObject = NULL;
-    bool bRet = false;
+    bool bRet = true;
 
     pJsonHandle = Json::init(pchJson);
 
@@ -188,6 +189,7 @@ bool Inference_NS::CAVInferenceOnnx::checkModelInferConfig()
     if (!pJsonData)
     {
         printf("解析[data]字段失败\n");
+        bRet = false;
         goto EXIT;
     }
 
@@ -204,7 +206,7 @@ bool Inference_NS::CAVInferenceOnnx::checkModelInferConfig()
     if (!bRet || m_nCpuInferThread < 0)
     {
         printf("解析intra_op_num_threads字段失败\n");
-        // goto EXIT;
+        goto EXIT;
     }
 
     /* 获取GPU设备号 */
@@ -212,7 +214,7 @@ bool Inference_NS::CAVInferenceOnnx::checkModelInferConfig()
     if (!bRet | m_nDeviceId < 0)
     {
         printf("解析device_id字段失败\n");
-        // goto EXIT;
+        goto EXIT;
     }
 
     /* 获取模型限制最大显存 */
@@ -220,7 +222,7 @@ bool Inference_NS::CAVInferenceOnnx::checkModelInferConfig()
     if (!bRet | m_nGpuMemLimit < 0)
     {
         printf("解析gpu_mem_limit字段失败\n");
-        // goto EXIT;
+        goto EXIT;
     }
 
     /* 传送相关的CUDA信息到模型初始化 */
@@ -229,14 +231,13 @@ bool Inference_NS::CAVInferenceOnnx::checkModelInferConfig()
         m_nDeviceId,
         m_nGpuMemLimit);
 
-    return true;
 EXIT:
     if (pJsonHandle)
     {
         Json::deinit(pJsonHandle);
         pJsonHandle = NULL;
     }
-    return false;
+    return bRet;
 }
 
 /* 校验模型配置文件中的后处理信息 */

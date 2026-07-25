@@ -142,7 +142,7 @@ bool Inference_NS::CPPOcrPoint::checkModelProConfig()
     Json::Object* pJsonData   = NULL;
     int i,nSizeItem;
     int nSize = 0;
-    bool          bRet        = false;
+    bool          bRet        = true;
 
     pJsonHandle = Json::init(pchJson);
 
@@ -150,6 +150,7 @@ bool Inference_NS::CPPOcrPoint::checkModelProConfig()
     if (!pJsonData)
     {
         printf("解析[data]字段失败\n");
+        bRet = false;
         goto EXIT;
     }
     /* 1、置信度 */
@@ -167,13 +168,11 @@ bool Inference_NS::CPPOcrPoint::checkModelProConfig()
         goto EXIT;
     }
     
-    return true;
-
 EXIT:
     if (pJsonHandle)
     {
         Json::deinit(pJsonHandle);
         pJsonHandle = NULL;
     }
-    return false;
+    return bRet;
 }

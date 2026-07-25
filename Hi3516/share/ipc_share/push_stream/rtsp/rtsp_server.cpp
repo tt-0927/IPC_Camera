@@ -98,7 +98,9 @@ int rtspFrameCall(Fream_Info_t* frame)
     frame->videolistsize = static_cast<int>(pStreamInfo->videoQueue->size());
     frame->audiolistsize = static_cast<int>(pStreamInfo->audioQueue->size());
     frame->fFps = pStreamInfo->fFps;
-
+    // dlog_warn("RTSP取帧 waitKey:%d queue:%zu",
+    //     pStreamInfo->requestIFrame,
+    //     pStreamInfo->videoQueue->size());
     return OK;
 }
 
@@ -228,6 +230,7 @@ IpcRet_E CRtspServer::init()
     /*获取网络信息*/
     Network::Info_S stNetInfo;
     CNetworkManage::instance()->get_system_networkInfo(stNetInfo);
+    m_strLastIp = stNetInfo.stIp.ipv4Ip;
     /* 设置握手认证回调函数 */
     set_handshakeAuth_callback(m_pLiveInfo->pServerHandle, handshakeAuth_callback);
 
@@ -437,6 +440,24 @@ int CRtspServer::sendVideoData(int nChannel, Video_NS::VideoFrame_S* pVideoFrame
     int nRet = OK;
     Live_Stream_Info_t* pStreamInfo = m_pLiveInfo->listLive[nChannel];
 
+
+    if (pStreamInfo->requestIFrame == 1 && pVideoFrame->nLen >= 6)
+    {
+        dlog_warn(
+            "RTSP等待关键帧 chn:%d codec:%d nal:%d len:%d "
+            "head:%02x %02x %02x %02x %02x %02x",
+            nChannel,
+            static_cast<int>(pVideoFrame->enVideoCodec),
+            static_cast<int>(pVideoFrame->eType),
+            pVideoFrame->nLen,
+            pVideoFrame->pData[0],
+            pVideoFrame->pData[1],
+            pVideoFrame->pData[2],
+            pVideoFrame->pData[3],
+            pVideoFrame->pData[4],
+            pVideoFrame->pData[5]);
+    }
+
     if (pStreamInfo->request == 1)
     {
         /* 创建帧数据（使用智能指针管理内存） */
@@ -597,6 +618,18 @@ char* CRtspServer::getRtspUrl(int nChn, bool bAuth)
     {
         dlog_error("Rtsp未初始化");
         return nullptr;
+    }
+
+    /* 检查IP是否有变化，有则更新URL */
+    {
+        Network::Info_S stNetInfo;
+        CNetworkManage::instance()->get_system_networkInfo(stNetInfo);
+        if (!stNetInfo.stIp.ipv4Ip.empty() && stNetInfo.stIp.ipv4Ip != "0.0.0.0"
+            && stNetInfo.stIp.ipv4Ip != m_strLastIp)
+        {
+            m_strLastIp = stNetInfo.stIp.ipv4Ip;
+            updateNetworkConfig(stNetInfo);
+        }
     }
 
     if (bAuth)

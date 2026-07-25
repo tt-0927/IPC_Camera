@@ -361,11 +361,11 @@ namespace Record_NS
 		/* 是否冗余录像/抓图 */
 		// bool bEnRedundancy = false;
 		/* 是否开启循环录制 */
-		bool bLoopWrite = false;
+		bool bLoopWrite = true;
 		/* 预录时间 */
-		RecordPreTime_E ePreTime = RECORD_PRE_TIME_0_SEC;
+		RecordPreTime_E ePreTime = RECORD_PRE_TIME_5_SEC;
 		/* 录像延迟时间 */
-		RecordDelayTime_E eDelayTime = RECORD_DELAY_TIME_5_SEC;
+		RecordDelayTime_E eDelayTime = RECORD_DELAY_TIME_10_SEC;
 		/* 主次码流 */
 		int nStreamType = 0;
 		/* 保存天数 */

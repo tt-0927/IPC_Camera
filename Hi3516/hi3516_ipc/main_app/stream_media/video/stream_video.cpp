@@ -3,7 +3,7 @@
  * @Author       : zhouzirui
  * @Date         : 2025-03-21 10:24:45
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-04-23 09:42:40
+ * @LastEditTime : 2026-06-12 14:25:09
  * @Description  : 流媒体视频模块
  */
 
@@ -17,6 +17,43 @@
 #include "capture_ctrl.h"
 #include "record_ctrl.h"
 #include "system_utils.h"
+#if CAP_GARBAGE_STATION_PLATFORM
+#include "push_stream.h"
+#endif
+
+#include <chrono>
+
+namespace
+{
+    /* VENC取流诊断限频，避免编码线程逐帧刷日志影响实时性 */
+    const long long VENC_RTMP_DIAG_LOG_INTERVAL_MS = 5000;
+
+    long long venc_diag_now_ms()
+    {
+        return std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now().time_since_epoch()).count();
+    }
+
+    bool venc_diag_should_log(long long& llLastLogMs)
+    {
+        const long long llNowMs = venc_diag_now_ms();
+        if (llLastLogMs == 0 || llNowMs - llLastLogMs >= VENC_RTMP_DIAG_LOG_INTERVAL_MS)
+        {
+            llLastLogMs = llNowMs;
+            return true;
+        }
+        return false;
+    }
+
+    unsigned char venc_diag_byte_at(const unsigned char* pData, int nLen, int nIndex)
+    {
+        if (!pData || nIndex < 0 || nIndex >= nLen)
+        {
+            return 0;
+        }
+        return pData[nIndex];
+    }
+}
 
 CStreamVideo* CStreamVideo::m_self = NULL;
 std::mutex CStreamVideo::m_mutex;
@@ -43,7 +80,7 @@ IpcRet_E CStreamVideo::init()
     int nRet = OK;
 
     /*初始化通道处理器策略*/
-    m_channelHandlers[VENC_CHN_MAIN] = std::make_unique<CMainChannelHandler>();
+    m_channelHandlers[VENC_CHN_MAIN] = std::make_unique<CMainChannelHandler>(this);
     m_channelHandlers[VENC_CHN_SUB]  = std::make_unique<CSubChannelHandler>(this);
     m_channelHandlers[VENC_CHN_JPEG] = std::make_unique<CJpegChannelHandler>();
 
@@ -334,7 +371,7 @@ int CStreamVideo::setVideoConfig(const Video_NS::VideoConfig_S &stVideoConfig)
     int nRet = OK;
 
     /* 获取当前配置用于比较 */
-    const auto& currentConfig = m_configManager.getVideoConfigs().at(nId);
+    const auto currentConfig = m_configManager.getVideoConfigs().at(nId);
 
     // note: 视频分辨率变更时，需变更 VPSS 通道属性
     if (currentConfig.stVideoResolution.nWidth != stVideoConfig.stVideoResolution.nWidth ||
@@ -356,7 +393,11 @@ int CStreamVideo::setVideoConfig(const Video_NS::VideoConfig_S &stVideoConfig)
     /* 更新视频配置 */
     m_configManager.updateVideoConfig(stVideoConfig);
     /* 同步录制进程 */
+#if CAP_RECORD_USE_MAIN_STREAM
+    if (nId == STREAM_MEDIA_MAIN)
+#else
     if (nId == STREAM_MEDIA_SUB)
+#endif
     {
         nRet = CStreamServer::instance()->sendVideoConfig(stVideoConfig);
         if(nRet != OK)
@@ -505,6 +546,14 @@ int CStreamVideo::setVideoConfig(const Video_NS::VideoConfig_S &stVideoConfig)
     m_getVencThread[nId] = std::thread(&CStreamVideo::get_vencStream, this, nId);
 
     dlog_info("重新启动视频流编码通道:%d 成功", nId);
+
+    /* 主动请求 IDR 帧，加速 RTMP 推流的首个 SPS/PPS 到达 */
+    request_idr(nId);
+
+#if CAP_GARBAGE_STATION_PLATFORM
+    /* 视频编码配置变更后，主动重启对应通道的 RTMP 推流，避免被动等待 Broken pipe */
+    CPushStream::instance()->restart_rtmp_by_channel(nId);
+#endif
 
     /* 更新OSD模块 */
     if (bIsUpdateOsd)
@@ -778,6 +827,7 @@ void CStreamVideo::get_vencStream(int param)
         int nDataLen = 0;
         int nChannel = param;
         HiVenc_S *pHandle = m_vencHandles[nChannel].get();
+        static long long s_anLastVencDiagLogMs[VENC_CHN_MAX] = {0};
 
         while (true == m_bVencFlag[nChannel].load(std::memory_order_acquire))
         {
@@ -789,6 +839,51 @@ void CStreamVideo::get_vencStream(int param)
                 // dlog_error("mppVenc_get_stream chn: %d error: %x", nChannel, nRet);
                 continue;
             }
+
+            if (nChannel >= 0 && nChannel < VENC_CHN_MAX && venc_diag_should_log(s_anLastVencDiagLogMs[nChannel]))
+            {
+                const int nPackCount = static_cast<int>(stFrame.pack_cnt);
+                dlog_info("VENC取流诊断，channel=%d, pack_cnt=%d, pack_ptr=%p",
+                          nChannel,
+                          nPackCount,
+                          static_cast<void*>(stFrame.pack));
+
+                if (!stFrame.pack && nPackCount > 0)
+                {
+                    dlog_warn("VENC取流诊断异常，channel=%d, pack_cnt=%d, pack_ptr为空", nChannel, nPackCount);
+                }
+                const int nLogPackCount = (!stFrame.pack) ? 0 : (nPackCount > 4 ? 4 : nPackCount);
+                for (int nPackIndex = 0; nPackIndex < nLogPackCount; ++nPackIndex)
+                {
+                    const int nPackLen = static_cast<int>(stFrame.pack[nPackIndex].len);
+                    const int nPackOffset = static_cast<int>(stFrame.pack[nPackIndex].offset);
+                    const int nDiagDataLen = nPackLen - nPackOffset;
+                    unsigned char* pDiagData = nullptr;
+                    if (stFrame.pack[nPackIndex].addr && nDiagDataLen > 0)
+                    {
+                        pDiagData = stFrame.pack[nPackIndex].addr + stFrame.pack[nPackIndex].offset;
+                    }
+
+                    dlog_info("VENC包诊断，channel=%d, pack=%d/%d, len=%d, offset=%d, data_len=%d, pts=%llu, frame_end=%d, first=%02x %02x %02x %02x %02x %02x %02x %02x",
+                              nChannel,
+                              nPackIndex + 1,
+                              nPackCount,
+                              nPackLen,
+                              nPackOffset,
+                              nDiagDataLen,
+                              static_cast<unsigned long long>(stFrame.pack[nPackIndex].pts),
+                              stFrame.pack[nPackIndex].is_frame_end ? 1 : 0,
+                              venc_diag_byte_at(pDiagData, nDiagDataLen, 0),
+                              venc_diag_byte_at(pDiagData, nDiagDataLen, 1),
+                              venc_diag_byte_at(pDiagData, nDiagDataLen, 2),
+                              venc_diag_byte_at(pDiagData, nDiagDataLen, 3),
+                              venc_diag_byte_at(pDiagData, nDiagDataLen, 4),
+                              venc_diag_byte_at(pDiagData, nDiagDataLen, 5),
+                              venc_diag_byte_at(pDiagData, nDiagDataLen, 6),
+                              venc_diag_byte_at(pDiagData, nDiagDataLen, 7));
+                }
+            }
+
             std::lock_guard<std::mutex> lock(m_mutexSendData);
 
             for (int i = 0; i < (int)stFrame.pack_cnt; i++)
@@ -869,6 +964,7 @@ void CStreamVideo::get_vpssStream()
             /* 控制帧数 */
             if (nFrameCount++ % process_every_n_frames == 0)
             {
+                // dlog_info("发送数据到 AI_APP");
                 /* memory存储映射接口，映射物理内存地址至虚拟内存地址 */
                 int nLen = stFrameInfo.video_frame.width * stFrameInfo.video_frame.height * 3 / 2;
                 stFrameInfo.video_frame.virt_addr[0] = ss_mpi_sys_mmap(stFrameInfo.video_frame.phys_addr[0], nLen);

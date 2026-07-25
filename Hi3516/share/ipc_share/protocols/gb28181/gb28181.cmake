@@ -17,9 +17,12 @@ set (GB28181_PATH
 foreach(item ${GB28181_PATH})
     aux_source_directory (${item} GB28181_LIST)
 endforeach()
+list(REMOVE_ITEM GB28181_LIST ${CMAKE_CURRENT_LIST_DIR}/sip/common/ModuleLog.cpp)
+
 #头文件
 set (GB28181_INCLUDE
     ${CMAKE_CURRENT_LIST_DIR}/
+    ${CMAKE_CURRENT_LIST_DIR}/../../../cam_share/common/log
     ${CMAKE_CURRENT_LIST_DIR}/sip
     ${CMAKE_CURRENT_LIST_DIR}/sip/common
     ${CMAKE_CURRENT_LIST_DIR}/sip/device

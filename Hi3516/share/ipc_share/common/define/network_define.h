@@ -530,7 +530,8 @@ namespace Network
         WEP,          // WEP加密
         EAP_PEAP,     // WPA企业版 (PEAP)
         EAP_TLS,      // WPA企业版 (TLS)
-        EAP_TTLS
+        EAP_TTLS,
+        WPA3_PERSONAL //WPA3加密
     };
 
     // WEP 密钥配置结构
@@ -589,15 +590,33 @@ namespace Network
         {
         }
     } WifiStaConncet_S;
-
+    enum WifiConnectErrorCode
+    {
+        WIFI_CONNECT_SUCCESS = 0,                    // 连接成功
+        WIFI_CONNECT_TIMEOUT = 1,                    // 等待连接超时
+        WIFI_CONNECT_WRONG_PASSWORD = 2,             // WiFi 密码或密钥错误
+        WIFI_CONNECT_INVALID_SSID = 3,               // SSID 为空或无效
+        WIFI_CONNECT_INVALID_CREDENTIALS = 4,        // 密码、账号、证书等参数缺失
+        WIFI_CONNECT_TEMP_CONFIG_FAILED = 5,         // 临时配置文件创建失败
+        WIFI_CONNECT_APPLY_CONFIG_FAILED = 6,        // 配置文件应用失败
+        WIFI_CONNECT_SUPPLICANT_START_FAILED = 7,    // wpa_supplicant 启动失败
+        WIFI_CONNECT_RECONFIGURE_FAILED = 8,         // RECONFIGURE 命令失败
+        WIFI_CONNECT_REASSOCIATE_FAILED = 9,         // REASSOCIATE 命令失败
+        WIFI_CONNECT_NETWORK_NOT_FOUND = 10,         // 未扫描到目标网络
+        WIFI_CONNECT_AUTHENTICATION_FAILED = 11,     // 企业认证或其他鉴权失败
+        WIFI_CONNECT_UNKNOWN_ERROR = 12,              // 无法进一步分类的错误
+        WIFI_CONNECT_BUSY = 13,                      // 已有连接操作正在执行
+        WIFI_CONNECT_ENABLE_NETWORK_FAILED = 14,     // 解除网络禁用状态失败
+        WIFI_CONNECT_RECONNECT_FAILED = 15           // RECONNECT 命令失败
+    };
     struct WifiConnectResult
     {
         bool success;           // 连接是否成功
         std::string ip_address; // 获取到的 IP 地址
-        int error_code;         // 错误码 (0: 成功, 1: 超时, 2: 认证失败等)
+        int error_code;         // 错误码 WifiConnectErrorCode
 
         // 构造函数，方便初始化
-        WifiConnectResult() : success(false), ip_address(""), error_code(0)
+        WifiConnectResult() : success(false), ip_address(""), error_code(WIFI_CONNECT_SUCCESS)
         {
         }
     };
@@ -629,6 +648,7 @@ namespace Network
 
     typedef struct Network_4G_Config_t
     {
+        bool enabled;                // 启用状态
         std::string apn;          // APN (例如: ctnet, cmnet)
         std::string username;     // 用户名 (专网参数)
         std::string password;     // 密码 (专网参数)
@@ -658,9 +678,12 @@ namespace Network
         std::string password;        // 密码
         std::string confirmPassword; // 确认密码
         _HotspotConfig_()
-            : enabled(false), ssid("MyHotspot"), securityMode("WPA2-personal"), password("12345678"), encryptionType("TKIP"),
+            : enabled(false), ssid(""), securityMode("WPA2-personal"), password(""), encryptionType(""),
               confirmPassword("")
         {
+        }
+        void clear() {
+            *this = _HotspotConfig_(); // 复用默认构造函数逻辑
         }
     } HotspotConfig;
 
@@ -677,7 +700,6 @@ namespace Network
         std::string iccid;          // SIM卡识别码
         std::string network_type;
         bool is_registered;
-
         Network_4G_Config_t set_config_ret;
     } SIM_Info_t;
 
@@ -692,8 +714,13 @@ namespace Network
         bool enable;           /* 是否开启 */
         bool Custom;           /* 是否自定义 */
 
+        // _Platform_Info_t_()
+        //     : server_ip("172.16.25.125"), server_port(388), mqtt_port(1884), user("admin"), password("Aa@135791"), enable(false), Custom(false),
+        //       rtmp_port(1935)
+        // {
+        // }
         _Platform_Info_t_()
-            : server_ip("183.129.224.253"), server_port(4910), mqtt_port(1884), user("itc"), password("itc.rt.pass"), enable(false), Custom(false),
+            : server_ip("183.129.224.253"), server_port(4910), mqtt_port(1884), user("admin"), password("Aa@135791"), enable(false), Custom(false),
               rtmp_port(4920)
         {
         }

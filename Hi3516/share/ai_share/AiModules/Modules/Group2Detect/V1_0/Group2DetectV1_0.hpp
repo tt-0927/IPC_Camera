@@ -15,7 +15,26 @@
 #include "Group2DetectExt.hpp"
 #include "YoloUltralytics.hpp"
 
-//#define Group2Detect_DEBUG 1
+// #define Group2Detect_DEBUG 1
+struct TripLineStatus{
+    int lastStatus; //上次线段相交状态
+    int lastlineType;//线段类型 0横线 1竖线
+    int lastlinePlace;//上次位置
+    int firstPlace;//首次位置
+    int lastPlace;//最后位置
+    int lostFrameCount;//丢失帧次数
+    bool isUsing;//是否正在使用线段
+    void init()
+    {
+        lastStatus = -1;
+        lastlineType = -1;
+        lastlinePlace = -2;
+        lostFrameCount = 0;
+        isUsing = true;
+        firstPlace = 0;
+        lastPlace = 0;
+    }
+};
 
 namespace Group2Detect_NS {
 class CGroup2DetectV1_0 {
@@ -54,7 +73,7 @@ class CGroup2DetectV1_0 {
      * @return [*]
      * @note
      */
-    bool process(InData_S stInData, std::vector<Result_S> &vecResult, std::vector<Result_S> &vecAllResult, OutData_S *stOutData = nullptr);
+    bool process(InData_S stInData, std::vector<Result_S> &vecResult, std::vector<Result_S> &vecAllResult, OutData_S *stOutData = nullptr,std::vector<Result_S>* vecResultOne = nullptr);
     // bool process(InData_S stInData, std::vector<Result_S> &vecResult, OutData_S *stOutData = nullptr);
 
     /**
@@ -305,6 +324,34 @@ class CGroup2DetectV1_0 {
      */
     bool isTimeIntervalExceeded(int64_t nRecordTime, int nThresholdSec);
 
+
+    TripLineType_E tripLineDetection(Result_S& stResult,const cv::Point &alertLineFirst,const cv::Point &alertLineSecond);
+
+    /**
+     * @brief 判断点在线段的左侧还是右侧（适用于非垂直的线段）
+     * @param linePt1 线段起点
+     * @param linePt2 线段终点
+     * @param point 待判断的点
+     * @return -1: 左侧, 1: 右侧, 0: 在线段上或线段垂直
+     */
+    int pointLeftOrRightOfLine(const cv::Point2f& linePt1, const cv::Point2f& linePt2, const cv::Point2f& point);
+
+    /**
+     * @brief 判断点在线段的上方还是下方（适用于非水平的线段）
+     * @param linePt1 线段起点
+     * @param linePt2 线段终点
+     * @param point 待判断的点
+     * @return 1: 上方, -1: 下方, 0: 在线段上或线段水平
+     */
+    int pointAboveOrBelowLine(const cv::Point2f& linePt1, const cv::Point2f& linePt2, const cv::Point2f& point);
+    
+    /**
+     * @brief 计算两条直线的夹角（锐角，0-90度）
+     * @param linePt1 第一条直线的起点
+     * @param linePt2 第一条直线的终点
+     * @return 与垂直线的夹角（度）
+     */
+    double calculateAngleWithVertical(const cv::Point2f& linePt1, const cv::Point2f& linePt2);
   private:
     /* 初始化参数 */
     InParam_S m_stInParam;
@@ -333,7 +380,7 @@ class CGroup2DetectV1_0 {
     /* [float] fTrackThresh[0-1,0.8]: 追踪阈值，这个值用于设置初始目标检测的置信度阈值。 */
     float m_fTrackThresh[3] = {0.5f, 0.6f, 0.5f}; /* 0-人 1-机动车 2-非机动车 */
     /* [float] fHighThresh[0-1]: 高置信度阈值，用于确定哪些检测结果非常可靠。 */
-    float m_fHighThresh[3] = {0.4f, 0.5f, 0.4f}; /* 0-人 1-机动车 2-非机动车 */
+    float m_fHighThresh[3] = {0.6f, 0.5f, 0.4f}; /* 0-人 1-机动车 2-非机动车 */
     /* [float] fMatchThresh[0-1]: 匹配阈值，在目标跟踪过程中，这个值用于决定两帧之间跟踪目标是否匹配。 */
     float m_fMatchThresh[3] = {0.8f, 0.7f, 0.8f}; /* 0-人 1-机动车 2-非机动车 */
     /* [int] nFrameId: 起始的ID */
@@ -354,6 +401,12 @@ class CGroup2DetectV1_0 {
     uint64_t m_llPersonFalldownTimestamp = 0;  // 人员倒地时间戳
 
     int64_t m_llLeavePostStartTime[4] = {0};
+
+    int64_t m_llLibraryTime[2] = {0}; /* 1占用座位时间 2离开座位时间*/
+
+    // personId status
+    std::unordered_map<int, TripLineStatus> m_TripLineStatus;
+    std::unordered_map<int, TripLineStatus> m_HeadCountStatus;
 };
 
 }  // namespace Group2Detect_NS

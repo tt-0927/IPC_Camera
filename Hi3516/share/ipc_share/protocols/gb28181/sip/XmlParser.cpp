@@ -1,4 +1,5 @@
 ﻿#include "XmlParser.h"
+#include "dlog.h"
 #include "SipUtils.h"
 #include <string.h>
 using namespace SIP;
@@ -19,7 +20,7 @@ bool XmlParser::Parse(const char *data, int len, pugi::xml_document &doc)
 	}
 	else
 	{
-		MLOG_ERROR("xml解析失败\n%s", data);
+		dlog_error("xml解析失败\n%s", data);
 	}
 
 	return false;
@@ -149,10 +150,10 @@ bool XmlParser::ParseHeader(manscdp_msgbody_header_t &header, pugi::xml_document
 		node = root.child("TargetID");
 		if (node.empty())
 		{
-			MLOG_ERROR("设备id解析失败");
+			dlog_error("设备id解析失败");
 			return false;
 		}
-		MLOG_INFO("解析到的设备id：%s", node.text().as_string());
+		dlog_info("解析到的设备id：%s", node.text().as_string());
 	}
 	header.strDevID = node.text().as_string();
 

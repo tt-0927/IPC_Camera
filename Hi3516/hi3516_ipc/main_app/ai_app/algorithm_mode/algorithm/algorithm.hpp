@@ -3,7 +3,7 @@
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2025-06-09 11:04:21
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-04-23 09:39:23
+ * @LastEditTime : 2026-07-01 14:45:10
  * @Description  : 算法基类
  */
 
@@ -35,8 +35,13 @@ extern "C"
 
 /* 事件结束事件阈值 x秒 （事件触发后，超过阈值时间未再次触发事件，则视为事件结束） */
 #define EVENT_END_TIME_THRESHOLD (3)
-/* 事件冷却期时长（秒），默认10秒 */
-#define EVENT_COOLDOWN_SECONDS (10)
+/* 事件两次开始之间的最小间隔（秒），默认10秒 */
+#define EVENT_MIN_TRIGGER_INTERVAL_SECONDS (10)
+/* 事件冷却期时长（秒），需扣除结束判定阈值，保证整体触发间隔约为10秒 */
+#define EVENT_COOLDOWN_SECONDS                                                                                      \
+    ((EVENT_MIN_TRIGGER_INTERVAL_SECONDS > EVENT_END_TIME_THRESHOLD) ?                                               \
+         (EVENT_MIN_TRIGGER_INTERVAL_SECONDS - EVENT_END_TIME_THRESHOLD) :                                           \
+         0)
 
 /* 算法基类 */
 struct RuntimeCommand_S
@@ -333,6 +338,62 @@ public:
     }
 
     /**
+     * @brief   : 强制立即结束当前报警状态，兼容旧事件类型入口
+     * @param    {Event::Type_E} enEventType：事件类型
+     * @return   {bool} 是否成功结束
+     * @note    : 内部会构造默认 EventTriggerContext_S，并统一走新的上下文联动接口
+     */
+    bool endAlarmImmediately(Event::Type_E enEventType)
+    {
+        /* 默认事件触发上下文，仅携带旧接口已有的事件类型 */
+        EventTriggerContext_S stContext;
+        stContext.enEventType = enEventType;
+        return endAlarmImmediately(stContext);
+    }
+
+    /**
+     * @brief   : 强制立即结束当前报警状态
+     * @param    {EventTriggerContext_S} &stContext：事件触发上下文
+     * @return   {bool} 是否成功结束
+     * @note    : 不检查 EVENT_END_TIME_THRESHOLD，直接触发事件结束联动，适用于人脸抓拍等瞬时事件
+     */
+    bool endAlarmImmediately(const EventTriggerContext_S &stContext)
+    {
+        if (!m_bIsAlarmActive)
+        {
+            return false;
+        }
+
+        /* 当前单调时钟时间点 */
+        auto now = std::chrono::steady_clock::now();
+
+        /* 事件结束上下文优先复用激活上下文，保证联动规则属性前后一致 */
+        EventTriggerContext_S stEndContext = m_stActiveContext;
+        if (stEndContext.enEventType == Event::Type_E::UNKNOWN)
+        {
+            stEndContext = stContext;
+        }
+        stEndContext.bEventEnded = true;
+        if (stContext.llTimestamp > 0)
+        {
+            /* 结束事件使用当前处理帧时间，避免沿用开始阶段时间戳 */
+            stEndContext.llTimestamp = stContext.llTimestamp;
+        }
+
+        dlog_info("事件[%d]强制结束", static_cast<int>(stEndContext.enEventType));
+        /* 使用新的上下文联动入口，结束阶段也保留属性匹配能力 */
+        CEventLinkage::instance()->handleEvent(stEndContext);
+        m_bIsAlarmActive = false;
+
+        /* 进入冷却期 */
+        m_bInCooldown = true;
+        m_lastAlarmEndTimestamp = now;
+        m_stActiveContext = EventTriggerContext_S();
+
+        return true;
+    }
+
+    /**
      * @brief   : 重置状态机
      */
     void reset()
@@ -384,6 +445,8 @@ private:
     EventTriggerContext_S build_active_context_cache(const EventTriggerContext_S &stContext) const
     {
         EventTriggerContext_S stCachedContext = stContext;
+        stCachedContext.stPanoramaImage = EventTvSdkImage_S();
+        stCachedContext.stTargetImage = EventTvSdkImage_S();
         if (stCachedContext.pTvSdkPayload && !stCachedContext.pTvSdkPayload->bAllowCacheInStateMachine)
         {
             stCachedContext.pTvSdkPayload.reset();

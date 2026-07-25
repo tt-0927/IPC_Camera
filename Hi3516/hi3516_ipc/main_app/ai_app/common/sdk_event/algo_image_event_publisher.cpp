@@ -10,6 +10,7 @@
 #include "algo_image_event_publisher.hpp"
 
 #include <cstring>
+#include <chrono>
 #include <memory>
 
 #include "control_manage.h"
@@ -21,6 +22,16 @@
 
 namespace AiAppCommon
 {
+namespace
+{
+long long current_timestamp_ms()
+{
+    return std::chrono::duration_cast<std::chrono::milliseconds>(
+               std::chrono::system_clock::now().time_since_epoch())
+        .count();
+}
+} // namespace
+
 bool CAlgoImageEventPublisher::publishImageObject(const SdkImageObjectRequest_S &stRequest) const
 {
 #ifndef ENABLE_TVSDK_SRC
@@ -57,6 +68,7 @@ bool CAlgoImageEventPublisher::publishImageObject(const SdkImageObjectRequest_S 
     pInfo->nTop = stRequest.stRect.nY1;
     pInfo->nRight = stRequest.stRect.nX2;
     pInfo->nBottom = stRequest.stRect.nY2;
+    pInfo->llTimestampMs = stRequest.llTimestampMs > 0 ? stRequest.llTimestampMs : current_timestamp_ms();
     std::memcpy(pInfo->byImgData, stRequest.pvecJpeg->data(), stRequest.pvecJpeg->size());
     pInfo->dwImgLen = static_cast<UINT32>(stRequest.pvecJpeg->size());
 
@@ -69,9 +81,10 @@ bool CAlgoImageEventPublisher::publishImageObject(const SdkImageObjectRequest_S 
         return false;
     }
 
-    dlog_info("SDK 图片事件推送成功，alarm[%u] 通道[%u] 图片长度[%u] 置信度[%.3f]",
+    dlog_info("SDK 图片事件推送成功，alarm[%u] 通道[%u] 时间戳[%lld] 图片长度[%u] 置信度[%.3f]",
               pInfo->dwAlarmType,
               pInfo->dwChannel,
+              static_cast<long long>(pInfo->llTimestampMs),
               pInfo->dwImgLen,
               pInfo->fConfidence);
     return true;

@@ -143,6 +143,7 @@ private:
      * @brief 上传的文件路径
      */
     static std::string m_filePath;  
+    static std::string m_imagePath;
     /**
      * @brief 上传的文件名称
      */

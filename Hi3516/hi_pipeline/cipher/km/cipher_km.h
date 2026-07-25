@@ -61,6 +61,14 @@ struct _CipherKm_S
     crypto_handle mpi_keyslot_handle;
     /*密钥层级派生模块句柄*/
     crypto_handle mpi_klad_handle;
+    /*KM 模块初始化状态，用于失败回滚和幂等释放*/
+    td_bool bKmInited;
+    /*KEYSLOT 创建状态，用于失败回滚和幂等释放*/
+    td_bool bKeyslotCreated;
+    /*KLAD 创建状态，用于失败回滚和幂等释放*/
+    td_bool bKladCreated;
+    /*KLAD 与 KEYSLOT 绑定状态，用于失败回滚和幂等释放*/
+    td_bool bKladAttached;
     
     //info /**********************辅助参数***************************/
     
@@ -74,6 +82,9 @@ struct _CipherKm_S
 
     /*根密钥传递，生成工作密钥，直接存储在密钥槽中*/
     int (*cipherKm_rootKey_delivery)(CipherKm_S *pHandle);
+
+    /*明文密钥传递，生成工作密钥并存储到密钥槽中*/
+    int (*cipherKm_set_clear_key)(CipherKm_S *pHandle, const td_u8 *pKey, td_u32 u32KeySize);
 };
 
 /**

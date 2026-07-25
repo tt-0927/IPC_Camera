@@ -24,6 +24,10 @@ constexpr int MAX_JPEG_FRAME = 5 * 1024 * 1024;
 /* IDR帧请求间隔时间（毫秒） */
 constexpr int IDR_REQUEST_INTERVAL_MS = 5500;
 
+CMainChannelHandler::CMainChannelHandler(CStreamVideo* pStreamVideo) : m_pStreamVideo(pStreamVideo), m_llLastIdrTimestamp(-1)
+{
+}
+
 void CMainChannelHandler::handleFrame(const uint8_t* pData,
                                      int nDataLen,
                                      Video_NS::VideoFrame_S* pVideoFrame,
@@ -47,6 +51,45 @@ void CMainChannelHandler::handleFrame(const uint8_t* pData,
 
     /* 发送到GB28181 */
     SIP::CRtpServer::instance()->sendVideoData(pVideoFrame);
+
+#if CAP_RECORD_USE_MAIN_STREAM
+    /* 检查是否在录制状态 */
+    if (CRecordCtrl::instance()->get_record_status() == Record_NS::Status_E::RECORD_OPERATION)
+    {
+        /* 发送到录制模块 */
+        CStreamServer::instance()->sendVideoData(pVideoFrame);
+
+        /* 检查是否需要请求IDR帧 */
+        checkAndRequestIdr(configManager, nChannel);
+    }
+#endif
+}
+
+void CMainChannelHandler::checkAndRequestIdr(CStreamVideoConfig& configManager, int nChannel)
+{
+    const auto& videoConfig = configManager.getVideoConfigs().at(nChannel);
+
+    /* I帧间隔/帧率 >= 5：防止因获取不到I帧导致TS文件时长比预设的6s要长 */
+    if (1.0 * videoConfig.nIFrameInterval / videoConfig.getFrameRateAsInt() >= 5)
+    {
+        long long int currentTime = TimeUtils_NS::get_currentTimestampMs();
+
+        /* 初始化时间戳 */
+        if (m_llLastIdrTimestamp == -1)
+        {
+            m_llLastIdrTimestamp = currentTime;
+        }
+
+        /* 每隔5.5秒请求一次IDR帧 */
+        if (currentTime - m_llLastIdrTimestamp >= IDR_REQUEST_INTERVAL_MS)
+        {
+            if (m_pStreamVideo)
+            {
+                m_pStreamVideo->request_idr(nChannel);
+                m_llLastIdrTimestamp = currentTime;
+            }
+        }
+    }
 }
 
 CSubChannelHandler::CSubChannelHandler(CStreamVideo* pStreamVideo) : m_pStreamVideo(pStreamVideo), m_llLastIdrTimestamp(-1)
@@ -68,6 +111,7 @@ void CSubChannelHandler::handleFrame(const uint8_t* pData,
     /* 发送到RTSP推流模块 */
     CPushStream::instance()->sendVideoData(pVideoFrame, false, true);
 
+#if !CAP_RECORD_USE_MAIN_STREAM
     /* 检查是否在录制状态 */
     if (CRecordCtrl::instance()->get_record_status() == Record_NS::Status_E::RECORD_OPERATION)
     {
@@ -77,6 +121,7 @@ void CSubChannelHandler::handleFrame(const uint8_t* pData,
         /* 检查是否需要请求IDR帧 */
         checkAndRequestIdr(configManager, nChannel);
     }
+#endif
 }
 
 void CSubChannelHandler::checkAndRequestIdr(CStreamVideoConfig& configManager, int nChannel)

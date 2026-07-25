@@ -3,7 +3,7 @@
  * @Author       : zhouzirui
  * @Date         : 2025-03-29 10:05:19
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-04-14 14:46:39
+ * @LastEditTime : 2026-06-10 11:19:09
  * @Description  : RTSP服务器
  */
 #pragma once
@@ -27,6 +27,7 @@
 #include "network_manage.h"
 #include "network_define.h"
 #include "qos_manage.h"
+#include "frame_queue.h"
 
 extern "C"
 {
@@ -59,115 +60,6 @@ typedef enum
     RTSP_CHN_SUB,      // 子码流
     RTSP_CHN_MAX,
 } RTSP_CHN_E;
-
-/**
- * @brief 帧数据结构体（C++版本，使用智能指针管理数据）
- */
-struct FrameData
-{
-    std::unique_ptr<unsigned char[]> data; /* 帧数据，使用智能指针自动管理内存 */
-    int frameSize = 0;                     /* 帧大小 */
-    int type = 0;                          /* 帧类型：VIDEO_TYPE 或 AUDIO_TYPE */
-    int iFrame = 0;                        /* 是否为I帧 */
-
-    FrameData() = default;
-    ~FrameData() = default;
-
-    /* 禁止拷贝，只允许移动 */
-    FrameData(const FrameData&) = delete;
-    FrameData& operator=(const FrameData&) = delete;
-    FrameData(FrameData&&) = default;
-    FrameData& operator=(FrameData&&) = default;
-};
-
-/**
- * @brief 线程安全的帧队列类
- * @note 使用 std::deque 和 std::mutex 实现线程安全
- */
-class CThreadSafeFrameQueue
-{
-public:
-    explicit CThreadSafeFrameQueue(size_t maxSize = MAX_VIDEO_FRAME) : m_maxSize(maxSize)
-    {
-    }
-    ~CThreadSafeFrameQueue() = default;
-
-    /* 禁止拷贝和移动 */
-    CThreadSafeFrameQueue(const CThreadSafeFrameQueue&) = delete;
-    CThreadSafeFrameQueue& operator=(const CThreadSafeFrameQueue&) = delete;
-
-    /**
-     * @brief 入队（移动语义）
-     * @return true：成功入队，false：队列已满
-     */
-    bool push(std::unique_ptr<FrameData> frame)
-    {
-        std::lock_guard<std::mutex> lock(m_mutex);
-        if (m_queue.size() >= m_maxSize)
-        {
-            return false;
-        }
-        m_queue.push_back(std::move(frame));
-        return true;
-    }
-
-    /**
-     * @brief 出队（移动语义）
-     * @return 帧数据，如果队列为空返回 nullptr
-     */
-    std::unique_ptr<FrameData> pop()
-    {
-        std::lock_guard<std::mutex> lock(m_mutex);
-        if (m_queue.empty())
-        {
-            return nullptr;
-        }
-        auto frame = std::move(m_queue.front());
-        m_queue.pop_front();
-        return frame;
-    }
-
-    /**
-     * @brief 获取队列大小
-     */
-    size_t size() const
-    {
-        std::lock_guard<std::mutex> lock(m_mutex);
-        return m_queue.size();
-    }
-
-    /**
-     * @brief 判断队列是否已满
-     */
-    bool isFull() const
-    {
-        std::lock_guard<std::mutex> lock(m_mutex);
-        return m_queue.size() >= m_maxSize;
-    }
-
-    /**
-     * @brief 判断队列是否为空
-     */
-    bool empty() const
-    {
-        std::lock_guard<std::mutex> lock(m_mutex);
-        return m_queue.empty();
-    }
-
-    /**
-     * @brief 清空队列
-     */
-    void clear()
-    {
-        std::lock_guard<std::mutex> lock(m_mutex);
-        m_queue.clear();
-    }
-
-private:
-    mutable std::mutex m_mutex;
-    std::deque<std::unique_ptr<FrameData>> m_queue;
-    size_t m_maxSize;
-};
 
 /* 直播流信息结构体 */
 typedef struct
@@ -417,6 +309,8 @@ private:
     long long m_minIdrInterval{ 30 }; // 30 ms
     /* Url地址 */
     std::unordered_map<int, std::string> m_rtspUrlMap;
+    /* 上次更新URL时的IP，用于检测IP变化 */
+    std::string m_strLastIp;
     /* RTSP摘要算法 */
     int m_nRtspDigestAlgorithm = 0;
 };

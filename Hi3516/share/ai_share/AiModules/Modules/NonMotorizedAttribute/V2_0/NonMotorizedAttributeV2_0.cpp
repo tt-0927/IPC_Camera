@@ -2,7 +2,7 @@
  * @Author: lianghy lianghy@kfb.cn
  * @Date: 2026-02-04 15:43:27
  * @LastEditors: lianghy lianghy@kfb.cn
- * @LastEditTime: 2026-02-05 15:08:19
+ * @LastEditTime: 2026-04-07 14:36:56
  * @FilePath: /1126/share/ai_share/AiModules/Modules/NonMotorizedAttribute/V2_0/NonMotorizedAttributeV2_0.hpp
  * @Description: 非机动车属性检测
  */
@@ -181,7 +181,7 @@ bool NonMotorizedAttribute_NS::CNonMotorizedAttributeV2_0::process(
     Inference_NS::InputData_S            stInputData;
 
     stInputData.pData     = (float *)stInData.inMat.data;
-    stInputData.nDataSize = static_cast<size_t>(stInData.inMat.total() * stInData.inMat.elemSize());
+    stInputData.nDataSize = static_cast<size_t>(stInData.inMat.total() * stInData.inMat.elemSize() * sizeof(float));
 
     bRet = m_pNonMotorizedAttribute->inference(stInputData, vClsDatas);
 

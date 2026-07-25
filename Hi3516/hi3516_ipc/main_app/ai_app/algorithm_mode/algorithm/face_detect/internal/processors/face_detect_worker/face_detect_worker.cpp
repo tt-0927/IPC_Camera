@@ -1,8 +1,9 @@
 #include "face_detect_worker.hpp"
 #include "dlog.h"
 #include "path_define.h"
-
+#include "internal/base/hvf_detect_common.hpp"
 #include <unistd.h>
+#include "YoloUltralytics_rpn.hpp"
 namespace
 {
 constexpr int VIDEO_QUEUE_MAX = 2;
@@ -31,7 +32,7 @@ bool CFaceDetectWorker::start()
     }
 
     m_running.store(true);
-
+    // m_faceProcessor.setEnabled(true);
     m_thread = std::thread(&CFaceDetectWorker::workerLoop, this);
 
     return true;
@@ -51,7 +52,7 @@ bool CFaceDetectWorker::init()
         // 1. YOLO 检测模型初始化
         std::string detectModel = AI_FACE_DETECTION_CONFIG_FILE;
 
-        m_pFaceDetHandle = new Inference_NS ::CYoloUltralyticsPoint(detectModel);
+        m_pFaceDetHandle =  new Inference_NS::CYoloUltralytics(detectModel);
 
         if (!m_pFaceDetHandle || !m_pFaceDetHandle->init())
         {
@@ -63,6 +64,18 @@ bool CFaceDetectWorker::init()
         dlog_info("YOLO模型初始化成功");
     }
 
+
+    // if (!m_pFaceDetHandle)
+    // {
+    //     m_pFaceDetHandle = streamAiDetect_init(AI_DETECT_CHN_HVF, AI_HVF_NORMAL_MODEL_PATH);
+    //     if (!m_pFaceDetHandle)
+    //     {
+    //         dlog_error("脸人车侦测初始化失败");
+    //         return false;
+    //     }
+    //     dlog_info("脸人车侦测初始化成功");
+    // }
+    #if CAP_AI_FACE_COMPARE
     if (!m_pFaceFeatureHandle)
     {
         // 2. ArcFace 特征提取模型初始化
@@ -80,6 +93,7 @@ bool CFaceDetectWorker::init()
 
         dlog_info("ArcFace模型初始化成功");
     }
+    #endif
     return true;
 }
 
@@ -100,12 +114,20 @@ void CFaceDetectWorker::deinit()
 
         m_pFaceDetHandle = nullptr;
     }
+    // if (m_pFaceDetHandle)
+    // {
+    //     streamAiDetect_uninit(m_pFaceDetHandle);
+    //     m_pFaceDetHandle = nullptr;
+    // }
+    // m_faceProcessor.setEnabled(false);
+    #if CAP_AI_FACE_COMPARE
     if (m_pFaceFeatureHandle)
     {
         delete m_pFaceFeatureHandle;
 
         m_pFaceFeatureHandle = nullptr;
     }
+    #endif
 }
 
 void CFaceDetectWorker::releaseHandle()
@@ -116,12 +138,19 @@ void CFaceDetectWorker::releaseHandle()
 
         m_pFaceDetHandle = nullptr;
     }
+    // if (m_pFaceDetHandle)
+    // {
+    //     streamAiDetect_uninit(m_pFaceDetHandle);
+    //     m_pFaceDetHandle = nullptr;
+    // }
+    #if CAP_AI_FACE_COMPARE
     if (m_pFaceFeatureHandle)
     {
         delete m_pFaceFeatureHandle;
 
         m_pFaceFeatureHandle = nullptr;
     }
+    #endif
 }
 
 void CFaceDetectWorker::submitVideoFrame(ot_video_frame_info *frame, int width, int height, DetectCallback callback)
@@ -272,7 +301,7 @@ void CFaceDetectWorker::workerLoop()
 {
     pthread_setname_np(pthread_self(), "FaceDetW");
 
-    dlog_info("啓動綫程.");
+    dlog_info("启动线程.");
     while (m_running.load())
     {
 
@@ -339,7 +368,7 @@ void CFaceDetectWorker::workerLoop()
              * YOLO检测
              */
             DetectResult vPointDatas;
-
+            
             Inference_NS::InputData_S stInputData;
 
             stInputData.pData = reinterpret_cast<float *>(task->pFrame->video_frame.virt_addr[0]);
@@ -347,11 +376,57 @@ void CFaceDetectWorker::workerLoop()
             stInputData.nDataSize = static_cast<int>(task->width * task->height * 1.5) * sizeof(float);
 
             m_pFaceDetHandle->inference(stInputData, vPointDatas);
+            // std::vector<float> vConfidenceList;
+            // if (m_pFaceDetHandle->svpAiDetect_sendFrame(m_pFaceDetHandle, &task->pFrame->video_frame) != TD_SUCCESS)
+            // {
+            //     continue;
+            // }
+            // std::vector<Common::RectInfo_S> vstRectInfo;
+            // if (m_faceProcessor.isEnabled())
+            // {
+            //     const ot_aidetect_object_of_one_class *pstObjectClass = HVFDetectInternal::find_object_class(m_pFaceDetHandle->stResult, OT_AIDETECT_CLASS_FACE);
+            //     if (pstObjectClass)
+            //     {
+            //         /* 当前人脸规则换算后的实际置信度门限 */
+            //         const float fSensitivityThreshold = 0.4f;
+            //         for (size_t i = 0; i < pstObjectClass->object_num; ++i)
+            //         {
+            //             /* 当前遍历到的人脸目标 */
+            //             const ot_aidetect_object &stObject = pstObjectClass->objects[i];
+            //             if (stObject.detect_confidence < fSensitivityThreshold)
+            //             {
+            //                 continue;
+            //             }
+            //             {
+            //                 add_result_to_vector(stObject, vstRectInfo);
+            //                 dlog_info("vstRectInfo ： %d",vstRectInfo.size());
+            //                 vConfidenceList.push_back(stObject.detect_confidence);
+                            
+            //             }
+                        
+            //         }
+            //     }
+            //     // m_faceProcessor.process(stContext);
+            // }
+            // dlog_info("vstRectInfo ： %d",vstRectInfo.size());
+            // for (size_t i = 0; i < vstRectInfo.size(); i++)
+            // {
+            //     Inference_NS::PointData_S pointData;
 
+            //     pointData.stBoxs.nX1 = vstRectInfo[i].nX1;
+            //     pointData.stBoxs.nX2 = vstRectInfo[i].nX2;
+            //     pointData.stBoxs.nY1 = vstRectInfo[i].nY1;
+            //     pointData.stBoxs.nY2 = vstRectInfo[i].nY2;
+
+            //     if (i < vConfidenceList.size())
+            //     {
+            //         pointData.fConfidence = vConfidenceList[i];
+            //     }
+
+            //     vPointDatas.push_back(pointData);
+            // }
             finalResult.result = vPointDatas;
-
             finalResult.state = TaskState::SUCCESS;
-
             /*
              * 视频流回调
              */
@@ -359,7 +434,9 @@ void CFaceDetectWorker::workerLoop()
             {
                 task->callback(vPointDatas);
             }
+
         }
+        #if CAP_AI_FACE_COMPARE
         else if (task->type == TaskType ::FEATURE_EXTRACT)
         {
             /*
@@ -386,7 +463,7 @@ void CFaceDetectWorker::workerLoop()
                 finalResult.state = TaskState::FAILED;
             }
         }
-
+        #endif
         auto endTime = std::chrono::steady_clock::now();
 
         auto costMs = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime).count();
@@ -413,8 +490,9 @@ void CFaceDetectWorker::workerLoop()
         }
     }
 }
-
+#if CAP_AI_FACE_COMPARE
 Inference_NS::CImageFeature *CFaceDetectWorker::getFeatureHandle()
 {
     return m_pFaceFeatureHandle;
 }
+#endif

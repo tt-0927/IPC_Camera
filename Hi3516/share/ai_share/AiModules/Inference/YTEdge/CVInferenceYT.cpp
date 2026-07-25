@@ -225,7 +225,7 @@ bool Inference_NS::CCVInferenceYT::checkModelConfig()
 
     Json::Object *pJsonHandle = NULL;
     pJsonHandle = Json::init(pchJson);
-    bool bRet;
+    bool bRet = true;
 
     /* Device 配置文件路径 */
     bRet = Json::get(pJsonHandle, "sdk_path", m_strTyhcpConfigPath);
@@ -245,21 +245,23 @@ bool Inference_NS::CCVInferenceYT::checkModelConfig()
     if (!checkModelPreConfig())
     {
         printf("json配置文件[%s], 预处理部分解析异常\n", m_strConfigPath.c_str());
+        bRet = false;
         goto EXIT;
     }
 
     if (!checkModelInferConfig())
     {
         printf("json配置文件[%s], 推理部分解析异常\n", m_strConfigPath.c_str());
+        bRet = false;
         goto EXIT;
     }
 
     if (!checkModelProConfig())
     {
         printf("json配置文件[%s], 后处理部分解析异常\n", m_strConfigPath.c_str());
+        bRet = false;
         goto EXIT;
     }
-    return true;
 
 EXIT:
     if (pJsonHandle)
@@ -267,7 +269,7 @@ EXIT:
         Json::deinit(pJsonHandle);
         pJsonHandle = NULL;
     }
-    return false;
+    return bRet;
 }
 
 /* 校验模型配置文件中的预处理信息 */
@@ -295,7 +297,7 @@ bool Inference_NS::CCVInferenceYT::checkModelPreConfig()
     Json::Object *pJsonData = NULL;
     Json::Object *pJsonDataItem = NULL;
     Json::Object *pItemObject = NULL;
-    bool bRet = false;
+    bool bRet = true;
     int nSize = 0;
     int i;
     int nSizeItem, nMean, nStd;
@@ -306,6 +308,7 @@ bool Inference_NS::CCVInferenceYT::checkModelPreConfig()
     if (!pJsonData)
     {
         printf("解析[data]字段失败\n");
+        bRet = false;
         goto EXIT;
     }
 
@@ -314,12 +317,14 @@ bool Inference_NS::CCVInferenceYT::checkModelPreConfig()
     if (!pJsonDataItem)
     {
         printf("解析[pJsonData]字段失败\n");
+        bRet = false;
         goto EXIT;
     }
     nSize = Json::Array::size(pJsonDataItem);
     if (nSize <= 0)
     {
         printf("解析[数组大小异常]\n");
+        bRet = false;
         goto EXIT;
     }
     m_vModelInputSize.clear();
@@ -330,6 +335,7 @@ bool Inference_NS::CCVInferenceYT::checkModelPreConfig()
         if (NULL == pItemObject)
         {
             printf("获取数组节点失败\n");
+            bRet = false;
             goto EXIT;
         }
 
@@ -360,12 +366,14 @@ bool Inference_NS::CCVInferenceYT::checkModelPreConfig()
     if (!pJsonDataItem)
     {
         printf("解析[pJsonData]字段失败\n");
+        bRet = false;
         goto EXIT;
     }
     nSize = Json::Array::size(pJsonDataItem);
     if (nSize <= 0)
     {
         printf("解析[数组大小异常]\n");
+        bRet = false;
         goto EXIT;
     }
     for (int i = 0; i < nSize; i++)
@@ -375,6 +383,7 @@ bool Inference_NS::CCVInferenceYT::checkModelPreConfig()
         if (NULL == pItemObject)
         {
             printf("获取数组节点失败\n");
+            bRet = false;
             goto EXIT;
         }
 
@@ -391,12 +400,14 @@ bool Inference_NS::CCVInferenceYT::checkModelPreConfig()
     if (!pJsonDataItem)
     {
         printf("解析[pJsonData]字段失败\n");
+        bRet = false;
         goto EXIT;
     }
     nSize = Json::Array::size(pJsonDataItem);
     if (nSize <= 0)
     {
         printf("解析[数组大小异常]\n");
+        bRet = false;
         goto EXIT;
     }
     for (int i = 0; i < nSize; i++)
@@ -406,6 +417,7 @@ bool Inference_NS::CCVInferenceYT::checkModelPreConfig()
         if (NULL == pItemObject)
         {
             printf("获取数组节点失败\n");
+            bRet = false;
             goto EXIT;
         }
 
@@ -424,7 +436,6 @@ bool Inference_NS::CCVInferenceYT::checkModelPreConfig()
         printf("解析padding字段失败\n");
         goto EXIT;
     }
-    return true;
 
 EXIT:
     if (pJsonHandle)
@@ -432,7 +443,7 @@ EXIT:
         Json::deinit(pJsonHandle);
         pJsonHandle = NULL;
     }
-    return false;
+    return bRet;
 }
 
 /* 校验模型配置文件中的模型推理信息 */
@@ -466,6 +477,7 @@ bool Inference_NS::CCVInferenceYT::checkModelInferConfig()
     if (!pJsonData)
     {
         printf("解析[data]字段失败\n");
+        bRet = false;
         goto EXIT;
     }
 
@@ -476,14 +488,14 @@ bool Inference_NS::CCVInferenceYT::checkModelInferConfig()
         printf("解析framework字段失败\n");
         goto EXIT;
     }
-    return true;
+
 EXIT:
     if (pJsonHandle)
     {
         Json::deinit(pJsonHandle);
         pJsonHandle = NULL;
     }
-    return false;
+    return bRet;
 }
 
 /* 校验模型配置文件中的后处理信息 */

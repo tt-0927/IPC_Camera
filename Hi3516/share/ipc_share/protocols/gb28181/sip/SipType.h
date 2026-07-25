@@ -10,7 +10,6 @@
 #define _SIP_TYPE_H_
 
 #include "ExternSip.h"
-#include "ModuleLog.h"
 #include <cstring>
 #include <functional>
 #include <iostream>
@@ -24,6 +23,9 @@
 /* 国标协议的类型定义头文件 */
 #include "GbDefine.h"
 #include "MANSCDP.h"
+
+/* deprecated: 旧模块日志回调类型仅用于保持 CbInfo_S 接口兼容，当前日志链路统一使用 dlog */
+using ModuleLog = void (*)(int nLevel, const char *pLog);
 
 #ifndef SIP_SERVER_ID
 #define SIP_SERVER_ID "34020000002000000001"
@@ -818,7 +820,7 @@ namespace SIP
         SipPresetCb fnPreset = nullptr;
         /* 本地设备信息回调-底层获取信息时回调此函数 */
         SipGetLocalInfo fnGetLocalInfo = nullptr;
-        /* 日志回调函数——公用 */
+        /* deprecated: 旧模块日志回调入口仅保留接口兼容，当前 dlog 日志链路不再调用 */
         ModuleLog fnLog = nullptr;
         /* 设备上线状态——客户端主要使用 */
         SipOnlineStatusCb fnOnlineStatus = nullptr;

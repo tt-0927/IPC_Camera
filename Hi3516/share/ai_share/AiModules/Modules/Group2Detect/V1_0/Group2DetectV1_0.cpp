@@ -2,7 +2,7 @@
  * @Author: lianghy lianghy@kfb.cn
  * @Date: 2026-01-09 11:34:24
  * @LastEditors: lianghy lianghy@kfb.cn
- * @LastEditTime: 2026-01-28 16:50:57
+ * @LastEditTime: 2026-04-07 14:35:48
  * @FilePath: /1126/share/ai_share/AiModules/Modules/Group2Detect/V1_0/Group2DetectV1_0.hpp
  * @Description: 人、车、非相关事件检测
  */
@@ -12,7 +12,8 @@
 #include "BYTETracker.h"
 #include "SaveImage.hpp"
 #include "StatisticsTimer.hpp"
-
+#include <unistd.h>
+#include <chrono>
 using namespace Group2Detect_NS;
 
 Group2Detect_NS::CGroup2DetectV1_0::CGroup2DetectV1_0(InParam_S stInParam)
@@ -34,6 +35,11 @@ bool Group2Detect_NS::CGroup2DetectV1_0::init()
     m_pYoloUltralytics = new Inference_NS::CYoloUltralytics(m_stInParam.strModelPath);
     if (m_pYoloUltralytics && m_pYoloUltralytics->init())
     {
+        m_pYoloUltralytics->getSizeLimit(
+                0,
+                m_nLimitWidth,
+                m_nLimitHeight,
+                m_nLimitChannel);
         bRet = true;
     }
 
@@ -173,6 +179,29 @@ int Group2Detect_NS::CGroup2DetectV1_0::regularProcess(InData_S &stInData, const
         }
     }
     /* ====================================== 非机动车闯入识别 ====================================== */
+    
+    /* ====================================== 非机动车车道检测 ====================================== */
+    // 暂不清楚检测什么，只检测非机动车
+    bool bNonVehicleLaneDetFlag = false;
+    for (auto &Param : stInData.stParam.vstNonVehicleLaneDetParam)
+    {
+        for (auto &vecBox : vstNonMotorVehicleBoxs)
+        {
+            if (vecBox.fConfidence >= Param.fThreshold)
+            {
+                bNonVehicleLaneDetFlag = intrusionZoneDetection(
+                        cv::Point(vecBox.vfBox.x + vecBox.vfBox.width / 2, vecBox.vfBox.y + vecBox.vfBox.height / 2),
+                        Param.vecPoints);
+                if(bNonVehicleLaneDetFlag)
+                {
+                    printf("【报警】达到识别到了非机动车车道的条件！\n");
+                    pstOutData->bNonVehicleLaneDetFlag = true;
+                    break;
+                }
+            }
+        }
+    }
+    /* ====================================== 非机动车车道检测 ====================================== */
 
     /* ====================================== 电瓶车进电梯识别 ====================================== */
     // 标记当前帧是否识别到了电瓶车
@@ -274,60 +303,60 @@ int Group2Detect_NS::CGroup2DetectV1_0::regularProcess(InData_S &stInData, const
     int64_t nCurrentTimeStamp = time(NULL);
     for (auto &Param : stInData.stParam.vstLeavePostParam)
     {
+        // 检查该区域是否启用检测
         if (Param.bEnable)
         {
+            // ===== 先完整遍历所有人员，判断该区域内是否有任意一人在岗 =====
+            // 每个区域代表一个岗位位置，只要有任意人员在区域内即视为在岗
+            bool bHasPersonInRegion = false;  // 标记该区域是否存在人员
+
             if (vstPersonBoxs.size())
             {
                 for (auto &vBoxData : vstPersonBoxs)
                 {
-                    if(vBoxData.fConfidence < Param.fLeavePostThreshold)
+                    // 只处理置信度高于阈值的目标
+                    if (vBoxData.fConfidence < Param.fLeavePostThreshold)
                     {
                         continue;
                     }
-                    /* 中心点 */
-                    cv::Point centerPoint(static_cast<int>((vBoxData.vfBox.x + vBoxData.vfBox.width / 2)),
-                                          static_cast<int>((vBoxData.vfBox.y + vBoxData.vfBox.height / 2)));
-
-                    bool bLeavePostIntrusionFlag = intrusionZoneDetection(centerPoint, Param.vecPoints);
-
-                    if (!bLeavePostIntrusionFlag)
+                    // 计算人员中心点
+                    cv::Point centerPoint(
+                        static_cast<int>((vBoxData.vfBox.x + vBoxData.vfBox.width / 2)),
+                        static_cast<int>((vBoxData.vfBox.y + vBoxData.vfBox.height / 2)));
+                    // 检测人员中心点是否在岗位区域内
+                    if (intrusionZoneDetection(centerPoint, Param.vecPoints))
                     {
-                        /* 检测到人离开岗位的时间是否超出区域设定的时间阈值 */
-                        if (m_llLeavePostStartTime[nLeavePostDetectRegionId] != 0 && (nCurrentTimeStamp - m_llLeavePostStartTime[nLeavePostDetectRegionId] >= Param.nTimeThreshold))
-                        {
-                            pstOutData->bLeavePostFlag = true;
-                        }
-
-                        /* 检测到区域没人，开始计时 */
-                        if (m_llLeavePostStartTime[nLeavePostDetectRegionId] == 0)
-                        {
-                            m_llLeavePostStartTime[nLeavePostDetectRegionId] = nCurrentTimeStamp;
-                        }
-
-                        break;
-                    }
-                    else /* 检测到有人，并且还在岗位区域重置为0 */
-                    {
-                        m_llLeavePostStartTime[nLeavePostDetectRegionId] = 0;
+                        bHasPersonInRegion = true;
+                        break;  // 已确认区域有人，无需继续检查其他人员
                     }
                 }
+            }
+
+            // ===== 根据区域内是否有人，分别处理 =====
+            if (bHasPersonInRegion)
+            {
+                // 区域内有人员在岗 → 重置离岗计时器
+                m_llLeavePostStartTime[nLeavePostDetectRegionId] = 0;
             }
             else
             {
-                /* 检测到区域没人，开始计时 */
+                // 区域内无人员 → 离岗计时
                 if (m_llLeavePostStartTime[nLeavePostDetectRegionId] == 0)
                 {
+                    // 首次检测到离岗，记录开始时间
                     m_llLeavePostStartTime[nLeavePostDetectRegionId] = nCurrentTimeStamp;
                 }
 
-                /* 检测到区域没人的时间是否超出区域设定的时间阈值 */
-                if (m_llLeavePostStartTime[nLeavePostDetectRegionId] != 0 && (nCurrentTimeStamp - m_llLeavePostStartTime[nLeavePostDetectRegionId] >= Param.nTimeThreshold))
+                // 离岗时间是否超过阈值
+                if (m_llLeavePostStartTime[nLeavePostDetectRegionId] != 0
+                    && (nCurrentTimeStamp - m_llLeavePostStartTime[nLeavePostDetectRegionId] >= Param.nTimeThreshold))
                 {
+                    // 离岗时间超过阈值，触发报警
                     pstOutData->bLeavePostFlag = true;
                 }
-                continue;
             }
 
+            // 如果触发报警，退出循环（不再检查后续区域）
             if (pstOutData->bLeavePostFlag)
             {
                 break;
@@ -336,6 +365,66 @@ int Group2Detect_NS::CGroup2DetectV1_0::regularProcess(InData_S &stInData, const
         nLeavePostDetectRegionId++;
     }
     /* ====================================== 离岗检测 ====================================== */
+
+    /* ====================================== 图书馆空位检测 ====================================== */
+    if(stInData.stParam.stLibraryVacanciesDetectParam.bEnable)
+    {
+        auto& param = stInData.stParam.stLibraryVacanciesDetectParam;
+        if(vstPersonBoxs.size() > 0) // 有人
+        {
+            for (auto &vBoxData : vstPersonBoxs)
+            {
+                if(vBoxData.fConfidence < stInData.stParam.stLibraryVacanciesDetectParam.fThreshold)
+                {
+                    continue;
+                }
+
+                cv::Point centerPoint(static_cast<int>((vBoxData.vfBox.x + vBoxData.vfBox.width / 2)),
+                                          static_cast<int>((vBoxData.vfBox.y + vBoxData.vfBox.height / 2)));
+
+                bool bFlag = intrusionZoneDetection(centerPoint, param.vecPoints);
+                if(bFlag)
+                {
+                    m_llLibraryTime[LEAVE_SEAT] = 0;
+                    
+                    if(m_llLibraryTime[ENTRY_SEAT] == 0)
+                    {
+                        m_llLibraryTime[ENTRY_SEAT] = nCurrentTimeStamp;
+                    }
+                    else
+                    {
+                        if(nCurrentTimeStamp - m_llLibraryTime[ENTRY_SEAT] > param.nEntryTimeThreshold)
+                            pstOutData->nLibraryVacanciesType = ENTRY_SEAT;
+                    }
+                }
+                else
+                {
+                    m_llLibraryTime[ENTRY_SEAT] = 0;
+
+                    if(m_llLibraryTime[LEAVE_SEAT] == 0)
+                    {
+                        m_llLibraryTime[LEAVE_SEAT] = nCurrentTimeStamp;
+                    }
+                    else
+                    {
+                        if(nCurrentTimeStamp - m_llLibraryTime[LEAVE_SEAT] > param.nEntryTimeThreshold)
+                            pstOutData->nLibraryVacanciesType = LEAVE_SEAT;
+                    }
+                }
+            }
+            
+        }
+        else
+        {
+            if(m_llLibraryTime[LEAVE_SEAT] == 0)
+                m_llLibraryTime[LEAVE_SEAT] = nCurrentTimeStamp;
+            
+            if(nCurrentTimeStamp - m_llLibraryTime[LEAVE_SEAT] > param.nEntryTimeThreshold)
+                pstOutData->nLibraryVacanciesType = LEAVE_SEAT;
+        }
+    }
+    /* ====================================== 图书馆空位检测 ====================================== */
+
 
     /* ====================================== 行人闯入识别 ====================================== */
     bool bPedestrianIntrusionFlag = false;
@@ -399,16 +488,19 @@ int Group2Detect_NS::CGroup2DetectV1_0::regularProcess(InData_S &stInData, const
 
     /* ====================================== 拥堵识别检测 ====================================== */
     int nVehicleCount = 0;
-    for (auto &BoxData : vstMotorVehicleBoxs)
+    if(stInData.stParam.stCongestionParam.bEnable)
     {
-        if (BoxData.fConfidence >= stInData.stParam.stCongestionParam.fCongestionBoxThreshold)
+        for (auto &BoxData : vstMotorVehicleBoxs)
         {
-            nVehicleCount++;
+            if (BoxData.fConfidence >= stInData.stParam.stCongestionParam.fCongestionBoxThreshold)
+            {
+                nVehicleCount++;
+            }
         }
-    }
-    if (nVehicleCount >= stInData.stParam.stCongestionParam.nCongestionThreshold)
-    {
-        pstOutData->bCongestionFlag = true;
+        if (nVehicleCount >= stInData.stParam.stCongestionParam.nCongestionThreshold)
+        {
+            pstOutData->bCongestionFlag = true;
+        }
     }
     /* ====================================== 拥堵识别检测 ====================================== */
 
@@ -420,7 +512,8 @@ bool Group2Detect_NS::CGroup2DetectV1_0::process(
     InData_S               stInData,
     std::vector<Result_S> &vecResult,
     std::vector<Result_S> &vecAllResult,
-    OutData_S             *stOutData)
+    OutData_S             *stOutData,
+    std::vector<Result_S>* vecResultOne)
 {
     OutData_S defaultOutData;
 
@@ -431,7 +524,11 @@ bool Group2Detect_NS::CGroup2DetectV1_0::process(
     }
 
     vecResult.clear();
-
+    if(vecResultOne)
+    {
+        vecResultOne->clear();
+    }
+    
     if (stInData.inMat.empty())
     {
         printf("传入图片为空\n");
@@ -468,25 +565,45 @@ bool Group2Detect_NS::CGroup2DetectV1_0::process(
         }
     }
 
-    Inference_NS::InputData_S stInputData;
-
-    #ifdef RK_3588
-    cv::Mat reMat;
-    if(resizeAndPadImage3(stInData.inMat,reMat))
+    int tripLineType = -1;// 0横线 1竖线
+    if (stInData.stParam.stTripLineParam.bEnable)
     {
-        stInputData.pData          = (float *)reMat.data;
-        stInputData.nDataSize      = static_cast<size_t>(reMat.total() * reMat.elemSize());
+        calculateAngleWithVertical(stInData.stParam.stHeadCountParam.alertLine1,stInData.stParam.stHeadCountParam.alertLine2) > 45 ?tripLineType = 0:tripLineType = 1;
+    }
+    int headLineType = -1;
+    if (stInData.stParam.stHeadCountParam.bEnable)
+    {
+        calculateAngleWithVertical(stInData.stParam.stHeadCountParam.alertLine1,stInData.stParam.stHeadCountParam.alertLine2) > 45 ?headLineType = 0:headLineType = 1;
+    }
+
+    int tripAllowedType = 0;
+    for(const auto& itr : stInData.stParam.stTripLineParam.veDetectionTargetTypes)
+    {
+        tripAllowedType |= 1 << itr;
+    }
+
+
+    Inference_NS::InputData_S stInputData;
+    cv::Mat reMat;
+    if(stInData.inMat.type() == CV_8UC3)
+    {
+        if(stInData.inMat.cols != m_nLimitWidth || stInData.inMat.rows != m_nLimitHeight)
+        {
+            resizeAndPadImage3(stInData.inMat,reMat);
+            stInputData.pData              = (float *)reMat.data;
+            stInputData.nDataSize          = static_cast<size_t>(reMat.total() * reMat.elemSize() * sizeof(float));
+        }
+        else
+        {
+            stInputData.pData              = (float *)stInData.inMat.data;
+            stInputData.nDataSize          = static_cast<size_t>(stInData.inMat.total() * stInData.inMat.elemSize() * sizeof(float));
+        }
     }
     else
     {
-        stInputData.pData          = (float *)stInData.inMat.data;
-        stInputData.nDataSize      = static_cast<size_t>(stInData.inMat.total() * stInData.inMat.elemSize());
+        stInputData.pData              = (float *)stInData.inMat.data;
+        stInputData.nDataSize          = static_cast<size_t>(stInData.inMat.total() * stInData.inMat.elemSize() * sizeof(float));
     }
-    
-    #else
-    stInputData.pData              = (float *)stInData.inMat.data;
-    stInputData.nDataSize          = static_cast<size_t>(stInData.inMat.total() * stInData.inMat.elemSize());
-    #endif
     stInputData.stBoxs.fConfidence = stInData.stParam.fBoxThreshold;
     stInputData.stBoxs.fNms        = stInData.stParam.fNmsThreshold;
 
@@ -588,6 +705,15 @@ bool Group2Detect_NS::CGroup2DetectV1_0::process(
                         m_mapPenson[nTargetId].bottomMidPoint = bottomMidPoint;
                         m_mapPenson[nTargetId].ndwellTime     = 0;
                         m_mapPenson[nTargetId].isUsed         = true;
+                        if(tripAllowedType & (1 << nClsIdx))
+                        {
+                            m_TripLineStatus[nTargetId].isUsing = true;
+                        }
+
+                        if(stInData.stParam.stHeadCountParam.bEnable)
+                        {
+                            m_HeadCountStatus[nTargetId].isUsing = true;
+                        }
                     }
                     else
                     {
@@ -601,6 +727,27 @@ bool Group2Detect_NS::CGroup2DetectV1_0::process(
                         newPenson.fAspectRatio   = fAspectRatio;
 
                         m_mapPenson[nTargetId] = newPenson;
+
+                        if(tripAllowedType & (1 << nClsIdx))
+                        {
+                            m_TripLineStatus[nTargetId].lastStatus = OVERFLOW_NONE;
+                            m_TripLineStatus[nTargetId].lastlineType = -1;
+                            m_TripLineStatus[nTargetId].lastlinePlace = -2;
+                            m_TripLineStatus[nTargetId].lostFrameCount = 0;
+                            m_TripLineStatus[nTargetId].isUsing = true;
+                        }
+
+                        
+                        if(stInData.stParam.stHeadCountParam.bEnable)
+                        {
+                            m_HeadCountStatus[nTargetId].lastStatus = OVERFLOW_NONE;
+                            m_HeadCountStatus[nTargetId].lastlineType = -1;
+                            m_HeadCountStatus[nTargetId].lastlinePlace = -2;
+                            m_HeadCountStatus[nTargetId].lostFrameCount = 0;
+                            m_HeadCountStatus[nTargetId].isUsing = true;
+                            m_HeadCountStatus[nTargetId].firstPlace = 0;
+                            m_HeadCountStatus[nTargetId].lastPlace = 0;
+                        }
                     }
 
                     pstTarget = &m_mapPenson[nTargetId];
@@ -614,6 +761,10 @@ bool Group2Detect_NS::CGroup2DetectV1_0::process(
                         m_mapVehicle[nTargetId].bottomMidPoint = bottomMidPoint;
                         m_mapVehicle[nTargetId].ndwellTime     = 0;
                         m_mapVehicle[nTargetId].isUsed         = true;
+                        if(tripAllowedType & (1 << nClsIdx))
+                        {
+                            m_TripLineStatus[nTargetId].isUsing = true;
+                        }
                     }
                     else
                     {
@@ -626,6 +777,15 @@ bool Group2Detect_NS::CGroup2DetectV1_0::process(
                         newVehicle.isUsed         = true;
 
                         m_mapVehicle[nTargetId] = newVehicle;
+
+                        if(tripAllowedType & (1 << nClsIdx))
+                        {
+                            m_TripLineStatus[nTargetId].lastStatus = OVERFLOW_NONE;
+                            m_TripLineStatus[nTargetId].lastlineType = -1;
+                            m_TripLineStatus[nTargetId].lastlinePlace = -2;
+                            m_TripLineStatus[nTargetId].lostFrameCount = 0;
+                            m_TripLineStatus[nTargetId].isUsing = true;
+                        }
                     }
 
                     pstTarget = &m_mapVehicle[nTargetId];
@@ -639,6 +799,11 @@ bool Group2Detect_NS::CGroup2DetectV1_0::process(
                         m_mapNonMotorVehicle[nTargetId].bottomMidPoint = bottomMidPoint;
                         m_mapNonMotorVehicle[nTargetId].ndwellTime     = 0;
                         m_mapNonMotorVehicle[nTargetId].isUsed         = true;
+
+                        if(tripAllowedType & (1 << nClsIdx))
+                        {
+                            m_TripLineStatus[nTargetId].isUsing = true;
+                        }
                     }
                     else
                     {
@@ -651,6 +816,16 @@ bool Group2Detect_NS::CGroup2DetectV1_0::process(
                         newNonMotorVehicle.isUsed         = true;
 
                         m_mapNonMotorVehicle[nTargetId] = newNonMotorVehicle;
+
+                        if(tripAllowedType & (1 << nClsIdx))
+                        {
+                            m_TripLineStatus[nTargetId].lastStatus = OVERFLOW_NONE;
+                            m_TripLineStatus[nTargetId].lastlineType = -1;
+                            m_TripLineStatus[nTargetId].lastlinePlace = -2;
+                            m_TripLineStatus[nTargetId].lostFrameCount = 0;
+                            m_TripLineStatus[nTargetId].isUsing = true;
+                        }
+
                     }
 
                     pstTarget = &m_mapNonMotorVehicle[nTargetId];
@@ -658,6 +833,19 @@ bool Group2Detect_NS::CGroup2DetectV1_0::process(
                 /* 区域分析 */
                 Result_S stResult;
 
+                stResult.nId = nTargetId;
+                stResult.nID = nClsIdx;
+                stResult.fX1 = vectlwh[0];
+                stResult.fY1 = vectlwh[1];
+                stResult.fX2 = vectlwh[0] + vectlwh[2];
+                stResult.fY2 = vectlwh[1] + vectlwh[3];
+                stResult.fBoxConfidence = fBoxConfidence;
+
+                Result_S stHeadCountArea;
+                stHeadCountArea.fX1 = vectlwh[0];
+                stHeadCountArea.fY1 = vectlwh[1];
+                stHeadCountArea.fX2 = vectlwh[0] + vectlwh[2];
+                stHeadCountArea.fY2 = vectlwh[1] + vectlwh[3];
                 /* 是否启用多区域对比 */
                 if (!stInData.stParam.bVecEnable)
                 {
@@ -668,22 +856,184 @@ bool Group2Detect_NS::CGroup2DetectV1_0::process(
                         {
                             if (classId == nClsIdx)
                             {
-                                TripLineType_E enTripLineType = OVERFLOW_NONE;
-                                bool           bBidirectional = false;
-                                if (stInData.stParam.stTripLineParam.eTripLineType == OVERFLOW_A_B_BOTH)
+                                auto isIntersect = tripLineDetection(stHeadCountArea,
+                                                            stInData.stParam.stTripLineParam.alertLine1,
+                                                            stInData.stParam.stTripLineParam.alertLine2);
+                                auto& tripLineItem = m_TripLineStatus[nTargetId];
+                        
+                                if(tripLineItem.lastStatus != isIntersect)
                                 {
-                                    bBidirectional = true;
+                                    // std::cout << std::endl << "[越界] personId:" << nTargetId << " 上次状态:" << tripLineItem.lastStatus << " 这次状态:" << isIntersect <<
+                                    // std::endl;
+                                    do{
+                                        // std::cout << std::endl << "[越界] personId:" << nTargetId << " 上次line:" << tripLineItem.lastlineType << " 这次line:" << headLineType <<
+                                        // std::endl;
+                                        if(tripLineItem.lastlineType == -1)//初始化忽略不同
+                                        {
+                                            tripLineItem.lastlineType = tripLineType;
+                                        }
+                                        if(tripLineItem.lastlineType == tripLineType)
+                                        {
+                                            int cvPotPlace = -2;
+                                            if(tripLineType == 0)//横线
+                                            {
+                                                cvPotPlace = pointAboveOrBelowLine(stInData.stParam.stTripLineParam.alertLine1,
+                                                                                stInData.stParam.stTripLineParam.alertLine2,
+                                                                                centerPoint);
+                                                if(cvPotPlace > 0)
+                                                {
+                                                    std::cout<<std::endl<<"[越界][横线] [person " << nTargetId << "][cur][线 上方]" << std::endl;
+                                                }
+                                                else if(cvPotPlace < 0)
+                                                {
+                                                    std::cout<<std::endl<<"[越界][横线] [person " << nTargetId << "][cur][线 下方]" << std::endl;
+                                                }
+
+                                                if(tripLineItem.lastlinePlace == -2)//初始化忽略不同
+                                                {
+                                                    tripLineItem.lastlinePlace = cvPotPlace;
+                                                    // std::cout << "[越界][横线] personId:" << nTargetId << " 首次初始化值 上次位置:" << tripLineItem.lastlinePlace 
+                                                    // << " 这次位置:" << cvPotPlace <<std::endl;
+                                                }
+                                                else
+                                                {
+                                                    /**
+                                                     * -1--1 = 0 同边未越界
+                                                     * -1-0 = -1 压线越界 下-->上
+                                                     * -1-1 = -2 不同边越界 下-->上
+                                                     * 0--1 = 1 踩线越界 上-->下
+                                                     * 0-0 = 0 压线未越界
+                                                     * 0-1 = -1 不同边越界 下-->上
+                                                     * 1--1 = 2 不同边越界 上-->下
+                                                     * 1-0 = 1 压线越界 上-->下
+                                                     * 1-1 = 0 同边未越界
+                                                     * 
+                                                     * >0 上-->下   <0 下-->上  ==0 未越界
+                                                     */
+                                                    if(tripLineItem.lastlinePlace - cvPotPlace > 0)
+                                                    {
+                                                        // std::cout << std::endl << "[越界][横线] [person " << nTargetId << "][上-->下]"<<"last:" 
+                                                        // << tripLineItem.lastlinePlace << "cur:" << cvPotPlace << std::endl;
+                                                        stOutData->bTripLineType = (int) OVERFLOW_A_TO_B;
+                                                        tripLineItem.lastlinePlace = cvPotPlace;
+                                                        if(vecResultOne)
+                                                        {
+                                                            vecResultOne->push_back(stResult);
+                                                        }
+                                                        break;
+                                                    }
+                                                    else if(tripLineItem.lastlinePlace - cvPotPlace < 0)
+                                                    {
+                                                        // std::cout << std::endl << "[越界][横线] [person " << nTargetId << "][下-->上]"<<"last:" 
+                                                        // << tripLineItem.lastlinePlace << "cur:" << cvPotPlace << std::endl;
+                                                        stOutData->bTripLineType = (int) OVERFLOW_B_TO_A;
+                                                        tripLineItem.lastlinePlace = cvPotPlace;
+                                                        if(vecResultOne)
+                                                        {
+                                                            vecResultOne->push_back(stResult);
+                                                        }
+                                                        break;
+                                                    }
+
+                                                    if(tripLineItem.lastlinePlace - cvPotPlace != 0)
+                                                    {
+                                                        stOutData->bTripLineType = (int) OVERFLOW_A_B_BOTH;
+                                                        tripLineItem.lastlinePlace = cvPotPlace;
+                                                        if(vecResultOne)
+                                                        {
+                                                            vecResultOne->push_back(stResult);
+                                                        }
+                                                        break;
+                                                    }
+                                                }
+
+                                                
+                                            }
+                                            else if(tripLineType == 1)//竖线
+                                            {
+                                                cvPotPlace = pointLeftOrRightOfLine(stInData.stParam.stTripLineParam.alertLine1,
+                                                                                    stInData.stParam.stTripLineParam.alertLine2,
+                                                                                    centerPoint);
+                                                
+                                                if(cvPotPlace > 0)
+                                                {
+                                                    // std::cout<<std::endl<<"[越界][竖线] [person " << nTargetId << "][cur][线 右方]" << std::endl;
+                                                }
+                                                else if(cvPotPlace < 0)
+                                                {
+                                                    // std::cout<<std::endl<<"[越界][竖线] [person " << nTargetId << "][cur][线 左方]" << std::endl;
+                                                }
+
+                                                if(tripLineItem.lastlinePlace == -2)//初始化忽略不同
+                                                {
+                                                    tripLineItem.lastlinePlace = cvPotPlace;
+                                                    // std::cout << "[越界][竖线] personId:" << nTargetId << " 首次初始化值 上次位置:" << tripLineItem.lastlinePlace 
+                                                    // << " 这次位置:" << cvPotPlace <<std::endl;
+                                                }
+                                                else
+                                                {
+                                                    /**
+                                                     * -1--1 = 0 同边未越界
+                                                     * -1-0 = -1 压线越界 左-->右
+                                                     * -1-1 = -2 不同边越界 左-->右
+                                                     * 0--1 = 1 踩线越界 右-->左
+                                                     * 0-0 = 0 压线未越界
+                                                     * 0-1 = -1 踩线越界 左-->右
+                                                     * 1--1 = 2 不同边越界 右-->左
+                                                     * 1-0 = 1 压线越界 右-->左
+                                                     * 1-1 = 0 同边未越界
+                                                     * 
+                                                     * >0 右-->左   <0 左-->右  ==0 未越界
+                                                     */
+                                                    if(tripLineItem.lastlinePlace - cvPotPlace > 0)
+                                                    {
+                                                        // std::cout << std::endl << "[越界][竖线] [person " << nTargetId << "][右-->左]" <<"last:" 
+                                                        // << tripLineItem.lastlinePlace << "cur:" << cvPotPlace<< std::endl;
+                                                        stOutData->bTripLineType = (int) OVERFLOW_B_TO_A;
+                                                        tripLineItem.lastlinePlace = cvPotPlace;
+                                                        if(vecResultOne)
+                                                        {
+                                                            vecResultOne->push_back(stResult);
+                                                        }
+                                                        break;
+                                                    }
+                                                    else if(tripLineItem.lastlinePlace - cvPotPlace < 0)
+                                                    {
+                                                        // std::cout << std::endl << "[越界][竖线] [person " << nTargetId << "][左-->右]" <<"last:" 
+                                                        // << tripLineItem.lastlinePlace << "cur:" << cvPotPlace<< std::endl;
+                                                        stOutData->bTripLineType = (int) OVERFLOW_A_TO_B;
+                                                        tripLineItem.lastlinePlace = cvPotPlace;
+                                                        if(vecResultOne)
+                                                        {
+                                                            vecResultOne->push_back(stResult);
+                                                        }
+                                                        break;
+                                                    }
+
+                                                    if(tripLineItem.lastlinePlace - cvPotPlace != 0)
+                                                    {
+                                                        stOutData->bTripLineType = (int) OVERFLOW_A_B_BOTH;
+                                                        tripLineItem.lastlinePlace = cvPotPlace;
+                                                        if(vecResultOne)
+                                                        {
+                                                            vecResultOne->push_back(stResult);
+                                                        }
+                                                        break;
+                                                    }
+                                                }
+                                                
+                                            }
+                                        }
+                                        else
+                                        {
+                                            tripLineItem.lastlineType = tripLineType;
+                                            tripLineItem.lastlinePlace = -2;
+                                        }
+                                    }while(false);
+
+                                    tripLineItem.lastStatus = isIntersect;
                                 }
-                                enTripLineType = tripLineDetection(
-                                    pstTarget->startPoint,
-                                    centerPoint,
-                                    stInData.stParam.stTripLineParam.alertLine1,
-                                    stInData.stParam.stTripLineParam.alertLine2,
-                                    bBidirectional);
-                                if (enTripLineType != OVERFLOW_NONE && enTripLineType == stInData.stParam.stTripLineParam.eTripLineType)
-                                {
-                                    stOutData->bTripLineType = true;
-                                }
+
                                 break;
                             }
                         }
@@ -714,6 +1064,11 @@ bool Group2Detect_NS::CGroup2DetectV1_0::process(
                                 if((nCurrentTimeStamp - pstTarget->stIntrusion.nIntrusionTimeStamp) >= stInData.stParam.stIntrusionParam.nIntrusionTimeThreshold)
                                 {
                                     stOutData->bIntrusionFlag = true;
+                                    if(vecResultOne)
+                                    {
+                                        vecResultOne->push_back(stResult);
+                                    }
+                                    break;
                                 }
                             }
                             /* 该目标第一次触发入侵检测，开始计时 */
@@ -739,12 +1094,19 @@ bool Group2Detect_NS::CGroup2DetectV1_0::process(
                     {
                         for (const auto &classId : stInData.stParam.stEntryParam.veDetectionTargetTypes)
                         {
-                            if (classId == nClsIdx)
+                            if (classId == nClsIdx && !stOutData->bEntryFlag)
                             {
                                 stOutData->bEntryFlag |= entryZoneDetection(
                                     pstTarget->startPoint,
                                     centerPoint,
                                     stInData.stParam.stEntryParam.vecPoints);
+                                if(stOutData->bEntryFlag)
+                                {
+                                    if(vecResultOne)
+                                    {
+                                        vecResultOne->push_back(stResult);
+                                    }
+                                }
                                 break;
                             }
                         }
@@ -755,14 +1117,176 @@ bool Group2Detect_NS::CGroup2DetectV1_0::process(
                     {
                         for (const auto &classId : stInData.stParam.stLeaveParam.veDetectionTargetTypes)
                         {
-                            if (classId == nClsIdx)
+                            if (classId == nClsIdx && !stOutData->bLeaveFlag)
                             {
                                 stOutData->bLeaveFlag |= leaveZoneDetection(
                                     pstTarget->startPoint,
                                     centerPoint,
                                     stInData.stParam.stLeaveParam.vecPoints);
+                                if(stOutData->bLeaveFlag)
+                                {
+                                    if(vecResultOne)
+                                    {
+                                        vecResultOne->push_back(stResult);
+                                    }
+                                }
                                 break;
                             }
+                        }
+                    }
+
+                    /* 人流统计 */
+                    if (stInData.stParam.stHeadCountParam.bEnable && fBoxConfidence >= stInData.stParam.stHeadCountParam.fThreshold)
+                    {
+                        //区域是否与线相交
+                        auto isIntersect = tripLineDetection(stHeadCountArea,
+                                                            stInData.stParam.stHeadCountParam.alertLine1,
+                                                            stInData.stParam.stHeadCountParam.alertLine2);
+                        auto& headCountItem = m_HeadCountStatus[nTargetId];
+
+                        // std::cout << std::endl <<"[人流统计] 当前 personId:"  << nTargetId <<std::endl;
+                        // if(headCountItem.lastStatus != isIntersect)
+                        {
+                            // std::cout <<  "[人流统计] personId:" << nTargetId << " 上次状态:" << headCountItem.lastStatus << " 这次状态:" << isIntersect <<
+                            // std::endl;
+                            do{
+                                if(headCountItem.lastlineType == -1)//初始化忽略不同
+                                {
+                                    headCountItem.lastlineType = headLineType;
+                                }
+                                if(headCountItem.lastlineType == headLineType)
+                                {
+                                    int cvPotPlace = -2;
+                                    // printf("remat(%d,%d) line1(%d,%d) line2(%d,%d) ",reMat.rows,reMat.cols,
+                                    //                                                 stInData.stParam.stHeadCountParam.alertLine1.x,stInData.stParam.stHeadCountParam.alertLine1.y,
+                                    //                                                 stInData.stParam.stHeadCountParam.alertLine2.x,stInData.stParam.stHeadCountParam.alertLine2.y);
+                                    std::cout<<std::endl;
+
+                                    auto now = std::chrono::system_clock::now();
+                                    auto curtime = std::chrono::duration_cast<std::chrono::microseconds>(
+                                                    now.time_since_epoch()
+                                                ).count();
+                                    if(headLineType == 0)//横线
+                                    {
+                                        cvPotPlace = pointAboveOrBelowLine(stInData.stParam.stHeadCountParam.alertLine1,
+                                                                        stInData.stParam.stHeadCountParam.alertLine2,
+                                                                        centerPoint);
+
+                                        headCountItem.lastPlace = cvPotPlace;
+                                        if(cvPotPlace > 0)
+                                        {
+                                            std::cout<<"[人流统计][横线] [person " << nTargetId << "][cur][线 上方]" << std::endl;
+                                        }
+                                        else if(cvPotPlace < 0)
+                                        {
+                                            std::cout<<"[人流统计][横线] [person " << nTargetId << "][cur][线 下方]" << std::endl;
+                                        }
+                                        
+                                        if(headCountItem.lastlinePlace == -2)//初始化忽略不同
+                                        {
+                                            headCountItem.lastlinePlace = cvPotPlace;
+                                            headCountItem.firstPlace = cvPotPlace;
+                                            // cv::circle(reMat, centerPoint, 5 , cv::Scalar(0, 0, 255), cv::FILLED);
+                                            std::cout << "[人流统计][横线] personId:" << nTargetId << " 首次初始化值 上次位置:" << headCountItem.lastlinePlace 
+                                            << " 这次位置:" << cvPotPlace <<std::endl;
+                                        }
+                                        else
+                                        {
+                                            cv::circle(reMat, centerPoint, 5 , cv::Scalar(255, 0, 0), cv::FILLED);
+                                            if(cvPotPlace!=0)
+                                                std::cout << "[人流统计][横线] [person " << nTargetId << "] 首次位置:" << headCountItem.firstPlace << " 这次位置:" << cvPotPlace << std::endl;
+                                            if(headCountItem.firstPlace - headCountItem.lastPlace > 0)
+                                            {
+                                                std::cout << "[人流统计][横线] [person " << nTargetId << "][上-->下]"<< std::endl;
+                                                stOutData->nCountType.push_back((int)OVERFLOW_A_TO_B);
+                                                headCountItem.lastlinePlace = cvPotPlace;
+                                                headCountItem.init();
+                                                if(vecResultOne)
+                                                {
+                                                    vecResultOne->push_back(stResult);
+                                                }
+                                            }
+                                            else if(headCountItem.firstPlace - headCountItem.lastPlace < 0)
+                                            {
+                                                std::cout << "[人流统计][横线] [person " << nTargetId << "][下-->上]"<< std::endl;
+                                                stOutData->nCountType.push_back((int)OVERFLOW_B_TO_A);
+                                                headCountItem.lastlinePlace = cvPotPlace;
+                                                headCountItem.init();
+                                                if(vecResultOne)
+                                                {
+                                                    vecResultOne->push_back(stResult);
+                                                }
+                                            }
+                                        }
+                                    }
+                                    else if(headLineType == 1)//竖线
+                                    {
+                                        cvPotPlace = pointLeftOrRightOfLine(stInData.stParam.stHeadCountParam.alertLine1,
+                                                                            stInData.stParam.stHeadCountParam.alertLine2,
+                                                                            centerPoint);
+                                        headCountItem.lastPlace = cvPotPlace;
+                                        if(cvPotPlace > 0)
+                                        {
+                                            std::cout<<"[人流统计][竖线] [person " << nTargetId << "][cur][线 右方]" << std::endl;
+                                        }
+                                        else if(cvPotPlace < 0)
+                                        {
+                                            std::cout<<"[人流统计][竖线] [person " << nTargetId << "][cur][线 左方]" << std::endl;
+                                        }
+                                        if(headCountItem.lastlinePlace == -2)//初始化忽略不同
+                                        {
+                                            headCountItem.lastlinePlace = cvPotPlace;
+                                            headCountItem.firstPlace = cvPotPlace;
+                                            // cv::circle(reMat, centerPoint, 5 , cv::Scalar(0, 0, 255), cv::FILLED);
+                                            std::cout << "[人流统计][竖线] personId:" << nTargetId << " 首次初始化值 上次位置:" << headCountItem.lastlinePlace 
+                                            << " 这次位置:" << cvPotPlace <<std::endl;
+                                            
+                                        }
+                                        else
+                                        {
+                                            cv::circle(reMat, centerPoint, 5 , cv::Scalar(255, 0, 0), cv::FILLED);
+                                            if(cvPotPlace!=0)
+                                                std::cout << "[人流统计][竖线] [person " << nTargetId << "] 首次位置:" << headCountItem.firstPlace << " 这次位置:" << cvPotPlace << std::endl;
+                                            if(headCountItem.firstPlace - headCountItem.lastPlace > 0)
+                                            {
+                                                std::cout << "[人流统计][竖线] [person " << nTargetId << "][右-->左]" << std::endl;
+                                                stOutData->nCountType.push_back((int)OVERFLOW_B_TO_A);
+                                                headCountItem.lastlinePlace = cvPotPlace;
+                                                headCountItem.init();
+                                                if(vecResultOne)
+                                                {
+                                                    vecResultOne->push_back(stResult);
+                                                }
+                                            }
+                                            else if(headCountItem.firstPlace - headCountItem.lastPlace < 0)
+                                            {
+                                                std::cout << "[人流统计][竖线] [person " << nTargetId << "][左-->右]" << std::endl;
+                                                stOutData->nCountType.push_back((int)OVERFLOW_A_TO_B);
+                                                headCountItem.lastlinePlace = cvPotPlace;
+                                                headCountItem.init();
+                                                if(vecResultOne)
+                                                {
+                                                    vecResultOne->push_back(stResult);
+                                                }
+                                            }
+                                        }
+                                    }
+                                    // if(access("/draw_poins",F_OK)==0 && cvPotPlace!=0 && cvPotPlace != -2)
+                                    // {
+                                    //     cv::Rect rect(stHeadCountArea.fX1,stHeadCountArea.fY1,stHeadCountArea.fX2 - stHeadCountArea.fX1,stHeadCountArea.fY2 - stHeadCountArea.fY1);
+                                    //     cv::rectangle(reMat, rect, cv::Scalar(0, 255, 0), 1);
+                                    //     cv::line(reMat, stInData.stParam.stHeadCountParam.alertLine1, stInData.stParam.stHeadCountParam.alertLine2, cv::Scalar(0, 0, 255), 2);
+                                    //     cv::imwrite("/opt/tarId"+ std::to_string(nTargetId) +std::string("_") +std::to_string(cvPotPlace) + std::string("_") + std::to_string(curtime) +".jpg",reMat);
+                                    // }
+                                }
+                                else
+                                {
+                                    headCountItem.lastlineType = headLineType;
+                                    headCountItem.lastlinePlace = -2;
+                                }
+                            }while(false);
+
+                            headCountItem.lastStatus = isIntersect;
                         }
                     }
                 }
@@ -977,11 +1501,19 @@ bool Group2Detect_NS::CGroup2DetectV1_0::process(
 #endif
                                         pstTarget->stLoitering.nLoiterTimeStamp = getSteadyTimeStampMs();
                                         pstTarget->stLoitering.bLoiter          = true;
+                                        if(vecResultOne)
+                                        {
+                                            vecResultOne->push_back(stResult);
+                                        }
                                     }
                                 }
                                 else
                                 {
-                                    if (!isIntersecting(rectPoints, Param.vecPoints))
+                                    if(vecResultOne)
+                                    {
+                                        vecResultOne->push_back(stResult);
+                                    }
+                                    if (!isIntersecting(rectPoints, Param.vecPoints) && getSteadyTimeStampMs() - pstTarget->stLoitering.nLoiterTimeStamp > ((float)Param.nTimeThreshold/4))
                                     {
 #if Group2Detect_DEBUG
                                         printf("====personId[%d]===徘徊侦测 未达到时间阈值=====\n", nTargetId);
@@ -1187,13 +1719,6 @@ bool Group2Detect_NS::CGroup2DetectV1_0::process(
                         }
                     }
                 }
-                stResult.nId = nTargetId;
-                stResult.nID = nClsIdx;
-                stResult.fX1 = vectlwh[0];
-                stResult.fY1 = vectlwh[1];
-                stResult.fX2 = vectlwh[0] + vectlwh[2];
-                stResult.fY2 = vectlwh[1] + vectlwh[3];
-
                 vecResult.push_back(stResult);
             }
         }
@@ -1264,6 +1789,58 @@ bool Group2Detect_NS::CGroup2DetectV1_0::process(
             }
         }
 
+        for(auto itr  = m_TripLineStatus.begin(); itr != m_TripLineStatus.end();)
+        {
+            if(itr->second.isUsing == true)
+            {
+                itr->second.isUsing = false;
+                itr->second.lostFrameCount = 0;
+            }
+            else
+            {
+                itr->second.lostFrameCount++;
+                
+                if(itr->second.lostFrameCount >= m_nMaxTimeLost)
+                {
+                    itr = m_TripLineStatus.erase(itr);  // erase返回下一个迭代器
+                }
+                else
+                {
+                    ++itr;  // 不删除时手动递增
+                }
+            }
+        }
+
+        for(auto itr  = m_HeadCountStatus.begin(); itr != m_HeadCountStatus.end();)
+        {
+            if(itr->second.isUsing == true)
+            {
+                itr->second.isUsing = false;
+                itr->second.lostFrameCount = 0;
+            }
+            else
+            {
+                itr->second.lostFrameCount++;
+                
+                if(itr->second.lostFrameCount >= m_nMaxTimeLost)
+                {
+                    if(itr->second.firstPlace!=0 && itr->second.firstPlace - itr->second.lastPlace > 0)
+                    {
+                        stOutData->nCountType.push_back((int)OVERFLOW_A_TO_B);
+                    }
+                    else if(itr->second.firstPlace!=0 && itr->second.firstPlace - itr->second.lastPlace < 0)
+                    {
+                        stOutData->nCountType.push_back((int)OVERFLOW_B_TO_A);
+                    }
+                    itr = m_HeadCountStatus.erase(itr);  // erase返回下一个迭代器
+                }
+                else
+                {
+                    ++itr;  // 不删除时手动递增
+                }
+            }
+        }
+
         size_t total_elem_count = 0;
         for (const auto &vec : vecStracks)
         {
@@ -1274,11 +1851,15 @@ bool Group2Detect_NS::CGroup2DetectV1_0::process(
         if (total_elem_count > 0)
         {
             const float scaleX = static_cast<float>(stInData.inMat.cols) / m_nLimitWidth;
-            #ifdef RK_3588
-            const float scaleY = static_cast<float>(stInData.inMat.rows) / m_nLimitHeight;
-            #else
-            const float scaleY = static_cast<float>(stInData.inMat.rows * 2 / 3) / m_nLimitHeight;
-            #endif
+            float scaleY = 1;
+            if(stInData.inMat.type() == CV_8UC3)
+            {
+                scaleY = static_cast<float>(stInData.inMat.rows) / m_nLimitHeight;
+            }
+            else
+            {
+                scaleY = static_cast<float>(stInData.inMat.rows * 2 / 3) / m_nLimitHeight;
+            }
             for (auto &result : vecResult)
             {
                 // if (result.enTripLineType != 0)
@@ -1307,11 +1888,40 @@ bool Group2Detect_NS::CGroup2DetectV1_0::process(
                 // }
 
                 // 0x10、0x20、0x40......
-
-                result.fX1 *= scaleX;
-                result.fY1 *= scaleY;
-                result.fX2 *= scaleX;
-                result.fY2 *= scaleY;
+                if(stInData.inMat.type() == CV_8UC3)
+                {
+                    result.fX1 = static_cast<float>(std::max(0,((int)result.fX1 - m_nXOffset)) / m_fResizeScale);
+                    result.fY1 = static_cast<float>(std::max(0,((int)result.fY1 - m_nYOffset)) / m_fResizeScale);
+                    result.fX2 = static_cast<float>(std::max(0,((int)result.fX2 - m_nXOffset)) / m_fResizeScale);
+                    result.fY2 = static_cast<float>(std::max(0,((int)result.fY2 - m_nYOffset)) / m_fResizeScale);
+                }
+                else
+                {
+                    result.fX1 *= scaleX;
+                    result.fY1 *= scaleY;
+                    result.fX2 *= scaleX;
+                    result.fY2 *= scaleY;
+                }
+            }
+            if(vecResultOne)
+            {
+                for (auto &result : *vecResultOne)
+                {
+                    if(stInData.inMat.type() == CV_8UC3)
+                    {
+                        result.fX1 = static_cast<float>(std::max(0,((int)result.fX1 - m_nXOffset)) / m_fResizeScale);
+                        result.fY1 = static_cast<float>(std::max(0,((int)result.fY1 - m_nYOffset)) / m_fResizeScale);
+                        result.fX2 = static_cast<float>(std::max(0,((int)result.fX2 - m_nXOffset)) / m_fResizeScale);
+                        result.fY2 = static_cast<float>(std::max(0,((int)result.fY2 - m_nYOffset)) / m_fResizeScale);
+                    }
+                    else
+                    {
+                        result.fX1 *= scaleX;
+                        result.fY1 *= scaleY;
+                        result.fX2 *= scaleX;
+                        result.fY2 *= scaleY;
+                    }
+                }
             }
         }
 
@@ -1665,4 +2275,147 @@ bool Group2Detect_NS::CGroup2DetectV1_0::resizeAndPadImage3(cv::Mat inputImage, 
     outputImage = output;
 
     return true;
+}
+
+
+/* 判断人形区域与拌线是否有交集 */
+TripLineType_E Group2Detect_NS::CGroup2DetectV1_0::tripLineDetection(
+    Result_S& stResult,
+    const cv::Point &alertLineFirst,
+    const cv::Point &alertLineSecond)
+{
+    cv::Rect rect(stResult.fX1,stResult.fY1,stResult.fX2 - stResult.fX1,stResult.fY2 - stResult.fY1);
+    if (rect.contains(alertLineFirst) || rect.contains(alertLineSecond)) 
+    {
+        return OVERFLOW_A_B_BOTH;
+    }
+
+    cv::Point clippedStart = alertLineFirst;
+    cv::Point clippedEnd = alertLineSecond;
+    bool bRes = cv::clipLine(rect, clippedStart, clippedEnd);
+    return bRes?OVERFLOW_A_B_BOTH : OVERFLOW_NONE;
+}
+
+
+/**
+ * @brief 判断点在线段的左侧还是右侧（适用于非垂直的线段）
+ * @param linePt1 线段起点
+ * @param linePt2 线段终点
+ * @param point 待判断的点
+ * @return -1: 左侧, 1: 右侧, 0: 在线段上或线段垂直
+ */
+int Group2Detect_NS::CGroup2DetectV1_0::pointLeftOrRightOfLine(const cv::Point2f& linePt1, const cv::Point2f& linePt2, const cv::Point2f& point) {
+    cv::Point2f lineVec = linePt2 - linePt1;
+    cv::Point2f pointVec = point - linePt1;
+    
+    // 1. 先检查点是否在线段的"投影范围"内
+    float projection = pointVec.dot(lineVec);  // 点积
+    float lineLengthSq = lineVec.dot(lineVec); // 线段长度平方
+    
+    // 如果投影值 < 0，点在起点之前（延长线上）
+    // 如果投影值 > lineLengthSq，点在终点之后（延长线上）
+    if (projection < 0 || projection > lineLengthSq) {
+        // 点在线段延长线上，不在线段范围内
+        return 0;  // 或返回其他特殊值
+    }
+
+    float dx = linePt2.x - linePt1.x; 
+    float dy = linePt2.y - linePt1.y; 
+
+    if (std::abs(dx) < 1e-6) {
+        std::cout << std::endl <<" 线段近乎水平 " << std::endl;
+        return 0;
+    }
+    
+    // 计算叉积 (lineVec × pointVec)
+    float crossProduct = lineVec.x * pointVec.y - lineVec.y * pointVec.x;
+    
+    if (crossProduct > 1e-6) {
+        return -1;  // 左侧
+    } else if (crossProduct < -1e-6) {
+        return 1;   // 右侧
+    } else {
+        return 0;   // 在线段上或共线
+    }
+}
+
+/**
+ * @brief 判断点在线段的上方还是下方（适用于非水平的线段）
+ * @param linePt1 线段起点
+ * @param linePt2 线段终点
+ * @param point 待判断的点
+ * @return 1: 上方, -1: 下方, 0: 在线段上或线段水平
+ */
+int Group2Detect_NS::CGroup2DetectV1_0::pointAboveOrBelowLine(const cv::Point2f& linePt1, const cv::Point2f& linePt2, const cv::Point2f& point) 
+{
+    cv::Point2f lineVec = linePt2 - linePt1;
+    cv::Point2f pointVec = point - linePt1;
+    
+    // 1. 先检查点是否在线段的"投影范围"内
+    float projection = pointVec.dot(lineVec);  // 点积
+    float lineLengthSq = lineVec.dot(lineVec); // 线段长度平方
+    
+    // 如果投影值 < 0，点在起点之前（延长线上）
+    // 如果投影值 > lineLengthSq，点在终点之后（延长线上）
+    if (projection < 0 || projection > lineLengthSq) {
+        // 点在线段延长线上，不在线段范围内
+        return 0;  // 或返回其他特殊值
+    }
+
+    float dx = linePt2.x - linePt1.x; 
+    float dy = linePt2.y - linePt1.y; 
+
+    if (std::abs(dy) < 1e-6) {
+        std::cout << std::endl <<" 线段近乎水平 " << std::endl;
+        return 0;
+    }
+    
+    // 计算叉积 (lineVec × pointVec)
+    float crossProduct = lineVec.x * pointVec.y - lineVec.y * pointVec.x;
+    
+    if (crossProduct > 1e-6) {
+        return -1;   // 下方（图像坐标系）
+    } else if (crossProduct < -1e-6) {
+        return 1;  // 上方（图像坐标系）
+    } else {
+        return 0;   // 在线段上或共线
+    }
+}
+
+/**
+ * @brief 计算两条直线的夹角（锐角，0-90度）
+ * @param linePt1 第一条直线的起点
+ * @param linePt2 第一条直线的终点
+ * @return 与垂直线的夹角（度）
+ */
+double Group2Detect_NS::CGroup2DetectV1_0::calculateAngleWithVertical(const cv::Point2f& linePt1, const cv::Point2f& linePt2) {
+    // 计算线段方向向量
+    cv::Point2f lineVec = linePt2 - linePt1;
+    
+    // 垂直线方向向量
+    cv::Point2f verticalVec(0, 1);
+    
+    // 计算点积
+    float dotProduct = lineVec.x * verticalVec.x + lineVec.y * verticalVec.y;
+    
+    // 计算模长
+    float lineLength = sqrt(lineVec.x * lineVec.x + lineVec.y * lineVec.y);
+    float verticalLength = 1.0f;  // 垂直向量长度为1
+    
+    // 计算夹角余弦值
+    float cosAngle = dotProduct / (lineLength * verticalLength);
+    
+    // 确保在[-1, 1]范围内
+    cosAngle = std::max(-1.0f, std::min(1.0f, cosAngle));
+    
+    // 计算夹角
+    float angleRad = acos(cosAngle);
+    
+    // 确保是锐角
+    float angleDeg = angleRad * 180.0f / CV_PI;
+    if (angleDeg > 90.0f) {
+        angleDeg = 180.0f - angleDeg;
+    }
+    
+    return angleDeg;
 }

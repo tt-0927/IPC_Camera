@@ -3,7 +3,7 @@
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2025-07-30 14:18:19
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-04-16 10:39:02
+ * @LastEditTime : 2026-07-01 14:35:15
  * @Description  : 事件联动门面层
  */
 
@@ -111,8 +111,6 @@ private:
     /* 联动调度器，负责 plan 拆分为同步与异步动作 */
     std::unique_ptr<EventLinkageDispatcher> m_dispatcher;
 
-    /* 事件时间窗时间戳表，用于抑制时间窗内重复触发 */
-    std::map<Event::Type_E, long long> m_eventTimeStampsMap;
     /* 当前活跃事件状态表，用于事件开始/结束生命周期管理 */
     std::map<Event::Type_E, Event::EventState_S> m_eventInfoMap;
     /* 事件状态互斥锁，保护事件信息和时间窗状态 */
@@ -120,8 +118,6 @@ private:
 
     /* 最近一次处理的事件信息快照 */
     Event::Info_S m_stEventInfo;
-    /* 报警时间窗，单位毫秒 同步海康事件触发过滤时间 10s */
-    long long m_llTimeWindow = 10 * 1000;
     /* 初始化状态标志 */
     bool m_bInited = false;
 };

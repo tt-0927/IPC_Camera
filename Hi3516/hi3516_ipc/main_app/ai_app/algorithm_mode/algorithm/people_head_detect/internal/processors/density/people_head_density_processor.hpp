@@ -17,9 +17,13 @@
 #include "people_head_detect_common.hpp"
 #include "event_alarm/statistics/event_statistics_reporter.hpp"
 
+#if CAP_AI_PEOPLE_DENSITY_LEGACY && !CAP_AI_PEOPLE_STATISTICS
+#error "CAP_AI_PEOPLE_STATISTICS must be enabled when CAP_AI_PEOPLE_DENSITY_LEGACY is enabled"
+#endif
+
 namespace PeopleHeadDetectInternal
 {
-#if CAP_AI_PEOPLE_STATISTICS
+#if CAP_AI_PEOPLE_DENSITY_LEGACY
 class CPeopleHeadDensityProcessor
 {
 public:

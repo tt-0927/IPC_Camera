@@ -1,4 +1,5 @@
 ﻿#include "DeviceManage.h"
+#include "dlog.h"
 
 using namespace SIP;
 
@@ -142,20 +143,20 @@ void SIP::DeviceManage::CheckStatusThread()
 {
 	pthread_setname_np(pthread_self(), "SIPDevStatus");
 
-	MLOG_TRACE("开始设备状态检查线程");
+	dlog_trace("开始设备状态检查线程");
 	while (m_bRunCheckThread)
 	{
 		std::this_thread::sleep_for(std::chrono::seconds(DEVICE_CHECK_INTERVAL));
 		std::unique_lock<std::mutex> lk(m_mtxDevice);
 #if DEVICE_MANAGE_DEBUG
-		MLOG_TRACE("===========> 开始检测设备状态");
+		dlog_trace("===========> 开始检测设备状态");
 #endif
 		/* 获取当前时间 */
 		auto now = std::time(nullptr);
 		for (auto &&dev : m_mapDevice)
 		{
 #if DEVICE_MANAGE_DEBUG
-			MLOG_TRACE("===========> 检测设备:%s", dev.second->GetDeviceID().c_str());
+			dlog_trace("===========> 检测设备:%s", dev.second->GetDeviceID().c_str());
 #endif
 			/* 获取上次心跳时间 */
 			auto lastTime = dev.second->GetLastTime();
@@ -169,7 +170,7 @@ void SIP::DeviceManage::CheckStatusThread()
 					nGapTime > DEVICE_OFFLINE_INTERVAL)
 				{
 #if DEVICE_MANAGE_DEBUG
-					MLOG_DEBUG("===========> 更新设备状态为离线:%s",
+					dlog_debug("===========> 更新设备状态为离线:%s",
 							   dev.second->GetDeviceID().c_str());
 #endif
 					lk.unlock();
@@ -187,5 +188,5 @@ void SIP::DeviceManage::CheckStatusThread()
 			}
 		}
 	}
-	MLOG_TRACE("设备状态检查线程退出");
+	dlog_trace("设备状态检查线程退出");
 }

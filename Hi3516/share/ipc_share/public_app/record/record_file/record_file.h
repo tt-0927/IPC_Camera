@@ -188,4 +188,7 @@ private:
 
     /*视频配置*/
     std::vector<Video_NS::VideoConfig_S> m_vstVideoConfig;
+
+    /*是否需要配置变化切片*/
+    std::atomic<bool> m_bHandleSlice = {false};
 };

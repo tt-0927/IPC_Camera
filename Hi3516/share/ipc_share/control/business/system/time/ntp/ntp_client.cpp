@@ -1,11 +1,12 @@
-/*
- * @FilePath: ntp_client.cpp
- * @Author: tianl
- * @Date: 2024-09-28 10:53:47
- * @LastEditors: tianl
- * @LastEditTime: 2024-09-30 11:19:46
- * @Description: ntp校时
+/**
+ * @FilePath     : ntp_client.cpp
+ * @Author       : zhouzr@kfb.cn
+ * @Date         : 2026-01-21 11:12:16
+ * @LastEditors  : zhouzr@kfb.cn
+ * @LastEditTime : 2026-06-05 15:52:48
+ * @Description  : ntp校时
  */
+
 #include "ntp_client.h"
 #include "log_handler.h"
 #include "dlog.h"
@@ -421,9 +422,8 @@ int CNtpClient::syncTime()
         gettimeofday(&stRecvtv, nullptr);
         double dOffset = calculateOffset(reinterpret_cast<struct ntphdr *>(aChBuf), &stRecvtv);
 
-        /* 时区设置 */
-        // dOffset += (TIMEZONEBASE + nTimeZone) * TIMESCALE * TIMESCALE;
-        dOffset += nTimeZone * TIMESCALE * TIMESCALE;
+        /* NTP返回UTC时间，系统时间保持UTC，本地显示由TZ环境变量处理 */
+        // dlog_debug("NTP计算UTC偏移:%f, 当前时区枚举:%d", dOffset, nTimeZone);
         updateSystemTime(dOffset);
     }
 
@@ -509,14 +509,14 @@ void CNtpClient::updateSystemTime(double dOffset)
         return;
     }
 
-    /*同步写到RTC（硬件时钟）中*/
-    if (system("hwclock -w") == -1)
+    /* 同步写到RTC（硬件时钟）中，RTC统一保存UTC时间 */
+    if (system("hwclock -w -u") == -1)
     {
-        dlog_error("system(hwclock -w) 调用失败: %s", strerror(errno));
+        dlog_error("system(hwclock -w -u) 调用失败: %s", strerror(errno));
     }
     else
     {
-        dlog_info("系统时间已更新并同步到RTC");
+        dlog_info("系统UTC时间已更新并同步到RTC");
     }
 }
 

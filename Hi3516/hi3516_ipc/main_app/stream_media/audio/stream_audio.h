@@ -3,7 +3,7 @@
  * @Author       : zhouzirui
  * @Date         : 2025-03-31 15:31:49
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2025-11-12 09:42:25
+ * @LastEditTime : 2026-06-03 16:10:40
  * @Description  : 流媒体音频模块头文件
  */
 
@@ -108,6 +108,14 @@ public:
      * @note    : 和当前ao采样率不一致时，进行重启ao
      */
     int setAoSampleRate(const Audio_NS::AudioSamprate_E enSampRate);
+
+    /**
+     * @brief   : 等待 AO 通道硬件缓冲区完全排空
+     * @param    {int} nChn：通道号
+     * @param    {int} nTimeoutMs：最大等待时间（ms），-1 表示无限等待
+     * @return   {int} 0：已完全排空，非0：超时或错误
+     */
+    int waitAoDrained(int nChn, int nTimeoutMs);
 
     /**
      * @brief   : 获取AI句柄

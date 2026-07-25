@@ -51,7 +51,6 @@ typedef struct tagSeesionMessage
 #define HTTP_RESP_CODE_GATEWAY_TIMEOUT		504						/* HTTP响应码 网关超时（上游响应慢） */
 #define HTTP_RESP_CODE_HTTP_VERSION_NOT_SUPPORTED 505				/* HTTP响应码 不支持的HTTP版本 */
 
-
 #define TVAPI_ROOT               	"TVAPI"
 #define TVAPI_VERSION_V1_0       	"V1.0"
 
@@ -64,16 +63,18 @@ typedef struct tagSeesionMessage
 #define TVAPI_PATH_BASIC_LOGOUT  		"/TVAPI/V1.0/Basic/Logout"		  /* 注销 */
 #define TVAPI_PATH_BASIC_KEEPLIVE  		"/TVAPI/V1.0/Basic/KeepLive"	/* 保活 */
 
-
 /********************************** 	设备通用接口URL宏定义 	***************************/
 #define TVAPI_PATH_DEVICE_GETINFO  		"/TVAPI/V1.0/Device/GetInfo"		/* 获取设备信息 */
 #define TVAPI_PATH_DEVICE_CAPABILITY 	"/TVAPI/V1.0/Device/Capability"		/* 获取设备能力集 */
 #define TVAPI_PATH_DEVICE_GET_DEV_CONFIG "/TVAPI/V1.0/Device/GetDevConfig"  /* 获取设备配置 */
 #define TVAPI_PATH_DEVICE_SET_DEV_CONFIG "/TVAPI/V1.0/Device/SetDevConfig"  /* 设置设备配置 */
+#define TVAPI_PATH_DEVICE_CONTROL        "/TVAPI/V1.0/DeviceControl"        /* 设备硬件控制 */
+#define TVAPI_PATH_UPGRADE_UPLOAD        "/TVAPI/V1.0/Upgrade/Upload"       /* 上传升级包 */
 
 /********************************** 	URL参数名宏定义 	***************************/
 #define TVAPI_PARAM_CHANNEL				"channel"		/* 通道号参数 */
 #define TVAPI_PARAM_COMMAND				"command"		/* 命令参数 */
+#define TVAPI_PARAM_FILENAME            "filename"      /* 文件名参数 */
 
 /********************************** 	带参数的URL生成宏定义 	***************************/
 /* 设备能力集URL生成宏: TVAPI_URL_DEVICE_CAPABILITY(channel, command) */
@@ -93,10 +94,17 @@ typedef struct tagSeesionMessage
      "?" TVAPI_PARAM_CHANNEL "=" + std::to_string(ch) + \
      "&" TVAPI_PARAM_COMMAND "=" + std::to_string(cmd))
 
+/* 升级包上传URL生成宏 */
+#define TVAPI_URL_UPGRADE_UPLOAD(filename) \
+    (std::string(TVAPI_PATH_UPGRADE_UPLOAD) + \
+     "?" TVAPI_PARAM_FILENAME "=" + std::string(filename))
+
 /********************************** 	视频通用接口URL宏定义 	***************************/
 #define TVAPI_PATH_REPLAY_GET_URL       "/TVAPI/V1.0/Replay/GetUrl"      /* 获取回放播放地址 */
 #define TVAPI_PATH_REPLAY_CONTROL       "/TVAPI/V1.0/Replay/Control"     /* 控制回放开始/停止/倍速 */
 #define TVAPI_PATH_REPLAY_GET_RECORD_LIST "/TVAPI/V1.0/Replay/GetRecordList" /* 获取回放录像时间段 */
+#define TVAPI_PATH_RECORD_FRAME_STREAM_START "/TVAPI/V1.0/RecordFrameStream/Start" /* 启动录像帧TCP流 */
+#define TVAPI_PATH_RECORD_FRAME_STREAM_STOP  "/TVAPI/V1.0/RecordFrameStream/Stop"  /* 停止录像帧TCP流 */
 
 #define TVAPI_URL_REPLAY_GET_URL() \
     (std::string(TVAPI_PATH_REPLAY_GET_URL))
@@ -106,6 +114,12 @@ typedef struct tagSeesionMessage
 
 #define TVAPI_URL_REPLAY_GET_RECORD_LIST() \
     (std::string(TVAPI_PATH_REPLAY_GET_RECORD_LIST))
+
+#define TVAPI_URL_RECORD_FRAME_STREAM_START() \
+    (std::string(TVAPI_PATH_RECORD_FRAME_STREAM_START))
+
+#define TVAPI_URL_RECORD_FRAME_STREAM_STOP() \
+    (std::string(TVAPI_PATH_RECORD_FRAME_STREAM_STOP))
 
 
 /********************************** 	事件通用接口URL宏定义 	***************************/

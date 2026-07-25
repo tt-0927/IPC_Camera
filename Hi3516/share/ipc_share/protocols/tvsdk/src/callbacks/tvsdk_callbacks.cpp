@@ -8,6 +8,11 @@
 #include <string>
 #include <cstring>
 #include <vector>
+#include <fstream>
+#include <chrono>
+#include <condition_variable>
+#include <memory>
+#include <mutex>
 
 #include "task_manage.h"
 #include "task.h"
@@ -18,9 +23,11 @@
 #include "network_define.h"
 #include "alarm_define.h"
 #include "preview_define.h"
+#include "preview_manage.h"
 #include "Json.h"
 #include "convert_interface.h"
 #include "video_define.h"
+#include "path_define.h"
 
 #include "convert/tvsdk_convert.h"
 #include "rtsp_server.h"
@@ -334,8 +341,7 @@ static int execute_action_expect_success(int actionCode, const std::string &inJs
     if (execute_get_result(actionCode, inJson, outJson) != 0)
         return -1;
 
-    // 某些下游动作只返回执行码，不返回 JSON，此时 outJson 为空也视作成功。
-    if (!outJson.empty())
+    /* 某些下游动作只返回执行码，不返回 JSON，此时 outJson 为空也视作成功。 */
     if (!outJson.empty())
     {
         int nRet = -1;
@@ -367,14 +373,42 @@ static int execute_get_result(int actionCode, const std::string &inJson, std::st
     if (!s_taskManage)
         return -1;
     outJson.clear();
+
+    struct ResultState
+    {
+        std::mutex mtx;
+        std::condition_variable cv;
+        bool hasResult = false;
+        bool expired = false;
+        std::string outJson;
+    };
+    std::shared_ptr<ResultState> state = std::make_shared<ResultState>();
+
     Task::Info_S stInfo;
     stInfo.data = inJson;
-    stInfo.fnResultCallbacks = [&outJson](const void *pData, int nLen, int /*nActionCode*/, void * /*pHandler*/) -> int {
+    stInfo.fnResultCallbacks = [state](const void *pData, int nLen, int /*nActionCode*/, void * /*pHandler*/) -> int {
+        std::lock_guard<std::mutex> lock(state->mtx);
+        if (state->expired)
+            return 0;
         if (pData && nLen > 0)
-            outJson.assign(static_cast<const char *>(pData), static_cast<size_t>(nLen));
+            state->outJson.assign(static_cast<const char *>(pData), static_cast<size_t>(nLen));
+        state->hasResult = true;
+        state->cv.notify_one();
         return 0;
     };
-    return s_taskManage->execute(actionCode, stInfo);
+    if (s_taskManage->execute(actionCode, stInfo) != 0)
+        return -1;
+
+    std::unique_lock<std::mutex> lock(state->mtx);
+    if (!state->cv.wait_for(lock, std::chrono::milliseconds(5000), [state]() { return state->hasResult; }))
+    {
+        state->expired = true;
+        dlog_warn("[TVSDK] action=%d wait result timeout", actionCode);
+        return -1;
+    }
+
+    outJson = state->outJson;
+    return 0;
 }
 
 /* ---------- GetDeviceInfo：由 SystemManage 填充 ---------- */
@@ -387,6 +421,58 @@ static NET_TV_COMMON_ECODE_E cb_get_device_info_impl(LPNET_TV_DEVICE_INFO_S pInf
         return NET_TV_E_GET_CFG_FAILED;
     TvSdkConvert::FillDeviceInfo(stDeviceInfo, *pInfo);
     return NET_TV_E_SUCCEED;
+}
+
+/* ---------- DeviceControl: TVSDK 声光控制 IPC 控制任务 ---------- */
+static NET_TV_COMMON_ECODE_E cb_device_control(LPNET_TV_DEVICE_CONTROL_INFO_S pCtrlInfo)
+{
+    if (!pCtrlInfo)
+    {
+        return NET_TV_E_NULL_POINT;
+    }
+
+    if (pCtrlInfo->dwSize != sizeof(NET_TV_DEVICE_CONTROL_TYPE_E) || pCtrlInfo->dwChannelID <= 0 || pCtrlInfo->dwDurationMs < 0 || pCtrlInfo->dwDurationMs > 3000000)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+    if (pCtrlInfo->dwControlType != NET_TV_DEVICE_CTRL_TYPE_ALARM_LIGHT)
+    {
+        return NET_TV_E_NOT_SUPPORT;
+    }
+
+    if (pCtrlInfo->dwCommand != NET_TV_ALARM_LIGHT_CTRL_START && pCtrlInfo->dwCommand != NET_TV_ALARM_LIGHT_CTRL_STOP && pCtrlInfo->dwCommand != NET_TV_ALARM_LIGHT_CTRL_SET_MODE)
+    {
+        return NET_TV_E_INVALID_PARAM;
+    }
+
+#if !CAP_ALARM_IO
+    return NET_TV_E_NOT_SUPPORT;
+#else
+    ::Preview::DeviceControl_S stControl;
+    stControl.nChannelId = pCtrlInfo->dwChannelID - 1;
+    stControl.nControlType = pCtrlInfo->dwControlType;
+    stControl.nCommand = pCtrlInfo->dwCommand;
+    stControl.nDurationMs = pCtrlInfo->dwDurationMs;
+    stControl.nParam1 = pCtrlInfo->dwParam1;
+    stControl.nParam2 = pCtrlInfo->dwParam2;
+    stControl.strExt.assign(pCtrlInfo->szExt, strnlen(pCtrlInfo->szExt, sizeof(pCtrlInfo->szExt)));
+
+    std::string outJson;
+    if(execute_get_result(AC_DEVICE_CONTROL, wrap_data_json(Convert::to_string(stControl)), outJson) != 0)
+    {
+        return NET_TV_E_SET_CFG_FAILED;
+    }
+
+    int nRet = ERR;
+    if(outJson.empty() || !Json::get(outJson.c_str(), "Return", nRet) || nRet != OK)
+    {
+        dlog_warn("TVSDK声光控制任务失败： return[%d], body[%s]", nRet, outJson.c_str());
+        return NET_TV_E_SET_CFG_FAILED;
+    }
+
+    return NET_TV_E_SUCCEED;
+#endif
 }
 
 /* ---------- GetVideoEncodeCap：AC_GET_VIDEO_CAPABILITY_SET ---------- */
@@ -560,11 +646,44 @@ static NET_TV_COMMON_ECODE_E set_cfg_by_action(INT32 dwChannelID, int actionCode
 }
 static NET_TV_COMMON_ECODE_E cb_get_ntp_cfg(INT32 dwChannelID, LPVOID lpOutBuffer)
 {
-    return get_cfg_by_action(dwChannelID, AC_GET_TIME_INFO, lpOutBuffer);
+    (void)dwChannelID;
+    if (!lpOutBuffer)
+        return NET_TV_E_NULL_POINT;
+
+    std::string outJson;
+    if (execute_get_result(AC_GET_TIME_INFO, "{}", outJson) != 0 || outJson.empty())
+        return NET_TV_E_GET_CFG_FAILED;
+
+    int nRet = -1;
+    Json::get(outJson.c_str(), "Return", nRet);
+    if (nRet != 0)
+        return NET_TV_E_GET_CFG_FAILED;
+
+    std::string strJson = normalize_data_json(outJson);
+    if (strJson.empty())
+        return NET_TV_E_GET_CFG_FAILED;
+
+    ::System::TimeInfo_S stTimeInfo;
+    Convert::to_struct(strJson, stTimeInfo);
+    TvSdkConvert::FillSystemNtpInfo(stTimeInfo, *(LPNET_TV_SYSTEM_NTP_INFO_S)lpOutBuffer);
+    return NET_TV_E_SUCCEED;
 }
 static NET_TV_COMMON_ECODE_E cb_set_ntp_cfg(INT32 dwChannelID, LPVOID lpInBuffer)
 {
-    return set_cfg_by_action(dwChannelID, AC_SET_TIME_INFO, lpInBuffer);
+    (void)dwChannelID;
+    if (!lpInBuffer)
+        return NET_TV_E_NULL_POINT;
+    if (!s_taskManage)
+        return NET_TV_E_SET_CFG_FAILED;
+
+    const NET_TV_SYSTEM_NTP_INFO_S *pIn = (const NET_TV_SYSTEM_NTP_INFO_S *)lpInBuffer;
+    ::System::TimeInfo_S stTimeInfo;
+    TvSdkConvert::ToTimeInfo(*pIn, stTimeInfo);
+
+    Task::Info_S stInfo;
+    stInfo.data = wrap_data_json(Convert::to_string(stTimeInfo));
+    int nRet = s_taskManage->execute(AC_SET_TIME_INFO, stInfo);
+    return (nRet == 0) ? NET_TV_E_SUCCEED : NET_TV_E_SET_CFG_FAILED;
 }
 static NET_TV_COMMON_ECODE_E cb_get_stream_cfg(INT32 dwChannelID, LPVOID lpOutBuffer)
 {
@@ -666,6 +785,7 @@ static NET_TV_COMMON_ECODE_E cb_get_image_cfg(INT32 dwChannelID, LPVOID lpOutBuf
         return NET_TV_E_INVALID_PARAM;
 
     LPNET_TV_IMAGE_SETTING_S pOut = (LPNET_TV_IMAGE_SETTING_S)lpOutBuffer;
+    std::memset(pOut, 0, sizeof(*pOut));
 
     std::string outJson;
     if (execute_get_result(AC_GET_VIDEO_EFFECT_INFO, "{}", outJson) != 0 || outJson.empty())
@@ -883,11 +1003,45 @@ static NET_TV_COMMON_ECODE_E cb_set_preview_info(INT32 dwChannelID, LPVOID lpInB
 
 static NET_TV_COMMON_ECODE_E cb_get_privacy_mask_cfg(INT32 dwChannelID, LPVOID lpOutBuffer)
 {
-    return get_cfg_by_action(dwChannelID, AC_GET_SHELTER_INFO, lpOutBuffer);
+    (void)dwChannelID;
+    if (!lpOutBuffer)
+        return NET_TV_E_INVALID_PARAM;
+
+    LPNET_TV_PRIVACY_MASK_CFG_S pOut = (LPNET_TV_PRIVACY_MASK_CFG_S)lpOutBuffer;
+
+    std::string outJson;
+    if (execute_get_result(AC_GET_SHELTER_INFO, "{}", outJson) != 0 || outJson.empty())
+        return NET_TV_E_GET_CFG_FAILED;
+
+    int nRet = -1;
+    Json::get(outJson.c_str(), "Return", nRet);
+    if (nRet != 0)
+        return NET_TV_E_GET_CFG_FAILED;
+
+    std::string strJson = normalize_data_json(outJson);
+    if (strJson.empty())
+        return NET_TV_E_GET_CFG_FAILED;
+
+    Osd::CoverConfig_S stCfg;
+    stCfg.clear();
+    Convert::to_struct(strJson, stCfg);
+    TvSdkConvert::FillPrivacyMaskCfg(stCfg, *pOut);
+    return NET_TV_E_SUCCEED;
 }
 static NET_TV_COMMON_ECODE_E cb_set_privacy_mask_cfg(INT32 dwChannelID, LPVOID lpInBuffer)
 {
-    return set_cfg_by_action(dwChannelID, AC_SET_SHELTER_INFO, lpInBuffer);
+    (void)dwChannelID;
+    if (!lpInBuffer)
+        return NET_TV_E_INVALID_PARAM;
+
+    const NET_TV_PRIVACY_MASK_CFG_S *pIn = (const NET_TV_PRIVACY_MASK_CFG_S *)lpInBuffer;
+    Osd::CoverConfig_S stCfg;
+    TvSdkConvert::ToPrivacyMaskCfg(*pIn, stCfg);
+
+    Task::Info_S stInfo;
+    stInfo.data = wrap_data_json(Convert::to_string(stCfg));
+    int nExec = s_taskManage ? s_taskManage->execute(AC_SET_SHELTER_INFO, stInfo) : -1;
+    return (nExec == 0) ? NET_TV_E_SUCCEED : NET_TV_E_SET_CFG_FAILED;
 }
 static NET_TV_COMMON_ECODE_E cb_get_tamper_alarm(INT32 dwChannelID, LPVOID lpOutBuffer)
 {
@@ -3005,10 +3159,18 @@ static NET_TV_COMMON_ECODE_E cb_set_talkback_state(INT32 dwChannelID, LPVOID lpI
     const NET_TV_TALKBACK_STATE_INFO_S *pIn = (const NET_TV_TALKBACK_STATE_INFO_S *)lpInBuffer;
     Preview::IntercomInfo_S stCfg;
     TvSdkConvert::ToIntercomInfo(*pIn, stCfg);
+    if (stCfg.bEnable && stCfg.strUrl.empty())
+        stCfg.strSdp = "tvsdk_voicecom";
+    if (!stCfg.bEnable && stCfg.strLocalIp.empty())
+    {
+        // TVSDK VoiceCom 关闭请求可能不携带 LocalIp，补当前对讲IP以通过 preview 的归属校验。
+        stCfg.strLocalIp = CPreviewManage::instance()->get_intercom_ip();
+    }
 
     Task::Info_S stInfo;
+    stInfo.strIp = stCfg.strLocalIp;
     stInfo.data = wrap_data_json(Convert::to_string(stCfg));
-    int nExec = s_taskManage ? s_taskManage->execute(AC_STATE_TALKBACK, stInfo) : -1;
+    int nExec = s_taskManage ? s_taskManage->execute(AC_SET_INTERCOM_INFO, stInfo) : -1;
     return (nExec == 0) ? NET_TV_E_SUCCEED : NET_TV_E_SET_CFG_FAILED;
 }
 
@@ -3230,6 +3392,7 @@ void register_all()
 {
     NET_TV_SERVER_RegisterCb_GetDeviceInfo(
         reinterpret_cast<NET_TV_COMMON_ECODE_E (*)(NET_TV_DEVICE_INFO_S)>(cb_get_device_info_impl));
+    NET_TV_SERVER_RegisterCb_DeviceControl(cb_device_control);
     NET_TV_SERVER_RegisterCb_GetVideoEncodeCap(cb_get_video_encode_cap);
     NET_TV_SERVER_RegisterCb_GetAudioEncodeCap(cb_get_audio_encode_cap);
     NET_TV_SERVER_RegisterCb_GetOsdCap(cb_get_osd_cap);

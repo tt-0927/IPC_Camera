@@ -3,7 +3,7 @@
  * @Author       : zhouzirui
  * @Date         : 2025-03-31 20:08:18
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2025-12-11 16:58:02
+ * @LastEditTime : 2026-06-03 19:25:15
  * @Description  : AO 音频流输出
  */
 
@@ -57,7 +57,7 @@ HiAo_S *streamAo_init(int nAoDevice, const Audio_NS::AudioConfig_S &stAudioConfi
 
     /* 设置默认输出音量 */
     pHandle->stExParam.nVolume = stAudioConfig.u32OutputVolume;
-    pHandle->stExParam.nMinVolume = -10;
+    pHandle->stExParam.nMinVolume = -25;
     pHandle->stExParam.nMaxVolume = 6;
 
     /* 去初始化ao */

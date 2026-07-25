@@ -11,6 +11,7 @@
 
 #include <cstring>
 #include <fstream>
+#include <vector>
 
 using namespace Event;
 using namespace FaceDataDB_NS;
@@ -72,6 +73,86 @@ using namespace FaceDataDB_NS;
  * @param [string] : 表名
  */
 #define SQL_SELECT_ALL_DATA ("SELECT * FROM \"%s\";")
+
+namespace
+{
+void fill_face_lib_info(sqlite3_stmt *pSelectStmt,
+                        const std::string &strTabName,
+                        FaceLibsInfo_S &stOutInfo)
+{
+    stOutInfo.clear();
+    stOutInfo.strFaceLibName = strTabName;
+    stOutInfo.nId = sqlite3_column_int(pSelectStmt, 0);
+
+    const unsigned char *pName = sqlite3_column_text(pSelectStmt, 1);
+    stOutInfo.strName = pName ? reinterpret_cast<const char *>(pName) : "";
+
+    const unsigned char *pPhone = sqlite3_column_text(pSelectStmt, 2);
+    stOutInfo.strPhoneNum = pPhone ? reinterpret_cast<const char *>(pPhone) : "";
+
+    const unsigned char *pPicPath = sqlite3_column_text(pSelectStmt, 3);
+    stOutInfo.strPicPath = pPicPath ? reinterpret_cast<const char *>(pPicPath) : "";
+
+    const unsigned char *pPicType = sqlite3_column_text(pSelectStmt, 4);
+    stOutInfo.strPicType = pPicType ? reinterpret_cast<const char *>(pPicType) : "";
+
+    stOutInfo.nPicSize = sqlite3_column_int(pSelectStmt, 5);
+
+    const unsigned char *pPicDate = sqlite3_column_text(pSelectStmt, 6);
+    stOutInfo.strPicDate = pPicDate ? reinterpret_cast<const char *>(pPicDate) : "";
+
+    stOutInfo.nModelState = sqlite3_column_int(pSelectStmt, 7);
+    stOutInfo.nRatingLevel = sqlite3_column_int(pSelectStmt, 8);
+
+    stOutInfo.vfData.clear();
+    const void *pBlobData = sqlite3_column_blob(pSelectStmt, 9);
+    const int nBlobSize = sqlite3_column_bytes(pSelectStmt, 9);
+    if (pBlobData && nBlobSize > 0)
+    {
+        const float *pfFeature = reinterpret_cast<const float *>(pBlobData);
+        stOutInfo.vfData.assign(pfFeature, pfFeature + nBlobSize / sizeof(float));
+    }
+
+    const unsigned char *pBinPath = sqlite3_column_text(pSelectStmt, 10);
+    stOutInfo.BinPath = pBinPath ? reinterpret_cast<const char *>(pBinPath) : "";
+}
+
+IpcRet_E query_face_info_by_table(sqlite3 *pDb,
+                                  const std::string &strTabName,
+                                  int nId,
+                                  FaceLibsInfo_S &stOutInfo)
+{
+    std::string strSql = "SELECT * FROM \"" + strTabName + "\" WHERE ID=?;";
+    sqlite3_stmt *pSelectStmt = nullptr;
+    if (sqlite3_prepare_v2(pDb, strSql.c_str(), -1, &pSelectStmt, nullptr) != SQLITE_OK)
+    {
+        printf("[DEBUG] sqlite3_prepare_v2 failed table[%s]: %s\n", strTabName.c_str(), sqlite3_errmsg(pDb));
+        return ERR;
+    }
+
+    if (sqlite3_bind_int(pSelectStmt, 1, nId) != SQLITE_OK)
+    {
+        printf("[DEBUG] sqlite3_bind_int failed table[%s]: %s\n", strTabName.c_str(), sqlite3_errmsg(pDb));
+        sqlite3_finalize(pSelectStmt);
+        return ERR;
+    }
+
+    IpcRet_E enRetCode = ERR;
+    const int nStepRet = sqlite3_step(pSelectStmt);
+    if (nStepRet == SQLITE_ROW)
+    {
+        fill_face_lib_info(pSelectStmt, strTabName, stOutInfo);
+        enRetCode = OK;
+    }
+    else if (nStepRet != SQLITE_DONE)
+    {
+        printf("[DEBUG] sqlite3_step error table[%s]: %s\n", strTabName.c_str(), sqlite3_errmsg(pDb));
+    }
+
+    sqlite3_finalize(pSelectStmt);
+    return enRetCode;
+}
+} // namespace
 
 
 CFaceSqlite::CFaceSqlite()
@@ -378,94 +459,164 @@ IpcRet_E CFaceSqlite::deleteData(int nId)
     return enRetCode;
 }
 
-/* 根据 ID 查找数据 */
 IpcRet_E CFaceSqlite::searchDataById(int nId, FaceLibsInfo_S& stOutInfo)
 {
-    /* 自动锁定互斥锁 */
-    std::unique_lock<std::mutex> lock(m_mutex);
-
-    if (NULL == m_pDb)
+    if (!m_pDb)
     {
-        dlog_error("未初始化");
-        return ERR_UNINIT;
+        printf("[DEBUG] database not open (m_pDb is nullptr)\n");
+        return IpcRet_E::ERR;
     }
 
-    char* pchSelectSQL = nullptr;
-    sqlite3_stmt* pstCountstmt = nullptr;
-    const char* pchSelectTablesSQL = "SELECT name FROM sqlite_master WHERE type='table';";;
-    
-    IpcRet_E enRetCode = OK;
+    std::unique_lock<std::mutex> lock(m_mutex);
 
-    /* 清空输出结构体 */
-    stOutInfo.clear();
-
-    /* 获取所有表名 */
-    if (sqlite3_prepare_v2(m_pDb, pchSelectTablesSQL, -1, &pstCountstmt, nullptr) != SQLITE_OK)
+    if (!m_strFaceTableName.empty())
     {
-        dlog_error("获取表名失败: %s", sqlite3_errmsg(m_pDb));
+        IpcRet_E enRetCode = query_face_info_by_table(m_pDb, m_strFaceTableName, nId, stOutInfo);
+        if (enRetCode == OK)
+        {
+            return OK;
+        }
+
+        dlog_warn("当前人脸库表未查到人员详情，准备遍历所有表: table[%s], id[%d]",
+                  m_strFaceTableName.c_str(),
+                  nId);
+    }
+    else
+    {
+        dlog_warn("当前人脸库表名为空，准备遍历所有表查询人员详情: id[%d]", nId);
+    }
+
+    sqlite3_stmt *pTableStmt = nullptr;
+    if (sqlite3_prepare_v2(m_pDb, "SELECT name FROM sqlite_master WHERE type='table';", -1, &pTableStmt, nullptr) != SQLITE_OK)
+    {
+        printf("[DEBUG] sqlite3_prepare_v2 tables failed: %s\n", sqlite3_errmsg(m_pDb));
         return ERR;
     }
 
-    while (sqlite3_step(pstCountstmt) == SQLITE_ROW)
+    std::vector<std::string> vecTableNames;
+    while (sqlite3_step(pTableStmt) == SQLITE_ROW)
     {
-        const char* strTabName = reinterpret_cast<const char*>(sqlite3_column_text(pstCountstmt, 0));
-        
-        /* 拼接查询语句用于查找指定 ID */
-        pchSelectSQL = sqlite3_mprintf("SELECT * FROM \"%s\" WHERE ID = ?;", strTabName);
-        if (pchSelectSQL == nullptr)
+        const unsigned char *pTableName = sqlite3_column_text(pTableStmt, 0);
+        if (!pTableName)
         {
-            dlog_error("创建查询命令失败");
             continue;
         }
 
-        sqlite3_stmt* pSelectStmt = nullptr;
-
-        /* 准备查询 SQL 语句 */
-        if (sqlite3_prepare_v2(m_pDb, pchSelectSQL, -1, &pSelectStmt, nullptr) == SQLITE_OK)
+        const std::string strTableName = reinterpret_cast<const char *>(pTableName);
+        if (strTableName.find("sqlite_") == 0)
         {
-            /* 绑定要查找的 ID */
-            sqlite3_bind_int(pSelectStmt, 1, nId);
-
-            if (sqlite3_step(pSelectStmt) == SQLITE_ROW)
-            {
-                /* 获取查询结果并赋值 */
-                stOutInfo.strFaceLibName = strTabName;
-                stOutInfo.nId = sqlite3_column_int(pSelectStmt, 0);
-                stOutInfo.strName = reinterpret_cast<const char*>(sqlite3_column_text(pSelectStmt, 1));
-                stOutInfo.strPhoneNum = reinterpret_cast<const char*>(sqlite3_column_text(pSelectStmt, 2));
-                stOutInfo.strPicPath = reinterpret_cast<const char*>(sqlite3_column_text(pSelectStmt, 3));
-                stOutInfo.strPicType = reinterpret_cast<const char*>(sqlite3_column_text(pSelectStmt, 4));
-                stOutInfo.nPicSize = sqlite3_column_int(pSelectStmt, 5);
-                stOutInfo.strPicDate = reinterpret_cast<const char*>(sqlite3_column_text(pSelectStmt, 6));
-                stOutInfo.nModelState = sqlite3_column_int(pSelectStmt, 7);
-                stOutInfo.nRatingLevel = sqlite3_column_int(pSelectStmt, 8);
-
-                enRetCode = OK;
-                break;
-            }
+            continue;
         }
-        else
-        {
-            dlog_error("编译查询语句失败: %s", sqlite3_errmsg(m_pDb));
-        }
-
-        /* 清理和释放 */
-        if (pSelectStmt)
-        {
-            sqlite3_finalize(pSelectStmt);
-        }
-        sqlite3_free(pchSelectSQL);
+        vecTableNames.push_back(strTableName);
     }
+    sqlite3_finalize(pTableStmt);
 
-    sqlite3_finalize(pstCountstmt);
-
-    if (enRetCode == ERR_NOT_EXIST)
+    for (const auto &strTableName : vecTableNames)
     {
-        dlog_error("找不到该ID-查找失败");
+        if (query_face_info_by_table(m_pDb, strTableName, nId, stOutInfo) == OK)
+        {
+            m_strFaceTableName = strTableName;
+            dlog_info("遍历所有表查询到人员详情: table[%s], id[%d], name[%s], phone[%s]",
+                      stOutInfo.strFaceLibName.c_str(),
+                      stOutInfo.nId,
+                      stOutInfo.strName.c_str(),
+                      stOutInfo.strPhoneNum.c_str());
+            return OK;
+        }
     }
 
-    return enRetCode;
+    dlog_warn("所有人脸库表均未查到人员详情: id[%d]", nId);
+    return ERR;
 }
+
+/* 根据 ID 查找数据 */
+// IpcRet_E CFaceSqlite::searchDataById(int nId, FaceLibsInfo_S& stOutInfo)
+// {
+//     /* 自动锁定互斥锁 */
+//     std::unique_lock<std::mutex> lock(m_mutex);
+
+//     if (NULL == m_pDb)
+//     {
+//         dlog_error("未初始化");
+//         return ERR_UNINIT;
+//     }
+
+//     char* pchSelectSQL = nullptr;
+//     sqlite3_stmt* pstCountstmt = nullptr;
+//     const char* pchSelectTablesSQL = "SELECT name FROM sqlite_master WHERE type='table';";;
+    
+//     IpcRet_E enRetCode = OK;
+
+//     /* 清空输出结构体 */
+//     stOutInfo.clear();
+
+//     /* 获取所有表名 */
+//     if (sqlite3_prepare_v2(m_pDb, pchSelectTablesSQL, -1, &pstCountstmt, nullptr) != SQLITE_OK)
+//     {
+//         dlog_error("获取表名失败: %s", sqlite3_errmsg(m_pDb));
+//         return ERR;
+//     }
+
+//     while (sqlite3_step(pstCountstmt) == SQLITE_ROW)
+//     {
+//         const char* strTabName = reinterpret_cast<const char*>(sqlite3_column_text(pstCountstmt, 0));
+        
+//         /* 拼接查询语句用于查找指定 ID */
+//         pchSelectSQL = sqlite3_mprintf("SELECT * FROM \"%s\" WHERE ID = ?;", strTabName);
+//         if (pchSelectSQL == nullptr)
+//         {
+//             dlog_error("创建查询命令失败");
+//             continue;
+//         }
+
+//         sqlite3_stmt* pSelectStmt = nullptr;
+
+//         /* 准备查询 SQL 语句 */
+//         if (sqlite3_prepare_v2(m_pDb, pchSelectSQL, -1, &pSelectStmt, nullptr) == SQLITE_OK)
+//         {
+//             /* 绑定要查找的 ID */
+//             sqlite3_bind_int(pSelectStmt, 1, nId);
+
+//             if (sqlite3_step(pSelectStmt) == SQLITE_ROW)
+//             {
+//                 /* 获取查询结果并赋值 */
+//                 stOutInfo.strFaceLibName = strTabName;
+//                 stOutInfo.nId = sqlite3_column_int(pSelectStmt, 0);
+//                 stOutInfo.strName = reinterpret_cast<const char*>(sqlite3_column_text(pSelectStmt, 1));
+//                 stOutInfo.strPhoneNum = reinterpret_cast<const char*>(sqlite3_column_text(pSelectStmt, 2));
+//                 stOutInfo.strPicPath = reinterpret_cast<const char*>(sqlite3_column_text(pSelectStmt, 3));
+//                 stOutInfo.strPicType = reinterpret_cast<const char*>(sqlite3_column_text(pSelectStmt, 4));
+//                 stOutInfo.nPicSize = sqlite3_column_int(pSelectStmt, 5);
+//                 stOutInfo.strPicDate = reinterpret_cast<const char*>(sqlite3_column_text(pSelectStmt, 6));
+//                 stOutInfo.nModelState = sqlite3_column_int(pSelectStmt, 7);
+//                 stOutInfo.nRatingLevel = sqlite3_column_int(pSelectStmt, 8);
+//                 stOutInfo.BinPath = reinterpret_cast<const char*>(sqlite3_column_text(pSelectStmt, 10));
+//                 enRetCode = OK;
+//                 break;
+//             }
+//         }
+//         else
+//         {
+//             dlog_error("编译查询语句失败: %s", sqlite3_errmsg(m_pDb));
+//         }
+
+//         /* 清理和释放 */
+//         if (pSelectStmt)
+//         {
+//             sqlite3_finalize(pSelectStmt);
+//         }
+//         sqlite3_free(pchSelectSQL);
+//     }
+
+//     sqlite3_finalize(pstCountstmt);
+
+//     if (enRetCode == ERR_NOT_EXIST)
+//     {
+//         dlog_error("找不到该ID-查找失败");
+//     }
+
+//     return enRetCode;
+// }
 
 
 /* 根据表名查找数据 */
@@ -686,7 +837,7 @@ IpcRet_E CFaceSqlite::getDataTotal(int& nOutTotal)
     return enRetCode;
 }
 
-#define DEBUG_PRINT() printf("test debug fun : %s, line : %d\n", __FUNCTION__, __LINE__);
+
 /* 初始化数据库 */
 IpcRet_E CFaceSqlite::init_sql()
 {
@@ -706,7 +857,6 @@ IpcRet_E CFaceSqlite::init_sql()
     {
         dlog_error("记录数据库不存在[%s]", DB_FACE_DATA_PATH);
     }
-DEBUG_PRINT()
     /* 打开数据库 */
     nRet = sqlite3_open(DB_FACE_DATA_PATH, &pDbhandle);
     if (nRet != SQLITE_OK)
@@ -719,11 +869,9 @@ DEBUG_PRINT()
         }
         return ERR;
     }
-DEBUG_PRINT()
     /* 数据库备份 */
     backup_database(pDbhandle, DB_FACE_DATA_BUCKUP_PATH, bDbExit);
     m_pDb = pDbhandle;
-DEBUG_PRINT()
     return OK;
 }
 
@@ -759,6 +907,7 @@ IpcRet_E CFaceSqlite::check_creat_table(std::string strTabName)
         {
             dlog_trace("成功创建表: %s", strTabName.c_str());
             enRetCode = OK;
+            m_strFaceTableName = strTabName;
         }
     }
     else
@@ -839,6 +988,7 @@ IpcRet_E CFaceSqlite::deleteTable(std::string strTabName)
         {
             dlog_trace("成功删除表: %s", strTabName.c_str());
             enRetCode = OK;
+            m_strFaceTableName.clear();
         }
     }
     else

@@ -42,7 +42,7 @@ void convert_crowd_config_and_enable(Alarm::CrowdGathering_S &stAlgoCfg, int nWi
     }
 }
 
-#if CAP_AI_PEOPLE_STATISTICS
+#if CAP_AI_PEOPLE_DENSITY_LEGACY
 void convert_density_config_and_enable(Alarm::PeopleDensityDetection_S &stAlgoCfg, int nWidth, int nHeight)
 {
     /* 人员密度检测区域转换到人头模型输入分辨率 */

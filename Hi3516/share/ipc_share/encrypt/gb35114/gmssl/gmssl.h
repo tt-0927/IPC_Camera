@@ -3,8 +3,11 @@
  * @Author       : zhouzirui
  * @Date         : 2025-04-21 10:09:57
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2025-08-25 20:00:10
- * @Description  : gmssl命令行封装
+ * @LastEditTime : 2026-06-22 09:20:07
+ * @Description  : gmssl命令行封装（历史文件，不参与编译）
+ * @deprecated   : 此文件已从 CMake 排除编译。
+ *                 调用方已迁移到 CCryptoManager。
+ *                 文件保留作历史参考，勿删除。
  */
 
 #pragma once
@@ -75,6 +78,15 @@ public:
 
     // 生成随机数
     std::string rand(size_t length, bool hex_output = false);
+
+    /**
+     * @brief   : 随机数获取
+     * @param    {uint8_t*} buf：存储随机数缓冲区指针
+     * @param    {size_t} buflen：需要多少位随机数
+     * @return   {int} OK：成功，非0：失败
+     * @note    : 委托给 ICryptoProvider 实现，兼容 C 接口
+     */
+    int randomNumber_get(uint8_t *buf, size_t buflen);
 
     // 生成SM2密钥对
     void sm2keygen(const std::string &pass, const std::string &privkey_path,

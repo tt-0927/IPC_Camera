@@ -110,6 +110,7 @@ void CDeviceManage::SetGlobalConnectTime(int waitTime, int tryTimes)
 {
     hbInterval_ = waitTime;
     maxRetry_ = tryTimes;
+    connectTimeout_ = waitTime;  // 同时设置连接超时
 }
 
 void CDeviceManage::OnSessionLost(LPUSER_HANDLE pHandle) 

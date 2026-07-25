@@ -3,7 +3,7 @@
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2025-06-28 10:36:11
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2025-07-22 10:13:50
+ * @LastEditTime : 2026-06-04 09:02:02
  * @Description  : 通道通讯录制
  */
 
@@ -18,7 +18,7 @@
 #include "convert_interface.h"
 #include "path_define.h"
 #include <cerrno>
-#include <cstring> 
+#include <cstring>
 
 CRecordFile::CRecordFile(int nChnId)
 	: m_nChnId(nChnId)
@@ -39,9 +39,25 @@ CRecordFile::CRecordFile(int nChnId)
 	Convert::read_file(VIDEO_CONFIG_FILE, m_vstVideoConfig);
 	/*判断视频配置对应的录制的视频配置信息*/
 	Record_NS::VideoConfigInfo_S stVideoConfigInfo;
+#if CAP_RECORD_USE_MAIN_STREAM
+	/* 录制使用主码流 */
+	stVideoConfigInfo.nVencWidth = m_vstVideoConfig[0].stVideoResolution.nWidth;
+	stVideoConfigInfo.nVencHeight = m_vstVideoConfig[0].stVideoResolution.nHeight;
+	stVideoConfigInfo.nFps = m_vstVideoConfig[0].getFrameRateAsInt();
+	stVideoConfigInfo.nVideoCodeID = AV_CODEC_ID_H264;
+	if (m_vstVideoConfig[0].enVideoCodec == Video_NS::VideoCodec_E::H264)
+	{
+		stVideoConfigInfo.nVideoCodeID = AV_CODEC_ID_H264;
+	}
+	else if (m_vstVideoConfig[0].enVideoCodec == Video_NS::VideoCodec_E::H265)
+	{
+		stVideoConfigInfo.nVideoCodeID = AV_CODEC_ID_H265;
+	}
+#else
+	/* 录制使用子码流 */
 	stVideoConfigInfo.nVencWidth = m_vstVideoConfig[1].stVideoResolution.nWidth;
 	stVideoConfigInfo.nVencHeight = m_vstVideoConfig[1].stVideoResolution.nHeight;
-	stVideoConfigInfo.nFps = m_vstVideoConfig[1].getFrameRateAsInt(); 
+	stVideoConfigInfo.nFps = m_vstVideoConfig[1].getFrameRateAsInt();
 	stVideoConfigInfo.nVideoCodeID = AV_CODEC_ID_H264;
 	if (m_vstVideoConfig[1].enVideoCodec == Video_NS::VideoCodec_E::H264)
 	{
@@ -51,6 +67,7 @@ CRecordFile::CRecordFile(int nChnId)
 	{
 		stVideoConfigInfo.nVideoCodeID = AV_CODEC_ID_H265;
 	}
+#endif
 	/*设置录制的视频配置信息*/
 	set_videoInfo(stVideoConfigInfo);
 
@@ -143,6 +160,38 @@ void CRecordFile::stop()
 
 void CRecordFile::set_videoInfo(Record_NS::VideoConfigInfo_S stVideoConfigInfo)
 {
+	/*检测视频配置是否发生变化*/
+	bool bConfigChanged = false;
+	
+	/*检查分辨率是否变化*/
+	if (m_stSliceInfo.nVencWidth != stVideoConfigInfo.nVencWidth || 
+		m_stSliceInfo.nVencHeight != stVideoConfigInfo.nVencHeight) {
+		dlog(LOG_FAULT, "分辨率变化: %dx%d ==> %dx%d", 
+			m_stSliceInfo.nVencWidth, m_stSliceInfo.nVencHeight,
+			stVideoConfigInfo.nVencWidth, stVideoConfigInfo.nVencHeight);
+		bConfigChanged = true;
+	}
+	
+	/*检查帧率是否变化*/
+	if (m_stSliceInfo.nFps != stVideoConfigInfo.nFps) {
+		dlog(LOG_FAULT, "帧率变化: %d ==> %d", m_stSliceInfo.nFps, stVideoConfigInfo.nFps);
+		bConfigChanged = true;
+	}
+	
+	/*检查视频编码格式是否变化*/
+	if (m_stSliceInfo.nVideoCodeID != stVideoConfigInfo.nVideoCodeID) {
+		dlog(LOG_FAULT, "视频格式变化: %d ==> %d", m_stSliceInfo.nVideoCodeID, stVideoConfigInfo.nVideoCodeID);
+		bConfigChanged = true;
+	}
+	
+	/*如果配置发生变化，设置切片标志*/
+	if (bConfigChanged)
+	{
+		m_bHandleSlice.store(true);
+		dlog(LOG_FAULT, "视频配置变化，将触发切片");
+	}
+	
+	/*更新视频配置信息*/
 	m_stSliceInfo.nVencWidth = stVideoConfigInfo.nVencWidth;
 	m_stSliceInfo.nVencHeight = stVideoConfigInfo.nVencHeight;
 	m_stSliceInfo.nFps = stVideoConfigInfo.nFps;
@@ -254,17 +303,17 @@ int CRecordFile::send_tsFileInfo()
 	/* 分片文件大小 */
 	// stFileInfo.nSize = stSliceInfo.nSize;
 	struct stat st;
-	std::string strTsFullPath = stFileInfo.path + + "/" + stFileInfo.filename;
+	std::string strTsFullPath = stFileInfo.path + "/" + stFileInfo.filename;
     if (stat(strTsFullPath.c_str(), &st) == 0) /*获取ts文件的实际大小 */
-	{
+    {
         stFileInfo.nSize = st.st_size;
     }
-	else /* 这个获取的大小只是 编码数据大小，而 TS 文件最终大小 = 编码数据 + TS 封装开销 */
-	{
-		stFileInfo.nSize = stSliceInfo.nSize;
-	}
+    else /* 这个获取的大小只是 编码数据大小，而 TS 文件最终大小 = 编码数据 + TS 封装开销 */
+    {
+        stFileInfo.nSize = stSliceInfo.nSize;
+    }
 
-	/* 算出分片总时长 */
+    /* 算出分片总时长 */
 	auto tp1 = std::chrono::system_clock::from_time_t(stSliceInfo.nStartTimeMs);
 	auto tp2 = std::chrono::system_clock::from_time_t(stSliceInfo.nEndTimeMs);
 	stFileInfo.nDuration = std::chrono::duration_cast<std::chrono::seconds>(tp2 - tp1).count() / 1000;
@@ -353,15 +402,34 @@ bool CRecordFile::is_newDay()
 
 void CRecordFile::slice()
 {
-	/* 连续分片下标自增 */
-	m_stSliceInfo.nIndex++;
-
 	/********************反初始化流程*************/
 	/*保存上次计数值*/
 	nVptsMs = m_ffmpegRecord.get_videoPts();
 	nAptsMs = m_ffmpegRecord.get_audioPts();
 
 	m_ffmpegRecord.deinit();
+
+	/* 获取分片信息（在deinit后获取，包含正确的nIndex和时间戳）*/
+	SliceInfo_S stSliceInfo = m_ffmpegRecord.get_mediaInfo();
+
+	/* 连续分片下标自增（在deinit后进行，确保获取的nIndex正确）*/
+	m_stSliceInfo.nIndex++;
+
+	/*更新m3u8Path（使用新的nIndex）*/
+	if (m_stRecordInfo.nEventType == 0)
+	{
+		/* 常规录像 */
+		m_m3u8Path = m_stRecordInfo.path + "/" + Time::get_yyyymmdd() + "/normal_" + Time::get_yyyymmdd() + ".m3u8";
+	}
+	else
+	{
+		if(!m_strRecvStratTime.empty())
+		{
+			/* 事件录像 */
+			std::string strEventM3u8FileName = Time::get_yyyymmdd() + "_" + m_strRecvStratTime + "_" + std::to_string(m_stRecordInfo.nEventType) + "_" + ".m3u8";
+			m_m3u8Path = m_stRecordInfo.path + "/" + Time::get_yyyymmdd() + "/" + strEventM3u8FileName;
+		}
+	}
 
 #if 0
 	/*分片总时长*/
@@ -392,7 +460,8 @@ void CRecordFile::slice()
 		nAptsMs = 0;
 		m_stSliceInfo.nIndex = 0;
 	}
-	auto stSliceInfo = m_ffmpegRecord.get_mediaInfo();
+	
+	/*使用更新后的m_stSliceInfo添加到m3u8*/
 	m_m3u8.add_ts(std::move(stSliceInfo));
 	send_tsFileInfo();
 	m_ffmpegRecord.reset();
@@ -405,6 +474,13 @@ void CRecordFile::redun_backup()
 	{
 		return;
 	}
+	
+	/*确保m_redunPath已初始化*/
+	if (m_redunPath.empty())
+	{
+		m_redunPath = m_stRecordInfo.redunPath + "/" + Time::get_yyyymmdd();
+	}
+	
 	std::string cmd;
 	if (access(m_redunPath.c_str(), F_OK) != 0)
 	{
@@ -449,7 +525,9 @@ int CRecordFile::init_record()
 	std::string date = Time::get_yyyymmdd();
 	/* 获取当前年月日时分秒 */
 	stNeedParam.startTime = Time::get_curTime();
-	stNeedParam.nStartTimeMs = Time::get_milliseconds();
+
+	/* 不在这里设置nStartTimeMs，让ffmpeg_record的init_startTime()处理 */
+	/* stNeedParam.nStartTimeMs = Time::get_milliseconds(); */
 
 	/* 获取当前的时分秒 */
 	std::string strDateTime = Time::get_hhmmss();
@@ -494,10 +572,12 @@ int CRecordFile::init_record()
 		return -1;
 	}
 
-	/*赋值上次计数值*/
-	m_ffmpegRecord.clear_count();
+	/* 初始化完成后，设置之前保存的PTS值 */
 	m_ffmpegRecord.set_audioPts(nAptsMs);
 	m_ffmpegRecord.set_videoPts(nVptsMs);
+
+	/* 清空计数，让init_startTime()重新计算 */
+	m_ffmpegRecord.clear_count();
 
 	return 0;
 }
@@ -552,6 +632,35 @@ void CRecordFile::write_record()
 		return;
 	}
 
+	/*检查视频配置是否变化，如果变化则触发切片*/
+	if (m_bHandleSlice.load() && stFfData.nType == AVMEDIA_TYPE_VIDEO && stFfData.nKey)
+	{
+		dlog_info("检测到视频配置变化，触发切片");
+		
+		/* 分片 */
+		slice();
+		/* 冗余备份 */
+		redun_backup();
+		
+		/* 清空队列中的旧数据，避免使用旧配置 */
+		clear_mediaDataQueue();
+		
+		/***********初始化流程*************/
+		if(m_nRecordStatus.load() == Record_NS::RECORD_OPERATION)
+		{
+			if (init_record() == -1)
+			{
+				dlog_debug("初始化录制失败");
+				m_bHandleSlice.store(false);
+				return;
+			}
+			/* init_record()内部已处理PTS设置，无需再次设置 */
+			
+			/*重置配置变化标志*/
+			m_bHandleSlice.store(false);
+		}
+	}
+	
 	/*判断当前片段时间有没有 SLICING_TIME 秒,并且是否为关键帧，写尾，分片*/
 	
 	if( (stFfData.nType == AVMEDIA_TYPE_VIDEO && stFfData.nKey && (m_ffmpegRecord.get_durationMs() / 1000) >= SLICING_TIME && m_ffmpegRecord.get_videoCount() != 0)

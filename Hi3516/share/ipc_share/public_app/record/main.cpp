@@ -3,7 +3,7 @@
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2025-06-28 10:36:11
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2025-11-19 11:09:19
+ * @LastEditTime : 2026-06-05 15:54:55
  * @Description  : 录制程序入口
  */
 
@@ -18,6 +18,7 @@
 #include "record_client.h"
 #include "stream_client.h"
 #include  "record_manage.h"
+#include "timezone_runtime.h"
 
 /* 日志记录单个日志文件的最大大小 */
 #define MAX_LOG_SIZE  (1 * 1024 * 1024) // 1MB
@@ -74,6 +75,9 @@ int main()
 #endif
 
     dlog_trace("启动录制程序");
+
+    /* 初始化进程时区运行时，收到 SIGHUP 后重新加载时区配置 */
+    TimezoneRuntime_NS::init_timezone_runtime("record");
 
     /* 实例化录制管理类 */
     CRecordManage *recordManage = new CRecordManage;

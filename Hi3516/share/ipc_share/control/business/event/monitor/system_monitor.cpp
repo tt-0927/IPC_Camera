@@ -3,13 +3,14 @@
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2025-10-31 9:38:25
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-04-16 15:32:20
+ * @LastEditTime : 2026-06-05 17:09:41
  * @Description  : 事件异常检测使用的系统状态采集实现
  */
 
 #include "system_monitor.h"
 
 #include <arpa/inet.h>
+#include <glob.h>
 #include <ifaddrs.h>
 #include <mntent.h>
 #include <net/if.h>
@@ -94,8 +95,43 @@ CSystemMonitor::SystemStatus CSystemMonitor::get_current_status()
     return status;
 }
 
+bool CSystemMonitor::is_sd_card_exist()
+{
+    glob_t globbuf;
+    bool bStatus = false;
+
+    /* 使用glob函数查找SD卡设备 */
+#if CAP_STORAGE_HAS_EMMC
+    /*
+     * TF 卡在 mmcblk1，mmcblk0 为 eMMC（TV-3882TI始终存在）。
+     * 仅检测 mmcblk1，避免 eMMC 误判为 TF 卡。
+     */
+    const char *pattern = "/dev/mmcblk1*";
+#else
+    /* 无 eMMC 的设备，任意 mmcblk 设备即为 TF 卡 */
+    const char *pattern = "/dev/mmcblk[0-9]*";
+#endif
+
+    if (glob(pattern, GLOB_NOSORT, NULL, &globbuf) == 0)
+    {
+        if (globbuf.gl_pathc > 0)
+        {
+            bStatus = true;  /* 找到SD卡设备 */
+        }
+        globfree(&globbuf);  /* 释放glob分配的内存 */
+    }
+
+    return bStatus;
+}
+
 bool CSystemMonitor::check_sd_error(const std::string &mount_path)
 {
+    /* 首先检查SD卡设备是否存在，如果不存在则直接返回false（无异常） */
+    if (!is_sd_card_exist())
+    {
+        return false;
+    }
+
     bool is_mounted = false;
     FILE *fp = setmntent("/proc/mounts", "r");
     if (fp == nullptr)

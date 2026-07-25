@@ -82,21 +82,24 @@ bool Inference_NS::CYoloUltralytics::inference(
     const uint8_t scoreValIdx = 1;
     svp_acl_data_buffer* scoreBuffer = svp_acl_mdl_get_dataset_buffer(m_pOutputs, scoreValIdx);
     float* scoreData = reinterpret_cast<float*>(svp_acl_get_data_buffer_addr(scoreBuffer));
+
     // 获取得分最高框的索引（第3个输出索引）
     const uint8_t scoreIndexIdx = 3;
     svp_acl_data_buffer* maxScoreIdxBuffer = svp_acl_mdl_get_dataset_buffer(m_pOutputs, scoreIndexIdx);
     uint16_t* maxScoreIdx = reinterpret_cast<uint16_t*>(svp_acl_get_data_buffer_addr(maxScoreIdxBuffer));
+
     // 获取边框坐标信息（第0个输出索引）
     const uint8_t coordIdx = 0;
     svp_acl_data_buffer* coordBuffer = svp_acl_mdl_get_dataset_buffer(m_pOutputs, coordIdx);
     float* coord = reinterpret_cast<float*>(svp_acl_get_data_buffer_addr(coordBuffer));
+
     // 获取类别ID信息（第4个输出索引）
     const uint8_t maxClassIdx = 4;
     svp_acl_data_buffer* maxClassBuffer = svp_acl_mdl_get_dataset_buffer(m_pOutputs, maxClassIdx);
     uint16_t* maxClass = reinterpret_cast<uint16_t*>(svp_acl_get_data_buffer_addr(maxClassBuffer));
 
     uint32_t coordNum = m_vOutputDims[0][3];
- 
+
     m_postProcess->postProcessDetect(
             nOutNum,
             scoreData,

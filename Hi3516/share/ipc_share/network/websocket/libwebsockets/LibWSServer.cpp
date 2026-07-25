@@ -10,6 +10,7 @@
 #include "IpcRet.h"
 
 std::string LibWSServer::m_filePath = "/opt/course/upload/";
+std::string LibWSServer::m_imagePath = "/opt/course/face/";
 std::string LibWSServer::m_uploadfFileName = "";
 int LibWSServer::nManageDscp = 0;
 
@@ -439,7 +440,26 @@ int LibWSServer::callback(
     return nRet;
 }
 
+static std::string extractJsonValue(const std::string& jsonStr, const std::string& key) {
+    std::string searchKey = "\"" + key + "\"";
+    size_t keyPos = jsonStr.find(searchKey);
+    if (keyPos == std::string::npos) return ""; // 没找到 key
 
+    // 找到 key 后，向后寻找第一个冒号 ':'
+    size_t colonPos = jsonStr.find(':', keyPos + searchKey.length());
+    if (colonPos == std::string::npos) return ""; // 没找到冒号
+
+    // 从冒号向后寻找第一个双引号 '"' (这就是值的开始)
+    size_t valueStart = jsonStr.find('"', colonPos + 1);
+    if (valueStart == std::string::npos) return ""; // 没找到值的起始引号
+
+    // 从值的起始引号向后寻找下一个双引号 '"' (这就是值的结束)
+    size_t valueEnd = jsonStr.find('"', valueStart + 1);
+    if (valueEnd == std::string::npos) return ""; // 没找到值的结束引号
+
+    // 截取并返回两个引号之间的内容
+    return jsonStr.substr(valueStart + 1, valueEnd - valueStart - 1);
+}
 
 int LibWSServer::file_upload_callback(
     struct lws *pWsi,
@@ -467,7 +487,9 @@ int LibWSServer::file_upload_callback(
         // 文件上传连接建立
         dlog_info("File transfer connection established [%p].", pWsi);
         /* 设置文件上传的路径 */
+        #if !CAP_AI_FACE_COMPARE
         pWsServer->m_wsUpload.set_file_path(m_filePath);
+        #endif
         pWsServer->m_wsUpload.parse_param(pWsi);
         break;
     }
@@ -509,6 +531,18 @@ int LibWSServer::file_upload_callback(
                 break;
             }
             std::string param = pWsServer->m_wsUpload.get_param(pWsi);
+            #if CAP_AI_FACE_COMPARE
+            std::string fileType = extractJsonValue(param, "type");//将人脸图片存到sd卡
+            dlog_info("解析到的文件类型 fileType: [%s]", fileType.c_str());
+        
+            if (fileType == "image") {
+                pWsServer->m_wsUpload.set_file_path(m_imagePath);
+                dlog_info("设置为图片上传路径: %s", m_imagePath.c_str());
+            } else {
+                pWsServer->m_wsUpload.set_file_path(m_filePath);
+                dlog_info("设置为通用上传路径: %s", m_filePath.c_str());
+            }
+            #endif
             pWsServer->m_wsUpload.del_param(pWsi);
             pWsServer->m_wsUpload.parse_param(pWsi, param.c_str(), param.length());
             Net::Message_S stMessage;

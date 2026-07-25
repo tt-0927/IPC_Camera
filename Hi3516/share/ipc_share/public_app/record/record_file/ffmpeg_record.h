@@ -3,7 +3,7 @@
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2025-06-28 10:36:11
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2025-07-22 09:47:08
+ * @LastEditTime : 2026-06-05 11:14:38
  * @Description  : ffmpeg录制类
  */
 #pragma once
@@ -221,6 +221,8 @@ private:
 
     /*开始录制时的实际时间戳，毫秒*/
     int64_t m_nStartTimeStampMs = 0;
+    /* 当前片段启动时的单调毫秒计数，用于录制时长和PTS增量计算 */
+    int64_t m_nStartMonotonicTimestampMs = 0;
     /* 音频帧数 */
     int64_t m_nAudioCount = 0;
     /* 视频帧数 */

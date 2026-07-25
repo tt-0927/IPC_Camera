@@ -1,8 +1,8 @@
 /*
  * @Author: 梁浩尧 lianghaoyao@kfb.cn
  * @Date: 2025-11-17 10:07:33
- * @LastEditors: 梁浩尧 lianghaoyao@kfb.cn
- * @LastEditTime: 2025-12-04 20:50:50
+ * @LastEditors: lianghy lianghy@kfb.cn
+ * @LastEditTime: 2026-04-07 14:32:57
  * @FilePath: /1126/share/ai_share/AiModules/Modules/ConstructionEncroachmentRoadDetect/V1_0/ConstructionEncroachmentRoadDetectV1_0.cpp
  * @Description: 施工占道检测
  */
@@ -106,7 +106,7 @@ bool ConstructionEncroachmentRoadDetect_NS::ConstructionEncroachmentRoadDetectV1
     /* 推理+后处理 */
     Inference_NS::InputData_S stInputData;
     stInputData.pData = (float*)stInData.inMat.data;
-    stInputData.nDataSize = static_cast<size_t>(stInData.inMat.total() * stInData.inMat.elemSize());
+    stInputData.nDataSize = static_cast<size_t>(stInData.inMat.total() * stInData.inMat.elemSize() * sizeof(float));
     stInputData.stBoxs.fConfidence = stInData.stParam.fBoxThreshold;
     stInputData.stBoxs.fNms = stInData.stParam.fNmsThreshold;
 

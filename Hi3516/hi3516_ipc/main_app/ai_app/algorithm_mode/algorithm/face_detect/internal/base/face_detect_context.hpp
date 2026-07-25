@@ -24,7 +24,7 @@ namespace FaceDetectInternal
 typedef struct _SFaceProcessContext_
 {
     /* 当前帧人脸检测模型输出结果 */
-    std::vector<Inference_NS::PointData_S> &vPointDatas;
+    std::vector<Inference_NS::BoxData_S> &vPointDatas;
     /* 当前帧汇总角框输出数组 */
     std::vector<Common::RectInfo_S> &vstRectInfo;
     /* 当前处理的视频帧 */

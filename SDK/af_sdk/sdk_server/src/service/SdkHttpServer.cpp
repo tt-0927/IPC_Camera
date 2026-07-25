@@ -39,34 +39,46 @@ int CSdkHttpServer::startServer( uint32_t nPort)
 	{
         switch (route.method) 
 		{
-            case HttpMethod::GET: m_server.Get(route.url, route.handler); break;
-            case HttpMethod::PUT: m_server.Put(route.url, route.handler); break;
-			case HttpMethod::POST: m_server.Post(route.url, route.handler); break;
+            case HttpMethod::GET:
+                m_server.Get(route.url, route.handler);
+                break;
+            case HttpMethod::PUT:
+                if (route.useContentReader) {
+                    m_server.Put(route.url, route.contentReaderHandler);
+                } else {
+                    m_server.Put(route.url, route.handler);
+                }
+                break;
+			case HttpMethod::POST:
+                if (route.useContentReader) {
+                    m_server.Post(route.url, route.contentReaderHandler);
+                } else {
+                    m_server.Post(route.url, route.handler);
+                }
+                break;
 			default:
 			break;
         }
     }
 
-	// 短请求超时（登录、心跳、命令等短连接接口）
-	m_server.set_read_timeout(10, 0);     // 读超时10s（适用于短请求）
+	// 读超时也覆盖固件上传 body 的接收过程，升级包较大时 10s 容易导致客户端报接收失败。
+	m_server.set_read_timeout(300, 0);
 	
 	// write_timeout 必须大于心跳间隔（8s），否则 content_provider 长时间不写数据会被断开
 	// AlarmListen 长连接：空闲时每 8s 发一次心跳，write_timeout 设 30s 留有余量
 	m_server.set_write_timeout(30, 0);
 	
-	// 长连接配置：AlarmListen 是长连接，必须设置足够大的 keep_alive_timeout
-	// 报警周期可能超过 1 分钟，空闲1分钟内没有报警不应该断连
-	m_server.set_keep_alive_max_count(10000); // 单个长连接内处理请求数上限
-	m_server.set_keep_alive_timeout(300);     // 空闲 300 秒（5分钟）无数据才关闭
+	// 长连接配置：AlarmListen 由 content_provider 自己通过心跳保活。
+	// HTTP keep-alive 只保留短请求复用，避免 NVR 反复重连后旧连接长期占用资源。
+	m_server.set_keep_alive_max_count(100);
+	m_server.set_keep_alive_timeout(30);
 
 	// 减少网络延迟
 	m_server.set_tcp_nodelay(true);
 	
-	// 线程池大小：AlarmListen 长连接每个客户端占用 1 个线程
-	// 摄像机端：1-2 个 NVR 连进来 + 少量短请求，4 个线程足够
-	// NVR 端：1-4 个安防平台客户端 + 少量短请求，8 个线程足够
-	// 空闲线程不消耗 CPU，每个线程栈内存约 1MB，8 个线程约占 8MB
-	m_server.new_task_queue = [] { return new httplib::ThreadPool(8); };
+	// 线程池大小：AlarmListen 长连接每个客户端占用 1 个线程。
+	// 给短命令预留余量，避免多个告警订阅/旧连接未释放时登录和配置命令排队。
+	m_server.new_task_queue = [] { return new httplib::ThreadPool(16); };
 
 	NSDK_LOG_INFO("正在绑定端口 %s:%d...", DEFAULT_HTTP_SERVER_HOST, m_nPort);
 	bool bind_ok = m_server.bind_to_port(DEFAULT_HTTP_SERVER_HOST, m_nPort);

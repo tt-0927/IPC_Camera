@@ -47,6 +47,7 @@ namespace PetRecognition_NS
     /* 输入数据 */
     typedef struct _InData_
     {
+        int            nChnId;  /* 通道 */
         cv::Mat inMat;          /* 图片 */
         AnalyseParam_S stParam; /* 参数 */
     } InData_S;

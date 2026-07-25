@@ -2,7 +2,7 @@
  * @Author: lianghy lianghy@kfb.cn
  * @Date: 2026-01-06 19:49:00
  * @LastEditors: lianghy lianghy@kfb.cn
- * @LastEditTime: 2026-02-26 16:50:29
+ * @LastEditTime: 2026-04-07 14:40:16
  * @FilePath: /1126/share/ai_share/AiModules/Modules/VehicleAttribute/V2_0/VehicleAttributeV2_0.cpp
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
@@ -409,7 +409,7 @@ bool VehicleAttribute_NS::CVehicleAttributeV2_0::process(
     stInputData.pData     = (float *)stInData.inMat.data;
 
     stInputData.pData = (float *)stInData.inMat.data;
-    stInputData.nDataSize = static_cast<size_t>(stInData.inMat.total() * stInData.inMat.elemSize());
+    stInputData.nDataSize = static_cast<size_t>(stInData.inMat.total() * stInData.inMat.elemSize() * sizeof(float));
 
     bRet = m_pVehicleAttribute->inference(stInputData, vClsDatas);
 

@@ -10,7 +10,7 @@
 #include "CallSession.h"
 #include "DeviceManage.h"
 #include "MediaSession.h"
-#include "ModuleLog.h"
+#include "dlog.h"
 #include "RequestPool.h"
 #include "SipClient.h"
 #include "SipServer.h"
@@ -30,20 +30,20 @@ int CallEvent::HandleResponseSuccess(const SipEvent::Ptr e)
     int call_id = e->m_pEvent->cid;
     int dialog_id = e->m_pEvent->did;
 
-    MLOG_INFO("on_exosip_call_answered DeviceID:[%s]\tCallID:[%d]\tDialogID:[%d]",
+    dlog_info("on_exosip_call_answered DeviceID:[%s]\tCallID:[%d]\tDialogID:[%d]",
               channel_id.c_str(), call_id, dialog_id);
 
     auto device = DeviceManage::instance()->GetDevice(host, port);
     if (device == nullptr)
     {
-        MLOG_WARN("Device Not Exists:[%s:%s]", host.c_str(), port.c_str());
+        dlog_warn("Device Not Exists:[%s:%s]", host.c_str(), port.c_str());
         return -1;
     }
 
     auto channel = device->GetChannel(channel_id);
     if (channel == nullptr)
     {
-        MLOG_WARN("Channel Not Exists:[%s]", channel_id.c_str());
+        dlog_warn("Channel Not Exists:[%s]", channel_id.c_str());
         return -1;
     }
 
@@ -51,14 +51,14 @@ int CallEvent::HandleResponseSuccess(const SipEvent::Ptr e)
     auto pResponse = e->m_pEvent->response;
     if (nullptr == pResponse)
     {
-        MLOG_WARN("on_call_answered response is null");
+        dlog_warn("on_call_answered response is null");
         return -2;
     }
     osip_body_t *body = nullptr;
     osip_message_get_body(pResponse, 0, &body);
     if (nullptr == body)
     {
-        MLOG_WARN("on_call_answered body is null");
+        dlog_warn("on_call_answered body is null");
         return -3;
     }
     { /* 通过解析SDP报文上抛数据 */
@@ -95,25 +95,25 @@ int CallEvent::HandleSuperiorResponseSuccess(const SipEvent::Ptr e)
 
     SendCallAck(e->m_pContext, dialog_id);
 
-    MLOG_INFO("on_exosip_call_answered DeviceID:[%s]\tCallID:[%d]\tDialogID:[%d]",
+    dlog_info("on_exosip_call_answered DeviceID:[%s]\tCallID:[%d]\tDialogID:[%d]",
               channel_id.c_str(), call_id, dialog_id);
 
     // auto device = DeviceManage::GetInstance()->GetDevice(host, port);
     // if (device == nullptr)
     // {
-    //     MLOG_WARN("Device Not Exists:[%s:%s]", host.c_str(), port.c_str());
+    //     dlog_warn("Device Not Exists:[%s:%s]", host.c_str(), port.c_str());
     //     return -1;
     // }
     if(m_pDevice == nullptr)
     {
-        MLOG_WARN("Device Not Exists:[%s:%s]", host.c_str(), port.c_str());
+        dlog_warn("Device Not Exists:[%s:%s]", host.c_str(), port.c_str());
         return -1;
     }
 
     auto channel = m_pDevice->GetChannel(channel_id);//device->GetChannel(channel_id);
     if (channel == nullptr)
     {
-        MLOG_WARN("Channel Not Exists:[%s]", channel_id.c_str());
+        dlog_warn("Channel Not Exists:[%s]", channel_id.c_str());
         return -1;
     }
 
@@ -121,14 +121,14 @@ int CallEvent::HandleSuperiorResponseSuccess(const SipEvent::Ptr e)
     auto pResponse = e->m_pEvent->response;
     if (nullptr == pResponse)
     {
-        MLOG_WARN("on_call_answered response is null");
+        dlog_warn("on_call_answered response is null");
         return -2;
     }
     osip_body_t *body = nullptr;
     osip_message_get_body(pResponse, 0, &body);
     if (nullptr == body)
     {
-        MLOG_WARN("on_call_answered body is null");
+        dlog_warn("on_call_answered body is null");
         return -3;
     }
     { /* 通过解析SDP报文上抛数据 */
@@ -157,7 +157,7 @@ int CallEvent::on_proceeding(const SipEvent::Ptr e)
         reqid = (const char *)tag->gvalue;
     }
     RequestPool::instance()->RemoveRequest(reqid);
-    MLOG_INFO("on_exosip_call_proceeding response reqid:[%s]", reqid.c_str());
+    dlog_info("on_exosip_call_proceeding response reqid:[%s]", reqid.c_str());
     return 0;
 }
 
@@ -174,7 +174,7 @@ int CallEvent::HandleClose(const SipEvent::Ptr e)
     int call_id = e->m_pEvent->cid;
     int dialog_id = e->m_pEvent->did;
 
-    MLOG_INFO("Close Call DeviceID:[%s]\tCallID:[%d]\tDialogID:[%d]",
+    dlog_info("Close Call DeviceID:[%s]\tCallID:[%d]\tDialogID:[%d]",
               device_id.c_str(), call_id, dialog_id);
 
     auto sessions = StreamManager::instance()->GetStreamByType(STREAM_TYPE::STREAM_TYPE_GB);
@@ -190,22 +190,22 @@ int CallEvent::HandleClose(const SipEvent::Ptr e)
             return 0;
         }
     }
-    MLOG_WARN("CallID not found:[%d]", call_id);
+    dlog_warn("CallID not found:[%d]", call_id);
     return -1;
 }
 
 int CallEvent::HandleIncomingRequest(const SipEvent::Ptr &e)
 {
-    MLOG_INFO("接收到INVITE");
+    dlog_info("接收到INVITE");
     if (e->m_pEvent == nullptr)
     {
-        MLOG_ERROR("event is nullptr");
+        dlog_error("event is nullptr");
         SendInviteResponse(e, SIP_BAD_REQUEST);
         return -1;
     }
     if (e->m_pNetBase == nullptr)
     {
-        MLOG_ERROR("netbase is nullptr");
+        dlog_error("netbase is nullptr");
         SendInviteResponse(e, SIP_BAD_REQUEST);
         return -1;
     }
@@ -214,16 +214,16 @@ int CallEvent::HandleIncomingRequest(const SipEvent::Ptr &e)
     osip_message_get_body(pRequest, 0, &sdp_body);
     if (sdp_body == nullptr)
     {
-        MLOG_ERROR("未找到SDP数据");
+        dlog_error("未找到SDP数据");
         SendInviteResponse(e, SIP_BAD_REQUEST);
         return -1;
     }
-    MLOG_DEBUG("invite -----> \n %s", sdp_body->body);
+    dlog_debug("invite -----> \n %s", sdp_body->body);
     sdp_message_t *sdp = nullptr;
     std::string strChnID;
     if (OSIP_SUCCESS != sdp_message_init(&sdp))
     {
-        MLOG_ERROR("初始化SDP数据失败");
+        dlog_error("初始化SDP数据失败");
         SendInviteResponse(e, SIP_BAD_REQUEST);
         return -2;
     }
@@ -233,37 +233,37 @@ int CallEvent::HandleIncomingRequest(const SipEvent::Ptr &e)
     if (pRequest && pRequest->req_uri && pRequest->req_uri->username)
     {
         strChnID = pRequest->req_uri->username;
-        MLOG_INFO("INVITE:[%s]", strChnID.data());
+        dlog_info("INVITE:[%s]", strChnID.data());
         if (m_pDevice)
         {
             pChannel = m_pDevice->GetChannel(strChnID);
         }
         if (pChannel == nullptr)
         {
-            MLOG_ERROR("未找到对应Channel:[%s]", strChnID.data());
+            dlog_error("未找到对应Channel:[%s]", strChnID.data());
             SendInviteResponse(e, SIP_NOT_FOUND);
             return -3;
         }
     }
     else
     {
-        MLOG_ERROR("请求uri解析错误");
+        dlog_error("请求uri解析错误");
         SendInviteResponse(e, SIP_BAD_REQUEST);
         return -4;
     }
 
-    MLOG_INFO("成功解析INVITE的通道ID:[%s]", pChannel->GetChannelID().data());
+    dlog_info("成功解析INVITE的通道ID:[%s]", pChannel->GetChannelID().data());
 
     auto stSdpInfo = ::SDP::parseSdp(std::string(sdp_body->body, sdp_body->length));
     if (::SDP::Session_E::Play == stSdpInfo.enSessionType)
     {
-        MLOG_INFO("实时点播模式");
+        dlog_info("实时点播模式");
         /* 先通知上层进行发流，再做剩余操作，开启发流才会有本地编码器信息 */
         pChannel->UpdateMediaStatus(true);
     }
     if (stSdpInfo.stVideoConn.bHaveConnection)
     {
-        MLOG_INFO("视频连接信息IP[%s]Port[%d]TCP[%d]IPv6[%d]Active[%d]SSRC[%s]",
+        dlog_info("视频连接信息IP[%s]Port[%d]TCP[%d]IPv6[%d]Active[%d]SSRC[%s]",
                   stSdpInfo.stVideoConn.strIP.c_str(),
                   stSdpInfo.stVideoConn.nPort,
                   stSdpInfo.stVideoConn.bIsTcp,
@@ -273,7 +273,7 @@ int CallEvent::HandleIncomingRequest(const SipEvent::Ptr &e)
     }
     if (stSdpInfo.stAudioConn.bHaveConnection)
     {
-        MLOG_INFO("音频连接信息IP[%s]Port[%d]TCP[%d]IPv6[%d]Active[%d]SSRC[%s]",
+        dlog_info("音频连接信息IP[%s]Port[%d]TCP[%d]IPv6[%d]Active[%d]SSRC[%s]",
                   stSdpInfo.stAudioConn.strIP.c_str(),
                   stSdpInfo.stAudioConn.nPort,
                   stSdpInfo.stAudioConn.bIsTcp,
@@ -288,11 +288,11 @@ int CallEvent::HandleIncomingRequest(const SipEvent::Ptr &e)
     {
         pChannel->SetCallID(pRequest->call_id->number);
         strCallID = pRequest->call_id->number;
-        MLOG_INFO("INVITE CallID:[%s]", pRequest->call_id->number);
+        dlog_info("INVITE CallID:[%s]", pRequest->call_id->number);
     }
     else
     {
-        MLOG_ERROR("解析INVITE CallID失败");
+        dlog_error("解析INVITE CallID失败");
         SendInviteResponse(e, SIP_INTERNAL_SERVER_ERROR);
         return -5;
     }
@@ -306,7 +306,7 @@ int CallEvent::HandleIncomingRequest(const SipEvent::Ptr &e)
     if (::SDP::Session_E::Playback == stSdpInfo.enSessionType ||
         ::SDP::Session_E::Download == stSdpInfo.enSessionType)
     {
-        MLOG_INFO("回放或下载模式");
+        dlog_info("回放或下载模式");
         /* 先创建，后上抛 */
         { /* 创建会话 */
             auto pSession = std::make_shared<MediaSession>(strCallID, stSdpInfo.strSSRC, pChannel);
@@ -323,7 +323,7 @@ int CallEvent::HandleIncomingRequest(const SipEvent::Ptr &e)
         }
 
 #if CALL_EVENT_DEBUG
-        MLOG_DEBUG("回放或下载模式，下载速度为:[%d]", stSdpInfo.nDownloadSpeed);
+        dlog_debug("回放或下载模式，下载速度为:[%d]", stSdpInfo.nDownloadSpeed);
 #endif
         /* 直接更新文件读取速度 */
         if (stSdpInfo.nDownloadSpeed > 0)
@@ -337,7 +337,7 @@ int CallEvent::HandleIncomingRequest(const SipEvent::Ptr &e)
     }
     else
     {
-        MLOG_INFO("实时点播模式");
+        dlog_info("实时点播模式");
         /* 通知上层开启发流 */
         pChannel->UpdateMediaStatus(true);
         SipDeviceInfo_S devInfo;
@@ -359,7 +359,7 @@ int CallEvent::HandleIncomingRequest(const SipEvent::Ptr &e)
 
     if (nLocalPort <= 0)
     {
-        MLOG_ERROR("分配本地端口失败");
+        dlog_error("分配本地端口失败");
         SendInviteResponse(e, SIP_INTERNAL_SERVER_ERROR);
         if (::SDP::Session_E::Play == stSdpInfo.enSessionType)
         {
@@ -374,7 +374,7 @@ int CallEvent::HandleIncomingRequest(const SipEvent::Ptr &e)
     SdpNegotiate_S stNegInfo;
     stNegInfo.strID = pChannel->GetChannelID();
     stNegInfo.strIP = pChannel->GetExternIP();
-    MLOG_DEBUG("*********stNegInfo.strIP = [%s] pChannel->GetExternIP()=[%s]",stNegInfo.strIP.c_str(),pChannel->GetExternIP().c_str());
+    dlog_debug("*********stNegInfo.strIP = [%s] pChannel->GetExternIP()=[%s]",stNegInfo.strIP.c_str(),pChannel->GetExternIP().c_str());
     stNegInfo.nPort = nLocalPort;
     /* 暂时只添加音视频格式数据 */
     stNegInfo.stVideo.enType = (VideoType_E)(pChannel->GetVideoType());
@@ -382,7 +382,7 @@ int CallEvent::HandleIncomingRequest(const SipEvent::Ptr &e)
     stNegInfo.stAudio.enType = (AudioType_E)(stAudioInfo.enType);
 
     auto strNegSdp = negotiateSdp(stSdpInfo, stNegInfo);
-    MLOG_DEBUG("协商后的SDP报文:\n%s", strNegSdp.c_str());
+    dlog_debug("协商后的SDP报文:\n%s", strNegSdp.c_str());
 
     SendInviteResponse(e, SIP_OK, strNegSdp);
     return 0;
@@ -390,16 +390,16 @@ int CallEvent::HandleIncomingRequest(const SipEvent::Ptr &e)
 
 int CallEvent::HandleIncomingAudioRequest(const SipEvent::Ptr &e)
 {
-    MLOG_INFO("接收到INVITE");
+    dlog_info("接收到INVITE");
     if (e->m_pEvent == nullptr)
     {
-        MLOG_ERROR("event is nullptr");
+        dlog_error("event is nullptr");
         SendInviteResponse(e, SIP_BAD_REQUEST);
         return -1;
     }
     if (e->m_pNetBase == nullptr)
     {
-        MLOG_ERROR("netbase is nullptr");
+        dlog_error("netbase is nullptr");
         SendInviteResponse(e, SIP_BAD_REQUEST);
         return -1;
     }
@@ -408,15 +408,15 @@ int CallEvent::HandleIncomingAudioRequest(const SipEvent::Ptr &e)
     osip_message_get_body(pRequest, 0, &sdp_body);
     if (sdp_body == nullptr)
     {
-        MLOG_ERROR("未找到SDP数据");
+        dlog_error("未找到SDP数据");
         SendInviteResponse(e, SIP_BAD_REQUEST);
         return -1;
     }
-    MLOG_DEBUG("invite -----> \n %s", sdp_body->body);
+    dlog_debug("invite -----> \n %s", sdp_body->body);
     sdp_message_t *sdp = nullptr;
     if (OSIP_SUCCESS != sdp_message_init(&sdp))
     {
-        MLOG_ERROR("初始化SDP数据失败");
+        dlog_error("初始化SDP数据失败");
         SendInviteResponse(e, SIP_BAD_REQUEST);
         return -2;
     }
@@ -443,52 +443,52 @@ int CallEvent::HandleIncomingAudioRequest(const SipEvent::Ptr &e)
     if (pRequest && pRequest->req_uri && pRequest->req_uri->username)
     {
         std::string strChnID = strDeviceID;//std::string strChnID = pRequest->req_uri->username;
-        MLOG_INFO("INVITE:[%s]", strChnID.data());
+        dlog_info("INVITE:[%s]", strChnID.data());
         if (m_pDevice)
         {
             pChannel = m_pDevice->GetChannel(strChnID);
-            MLOG_ERROR("未找到对应Channel 1111111111:m_pDevice");
+            dlog_error("未找到对应Channel 1111111111:m_pDevice");
         }
         //获取设备
         auto device = DeviceManage::instance()->GetDevice(strChnID);
         if(device != nullptr)
         {
             pChannel = device->GetChannel(strChnID);
-            MLOG_ERROR("未找到对应Channel 2222222:m_pDevice");
+            dlog_error("未找到对应Channel 2222222:m_pDevice");
         }
         else
         {
-            MLOG_ERROR("未找到对device:%s", strChnID.c_str());
+            dlog_error("未找到对device:%s", strChnID.c_str());
         }
         
         if (pChannel == nullptr)
         {
-            MLOG_ERROR("未找到对应Channel:[%s]", strChnID.data());
+            dlog_error("未找到对应Channel:[%s]", strChnID.data());
             SendInviteResponse(e, SIP_NOT_FOUND);
             return -3;
         }
-        MLOG_ERROR("未找到对应Channel 1111111111:[%s]", strChnID.data());
+        dlog_error("未找到对应Channel 1111111111:[%s]", strChnID.data());
     }
     else
     {
-        MLOG_ERROR("请求uri解析错误");
+        dlog_error("请求uri解析错误");
         SendInviteResponse(e, SIP_BAD_REQUEST);
-        MLOG_ERROR("未找到对应Channel 1111111111:[%s]", strDeviceID.data());
+        dlog_error("未找到对应Channel 1111111111:[%s]", strDeviceID.data());
         return -4;
     }
 
-    MLOG_INFO("成功解析INVITE的通道ID:[%s]", pChannel->GetChannelID().data());
+    dlog_info("成功解析INVITE的通道ID:[%s]", pChannel->GetChannelID().data());
 
     auto stSdpInfo = ::SDP::parseSdp(std::string(sdp_body->body, sdp_body->length));
     if (::SDP::Session_E::Play == stSdpInfo.enSessionType || ::SDP::Session_E::Talk == stSdpInfo.enSessionType)
     {
-        MLOG_INFO("实时点播模式");
+        dlog_info("实时点播模式");
         /* 先通知上层进行发流，再做剩余操作，开启发流才会有本地编码器信息 */
         pChannel->UpdateMediaStatus(true);
     }
     if (stSdpInfo.stVideoConn.bHaveConnection)
     {
-        MLOG_INFO("视频连接信息IP[%s]Port[%d]TCP[%d]IPv6[%d]Active[%d]SSRC[%s]",
+        dlog_info("视频连接信息IP[%s]Port[%d]TCP[%d]IPv6[%d]Active[%d]SSRC[%s]",
                   stSdpInfo.stVideoConn.strIP.c_str(),
                   stSdpInfo.stVideoConn.nPort,
                   stSdpInfo.stVideoConn.bIsTcp,
@@ -498,7 +498,7 @@ int CallEvent::HandleIncomingAudioRequest(const SipEvent::Ptr &e)
     }
     if (stSdpInfo.stAudioConn.bHaveConnection)
     {
-        MLOG_INFO("音频连接信息IP[%s]Port[%d]TCP[%d]IPv6[%d]Active[%d]SSRC[%s]",
+        dlog_info("音频连接信息IP[%s]Port[%d]TCP[%d]IPv6[%d]Active[%d]SSRC[%s]",
                   stSdpInfo.stAudioConn.strIP.c_str(),
                   stSdpInfo.stAudioConn.nPort,
                   stSdpInfo.stAudioConn.bIsTcp,
@@ -513,11 +513,11 @@ int CallEvent::HandleIncomingAudioRequest(const SipEvent::Ptr &e)
     {
         pChannel->SetCallID(pRequest->call_id->number);
         strCallID = pRequest->call_id->number;
-        MLOG_INFO("INVITE CallID:[%s]", pRequest->call_id->number);
+        dlog_info("INVITE CallID:[%s]", pRequest->call_id->number);
     }
     else
     {
-        MLOG_ERROR("解析INVITE CallID失败");
+        dlog_error("解析INVITE CallID失败");
         SendInviteResponse(e, SIP_INTERNAL_SERVER_ERROR);
         return -5;
     }
@@ -531,7 +531,7 @@ int CallEvent::HandleIncomingAudioRequest(const SipEvent::Ptr &e)
     if (::SDP::Session_E::Playback == stSdpInfo.enSessionType ||
         ::SDP::Session_E::Download == stSdpInfo.enSessionType)
     {
-        MLOG_INFO("回放或下载模式");
+        dlog_info("回放或下载模式");
         /* 先创建，后上抛 */
         { /* 创建会话 */
             auto pSession = std::make_shared<MediaSession>(strCallID, stSdpInfo.strSSRC, pChannel);
@@ -548,7 +548,7 @@ int CallEvent::HandleIncomingAudioRequest(const SipEvent::Ptr &e)
         }
 
 #if CALL_EVENT_DEBUG
-        MLOG_DEBUG("回放或下载模式，下载速度为:[%d]", stSdpInfo.nDownloadSpeed);
+        dlog_debug("回放或下载模式，下载速度为:[%d]", stSdpInfo.nDownloadSpeed);
 #endif
         /* 直接更新文件读取速度 */
         if (stSdpInfo.nDownloadSpeed > 0)
@@ -562,7 +562,7 @@ int CallEvent::HandleIncomingAudioRequest(const SipEvent::Ptr &e)
     }
     else
     {
-        MLOG_INFO("实时点播模式");
+        dlog_info("实时点播模式");
         /* 通知上层开启发流 */
         pChannel->UpdateMediaStatus(true);
         // /* note 默认udp模式 */
@@ -579,7 +579,7 @@ int CallEvent::HandleIncomingAudioRequest(const SipEvent::Ptr &e)
     nLocalPort = 1563;
     if (nLocalPort <= 0)
     {
-        MLOG_ERROR("分配本地端口失败");
+        dlog_error("分配本地端口失败");
         SendInviteResponse(e, SIP_INTERNAL_SERVER_ERROR);
         if (::SDP::Session_E::Play == stSdpInfo.enSessionType)
         {
@@ -603,7 +603,7 @@ int CallEvent::HandleIncomingAudioRequest(const SipEvent::Ptr &e)
 #endif
     auto strNegSdp = negotiateSdp(stSdpInfo, stNegInfo);
 #if CALL_EVENT_DEBUG
-    MLOG_DEBUG("协商后的SDP报文:\n%s", strNegSdp.c_str());
+    dlog_debug("协商后的SDP报文:\n%s", strNegSdp.c_str());
 #endif
 
     SendInviteResponse(e, SIP_OK, strNegSdp);
@@ -619,7 +619,7 @@ int SIP::CallEvent::HandleCallAction(const SipEvent::Ptr &e)
     auto pClient = dynamic_cast<SipClient *>(e->m_pNetBase);
     if (nullptr == pClient)
     {
-        MLOG_WARN("转换客户端实例失败");
+        dlog_warn("转换客户端实例失败");
         return -1;
     }
     /* 先查CallID对应的会话是否还存在 */
@@ -627,7 +627,7 @@ int SIP::CallEvent::HandleCallAction(const SipEvent::Ptr &e)
     auto pSession = pClient->GetSession(strCallID);
     if (pSession == nullptr)
     {
-        MLOG_INFO("[SipClient]会话不存在，忽略会话操作请求");
+        dlog_info("[SipClient]会话不存在，忽略会话操作请求");
         return -2;
     }
     /* 提取操作报文内容 */
@@ -636,7 +636,7 @@ int SIP::CallEvent::HandleCallAction(const SipEvent::Ptr &e)
     osip_message_get_body(e->m_pEvent->request, 0, &body);
     if (body)
     {
-        MLOG_INFO("Call Info Action\n%s", body->body);
+        dlog_info("Call Info Action\n%s", body->body);
         strAction = body->body;
     }
     /* 调试不同指令解析 */
@@ -674,7 +674,7 @@ void SIP::CallEvent::SendInviteResponse(const SipEvent::Ptr &e, int status, cons
     if (ret != OSIP_SUCCESS)
     {
         /* 会出现重复接收到INVITE的情况？第二次就收到重复的INVITE时，这里会build失败，然后直接返回即可。 */
-        MLOG_ERROR("eXosip_call_build_answer failed");
+        dlog_error("eXosip_call_build_answer failed");
         return;
     }
     /* 设置SDP */
@@ -682,7 +682,7 @@ void SIP::CallEvent::SendInviteResponse(const SipEvent::Ptr &e, int status, cons
     {
         osip_message_set_content_type(message, "APPLICATION/SDP");
         osip_message_set_body(message, sdp.c_str(), sdp.length());
-        MLOG_INFO("Call Response SDP:\n%s", sdp.c_str());
+        dlog_info("Call Response SDP:\n%s", sdp.c_str());
     }
 
     eXosip_lock(e->m_pContext);
@@ -691,8 +691,8 @@ void SIP::CallEvent::SendInviteResponse(const SipEvent::Ptr &e, int status, cons
 
     if (ret != OSIP_SUCCESS)
     {
-        MLOG_ERROR("eXosip_call_send_answer failed");
+        dlog_error("eXosip_call_send_answer failed");
         return;
     }
-    MLOG_INFO("Call Response Status[%d]", status);
+    dlog_info("Call Response Status[%d]", status);
 }

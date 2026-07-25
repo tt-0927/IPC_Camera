@@ -6,18 +6,20 @@
  * @LastEditTime : 2026-04-28 16:20:00
  * @Description  : 人脸特征提取与比对处理器
  */
-
 #pragma once
+
+#if CAP_AI_FACE_COMPARE
 
 #include <mutex>
 #include <string>
 #include <vector>
-
 #include "ImageFeature.hpp"
 #include "algorithm.hpp"
 #include "face_capture_types.hpp"
 #include "face_detect_context.hpp"
 #include "face_detect_worker.hpp"
+#include "face_capture_processor.hpp"
+#include "./face_detect_worker/face_detect_worker.hpp"
 
 namespace FaceDetectInternal
 {
@@ -57,7 +59,15 @@ public:
      * @return   {void}
      */
     void deinit();
+    struct FaceAlignInfo_S
+    {
+        Common::RectInfo_S stRect;
 
+        std::vector<Inference_NS::Point_S> vPoints;
+
+        float fConfidence = 0.f;
+
+    };
     /**
      * @brief   : 处理单帧人脸比对结果
      * @param    {SFaceProcessContext} &stContext：单帧处理上下文
@@ -66,8 +76,13 @@ public:
      * @param    {std::vector<std::string>} &vecImageFile：邮件附件图片路径列表
      * @return   {void}
      */
+    // void processCompare(SFaceProcessContext &stContext,
+    //                     const std::vector<Common::RectInfo_S> &vstRectInfo,
+    //                     CFaceCaptureProcessor &stCaptureProcessor,
+    //                     std::vector<std::string> &vecImageFile);
+
     void processCompare(SFaceProcessContext &stContext,
-                        const std::vector<Common::RectInfo_S> &vstRectInfo,
+                        const std::vector<FaceAlignInfo_S> &vFaceInfos,
                         CFaceCaptureProcessor &stCaptureProcessor,
                         std::vector<std::string> &vecImageFile);
 
@@ -94,9 +109,14 @@ public:
      */
     bool isInitialized() const;
 
-    bool collectCompareTargets(const std::vector<Inference_NS::PointData_S> &vPointDatas,
+    // bool collectCompareTargets(const std::vector<Inference_NS::PointData_S> &vPointDatas,
 
-                               std::vector<Common::RectInfo_S> &vstRectInfo);
+    //                            std::vector<Common::RectInfo_S> &vstRectInfo);
+
+    bool collectCompareTargets(const std::vector<Inference_NS::BoxData_S> &vPointDatas, std::vector<FaceAlignInfo_S> &vFaceInfos);
+    
+
+
 
 private:
     /**
@@ -114,15 +134,29 @@ private:
      * @param    {std::vector<float>} &vecFeature：输出特征向量
      * @return   {bool} true：成功 false：失败
      */
+    // bool extractFeature(const Common::RectInfo_S &stRect,
+    //                     ot_video_frame_info *pFrameInfo,
+    //                     CFaceDetectWorker &detectWorker,
+    //                     std::vector<float> &vecFeature);
+    // bool extractFeature(const Common::RectInfo_S &stRect,
+    //                     const std::vector<Inference_NS::Point_S> &vPoints,
+    //                     ot_video_frame_info *pFrameInfo,
+    //                     CFaceDetectWorker &detectWorker,
+    //                     std::vector<float> &vecFeature);
     bool extractFeature(const Common::RectInfo_S &stRect,
-                        ot_video_frame_info *pFrameInfo,
-                        CFaceDetectWorker &detectWorker,
-                        std::vector<float> &vecFeature);
+        ot_video_frame_info *pFrameInfo,
+        CFaceDetectWorker &detectWorker,
+        std::vector<float> &vecFeature);
 
+    // bool extractFeatureDirect(const Common::RectInfo_S &stRect,
+    //                           ot_video_frame_info *pFrameInfo,
+    //                           CFaceDetectWorker &detectWorker,
+    //                           std::vector<float> &vecFeature);
     bool extractFeatureDirect(const Common::RectInfo_S &stRect,
-                              ot_video_frame_info *pFrameInfo,
-                              CFaceDetectWorker &detectWorker,
-                              std::vector<float> &vecFeature);
+        const std::vector<Inference_NS::Point_S> &vPoints,
+        ot_video_frame_info *pFrameInfo,
+        CFaceDetectWorker &detectWorker,
+        std::vector<float> &vecFeature);
     /**
      * @brief   : 处理人脸比对成功/失败联动
      * @param    {bool} bSuccess：true：比对成功 false：比对失败
@@ -141,6 +175,7 @@ private:
                               int nFaceId,
                               float fSimilarity,
                               float fThreshold,
+                            //   const FaceDataDB_NS::FaceLibsInfo_S &stMatchedFaceInfo,
                               CFaceCaptureProcessor &stCaptureProcessor,
                               std::vector<std::string> &vecImageFile);
 
@@ -161,11 +196,27 @@ private:
      * @param    {ot_video_frame_info} &stDstFrameInfo：输出 160x160 人脸帧
      * @return   {bool} true：成功 false：失败
      */
-    bool prepareFace160Frame(const Common::RectInfo_S &rect,
-                             ot_video_frame_info *pSrcFrameInfo,
-                             int nWidth,
-                             int nHeight,
-                             ot_video_frame_info &stDstFrameInfo) const;
+    // bool prepareFace160Frame(const Common::RectInfo_S &rect,
+    //                          ot_video_frame_info *pSrcFrameInfo,
+    //                          int nWidth,
+    //                          int nHeight,
+    //                          ot_video_frame_info &stDstFrameInfo) const;
+    // bool prepareFace160Frame(const Common::RectInfo_S &rect,
+    //                          const std::vector<Inference_NS::Point_S> &vPoints,
+    //                          ot_video_frame_info *pSrcFrameInfo,
+    //                          int nWidth,
+    //                          int nHeight,
+    //                          ot_video_frame_info &stDstFrameInfo) const;
+
+    bool prepareFace160Frame(
+        const Common::RectInfo_S &rect, 
+        // const std::vector<Inference_NS::Point_S> &vPoints,
+        ot_video_frame_info *pSrcFrameInfo, 
+        int nDetWidth,   // 检测分辨率宽
+        int nDetHeight,  // 检测分辨率高
+        int nOrigWidth,  // 原图宽
+        int nOrigHeight, // 原图高
+        ot_video_frame_info &stDstFrameInfo) const ;
 
     /**
      * @brief   : float32 转 float16
@@ -186,3 +237,4 @@ private:
     CAlarmStateMachine m_alarmStateMachine;
 };
 } // namespace FaceDetectInternal
+#endif

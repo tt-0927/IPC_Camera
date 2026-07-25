@@ -72,11 +72,18 @@ bool FaceQualityAssessment_NS::CFaceQualityAssessmentV1_0::process(
     }
 
     bool bRet = true;
+
+    /* 前处理 */
+    if (stInData.inMat.cols != m_nLimitWidth || stInData.inMat.rows != m_nLimitHeight)
+    {
+        // cv::resize(stInData.inMat, stInData.inMat, cv::Size(m_nLimitWidth,m_nLimitHeight));
+        resizeAndPadImage(stInData.inMat, stInData.inMat);
+    }
     
     /* 推理+后处理 */
     Inference_NS::InputData_S stInputData;
     stInputData.pData = (float*)stInData.inMat.data;
-    stInputData.nDataSize = static_cast<size_t>(stInData.inMat.total() * stInData.inMat.elemSize());
+    stInputData.nDataSize = static_cast<size_t>(stInData.inMat.total() * stInData.inMat.elemSize() * sizeof(float));
     
     std::vector<Inference_NS::ClsData_S> vClsDatas;
     bRet = m_pImageFeature->inference(stInputData, vClsDatas);

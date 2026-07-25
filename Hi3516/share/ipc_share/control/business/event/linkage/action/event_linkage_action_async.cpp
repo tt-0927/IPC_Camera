@@ -3,7 +3,7 @@
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2026-04-15 16:29:58
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-04-16 10:26:46
+ * @LastEditTime : 2026-06-03 16:09:15
  * @Description  : 事件联动异步动作执行器实现
  */
 
@@ -36,6 +36,9 @@
 #else
 #define AUDIO_CHUNK_SIZE 320
 #endif
+
+/* 总淡入淡出步数 */
+#define TOTAL_FADE_STEPS (2)
 
 void EventLinkageAsyncAction::execute(const LinkageTask_S &stTask, std::atomic<bool> &bRunningFlag)
 {
@@ -103,7 +106,10 @@ void EventLinkageAsyncAction::play_audio(const std::string &strAudioPath,
         }
 
         /* 每轮播放前先补一小段静音，减轻切换音频时的突兀感 */
-        CAVConfigure::instance()->setAoSpeakInfo(stSilenceInfo);
+        for (int i = 0; i < 5; ++i)
+        {
+            CAVConfigure::instance()->setAoSpeakInfo(stSilenceInfo);
+        }
         int fd = open(strAudioPath.c_str(), O_RDONLY);
         if (fd == -1)
         {
@@ -178,6 +184,8 @@ void EventLinkageAsyncAction::play_audio(const std::string &strAudioPath,
         }
     }
 
+    /* 播放结束，立即关闭功放消除结尾噗声（比 watchdog 2秒超时更快） */
+    CAVConfigure::instance()->muteAudioOutput();
     bRunningFlag.store(false);
 #else
     /* 旧播放链路按块读取PCM并同步睡眠控制节奏 */
@@ -190,6 +198,17 @@ void EventLinkageAsyncAction::play_audio(const std::string &strAudioPath,
     bRunningFlag.store(true);
     dlog_info("开始音频播放: 文件=%s, 次数=%d", strAudioPath.c_str(), nTimes);
     CAVConfigure::instance()->setAudioAoSampleRate(Audio_NS::AudioSamprate_E::AUDIO_SAMPRATE_16000);
+
+    /* 静音帧 */
+    uint8_t zero_buffer[AUDIO_CHUNK_SIZE] = {0};
+    Audio_NS::AoInfo_S stSilenceInfo;
+    stSilenceInfo.nChannel = 0;
+    stSilenceInfo.pData = zero_buffer;
+    stSilenceInfo.nLen = AUDIO_CHUNK_SIZE;
+    stSilenceInfo.enAudioFormat = Audio_NS::AudioFormat_E::PCM;
+
+    /* 非首次播放的淡入步数：约 8 帧 × 10ms ≈ 80ms 的线性淡入 */
+    const int FADE_IN_FRAMES = 8;
 
     for (int playCount = 0; playCount < nTimes; ++playCount)
     {
@@ -206,32 +225,109 @@ void EventLinkageAsyncAction::play_audio(const std::string &strAudioPath,
             break;
         }
 
-        unsigned char buffer[AUDIO_CHUNK_SIZE] = {0};
-        read(fd, buffer, 44);
-
-        ssize_t nBytesRead = 0;
-        while ((nBytesRead = read(fd, buffer, AUDIO_CHUNK_SIZE)) > 0)
+        /* 解析 WAV 头部获取数据长度，以便精准抓取尾部进行淡出 */
+        unsigned char header[44] = { 0 };
+        read(fd, header, 44);
+        uint32_t audio_data_len = static_cast<uint32_t>(header[40]) |
+                                  (static_cast<uint32_t>(header[41]) << 8) |
+                                  (static_cast<uint32_t>(header[42]) << 16) |
+                                  (static_cast<uint32_t>(header[43]) << 24);
+        if (audio_data_len == 0 || audio_data_len > 50U * 1024U * 1024U)
         {
-            if (!bRunningFlag.load())
+            audio_data_len = 0xFFFFFFFFU;
+        }
+
+        uint32_t total_read_bytes = 0;
+        unsigned char buffer[AUDIO_CHUNK_SIZE] = {0};
+        /* 是否淡出 */
+        bool bFadingOut = false;
+        /* 剩余淡出步数 */
+        int nFadeStepsRemaining = 0;
+        /* 剩余淡入部分 */
+        int nFadeInRemaining = (playCount > 0) ? FADE_IN_FRAMES : 0;
+
+        while (total_read_bytes < audio_data_len)
+        {
+            if (!bRunningFlag.load() && !bFadingOut)
+            {
+                bFadingOut = true;
+                nFadeStepsRemaining = TOTAL_FADE_STEPS;
+            }
+
+            if (bFadingOut && nFadeStepsRemaining <= 0)
             {
                 break;
+            }
+
+            const uint32_t nRemaining = audio_data_len - total_read_bytes;
+            const int nToRead = (nRemaining > AUDIO_CHUNK_SIZE) ? AUDIO_CHUNK_SIZE : static_cast<int>(nRemaining);
+            const ssize_t nBytesRead = read(fd, buffer, nToRead);
+            if (nBytesRead <= 0)
+            {
+                break;
+            }
+            total_read_bytes += static_cast<uint32_t>(nBytesRead);
+
+            if (bFadingOut)
+            {
+                /* 打断淡出：逐帧线性衰减音量，从当前增益递减至 0，避免突然中断产生爆音 */
+                short *pData = reinterpret_cast<short *>(buffer);
+                const int nSamples = nBytesRead / 2;
+                for (int idx = 0; idx < nSamples; ++idx)
+                {
+                    pData[idx] = static_cast<short>(pData[idx] * nFadeStepsRemaining / TOTAL_FADE_STEPS);
+                }
+                --nFadeStepsRemaining;
+            }
+            else if (nFadeInRemaining > 0)
+            {
+                /* 非首轮播放时执行淡入：增益从 0 线性升至满幅，防止多次循环衔接处出现爆音 */
+                const int nGain = FADE_IN_FRAMES - nFadeInRemaining;
+                short *pData = reinterpret_cast<short *>(buffer);
+                const int nSamples = nBytesRead / 2;
+                for (int idx = 0; idx < nSamples; ++idx)
+                {
+                    pData[idx] = static_cast<short>(pData[idx] * nGain / FADE_IN_FRAMES);
+                }
+                --nFadeInRemaining;
+            }
+            else if (nBytesRead < AUDIO_CHUNK_SIZE || total_read_bytes >= audio_data_len)
+            {
+                /* 最后一帧：补零到完整帧，并做尾部最多 80 个样本的线性淡出（消除噗声） */
+                if (nBytesRead < AUDIO_CHUNK_SIZE)
+                {
+                    memset(buffer + nBytesRead, 0, AUDIO_CHUNK_SIZE - nBytesRead);
+                }
+                const int nSamples = nBytesRead / 2;
+                const int fade_len = (nSamples > 80) ? 80 : nSamples;
+                short *pData = reinterpret_cast<short *>(buffer);
+                for (int k = 0; k < fade_len; ++k)
+                {
+                    const int idx = nSamples - 1 - k;
+                    pData[idx] = static_cast<short>(pData[idx] * k / fade_len);
+                }
             }
 
             Audio_NS::AoInfo_S stAoInfo;
             stAoInfo.nChannel = 0;
             stAoInfo.pData = reinterpret_cast<uint8_t *>(buffer);
-            stAoInfo.nLen = nBytesRead;
+            stAoInfo.nLen = AUDIO_CHUNK_SIZE;
             stAoInfo.enAudioFormat = Audio_NS::AudioFormat_E::PCM;
             CAVConfigure::instance()->setAoSpeakInfo(stAoInfo);
 
             memset(buffer, 0, sizeof(buffer));
-            /* 按采样率估算等待时间，避免写声卡过快 */
-            int sleep_ms = nBytesRead * 1000 /
-                           (static_cast<int>(Audio_NS::AudioSamprate_E::AUDIO_SAMPRATE_16000) * 2);
+#if 0
+            /* 根据采样率和帧大小计算等时播放间隔，保证数据推送速率与实际播放速率匹配 */
+            int sleep_ms = AUDIO_CHUNK_SIZE * 1000 / (static_cast<int>(Audio_NS::AudioSamprate_E::AUDIO_SAMPRATE_16000) * 2);
 #if CAP_AUDIO_PLAYBACK_SLEEP_HALF
+            /* 部分平台播放速率偏快，缩短等待时间以补偿节奏差异 */
             sleep_ms /= 2;
 #endif
             usleep(sleep_ms * 1000);
+#else
+            /* 等待 AO 硬件缓冲区排空后再推送下一帧，确保数据推送速率与实际播放速率匹配 */
+            CAVConfigure::instance()->waitAoDrained(0, -1);
+#endif
         }
 
         if (close(fd) != 0)
@@ -241,12 +337,20 @@ void EventLinkageAsyncAction::play_audio(const std::string &strAudioPath,
 
         if (playCount < nTimes - 1)
         {
-            std::this_thread::sleep_for(std::chrono::milliseconds(500));
+            /* 多次播报之间保留短暂间隔，以推送静音帧代替单纯Sleep，防止声卡断流爆音 */
+            for (int i = 0; i < 50 && bRunningFlag.load(); ++i)
+            {
+                CAVConfigure::instance()->setAoSpeakInfo(stSilenceInfo);
+                std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            }
         }
     }
 
     bRunningFlag.store(false);
 #endif
+    /* 等待尾帧播放完成后关闭功放，V1/V2播放路径均生效 */
+    CAVConfigure::instance()->waitAoDrained(0, 200);
+    CAVConfigure::instance()->muteAudioOutput();
 }
 
 void EventLinkageAsyncAction::execute_email(const LinkageTask_S &stTask, std::atomic<bool> &bRunningFlag)
@@ -313,14 +417,39 @@ void EventLinkageAsyncAction::execute_audio(const LinkageTask_S &stTask, std::at
     {
         return;
     }
-
+    if(stTask.stContext.enEventType == Event::Type_E::FACE_COMPARE_SUCCESS)
+    {
+        strAudioPath = AUDIO_CONFIG_PATH "face_compare_success.wav";
+        dlog_error("音频文件人脸比对成功");
+    }
     if (access(strAudioPath.c_str(), F_OK) != 0)
     {
         dlog_error("音频文件不存在: %s", strAudioPath.c_str());
         return;
     }
 
+    /* 记录音频路径 */
+    {
+        std::lock_guard<std::mutex> lock(m_audioPathMutex);
+        m_strPlayingAudioPath = strAudioPath;
+    }
     play_audio(strAudioPath, nTimes, bRunningFlag);
+    {
+        std::lock_guard<std::mutex> lock(m_audioPathMutex);
+        m_strPlayingAudioPath.clear();
+    }
+}
+
+int EventLinkageAsyncAction::get_audio_file_path(std::string &strAudioPath)
+{
+    int nTimes = 0;
+    return select_audio_file(strAudioPath, nTimes);
+}
+
+std::string EventLinkageAsyncAction::get_playing_audio_path()
+{
+    std::lock_guard<std::mutex> lock(m_audioPathMutex);
+    return m_strPlayingAudioPath;
 }
 
 void EventLinkageAsyncAction::execute_warning_light(std::atomic<bool> &bRunningFlag)
@@ -367,6 +496,9 @@ void EventLinkageAsyncAction::execute_warning_light(std::atomic<bool> &bRunningF
     {
         std::this_thread::sleep_for(std::chrono::seconds(1));
     }
+    
+    /* 恢复补光配置（重新应用） */
+    CLightManager::instance()->apply_peripheral_config();
 }
 
 void EventLinkageAsyncAction::execute_alarm_io(const LinkageTask_S &stTask, std::atomic<bool> &bRunningFlag)

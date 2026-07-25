@@ -166,6 +166,15 @@ NET_TV_API BOOL STDCALL NET_TV_StartListen(IN LPVOID lpUserID);
 NET_TV_API BOOL STDCALL NET_TV_StopListen(IN LPVOID lpUserID);
 
 /**
+* @brief 设备硬件控制统一入口
+* @param [IN] lpUserID       用户登录句柄
+* @param [IN] pstCtrlInfo    设备控制参数，参见 NET_TV_DEVICE_CONTROL_INFO_S
+* @return TRUE表示成功,其他表示失败
+*/
+NET_TV_API BOOL STDCALL NET_TV_DeviceControl(IN LPVOID lpUserID,
+                                             IN LPNET_TV_DEVICE_CONTROL_INFO_S pstCtrlInfo);
+
+/**
 * @brief 获取回放播放地址
 * @param [IN]     lpUserID          用户登录句柄
 * @param [INOUT]  pstInfo           回放查询条件和返回信息，调用前填通道/时间，返回后读取播放URL
@@ -252,6 +261,22 @@ NET_TV_API BOOL STDCALL NET_TV_SetDevConfig(IN  LPVOID  lpUserID,
 /*                    设备发现 Device Discovery                           */
 /************************************************************************/
 /**
+/************************************************************************/
+/*                       升级 Upgrade                                    */
+/************************************************************************/
+/**
+ * @brief 上传固件文件到设备
+ * @param [IN]  lpUserID     用户登录句柄
+ * @param [IN]  szFilePath   本地固件文件路径
+ * @param [IN]  szRemoteName 上传到设备的文件名
+ * @return TRUE 成功，FALSE 失败（调用 NET_TV_GetLastError() 获取错误码）
+ */
+NET_TV_API BOOL STDCALL
+NET_TV_UploadFile(IN LPVOID   lpUserID,
+                  IN const CHAR* szFilePath,
+                  IN const CHAR* szRemoteName);
+
+/**
  * @brief 搜索局域网内设备（UDP 组播）
  * @param [IN]  szInterfaceIP 网卡 IP 地址，传 NULL 使用默认网卡
  * @param [IN]  dwTimeoutMs   等待响应超时 (ms)，建议 2000~5000
@@ -267,6 +292,84 @@ NET_TV_Discovery_Search(IN  const CHAR*                      szInterfaceIP,
                         OUT NET_TV_DISCOVERY_DEVICE_INFO_S*  pDeviceList,
                         IN  int                              nMaxCount,
                         OUT int*                             pnOutCount);
+
+/************************************************************************/
+/*                       语音对讲 VoiceCom                                */
+/************************************************************************/
+/** @brief 语音对讲回调: 设备端采集的PCM音频数据 */
+/**
+ * @brief 录像帧回调: SDK收到一包录像帧后调用
+ * @param [IN] pstFrameInfo 帧元数据，包含媒体类型、序号、时间戳、负载长度和标志位
+ * @param [IN] pData        帧负载数据；流结束包可为空
+ * @param [IN] dwSize       帧负载长度
+ * @param [IN] lpUserData   用户数据
+ */
+typedef void (STDCALL *NET_TV_RecordFrameCallBack)(IN const NET_TV_RECORD_FRAME_INFO_S* pstFrameInfo,
+                                                   IN const CHAR* pData,
+                                                   IN UINT32 dwSize,
+                                                   IN LPVOID lpUserData);
+
+/**
+ * @brief 启动录像帧TCP流
+ * @param [IN]  lpUserID      用户登录句柄
+ * @param [IN]  pstCond       录像帧流请求条件，包含通道、起止时间、媒体类型、TCP端口等
+ * @param [OUT] pstStreamInfo 服务端返回的流信息，包含流ID、TCP端口、编码信息等
+ * @param [IN]  cbRecordFrame 录像帧回调
+ * @param [IN]  lpUserData    回调用户数据
+ * @return TRUE 成功，FALSE 失败；失败原因通过 NET_TV_GetLastError 获取
+ */
+NET_TV_API BOOL STDCALL
+NET_TV_StartRecordFrameStream(IN LPVOID lpUserID,
+                              IN LPNET_TV_RECORD_FRAME_STREAM_COND_S pstCond,
+                              OUT LPNET_TV_RECORD_FRAME_STREAM_INFO_S pstStreamInfo,
+                              IN NET_TV_RecordFrameCallBack cbRecordFrame,
+                              IN LPVOID lpUserData);
+
+/**
+ * @brief 停止录像帧TCP流
+ * @param [IN] lpUserID  用户登录句柄
+ * @param [IN] szStreamId 需要停止的流ID
+ * @return TRUE 成功，FALSE 失败
+ */
+NET_TV_API BOOL STDCALL
+NET_TV_StopRecordFrameStream(IN LPVOID lpUserID,
+                             IN const CHAR* szStreamId);
+
+typedef void (STDCALL *NET_TV_VoiceComCallBack)(const char* data, unsigned int size, LPVOID lpUserData);
+
+/**
+ * @brief 开始语音对讲
+ * @param [IN]  lpUserID      用户登录句柄
+ * @param [IN]  pstStartInfo  对讲启动参数, 包含设备端音频TCP端口和音频参数
+ * @param [IN]  cbVoiceCom    音频数据回调
+ * @param [IN]  lpUserData    回调用户数据
+ * @return TRUE 成功，FALSE 失败
+ */
+NET_TV_API BOOL STDCALL
+NET_TV_StartVoiceCom(IN LPVOID              lpUserID,
+                     IN LPNET_TV_VOICECOM_START_INFO_S pstStartInfo,
+                     IN NET_TV_VoiceComCallBack cbVoiceCom,
+                     IN LPVOID              lpUserData);
+
+/**
+ * @brief 发送音频数据到设备
+ * @param [IN]  lpUserID  用户登录句柄
+ * @param [IN]  pData     音频帧数据，格式需与 NET_TV_StartVoiceCom 协商参数一致
+ * @param [IN]  dwSize    数据长度(字节)
+ * @return TRUE 成功，FALSE 失败
+ */
+NET_TV_API BOOL STDCALL
+NET_TV_VoiceComSendData(IN LPVOID       lpUserID,
+                        IN const CHAR*  pData,
+                        IN UINT32       dwSize);
+
+/**
+ * @brief 停止语音对讲
+ * @param [IN]  lpUserID  用户登录句柄
+ * @return TRUE 成功，FALSE 失败
+ */
+NET_TV_API BOOL STDCALL
+NET_TV_StopVoiceCom(IN LPVOID lpUserID);
 
 #ifdef __cplusplus
 }

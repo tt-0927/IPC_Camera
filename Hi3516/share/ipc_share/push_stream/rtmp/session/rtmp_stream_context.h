@@ -128,6 +128,21 @@ public:
      */
     AVRational audio_time_base() const;
 
+    /**
+     * @brief 设置超时时间
+     * @param nTimeoutSec 超时时间（秒）
+     */
+    void set_timeout(int nTimeoutSec);
+
+    /**
+     * @brief 获取超时时间
+     * @return 超时时间（秒）
+     */
+    int get_timeout_sec() const;
+
+    /* 上次IO操作时间（秒），供中断回调访问 */
+    int64_t m_nLastIoTimeSec = 0;
+
 private:
     /**
      * @brief 将 VideoCodec_E 转换为 AVCodecID
@@ -151,6 +166,8 @@ private:
     int m_nVideoStreamIndex = -1;
     /* 音频流索引 */
     int m_nAudioStreamIndex = -1;
+    /* 超时时间（秒） */
+    int m_nTimeoutSec = 5;
 
     /* 禁止拷贝 */
     CRtmpStreamContext(const CRtmpStreamContext&) = delete;

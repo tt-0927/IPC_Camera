@@ -1,3 +1,4 @@
+include( ${CMAKE_CURRENT_LIST_DIR}/common/common.cmake )
 include( ${CMAKE_CURRENT_LIST_DIR}/rtsp/rtsp.cmake )
 include( ${CMAKE_CURRENT_LIST_DIR}/rtmp/rtmp.cmake )
 

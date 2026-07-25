@@ -22,8 +22,13 @@
 #define  GPIO_LOW   (0)
 
 /* GPIO 数量 */
+#if CAP_ALARM_IO
 #define GPIO_OUTPUT_COUNT 1
 #define GPIO_INPUT_COUNT  1
+#else
+#define GPIO_OUTPUT_COUNT 0
+#define GPIO_INPUT_COUNT  0
+#endif
 #define IR_GPIO_OUTPUT_COUNT  2
 
 //GPIO定义
@@ -115,13 +120,13 @@ public:
 private:
     /* IR-CUT 操作互斥锁，防止多线程并发操作同一组 GPIO */
     std::mutex m_ircutMutex;
-
+#if CAP_ALARM_IO
     /* 报警 GPIO 输入引脚数组 */
     const unsigned int alarm_input_gpio_pins[GPIO_INPUT_COUNT] = {GPIO_ALARM_IN_1};
 
     /* 报警 GPIO 输出引脚数组 */
     const unsigned int alarm_output_gpio_pins[GPIO_OUTPUT_COUNT] = {GPIO_ALARM_OUT_1};
-
+#endif
     /* ir滤光片 GPIO 输出引脚数组 */
     const unsigned int ir_output_gpio_pins[IR_GPIO_OUTPUT_COUNT] = {GPIO_ALARM_IRCUT_1, GPIO_ALARM_IRCUT_2};
 };

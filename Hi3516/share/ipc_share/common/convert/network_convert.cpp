@@ -599,17 +599,23 @@ void Convert::deal(Json::Object* pRootJson, Network::WifiStaConncet_S &stInfo, b
     std::string modeStr;
     convert.field(pRootJson, "mode", modeStr);
 
+	std::string wpa3Type;
+    convert.field(pRootJson, "wpa3Type", wpa3Type);
+
     if (modeStr == "OPEN")
         stInfo.mode = Network::WifiSecurityMode::OPEN;
     else if (modeStr == "WEP")
         stInfo.mode = Network::WifiSecurityMode::WEP;
-    else if (modeStr == "WPA_PERSONAL")
+    else if (modeStr == "WPA_PERSONAL" || modeStr == "WPA2"||modeStr == "WPA")
         stInfo.mode = Network::WifiSecurityMode::WPA_PERSONAL;
-    else if (modeStr == "EAP_PEAP")
+	else if (modeStr == "WPA3")
+        stInfo.mode = Network::WifiSecurityMode::WPA3_PERSONAL;
+
+    if (wpa3Type == "EAP_PEAP")
         stInfo.mode = Network::WifiSecurityMode::EAP_PEAP;
-    else if (modeStr == "EAP_TLS")
+    else if (wpa3Type == "EAP_TLS")
         stInfo.mode = Network::WifiSecurityMode::EAP_TLS;
-	else if (modeStr == "EAP_TTLS")
+	else if (wpa3Type == "EAP_TTLS")
         stInfo.mode = Network::WifiSecurityMode::EAP_TTLS;
 
     // ===== 分模式 =====
@@ -705,6 +711,7 @@ void Convert::deal(Json::Object* pJson, Network::SIM_Info_t &stInfo, bool bOutSt
 	
 	// 布尔类型字段映射
 	convert.field(pJson, "is_registered", stInfo.is_registered);
+	convert.field(pJson, "enabled", stInfo.set_config_ret.enabled);
 
 	convert.field(pJson, "imei", stInfo.imei);
 	convert.field(pJson, "iccid", stInfo.iccid);
@@ -732,6 +739,7 @@ void Convert::deal(Json::Object* pJson, Network::Network_4G_Config_t &stInfo, bo
 
 	Convert::CConvert convert(bOutStruct);
 	convert.field(pJson, "apn", stInfo.apn);
+	convert.field(pJson, "enabled", stInfo.enabled);
     convert.field(pJson, "username", stInfo.username);
     convert.field(pJson, "password", stInfo.password);
     convert.field(pJson, "call_number", stInfo.call_number);

@@ -97,7 +97,7 @@ EXIT:
 
     return bRet;
 }
-#define DEBUG_PRINT() printf("test debug fun : %s, line : %d\n", __FUNCTION__, __LINE__);
+
 /* 数据库备份 */
 bool CDatabase::backup_database(sqlite3* pSq, const char* pchDbBackupName, bool bIsSave)
 {
@@ -106,7 +106,6 @@ bool CDatabase::backup_database(sqlite3* pSq, const char* pchDbBackupName, bool 
         dlog_error("传入参数为空");
         return false;
     }
-    DEBUG_PRINT()
     /* 函数返回值的存储 */
     int             nRet        = 0;
     /* 存储备份数据库文件指针 */
@@ -121,7 +120,6 @@ bool CDatabase::backup_database(sqlite3* pSq, const char* pchDbBackupName, bool 
     int             nHaveBackup = 0;
 
     std::ifstream fileStream(pchDbBackupName);
-    DEBUG_PRINT()
     if (fileStream.good())
     {
         nHaveBackup = 1;
@@ -131,37 +129,33 @@ bool CDatabase::backup_database(sqlite3* pSq, const char* pchDbBackupName, bool 
     {
         dlog_error("备份-记录数据库不存在[%s]", pchDbBackupName);
     }
-    DEBUG_PRINT()
     if (!nHaveBackup && 0 == bIsSave)
     {
         dlog_error("没有备份数据库，无法恢复数据库");
         return true;
     }
-    DEBUG_PRINT()
     nRet = sqlite3_open(pchDbBackupName, &pFile);
     if (nRet == SQLITE_OK)
     {
-    DEBUG_PRINT()
         pFrom   = (bIsSave ? pSq : pFile);
         pTo     = (bIsSave ? pFile : pSq);
         /* 备份process创建备份对象 */
-        DEBUG_PRINT()
+
         pBackup = sqlite3_backup_init(pTo, "main", pFrom, "main");
-        DEBUG_PRINT()
+
         if (pBackup)
         {
-            DEBUG_PRINT()
+    
             /* 拷贝数据 */
             (void)sqlite3_backup_step(pBackup, -1);
-            DEBUG_PRINT()
+    
             /* 释放资源 */
             (void)sqlite3_backup_finish(pBackup);
-            DEBUG_PRINT()
+    
         }
         /* 若拷贝的过程中出现任何错误,该函数可以获取具体的错误码 */
         nRet = sqlite3_errcode(pTo);
     }
-    DEBUG_PRINT()
     if (bIsSave)
     {
         dlog_trace("备份数据成功");
@@ -170,10 +164,8 @@ bool CDatabase::backup_database(sqlite3* pSq, const char* pchDbBackupName, bool 
     {
         dlog_trace("还原数据成功");
     }
-    DEBUG_PRINT()
 
     (void)sqlite3_close(pFile);
-    DEBUG_PRINT()
     return true;
 }
 

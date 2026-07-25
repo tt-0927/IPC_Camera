@@ -9,25 +9,22 @@
 
 #pragma once
 #include <chrono>
+#include <atomic>
 #include <condition_variable>
 #include <functional>
 #include <iostream>
 #include <mutex>
 #include <thread>
-#include <atomic>
-#include <future>
 
-#include "ModuleLog.h"
+#include "dlog.h"
 
 class BlockThread
 {
 public:
     using Func = std::function<void()>;
 
-    BlockThread(Func func, std::chrono::milliseconds timeout, bool bOnce = false)
-        : _func(func), _timeout(timeout), _once(bOnce)
+    BlockThread(Func func, std::chrono::milliseconds timeout, bool bOnce = false) : _func(func), _timeout(timeout), _once(bOnce)
     {
-
     }
 
     ~BlockThread()
@@ -50,74 +47,104 @@ public:
 
     void notify()
     {
-        if (!_notified.exchange(true))
-        {
-            _promise.set_value();
-        }
+        _notified.store(true);
     }
 
     void stop()
     {
         _stop.store(true);
-        if (!_notified.exchange(true))
-        {
-            _promise.set_value();
-        }
     }
 
 private:
+    /* 线程等待结束原因。 */
+    enum class WakeReason_E
+    {
+        STOPPED,
+        NOTIFIED,
+        TIMEOUT
+    };
+
+    /**
+     * @brief  使用单调时钟等待停止、通知或超时事件
+     * @param  [void]
+     * @return [WakeReason_E] 本次线程唤醒原因
+     * @note   采用短周期轮询，避免设备校时影响心跳和续注册定时任务
+     */
+    WakeReason_E wait_for_wakeup()
+    {
+        const auto tmDeadline = std::chrono::steady_clock::now() + _timeout;
+
+        /* ! 板端系统校时可能导致condition_variable超时等待失效，必须使用steady_clock轮询。 */
+        while (std::chrono::steady_clock::now() < tmDeadline)
+        {
+            if (_stop.load())
+            {
+                return WakeReason_E::STOPPED;
+            }
+            if (_notified.exchange(false))
+            {
+                return WakeReason_E::NOTIFIED;
+            }
+
+            /* perf: 100ms轮询兼顾停止响应速度与低CPU占用。 */
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        }
+
+        if (_stop.load())
+        {
+            return WakeReason_E::STOPPED;
+        }
+        if (_notified.exchange(false))
+        {
+            return WakeReason_E::NOTIFIED;
+        }
+        return WakeReason_E::TIMEOUT;
+    }
+
     void threadFunc()
     {
         pthread_setname_np(pthread_self(), "SipBlockThread");
 
         while (!_stop.load())
-        {         
-            // 创建新的 promise 和 future
-            _promise = std::promise<void>();
-            auto future = _promise.get_future();
-            
-            auto status = future.wait_for(_timeout);
-            
-            if (_stop.load())
+        {
+            const WakeReason_E enWakeReason = wait_for_wakeup();
+            if (WakeReason_E::STOPPED == enWakeReason)
             {
-                MLOG_DEBUG("收到停止信号");
+                dlog_debug("收到停止信号");
                 break;
             }
-            
-            if (status == std::future_status::ready)
+
+            if (WakeReason_E::NOTIFIED == enWakeReason)
             {
-                MLOG_DEBUG("收到通知");
+                dlog_debug("收到通知");
                 std::cout << "收到通知，开始执行任务..." << std::endl;
             }
             else
             {
-                MLOG_DEBUG("等待超时");
+                dlog_debug("等待超时");
                 std::cout << "等待超时，开始执行任务..." << std::endl;
             }
-            
-            _notified.store(false);
-            
+
             if (_func)
             {
                 _func();
             }
-            
+
             if (_once)
             {
                 break;
             }
         }
-        MLOG_DEBUG("线程结束");
+        dlog_debug("线程结束");
     }
 
     Func _func;
     std::chrono::milliseconds _timeout;
     std::thread _thread;
-    std::atomic<bool> _stop{false};
-    std::atomic<bool> _notified{false};
-    std::atomic<bool> _started{false};
+    std::atomic<bool> _stop{ false };
+    std::atomic<bool> _started{ false };
     bool _once;
-    std::promise<void> _promise;
+    std::atomic<bool> _notified{ false };
 };
 
 #if 0

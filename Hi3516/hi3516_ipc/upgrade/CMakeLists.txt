@@ -44,7 +44,7 @@ set (LIBS
     # -lrt
 	# -lm
 	# -ldl
-    # -lpthread
+    -lpthread
     libz
     libzlog
 )

@@ -562,6 +562,8 @@ typedef enum
     AC_SET_BEEP_ALARM = 3006,
     /* 获取对讲/广播状态 */
     AC_GET_INTERCOM_AND_BROADCAST_STATUS = 3007,
+    /* 设备硬件控制，声光报警等*/
+    AC_DEVICE_CONTROL = 3008,
 
     /**
      * @brief 回放相关
@@ -839,6 +841,8 @@ typedef enum
     AC_GM_GET_CERT_INFO = 6065,
     /* 删除证书文件 */
     AC_GM_DELETE_CERT_FILE = 6066,
+    /* 上传平台证书 */
+    AC_GM_UPLOAD_PLATFORM_CERT = 6080,
 
 #ifdef ENABLE_GAT1400_SRC
     /// @brief 获取GAT1400配置信息
@@ -849,6 +853,7 @@ typedef enum
 
     /// @brief wifi配置
     AC_SET_CONFIG_WIFI_STA = 6069,
+    AC_GET_CONFIG_WIFI_STA = 60700,
     AC_CONNECT_WIFI_STA = 6070,
     AC_DISCONNECT_WIFI_STA = 6071,
 
@@ -859,6 +864,7 @@ typedef enum
     /// @brief 热点配置
     AC_SET_HOTSPOT_INFO = 6074,
     AC_GET_HOTSPOT_CONN = 6075,
+    AC_GET_HOTSPOT_INFO = 6079,
 
     /// @brief 平台管理
     AC_PLATFORM_CONN = 6076,
@@ -956,7 +962,8 @@ typedef enum
     AC_SET_FACE_INFO = 7206,
     /// @brief 获取人脸
     AC_GET_FACE_INFO = 7207,
-
+    /// @brief 删除人脸文件
+    AC_DEL_FACE_FILE = 7208,
 #ifdef ENABLE_AI_STUDENT
     /**
      * @brief 无感考勤相关
@@ -1072,5 +1079,19 @@ typedef enum
     AC_GET_ACTIVATIONINFO = 9009,
     /// @brief 自动配置网络
     AC_AUTO_CONFIG_NETWORK = 9010,
+
+    /**
+     * @brief 产测管理
+     */
+    /// @brief 获取产测项目列表
+    AC_GET_PRODUCTION_TEST_ITEMS = 10000,
+    /// @brief 获取产测结果
+    AC_GET_PRODUCTION_TEST_RESULT = 10001,
+    /// @brief 保存产测结果
+    AC_SAVE_PRODUCTION_TEST_RESULT = 10002,
+    /// @brief 上传产测结果到运维平台
+    AC_UPLOAD_PRODUCTION_TEST = 10003,
+    /// @brief 重置产测结果
+    AC_RESET_PRODUCTION_TEST = 10004,
 
 } ActionCode_E;

@@ -65,6 +65,9 @@ void CHVFDetect::setAlgoEnCfg(const Event::AlgorithmConfig &stAlgoConfig)
 #if CAP_AI_PEOPLE_STATISTICS
     m_peopleFlowProcessor.setEnabled(stAlgoConfig.nEnPeopleFlowStatistics);
 #endif
+#if CAP_AI_PEOPLE_DENSITY_V2
+    m_peopleDensityProcessor.setEnabled(stAlgoConfig.nEnPeopleDensityDetection);
+#endif
 
     if (m_faceProcessor.isEnabled())
     {
@@ -131,6 +134,16 @@ void CHVFDetect::setAlgoEnCfg(const Event::AlgorithmConfig &stAlgoConfig)
         setAlgoParamCfg(stInfo);
     }
 #endif
+
+#if CAP_AI_PEOPLE_DENSITY_V2
+    if (m_peopleDensityProcessor.isEnabled())
+    {
+        /* 人员密度配置缓存 */
+        Alarm::PeopleDensityDetection_S stInfo;
+        CEventConfigure::instance()->get_configure(stInfo);
+        setAlgoParamCfg(stInfo);
+    }
+#endif
 }
 
 void CHVFDetect::setAlgoParamCfg(const Alarm::FaceDetection_S &stAlgoCfg)
@@ -173,13 +186,30 @@ void CHVFDetect::setAlgoParamCfg(const Alarm::PeopleFlowStatistics_S &stAlgoCfg)
 {
     m_peopleFlowProcessor.setAlgoParamCfg(stAlgoCfg, m_nWidth, m_nHeight);
 }
+#endif
 
+#if CAP_AI_PEOPLE_DENSITY_V2
+void CHVFDetect::setAlgoParamCfg(const Alarm::PeopleDensityDetection_S &stAlgoCfg)
+{
+    m_peopleDensityProcessor.setAlgoParamCfg(stAlgoCfg, m_nWidth, m_nHeight);
+}
+#endif
+
+#if CAP_AI_PEOPLE_STATISTICS || CAP_AI_PEOPLE_DENSITY_V2
 void CHVFDetect::setEventStatisticsReporter(const std::shared_ptr<EventStatistics_NS::IEventStatisticsReporter> &pReporter)
 {
+#if CAP_AI_PEOPLE_STATISTICS
     /* 设置人流统计上报器 */
     m_peopleFlowProcessor.setReporter(pReporter);
+#endif
+#if CAP_AI_PEOPLE_DENSITY_V2
+    /* 设置人员密度 V2 上报器 */
+    m_peopleDensityProcessor.setReporter(pReporter);
+#endif
 }
+#endif
 
+#if CAP_AI_PEOPLE_STATISTICS
 int CHVFDetect::handleRuntimeCommand(const RuntimeCommand_S &stCommand)
 {
     if (stCommand.nCode != AC_CLEAR_PEOPLE_FLOW_STATISTICS_RESULT)
@@ -205,7 +235,18 @@ bool CHVFDetect::init()
         }
         dlog_info("脸人车侦测初始化成功");
     }
+    // if (0 == m_stDstFrameInfo.video_frame.width)
+    // {
+    //     memset_s(&m_stDstFrameInfo, sizeof(ot_video_frame_info), 0, sizeof(ot_video_frame_info));
 
+    //     if (TD_SUCCESS !=
+    //         mppVgs_create_video_frame_info(m_nWidth, m_nHeight, OT_PIXEL_FORMAT_YVU_SEMIPLANAR_420, &m_stDstFrameInfo))
+    //     {
+    //         dlog_error("创建目标视频帧失败");
+
+    //         return false;
+    //     }
+    // }
     return true;
 }
 
@@ -216,7 +257,8 @@ bool CHVFDetect::unInit()
         streamAiDetect_uninit(m_pHVFDetHandle);
         m_pHVFDetHandle = nullptr;
     }
-
+    // mppVgs_destroy_video_frame_info(&m_stDstFrameInfo);
+    // memset_s(&m_stDstFrameInfo, sizeof(ot_video_frame_info), 0, sizeof(ot_video_frame_info));
     return true;
 }
 
@@ -276,7 +318,39 @@ void CHVFDetect::run()
             dlog_error("原始数据帧为空");
             continue;
         }
+        // ot_video_frame_info *pSrcFrameInfo = stMediaData.pVideoFrameInfo.get();
+        // if (!pSrcFrameInfo)
+        // {
+        //     dlog_error("原始数据帧为空");
+        //     continue;
+        // }
+        // bool bIsScale = false;
 
+        // if (m_nWidth != stMediaData.stMediaParam.nVideoWidth || m_nHeight != stMediaData.stMediaParam.nVideoHeight)
+        // {
+        //     bIsScale = true;
+        // }
+
+        // /*
+        //  * 算法输入帧
+        //  */
+        // ot_video_frame_info *pFrameInfo = pSrcFrameInfo;
+
+        // /*
+        //  * 缩放到检测分辨率
+        //  */
+        // if (bIsScale)
+        // {
+        //     if (TD_SUCCESS != mppVgs_scale(pSrcFrameInfo, &m_stDstFrameInfo))
+        //     {
+        //         dlog_error("mppVgs_scale失败");
+
+        //         continue;
+        //     }
+
+        //     pFrameInfo = &m_stDstFrameInfo;
+        // }
+        
         if (m_pHVFDetHandle->svpAiDetect_sendFrame(m_pHVFDetHandle, &pFrameInfo->video_frame) != TD_SUCCESS)
         {
             continue;
@@ -302,6 +376,26 @@ void CHVFDetect::run()
             stContext.llTimestamp = TimeUtils_NS::get_currentTimestampMs();
             stContext.pFrameInfo = pFrameInfo;
             m_peopleFlowProcessor.process(stContext);
+        }
+#endif
+
+#if CAP_AI_PEOPLE_DENSITY_V2
+        if (m_peopleDensityProcessor.isEnabled())
+        {
+            /* 人员密度 V2 处理上下文，复用同一帧 HVF 人形模型输出 */
+            HVFDetectInternal::SHVFProcessContext stContext{ m_pHVFDetHandle->stResult,
+                                                             vstRectInfo,
+                                                             m_nWidth,
+                                                             m_nHeight
+#if CAP_EXHIBITION_OSD_PANEL
+                                                             ,
+                                                             nullptr
+#endif
+            };
+            stContext.nChnId = stMediaData.stMediaParam.nChannel;
+            stContext.llTimestamp = TimeUtils_NS::get_currentTimestampMs();
+            stContext.pFrameInfo = pFrameInfo;
+            m_peopleDensityProcessor.process(stContext);
         }
 #endif
 
@@ -448,6 +542,9 @@ void CHVFDetect::run()
 #if CAP_AI_PEOPLE_STATISTICS
             || m_peopleFlowProcessor.isEnabled()
 #endif
+#if CAP_AI_PEOPLE_DENSITY_V2
+            || m_peopleDensityProcessor.isEnabled()
+#endif
         )
         {
             send_detectionResult_to_osd(m_nWidth, m_nHeight, vstRectInfo);
@@ -462,6 +559,9 @@ bool CHVFDetect::hasEnabledAlgorithm() const
            m_enterExitProcessor.isExitEnabled()
 #if CAP_AI_PEOPLE_STATISTICS
            || m_peopleFlowProcessor.isEnabled()
+#endif
+#if CAP_AI_PEOPLE_DENSITY_V2
+           || m_peopleDensityProcessor.isEnabled()
 #endif
     ;
 }

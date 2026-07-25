@@ -101,9 +101,16 @@ bool Inference_NS::CYoloUltralyticsPoint::inference(
     }
     
     /* 后处理 */
-    int nFlLen =  m_vOutputAttrs[0].dims[1] /4;
+    bool bPointShow = false;
+    int nSPointNum = 2;
+    if (m_vOutputAttrs[9].dims[1] % 3 == 0)
+    {
+        bPointShow = true;
+        nSPointNum = 3;
+    } 
+    int nFlLen = m_vOutputAttrs[0].dims[1] /4;
     m_nCLASS_NUM = m_vOutputAttrs[1].dims[1];
-    m_nKeyPoint_NUM = m_vOutputAttrs[9].dims[1] / 2;
+    m_nKeyPoint_NUM = m_vOutputAttrs[9].dims[1] / nSPointNum;
     m_postProcess->postProcessKeyPoint(
         vInput,
         m_nLimitHeight,
@@ -113,7 +120,8 @@ bool Inference_NS::CYoloUltralyticsPoint::inference(
         m_nCLASS_NUM,
         m_nKeyPoint_NUM,
         vPointDatas,
-        nFlLen);
+        nFlLen,
+        bPointShow);
 
     return true;
 }
@@ -168,7 +176,7 @@ bool Inference_NS::CYoloUltralyticsPoint::checkModelProConfig()
 
     Json::Object* pJsonHandle = NULL;
     Json::Object* pJsonData   = NULL;
-    bool          bRet        = false;
+    bool          bRet        = true;
 
     pJsonHandle = Json::init(pchJson);
 
@@ -176,6 +184,7 @@ bool Inference_NS::CYoloUltralyticsPoint::checkModelProConfig()
     if (!pJsonData)
     {
         printf("解析[data]字段失败\n");
+        bRet = false;
         goto EXIT;
     }
     /* 1、置信度 */
@@ -193,13 +202,11 @@ bool Inference_NS::CYoloUltralyticsPoint::checkModelProConfig()
         goto EXIT;
     }
 
-    return true;
-
 EXIT:
     if (pJsonHandle)
     {
         Json::deinit(pJsonHandle);
         pJsonHandle = NULL;
     }
-    return false;
+    return bRet;
 }

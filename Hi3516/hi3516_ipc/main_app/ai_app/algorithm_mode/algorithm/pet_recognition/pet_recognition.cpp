@@ -85,7 +85,18 @@ bool CPetRecognition::init()
         }
         dlog_info("宠物识别初始化成功");
     }
+    if (0 == m_stDstFrameInfo.video_frame.width)
+    {
+        memset_s(&m_stDstFrameInfo, sizeof(ot_video_frame_info), 0, sizeof(ot_video_frame_info));
 
+        if (TD_SUCCESS !=
+            mppVgs_create_video_frame_info(m_nWidth, m_nHeight, OT_PIXEL_FORMAT_YVU_SEMIPLANAR_420, &m_stDstFrameInfo))
+        {
+            dlog_error("创建目标视频帧失败");
+
+            return false;
+        }
+    }
     return true;
 }
 
@@ -96,7 +107,8 @@ bool CPetRecognition::unInit()
     {
         streamAiDetect_uninit(m_pPetDetHandle);
     }
-
+    mppVgs_destroy_video_frame_info(&m_stDstFrameInfo);
+    memset_s(&m_stDstFrameInfo, sizeof(ot_video_frame_info), 0, sizeof(ot_video_frame_info));
     return true;
 }
 
@@ -152,12 +164,46 @@ void CPetRecognition::run()
         }
 
         /* 直接使用 stMediaData.pVideoFrameInfo，避免内存拷贝 */
-        ot_video_frame_info *pFrameInfo = stMediaData.pVideoFrameInfo.get();
-        if (!pFrameInfo)
+        // ot_video_frame_info *pFrameInfo = stMediaData.pVideoFrameInfo.get();
+        // if (!pFrameInfo)
+        // {
+        //     dlog_error("原始数据帧为空");
+        //     continue;
+        // }
+
+        ot_video_frame_info *pSrcFrameInfo = stMediaData.pVideoFrameInfo.get();
+        if (!pSrcFrameInfo)
         {
             dlog_error("原始数据帧为空");
             continue;
         }
+        bool bIsScale = false;
+
+        if (m_nWidth != stMediaData.stMediaParam.nVideoWidth || m_nHeight != stMediaData.stMediaParam.nVideoHeight)
+        {
+            bIsScale = true;
+        }
+
+        /*
+         * 算法输入帧
+         */
+        ot_video_frame_info *pFrameInfo = pSrcFrameInfo;
+
+        /*
+         * 缩放到检测分辨率
+         */
+        if (bIsScale)
+        {
+            if (TD_SUCCESS != mppVgs_scale(pSrcFrameInfo, &m_stDstFrameInfo))
+            {
+                dlog_error("mppVgs_scale失败");
+
+                continue;
+            }
+
+            pFrameInfo = &m_stDstFrameInfo;
+        }
+        
 
         /* 宠物识别 */
         if (m_pPetDetHandle->svpAiDetect_sendFrame(m_pPetDetHandle, &pFrameInfo->video_frame) == TD_SUCCESS)

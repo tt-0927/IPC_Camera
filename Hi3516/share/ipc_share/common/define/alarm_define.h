@@ -3,7 +3,7 @@
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2025-07-17 17:25:12
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-04-22 19:32:00
+ * @LastEditTime : 2026-06-04 10:50:38
  * @Description  : 报警配置参数数据结构
  */
 
@@ -646,10 +646,8 @@ namespace Alarm
      */
     typedef struct _AbnormalDetection_S_
     {
-        bool bEnable = false;    /* 是否启用事件提示 0-不启用 1-启用 */
-        std::vector<int> promptType;    /* 提示类型 Event::Type_E */
         AbnormalType_E enAbnormalType = AbnormalType_E::DISK_FULL; /* 异常类型 */
-        LinkageList_S stLinkageList; /* 联动 */
+        LinkageList_S stLinkageList;                               /* 联动 */
         bool operator<(const _AbnormalDetection_S_ &other) const
         {
             return enAbnormalType < other.enAbnormalType;
@@ -2305,6 +2303,11 @@ typedef struct _FaceCompare_S_
     {
         std::string indexKey;                    // 索引键
         std::vector<AnalysisRecords_S> records;  // 该索引下的记录集合
+
+        /* 分页参数（用于 GET_SESSION_ALL_RECORDS 响应） */
+        std::string strCursor;       /* 游标：请求时传入（上一页最后一条记录的 strId），响应原样返回 */
+        int nTotalCount;             /* 总记录数（响应时返回） */
+        bool bHasMore;               /* 是否还有更多数据（响应时返回） */
     } AnalysisRecordIndexItem_S;
 
     // 记录的总项结构
@@ -2324,6 +2327,15 @@ typedef struct _FaceCompare_S_
         std::string SearchKeyword;
         /*删除关键字（用于搜索操作）*/
         std::string DelKeyID;
+
+        /* 分页参数（请求时传入） */
+        int nPageSize;               /* 每页记录数，0=不分页返回全部 */
+        int nPageIndex;              /* 页码，从0开始（与 Cursor 二选一，Cursor 优先） */
+        std::string strCursor;       /* 游标：上一页最后一条记录的 ID（session 用 indexKey，记录用 strId），空=第一页 */
+
+        /* 分页结果（响应时返回） */
+        int nTotalCount;             /* 过滤后总记录数 */
+        bool bHasMore;               /* 是否还有更多数据 */
 
         std::vector<AnalysisRecordIndexItem_S> Allrecords;
 
@@ -2693,12 +2705,20 @@ typedef struct _FaceCompare_S_
         RealAlarmPushTime_S stStartTime; /* 开始时间 */
         RealAlarmPushTime_S stEndTime;   /* 结束时间 */
 
+        /* 分页参数 */
+        int nPageSize;               /* 每页记录数，0=不分页返回全部 */
+        int nPageIndex;              /* 页码，从0开始（与 Cursor 二选一，Cursor 优先） */
+        std::string strCursor;       /* 游标：上一页最后一条记录的 TaskId，空=第一页 */
+
         /* 默认构造函数 */
         _RealAlarmPushQueryFilter_S_() :
             strTaskNameFilter(),
             strObjectNameFilter(),
             strConditionNameFilter(),
-            enDealStatusFilter(PUSH_DEAL_STATUS_ALL)
+            enDealStatusFilter(PUSH_DEAL_STATUS_ALL),
+            nPageSize(0),
+            nPageIndex(0),
+            strCursor()
         {
         }
 
@@ -2710,13 +2730,17 @@ typedef struct _FaceCompare_S_
         bool bNotifyUpdate;                              /*通知Web更新标识*/
         bool bAutoLaestAlarm;                            /* 是否自动更新最新报警 */
         bool bAutoPlay;                                  /* 是否自动播放 */
+        int nTotalCount;                                 /* 过滤后总记录数（分页用） */
+        bool bHasMore;                                   /* 是否还有更多数据 */
         std::vector<RealAlarmPushRecord_S> aPushRecords; /* 所有推送记录 */
 
         /* 默认构造函数 */
         _RealAlarmPushManager_S_() :
             bNotifyUpdate(false),
             bAutoLaestAlarm(false),
-            bAutoPlay(false)
+            bAutoPlay(false),
+            nTotalCount(0),
+            bHasMore(false)
         {
             aPushRecords.clear();
         }

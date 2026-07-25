@@ -8,7 +8,6 @@
  */
 #pragma once
 #include "GbDefine.h"
-#include "ModuleLog.h"
 #include "SipClient.h"
 #include "SipServer.h"
 #include "SipType.h"

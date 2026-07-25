@@ -11,11 +11,21 @@
 #include <thread>
 #include <unordered_map>
 
-#include "YoloUltralyticsPoint_rpn.hpp"
+// #include "YoloUltralyticsPoint_rpn.hpp"
 #include "ImageFeature.hpp"
 #include "ot_common_video.h"
 #include "alarm_define.h"
+#include "svp_ai_detect.h"
+#include "stream_ai_detect.h"
+#include "share_data.h"
+#include "internal/processors/face/hvf_face_processor.hpp"
+#include "internal/processors/boundary/hvf_boundary_processor.hpp"
+#include "internal/processors/region/hvf_intrusion_processor.hpp"
+#include "internal/processors/region/hvf_loitering_processor.hpp"
+#include "internal/processors/region/hvf_parking_processor.hpp"
+#include "internal/processors/region/hvf_enter_exit_processor.hpp"
 
+#include "hvf_detect_context.hpp"
 class CFaceDetectWorker
 {
 public:
@@ -35,7 +45,8 @@ public:
         TIMEOUT
     };
 
-    using DetectResult = std::vector<Inference_NS::PointData_S>;
+    // using DetectResult = std::vector<Inference_NS::PointData_S>;
+    using DetectResult = std::vector<Inference_NS::BoxData_S>;
 
     using DetectCallback = std::function<void(const DetectResult &)>;
 
@@ -149,7 +160,19 @@ private:
 private:
     std::mutex m_npuMutex;
 
-    Inference_NS::CYoloUltralyticsPoint *m_pFaceDetHandle = nullptr;
-
+    // Inference_NS::CYoloUltralyticsPoint *m_pFaceDetHandle = nullptr;
+    Inference_NS::CYoloUltralytics *m_pFaceDetHandle = nullptr;
+    /* 人脸侦测句柄 */
+    // HiAiDetect_S *m_pFaceDetHandle = nullptr;
+    #if CAP_AI_FACE_COMPARE
     Inference_NS::CImageFeature *m_pFaceFeatureHandle = nullptr;
+    // int m_nWidth = PIXEL_WIDTH_1024;
+    // /* 算法默认分辨率高度 */
+    // int m_nHeight = PIXEL_HEIGHT_576;
+    int m_nWidth = PIXEL_WIDTH_640;
+    /* 算法默认分辨率高度 */
+    int m_nHeight = PIXEL_HEIGHT_640;
+    /* 人脸侦测处理器 */
+    // HVFDetectInternal::CHVFFaceProcessor m_faceProcessor;
+    #endif
 };

@@ -494,13 +494,21 @@ bool CUserSession::SendRequest(const CommandRequest& req, std::string& outRespBo
         httplib::Result res;
         
         // 根据 Method 分发
-        if (req.method == "GET") 
+        if (req.method == "GET")
 		{
             res = cmdClient_->Get(finalUrl.c_str());
         } else if (req.method == "POST") {
-            res = cmdClient_->Post(finalUrl.c_str(), req.jsonBody, "application/json");
+            if (req.binData != nullptr && req.binSize > 0) {
+                res = cmdClient_->Post(finalUrl.c_str(), req.binData, req.binSize, "application/octet-stream");
+            } else {
+                res = cmdClient_->Post(finalUrl.c_str(), req.jsonBody, "application/json");
+            }
         } else if (req.method == "PUT") {
-            res = cmdClient_->Put(finalUrl.c_str(), req.jsonBody, "application/json");
+            if (req.binData != nullptr && req.binSize > 0) {
+                res = cmdClient_->Put(finalUrl.c_str(), req.binData, req.binSize, "application/octet-stream");
+            } else {
+                res = cmdClient_->Put(finalUrl.c_str(), req.jsonBody, "application/json");
+            }
         }
 
         if (res && res->status == HTTP_RESP_CODE_SUCCESS) 
@@ -543,10 +551,19 @@ bool CUserSession::SendRequest(const CommandRequest& req, std::string& outRespBo
                 httplib::Result retryRes;
                 if (req.method == "GET")
                     retryRes = cmdClient_->Get(finalUrl.c_str());
-                else if (req.method == "POST")
-                    retryRes = cmdClient_->Post(finalUrl.c_str(), req.jsonBody, "application/json");
-                else if (req.method == "PUT")
-                    retryRes = cmdClient_->Put(finalUrl.c_str(), req.jsonBody, "application/json");
+                else if (req.method == "POST") {
+                    if (req.binData != nullptr && req.binSize > 0) {
+                        retryRes = cmdClient_->Post(finalUrl.c_str(), req.binData, req.binSize, "application/octet-stream");
+                    } else {
+                        retryRes = cmdClient_->Post(finalUrl.c_str(), req.jsonBody, "application/json");
+                    }
+                } else if (req.method == "PUT") {
+                    if (req.binData != nullptr && req.binSize > 0) {
+                        retryRes = cmdClient_->Put(finalUrl.c_str(), req.binData, req.binSize, "application/octet-stream");
+                    } else {
+                        retryRes = cmdClient_->Put(finalUrl.c_str(), req.jsonBody, "application/json");
+                    }
+                }
 
                 if (retryRes && retryRes->status == HTTP_RESP_CODE_SUCCESS) 
                 {

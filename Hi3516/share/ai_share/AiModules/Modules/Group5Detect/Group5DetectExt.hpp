@@ -38,6 +38,8 @@ namespace Group5Detect_NS
     /* 检测结果 */
     typedef struct _OutData_
     {
+        std::string savedFileName; /* 分析后图片路径 */
+        
         bool           bHoleProtectionBar = false;              /* 是否洞口防护栏触发 */
         bool           bConstructionEncroachmentRoad = false;   /* 是否施工占道触发 */ 
         // bool           validResult = false;                  /* 标识有效结果 */
@@ -57,6 +59,7 @@ namespace Group5Detect_NS
     /* 输入数据 */
     typedef struct _InData_
     {
+        int            nChnId;  /* 通道 */
         cv::Mat inMat;          /* 图片 */
         AnalyseParam_S stParam; /* 参数 */
     } InData_S;

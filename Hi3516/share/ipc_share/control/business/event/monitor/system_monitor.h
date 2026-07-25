@@ -3,7 +3,7 @@
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2025-10-31 9:38:25
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-04-16 15:32:50
+ * @LastEditTime : 2026-06-05 17:09:29
  * @Description  : 事件异常检测使用的系统状态监控接口，负责采集存储、网络、IP冲突和非法访问状态
  */
 
@@ -54,9 +54,15 @@ private:
     bool check_disk_usage(const std::string &path, double &usage);
 
     /**
+     * @brief   : 检查SD卡设备是否存在
+     * @return  {bool} true：SD卡设备存在，false：SD卡设备不存在
+     */
+    bool is_sd_card_exist();
+
+    /**
      * @brief   : 检测指定挂载点对应的SD卡是否处于异常状态
      * @param   {const std::string&} mount_path：SD卡挂载路径
-     * @return  {bool} true：SD卡异常，false：SD卡正常
+     * @return  {bool} true：SD卡异常，false：SD卡正常或SD卡不存在
      */
     bool check_sd_error(const std::string &mount_path);
 

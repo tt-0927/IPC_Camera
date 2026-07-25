@@ -103,7 +103,7 @@ bool Inference_NS::CCVInferenceCix::checkModelConfig()
 
     Json::Object *pJsonHandle = NULL;
     pJsonHandle = Json::init(pchJson);
-    bool bRet;
+    bool bRet = true;
 
     /* 获取模型地址 */
     bRet = Json::get(pJsonHandle, "model_path", m_strModelPath);
@@ -116,15 +116,16 @@ bool Inference_NS::CCVInferenceCix::checkModelConfig()
     if (!checkModelPreConfig())
     {
         printf("json配置文件[%s], 预处理部分解析异常\n", m_strConfigPath.c_str());
+        bRet = false;
         goto EXIT;
     }
 
     if (!checkModelProConfig())
     {
         printf("json配置文件[%s], 后处理部分解析异常\n", m_strConfigPath.c_str());
+        bRet = false;
         goto EXIT;
     }
-    return true;
 
 EXIT:
     if (pJsonHandle)
@@ -132,7 +133,7 @@ EXIT:
         Json::deinit(pJsonHandle);
         pJsonHandle = NULL;
     }
-    return false;
+    return bRet;
 }
 
 /* 校验模型配置文件中的预处理信息 */
@@ -160,7 +161,7 @@ bool Inference_NS::CCVInferenceCix::checkModelPreConfig()
     Json::Object *pJsonData = NULL;
     Json::Object *pJsonDataItem = NULL;
     Json::Object *pItemObject = NULL;
-    bool bRet = false;
+    bool bRet = true;
     int nSize = 0;
     int i;
     int nSizeItem;
@@ -172,6 +173,7 @@ bool Inference_NS::CCVInferenceCix::checkModelPreConfig()
     if (!pJsonData)
     {
         printf("解析[data]字段失败\n");
+        bRet = false;
         goto EXIT;
     }
 
@@ -180,12 +182,14 @@ bool Inference_NS::CCVInferenceCix::checkModelPreConfig()
     if (!pJsonDataItem)
     {
         printf("解析[pJsonData]字段失败\n");
+        bRet = false;
         goto EXIT;
     }
     nSize = Json::Array::size(pJsonDataItem);
     if (nSize <= 0)
     {
         printf("解析[数组大小异常]\n");
+        bRet = false;
         goto EXIT;
     }
     m_vModelInputSize.clear();
@@ -196,6 +200,7 @@ bool Inference_NS::CCVInferenceCix::checkModelPreConfig()
         if (NULL == pItemObject)
         {
             printf("获取数组节点失败\n");
+            bRet = false;
             goto EXIT;
         }
 
@@ -226,12 +231,14 @@ bool Inference_NS::CCVInferenceCix::checkModelPreConfig()
     if (!pJsonDataItem)
     {
         printf("解析[pJsonData]字段失败\n");
+        bRet = false;
         goto EXIT;
     }
     nSize = Json::Array::size(pJsonDataItem);
     if (nSize <= 0)
     {
         printf("解析[数组大小异常]\n");
+        bRet = false;
         goto EXIT;
     }
     for (int i = 0; i < nSize; i++)
@@ -241,6 +248,7 @@ bool Inference_NS::CCVInferenceCix::checkModelPreConfig()
         if (NULL == pItemObject)
         {
             printf("获取数组节点失败\n");
+            bRet = false;
             goto EXIT;
         }
 
@@ -257,12 +265,14 @@ bool Inference_NS::CCVInferenceCix::checkModelPreConfig()
     if (!pJsonDataItem)
     {
         printf("解析[pJsonData]字段失败\n");
+        bRet = false;
         goto EXIT;
     }
     nSize = Json::Array::size(pJsonDataItem);
     if (nSize <= 0)
     {
         printf("解析[数组大小异常]\n");
+        bRet = false;
         goto EXIT;
     }
     for (int i = 0; i < nSize; i++)
@@ -272,6 +282,7 @@ bool Inference_NS::CCVInferenceCix::checkModelPreConfig()
         if (NULL == pItemObject)
         {
             printf("获取数组节点失败\n");
+            bRet = false;
             goto EXIT;
         }
 
@@ -290,7 +301,6 @@ bool Inference_NS::CCVInferenceCix::checkModelPreConfig()
         printf("解析padding字段失败\n");
         goto EXIT;
     }
-    return true;
 
 EXIT:
     if (pJsonHandle)
@@ -298,7 +308,7 @@ EXIT:
         Json::deinit(pJsonHandle);
         pJsonHandle = NULL;
     }
-    return false;
+    return bRet;
 }
 
 /* 校验模型配置文件中的模型推理信息 */
@@ -335,7 +345,7 @@ bool Inference_NS::CCVInferenceCix::checkModelInferConfig()
     Json::Object *pItemObject = NULL;
     Json::Object *pJsonDataItem = NULL;
     Json::Object *pJsonDataItemObject = NULL;
-    bool bRet = false;
+    bool bRet = true;
     int nSize, nSizeO;
     int nStep;
     std::vector<int> vOutSizes;
@@ -346,6 +356,7 @@ bool Inference_NS::CCVInferenceCix::checkModelInferConfig()
     if (!pJsonData)
     {
         printf("解析[data]字段失败\n");
+        bRet = false;
         goto EXIT;
     }
 
@@ -362,12 +373,14 @@ bool Inference_NS::CCVInferenceCix::checkModelInferConfig()
     if (!pJsonDataItem)
     {
         printf("解析[output_shape]字段失败\n");
+        bRet = false;
         goto EXIT;
     }
     nSize = Json::Array::size(pJsonDataItem);
     if (nSize <= 0)
     {
         printf("解析[output_shape 数组大小异常]\n");
+        bRet = false;
         goto EXIT;
     }
     for (int i = 0; i < nSize; i++)
@@ -377,12 +390,14 @@ bool Inference_NS::CCVInferenceCix::checkModelInferConfig()
         if (NULL == pJsonDataItemObject)
         {
             printf("pJsonDataItemObject 获取数组节点失败\n");
+            bRet = false;
             goto EXIT;
         }
         nSizeO = Json::Array::size(pJsonDataItemObject);
         if (nSizeO <= 0)
         {
             printf("解析[steps 数组大小异常]\n");
+            bRet = false;
             goto EXIT;
         }
         vOutSizes.clear();
@@ -393,6 +408,7 @@ bool Inference_NS::CCVInferenceCix::checkModelInferConfig()
             if (NULL == pItemObject)
             {
                 printf("pItemObject 获取数组节点失败\n");
+                bRet = false;
                 goto EXIT;
             }
             bRet = Json::Value::get(pItemObject, nStep);
@@ -406,14 +422,13 @@ bool Inference_NS::CCVInferenceCix::checkModelInferConfig()
         m_vOutSizes.push_back(vOutSizes);
     }
 
-    return true;
 EXIT:
     if (pJsonHandle)
     {
         Json::deinit(pJsonHandle);
         pJsonHandle = NULL;
     }
-    return false;
+    return bRet;
 }
 
 /* 校验模型配置文件中的后处理信息 */

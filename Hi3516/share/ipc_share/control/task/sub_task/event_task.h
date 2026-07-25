@@ -106,15 +106,18 @@ namespace Task
         /* 宠物识别 */
         TaskSubClass(GetPetRecognitionInfo)
         TaskSubClass(SetPetRecognitionInfo)
+#if CAP_AI_FACE_COMPARE
         /* 人脸比对 */
         TaskSubClass(GetFaceCompareInfo)
         TaskSubClass(SetFaceCompareInfo)
+#endif
         /* 人脸抓拍 */
         TaskSubClass(GetFaceCaptureInfo)
         TaskSubClass(SetFaceCaptureInfo)
         /* 人脸抓拍叠加信息 */
         TaskSubClass(GetFaceCaptureOverlayInfo)
         TaskSubClass(SetFaceCaptureOverlayInfo)
+#if CAP_AI_FACE_COMPARE
         /*人脸名单库操作*/
         TaskSubClass(AddTargetLib)
         TaskSubClass(DelTargetLib)
@@ -124,7 +127,8 @@ namespace Task
         TaskSubClass(DelFaceInfo)
         TaskSubClass(SetFaceInfo)
         TaskSubClass(GetFaceInfo)
-
+        TaskSubClass(DelFaceFile)
+#endif
 #ifdef SCENE_INTELLIGENT_ANALYSIS
         /**
         * @brief   : 场景智能分析

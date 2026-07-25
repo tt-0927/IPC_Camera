@@ -3,21 +3,29 @@
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2026-04-15 16:29:58
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-04-16 14:21:30
+ * @LastEditTime : 2026-06-03 16:30:24
  * @Description  : 事件联动异步任务工作线程实现
  */
 
 #include "event_linkage_worker.h"
 
+#include <algorithm>
 #include <chrono>
 #include <pthread.h>
 
 #include "event_linkage_dict.h"
+#include "time_utils.h"
 #include "dlog.h"
 #include "IpcRet.h"
 
 namespace
 {
+/* 异步联动队列最大长度：6个事件 * 每事件最多5个异步联动，预留2个抖动余量 */
+constexpr size_t MAX_LINKAGE_QUEUE_SIZE = 32;
+
+/* 联动任务默认有效期，过期任务直接丢弃，避免旧报警挤占实时联动 */
+constexpr long long LINKAGE_TASK_EXPIRE_MS = 5000;
+
 /**
  * @brief   : 初始化支持抢占的联动类型运行态
  * @param    {std::map<LinkageType_E, std::atomic<bool>>} &mapRunningFlags 运行标志表
@@ -35,6 +43,25 @@ void init_runtime_flags(std::map<LinkageType_E, std::atomic<bool>> &mapRunningFl
         mapRunningFlags[enType].store(false);
         mapPriorities[enType].store(INT_MAX);
     }
+}
+
+/**
+ * @brief   : 判断两个报警 IO 列表是否存在交集
+ * @param    {std::vector<int>} &vecLeft 左侧 IO 列表
+ * @param    {std::vector<int>} &vecRight 右侧 IO 列表
+ * @return   {bool} true：存在相同 IO false：不存在相同 IO
+ */
+bool has_same_alarm_output(const std::vector<int> &vecLeft, const std::vector<int> &vecRight)
+{
+    for (const auto &nLeft : vecLeft)
+    {
+        if (std::find(vecRight.begin(), vecRight.end(), nLeft) != vecRight.end())
+        {
+            return true;
+        }
+    }
+
+    return false;
 }
 } // namespace
 
@@ -99,16 +126,37 @@ int EventLinkageWorker::deinit()
 
 void EventLinkageWorker::pushTask(const LinkageTask_S &stTask)
 {
+    LinkageTask_S stQueueTask = stTask;
+    const long long llEnqueueTimeMs = TimeUtils_NS::get_monotonicTimestampMs();
+    if (stQueueTask.llTimestamp <= 0)
+    {
+        stQueueTask.llTimestamp = llEnqueueTimeMs;
+    }
+    if (stQueueTask.llExpireTimeMs <= 0)
+    {
+        stQueueTask.llExpireTimeMs = llEnqueueTimeMs + LINKAGE_TASK_EXPIRE_MS;
+    }
+
     {
         std::lock_guard<std::mutex> lock(m_queueMutex);
+        if (m_linkageQueue.size() >= MAX_LINKAGE_QUEUE_SIZE)
+        {
+            dlog_warn("联动任务队列已满，丢弃新任务 - 事件: %s, 联动类型: %d, 优先级: %d, 队列长度: %zu",
+                      EventLinkageDict::get_event_name(stQueueTask.stContext.enEventType).c_str(),
+                      static_cast<int>(stQueueTask.enLinkageType),
+                      stQueueTask.nPriority,
+                      m_linkageQueue.size());
+            return;
+        }
+
         /* 统一进入优先队列，由工作线程按优先级顺序取出处理 */
-        m_linkageQueue.push(stTask);
+        m_linkageQueue.push(stQueueTask);
     }
 
     dlog_info("添加联动任务到队列 - 事件: %s, 联动类型: %d, 优先级: %d",
-              EventLinkageDict::get_event_name(stTask.stContext.enEventType).c_str(),
-              static_cast<int>(stTask.enLinkageType),
-              stTask.nPriority);
+              EventLinkageDict::get_event_name(stQueueTask.stContext.enEventType).c_str(),
+              static_cast<int>(stQueueTask.enLinkageType),
+              stQueueTask.nPriority);
     m_queueCV.notify_one();
 }
 
@@ -160,31 +208,19 @@ void EventLinkageWorker::task_loop()
             m_linkageQueue.pop();
         }
 
-        dlog_info("处理联动任务 - 事件: %s, 联动类型: %d, 优先级: %d",
-                  EventLinkageDict::get_event_name(stTask.stContext.enEventType).c_str(),
-                  static_cast<int>(stTask.enLinkageType),
-                  stTask.nPriority);
+        if (is_task_expired(stTask))
+        {
+            dlog_warn("联动任务已过期，丢弃 - 事件: %s, 联动类型: %d, 优先级: %d",
+                      EventLinkageDict::get_event_name(stTask.stContext.enEventType).c_str(),
+                      static_cast<int>(stTask.enLinkageType),
+                      stTask.nPriority);
+            continue;
+        }
 
         /* 同类联动若仍在执行，先判断当前任务是否允许抢占 */
-        if (is_task_running(stTask.enLinkageType))
+        if (is_task_running(stTask.enLinkageType) && !handle_running_task_conflict(stTask))
         {
-            if (check_and_interrupt(stTask.enLinkageType, stTask.nPriority))
-            {
-                /* 最多等待5秒，给被打断的旧任务留出退出时间 */
-                int nWaitCount = 0;
-                while (is_task_running(stTask.enLinkageType) && nWaitCount < 50)
-                {
-                    std::this_thread::sleep_for(std::chrono::milliseconds(100));
-                    ++nWaitCount;
-                }
-            }
-            else
-            {
-                /* 旧任务优先级更高时，新任务回到队列稍后再试 */
-                requeue_task(stTask);
-                std::this_thread::sleep_for(std::chrono::milliseconds(100));
-                continue;
-            }
+            continue;
         }
 
         {
@@ -194,15 +230,26 @@ void EventLinkageWorker::task_loop()
             m_linkagePriorities[stTask.enLinkageType].store(stTask.nPriority);
         }
 
+        dlog_info("处理联动任务 - 事件: %s, 联动类型: %d, 优先级: %d",
+                  EventLinkageDict::get_event_name(stTask.stContext.enEventType).c_str(),
+                  static_cast<int>(stTask.enLinkageType),
+                  stTask.nPriority);
+
         /* 异步执行具体联动动作，避免阻塞工作线程继续收任务 */
         auto future = std::async(std::launch::async, [this, stTask]() {
             auto &bRunningFlag = m_linkageRunningFlags[stTask.enLinkageType];
             m_asyncAction.execute(stTask, bRunningFlag);
 
             std::lock_guard<std::mutex> lock(m_currentLinkageMutex);
-            /* 任务结束后及时清空运行态，恢复该联动类型的可执行状态 */
-            m_linkagePriorities[stTask.enLinkageType].store(INT_MAX);
-            m_currentLinkages.erase(stTask.enLinkageType);
+            auto it = m_currentLinkages.find(stTask.enLinkageType);
+            if (it != m_currentLinkages.end() &&
+                it->second.llTimestamp == stTask.llTimestamp &&
+                it->second.nPriority == stTask.nPriority)
+            {
+                /* 任务结束后只清理自己的运行态，避免被打断的旧任务误删新任务 */
+                m_linkagePriorities[stTask.enLinkageType].store(INT_MAX);
+                m_currentLinkages.erase(it);
+            }
         });
 
         {
@@ -244,12 +291,63 @@ bool EventLinkageWorker::is_task_running(LinkageType_E enLinkageType)
     return m_linkageRunningFlags.count(enLinkageType) && m_linkageRunningFlags[enLinkageType].load();
 }
 
-void EventLinkageWorker::requeue_task(const LinkageTask_S &stTask)
+bool EventLinkageWorker::is_task_expired(const LinkageTask_S &stTask) const
 {
-    std::lock_guard<std::mutex> lock(m_queueMutex);
-    /* 同类任务暂时不能执行时，重新放回优先队列等待下一轮调度 */
-    m_linkageQueue.push(stTask);
-    m_queueCV.notify_one();
+    return stTask.llExpireTimeMs > 0 && TimeUtils_NS::get_monotonicTimestampMs() > stTask.llExpireTimeMs;
+}
+
+bool EventLinkageWorker::handle_running_task_conflict(const LinkageTask_S &stTask)
+{
+    if (stTask.enLinkageType == LinkageType_E::SOUND)
+    {
+        std::string strNewAudioPath;
+        if (m_asyncAction.get_audio_file_path(strNewAudioPath) == OK)
+        {
+            const std::string strPlayingAudio = m_asyncAction.get_playing_audio_path();
+            if (strPlayingAudio == strNewAudioPath)
+            {
+                dlog_info("新声音联动任务与当前播放的音频相同(%s)，执行合并去重，直接丢弃", strNewAudioPath.c_str());
+                return false;
+            }
+        }
+    }
+
+    if (check_and_interrupt(stTask.enLinkageType, stTask.nPriority))
+    {
+        /* 最多等待5秒，给被打断的旧任务留出退出时间 */
+        int nWaitCount = 0;
+        while (is_task_running(stTask.enLinkageType) && nWaitCount < 50)
+        {
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            ++nWaitCount;
+        }
+
+        if (is_task_running(stTask.enLinkageType))
+        {
+            dlog_warn("旧联动任务未在等待窗口内退出，丢弃新任务 - 联动类型: %d, 优先级: %d",
+                      static_cast<int>(stTask.enLinkageType),
+                      stTask.nPriority);
+            return false;
+        }
+
+        return true;
+    }
+
+    if (stTask.enLinkageType == LinkageType_E::ALARM_IO)
+    {
+        std::lock_guard<std::mutex> lock(m_currentLinkageMutex);
+        auto it = m_currentLinkages.find(LinkageType_E::ALARM_IO);
+        if (it != m_currentLinkages.end() && has_same_alarm_output(it->second.vecAlarmOutputNum, stTask.vecAlarmOutputNum))
+        {
+            dlog_info("报警IO联动任务与当前输出IO重复，执行合并去重，直接丢弃");
+            return false;
+        }
+    }
+
+    dlog_info("同类联动任务正在执行，新任务优先级(%d)低于或等于当前任务，为避免队列积压直接丢弃 - 联动类型: %d",
+              stTask.nPriority,
+              static_cast<int>(stTask.enLinkageType));
+    return false;
 }
 
 void EventLinkageWorker::cleanup_finished_async_tasks()

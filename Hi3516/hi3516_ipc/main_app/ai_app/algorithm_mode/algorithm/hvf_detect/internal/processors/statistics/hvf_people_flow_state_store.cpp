@@ -3,7 +3,7 @@
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2026-04-22 18:44:48
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-04-23 09:37:25
+ * @LastEditTime : 2026-05-25 16:02:15
  * @Description  : HVF 人流统计运行态状态仓库实现
  */
 
@@ -70,6 +70,12 @@ void CHVFPeopleFlowStateStore::onEnter(const EventStatistics_NS::TargetSnapshot_
     ++m_nEnterCount;
     m_nCurrentStayCount = (m_nEnterCount >= m_nLeaveCount) ? (m_nEnterCount - m_nLeaveCount) : 0;
     m_vecEnterTargets.emplace_back(stSnapshot);
+    // dlog_debug("[people_flow_state] onEnter track_id[%d] 进入[%u] 离开[%u] 滞留[%u] 目标缓存[%zu]",
+    //            stSnapshot.nTrackId,
+    //            m_nEnterCount,
+    //            m_nLeaveCount,
+    //            m_nCurrentStayCount,
+    //            m_vecEnterTargets.size());
 }
 
 void CHVFPeopleFlowStateStore::onLeave(const EventStatistics_NS::TargetSnapshot_S &stSnapshot)
@@ -77,6 +83,12 @@ void CHVFPeopleFlowStateStore::onLeave(const EventStatistics_NS::TargetSnapshot_
     ++m_nLeaveCount;
     m_nCurrentStayCount = (m_nEnterCount >= m_nLeaveCount) ? (m_nEnterCount - m_nLeaveCount) : 0;
     m_vecLeaveTargets.emplace_back(stSnapshot);
+    // dlog_debug("[people_flow_state] onLeave track_id[%d] 进入[%u] 离开[%u] 滞留[%u] 目标缓存[%zu]",
+    //            stSnapshot.nTrackId,
+    //            m_nEnterCount,
+    //            m_nLeaveCount,
+    //            m_nCurrentStayCount,
+    //            m_vecLeaveTargets.size());
 }
 
 void CHVFPeopleFlowStateStore::setCurrentStayCount(uint32_t nCurrentStayCount)
@@ -100,6 +112,7 @@ void CHVFPeopleFlowStateStore::maybeTimedReset(long long llNowMs)
         return;
     }
 
+    // dlog_debug("[people_flow_state] 定时清零触发 day_key[%lld] 当前进入[%u] 离开[%u]", llDayKey, m_nEnterCount, m_nLeaveCount);
     clear();
     m_llLastResetDay = llDayKey;
     dlog_info("人流统计定时清零完成，day_key[%lld]", llDayKey);
@@ -199,6 +212,11 @@ uint32_t CHVFPeopleFlowStateStore::getCurrentStayCount() const
 
 void CHVFPeopleFlowStateStore::clear()
 {
+    // dlog_debug("[people_flow_state] clear 原进入[%u] 离开[%u] 滞留[%u] 报告序号[%u]",
+    //            m_nEnterCount,
+    //            m_nLeaveCount,
+    //            m_nCurrentStayCount,
+    //            m_nReportSeq);
     m_nEnterCount = 0;
     m_nLeaveCount = 0;
     m_nCurrentStayCount = 0;

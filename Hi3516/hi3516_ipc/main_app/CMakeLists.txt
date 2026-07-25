@@ -7,7 +7,7 @@ project(${PRO_NAME})
 # ipc_share
 include(${IPC_SHARE_PATH}/ipc_share.cmake)
 include(${IPC_SHARE_PATH}/common/utils/sdl/sdl.cmake)
-# include(${IPC_SHARE_PATH}/protocols/tvsdk/tvsdk.cmake)
+#include(${IPC_SHARE_PATH}/protocols/tvsdk/tvsdk.cmake)
 
 # cam_share
 include(${CAM_SHARE_PATH}/include/include.cmake)
@@ -76,7 +76,7 @@ add_executable (${PRO_NAME} ${MAIN_LIST} ${STREAM_LIST} ${SRC_LIST} ${HI_PIPELIN
 #连接库
 #查看platform下的库文件cmake
 target_link_libraries(${PROJECT_NAME} 
-    # -lpthread
+    -lpthread
     -latomic
 
     #mpp
@@ -111,11 +111,13 @@ target_link_libraries(${PROJECT_NAME}
     -laac_comm
     -laac_dec
     -laac_enc
+    -lss_mpi_cipher
+    -lss_mpi_km
+    -lot_mpi_otp
     #ai detect
     -lss_mpi_aidetect
     -lsvp_acl
     -lprotobuf-c
-    -lss_mpi_km
     -lsvp_aicpu
     -lss_ivs_md
     # -lrt
@@ -136,7 +138,7 @@ target_link_libraries(${PROJECT_NAME}
     # libatomic
 	libsqlite3
     libcurl
-    libgmssl
+    # libgmssl
     libopenssl
 	# -lMemoryCheck
     libupnp
@@ -154,7 +156,7 @@ target_link_libraries(${PROJECT_NAME}
     # libmk_api
     libonvif
     libffmpeg
-    # libNetTVSDKServer
+    libNetTVSDKServer
     libmqtt
 
     # ai_share

@@ -11,6 +11,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <time.h>
+#include <string.h>
 #include "mjpeg_video_source.h"
 #include "assert.h"
 enum
@@ -42,9 +43,12 @@ MJPEG_Video_Source::MJPEG_Video_Source(UsageEnvironment& env, FramedSource* sour
 		fWidthPixels(0), fHeightPixels(0),
 		fPrecision(0)
 {
-
+	fQtableLength = 0;
+	m_qTable0Init = false;
+	m_qTable1Init = false;
+	memset(fQuantizationTable, 0, sizeof(fQuantizationTable));
 }
- 
+
 /*!*****************************************************************************
  * \brief Destructor
 *************************************************************************************/
@@ -94,6 +98,11 @@ void MJPEG_Video_Source::afterGettingFrame1(unsigned frameSize, unsigned numTrun
 	{
 		fFrameSize = 0;
 		fNumTruncatedBytes = 0;
+
+		if(fTo == NULL || frameSize < 4)
+		{
+			break;
+		}
 
 		pFrame = fTo;
 		pFrameEnd = fTo + frameSize - 1;
@@ -145,7 +154,15 @@ void MJPEG_Video_Source::afterGettingFrame1(unsigned frameSize, unsigned numTrun
 				{
 					pFrame++;
 					int nAppLength = 0;
+					if((pFrame + 1) > pFrameEnd)
+					{
+						break;
+					}
 					nAppLength = (pFrame[0] << 8) | pFrame[1];
+					if((pFrame + nAppLength) > pFrameEnd)
+					{
+						break;
+					}
 					pFrame += nAppLength;
 					break;
 				}
@@ -158,7 +175,15 @@ void MJPEG_Video_Source::afterGettingFrame1(unsigned frameSize, unsigned numTrun
 					unsigned short u16DQtNum = 0; //0:DQT Y, 1:DQT Cb/Cr
 					unsigned short u16DqtPrecision = 0;
 
+					if((pFrame + 2) > pFrameEnd)
+					{
+						break;
+					}
 					nDqtLength = (pFrame[0] << 8) | pFrame[1];
+					if((pFrame + nDqtLength) > pFrameEnd)
+					{
+						break;
+					}
 					// assert(67 == nDqtLength);
 
 					u16DQtNum = pFrame[2] & 0x0F;
@@ -169,11 +194,19 @@ void MJPEG_Video_Source::afterGettingFrame1(unsigned frameSize, unsigned numTrun
 
 					if(0 == u16DqtPrecision)
 					{
+						if((fQtableLength + 64) > sizeof(fQuantizationTable))
+						{
+							break;
+						}
 						fPrecision &= ~(0x1 << u16DQtNum);
 						fQtableLength += 64;
 					}
 					else if(1 == u16DqtPrecision)
 					{
+						if((fQtableLength + 128) > sizeof(fQuantizationTable))
+						{
+							break;
+						}
 						fPrecision |= (0x1 << u16DQtNum);
 						fQtableLength += (64 * 2);
 					}
@@ -204,9 +237,13 @@ void MJPEG_Video_Source::afterGettingFrame1(unsigned frameSize, unsigned numTrun
 					u_int8_t componentId[3] = {0};
 					u_int8_t samplingFactor[3] = {0};
 					u_int8_t QtableNum[3] = {0};
-					
+
 					pFrame++;
 					/* 正确解析 SOF 段的大端格式长度 */
+					if((pFrame + 1) > pFrameEnd)
+					{
+						break;
+					}
 					nSofLen = (pFrame[0] << 8) | pFrame[1];
 
 					if((pFrame + nSofLen) > pFrameEnd) // 边界检查
@@ -270,7 +307,15 @@ void MJPEG_Video_Source::afterGettingFrame1(unsigned frameSize, unsigned numTrun
 					int nDCTLength = 0;
 
 					pFrame++;
+					if((pFrame + 1) > pFrameEnd)
+					{
+						break;
+					}
 					nDCTLength = (pFrame[0] << 8) | pFrame[1];
+					if((pFrame + nDCTLength) > pFrameEnd)
+					{
+						break;
+					}
 					pFrame += nDCTLength;
 
 					break;
@@ -279,11 +324,19 @@ void MJPEG_Video_Source::afterGettingFrame1(unsigned frameSize, unsigned numTrun
 				case DRI_MARKER: // DRI (Define Restart Interval)
 				{
 					int nDriLength = 0;
-					
+
 					pFrame++; // Move past the DRI marker itself
+					if((pFrame + 1) > pFrameEnd)
+					{
+						break;
+					}
 					nDriLength = (pFrame[0] << 8) | pFrame[1];
+					if((pFrame + nDriLength) > pFrameEnd)
+					{
+						break;
+					}
 					pFrame += nDriLength; // Skip the entire DRI segment (marker + length field + data)
-					
+
 					break;
 				}
 
@@ -291,7 +344,15 @@ void MJPEG_Video_Source::afterGettingFrame1(unsigned frameSize, unsigned numTrun
 				{
 					int cmtLength = 0;
 					pFrame++; // Move past the COM marker itself
+					if((pFrame + 1) > pFrameEnd)
+					{
+						break;
+					}
 					cmtLength = (pFrame[0] << 8) | pFrame[1];
+					if((pFrame + cmtLength) > pFrameEnd)
+					{
+						break;
+					}
 					pFrame += cmtLength; // Skip the entire comment segment
 					break;
 				}
@@ -302,7 +363,15 @@ void MJPEG_Video_Source::afterGettingFrame1(unsigned frameSize, unsigned numTrun
 					//envir() << "Start Of Scan\n";
 
 					pFrame++;
+					if((pFrame + 1) > pFrameEnd)
+					{
+						break;
+					}
 					SOSLength = (pFrame[0] << 8) | pFrame[1];
+					if((pFrame + SOSLength) > pFrameEnd)
+					{
+						break;
+					}
 					pFrame += SOSLength;
 
 					//envir() << "SOSLength = " << SOSLength << "\n";
@@ -345,7 +414,7 @@ void MJPEG_Video_Source::afterGettingFrame1(unsigned frameSize, unsigned numTrun
         // It safely handles moving the data to the start of the buffer.
 		memmove(fTo, pFrame, scanDataSize);
 
-		fFrameSize = frameSize;
+		fFrameSize = scanDataSize;
 		fNumTruncatedBytes = numTruncatedBytes;
 		fPresentationTime = presentationTime;
 		fDurationInMicroseconds = durationInMicroseconds;

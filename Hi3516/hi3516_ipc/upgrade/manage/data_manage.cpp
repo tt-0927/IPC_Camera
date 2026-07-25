@@ -1,11 +1,12 @@
-/*
+/**
  * @FilePath     : data_manage.cpp
- * @Author       : yanzeh yanzeh@kfb.cn
- * @Date         : 2023-08-26 11:23:52
- * @LastEditors: 李辉 lihui@kfb.cn
- * @LastEditTime: 2025-02-15 10:03:17
+ * @Author       : zhouzr@kfb.cn
+ * @Date         : 2026-07-01 08:49:41
+ * @LastEditors  : zhouzr@kfb.cn
+ * @LastEditTime : 2026-07-01 09:21:26
  * @Description  : 数据管理模块
  */
+
 #include "data_manage.h"
 
 #include "dlog.h"

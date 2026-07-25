@@ -3,11 +3,12 @@
  * @Author       : huangjunda
  * @Date         : 2025-04-29 09:54:27
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-04-20 14:59:52
+ * @LastEditTime : 2026-06-04 11:40:24
  * @Description  : 事件任务
  */
 
 #include "event_task.h"
+#include <algorithm>
 #include "convert_interface.h"
 #include "path_define.h"
 #include "event_define.h"
@@ -16,6 +17,7 @@
 #include "IpcRet.h"
 #include "event_resource.h"
 #include "event_configure.h"
+#include "event_abnormal_detector.h"
 #ifdef SCENE_INTELLIGENT_ANALYSIS
 #include "event_vlm_manage.hpp"
 #endif
@@ -431,31 +433,20 @@ void Task::Event::SetAbnormalAlarmInfo::handle()
 {
     ::Alarm::AbnormalDetection_S stInfo;
     Convert::to_struct(m_taskData, stInfo);
-    int nRet = CEventConfigure::instance()->set_configure(stInfo);
-    static CEventManage *detector = CEventManage::instance();
 
-    if(!stInfo.stLinkageList.tradition.empty() || !stInfo.stLinkageList.alarmOutput.empty()) 
+    /* 持久化配置到文件 */
+    int nRet = CEventConfigure::instance()->set_configure(stInfo);
+    if (nRet != OK)
     {
-        stInfo.bEnable = true;
+        dlog_error("保存异常报警配置失败: 类型=%d, 错误码=%d", static_cast<int>(stInfo.enAbnormalType), nRet);
+        result(nRet);
+        return;
     }
-    else
-    {
-        stInfo.bEnable = false;
-    }
-    
-    if(0 == nRet) 
-    {
-        if(stInfo.bEnable)
-        {
-            dlog_debug("start Detction ");
-            //启动或更新异常检测线程 
-            detector->startDetection(stInfo.enAbnormalType); 
-        }else{
-            //停止异常类型的检测线程
-            detector->stopDetection(stInfo.enAbnormalType); 
-        }
-    }
-    result(nRet);
+
+    /* 将联动配置同步到异常检测器，检测线程不受影响持续运行 */
+    CAbnormalDetector::instance()->update_linkage_config(stInfo.enAbnormalType, stInfo.stLinkageList);
+
+    result(OK);
 }
 
 /* 获取声音报警参数 */
@@ -1317,7 +1308,7 @@ void Task::Event::SetPetRecognitionInfo::handle()
     result(nRet);
 }
 
-
+#if CAP_AI_FACE_COMPARE
 /*人脸获取比对设置*/
 void Task::Event::GetFaceCompareInfo::handle()
 {
@@ -1349,7 +1340,7 @@ void Task::Event::SetFaceCompareInfo::handle()
     result(nRet);
 }
 
-
+#endif
 
 /* 获取人脸抓拍信息 */
 void Task::Event::GetFaceCaptureInfo::handle()
@@ -1443,7 +1434,7 @@ void Task::Event::SetFaceCaptureOverlayInfo::handle()
 exit:
     result(nRet);
 }
-
+#if CAP_AI_FACE_COMPARE
 /* 添加目标库  */
 void Task::Event::AddTargetLib::handle()
 {
@@ -1490,6 +1481,12 @@ void Task::Event::DelTargetLib::handle()
         stEventSchedule.defenseTime = aAlarmTime;
         CEventConfigure::instance()->set_configure(stEventSchedule);
         CEventManage::instance()->update_event_schedule();
+
+        Alarm::FaceCompare_S stInfo;
+        CEventConfigure::instance()->get_configure(stInfo);
+        stInfo.TargetLibInfos.LibId.clear();
+        stInfo.TargetLibInfos.Similarity = 0.0f;
+        CEventConfigure::instance()->set_configure(stInfo);
     }
     result(nRet);
 }
@@ -1517,19 +1514,11 @@ void Task::Event::GetTargetLib::handle()
 /* 添加人脸信息 */
 void Task::Event::AddFaceInfo::handle()
 {
-    auto pData = std::make_shared<std::string>();
-    CEventManage::instance()->send_algo_controlData(AC_ADD_FACE_INFO,
-                                                    m_taskData.c_str(), pData.get());
-
     int nRet = 0;
-    Json::get(pData->c_str(), "Return", nRet);
-    if (nRet != 0)
-    {
-        result(nRet);
-        return;
-    }
-
-    result(*pData);
+    CEventManage::instance()->send_algo_controlData(AC_ADD_FACE_INFO,
+                                                    m_taskData.c_str(),&nRet);
+    
+    result(nRet);
 }
 /* 删除人脸信息 */
 void Task::Event::DelFaceInfo::handle()
@@ -1558,7 +1547,16 @@ void Task::Event::GetFaceInfo::handle()
         pData.get());
     result(*pData);
 }
-
+/*删除多余人脸图片*/
+void Task::Event::DelFaceFile::handle()
+{
+    int nRet = -1;
+    CEventManage::instance()->send_algo_controlData(AC_DEL_FACE_FILE,
+        m_taskData.c_str(),
+        &nRet);
+    result(nRet);
+}
+#endif
 #ifdef SCENE_INTELLIGENT_ANALYSIS
 /**
  * @brief   : 场景智能分析
@@ -1650,39 +1648,91 @@ void Task::Event::OperateImageAnalysisRecord::handle()
     Alarm::AnalysisAllRecordIndexItem_S stInfo;
     Convert::to_struct(m_taskData, stInfo);
 
-    /* 获取全部记录*/ 
+    /* 保存分页参数（get_configure 会整体覆写 stInfo，需提前保留） */
+    int nSavedPageSize = stInfo.nPageSize;
+    std::string strSavedCursor = stInfo.strCursor;
+    int nSavedPageIndex = stInfo.nPageIndex;
+
+    /* 获取全部记录*/
     /* 功能：返回所有会话的列表。为了减少数据传输，每个会话只包含第一条记录作为"标题"*/
     if(stInfo.enAnalysisRecordOperate == Alarm::AnalysisRecordOperate_E::GET_ALL_RECORDS)
     {
         CEventConfigure::instance()->get_configure(stInfo);
-        
+
         if (stInfo.Allrecords.empty()) {
             /*记录为空*/
             result("[]",OK_NOT_EXIST);
            return;
-        } 
+        }
 
         Alarm::AnalysisAllRecordIndexItem_S stPreview;
         // 手动复制必要的元数据 (Metadata)
         stPreview.total_sessions = stInfo.total_sessions;
         stPreview.current_session_index = stInfo.current_session_index;
         stPreview.enAnalysisRecordOperate = Alarm::AnalysisRecordOperate_E::GET_ALL_RECORDS;
+        stPreview.nTotalCount = static_cast<int>(stInfo.Allrecords.size());
 
         // 遍历源数据，只提取摘要信息
         for (const auto& session : stInfo.Allrecords) {
             Alarm::AnalysisRecordIndexItem_S simpleSession;
             simpleSession.indexKey = session.indexKey; // 复制会话ID
-            
+
             // 提取该会话的第一条记录作为标题/摘要
-            // (根据之前的设定，records[0] 是会话的开场白/第一句)
             if (!session.records.empty()) {
                 simpleSession.records.push_back(session.records.at(0));
             }
-            
+
             // 将轻量级的会话对象加入预览列表
             stPreview.Allrecords.push_back(simpleSession);
         }
-        
+
+        /* 分页处理：使用前端传入的 saved 参数 */
+        if (!strSavedCursor.empty())
+        {
+            int nPageSize = nSavedPageSize > 0 ? nSavedPageSize : stPreview.nTotalCount;
+            auto it = std::find_if(stPreview.Allrecords.begin(), stPreview.Allrecords.end(),
+                [&](const Alarm::AnalysisRecordIndexItem_S &s) { return s.indexKey == strSavedCursor; });
+
+            if (it != stPreview.Allrecords.end())
+            {
+                int nOffset = static_cast<int>(std::distance(stPreview.Allrecords.begin(), it)) + 1;
+                if (nOffset >= stPreview.nTotalCount)
+                {
+                    stPreview.Allrecords.clear();
+                }
+                else
+                {
+                    int nEnd = std::min(nOffset + nPageSize, stPreview.nTotalCount);
+                    stPreview.bHasMore = (nEnd < stPreview.nTotalCount);
+                    std::vector<Alarm::AnalysisRecordIndexItem_S> vstPaged(
+                        stPreview.Allrecords.begin() + nOffset,
+                        stPreview.Allrecords.begin() + nEnd);
+                    stPreview.Allrecords.swap(vstPaged);
+                }
+            }
+            else
+            {
+                stPreview.Allrecords.clear();
+            }
+        }
+        else if (nSavedPageSize > 0)
+        {
+            int nStart = nSavedPageIndex * nSavedPageSize;
+            if (nStart >= stPreview.nTotalCount)
+            {
+                stPreview.Allrecords.clear();
+            }
+            else
+            {
+                int nEnd = std::min(nStart + nSavedPageSize, stPreview.nTotalCount);
+                stPreview.bHasMore = (nEnd < stPreview.nTotalCount);
+                std::vector<Alarm::AnalysisRecordIndexItem_S> vstPaged(
+                    stPreview.Allrecords.begin() + nStart,
+                    stPreview.Allrecords.begin() + nEnd);
+                stPreview.Allrecords.swap(vstPaged);
+            }
+        }
+
         result(Convert::to_string(stPreview));
     }
     /*获取单个会话的所有记录*/
@@ -1697,17 +1747,68 @@ void Task::Event::OperateImageAnalysisRecord::handle()
             /*记录为空*/
             result("[]",OK_NOT_EXIST);
            return;
-        } 
+        }
 
          // 检查索引有效性
-        if(index < 0 || index >= (int)stInfo.Allrecords.size()) 
+        if(index < 0 || index >= (int)stInfo.Allrecords.size())
         {
             /*记录为空*/
             result("[]",OK_NOT_EXIST);
             return;
         }
 
-        result(Convert::to_string(stInfo.Allrecords.at(index)));
+        Alarm::AnalysisRecordIndexItem_S stSession = stInfo.Allrecords.at(index);
+        stSession.nTotalCount = static_cast<int>(stSession.records.size());
+        stSession.bHasMore = false;
+
+        /* 分页处理：使用前端传入的 saved 参数 */
+        if (!strSavedCursor.empty())
+        {
+            int nPageSize = nSavedPageSize > 0 ? nSavedPageSize : stSession.nTotalCount;
+            auto it = std::find_if(stSession.records.begin(), stSession.records.end(),
+                [&](const Alarm::AnalysisRecords_S &r) { return r.strId == strSavedCursor; });
+
+            if (it != stSession.records.end())
+            {
+                int nOffset = static_cast<int>(std::distance(stSession.records.begin(), it)) + 1;
+                if (nOffset >= stSession.nTotalCount)
+                {
+                    stSession.records.clear();
+                }
+                else
+                {
+                    int nEnd = std::min(nOffset + nPageSize, stSession.nTotalCount);
+                    stSession.bHasMore = (nEnd < stSession.nTotalCount);
+                    std::vector<Alarm::AnalysisRecords_S> vstPaged(
+                        stSession.records.begin() + nOffset,
+                        stSession.records.begin() + nEnd);
+                    stSession.records.swap(vstPaged);
+                }
+            }
+            else
+            {
+                stSession.records.clear();
+            }
+        }
+        else if (nSavedPageSize > 0)
+        {
+            int nStart = nSavedPageIndex * nSavedPageSize;
+            if (nStart >= stSession.nTotalCount)
+            {
+                stSession.records.clear();
+            }
+            else
+            {
+                int nEnd = std::min(nStart + nSavedPageSize, stSession.nTotalCount);
+                stSession.bHasMore = (nEnd < stSession.nTotalCount);
+                std::vector<Alarm::AnalysisRecords_S> vstPaged(
+                    stSession.records.begin() + nStart,
+                    stSession.records.begin() + nEnd);
+                stSession.records.swap(vstPaged);
+            }
+        }
+
+        result(Convert::to_string(stSession));
     }
     /* 获取单个会话的单条指定记录*/
     else if(stInfo.enAnalysisRecordOperate == Alarm::AnalysisRecordOperate_E::GET_SESSION_SINGLE_RECORD)

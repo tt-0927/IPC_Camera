@@ -3,7 +3,7 @@
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2026-04-22 18:44:48
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-04-28 20:18:02
+ * @LastEditTime : 2026-06-01 15:06:42
  * @Description  : HVF 人流统计处理器
  */
 
@@ -77,6 +77,26 @@ private:
      * @return   {bool} true：需要上报 false：无需上报
      */
     bool shouldEmitStatisticsReport(long long llNowMs);
+
+    /**
+     * @brief   : 构建人流统计上报全景图
+     * @param    {ot_video_frame_info} *pFrameInfo：当前检测帧
+     * @param    {std::vector<unsigned char>} &vecJpeg：输出 JPEG 二进制图片
+     * @return   {bool} true：构建成功 false：构建失败
+     */
+    bool buildPanoramaImage(ot_video_frame_info *pFrameInfo, std::vector<unsigned char> &vecJpeg);
+
+    /**
+     * @brief   : 构建人流统计上报目标小图
+     * @param    {Common::RectInfo_S} &stRectInfo：人体目标框
+     * @param    {ot_video_frame_info} *pFrameInfo：当前检测帧
+     * @param    {std::vector<unsigned char>} &vecJpeg：输出 JPEG 二进制图片
+     * @return   {bool} true：构建成功 false：构建失败
+     * @note    : 以较长边为基准扩大 1.5 倍，以中心点裁剪正方形
+     */
+    bool buildTargetImage(const Common::RectInfo_S &stRectInfo,
+                          ot_video_frame_info *pFrameInfo,
+                          std::vector<unsigned char> &vecJpeg);
 
     /* 人流统计配置 */
     Alarm::PeopleFlowStatistics_S m_stAlgoCfg;

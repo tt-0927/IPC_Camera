@@ -1277,10 +1277,7 @@ int CPlatformManager::init()
         /* 若已启用平台接入，启动自动登录重试线程 */
         if (g_enable)
         {
-            m_bStopAutoLogin.store(false);
-            m_nRetryCount = 0;
-            m_autoLoginThread = std::thread(&CPlatformManager::auto_login_loop, this);
-            dlog_info("平台自动登录重试线程已启动");
+            ensure_auto_login_thread();
         }
     }
     else
@@ -1304,9 +1301,17 @@ int CPlatformManager::deinit()
 
     /* 停止自动登录重试线程 */
     m_bStopAutoLogin.store(true);
-    if (m_autoLoginThread.joinable())
+    std::thread autoLoginThread;
     {
-        m_autoLoginThread.join();
+        std::lock_guard<std::mutex> lock(m_mtxAutoLoginLifecycle);
+        if (m_autoLoginThread.joinable())
+        {
+            autoLoginThread = std::move(m_autoLoginThread);
+        }
+    }
+    if (autoLoginThread.joinable())
+    {
+        autoLoginThread.join();
     }
 
     /* 反初始化 MQTT */
@@ -1473,67 +1478,105 @@ void CPlatformManager::auto_login_loop()
 {
     while (!m_bStopAutoLogin.load())
     {
-        /* 若已登录（有有效 token），无需重试 */
-        if (!access_token_.empty())
+        const bool bNeedRelogin = m_bNetworkReloginPending.load() || access_token_.empty();
+        if (!bNeedRelogin)
         {
             std::this_thread::sleep_for(std::chrono::seconds(AUTO_LOGIN_RETRY_INTERVAL_SEC));
             continue;
         }
 
         /* 达到最大重试次数则退出（0 表示无限重试） */
-        if (AUTO_LOGIN_MAX_RETRIES > 0 && m_nRetryCount >= AUTO_LOGIN_MAX_RETRIES)
+        if (AUTO_LOGIN_MAX_RETRIES > 0 &&
+            m_nRetryCount.load() >= AUTO_LOGIN_MAX_RETRIES)
         {
             dlog_warn("平台自动登录达到最大重试次数 %d，停止重试", AUTO_LOGIN_MAX_RETRIES);
             break;
         }
 
-        LoginResponse out_response;
-        std::string target_host = g_custom ? custom_host : host_;
-        int target_port = g_custom ? custom_post : port_;
-
-        dlog_info("平台自动登录重试第 %d 次: host=%s, port=%d",
-                  m_nRetryCount + 1, target_host.c_str(), target_port);
-
-        bool bSuccess = login(target_host, target_port, login_user, login_password, g_enable, g_custom, out_response);
-        if (bSuccess)
+        dlog_info("平台自动登录重试第 %d 次", m_nRetryCount.load() + 1);
+        if (change_net_relogin() == OK)
         {
             dlog_info("平台自动登录成功");
-            register_current_device(out_response.data.access_token, login_user, login_password);
-            /* 登录成功后，更新推流地址 */
-            relogin_and_update_stream();
-            break;
+            m_bNetworkReloginPending.store(false);
+            m_nRetryCount.store(0);
         }
         else
         {
             dlog_error("平台自动登录失败，%d 秒后重试", AUTO_LOGIN_RETRY_INTERVAL_SEC);
-            m_nRetryCount++;
+            m_nRetryCount.fetch_add(1);
         }
 
         std::this_thread::sleep_for(std::chrono::seconds(AUTO_LOGIN_RETRY_INTERVAL_SEC));
     }
 }
 
+void CPlatformManager::ensure_auto_login_thread()
+{
+    std::lock_guard<std::mutex> lock(m_mtxAutoLoginLifecycle);
+    if (m_autoLoginThread.joinable())
+    {
+        return;
+    }
+
+    m_bStopAutoLogin.store(false);
+    m_nRetryCount.store(0);
+    m_autoLoginThread = std::thread(&CPlatformManager::auto_login_loop, this);
+    dlog_info("平台自动登录重试线程已启动");
+}
+
 int CPlatformManager::change_net_relogin()
 {
     int ret = -1;
-        if (access_token_.empty())
+    if (!g_enable)
+    {
+        return ret;
+    }
+
+    bool bExpected = false;
+    if (!m_bReloginInProgress.compare_exchange_strong(bExpected, true))
+    {
+        /* 已有登录请求在执行，标记后由该请求完成后或自动线程继续处理。 */
+        m_bNetworkReloginPending.store(true);
+        return ret;
+    }
+
+    struct ReloginGuard
+    {
+        std::atomic<bool>& bInProgress;
+        ~ReloginGuard()
         {
-            dlog_info("access_token empty");
-            return ret;
+            bInProgress.store(false);
         }
-        LoginResponse out_response;
-        std::string target_host = g_custom ? custom_host : host_;
-        int target_port = g_custom ? custom_post : port_;
-        dlog_info("change_net_relogin");
-        bool bSuccess = login(target_host, target_port, login_user, login_password, g_enable, g_custom, out_response);
-        if (bSuccess)
+    } reloginGuard{m_bReloginInProgress};
+
+    LoginResponse out_response;
+    const std::string target_host = g_custom ? custom_host : host_;
+    const int target_port = g_custom ? custom_post : port_;
+    dlog_info("change_net_relogin: host=%s, port=%d", target_host.c_str(), target_port);
+
+    const bool bSuccess = login(target_host, target_port, login_user, login_password,
+                                g_enable, g_custom, out_response);
+    if (bSuccess)
+    {
+        if (register_current_device(out_response.data.access_token, login_user, login_password) &&
+            relogin_and_update_stream() == OK)
         {
             dlog_info("切换网络平台自动登录成功");
-            ret = register_current_device(out_response.data.access_token, login_user, login_password);
-            /* 登录成功后，更新推流地址 */
-            ret = relogin_and_update_stream();
+            m_bNetworkReloginPending.store(false);
+            m_nRetryCount.store(0);
+            return OK;
         }
-        return ret;
+
+        dlog_error("切换网络平台登录成功，但设备注册或 RTMP 更新失败");
+    }
+
+    /*
+     * 不清空旧 token：其他业务仍可保留其状态。独立 pending 标志让自动登录
+     * 线程在网络切换失败后继续重试，而不会把 token 非空误判为平台可达。
+     */
+    m_bNetworkReloginPending.store(true);
+    ensure_auto_login_thread();
+    return ret;
 }
 
 int CPlatformManager::relogin_and_update_stream()

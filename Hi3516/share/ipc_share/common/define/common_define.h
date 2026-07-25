@@ -13,7 +13,6 @@
 #include <chrono>
 #include <iomanip>
 #include "Singleton.h"
-
 namespace Common
 {
     typedef enum

@@ -3,7 +3,7 @@
  * @Author       : zhouzirui
  * @Date         : 2025-04-03 09:55:09
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2025-08-27 19:55:03
+ * @LastEditTime : 2026-06-22 09:34:16
  * @Description  : 非对称加解密算法模块
  */
 
@@ -15,7 +15,6 @@
  * @author      : zhouzirui
  * @param        {CipherPke_S} *pHandle：句柄
  * @return       {*}成功返回0,失败返回-1
- * @note        : 
  */
 static int cipherPke_init(CipherPke_S *pHandle)
 {
@@ -49,6 +48,83 @@ static int cipherPke_uninit(CipherPke_S *pHandle)
 }
 
 /**
+ * @brief       : ECC 密钥生成
+ * @author      : zhouzr
+ * @param        {CipherPke_S} *pHandle：句柄
+ * @param        {drv_pke_ecc_curve_type} enCurveType：ECC曲线参数
+ * @param        {drv_pke_data} *pInputPrivKey：可选输入私钥，NULL 时由硬件随机生成
+ * @param        {drv_pke_data} *pOutputPrivKey：输出私钥缓冲
+ * @param        {drv_pke_ecc_point} *pOutputPubKey：输出公钥缓冲
+ * @return       {*}成功返回0,失败返回-1
+ * @note        : SDK 输出参数声明为 const 指针，调用方仍需提供可写缓冲。
+ */
+static int cipherPke_ecc_gen_key(CipherPke_S *pHandle,
+                                 drv_pke_ecc_curve_type enCurveType,
+                                 const drv_pke_data *pInputPrivKey,
+                                 const drv_pke_data *pOutputPrivKey,
+                                 const drv_pke_ecc_point *pOutputPubKey)
+{
+    if (NULL == pHandle || NULL == pOutputPrivKey || NULL == pOutputPubKey)
+    {
+        return TD_FAILURE;
+    }
+
+    CHECK_API_RETURN(ot_mpi_cipher_pke_ecc_gen_key(enCurveType, pInputPrivKey, pOutputPrivKey, pOutputPubKey));
+
+    return TD_SUCCESS;
+}
+
+/**
+ * @brief       : 检查公钥点是否在指定曲线上
+ * @author      : zhouzr
+ * @param        {CipherPke_S} *pHandle：句柄
+ * @param        {drv_pke_ecc_curve_type} enCurveType：ECC曲线参数
+ * @param        {drv_pke_ecc_point} *pPubKey：待检查公钥
+ * @param        {td_bool} *pIsOnCurve：是否在曲线上
+ * @return       {*}成功返回0,失败返回-1
+ */
+static int cipherPke_check_dot_on_curve(CipherPke_S *pHandle,
+                                        drv_pke_ecc_curve_type enCurveType,
+                                        const drv_pke_ecc_point *pPubKey,
+                                        td_bool *pIsOnCurve)
+{
+    if (NULL == pHandle || NULL == pPubKey || NULL == pIsOnCurve)
+    {
+        return TD_FAILURE;
+    }
+
+    CHECK_API_RETURN(ot_mpi_cipher_pke_check_dot_on_curve(enCurveType, pPubKey, pIsOnCurve));
+
+    return TD_SUCCESS;
+}
+
+/**
+ * @brief       : SM2 签名验签前的 ZA HASH 计算
+ * @author      : zhouzr
+ * @param        {CipherPke_S} *pHandle：句柄
+ * @param        {drv_pke_data} *pSm2Id：SM2 ID
+ * @param        {drv_pke_ecc_point} *pPubKey：SM2 公钥
+ * @param        {drv_pke_msg} *pMsg：待签名消息
+ * @param        {drv_pke_data} *pHash：输出 HASH 缓冲
+ * @return       {*}成功返回0,失败返回-1
+ */
+static int cipherPke_sm2_dsa_hash(CipherPke_S *pHandle,
+                                  const drv_pke_data *pSm2Id,
+                                  const drv_pke_ecc_point *pPubKey,
+                                  const drv_pke_msg *pMsg,
+                                  drv_pke_data *pHash)
+{
+    if (NULL == pHandle || NULL == pSm2Id || NULL == pPubKey || NULL == pMsg || NULL == pHash)
+    {
+        return TD_FAILURE;
+    }
+
+    CHECK_API_RETURN(ot_mpi_cipher_pke_sm2_dsa_hash(pSm2Id, pPubKey, pMsg, pHash));
+
+    return TD_SUCCESS;
+}
+
+/**
  * @brief       : RSA 公钥加密
  * @author      : zhouzirui
  * @param        {CipherPke_S} *pHandle：：句柄
@@ -59,9 +135,14 @@ static int cipherPke_uninit(CipherPke_S *pHandle)
  * @param        {drv_pke_data} *pLabel：OAEP Padding方式中的buff er标识选项
  * @param        {drv_pke_data} *pOutput：加密完成的密文
  * @return       {*}成功返回0,失败返回-1
- * @note        : 
  */
-static int cipherPke_rsa_encryption(CipherPke_S *pHandle, drv_pke_rsa_scheme enScheme, drv_pke_hash_type enHashType, const drv_pke_rsa_pub_key *pPubKey, const drv_pke_data *pInput, const drv_pke_data *pLabel, drv_pke_data *pOutput)
+static int cipherPke_rsa_encryption(CipherPke_S *pHandle,
+                                    drv_pke_rsa_scheme enScheme,
+                                    drv_pke_hash_type enHashType,
+                                    const drv_pke_rsa_pub_key *pPubKey,
+                                    const drv_pke_data *pInput,
+                                    const drv_pke_data *pLabel,
+                                    drv_pke_data *pOutput)
 {
     if (NULL == pHandle || NULL == pPubKey || NULL == pInput || NULL == pLabel || NULL == pOutput)
     {
@@ -85,9 +166,14 @@ static int cipherPke_rsa_encryption(CipherPke_S *pHandle, drv_pke_rsa_scheme enS
  * @param        {drv_pke_data} *pLabel：OAEP Padding方式中的buff er标识选项
  * @param        {drv_pke_data} *pOutput：解密完成的消息
  * @return       {*}成功返回0,失败返回-1
- * @note        : 
  */
-static int cipherPke_rsa_decryption(CipherPke_S *pHandle, drv_pke_rsa_scheme enScheme, drv_pke_hash_type enHashType, const drv_pke_rsa_priv_key *pPrivKey, const drv_pke_data *pInput, const drv_pke_data *pLabel, drv_pke_data *pOutput)
+static int cipherPke_rsa_decryption(CipherPke_S *pHandle,
+                                    drv_pke_rsa_scheme enScheme,
+                                    drv_pke_hash_type enHashType,
+                                    const drv_pke_rsa_priv_key *pPrivKey,
+                                    const drv_pke_data *pInput,
+                                    const drv_pke_data *pLabel,
+                                    drv_pke_data *pOutput)
 {
     if (NULL == pHandle || NULL == pPrivKey || NULL == pInput || NULL == pLabel || NULL == pOutput)
     {
@@ -110,9 +196,13 @@ static int cipherPke_rsa_decryption(CipherPke_S *pHandle, drv_pke_rsa_scheme enS
  * @param        {drv_pke_data} *pInputHash：待签名的HASH值
  * @param        {drv_pke_data} *pSign：HASH签名结果
  * @return       {*}成功返回0,失败返回-1
- * @note        : 
  */
-static int cipherPke_rsa_sign(CipherPke_S *pHandle, const drv_pke_rsa_priv_key *pPrivKey, drv_pke_rsa_scheme enScheme, drv_pke_hash_type enHashType, const drv_pke_data *pInputHash, drv_pke_data *pSign)
+static int cipherPke_rsa_sign(CipherPke_S *pHandle,
+                              const drv_pke_rsa_priv_key *pPrivKey,
+                              drv_pke_rsa_scheme enScheme,
+                              drv_pke_hash_type enHashType,
+                              const drv_pke_data *pInputHash,
+                              drv_pke_data *pSign)
 {
     if (NULL == pHandle || NULL == pPrivKey || NULL == pInputHash || NULL == pSign)
     {
@@ -135,17 +225,21 @@ static int cipherPke_rsa_sign(CipherPke_S *pHandle, const drv_pke_rsa_priv_key *
  * @param        {drv_pke_data} *pInputHash：已签名的HASH值
  * @param        {drv_pke_data} *pSign：HASH签名结果
  * @return       {*}成功返回0,失败返回-1
- * @note        : 
  */
-static int cipherPke_rsa_verify(CipherPke_S *pHandle, const drv_pke_rsa_pub_key *pPubKey, drv_pke_rsa_scheme enScheme, drv_pke_hash_type enHashType, const drv_pke_data *pInputHash, drv_pke_data *pSign)
+static int cipherPke_rsa_verify(CipherPke_S *pHandle,
+                                const drv_pke_rsa_pub_key *pPubKey,
+                                drv_pke_rsa_scheme enScheme,
+                                drv_pke_hash_type enHashType,
+                                const drv_pke_data *pInputHash,
+                                drv_pke_data *pSign)
 {
     if (NULL == pHandle || NULL == pPubKey || NULL == pInputHash || NULL == pSign)
     {
         return TD_FAILURE;
     }
 
-    /*RSA验签，与RSA签名相对应*/
-    // CHECK_API_RETURN(ot_mpi_cipher_pke_rsa_verify(pPubKey, enScheme, enHashType, pInputHash, pSign));
+    /* note: SDK 验签接口未给 input_hash 加 const，实际语义为只读输入。 */
+    CHECK_API_RETURN(ot_mpi_cipher_pke_rsa_verify(pPubKey, enScheme, enHashType, (drv_pke_data *) pInputHash, pSign));
 
     return TD_SUCCESS;
 }
@@ -158,9 +252,11 @@ static int cipherPke_rsa_verify(CipherPke_S *pHandle, const drv_pke_rsa_pub_key 
  * @param        {drv_pke_data} *pPlainText：待加密的消息
  * @param        {drv_pke_data} *pCipherText：密文
  * @return       {*}成功返回0,失败返回-1
- * @note        : 
  */
-static int cipherPke_sm2_encryption(CipherPke_S *pHandle, const drv_pke_ecc_point *pPubKey, const drv_pke_data *pPlainText, drv_pke_data *pCipherText)
+static int cipherPke_sm2_encryption(CipherPke_S *pHandle,
+                                    const drv_pke_ecc_point *pPubKey,
+                                    const drv_pke_data *pPlainText,
+                                    drv_pke_data *pCipherText)
 {
     if (NULL == pHandle || NULL == pPubKey || NULL == pPlainText || NULL == pCipherText)
     {
@@ -181,9 +277,11 @@ static int cipherPke_sm2_encryption(CipherPke_S *pHandle, const drv_pke_ecc_poin
  * @param        {drv_pke_data} *pPlainText：待解密的密文
  * @param        {drv_pke_data} *pCipherText：解密的消息
  * @return       {*}成功返回0,失败返回-1
- * @note        : 
  */
-static int cipherPke_sm2_decryption(CipherPke_S *pHandle, const drv_pke_data *pPrivKey, const drv_pke_data *pPlainText, drv_pke_data *pCipherText)
+static int cipherPke_sm2_decryption(CipherPke_S *pHandle,
+                                    const drv_pke_data *pPrivKey,
+                                    const drv_pke_data *pPlainText,
+                                    drv_pke_data *pCipherText)
 {
     if (NULL == pHandle || NULL == pPrivKey || NULL == pPlainText || NULL == pCipherText)
     {
@@ -205,9 +303,12 @@ static int cipherPke_sm2_decryption(CipherPke_S *pHandle, const drv_pke_data *pP
  * @param        {drv_pke_data} *pHash：待签名的HASH值
  * @param        {drv_pke_ecc_sig} *pSig：签名结果
  * @return       {*}成功返回0,失败返回-1
- * @note        : 
  */
-static int cipherPke_sm2_sign(CipherPke_S *pHandle, drv_pke_ecc_curve_type enCurveType, const drv_pke_data *pPrivKey, const drv_pke_data *pHash, const drv_pke_ecc_sig *pSig)
+static int cipherPke_sm2_sign(CipherPke_S *pHandle,
+                              drv_pke_ecc_curve_type enCurveType,
+                              const drv_pke_data *pPrivKey,
+                              const drv_pke_data *pHash,
+                              const drv_pke_ecc_sig *pSig)
 {
     if (NULL == pHandle || NULL == pPrivKey || NULL == pHash || NULL == pSig)
     {
@@ -229,9 +330,12 @@ static int cipherPke_sm2_sign(CipherPke_S *pHandle, drv_pke_ecc_curve_type enCur
  * @param        {drv_pke_data} *pHash：待签名的HASH值
  * @param        {drv_pke_ecc_sig} *pSig：待验证的签名
  * @return       {*}成功返回0,失败返回-1
- * @note        : 
  */
-static int cipherPke_sm2_verify(CipherPke_S *pHandle, drv_pke_ecc_curve_type enCurveType, const drv_pke_ecc_point *pPubKey, const drv_pke_data *pHash, const drv_pke_ecc_sig *pSig)
+static int cipherPke_sm2_verify(CipherPke_S *pHandle,
+                                drv_pke_ecc_curve_type enCurveType,
+                                const drv_pke_ecc_point *pPubKey,
+                                const drv_pke_data *pHash,
+                                const drv_pke_ecc_sig *pSig)
 {
     if (NULL == pHandle || NULL == pPubKey || NULL == pHash || NULL == pSig)
     {
@@ -253,9 +357,12 @@ static int cipherPke_sm2_verify(CipherPke_S *pHandle, drv_pke_ecc_curve_type enC
  * @param        {drv_pke_data} *pHash：待签名的HASH值
  * @param        {drv_pke_ecc_sig} *pSig：签名结果
  * @return       {*}成功返回0,失败返回-1
- * @note        : 
  */
-static int cipherPke_ecdsa_sign(CipherPke_S *pHandle, drv_pke_ecc_curve_type enCurveType, const drv_pke_data *pPrivKey, const drv_pke_data *pHash, const drv_pke_ecc_sig *pSig)
+static int cipherPke_ecdsa_sign(CipherPke_S *pHandle,
+                                drv_pke_ecc_curve_type enCurveType,
+                                const drv_pke_data *pPrivKey,
+                                const drv_pke_data *pHash,
+                                const drv_pke_ecc_sig *pSig)
 {
     if (NULL == pHandle || NULL == pPrivKey || NULL == pHash || NULL == pSig)
     {
@@ -277,9 +384,12 @@ static int cipherPke_ecdsa_sign(CipherPke_S *pHandle, drv_pke_ecc_curve_type enC
  * @param        {drv_pke_data} *pHash：待签名的HASH值
  * @param        {drv_pke_ecc_sig} *pSig：待验证的签名
  * @return       {*}成功返回0,失败返回-1
- * @note        : 
  */
-static int cipherPke_ecdsa_verify(CipherPke_S *pHandle, drv_pke_ecc_curve_type enCurveType, const drv_pke_ecc_point *pPubKey, const drv_pke_data *pHash, const drv_pke_ecc_sig *pSig)
+static int cipherPke_ecdsa_verify(CipherPke_S *pHandle,
+                                  drv_pke_ecc_curve_type enCurveType,
+                                  const drv_pke_ecc_point *pPubKey,
+                                  const drv_pke_data *pHash,
+                                  const drv_pke_ecc_sig *pSig)
 {
     if (NULL == pHandle || NULL == pPubKey || NULL == pHash || NULL == pSig)
     {
@@ -301,9 +411,12 @@ static int cipherPke_ecdsa_verify(CipherPke_S *pHandle, drv_pke_ecc_curve_type e
  * @param        {drv_pke_msg} *pMsg：待签名的消息
  * @param        {drv_pke_ecc_sig} *pSig：签名结果
  * @return       {*}成功返回0,失败返回-1
- * @note        : 
  */
-static int cipherPke_eddsa_sign(CipherPke_S *pHandle, drv_pke_ecc_curve_type enCurveType, const drv_pke_data *pPrivKey, const drv_pke_msg *pMsg, const drv_pke_ecc_sig *pSig)
+static int cipherPke_eddsa_sign(CipherPke_S *pHandle,
+                                drv_pke_ecc_curve_type enCurveType,
+                                const drv_pke_data *pPrivKey,
+                                const drv_pke_msg *pMsg,
+                                const drv_pke_ecc_sig *pSig)
 {
     if (NULL == pHandle || NULL == pPrivKey || NULL == pMsg || NULL == pSig)
     {
@@ -325,9 +438,12 @@ static int cipherPke_eddsa_sign(CipherPke_S *pHandle, drv_pke_ecc_curve_type enC
  * @param        {drv_pke_msg} *pMsg：签名的消息
  * @param        {drv_pke_ecc_sig} *pSig：签名
  * @return       {*}成功返回0,失败返回-1
- * @note        : 
  */
-static int cipherPke_eddsa_verify(CipherPke_S *pHandle, drv_pke_ecc_curve_type enCurveType, const drv_pke_ecc_point *pPubKey, const drv_pke_msg *pMsg, const drv_pke_ecc_sig *pSig)
+static int cipherPke_eddsa_verify(CipherPke_S *pHandle,
+                                  drv_pke_ecc_curve_type enCurveType,
+                                  const drv_pke_ecc_point *pPubKey,
+                                  const drv_pke_msg *pMsg,
+                                  const drv_pke_ecc_sig *pSig)
 {
     if (NULL == pHandle || NULL == pPubKey || NULL == pMsg || NULL == pSig)
     {
@@ -342,28 +458,31 @@ static int cipherPke_eddsa_verify(CipherPke_S *pHandle, drv_pke_ecc_curve_type e
 
 CipherPke_S *cipherPke_alloc(CipherPkeNeedParam_S stNeedParam)
 {
-    CipherPke_S *pHandle = (CipherPke_S *)malloc(sizeof(CipherPke_S));
+    CipherPke_S *pHandle = (CipherPke_S *) malloc(sizeof(CipherPke_S));
     memset(pHandle, 0, sizeof(CipherPke_S));
 
-    //info /**********************必需参数***************************/
-        
-    //info /**********************功能参数***************************/
+    // info /**********************必需参数***************************/
 
-    //info /**********************函数列表***************************/
-    pHandle->cipherPke_init                 = cipherPke_init;
-    pHandle->cipherPke_uninit               = cipherPke_uninit;
-    pHandle->cipherPke_rsa_encryption       = cipherPke_rsa_encryption;
-    pHandle->cipherPke_rsa_decryption       = cipherPke_rsa_decryption;
-    pHandle->cipherPke_rsa_sign             = cipherPke_rsa_sign;
-    pHandle->cipherPke_rsa_verify           = cipherPke_rsa_verify;
-    pHandle->cipherPke_sm2_encryption       = cipherPke_sm2_encryption;
-    pHandle->cipherPke_sm2_decryption       = cipherPke_sm2_decryption;
-    pHandle->cipherPke_sm2_sign             = cipherPke_sm2_sign;
-    pHandle->cipherPke_sm2_verify           = cipherPke_sm2_verify;
-    pHandle->cipherPke_ecdsa_sign           = cipherPke_ecdsa_sign;
-    pHandle->cipherPke_ecdsa_verify         = cipherPke_ecdsa_verify;
-    pHandle->cipherPke_eddsa_sign           = cipherPke_eddsa_sign;
-    pHandle->cipherPke_eddsa_verify         = cipherPke_eddsa_verify;
+    // info /**********************功能参数***************************/
+
+    // info /**********************函数列表***************************/
+    pHandle->cipherPke_init = cipherPke_init;
+    pHandle->cipherPke_uninit = cipherPke_uninit;
+    pHandle->cipherPke_ecc_gen_key = cipherPke_ecc_gen_key;
+    pHandle->cipherPke_check_dot_on_curve = cipherPke_check_dot_on_curve;
+    pHandle->cipherPke_sm2_dsa_hash = cipherPke_sm2_dsa_hash;
+    pHandle->cipherPke_rsa_encryption = cipherPke_rsa_encryption;
+    pHandle->cipherPke_rsa_decryption = cipherPke_rsa_decryption;
+    pHandle->cipherPke_rsa_sign = cipherPke_rsa_sign;
+    pHandle->cipherPke_rsa_verify = cipherPke_rsa_verify;
+    pHandle->cipherPke_sm2_encryption = cipherPke_sm2_encryption;
+    pHandle->cipherPke_sm2_decryption = cipherPke_sm2_decryption;
+    pHandle->cipherPke_sm2_sign = cipherPke_sm2_sign;
+    pHandle->cipherPke_sm2_verify = cipherPke_sm2_verify;
+    pHandle->cipherPke_ecdsa_sign = cipherPke_ecdsa_sign;
+    pHandle->cipherPke_ecdsa_verify = cipherPke_ecdsa_verify;
+    pHandle->cipherPke_eddsa_sign = cipherPke_eddsa_sign;
+    pHandle->cipherPke_eddsa_verify = cipherPke_eddsa_verify;
 
     return pHandle;
 }
@@ -376,4 +495,3 @@ void cipherPke_release(CipherPke_S *pHandle)
         pHandle = NULL;
     }
 }
-

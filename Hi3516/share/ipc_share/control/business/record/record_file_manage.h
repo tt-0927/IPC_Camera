@@ -1,9 +1,9 @@
 /**
  * @FilePath     : record_file_manage.h
- * @Author       : zhangjc (zhangjc@kfb.cn)
- * @Date         : 2024-11-19
+ * @Author       : zhouzr@kfb.cn
+ * @Date         : 2026-04-01 09:01:32
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2025-06-30 20:31:29
+ * @LastEditTime : 2026-06-05 15:52:18
  * @Description  : 录制文件管理
  */
 
@@ -259,6 +259,12 @@ public:
      * @return 
      */
     int formatSDCardSyncRecordDb();
+
+    /**
+     * @brief   : 时间发生跳变时，处理要进行删除的录制文件以及相关数据库的信息，并重启录制
+     * @param    {time_t} nTime：当前时间
+     */
+    void dealTimeChange(time_t nTime);
 private:
     /* ts文件处理 */
     int deal_tsFile(Record_NS::TsFileInfo_S stTsFileInfo);
@@ -266,8 +272,6 @@ private:
     void merge_video(std::vector<Record_NS::TsFileInfo_S> &tsFileInfos);
     int deal_eventFile(Record_NS::TsFileInfo_S stTsFileInfo, int &nEventType);
 
-    /* 处理要进行删除的录制文件以及相关数据库的信息 */
-    void dealTimeChange(time_t nTime);
 private:
     /* 是否停止录制文件管理线程 */
     std::atomic_bool m_bRun = false;

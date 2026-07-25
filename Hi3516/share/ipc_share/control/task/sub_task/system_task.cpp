@@ -1,20 +1,16 @@
-/*** 
+/**
  * @FilePath     : system_task.cpp
- * @Author       : zhangjc (zhangjc@kfb.cn)
- * @Date         : 2024-10-09 15:19:03
- * @LastEditors  : huangjunda
- * @LastEditTime : 2025-09-03 10:40:16
- * @Description  : 
+ * @Author       : zhouzr@kfb.cn
+ * @Date         : 2026-04-23 17:04:24
+ * @LastEditors  : zhouzr@kfb.cn
+ * @LastEditTime : 2026-06-05 15:53:36
+ * @Description  : 系统相关任务
  */
 
 #include "system_task.h"
 
 #include "dlog.h"
-// #include "stream_client.h"
 #include "system_convert.h"
-// #include "PreviewConvert.h"
-// #include "RecordConvert.h"
-// #include "LogDefine.h"
 #include "av_configure.h"
 #include "log_handler.h"
 #include "common_convert.h"
@@ -26,25 +22,239 @@
 #include "upgrade_client.h"
 #include "operation_client.h"
 #include "event_manage.h"
-// #include "PreviewDefine.h"
-// #include "PreviewManage.h"
 #include "action_code.h"
-// #include "RecordConfigure.h"
-// #include "RecordFileManage.h"
-
-// #include "DiskManage.h"
-// #include "DiskSmartDetec.h"
-// #include "DiskBadDetec.h"
-
-// #include "LogHandler.h"
 #include "web_server.h"
-
 #include "path_define.h"
 #include "base_define.h"
 #include "light_manager.h"
 #include "time_utils.h"
 #include "record_ctrl.h"
+
+#include <cerrno>
+#include <cstring>
+#include <fstream>
+#include <mutex>
 #include <ostream>
+#include <string>
+
+namespace
+{
+const char *kLastUpgradeFile = "/opt/course/upload/.tvsdk_last_upgrade";
+// upgrade 进程的状态持久化文件（由 upgrade 进程的 data_manage.cpp 写入）
+const char *kUpgradeProcessStatusFile = "/opt/cam/.config/user_data/.tvsdk_upgrade_status";
+std::mutex g_upgradeStatusMutex;
+int g_lastUpgradeStatus = ::System::TI_UPGRADE_NULL;
+
+#pragma pack(push, 1)
+struct UpgradePackageHeader
+{
+    char id[4];
+    char version[48];
+    char md5[33];
+    long long len;
+    int reserves;
+};
+#pragma pack(pop)
+
+bool is_absolute_path(const std::string &path)
+{
+    return !path.empty() && path[0] == '/';
+}
+
+bool has_invalid_upgrade_path_char(const std::string &path)
+{
+    for (char ch : path)
+    {
+        if (ch == '\r' || ch == '\n')
+            return true;
+    }
+    return false;
+}
+
+bool is_valid_upgrade_filename(const std::string &name)
+{
+    if (name.empty())
+        return false;
+    if (name[0] == '.' ||
+        name == "." || name == ".." ||
+        name.find('/') != std::string::npos ||
+        name.find('\\') != std::string::npos ||
+        name.find("..") != std::string::npos)
+        return false;
+    return !has_invalid_upgrade_path_char(name);
+}
+
+bool is_under_upload_path(const std::string &path)
+{
+    const std::string uploadPath(UPLOAD_PATH);
+    return path.compare(0, uploadPath.size(), uploadPath) == 0 &&
+           path.size() > uploadPath.size();
+}
+
+bool normalize_upgrade_path(std::string &path)
+{
+    if (path.empty() || path.find("://") != std::string::npos ||
+        has_invalid_upgrade_path_char(path) ||
+        path.find('\\') != std::string::npos ||
+        path.find("..") != std::string::npos)
+        return false;
+
+    if (is_absolute_path(path))
+    {
+        if (is_under_upload_path(path))
+            return true;
+
+        return false;
+    }
+
+    if (!is_valid_upgrade_filename(path))
+        return false;
+
+    path = std::string(UPLOAD_PATH) + path;
+    return true;
+}
+
+std::string trim_ascii_space(const std::string &value)
+{
+    std::string::size_type begin = 0;
+    while (begin < value.size() && static_cast<unsigned char>(value[begin]) <= ' ')
+        ++begin;
+
+    std::string::size_type end = value.size();
+    while (end > begin && static_cast<unsigned char>(value[end - 1]) <= ' ')
+        --end;
+
+    return value.substr(begin, end - begin);
+}
+
+std::size_t bounded_strlen(const char *value, std::size_t maxLen)
+{
+    std::size_t len = 0;
+    while (len < maxLen && value[len] != '\0')
+        ++len;
+    return len;
+}
+
+bool read_last_upgrade_path(std::string &path)
+{
+    std::ifstream marker(kLastUpgradeFile, std::ios::binary);
+    if (!marker.is_open())
+        return false;
+
+    std::string value;
+    std::getline(marker, value, '\0');
+    value = trim_ascii_space(value);
+    if (value.empty())
+        return false;
+
+    if (!normalize_upgrade_path(value))
+        return false;
+
+    path = value;
+    return true;
+}
+
+bool read_upgrade_version_from_file(const std::string &path, std::string &version)
+{
+    std::ifstream file(path, std::ios::binary);
+    if (!file.is_open())
+        return false;
+
+    UpgradePackageHeader header;
+    std::memset(&header, 0, sizeof(header));
+    file.read(reinterpret_cast<char *>(&header), sizeof(header));
+    if (file.gcount() != static_cast<std::streamsize>(sizeof(header)))
+        return false;
+
+    version.assign(header.version, bounded_strlen(header.version, sizeof(header.version)));
+    version = trim_ascii_space(version);
+    return !version.empty();
+}
+
+bool is_upgrade_status_value(int status)
+{
+    return status == ::System::TI_UPGRADE_NULL ||
+           status == ::System::TI_UPGRADE_RUNING ||
+           status == ::System::TI_UPGRADE_RUNFAIL ||
+           status == ::System::TI_UPGRADE_RUNSUCCESS ||
+           status == ::System::TI_UPGRADE_OTHERUPDATE_FAILE;
+}
+
+void set_last_upgrade_status(int status)
+{
+    if (!is_upgrade_status_value(status))
+        return;
+
+    std::lock_guard<std::mutex> lock(g_upgradeStatusMutex);
+    g_lastUpgradeStatus = status;
+}
+
+/**
+ * @brief 从 upgrade 进程的状态文件读取升级状态
+ * upgrade 进程在 data_manage.cpp 中维护了持久化文件 /opt/cam/.config/user_data/.tvsdk_upgrade_status
+ * 升级成功后 upgrade 进程会先写入 SUCCESS 状态，再 sleep(2) 后 reboot
+ * 因此 reboot 后该文件中保存的是 SUCCESS(2)
+ */
+int read_upgrade_process_status()
+{
+    errno = 0;
+    std::ifstream ifs(kUpgradeProcessStatusFile);
+    const int openErrno = errno;
+    if (!ifs.is_open())
+    {
+        dlog_warn("读取升级状态文件失败, path:%s, errno:%d", kUpgradeProcessStatusFile, openErrno);
+        return ::System::TI_UPGRADE_NULL;
+    }
+
+    int status = ::System::TI_UPGRADE_NULL;
+    if (!(ifs >> status))
+    {
+        dlog_error("升级状态文件内容无效, path:%s", kUpgradeProcessStatusFile);
+        ifs.close();
+        return ::System::TI_UPGRADE_NULL;
+    }
+    ifs.close();
+
+    if (!is_upgrade_status_value(status))
+    {
+        dlog_error("升级状态文件状态非法, path:%s, status:%d", kUpgradeProcessStatusFile, status);
+        return ::System::TI_UPGRADE_NULL;
+    }
+
+    // upgrade 进程启动时如果检测到上次状态是 RUNNING，会将其转为 FAIL
+    // 所以这里不会出现 RUNNING 状态（除非 upgrade 进程正在升级中）
+    return status;
+}
+
+int get_last_upgrade_status()
+{
+    std::lock_guard<std::mutex> lock(g_upgradeStatusMutex);
+    return g_lastUpgradeStatus;
+}
+
+std::string make_upgrade_status_json(int status)
+{
+    ::System::UpgradeStatus_S stUpgradeStatus;
+    stUpgradeStatus.nUpgradeStatus = status;
+    return Convert::to_string(stUpgradeStatus);
+}
+
+void result_cached_upgrade_status(Task::CTask *task, const char *reason)
+{
+    // 优先从 upgrade 进程的持久化文件读取状态
+    // upgrade 进程在升级成功后会先写入 SUCCESS 再 reboot，文件在 reboot 后仍然存在
+    int status = read_upgrade_process_status();
+    if (status == ::System::TI_UPGRADE_NULL)
+    {
+        // 文件不存在或读取失败，回退到内存缓存
+        status = get_last_upgrade_status();
+    }
+    dlog_warn("获取升级状态未访问upgrade进程, reason:%s, status:%d", reason, status);
+    set_last_upgrade_status(status);
+    task->result(make_upgrade_status_json(status));
+}
+}
+
 extern "C"
 {
 #include "openssl/aes.h"
@@ -90,12 +300,16 @@ void Task::System::SetDeviceConfig::handle()
     Convert::read_file(TIME_CONFIG_FILE, stTimeInfo);
     
     ::System::TimeZone_E enTimeZone = stTimeInfo.enTimeZone;
+    stTimeInfo.enTimeZone = stDeviceConfig.enTimeZone;
+    stTimeInfo.enDateFormat = stDeviceConfig.enDateFormat;
     if (!stDeviceConfig.strDateTime.empty())
     {
-        stTimeInfo.enTimeZone = stDeviceConfig.enTimeZone;
-        stTimeInfo.enDateFormat = stDeviceConfig.enDateFormat;
         stTimeInfo.strDateTime = stDeviceConfig.strDateTime;
     }
+    dlog_info("设置基本配置同步时间配置, oldTimezone:%d, newTimezone:%d, dateTime:%s",
+              static_cast<int>(enTimeZone),
+              static_cast<int>(stDeviceConfig.enTimeZone),
+              stDeviceConfig.strDateTime.c_str());
     CTimeManage::instance()->set_time_info(stTimeInfo);
     if (stDeviceConfig.enTimeZone != enTimeZone)
     {
@@ -208,9 +422,8 @@ void Task::System::TestNtp::handle()
 {
     ::System::TestNtp_S stTestNtp;
     Convert::to_struct(m_taskData, stTestNtp);
-    std::function<void(int)> func = 
-    std::bind(static_cast<void(CTask::*)(int)>(&CTask::result), this, std::placeholders::_1);
-    int nRet = CTimeManage::instance()->ntp_test(stTestNtp,func);
+    std::function<void(int)> func = std::bind(static_cast<void (CTask::*)(int)>(&CTask::result), this, std::placeholders::_1);
+    CTimeManage::instance()->ntp_test(stTestNtp, func);
 }
 
 /* 设备重启 */
@@ -549,8 +762,17 @@ void Task::System::SetLogServer::handle()
 {
     ::System::LogServerInfo_S stLogServerInfo;
     Convert::to_struct(m_taskData, stLogServerInfo);
+    /* 用户关闭日志上传时，同时关闭MQTT连接 */
+    if (!stLogServerInfo.bLogUpload)
+    {
+        stLogServerInfo.bEnable = false;
+    }
     Convert::write_file(LOG_SERVER_INFO_FILE, stLogServerInfo);
-    COperationClient::instance()->send(static_cast<const void*>(m_data.c_str()), m_data.size(), m_nActionCode);
+    /* 同步日志上传开关到LogHandler，实时生效 */
+    LogHandler::instance()->setLogUpload(stLogServerInfo.bLogUpload);
+    /* 用更新后的数据通知运维进程重新连接MQTT */
+    std::string strUpdated = Convert::to_string(stLogServerInfo);
+    COperationClient::instance()->send_withHead(strUpdated, m_nActionCode);
     result(OK);
 }
 /* 获取日志服务器 */

@@ -12,6 +12,7 @@
 #include "RequestPool.h"
 #include "SSRC_Config.h"
 #include "RtpServer.h"
+#include "dlog.h"
 #include "gm.h"
 
 using namespace SIP;
@@ -29,11 +30,6 @@ int SIP::SipModule::Init(CbInfo_S stInfo)
     // DeviceManage::instance()->Init();
     // DeviceManage::instance()->Start();
     m_stCbInfo = stInfo;
-    if (stInfo.fnLog != nullptr)
-    {
-        set_module_log(stInfo.fnLog);
-        MLOG_INFO("设置日志回调成功");
-    }
 
     CRtpServer::instance()->rtpServer_init();
     return 0;
@@ -183,7 +179,7 @@ int SIP::SipModule::PtzCtrl(const SipDeviceInfo_S &device, SipPtzType_E enCmd, i
     auto pDevice = DeviceManage::instance()->GetDevice(device.strID);
     if (nullptr == pDevice)
     {
-        MLOG_WARN("设备[%s]不存在，无法控制", device.strID.c_str());
+        dlog_warn("设备[%s]不存在，无法控制", device.strID.c_str());
         return -1;
     }
 
@@ -196,7 +192,7 @@ int SIP::SipModule::PresetCtrl(const SipDeviceInfo_S &device, SipPresetType_E en
     auto pDevice = DeviceManage::instance()->GetDevice(device.strID);
     if (nullptr == pDevice)
     {
-        MLOG_WARN("设备[%s]不存在，无法控制", device.strID.c_str());
+        dlog_warn("设备[%s]不存在，无法控制", device.strID.c_str());
         return -1;
     }
     return pDevice->PresetCtrl(device.strChnID, enCmd, nPresetID);
@@ -207,7 +203,7 @@ int SIP::SipModule::AlarmSubscribe(const SipDeviceInfo_S &device, const GB28181:
     auto pDevice = DeviceManage::instance()->GetDevice(device.strID);
     if (nullptr == pDevice)
     {
-        MLOG_WARN("设备[%s]不存在，无法订阅报警信息", device.strID.c_str());
+        dlog_warn("设备[%s]不存在，无法订阅报警信息", device.strID.c_str());
         return -1;
     }
     return pDevice->AlarmSubscribe(stInfo);
@@ -218,7 +214,7 @@ int SIP::SipModule::Guard(const SipDeviceInfo_S &device, bool bSetGuard)
     auto pDevice = DeviceManage::instance()->GetDevice(device.strID);
     if (nullptr == pDevice)
     {
-        MLOG_WARN("设备[%s]不存在，无法布防", device.strID.c_str());
+        dlog_warn("设备[%s]不存在，无法布防", device.strID.c_str());
         return -1;
     }
     return pDevice->Guard(bSetGuard);
@@ -229,16 +225,16 @@ int SIP::SipModule::Play(const SipDeviceInfo_S &device, bool bStart)
     auto pDevice = DeviceManage::instance()->GetDevice(device.strID);
     if (nullptr == pDevice)
     {
-        MLOG_WARN("设备[%s]不存在，无法播放", device.strID.c_str());
+        dlog_warn("设备[%s]不存在，无法播放", device.strID.c_str());
         return -1;
     }
     auto pChannel = pDevice->GetChannelByType(SipChannelType_E::NETWORK_CAMERA_IPC_ENCODE);
     if (nullptr == pChannel)
     {
-        MLOG_WARN("设备[%s]视频编码通道不存在，无法播放", device.strID.c_str());
+        dlog_warn("设备[%s]视频编码通道不存在，无法播放", device.strID.c_str());
         return -2;
     }
-    MLOG_INFO("播放设备[%s]视频通道 状态[%d]",
+    dlog_info("播放设备[%s]视频通道 状态[%d]",
               device.strID.c_str(), bStart);
     return pDevice->PlayVideo(bStart);
 }

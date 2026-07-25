@@ -51,6 +51,28 @@ std::set<int> collect_track_ids(const ot_aidetect_object_of_one_class *pstObject
 std::set<int> collect_all_track_ids(const ot_aidetect_result_array &stResult);
 
 /**
+ * @brief   : 将 HVF 目标类别转换为 TVSDK 目标类型
+ * @param    {ot_aidetect_class} enAiDetectClass：AI 输出目标类别
+ * @return   {int} TVSDK 目标类型，0:未知 1:人 2:车
+ */
+int to_tvsdk_object_type(ot_aidetect_class enAiDetectClass);
+
+/**
+ * @brief   : 构建 HVF 事件 TVSDK 上下文图片和目标信息
+ * @param    {EventTriggerContext_S} &stEventContext：事件上下文
+ * @param    {SHVFProcessContext} &stCtx：当前帧上下文
+ * @param    {ot_aidetect_object_of_one_class} *pstObjectClass：目标类别结果
+ * @param    {ot_aidetect_object} &stObject：触发目标
+ * @param    {int} nRuleId：规则下标
+ * @return   {void}
+ */
+void fill_hvf_tvsdk_event_context(EventTriggerContext_S &stEventContext,
+                                  const SHVFProcessContext &stCtx,
+                                  const ot_aidetect_object_of_one_class *pstObjectClass,
+                                  const ot_aidetect_object &stObject,
+                                  int nRuleId);
+
+/**
  * @brief   : 转换区域坐标并判断是否仍可使能事件
  * @param    {T &} stConfig：带规则数组的事件配置
  * @param    {int} nWidth：算法分辨率宽度

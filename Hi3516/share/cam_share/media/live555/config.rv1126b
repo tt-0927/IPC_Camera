@@ -1,4 +1,4 @@
-CROSS_COMPILE?=		/home/itc/workdir/rockchip/rv1126b/RV1126B_Linux_IPC_SDK/tools/linux/toolchain/arm-rockchip1240-linux-gnueabihf/bin/arm-rockchip1240-linux-gnueabihf-
+CROSS_COMPILE?=		/home/itc/workdir/rockchip/rv1126b_1.1.0/RV1126B_Linux_IPC_SDK/tools/linux/toolchain/arm-rockchip1240-linux-gnueabihf/bin/arm-rockchip1240-linux-gnueabihf-
 COMPILE_OPTS =		$(INCLUDES) -I.  -DSOCKLEN_T=socklen_t -DNO_SSTREAM=1 -D_LARGEFILE_SOURCE=1 -D_FILE_OFFSET_BITS=64 -DALLOW_RTSP_SERVER_PORT_REUSE -DNO_OPENSSL=1 -DLOCALE_NOT_USED -DNEWLOCALE_NOT_USED
 C =			c
 C_COMPILER =		$(CROSS_COMPILE)gcc

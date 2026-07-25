@@ -135,7 +135,7 @@ bool Inference_NS::CNLPInferenceRK::checkModelConfig()
 
     Json::Object *pJsonHandle = NULL;
     pJsonHandle = Json::init(pchJson);
-    bool bRet;
+    bool bRet = true;
 
     /* 获取模型地址 */
     bRet = Json::get(pJsonHandle, "model_path", m_strModelPath);
@@ -153,15 +153,13 @@ bool Inference_NS::CNLPInferenceRK::checkModelConfig()
         goto EXIT;
     }
 
-    return true;
-
 EXIT:
     if (pJsonHandle)
     {
         Json::deinit(pJsonHandle);
         pJsonHandle = NULL;
     }
-    return false;
+    return bRet;
 }
 
 /* 获取输入图片限制 */

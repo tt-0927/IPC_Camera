@@ -22,6 +22,7 @@ typedef struct
 	RTSPServer *rtspServer;							/*RTSP服务器实例*/
 	UsageEnvironment *usage_env;					/*运行环境*/
 	ServerMediaSession *server_session[MAXRTSPNUM]; /*媒体会话数组*/
+	EventTriggerId controlTriggerId;				/*跨线程控制事件ID*/
 	int nUse;										/*已使用的会话数*/
 	int port;										/*服务端口*/
 	volatile char m_quit;							/*退出标志*/
@@ -32,9 +33,20 @@ typedef struct
 	int threadCreated;								/*线程创建标志*/
 } Rtsp_Server_Info_t;
 
+typedef struct
+{
+	Rtsp_Server_Info_t *pServerInfo;				/*RTSP服务器信息*/
+	char streamName[STREAM_NAME_MAX];				/*待销毁的媒体会话名称*/
+	int result;										/*事件线程执行结果*/
+	bool done;										/*事件线程完成标志*/
+	pthread_mutex_t mutex;							/*同步事件线程执行结果*/
+	pthread_cond_t cond;								/*同步事件线程执行结果*/
+} Rtsp_Control_Task_t;
+
 /*函数前向声明*/
 static void *doEvenLoopThread(void *argv);
 static void *doPrintError(void *argv);
+static void handleRtspControlEvent(void *clientData);
 // static int findstreamName(Rtsp_Server_Info_t *pServerInfo, const char *streamName);
 // static int cleanServerMediaSession(Rtsp_Server_Info_t *pServerInfo, const char *streamName);
 // static int findServerMediaSessionUse(Rtsp_Server_Info_t *pServerInfo);
@@ -62,7 +74,7 @@ static int findServerMediaSessionUse(Rtsp_Server_Info_t *pServerInfo)
 static int cleanServerMediaSession(Rtsp_Server_Info_t *pServerInfo, const char *streamName)
 {
 	int i = 0;
-	if (pServerInfo == NULL && streamName == NULL)
+	if (pServerInfo == NULL || streamName == NULL)
 	{
 		live_log("findUseSocket is NULL");
 		return -1;
@@ -101,6 +113,22 @@ static int cleanAllServerMediaSession(Rtsp_Server_Info_t *pServerInfo)
 		}
 	}
 	return -1;
+}
+
+static void handleRtspControlEvent(void *clientData)
+{
+	Rtsp_Control_Task_t *pTask = (Rtsp_Control_Task_t *)clientData;
+	if (pTask == NULL)
+	{
+		return;
+	}
+
+	int result = cleanServerMediaSession(pTask->pServerInfo, pTask->streamName);
+	pthread_mutex_lock(&pTask->mutex);
+	pTask->result = result;
+	pTask->done = true;
+	pthread_cond_signal(&pTask->cond);
+	pthread_mutex_unlock(&pTask->mutex);
 }
 
 static int findstreamName(Rtsp_Server_Info_t *pServerInfo, const char *streamName)
@@ -176,6 +204,14 @@ RtSpServerHandle_t rtsp_server_init(int port, int nRegister, const char *pUser, 
 		error = 1;
 		pServeInfo->usage_env->reportBackgroundError();
 		live_log("pServeInfo->RTSPServer is NULL");
+		goto EXIT_INIT;
+	}
+
+	pServeInfo->controlTriggerId = pServeInfo->scheduler->createEventTrigger(handleRtspControlEvent);
+	if (pServeInfo->controlTriggerId == 0)
+	{
+		error = 1;
+		live_log("createEventTrigger failed");
 		goto EXIT_INIT;
 	}
 
@@ -433,12 +469,37 @@ int rtsp_server_create(RtSpServerHandle_t pHandle, Rtsp_Create_Info_t *pCreatSer
 int rtsp_server_destory(RtSpServerHandle_t pHandle, const char *streamName)
 {
 	Rtsp_Server_Info_t *pServerInfo = (Rtsp_Server_Info_t *)pHandle;
-	if (pServerInfo == NULL)
+	if (pServerInfo == NULL || streamName == NULL)
 	{
 		live_log("rtsp_server_destory is NULL");
 		return -1;
 	}
-	return cleanServerMediaSession(pServerInfo, streamName);
+
+	if (pthread_equal(pthread_self(), pServerInfo->eventLoopTid) || pServerInfo->controlTriggerId == 0)
+	{
+		return cleanServerMediaSession(pServerInfo, streamName);
+	}
+
+	Rtsp_Control_Task_t task;
+	memset(&task, 0, sizeof(task));
+	task.pServerInfo = pServerInfo;
+	task.result = -1;
+	snprintf(task.streamName, sizeof(task.streamName), "%s", streamName);
+	pthread_mutex_init(&task.mutex, NULL);
+	pthread_cond_init(&task.cond, NULL);
+
+	pthread_mutex_lock(&task.mutex);
+	pServerInfo->scheduler->triggerEvent(pServerInfo->controlTriggerId, &task);
+	while (!task.done)
+	{
+		pthread_cond_wait(&task.cond, &task.mutex);
+	}
+	int result = task.result;
+	pthread_mutex_unlock(&task.mutex);
+
+	pthread_cond_destroy(&task.cond);
+	pthread_mutex_destroy(&task.mutex);
+	return result;
 }
 
 int rtsp_server_unInit(RtSpServerHandle_t pRtspHandle)
@@ -484,6 +545,11 @@ int rtsp_server_unInit(RtSpServerHandle_t pRtspHandle)
 
 	/*清理所有媒体会话*/
 	cleanAllServerMediaSession(pServerInfo);
+	if (pServerInfo->scheduler && pServerInfo->controlTriggerId != 0)
+	{
+		pServerInfo->scheduler->deleteEventTrigger(pServerInfo->controlTriggerId);
+		pServerInfo->controlTriggerId = 0;
+	}
 
 	/*关闭RTSP服务器*/
     if (pServerInfo->rtspServer)

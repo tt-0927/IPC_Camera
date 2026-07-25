@@ -2,7 +2,7 @@
     "version": "v1.0",
     "model": "Yolov8n",
     "notes": "垃圾暴露满溢检测",
-    "model_path": "/opt/cam/model/Hi3516CV610_yolov8n_rubish_640_384_V1.0.om",
+    "model_path": "/opt/cam/model/Hi3516CV610_yolov8t_rubish_640_384_V2.0.om",
     "pre_process": {
         "size": [
             640,

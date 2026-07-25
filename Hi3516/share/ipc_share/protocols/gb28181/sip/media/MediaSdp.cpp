@@ -9,7 +9,7 @@
 #include "MediaSdp.h"
 #include "ExternSip.h"
 #include "MediaRtp.h"
-#include "ModuleLog.h"
+#include "dlog.h"
 #include "SipUtils.h"
 #include <cerrno>
 #include <cstdlib>
@@ -47,7 +47,7 @@ SdpInfo_S SDP::parseSdp(const std::string &sdp)
                 {
                     stSdp.strSSRC = token.substr(2, 10);
 #if SIP_SDP_DEBUG
-                    MLOG_DEBUG("识别到字段y的SSRC[%s]", stSdp.strSSRC.c_str());
+                    dlog_debug("识别到字段y的SSRC[%s]", stSdp.strSSRC.c_str());
 #endif
                 }
                 if (strStart == "f=")
@@ -61,15 +61,15 @@ SdpInfo_S SDP::parseSdp(const std::string &sdp)
                     if (posA == std::string::npos)
                     {
 #if SIP_SDP_DEBUG
-                        MLOG_DEBUG("无法获取字段f格式信息[%s]", pGet.c_str());
+                        dlog_debug("无法获取字段f格式信息[%s]", pGet.c_str());
 #endif
                         continue;
                     }
                     auto strV = pGet.substr(0, posA); /* 理论上格式为:v///// */
                     auto strA = pGet.substr(posA);    /* 理论上格式为:a/// */
 #if SIP_SDP_DEBUG
-                    MLOG_DEBUG("识别到字段f的信息v[%s]", strV.c_str());
-                    MLOG_DEBUG("识别到字段f的信息a[%s]", strA.c_str());
+                    dlog_debug("识别到字段f的信息v[%s]", strV.c_str());
+                    dlog_debug("识别到字段f的信息a[%s]", strA.c_str());
 #endif
                     auto vecV = SplitString(strV, '/');
                     auto vecA = SplitString(strA, '/');
@@ -96,7 +96,7 @@ SdpInfo_S SDP::parseSdp(const std::string &sdp)
                     else
                     {
 #if SIP_SDP_DEBUG
-                        MLOG_DEBUG("识别f字段中的v个数有误[%d]", vecV.size());
+                        dlog_debug("识别f字段中的v个数有误[%d]", vecV.size());
 #endif
                     }
 
@@ -110,7 +110,7 @@ SdpInfo_S SDP::parseSdp(const std::string &sdp)
                     else
                     {
 #if SIP_SDP_DEBUG
-                        MLOG_DEBUG("识别f字段中的a个数有误[%d]", vecA.size());
+                        dlog_debug("识别f字段中的a个数有误[%d]", vecA.size());
 #endif
                     }
                 }
@@ -129,7 +129,7 @@ SdpInfo_S SDP::parseSdp(const std::string &sdp)
                 if (!strSessionName.empty())
                 {
 #if SIP_SDP_DEBUG
-                    MLOG_DEBUG("识别到SDP字段s[%s]", strSessionName.c_str());
+                    dlog_debug("识别到SDP字段s[%s]", strSessionName.c_str());
 #endif
                     if (strSessionName == "Play")
                     {
@@ -156,14 +156,14 @@ SdpInfo_S SDP::parseSdp(const std::string &sdp)
                     if (!strStartTime.empty() && !strEndTime.empty())
                     {
 #if SIP_SDP_DEBUG
-                        MLOG_DEBUG("识别到字段t的开始时间[%s],结束时间[%s]",
+                        dlog_debug("识别到字段t的开始时间[%s],结束时间[%s]",
                                    strStartTime.c_str(),
                                    strEndTime.c_str());
 #endif
                         SafeStr2Num(strStartTime, stSdp.nStartTime);
                         SafeStr2Num(strEndTime, stSdp.nEndTime);
 #if SIP_SDP_DEBUG
-                        MLOG_DEBUG("字段t转换后的开始时间[%lld],结束时间[%lld]",
+                        dlog_debug("字段t转换后的开始时间[%lld],结束时间[%lld]",
                                    stSdp.nStartTime,
                                    stSdp.nEndTime);
 #endif
@@ -182,7 +182,7 @@ SdpInfo_S SDP::parseSdp(const std::string &sdp)
                         if (pPayload)
                         {
 #if SIP_SDP_DEBUG
-                            MLOG_DEBUG("识别到视频payload[%s]", pPayload);
+                            dlog_debug("识别到视频payload[%s]", pPayload);
 #endif
                             int nPayload = 0;
                             if (SafeStr2Num(std::string(pPayload), nPayload))
@@ -207,13 +207,13 @@ SdpInfo_S SDP::parseSdp(const std::string &sdp)
                         if (pAttr)
                         {
 #if SIP_SDP_DEBUG
-                            MLOG_DEBUG("识别到a字段[%s][%s]",
+                            dlog_debug("识别到a字段[%s][%s]",
                                        pAttr->a_att_field, pAttr->a_att_value);
 #endif
                             if (std::string(pAttr->a_att_field).find("rtpmap") != std::string::npos)
                             {
 #if SIP_SDP_DEBUG
-                                MLOG_DEBUG("rtpmap字段[%s]", pAttr->a_att_value);
+                                dlog_debug("rtpmap字段[%s]", pAttr->a_att_value);
 #endif
                                 Map_S stRtpmap;
                                 auto vecRtpmap = SplitString(pAttr->a_att_value, ' ');
@@ -267,7 +267,7 @@ SdpInfo_S SDP::parseSdp(const std::string &sdp)
                         if (pPayload)
                         {
 #if SIP_SDP_DEBUG
-                            MLOG_DEBUG("识别到视频payload[%s]", pPayload);
+                            dlog_debug("识别到视频payload[%s]", pPayload);
 #endif
                             int nPayload = 0;
                             if (SafeStr2Num(std::string(pPayload), nPayload))
@@ -293,13 +293,13 @@ SdpInfo_S SDP::parseSdp(const std::string &sdp)
                         if (pAttr)
                         {
 #if SIP_SDP_DEBUG
-                            MLOG_DEBUG("识别到a字段[%s][%s]",
+                            dlog_debug("识别到a字段[%s][%s]",
                                        pAttr->a_att_field, pAttr->a_att_value);
 #endif
                             if (std::string(pAttr->a_att_field).find("rtpmap") != std::string::npos)
                             {
 #if SIP_SDP_DEBUG
-                                MLOG_DEBUG("rtpmap字段[%s]", pAttr->a_att_value);
+                                dlog_debug("rtpmap字段[%s]", pAttr->a_att_value);
 #endif
                                 Map_S stRtpmap;
                                 auto vecRtpmap = SplitString(pAttr->a_att_value, ' ');
@@ -428,7 +428,7 @@ std::string SIP::SDP::negotiateSdp(
         /* 更新协商后的SDP */
         negInfo.stVideo.nPayload = nPsPayload;
     }
-    MLOG_ERROR("remoteSdp.mediaType ==%d", remoteSdp.mediaType);
+    dlog_error("remoteSdp.mediaType ==%d", remoteSdp.mediaType);
     ss << "a=sendonly\r\n"; /* 仅发送，不接收数据 */
     if (remoteSdp.stVideoConn.bTcpActive)
     {
@@ -627,7 +627,7 @@ std::string negotiateSdpaudio(
         /* 更新协商后的SDP */
         negInfo.stVideo.nPayload = nAudioPsPayload;
     }
-    MLOG_ERROR("remoteSdp.mediaType ==%d", remoteSdp.mediaType);
+    dlog_error("remoteSdp.mediaType ==%d", remoteSdp.mediaType);
     ss << "a=sendonly\r\n"; /* 仅发送，不接收数据 */
     if (remoteSdp.stVideoConn.bTcpActive)
     {

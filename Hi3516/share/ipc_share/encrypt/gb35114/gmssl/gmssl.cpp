@@ -3,8 +3,11 @@
  * @Author       : zhouzirui
  * @Date         : 2025-04-21 10:09:53
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2025-08-25 19:47:11
- * @Description  : gmssl命令行封装
+ * @LastEditTime : 2026-06-22 09:23:03
+ * @Description  : gmssl命令行封装（历史文件，不参与编译）
+ * @deprecated   : 此文件已从 CMake 排除编译。
+ *                 调用方已迁移到 CCryptoManager。
+ *                 文件保留作历史参考，勿删除。
  */
 
 #include "gmssl.h"
@@ -43,6 +46,18 @@ std::string CGmSSL::rand(size_t length, bool hex_output)
         ossCmd << " -hex";
     }
     return exec(ossCmd.str().c_str());
+}
+
+int CGmSSL::randomNumber_get(uint8_t *buf, size_t buflen)
+{
+    /* Fallback to existing GmSSL implementation */
+    if (rand_bytes(buf, buflen) != 1)
+    {
+        dlog_error("GmSSL rand_bytes 失败");
+        return ERR;
+    }
+
+    return OK;
 }
 
 void CGmSSL::sm2keygen(const std::string &pass, const std::string &privkey_path, const std::string &pubkey_path)
@@ -108,6 +123,12 @@ bool CGmSSL::sm2verify(const std::string &pubkey_path, const std::string &data,
 
 std::string CGmSSL::sm2decrypt(const std::vector<uint8_t> &bytesInput, const char *strKeyPath)
 {
+    if (strKeyPath == nullptr)
+    {
+        dlog_error("sm2decrypt: 私钥路径为空");
+        return "";
+    }
+
     /*写入待解密数据到临时文件*/
     writeBytesToFile(SM2_DECRYPT_FILE, bytesInput);
 

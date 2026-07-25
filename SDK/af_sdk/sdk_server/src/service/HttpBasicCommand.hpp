@@ -34,8 +34,12 @@ public:
             {
                 NSDK_LOG_DEBUG("接收到http请求: body[%s] url[%s] method[%s]",req.body.c_str(),req.target.c_str(),req.method.c_str());
                 std::string resp_data = Func(req.body, req.target);
-                 NSDK_LOG_DEBUG("return ---------------------------------------------------------------");
-                NSDK_LOG_DEBUG("返回http响应: resp[%s] url[%s] method[%s]",resp_data.c_str(),req.target.c_str(),req.method.c_str());
+                /* 过滤命令301（通道列表）的返回数据，避免日志过长 */
+                if (req.target.find("command=301") == std::string::npos)
+                {
+                    NSDK_LOG_DEBUG("return ---------------------------------------------------------------");
+                    NSDK_LOG_DEBUG("返回http响应: resp[%s] url[%s] method[%s]",resp_data.c_str(),req.target.c_str(),req.method.c_str());
+                }
                 res.status = HTTP_RESP_CODE_SUCCESS;
                 res.set_content(resp_data, JSON_CONTENT_TYPE);
             } catch (const std::invalid_argument& e) {

@@ -558,6 +558,7 @@ extern "C" {
 #define NET_TV_ALARM_PERSON_FALL        (NET_TV_ALARM_BASE_AI + 0x05)    // 人员倒地
 #define NET_TV_ALARM_RUNNING            (NET_TV_ALARM_BASE_AI + 0x06)    // 快速奔跑
 #define NET_TV_ALARM_FACE_COMPARE       (NET_TV_ALARM_BASE_AI + 0x07)    // 人脸比对
+#define NET_TV_ALARM_PARKING_DETECT     (NET_TV_ALARM_BASE_AI + 0x08)    // 停车侦测
 
 // > 行为监管/安防
 #define NET_TV_ALARM_SLEEP_ON_DUTY      (NET_TV_ALARM_BASE_AI + 0x20)    // 睡岗
@@ -1498,6 +1499,35 @@ typedef struct tagNETTVTalkbackStateInfo
     BYTE    byRes[128];                 /* 保留字段，未使用 */
 } NET_TV_TALKBACK_STATE_INFO_S, *LPNET_TV_TALKBACK_STATE_INFO_S;
 
+ /**
+  * @struct tagNETTVVoiceComAudioParam
+  * @brief VoiceCom 对讲音频参数
+ * @note VoiceCom TCP 负载格式由 enFormat 指定，当前支持 6(PCM)/2(G711A)/1(G711U) 裸流
+  */
+typedef struct tagNETTVVoiceComAudioParam
+{
+    INT32   enFormat;             /* 音频格式, 当前支持 6(PCM)/2(G711A)/1(G711U) */
+    INT32   dwSampleRate;         /* 采样率, Hz */
+    INT32   dwBitDepth;           /* 位深, PCM=16, G711=8 */
+    INT32   dwChannels;           /* 声道数, 当前支持 1(单声道) */
+    INT32   dwFrameIntervalMs;    /* 单帧时长, ms */
+    INT32   dwFrameBytes;         /* 单帧字节数 */
+    INT32   dwBitRate;            /* 音频比特率, bit/s */
+    BOOL    bLittleEndian;        /* PCM 字节序, TRUE 表示 little-endian; G711 忽略 */
+    BYTE    byRes[128];           /* 保留字段 */
+} NET_TV_VOICECOM_AUDIO_PARAM_S, *LPNET_TV_VOICECOM_AUDIO_PARAM_S;
+
+/**
+ * @struct tagNETTVVoiceComStartInfo
+ * @brief VoiceCom 启动参数
+ */
+typedef struct tagNETTVVoiceComStartInfo
+{
+    UINT32  dwAudioPort;                              /* 设备端 VoiceCom TCP 端口, 默认 9006 */
+    NET_TV_VOICECOM_AUDIO_PARAM_S stAudioParam;       /* 本次对讲会话音频参数 */
+    BYTE    byRes[128];                               /* 保留字段 */
+} NET_TV_VOICECOM_START_INFO_S, *LPNET_TV_VOICECOM_START_INFO_S;
+
 /**
  * @struct tagNETTVTalkbackStreamInfo
  * @brief 对讲流信息结构体
@@ -1740,6 +1770,49 @@ typedef struct tagNETTVDeviceInfo
 }NET_TV_DEVICE_INFO_S,*LPNET_TV_DEVICE_INFO_S;
 
 /**
+ * @brief 设备硬件控制类型
+ */
+
+typedef enum tagNETTVDeviceControlType
+{
+    NET_TV_DEVICE_CTRL_TYPE_PTZ             = 1,        /* 云台控制 */
+    NET_TV_DEVICE_CTRL_TYPE_ALARM_LIGHT     = 2,        /* 声光控制 */
+    NET_TV_DEVICE_CTRL_TYPE_WIPER           = 3,        /* 雨刷控制 */
+    NET_TV_DEVICE_CTRL_TYPE_FILE_LIGHT      = 4,        /* 补光灯控制 */
+    NET_TV_DEVICE_CTRL_TYPE_RELAY           = 5,        /* 继电器控制 */
+    NET_TV_DEVICE_CTRL_TYPE_CUSTOM          = 1000,     /* 厂商自定义控制 */
+    NET_TV_DEVICE_CTRL_TYPE_INVALID         = 0xff
+} NET_TV_DEVICE_CONTROL_TYPE_E;
+
+/**
+ * @brief 声光控制命令，dwControlType 为 NET_TV_DEVICE_CTRL_TYPE_ALARM_LIGHT 时使用。
+ */
+typedef enum tagNETTVAlarmLightControlCmd
+{
+    NET_TV_ALARM_LIGHT_CTRL_START    = 1,       /* 开启声光 */
+    NET_TV_ALARM_LIGHT_CTRL_STOP     = 2,       /* 停止声光 */
+    NET_TV_ALARM_LIGHT_CTRL_SET_MODE = 3,       /* 设置并立即应用声光模式 */
+    NET_TV_ALARM_LIGHT_CTRL_INVALID  = 0xff
+} NET_TV_ALARM_LIGHT_CONTROL_CMD_E;
+
+/**
+ * @brief 设备硬件控制统一参数
+ */
+typedef struct tagNETTVDeviceControlInfo
+{
+    UINT32 dwSize;
+    INT32 dwChannelID;
+    INT32 dwControlType;
+    INT32 dwCommand;
+    INT32 dwSpeed;
+    INT32 dwDurationMs;     /* 声光控制支持 1~300000， 0 按默认 1 秒处理 */
+    INT32 dwParam1;         /* 声光控制：0 常亮、1低频、2中频、3高频 */
+    INT32 dwParam2;         /* 声光控制当前保留 */
+    CHAR szExt[256];
+} NET_TV_DEICE_CONTROL_INFO_S, *LPNET_TV_DEVICE_CONTROL_INFO_S;
+
+
+/**
  * @struct tagNET_TVDeviceBasicInfo
  * @brief 设备基本信息 结构体定义 Basic device information Structure definition
  * @attention 无 None
@@ -1755,6 +1828,25 @@ typedef struct tagNETTVDeviceBasicInfo
     CHAR szDeviceTypeV2[NET_TV_LEN_128];                /* 设备类型 */
     BYTE byRes[256];                                    /* 保留字段  Reserved */
 }NET_TV_DEVICE_BASICINFO_S, *LPNET_TV_DEVICE_BASICINFO_S;
+
+/**
+ * @struct tagNETTVSystemNtpInfo
+ * @brief 系统时间/NTP校时配置，对应IPC侧System::TimeInfo_S
+ * @note 用于NET_TV_GET_NTPCFG/NET_TV_SET_NTPCFG
+ */
+typedef struct tagNETTVSystemNtpInfo
+{
+    INT32   enTimeZone;                                 /* 时区，取值对应IPC侧System::TimeZone_E */
+    INT32   enDateFormat;                               /* 日期格式，取值对应IPC侧System::DateFormat_E */
+    BOOL    bEnableNTPSync;                             /* 是否开启NTP校时 */
+    BOOL    bManualSync;                                /* 是否手动校时 */
+    CHAR    szDateTime[NET_TV_MAX_DATE_STRING_LEN];     /* 手动校时时间，格式按enDateFormat解析 */
+    BOOL    bIsSyncWithComputer;                        /* 是否与计算机时间同步 */
+    CHAR    szAddress[NET_TV_LEN_128];                  /* NTP服务器地址 */
+    INT32   nPort;                                      /* NTP服务器端口 */
+    INT32   nSyncInterval;                              /* NTP同步间隔，单位分钟 */
+    BYTE    byRes[128];                                 /* 保留字段 */
+}NET_TV_SYSTEM_NTP_INFO_S, *LPNET_TV_SYSTEM_NTP_INFO_S;
 
 /**
  * @struct tagNETTVNetworkInterfaces
@@ -1909,9 +2001,47 @@ typedef struct tagNETTVPreviewImageParam
 
 /**
  * @brief 图像配置参数 Image setting parameters
- * @note 用于 NET_TV_GET_IMAGECFG / NET_TV_SET_IMAGECFG，字段复用 NET_TV_PREVIEW_IMAGE_PARAM_S
+ * @note 用于 NET_TV_GET_IMAGECFG / NET_TV_SET_IMAGECFG，对应 IPC ISP::ImageParam_S
  */
-typedef NET_TV_PREVIEW_IMAGE_PARAM_S NET_TV_IMAGE_SETTING_S, *LPNET_TV_IMAGE_SETTING_S;
+typedef struct tagNETTVImageSetting
+{
+    UINT32  nBrightness;                          /* 亮度 [0,100] */
+    UINT32  nContrast;                            /* 对比度 [0,100] */
+    UINT32  nSaturation;                          /* 饱和度 [0,100] */
+    UINT32  nSharpness;                           /* 锐度 [0,100] */
+    BYTE    byRes[64];                            /* 保留字段 */
+}NET_TV_IMAGE_SETTING_S, *LPNET_TV_IMAGE_SETTING_S;
+
+/* ==================== 隐私遮盖配置相关结构体 ==================== */
+
+/**
+ * @struct tagNETTVPrivacyMaskArea
+ * @brief 单个隐私遮盖区域 Privacy mask area
+ * @note 用于NET_TV_PRIVACY_MASK_CFG_S中配置单个遮盖区域
+ */
+typedef struct tagNETTVPrivacyMaskArea
+{
+    INT32       nAreaID;                              /* 遮盖区域ID [0, NET_TV_MAX_PRIVACY_MASK_AREA_NUM) */
+    BOOL        bEnable;                              /* 是否启用 0-不启用 1-启用 */
+    INT32       nRectLeft;                            /* 遮盖区域左坐标 [0, 8191] */
+    INT32       nRectTop;                             /* 遮盖区域上坐标 [0, 8191] */
+    INT32       nRectRight;                           /* 遮盖区域右坐标 [0, 8191] */
+    INT32       nRectBottom;                          /* 遮盖区域下坐标 [0, 8191] */
+    BYTE        byRes[32];                            /* 保留字段 */
+}NET_TV_PRIVACY_MASK_AREA_S, *LPNET_TV_PRIVACY_MASK_AREA_S;
+
+/**
+ * @struct tagNETTVPrivacyMaskCfg
+ * @brief 隐私遮盖配置信息 Privacy mask configuration
+ * @note 用于NET_TV_GET_PRIVACYMASKCFG/NET_TV_SET_PRIVACYMASKCFG
+ */
+typedef struct tagNETTVPrivacyMaskCfg
+{
+    BOOL        bEnable;                              /* 是否启用隐私遮盖 0-不启用 1-启用 */
+    INT32       dwAreaCount;                          /* 遮盖区域数量 [0, NET_TV_MAX_PRIVACY_MASK_AREA_NUM] */
+    NET_TV_PRIVACY_MASK_AREA_S astArea[NET_TV_MAX_PRIVACY_MASK_AREA_NUM]; /* 遮盖区域数组 */
+    BYTE        byRes[256];                           /* 保留字段 */
+}NET_TV_PRIVACY_MASK_CFG_S, *LPNET_TV_PRIVACY_MASK_CFG_S;
 
 /**
  * @struct tagNETTVPreviewInfo
@@ -1955,6 +2085,7 @@ typedef struct tagNETTVAlarmBasicInfo
     BYTE        byDiskNumber[NET_TV_LOCAL_DISK_MAX_NUM];       /* 发生报警的硬盘，为1表示该硬盘异常 */
     BYTE        byPanoramaImg[NET_TV_PIC_DATA_MAX_LEN];        /* 全景 JPEG 二进制图片 */
     UINT32      dwPanoramaImgLen;                              /* 全景 JPEG 图片长度 */
+    INT64       llTimestampMs;                                 /* 报警时间戳，单位毫秒 */
     BYTE        byRes[128];                                    /* 保留字段 */
 }NET_TV_ALARM_BASIC_INFO_S, *LPNET_TV_ALARM_BASIC_INFO_S;
 
@@ -1971,9 +2102,18 @@ typedef struct tagNETTVAlarmRuleInfo
     UINT32      dwRuleType;                          /* 规则类型(可与dwAlarmType对应) */
     CHAR        szRuleName[NET_TV_LEN_64];           /* 规则名称(可选) */
     UINT32      dwTargetID;                          /* 目标ID(可选) */
+    UINT32      dwObjectType;                        /* 目标类型(0:未知 1:人 2:车 ... 可扩展) */
+    float       fConfidence;                         /* 置信度 0~1 */
+    INT32       nLeft;                               /* 目标框 left */
+    INT32       nTop;                                /* 目标框 top */
+    INT32       nRight;                              /* 目标框 right */
+    INT32       nBottom;                             /* 目标框 bottom */
     BYTE        byPanoramaImg[NET_TV_PIC_DATA_MAX_LEN]; /* 全景 JPEG 二进制图片 */
     UINT32      dwPanoramaImgLen;                    /* 全景 JPEG 图片长度 */
-    BYTE        byRes[256];                          /* 保留字段 */
+    BYTE        byTargetImg[NET_TV_PIC_DATA_MAX_LEN]; /* 目标特写 JPEG 二进制图片 */
+    UINT32      dwTargetImgLen;                      /* 目标特写 JPEG 图片长度 */
+    INT64       llTimestampMs;                       /* 报警时间戳，单位毫秒 */
+    BYTE        byRes[128];                          /* 保留字段 */
 }NET_TV_ALARM_RULE_INFO_S, *LPNET_TV_ALARM_RULE_INFO_S;
 
 /**
@@ -1992,9 +2132,12 @@ typedef struct tagNETTVAlarmAiObjectInfo
     INT32       nRight;                              /* 目标框 right */
     INT32       nBottom;                             /* 目标框 bottom */
     CHAR        szObjectID[NET_TV_LEN_64];           /* 目标ID(可选) */
+    BYTE        byPanoramaImg[NET_TV_PIC_DATA_MAX_LEN]; /* 全景 JPEG 二进制图片 */
+    UINT32      dwPanoramaImgLen;                    /* 全景 JPEG 图片长度 */
     BYTE        byImgData[NET_TV_PIC_DATA_MAX_LEN];  /* 报警图片数据 */
     UINT32      dwImgLen;                            /* 图片长度 */
-    BYTE        byRes[64];                           /* 保留字段 */
+    INT64       llTimestampMs;                       /* 报警时间戳，单位毫秒 */
+    BYTE        byRes[32];                           /* 保留字段 */
 }NET_TV_ALARM_AI_OBJECT_INFO_S, *LPNET_TV_ALARM_AI_OBJECT_INFO_S;
 
 
@@ -3999,6 +4142,32 @@ typedef struct tagNETTVSmartCap
     BYTE    byRes[256];                                                 /* 保留字段  Reserved */
 } NET_TV_SMART_CAP_S, *LPNET_TV_SMART_CAP_S;
 
+/************************************************************************/
+/*              设备发现 Device Discovery                                */
+/************************************************************************/
+#define NET_TV_DISCOVERY_MCAST_ADDR               "239.225.225.106"
+#define NET_TV_DISCOVERY_MCAST_PORT               39581
+#define NET_TV_DISCOVERY_TTL                      4
+
+/**
+ * @struct tagNETTVDiscoveryDeviceInfo
+ * @brief 设备发现响应信息 Device discovery response info
+ */
+typedef struct tagNETTVDiscoveryDeviceInfo
+{
+    CHAR    szDeviceName[NET_TV_LEN_64];
+    CHAR    szDeviceID[NET_TV_LEN_64];
+    CHAR    szDeviceType[NET_TV_LEN_32];
+    CHAR    szIPv4Address[NET_TV_IPADDR_STR_MAX_LEN];
+    CHAR    szIPv4SubnetMask[NET_TV_IPADDR_STR_MAX_LEN];
+    CHAR    szIPv4Gateway[NET_TV_IPADDR_STR_MAX_LEN];
+    CHAR    szMACAddress[NET_TV_LEN_32];
+    CHAR    szFirmwareVersion[NET_TV_LEN_64];
+    UINT32  dwHttpPort;
+    CHAR    szManufacturer[NET_TV_LEN_32];
+    BYTE    byRes[128];
+} NET_TV_DISCOVERY_DEVICE_INFO_S, *LPNET_TV_DISCOVERY_DEVICE_INFO_S;
+
 
 
 
@@ -4069,6 +4238,12 @@ NET_TV_API BOOL STDCALL NET_TV_SERVER_PushAlarmInfo(IN NET_TV_ALARMER_S *pAlarme
                                                     IN INT32 dwBufLen);
 
 NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetDeviceInfo(NET_TV_COMMON_ECODE_E (*CB)(NET_TV_DEVICE_INFO_S pInfo));
+
+/**
+ * @brief 设备硬件控制回调。
+ */
+typedef NET_TV_COMMON_ECODE_E (*NET_TV_CB_DeviceControl)(LPNET_TV_DEVICE_CONTROL_INFO_S pstCtrlInfo);
+NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_DeviceControl(NET_TV_CB_DeviceControl pCb);
 
 /**
  * @brief 视频编码能力集回调类型 (NET_TV_CAP_VIDEO_ENCODE)
@@ -4287,6 +4462,113 @@ NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetSmokeFireCfg(NET_TV_CB_GetDe
 NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetSmokeFireCfg(NET_TV_CB_SetDevConfigByCommand pCb);
 NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetRoadPondingCfg(NET_TV_CB_GetDevConfigByCommand pCb);
 NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetRoadPondingCfg(NET_TV_CB_SetDevConfigByCommand pCb);
+
+/************************************************************************/
+/*                    设备发现 Device Discovery                           */
+/************************************************************************/
+/**
+ * @brief 获取设备发现信息的回调
+ * @param [OUT] pDeviceInfo 由宿主应用填充设备信息
+ */
+typedef void(STDCALL *NET_TV_CB_GetDiscoveryDeviceInfo)(
+    OUT NET_TV_DISCOVERY_DEVICE_INFO_S* pDeviceInfo);
+
+/**
+ * @brief 注册设备发现信息回调（启动前必须调用）
+ * @param [IN] cbFunc 回调函数指针
+ * @return TRUE 成功，FALSE 失败
+ */
+NET_TV_API BOOL STDCALL
+NET_TV_SERVER_RegisterCb_GetDiscoveryDeviceInfo(
+    IN NET_TV_CB_GetDiscoveryDeviceInfo cbFunc);
+
+/**
+ * @brief 启动设备发现响应服务（阻塞线程中运行 AF_PACKET 接收循环）
+ * @param [IN] szInterfaceName 网卡名称 (如 "eth0")
+ * @return TRUE 成功，FALSE 失败
+ * @note 需先调用 NET_TV_SERVER_RegisterCb_GetDiscoveryDeviceInfo 注册回调
+ */
+NET_TV_API BOOL STDCALL
+NET_TV_SERVER_Discovery_Start(IN const CHAR* szInterfaceName);
+
+/**
+ * @brief 停止设备发现响应服务
+ * @return TRUE 成功，FALSE 失败
+ */
+NET_TV_API BOOL STDCALL
+NET_TV_SERVER_Discovery_Stop(void);
+
+/************************************************************************/
+/*                       语音对讲 VoiceCom (服务端)                       */
+/************************************************************************/
+/** @brief 语音对讲播放回调: 收到NVR端音频时调用, 推送到扬声器 */
+typedef void (STDCALL *NET_TV_SERVER_VoiceComPlayCallBack)(const char* data, unsigned int size);
+
+/**
+ * @brief 语音对讲采集回调: SDK按协商参数主动拉取设备侧采集帧并发送到NVR
+ * @param [IN]  pstAudioParam 当前 VoiceCom 会话协商的音频参数
+ * @param [OUT] pBuffer       输出音频帧缓存
+ * @param [IN]  dwBufferSize  输出缓存长度
+ * @param [IN]  lpUserData    用户数据
+ * @return 实际写入的音频字节数，返回 <=0 表示当前无可用音频帧
+ * @note 回调内应写入与 pstAudioParam 匹配的裸音频帧；建议每次返回 dwFrameBytes 字节。
+ */
+typedef INT32 (STDCALL *NET_TV_SERVER_VoiceComCaptureCallBack)(
+    IN const NET_TV_VOICECOM_AUDIO_PARAM_S* pstAudioParam,
+    OUT CHAR* pBuffer,
+    IN UINT32 dwBufferSize,
+    IN LPVOID lpUserData);
+
+/**
+ * @brief 启动语音对讲TCP监听
+ * @param [IN]  dwPort  监听端口, 默认9006
+ * @return TRUE 成功，FALSE 失败
+ */
+NET_TV_API BOOL STDCALL
+NET_TV_SERVER_StartVoiceComServer(IN UINT32 dwPort);
+
+/**
+ * @brief 停止语音对讲TCP监听
+ * @return TRUE 成功，FALSE 失败
+ */
+NET_TV_API BOOL STDCALL
+NET_TV_SERVER_StopVoiceComServer(void);
+
+/**
+ * @brief 注册播放回调 (收到NVR音频 -> 扬声器)
+ * @param [IN]  cb  播放回调
+ * @return TRUE 成功，FALSE 失败
+ */
+NET_TV_API BOOL STDCALL
+NET_TV_SERVER_RegisterCb_VoiceComPlay(IN NET_TV_SERVER_VoiceComPlayCallBack cb);
+
+/**
+ * @brief 注册采集回调 (麦克风/LineIn -> NVR)
+ * @param [IN]  cb          采集回调，传 NULL 表示注销
+ * @param [IN]  lpUserData  用户数据，回调时原样透传
+ * @return TRUE 成功，FALSE 失败
+ * @note SDK负责按当前 VoiceCom 会话参数定时拉帧并发送，业务侧只需要提供采集帧。
+ */
+NET_TV_API BOOL STDCALL
+NET_TV_SERVER_RegisterCb_VoiceComCapture(IN NET_TV_SERVER_VoiceComCaptureCallBack cb,
+                                         IN LPVOID lpUserData);
+
+/**
+ * @brief 发送麦克风采集的音频到NVR
+ * @param [IN]  pData  音频帧数据，格式需与当前 VoiceCom 会话协商参数一致
+ * @param [IN]  dwSize 数据长度(字节)
+ * @return TRUE 成功，FALSE 失败
+ */
+NET_TV_API BOOL STDCALL
+NET_TV_SERVER_SendVoiceComData(IN const CHAR* pData, IN UINT32 dwSize);
+
+/**
+ * @brief 获取当前 VoiceCom 会话协商的音频参数
+ * @param [OUT] pstAudioParam  音频参数
+ * @return TRUE 成功，FALSE 表示尚未建立会话或参数未协商
+ */
+NET_TV_API BOOL STDCALL
+NET_TV_SERVER_GetVoiceComAudioParam(OUT LPNET_TV_VOICECOM_AUDIO_PARAM_S pstAudioParam);
 
 #ifdef __cplusplus
 }

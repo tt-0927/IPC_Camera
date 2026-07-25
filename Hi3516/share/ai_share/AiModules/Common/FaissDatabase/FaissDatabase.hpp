@@ -109,7 +109,18 @@ public:
      * @return true
      * @return false
      */
-    bool search(std::vector<float> &vFeature, SearchResult_S &stSearchRes, int nNum = 1, int nPercent = 100);
+    bool search(std::vector<float> &vFeature, SearchResult_S &stSearchRes, int nNum = 1, int nSearchFrom = -1, int nSearchTo = -1);
+
+    /**
+     * @brief 在指定 ID 列表中查询相似向量
+     * @param vFeature 需要查询的向量
+     * @param stSearchRes 查询返回的结果
+     * @param vIds 指定的 ID 列表
+     * @param nNum 查询相似的个数
+     * @return true
+     * @return false
+     */
+    bool searchWithIds(std::vector<float> &vFeature, SearchResult_S &stSearchRes, const std::vector<int64_t> &vIds, int nNum = 1);
 
     /**
      * @brief 向量归一化

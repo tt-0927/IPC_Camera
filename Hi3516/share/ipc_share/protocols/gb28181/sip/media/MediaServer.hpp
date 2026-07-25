@@ -10,7 +10,7 @@
 
 /** 引入所需的头文件 */
 #include "MediaNetBase.h"
-#include "ModuleLog.h"
+#include "dlog.h"
 #include <arpa/inet.h>
 #include <atomic>
 #include <cstring>
@@ -79,7 +79,7 @@ namespace SIP
             m_bUseTcp = false;
             /** 初始化 UDP 监听标志 */
             m_bUseUdp = false;
-            MLOG_INFO("[MediaServer]构造服务器");
+            dlog_info("[MediaServer]构造服务器");
         }
 
         /**
@@ -114,7 +114,7 @@ namespace SIP
             }
 
             m_bRunning = success;
-            MLOG_INFO("[MediaServer]初始化服务器，端口[%d]协议类型[%d]监听状态[%d]",
+            dlog_info("[MediaServer]初始化服务器，端口[%d]协议类型[%d]监听状态[%d]",
                       m_nLocalPort, enType, success);
             /** 返回监听状态 */
             return success;
@@ -142,7 +142,7 @@ namespace SIP
             }
             m_setAllowTargets.clear();
             m_setClients.clear();
-            MLOG_INFO("[MediaServer]反初始化，端口[%d]协议类型[%d]",
+            dlog_info("[MediaServer]反初始化，端口[%d]协议类型[%d]",
                       m_nLocalPort, m_bUseTcp ? TCP : UDP);
         }
 
@@ -153,7 +153,7 @@ namespace SIP
         {
             /** 调用 deinit() 确保资源释放 */
             deinit();
-            MLOG_INFO("[MediaServer]析构服务器");
+            dlog_info("[MediaServer]析构服务器");
         }
 
         /**
@@ -170,7 +170,7 @@ namespace SIP
             stClient.strIP = strAllowIP;
             stClient.nPort = nPort;
             m_setAllowTargets.insert(stClient);
-            MLOG_INFO("[MediaServer] 添加白名单:[%s:%d]", strAllowIP.c_str(), nPort);
+            dlog_info("[MediaServer] 添加白名单:[%s:%d]", strAllowIP.c_str(), nPort);
         }
 
         /**
@@ -222,7 +222,7 @@ namespace SIP
             m_nTcpSock = socket(AF_INET, SOCK_STREAM, 0);
             if (m_nTcpSock < 0)
             {
-                MLOG_ERROR("[MediaServer] 创建TCP套接字失败");
+                dlog_error("[MediaServer] 创建TCP套接字失败");
                 return false;
             }
             /** 设置 TCP 监听地址 */
@@ -233,13 +233,13 @@ namespace SIP
             /** 绑定 TCP 套接字 */
             if (bind(m_nTcpSock, (struct sockaddr *)&addr, sizeof(addr)) < 0)
             {
-                MLOG_ERROR("[MediaServer] 绑定TCP端口失败");
+                dlog_error("[MediaServer] 绑定TCP端口失败");
                 return false;
             }
             /** 开始 TCP 监听 */
             if (listen(m_nTcpSock, 5) < 0)
             {
-                MLOG_ERROR("[MediaServer] TCP监听端口[%d]失败", m_nLocalPort);
+                dlog_error("[MediaServer] TCP监听端口[%d]失败", m_nLocalPort);
                 if (m_nTcpSock >= 0)
                 {
                     close(m_nTcpSock);
@@ -250,7 +250,7 @@ namespace SIP
             /** 创建 TCP 监听线程 */
             std::thread([this]()
                         {
-                MLOG_INFO("[MediaServer] 开启TCP监听[%d]", m_nLocalPort);
+                dlog_info("[MediaServer] 开启TCP监听[%d]", m_nLocalPort);
                 while (m_bThreadRunning)
                 {
                     sockaddr_in clientAddr{};
@@ -258,13 +258,13 @@ namespace SIP
                     int clientSock = accept(m_nTcpSock, (struct sockaddr *)&clientAddr, &clientLen);
                     if (clientSock < 0)
                     {
-                        MLOG_WARN("[MediaServer] TCP接受连接失败");
+                        dlog_warn("[MediaServer] TCP接受连接失败");
                         continue;
                     }
                     ClientInfo stInClient;
                     stInClient.strIP = inet_ntoa(clientAddr.sin_addr);
-                    stInClient.nPort = ntohs(clientAddr.sin_port);  
-                    stInClient.nSocket = clientSock;                  
+                    stInClient.nPort = ntohs(clientAddr.sin_port);
+                    stInClient.nSocket = clientSock;
                     /* 判断是否设置了白名单 */
                     if (m_setAllowTargets.size() > 0)
                     {
@@ -273,13 +273,13 @@ namespace SIP
                         {
                             close(clientSock);
                             /* 不在白名单中 */
-                            MLOG_WARN("[MediaServer] 连接 [%s:%d] 不在白名单中",
+                            dlog_warn("[MediaServer] 连接 [%s:%d] 不在白名单中",
                                         stInClient.strIP.c_str(), stInClient.nPort);
                             continue;
                         }
                     }
 
-                    MLOG_INFO("[MediaServer] 新TCP连接[%s:%d]", 
+                    dlog_info("[MediaServer] 新TCP连接[%s:%d]",
                                 stInClient.strIP.c_str(), stInClient.nPort);
                     /* 记录连接 */
                     m_setClients.insert(stInClient);
@@ -295,17 +295,17 @@ namespace SIP
                             {
                                 std::lock_guard<std::mutex> lock(m_mutexCallback);
                                 m_fnCallback({
-                                    inet_ntoa(clientAddr.sin_addr), 
-                                    buffer.data(), 
-                                    (size_t)len, 
+                                    inet_ntoa(clientAddr.sin_addr),
+                                    buffer.data(),
+                                    (size_t)len,
                                     true,
                                     true});
                             }
                         }
                         close(clientSock);
                     }).detach();
-                } 
-                MLOG_INFO("[MediaServer] 关闭TCP监听[%d]", m_nLocalPort); })
+                }
+                dlog_info("[MediaServer] 关闭TCP监听[%d]", m_nLocalPort); })
                 .detach();
             return true;
         }
@@ -320,7 +320,7 @@ namespace SIP
             m_nUdpSock = socket(AF_INET, SOCK_DGRAM, 0);
             if (m_nUdpSock < 0)
             {
-                MLOG_ERROR("[MediaServer] 创建UDP套接字失败");
+                dlog_error("[MediaServer] 创建UDP套接字失败");
                 return false;
             }
             /** 设置 UDP 监听地址 */
@@ -331,7 +331,7 @@ namespace SIP
             /** 绑定 UDP 套接字 */
             if (bind(m_nUdpSock, (struct sockaddr *)&addr, sizeof(addr)) < 0)
             {
-                MLOG_ERROR("[MediaServer] 绑定UDP端口[%d]失败", m_nLocalPort);
+                dlog_error("[MediaServer] 绑定UDP端口[%d]失败", m_nLocalPort);
                 if (m_nUdpSock >= 0)
                 {
                     close(m_nUdpSock);
@@ -342,7 +342,7 @@ namespace SIP
             /** 创建 UDP 监听线程 */
             std::thread([this]()
                         {
-                MLOG_INFO("[MediaServer] 开启UDP监听端口[%d]", m_nLocalPort);
+                dlog_info("[MediaServer] 开启UDP监听端口[%d]", m_nLocalPort);
                 std::vector<char> buffer(m_nUdpRecvBuffSize);
                 sockaddr_in clientAddr{};
                 socklen_t clientLen = sizeof(clientAddr);
@@ -354,15 +354,15 @@ namespace SIP
                     {
                         std::lock_guard<std::mutex> lock(m_mutexCallback);
                         m_fnCallback({
-                                inet_ntoa(clientAddr.sin_addr), 
-                                buffer.data(), 
-                                (size_t)len, 
+                                inet_ntoa(clientAddr.sin_addr),
+                                buffer.data(),
+                                (size_t)len,
                                 false,
                                 true,
                                 true});
                     }
-                } 
-                MLOG_INFO("[MediaServer] 关闭UDP监听[%d]", m_nLocalPort); })
+                }
+                dlog_info("[MediaServer] 关闭UDP监听[%d]", m_nLocalPort); })
                 .detach();
             return true;
         }

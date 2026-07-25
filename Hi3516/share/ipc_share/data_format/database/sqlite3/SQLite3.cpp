@@ -14,9 +14,10 @@
  *  注意: 使用间隔为5秒的提交方式，数据量过大,提交缓慢, 会导致提交后,再添加显示数据库锁定
  */
 SQLite3::SQLite3()
-    : m_nCommitInterval(0), m_bExit(false), m_tid(std::bind(&SQLite3::run_commit, this))
+    : m_nCommitInterval(0), m_bExit(false)
 {
-    // m_tid.detach();
+    /* 在构造函数体中启动线程，确保 m_mutex 和 m_cv 已完成构造。 */
+    m_tid = std::thread(&SQLite3::run_commit, this);
 }
 /**
  * @brief 析构函数
@@ -50,20 +51,25 @@ int SQLite3::init(std::string path)
  */
 void SQLite3::deinit()
 {
-    m_bExit = true;
     {
         std::lock_guard<std::mutex> lock(m_mutex);
+        /* 在锁保护下设置退出标志，避免数据竞争 */
+        m_bExit = true;
+
         if (m_bBeginTransaction)
         {
             // rollback_transaction();  // 终止事务
             commit_transaction();
         }
-        m_cv.notify_one();  // 立即唤醒线程
     }
+
+    /* 修改共享状态后再唤醒提交线程 */
+    m_cv.notify_one();
     if (m_tid.joinable())
     {
-        m_tid.join();  // 线程已经被唤醒，join几乎不等待
+        m_tid.join();
     }
+
     if (m_handle)
     {
         sqlite3_close(m_handle);

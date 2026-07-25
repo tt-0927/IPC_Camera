@@ -71,6 +71,7 @@ namespace Task
          * @param fnDealFunc 结果处理函数
          */
         void deal_result(std::function<void(std::string)> fnDealFunc);
+        void clear_deal_result();
         /**
          * @brief 异步结果处理
          * @param data 异步返回的数据

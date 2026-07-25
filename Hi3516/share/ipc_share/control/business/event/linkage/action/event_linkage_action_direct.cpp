@@ -66,6 +66,55 @@ void add_string_if_not_empty(cJSON *pRoot, const char *pKey, const std::string &
     }
 }
 
+bool is_internal_event_attr(const std::string &strKey)
+{
+    return strKey == "CaptureImagePath";
+}
+
+bool should_expose_event_attr_to_root(Event::Type_E enEventType, const std::string &strKey)
+{
+    if (enEventType != Event::Type_E::FACE_COMPARE_SUCCESS &&
+        enEventType != Event::Type_E::FACE_COMPARE_FAIL)
+    {
+        return false;
+    }
+
+    return strKey == "CompareResult" ||
+           strKey == "CompareResultText" ||
+           strKey == "Similarity" ||
+           strKey == "SimilarityFloat" ||
+           strKey == "Threshold" ||
+           strKey == "ThresholdFloat" ||
+           strKey == "FaceId" ||
+           strKey == "Id" ||
+           strKey == "Name" ||
+           strKey == "PhoneNum" ||
+           strKey == "PhoneNumber" ||
+           strKey == "FaceLibName" ||
+           strKey == "LibFacePath";
+}
+
+void add_public_event_attr_to_root(cJSON *pRoot,
+                                   Event::Type_E enEventType,
+                                   const std::string &strKey,
+                                   const std::string &strValue)
+{
+    if (!should_expose_event_attr_to_root(enEventType, strKey))
+    {
+        return;
+    }
+
+    if (cJSON_GetObjectItemCaseSensitive(pRoot, strKey.c_str()) == nullptr)
+    {
+        cJSON_AddStringToObject(pRoot, strKey.c_str(), strValue.c_str());
+    }
+
+    if (strKey == "PhoneNum" && cJSON_GetObjectItemCaseSensitive(pRoot, "PhoneNumber") == nullptr)
+    {
+        cJSON_AddStringToObject(pRoot, "PhoneNumber", strValue.c_str());
+    }
+}
+
 /* 同一次报警和后续图片上传结果共用同一个RequestId前缀，平台可据此做关联 */
 std::string build_mqtt_event_request_id(const ResolvedLinkagePlan_S &stPlan)
 {
@@ -106,7 +155,19 @@ std::string build_mqtt_event_data(const ResolvedLinkagePlan_S &stPlan)
         cJSON_AddNumberToObject(pRoot, "VideoSize", stEventInfo.nVideoSize);
     }
 
-    if (!stContext.mapAttrs.empty())
+    if (stContext.enEventType == Event::Type_E::FACE_COMPARE_SUCCESS ||
+        stContext.enEventType == Event::Type_E::FACE_COMPARE_FAIL)
+    {
+        for (const auto &item : stContext.mapAttrs)
+        {
+            if (is_internal_event_attr(item.first))
+            {
+                continue;
+            }
+            add_public_event_attr_to_root(pRoot, stContext.enEventType, item.first, item.second);
+        }
+    }
+    else if (!stContext.mapAttrs.empty())
     {
         cJSON *pAttrs = cJSON_CreateObject();
         if (pAttrs)
@@ -114,7 +175,7 @@ std::string build_mqtt_event_data(const ResolvedLinkagePlan_S &stPlan)
             bool bHasPublicAttr = false;
             for (const auto &item : stContext.mapAttrs)
             {
-                if (item.first == "CaptureImagePath")
+                if (is_internal_event_attr(item.first))
                 {
                     continue;
                 }
@@ -174,6 +235,14 @@ std::string build_event_image_upload_data(const ResolvedLinkagePlan_S &stPlan,
     add_string_if_not_empty(pRoot, "ImagePath", stResponse.image_path);
     add_string_if_not_empty(pRoot, "FileName", stResponse.file_name);
     add_string_if_not_empty(pRoot, "ImageUrl", stResponse.image_url);
+    for (const auto &item : stContext.mapAttrs)
+    {
+        if (is_internal_event_attr(item.first))
+        {
+            continue;
+        }
+        add_public_event_attr_to_root(pRoot, stContext.enEventType, item.first, item.second);
+    }
 
     if (stResponse.status_code != 0)
     {
@@ -456,6 +525,7 @@ int EventLinkageDirectAction::deal_upload(const ResolvedLinkagePlan_S &stPlan)
 #if CAP_GARBAGE_STATION_PLATFORM
     const std::string strMqttData = build_mqtt_event_data(stPlan);
     const std::string strRequestId = build_mqtt_event_request_id(stPlan);
+    dlog_info("MQTT上传中心事件数据: requestId[%s], data[%s]", strRequestId.c_str(), strMqttData.c_str());
     int nMqttRet = CPlatformManager::instance()->publish_event(MQTT_EVENT_ALARM_COMMAND, strMqttData, strRequestId);
     if (nMqttRet == OK)
     {
@@ -509,6 +579,17 @@ int EventLinkageDirectAction::create_event_video(const Event::EventState_S &stEv
     Event::Info_S stEventInfo = stEventState.stEventInfo;
     if (stEventState.nEventStatus == 0)
     {
+        /*若录制因存储满已停止，且事件开始时间在录制停止之前，则截断endTime为录制停止时间，避免事件记录时间超出实际录像范围*/
+        if (CRecordCtrl::instance()->isStoppedDueToStorage())
+        {
+           const std::string& strStopTime = CRecordCtrl::instance()->getLastRecordStopTime();
+            if (!strStopTime.empty() && stEventInfo.strStartTime < strStopTime)
+            {
+                dlog_info("录制已停止，截断事件endTime: %s -> %s",stEventInfo.strEndTime.c_str(), strStopTime.c_str());
+                stEventInfo.strEndTime = strStopTime;
+            }
+        }
+
         /* 结束阶段补齐录像文件路径，并根据录像模式更新数据库或停止事件录像 */
         dlog_debug("事件结束，更新到事件数据库");
         std::string strDate = stEventInfo.strDate;

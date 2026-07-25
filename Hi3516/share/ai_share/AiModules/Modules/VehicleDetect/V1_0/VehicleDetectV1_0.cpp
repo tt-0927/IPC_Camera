@@ -112,15 +112,26 @@ bool VehicleDetect_NS::CVehicleDetectV1_0::processPlate(
     /* 推理+后处理 */
     Inference_NS::InputData_S stInputData;
     
-    #ifdef RK_3588
-    cv::Mat reMat;
-    resizeAndPadImage(stInData.inMat,reMat);
-    stInputData.pData = (float*)reMat.data;
-    stInputData.nDataSize = static_cast<size_t>(reMat.total() * reMat.elemSize()) * sizeof(float);
-    #else
-    stInputData.pData = (float*)stInData.inMat.data;
-    stInputData.nDataSize = static_cast<size_t>(stInData.inMat.total() * stInData.inMat.elemSize());
-    #endif
+    if(stInData.inMat.type() == CV_8UC3)
+    {
+        if(stInData.inMat.cols != m_nLimitWidth || stInData.inMat.rows != m_nLimitHeight)
+        {
+            cv::Mat reMat;
+            resizeAndPadImage(stInData.inMat,reMat);
+            stInputData.pData              = (float *)reMat.data;
+            stInputData.nDataSize          = static_cast<size_t>(reMat.total() * reMat.elemSize() * sizeof(float));
+        }
+        else
+        {
+            stInputData.pData              = (float *)stInData.inMat.data;
+            stInputData.nDataSize          = static_cast<size_t>(stInData.inMat.total() * stInData.inMat.elemSize() * sizeof(float));
+        }
+    }
+    else
+    {
+        stInputData.pData              = (float *)stInData.inMat.data;
+        stInputData.nDataSize          = static_cast<size_t>(stInData.inMat.total() * stInData.inMat.elemSize() * sizeof(float));
+    }
     stInputData.stBoxs.fConfidence = stInData.stParam.fBoxThreshold;
     stInputData.stBoxs.fNms = stInData.stParam.fNmsThreshold;
     
@@ -135,11 +146,15 @@ bool VehicleDetect_NS::CVehicleDetectV1_0::processPlate(
         }
     }
     const float scaleX = static_cast<float>(stInData.inMat.cols) / m_nLimitWidth;
-    #ifdef RK_3588
-    const float scaleY = static_cast<float>(stInData.inMat.rows) / m_nLimitHeight;
-    #else
-    const float scaleY = static_cast<float>(stInData.inMat.rows * 2 / 3) / m_nLimitHeight;
-    #endif
+    float scaleY = 1;
+    if(stInData.inMat.type() == CV_8UC3)
+    {
+        scaleY = static_cast<float>(stInData.inMat.rows) / m_nLimitHeight;
+    }
+    else
+    {    
+        scaleY = static_cast<float>(stInData.inMat.rows * 2 / 3) / m_nLimitHeight;
+    }
 
     for (const auto& box : vBoxDatas)
     {
@@ -185,15 +200,26 @@ bool VehicleDetect_NS::CVehicleDetectV1_0::processVehicle(
     /* 推理+后处理 */
     Inference_NS::InputData_S stInputData;
 
-    #ifdef RK_3588
-    cv::Mat reMat;
-    resizeAndPadImage(stInData.inMat,reMat);
-    stInputData.pData = (float*)reMat.data;
-    stInputData.nDataSize = static_cast<size_t>(reMat.total() * reMat.elemSize()) * sizeof(float);
-    #else
-    stInputData.pData = (float*)stInData.inMat.data;
-    stInputData.nDataSize = static_cast<size_t>(stInData.inMat.total() * stInData.inMat.elemSize());
-    #endif
+    if(stInData.inMat.type() == CV_8UC3)
+    {
+        if(stInData.inMat.cols != m_nLimitWidth || stInData.inMat.rows != m_nLimitHeight)
+        {
+            cv::Mat reMat;
+            resizeAndPadImage(stInData.inMat,reMat);
+            stInputData.pData              = (float *)reMat.data;
+            stInputData.nDataSize          = static_cast<size_t>(reMat.total() * reMat.elemSize() * sizeof(float));
+        }
+        else
+        {
+            stInputData.pData              = (float *)stInData.inMat.data;
+            stInputData.nDataSize          = static_cast<size_t>(stInData.inMat.total() * stInData.inMat.elemSize() * sizeof(float));
+        }
+    }
+    else
+    {
+        stInputData.pData              = (float *)stInData.inMat.data;
+        stInputData.nDataSize          = static_cast<size_t>(stInData.inMat.total() * stInData.inMat.elemSize() * sizeof(float));
+    }
 
     stInputData.stBoxs.fConfidence = stInData.stParam.fBoxThreshold;
     stInputData.stBoxs.fNms = stInData.stParam.fNmsThreshold;
@@ -209,11 +235,15 @@ bool VehicleDetect_NS::CVehicleDetectV1_0::processVehicle(
         }
     }
     const float scaleX = static_cast<float>(stInData.inMat.cols) / m_nLimitWidth;
-    #ifdef RK_3588
-    const float scaleY = static_cast<float>(stInData.inMat.rows) / m_nLimitHeight;
-    #else
-    const float scaleY = static_cast<float>(stInData.inMat.rows * 2 / 3) / m_nLimitHeight;
-    #endif
+    float scaleY = 1;
+    if(stInData.inMat.type() == CV_8UC3)
+    {
+        scaleY = static_cast<float>(stInData.inMat.rows) / m_nLimitHeight;
+    }
+    else
+    {    
+        scaleY = static_cast<float>(stInData.inMat.rows * 2 / 3) / m_nLimitHeight;
+    }
     // std::cout << "sX:" << scaleX << " sY:" << scaleY << " pos(" << stInData.inMat.cols << "," << stInData.inMat.rows << ")" << " m_nLimitWidth:" << m_nLimitWidth << " m_nLimitHeight:" << m_nLimitHeight << std::endl;
     /* 跟踪算法 */
     for (const auto& box : vBoxDatas)
@@ -226,51 +256,44 @@ bool VehicleDetect_NS::CVehicleDetectV1_0::processVehicle(
                                                 cv::Point(box.stBoxs.nX2, box.stBoxs.nY1),
                                                 cv::Point(box.stBoxs.nX2, box.stBoxs.nY2),
                                                 cv::Point(box.stBoxs.nX1, box.stBoxs.nY2)};
-        #ifdef RK_3588
-        
-        if(access("/testDrawImage", F_OK) == 0)
+        if(stInData.inMat.type() == CV_8UC3)
         {
-            cv::Rect rect = cv::boundingRect(vRectPolygon);
-            // 画矩形框
-            cv::rectangle(reMat, rect, cv::Scalar(0, 0, 255), 2);
-            
-            if (!Modules_NS::saveImage(reMat, "/mnt/image"))
+            for(auto itr : stInData.stParam.vsVehicleParam)
             {
-                std::cout<< "[车辆算法]保存图片失败" << std::endl;
+                bAreaRet = isIntersecting(vRectPolygon,itr.vecPoints);
+                if(bAreaRet)
+                {
+                    break;
+                }
             }
         }
-
-        for(auto itr : stInData.stParam.vsVehicleParam)
+        else
         {
-            bAreaRet = isIntersecting(vRectPolygon,itr.vecPoints);
-            if(bAreaRet)
+            if (stInData.stParam.vsVehicleParam.size()>0 && stInData.stParam.vsVehicleParam[0].bEnable)
             {
-                break;
+                bAreaRet = isIntersecting(vRectPolygon,
+                    stInData.stParam.vsVehicleParam[0].vecPoints);
             }
         }
-        #else
-        if (stInData.stParam.vsVehicleParam.size()>0 && stInData.stParam.vsVehicleParam[0].bEnable)
-        {
-            bAreaRet = isIntersecting(vRectPolygon,
-                                        stInData.stParam.vsVehicleParam[0].vecPoints);
-        }
-        #endif
 
         if (bAreaRet)
         {
             Result_S stResult;
             stResult.nId = 0;
-            #ifdef RK_3588
-            stResult.fX = (float)std::max(0,(box.stBoxs.nX1 - m_nXOffset)) * std::max(scaleX,scaleY);
-            stResult.fY = (float)std::max(0,(box.stBoxs.nY1 - m_nYOffset)) * std::max(scaleX,scaleY);
-            stResult.fWidth = (float)(box.stBoxs.nX2 - box.stBoxs.nX1) * std::max(scaleX,scaleY);
-            stResult.fHeight = (float)(box.stBoxs.nY2 - box.stBoxs.nY1) * std::max(scaleX,scaleY);
-            #else
-            stResult.fX = (float)box.stBoxs.nX1 * scaleX;
-            stResult.fY = (float)box.stBoxs.nY1 * scaleY;
-            stResult.fWidth = (float)(box.stBoxs.nX2 - box.stBoxs.nX1) * scaleX;
-            stResult.fHeight = (float)(box.stBoxs.nY2 - box.stBoxs.nY1) * scaleY;
-            #endif
+            if(stInData.inMat.type() == CV_8UC3)
+            {
+                stResult.fX = (float)std::max(0,(box.stBoxs.nX1 - m_nXOffset)) * std::max(scaleX,scaleY);
+                stResult.fY = (float)std::max(0,(box.stBoxs.nY1 - m_nYOffset)) * std::max(scaleX,scaleY);
+                stResult.fWidth = (float)(box.stBoxs.nX2 - box.stBoxs.nX1) * std::max(scaleX,scaleY);
+                stResult.fHeight = (float)(box.stBoxs.nY2 - box.stBoxs.nY1) * std::max(scaleX,scaleY);
+            }
+            else
+            {
+                stResult.fX = (float)box.stBoxs.nX1 * scaleX;
+                stResult.fY = (float)box.stBoxs.nY1 * scaleY;
+                stResult.fWidth = (float)(box.stBoxs.nX2 - box.stBoxs.nX1) * scaleX;
+                stResult.fHeight = (float)(box.stBoxs.nY2 - box.stBoxs.nY1) * scaleY;
+            }
             // std::cout<< "point1:" << stResult.fX << " " << stResult.fY << " point2:" << stResult.fX + stResult.fWidth << " " << stResult.fY + stResult.fWidth << std::endl;
             // std::cout<< "pos  (" << box.stBoxs.nX1 << "," << box.stBoxs.nY1 << ") " << "(" << box.stBoxs.nX2 << "," << box.stBoxs.nY2 << ")" << std::endl;
             vecResult.push_back(stResult);

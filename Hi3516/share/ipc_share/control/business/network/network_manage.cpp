@@ -125,17 +125,6 @@ int CNetworkManage::get_system_networkInfo(Network::Info_S &stNetInfo)
 	stInterface = get_network_interface();
 
 	std::string network_config_file_path = NETWORK_CONFIG_FILE;
-	#if CAP_NETWORK_WIFI
-	if(CWifiManager::instance()-> isWifiConnectedAndWiredDisconnected())//WiFi连接，有线断开
-	{
-		network_config_file_path = NETWORK_WIFI_CONFIG_FILE;
-		stInterface = "wlan0";
-		m_bNetworkSetting = false;
-	}
-	else {
-		m_bNetworkSetting = false;
-	}
-	#endif
 
 	if (stInterface.empty())
 	{
@@ -1829,7 +1818,6 @@ bool CNetworkManage::need_reboot(Network::Info_S stNetInfo)
 	// bool bReboot = false;
 	Network::Info_S stOldNetInfo;
 	get_system_networkInfo(stOldNetInfo);
-
 	/* 静态和动态IP */
 	if(stOldNetInfo.stIp.bEnableDhcp != stNetInfo.stIp.bEnableDhcp)
 	{

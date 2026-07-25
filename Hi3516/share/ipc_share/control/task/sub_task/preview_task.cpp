@@ -144,6 +144,14 @@ void Task::Preview::SetBeepAlarm::handle()
     result(nRet);
 }
 
+/* TVSDK 设备硬件控制 */
+void Task::Preview::DeviceControl::handle()
+{
+    ::Preview::DeviceControl_S stControl;
+    Convert::to_struct(m_taskData, stControl);
+    result(CPreviewManage::instance()->device_control(stControl));
+}
+
 /* 获取对讲/广播状态 */
 void Task::Preview::GetIntercomAndBroadcastStatus::handle()
 {

@@ -274,6 +274,15 @@ namespace Audio_NS
         // uint8_t *pData;             /* 音频数据指针 */
     } AudioFrame_S;
 
+#if CAP_EVENT_AUDIO_PLAYBACK_V2
+    /* 音频输出来源类型（用于功放延时开启策略区分延时时长） */
+    typedef enum
+    {
+        AO_SOURCE_ALARM = 0,    /* 声音联动报警音 */
+        AO_SOURCE_REALTIME,     /* 对讲/广播等实时流 */
+    } AoSource_E;
+#endif
+
     /* 送到ao的信息 */
     typedef struct _AoInfo_S_
     {
@@ -282,5 +291,8 @@ namespace Audio_NS
         uint8_t *pData;               /* 送给ao的音频数据 */
         uint32_t nLen;                /* 送给ao的音频数据长度 */
         AudioFormat_E enAudioFormat;  /* 音频编码格式 */
+#if CAP_EVENT_AUDIO_PLAYBACK_V2
+        AoSource_E enSource = AoSource_E::AO_SOURCE_ALARM;  /* 音频来源类型 */
+#endif
     }AoInfo_S;
 };  // namespace Audio_NS

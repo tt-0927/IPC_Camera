@@ -131,7 +131,7 @@ http {
         # add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
 
         # 添加 Content-Security-Policy 头，限制资源加载来源
-        add_header Content-Security-Policy "default-src 'self'; connect-src 'self' ws: wss:; script-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-eval'; font-src 'self' data:; img-src 'self' data:; media-src 'self' blob:;" always;
+        add_header Content-Security-Policy "default-src 'self'; connect-src 'self' ws: wss:; script-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-eval'; font-src 'self' data:; img-src 'self' data: blob:; media-src 'self' blob:;" always;
 
         # 添加 X-Content-Type-Options 头，防止 MIME 类型嗅探
         add_header X-Content-Type-Options "nosniff" always;

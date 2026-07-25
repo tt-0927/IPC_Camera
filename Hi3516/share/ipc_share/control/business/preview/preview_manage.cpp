@@ -17,9 +17,37 @@
 #include "gpio_ctrl.h"
 #include "isp_configure.h"
 #include "event_linkage.h"
+#include "light_manager.h"
+
+namespace
+{
+const char *kTvSdkVoiceComSdp = "tvsdk_voicecom";
+constexpr int kTvSdkAlarmLightControlType = 2;
+constexpr int kTvSdkAlarmLightStart = 1;
+constexpr int kTvSdkAlarmLightStop = 2;
+constexpr int kTvSdkAlarmLightSetMode = 3;
+constexpr int kAlarmLightMinDurationSec = 1;
+constexpr int kAlarmLightMaxDurationSec = 300;
+constexpr int kFlashFrequencyMin = static_cast<int>(Alarm::FlashFrequency_E::FLASH_STEADY_ON);
+constexpr int kFlashFrequencyMax = static_cast<int>(Alarm::FlashFrequency_E::FLASH_HIGH_FREQ);
+}
 
 CPreviewManage::CPreviewManage()
 {
+}
+
+CPreviewManage::~CPreviewManage()
+{
+    {
+        std::lock_guard<std::mutex> timerLock(m_alarmLightTimerMutex);
+        m_alarmLightTimerArmed = false;
+        m_alarmLightTimerExit = true;
+    }
+    m_alarmLightTimerCv.notify_all();
+    if (m_alarmLightTimerThread.joinable())
+    {
+        m_alarmLightTimerThread.join();
+    }
 }
 
 IpcRet_E CPreviewManage::init()
@@ -49,11 +77,37 @@ IpcRet_E CPreviewManage::init()
 
 		Convert::write_file(PREVIEW_CONFIG_FILE, m_stPreviewInfo);
 	}
+
+	{
+        std::lock_guard<std::mutex> lock(m_alarmLightTimerMutex);
+        if (!m_alarmLightTimerThread.joinable())
+        {
+            m_alarmLightTimerExit = false;
+            m_alarmLightTimerThread = std::thread(&CPreviewManage::alarm_light_timer_loop, this);
+        }
+    }
+
 	return OK;
 }
 
 IpcRet_E CPreviewManage::deinit()
 {
+	{
+        std::lock_guard<std::mutex> operationLock(m_alarmLightOperationMutex);
+        cancel_alarm_light_timer();
+        stop_alarm_light_output();
+    }
+
+    {
+        std::lock_guard<std::mutex> timerLock(m_alarmLightTimerMutex);
+        m_alarmLightTimerExit = true;
+    }
+    m_alarmLightTimerCv.notify_all();
+    if (m_alarmLightTimerThread.joinable())
+    {
+        m_alarmLightTimerThread.join();
+    }
+
 	return OK;
 }
 
@@ -108,6 +162,9 @@ void CPreviewManage::audioDataCallback(const uint8_t* pData, size_t length)
 	stAoInfo.nLen = length;
 	stAoInfo.pData = (uint8_t*)pData;
 	stAoInfo.enAudioFormat = enCurFormat;
+#if CAP_EVENT_AUDIO_PLAYBACK_V2
+	stAoInfo.enSource = Audio_NS::AoSource_E::AO_SOURCE_REALTIME;  /* 对讲/广播 */
+#endif
 	CAVConfigure::instance()->setAoSpeakInfo(stAoInfo);
 }
 
@@ -126,6 +183,13 @@ int CPreviewManage::set_intercom_info(Preview::IntercomInfo_S stInfo)
 
         m_bIntercomStatus = true;
 		m_strIp = stInfo.strLocalIp;
+
+        if (stInfo.strSdp == kTvSdkVoiceComSdp && stInfo.strUrl.empty())
+        {
+            dlog_info("TVSDK VoiceCom对讲开启, 跳过RTP接收器初始化");
+            return OK;
+        }
+
 		/* 先停止旧的 */ 
 		if (m_intercomReceiver && m_intercomReceiver->isRunning())
 		{
@@ -158,7 +222,14 @@ int CPreviewManage::set_intercom_info(Preview::IntercomInfo_S stInfo)
         {
             m_intercomReceiver->stop();
         }
-	}
+
+#if CAP_EVENT_AUDIO_PLAYBACK_V2
+        /* 对讲结束，立即关闭功放消除结尾噗声 */
+        CAVConfigure::instance()->muteAudioOutput();
+#endif
+        CAVConfigure::instance()->waitAoDrained(0, 200);
+        CAVConfigure::instance()->muteAudioOutput();
+    }
 
 	return OK;
 }
@@ -209,7 +280,15 @@ int CPreviewManage::set_broadcast_info(Preview::BroadcastInfo_S stInfo)
         {
             m_broadcastReceiver->stop();
         }
-	}
+
+#if CAP_EVENT_AUDIO_PLAYBACK_V2
+        /* 广播结束，立即关闭功放消除结尾噗声 */
+        CAVConfigure::instance()->muteAudioOutput();
+#endif
+        /* 广播结束，立即关闭功放消除结尾噗声 */
+        CAVConfigure::instance()->waitAoDrained(0, 200);
+        CAVConfigure::instance()->muteAudioOutput();
+    }
 
 	return OK;
 }
@@ -229,6 +308,156 @@ int CPreviewManage::set_beep_alarm(Preview::BeepAlarm_S stInfo)
 	}
 
 	return OK;
+}
+
+int CPreviewManage::device_control(const Preview::DeviceControl_S &stInfo)
+{
+    if (stInfo.nChannelId < 0 || stInfo.nControlType != kTvSdkAlarmLightControlType)
+    {
+        dlog_error("TVSDK设备控制参数非法: channel[%d], type[%d]",
+                   stInfo.nChannelId,
+                   stInfo.nControlType);
+        return ERR;
+    }
+
+#if !CAP_ALARM_IO
+    dlog_warn("当前设备不支持声光控制: 未启用 CAP_ALARM_IO");
+    return ERR;
+#else
+    if (stInfo.nCommand == kTvSdkAlarmLightStop)
+    {
+        std::lock_guard<std::mutex> operationLock(m_alarmLightOperationMutex);
+        cancel_alarm_light_timer();
+        return stop_alarm_light_output();
+    }
+
+    if (stInfo.nCommand != kTvSdkAlarmLightStart && stInfo.nCommand != kTvSdkAlarmLightSetMode)
+    {
+        dlog_warn("TVSDK声光控制命令不支持: command[%d]", stInfo.nCommand);
+        return ERR;
+    }
+
+    if (stInfo.nDurationMs < 0 || stInfo.nDurationMs > kAlarmLightMaxDurationSec * 1000 ||
+        stInfo.nParam1 < kFlashFrequencyMin || stInfo.nParam1 > kFlashFrequencyMax)
+    {
+        dlog_error("TVSDK声光控制参数非法: durationMs[%d], frequency[%d]",
+                   stInfo.nDurationMs,
+                   stInfo.nParam1);
+        return ERR;
+    }
+
+    int nDurationSec = kAlarmLightMinDurationSec;
+    if (stInfo.nDurationMs > 0)
+    {
+        nDurationSec = (stInfo.nDurationMs + 999) / 1000;
+    }
+
+    const auto enFrequency = static_cast<Alarm::FlashFrequency_E>(stInfo.nParam1);
+    std::lock_guard<std::mutex> operationLock(m_alarmLightOperationMutex);
+
+    /* 先更新计时器代次，避免上一轮超时动作关闭本次刚开启的声光。 */
+    arm_alarm_light_timer(nDurationSec);
+    const int nLightRet = CLightManager::instance()->start_flashing(LIGHT_TYPE_WHITE,
+                                                                      nDurationSec,
+                                                                      enFrequency);
+    if (nLightRet != OK)
+    {
+        cancel_alarm_light_timer();
+        dlog_error("TVSDK启动闪光灯失败: ret[%d]", nLightRet);
+        return nLightRet;
+    }
+
+    CGpioCtrl::instance()->alarm_output_on(0);
+    dlog_info("TVSDK声光报警已开启: channel[%d], duration[%d]s, frequency[%d]",
+              stInfo.nChannelId,
+              nDurationSec,
+              stInfo.nParam1);
+    return OK;
+#endif
+}
+
+void CPreviewManage::arm_alarm_light_timer(int nDurationSec)
+{
+    std::lock_guard<std::mutex> timerLock(m_alarmLightTimerMutex);
+    ++m_alarmLightTimerGeneration;
+    m_alarmLightTimerArmed = true;
+    m_alarmLightDeadline = std::chrono::steady_clock::now() + std::chrono::seconds(nDurationSec);
+    m_alarmLightTimerCv.notify_all();
+}
+
+void CPreviewManage::cancel_alarm_light_timer()
+{
+    std::lock_guard<std::mutex> timerLock(m_alarmLightTimerMutex);
+    ++m_alarmLightTimerGeneration;
+    m_alarmLightTimerArmed = false;
+    m_alarmLightTimerCv.notify_all();
+}
+
+int CPreviewManage::stop_alarm_light_output()
+{
+#if CAP_ALARM_IO
+    CGpioCtrl::instance()->alarm_output_off(0);
+#endif
+
+    const int nLightRet = CLightManager::instance()->stop_flashing(LIGHT_TYPE_WHITE);
+    const int nRestoreRet = CLightManager::instance()->apply_peripheral_config();
+    if (nLightRet != OK || nRestoreRet != OK)
+    {
+        dlog_error("TVSDK停止声光报警失败: stopLight[%d], restoreLight[%d]", nLightRet, nRestoreRet);
+        return ERR;
+    }
+
+    dlog_info("TVSDK声光报警已停止");
+    return OK;
+}
+
+void CPreviewManage::alarm_light_timer_loop()
+{
+    while (true)
+    {
+        uint64_t nGeneration = 0;
+        std::chrono::steady_clock::time_point deadline;
+
+        {
+            std::unique_lock<std::mutex> timerLock(m_alarmLightTimerMutex);
+            m_alarmLightTimerCv.wait(timerLock, [this]() {
+                return m_alarmLightTimerExit || m_alarmLightTimerArmed;
+            });
+
+            if (m_alarmLightTimerExit)
+            {
+                return;
+            }
+
+            nGeneration = m_alarmLightTimerGeneration;
+            deadline = m_alarmLightDeadline;
+            if (m_alarmLightTimerCv.wait_until(timerLock, deadline, [this, nGeneration]() {
+                    return m_alarmLightTimerExit || !m_alarmLightTimerArmed ||
+                           m_alarmLightTimerGeneration != nGeneration;
+                }))
+            {
+                continue;
+            }
+        }
+
+        std::lock_guard<std::mutex> operationLock(m_alarmLightOperationMutex);
+        bool bNeedStop = false;
+        {
+            std::lock_guard<std::mutex> timerLock(m_alarmLightTimerMutex);
+            if (!m_alarmLightTimerExit && m_alarmLightTimerArmed &&
+                m_alarmLightTimerGeneration == nGeneration)
+            {
+                m_alarmLightTimerArmed = false;
+                bNeedStop = true;
+            }
+        }
+
+        if (bNeedStop)
+        {
+            dlog_info("TVSDK声光报警时间到，自动停止");
+            stop_alarm_light_output();
+        }
+    }
 }
 
 bool CPreviewManage::get_intercom_status()

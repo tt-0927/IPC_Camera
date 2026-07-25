@@ -100,11 +100,21 @@ bool FaceDetect_NS::CFaceDetectV1_0::process(
             printf("Debug-保存图片失败[%s]\n", m_stInParam.strOriginalDataPath.c_str());
         }
     }
+    int m_nOrWidth = stInData.inMat.cols;
+    int m_nOrHeight = stInData.inMat.rows;
+    if(stInData.inMat.type() == CV_8UC3)
+    {
+        if (stInData.inMat.cols != m_nLimitWidth || stInData.inMat.rows != m_nLimitHeight)
+        {
+            resizeAndPadImage(stInData.inMat, stInData.inMat);
+            //  cv::resize(stInData.inMat, stInData.inMat, cv::Size(m_nLimitWidth,m_nLimitHeight));
+        }
+    }
 
     /* 推理 */
     Inference_NS::InputData_S stInputData;
     stInputData.pData = (float*)stInData.inMat.data;
-    stInputData.nDataSize = static_cast<size_t>(stInData.inMat.total() * stInData.inMat.elemSize());
+    stInputData.nDataSize = static_cast<size_t>(stInData.inMat.total() * stInData.inMat.elemSize() * sizeof(float));
     stInputData.stBoxs.fConfidence = stInData.stParam.fBoxThreshold;
     stInputData.stBoxs.fNms = stInData.stParam.fNmsThreshold;
     
@@ -122,23 +132,49 @@ bool FaceDetect_NS::CFaceDetectV1_0::process(
     {
         CStatisticsTimer runTime("跟踪+后处理耗时");
         int enType = -1; //int::Type_COUNT;
-        const float scaleX = static_cast<float>(stInData.inMat.cols) / m_nLimitWidth;
-        const float scaleY = static_cast<float>(stInData.inMat.rows * 2 / 3) / m_nLimitHeight;
+        const float scaleX = static_cast<float>(m_nOrWidth) / m_nLimitWidth;
+        float scaleY = 1.0f;
+        if(stInData.inMat.type() == CV_8UC3)
+        {
+            scaleY = static_cast<float>(m_nOrHeight) / m_nLimitHeight;
+        }
+        else
+        {
+            scaleY = static_cast<float>(m_nOrHeight * 2 / 3) / m_nLimitHeight;
+        }
         
         /* 遍历vPointDatas并转换到vResults */
         for (const auto& pointData : vPointDatas)
         {
             Result_S stResult;
-            stResult.fX1 = static_cast<float>(pointData.stBoxs.nX1 * scaleX);
-            stResult.fY1 = static_cast<float>(pointData.stBoxs.nY1 * scaleY);
-            stResult.fX2 = static_cast<float>(pointData.stBoxs.nX2 * scaleX);
-            stResult.fY2 = static_cast<float>(pointData.stBoxs.nY2 * scaleY);
+            if(stInData.inMat.type() == CV_8UC3)
+            {
+                stResult.fX1 = static_cast<float>(std::max(0,(pointData.stBoxs.nX1 - m_nXOffset)) / m_fResizeScale);
+                stResult.fY1 = static_cast<float>(std::max(0,(pointData.stBoxs.nY1 - m_nYOffset)) / m_fResizeScale);
+                stResult.fX2 = static_cast<float>(std::max(0,(pointData.stBoxs.nX2 - m_nXOffset)) / m_fResizeScale);
+                stResult.fY2 = static_cast<float>(std::max(0,(pointData.stBoxs.nY2 - m_nYOffset)) / m_fResizeScale);
+            }
+            else
+            {
+                stResult.fX1 = static_cast<float>(pointData.stBoxs.nX1 * scaleX);
+                stResult.fY1 = static_cast<float>(pointData.stBoxs.nY1 * scaleY);
+                stResult.fX2 = static_cast<float>(pointData.stBoxs.nX2 * scaleX);
+                stResult.fY2 = static_cast<float>(pointData.stBoxs.nY2 * scaleY);
+            }
             stResult.fBoxConfidence = pointData.fConfidence;
             
             for (const auto& pt : pointData.vPoints)
             {
-                stResult.vPoint.push_back(static_cast<float>(pt.nX * scaleX));
-                stResult.vPoint.push_back(static_cast<float>(pt.nY * scaleY));
+                if(stInData.inMat.type() == CV_8UC3)
+                {
+                    stResult.vPoint.push_back(static_cast<float>(std::max(0,(pt.nX - m_nXOffset)) / m_fResizeScale));
+                    stResult.vPoint.push_back(static_cast<float>(std::max(0,(pt.nY - m_nYOffset)) / m_fResizeScale));
+                }
+                else
+                {
+                    stResult.vPoint.push_back(static_cast<float>(pt.nX * scaleX));
+                    stResult.vPoint.push_back(static_cast<float>(pt.nY * scaleY));
+                }
             }
 
             stResult.nID = pointData.nLabel;

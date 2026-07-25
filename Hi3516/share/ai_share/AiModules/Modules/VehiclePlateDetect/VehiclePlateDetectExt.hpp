@@ -12,9 +12,7 @@
 #include "opencv2/core/core.hpp"
 #include "opencv2/imgcodecs.hpp"
 #include "opencv2/imgproc.hpp"
-// #include "CVInferenceMOL.hpp"
 #include "OutputDataEXT.hpp"
-
 
 using namespace Inference_NS;
 namespace VehiclePlateDetect_NS

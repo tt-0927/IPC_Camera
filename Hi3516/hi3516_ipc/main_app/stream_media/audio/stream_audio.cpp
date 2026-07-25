@@ -3,7 +3,7 @@
  * @Author       : zhouzirui
  * @Date         : 2025-03-31 15:31:43
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-03-02 15:24:16
+ * @LastEditTime : 2026-06-03 16:12:30
  * @Description  : 流媒体音频模块
  */
 
@@ -15,6 +15,7 @@
 #include "stream_server.h"
 #include "system_utils.h"
 #include "record_ctrl.h"
+#include "voice_com_capture_source.h"
 
 /*用来控制1:1输出的比例*/
 #define VOLUME_RATION (1.12)
@@ -338,6 +339,16 @@ int CStreamAudio::sendAudio_to_Adec(const Audio_NS::AoInfo_S &stAoInfo)
         /*解码g711a格式*/
         codec_g711a_decode(stAoInfo.pData, pTalkbackData, stAoInfo.nLen);
     }
+    else if(stAoInfo.enAudioFormat == Audio_NS::AudioFormat_E::G711U)
+    {
+        unTalkbackDataSize = stAoInfo.nLen * 2;
+        m_bytesTalkbackData.clear();
+        m_bytesTalkbackData.resize(unTalkbackDataSize);
+        pTalkbackData = m_bytesTalkbackData.data();
+
+        /*解码g711u格式*/
+        codec_g711u_decode(stAoInfo.pData, pTalkbackData, stAoInfo.nLen);
+    }
     else if(stAoInfo.enAudioFormat == Audio_NS::AudioFormat_E::AAC)
     {
         ot_audio_stream stStream;
@@ -471,6 +482,22 @@ int CStreamAudio::setAoSampleRate(const Audio_NS::AudioSamprate_E enSampRate)
     return OK;
 }
 
+int CStreamAudio::waitAoDrained(int nChn, int nTimeoutMs)
+{
+    /* nChn 必须是有效的 AO 设备通道号 */
+    if (nChn < AO_SPEAKER_CHN || nChn >= AO_MAX_CHN)
+    {
+        dlog_error("无效的 AO 通道号: %d", nChn);
+        return ERR_PARAM;
+    }
+    if (!m_pAoHandle[nChn] || !m_pAoHandle[nChn]->mppAo_waitDrained)
+    {
+        dlog_warn("AO 句柄或 waitDrained 接口为空");
+        return ERR;
+    }
+    return m_pAoHandle[nChn]->mppAo_waitDrained(m_pAoHandle[nChn], nChn, nTimeoutMs);
+}
+
 HiAi_S *CStreamAudio::get_aiHandle(int nChn)
 {
     return m_pAiHandle[nChn];
@@ -528,6 +555,13 @@ void CStreamAudio::initCallbackBinding()
         [this](const Audio_NS::AudioSamprate &enSamprate) -> int
         {
             return this->setAoSampleRate(enSamprate);
+        });
+
+    /* 绑定 AO 排空等待回调 */
+    CAVConfigure::instance()->setWaitAoDrainedCallback(
+        [this](int nChn, int nTimeoutMs) -> int
+        {
+            return this->waitAoDrained(nChn, nTimeoutMs);
         });
 }
 
@@ -695,6 +729,13 @@ void CStreamAudio::deal_aiFrame_thr(int param)
 
                     /* 音量调整 */
                     volume_adjust(reinterpret_cast<int8_t *>(stFrame.virt_addr[0]), stFrame.len);
+
+                    /*
+                     * VoiceCom 设备端回传音频源。
+                     * 这里使用已完成 MIC/LINEIN 选择、单声道整理和音量调整后的 PCM，
+                     * NVR 侧按 PCM 参数建立 VoiceCom 后，TVSDK capture 回调会从该缓存取帧发送。
+                     */
+                    CVoiceComCaptureSource::instance()->push_pcm_frame(stFrame.virt_addr[0], stFrame.len);
 
                     /* 送 AENC 模块 */
                     m_pAencHandle[nChannel]->mppAenc_sendFrame(m_pAencHandle[nChannel], &stFrame);

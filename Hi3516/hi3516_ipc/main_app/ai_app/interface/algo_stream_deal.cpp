@@ -11,6 +11,14 @@
 
 #include "algo_statistics_event_publisher.hpp"
 
+#if CAP_AI_PEOPLE_DENSITY_LEGACY && CAP_AI_PEOPLE_DENSITY_V2
+#error "CAP_AI_PEOPLE_DENSITY_LEGACY and CAP_AI_PEOPLE_DENSITY_V2 cannot be enabled at the same time"
+#endif
+
+#if (CAP_AI_PEOPLE_DENSITY_LEGACY || CAP_AI_PEOPLE_DENSITY_V2) && !CAP_AI_PEOPLE_STATISTICS
+#error "CAP_AI_PEOPLE_STATISTICS must be enabled when people density capability is enabled"
+#endif
+
 int CAlgoStreamDeal::init()
 {
     /*初始化算法句柄*/
@@ -120,9 +128,12 @@ void CAlgoStreamDeal::bindRecvFunc(Event::AlgorithmConfig &stAlgoConfig)
 #if CAP_AI_PEOPLE_STATISTICS
          || stAlgoConfig.nEnPeopleFlowStatistics
 #endif
+#if CAP_AI_PEOPLE_DENSITY_V2
+         || stAlgoConfig.nEnPeopleDensityDetection
+#endif
          , m_pHVFAlgo},
         {stAlgoConfig.nEnCrowdGathering
-#if CAP_AI_PEOPLE_STATISTICS
+#if CAP_AI_PEOPLE_DENSITY_LEGACY
          || stAlgoConfig.nEnPeopleDensityDetection
 #endif
          , m_pPeopleHeadAlgo},
@@ -192,6 +203,9 @@ void CAlgoStreamDeal::manageAlgorithmInstances(const Event::AlgorithmConfig& stA
 #if CAP_AI_PEOPLE_STATISTICS
                                     || stAlgoConfig.nEnPeopleFlowStatistics
 #endif
+#if CAP_AI_PEOPLE_DENSITY_V2
+                                    || stAlgoConfig.nEnPeopleDensityDetection
+#endif
                                     ,
                                     []() -> std::shared_ptr<CAlgorithm>
                                     {
@@ -199,7 +213,7 @@ void CAlgoStreamDeal::manageAlgorithmInstances(const Event::AlgorithmConfig& stA
                                     });
     /* 人头检测算法 */
     bIsNew += manageSingleAlgorithm(m_pPeopleHeadAlgo, stAlgoConfig.nEnCrowdGathering
-#if CAP_AI_PEOPLE_STATISTICS
+#if CAP_AI_PEOPLE_DENSITY_LEGACY
                                     || stAlgoConfig.nEnPeopleDensityDetection
 #endif
                                     ,
@@ -363,7 +377,7 @@ void CAlgoStreamDeal::runOnce()
 
     }
 }
-
+#if CAP_AI_FACE_COMPARE
 /**
  * @brief 添加人脸名单库
  * @param stFaceLibData
@@ -397,3 +411,4 @@ bool CAlgoStreamDeal::add_Facelib_Groups(FaceDataDB_NS::FaceLibsInfo_S &stFaceLi
 
      return;
  }
+#endif

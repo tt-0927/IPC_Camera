@@ -3,6 +3,7 @@
 # 头文件
 set (INCLUDE_PATH
     ${CMAKE_CURRENT_LIST_DIR}
+    ${CMAKE_CURRENT_LIST_DIR}/abnormal
     ${CMAKE_CURRENT_LIST_DIR}/ai
     ${CMAKE_CURRENT_LIST_DIR}/config
     ${CMAKE_CURRENT_LIST_DIR}/linkage
@@ -16,6 +17,7 @@ set (INCLUDE_PATH
 # 源文件
 set (SOURCE_PATH
     ${CMAKE_CURRENT_LIST_DIR}
+    ${CMAKE_CURRENT_LIST_DIR}/abnormal
     ${CMAKE_CURRENT_LIST_DIR}/ai
     ${CMAKE_CURRENT_LIST_DIR}/config
     ${CMAKE_CURRENT_LIST_DIR}/linkage

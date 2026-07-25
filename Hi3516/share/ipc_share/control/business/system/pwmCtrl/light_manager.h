@@ -68,6 +68,11 @@ public:
     int get_peripheral_config(System::Peripheral_S& config);
     
     /**
+    * @brief 应用外设配置（重新应用当前配置，用于闪烁结束后恢复）
+    */
+    int apply_peripheral_config();
+    
+    /**
     * @brief 处理日夜切换信号（来自ISP模块）
     */
     void on_dayNight_changed(bool isNight, const FillLight_S& lightConfig);
@@ -183,9 +188,9 @@ private:
     std::thread m_scheduleThread;
 
     /* 白光灯 PWM 输出引脚 */
-    const unsigned int white_light_output_pwm_pins = 0;
+    const unsigned int white_light_output_pwm_pins = 1;
     /* 红外 PWM 输出引脚 */
-    const unsigned int red_light_output_pwm_pins = 2;
+    const unsigned int red_light_output_pwm_pins = 3;
 
     /* 闪烁控制相关 */
     std::atomic<bool> m_bRunning;               /* 线程运行标志 */

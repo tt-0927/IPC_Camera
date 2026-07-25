@@ -2,8 +2,8 @@
  * @FilePath     : PMNMDetectV2_0.cpp
  * @Author       : 廖尔涛 liaoet@kfb.cn
  * @Date         : 2024-09-23 20:19:15
- * @LastEditors: 梁浩尧 lianghaoyao@kfb.cn
- * @LastEditTime: 2025-12-24 15:44:23
+ * @LastEditors: lianghy lianghy@kfb.cn
+ * @LastEditTime: 2026-04-07 14:37:22
  * @Description  : 人少场景
  */
 #include "PMNMDetectV2_0.hpp"
@@ -154,7 +154,7 @@ bool PMNMDetect_NS::CPMNMDetectV2_0::process(
 
     Inference_NS::InputData_S stInputData;
     stInputData.pData = (float*)stInData.inMat.data;
-    stInputData.nDataSize = static_cast<size_t>(stInData.inMat.total() * stInData.inMat.elemSize());
+    stInputData.nDataSize = static_cast<size_t>(stInData.inMat.total() * stInData.inMat.elemSize() * sizeof(float));
     stInputData.stBoxs.fConfidence = stInData.stParam.fBoxThreshold;
     stInputData.stBoxs.fNms = stInData.stParam.fNmsThreshold;
 

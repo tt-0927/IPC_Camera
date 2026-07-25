@@ -6,6 +6,7 @@ include(${CMAKE_CURRENT_LIST_DIR}/user/user.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/register/register.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/ip_filter/ip_filter.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/ssh/ssh.cmake)
+include(${CMAKE_CURRENT_LIST_DIR}/ProductionTestManager/production_test.cmake)
 # include(${CMAKE_CURRENT_LIST_DIR}/gpioCtrl/gpioCtrl.cmake)
 
 # 头文件

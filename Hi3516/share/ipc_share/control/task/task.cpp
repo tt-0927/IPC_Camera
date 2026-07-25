@@ -21,17 +21,32 @@ std::string CTask::get_data(std::string jsonData)
 
 void CTask::deal_result(std::function<void(std::string)> fnDealFunc)
 {
+    std::unique_lock<std::mutex> mtx(m_mtx);
     m_fnDealResults.push(fnDealFunc);
+}
+
+void CTask::clear_deal_result()
+{
+    std::unique_lock<std::mutex> mtx(m_mtx);
+    while (!m_fnDealResults.empty())
+    {
+        m_fnDealResults.pop();
+    }
 }
 
 void CTask::deal_result(std::string data)
 {
-    if (m_fnDealResults.empty())
+    std::function<void(std::string)> fnDealResult;
     {
-        return;
+        std::unique_lock<std::mutex> mtx(m_mtx);
+        if (m_fnDealResults.empty())
+        {
+            return;
+        }
+        fnDealResult = m_fnDealResults.front();
+        m_fnDealResults.pop();
     }
-    std::function<void(std::string)> fnDealResult = m_fnDealResults.front();
-    m_fnDealResults.pop();
+
     if (fnDealResult)
     {
         fnDealResult(data);

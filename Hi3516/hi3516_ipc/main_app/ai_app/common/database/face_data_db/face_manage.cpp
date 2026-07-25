@@ -382,12 +382,21 @@ bool AIFaceManage::comparisonNormalize(const std::vector<float>& vfData, std::ve
 }
 
 
+bool AIFaceManage::comparisonFaceLib(const std::vector<float>& vfData, int& nFaceLibId, float &fSimilarity)
+{
+    FaceLibsInfo_S stMatchedInfo;
+    const bool bMatched = comparisonFaceLib(vfData, stMatchedInfo, fSimilarity);
+    nFaceLibId = stMatchedInfo.nId;
+    return bMatched;
+}
+
 /**
  * @brief 本地名单库向量比对
- * @param vfData 
- * @param nFaceLibId 
+ * @param vfData
+ * @param stMatchedInfo 输出最佳匹配的人脸信息
+ * @param fSimilarity 输出最佳相似度
  */
-bool AIFaceManage::comparisonFaceLib(const std::vector<float>& vfData, int& nFaceLibId, float &fSimilarity)
+bool AIFaceManage::comparisonFaceLib(const std::vector<float>& vfData, FaceLibsInfo_S &stMatchedInfo, float &fSimilarity)
 {
     /* 最佳匹配的人脸信息 */
     FaceLibsInfo_S stInfo {};
@@ -398,6 +407,14 @@ bool AIFaceManage::comparisonFaceLib(const std::vector<float>& vfData, int& nFac
     /* 从数据库获取所有数据 */
     std::list<FaceLibsInfo_S> libAllInfo;
     m_FaceInfodb.getAllData(libAllInfo);
+
+    std::cout << ">>> 输入比对向量 (Size: " << vfData.size() << "): ";
+    for (size_t i = 0; i < vfData.size(); ++i) {
+        std::cout << vfData[i];
+        if (i < vfData.size() - 1) std::cout << ", ";
+    }
+    std::cout << std::endl;
+
     for (const auto& libInfo : libAllInfo)
     {
         if (libInfo.vfData.empty())
@@ -413,10 +430,21 @@ bool AIFaceManage::comparisonFaceLib(const std::vector<float>& vfData, int& nFac
             fSimilarity = flastSimilarity;
         }
     }
+
+    if (!stInfo.vfData.empty()) {
+        std::cout << ">>> 库中最佳匹配向量 (ID: " << stInfo.nId << ", Size: " << stInfo.vfData.size() << "): ";
+        for (size_t i = 0; i < stInfo.vfData.size(); ++i) {
+            std::cout << stInfo.vfData[i];
+            if (i < stInfo.vfData.size() - 1) std::cout << ", ";
+        }
+        std::cout << std::endl;
+    } else {
+        std::cout << ">>> 库中未找到有效匹配向量" << std::endl;
+    }
     
     std::cout << "本地名单库: 最相似的是: " << stInfo.nId << "; 距离: " << fSimilarity << std::endl;
     
-    nFaceLibId = stInfo.nId;
+    stMatchedInfo = stInfo;
     
     if (fSimilarity > FACE_SIMILARITY_THRESHOLD)
     {

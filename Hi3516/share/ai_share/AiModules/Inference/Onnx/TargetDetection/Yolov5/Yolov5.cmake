@@ -20,6 +20,7 @@ set (SRC_PATH
     # 芯片推理依赖
     ${CMAKE_CURRENT_LIST_DIR}/../../
     ${CMAKE_CURRENT_LIST_DIR}/../../Common/ModelOpt/
+    ${CMAKE_CURRENT_LIST_DIR}/../../Common/Tokenizer/
 )
 foreach(item ${SRC_PATH})
     target_include_directories(${INFERENCE_NAME} INTERFACE ${item})

@@ -1,7 +1,7 @@
 # hi_pipeline.cmake
 
 # 引用cmake
-# include(${CMAKE_CURRENT_LIST_DIR}/cipher/cipher.cmake)
+include(${CMAKE_CURRENT_LIST_DIR}/cipher/cipher.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/common/common.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/mpp/mpp.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/svp/svp.cmake)

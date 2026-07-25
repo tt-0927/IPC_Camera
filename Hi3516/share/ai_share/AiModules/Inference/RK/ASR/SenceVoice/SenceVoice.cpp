@@ -178,7 +178,7 @@ bool Inference_NS::CSenceVoice::checkModelProConfig()
 
     Json::Object *pJsonHandle = NULL;
     Json::Object *pJsonData = NULL;
-    bool bRet = false;
+    bool bRet = true;
     bool bMetaFlag = true;
 
     pJsonHandle = Json::init(pchJson);
@@ -187,6 +187,7 @@ bool Inference_NS::CSenceVoice::checkModelProConfig()
     if (!pJsonData)
     {
         printf("解析[data]字段失败\n");
+        bRet = false;
         goto EXIT;
     }
     /* 配置参数 */
@@ -209,14 +210,17 @@ bool Inference_NS::CSenceVoice::checkModelProConfig()
         goto EXIT;
     }
     /* 读取词表 */
+    for (auto& entry : m_vVocab) 
+    {
+        free(entry.token);  /* 释放 strdup 的内存 */
+    }
+    m_vVocab.clear();
     bRet = readVocab(m_strVocabPath.c_str());
     if (!bRet)
     {
         printf("词表[%s]读取失败\n", m_strVocabPath.c_str());
-        return false;
+        goto EXIT;
     }
-
-    return true;
 
 EXIT:
     if (pJsonHandle)
@@ -224,7 +228,7 @@ EXIT:
         Json::deinit(pJsonHandle);
         pJsonHandle = NULL;
     }
-    return false;
+    return bRet;
 }
 
 /* 去除字符串首尾空格（辅助函数） */

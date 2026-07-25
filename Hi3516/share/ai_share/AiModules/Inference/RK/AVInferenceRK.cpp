@@ -71,16 +71,26 @@ bool Inference_NS::CAVInferenceRK::unInit()
 {
     if (m_pInputs)
     {
+        for(int nInputIndex; nInputIndex<m_vInputAttrs.size(); nInputIndex++)
+        {
+            delete[] m_pInputs[nInputIndex].buf;
+            m_pInputs[nInputIndex].buf = nullptr;
+            m_pInputs[nInputIndex].size = 0;
+        }
         m_vInputAttrs.clear();
-        delete[] m_pInputs;
         m_pInputs   = nullptr;
         m_nInputNum = 0;
     }
 
     if (m_pOutputs)
     {
+        for(int nOutputIndex; nOutputIndex<m_vOutputAttrs.size(); nOutputIndex++)
+        {
+            delete[] m_pOutputs[nOutputIndex].buf;
+            m_pOutputs[nOutputIndex].buf = nullptr;
+            m_pOutputs[nOutputIndex].size = 0;
+        }
         m_vOutputAttrs.clear();
-        delete[] m_pOutputs;
         m_pOutputs   = nullptr;
         m_nOutputNum = 0;
     }
@@ -118,7 +128,7 @@ bool Inference_NS::CAVInferenceRK::checkModelConfig()
 
     Json::Object *pJsonHandle = NULL;
     pJsonHandle = Json::init(pchJson);
-    bool bRet;
+    bool bRet = true;
 
     /* 获取模型地址 */
     bRet = Json::get(pJsonHandle, "model_path", m_strModelPath);
@@ -131,21 +141,23 @@ bool Inference_NS::CAVInferenceRK::checkModelConfig()
     if (!checkModelPreConfig())
     {
         printf("json配置文件[%s], 预处理部分解析异常\n", m_strConfigPath.c_str());
+        bRet = false;
         goto EXIT;
     }
 
     if (!checkModelInferConfig())
     {
         printf("json配置文件[%s], 推理部分解析异常\n", m_strConfigPath.c_str());
+        bRet = false;
         goto EXIT;
     }
 
     if (!checkModelProConfig())
     {
         printf("json配置文件[%s], 后处理部分解析异常\n", m_strConfigPath.c_str());
+        bRet = false;
         goto EXIT;
     }
-    return true;
 
 EXIT:
     if (pJsonHandle)
@@ -153,7 +165,7 @@ EXIT:
         Json::deinit(pJsonHandle);
         pJsonHandle = NULL;
     }
-    return false;
+    return bRet;
 }
 
 /* 校验模型配置文件中的预处理信息 */
@@ -193,6 +205,7 @@ bool Inference_NS::CAVInferenceRK::checkModelInferConfig()
     if (!pJsonData)
     {
         printf("解析[data]字段失败\n");
+        bRet = false;
         goto EXIT;
     }
 
@@ -203,14 +216,14 @@ bool Inference_NS::CAVInferenceRK::checkModelInferConfig()
         printf("解析framework字段失败\n");
         goto EXIT;
     }
-    return true;
+
 EXIT:
     if (pJsonHandle)
     {
         Json::deinit(pJsonHandle);
         pJsonHandle = NULL;
     }
-    return false;
+    return bRet;
 }
 
 /* 校验模型配置文件中的后处理信息 */

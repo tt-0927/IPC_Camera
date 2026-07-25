@@ -21,6 +21,13 @@ typedef enum _TripLineType_
     OVERFLOW_B_TO_A     /* B->A */
 } TripLineType_E;
 
+typedef enum _LibrarySeatType_
+{
+    NONE = 0, /* 空 */
+    ENTRY_SEAT,     /* 占用座位 */
+    LEAVE_SEAT,     /* 离开座位 */
+ }LibrarySeatType_E;
+
 /* 越界检测参数 */
 typedef struct _TripLineParam_
 {
@@ -51,6 +58,17 @@ typedef struct _EntryParam_
     std::vector<cv::Point> vecPoints;               /* 警戒多边形参数 */
 } EntryParam_S;
 
+/* 人流统计参数 */
+typedef struct _HeadCountParam_
+{
+    bool                   bEnable         = false; /* 是否分析 */
+    float                  fThreshold = 0.5;   /* 触发进入检测事件的置信度阈值 */
+    std::vector<int>       veDetectionTargetTypes;  /* 检测目标类型 */
+    TripLineType_E         eTripLineType = OVERFLOW_NONE; /* 检测越界方向 */
+    cv::Point              alertLine1;                    /* 警戒线点1 */
+    cv::Point              alertLine2;                    /* 警戒线点2 */
+} HeadCountParam_S;
+
 /* 离开检测参数 */
 typedef struct _LeaveParam_
 {
@@ -79,6 +97,16 @@ typedef struct _NonMotorVehicleIntrusionParam_
     std::vector<int>       veDetectionTargetTypes;                     /* 检测目标类型 */
     std::vector<cv::Point> vecPoints;                                  /* 警戒多边形参数 */
 } NonMotorVehicleIntrusionParam_S;
+
+/* 非机动车车道检测参数 */
+typedef struct _NonVehicleLaneDetParam_
+{
+    bool                   bEnable                            = false; /* 是否分析 */
+    float                  fThreshold = 0.5;                           /* 非机动车的置信度阈值 */
+    std::vector<int>       veDetectionTargetTypes;                     /* 检测目标类型 */
+    std::vector<cv::Point> vecPoints;                                  /* 警戒多边形参数 */
+} NonVehicleLaneDetParam_S;
+
 
 /*电瓶车识别参数 */
 typedef struct _ElectricScooterParam_
@@ -114,6 +142,16 @@ typedef struct _LeavePostParam_
     unsigned int           nTimeThreshold      = 0;     /* 时间阈值触发 */
     std::vector<cv::Point> vecPoints;                   /* 警戒多边形参数 */
 } LeavePostParam_S;
+
+/* 图书馆空位参数 */
+typedef struct _LibraryVacanciesParam_
+{
+    bool                   bEnable             = false; /* 是否分析 */
+    float                  fThreshold = 0.5;   /* 图书馆空位检测的置信度阈值 */
+    unsigned int           nEntryTimeThreshold      = 5;     /* 占用座位时间阈值触发 */
+    unsigned int           nLeaveTimeThreshold      = 5;     /* 离开座位时间阈值触发 */
+    std::vector<cv::Point> vecPoints;                   /* 警戒多边形参数 */
+} LibraryVacanciesParam_S;
 
 /* 行人闯入检测参数 */
 typedef struct _PedestrianIntrusionParam_
@@ -193,7 +231,7 @@ typedef struct _AnalyseParam_
     LeaveParam_S                  stLeaveParam;
     EntryParam_S                  stEntryParam;
     EmergencyLaneOccupancyParam_S stEmergencyLaneOccupancyParam;
-
+    HeadCountParam_S              stHeadCountParam;
     /* 多个区域使用 */
     bool bVecEnable = false;
 
@@ -225,6 +263,8 @@ typedef struct _AnalyseParam_
     std::vector<StairwellDetParam_S> vstStairwellDetParam;
     /*  人员倒地识别 */
     PersonFallDownParam_S stPersonFallDownParam;
+    /* 图书馆空位 */
+    LibraryVacanciesParam_S stLibraryVacanciesDetectParam;
     /* ============================ 人检测相关 ============================ */
 
     /* ============================ 机动车检测相关 ============================ */
@@ -241,6 +281,8 @@ typedef struct _AnalyseParam_
     /* ============================ 非机动车检测相关 ============================ */
     /* 非机动车闯入识别 */
     std::vector<NonMotorVehicleIntrusionParam_S> vstNonMotorVehicleIntrusionParam;
+    /* 非机动车车道检测 */
+    std::vector<NonVehicleLaneDetParam_S> vstNonVehicleLaneDetParam;
     /* 电瓶车进电梯识别 */
     ElectricScooterParam_S stElectricScooterParam;
     /* ============================ 非机动车检测相关 ============================ */
@@ -279,8 +321,15 @@ typedef struct _OutData_
     // int nType;  /* 事件类型 */
     // bool        validResult;   /* 标识有效结果 */
     std::string savedFileName; /* 分析后图片路径 */
-
+    
+    std::vector<int> nCountType;    /* 人流统计越界类型 */
+    int nLibraryVacanciesType = -1;/* 图书馆空位类型 */
+#if defined(RK_3588) || defined(RK3576)
+    int nTripLineType               = -1; /* 越界类型 */
+    bool bTripLineType               = false; /* 越界触发 */
+#else
     bool bTripLineType               = false; /* 越界类型 */
+#endif
     bool bIntrusionFlag              = false; /* 是否入侵触发 */
     bool bEntryFlag                  = false; /* 是否进入触发 */
     bool bLeaveFlag                  = false; /* 是否离开触发 */
@@ -301,6 +350,7 @@ typedef struct _OutData_
     bool bCongestionFlag            = false; /* 是否拥堵触发 */
 
     bool bNonMotorVehicleIntrusionFlag = false; /* 是否非机动车闯入触发 */
+    bool bNonVehicleLaneDetFlag        = false;            /* 是否非机动车车道检测触发 */
     bool bElectricScooter              = false; /* 是否电瓶车事件触发 */
 } OutData_S;
 

@@ -33,7 +33,7 @@ int EventDatabaseManage::add(Info_S stEventInfo)
     // Log::Info_S stLogInfo;
     /* 记录事件开始 */
     auto it = m_motionDetectMap.find(stEventInfo.nChnId);
-    if (it != m_motionDetectMap.end())
+    if (stEventInfo.enType == Type::MOTION_DETECT && it != m_motionDetectMap.end())
     {
         auto &stDbdEventInfo = it->second;
         auto to_time_t = [](const std::string& str) -> std::time_t {

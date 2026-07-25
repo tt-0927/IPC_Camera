@@ -100,7 +100,7 @@ bool Inference_NS::CCVInferenceOnnx::checkModelConfig()
 
     Json::Object *pJsonHandle = NULL;
     pJsonHandle = Json::init(pchJson);
-    bool bRet;
+    bool bRet = true;
 
     /* 获取模型地址 */
     bRet = Json::get(pJsonHandle, "model_path", m_strModelPath);
@@ -113,15 +113,16 @@ bool Inference_NS::CCVInferenceOnnx::checkModelConfig()
     if (!checkModelPreConfig())
     {
         printf("json配置文件[%s], 预处理部分解析异常\n", m_strConfigPath.c_str());
+        bRet = false;
         goto EXIT;
     }
 
     if (!checkModelProConfig())
     {
         printf("json配置文件[%s], 后处理部分解析异常\n", m_strConfigPath.c_str());
+        bRet = false;
         goto EXIT;
     }
-    return true;
 
 EXIT:
     if (pJsonHandle)
@@ -129,7 +130,7 @@ EXIT:
         Json::deinit(pJsonHandle);
         pJsonHandle = NULL;
     }
-    return false;
+    return bRet;
 }
 
 /* 校验模型配置文件中的预处理信息 */
@@ -157,10 +158,11 @@ bool Inference_NS::CCVInferenceOnnx::checkModelPreConfig()
     Json::Object *pJsonData = NULL;
     Json::Object *pJsonDataItem = NULL;
     Json::Object *pItemObject = NULL;
-    bool bRet = false;
+    bool bRet = true;
     int nSize = 0;
     int i;
-    int nSizeItem, nMean, nStd;
+    int nSizeItem;
+    double fMean, fStd;
 
     pJsonHandle = Json::init(pchJson);
 
@@ -168,6 +170,7 @@ bool Inference_NS::CCVInferenceOnnx::checkModelPreConfig()
     if (!pJsonData)
     {
         printf("解析[data]字段失败\n");
+        bRet = false;
         goto EXIT;
     }
 
@@ -176,12 +179,14 @@ bool Inference_NS::CCVInferenceOnnx::checkModelPreConfig()
     if (!pJsonDataItem)
     {
         printf("解析[pJsonData]字段失败\n");
+        bRet = false;
         goto EXIT;
     }
     nSize = Json::Array::size(pJsonDataItem);
     if (nSize <= 0)
     {
         printf("解析[数组大小异常]\n");
+        bRet = false;
         goto EXIT;
     }
     m_vModelInputSize.clear();
@@ -192,6 +197,7 @@ bool Inference_NS::CCVInferenceOnnx::checkModelPreConfig()
         if (NULL == pItemObject)
         {
             printf("获取数组节点失败\n");
+            bRet = false;
             goto EXIT;
         }
 
@@ -222,12 +228,14 @@ bool Inference_NS::CCVInferenceOnnx::checkModelPreConfig()
     if (!pJsonDataItem)
     {
         printf("解析[pJsonData]字段失败\n");
+        bRet = false;
         goto EXIT;
     }
     nSize = Json::Array::size(pJsonDataItem);
     if (nSize <= 0)
     {
         printf("解析[数组大小异常]\n");
+        bRet = false;
         goto EXIT;
     }
     for (int i = 0; i < nSize; i++)
@@ -237,28 +245,31 @@ bool Inference_NS::CCVInferenceOnnx::checkModelPreConfig()
         if (NULL == pItemObject)
         {
             printf("获取数组节点失败\n");
+            bRet = false;
             goto EXIT;
         }
 
-        bRet = Json::Value::get(pItemObject, nMean);
+        bRet = Json::Value::get(pItemObject, fMean);
         if (!bRet)
         {
             printf("解析[mean]字段失败\n");
             goto EXIT;
         }
-        m_vMean.push_back(nMean);
+        m_vMean.push_back(fMean);
     }
     /* 5、归一化-方差 */
     pJsonDataItem = Json::get(pJsonData, "std");
     if (!pJsonDataItem)
     {
         printf("解析[pJsonData]字段失败\n");
+        bRet = false;
         goto EXIT;
     }
     nSize = Json::Array::size(pJsonDataItem);
     if (nSize <= 0)
     {
         printf("解析[数组大小异常]\n");
+        bRet = false;
         goto EXIT;
     }
     for (int i = 0; i < nSize; i++)
@@ -268,16 +279,17 @@ bool Inference_NS::CCVInferenceOnnx::checkModelPreConfig()
         if (NULL == pItemObject)
         {
             printf("获取数组节点失败\n");
+            bRet = false;
             goto EXIT;
         }
 
-        bRet = Json::Value::get(pItemObject, nStd);
+        bRet = Json::Value::get(pItemObject, fStd);
         if (!bRet)
         {
             printf("解析[std]字段失败\n");
             goto EXIT;
         }
-        m_vStd.push_back(nStd);
+        m_vStd.push_back(fStd);
     }
     /* 6、图片缩放时，是否填充 */
     bRet = Json::get(pJsonData, "padding", m_nPadding);
@@ -286,7 +298,6 @@ bool Inference_NS::CCVInferenceOnnx::checkModelPreConfig()
         printf("解析padding字段失败\n");
         goto EXIT;
     }
-    return true;
 
 EXIT:
     if (pJsonHandle)
@@ -294,7 +305,7 @@ EXIT:
         Json::deinit(pJsonHandle);
         pJsonHandle = NULL;
     }
-    return false;
+    return bRet;
 }
 
 /* 校验模型配置文件中的模型推理信息 */
@@ -322,7 +333,7 @@ bool Inference_NS::CCVInferenceOnnx::checkModelInferConfig()
     Json::Object *pJsonData = NULL;
     Json::Object *pJsonDataItem = NULL;
     Json::Object *pItemObject = NULL;
-    bool bRet = false;
+    bool bRet = true;
 
     pJsonHandle = Json::init(pchJson);
 
@@ -330,6 +341,7 @@ bool Inference_NS::CCVInferenceOnnx::checkModelInferConfig()
     if (!pJsonData)
     {
         printf("解析[data]字段失败\n");
+        bRet = false;
         goto EXIT;
     }
 
@@ -338,6 +350,7 @@ bool Inference_NS::CCVInferenceOnnx::checkModelInferConfig()
     if (!bRet)
     {
         printf("解析framework字段失败\n");
+        bRet = false;
         goto EXIT;
     }
 
@@ -346,7 +359,7 @@ bool Inference_NS::CCVInferenceOnnx::checkModelInferConfig()
     if (!bRet || m_nCpuInferThread < 0)
     {
         printf("解析intra_op_num_threads字段失败\n");
-        // goto EXIT;
+        goto EXIT;
     }
 
     /* 获取GPU设备号 */
@@ -354,7 +367,7 @@ bool Inference_NS::CCVInferenceOnnx::checkModelInferConfig()
     if (!bRet | m_nDeviceId < 0)
     {
         printf("解析device_id字段失败\n");
-        // goto EXIT;
+        goto EXIT;
     }
 
     /* 获取模型限制最大显存 */
@@ -362,7 +375,7 @@ bool Inference_NS::CCVInferenceOnnx::checkModelInferConfig()
     if (!bRet | m_nGpuMemLimit < 0)
     {
         printf("解析gpu_mem_limit字段失败\n");
-        // goto EXIT;
+        goto EXIT;
     }
 
     /* 传送相关的CUDA信息到模型初始化 */
@@ -372,19 +385,32 @@ bool Inference_NS::CCVInferenceOnnx::checkModelInferConfig()
         m_nGpuMemLimit
     );
 
-    return true;
 EXIT:
     if (pJsonHandle)
     {
         Json::deinit(pJsonHandle);
         pJsonHandle = NULL;
     }
-    return false;
+    return bRet;
 }
 
 /* 校验模型配置文件中的后处理信息 */
 bool Inference_NS::CCVInferenceOnnx::checkModelProConfig()
 {
+    return true;
+}
+
+/* 获取配置文件的均值和方差 */ 
+bool Inference_NS::CCVInferenceOnnx::getMeanStd(std::vector<float>& vMean, std::vector<float>& vStd)
+{
+    if (m_vMean.size() < 0 || m_vStd.size() < 0)
+    {
+        printf("config.json配置文件 未设置均值和方差\n");
+        return false;
+    }
+    vMean = m_vMean;
+    vStd = m_vStd;
+
     return true;
 }
 

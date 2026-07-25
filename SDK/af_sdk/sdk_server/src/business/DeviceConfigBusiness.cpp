@@ -161,7 +161,7 @@ std::string CDeviceConfigBusiness::GetDevConfig(const std::string& req_data, con
             return HandleGetConfig<NET_TV_DEVICE_BASICINFO_S>(channelId, command);
 
         case NET_TV_GET_NTPCFG:
-            return HandleGetConfig<NET_TV_ALARM_EXCEPTION_INFO_S>(channelId, command);
+            return HandleGetConfig<NET_TV_SYSTEM_NTP_INFO_S>(channelId, command);
 
         case NET_TV_GET_AUDIOCFG:
             return HandleGetConfig<NET_TV_AUDIO_CFG_S>(channelId, command);
@@ -412,7 +412,7 @@ std::string CDeviceConfigBusiness::SetDevConfig(const std::string& req_data, con
             return HandleSetConfig<NET_TV_DEVICE_BASICINFO_S>(channelId, command, req_data);
 
         case NET_TV_SET_NTPCFG:
-            return HandleSetConfig<NET_TV_ALARM_EXCEPTION_INFO_S>(channelId, command, req_data);
+            return HandleSetConfig<NET_TV_SYSTEM_NTP_INFO_S>(channelId, command, req_data);
 
         case NET_TV_SET_AUDIOCFG:
             return HandleSetConfig<NET_TV_AUDIO_CFG_S>(channelId, command, req_data);

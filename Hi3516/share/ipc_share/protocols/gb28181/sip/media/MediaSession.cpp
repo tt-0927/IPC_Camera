@@ -9,7 +9,7 @@
 #include "MediaSession.h"
 #include "MediaClient.hpp"
 #include "MediaServer.hpp"
-#include "ModuleLog.h"
+#include "dlog.h"
 #include "SipUtils.h"
 #include <vector>
 
@@ -30,7 +30,7 @@ int MediaSession::Init(const SDP::ConnectionInfo_S &stInfo)
     /* NOTE 已远端发送的SDP信息为配置信息 */
     if (nullptr != m_pNetBase)
     {
-        MLOG_WARN("MediaSession已经初始化");
+        dlog_warn("MediaSession已经初始化");
         return -1;
     }
     /* 记录信息 */
@@ -54,7 +54,7 @@ int MediaSession::Init(const SDP::ConnectionInfo_S &stInfo)
             break;
         }
     }
-    MLOG_INFO("MediaSession开启的本地端口[%d]", nLocalPort);
+    dlog_info("MediaSession开启的本地端口[%d]", nLocalPort);
     /* 创建RTP */
     CreateRtp();
     return nLocalPort;
@@ -164,15 +164,15 @@ int SIP::MediaSession::SetCodecInfo(const SipDeviceInfo_S &stInfo)
 {
     if (stInfo.strCallID.empty() || stInfo.strCallID != m_strSipCallID)
     {
-        MLOG_WARN("CallID为空或不匹配");
+        dlog_warn("CallID为空或不匹配");
         return -1;
     }
-    MLOG_INFO("设置会话通道[%s]视频编码信息[%d]帧率[%d]",
+    dlog_info("设置会话通道[%s]视频编码信息[%d]帧率[%d]",
               stInfo.strCallID.c_str(), stInfo.enVideo, stInfo.nFps);
     auto pRtpPacker = std::dynamic_pointer_cast<RTP::Packer>(m_pRtpBase);
     if (nullptr == pRtpPacker)
     {
-        MLOG_WARN("当前会话不是RTP打包类");
+        dlog_warn("当前会话不是RTP打包类");
         return -1;
     }
 
@@ -194,14 +194,14 @@ int SIP::MediaSession::CreateRtp()
     }
     if (!m_stConnInfo.bRecvOnly)
     {
-        MLOG_INFO("创建RTP解析类");
+        dlog_info("创建RTP解析类");
         m_pRtpBase = std::make_shared<RTP::Parser>(
             std::stoul(m_strSSRC),
             std::bind(&MediaSession::RtpMediaCb, this, std::placeholders::_1));
     }
     else
     {
-        MLOG_INFO("创建RTP打包类");
+        dlog_info("创建RTP打包类");
         /* 先创建，视频参数后续再设置 */
         m_pRtpBase = std::make_shared<RTP::Packer>();
         auto pPacker = std::dynamic_pointer_cast<RTP::Packer>(m_pRtpBase);

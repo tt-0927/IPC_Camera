@@ -62,11 +62,15 @@
 #   使用: hi3516_ipc/main_app/ai_app/algorithm_mode/algorithm/garbage_detect/garbage_detect.hpp,
 #         hi3516_ipc/main_app/ai_app/interface/algo_stream_deal.cpp,
 #         share/ipc_share/common/define/event_define.h
-# - CAP_AI_PEOPLE_STATISTICS: 人流统计/人员密度检测能力
+# - CAP_AI_PEOPLE_STATISTICS: 人流统计/人员密度公共协议与配置能力
 #   使用: share/ipc_share/common/define/alarm_define.h,
 #         share/ipc_share/common/define/event_define.h,
 #         share/ipc_share/control/business/event,
 #         share/ipc_share/control/task/sub_task/event_task.cpp
+# - CAP_AI_PEOPLE_DENSITY_LEGACY: 旧版人员密度检测能力，使用 people_head_detect 人头模型
+#   使用: hi3516_ipc/main_app/ai_app/algorithm_mode/algorithm/people_head_detect
+# - CAP_AI_PEOPLE_DENSITY_V2: 新版人员密度检测能力，使用 hvf_detect 人形模型
+#   使用: hi3516_ipc/main_app/ai_app/algorithm_mode/algorithm/hvf_detect
 # - CAP_EXHIBITION_OSD_PANEL: 展会版左上角 AI 汇总面板能力，并拦截网页 OSD 设置
 #   使用: hi3516_ipc/main_app/ai_app/common/common_process.cpp,
 #         hi3516_ipc/main_app/stream_media/video/osd/osd_manage.cpp,
@@ -90,6 +94,12 @@
 #   使用: （预留，暂未实现）
 # - CAP_NETWORK_WIFI: WIFI 网络能力
 #   使用: （预留，暂未实现）
+# - CAP_RECORD_USE_MAIN_STREAM: 录制使用主码流（默认0=子码流，1=主码流）
+#   使用: hi3516_ipc/main_app/stream_media/video/venc_channel_handler.cpp,
+#         hi3516_ipc/main_app/stream_media/video/stream_video.cpp,
+#         share/ipc_share/public_app/record/record_file/record_file.cpp
+# - CAP_GARBAGE_STATION_PLATFORM: 垃圾站平台接入能力
+#   使用: share/ipc_share/control/business/network/platform/platform_manager.h
 # - CAP_NETWORK_TELNET_SERVICE: 启动 telnet 服务能力
 #   使用: share/ipc_share/control/business/network/network_manage.cpp
 # - CAP_NETWORK_FTP_SERVICE: 启动 ftp 服务能力
@@ -108,6 +118,7 @@ set(DEVICE_PROFILE_KEYS
     TV_3852HL
     TV_3852TL4G
     TV_3852TLW
+    TV_3852HZT
 )
 
 set(DEVICE_PROFILE_TV_3852T_DEVICE_TYPE "TV-3852T")
@@ -141,12 +152,15 @@ set(DEVICE_PROFILE_TV_3852T_DEFINES
     CAP_RECORD_NEEDS_CAM_SHARE_INCLUDE=0 # record 额外 include（ipc.cmake / record/CMakeLists.txt）
     CAP_RECORD_LINK_FDK_AAC=0            # record 链接 fdk-aac（ipc.cmake / record/CMakeLists.txt）
     CAP_AI_GARBAGE_DETECT=0              # 垃圾暴露/垃圾满溢检测能力（garbage_detect.hpp / algo_stream_deal.cpp / event_define.h）
-    CAP_AI_PEOPLE_STATISTICS=0           # 人流统计/人员密度检测能力
+    CAP_AI_PEOPLE_STATISTICS=0           # 人流统计/人员密度公共协议与配置能力
+    CAP_AI_PEOPLE_DENSITY_LEGACY=0       # 旧版人员密度，人头模型实现
+    CAP_AI_PEOPLE_DENSITY_V2=0           # 新版人员密度，HVF 人形模型实现
     CAP_EXHIBITION_OSD_PANEL=0           # 展会版AI左上角汇总面板能力
     CAP_AI_USE_SIMPLE_JSON=1             # AI 使用 simple Json 头（CVInferenceHISI.hpp）
     CAP_GPIO_IR_CUT_JSON=1               # gpio控制ir_cut方式（gpio_ctrl.cpp）
     CAP_ISP_SCENE_LIGHT_PARAM=0          # 独立白光场景参数能力（TV-3852H* 专用）
     CAP_ISP_CMOS_GAMMA_3852H=0           # TV-3852H* CMOS Gamma 曲线能力
+    CAP_RECORD_USE_MAIN_STREAM=0         # 录制使用主码流
     CAP_NETWORK_TELNET_SERVICE=0         # telnet 服务能力；发布版本不启动 telnetd
     CAP_NETWORK_FTP_SERVICE=0            # ftp 服务能力；发布版本不启动 uftpd
 )
@@ -190,13 +204,16 @@ set(DEVICE_PROFILE_TV_3852H_DEFINES
     CAP_RECORD_LINK_FDK_AAC=0
     CAP_AI_GARBAGE_DETECT=0
     CAP_AI_PEOPLE_STATISTICS=0
+    CAP_AI_PEOPLE_DENSITY_LEGACY=0
+    CAP_AI_PEOPLE_DENSITY_V2=0
     CAP_AI_USE_SIMPLE_JSON=1
     CAP_GPIO_IR_CUT_JSON=0
     CAP_ISP_DAY_NIGHT_DIFFERENT_TUNING=1 # ISP 日夜差异化调参开启；仅 TV-3852H* 系列生效
     CAP_ISP_SCENE_LIGHT_PARAM=1          # 夜间白光模式使用独立 light 场景参数
     CAP_ISP_CMOS_GAMMA_3852H=1           # TV-3852H* 使用独立 CMOS Gamma 曲线
-    CAP_NETWORK_TELNET_SERVICE=1
-    CAP_NETWORK_FTP_SERVICE=1
+    CAP_RECORD_USE_MAIN_STREAM=1         # 录制使用主码流
+    CAP_NETWORK_TELNET_SERVICE=0         # telnet 服务能力；发布版本不启动 telnetd
+    CAP_NETWORK_FTP_SERVICE=0            # ftp 服务能力；发布版本不启动 uftpd
 )
 set(DEVICE_PROFILE_TV_3852H_CMAKE_VARS
     IPC_CAP_RECORD_NEEDS_CAM_SHARE_INCLUDE=0
@@ -211,7 +228,7 @@ set(DEVICE_PROFILE_TV_3852TL_DEVICE_TYPE "TV-3852TL")
 # - 差异点：开启垃圾检测能力，有线网络
 set(DEVICE_PROFILE_TV_3852TL_DEFINES
     DEVICE_TV_3852TL
-    CAP_ALARM_IO=1
+    CAP_ALARM_IO=0
     CAP_AUDIO_INPUT_LINEIN=1
     CAP_AUDIO_OUTPUT_LINEOUT=1
     CAP_AUDIO_FMT_AAC=1
@@ -238,13 +255,20 @@ set(DEVICE_PROFILE_TV_3852TL_DEFINES
     CAP_RECORD_NEEDS_CAM_SHARE_INCLUDE=0
     CAP_RECORD_LINK_FDK_AAC=0
     CAP_AI_GARBAGE_DETECT=1              # 垃圾暴露/垃圾满溢检测能力
-    CAP_AI_PEOPLE_STATISTICS=0           # 人流统计/人员密度检测能力
+    CAP_AI_PEOPLE_STATISTICS=0           # 人流统计/人员密度公共协议与配置能力
+    CAP_AI_PEOPLE_DENSITY_LEGACY=0       # 旧版人员密度，人头模型实现
+    CAP_AI_PEOPLE_DENSITY_V2=0           # 新版人员密度，HVF 人形模型实现
+    CAP_AI_FACE_COMPARE=1                # 人脸比对检测能力
     CAP_AI_USE_SIMPLE_JSON=1
     CAP_GPIO_IR_CUT_JSON=1
     CAP_NETWORK_TELNET_SERVICE=0         # telnet 服务能力；发布版本不启动 telnetd
     CAP_NETWORK_FTP_SERVICE=0            # ftp 服务能力；发布版本不启动 uftpd
     CAP_NETWORK_4G=0                     # 4G网络（预留）
     CAP_NETWORK_WIFI=0                   # WIFI网络（预留）
+    CAP_RECORD_USE_MAIN_STREAM=1         # 录制使用主码流
+    CAP_GARBAGE_STATION_PLATFORM=1       # 垃圾站平台接入能力
+    CAP_NETWORK_TELNET_SERVICE=0         # telnet 服务能力；发布版本不启动 telnetd
+    CAP_NETWORK_FTP_SERVICE=0            # ftp 服务能力；发布版本不启动 uftpd
 )
 set(DEVICE_PROFILE_TV_3852TL_CMAKE_VARS
     IPC_CAP_RECORD_NEEDS_CAM_SHARE_INCLUDE=0
@@ -285,10 +309,15 @@ set(DEVICE_PROFILE_TV_3852HL_DEFINES
     CAP_RECORD_NEEDS_CAM_SHARE_INCLUDE=0
     CAP_RECORD_LINK_FDK_AAC=0
     CAP_AI_GARBAGE_DETECT=1              # 垃圾暴露/垃圾满溢检测能力
-    CAP_AI_PEOPLE_STATISTICS=0           # 人流统计/人员密度检测能力
+    CAP_AI_PEOPLE_STATISTICS=0           # 人流统计/人员密度公共协议与配置能力
+    CAP_AI_PEOPLE_DENSITY_LEGACY=0       # 旧版人员密度，人头模型实现
+    CAP_AI_PEOPLE_DENSITY_V2=0           # 新版人员密度，HVF 人形模型实现
+    CAP_AI_FACE_COMPARE=1                # 人脸比对检测能力
     CAP_AI_USE_SIMPLE_JSON=1
     CAP_NETWORK_4G=0                     # 4G网络（预留）
     CAP_NETWORK_WIFI=0                   # WIFI网络（预留）
+    CAP_RECORD_USE_MAIN_STREAM=1         # 录制使用主码流
+    CAP_GARBAGE_STATION_PLATFORM=1       # 垃圾站平台接入能力
     CAP_ISP_DAY_NIGHT_DIFFERENT_TUNING=1
     CAP_ISP_SCENE_LIGHT_PARAM=1
     CAP_ISP_CMOS_GAMMA_3852H=1
@@ -304,7 +333,7 @@ set(DEVICE_PROFILE_TV_3852TL4G_DEVICE_TYPE "TV-3852TL4G")
 # - 差异点：开启垃圾检测能力，4G网络能力宏预留
 set(DEVICE_PROFILE_TV_3852TL4G_DEFINES
     DEVICE_TV_3852TL4G
-    CAP_ALARM_IO=1
+    CAP_ALARM_IO=0
     CAP_AUDIO_INPUT_LINEIN=1
     CAP_AUDIO_OUTPUT_LINEOUT=1
     CAP_AUDIO_FMT_AAC=1
@@ -331,13 +360,21 @@ set(DEVICE_PROFILE_TV_3852TL4G_DEFINES
     CAP_RECORD_NEEDS_CAM_SHARE_INCLUDE=0
     CAP_RECORD_LINK_FDK_AAC=0
     CAP_AI_GARBAGE_DETECT=1              # 垃圾暴露/垃圾满溢检测能力
-    CAP_AI_PEOPLE_STATISTICS=0           # 人流统计/人员密度检测能力
+    CAP_AI_PEOPLE_STATISTICS=0           # 人流统计/人员密度公共协议与配置能力
+    CAP_AI_PEOPLE_DENSITY_LEGACY=0       # 旧版人员密度，人头模型实现
+    CAP_AI_PEOPLE_DENSITY_V2=0           # 新版人员密度，HVF 人形模型实现
+    CAP_AI_FACE_COMPARE=1                # 人脸比对检测能力
     CAP_AI_USE_SIMPLE_JSON=1
     CAP_GPIO_IR_CUT_JSON=1
-    CAP_NETWORK_TELNET_SERVICE=0         # telnet 服务能力；发布版本不启动 telnetd
-    CAP_NETWORK_FTP_SERVICE=0            # ftp 服务能力；发布版本不启动 uftpd
     CAP_NETWORK_4G=1                     # 4G网络（预留）
     CAP_NETWORK_WIFI=0                   # WIFI网络（预留）
+    CAP_RECORD_USE_MAIN_STREAM=1         # 录制使用主码流
+    CAP_GARBAGE_STATION_PLATFORM=1       # 垃圾站平台接入能力
+    CAP_NETWORK_TELNET_SERVICE=0         # telnet 服务能力；发布版本不启动 telnetd
+    CAP_NETWORK_FTP_SERVICE=0            # ftp 服务能力；发布版本不启动 uftpd
+    CAP_ISP_DAY_NIGHT_DIFFERENT_TUNING=1 #使用3852H图像参数
+    CAP_ISP_SCENE_LIGHT_PARAM=1          #使用3852H图像参数
+    CAP_ISP_CMOS_GAMMA_3852H=1           #使用3852H图像参数
 )
 set(DEVICE_PROFILE_TV_3852TL4G_CMAKE_VARS
     IPC_CAP_RECORD_NEEDS_CAM_SHARE_INCLUDE=0
@@ -351,7 +388,7 @@ set(DEVICE_PROFILE_TV_3852TLW_DEVICE_TYPE "TV-3852TLW")
 # - 差异点：开启垃圾检测能力，WIFI网络能力宏预留
 set(DEVICE_PROFILE_TV_3852TLW_DEFINES
     DEVICE_TV_3852TLW
-    CAP_ALARM_IO=1
+    CAP_ALARM_IO=0
     CAP_AUDIO_INPUT_LINEIN=1
     CAP_AUDIO_OUTPUT_LINEOUT=1
     CAP_AUDIO_FMT_AAC=1
@@ -378,15 +415,76 @@ set(DEVICE_PROFILE_TV_3852TLW_DEFINES
     CAP_RECORD_NEEDS_CAM_SHARE_INCLUDE=0
     CAP_RECORD_LINK_FDK_AAC=0
     CAP_AI_GARBAGE_DETECT=1              # 垃圾暴露/垃圾满溢检测能力
-    CAP_AI_PEOPLE_STATISTICS=0           # 人流统计/人员密度检测能力
+    CAP_AI_PEOPLE_STATISTICS=0           # 人流统计/人员密度公共协议与配置能力
+    CAP_AI_PEOPLE_DENSITY_LEGACY=0       # 旧版人员密度，人头模型实现
+    CAP_AI_PEOPLE_DENSITY_V2=0           # 新版人员密度，HVF 人形模型实现
+    CAP_AI_FACE_COMPARE=1                # 人脸比对检测能力
     CAP_AI_USE_SIMPLE_JSON=1
     CAP_GPIO_IR_CUT_JSON=1
-    CAP_NETWORK_TELNET_SERVICE=0         # telnet 服务能力；发布版本不启动 telnetd
-    CAP_NETWORK_FTP_SERVICE=0            # ftp 服务能力；发布版本不启动 uftpd
     CAP_NETWORK_4G=0                     # 4G网络（预留）
     CAP_NETWORK_WIFI=1                   # WIFI网络（预留）
+    CAP_RECORD_USE_MAIN_STREAM=1         # 录制使用主码流
+    CAP_GARBAGE_STATION_PLATFORM=1       # 垃圾站平台接入能力
+    CAP_NETWORK_TELNET_SERVICE=0         # telnet 服务能力；发布版本不启动 telnetd
+    CAP_NETWORK_FTP_SERVICE=0            # ftp 服务能力；发布版本不启动 uftpd
+    CAP_ISP_DAY_NIGHT_DIFFERENT_TUNING=1 #使用3852H图像参数
+    CAP_ISP_SCENE_LIGHT_PARAM=1          #使用3852H图像参数
+    CAP_ISP_CMOS_GAMMA_3852H=1           #使用3852H图像参数
 )
 set(DEVICE_PROFILE_TV_3852TLW_CMAKE_VARS
+    IPC_CAP_RECORD_NEEDS_CAM_SHARE_INCLUDE=0
+    IPC_CAP_RECORD_LINK_FDK_AAC=0
+    IPC_CAP_EXHIBITION_OSD_PANEL=0           # 展会版AI左上角汇总面板能力
+)
+
+# 展厅特殊版本
+set(DEVICE_PROFILE_TV_3852HZT_DEVICE_TYPE "TV-3852HZT")
+# TV-3852HZT 设备能力画像：
+# - 继承 3852H 基线
+# - 实际产品型号仍显示为 TV-3852H，仅用于临时构建区分能力宏
+set(DEVICE_PROFILE_TV_3852HZT_DEFINES
+    DEVICE_TV_3852H
+    CAP_ALARM_IO=0
+    CAP_AUDIO_INPUT_LINEIN=0
+    CAP_AUDIO_OUTPUT_LINEOUT=0
+    CAP_AUDIO_FMT_AAC=1
+    CAP_AUDIO_FMT_G711U=1
+    CAP_AUDIO_FMT_G711A=1
+    CAP_AUDIO_FMT_PCM=1
+    CAP_AUDIO_FMT_G726=0
+    CAP_MOTION_REGION_GRID=1
+    CAP_VIDEO_MAX_2_5K=1
+    CAP_VIDEO_MAX_4K=0
+    CAP_SMART_EVENT_PERF_LIMIT=1
+    CAP_ISP_IR_SWITCH=1
+    CAP_GPIO_LAYOUT_3852_SERIES=1
+    CAP_GPIO_LAYOUT_RV1126=0
+    CAP_LIGHT_WHITE_ONLY=0
+    CAP_PWM_NEED_POLARITY=0
+    CAP_EVENT_AUDIO_PLAYBACK_V2=0
+    CAP_AUDIO_PLAYBACK_SLEEP_HALF=1
+    CAP_SYSTEM_REBOOT_MUTE=0
+    CAP_STORAGE_MMCBLK1=0
+    CAP_PROCESS_USE_PS_GREP=0
+    CAP_PROCESS_KILL_CROND_BEFORE_STREAM=0
+    CAP_DAEMON_LOG_BY_SIZE=1
+    CAP_RECORD_NEEDS_CAM_SHARE_INCLUDE=0
+    CAP_RECORD_LINK_FDK_AAC=0
+    CAP_AI_GARBAGE_DETECT=0
+    CAP_AI_PEOPLE_STATISTICS=1              # 人流统计/人员密度公共协议与配置能力
+    CAP_AI_PEOPLE_DENSITY_LEGACY=0          # 旧版人员密度，人头模型实现
+    CAP_AI_PEOPLE_DENSITY_V2=1              # 新版人员密度，HVF 人形模型实现
+    CAP_EXHIBITION_OSD_PANEL=0              # 展会版AI左上角汇总面板能力
+    CAP_AI_USE_SIMPLE_JSON=1
+    CAP_GPIO_IR_CUT_JSON=0
+    CAP_ISP_DAY_NIGHT_DIFFERENT_TUNING=1
+    CAP_ISP_SCENE_LIGHT_PARAM=1
+    CAP_ISP_CMOS_GAMMA_3852H=1
+    CAP_RECORD_USE_MAIN_STREAM=0         # 录制使用主码流
+    CAP_NETWORK_TELNET_SERVICE=1
+    CAP_NETWORK_FTP_SERVICE=1
+)
+set(DEVICE_PROFILE_TV_3852HZT_CMAKE_VARS
     IPC_CAP_RECORD_NEEDS_CAM_SHARE_INCLUDE=0
     IPC_CAP_RECORD_LINK_FDK_AAC=0
     IPC_CAP_EXHIBITION_OSD_PANEL=0           # 展会版AI左上角汇总面板能力

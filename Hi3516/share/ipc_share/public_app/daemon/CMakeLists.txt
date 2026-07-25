@@ -6,10 +6,13 @@ project(${PRO_NAME})
 
 # 引用cmake
 include(${CAM_SHARE_PATH}/common/log/log.cmake)
+include(${IPC_SHARE_PATH}/common/timezone/timezone.cmake)
 
 # 头文件
 set (INCLUDE_PATH
     ${CMAKE_CURRENT_LIST_DIR}
+    ${IPC_SHARE_PATH}/common/define
+    ${IPC_SHARE_PATH}/ret
 )
 
 # 源文件
@@ -19,6 +22,7 @@ set (SOURCE_PATH
 
 # 库文件
 set (LIBS
+    -lpthread
     libz
     libzlog
 )

@@ -75,7 +75,7 @@ void CFaceDetect::setAlgoEnCfg(const Event::AlgorithmConfig &stAlgoConfig)
         m_stAlgoFaceCapCfg.bEnable = false;
         m_captureProcessor.setEnabled(false);
     }
-
+#if CAP_AI_FACE_COMPARE
     if (bEnableFaceCompare)
     {
         Alarm::FaceCompare_S stCompareInfo;
@@ -87,13 +87,15 @@ void CFaceDetect::setAlgoEnCfg(const Event::AlgorithmConfig &stAlgoConfig)
         m_stAlgoFaceCompCfg.bEnable = false;
         m_featureProcessor.setEnabled(false);
     }
-
+#endif
     /* 顶层算法开关与具体业务配置同时生效，避免单侧关闭后仍进入处理链路 */
 
     m_stAlgoFaceCapCfg.bEnable = m_stAlgoFaceCapCfg.bEnable && bEnableFaceCapture;
     m_captureProcessor.setEnabled(m_stAlgoFaceCapCfg.bEnable);
+    #if CAP_AI_FACE_COMPARE
     m_stAlgoFaceCompCfg.bEnable = m_stAlgoFaceCompCfg.bEnable && bEnableFaceCompare;
     m_featureProcessor.setEnabled(m_stAlgoFaceCompCfg.bEnable);
+    #endif
     bool bNeedAlgo = bEnableFaceCapture || bEnableFaceCompare;
     if (bNeedAlgo)
     {
@@ -121,7 +123,7 @@ void CFaceDetect::setAlgoParamCfg(const Alarm::FaceCapture_S &stAlgoCfg)
     m_RecvManager.set_time_window(stAlgoCfg.stRule.nInterval * 1000);
     m_captureProcessor.setAlgoParamCfg(stAlgoCfg, m_nWidth, m_nHeight);
 }
-
+#if CAP_AI_FACE_COMPARE
 void CFaceDetect::setFaceCmpCfg(const Alarm::FaceCompare_S &stAlgoCfg)
 {
     m_stAlgoFaceCompCfg = stAlgoCfg;
@@ -160,7 +162,7 @@ bool CFaceDetect::addFaceLibGroup(FaceDataDB_NS::FaceLibsInfo_S &stFaceLibData)
 
     return bRet;
 }
-
+#endif
 bool CFaceDetect::init()
 {
 
@@ -176,7 +178,7 @@ bool CFaceDetect::init()
             return false;
         }
     }
-
+#if CAP_AI_FACE_COMPARE
     /*
      * 初始化特征模型
      */
@@ -184,7 +186,7 @@ bool CFaceDetect::init()
     {
         return false;
     }
-
+#endif
     return true;
 }
 
@@ -192,7 +194,9 @@ bool CFaceDetect::unInit()
 {
     mppVgs_destroy_video_frame_info(&m_stDstFrameInfo);
     memset_s(&m_stDstFrameInfo, sizeof(ot_video_frame_info), 0, sizeof(ot_video_frame_info));
+#if CAP_AI_FACE_COMPARE
     m_featureProcessor.deinit();
+#endif
     return true;
 }
 
@@ -325,7 +329,7 @@ void CFaceDetect::run()
             m_nWidth,
             m_nHeight,
 
-            [this, pAsyncFrame, stMediaData](std::vector<Inference_NS ::PointData_S> vPointDatas)
+            [this, pAsyncFrame, stMediaData,pSrcFrameInfo](std::vector<Inference_NS ::BoxData_S> vPointDatas)
             {
                 /*
                  * 邮件附件列表
@@ -362,19 +366,35 @@ void CFaceDetect::run()
                 /*
                  * 人脸比对
                  */
+                #if CAP_AI_FACE_COMPARE
+                // if (m_featureProcessor.isEnabled())
+                // {
+                //     std::vector<Common::RectInfo_S> vstCompareRectInfo;
+
+                //     // m_captureProcessor
+                //     //     .collectTargets(
+                //     //         vPointDatas,
+                //     //         vstCompareRectInfo);
+                //     m_featureProcessor.collectCompareTargets(vPointDatas, vstCompareRectInfo);
+
+                //     m_featureProcessor.processCompare(stContext, vstCompareRectInfo, m_captureProcessor, vecImageFile);
+                // }
                 if (m_featureProcessor.isEnabled())
                 {
-                    std::vector<Common::RectInfo_S> vstCompareRectInfo;
-
-                    // m_captureProcessor
-                    //     .collectTargets(
-                    //         vPointDatas,
-                    //         vstCompareRectInfo);
-                    m_featureProcessor.collectCompareTargets(vPointDatas, vstCompareRectInfo);
-
-                    m_featureProcessor.processCompare(stContext, vstCompareRectInfo, m_captureProcessor, vecImageFile);
+                    /*
+                     * 人脸比对目标
+                     *
+                     * 包含：
+                     * 1. rect
+                     * 2. 5关键点
+                     * 3. confidence
+                     */
+                    std::vector<FaceDetectInternal::CFaceFeatureProcessor::FaceAlignInfo_S> vFaceInfos;
+                    m_featureProcessor.collectCompareTargets(vPointDatas, vFaceInfos);
+                    stContext.pFrameInfo = pSrcFrameInfo;
+                    m_featureProcessor.processCompare(stContext, vFaceInfos, m_captureProcessor, vecImageFile);
                 }
-
+#endif
                 /*
                  * OSD显示
                  */
@@ -395,5 +415,9 @@ void CFaceDetect::run()
 
 bool CFaceDetect::hasEnabledAlgorithm() const
 {
-    return m_captureProcessor.isEnabled() || m_featureProcessor.isEnabled();
+    return m_captureProcessor.isEnabled() 
+    #if CAP_AI_FACE_COMPARE
+    || m_featureProcessor.isEnabled()
+    #endif
+    ;
 }

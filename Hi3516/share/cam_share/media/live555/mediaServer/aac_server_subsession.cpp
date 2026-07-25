@@ -23,6 +23,7 @@ aacAudioServerMediaSubsession
 
 FramedSource* aacAudioServerMediaSubsession
 ::createNewStreamSource(unsigned /*clientSessionId*/, unsigned& estBitrate) {
+  estBitrate = 128;
   envir() << "[RTSP] AAC bitrate: " << estBitrate << "\n"; // kbps
   return aacAudioSource::createNew(envir(), m_aacSouceInfo);
 }

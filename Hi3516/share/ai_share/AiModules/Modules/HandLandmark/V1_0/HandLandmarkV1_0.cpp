@@ -159,7 +159,7 @@ bool HandLandmark_NS::CHandLandmarkV1_0::process(
     /* 推理+后处理 */
     Inference_NS::InputData_S stInputData;
     stInputData.pData     = (float*)stInData.inMat.data;
-    stInputData.nDataSize = static_cast<int>(stInData.inMat.total() * stInData.inMat.elemSize()) * sizeof(float);
+    stInputData.nDataSize = static_cast<int>(stInData.inMat.total() * stInData.inMat.elemSize() * sizeof(float));
     std::vector<Inference_NS::BoxData_S> vBoxDatas;
     bRet = m_pHandDetect->inference(stInputData, vBoxDatas);
     if (!bRet)

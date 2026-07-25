@@ -76,14 +76,18 @@ bool Inference_NS::CImageFeature::inference(
         }
     }
 
-    Inference_NS::ClsData_S stClsData;
-    /* 预分配空间以提高效率 */
-    int nFeatureNum = m_vOutputAttrs[0].dims[1];
-    stClsData.vFeature.reserve(nFeatureNum);
-    float *pOutput = (float *)vInput[0];
-    
-    std::copy(pOutput, pOutput + nFeatureNum, std::back_inserter(stClsData.vFeature));
+    /* 将所有的模型输出头，加入容器中 */
+    int nFeatureNum = 1;
+    vClsDatas.resize(m_nOutputNum);
+    for (int i = 0; i < m_nOutputNum; ++i)
+    {
+        for(int j = 0; j < m_vOutputAttrs[i].n_dims; j++)
+        {
+            nFeatureNum *= m_vOutputAttrs[i].dims[j];
+        }
+        vClsDatas[i].vFeature.assign(vInput[i], vInput[i] + nFeatureNum);
+        nFeatureNum = 1;
+    }
 
-    vClsDatas.push_back(stClsData);
     return true;
 }

@@ -3,7 +3,7 @@ set(MODULE_NAME "ClipText_Module")
 # 必须在前面
 add_library(${MODULE_NAME} INTERFACE)
 
-include(${CMAKE_CURRENT_LIST_DIR}/../../Inference/RK/Classification/TextFeature/TextFeature.cmake)
+# include(${CMAKE_CURRENT_LIST_DIR}/../../Inference/RK/Classification/TextFeature/TextFeature.cmake)
 
 
 # 清除变量

@@ -103,6 +103,7 @@ namespace FaceManage
          * @param nFaceLibId 
          */
         bool comparisonFaceLib(const std::vector<float>& vfData, int& nFaceLibId, float &fSimilarity);
+        bool comparisonFaceLib(const std::vector<float>& vfData, FaceLibsInfo_S &stMatchedInfo, float &fSimilarity);
 
         /**
          * @brief 余弦相似度计算

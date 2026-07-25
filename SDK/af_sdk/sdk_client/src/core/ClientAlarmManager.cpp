@@ -14,9 +14,145 @@
 #include "DeviceInfoConvert.h"
 
 #include <algorithm>
+#include <cctype>
 #include <cstring>
+#include <limits>
 #include <memory>
 #include <vector>
+
+namespace
+{
+std::string TrimAscii(const std::string& value)
+{
+    size_t begin = 0;
+    while (begin < value.size() && std::isspace(static_cast<unsigned char>(value[begin])))
+    {
+        ++begin;
+    }
+
+    size_t end = value.size();
+    while (end > begin && std::isspace(static_cast<unsigned char>(value[end - 1])))
+    {
+        --end;
+    }
+
+    return value.substr(begin, end - begin);
+}
+
+bool EqualsNoCase(const std::string& lhs, const std::string& rhs)
+{
+    if (lhs.size() != rhs.size())
+    {
+        return false;
+    }
+
+    for (size_t i = 0; i < lhs.size(); ++i)
+    {
+        if (std::tolower(static_cast<unsigned char>(lhs[i])) !=
+            std::tolower(static_cast<unsigned char>(rhs[i])))
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+bool ContainsNoCase(const std::string& haystack, const std::string& needle)
+{
+    if (needle.empty())
+    {
+        return true;
+    }
+
+    auto it = std::search(haystack.begin(), haystack.end(), needle.begin(), needle.end(),
+                          [](char lhs, char rhs) {
+                              return std::tolower(static_cast<unsigned char>(lhs)) ==
+                                     std::tolower(static_cast<unsigned char>(rhs));
+                          });
+    return it != haystack.end();
+}
+
+bool GetMultipartHeaderValue(const std::string& headers,
+                             const std::string& headerName,
+                             std::string& value)
+{
+    size_t pos = 0;
+    while (pos <= headers.size())
+    {
+        size_t lineEnd = headers.find("\r\n", pos);
+        if (lineEnd == std::string::npos)
+        {
+            lineEnd = headers.size();
+        }
+
+        std::string line = headers.substr(pos, lineEnd - pos);
+        size_t colon = line.find(':');
+        if (colon != std::string::npos &&
+            EqualsNoCase(TrimAscii(line.substr(0, colon)), headerName))
+        {
+            value = TrimAscii(line.substr(colon + 1));
+            return true;
+        }
+
+        if (lineEnd == headers.size())
+        {
+            break;
+        }
+        pos = lineEnd + 2;
+    }
+
+    return false;
+}
+
+bool ParseContentLength(const std::string& headers, size_t& contentLength)
+{
+    std::string value;
+    if (!GetMultipartHeaderValue(headers, "Content-Length", value) || value.empty())
+    {
+        return false;
+    }
+
+    size_t result = 0;
+    for (char ch : value)
+    {
+        if (!std::isdigit(static_cast<unsigned char>(ch)))
+        {
+            return false;
+        }
+
+        size_t digit = static_cast<size_t>(ch - '0');
+        if (result > (std::numeric_limits<size_t>::max() - digit) / 10)
+        {
+            return false;
+        }
+        result = result * 10 + digit;
+    }
+
+    contentLength = result;
+    return true;
+}
+
+void TrimTrailingCrlf(std::string& value)
+{
+    if (value.length() >= 2 && value.substr(value.length() - 2) == "\r\n")
+    {
+        value.resize(value.length() - 2);
+    }
+}
+
+bool IsCompleteJsonBody(const std::string& body)
+{
+    Json::Object* root = Json::init(body);
+    if (!root)
+    {
+        return false;
+    }
+
+    Json::deinit(root);
+    return true;
+}
+}
 
 CClientAlarmManager::CClientAlarmManager(const std::string& host, int port, const std::string& user, const std::string& pass)
     : host_(host), port_(port), username_(user), password_(pass)
@@ -118,7 +254,6 @@ void CClientAlarmManager::AlarmLoop()
 {
     std::string boundary;
     std::string buffer;
-    std::string pendingJson;
 
     // 返回 false 表示需要断开连接（僵尸检测或用户停止）
     auto dispatch_alarm = [&](const std::string& jsonBody) -> bool {
@@ -232,20 +367,63 @@ void CClientAlarmManager::AlarmLoop()
         {
             NET_TV_ALARM_BASIC_INFO_S info = {0};
             SDKConvert::deal(alarmInfoObj, info, true);
+            NSDK_LOG_INFO("[DIAG-ALARM] User-%p basic parsed: cmd=0x%llX, alarmType=0x%X, timestamp=%lld, panoramaLen=%u",
+                          userHandle_,
+                          lCommand,
+                          info.dwAlarmType,
+                          (long long)info.llTimestampMs,
+                          info.dwPanoramaImgLen);
             INT32 len = (INT32)sizeof(info);
             alarmCb_(lCommand, &alarmer, (CHAR*)&info, &len, alarmUserData_);
         }
         else if (alarmBase == NET_TV_ALARM_BASE_RULE)
         {
-            NET_TV_ALARM_RULE_INFO_S info = {0};
-            SDKConvert::deal(alarmInfoObj, info, true);
-            INT32 len = (INT32)sizeof(info);
-            alarmCb_(lCommand, &alarmer, (CHAR*)&info, &len, alarmUserData_);
+            auto info = std::make_unique<NET_TV_ALARM_RULE_INFO_S>();
+            SDKConvert::deal(alarmInfoObj, *info, true);
+            NSDK_LOG_INFO("[DIAG-ALARM] User-%p rule parsed: cmd=0x%llX, alarmType=0x%X, channel=%u, rule=%u, "
+                          "target=%u, objType=%u, timestamp=%lld, rect=[%d,%d,%d,%d], panoramaLen=%u, targetLen=%u, "
+                          "jsonHasPanoramaB64=%d, jsonHasTargetB64=%d",
+                          userHandle_,
+                          lCommand,
+                          info->dwAlarmType,
+                          info->dwChannel,
+                          info->dwRuleID,
+                          info->dwTargetID,
+                          info->dwObjectType,
+                          (long long)info->llTimestampMs,
+                          info->nLeft,
+                          info->nTop,
+                          info->nRight,
+                          info->nBottom,
+                          info->dwPanoramaImgLen,
+                          info->dwTargetImgLen,
+                          jsonBody.find("PanoramaImgBase64") != std::string::npos ? 1 : 0,
+                          jsonBody.find("TargetImgBase64") != std::string::npos ? 1 : 0);
+            INT32 len = (INT32)sizeof(*info);
+            alarmCb_(lCommand, &alarmer, (CHAR*)info.get(), &len, alarmUserData_);
         }
         else if (alarmBase == NET_TV_ALARM_BASE_AI)
         {
             auto info = std::make_unique<NET_TV_ALARM_AI_OBJECT_INFO_S>();
             SDKConvert::deal(alarmInfoObj, *info, true);
+            NSDK_LOG_INFO("[DIAG-ALARM] User-%p ai object parsed: cmd=0x%llX, alarmType=0x%X, channel=%u, object=%s, "
+                          "objType=%u, timestamp=%lld, rect=[%d,%d,%d,%d], panoramaLen=%u, imgLen=%u, "
+                          "jsonHasPanoramaB64=%d, jsonHasImgDataB64=%d",
+                          userHandle_,
+                          lCommand,
+                          info->dwAlarmType,
+                          info->dwChannel,
+                          info->szObjectID,
+                          info->dwObjectType,
+                          (long long)info->llTimestampMs,
+                          info->nLeft,
+                          info->nTop,
+                          info->nRight,
+                          info->nBottom,
+                          info->dwPanoramaImgLen,
+                          info->dwImgLen,
+                          jsonBody.find("PanoramaImgBase64") != std::string::npos ? 1 : 0,
+                          jsonBody.find("ImgDataBase64") != std::string::npos ? 1 : 0);
             INT32 len = (INT32)sizeof(*info);
             alarmCb_(lCommand, &alarmer, (CHAR*)info.get(), &len, alarmUserData_);
         }
@@ -304,7 +482,7 @@ void CClientAlarmManager::AlarmLoop()
             std::lock_guard<std::mutex> lk(clientMutex_);
             client_ = std::make_shared<httplib::Client>(host_, port_);
             client_->set_digest_auth(username_.c_str(), password_.c_str());
-            client_->set_read_timeout(15);
+            client_->set_read_timeout(75);
             client_->set_keep_alive(true);
             localClient = client_;  // 保持本地引用，防止 HealthMonitor 替换 client_ 后析构
         }
@@ -377,51 +555,114 @@ void CClientAlarmManager::AlarmLoop()
             }
 
             if (boundary.empty()) return true;
-            size_t pos = 0;
             while (true)
             {
-                size_t boundPos = buffer.find(boundary, pos);
-                if (boundPos == std::string::npos) {
-                     if (buffer.length() > pos + boundary.length())
-                     {
-                          buffer.erase(0, pos);
-                          pos = 0;
-                     }
-                     break;
+                size_t boundPos = buffer.find(boundary);
+                if (boundPos == std::string::npos)
+                {
+                    if (buffer.size() > boundary.size())
+                    {
+                        buffer.erase(0, buffer.size() - boundary.size());
+                    }
+                    break;
                 }
 
-                if (boundPos > pos) {
-                    std::string part = buffer.substr(pos, boundPos - pos);
-                    size_t headerEnd = part.find("\r\n\r\n");
-                    if (headerEnd != std::string::npos)
-                    {
-                        std::string headers = part.substr(0, headerEnd);
-                        std::string body = part.substr(headerEnd + 4);
-                        if (body.length() >= 2 && body.substr(body.length()-2) == "\r\n")
-                        {
-                            body.resize(body.length()-2);
-                        }
+                if (boundPos > 0)
+                {
+                    buffer.erase(0, boundPos);
+                    continue;
+                }
 
-                        /* JSON数据 */
-                        if (headers.find("application/json") != std::string::npos)
-                        {
-                            pendingJson = body;
-                            if (!dispatch_alarm(pendingJson)) {
-                                // 僵尸检测触发，断开连接
-                                return false;
-                            }
-                            pendingJson.clear();
-                        }
-                        /* 图片数据 */
-                        else if (headers.find("image") != std::string::npos)
-                        {
-                            // 忽略：不依赖 multipart 附件
-                        }
+                if (buffer.size() < boundary.size() + 2)
+                {
+                    break;
+                }
+
+                if (buffer.compare(boundary.size(), 2, "--") == 0)
+                {
+                    buffer.erase(0, boundary.size() + 2);
+                    break;
+                }
+
+                if (buffer.compare(boundary.size(), 2, "\r\n") != 0)
+                {
+                    buffer.erase(0, boundary.size());
+                    continue;
+                }
+
+                const size_t headersStart = boundary.size() + 2;
+                const size_t headerEnd = buffer.find("\r\n\r\n", headersStart);
+                if (headerEnd == std::string::npos)
+                {
+                    break;
+                }
+
+                std::string headers = buffer.substr(headersStart, headerEnd - headersStart);
+                const size_t bodyStart = headerEnd + 4;
+                size_t contentLength = 0;
+                size_t consumeEnd = std::string::npos;
+                std::string body;
+
+                if (ParseContentLength(headers, contentLength))
+                {
+                    if (contentLength > buffer.size() - bodyStart)
+                    {
+                        break;
+                    }
+
+                    body = buffer.substr(bodyStart, contentLength);
+                    consumeEnd = bodyStart + contentLength;
+                    if (buffer.size() >= consumeEnd + 2 && buffer.compare(consumeEnd, 2, "\r\n") == 0)
+                    {
+                        consumeEnd += 2;
                     }
                 }
-                pos = boundPos + boundary.length();
+                else
+                {
+                    size_t nextBoundPos = buffer.find(boundary, bodyStart);
+                    if (nextBoundPos == std::string::npos)
+                    {
+                        if (!ContainsNoCase(headers, "application/json"))
+                        {
+                            break;
+                        }
+
+                        body = buffer.substr(bodyStart);
+                        TrimTrailingCrlf(body);
+                        if (!IsCompleteJsonBody(body))
+                        {
+                            break;
+                        }
+                        consumeEnd = buffer.size();
+                    }
+                    else
+                    {
+                        body = buffer.substr(bodyStart, nextBoundPos - bodyStart);
+                        TrimTrailingCrlf(body);
+                        consumeEnd = nextBoundPos;
+                    }
+                }
+
+                /* JSON数据 */
+                if (ContainsNoCase(headers, "application/json"))
+                {
+                    if (!dispatch_alarm(body)) {
+                        // 僵尸检测触发，断开连接
+                        return false;
+                    }
+                }
+                /* 图片数据 */
+                else if (ContainsNoCase(headers, "image"))
+                {
+                    // 忽略：不依赖 multipart 附件
+                }
+
+                if (consumeEnd == std::string::npos)
+                {
+                    break;
+                }
+                buffer.erase(0, consumeEnd);
             }
-            if (pos > 0) buffer.erase(0, pos);
             return true;
         });
 
@@ -478,7 +719,6 @@ void CClientAlarmManager::AlarmLoop()
         // 清空缓冲区，避免脏数据
         buffer.clear();
         boundary.clear();
-        pendingJson.clear();
 
         // 统一等 0.5 秒再重连
         std::this_thread::sleep_for(std::chrono::milliseconds(500));
