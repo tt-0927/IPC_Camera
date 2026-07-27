@@ -1145,13 +1145,13 @@ int NetSDK_ExecuteCb_GetDevConfig(INT32 dwChannelID, INT32 dwCommand, LPVOID lpO
     /* RTSP URL 获取：优先走专用回调 */
     if (dwCommand == NET_TV_GET_RTSPURLCFG && g_stConfigCbTable.cbGetRtspUrl != NULL)
     {
-        return g_stConfigCbTable.cbGetRtspUrl(dwChannelID, (LPNET_TV_RTSP_URL_INFO_S)lpOutBuffer);
+        return g_stConfigCbTable.cbGetRtspUrl(dwChannelID, (pNET_RtspUrlInfo_S)lpOutBuffer);
     }
 
     /* 回放URL获取：优先走专用回调 */
     if (dwCommand == NET_TV_GET_REPLAY_URLCFG && g_stConfigCbTable.cbGetReplayUrl != NULL)
     {
-        LPNET_TV_REPLAY_URL_INFO_S pInfo = (LPNET_TV_REPLAY_URL_INFO_S)lpOutBuffer;
+        pNET_ReplayUrlInfo_S pInfo = (pNET_ReplayUrlInfo_S)lpOutBuffer;
         if (pInfo->dwChannel == 0)
         {
             pInfo->dwChannel = dwChannelID;
@@ -1162,7 +1162,7 @@ int NetSDK_ExecuteCb_GetDevConfig(INT32 dwChannelID, INT32 dwCommand, LPVOID lpO
     /* 回放录像列表获取：优先走专用回调 */
     if (dwCommand == NET_TV_GET_REPLAY_RECORD_LIST && g_stConfigCbTable.cbGetReplayRecordList != NULL)
     {
-        LPNET_TV_REPLAY_RECORD_LIST_S pInfo = (LPNET_TV_REPLAY_RECORD_LIST_S)lpOutBuffer;
+        pNET_ReplayRecordList_S pInfo = (pNET_ReplayRecordList_S)lpOutBuffer;
         if (pInfo->dwChannel == 0)
         {
             pInfo->dwChannel = dwChannelID;
@@ -1173,13 +1173,13 @@ int NetSDK_ExecuteCb_GetDevConfig(INT32 dwChannelID, INT32 dwCommand, LPVOID lpO
     /* 重复检查RTSP URL（兼容旧逻辑） */
     if (dwCommand == NET_TV_GET_RTSPURLCFG && g_stConfigCbTable.cbGetRtspUrl != NULL)
     {
-        return g_stConfigCbTable.cbGetRtspUrl(dwChannelID, (LPNET_TV_RTSP_URL_INFO_S)lpOutBuffer);
+        return g_stConfigCbTable.cbGetRtspUrl(dwChannelID, (pNET_RtspUrlInfo_S)lpOutBuffer);
     }
 
     /* 重复检查回放URL（兼容旧逻辑） */
     if (dwCommand == NET_TV_GET_REPLAY_URLCFG && g_stConfigCbTable.cbGetReplayUrl != NULL)
     {
-        LPNET_TV_REPLAY_URL_INFO_S pInfo = (LPNET_TV_REPLAY_URL_INFO_S)lpOutBuffer;
+        pNET_ReplayUrlInfo_S pInfo = (pNET_ReplayUrlInfo_S)lpOutBuffer;
         if (pInfo->dwChannel == 0)
         {
             pInfo->dwChannel = dwChannelID;
@@ -1215,7 +1215,7 @@ int NetSDK_ExecuteCb_GetDevConfig(INT32 dwChannelID, INT32 dwCommand, LPVOID lpO
  * @return NET_TV_E_SUCCEED 成功，其他值失败
  * @note 回调执行优先级：专用回放URL回调 > 通用配置回调
  */
-int NetSDK_ExecuteCb_GetReplayUrl(LPNET_TV_REPLAY_URL_INFO_S pInfo)
+int NetSDK_ExecuteCb_GetReplayUrl(pNET_ReplayUrlInfo_S pInfo)
 {
     if (pInfo == NULL)
     {
@@ -1244,7 +1244,7 @@ int NetSDK_ExecuteCb_GetReplayUrl(LPNET_TV_REPLAY_URL_INFO_S pInfo)
  * @return NET_TV_E_SUCCEED 成功，其他值失败
  * @note 回调执行优先级：专用回放控制回调 > 通用配置设置回调
  */
-int NetSDK_ExecuteCb_ControlReplay(LPNET_TV_REPLAY_CTRL_INFO_S pInfo)
+int NetSDK_ExecuteCb_ControlReplay(pNET_ReplayCtrlInfo_S pInfo)
 {
     if (pInfo == NULL)
     {
@@ -1276,7 +1276,7 @@ int NetSDK_ExecuteCb_ControlReplay(LPNET_TV_REPLAY_CTRL_INFO_S pInfo)
  * @return NET_TV_E_SUCCEED 成功，其他值失败
  * @note 回调执行优先级：专用回放录像列表回调 > 通用配置回调
  */
-int NetSDK_ExecuteCb_GetReplayRecordList(LPNET_TV_REPLAY_RECORD_LIST_S pInfo)
+int NetSDK_ExecuteCb_GetReplayRecordList(pNET_ReplayRecordList_S pInfo)
 {
     if (pInfo == NULL)
     {
@@ -1318,7 +1318,7 @@ int NetSDK_ExecuteCb_SetDevConfig(INT32 dwChannelID, INT32 dwCommand, LPVOID lpI
     /* 回放控制：走专用回调 */
     if (dwCommand == NET_TV_SET_REPLAY_CTRL && g_stConfigCbTable.cbControlReplay != NULL)
     {
-        LPNET_TV_REPLAY_CTRL_INFO_S pInfo = (LPNET_TV_REPLAY_CTRL_INFO_S)lpInBuffer;
+        pNET_ReplayCtrlInfo_S pInfo = (pNET_ReplayCtrlInfo_S)lpInBuffer;
         if (pInfo->dwChannel == 0)
         {
             pInfo->dwChannel = dwChannelID;

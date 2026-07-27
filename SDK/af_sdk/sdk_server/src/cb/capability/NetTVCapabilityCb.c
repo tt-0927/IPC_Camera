@@ -34,13 +34,13 @@ typedef enum
  */
 typedef union 
 {
-    NET_TV_COMMON_ECODE_E (*GetVideoEncodeCap)(INT32 dwChannelID, LPNET_TV_VIDEO_ENCODE_CAP_S pCap);
-    NET_TV_COMMON_ECODE_E (*GetOsdCap)(INT32 dwChannelID, LPNET_TV_OSD_CAP_S pCap);
-    NET_TV_COMMON_ECODE_E (*GetAudioCap)(INT32 dwChannelID, LPNET_TV_AUDIO_CAP_S pCap);
+    NET_TV_COMMON_ECODE_E (*GetVideoEncodeCap)(INT32 dwChannelID, pNET_VideoEncodeCap_S pCap);
+    NET_TV_COMMON_ECODE_E (*GetOsdCap)(INT32 dwChannelID, pNET_OsdCap_S pCap);
+    NET_TV_COMMON_ECODE_E (*GetAudioCap)(INT32 dwChannelID, pNET_AudioCap_S pCap);
     // 后续扩展
-    // NET_TV_COMMON_ECODE_E (*GetOsdCap)(INT32 dwChannelID, LPNET_TV_OSD_CAP_S pCap);
-    // NET_TV_COMMON_ECODE_E (*GetSmartCap)(INT32 dwChannelID, LPNET_TV_SMART_CAP_S pCap);
-    // NET_TV_COMMON_ECODE_E (*GetImageCap)(INT32 dwChannelID, LPNET_TV_IMAGE_CAP_S pCap);
+    // NET_TV_COMMON_ECODE_E (*GetOsdCap)(INT32 dwChannelID, pNET_OsdCap_S pCap);
+    // NET_TV_COMMON_ECODE_E (*GetSmartCap)(INT32 dwChannelID, pNET_SmartCap_S pCap);
+    // NET_TV_COMMON_ECODE_E (*GetImageCap)(INT32 dwChannelID, pNET_ImageCap_S pCap);
 } Net_TV_CapabilityCb_Un;
 
 /**
@@ -71,7 +71,7 @@ static INT32 ClampFrameRateNum(INT32 frameRateNum)
     return frameRateNum;
 }
 
-static void NormalizeResolutionFrameRate(LPNET_TV_VIDEO_RESOLUTION_S pResolution)
+static void NormalizeResolutionFrameRate(pNET_VideoResolution_S pResolution)
 {
     if (!pResolution)
     {
@@ -81,15 +81,15 @@ static void NormalizeResolutionFrameRate(LPNET_TV_VIDEO_RESOLUTION_S pResolution
     pResolution->dwFrameRateNum = ClampFrameRateNum(pResolution->dwFrameRateNum);
 }
 
-static void FillEncodeAbilityFromOption(const NET_TV_VIDEO_ENCODE_OPTION_S* pOption,
-                                        LPNET_TV_VIDEO_ENCODE_ABILITY_S pAbility)
+static void FillEncodeAbilityFromOption(const NET_VideoEncodeOption_S* pOption,
+                                        pNET_VideoEncodeAbility_S pAbility)
 {
     if (!pOption || !pAbility)
     {
         return;
     }
 
-    memset(pAbility, 0, sizeof(NET_TV_VIDEO_ENCODE_ABILITY_S));
+    memset(pAbility, 0, sizeof(NET_VideoEncodeAbility_S));
     pAbility->enVideoCodec = pOption->enVideoCodec;
     switch (pOption->enVideoCodec)
     {
@@ -135,7 +135,7 @@ static INT32 ClampEncodeComplexityNum(INT32 complexityNum)
     return complexityNum;
 }
 
-static void NormalizeVideoEncodeCap(LPNET_TV_VIDEO_ENCODE_CAP_S pCap)
+static void NormalizeVideoEncodeCap(pNET_VideoEncodeCap_S pCap)
 {
     INT32 i = 0;
     INT32 j = 0;
@@ -156,7 +156,7 @@ static void NormalizeVideoEncodeCap(LPNET_TV_VIDEO_ENCODE_CAP_S pCap)
 
     for (i = 0; i < pCap->dwStreamCount; ++i)
     {
-        LPNET_TV_VIDEO_STREAM_CAP_S pStream = &pCap->astStreamCap[i];
+        pNET_VideoStreamCap_S pStream = &pCap->astStreamCap[i];
         if (pStream->dwEncodeCapSize < 0)
         {
             pStream->dwEncodeCapSize = 0;
@@ -230,7 +230,7 @@ static UINT32 ClampUint32(UINT32 value, UINT32 maxValue)
     return (value > maxValue) ? maxValue : value;
 }
 
-static void NormalizeOsdCap(LPNET_TV_OSD_CAP_S pCap)
+static void NormalizeOsdCap(pNET_OsdCap_S pCap)
 {
     if (!pCap)
     {
@@ -315,7 +315,7 @@ NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetOsdCap(NET_TV_CB_GetOsdCap p
 
 // ========================== 执行接口实现 ==========================
 
-int NetSDK_ExecuteCb_GetVideoEncodeCap(INT32 dwChannelID, LPNET_TV_VIDEO_ENCODE_CAP_S pCap) 
+int NetSDK_ExecuteCb_GetVideoEncodeCap(INT32 dwChannelID, pNET_VideoEncodeCap_S pCap) 
 {
     if (pCap == NULL) 
     {
@@ -337,7 +337,7 @@ int NetSDK_ExecuteCb_GetVideoEncodeCap(INT32 dwChannelID, LPNET_TV_VIDEO_ENCODE_
     return ret;
 }
 
-int NetSDK_ExecuteCb_GetAudioCap(INT32 dwChannelID, LPNET_TV_AUDIO_CAP_S pCap) 
+int NetSDK_ExecuteCb_GetAudioCap(INT32 dwChannelID, pNET_AudioCap_S pCap) 
 {
     if (pCap == NULL) 
     {
@@ -354,7 +354,7 @@ int NetSDK_ExecuteCb_GetAudioCap(INT32 dwChannelID, LPNET_TV_AUDIO_CAP_S pCap)
     return pItem->unFunc.GetAudioCap(dwChannelID, pCap);
 }
 
-int NetSDK_ExecuteCb_GetOsdCap(INT32 dwChannelID, LPNET_TV_OSD_CAP_S pCap) 
+int NetSDK_ExecuteCb_GetOsdCap(INT32 dwChannelID, pNET_OsdCap_S pCap) 
 {
     if (pCap == NULL) 
     {

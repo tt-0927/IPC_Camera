@@ -14,7 +14,7 @@ bool HasText(const CHAR* text)
     return text != NULL && text[0] != '\0';
 }
 
-int ValidateReplayCtrlInfo(NET_TV_REPLAY_CTRL_INFO_S& stInfo)
+int ValidateReplayCtrlInfo(NET_ReplayCtrlInfo_S& stInfo)
 {
     if (stInfo.dwChannel <= 0)
     {
@@ -108,7 +108,7 @@ std::string CPlaybackBusiness::GetReplayUrl(const std::string& req_data, const s
         return SDKConvert::to_respString(NET_TV_E_INVALID_PARAM);
     }
 
-    NET_TV_REPLAY_URL_INFO_S stInfo;
+    NET_ReplayUrlInfo_S stInfo;
     std::memset(&stInfo, 0, sizeof(stInfo));
 
     Json::Object* pRoot = Json::init(req_data);
@@ -143,7 +143,7 @@ std::string CPlaybackBusiness::ControlReplay(const std::string& req_data, const 
         return SDKConvert::to_respString(NET_TV_E_INVALID_PARAM);
     }
 
-    NET_TV_REPLAY_CTRL_INFO_S stInfo;
+    NET_ReplayCtrlInfo_S stInfo;
     std::memset(&stInfo, 0, sizeof(stInfo));
 
     Json::Object* pRoot = Json::init(req_data);
@@ -211,7 +211,7 @@ std::string CPlaybackBusiness::GetReplayRecordList(const std::string& req_data, 
         return SDKConvert::to_respString(NET_TV_E_INVALID_PARAM);
     }
 
-    NET_TV_REPLAY_RECORD_LIST_S stInfo;
+    NET_ReplayRecordList_S stInfo;
     std::memset(&stInfo, 0, sizeof(stInfo));
 
     Json::Object* pRoot = Json::init(req_data);

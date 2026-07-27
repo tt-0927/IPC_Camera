@@ -96,7 +96,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_SystemNtpInfo_S& stInfo, bool
     convert.field(pRootJson, "SyncInterval", stInfo.nSyncInterval);
 }
 
-void SDKConvert::deal(Json::Object* pRootJson, NET_TV_NETWORKCFG_S& stInfo, bool bOutStruct)
+void SDKConvert::deal(Json::Object* pRootJson, NET_NetworkCfg_S& stInfo, bool bOutStruct)
 {
     if (!pRootJson)
     {
@@ -111,7 +111,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_NETWORKCFG_S& stInfo, bool
     convert.field(pRootJson, "IPv4SubnetMask", stInfo.szIPv4SubnetMask);
 }
 
-void SDKConvert::deal(Json::Object* pRootJson, NET_TV_WIFI_STA_CFG_S& stInfo, bool bOutStruct)
+void SDKConvert::deal(Json::Object* pRootJson, NET_WifiStaCfg_S& stInfo, bool bOutStruct)
 {
     if (!pRootJson)
     {
@@ -123,7 +123,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_WIFI_STA_CFG_S& stInfo, bo
     convert.field(pRootJson, "EnableBoost", stInfo.bEnableBoost);
 }
 
-void SDKConvert::deal(Json::Object* pRootJson, NET_TV_WIFI_WEP_KEY_S& stInfo, bool bOutStruct)
+void SDKConvert::deal(Json::Object* pRootJson, NET_WifiWepKey_S& stInfo, bool bOutStruct)
 {
     if (!pRootJson)
     {
@@ -135,7 +135,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_WIFI_WEP_KEY_S& stInfo, bo
     convert.field(pRootJson, "Value", stInfo.szValue);
 }
 
-void SDKConvert::deal(Json::Object* pRootJson, NET_TV_WIFI_STA_CONNECT_S& stInfo, bool bOutStruct)
+void SDKConvert::deal(Json::Object* pRootJson, NET_WifiStaConnect_S& stInfo, bool bOutStruct)
 {
     if (!pRootJson)
     {
@@ -211,7 +211,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_WIFI_STA_CONNECT_S& stInfo
     }
 }
 
-void SDKConvert::deal(Json::Object* pRootJson, NET_TV_4G_INFO_S& stInfo, bool bOutStruct)
+void SDKConvert::deal(Json::Object* pRootJson, NET_4GInfo_S& stInfo, bool bOutStruct)
 {
     if (!pRootJson)
     {
@@ -229,7 +229,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_4G_INFO_S& stInfo, bool bO
     convert.field(pRootJson, "DialMode", stInfo.nDialMode);
 }
 
-void SDKConvert::deal(Json::Object* pRootJson, NET_TV_HOTSPOT_INFO_S& stInfo, bool bOutStruct)
+void SDKConvert::deal(Json::Object* pRootJson, NET_HotspotInfo_S& stInfo, bool bOutStruct)
 {
     if (!pRootJson)
     {
@@ -245,7 +245,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_HOTSPOT_INFO_S& stInfo, bo
     convert.field(pRootJson, "ConfirmPassword", stInfo.szConfirmPassword);
 }
 
-void SDKConvert::deal(Json::Object* pRootJson, NET_TV_HOTSPOT_CONN_DEVICE_S& stInfo, bool bOutStruct)
+void SDKConvert::deal(Json::Object* pRootJson, NET_HotspotConnDevice_S& stInfo, bool bOutStruct)
 {
     if (!pRootJson)
     {
@@ -259,7 +259,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_HOTSPOT_CONN_DEVICE_S& stI
     convert.field(pRootJson, "ConnTime", stInfo.szConnTime);
 }
 
-void SDKConvert::deal(Json::Object* pRootJson, NET_TV_HOTSPOT_CONN_INFO_S& stInfo, bool bOutStruct)
+void SDKConvert::deal(Json::Object* pRootJson, NET_HotspotConnInfo_S& stInfo, bool bOutStruct)
 {
     if (!pRootJson)
     {
@@ -337,7 +337,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_HOTSPOT_CONN_INFO_S& stInf
     }
 }
 
-void SDKConvert::deal(Json::Object* pRootJson, NET_TV_PAGE_INFO_S& stInfo, bool bOutStruct)
+void SDKConvert::deal(Json::Object* pRootJson, NET_PageInfo_S& stInfo, bool bOutStruct)
 {
     if (!pRootJson)
     {
@@ -351,7 +351,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_PAGE_INFO_S& stInfo, bool 
     convert.field(pRootJson, "PageTotal", stInfo.nPageTotal);
 }
 
-void SDKConvert::deal(Json::Object* pRootJson, NET_TV_LOGIN_LOCK_INFO_S& stInfo, bool bOutStruct)
+void SDKConvert::deal(Json::Object* pRootJson, NET_LoginLockInfo_S& stInfo, bool bOutStruct)
 {
     if (!pRootJson)
     {
@@ -365,7 +365,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_LOGIN_LOCK_INFO_S& stInfo,
     convert.field(pRootJson, "LockDuration", stInfo.nLockDuration);
 }
 
-void SDKConvert::deal(Json::Object* pRootJson, NET_TV_PWD_POLICY_INFO_S& stInfo, bool bOutStruct)
+void SDKConvert::deal(Json::Object* pRootJson, NET_PwdPolicyInfo_S& stInfo, bool bOutStruct)
 {
     if (!pRootJson)
     {
@@ -377,7 +377,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_PWD_POLICY_INFO_S& stInfo,
     convert.field(pRootJson, "AllowLowLevelPwdLogin", stInfo.bAllowLowLevelPwdLogin);
 }
 
-void SDKConvert::deal(Json::Object* pRootJson, NET_TV_SSH_ADMIN_INFO_S& stInfo, bool bOutStruct)
+void SDKConvert::deal(Json::Object* pRootJson, NET_SshAdminInfo_S& stInfo, bool bOutStruct)
 {
     if (!pRootJson)
     {
@@ -391,7 +391,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_SSH_ADMIN_INFO_S& stInfo, 
     convert.field(pRootJson, "SshCountdown", stInfo.szSshCountdown);
 }
 
-void SDKConvert::deal(Json::Object* pRootJson, NET_TV_SECURITY_SERVICES_INFO_S& stInfo, bool bOutStruct)
+void SDKConvert::deal(Json::Object* pRootJson, NET_SecurityServicesInfo_S& stInfo, bool bOutStruct)
 {
     if (!pRootJson)
     {
@@ -404,7 +404,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_SECURITY_SERVICES_INFO_S& 
     convert.structure(pRootJson, stInfo.stSshAdmin);
 }
 
-void SDKConvert::deal(Json::Object* pRootJson, NET_TV_SSH_COUNTDOWN_INFO_S& stInfo, bool bOutStruct)
+void SDKConvert::deal(Json::Object* pRootJson, NET_SshCountdownInfo_S& stInfo, bool bOutStruct)
 {
     if (!pRootJson)
     {
@@ -415,7 +415,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_SSH_COUNTDOWN_INFO_S& stIn
     convert.field(pRootJson, "Countdown", stInfo.szCountdown);
 }
 
-void SDKConvert::deal(Json::Object* pRootJson, NET_TV_LOG_SERVER_INFO_S& stInfo, bool bOutStruct)
+void SDKConvert::deal(Json::Object* pRootJson, NET_LogServerInfo_S& stInfo, bool bOutStruct)
 {
     if (!pRootJson)
     {
@@ -429,7 +429,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_LOG_SERVER_INFO_S& stInfo,
     convert.field(pRootJson, "Port", stInfo.nPort);
 }
 
-void SDKConvert::deal(Json::Object* pRootJson, NET_TV_LOG_RETRIEVAL_COND_S& stInfo, bool bOutStruct)
+void SDKConvert::deal(Json::Object* pRootJson, NET_LogRetrievalCond_S& stInfo, bool bOutStruct)
 {
     if (!pRootJson)
     {
@@ -443,7 +443,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_LOG_RETRIEVAL_COND_S& stIn
     convert.field(pRootJson, "EndTime", stInfo.szEndTime);
 }
 
-void SDKConvert::deal(Json::Object* pRootJson, NET_TV_LOG_INFO_S& stInfo, bool bOutStruct)
+void SDKConvert::deal(Json::Object* pRootJson, NET_LogInfo_S& stInfo, bool bOutStruct)
 {
     if (!pRootJson)
     {
@@ -460,7 +460,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_LOG_INFO_S& stInfo, bool b
     convert.field(pRootJson, "Context", stInfo.szContext);
 }
 
-void SDKConvert::deal(Json::Object* pRootJson, NET_TV_LOG_LIST_S& stInfo, bool bOutStruct)
+void SDKConvert::deal(Json::Object* pRootJson, NET_LogList_S& stInfo, bool bOutStruct)
 {
     if (!pRootJson)
     {
@@ -536,7 +536,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_LOG_LIST_S& stInfo, bool b
     }
 }
 
-void SDKConvert::deal(Json::Object* pRootJson, NET_TV_RECORD_INFO_S& stInfo, bool bOutStruct)
+void SDKConvert::deal(Json::Object* pRootJson, NET_RecordInfo_S& stInfo, bool bOutStruct)
 {
     if (!pRootJson)
     {
@@ -557,7 +557,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_RECORD_INFO_S& stInfo, boo
     convert.field(pRootJson, "StreamType", stInfo.nStreamType);
 }
 
-void SDKConvert::deal(Json::Object* pRootJson, NET_TV_RECORD_STATUS_INFO_S& stInfo, bool bOutStruct)
+void SDKConvert::deal(Json::Object* pRootJson, NET_RecordStatusInfo_S& stInfo, bool bOutStruct)
 {
     if (!pRootJson)
     {
@@ -568,7 +568,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_RECORD_STATUS_INFO_S& stIn
     convert.field(pRootJson, "Status", stInfo.nStatus);
 }
 
-void SDKConvert::deal(Json::Object* pRootJson, NET_TV_RECORD_TIME_S& stInfo, bool bOutStruct)
+void SDKConvert::deal(Json::Object* pRootJson, NET_RecordTime_S& stInfo, bool bOutStruct)
 {
     if (!pRootJson)
     {
@@ -581,7 +581,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_RECORD_TIME_S& stInfo, boo
     convert.field(pRootJson, "EndTime", stInfo.nEndTime);
 }
 
-void SDKConvert::deal(Json::Object* pRootJson, NET_TV_RECORD_DAY_SCHEDULE_S& stInfo, bool bOutStruct)
+void SDKConvert::deal(Json::Object* pRootJson, NET_RecordDaySchedule_S& stInfo, bool bOutStruct)
 {
     if (!pRootJson)
     {
@@ -648,7 +648,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_RECORD_DAY_SCHEDULE_S& stI
     }
 }
 
-void SDKConvert::deal(Json::Object* pRootJson, NET_TV_RECORD_SCHEDULE_S& stInfo, bool bOutStruct)
+void SDKConvert::deal(Json::Object* pRootJson, NET_RecordSchedule_S& stInfo, bool bOutStruct)
 {
     if (!pRootJson)
     {
@@ -715,7 +715,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_RECORD_SCHEDULE_S& stInfo,
     }
 }
 
-void SDKConvert::deal(Json::Object* pRootJson, NET_TV_RECORD_ADVANCED_PARAM_S& stInfo, bool bOutStruct)
+void SDKConvert::deal(Json::Object* pRootJson, NET_RecordAdvancedParam_S& stInfo, bool bOutStruct)
 {
     if (!pRootJson)
     {
@@ -729,7 +729,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_RECORD_ADVANCED_PARAM_S& s
     convert.field(pRootJson, "StreamType", stInfo.nStreamType);
 }
 
-void SDKConvert::deal(Json::Object* pRootJson, NET_TV_RECORD_FIND_COND_S& stInfo, bool bOutStruct)
+void SDKConvert::deal(Json::Object* pRootJson, NET_RecordFindCond_S& stInfo, bool bOutStruct)
 {
     if (!pRootJson)
     {
@@ -747,7 +747,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_RECORD_FIND_COND_S& stInfo
     convert.field(pRootJson, "Filename", stInfo.szFilename);
 }
 
-void SDKConvert::deal(Json::Object* pRootJson, NET_TV_RECORD_VIDEO_TIME_S& stInfo, bool bOutStruct)
+void SDKConvert::deal(Json::Object* pRootJson, NET_RecordVideoTime_S& stInfo, bool bOutStruct)
 {
     if (!pRootJson)
     {
@@ -759,7 +759,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_RECORD_VIDEO_TIME_S& stInf
     convert.field(pRootJson, "EndTime", stInfo.nEndTime);
 }
 
-void SDKConvert::deal(Json::Object* pRootJson, NET_TV_RECORD_FIND_RESULT_S& stInfo, bool bOutStruct)
+void SDKConvert::deal(Json::Object* pRootJson, NET_RecordFindResult_S& stInfo, bool bOutStruct)
 {
     if (!pRootJson)
     {
@@ -867,7 +867,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_RECORD_FIND_RESULT_S& stIn
     }
 }
 
-void SDKConvert::deal(Json::Object* pRootJson, NET_TV_RECORD_FILE_LIST_S& stInfo, bool bOutStruct)
+void SDKConvert::deal(Json::Object* pRootJson, NET_RecordFileList_S& stInfo, bool bOutStruct)
 {
     if (!pRootJson)
     {
@@ -930,7 +930,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_RECORD_FILE_LIST_S& stInfo
     }
 }
 
-void SDKConvert::deal(Json::Object* pRootJson, NET_TV_RECORD_DOWNLOAD_INFO_S& stInfo, bool bOutStruct)
+void SDKConvert::deal(Json::Object* pRootJson, NET_RecordDownloadInfo_S& stInfo, bool bOutStruct)
 {
     if (!pRootJson)
     {
@@ -944,7 +944,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_RECORD_DOWNLOAD_INFO_S& st
     convert.field(pRootJson, "EndTime", stInfo.szEndTime);
 }
 
-void SDKConvert::deal(Json::Object* pRootJson, NET_TV_RECORD_DOWNLOAD_PROGRESS_S& stInfo, bool bOutStruct)
+void SDKConvert::deal(Json::Object* pRootJson, NET_RecordDownloadProgress_S& stInfo, bool bOutStruct)
 {
     if (!pRootJson)
     {
@@ -956,7 +956,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_RECORD_DOWNLOAD_PROGRESS_S
     convert.field(pRootJson, "DownloadProgress", stInfo.nProgress);
 }
 
-void SDKConvert::deal(Json::Object* pRootJson, NET_TV_RECORD_DOWNLOAD_LIST_S& stInfo, bool bOutStruct)
+void SDKConvert::deal(Json::Object* pRootJson, NET_RecordDownloadList_S& stInfo, bool bOutStruct)
 {
     if (!pRootJson)
     {
@@ -1064,7 +1064,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_RECORD_DOWNLOAD_LIST_S& st
     }
 }
 
-void SDKConvert::deal(Json::Object* pRootJson, NET_TV_VIDEO_OSD_CFG_S& stInfo, bool bOutStruct)
+void SDKConvert::deal(Json::Object* pRootJson, NET_VideoOsdCfg_S& stInfo, bool bOutStruct)
 {
     if (!pRootJson)
     {
@@ -1187,7 +1187,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_VIDEO_OSD_CFG_S& stInfo, b
 #undef CONVERT_ENUM_FIELD
 }
 
-void SDKConvert::deal(Json::Object* pRootJson, NET_TV_RTSP_URL_INFO_S& stInfo, bool bOutStruct)
+void SDKConvert::deal(Json::Object* pRootJson, NET_RtspUrlInfo_S& stInfo, bool bOutStruct)
 {
     if (!pRootJson)
     {
@@ -1267,7 +1267,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_RecordFrameStopInfo_S& stInfo
     convert.field(pRootJson, "streamId", stInfo.szStreamId);
 }
 
-void SDKConvert::deal(Json::Object* pRootJson, NET_TV_REPLAY_URL_INFO_S& stInfo, bool bOutStruct)
+void SDKConvert::deal(Json::Object* pRootJson, NET_ReplayUrlInfo_S& stInfo, bool bOutStruct)
 {
     if (!pRootJson)
     {
@@ -1281,7 +1281,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_REPLAY_URL_INFO_S& stInfo,
     convert.field(pRootJson, "Url", stInfo.szUrl);
 }
 
-void SDKConvert::deal(Json::Object* pRootJson, NET_TV_REPLAY_CTRL_INFO_S& stInfo, bool bOutStruct)
+void SDKConvert::deal(Json::Object* pRootJson, NET_ReplayCtrlInfo_S& stInfo, bool bOutStruct)
 {
     if (!pRootJson)
     {
@@ -1300,7 +1300,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_REPLAY_CTRL_INFO_S& stInfo
     convert.field(pRootJson, "Url", stInfo.szUrl);
 }
 
-void SDKConvert::deal(Json::Object* pRootJson, NET_TV_REPLAY_RECORD_TIME_S& stInfo, bool bOutStruct)
+void SDKConvert::deal(Json::Object* pRootJson, NET_ReplayRecordTime_S& stInfo, bool bOutStruct)
 {
     if (!pRootJson)
     {
@@ -1312,7 +1312,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_REPLAY_RECORD_TIME_S& stIn
     convert.field(pRootJson, "EndTime", stInfo.nEndTime);
 }
 
-void SDKConvert::deal(Json::Object* pRootJson, NET_TV_REPLAY_RECORD_LIST_S& stInfo, bool bOutStruct)
+void SDKConvert::deal(Json::Object* pRootJson, NET_ReplayRecordList_S& stInfo, bool bOutStruct)
 {
     if (!pRootJson)
     {
@@ -1333,10 +1333,10 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_REPLAY_RECORD_LIST_S& stIn
 
     if (bOutStruct)
     {
-        std::vector<NET_TV_REPLAY_RECORD_TIME_S> videoTimes;
-        std::vector<NET_TV_REPLAY_RECORD_TIME_S> personEventTimes;
-        std::vector<NET_TV_REPLAY_RECORD_TIME_S> vehicleEventTimes;
-        std::vector<NET_TV_REPLAY_RECORD_TIME_S> otherEventTimes;
+        std::vector<NET_ReplayRecordTime_S> videoTimes;
+        std::vector<NET_ReplayRecordTime_S> personEventTimes;
+        std::vector<NET_ReplayRecordTime_S> vehicleEventTimes;
+        std::vector<NET_ReplayRecordTime_S> otherEventTimes;
 
         convert.structure(pRootJson, "VideoTimes", videoTimes);
         convert.structure(pRootJson, "PersonEventTimes", personEventTimes);
@@ -1389,10 +1389,10 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_REPLAY_RECORD_LIST_S& stIn
         stInfo.nVehicleEventCount = std::min<INT32>(stInfo.nVehicleEventCount, NET_TV_REPLAY_RECORD_SEGMENT_MAX);
         stInfo.nOtherEventCount = std::min<INT32>(stInfo.nOtherEventCount, NET_TV_REPLAY_RECORD_SEGMENT_MAX);
 
-        std::vector<NET_TV_REPLAY_RECORD_TIME_S> videoTimes;
-        std::vector<NET_TV_REPLAY_RECORD_TIME_S> personEventTimes;
-        std::vector<NET_TV_REPLAY_RECORD_TIME_S> vehicleEventTimes;
-        std::vector<NET_TV_REPLAY_RECORD_TIME_S> otherEventTimes;
+        std::vector<NET_ReplayRecordTime_S> videoTimes;
+        std::vector<NET_ReplayRecordTime_S> personEventTimes;
+        std::vector<NET_ReplayRecordTime_S> vehicleEventTimes;
+        std::vector<NET_ReplayRecordTime_S> otherEventTimes;
 
         for (INT32 i = 0; i < stInfo.nVideoCount; ++i)
         {
@@ -1418,7 +1418,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_REPLAY_RECORD_LIST_S& stIn
     }
 }
 
-void SDKConvert::deal(Json::Object* pRootJson, NET_TV_CHANNEL_INFO_S& stInfo, bool bOutStruct)
+void SDKConvert::deal(Json::Object* pRootJson, NET_ChannelInfo_S& stInfo, bool bOutStruct)
 {
     if (!pRootJson)
     {
@@ -1494,7 +1494,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_CHANNEL_INFO_S& stInfo, bo
     }
 }
 
-void SDKConvert::deal(Json::Object* pRootJson, NET_TV_CHANNEL_LIST_S& stInfo, bool bOutStruct)
+void SDKConvert::deal(Json::Object* pRootJson, NET_ChannelList_S& stInfo, bool bOutStruct)
 {
     if (!pRootJson)
     {
@@ -1513,7 +1513,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_CHANNEL_LIST_S& stInfo, bo
 
     if (bOutStruct)
     {
-        std::vector<NET_TV_CHANNEL_INFO_S> channels;
+        std::vector<NET_ChannelInfo_S> channels;
         convert.structure(pRootJson, "Channels", channels);
         stInfo.dwChannelCount = (UINT32)std::min<size_t>(channels.size(), NET_TV_MAX_CHANNEL_NUM);
         for (UINT32 i = 0; i < stInfo.dwChannelCount; ++i)
@@ -1527,7 +1527,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_CHANNEL_LIST_S& stInfo, bo
     }
     else
     {
-        std::vector<NET_TV_CHANNEL_INFO_S> channels;
+        std::vector<NET_ChannelInfo_S> channels;
         const UINT32 count = std::min<UINT32>(stInfo.dwChannelCount, NET_TV_MAX_CHANNEL_NUM);
         stInfo.dwChannelCount = count;
         for (UINT32 i = 0; i < count; ++i)
@@ -1540,7 +1540,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_CHANNEL_LIST_S& stInfo, bo
 
 /* ==================== Preview info ==================== */
 
-void SDKConvert::deal(Json::Object* pRootJson, NET_TV_PREVIEW_RTSP_URL_S& stInfo, bool bOutStruct)
+void SDKConvert::deal(Json::Object* pRootJson, NET_PreviewRtspUrl_S& stInfo, bool bOutStruct)
 {
     if (!pRootJson)
     {
@@ -1552,7 +1552,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_PREVIEW_RTSP_URL_S& stInfo
     convert.field(pRootJson, "RtspSubUrl", stInfo.szRtspSubUrl);
 }
 
-void SDKConvert::deal(Json::Object* pRootJson, NET_TV_PREVIEW_IMAGE_PARAM_S& stInfo, bool bOutStruct)
+void SDKConvert::deal(Json::Object* pRootJson, NET_PreviewImageParam_S& stInfo, bool bOutStruct)
 {
     if (!pRootJson)
     {
@@ -1566,7 +1566,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_PREVIEW_IMAGE_PARAM_S& stI
     convert.field(pRootJson, "Sharpness", stInfo.nSharpness);
 }
 
-void SDKConvert::deal(Json::Object* pRootJson, NET_TV_IMAGE_SETTING_S& stInfo, bool bOutStruct)
+void SDKConvert::deal(Json::Object* pRootJson, NET_ImageSetting_S& stInfo, bool bOutStruct)
 {
     if (!pRootJson)
     {
@@ -1580,7 +1580,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_IMAGE_SETTING_S& stInfo, b
     convert.field(pRootJson, "Sharpness", stInfo.nSharpness);
 }
 
-void SDKConvert::deal(Json::Object* pRootJson, NET_TV_PREVIEW_INFO_S& stInfo, bool bOutStruct)
+void SDKConvert::deal(Json::Object* pRootJson, NET_PreviewInfo_S& stInfo, bool bOutStruct)
 {
     if (!pRootJson)
     {
@@ -1593,7 +1593,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_PREVIEW_INFO_S& stInfo, bo
 }
 /* ==================== 布防时间和联动相关转换函数 ==================== */
 
-void SDKConvert::deal(Json::Object* pRootJson, NET_TV_SCHED_TIME_S& stInfo, bool bOutStruct)
+void SDKConvert::deal(Json::Object* pRootJson, NET_SchedTime_S& stInfo, bool bOutStruct)
 {
     if (!pRootJson)
     {
@@ -1865,7 +1865,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_MotionAlarmInfo_S& stInfo, bo
 
 /* ==================== 隐私遮盖配置相关转换函数 ==================== */
 
-void SDKConvert::deal(Json::Object* pRootJson, NET_TV_PRIVACY_MASK_AREA_S& stInfo, bool bOutStruct)
+void SDKConvert::deal(Json::Object* pRootJson, NET_PrivacyMaskArea_S& stInfo, bool bOutStruct)
 {
     if (!pRootJson)
     {
@@ -1881,7 +1881,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_PRIVACY_MASK_AREA_S& stInf
     convert.field(pRootJson, "RectBottom", stInfo.nRectBottom);
 }
 
-void SDKConvert::deal(Json::Object* pRootJson, NET_TV_PRIVACY_MASK_CFG_S& stInfo, bool bOutStruct)
+void SDKConvert::deal(Json::Object* pRootJson, NET_PrivacyMaskCfg_S& stInfo, bool bOutStruct)
 {
     if (!pRootJson)
     {
@@ -3407,7 +3407,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_AudioAnomalyAlarmInfo_S& stIn
 
 /* ===================== 系统升级相关 ============================== */
 
-void SDKConvert::deal(Json::Object*& pRootJson, tagNETTVUpgradeInfo*& stInfo, bool bOutStruct)
+void SDKConvert::deal(Json::Object*& pRootJson, tagNET_UpgradeInfo* stInfo, bool bOutStruct)
 {
     if (!pRootJson)
     {
@@ -3417,7 +3417,7 @@ void SDKConvert::deal(Json::Object*& pRootJson, tagNETTVUpgradeInfo*& stInfo, bo
     convert.field(pRootJson, "UpgradePath",            stInfo->szUpgradePath);
 }
 
-void SDKConvert::deal(Json::Object* pRootJson, NET_TV_UPGRADE_INFO_S& stInfo, bool bOutStruct)
+void SDKConvert::deal(Json::Object* pRootJson, NET_UpgradeInfo_S& stInfo, bool bOutStruct)
 {   
     if (!pRootJson)
     {
@@ -3427,7 +3427,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_UPGRADE_INFO_S& stInfo, bo
     convert.field(pRootJson, "UpgradePath",            stInfo.szUpgradePath);
 }
 
-void SDKConvert::deal(Json::Object* pRootJson, NET_TV_UPGRADE_STATUS_S& stInfo, bool bOutStruct)
+void SDKConvert::deal(Json::Object* pRootJson, NET_UpgradeStatus_S& stInfo, bool bOutStruct)
 {
     if (!pRootJson)
     {
@@ -3437,7 +3437,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_UPGRADE_STATUS_S& stInfo, 
     convert.field(pRootJson, "UpgradeStatus",            stInfo.nUpgradeStatus);
 }
 
-void SDKConvert::deal(Json::Object* pRootJson, NET_TV_UPGRADE_VERSION_S& stInfo, bool bOutStruct)
+void SDKConvert::deal(Json::Object* pRootJson, NET_UpgradeVersion_S& stInfo, bool bOutStruct)
 {
     if (!pRootJson)
     {
@@ -3449,7 +3449,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_UPGRADE_VERSION_S& stInfo,
 
 /* ===================== 告警抓图相关 ============================== */
 
-void SDKConvert::deal(Json::Object *pRootJson, NET_TV_CAPTURE_TIME_S &stInfo, bool bOutStruct)
+void SDKConvert::deal(Json::Object *pRootJson, NET_CaptureTime_S &stInfo, bool bOutStruct)
 {
     if (!pRootJson)
         return;
@@ -3459,7 +3459,7 @@ void SDKConvert::deal(Json::Object *pRootJson, NET_TV_CAPTURE_TIME_S &stInfo, bo
     convert.field(pRootJson, "EndTime", stInfo.nEndTime);
 }
 
-void SDKConvert::deal(Json::Object *pRootJson, NET_TV_CAPTURE_DAY_SCHEDULE_S &stInfo, bool bOutStruct)
+void SDKConvert::deal(Json::Object *pRootJson, NET_CaptureDaySchedule_S &stInfo, bool bOutStruct)
 {
     if (!pRootJson)
         return;
@@ -3508,7 +3508,7 @@ void SDKConvert::deal(Json::Object *pRootJson, NET_TV_CAPTURE_DAY_SCHEDULE_S &st
     }
 }
 
-void SDKConvert::deal(Json::Object *pRootJson, NET_TV_CAPTURE_PLAN_INFO_S &stInfo, bool bOutStruct)
+void SDKConvert::deal(Json::Object *pRootJson, NET_CapturePlanInfo_S &stInfo, bool bOutStruct)
 {
     if (!pRootJson)
         return;
@@ -3599,7 +3599,7 @@ void SDKConvert::deal(Json::Object *pRootJson, NET_CaptureParamInfo_S &stInfo, b
     }
 }
 
-void SDKConvert::deal(Json::Object *pRootJson, NET_TV_EXPOSURE_INFO_S &stInfo, bool bOutStruct)
+void SDKConvert::deal(Json::Object *pRootJson, NET_ExposureInfo_S &stInfo, bool bOutStruct)
 {
     if (!pRootJson)
         return;
@@ -3611,7 +3611,7 @@ void SDKConvert::deal(Json::Object *pRootJson, NET_TV_EXPOSURE_INFO_S &stInfo, b
     convert.field(pRootJson, "AntiBanding", stInfo.bAntiBanding);
 }
 
-void SDKConvert::deal(Json::Object *pRootJson, NET_TV_DAYNIGHT_INFO_S &stInfo, bool bOutStruct)
+void SDKConvert::deal(Json::Object *pRootJson, NET_DayNightInfo_S &stInfo, bool bOutStruct)
 {
     if (!pRootJson)
         return;
@@ -3639,7 +3639,7 @@ void SDKConvert::deal(Json::Object *pRootJson, NET_TV_DAYNIGHT_INFO_S &stInfo, b
     convert.field(pRootJson, "RedLightLevel", stInfo.nRedLightLevel);
 }
 
-void SDKConvert::deal(Json::Object *pRootJson, NET_TV_BACKLIGHT_INFO_S &stInfo, bool bOutStruct)
+void SDKConvert::deal(Json::Object *pRootJson, NET_BackLightInfo_S &stInfo, bool bOutStruct)
 {
     if (!pRootJson)
         return;
@@ -3655,7 +3655,7 @@ void SDKConvert::deal(Json::Object *pRootJson, NET_TV_BACKLIGHT_INFO_S &stInfo, 
     printf("\n Test \n");
 }
 
-void SDKConvert::deal(Json::Object *pRootJson, NET_TV_DENOISE_INFO_S &stInfo, bool bOutStruct)
+void SDKConvert::deal(Json::Object *pRootJson, NET_DenoiseInfo_S &stInfo, bool bOutStruct)
 {
     if (!pRootJson)
         return;
@@ -3669,7 +3669,7 @@ void SDKConvert::deal(Json::Object *pRootJson, NET_TV_DENOISE_INFO_S &stInfo, bo
     convert.field(pRootJson, "TnrLevel", stInfo.nTnrLevel);
 }
 
-void SDKConvert::deal(Json::Object *pRootJson, NET_TV_WHITEBALANCE_INFO_S &stInfo, bool bOutStruct)
+void SDKConvert::deal(Json::Object *pRootJson, NET_WhiteBalanceInfo_S &stInfo, bool bOutStruct)
 {
     if (!pRootJson)
         return;
@@ -3746,7 +3746,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_VoiceComAudioCfg_S& stInfo, b
     convert.field(pRootJson, "LittleEndian", stInfo.bLittleEndian);
 }
 
-void SDKConvert::deal(Json::Object* pRootJson, NET_TV_AUDIO_CFG_S& stInfo, bool bOutStruct)
+void SDKConvert::deal(Json::Object* pRootJson, NET_AudioCfg_S& stInfo, bool bOutStruct)
 {
     if (!pRootJson)
     {
@@ -3964,7 +3964,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_FaceCompareInfo_S& stInfo, bo
     convert.structure(pRootJson, "LinkageFailMode", stInfo.stLinkageListFail);
 }
 
-void SDKConvert::deal(Json::Object* pRootJson, NET_TV_FACE_LIB_INFO_S& stInfo, bool bOutStruct)
+void SDKConvert::deal(Json::Object* pRootJson, NET_FaceLibInfo_S& stInfo, bool bOutStruct)
 {
     if (!pRootJson)
     {
@@ -3978,7 +3978,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_FACE_LIB_INFO_S& stInfo, b
     convert.field(pRootJson, "AbnormalNum", stInfo.nAbnormalNum);
 }
 
-void SDKConvert::deal(Json::Object* pRootJson, NET_TV_FACE_LIB_LIST_S& stInfo, bool bOutStruct)
+void SDKConvert::deal(Json::Object* pRootJson, NET_FaceLibList_S& stInfo, bool bOutStruct)
 {
     if (!pRootJson)
     {
@@ -4023,7 +4023,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_FACE_LIB_LIST_S& stInfo, b
     }
 }
 
-void SDKConvert::deal(Json::Object* pRootJson, NET_TV_FACE_ID_INFO_S& stInfo, bool bOutStruct)
+void SDKConvert::deal(Json::Object* pRootJson, NET_FaceIdInfo_S& stInfo, bool bOutStruct)
 {
     if (!pRootJson)
     {
@@ -4070,7 +4070,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_FACE_ID_INFO_S& stInfo, bo
     }
 }
 
-void SDKConvert::deal(Json::Object* pRootJson, NET_TV_FACE_INFO_S& stInfo, bool bOutStruct)
+void SDKConvert::deal(Json::Object* pRootJson, NET_FaceInfo_S& stInfo, bool bOutStruct)
 {
     if (!pRootJson)
     {
@@ -4091,7 +4091,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_FACE_INFO_S& stInfo, bool 
     convert.field(pRootJson, "RatingLevel", stInfo.nRatingLevel);
 }
 
-void SDKConvert::deal(Json::Object* pRootJson, NET_TV_FACE_INFO_LIST_S& stInfo, bool bOutStruct)
+void SDKConvert::deal(Json::Object* pRootJson, NET_FaceInfoList_S& stInfo, bool bOutStruct)
 {
     if (!pRootJson)
     {

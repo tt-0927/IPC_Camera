@@ -83,7 +83,7 @@ public:
      * @param pChannelInfo 通道信息
      * @return TRUE表示成功，FALSE表示失败
      */
-    BOOL DoPushChannelStatusInfo(NET_TV_CHANNEL_INFO_S* pChannelInfo);
+    BOOL DoPushChannelStatusInfo(NET_ChannelInfo_S* pChannelInfo);
 
     /**
      * @brief 注册设备发现信息回调

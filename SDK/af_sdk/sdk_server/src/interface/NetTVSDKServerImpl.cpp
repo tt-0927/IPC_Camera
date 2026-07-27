@@ -197,7 +197,7 @@ BOOL CNetTVSDKServerImpl::DoPushAlarmInfo(NET_Alarmer_S* pAlarmer,
     return m_pAlarmModule->PushAlarmInfo(pAlarmer, lCommand, pAlarmInfo, dwBufLen);
 }
 
-BOOL CNetTVSDKServerImpl::DoPushChannelStatusInfo(NET_TV_CHANNEL_INFO_S* pChannelInfo)
+BOOL CNetTVSDKServerImpl::DoPushChannelStatusInfo(NET_ChannelInfo_S* pChannelInfo)
 {
     if (!m_bInitialized)
     {

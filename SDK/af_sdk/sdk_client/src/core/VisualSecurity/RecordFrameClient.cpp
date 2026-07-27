@@ -164,7 +164,7 @@ void RecordFrameClient::stop() {
  */
 void RecordFrameClient::recv_loop() {
     while (m_running) {
-        NET_TV_RECORD_FRAME_RTP_HEADER_S header{};
+        NET_RecordFrameRtpHeader_S header{};
         if (!recv_exact(m_socket, reinterpret_cast<char*>(&header), sizeof(header))) {
             if (m_running) {
                 NSDK_LOG_WARN("RecordFrameClient: recv header failed, errno=%d", socket_errno());

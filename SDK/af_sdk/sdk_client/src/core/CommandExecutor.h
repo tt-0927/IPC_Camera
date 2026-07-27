@@ -52,7 +52,7 @@ public:
      * @param [OUT] out 通道信息结构体
      * @return 成功返回true，失败返回false
      */
-    static inline bool NetTV_ConvertGetResponse(const std::string& respBody, NET_TV_CHANNEL_INFO_S& out)
+    static inline bool NetTV_ConvertGetResponse(const std::string& respBody, NET_ChannelInfo_S& out)
     {
         std::memset(&out, 0, sizeof(out));
         SDKConvert::to_respStruct(respBody, out);
@@ -69,7 +69,7 @@ public:
      * @param [OUT] out 通道列表结构体
      * @return 成功返回true，失败返回false
      */
-    static inline bool NetTV_ConvertGetResponse(const std::string& respBody, NET_TV_CHANNEL_LIST_S& out)
+    static inline bool NetTV_ConvertGetResponse(const std::string& respBody, NET_ChannelList_S& out)
     {
         std::memset(&out, 0, sizeof(out));
         SDKConvert::to_respStruct(respBody, out);

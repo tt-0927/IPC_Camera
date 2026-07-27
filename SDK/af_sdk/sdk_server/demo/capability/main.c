@@ -115,7 +115,7 @@ static void PrintUint32List(const char* pName, const UINT32* pList, UINT32 count
     printf("\n");
 }
 
-static void FillDemoResolution(LPNET_TV_VIDEO_RESOLUTION_S pResolution,
+static void FillDemoResolution(pNET_VideoResolution_S pResolution,
                                INT32 width,
                                INT32 height,
                                FLOAT frameRateMin,
@@ -135,7 +135,7 @@ static void FillDemoResolution(LPNET_TV_VIDEO_RESOLUTION_S pResolution,
         return;
     }
 
-    memset(pResolution, 0, sizeof(NET_TV_VIDEO_RESOLUTION_S));
+    memset(pResolution, 0, sizeof(NET_VideoResolution_S));
     snprintf(pResolution->szName, sizeof(pResolution->szName), "%d*%d", width, height);
     if (frameRateMin > frameRateMax)
     {
@@ -162,7 +162,7 @@ static void FillDemoResolution(LPNET_TV_VIDEO_RESOLUTION_S pResolution,
     }
 }
 
-static void FillDemoEncodeAbility(LPNET_TV_VIDEO_ENCODE_ABILITY_S pAbility,
+static void FillDemoEncodeAbility(pNET_VideoEncodeAbility_S pAbility,
                                   const char* pCodec,
                                   INT32 enVideoCodec,
                                   INT32 supportAdjustComplexity,
@@ -179,7 +179,7 @@ static void FillDemoEncodeAbility(LPNET_TV_VIDEO_ENCODE_ABILITY_S pAbility,
         return;
     }
 
-    memset(pAbility, 0, sizeof(NET_TV_VIDEO_ENCODE_ABILITY_S));
+    memset(pAbility, 0, sizeof(NET_VideoEncodeAbility_S));
     CopyString(pAbility->szVideoCodec, sizeof(pAbility->szVideoCodec), pCodec);
     pAbility->enVideoCodec = enVideoCodec;
     pAbility->nSupportAdjustComplexity = supportAdjustComplexity;
@@ -613,7 +613,7 @@ NET_TV_COMMON_ECODE_E MyOsdCapCb(INT32 dwChannelID, LPNET_TV_OSD_CAP_S pCap)
 /**
  * @brief 设备信息回调实现
  */
-NET_TV_COMMON_ECODE_E MyDeviceInfoCb(LPNET_TV_DEVICE_INFO_S pInfo)
+NET_TV_COMMON_ECODE_E MyDeviceInfoCb(pNET_DeviceInfo_S pInfo)
 {
     if (!pInfo)
     {
@@ -623,10 +623,10 @@ NET_TV_COMMON_ECODE_E MyDeviceInfoCb(LPNET_TV_DEVICE_INFO_S pInfo)
     printf("[Server] GetDeviceInfo callback\n");
     
     // 填充设备信息
-    pInfo->dwDevType = 0;           // 设备类型
-    pInfo->wAlarmInPortNum = 4;     // 报警输入端口数
-    pInfo->wAlarmOutPortNum = 2;    // 报警输出端口数
-    pInfo->dwChannelNum = 4;        // 通道数
+    pInfo->uDevType = 0;           // 设备类型
+    pInfo->uAlarmInPortNum = 4;     // 报警输入端口数
+    pInfo->uAlarmOutPortNum = 2;    // 报警输出端口数
+    pInfo->uChannelNum = 4;        // 通道数
     
     return NET_TV_E_SUCCEED;
 }

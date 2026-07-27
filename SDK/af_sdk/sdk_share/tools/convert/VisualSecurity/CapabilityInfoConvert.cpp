@@ -37,7 +37,7 @@ static INT32 NormalizeFrameRateNum(INT32 frameRateNum)
     return frameRateNum;
 }
 
-static void DealFrameRateList(Json::Object* pRootJson, NET_TV_VIDEO_RESOLUTION_S& stInfo, bool bOutStruct)
+static void DealFrameRateList(Json::Object* pRootJson, NET_VideoResolution_S& stInfo, bool bOutStruct)
 {
     if (bOutStruct)
     {
@@ -79,7 +79,7 @@ static void DealFrameRateList(Json::Object* pRootJson, NET_TV_VIDEO_RESOLUTION_S
 /**
  * @brief 视频分辨率结构体转换
  */
-void SDKConvert::deal(Json::Object* pRootJson, NET_TV_VIDEO_RESOLUTION_S& stInfo, bool bOutStruct)
+void SDKConvert::deal(Json::Object* pRootJson, NET_VideoResolution_S& stInfo, bool bOutStruct)
 {
     if (!pRootJson)
     {
@@ -104,7 +104,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_VIDEO_RESOLUTION_S& stInfo
 /**
  * @brief 取值范围结构体转换
  */
-void SDKConvert::deal(Json::Object* pRootJson, NET_TV_RANGE_S& stInfo, bool bOutStruct)
+void SDKConvert::deal(Json::Object* pRootJson, NET_Range_S& stInfo, bool bOutStruct)
 {
     if (!pRootJson)
     {
@@ -118,7 +118,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_RANGE_S& stInfo, bool bOut
 /**
  * @brief 视频编码参数配置转换
  */
-void SDKConvert::deal(Json::Object* pRootJson, NET_TV_VIDEO_ENCODE_OPTION_S& stInfo, bool bOutStruct)
+void SDKConvert::deal(Json::Object* pRootJson, NET_VideoEncodeOption_S& stInfo, bool bOutStruct)
 {
     if (!pRootJson)
     {
@@ -146,7 +146,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_VIDEO_ENCODE_OPTION_S& stI
 /**
  * @brief 视频编码格式能力转换
  */
-void SDKConvert::deal(Json::Object* pRootJson, NET_TV_VIDEO_ENCODE_ABILITY_S& stInfo, bool bOutStruct)
+void SDKConvert::deal(Json::Object* pRootJson, NET_VideoEncodeAbility_S& stInfo, bool bOutStruct)
 {
     if (!pRootJson)
     {
@@ -181,7 +181,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_VIDEO_ENCODE_ABILITY_S& st
 /**
  * @brief 视频码流参数能力集转换 (NET_TV_CAP_VIDEO_ENCODE)
  */
-void SDKConvert::deal(Json::Object* pRootJson, NET_TV_VIDEO_STREAM_CAP_S& stInfo, bool bOutStruct)
+void SDKConvert::deal(Json::Object* pRootJson, NET_VideoStreamCap_S& stInfo, bool bOutStruct)
 {
     if (!pRootJson)
     {
@@ -306,7 +306,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_VIDEO_STREAM_CAP_S& stInfo
     }
 }
 
-static void NormalizeOsdCap(NET_TV_OSD_CAP_S& stInfo)
+static void NormalizeOsdCap(NET_OsdCap_S& stInfo)
 {
     stInfo.udwMaxOsdNum = std::min<UINT32>(stInfo.udwMaxOsdNum, NET_TV_OSD_CUSTOM_MAX_NUM);
     stInfo.udwSupportedFontSizeNum = std::min<UINT32>(stInfo.udwSupportedFontSizeNum, NET_TV_OSD_FONT_SIZE_TYPE_MAX_NUM);
@@ -318,7 +318,7 @@ static void NormalizeOsdCap(NET_TV_OSD_CAP_S& stInfo)
 /**
  * @brief 视频编码能力集转换 (多码流, NET_TV_CAP_VIDEO_ENCODE)
  */
-void SDKConvert::deal(Json::Object* pRootJson, NET_TV_VIDEO_ENCODE_CAP_S& stInfo, bool bOutStruct)
+void SDKConvert::deal(Json::Object* pRootJson, NET_VideoEncodeCap_S& stInfo, bool bOutStruct)
 {
     if (!pRootJson)
     {
@@ -410,7 +410,7 @@ static void dealIntArray(Json::Object* pRootJson,
 /**
  * @brief 音频范围转换
  */
-void SDKConvert::deal(Json::Object* pRootJson, NET_TV_AUDIO_RANGE_S& stInfo, bool bOutStruct)
+void SDKConvert::deal(Json::Object* pRootJson, NET_AudioRange_S& stInfo, bool bOutStruct)
 {
     if (!pRootJson)
     {
@@ -428,7 +428,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_AUDIO_RANGE_S& stInfo, boo
 /**
  * @brief 音频格式能力转换
  */
-void SDKConvert::deal(Json::Object* pRootJson, NET_TV_AUDIO_FORMAT_CAP_S& stInfo, bool bOutStruct)
+void SDKConvert::deal(Json::Object* pRootJson, NET_AudioFormatCap_S& stInfo, bool bOutStruct)
 {
     if (!pRootJson)
     {
@@ -488,7 +488,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_AUDIO_FORMAT_CAP_S& stInfo
 /**
  * @brief 音频编码能力集转换（NET_TV_CAP_AUDIO_ENCODE）
  */
-void SDKConvert::deal(Json::Object* pRootJson, NET_TV_AUDIO_CAP_S& stInfo, bool bOutStruct)
+void SDKConvert::deal(Json::Object* pRootJson, NET_AudioCap_S& stInfo, bool bOutStruct)
 {
     if (!pRootJson)
     {
@@ -562,7 +562,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_AUDIO_CAP_S& stInfo, bool 
 /**
  * @brief OSD参数能力集转换 (NET_TV_CAP_OSD)
  */
-void SDKConvert::deal(Json::Object* pRootJson, NET_TV_OSD_CAP_S& stInfo, bool bOutStruct)
+void SDKConvert::deal(Json::Object* pRootJson, NET_OsdCap_S& stInfo, bool bOutStruct)
 {
     if (!pRootJson)
     {

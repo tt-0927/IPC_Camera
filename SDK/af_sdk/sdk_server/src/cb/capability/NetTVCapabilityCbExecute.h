@@ -20,7 +20,7 @@ extern "C" {
  * @param [OUT] pCap         视频编码能力集结构体指针(多码流)
  * @return NET_TV_E_SUCCEED 成功, 其他值失败
  */
-int NetSDK_ExecuteCb_GetVideoEncodeCap(INT32 dwChannelID, LPNET_TV_VIDEO_ENCODE_CAP_S pCap);
+int NetSDK_ExecuteCb_GetVideoEncodeCap(INT32 dwChannelID, pNET_VideoEncodeCap_S pCap);
 
 /**
  * @brief 执行音频编码能力集回调 (NET_TV_CAP_AUDIO)
@@ -28,7 +28,7 @@ int NetSDK_ExecuteCb_GetVideoEncodeCap(INT32 dwChannelID, LPNET_TV_VIDEO_ENCODE_
  * @param [OUT] pCap         视频编码能力集结构体指针(多码流)
  * @return NET_TV_E_SUCCEED 成功, 其他值失败
  */
-int NetSDK_ExecuteCb_GetAudioCap(INT32 dwChannelID, LPNET_TV_AUDIO_CAP_S pCap); 
+int NetSDK_ExecuteCb_GetAudioCap(INT32 dwChannelID, pNET_AudioCap_S pCap); 
 
 /**
  * @brief 执行OSD能力集回调 (NET_TV_CAP_OSD)
@@ -36,7 +36,7 @@ int NetSDK_ExecuteCb_GetAudioCap(INT32 dwChannelID, LPNET_TV_AUDIO_CAP_S pCap);
  * @param [OUT] pCap         OSD能力集结构体指针
  * @return NET_TV_E_SUCCEED 成功, 其他值失败
  */
-int NetSDK_ExecuteCb_GetOsdCap(INT32 dwChannelID, LPNET_TV_OSD_CAP_S pCap);
+int NetSDK_ExecuteCb_GetOsdCap(INT32 dwChannelID, pNET_OsdCap_S pCap);
 
 // ==================== 后续扩展能力集执行接口 ====================
 // int NetSDK_ExecuteCb_GetOsdCap(...);
