@@ -27,6 +27,7 @@ IpcRet_E CRtmpPusher::init()
     }
 
     m_bStopReconnect.store(false);
+    m_bReconnectRequested.store(false);
     m_reconnectThread = std::thread(&CRtmpPusher::reconnect_loop, this);
 
     m_bInitFlag.store(true);
@@ -44,6 +45,7 @@ IpcRet_E CRtmpPusher::deinit()
 
     /* 停止重连线程 */
     m_bStopReconnect.store(true);
+    m_bReconnectRequested.store(false);
     m_cvReconnect.notify_all();
     if (m_reconnectThread.joinable())
     {
@@ -211,16 +213,25 @@ void CRtmpPusher::reconnect_loop()
 {
     while (!m_bStopReconnect.load())
     {
+        bool bImmediateReconnect = false;
         {
             std::unique_lock<std::mutex> lock(m_mutexReconnect);
             m_cvReconnect.wait_for(lock, std::chrono::seconds(5), [this]() {
-                return m_bStopReconnect.load();
+                return m_bStopReconnect.load() || m_bReconnectRequested.load();
             });
+
+            /* 消费请求后再执行重连检查，避免同一请求被重复触发。 */
+            bImmediateReconnect = m_bReconnectRequested.exchange(false);
         }
 
         if (m_bStopReconnect.load())
         {
             break;
+        }
+
+        if (bImmediateReconnect)
+        {
+            dlog_info("RTMP重连线程收到立即重连请求");
         }
 
         std::lock_guard<std::mutex> lock(m_mutex);
@@ -247,7 +258,8 @@ void CRtmpPusher::reconnect_loop()
 
 void CRtmpPusher::trigger_reconnect()
 {
-    std::lock_guard<std::mutex> lock(m_mutexReconnect);
+    /* 先记录请求，再唤醒等待线程；通知早到也会由等待条件消费。 */
+    m_bReconnectRequested.store(true);
     m_cvReconnect.notify_one();
     dlog_debug("触发RTMP重连线程立即检查");
 }

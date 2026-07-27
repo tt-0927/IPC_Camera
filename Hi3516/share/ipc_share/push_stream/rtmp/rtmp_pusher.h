@@ -113,6 +113,8 @@ private:
     std::thread m_reconnectThread;
     /* 停止重连标志 */
     std::atomic<bool> m_bStopReconnect{false};
+    /* 立即重连请求标志，避免条件变量通知发生在等待前时丢失请求 */
+    std::atomic<bool> m_bReconnectRequested{false};
     /* 重连条件变量，用于外部唤醒立即重连 */
     std::condition_variable m_cvReconnect;
     /* 重连互斥锁（专用于条件变量） */

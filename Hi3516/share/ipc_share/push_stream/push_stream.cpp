@@ -447,7 +447,12 @@ int CPushStream::restart_rtmp_stream(const Network::Platform_Info_t &stPlatformI
     /* 确保 RTMP 推流管理器已初始化 */
     if (!CRtmpPusher::instance()->is_init())
     {
-        CRtmpPusher::instance()->init();
+        const int nInitRet = CRtmpPusher::instance()->init();
+        if (nInitRet != OK)
+        {
+            dlog_error("RTMP推流管理器初始化失败: %d", nInitRet);
+            return nInitRet;
+        }
     }
 
     /* 获取音视频配置 */
@@ -457,7 +462,8 @@ int CPushStream::restart_rtmp_stream(const Network::Platform_Info_t &stPlatformI
     std::set<Video_NS::VideoConfig_S> setVideoConfig;
     CAVConfigure::instance()->get_configure(setVideoConfig);
 
-    /* 遍历所有视频通道，热更新推流地址 */
+    /* 遍历所有视频通道，热更新推流地址。 */
+    int nRestartRet = OK;
     for (const auto &stVideoConfig : setVideoConfig)
     {
         if (!is_rtmp_video_config_supported(stVideoConfig))
@@ -475,11 +481,27 @@ int CPushStream::restart_rtmp_stream(const Network::Platform_Info_t &stPlatformI
         if (nRet != OK)
         {
             dlog_error("通道%d RTMP 推流重启失败: %d", stVideoConfig.nId, nRet);
+            /* 保留失败结果，不能让平台层将本次网络切换误判为完全成功。 */
+            if (nRestartRet == OK)
+            {
+                nRestartRet = nRet;
+            }
         }
     }
 
+    if (nRestartRet != OK)
+    {
+        /*
+         * 网络切换后首次连接可能处于路由或旧连接释放窗口。
+         * 失败会话已保存在推流管理器中，立即请求其重连线程再次尝试。
+         */
+        CRtmpPusher::instance()->trigger_reconnect();
+        dlog_error("RTMP 推流地址更新失败: %d，已请求立即重连", nRestartRet);
+        return nRestartRet;
+    }
+
     dlog_info("RTMP 推流地址更新完成");
-    return 0;
+    return OK;
 }
 
 int CPushStream::restart_rtmp_by_channel(int nChannel)
