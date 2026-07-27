@@ -84,7 +84,7 @@ NET_TV_API BOOL STDCALL NET_TV_SERVER_PushAlarmInfo(IN NET_Alarmer_S *pAlarmer,
 	return g_pServerImpl->DoPushAlarmInfo(pAlarmer, lCommand, pAlarmInfo, dwBufLen);
 }
 
-NET_TV_API BOOL STDCALL NET_TV_SERVER_PushChannelStatusInfo(IN NET_TV_CHANNEL_INFO_S *pChannelInfo)
+NET_TV_API BOOL STDCALL NET_TV_SERVER_PushChannelStatusInfo(IN NET_ChannelInfo_S *pChannelInfo)
 {
 	if (!g_pServerImpl)
 	{

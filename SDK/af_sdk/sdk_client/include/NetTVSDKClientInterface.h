@@ -84,7 +84,7 @@ NET_TV_API BOOL STDCALL NET_TV_SetExceptionCallBack(IN NET_TV_ExceptionCallBack_
 * @return TRUE表示成功,其他表示失败    TRUE means success, and any other value means failure.
 * @note
 */
-NET_TV_API BOOL STDCALL NET_TV_SetRevTimeOut(IN LPNET_TV_REV_TIMEOUT_S pstRevTimeout);
+NET_TV_API BOOL STDCALL NET_TV_SetRevTimeOut(IN pNET_RevTimeout_S pstRevTimeout);
 
 /**
 * 设置保活参数 Set keep-alive parameters
@@ -103,7 +103,7 @@ NET_TV_API BOOL STDCALL NET_TV_SetConnectTime(IN INT32 dwWaitTime,
 * @note 
 * -
 */
-NET_TV_API LPVOID STDCALL NET_TV_Login(IN LPNET_TV_DEVICE_LOGIN_INFO_S pstDevLoginInfo, 
+NET_TV_API LPVOID STDCALL NET_TV_Login(IN pNET_DeviceLoginInfo_S pstDevLoginInfo, 
                                                         OUT pNET_DeviceInfo_S pstDevInfo);		
 
 /**
@@ -137,7 +137,7 @@ NET_TV_API BOOL STDCALL NET_TV_SetAlarmCallBack(IN LPVOID lpUserID,
 /**
 * @brief 通道上下线状态回调函数
 */
-typedef void(STDCALL *NET_TV_ChannelStatusCallBack)(OUT NET_TV_CHANNEL_INFO_S *pChannelInfo,
+typedef void(STDCALL *NET_TV_ChannelStatusCallBack)(OUT NET_ChannelInfo_S *pChannelInfo,
                                                     OUT LPVOID lpUserData);
 
 /**
@@ -182,7 +182,7 @@ NET_TV_API BOOL STDCALL NET_TV_DeviceControl(IN LPVOID lpUserID,
 * @return TRUE表示成功,其他表示失败
 */
 NET_TV_API BOOL STDCALL NET_TV_GetReplayUrl(IN    LPVOID lpUserID,
-                                            INOUT LPNET_TV_REPLAY_URL_INFO_S pstInfo,
+                                            INOUT pNET_ReplayUrlInfo_S pstInfo,
                                             OUT   INT32 *pdwBytesReturned);
 
 /**
@@ -193,7 +193,7 @@ NET_TV_API BOOL STDCALL NET_TV_GetReplayUrl(IN    LPVOID lpUserID,
 * @return TRUE表示成功,其他表示失败
 */
 NET_TV_API BOOL STDCALL NET_TV_ControlReplay(IN    LPVOID lpUserID,
-                                             INOUT LPNET_TV_REPLAY_CTRL_INFO_S pstInfo,
+                                             INOUT pNET_ReplayCtrlInfo_S pstInfo,
                                              OUT   INT32 *pdwBytesReturned);
 
 /**
@@ -204,7 +204,7 @@ NET_TV_API BOOL STDCALL NET_TV_ControlReplay(IN    LPVOID lpUserID,
 * @return TRUE表示成功,其他表示失败
 */
 NET_TV_API BOOL STDCALL NET_TV_GetReplayRecordList(IN    LPVOID lpUserID,
-                                                   INOUT LPNET_TV_REPLAY_RECORD_LIST_S pstInfo,
+                                                   INOUT pNET_ReplayRecordList_S pstInfo,
                                                    OUT   INT32 *pdwBytesReturned);
 
 /**

@@ -129,18 +129,18 @@ static void ConfigureByArgs(int argc, char* argv[])
 /* ====================== 全局配置数据（仅示例用，存放在内存） ====================== */
 
 static NET_DeviceBasicInfo_S g_stDeviceBasicInfo;
-static NET_TV_NETWORKCFG_S   g_stNetworkCfg;
+static NET_NetworkCfg_S   g_stNetworkCfg;
 static NET_SystemNtpInfo_S   g_stSystemNtpCfg;
 static NET_TV_VIDEO_ENCODE_OPTION_S g_stStreamCfg;
-static NET_TV_AUDIO_CFG_S        g_stAudioCfg;
+static NET_AudioCfg_S        g_stAudioCfg;
 static NET_TV_WIFI_STA_CFG_S     g_stWifiStaCfg;
-static NET_TV_WIFI_STA_CONNECT_S g_stWifiStaConnect;
-static NET_TV_4G_INFO_S          g_st4GInfo;
+static NET_WifiStaConnect_S g_stWifiStaConnect;
+static NET_4GInfo_S          g_st4GInfo;
 static NET_TV_HOTSPOT_INFO_S     g_stHotspotInfo;
-static NET_TV_HOTSPOT_CONN_INFO_S g_stHotspotConnInfo;
+static NET_HotspotConnInfo_S g_stHotspotConnInfo;
 static NET_TV_VIDEO_OSD_CFG_S    g_stOsdCfg;
 static NET_MotionAlarmInfo_S g_stMotionAlarmInfo;
-static NET_TV_PRIVACY_MASK_CFG_S g_stPrivacyMaskCfg;
+static NET_PrivacyMaskCfg_S g_stPrivacyMaskCfg;
 static NET_TamperAlarmInfo_S g_stTamperAlarmInfo;
 static NET_CrossLineAlarmInfo_S g_stCrossLineAlarmInfo;
 static NET_IntrusionAlarmInfo_S g_stIntrusionAlarmInfo;
@@ -151,21 +151,21 @@ static NET_ParkingAlarmInfo_S g_stParkingAlarmInfo;
 static NET_UnattendedObjectAlarmInfo_S g_stUnattendedObjectAlarmInfo;
 static NET_ObjectRemovalAlarmInfo_S g_stObjectRemovalAlarmInfo;
 static NET_AudioAnomalyAlarmInfo_S g_stAudioAnomalyAlarmInfo;
-static NET_TV_IMAGE_SETTING_S g_stImageCfg;
+static NET_ImageSetting_S g_stImageCfg;
 static NET_TV_PREVIEW_INFO_S g_stPreviewInfo;
 static NET_TV_CHANNEL_INFO_S g_stChannelInfo;
 
-static NET_TV_UPGRADE_INFO_S g_stUpgradeInfo;
-static NET_TV_UPGRADE_STATUS_S g_stUpgradeStatuts;
+static NET_UpgradeInfo_S g_stUpgradeInfo;
+static NET_UpgradeStatus_S g_stUpgradeStatuts;
 static NET_TV_UPGRADE_VERSION_S g_stUpgradeVersions;
 
-static NET_TV_CAPTURE_PLAN_INFO_S g_stCapturePlanInfo;
+static NET_CapturePlanInfo_S g_stCapturePlanInfo;
 static NET_CaptureParamInfo_S g_stCaptureParamInfo;
 
-static NET_TV_EXPOSURE_INFO_S g_stExposureInfo;
-static NET_TV_DAYNIGHT_INFO_S g_stDayNightInfo;
-static NET_TV_BACKLIGHT_INFO_S g_stBackLightInfo;
-static NET_TV_DENOISE_INFO_S g_stDenoiseInfo;
+static NET_ExposureInfo_S g_stExposureInfo;
+static NET_DayNightInfo_S g_stDayNightInfo;
+static NET_BackLightInfo_S g_stBackLightInfo;
+static NET_DenoiseInfo_S g_stDenoiseInfo;
 static NET_TV_WHITEBALANCE_INFO_S g_stWhiteBalanceInfo;
 
 static NET_TalkbackStateInfo_S g_stTalkbackStateInfo;
@@ -179,8 +179,8 @@ static NET_LeaveRegionAlarmInfo_S g_stLeaveRegionAlarmInfo;
 
 static NET_FaceCaptureInfo_S g_stFaceCaptureInfo;
 static NET_FaceCompareInfo_S g_stFaceCompareInfo;
-static NET_TV_FACE_LIB_LIST_S g_stFaceLibList;
-static NET_TV_FACE_INFO_LIST_S g_stFaceInfoList;
+static NET_FaceLibList_S g_stFaceLibList;
+static NET_FaceInfoList_S g_stFaceInfoList;
 
 static NET_GarbageExposureCfg_S g_stGarbageExposureCfg;
 static NET_GarbageOverflowCfg_S g_stGarbageOverflowCfg;
@@ -214,15 +214,15 @@ static NET_OccupationEmergencyInfo_S g_stOccupationEmergencyInfo;
 static NET_PedestrianIntrusionInfo_S g_stPedestrianIntrusionInfo;
 static NET_SmokeFireCfg_S g_stSmokeFireCfg;
 static NET_RoadPondingCfg_S g_stRoadPondingCfg;
-static NET_TV_SECURITY_SERVICES_INFO_S g_stSecurityServicesInfo;
-static NET_TV_SSH_COUNTDOWN_INFO_S g_stSshCountdownInfo;
-static NET_TV_LOG_SERVER_INFO_S g_stLogServerInfo;
-static NET_TV_LOG_LIST_S g_stLogList;
-static NET_TV_RECORD_INFO_S g_stRecordInfo;
-static NET_TV_RECORD_STATUS_INFO_S g_stRecordStatusInfo;
+static NET_SecurityServicesInfo_S g_stSecurityServicesInfo;
+static NET_SshCountdownInfo_S g_stSshCountdownInfo;
+static NET_LogServerInfo_S g_stLogServerInfo;
+static NET_LogList_S g_stLogList;
+static NET_RecordInfo_S g_stRecordInfo;
+static NET_RecordStatusInfo_S g_stRecordStatusInfo;
 static NET_TV_RECORD_SCHEDULE_S g_stRecordSchedule;
-static NET_TV_RECORD_ADVANCED_PARAM_S g_stRecordAdvancedParam;
-static NET_TV_RECORD_FILE_LIST_S g_stRecordFileList;
+static NET_RecordAdvancedParam_S g_stRecordAdvancedParam;
+static NET_RecordFileList_S g_stRecordFileList;
 static NET_TV_RECORD_DOWNLOAD_LIST_S g_stRecordDownloadList;
 
 static void InitSimpleAiAlarmSchedule(NET_AlarmSchedule_S* pSchedule)
@@ -1490,7 +1490,7 @@ static NET_TV_COMMON_ECODE_E MyGetAudioCfgCb(INT32 dwChannelID, LPVOID lpOutBuff
         return NET_TV_E_INVALID_PARAM;
     }
 
-    LPNET_TV_AUDIO_CFG_S pOut = (LPNET_TV_AUDIO_CFG_S)lpOutBuffer;
+    LPNET_AudioCfg_S pOut = (LPNET_AudioCfg_S)lpOutBuffer;
     *pOut = g_stAudioCfg;
 
     printf("[ConfigServerDemo] GetAudioCfg callback, Channel=%d\n", dwChannelID);
@@ -1518,7 +1518,7 @@ static NET_TV_COMMON_ECODE_E MySetAudioCfgCb(INT32 dwChannelID, LPVOID lpInBuffe
         return NET_TV_E_INVALID_PARAM;
     }
 
-    LPNET_TV_AUDIO_CFG_S pIn = (LPNET_TV_AUDIO_CFG_S)lpInBuffer;
+    LPNET_AudioCfg_S pIn = (LPNET_AudioCfg_S)lpInBuffer;
     g_stAudioCfg = *pIn;
 
     printf("[ConfigServerDemo] SetAudioCfg callback, Channel=%d\n", dwChannelID);
@@ -1538,7 +1538,7 @@ static NET_TV_COMMON_ECODE_E MyGetStreamCfgCb(INT32 dwChannelID, LPVOID lpOutBuf
         return NET_TV_E_INVALID_PARAM;
     }
 
-    LPNET_TV_VIDEO_ENCODE_OPTION_S pOut = (LPNET_TV_VIDEO_ENCODE_OPTION_S)lpOutBuffer;
+    pNET_TV_VIDEO_ENCODE_OPTION_S pOut = (pNET_TV_VIDEO_ENCODE_OPTION_S)lpOutBuffer;
     *pOut = g_stStreamCfg;
 
     printf("[ConfigServerDemo] GetStreamCfg callback, Channel=%d\n", dwChannelID);
@@ -1564,7 +1564,7 @@ static NET_TV_COMMON_ECODE_E MySetStreamCfgCb(INT32 dwChannelID, LPVOID lpInBuff
         return NET_TV_E_INVALID_PARAM;
     }
 
-    LPNET_TV_VIDEO_ENCODE_OPTION_S pIn = (LPNET_TV_VIDEO_ENCODE_OPTION_S)lpInBuffer;
+    pNET_TV_VIDEO_ENCODE_OPTION_S pIn = (pNET_TV_VIDEO_ENCODE_OPTION_S)lpInBuffer;
     g_stStreamCfg = *pIn;
 
     printf("[ConfigServerDemo] SetStreamCfg callback, Channel=%d\n", dwChannelID);
@@ -1590,7 +1590,7 @@ static NET_TV_COMMON_ECODE_E MyGetNetworkCfgCb(INT32 dwChannelID, LPVOID lpOutBu
         return NET_TV_E_INVALID_PARAM;
     }
 
-    LPNET_TV_NETWORKCFG_S pOut = (LPNET_TV_NETWORKCFG_S)lpOutBuffer;
+    LPNET_NetworkCfg_S pOut = (LPNET_NetworkCfg_S)lpOutBuffer;
     *pOut = g_stNetworkCfg;
 
     printf("[ConfigServerDemo] GetNetworkCfg callback, Channel=%d\n", dwChannelID);
@@ -1611,7 +1611,7 @@ static NET_TV_COMMON_ECODE_E MySetNetworkCfgCb(INT32 dwChannelID, LPVOID lpInBuf
         return NET_TV_E_INVALID_PARAM;
     }
 
-    LPNET_TV_NETWORKCFG_S pIn = (LPNET_TV_NETWORKCFG_S)lpInBuffer;
+    LPNET_NetworkCfg_S pIn = (LPNET_NetworkCfg_S)lpInBuffer;
     g_stNetworkCfg = *pIn;
 
     printf("[ConfigServerDemo] SetNetworkCfg callback, Channel=%d\n", dwChannelID);
@@ -1691,7 +1691,7 @@ static NET_TV_COMMON_ECODE_E MySetConfigWifiStaCb(INT32 dwChannelID, LPVOID lpIn
         return NET_TV_E_INVALID_PARAM;
     }
 
-    g_stWifiStaCfg = *(LPNET_TV_WIFI_STA_CFG_S)lpInBuffer;
+    g_stWifiStaCfg = *(pNET_WifiStaCfg_S)lpInBuffer;
 
     printf("[ConfigServerDemo] SetConfigWifiSta callback, Channel=%d\n", dwChannelID);
     printf("  EnableWifi=%d, EnableBoost=%d\n", g_stWifiStaCfg.bEnableWifi, g_stWifiStaCfg.bEnableBoost);
@@ -1706,7 +1706,7 @@ static NET_TV_COMMON_ECODE_E MyConnectWifiStaCb(INT32 dwChannelID, LPVOID lpInBu
         return NET_TV_E_INVALID_PARAM;
     }
 
-    g_stWifiStaConnect = *(LPNET_TV_WIFI_STA_CONNECT_S)lpInBuffer;
+    g_stWifiStaConnect = *(LPNET_WifiStaConnect_S)lpInBuffer;
 
     printf("[ConfigServerDemo] ConnectWifiSta callback, Channel=%d\n", dwChannelID);
     printf("  Ssid=%s, SecurityMode=%d, Ip=%s, Interface=%s\n",
@@ -1725,7 +1725,7 @@ static NET_TV_COMMON_ECODE_E MyDisconnectWifiStaCb(INT32 dwChannelID, LPVOID lpI
         return NET_TV_E_INVALID_PARAM;
     }
 
-    g_stWifiStaConnect = *(LPNET_TV_WIFI_STA_CONNECT_S)lpInBuffer;
+    g_stWifiStaConnect = *(LPNET_WifiStaConnect_S)lpInBuffer;
     memset(g_stWifiStaConnect.szIpAddress, 0, sizeof(g_stWifiStaConnect.szIpAddress));
 
     printf("[ConfigServerDemo] DisconnectWifiSta callback, Channel=%d\n", dwChannelID);
@@ -1741,7 +1741,7 @@ static NET_TV_COMMON_ECODE_E MyGet4GInfoCb(INT32 dwChannelID, LPVOID lpOutBuffer
         return NET_TV_E_INVALID_PARAM;
     }
 
-    *(LPNET_TV_4G_INFO_S)lpOutBuffer = g_st4GInfo;
+    *(pNET_4GInfo_S)lpOutBuffer = g_st4GInfo;
 
     printf("[ConfigServerDemo] Get4GInfo callback, Channel=%d\n", dwChannelID);
     printf("  APN=%s, CallNumber=%s, MTU=%d, AuthMode=%d, NetworkMode=%d, DialMode=%d\n",
@@ -1762,7 +1762,7 @@ static NET_TV_COMMON_ECODE_E MySet4GInfoCb(INT32 dwChannelID, LPVOID lpInBuffer)
         return NET_TV_E_INVALID_PARAM;
     }
 
-    g_st4GInfo = *(LPNET_TV_4G_INFO_S)lpInBuffer;
+    g_st4GInfo = *(pNET_4GInfo_S)lpInBuffer;
 
     printf("[ConfigServerDemo] Set4GInfo callback, Channel=%d\n", dwChannelID);
     printf("  APN=%s, CallNumber=%s, MTU=%d, AuthMode=%d, NetworkMode=%d, DialMode=%d\n",
@@ -1783,7 +1783,7 @@ static NET_TV_COMMON_ECODE_E MySetHotspotInfoCb(INT32 dwChannelID, LPVOID lpInBu
         return NET_TV_E_INVALID_PARAM;
     }
 
-    g_stHotspotInfo = *(LPNET_TV_HOTSPOT_INFO_S)lpInBuffer;
+    g_stHotspotInfo = *(pNET_HotspotInfo_S)lpInBuffer;
 
     printf("[ConfigServerDemo] SetHotspotInfo callback, Channel=%d\n", dwChannelID);
     printf("  Enabled=%d, Ssid=%s, SecurityMode=%s, EncryptionType=%s\n",
@@ -1805,7 +1805,7 @@ static NET_TV_COMMON_ECODE_E MyGetHotspotConnCb(INT32 dwChannelID, LPVOID lpOutB
         return NET_TV_E_INVALID_PARAM;
     }
 
-    *(LPNET_TV_HOTSPOT_CONN_INFO_S)lpOutBuffer = g_stHotspotConnInfo;
+    *(LPNET_HotspotConnInfo_S)lpOutBuffer = g_stHotspotConnInfo;
 
     nCount = g_stHotspotConnInfo.nDeviceCount;
     if (nCount > NET_TV_HOTSPOT_CONN_MAX_NUM)
@@ -1838,7 +1838,7 @@ static NET_TV_COMMON_ECODE_E MyGetSecurityServicesInfoCb(INT32 dwChannelID, LPVO
         return NET_TV_E_INVALID_PARAM;
     }
 
-    *(LPNET_TV_SECURITY_SERVICES_INFO_S)lpOutBuffer = g_stSecurityServicesInfo;
+    *(pNET_SecurityServicesInfo_S)lpOutBuffer = g_stSecurityServicesInfo;
     printf("[ConfigServerDemo] GetSecurityServicesInfo callback, Channel=%d, SshEnable=%d, SshPort=%d\n",
            dwChannelID,
            g_stSecurityServicesInfo.stSshAdmin.bSshEnable,
@@ -1853,7 +1853,7 @@ static NET_TV_COMMON_ECODE_E MySetSecurityServicesInfoCb(INT32 dwChannelID, LPVO
         return NET_TV_E_INVALID_PARAM;
     }
 
-    g_stSecurityServicesInfo = *(LPNET_TV_SECURITY_SERVICES_INFO_S)lpInBuffer;
+    g_stSecurityServicesInfo = *(pNET_SecurityServicesInfo_S)lpInBuffer;
     strncpy(g_stSshCountdownInfo.szCountdown,
             g_stSecurityServicesInfo.stSshAdmin.szSshCountdown,
             sizeof(g_stSshCountdownInfo.szCountdown) - 1);
@@ -1872,7 +1872,7 @@ static NET_TV_COMMON_ECODE_E MyGetSshCountdownCb(INT32 dwChannelID, LPVOID lpOut
         return NET_TV_E_INVALID_PARAM;
     }
 
-    *(LPNET_TV_SSH_COUNTDOWN_INFO_S)lpOutBuffer = g_stSshCountdownInfo;
+    *(LPNET_SshCountdownInfo_S)lpOutBuffer = g_stSshCountdownInfo;
     printf("[ConfigServerDemo] GetSshCountdown callback, Channel=%d, Countdown=%s\n",
            dwChannelID, g_stSshCountdownInfo.szCountdown);
     return NET_TV_E_SUCCEED;
@@ -1880,17 +1880,17 @@ static NET_TV_COMMON_ECODE_E MyGetSshCountdownCb(INT32 dwChannelID, LPVOID lpOut
 
 static NET_TV_COMMON_ECODE_E MyFindLogCb(INT32 dwChannelID, LPVOID lpOutBuffer)
 {
-    NET_TV_LOG_LIST_S stReq;
+    NET_LogList_S stReq;
     if (!lpOutBuffer)
     {
         return NET_TV_E_INVALID_PARAM;
     }
 
-    stReq = *(LPNET_TV_LOG_LIST_S)lpOutBuffer;
-    *(LPNET_TV_LOG_LIST_S)lpOutBuffer = g_stLogList;
-    ((LPNET_TV_LOG_LIST_S)lpOutBuffer)->stCond = stReq.stCond;
-    ((LPNET_TV_LOG_LIST_S)lpOutBuffer)->stPage.nCurPage = stReq.stPage.nCurPage > 0 ? stReq.stPage.nCurPage : g_stLogList.stPage.nCurPage;
-    ((LPNET_TV_LOG_LIST_S)lpOutBuffer)->stPage.nPageSize = stReq.stPage.nPageSize > 0 ? stReq.stPage.nPageSize : g_stLogList.stPage.nPageSize;
+    stReq = *(LPNET_LogList_S)lpOutBuffer;
+    *(LPNET_LogList_S)lpOutBuffer = g_stLogList;
+    ((LPNET_LogList_S)lpOutBuffer)->stCond = stReq.stCond;
+    ((LPNET_LogList_S)lpOutBuffer)->stPage.nCurPage = stReq.stPage.nCurPage > 0 ? stReq.stPage.nCurPage : g_stLogList.stPage.nCurPage;
+    ((LPNET_LogList_S)lpOutBuffer)->stPage.nPageSize = stReq.stPage.nPageSize > 0 ? stReq.stPage.nPageSize : g_stLogList.stPage.nPageSize;
 
     printf("[ConfigServerDemo] FindLog callback, Channel=%d, Type=%d, Action=%d, Count=%d\n",
            dwChannelID,
@@ -1913,7 +1913,7 @@ static NET_TV_COMMON_ECODE_E MyGetLogServerCb(INT32 dwChannelID, LPVOID lpOutBuf
         return NET_TV_E_INVALID_PARAM;
     }
 
-    *(LPNET_TV_LOG_SERVER_INFO_S)lpOutBuffer = g_stLogServerInfo;
+    *(pNET_LogServerInfo_S)lpOutBuffer = g_stLogServerInfo;
     printf("[ConfigServerDemo] GetLogServer callback, Channel=%d, Enable=%d, Ssl=%d, Addr=%s, Port=%d\n",
            dwChannelID,
            g_stLogServerInfo.bEnable,
@@ -1930,7 +1930,7 @@ static NET_TV_COMMON_ECODE_E MySetLogServerCb(INT32 dwChannelID, LPVOID lpInBuff
         return NET_TV_E_INVALID_PARAM;
     }
 
-    g_stLogServerInfo = *(LPNET_TV_LOG_SERVER_INFO_S)lpInBuffer;
+    g_stLogServerInfo = *(pNET_LogServerInfo_S)lpInBuffer;
     printf("[ConfigServerDemo] SetLogServer callback, Channel=%d, Enable=%d, Ssl=%d, Addr=%s, Port=%d\n",
            dwChannelID,
            g_stLogServerInfo.bEnable,
@@ -1947,7 +1947,7 @@ static NET_TV_COMMON_ECODE_E MyTestLogServerCb(INT32 dwChannelID, LPVOID lpInBuf
         return NET_TV_E_INVALID_PARAM;
     }
 
-    LPNET_TV_LOG_SERVER_INFO_S pInfo = (LPNET_TV_LOG_SERVER_INFO_S)lpInBuffer;
+    pNET_LogServerInfo_S pInfo = (pNET_LogServerInfo_S)lpInBuffer;
     printf("[ConfigServerDemo] TestLogServer callback, Channel=%d, Addr=%s, Port=%d\n",
            dwChannelID,
            pInfo->szServerAddr,
@@ -1962,7 +1962,7 @@ static NET_TV_COMMON_ECODE_E MyControlRecordInfoCb(INT32 dwChannelID, LPVOID lpI
         return NET_TV_E_INVALID_PARAM;
     }
 
-    g_stRecordInfo = *(LPNET_TV_RECORD_INFO_S)lpInBuffer;
+    g_stRecordInfo = *(pNET_RecordInfo_S)lpInBuffer;
     g_stRecordStatusInfo.nStatus = g_stRecordInfo.nRecordStatus;
     printf("[ConfigServerDemo] ControlRecordInfo callback, Channel=%d, ChnId=%d, Status=%d, Name=%s\n",
            dwChannelID,
@@ -1979,7 +1979,7 @@ static NET_TV_COMMON_ECODE_E MyGetRecordStatusCb(INT32 dwChannelID, LPVOID lpOut
         return NET_TV_E_INVALID_PARAM;
     }
 
-    *(LPNET_TV_RECORD_STATUS_INFO_S)lpOutBuffer = g_stRecordStatusInfo;
+    *(pNET_RecordStatusInfo_S)lpOutBuffer = g_stRecordStatusInfo;
     printf("[ConfigServerDemo] GetRecordStatus callback, Channel=%d, Status=%d\n",
            dwChannelID,
            g_stRecordStatusInfo.nStatus);
@@ -1993,7 +1993,7 @@ static NET_TV_COMMON_ECODE_E MyGetRecordScheduleCb(INT32 dwChannelID, LPVOID lpO
         return NET_TV_E_INVALID_PARAM;
     }
 
-    *(LPNET_TV_RECORD_SCHEDULE_S)lpOutBuffer = g_stRecordSchedule;
+    *(pNET_RecordSchedule_S)lpOutBuffer = g_stRecordSchedule;
     printf("[ConfigServerDemo] GetRecordSchedule callback, Channel=%d, Enable=%d, DayCount=%d\n",
            dwChannelID,
            g_stRecordSchedule.bEnable,
@@ -2008,7 +2008,7 @@ static NET_TV_COMMON_ECODE_E MySetRecordScheduleCb(INT32 dwChannelID, LPVOID lpI
         return NET_TV_E_INVALID_PARAM;
     }
 
-    g_stRecordSchedule = *(LPNET_TV_RECORD_SCHEDULE_S)lpInBuffer;
+    g_stRecordSchedule = *(pNET_RecordSchedule_S)lpInBuffer;
     printf("[ConfigServerDemo] SetRecordSchedule callback, Channel=%d, Enable=%d, DayCount=%d\n",
            dwChannelID,
            g_stRecordSchedule.bEnable,
@@ -2023,7 +2023,7 @@ static NET_TV_COMMON_ECODE_E MyGetRecordAdvancedParamCb(INT32 dwChannelID, LPVOI
         return NET_TV_E_INVALID_PARAM;
     }
 
-    *(LPNET_TV_RECORD_ADVANCED_PARAM_S)lpOutBuffer = g_stRecordAdvancedParam;
+    *(LPNET_RecordAdvancedParam_S)lpOutBuffer = g_stRecordAdvancedParam;
     printf("[ConfigServerDemo] GetRecordAdvancedParam callback, Channel=%d, LoopWrite=%d, PreTime=%d, DelayTime=%d\n",
            dwChannelID,
            g_stRecordAdvancedParam.bLoopWrite,
@@ -2039,7 +2039,7 @@ static NET_TV_COMMON_ECODE_E MySetRecordAdvancedParamCb(INT32 dwChannelID, LPVOI
         return NET_TV_E_INVALID_PARAM;
     }
 
-    g_stRecordAdvancedParam = *(LPNET_TV_RECORD_ADVANCED_PARAM_S)lpInBuffer;
+    g_stRecordAdvancedParam = *(LPNET_RecordAdvancedParam_S)lpInBuffer;
     printf("[ConfigServerDemo] SetRecordAdvancedParam callback, Channel=%d, LoopWrite=%d, PreTime=%d, DelayTime=%d\n",
            dwChannelID,
            g_stRecordAdvancedParam.bLoopWrite,
@@ -2056,9 +2056,9 @@ static NET_TV_COMMON_ECODE_E MyFindRecordFileInfoCb(INT32 dwChannelID, LPVOID lp
         return NET_TV_E_INVALID_PARAM;
     }
 
-    stFind = ((LPNET_TV_RECORD_FILE_LIST_S)lpOutBuffer)->stFind;
-    *(LPNET_TV_RECORD_FILE_LIST_S)lpOutBuffer = g_stRecordFileList;
-    ((LPNET_TV_RECORD_FILE_LIST_S)lpOutBuffer)->stFind = stFind;
+    stFind = ((pNET_RecordFileList_S)lpOutBuffer)->stFind;
+    *(pNET_RecordFileList_S)lpOutBuffer = g_stRecordFileList;
+    ((pNET_RecordFileList_S)lpOutBuffer)->stFind = stFind;
     printf("[ConfigServerDemo] FindRecordFileInfo callback, Channel=%d, ChnId=%d, Date=%s, Count=%d\n",
            dwChannelID,
            stFind.nChnId,
@@ -2070,14 +2070,14 @@ static NET_TV_COMMON_ECODE_E MyFindRecordFileInfoCb(INT32 dwChannelID, LPVOID lp
 static NET_TV_COMMON_ECODE_E MyDownloadRecordFileCb(INT32 dwChannelID, LPVOID lpInBuffer)
 {
     NET_Alarmer_S stAlarmer;
-    NET_TV_RECORD_DOWNLOAD_PROGRESS_S stProgress;
+    NET_RecordDownloadProgress_S stProgress;
 
     if (!lpInBuffer)
     {
         return NET_TV_E_INVALID_PARAM;
     }
 
-    g_stRecordDownloadList = *(LPNET_TV_RECORD_DOWNLOAD_LIST_S)lpInBuffer;
+    g_stRecordDownloadList = *(pNET_RecordDownloadList_S)lpInBuffer;
     if (g_stRecordDownloadList.nProgressCount <= 0)
     {
         g_stRecordDownloadList.nProgressCount = 1;
@@ -2113,7 +2113,7 @@ static NET_TV_COMMON_ECODE_E MyGetOSDCapCfgCb(INT32 dwChannelID, LPVOID lpOutBuf
     }
 
 
-    LPNET_TV_VIDEO_OSD_CFG_S pOut = (LPNET_TV_VIDEO_OSD_CFG_S)lpOutBuffer;
+    pNET_VideoOsdCfg_S pOut = (pNET_VideoOsdCfg_S)lpOutBuffer;
     *pOut = g_stOsdCfg;
 
     printf("[ConfigServerDemo] GetOSDCapCfg callback, Channel=%d\n", dwChannelID);
@@ -2132,7 +2132,7 @@ static NET_TV_COMMON_ECODE_E MySetOSDCapCfgCb(INT32 dwChannelID, LPVOID lpInBuff
         return NET_TV_E_INVALID_PARAM;
     }
 
-    LPNET_TV_VIDEO_OSD_CFG_S pIn = (LPNET_TV_VIDEO_OSD_CFG_S)lpInBuffer;
+    pNET_VideoOsdCfg_S pIn = (pNET_VideoOsdCfg_S)lpInBuffer;
     g_stOsdCfg = *pIn;
     NormalizeDemoOsdConfig(&g_stOsdCfg);
 
@@ -2194,7 +2194,7 @@ static NET_TV_COMMON_ECODE_E MyGetPrivacyMaskCfgCb(INT32 dwChannelID, LPVOID lpO
         return NET_TV_E_INVALID_PARAM;
     }
 
-    LPNET_TV_PRIVACY_MASK_CFG_S pOut = (LPNET_TV_PRIVACY_MASK_CFG_S)lpOutBuffer;
+    LPNET_PrivacyMaskCfg_S pOut = (LPNET_PrivacyMaskCfg_S)lpOutBuffer;
     *pOut = g_stPrivacyMaskCfg;
 
     printf("[ConfigServerDemo] GetPrivacyMaskCfg callback, Channel=%d\n", dwChannelID);
@@ -2222,7 +2222,7 @@ static NET_TV_COMMON_ECODE_E MySetPrivacyMaskCfgCb(INT32 dwChannelID, LPVOID lpI
         return NET_TV_E_INVALID_PARAM;
     }
 
-    LPNET_TV_PRIVACY_MASK_CFG_S pIn = (LPNET_TV_PRIVACY_MASK_CFG_S)lpInBuffer;
+    LPNET_PrivacyMaskCfg_S pIn = (LPNET_PrivacyMaskCfg_S)lpInBuffer;
     g_stPrivacyMaskCfg = *pIn;
     if (g_stPrivacyMaskCfg.dwAreaCount < 0)
     {
@@ -2998,7 +2998,7 @@ static NET_TV_COMMON_ECODE_E MyGetChannelListCb(INT32 dwChannelID, LPVOID lpOutB
         return NET_TV_E_INVALID_PARAM;
     }
 
-    LPNET_TV_CHANNEL_LIST_S pOut = (LPNET_TV_CHANNEL_LIST_S)lpOutBuffer;
+    pNET_ChannelList_S pOut = (pNET_ChannelList_S)lpOutBuffer;
     memset(pOut, 0, sizeof(*pOut));
     pOut->dwSize = sizeof(*pOut);
     pOut->dwChannelCount = 1;
@@ -4094,7 +4094,7 @@ static NET_TV_COMMON_ECODE_E MyGetImageCfgCb(INT32 dwChannelID, LPVOID lpOutBuff
         return NET_TV_E_INVALID_PARAM;
     }
 
-    LPNET_TV_IMAGE_SETTING_S pOut = (LPNET_TV_IMAGE_SETTING_S)lpOutBuffer;
+    pNET_ImageSetting_S pOut = (pNET_ImageSetting_S)lpOutBuffer;
     *pOut = g_stImageCfg;
 
     printf("[ConfigServerDemo] GetImageCfg callback, Channel=%d\n", dwChannelID);
@@ -4117,7 +4117,7 @@ static NET_TV_COMMON_ECODE_E MySetImageCfgCb(INT32 dwChannelID, LPVOID lpInBuffe
         return NET_TV_E_INVALID_PARAM;
     }
 
-    LPNET_TV_IMAGE_SETTING_S pIn = (LPNET_TV_IMAGE_SETTING_S)lpInBuffer;
+    pNET_ImageSetting_S pIn = (pNET_ImageSetting_S)lpInBuffer;
     g_stImageCfg = *pIn;
 
     printf("[ConfigServerDemo] SetImageCfg callback, Channel=%d\n", dwChannelID);
@@ -4140,7 +4140,7 @@ static NET_TV_COMMON_ECODE_E MyGetPreviewInfoCb(INT32 dwChannelID, LPVOID lpOutB
         return NET_TV_E_INVALID_PARAM;
     }
 
-    LPNET_TV_PREVIEW_INFO_S pOut = (LPNET_TV_PREVIEW_INFO_S)lpOutBuffer;
+    pNET_PreviewInfo_S pOut = (pNET_PreviewInfo_S)lpOutBuffer;
     *pOut = g_stPreviewInfo;
 
     printf("[ConfigServerDemo] GetPreviewInfo callback, Channel=%d\n", dwChannelID);
@@ -4165,7 +4165,7 @@ static NET_TV_COMMON_ECODE_E MySetPreviewInfoCb(INT32 dwChannelID, LPVOID lpInBu
         return NET_TV_E_INVALID_PARAM;
     }
 
-    LPNET_TV_PREVIEW_INFO_S pIn = (LPNET_TV_PREVIEW_INFO_S)lpInBuffer;
+    pNET_PreviewInfo_S pIn = (pNET_PreviewInfo_S)lpInBuffer;
     g_stPreviewInfo = *pIn;
 
     printf("[ConfigServerDemo] SetPreviewInfo callback, Channel=%d\n", dwChannelID);
@@ -4188,7 +4188,7 @@ static NET_TV_COMMON_ECODE_E MyGetChannelInfoCb(INT32 dwChannelID, LPVOID lpOutB
         return NET_TV_E_INVALID_PARAM;
     }
 
-    LPNET_TV_CHANNEL_INFO_S pOut = (LPNET_TV_CHANNEL_INFO_S)lpOutBuffer;
+    pNET_ChannelInfo_S pOut = (pNET_ChannelInfo_S)lpOutBuffer;
     *pOut = g_stChannelInfo;
     pOut->dwChannel = (UINT32)dwChannelID;
 
@@ -4315,7 +4315,7 @@ static NET_TV_COMMON_ECODE_E MyGetTalkbackFromStreamCb(INT32 dwChannelID, LPVOID
     return NET_TV_E_SUCCEED;
 }
 
-static NET_TV_COMMON_ECODE_E MyGetReplayUrlCb(LPNET_TV_REPLAY_URL_INFO_S pInfo)
+static NET_TV_COMMON_ECODE_E MyGetReplayUrlCb(pNET_ReplayUrlInfo_S pInfo)
 {
     if (!pInfo)
     {
@@ -4466,7 +4466,7 @@ static void MergeReplayCtrlState(NET_TV_REPLAY_CTRL_INFO_S* pDst, const NET_TV_R
     CopyTextIfPresent(pDst->szUrl, sizeof(pDst->szUrl), pSrc->szUrl);
 }
 
-static NET_TV_COMMON_ECODE_E MyControlReplayCb(LPNET_TV_REPLAY_CTRL_INFO_S pInfo)
+static NET_TV_COMMON_ECODE_E MyControlReplayCb(pNET_ReplayCtrlInfo_S pInfo)
 {
     NET_TV_REPLAY_CTRL_INFO_S stNewState;
     int nDeltaSeconds = 0;
@@ -4603,7 +4603,7 @@ static NET_TV_COMMON_ECODE_E MyControlReplayCb(LPNET_TV_REPLAY_CTRL_INFO_S pInfo
     return NET_TV_E_SUCCEED;
 }
 
-static void FillReplayRecordSegment(NET_TV_REPLAY_RECORD_TIME_S* pSegment, INT32 nStartTime, INT32 nEndTime)
+static void FillReplayRecordSegment(NET_ReplayRecordTime_S* pSegment, INT32 nStartTime, INT32 nEndTime)
 {
     if (!pSegment)
     {
@@ -4615,7 +4615,7 @@ static void FillReplayRecordSegment(NET_TV_REPLAY_RECORD_TIME_S* pSegment, INT32
     pSegment->nEndTime = nEndTime;
 }
 
-static NET_TV_COMMON_ECODE_E MyGetReplayRecordListCb(LPNET_TV_REPLAY_RECORD_LIST_S pInfo)
+static NET_TV_COMMON_ECODE_E MyGetReplayRecordListCb(pNET_ReplayRecordList_S pInfo)
 {
     if (!pInfo)
     {
@@ -4688,7 +4688,7 @@ static NET_TV_COMMON_ECODE_E MyGetUpgradeStatus(INT32 dwChannelID, LPVOID lpOutB
     if (!lpOutBuffer)
         return NET_TV_E_INVALID_PARAM;
 
-    LPNET_TV_UPGRADE_STATUS_S pOut = (LPNET_TV_UPGRADE_STATUS_S)lpOutBuffer;
+    pNET_UpgradeStatus_S pOut = (pNET_UpgradeStatus_S)lpOutBuffer;
     *pOut = g_stUpgradeStatuts;
 
     printf("[ConfigServerDemo] MyGetUpgradeStatus callback, Channel=%d\n", dwChannelID);
@@ -4702,7 +4702,7 @@ static NET_TV_COMMON_ECODE_E MySetUpgrade(INT32 dwChannelID, LPVOID lpInBuffer)
     if (!lpInBuffer)
         return NET_TV_E_INVALID_PARAM;
 
-    LPNET_TV_UPGRADE_INFO_S pIn = (LPNET_TV_UPGRADE_INFO_S)lpInBuffer;
+    LPNET_UpgradeInfo_S pIn = (LPNET_UpgradeInfo_S)lpInBuffer;
 
     memset(&g_stUpgradeInfo, 0, sizeof(g_stUpgradeInfo));
     strncpy(g_stUpgradeInfo.szUpgradePath, pIn->szUpgradePath, sizeof(g_stUpgradeInfo.szUpgradePath) - 1);
@@ -4720,7 +4720,7 @@ static NET_TV_COMMON_ECODE_E MyGetUpgradeVersion(INT32 dwChannelID, LPVOID lpOut
     if (!lpOutBuffer)
         return NET_TV_E_INVALID_PARAM;
 
-    LPNET_TV_UPGRADE_VERSION_S pOut = (LPNET_TV_UPGRADE_VERSION_S)lpOutBuffer;
+    pNET_UpgradeVersion_S pOut = (pNET_UpgradeVersion_S)lpOutBuffer;
     *pOut = g_stUpgradeVersions;
 
     printf("[ConfigServerDemo] MyGetUpgradeVersion callback, Channel=%d\n", dwChannelID);
@@ -4729,7 +4729,7 @@ static NET_TV_COMMON_ECODE_E MyGetUpgradeVersion(INT32 dwChannelID, LPVOID lpOut
 }
 
 /* 打印抓图计划信息 */
-static void PrintCapturePlanInfo(const NET_TV_CAPTURE_PLAN_INFO_S *pstCfg)
+static void PrintCapturePlanInfo(const NET_CapturePlanInfo_S *pstCfg)
 {
     UINT32 i = 0;
     if (!pstCfg)
@@ -4778,12 +4778,12 @@ static void PrintOneCaptureConfig(const char *prefix, const NET_CaptureConfig_S 
 /* 抓图计划信息 Get 回调，对应命令 NET_TV_GET_CAPTURE_PLAN_INFO */
 static NET_TV_COMMON_ECODE_E MyGetCapturePlanInfo(INT32 dwChannelID, LPVOID lpOutBuffer)
 {
-    LPNET_TV_CAPTURE_PLAN_INFO_S pOut = NULL;
+    pNET_CapturePlanInfo_S pOut = NULL;
 
     if (!lpOutBuffer)
         return NET_TV_E_INVALID_PARAM;
 
-    pOut = (LPNET_TV_CAPTURE_PLAN_INFO_S)lpOutBuffer;
+    pOut = (pNET_CapturePlanInfo_S)lpOutBuffer;
     *pOut = g_stCapturePlanInfo;
 
     printf("[ConfigServerDemo] MyGetCapturePlanInfo callback, Channel=%d\n", dwChannelID);
@@ -4794,12 +4794,12 @@ static NET_TV_COMMON_ECODE_E MyGetCapturePlanInfo(INT32 dwChannelID, LPVOID lpOu
 /* 抓图计划信息 Set 回调，对应命令 NET_TV_SET_CAPTURE_PLAN_INFO */
 static NET_TV_COMMON_ECODE_E MySetCapturePlanInfo(INT32 dwChannelID, LPVOID lpInBuffer)
 {
-    LPNET_TV_CAPTURE_PLAN_INFO_S pIn = NULL;
+    pNET_CapturePlanInfo_S pIn = NULL;
 
     if (!lpInBuffer)
         return NET_TV_E_INVALID_PARAM;
 
-    pIn = (LPNET_TV_CAPTURE_PLAN_INFO_S)lpInBuffer;
+    pIn = (pNET_CapturePlanInfo_S)lpInBuffer;
     g_stCapturePlanInfo = *pIn;
 
     printf("[ConfigServerDemo] MySetCapturePlanInfo callback, Channel=%d\n", dwChannelID);
@@ -4849,7 +4849,7 @@ static NET_TV_COMMON_ECODE_E MySetCaptureParamInfo(INT32 dwChannelID, LPVOID lpI
  * @brief 打印曝光信息
  * @param pstCfg 曝光信息结构体指针
  */
-static void PrintExposureInfo(const NET_TV_EXPOSURE_INFO_S *pstCfg)
+static void PrintExposureInfo(const NET_ExposureInfo_S *pstCfg)
 {
     if (!pstCfg)
         return;
@@ -4860,7 +4860,7 @@ static void PrintExposureInfo(const NET_TV_EXPOSURE_INFO_S *pstCfg)
  * @brief 打印日夜信息
  * @param pstCfg 日夜信息结构体指针
  */
-static void PrintDayNightInfo(const NET_TV_DAYNIGHT_INFO_S *pstCfg)
+static void PrintDayNightInfo(const NET_DayNightInfo_S *pstCfg)
 {
     if (!pstCfg)
         return;
@@ -4891,7 +4891,7 @@ static void PrintDayNightInfo(const NET_TV_DAYNIGHT_INFO_S *pstCfg)
  * @brief 打印背光信息
  * @param pstCfg 背光信息结构体指针
  */
-static void PrintBackLightInfo(const NET_TV_BACKLIGHT_INFO_S *pstCfg)
+static void PrintBackLightInfo(const NET_BackLightInfo_S *pstCfg)
 {
     if (!pstCfg)
         return;
@@ -4908,7 +4908,7 @@ static void PrintBackLightInfo(const NET_TV_BACKLIGHT_INFO_S *pstCfg)
  * @param pstCfg 降噪信息结构体指针
  */
 
-static void PrintDenoiseInfo(const NET_TV_DENOISE_INFO_S *pstCfg)
+static void PrintDenoiseInfo(const NET_DenoiseInfo_S *pstCfg)
 {
     if (!pstCfg)
         return;
@@ -4937,12 +4937,12 @@ static void PrintWhiteBalanceInfo(const NET_TV_WHITEBALANCE_INFO_S *pstCfg)
  */
 static NET_TV_COMMON_ECODE_E MyGetExposureInfo(INT32 dwChannelID, LPVOID lpOutBuffer)
 {
-    LPNET_TV_EXPOSURE_INFO_S pOut = NULL;
+    LPNET_ExposureInfo_S pOut = NULL;
 
     if (!lpOutBuffer)
         return NET_TV_E_INVALID_PARAM;
 
-    pOut = (LPNET_TV_EXPOSURE_INFO_S)lpOutBuffer;
+    pOut = (LPNET_ExposureInfo_S)lpOutBuffer;
     *pOut = g_stExposureInfo;
 
     printf("[ConfigServerDemo] MyGetExposureInfo callback, Channel=%d\n", dwChannelID);
@@ -4955,12 +4955,12 @@ static NET_TV_COMMON_ECODE_E MyGetExposureInfo(INT32 dwChannelID, LPVOID lpOutBu
  */
 static NET_TV_COMMON_ECODE_E MySetExposureInfo(INT32 dwChannelID, LPVOID lpInBuffer)
 {
-    LPNET_TV_EXPOSURE_INFO_S pIn = NULL;
+    LPNET_ExposureInfo_S pIn = NULL;
 
     if (!lpInBuffer)
         return NET_TV_E_INVALID_PARAM;
 
-    pIn = (LPNET_TV_EXPOSURE_INFO_S)lpInBuffer;
+    pIn = (LPNET_ExposureInfo_S)lpInBuffer;
     g_stExposureInfo = *pIn;
 
     printf("[ConfigServerDemo] MySetExposureInfo callback, Channel=%d\n", dwChannelID);
@@ -4973,12 +4973,12 @@ static NET_TV_COMMON_ECODE_E MySetExposureInfo(INT32 dwChannelID, LPVOID lpInBuf
  */
 static NET_TV_COMMON_ECODE_E MyGetDayNightInfo(INT32 dwChannelID, LPVOID lpOutBuffer)
 {
-    LPNET_TV_DAYNIGHT_INFO_S pOut = NULL;
+    LPNET_DayNightInfo_S pOut = NULL;
 
     if (!lpOutBuffer)
         return NET_TV_E_INVALID_PARAM;
 
-    pOut = (LPNET_TV_DAYNIGHT_INFO_S)lpOutBuffer;
+    pOut = (LPNET_DayNightInfo_S)lpOutBuffer;
     *pOut = g_stDayNightInfo;
 
     printf("[ConfigServerDemo] MyGetDayNightInfo callback, Channel=%d\n", dwChannelID);
@@ -4991,12 +4991,12 @@ static NET_TV_COMMON_ECODE_E MyGetDayNightInfo(INT32 dwChannelID, LPVOID lpOutBu
  */
 static NET_TV_COMMON_ECODE_E MySetDayNightInfo(INT32 dwChannelID, LPVOID lpInBuffer)
 {
-    LPNET_TV_DAYNIGHT_INFO_S pIn = NULL;
+    LPNET_DayNightInfo_S pIn = NULL;
 
     if (!lpInBuffer)
         return NET_TV_E_INVALID_PARAM;
 
-    pIn = (LPNET_TV_DAYNIGHT_INFO_S)lpInBuffer;
+    pIn = (LPNET_DayNightInfo_S)lpInBuffer;
     g_stDayNightInfo = *pIn;
 
     printf("[ConfigServerDemo] MySetDayNightInfo callback, Channel=%d\n", dwChannelID);
@@ -5009,12 +5009,12 @@ static NET_TV_COMMON_ECODE_E MySetDayNightInfo(INT32 dwChannelID, LPVOID lpInBuf
  */
 static NET_TV_COMMON_ECODE_E MyGetBackLightInfo(INT32 dwChannelID, LPVOID lpOutBuffer)
 {
-    LPNET_TV_BACKLIGHT_INFO_S pOut = NULL;
+    LPNET_BackLightInfo_S pOut = NULL;
 
     if (!lpOutBuffer)
         return NET_TV_E_INVALID_PARAM;
 
-    pOut = (LPNET_TV_BACKLIGHT_INFO_S)lpOutBuffer;
+    pOut = (LPNET_BackLightInfo_S)lpOutBuffer;
     *pOut = g_stBackLightInfo;
 
     printf("[ConfigServerDemo] MyGetBackLightInfo callback, Channel=%d\n", dwChannelID);
@@ -5027,12 +5027,12 @@ static NET_TV_COMMON_ECODE_E MyGetBackLightInfo(INT32 dwChannelID, LPVOID lpOutB
  */
 static NET_TV_COMMON_ECODE_E MySetBackLightInfo(INT32 dwChannelID, LPVOID lpInBuffer)
 {
-    LPNET_TV_BACKLIGHT_INFO_S pIn = NULL;
+    LPNET_BackLightInfo_S pIn = NULL;
 
     if (!lpInBuffer)
         return NET_TV_E_INVALID_PARAM;
 
-    pIn = (LPNET_TV_BACKLIGHT_INFO_S)lpInBuffer;
+    pIn = (LPNET_BackLightInfo_S)lpInBuffer;
     g_stBackLightInfo = *pIn;
 
     printf("[ConfigServerDemo] MySetBackLightInfo callback, Channel=%d\n", dwChannelID);
@@ -5045,12 +5045,12 @@ static NET_TV_COMMON_ECODE_E MySetBackLightInfo(INT32 dwChannelID, LPVOID lpInBu
  */
 static NET_TV_COMMON_ECODE_E MyGetDenoiseInfo(INT32 dwChannelID, LPVOID lpOutBuffer)
 {
-    LPNET_TV_DENOISE_INFO_S pOut = NULL;
+    LPNET_DenoiseInfo_S pOut = NULL;
 
     if (!lpOutBuffer)
         return NET_TV_E_INVALID_PARAM;
 
-    pOut = (LPNET_TV_DENOISE_INFO_S)lpOutBuffer;
+    pOut = (LPNET_DenoiseInfo_S)lpOutBuffer;
     *pOut = g_stDenoiseInfo;
 
     printf("[ConfigServerDemo] MyGetDenoiseInfo callback, Channel=%d\n", dwChannelID);
@@ -5063,12 +5063,12 @@ static NET_TV_COMMON_ECODE_E MyGetDenoiseInfo(INT32 dwChannelID, LPVOID lpOutBuf
  */
 static NET_TV_COMMON_ECODE_E MySetDenoiseInfo(INT32 dwChannelID, LPVOID lpInBuffer)
 {
-    LPNET_TV_DENOISE_INFO_S pIn = NULL;
+    LPNET_DenoiseInfo_S pIn = NULL;
 
     if (!lpInBuffer)
         return NET_TV_E_INVALID_PARAM;
 
-    pIn = (LPNET_TV_DENOISE_INFO_S)lpInBuffer;
+    pIn = (LPNET_DenoiseInfo_S)lpInBuffer;
     g_stDenoiseInfo = *pIn;
 
     printf("[ConfigServerDemo] MySetDenoiseInfo callback, Channel=%d\n", dwChannelID);
@@ -5081,12 +5081,12 @@ static NET_TV_COMMON_ECODE_E MySetDenoiseInfo(INT32 dwChannelID, LPVOID lpInBuff
  */
 static NET_TV_COMMON_ECODE_E MyGetWhiteBalanceInfo(INT32 dwChannelID, LPVOID lpOutBuffer)
 {
-    LPNET_TV_WHITEBALANCE_INFO_S pOut = NULL;
+    pNET_WhiteBalanceInfo_S pOut = NULL;
 
     if (!lpOutBuffer)
         return NET_TV_E_INVALID_PARAM;
 
-    pOut = (LPNET_TV_WHITEBALANCE_INFO_S)lpOutBuffer;
+    pOut = (pNET_WhiteBalanceInfo_S)lpOutBuffer;
     *pOut = g_stWhiteBalanceInfo;
 
     printf("[ConfigServerDemo] MyGetWhiteBalanceInfo callback, Channel=%d\n", dwChannelID);
@@ -5099,12 +5099,12 @@ static NET_TV_COMMON_ECODE_E MyGetWhiteBalanceInfo(INT32 dwChannelID, LPVOID lpO
  */
 static NET_TV_COMMON_ECODE_E MySetWhiteBalanceInfo(INT32 dwChannelID, LPVOID lpInBuffer)
 {
-    LPNET_TV_WHITEBALANCE_INFO_S pIn = NULL;
+    pNET_WhiteBalanceInfo_S pIn = NULL;
 
     if (!lpInBuffer)
         return NET_TV_E_INVALID_PARAM;
 
-    pIn = (LPNET_TV_WHITEBALANCE_INFO_S)lpInBuffer;
+    pIn = (pNET_WhiteBalanceInfo_S)lpInBuffer;
     g_stWhiteBalanceInfo = *pIn;
 
     printf("[ConfigServerDemo] MySetWhiteBalanceInfo callback, Channel=%d\n", dwChannelID);
@@ -5221,7 +5221,7 @@ static NET_TV_COMMON_ECODE_E MyAddTargetLibCb(INT32 dwChannelID, LPVOID lpInBuff
         return NET_TV_E_INVALID_PARAM;
     }
 
-    LPNET_TV_FACE_LIB_INFO_S pIn = (LPNET_TV_FACE_LIB_INFO_S)lpInBuffer;
+    pNET_FaceLibInfo_S pIn = (pNET_FaceLibInfo_S)lpInBuffer;
     INT32 nIndex = FindTargetLibIndex(pIn->szFaceLibName);
     if (nIndex < 0)
     {
@@ -5248,7 +5248,7 @@ static NET_TV_COMMON_ECODE_E MyDelTargetLibCb(INT32 dwChannelID, LPVOID lpInBuff
         return NET_TV_E_INVALID_PARAM;
     }
 
-    LPNET_TV_FACE_LIB_INFO_S pIn = (LPNET_TV_FACE_LIB_INFO_S)lpInBuffer;
+    pNET_FaceLibInfo_S pIn = (pNET_FaceLibInfo_S)lpInBuffer;
     INT32 nIndex = FindTargetLibIndex(pIn->szFaceLibName);
     if (nIndex >= 0)
     {
@@ -5277,7 +5277,7 @@ static NET_TV_COMMON_ECODE_E MySetTargetLibCb(INT32 dwChannelID, LPVOID lpInBuff
         return NET_TV_E_INVALID_PARAM;
     }
 
-    LPNET_TV_FACE_LIB_INFO_S pIn = (LPNET_TV_FACE_LIB_INFO_S)lpInBuffer;
+    pNET_FaceLibInfo_S pIn = (pNET_FaceLibInfo_S)lpInBuffer;
     INT32 nIndex = FindTargetLibIndex(pIn->szFaceLibName);
     if (nIndex < 0)
     {
@@ -5304,7 +5304,7 @@ static NET_TV_COMMON_ECODE_E MyGetTargetLibCb(INT32 dwChannelID, LPVOID lpOutBuf
         return NET_TV_E_INVALID_PARAM;
     }
 
-    LPNET_TV_FACE_LIB_LIST_S pOut = (LPNET_TV_FACE_LIB_LIST_S)lpOutBuffer;
+    LPNET_FaceLibList_S pOut = (LPNET_FaceLibList_S)lpOutBuffer;
     *pOut = g_stFaceLibList;
 
     printf("[ConfigServerDemo] GetTargetLib callback, Count=%d\n", pOut->nTargetLibCount);
@@ -5321,7 +5321,7 @@ static NET_TV_COMMON_ECODE_E MyAddFaceInfoCb(INT32 dwChannelID, LPVOID lpInBuffe
         return NET_TV_E_INVALID_PARAM;
     }
 
-    LPNET_TV_FACE_INFO_S pIn = (LPNET_TV_FACE_INFO_S)lpInBuffer;
+    pNET_FaceInfo_S pIn = (pNET_FaceInfo_S)lpInBuffer;
     INT32 nIndex = FindFaceInfoIndex(pIn->nId);
     if (nIndex < 0)
     {
@@ -5348,7 +5348,7 @@ static NET_TV_COMMON_ECODE_E MyDelFaceInfoCb(INT32 dwChannelID, LPVOID lpInBuffe
         return NET_TV_E_INVALID_PARAM;
     }
 
-    LPNET_TV_FACE_ID_INFO_S pIn = (LPNET_TV_FACE_ID_INFO_S)lpInBuffer;
+    pNET_FaceIdInfo_S pIn = (pNET_FaceIdInfo_S)lpInBuffer;
     for (INT32 idIndex = 0; idIndex < pIn->nIdCount && idIndex < NET_TV_FACE_ID_MAX_NUM; ++idIndex)
     {
         INT32 nIndex = FindFaceInfoIndex(pIn->anIds[idIndex]);
@@ -5382,7 +5382,7 @@ static NET_TV_COMMON_ECODE_E MySetFaceInfoCb(INT32 dwChannelID, LPVOID lpInBuffe
         return NET_TV_E_INVALID_PARAM;
     }
 
-    LPNET_TV_FACE_INFO_S pIn = (LPNET_TV_FACE_INFO_S)lpInBuffer;
+    pNET_FaceInfo_S pIn = (pNET_FaceInfo_S)lpInBuffer;
     INT32 nIndex = FindFaceInfoIndex(pIn->nId);
     if (nIndex < 0)
     {
@@ -5409,7 +5409,7 @@ static NET_TV_COMMON_ECODE_E MyGetFaceInfoCb(INT32 dwChannelID, LPVOID lpOutBuff
         return NET_TV_E_INVALID_PARAM;
     }
 
-    LPNET_TV_FACE_INFO_LIST_S pOut = (LPNET_TV_FACE_INFO_LIST_S)lpOutBuffer;
+    LPNET_FaceInfoList_S pOut = (LPNET_FaceInfoList_S)lpOutBuffer;
     *pOut = g_stFaceInfoList;
 
     printf("[ConfigServerDemo] GetFaceInfo callback, Count=%d\n", pOut->nFaceInfoCount);

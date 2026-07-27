@@ -328,7 +328,7 @@ void CClientAlarmManager::AlarmLoop()
 
         if (eventType == "ChannelStatus" || lCommand == NET_TV_NOTIFY_CHANNEL_STATUS)
         {
-            NET_TV_CHANNEL_INFO_S info = {0};
+            NET_ChannelInfo_S info = {0};
             bool parseSuccess = false;
 
             if (auto* channelObj = Json::get(root, "ChannelInfo"))
@@ -464,7 +464,7 @@ void CClientAlarmManager::AlarmLoop()
         }
         else if (lCommand == NET_TV_NOTICE_DOWNLOAD_RECORD_PROGRESS)
         {
-            NET_TV_RECORD_DOWNLOAD_PROGRESS_S info = {0};
+            NET_RecordDownloadProgress_S info = {0};
             SDKConvert::deal(alarmInfoObj, info, true);
             INT32 len = (INT32)sizeof(info);
             alarmCb_(lCommand, &alarmer, (CHAR*)&info, &len, alarmUserData_);

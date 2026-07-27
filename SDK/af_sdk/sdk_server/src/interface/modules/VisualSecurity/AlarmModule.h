@@ -56,7 +56,7 @@ public:
      * @param pChannelInfo 通道状态信息
      * @return TRUE表示成功，FALSE表示失败
      */
-    BOOL PushChannelStatusInfo(NET_TV_CHANNEL_INFO_S* pChannelInfo);
+    BOOL PushChannelStatusInfo(NET_ChannelInfo_S* pChannelInfo);
 
     /**
      * 获取告警推送总次数

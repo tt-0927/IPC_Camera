@@ -89,7 +89,7 @@ NET_TV_API BOOL STDCALL NET_TV_SERVER_PushAlarmInfo(IN NET_Alarmer_S *pAlarmer,
  * @param [IN] pChannelInfo 通道信息，byOnline/nDevState 表示当前状态
  * @return TRUE表示成功,其他表示失败 TRUE means success, and any other value means failure.
  */
-NET_TV_API BOOL STDCALL NET_TV_SERVER_PushChannelStatusInfo(IN NET_TV_CHANNEL_INFO_S *pChannelInfo);
+NET_TV_API BOOL STDCALL NET_TV_SERVER_PushChannelStatusInfo(IN NET_ChannelInfo_S *pChannelInfo);
 
 NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetDeviceInfo(NET_TV_COMMON_ECODE_E (*CB)(pNET_DeviceInfo_S pInfo));
 
@@ -128,7 +128,7 @@ NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetUserPassword(NET_TV_CB_SetUs
  * @return NET_TV_E_SUCCEED 成功, 其他值失败
  */
 typedef NET_TV_COMMON_ECODE_E (*NET_TV_CB_GetVideoEncodeCap)(INT32 dwChannelID, 
-                                                             LPNET_TV_VIDEO_ENCODE_CAP_S pCap);
+                                                             pNET_VideoEncodeCap_S pCap);
 
 /**
  * @brief 注册视频编码能力集回调
@@ -144,7 +144,7 @@ NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetVideoEncodeCap(NET_TV_CB_Get
  * @return NET_TV_E_SUCCEED 成功, 其他值失败
  */
 typedef NET_TV_COMMON_ECODE_E (*NET_TV_CB_GetAudioEncodeCap)(INT32 dwChannelID, 
-                                                             LPNET_TV_AUDIO_CAP_S pCap);
+                                                             pNET_AudioCap_S pCap);
 
 /**
  * @brief 注册音频编码能力集回调
@@ -159,7 +159,7 @@ NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetAudioEncodeCap(NET_TV_CB_Get
  * @param [OUT] pCap         OSD能力集结构体指针
  * @return NET_TV_E_SUCCEED 成功, 其他值失败
  */
-typedef NET_TV_COMMON_ECODE_E (*NET_TV_CB_GetOsdCap)(INT32 dwChannelID, LPNET_TV_OSD_CAP_S pCap);
+typedef NET_TV_COMMON_ECODE_E (*NET_TV_CB_GetOsdCap)(INT32 dwChannelID, pNET_OsdCap_S pCap);
 
 /**
  * @brief 注册OSD能力集回调
@@ -203,28 +203,28 @@ typedef NET_TV_COMMON_ECODE_E (*NET_TV_CB_SetDevConfigByCommand)(INT32 dwChannel
  * @param [OUT] pInfo        RTSP URL 信息结构体指针
  * @return NET_TV_E_SUCCEED 成功, 其他值失败
  */
-typedef NET_TV_COMMON_ECODE_E (*NET_TV_CB_GetRtspUrl)(INT32 dwChannelID, LPNET_TV_RTSP_URL_INFO_S pInfo);
+typedef NET_TV_COMMON_ECODE_E (*NET_TV_CB_GetRtspUrl)(INT32 dwChannelID, pNET_RtspUrlInfo_S pInfo);
 
 /**
  * @brief 获取回放播放地址回调类型
  * @param [INOUT] pInfo 回放查询条件和播放URL返回信息
  * @return NET_TV_E_SUCCEED 成功, 其他值失败
  */
-typedef NET_TV_COMMON_ECODE_E (*NET_TV_CB_GetReplayUrl)(LPNET_TV_REPLAY_URL_INFO_S pInfo);
+typedef NET_TV_COMMON_ECODE_E (*NET_TV_CB_GetReplayUrl)(pNET_ReplayUrlInfo_S pInfo);
 
 /**
  * @brief 回放控制回调类型
  * @param [INOUT] pInfo 回放控制输入输出参数
  * @return NET_TV_E_SUCCEED 成功, 其他值失败
  */
-typedef NET_TV_COMMON_ECODE_E (*NET_TV_CB_ControlReplay)(LPNET_TV_REPLAY_CTRL_INFO_S pInfo);
+typedef NET_TV_COMMON_ECODE_E (*NET_TV_CB_ControlReplay)(pNET_ReplayCtrlInfo_S pInfo);
 
 /**
  * @brief 获取回放录像时间段回调类型
  * @param [INOUT] pInfo 查询条件及结果
  * @return NET_TV_E_SUCCEED 成功, 其他值失败
  */
-typedef NET_TV_COMMON_ECODE_E (*NET_TV_CB_GetReplayRecordList)(LPNET_TV_REPLAY_RECORD_LIST_S pInfo);
+typedef NET_TV_COMMON_ECODE_E (*NET_TV_CB_GetReplayRecordList)(pNET_ReplayRecordList_S pInfo);
 
 /**
  * @brief 注册通用配置获取回调（所有命令码统一处理）

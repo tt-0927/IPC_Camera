@@ -413,7 +413,7 @@ bool RecordFrameServer::send_packet(socket_fd_t fd,
         ssrc = m_ssrc;
     }
 
-    NET_TV_RECORD_FRAME_RTP_HEADER_S header{};
+    NET_RecordFrameRtpHeader_S header{};
     header.byVersion = 2;
     header.byPayloadType = static_cast<UCHAR>(
         frame_info.uMediaType == NET_TV_RECORD_FRAME_MEDIA_AUDIO ?

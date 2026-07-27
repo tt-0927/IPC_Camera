@@ -41,8 +41,8 @@ std::string CDeviceCapabilityBusiness::GetDeviceCapability(const std::string& re
 std::string CDeviceCapabilityBusiness::HandleVideoEncode(int channelId)
 {
     int nRespCode = NET_TV_E_FAILED;
-    NET_TV_VIDEO_ENCODE_CAP_S stCap;
-    memset(&stCap, 0, sizeof(NET_TV_VIDEO_ENCODE_CAP_S));
+    NET_VideoEncodeCap_S stCap;
+    memset(&stCap, 0, sizeof(NET_VideoEncodeCap_S));
     
     nRespCode = NetSDK_ExecuteCb_GetVideoEncodeCap(channelId, &stCap);
     if (nRespCode != NET_TV_E_SUCCEED)
@@ -56,8 +56,8 @@ std::string CDeviceCapabilityBusiness::HandleVideoEncode(int channelId)
 std::string CDeviceCapabilityBusiness::HandleAudioEncode(int channelId)
 {
     int nRespCode = NET_TV_E_FAILED;
-    NET_TV_AUDIO_CAP_S stCap;
-    memset(&stCap, 0, sizeof(NET_TV_AUDIO_CAP_S));
+    NET_AudioCap_S stCap;
+    memset(&stCap, 0, sizeof(NET_AudioCap_S));
     
     nRespCode = NetSDK_ExecuteCb_GetAudioCap(channelId, &stCap);
     if (nRespCode != NET_TV_E_SUCCEED)
@@ -71,8 +71,8 @@ std::string CDeviceCapabilityBusiness::HandleAudioEncode(int channelId)
 std::string CDeviceCapabilityBusiness::HandleOsd(int channelId)
 {
     int nRespCode = NET_TV_E_FAILED;
-    NET_TV_OSD_CAP_S stCap;
-    memset(&stCap, 0, sizeof(NET_TV_OSD_CAP_S));
+    NET_OsdCap_S stCap;
+    memset(&stCap, 0, sizeof(NET_OsdCap_S));
     
     nRespCode = NetSDK_ExecuteCb_GetOsdCap(channelId, &stCap);
     if (nRespCode != NET_TV_E_SUCCEED)

@@ -1387,7 +1387,7 @@ typedef NET_RecordFrameInfo_S* pNET_RecordFrameInfo_S;
  * @brief TCP上传输的简化RTP风格包头，网络字节序，固定20字节。
  * @note  TCP是字节流，因此比标准RTP多 dwPayloadLen 字段用于分包。
  */
-typedef struct tagNETTVRecordFrameRtpHeader
+typedef struct tagNET_RecordFrameRtpHeader
 {
     UCHAR  byVersion;      /* 固定为2 */
     UCHAR  byPayloadType;  /* 96视频，97音频，127结束 */
@@ -1396,7 +1396,9 @@ typedef struct tagNETTVRecordFrameRtpHeader
     UINT32 dwSsrc;
     UINT32 dwPayloadLen;
     UINT32 dwFlags;
-} NET_TV_RECORD_FRAME_RTP_HEADER_S, *LPNET_TV_RECORD_FRAME_RTP_HEADER_S;
+} NET_RecordFrameRtpHeader_S;
+
+typedef NET_RecordFrameRtpHeader_S* pNET_RecordFrameRtpHeader_S;
 
 /**
  * @enum tagNETTVVideoCodeType
@@ -1997,19 +1999,21 @@ typedef NET_ReplayTalkbackInfo_S* pNET_ReplayTalkbackInfo_S;
  * @brief 曝光信息结构体
  * @attention
  */
-typedef struct tagNETTVExposureInfo
+typedef struct tagNET_ExposureInfo
 {
     INT32               enExpTime;          /* ISP::ExpTimeMode_E */
     BOOL                bAntiBanding;       /* TRUE/FALSE */
     BYTE                byRes[64];
-} NET_TV_EXPOSURE_INFO_S, *LPNET_TV_EXPOSURE_INFO_S;
+} NET_ExposureInfo_S;
+
+typedef NET_ExposureInfo_S* pNET_ExposureInfo_S;
 
 /**
  * @struct tagNETTVDayNightInfo
  * @brief 日夜切换信息结构体
  * @attention
  */
-typedef struct tagNETTVDayNightInfo
+typedef struct tagNET_DayNightInfo
 {
     INT32               enDayNightMode;     /* ISP::DayNightMode_E */
     INT32               nBeginHour;
@@ -2030,14 +2034,16 @@ typedef struct tagNETTVDayNightInfo
     BOOL                bRedLightEnable;
     INT32               nRedLightLevel;
     BYTE                byRes[64];
-} NET_TV_DAYNIGHT_INFO_S, *LPNET_TV_DAYNIGHT_INFO_S;
+} NET_DayNightInfo_S;
+
+typedef NET_DayNightInfo_S* pNET_DayNightInfo_S;
 
 /**
  * @struct tagNETTVBackLightInfo
  * @brief 背光信息结构体
  * @attention
  */
-typedef struct tagNETTVBackLightInfo
+typedef struct tagNET_BackLightInfo
 {
     INT32               enBackLightArea;    /* ISP::BackLightArea_E */
     BOOL                bWdrEnable;
@@ -2045,103 +2051,121 @@ typedef struct tagNETTVBackLightInfo
     BOOL                bHlsEnable;
     INT32               nHlsLevel;
     BYTE                byRes[64];
-} NET_TV_BACKLIGHT_INFO_S, *LPNET_TV_BACKLIGHT_INFO_S;
+} NET_BackLightInfo_S;
+
+typedef NET_BackLightInfo_S* pNET_BackLightInfo_S;
 
 /**
  * @struct tagNETTVDenoiseInfo
  * @brief 降噪信息结构体
  * @attention
  */
-typedef struct tagNETTVDenoiseInfo
+typedef struct tagNET_DenoiseInfo
 {
     INT32               enDnrMode;          /* ISP::DnrMode_E */
     UINT32              nDnrLevel;
     UINT32              nSnrLevel;
     UINT32              nTnrLevel;
     BYTE                byRes[64];
-} NET_TV_DENOISE_INFO_S, *LPNET_TV_DENOISE_INFO_S;
+} NET_DenoiseInfo_S;
+
+typedef NET_DenoiseInfo_S* pNET_DenoiseInfo_S;
 
 /**
  * @struct tagNETTVWhiteBalanceInfo
  * @brief 白平衡信息结构体
  * @attention
  */
-typedef struct tagNETTVWhiteBalanceInfo
+typedef struct tagNET_WhiteBalanceInfo
 {
     INT32               enAwbMode;          /* ISP::AwbMode_E */
     UINT32              nRGain;
     UINT32              nBGain;
     BYTE                byRes[64];
-} NET_TV_WHITEBALANCE_INFO_S, *LPNET_TV_WHITEBALANCE_INFO_S;
+} NET_WhiteBalanceInfo_S;
+
+typedef NET_WhiteBalanceInfo_S* pNET_WhiteBalanceInfo_S;
 
 /**
  * @struct tagNETTVUpgradeInfo
  * @brief 升级文件信息
  * @attention
  */
-typedef struct tagNETTVUpgradeInfo
+typedef struct tagNET_UpgradeInfo
 {
     CHAR                szUpgradePath[NET_TV_FILE_NAME_LEN];
     BYTE                byRes[64];
-} NET_TV_UPGRADE_INFO_S, *LPNET_TV_UPGRADE_INFO_S;
+} NET_UpgradeInfo_S;
+
+typedef NET_UpgradeInfo_S* pNET_UpgradeInfo_S;
 
 /**
  * @struct tagNETTVUpgradeStatus
  * @brief 系统升级状态
  * @attention
  */
-typedef struct tagNETTVUpgradeStatus
+typedef struct tagNET_UpgradeStatus
 {
     INT32               nUpgradeStatus;
     BYTE                byRes[64];
-} NET_TV_UPGRADE_STATUS_S, *LPNET_TV_UPGRADE_STATUS_S;
+} NET_UpgradeStatus_S;
+
+typedef NET_UpgradeStatus_S* pNET_UpgradeStatus_S;
 
 /**
  * @struct tagNETTVUpgradeVersion
  * @brief 升级文件版本
  * @attention
  */
-typedef struct tagNETTVUpgradeVersion
+typedef struct tagNET_UpgradeVersion
 {
     CHAR                szVersion[NET_TV_LEN_64];
     BYTE                byRes[64];
-} NET_TV_UPGRADE_VERSION_S, *LPNET_TV_UPGRADE_VERSION_S;
+} NET_UpgradeVersion_S;
+
+typedef NET_UpgradeVersion_S* pNET_UpgradeVersion_S;
 
 /**
  * @struct tagNETTVCaptureTime
  * @brief 抓图时间
  * @attention
  */
-typedef struct tagNETTVCaptureTime
+typedef struct tagNET_CaptureTime
 {
     INT32               nStartTime;
     INT32               nEndTime;
     BYTE                byRes[32];
-} NET_TV_CAPTURE_TIME_S, *LPNET_TV_CAPTURE_TIME_S;
+} NET_CaptureTime_S;
+
+typedef NET_CaptureTime_S* pNET_CaptureTime_S;
 
 /**
  * @struct tagNETTVCaptureDaySchedule
  * @brief 抓图日程
  * @attention
  */
-typedef struct tagNETTVCaptureDaySchedule
+typedef struct tagNET_CaptureDaySchedule
 {
     INT32               nDayOfWeek; /* 1~7: Monday~Sunday */
     UINT32              udwTimeCount;
-    NET_TV_CAPTURE_TIME_S astTimes[NET_TV_PLAN_TIME_SECTION_NUM_ADAY];
+    NET_CaptureTime_S astTimes[NET_TV_PLAN_TIME_SECTION_NUM_ADAY];
     BYTE                byRes[64];
-} NET_TV_CAPTURE_DAY_SCHEDULE_S, *LPNET_TV_CAPTURE_DAY_SCHEDULE_S;
+} NET_CaptureDaySchedule_S;
+
+typedef NET_CaptureDaySchedule_S* pNET_CaptureDaySchedule_S;
 
 /**
  * @struct tagNETTVCapturePlanInfo
  * @brief 抓图计划信息
  * @attention
  */
-typedef struct tagNETTVCapturePlanInfo
+typedef struct tagNET_CapturePlanInfo
 {
-    NET_TV_CAPTURE_DAY_SCHEDULE_S astDaySchedules[NET_TV_PLAN_DAY_NUM_AWEEK];
+    NET_CaptureDaySchedule_S astDaySchedules[NET_TV_PLAN_DAY_NUM_AWEEK];
     BYTE                byRes[256];
-} NET_TV_CAPTURE_PLAN_INFO_S, *LPNET_TV_CAPTURE_PLAN_INFO_S;
+} NET_CapturePlanInfo_S;
+
+typedef NET_CapturePlanInfo_S* pNET_CapturePlanInfo_S;
 
 /**
  * @struct tagNET_CaptureConfig
@@ -2195,14 +2219,16 @@ typedef NET_CaptureInfo_S* pNET_CaptureInfo_S;
  * @brief 设备登录信息
  * @attention
  */
-typedef struct tagstNETTVDeviceLoginInfo
+typedef struct tagNET_DeviceLoginInfo
 {    
     CHAR    szIPAddr[NET_TV_LEN_260];       /* IP地址/域名 */
     INT32   dwPort;                         /* 端口号 */
     CHAR    szUserName[NET_TV_LEN_132];     /* 用户名 */
     CHAR    szPassword[NET_TV_LEN_128];     /* 密码 */
     BYTE    byRes[256];                     /* 保留字段 */
-}NET_TV_DEVICE_LOGIN_INFO_S, *LPNET_TV_DEVICE_LOGIN_INFO_S;
+}NET_DeviceLoginInfo_S;
+
+typedef NET_DeviceLoginInfo_S* pNET_DeviceLoginInfo_S;
 
 /**
  * @brief 设备信息结构体
@@ -2287,105 +2313,121 @@ typedef NET_UserPasswordInfo_S* pNET_UserPasswordInfo_S;
  * @struct tagNETTVPageInfo
  * @brief 分页信息
  */
-typedef struct tagNETTVPageInfo
+typedef struct tagNET_PageInfo
 {
     INT32   nCurPage;
     INT32   nPageSize;
     INT32   nDataTotal;
     INT32   nPageTotal;
     BYTE    byRes[64];
-} NET_TV_PAGE_INFO_S, *LPNET_TV_PAGE_INFO_S;
+} NET_PageInfo_S;
+
+typedef NET_PageInfo_S* pNET_PageInfo_S;
 
 /**
  * @struct tagNETTVLoginLockInfo
  * @brief 登录锁定信息
  */
-typedef struct tagNETTVLoginLockInfo
+typedef struct tagNET_LoginLockInfo
 {
     BOOL    bIllegalLoginEnable;
     INT32   nCheckInterval;
     INT32   nMaxErrorTimes;
     INT32   nLockDuration;
     BYTE    byRes[64];
-} NET_TV_LOGIN_LOCK_INFO_S, *LPNET_TV_LOGIN_LOCK_INFO_S;
+} NET_LoginLockInfo_S;
+
+typedef NET_LoginLockInfo_S* pNET_LoginLockInfo_S;
 
 /**
  * @struct tagNETTVPwdPolicyInfo
  * @brief 密码策略信息
  */
-typedef struct tagNETTVPwdPolicyInfo
+typedef struct tagNET_PwdPolicyInfo
 {
     BOOL    bPwdSecurityLevelEnable;
     BOOL    bAllowLowLevelPwdLogin;
     BYTE    byRes[64];
-} NET_TV_PWD_POLICY_INFO_S, *LPNET_TV_PWD_POLICY_INFO_S;
+} NET_PwdPolicyInfo_S;
+
+typedef NET_PwdPolicyInfo_S* pNET_PwdPolicyInfo_S;
 
 /**
  * @struct tagNETTVSshAdminInfo
  * @brief SSH管理信息
  */
-typedef struct tagNETTVSshAdminInfo
+typedef struct tagNET_SshAdminInfo
 {
     BOOL    bSshEnable;
     INT32   nSshPort;
     CHAR    szSshStartTime[NET_TV_LEN_64];
     CHAR    szSshCountdown[NET_TV_LEN_64];
     BYTE    byRes[64];
-} NET_TV_SSH_ADMIN_INFO_S, *LPNET_TV_SSH_ADMIN_INFO_S;
+} NET_SshAdminInfo_S;
+
+typedef NET_SshAdminInfo_S* pNET_SshAdminInfo_S;
 
 /**
  * @struct tagNETTVSecurityServicesInfo
  * @brief 安全服务配置
  */
-typedef struct tagNETTVSecurityServicesInfo
+typedef struct tagNET_SecurityServicesInfo
 {
-    NET_TV_LOGIN_LOCK_INFO_S stLoginLock;
-    NET_TV_PWD_POLICY_INFO_S stPwdPolicy;
-    NET_TV_SSH_ADMIN_INFO_S stSshAdmin;
+    NET_LoginLockInfo_S stLoginLock;
+    NET_PwdPolicyInfo_S stPwdPolicy;
+    NET_SshAdminInfo_S stSshAdmin;
     BYTE    byRes[128];
-} NET_TV_SECURITY_SERVICES_INFO_S, *LPNET_TV_SECURITY_SERVICES_INFO_S;
+} NET_SecurityServicesInfo_S;
+
+typedef NET_SecurityServicesInfo_S* pNET_SecurityServicesInfo_S;
 
 /**
  * @struct tagNETTVSshCountdownInfo
  * @brief SSH倒计时信息
  */
-typedef struct tagNETTVSshCountdownInfo
+typedef struct tagNET_SshCountdownInfo
 {
     CHAR    szCountdown[NET_TV_LEN_64];
     BYTE    byRes[64];
-} NET_TV_SSH_COUNTDOWN_INFO_S, *LPNET_TV_SSH_COUNTDOWN_INFO_S;
+} NET_SshCountdownInfo_S;
+
+typedef NET_SshCountdownInfo_S* pNET_SshCountdownInfo_S;
 
 /**
  * @struct tagNETTVLogServerInfo
  * @brief 日志服务器配置
  */
-typedef struct tagNETTVLogServerInfo
+typedef struct tagNET_LogServerInfo
 {
     BOOL    bEnable;
     BOOL    bEnSsl;
     CHAR    szServerAddr[NET_TV_LEN_256];
     INT32   nPort;
     BYTE    byRes[128];
-} NET_TV_LOG_SERVER_INFO_S, *LPNET_TV_LOG_SERVER_INFO_S;
+} NET_LogServerInfo_S;
+
+typedef NET_LogServerInfo_S* pNET_LogServerInfo_S;
 
 /**
  * @struct tagNETTVLogRetrievalCond
  * @brief 日志检索条件
  */
-typedef struct tagNETTVLogRetrievalCond
+typedef struct tagNET_LogRetrievalCond
 {
     INT32   nType;
     INT32   nAction;
     CHAR    szStartTime[NET_TV_LEN_64];
     CHAR    szEndTime[NET_TV_LEN_64];
     BYTE    byRes[64];
-} NET_TV_LOG_RETRIEVAL_COND_S, *LPNET_TV_LOG_RETRIEVAL_COND_S;
+} NET_LogRetrievalCond_S;
+
+typedef NET_LogRetrievalCond_S* pNET_LogRetrievalCond_S;
 
 /**
  * @struct tagNETTVLogInfo
  * @brief 日志信息
  */
-typedef struct tagNETTVLogInfo
+typedef struct tagNET_LogInfo
 {
     CHAR    szStartTime[NET_TV_LEN_64];
     INT32   nType;
@@ -2395,26 +2437,30 @@ typedef struct tagNETTVLogInfo
     CHAR    szHost[NET_TV_LEN_64];
     CHAR    szContext[NET_TV_LEN_512];
     BYTE    byRes[64];
-} NET_TV_LOG_INFO_S, *LPNET_TV_LOG_INFO_S;
+} NET_LogInfo_S;
+
+typedef NET_LogInfo_S* pNET_LogInfo_S;
 
 /**
  * @struct tagNETTVLogList
  * @brief 日志查询结果列表
  */
-typedef struct tagNETTVLogList
+typedef struct tagNET_LogList
 {
-    NET_TV_LOG_RETRIEVAL_COND_S stCond;
-    NET_TV_PAGE_INFO_S stPage;
+    NET_LogRetrievalCond_S stCond;
+    NET_PageInfo_S stPage;
     INT32   nLogCount;
-    NET_TV_LOG_INFO_S astLogs[NET_TV_LOG_QUERY_COND_NUM];
+    NET_LogInfo_S astLogs[NET_TV_LOG_QUERY_COND_NUM];
     BYTE    byRes[128];
-} NET_TV_LOG_LIST_S, *LPNET_TV_LOG_LIST_S;
+} NET_LogList_S;
+
+typedef NET_LogList_S* pNET_LogList_S;
 
 /**
  * @struct tagNETTVRecordInfo
  * @brief 手动录像控制信息
  */
-typedef struct tagNETTVRecordInfo
+typedef struct tagNET_RecordInfo
 {
     INT32   nChnId;
     INT32   nVideoStatus;
@@ -2428,72 +2474,84 @@ typedef struct tagNETTVRecordInfo
     CHAR    szRecordTime[NET_TV_LEN_64];
     INT32   nStreamType;
     BYTE    byRes[128];
-} NET_TV_RECORD_INFO_S, *LPNET_TV_RECORD_INFO_S;
+} NET_RecordInfo_S;
+
+typedef NET_RecordInfo_S* pNET_RecordInfo_S;
 
 /**
  * @struct tagNETTVRecordStatusInfo
  * @brief 录像状态信息
  */
-typedef struct tagNETTVRecordStatusInfo
+typedef struct tagNET_RecordStatusInfo
 {
     INT32   nStatus;                            /* NET_TV_RECORD_STATUS_E */
     BYTE    byRes[64];
-} NET_TV_RECORD_STATUS_INFO_S, *LPNET_TV_RECORD_STATUS_INFO_S;
+} NET_RecordStatusInfo_S;
+
+typedef NET_RecordStatusInfo_S* pNET_RecordStatusInfo_S;
 
 /**
  * @struct tagNETTVRecordTime
  * @brief 录像计划时间段
  */
-typedef struct tagNETTVRecordTime
+typedef struct tagNET_RecordTime
 {
     INT32   nType;                              /* 1:定时录像, 2:事件录像 */
     INT32   nStartTime;                         /* 秒 */
     INT32   nEndTime;                           /* 秒 */
     BYTE    byRes[32];
-} NET_TV_RECORD_TIME_S, *LPNET_TV_RECORD_TIME_S;
+} NET_RecordTime_S;
+
+typedef NET_RecordTime_S* pNET_RecordTime_S;
 
 /**
  * @struct tagNETTVRecordDaySchedule
  * @brief 单日录像计划
  */
-typedef struct tagNETTVRecordDaySchedule
+typedef struct tagNET_RecordDaySchedule
 {
     INT32   nDayOfWeek;                         /* 1:周一 ... 7:周日 */
     INT32   nRecordTimeCount;
-    NET_TV_RECORD_TIME_S astRecordTimes[NET_TV_TIME_DURATION_NUM];
+    NET_RecordTime_S astRecordTimes[NET_TV_TIME_DURATION_NUM];
     BYTE    byRes[64];
-} NET_TV_RECORD_DAY_SCHEDULE_S, *LPNET_TV_RECORD_DAY_SCHEDULE_S;
+} NET_RecordDaySchedule_S;
+
+typedef NET_RecordDaySchedule_S* pNET_RecordDaySchedule_S;
 
 /**
  * @struct tagNETTVRecordSchedule
  * @brief 录像计划
  */
-typedef struct tagNETTVRecordSchedule
+typedef struct tagNET_RecordSchedule
 {
     BOOL    bEnable;
     INT32   nDayScheduleCount;
-    NET_TV_RECORD_DAY_SCHEDULE_S astDaySchedules[NET_TV_PLAN_DAY_NUM_AWEEK];
+    NET_RecordDaySchedule_S astDaySchedules[NET_TV_PLAN_DAY_NUM_AWEEK];
     BYTE    byRes[128];
-} NET_TV_RECORD_SCHEDULE_S, *LPNET_TV_RECORD_SCHEDULE_S;
+} NET_RecordSchedule_S;
+
+typedef NET_RecordSchedule_S* pNET_RecordSchedule_S;
 
 /**
  * @struct tagNETTVRecordAdvancedParam
  * @brief 录像高级参数
  */
-typedef struct tagNETTVRecordAdvancedParam
+typedef struct tagNET_RecordAdvancedParam
 {
     BOOL    bLoopWrite;
     INT32   nPreTime;
     INT32   nDelayTime;
     INT32   nStreamType;
     BYTE    byRes[128];
-} NET_TV_RECORD_ADVANCED_PARAM_S, *LPNET_TV_RECORD_ADVANCED_PARAM_S;
+} NET_RecordAdvancedParam_S;
+
+typedef NET_RecordAdvancedParam_S* pNET_RecordAdvancedParam_S;
 
 /**
  * @struct tagNETTVRecordFindCond
  * @brief 录像文件查找条件
  */
-typedef struct tagNETTVRecordFindCond
+typedef struct tagNET_RecordFindCond
 {
     INT32   nChnId;
     INT32   nType;
@@ -2504,89 +2562,103 @@ typedef struct tagNETTVRecordFindCond
     CHAR    szEndTime[NET_TV_LEN_64];
     CHAR    szFilename[NET_TV_FILE_NAME_LEN];
     BYTE    byRes[128];
-} NET_TV_RECORD_FIND_COND_S, *LPNET_TV_RECORD_FIND_COND_S;
+} NET_RecordFindCond_S;
+
+typedef NET_RecordFindCond_S* pNET_RecordFindCond_S;
 
 /**
  * @struct tagNETTVRecordVideoTime
  * @brief 指定日期录像时间段
  */
-typedef struct tagNETTVRecordVideoTime
+typedef struct tagNET_RecordVideoTime
 {
     INT32   nStartTime;
     INT32   nEndTime;
     BYTE    byRes[32];
-} NET_TV_RECORD_VIDEO_TIME_S, *LPNET_TV_RECORD_VIDEO_TIME_S;
+} NET_RecordVideoTime_S;
+
+typedef NET_RecordVideoTime_S* pNET_RecordVideoTime_S;
 
 /**
  * @struct tagNETTVRecordFindResult
  * @brief 录像查找结果项
  */
-typedef struct tagNETTVRecordFindResult
+typedef struct tagNET_RecordFindResult
 {
     INT32   nChnId;
     INT32   nDateCount;
     CHAR    aszDates[NET_TV_RECORD_DATE_MAX_NUM][NET_TV_LEN_64];
     CHAR    szFilename[NET_TV_FILE_NAME_LEN];
     INT32   nVideoTimeCount;
-    NET_TV_RECORD_VIDEO_TIME_S astVideoTimes[NET_TV_TIME_DURATION_NUM];
+    NET_RecordVideoTime_S astVideoTimes[NET_TV_TIME_DURATION_NUM];
     BYTE    byRes[128];
-} NET_TV_RECORD_FIND_RESULT_S, *LPNET_TV_RECORD_FIND_RESULT_S;
+} NET_RecordFindResult_S;
+
+typedef NET_RecordFindResult_S* pNET_RecordFindResult_S;
 
 /**
  * @struct tagNETTVRecordFileList
  * @brief 录像查找条件与结果
  */
-typedef struct tagNETTVRecordFileList
+typedef struct tagNET_RecordFileList
 {
-    NET_TV_RECORD_FIND_COND_S stFind;
+    NET_RecordFindCond_S stFind;
     INT32   nResultCount;
-    NET_TV_RECORD_FIND_RESULT_S astResults[NET_TV_RECORD_FILE_MAX_NUM];
+    NET_RecordFindResult_S astResults[NET_TV_RECORD_FILE_MAX_NUM];
     BYTE    byRes[128];
-} NET_TV_RECORD_FILE_LIST_S, *LPNET_TV_RECORD_FILE_LIST_S;
+} NET_RecordFileList_S;
+
+typedef NET_RecordFileList_S* pNET_RecordFileList_S;
 
 /**
  * @struct tagNETTVRecordDownloadInfo
  * @brief 录像下载任务
  */
-typedef struct tagNETTVRecordDownloadInfo
+typedef struct tagNET_RecordDownloadInfo
 {
     INT32   nChnId;
     CHAR    szPath[NET_TV_MAX_URL_LEN];
     CHAR    szStartTime[NET_TV_LEN_64];
     CHAR    szEndTime[NET_TV_LEN_64];
     BYTE    byRes[128];
-} NET_TV_RECORD_DOWNLOAD_INFO_S, *LPNET_TV_RECORD_DOWNLOAD_INFO_S;
+} NET_RecordDownloadInfo_S;
+
+typedef NET_RecordDownloadInfo_S* pNET_RecordDownloadInfo_S;
 
 /**
  * @struct tagNETTVRecordDownloadProgress
  * @brief 录像下载进度
  */
-typedef struct tagNETTVRecordDownloadProgress
+typedef struct tagNET_RecordDownloadProgress
 {
     CHAR    szFilename[NET_TV_FILE_NAME_LEN];
     INT32   nProgress;
     BYTE    byRes[64];
-} NET_TV_RECORD_DOWNLOAD_PROGRESS_S, *LPNET_TV_RECORD_DOWNLOAD_PROGRESS_S;
+} NET_RecordDownloadProgress_S;
+
+typedef NET_RecordDownloadProgress_S* pNET_RecordDownloadProgress_S;
 
 /**
  * @struct tagNETTVRecordDownloadList
  * @brief 录像下载任务列表
  */
-typedef struct tagNETTVRecordDownloadList
+typedef struct tagNET_RecordDownloadList
 {
     INT32   nDownloadCount;
-    NET_TV_RECORD_DOWNLOAD_INFO_S astDownloads[NET_TV_RECORD_DOWNLOAD_MAX_NUM];
+    NET_RecordDownloadInfo_S astDownloads[NET_TV_RECORD_DOWNLOAD_MAX_NUM];
     INT32   nProgressCount;
-    NET_TV_RECORD_DOWNLOAD_PROGRESS_S astProgress[NET_TV_RECORD_DOWNLOAD_MAX_NUM];
+    NET_RecordDownloadProgress_S astProgress[NET_TV_RECORD_DOWNLOAD_MAX_NUM];
     BYTE    byRes[128];
-} NET_TV_RECORD_DOWNLOAD_LIST_S, *LPNET_TV_RECORD_DOWNLOAD_LIST_S;
+} NET_RecordDownloadList_S;
+
+typedef NET_RecordDownloadList_S* pNET_RecordDownloadList_S;
 
 /**
  * @struct tagNETTVAudioCfg
  * @brief 音频配置参数
  * @note 对应 Audio_NS::AudioConfig_S
  */
-typedef struct tagNETTVAudioCfg
+typedef struct tagNET_AudioCfg
 {
     BOOL    bAudioSwitch;                        /* 音频开关 */
     INT32   enInputType;                         /* 输入类型 Audio_NS::AudioInputType_E */
@@ -2598,14 +2670,16 @@ typedef struct tagNETTVAudioCfg
     INT32   enOutputType;                        /* 输出类型 Audio_NS::AudioOutputType_E */
     UINT32  u32OutputVolume;                     /* 输出音量 */
     BYTE    byRes[128];                          /* 保留字段 */
-} NET_TV_AUDIO_CFG_S, *LPNET_TV_AUDIO_CFG_S;
+} NET_AudioCfg_S;
+
+typedef NET_AudioCfg_S* pNET_AudioCfg_S;
 
 /**
  * @struct tagNETTVNetworkInterfaces
  * @brief 网络配置信息 结构体定义 Network configuration information
  * @attention 无 None
  */
-typedef struct tagNETTVNetworkInterfaces
+typedef struct tagNET_NetworkCfg
 {
     INT32   dwMTU;                              /* MTU值  MTU value */
     BOOL    bIPv4DHCP;                          /* IPv4的DHCP  DHCP of IPv4 */
@@ -2613,7 +2687,9 @@ typedef struct tagNETTVNetworkInterfaces
     CHAR    szIPv4GateWay[NET_TV_LEN_32];       /* IPv4的网关地址  Gateway of IPv4 */
     CHAR    szIPv4SubnetMask[NET_TV_LEN_32];    /* IPv4的子网掩码  Subnet mask of IPv4 */
     BYTE    byRes[480];                         /* 保留字段  Reserved */
-}NET_TV_NETWORKCFG_S, *LPNET_TV_NETWORKCFG_S;
+}NET_NetworkCfg_S;
+
+typedef NET_NetworkCfg_S* pNET_NetworkCfg_S;
 
 /**
  * @struct tagNETTVRtspUrlInfo
@@ -2622,13 +2698,15 @@ typedef struct tagNETTVNetworkInterfaces
  * - szRtspUrl 由设备端生成并返回（可包含鉴权信息或 token，按项目约定）
  * - dwStreamIndex 参考 #NET_TV_LIVE_STREAM_INDEX_E（主/辅/第三流等）
  */
-typedef struct tagNETTVRtspUrlInfo
+typedef struct tagNET_RtspUrlInfo
 {
     INT32   dwChannel;                           /* 通道号  Channel ID */
     INT32   dwStreamIndex;                       /* 码流索引  Stream index */
     CHAR    szRtspUrl[NET_TV_LEN_260];           /* RTSP URL (e.g. rtsp://ip:port/...) */
     BYTE    byRes[256];                          /* 保留字段  Reserved */
-}NET_TV_RTSP_URL_INFO_S, *LPNET_TV_RTSP_URL_INFO_S;
+}NET_RtspUrlInfo_S;
+
+typedef NET_RtspUrlInfo_S* pNET_RtspUrlInfo_S;
 
 /**
  * @struct tagNETTVReplayUrlInfo
@@ -2637,14 +2715,16 @@ typedef struct tagNETTVRtspUrlInfo
  * - 调用方填充通道和起止时间。
  * - 设备端/服务端申请回放后填充 szUrl。
  */
-typedef struct tagNETTVReplayUrlInfo
+typedef struct tagNET_ReplayUrlInfo
 {
     INT32   dwChannel;                           /* 通道号 Channel ID */
     CHAR    szStartTime[NET_TV_LEN_64];          /* 开始时间 "YYYY-MM-DD HH:MM:SS" */
     CHAR    szEndTime[NET_TV_LEN_64];            /* 结束时间 "YYYY-MM-DD HH:MM:SS" */
     CHAR    szUrl[NET_TV_MAX_URL_LEN];           /* 回放播放地址 */
     BYTE    byRes[256];                          /* 保留字段 Reserved */
-}NET_TV_REPLAY_URL_INFO_S, *LPNET_TV_REPLAY_URL_INFO_S;
+}NET_ReplayUrlInfo_S;
+
+typedef NET_ReplayUrlInfo_S* pNET_ReplayUrlInfo_S;
 
 /**
  * @struct tagNETTVReplayCtrlInfo
@@ -2656,7 +2736,7 @@ typedef struct tagNETTVReplayUrlInfo
  * - `nSeekTime` 仅在 `NET_TV_REPLAY_CTRL_SET_SEEK` 时有效，表示回放时间轴上的跳转秒数
  * - `nReplayType` 表示平台点播回放控制类型，参见 `NET_TV_REPLAY_PLATFORM_CTRL_TYPE_E`
  */
-typedef struct tagNETTVReplayCtrlInfo
+typedef struct tagNET_ReplayCtrlInfo
 {
     INT32   dwChannel;                                   /* 通道号 Channel ID */
     INT32   dwCtrlType;                                  /* 控制类型，参见 NET_TV_REPLAY_CTRL_CMD_E */
@@ -2668,18 +2748,22 @@ typedef struct tagNETTVReplayCtrlInfo
     CHAR    szEndTime[NET_TV_LEN_64];                    /* 结束时间 "YYYY-MM-DD HH:MM:SS" */
     CHAR    szUrl[NET_TV_MAX_URL_LEN];                   /* 当前回放播放地址 */
     BYTE    byRes[128];                                  /* 保留字段 Reserved */
-} NET_TV_REPLAY_CTRL_INFO_S, *LPNET_TV_REPLAY_CTRL_INFO_S;
+} NET_ReplayCtrlInfo_S;
+
+typedef NET_ReplayCtrlInfo_S* pNET_ReplayCtrlInfo_S;
 
 /**
  * @struct tagNETTVReplayRecordTime
  * @brief 单个录像时间段
  */
-typedef struct tagNETTVReplayRecordTime
+typedef struct tagNET_ReplayRecordTime
 {
     INT32   nStartTime;                          /* 开始秒数，按当天 00:00:00 起算 */
     INT32   nEndTime;                            /* 结束秒数，按当天 00:00:00 起算 */
     BYTE    byRes[16];                           /* 保留字段 */
-} NET_TV_REPLAY_RECORD_TIME_S, *LPNET_TV_REPLAY_RECORD_TIME_S;
+} NET_ReplayRecordTime_S;
+
+typedef NET_ReplayRecordTime_S* pNET_ReplayRecordTime_S;
 
 /**
  * @struct tagNETTVReplayRecordList
@@ -2690,7 +2774,7 @@ typedef struct tagNETTVReplayRecordTime
  * - 新方式：可额外填写 `bFilterByEventType`、`dwEventType`、`szStartTime`、`szEndTime`
  * - 返回普通录像、人员事件、车辆事件、其他事件四类时间段
  */
-typedef struct tagNETTVReplayRecordList
+typedef struct tagNET_ReplayRecordList
 {
     INT32   dwChannel;                                                   /* 通道号 Channel ID */
     BOOL    bFilterByEventType;                                          /* 是否按事件类型过滤 FALSE:不过滤 TRUE:按 dwEventType 过滤 */
@@ -2699,55 +2783,63 @@ typedef struct tagNETTVReplayRecordList
     CHAR    szStartTime[NET_TV_MAX_DATE_STRING_LEN];                     /* 开始时间 "YYYY-MM-DD HH:MM:SS"，为空则按整天开始 */
     CHAR    szEndTime[NET_TV_MAX_DATE_STRING_LEN];                       /* 结束时间 "YYYY-MM-DD HH:MM:SS"，为空则按整天结束 */
     INT32   nVideoCount;                                                 /* 普通录像时间段数量 */
-    NET_TV_REPLAY_RECORD_TIME_S astVideoTimes[NET_TV_REPLAY_RECORD_SEGMENT_MAX];
+    NET_ReplayRecordTime_S astVideoTimes[NET_TV_REPLAY_RECORD_SEGMENT_MAX];
     INT32   nPersonEventCount;                                           /* 人员事件时间段数量 */
-    NET_TV_REPLAY_RECORD_TIME_S astPersonEventTimes[NET_TV_REPLAY_RECORD_SEGMENT_MAX];
+    NET_ReplayRecordTime_S astPersonEventTimes[NET_TV_REPLAY_RECORD_SEGMENT_MAX];
     INT32   nVehicleEventCount;                                          /* 车辆事件时间段数量 */
-    NET_TV_REPLAY_RECORD_TIME_S astVehicleEventTimes[NET_TV_REPLAY_RECORD_SEGMENT_MAX];
+    NET_ReplayRecordTime_S astVehicleEventTimes[NET_TV_REPLAY_RECORD_SEGMENT_MAX];
     INT32   nOtherEventCount;                                            /* 其他事件时间段数量 */
-    NET_TV_REPLAY_RECORD_TIME_S astOtherEventTimes[NET_TV_REPLAY_RECORD_SEGMENT_MAX];
+    NET_ReplayRecordTime_S astOtherEventTimes[NET_TV_REPLAY_RECORD_SEGMENT_MAX];
     BYTE    byRes[64];                                                   /* 保留字段 */
-} NET_TV_REPLAY_RECORD_LIST_S, *LPNET_TV_REPLAY_RECORD_LIST_S;
+} NET_ReplayRecordList_S;
+
+typedef NET_ReplayRecordList_S* pNET_ReplayRecordList_S;
 
 /**
  * @struct tagNETTVPreviewRtspUrlInfo
  * @brief 预览RTSP地址信息 Preview RTSP URL information
  */
-typedef struct tagNETTVPreviewRtspUrlInfo
+typedef struct tagNET_PreviewRtspUrl
 {
     CHAR    szRtspMainUrl[NET_TV_MAX_URL_LEN];   /* 主码流RTSP地址 */
     CHAR    szRtspSubUrl[NET_TV_MAX_URL_LEN];    /* 子码流RTSP地址 */
     BYTE    byRes[64];                           /* 保留字段 */
-}NET_TV_PREVIEW_RTSP_URL_S, *LPNET_TV_PREVIEW_RTSP_URL_S;
+}NET_PreviewRtspUrl_S;
+
+typedef NET_PreviewRtspUrl_S* pNET_PreviewRtspUrl_S;
 
 /**
  *  @struct tagNETTVWifiStaCfg
  *  @brief WIFI STA基础配置
  */
-typedef struct tagNETTVWifiStaCfg
+typedef struct tagNET_WifiStaCfg
 {
     BOOL    bEnableWifi;                        /* 是否开启WiFi */
     BOOL    bEnableBoost;                       /* 是否开启增强功能 */
     BYTE    byRes[64];                          /* 保留字段 */
-} NET_TV_WIFI_STA_CFG_S, *LPNET_TV_WIFI_STA_CFG_S;
+} NET_WifiStaCfg_S;
+
+typedef NET_WifiStaCfg_S* pNET_WifiStaCfg_S;
 
 /**
  *  @struct tagNETTVWifiWepKey
  *  @brief WIFI WEP 密码项
  */
-typedef struct tagNETTVWifiWepKey
+typedef struct tagNET_WifiWepKey
 {
     INT32   nIndex;                             /* 密钥索引 1-4 */
     CHAR    szValue[NET_TV_LEN_132];            /* 密钥内容 */
     BYTE    byRes[32];                          /* 保留字段 */
-} NET_TV_WIFI_WEP_KEY_S, *LPNET_TV_WIFI_WEP_KEY_S;
+} NET_WifiWepKey_S;
+
+typedef NET_WifiWepKey_S* pNET_WifiWepKey_S;
 
 
 /**
  * @struct tagNETTVWifiStaConnect
  * @brief WIFI STA连接参数
  */
-typedef struct tagNETTVWifiStaConnect
+typedef struct tagNET_WifiStaConnect
 {
     CHAR    szSsid[NET_TV_NAME_MAX_LEN];        /* SSID */
     INT32   nSecurityMode;                      /* NET_TV_WIFI_SECURITY_MODE_E */
@@ -2758,7 +2850,7 @@ typedef struct tagNETTVWifiStaConnect
     BOOL    bWepIsHex;                          /* true=hex,false=ascii */
     CHAR    szAuthAlg[NET_TV_LEN_32];           /* OPEN/SHARED */
     INT32   nWepKeyCount;
-    NET_TV_WIFI_WEP_KEY_S astWepKeys[4];
+    NET_WifiWepKey_S astWepKeys[4];
 
     CHAR    szEapIdentity[NET_TV_LEN_132];
     CHAR    szEapPassword[NET_TV_LEN_132];
@@ -2776,13 +2868,15 @@ typedef struct tagNETTVWifiStaConnect
     CHAR    szCtrlInterface[NET_TV_LEN_260];
     CHAR    szInterfaceName[NET_TV_LEN_64];
     BYTE    byRes[256];
-} NET_TV_WIFI_STA_CONNECT_S, *LPNET_TV_WIFI_STA_CONNECT_S;
+} NET_WifiStaConnect_S;
+
+typedef NET_WifiStaConnect_S* pNET_WifiStaConnect_S;
 
 /**
  * @struct tagNETTV4GInfo
  * @brief 4G配置
  */
-typedef struct tagNETTV4GInfo
+typedef struct tagNET_4GInfo
 {
     CHAR    szApn[NET_TV_LEN_64];
     CHAR    szUserName[NET_TV_LEN_132];
@@ -2793,13 +2887,15 @@ typedef struct tagNETTV4GInfo
     INT32   nNetworkMode;                       /* 0:Auto,1:4G,2:3G,3:2G */
     INT32   nDialMode;                          /* 0:Auto,1:Manual */
     BYTE    byRes[128];
-} NET_TV_4G_INFO_S, *LPNET_TV_4G_INFO_S;
+} NET_4GInfo_S;
+
+typedef NET_4GInfo_S* pNET_4GInfo_S;
 
 /**
  * @struct tagNETTVHotspotInfo
  * @brief 热点配置
  */
-typedef struct tagNETTVHotspotInfo
+typedef struct tagNET_HotspotInfo
 {
     BOOL    bEnabled;
     CHAR    szSsid[NET_TV_NAME_MAX_LEN];
@@ -2808,77 +2904,89 @@ typedef struct tagNETTVHotspotInfo
     CHAR    szPassword[NET_TV_LEN_132];
     CHAR    szConfirmPassword[NET_TV_LEN_132];
     BYTE    byRes[128];
-} NET_TV_HOTSPOT_INFO_S, *LPNET_TV_HOTSPOT_INFO_S;
+} NET_HotspotInfo_S;
+
+typedef NET_HotspotInfo_S* pNET_HotspotInfo_S;
 
 /**
  * @struct tagNETTVHotspotConnDevice
  * @brief 热点连接设备项
  */
-typedef struct tagNETTVHotspotConnDevice
+typedef struct tagNET_HotspotConnDevice
 {
     INT32   nIndex;
     CHAR    szMac[NET_TV_LEN_64];
     CHAR    szIp[NET_TV_IPADDR_STR_MAX_LEN];
     CHAR    szConnTime[NET_TV_LEN_64];
-} NET_TV_HOTSPOT_CONN_DEVICE_S, *LPNET_TV_HOTSPOT_CONN_DEVICE_S;
+} NET_HotspotConnDevice_S;
+
+typedef NET_HotspotConnDevice_S* pNET_HotspotConnDevice_S;
 
 /**
  * @struct tagNETTVHotspotConnInfo
  * @brief 热点连接设备列表
  */
-typedef struct tagNETTVHotspotConnInfo
+typedef struct tagNET_HotspotConnInfo
 {
     CHAR    szStatus[NET_TV_LEN_32];
     INT32   nTotal;
     INT32   nDeviceCount;
-    NET_TV_HOTSPOT_CONN_DEVICE_S astDevices[NET_TV_HOTSPOT_CONN_MAX_NUM];
-} NET_TV_HOTSPOT_CONN_INFO_S, *LPNET_TV_HOTSPOT_CONN_INFO_S;
+    NET_HotspotConnDevice_S astDevices[NET_TV_HOTSPOT_CONN_MAX_NUM];
+} NET_HotspotConnInfo_S;
+
+typedef NET_HotspotConnInfo_S* pNET_HotspotConnInfo_S;
 
 
 /**
  * @struct tagNETTVPreviewImageParam
  * @brief 预览图像参数 Preview image parameters
  */
-typedef struct tagNETTVPreviewImageParam
+typedef struct tagNET_PreviewImageParam
 {
     INT32   nBrightness;                         /* 亮度 [0,100] */
     INT32   nContrast;                           /* 对比度 [0,100] */
     INT32   nSaturation;                         /* 饱和度 [0,100] */
     INT32   nSharpness;                          /* 锐度 [0,100] */
     BYTE    byRes[64];                           /* 保留字段 */
-}NET_TV_PREVIEW_IMAGE_PARAM_S, *LPNET_TV_PREVIEW_IMAGE_PARAM_S;
+}NET_PreviewImageParam_S;
+
+typedef NET_PreviewImageParam_S* pNET_PreviewImageParam_S;
 
 /**
  * @brief 图像配置参数 Image setting parameters
  * @note 用于 NET_TV_GET_IMAGECFG / NET_TV_SET_IMAGECFG，对应 IPC ISP::ImageParam_S
  */
-typedef struct tagNETTVImageSetting
+typedef struct tagNET_ImageSetting
 {
     UINT32  nBrightness;                         /* 亮度 [0,100] */
     UINT32  nContrast;                           /* 对比度 [0,100] */
     UINT32  nSaturation;                         /* 饱和度 [0,100] */
     UINT32  nSharpness;                          /* 锐度 [0,100] */
     BYTE    byRes[64];                           /* 保留字段 */
-}NET_TV_IMAGE_SETTING_S, *LPNET_TV_IMAGE_SETTING_S;
+}NET_ImageSetting_S;
+
+typedef NET_ImageSetting_S* pNET_ImageSetting_S;
 
 /**
  * @struct tagNETTVPreviewInfo
  * @brief 预览信息 Preview information
  * @note 用于NET_TV_GET_PREVIEW_INFO/NET_TV_SET_PREVIEW_INFO
  */
-typedef struct tagNETTVPreviewInfo
+typedef struct tagNET_PreviewInfo
 {
-    NET_TV_PREVIEW_RTSP_URL_S stRtspUrl;         /* 预览流地址 */
-    NET_TV_PREVIEW_IMAGE_PARAM_S stImageParam;   /* 图像参数 */
+    NET_PreviewRtspUrl_S stRtspUrl;         /* 预览流地址 */
+    NET_PreviewImageParam_S stImageParam;   /* 图像参数 */
     BYTE    byRes[256];                          /* 保留字段 */
-}NET_TV_PREVIEW_INFO_S, *LPNET_TV_PREVIEW_INFO_S;
+}NET_PreviewInfo_S;
+
+typedef NET_PreviewInfo_S* pNET_PreviewInfo_S;
 
 /**
  * @struct tagNETTVChannelInfo
  * @brief 通用通道信息 Channel information
  * @note 可用于单通道查询，也可作为通道列表项。
  */
-typedef struct tagNETTVChannelInfo
+typedef struct tagNET_ChannelInfo
 {
     UINT32  dwSize;                              /* 结构体大小 */
 
@@ -2918,33 +3026,39 @@ typedef struct tagNETTVChannelInfo
     CHAR    szRtspSubUrl[NET_TV_MAX_URL_LEN];     /* 直连子码流地址 */
 
     BYTE    byRes[512];                          /* 保留字段 */
-}NET_TV_CHANNEL_INFO_S, *LPNET_TV_CHANNEL_INFO_S;
+}NET_ChannelInfo_S;
+
+typedef NET_ChannelInfo_S* pNET_ChannelInfo_S;
 
 #ifndef NET_TV_MAX_CHANNEL_NUM
 #define NET_TV_MAX_CHANNEL_NUM 128
 #endif
 
-typedef struct tagNETTVChannelList
+typedef struct tagNET_ChannelList
 {
     UINT32  dwSize;
     UINT32  dwChannelCount;                      /* 实际通道数量 */
-    NET_TV_CHANNEL_INFO_S stChannels[NET_TV_MAX_CHANNEL_NUM];
+    NET_ChannelInfo_S stChannels[NET_TV_MAX_CHANNEL_NUM];
     BYTE    byRes[512];
-}NET_TV_CHANNEL_LIST_S, *LPNET_TV_CHANNEL_LIST_S;
+}NET_ChannelList_S;
 
-typedef NET_TV_CHANNEL_INFO_S NET_TV_DIRECT_CONNECT_CHAN_INFO_S, *LPNET_TV_DIRECT_CONNECT_CHAN_INFO_S;
+typedef NET_ChannelList_S* pNET_ChannelList_S;
+
+typedef NET_ChannelInfo_S NET_DirectConnectChanInfo_S, *pNET_DirectConnectChanInfo_S;
 
 /**
  * @struct tagNETTVRevTimeout
  * @brief 超时时间 结构体定义  Timeout structure definition
  * @attention
 */
-typedef struct tagNETTVRevTimeout
+typedef struct tagNET_RevTimeout
 {
     INT32   dwRevTimeOut;                 /* 设置接收超时时间 Set timeout for receiving */
     INT32   dwFileReportTimeOut;          /* 设置文件操作超时时间 Set timeout for file operation */
     BYTE    byRes[128];                   /* 保留字段  Reserved */
-}NET_TV_REV_TIMEOUT_S, *LPNET_TV_REV_TIMEOUT_S;
+}NET_RevTimeout_S;
+
+typedef NET_RevTimeout_S* pNET_RevTimeout_S;
 
 /**
  * @struct tagNET_AlarmBasicInfo
@@ -3167,14 +3281,16 @@ typedef NET_AlarmStatisticsInfo_S* pNET_AlarmStatisticsInfo_S;
  * @brief 时间段结构体 Schedule time structure
  * @note 用于布防时间配置
  */
-typedef struct tagNETTVSchedTime
+typedef struct tagNET_SchedTime
 {
     INT32       nStartHour;                          /* 开始小时 [0-23] */
     INT32       nStartMinute;                       /* 开始分钟 [0-59] */
     INT32       nEndHour;                           /* 结束小时 [0-23] */
     INT32       nEndMinute;                         /* 结束分钟 [0-59] */
     BYTE        byRes[16];                          /* 保留字段 */
-}NET_TV_SCHED_TIME_S, *LPNET_TV_SCHED_TIME_S;
+}NET_SchedTime_S;
+
+typedef NET_SchedTime_S* pNET_SchedTime_S;
 
 /**
  * @struct tagNET_AlarmSchedule
@@ -3184,7 +3300,7 @@ typedef struct tagNETTVSchedTime
 typedef struct tagNET_AlarmSchedule
 {
     INT32       uTimeSectionCount[7];                /* 每天的时间段数量 [0-8] */
-    NET_TV_SCHED_TIME_S astTimeSection[7][NET_TV_PLAN_SECTION_NUM]; /* 一周7天，每天最多8个时间段 */
+    NET_SchedTime_S astTimeSection[7][NET_TV_PLAN_SECTION_NUM]; /* 一周7天，每天最多8个时间段 */
     BYTE        byRes[64];                          /* 保留字段 */
 } NET_AlarmSchedule_S;
 
@@ -3344,7 +3460,7 @@ typedef NET_MotionRegion_S* pNET_MotionRegion_S;
 typedef struct tagNET_MotionExpertMode
 {
     INT32       nExpertDayNightCtrl;                /* 日夜控制：0-关闭(默认)，1-自动切换，2-定时切换 */
-    NET_TV_SCHED_TIME_S stDayTime;                  /* 日夜切换时间 定时切换时有效 */
+    NET_SchedTime_S stDayTime;                  /* 日夜切换时间 定时切换时有效 */
     INT32       uRegionCount;                       /* 区域数量 */
     NET_MotionRegion_S astRegion[16];               /* 移动侦测专家模式区域参数，最多16个 */
     BYTE        byRes[128];                         /* 保留字段 */
@@ -3398,7 +3514,7 @@ typedef NET_MotionAlarmInfo_S* pNET_MotionAlarmInfo_S;
  * @brief 单个隐私遮盖区域 Privacy mask area
  * @note 用于NET_TV_PRIVACY_MASK_CFG_S中配置单个遮盖区域
  */
-typedef struct tagNETTVPrivacyMaskArea
+typedef struct tagNET_PrivacyMaskArea
 {
     INT32       nAreaID;                              /* 遮盖区域ID [0, NET_TV_MAX_PRIVACY_MASK_AREA_NUM) */
     BOOL        bEnable;                              /* 是否启用 0-不启用 1-启用 */
@@ -3407,20 +3523,24 @@ typedef struct tagNETTVPrivacyMaskArea
     INT32       nRectRight;                           /* 遮盖区域右坐标 [0, 8191] */
     INT32       nRectBottom;                          /* 遮盖区域下坐标 [0, 8191] */
     BYTE        byRes[32];                            /* 保留字段 */
-}NET_TV_PRIVACY_MASK_AREA_S, *LPNET_TV_PRIVACY_MASK_AREA_S;
+}NET_PrivacyMaskArea_S;
+
+typedef NET_PrivacyMaskArea_S* pNET_PrivacyMaskArea_S;
 
 /**
  * @struct tagNETTVPrivacyMaskCfg
  * @brief 隐私遮盖配置信息 Privacy mask configuration
  * @note 用于NET_TV_GET_PRIVACYMASKCFG/NET_TV_SET_PRIVACYMASKCFG
  */
-typedef struct tagNETTVPrivacyMaskCfg
+typedef struct tagNET_PrivacyMaskCfg
 {
     BOOL        bEnable;                              /* 是否启用隐私遮盖 0-不启用 1-启用 */
     INT32       dwAreaCount;                          /* 遮盖区域数量 [0, NET_TV_MAX_PRIVACY_MASK_AREA_NUM] */
-    NET_TV_PRIVACY_MASK_AREA_S astArea[NET_TV_MAX_PRIVACY_MASK_AREA_NUM]; /* 遮盖区域数组 */
+    NET_PrivacyMaskArea_S astArea[NET_TV_MAX_PRIVACY_MASK_AREA_NUM]; /* 遮盖区域数组 */
     BYTE        byRes[256];                           /* 保留字段 */
-}NET_TV_PRIVACY_MASK_CFG_S, *LPNET_TV_PRIVACY_MASK_CFG_S;
+}NET_PrivacyMaskCfg_S;
+
+typedef NET_PrivacyMaskCfg_S* pNET_PrivacyMaskCfg_S;
 
 /* ==================== 遮挡报警相关结构体 ==================== */
 
@@ -4398,45 +4518,51 @@ typedef NET_FaceCompareInfo_S* pNET_FaceCompareInfo_S;
  * @brief 目标库信息 Face library information
  * @note 用于NET_TV_ADD_TARGET_LIB/NET_TV_DEL_TARGET_LIB/NET_TV_SET_TARGET_LIB
  */
-typedef struct tagNETTVFaceLibInfo
+typedef struct tagNET_FaceLibInfo
 {
     CHAR    szFaceLibName[NET_TV_FACE_DB_NAME_LEN];     /* 目标库名称 */
     INT32   nTotalFace;                                 /* 总人脸数 */
     INT32   nNormalNum;                                 /* 正常个数 */
     INT32   nAbnormalNum;                               /* 异常个数 */
     BYTE    byRes[256];                                 /* 保留字段 */
-}NET_TV_FACE_LIB_INFO_S, *LPNET_TV_FACE_LIB_INFO_S;
+}NET_FaceLibInfo_S;
+
+typedef NET_FaceLibInfo_S* pNET_FaceLibInfo_S;
 
 /**
  * @struct tagNETTVFaceLibList
  * @brief 目标库列表 Face library list
  * @note 用于NET_TV_GET_TARGET_LIB
  */
-typedef struct tagNETTVFaceLibList
+typedef struct tagNET_FaceLibList
 {
     INT32                   nTargetLibCount;                            /* 目标库数量 */
-    NET_TV_FACE_LIB_INFO_S  astTargetLibInfos[NET_TV_FACE_LIB_MAX_NUM]; /* 目标库信息列表 */
+    NET_FaceLibInfo_S  astTargetLibInfos[NET_TV_FACE_LIB_MAX_NUM]; /* 目标库信息列表 */
     BYTE                    byRes[256];                                 /* 保留字段 */
-}NET_TV_FACE_LIB_LIST_S, *LPNET_TV_FACE_LIB_LIST_S;
+}NET_FaceLibList_S;
+
+typedef NET_FaceLibList_S* pNET_FaceLibList_S;
 
 /**
  * @struct tagNETTVFaceIdInfo
  * @brief 人脸ID信息 Face id information
  * @note 用于NET_TV_DEL_FACE_INFO
  */
-typedef struct tagNETTVFaceIdInfo
+typedef struct tagNET_FaceIdInfo
 {
     INT32   nIdCount;                                   /* 人脸ID数量 */
     INT32   anIds[NET_TV_FACE_ID_MAX_NUM];              /* 人脸ID列表 */
     BYTE    byRes[256];                                 /* 保留字段 */
-}NET_TV_FACE_ID_INFO_S, *LPNET_TV_FACE_ID_INFO_S;
+}NET_FaceIdInfo_S;
+
+typedef NET_FaceIdInfo_S* pNET_FaceIdInfo_S;
 
 /**
  * @struct tagNETTVFaceInfo
  * @brief 人脸信息 Face information
  * @note 用于NET_TV_ADD_FACE_INFO/NET_TV_SET_FACE_INFO
  */
-typedef struct tagNETTVFaceInfo
+typedef struct tagNET_FaceInfo
 {
     INT32   nId;                                        /* 人脸ID */
     CHAR    szFaceLibName[NET_TV_FACE_DB_NAME_LEN];     /* 名单组名称 */
@@ -4450,19 +4576,23 @@ typedef struct tagNETTVFaceInfo
     INT32   nModelState;                                /* 模型状态, 0未处理，1成功，-1失败 */
     INT32   nRatingLevel;                               /* 评估等级, 0全部，1评分未知，2低，3高 */
     BYTE    byRes[256];                                 /* 保留字段 */
-}NET_TV_FACE_INFO_S, *LPNET_TV_FACE_INFO_S;
+}NET_FaceInfo_S;
+
+typedef NET_FaceInfo_S* pNET_FaceInfo_S;
 
 /**
  * @struct tagNETTVFaceInfoList
  * @brief 人脸信息列表 Face information list
  * @note 用于NET_TV_GET_FACE_INFO
  */
-typedef struct tagNETTVFaceInfoList
+typedef struct tagNET_FaceInfoList
 {
     INT32               nFaceInfoCount;                         /* 人脸信息数量 */
-    NET_TV_FACE_INFO_S  astFaceInfos[NET_TV_FACE_INFO_MAX_NUM]; /* 人脸信息列表 */
+    NET_FaceInfo_S  astFaceInfos[NET_TV_FACE_INFO_MAX_NUM]; /* 人脸信息列表 */
     BYTE                byRes[256];                             /* 保留字段 */
-}NET_TV_FACE_INFO_LIST_S, *LPNET_TV_FACE_INFO_LIST_S;
+}NET_FaceInfoList_S;
+
+typedef NET_FaceInfoList_S* pNET_FaceInfoList_S;
 
 /**
  * @brief 报警设备信息结构体
@@ -4488,7 +4618,7 @@ typedef NET_Alarmer_S* pNET_Alarmer_S;
  * @brief 视频源分辨率信息 Video resolution
  * @attention 无
 */
-typedef struct tagNETTVVideoResolution
+typedef struct tagNET_VideoResolution
 {
     CHAR  szName[NET_TV_LEN_32];                              /* 分辨率名称, 如 1920*1080 */
     INT32 dwWidth;                                             /*  视频编码分辨率 */
@@ -4499,29 +4629,33 @@ typedef struct tagNETTVVideoResolution
     FLOAT adwFrameRate[NET_TV_VIDEO_FRAME_RATE_MAX_NUM];       /*  该分辨率支持的帧率fps数组 */
     INT32 dwBitRateMin;                                        /*  该分辨率支持的最小码率kbps */
     INT32 dwBitRateMax;                                        /*  该分辨率支持的最大码率kbps */
-}NET_TV_VIDEO_RESOLUTION_S, *LPNET_TV_VIDEO_RESOLUTION_S;
+}NET_VideoResolution_S;
+
+typedef NET_VideoResolution_S* pNET_VideoResolution_S;
 
 /**
  * @struct tagNETTVRange
  * @brief 取值范围 Range
  * @attention 无
 */
-typedef struct tagNETTVRange
+typedef struct tagNET_Range
 {
     INT32   dwMin;                         /* 最小值 */
     INT32   dwMax;                         /* 最大值 */
-}NET_TV_RANGE_S, *LPNET_TV_RANGE_S;
+}NET_Range_S;
+
+typedef NET_Range_S* pNET_Range_S;
 
 /**
  * @struct tagNET_TVVideoEncodeOption
  * @brief 视频编码参数选项 Video encode option
  * @attention 无
 */
-typedef struct tagNET_TVVideoEncodeOption
+typedef struct tagNET_VideoEncodeOption
 {
     INT32                       nId;                                                /* 视频码流ID 0-主码流 1-子码流 2-JPEG */
     INT32                       enVideoType;                                       /* 视频类型 0-复合流 1-视频流 */
-    NET_TV_VIDEO_RESOLUTION_S   stVideoResolution;                                 /* 视频分辨率 */
+    NET_VideoResolution_S   stVideoResolution;                                 /* 视频分辨率 */
     INT32                       enBitrateType;                                     /* 码率类型 */
     INT32                       enImageQuality;                                    /* 图像质量 */
     INT32                       enFrameRate;                                       /* 视频帧率fps */
@@ -4534,14 +4668,16 @@ typedef struct tagNET_TVVideoEncodeOption
     INT32                       enSvcEnable;                                       /* SVC智能编码 */
     INT32                       nBitrateSmoothing;                                 /* 码流平滑 */
     BYTE                        byRes[256];                                        /* 保留字段 */
-}NET_TV_VIDEO_ENCODE_OPTION_S, *LPNET_TV_VIDEO_ENCODE_OPTION_S;
+}NET_VideoEncodeOption_S;
+
+typedef NET_VideoEncodeOption_S* pNET_VideoEncodeOption_S;
 
 /**
  * @struct tagNET_TVVideoEncodeAbility
  * @brief 单个编码格式能力 Video encode ability
  * @attention 对应 Video_NS::EncodeAbility_S
 */
-typedef struct tagNET_TVVideoEncodeAbility
+typedef struct tagNET_VideoEncodeAbility
 {
     CHAR                        szVideoCodec[NET_TV_LEN_32];                       /* 视频编码字符串, 如 H.264/H.265 */
     INT32                       enVideoCodec;                                      /* 视频编码 NET_TV_VIDEO_CODE_TYPE_E */
@@ -4552,42 +4688,48 @@ typedef struct tagNET_TVVideoEncodeAbility
     INT32                       bSupportSVC;                                       /* 是否支持 SVC */
     INT32                       bSupportStreamSmooth;                              /* 是否支持码流平滑 */
     BYTE                        byRes[64];                                         /* 保留字段 */
-}NET_TV_VIDEO_ENCODE_ABILITY_S, *LPNET_TV_VIDEO_ENCODE_ABILITY_S;
+}NET_VideoEncodeAbility_S;
+
+typedef NET_VideoEncodeAbility_S* pNET_VideoEncodeAbility_S;
 
 /**
  * @struct tagNET_TVVideoStreamCap
  * @brief 视频码流参数能力集 Video stream CapNET_TV_CAP_OSD
  * @attention 无
 */
-typedef struct tagNET_TVVideoStreamCap
+typedef struct tagNET_VideoStreamCap
 {
     INT32                           dwStreamType;                                   /* 码流类型 入参 参见 NET_TV_LIVES_TREAM_INDEX_E */
     INT32                           bSupportMultiStream;                            /* 是否支持复合流(包含音频) Support multi stream */
     INT32                           dwEncodeCapSize;                                /* 编码能力集个数 Encode capability size */
-    NET_TV_VIDEO_ENCODE_OPTION_S    astEncodeCap[NET_TV_VIDEO_ENCODE_TYPE_MAX];     /* 编码能力 Encode capability */
-    NET_TV_RANGE_S                  stQuality;                                      /* 图像质量范围 Quality range */
-    NET_TV_RANGE_S                  stStreamSmooth;                                 /* 码流平滑范围 Stream smooth range */
+    NET_VideoEncodeOption_S    astEncodeCap[NET_TV_VIDEO_ENCODE_TYPE_MAX];     /* 编码能力 Encode capability */
+    NET_Range_S                  stQuality;                                      /* 图像质量范围 Quality range */
+    NET_Range_S                  stStreamSmooth;                                 /* 码流平滑范围 Stream smooth range */
     INT32                           dwResolutionNum;                                /* 支持的分辨率个数 Number of supported resolutions */
-    NET_TV_VIDEO_RESOLUTION_S       astResolution[NET_TV_RESOLUTION_NUM_MAX];       /* 支持的分辨率列表 Supported resolution list */
+    NET_VideoResolution_S       astResolution[NET_TV_RESOLUTION_NUM_MAX];       /* 支持的分辨率列表 Supported resolution list */
     INT32                           dwEncodeTypeNum;                                /* 编码格式有效个数 */
     INT32                           dwEncodeAbilityNum;                             /* 编码能力有效个数 */
-    NET_TV_VIDEO_ENCODE_ABILITY_S   astEncodeAbility[NET_TV_VIDEO_ENCODE_TYPE_MAX]; /* 编码格式能力列表 */
+    NET_VideoEncodeAbility_S   astEncodeAbility[NET_TV_VIDEO_ENCODE_TYPE_MAX]; /* 编码格式能力列表 */
     INT32                           dwIFrameIntervalMin;                            /* I帧间隔最小值 */
     INT32                           dwIFrameIntervalMax;                            /* I帧间隔最大值 */
-}NET_TV_VIDEO_STREAM_CAP_S, *LPNET_TV_VIDEO_STREAM_CAP_S;
+}NET_VideoStreamCap_S;
+
+typedef NET_VideoStreamCap_S* pNET_VideoStreamCap_S;
 
 #define NET_TV_VIDEO_STREAM_MAX         4             /* 最大码流数量 */
 
 /**
- * @struct tagNETTVVideoEncodeCap
+ * @struct tagNET_VideoEncodeCap
  * @brief 视频编码能力集(多码流) Video Encode Capability
  * @attention 包含所有码流的能力集信息
 */
-typedef struct tagNETTVVideoEncodeCap
+typedef struct tagNET_VideoEncodeCap
 {
     INT32                       dwStreamCount;                                  /* 码流数量 Stream count */
-    NET_TV_VIDEO_STREAM_CAP_S   astStreamCap[NET_TV_VIDEO_STREAM_MAX];          /* 各码流能力 Stream capabilities */
-}NET_TV_VIDEO_ENCODE_CAP_S, *LPNET_TV_VIDEO_ENCODE_CAP_S;
+    NET_VideoStreamCap_S   astStreamCap[NET_TV_VIDEO_STREAM_MAX];          /* 各码流能力 Stream capabilities */
+}NET_VideoEncodeCap_S;
+
+typedef NET_VideoEncodeCap_S* pNET_VideoEncodeCap_S;
 
 /* ==================== AUDIO能力结构体Start =================== */
 
@@ -4596,20 +4738,22 @@ typedef struct tagNETTVVideoEncodeCap
  * @brief 音频数值范围 Audio range
  * @attention 无
  */
-typedef struct tagNETTVAudioRange
+typedef struct tagNET_AudioRange
 {
     INT32   bEnable;    /* 是否启用范围约束，0-不校验，1-校验 */
     INT32   dwMin;      /* 最小值 */
     INT32   dwMax;      /* 最大值 */
     INT32   dwStep;     /* 步长，<=0 表示不做步长校验 */
-}NET_TV_AUDIO_RANGE_S, *LPNET_TV_AUDIO_RANGE_S;
+}NET_AudioRange_S;
+
+typedef NET_AudioRange_S* pNET_AudioRange_S;
 
 /**
  * @struct tagNETTVAudioFormatCap
  * @brief 音频格式能力集 Audio format capability
  * @attention 无
  */
-typedef struct tagNETTVAudioFormatCap
+typedef struct tagNET_AudioFormatCap
 {
     INT32                   dwFormat;                               /* 音频格式 参见 NET_TV_AUDIO_FORMAT_E */
     INT32                   dwSampleRateSize;                       /* 采样率数量 */
@@ -4618,16 +4762,18 @@ typedef struct tagNETTVAudioFormatCap
     INT32                   dwBitRateSize;                          /* 码率数量 */
     INT32                   adwBitRate[NET_TV_AUDIO_BITRATE_MAX];  /* 码率列表 参见 NET_TV_AUDIO_BITRATE_E */
 
-    NET_TV_AUDIO_RANGE_S    stSampleRateRange;                      /* 采样率范围（预留） */
-    NET_TV_AUDIO_RANGE_S    stBitRateRange;                         /* 码率范围（预留） */
-}NET_TV_AUDIO_FORMAT_CAP_S, *LPNET_TV_AUDIO_FORMAT_CAP_S;
+    NET_AudioRange_S    stSampleRateRange;                      /* 采样率范围（预留） */
+    NET_AudioRange_S    stBitRateRange;                         /* 码率范围（预留） */
+}NET_AudioFormatCap_S;
+
+typedef NET_AudioFormatCap_S* pNET_AudioFormatCap_S;
 
 /**
  * @struct tagNETTVAudioEncodeCap
  * @brief 音频编码能力集 Audio encode capability
  * @attention 无
  */
-typedef struct tagNETTVAudioEncodeCap
+typedef struct tagNET_AudioCap
 {
     INT32                       dwInputTypeSize;                           /* 输入类型数量 */
     INT32                       adwInputType[NET_TV_AUDIO_INPUT_TYPE_MAX];   /* 输入类型 参见 NET_TV_AUDIO_INPUT_TYPE_E */
@@ -4639,8 +4785,10 @@ typedef struct tagNETTVAudioEncodeCap
     INT32                       adwFormat[NET_TV_AUDIO_FORMAT_MAX];        /* 音频格式 参见 NET_TV_AUDIO_FORMAT_E */
 
     INT32                       dwFormatDetailSize;                        /* 音频格式详细能力数量 */
-    NET_TV_AUDIO_FORMAT_CAP_S   astFormatDetail[NET_TV_AUDIO_FORMAT_MAX];  /* 各音频格式详细能力 */
-}NET_TV_AUDIO_CAP_S, *LPNET_TV_AUDIO_CAP_S;
+    NET_AudioFormatCap_S   astFormatDetail[NET_TV_AUDIO_FORMAT_MAX];  /* 各音频格式详细能力 */
+}NET_AudioCap_S;
+
+typedef NET_AudioCap_S* pNET_AudioCap_S;
 
 /* ==================== OSD相关结构体Start =================== */
 
@@ -4736,14 +4884,16 @@ typedef struct _OsdInfo_S_
     OsdAttribute_S stOsdAttr;               /* OSD状态信息 */
 } OsdInfo_S;
 /* OSD配置信息 */
-typedef struct tagNETTVObsConfigInfo
+typedef struct tagNET_VideoOsdCfg
 {
     OSD_ALIGN_E enAlign;                            /* OSD对齐方式 */
     OsdNameInfo_S stOsdNameInfo;                    /* OSD名称信息 */
     OsdTimeInfo_S stOsdTimeInfo;                    /* OSD时间信息 */
     OsdInfo_S OsdInfo[32];                          /* OSD字符叠加信息 */
     BYTE        byRes[64];                          /* 保留字段 */
-}NET_TV_VIDEO_OSD_CFG_S, *LPNET_TV_VIDEO_OSD_CFG_S;
+}NET_VideoOsdCfg_S;
+
+typedef NET_VideoOsdCfg_S* pNET_VideoOsdCfg_S;
 
 /* ==================== OSD相关结构体End ===================== */
 
@@ -4752,7 +4902,7 @@ typedef struct tagNETTVObsConfigInfo
  * @brief 通道OSD的能力集 OSD Capabilities (简化版，对应OsdConfig_S)
  * @attention
  */
-typedef struct tagNETTVOsdCap
+typedef struct tagNET_OsdCap
 {
     /* 基础能力 */
     BOOL     bSupportOsd;                                                       /* 是否支持OSD配置 */
@@ -4781,7 +4931,9 @@ typedef struct tagNETTVOsdCap
     UINT32   audwSupportedAlignList[8];                                         /* 支持的对齐方式列表 NET_TV_OSD_ALIGN_E */
     
     BYTE     byRes[256];                                                        /* 保留字段  Reserved */
-} NET_TV_OSD_CAP_S, *LPNET_TV_OSD_CAP_S;
+} NET_OsdCap_S;
+
+typedef NET_OsdCap_S* pNET_OsdCap_S;
 
 /******************** 智能能力集结构体定义 Smart Capability Structures ********************/
 
@@ -4790,14 +4942,14 @@ typedef struct tagNETTVOsdCap
  * @brief 移动侦测能力  Motion detection capability
  * @attention
  */
-typedef struct tagNETTVMotionDetectCap
+typedef struct tagNET_MotionDetectCap
 {
     BOOL    bSupport;                           /* 是否支持移动侦测  Support motion detection */
     BOOL    bSupportExpertMode;                 /* 是否支持专家模式  Support expert mode */
     BOOL    bSupportDynamicAnalysis;            /* 是否支持动态分析  Support dynamic analysis */
     UINT32  udwGridMaxWidth;                    /* 网格最大宽度  Grid max width */
     UINT32  udwGridMaxHeight;                   /* 网格最大高度  Grid max height */
-    NET_TV_RANGE_S stSensitivity;               /* 灵敏度范围  Sensitivity range */
+    NET_Range_S stSensitivity;               /* 灵敏度范围  Sensitivity range */
     BOOL    bSupportRectRegion;                 /* 是否支持矩形区域  Support rectangle region */
     BOOL    bSupportGridRegion;                 /* 是否支持网格区域  Support grid region */
     UINT32  udwExpertMaxAreas;                  /* 专家模式最大区域数  Expert mode max areas */
@@ -4805,280 +4957,316 @@ typedef struct tagNETTVMotionDetectCap
     BOOL    bSupportAutoSwitch;                 /* 是否支持自动切换  Support auto switch */
     BOOL    bSupportTimedSwitch;                /* 是否支持定时切换  Support timed switch */
     BYTE    byRes[64];                          /* 保留字段  Reserved */
-} NET_TV_MOTION_DETECT_CAP_S, *LPNET_TV_MOTION_DETECT_CAP_S;
+} NET_MotionDetectCap_S;
+
+typedef NET_MotionDetectCap_S* pNET_MotionDetectCap_S;
 
 /**
  * @struct tagNETTVTamperDetectCap
  * @brief 遮挡检测能力  Tamper detection capability
  * @attention
  */
-typedef struct tagNETTVTamperDetectCap
+typedef struct tagNET_TamperDetectCap
 {
     BOOL    bSupport;                           /* 是否支持遮挡检测  Support tamper detection */
-    NET_TV_RANGE_S stSensitivity;               /* 灵敏度范围  Sensitivity range */
+    NET_Range_S stSensitivity;               /* 灵敏度范围  Sensitivity range */
     BOOL    bSupportCustomRegion;               /* 是否支持自定义区域  Support custom region */
     BYTE    byRes[64];                          /* 保留字段  Reserved */
-} NET_TV_TAMPER_DETECT_CAP_S, *LPNET_TV_TAMPER_DETECT_CAP_S;
+} NET_TamperDetectCap_S;
+
+typedef NET_TamperDetectCap_S* pNET_TamperDetectCap_S;
 
 /**
  * @struct tagNETTVBoundaryDetectCap
  * @brief 越界检测能力  Boundary detection capability
  * @attention
  */
-typedef struct tagNETTVBoundaryDetectCap
+typedef struct tagNET_BoundaryDetectCap
 {
     BOOL    bSupport;                           /* 是否支持越界检测  Support boundary detection */
     UINT32  udwMaxLines;                        /* 最大警戒线数  Max lines */
     UINT32  udwMaxPointsPerLine;                /* 每条线最大顶点数  Max points per line */
-    NET_TV_RANGE_S stSensitivity;               /* 灵敏度范围  Sensitivity range */
+    NET_Range_S stSensitivity;               /* 灵敏度范围  Sensitivity range */
     BOOL    bSupportDirection;                  /* 是否支持方向检测  Support direction */
     BOOL    bSupportTargetFilter;               /* 是否支持目标过滤  Support target filter */
     BYTE    byRes[64];                          /* 保留字段  Reserved */
-} NET_TV_BOUNDARY_DETECT_CAP_S, *LPNET_TV_BOUNDARY_DETECT_CAP_S;
+} NET_BoundaryDetectCap_S;
+
+typedef NET_BoundaryDetectCap_S* pNET_BoundaryDetectCap_S;
 
 /**
  * @struct tagNETTVIntrusionDetectCap
  * @brief 区域入侵检测能力  Intrusion detection capability
  * @attention
  */
-typedef struct tagNETTVIntrusionDetectCap
+typedef struct tagNET_IntrusionDetectCap
 {
     BOOL    bSupport;                           /* 是否支持区域入侵检测  Support intrusion detection */
     UINT32  udwMaxRegions;                      /* 最大区域数  Max regions */
     UINT32  udwMaxPointsPerRegion;              /* 每个区域最大顶点数  Max points per region */
     UINT32  udwMinPointsPerRegion;              /* 每个区域最小顶点数  Min points per region */
-    NET_TV_RANGE_S stSensitivity;               /* 灵敏度范围  Sensitivity range */
-    NET_TV_RANGE_S stTimeThreshold;             /* 时间阈值范围  Time threshold range */
+    NET_Range_S stSensitivity;               /* 灵敏度范围  Sensitivity range */
+    NET_Range_S stTimeThreshold;             /* 时间阈值范围  Time threshold range */
     BOOL    bSupportTargetFilter;               /* 是否支持目标过滤  Support target filter */
     BYTE    byRes[64];                          /* 保留字段  Reserved */
-} NET_TV_INTRUSION_DETECT_CAP_S, *LPNET_TV_INTRUSION_DETECT_CAP_S;
+} NET_IntrusionDetectCap_S;
+
+typedef NET_IntrusionDetectCap_S* pNET_IntrusionDetectCap_S;
 
 /**
  * @struct tagNETTVEnterExitDetectCap
  * @brief 进入/离开区域检测能力  Enter/Exit detection capability
  * @attention
  */
-typedef struct tagNETTVEnterExitDetectCap
+typedef struct tagNET_EnterExitDetectCap
 {
     BOOL    bSupportEnter;                      /* 是否支持进入区域检测  Support enter detection */
     BOOL    bSupportExit;                       /* 是否支持离开区域检测  Support exit detection */
     UINT32  udwMaxRegions;                      /* 最大区域数  Max regions */
     UINT32  udwMaxPointsPerRegion;              /* 每个区域最大顶点数  Max points per region */
     UINT32  udwMinPointsPerRegion;              /* 每个区域最小顶点数  Min points per region */
-    NET_TV_RANGE_S stSensitivity;               /* 灵敏度范围  Sensitivity range */
-    NET_TV_RANGE_S stTimeThreshold;             /* 时间阈值范围  Time threshold range */
+    NET_Range_S stSensitivity;               /* 灵敏度范围  Sensitivity range */
+    NET_Range_S stTimeThreshold;             /* 时间阈值范围  Time threshold range */
     BOOL    bSupportTargetFilter;               /* 是否支持目标过滤  Support target filter */
     BOOL    bSupportConfidence;                 /* 是否支持可信度设置  Support confidence */
     BYTE    byRes[64];                          /* 保留字段  Reserved */
-} NET_TV_ENTER_EXIT_DETECT_CAP_S, *LPNET_TV_ENTER_EXIT_DETECT_CAP_S;
+} NET_EnterExitDetectCap_S;
+
+typedef NET_EnterExitDetectCap_S* pNET_EnterExitDetectCap_S;
 
 /**
  * @struct tagNETTVLoiteringDetectCap
  * @brief 徘徊检测能力  Loitering detection capability
  * @attention
  */
-typedef struct tagNETTVLoiteringDetectCap
+typedef struct tagNET_LoiteringDetectCap
 {
     BOOL    bSupport;                           /* 是否支持徘徊检测  Support loitering detection */
     UINT32  udwMaxRegions;                      /* 最大区域数  Max regions */
     UINT32  udwMaxPointsPerRegion;              /* 每个区域最大顶点数  Max points per region */
-    NET_TV_RANGE_S stSensitivity;               /* 灵敏度范围  Sensitivity range */
-    NET_TV_RANGE_S stTimeThreshold;             /* 徘徊时长范围  Loitering time range */
+    NET_Range_S stSensitivity;               /* 灵敏度范围  Sensitivity range */
+    NET_Range_S stTimeThreshold;             /* 徘徊时长范围  Loitering time range */
     BOOL    bSupportTargetFilter;               /* 是否支持目标过滤  Support target filter */
     BYTE    byRes[64];                          /* 保留字段  Reserved */
-} NET_TV_LOITERING_DETECT_CAP_S, *LPNET_TV_LOITERING_DETECT_CAP_S;
+} NET_LoiteringDetectCap_S;
+
+typedef NET_LoiteringDetectCap_S* pNET_LoiteringDetectCap_S;
 
 /**
  * @struct tagNETTVCrowdGatheringCap
  * @brief 人群聚集检测能力  Crowd gathering detection capability
  * @attention
  */
-typedef struct tagNETTVCrowdGatheringCap
+typedef struct tagNET_CrowdGatheringCap
 {
     BOOL    bSupport;                           /* 是否支持人群聚集检测  Support crowd gathering detection */
     UINT32  udwMaxRegions;                      /* 最大区域数  Max regions */
     UINT32  udwMaxPointsPerRegion;              /* 每个区域最大顶点数  Max points per region */
-    NET_TV_RANGE_S stObjectOccupancy;           /* 人体面积占比阈值  Object occupancy threshold */
+    NET_Range_S stObjectOccupancy;           /* 人体面积占比阈值  Object occupancy threshold */
     BYTE    byRes[64];                          /* 保留字段  Reserved */
-} NET_TV_CROWD_GATHERING_CAP_S, *LPNET_TV_CROWD_GATHERING_CAP_S;
+} NET_CrowdGatheringCap_S;
+
+typedef NET_CrowdGatheringCap_S* pNET_CrowdGatheringCap_S;
 
 /**
  * @struct tagNETTVParkingDetectCap
  * @brief 停车检测能力  Parking detection capability
  * @attention
  */
-typedef struct tagNETTVParkingDetectCap
+typedef struct tagNET_ParkingDetectCap
 {
     BOOL    bSupport;                           /* 是否支持停车检测  Support parking detection */
     UINT32  udwMaxRegions;                      /* 最大区域数  Max regions */
     UINT32  udwMaxPointsPerRegion;              /* 每个区域最大顶点数  Max points per region */
-    NET_TV_RANGE_S stSensitivity;               /* 灵敏度范围  Sensitivity range */
-    NET_TV_RANGE_S stTimeThreshold;             /* 时间阈值范围  Time threshold range */
+    NET_Range_S stSensitivity;               /* 灵敏度范围  Sensitivity range */
+    NET_Range_S stTimeThreshold;             /* 时间阈值范围  Time threshold range */
     BYTE    byRes[64];                          /* 保留字段  Reserved */
-} NET_TV_PARKING_DETECT_CAP_S, *LPNET_TV_PARKING_DETECT_CAP_S;
+} NET_ParkingDetectCap_S;
+
+typedef NET_ParkingDetectCap_S* pNET_ParkingDetectCap_S;
 
 /**
  * @struct tagNETTVObjectChangeDetectCap
  * @brief 物品遗留/移走检测能力  Object left/removal detection capability
  * @attention
  */
-typedef struct tagNETTVObjectChangeDetectCap
+typedef struct tagNET_ObjectChangeDetectCap
 {
     BOOL    bSupportUnattendedObject;           /* 是否支持物品遗留检测  Support unattended object detection */
     BOOL    bSupportObjectRemoval;              /* 是否支持物品移走检测  Support object removal detection */
     UINT32  udwMaxRegions;                      /* 最大区域数  Max regions */
     UINT32  udwMaxPointsPerRegion;              /* 每个区域最大顶点数  Max points per region */
-    NET_TV_RANGE_S stSensitivity;               /* 灵敏度范围  Sensitivity range */
-    NET_TV_RANGE_S stTimeThreshold;             /* 时间阈值范围  Time threshold range */
+    NET_Range_S stSensitivity;               /* 灵敏度范围  Sensitivity range */
+    NET_Range_S stTimeThreshold;             /* 时间阈值范围  Time threshold range */
     BYTE    byRes[64];                          /* 保留字段  Reserved */
-} NET_TV_OBJECT_CHANGE_DETECT_CAP_S, *LPNET_TV_OBJECT_CHANGE_DETECT_CAP_S;
+} NET_ObjectChangeDetectCap_S;
+
+typedef NET_ObjectChangeDetectCap_S* pNET_ObjectChangeDetectCap_S;
 
 /**
  * @struct tagNETTVFaceDetectCap
  * @brief 人脸检测能力  Face detection capability
  * @attention
  */
-typedef struct tagNETTVFaceDetectCap
+typedef struct tagNET_FaceDetectCap
 {
     BOOL    bSupport;                           /* 是否支持人脸检测  Support face detection */
     BOOL    bSupportDynamicAnalysis;            /* 是否支持动态分析  Support dynamic analysis */
-    NET_TV_RANGE_S stSensitivity;               /* 灵敏度范围  Sensitivity range */
+    NET_Range_S stSensitivity;               /* 灵敏度范围  Sensitivity range */
     BOOL    bSupportDetectionRegion;            /* 是否支持检测区域设置  Support detection region */
     UINT32  udwMaxPointsPerRegion;              /* 检测区域最大顶点数  Max points per region */
     BYTE    byRes[64];                          /* 保留字段  Reserved */
-} NET_TV_FACE_DETECT_CAP_S, *LPNET_TV_FACE_DETECT_CAP_S;
+} NET_FaceDetectCap_S;
+
+typedef NET_FaceDetectCap_S* pNET_FaceDetectCap_S;
 
 /**
  * @struct tagNETTVFaceCaptureCap
  * @brief 人脸抓拍能力  Face capture capability
  * @attention
  */
-typedef struct tagNETTVFaceCaptureCap
+typedef struct tagNET_FaceCaptureCap
 {
     BOOL    bSupport;                           /* 是否支持人脸抓拍  Support face capture */
-    NET_TV_RANGE_S stSensitivity;               /* 灵敏度范围  Sensitivity range */
+    NET_Range_S stSensitivity;               /* 灵敏度范围  Sensitivity range */
     BOOL    bSupportDetectionRegion;            /* 是否支持检测区域  Support detection region */
     BOOL    bSupportShieldedRegion;             /* 是否支持屏蔽区域  Support shielded region */
     UINT32  udwMaxShieldedRegions;              /* 最大屏蔽区域数  Max shielded regions */
     BOOL    bSupportIPD;                        /* 是否支持瞳距设置  Support IPD setting */
-    NET_TV_RANGE_S stMinIPD;                    /* 最小瞳距范围  Min IPD range */
-    NET_TV_RANGE_S stMaxIPD;                    /* 最大瞳距范围  Max IPD range */
-    NET_TV_RANGE_S stCaptureInterval;           /* 抓拍间隔范围  Capture interval range */
+    NET_Range_S stMinIPD;                    /* 最小瞳距范围  Min IPD range */
+    NET_Range_S stMaxIPD;                    /* 最大瞳距范围  Max IPD range */
+    NET_Range_S stCaptureInterval;           /* 抓拍间隔范围  Capture interval range */
     BOOL    bSupportOverlay;                    /* 是否支持叠加信息  Support overlay */
     BOOL    bSupportFaceAttribute;              /* 是否支持人脸属性  Support face attribute */
     BYTE    byRes[64];                          /* 保留字段  Reserved */
-} NET_TV_FACE_CAPTURE_CAP_S, *LPNET_TV_FACE_CAPTURE_CAP_S;
+} NET_FaceCaptureCap_S;
+
+typedef NET_FaceCaptureCap_S* pNET_FaceCaptureCap_S;
 
 /**
  * @struct tagNETTVPetRecognitionCap
  * @brief 宠物识别能力  Pet recognition capability
  * @attention
  */
-typedef struct tagNETTVPetRecognitionCap
+typedef struct tagNET_PetRecognitionCap
 {
     BOOL    bSupport;                           /* 是否支持宠物识别  Support pet recognition */
     BOOL    bSupportDynamicAnalysis;            /* 是否支持动态分析  Support dynamic analysis */
-    NET_TV_RANGE_S stSensitivity;               /* 灵敏度范围  Sensitivity range */
+    NET_Range_S stSensitivity;               /* 灵敏度范围  Sensitivity range */
     BOOL    bSupportDetectionRegion;            /* 是否支持检测区域设置  Support detection region */
     UINT32  udwMaxPointsPerRegion;              /* 检测区域最大顶点数  Max points per region */
     BYTE    byRes[64];                          /* 保留字段  Reserved */
-} NET_TV_PET_RECOGNITION_CAP_S, *LPNET_TV_PET_RECOGNITION_CAP_S;
+} NET_PetRecognitionCap_S;
+
+typedef NET_PetRecognitionCap_S* pNET_PetRecognitionCap_S;
 
 /**
  * @struct tagNETTVAudioAnomalyCap
  * @brief 音频异常检测能力  Audio anomaly detection capability
  * @attention
  */
-typedef struct tagNETTVAudioAnomalyCap
+typedef struct tagNET_AudioAnomalyCap
 {
     BOOL    bSupport;                           /* 是否支持音频异常检测  Support audio anomaly detection */
     BOOL    bSupportInputAnomaly;               /* 是否支持输入异常检测  Support input anomaly */
     BOOL    bSupportRise;                       /* 是否支持音量突升检测  Support rise detection */
     BOOL    bSupportFall;                       /* 是否支持音量突降检测  Support fall detection */
-    NET_TV_RANGE_S stRiseSensitivity;           /* 突升灵敏度范围  Rise sensitivity range */
-    NET_TV_RANGE_S stRiseThreshold;             /* 突升阈值范围  Rise threshold range */
-    NET_TV_RANGE_S stFallSensitivity;           /* 突降灵敏度范围  Fall sensitivity range */
+    NET_Range_S stRiseSensitivity;           /* 突升灵敏度范围  Rise sensitivity range */
+    NET_Range_S stRiseThreshold;             /* 突升阈值范围  Rise threshold range */
+    NET_Range_S stFallSensitivity;           /* 突降灵敏度范围  Fall sensitivity range */
     BYTE    byRes[64];                          /* 保留字段  Reserved */
-} NET_TV_AUDIO_ANOMALY_CAP_S, *LPNET_TV_AUDIO_ANOMALY_CAP_S;
+} NET_AudioAnomalyCap_S;
+
+typedef NET_AudioAnomalyCap_S* pNET_AudioAnomalyCap_S;
 
 /**
  * @struct tagNETTVSceneChangeCap
  * @brief 场景变更检测能力  Scene change detection capability
  * @attention
  */
-typedef struct tagNETTVSceneChangeCap
+typedef struct tagNET_SceneChangeCap
 {
     BOOL    bSupport;                           /* 是否支持场景变更检测  Support scene change detection */
-    NET_TV_RANGE_S stSensitivity;               /* 灵敏度范围  Sensitivity range */
+    NET_Range_S stSensitivity;               /* 灵敏度范围  Sensitivity range */
     BYTE    byRes[64];                          /* 保留字段  Reserved */
-} NET_TV_SCENE_CHANGE_CAP_S, *LPNET_TV_SCENE_CHANGE_CAP_S;
+} NET_SceneChangeCap_S;
+
+typedef NET_SceneChangeCap_S* pNET_SceneChangeCap_S;
 
 /**
  * @struct tagNETTVFireDetectCap
  * @brief 火灾检测能力  Fire detection capability
  * @attention
  */
-typedef struct tagNETTVFireDetectCap
+typedef struct tagNET_FireDetectCap
 {
     BOOL    bSupport;                           /* 是否支持火灾检测  Support fire detection */
     BOOL    bSupportRegion;                     /* 是否支持区域设置  Support region setting */
     UINT32  udwMaxRegions;                      /* 最大区域数  Max regions */
     UINT32  udwMaxPointsPerRegion;              /* 每个区域最大顶点数  Max points per region */
-    NET_TV_RANGE_S stSensitivity;               /* 灵敏度范围  Sensitivity range */
+    NET_Range_S stSensitivity;               /* 灵敏度范围  Sensitivity range */
     BYTE    byRes[64];                          /* 保留字段  Reserved */
-} NET_TV_FIRE_DETECT_CAP_S, *LPNET_TV_FIRE_DETECT_CAP_S;
+} NET_FireDetectCap_S;
+
+typedef NET_FireDetectCap_S* pNET_FireDetectCap_S;
 
 /**
  * @struct tagNETTVSmokeDetectCap
  * @brief 烟雾检测能力  Smoke detection capability
  * @attention
  */
-typedef struct tagNETTVSmokeDetectCap
+typedef struct tagNET_SmokeDetectCap
 {
     BOOL    bSupport;                           /* 是否支持烟雾检测  Support smoke detection */
     BOOL    bSupportRegion;                     /* 是否支持区域设置  Support region setting */
     UINT32  udwMaxRegions;                      /* 最大区域数  Max regions */
     UINT32  udwMaxPointsPerRegion;              /* 每个区域最大顶点数  Max points per region */
-    NET_TV_RANGE_S stSensitivity;               /* 灵敏度范围  Sensitivity range */
+    NET_Range_S stSensitivity;               /* 灵敏度范围  Sensitivity range */
     BYTE    byRes[64];                          /* 保留字段  Reserved */
-} NET_TV_SMOKE_DETECT_CAP_S, *LPNET_TV_SMOKE_DETECT_CAP_S;
+} NET_SmokeDetectCap_S;
+
+typedef NET_SmokeDetectCap_S* pNET_SmokeDetectCap_S;
 
 /**
  * @struct tagNETTVWaterAccumulationCap
  * @brief 积水检测能力  Water accumulation detection capability
  * @attention
  */
-typedef struct tagNETTVWaterAccumulationCap
+typedef struct tagNET_WaterAccumulationCap
 {
     BOOL    bSupport;                           /* 是否支持积水检测  Support water accumulation detection */
     BOOL    bSupportRegion;                     /* 是否支持区域设置  Support region setting */
     UINT32  udwMaxRegions;                      /* 最大区域数  Max regions */
     UINT32  udwMaxPointsPerRegion;              /* 每个区域最大顶点数  Max points per region */
-    NET_TV_RANGE_S stSensitivity;               /* 灵敏度范围  Sensitivity range */
+    NET_Range_S stSensitivity;               /* 灵敏度范围  Sensitivity range */
     BYTE    byRes[64];                          /* 保留字段  Reserved */
-} NET_TV_WATER_ACCUMULATION_CAP_S, *LPNET_TV_WATER_ACCUMULATION_CAP_S;
+} NET_WaterAccumulationCap_S;
+
+typedef NET_WaterAccumulationCap_S* pNET_WaterAccumulationCap_S;
 
 /**
  * @struct tagNETTVTrashOverflowCap
  * @brief 垃圾满溢检测能力  Trash overflow detection capability
  * @attention
  */
-typedef struct tagNETTVTrashOverflowCap
+typedef struct tagNET_TrashOverflowCap
 {
     BOOL    bSupport;                           /* 是否支持垃圾满溢检测  Support trash overflow detection */
     BOOL    bSupportRegion;                     /* 是否支持区域设置  Support region setting */
     UINT32  udwMaxRegions;                      /* 最大区域数  Max regions */
     UINT32  udwMaxPointsPerRegion;              /* 每个区域最大顶点数  Max points per region */
-    NET_TV_RANGE_S stSensitivity;               /* 灵敏度范围  Sensitivity range */
+    NET_Range_S stSensitivity;               /* 灵敏度范围  Sensitivity range */
     BYTE    byRes[64];                          /* 保留字段  Reserved */
-} NET_TV_TRASH_OVERFLOW_CAP_S, *LPNET_TV_TRASH_OVERFLOW_CAP_S;
+} NET_TrashOverflowCap_S;
+
+typedef NET_TrashOverflowCap_S* pNET_TrashOverflowCap_S;
 
 /**
  * @struct tagNETTVBehaviorDetectCap
  * @brief 人员行为检测能力  Personnel behavior detection capability
  * @attention
  */
-typedef struct tagNETTVBehaviorDetectCap
+typedef struct tagNET_BehaviorDetectCap
 {
     BOOL    bSupport;                           /* 是否支持人员行为检测  Support behavior detection */
     BOOL    bSupportSleepOnDuty;                /* 是否支持睡岗检测  Support sleep on duty detection */
@@ -5091,17 +5279,19 @@ typedef struct tagNETTVBehaviorDetectCap
     BOOL    bSupportRegion;                     /* 是否支持区域设置  Support region setting */
     UINT32  udwMaxRegions;                      /* 最大区域数  Max regions */
     UINT32  udwMaxPointsPerRegion;              /* 每个区域最大顶点数  Max points per region */
-    NET_TV_RANGE_S stSensitivity;               /* 灵敏度范围  Sensitivity range */
-    NET_TV_RANGE_S stTimeThreshold;             /* 时间阈值范围  Time threshold range */
+    NET_Range_S stSensitivity;               /* 灵敏度范围  Sensitivity range */
+    NET_Range_S stTimeThreshold;             /* 时间阈值范围  Time threshold range */
     BYTE    byRes[64];                          /* 保留字段  Reserved */
-} NET_TV_BEHAVIOR_DETECT_CAP_S, *LPNET_TV_BEHAVIOR_DETECT_CAP_S;
+} NET_BehaviorDetectCap_S;
+
+typedef NET_BehaviorDetectCap_S* pNET_BehaviorDetectCap_S;
 
 /**
  * @struct tagNETTVEnvironmentAnomalyCap
  * @brief 环境异常检测能力  Environment anomaly detection capability
  * @attention
  */
-typedef struct tagNETTVEnvironmentAnomalyCap
+typedef struct tagNET_EnvironmentAnomalyCap
 {
     BOOL    bSupport;                           /* 是否支持环境异常检测  Support environment anomaly detection */
     BOOL    bSupportElectricVehicleInElevator;  /* 是否支持电动车入梯检测  Support electric vehicle in elevator */
@@ -5114,16 +5304,18 @@ typedef struct tagNETTVEnvironmentAnomalyCap
     BOOL    bSupportRegion;                     /* 是否支持区域设置  Support region setting */
     UINT32  udwMaxRegions;                      /* 最大区域数  Max regions */
     UINT32  udwMaxPointsPerRegion;              /* 每个区域最大顶点数  Max points per region */
-    NET_TV_RANGE_S stSensitivity;               /* 灵敏度范围  Sensitivity range */
+    NET_Range_S stSensitivity;               /* 灵敏度范围  Sensitivity range */
     BYTE    byRes[64];                          /* 保留字段  Reserved */
-} NET_TV_ENVIRONMENT_ANOMALY_CAP_S, *LPNET_TV_ENVIRONMENT_ANOMALY_CAP_S;
+} NET_EnvironmentAnomalyCap_S;
+
+typedef NET_EnvironmentAnomalyCap_S* pNET_EnvironmentAnomalyCap_S;
 
 /**
  * @struct tagNETTVSafetyEquipmentCap
  * @brief 穿戴规范检测能力  Safety equipment detection capability
  * @attention
  */
-typedef struct tagNETTVSafetyEquipmentCap
+typedef struct tagNET_SafetyEquipmentCap
 {
     BOOL    bSupport;                           /* 是否支持穿戴规范检测  Support safety equipment detection */
     BOOL    bSupportHelmet;                     /* 是否支持安全帽检测  Support helmet detection */
@@ -5132,17 +5324,19 @@ typedef struct tagNETTVSafetyEquipmentCap
     BOOL    bSupportRegion;                     /* 是否支持区域设置  Support region setting */
     UINT32  udwMaxRegions;                      /* 最大区域数  Max regions */
     UINT32  udwMaxPointsPerRegion;              /* 每个区域最大顶点数  Max points per region */
-    NET_TV_RANGE_S stSensitivity;               /* 灵敏度范围  Sensitivity range */
+    NET_Range_S stSensitivity;               /* 灵敏度范围  Sensitivity range */
     BOOL    bSupportColorDetect;                /* 是否支持颜色检测  Support color detection */
     BYTE    byRes[64];                          /* 保留字段  Reserved */
-} NET_TV_SAFETY_EQUIPMENT_CAP_S, *LPNET_TV_SAFETY_EQUIPMENT_CAP_S;
+} NET_SafetyEquipmentCap_S;
+
+typedef NET_SafetyEquipmentCap_S* pNET_SafetyEquipmentCap_S;
 
 /**
  * @struct tagNETTVLicensePlateCap
  * @brief 车牌识别能力  License plate recognition capability
  * @attention
  */
-typedef struct tagNETTVLicensePlateCap
+typedef struct tagNET_LicensePlateCap
 {
     BOOL    bSupport;                           /* 是否支持车牌识别  Support license plate recognition */
     BOOL    bSupportRegion;                     /* 是否支持区域设置  Support region setting */
@@ -5150,147 +5344,165 @@ typedef struct tagNETTVLicensePlateCap
     UINT32  udwMaxPointsPerRegion;              /* 每个区域最大顶点数  Max points per region */
     BOOL    bSupportMultiPlate;                 /* 是否支持多车牌识别  Support multi-plate recognition */
     UINT32  udwMaxPlatesPerFrame;               /* 单帧最大车牌数  Max plates per frame */
-    NET_TV_RANGE_S stConfidence;                /* 置信度范围  Confidence range */
+    NET_Range_S stConfidence;                /* 置信度范围  Confidence range */
     BOOL    bSupportPlateColor;                 /* 是否支持车牌颜色识别  Support plate color recognition */
     BOOL    bSupportPlateType;                  /* 是否支持车牌类型识别  Support plate type recognition */
     BYTE    byRes[64];                          /* 保留字段  Reserved */
-} NET_TV_LICENSE_PLATE_CAP_S, *LPNET_TV_LICENSE_PLATE_CAP_S;
+} NET_LicensePlateCap_S;
+
+typedef NET_LicensePlateCap_S* pNET_LicensePlateCap_S;
 
 /**
  * @struct tagNETTVWrongWayDrivingCap
  * @brief 逆行检测能力  Wrong way driving detection capability
  * @attention
  */
-typedef struct tagNETTVWrongWayDrivingCap
+typedef struct tagNET_WrongWayDrivingCap
 {
     BOOL    bSupport;                           /* 是否支持逆行检测  Support wrong way driving detection */
     UINT32  udwMaxRegions;                      /* 最大区域数  Max regions */
     UINT32  udwMaxPointsPerRegion;              /* 每个区域最大顶点数  Max points per region */
     BYTE    byRes[64];                          /* 保留字段  Reserved */
-} NET_TV_WRONG_WAY_DRIVING_CAP_S, *LPNET_TV_WRONG_WAY_DRIVING_CAP_S;
+} NET_WrongWayDrivingCap_S;
+
+typedef NET_WrongWayDrivingCap_S* pNET_WrongWayDrivingCap_S;
 
 /**
- * @struct tagNETTVIllegalLaneChangeCap
+ * @struct tagNET_IllegalLaneChangeCap
  * @brief 违规变道检测能力  Illegal lane change detection capability
  * @attention
  */
-typedef struct tagNETTVIllegalLaneChangeCap
+typedef struct tagNET_IllegalLaneChangeCap
 {
     BOOL    bSupport;                           /* 是否支持违规变道检测  Support illegal lane change detection */
     UINT32  udwMaxRegions;                      /* 最大区域数  Max regions */
     UINT32  udwMaxPointsPerRegion;              /* 每个区域最大顶点数  Max points per region */
     BYTE    byRes[64];                          /* 保留字段  Reserved */
-} NET_TV_ILLEGAL_LANE_CHANGE_CAP_S, *LPNET_TV_ILLEGAL_LANE_CHANGE_CAP_S;
+} NET_IllegalLaneChangeCap_S;
+
+typedef NET_IllegalLaneChangeCap_S* pNET_IllegalLaneChangeCap_S;
 
 /**
- * @struct tagNETTVEmergencyLaneOccupancyCap
+ * @struct tagNET_EmergencyLaneOccupancyCap
  * @brief 应急车道占用检测能力  Emergency lane occupancy detection capability
  * @attention
  */
-typedef struct tagNETTVEmergencyLaneOccupancyCap
+typedef struct tagNET_EmergencyLaneOccupancyCap
 {
     BOOL    bSupport;                           /* 是否支持应急车道占用检测  Support emergency lane occupancy detection */
     UINT32  udwMaxRegions;                      /* 最大区域数  Max regions */
     UINT32  udwMaxPointsPerRegion;              /* 每个区域最大顶点数  Max points per region */
     BYTE    byRes[64];                          /* 保留字段  Reserved */
-} NET_TV_EMERGENCY_LANE_OCCUPANCY_CAP_S, *LPNET_TV_EMERGENCY_LANE_OCCUPANCY_CAP_S;
+} NET_EmergencyLaneOccupancyCap_S;
+
+typedef NET_EmergencyLaneOccupancyCap_S* pNET_EmergencyLaneOccupancyCap_S;
 
 /**
- * @struct tagNETTVNonMotorVehicleIntrusionCap
+ * @struct tagNET_NonMotorVehicleIntrusionCap
  * @brief 非机动车入侵检测能力  Non-motor vehicle intrusion detection capability
  * @attention
  */
-typedef struct tagNETTVNonMotorVehicleIntrusionCap
+typedef struct tagNET_NonMotorVehicleIntrusionCap
 {
     BOOL    bSupport;                           /* 是否支持非机动车入侵检测  Support non-motor vehicle intrusion detection */
     UINT32  udwMaxRegions;                      /* 最大区域数  Max regions */
     UINT32  udwMaxPointsPerRegion;              /* 每个区域最大顶点数  Max points per region */
     BYTE    byRes[64];                          /* 保留字段  Reserved */
-} NET_TV_NON_MOTOR_VEHICLE_INTRUSION_CAP_S, *LPNET_TV_NON_MOTOR_VEHICLE_INTRUSION_CAP_S;
+} NET_NonMotorVehicleIntrusionCap_S;
+
+typedef NET_NonMotorVehicleIntrusionCap_S* pNET_NonMotorVehicleIntrusionCap_S;
 
 /**
- * @struct tagNETTVConstructionOccupancyCap
+ * @struct tagNET_ConstructionOccupancyCap
  * @brief 施工占道检测能力  Construction occupancy detection capability
  * @attention
  */
-typedef struct tagNETTVConstructionOccupancyCap
+typedef struct tagNET_ConstructionOccupancyCap
 {
     BOOL    bSupport;                           /* 是否支持施工占道检测  Support construction occupancy detection */
     UINT32  udwMaxRegions;                      /* 最大区域数  Max regions */
     UINT32  udwMaxPointsPerRegion;              /* 每个区域最大顶点数  Max points per region */
-    NET_TV_RANGE_S stTimeThreshold;             /* 时间阈值范围  Time threshold range */
+    NET_Range_S stTimeThreshold;             /* 时间阈值范围  Time threshold range */
     BYTE    byRes[64];                          /* 保留字段  Reserved */
-} NET_TV_CONSTRUCTION_OCCUPANCY_CAP_S, *LPNET_TV_CONSTRUCTION_OCCUPANCY_CAP_S;
+} NET_ConstructionOccupancyCap_S;
+
+typedef NET_ConstructionOccupancyCap_S* pNET_ConstructionOccupancyCap_S;
 
 /**
- * @struct tagNETTVCongestionCap
+ * @struct tagNET_CongestionCap
  * @brief 拥堵检测能力  Congestion detection capability
  * @attention
  */
-typedef struct tagNETTVCongestionCap
+typedef struct tagNET_CongestionCap
 {
     BOOL    bSupport;                           /* 是否支持拥堵检测  Support congestion detection */
     UINT32  udwMaxRegions;                      /* 最大区域数  Max regions */
     UINT32  udwMaxPointsPerRegion;              /* 每个区域最大顶点数  Max points per region */
-    NET_TV_RANGE_S stDensityThreshold;          /* 密度阈值范围  Density threshold range */
-    NET_TV_RANGE_S stTimeThreshold;             /* 时间阈值范围  Time threshold range */
+    NET_Range_S stDensityThreshold;          /* 密度阈值范围  Density threshold range */
+    NET_Range_S stTimeThreshold;             /* 时间阈值范围  Time threshold range */
     BOOL    bSupportVehicleCount;               /* 是否支持车辆计数  Support vehicle counting */
     BYTE    byRes[64];                          /* 保留字段  Reserved */
-} NET_TV_CONGESTION_CAP_S, *LPNET_TV_CONGESTION_CAP_S;
+} NET_CongestionCap_S;
+
+typedef NET_CongestionCap_S* pNET_CongestionCap_S;
 
 /**
- * @struct tagNETTVIllegalParkingCap
+ * @struct tagNET_IllegalParkingCap
  * @brief 违规停车检测能力  Illegal parking detection capability
  * @attention
  */
-typedef struct tagNETTVIllegalParkingCap
+typedef struct tagNET_IllegalParkingCap
 {
     BOOL    bSupport;                           /* 是否支持违规停车检测  Support illegal parking detection */
     UINT32  udwMaxRegions;                      /* 最大区域数  Max regions */
     UINT32  udwMaxPointsPerRegion;              /* 每个区域最大顶点数  Max points per region */
-    NET_TV_RANGE_S stTimeThreshold;             /* 时间阈值范围  Time threshold range */
+    NET_Range_S stTimeThreshold;             /* 时间阈值范围  Time threshold range */
     BOOL    bSupportVehicleType;                /* 是否支持车辆类型识别  Support vehicle type recognition */
     BYTE    byRes[64];                          /* 保留字段  Reserved */
-} NET_TV_ILLEGAL_PARKING_CAP_S, *LPNET_TV_ILLEGAL_PARKING_CAP_S;
+} NET_IllegalParkingCap_S;
+
+typedef NET_IllegalParkingCap_S* pNET_IllegalParkingCap_S;
 
 /**
- * @struct tagNETTVSmartCap
+ * @struct tagNET_SmartCap
  * @brief 智能能力集  Smart capability set
  * @attention 对应 NET_TV_CAP_SMART
  */
-typedef struct tagNETTVSmartCap
+typedef struct tagNET_SmartCap
 {
-    NET_TV_MOTION_DETECT_CAP_S              stMotionDetect;             /* 移动侦测  Motion detection */
-    NET_TV_TAMPER_DETECT_CAP_S              stTamperDetect;             /* 遮挡检测  Tamper detection */
-    NET_TV_SCENE_CHANGE_CAP_S               stSceneChange;              /* 场景变更  Scene change */
-    NET_TV_AUDIO_ANOMALY_CAP_S              stAudioAnomaly;             /* 音频异常  Audio anomaly */
-    NET_TV_BOUNDARY_DETECT_CAP_S            stBoundaryDetect;           /* 越界检测  Boundary detection */
-    NET_TV_INTRUSION_DETECT_CAP_S           stIntrusionDetect;          /* 区域入侵  Intrusion detection */
-    NET_TV_ENTER_EXIT_DETECT_CAP_S          stEnterExitDetect;          /* 进入/离开区域  Enter/Exit detection */
-    NET_TV_LOITERING_DETECT_CAP_S           stLoiteringDetect;          /* 徘徊检测  Loitering detection */
-    NET_TV_CROWD_GATHERING_CAP_S            stCrowdGathering;           /* 人群聚集  Crowd gathering */
-    NET_TV_PARKING_DETECT_CAP_S             stParkingDetect;            /* 停车检测  Parking detection */
-    NET_TV_OBJECT_CHANGE_DETECT_CAP_S       stObjectChange;             /* 物品遗留/移走  Object left/removal */
-    NET_TV_FACE_DETECT_CAP_S                stFaceDetect;               /* 人脸检测  Face detection */
-    NET_TV_FACE_CAPTURE_CAP_S               stFaceCapture;              /* 人脸抓拍  Face capture */
-    NET_TV_PET_RECOGNITION_CAP_S            stPetRecognition;           /* 宠物识别  Pet recognition */
-    NET_TV_FIRE_DETECT_CAP_S                stFireDetect;               /* 火灾检测  Fire detection */
-    NET_TV_SMOKE_DETECT_CAP_S               stSmokeDetect;              /* 烟雾检测  Smoke detection */
-    NET_TV_WATER_ACCUMULATION_CAP_S         stWaterAccumulation;        /* 积水检测  Water accumulation */
-    NET_TV_TRASH_OVERFLOW_CAP_S             stTrashOverflow;            /* 垃圾满溢检测  Trash overflow */
-    NET_TV_ENVIRONMENT_ANOMALY_CAP_S        stEnvironmentAnomaly;       /* 环境异常检测  Environment anomaly */
-    NET_TV_BEHAVIOR_DETECT_CAP_S            stBehaviorDetect;           /* 人员行为检测  Behavior detection */
-    NET_TV_SAFETY_EQUIPMENT_CAP_S           stSafetyEquipment;          /* 穿戴规范检测  Safety equipment */
-    NET_TV_LICENSE_PLATE_CAP_S              stLicensePlate;             /* 车牌识别  License plate recognition */
-    NET_TV_WRONG_WAY_DRIVING_CAP_S          stWrongWayDriving;          /* 逆行检测  Wrong way driving */
-    NET_TV_ILLEGAL_LANE_CHANGE_CAP_S        stIllegalLaneChange;        /* 违规变道  Illegal lane change */
-    NET_TV_EMERGENCY_LANE_OCCUPANCY_CAP_S   stEmergencyLaneOccupancy;   /* 应急车道占用  Emergency lane occupancy */
-    NET_TV_NON_MOTOR_VEHICLE_INTRUSION_CAP_S stNonMotorVehicleIntrusion;/* 非机动车入侵  Non-motor vehicle intrusion */
-    NET_TV_CONSTRUCTION_OCCUPANCY_CAP_S     stConstructionOccupancy;    /* 施工占道  Construction occupancy */
-    NET_TV_CONGESTION_CAP_S                 stCongestion;               /* 拥堵检测  Congestion detection */
-    NET_TV_ILLEGAL_PARKING_CAP_S            stIllegalParking;           /* 违规停车  Illegal parking */
+    NET_MotionDetectCap_S              stMotionDetect;             /* 移动侦测  Motion detection */
+    NET_TamperDetectCap_S              stTamperDetect;             /* 遮挡检测  Tamper detection */
+    NET_SceneChangeCap_S               stSceneChange;              /* 场景变更  Scene change */
+    NET_AudioAnomalyCap_S              stAudioAnomaly;             /* 音频异常  Audio anomaly */
+    NET_BoundaryDetectCap_S            stBoundaryDetect;           /* 越界检测  Boundary detection */
+    NET_IntrusionDetectCap_S           stIntrusionDetect;          /* 区域入侵  Intrusion detection */
+    NET_EnterExitDetectCap_S          stEnterExitDetect;          /* 进入/离开区域  Enter/Exit detection */
+    NET_LoiteringDetectCap_S           stLoiteringDetect;          /* 徘徊检测  Loitering detection */
+    NET_CrowdGatheringCap_S            stCrowdGathering;           /* 人群聚集  Crowd gathering */
+    NET_ParkingDetectCap_S             stParkingDetect;            /* 停车检测  Parking detection */
+    NET_ObjectChangeDetectCap_S       stObjectChange;             /* 物品遗留/移走  Object left/removal */
+    NET_FaceDetectCap_S                stFaceDetect;               /* 人脸检测  Face detection */
+    NET_FaceCaptureCap_S               stFaceCapture;              /* 人脸抓拍  Face capture */
+    NET_PetRecognitionCap_S            stPetRecognition;           /* 宠物识别  Pet recognition */
+    NET_FireDetectCap_S                stFireDetect;               /* 火灾检测  Fire detection */
+    NET_SmokeDetectCap_S               stSmokeDetect;              /* 烟雾检测  Smoke detection */
+    NET_WaterAccumulationCap_S         stWaterAccumulation;        /* 积水检测  Water accumulation */
+    NET_TrashOverflowCap_S             stTrashOverflow;            /* 垃圾满溢检测  Trash overflow */
+    NET_EnvironmentAnomalyCap_S        stEnvironmentAnomaly;       /* 环境异常检测  Environment anomaly */
+    NET_BehaviorDetectCap_S            stBehaviorDetect;           /* 人员行为检测  Behavior detection */
+    NET_SafetyEquipmentCap_S           stSafetyEquipment;          /* 穿戴规范检测  Safety equipment */
+    NET_LicensePlateCap_S              stLicensePlate;             /* 车牌识别  License plate recognition */
+    NET_WrongWayDrivingCap_S          stWrongWayDriving;          /* 逆行检测  Wrong way driving */
+    NET_IllegalLaneChangeCap_S        stIllegalLaneChange;        /* 违规变道  Illegal lane change */
+    NET_EmergencyLaneOccupancyCap_S   stEmergencyLaneOccupancy;   /* 应急车道占用  Emergency lane occupancy */
+    NET_NonMotorVehicleIntrusionCap_S stNonMotorVehicleIntrusion;/* 非机动车入侵  Non-motor vehicle intrusion */
+    NET_ConstructionOccupancyCap_S     stConstructionOccupancy;    /* 施工占道  Construction occupancy */
+    NET_CongestionCap_S                 stCongestion;               /* 拥堵检测  Congestion detection */
+    NET_IllegalParkingCap_S            stIllegalParking;           /* 违规停车  Illegal parking */
     BYTE    byRes[256];                                                 /* 保留字段  Reserved */
-} NET_TV_SMART_CAP_S, *LPNET_TV_SMART_CAP_S;
+} NET_SmartCap_S;
+
+typedef NET_SmartCap_S* pNET_SmartCap_S;
 
 /************************************************************************/
 /*              设备发现 Device Discovery                                */

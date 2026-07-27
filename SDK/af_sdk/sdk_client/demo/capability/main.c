@@ -111,7 +111,7 @@ void PrintMenu()
 /**
  * @brief 打印分辨率支持的帧率数组
  */
-static void PrintFrameRateList(const char* indent, const NET_TV_VIDEO_RESOLUTION_S* pResolution)
+static void PrintFrameRateList(const char* indent, const NET_VideoResolution_S* pResolution)
 {
     int frameRateNum = pResolution->dwFrameRateNum;
     if (frameRateNum < 0)
@@ -137,7 +137,7 @@ static void PrintFrameRateList(const char* indent, const NET_TV_VIDEO_RESOLUTION
     printf("\n");
 }
 
-static void PrintEncodeComplexityList(const char* indent, const NET_TV_VIDEO_ENCODE_ABILITY_S* pAbility)
+static void PrintEncodeComplexityList(const char* indent, const NET_VideoEncodeAbility_S* pAbility)
 {
     int complexityNum = 0;
 
@@ -225,7 +225,7 @@ void PrintVideoEncodeCap(const NET_TV_VIDEO_ENCODE_CAP_S* pCap)
 
         for (int j = 0; j < pStream->dwEncodeAbilityNum && j < NET_TV_VIDEO_ENCODE_TYPE_MAX; j++)
         {
-            const NET_TV_VIDEO_ENCODE_ABILITY_S* pAbility = &pStream->astEncodeAbility[j];
+            const NET_VideoEncodeAbility_S* pAbility = &pStream->astEncodeAbility[j];
             printf("    [编码能力 %d] Codec=%s(%d)\n", j, pAbility->szVideoCodec, pAbility->enVideoCodec);
             printf("      支持调整复杂度: %d\n", pAbility->nSupportAdjustComplexity);
             PrintEncodeComplexityList("      ", pAbility);
@@ -431,7 +431,7 @@ void PrintAudioEncodeCap(const NET_TV_AUDIO_CAP_S* pCap)
 
     for (int i = 0; i < pCap->dwFormatDetailSize && i < NET_TV_AUDIO_FORMAT_MAX; i++)
     {
-        const NET_TV_AUDIO_FORMAT_CAP_S* pFmt = &pCap->astFormatDetail[i];
+        const NET_AudioFormatCap_S* pFmt = &pCap->astFormatDetail[i];
 
         printf("\n [格式能力 %d] Format=%s(%d)\n",
                i,

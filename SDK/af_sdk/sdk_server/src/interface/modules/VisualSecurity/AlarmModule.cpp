@@ -226,13 +226,13 @@ BOOL AlarmModule::PushAlarmInfo(NET_Alarmer_S* pAlarmer,
         }
         else if (lCommand == NET_TV_NOTICE_DOWNLOAD_RECORD_PROGRESS)
         {
-            if (dwBufLen < (INT32)sizeof(NET_TV_RECORD_DOWNLOAD_PROGRESS_S))
+            if (dwBufLen < (INT32)sizeof(NET_RecordDownloadProgress_S))
             {
                 Json::add(pInfoJson, "AlarmType", (long long)lCommand);
             }
             else
             {
-                SDKConvert::deal(pInfoJson, *(NET_TV_RECORD_DOWNLOAD_PROGRESS_S*)pAlarmInfo, false);
+                SDKConvert::deal(pInfoJson, *(NET_RecordDownloadProgress_S*)pAlarmInfo, false);
             }
         }
         else
@@ -293,7 +293,7 @@ BOOL AlarmModule::PushAlarmInfo(NET_Alarmer_S* pAlarmer,
  * @param pChannelInfo 通道状态信息
  * @return TRUE表示成功，FALSE表示失败
  */
-BOOL AlarmModule::PushChannelStatusInfo(NET_TV_CHANNEL_INFO_S* pChannelInfo)
+BOOL AlarmModule::PushChannelStatusInfo(NET_ChannelInfo_S* pChannelInfo)
 {
     NSDK_LOG_WARN("[AlarmModule] ===== PushChannelStatusInfo Start ===== ");
 
@@ -331,7 +331,7 @@ BOOL AlarmModule::PushChannelStatusInfo(NET_TV_CHANNEL_INFO_S* pChannelInfo)
     NSDK_LOG_WARN("[AlarmModule] Command: NET_TV_NOTIFY_CHANNEL_STATUS (0x%X)", NET_TV_NOTIFY_CHANNEL_STATUS);
 
     Json::Object* pChannelJson = Json::init();
-    NET_TV_CHANNEL_INFO_S info = *pChannelInfo;
+    NET_ChannelInfo_S info = *pChannelInfo;
     SDKConvert::deal(pChannelJson, info, false);
     Json::add(pRoot, "ChannelInfo", pChannelJson);
 
