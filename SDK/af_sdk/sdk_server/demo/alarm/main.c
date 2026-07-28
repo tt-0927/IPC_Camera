@@ -1,23 +1,22 @@
 /**
- * @file main.c
+ * @file alarm_demo.c
  * @author tianl (tianl@kfb.cn)
- * @date 2026-07-28
- * @LastEditors  : qinjt@kfb.cn
- * @LastEditTime : 2026-07-28
+ * @date 2026-1-21
  *
- * @brief 模拟报警事件推送 Demo
+ * @brief 模拟报警事件推送Demo
  * 功能说明：
- * 1. 初始化 SDK 服务器
+ * 1. 初始化SDK服务器
  * 2. 定时模拟推送不同类型的报警事件
- * 3. 演示如何使用 NET_SERVER_PushAlarmInfo 推送报警信息
+ * 3. 演示如何使用NET_TV_SERVER_PushAlarmInfo推送报警信息
  */
-/* 日志记录单个日志文件的最大大小 */
-#define NETSDK_DEMO_LOG_MAX_SIZE  (20 * 1024 * 1024) /* 20MB */
-/* 日志记录最大保留的日志文件数量 */
-#define NETSDK_DEMO_LOG_MAX_FILES (10)
 
-#define NETSDK_DEMO_SERVER_PORT 9888
-#define NETSDK_DEMO_ALARM_PUSH_INTERVAL_SECONDS 10  /* 每10秒推送一次报警事件 */
+/* 日志记录单个日志文件的最大大小 */
+#define MAX_LOG_SIZE  (20 * 1024 * 1024) // 20MB
+/* 日志记录最大保留的日志文件数量 */
+#define MAX_LOG_FILES (10)
+
+#define SDKSERVER_PORT 9888
+#define ALARM_PUSH_INTERVAL 10  // 每10秒推送一次报警事件
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -35,16 +34,11 @@
 #include "NetSdkLog.h"
 #include "NetTVSDKServerInterface.h"
 
-/* 全局运行标志 */
+// 全局运行标志
 volatile sig_atomic_t g_running = 1;
 
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 处理终止信号并请求结束报警推送 Demo。
- * @param [in] signum 操作系统传入的信号编号。
- * @return 无返回值。
- */
-static void signal_handler(int signum)
+// 信号处理函数，用于优雅退出
+void signal_handler(int signum)
 {
     if (signum == SIGINT || signum == SIGTERM)
     {
@@ -53,51 +47,42 @@ static void signal_handler(int signum)
     }
 }
 
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 初始化报警设备信息，并填充设备标识和默认 MAC 地址。
- * @param [out] pAlarmInfo 待初始化的报警设备信息结构体。
- * @param [in] deviceName 设备名称；可为 NULL。
- * @param [in] deviceIP 设备 IPv4 地址；可为 NULL。
- * @param [in] serialNumber 设备序列号；可为 NULL。
- * @param [in] macAddr 设备 MAC 地址；为 NULL 时使用 Demo 默认值。
- * @return 无返回值。
- */
-static void InitAlarmInfo(NET_Alarmer_S* pAlarmInfo, const char* deviceName,
+// 初始化报警信息结构体
+void InitAlarmInfo(NET_Alarmer_S* pAlarmInfo, const char* deviceName,
                    const char* deviceIP, const char* serialNumber,
                    const BYTE* macAddr)
 {
     memset(pAlarmInfo, 0, sizeof(NET_Alarmer_S));
 
-    /* 设置设备名称 */
+    // 设置设备名称
     if (deviceName)
     {
         strncpy(pAlarmInfo->strDeviceName, deviceName, NET_LEN_32 - 1);
         pAlarmInfo->strDeviceName[NET_LEN_32 - 1] = '\0';
     }
 
-    /* 设置设备IP */
+    // 设置设备IP
     if (deviceIP)
     {
         strncpy(pAlarmInfo->strDeviceIP, deviceIP, 127);
         pAlarmInfo->strDeviceIP[127] = '\0';
     }
 
-    /* 设置序列号 */
+    // 设置序列号
     if (serialNumber)
     {
         memcpy(pAlarmInfo->strSerialNumber, serialNumber,
                strlen(serialNumber) < NET_LEN_64 ? strlen(serialNumber) : NET_LEN_64);
     }
 
-    /* 设置MAC地址 */
+    // 设置MAC地址
     if (macAddr)
     {
         memcpy(pAlarmInfo->byMacAddr, macAddr, NET_LEN_6);
     }
     else
     {
-        /* 默认MAC地址: 00:11:22:33:44:55 */
+        // 默认MAC地址: 00:11:22:33:44:55
         pAlarmInfo->byMacAddr[0] = 0x00;
         pAlarmInfo->byMacAddr[1] = 0x11;
         pAlarmInfo->byMacAddr[2] = 0x22;
@@ -107,12 +92,8 @@ static void InitAlarmInfo(NET_Alarmer_S* pAlarmInfo, const char* deviceName,
     }
 }
 
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 构造并推送移动侦测报警事件。
- * @return 无返回值。
- */
-static void PushMotionDetectAlarm()
+// 模拟不同类型的报警事件
+void PushMotionDetectAlarm()
 {
     NET_Alarmer_S stAlarmInfo;
     NET_AlarmBasicInfo_S stBasic = {0};
@@ -134,13 +115,8 @@ static void PushMotionDetectAlarm()
         printf("[Demo] Failed to push Motion Detection Alarm!\n");
     }
 }
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 PushIntrusionAlarm 对应的处理。
- * @return 无返回值。
- */
 
-static void PushIntrusionAlarm()
+void PushIntrusionAlarm()
 {
     NET_Alarmer_S stAlarmInfo;
     NET_AlarmRuleInfo_S* pRule = (NET_AlarmRuleInfo_S*)calloc(1, sizeof(NET_AlarmRuleInfo_S));
@@ -172,13 +148,8 @@ static void PushIntrusionAlarm()
 
     free(pRule);
 }
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 PushVideoLossAlarm 对应的处理。
- * @return 无返回值。
- */
 
-static void PushVideoLossAlarm()
+void PushVideoLossAlarm()
 {
     NET_Alarmer_S stAlarmInfo;
     NET_AlarmExceptionInfo_S stEx = {0};
@@ -191,7 +162,7 @@ static void PushVideoLossAlarm()
     stEx.uAlarmType = NET_ALARM_VIDEO_LOSS;
     stEx.uChannel = 1;
     stEx.uDiskNo = 0;
-    stEx.uStatus = 1; /* 1=触发 */
+    stEx.uStatus = 1; // 1=触发
 
     if (NET_SERVER_PushAlarmInfo(&stAlarmInfo, NET_ALARM_BASE_EXCEPTION, &stEx, (INT32)sizeof(stEx)))
     {
@@ -202,13 +173,8 @@ static void PushVideoLossAlarm()
         printf("[Demo] Failed to push Video Loss Alarm!\n");
     }
 }
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 PushDiskFullAlarm 对应的处理。
- * @return 无返回值。
- */
 
-static void PushDiskFullAlarm()
+void PushDiskFullAlarm()
 {
     NET_Alarmer_S stAlarmInfo;
     NET_AlarmExceptionInfo_S stEx = {0};
@@ -222,7 +188,7 @@ static void PushDiskFullAlarm()
     stEx.uAlarmType = NET_ALARM_DISK_FULL;
     stEx.uChannel = 0;
     stEx.uDiskNo = 1;
-    stEx.uStatus = 1; /* 1=触发 */
+    stEx.uStatus = 1; // 1=触发
 
     if (NET_SERVER_PushAlarmInfo(&stAlarmInfo, NET_ALARM_BASE_EXCEPTION, &stEx, (INT32)sizeof(stEx)))
     {
@@ -233,13 +199,8 @@ static void PushDiskFullAlarm()
         printf("[Demo] Failed to push Disk Full Alarm!\n");
     }
 }
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 PushPeopleFlowStatisticsAlarm 对应的处理。
- * @return 无返回值。
- */
 
-static void PushPeopleFlowStatisticsAlarm()
+void PushPeopleFlowStatisticsAlarm()
 {
     NET_Alarmer_S stAlarmInfo;
     static NET_AlarmStatisticsInfo_S stStat;
@@ -281,13 +242,8 @@ static void PushPeopleFlowStatisticsAlarm()
         printf("[Demo] Failed to push People Flow Statistics Alarm!\n");
     }
 }
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 PushFaceCompareAlarm 对应的处理。
- * @return 无返回值。
- */
 
-static void PushFaceCompareAlarm()
+void PushFaceCompareAlarm()
 {
     NET_Alarmer_S stAlarmInfo;
     NET_AlarmFaceCompareInfo_S stCompare = {0};
@@ -343,8 +299,8 @@ static void PushFaceCompareAlarm()
     {
         printf("[Demo] Face Compare Alarm pushed successfully! faceId=%d name=%s lib=%s result=%d similarity=%d\n",
                stCompare.nFaceId,
-               stCompare.szFaceName,
-               stCompare.szFaceLibName,
+               stCompare.strFaceName,
+               stCompare.strFaceLibName,
                stCompare.nCompResult,
                stCompare.nSimilarity);
     }
@@ -354,13 +310,13 @@ static void PushFaceCompareAlarm()
     }
 }
 
-/* 模拟随机报警事件 */
-static void PushRandomAlarm()
+// 模拟随机报警事件
+void PushRandomAlarm()
 {
     static int alarmCounter = 0;
     alarmCounter++;
 
-    /* 根据计数器选择不同类型的报警 */
+    // 根据计数器选择不同类型的报警
     switch (alarmCounter % 6)
     {
         case 0:
@@ -387,15 +343,15 @@ static void PushRandomAlarm()
     }
 }
 
-/* 回调函数：获取设备信息 */
-static NET_COMMON_ECODE_E MyDeviceInfoCb(pNET_DeviceInfo_S pInfo)
+// 回调函数：获取设备信息
+NET_COMMON_ECODE_E MyDeviceInfoCb(pNET_DeviceInfo_S pInfo)
 {
     if (!pInfo)
     {
         return NET_E_FAILED;
     }
 
-    /* 示例：填充最基本的设备信息（字段见 NET_DeviceInfo_S） */
+    // 示例：填充最基本的设备信息（字段见 NET_DeviceInfo_S）
     pInfo->uDevType = 0;
     pInfo->uAlarmInPortNum = 2;
     pInfo->uAlarmOutPortNum = 1;
@@ -403,18 +359,11 @@ static NET_COMMON_ECODE_E MyDeviceInfoCb(pNET_DeviceInfo_S pInfo)
     return NET_E_SUCCEED;
 }
 
-/* 注册回调函数 */
-static void AddRegisterCb()
+// 注册回调函数
+void AddRegisterCb()
 {
     NET_SERVER_RegisterCb_GetDeviceInfo(MyDeviceInfoCb);
 }
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 运行当前 Demo 的主流程。
- * @param [in] argc 函数处理参数。
- * @param [in,out] argv 函数处理参数。
- * @return 返回该处理的状态或结果。
- */
 
 int main(int argc, char* argv[])
 {
@@ -425,30 +374,30 @@ int main(int argc, char* argv[])
     printf("Press Ctrl+C to stop\n");
     printf("===========================================\n\n");
 
-    /* 注册信号处理函数 */
+    // 注册信号处理函数
     signal(SIGINT, signal_handler);
     signal(SIGTERM, signal_handler);
 
-    /* 初始化日志 */
-    initSdkLogBySize("AlarmDemo", "/opt/course/AlarmDemo.log", NETSDK_DEMO_LOG_MAX_SIZE, NETSDK_DEMO_LOG_MAX_FILES);
+    // 初始化日志
+    initSdkLogBySize("AlarmDemo", "/opt/course/AlarmDemo.log", MAX_LOG_SIZE, MAX_LOG_FILES);
 
-    /* 设置日志输出同步输出控制台 */
+    // 设置日志输出同步输出控制台
     syncPrintf(true);
 
-    /* 设置日志等级 */
+    // 设置日志等级
     setLogLevel(NETSDK_LOG_TRACE);
 
-    /* 注册回调函数 */
+    // 注册回调函数
     AddRegisterCb();
 
-    /* 获取端口号（从命令行参数或使用默认值） */
-    UINT32 dwPort = NETSDK_DEMO_SERVER_PORT;
+    // 获取端口号（从命令行参数或使用默认值）
+    UINT32 dwPort = SDKSERVER_PORT;
     if (argc > 1)
     {
         dwPort = (UINT32)atoi(argv[1]);
     }
 
-    /* 获取用户名和密码（可选） */
+    // 获取用户名和密码（可选）
     CHAR szUserName[NET_LEN_132] = "admin";
     CHAR szPassword[NET_LEN_132] = "Admin@123456";
 
@@ -464,7 +413,7 @@ int main(int argc, char* argv[])
         szPassword[NET_LEN_132 - 1] = '\0';
     }
 
-    /* 初始化SDK服务器 */
+    // 初始化SDK服务器
     printf("[Demo] Initializing SDK Server on port %u...\n", dwPort);
     if (!NET_SERVER_Init(dwPort, szUserName, szPassword))
     {
@@ -474,7 +423,7 @@ int main(int argc, char* argv[])
     printf("[Demo] SDK Server initialized successfully!\n");
     printf("[Demo] Server is ready to push alarm events\n\n");
 
-    /* 主循环：定时推送报警事件 */
+    // 主循环：定时推送报警事件
     int pushCount = 0;
     time_t lastPushTime = time(NULL);
 
@@ -482,22 +431,22 @@ int main(int argc, char* argv[])
     {
         time_t currentTime = time(NULL);
 
-        /* 每ALARM_PUSH_INTERVAL秒推送一次报警 */
-        if (currentTime - lastPushTime >= NETSDK_DEMO_ALARM_PUSH_INTERVAL_SECONDS)
+        // 每ALARM_PUSH_INTERVAL秒推送一次报警
+        if (currentTime - lastPushTime >= ALARM_PUSH_INTERVAL)
         {
             pushCount++;
             printf("\n[Demo] ==== Alarm Push #%d (Time: %s) ====\n",
                    pushCount, ctime(&currentTime));
 
-            /* 推送随机报警事件 */
+            // 推送随机报警事件
             PushRandomAlarm();
 
             lastPushTime = currentTime;
             printf("[Demo] Next alarm will be pushed in %d seconds...\n\n",
-                   NETSDK_DEMO_ALARM_PUSH_INTERVAL_SECONDS);
+                   ALARM_PUSH_INTERVAL);
         }
 
-        /* 休眠1秒，避免CPU占用过高 */
+        // 休眠1秒，避免CPU占用过高
 #ifdef _WIN32
         Sleep(1000);
 #else
@@ -505,7 +454,7 @@ int main(int argc, char* argv[])
 #endif
     }
 
-    /* 清理资源 */
+    // 清理资源
     printf("\n[Demo] Cleaning up...\n");
     NET_SERVER_Cleanup();
     printf("[Demo] Demo stopped. Total alarms pushed: %d\n", pushCount);

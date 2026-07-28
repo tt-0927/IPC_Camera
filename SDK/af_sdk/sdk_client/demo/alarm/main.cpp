@@ -1,16 +1,3 @@
-/**
- * @file main.cpp
- * @author tianl (tianl@kfb.cn)
- * @date 2026-07-28
- * @LastEditors  : qinjt@kfb.cn
- * @LastEditTime : 2026-07-28
- *
- * @brief 客户端报警订阅 Demo
- * 功能说明：
- * 1. 初始化 SDK 客户端并登录设备
- * 2. 订阅设备报警与通道状态事件
- * 3. 输出回调接收到的报警信息
- */
 #include <iostream>
 #include <algorithm>
 #include <cstring>
@@ -35,11 +22,6 @@
 #ifdef _WIN32
 extern "C" __declspec(dllimport) void __stdcall Sleep(unsigned long dwMilliseconds);
 #endif
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 SaveAlarmImage 对应的处理。
- * @return 返回该处理的状态或结果。
- */
 
 
 static std::string SaveAlarmImage(const char* deviceIp,
@@ -89,12 +71,6 @@ static std::string SaveAlarmImage(const char* deviceIp,
         return std::string();
     }
 }
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 SleepSeconds 定义的内部处理。
- * @param [in] seconds 函数处理参数。
- * @return 无返回值。
- */
 
 static void SleepSeconds(unsigned int seconds) {
 #ifdef _WIN32
@@ -103,12 +79,6 @@ static void SleepSeconds(unsigned int seconds) {
     sleep(seconds);
 #endif
 }
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 查询或校验 GetStatisticsTypeName 对应的数据。
- * @param [in] type 函数处理参数。
- * @return 返回该处理的状态或结果。
- */
 
 
 static const char* GetStatisticsTypeName(UINT32 type) {
@@ -118,12 +88,6 @@ static const char* GetStatisticsTypeName(UINT32 type) {
         default: return "Unknown";
     }
 }
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 查询或校验 GetAlarmBaseName 对应的数据。
- * @param [in] command 函数处理参数。
- * @return 返回该处理的状态或结果。
- */
 
 static const char* GetAlarmBaseName(INT64 command) {
     switch (command & 0xF000) {
@@ -136,12 +100,6 @@ static const char* GetAlarmBaseName(INT64 command) {
         default: return "UNKNOWN_BASE";
     }
 }
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 查询或校验 GetAlarmTypeName 对应的数据。
- * @param [in] alarmType 函数处理参数。
- * @return 返回该处理的状态或结果。
- */
 
 static const char* GetAlarmTypeName(UINT32 alarmType)
 {
@@ -175,12 +133,6 @@ static const char* GetAlarmTypeName(UINT32 alarmType)
         default: return "UNKNOWN_ALARM_TYPE";
     }
 }
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 查询或校验 GetAlarmCommandName 对应的数据。
- * @param [in] command 函数处理参数。
- * @return 返回该处理的状态或结果。
- */
 
 static const char* GetAlarmCommandName(INT64 command) {
     switch (command) {
@@ -201,25 +153,20 @@ static const char* GetAlarmCommandName(INT64 command) {
     }
 }
 
-/* ==================== 异步图片保存 ==================== */
-struct ImageSaveTask_S {
+// ==================== 异步图片保存 ====================
+struct ImageSaveTask {
     std::string deviceIp;
     std::string eventName;
     std::string imageKind;
     std::vector<BYTE> imageData;
 };
 
-std::queue<ImageSaveTask_S> g_saveQueue;
+std::queue<ImageSaveTask> g_saveQueue;
 std::mutex g_queueMutex;
 std::condition_variable g_queueCV;
 bool g_saveThreadRunning = true;
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 ImageSaveThread 定义的内部处理。
- * @return 无返回值。
- */
 
-static void ImageSaveThread() {
+void ImageSaveThread() {
     while (g_saveThreadRunning) {
         std::unique_lock<std::mutex> lock(g_queueMutex);
         g_queueCV.wait(lock, []{ return !g_saveQueue.empty() || !g_saveThreadRunning; });
@@ -227,7 +174,7 @@ static void ImageSaveThread() {
         if (!g_saveThreadRunning && g_saveQueue.empty()) break;
 
         while (!g_saveQueue.empty()) {
-            ImageSaveTask_S task = std::move(g_saveQueue.front());
+            ImageSaveTask task = std::move(g_saveQueue.front());
             g_saveQueue.pop();
             lock.unlock();
 
@@ -244,13 +191,8 @@ static void ImageSaveThread() {
         }
     }
 }
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 SubmitImageSave 定义的内部处理。
- * @return 无返回值。
- */
 
-static inline void SubmitImageSave(const char* ip, const char* event, const char* kind,
+inline void SubmitImageSave(const char* ip, const char* event, const char* kind,
                             const BYTE* data, UINT32 len) {
     if (!data || len == 0) return;
     std::lock_guard<std::mutex> lock(g_queueMutex);
@@ -258,36 +200,36 @@ static inline void SubmitImageSave(const char* ip, const char* event, const char
                       kind ? kind : "unknown", std::vector<BYTE>(data, data + len)});
     g_queueCV.notify_one();
 }
-/* ==================== 异步图片保存结束 ==================== */
+// ==================== 异步图片保存结束 ====================
 
-/* Global flag to control the main loop */
+// Global flag to control the main loop
 volatile sig_atomic_t g_running = 1;
 
-/* Signal handler for Ctrl+C */
-static void signal_handler(int signum) {
+// Signal handler for Ctrl+C
+void signal_handler(int signum) {
     if (signum == SIGINT) {
         printf("\nReceived Ctrl+C. Stopping...\n");
         g_running = 0;
     }
 }
 
-/* Alarm callback function */
-static void NET_STDCALL AlarmCallBack(NET_OUT INT64 lCommand,
-                           NET_OUT NET_Alarmer_S *pAlarmer,
-                           NET_OUT CHAR* pAlarmInfo,
-                           NET_OUT INT32* dwBufLen,
-                           NET_OUT LPVOID lpUserData) {
+// Alarm callback function
+void STDCALL AlarmCallBack(OUT INT64 lCommand,
+                           OUT NET_Alarmer_S *pAlarmer,
+                           OUT CHAR* pAlarmInfo,
+                           OUT INT32* dwBufLen,
+                           OUT LPVOID lpUserData) {
 
-    /* 立即刷新stdout，确保日志及时输出 */
+    // 立即刷新stdout，确保日志及时输出
     fflush(stdout);
 
-    /* 第一时间打印标记（无任何格式化开销） */
+    // 第一时间打印标记（无任何格式化开销）
     auto now_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
         std::chrono::system_clock::now().time_since_epoch()).count();
     printf("[%lld] ALARM_CB_ENTRY cmd=0x%llx\n", (long long)now_ms, (long long)lCommand);
     fflush(stdout);
 
-    /* 打印当前时间戳 */
+    // 打印当前时间戳
     {
         auto now = std::chrono::system_clock::now();
         auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
@@ -302,8 +244,8 @@ static void NET_STDCALL AlarmCallBack(NET_OUT INT64 lCommand,
            GetAlarmCommandName(lCommand),
            GetAlarmBaseName(lCommand));
     if (pAlarmer) {
-        printf("  设备名 / DeviceName: %s\n", pAlarmer->szDeviceName);
-        printf("  设备IP / DeviceIP: %s\n", pAlarmer->szDeviceIP);
+        printf("  设备名 / DeviceName: %s\n", pAlarmer->strDeviceName);
+        printf("  设备IP / DeviceIP: %s\n", pAlarmer->strDeviceIP);
     }
 
     INT64 alarmBase = lCommand & 0xF000;
@@ -328,13 +270,13 @@ static void NET_STDCALL AlarmCallBack(NET_OUT INT64 lCommand,
                    info->uPanoramaImgLen, info->uTargetImgLen);
             if (info->uPanoramaImgLen > 0) {
                 const UINT32 imgLen = std::min<UINT32>(info->uPanoramaImgLen, NET_PIC_DATA_MAX_LEN);
-                SubmitImageSave(pAlarmer ? pAlarmer->szDeviceIP : nullptr,
+                SubmitImageSave(pAlarmer ? pAlarmer->strDeviceIP : nullptr,
                                "rule", "panorama",
                                info->byPanoramaImg, imgLen);
             }
             if (info->uTargetImgLen > 0) {
                 const UINT32 imgLen = std::min<UINT32>(info->uTargetImgLen, NET_PIC_DATA_MAX_LEN);
-                SubmitImageSave(pAlarmer ? pAlarmer->szDeviceIP : nullptr,
+                SubmitImageSave(pAlarmer ? pAlarmer->strDeviceIP : nullptr,
                                "rule", "target",
                                info->byTargetImg, imgLen);
             }
@@ -360,14 +302,14 @@ static void NET_STDCALL AlarmCallBack(NET_OUT INT64 lCommand,
             if (info->uLibFaceImgLen > 0) {
                 const UINT32 imgLen = std::min<UINT32>(info->uLibFaceImgLen, NET_FACE_IMAGE_MAX_LEN);
                 printf("  [FACE_COMPARE/人脸比对] 库脸图片长度 / LibFaceImgLen: %u (异步保存 / saving async)\n", imgLen);
-                SubmitImageSave(pAlarmer ? pAlarmer->szDeviceIP : nullptr,
+                SubmitImageSave(pAlarmer ? pAlarmer->strDeviceIP : nullptr,
                                "face_compare", "lib_face",
                                info->byLibFaceImg, imgLen);
             }
             if (info->uCapFaceImgLen > 0) {
                 const UINT32 imgLen = std::min<UINT32>(info->uCapFaceImgLen, NET_FACE_IMAGE_MAX_LEN);
                 printf("  [FACE_COMPARE/人脸比对] 抓拍图片长度 / CapFaceImgLen: %u (异步保存 / saving async)\n", imgLen);
-                SubmitImageSave(pAlarmer ? pAlarmer->szDeviceIP : nullptr,
+                SubmitImageSave(pAlarmer ? pAlarmer->strDeviceIP : nullptr,
                                "face_compare", "capture_face",
                                info->byCapFaceImg, imgLen);
             }
@@ -380,7 +322,7 @@ static void NET_STDCALL AlarmCallBack(NET_OUT INT64 lCommand,
 
             if (info->uPanoramaImgLen > 0) {
                 const UINT32 imgLen = std::min<UINT32>(info->uPanoramaImgLen, NET_PIC_DATA_MAX_LEN);
-                SubmitImageSave(pAlarmer ? pAlarmer->szDeviceIP : nullptr,
+                SubmitImageSave(pAlarmer ? pAlarmer->strDeviceIP : nullptr,
                                "ai_object", "panorama",
                                info->byPanoramaImg, imgLen);
             }
@@ -392,7 +334,7 @@ static void NET_STDCALL AlarmCallBack(NET_OUT INT64 lCommand,
                        info->uImgLen);
 
                 const UINT32 imgLen = std::min<UINT32>(info->uImgLen, NET_PIC_DATA_MAX_LEN);
-                SubmitImageSave(pAlarmer ? pAlarmer->szDeviceIP : nullptr,
+                SubmitImageSave(pAlarmer ? pAlarmer->strDeviceIP : nullptr,
                                "ai_object", "alarm_image",
                                info->byImgData, imgLen);
             }
@@ -413,7 +355,7 @@ static void NET_STDCALL AlarmCallBack(NET_OUT INT64 lCommand,
                     const UINT32 imgLen = std::min<UINT32>(info->uImgLen, NET_PIC_DATA_MAX_LEN);
                     const char* eventName = isFaceCompare ? "face_compare" :
                         (lCommand == NET_ALARM_FACE_CAPTURE ? "face_capture" : "face_detect");
-                    SubmitImageSave(pAlarmer ? pAlarmer->szDeviceIP : nullptr,
+                    SubmitImageSave(pAlarmer ? pAlarmer->strDeviceIP : nullptr,
                                    eventName, imageKind,
                                    info->byImgData, imgLen);
                 }
@@ -427,7 +369,7 @@ static void NET_STDCALL AlarmCallBack(NET_OUT INT64 lCommand,
                 const UINT32 imgLen = std::min<UINT32>(info->uPlateImgLen, NET_VEH_PLATE_IMAGE_LEN);
                 printf("  [TRAFFIC/交通管理] 车牌图片长度 / PlateImgLen: %u (异步保存 / saving async)\n", imgLen);
                 const char* eventName = info->uAlarmType == NET_ALARM_PLATE_RECOGNITION ? "plate_recognition" : "traffic_congestion";
-                SubmitImageSave(pAlarmer ? pAlarmer->szDeviceIP : nullptr,
+                SubmitImageSave(pAlarmer ? pAlarmer->strDeviceIP : nullptr,
                                eventName, "plate",
                                info->byPlateImg, imgLen);
             }
@@ -452,7 +394,7 @@ static void NET_STDCALL AlarmCallBack(NET_OUT INT64 lCommand,
             if (targetCount > NET_ALARM_STATISTICS_TARGET_MAX_NUM) {
                 targetCount = NET_ALARM_STATISTICS_TARGET_MAX_NUM;
             }
-            /* ========== 特写图片信息 / Close-up Image Info ========== */
+            // ========== 特写图片信息 / Close-up Image Info ==========
             printf("  [STATISTICS/统计告警][特写图片/Close-up] 目标数量 / TargetCount: %u\n", targetCount);
             for (UINT32 i = 0; i < targetCount; ++i) {
                 const auto& target = info->stTargets[i];
@@ -474,41 +416,34 @@ static void NET_STDCALL AlarmCallBack(NET_OUT INT64 lCommand,
                     printf("  [STATISTICS/统计告警][特写图片/Close-up][目标%u] ✅ 有图片数据 / Image available, 长度 / Length: %u bytes (异步保存 / saving async)\n", i, imgLen);
                     const std::string kind = "target_" + std::to_string(i);
                     const char* eventName = info->uStatisticsType == NET_STATISTICS_TYPE_PEOPLE_DENSITY ? "density" : "flow";
-                    SubmitImageSave(pAlarmer ? pAlarmer->szDeviceIP : nullptr,
+                    SubmitImageSave(pAlarmer ? pAlarmer->strDeviceIP : nullptr,
                                    eventName, kind.c_str(),
                                    target.byImgData, imgLen);
                 } else {
                     printf("  [STATISTICS/统计告警][特写图片/Close-up][目标%u] ❌ 无图片数据 / No image\n", i);
                 }
             }
-            /* ========== 全景图片信息 / Panorama Image Info ========== */
+            // ========== 全景图片信息 / Panorama Image Info ==========
             printf("  [STATISTICS/统计告警][全景图片/Panorama] ");
             if (info->uPanoramaImgLen > 0) {
                 const UINT32 imgLen = std::min<UINT32>(info->uPanoramaImgLen, NET_PIC_DATA_MAX_LEN);
                 printf("✅ 有图片数据 / Image available, 长度 / Length: %u bytes (异步保存 / saving async)\n", imgLen);
                 const char* eventName = info->uStatisticsType == NET_STATISTICS_TYPE_PEOPLE_DENSITY ? "density" : "flow";
-                SubmitImageSave(pAlarmer ? pAlarmer->szDeviceIP : nullptr,
+                SubmitImageSave(pAlarmer ? pAlarmer->strDeviceIP : nullptr,
                                eventName, "panorama",
                                info->byPanoramaImg, imgLen);
             } else {
                 printf("❌ 无图片数据 / No image\n");
             }
         } else {
-            /* 未知结构：按字符串尝试打印（一般是 JSON 兜底透传） */
+            // 未知结构：按字符串尝试打印（一般是 JSON 兜底透传）
             printf("  [UNKNOWN/未知类型] Alarm Info (raw): %s\n", pAlarmInfo);
         }
     }
     printf("----------------------------------------\n");
 }
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 OnChannelStatus 定义的内部处理。
- * @param [in,out] pInfo 函数处理参数。
- * @param [in] pUserData 函数处理参数。
- * @return 无返回值。
- */
 
-static void NET_STDCALL OnChannelStatus(NET_CHANNEL_INFO_S *pInfo, LPVOID pUserData)
+void STDCALL OnChannelStatus(NET_ChannelInfo_S *pInfo, LPVOID pUserData)
  {
     (void)pUserData;
     if (!pInfo) {
@@ -517,11 +452,11 @@ static void NET_STDCALL OnChannelStatus(NET_CHANNEL_INFO_S *pInfo, LPVOID pUserD
         return;
     }
 
-    struct ChnPrev_S { int online; int devState; int recordStatus; };
-    static std::map<UINT32, ChnPrev_S> s_prev;
+    struct ChnPrev { int online; int devState; int recordStatus; };
+    static std::map<UINT32, ChnPrev> s_prev;
     static bool s_first = true;
 
-    UINT32 ch = pInfo->dwChannel;
+    UINT32 ch = pInfo->uChannel;
     auto it = s_prev.find(ch);
     auto onlineStr = [](int v) { return v ? "在线/Online" : "离线/Offline"; };
 
@@ -569,22 +504,17 @@ static void NET_STDCALL OnChannelStatus(NET_CHANNEL_INFO_S *pInfo, LPVOID pUserD
     s_prev[ch] = {pInfo->byOnline, pInfo->nDevState, pInfo->nRecordStatus};
     printf("----------------------------------------\n");
 }
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 运行当前 Demo 的主流程。
- * @return 返回该处理的状态或结果。
- */
 
 int main() {
-    /* Register signal handler */
+    // Register signal handler
     signal(SIGINT, signal_handler);
 
     printf("Starting SDK Client Alarm Demo...\n");
 
-    /* 启动图片异步保存线程 */
+    // 启动图片异步保存线程
     std::thread saveThread(ImageSaveThread);
 
-    /* Initialize SDK */
+    // Initialize SDK
     if (!NET_Init()) {
         printf("NET_Init failed!\n");
         g_saveThreadRunning = false;
@@ -594,7 +524,7 @@ int main() {
     }
     printf("NET_Init success.\n");
 
-        /* Set log to file */
+        // Set log to file
 #ifdef _WIN32
     const char* logDir = "root/log";
     _mkdir("root");
@@ -610,27 +540,27 @@ int main() {
         printf("NET_SetLogToFile success, log directory: %s\n", logDir);
     }
 
-    /* Login Information (Hardcoded as per existing demo) */
-    NET_DEVICE_LOGIN_INFO_S struLoginInfo = {0};
+    // Login Information (Hardcoded as per existing demo)
+    NET_DeviceLoginInfo_S struLoginInfo = {0};
     NET_DeviceInfo_S struDeviceInfo = {0};
 
-    struLoginInfo.dwPort = 9019;
+    struLoginInfo.uPort = 9019;
     strcpy(struLoginInfo.szIPAddr, "172.16.25.191");
     strcpy(struLoginInfo.szUserName, "admin");
     strcpy(struLoginInfo.szPassword, "itc20232024");
 
-    printf("Logging in to %s:%d...\n", struLoginInfo.szIPAddr, struLoginInfo.dwPort);
+    printf("Logging in to %s:%d...\n", struLoginInfo.szIPAddr, struLoginInfo.uPort);
     LPVOID lpUserID = NET_Login(&struLoginInfo, &struDeviceInfo);
-    if (lpUserID == NULL) { /* Assuming NULL indicates failure, usually API returns handle or ID > 0 */
-        /* Note: The API interface says "返回值为用户ID", verify if 0 or NULL checks are appropriate. */
-        /* Usually pointers are checked against NULL. */
+    if (lpUserID == NULL) { // Assuming NULL indicates failure, usually API returns handle or ID > 0
+        // Note: The API interface says "返回值为用户ID", verify if 0 or NULL checks are appropriate.
+        // Usually pointers are checked against NULL.
         printf("NET_Login failed!\n");
         NET_Cleanup();
         return -1;
     }
     printf("Login success. UserID: %p\n", lpUserID);
 
-    /* Set Alarm Callback */
+    // Set Alarm Callback
     if (!NET_SetAlarmCallBack(lpUserID, AlarmCallBack, NULL)) {
         printf("NET_SetAlarmCallBack failed!\n");
         NET_Logout(lpUserID);
@@ -647,7 +577,7 @@ int main() {
     }
     printf("SetChannelStatusCallBack success.\n");
 
-    /* Start Listening */
+    // Start Listening
     if (!NET_StartListen(lpUserID)) {
         printf("NET_StartListen failed!\n");
         NET_Logout(lpUserID);
@@ -656,7 +586,7 @@ int main() {
     }
     printf("StartListen success. Waiting for alarms... (Press Ctrl+C to stop)\n");
 
-    /* Main loop */
+    // Main loop
     while (g_running) {
         SleepSeconds(1);
     }
@@ -670,7 +600,7 @@ int main() {
     printf("Cleaning up SDK...\n");
     NET_Cleanup();
 
-    /* 停止图片保存线程 */
+    // 停止图片保存线程
     printf("Stopping image save thread...\n");
     g_saveThreadRunning = false;
     g_queueCV.notify_one();

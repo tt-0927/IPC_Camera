@@ -1,15 +1,10 @@
 /**
- * @file main.c
+ * @file main.cpp
  * @author tianl (tianl@kfb.cn)
- * @date 2026-07-28
- * @LastEditors  : qinjt@kfb.cn
- * @LastEditTime : 2026-07-28
+ * @date 2025-01-30
  *
- * @brief SDK 设备能力查询 Demo
- * 功能说明：
- * 1. 实现 main 模块核心逻辑
- * 2. 校验输入参数并管理模块资源生命周期
- * 3. 向上层提供可复用的 SDK 能力
+ * @brief SDK客户端 设备能力集Demo
+ *        支持终端输入命令码获取不同类型的设备能力集
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -20,31 +15,23 @@
 #include "NetTVSDKClientInterface.h"
 
 /* 日志配置 */
-#define NETSDK_DEMO_LOG_MAX_SIZE  (20 * 1024 * 1024)
-#define NETSDK_DEMO_LOG_MAX_FILES (10)
+#define MAX_LOG_SIZE  (20 * 1024 * 1024)
+#define MAX_LOG_FILES (10)
 
 /* 服务端配置 */
-#define NETSDK_DEMO_SERVER_IP   "127.0.0.1"
-#define NETSDK_DEMO_SERVER_PORT 8888
-#define NETSDK_DEMO_USERNAME    "admin"
-#define NETSDK_DEMO_PASSWORD    "Admin@123456"
-#define NETSDK_DEMO_CLIENT_OSD_ALIGN_MAX_NUM 8
+#define SERVER_IP   "127.0.0.1"
+#define SERVER_PORT 8888
+#define USERNAME    "admin"
+#define PASSWORD    "Admin@123456"
+#define CLIENT_OSD_ALIGN_MAX_NUM 8
 
-static char g_serverIp[64] = NETSDK_DEMO_SERVER_IP;
-static INT32 g_serverPort = NETSDK_DEMO_SERVER_PORT;
-static char g_username[64] = NETSDK_DEMO_USERNAME;
-static char g_password[64] = NETSDK_DEMO_PASSWORD;
+static char g_serverIp[64] = SERVER_IP;
+static INT32 g_serverPort = SERVER_PORT;
+static char g_username[64] = USERNAME;
+static char g_password[64] = PASSWORD;
 
 /* 全局用户句柄 */
 static LPVOID g_lpUserID = NULL;
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 CopyString 对应的处理。
- * @param [in,out] pDst 函数处理参数。
- * @param [in] dstSize 函数处理参数。
- * @param [in] pSrc 函数处理参数。
- * @return 无返回值。
- */
 
 static void CopyString(char* pDst, size_t dstSize, const char* pSrc)
 {
@@ -62,12 +49,6 @@ static void CopyString(char* pDst, size_t dstSize, const char* pSrc)
     strncpy(pDst, pSrc, dstSize - 1);
     pDst[dstSize - 1] = '\0';
 }
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 PrintUsage 定义的内部处理。
- * @param [in] pProgram 函数处理参数。
- * @return 无返回值。
- */
 
 static void PrintUsage(const char* pProgram)
 {
@@ -76,13 +57,6 @@ static void PrintUsage(const char* pProgram)
     printf("Example: %s 172.16.25.199 8888 admin Admin@123456\n",
            pProgram ? pProgram : "CapabilityClientDemo");
 }
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 ConfigureByArgs 定义的内部处理。
- * @param [in] argc 函数处理参数。
- * @param [in,out] argv 函数处理参数。
- * @return 无返回值。
- */
 
 static void ConfigureByArgs(int argc, char* argv[])
 {
@@ -117,10 +91,9 @@ static void ConfigureByArgs(int argc, char* argv[])
 }
 
 /**
- * @author tianl (tianl@kfb.cn)
  * @brief 打印命令菜单
  */
-static void PrintMenu()
+void PrintMenu()
 {
     printf("\n");
     printf("========== 设备能力集获取Demo ==========\n");
@@ -136,12 +109,11 @@ static void PrintMenu()
 }
 
 /**
- * @author tianl (tianl@kfb.cn)
  * @brief 打印分辨率支持的帧率数组
  */
 static void PrintFrameRateList(const char* indent, const NET_VideoResolution_S* pResolution)
 {
-    int frameRateNum = pResolution->dwFrameRateNum;
+    int frameRateNum = pResolution->uFrameRateNum;
     if (frameRateNum < 0)
     {
         frameRateNum = 0;
@@ -160,17 +132,10 @@ static void PrintFrameRateList(const char* indent, const NET_VideoResolution_S* 
 
     for (int i = 0; i < frameRateNum; i++)
     {
-        printf(" %.4g", pResolution->adwFrameRate[i]);
+        printf(" %.4g", pResolution->afFrameRate[i]);
     }
     printf("\n");
 }
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 PrintEncodeComplexityList 定义的内部处理。
- * @param [in] indent 函数处理参数。
- * @param [in] pAbility 函数处理参数。
- * @return 无返回值。
- */
 
 static void PrintEncodeComplexityList(const char* indent, const NET_VideoEncodeAbility_S* pAbility)
 {
@@ -200,51 +165,50 @@ static void PrintEncodeComplexityList(const char* indent, const NET_VideoEncodeA
 }
 
 /**
- * @author tianl (tianl@kfb.cn)
  * @brief 打印视频编码能力集信息
  */
-static void PrintVideoEncodeCap(const NET_VIDEO_ENCODE_CAP_S* pCap)
+void PrintVideoEncodeCap(const NET_VideoEncodeCap_S* pCap)
 {
     printf("\n[Client] ===== 视频编码能力集 =====\n");
-    printf("  码流数量: %d\n", pCap->dwStreamCount);
+    printf("  码流数量: %d\n", pCap->uStreamCount);
 
-    for (int i = 0; i < pCap->dwStreamCount && i < NET_VIDEO_STREAM_MAX; i++)
+    for (int i = 0; i < pCap->uStreamCount && i < NET_VIDEO_STREAM_MAX; i++)
     {
-        const NET_VIDEO_STREAM_CAP_S* pStream = &pCap->astStreamCap[i];
-        printf("\n  [码流 %d] StreamType=%d\n", i, pStream->dwStreamType);
+        const NET_VideoStreamCap_S* pStream = &pCap->astStreamCap[i];
+        printf("\n  [码流 %d] StreamType=%d\n", i, pStream->uStreamType);
         printf("    是否支持复合流: %s\n", pStream->bSupportMultiStream ? "是" : "否");
-        printf("    编码类型数: %d\n", pStream->dwEncodeCapSize);
-        printf("    EncodeTypeNum: %d\n", pStream->dwEncodeTypeNum);
-        printf("    EncodeAbilityNum: %d\n", pStream->dwEncodeAbilityNum);
-        printf("    I帧间隔范围: %d ~ %d\n", pStream->dwIFrameIntervalMin, pStream->dwIFrameIntervalMax);
-        printf("    图像质量范围: %d ~ %d\n", pStream->stQuality.dwMin, pStream->stQuality.dwMax);
-        printf("    码流平滑范围: %d ~ %d\n", pStream->stStreamSmooth.dwMin, pStream->stStreamSmooth.dwMax);
-        printf("    支持的分辨率数量: %d\n", pStream->dwResolutionNum);
-        for (int r = 0; r < pStream->dwResolutionNum && r < NET_RESOLUTION_NUM_MAX; r++)
+        printf("    编码类型数: %d\n", pStream->uEncodeCapSize);
+        printf("    EncodeTypeNum: %d\n", pStream->uEncodeTypeNum);
+        printf("    EncodeAbilityNum: %d\n", pStream->uEncodeAbilityNum);
+        printf("    I帧间隔范围: %d ~ %d\n", pStream->uIFrameIntervalMin, pStream->uIFrameIntervalMax);
+        printf("    图像质量范围: %d ~ %d\n", pStream->stQuality.uMin, pStream->stQuality.uMax);
+        printf("    码流平滑范围: %d ~ %d\n", pStream->stStreamSmooth.uMin, pStream->stStreamSmooth.uMax);
+        printf("    支持的分辨率数量: %d\n", pStream->uResolutionNum);
+        for (int r = 0; r < pStream->uResolutionNum && r < NET_RESOLUTION_NUM_MAX; r++)
         {
             printf("      分辨率[%d]: %dx%d (帧率范围: %.4g~%.4g fps, 码率范围: %d~%d kbps)\n", r,
-                   pStream->astResolution[r].dwWidth,
-                   pStream->astResolution[r].dwHeight,
-                   pStream->astResolution[r].dwFrameRateMin,
-                   pStream->astResolution[r].dwFrameRateMax,
-                   pStream->astResolution[r].dwBitRateMin,
-                   pStream->astResolution[r].dwBitRateMax);
+                   pStream->astResolution[r].uWidth,
+                   pStream->astResolution[r].uHeight,
+                   pStream->astResolution[r].fFrameRateMin,
+                   pStream->astResolution[r].fFrameRateMax,
+                   pStream->astResolution[r].uBitRateMin,
+                   pStream->astResolution[r].uBitRateMax);
             PrintFrameRateList("        ", &pStream->astResolution[r]);
         }
 
-        for (int j = 0; j < pStream->dwEncodeCapSize && j < NET_VIDEO_ENCODE_TYPE_MAX; j++)
+        for (int j = 0; j < pStream->uEncodeCapSize && j < NET_VIDEO_ENCODE_TYPE_MAX; j++)
         {
-            const NET_VIDEO_ENCODE_OPTION_S* pEncode = &pStream->astEncodeCap[j];
+            const NET_VideoEncodeOption_S* pEncode = &pStream->astEncodeCap[j];
             printf("    [编码 %d] Id=%d, Codec=%d\n", j, pEncode->nId, pEncode->enVideoCodec);
             printf("      VideoType: %d\n", pEncode->enVideoType);
             printf("      分辨率: %dx%d\n",
-                   pEncode->stVideoResolution.dwWidth,
-                   pEncode->stVideoResolution.dwHeight);
+                   pEncode->stVideoResolution.uWidth,
+                   pEncode->stVideoResolution.uHeight);
             printf("      分辨率能力: 帧率范围=%.4g~%.4g fps, 码率范围=%d~%d kbps\n",
-                   pEncode->stVideoResolution.dwFrameRateMin,
-                   pEncode->stVideoResolution.dwFrameRateMax,
-                   pEncode->stVideoResolution.dwBitRateMin,
-                   pEncode->stVideoResolution.dwBitRateMax);
+                   pEncode->stVideoResolution.fFrameRateMin,
+                   pEncode->stVideoResolution.fFrameRateMax,
+                   pEncode->stVideoResolution.uBitRateMin,
+                   pEncode->stVideoResolution.uBitRateMax);
             PrintFrameRateList("      ", &pEncode->stVideoResolution);
             printf("      码率类型: %d\n", pEncode->enBitrateType);
             printf("      图像质量: %d\n", pEncode->enImageQuality);
@@ -259,7 +223,7 @@ static void PrintVideoEncodeCap(const NET_VIDEO_ENCODE_CAP_S* pCap)
             printf("      码流平滑: %d\n", pEncode->nBitrateSmoothing);
         }
 
-        for (int j = 0; j < pStream->dwEncodeAbilityNum && j < NET_VIDEO_ENCODE_TYPE_MAX; j++)
+        for (int j = 0; j < pStream->uEncodeAbilityNum && j < NET_VIDEO_ENCODE_TYPE_MAX; j++)
         {
             const NET_VideoEncodeAbility_S* pAbility = &pStream->astEncodeAbility[j];
             printf("    [编码能力 %d] Codec=%s(%d)\n", j, pAbility->szVideoCodec, pAbility->enVideoCodec);
@@ -272,12 +236,6 @@ static void PrintVideoEncodeCap(const NET_VIDEO_ENCODE_CAP_S* pCap)
     }
     printf("===================================\n");
 }
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 AudioInputTypeToString 定义的内部处理。
- * @param [in] enType 函数处理参数。
- * @return 返回该处理的状态或结果。
- */
 
 static const char* AudioInputTypeToString(INT32 enType)
 {
@@ -291,12 +249,6 @@ static const char* AudioInputTypeToString(INT32 enType)
         return "UNKNOWN";
     }
 }
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 AudioOutputTypeToString 定义的内部处理。
- * @param [in] enType 函数处理参数。
- * @return 返回该处理的状态或结果。
- */
 
 static const char* AudioOutputTypeToString(INT32 enType)
 {
@@ -312,12 +264,6 @@ static const char* AudioOutputTypeToString(INT32 enType)
         return "UNKNOWN";
     }
 }
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 AudioFormatToString 定义的内部处理。
- * @param [in] enFormat 函数处理参数。
- * @return 返回该处理的状态或结果。
- */
 
 static const char* AudioFormatToString(INT32 enFormat)
 {
@@ -343,12 +289,6 @@ static const char* AudioFormatToString(INT32 enFormat)
         return "UNKNOWN";
     }
 }
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 OsdFontSizeToString 定义的内部处理。
- * @param [in] enValue 函数处理参数。
- * @return 返回该处理的状态或结果。
- */
 
 static const char* OsdFontSizeToString(UINT32 enValue)
 {
@@ -368,12 +308,6 @@ static const char* OsdFontSizeToString(UINT32 enValue)
         return "UNKNOWN";
     }
 }
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 OsdDateFormatToString 定义的内部处理。
- * @param [in] enValue 函数处理参数。
- * @return 返回该处理的状态或结果。
- */
 
 static const char* OsdDateFormatToString(UINT32 enValue)
 {
@@ -401,12 +335,6 @@ static const char* OsdDateFormatToString(UINT32 enValue)
         return "UNKNOWN";
     }
 }
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 OsdTimeFormatToString 定义的内部处理。
- * @param [in] enValue 函数处理参数。
- * @return 返回该处理的状态或结果。
- */
 
 static const char* OsdTimeFormatToString(UINT32 enValue)
 {
@@ -420,12 +348,6 @@ static const char* OsdTimeFormatToString(UINT32 enValue)
         return "UNKNOWN";
     }
 }
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 OsdAlignToString 定义的内部处理。
- * @param [in] enValue 函数处理参数。
- * @return 返回该处理的状态或结果。
- */
 
 static const char* OsdAlignToString(UINT32 enValue)
 {
@@ -447,24 +369,11 @@ static const char* OsdAlignToString(UINT32 enValue)
         return "UNKNOWN";
     }
 }
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 ClampUint32 定义的内部处理。
- * @param [in] value 函数处理参数。
- * @param [in] maxValue 函数处理参数。
- * @return 返回该处理的状态或结果。
- */
 
 static UINT32 ClampUint32(UINT32 value, UINT32 maxValue)
 {
     return (value > maxValue) ? maxValue : value;
 }
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 PrintNamedUint32List 定义的内部处理。
- * @param [in,out] parameter 函数处理参数。
- * @return 无返回值。
- */
 
 static void PrintNamedUint32List(const char* pName,
                                  const UINT32* pList,
@@ -482,10 +391,9 @@ static void PrintNamedUint32List(const char* pName,
 }
 
 /**
- * @author tianl (tianl@kfb.cn)
  * @brief 打印音频编码能力集信息
  */
-static void PrintAudioEncodeCap(const NET_AUDIO_CAP_S* pCap)
+void PrintAudioEncodeCap(const NET_AudioCap_S* pCap)
 {
     if (pCap == NULL)
     {
@@ -495,78 +403,77 @@ static void PrintAudioEncodeCap(const NET_AUDIO_CAP_S* pCap)
 
     printf("\n[Client] ===== 音频编码能力集 =====\n");
 
-    printf(" 输入类型数量: %d\n", pCap->dwInputTypeSize);
+    printf(" 输入类型数量: %d\n", pCap->uInputTypeSize);
     printf(" 输入类型列表:");
-    for (int i = 0; i < pCap->dwInputTypeSize && i < NET_AUDIO_INPUT_TYPE_MAX; i++)
+    for (int i = 0; i < pCap->uInputTypeSize && i < NET_AUDIO_INPUT_TYPE_MAX; i++)
     {
-        printf(" %s(%d)", AudioInputTypeToString(pCap->adwInputType[i]), pCap->adwInputType[i]);
+        printf(" %s(%d)", AudioInputTypeToString(pCap->auInputType[i]), pCap->auInputType[i]);
     }
     printf("\n");
 
-    printf(" 输出类型数量: %d\n", pCap->dwOutputTypeSize);
+    printf(" 输出类型数量: %d\n", pCap->uOutputTypeSize);
     printf(" 输出类型列表:");
-    for (int i = 0; i < pCap->dwOutputTypeSize && i < NET_AUDIO_OUTPUT_TYPE_MAX; i++)
+    for (int i = 0; i < pCap->uOutputTypeSize && i < NET_AUDIO_OUTPUT_TYPE_MAX; i++)
     {
-        printf(" %s(%d)", AudioOutputTypeToString(pCap->adwOutputType[i]), pCap->adwOutputType[i]);
+        printf(" %s(%d)", AudioOutputTypeToString(pCap->auOutputType[i]), pCap->auOutputType[i]);
     }
     printf("\n");
 
-    printf(" 音频格式数量: %d\n", pCap->dwFormatSize);
+    printf(" 音频格式数量: %d\n", pCap->uFormatSize);
     printf(" 音频格式列表:");
-    for (int i = 0; i < pCap->dwFormatSize && i < NET_AUDIO_FORMAT_MAX; i++)
+    for (int i = 0; i < pCap->uFormatSize && i < NET_AUDIO_FORMAT_MAX; i++)
     {
-        printf(" %s(%d)", AudioFormatToString(pCap->adwFormat[i]), pCap->adwFormat[i]);
+        printf(" %s(%d)", AudioFormatToString(pCap->auFormat[i]), pCap->auFormat[i]);
     }
     printf("\n");
 
-    printf(" 音频格式详细能力数量: %d\n", pCap->dwFormatDetailSize);
+    printf(" 音频格式详细能力数量: %d\n", pCap->uFormatDetailSize);
 
-    for (int i = 0; i < pCap->dwFormatDetailSize && i < NET_AUDIO_FORMAT_MAX; i++)
+    for (int i = 0; i < pCap->uFormatDetailSize && i < NET_AUDIO_FORMAT_MAX; i++)
     {
         const NET_AudioFormatCap_S* pFmt = &pCap->astFormatDetail[i];
 
         printf("\n [格式能力 %d] Format=%s(%d)\n",
                i,
-               AudioFormatToString(pFmt->dwFormat),
-               pFmt->dwFormat);
+               AudioFormatToString(pFmt->uFormat),
+               pFmt->uFormat);
 
-        printf("    采样率数量: %d\n", pFmt->dwSampleRateSize);
+        printf("    采样率数量: %d\n", pFmt->uSampleRateSize);
         printf("    采样率列表:");
-        for (int j = 0; j < pFmt->dwSampleRateSize && j < NET_AUDIO_SAMPRATE_MAX; j++)
+        for (int j = 0; j < pFmt->uSampleRateSize && j < NET_AUDIO_SAMPRATE_MAX; j++)
         {
-            printf(" %d", pFmt->adwSampleRate[j]);
+            printf(" %d", pFmt->auSampleRate[j]);
         }
         printf("\n");
 
-        printf("    码率数量: %d\n", pFmt->dwBitRateSize);
+        printf("    码率数量: %d\n", pFmt->uBitRateSize);
         printf("    码率列表:");
-        for (int j = 0; j < pFmt->dwBitRateSize && j < NET_AUDIO_BITRATE_MAX; j++)
+        for (int j = 0; j < pFmt->uBitRateSize && j < NET_AUDIO_BITRATE_MAX; j++)
         {
-            printf(" %d", pFmt->adwBitRate[j]);
+            printf(" %d", pFmt->auBitRate[j]);
         }
         printf("\n");
 
         printf("    采样率范围使能: %s\n", pFmt->stSampleRateRange.bEnable ? "是" : "否");
         printf("    采样率范围: min=%d max=%d step=%d\n",
-               pFmt->stSampleRateRange.dwMin,
-               pFmt->stSampleRateRange.dwMax,
-               pFmt->stSampleRateRange.dwStep);
+               pFmt->stSampleRateRange.uMin,
+               pFmt->stSampleRateRange.uMax,
+               pFmt->stSampleRateRange.uStep);
 
         printf("    码率范围使能: %s\n", pFmt->stBitRateRange.bEnable ? "是" : "否");
         printf("    码率范围: min=%d max=%d step=%d\n",
-               pFmt->stBitRateRange.dwMin,
-               pFmt->stBitRateRange.dwMax,
-               pFmt->stBitRateRange.dwStep);
+               pFmt->stBitRateRange.uMin,
+               pFmt->stBitRateRange.uMax,
+               pFmt->stBitRateRange.uStep);
     }
 
     printf("========================================\n");
 }
 
 /**
- * @author tianl (tianl@kfb.cn)
  * @brief 打印OSD能力集信息
  */
-static void PrintOsdCap(const NET_OSD_CAP_S* pCap)
+void PrintOsdCap(const NET_OsdCap_S* pCap)
 {
     UINT32 fontSizeNum = 0;
     UINT32 dateFormatNum = 0;
@@ -581,21 +488,21 @@ static void PrintOsdCap(const NET_OSD_CAP_S* pCap)
     fontSizeNum = ClampUint32(pCap->udwSupportedFontSizeNum, NET_OSD_FONT_SIZE_TYPE_MAX_NUM);
     dateFormatNum = ClampUint32(pCap->udwSupportedDateFormatNum, NET_OSD_DATE_FORMAT_MAX_NUM);
     timeFormatNum = ClampUint32(pCap->udwSupportedTimeFormatNum, NET_OSD_TIME_FORMAT_MAX_NUM);
-    alignNum = ClampUint32(pCap->udwSupportedAlignNum, NETSDK_DEMO_CLIENT_OSD_ALIGN_MAX_NUM);
+    alignNum = ClampUint32(pCap->udwSupportedAlignNum, CLIENT_OSD_ALIGN_MAX_NUM);
 
     printf("\n[Client] ===== OSD能力集 =====\n");
 
-    /* 基础能力 */
+    // 基础能力
     printf("  支持OSD: %s\n", pCap->bSupportOsd ? "是" : "否");
     printf("  支持通道名称: %s\n", pCap->bSupportName ? "是" : "否");
     printf("  支持时间: %s\n", pCap->bSupportTime ? "是" : "否");
     printf("  支持星期: %s\n", pCap->bSupportWeek ? "是" : "否");
     printf("  支持自定义颜色: %s\n", pCap->bSupportCustomColor ? "是" : "否");
 
-    /* 字符叠加能力 */
+    // 字符叠加能力
     printf("  最大字符叠加数量: %u\n", pCap->udwMaxOsdNum);
 
-    /* 字体大小能力 */
+    // 字体大小能力
     printf("  字体大小数量: %u", pCap->udwSupportedFontSizeNum);
     if (fontSizeNum != pCap->udwSupportedFontSizeNum)
     {
@@ -607,7 +514,7 @@ static void PrintOsdCap(const NET_OSD_CAP_S* pCap)
                          fontSizeNum,
                          OsdFontSizeToString);
 
-    /* 日期格式能力 */
+    // 日期格式能力
     printf("  日期格式数量: %u", pCap->udwSupportedDateFormatNum);
     if (dateFormatNum != pCap->udwSupportedDateFormatNum)
     {
@@ -619,7 +526,7 @@ static void PrintOsdCap(const NET_OSD_CAP_S* pCap)
                          dateFormatNum,
                          OsdDateFormatToString);
 
-    /* 时间格式能力         */
+    // 时间格式能力
     printf("  时间格式数量: %u", pCap->udwSupportedTimeFormatNum);
     if (timeFormatNum != pCap->udwSupportedTimeFormatNum)
     {
@@ -631,7 +538,7 @@ static void PrintOsdCap(const NET_OSD_CAP_S* pCap)
                          timeFormatNum,
                          OsdTimeFormatToString);
 
-    /* 对齐方式能力 */
+    // 对齐方式能力
     printf("  对齐方式数量: %u", pCap->udwSupportedAlignNum);
     if (alignNum != pCap->udwSupportedAlignNum)
     {
@@ -647,13 +554,12 @@ static void PrintOsdCap(const NET_OSD_CAP_S* pCap)
 }
 
 /**
- * @author tianl (tianl@kfb.cn)
  * @brief 获取视频编码能力集
  */
-static BOOL GetVideoEncodeCap(INT32 dwChannelID)
+BOOL GetVideoEncodeCap(INT32 dwChannelID)
 {
-    NET_VIDEO_ENCODE_CAP_S stCap;
-    memset(&stCap, 0, sizeof(NET_VIDEO_ENCODE_CAP_S));
+    NET_VideoEncodeCap_S stCap;
+    memset(&stCap, 0, sizeof(NET_VideoEncodeCap_S));
 
     INT32 dwBytesReturned = 0;
 
@@ -664,7 +570,7 @@ static BOOL GetVideoEncodeCap(INT32 dwChannelID)
         dwChannelID,
         NET_CAP_VIDEO_ENCODE,
         &stCap,
-        sizeof(NET_VIDEO_ENCODE_CAP_S),
+        sizeof(NET_VideoEncodeCap_S),
         &dwBytesReturned
     );
 
@@ -672,23 +578,22 @@ static BOOL GetVideoEncodeCap(INT32 dwChannelID)
     {
         printf("[Client] 获取视频编码能力集成功!\n");
         PrintVideoEncodeCap(&stCap);
-        return NET_TRUE;
+        return TRUE;
     }
     else
     {
         printf("[Client] 获取视频编码能力集失败! Error=%d\n", NET_GetLastError());
-        return NET_FALSE;
+        return FALSE;
     }
 }
 
 /**
- * @author tianl (tianl@kfb.cn)
  * @brief 获取音频编码能力集
  */
-static BOOL GetAudioEncodeCap(INT32 dwChannelID)
+BOOL GetAudioEncodeCap(INT32 dwChannelID)
 {
-    NET_AUDIO_CAP_S stCap;
-    memset(&stCap, 0, sizeof(NET_AUDIO_CAP_S));
+    NET_AudioCap_S stCap;
+    memset(&stCap, 0, sizeof(NET_AudioCap_S));
 
     INT32 dwBytesReturned = 0;
 
@@ -699,7 +604,7 @@ static BOOL GetAudioEncodeCap(INT32 dwChannelID)
         dwChannelID,
         NET_CAP_AUDIO,
         &stCap,
-        sizeof(NET_AUDIO_CAP_S),
+        sizeof(NET_AudioCap_S),
         &dwBytesReturned
     );
 
@@ -707,24 +612,23 @@ static BOOL GetAudioEncodeCap(INT32 dwChannelID)
     {
         printf("[Client] 获取音频编码能力集成功!\n");
         PrintAudioEncodeCap(&stCap);
-        return NET_TRUE;
+        return TRUE;
     }
     else
     {
         printf("[Client] 获取音频编码能力集失败! Error=%d\n", NET_GetLastError());
-        return NET_FALSE;
+        return FALSE;
     }
 }
 
 
 /**
- * @author tianl (tianl@kfb.cn)
  * @brief 获取OSD能力集
  */
-static BOOL GetOsdCap(INT32 dwChannelID)
+BOOL GetOsdCap(INT32 dwChannelID)
 {
-    NET_OSD_CAP_S stCap;
-    memset(&stCap, 0, sizeof(NET_OSD_CAP_S));
+    NET_OsdCap_S stCap;
+    memset(&stCap, 0, sizeof(NET_OsdCap_S));
 
     INT32 dwBytesReturned = 0;
 
@@ -737,7 +641,7 @@ static BOOL GetOsdCap(INT32 dwChannelID)
         dwChannelID,
         NET_CAP_OSD,
         &stCap,
-        sizeof(NET_OSD_CAP_S),
+        sizeof(NET_OsdCap_S),
         &dwBytesReturned
     );
 
@@ -745,40 +649,39 @@ static BOOL GetOsdCap(INT32 dwChannelID)
     {
         printf("[Client] 获取OSD能力集成功! bytesReturned=%d\n", dwBytesReturned);
         PrintOsdCap(&stCap);
-        return NET_TRUE;
+        return TRUE;
     }
     else
     {
         printf("[Client] 获取OSD能力集失败! Error=%d\n", NET_GetLastError());
-        return NET_FALSE;
+        return FALSE;
     }
 }
 
 /**
- * @author tianl (tianl@kfb.cn)
  * @brief 处理用户命令
  */
-static void ProcessCommand(int cmd)
+void ProcessCommand(int cmd)
 {
-    INT32 dwChannelID = 1; /* 默认通道号 */
+    INT32 dwChannelID = 1; // 默认通道号
 
     switch (cmd)
     {
-        case 1: /* NET_CAP_VIDEO_ENCODE */
+        case 1: // NET_CAP_VIDEO_ENCODE
             GetVideoEncodeCap(dwChannelID);
             break;
 
-        case 2: /* NET_CAP_OSD */
+        case 2: // NET_CAP_OSD
             GetOsdCap(dwChannelID);
             break;
 
-        case 3: /* NET_CAP_SMART */
+        case 3: // NET_CAP_SMART
             printf("[Client] 该能力集类型暂未实现!\n");
             break;
-        case 5: /* NET_CAP_IMAGE */
+        case 5: // NET_CAP_IMAGE
             printf("[Client] 该能力集类型暂未实现!\n");
             break;
-        case 6: /* NET_CAP_AUDIO */
+        case 6: // NET_CAP_AUDIO
             GetAudioEncodeCap(dwChannelID);
             break;
 
@@ -787,13 +690,6 @@ static void ProcessCommand(int cmd)
             break;
     }
 }
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 运行当前 Demo 的主流程。
- * @param [in] argc 函数处理参数。
- * @param [in,out] argv 函数处理参数。
- * @return 返回该处理的状态或结果。
- */
 
 int main(int argc, char* argv[])
 {
@@ -801,7 +697,7 @@ int main(int argc, char* argv[])
     ConfigureByArgs(argc, argv);
 
     /* 初始化日志 */
-    initSdkLogBySize("CapabilityClientDemo", "/tmp/CapabilityClientDemo.log", NETSDK_DEMO_LOG_MAX_SIZE, NETSDK_DEMO_LOG_MAX_FILES);
+    initSdkLogBySize("CapabilityClientDemo", "/tmp/CapabilityClientDemo.log", MAX_LOG_SIZE, MAX_LOG_FILES);
     syncPrintf(1);
     setLogLevel(NETSDK_LOG_TRACE);
 
@@ -815,12 +711,12 @@ int main(int argc, char* argv[])
     printf("[Client] SDK initialized.\n");
 
     /* 登录设备 */
-    NET_DEVICE_LOGIN_INFO_S struLoginInfo;
+    NET_DeviceLoginInfo_S struLoginInfo;
     NET_DeviceInfo_S struDeviceInfo;
-    memset(&struLoginInfo, 0, sizeof(NET_DEVICE_LOGIN_INFO_S));
+    memset(&struLoginInfo, 0, sizeof(NET_DeviceLoginInfo_S));
     memset(&struDeviceInfo, 0, sizeof(NET_DeviceInfo_S));
 
-    struLoginInfo.dwPort = g_serverPort;
+    struLoginInfo.uPort = g_serverPort;
     strncpy(struLoginInfo.szIPAddr, g_serverIp, sizeof(struLoginInfo.szIPAddr) - 1);
     strncpy(struLoginInfo.szUserName, g_username, sizeof(struLoginInfo.szUserName) - 1);
     strncpy(struLoginInfo.szPassword, g_password, sizeof(struLoginInfo.szPassword) - 1);
@@ -847,7 +743,7 @@ int main(int argc, char* argv[])
 
         if (scanf("%d", &cmd) != 1)
         {
-            /* 清除输入缓冲 */
+            // 清除输入缓冲
             int c;
             while ((c = getchar()) != '\n' && c != EOF);
             printf("[Client] 输入无效，请输入数字!\n");

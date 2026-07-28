@@ -1,56 +1,43 @@
-/**
- * @file NetTVSDKCommon.h
- * @author tianl (tianl@kfb.cn)
- * @date 2026-07-28
- * @LastEditors  : qinjt@kfb.cn
- * @LastEditTime : 2026-07-28
- *
- * @brief NetTVSDKCommon 模块接口与类型定义
- * 功能说明：
- * 1. 声明 NetTVSDKCommon 模块对外接口和数据类型
- * 2. 定义模块依赖的常量、回调或辅助类型
- * 3. 为调用方提供明确且稳定的编译期契约
- */
-#ifndef NETSDK_COMMON_H
-#define NETSDK_COMMON_H
+#ifndef NETTVSDK_COMMON_H
+#define NETTVSDK_COMMON_H
 
 #ifdef  __cplusplus
 extern "C"{
 #endif
-#ifndef NET_STATIC
-    #define NET_STATIC                  static
+#ifndef STATIC
+    #define STATIC                  static
 #endif
 
-#ifndef NET_CONST
-    #define NET_CONST                   const
+#ifndef CONST
+    #define CONST                   const
 #endif
 
-#ifndef NET_EXTERN
-    #define NET_EXTERN                  extern
+#ifndef EXTERN
+    #define EXTERN                  extern
 #endif
 
-#ifndef NET_INLINE
-    #define NET_INLINE                  __inline
+#ifndef INLINE
+    #define INLINE                  __inline
 #endif
 
-#ifndef NET_UNION
-    #define NET_UNION                   union
+#ifndef UNION
+    #define UNION                   union
 #endif
 
-#ifndef NET_IN
-    #define NET_IN
+#ifndef IN
+    #define IN
 #endif
 
-#ifndef NET_OUT
-    #define NET_OUT
+#ifndef OUT
+    #define OUT
 #endif
 
-#ifndef NET_INOUT
-    #define NET_INOUT
+#ifndef INOUT
+    #define INOUT
 #endif
 
-#ifndef NET_NEW_INTERFACE
-    #define NET_NEW_INTERFACE
+#ifndef NEWINTERFACE
+    #define NEWINTERFACE
 #endif
 
 #if defined(_WIN32)  /* windows */
@@ -61,92 +48,92 @@ extern "C"{
 
 #ifdef i386
     #ifdef LINUX
-        #ifndef NET_STDCALL
-        #define NET_STDCALL                 __attribute__((stdcall))__attribute__((visibility ("default")))
+        #ifndef STDCALL
+        #define STDCALL                 __attribute__((stdcall))__attribute__((visibility ("default")))
         #endif
     #else
-        #ifndef NET_STDCALL
-        #define NET_STDCALL                 __attribute__((stdcall))
+        #ifndef STDCALL
+        #define STDCALL                 __attribute__((stdcall))
         #endif
     #endif
 #else
     #ifdef _WIN32
-        #ifndef NET_STDCALL
-        #define NET_STDCALL                 __stdcall
+        #ifndef STDCALL
+        #define STDCALL                 __stdcall
         #endif
     #else
         #ifdef LINUX
-            #ifndef NET_STDCALL
-            #define NET_STDCALL
+            #ifndef STDCALL
+            #define STDCALL
             #endif
         #else
-            #ifndef NET_STDCALL
-            #define NET_STDCALL
+            #ifndef STDCALL
+            #define STDCALL
             #endif
         #endif
     #endif
 #endif
 
 
-#ifndef NET_UCHAR_DEF
-#define NET_UCHAR_DEF
+#ifndef UCHAR_DEF
+#define UCHAR_DEF
     typedef unsigned char           UCHAR;
 #endif
 
-#ifndef NET_CHAR_DEF
-#define NET_CHAR_DEF
+#ifndef CHAR_DEF
+#define CHAR_DEF
     typedef char                    CHAR;
 #endif
 
-#ifndef NET_BYTE_DEF
-#define NET_BYTE_DEF
+#ifndef BYTE_DEF
+#define BYTE_DEF
     typedef unsigned char           BYTE;
 #endif
 
-#ifndef NET_UINT16_DEF
-#define NET_UINT16_DEF
+#ifndef UINT16_DEF
+#define UINT16_DEF
     typedef unsigned short          UINT16;
 #endif
 
-#ifndef NET_UINT_DEF
-#define NET_UINT_DEF
+#ifndef UINT_DEF
+#define UINT_DEF
     typedef unsigned int            UINT32;
 #endif
 
-#ifndef NET_INT16_DEF
-#define NET_INT16_DEF
+#ifndef INT16_DEF
+#define INT16_DEF
     typedef  short                  INT16;
 #endif
 
-#ifndef NET_INT32_DEF
-#define NET_INT32_DEF
+#ifndef INT32_DEF
+#define INT32_DEF
     typedef  int                    INT32;
 #endif
 
-#ifndef NET_LPVOID_DEF
-#define NET_LPVOID_DEF
+#ifndef LPVOID_DEF
+#define LPVOID_DEF
     typedef void*                   LPVOID;
 #endif
 
 #ifndef VOID
-#ifndef NET_VOID_DEF
-#define NET_VOID_DEF
+#ifndef VOID_DEF
+#define VOID_DEF
     typedef void                    VOID;
 #endif
 #endif
 
-#ifndef NET_INT64_DEF
-#define NET_INT64_DEF
+#ifndef INT64_DEF
+#define INT64_DEF
     typedef long long               INT64;
 #endif
 
-#ifndef NET_UINT64_DEF
-#define NET_UINT64_DEF
+#ifndef UINT64_DEF
+#define UINT64_DEF
     typedef unsigned long long      UINT64;
 #endif
 
-#ifndef NET_BOOL_DEF
-#define NET_BOOL_DEF
+#ifndef BOOL_DEF
+#define BOOL_DEF
     #ifndef __OBJC__
         typedef int                 BOOL;
     #else
@@ -155,25 +142,25 @@ extern "C"{
 #endif
 
 #ifndef FLOAT
-#ifndef NET_VOID_FLOAT
-#define NET_VOID_FLOAT
+#ifndef VOID_FLOAT
+#define VOID_FLOAT
     typedef float                   FLOAT;
 #endif
 #endif
 
 #ifndef DOUBLE
-#ifndef NET_DOUBLE_DEF
-#define NET_DOUBLE_DEF
+#ifndef DOUBLE_DEF
+#define DOUBLE_DEF
     typedef double                   DOUBLE;
 #endif
 #endif
 
-#ifndef NET_FALSE
-    #define NET_FALSE                   0
+#ifndef FALSE
+    #define FALSE                   0
 #endif
 
-#ifndef NET_TRUE
-    #define NET_TRUE                    1
+#ifndef TRUE
+    #define TRUE                    1
 #endif
 
 #ifdef _WIN32
@@ -188,467 +175,460 @@ extern "C"{
 /*                     模块宏定义                                       */
 /************************************************************************/
 #ifndef NET_SDK_NO_MEDIA
-#define NET_WITH_MEDIA           1           /* 包含媒体模块 */
+#define NET_WITH_MEDIA              1           /* 包含媒体模块 */
 #endif
 
 #ifndef NET_SDK_NO_CLOUD
-#define NET_WITH_CLOUD           1           /* 包含云服务模块 */
+#define NET_WITH_CLOUD              1           /* 包含云服务模块 */
 #endif
-#define NET_WITH_XW              1           /* 包含电视墙、拼接模块 */
-#define NET_WITH_VMS             1           /* 包含VMS模块 */
-#define NET_WITH_PTZ             1           /* 包含云台模块 */
-#define NET_WITH_SMART           1           /* 包含智能业务模块 */
-#define NET_WITH_CONFIG          1           /* 包含配置业务模块 */
-#define NET_WITH_BASIC           1           /* 包含基础管理业务模块 */
-#define NET_ALARM_RECOVER_BASE   1           /* 告警恢复基数 Alarm recover base */
-#define NET_WITH_TRANS_CHANEL    1           /* 包含透明通道模块 */
+#define NET_WITH_XW                 1           /* 包含电视墙、拼接模块 */
+#define NET_WITH_VMS                1           /* 包含VMS模块 */
+#define NET_WITH_PTZ                1           /* 包含云台模块 */
+#define NET_WITH_SMART              1           /* 包含智能业务模块 */
+#define NET_WITH_CONFIG             1           /* 包含配置业务模块 */
+#define NET_WITH_BASIC              1           /* 包含基础管理业务模块 */
+#define NET_ALARM_RECOVER_BASE      1           /* 告警恢复基数 Alarm recover base */
+#define NET_WITH_TRANS_CHANEL       1           /* 包含透明通道模块 */
 
 /********************************** 常用数值宏  Commonly used numerical macros *************** */
-#define NET_STREAM_ID_LEN                    32          /* 流ID标识长度  Length of stream ID*/
-#define NET_FILE_NAME_LEN                    (256u)      /* 文件名长度  Length of filename */
-#define NET_USERNAME_LEN                     (128 + 4)   /* Maximum length of username */
-#define NET_PASSWORD_LEN                     128         /* Maximum length of password */
-#define NET_DESCRIBE_MAX_LEN                 (512 + 4)   /* 描述最大长度 ：128 * 4，任意字符达到长度128 */
-#define NET_DOMAIN_LEN                       64          /* 域名最大长度  Maximum length of domain name */
-#define NET_PATH_LEN                         128         /* 路径最大长度:包括文件名称  Maximum length of path, including filename */
-#define NET_MAX_URL_LEN                      512         /* URL 的最大长度  Maximum length of URL */
-#define NET_INVALID_CHANNEL_ID               (0XFFFFFF)  /* 无效的通道ID */
-#define NET_INVALID_ID                       0            /* 无效ID */
+#define NET_STREAM_ID_LEN                       32          /* 流ID标识长度  Length of stream ID*/
+#define NET_FILE_NAME_LEN                       (256u)      /* 文件名长度  Length of filename */
+#define NET_USERNAME_LEN                        (128 + 4)   /* Maximum length of username */
+#define NET_PASSWORD_LEN                        128         /* Maximum length of password */
+#define NET_DESCRIBE_MAX_LEN                    (512 + 4)   /* 描述最大长度 ：128 * 4，任意字符达到长度128 */
+#define NET_DOMAIN_LEN                          64          /* 域名最大长度  Maximum length of domain name */
+#define NET_PATH_LEN                            128         /* 路径最大长度:包括文件名称  Maximum length of path, including filename */
+#define NET_MAX_URL_LEN                         512         /* URL 的最大长度  Maximum length of URL */
+#define NET_INVALID_CHANNEL_ID                  (0XFFFFFF)  /* 无效的通道ID */
+#define NET_INVALID_ID                          0            /* 无效ID */
 
 /* 通用长度  Common length */
-#define NET_LEN_2                            2
-#define NET_LEN_4                            4
-#define NET_LEN_6                            6
-#define NET_LEN_8                            8
-#define NET_LEN_16                           16
-#define NET_LEN_18                           18
-#define NET_LEN_32                           32
-#define NET_LEN_40                           40
-#define NET_LEN_64                           64
-#define NET_LEN_128                          128
-#define NET_LEN_132                          132
-#define NET_LEN_256                          256
-#define NET_LEN_260                          260
-#define NET_LEN_480                          480
-#define NET_LEN_512                          512
-#define NET_LEN_1024                         1024
-#define NET_LEN_2000                         2000
-#define NET_LEN_4096                         4096
-#define NET_LEN_8192                         8192
+#define NET_LEN_2                               2
+#define NET_LEN_4                               4
+#define NET_LEN_6                               6
+#define NET_LEN_8                               8
+#define NET_LEN_16                              16
+#define NET_LEN_18                              18
+#define NET_LEN_32                              32
+#define NET_LEN_40                              40
+#define NET_LEN_64                              64
+#define NET_LEN_128                             128
+#define NET_LEN_132                             132
+#define NET_LEN_256                             256
+#define NET_LEN_260                             260
+#define NET_LEN_480                             480
+#define NET_LEN_512                             512
+#define NET_LEN_1024                            1024
+#define NET_LEN_2000                            2000
+#define NET_LEN_4096                            4096
+#define NET_LEN_8192                            8192
 
-#define NET_IPADDR_STR_MAX_LEN              (64u)        /* IP 地址信息字符串长度  Length of IP address string */
-#define NET_IPV4_LEN_MAX                     16          /* IPV4地址字符串长度 Length of IPV4 address string */
-#define NET_IPV6_LEN_MAX                     128         /* IPV6地址字符串长度 Length of IPV6 address string */
-#define NET_NAME_MAX_LEN                    (256u)       /* 通用名称字符串长度  Length of common name string */
+#define NET_IPADDR_STR_MAX_LEN                  (64u)        /* IP 地址信息字符串长度  Length of IP address string */
+#define NET_IPV4_LEN_MAX                        16          /* IPV4地址字符串长度 Length of IPV4 address string */
+#define NET_IPV6_LEN_MAX                        128         /* IPV6地址字符串长度 Length of IPV6 address string */
+#define NET_NAME_MAX_LEN                        (256u)       /* 通用名称字符串长度  Length of common name string */
 
-#define NET_CODE_STR_MAX_LEN                (256u)       /* 通用CODE 长度  Length of common code */
-#define NET_MAX_DATE_STRING_LEN             (64u)        /* 最大日期字符长度 Maximum length of date string "2008-10-02 09:25:33.001 GMT" */
-#define NET_MAX_ALARM_IN_NUM                 64          /* 告警输入最大数量  Maximum number of alarm inputs */
-#define NET_MAX_ALARM_OUT_NUM                64          /* 告警输出最大数量  Maximum number of alarm outputs */
-#define NET_PLAN_SECTION_NUM                 8           /* 一天中的计划时间段  Number of scheduled time sections in a day */
-#define NET_PLAN_NUM_AWEEK                   8           /* 一周总共可配置的计划个数,包括周一至周日和假日  Total number of plans allowed in a week, including Monday to Sunday, and holidays */
+#define NET_CODE_STR_MAX_LEN                    (256u)       /* 通用CODE 长度  Length of common code */
+#define NET_MAX_DATE_STRING_LEN                 (64u)        /* 最大日期字符长度 Maximum length of date string "2008-10-02 09:25:33.001 GMT" */
+#define NET_MAX_ALARM_IN_NUM                    64          /* 告警输入最大数量  Maximum number of alarm inputs */
+#define NET_MAX_ALARM_OUT_NUM                   64          /* 告警输出最大数量  Maximum number of alarm outputs */
+#define NET_PLAN_SECTION_NUM                    8           /* 一天中的计划时间段  Number of scheduled time sections in a day */
+#define NET_PLAN_NUM_AWEEK                      8           /* 一周总共可配置的计划个数,包括周一至周日和假日  Total number of plans allowed in a week, including Monday to Sunday, and holidays */
 
-#define NET_MAX_PRESET_NUM                   256         /* 预置位最大数  Maximum number of presets */
-#define NET_MAX_CRUISEPOINT_NUM              32          /* 巡航路径中预置位点最大个数  Maximum number of presets for preset patrol */
-#define NET_MAX_CRUISEROUTE_NUM              16          /* 预置位巡航路径最大条数  Maximum number of routes for preset patrol */
-#define NET_MIN_PTZ_SPEED_LEVEL              1           /* 云台移动最小速度  Maximum PTZ rotating speed */
-#define NET_MAX_PTZ_SPEED_LEVEL              9           /* 云台移动最大速度  MinimumPTZ rotating speed */
-#define NET_MAX_VIDEO_EFFECT_VALUE           255         /* 图像参数（亮度 对比度 色度 饱和度）最大值  Maximum values for image parameters (brightness, contrast, hue, saturation) */
-#define NET_MIN_VIDEO_EFFECT_VALUE           0           /* 图像参数（亮度 对比度 色度 饱和度）最小值  Minimum values for image parameters (brightness, contrast, hue, saturation) */
-#define NET_MAX_VIDEO_EFFECT_GAMMA_VALUE     10          /* 图像参数（伽马值）最大值 Minimum values for image parameters (Gama) */
+#define NET_MAX_PRESET_NUM                      256         /* 预置位最大数  Maximum number of presets */
+#define NET_MAX_CRUISEPOINT_NUM                 32          /* 巡航路径中预置位点最大个数  Maximum number of presets for preset patrol */
+#define NET_MAX_CRUISEROUTE_NUM                 16          /* 预置位巡航路径最大条数  Maximum number of routes for preset patrol */
+#define NET_MIN_PTZ_SPEED_LEVEL                 1           /* 云台移动最小速度  Maximum PTZ rotating speed */
+#define NET_MAX_PTZ_SPEED_LEVEL                 9           /* 云台移动最大速度  MinimumPTZ rotating speed */
+#define NET_MAX_VIDEO_EFFECT_VALUE              255         /* 图像参数（亮度 对比度 色度 饱和度）最大值  Maximum values for image parameters (brightness, contrast, hue, saturation) */
+#define NET_MIN_VIDEO_EFFECT_VALUE              0           /* 图像参数（亮度 对比度 色度 饱和度）最小值  Minimum values for image parameters (brightness, contrast, hue, saturation) */
+#define NET_MAX_VIDEO_EFFECT_GAMMA_VALUE        10          /* 图像参数（伽马值）最大值 Minimum values for image parameters (Gama) */
 
-#define NET_MAX_PRIVACY_MASK_AREA_NUM        8           /* 最大可配置遮盖区域个数  Maximum number of privacy mask areas allowed */
-#define NET_OSD_TEXTOVERLAY_NUM              6           /* 通道 OSD 字符叠加数量  Number of OSD text overlays */
-#define NET_OSD_TEXT_MAX_LEN                 (64 + 4)    /* 通道 OSD 字符长度  Length of OSD texts */
-#define NET_OSD_TEXT_MAX_LEN_EX              (512 + 4)   /* 通道 OSD 字符长度(扩展)  Length of OSD texts */
-#define NET_OSD_TYPE_MAX_NUM                 32          /* 通道 OSD 最大类型个数  Maximum number of OSD type */
-#define NET_OSD_CUSTOM_MAX_NUM               4           /* 通道 OSD 自定义字符叠加最大个数  Maximum number of custom OSD texts */
-#define NET_OSD_FONT_SIZE_TYPE_MAX_NUM       4           /* 通道 OSD 字体最大类型个数  Maximum number of OSD font size type */
-#define NET_OSD_FONT_STYLE_TYPE_MAX_NUM      4           /* 通道 OSD 样式最大类型个数  Maximum number of OSD font style type */
-#define NET_OSD_TIME_FORMAT_MAX_NUM          7           /* 通道 OSD 最大时间格式个数  Maximum number of OSD time format type */
-#define NET_OSD_DATE_FORMAT_MAX_NUM          15          /* 通道 OSD 最大日期格式个数  Maximum number of OSD date format type */
-#define NET_PULL_ALARM_MAX_NUM               8           /* 拉告警最大告警个数  Maximum number of alarms a user can get */
-#define NET_TRACK_CRUISE_MAXNUM              1           /* 支持的轨迹巡航的最大条数  Maximum number of patrol routes allowed  */
-#define NET_AUDIO_INPUT_TYPE_MAX             2           /* 最大输入类型数量 */
-#define NET_AUDIO_OUTPUT_TYPE_MAX            3           /* 最大输出类型数量 */
-#define NET_AUDIO_FORMAT_MAX                 8           /* 最大音频格式数量 */
-#define NET_AUDIO_SAMPRATE_MAX               11          /* 最大采样率数量 */
-#define NET_AUDIO_BITRATE_MAX                7           /* 最大码率数量 */
-#define NET_AUDIO_SOUND_MIN_VALUE            0           /* 音量调节最小值  Minimum volume */
-#define NET_AUDIO_SOUND_MAX_VALUE            255         /* 音量调节最大值  Maximum volume */
-#define NET_MIC_SOUND_MIN_VALUE              0           /* 麦克风音量调节最小值  Minimum volume */
-#define NET_MIC_SOUND_MAX_VALUE              255         /* 麦克风音量调节最大值  Maximum volume */
-#define NET_SCREEN_INFO_ROW                  18          /* 屏幕信息行数  Screen Info Row */
-#define NET_SCREEN_INFO_COLUMN               22          /* 屏幕信息列数  Screen Info Column */
-#define NET_CHANNEL_MAX                      512         /* 最大通道数 Maximum number of channel */
-#define NET_RESOLUTION_NUM_MAX               32          /* 分辨率总个数 Maximum number of resolution */
-#define NET_MONTH_DAY_MAX                    31          /* 每月天数最大值 Maximum number of days in a month */
-#define NET_VIDEO_ENCODE_TYPE_MAX            16          /* 编码格式类型总个数 Maximum number of encode type */
-#define NET_PEOPLE_CNT_MAX_NUM               60          /* 客流量统计数组最大值（分报表） Maximum number of people count */
-#define NET_WIFISNIFFER_MAC_MAX_NUM          64          /* wifi sniffer MAC地址最大长度  Length of wifi sniffer MAC */
-#define NET_WIFISNIFFER_MAC_ARRY_MAX_NUM     128         /* wifi sniffer MAC地址数组最大值 Maximum number of wifi sniffer MAC array */
-#define NET_HOTSPOT_CONN_MAX_NUM             128         /* 热点连接设备最大数量 Maximum number of hotspot connected devices */
-#define NET_DISK_MAX_NUM                     256         /* 磁盘最大数量 Maximum number of Disk */
-#define NET_LOCAL_DISK_MAX_NUM               32          /* 本地磁盘最大数量 local Maximum number of Disk */
-#define NET_SD_CARD_DISK_MAX_NUM             16          /* SD卡最大数量 SD Maximum number of Disk */
-#define NET_ARRAY_MAX_NUM                    16          /* 阵列最大数量 array Maximum number of Disk */
-#define NET_EXTEND_CABINET_DISK_MAX_NUM      32          /* 扩展柜硬盘最大数量 extend cabinet Maximum number of Disk */
-#define NET_NAS_MAX_NUM                      16          /* NAS最大数量 NAS Maximum number of Disk */
-#define NET_ESATA_MAX_NUM                    4           /* ESATA最大数量 eSATA Maximum number of Disk */
-#define NET_DISK_SMART_MAX_NUM               128         /* 硬盘SMART信息最大数量 Maximum number of Disk Smart Info */
-#define NET_ENCODE_FORMAT_MAX_NUM            3           /* 最大视频编码格式数 Maximum number of video compression */
-#define NET_SMART_ENCODE_MODEL_MAX_NUM       3           /* 最大智能图像扩展编码模式数 Maximum number of smart image encoding mode */
-#define NET_GOP_TYPE_MAX_NUM                 4           /* 最大GOP类型数量 Maximum number of GOP type */
-#define NET_IPSAN_MAX_NUM                    4           /* IPSAN最大数量 IPSAN Maximum number of Disk */
+#define NET_MAX_PRIVACY_MASK_AREA_NUM           8           /* 最大可配置遮盖区域个数  Maximum number of privacy mask areas allowed */
+#define NET_OSD_TEXTOVERLAY_NUM                 6           /* 通道 OSD 字符叠加数量  Number of OSD text overlays */
+#define NET_OSD_TEXT_MAX_LEN                    (64 + 4)    /* 通道 OSD 字符长度  Length of OSD texts */
+#define NET_OSD_TEXT_MAX_LEN_EX                 (512 + 4)   /* 通道 OSD 字符长度(扩展)  Length of OSD texts */
+#define NET_OSD_TYPE_MAX_NUM                    32          /* 通道 OSD 最大类型个数  Maximum number of OSD type */
+#define NET_OSD_CUSTOM_MAX_NUM                  4           /* 通道 OSD 自定义字符叠加最大个数  Maximum number of custom OSD texts */
+#define NET_OSD_FONT_SIZE_TYPE_MAX_NUM          4           /* 通道 OSD 字体最大类型个数  Maximum number of OSD font size type */
+#define NET_OSD_FONT_STYLE_TYPE_MAX_NUM         4           /* 通道 OSD 样式最大类型个数  Maximum number of OSD font style type */
+#define NET_OSD_TIME_FORMAT_MAX_NUM             7           /* 通道 OSD 最大时间格式个数  Maximum number of OSD time format type */
+#define NET_OSD_DATE_FORMAT_MAX_NUM             15          /* 通道 OSD 最大日期格式个数  Maximum number of OSD date format type */
+#define NET_PULL_ALARM_MAX_NUM                  8           /* 拉告警最大告警个数  Maximum number of alarms a user can get */
+#define NET_TRACK_CRUISE_MAXNUM                 1           /* 支持的轨迹巡航的最大条数  Maximum number of patrol routes allowed  */
+#define NET_AUDIO_INPUT_TYPE_MAX                2           /* 最大输入类型数量 */
+#define NET_AUDIO_OUTPUT_TYPE_MAX               3           /* 最大输出类型数量 */
+#define NET_AUDIO_FORMAT_MAX                    8           /* 最大音频格式数量 */
+#define NET_AUDIO_SAMPRATE_MAX                  11          /* 最大采样率数量 */
+#define NET_AUDIO_BITRATE_MAX                   7           /* 最大码率数量 */
+#define NET_AUDIO_SOUND_MIN_VALUE               0           /* 音量调节最小值  Minimum volume */
+#define NET_AUDIO_SOUND_MAX_VALUE               255         /* 音量调节最大值  Maximum volume */
+#define NET_MIC_SOUND_MIN_VALUE                 0           /* 麦克风音量调节最小值  Minimum volume */
+#define NET_MIC_SOUND_MAX_VALUE                 255         /* 麦克风音量调节最大值  Maximum volume */
+#define NET_SCREEN_INFO_ROW                     18          /* 屏幕信息行数  Screen Info Row */
+#define NET_SCREEN_INFO_COLUMN                  22          /* 屏幕信息列数  Screen Info Column */
+#define NET_CHANNEL_MAX                         512         /* 最大通道数 Maximum number of channel */
+#define NET_RESOLUTION_NUM_MAX                  32          /* 分辨率总个数 Maximum number of resolution */
+#define NET_MONTH_DAY_MAX                       31          /* 每月天数最大值 Maximum number of days in a month */
+#define NET_VIDEO_ENCODE_TYPE_MAX               16          /* 编码格式类型总个数 Maximum number of encode type */
+#define NET_PEOPLE_CNT_MAX_NUM                  60          /* 客流量统计数组最大值（分报表） Maximum number of people count */
+#define NET_WIFISNIFFER_MAC_MAX_NUM             64          /* wifi sniffer MAC地址最大长度  Length of wifi sniffer MAC */
+#define NET_WIFISNIFFER_MAC_ARRY_MAX_NUM        128         /* wifi sniffer MAC地址数组最大值 Maximum number of wifi sniffer MAC array */
+#define NET_HOTSPOT_CONN_MAX_NUM                128         /* 热点连接设备最大数量 Maximum number of hotspot connected devices */
+#define NET_DISK_MAX_NUM                        256         /* 磁盘最大数量 Maximum number of Disk */
+#define NET_LOCAL_DISK_MAX_NUM                  32          /* 本地磁盘最大数量 local Maximum number of Disk */
+#define NET_SD_CARD_DISK_MAX_NUM                16          /* SD卡最大数量 SD Maximum number of Disk */
+#define NET_ARRAY_MAX_NUM                       16          /* 阵列最大数量 array Maximum number of Disk */
+#define NET_EXTEND_CABINET_DISK_MAX_NUM         32          /* 扩展柜硬盘最大数量 extend cabinet Maximum number of Disk */
+#define NET_NAS_MAX_NUM                         16          /* NAS最大数量 NAS Maximum number of Disk */
+#define NET_ESATA_MAX_NUM                       4           /* ESATA最大数量 eSATA Maximum number of Disk */
+#define NET_DISK_SMART_MAX_NUM                  128         /* 硬盘SMART信息最大数量 Maximum number of Disk Smart Info */
+#define NET_ENCODE_FORMAT_MAX_NUM               3           /* 最大视频编码格式数 Maximum number of video compression */
+#define NET_SMART_ENCODE_MODEL_MAX_NUM          3           /* 最大智能图像扩展编码模式数 Maximum number of smart image encoding mode */
+#define NET_GOP_TYPE_MAX_NUM                    4           /* 最大GOP类型数量 Maximum number of GOP type */
+#define NET_IPSAN_MAX_NUM                       4           /* IPSAN最大数量 IPSAN Maximum number of Disk */
 
-#define NET_PHOTO_SERVER_MAX_NUM             4           /* 照片服务器数量上限 Maximum number of Photo Server */
+#define NET_PHOTO_SERVER_MAX_NUM                4           /* 照片服务器数量上限 Maximum number of Photo Server */
 
-#define NET_INTELLIGENT_SERVER_MAX_NUM       4           /* 智能服务器数量上限 Maximum number of Intelligent Server */
+#define NET_INTELLIGENT_SERVER_MAX_NUM          4           /* 智能服务器数量上限 Maximum number of Intelligent Server */
 
-#define NET_MANAGER_SERVER_MAX_NUM           4           /* 管理服务器数量上限 Maximum number of Manager Server */
+#define NET_MANAGER_SERVER_MAX_NUM              4           /* 管理服务器数量上限 Maximum number of Manager Server */
 
-#define NET_DEV_OTHER_LEN_MAX                32          /* 其他字段 */
-#define NET_DEV_NAME_LEN_MAX                 64          /* 设备名称长度 */
+#define NET_DEV_OTHER_LEN_MAX                   32          /* 其他字段 */
+#define NET_DEV_NAME_LEN_MAX                    64          /* 设备名称长度 */
 
-#define NET_DEV_PASSWORD_LEN_MAX             64          /* 设备密码长度 */
-#define NET_CLOUD_DEV_USER_NAME_LEN          260         /* 云端设备ID长度 */
-#define NET_CLOUD_USER_NAME_LEN              260         /* 云端用户名长度 */
-#define NET_CLOUD_DEV_USER_AUTH_LEN          260         /* 云端设备用户权限名称长度 */
-#define NET_CLOUD_SHARE_TARGET_NAME_LEN      64          /* 云端设备共享对象名称长度 */
-#define NET_CLOUD_SHARE_DESCRIBE_LEN         260         /* 云端设备共享描述长度 */
-#define NET_CLOUD_DEV_NAME_LEN               260         /* 云端设备名称长度 */
-#define NET_XW_MAX_PANE_NUM                  64          /* 窗口最大分屏数量 */
-#define NET_NTP_SERVER_LIST_NUM              5           /* NTP服务列表数量 */
+#define NET_DEV_PASSWORD_LEN_MAX                64          /* 设备密码长度 */
+#define NET_CLOUD_DEV_USER_NAME_LEN             260         /* 云端设备ID长度 */
+#define NET_CLOUD_USER_NAME_LEN                 260         /* 云端用户名长度 */
+#define NET_CLOUD_DEV_USER_AUTH_LEN             260         /* 云端设备用户权限名称长度 */
+#define NET_CLOUD_SHARE_TARGET_NAME_LEN         64          /* 云端设备共享对象名称长度 */
+#define NET_CLOUD_SHARE_DESCRIBE_LEN            260         /* 云端设备共享描述长度 */
+#define NET_CLOUD_DEV_NAME_LEN                  260         /* 云端设备名称长度 */
+#define NET_XW_MAX_PANE_NUM                     64          /* 窗口最大分屏数量 */
+#define NET_NTP_SERVER_LIST_NUM                 5           /* NTP服务列表数量 */
 
-#define NET_TMS_FACE_RECORD_ID_LEN           32          /* 记录ID缓存长度 */
-#define NET_TMS_CAMER_ID_LEN                 32          /* 相机ID缓存长度 */
-#define NET_TMS_PASSTIME_LEN                 32          /* 通过时间字符串缓存长度 */
-#define NET_TMS_FACE_TOLLGATE_ID_LEN         32          /* 卡口编号缓存长度 */
-#define NET_TMS_HEAT_MAP_DEVID_LEN           32          /* 热度图DevID字段长度 */
-#define NET_TMS_HEAT_MAP_RECORD_ID_LEN       16          /* 热度图RecordID字段长度 */
-#define NET_TMS_HEAT_MAP_COllECT_TIME_LEN    18          /* 热度图CollectTime 字段长度 */
-#define NET_TMS_PIC_COMMON_NUM               10          /* 图片或区域上限个数 */
-#define NET_TMS_CAR_PLATE_CAMID_LEN          32          /* 车牌识别CamID字段长度 */
-#define NET_TMS_CAR_PLATE_RECORDID_LEN       32          /* 车牌识别RecordID字段长度 */
-#define NET_TMS_CAR_PLATE_TOLLGATE_LEN       32          /* 车牌识别TollgateID字段长度 */
-#define NET_TMS_CAR_PLATE_PASSTIME_LEN       18          /* 车牌识别PassTime字段长度 */
-#define NET_TMS_CAR_PLATE_LANEID_LEN         18          /* 车牌识别LaneID字段长度 */
-#define NET_TMS_CAR_PLATE_CARPLATE_LEN       32          /* 车牌识别CarPlate字段长度 */
-#define NET_USER_NAME_ENCRYPT_LEN            256         /* 加密后的用户名长度 */
-#define NET_PASSWORD_ENCRYPT_LEN             256         /* 加密后的密码长度 */
-#define NET_VIDEO_FORMAT_MAX                 32          /* 支持的视频输出制式最大数量 */
-#define NET_VIDEO_FORMAT_NAME_LEN            32          /* 支持的视频输出制式名称长度 */
-#define NET_TVWALL_NAME_LEN                  260         /* 电视墙名称长度 */
-#define NET_FORMAT_SPEC_MAX                  256         /* 特殊输出制式的最大个数量 */
-#define NET_LED_SPEC_MAX                     256         /* 特殊模组框的最大个数量 */
-#define NET_FORMAT_NAME_LEN                  32          /* 输出制式名称长度 */
-#define NET_VIDEO_OUT_MAX                    64          /* 物理输出端口的最大个数量 */
-#define NET_SCENE_NAME_LEN                   260         /* 场景名称长度 */
-#define NET_TIME_LEN                         16          /* 时间字符串长度 */
-#define NET_WND_NAME_LEN                     260         /* 窗口名称长度 */
-#define NET_SEQUENCE_SRC_MAX                 128         /* 轮巡时视频源最大个数 */
-#define NET_TEXT_LEN                         1024        /* 虚拟LED文字内容长度 */
-#define NET_BMAP_NAME_LEN                    256         /* 底图名称长度 */
-#define NET_SEQ_RES_WIN_MAX                  288         /* 轮巡资源中窗口的最大个数 */
-#define NET_MAX_DAY_NUM                      8           /* 最大天数 */
-#define NET_MAX_TIME_SECTION_NUM             8           /* 时间段数量 */
+#define NET_TMS_FACE_RECORD_ID_LEN              32          /* 记录ID缓存长度 */
+#define NET_TMS_CAMER_ID_LEN                    32          /* 相机ID缓存长度 */
+#define NET_TMS_PASSTIME_LEN                    32          /* 通过时间字符串缓存长度 */
+#define NET_TMS_FACE_TOLLGATE_ID_LEN            32          /* 卡口编号缓存长度 */
+#define NET_TMS_HEAT_MAP_DEVID_LEN              32          /* 热度图DevID字段长度 */
+#define NET_TMS_HEAT_MAP_RECORD_ID_LEN          16          /* 热度图RecordID字段长度 */
+#define NET_TMS_HEAT_MAP_COllECT_TIME_LEN       18          /* 热度图CollectTime 字段长度 */
+#define NET_TMS_PIC_COMMON_NUM                  10          /* 图片或区域上限个数 */
+#define NET_TMS_CAR_PLATE_CAMID_LEN             32          /* 车牌识别CamID字段长度 */
+#define NET_TMS_CAR_PLATE_RECORDID_LEN          32          /* 车牌识别RecordID字段长度 */
+#define NET_TMS_CAR_PLATE_TOLLGATE_LEN          32          /* 车牌识别TollgateID字段长度 */
+#define NET_TMS_CAR_PLATE_PASSTIME_LEN          18          /* 车牌识别PassTime字段长度 */
+#define NET_TMS_CAR_PLATE_LANEID_LEN            18          /* 车牌识别LaneID字段长度 */
+#define NET_TMS_CAR_PLATE_CARPLATE_LEN          32          /* 车牌识别CarPlate字段长度 */
+#define NET_USER_NAME_ENCRYPT_LEN               256         /* 加密后的用户名长度 */
+#define NET_PASSWORD_ENCRYPT_LEN                256         /* 加密后的密码长度 */
+#define NET_VIDEO_FORMAT_MAX                    32          /* 支持的视频输出制式最大数量 */
+#define NET_VIDEO_FORMAT_NAME_LEN               32          /* 支持的视频输出制式名称长度 */
+#define NET_TVWALL_NAME_LEN                     260         /* 电视墙名称长度 */
+#define NET_FORMAT_SPEC_MAX                     256         /* 特殊输出制式的最大个数量 */
+#define NET_LED_SPEC_MAX                        256         /* 特殊模组框的最大个数量 */
+#define NET_FORMAT_NAME_LEN                     32          /* 输出制式名称长度 */
+#define NET_VIDEO_OUT_MAX                       64          /* 物理输出端口的最大个数量 */
+#define NET_SCENE_NAME_LEN                      260         /* 场景名称长度 */
+#define NET_TIME_LEN                            16          /* 时间字符串长度 */
+#define NET_WND_NAME_LEN                        260         /* 窗口名称长度 */
+#define NET_SEQUENCE_SRC_MAX                    128         /* 轮巡时视频源最大个数 */
+#define NET_TEXT_LEN                            1024        /* 虚拟LED文字内容长度 */
+#define NET_BMAP_NAME_LEN                       256         /* 底图名称长度 */
+#define NET_SEQ_RES_WIN_MAX                     288         /* 轮巡资源中窗口的最大个数 */
+#define NET_MAX_DAY_NUM                         8           /* 最大天数 */
+#define NET_MAX_TIME_SECTION_NUM                8           /* 时间段数量 */
 
-#define NET_ALARM_SOURCE_MAX_LEN                 (64 + 4)    /* 告警资源字符描述长度 */
-#define NET_MAX_EVENT_RES_SIZE                   1024        /* 事件上报最大资源数 */
+#define NET_ALARM_SOURCE_MAX_LEN                  (64 + 4)    /* 告警资源字符描述长度 */
+#define NET_MAX_EVENT_RES_SIZE                    1024        /* 事件上报最大资源数 */
 
-#define NET_VIID_CODE_LEN                        48          /* 视图编码长度 */
-#define NET_VIDEO_FORMAT_CAP_NUM                 64          /* 编码制式能力集 */
-#define NET_VIDEO_FRAME_RATE_MAX_NUM             64          /* 视频能力集支持帧率最大数量 */
-#define NET_VIDEO_ENCODE_COMPLEXITY_MAX_NUM      3           /* 编码复杂度最大数量 */
-#define NET_LAYOUT_CAP_NUM                       64          /* 分屏能力集 */
+#define NET_VIID_CODE_LEN                         48          /* 视图编码长度 */
+#define NET_VIDEO_FORMAT_CAP_NUM                  64          /* 编码制式能力集 */
+#define NET_VIDEO_FRAME_RATE_MAX_NUM              64          /* 视频能力集支持帧率最大数量 */
+#define NET_VIDEO_ENCODE_COMPLEXITY_MAX_NUM       3           /* 编码复杂度最大数量 */
+#define NET_LAYOUT_CAP_NUM                        64          /* 分屏能力集 */
 
-#define NET_DA_POINT_CODE_LEN                    48          /* 代理设备 点位 编码长度 */
-#define NET_DA_AREA_CODE_LEN                     48          /* 代理设备 区域 编码长度 */
-#define NET_VIRTUAL_MEM_TABLE_MAX                32          /* 虚拟内存表元素最大数量 */
-#define NET_EVENT_STORE_TYPE_NUM                 128         /* 时间存储类型数量 */
-#define NET_MAX_PANE_NUM                         36          /* DC业务分屏数量最大为36分屏 */
-#define NET_OSD_MAX_NUM_EX                       8           /* 通道 OSD 最大数量  Maximum Number of OSD */
-#define NET_RSA_MAX_VALUE                        3           /* 表示最多尝试密钥生成次数 */
+#define NET_DA_POINT_CODE_LEN                     48          /* 代理设备 点位 编码长度 */
+#define NET_DA_AREA_CODE_LEN                      48          /* 代理设备 区域 编码长度 */
+#define NET_VIRTUAL_MEM_TABLE_MAX                 32          /* 虚拟内存表元素最大数量 */
+#define NET_EVENT_STORE_TYPE_NUM                    128         /* 时间存储类型数量 */
+#define NET_MAX_PANE_NUM                            36          /* DC业务分屏数量最大为36分屏 */
+#define NET_OSD_MAX_NUM_EX                          8           /* 通道 OSD 最大数量  Maximum Number of OSD */
+#define NET_RSA_MAX_VALUE                           3           /* 表示最多尝试密钥生成次数 */
 
-#define NET_MAX_VIDEO_BRIGHT_EFFECT_VALUE        199             /* 图像参数（亮度）最大值 */
-#define NET_MAX_VIDEO_CONTRAST_EFFECT_VALUE      199             /* 图像参数（对比度）最大值 */
-#define NET_MAX_VIDEO_SATURATION_EFFECT_VALUE    359             /* 图像参数（饱和度）最大值 */
-#define NET_MAX_VIDEO_HUE_EFFECT_VALUE           359             /* 图像参数（色度）最大值 */
-#define NET_MAX_VIDEO_GAMMA_EFFECT_VALUE         99              /* 图像参数（伽玛）最大值 */
-#define NET_PIXEL_CONVERT_RATIO                  5000            /* 像素转换比例 用于区域设置,如拉框放大区域 */
-#define NET_PANES_NUM                            16              /* 单通道最大分屏数 */
+#define NET_MAX_VIDEO_BRIGHT_EFFECT_VALUE           199             /* 图像参数（亮度）最大值 */
+#define NET_MAX_VIDEO_CONTRAST_EFFECT_VALUE         199             /* 图像参数（对比度）最大值 */
+#define NET_MAX_VIDEO_SATURATION_EFFECT_VALUE       359             /* 图像参数（饱和度）最大值 */
+#define NET_MAX_VIDEO_HUE_EFFECT_VALUE              359             /* 图像参数（色度）最大值 */
+#define NET_MAX_VIDEO_GAMMA_EFFECT_VALUE            99              /* 图像参数（伽玛）最大值 */
+#define NET_PIXEL_CONVERT_RATIO                     5000            /* 像素转换比例 用于区域设置,如拉框放大区域 */
+#define NET_PANES_NUM                               16              /* 单通道最大分屏数 */
 
-#define NET_XW_AUDIO_NUM                         16              /* 音频输出通道最大个数 */
-#define NET_IP_ADDRESS_LEN                       64              /* IP地址长度 */
+#define NET_XW_AUDIO_NUM                            16              /* 音频输出通道最大个数 */
+#define NET_IP_ADDRESS_LEN                          64              /* IP地址长度 */
 
-#define NET_TVWALLPLAN_NUM                       4               /* 电视墙预案个数 */
-#define NET_PLAN_MAX_TVWALL_NUM                  4               /* 预案下电视墙最大数量 */
-#define NET_TVWALL_MAX_WIN_NUM                   81              /* 电视墙最大的窗口数量 */
-#define NET_TVWALL_MAX_LAYOUT_NUM                64              /* 电视墙最大的分屏数量,即为子窗口数量 */
-#define NET_ALARM_LINK_PRESET_NUM                16              /* 告警预案联动预置位数量  */
-#define NET_ALARM_LINK_SWITCHOUT_NUM             16              /* 告警预案联动告警输出通道数量 */
-#define NET_ALARM_LINK_MONITOR_NUM               16              /* 告警预案联动实况数量 */
-#define NET_ALARM_LINK_TVWALL_NUM                32              /* 告警预案联动电视墙最大数量*/
-#define NET_ALARM_LINK_SOUND_LEN                 512             /* 告警预案联动声音信息最大长度 */
-#define NET_ALARM_SOURCE_NUM                     1               /* 告警源数量 */
-#define NET_ALARM_LINK_NUM                       128             /* 告警预案数量 */
+#define NET_TVWALLPLAN_NUM                          4               /* 电视墙预案个数 */
+#define NET_PLAN_MAX_TVWALL_NUM                     4               /* 预案下电视墙最大数量 */
+#define NET_TVWALL_MAX_WIN_NUM                      81              /* 电视墙最大的窗口数量 */
+#define NET_TVWALL_MAX_LAYOUT_NUM                   64              /* 电视墙最大的分屏数量,即为子窗口数量 */
+#define NET_ALARM_LINK_PRESET_NUM                   16              /* 告警预案联动预置位数量  */
+#define NET_ALARM_LINK_SWITCHOUT_NUM                16              /* 告警预案联动告警输出通道数量 */
+#define NET_ALARM_LINK_MONITOR_NUM                  16              /* 告警预案联动实况数量 */
+#define NET_ALARM_LINK_TVWALL_NUM                   32              /* 告警预案联动电视墙最大数量*/
+#define NET_ALARM_LINK_SOUND_LEN                    512             /* 告警预案联动声音信息最大长度 */
+#define NET_ALARM_SOURCE_NUM                        1               /* 告警源数量 */
+#define NET_ALARM_LINK_NUM                          128             /* 告警预案数量 */
 
-#define NET_TIME_TEMPLATE_NUM                    32              /* 时间模板数量 */
-#define NET_DC_SCHEME_RES_CHN_MAX_NUM            256             /* DC轮巡最大资源数 */
-#define NET_VIEW_MAX_WIN_NUM                     100             /* 视图最大的窗口数量 */
-#define NET_MAX_ROLE_RIGHT_SIZE                  256             /* 用户权限菜单项数量 */
-#define NET_MAX_QUERY_CHANNEL_NUM                500             /* 单次查询最大通道个数 */
-#define NET_MAX_QUERY_DEV_NUM                    500             /* 单次查询最大设备个数 */
-#define NET_GRID_AREAS_LEN                       256             /* 宏块值数组长度 */
-#define NET_MAX_ORG_ROOT_ID_NUM                  32              /* 组织树根节点最大个数 */
-#define NET_VOICE_BROADCAST_CHANNEL_NUM_MAX      128             /* 一个语音广播组支持最大通道个数 */
-#define NET_RECORD_LOCK_ID_LEN                   64              /* 录像锁定ID最大长度 */
-#define NET_RECORD_LOCK_DESC_LEN                 64              /* 锁定录像段的描述最大长度 */
-#define NET_REPLAY_SESSION_ID_LEN                64              /* 回放会话ID最大长度 */
-#define NET_REPLAY_RECORD_SEGMENT_MAX            128             /* 单次回放录像查询最多返回的时间段数量 */
-#define NET_NOTIME                               0               /* 时间无值 */
-#define NET_WHITE_BALANCE_MODE_MAX_NUM           16              /* 最多支持的白平衡模式个数 Maximum number of Image white balance mode count */
-#define NET_FOCUS_MODE_MAX_NUM                   16              /* 最多支持的对焦模式个数 Maximum number of Image focus mode count */
-#define NET_FOCUS_SCENE_MAX_NUM                  16              /* 最多支持的对焦场景个数 Maximum number of Image focus scene count */
-#define NET_IMAGE_ROTATION_MODE_MAX_NUM          16              /* 最多支持的图像镜像模式个数 Maximum number of Image rotation mode count */
-#define NET_LAMP_CTRL_TYPE_MAX_NUM               16              /* 最多支持的支持的补光灯类型个数 Maximum number of lamp ctrl type count */
-#define NET_LAMP_CTRL_MODE_MAX_NUM               16              /* 最多支持的补光灯空控制模式个数 Maximum number of lamp ctrl mode count */
-#define NET_EXPOSURE_MODE_MAX_NUM                16              /* 最多支持的曝光模式个数 Maximum number of exposure mode count */
-#define NET_IRIS_RANGE_MAX_NUM                   16              /* 最多支持的光圈取值个数  Maximum number of Iris Range count */
-#define NET_METERING_MODE_MAX_NUM                16              /* 最多支持的测光控制模式个数  Maximum number of Metering mode count */
-#define NET_SHUTTER_TIME_RANGE_MAX_NUM           28              /* 最多支持的快门时间的取值的个数  Maximum number of shutter Time Range count */
-#define NET_SLOW_SHUTTER_TIME_RANGE_MAX_NUM      16              /* 最多支持的慢快门时间的取值的个数 Maximum number of slow shutter Time Range count */
-#define NET_WIDE_DYNAMIC_MODE_MAX_NUM            16              /* 最多支持的宽动态模式个数 Maximum number of wide dynamic mode count */
-#define NET_DAY_NIGHT_MODE_MAX_NUM               16              /* 最多支持的昼夜模式类型个数 Maximum number of slow Day Night Mode count */
-#define NET_AUDIO_IN_MAX_NUM                     16              /* 最多支持的音频口输入个数 Maximum number of Audio input count */
-#define NET_AUDIO_IN_CHL_MODE_MAX_NUM            8               /* 最多支持的音频输入通道模式个数 Maximum number of Audio input mode count */
-#define NET_AUDIO_IN_ENCODE_FORMAT_MAX_NUM       16              /* 最多支持的音频输入编码格式个数 Maximum number of Audio input encode format count */
-#define NET_AUDIO_SAMPLING_RATE_MAX_NUM          8               /* 最多支持的音频采样率个数 Maximum number of Audio sampling rate count */
-#define NET_SERIAL_IN_MAX_NUM                    16              /* 最多支持的串口输入个数 Maximum number of serial input count */
-#define NET_SERIAL_IN_ENCODE_FORMAT_MAX_NUM      16              /* 最多支持的串口输入编码格式个数 Maximum number of serial input encode format count */
-#define NET_FACE_FEATURE_SIZE                    512             /* 人脸特征信息 512B */
-#define NET_FACE_FEATURE_VERSION_LEN             40              /* 人脸特征模型版本号最大长度 */
-#define NET_FACE_FEATURE_LIST_FILE_LEN           256             /* 人脸特征库文件名最大长度 */
-#define NET_FACE_FEATURE_FILE_MD5_LEN            16              /* 人脸特征库文件的MD5值长度 */
-#define NET_FACE_FEATURE_GALLEY_ID_LEN           20              /* 人脸半结构化特征名单库ID长度 */
-#define NET_FACE_FEATURE_MAX_NUM                 3               /* 人脸半结构化特征最大数目 */
-#define NET_OBJ_TRACK_MODE_NUM                   8               /* 设备支持的智能跟踪模式数量 */
-#define NET_STREAM_MAX_NUM                       3               /* 最大支持的码流数量 */
-#define NET_PLAN_DAY_NUM_AWEEK                   7               /* 一周总共可配置的计划天数，包含周一到周日 */
-#define NET_PLAN_TIME_SECTION_NUM_ADAY           4               /* 一天可配置的时间段数 Total number of plans allowed in a day*/
-#define NET_XW_SERIAL_NUM                        16              /* 串口数量 */
-#define NET_DNS_LIST_NUM                         2               /* DNS列表数量 */
-#define NET_NETWORK_MACNAME_LEN                  48              /* MAC地址名称长度 */
-#define NET_LOG_QUERY_COND_NUM                   48              /* 日志查询条件数量 */
-#define NET_RECORD_FILE_MAX_NUM                  48              /* 录像查询结果最大数量 */
-#define NET_RECORD_DATE_MAX_NUM                  64              /* 录像日期结果最大数量 */
-#define NET_RECORD_DOWNLOAD_MAX_NUM              16              /* 录像下载任务最大数量 */
-#define NET_FACE_DB_NAME_LEN                     256             /* 人脸库名称长度最大值 */
-#define NET_FACE_MEMBER_NAME_LEN                 256             /* 人脸库成员名称长度最大值 */
-#define NET_FACE_MEMBER_REGION_LEN               256             /* 人脸库成员所在地区名称最大值 */
-#define NET_FACE_MEMBER_CUSTOM_NUM               5               /* 自定义属性列表个数 */
-#define NET_FACE_MEMBER_CUSTOM_LEN               255             /* 自定义属性值长度 */
-#define NET_FACE_IMAGE_MAX_LEN                   (2*1024*1024)   /* 人脸图片数据的最大长度，2M   2097152字节*/
-#define NET_FACE_DB_TITLE_NAME_LEN               508             /* 人脸库自定义属性名称最大长度 */
-#define NET_FACE_MONITOR_RULE_NAME_LEN           508             /* 人脸布控任务的布控名称最大值 */
-#define NET_FACE_MONITOR_RULE_REASON_LEN         508             /* 人脸布控的布控原因最大值 */
-#define NET_FACE_ALARM_SRC_LEN                   256             /* 抓拍通道名称长度 */
-#define NET_FACE_ANALYSIS_SKILL_NUM              16              /* 设备支持的人脸分析能力数量 */
-#define NET_FACE_MEMBER_BIRTHDAY_LEN             31              /* 成员出生日期字符串最大长度 */
-#define NET_FACE_IDNUMBER_LEN                    128             /* 证件号最大范围*/
-#define NET_FACE_LIB_MAX_NUM                     64              /* 目标库最大数量 */
-#define NET_FACE_INFO_MAX_NUM                    128             /* 人脸信息最大数量 */
-#define NET_FACE_ID_MAX_NUM                      128             /* 人脸ID最大数量 */
-#define NET_LABEL_ID_MAX_LEN                     32
-#define NET_TIME_RANGE_NUM                       8               /* 时间模板时间范围个数(周一到周日再加假日) */
-#define NET_TIME_DURATION_NUM                    8               /* 时间模板中一天最多8个片段 */
-#define NET_HOLIDAY_INFO_NUM                     32              /* 假日配置数量 */
-#define NET_AUDIO_MAX_NUM                        18              /* 音频输出业务数量 */
-#define NET_CREATE_CONNECT_NUMBER                1               /* 创建连接数量 */
-#define NET_EMERGENCY_BRLL_NAME_LEN              128             /* 紧急铃名称最大长度*/
-#define NET_EMERGENCY_BRLL_MAX_NUM               120             /* 紧急铃信息最大数量*/
-#define NET_VEHICLE_COMP_IMAGE_MAX_LEN           2097152         /* 车辆布控比对图片的最大长度 2M*/
-#define NET_VEHICLE_IMAGE_MAX_LEN                4194304         /* 车辆图片数据最大字节数 4M */
-#define NET_PIC_DATA_MAX_LEN                     (1024*1024)     /* 图片数据信息加密后最大大小 */
+#define NET_TIME_TEMPLATE_NUM                       32              /* 时间模板数量 */
+#define NET_DC_SCHEME_RES_CHN_MAX_NUM               256             /* DC轮巡最大资源数 */
+#define NET_VIEW_MAX_WIN_NUM                        100             /* 视图最大的窗口数量 */
+#define NET_MAX_ROLE_RIGHT_SIZE                     256             /* 用户权限菜单项数量 */
+#define NET_MAX_QUERY_CHANNEL_NUM                   500             /* 单次查询最大通道个数 */
+#define NET_MAX_QUERY_DEV_NUM                       500             /* 单次查询最大设备个数 */
+#define NET_GRID_AREAS_LEN                          256             /* 宏块值数组长度 */
+#define NET_MAX_ORG_ROOT_ID_NUM                     32              /* 组织树根节点最大个数 */
+#define NET_VOICE_BROADCAST_CHANNEL_NUM_MAX         128             /* 一个语音广播组支持最大通道个数 */
+#define NET_RECORD_LOCK_ID_LEN                      64              /* 录像锁定ID最大长度 */
+#define NET_RECORD_LOCK_DESC_LEN                    64              /* 锁定录像段的描述最大长度 */
+#define NET_REPLAY_SESSION_ID_LEN                   64              /* 回放会话ID最大长度 */
+#define NET_REPLAY_RECORD_SEGMENT_MAX               128             /* 单次回放录像查询最多返回的时间段数量 */
+#define NET_NOTIME                                  0               /* 时间无值 */
+#define NET_WHITE_BALANCE_MODE_MAX_NUM              16              /* 最多支持的白平衡模式个数 Maximum number of Image white balance mode count */
+#define NET_FOCUS_MODE_MAX_NUM                      16              /* 最多支持的对焦模式个数 Maximum number of Image focus mode count */
+#define NET_FOCUS_SCENE_MAX_NUM                     16              /* 最多支持的对焦场景个数 Maximum number of Image focus scene count */
+#define NET_IMAGE_ROTATION_MODE_MAX_NUM             16              /* 最多支持的图像镜像模式个数 Maximum number of Image rotation mode count */
+#define NET_LAMP_CTRL_TYPE_MAX_NUM                  16              /* 最多支持的支持的补光灯类型个数 Maximum number of lamp ctrl type count */
+#define NET_LAMP_CTRL_MODE_MAX_NUM                  16              /* 最多支持的补光灯空控制模式个数 Maximum number of lamp ctrl mode count */
+#define NET_EXPOSURE_MODE_MAX_NUM                   16              /* 最多支持的曝光模式个数 Maximum number of exposure mode count */
+#define NET_IRIS_RANGE_MAX_NUM                      16              /* 最多支持的光圈取值个数  Maximum number of Iris Range count */
+#define NET_METERING_MODE_MAX_NUM                   16              /* 最多支持的测光控制模式个数  Maximum number of Metering mode count */
+#define NET_SHUTTER_TIME_RANGE_MAX_NUM              28              /* 最多支持的快门时间的取值的个数  Maximum number of shutter Time Range count */
+#define NET_SLOW_SHUTTER_TIME_RANGE_MAX_NUM         16              /* 最多支持的慢快门时间的取值的个数 Maximum number of slow shutter Time Range count */
+#define NET_WIDE_DYNAMIC_MODE_MAX_NUM               16              /* 最多支持的宽动态模式个数 Maximum number of wide dynamic mode count */
+#define NET_DAY_NIGHT_MODE_MAX_NUM                  16              /* 最多支持的昼夜模式类型个数 Maximum number of slow Day Night Mode count */
+#define NET_AUDIO_IN_MAX_NUM                        16              /* 最多支持的音频口输入个数 Maximum number of Audio input count */
+#define NET_AUDIO_IN_CHL_MODE_MAX_NUM               8               /* 最多支持的音频输入通道模式个数 Maximum number of Audio input mode count */
+#define NET_AUDIO_IN_ENCODE_FORMAT_MAX_NUM          16              /* 最多支持的音频输入编码格式个数 Maximum number of Audio input encode format count */
+#define NET_AUDIO_SAMPLING_RATE_MAX_NUM             8               /* 最多支持的音频采样率个数 Maximum number of Audio sampling rate count */
+#define NET_SERIAL_IN_MAX_NUM                       16              /* 最多支持的串口输入个数 Maximum number of serial input count */
+#define NET_SERIAL_IN_ENCODE_FORMAT_MAX_NUM         16              /* 最多支持的串口输入编码格式个数 Maximum number of serial input encode format count */
+#define NET_FACE_FEATURE_SIZE                       512             /* 人脸特征信息 512B */
+#define NET_FACE_FEATURE_VERSION_LEN                40              /* 人脸特征模型版本号最大长度 */
+#define NET_FACE_FEATURE_LIST_FILE_LEN              256             /* 人脸特征库文件名最大长度 */
+#define NET_FACE_FEATURE_FILE_MD5_LEN               16              /* 人脸特征库文件的MD5值长度 */
+#define NET_FACE_FEATURE_GALLEY_ID_LEN              20              /* 人脸半结构化特征名单库ID长度 */
+#define NET_FACE_FEATURE_MAX_NUM                    3               /* 人脸半结构化特征最大数目 */
+#define NET_OBJ_TRACK_MODE_NUM                      8               /* 设备支持的智能跟踪模式数量 */
+#define NET_STREAM_MAX_NUM                          3               /* 最大支持的码流数量 */
+#define NET_PLAN_DAY_NUM_AWEEK                      7               /* 一周总共可配置的计划天数，包含周一到周日 */
+#define NET_PLAN_TIME_SECTION_NUM_ADAY              4               /* 一天可配置的时间段数 Total number of plans allowed in a day*/
+#define NET_XW_SERIAL_NUM                           16              /* 串口数量 */
+#define NET_DNS_LIST_NUM                            2               /* DNS列表数量 */
+#define NET_NETWORK_MACNAME_LEN                     48              /* MAC地址名称长度 */
+#define NET_LOG_QUERY_COND_NUM                      48              /* 日志查询条件数量 */
+#define NET_RECORD_FILE_MAX_NUM                     48              /* 录像查询结果最大数量 */
+#define NET_RECORD_DATE_MAX_NUM                     64              /* 录像日期结果最大数量 */
+#define NET_RECORD_DOWNLOAD_MAX_NUM                 16              /* 录像下载任务最大数量 */
+#define NET_FACE_DB_NAME_LEN                        256             /* 人脸库名称长度最大值 */
+#define NET_FACE_MEMBER_NAME_LEN                    256             /* 人脸库成员名称长度最大值 */
+#define NET_FACE_MEMBER_REGION_LEN                  256             /* 人脸库成员所在地区名称最大值 */
+#define NET_FACE_MEMBER_CUSTOM_NUM                  5               /* 自定义属性列表个数 */
+#define NET_FACE_MEMBER_CUSTOM_LEN                  255             /* 自定义属性值长度 */
+#define NET_FACE_IMAGE_MAX_LEN                      (2*1024*1024)   /* 人脸图片数据的最大长度，2M   2097152字节*/
+#define NET_FACE_DB_TITLE_NAME_LEN                  508             /* 人脸库自定义属性名称最大长度 */
+#define NET_FACE_MONITOR_RULE_NAME_LEN              508             /* 人脸布控任务的布控名称最大值 */
+#define NET_FACE_MONITOR_RULE_REASON_LEN            508             /* 人脸布控的布控原因最大值 */
+#define NET_FACE_ALARM_SRC_LEN                      256             /* 抓拍通道名称长度 */
+#define NET_FACE_ANALYSIS_SKILL_NUM                 16              /* 设备支持的人脸分析能力数量 */
+#define NET_FACE_MEMBER_BIRTHDAY_LEN                31              /* 成员出生日期字符串最大长度 */
+#define NET_FACE_IDNUMBER_LEN                       128             /* 证件号最大范围*/
+#define NET_FACE_LIB_MAX_NUM                        64              /* 目标库最大数量 */
+#define NET_FACE_INFO_MAX_NUM                       128             /* 人脸信息最大数量 */
+#define NET_FACE_ID_MAX_NUM                         128             /* 人脸ID最大数量 */
+#define NET_LABEL_ID_MAX_LEN                        32
+#define NET_TIME_RANGE_NUM                          8               /* 时间模板时间范围个数(周一到周日再加假日) */
+#define NET_TIME_DURATION_NUM                       8               /* 时间模板中一天最多8个片段 */
+#define NET_HOLIDAY_INFO_NUM                        32              /* 假日配置数量 */
+#define NET_AUDIO_MAX_NUM                           18              /* 音频输出业务数量 */
+#define NET_CREATE_CONNECT_NUMBER                   1               /* 创建连接数量 */
+#define NET_EMERGENCY_BRLL_NAME_LEN                 128             /* 紧急铃名称最大长度*/
+#define NET_EMERGENCY_BRLL_MAX_NUM                  120             /* 紧急铃信息最大数量*/
+#define NET_VEHICLE_COMP_IMAGE_MAX_LEN              2097152         /* 车辆布控比对图片的最大长度 2M*/
+#define NET_VEHICLE_IMAGE_MAX_LEN                   4194304         /* 车辆图片数据最大字节数 4M */
+#define NET_PIC_DATA_MAX_LEN                        (1024*1024)     /* 图片数据信息加密后最大大小 */
 
-#define NET_RES_CHANGE_INFO_LIST_NUM             64              /* 定义LAPI事件上报信息结构体 */
+#define NET_RES_CHANGE_INFO_LIST_NUM                64              /* 定义LAPI事件上报信息结构体 */
 
-#define NET_OUTPUT_NI_RECV_CARD_MAX_NUM          64              /* 输出网口下的接收卡最大数量 */
-#define NET_IMG_IN_MODE_LIST_MAX_NUM             16              /* 图像输入模式最大数量 */
-#define NET_GAMMA_INFO_LIST_MAX_NUM              1024            /* 伽马表最大数量值 */
+#define NET_OUTPUT_NI_RECV_CARD_MAX_NUM             64              /* 输出网口下的接收卡最大数量 */
+#define NET_IMG_IN_MODE_LIST_MAX_NUM                16              /* 图像输入模式最大数量 */
+#define NET_GAMMA_INFO_LIST_MAX_NUM                 1024            /* 伽马表最大数量值 */
 
-#define NET_MAX_SERIAL_PROT_NUM                  1               /* 设备当前只有一个485串口 */
-#define NET_MAX_TRANS_CHANEL_NUM                 1               /* 一个485串口目前只支持一个透明通道 */
+#define NET_MAX_SERIAL_PROT_NUM                     1               /* 设备当前只有一个485串口 */
+#define NET_MAX_TRANS_CHANEL_NUM                    1               /* 一个485串口目前只支持一个透明通道 */
 
-#define NET_MAX_NIC_WORK_MODE_NUM                8               /* 最大网卡支持的工作模式数量 */
-#define NET_MAX_PORT_WORK_MODE_NUM               24              /* 最大网口工作模式数量 */
-#define NET_MAX_NET_WORK_CARD_NUM                8               /* 最大网卡数量 */
-#define NET_MAX_LINK_ACTION_NUM                  9               /* 最大联动动作数量 */
+#define NET_MAX_NIC_WORK_MODE_NUM                   8               /* 最大网卡支持的工作模式数量 */
+#define NET_MAX_PORT_WORK_MODE_NUM                  24              /* 最大网口工作模式数量 */
+#define NET_MAX_NET_WORK_CARD_NUM                   8               /* 最大网卡数量 */
+#define NET_MAX_LINK_ACTION_NUM                     9               /* 最大联动动作数量 */
 
-#define NET_IVA_REPORT_COORD_NUM                 16              /* 一条规则的最大坐标点数 */
+#define NET_IVA_REPORT_COORD_NUM                    16              /* 一条规则的最大坐标点数 */
 
-#define NET_MAX_SCENE_INFO_NUM                   5               /* 最大场景信息数量 */
-#define NET_MAX_TRIGGER_DETAIL_INFO_NUM          4               /* 最大场景自动切换触发条件数量 */
-#define NET_MAX_ENV_PARAM_NUM                    2               /* 最大环境参数数量 */
-#define NET_MAX_SCENE_TYPE_NUM                   16              /* 最大支持的场景类型数量 */
-#define NET_MAX_ENV_TYPE_NUM                     2               /* 最大支持的环境类型数量 */
+#define NET_MAX_SCENE_INFO_NUM                      5               /* 最大场景信息数量 */
+#define NET_MAX_TRIGGER_DETAIL_INFO_NUM             4               /* 最大场景自动切换触发条件数量 */
+#define NET_MAX_ENV_PARAM_NUM                       2               /* 最大环境参数数量 */
+#define NET_MAX_SCENE_TYPE_NUM                      16              /* 最大支持的场景类型数量 */
+#define NET_MAX_ENV_TYPE_NUM                        2               /* 最大支持的环境类型数量 */
 
-#define NET_INVALID_PARAM                        (0xffffff)
+#define NET_INVALID_PARAM                           (0xffffff)
 
 /* 停车场车牌、车辆图片大小 单位：字节*/
-#define NET_VEH_PLATE_IMAGE_LEN              (1024*1024)
+#define NET_VEH_PLATE_IMAGE_LEN                 (1024*1024)
 
 /* 停车场车牌、车辆加密后图片大小 单位：字节*/
-#define NET_VEH_PLATE_ENCODE_IMAGE_LEN       1400000
+#define NET_VEH_PLATE_ENCODE_IMAGE_LEN          1400000
 
-#define NET_UINT32_INVALID                   0xFFFFFFFF               /* UINT32类型无效值定义 */
+#define NET_UINT32_INVALID                      0xFFFFFFFF               /* UINT32类型无效值定义 */
 
-/* 位掩码定义。nr 必须位于 UINT32 的有效位宽内。 */
-#ifndef NET_BIT
-#define NET_BIT(nr) ((UINT32)(1UL << (nr)))
-#endif
+/* BIT位定义 */
+#ifndef BIT0
+#define BIT0  (0x1 << 0)
+#define BIT1  (0x1 << 1)
+#define BIT2  (0x1 << 2)
+#define BIT3  (0x1 << 3)
+#define BIT4  (0x1 << 4)
+#define BIT5  (0x1 << 5)
+#define BIT6  (0x1 << 6)
+#define BIT7  (0x1 << 7)
+#define BIT8  (0x1 << 8)
+#define BIT9  (0x1 << 9)
+#define BIT10 (0x1 << 10)
+#define BIT11 (0x1 << 11)
+#define BIT12 (0x1 << 12)
+#define BIT13 (0x1 << 13)
+#define BIT14 (0x1 << 14)
+#define BIT15 (0x1 << 15)
+#define BIT16 (0x1 << 16)
+#define BIT17 (0x1 << 17)
+#define BIT18 (0x1 << 18)
+#define BIT19 (0x1 << 19)
+#define BIT20 (0x1 << 20)
+#define BIT21 (0x1 << 21)
+#define BIT22 (0x1 << 22)
+#define BIT23 (0x1 << 23)
+#define BIT24 (0x1 << 24)
+#define BIT25 (0x1 << 25)
+#define BIT26 (0x1 << 26)
+#define BIT27 (0x1 << 27)
+#define BIT28 (0x1 << 28)
+#define BIT29 (0x1 << 29)
+#define BIT30 (0x1 << 30)
+#define BIT31 (0x1 << 31)
 
-#ifndef NET_BIT_0
-#define NET_BIT_0  (NET_BIT(0U))
-#define NET_BIT_1  (NET_BIT(1U))
-#define NET_BIT_2  (NET_BIT(2U))
-#define NET_BIT_3  (NET_BIT(3U))
-#define NET_BIT_4  (NET_BIT(4U))
-#define NET_BIT_5  (NET_BIT(5U))
-#define NET_BIT_6  (NET_BIT(6U))
-#define NET_BIT_7  (NET_BIT(7U))
-#define NET_BIT_8  (NET_BIT(8U))
-#define NET_BIT_9  (NET_BIT(9U))
-#define NET_BIT_10 (NET_BIT(10U))
-#define NET_BIT_11 (NET_BIT(11U))
-#define NET_BIT_12 (NET_BIT(12U))
-#define NET_BIT_13 (NET_BIT(13U))
-#define NET_BIT_14 (NET_BIT(14U))
-#define NET_BIT_15 (NET_BIT(15U))
-#define NET_BIT_16 (NET_BIT(16U))
-#define NET_BIT_17 (NET_BIT(17U))
-#define NET_BIT_18 (NET_BIT(18U))
-#define NET_BIT_19 (NET_BIT(19U))
-#define NET_BIT_20 (NET_BIT(20U))
-#define NET_BIT_21 (NET_BIT(21U))
-#define NET_BIT_22 (NET_BIT(22U))
-#define NET_BIT_23 (NET_BIT(23U))
-#define NET_BIT_24 (NET_BIT(24U))
-#define NET_BIT_25 (NET_BIT(25U))
-#define NET_BIT_26 (NET_BIT(26U))
-#define NET_BIT_27 (NET_BIT(27U))
-#define NET_BIT_28 (NET_BIT(28U))
-#define NET_BIT_29 (NET_BIT(29U))
-#define NET_BIT_30 (NET_BIT(30U))
-#define NET_BIT_31 (NET_BIT(31U))
-#endif
+#define BIT(nr)     (1UL << (nr))
+#endif  /* BIT位定义 */
 
-#ifndef NET_BIT32_MAX
-    #define NET_BIT32_MAX ((UINT32)(~0UL))
+#ifndef BIT32_MAX
+    #define BIT32_MAX ((UINT32)(~0UL))
 #endif
 
 
 /* BEGIN****************************  Alarm type ************************************************************/
 /**
- * @author tianl (tianl@kfb.cn)
  * @brief 基础/常规报警 (0x1000 - 0x10FF)
- * @struct NET_ALARM_BASIC_INFO
+ * @struct NET_AlarmBasicInfo_S
  */
 #define NET_ALARM_BASE_BASIC         0x1000
-#define NET_ALARM_MOTION_DETECT      (NET_ALARM_BASE_BASIC + 0x01) /* 移动侦测 */
-#define NET_ALARM_OCCLUSION          (NET_ALARM_BASE_BASIC + 0x02) /* 视频遮挡 */
-#define NET_ALARM_ANOMALY            (NET_ALARM_BASE_BASIC + 0x03) /* 异常报警(通用) */
-#define NET_ALARM_AUDIO              (NET_ALARM_BASE_BASIC + 0x04) /* 声音报警(分贝阈值) */
-#define NET_ALARM_INPUT              (NET_ALARM_BASE_BASIC + 0x05) /* 报警输入(IO) */
-#define NET_ALARM_OUTPUT             (NET_ALARM_BASE_BASIC + 0x06) /* 报警输出(IO) */
-#define NET_ALARM_FLASH              (NET_ALARM_BASE_BASIC + 0x07) /* 闪光灯报警 */
-#define NET_ALARM_PIR                (NET_ALARM_BASE_BASIC + 0x08) /* PIR红外报警 */
+#define NET_ALARM_MOTION_DETECT      (NET_ALARM_BASE_BASIC + 0x01) // 移动侦测
+#define NET_ALARM_OCCLUSION          (NET_ALARM_BASE_BASIC + 0x02) // 视频遮挡
+#define NET_ALARM_ANOMALY            (NET_ALARM_BASE_BASIC + 0x03) // 异常报警(通用)
+#define NET_ALARM_AUDIO              (NET_ALARM_BASE_BASIC + 0x04) // 声音报警(分贝阈值)
+#define NET_ALARM_INPUT              (NET_ALARM_BASE_BASIC + 0x05) // 报警输入(IO)
+#define NET_ALARM_OUTPUT             (NET_ALARM_BASE_BASIC + 0x06) // 报警输出(IO)
+#define NET_ALARM_FLASH              (NET_ALARM_BASE_BASIC + 0x07) // 闪光灯报警
+#define NET_ALARM_PIR                (NET_ALARM_BASE_BASIC + 0x08) // PIR红外报警
 
 /**
- * @author tianl (tianl@kfb.cn)
  * @brief 区域/周界规则报警 (0x2000 - 0x20FF)
- * @struct NET_ALARM_RULE_INFO
+ * @struct NET_AlarmRuleInfo_S
  */
 #define NET_ALARM_BASE_RULE          0x2000
-#define NET_ALARM_LINE_CROSSING      (NET_ALARM_BASE_RULE + 0x01)  /* 越界侦测 */
-#define NET_ALARM_INTRUSION          (NET_ALARM_BASE_RULE + 0x02)  /* 区域入侵 */
-#define NET_ALARM_ENTER_REGION       (NET_ALARM_BASE_RULE + 0x03)  /* 进入区域 */
-#define NET_ALARM_LEAVE_REGION       (NET_ALARM_BASE_RULE + 0x04)  /* 离开区域 */
-#define NET_ALARM_OBJECT_REMOVAL     (NET_ALARM_BASE_RULE + 0x05)  /* 物品拿取 */
-#define NET_ALARM_UNATTENDED_OBJECT  (NET_ALARM_BASE_RULE + 0x06)  /* 物品遗留 */
+#define NET_ALARM_LINE_CROSSING      (NET_ALARM_BASE_RULE + 0x01)  // 越界侦测
+#define NET_ALARM_INTRUSION          (NET_ALARM_BASE_RULE + 0x02)  // 区域入侵
+#define NET_ALARM_ENTER_REGION       (NET_ALARM_BASE_RULE + 0x03)  // 进入区域
+#define NET_ALARM_LEAVE_REGION       (NET_ALARM_BASE_RULE + 0x04)  // 离开区域
+#define NET_ALARM_OBJECT_REMOVAL     (NET_ALARM_BASE_RULE + 0x05)  // 物品拿取
+#define NET_ALARM_UNATTENDED_OBJECT  (NET_ALARM_BASE_RULE + 0x06)  // 物品遗留
 
 /**
- * @author tianl (tianl@kfb.cn)
  * @brief Smart/AI 行为分析 (0x3000 - 0x3FFF)
- * @struct NET_ALARM_AI_OBJECT_INFO
+ * @struct NET_AlarmAIObjectInfo_S
  */
-/* ------------------------------------------ */
+// ------------------------------------------
 #define NET_ALARM_BASE_AI            0x3000
 
-/* > 人脸/人员相关 */
-#define NET_ALARM_FACE_DETECT        (NET_ALARM_BASE_AI + 0x01)    /* 人脸侦测 */
-#define NET_ALARM_FACE_CAPTURE       (NET_ALARM_BASE_AI + 0x02)    /* 人脸抓拍 */
-#define NET_ALARM_CROWD_GATHERING    (NET_ALARM_BASE_AI + 0x03)    /* 人员聚集 */
-#define NET_ALARM_LOITERING          (NET_ALARM_BASE_AI + 0x04)    /* 徘徊侦测 */
-#define NET_ALARM_PERSON_FALL        (NET_ALARM_BASE_AI + 0x05)    /* 人员倒地 */
-#define NET_ALARM_RUNNING            (NET_ALARM_BASE_AI + 0x06)    /* 快速奔跑 */
-#define NET_ALARM_FACE_COMPARE       (NET_ALARM_BASE_AI + 0x07)    /* 人脸比对 */
-#define NET_ALARM_PARKING_DETECT     (NET_ALARM_BASE_AI + 0x08)    /* 停车侦测 */
+// > 人脸/人员相关
+#define NET_ALARM_FACE_DETECT        (NET_ALARM_BASE_AI + 0x01)    // 人脸侦测
+#define NET_ALARM_FACE_CAPTURE       (NET_ALARM_BASE_AI + 0x02)    // 人脸抓拍
+#define NET_ALARM_CROWD_GATHERING    (NET_ALARM_BASE_AI + 0x03)    // 人员聚集
+#define NET_ALARM_LOITERING          (NET_ALARM_BASE_AI + 0x04)    // 徘徊侦测
+#define NET_ALARM_PERSON_FALL        (NET_ALARM_BASE_AI + 0x05)    // 人员倒地
+#define NET_ALARM_RUNNING            (NET_ALARM_BASE_AI + 0x06)    // 快速奔跑
+#define NET_ALARM_FACE_COMPARE       (NET_ALARM_BASE_AI + 0x07)    // 人脸比对
+#define NET_ALARM_PARKING_DETECT     (NET_ALARM_BASE_AI + 0x08)    // 停车侦测
 
-/* > 行为监管/安防 */
-#define NET_ALARM_SLEEP_ON_DUTY      (NET_ALARM_BASE_AI + 0x20)    /* 睡岗 */
-#define NET_ALARM_LEAVE_POST         (NET_ALARM_BASE_AI + 0x21)    /* 离岗 */
-#define NET_ALARM_SMOKING            (NET_ALARM_BASE_AI + 0x22)    /* 抽烟 */
-#define NET_ALARM_PHONE_USAGE        (NET_ALARM_BASE_AI + 0x23)    /* 玩手机 */
-#define NET_ALARM_HELMET_MISSING     (NET_ALARM_BASE_AI + 0x24)    /* 未戴安全帽 (SAFETY_HELMET) */
-#define NET_ALARM_NO_REFLECTIVE_VEST (NET_ALARM_BASE_AI + 0x25)    /* 未穿反光衣 (REFLECTIVE_CLOTHING) */
-#define NET_ALARM_SMOKE_FIRE         (NET_ALARM_BASE_AI + 0x26)    /* 烟火检测 */
+// > 行为监管/安防
+#define NET_ALARM_SLEEP_ON_DUTY      (NET_ALARM_BASE_AI + 0x20)    // 睡岗
+#define NET_ALARM_LEAVE_POST         (NET_ALARM_BASE_AI + 0x21)    // 离岗
+#define NET_ALARM_SMOKING            (NET_ALARM_BASE_AI + 0x22)    // 抽烟
+#define NET_ALARM_PHONE_USAGE        (NET_ALARM_BASE_AI + 0x23)    // 玩手机
+#define NET_ALARM_HELMET_MISSING     (NET_ALARM_BASE_AI + 0x24)    // 未戴安全帽 (SAFETY_HELMET)
+#define NET_ALARM_NO_REFLECTIVE_VEST (NET_ALARM_BASE_AI + 0x25)    // 未穿反光衣 (REFLECTIVE_CLOTHING)
+#define NET_ALARM_SMOKE_FIRE         (NET_ALARM_BASE_AI + 0x26)    // 烟火检测
 
-/* > 音频智能 */
-#define NET_ALARM_AUDIO_ANOMALY      (NET_ALARM_BASE_AI + 0x50)    /* 音频异常 */
+// > 音频智能
+#define NET_ALARM_AUDIO_ANOMALY      (NET_ALARM_BASE_AI + 0x50)    // 音频异常
 
 /**
- * @author tianl (tianl@kfb.cn)
  * @brief 交通/车辆相关 (0x4000 - 0x40FF)
- * @struct NET_ALARM_PLATE_INFO
+ * @struct NET_AlarmPlateInfo_S
  */
 #define NET_ALARM_BASE_TRAFFIC       0x4000
-#define NET_ALARM_PLATE_RECOGNITION  (NET_ALARM_BASE_TRAFFIC + 0x01) /* 车牌识别 */
-#define NET_ALARM_ILLEGAL_PARKING    (NET_ALARM_BASE_TRAFFIC + 0x02) /* 违章停车 */
-#define NET_ALARM_TRAFFIC_CONGESTION (NET_ALARM_BASE_TRAFFIC + 0x03) /* 交通拥堵 */
+#define NET_ALARM_PLATE_RECOGNITION  (NET_ALARM_BASE_TRAFFIC + 0x01) // 车牌识别
+#define NET_ALARM_ILLEGAL_PARKING    (NET_ALARM_BASE_TRAFFIC + 0x02) // 违章停车
+#define NET_ALARM_TRAFFIC_CONGESTION (NET_ALARM_BASE_TRAFFIC + 0x03) // 交通拥堵
 
 /**
  * 设备异常/状态事件 (0x5000 - 0x50FF)
- * @struct NET_ALARM_EXCEPTION_INFO
+ * @struct NET_AlarmExceptionInfo_S
 */
 #define NET_ALARM_BASE_EXCEPTION     0x5000
-#define NET_ALARM_DISK_FULL          (NET_ALARM_BASE_EXCEPTION + 0x01) /* 硬盘满 */
-#define NET_ALARM_DISK_ERROR         (NET_ALARM_BASE_EXCEPTION + 0x02) /* 硬盘坏 */
-#define NET_ALARM_NET_BROKEN         (NET_ALARM_BASE_EXCEPTION + 0x03) /* 网络断开 */
-#define NET_ALARM_IP_CONFLICT        (NET_ALARM_BASE_EXCEPTION + 0x04) /* IP冲突 */
-#define NET_ALARM_VIDEO_LOSS         (NET_ALARM_BASE_EXCEPTION + 0x05) /* 视频丢失 */
+#define NET_ALARM_DISK_FULL          (NET_ALARM_BASE_EXCEPTION + 0x01) // 硬盘满
+#define NET_ALARM_DISK_ERROR         (NET_ALARM_BASE_EXCEPTION + 0x02) // 硬盘坏
+#define NET_ALARM_NET_BROKEN         (NET_ALARM_BASE_EXCEPTION + 0x03) // 网络断开
+#define NET_ALARM_IP_CONFLICT        (NET_ALARM_BASE_EXCEPTION + 0x04) // IP冲突
+#define NET_ALARM_VIDEO_LOSS         (NET_ALARM_BASE_EXCEPTION + 0x05) // 视频丢失
 
 /**
  * 统计类告警 (0x6000 - 0x60FF)
- * @struct NET_ALARM_STATISTICS_INFO
+ * @struct NET_AlarmStatisticsInfo_S
  */
 #define NET_ALARM_BASE_STATISTICS             0x6000
-#define NET_ALARM_PEOPLE_FLOW_STATISTICS      (NET_ALARM_BASE_STATISTICS + 0x01) /* 人流统计 */
-#define NET_ALARM_PEOPLE_DENSITY_STATISTICS   (NET_ALARM_BASE_STATISTICS + 0x02) /* 人员密度统计 */
+#define NET_ALARM_PEOPLE_FLOW_STATISTICS      (NET_ALARM_BASE_STATISTICS + 0x01) // 人流统计
+#define NET_ALARM_PEOPLE_DENSITY_STATISTICS   (NET_ALARM_BASE_STATISTICS + 0x02) // 人员密度统计
 #define NET_ALARM_STATISTICS_TARGET_MAX_NUM   2
 
 /**
  * SDK事件通知 (0x7000 - 0x70FF)
  */
 #define NET_NOTIFY_BASE_EVENT                  0x7000
-#define NET_NOTIFY_CHANNEL_STATUS              (NET_NOTIFY_BASE_EVENT + 0x01) /* 通道上下线状态变更 */
+#define NET_NOTIFY_CHANNEL_STATUS              (NET_NOTIFY_BASE_EVENT + 0x01) // 通道上下线状态变更
 /* END****************************  Alarm type ************************************************************/
 
 
 /* BEGIN****************************  Enum ************************************************************/
 /**
 * @enum tagNETTVCommonErrCode
- * @author tianl (tianl@kfb.cn)
 * @brief 通用错误码
 * @attention 无 None
 */
@@ -726,7 +706,6 @@ typedef enum tagNETTVCommonErrCode
 
 /**
 * @enum tagNETTVMediaErrCode
- * @author tianl (tianl@kfb.cn)
 * @brief 媒体相关错误码
 * @attention 无 None
 */
@@ -927,7 +906,6 @@ typedef enum tagNETTVMediaErrCode
 
 /**
  * enum tagNETTVDeviceType
- * @author tianl (tianl@kfb.cn)
  * @brief 设备类型
  * @attention 无 None
  */
@@ -941,7 +919,6 @@ typedef enum tagNETTVDeviceType
 
 /**
  * @enum tagNETTVException
- * @author tianl (tianl@kfb.cn)
  * @brief 异常回调的消息类型 枚举定义 Exception callback message types Enumeration definition
  * @attention 无 None
  */
@@ -971,24 +948,23 @@ typedef enum tagNETTVException
 }NET_EXCEPTION_TYPE_E;
 
 /**
- * @enum tagNETTVCapabilityCommond
- * @author tianl (tianl@kfb.cn)
- * @brief 能力集命令 Device capability commond
+ * @enum tagNET_CapabilityCommand
+ * @brief 能力集命令 Device capability command
  * @attention 无
 */
-typedef enum tagNETTVCapabilityCommond
+typedef enum tagNET_CapabilityCommand
 {
-    NET_CAP_VIDEO_ENCODE             = 1,            /* 视频编码能力集 参见# NET_VIDEO_STREAM_CAP_S。 Video encoding capability. See # NET_VIDEO_STREAM_CAP_S for reference*/
-    NET_CAP_OSD                      = 2,            /* OSD参数能力集 参见# NET_OSD_CAP_S。 OSD parameter capability. See # NET_OSD_CAP_S for reference*/
-    NET_CAP_SMART                    = 3,            /* 智能能力集 参见# NET_SMART_CAP_S。 Smart capability. See # NET_SMART_CAP_S for reference */
-    NET_CAP_IMAGE                    = 5,            /* 图像参数能力集 参见#NET_IMAGE_CAP_S。 Image capability See # NET_IMAGE_CAP_S for reference*/
-    NET_CAP_AUDIO                    = 6,            /* 音频能力集 参见 NET_AUDIO_CAP_S */
-    NET_CAP_CHANNELS_ALARM           = 13,           /* 通道告警能力集, 参见 NET_CHN_ALARM_CAP_INFO_S （单通道IPC对应SDK通道号传入参数1；多通道IPC对应SDK通道号传入参数1+IPC实际通道号；NVR下对应通道号传入实际通道号） */
-    NET_CAP_SYS                      = 14,           /* 系统能力集 参见 NET_SYS_CAPABILITY_S  */
-    NET_CAP_USER_MANAGE              = 23,           /* 用户管理能力集, 参见 NET_USER_MANAGE_CAP_INFO_S */
-    NET_CAP_MEDIA                    = 28,           /* 视频通道媒体能力集，详见 NET_MEDIA_CAP_INFO_S */
+    NET_CAP_VIDEO_ENCODE             = 1,            /* 视频编码能力集 参见# NET_VideoStreamCap_S。 Video encoding capability. See # NET_VideoStreamCap_S for reference*/
+    NET_CAP_OSD                      = 2,            /* OSD参数能力集 参见# NET_OsdCap_S。 OSD parameter capability. See # NET_OsdCap_S for reference*/
+    NET_CAP_SMART                    = 3,            /* 智能能力集 参见# NET_SmartCap_S。 Smart capability. See # NET_SmartCap_S for reference */
+    NET_CAP_IMAGE                    = 5,            /* 图像参数能力集 参见#NET_ImageCap_S。 Image capability See # NET_ImageCap_S for reference*/
+    NET_CAP_AUDIO                    = 6,            /* 音频能力集 参见 NET_AudioCap_S */
+    NET_CAP_CHANNELS_ALARM           = 13,           /* 通道告警能力集, 参见 NET_ChnAlarmCapInfo_S （单通道IPC对应SDK通道号传入参数1；多通道IPC对应SDK通道号传入参数1+IPC实际通道号；NVR下对应通道号传入实际通道号） */
+    NET_CAP_SYS                      = 14,           /* 系统能力集 参见 NET_SysCapability_S  */
+    NET_CAP_USER_MANAGE              = 23,           /* 用户管理能力集, 参见 NET_UserManageCapInfo_S */
+    NET_CAP_MEDIA                    = 28,           /* 视频通道媒体能力集，详见 NET_MediaCapInfo_S */
     NET_CAP_INVALID                  = 0Xff
-}NET_CAPABILITY_COMMOND_E;
+}NET_CapabilityCommand_E;
 
 typedef enum tagNETTVCfgCmd
 {
@@ -1216,7 +1192,6 @@ typedef enum tagNETTVReplayPlatformCtrlType
 
 /**
  * @enum tagNETTVDeviceControlType
- * @author tianl (tianl@kfb.cn)
  * @brief 设备硬件控制类型枚举，作为 DeviceControl 统一入口的一级分类。
  */
 typedef enum tagNETTVDeviceControlType
@@ -1234,7 +1209,6 @@ typedef enum tagNETTVDeviceControlType
 
 /**
  * @enum tagNETTVPtzControlCmd
- * @author tianl (tianl@kfb.cn)
  * @brief 云台/镜头控制命令枚举，dwControlType 为 NET_DEVICE_CTRL_TYPE_PTZ 时使用。
  */
 typedef enum tagNETTVPtzControlCmd
@@ -1259,7 +1233,6 @@ typedef enum tagNETTVPtzControlCmd
 
 /**
  * @enum tagNETTVAlarmLightControlCmd
- * @author tianl (tianl@kfb.cn)
  * @brief 声光控制命令枚举，dwControlType 为 NET_DEVICE_CTRL_TYPE_ALARM_LIGHT 时使用。
  */
 typedef enum tagNETTVAlarmLightControlCmd
@@ -1272,7 +1245,6 @@ typedef enum tagNETTVAlarmLightControlCmd
 
 /**
  * @enum tagNETTVResetControlCmd
- * @author tianl (tianl@kfb.cn)
  * @brief 配置重置命令枚举，dwControlType 为 NET_DEVICE_CTRL_TYPE_RESET 时使用。
  * @details 数据流向说明：
  *          1. 客户端调用 NET_DeviceControl 接口时，填充 NET_DEVICE_CONTROL_INFO_S 结构体
@@ -1289,7 +1261,6 @@ typedef enum tagNETTVResetControlCmd
 
 /**
  * @struct tagNET_DeviceControlInfo
- * @author tianl (tianl@kfb.cn)
  * @brief 设备硬件控制统一参数结构体，可承载云台、声光、雨刷、补光灯、继电器和自定义控制。
  */
 typedef struct tagNET_DeviceControlInfo
@@ -1316,23 +1287,21 @@ typedef NET_DeviceControlInfo_S* pNET_DeviceControlInfo_S;
 #define NET_RECORD_FRAME_MAX_PAYLOAD_SIZE   (4u * 1024u * 1024u) /* 单包最大负载，4MB */
 
 /**
- * @enum tagNETTVRecordFrameMediaType
- * @author tianl (tianl@kfb.cn)
+ * @enum tagNET_RecordFrameMediaType
  * @brief 录像帧媒体类型
  */
-typedef enum tagNETTVRecordFrameMediaType
+typedef enum tagNET_RecordFrameMediaType
 {
     NET_RECORD_FRAME_MEDIA_VIDEO = 1,
     NET_RECORD_FRAME_MEDIA_AUDIO = 2,
     NET_RECORD_FRAME_MEDIA_END   = 3
-} NET_RECORD_FRAME_MEDIA_TYPE_E;
+} NET_RecordFrameMediaType_E;
 
 /**
- * @enum tagNETTVRecordFrameCodec
- * @author tianl (tianl@kfb.cn)
+ * @enum tagNET_RecordFrameCodec
  * @brief 录像帧编码类型
  */
-typedef enum tagNETTVRecordFrameCodec
+typedef enum tagNET_RecordFrameCodec
 {
     NET_RECORD_FRAME_CODEC_UNKNOWN = 0,
     NET_RECORD_FRAME_CODEC_H264    = 1,
@@ -1341,11 +1310,10 @@ typedef enum tagNETTVRecordFrameCodec
     NET_RECORD_FRAME_CODEC_G711A   = 4,
     NET_RECORD_FRAME_CODEC_G711U   = 5,
     NET_RECORD_FRAME_CODEC_PCM     = 6
-} NET_RECORD_FRAME_CODEC_E;
+} NET_RecordFrameCodec_E;
 
 /**
  * @struct tagNET_RecordFrameStreamCond
- * @author tianl (tianl@kfb.cn)
  * @brief 录像帧流启动条件。客户端传入通道和起止时间，服务端返回TCP端口和流标识。
  */
 typedef struct tagNET_RecordFrameStreamCond
@@ -1354,9 +1322,9 @@ typedef struct tagNET_RecordFrameStreamCond
     INT32  uChannel;
     CHAR   szStartTime[NET_LEN_64];
     CHAR   szEndTime[NET_LEN_64];
-    INT32  uStreamIndex;        /* 码流索引，参见 NET_LIVE_STREAM_INDEX_E；0 表示默认主码流 */
-    INT32  uMediaType;          /* 请求媒体类型，参见 NET_RECORD_FRAME_MEDIA_TYPE_E；默认视频 */
-    INT32  uCodecType;          /* 期望编码，参见 NET_RECORD_FRAME_CODEC_E；0 表示由服务端决定 */
+    INT32  uStreamIndex;        /* 码流索引，参见 NET_LiveStreamIndex_E；0 表示默认主码流 */
+    INT32  uMediaType;          /* 请求媒体类型，参见 NET_RecordFrameMediaType_E；默认视频 */
+    INT32  uCodecType;          /* 期望编码，参见 NET_RecordFrameCodec_E；0 表示由服务端决定 */
     UINT32 uTcpPort;            /* 服务端录像帧TCP端口；0 表示使用服务端默认端口 */
     BYTE   byRes[128];
 } NET_RecordFrameStreamCond_S;
@@ -1365,7 +1333,6 @@ typedef NET_RecordFrameStreamCond_S* pNET_RecordFrameStreamCond_S;
 
 /**
  * @struct tagNET_RecordFrameStreamInfo
- * @author tianl (tianl@kfb.cn)
  * @brief 录像帧流启动结果。
  */
 typedef struct tagNET_RecordFrameStreamInfo
@@ -1385,7 +1352,6 @@ typedef NET_RecordFrameStreamInfo_S* pNET_RecordFrameStreamInfo_S;
 
 /**
  * @struct tagNET_RecordFrameStopInfo
- * @author tianl (tianl@kfb.cn)
  * @brief 录像帧流停止参数。
  */
 typedef struct tagNET_RecordFrameStopInfo
@@ -1399,7 +1365,6 @@ typedef NET_RecordFrameStopInfo_S* pNET_RecordFrameStopInfo_S;
 
 /**
  * @struct tagNET_RecordFrameInfo
- * @author tianl (tianl@kfb.cn)
  * @brief 录像帧信息。服务端取帧回调填充该结构，客户端收到TCP包后通过回调返回该结构。
  */
 typedef struct tagNET_RecordFrameInfo
@@ -1419,26 +1384,24 @@ typedef NET_RecordFrameInfo_S* pNET_RecordFrameInfo_S;
 
 /**
  * @struct tagNETTVRecordFrameRtpHeader
- * @author tianl (tianl@kfb.cn)
  * @brief TCP上传输的简化RTP风格包头，网络字节序，固定20字节。
- * @note  TCP是字节流，因此比标准RTP多 dwPayloadLen 字段用于分包。
+ * @note  TCP是字节流，因此比标准RTP多 uPayloadLen 字段用于分包。
  */
 typedef struct tagNET_RecordFrameRtpHeader
 {
     UCHAR  byVersion;      /* 固定为2 */
     UCHAR  byPayloadType;  /* 96视频，97音频，127结束 */
     UINT16 wSeq;
-    UINT32 dwTimestamp;
-    UINT32 dwSsrc;
-    UINT32 dwPayloadLen;
-    UINT32 dwFlags;
+    UINT32 uTimestamp;
+    UINT32 uSsrc;
+    UINT32 uPayloadLen;
+    UINT32 uFlags;
 } NET_RecordFrameRtpHeader_S;
 
 typedef NET_RecordFrameRtpHeader_S* pNET_RecordFrameRtpHeader_S;
 
 /**
  * @enum tagNETTVVideoCodeType
- * @author tianl (tianl@kfb.cn)
  * @brief 视频编码格式 枚举定义  Video encoding format Enumeration definition
  * @attention 无 None
  */
@@ -1454,41 +1417,38 @@ typedef enum tagNETTVVideoCodeType
 }NET_VIDEO_CODE_TYPE_E;
 
 /**
- * @enum tagNETTVAudioInputType
- * @author tianl (tianl@kfb.cn)
+ * @enum tagNET_AudioInputType
  * @brief 音频输入类型 枚举定义 Audio input type Enumeration definition
  * @attention 无 None
  */
-typedef enum tagNETTVAudioInputType
+typedef enum tagNET_AudioInputType
 {
     NET_AUDIO_INPUT_MICIN   = 0,   /* 麦克风输入 */
     NET_AUDIO_INPUT_LINEIN  = 1,   /* 线路输入  */
     NET_AUDIO_INPUT_INVALID
-}NET_AUDIO_INPUT_TYPE_E;
+}NET_AudioInputType_E;
 
 
 /**
- * @enum tagNETTVAudioOutputType
- * @author tianl (tianl@kfb.cn)
+ * @enum tagNET_AudioOutputType
  * @brief 音频输出类型 枚举定义 Audio output type Enumeration definition
  * @attention 无 None
  */
-typedef enum tagNETTVAudioOutputType
+typedef enum tagNET_AudioOutputType
 {
     NET_AUDIO_OUTPUT_SPEAKER  = 0, /* 扬声器输出 */
     NET_AUDIO_OUTPUT_LINEOUT  = 1, /* 线路输出   */
     NET_AUDIO_OUTPUT_MUTE     = 2, /* 静音       */
     NET_AUDIO_OUTPUT_INVALID
-}NET_AUDIO_OUTPUT_TYPE_E;
+}NET_AudioOutputType_E;
 
 
 /**
- * @enum tagNETTVAudioFormat
- * @author tianl (tianl@kfb.cn)
+ * @enum tagNET_AudioFormat
  * @brief 音频编码格式 枚举定义 Audio encoding format Enumeration definition
  * @attention 无 None
  */
-typedef enum tagNETTVAudioFormat
+typedef enum tagNET_AudioFormat
 {
     NET_AUDIO_FORMAT_G722_1  = 0,  /* G722.1 */
     NET_AUDIO_FORMAT_G711U   = 1,  /* G711U  */
@@ -1499,16 +1459,15 @@ typedef enum tagNETTVAudioFormat
     NET_AUDIO_FORMAT_PCM     = 6,  /* PCM    */
     NET_AUDIO_FORMAT_MP3     = 7,  /* MP3    */
     NET_AUDIO_FORMAT_INVALID
-}NET_AUDIO_FORMAT_E;
+}NET_AudioFormat_E;
 
 
 /**
- * @enum tagNETTVAudioSampleRate
- * @author tianl (tianl@kfb.cn)
+ * @enum tagNET_AudioSampRate
  * @brief 音频采样率 枚举定义 Audio sample rate Enumeration definition
  * @attention 无 None
  */
-typedef enum tagNETTVAudioSampleRate
+typedef enum tagNET_AudioSampRate
 {
     NET_AUDIO_SAMPRATE_8000   = 8000,   /* 8KHz   */
     NET_AUDIO_SAMPRATE_11025  = 11025,  /* 11.025KHz */
@@ -1522,16 +1481,15 @@ typedef enum tagNETTVAudioSampleRate
     NET_AUDIO_SAMPRATE_64000  = 64000,  /* 64KHz  */
     NET_AUDIO_SAMPRATE_96000  = 96000,  /* 96KHz  */
     NET_AUDIO_SAMPRATE_INVALID = -1
-}NET_AUDIO_SAMPRATE_E;
+}NET_AudioSampRate_E;
 
 
 /**
- * @enum tagNETTVAudioBitRate
- * @author tianl (tianl@kfb.cn)
+ * @enum tagNET_AudioBitRate
  * @brief 音频码率 枚举定义 Audio bit rate Enumeration definition
  * @attention 无 None
  */
-typedef enum tagNETTVAudioBitRate
+typedef enum tagNET_AudioBitRate
 {
     NET_AUDIO_BITRATE_16K    = 16000,   /* 16Kbps  */
     NET_AUDIO_BITRATE_32K    = 32000,   /* 32Kbps  */
@@ -1539,13 +1497,12 @@ typedef enum tagNETTVAudioBitRate
     NET_AUDIO_BITRATE_64K    = 64000,   /* 64Kbps  */
     NET_AUDIO_BITRATE_96K    = 96000,   /* 96Kbps  */
     NET_AUDIO_BITRATE_128K   = 128000,  /* 128Kbps */
-    NET_AUDIO_BITRATE_256K   = 256000,  /* 256Kbps */
+    NET_AUDIO_BITRATE_256K   = 256000,   /* 256Kbps */
     NET_AUDIO_BITRATE_INVALID = -1
-}NET_AUDIO_BITRATE_E;
+}NET_AudioBitRate_E;
 
 /**
  * @enum tagNETTVLiveStreamIndex
- * @author tianl (tianl@kfb.cn)
  * @brief 实况业务流索引 枚举定 义 Live stream index Enumeration definition
  * @attention 无 None
  */
@@ -1561,7 +1518,6 @@ typedef enum tagNET_TVLiveStreamIndex
 
 /**
  * @enum tagNETTVOsdDateFormat
- * @author tianl (tianl@kfb.cn)
  * @brief OSD日期格式 枚举定义 (对应 OSD_DATE_FORMAT_E)
  * @attention
  */
@@ -1581,7 +1537,6 @@ typedef enum tagNETTVOsdDateFormat
 
 /**
  * @enum tagNETTVOsdTimeFormat
- * @author tianl (tianl@kfb.cn)
  * @brief OSD时间格式 枚举定义 (对应 OSD_TIME_FORMAT_E)
  * @attention
  */
@@ -1594,7 +1549,6 @@ typedef enum tagNETTVOsdTimeFormat
 
 /**
  * @enum tagNETTVOsdFontSize
- * @author tianl (tianl@kfb.cn)
  * @brief OSD字体大小 枚举定义 (对应 OSD_FONT_SIZE_E)
  * @attention
  */
@@ -1610,7 +1564,6 @@ typedef enum tagNETTVOsdFontSize
 
 /**
  * @enum tagNETTVOsdColor
- * @author tianl (tianl@kfb.cn)
  * @brief OSD颜色 枚举定义 (对应 OSD_COLOR_E)
  * @attention
  */
@@ -1624,7 +1577,6 @@ typedef enum tagNETTVOsdColor
 
 /**
  * @enum tagNETTVOsdAlign
- * @author tianl (tianl@kfb.cn)
  * @brief OSD对齐方式 枚举定义 (对应 OSD_ALIGN_E)
  * @attention
  */
@@ -1641,7 +1593,6 @@ typedef enum tagNETTVOsdAlign
 
 /**
  * @enum tagNETTVMotionMode
- * @author tianl (tianl@kfb.cn)
  * @brief 移动侦测模式  Motion detection mode
  * @attention
  */
@@ -1653,7 +1604,6 @@ typedef enum tagNETTVMotionMode
 
 /**
  * @enum tagNETTVCrossDirection
- * @author tianl (tianl@kfb.cn)
  * @brief 越界方向  Cross direction
  * @attention
  */
@@ -1666,7 +1616,6 @@ typedef enum tagNETTVCrossDirection
 
 /**
  * @enum tagNETTVDetectionTarget
- * @author tianl (tianl@kfb.cn)
  * @brief 检测目标类型  Detection target type
  * @attention
  */
@@ -1680,7 +1629,6 @@ typedef enum tagNETTVDetectionTarget
 
 /**
  * @enum tagNETTVBehaviorType
- * @author tianl (tianl@kfb.cn)
  * @brief 人员行为类型  Personnel behavior type
  * @attention
  */
@@ -1697,7 +1645,6 @@ typedef enum tagNETTVBehaviorType
 
 /**
  * @enum tagNETTVSafetyEquipmentType
- * @author tianl (tianl@kfb.cn)
  * @brief 安全装备类型  Safety equipment type
  * @attention
  */
@@ -1709,7 +1656,6 @@ typedef enum tagNETTVSafetyEquipmentType
 } NET_SAFETY_EQUIPMENT_TYPE_E;
 
 /**
- * @author tianl (tianl@kfb.cn)
  * @brief 升级状态
  */
 typedef enum _TiUpgradeRuslut_
@@ -1722,7 +1668,6 @@ typedef enum _TiUpgradeRuslut_
 } TiUpgradeRuslut_E;
 
 /**
- * @author tianl (tianl@kfb.cn)
  * @brief 星期一日枚举
  */
 typedef enum DayOfWeek
@@ -1738,7 +1683,6 @@ typedef enum DayOfWeek
 
 /**
  * @struct tagNETTVCapturePictureFormat
- * @author tianl (tianl@kfb.cn)
  * @brief 抓图格式
  * @attention
  */
@@ -1750,7 +1694,6 @@ typedef enum tagNETTVCapturePictureFormat
 
 /**
  * @struct tagNETTVCaptureImageQuality
- * @author tianl (tianl@kfb.cn)
  * @brief 抓图质量
  * @attention
  */
@@ -1763,7 +1706,6 @@ typedef enum tagNETTVCaptureImageQuality
 
 /**
  * @struct tagNETTVCaptureTimeUnit
- * @author tianl (tianl@kfb.cn)
  * @brief 抓图时间单位
  * @attention
  */
@@ -1778,7 +1720,6 @@ typedef enum tagNETTVCaptureTimeUnit
 
 /**
  * @enum tagNETTVExposureTime
- * @author tianl (tianl@kfb.cn)
  * @brief 曝光时间  Exposure time
  */
 typedef enum tagNETTVExposureTime
@@ -1804,7 +1745,6 @@ typedef enum tagNETTVExposureTime
 
 /**
  * @enum tagNETTVDayNightMode
- * @author tianl (tianl@kfb.cn)
  * @brief 日夜模式  Day/Night mode
  */
 typedef enum tagNETTVDayNightMode
@@ -1818,7 +1758,6 @@ typedef enum tagNETTVDayNightMode
 
 /**
  * @enum tagNETTVLightBrightMode
- * @author tianl (tianl@kfb.cn)
  * @brief 光照亮度模式  Light brightness mode
  */
 typedef enum tagNETTVLightBrightMode
@@ -1830,7 +1769,6 @@ typedef enum tagNETTVLightBrightMode
 
 /**
  * @enum tagNETTVLightType
- * @author tianl (tianl@kfb.cn)
  * @brief 灯光类型  Light type
  */
 typedef enum tagNETTVLightType
@@ -1847,7 +1785,6 @@ typedef enum tagNETTVLightType
 
 /**
  * @enum tagNETTVBackLightArea
- * @author tianl (tianl@kfb.cn)
  * @brief 背光区域  Backlight area
  */
 typedef enum tagNETTVBackLightArea
@@ -1863,7 +1800,6 @@ typedef enum tagNETTVBackLightArea
 
 /**
  * @enum tagNETTVDnrMode
- * @author tianl (tianl@kfb.cn)
  * @brief 数字降噪模式  Digital noise reduction mode
  */
 typedef enum tagNETTVDnrMode
@@ -1876,7 +1812,6 @@ typedef enum tagNETTVDnrMode
 
 /**
  * @enum tagNETTVAwbMode
- * @author tianl (tianl@kfb.cn)
  * @brief 自动白平衡模式  Auto white balance mode
  */
 typedef enum tagNETTVAwbMode
@@ -1896,7 +1831,6 @@ typedef enum tagNETTVAwbMode
 
 /**
  *  @enum tagNETTVWifiSecurityMode
- * @author tianl (tianl@kfb.cn)
  *  @brief WIFI 安全模式
  */
 typedef enum tagNETTVWifiSecurityMode
@@ -1911,7 +1845,6 @@ typedef enum tagNETTVWifiSecurityMode
 
 /**
  * @enum tagNETTVPeopleFlowStatType
- * @author tianl (tianl@kfb.cn)
  * @brief 人流统计类型
  */
 typedef enum tagNETTVPeopleFlowStatType
@@ -1921,15 +1854,14 @@ typedef enum tagNETTVPeopleFlowStatType
     NET_PEOPLE_FLOW_STAT_LEAVE = 2                 /* 离开人数 */
 } NET_PEOPLE_FLOW_STAT_TYPE_E;
 
-typedef enum tagNETTVStatisticsType
+typedef enum tagNET_StatisticsType
 {
     NET_STATISTICS_TYPE_PEOPLE_FLOW = 1,           /* 人流统计 */
     NET_STATISTICS_TYPE_PEOPLE_DENSITY = 2         /* 人员密度统计 */
-} NET_STATISTICS_TYPE_E;
+} NET_StatisticsType_E;
 
 /**
  * @enum tagNETTVRecordStatus
- * @author tianl (tianl@kfb.cn)
  * @brief 录制状态
  */
 typedef enum tagNETTVRecordStatus
@@ -1943,7 +1875,6 @@ typedef enum tagNETTVRecordStatus
 
 /**
  * @enum tagNETTVPopulationAlarmSeverity
- * @author tianl (tianl@kfb.cn)
  * @brief 人数报警等级
  */
 typedef enum tagNETTVPopulationAlarmSeverity
@@ -1960,7 +1891,6 @@ typedef enum tagNETTVPopulationAlarmSeverity
 
 /**
  * @struct tagNET_TalkbackStateInfo
- * @author tianl (tianl@kfb.cn)
  * @brief 对讲状态信息结构体
  * @note 对应命令：NET_STATE_TALKBACK
  */
@@ -1977,31 +1907,29 @@ typedef NET_TalkbackStateInfo_S* pNET_TalkbackStateInfo_S;
 
  /**
   * @struct tagNETTVVoiceComAudioParam
- * @author tianl (tianl@kfb.cn)
   * @brief VoiceCom 对讲音频参数
  * @note VoiceCom TCP 负载格式由 enFormat 指定，当前支持 PCM/G711A/G711U 裸流
   */
-typedef struct tagNETTVVoiceComAudioParam
+typedef struct tagNET_VoiceComAudioParam
 {
-    INT32   enFormat;             /* 音频格式, 参见 NET_AUDIO_FORMAT_E, 当前支持 PCM/G711A/G711U */
-    INT32   uSampleRate;          /* 采样率, Hz, 参见 NET_AUDIO_SAMPRATE_E */
+    INT32   enFormat;             /* 音频格式, 参见 NET_AudioFormat_E, 当前支持 PCM/G711A/G711U */
+    INT32   uSampleRate;          /* 采样率, Hz, 参见 NET_AudioSampRate_E */
     INT32   uBitDepth;            /* 位深, PCM=16, G711=8 */
     INT32   uChannels;            /* 声道数, 当前支持 1(单声道) */
     INT32   uFrameIntervalMs;     /* 单帧时长, ms */
     INT32   uFrameBytes;          /* 单帧字节数 */
     INT32   uBitRate;             /* 音频比特率, bit/s */
-    BOOL    bLittleEndian;        /* PCM 字节序, NET_TRUE 表示 little-endian; G711 忽略 */
+    BOOL    bLittleEndian;        /* PCM 字节序, TRUE 表示 little-endian; G711 忽略 */
     BYTE    byRes[128];           /* 保留字段 */
 } NET_VoiceComAudioParam_S;
 
 typedef NET_VoiceComAudioParam_S* pNET_VoiceComAudioParam_S;
 
 /**
- * @struct tagNETVoiceComStartInfo
- * @author tianl (tianl@kfb.cn)
+ * @struct tagNET_VoiceComStartInfo
  * @brief VoiceCom 启动参数
  */
-typedef struct tagNETVoiceComStartInfo
+typedef struct tagNET_VoiceComStartInfo
 {
     UINT32  uAudioPort;                               /* 设备端 VoiceCom TCP 端口, 默认 9006 */
     NET_VoiceComAudioParam_S stAudioParam;            /* 本次对讲会话音频参数 */
@@ -2011,15 +1939,14 @@ typedef struct tagNETVoiceComStartInfo
 typedef NET_VoiceComStartInfo_S* pNET_VoiceComStartInfo_S;
 
 /**
- * @struct tagNETVoiceComAudioCfg
- * @author tianl (tianl@kfb.cn)
+ * @struct tagNET_VoiceComAudioCfg
  * @brief 对讲音频参数配置
  * @note 用于NET_TV_GET_VOICECOM_AUDIO_CFG/NET_SET_VOICECOM_AUDIO_CFG
  */
-typedef struct tagNETVoiceComAudioCfg
+typedef struct tagNET_VoiceComAudioCfg
 {
-    INT32   enFormat;             /* 音频格式, 参见 NET_AUDIO_FORMAT_E, 当前支持 PCM/AAC/G711A/G711U */
-    INT32   uSampleRate;          /* 采样率, Hz, 参见 NET_AUDIO_SAMPRATE_E */
+    INT32   enFormat;             /* 音频格式, 参见 NET_AudioFormat_E, 当前支持 PCM/AAC/G711A/G711U */
+    INT32   uSampleRate;          /* 采样率, Hz, 参见 NET_AudioSampRate_E */
     INT32   uBitDepth;            /* 位深, PCM=16, G711=8 */
     INT32   uChannels;            /* 声道数, 当前支持 1(单声道) */
     INT32   uFrameIntervalMs;     /* 单帧时长, ms */
@@ -2033,7 +1960,6 @@ typedef NET_VoiceComAudioCfg_S* pNET_VoiceComAudioCfg_S;
 
 /**
  * @struct tagNET_TalkbackStreamInfo
- * @author tianl (tianl@kfb.cn)
  * @brief 对讲流信息结构体
  * @note 对应命令：NET_TO_STREAM_TALKBACK / NET_FROM_STREAM_TALKBACK
  */
@@ -2055,7 +1981,6 @@ typedef NET_TalkbackStreamInfo_S* pNET_TalkbackStreamInfo_S;
 
 /**
  * @struct tagNET_ReplayTalkbackInfo
- * @author tianl (tianl@kfb.cn)
  * @brief 对讲回放信息结构体
  * @note 对应命令：NET_REPLAY_TALKBACK
  */
@@ -2071,14 +1996,13 @@ typedef NET_ReplayTalkbackInfo_S* pNET_ReplayTalkbackInfo_S;
 
 /**
  * @struct tagNETTVExposureInfo
- * @author tianl (tianl@kfb.cn)
  * @brief 曝光信息结构体
  * @attention
  */
 typedef struct tagNET_ExposureInfo
 {
     INT32               enExpTime;          /* ISP::ExpTimeMode_E */
-    BOOL                bAntiBanding;       /* NET_TRUE/NET_FALSE */
+    BOOL                bAntiBanding;       /* TRUE/FALSE */
     BYTE                byRes[64];
 } NET_ExposureInfo_S;
 
@@ -2086,7 +2010,6 @@ typedef NET_ExposureInfo_S* pNET_ExposureInfo_S;
 
 /**
  * @struct tagNETTVDayNightInfo
- * @author tianl (tianl@kfb.cn)
  * @brief 日夜切换信息结构体
  * @attention
  */
@@ -2117,7 +2040,6 @@ typedef NET_DayNightInfo_S* pNET_DayNightInfo_S;
 
 /**
  * @struct tagNETTVBackLightInfo
- * @author tianl (tianl@kfb.cn)
  * @brief 背光信息结构体
  * @attention
  */
@@ -2135,7 +2057,6 @@ typedef NET_BackLightInfo_S* pNET_BackLightInfo_S;
 
 /**
  * @struct tagNETTVDenoiseInfo
- * @author tianl (tianl@kfb.cn)
  * @brief 降噪信息结构体
  * @attention
  */
@@ -2152,7 +2073,6 @@ typedef NET_DenoiseInfo_S* pNET_DenoiseInfo_S;
 
 /**
  * @struct tagNETTVWhiteBalanceInfo
- * @author tianl (tianl@kfb.cn)
  * @brief 白平衡信息结构体
  * @attention
  */
@@ -2168,7 +2088,6 @@ typedef NET_WhiteBalanceInfo_S* pNET_WhiteBalanceInfo_S;
 
 /**
  * @struct tagNETTVUpgradeInfo
- * @author tianl (tianl@kfb.cn)
  * @brief 升级文件信息
  * @attention
  */
@@ -2182,7 +2101,6 @@ typedef NET_UpgradeInfo_S* pNET_UpgradeInfo_S;
 
 /**
  * @struct tagNETTVUpgradeStatus
- * @author tianl (tianl@kfb.cn)
  * @brief 系统升级状态
  * @attention
  */
@@ -2196,7 +2114,6 @@ typedef NET_UpgradeStatus_S* pNET_UpgradeStatus_S;
 
 /**
  * @struct tagNETTVUpgradeVersion
- * @author tianl (tianl@kfb.cn)
  * @brief 升级文件版本
  * @attention
  */
@@ -2210,7 +2127,6 @@ typedef NET_UpgradeVersion_S* pNET_UpgradeVersion_S;
 
 /**
  * @struct tagNETTVCaptureTime
- * @author tianl (tianl@kfb.cn)
  * @brief 抓图时间
  * @attention
  */
@@ -2225,7 +2141,6 @@ typedef NET_CaptureTime_S* pNET_CaptureTime_S;
 
 /**
  * @struct tagNETTVCaptureDaySchedule
- * @author tianl (tianl@kfb.cn)
  * @brief 抓图日程
  * @attention
  */
@@ -2241,7 +2156,6 @@ typedef NET_CaptureDaySchedule_S* pNET_CaptureDaySchedule_S;
 
 /**
  * @struct tagNETTVCapturePlanInfo
- * @author tianl (tianl@kfb.cn)
  * @brief 抓图计划信息
  * @attention
  */
@@ -2255,7 +2169,6 @@ typedef NET_CapturePlanInfo_S* pNET_CapturePlanInfo_S;
 
 /**
  * @struct tagNET_CaptureConfig
- * @author tianl (tianl@kfb.cn)
  * @brief 抓图配置
  * @attention
  */
@@ -2276,7 +2189,6 @@ typedef NET_CaptureConfig_S* pNET_CaptureConfig_S;
 
 /**
  * @struct tagNET_CaptureParamInfo
- * @author tianl (tianl@kfb.cn)
  * @brief 抓图参数信息
  * @attention
  */
@@ -2304,14 +2216,13 @@ typedef NET_CaptureInfo_S* pNET_CaptureInfo_S;
 
 /**
  * @struct tagstNETTVLoginInfo
- * @author tianl (tianl@kfb.cn)
  * @brief 设备登录信息
  * @attention
  */
 typedef struct tagNET_DeviceLoginInfo
 {
     CHAR    szIPAddr[NET_LEN_260];       /* IP地址/域名 */
-    INT32   dwPort;                         /* 端口号 */
+    INT32   uPort;                         /* 端口号 */
     CHAR    szUserName[NET_LEN_132];     /* 用户名 */
     CHAR    szPassword[NET_LEN_128];     /* 密码 */
     BYTE    byRes[256];                     /* 保留字段 */
@@ -2320,7 +2231,6 @@ typedef struct tagNET_DeviceLoginInfo
 typedef NET_DeviceLoginInfo_S* pNET_DeviceLoginInfo_S;
 
 /**
- * @author tianl (tianl@kfb.cn)
  * @brief 设备信息结构体
  * @note  用于获取设备基本能力信息，包含设备类型、报警端口数、通道数等
  */
@@ -2334,13 +2244,11 @@ typedef struct tagNET_DeviceInfo
 } NET_DeviceInfo_S;
 
 /**
- * @author tianl (tianl@kfb.cn)
  * @brief 设备信息结构体指针类型
  */
 typedef NET_DeviceInfo_S* pNET_DeviceInfo_S;
 
 /**
- * @author tianl (tianl@kfb.cn)
  * @brief 设备基本信息结构体
  * @note  用于获取设备详细信息，包含型号、序列号、固件版本、MAC地址等
  */
@@ -2357,13 +2265,11 @@ typedef struct tagNET_DeviceBasicInfo
 } NET_DeviceBasicInfo_S;
 
 /**
- * @author tianl (tianl@kfb.cn)
  * @brief 设备基本信息结构体指针类型
  */
 typedef NET_DeviceBasicInfo_S* pNET_DeviceBasicInfo_S;
 
 /**
- * @author tianl (tianl@kfb.cn)
  * @brief 系统时间/NTP校时配置结构体
  * @note  对应IPC侧System::TimeInfo_S，用于NET_TV_GET_NTPCFG/NET_SET_NTPCFG
  */
@@ -2382,13 +2288,11 @@ typedef struct tagNET_SystemNtpInfo
 } NET_SystemNtpInfo_S;
 
 /**
- * @author tianl (tianl@kfb.cn)
  * @brief 系统时间/NTP校时配置结构体指针类型
  */
 typedef NET_SystemNtpInfo_S* pNET_SystemNtpInfo_S;
 
 /**
- * @author tianl (tianl@kfb.cn)
  * @brief 修改用户密码参数结构体
  * @note  用于 NET_SERVER_RegisterCb_SetUserPassword 回调
  */
@@ -2401,14 +2305,12 @@ typedef struct tagNET_UserPasswordInfo
 } NET_UserPasswordInfo_S;
 
 /**
- * @author tianl (tianl@kfb.cn)
  * @brief 修改用户密码参数结构体指针类型
  */
 typedef NET_UserPasswordInfo_S* pNET_UserPasswordInfo_S;
 
 /**
  * @struct tagNETTVPageInfo
- * @author tianl (tianl@kfb.cn)
  * @brief 分页信息
  */
 typedef struct tagNET_PageInfo
@@ -2424,7 +2326,6 @@ typedef NET_PageInfo_S* pNET_PageInfo_S;
 
 /**
  * @struct tagNETTVLoginLockInfo
- * @author tianl (tianl@kfb.cn)
  * @brief 登录锁定信息
  */
 typedef struct tagNET_LoginLockInfo
@@ -2440,7 +2341,6 @@ typedef NET_LoginLockInfo_S* pNET_LoginLockInfo_S;
 
 /**
  * @struct tagNETTVPwdPolicyInfo
- * @author tianl (tianl@kfb.cn)
  * @brief 密码策略信息
  */
 typedef struct tagNET_PwdPolicyInfo
@@ -2454,7 +2354,6 @@ typedef NET_PwdPolicyInfo_S* pNET_PwdPolicyInfo_S;
 
 /**
  * @struct tagNETTVSshAdminInfo
- * @author tianl (tianl@kfb.cn)
  * @brief SSH管理信息
  */
 typedef struct tagNET_SshAdminInfo
@@ -2470,7 +2369,6 @@ typedef NET_SshAdminInfo_S* pNET_SshAdminInfo_S;
 
 /**
  * @struct tagNETTVSecurityServicesInfo
- * @author tianl (tianl@kfb.cn)
  * @brief 安全服务配置
  */
 typedef struct tagNET_SecurityServicesInfo
@@ -2485,7 +2383,6 @@ typedef NET_SecurityServicesInfo_S* pNET_SecurityServicesInfo_S;
 
 /**
  * @struct tagNETTVSshCountdownInfo
- * @author tianl (tianl@kfb.cn)
  * @brief SSH倒计时信息
  */
 typedef struct tagNET_SshCountdownInfo
@@ -2498,7 +2395,6 @@ typedef NET_SshCountdownInfo_S* pNET_SshCountdownInfo_S;
 
 /**
  * @struct tagNETTVLogServerInfo
- * @author tianl (tianl@kfb.cn)
  * @brief 日志服务器配置
  */
 typedef struct tagNET_LogServerInfo
@@ -2514,7 +2410,6 @@ typedef NET_LogServerInfo_S* pNET_LogServerInfo_S;
 
 /**
  * @struct tagNETTVLogRetrievalCond
- * @author tianl (tianl@kfb.cn)
  * @brief 日志检索条件
  */
 typedef struct tagNET_LogRetrievalCond
@@ -2530,7 +2425,6 @@ typedef NET_LogRetrievalCond_S* pNET_LogRetrievalCond_S;
 
 /**
  * @struct tagNETTVLogInfo
- * @author tianl (tianl@kfb.cn)
  * @brief 日志信息
  */
 typedef struct tagNET_LogInfo
@@ -2549,7 +2443,6 @@ typedef NET_LogInfo_S* pNET_LogInfo_S;
 
 /**
  * @struct tagNETTVLogList
- * @author tianl (tianl@kfb.cn)
  * @brief 日志查询结果列表
  */
 typedef struct tagNET_LogList
@@ -2565,7 +2458,6 @@ typedef NET_LogList_S* pNET_LogList_S;
 
 /**
  * @struct tagNETTVRecordInfo
- * @author tianl (tianl@kfb.cn)
  * @brief 手动录像控制信息
  */
 typedef struct tagNET_RecordInfo
@@ -2588,7 +2480,6 @@ typedef NET_RecordInfo_S* pNET_RecordInfo_S;
 
 /**
  * @struct tagNETTVRecordStatusInfo
- * @author tianl (tianl@kfb.cn)
  * @brief 录像状态信息
  */
 typedef struct tagNET_RecordStatusInfo
@@ -2601,7 +2492,6 @@ typedef NET_RecordStatusInfo_S* pNET_RecordStatusInfo_S;
 
 /**
  * @struct tagNETTVRecordTime
- * @author tianl (tianl@kfb.cn)
  * @brief 录像计划时间段
  */
 typedef struct tagNET_RecordTime
@@ -2616,7 +2506,6 @@ typedef NET_RecordTime_S* pNET_RecordTime_S;
 
 /**
  * @struct tagNETTVRecordDaySchedule
- * @author tianl (tianl@kfb.cn)
  * @brief 单日录像计划
  */
 typedef struct tagNET_RecordDaySchedule
@@ -2631,7 +2520,6 @@ typedef NET_RecordDaySchedule_S* pNET_RecordDaySchedule_S;
 
 /**
  * @struct tagNETTVRecordSchedule
- * @author tianl (tianl@kfb.cn)
  * @brief 录像计划
  */
 typedef struct tagNET_RecordSchedule
@@ -2646,7 +2534,6 @@ typedef NET_RecordSchedule_S* pNET_RecordSchedule_S;
 
 /**
  * @struct tagNETTVRecordAdvancedParam
- * @author tianl (tianl@kfb.cn)
  * @brief 录像高级参数
  */
 typedef struct tagNET_RecordAdvancedParam
@@ -2662,7 +2549,6 @@ typedef NET_RecordAdvancedParam_S* pNET_RecordAdvancedParam_S;
 
 /**
  * @struct tagNETTVRecordFindCond
- * @author tianl (tianl@kfb.cn)
  * @brief 录像文件查找条件
  */
 typedef struct tagNET_RecordFindCond
@@ -2682,7 +2568,6 @@ typedef NET_RecordFindCond_S* pNET_RecordFindCond_S;
 
 /**
  * @struct tagNETTVRecordVideoTime
- * @author tianl (tianl@kfb.cn)
  * @brief 指定日期录像时间段
  */
 typedef struct tagNET_RecordVideoTime
@@ -2696,7 +2581,6 @@ typedef NET_RecordVideoTime_S* pNET_RecordVideoTime_S;
 
 /**
  * @struct tagNETTVRecordFindResult
- * @author tianl (tianl@kfb.cn)
  * @brief 录像查找结果项
  */
 typedef struct tagNET_RecordFindResult
@@ -2714,7 +2598,6 @@ typedef NET_RecordFindResult_S* pNET_RecordFindResult_S;
 
 /**
  * @struct tagNETTVRecordFileList
- * @author tianl (tianl@kfb.cn)
  * @brief 录像查找条件与结果
  */
 typedef struct tagNET_RecordFileList
@@ -2729,7 +2612,6 @@ typedef NET_RecordFileList_S* pNET_RecordFileList_S;
 
 /**
  * @struct tagNETTVRecordDownloadInfo
- * @author tianl (tianl@kfb.cn)
  * @brief 录像下载任务
  */
 typedef struct tagNET_RecordDownloadInfo
@@ -2745,7 +2627,6 @@ typedef NET_RecordDownloadInfo_S* pNET_RecordDownloadInfo_S;
 
 /**
  * @struct tagNETTVRecordDownloadProgress
- * @author tianl (tianl@kfb.cn)
  * @brief 录像下载进度
  */
 typedef struct tagNET_RecordDownloadProgress
@@ -2759,7 +2640,6 @@ typedef NET_RecordDownloadProgress_S* pNET_RecordDownloadProgress_S;
 
 /**
  * @struct tagNETTVRecordDownloadList
- * @author tianl (tianl@kfb.cn)
  * @brief 录像下载任务列表
  */
 typedef struct tagNET_RecordDownloadList
@@ -2775,7 +2655,6 @@ typedef NET_RecordDownloadList_S* pNET_RecordDownloadList_S;
 
 /**
  * @struct tagNETTVAudioCfg
- * @author tianl (tianl@kfb.cn)
  * @brief 音频配置参数
  * @note 对应 Audio_NS::AudioConfig_S
  */
@@ -2797,13 +2676,12 @@ typedef NET_AudioCfg_S* pNET_AudioCfg_S;
 
 /**
  * @struct tagNETTVNetworkInterfaces
- * @author tianl (tianl@kfb.cn)
  * @brief 网络配置信息 结构体定义 Network configuration information
  * @attention 无 None
  */
 typedef struct tagNET_NetworkCfg
 {
-    INT32   dwMTU;                              /* MTU值  MTU value */
+    INT32   uMTU;                              /* MTU值  MTU value */
     BOOL    bIPv4DHCP;                          /* IPv4的DHCP  DHCP of IPv4 */
     CHAR    szIpv4Address[NET_LEN_32];       /* IPv4的IP地址  IP address of IPv4 */
     CHAR    szIPv4GateWay[NET_LEN_32];       /* IPv4的网关地址  Gateway of IPv4 */
@@ -2815,7 +2693,6 @@ typedef NET_NetworkCfg_S* pNET_NetworkCfg_S;
 
 /**
  * @struct tagNETTVRtspUrlInfo
- * @author tianl (tianl@kfb.cn)
  * @brief RTSP流地址信息  RTSP URL information
  * @note
  * - szRtspUrl 由设备端生成并返回（可包含鉴权信息或 token，按项目约定）
@@ -2823,8 +2700,8 @@ typedef NET_NetworkCfg_S* pNET_NetworkCfg_S;
  */
 typedef struct tagNET_RtspUrlInfo
 {
-    INT32   dwChannel;                           /* 通道号  Channel ID */
-    INT32   dwStreamIndex;                       /* 码流索引  Stream index */
+    INT32   uChannel;                           /* 通道号  Channel ID */
+    INT32   uStreamIndex;                       /* 码流索引  Stream index */
     CHAR    szRtspUrl[NET_LEN_260];           /* RTSP URL (e.g. rtsp://ip:port/...) */
     BYTE    byRes[256];                          /* 保留字段  Reserved */
 }NET_RtspUrlInfo_S;
@@ -2833,7 +2710,6 @@ typedef NET_RtspUrlInfo_S* pNET_RtspUrlInfo_S;
 
 /**
  * @struct tagNETTVReplayUrlInfo
- * @author tianl (tianl@kfb.cn)
  * @brief 回放播放地址信息  Playback URL information
  * @note
  * - 调用方填充通道和起止时间。
@@ -2841,7 +2717,7 @@ typedef NET_RtspUrlInfo_S* pNET_RtspUrlInfo_S;
  */
 typedef struct tagNET_ReplayUrlInfo
 {
-    INT32   dwChannel;                           /* 通道号 Channel ID */
+    INT32   uChannel;                           /* 通道号 Channel ID */
     CHAR    szStartTime[NET_LEN_64];          /* 开始时间 "YYYY-MM-DD HH:MM:SS" */
     CHAR    szEndTime[NET_LEN_64];            /* 结束时间 "YYYY-MM-DD HH:MM:SS" */
     CHAR    szUrl[NET_MAX_URL_LEN];           /* 回放播放地址 */
@@ -2852,7 +2728,6 @@ typedef NET_ReplayUrlInfo_S* pNET_ReplayUrlInfo_S;
 
 /**
  * @struct tagNETTVReplayCtrlInfo
- * @author tianl (tianl@kfb.cn)
  * @brief 回放控制信息
  * @note
  * - `dwCtrlType=NET_REPLAY_CTRL_START` 时，调用方填写通道/起止时间，服务端返回 `szSessionId` 与 `szUrl`
@@ -2863,8 +2738,8 @@ typedef NET_ReplayUrlInfo_S* pNET_ReplayUrlInfo_S;
  */
 typedef struct tagNET_ReplayCtrlInfo
 {
-    INT32   dwChannel;                                   /* 通道号 Channel ID */
-    INT32   dwCtrlType;                                  /* 控制类型，参见 NET_REPLAY_CTRL_CMD_E */
+    INT32   uChannel;                                   /* 通道号 Channel ID */
+    INT32   uCtrlType;                                  /* 控制类型，参见 NET_REPLAY_CTRL_CMD_E */
     FLOAT   fSpeed;                                      /* 播放倍速 */
     INT32   nSeekTime;                                   /* 跳转播放时间，单位秒 */
     INT32   nReplayType;                                 /* 平台点播回放控制类型 */
@@ -2879,7 +2754,6 @@ typedef NET_ReplayCtrlInfo_S* pNET_ReplayCtrlInfo_S;
 
 /**
  * @struct tagNETTVReplayRecordTime
- * @author tianl (tianl@kfb.cn)
  * @brief 单个录像时间段
  */
 typedef struct tagNET_ReplayRecordTime
@@ -2893,7 +2767,6 @@ typedef NET_ReplayRecordTime_S* pNET_ReplayRecordTime_S;
 
 /**
  * @struct tagNETTVReplayRecordList
- * @author tianl (tianl@kfb.cn)
  * @brief NVR回放录像时间段查询结果
  * @note
  * - 调用方至少填写 `dwChannel`
@@ -2903,9 +2776,9 @@ typedef NET_ReplayRecordTime_S* pNET_ReplayRecordTime_S;
  */
 typedef struct tagNET_ReplayRecordList
 {
-    INT32   dwChannel;                                                   /* 通道号 Channel ID */
-    BOOL    bFilterByEventType;                                          /* 是否按事件类型过滤 NET_FALSE:不过滤 NET_TRUE:按 dwEventType 过滤 */
-    INT32   dwEventType;                                                 /* 事件类型，取值可对齐 NVR 事件类型定义；兼容旧请求时忽略 */
+    INT32   uChannel;                                                   /* 通道号 Channel ID */
+    BOOL    bFilterByEventType;                                          /* 是否按事件类型过滤 FALSE:不过滤 TRUE:按 uEventType 过滤 */
+    INT32   uEventType;                                                 /* 事件类型，取值可对齐 NVR 事件类型定义；兼容旧请求时忽略 */
     CHAR    szDate[NET_LEN_32];                                       /* 日期 "YYYY-MM-DD" */
     CHAR    szStartTime[NET_MAX_DATE_STRING_LEN];                     /* 开始时间 "YYYY-MM-DD HH:MM:SS"，为空则按整天开始 */
     CHAR    szEndTime[NET_MAX_DATE_STRING_LEN];                       /* 结束时间 "YYYY-MM-DD HH:MM:SS"，为空则按整天结束 */
@@ -2924,7 +2797,6 @@ typedef NET_ReplayRecordList_S* pNET_ReplayRecordList_S;
 
 /**
  * @struct tagNETTVPreviewRtspUrlInfo
- * @author tianl (tianl@kfb.cn)
  * @brief 预览RTSP地址信息 Preview RTSP URL information
  */
 typedef struct tagNET_PreviewRtspUrl
@@ -2938,7 +2810,6 @@ typedef NET_PreviewRtspUrl_S* pNET_PreviewRtspUrl_S;
 
 /**
  *  @struct tagNETTVWifiStaCfg
- * @author tianl (tianl@kfb.cn)
  *  @brief WIFI STA基础配置
  */
 typedef struct tagNET_WifiStaCfg
@@ -2952,7 +2823,6 @@ typedef NET_WifiStaCfg_S* pNET_WifiStaCfg_S;
 
 /**
  *  @struct tagNETTVWifiWepKey
- * @author tianl (tianl@kfb.cn)
  *  @brief WIFI WEP 密码项
  */
 typedef struct tagNET_WifiWepKey
@@ -2967,7 +2837,6 @@ typedef NET_WifiWepKey_S* pNET_WifiWepKey_S;
 
 /**
  * @struct tagNETTVWifiStaConnect
- * @author tianl (tianl@kfb.cn)
  * @brief WIFI STA连接参数
  */
 typedef struct tagNET_WifiStaConnect
@@ -3005,7 +2874,6 @@ typedef NET_WifiStaConnect_S* pNET_WifiStaConnect_S;
 
 /**
  * @struct tagNETTV4GInfo
- * @author tianl (tianl@kfb.cn)
  * @brief 4G配置
  */
 typedef struct tagNET_4GInfo
@@ -3025,7 +2893,6 @@ typedef NET_4GInfo_S* pNET_4GInfo_S;
 
 /**
  * @struct tagNETTVHotspotInfo
- * @author tianl (tianl@kfb.cn)
  * @brief 热点配置
  */
 typedef struct tagNET_HotspotInfo
@@ -3043,7 +2910,6 @@ typedef NET_HotspotInfo_S* pNET_HotspotInfo_S;
 
 /**
  * @struct tagNETTVHotspotConnDevice
- * @author tianl (tianl@kfb.cn)
  * @brief 热点连接设备项
  */
 typedef struct tagNET_HotspotConnDevice
@@ -3058,7 +2924,6 @@ typedef NET_HotspotConnDevice_S* pNET_HotspotConnDevice_S;
 
 /**
  * @struct tagNETTVHotspotConnInfo
- * @author tianl (tianl@kfb.cn)
  * @brief 热点连接设备列表
  */
 typedef struct tagNET_HotspotConnInfo
@@ -3074,7 +2939,6 @@ typedef NET_HotspotConnInfo_S* pNET_HotspotConnInfo_S;
 
 /**
  * @struct tagNETTVPreviewImageParam
- * @author tianl (tianl@kfb.cn)
  * @brief 预览图像参数 Preview image parameters
  */
 typedef struct tagNET_PreviewImageParam
@@ -3089,7 +2953,6 @@ typedef struct tagNET_PreviewImageParam
 typedef NET_PreviewImageParam_S* pNET_PreviewImageParam_S;
 
 /**
- * @author tianl (tianl@kfb.cn)
  * @brief 图像配置参数 Image setting parameters
  * @note 用于 NET_GET_IMAGECFG / NET_SET_IMAGECFG，对应 IPC ISP::ImageParam_S
  */
@@ -3106,7 +2969,6 @@ typedef NET_ImageSetting_S* pNET_ImageSetting_S;
 
 /**
  * @struct tagNETTVPreviewInfo
- * @author tianl (tianl@kfb.cn)
  * @brief 预览信息 Preview information
  * @note 用于NET_TV_GET_PREVIEW_INFO/NET_SET_PREVIEW_INFO
  */
@@ -3121,15 +2983,14 @@ typedef NET_PreviewInfo_S* pNET_PreviewInfo_S;
 
 /**
  * @struct tagNETTVChannelInfo
- * @author tianl (tianl@kfb.cn)
  * @brief 通用通道信息 Channel information
  * @note 可用于单通道查询，也可作为通道列表项。
  */
 typedef struct tagNET_ChannelInfo
 {
-    UINT32  dwSize;                              /* 结构体大小 */
+    UINT32  uSize;                              /* 结构体大小 */
 
-    UINT32  dwChannel;                           /* 通道号 */
+    UINT32  uChannel;                           /* 通道号 */
     BYTE    byEnable;                            /* 是否启用 */
     BYTE    byOnline;                            /* 是否在线 */
     BYTE    byStreamType;                        /* 默认码流：0主码流 1子码流 */
@@ -3175,8 +3036,8 @@ typedef NET_ChannelInfo_S* pNET_ChannelInfo_S;
 
 typedef struct tagNET_ChannelList
 {
-    UINT32  dwSize;
-    UINT32  dwChannelCount;                      /* 实际通道数量 */
+    UINT32  uSize;
+    UINT32  uChannelCount;                      /* 实际通道数量 */
     NET_ChannelInfo_S stChannels[NET_MAX_CHANNEL_NUM];
     BYTE    byRes[512];
 }NET_ChannelList_S;
@@ -3187,14 +3048,13 @@ typedef NET_ChannelInfo_S NET_DirectConnectChanInfo_S, *pNET_DirectConnectChanIn
 
 /**
  * @struct tagNETTVRevTimeout
- * @author tianl (tianl@kfb.cn)
  * @brief 超时时间 结构体定义  Timeout structure definition
  * @attention
 */
 typedef struct tagNET_RevTimeout
 {
-    INT32   dwRevTimeOut;                 /* 设置接收超时时间 Set timeout for receiving */
-    INT32   dwFileReportTimeOut;          /* 设置文件操作超时时间 Set timeout for file operation */
+    INT32   uRevTimeOut;                 /* 设置接收超时时间 Set timeout for receiving */
+    INT32   uFileReportTimeOut;          /* 设置文件操作超时时间 Set timeout for file operation */
     BYTE    byRes[128];                   /* 保留字段  Reserved */
 }NET_RevTimeout_S;
 
@@ -3202,7 +3062,6 @@ typedef NET_RevTimeout_S* pNET_RevTimeout_S;
 
 /**
  * @struct tagNET_AlarmBasicInfo
- * @author tianl (tianl@kfb.cn)
  * @brief 基础/常规报警 (0x1000 - 0x10FF)
  */
 typedef struct tagNET_AlarmBasicInfo
@@ -3220,14 +3079,12 @@ typedef struct tagNET_AlarmBasicInfo
 } NET_AlarmBasicInfo_S;
 
 /**
- * @author tianl (tianl@kfb.cn)
  * @brief 基础/常规报警结构体指针类型
  */
 typedef NET_AlarmBasicInfo_S* pNET_AlarmBasicInfo_S;
 
 /**
  * @struct tagNET_AlarmRuleInfo
- * @author tianl (tianl@kfb.cn)
  * @brief 区域/周界规则报警 (0x2000 - 0x20FF)
  * @note 约定：uAlarmType 填写命令码(如 NET_ALARM_LINE_CROSSING)
  */
@@ -3254,14 +3111,12 @@ typedef struct tagNET_AlarmRuleInfo
 } NET_AlarmRuleInfo_S;
 
 /**
- * @author tianl (tianl@kfb.cn)
  * @brief 区域/周界规则报警结构体指针类型
  */
 typedef NET_AlarmRuleInfo_S* pNET_AlarmRuleInfo_S;
 
 /**
  * @struct tagNET_AlarmAiObjectInfo
- * @author tianl (tianl@kfb.cn)
  * @brief Smart/AI 行为分析 (0x3000 - 0x3FFF)
  * @note 约定：uAlarmType 填写命令码(如 NET_ALARM_FACE_CAPTURE)
  */
@@ -3285,14 +3140,12 @@ typedef struct tagNET_AlarmAiObjectInfo
 } NET_AlarmAiObjectInfo_S;
 
 /**
- * @author tianl (tianl@kfb.cn)
  * @brief Smart/AI 行为分析结构体指针类型
  */
 typedef NET_AlarmAiObjectInfo_S* pNET_AlarmAiObjectInfo_S;
 
 /**
  * @struct tagNET_AlarmFaceCompareInfo
- * @author tianl (tianl@kfb.cn)
  * @brief 人脸比对结果告警
  * @note 约定：uAlarmType 填写 NET_ALARM_FACE_COMPARE
  */
@@ -3318,7 +3171,6 @@ typedef struct tagNET_AlarmFaceCompareInfo
 } NET_AlarmFaceCompareInfo_S;
 
 /**
- * @author tianl (tianl@kfb.cn)
  * @brief 人脸比对结果告警结构体指针类型
  */
 typedef NET_AlarmFaceCompareInfo_S* pNET_AlarmFaceCompareInfo_S;
@@ -3326,7 +3178,6 @@ typedef NET_AlarmFaceCompareInfo_S* pNET_AlarmFaceCompareInfo_S;
 
 /**
  * @struct tagNET_AlarmPlateInfo
- * @author tianl (tianl@kfb.cn)
  * @brief 交通/车辆相关 (0x4000 - 0x40FF)
  * @note 约定：uAlarmType 填写命令码(如 NET_ALARM_PLATE_RECOGNITION)
  */
@@ -3346,14 +3197,12 @@ typedef struct tagNET_AlarmPlateInfo
 } NET_AlarmPlateInfo_S;
 
 /**
- * @author tianl (tianl@kfb.cn)
  * @brief 交通/车辆相关结构体指针类型
  */
 typedef NET_AlarmPlateInfo_S* pNET_AlarmPlateInfo_S;
 
 /**
  * @struct tagNET_AlarmExceptionInfo
- * @author tianl (tianl@kfb.cn)
  * @brief 设备异常/状态事件 (0x5000 - 0x50FF)
  * @note 约定：uAlarmType 填写命令码(如 NET_ALARM_DISK_FULL)
  */
@@ -3367,14 +3216,12 @@ typedef struct tagNET_AlarmExceptionInfo
 } NET_AlarmExceptionInfo_S;
 
 /**
- * @author tianl (tianl@kfb.cn)
  * @brief 设备异常/状态事件结构体指针类型
  */
 typedef NET_AlarmExceptionInfo_S* pNET_AlarmExceptionInfo_S;
 
 /**
  * @struct tagNET_AlarmStatisticsTarget
- * @author tianl (tianl@kfb.cn)
  * @brief 统计类告警目标快照
  */
 typedef struct tagNET_AlarmStatisticsTarget
@@ -3394,21 +3241,19 @@ typedef struct tagNET_AlarmStatisticsTarget
 } NET_AlarmStatisticsTarget_S;
 
 /**
- * @author tianl (tianl@kfb.cn)
  * @brief 统计类告警目标快照结构体指针类型
  */
 typedef NET_AlarmStatisticsTarget_S* pNET_AlarmStatisticsTarget_S;
 
 /**
  * @struct tagNET_AlarmStatisticsInfo
- * @author tianl (tianl@kfb.cn)
  * @brief 统计类通用告警，优先用于人流统计和人员密度统计
  */
 typedef struct tagNET_AlarmStatisticsInfo
 {
     UINT32      uAlarmType;                           /* 报警类型/命令码 */
     UINT32      uChannel;                             /* 通道号 */
-    UINT32      uStatisticsType;                      /* 统计子类型 NET_STATISTICS_TYPE_E */
+    UINT32      uStatisticsType;                      /* 统计子类型 NET_StatisticsType_E */
     UINT32      uRuleID;                              /* 规则 ID */
     INT64       llTimestampMs;                        /* 报告时间戳，单位毫秒 */
     UINT32      uReportSeq;                           /* 统计报告序号 */
@@ -3425,7 +3270,6 @@ typedef struct tagNET_AlarmStatisticsInfo
 } NET_AlarmStatisticsInfo_S;
 
 /**
- * @author tianl (tianl@kfb.cn)
  * @brief 统计类通用告警结构体指针类型
  */
 typedef NET_AlarmStatisticsInfo_S* pNET_AlarmStatisticsInfo_S;
@@ -3434,7 +3278,6 @@ typedef NET_AlarmStatisticsInfo_S* pNET_AlarmStatisticsInfo_S;
 
 /**
  * @struct tagNETTVSchedTime
- * @author tianl (tianl@kfb.cn)
  * @brief 时间段结构体 Schedule time structure
  * @note 用于布防时间配置
  */
@@ -3451,7 +3294,6 @@ typedef NET_SchedTime_S* pNET_SchedTime_S;
 
 /**
  * @struct tagNET_AlarmSchedule
- * @author tianl (tianl@kfb.cn)
  * @brief 布防时间配置 Alarm schedule configuration
  * @note 一周7天，每天最多8个时间段
  */
@@ -3463,14 +3305,12 @@ typedef struct tagNET_AlarmSchedule
 } NET_AlarmSchedule_S;
 
 /**
- * @author tianl (tianl@kfb.cn)
  * @brief 布防时间配置结构体指针类型
  */
 typedef NET_AlarmSchedule_S* pNET_AlarmSchedule_S;
 
 /**
  * @struct tagNET_LinkageList
- * @author tianl (tianl@kfb.cn)
  * @brief 联动配置列表 Linkage configuration list
  */
 typedef struct tagNET_LinkageList
@@ -3485,7 +3325,6 @@ typedef struct tagNET_LinkageList
 } NET_LinkageList_S;
 
 /**
- * @author tianl (tianl@kfb.cn)
  * @brief 联动配置列表结构体指针类型
  */
 typedef NET_LinkageList_S* pNET_LinkageList_S;
@@ -3493,7 +3332,6 @@ typedef NET_LinkageList_S* pNET_LinkageList_S;
 
 /**
  * @struct tagNETTVPeopleFlowRuleLine
- * @author tianl (tianl@kfb.cn)
  * @brief 人流统计规则线
  */
 typedef struct tagNET_PeopleFlowRuleLine
@@ -3510,7 +3348,6 @@ typedef NET_PeopleFlowRuleLine_S* pNET_PeopleFlowRuleLine_S;
 
 /**
  * @struct tagNET_PeopleAlarmRule
- * @author tianl (tianl@kfb.cn)
  * @brief 单档人数报警配置
  */
 typedef struct tagNET_PeopleAlarmRule
@@ -3525,7 +3362,6 @@ typedef NET_PeopleAlarmRule_S* pNET_PeopleAlarmRule_S;
 
 /**
  * @struct tagNET_PeopleAlarmConfig
- * @author tianl (tianl@kfb.cn)
  * @brief 三级人数报警配置
  */
 typedef struct tagNET_PeopleAlarmConfig
@@ -3540,7 +3376,6 @@ typedef NET_PeopleAlarmConfig_S* pNET_PeopleAlarmConfig_S;
 
 /**
  * @struct tagNET_StatisticsResetConfig
- * @author tianl (tianl@kfb.cn)
  * @brief 定时清零配置
  */
 typedef struct tagNET_StatisticsResetConfig
@@ -3555,7 +3390,6 @@ typedef NET_StatisticsResetConfig_S* pNET_StatisticsResetConfig_S;
 
 /**
  * @struct tagNET_PeopleFlowStatisticsCfg
- * @author tianl (tianl@kfb.cn)
  * @brief 人流统计配置信息
  * @note 用于NET_TV_GET_PEOPLE_FLOW_STATISTICS_CFG/NET_SET_PEOPLE_FLOW_STATISTICS_CFG
  */
@@ -3579,7 +3413,6 @@ typedef NET_PeopleFlowStatisticsCfg_S* pNET_PeopleFlowStatisticsCfg_S;
 
 /**
  * @struct tagNET_PeopleDensityDetectionCfg
- * @author tianl (tianl@kfb.cn)
  * @brief 人员密度检测配置信息
  * @note 用于NET_TV_GET_PEOPLE_DENSITY_DETECTION_CFG/NET_SET_PEOPLE_DENSITY_DETECTION_CFG
  */
@@ -3603,7 +3436,6 @@ typedef NET_PeopleDensityDetectionCfg_S* pNET_PeopleDensityDetectionCfg_S;
 
 /**
  * @struct tagNET_MotionRegion
- * @author tianl (tianl@kfb.cn)
  * @brief 移动侦测专家模式区域参数 Motion detection expert mode region
  */
 typedef struct tagNET_MotionRegion
@@ -3623,7 +3455,6 @@ typedef NET_MotionRegion_S* pNET_MotionRegion_S;
 
 /**
  * @struct tagNET_MotionExpertMode
- * @author tianl (tianl@kfb.cn)
  * @brief 移动侦测专家模式参数 Motion detection expert mode
  */
 typedef struct tagNET_MotionExpertMode
@@ -3639,7 +3470,6 @@ typedef NET_MotionExpertMode_S* pNET_MotionExpertMode_S;
 
 /**
  * @struct tagNET_MotionNormalMode
- * @author tianl (tianl@kfb.cn)
  * @brief 移动侦测普通模式参数 Motion detection normal mode
  */
 typedef struct tagNET_MotionNormalMode
@@ -3660,7 +3490,6 @@ typedef NET_MotionNormalMode_S* pNET_MotionNormalMode_S;
 
 /**
  * @struct tagNET_MotionAlarmInfo
- * @author tianl (tianl@kfb.cn)
  * @brief 移动侦测告警配置信息 Motion detection alarm configuration
  * @note 用于NET_TV_GET_MOTIONALARM/NET_SET_MOTIONALARM
  */
@@ -3682,7 +3511,6 @@ typedef NET_MotionAlarmInfo_S* pNET_MotionAlarmInfo_S;
 
 /**
  * @struct tagNETTVPrivacyMaskArea
- * @author tianl (tianl@kfb.cn)
  * @brief 单个隐私遮盖区域 Privacy mask area
  * @note 用于NET_TV_PRIVACY_MASK_CFG_S中配置单个遮盖区域
  */
@@ -3701,14 +3529,13 @@ typedef NET_PrivacyMaskArea_S* pNET_PrivacyMaskArea_S;
 
 /**
  * @struct tagNETTVPrivacyMaskCfg
- * @author tianl (tianl@kfb.cn)
  * @brief 隐私遮盖配置信息 Privacy mask configuration
  * @note 用于NET_TV_GET_PRIVACYMASKCFG/NET_SET_PRIVACYMASKCFG
  */
 typedef struct tagNET_PrivacyMaskCfg
 {
     BOOL        bEnable;                              /* 是否启用隐私遮盖 0-不启用 1-启用 */
-    INT32       dwAreaCount;                          /* 遮盖区域数量 [0, NET_MAX_PRIVACY_MASK_AREA_NUM] */
+    INT32       uAreaCount;                          /* 遮盖区域数量 [0, NET_MAX_PRIVACY_MASK_AREA_NUM] */
     NET_PrivacyMaskArea_S astArea[NET_MAX_PRIVACY_MASK_AREA_NUM]; /* 遮盖区域数组 */
     BYTE        byRes[256];                           /* 保留字段 */
 }NET_PrivacyMaskCfg_S;
@@ -3719,7 +3546,6 @@ typedef NET_PrivacyMaskCfg_S* pNET_PrivacyMaskCfg_S;
 
 /**
  * @struct tagNET_TamperAlarmInfo
- * @author tianl (tianl@kfb.cn)
  * @brief 遮挡检测告警配置信息 Tamper detection alarm configuration
  * @note 用于NET_TV_GET_TAMPERALARM/NET_SET_TAMPERALARM
  */
@@ -3742,7 +3568,6 @@ typedef NET_TamperAlarmInfo_S* pNET_TamperAlarmInfo_S;
 
 /**
  * @struct tagNET_BoundaryPlane
- * @author tianl (tianl@kfb.cn)
  * @brief 越界检测警戒线规则 Boundary detection plane rule
  */
 typedef struct tagNET_BoundaryPlane
@@ -3763,7 +3588,6 @@ typedef NET_BoundaryPlane_S* pNET_BoundaryPlane_S;
 
 /**
  * @struct tagNET_CrossLineAlarmInfo
- * @author tianl (tianl@kfb.cn)
  * @brief 越界检测告警配置信息 Cross line detection alarm configuration
  * @note 用于NET_TV_GET_CROSSLINEALARM/NET_SET_CROSSLINEALARM
  */
@@ -3783,7 +3607,6 @@ typedef NET_CrossLineAlarmInfo_S* pNET_CrossLineAlarmInfo_S;
 
 /**
  * @struct tagNET_IntrusionRule
- * @author tianl (tianl@kfb.cn)
  * @brief 入侵检测区域规则参数 Intrusion detection region rule
  */
 typedef struct tagNET_IntrusionRule
@@ -3803,7 +3626,6 @@ typedef NET_IntrusionRule_S* pNET_IntrusionRule_S;
 
 /**
  * @struct tagNET_IntrusionAlarmInfo
- * @author tianl (tianl@kfb.cn)
  * @brief 入侵检测告警配置信息 Intrusion detection alarm configuration
  * @note 用于NET_TV_GET_INTRUSIONALARM/NET_SET_INTRUSIONALARM
  */
@@ -3821,7 +3643,6 @@ typedef NET_IntrusionAlarmInfo_S* pNET_IntrusionAlarmInfo_S;
 
 /**
  * @struct tagNET_EnterRegionAlarmInfo
- * @author tianl (tianl@kfb.cn)
  * @brief 进入区域侦测告警配置信息 Enter region detection alarm configuration
  * @note 用于NET_TV_GET_ENTERREGIONALARM/NET_SET_ENTERREGIONALARM
  */
@@ -3839,7 +3660,6 @@ typedef NET_EnterRegionAlarmInfo_S* pNET_EnterRegionAlarmInfo_S;
 
 /**
  * @struct tagNET_LeaveRegionAlarmInfo
- * @author tianl (tianl@kfb.cn)
  * @brief 离开区域侦测告警配置信息 Leave region detection alarm configuration
  * @note 用于NET_TV_GET_LEAVEREGIONALARM/NET_SET_LEAVEREGIONALARM
  */
@@ -3859,7 +3679,6 @@ typedef NET_LeaveRegionAlarmInfo_S* pNET_LeaveRegionAlarmInfo_S;
 
 /**
  * @struct tagNET_LoiteringRule
- * @author tianl (tianl@kfb.cn)
  * @brief 徘徊侦测区域规则参数 Loitering detection region rule
  */
 typedef struct tagNET_LoiteringRule
@@ -3879,7 +3698,6 @@ typedef NET_LoiteringRule_S* pNET_LoiteringRule_S;
 
 /**
  * @struct tagNET_LoiteringAlarmInfo
- * @author tianl (tianl@kfb.cn)
  * @brief 徘徊告警配置信息 Loitering detection alarm configuration
  * @note 用于NET_TV_GET_LOITERINGALARM/NET_SET_LOITERINGALARM
  */
@@ -3897,7 +3715,6 @@ typedef NET_LoiteringAlarmInfo_S* pNET_LoiteringAlarmInfo_S;
 
 /**
  * @struct tagNET_SceneChangeAlarmInfo
- * @author tianl (tianl@kfb.cn)
  * @brief 场景变更侦测告警配置信息 Scene change detection alarm configuration
  * @note 用于NET_TV_GET_SCENECHANGEALARM/NET_SET_SCENECHANGEALARM
  */
@@ -3914,7 +3731,6 @@ typedef NET_SceneChangeAlarmInfo_S* pNET_SceneChangeAlarmInfo_S;
 
 /**
  * @struct tagNET_CrowdGatheringRule
- * @author tianl (tianl@kfb.cn)
  * @brief 人员聚集侦测区域规则参数 Crowd gathering detection region rule
  */
 typedef struct tagNET_CrowdGatheringRule
@@ -3931,7 +3747,6 @@ typedef NET_CrowdGatheringRule_S* pNET_CrowdGatheringRule_S;
 
 /**
  * @struct tagNET_CrowdGatheringAlarmInfo
- * @author tianl (tianl@kfb.cn)
  * @brief 人员聚集侦测告警配置信息 Crowd gathering detection alarm configuration
  * @note 用于NET_TV_GET_CROWDGATHERINGALARM/NET_SET_CROWDGATHERINGALARM
  */
@@ -3949,7 +3764,6 @@ typedef NET_CrowdGatheringAlarmInfo_S* pNET_CrowdGatheringAlarmInfo_S;
 
 /**
  * @struct tagNET_ParkingRule
- * @author tianl (tianl@kfb.cn)
  * @brief 停车侦测区域规则参数 Parking detection region rule
  */
 typedef struct tagNET_ParkingRule
@@ -3966,7 +3780,6 @@ typedef NET_ParkingRule_S* pNET_ParkingRule_S;
 
 /**
  * @struct tagNET_ParkingAlarmInfo
- * @author tianl (tianl@kfb.cn)
  * @brief 停车侦测告警配置信息 Parking detection alarm configuration
  * @note 用于NET_TV_GET_PARKINGALARM/NET_SET_PARKINGALARM
  */
@@ -3986,7 +3799,6 @@ typedef NET_ParkingAlarmInfo_S* pNET_ParkingAlarmInfo_S;
 
 /**
  * @struct tagNETTVGarbageExposureRule
- * @author tianl (tianl@kfb.cn)
  * @brief 垃圾暴露检测规则参数 Garbage exposure detection region rule
  */
 typedef struct tagNET_GarbageExposureRule
@@ -4002,7 +3814,6 @@ typedef NET_GarbageExposureRule_S* pNET_GarbageExposureRule_S;
 
 /**
  * @struct tagNET_GarbageExposureCfg
- * @author tianl (tianl@kfb.cn)
  * @brief 垃圾暴露检测配置信息 Garbage exposure detection configuration
  * @note 用于NET_TV_GET_GARBAGE_EXPOSURE_CFG/NET_SET_GARBAGE_EXPOSURE_CFG
  */
@@ -4021,7 +3832,6 @@ typedef NET_GarbageExposureCfg_S* pNET_GarbageExposureCfg_S;
 
 /**
  * @struct tagNET_GarbageOverflowRule
- * @author tianl (tianl@kfb.cn)
  * @brief 垃圾满溢检测规则参数 Garbage overflow detection region rule
  */
 typedef struct tagNET_GarbageOverflowRule
@@ -4037,7 +3847,6 @@ typedef NET_GarbageOverflowRule_S* pNET_GarbageOverflowRule_S;
 
 /**
  * @struct tagNET_GarbageOverflowCfg
- * @author tianl (tianl@kfb.cn)
  * @brief 垃圾满溢检测配置信息 Garbage overflow detection configuration
  * @note 用于NET_TV_GET_GARBAGE_OVERFLOW_CFG/NET_SET_GARBAGE_OVERFLOW_CFG
  */
@@ -4057,7 +3866,6 @@ typedef NET_GarbageOverflowCfg_S* pNET_GarbageOverflowCfg_S;
 
 /**
  * @struct tagNETTVAiSimpleRule
- * @author tianl (tianl@kfb.cn)
  * @brief 单规则智能检测通用规则参数
  */
 typedef struct tagNET_AiSimpleRule
@@ -4070,7 +3878,6 @@ typedef NET_AiSimpleRule_S* pNET_AiSimpleRule_S;
 
 /**
  * @struct tagNETTVManholeCoverAbnormalCfg
- * @author tianl (tianl@kfb.cn)
  * @brief 井盖异常检测配置信息 Manhole cover abnormal detection configuration
  * @note 用于NET_TV_GET_MANHOLE_COVER_ABNORMAL_CFG/NET_SET_MANHOLE_COVER_ABNORMAL_CFG
  */
@@ -4087,7 +3894,6 @@ typedef NET_ManholeCoverAbnormalCfg_S* pNET_ManholeCoverAbnormalCfg_S;
 
 /**
  * @struct tagNET_SleepOnDutyCfg
- * @author tianl (tianl@kfb.cn)
  * @brief 睡岗识别配置信息 Sleep on duty detection configuration
  * @note 用于NET_TV_GET_SLEEP_ON_DUTY_CFG/NET_SET_SLEEP_ON_DUTY_CFG
  */
@@ -4104,7 +3910,6 @@ typedef NET_SleepOnDutyCfg_S* pNET_SleepOnDutyCfg_S;
 
 /**
  * @struct tagNET_ElectricVehicleInElevatorCfg
- * @author tianl (tianl@kfb.cn)
  * @brief 电瓶车进电梯识别配置信息 Electric vehicle in elevator detection configuration
  * @note 用于NET_TV_GET_ELECTRIC_VEHICLE_IN_ELEVATOR_CFG/NET_SET_ELECTRIC_VEHICLE_IN_ELEVATOR_CFG
  */
@@ -4121,7 +3926,6 @@ typedef NET_ElectricVehicleInElevatorCfg_S* pNET_ElectricVehicleInElevatorCfg_S;
 
 /**
  * @struct tagNET_PersonFallDownCfg
- * @author tianl (tianl@kfb.cn)
  * @brief 人员倒地识别配置信息 Person fall down detection configuration
  * @note 用于NET_TV_GET_PERSON_FALL_DOWN_CFG/NET_SET_PERSON_FALL_DOWN_CFG
  */
@@ -4138,7 +3942,6 @@ typedef NET_PersonFallDownCfg_S* pNET_PersonFallDownCfg_S;
 
 /**
  * @struct tagNET_ConstructionOccupyRoadCfg
- * @author tianl (tianl@kfb.cn)
  * @brief 施工占道识别配置信息 Construction occupy road detection configuration
  * @note 用于NET_TV_GET_CONSTRUCTION_OCCUPY_ROAD_CFG/NET_SET_CONSTRUCTION_OCCUPY_ROAD_CFG
  */
@@ -4155,7 +3958,6 @@ typedef NET_ConstructionOccupyRoadCfg_S* pNET_ConstructionOccupyRoadCfg_S;
 
 /**
  * @struct tagNET_CongestionCfg
- * @author tianl (tianl@kfb.cn)
  * @brief 拥堵识别配置信息 Congestion detection configuration
  * @note 用于NET_TV_GET_CONGESTION_CFG/NET_SET_CONGESTION_CFG
  */
@@ -4172,7 +3974,6 @@ typedef NET_CongestionCfg_S* pNET_CongestionCfg_S;
 
 /**
  * @struct tagNETTVLicensePlateRecognitionCfg
- * @author tianl (tianl@kfb.cn)
  * @brief 车牌识别配置信息 License plate recognition configuration
  * @note 用于NET_TV_GET_LICENSE_PLATE_RECOGNITION_CFG/NET_SET_LICENSE_PLATE_RECOGNITION_CFG
  */
@@ -4189,7 +3990,6 @@ typedef NET_LicensePlateRecognitionCfg_S* pNET_LicensePlateRecognitionCfg_S;
 
 /**
  * @struct tagNET_HighAltitudeSeatbeltCfg
- * @author tianl (tianl@kfb.cn)
  * @brief 高空安全带识别配置信息 High altitude seatbelt detection configuration
  * @note 用于NET_TV_GET_HIGH_ALTITUDE_SEATBELT_CFG/NET_SET_HIGH_ALTITUDE_SEATBELT_CFG
  */
@@ -4206,7 +4006,6 @@ typedef NET_HighAltitudeSeatbeltCfg_S* pNET_HighAltitudeSeatbeltCfg_S;
 
 /**
  * @struct tagNET_SafetyHelmetCfg
- * @author tianl (tianl@kfb.cn)
  * @brief 安全帽识别配置信息 Safety helmet detection configuration
  * @note 用于NET_TV_GET_SAFETY_HELMET_CFG/NET_SET_SAFETY_HELMET_CFG
  */
@@ -4223,7 +4022,6 @@ typedef NET_SafetyHelmetCfg_S* pNET_SafetyHelmetCfg_S;
 
 /**
  * @struct tagNET_PersonFallCfg
- * @author tianl (tianl@kfb.cn)
  * @brief 摔倒识别配置信息 Person fall detection configuration
  * @note 用于NET_TV_GET_PERSON_FALL_CFG/NET_SET_PERSON_FALL_CFG
  */
@@ -4240,7 +4038,6 @@ typedef NET_PersonFallCfg_S* pNET_PersonFallCfg_S;
 
 /**
  * @struct tagNET_PhoneUsageCfg
- * @author tianl (tianl@kfb.cn)
  * @brief 玩手机识别配置信息 Phone usage detection configuration
  * @note 用于NET_TV_GET_PHONE_USAGE_CFG/NET_SET_PHONE_USAGE_CFG
  */
@@ -4257,7 +4054,6 @@ typedef NET_PhoneUsageCfg_S* pNET_PhoneUsageCfg_S;
 
 /**
  * @struct tagNET_SmokingCfg
- * @author tianl (tianl@kfb.cn)
  * @brief 抽烟识别配置信息 Smoking detection configuration
  * @note 用于NET_TV_GET_SMOKING_CFG/NET_SET_SMOKING_CFG
  */
@@ -4274,7 +4070,6 @@ typedef NET_SmokingCfg_S* pNET_SmokingCfg_S;
 
 /**
  * @struct tagNET_OpenFlameCfg
- * @author tianl (tianl@kfb.cn)
  * @brief 明火识别配置信息 Open flame detection configuration
  * @note 用于NET_TV_GET_OPEN_FLAME_CFG/NET_SET_OPEN_FLAME_CFG
  */
@@ -4291,7 +4086,6 @@ typedef NET_OpenFlameCfg_S* pNET_OpenFlameCfg_S;
 
 /**
  * @struct tagNET_BareSoilCfg
- * @author tianl (tianl@kfb.cn)
  * @brief 黄土裸露识别配置信息 Bare soil detection configuration
  * @note 用于NET_TV_GET_BARE_SOIL_CFG/NET_SET_BARE_SOIL_CFG
  */
@@ -4308,7 +4102,6 @@ typedef NET_BareSoilCfg_S* pNET_BareSoilCfg_S;
 
 /**
  * @struct tagNET_HoleProtectionBarCfg
- * @author tianl (tianl@kfb.cn)
  * @brief 洞口防护栏识别配置信息 Hole protection bar detection configuration
  * @note 用于NET_TV_GET_HOLE_PROTECTION_BAR_CFG/NET_SET_HOLE_PROTECTION_BAR_CFG
  */
@@ -4325,7 +4118,6 @@ typedef NET_HoleProtectionBarCfg_S* pNET_HoleProtectionBarCfg_S;
 
 /**
  * @struct tagNET_ReflectiveClothingCfg
- * @author tianl (tianl@kfb.cn)
  * @brief 反光衣识别配置信息 Reflective clothing detection configuration
  * @note 用于NET_TV_GET_REFLECTIVE_CLOTHING_CFG/NET_SET_REFLECTIVE_CLOTHING_CFG
  */
@@ -4344,7 +4136,6 @@ typedef NET_ReflectiveClothingCfg_S* pNET_ReflectiveClothingCfg_S;
 
 /**
  * @struct tagNETTVSmartRegion
- * @author tianl (tianl@kfb.cn)
  * @brief 智能事件检测区域 Smart event detection region
  */
 typedef struct tagNET_SmartRegion
@@ -4359,7 +4150,6 @@ typedef NET_SmartRegion_S* pNET_SmartRegion_S;
 
 /**
  * @struct tagNET_SmartRegionRule
- * @author tianl (tianl@kfb.cn)
  * @brief 智能事件区域规则参数 Smart event region rule
  */
 typedef struct tagNET_SmartRegionRule
@@ -4379,7 +4169,6 @@ typedef NET_SmartRegionRule_S* pNET_SmartRegionRule_S;
 
 /**
  * @struct tagNET_SmartLineRule
- * @author tianl (tianl@kfb.cn)
  * @brief 智能事件警戒线规则参数 Smart event line rule
  */
 typedef struct tagNET_SmartLineRule
@@ -4398,7 +4187,6 @@ typedef NET_SmartLineRule_S* pNET_SmartLineRule_S;
 
 /**
  * @struct tagNETTVPetRecognitionInfo
- * @author tianl (tianl@kfb.cn)
  * @brief 宠物识别配置信息 Pet recognition configuration
  * @note 用于NET_TV_GET_PET_RECOGNITION_INFO/NET_SET_PET_RECOGNITION_INFO
  */
@@ -4417,7 +4205,6 @@ typedef NET_PetRecognitionInfo_S* pNET_PetRecognitionInfo_S;
 
 /**
  * @struct tagNET_ClimbFenceInfo
- * @author tianl (tianl@kfb.cn)
  * @brief 翻越围栏配置信息 Climb fence detection configuration
  * @note 用于NET_TV_GET_CLIMB_FENCE_INFO/NET_SET_CLIMB_FENCE_INFO
  */
@@ -4435,7 +4222,6 @@ typedef NET_ClimbFenceInfo_S* pNET_ClimbFenceInfo_S;
 
 /**
  * @struct tagNET_DimissionInfo
- * @author tianl (tianl@kfb.cn)
  * @brief 离岗配置信息 Leave post detection configuration
  * @note 用于NET_TV_GET_DIMISSION_INFO/NET_SET_DIMISSION_INFO
  */
@@ -4453,7 +4239,6 @@ typedef NET_DimissionInfo_S* pNET_DimissionInfo_S;
 
 /**
  * @struct tagNET_IllegalLaneInfo
- * @author tianl (tianl@kfb.cn)
  * @brief 违规变道配置信息 Illegal lane change detection configuration
  * @note 用于NET_TV_GET_ILLEGAL_LANE_INFO/NET_SET_ILLEGAL_LANE_INFO
  */
@@ -4471,7 +4256,6 @@ typedef NET_IllegalLaneInfo_S* pNET_IllegalLaneInfo_S;
 
 /**
  * @struct tagNET_RetrogradeInfo
- * @author tianl (tianl@kfb.cn)
  * @brief 逆行配置信息 Retrograde detection configuration
  * @note 用于NET_TV_GET_RETROGRADE_INFO/NET_SET_RETROGRADE_INFO
  */
@@ -4489,7 +4273,6 @@ typedef NET_RetrogradeInfo_S* pNET_RetrogradeInfo_S;
 
 /**
  * @struct tagNET_NonmotorVehicleIntrusionInfo
- * @author tianl (tianl@kfb.cn)
  * @brief 非机动车闯入配置信息 Non-motor vehicle intrusion detection configuration
  * @note 用于NET_TV_GET_NONMOTOR_VEHICLE_INTRUSION_INFO/NET_SET_NONMOTOR_VEHICLE_INTRUSION_INFO
  */
@@ -4507,7 +4290,6 @@ typedef NET_NonmotorVehicleIntrusionInfo_S* pNET_NonmotorVehicleIntrusionInfo_S;
 
 /**
  * @struct tagNET_OccupationEmergencyInfo
- * @author tianl (tianl@kfb.cn)
  * @brief 应急车道占用识别配置信息 Emergency lane occupancy detection configuration
  * @note 用于NET_TV_GET_OCCUPATION_EMERGENCY_INFO/NET_SET_OCCUPATION_EMERGENCY_INFO
  */
@@ -4525,7 +4307,6 @@ typedef NET_OccupationEmergencyInfo_S* pNET_OccupationEmergencyInfo_S;
 
 /**
  * @struct tagNET_PedestrianIntrusionInfo
- * @author tianl (tianl@kfb.cn)
  * @brief 行人闯入配置信息 Pedestrian intrusion detection configuration
  * @note 用于NET_TV_GET_PEDESTRIAN_INTRUSION_INFO/NET_SET_PEDESTRIAN_INTRUSION_INFO
  */
@@ -4543,7 +4324,6 @@ typedef NET_PedestrianIntrusionInfo_S* pNET_PedestrianIntrusionInfo_S;
 
 /**
  * @struct tagNET_SmokeFireCfg
- * @author tianl (tianl@kfb.cn)
  * @brief 烟火识别配置信息 Smoke fire detection configuration
  * @note 用于NET_TV_GET_SMOKE_FIRE_CFG/NET_SET_SMOKE_FIRE_CFG
  */
@@ -4560,7 +4340,6 @@ typedef NET_SmokeFireCfg_S* pNET_SmokeFireCfg_S;
 
 /**
  * @struct tagNET_RoadPondingCfg
- * @author tianl (tianl@kfb.cn)
  * @brief 道路积水检测配置信息 Road ponding detection configuration
  * @note 用于NET_TV_GET_ROAD_PONDING_CFG/NET_SET_ROAD_PONDING_CFG
  */
@@ -4577,7 +4356,6 @@ typedef NET_RoadPondingCfg_S* pNET_RoadPondingCfg_S;
 
 /**
  * @struct tagNETTVUnattendedObjectRule
- * @author tianl (tianl@kfb.cn)
  * @brief 物品遗留侦测区域规则参数 Unattended object detection region rule
  */
 typedef struct tagNET_UnattendedObjectRule
@@ -4594,7 +4372,6 @@ typedef NET_UnattendedObjectRule_S* pNET_UnattendedObjectRule_S;
 
 /**
  * @struct tagNETTVUnattendedObjectAlarmInfo
- * @author tianl (tianl@kfb.cn)
  * @brief 物品遗留侦测告警配置信息 Unattended object detection alarm configuration
  * @note 用于NET_TV_GET_UNATTENDEDOBJECTALARM/NET_SET_UNATTENDEDOBJECTALARM
  */
@@ -4612,7 +4389,6 @@ typedef NET_UnattendedObjectAlarmInfo_S* pNET_UnattendedObjectAlarmInfo_S;
 
 /**
  * @struct tagNETTVObjectRemovalRule
- * @author tianl (tianl@kfb.cn)
  * @brief 物品拿取侦测区域规则参数 Object removal detection region rule
  */
 typedef struct tagNET_ObjectRemovalRule
@@ -4629,7 +4405,6 @@ typedef NET_ObjectRemovalRule_S* pNET_ObjectRemovalRule_S;
 
 /**
  * @struct tagNETTVObjectRemovalAlarmInfo
- * @author tianl (tianl@kfb.cn)
  * @brief 物品拿取侦测告警配置信息 Object removal detection alarm configuration
  * @note 用于NET_TV_GET_OBJECTREMOVALALARM/NET_SET_OBJECTREMOVALALARM
  */
@@ -4647,7 +4422,6 @@ typedef NET_ObjectRemovalAlarmInfo_S* pNET_ObjectRemovalAlarmInfo_S;
 
 /**
  * @struct tagNETTVAudioAnomalyAlarmInfo
- * @author tianl (tianl@kfb.cn)
  * @brief 音频异常侦测告警配置信息 Audio anomaly detection alarm configuration
  * @note 用于NET_TV_GET_AUDIOANOMALYALARM/NET_SET_AUDIOANOMALYALARM
  */
@@ -4671,7 +4445,6 @@ typedef NET_AudioAnomalyAlarmInfo_S* pNET_AudioAnomalyAlarmInfo_S;
 
 /**
  * @struct tagNETTVFaceCaptureRegion
- * @author tianl (tianl@kfb.cn)
  * @brief 人脸抓拍区域（多边形）
  */
 typedef struct tagNET_FaceCaptureRegion
@@ -4686,7 +4459,6 @@ typedef NET_FaceCaptureRegion_S* pNET_FaceCaptureRegion_S;
 
 /**
  * @struct tagNET_FaceCaptureRule
- * @author tianl (tianl@kfb.cn)
  * @brief 人脸抓拍规则参数 Face capture rule
  */
 typedef struct tagNET_FaceCaptureRule
@@ -4711,7 +4483,6 @@ typedef NET_FaceCaptureRule_S* pNET_FaceCaptureRule_S;
 
 /**
  * @struct tagNET_FaceCaptureInfo
- * @author tianl (tianl@kfb.cn)
  * @brief 人脸抓拍配置信息 Face capture configuration
  * @note 用于NET_TV_GET_FACECAPTUREINFO/NET_SET_FACECAPTUREINFO
  */
@@ -4728,7 +4499,6 @@ typedef NET_FaceCaptureInfo_S* pNET_FaceCaptureInfo_S;
 
 /**
  * @struct tagNET_FaceCompareInfo
- * @author tianl (tianl@kfb.cn)
  * @brief 人脸比对配置信息 Face compare configuration
  * @note 用于NET_TV_SET_FACE_COMPARE_INFO
  */
@@ -4745,7 +4515,6 @@ typedef NET_FaceCompareInfo_S* pNET_FaceCompareInfo_S;
 
 /**
  * @struct tagNETTVFaceLibInfo
- * @author tianl (tianl@kfb.cn)
  * @brief 目标库信息 Face library information
  * @note 用于NET_TV_ADD_TARGET_LIB/NET_DEL_TARGET_LIB/NET_SET_TARGET_LIB
  */
@@ -4762,7 +4531,6 @@ typedef NET_FaceLibInfo_S* pNET_FaceLibInfo_S;
 
 /**
  * @struct tagNETTVFaceLibList
- * @author tianl (tianl@kfb.cn)
  * @brief 目标库列表 Face library list
  * @note 用于NET_TV_GET_TARGET_LIB
  */
@@ -4777,7 +4545,6 @@ typedef NET_FaceLibList_S* pNET_FaceLibList_S;
 
 /**
  * @struct tagNETTVFaceIdInfo
- * @author tianl (tianl@kfb.cn)
  * @brief 人脸ID信息 Face id information
  * @note 用于NET_TV_DEL_FACE_INFO
  */
@@ -4792,7 +4559,6 @@ typedef NET_FaceIdInfo_S* pNET_FaceIdInfo_S;
 
 /**
  * @struct tagNETTVFaceInfo
- * @author tianl (tianl@kfb.cn)
  * @brief 人脸信息 Face information
  * @note 用于NET_TV_ADD_FACE_INFO/NET_SET_FACE_INFO
  */
@@ -4816,7 +4582,6 @@ typedef NET_FaceInfo_S* pNET_FaceInfo_S;
 
 /**
  * @struct tagNETTVFaceInfoList
- * @author tianl (tianl@kfb.cn)
  * @brief 人脸信息列表 Face information list
  * @note 用于NET_TV_GET_FACE_INFO
  */
@@ -4830,7 +4595,6 @@ typedef struct tagNET_FaceInfoList
 typedef NET_FaceInfoList_S* pNET_FaceInfoList_S;
 
 /**
- * @author tianl (tianl@kfb.cn)
  * @brief 报警设备信息结构体
  * @note  用于报警推送，包含设备的序列号、名称、IP地址等信息
  */
@@ -4845,49 +4609,45 @@ typedef struct tagNET_Alarmer
 } NET_Alarmer_S;
 
 /**
- * @author tianl (tianl@kfb.cn)
  * @brief 报警设备信息结构体指针类型
  */
 typedef NET_Alarmer_S* pNET_Alarmer_S;
 
 /**
  * @struct tagNETTVVideoResolution
- * @author tianl (tianl@kfb.cn)
  * @brief 视频源分辨率信息 Video resolution
  * @attention 无
 */
 typedef struct tagNET_VideoResolution
 {
     CHAR  szName[NET_LEN_32];                              /* 分辨率名称, 如 1920*1080 */
-    INT32 dwWidth;                                             /*  视频编码分辨率 */
-    INT32 dwHeight;                                            /*  视频编码分辨率 */
-    FLOAT dwFrameRateMin;                                      /*  该分辨率支持的最小帧率fps */
-    FLOAT dwFrameRateMax;                                      /*  该分辨率支持的最大帧率fps */
-    INT32 dwFrameRateNum;                                      /*  该分辨率支持的帧率数量 */
-    FLOAT adwFrameRate[NET_VIDEO_FRAME_RATE_MAX_NUM];       /*  该分辨率支持的帧率fps数组 */
-    INT32 dwBitRateMin;                                        /*  该分辨率支持的最小码率kbps */
-    INT32 dwBitRateMax;                                        /*  该分辨率支持的最大码率kbps */
+    INT32 uWidth;                                             /*  视频编码分辨率 */
+    INT32 uHeight;                                            /*  视频编码分辨率 */
+    FLOAT fFrameRateMin;                                      /*  该分辨率支持的最小帧率fps */
+    FLOAT fFrameRateMax;                                      /*  该分辨率支持的最大帧率fps */
+    INT32 uFrameRateNum;                                      /*  该分辨率支持的帧率数量 */
+    FLOAT afFrameRate[NET_VIDEO_FRAME_RATE_MAX_NUM];       /*  该分辨率支持的帧率fps数组 */
+    INT32 uBitRateMin;                                        /*  该分辨率支持的最小码率kbps */
+    INT32 uBitRateMax;                                        /*  该分辨率支持的最大码率kbps */
 }NET_VideoResolution_S;
 
 typedef NET_VideoResolution_S* pNET_VideoResolution_S;
 
 /**
  * @struct tagNETTVRange
- * @author tianl (tianl@kfb.cn)
  * @brief 取值范围 Range
  * @attention 无
 */
 typedef struct tagNET_Range
 {
-    INT32   dwMin;                         /* 最小值 */
-    INT32   dwMax;                         /* 最大值 */
+    INT32   uMin;                         /* 最小值 */
+    INT32   uMax;                         /* 最大值 */
 }NET_Range_S;
 
 typedef NET_Range_S* pNET_Range_S;
 
 /**
  * @struct tagNET_TVVideoEncodeOption
- * @author tianl (tianl@kfb.cn)
  * @brief 视频编码参数选项 Video encode option
  * @attention 无
 */
@@ -4914,7 +4674,6 @@ typedef NET_VideoEncodeOption_S* pNET_VideoEncodeOption_S;
 
 /**
  * @struct tagNET_TVVideoEncodeAbility
- * @author tianl (tianl@kfb.cn)
  * @brief 单个编码格式能力 Video encode ability
  * @attention 对应 Video_NS::EncodeAbility_S
 */
@@ -4935,25 +4694,24 @@ typedef NET_VideoEncodeAbility_S* pNET_VideoEncodeAbility_S;
 
 /**
  * @struct tagNET_TVVideoStreamCap
- * @author tianl (tianl@kfb.cn)
- * @brief 视频码流参数能力集 Video stream CapNET_TV_CAP_OSD
+ * @brief 视频码流参数能力集 Video stream CapNET_CAP_OSD
  * @attention 无
 */
 typedef struct tagNET_VideoStreamCap
 {
-    INT32                           dwStreamType;                                   /* 码流类型 入参 参见 NET_LIVES_TREAM_INDEX_E */
+    INT32                           uStreamType;                                   /* 码流类型 入参 参见 NET_LIVES_TREAM_INDEX_E */
     INT32                           bSupportMultiStream;                            /* 是否支持复合流(包含音频) Support multi stream */
-    INT32                           dwEncodeCapSize;                                /* 编码能力集个数 Encode capability size */
+    INT32                           uEncodeCapSize;                                /* 编码能力集个数 Encode capability size */
     NET_VideoEncodeOption_S    astEncodeCap[NET_VIDEO_ENCODE_TYPE_MAX];     /* 编码能力 Encode capability */
     NET_Range_S                  stQuality;                                      /* 图像质量范围 Quality range */
     NET_Range_S                  stStreamSmooth;                                 /* 码流平滑范围 Stream smooth range */
-    INT32                           dwResolutionNum;                                /* 支持的分辨率个数 Number of supported resolutions */
+    INT32                           uResolutionNum;                                /* 支持的分辨率个数 Number of supported resolutions */
     NET_VideoResolution_S       astResolution[NET_RESOLUTION_NUM_MAX];       /* 支持的分辨率列表 Supported resolution list */
-    INT32                           dwEncodeTypeNum;                                /* 编码格式有效个数 */
-    INT32                           dwEncodeAbilityNum;                             /* 编码能力有效个数 */
+    INT32                           uEncodeTypeNum;                                /* 编码格式有效个数 */
+    INT32                           uEncodeAbilityNum;                             /* 编码能力有效个数 */
     NET_VideoEncodeAbility_S   astEncodeAbility[NET_VIDEO_ENCODE_TYPE_MAX]; /* 编码格式能力列表 */
-    INT32                           dwIFrameIntervalMin;                            /* I帧间隔最小值 */
-    INT32                           dwIFrameIntervalMax;                            /* I帧间隔最大值 */
+    INT32                           uIFrameIntervalMin;                            /* I帧间隔最小值 */
+    INT32                           uIFrameIntervalMax;                            /* I帧间隔最大值 */
 }NET_VideoStreamCap_S;
 
 typedef NET_VideoStreamCap_S* pNET_VideoStreamCap_S;
@@ -4962,13 +4720,12 @@ typedef NET_VideoStreamCap_S* pNET_VideoStreamCap_S;
 
 /**
  * @struct tagNET_VideoEncodeCap
- * @author tianl (tianl@kfb.cn)
  * @brief 视频编码能力集(多码流) Video Encode Capability
  * @attention 包含所有码流的能力集信息
 */
 typedef struct tagNET_VideoEncodeCap
 {
-    INT32                       dwStreamCount;                                  /* 码流数量 Stream count */
+    INT32                       uStreamCount;                                  /* 码流数量 Stream count */
     NET_VideoStreamCap_S   astStreamCap[NET_VIDEO_STREAM_MAX];          /* 各码流能力 Stream capabilities */
 }NET_VideoEncodeCap_S;
 
@@ -4978,34 +4735,32 @@ typedef NET_VideoEncodeCap_S* pNET_VideoEncodeCap_S;
 
 /**
  * @struct tagNETTVAudioRange
- * @author tianl (tianl@kfb.cn)
  * @brief 音频数值范围 Audio range
  * @attention 无
  */
 typedef struct tagNET_AudioRange
 {
     INT32   bEnable;    /* 是否启用范围约束，0-不校验，1-校验 */
-    INT32   dwMin;      /* 最小值 */
-    INT32   dwMax;      /* 最大值 */
-    INT32   dwStep;     /* 步长，<=0 表示不做步长校验 */
+    INT32   uMin;       /* 最小值 */
+    INT32   uMax;       /* 最大值 */
+    INT32   uStep;      /* 步长，<=0 表示不做步长校验 */
 }NET_AudioRange_S;
 
 typedef NET_AudioRange_S* pNET_AudioRange_S;
 
 /**
  * @struct tagNETTVAudioFormatCap
- * @author tianl (tianl@kfb.cn)
  * @brief 音频格式能力集 Audio format capability
  * @attention 无
  */
 typedef struct tagNET_AudioFormatCap
 {
-    INT32                   dwFormat;                               /* 音频格式 参见 NET_AUDIO_FORMAT_E */
-    INT32                   dwSampleRateSize;                       /* 采样率数量 */
-    INT32                   adwSampleRate[NET_AUDIO_SAMPRATE_MAX]; /* 采样率列表 参见 NET_AUDIO_SAMPRATE_E */
+    INT32                   uFormat;                               /* 音频格式 参见 NET_AudioFormat_E */
+    INT32                   uSampleRateSize;                       /* 采样率数量 */
+    INT32                   auSampleRate[NET_AUDIO_SAMPRATE_MAX]; /* 采样率列表 参见 NET_AudioSampRate_E */
 
-    INT32                   dwBitRateSize;                          /* 码率数量 */
-    INT32                   adwBitRate[NET_AUDIO_BITRATE_MAX];  /* 码率列表 参见 NET_AUDIO_BITRATE_E */
+    INT32                   uBitRateSize;                          /* 码率数量 */
+    INT32                   auBitRate[NET_AUDIO_BITRATE_MAX];  /* 码率列表 参见 NET_AudioBitRate_E */
 
     NET_AudioRange_S    stSampleRateRange;                      /* 采样率范围（预留） */
     NET_AudioRange_S    stBitRateRange;                         /* 码率范围（预留） */
@@ -5015,22 +4770,21 @@ typedef NET_AudioFormatCap_S* pNET_AudioFormatCap_S;
 
 /**
  * @struct tagNETTVAudioEncodeCap
- * @author tianl (tianl@kfb.cn)
  * @brief 音频编码能力集 Audio encode capability
  * @attention 无
  */
 typedef struct tagNET_AudioCap
 {
-    INT32                       dwInputTypeSize;                           /* 输入类型数量 */
-    INT32                       adwInputType[NET_AUDIO_INPUT_TYPE_MAX];   /* 输入类型 参见 NET_AUDIO_INPUT_TYPE_E */
+    INT32                       uInputTypeSize;                           /* 输入类型数量 */
+    INT32                       auInputType[NET_AUDIO_INPUT_TYPE_MAX];   /* 输入类型 参见 NET_AudioInputType_E */
 
-    INT32                       dwOutputTypeSize;                          /* 输出类型数量 */
-    INT32                       adwOutputType[NET_AUDIO_OUTPUT_TYPE_MAX]; /* 输出类型 参见 NET_AUDIO_OUTPUT_TYPE_E */
+    INT32                       uOutputTypeSize;                          /* 输出类型数量 */
+    INT32                       auOutputType[NET_AUDIO_OUTPUT_TYPE_MAX]; /* 输出类型 参见 NET_AudioOutputType_E */
 
-    INT32                       dwFormatSize;                              /* 音频格式数量 */
-    INT32                       adwFormat[NET_AUDIO_FORMAT_MAX];        /* 音频格式 参见 NET_AUDIO_FORMAT_E */
+    INT32                       uFormatSize;                              /* 音频格式数量 */
+    INT32                       auFormat[NET_AUDIO_FORMAT_MAX];        /* 音频格式 参见 NET_AudioFormat_E */
 
-    INT32                       dwFormatDetailSize;                        /* 音频格式详细能力数量 */
+    INT32                       uFormatDetailSize;                        /* 音频格式详细能力数量 */
     NET_AudioFormatCap_S   astFormatDetail[NET_AUDIO_FORMAT_MAX];  /* 各音频格式详细能力 */
 }NET_AudioCap_S;
 
@@ -5145,7 +4899,6 @@ typedef NET_VideoOsdCfg_S* pNET_VideoOsdCfg_S;
 
 /**
  * @struct tagNETTVOsdCap
- * @author tianl (tianl@kfb.cn)
  * @brief 通道OSD的能力集 OSD Capabilities (简化版，对应OsdConfig_S)
  * @attention
  */
@@ -5186,7 +4939,6 @@ typedef NET_OsdCap_S* pNET_OsdCap_S;
 
 /**
  * @struct tagNETTVMotionDetectCap
- * @author tianl (tianl@kfb.cn)
  * @brief 移动侦测能力  Motion detection capability
  * @attention
  */
@@ -5211,7 +4963,6 @@ typedef NET_MotionDetectCap_S* pNET_MotionDetectCap_S;
 
 /**
  * @struct tagNETTVTamperDetectCap
- * @author tianl (tianl@kfb.cn)
  * @brief 遮挡检测能力  Tamper detection capability
  * @attention
  */
@@ -5227,7 +4978,6 @@ typedef NET_TamperDetectCap_S* pNET_TamperDetectCap_S;
 
 /**
  * @struct tagNETTVBoundaryDetectCap
- * @author tianl (tianl@kfb.cn)
  * @brief 越界检测能力  Boundary detection capability
  * @attention
  */
@@ -5246,7 +4996,6 @@ typedef NET_BoundaryDetectCap_S* pNET_BoundaryDetectCap_S;
 
 /**
  * @struct tagNETTVIntrusionDetectCap
- * @author tianl (tianl@kfb.cn)
  * @brief 区域入侵检测能力  Intrusion detection capability
  * @attention
  */
@@ -5266,7 +5015,6 @@ typedef NET_IntrusionDetectCap_S* pNET_IntrusionDetectCap_S;
 
 /**
  * @struct tagNETTVEnterExitDetectCap
- * @author tianl (tianl@kfb.cn)
  * @brief 进入/离开区域检测能力  Enter/Exit detection capability
  * @attention
  */
@@ -5288,7 +5036,6 @@ typedef NET_EnterExitDetectCap_S* pNET_EnterExitDetectCap_S;
 
 /**
  * @struct tagNETTVLoiteringDetectCap
- * @author tianl (tianl@kfb.cn)
  * @brief 徘徊检测能力  Loitering detection capability
  * @attention
  */
@@ -5307,7 +5054,6 @@ typedef NET_LoiteringDetectCap_S* pNET_LoiteringDetectCap_S;
 
 /**
  * @struct tagNETTVCrowdGatheringCap
- * @author tianl (tianl@kfb.cn)
  * @brief 人群聚集检测能力  Crowd gathering detection capability
  * @attention
  */
@@ -5324,7 +5070,6 @@ typedef NET_CrowdGatheringCap_S* pNET_CrowdGatheringCap_S;
 
 /**
  * @struct tagNETTVParkingDetectCap
- * @author tianl (tianl@kfb.cn)
  * @brief 停车检测能力  Parking detection capability
  * @attention
  */
@@ -5342,7 +5087,6 @@ typedef NET_ParkingDetectCap_S* pNET_ParkingDetectCap_S;
 
 /**
  * @struct tagNETTVObjectChangeDetectCap
- * @author tianl (tianl@kfb.cn)
  * @brief 物品遗留/移走检测能力  Object left/removal detection capability
  * @attention
  */
@@ -5361,7 +5105,6 @@ typedef NET_ObjectChangeDetectCap_S* pNET_ObjectChangeDetectCap_S;
 
 /**
  * @struct tagNETTVFaceDetectCap
- * @author tianl (tianl@kfb.cn)
  * @brief 人脸检测能力  Face detection capability
  * @attention
  */
@@ -5379,7 +5122,6 @@ typedef NET_FaceDetectCap_S* pNET_FaceDetectCap_S;
 
 /**
  * @struct tagNETTVFaceCaptureCap
- * @author tianl (tianl@kfb.cn)
  * @brief 人脸抓拍能力  Face capture capability
  * @attention
  */
@@ -5403,7 +5145,6 @@ typedef NET_FaceCaptureCap_S* pNET_FaceCaptureCap_S;
 
 /**
  * @struct tagNETTVPetRecognitionCap
- * @author tianl (tianl@kfb.cn)
  * @brief 宠物识别能力  Pet recognition capability
  * @attention
  */
@@ -5421,7 +5162,6 @@ typedef NET_PetRecognitionCap_S* pNET_PetRecognitionCap_S;
 
 /**
  * @struct tagNETTVAudioAnomalyCap
- * @author tianl (tianl@kfb.cn)
  * @brief 音频异常检测能力  Audio anomaly detection capability
  * @attention
  */
@@ -5441,7 +5181,6 @@ typedef NET_AudioAnomalyCap_S* pNET_AudioAnomalyCap_S;
 
 /**
  * @struct tagNETTVSceneChangeCap
- * @author tianl (tianl@kfb.cn)
  * @brief 场景变更检测能力  Scene change detection capability
  * @attention
  */
@@ -5456,7 +5195,6 @@ typedef NET_SceneChangeCap_S* pNET_SceneChangeCap_S;
 
 /**
  * @struct tagNETTVFireDetectCap
- * @author tianl (tianl@kfb.cn)
  * @brief 火灾检测能力  Fire detection capability
  * @attention
  */
@@ -5474,7 +5212,6 @@ typedef NET_FireDetectCap_S* pNET_FireDetectCap_S;
 
 /**
  * @struct tagNETTVSmokeDetectCap
- * @author tianl (tianl@kfb.cn)
  * @brief 烟雾检测能力  Smoke detection capability
  * @attention
  */
@@ -5492,7 +5229,6 @@ typedef NET_SmokeDetectCap_S* pNET_SmokeDetectCap_S;
 
 /**
  * @struct tagNETTVWaterAccumulationCap
- * @author tianl (tianl@kfb.cn)
  * @brief 积水检测能力  Water accumulation detection capability
  * @attention
  */
@@ -5510,7 +5246,6 @@ typedef NET_WaterAccumulationCap_S* pNET_WaterAccumulationCap_S;
 
 /**
  * @struct tagNETTVTrashOverflowCap
- * @author tianl (tianl@kfb.cn)
  * @brief 垃圾满溢检测能力  Trash overflow detection capability
  * @attention
  */
@@ -5528,7 +5263,6 @@ typedef NET_TrashOverflowCap_S* pNET_TrashOverflowCap_S;
 
 /**
  * @struct tagNETTVBehaviorDetectCap
- * @author tianl (tianl@kfb.cn)
  * @brief 人员行为检测能力  Personnel behavior detection capability
  * @attention
  */
@@ -5554,7 +5288,6 @@ typedef NET_BehaviorDetectCap_S* pNET_BehaviorDetectCap_S;
 
 /**
  * @struct tagNETTVEnvironmentAnomalyCap
- * @author tianl (tianl@kfb.cn)
  * @brief 环境异常检测能力  Environment anomaly detection capability
  * @attention
  */
@@ -5579,7 +5312,6 @@ typedef NET_EnvironmentAnomalyCap_S* pNET_EnvironmentAnomalyCap_S;
 
 /**
  * @struct tagNETTVSafetyEquipmentCap
- * @author tianl (tianl@kfb.cn)
  * @brief 穿戴规范检测能力  Safety equipment detection capability
  * @attention
  */
@@ -5601,7 +5333,6 @@ typedef NET_SafetyEquipmentCap_S* pNET_SafetyEquipmentCap_S;
 
 /**
  * @struct tagNETTVLicensePlateCap
- * @author tianl (tianl@kfb.cn)
  * @brief 车牌识别能力  License plate recognition capability
  * @attention
  */
@@ -5623,7 +5354,6 @@ typedef NET_LicensePlateCap_S* pNET_LicensePlateCap_S;
 
 /**
  * @struct tagNETTVWrongWayDrivingCap
- * @author tianl (tianl@kfb.cn)
  * @brief 逆行检测能力  Wrong way driving detection capability
  * @attention
  */
@@ -5639,7 +5369,6 @@ typedef NET_WrongWayDrivingCap_S* pNET_WrongWayDrivingCap_S;
 
 /**
  * @struct tagNET_IllegalLaneChangeCap
- * @author tianl (tianl@kfb.cn)
  * @brief 违规变道检测能力  Illegal lane change detection capability
  * @attention
  */
@@ -5655,7 +5384,6 @@ typedef NET_IllegalLaneChangeCap_S* pNET_IllegalLaneChangeCap_S;
 
 /**
  * @struct tagNET_EmergencyLaneOccupancyCap
- * @author tianl (tianl@kfb.cn)
  * @brief 应急车道占用检测能力  Emergency lane occupancy detection capability
  * @attention
  */
@@ -5671,7 +5399,6 @@ typedef NET_EmergencyLaneOccupancyCap_S* pNET_EmergencyLaneOccupancyCap_S;
 
 /**
  * @struct tagNET_NonMotorVehicleIntrusionCap
- * @author tianl (tianl@kfb.cn)
  * @brief 非机动车入侵检测能力  Non-motor vehicle intrusion detection capability
  * @attention
  */
@@ -5687,7 +5414,6 @@ typedef NET_NonMotorVehicleIntrusionCap_S* pNET_NonMotorVehicleIntrusionCap_S;
 
 /**
  * @struct tagNET_ConstructionOccupancyCap
- * @author tianl (tianl@kfb.cn)
  * @brief 施工占道检测能力  Construction occupancy detection capability
  * @attention
  */
@@ -5704,7 +5430,6 @@ typedef NET_ConstructionOccupancyCap_S* pNET_ConstructionOccupancyCap_S;
 
 /**
  * @struct tagNET_CongestionCap
- * @author tianl (tianl@kfb.cn)
  * @brief 拥堵检测能力  Congestion detection capability
  * @attention
  */
@@ -5723,7 +5448,6 @@ typedef NET_CongestionCap_S* pNET_CongestionCap_S;
 
 /**
  * @struct tagNET_IllegalParkingCap
- * @author tianl (tianl@kfb.cn)
  * @brief 违规停车检测能力  Illegal parking detection capability
  * @attention
  */
@@ -5741,7 +5465,6 @@ typedef NET_IllegalParkingCap_S* pNET_IllegalParkingCap_S;
 
 /**
  * @struct tagNET_SmartCap
- * @author tianl (tianl@kfb.cn)
  * @brief 智能能力集  Smart capability set
  * @attention 对应 NET_CAP_SMART
  */
@@ -5789,7 +5512,6 @@ typedef NET_SmartCap_S* pNET_SmartCap_S;
 #define NET_DISCOVERY_TTL                      4
 
 /**
- * @author tianl (tianl@kfb.cn)
  * @brief 设备发现响应信息结构体
  * @note  用于设备发现流程，接收设备上报的自身网络及固件信息
  */
@@ -5809,7 +5531,6 @@ typedef struct tagNET_DiscoveryDeviceInfo
 } NET_DiscoveryDeviceInfo_S;
 
 /**
- * @author tianl (tianl@kfb.cn)
  * @brief 设备发现响应信息结构体指针类型
  */
 typedef NET_DiscoveryDeviceInfo_S* pNET_DiscoveryDeviceInfo_S;
