@@ -41,9 +41,9 @@ namespace tvsdk {
  * @details 当客户端请求启动录像帧流时调用，由宿主程序实现实际的流开启逻辑
  * @param cond 流启动条件（通道、时间范围、媒体类型等）
  * @param info 流信息（输出参数，包含流ID、端口、媒体类型等）
- * @return 错误码，NET_TV_E_SUCCEED表示成功，其他值表示失败
+ * @return 错误码，NET_E_SUCCEED表示成功，其他值表示失败
  */
-using RecordFrameStartCallback = std::function<NET_TV_COMMON_ECODE_E(const NET_RecordFrameStreamCond_S& cond,
+using RecordFrameStartCallback = std::function<NET_COMMON_ECODE_E(const NET_RecordFrameStreamCond_S& cond,
                                                                      NET_RecordFrameStreamInfo_S& info)>;
 
 /**
@@ -66,9 +66,9 @@ using RecordFrameReadCallback = std::function<int(const std::string& stream_id,
  * @brief 录像帧流停止回调函数类型
  * @details 当客户端请求停止录像帧流时调用，由宿主程序实现实际的流停止逻辑
  * @param stream_id 流ID，标识要停止的播放会话
- * @return 错误码，NET_TV_E_SUCCEED表示成功，其他值表示失败
+ * @return 错误码，NET_E_SUCCEED表示成功，其他值表示失败
  */
-using RecordFrameStopCallback = std::function<NET_TV_COMMON_ECODE_E(const std::string& stream_id)>;
+using RecordFrameStopCallback = std::function<NET_COMMON_ECODE_E(const std::string& stream_id)>;
 
 /**
  * @author tianl (tianl@kfb.cn)
@@ -139,18 +139,18 @@ public:
      * @brief 开启录像帧流
      * @param cond 流启动条件（通道、时间范围、媒体类型等）
      * @param info 流信息（输出参数，包含流ID、端口、媒体类型等）
-     * @return 错误码，NET_TV_E_SUCCEED表示成功，其他值表示失败
+     * @return 错误码，NET_E_SUCCEED表示成功，其他值表示失败
      */
-    NET_TV_COMMON_ECODE_E open_stream(const NET_RecordFrameStreamCond_S& cond,
+    NET_COMMON_ECODE_E open_stream(const NET_RecordFrameStreamCond_S& cond,
                                       NET_RecordFrameStreamInfo_S& info);
 
     /**
  * @author tianl (tianl@kfb.cn)
      * @brief 关闭录像帧流
      * @param stream_id 流ID，标识要关闭的播放会话
-     * @return 错误码，NET_TV_E_SUCCEED表示成功，其他值表示失败
+     * @return 错误码，NET_E_SUCCEED表示成功，其他值表示失败
      */
-    NET_TV_COMMON_ECODE_E close_stream(const std::string& stream_id);
+    NET_COMMON_ECODE_E close_stream(const std::string& stream_id);
 
 private:
     /**

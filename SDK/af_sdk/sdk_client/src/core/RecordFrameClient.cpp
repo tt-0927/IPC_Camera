@@ -159,7 +159,7 @@ void CRecordFrameClient::stop() {
 
 void CRecordFrameClient::recv_loop() {
     while (m_bRunning) {
-        NET_TV_RECORD_FRAME_RTP_HEADER_S header{};
+        NET_RECORD_FRAME_RTP_HEADER_S header{};
         if (!recv_exact(m_nSocket, reinterpret_cast<char*>(&header), sizeof(header))) {
             if (m_bRunning) {
                 NETSDK_LOG_MESSAGE_WARN("CRecordFrameClient: recv header failed, errno=%d", NETSDK_SOCKET_GET_ERROR());
@@ -173,7 +173,7 @@ void CRecordFrameClient::recv_loop() {
         }
 
         const uint32_t payload_len = from_be32(header.dwPayloadLen);
-        if (payload_len > NET_TV_RECORD_FRAME_MAX_PAYLOAD_SIZE) {
+        if (payload_len > NET_RECORD_FRAME_MAX_PAYLOAD_SIZE) {
             NETSDK_LOG_MESSAGE_WARN("CRecordFrameClient: invalid payload len %u", payload_len);
             break;
         }
@@ -186,23 +186,23 @@ void CRecordFrameClient::recv_loop() {
             break;
         }
 
-        NET_TV_RECORD_FRAME_INFO_S frame_info{};
+        NET_RECORD_FRAME_INFO_S frame_info{};
         frame_info.dwSize = sizeof(frame_info);
         frame_info.dwSeq = from_be16(header.wSeq);
         frame_info.dwTimestamp = from_be32(header.dwTimestamp);
         frame_info.dwPayloadLen = payload_len;
         frame_info.dwFlags = from_be32(header.dwFlags);
         switch (header.byPayloadType) {
-            case NET_TV_RECORD_FRAME_PAYLOAD_TYPE_AUDIO:
-                frame_info.dwMediaType = NET_TV_RECORD_FRAME_MEDIA_AUDIO;
+            case NET_RECORD_FRAME_PAYLOAD_TYPE_AUDIO:
+                frame_info.dwMediaType = NET_RECORD_FRAME_MEDIA_AUDIO;
                 break;
-            case NET_TV_RECORD_FRAME_PAYLOAD_TYPE_END:
-                frame_info.dwMediaType = NET_TV_RECORD_FRAME_MEDIA_END;
-                frame_info.dwFlags |= NET_TV_RECORD_FRAME_FLAG_STREAM_END;
+            case NET_RECORD_FRAME_PAYLOAD_TYPE_END:
+                frame_info.dwMediaType = NET_RECORD_FRAME_MEDIA_END;
+                frame_info.dwFlags |= NET_RECORD_FRAME_FLAG_STREAM_END;
                 break;
-            case NET_TV_RECORD_FRAME_PAYLOAD_TYPE_VIDEO:
+            case NET_RECORD_FRAME_PAYLOAD_TYPE_VIDEO:
             default:
-                frame_info.dwMediaType = NET_TV_RECORD_FRAME_MEDIA_VIDEO;
+                frame_info.dwMediaType = NET_RECORD_FRAME_MEDIA_VIDEO;
                 break;
         }
 
@@ -210,7 +210,7 @@ void CRecordFrameClient::recv_loop() {
             m_fnCallback(frame_info, payload_len > 0 ? payload.data() : nullptr, payload_len);
         }
 
-        if ((frame_info.dwFlags & NET_TV_RECORD_FRAME_FLAG_STREAM_END) != 0) {
+        if ((frame_info.dwFlags & NET_RECORD_FRAME_FLAG_STREAM_END) != 0) {
             break;
         }
     }

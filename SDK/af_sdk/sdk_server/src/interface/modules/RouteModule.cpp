@@ -76,7 +76,7 @@ static bool IsSafeUploadFileNameChar(char ch)
  */
 bool IsValidUploadFileName(const std::string& filename)
 {
-    if (filename.empty() || filename.size() >= NET_TV_FILE_NAME_LEN) {
+    if (filename.empty() || filename.size() >= NET_FILE_NAME_LEN) {
         return false;
     }
 
@@ -207,10 +207,10 @@ bool DrainUploadBody(const httplib::ContentReader& contentReader,
  * @param res HTTP响应对象
  * @param code SDK错误码
  */
-void SetSdkJsonResponse(httplib::Response& res, NET_TV_COMMON_ECODE_E code)
+void SetSdkJsonResponse(httplib::Response& res, NET_COMMON_ECODE_E code)
 {
-    res.status = NET_TV_HTTP_RESP_CODE_SUCCESS;
-    res.set_content(SDKConvert::to_respString(code), NET_TV_JSON_CONTENT_TYPE);
+    res.status = NET_HTTP_RESP_CODE_SUCCESS;
+    res.set_content(SDKConvert::to_respString(code), NET_JSON_CONTENT_TYPE);
 }
 
 /**
@@ -266,7 +266,7 @@ BOOL CRouteModule::RegisterAllRoutes()
     RegisterUpgradeRoutes();
 
     NETSDK_LOG_MESSAGE_INFO("Successfully registered %zu routes", m_nRouteCount);
-    return NET_TV_TRUE;
+    return NET_TRUE;
 }
 
 /**
@@ -278,7 +278,7 @@ void CRouteModule::RegisterDeviceRoutes()
     NETSDK_LOG_MESSAGE_DEBUG("Registering device routes...");
 
     /* 注册设备信息路由 */
-    NETSDK_REGISTER_ROUTE_URL_SINGLETON(NET_TV_API_PATH_DEVICE_GETINFO,
+    NETSDK_REGISTER_ROUTE_URL_SINGLETON(NET_API_PATH_DEVICE_GETINFO,
                                  HttpMethod_E::GET,
                                  CDeviceBusiness,
                                  GetDeviceInfo);
@@ -296,7 +296,7 @@ void CRouteModule::RegisterCapabilityRoutes()
     NETSDK_LOG_MESSAGE_DEBUG("Registering capability routes...");
 
     /* 注册设备能力集路由 */
-    NETSDK_REGISTER_ROUTE_URL_SINGLETON(NET_TV_API_PATH_DEVICE_CAPABILITY,
+    NETSDK_REGISTER_ROUTE_URL_SINGLETON(NET_API_PATH_DEVICE_CAPABILITY,
                                  HttpMethod_E::GET,
                                  CDeviceCapabilityBusiness,
                                  GetDeviceCapability);
@@ -313,13 +313,13 @@ void CRouteModule::RegisterConfigRoutes()
 {
     NETSDK_LOG_MESSAGE_DEBUG("Registering config routes...");
 
-    NETSDK_REGISTER_ROUTE_URL_SINGLETON(NET_TV_API_PATH_DEVICE_GET_DEV_CONFIG,
+    NETSDK_REGISTER_ROUTE_URL_SINGLETON(NET_API_PATH_DEVICE_GET_DEV_CONFIG,
                                  HttpMethod_E::GET,
                                  CDeviceConfigBusiness,
                                  GetDevConfig);
     m_nRouteCount++;
 
-    NETSDK_REGISTER_ROUTE_URL_SINGLETON(NET_TV_API_PATH_DEVICE_SET_DEV_CONFIG,
+    NETSDK_REGISTER_ROUTE_URL_SINGLETON(NET_API_PATH_DEVICE_SET_DEV_CONFIG,
                                  HttpMethod_E::POST,
                                  CDeviceConfigBusiness,
                                  SetDevConfig);
@@ -336,7 +336,7 @@ void CRouteModule::RegisterDeviceControlRoutes()
 {
     NETSDK_LOG_MESSAGE_DEBUG("Registering device control routes...");
 
-    NETSDK_REGISTER_ROUTE_URL_SINGLETON(NET_TV_API_PATH_DEVICE_CONTROL,
+    NETSDK_REGISTER_ROUTE_URL_SINGLETON(NET_API_PATH_DEVICE_CONTROL,
                                  HttpMethod_E::POST,
                                  CDeviceControlBusiness,
                                  DeviceControl);
@@ -353,31 +353,31 @@ void CRouteModule::RegisterVideoRoutes()
 {
     NETSDK_LOG_MESSAGE_DEBUG("Registering video routes...");
 
-    NETSDK_REGISTER_ROUTE_URL_SINGLETON(NET_TV_API_PATH_REPLAY_GET_URL,
+    NETSDK_REGISTER_ROUTE_URL_SINGLETON(NET_API_PATH_REPLAY_GET_URL,
                                  HttpMethod_E::POST,
                                  CPlaybackBusiness,
                                  GetReplayUrl);
     m_nRouteCount++;
 
-    NETSDK_REGISTER_ROUTE_URL_SINGLETON(NET_TV_API_PATH_REPLAY_CONTROL,
+    NETSDK_REGISTER_ROUTE_URL_SINGLETON(NET_API_PATH_REPLAY_CONTROL,
                                  HttpMethod_E::POST,
                                  CPlaybackBusiness,
                                  ControlReplay);
     m_nRouteCount++;
 
-    NETSDK_REGISTER_ROUTE_URL_SINGLETON(NET_TV_API_PATH_REPLAY_GET_RECORD_LIST,
+    NETSDK_REGISTER_ROUTE_URL_SINGLETON(NET_API_PATH_REPLAY_GET_RECORD_LIST,
                                  HttpMethod_E::POST,
                                  CPlaybackBusiness,
                                  GetReplayRecordList);
     m_nRouteCount++;
 
-    NETSDK_REGISTER_ROUTE_URL_SINGLETON(NET_TV_API_PATH_RECORD_FRAME_STREAM_START,
+    NETSDK_REGISTER_ROUTE_URL_SINGLETON(NET_API_PATH_RECORD_FRAME_STREAM_START,
                                  HttpMethod_E::POST,
                                  CRecordFrameBusiness,
                                  StartRecordFrameStream);
     m_nRouteCount++;
 
-    NETSDK_REGISTER_ROUTE_URL_SINGLETON(NET_TV_API_PATH_RECORD_FRAME_STREAM_STOP,
+    NETSDK_REGISTER_ROUTE_URL_SINGLETON(NET_API_PATH_RECORD_FRAME_STREAM_STOP,
                                  HttpMethod_E::POST,
                                  CRecordFrameBusiness,
                                  StopRecordFrameStream);
@@ -397,13 +397,13 @@ void CRouteModule::RegisterUpgradeRoutes()
     /* 固件上传端点: PUT /TVAPI/V1.0/Upgrade/Upload?filename=xxx */
     /* 直接注册原始handler, 不走MakeHttpCallbackHandler(因为body是二进制非JSON) */
     CRouteRegistry::registerRoute(
-        NET_TV_API_PATH_UPGRADE_UPLOAD,
+        NET_API_PATH_UPGRADE_UPLOAD,
         HttpMethod_E::PUT,
         [](const httplib::Request& req, httplib::Response& res, const httplib::ContentReader& contentReader) {
             const std::string contentLength = req.has_header("Content-Length") ?
                 req.get_header_value("Content-Length") : "";
-            const std::string rawFilename = req.has_param(NET_TV_API_PARAM_FILENAME) ?
-                req.get_param_value(NET_TV_API_PARAM_FILENAME) : "";
+            const std::string rawFilename = req.has_param(NET_API_PARAM_FILENAME) ?
+                req.get_param_value(NET_API_PARAM_FILENAME) : "";
             NETSDK_LOG_MESSAGE_INFO("[TVSDK][Upload] request: client=%s, path=%s, filename=%s, content_length=%s",
                           req.remote_addr.c_str(), req.path.c_str(), rawFilename.c_str(),
                           contentLength.c_str());
@@ -416,9 +416,9 @@ void CRouteModule::RegisterUpgradeRoutes()
             }
 
             try {
-                if (!req.has_param(NET_TV_API_PARAM_FILENAME)) {
+                if (!req.has_param(NET_API_PARAM_FILENAME)) {
                     NETSDK_LOG_MESSAGE_WARN("[TVSDK][Upload] missing filename: client=%s", req.remote_addr.c_str());
-                    SetSdkJsonResponse(res, NET_TV_E_INVALID_PARAM);
+                    SetSdkJsonResponse(res, NET_E_INVALID_PARAM);
                     return;
                 }
 
@@ -427,7 +427,7 @@ void CRouteModule::RegisterUpgradeRoutes()
                 if (filename.empty()) {
                     NETSDK_LOG_MESSAGE_WARN("[TVSDK][Upload] invalid filename: client=%s, filename=%s",
                                   req.remote_addr.c_str(), rawFilename.c_str());
-                    SetSdkJsonResponse(res, NET_TV_E_INVALID_PARAM);
+                    SetSdkJsonResponse(res, NET_E_INVALID_PARAM);
                     return;
                 }
 
@@ -437,7 +437,7 @@ void CRouteModule::RegisterUpgradeRoutes()
                     const int err = errno;
                     NETSDK_LOG_MESSAGE_ERROR("[TVSDK][Upload] ensure dir failed: path=/opt/course/, errno=%d(%s)",
                                    err, std::strerror(err));
-                    SetSdkJsonResponse(res, NET_TV_E_SYSCALL_FALIED);
+                    SetSdkJsonResponse(res, NET_E_SYSCALL_FALIED);
                     return;
                 }
                 errno = 0;
@@ -445,7 +445,7 @@ void CRouteModule::RegisterUpgradeRoutes()
                     const int err = errno;
                     NETSDK_LOG_MESSAGE_ERROR("[TVSDK][Upload] ensure dir failed: path=%s, errno=%d(%s)",
                                    kUploadDir, err, std::strerror(err));
-                    SetSdkJsonResponse(res, NET_TV_E_SYSCALL_FALIED);
+                    SetSdkJsonResponse(res, NET_E_SYSCALL_FALIED);
                     return;
                 }
 
@@ -458,7 +458,7 @@ void CRouteModule::RegisterUpgradeRoutes()
                     const int err = errno;
                     NETSDK_LOG_MESSAGE_ERROR("[TVSDK][Upload] open temp file failed: path=%s, errno=%d(%s)",
                                    tempPath.c_str(), err, std::strerror(err));
-                    SetSdkJsonResponse(res, NET_TV_E_FILE_NO_EXIST);
+                    SetSdkJsonResponse(res, NET_E_FILE_NO_EXIST);
                     return;
                 }
 
@@ -494,14 +494,14 @@ void CRouteModule::RegisterUpgradeRoutes()
                                    outFile.fail() ? 1 : 0, outFile.bad() ? 1 : 0,
                                    err, std::strerror(err));
                     std::remove(tempPath.c_str());
-                    SetSdkJsonResponse(res, NET_TV_E_SYSCALL_FALIED);
+                    SetSdkJsonResponse(res, NET_E_SYSCALL_FALIED);
                     return;
                 }
 
                 if (writtenSize == 0) {
                     NETSDK_LOG_MESSAGE_WARN("[TVSDK][Upload] empty body: temp=%s", tempPath.c_str());
                     std::remove(tempPath.c_str());
-                    SetSdkJsonResponse(res, NET_TV_E_INVALID_PARAM);
+                    SetSdkJsonResponse(res, NET_E_INVALID_PARAM);
                     return;
                 }
 
@@ -512,7 +512,7 @@ void CRouteModule::RegisterUpgradeRoutes()
                     NETSDK_LOG_MESSAGE_ERROR("[TVSDK][Upload] rename failed: temp=%s, final=%s, errno=%d(%s)",
                                    tempPath.c_str(), filePath.c_str(), err, std::strerror(err));
                     std::remove(tempPath.c_str());
-                    SetSdkJsonResponse(res, NET_TV_E_SYSCALL_FALIED);
+                    SetSdkJsonResponse(res, NET_E_SYSCALL_FALIED);
                     return;
                 }
 
@@ -520,14 +520,14 @@ void CRouteModule::RegisterUpgradeRoutes()
                 if (!UpdateLastUpgradeFile(filePath)) {
                     NETSDK_LOG_MESSAGE_ERROR("[TVSDK][Upload] update last upgrade marker failed: marker=%s, file=%s",
                                    kLastUpgradeFile, filePath.c_str());
-                    SetSdkJsonResponse(res, NET_TV_E_SYSCALL_FALIED);
+                    SetSdkJsonResponse(res, NET_E_SYSCALL_FALIED);
                     return;
                 }
 
-                SetSdkJsonResponse(res, NET_TV_E_SUCCEED);
+                SetSdkJsonResponse(res, NET_E_SUCCEED);
             } catch (const std::exception& e) {
                 NETSDK_LOG_MESSAGE_ERROR("[TVSDK][Upload] exception: %s", e.what());
-                SetSdkJsonResponse(res, NET_TV_E_FAILED);
+                SetSdkJsonResponse(res, NET_E_FAILED);
             }
         });
     m_nRouteCount++;

@@ -204,21 +204,21 @@ void CRecordFrameServer::set_stop_callback(RecordFrameStopCallback cb) {
  * @return 返回该处理的状态或结果。
  */
 
-NET_TV_COMMON_ECODE_E CRecordFrameServer::open_stream(const NET_TV_RECORD_FRAME_STREAM_COND_S& cond,
-                                                     NET_TV_RECORD_FRAME_STREAM_INFO_S& info) {
+NET_COMMON_ECODE_E CRecordFrameServer::open_stream(const NET_RECORD_FRAME_STREAM_COND_S& cond,
+                                                     NET_RECORD_FRAME_STREAM_INFO_S& info) {
     RecordFrameStartCallback cb;
     {
         std::lock_guard<std::mutex> lock(m_stCallbackMutex);
         cb = m_fnStartCallback;
     }
     if (!cb) {
-        return NET_TV_E_NOT_SUPPORT;
+        return NET_E_NOT_SUPPORT;
     }
 
     std::memset(&info, 0, sizeof(info));
     info.dwSize = sizeof(info);
-    NET_TV_COMMON_ECODE_E code = cb(cond, info);
-    if (code != NET_TV_E_SUCCEED) {
+    NET_COMMON_ECODE_E code = cb(cond, info);
+    if (code != NET_E_SUCCEED) {
         return code;
     }
 
@@ -226,7 +226,7 @@ NET_TV_COMMON_ECODE_E CRecordFrameServer::open_stream(const NET_TV_RECORD_FRAME_
         info.dwTcpPort = static_cast<UINT32>(m_nPort);
     }
     if (info.dwMediaType == 0) {
-        info.dwMediaType = NET_TV_RECORD_FRAME_MEDIA_VIDEO;
+        info.dwMediaType = NET_RECORD_FRAME_MEDIA_VIDEO;
     }
     if (info.szStreamId[0] == '\0') {
         const auto ticks = std::chrono::steady_clock::now().time_since_epoch().count();
@@ -247,10 +247,10 @@ NET_TV_COMMON_ECODE_E CRecordFrameServer::open_stream(const NET_TV_RECORD_FRAME_
     }
 
     if (!m_bRunning && !start(static_cast<int>(info.dwTcpPort))) {
-        return NET_TV_E_SYSCALL_FALIED;
+        return NET_E_SYSCALL_FALIED;
     }
 
-    return NET_TV_E_SUCCEED;
+    return NET_E_SUCCEED;
 }
 /**
  * @author tianl (tianl@kfb.cn)
@@ -259,9 +259,9 @@ NET_TV_COMMON_ECODE_E CRecordFrameServer::open_stream(const NET_TV_RECORD_FRAME_
  * @return 返回该处理的状态或结果。
  */
 
-NET_TV_COMMON_ECODE_E CRecordFrameServer::close_stream(const std::string& stream_id) {
+NET_COMMON_ECODE_E CRecordFrameServer::close_stream(const std::string& stream_id) {
     if (stream_id.empty()) {
-        return NET_TV_E_INVALID_PARAM;
+        return NET_E_INVALID_PARAM;
     }
 
     RecordFrameStopCallback cb;
@@ -270,7 +270,7 @@ NET_TV_COMMON_ECODE_E CRecordFrameServer::close_stream(const std::string& stream
         cb = m_fnStopCallback;
     }
 
-    NET_TV_COMMON_ECODE_E code = NET_TV_E_SUCCEED;
+    NET_COMMON_ECODE_E code = NET_E_SUCCEED;
     if (cb) {
         code = cb(stream_id);
     }
@@ -340,7 +340,7 @@ void CRecordFrameServer::accept_loop() {
  */
 
 void CRecordFrameServer::client_send_loop(socket_fd_t client_fd) {
-    std::vector<char> buffer(NET_TV_RECORD_FRAME_MAX_PAYLOAD_SIZE);
+    std::vector<char> buffer(NET_RECORD_FRAME_MAX_PAYLOAD_SIZE);
 
     while (m_bRunning) {
         const std::string stream_id = current_stream_id();
@@ -359,7 +359,7 @@ void CRecordFrameServer::client_send_loop(socket_fd_t client_fd) {
             break;
         }
 
-        NET_TV_RECORD_FRAME_INFO_S frame_info{};
+        NET_RECORD_FRAME_INFO_S frame_info{};
         frame_info.dwSize = sizeof(frame_info);
         const int read_len = cb(stream_id, frame_info, buffer.data(), buffer.size());
         if (read_len < 0) {
@@ -377,8 +377,8 @@ void CRecordFrameServer::client_send_loop(socket_fd_t client_fd) {
             break;
         }
 
-        if ((frame_info.dwFlags & NET_TV_RECORD_FRAME_FLAG_STREAM_END) != 0 ||
-            frame_info.dwMediaType == NET_TV_RECORD_FRAME_MEDIA_END) {
+        if ((frame_info.dwFlags & NET_RECORD_FRAME_FLAG_STREAM_END) != 0 ||
+            frame_info.dwMediaType == NET_RECORD_FRAME_MEDIA_END) {
             close_stream(stream_id);
             break;
         }
@@ -400,9 +400,9 @@ void CRecordFrameServer::client_send_loop(socket_fd_t client_fd) {
  */
 
 bool CRecordFrameServer::send_packet(socket_fd_t fd,
-                                    const NET_TV_RECORD_FRAME_INFO_S& frame_info,
+                                    const NET_RECORD_FRAME_INFO_S& frame_info,
                                     const char* payload) {
-    if (fd == INVALID_SOCKET_FD || frame_info.dwPayloadLen > NET_TV_RECORD_FRAME_MAX_PAYLOAD_SIZE) {
+    if (fd == INVALID_SOCKET_FD || frame_info.dwPayloadLen > NET_RECORD_FRAME_MAX_PAYLOAD_SIZE) {
         return false;
     }
 
@@ -412,14 +412,14 @@ bool CRecordFrameServer::send_packet(socket_fd_t fd,
         ssrc = m_uSsrc;
     }
 
-    NET_TV_RECORD_FRAME_RTP_HEADER_S header{};
+    NET_RECORD_FRAME_RTP_HEADER_S header{};
     header.byVersion = 2;
     header.byPayloadType = static_cast<UCHAR>(
-        frame_info.dwMediaType == NET_TV_RECORD_FRAME_MEDIA_AUDIO ?
-            NET_TV_RECORD_FRAME_PAYLOAD_TYPE_AUDIO :
-        frame_info.dwMediaType == NET_TV_RECORD_FRAME_MEDIA_END ?
-            NET_TV_RECORD_FRAME_PAYLOAD_TYPE_END :
-            NET_TV_RECORD_FRAME_PAYLOAD_TYPE_VIDEO);
+        frame_info.dwMediaType == NET_RECORD_FRAME_MEDIA_AUDIO ?
+            NET_RECORD_FRAME_PAYLOAD_TYPE_AUDIO :
+        frame_info.dwMediaType == NET_RECORD_FRAME_MEDIA_END ?
+            NET_RECORD_FRAME_PAYLOAD_TYPE_END :
+            NET_RECORD_FRAME_PAYLOAD_TYPE_VIDEO);
     header.wSeq = to_be16(static_cast<uint16_t>(frame_info.dwSeq));
     header.dwTimestamp = to_be32(frame_info.dwTimestamp);
     header.dwSsrc = to_be32(ssrc);

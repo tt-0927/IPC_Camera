@@ -22,28 +22,28 @@ extern "C" {
 
 /**
  * @author tianl (tianl@kfb.cn)
- * @brief 执行视频编码能力集回调 (NET_TV_CAP_VIDEO_ENCODE)
+ * @brief 执行视频编码能力集回调 (NET_CAP_VIDEO_ENCODE)
  * @param [in]  dwChannelID  通道号
  * @param [out] pCap         视频编码能力集结构体指针(多码流)
- * @return NET_TV_E_SUCCEED 成功, 其他值失败
+ * @return NET_E_SUCCEED 成功, 其他值失败
  */
 int NetSDK_ExecuteCb_GetVideoEncodeCap(INT32 dwChannelID, pNET_VideoEncodeCap_S pCap);
 
 /**
  * @author tianl (tianl@kfb.cn)
- * @brief 执行音频编码能力集回调 (NET_TV_CAP_AUDIO)
+ * @brief 执行音频编码能力集回调 (NET_CAP_AUDIO)
  * @param [in]  dwChannelID  通道号
  * @param [out] pCap         视频编码能力集结构体指针(多码流)
- * @return NET_TV_E_SUCCEED 成功, 其他值失败
+ * @return NET_E_SUCCEED 成功, 其他值失败
  */
 int NetSDK_ExecuteCb_GetAudioCap(INT32 dwChannelID, pNET_AudioCap_S pCap);
 
 /**
  * @author tianl (tianl@kfb.cn)
- * @brief 执行OSD能力集回调 (NET_TV_CAP_OSD)
+ * @brief 执行OSD能力集回调 (NET_CAP_OSD)
  * @param [in]  dwChannelID  通道号
  * @param [out] pCap         OSD能力集结构体指针
- * @return NET_TV_E_SUCCEED 成功, 其他值失败
+ * @return NET_E_SUCCEED 成功, 其他值失败
  */
 int NetSDK_ExecuteCb_GetOsdCap(INT32 dwChannelID, pNET_OsdCap_S pCap);
 

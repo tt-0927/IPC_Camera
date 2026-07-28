@@ -95,18 +95,18 @@ bool CUserSession::ConnectAndLogin()
 {
     NETSDK_LOG_MESSAGE_INFO("[DIAG-SESSION] User-%p Attempting login to %s:%d", m_hUser, m_strHost.c_str(), m_nPort);
 
-    auto res = m_pCommandClient->Post(NET_TV_API_PATH_BASIC_LOGIN);
+    auto res = m_pCommandClient->Post(NET_API_PATH_BASIC_LOGIN);
 
     if (res)
 	{
 		NETSDK_LOG_MESSAGE_DEBUG("[DIAG-SESSION] User-%p Login HTTP response: status=%d", m_hUser, res->status);
 
-		if (res->status == NET_TV_HTTP_RESP_CODE_SUCCESS)
+		if (res->status == NET_HTTP_RESP_CODE_SUCCESS)
 		{
 			NETSDK_LOG_MESSAGE_DEBUG("[DIAG-SESSION] User-%p 登录JSon响应： Login JSON response: [%s]", m_hUser, res->body.c_str());
 			SeesionMessage_S stSeesionMessage;
 			int nRespCode = SDKConvert::get_respCode(res->body);
-			if (nRespCode == NET_TV_E_SUCCEED)
+			if (nRespCode == NET_E_SUCCEED)
 			{
 				m_bOnline = true;
 				SDKConvert::to_respStruct(res->body.c_str(),stSeesionMessage);
@@ -118,7 +118,7 @@ bool CUserSession::ConnectAndLogin()
 			}
 			else
 			{
-				NETSDK_LOG_MESSAGE_ERROR("[DIAG-SESSION] User-%p Login FAILED, respCode=%d (NET_TV_E_SUCCEED=0)", m_hUser, nRespCode);
+				NETSDK_LOG_MESSAGE_ERROR("[DIAG-SESSION] User-%p Login FAILED, respCode=%d (NET_E_SUCCEED=0)", m_hUser, nRespCode);
 			}
 		}
 		else
@@ -242,7 +242,7 @@ void CUserSession::SseLoop()
         auto res = m_pSseClient->Get(url.c_str(), [&](const httplib::Response& response)
 		{
 			 NETSDK_LOG_MESSAGE_DEBUG("[User] SSE response code [%d]", response.status);
-            if (response.status != NET_TV_HTTP_RESP_CODE_SUCCESS) return false;
+            if (response.status != NET_HTTP_RESP_CODE_SUCCESS) return false;
 
             /* 连接成功 */
             retryCount = 0;
@@ -330,7 +330,7 @@ void CUserSession::HeartbeatLoop()
             res = m_pCommandClient->Get(url.c_str());
         }
 
-        if (res && res->status == NET_TV_HTTP_RESP_CODE_SUCCESS)
+        if (res && res->status == NET_HTTP_RESP_CODE_SUCCESS)
 		{
             failCount = 0;
 			/* NETSDK_LOG_MESSAGE_DEBUG("[User-%p] This Heartbeat Message.", m_hUser); */
@@ -444,12 +444,12 @@ void CUserSession::ReconnectLoop()
 
         if (!oldSessionId.empty())
         {
-            const std::string logoutUrl = std::string(NET_TV_API_PATH_BASIC_LOGOUT) +
+            const std::string logoutUrl = std::string(NET_API_PATH_BASIC_LOGOUT) +
                                           "?session_id=" + oldSessionId;
             auto logoutRes = m_pCommandClient->Post(logoutUrl.c_str());
             const bool logoutOk = logoutRes &&
-                                  logoutRes->status == NET_TV_HTTP_RESP_CODE_SUCCESS &&
-                                  SDKConvert::get_respCode(logoutRes->body) == NET_TV_E_SUCCEED;
+                                  logoutRes->status == NET_HTTP_RESP_CODE_SUCCESS &&
+                                  SDKConvert::get_respCode(logoutRes->body) == NET_E_SUCCEED;
 
             if (logoutOk)
             {
@@ -561,7 +561,7 @@ bool CUserSession::SendRequest(const CommandRequest_S& req, std::string& outResp
             if (m_bReconnecting || !m_bOnline)
             {
                 NETSDK_LOG_MESSAGE_WARN("[DIAG-SESSION] User-%p SendRequest: reconnect not finished in 30s, abort", m_hUser);
-                CErrorManage::instance()->SetLastError(NET_TV_E_SEND_MSG_ERROR);
+                CErrorManage::instance()->SetLastError(NET_E_SEND_MSG_ERROR);
                 return false;
             }
             NETSDK_LOG_MESSAGE_INFO("[DIAG-SESSION] User-%p SendRequest: reconnect finished, proceeding with new session=%s",
@@ -570,7 +570,7 @@ bool CUserSession::SendRequest(const CommandRequest_S& req, std::string& outResp
         else if (!m_bOnline)
         {
             /* 非重连状态下的离线，直接返回失败 */
-            CErrorManage::instance()->SetLastError(NET_TV_E_SEND_MSG_ERROR);
+            CErrorManage::instance()->SetLastError(NET_E_SEND_MSG_ERROR);
             return false;
         }
 
@@ -604,12 +604,12 @@ bool CUserSession::SendRequest(const CommandRequest_S& req, std::string& outResp
             }
         }
 
-        if (res && res->status == NET_TV_HTTP_RESP_CODE_SUCCESS)
+        if (res && res->status == NET_HTTP_RESP_CODE_SUCCESS)
 		{
             int bizCode = SDKConvert::get_respCode(res->body);
 			CErrorManage::instance()->SetLastError(bizCode);
 
-            if (bizCode == NET_TV_E_SUCCEED)
+            if (bizCode == NET_E_SUCCEED)
 			{
                 outRespBody = res->body;
                 return true;
@@ -618,7 +618,7 @@ bool CUserSession::SendRequest(const CommandRequest_S& req, std::string& outResp
         }
 
         /* 命令收到 401，可能是 session 刚过期，触发重连并重试一次 */
-        if (res && (res->status == NET_TV_HTTP_RESP_CODE_UNAUTHORIZED || res->status == 401))
+        if (res && (res->status == NET_HTTP_RESP_CODE_UNAUTHORIZED || res->status == 401))
         {
             NETSDK_LOG_MESSAGE_WARN("[DIAG-SESSION] User-%p SendRequest got 401, triggering reconnect and retry once", m_hUser);
             /* 触发重连（如果还没有在重连） */
@@ -658,11 +658,11 @@ bool CUserSession::SendRequest(const CommandRequest_S& req, std::string& outResp
                     }
                 }
 
-                if (retryRes && retryRes->status == NET_TV_HTTP_RESP_CODE_SUCCESS)
+                if (retryRes && retryRes->status == NET_HTTP_RESP_CODE_SUCCESS)
                 {
                     int bizCode = SDKConvert::get_respCode(retryRes->body);
                     CErrorManage::instance()->SetLastError(bizCode);
-                    if (bizCode == NET_TV_E_SUCCEED)
+                    if (bizCode == NET_E_SUCCEED)
                     {
                         outRespBody = retryRes->body;
                         NETSDK_LOG_MESSAGE_INFO("[DIAG-SESSION] User-%p SendRequest retry after 401 succeeded", m_hUser);
@@ -673,7 +673,7 @@ bool CUserSession::SendRequest(const CommandRequest_S& req, std::string& outResp
             NETSDK_LOG_MESSAGE_WARN("[DIAG-SESSION] User-%p SendRequest retry after 401 failed", m_hUser);
         }
 
-		CErrorManage::instance()->SetLastError(NET_TV_E_SOCKET_RECV_ERR);
+		CErrorManage::instance()->SetLastError(NET_E_SOCKET_RECV_ERR);
         return false;
     }
 
@@ -683,7 +683,7 @@ bool CUserSession::SendRequest(const CommandRequest_S& req, std::string& outResp
  * @param [in] cb 报警回调函数指针
  * @param [in] userData 用户数据
  */
-void CUserSession::SetAlarmCallback(NET_TV_AlarmCallBack cb, void* userData)
+void CUserSession::SetAlarmCallback(NET_AlarmCallBack cb, void* userData)
 {
     if (m_pAlarmManager)
     {
@@ -697,7 +697,7 @@ void CUserSession::SetAlarmCallback(NET_TV_AlarmCallBack cb, void* userData)
  * @param [in] cb 通道状态回调函数指针
  * @param [in] userData 用户数据
  */
-void CUserSession::SetChannelStatusCallback(NET_TV_ChannelStatusCallBack cb, void* userData)
+void CUserSession::SetChannelStatusCallback(NET_ChannelStatusCallBack cb, void* userData)
 {
     if (m_pAlarmManager)
     {

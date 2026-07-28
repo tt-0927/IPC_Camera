@@ -26,7 +26,7 @@
 
 namespace tvsdk {
 
-/* 语音对讲回调: 设备端回传的音频帧，格式由 NET_TV_StartVoiceCom 协商参数定义。 */
+/* 语音对讲回调: 设备端回传的音频帧，格式由 NET_StartVoiceCom 协商参数定义。 */
 using VoiceComCallback = std::function<void(const char* data, size_t size)>;
 
 class CVoiceComClient {
@@ -37,7 +37,7 @@ public:
     /* 连接设备音频端口, 启动收发 */
     bool start(const std::string& host,
                int port,
-               const NET_TV_VOICECOM_AUDIO_PARAM_S& audio_param,
+               const NET_VOICECOM_AUDIO_PARAM_S& audio_param,
                VoiceComCallback callback);
     /* 发送音频数据到设备 */
     bool send(const char* data, size_t size);
@@ -47,7 +47,7 @@ public:
     bool is_running() const { return m_bRunning; }
 
 private:
-    bool send_audio_param(const NET_TV_VOICECOM_AUDIO_PARAM_S& audio_param);
+    bool send_audio_param(const NET_VOICECOM_AUDIO_PARAM_S& audio_param);
     bool send_frame(const char* data, size_t size);
     void recv_loop();
 

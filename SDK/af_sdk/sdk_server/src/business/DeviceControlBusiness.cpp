@@ -32,16 +32,16 @@ static int ValidateDeviceControlInfo(const NET_DeviceControlInfo_S& stInfo)
         stInfo.uCommand <= 0 ||
         stInfo.uDurationMs < 0)
     {
-        return NET_TV_E_INVALID_PARAM;
+        return NET_E_INVALID_PARAM;
     }
 
-    if (stInfo.uControlType == NET_TV_DEVICE_CTRL_TYPE_PTZ &&
-        (stInfo.uSpeed < NET_TV_MIN_PTZ_SPEED_LEVEL || stInfo.uSpeed > NET_TV_MAX_PTZ_SPEED_LEVEL))
+    if (stInfo.uControlType == NET_DEVICE_CTRL_TYPE_PTZ &&
+        (stInfo.uSpeed < NET_MIN_PTZ_SPEED_LEVEL || stInfo.uSpeed > NET_MAX_PTZ_SPEED_LEVEL))
     {
-        return NET_TV_E_INVALID_PARAM;
+        return NET_E_INVALID_PARAM;
     }
 
-    return NET_TV_E_SUCCEED;
+    return NET_E_SUCCEED;
 }
 }
 /**
@@ -57,7 +57,7 @@ std::string CDeviceControlBusiness::DeviceControl(const std::string& req_data, c
 
     if (req_data.empty())
     {
-        return SDKConvert::to_respString(NET_TV_E_INVALID_PARAM);
+        return SDKConvert::to_respString(NET_E_INVALID_PARAM);
     }
 
     NET_DeviceControlInfo_S stInfo;
@@ -65,7 +65,7 @@ std::string CDeviceControlBusiness::DeviceControl(const std::string& req_data, c
 
     if (!SDKConvert::from_string(req_data, stInfo))
     {
-        return SDKConvert::to_respString(NET_TV_E_INVALID_PARAM);
+        return SDKConvert::to_respString(NET_E_INVALID_PARAM);
     }
 
     if (stInfo.uSize == 0)
@@ -74,7 +74,7 @@ std::string CDeviceControlBusiness::DeviceControl(const std::string& req_data, c
     }
 
     int nValidCode = ValidateDeviceControlInfo(stInfo);
-    if (nValidCode != NET_TV_E_SUCCEED)
+    if (nValidCode != NET_E_SUCCEED)
     {
         NETSDK_LOG_MESSAGE_WARN("DeviceControl request invalid: channel=%d, controlType=%d, command=%d, speed=%d, durationMs=%d",
                       stInfo.uChannelID,
@@ -93,7 +93,7 @@ std::string CDeviceControlBusiness::DeviceControl(const std::string& req_data, c
                   stInfo.uDurationMs);
 
     int nRespCode = NetSDK_ExecuteCb_DeviceControl(&stInfo);
-    if (nRespCode != NET_TV_E_SUCCEED)
+    if (nRespCode != NET_E_SUCCEED)
     {
         NETSDK_LOG_MESSAGE_WARN("DeviceControl callback failed, ret=%d", nRespCode);
     }

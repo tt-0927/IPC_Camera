@@ -26,13 +26,13 @@
 
 namespace tvsdk {
 
-using RecordFrameStartCallback = std::function<NET_TV_COMMON_ECODE_E(const NET_TV_RECORD_FRAME_STREAM_COND_S& cond,
-                                                                     NET_TV_RECORD_FRAME_STREAM_INFO_S& info)>;
+using RecordFrameStartCallback = std::function<NET_COMMON_ECODE_E(const NET_RECORD_FRAME_STREAM_COND_S& cond,
+                                                                     NET_RECORD_FRAME_STREAM_INFO_S& info)>;
 using RecordFrameReadCallback = std::function<int(const std::string& stream_id,
-                                                  NET_TV_RECORD_FRAME_INFO_S& frame_info,
+                                                  NET_RECORD_FRAME_INFO_S& frame_info,
                                                   char* buffer,
                                                   size_t buffer_size)>;
-using RecordFrameStopCallback = std::function<NET_TV_COMMON_ECODE_E(const std::string& stream_id)>;
+using RecordFrameStopCallback = std::function<NET_COMMON_ECODE_E(const std::string& stream_id)>;
 
 class CRecordFrameServer {
 public:
@@ -48,9 +48,9 @@ public:
     void set_read_callback(RecordFrameReadCallback cb);
     void set_stop_callback(RecordFrameStopCallback cb);
 
-    NET_TV_COMMON_ECODE_E open_stream(const NET_TV_RECORD_FRAME_STREAM_COND_S& cond,
-                                      NET_TV_RECORD_FRAME_STREAM_INFO_S& info);
-    NET_TV_COMMON_ECODE_E close_stream(const std::string& stream_id);
+    NET_COMMON_ECODE_E open_stream(const NET_RECORD_FRAME_STREAM_COND_S& cond,
+                                      NET_RECORD_FRAME_STREAM_INFO_S& info);
+    NET_COMMON_ECODE_E close_stream(const std::string& stream_id);
 
 private:
     CRecordFrameServer();
@@ -58,7 +58,7 @@ private:
 
     void accept_loop();
     void client_send_loop(socket_fd_t client_fd);
-    bool send_packet(socket_fd_t fd, const NET_TV_RECORD_FRAME_INFO_S& frame_info, const char* payload);
+    bool send_packet(socket_fd_t fd, const NET_RECORD_FRAME_INFO_S& frame_info, const char* payload);
     std::string current_stream_id() const;
 
     socket_fd_t m_nListenFd{INVALID_SOCKET_FD};

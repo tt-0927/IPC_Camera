@@ -28,7 +28,7 @@ constexpr uint32_t kVoiceComParamMagic = 0x56435031;
 
 struct VoiceComParamFrame_S {
     uint32_t magic;
-    NET_TV_VOICECOM_AUDIO_PARAM_S audio_param;
+    NET_VOICECOM_AUDIO_PARAM_S audio_param;
 };
 /**
  * @author tianl (tianl@kfb.cn)
@@ -57,16 +57,16 @@ static bool recv_exact(socket_fd_t fd, char* data, size_t size) {
  * @return 无返回值。
  */
 
-static void fill_default_voicecom_audio_param(NET_TV_VOICECOM_AUDIO_PARAM_S& audio_param) {
+static void fill_default_voicecom_audio_param(NET_VOICECOM_AUDIO_PARAM_S& audio_param) {
     std::memset(&audio_param, 0, sizeof(audio_param));
-    audio_param.enFormat = NET_TV_AUDIO_FORMAT_PCM;
-    audio_param.dwSampleRate = NET_TV_AUDIO_SAMPRATE_16000;
+    audio_param.enFormat = NET_AUDIO_FORMAT_PCM;
+    audio_param.dwSampleRate = NET_AUDIO_SAMPRATE_16000;
     audio_param.dwBitDepth = 16;
     audio_param.dwChannels = 1;
     audio_param.dwFrameIntervalMs = 20;
     audio_param.dwFrameBytes = 640;
     audio_param.dwBitRate = 256000;
-    audio_param.bLittleEndian = NET_TV_TRUE;
+    audio_param.bLittleEndian = NET_TRUE;
 }
 /**
  * @author tianl (tianl@kfb.cn)
@@ -75,14 +75,14 @@ static void fill_default_voicecom_audio_param(NET_TV_VOICECOM_AUDIO_PARAM_S& aud
  * @return 返回该处理的状态或结果。
  */
 
-static bool normalize_voicecom_audio_param(NET_TV_VOICECOM_AUDIO_PARAM_S& audio_param) {
+static bool normalize_voicecom_audio_param(NET_VOICECOM_AUDIO_PARAM_S& audio_param) {
     if (audio_param.dwChannels != 1) {
         return false;
     }
 
     int bytes_per_sample = 0;
     switch (audio_param.enFormat) {
-        case NET_TV_AUDIO_FORMAT_PCM:
+        case NET_AUDIO_FORMAT_PCM:
             if (audio_param.dwBitDepth <= 0) {
                 audio_param.dwBitDepth = 16;
             }
@@ -90,17 +90,17 @@ static bool normalize_voicecom_audio_param(NET_TV_VOICECOM_AUDIO_PARAM_S& audio_
                 return false;
             }
             switch (audio_param.dwSampleRate) {
-                case NET_TV_AUDIO_SAMPRATE_8000:
-                case NET_TV_AUDIO_SAMPRATE_16000:
+                case NET_AUDIO_SAMPRATE_8000:
+                case NET_AUDIO_SAMPRATE_16000:
                     break;
                 default:
                     return false;
             }
             bytes_per_sample = audio_param.dwBitDepth / 8;
             break;
-        case NET_TV_AUDIO_FORMAT_G711A:
-        case NET_TV_AUDIO_FORMAT_G711U:
-            if (audio_param.dwSampleRate != NET_TV_AUDIO_SAMPRATE_8000) {
+        case NET_AUDIO_FORMAT_G711A:
+        case NET_AUDIO_FORMAT_G711U:
+            if (audio_param.dwSampleRate != NET_AUDIO_SAMPRATE_8000) {
                 return false;
             }
             if (audio_param.dwBitDepth <= 0) {
@@ -124,7 +124,7 @@ static bool normalize_voicecom_audio_param(NET_TV_VOICECOM_AUDIO_PARAM_S& audio_
 
     const int frame_bytes = audio_param.dwSampleRate * audio_param.dwChannels *
                             bytes_per_sample * audio_param.dwFrameIntervalMs / 1000;
-    if (frame_bytes <= 0 || frame_bytes > NET_TV_LEN_4096) {
+    if (frame_bytes <= 0 || frame_bytes > NET_LEN_4096) {
         return false;
     }
 
@@ -136,7 +136,7 @@ static bool normalize_voicecom_audio_param(NET_TV_VOICECOM_AUDIO_PARAM_S& audio_
     }
 
     audio_param.dwBitRate = audio_param.dwSampleRate * audio_param.dwChannels * audio_param.dwBitDepth;
-    audio_param.bLittleEndian = NET_TV_TRUE;
+    audio_param.bLittleEndian = NET_TRUE;
     return true;
 }
 /**
@@ -167,7 +167,7 @@ static int normalize_frame_interval_ms(int frame_interval_ms) {
  * @return 返回该处理的状态或结果。
  */
 
-static bool is_voicecom_param_frame(const char* data, size_t size, NET_TV_VOICECOM_AUDIO_PARAM_S& audio_param) {
+static bool is_voicecom_param_frame(const char* data, size_t size, NET_VOICECOM_AUDIO_PARAM_S& audio_param) {
     if (!data || size != sizeof(VoiceComParamFrame_S)) {
         return false;
     }
@@ -362,7 +362,7 @@ void CVoiceComServer::set_capture_callback(VoiceComCaptureCallback cb) {
  * @return 返回该处理的状态或结果。
  */
 
-bool CVoiceComServer::get_audio_param(NET_TV_VOICECOM_AUDIO_PARAM_S& audio_param) const {
+bool CVoiceComServer::get_audio_param(NET_VOICECOM_AUDIO_PARAM_S& audio_param) const {
     return snapshot_audio_param(audio_param);
 }
 /**
@@ -372,7 +372,7 @@ bool CVoiceComServer::get_audio_param(NET_TV_VOICECOM_AUDIO_PARAM_S& audio_param
  * @return 返回该处理的状态或结果。
  */
 
-bool CVoiceComServer::snapshot_audio_param(NET_TV_VOICECOM_AUDIO_PARAM_S& audio_param) const {
+bool CVoiceComServer::snapshot_audio_param(NET_VOICECOM_AUDIO_PARAM_S& audio_param) const {
     std::lock_guard<std::mutex> lock(m_stParameterMutex);
     if (!m_bHasAudioParameter) {
         return false;
@@ -406,7 +406,7 @@ void CVoiceComServer::capture_loop() {
      * 实际音频采集由业务注册的采集回调提供，避免SDK强依赖具体芯片或音频驱动。
      */
     while (m_bRunning) {
-        NET_TV_VOICECOM_AUDIO_PARAM_S audio_param{};
+        NET_VOICECOM_AUDIO_PARAM_S audio_param{};
         {
             std::unique_lock<std::mutex> lock(m_stParameterMutex);
             m_stParameterCondition.wait_for(lock, std::chrono::milliseconds(100), [this] {
@@ -438,7 +438,7 @@ void CVoiceComServer::capture_loop() {
         logged_wait_source = false;
 
         const size_t frame_bytes = static_cast<size_t>(audio_param.dwFrameBytes);
-        if (frame_bytes == 0 || frame_bytes > NET_TV_LEN_4096) {
+        if (frame_bytes == 0 || frame_bytes > NET_LEN_4096) {
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
             continue;
         }
@@ -455,7 +455,7 @@ void CVoiceComServer::capture_loop() {
                 break;
             }
 
-            NET_TV_VOICECOM_AUDIO_PARAM_S current_param{};
+            NET_VOICECOM_AUDIO_PARAM_S current_param{};
             if (!snapshot_audio_param(current_param) ||
                 current_param.enFormat != audio_param.enFormat ||
                 current_param.dwSampleRate != audio_param.dwSampleRate ||
@@ -578,7 +578,7 @@ void CVoiceComServer::client_recv_loop() {
             break;
         }
 
-        NET_TV_VOICECOM_AUDIO_PARAM_S audio_param{};
+        NET_VOICECOM_AUDIO_PARAM_S audio_param{};
         if (is_voicecom_param_frame(buffer, frame_len, audio_param)) {
             {
                 std::lock_guard<std::mutex> lock(m_stParameterMutex);

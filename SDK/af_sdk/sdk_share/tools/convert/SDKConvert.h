@@ -21,9 +21,9 @@
 #include "NetTVSDKHttpUrl.h"
 
 /* 库通用头文件 */
-#ifdef NET_TV_SDK_SERVER_API
+#ifdef NET_SDK_SERVER_API
     #include "NetTVSDKServerInterface.h"
-#elif defined(NET_TV_SDK_CLIENT_API)
+#elif defined(NET_SDK_CLIENT_API)
     #include "NetTVSDKClientInterface.h"
 #else
     #include "NetTVSDKCommon.h"
@@ -651,7 +651,7 @@ namespace SDKConvert
  * @param [in] enCode 函数处理参数。
  * @return 返回该处理的状态或结果。
  */
-    inline std::string to_respString(NET_TV_COMMON_ECODE_E enCode)
+    inline std::string to_respString(NET_COMMON_ECODE_E enCode)
     {
         CRunTimer timer();
         Json::Object *pRootJson = Json::init();

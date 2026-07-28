@@ -61,13 +61,13 @@ CNetTVSDKServerImpl::~CNetTVSDKServerImpl()
  */
 
 BOOL CNetTVSDKServerImpl::DoInit(UINT32 udwPort,
-                                CHAR szUserName[NET_TV_LEN_132],
-                                CHAR szPassword[NET_TV_LEN_132])
+                                CHAR szUserName[NET_LEN_132],
+                                CHAR szPassword[NET_LEN_132])
 {
     if (m_bInitialized)
     {
         NETSDK_LOG_MESSAGE_WARN("SDK Server already initialized");
-        return NET_TV_FALSE;
+        return NET_FALSE;
     }
 
     NETSDK_LOG_MESSAGE_INFO("=== SDK Server Initialization Started ===");
@@ -79,14 +79,14 @@ BOOL CNetTVSDKServerImpl::DoInit(UINT32 udwPort,
     if (!m_pSessionModule->SetAuthInfo("NetTVSDK", username, password))
     {
         NETSDK_LOG_MESSAGE_ERROR("Failed to set authentication info");
-        return NET_TV_FALSE;
+        return NET_FALSE;
     }
 
     /* 2. 注册路由 */
     if (!m_pRouteModule->RegisterAllRoutes())
     {
         NETSDK_LOG_MESSAGE_ERROR("Failed to register routes");
-        return NET_TV_FALSE;
+        return NET_FALSE;
     }
 
     /* 3. 启动HTTP服务器 */
@@ -94,12 +94,12 @@ BOOL CNetTVSDKServerImpl::DoInit(UINT32 udwPort,
     {
         NETSDK_LOG_MESSAGE_ERROR("Failed to start HTTP server");
         m_pRouteModule->ClearRoutes();
-        return NET_TV_FALSE;
+        return NET_FALSE;
     }
 
     m_bInitialized = true;
     NETSDK_LOG_MESSAGE_INFO("=== SDK Server Initialized Successfully (Port: %u) ===", udwPort);
-    return NET_TV_TRUE;
+    return NET_TRUE;
 }
 /**
  * @author tianl (tianl@kfb.cn)
@@ -112,7 +112,7 @@ BOOL CNetTVSDKServerImpl::DoCleanup()
     if (!m_bInitialized)
     {
         NETSDK_LOG_MESSAGE_DEBUG("SDK Server not initialized, skip cleanup");
-        return NET_TV_TRUE;
+        return NET_TRUE;
     }
 
     NETSDK_LOG_MESSAGE_INFO("=== SDK Server Cleanup Started ===");
@@ -129,7 +129,7 @@ BOOL CNetTVSDKServerImpl::DoCleanup()
 
     m_bInitialized = false;
     NETSDK_LOG_MESSAGE_INFO("=== SDK Server Cleanup Completed ===");
-    return NET_TV_TRUE;
+    return NET_TRUE;
 }
 /**
  * @author tianl (tianl@kfb.cn)
@@ -142,7 +142,7 @@ BOOL CNetTVSDKServerImpl::DoSetLogToFile(INT32 dwLogLevel, CHAR* strLogDir,
 {
     if (strLogDir == NULL)
     {
-        return NET_TV_FALSE;
+        return NET_FALSE;
     }
 
     /* 构造完整日志路径 */
@@ -166,7 +166,7 @@ BOOL CNetTVSDKServerImpl::DoSetLogToFile(INT32 dwLogLevel, CHAR* strLogDir,
     /* 初始化日志 */
     if (initSdkLogBySize("NetTVSDKServer", szLogPath, dwLogFileSize, dwLogFileNum) != 0)
     {
-        return NET_TV_FALSE;
+        return NET_FALSE;
     }
 
     /* 设置日志输出同步输出控制台 */
@@ -175,7 +175,7 @@ BOOL CNetTVSDKServerImpl::DoSetLogToFile(INT32 dwLogLevel, CHAR* strLogDir,
     /* 设置日志等级 */
     setLogLevel(dwLogLevel);
 
-    return NET_TV_TRUE;
+    return NET_TRUE;
 }
 /**
  * @author tianl (tianl@kfb.cn)
@@ -214,13 +214,13 @@ INT32 CNetTVSDKServerImpl::DoGetClientCount()
  * @return 返回该处理的状态或结果。
  */
 
-BOOL CNetTVSDKServerImpl::DoSetUserPasswd(CHAR szUserName[NET_TV_LEN_132],
-                                         CHAR szPassword[NET_TV_LEN_132])
+BOOL CNetTVSDKServerImpl::DoSetUserPasswd(CHAR szUserName[NET_LEN_132],
+                                         CHAR szPassword[NET_LEN_132])
 {
     if (!strlen(szUserName) || !strlen(szPassword))
     {
         NETSDK_LOG_MESSAGE_ERROR("SetUserPasswd: Invalid parameters (empty string)");
-        return NET_TV_FALSE;
+        return NET_FALSE;
     }
 
     return m_pSessionModule->UpdatePassword(szUserName, szPassword);
@@ -239,7 +239,7 @@ BOOL CNetTVSDKServerImpl::DoPushAlarmInfo(NET_Alarmer_S* pAlarmer,
     if (!m_bInitialized)
     {
         NETSDK_LOG_MESSAGE_ERROR("PushAlarmInfo: SDK Server not initialized");
-        return NET_TV_FALSE;
+        return NET_FALSE;
     }
 
     return m_pAlarmModule->PushAlarmInfo(pAlarmer, lCommand, pAlarmInfo, dwBufLen);
@@ -256,7 +256,7 @@ BOOL CNetTVSDKServerImpl::DoPushChannelStatusInfo(NET_ChannelInfo_S* pChannelInf
     if (!m_bInitialized)
     {
         NETSDK_LOG_MESSAGE_ERROR("PushChannelStatusInfo: SDK Server not initialized");
-        return NET_TV_FALSE;
+        return NET_FALSE;
     }
 
     return m_pAlarmModule->PushChannelStatusInfo(pChannelInfo);
@@ -268,10 +268,10 @@ BOOL CNetTVSDKServerImpl::DoPushChannelStatusInfo(NET_ChannelInfo_S* pChannelInf
  */
 
 BOOL CNetTVSDKServerImpl::DoRegisterCb_GetDiscoveryDeviceInfo(
-    NET_TV_CB_GetDiscoveryDeviceInfo cbFunc)
+    NET_CB_GetDiscoveryDeviceInfo cbFunc)
 {
     m_fnDiscoveryDeviceInfoCallback = cbFunc;
-    return (cbFunc != nullptr) ? NET_TV_TRUE : NET_TV_FALSE;
+    return (cbFunc != nullptr) ? NET_TRUE : NET_FALSE;
 }
 /**
  * @author tianl (tianl@kfb.cn)
@@ -284,16 +284,16 @@ BOOL CNetTVSDKServerImpl::DoDiscoveryStart(const CHAR* szInterfaceName)
 {
     if (!m_fnDiscoveryDeviceInfoCallback) {
         NETSDK_LOG_MESSAGE_ERROR("DiscoveryStart: callback not registered");
-        return NET_TV_FALSE;
+        return NET_FALSE;
     }
     if (m_pDiscoveryResponder && m_pDiscoveryResponder->is_running()) {
-        return NET_TV_TRUE;  /* already running */
+        return NET_TRUE;  /* already running */
     }
 
     m_pDiscoveryResponder = std::make_unique<CDiscoveryResponder>();
 
     /* 注册回调：C 回调 → C++ lambda */
-    NET_TV_CB_GetDiscoveryDeviceInfo cb = m_fnDiscoveryDeviceInfoCallback;
+    NET_CB_GetDiscoveryDeviceInfo cb = m_fnDiscoveryDeviceInfoCallback;
     m_pDiscoveryResponder->set_device_info_callback(
         [cb](NET_DiscoveryDeviceInfo_S* pInfo) {
             if (cb) cb(pInfo);
@@ -302,17 +302,17 @@ BOOL CNetTVSDKServerImpl::DoDiscoveryStart(const CHAR* szInterfaceName)
     if (m_pDiscoveryResponder->init(szInterfaceName) < 0) {
         NETSDK_LOG_MESSAGE_ERROR("DiscoveryStart: init failed for iface[%s]", szInterfaceName);
         m_pDiscoveryResponder.reset();
-        return NET_TV_FALSE;
+        return NET_FALSE;
     }
 
     if (m_pDiscoveryResponder->start() < 0) {
         NETSDK_LOG_MESSAGE_ERROR("DiscoveryStart: start failed");
         m_pDiscoveryResponder.reset();
-        return NET_TV_FALSE;
+        return NET_FALSE;
     }
 
     NETSDK_LOG_MESSAGE_INFO("Discovery started on iface[%s]", szInterfaceName);
-    return NET_TV_TRUE;
+    return NET_TRUE;
 }
 /**
  * @author tianl (tianl@kfb.cn)
@@ -327,5 +327,5 @@ BOOL CNetTVSDKServerImpl::DoDiscoveryStop()
         m_pDiscoveryResponder.reset();
         NETSDK_LOG_MESSAGE_INFO("Discovery stopped");
     }
-    return NET_TV_TRUE;
+    return NET_TRUE;
 }

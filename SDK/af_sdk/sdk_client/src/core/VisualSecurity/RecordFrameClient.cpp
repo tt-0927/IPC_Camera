@@ -199,7 +199,7 @@ void CRecordFrameClient::recv_loop() {
         }
 
         const uint32_t payload_len = from_be32(header.dwPayloadLen);
-        if (payload_len > NET_TV_RECORD_FRAME_MAX_PAYLOAD_SIZE) {
+        if (payload_len > NET_RECORD_FRAME_MAX_PAYLOAD_SIZE) {
             NETSDK_LOG_MESSAGE_WARN("CRecordFrameClient: invalid payload len %u", payload_len);
             break;
         }
@@ -219,16 +219,16 @@ void CRecordFrameClient::recv_loop() {
         frame_info.uPayloadLen = payload_len;
         frame_info.uFlags = from_be32(header.dwFlags);
         switch (header.byPayloadType) {
-            case NET_TV_RECORD_FRAME_PAYLOAD_TYPE_AUDIO:
-                frame_info.uMediaType = NET_TV_RECORD_FRAME_MEDIA_AUDIO;
+            case NET_RECORD_FRAME_PAYLOAD_TYPE_AUDIO:
+                frame_info.uMediaType = NET_RECORD_FRAME_MEDIA_AUDIO;
                 break;
-            case NET_TV_RECORD_FRAME_PAYLOAD_TYPE_END:
-                frame_info.uMediaType = NET_TV_RECORD_FRAME_MEDIA_END;
-                frame_info.uFlags |= NET_TV_RECORD_FRAME_FLAG_STREAM_END;
+            case NET_RECORD_FRAME_PAYLOAD_TYPE_END:
+                frame_info.uMediaType = NET_RECORD_FRAME_MEDIA_END;
+                frame_info.uFlags |= NET_RECORD_FRAME_FLAG_STREAM_END;
                 break;
-            case NET_TV_RECORD_FRAME_PAYLOAD_TYPE_VIDEO:
+            case NET_RECORD_FRAME_PAYLOAD_TYPE_VIDEO:
             default:
-                frame_info.uMediaType = NET_TV_RECORD_FRAME_MEDIA_VIDEO;
+                frame_info.uMediaType = NET_RECORD_FRAME_MEDIA_VIDEO;
                 break;
         }
 
@@ -236,7 +236,7 @@ void CRecordFrameClient::recv_loop() {
             m_fnCallback(frame_info, payload_len > 0 ? payload.data() : nullptr, payload_len);
         }
 
-        if ((frame_info.uFlags & NET_TV_RECORD_FRAME_FLAG_STREAM_END) != 0) {
+        if ((frame_info.uFlags & NET_RECORD_FRAME_FLAG_STREAM_END) != 0) {
             break;
         }
     }

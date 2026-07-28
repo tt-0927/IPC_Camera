@@ -226,9 +226,9 @@ void CRecordFrameServer::set_stop_callback(RecordFrameStopCallback cb) {
  * @details 调用流启动回调函数，生成流ID，启动服务端（如果未运行），返回流信息
  * @param cond 流启动条件（通道、时间范围、媒体类型等）
  * @param info 流信息（输出参数，包含流ID、端口、媒体类型等）
- * @return 错误码，NET_TV_E_SUCCEED表示成功，其他值表示失败
+ * @return 错误码，NET_E_SUCCEED表示成功，其他值表示失败
  */
-NET_TV_COMMON_ECODE_E CRecordFrameServer::open_stream(const NET_RecordFrameStreamCond_S& cond,
+NET_COMMON_ECODE_E CRecordFrameServer::open_stream(const NET_RecordFrameStreamCond_S& cond,
                                                      NET_RecordFrameStreamInfo_S& info) {
     RecordFrameStartCallback cb;
     {
@@ -236,13 +236,13 @@ NET_TV_COMMON_ECODE_E CRecordFrameServer::open_stream(const NET_RecordFrameStrea
         cb = m_fnStartCallback;
     }
     if (!cb) {
-        return NET_TV_E_NOT_SUPPORT;
+        return NET_E_NOT_SUPPORT;
     }
 
     std::memset(&info, 0, sizeof(info));
     info.uSize = sizeof(info);
-    NET_TV_COMMON_ECODE_E code = cb(cond, info);
-    if (code != NET_TV_E_SUCCEED) {
+    NET_COMMON_ECODE_E code = cb(cond, info);
+    if (code != NET_E_SUCCEED) {
         return code;
     }
 
@@ -250,7 +250,7 @@ NET_TV_COMMON_ECODE_E CRecordFrameServer::open_stream(const NET_RecordFrameStrea
         info.uTcpPort = static_cast<UINT32>(m_nPort);
     }
     if (info.uMediaType == 0) {
-        info.uMediaType = NET_TV_RECORD_FRAME_MEDIA_VIDEO;
+        info.uMediaType = NET_RECORD_FRAME_MEDIA_VIDEO;
     }
     if (info.szStreamId[0] == '\0') {
         const auto ticks = std::chrono::steady_clock::now().time_since_epoch().count();
@@ -271,10 +271,10 @@ NET_TV_COMMON_ECODE_E CRecordFrameServer::open_stream(const NET_RecordFrameStrea
     }
 
     if (!m_bRunning && !start(static_cast<int>(info.uTcpPort))) {
-        return NET_TV_E_SYSCALL_FALIED;
+        return NET_E_SYSCALL_FALIED;
     }
 
-    return NET_TV_E_SUCCEED;
+    return NET_E_SUCCEED;
 }
 
 /**
@@ -282,11 +282,11 @@ NET_TV_COMMON_ECODE_E CRecordFrameServer::open_stream(const NET_RecordFrameStrea
  * @brief 关闭录像帧流
  * @details 调用流停止回调函数，清除当前流ID
  * @param stream_id 流ID，标识要关闭的播放会话
- * @return 错误码，NET_TV_E_SUCCEED表示成功，其他值表示失败
+ * @return 错误码，NET_E_SUCCEED表示成功，其他值表示失败
  */
-NET_TV_COMMON_ECODE_E CRecordFrameServer::close_stream(const std::string& stream_id) {
+NET_COMMON_ECODE_E CRecordFrameServer::close_stream(const std::string& stream_id) {
     if (stream_id.empty()) {
-        return NET_TV_E_INVALID_PARAM;
+        return NET_E_INVALID_PARAM;
     }
 
     RecordFrameStopCallback cb;
@@ -295,7 +295,7 @@ NET_TV_COMMON_ECODE_E CRecordFrameServer::close_stream(const std::string& stream
         cb = m_fnStopCallback;
     }
 
-    NET_TV_COMMON_ECODE_E code = NET_TV_E_SUCCEED;
+    NET_COMMON_ECODE_E code = NET_E_SUCCEED;
     if (cb) {
         code = cb(stream_id);
     }
@@ -366,7 +366,7 @@ void CRecordFrameServer::accept_loop() {
  * @param client_fd 客户端socket文件描述符
  */
 void CRecordFrameServer::client_send_loop(socket_fd_t client_fd) {
-    std::vector<char> buffer(NET_TV_RECORD_FRAME_MAX_PAYLOAD_SIZE);
+    std::vector<char> buffer(NET_RECORD_FRAME_MAX_PAYLOAD_SIZE);
 
     while (m_bRunning) {
         const std::string stream_id = current_stream_id();
@@ -403,8 +403,8 @@ void CRecordFrameServer::client_send_loop(socket_fd_t client_fd) {
             break;
         }
 
-        if ((frame_info.uFlags & NET_TV_RECORD_FRAME_FLAG_STREAM_END) != 0 ||
-            frame_info.uMediaType == NET_TV_RECORD_FRAME_MEDIA_END) {
+        if ((frame_info.uFlags & NET_RECORD_FRAME_FLAG_STREAM_END) != 0 ||
+            frame_info.uMediaType == NET_RECORD_FRAME_MEDIA_END) {
             close_stream(stream_id);
             break;
         }
@@ -433,7 +433,7 @@ void CRecordFrameServer::client_send_loop(socket_fd_t client_fd) {
 bool CRecordFrameServer::send_packet(socket_fd_t fd,
                                     const NET_RecordFrameInfo_S& frame_info,
                                     const char* payload) {
-    if (fd == INVALID_SOCKET_FD || frame_info.uPayloadLen > NET_TV_RECORD_FRAME_MAX_PAYLOAD_SIZE) {
+    if (fd == INVALID_SOCKET_FD || frame_info.uPayloadLen > NET_RECORD_FRAME_MAX_PAYLOAD_SIZE) {
         return false;
     }
 
@@ -446,11 +446,11 @@ bool CRecordFrameServer::send_packet(socket_fd_t fd,
     NET_RecordFrameRtpHeader_S header{};
     header.byVersion = 2;
     header.byPayloadType = static_cast<UCHAR>(
-        frame_info.uMediaType == NET_TV_RECORD_FRAME_MEDIA_AUDIO ?
-            NET_TV_RECORD_FRAME_PAYLOAD_TYPE_AUDIO :
-        frame_info.uMediaType == NET_TV_RECORD_FRAME_MEDIA_END ?
-            NET_TV_RECORD_FRAME_PAYLOAD_TYPE_END :
-            NET_TV_RECORD_FRAME_PAYLOAD_TYPE_VIDEO);
+        frame_info.uMediaType == NET_RECORD_FRAME_MEDIA_AUDIO ?
+            NET_RECORD_FRAME_PAYLOAD_TYPE_AUDIO :
+        frame_info.uMediaType == NET_RECORD_FRAME_MEDIA_END ?
+            NET_RECORD_FRAME_PAYLOAD_TYPE_END :
+            NET_RECORD_FRAME_PAYLOAD_TYPE_VIDEO);
     header.wSeq = to_be16(static_cast<uint16_t>(frame_info.uSeq));
     header.dwTimestamp = to_be32(frame_info.uTimestamp);
     header.dwSsrc = to_be32(ssrc);

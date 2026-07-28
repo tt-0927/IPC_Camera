@@ -190,25 +190,25 @@ void CSdkHttpServer::InitSession()
 {
 	NETSDK_LOG_MESSAGE_DEBUG("会话管理相关初始化");
 	/* 登录接口 */
-	m_stServer.Post(NET_TV_API_PATH_BASIC_LOGIN, [](const httplib::Request& req, httplib::Response& res)
+	m_stServer.Post(NET_API_PATH_BASIC_LOGIN, [](const httplib::Request& req, httplib::Response& res)
 	{
     	CSessionManager::instance()->HttpCommandLogin(req, res);
 	});
 
 	/* 注销接口 */
-	m_stServer.Post(NET_TV_API_PATH_BASIC_LOGOUT, [](const httplib::Request& req, httplib::Response& res)
+	m_stServer.Post(NET_API_PATH_BASIC_LOGOUT, [](const httplib::Request& req, httplib::Response& res)
 	{
     	CSessionManager::instance()->HttpCommandLout(req, res);
 	});
 
 	/* 保活接口 */
-	m_stServer.Get(NET_TV_API_PATH_BASIC_KEEPLIVE, [](const httplib::Request& req, httplib::Response& res)
+	m_stServer.Get(NET_API_PATH_BASIC_KEEPLIVE, [](const httplib::Request& req, httplib::Response& res)
 	{
     	CSessionManager::instance()->HttpCommandKeepAlive(req, res);
 	});
 
 	/* 报警监听推送接口 */
-	m_stServer.Get(NET_TV_API_PATH_ALARMEVENT_LISTEN, [](const httplib::Request& req, httplib::Response& res)
+	m_stServer.Get(NET_API_PATH_ALARMEVENT_LISTEN, [](const httplib::Request& req, httplib::Response& res)
     {
         CSessionManager::instance()->HttpCommandAlarmListen(req, res);
     });

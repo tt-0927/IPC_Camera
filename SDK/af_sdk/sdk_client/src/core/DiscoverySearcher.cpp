@@ -35,7 +35,7 @@
  */
 int CDiscoverySearcher::search(const char* szInterfaceIP,
                                UINT32 dwTimeoutMs,
-                               NET_TV_DISCOVERY_DEVICE_INFO_S* pDeviceList,
+                               NET_DISCOVERY_DEVICE_INFO_S* pDeviceList,
                                int nMaxCount,
                                int* pnOutCount)
 {
@@ -99,7 +99,7 @@ int CDiscoverySearcher::create_socket(const char* szInterfaceIP)
     }
 
     /* 组播 TTL */
-    int ttl = NET_TV_DISCOVERY_TTL;
+    int ttl = NET_DISCOVERY_TTL;
     setsockopt(m_nSocket, IPPROTO_IP, IP_MULTICAST_TTL,
                reinterpret_cast<const char*>(&ttl), sizeof(ttl));
 
@@ -128,11 +128,11 @@ int CDiscoverySearcher::send_probes()
 {
     struct sockaddr_in dst_addr{};
     dst_addr.sin_family = AF_INET;
-    dst_addr.sin_port   = htons(NET_TV_DISCOVERY_MCAST_PORT);
+    dst_addr.sin_port   = htons(NET_DISCOVERY_MCAST_PORT);
 #ifdef _WIN32
-    inet_pton(AF_INET, NET_TV_DISCOVERY_MCAST_ADDR, &dst_addr.sin_addr);
+    inet_pton(AF_INET, NET_DISCOVERY_MCAST_ADDR, &dst_addr.sin_addr);
 #else
-    dst_addr.sin_addr.s_addr = inet_addr(NET_TV_DISCOVERY_MCAST_ADDR);
+    dst_addr.sin_addr.s_addr = inet_addr(NET_DISCOVERY_MCAST_ADDR);
 #endif
 
     std::string probe = discovery::build_probe_json();
@@ -156,7 +156,7 @@ int CDiscoverySearcher::send_probes()
  */
 
 int CDiscoverySearcher::recv_responses(UINT32 dwTimeoutMs,
-                                       NET_TV_DISCOVERY_DEVICE_INFO_S* pDeviceList,
+                                       NET_DISCOVERY_DEVICE_INFO_S* pDeviceList,
                                        int nMaxCount,
                                        int* pnOutCount)
 {
@@ -187,7 +187,7 @@ int CDiscoverySearcher::recv_responses(UINT32 dwTimeoutMs,
         if (n <= 0) continue;
 
         buf[n] = '\0';
-        NET_TV_DISCOVERY_DEVICE_INFO_S info{};
+        NET_DISCOVERY_DEVICE_INFO_S info{};
         if (!discovery::parse_response_json(std::string(buf, n), info)) continue;
 
         if (is_duplicate(info, pDeviceList, count)) continue;
@@ -204,8 +204,8 @@ int CDiscoverySearcher::recv_responses(UINT32 dwTimeoutMs,
  * @return 返回该处理的状态或结果。
  */
 
-bool CDiscoverySearcher::is_duplicate(const NET_TV_DISCOVERY_DEVICE_INFO_S& info,
-                                      const NET_TV_DISCOVERY_DEVICE_INFO_S* pList,
+bool CDiscoverySearcher::is_duplicate(const NET_DISCOVERY_DEVICE_INFO_S& info,
+                                      const NET_DISCOVERY_DEVICE_INFO_S* pList,
                                       int nCount) const
 {
     for (int i = 0; i < nCount; ++i) {

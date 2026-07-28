@@ -104,7 +104,7 @@ public:
      * @param [in] cb 报警回调函数指针
      * @param [in] userData 用户数据
      */
-	void SetAlarmCallback(NET_TV_AlarmCallBack cb, void* userData);
+	void SetAlarmCallback(NET_AlarmCallBack cb, void* userData);
 
     /**
  * @author tianl (tianl@kfb.cn)
@@ -112,7 +112,7 @@ public:
      * @param [in] cb 通道状态回调函数指针
      * @param [in] userData 用户数据
      */
-    void SetChannelStatusCallback(NET_TV_ChannelStatusCallBack cb, void* userData);
+    void SetChannelStatusCallback(NET_ChannelStatusCallBack cb, void* userData);
 
     /**
  * @author tianl (tianl@kfb.cn)

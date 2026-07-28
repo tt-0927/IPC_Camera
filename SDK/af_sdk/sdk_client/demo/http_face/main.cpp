@@ -24,8 +24,8 @@
  *   ./HttpFaceClientDemo http://192.168.1.100/cgi-bin/xxx 18080
  *
  * 说明:
- *   HTTP 模式不走 NET_TV_Login / NET_TV_SetAlarmCallBack。
- *   命令交互通过 /api/v1/sdk/command 承载 NET_TV_* 命令名，由设备侧转发到内部业务链路。
+ *   HTTP 模式不走 NET_Login / NET_SetAlarmCallBack。
+ *   命令交互通过 /api/v1/sdk/command 承载 NET_* 命令名，由设备侧转发到内部业务链路。
  *   “注册回调”等价于平台启动 HTTP 服务，并把服务地址配置到设备侧 HTTP 推送配置中。
  */
 
@@ -143,7 +143,7 @@ HttpResult_S sendJsonCommand(const std::string &strMethod,
 /**
  * @author tianl (tianl@kfb.cn)
  * @brief   : 构造 HTTP-SDK 转发命令 JSON
- * @param    {std::string} &strCommand：SDK 命令名，例如 NET_TV_GET_FACECAPTUREINFO
+ * @param    {std::string} &strCommand：SDK 命令名，例如 NET_GET_FACECAPTUREINFO
  * @param    {std::string} &strDataJson：业务数据 JSON，传空时使用空对象
  * @return   {std::string} 可发送给 /api/v1/sdk/command 的 JSON 请求体
  */
@@ -315,7 +315,7 @@ void startCallbackServer(int nListenPort, httplib::Server &server)
 void sendCommandExamples(const std::string &strDeviceBaseUrl)
 {
     printHttpResult("获取人脸抓拍配置",
-                    sendSdkCommand(strDeviceBaseUrl, "NET_TV_GET_FACECAPTUREINFO"));
+                    sendSdkCommand(strDeviceBaseUrl, "NET_GET_FACECAPTUREINFO"));
 
     const std::string strCaptureConfig = R"({
         "Enable": true,
@@ -324,7 +324,7 @@ void sendCommandExamples(const std::string &strDeviceBaseUrl)
         }
     })";
     printHttpResult("设置人脸抓拍配置",
-                    sendSdkCommand(strDeviceBaseUrl, "NET_TV_SET_FACECAPTUREINFO", strCaptureConfig));
+                    sendSdkCommand(strDeviceBaseUrl, "NET_SET_FACECAPTUREINFO", strCaptureConfig));
 
     const std::string strCompareConfig = R"({
         "Enable": true,
@@ -340,13 +340,13 @@ void sendCommandExamples(const std::string &strDeviceBaseUrl)
         }
     })";
     printHttpResult("设置人脸比对配置",
-                    sendSdkCommand(strDeviceBaseUrl, "NET_TV_SET_FACE_COMPARE_INFO", strCompareConfig));
+                    sendSdkCommand(strDeviceBaseUrl, "NET_SET_FACE_COMPARE_INFO", strCompareConfig));
 
     const std::string strAddLib = R"({
         "LibId": "员工库"
     })";
     printHttpResult("添加目标库",
-                    sendSdkCommand(strDeviceBaseUrl, "NET_TV_ADD_TARGET_LIB", strAddLib));
+                    sendSdkCommand(strDeviceBaseUrl, "NET_ADD_TARGET_LIB", strAddLib));
 
     const std::string strAddPerson = R"({
         "LibId": "员工库",
@@ -361,7 +361,7 @@ void sendCommandExamples(const std::string &strDeviceBaseUrl)
         "PicHeight": 480
     })";
     printHttpResult("添加人脸",
-                    sendSdkCommand(strDeviceBaseUrl, "NET_TV_ADD_FACE_INFO", strAddPerson));
+                    sendSdkCommand(strDeviceBaseUrl, "NET_ADD_FACE_INFO", strAddPerson));
 }
 
 /**
@@ -405,7 +405,7 @@ bool handleMenuChoice(const std::string &strDeviceBaseUrl, const std::string &st
     if (strChoice == "1")
     {
         printHttpResult("获取人脸抓拍配置",
-                        sendSdkCommand(strDeviceBaseUrl, "NET_TV_GET_FACECAPTUREINFO"));
+                        sendSdkCommand(strDeviceBaseUrl, "NET_GET_FACECAPTUREINFO"));
     }
     else if (strChoice == "2")
     {
@@ -416,7 +416,7 @@ bool handleMenuChoice(const std::string &strDeviceBaseUrl, const std::string &st
             }
         })";
         printHttpResult("设置人脸抓拍配置",
-                        sendSdkCommand(strDeviceBaseUrl, "NET_TV_SET_FACECAPTUREINFO", strBody));
+                        sendSdkCommand(strDeviceBaseUrl, "NET_SET_FACECAPTUREINFO", strBody));
     }
     else if (strChoice == "3")
     {
@@ -434,7 +434,7 @@ bool handleMenuChoice(const std::string &strDeviceBaseUrl, const std::string &st
             }
         })";
         printHttpResult("设置人脸比对配置",
-                        sendSdkCommand(strDeviceBaseUrl, "NET_TV_SET_FACE_COMPARE_INFO", strBody));
+                        sendSdkCommand(strDeviceBaseUrl, "NET_SET_FACE_COMPARE_INFO", strBody));
     }
     else if (strChoice == "4")
     {
@@ -442,7 +442,7 @@ bool handleMenuChoice(const std::string &strDeviceBaseUrl, const std::string &st
             "LibId": "员工库"
         })";
         printHttpResult("添加目标库",
-                        sendSdkCommand(strDeviceBaseUrl, "NET_TV_ADD_TARGET_LIB", strBody));
+                        sendSdkCommand(strDeviceBaseUrl, "NET_ADD_TARGET_LIB", strBody));
     }
     else if (strChoice == "5")
     {
@@ -450,7 +450,7 @@ bool handleMenuChoice(const std::string &strDeviceBaseUrl, const std::string &st
             "LibId": "员工库"
         })";
         printHttpResult("删除目标库",
-                        sendSdkCommand(strDeviceBaseUrl, "NET_TV_DEL_TARGET_LIB", strBody));
+                        sendSdkCommand(strDeviceBaseUrl, "NET_DEL_TARGET_LIB", strBody));
     }
     else if (strChoice == "6")
     {
@@ -459,12 +459,12 @@ bool handleMenuChoice(const std::string &strDeviceBaseUrl, const std::string &st
             "LibId_new": "员工库-修改"
         })";
         printHttpResult("修改目标库",
-                        sendSdkCommand(strDeviceBaseUrl, "NET_TV_SET_TARGET_LIB", strBody));
+                        sendSdkCommand(strDeviceBaseUrl, "NET_SET_TARGET_LIB", strBody));
     }
     else if (strChoice == "7")
     {
         printHttpResult("获取目标库",
-                        sendSdkCommand(strDeviceBaseUrl, "NET_TV_GET_TARGET_LIB"));
+                        sendSdkCommand(strDeviceBaseUrl, "NET_GET_TARGET_LIB"));
     }
     else if (strChoice == "8")
     {
@@ -481,7 +481,7 @@ bool handleMenuChoice(const std::string &strDeviceBaseUrl, const std::string &st
             "PicHeight": 480
         })";
         printHttpResult("添加人脸",
-                        sendSdkCommand(strDeviceBaseUrl, "NET_TV_ADD_FACE_INFO", strBody));
+                        sendSdkCommand(strDeviceBaseUrl, "NET_ADD_FACE_INFO", strBody));
     }
     else if (strChoice == "9")
     {
@@ -491,7 +491,7 @@ bool handleMenuChoice(const std::string &strDeviceBaseUrl, const std::string &st
             ]
         })";
         printHttpResult("删除人脸",
-                        sendSdkCommand(strDeviceBaseUrl, "NET_TV_DEL_FACE_INFO", strBody));
+                        sendSdkCommand(strDeviceBaseUrl, "NET_DEL_FACE_INFO", strBody));
     }
     else if (strChoice == "10")
     {
@@ -506,7 +506,7 @@ bool handleMenuChoice(const std::string &strDeviceBaseUrl, const std::string &st
             "PicDate": "2026-05-14 11:00:00"
         })";
         printHttpResult("修改人脸",
-                        sendSdkCommand(strDeviceBaseUrl, "NET_TV_SET_FACE_INFO", strBody));
+                        sendSdkCommand(strDeviceBaseUrl, "NET_SET_FACE_INFO", strBody));
     }
     else if (strChoice == "11")
     {
@@ -518,7 +518,7 @@ bool handleMenuChoice(const std::string &strDeviceBaseUrl, const std::string &st
             "RatingLevel": -1
         })";
         printHttpResult("获取人脸",
-                        sendSdkCommand(strDeviceBaseUrl, "NET_TV_GET_FACE_INFO", strBody));
+                        sendSdkCommand(strDeviceBaseUrl, "NET_GET_FACE_INFO", strBody));
     }
     else if (strChoice == "12")
     {

@@ -124,14 +124,14 @@ public:
 	{
         if (!pOut)
 		{
-			CErrorManage::instance()->SetLastError(NET_TV_E_INVALID_PARAM);
+			CErrorManage::instance()->SetLastError(NET_E_INVALID_PARAM);
             return false;
         }
 
         auto session = CDeviceManage::instance()->GetSession(pHandle);
         if (!session)
 		{
-			CErrorManage::instance()->SetLastError(NET_TV_E_NO_USER);
+			CErrorManage::instance()->SetLastError(NET_E_NO_USER);
             return false;
         }
 
@@ -183,14 +183,14 @@ public:
 	{
         if (!pIn)
 		{
-			CErrorManage::instance()->SetLastError(NET_TV_E_INVALID_PARAM);
+			CErrorManage::instance()->SetLastError(NET_E_INVALID_PARAM);
             return false;
         }
 
         auto session = CDeviceManage::instance()->GetSession(pHandle);
         if (!session)
 		{
-			CErrorManage::instance()->SetLastError(NET_TV_E_NO_USER);
+			CErrorManage::instance()->SetLastError(NET_E_NO_USER);
             return false;
         }
 
@@ -224,7 +224,7 @@ public:
         auto session = CDeviceManage::instance()->GetSession(pHandle);
         if (!session)
 		{
-            CErrorManage::instance()->SetLastError(NET_TV_E_NO_USER);
+            CErrorManage::instance()->SetLastError(NET_E_NO_USER);
             return false;
         }
 
@@ -253,7 +253,7 @@ public:
         auto session = CDeviceManage::instance()->GetSession(pHandle);
         if (!session)
         {
-            CErrorManage::instance()->SetLastError(NET_TV_E_NO_USER);
+            CErrorManage::instance()->SetLastError(NET_E_NO_USER);
             return false;
         }
 
@@ -261,7 +261,7 @@ public:
         std::ifstream file(filePath, std::ios::binary | std::ios::ate);
         if (!file.is_open())
         {
-            CErrorManage::instance()->SetLastError(NET_TV_E_INVALID_PARAM);
+            CErrorManage::instance()->SetLastError(NET_E_INVALID_PARAM);
             return false;
         }
 
@@ -271,7 +271,7 @@ public:
         std::vector<char> fileData(static_cast<std::size_t>(fileSize));
         if (!file.read(fileData.data(), fileSize))
         {
-            CErrorManage::instance()->SetLastError(NET_TV_E_SOCKET_RECV_ERR);
+            CErrorManage::instance()->SetLastError(NET_E_SOCKET_RECV_ERR);
             return false;
         }
 

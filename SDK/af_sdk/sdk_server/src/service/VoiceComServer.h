@@ -29,7 +29,7 @@ namespace tvsdk {
 
 /* 音频数据回调: 音频帧由当前 VoiceCom 音频参数定义。 */
 using VoiceComPlayCallback = std::function<void(const char* data, size_t size)>;
-using VoiceComCaptureCallback = std::function<int(const NET_TV_VOICECOM_AUDIO_PARAM_S& audio_param,
+using VoiceComCaptureCallback = std::function<int(const NET_VOICECOM_AUDIO_PARAM_S& audio_param,
                                                   char* buffer,
                                                   size_t buffer_size)>;
 
@@ -52,7 +52,7 @@ public:
     void set_capture_callback(VoiceComCaptureCallback cb);
 
     /* 获取当前NVR协商的音频参数 */
-    bool get_audio_param(NET_TV_VOICECOM_AUDIO_PARAM_S& audio_param) const;
+    bool get_audio_param(NET_VOICECOM_AUDIO_PARAM_S& audio_param) const;
 
     bool is_running() const { return m_bRunning; }
 
@@ -64,7 +64,7 @@ private:
     void client_recv_loop();
     void capture_loop();
     void notify_audio_param_ready();
-    bool snapshot_audio_param(NET_TV_VOICECOM_AUDIO_PARAM_S& audio_param) const;
+    bool snapshot_audio_param(NET_VOICECOM_AUDIO_PARAM_S& audio_param) const;
 
     socket_fd_t m_nListenFd{INVALID_SOCKET_FD};
     socket_fd_t m_nClientFd{INVALID_SOCKET_FD};
@@ -78,7 +78,7 @@ private:
     mutable std::mutex m_stCallbackMutex;
     mutable std::mutex m_stParameterMutex;
     std::condition_variable m_stParameterCondition;
-    NET_TV_VOICECOM_AUDIO_PARAM_S m_stAudioParameter{};
+    NET_VOICECOM_AUDIO_PARAM_S m_stAudioParameter{};
     bool m_bHasAudioParameter{false};
 };
 

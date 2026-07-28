@@ -378,9 +378,9 @@ void CClientAlarmManager::AlarmLoop()
                           m_hUser, lCommand, eventType.c_str());
         }
 
-        if (eventType == "ChannelStatus" || lCommand == NET_TV_NOTIFY_CHANNEL_STATUS)
+        if (eventType == "ChannelStatus" || lCommand == NET_NOTIFY_CHANNEL_STATUS)
         {
-            NET_TV_CHANNEL_INFO_S info = {0};
+            NET_CHANNEL_INFO_S info = {0};
             bool parseSuccess = false;
 
             if (auto* channelObj = Json::get(root, "ChannelInfo"))
@@ -406,7 +406,7 @@ void CClientAlarmManager::AlarmLoop()
 
         INT32 alarmBase = ((INT32)lCommand) & 0xF000;
 
-        NET_TV_ALARMER_S alarmer = {0};
+        NET_ALARMER_S alarmer = {0};
         if (auto* alarmerObj = Json::get(root, "Alarmer"))
         {
             SDKConvert::deal(alarmerObj, alarmer, true);
@@ -423,15 +423,15 @@ void CClientAlarmManager::AlarmLoop()
             return true;
         }
 
-        if (lCommand == NET_TV_ALARM_FACE_COMPARE)
+        if (lCommand == NET_ALARM_FACE_COMPARE)
         {
-            std::unique_ptr<NET_TV_ALARM_FACE_COMPARE_INFO_S> info = std::make_unique<NET_TV_ALARM_FACE_COMPARE_INFO_S>();
+            std::unique_ptr<NET_ALARM_FACE_COMPARE_INFO_S> info = std::make_unique<NET_ALARM_FACE_COMPARE_INFO_S>();
             SDKConvert::deal(alarmInfoObj, *info, true);
             INT32 len = (INT32)sizeof(*info);
             m_fnAlarmCallback(lCommand, &alarmer, (CHAR*)info.get(), &len, m_pAlarmUserData);
-        }else if (alarmBase == NET_TV_ALARM_BASE_BASIC)
+        }else if (alarmBase == NET_ALARM_BASE_BASIC)
         {
-            NET_TV_ALARM_BASIC_INFO_S info = {0};
+            NET_ALARM_BASIC_INFO_S info = {0};
             SDKConvert::deal(alarmInfoObj, info, true);
             NETSDK_LOG_MESSAGE_INFO("[DIAG-ALARM] User-%p basic parsed: cmd=0x%llX, alarmType=0x%X, timestamp=%lld, panoramaLen=%u",
                           m_hUser,
@@ -442,9 +442,9 @@ void CClientAlarmManager::AlarmLoop()
             INT32 len = (INT32)sizeof(info);
             m_fnAlarmCallback(lCommand, &alarmer, (CHAR*)&info, &len, m_pAlarmUserData);
         }
-        else if (alarmBase == NET_TV_ALARM_BASE_RULE)
+        else if (alarmBase == NET_ALARM_BASE_RULE)
         {
-            auto info = std::make_unique<NET_TV_ALARM_RULE_INFO_S>();
+            auto info = std::make_unique<NET_ALARM_RULE_INFO_S>();
             SDKConvert::deal(alarmInfoObj, *info, true);
             NETSDK_LOG_MESSAGE_INFO("[DIAG-ALARM] User-%p rule parsed: cmd=0x%llX, alarmType=0x%X, channel=%u, rule=%u, "
                           "target=%u, objType=%u, timestamp=%lld, rect=[%d,%d,%d,%d], panoramaLen=%u, targetLen=%u, "
@@ -468,9 +468,9 @@ void CClientAlarmManager::AlarmLoop()
             INT32 len = (INT32)sizeof(*info);
             m_fnAlarmCallback(lCommand, &alarmer, (CHAR*)info.get(), &len, m_pAlarmUserData);
         }
-        else if (alarmBase == NET_TV_ALARM_BASE_AI)
+        else if (alarmBase == NET_ALARM_BASE_AI)
         {
-            auto info = std::make_unique<NET_TV_ALARM_AI_OBJECT_INFO_S>();
+            auto info = std::make_unique<NET_ALARM_AI_OBJECT_INFO_S>();
             SDKConvert::deal(alarmInfoObj, *info, true);
             NETSDK_LOG_MESSAGE_INFO("[DIAG-ALARM] User-%p ai object parsed: cmd=0x%llX, alarmType=0x%X, channel=%u, object=%s, "
                           "objType=%u, timestamp=%lld, rect=[%d,%d,%d,%d], panoramaLen=%u, imgLen=%u, "
@@ -493,30 +493,30 @@ void CClientAlarmManager::AlarmLoop()
             INT32 len = (INT32)sizeof(*info);
             m_fnAlarmCallback(lCommand, &alarmer, (CHAR*)info.get(), &len, m_pAlarmUserData);
         }
-        else if (alarmBase == NET_TV_ALARM_BASE_TRAFFIC)
+        else if (alarmBase == NET_ALARM_BASE_TRAFFIC)
         {
-            NET_TV_ALARM_PLATE_INFO_S info = {0};
+            NET_ALARM_PLATE_INFO_S info = {0};
             SDKConvert::deal(alarmInfoObj, info, true);
             INT32 len = (INT32)sizeof(info);
             m_fnAlarmCallback(lCommand, &alarmer, (CHAR*)&info, &len, m_pAlarmUserData);
         }
-        else if (alarmBase == NET_TV_ALARM_BASE_EXCEPTION)
+        else if (alarmBase == NET_ALARM_BASE_EXCEPTION)
         {
-            NET_TV_ALARM_EXCEPTION_INFO_S info = {0};
+            NET_ALARM_EXCEPTION_INFO_S info = {0};
             SDKConvert::deal(alarmInfoObj, info, true);
             INT32 len = (INT32)sizeof(info);
             m_fnAlarmCallback(lCommand, &alarmer, (CHAR*)&info, &len, m_pAlarmUserData);
         }
-        else if (alarmBase == NET_TV_ALARM_BASE_STATISTICS)
+        else if (alarmBase == NET_ALARM_BASE_STATISTICS)
         {
-            auto info = std::make_unique<NET_TV_ALARM_STATISTICS_INFO_S>();
+            auto info = std::make_unique<NET_ALARM_STATISTICS_INFO_S>();
             SDKConvert::deal(alarmInfoObj, *info, true);
             INT32 len = (INT32)sizeof(*info);
             m_fnAlarmCallback(lCommand, &alarmer, (CHAR*)info.get(), &len, m_pAlarmUserData);
         }
-        else if (lCommand == NET_TV_NOTICE_DOWNLOAD_RECORD_PROGRESS)
+        else if (lCommand == NET_NOTICE_DOWNLOAD_RECORD_PROGRESS)
         {
-            NET_TV_RECORD_DOWNLOAD_PROGRESS_S info = {0};
+            NET_RECORD_DOWNLOAD_PROGRESS_S info = {0};
             SDKConvert::deal(alarmInfoObj, info, true);
             INT32 len = (INT32)sizeof(info);
             m_fnAlarmCallback(lCommand, &alarmer, (CHAR*)&info, &len, m_pAlarmUserData);
@@ -573,7 +573,7 @@ void CClientAlarmManager::AlarmLoop()
         }
 
         m_nReconnectCount++;
-        std::string url = std::string(NET_TV_API_PATH_ALARMEVENT_LISTEN) + "?session_id=" + currentSessionId;
+        std::string url = std::string(NET_API_PATH_ALARMEVENT_LISTEN) + "?session_id=" + currentSessionId;
         NETSDK_LOG_MESSAGE_INFO("[DIAG-ALARM] User-%p [CONNECT #%d] url=%s, host=%s:%d",
                       m_hUser, m_nReconnectCount.load(), url.c_str(), m_strHost.c_str(), m_nPort);
 
@@ -741,7 +741,7 @@ void CClientAlarmManager::AlarmLoop()
             std::chrono::steady_clock::now() - tp_before_connect).count();
 
         if (res) {
-            if (res->status == NET_TV_HTTP_RESP_CODE_UNAUTHORIZED || res->status == 401)
+            if (res->status == NET_HTTP_RESP_CODE_UNAUTHORIZED || res->status == 401)
             {
                 NETSDK_LOG_MESSAGE_ERROR("[DIAG-ALARM] User-%p [DISCONNECT] 401 Unauthorized: conn=%llds, "
                               "hb=%d, alarms=%d, triggering re-login",

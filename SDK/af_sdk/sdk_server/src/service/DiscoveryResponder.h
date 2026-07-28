@@ -33,7 +33,7 @@
  * @param pInfo [out] 由回调填充设备信息
  */
 using DiscoveryDeviceInfoCallback =
-    std::function<void(NET_TV_DISCOVERY_DEVICE_INFO_S* pInfo)>;
+    std::function<void(NET_DISCOVERY_DEVICE_INFO_S* pInfo)>;
 
 class CDiscoveryResponder {
 public:
@@ -88,11 +88,11 @@ private:
     std::vector<uint8_t> build_l2_response(
         const uint8_t client_mac[6],
         uint32_t client_ip, uint16_t client_port,
-        const NET_TV_DISCOVERY_DEVICE_INFO_S& info) const;
+        const NET_DISCOVERY_DEVICE_INFO_S& info) const;
 
     /* 标准 UDP 单播回包 */
     int send_udp_response(uint32_t client_ip, uint16_t client_port,
-                          const NET_TV_DISCOVERY_DEVICE_INFO_S& info);
+                          const NET_DISCOVERY_DEVICE_INFO_S& info);
 
     int m_nRawFd{-1};
     int m_nInterfaceIndex{0};
