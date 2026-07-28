@@ -1,17 +1,16 @@
 /**
  * @file main.c
- * @author tianl (tianl@kfb.cn)
- * @date 2026-07-28
- * @LastEditors  : qinjt@kfb.cn
- * @LastEditTime : 2026-07-28
+ * @brief SDK服务端 配置(Get/Set) Demo
  *
- * @brief SDK 设备配置读写 Demo
- * 功能说明：
- * 1. 实现 main 模块核心逻辑
- * 2. 校验输入参数并管理模块资源生命周期
- * 3. 向上层提供可复用的 SDK 能力
+ * 演示内容：
+ * 1. 注册设备信息回调（用于客户端登录）
+ * 2. 注册设备基本信息/网络配置的 Get/Set 配置回调
+ * 3. 启动 SDK 服务端，等待客户端通过 NET_GetDevConfig/NET_SetDevConfig 访问配置
+ *
+ * 说明：
+ * - 本 Demo 仅在内存中保存配置，不做持久化存储
+ * - 主要用于演示配置获取与设置的调用流程
  */
-
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -30,34 +29,28 @@
 #include "NetTVSDKServerInterface.h"
 
 /* 日志配置 */
-#define NETSDK_DEMO_LOG_MAX_SIZE  (20 * 1024 * 1024)
-#define NETSDK_DEMO_LOG_MAX_FILES (10)
+#define MAX_LOG_SIZE  (20 * 1024 * 1024)
+#define MAX_LOG_FILES (10)
 
 /* 服务端口与默认账号 */
-#define NETSDK_DEMO_SERVER_PORT 9888
-#define NETSDK_DEMO_SERVER_USERNAME "admin"
-#define NETSDK_DEMO_SERVER_PASSWORD "sj2@2025"
-#define NETSDK_DEMO_VOICE_COM_PORT 9006
-#define NETSDK_DEMO_VOICE_COM_SERVER_RECEIVE_DUMP "/tmp/VoiceComServerRecv.audio"
+#define SDKSERVER_PORT 9888
+#define SDKSERVER_USERNAME "admin"
+#define SDKSERVER_PASSWORD "sj2@2025"
+#define DEMO_VOICECOM_PORT 9006
+#define DEMO_VOICECOM_SERVER_RECV_DUMP "/tmp/VoiceComServerRecv.audio"
 /* 当前IPC能力只开放前4个自定义OSD槽位，结构体数组长度仍按SDK ABI保留。 */
-#define NETSDK_DEMO_OSD_CUSTOM_MAX_NUM NET_OSD_CUSTOM_MAX_NUM
-#define NETSDK_DEMO_OSD_STRUCT_SLOT_NUM NET_OSD_TYPE_MAX_NUM
+#define DEMO_OSD_CUSTOM_MAX_NUM NET_OSD_CUSTOM_MAX_NUM
+#define DEMO_OSD_STRUCT_SLOT_NUM NET_OSD_TYPE_MAX_NUM
 
-static INT32 g_serverPort = NETSDK_DEMO_SERVER_PORT;
-static CHAR g_serverUsername[NET_LEN_132] = NETSDK_DEMO_SERVER_USERNAME;
-static CHAR g_serverPassword[NET_LEN_132] = NETSDK_DEMO_SERVER_PASSWORD;
+static INT32 g_serverPort = SDKSERVER_PORT;
+static CHAR g_serverUsername[NET_LEN_132] = SDKSERVER_USERNAME;
+static CHAR g_serverPassword[NET_LEN_132] = SDKSERVER_PASSWORD;
 
 /* 运行标志，用于优雅退出 */
 static volatile sig_atomic_t g_running = 1;
 static unsigned long long g_voiceComFrameCount = 0;
 static unsigned long long g_voiceComBytes = 0;
 static FILE* g_voiceComDumpFp = NULL;
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 VoiceComSilenceByte 定义的内部处理。
- * @param [in] enFormat 函数处理参数。
- * @return 返回该处理的状态或结果。
- */
 
 static unsigned char VoiceComSilenceByte(INT32 enFormat)
 {
@@ -71,12 +64,6 @@ static unsigned char VoiceComSilenceByte(INT32 enFormat)
     }
     return 0x00;
 }
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 signal_handler 定义的内部处理。
- * @param [in] signum 函数处理参数。
- * @return 无返回值。
- */
 
 static void signal_handler(int signum)
 {
@@ -86,14 +73,6 @@ static void signal_handler(int signum)
         g_running = 0;
     }
 }
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 CopyString 对应的处理。
- * @param [in,out] pDst 函数处理参数。
- * @param [in] dstSize 函数处理参数。
- * @param [in] pSrc 函数处理参数。
- * @return 无返回值。
- */
 
 static void CopyString(char* pDst, size_t dstSize, const char* pSrc)
 {
@@ -111,12 +90,6 @@ static void CopyString(char* pDst, size_t dstSize, const char* pSrc)
     strncpy(pDst, pSrc, dstSize - 1);
     pDst[dstSize - 1] = '\0';
 }
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 PrintUsage 定义的内部处理。
- * @param [in] pProgram 函数处理参数。
- * @return 无返回值。
- */
 
 static void PrintUsage(const char* pProgram)
 {
@@ -125,13 +98,6 @@ static void PrintUsage(const char* pProgram)
     printf("Example: %s 9888 admin sj2@2025\n",
            pProgram ? pProgram : "ConfigServerDemo");
 }
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 ConfigureByArgs 定义的内部处理。
- * @param [in] argc 函数处理参数。
- * @param [in,out] argv 函数处理参数。
- * @return 无返回值。
- */
 
 static void ConfigureByArgs(int argc, char* argv[])
 {
@@ -165,14 +131,14 @@ static void ConfigureByArgs(int argc, char* argv[])
 static NET_DeviceBasicInfo_S g_stDeviceBasicInfo;
 static NET_NetworkCfg_S   g_stNetworkCfg;
 static NET_SystemNtpInfo_S   g_stSystemNtpCfg;
-static NET_VIDEO_ENCODE_OPTION_S g_stStreamCfg;
+static NET_VideoEncodeOption_S g_stStreamCfg;
 static NET_AudioCfg_S        g_stAudioCfg;
-static NET_WIFI_STA_CFG_S     g_stWifiStaCfg;
+static NET_WifiStaCfg_S     g_stWifiStaCfg;
 static NET_WifiStaConnect_S g_stWifiStaConnect;
 static NET_4GInfo_S          g_st4GInfo;
-static NET_HOTSPOT_INFO_S     g_stHotspotInfo;
+static NET_HotspotInfo_S     g_stHotspotInfo;
 static NET_HotspotConnInfo_S g_stHotspotConnInfo;
-static NET_VIDEO_OSD_CFG_S    g_stOsdCfg;
+static NET_VideoOsdCfg_S    g_stOsdCfg;
 static NET_MotionAlarmInfo_S g_stMotionAlarmInfo;
 static NET_PrivacyMaskCfg_S g_stPrivacyMaskCfg;
 static NET_TamperAlarmInfo_S g_stTamperAlarmInfo;
@@ -186,12 +152,12 @@ static NET_UnattendedObjectAlarmInfo_S g_stUnattendedObjectAlarmInfo;
 static NET_ObjectRemovalAlarmInfo_S g_stObjectRemovalAlarmInfo;
 static NET_AudioAnomalyAlarmInfo_S g_stAudioAnomalyAlarmInfo;
 static NET_ImageSetting_S g_stImageCfg;
-static NET_PREVIEW_INFO_S g_stPreviewInfo;
-static NET_CHANNEL_INFO_S g_stChannelInfo;
+static NET_PreviewInfo_S g_stPreviewInfo;
+static NET_ChannelInfo_S g_stChannelInfo;
 
 static NET_UpgradeInfo_S g_stUpgradeInfo;
 static NET_UpgradeStatus_S g_stUpgradeStatuts;
-static NET_UPGRADE_VERSION_S g_stUpgradeVersions;
+static NET_UpgradeVersion_S g_stUpgradeVersions;
 
 static NET_CapturePlanInfo_S g_stCapturePlanInfo;
 static NET_CaptureParamInfo_S g_stCaptureParamInfo;
@@ -200,13 +166,13 @@ static NET_ExposureInfo_S g_stExposureInfo;
 static NET_DayNightInfo_S g_stDayNightInfo;
 static NET_BackLightInfo_S g_stBackLightInfo;
 static NET_DenoiseInfo_S g_stDenoiseInfo;
-static NET_WHITEBALANCE_INFO_S g_stWhiteBalanceInfo;
+static NET_WhiteBalanceInfo_S g_stWhiteBalanceInfo;
 
 static NET_TalkbackStateInfo_S g_stTalkbackStateInfo;
 static NET_TalkbackStreamInfo_S g_stTalkbackToStreamInfo;
 static NET_TalkbackStreamInfo_S g_stTalkbackFromStreamInfo;
 static NET_ReplayTalkbackInfo_S g_stReplayTalkbackInfo;
-static NET_REPLAY_CTRL_INFO_S g_stReplayCtrlInfo;
+static NET_ReplayCtrlInfo_S g_stReplayCtrlInfo;
 
 static NET_EnterRegionAlarmInfo_S g_stEnterRegionAlarmInfo;
 static NET_LeaveRegionAlarmInfo_S g_stLeaveRegionAlarmInfo;
@@ -254,16 +220,10 @@ static NET_LogServerInfo_S g_stLogServerInfo;
 static NET_LogList_S g_stLogList;
 static NET_RecordInfo_S g_stRecordInfo;
 static NET_RecordStatusInfo_S g_stRecordStatusInfo;
-static NET_RECORD_SCHEDULE_S g_stRecordSchedule;
+static NET_RecordSchedule_S g_stRecordSchedule;
 static NET_RecordAdvancedParam_S g_stRecordAdvancedParam;
 static NET_RecordFileList_S g_stRecordFileList;
-static NET_RECORD_DOWNLOAD_LIST_S g_stRecordDownloadList;
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 InitSimpleAiAlarmSchedule 对应的处理。
- * @param [in,out] pSchedule 函数处理参数。
- * @return 无返回值。
- */
+static NET_RecordDownloadList_S g_stRecordDownloadList;
 
 static void InitSimpleAiAlarmSchedule(NET_AlarmSchedule_S* pSchedule)
 {
@@ -275,18 +235,12 @@ static void InitSimpleAiAlarmSchedule(NET_AlarmSchedule_S* pSchedule)
     for (int day = 0; day < 7; day++)
     {
         pSchedule->uTimeSectionCount[day] = 1;
-        pSchedule->stTimeSection[day][0].nStartHour = 0;
-        pSchedule->stTimeSection[day][0].nStartMinute = 0;
-        pSchedule->stTimeSection[day][0].nEndHour = 23;
-        pSchedule->stTimeSection[day][0].nEndMinute = 59;
+        pSchedule->astTimeSection[day][0].nStartHour = 0;
+        pSchedule->astTimeSection[day][0].nStartMinute = 0;
+        pSchedule->astTimeSection[day][0].nEndHour = 23;
+        pSchedule->astTimeSection[day][0].nEndMinute = 59;
     }
 }
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 InitDemoSmartRegion 对应的处理。
- * @param [in,out] pRegion 函数处理参数。
- * @return 无返回值。
- */
 
 static void InitDemoSmartRegion(NET_SmartRegion_S* pRegion)
 {
@@ -301,12 +255,6 @@ static void InitDemoSmartRegion(NET_SmartRegion_S* pRegion)
     pRegion->afPointX[2] = 0.8f; pRegion->afPointY[2] = 0.8f;
     pRegion->afPointX[3] = 0.2f; pRegion->afPointY[3] = 0.8f;
 }
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 InitDemoSmartRegionRule 对应的处理。
- * @param [in,out] pRule 函数处理参数。
- * @return 无返回值。
- */
 
 static void InitDemoSmartRegionRule(NET_SmartRegionRule_S* pRule)
 {
@@ -315,7 +263,7 @@ static void InitDemoSmartRegionRule(NET_SmartRegionRule_S* pRule)
         return;
     }
 
-    pRule->bEnable = NET_TRUE;
+    pRule->bEnable = TRUE;
     pRule->uPointCount = 4;
     pRule->afPointX[0] = 0.2f; pRule->afPointY[0] = 0.2f;
     pRule->afPointX[1] = 0.8f; pRule->afPointY[1] = 0.2f;
@@ -323,15 +271,9 @@ static void InitDemoSmartRegionRule(NET_SmartRegionRule_S* pRule)
     pRule->afPointX[3] = 0.2f; pRule->afPointY[3] = 0.8f;
     pRule->nTimeThreshold = 10;
     pRule->nSensitivity = 50;
-    pRule->dwDetectionTargetCount = 1;
-    pRule->adwDetectionTarget[0] = NET_TARGET_HUMAN;
+    pRule->uDetectionTargetCount = 1;
+    pRule->auDetectionTarget[0] = NET_TARGET_HUMAN;
 }
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 InitDemoSmartLineRule 对应的处理。
- * @param [in,out] pRule 函数处理参数。
- * @return 无返回值。
- */
 
 static void InitDemoSmartLineRule(NET_SmartLineRule_S* pRule)
 {
@@ -340,7 +282,7 @@ static void InitDemoSmartLineRule(NET_SmartLineRule_S* pRule)
         return;
     }
 
-    pRule->bEnable = NET_TRUE;
+    pRule->bEnable = TRUE;
     pRule->fStartPosX = 0.2f;
     pRule->fStartPosY = 0.5f;
     pRule->fEndPosX = 0.8f;
@@ -348,11 +290,6 @@ static void InitDemoSmartLineRule(NET_SmartLineRule_S* pRule)
     pRule->enCrossDirection = NET_CROSS_A_TO_B;
     pRule->nSensitivity = 50;
 }
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 FillOsdAttr 对应的处理。
- * @return 无返回值。
- */
 
 static void FillOsdAttr(OsdAttribute_S* pAttr,
                         INT32 x,
@@ -386,14 +323,8 @@ static void FillOsdAttr(OsdAttribute_S* pAttr,
         strncpy(pAttr->strToken, pToken, sizeof(pAttr->strToken) - 1);
     }
 }
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 InitDemoOsdConfig 对应的处理。
- * @param [in,out] pCfg 函数处理参数。
- * @return 无返回值。
- */
 
-static void InitDemoOsdConfig(NET_VIDEO_OSD_CFG_S* pCfg)
+static void InitDemoOsdConfig(NET_VideoOsdCfg_S* pCfg)
 {
     int i = 0;
 
@@ -405,7 +336,7 @@ static void InitDemoOsdConfig(NET_VIDEO_OSD_CFG_S* pCfg)
     memset(pCfg, 0, sizeof(*pCfg));
     pCfg->enAlign = OSD_ALIFN_CUSTOMIZE;
 
-    pCfg->stOsdNameInfo.bEnable = NET_TRUE;
+    pCfg->stOsdNameInfo.bEnable = TRUE;
     strncpy(pCfg->stOsdNameInfo.strName,
             "Demo-Camera",
             sizeof(pCfg->stOsdNameInfo.strName) - 1);
@@ -419,8 +350,8 @@ static void InitDemoOsdConfig(NET_VIDEO_OSD_CFG_S* pCfg)
                 "#FFFFFF",
                 "name_token_0");
 
-    pCfg->stOsdTimeInfo.bEnable = NET_TRUE;
-    pCfg->stOsdTimeInfo.bEnableWeek = NET_TRUE;
+    pCfg->stOsdTimeInfo.bEnable = TRUE;
+    pCfg->stOsdTimeInfo.bEnableWeek = TRUE;
     pCfg->stOsdTimeInfo.enTimeFormat = OSD_TIME_FORMAT_24;
     pCfg->stOsdTimeInfo.enDateFormat = ENGLISH_YYYY_MM_DD;
     FillOsdAttr(&pCfg->stOsdTimeInfo.stOsdAttr,
@@ -433,7 +364,7 @@ static void InitDemoOsdConfig(NET_VIDEO_OSD_CFG_S* pCfg)
                 "#FFFFFF",
                 "time_token_0");
 
-    for (i = 0; i < NETSDK_DEMO_OSD_CUSTOM_MAX_NUM; ++i)
+    for (i = 0; i < DEMO_OSD_CUSTOM_MAX_NUM; ++i)
     {
         char name[NET_LEN_128] = {0};
         char color[NET_LEN_16] = {0};
@@ -444,7 +375,7 @@ static void InitDemoOsdConfig(NET_VIDEO_OSD_CFG_S* pCfg)
         snprintf(token, sizeof(token), "custom_token_%d", i);
 
         pCfg->OsdInfo[i].nId = i + 1;
-        pCfg->OsdInfo[i].bEnable = (i < 2) ? NET_TRUE : NET_FALSE;
+        pCfg->OsdInfo[i].bEnable = (i < 2) ? TRUE : FALSE;
         strncpy(pCfg->OsdInfo[i].strName, name, sizeof(pCfg->OsdInfo[i].strName) - 1);
         FillOsdAttr(&pCfg->OsdInfo[i].stOsdAttr,
                     32,
@@ -457,18 +388,11 @@ static void InitDemoOsdConfig(NET_VIDEO_OSD_CFG_S* pCfg)
                     token);
     }
 
-    for (i = NETSDK_DEMO_OSD_CUSTOM_MAX_NUM; i < NETSDK_DEMO_OSD_STRUCT_SLOT_NUM; ++i)
+    for (i = DEMO_OSD_CUSTOM_MAX_NUM; i < DEMO_OSD_STRUCT_SLOT_NUM; ++i)
     {
         memset(&pCfg->OsdInfo[i], 0, sizeof(pCfg->OsdInfo[i]));
     }
 }
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 PrintOsdAttr 定义的内部处理。
- * @param [in] pPrefix 函数处理参数。
- * @param [in] pAttr 函数处理参数。
- * @return 无返回值。
- */
 
 static void PrintOsdAttr(const char* pPrefix, const OsdAttribute_S* pAttr)
 {
@@ -489,15 +413,8 @@ static void PrintOsdAttr(const char* pPrefix, const OsdAttribute_S* pAttr)
            pAttr->strFontColor,
            pAttr->strToken);
 }
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 PrintOsdConfigSummary 定义的内部处理。
- * @param [in] pTitle 函数处理参数。
- * @param [in] pCfg 函数处理参数。
- * @return 无返回值。
- */
 
-static void PrintOsdConfigSummary(const char* pTitle, const NET_VIDEO_OSD_CFG_S* pCfg)
+static void PrintOsdConfigSummary(const char* pTitle, const NET_VideoOsdCfg_S* pCfg)
 {
     int i = 0;
     int enabledCustomCount = 0;
@@ -520,7 +437,7 @@ static void PrintOsdConfigSummary(const char* pTitle, const NET_VIDEO_OSD_CFG_S*
            pCfg->stOsdTimeInfo.enDateFormat);
     PrintOsdAttr("    ", &pCfg->stOsdTimeInfo.stOsdAttr);
 
-    for (i = 0; i < NETSDK_DEMO_OSD_CUSTOM_MAX_NUM; ++i)
+    for (i = 0; i < DEMO_OSD_CUSTOM_MAX_NUM; ++i)
     {
         if (pCfg->OsdInfo[i].bEnable)
         {
@@ -536,17 +453,11 @@ static void PrintOsdConfigSummary(const char* pTitle, const NET_VIDEO_OSD_CFG_S*
     }
 
     printf("  Enabled custom OSD count in first %d slots=%d\n",
-           NETSDK_DEMO_OSD_CUSTOM_MAX_NUM,
+           DEMO_OSD_CUSTOM_MAX_NUM,
            enabledCustomCount);
 }
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 NormalizeDemoOsdConfig 对应的处理。
- * @param [in,out] pCfg 函数处理参数。
- * @return 无返回值。
- */
 
-static void NormalizeDemoOsdConfig(NET_VIDEO_OSD_CFG_S* pCfg)
+static void NormalizeDemoOsdConfig(NET_VideoOsdCfg_S* pCfg)
 {
     int i = 0;
 
@@ -555,7 +466,7 @@ static void NormalizeDemoOsdConfig(NET_VIDEO_OSD_CFG_S* pCfg)
         return;
     }
 
-    for (i = 0; i < NETSDK_DEMO_OSD_CUSTOM_MAX_NUM; ++i)
+    for (i = 0; i < DEMO_OSD_CUSTOM_MAX_NUM; ++i)
     {
         if (pCfg->OsdInfo[i].nId <= 0)
         {
@@ -563,16 +474,11 @@ static void NormalizeDemoOsdConfig(NET_VIDEO_OSD_CFG_S* pCfg)
         }
     }
 
-    for (i = NETSDK_DEMO_OSD_CUSTOM_MAX_NUM; i < NETSDK_DEMO_OSD_STRUCT_SLOT_NUM; ++i)
+    for (i = DEMO_OSD_CUSTOM_MAX_NUM; i < DEMO_OSD_STRUCT_SLOT_NUM; ++i)
     {
         memset(&pCfg->OsdInfo[i], 0, sizeof(pCfg->OsdInfo[i]));
     }
 }
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 InitDefaultConfig 对应的处理。
- * @return 无返回值。
- */
 
 static void InitDefaultConfig(void)
 {
@@ -668,16 +574,16 @@ static void InitDefaultConfig(void)
     memset(&g_stRecordDownloadList, 0, sizeof(g_stRecordDownloadList));
 
     /* 人流统计配置默认值 */
-    g_stPeopleFlowStatisticsCfg.bEnable = NET_FALSE;
+    g_stPeopleFlowStatisticsCfg.bEnable = FALSE;
     g_stPeopleFlowStatisticsCfg.nSensitivity = 50;
     g_stPeopleFlowStatisticsCfg.nReportInterval = 60;
-    g_stPeopleFlowStatisticsCfg.enStatisticsType = NET_PeopleFlowStatTotal;
-    g_stPeopleFlowStatisticsCfg.stTimedReset.bEnable = NET_FALSE;
+    g_stPeopleFlowStatisticsCfg.enStatisticsType = NET_PEOPLE_FLOW_STAT_TOTAL;
+    g_stPeopleFlowStatisticsCfg.stTimedReset.bEnable = FALSE;
     g_stPeopleFlowStatisticsCfg.stTimedReset.nHour = 0;
     g_stPeopleFlowStatisticsCfg.stTimedReset.nMinute = 0;
 
     /* 人员密度检测配置默认值 */
-    g_stPeopleDensityDetectionCfg.bEnable = NET_FALSE;
+    g_stPeopleDensityDetectionCfg.bEnable = FALSE;
     g_stPeopleDensityDetectionCfg.nSensitivity = 50;
     g_stPeopleDensityDetectionCfg.nReportInterval = 60;
 
@@ -687,16 +593,16 @@ static void InitDefaultConfig(void)
     strncpy(g_stUpgradeVersions.szVersion,        "Ver1.00.00",                    sizeof(g_stUpgradeVersions.szVersion) - 1);
 
     /* 设备基本信息默认值 */
-    strncpy(g_stDeviceBasicInfo.szDevModel,       "Demo-IPCamera-Model", sizeof(g_stDeviceBasicInfo.szDevModel) - 1);
-    strncpy(g_stDeviceBasicInfo.szSerialNum,      "SN-DEMO-000001",      sizeof(g_stDeviceBasicInfo.szSerialNum) - 1);
-    strncpy(g_stDeviceBasicInfo.szFirmwareVersion,"V1.0.0",              sizeof(g_stDeviceBasicInfo.szFirmwareVersion) - 1);
-    strncpy(g_stDeviceBasicInfo.szMacAddress,     "00:11:22:33:44:55",   sizeof(g_stDeviceBasicInfo.szMacAddress) - 1);
-    strncpy(g_stDeviceBasicInfo.szDeviceName,     "Demo-Device",         sizeof(g_stDeviceBasicInfo.szDeviceName) - 1);
-    strncpy(g_stDeviceBasicInfo.szManufacturer,   "DemoManufacturer",    sizeof(g_stDeviceBasicInfo.szManufacturer) - 1);
-    strncpy(g_stDeviceBasicInfo.szDeviceTypeV2,   "IPC",                 sizeof(g_stDeviceBasicInfo.szDeviceTypeV2) - 1);
+    strncpy(g_stDeviceBasicInfo.strDevModel,       "Demo-IPCamera-Model", sizeof(g_stDeviceBasicInfo.strDevModel) - 1);
+    strncpy(g_stDeviceBasicInfo.strSerialNum,      "SN-DEMO-000001",      sizeof(g_stDeviceBasicInfo.strSerialNum) - 1);
+    strncpy(g_stDeviceBasicInfo.strFirmwareVersion,"V1.0.0",              sizeof(g_stDeviceBasicInfo.strFirmwareVersion) - 1);
+    strncpy(g_stDeviceBasicInfo.strMacAddress,     "00:11:22:33:44:55",   sizeof(g_stDeviceBasicInfo.strMacAddress) - 1);
+    strncpy(g_stDeviceBasicInfo.strDeviceName,     "Demo-Device",         sizeof(g_stDeviceBasicInfo.strDeviceName) - 1);
+    strncpy(g_stDeviceBasicInfo.strManufacturer,   "DemoManufacturer",    sizeof(g_stDeviceBasicInfo.strManufacturer) - 1);
+    strncpy(g_stDeviceBasicInfo.strDeviceTypeV2,   "IPC",                 sizeof(g_stDeviceBasicInfo.strDeviceTypeV2) - 1);
 
     /* 网络配置默认值 */
-    g_stNetworkCfg.dwMTU     = 1500;
+    g_stNetworkCfg.uMTU     = 1500;
     g_stNetworkCfg.bIPv4DHCP = 0; /* 0-手动配置，1-DHCP */
     strncpy(g_stNetworkCfg.szIpv4Address,   "192.168.1.100", sizeof(g_stNetworkCfg.szIpv4Address) - 1);
     strncpy(g_stNetworkCfg.szIPv4GateWay,   "192.168.1.1",   sizeof(g_stNetworkCfg.szIPv4GateWay) - 1);
@@ -705,45 +611,45 @@ static void InitDefaultConfig(void)
     /* 系统校时配置默认值 */
     g_stSystemNtpCfg.enTimeZone = 8;
     g_stSystemNtpCfg.enDateFormat = 0;
-    g_stSystemNtpCfg.bEnableNTPSync = NET_FALSE;
-    g_stSystemNtpCfg.bManualSync = NET_TRUE;
-    strncpy(g_stSystemNtpCfg.szDateTime, "2026-06-23 10:00:00", sizeof(g_stSystemNtpCfg.szDateTime) - 1);
-    g_stSystemNtpCfg.bIsSyncWithComputer = NET_FALSE;
-    strncpy(g_stSystemNtpCfg.szAddress, "time.windows.com", sizeof(g_stSystemNtpCfg.szAddress) - 1);
+    g_stSystemNtpCfg.bEnableNTPSync = FALSE;
+    g_stSystemNtpCfg.bManualSync = TRUE;
+    strncpy(g_stSystemNtpCfg.strDateTime, "2026-06-23 10:00:00", sizeof(g_stSystemNtpCfg.strDateTime) - 1);
+    g_stSystemNtpCfg.bIsSyncWithComputer = FALSE;
+    strncpy(g_stSystemNtpCfg.strAddress, "time.windows.com", sizeof(g_stSystemNtpCfg.strAddress) - 1);
     g_stSystemNtpCfg.nPort = 123;
     g_stSystemNtpCfg.nSyncInterval = 60;
 
     /* 视频码流配置默认值 */
     g_stStreamCfg.nId = NET_LIVE_STREAM_INDEX_MAIN;
     g_stStreamCfg.enVideoType = 0;
-    g_stStreamCfg.stVideoResolution.dwWidth = 1920;
-    g_stStreamCfg.stVideoResolution.dwHeight = 1080;
+    g_stStreamCfg.stVideoResolution.uWidth = 1920;
+    g_stStreamCfg.stVideoResolution.uHeight = 1080;
     g_stStreamCfg.enBitrateType = 0;
     g_stStreamCfg.enImageQuality = 60;
     g_stStreamCfg.enFrameRate = 25;
     g_stStreamCfg.nBitrateUpperLimit = 4096;
     g_stStreamCfg.nAverageBitrate = 2048;
     g_stStreamCfg.enVideoCodec = NET_VIDEO_CODE_H264;
-    g_stStreamCfg.bSmartEnable = NET_FALSE;
+    g_stStreamCfg.bSmartEnable = FALSE;
     g_stStreamCfg.enEncodingComplexity = 1;
     g_stStreamCfg.nIFrameInterval = 50;
     g_stStreamCfg.enSvcEnable = 0;
     g_stStreamCfg.nBitrateSmoothing = 50;
 
     /* 音频配置默认值 */
-    g_stAudioCfg.bAudioSwitch = NET_TRUE;
+    g_stAudioCfg.bAudioSwitch = TRUE;
     g_stAudioCfg.enInputType = NET_AUDIO_INPUT_MICIN;
     g_stAudioCfg.enFormat = NET_AUDIO_FORMAT_AAC;
     g_stAudioCfg.enSampRate = NET_AUDIO_SAMPRATE_16000;
     g_stAudioCfg.enBitRate = NET_AUDIO_BITRATE_64K;
     g_stAudioCfg.u32InputVolume = 60;
-    g_stAudioCfg.bDenoise = NET_TRUE;
+    g_stAudioCfg.bDenoise = TRUE;
     g_stAudioCfg.enOutputType = NET_AUDIO_OUTPUT_SPEAKER;
     g_stAudioCfg.u32OutputVolume = 50;
 
     /* WiFi配置默认值 */
-    g_stWifiStaCfg.bEnableWifi = NET_TRUE;
-    g_stWifiStaCfg.bEnableBoost = NET_FALSE;
+    g_stWifiStaCfg.bEnableWifi = TRUE;
+    g_stWifiStaCfg.bEnableBoost = FALSE;
 
     strncpy(g_stWifiStaConnect.szSsid, "DemoWifi", sizeof(g_stWifiStaConnect.szSsid) - 1);
     g_stWifiStaConnect.nSecurityMode = NET_WIFI_SECURITY_WPA_PERSONAL;
@@ -751,7 +657,7 @@ static void InitDefaultConfig(void)
     strncpy(g_stWifiStaConnect.szPassword, "12345678", sizeof(g_stWifiStaConnect.szPassword) - 1);
     strncpy(g_stWifiStaConnect.szPairwise, "CCMP", sizeof(g_stWifiStaConnect.szPairwise) - 1);
     g_stWifiStaConnect.nWepKeyLen = 128;
-    g_stWifiStaConnect.bWepIsHex = NET_FALSE;
+    g_stWifiStaConnect.bWepIsHex = FALSE;
     strncpy(g_stWifiStaConnect.szAuthAlg, "OPEN", sizeof(g_stWifiStaConnect.szAuthAlg) - 1);
     g_stWifiStaConnect.nWepKeyCount = 1;
     g_stWifiStaConnect.astWepKeys[0].nIndex = 1;
@@ -766,7 +672,7 @@ static void InitDefaultConfig(void)
     g_st4GInfo.nNetworkMode = 0;
     g_st4GInfo.nDialMode = 0;
 
-    g_stHotspotInfo.bEnabled = NET_FALSE;
+    g_stHotspotInfo.bEnabled = FALSE;
     strncpy(g_stHotspotInfo.szSsid, "DemoHotspot", sizeof(g_stHotspotInfo.szSsid) - 1);
     strncpy(g_stHotspotInfo.szSecurityMode, "WPA2-personal", sizeof(g_stHotspotInfo.szSecurityMode) - 1);
     strncpy(g_stHotspotInfo.szEncryptionType, "TKIP", sizeof(g_stHotspotInfo.szEncryptionType) - 1);
@@ -786,20 +692,20 @@ static void InitDefaultConfig(void)
     strncpy(g_stHotspotConnInfo.astDevices[1].szConnTime, "2026-04-30 10:05:00", sizeof(g_stHotspotConnInfo.astDevices[1].szConnTime) - 1);
 
     /* 安全服务、日志与日志服务器默认值 */
-    g_stSecurityServicesInfo.stLoginLock.bIllegalLoginEnable = NET_TRUE;
+    g_stSecurityServicesInfo.stLoginLock.bIllegalLoginEnable = TRUE;
     g_stSecurityServicesInfo.stLoginLock.nCheckInterval = 30;
     g_stSecurityServicesInfo.stLoginLock.nMaxErrorTimes = 5;
     g_stSecurityServicesInfo.stLoginLock.nLockDuration = 0;
-    g_stSecurityServicesInfo.stPwdPolicy.bPwdSecurityLevelEnable = NET_FALSE;
-    g_stSecurityServicesInfo.stPwdPolicy.bAllowLowLevelPwdLogin = NET_FALSE;
-    g_stSecurityServicesInfo.stSshAdmin.bSshEnable = NET_FALSE;
+    g_stSecurityServicesInfo.stPwdPolicy.bPwdSecurityLevelEnable = FALSE;
+    g_stSecurityServicesInfo.stPwdPolicy.bAllowLowLevelPwdLogin = FALSE;
+    g_stSecurityServicesInfo.stSshAdmin.bSshEnable = FALSE;
     g_stSecurityServicesInfo.stSshAdmin.nSshPort = 22;
     strncpy(g_stSecurityServicesInfo.stSshAdmin.szSshStartTime, "2026-05-06 10:00:00", sizeof(g_stSecurityServicesInfo.stSshAdmin.szSshStartTime) - 1);
     strncpy(g_stSecurityServicesInfo.stSshAdmin.szSshCountdown, "08:00:00", sizeof(g_stSecurityServicesInfo.stSshAdmin.szSshCountdown) - 1);
     strncpy(g_stSshCountdownInfo.szCountdown, "08:00:00", sizeof(g_stSshCountdownInfo.szCountdown) - 1);
 
-    g_stLogServerInfo.bEnable = NET_TRUE;
-    g_stLogServerInfo.bEnSsl = NET_FALSE;
+    g_stLogServerInfo.bEnable = TRUE;
+    g_stLogServerInfo.bEnSsl = FALSE;
     strncpy(g_stLogServerInfo.szServerAddr, "oam.itc-pa.cn", sizeof(g_stLogServerInfo.szServerAddr) - 1);
     g_stLogServerInfo.nPort = 1883;
 
@@ -838,7 +744,7 @@ static void InitDefaultConfig(void)
 
     g_stRecordStatusInfo.nStatus = NET_RECORD_STATUS_STOP;
 
-    g_stRecordSchedule.bEnable = NET_TRUE;
+    g_stRecordSchedule.bEnable = TRUE;
     g_stRecordSchedule.nDayScheduleCount = NET_PLAN_DAY_NUM_AWEEK;
     for (int i = 0; i < NET_PLAN_DAY_NUM_AWEEK; ++i)
     {
@@ -849,7 +755,7 @@ static void InitDefaultConfig(void)
         g_stRecordSchedule.astDaySchedules[i].astRecordTimes[0].nEndTime = 86400;
     }
 
-    g_stRecordAdvancedParam.bLoopWrite = NET_TRUE;
+    g_stRecordAdvancedParam.bLoopWrite = TRUE;
     g_stRecordAdvancedParam.nPreTime = 0;
     g_stRecordAdvancedParam.nDelayTime = 5;
     g_stRecordAdvancedParam.nStreamType = 0;
@@ -883,9 +789,9 @@ static void InitDefaultConfig(void)
     InitDemoOsdConfig(&g_stOsdCfg);
 
     /* 移动侦测配置默认值 */
-    g_stMotionAlarmInfo.bEnable = NET_TRUE;
-    g_stMotionAlarmInfo.bDynamicAnalysisEnable = NET_FALSE;
-    g_stMotionAlarmInfo.dwMode = NET_MOTION_MODE_NORMAL;
+    g_stMotionAlarmInfo.bEnable = TRUE;
+    g_stMotionAlarmInfo.bDynamicAnalysisEnable = FALSE;
+    g_stMotionAlarmInfo.uMode = NET_MOTION_MODE_NORMAL;
     g_stMotionAlarmInfo.stNormalMode.nSensitivity = 50;
     g_stMotionAlarmInfo.stNormalMode.nRegionType = 0; /* 筒型 */
     g_stMotionAlarmInfo.stNormalMode.nRectLeft = 100;
@@ -903,18 +809,18 @@ static void InitDefaultConfig(void)
     }
 
     /* 隐私遮盖配置默认值 */
-    g_stPrivacyMaskCfg.bEnable = NET_TRUE;
-    g_stPrivacyMaskCfg.dwAreaCount = 1;
+    g_stPrivacyMaskCfg.bEnable = TRUE;
+    g_stPrivacyMaskCfg.uAreaCount = 1;
     g_stPrivacyMaskCfg.astArea[0].nAreaID = 0;
-    g_stPrivacyMaskCfg.astArea[0].bEnable = NET_TRUE;
+    g_stPrivacyMaskCfg.astArea[0].bEnable = TRUE;
     g_stPrivacyMaskCfg.astArea[0].nRectLeft = 100;
     g_stPrivacyMaskCfg.astArea[0].nRectTop = 100;
     g_stPrivacyMaskCfg.astArea[0].nRectRight = 400;
     g_stPrivacyMaskCfg.astArea[0].nRectBottom = 300;
 
     /* 遮挡报警配置默认值 */
-    g_stTamperAlarmInfo.bEnable = NET_FALSE;
-    g_stTamperAlarmInfo.dwSensitivity = 2;
+    g_stTamperAlarmInfo.bEnable = FALSE;
+    g_stTamperAlarmInfo.uSensitivity = 2;
     g_stTamperAlarmInfo.nRectLeft = 200;
     g_stTamperAlarmInfo.nRectTop = 200;
     g_stTamperAlarmInfo.nRectRight = 700;
@@ -929,17 +835,17 @@ static void InitDefaultConfig(void)
     }
 
     /* 越界检测配置默认值 */
-    g_stCrossLineAlarmInfo.bEnable = NET_FALSE;
+    g_stCrossLineAlarmInfo.bEnable = FALSE;
     g_stCrossLineAlarmInfo.uRuleCount = 1;
-    g_stCrossLineAlarmInfo.astRule[0].bEnable = NET_TRUE;
-    g_stCrossLineAlarmInfo.astRule[0].fStartPosX = 0.1f;
-    g_stCrossLineAlarmInfo.astRule[0].fStartPosY = 0.5f;
-    g_stCrossLineAlarmInfo.astRule[0].fEndPosX = 0.9f;
-    g_stCrossLineAlarmInfo.astRule[0].fEndPosY = 0.5f;
-    g_stCrossLineAlarmInfo.astRule[0].enCrossDirection = NET_CROSS_BOTH_WAYS;
-    g_stCrossLineAlarmInfo.astRule[0].nSensitivity = 50;
-    g_stCrossLineAlarmInfo.astRule[0].uDetectionTargetCount = 1;
-    g_stCrossLineAlarmInfo.astRule[0].auDetectionTarget[0] = NET_TARGET_HUMAN;
+    g_stCrossLineAlarmInfo.stRule[0].bEnable = TRUE;
+    g_stCrossLineAlarmInfo.stRule[0].fStartPosX = 0.1f;
+    g_stCrossLineAlarmInfo.stRule[0].fStartPosY = 0.5f;
+    g_stCrossLineAlarmInfo.stRule[0].fEndPosX = 0.9f;
+    g_stCrossLineAlarmInfo.stRule[0].fEndPosY = 0.5f;
+    g_stCrossLineAlarmInfo.stRule[0].enCrossDirection = NET_CROSS_BOTH_WAYS;
+    g_stCrossLineAlarmInfo.stRule[0].nSensitivity = 50;
+    g_stCrossLineAlarmInfo.stRule[0].uDetectionTargetCount = 1;
+    g_stCrossLineAlarmInfo.stRule[0].auDetectionTarget[0] = NET_TARGET_HUMAN;
     for (int day = 0; day < 7; day++)
     {
         g_stCrossLineAlarmInfo.stAlarmSchedule.uTimeSectionCount[day] = 1;
@@ -950,19 +856,19 @@ static void InitDefaultConfig(void)
     }
 
     /* 入侵检测配置默认值 */
-    g_stIntrusionAlarmInfo.bEnable = NET_FALSE;
+    g_stIntrusionAlarmInfo.bEnable = FALSE;
     g_stIntrusionAlarmInfo.uRuleCount = 1;
-    g_stIntrusionAlarmInfo.astRule[0].bEnable = NET_TRUE;
-    g_stIntrusionAlarmInfo.astRule[0].uPointCount = 4;
+    g_stIntrusionAlarmInfo.stRule[0].bEnable = TRUE;
+    g_stIntrusionAlarmInfo.stRule[0].uPointCount = 4;
     /* 矩形区域：左上、右上、右下、左下 */
-    g_stIntrusionAlarmInfo.astRule[0].afPointX[0] = 0.2f; g_stIntrusionAlarmInfo.astRule[0].afPointY[0] = 0.2f;
-    g_stIntrusionAlarmInfo.astRule[0].afPointX[1] = 0.8f; g_stIntrusionAlarmInfo.astRule[0].afPointY[1] = 0.2f;
-    g_stIntrusionAlarmInfo.astRule[0].afPointX[2] = 0.8f; g_stIntrusionAlarmInfo.astRule[0].afPointY[2] = 0.8f;
-    g_stIntrusionAlarmInfo.astRule[0].afPointX[3] = 0.2f; g_stIntrusionAlarmInfo.astRule[0].afPointY[3] = 0.8f;
-    g_stIntrusionAlarmInfo.astRule[0].nTimeThreshold = 10;
-    g_stIntrusionAlarmInfo.astRule[0].nSensitivity = 50;
-    g_stIntrusionAlarmInfo.astRule[0].uDetectionTargetCount = 1;
-    g_stIntrusionAlarmInfo.astRule[0].auDetectionTarget[0] = NET_TARGET_HUMAN;
+    g_stIntrusionAlarmInfo.stRule[0].afPointX[0] = 0.2f; g_stIntrusionAlarmInfo.stRule[0].afPointY[0] = 0.2f;
+    g_stIntrusionAlarmInfo.stRule[0].afPointX[1] = 0.8f; g_stIntrusionAlarmInfo.stRule[0].afPointY[1] = 0.2f;
+    g_stIntrusionAlarmInfo.stRule[0].afPointX[2] = 0.8f; g_stIntrusionAlarmInfo.stRule[0].afPointY[2] = 0.8f;
+    g_stIntrusionAlarmInfo.stRule[0].afPointX[3] = 0.2f; g_stIntrusionAlarmInfo.stRule[0].afPointY[3] = 0.8f;
+    g_stIntrusionAlarmInfo.stRule[0].nTimeThreshold = 10;
+    g_stIntrusionAlarmInfo.stRule[0].nSensitivity = 50;
+    g_stIntrusionAlarmInfo.stRule[0].uDetectionTargetCount = 1;
+    g_stIntrusionAlarmInfo.stRule[0].auDetectionTarget[0] = NET_TARGET_HUMAN;
     for (int day = 0; day < 7; day++)
     {
         g_stIntrusionAlarmInfo.stAlarmSchedule.uTimeSectionCount[day] = 1;
@@ -973,18 +879,18 @@ static void InitDefaultConfig(void)
     }
 
     /* 进入区域侦测配置默认值 */
-    g_stEnterRegionAlarmInfo.bEnable = NET_FALSE;
+    g_stEnterRegionAlarmInfo.bEnable = FALSE;
     g_stEnterRegionAlarmInfo.uRuleCount = 1;
-    g_stEnterRegionAlarmInfo.astRule[0].bEnable = NET_TRUE;
-    g_stEnterRegionAlarmInfo.astRule[0].uPointCount = 4;
-    g_stEnterRegionAlarmInfo.astRule[0].afPointX[0] = 0.2f; g_stEnterRegionAlarmInfo.astRule[0].afPointY[0] = 0.2f;
-    g_stEnterRegionAlarmInfo.astRule[0].afPointX[1] = 0.8f; g_stEnterRegionAlarmInfo.astRule[0].afPointY[1] = 0.2f;
-    g_stEnterRegionAlarmInfo.astRule[0].afPointX[2] = 0.8f; g_stEnterRegionAlarmInfo.astRule[0].afPointY[2] = 0.8f;
-    g_stEnterRegionAlarmInfo.astRule[0].afPointX[3] = 0.2f; g_stEnterRegionAlarmInfo.astRule[0].afPointY[3] = 0.8f;
-    g_stEnterRegionAlarmInfo.astRule[0].nTimeThreshold = 10;
-    g_stEnterRegionAlarmInfo.astRule[0].nSensitivity = 50;
-    g_stEnterRegionAlarmInfo.astRule[0].uDetectionTargetCount = 1;
-    g_stEnterRegionAlarmInfo.astRule[0].auDetectionTarget[0] = NET_TARGET_HUMAN;
+    g_stEnterRegionAlarmInfo.stRule[0].bEnable = TRUE;
+    g_stEnterRegionAlarmInfo.stRule[0].uPointCount = 4;
+    g_stEnterRegionAlarmInfo.stRule[0].afPointX[0] = 0.2f; g_stEnterRegionAlarmInfo.stRule[0].afPointY[0] = 0.2f;
+    g_stEnterRegionAlarmInfo.stRule[0].afPointX[1] = 0.8f; g_stEnterRegionAlarmInfo.stRule[0].afPointY[1] = 0.2f;
+    g_stEnterRegionAlarmInfo.stRule[0].afPointX[2] = 0.8f; g_stEnterRegionAlarmInfo.stRule[0].afPointY[2] = 0.8f;
+    g_stEnterRegionAlarmInfo.stRule[0].afPointX[3] = 0.2f; g_stEnterRegionAlarmInfo.stRule[0].afPointY[3] = 0.8f;
+    g_stEnterRegionAlarmInfo.stRule[0].nTimeThreshold = 10;
+    g_stEnterRegionAlarmInfo.stRule[0].nSensitivity = 50;
+    g_stEnterRegionAlarmInfo.stRule[0].uDetectionTargetCount = 1;
+    g_stEnterRegionAlarmInfo.stRule[0].auDetectionTarget[0] = NET_TARGET_HUMAN;
     for (int day = 0; day < 7; day++)
     {
         g_stEnterRegionAlarmInfo.stAlarmSchedule.uTimeSectionCount[day] = 1;
@@ -996,8 +902,8 @@ static void InitDefaultConfig(void)
 
     /* 离开区域侦测配置默认值 */
     g_stLeaveRegionAlarmInfo.bEnable = g_stEnterRegionAlarmInfo.bEnable;
-    g_stLeaveRegionAlarmInfo.dwRuleCount = g_stEnterRegionAlarmInfo.dwRuleCount;
-    g_stLeaveRegionAlarmInfo.astRule[0] = g_stEnterRegionAlarmInfo.astRule[0];
+    g_stLeaveRegionAlarmInfo.uRuleCount = g_stEnterRegionAlarmInfo.uRuleCount;
+    g_stLeaveRegionAlarmInfo.stRule[0] = g_stEnterRegionAlarmInfo.stRule[0];
     for (int day = 0; day < 7; day++)
     {
         g_stLeaveRegionAlarmInfo.stAlarmSchedule.uTimeSectionCount[day] = 1;
@@ -1008,19 +914,19 @@ static void InitDefaultConfig(void)
     }
 
     /* 徘徊侦测配置默认值 */
-    g_stLoiteringAlarmInfo.bEnable = NET_FALSE;
+    g_stLoiteringAlarmInfo.bEnable = FALSE;
     g_stLoiteringAlarmInfo.uRuleCount = 1;
-    g_stLoiteringAlarmInfo.astRule[0].bEnable = NET_TRUE;
-    g_stLoiteringAlarmInfo.astRule[0].uPointCount = 4;
+    g_stLoiteringAlarmInfo.stRule[0].bEnable = TRUE;
+    g_stLoiteringAlarmInfo.stRule[0].uPointCount = 4;
     /* 矩形区域：左上、右上、右下、左下 */
-    g_stLoiteringAlarmInfo.astRule[0].afPointX[0] = 0.2f; g_stLoiteringAlarmInfo.astRule[0].afPointY[0] = 0.2f;
-    g_stLoiteringAlarmInfo.astRule[0].afPointX[1] = 0.8f; g_stLoiteringAlarmInfo.astRule[0].afPointY[1] = 0.2f;
-    g_stLoiteringAlarmInfo.astRule[0].afPointX[2] = 0.8f; g_stLoiteringAlarmInfo.astRule[0].afPointY[2] = 0.8f;
-    g_stLoiteringAlarmInfo.astRule[0].afPointX[3] = 0.2f; g_stLoiteringAlarmInfo.astRule[0].afPointY[3] = 0.8f;
-    g_stLoiteringAlarmInfo.astRule[0].nTimeThreshold = 10;
-    g_stLoiteringAlarmInfo.astRule[0].nSensitivity = 50;
-    g_stLoiteringAlarmInfo.astRule[0].uDetectionTargetCount = 1;
-    g_stLoiteringAlarmInfo.astRule[0].auDetectionTarget[0] = NET_TARGET_HUMAN;
+    g_stLoiteringAlarmInfo.stRule[0].afPointX[0] = 0.2f; g_stLoiteringAlarmInfo.stRule[0].afPointY[0] = 0.2f;
+    g_stLoiteringAlarmInfo.stRule[0].afPointX[1] = 0.8f; g_stLoiteringAlarmInfo.stRule[0].afPointY[1] = 0.2f;
+    g_stLoiteringAlarmInfo.stRule[0].afPointX[2] = 0.8f; g_stLoiteringAlarmInfo.stRule[0].afPointY[2] = 0.8f;
+    g_stLoiteringAlarmInfo.stRule[0].afPointX[3] = 0.2f; g_stLoiteringAlarmInfo.stRule[0].afPointY[3] = 0.8f;
+    g_stLoiteringAlarmInfo.stRule[0].nTimeThreshold = 10;
+    g_stLoiteringAlarmInfo.stRule[0].nSensitivity = 50;
+    g_stLoiteringAlarmInfo.stRule[0].uDetectionTargetCount = 1;
+    g_stLoiteringAlarmInfo.stRule[0].auDetectionTarget[0] = NET_TARGET_HUMAN;
     for (int day = 0; day < 7; day++)
     {
         g_stLoiteringAlarmInfo.stAlarmSchedule.uTimeSectionCount[day] = 1;
@@ -1031,7 +937,7 @@ static void InitDefaultConfig(void)
     }
 
     /* 场景变更侦测配置默认值 */
-    g_stSceneChangeAlarmInfo.bEnable = NET_FALSE;
+    g_stSceneChangeAlarmInfo.bEnable = FALSE;
     g_stSceneChangeAlarmInfo.nSensitivity = 50;
     for (int day = 0; day < 7; day++)
     {
@@ -1043,7 +949,7 @@ static void InitDefaultConfig(void)
     }
 
     /* 人员聚集侦测配置默认值 */
-    g_stCrowdGatheringAlarmInfo.bEnable = NET_FALSE;
+    g_stCrowdGatheringAlarmInfo.bEnable = FALSE;
     g_stCrowdGatheringAlarmInfo.uRuleCount = 1;
     g_stCrowdGatheringAlarmInfo.astRule[0].uPointCount = 4;
     g_stCrowdGatheringAlarmInfo.astRule[0].afPointX[0] = 0.2f; g_stCrowdGatheringAlarmInfo.astRule[0].afPointY[0] = 0.2f;
@@ -1061,7 +967,7 @@ static void InitDefaultConfig(void)
     }
 
     /* 停车侦测配置默认值 */
-    g_stParkingAlarmInfo.bEnable = NET_FALSE;
+    g_stParkingAlarmInfo.bEnable = FALSE;
     g_stParkingAlarmInfo.uRuleCount = 1;
     g_stParkingAlarmInfo.astRule[0].uPointCount = 4;
     g_stParkingAlarmInfo.astRule[0].afPointX[0] = 0.2f; g_stParkingAlarmInfo.astRule[0].afPointY[0] = 0.2f;
@@ -1080,15 +986,15 @@ static void InitDefaultConfig(void)
     }
 
     /* 物品遗留侦测配置默认值 */
-    g_stUnattendedObjectAlarmInfo.bEnable = NET_FALSE;
-    g_stUnattendedObjectAlarmInfo.dwRuleCount = 1;
-    g_stUnattendedObjectAlarmInfo.astRule[0].uPointCount = 4;
-    g_stUnattendedObjectAlarmInfo.astRule[0].afPointX[0] = 0.2f; g_stUnattendedObjectAlarmInfo.astRule[0].afPointY[0] = 0.2f;
-    g_stUnattendedObjectAlarmInfo.astRule[0].afPointX[1] = 0.8f; g_stUnattendedObjectAlarmInfo.astRule[0].afPointY[1] = 0.2f;
-    g_stUnattendedObjectAlarmInfo.astRule[0].afPointX[2] = 0.8f; g_stUnattendedObjectAlarmInfo.astRule[0].afPointY[2] = 0.8f;
-    g_stUnattendedObjectAlarmInfo.astRule[0].afPointX[3] = 0.2f; g_stUnattendedObjectAlarmInfo.astRule[0].afPointY[3] = 0.8f;
-    g_stUnattendedObjectAlarmInfo.astRule[0].nSensitivity = 50;
-    g_stUnattendedObjectAlarmInfo.astRule[0].nTimeThreshold = 30;
+    g_stUnattendedObjectAlarmInfo.bEnable = FALSE;
+    g_stUnattendedObjectAlarmInfo.uRuleCount = 1;
+    g_stUnattendedObjectAlarmInfo.stRule[0].uPointCount = 4;
+    g_stUnattendedObjectAlarmInfo.stRule[0].afPointX[0] = 0.2f; g_stUnattendedObjectAlarmInfo.stRule[0].afPointY[0] = 0.2f;
+    g_stUnattendedObjectAlarmInfo.stRule[0].afPointX[1] = 0.8f; g_stUnattendedObjectAlarmInfo.stRule[0].afPointY[1] = 0.2f;
+    g_stUnattendedObjectAlarmInfo.stRule[0].afPointX[2] = 0.8f; g_stUnattendedObjectAlarmInfo.stRule[0].afPointY[2] = 0.8f;
+    g_stUnattendedObjectAlarmInfo.stRule[0].afPointX[3] = 0.2f; g_stUnattendedObjectAlarmInfo.stRule[0].afPointY[3] = 0.8f;
+    g_stUnattendedObjectAlarmInfo.stRule[0].nSensitivity = 50;
+    g_stUnattendedObjectAlarmInfo.stRule[0].nTimeThreshold = 30;
     for (int day = 0; day < 7; day++)
     {
         g_stUnattendedObjectAlarmInfo.stAlarmSchedule.uTimeSectionCount[day] = 1;
@@ -1099,15 +1005,15 @@ static void InitDefaultConfig(void)
     }
 
     /* 物品拿取侦测配置默认值 */
-    g_stObjectRemovalAlarmInfo.bEnable = NET_FALSE;
+    g_stObjectRemovalAlarmInfo.bEnable = FALSE;
     g_stObjectRemovalAlarmInfo.uRuleCount = 1;
-    g_stObjectRemovalAlarmInfo.astRule[0].uPointCount = 4;
-    g_stObjectRemovalAlarmInfo.astRule[0].afPointX[0] = 0.2f; g_stObjectRemovalAlarmInfo.astRule[0].afPointY[0] = 0.2f;
-    g_stObjectRemovalAlarmInfo.astRule[0].afPointX[1] = 0.8f; g_stObjectRemovalAlarmInfo.astRule[0].afPointY[1] = 0.2f;
-    g_stObjectRemovalAlarmInfo.astRule[0].afPointX[2] = 0.8f; g_stObjectRemovalAlarmInfo.astRule[0].afPointY[2] = 0.8f;
-    g_stObjectRemovalAlarmInfo.astRule[0].afPointX[3] = 0.2f; g_stObjectRemovalAlarmInfo.astRule[0].afPointY[3] = 0.8f;
-    g_stObjectRemovalAlarmInfo.astRule[0].nSensitivity = 50;
-    g_stObjectRemovalAlarmInfo.astRule[0].nTimeThreshold = 30;
+    g_stObjectRemovalAlarmInfo.stRule[0].uPointCount = 4;
+    g_stObjectRemovalAlarmInfo.stRule[0].afPointX[0] = 0.2f; g_stObjectRemovalAlarmInfo.stRule[0].afPointY[0] = 0.2f;
+    g_stObjectRemovalAlarmInfo.stRule[0].afPointX[1] = 0.8f; g_stObjectRemovalAlarmInfo.stRule[0].afPointY[1] = 0.2f;
+    g_stObjectRemovalAlarmInfo.stRule[0].afPointX[2] = 0.8f; g_stObjectRemovalAlarmInfo.stRule[0].afPointY[2] = 0.8f;
+    g_stObjectRemovalAlarmInfo.stRule[0].afPointX[3] = 0.2f; g_stObjectRemovalAlarmInfo.stRule[0].afPointY[3] = 0.8f;
+    g_stObjectRemovalAlarmInfo.stRule[0].nSensitivity = 50;
+    g_stObjectRemovalAlarmInfo.stRule[0].nTimeThreshold = 30;
     for (int day = 0; day < 7; day++)
     {
         g_stObjectRemovalAlarmInfo.stAlarmSchedule.uTimeSectionCount[day] = 1;
@@ -1118,12 +1024,12 @@ static void InitDefaultConfig(void)
     }
 
     /* 音频异常侦测配置默认值 */
-    g_stAudioAnomalyAlarmInfo.bEnable = NET_FALSE;
-    g_stAudioAnomalyAlarmInfo.bAudioInputAnomaly = NET_TRUE;
-    g_stAudioAnomalyAlarmInfo.bUpEnable = NET_TRUE;
+    g_stAudioAnomalyAlarmInfo.bEnable = FALSE;
+    g_stAudioAnomalyAlarmInfo.bAudioInputAnomaly = TRUE;
+    g_stAudioAnomalyAlarmInfo.bUpEnable = TRUE;
     g_stAudioAnomalyAlarmInfo.nUpSensitivity = 50;
     g_stAudioAnomalyAlarmInfo.nUpThreshold = 50;
-    g_stAudioAnomalyAlarmInfo.bDownEnable = NET_FALSE;
+    g_stAudioAnomalyAlarmInfo.bDownEnable = FALSE;
     g_stAudioAnomalyAlarmInfo.nDownSensitivity = 50;
     for (int day = 0; day < 7; day++)
     {
@@ -1155,10 +1061,10 @@ static void InitDefaultConfig(void)
     g_stPreviewInfo.stImageParam.nSharpness = 50;
 
       /* 通道信息默认值 */
-    g_stChannelInfo.byEnable = NET_TRUE;
-    g_stChannelInfo.byOnline = NET_TRUE;
+    g_stChannelInfo.byEnable = TRUE;
+    g_stChannelInfo.byOnline = TRUE;
     g_stChannelInfo.byStreamType = 0;
-    g_stChannelInfo.dwChannel = 1;
+    g_stChannelInfo.uChannel = 1;
 
     strncpy(g_stChannelInfo.szChannelName,
             "Demo-Channel-1",
@@ -1180,9 +1086,9 @@ static void InitDefaultConfig(void)
             sizeof(g_stChannelInfo.szDeviceIP) - 1);
 
     /* 对讲相关默认值 */
-    g_stTalkbackStateInfo.bEnable = NET_FALSE;
+    g_stTalkbackStateInfo.bEnable = FALSE;
     strncpy(g_stTalkbackStateInfo.szSdp,
-            "v=0\\r\\no=- 0 0 NET_IN IP4 127.0.0.1\\r\\ns=Talkback\\r\\n",
+            "v=0\\r\\no=- 0 0 IN IP4 127.0.0.1\\r\\ns=Talkback\\r\\n",
             sizeof(g_stTalkbackStateInfo.szSdp) - 1);
     strncpy(g_stTalkbackStateInfo.szUrl,
             "rtsp://127.0.0.1:554/talkback",
@@ -1195,7 +1101,7 @@ static void InitDefaultConfig(void)
     g_stTalkbackToStreamInfo.nPort = 5004;
     g_stTalkbackToStreamInfo.nChnId = 1;
     g_stTalkbackToStreamInfo.nUserID = 1001;
-    g_stTalkbackToStreamInfo.bMainStream = NET_TRUE;
+    g_stTalkbackToStreamInfo.bMainStream = TRUE;
     strncpy(g_stTalkbackToStreamInfo.szProtocol, "rtp", sizeof(g_stTalkbackToStreamInfo.szProtocol) - 1);
     strncpy(g_stTalkbackToStreamInfo.szStartTime, "2026-01-01 08:00:00", sizeof(g_stTalkbackToStreamInfo.szStartTime) - 1);
     strncpy(g_stTalkbackToStreamInfo.szEndTime, "2026-01-01 08:30:00", sizeof(g_stTalkbackToStreamInfo.szEndTime) - 1);
@@ -1223,7 +1129,7 @@ static void InitDefaultConfig(void)
     /* 抓图参数默认值 */
     memset(&g_stCaptureParamInfo, 0, sizeof(g_stCaptureParamInfo));
 
-    g_stCaptureParamInfo.stCaptureTimingConfig.bEnable = NET_TRUE;
+    g_stCaptureParamInfo.stCaptureTimingConfig.bEnable = TRUE;
     g_stCaptureParamInfo.stCaptureTimingConfig.enPictureFormat = NET_CAPTURE_PICTURE_FORMAT_JPEG;
     g_stCaptureParamInfo.stCaptureTimingConfig.nWidth = 1920;
     g_stCaptureParamInfo.stCaptureTimingConfig.nHeight = 1080;
@@ -1232,7 +1138,7 @@ static void InitDefaultConfig(void)
     g_stCaptureParamInfo.stCaptureTimingConfig.enTimeUnit = NET_CAPTURE_TIME_UNIT_MILLISECONDS;
     g_stCaptureParamInfo.stCaptureTimingConfig.unNumber = 20;
 
-    g_stCaptureParamInfo.stCaptureEventConfig.bEnable = NET_TRUE;
+    g_stCaptureParamInfo.stCaptureEventConfig.bEnable = TRUE;
     g_stCaptureParamInfo.stCaptureEventConfig.enPictureFormat = NET_CAPTURE_PICTURE_FORMAT_JPEG;
     g_stCaptureParamInfo.stCaptureEventConfig.nWidth = 1920;
     g_stCaptureParamInfo.stCaptureEventConfig.nHeight = 1080;
@@ -1243,7 +1149,7 @@ static void InitDefaultConfig(void)
 
     /* 曝光信息默认值 */
     g_stExposureInfo.enExpTime = 0;
-    g_stExposureInfo.bAntiBanding = NET_TRUE;
+    g_stExposureInfo.bAntiBanding = TRUE;
 
     /* 日夜转换信息默认值 */
     g_stDayNightInfo.enDayNightMode = 0;
@@ -1257,19 +1163,19 @@ static void InitDefaultConfig(void)
     g_stDayNightInfo.nEndMilliSec = 0;
     g_stDayNightInfo.nSensitivityLevel = 50;
     g_stDayNightInfo.nFilterTime = 5;
-    g_stDayNightInfo.bFillLightExp = NET_TRUE;
+    g_stDayNightInfo.bFillLightExp = TRUE;
     g_stDayNightInfo.enLightMode = 0;
     g_stDayNightInfo.enLightType = 0;
-    g_stDayNightInfo.bWhiteLightEnable = NET_TRUE;
+    g_stDayNightInfo.bWhiteLightEnable = TRUE;
     g_stDayNightInfo.nWhiteLightLevel = 50;
-    g_stDayNightInfo.bRedLightEnable = NET_FALSE;
+    g_stDayNightInfo.bRedLightEnable = FALSE;
     g_stDayNightInfo.nRedLightLevel = 0;
 
     /* 背光信息默认值 */
     g_stBackLightInfo.enBackLightArea = 0;
-    g_stBackLightInfo.bWdrEnable = NET_TRUE;
+    g_stBackLightInfo.bWdrEnable = TRUE;
     g_stBackLightInfo.nWdrLevel = 50;
-    g_stBackLightInfo.bHlsEnable = NET_FALSE;
+    g_stBackLightInfo.bHlsEnable = FALSE;
     g_stBackLightInfo.nHlsLevel = 0;
 
     /* 降噪信息默认值 */
@@ -1284,7 +1190,7 @@ static void InitDefaultConfig(void)
     g_stWhiteBalanceInfo.nBGain = 100;
 
     /* 人脸抓拍配置默认值 */
-    g_stFaceCaptureInfo.bEnable = NET_FALSE;
+    g_stFaceCaptureInfo.bEnable = FALSE;
     g_stFaceCaptureInfo.stRule.nSensitivity = 55;
     g_stFaceCaptureInfo.stRule.stRegion.uPointCount = 4;
     g_stFaceCaptureInfo.stRule.stRegion.afPointX[0] = 0.20f; g_stFaceCaptureInfo.stRule.stRegion.afPointY[0] = 0.20f;
@@ -1316,12 +1222,12 @@ static void InitDefaultConfig(void)
     }
 
     /* 人脸比对配置默认值 */
-    g_stFaceCompareInfo.bEnable = NET_FALSE;
+    g_stFaceCompareInfo.bEnable = FALSE;
     InitSimpleAiAlarmSchedule(&g_stFaceCompareInfo.stAlarmSchedule);
-    g_stFaceCompareInfo.stLinkageListSuccess.dwSnapshotChannelCount = 1;
-    g_stFaceCompareInfo.stLinkageListSuccess.adwSnapshotChannel[0] = 1;
-    g_stFaceCompareInfo.stLinkageListFail.dwSnapshotChannelCount = 1;
-    g_stFaceCompareInfo.stLinkageListFail.adwSnapshotChannel[0] = 1;
+    g_stFaceCompareInfo.stLinkageListSuccess.uSnapshotChannelCount = 1;
+    g_stFaceCompareInfo.stLinkageListSuccess.auSnapshotChannel[0] = 1;
+    g_stFaceCompareInfo.stLinkageListFail.uSnapshotChannelCount = 1;
+    g_stFaceCompareInfo.stLinkageListFail.auSnapshotChannel[0] = 1;
 
     /* 目标库默认值 */
     g_stFaceLibList.nTargetLibCount = 1;
@@ -1361,7 +1267,7 @@ static void InitDefaultConfig(void)
     g_stFaceInfoList.astFaceInfos[0].nRatingLevel = 3;
 
     /* 垃圾暴露配置默认值 */
-    g_stGarbageExposureCfg.bEnable = NET_FALSE;
+    g_stGarbageExposureCfg.bEnable = FALSE;
     g_stGarbageExposureCfg.stRule.nSensitivity = 50;
     g_stGarbageExposureCfg.stRule.uPointCount = 4;
     g_stGarbageExposureCfg.stRule.afPointX[0] = 0.2f; g_stGarbageExposureCfg.stRule.afPointY[0] = 0.2f;
@@ -1378,7 +1284,7 @@ static void InitDefaultConfig(void)
     }
 
     /* 垃圾满溢配置默认值 */
-    g_stGarbageOverflowCfg.bEnable = NET_FALSE;
+    g_stGarbageOverflowCfg.bEnable = FALSE;
     g_stGarbageOverflowCfg.stRule.nSensitivity = 50;
     g_stGarbageOverflowCfg.stRule.uPointCount = 4;
     g_stGarbageOverflowCfg.stRule.afPointX[0] = 0.2f; g_stGarbageOverflowCfg.stRule.afPointY[0] = 0.2f;
@@ -1395,116 +1301,116 @@ static void InitDefaultConfig(void)
         g_stGarbageOverflowCfg.stAlarmSchedule.astTimeSection[day][0].nEndMinute = 59;
     }
 
-    g_stManholeCoverAbnormalCfg.bEnable = NET_FALSE;
+    g_stManholeCoverAbnormalCfg.bEnable = FALSE;
     g_stManholeCoverAbnormalCfg.stRule.nSensitivity = 50;
     InitSimpleAiAlarmSchedule(&g_stManholeCoverAbnormalCfg.stAlarmSchedule);
 
-    g_stSleepOnDutyCfg.bEnable = NET_FALSE;
+    g_stSleepOnDutyCfg.bEnable = FALSE;
     g_stSleepOnDutyCfg.stRule.nSensitivity = 50;
     InitSimpleAiAlarmSchedule(&g_stSleepOnDutyCfg.stAlarmSchedule);
 
-    g_stElectricVehicleInElevatorCfg.bEnable = NET_FALSE;
+    g_stElectricVehicleInElevatorCfg.bEnable = FALSE;
     g_stElectricVehicleInElevatorCfg.stRule.nSensitivity = 50;
     InitSimpleAiAlarmSchedule(&g_stElectricVehicleInElevatorCfg.stAlarmSchedule);
 
-    g_stPersonFallDownCfg.bEnable = NET_FALSE;
+    g_stPersonFallDownCfg.bEnable = FALSE;
     g_stPersonFallDownCfg.stRule.nSensitivity = 50;
     InitSimpleAiAlarmSchedule(&g_stPersonFallDownCfg.stAlarmSchedule);
 
-    g_stConstructionOccupyRoadCfg.bEnable = NET_FALSE;
+    g_stConstructionOccupyRoadCfg.bEnable = FALSE;
     g_stConstructionOccupyRoadCfg.stRule.nSensitivity = 50;
     InitSimpleAiAlarmSchedule(&g_stConstructionOccupyRoadCfg.stAlarmSchedule);
 
-    g_stCongestionCfg.bEnable = NET_FALSE;
+    g_stCongestionCfg.bEnable = FALSE;
     g_stCongestionCfg.stRule.nSensitivity = 50;
     InitSimpleAiAlarmSchedule(&g_stCongestionCfg.stAlarmSchedule);
 
-    g_stLicensePlateRecognitionCfg.bEnable = NET_FALSE;
+    g_stLicensePlateRecognitionCfg.bEnable = FALSE;
     g_stLicensePlateRecognitionCfg.stRule.nSensitivity = 50;
     InitSimpleAiAlarmSchedule(&g_stLicensePlateRecognitionCfg.stAlarmSchedule);
 
-    g_stHighAltitudeSeatbeltCfg.bEnable = NET_FALSE;
+    g_stHighAltitudeSeatbeltCfg.bEnable = FALSE;
     g_stHighAltitudeSeatbeltCfg.stRule.nSensitivity = 50;
     InitSimpleAiAlarmSchedule(&g_stHighAltitudeSeatbeltCfg.stAlarmSchedule);
 
-    g_stSafetyHelmetCfg.bEnable = NET_FALSE;
+    g_stSafetyHelmetCfg.bEnable = FALSE;
     g_stSafetyHelmetCfg.stRule.nSensitivity = 50;
     InitSimpleAiAlarmSchedule(&g_stSafetyHelmetCfg.stAlarmSchedule);
 
-    g_stPersonFallCfg.bEnable = NET_FALSE;
+    g_stPersonFallCfg.bEnable = FALSE;
     g_stPersonFallCfg.stRule.nSensitivity = 50;
     InitSimpleAiAlarmSchedule(&g_stPersonFallCfg.stAlarmSchedule);
 
-    g_stPhoneUsageCfg.bEnable = NET_FALSE;
+    g_stPhoneUsageCfg.bEnable = FALSE;
     g_stPhoneUsageCfg.stRule.nSensitivity = 50;
     InitSimpleAiAlarmSchedule(&g_stPhoneUsageCfg.stAlarmSchedule);
 
-    g_stSmokingCfg.bEnable = NET_FALSE;
+    g_stSmokingCfg.bEnable = FALSE;
     g_stSmokingCfg.stRule.nSensitivity = 50;
     InitSimpleAiAlarmSchedule(&g_stSmokingCfg.stAlarmSchedule);
 
-    g_stOpenFlameCfg.bEnable = NET_FALSE;
+    g_stOpenFlameCfg.bEnable = FALSE;
     g_stOpenFlameCfg.stRule.nSensitivity = 50;
     InitSimpleAiAlarmSchedule(&g_stOpenFlameCfg.stAlarmSchedule);
 
-    g_stBareSoilCfg.bEnable = NET_FALSE;
+    g_stBareSoilCfg.bEnable = FALSE;
     g_stBareSoilCfg.stRule.nSensitivity = 50;
     InitSimpleAiAlarmSchedule(&g_stBareSoilCfg.stAlarmSchedule);
 
-    g_stHoleProtectionBarCfg.bEnable = NET_FALSE;
+    g_stHoleProtectionBarCfg.bEnable = FALSE;
     g_stHoleProtectionBarCfg.stRule.nSensitivity = 50;
     InitSimpleAiAlarmSchedule(&g_stHoleProtectionBarCfg.stAlarmSchedule);
 
-    g_stReflectiveClothingCfg.bEnable = NET_FALSE;
+    g_stReflectiveClothingCfg.bEnable = FALSE;
     g_stReflectiveClothingCfg.stRule.nSensitivity = 50;
     InitSimpleAiAlarmSchedule(&g_stReflectiveClothingCfg.stAlarmSchedule);
 
-    g_stPetRecognitionInfo.bEnable = NET_FALSE;
-    g_stPetRecognitionInfo.bDynamicAnalysisEnable = NET_FALSE;
+    g_stPetRecognitionInfo.bEnable = FALSE;
+    g_stPetRecognitionInfo.bDynamicAnalysisEnable = FALSE;
     g_stPetRecognitionInfo.nSensitivity = 50;
     InitDemoSmartRegion(&g_stPetRecognitionInfo.stRegion);
     InitSimpleAiAlarmSchedule(&g_stPetRecognitionInfo.stAlarmSchedule);
 
-    g_stClimbFenceInfo.bEnable = NET_FALSE;
-    g_stClimbFenceInfo.dwRuleCount = 1;
-    InitDemoSmartRegionRule(&g_stClimbFenceInfo.astRule[0]);
+    g_stClimbFenceInfo.bEnable = FALSE;
+    g_stClimbFenceInfo.uRuleCount = 1;
+    InitDemoSmartRegionRule(&g_stClimbFenceInfo.stRule[0]);
     InitSimpleAiAlarmSchedule(&g_stClimbFenceInfo.stAlarmSchedule);
 
-    g_stDimissionInfo.bEnable = NET_FALSE;
-    g_stDimissionInfo.dwRuleCount = 1;
-    InitDemoSmartRegionRule(&g_stDimissionInfo.astRule[0]);
+    g_stDimissionInfo.bEnable = FALSE;
+    g_stDimissionInfo.uRuleCount = 1;
+    InitDemoSmartRegionRule(&g_stDimissionInfo.stRule[0]);
     InitSimpleAiAlarmSchedule(&g_stDimissionInfo.stAlarmSchedule);
 
-    g_stIllegalLaneInfo.bEnable = NET_FALSE;
-    g_stIllegalLaneInfo.dwRuleCount = 1;
-    InitDemoSmartLineRule(&g_stIllegalLaneInfo.astRule[0]);
+    g_stIllegalLaneInfo.bEnable = FALSE;
+    g_stIllegalLaneInfo.uRuleCount = 1;
+    InitDemoSmartLineRule(&g_stIllegalLaneInfo.stRule[0]);
     InitSimpleAiAlarmSchedule(&g_stIllegalLaneInfo.stAlarmSchedule);
 
-    g_stRetrogradeInfo.bEnable = NET_FALSE;
-    g_stRetrogradeInfo.dwRuleCount = 1;
-    InitDemoSmartLineRule(&g_stRetrogradeInfo.astRule[0]);
+    g_stRetrogradeInfo.bEnable = FALSE;
+    g_stRetrogradeInfo.uRuleCount = 1;
+    InitDemoSmartLineRule(&g_stRetrogradeInfo.stRule[0]);
     InitSimpleAiAlarmSchedule(&g_stRetrogradeInfo.stAlarmSchedule);
 
-    g_stNonmotorVehicleIntrusionInfo.bEnable = NET_FALSE;
-    g_stNonmotorVehicleIntrusionInfo.dwRuleCount = 1;
-    InitDemoSmartRegionRule(&g_stNonmotorVehicleIntrusionInfo.astRule[0]);
+    g_stNonmotorVehicleIntrusionInfo.bEnable = FALSE;
+    g_stNonmotorVehicleIntrusionInfo.uRuleCount = 1;
+    InitDemoSmartRegionRule(&g_stNonmotorVehicleIntrusionInfo.stRule[0]);
     InitSimpleAiAlarmSchedule(&g_stNonmotorVehicleIntrusionInfo.stAlarmSchedule);
 
-    g_stOccupationEmergencyInfo.bEnable = NET_FALSE;
-    g_stOccupationEmergencyInfo.dwRuleCount = 1;
-    InitDemoSmartRegionRule(&g_stOccupationEmergencyInfo.astRule[0]);
+    g_stOccupationEmergencyInfo.bEnable = FALSE;
+    g_stOccupationEmergencyInfo.uRuleCount = 1;
+    InitDemoSmartRegionRule(&g_stOccupationEmergencyInfo.stRule[0]);
     InitSimpleAiAlarmSchedule(&g_stOccupationEmergencyInfo.stAlarmSchedule);
 
-    g_stPedestrianIntrusionInfo.bEnable = NET_FALSE;
-    g_stPedestrianIntrusionInfo.dwRuleCount = 1;
-    InitDemoSmartRegionRule(&g_stPedestrianIntrusionInfo.astRule[0]);
+    g_stPedestrianIntrusionInfo.bEnable = FALSE;
+    g_stPedestrianIntrusionInfo.uRuleCount = 1;
+    InitDemoSmartRegionRule(&g_stPedestrianIntrusionInfo.stRule[0]);
     InitSimpleAiAlarmSchedule(&g_stPedestrianIntrusionInfo.stAlarmSchedule);
 
-    g_stSmokeFireCfg.bEnable = NET_FALSE;
+    g_stSmokeFireCfg.bEnable = FALSE;
     g_stSmokeFireCfg.stRule.nSensitivity = 50;
     InitSimpleAiAlarmSchedule(&g_stSmokeFireCfg.stAlarmSchedule);
 
-    g_stRoadPondingCfg.bEnable = NET_FALSE;
+    g_stRoadPondingCfg.bEnable = FALSE;
     g_stRoadPondingCfg.stRule.nSensitivity = 50;
     InitSimpleAiAlarmSchedule(&g_stRoadPondingCfg.stAlarmSchedule);
 }
@@ -1584,7 +1490,7 @@ static NET_COMMON_ECODE_E MyGetAudioCfgCb(INT32 dwChannelID, LPVOID lpOutBuffer)
         return NET_E_INVALID_PARAM;
     }
 
-    LPNET_AudioCfg_S pOut = (LPNET_AudioCfg_S)lpOutBuffer;
+    pNET_AudioCfg_S pOut = (pNET_AudioCfg_S)lpOutBuffer;
     *pOut = g_stAudioCfg;
 
     printf("[ConfigServerDemo] GetAudioCfg callback, Channel=%d\n", dwChannelID);
@@ -1612,7 +1518,7 @@ static NET_COMMON_ECODE_E MySetAudioCfgCb(INT32 dwChannelID, LPVOID lpInBuffer)
         return NET_E_INVALID_PARAM;
     }
 
-    LPNET_AudioCfg_S pIn = (LPNET_AudioCfg_S)lpInBuffer;
+    pNET_AudioCfg_S pIn = (pNET_AudioCfg_S)lpInBuffer;
     g_stAudioCfg = *pIn;
 
     printf("[ConfigServerDemo] SetAudioCfg callback, Channel=%d\n", dwChannelID);
@@ -1632,15 +1538,15 @@ static NET_COMMON_ECODE_E MyGetStreamCfgCb(INT32 dwChannelID, LPVOID lpOutBuffer
         return NET_E_INVALID_PARAM;
     }
 
-    pNET_TV_VIDEO_ENCODE_OPTION_S pOut = (pNET_TV_VIDEO_ENCODE_OPTION_S)lpOutBuffer;
+    pNET_VideoEncodeOption_S pOut = (pNET_VideoEncodeOption_S)lpOutBuffer;
     *pOut = g_stStreamCfg;
 
     printf("[ConfigServerDemo] GetStreamCfg callback, Channel=%d\n", dwChannelID);
     printf("  Id=%d, Codec=%d, Resolution=%dx%d, FrameRate=%d, AverageBitrate=%d, BitrateUpperLimit=%d\n",
            g_stStreamCfg.nId,
            g_stStreamCfg.enVideoCodec,
-           g_stStreamCfg.stVideoResolution.dwWidth,
-           g_stStreamCfg.stVideoResolution.dwHeight,
+           g_stStreamCfg.stVideoResolution.uWidth,
+           g_stStreamCfg.stVideoResolution.uHeight,
            g_stStreamCfg.enFrameRate,
            g_stStreamCfg.nAverageBitrate,
            g_stStreamCfg.nBitrateUpperLimit);
@@ -1658,15 +1564,15 @@ static NET_COMMON_ECODE_E MySetStreamCfgCb(INT32 dwChannelID, LPVOID lpInBuffer)
         return NET_E_INVALID_PARAM;
     }
 
-    pNET_TV_VIDEO_ENCODE_OPTION_S pIn = (pNET_TV_VIDEO_ENCODE_OPTION_S)lpInBuffer;
+    pNET_VideoEncodeOption_S pIn = (pNET_VideoEncodeOption_S)lpInBuffer;
     g_stStreamCfg = *pIn;
 
     printf("[ConfigServerDemo] SetStreamCfg callback, Channel=%d\n", dwChannelID);
     printf("  New Id=%d, Codec=%d, Resolution=%dx%d, FrameRate=%d, AverageBitrate=%d, BitrateUpperLimit=%d\n",
            g_stStreamCfg.nId,
            g_stStreamCfg.enVideoCodec,
-           g_stStreamCfg.stVideoResolution.dwWidth,
-           g_stStreamCfg.stVideoResolution.dwHeight,
+           g_stStreamCfg.stVideoResolution.uWidth,
+           g_stStreamCfg.stVideoResolution.uHeight,
            g_stStreamCfg.enFrameRate,
            g_stStreamCfg.nAverageBitrate,
            g_stStreamCfg.nBitrateUpperLimit);
@@ -1684,7 +1590,7 @@ static NET_COMMON_ECODE_E MyGetNetworkCfgCb(INT32 dwChannelID, LPVOID lpOutBuffe
         return NET_E_INVALID_PARAM;
     }
 
-    LPNET_NetworkCfg_S pOut = (LPNET_NetworkCfg_S)lpOutBuffer;
+    pNET_NetworkCfg_S pOut = (pNET_NetworkCfg_S)lpOutBuffer;
     *pOut = g_stNetworkCfg;
 
     printf("[ConfigServerDemo] GetNetworkCfg callback, Channel=%d\n", dwChannelID);
@@ -1705,7 +1611,7 @@ static NET_COMMON_ECODE_E MySetNetworkCfgCb(INT32 dwChannelID, LPVOID lpInBuffer
         return NET_E_INVALID_PARAM;
     }
 
-    LPNET_NetworkCfg_S pIn = (LPNET_NetworkCfg_S)lpInBuffer;
+    pNET_NetworkCfg_S pIn = (pNET_NetworkCfg_S)lpInBuffer;
     g_stNetworkCfg = *pIn;
 
     printf("[ConfigServerDemo] SetNetworkCfg callback, Channel=%d\n", dwChannelID);
@@ -1766,10 +1672,10 @@ static NET_COMMON_ECODE_E MySetNtpCfgCb(INT32 dwChannelID, LPVOID lpInBuffer)
            g_stSystemNtpCfg.enDateFormat,
            g_stSystemNtpCfg.bEnableNTPSync,
            g_stSystemNtpCfg.bManualSync,
-           g_stSystemNtpCfg.szDateTime);
+           g_stSystemNtpCfg.strDateTime);
     printf("  New SyncWithComputer=%d, Address=%s, Port=%d, SyncInterval=%d\n",
            g_stSystemNtpCfg.bIsSyncWithComputer,
-           g_stSystemNtpCfg.szAddress,
+           g_stSystemNtpCfg.strAddress,
            g_stSystemNtpCfg.nPort,
            g_stSystemNtpCfg.nSyncInterval);
 
@@ -1800,7 +1706,7 @@ static NET_COMMON_ECODE_E MyConnectWifiStaCb(INT32 dwChannelID, LPVOID lpInBuffe
         return NET_E_INVALID_PARAM;
     }
 
-    g_stWifiStaConnect = *(LPNET_WifiStaConnect_S)lpInBuffer;
+    g_stWifiStaConnect = *(pNET_WifiStaConnect_S)lpInBuffer;
 
     printf("[ConfigServerDemo] ConnectWifiSta callback, Channel=%d\n", dwChannelID);
     printf("  Ssid=%s, SecurityMode=%d, Ip=%s, Interface=%s\n",
@@ -1819,7 +1725,7 @@ static NET_COMMON_ECODE_E MyDisconnectWifiStaCb(INT32 dwChannelID, LPVOID lpInBu
         return NET_E_INVALID_PARAM;
     }
 
-    g_stWifiStaConnect = *(LPNET_WifiStaConnect_S)lpInBuffer;
+    g_stWifiStaConnect = *(pNET_WifiStaConnect_S)lpInBuffer;
     memset(g_stWifiStaConnect.szIpAddress, 0, sizeof(g_stWifiStaConnect.szIpAddress));
 
     printf("[ConfigServerDemo] DisconnectWifiSta callback, Channel=%d\n", dwChannelID);
@@ -1899,7 +1805,7 @@ static NET_COMMON_ECODE_E MyGetHotspotConnCb(INT32 dwChannelID, LPVOID lpOutBuff
         return NET_E_INVALID_PARAM;
     }
 
-    *(LPNET_HotspotConnInfo_S)lpOutBuffer = g_stHotspotConnInfo;
+    *(pNET_HotspotConnInfo_S)lpOutBuffer = g_stHotspotConnInfo;
 
     nCount = g_stHotspotConnInfo.nDeviceCount;
     if (nCount > NET_HOTSPOT_CONN_MAX_NUM)
@@ -1924,13 +1830,6 @@ static NET_COMMON_ECODE_E MyGetHotspotConnCb(INT32 dwChannelID, LPVOID lpOutBuff
 
     return NET_E_SUCCEED;
 }
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 MyGetSecurityServicesInfoCb 定义的内部处理。
- * @param [in] dwChannelID 函数处理参数。
- * @param [in] lpOutBuffer 函数处理参数。
- * @return 返回该处理的状态或结果。
- */
 
 static NET_COMMON_ECODE_E MyGetSecurityServicesInfoCb(INT32 dwChannelID, LPVOID lpOutBuffer)
 {
@@ -1946,13 +1845,6 @@ static NET_COMMON_ECODE_E MyGetSecurityServicesInfoCb(INT32 dwChannelID, LPVOID 
            g_stSecurityServicesInfo.stSshAdmin.nSshPort);
     return NET_E_SUCCEED;
 }
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 MySetSecurityServicesInfoCb 定义的内部处理。
- * @param [in] dwChannelID 函数处理参数。
- * @param [in] lpInBuffer 函数处理参数。
- * @return 返回该处理的状态或结果。
- */
 
 static NET_COMMON_ECODE_E MySetSecurityServicesInfoCb(INT32 dwChannelID, LPVOID lpInBuffer)
 {
@@ -1972,13 +1864,6 @@ static NET_COMMON_ECODE_E MySetSecurityServicesInfoCb(INT32 dwChannelID, LPVOID 
            g_stSecurityServicesInfo.stSshAdmin.nSshPort);
     return NET_E_SUCCEED;
 }
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 MyGetSshCountdownCb 定义的内部处理。
- * @param [in] dwChannelID 函数处理参数。
- * @param [in] lpOutBuffer 函数处理参数。
- * @return 返回该处理的状态或结果。
- */
 
 static NET_COMMON_ECODE_E MyGetSshCountdownCb(INT32 dwChannelID, LPVOID lpOutBuffer)
 {
@@ -1987,18 +1872,11 @@ static NET_COMMON_ECODE_E MyGetSshCountdownCb(INT32 dwChannelID, LPVOID lpOutBuf
         return NET_E_INVALID_PARAM;
     }
 
-    *(LPNET_SshCountdownInfo_S)lpOutBuffer = g_stSshCountdownInfo;
+    *(pNET_SshCountdownInfo_S)lpOutBuffer = g_stSshCountdownInfo;
     printf("[ConfigServerDemo] GetSshCountdown callback, Channel=%d, Countdown=%s\n",
            dwChannelID, g_stSshCountdownInfo.szCountdown);
     return NET_E_SUCCEED;
 }
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 MyFindLogCb 定义的内部处理。
- * @param [in] dwChannelID 函数处理参数。
- * @param [in] lpOutBuffer 函数处理参数。
- * @return 返回该处理的状态或结果。
- */
 
 static NET_COMMON_ECODE_E MyFindLogCb(INT32 dwChannelID, LPVOID lpOutBuffer)
 {
@@ -2008,11 +1886,11 @@ static NET_COMMON_ECODE_E MyFindLogCb(INT32 dwChannelID, LPVOID lpOutBuffer)
         return NET_E_INVALID_PARAM;
     }
 
-    stReq = *(LPNET_LogList_S)lpOutBuffer;
-    *(LPNET_LogList_S)lpOutBuffer = g_stLogList;
-    ((LPNET_LogList_S)lpOutBuffer)->stCond = stReq.stCond;
-    ((LPNET_LogList_S)lpOutBuffer)->stPage.nCurPage = stReq.stPage.nCurPage > 0 ? stReq.stPage.nCurPage : g_stLogList.stPage.nCurPage;
-    ((LPNET_LogList_S)lpOutBuffer)->stPage.nPageSize = stReq.stPage.nPageSize > 0 ? stReq.stPage.nPageSize : g_stLogList.stPage.nPageSize;
+    stReq = *(pNET_LogList_S)lpOutBuffer;
+    *(pNET_LogList_S)lpOutBuffer = g_stLogList;
+    ((pNET_LogList_S)lpOutBuffer)->stCond = stReq.stCond;
+    ((pNET_LogList_S)lpOutBuffer)->stPage.nCurPage = stReq.stPage.nCurPage > 0 ? stReq.stPage.nCurPage : g_stLogList.stPage.nCurPage;
+    ((pNET_LogList_S)lpOutBuffer)->stPage.nPageSize = stReq.stPage.nPageSize > 0 ? stReq.stPage.nPageSize : g_stLogList.stPage.nPageSize;
 
     printf("[ConfigServerDemo] FindLog callback, Channel=%d, Type=%d, Action=%d, Count=%d\n",
            dwChannelID,
@@ -2021,26 +1899,12 @@ static NET_COMMON_ECODE_E MyFindLogCb(INT32 dwChannelID, LPVOID lpOutBuffer)
            g_stLogList.nLogCount);
     return NET_E_SUCCEED;
 }
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 MyExportLogCb 定义的内部处理。
- * @param [in] dwChannelID 函数处理参数。
- * @param [in] lpOutBuffer 函数处理参数。
- * @return 返回该处理的状态或结果。
- */
 
 static NET_COMMON_ECODE_E MyExportLogCb(INT32 dwChannelID, LPVOID lpOutBuffer)
 {
     printf("[ConfigServerDemo] ExportLog callback, Channel=%d\n", dwChannelID);
     return MyFindLogCb(dwChannelID, lpOutBuffer);
 }
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 MyGetLogServerCb 定义的内部处理。
- * @param [in] dwChannelID 函数处理参数。
- * @param [in] lpOutBuffer 函数处理参数。
- * @return 返回该处理的状态或结果。
- */
 
 static NET_COMMON_ECODE_E MyGetLogServerCb(INT32 dwChannelID, LPVOID lpOutBuffer)
 {
@@ -2058,13 +1922,6 @@ static NET_COMMON_ECODE_E MyGetLogServerCb(INT32 dwChannelID, LPVOID lpOutBuffer
            g_stLogServerInfo.nPort);
     return NET_E_SUCCEED;
 }
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 MySetLogServerCb 定义的内部处理。
- * @param [in] dwChannelID 函数处理参数。
- * @param [in] lpInBuffer 函数处理参数。
- * @return 返回该处理的状态或结果。
- */
 
 static NET_COMMON_ECODE_E MySetLogServerCb(INT32 dwChannelID, LPVOID lpInBuffer)
 {
@@ -2082,13 +1939,6 @@ static NET_COMMON_ECODE_E MySetLogServerCb(INT32 dwChannelID, LPVOID lpInBuffer)
            g_stLogServerInfo.nPort);
     return NET_E_SUCCEED;
 }
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 MyTestLogServerCb 定义的内部处理。
- * @param [in] dwChannelID 函数处理参数。
- * @param [in] lpInBuffer 函数处理参数。
- * @return 返回该处理的状态或结果。
- */
 
 static NET_COMMON_ECODE_E MyTestLogServerCb(INT32 dwChannelID, LPVOID lpInBuffer)
 {
@@ -2104,13 +1954,6 @@ static NET_COMMON_ECODE_E MyTestLogServerCb(INT32 dwChannelID, LPVOID lpInBuffer
            pInfo->nPort);
     return NET_E_SUCCEED;
 }
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 MyControlRecordInfoCb 定义的内部处理。
- * @param [in] dwChannelID 函数处理参数。
- * @param [in] lpInBuffer 函数处理参数。
- * @return 返回该处理的状态或结果。
- */
 
 static NET_COMMON_ECODE_E MyControlRecordInfoCb(INT32 dwChannelID, LPVOID lpInBuffer)
 {
@@ -2128,13 +1971,6 @@ static NET_COMMON_ECODE_E MyControlRecordInfoCb(INT32 dwChannelID, LPVOID lpInBu
            g_stRecordInfo.szRecordName);
     return NET_E_SUCCEED;
 }
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 MyGetRecordStatusCb 定义的内部处理。
- * @param [in] dwChannelID 函数处理参数。
- * @param [in] lpOutBuffer 函数处理参数。
- * @return 返回该处理的状态或结果。
- */
 
 static NET_COMMON_ECODE_E MyGetRecordStatusCb(INT32 dwChannelID, LPVOID lpOutBuffer)
 {
@@ -2149,13 +1985,6 @@ static NET_COMMON_ECODE_E MyGetRecordStatusCb(INT32 dwChannelID, LPVOID lpOutBuf
            g_stRecordStatusInfo.nStatus);
     return NET_E_SUCCEED;
 }
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 MyGetRecordScheduleCb 定义的内部处理。
- * @param [in] dwChannelID 函数处理参数。
- * @param [in] lpOutBuffer 函数处理参数。
- * @return 返回该处理的状态或结果。
- */
 
 static NET_COMMON_ECODE_E MyGetRecordScheduleCb(INT32 dwChannelID, LPVOID lpOutBuffer)
 {
@@ -2171,13 +2000,6 @@ static NET_COMMON_ECODE_E MyGetRecordScheduleCb(INT32 dwChannelID, LPVOID lpOutB
            g_stRecordSchedule.nDayScheduleCount);
     return NET_E_SUCCEED;
 }
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 MySetRecordScheduleCb 定义的内部处理。
- * @param [in] dwChannelID 函数处理参数。
- * @param [in] lpInBuffer 函数处理参数。
- * @return 返回该处理的状态或结果。
- */
 
 static NET_COMMON_ECODE_E MySetRecordScheduleCb(INT32 dwChannelID, LPVOID lpInBuffer)
 {
@@ -2193,13 +2015,6 @@ static NET_COMMON_ECODE_E MySetRecordScheduleCb(INT32 dwChannelID, LPVOID lpInBu
            g_stRecordSchedule.nDayScheduleCount);
     return NET_E_SUCCEED;
 }
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 MyGetRecordAdvancedParamCb 定义的内部处理。
- * @param [in] dwChannelID 函数处理参数。
- * @param [in] lpOutBuffer 函数处理参数。
- * @return 返回该处理的状态或结果。
- */
 
 static NET_COMMON_ECODE_E MyGetRecordAdvancedParamCb(INT32 dwChannelID, LPVOID lpOutBuffer)
 {
@@ -2208,7 +2023,7 @@ static NET_COMMON_ECODE_E MyGetRecordAdvancedParamCb(INT32 dwChannelID, LPVOID l
         return NET_E_INVALID_PARAM;
     }
 
-    *(LPNET_RecordAdvancedParam_S)lpOutBuffer = g_stRecordAdvancedParam;
+    *(pNET_RecordAdvancedParam_S)lpOutBuffer = g_stRecordAdvancedParam;
     printf("[ConfigServerDemo] GetRecordAdvancedParam callback, Channel=%d, LoopWrite=%d, PreTime=%d, DelayTime=%d\n",
            dwChannelID,
            g_stRecordAdvancedParam.bLoopWrite,
@@ -2216,13 +2031,6 @@ static NET_COMMON_ECODE_E MyGetRecordAdvancedParamCb(INT32 dwChannelID, LPVOID l
            g_stRecordAdvancedParam.nDelayTime);
     return NET_E_SUCCEED;
 }
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 MySetRecordAdvancedParamCb 定义的内部处理。
- * @param [in] dwChannelID 函数处理参数。
- * @param [in] lpInBuffer 函数处理参数。
- * @return 返回该处理的状态或结果。
- */
 
 static NET_COMMON_ECODE_E MySetRecordAdvancedParamCb(INT32 dwChannelID, LPVOID lpInBuffer)
 {
@@ -2231,7 +2039,7 @@ static NET_COMMON_ECODE_E MySetRecordAdvancedParamCb(INT32 dwChannelID, LPVOID l
         return NET_E_INVALID_PARAM;
     }
 
-    g_stRecordAdvancedParam = *(LPNET_RecordAdvancedParam_S)lpInBuffer;
+    g_stRecordAdvancedParam = *(pNET_RecordAdvancedParam_S)lpInBuffer;
     printf("[ConfigServerDemo] SetRecordAdvancedParam callback, Channel=%d, LoopWrite=%d, PreTime=%d, DelayTime=%d\n",
            dwChannelID,
            g_stRecordAdvancedParam.bLoopWrite,
@@ -2239,17 +2047,10 @@ static NET_COMMON_ECODE_E MySetRecordAdvancedParamCb(INT32 dwChannelID, LPVOID l
            g_stRecordAdvancedParam.nDelayTime);
     return NET_E_SUCCEED;
 }
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 MyFindRecordFileInfoCb 定义的内部处理。
- * @param [in] dwChannelID 函数处理参数。
- * @param [in] lpOutBuffer 函数处理参数。
- * @return 返回该处理的状态或结果。
- */
 
 static NET_COMMON_ECODE_E MyFindRecordFileInfoCb(INT32 dwChannelID, LPVOID lpOutBuffer)
 {
-    NET_RECORD_FIND_COND_S stFind;
+    NET_RecordFindCond_S stFind;
     if (!lpOutBuffer)
     {
         return NET_E_INVALID_PARAM;
@@ -2265,13 +2066,6 @@ static NET_COMMON_ECODE_E MyFindRecordFileInfoCb(INT32 dwChannelID, LPVOID lpOut
            g_stRecordFileList.nResultCount);
     return NET_E_SUCCEED;
 }
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 MyDownloadRecordFileCb 定义的内部处理。
- * @param [in] dwChannelID 函数处理参数。
- * @param [in] lpInBuffer 函数处理参数。
- * @return 返回该处理的状态或结果。
- */
 
 static NET_COMMON_ECODE_E MyDownloadRecordFileCb(INT32 dwChannelID, LPVOID lpInBuffer)
 {
@@ -2299,7 +2093,7 @@ static NET_COMMON_ECODE_E MyDownloadRecordFileCb(INT32 dwChannelID, LPVOID lpInB
            g_stRecordDownloadList.astDownloads[0].szPath);
 
     memset(&stAlarmer, 0, sizeof(stAlarmer));
-    strncpy(stAlarmer.szDeviceIP, "127.0.0.1", sizeof(stAlarmer.szDeviceIP) - 1);
+    strncpy(stAlarmer.strDeviceIP, "127.0.0.1", sizeof(stAlarmer.strDeviceIP) - 1);
     stProgress = g_stRecordDownloadList.astProgress[0];
     NET_SERVER_PushAlarmInfo(&stAlarmer,
                                 NET_NOTICE_DOWNLOAD_RECORD_PROGRESS,
@@ -2400,15 +2194,15 @@ static NET_COMMON_ECODE_E MyGetPrivacyMaskCfgCb(INT32 dwChannelID, LPVOID lpOutB
         return NET_E_INVALID_PARAM;
     }
 
-    LPNET_PrivacyMaskCfg_S pOut = (LPNET_PrivacyMaskCfg_S)lpOutBuffer;
+    pNET_PrivacyMaskCfg_S pOut = (pNET_PrivacyMaskCfg_S)lpOutBuffer;
     *pOut = g_stPrivacyMaskCfg;
 
     printf("[ConfigServerDemo] GetPrivacyMaskCfg callback, Channel=%d\n", dwChannelID);
     printf("  Enable=%d, AreaCount=%d\n",
-           g_stPrivacyMaskCfg.bEnable, g_stPrivacyMaskCfg.dwAreaCount);
-    for (int i = 0; i < g_stPrivacyMaskCfg.dwAreaCount && i < NET_MAX_PRIVACY_MASK_AREA_NUM; i++)
+           g_stPrivacyMaskCfg.bEnable, g_stPrivacyMaskCfg.uAreaCount);
+    for (int i = 0; i < g_stPrivacyMaskCfg.uAreaCount && i < NET_MAX_PRIVACY_MASK_AREA_NUM; i++)
     {
-        const NET_PRIVACY_MASK_AREA_S* pArea = &g_stPrivacyMaskCfg.astArea[i];
+        const NET_PrivacyMaskArea_S* pArea = &g_stPrivacyMaskCfg.astArea[i];
         printf("  Area[%d]: ID=%d, Enable=%d, Rect=[%d,%d,%d,%d]\n",
                i, pArea->nAreaID, pArea->bEnable,
                pArea->nRectLeft, pArea->nRectTop,
@@ -2428,20 +2222,20 @@ static NET_COMMON_ECODE_E MySetPrivacyMaskCfgCb(INT32 dwChannelID, LPVOID lpInBu
         return NET_E_INVALID_PARAM;
     }
 
-    LPNET_PrivacyMaskCfg_S pIn = (LPNET_PrivacyMaskCfg_S)lpInBuffer;
+    pNET_PrivacyMaskCfg_S pIn = (pNET_PrivacyMaskCfg_S)lpInBuffer;
     g_stPrivacyMaskCfg = *pIn;
-    if (g_stPrivacyMaskCfg.dwAreaCount < 0)
+    if (g_stPrivacyMaskCfg.uAreaCount < 0)
     {
-        g_stPrivacyMaskCfg.dwAreaCount = 0;
+        g_stPrivacyMaskCfg.uAreaCount = 0;
     }
-    if (g_stPrivacyMaskCfg.dwAreaCount > NET_MAX_PRIVACY_MASK_AREA_NUM)
+    if (g_stPrivacyMaskCfg.uAreaCount > NET_MAX_PRIVACY_MASK_AREA_NUM)
     {
-        g_stPrivacyMaskCfg.dwAreaCount = NET_MAX_PRIVACY_MASK_AREA_NUM;
+        g_stPrivacyMaskCfg.uAreaCount = NET_MAX_PRIVACY_MASK_AREA_NUM;
     }
 
     printf("[ConfigServerDemo] SetPrivacyMaskCfg callback, Channel=%d\n", dwChannelID);
     printf("  New Enable=%d, AreaCount=%d\n",
-           g_stPrivacyMaskCfg.bEnable, g_stPrivacyMaskCfg.dwAreaCount);
+           g_stPrivacyMaskCfg.bEnable, g_stPrivacyMaskCfg.uAreaCount);
 
     return NET_E_SUCCEED;
 }
@@ -2787,7 +2581,7 @@ static NET_COMMON_ECODE_E MyGetGarbageExposureCfgCb(INT32 dwChannelID, LPVOID lp
         return NET_E_INVALID_PARAM;
     }
 
-    LPNET_GarbageExposureCfg_S pOut = (LPNET_GarbageExposureCfg_S)lpOutBuffer;
+    pNET_GarbageExposureCfg_S pOut = (pNET_GarbageExposureCfg_S)lpOutBuffer;
     *pOut = g_stGarbageExposureCfg;
 
     printf("[ConfigServerDemo] GetGarbageExposureCfg callback, Channel=%d\n", dwChannelID);
@@ -2809,7 +2603,7 @@ static NET_COMMON_ECODE_E MySetGarbageExposureCfgCb(INT32 dwChannelID, LPVOID lp
         return NET_E_INVALID_PARAM;
     }
 
-    LPNET_GarbageExposureCfg_S pIn = (LPNET_GarbageExposureCfg_S)lpInBuffer;
+    pNET_GarbageExposureCfg_S pIn = (pNET_GarbageExposureCfg_S)lpInBuffer;
     g_stGarbageExposureCfg = *pIn;
 
     printf("[ConfigServerDemo] SetGarbageExposureCfg callback, Channel=%d\n", dwChannelID);
@@ -2875,7 +2669,7 @@ static NET_COMMON_ECODE_E MyGetPeopleFlowStatisticsCfgCb(INT32 dwChannelID, LPVO
         return NET_E_INVALID_PARAM;
     }
 
-    LPNET_PeopleFlowStatisticsCfg_S pOut = (LPNET_PeopleFlowStatisticsCfg_S)lpOutBuffer;
+    pNET_PeopleFlowStatisticsCfg_S pOut = (pNET_PeopleFlowStatisticsCfg_S)lpOutBuffer;
     *pOut = g_stPeopleFlowStatisticsCfg;
 
     printf("[ConfigServerDemo] GetPeopleFlowStatisticsCfg callback, Channel=%d\n", dwChannelID);
@@ -2897,7 +2691,7 @@ static NET_COMMON_ECODE_E MySetPeopleFlowStatisticsCfgCb(INT32 dwChannelID, LPVO
         return NET_E_INVALID_PARAM;
     }
 
-    LPNET_PeopleFlowStatisticsCfg_S pIn = (LPNET_PeopleFlowStatisticsCfg_S)lpInBuffer;
+    pNET_PeopleFlowStatisticsCfg_S pIn = (pNET_PeopleFlowStatisticsCfg_S)lpInBuffer;
     g_stPeopleFlowStatisticsCfg = *pIn;
 
     printf("[ConfigServerDemo] SetPeopleFlowStatisticsCfg callback, Channel=%d\n", dwChannelID);
@@ -2932,7 +2726,7 @@ static NET_COMMON_ECODE_E MyGetPeopleDensityDetectionCfgCb(INT32 dwChannelID, LP
         return NET_E_INVALID_PARAM;
     }
 
-    LPNET_PeopleDensityDetectionCfg_S pOut = (LPNET_PeopleDensityDetectionCfg_S)lpOutBuffer;
+    pNET_PeopleDensityDetectionCfg_S pOut = (pNET_PeopleDensityDetectionCfg_S)lpOutBuffer;
     *pOut = g_stPeopleDensityDetectionCfg;
 
     printf("[ConfigServerDemo] GetPeopleDensityDetectionCfg callback, Channel=%d\n", dwChannelID);
@@ -2953,7 +2747,7 @@ static NET_COMMON_ECODE_E MySetPeopleDensityDetectionCfgCb(INT32 dwChannelID, LP
         return NET_E_INVALID_PARAM;
     }
 
-    LPNET_PeopleDensityDetectionCfg_S pIn = (LPNET_PeopleDensityDetectionCfg_S)lpInBuffer;
+    pNET_PeopleDensityDetectionCfg_S pIn = (pNET_PeopleDensityDetectionCfg_S)lpInBuffer;
     g_stPeopleDensityDetectionCfg = *pIn;
 
     printf("[ConfigServerDemo] SetPeopleDensityDetectionCfg callback, Channel=%d\n", dwChannelID);
@@ -2974,7 +2768,7 @@ static NET_COMMON_ECODE_E MyGetManholeCoverAbnormalCfgCb(INT32 dwChannelID, LPVO
         return NET_E_INVALID_PARAM;
     }
 
-    LPNET_ManholeCoverAbnormalCfg_S pOut = (LPNET_ManholeCoverAbnormalCfg_S)lpOutBuffer;
+    pNET_ManholeCoverAbnormalCfg_S pOut = (pNET_ManholeCoverAbnormalCfg_S)lpOutBuffer;
     *pOut = g_stManholeCoverAbnormalCfg;
 
     printf("[ConfigServerDemo] GetManholeCoverAbnormalCfg callback, Channel=%d\n", dwChannelID);
@@ -2995,7 +2789,7 @@ static NET_COMMON_ECODE_E MySetManholeCoverAbnormalCfgCb(INT32 dwChannelID, LPVO
         return NET_E_INVALID_PARAM;
     }
 
-    LPNET_ManholeCoverAbnormalCfg_S pIn = (LPNET_ManholeCoverAbnormalCfg_S)lpInBuffer;
+    pNET_ManholeCoverAbnormalCfg_S pIn = (pNET_ManholeCoverAbnormalCfg_S)lpInBuffer;
     g_stManholeCoverAbnormalCfg = *pIn;
 
     printf("[ConfigServerDemo] SetManholeCoverAbnormalCfg callback, Channel=%d\n", dwChannelID);
@@ -3016,7 +2810,7 @@ static NET_COMMON_ECODE_E MyGetSleepOnDutyCfgCb(INT32 dwChannelID, LPVOID lpOutB
         return NET_E_INVALID_PARAM;
     }
 
-    LPNET_SleepOnDutyCfg_S pOut = (LPNET_SleepOnDutyCfg_S)lpOutBuffer;
+    pNET_SleepOnDutyCfg_S pOut = (pNET_SleepOnDutyCfg_S)lpOutBuffer;
     *pOut = g_stSleepOnDutyCfg;
 
     printf("[ConfigServerDemo] GetSleepOnDutyCfg callback, Channel=%d\n", dwChannelID);
@@ -3037,7 +2831,7 @@ static NET_COMMON_ECODE_E MySetSleepOnDutyCfgCb(INT32 dwChannelID, LPVOID lpInBu
         return NET_E_INVALID_PARAM;
     }
 
-    LPNET_SleepOnDutyCfg_S pIn = (LPNET_SleepOnDutyCfg_S)lpInBuffer;
+    pNET_SleepOnDutyCfg_S pIn = (pNET_SleepOnDutyCfg_S)lpInBuffer;
     g_stSleepOnDutyCfg = *pIn;
 
     printf("[ConfigServerDemo] SetSleepOnDutyCfg callback, Channel=%d\n", dwChannelID);
@@ -3058,7 +2852,7 @@ static NET_COMMON_ECODE_E MyGetElectricVehicleInElevatorCfgCb(INT32 dwChannelID,
         return NET_E_INVALID_PARAM;
     }
 
-    LPNET_ElectricVehicleInElevatorCfg_S pOut = (LPNET_ElectricVehicleInElevatorCfg_S)lpOutBuffer;
+    pNET_ElectricVehicleInElevatorCfg_S pOut = (pNET_ElectricVehicleInElevatorCfg_S)lpOutBuffer;
     *pOut = g_stElectricVehicleInElevatorCfg;
 
     printf("[ConfigServerDemo] GetElectricVehicleInElevatorCfg callback, Channel=%d\n", dwChannelID);
@@ -3079,7 +2873,7 @@ static NET_COMMON_ECODE_E MySetElectricVehicleInElevatorCfgCb(INT32 dwChannelID,
         return NET_E_INVALID_PARAM;
     }
 
-    LPNET_ElectricVehicleInElevatorCfg_S pIn = (LPNET_ElectricVehicleInElevatorCfg_S)lpInBuffer;
+    pNET_ElectricVehicleInElevatorCfg_S pIn = (pNET_ElectricVehicleInElevatorCfg_S)lpInBuffer;
     g_stElectricVehicleInElevatorCfg = *pIn;
 
     printf("[ConfigServerDemo] SetElectricVehicleInElevatorCfg callback, Channel=%d\n", dwChannelID);
@@ -3142,7 +2936,7 @@ static NET_COMMON_ECODE_E MyGetConstructionOccupyRoadCfgCb(INT32 dwChannelID, LP
         return NET_E_INVALID_PARAM;
     }
 
-    LPNET_ConstructionOccupyRoadCfg_S pOut = (LPNET_ConstructionOccupyRoadCfg_S)lpOutBuffer;
+    pNET_ConstructionOccupyRoadCfg_S pOut = (pNET_ConstructionOccupyRoadCfg_S)lpOutBuffer;
     *pOut = g_stConstructionOccupyRoadCfg;
 
     printf("[ConfigServerDemo] GetConstructionOccupyRoadCfg callback, Channel=%d\n", dwChannelID);
@@ -3163,7 +2957,7 @@ static NET_COMMON_ECODE_E MySetConstructionOccupyRoadCfgCb(INT32 dwChannelID, LP
         return NET_E_INVALID_PARAM;
     }
 
-    LPNET_ConstructionOccupyRoadCfg_S pIn = (LPNET_ConstructionOccupyRoadCfg_S)lpInBuffer;
+    pNET_ConstructionOccupyRoadCfg_S pIn = (pNET_ConstructionOccupyRoadCfg_S)lpInBuffer;
     g_stConstructionOccupyRoadCfg = *pIn;
 
     printf("[ConfigServerDemo] SetConstructionOccupyRoadCfg callback, Channel=%d\n", dwChannelID);
@@ -3184,7 +2978,7 @@ static NET_COMMON_ECODE_E MyGetCongestionCfgCb(INT32 dwChannelID, LPVOID lpOutBu
         return NET_E_INVALID_PARAM;
     }
 
-    LPNET_CongestionCfg_S pOut = (LPNET_CongestionCfg_S)lpOutBuffer;
+    pNET_CongestionCfg_S pOut = (pNET_CongestionCfg_S)lpOutBuffer;
     *pOut = g_stCongestionCfg;
 
     printf("[ConfigServerDemo] GetCongestionCfg callback, Channel=%d\n", dwChannelID);
@@ -3194,13 +2988,6 @@ static NET_COMMON_ECODE_E MyGetCongestionCfgCb(INT32 dwChannelID, LPVOID lpOutBu
 
     return NET_E_SUCCEED;
 }
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 MyGetChannelListCb 定义的内部处理。
- * @param [in] dwChannelID 函数处理参数。
- * @param [in] lpOutBuffer 函数处理参数。
- * @return 返回该处理的状态或结果。
- */
 
 static NET_COMMON_ECODE_E MyGetChannelListCb(INT32 dwChannelID, LPVOID lpOutBuffer)
 {
@@ -3213,12 +3000,12 @@ static NET_COMMON_ECODE_E MyGetChannelListCb(INT32 dwChannelID, LPVOID lpOutBuff
 
     pNET_ChannelList_S pOut = (pNET_ChannelList_S)lpOutBuffer;
     memset(pOut, 0, sizeof(*pOut));
-    pOut->dwSize = sizeof(*pOut);
-    pOut->dwChannelCount = 1;
+    pOut->uSize = sizeof(*pOut);
+    pOut->uChannelCount = 1;
     pOut->stChannels[0] = g_stChannelInfo;
 
     printf("[ConfigServerDemo] GetChannelList callback\n");
-    printf("  ChannelCount=%u\n", pOut->dwChannelCount);
+    printf("  ChannelCount=%u\n", pOut->uChannelCount);
     printf("  Channel[0].Name=%s\n", pOut->stChannels[0].szChannelName);
     printf("  Channel[0].PreviewMainUrl=%s\n", pOut->stChannels[0].szPreviewMainUrl);
     printf("  Channel[0].PreviewSubUrl=%s\n", pOut->stChannels[0].szPreviewSubUrl);
@@ -3236,7 +3023,7 @@ static NET_COMMON_ECODE_E MySetCongestionCfgCb(INT32 dwChannelID, LPVOID lpInBuf
         return NET_E_INVALID_PARAM;
     }
 
-    LPNET_CongestionCfg_S pIn = (LPNET_CongestionCfg_S)lpInBuffer;
+    pNET_CongestionCfg_S pIn = (pNET_CongestionCfg_S)lpInBuffer;
     g_stCongestionCfg = *pIn;
 
     printf("[ConfigServerDemo] SetCongestionCfg callback, Channel=%d\n", dwChannelID);
@@ -3299,7 +3086,7 @@ static NET_COMMON_ECODE_E MyGetHighAltitudeSeatbeltCfgCb(INT32 dwChannelID, LPVO
         return NET_E_INVALID_PARAM;
     }
 
-    LPNET_HighAltitudeSeatbeltCfg_S pOut = (LPNET_HighAltitudeSeatbeltCfg_S)lpOutBuffer;
+    pNET_HighAltitudeSeatbeltCfg_S pOut = (pNET_HighAltitudeSeatbeltCfg_S)lpOutBuffer;
     *pOut = g_stHighAltitudeSeatbeltCfg;
 
     printf("[ConfigServerDemo] GetHighAltitudeSeatbeltCfg callback, Channel=%d\n", dwChannelID);
@@ -3320,7 +3107,7 @@ static NET_COMMON_ECODE_E MySetHighAltitudeSeatbeltCfgCb(INT32 dwChannelID, LPVO
         return NET_E_INVALID_PARAM;
     }
 
-    LPNET_HighAltitudeSeatbeltCfg_S pIn = (LPNET_HighAltitudeSeatbeltCfg_S)lpInBuffer;
+    pNET_HighAltitudeSeatbeltCfg_S pIn = (pNET_HighAltitudeSeatbeltCfg_S)lpInBuffer;
     g_stHighAltitudeSeatbeltCfg = *pIn;
 
     printf("[ConfigServerDemo] SetHighAltitudeSeatbeltCfg callback, Channel=%d\n", dwChannelID);
@@ -3341,7 +3128,7 @@ static NET_COMMON_ECODE_E MyGetSafetyHelmetCfgCb(INT32 dwChannelID, LPVOID lpOut
         return NET_E_INVALID_PARAM;
     }
 
-    LPNET_SafetyHelmetCfg_S pOut = (LPNET_SafetyHelmetCfg_S)lpOutBuffer;
+    pNET_SafetyHelmetCfg_S pOut = (pNET_SafetyHelmetCfg_S)lpOutBuffer;
     *pOut = g_stSafetyHelmetCfg;
 
     printf("[ConfigServerDemo] GetSafetyHelmetCfg callback, Channel=%d\n", dwChannelID);
@@ -3362,7 +3149,7 @@ static NET_COMMON_ECODE_E MySetSafetyHelmetCfgCb(INT32 dwChannelID, LPVOID lpInB
         return NET_E_INVALID_PARAM;
     }
 
-    LPNET_SafetyHelmetCfg_S pIn = (LPNET_SafetyHelmetCfg_S)lpInBuffer;
+    pNET_SafetyHelmetCfg_S pIn = (pNET_SafetyHelmetCfg_S)lpInBuffer;
     g_stSafetyHelmetCfg = *pIn;
 
     printf("[ConfigServerDemo] SetSafetyHelmetCfg callback, Channel=%d\n", dwChannelID);
@@ -3383,7 +3170,7 @@ static NET_COMMON_ECODE_E MyGetPersonFallCfgCb(INT32 dwChannelID, LPVOID lpOutBu
         return NET_E_INVALID_PARAM;
     }
 
-    LPNET_PersonFallCfg_S pOut = (LPNET_PersonFallCfg_S)lpOutBuffer;
+    pNET_PersonFallCfg_S pOut = (pNET_PersonFallCfg_S)lpOutBuffer;
     *pOut = g_stPersonFallCfg;
 
     printf("[ConfigServerDemo] GetPersonFallCfg callback, Channel=%d\n", dwChannelID);
@@ -3404,7 +3191,7 @@ static NET_COMMON_ECODE_E MySetPersonFallCfgCb(INT32 dwChannelID, LPVOID lpInBuf
         return NET_E_INVALID_PARAM;
     }
 
-    LPNET_PersonFallCfg_S pIn = (LPNET_PersonFallCfg_S)lpInBuffer;
+    pNET_PersonFallCfg_S pIn = (pNET_PersonFallCfg_S)lpInBuffer;
     g_stPersonFallCfg = *pIn;
 
     printf("[ConfigServerDemo] SetPersonFallCfg callback, Channel=%d\n", dwChannelID);
@@ -3425,7 +3212,7 @@ static NET_COMMON_ECODE_E MyGetPhoneUsageCfgCb(INT32 dwChannelID, LPVOID lpOutBu
         return NET_E_INVALID_PARAM;
     }
 
-    LPNET_PhoneUsageCfg_S pOut = (LPNET_PhoneUsageCfg_S)lpOutBuffer;
+    pNET_PhoneUsageCfg_S pOut = (pNET_PhoneUsageCfg_S)lpOutBuffer;
     *pOut = g_stPhoneUsageCfg;
 
     printf("[ConfigServerDemo] GetPhoneUsageCfg callback, Channel=%d\n", dwChannelID);
@@ -3446,7 +3233,7 @@ static NET_COMMON_ECODE_E MySetPhoneUsageCfgCb(INT32 dwChannelID, LPVOID lpInBuf
         return NET_E_INVALID_PARAM;
     }
 
-    LPNET_PhoneUsageCfg_S pIn = (LPNET_PhoneUsageCfg_S)lpInBuffer;
+    pNET_PhoneUsageCfg_S pIn = (pNET_PhoneUsageCfg_S)lpInBuffer;
     g_stPhoneUsageCfg = *pIn;
 
     printf("[ConfigServerDemo] SetPhoneUsageCfg callback, Channel=%d\n", dwChannelID);
@@ -3467,7 +3254,7 @@ static NET_COMMON_ECODE_E MyGetSmokingCfgCb(INT32 dwChannelID, LPVOID lpOutBuffe
         return NET_E_INVALID_PARAM;
     }
 
-    LPNET_SmokingCfg_S pOut = (LPNET_SmokingCfg_S)lpOutBuffer;
+    pNET_SmokingCfg_S pOut = (pNET_SmokingCfg_S)lpOutBuffer;
     *pOut = g_stSmokingCfg;
 
     printf("[ConfigServerDemo] GetSmokingCfg callback, Channel=%d\n", dwChannelID);
@@ -3488,7 +3275,7 @@ static NET_COMMON_ECODE_E MySetSmokingCfgCb(INT32 dwChannelID, LPVOID lpInBuffer
         return NET_E_INVALID_PARAM;
     }
 
-    LPNET_SmokingCfg_S pIn = (LPNET_SmokingCfg_S)lpInBuffer;
+    pNET_SmokingCfg_S pIn = (pNET_SmokingCfg_S)lpInBuffer;
     g_stSmokingCfg = *pIn;
 
     printf("[ConfigServerDemo] SetSmokingCfg callback, Channel=%d\n", dwChannelID);
@@ -3509,7 +3296,7 @@ static NET_COMMON_ECODE_E MyGetOpenFlameCfgCb(INT32 dwChannelID, LPVOID lpOutBuf
         return NET_E_INVALID_PARAM;
     }
 
-    LPNET_OpenFlameCfg_S pOut = (LPNET_OpenFlameCfg_S)lpOutBuffer;
+    pNET_OpenFlameCfg_S pOut = (pNET_OpenFlameCfg_S)lpOutBuffer;
     *pOut = g_stOpenFlameCfg;
 
     printf("[ConfigServerDemo] GetOpenFlameCfg callback, Channel=%d\n", dwChannelID);
@@ -3530,7 +3317,7 @@ static NET_COMMON_ECODE_E MySetOpenFlameCfgCb(INT32 dwChannelID, LPVOID lpInBuff
         return NET_E_INVALID_PARAM;
     }
 
-    LPNET_OpenFlameCfg_S pIn = (LPNET_OpenFlameCfg_S)lpInBuffer;
+    pNET_OpenFlameCfg_S pIn = (pNET_OpenFlameCfg_S)lpInBuffer;
     g_stOpenFlameCfg = *pIn;
 
     printf("[ConfigServerDemo] SetOpenFlameCfg callback, Channel=%d\n", dwChannelID);
@@ -3593,7 +3380,7 @@ static NET_COMMON_ECODE_E MyGetHoleProtectionBarCfgCb(INT32 dwChannelID, LPVOID 
         return NET_E_INVALID_PARAM;
     }
 
-    LPNET_HoleProtectionBarCfg_S pOut = (LPNET_HoleProtectionBarCfg_S)lpOutBuffer;
+    pNET_HoleProtectionBarCfg_S pOut = (pNET_HoleProtectionBarCfg_S)lpOutBuffer;
     *pOut = g_stHoleProtectionBarCfg;
 
     printf("[ConfigServerDemo] GetHoleProtectionBarCfg callback, Channel=%d\n", dwChannelID);
@@ -3614,7 +3401,7 @@ static NET_COMMON_ECODE_E MySetHoleProtectionBarCfgCb(INT32 dwChannelID, LPVOID 
         return NET_E_INVALID_PARAM;
     }
 
-    LPNET_HoleProtectionBarCfg_S pIn = (LPNET_HoleProtectionBarCfg_S)lpInBuffer;
+    pNET_HoleProtectionBarCfg_S pIn = (pNET_HoleProtectionBarCfg_S)lpInBuffer;
     g_stHoleProtectionBarCfg = *pIn;
 
     printf("[ConfigServerDemo] SetHoleProtectionBarCfg callback, Channel=%d\n", dwChannelID);
@@ -3635,7 +3422,7 @@ static NET_COMMON_ECODE_E MyGetReflectiveClothingCfgCb(INT32 dwChannelID, LPVOID
         return NET_E_INVALID_PARAM;
     }
 
-    LPNET_ReflectiveClothingCfg_S pOut = (LPNET_ReflectiveClothingCfg_S)lpOutBuffer;
+    pNET_ReflectiveClothingCfg_S pOut = (pNET_ReflectiveClothingCfg_S)lpOutBuffer;
     *pOut = g_stReflectiveClothingCfg;
 
     printf("[ConfigServerDemo] GetReflectiveClothingCfg callback, Channel=%d\n", dwChannelID);
@@ -3656,7 +3443,7 @@ static NET_COMMON_ECODE_E MySetReflectiveClothingCfgCb(INT32 dwChannelID, LPVOID
         return NET_E_INVALID_PARAM;
     }
 
-    LPNET_ReflectiveClothingCfg_S pIn = (LPNET_ReflectiveClothingCfg_S)lpInBuffer;
+    pNET_ReflectiveClothingCfg_S pIn = (pNET_ReflectiveClothingCfg_S)lpInBuffer;
     g_stReflectiveClothingCfg = *pIn;
 
     printf("[ConfigServerDemo] SetReflectiveClothingCfg callback, Channel=%d\n", dwChannelID);
@@ -3677,7 +3464,7 @@ static NET_COMMON_ECODE_E MyGetPetRecognitionInfoCb(INT32 dwChannelID, LPVOID lp
         return NET_E_INVALID_PARAM;
     }
 
-    LPNET_PetRecognitionInfo_S pOut = (LPNET_PetRecognitionInfo_S)lpOutBuffer;
+    pNET_PetRecognitionInfo_S pOut = (pNET_PetRecognitionInfo_S)lpOutBuffer;
     *pOut = g_stPetRecognitionInfo;
 
     printf("[ConfigServerDemo] GetPetRecognitionInfo callback, Channel=%d\n", dwChannelID);
@@ -3700,7 +3487,7 @@ static NET_COMMON_ECODE_E MySetPetRecognitionInfoCb(INT32 dwChannelID, LPVOID lp
         return NET_E_INVALID_PARAM;
     }
 
-    LPNET_PetRecognitionInfo_S pIn = (LPNET_PetRecognitionInfo_S)lpInBuffer;
+    pNET_PetRecognitionInfo_S pIn = (pNET_PetRecognitionInfo_S)lpInBuffer;
     g_stPetRecognitionInfo = *pIn;
 
     printf("[ConfigServerDemo] SetPetRecognitionInfo callback, Channel=%d\n", dwChannelID);
@@ -3723,15 +3510,15 @@ static NET_COMMON_ECODE_E MyGetClimbFenceInfoCb(INT32 dwChannelID, LPVOID lpOutB
         return NET_E_INVALID_PARAM;
     }
 
-    LPNET_ClimbFenceInfo_S pOut = (LPNET_ClimbFenceInfo_S)lpOutBuffer;
+    pNET_ClimbFenceInfo_S pOut = (pNET_ClimbFenceInfo_S)lpOutBuffer;
     *pOut = g_stClimbFenceInfo;
 
     printf("[ConfigServerDemo] GetClimbFenceInfo callback, Channel=%d\n", dwChannelID);
     printf("  Enable=%d, RuleCount=%d, FirstSensitivity=%d, FirstTimeThreshold=%d\n",
            g_stClimbFenceInfo.bEnable,
-           g_stClimbFenceInfo.dwRuleCount,
-           g_stClimbFenceInfo.astRule[0].nSensitivity,
-           g_stClimbFenceInfo.astRule[0].nTimeThreshold);
+           g_stClimbFenceInfo.uRuleCount,
+           g_stClimbFenceInfo.stRule[0].nSensitivity,
+           g_stClimbFenceInfo.stRule[0].nTimeThreshold);
 
     return NET_E_SUCCEED;
 }
@@ -3746,15 +3533,15 @@ static NET_COMMON_ECODE_E MySetClimbFenceInfoCb(INT32 dwChannelID, LPVOID lpInBu
         return NET_E_INVALID_PARAM;
     }
 
-    LPNET_ClimbFenceInfo_S pIn = (LPNET_ClimbFenceInfo_S)lpInBuffer;
+    pNET_ClimbFenceInfo_S pIn = (pNET_ClimbFenceInfo_S)lpInBuffer;
     g_stClimbFenceInfo = *pIn;
 
     printf("[ConfigServerDemo] SetClimbFenceInfo callback, Channel=%d\n", dwChannelID);
     printf("  New Enable=%d, RuleCount=%d, FirstSensitivity=%d, FirstTimeThreshold=%d\n",
            g_stClimbFenceInfo.bEnable,
-           g_stClimbFenceInfo.dwRuleCount,
-           g_stClimbFenceInfo.astRule[0].nSensitivity,
-           g_stClimbFenceInfo.astRule[0].nTimeThreshold);
+           g_stClimbFenceInfo.uRuleCount,
+           g_stClimbFenceInfo.stRule[0].nSensitivity,
+           g_stClimbFenceInfo.stRule[0].nTimeThreshold);
 
     return NET_E_SUCCEED;
 }
@@ -3769,15 +3556,15 @@ static NET_COMMON_ECODE_E MyGetDimissionInfoCb(INT32 dwChannelID, LPVOID lpOutBu
         return NET_E_INVALID_PARAM;
     }
 
-    LPNET_DimissionInfo_S pOut = (LPNET_DimissionInfo_S)lpOutBuffer;
+    pNET_DimissionInfo_S pOut = (pNET_DimissionInfo_S)lpOutBuffer;
     *pOut = g_stDimissionInfo;
 
     printf("[ConfigServerDemo] GetDimissionInfo callback, Channel=%d\n", dwChannelID);
     printf("  Enable=%d, RuleCount=%d, FirstSensitivity=%d, FirstTimeThreshold=%d\n",
            g_stDimissionInfo.bEnable,
-           g_stDimissionInfo.dwRuleCount,
-           g_stDimissionInfo.astRule[0].nSensitivity,
-           g_stDimissionInfo.astRule[0].nTimeThreshold);
+           g_stDimissionInfo.uRuleCount,
+           g_stDimissionInfo.stRule[0].nSensitivity,
+           g_stDimissionInfo.stRule[0].nTimeThreshold);
 
     return NET_E_SUCCEED;
 }
@@ -3792,15 +3579,15 @@ static NET_COMMON_ECODE_E MySetDimissionInfoCb(INT32 dwChannelID, LPVOID lpInBuf
         return NET_E_INVALID_PARAM;
     }
 
-    LPNET_DimissionInfo_S pIn = (LPNET_DimissionInfo_S)lpInBuffer;
+    pNET_DimissionInfo_S pIn = (pNET_DimissionInfo_S)lpInBuffer;
     g_stDimissionInfo = *pIn;
 
     printf("[ConfigServerDemo] SetDimissionInfo callback, Channel=%d\n", dwChannelID);
     printf("  New Enable=%d, RuleCount=%d, FirstSensitivity=%d, FirstTimeThreshold=%d\n",
            g_stDimissionInfo.bEnable,
-           g_stDimissionInfo.dwRuleCount,
-           g_stDimissionInfo.astRule[0].nSensitivity,
-           g_stDimissionInfo.astRule[0].nTimeThreshold);
+           g_stDimissionInfo.uRuleCount,
+           g_stDimissionInfo.stRule[0].nSensitivity,
+           g_stDimissionInfo.stRule[0].nTimeThreshold);
 
     return NET_E_SUCCEED;
 }
@@ -3821,9 +3608,9 @@ static NET_COMMON_ECODE_E MyGetIllegalLaneInfoCb(INT32 dwChannelID, LPVOID lpOut
     printf("[ConfigServerDemo] GetIllegalLaneInfo callback, Channel=%d\n", dwChannelID);
     printf("  Enable=%d, RuleCount=%d, FirstDirection=%d, FirstSensitivity=%d\n",
            g_stIllegalLaneInfo.bEnable,
-           g_stIllegalLaneInfo.dwRuleCount,
-           g_stIllegalLaneInfo.astRule[0].enCrossDirection,
-           g_stIllegalLaneInfo.astRule[0].nSensitivity);
+           g_stIllegalLaneInfo.uRuleCount,
+           g_stIllegalLaneInfo.stRule[0].enCrossDirection,
+           g_stIllegalLaneInfo.stRule[0].nSensitivity);
 
     return NET_E_SUCCEED;
 }
@@ -3844,9 +3631,9 @@ static NET_COMMON_ECODE_E MySetIllegalLaneInfoCb(INT32 dwChannelID, LPVOID lpInB
     printf("[ConfigServerDemo] SetIllegalLaneInfo callback, Channel=%d\n", dwChannelID);
     printf("  New Enable=%d, RuleCount=%d, FirstDirection=%d, FirstSensitivity=%d\n",
            g_stIllegalLaneInfo.bEnable,
-           g_stIllegalLaneInfo.dwRuleCount,
-           g_stIllegalLaneInfo.astRule[0].enCrossDirection,
-           g_stIllegalLaneInfo.astRule[0].nSensitivity);
+           g_stIllegalLaneInfo.uRuleCount,
+           g_stIllegalLaneInfo.stRule[0].enCrossDirection,
+           g_stIllegalLaneInfo.stRule[0].nSensitivity);
 
     return NET_E_SUCCEED;
 }
@@ -3861,15 +3648,15 @@ static NET_COMMON_ECODE_E MyGetRetrogradeInfoCb(INT32 dwChannelID, LPVOID lpOutB
         return NET_E_INVALID_PARAM;
     }
 
-    LPNET_RetrogradeInfo_S pOut = (LPNET_RetrogradeInfo_S)lpOutBuffer;
+    pNET_RetrogradeInfo_S pOut = (pNET_RetrogradeInfo_S)lpOutBuffer;
     *pOut = g_stRetrogradeInfo;
 
     printf("[ConfigServerDemo] GetRetrogradeInfo callback, Channel=%d\n", dwChannelID);
     printf("  Enable=%d, RuleCount=%d, FirstDirection=%d, FirstSensitivity=%d\n",
            g_stRetrogradeInfo.bEnable,
-           g_stRetrogradeInfo.dwRuleCount,
-           g_stRetrogradeInfo.astRule[0].enCrossDirection,
-           g_stRetrogradeInfo.astRule[0].nSensitivity);
+           g_stRetrogradeInfo.uRuleCount,
+           g_stRetrogradeInfo.stRule[0].enCrossDirection,
+           g_stRetrogradeInfo.stRule[0].nSensitivity);
 
     return NET_E_SUCCEED;
 }
@@ -3884,15 +3671,15 @@ static NET_COMMON_ECODE_E MySetRetrogradeInfoCb(INT32 dwChannelID, LPVOID lpInBu
         return NET_E_INVALID_PARAM;
     }
 
-    LPNET_RetrogradeInfo_S pIn = (LPNET_RetrogradeInfo_S)lpInBuffer;
+    pNET_RetrogradeInfo_S pIn = (pNET_RetrogradeInfo_S)lpInBuffer;
     g_stRetrogradeInfo = *pIn;
 
     printf("[ConfigServerDemo] SetRetrogradeInfo callback, Channel=%d\n", dwChannelID);
     printf("  New Enable=%d, RuleCount=%d, FirstDirection=%d, FirstSensitivity=%d\n",
            g_stRetrogradeInfo.bEnable,
-           g_stRetrogradeInfo.dwRuleCount,
-           g_stRetrogradeInfo.astRule[0].enCrossDirection,
-           g_stRetrogradeInfo.astRule[0].nSensitivity);
+           g_stRetrogradeInfo.uRuleCount,
+           g_stRetrogradeInfo.stRule[0].enCrossDirection,
+           g_stRetrogradeInfo.stRule[0].nSensitivity);
 
     return NET_E_SUCCEED;
 }
@@ -3907,15 +3694,15 @@ static NET_COMMON_ECODE_E MyGetNonmotorVehicleIntrusionInfoCb(INT32 dwChannelID,
         return NET_E_INVALID_PARAM;
     }
 
-    LPNET_NonmotorVehicleIntrusionInfo_S pOut = (LPNET_NonmotorVehicleIntrusionInfo_S)lpOutBuffer;
+    pNET_NonmotorVehicleIntrusionInfo_S pOut = (pNET_NonmotorVehicleIntrusionInfo_S)lpOutBuffer;
     *pOut = g_stNonmotorVehicleIntrusionInfo;
 
     printf("[ConfigServerDemo] GetNonmotorVehicleIntrusionInfo callback, Channel=%d\n", dwChannelID);
     printf("  Enable=%d, RuleCount=%d, FirstSensitivity=%d, FirstTimeThreshold=%d\n",
            g_stNonmotorVehicleIntrusionInfo.bEnable,
-           g_stNonmotorVehicleIntrusionInfo.dwRuleCount,
-           g_stNonmotorVehicleIntrusionInfo.astRule[0].nSensitivity,
-           g_stNonmotorVehicleIntrusionInfo.astRule[0].nTimeThreshold);
+           g_stNonmotorVehicleIntrusionInfo.uRuleCount,
+           g_stNonmotorVehicleIntrusionInfo.stRule[0].nSensitivity,
+           g_stNonmotorVehicleIntrusionInfo.stRule[0].nTimeThreshold);
 
     return NET_E_SUCCEED;
 }
@@ -3930,15 +3717,15 @@ static NET_COMMON_ECODE_E MySetNonmotorVehicleIntrusionInfoCb(INT32 dwChannelID,
         return NET_E_INVALID_PARAM;
     }
 
-    LPNET_NonmotorVehicleIntrusionInfo_S pIn = (LPNET_NonmotorVehicleIntrusionInfo_S)lpInBuffer;
+    pNET_NonmotorVehicleIntrusionInfo_S pIn = (pNET_NonmotorVehicleIntrusionInfo_S)lpInBuffer;
     g_stNonmotorVehicleIntrusionInfo = *pIn;
 
     printf("[ConfigServerDemo] SetNonmotorVehicleIntrusionInfo callback, Channel=%d\n", dwChannelID);
     printf("  New Enable=%d, RuleCount=%d, FirstSensitivity=%d, FirstTimeThreshold=%d\n",
            g_stNonmotorVehicleIntrusionInfo.bEnable,
-           g_stNonmotorVehicleIntrusionInfo.dwRuleCount,
-           g_stNonmotorVehicleIntrusionInfo.astRule[0].nSensitivity,
-           g_stNonmotorVehicleIntrusionInfo.astRule[0].nTimeThreshold);
+           g_stNonmotorVehicleIntrusionInfo.uRuleCount,
+           g_stNonmotorVehicleIntrusionInfo.stRule[0].nSensitivity,
+           g_stNonmotorVehicleIntrusionInfo.stRule[0].nTimeThreshold);
 
     return NET_E_SUCCEED;
 }
@@ -3959,9 +3746,9 @@ static NET_COMMON_ECODE_E MyGetOccupationEmergencyInfoCb(INT32 dwChannelID, LPVO
     printf("[ConfigServerDemo] GetOccupationEmergencyInfo callback, Channel=%d\n", dwChannelID);
     printf("  Enable=%d, RuleCount=%d, FirstSensitivity=%d, FirstTimeThreshold=%d\n",
            g_stOccupationEmergencyInfo.bEnable,
-           g_stOccupationEmergencyInfo.dwRuleCount,
-           g_stOccupationEmergencyInfo.astRule[0].nSensitivity,
-           g_stOccupationEmergencyInfo.astRule[0].nTimeThreshold);
+           g_stOccupationEmergencyInfo.uRuleCount,
+           g_stOccupationEmergencyInfo.stRule[0].nSensitivity,
+           g_stOccupationEmergencyInfo.stRule[0].nTimeThreshold);
 
     return NET_E_SUCCEED;
 }
@@ -3982,9 +3769,9 @@ static NET_COMMON_ECODE_E MySetOccupationEmergencyInfoCb(INT32 dwChannelID, LPVO
     printf("[ConfigServerDemo] SetOccupationEmergencyInfo callback, Channel=%d\n", dwChannelID);
     printf("  New Enable=%d, RuleCount=%d, FirstSensitivity=%d, FirstTimeThreshold=%d\n",
            g_stOccupationEmergencyInfo.bEnable,
-           g_stOccupationEmergencyInfo.dwRuleCount,
-           g_stOccupationEmergencyInfo.astRule[0].nSensitivity,
-           g_stOccupationEmergencyInfo.astRule[0].nTimeThreshold);
+           g_stOccupationEmergencyInfo.uRuleCount,
+           g_stOccupationEmergencyInfo.stRule[0].nSensitivity,
+           g_stOccupationEmergencyInfo.stRule[0].nTimeThreshold);
 
     return NET_E_SUCCEED;
 }
@@ -3999,15 +3786,15 @@ static NET_COMMON_ECODE_E MyGetPedestrianIntrusionInfoCb(INT32 dwChannelID, LPVO
         return NET_E_INVALID_PARAM;
     }
 
-    LPNET_PedestrianIntrusionInfo_S pOut = (LPNET_PedestrianIntrusionInfo_S)lpOutBuffer;
+    pNET_PedestrianIntrusionInfo_S pOut = (pNET_PedestrianIntrusionInfo_S)lpOutBuffer;
     *pOut = g_stPedestrianIntrusionInfo;
 
     printf("[ConfigServerDemo] GetPedestrianIntrusionInfo callback, Channel=%d\n", dwChannelID);
     printf("  Enable=%d, RuleCount=%d, FirstSensitivity=%d, FirstTimeThreshold=%d\n",
            g_stPedestrianIntrusionInfo.bEnable,
-           g_stPedestrianIntrusionInfo.dwRuleCount,
-           g_stPedestrianIntrusionInfo.astRule[0].nSensitivity,
-           g_stPedestrianIntrusionInfo.astRule[0].nTimeThreshold);
+           g_stPedestrianIntrusionInfo.uRuleCount,
+           g_stPedestrianIntrusionInfo.stRule[0].nSensitivity,
+           g_stPedestrianIntrusionInfo.stRule[0].nTimeThreshold);
 
     return NET_E_SUCCEED;
 }
@@ -4022,15 +3809,15 @@ static NET_COMMON_ECODE_E MySetPedestrianIntrusionInfoCb(INT32 dwChannelID, LPVO
         return NET_E_INVALID_PARAM;
     }
 
-    LPNET_PedestrianIntrusionInfo_S pIn = (LPNET_PedestrianIntrusionInfo_S)lpInBuffer;
+    pNET_PedestrianIntrusionInfo_S pIn = (pNET_PedestrianIntrusionInfo_S)lpInBuffer;
     g_stPedestrianIntrusionInfo = *pIn;
 
     printf("[ConfigServerDemo] SetPedestrianIntrusionInfo callback, Channel=%d\n", dwChannelID);
     printf("  New Enable=%d, RuleCount=%d, FirstSensitivity=%d, FirstTimeThreshold=%d\n",
            g_stPedestrianIntrusionInfo.bEnable,
-           g_stPedestrianIntrusionInfo.dwRuleCount,
-           g_stPedestrianIntrusionInfo.astRule[0].nSensitivity,
-           g_stPedestrianIntrusionInfo.astRule[0].nTimeThreshold);
+           g_stPedestrianIntrusionInfo.uRuleCount,
+           g_stPedestrianIntrusionInfo.stRule[0].nSensitivity,
+           g_stPedestrianIntrusionInfo.stRule[0].nTimeThreshold);
 
     return NET_E_SUCCEED;
 }
@@ -4045,7 +3832,7 @@ static NET_COMMON_ECODE_E MyGetSmokeFireCfgCb(INT32 dwChannelID, LPVOID lpOutBuf
         return NET_E_INVALID_PARAM;
     }
 
-    LPNET_SmokeFireCfg_S pOut = (LPNET_SmokeFireCfg_S)lpOutBuffer;
+    pNET_SmokeFireCfg_S pOut = (pNET_SmokeFireCfg_S)lpOutBuffer;
     *pOut = g_stSmokeFireCfg;
 
     printf("[ConfigServerDemo] GetSmokeFireCfg callback, Channel=%d\n", dwChannelID);
@@ -4066,7 +3853,7 @@ static NET_COMMON_ECODE_E MySetSmokeFireCfgCb(INT32 dwChannelID, LPVOID lpInBuff
         return NET_E_INVALID_PARAM;
     }
 
-    LPNET_SmokeFireCfg_S pIn = (LPNET_SmokeFireCfg_S)lpInBuffer;
+    pNET_SmokeFireCfg_S pIn = (pNET_SmokeFireCfg_S)lpInBuffer;
     g_stSmokeFireCfg = *pIn;
 
     printf("[ConfigServerDemo] SetSmokeFireCfg callback, Channel=%d\n", dwChannelID);
@@ -4087,7 +3874,7 @@ static NET_COMMON_ECODE_E MyGetRoadPondingCfgCb(INT32 dwChannelID, LPVOID lpOutB
         return NET_E_INVALID_PARAM;
     }
 
-    LPNET_RoadPondingCfg_S pOut = (LPNET_RoadPondingCfg_S)lpOutBuffer;
+    pNET_RoadPondingCfg_S pOut = (pNET_RoadPondingCfg_S)lpOutBuffer;
     *pOut = g_stRoadPondingCfg;
 
     printf("[ConfigServerDemo] GetRoadPondingCfg callback, Channel=%d\n", dwChannelID);
@@ -4108,7 +3895,7 @@ static NET_COMMON_ECODE_E MySetRoadPondingCfgCb(INT32 dwChannelID, LPVOID lpInBu
         return NET_E_INVALID_PARAM;
     }
 
-    LPNET_RoadPondingCfg_S pIn = (LPNET_RoadPondingCfg_S)lpInBuffer;
+    pNET_RoadPondingCfg_S pIn = (pNET_RoadPondingCfg_S)lpInBuffer;
     g_stRoadPondingCfg = *pIn;
 
     printf("[ConfigServerDemo] SetRoadPondingCfg callback, Channel=%d\n", dwChannelID);
@@ -4403,7 +4190,7 @@ static NET_COMMON_ECODE_E MyGetChannelInfoCb(INT32 dwChannelID, LPVOID lpOutBuff
 
     pNET_ChannelInfo_S pOut = (pNET_ChannelInfo_S)lpOutBuffer;
     *pOut = g_stChannelInfo;
-    pOut->dwChannel = (UINT32)dwChannelID;
+    pOut->uChannel = (UINT32)dwChannelID;
 
     printf("[ConfigServerDemo] GetChannelInfo callback, Channel=%d\n", dwChannelID);
     printf("  Enable=%u, Online=%u, Name=%s\n",
@@ -4417,13 +4204,6 @@ static NET_COMMON_ECODE_E MyGetChannelInfoCb(INT32 dwChannelID, LPVOID lpOutBuff
 
     return NET_E_SUCCEED;
 }
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 MySetTalkbackStateCb 定义的内部处理。
- * @param [in] dwChannelID 函数处理参数。
- * @param [in] lpInBuffer 函数处理参数。
- * @return 返回该处理的状态或结果。
- */
 
 static NET_COMMON_ECODE_E MySetTalkbackStateCb(INT32 dwChannelID, LPVOID lpInBuffer)
 {
@@ -4442,15 +4222,8 @@ static NET_COMMON_ECODE_E MySetTalkbackStateCb(INT32 dwChannelID, LPVOID lpInBuf
            g_stTalkbackStateInfo.szLocalIP);
     return NET_E_SUCCEED;
 }
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 MyVoiceComPlayCb 定义的内部处理。
- * @param [in] data 函数处理参数。
- * @param [in] size 函数处理参数。
- * @return 无返回值。
- */
 
-static void NET_STDCALL MyVoiceComPlayCb(const char* data, unsigned int size)
+static void STDCALL MyVoiceComPlayCb(const char* data, unsigned int size)
 {
     if (!data || size == 0)
     {
@@ -4476,13 +4249,8 @@ static void NET_STDCALL MyVoiceComPlayCb(const char* data, unsigned int size)
     }
 
 }
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 MyVoiceComCaptureCb 定义的内部处理。
- * @return 返回该处理的状态或结果。
- */
 
-static INT32 NET_STDCALL MyVoiceComCaptureCb(const NET_VoiceComAudioParam_S* pstAudioParam,
+static INT32 STDCALL MyVoiceComCaptureCb(const NET_VoiceComAudioParam_S* pstAudioParam,
                                          CHAR* pBuffer,
                                          UINT32 dwBufferSize,
                                          LPVOID lpUserData)
@@ -4503,13 +4271,6 @@ static INT32 NET_STDCALL MyVoiceComCaptureCb(const NET_VoiceComAudioParam_S* pst
     memset(pBuffer, VoiceComSilenceByte(pstAudioParam->enFormat), (size_t)pstAudioParam->uFrameBytes);
     return pstAudioParam->uFrameBytes;
 }
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 MySetTalkbackToStreamCb 定义的内部处理。
- * @param [in] dwChannelID 函数处理参数。
- * @param [in] lpInBuffer 函数处理参数。
- * @return 返回该处理的状态或结果。
- */
 
 static NET_COMMON_ECODE_E MySetTalkbackToStreamCb(INT32 dwChannelID, LPVOID lpInBuffer)
 {
@@ -4533,13 +4294,6 @@ static NET_COMMON_ECODE_E MySetTalkbackToStreamCb(INT32 dwChannelID, LPVOID lpIn
            g_stTalkbackToStreamInfo.szProtocol);
     return NET_E_SUCCEED;
 }
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 MyGetTalkbackFromStreamCb 定义的内部处理。
- * @param [in] dwChannelID 函数处理参数。
- * @param [in] lpOutBuffer 函数处理参数。
- * @return 返回该处理的状态或结果。
- */
 
 static NET_COMMON_ECODE_E MyGetTalkbackFromStreamCb(INT32 dwChannelID, LPVOID lpOutBuffer)
 {
@@ -4560,12 +4314,6 @@ static NET_COMMON_ECODE_E MyGetTalkbackFromStreamCb(INT32 dwChannelID, LPVOID lp
            g_stTalkbackFromStreamInfo.szProtocol);
     return NET_E_SUCCEED;
 }
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 MyGetReplayUrlCb 定义的内部处理。
- * @param [in] pInfo 函数处理参数。
- * @return 返回该处理的状态或结果。
- */
 
 static NET_COMMON_ECODE_E MyGetReplayUrlCb(pNET_ReplayUrlInfo_S pInfo)
 {
@@ -4577,37 +4325,23 @@ static NET_COMMON_ECODE_E MyGetReplayUrlCb(pNET_ReplayUrlInfo_S pInfo)
     snprintf(pInfo->szUrl,
              sizeof(pInfo->szUrl),
              "rtsp://127.0.0.1:554/replay/channel%d?start=%s&end=%s",
-             pInfo->dwChannel,
+             pInfo->uChannel,
              pInfo->szStartTime,
              pInfo->szEndTime);
 
     printf("[ConfigServerDemo] GetReplayUrl callback\n");
     printf("  Channel=%d, Start=%s, End=%s\n",
-           pInfo->dwChannel,
+           pInfo->uChannel,
            pInfo->szStartTime,
            pInfo->szEndTime);
     printf("  Url=%s\n", pInfo->szUrl);
     return NET_E_SUCCEED;
 }
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 查询或校验 HasTextValue 对应的数据。
- * @param [in] text 函数处理参数。
- * @return 返回该处理的状态或结果。
- */
 
 static int HasTextValue(const CHAR* text)
 {
     return (text != NULL && text[0] != '\0');
 }
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 CopyTextIfPresent 对应的处理。
- * @param [in,out] dst 函数处理参数。
- * @param [in] dstSize 函数处理参数。
- * @param [in] src 函数处理参数。
- * @return 无返回值。
- */
 
 static void CopyTextIfPresent(char* dst, size_t dstSize, const char* src)
 {
@@ -4619,13 +4353,6 @@ static void CopyTextIfPresent(char* dst, size_t dstSize, const char* src)
     strncpy(dst, src, dstSize - 1);
     dst[dstSize - 1] = '\0';
 }
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 查询或校验 ParseDateTimeText 对应的数据。
- * @param [in] text 函数处理参数。
- * @param [out] outTm 函数处理参数。
- * @return 返回该处理的状态或结果。
- */
 
 static int ParseDateTimeText(const char* text, struct tm* outTm)
 {
@@ -4657,15 +4384,6 @@ static int ParseDateTimeText(const char* text, struct tm* outTm)
     outTm->tm_isdst = -1;
     return 1;
 }
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 ShiftDateTimeText 定义的内部处理。
- * @param [in] src 函数处理参数。
- * @param [in] deltaSeconds 函数处理参数。
- * @param [in,out] dst 函数处理参数。
- * @param [in] dstSize 函数处理参数。
- * @return 返回该处理的状态或结果。
- */
 
 static int ShiftDateTimeText(const char* src, int deltaSeconds, char* dst, size_t dstSize)
 {
@@ -4698,14 +4416,8 @@ static int ShiftDateTimeText(const char* src, int deltaSeconds, char* dst, size_
 
     return 1;
 }
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 BuildReplayUrl 定义的内部处理。
- * @param [in,out] pInfo 函数处理参数。
- * @return 无返回值。
- */
 
-static void BuildReplayUrl(NET_REPLAY_CTRL_INFO_S* pInfo)
+static void BuildReplayUrl(NET_ReplayCtrlInfo_S* pInfo)
 {
     if (!pInfo)
     {
@@ -4716,33 +4428,26 @@ static void BuildReplayUrl(NET_REPLAY_CTRL_INFO_S* pInfo)
              sizeof(pInfo->szUrl),
              "rtp://127.0.0.1:6000/playback/%s?channel=%d&start=%s&end=%s&speed=%.2f&replayType=%d&seek=%d",
              pInfo->szSessionId,
-             pInfo->dwChannel,
+             pInfo->uChannel,
              pInfo->szStartTime,
              pInfo->szEndTime,
              pInfo->fSpeed,
              pInfo->nReplayType,
              pInfo->nSeekTime);
 }
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 MergeReplayCtrlState 定义的内部处理。
- * @param [in,out] pDst 函数处理参数。
- * @param [in] pSrc 函数处理参数。
- * @return 无返回值。
- */
 
-static void MergeReplayCtrlState(NET_REPLAY_CTRL_INFO_S* pDst, const NET_REPLAY_CTRL_INFO_S* pSrc)
+static void MergeReplayCtrlState(NET_ReplayCtrlInfo_S* pDst, const NET_ReplayCtrlInfo_S* pSrc)
 {
     if (!pDst || !pSrc)
     {
         return;
     }
 
-    if (pSrc->dwChannel > 0)
+    if (pSrc->uChannel > 0)
     {
-        pDst->dwChannel = pSrc->dwChannel;
+        pDst->uChannel = pSrc->uChannel;
     }
-    pDst->dwCtrlType = pSrc->dwCtrlType;
+    pDst->uCtrlType = pSrc->uCtrlType;
     if (pSrc->fSpeed > 0.0f)
     {
         pDst->fSpeed = pSrc->fSpeed;
@@ -4760,16 +4465,10 @@ static void MergeReplayCtrlState(NET_REPLAY_CTRL_INFO_S* pDst, const NET_REPLAY_
     CopyTextIfPresent(pDst->szEndTime, sizeof(pDst->szEndTime), pSrc->szEndTime);
     CopyTextIfPresent(pDst->szUrl, sizeof(pDst->szUrl), pSrc->szUrl);
 }
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 MyControlReplayCb 定义的内部处理。
- * @param [in] pInfo 函数处理参数。
- * @return 返回该处理的状态或结果。
- */
 
 static NET_COMMON_ECODE_E MyControlReplayCb(pNET_ReplayCtrlInfo_S pInfo)
 {
-    NET_REPLAY_CTRL_INFO_S stNewState;
+    NET_ReplayCtrlInfo_S stNewState;
     int nDeltaSeconds = 0;
 
     if (!pInfo)
@@ -4781,14 +4480,14 @@ static NET_COMMON_ECODE_E MyControlReplayCb(pNET_ReplayCtrlInfo_S pInfo)
     MergeReplayCtrlState(&stNewState, &g_stReplayCtrlInfo);
     MergeReplayCtrlState(&stNewState, pInfo);
 
-    if (stNewState.dwCtrlType == NET_REPLAY_CTRL_START)
+    if (stNewState.uCtrlType == NET_REPLAY_CTRL_START)
     {
         if (!HasTextValue(stNewState.szSessionId))
         {
             snprintf(stNewState.szSessionId,
                      sizeof(stNewState.szSessionId),
                      "demo_replay_%d",
-                     stNewState.dwChannel);
+                     stNewState.uChannel);
         }
 
         if (stNewState.fSpeed <= 0.0f)
@@ -4806,19 +4505,19 @@ static NET_COMMON_ECODE_E MyControlReplayCb(pNET_ReplayCtrlInfo_S pInfo)
             return NET_E_INVALID_PARAM;
         }
 
-        if (stNewState.dwCtrlType == NET_REPLAY_CTRL_STOP)
+        if (stNewState.uCtrlType == NET_REPLAY_CTRL_STOP)
         {
             stNewState.szUrl[0] = '\0';
         }
-        else if (stNewState.dwCtrlType == NET_REPLAY_CTRL_PAUSE)
+        else if (stNewState.uCtrlType == NET_REPLAY_CTRL_PAUSE)
         {
             BuildReplayUrl(&stNewState);
         }
-        else if (stNewState.dwCtrlType == NET_REPLAY_CTRL_RESUME)
+        else if (stNewState.uCtrlType == NET_REPLAY_CTRL_RESUME)
         {
             BuildReplayUrl(&stNewState);
         }
-        else if (stNewState.dwCtrlType == NET_REPLAY_CTRL_SET_SPEED)
+        else if (stNewState.uCtrlType == NET_REPLAY_CTRL_SET_SPEED)
         {
             if (stNewState.nReplayType == NET_REPLAY_PLATFORM_CTRL_NONE)
             {
@@ -4830,7 +4529,7 @@ static NET_COMMON_ECODE_E MyControlReplayCb(pNET_ReplayCtrlInfo_S pInfo)
             }
             BuildReplayUrl(&stNewState);
         }
-        else if (stNewState.dwCtrlType == NET_REPLAY_CTRL_SET_SEEK)
+        else if (stNewState.uCtrlType == NET_REPLAY_CTRL_SET_SEEK)
         {
             if (stNewState.nReplayType == NET_REPLAY_PLATFORM_CTRL_NONE &&
                 HasTextValue(stNewState.szStartTime) &&
@@ -4891,8 +4590,8 @@ static NET_COMMON_ECODE_E MyControlReplayCb(pNET_ReplayCtrlInfo_S pInfo)
 
     printf("[ConfigServerDemo] ControlReplay callback\n");
     printf("  Channel=%d, CtrlType=%d, ReplayType=%d, Session=%s, Speed=%.2f, SeekTime=%d\n",
-           pInfo->dwChannel,
-           pInfo->dwCtrlType,
+           pInfo->uChannel,
+           pInfo->uCtrlType,
            pInfo->nReplayType,
            pInfo->szSessionId,
            pInfo->fSpeed,
@@ -4903,14 +4602,6 @@ static NET_COMMON_ECODE_E MyControlReplayCb(pNET_ReplayCtrlInfo_S pInfo)
            pInfo->szUrl);
     return NET_E_SUCCEED;
 }
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 FillReplayRecordSegment 对应的处理。
- * @param [in,out] pSegment 函数处理参数。
- * @param [in] nStartTime 函数处理参数。
- * @param [in] nEndTime 函数处理参数。
- * @return 无返回值。
- */
 
 static void FillReplayRecordSegment(NET_ReplayRecordTime_S* pSegment, INT32 nStartTime, INT32 nEndTime)
 {
@@ -4923,12 +4614,6 @@ static void FillReplayRecordSegment(NET_ReplayRecordTime_S* pSegment, INT32 nSta
     pSegment->nStartTime = nStartTime;
     pSegment->nEndTime = nEndTime;
 }
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 MyGetReplayRecordListCb 定义的内部处理。
- * @param [in] pInfo 函数处理参数。
- * @return 返回该处理的状态或结果。
- */
 
 static NET_COMMON_ECODE_E MyGetReplayRecordListCb(pNET_ReplayRecordList_S pInfo)
 {
@@ -4966,9 +4651,9 @@ static NET_COMMON_ECODE_E MyGetReplayRecordListCb(pNET_ReplayRecordList_S pInfo)
 
     printf("[ConfigServerDemo] GetReplayRecordList callback\n");
     printf("  Channel=%d, FilterByEventType=%d, EventType=%d, Date=%s, Start=%s, End=%s, Video=%d, Person=%d, Vehicle=%d, Other=%d\n",
-           pInfo->dwChannel,
+           pInfo->uChannel,
            pInfo->bFilterByEventType,
-           pInfo->dwEventType,
+           pInfo->uEventType,
            pInfo->szDate,
            pInfo->szStartTime,
            pInfo->szEndTime,
@@ -4978,13 +4663,6 @@ static NET_COMMON_ECODE_E MyGetReplayRecordListCb(pNET_ReplayRecordList_S pInfo)
            pInfo->nOtherEventCount);
     return NET_E_SUCCEED;
 }
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 MySetReplayTalkbackCb 定义的内部处理。
- * @param [in] dwChannelID 函数处理参数。
- * @param [in] lpInBuffer 函数处理参数。
- * @return 返回该处理的状态或结果。
- */
 
 static NET_COMMON_ECODE_E MySetReplayTalkbackCb(INT32 dwChannelID, LPVOID lpInBuffer)
 {
@@ -5024,7 +4702,7 @@ static NET_COMMON_ECODE_E MySetUpgrade(INT32 dwChannelID, LPVOID lpInBuffer)
     if (!lpInBuffer)
         return NET_E_INVALID_PARAM;
 
-    LPNET_UpgradeInfo_S pIn = (LPNET_UpgradeInfo_S)lpInBuffer;
+    pNET_UpgradeInfo_S pIn = (pNET_UpgradeInfo_S)lpInBuffer;
 
     memset(&g_stUpgradeInfo, 0, sizeof(g_stUpgradeInfo));
     strncpy(g_stUpgradeInfo.szUpgradePath, pIn->szUpgradePath, sizeof(g_stUpgradeInfo.szUpgradePath) - 1);
@@ -5168,7 +4846,6 @@ static NET_COMMON_ECODE_E MySetCaptureParamInfo(INT32 dwChannelID, LPVOID lpInBu
 }
 
 /**
- * @author tianl (tianl@kfb.cn)
  * @brief 打印曝光信息
  * @param pstCfg 曝光信息结构体指针
  */
@@ -5180,7 +4857,6 @@ static void PrintExposureInfo(const NET_ExposureInfo_S *pstCfg)
 }
 
 /**
- * @author tianl (tianl@kfb.cn)
  * @brief 打印日夜信息
  * @param pstCfg 日夜信息结构体指针
  */
@@ -5212,7 +4888,6 @@ static void PrintDayNightInfo(const NET_DayNightInfo_S *pstCfg)
 }
 
 /**
- * @author tianl (tianl@kfb.cn)
  * @brief 打印背光信息
  * @param pstCfg 背光信息结构体指针
  */
@@ -5229,7 +4904,6 @@ static void PrintBackLightInfo(const NET_BackLightInfo_S *pstCfg)
 }
 
 /**
- * @author tianl (tianl@kfb.cn)
  * @brief 打印降噪信息
  * @param pstCfg 降噪信息结构体指针
  */
@@ -5245,11 +4919,10 @@ static void PrintDenoiseInfo(const NET_DenoiseInfo_S *pstCfg)
            pstCfg->nTnrLevel);
 }
 /**
- * @author tianl (tianl@kfb.cn)
  * @brief 打印白平衡信息
  * @param pstCfg 白平衡信息结构体指针
  */
-static void PrintWhiteBalanceInfo(const NET_WHITEBALANCE_INFO_S *pstCfg)
+static void PrintWhiteBalanceInfo(const NET_WhiteBalanceInfo_S *pstCfg)
 {
     if (!pstCfg)
         return;
@@ -5260,17 +4933,16 @@ static void PrintWhiteBalanceInfo(const NET_WHITEBALANCE_INFO_S *pstCfg)
 }
 
 /**
- * @author tianl (tianl@kfb.cn)
  * @brief 获取曝光信息的回调函数
  */
 static NET_COMMON_ECODE_E MyGetExposureInfo(INT32 dwChannelID, LPVOID lpOutBuffer)
 {
-    LPNET_ExposureInfo_S pOut = NULL;
+    pNET_ExposureInfo_S pOut = NULL;
 
     if (!lpOutBuffer)
         return NET_E_INVALID_PARAM;
 
-    pOut = (LPNET_ExposureInfo_S)lpOutBuffer;
+    pOut = (pNET_ExposureInfo_S)lpOutBuffer;
     *pOut = g_stExposureInfo;
 
     printf("[ConfigServerDemo] MyGetExposureInfo callback, Channel=%d\n", dwChannelID);
@@ -5279,17 +4951,16 @@ static NET_COMMON_ECODE_E MyGetExposureInfo(INT32 dwChannelID, LPVOID lpOutBuffe
 }
 
 /**
- * @author tianl (tianl@kfb.cn)
  * @brief 设置曝光信息的回调函数
  */
 static NET_COMMON_ECODE_E MySetExposureInfo(INT32 dwChannelID, LPVOID lpInBuffer)
 {
-    LPNET_ExposureInfo_S pIn = NULL;
+    pNET_ExposureInfo_S pIn = NULL;
 
     if (!lpInBuffer)
         return NET_E_INVALID_PARAM;
 
-    pIn = (LPNET_ExposureInfo_S)lpInBuffer;
+    pIn = (pNET_ExposureInfo_S)lpInBuffer;
     g_stExposureInfo = *pIn;
 
     printf("[ConfigServerDemo] MySetExposureInfo callback, Channel=%d\n", dwChannelID);
@@ -5298,17 +4969,16 @@ static NET_COMMON_ECODE_E MySetExposureInfo(INT32 dwChannelID, LPVOID lpInBuffer
 }
 
 /**
- * @author tianl (tianl@kfb.cn)
  * @brief 获取日夜信息的回调函数
  */
 static NET_COMMON_ECODE_E MyGetDayNightInfo(INT32 dwChannelID, LPVOID lpOutBuffer)
 {
-    LPNET_DayNightInfo_S pOut = NULL;
+    pNET_DayNightInfo_S pOut = NULL;
 
     if (!lpOutBuffer)
         return NET_E_INVALID_PARAM;
 
-    pOut = (LPNET_DayNightInfo_S)lpOutBuffer;
+    pOut = (pNET_DayNightInfo_S)lpOutBuffer;
     *pOut = g_stDayNightInfo;
 
     printf("[ConfigServerDemo] MyGetDayNightInfo callback, Channel=%d\n", dwChannelID);
@@ -5317,17 +4987,16 @@ static NET_COMMON_ECODE_E MyGetDayNightInfo(INT32 dwChannelID, LPVOID lpOutBuffe
 }
 
 /**
- * @author tianl (tianl@kfb.cn)
  * @brief 设置日夜信息的回调函数
  */
 static NET_COMMON_ECODE_E MySetDayNightInfo(INT32 dwChannelID, LPVOID lpInBuffer)
 {
-    LPNET_DayNightInfo_S pIn = NULL;
+    pNET_DayNightInfo_S pIn = NULL;
 
     if (!lpInBuffer)
         return NET_E_INVALID_PARAM;
 
-    pIn = (LPNET_DayNightInfo_S)lpInBuffer;
+    pIn = (pNET_DayNightInfo_S)lpInBuffer;
     g_stDayNightInfo = *pIn;
 
     printf("[ConfigServerDemo] MySetDayNightInfo callback, Channel=%d\n", dwChannelID);
@@ -5336,17 +5005,16 @@ static NET_COMMON_ECODE_E MySetDayNightInfo(INT32 dwChannelID, LPVOID lpInBuffer
 }
 
 /**
- * @author tianl (tianl@kfb.cn)
  * @brief 获取背光信息的回调函数
  */
 static NET_COMMON_ECODE_E MyGetBackLightInfo(INT32 dwChannelID, LPVOID lpOutBuffer)
 {
-    LPNET_BackLightInfo_S pOut = NULL;
+    pNET_BackLightInfo_S pOut = NULL;
 
     if (!lpOutBuffer)
         return NET_E_INVALID_PARAM;
 
-    pOut = (LPNET_BackLightInfo_S)lpOutBuffer;
+    pOut = (pNET_BackLightInfo_S)lpOutBuffer;
     *pOut = g_stBackLightInfo;
 
     printf("[ConfigServerDemo] MyGetBackLightInfo callback, Channel=%d\n", dwChannelID);
@@ -5355,17 +5023,16 @@ static NET_COMMON_ECODE_E MyGetBackLightInfo(INT32 dwChannelID, LPVOID lpOutBuff
 }
 
 /**
- * @author tianl (tianl@kfb.cn)
  * @brief 设置背光信息的回调函数
  */
 static NET_COMMON_ECODE_E MySetBackLightInfo(INT32 dwChannelID, LPVOID lpInBuffer)
 {
-    LPNET_BackLightInfo_S pIn = NULL;
+    pNET_BackLightInfo_S pIn = NULL;
 
     if (!lpInBuffer)
         return NET_E_INVALID_PARAM;
 
-    pIn = (LPNET_BackLightInfo_S)lpInBuffer;
+    pIn = (pNET_BackLightInfo_S)lpInBuffer;
     g_stBackLightInfo = *pIn;
 
     printf("[ConfigServerDemo] MySetBackLightInfo callback, Channel=%d\n", dwChannelID);
@@ -5374,17 +5041,16 @@ static NET_COMMON_ECODE_E MySetBackLightInfo(INT32 dwChannelID, LPVOID lpInBuffe
 }
 
 /**
- * @author tianl (tianl@kfb.cn)
  * @brief 获取降噪信息的回调函数
  */
 static NET_COMMON_ECODE_E MyGetDenoiseInfo(INT32 dwChannelID, LPVOID lpOutBuffer)
 {
-    LPNET_DenoiseInfo_S pOut = NULL;
+    pNET_DenoiseInfo_S pOut = NULL;
 
     if (!lpOutBuffer)
         return NET_E_INVALID_PARAM;
 
-    pOut = (LPNET_DenoiseInfo_S)lpOutBuffer;
+    pOut = (pNET_DenoiseInfo_S)lpOutBuffer;
     *pOut = g_stDenoiseInfo;
 
     printf("[ConfigServerDemo] MyGetDenoiseInfo callback, Channel=%d\n", dwChannelID);
@@ -5393,17 +5059,16 @@ static NET_COMMON_ECODE_E MyGetDenoiseInfo(INT32 dwChannelID, LPVOID lpOutBuffer
 }
 
 /**
- * @author tianl (tianl@kfb.cn)
  * @brief 设置降噪信息的回调函数
  */
 static NET_COMMON_ECODE_E MySetDenoiseInfo(INT32 dwChannelID, LPVOID lpInBuffer)
 {
-    LPNET_DenoiseInfo_S pIn = NULL;
+    pNET_DenoiseInfo_S pIn = NULL;
 
     if (!lpInBuffer)
         return NET_E_INVALID_PARAM;
 
-    pIn = (LPNET_DenoiseInfo_S)lpInBuffer;
+    pIn = (pNET_DenoiseInfo_S)lpInBuffer;
     g_stDenoiseInfo = *pIn;
 
     printf("[ConfigServerDemo] MySetDenoiseInfo callback, Channel=%d\n", dwChannelID);
@@ -5412,7 +5077,6 @@ static NET_COMMON_ECODE_E MySetDenoiseInfo(INT32 dwChannelID, LPVOID lpInBuffer)
 }
 
 /**
- * @author tianl (tianl@kfb.cn)
  * @brief 获取白平衡信息的回调函数
  */
 static NET_COMMON_ECODE_E MyGetWhiteBalanceInfo(INT32 dwChannelID, LPVOID lpOutBuffer)
@@ -5431,7 +5095,6 @@ static NET_COMMON_ECODE_E MyGetWhiteBalanceInfo(INT32 dwChannelID, LPVOID lpOutB
 }
 
 /**
- * @author tianl (tianl@kfb.cn)
  * @brief 设置白平衡信息的回调函数
  */
 static NET_COMMON_ECODE_E MySetWhiteBalanceInfo(INT32 dwChannelID, LPVOID lpInBuffer)
@@ -5459,7 +5122,7 @@ static NET_COMMON_ECODE_E MyGetFaceCaptureInfoCb(INT32 dwChannelID, LPVOID lpOut
         return NET_E_INVALID_PARAM;
     }
 
-    LPNET_FaceCaptureInfo_S pOut = (LPNET_FaceCaptureInfo_S)lpOutBuffer;
+    pNET_FaceCaptureInfo_S pOut = (pNET_FaceCaptureInfo_S)lpOutBuffer;
     *pOut = g_stFaceCaptureInfo;
 
     printf("[ConfigServerDemo] GetFaceCaptureInfo callback, Channel=%d\n", dwChannelID);
@@ -5482,7 +5145,7 @@ static NET_COMMON_ECODE_E MySetFaceCaptureInfoCb(INT32 dwChannelID, LPVOID lpInB
         return NET_E_INVALID_PARAM;
     }
 
-    LPNET_FaceCaptureInfo_S pIn = (LPNET_FaceCaptureInfo_S)lpInBuffer;
+    pNET_FaceCaptureInfo_S pIn = (pNET_FaceCaptureInfo_S)lpInBuffer;
     g_stFaceCaptureInfo = *pIn;
 
     printf("[ConfigServerDemo] SetFaceCaptureInfo callback, Channel=%d\n", dwChannelID);
@@ -5494,12 +5157,6 @@ static NET_COMMON_ECODE_E MySetFaceCaptureInfoCb(INT32 dwChannelID, LPVOID lpInB
 
     return NET_E_SUCCEED;
 }
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 查询或校验 FindTargetLibIndex 对应的数据。
- * @param [in] szFaceLibName 函数处理参数。
- * @return 返回该处理的状态或结果。
- */
 
 static INT32 FindTargetLibIndex(const CHAR* szFaceLibName)
 {
@@ -5518,12 +5175,6 @@ static INT32 FindTargetLibIndex(const CHAR* szFaceLibName)
 
     return -1;
 }
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 查询或校验 FindFaceInfoIndex 对应的数据。
- * @param [in] nId 函数处理参数。
- * @return 返回该处理的状态或结果。
- */
 
 static INT32 FindFaceInfoIndex(INT32 nId)
 {
@@ -5554,8 +5205,8 @@ static NET_COMMON_ECODE_E MySetFaceCompareInfoCb(INT32 dwChannelID, LPVOID lpInB
     printf("[ConfigServerDemo] SetFaceCompareInfo callback, Channel=%d\n", dwChannelID);
     printf("  Enable=%d, SuccessSnapshotCount=%d, FailSnapshotCount=%d\n",
            g_stFaceCompareInfo.bEnable,
-           g_stFaceCompareInfo.stLinkageListSuccess.dwSnapshotChannelCount,
-           g_stFaceCompareInfo.stLinkageListFail.dwSnapshotChannelCount);
+           g_stFaceCompareInfo.stLinkageListSuccess.uSnapshotChannelCount,
+           g_stFaceCompareInfo.stLinkageListFail.uSnapshotChannelCount);
 
     return NET_E_SUCCEED;
 }
@@ -5653,7 +5304,7 @@ static NET_COMMON_ECODE_E MyGetTargetLibCb(INT32 dwChannelID, LPVOID lpOutBuffer
         return NET_E_INVALID_PARAM;
     }
 
-    LPNET_FaceLibList_S pOut = (LPNET_FaceLibList_S)lpOutBuffer;
+    pNET_FaceLibList_S pOut = (pNET_FaceLibList_S)lpOutBuffer;
     *pOut = g_stFaceLibList;
 
     printf("[ConfigServerDemo] GetTargetLib callback, Count=%d\n", pOut->nTargetLibCount);
@@ -5758,7 +5409,7 @@ static NET_COMMON_ECODE_E MyGetFaceInfoCb(INT32 dwChannelID, LPVOID lpOutBuffer)
         return NET_E_INVALID_PARAM;
     }
 
-    LPNET_FaceInfoList_S pOut = (LPNET_FaceInfoList_S)lpOutBuffer;
+    pNET_FaceInfoList_S pOut = (pNET_FaceInfoList_S)lpOutBuffer;
     *pOut = g_stFaceInfoList;
 
     printf("[ConfigServerDemo] GetFaceInfo callback, Count=%d\n", pOut->nFaceInfoCount);
@@ -7328,13 +6979,6 @@ static void RegisterCallbacks(void)
         printf("[ConfigServerDemo] RegisterCb_GetFaceInfo FAILED\n");
     }
 }
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 运行当前 Demo 的主流程。
- * @param [in] argc 函数处理参数。
- * @param [in,out] argv 函数处理参数。
- * @return 返回该处理的状态或结果。
- */
 
 int main(int argc, char* argv[])
 {
@@ -7351,7 +6995,7 @@ int main(int argc, char* argv[])
     signal(SIGTERM, signal_handler);
 
     /* 初始化日志 */
-    initSdkLogBySize("ConfigServerDemo", "/opt/course/ConfigServerDemo.log", NETSDK_DEMO_LOG_MAX_SIZE, NETSDK_DEMO_LOG_MAX_FILES);
+    initSdkLogBySize("ConfigServerDemo", "/opt/course/ConfigServerDemo.log", MAX_LOG_SIZE, MAX_LOG_FILES);
     syncPrintf(1);
     setLogLevel(NETSDK_LOG_TRACE);
 
@@ -7372,19 +7016,19 @@ int main(int argc, char* argv[])
     }
 
     printf("[ConfigServerDemo] Server started successfully.\n");
-    g_voiceComDumpFp = fopen(NETSDK_DEMO_VOICE_COM_SERVER_RECEIVE_DUMP, "wb");
+    g_voiceComDumpFp = fopen(DEMO_VOICECOM_SERVER_RECV_DUMP, "wb");
     if (!g_voiceComDumpFp)
     {
         printf("[ConfigServerDemo][VoiceCom] open recv dump failed, continue without dump: %s\n",
-               NETSDK_DEMO_VOICE_COM_SERVER_RECEIVE_DUMP);
+               DEMO_VOICECOM_SERVER_RECV_DUMP);
     }
     if (NET_SERVER_RegisterCb_VoiceComPlay(MyVoiceComPlayCb) &&
         NET_SERVER_RegisterCb_VoiceComCapture(MyVoiceComCaptureCb, NULL) &&
-        NET_SERVER_StartVoiceComServer(NETSDK_DEMO_VOICE_COM_PORT))
+        NET_SERVER_StartVoiceComServer(DEMO_VOICECOM_PORT))
     {
-        printf("[ConfigServerDemo][VoiceCom] Server started on port %d.\n", NETSDK_DEMO_VOICE_COM_PORT);
+        printf("[ConfigServerDemo][VoiceCom] Server started on port %d.\n", DEMO_VOICECOM_PORT);
         printf("[ConfigServerDemo][VoiceCom] Received audio dump: %s\n",
-               NETSDK_DEMO_VOICE_COM_SERVER_RECEIVE_DUMP);
+               DEMO_VOICECOM_SERVER_RECV_DUMP);
     }
     else
     {

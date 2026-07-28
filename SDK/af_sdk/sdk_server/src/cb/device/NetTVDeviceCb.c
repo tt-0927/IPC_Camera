@@ -29,7 +29,7 @@ typedef enum
     NET_CB_TYPE_SET_USER_PASSWORD, /* 修改用户密码 */
 
     NET_CB_TYPE_MAX
-} Net_TV_DeviceCb_E;
+} Net_DeviceCb_E;
 
 /**
  * @author tianl (tianl@kfb.cn)
@@ -41,13 +41,13 @@ typedef union
     NET_CB_DeviceControl DeviceControl;
     NET_CB_SetUserPassword SetUserPassword;
 
-} Net_TV_DeviceCb_Un;
+} Net_DeviceCb_Un;
 
 
 typedef struct
 {
-    Net_TV_DeviceCb_E 	enType;      			/* 回调类型 */
-    Net_TV_DeviceCb_Un 	unFunc;      			/* 回调函数指针（联合体） */
+    Net_DeviceCb_E 	enType;      			/* 回调类型 */
+    Net_DeviceCb_Un 	unFunc;      			/* 回调函数指针（联合体） */
     int isRegistered;          					/* 注册标记：0=未注册，1=已注册 */
 } NET_Device_CbItem_S;
 

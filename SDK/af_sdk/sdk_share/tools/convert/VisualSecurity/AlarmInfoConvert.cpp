@@ -1,19 +1,6 @@
-/**
- * @file AlarmInfoConvert.cpp
- * @author tianl (tianl@kfb.cn)
- * @date 2026-07-28
- * @LastEditors  : qinjt@kfb.cn
- * @LastEditTime : 2026-07-28
- *
- * @brief AlarmInfoConvert 模块实现
- * 功能说明：
- * 1. 实现 AlarmInfoConvert 模块核心逻辑
- * 2. 校验输入参数并管理模块资源生命周期
- * 3. 向上层提供可复用的 SDK 能力
- */
-/* 禁用 Windows 的 min/max 宏 */
+// 禁用 Windows 的 min/max 宏
 #define NOMINMAX
-/* 然后才是您的兼容性代码 */
+// 然后才是您的兼容性代码
 #ifdef _MSC_VER
     #ifndef __func__
         #define __func__ __FUNCTION__
@@ -32,14 +19,6 @@
 #include <iomanip>
 #include <cstring>
 #include <string>
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 deal 定义的内部处理。
- * @param [in,out] pRootJson 函数处理参数。
- * @param [in,out] stAlarmInfo 函数处理参数。
- * @param [in] bOutStruct 函数处理参数。
- * @return 无返回值。
- */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_Alarmer_S& stAlarmInfo, bool bOutStruct)
 {
@@ -50,10 +29,10 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_Alarmer_S& stAlarmInfo, bool 
 
     SDKConvert::CSDKConvert convert(bOutStruct);
 
-    /* 处理序列号 (BYTE数组转字符串) */
+    // 处理序列号 (BYTE数组转字符串)
     if (bOutStruct)
     {
-        /* JSON转结构体：字符串转BYTE数组 */
+        // JSON转结构体：字符串转BYTE数组
         std::string serialNumberStr;
         convert.field(pRootJson, "SerialNumber", serialNumberStr);
         size_t copy_len = std::min(serialNumberStr.size(), static_cast<size_t>(NET_LEN_64));
@@ -65,24 +44,24 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_Alarmer_S& stAlarmInfo, bool 
     }
     else
     {
-        /* 结构体转JSON：BYTE数组转字符串 */
+        // 结构体转JSON：BYTE数组转字符串
         std::string serialNumberStr(reinterpret_cast<const char*>(stAlarmInfo.strSerialNumber), NET_LEN_64);
-        /* 去除末尾的空字符 */
+        // 去除末尾的空字符
         size_t len = strnlen(serialNumberStr.c_str(), NET_LEN_64);
         serialNumberStr.resize(len);
         Json::add(pRootJson, "SerialNumber", serialNumberStr);
     }
 
-    /* 处理设备名称 (CHAR数组) */
+    // 处理设备名称 (CHAR数组)
     convert.field(pRootJson, "DeviceName", stAlarmInfo.strDeviceName);
 
-    /* 处理MAC地址 (BYTE数组转字符串，格式: XX:XX:XX:XX:XX:XX) */
+    // 处理MAC地址 (BYTE数组转字符串，格式: XX:XX:XX:XX:XX:XX)
     if (bOutStruct)
     {
-        /* JSON转结构体：字符串转BYTE数组 */
+        // JSON转结构体：字符串转BYTE数组
         std::string macAddrStr;
         convert.field(pRootJson, "MacAddress", macAddrStr);
-        /* 解析MAC地址字符串 "XX:XX:XX:XX:XX:XX" 或 "XX-XX-XX-XX-XX-XX" */
+        // 解析MAC地址字符串 "XX:XX:XX:XX:XX:XX" 或 "XX-XX-XX-XX-XX-XX"
         std::string delimiter = ":";
         if (macAddrStr.find('-') != std::string::npos)
         {
@@ -99,7 +78,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_Alarmer_S& stAlarmInfo, bool 
             hexStream >> std::hex >> byteVal;
             stAlarmInfo.byMacAddr[idx++] = static_cast<BYTE>(byteVal & 0xFF);
         }
-        /* 填充剩余的字节为0 */
+        // 填充剩余的字节为0
         while (idx < NET_LEN_6)
         {
             stAlarmInfo.byMacAddr[idx++] = 0;
@@ -107,7 +86,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_Alarmer_S& stAlarmInfo, bool 
     }
     else
     {
-        /* 结构体转JSON：BYTE数组转MAC地址字符串 */
+        // 结构体转JSON：BYTE数组转MAC地址字符串
         std::ostringstream oss;
         for (int i = 0; i < NET_LEN_6; ++i)
         {
@@ -118,22 +97,13 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_Alarmer_S& stAlarmInfo, bool 
         Json::add(pRootJson, "MacAddress", oss.str());
     }
 
-    /* 处理IP地址 (CHAR数组) */
+    // 处理IP地址 (CHAR数组)
     convert.field(pRootJson, "DeviceIP", stAlarmInfo.strDeviceIP);
 }
 
 namespace
 {
 template <size_t N>
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 ByteArrayField 定义的内部处理。
- * @param [in,out] pRootJson 函数处理参数。
- * @param [in] key 函数处理参数。
- * @param [in,out] parameter 函数处理参数。
- * @param [in] bOutStruct 函数处理参数。
- * @return 无返回值。
- */
 void ByteArrayField(Json::Object* pRootJson, const std::string& key, BYTE (&arr)[N], bool bOutStruct)
 {
     if (!pRootJson) return;
@@ -166,15 +136,6 @@ void ByteArrayField(Json::Object* pRootJson, const std::string& key, BYTE (&arr)
 }
 
 template <size_t N>
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 CharArrayField 定义的内部处理。
- * @param [in,out] pRootJson 函数处理参数。
- * @param [in] key 函数处理参数。
- * @param [in,out] parameter 函数处理参数。
- * @param [in] bOutStruct 函数处理参数。
- * @return 无返回值。
- */
 void CharArrayField(Json::Object* pRootJson, const std::string& key, char (&arr)[N], bool bOutStruct)
 {
     if (!pRootJson) return;
@@ -183,11 +144,6 @@ void CharArrayField(Json::Object* pRootJson, const std::string& key, char (&arr)
 }
 
 template <size_t N>
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 ImageBase64Field 定义的内部处理。
- * @return 无返回值。
- */
 void ImageBase64Field(Json::Object* pRootJson,
                       const std::string& key,
                       BYTE (&arr)[N],
@@ -228,7 +184,7 @@ void ImageBase64Field(Json::Object* pRootJson,
     }
 }
 
-} /* namespace */
+} // namespace
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_AlarmBasicInfo_S& stInfo, bool bOutStruct)
 {
@@ -246,14 +202,6 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_AlarmBasicInfo_S& stInfo, boo
     ImageBase64Field(pRootJson, "PanoramaImgBase64", stInfo.byPanoramaImg, stInfo.uPanoramaImgLen, bOutStruct);
     convert.field(pRootJson, "TimestampMs", stInfo.llTimestampMs);
 }
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 deal 定义的内部处理。
- * @param [in,out] pRootJson 函数处理参数。
- * @param [in,out] stInfo 函数处理参数。
- * @param [in] bOutStruct 函数处理参数。
- * @return 无返回值。
- */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_AlarmRuleInfo_S& stInfo, bool bOutStruct)
 {
@@ -278,14 +226,6 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_AlarmRuleInfo_S& stInfo, bool
     ImageBase64Field(pRootJson, "TargetImgBase64", stInfo.byTargetImg, stInfo.uTargetImgLen, bOutStruct);
     convert.field(pRootJson, "TimestampMs", stInfo.llTimestampMs);
 }
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 deal 定义的内部处理。
- * @param [in,out] pRootJson 函数处理参数。
- * @param [in,out] stInfo 函数处理参数。
- * @param [in] bOutStruct 函数处理参数。
- * @return 无返回值。
- */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_AlarmAiObjectInfo_S& stInfo, bool bOutStruct)
 {
@@ -308,14 +248,6 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_AlarmAiObjectInfo_S& stInfo, 
 
     ImageBase64Field(pRootJson, "ImgDataBase64", stInfo.byImgData, stInfo.uImgLen, bOutStruct);
 }
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 deal 定义的内部处理。
- * @param [in,out] pRootJson 函数处理参数。
- * @param [in,out] stInfo 函数处理参数。
- * @param [in] bOutStruct 函数处理参数。
- * @return 无返回值。
- */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_AlarmFaceCompareInfo_S& stInfo, bool bOutStruct)
 {
@@ -339,14 +271,6 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_AlarmFaceCompareInfo_S& stInf
     ImageBase64Field(pRootJson, "LibFaceImgBase64", stInfo.byLibFaceImg, stInfo.uLibFaceImgLen, bOutStruct);
     ImageBase64Field(pRootJson, "CapFaceImgBase64", stInfo.byCapFaceImg, stInfo.uCapFaceImgLen, bOutStruct);
 }
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 deal 定义的内部处理。
- * @param [in,out] pRootJson 函数处理参数。
- * @param [in,out] stInfo 函数处理参数。
- * @param [in] bOutStruct 函数处理参数。
- * @return 无返回值。
- */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_AlarmPlateInfo_S& stInfo, bool bOutStruct)
 {
@@ -363,7 +287,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_AlarmPlateInfo_S& stInfo, boo
     convert.field(pRootJson, "LaneNo", (int&)stInfo.uLaneNo);
     convert.field(pRootJson, "PlateImgLen", (int&)stInfo.uPlateImgLen);
 
-    /* 严格仿海康：车牌图片随结构体（JSON 里 Base64） */
+    // 严格仿海康：车牌图片随结构体（JSON 里 Base64）
     if (bOutStruct)
     {
         std::string b64;
@@ -392,14 +316,6 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_AlarmPlateInfo_S& stInfo, boo
         }
     }
 }
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 deal 定义的内部处理。
- * @param [in,out] pRootJson 函数处理参数。
- * @param [in,out] stInfo 函数处理参数。
- * @param [in] bOutStruct 函数处理参数。
- * @return 无返回值。
- */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_AlarmExceptionInfo_S& stInfo, bool bOutStruct)
 {
@@ -411,14 +327,6 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_AlarmExceptionInfo_S& stInfo,
     convert.field(pRootJson, "DiskNo", (int&)stInfo.uDiskNo);
     convert.field(pRootJson, "Status", (int&)stInfo.uStatus);
 }
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 deal 定义的内部处理。
- * @param [in,out] pRootJson 函数处理参数。
- * @param [in,out] stInfo 函数处理参数。
- * @param [in] bOutStruct 函数处理参数。
- * @return 无返回值。
- */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_AlarmStatisticsTarget_S& stInfo, bool bOutStruct)
 {
@@ -437,14 +345,6 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_AlarmStatisticsTarget_S& stIn
 
     ImageBase64Field(pRootJson, "ImgDataBase64", stInfo.byImgData, stInfo.uImgLen, bOutStruct);
 }
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 deal 定义的内部处理。
- * @param [in,out] pRootJson 函数处理参数。
- * @param [in,out] stInfo 函数处理参数。
- * @param [in] bOutStruct 函数处理参数。
- * @return 无返回值。
- */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_AlarmStatisticsInfo_S& stInfo, bool bOutStruct)
 {

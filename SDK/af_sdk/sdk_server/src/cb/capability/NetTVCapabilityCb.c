@@ -1,23 +1,17 @@
 /**
  * @file NetTVCapabilityCb.c
  * @author tianl (tianl@kfb.cn)
- * @date 2026-07-28
- * @LastEditors  : qinjt@kfb.cn
- * @LastEditTime : 2026-07-28
+ * @date 2025-01-30
  *
- * @brief NetTVCapabilityCb 模块实现
- * 功能说明：
- * 1. 实现 NetTVCapabilityCb 模块核心逻辑
- * 2. 校验输入参数并管理模块资源生命周期
- * 3. 向上层提供可复用的 SDK 能力
+ * @brief 能力集回调 - 按照NetTVDeviceCb模式实现
  */
+
 #include <stdio.h>
 
 #include "NetTVCapabilityCbExecute.h"
 #include "NetTVSDKServerInterface.h"
 
 /**
- * @author tianl (tianl@kfb.cn)
  * @brief 能力集回调枚举定义
  */
 typedef enum
@@ -33,10 +27,9 @@ typedef enum
     NET_CB_TYPE_CAP_MEDIA,                /* 视频通道媒体能力集 NET_CAP_MEDIA */
 
     NET_CB_TYPE_CAP_MAX
-} Net_TV_CapabilityCb_E;
+} Net_CapabilityCb_E;
 
 /**
- * @author tianl (tianl@kfb.cn)
  * @brief 能力集回调函数联合体定义
  */
 typedef union
@@ -44,34 +37,26 @@ typedef union
     NET_COMMON_ECODE_E (*GetVideoEncodeCap)(INT32 dwChannelID, pNET_VideoEncodeCap_S pCap);
     NET_COMMON_ECODE_E (*GetOsdCap)(INT32 dwChannelID, pNET_OsdCap_S pCap);
     NET_COMMON_ECODE_E (*GetAudioCap)(INT32 dwChannelID, pNET_AudioCap_S pCap);
-    /* 后续扩展 */
-    /* NET_COMMON_ECODE_E (*GetOsdCap)(INT32 dwChannelID, pNET_OsdCap_S pCap); */
-    /* NET_COMMON_ECODE_E (*GetSmartCap)(INT32 dwChannelID, pNET_SmartCap_S pCap); */
-    /* NET_COMMON_ECODE_E (*GetImageCap)(INT32 dwChannelID, pNET_ImageCap_S pCap); */
-} Net_TV_CapabilityCb_Un;
+    // 后续扩展
+    // NET_COMMON_ECODE_E (*GetOsdCap)(INT32 dwChannelID, pNET_OsdCap_S pCap);
+    // NET_COMMON_ECODE_E (*GetSmartCap)(INT32 dwChannelID, pNET_SmartCap_S pCap);
+    // NET_COMMON_ECODE_E (*GetImageCap)(INT32 dwChannelID, pNET_ImageCap_S pCap);
+} Net_CapabilityCb_Un;
 
 /**
- * @author tianl (tianl@kfb.cn)
  * @brief 能力集回调项结构体
  */
 typedef struct
 {
-    Net_TV_CapabilityCb_E   enType;         /* 回调类型 */
-    Net_TV_CapabilityCb_Un  unFunc;         /* 回调函数指针（联合体） */
-    int isRegistered;                        /* 注册标记：0=未注册，1=已注册 */
-} NET_Capability_CbItem_S;
+    Net_CapabilityCb_E   enType;         // 回调类型
+    Net_CapabilityCb_Un  unFunc;         // 回调函数指针（联合体）
+    int isRegistered;                        // 注册标记：0=未注册，1=已注册
+} NET_Capability_CbItem;
 
 /**
- * @author tianl (tianl@kfb.cn)
  * @brief 全局能力集回调注册表
  */
-static NET_Capability_CbItem_S g_capCbTable[NET_CB_TYPE_CAP_MAX] = {0};
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 ClampFrameRateNum 定义的内部处理。
- * @param [in] frameRateNum 函数处理参数。
- * @return 返回该处理的状态或结果。
- */
+static NET_Capability_CbItem g_capCbTable[NET_CB_TYPE_CAP_MAX] = {0};
 
 static INT32 ClampFrameRateNum(INT32 frameRateNum)
 {
@@ -85,12 +70,6 @@ static INT32 ClampFrameRateNum(INT32 frameRateNum)
     }
     return frameRateNum;
 }
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 NormalizeResolutionFrameRate 对应的处理。
- * @param [in] pResolution 函数处理参数。
- * @return 无返回值。
- */
 
 static void NormalizeResolutionFrameRate(pNET_VideoResolution_S pResolution)
 {
@@ -99,13 +78,8 @@ static void NormalizeResolutionFrameRate(pNET_VideoResolution_S pResolution)
         return;
     }
 
-    pResolution->dwFrameRateNum = ClampFrameRateNum(pResolution->dwFrameRateNum);
+    pResolution->uFrameRateNum = ClampFrameRateNum(pResolution->uFrameRateNum);
 }
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 FillEncodeAbilityFromOption 对应的处理。
- * @return 无返回值。
- */
 
 static void FillEncodeAbilityFromOption(const NET_VideoEncodeOption_S* pOption,
                                         pNET_VideoEncodeAbility_S pAbility)
@@ -147,12 +121,6 @@ static void FillEncodeAbilityFromOption(const NET_VideoEncodeOption_S* pOption,
     pAbility->bSupportSVC = pOption->enSvcEnable;
     pAbility->bSupportStreamSmooth = pOption->nBitrateSmoothing > 0 ? 1 : 0;
 }
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 ClampEncodeComplexityNum 定义的内部处理。
- * @param [in] complexityNum 函数处理参数。
- * @return 返回该处理的状态或结果。
- */
 
 static INT32 ClampEncodeComplexityNum(INT32 complexityNum)
 {
@@ -166,12 +134,6 @@ static INT32 ClampEncodeComplexityNum(INT32 complexityNum)
     }
     return complexityNum;
 }
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 NormalizeVideoEncodeCap 对应的处理。
- * @param [in] pCap 函数处理参数。
- * @return 无返回值。
- */
 
 static void NormalizeVideoEncodeCap(pNET_VideoEncodeCap_S pCap)
 {
@@ -183,103 +145,90 @@ static void NormalizeVideoEncodeCap(pNET_VideoEncodeCap_S pCap)
         return;
     }
 
-    if (pCap->dwStreamCount < 0)
+    if (pCap->uStreamCount < 0)
     {
-        pCap->dwStreamCount = 0;
+        pCap->uStreamCount = 0;
     }
-    else if (pCap->dwStreamCount > NET_VIDEO_STREAM_MAX)
+    else if (pCap->uStreamCount > NET_VIDEO_STREAM_MAX)
     {
-        pCap->dwStreamCount = NET_VIDEO_STREAM_MAX;
+        pCap->uStreamCount = NET_VIDEO_STREAM_MAX;
     }
 
-    for (i = 0; i < pCap->dwStreamCount; ++i)
+    for (i = 0; i < pCap->uStreamCount; ++i)
     {
         pNET_VideoStreamCap_S pStream = &pCap->astStreamCap[i];
-        if (pStream->dwEncodeCapSize < 0)
+        if (pStream->uEncodeCapSize < 0)
         {
-            pStream->dwEncodeCapSize = 0;
+            pStream->uEncodeCapSize = 0;
         }
-        else if (pStream->dwEncodeCapSize > NET_VIDEO_ENCODE_TYPE_MAX)
+        else if (pStream->uEncodeCapSize > NET_VIDEO_ENCODE_TYPE_MAX)
         {
-            pStream->dwEncodeCapSize = NET_VIDEO_ENCODE_TYPE_MAX;
-        }
-
-        if (pStream->dwEncodeAbilityNum < 0)
-        {
-            pStream->dwEncodeAbilityNum = 0;
-        }
-        else if (pStream->dwEncodeAbilityNum > NET_VIDEO_ENCODE_TYPE_MAX)
-        {
-            pStream->dwEncodeAbilityNum = NET_VIDEO_ENCODE_TYPE_MAX;
+            pStream->uEncodeCapSize = NET_VIDEO_ENCODE_TYPE_MAX;
         }
 
-        if (pStream->dwEncodeTypeNum < 0)
+        if (pStream->uEncodeAbilityNum < 0)
         {
-            pStream->dwEncodeTypeNum = 0;
+            pStream->uEncodeAbilityNum = 0;
         }
-        else if (pStream->dwEncodeTypeNum > NET_VIDEO_ENCODE_TYPE_MAX)
+        else if (pStream->uEncodeAbilityNum > NET_VIDEO_ENCODE_TYPE_MAX)
         {
-            pStream->dwEncodeTypeNum = NET_VIDEO_ENCODE_TYPE_MAX;
-        }
-
-        if (pStream->dwResolutionNum < 0)
-        {
-            pStream->dwResolutionNum = 0;
-        }
-        else if (pStream->dwResolutionNum > NET_RESOLUTION_NUM_MAX)
-        {
-            pStream->dwResolutionNum = NET_RESOLUTION_NUM_MAX;
+            pStream->uEncodeAbilityNum = NET_VIDEO_ENCODE_TYPE_MAX;
         }
 
-        for (j = 0; j < pStream->dwEncodeCapSize; ++j)
+        if (pStream->uEncodeTypeNum < 0)
+        {
+            pStream->uEncodeTypeNum = 0;
+        }
+        else if (pStream->uEncodeTypeNum > NET_VIDEO_ENCODE_TYPE_MAX)
+        {
+            pStream->uEncodeTypeNum = NET_VIDEO_ENCODE_TYPE_MAX;
+        }
+
+        if (pStream->uResolutionNum < 0)
+        {
+            pStream->uResolutionNum = 0;
+        }
+        else if (pStream->uResolutionNum > NET_RESOLUTION_NUM_MAX)
+        {
+            pStream->uResolutionNum = NET_RESOLUTION_NUM_MAX;
+        }
+
+        for (j = 0; j < pStream->uEncodeCapSize; ++j)
         {
             NormalizeResolutionFrameRate(&pStream->astEncodeCap[j].stVideoResolution);
         }
 
-        if (pStream->dwEncodeAbilityNum == 0 && pStream->dwEncodeCapSize > 0)
+        if (pStream->uEncodeAbilityNum == 0 && pStream->uEncodeCapSize > 0)
         {
-            pStream->dwEncodeAbilityNum = pStream->dwEncodeCapSize;
-            for (j = 0; j < pStream->dwEncodeAbilityNum; ++j)
+            pStream->uEncodeAbilityNum = pStream->uEncodeCapSize;
+            for (j = 0; j < pStream->uEncodeAbilityNum; ++j)
             {
                 FillEncodeAbilityFromOption(&pStream->astEncodeCap[j], &pStream->astEncodeAbility[j]);
             }
         }
 
-        if (pStream->dwEncodeTypeNum == 0)
+        if (pStream->uEncodeTypeNum == 0)
         {
-            pStream->dwEncodeTypeNum = pStream->dwEncodeAbilityNum;
+            pStream->uEncodeTypeNum = pStream->uEncodeAbilityNum;
         }
 
-        for (j = 0; j < pStream->dwResolutionNum; ++j)
+        for (j = 0; j < pStream->uResolutionNum; ++j)
         {
             NormalizeResolutionFrameRate(&pStream->astResolution[j]);
         }
 
-        for (j = 0; j < pStream->dwEncodeAbilityNum; ++j)
+        for (j = 0; j < pStream->uEncodeAbilityNum; ++j)
         {
             pStream->astEncodeAbility[j].nEncodeComplexityNum =
                 ClampEncodeComplexityNum(pStream->astEncodeAbility[j].nEncodeComplexityNum);
         }
     }
 }
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 ClampUint32 定义的内部处理。
- * @param [in] value 函数处理参数。
- * @param [in] maxValue 函数处理参数。
- * @return 返回该处理的状态或结果。
- */
 
 static UINT32 ClampUint32(UINT32 value, UINT32 maxValue)
 {
     return (value > maxValue) ? maxValue : value;
 }
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 NormalizeOsdCap 对应的处理。
- * @param [in] pCap 函数处理参数。
- * @return 无返回值。
- */
 
 static void NormalizeOsdCap(pNET_OsdCap_S pCap)
 {
@@ -298,85 +247,73 @@ static void NormalizeOsdCap(pNET_OsdCap_S pCap)
     pCap->udwSupportedAlignNum = ClampUint32(pCap->udwSupportedAlignNum, 8);
 }
 
-/* ========================== 注册接口实现 ========================== */
+// ========================== 注册接口实现 ==========================
 
-NET_API BOOL NET_STDCALL NET_SERVER_RegisterCb_GetVideoEncodeCap(NET_CB_GetVideoEncodeCap pCb)
+NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetVideoEncodeCap(NET_CB_GetVideoEncodeCap pCb)
 {
     if (pCb == NULL)
     {
-        return NET_FALSE;
+        return FALSE;
     }
 
-    NET_Capability_CbItem_S* pItem = &g_capCbTable[NET_CB_TYPE_CAP_VIDEO_STREAM];
+    NET_Capability_CbItem* pItem = &g_capCbTable[NET_CB_TYPE_CAP_VIDEO_STREAM];
     if (pItem->isRegistered)
     {
-        return NET_FALSE; /* 已注册 */
+        return FALSE; // 已注册
     }
 
     pItem->enType = NET_CB_TYPE_CAP_VIDEO_STREAM;
     pItem->unFunc.GetVideoEncodeCap = pCb;
     pItem->isRegistered = 1;
 
-    return NET_TRUE;
+    return TRUE;
 }
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 NET_SERVER_RegisterCb_GetAudioEncodeCap 定义的内部处理。
- * @param [in] pCb 函数处理参数。
- * @return 返回该处理的状态或结果。
- */
 
-NET_API BOOL NET_STDCALL NET_SERVER_RegisterCb_GetAudioEncodeCap(NET_CB_GetAudioEncodeCap pCb)
+NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetAudioEncodeCap(NET_CB_GetAudioEncodeCap pCb)
 {
     if (pCb == NULL)
     {
-        return NET_FALSE;
+        return FALSE;
     }
 
-    NET_Capability_CbItem_S* pItem = &g_capCbTable[NET_CB_TYPE_CAP_AUDIO];
+    NET_Capability_CbItem* pItem = &g_capCbTable[NET_CB_TYPE_CAP_AUDIO];
     if (pItem->isRegistered)
     {
-        return NET_FALSE; /* 已注册 */
+        return FALSE; // 已注册
     }
 
     pItem->enType = NET_CB_TYPE_CAP_AUDIO;
     pItem->unFunc.GetAudioCap = pCb;
     pItem->isRegistered = 1;
 
-    return NET_TRUE;
+    return TRUE;
 }
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 NET_SERVER_RegisterCb_GetOsdCap 定义的内部处理。
- * @param [in] pCb 函数处理参数。
- * @return 返回该处理的状态或结果。
- */
 
-NET_API BOOL NET_STDCALL NET_SERVER_RegisterCb_GetOsdCap(NET_CB_GetOsdCap pCb)
+NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetOsdCap(NET_CB_GetOsdCap pCb)
 {
     if (pCb == NULL)
     {
-        return NET_FALSE;
+        return FALSE;
     }
 
-    NET_Capability_CbItem_S* pItem = &g_capCbTable[NET_CB_TYPE_CAP_OSD];
+    NET_Capability_CbItem* pItem = &g_capCbTable[NET_CB_TYPE_CAP_OSD];
     if (pItem->isRegistered)
     {
-        return NET_FALSE; /* 已注册 */
+        return FALSE; // 已注册
     }
 
     pItem->enType = NET_CB_TYPE_CAP_OSD;
     pItem->unFunc.GetOsdCap = pCb;
     pItem->isRegistered = 1;
 
-    return NET_TRUE;
+    return TRUE;
 }
 
-/* 后续扩展其他能力集注册接口 */
-/* NET_API BOOL NET_STDCALL NET_SERVER_RegisterCb_GetOsdCap(...) */
-/* NET_API BOOL NET_STDCALL NET_SERVER_RegisterCb_GetSmartCap(...) */
+// 后续扩展其他能力集注册接口
+// NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetOsdCap(...)
+// NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetSmartCap(...)
 
-/* ========================== 执行接口实现 ========================== */
+// ========================== 执行接口实现 ==========================
 
 int NetSDK_ExecuteCb_GetVideoEncodeCap(INT32 dwChannelID, pNET_VideoEncodeCap_S pCap)
 {
@@ -385,13 +322,13 @@ int NetSDK_ExecuteCb_GetVideoEncodeCap(INT32 dwChannelID, pNET_VideoEncodeCap_S 
         return NET_E_INVALID_PARAM;
     }
 
-    NET_Capability_CbItem_S* pItem = &g_capCbTable[NET_CB_TYPE_CAP_VIDEO_STREAM];
+    NET_Capability_CbItem* pItem = &g_capCbTable[NET_CB_TYPE_CAP_VIDEO_STREAM];
     if (!pItem->isRegistered)
     {
         return NET_E_NONSUPPORT;
     }
 
-    /* 执行对应回调（类型安全） */
+    // 执行对应回调（类型安全）
     int ret = pItem->unFunc.GetVideoEncodeCap(dwChannelID, pCap);
     if (ret == NET_E_SUCCEED)
     {
@@ -399,13 +336,6 @@ int NetSDK_ExecuteCb_GetVideoEncodeCap(INT32 dwChannelID, pNET_VideoEncodeCap_S 
     }
     return ret;
 }
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 NetSDK_ExecuteCb_GetAudioCap 定义的内部处理。
- * @param [in] dwChannelID 函数处理参数。
- * @param [in] pCap 函数处理参数。
- * @return 返回该处理的状态或结果。
- */
 
 int NetSDK_ExecuteCb_GetAudioCap(INT32 dwChannelID, pNET_AudioCap_S pCap)
 {
@@ -414,22 +344,15 @@ int NetSDK_ExecuteCb_GetAudioCap(INT32 dwChannelID, pNET_AudioCap_S pCap)
         return NET_E_INVALID_PARAM;
     }
 
-    NET_Capability_CbItem_S* pItem = &g_capCbTable[NET_CB_TYPE_CAP_AUDIO];
+    NET_Capability_CbItem* pItem = &g_capCbTable[NET_CB_TYPE_CAP_AUDIO];
     if (!pItem->isRegistered)
     {
         return NET_E_NONSUPPORT;
     }
 
-    /* 执行对应回调（类型安全） */
+    // 执行对应回调（类型安全）
     return pItem->unFunc.GetAudioCap(dwChannelID, pCap);
 }
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 NetSDK_ExecuteCb_GetOsdCap 定义的内部处理。
- * @param [in] dwChannelID 函数处理参数。
- * @param [in] pCap 函数处理参数。
- * @return 返回该处理的状态或结果。
- */
 
 int NetSDK_ExecuteCb_GetOsdCap(INT32 dwChannelID, pNET_OsdCap_S pCap)
 {
@@ -438,13 +361,13 @@ int NetSDK_ExecuteCb_GetOsdCap(INT32 dwChannelID, pNET_OsdCap_S pCap)
         return NET_E_INVALID_PARAM;
     }
 
-    NET_Capability_CbItem_S* pItem = &g_capCbTable[NET_CB_TYPE_CAP_OSD];
+    NET_Capability_CbItem* pItem = &g_capCbTable[NET_CB_TYPE_CAP_OSD];
     if (!pItem->isRegistered)
     {
         return NET_E_NONSUPPORT;
     }
 
-    /* 执行对应回调（类型安全） */
+    // 执行对应回调（类型安全）
     int ret = pItem->unFunc.GetOsdCap(dwChannelID, pCap);
     if (ret == NET_E_SUCCEED)
     {
@@ -453,6 +376,6 @@ int NetSDK_ExecuteCb_GetOsdCap(INT32 dwChannelID, pNET_OsdCap_S pCap)
     return ret;
 }
 
-/* 后续扩展其他能力集执行接口 */
-/* int NetSDK_ExecuteCb_GetOsdCap(...) { ... } */
-/* int NetSDK_ExecuteCb_GetSmartCap(...) { ... } */
+// 后续扩展其他能力集执行接口
+// int NetSDK_ExecuteCb_GetOsdCap(...) { ... }
+// int NetSDK_ExecuteCb_GetSmartCap(...) { ... }
