@@ -1,9 +1,15 @@
 /**
  * @file SessionManager.h
  * @author tianl (tianl@kfb.cn)
- * @date 2025-12-05
- * 
- * @brief 会话管理类
+ * @date 2026-07-28
+ * @LastEditors  : qinjt@kfb.cn
+ * @LastEditTime : 2026-07-28
+ *
+ * @brief SessionManager 模块接口与类型定义
+ * 功能说明：
+ * 1. 声明 SessionManager 模块对外接口和数据类型
+ * 2. 定义模块依赖的常量、回调或辅助类型
+ * 3. 为调用方提供明确且稳定的编译期契约
  */
 #pragma once
 
@@ -26,18 +32,19 @@ class CSessionManager : public CSingleton<CSessionManager>
 {
 	CSessionManager();
 public:
-	
-	~CSessionManager();    
+
+	~CSessionManager();
 	friend class CSingleton<CSessionManager>;
 
 public:
 	bool EnablePush(const std::string& SessionId);
 	void CleanTimeoutSessions();
 	void MarkDisconnected(const std::string& SessionId);
-	size_t PushToAll(const std::string& json, const std::vector<CServerSession::Attachment>& attachments = {});
+	size_t PushToAll(const std::string& json, const std::vector<CServerSession::Attachment_S>& attachments = {});
 	size_t GetSessionCount();
 
 	/**
+ * @author tianl (tianl@kfb.cn)
 	 * @brief 获取所有会话的诊断状态信息（用于日志排查）
 	 * @return 诊断信息字符串，包含每个客户端的IP、登录/连接/订阅状态
 	 */
@@ -56,12 +63,12 @@ private:
 
     void CleanupLoop();
 private:
-    std::unordered_map<std::string, std::shared_ptr<CServerSession>> m_sessions;
-	std::mutex Mtx_;                              			// 全局锁
+    std::unordered_map<std::string, std::shared_ptr<CServerSession>> m_stSessions;
+	std::mutex m_stMutex;                              			/* 全局锁 */
 
-    std::thread cleanerThread_;
-    std::atomic<bool> running_{false};
-    
-    // 配置：会话超时时间(秒)，默认 5分钟
+    std::thread m_stCleanerThread;
+    std::atomic<bool> m_bRunning{false};
+
+    /* 配置：会话超时时间(秒)，默认 5分钟 */
     const int SESSION_TIMEOUT_SEC = 300;
 };

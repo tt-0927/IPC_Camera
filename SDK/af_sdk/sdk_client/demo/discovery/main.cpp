@@ -1,16 +1,17 @@
 /**
- * @file discovery_client_demo.cpp
- * @brief 设备发现客户端 Demo
+ * @file main.cpp
+ * @author tianl (tianl@kfb.cn)
+ * @date 2026-07-28
+ * @LastEditors  : qinjt@kfb.cn
+ * @LastEditTime : 2026-07-28
  *
- * 功能:
- *   1. 发送 UDP 组播探测包
- *   2. 接收服务端响应
- *   3. 打印发现的设备列表
- *
- * 用法:
- *   ./DiscoveryClientDemo [interface_ip] [timeout_ms]
- *   默认: interface_ip=NULL(默认路由), timeout_ms=3000
+ * @brief SDK 设备发现 Demo
+ * 功能说明：
+ * 1. 实现 main 模块核心逻辑
+ * 2. 校验输入参数并管理模块资源生命周期
+ * 3. 向上层提供可复用的 SDK 能力
  */
+
 
 #include <cstdio>
 #include <cstdlib>
@@ -26,7 +27,14 @@
 
 #include "NetTVSDKClientInterface.h"
 
-#define MAX_DEVICES 64
+#define NETSDK_DEMO_MAX_DEVICES 64
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 运行当前 Demo 的主流程。
+ * @param [in] argc 函数处理参数。
+ * @param [in,out] argv 函数处理参数。
+ * @return 返回该处理的状态或结果。
+ */
 
 int main(int argc, char* argv[])
 {
@@ -39,7 +47,7 @@ int main(int argc, char* argv[])
     printf("║   timeout: %-24d ms ║\n", timeout_ms);
     printf("╚══════════════════════════════════════╝\n\n");
 
-    NET_DiscoveryDeviceInfo_S devices[MAX_DEVICES];
+    NET_DiscoveryDeviceInfo_S devices[NETSDK_DEMO_MAX_DEVICES];
     int count = 0;
 
     printf("[discovery-client] searching...\n");
@@ -47,7 +55,7 @@ int main(int argc, char* argv[])
     BOOL ret = NET_TV_Discovery_Search(iface_ip,
                                         static_cast<UINT32>(timeout_ms),
                                         devices,
-                                        MAX_DEVICES,
+                                        NETSDK_DEMO_MAX_DEVICES,
                                         &count);
 
     if (!ret) {

@@ -1,6 +1,18 @@
-
-#ifndef _USERCONVERT_H
-#define _USERCONVERT_H
+/**
+ * @file DeviceInfoConvert.h
+ * @author tianl (tianl@kfb.cn)
+ * @date 2026-07-28
+ * @LastEditors  : qinjt@kfb.cn
+ * @LastEditTime : 2026-07-28
+ *
+ * @brief DeviceInfoConvert 模块接口与类型定义
+ * 功能说明：
+ * 1. 声明 DeviceInfoConvert 模块对外接口和数据类型
+ * 2. 定义模块依赖的常量、回调或辅助类型
+ * 3. 为调用方提供明确且稳定的编译期契约
+ */
+#ifndef NETSDK_DEVICE_INFO_CONVERT_H
+#define NETSDK_DEVICE_INFO_CONVERT_H
 
 #include <string>
 #include <vector>
@@ -8,7 +20,7 @@
 
 #include "Json.h"
 
-// 库通用头文件
+/* 库通用头文件 */
 #ifdef NET_TV_SDK_SERVER_API
     #include "NetTVSDKServerInterface.h"
 #elif defined(NET_TV_SDK_CLIENT_API)
@@ -87,31 +99,31 @@ namespace SDKConvert
     void deal(Json::Object* pRootJson, NET_UpgradeInfo_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_UpgradeStatus_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_UpgradeVersion_S& stInfo, bool bOutStruct);
-    
+
     void deal(Json::Object* pRootJson, NET_SchedTime_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_AlarmSchedule_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_LinkageList_S& stInfo, bool bOutStruct);
-    
+
     void deal(Json::Object* pRootJson, NET_MotionRegion_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_MotionExpertMode_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_MotionNormalMode_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_MotionAlarmInfo_S& stInfo, bool bOutStruct);
-    
+
     void deal(Json::Object* pRootJson, NET_PrivacyMaskArea_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_PrivacyMaskCfg_S& stInfo, bool bOutStruct);
 
-    // 遮挡报警相关
+    /* 遮挡报警相关 */
     void deal(Json::Object* pRootJson, NET_TamperAlarmInfo_S& stInfo, bool bOutStruct);
-    
-    // 越界检测相关
+
+    /* 越界检测相关 */
     void deal(Json::Object* pRootJson, NET_BoundaryPlane_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_CrossLineAlarmInfo_S& stInfo, bool bOutStruct);
-    
-    // 入侵检测相关
+
+    /* 入侵检测相关 */
     void deal(Json::Object* pRootJson, NET_IntrusionRule_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_IntrusionAlarmInfo_S& stInfo, bool bOutStruct);
 
-    // 徘徊侦测相关
+    /* 徘徊侦测相关 */
     void deal(Json::Object* pRootJson, NET_LoiteringRule_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_LoiteringAlarmInfo_S& stInfo, bool bOutStruct);
 
@@ -126,13 +138,13 @@ namespace SDKConvert
     void deal(Json::Object* pRootJson, NET_ObjectRemovalRule_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_ObjectRemovalAlarmInfo_S& stInfo, bool bOutStruct);
 
-    // 垃圾检测配置
+    /* 垃圾检测配置 */
     void deal(Json::Object* pRootJson, NET_GarbageExposureRule_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_GarbageExposureCfg_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_GarbageOverflowRule_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_GarbageOverflowCfg_S& stInfo, bool bOutStruct);
 
-    // 单规则智能检测配置
+    /* 单规则智能检测配置 */
     void deal(Json::Object* pRootJson, NET_AiSimpleRule_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_ManholeCoverAbnormalCfg_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_SleepOnDutyCfg_S& stInfo, bool bOutStruct);
@@ -163,12 +175,12 @@ namespace SDKConvert
     void deal(Json::Object* pRootJson, NET_PedestrianIntrusionInfo_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_SmokeFireCfg_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_RoadPondingCfg_S& stInfo, bool bOutStruct);
-    
+
     void deal(Json::Object *pRootJson, NET_CaptureTime_S &stInfo, bool bOutStruct);
     void deal(Json::Object *pRootJson, NET_CaptureDaySchedule_S &stInfo, bool bOutStruct);
     void deal(Json::Object *pRootJson, NET_CapturePlanInfo_S &stInfo, bool bOutStruct);
 
-    // 抓图参数相关
+    /* 抓图参数相关 */
     void deal(Json::Object *pRootJson, NET_CaptureConfig_S &stInfo, bool bOutStruct);
     void deal(Json::Object *pRootJson, NET_CaptureParamInfo_S &stInfo, bool bOutStruct);
 
@@ -188,7 +200,7 @@ namespace SDKConvert
     void deal(Json::Object* pRootJson, NET_FaceInfo_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_FaceInfoList_S& stInfo, bool bOutStruct);
 
-    // 人流统计与人员密度检测相关
+    /* 人流统计与人员密度检测相关 */
     void deal(Json::Object* pRootJson, NET_PeopleFlowRuleLine_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_PeopleAlarmRule_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_PeopleAlarmConfig_S& stInfo, bool bOutStruct);

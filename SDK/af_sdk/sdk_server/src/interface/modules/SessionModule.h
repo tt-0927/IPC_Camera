@@ -1,9 +1,22 @@
+/**
+ * @file SessionModule.h
+ * @author tianl (tianl@kfb.cn)
+ * @date 2026-07-28
+ * @LastEditors  : qinjt@kfb.cn
+ * @LastEditTime : 2026-07-28
+ *
+ * @brief CSessionModule 模块接口与类型定义
+ * 功能说明：
+ * 1. 声明 CSessionModule 模块对外接口和数据类型
+ * 2. 定义模块依赖的常量、回调或辅助类型
+ * 3. 为调用方提供明确且稳定的编译期契约
+ */
 /*
  * @Author       : chenchl
  * @Date         : 2025-01-02 16:01:20
  * @LastEditors  : chenchl
  * @LastEditTime : 2025-01-02 17:03:03
- * @FilePath     : SessionModule.h
+ * @FilePath     : CSessionModule.h
  * @Description  : 会话和鉴权管理模块，负责HTTP鉴权信息设置和会话管理
  */
 
@@ -11,30 +24,30 @@
 #include "NetTVSDKServerInterface.h"
 #include <string>
 
-// 前向声明
+/* 前向声明 */
 class CSessionManager;
 
 /**
  * 会话和鉴权管理模块类
  * 负责HTTP鉴权信息设置和会话管理
  */
-class SessionModule
+class CSessionModule
 {
 public:
     /**
      * 构造函数
      */
-    SessionModule();
+    CSessionModule();
 
     /**
      * 析构函数
      * @details 自动调用Cleanup()清理会话和鉴权资源
      */
-    ~SessionModule();
+    ~CSessionModule();
 
-    // 禁止拷贝
-    SessionModule(const SessionModule&) = delete;
-    SessionModule& operator=(const SessionModule&) = delete;
+    /* 禁止拷贝 */
+    CSessionModule(const CSessionModule&) = delete;
+    CSessionModule& operator=(const CSessionModule&) = delete;
 
     /**
      * 设置HTTP鉴权信息
@@ -44,8 +57,8 @@ public:
      * @param password 密码
      * @return TRUE表示成功，FALSE表示失败
      */
-    BOOL SetAuthInfo(const std::string& realm, 
-                    const std::string& username, 
+    BOOL SetAuthInfo(const std::string& realm,
+                    const std::string& username,
                     const std::string& password);
 
     /**
@@ -55,7 +68,7 @@ public:
      * @param password 新密码
      * @return TRUE表示成功，FALSE表示失败
      */
-    BOOL UpdatePassword(const std::string& username, 
+    BOOL UpdatePassword(const std::string& username,
                        const std::string& password);
 
     /**

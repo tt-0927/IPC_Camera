@@ -1,13 +1,18 @@
 /**
- * @file dlog.h
+ * @file NetSdkLog.h
  * @author tianl (tianl@kfb.cn)
- * @date 2025-12-17
- * 
- * @brief SDK日志封装
+ * @date 2026-07-28
+ * @LastEditors  : qinjt@kfb.cn
+ * @LastEditTime : 2026-07-28
+ *
+ * @brief NetSdkLog 模块接口与类型定义
+ * 功能说明：
+ * 1. 声明 NetSdkLog 模块对外接口和数据类型
+ * 2. 定义模块依赖的常量、回调或辅助类型
+ * 3. 为调用方提供明确且稳定的编译期契约
  */
-
-#ifndef _NETSDK_LOG_H_
-#define _NETSDK_LOG_H_
+#ifndef NETSDK_LOG_H
+#define NETSDK_LOG_H
 
 #ifdef __cplusplus    /*C++编译器包含的宏，例如用g++编译时，该宏就存在，则下面的语句extern "C"才会被执行*/
 extern "C" {          /*C++编译器才能支持，C编译器不支持*/
@@ -17,11 +22,11 @@ extern "C" {          /*C++编译器才能支持，C编译器不支持*/
 #include <stdbool.h>
 
 
-#ifndef DEBUG_INFO
+#ifndef NETSDK_DEBUG_INFO
     #ifdef _MSC_VER
-        #define DEBUG_INFO(fmt, ...) printf("\033[33m[%s:%s:%d]" fmt "\r\n", __FILE__, __FUNCTION__, __LINE__, __VA_ARGS__)
+        #define NETSDK_DEBUG_INFO(fmt, ...) printf("\033[33m[%s:%s:%d]" fmt "\r\n", __FILE__, __FUNCTION__, __LINE__, __VA_ARGS__)
     #else
-        #define DEBUG_INFO(fmt, args...) printf("\033[33m[%s:%s:%d]" fmt "\r\n", __FILE__, __func__, __LINE__, ##args)
+        #define NETSDK_DEBUG_INFO(fmt, args...) printf("\033[33m[%s:%s:%d]" fmt "\r\n", __FILE__, __func__, __LINE__, ##args)
     #endif
 #endif
 
@@ -31,26 +36,26 @@ extern "C" {          /*C++编译器才能支持，C编译器不支持*/
 #define NETSDK_LOG_WARN 3  /* 警告日志 */
 #define NETSDK_LOG_ERROR 4 /* 错误日志 */
 
-#ifndef LOG_NONE
-    #define LOG_NONE			  "\033[m"
+#ifndef NETSDK_LOG_COLOR_NONE
+    #define NETSDK_LOG_COLOR_NONE			  "\033[m"
 #endif
-#ifndef LOG_RED
-    #define LOG_RED				"\033[0;32;31m"
+#ifndef NETSDK_LOG_COLOR_RED
+    #define NETSDK_LOG_COLOR_RED				"\033[0;32;31m"
 #endif
-#ifndef LOG_GREEN
-    #define LOG_GREEN			"\033[0;32;32m"
+#ifndef NETSDK_LOG_COLOR_GREEN
+    #define NETSDK_LOG_COLOR_GREEN			"\033[0;32;32m"
 #endif
-#ifndef LOG_LIGHT_PURPLE
-   #define LOG_LIGHT_PURPLE	    "\033[1;35m"
+#ifndef NETSDK_LOG_COLOR_LIGHT_PURPLE
+   #define NETSDK_LOG_COLOR_LIGHT_PURPLE	    "\033[1;35m"
 #endif
-#ifndef LOG_BLUE
-   #define LOG_BLUE			    "\033[0;32;34m"
+#ifndef NETSDK_LOG_COLOR_BLUE
+   #define NETSDK_LOG_COLOR_BLUE			    "\033[0;32;34m"
 #endif
-#ifndef LOG_YELLOW
-   #define LOG_YELLOW			"\033[1;33m"
+#ifndef NETSDK_LOG_COLOR_YELLOW
+   #define NETSDK_LOG_COLOR_YELLOW			"\033[1;33m"
 #endif
 
-typedef void* dlogHandle_S;
+typedef void* NetSdkLogHandle_S;
 
 /* 初始化日志
  * logname:日志名称，不能跟其他日志名重复，否则会导致段错误
@@ -66,6 +71,7 @@ int initSdkLog(char* logname,char* logfile);
 int initSdkLogLevel(char* logname,char* logfile,int level);
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief    : 初始化滚动日志 (按大小和数量分割)
  * @note     : 使用滚动日志策略，当文件达到指定大小时进行切换。不能与 initSdkLog() 同时使用。
  * @param    {char*} logname: 日志名称，不能跟其他日志名重复，否则会导致段错误
@@ -77,6 +83,7 @@ int initSdkLogLevel(char* logname,char* logfile,int level);
 int initSdkLogBySize(char *logname, char *logfile, int max_file_size, int max_files);
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief    : 初始化对应等级的滚动日志文件 (按大小和数量分割)
  * @note     : 使用前一定得先调用 initSdkLogBySize()初始化日志环境
  * @param    {char*} logname: 日志名称，不能跟其他日志名重复，否则会导致段错误
@@ -111,14 +118,29 @@ void skip_ansi_escape_sequences(char *str);
 /* 打印 */
 int netSdk_log(int level, const char *filename_in, int line_in, const char *funcname_in, const char *format, ...);
 
-#define NSDK_LOG_TRACE(format, ...) netSdk_log(NETSDK_LOG_TRACE, __FILE__, __LINE__, __FUNCTION__ ,LOG_LIGHT_PURPLE format LOG_NONE "\r", ##__VA_ARGS__);
-#define NSDK_LOG_DEBUG(format, ...) netSdk_log(NETSDK_LOG_DEBUG, __FILE__, __LINE__, __FUNCTION__ ,format ,##__VA_ARGS__);
-#define NSDK_LOG_INFO(format, ...)  netSdk_log(NETSDK_LOG_INFO, __FILE__, __LINE__, __FUNCTION__,format"\r", ##__VA_ARGS__);
-#define NSDK_LOG_WARN(format, ...)  netSdk_log(NETSDK_LOG_WARN, __FILE__, __LINE__, __FUNCTION__ ,format"\r", ##__VA_ARGS__);
-#define NSDK_LOG_ERROR(format, ...) netSdk_log(NETSDK_LOG_ERROR, __FILE__, __LINE__, __FUNCTION__ ,format"\r", ##__VA_ARGS__);
+#define NETSDK_LOG_MESSAGE_TRACE(format, ...) \
+    do { \
+        (void)netSdk_log(NETSDK_LOG_TRACE, __FILE__, __LINE__, __FUNCTION__, NETSDK_LOG_COLOR_LIGHT_PURPLE format NETSDK_LOG_COLOR_NONE "\r", ##__VA_ARGS__); \
+    } while (0)
+#define NETSDK_LOG_MESSAGE_DEBUG(format, ...) \
+    do { \
+        (void)netSdk_log(NETSDK_LOG_DEBUG, __FILE__, __LINE__, __FUNCTION__, format, ##__VA_ARGS__); \
+    } while (0)
+#define NETSDK_LOG_MESSAGE_INFO(format, ...) \
+    do { \
+        (void)netSdk_log(NETSDK_LOG_INFO, __FILE__, __LINE__, __FUNCTION__, format "\r", ##__VA_ARGS__); \
+    } while (0)
+#define NETSDK_LOG_MESSAGE_WARN(format, ...) \
+    do { \
+        (void)netSdk_log(NETSDK_LOG_WARN, __FILE__, __LINE__, __FUNCTION__, format "\r", ##__VA_ARGS__); \
+    } while (0)
+#define NETSDK_LOG_MESSAGE_ERROR(format, ...) \
+    do { \
+        (void)netSdk_log(NETSDK_LOG_ERROR, __FILE__, __LINE__, __FUNCTION__, format "\r", ##__VA_ARGS__); \
+    } while (0)
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* _NETSDK_LOG_H_ */
+#endif /* NETSDK_LOG_H */

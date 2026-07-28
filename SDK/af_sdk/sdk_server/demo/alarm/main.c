@@ -1,22 +1,23 @@
 /**
- * @file alarm_demo.c
+ * @file main.c
  * @author tianl (tianl@kfb.cn)
- * @date 2026-1-21
- * 
- * @brief 模拟报警事件推送Demo
+ * @date 2026-07-28
+ * @LastEditors  : qinjt@kfb.cn
+ * @LastEditTime : 2026-07-28
+ *
+ * @brief 模拟报警事件推送 Demo
  * 功能说明：
- * 1. 初始化SDK服务器
+ * 1. 初始化 SDK 服务器
  * 2. 定时模拟推送不同类型的报警事件
- * 3. 演示如何使用NET_TV_SERVER_PushAlarmInfo推送报警信息
+ * 3. 演示如何使用 NET_TV_SERVER_PushAlarmInfo 推送报警信息
  */
-
 /* 日志记录单个日志文件的最大大小 */
-#define MAX_LOG_SIZE  (20 * 1024 * 1024) // 20MB
+#define NETSDK_DEMO_LOG_MAX_SIZE  (20 * 1024 * 1024) /* 20MB */
 /* 日志记录最大保留的日志文件数量 */
-#define MAX_LOG_FILES (10)
+#define NETSDK_DEMO_LOG_MAX_FILES (10)
 
-#define SDKSERVER_PORT 9888
-#define ALARM_PUSH_INTERVAL 10  // 每10秒推送一次报警事件
+#define NETSDK_DEMO_SERVER_PORT 9888
+#define NETSDK_DEMO_ALARM_PUSH_INTERVAL_SECONDS 10  /* 每10秒推送一次报警事件 */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -34,55 +35,69 @@
 #include "NetSdkLog.h"
 #include "NetTVSDKServerInterface.h"
 
-// 全局运行标志
+/* 全局运行标志 */
 volatile sig_atomic_t g_running = 1;
 
-// 信号处理函数，用于优雅退出
-void signal_handler(int signum) 
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 处理终止信号并请求结束报警推送 Demo。
+ * @param [in] signum 操作系统传入的信号编号。
+ * @return 无返回值。
+ */
+static void signal_handler(int signum)
 {
-    if (signum == SIGINT || signum == SIGTERM) 
+    if (signum == SIGINT || signum == SIGTERM)
     {
         printf("\nReceived signal %d. Stopping alarm push demo...\n", signum);
         g_running = 0;
     }
 }
 
-// 初始化报警信息结构体
-void InitAlarmInfo(NET_Alarmer_S* pAlarmInfo, const char* deviceName, 
-                   const char* deviceIP, const char* serialNumber, 
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 初始化报警设备信息，并填充设备标识和默认 MAC 地址。
+ * @param [out] pAlarmInfo 待初始化的报警设备信息结构体。
+ * @param [in] deviceName 设备名称；可为 NULL。
+ * @param [in] deviceIP 设备 IPv4 地址；可为 NULL。
+ * @param [in] serialNumber 设备序列号；可为 NULL。
+ * @param [in] macAddr 设备 MAC 地址；为 NULL 时使用 Demo 默认值。
+ * @return 无返回值。
+ */
+static void InitAlarmInfo(NET_Alarmer_S* pAlarmInfo, const char* deviceName,
+                   const char* deviceIP, const char* serialNumber,
                    const BYTE* macAddr)
 {
     memset(pAlarmInfo, 0, sizeof(NET_Alarmer_S));
-    
-    // 设置设备名称
+
+    /* 设置设备名称 */
     if (deviceName)
     {
         strncpy(pAlarmInfo->strDeviceName, deviceName, NET_TV_LEN_32 - 1);
         pAlarmInfo->strDeviceName[NET_TV_LEN_32 - 1] = '\0';
     }
-    
-    // 设置设备IP
+
+    /* 设置设备IP */
     if (deviceIP)
     {
         strncpy(pAlarmInfo->strDeviceIP, deviceIP, 127);
         pAlarmInfo->strDeviceIP[127] = '\0';
     }
-    
-    // 设置序列号
+
+    /* 设置序列号 */
     if (serialNumber)
     {
-        memcpy(pAlarmInfo->strSerialNumber, serialNumber, 
+        memcpy(pAlarmInfo->strSerialNumber, serialNumber,
                strlen(serialNumber) < NET_TV_LEN_64 ? strlen(serialNumber) : NET_TV_LEN_64);
     }
-    
-    // 设置MAC地址
+
+    /* 设置MAC地址 */
     if (macAddr)
     {
         memcpy(pAlarmInfo->byMacAddr, macAddr, NET_TV_LEN_6);
     }
     else
     {
-        // 默认MAC地址: 00:11:22:33:44:55
+        /* 默认MAC地址: 00:11:22:33:44:55 */
         pAlarmInfo->byMacAddr[0] = 0x00;
         pAlarmInfo->byMacAddr[1] = 0x11;
         pAlarmInfo->byMacAddr[2] = 0x22;
@@ -92,20 +107,24 @@ void InitAlarmInfo(NET_Alarmer_S* pAlarmInfo, const char* deviceName,
     }
 }
 
-// 模拟不同类型的报警事件
-void PushMotionDetectAlarm()
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 构造并推送移动侦测报警事件。
+ * @return 无返回值。
+ */
+static void PushMotionDetectAlarm()
 {
     NET_Alarmer_S stAlarmInfo;
     NET_AlarmBasicInfo_S stBasic = {0};
-    
+
     printf("[Demo] Pushing Motion Detection Alarm...\n");
-    
-    InitAlarmInfo(&stAlarmInfo, "Camera-01", "192.168.1.100", 
+
+    InitAlarmInfo(&stAlarmInfo, "Camera-01", "192.168.1.100",
                   "SN202312120001", NULL);
 
     stBasic.uAlarmType = NET_TV_ALARM_MOTION_DETECT;
     stBasic.uAlarmInputNumber = 1;
-    
+
     if (NET_TV_SERVER_PushAlarmInfo(&stAlarmInfo, NET_TV_ALARM_BASE_BASIC, &stBasic, (INT32)sizeof(stBasic)))
     {
         printf("[Demo] Motion Detection Alarm pushed successfully!\n");
@@ -115,8 +134,13 @@ void PushMotionDetectAlarm()
         printf("[Demo] Failed to push Motion Detection Alarm!\n");
     }
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 PushIntrusionAlarm 对应的处理。
+ * @return 无返回值。
+ */
 
-void PushIntrusionAlarm()
+static void PushIntrusionAlarm()
 {
     NET_Alarmer_S stAlarmInfo;
     NET_AlarmRuleInfo_S* pRule = (NET_AlarmRuleInfo_S*)calloc(1, sizeof(NET_AlarmRuleInfo_S));
@@ -125,18 +149,18 @@ void PushIntrusionAlarm()
         printf("[Demo] Failed to allocate intrusion alarm info!\n");
         return;
     }
-    
+
     printf("[Demo] Pushing Intrusion Alarm...\n");
-    
+
     BYTE macAddr[NET_TV_LEN_6] = {0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF};
-    InitAlarmInfo(&stAlarmInfo, "Camera-02", "192.168.1.101", 
+    InitAlarmInfo(&stAlarmInfo, "Camera-02", "192.168.1.101",
                   "SN202312120002", macAddr);
 
     pRule->uAlarmType = NET_TV_ALARM_INTRUSION;
     pRule->uRuleID = 1001;
     strncpy(pRule->strRuleName, "IntrusionRule-1", sizeof(pRule->strRuleName) - 1);
     pRule->strRuleName[sizeof(pRule->strRuleName) - 1] = '\0';
-    
+
     if (NET_TV_SERVER_PushAlarmInfo(&stAlarmInfo, NET_TV_ALARM_BASE_RULE, pRule, (INT32)sizeof(*pRule)))
     {
         printf("[Demo] Intrusion Alarm pushed successfully!\n");
@@ -148,22 +172,27 @@ void PushIntrusionAlarm()
 
     free(pRule);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 PushVideoLossAlarm 对应的处理。
+ * @return 无返回值。
+ */
 
-void PushVideoLossAlarm()
+static void PushVideoLossAlarm()
 {
     NET_Alarmer_S stAlarmInfo;
     NET_AlarmExceptionInfo_S stEx = {0};
-    
+
     printf("[Demo] Pushing Video Loss Alarm...\n");
-    
-    InitAlarmInfo(&stAlarmInfo, "Camera-03", "192.168.1.102", 
+
+    InitAlarmInfo(&stAlarmInfo, "Camera-03", "192.168.1.102",
                   "SN202312120003", NULL);
 
     stEx.uAlarmType = NET_TV_ALARM_VIDEO_LOSS;
     stEx.uChannel = 1;
     stEx.uDiskNo = 0;
-    stEx.uStatus = 1; // 1=触发
-    
+    stEx.uStatus = 1; /* 1=触发 */
+
     if (NET_TV_SERVER_PushAlarmInfo(&stAlarmInfo, NET_TV_ALARM_BASE_EXCEPTION, &stEx, (INT32)sizeof(stEx)))
     {
         printf("[Demo] Video Loss Alarm pushed successfully!\n");
@@ -173,23 +202,28 @@ void PushVideoLossAlarm()
         printf("[Demo] Failed to push Video Loss Alarm!\n");
     }
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 PushDiskFullAlarm 对应的处理。
+ * @return 无返回值。
+ */
 
-void PushDiskFullAlarm()
+static void PushDiskFullAlarm()
 {
     NET_Alarmer_S stAlarmInfo;
     NET_AlarmExceptionInfo_S stEx = {0};
-    
+
     printf("[Demo] Pushing Disk Full Alarm...\n");
-    
+
     BYTE macAddr[NET_TV_LEN_6] = {0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC};
-    InitAlarmInfo(&stAlarmInfo, "NVR-01", "192.168.1.200", 
+    InitAlarmInfo(&stAlarmInfo, "NVR-01", "192.168.1.200",
                   "SN202312120100", macAddr);
 
     stEx.uAlarmType = NET_TV_ALARM_DISK_FULL;
     stEx.uChannel = 0;
     stEx.uDiskNo = 1;
-    stEx.uStatus = 1; // 1=触发
-    
+    stEx.uStatus = 1; /* 1=触发 */
+
     if (NET_TV_SERVER_PushAlarmInfo(&stAlarmInfo, NET_TV_ALARM_BASE_EXCEPTION, &stEx, (INT32)sizeof(stEx)))
     {
         printf("[Demo] Disk Full Alarm pushed successfully!\n");
@@ -199,8 +233,13 @@ void PushDiskFullAlarm()
         printf("[Demo] Failed to push Disk Full Alarm!\n");
     }
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 PushPeopleFlowStatisticsAlarm 对应的处理。
+ * @return 无返回值。
+ */
 
-void PushPeopleFlowStatisticsAlarm()
+static void PushPeopleFlowStatisticsAlarm()
 {
     NET_Alarmer_S stAlarmInfo;
     static NET_AlarmStatisticsInfo_S stStat;
@@ -242,8 +281,13 @@ void PushPeopleFlowStatisticsAlarm()
         printf("[Demo] Failed to push People Flow Statistics Alarm!\n");
     }
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 PushFaceCompareAlarm 对应的处理。
+ * @return 无返回值。
+ */
 
-void PushFaceCompareAlarm()
+static void PushFaceCompareAlarm()
 {
     NET_Alarmer_S stAlarmInfo;
     NET_AlarmFaceCompareInfo_S stCompare = {0};
@@ -310,13 +354,13 @@ void PushFaceCompareAlarm()
     }
 }
 
-// 模拟随机报警事件
-void PushRandomAlarm()
+/* 模拟随机报警事件 */
+static void PushRandomAlarm()
 {
     static int alarmCounter = 0;
     alarmCounter++;
-    
-    // 根据计数器选择不同类型的报警
+
+    /* 根据计数器选择不同类型的报警 */
     switch (alarmCounter % 6)
     {
         case 0:
@@ -343,15 +387,15 @@ void PushRandomAlarm()
     }
 }
 
-// 回调函数：获取设备信息
-NET_TV_COMMON_ECODE_E MyDeviceInfoCb(pNET_DeviceInfo_S pInfo) 
+/* 回调函数：获取设备信息 */
+static NET_TV_COMMON_ECODE_E MyDeviceInfoCb(pNET_DeviceInfo_S pInfo)
 {
     if (!pInfo)
     {
         return NET_TV_E_FAILED;
     }
 
-    // 示例：填充最基本的设备信息（字段见 NET_DeviceInfo_S）
+    /* 示例：填充最基本的设备信息（字段见 NET_DeviceInfo_S） */
     pInfo->uDevType = 0;
     pInfo->uAlarmInPortNum = 2;
     pInfo->uAlarmOutPortNum = 1;
@@ -359,11 +403,18 @@ NET_TV_COMMON_ECODE_E MyDeviceInfoCb(pNET_DeviceInfo_S pInfo)
     return NET_TV_E_SUCCEED;
 }
 
-// 注册回调函数
-void AddRegisterCb()
+/* 注册回调函数 */
+static void AddRegisterCb()
 {
     NET_TV_SERVER_RegisterCb_GetDeviceInfo(MyDeviceInfoCb);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 运行当前 Demo 的主流程。
+ * @param [in] argc 函数处理参数。
+ * @param [in,out] argv 函数处理参数。
+ * @return 返回该处理的状态或结果。
+ */
 
 int main(int argc, char* argv[])
 {
@@ -373,47 +424,47 @@ int main(int argc, char* argv[])
     printf("This demo will simulate pushing alarm events\n");
     printf("Press Ctrl+C to stop\n");
     printf("===========================================\n\n");
-    
-    // 注册信号处理函数
+
+    /* 注册信号处理函数 */
     signal(SIGINT, signal_handler);
     signal(SIGTERM, signal_handler);
-    
-    // 初始化日志
-    initSdkLogBySize("AlarmDemo", "/opt/course/AlarmDemo.log", MAX_LOG_SIZE, MAX_LOG_FILES);
-    
-    // 设置日志输出同步输出控制台
+
+    /* 初始化日志 */
+    initSdkLogBySize("AlarmDemo", "/opt/course/AlarmDemo.log", NETSDK_DEMO_LOG_MAX_SIZE, NETSDK_DEMO_LOG_MAX_FILES);
+
+    /* 设置日志输出同步输出控制台 */
     syncPrintf(true);
-    
-    // 设置日志等级
+
+    /* 设置日志等级 */
     setLogLevel(NETSDK_LOG_TRACE);
-    
-    // 注册回调函数
+
+    /* 注册回调函数 */
     AddRegisterCb();
-    
-    // 获取端口号（从命令行参数或使用默认值）
-    UINT32 dwPort = SDKSERVER_PORT;
+
+    /* 获取端口号（从命令行参数或使用默认值） */
+    UINT32 dwPort = NETSDK_DEMO_SERVER_PORT;
     if (argc > 1)
     {
         dwPort = (UINT32)atoi(argv[1]);
     }
-    
-    // 获取用户名和密码（可选）
+
+    /* 获取用户名和密码（可选） */
     CHAR szUserName[NET_TV_LEN_132] = "admin";
     CHAR szPassword[NET_TV_LEN_132] = "Admin@123456";
-    
+
     if (argc > 2)
     {
         strncpy(szUserName, argv[2], NET_TV_LEN_132 - 1);
         szUserName[NET_TV_LEN_132 - 1] = '\0';
     }
-    
+
     if (argc > 3)
     {
         strncpy(szPassword, argv[3], NET_TV_LEN_132 - 1);
         szPassword[NET_TV_LEN_132 - 1] = '\0';
     }
-    
-    // 初始化SDK服务器
+
+    /* 初始化SDK服务器 */
     printf("[Demo] Initializing SDK Server on port %u...\n", dwPort);
     if (!NET_TV_SERVER_Init(dwPort, szUserName, szPassword))
     {
@@ -422,42 +473,42 @@ int main(int argc, char* argv[])
     }
     printf("[Demo] SDK Server initialized successfully!\n");
     printf("[Demo] Server is ready to push alarm events\n\n");
-    
-    // 主循环：定时推送报警事件
+
+    /* 主循环：定时推送报警事件 */
     int pushCount = 0;
     time_t lastPushTime = time(NULL);
-    
+
     while (g_running)
     {
         time_t currentTime = time(NULL);
-        
-        // 每ALARM_PUSH_INTERVAL秒推送一次报警
-        if (currentTime - lastPushTime >= ALARM_PUSH_INTERVAL)
+
+        /* 每ALARM_PUSH_INTERVAL秒推送一次报警 */
+        if (currentTime - lastPushTime >= NETSDK_DEMO_ALARM_PUSH_INTERVAL_SECONDS)
         {
             pushCount++;
-            printf("\n[Demo] ==== Alarm Push #%d (Time: %s) ====\n", 
+            printf("\n[Demo] ==== Alarm Push #%d (Time: %s) ====\n",
                    pushCount, ctime(&currentTime));
-            
-            // 推送随机报警事件
+
+            /* 推送随机报警事件 */
             PushRandomAlarm();
-            
+
             lastPushTime = currentTime;
-            printf("[Demo] Next alarm will be pushed in %d seconds...\n\n", 
-                   ALARM_PUSH_INTERVAL);
+            printf("[Demo] Next alarm will be pushed in %d seconds...\n\n",
+                   NETSDK_DEMO_ALARM_PUSH_INTERVAL_SECONDS);
         }
-        
-        // 休眠1秒，避免CPU占用过高
+
+        /* 休眠1秒，避免CPU占用过高 */
 #ifdef _WIN32
         Sleep(1000);
 #else
         sleep(1);
 #endif
     }
-    
-    // 清理资源
+
+    /* 清理资源 */
     printf("\n[Demo] Cleaning up...\n");
     NET_TV_SERVER_Cleanup();
     printf("[Demo] Demo stopped. Total alarms pushed: %d\n", pushCount);
-    
+
     return 0;
 }

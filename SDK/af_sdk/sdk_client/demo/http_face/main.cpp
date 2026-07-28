@@ -1,4 +1,17 @@
 /**
+ * @file main.cpp
+ * @author tianl (tianl@kfb.cn)
+ * @date 2026-07-28
+ * @LastEditors  : qinjt@kfb.cn
+ * @LastEditTime : 2026-07-28
+ *
+ * @brief SDK HTTP 人脸业务 Demo
+ * 功能说明：
+ * 1. 实现 main 模块核心逻辑
+ * 2. 校验输入参数并管理模块资源生命周期
+ * 3. 向上层提供可复用的 SDK 能力
+ */
+/**
  * @FilePath     : main.cpp
  * @Description  : HTTP 人脸推送与命令交互 Demo
  *
@@ -29,15 +42,17 @@ namespace httplib = tvsdk::httplib;
 namespace
 {
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief   : HTTP 响应结果
  */
-struct HttpResult
+struct HttpResult_S
 {
     int nStatus = 0;
     std::string strBody;
 };
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief   : 去除 URL 末尾斜杠
  * @param    {std::string} strUrl：原始 URL
  * @return   {std::string} 去除末尾斜杠后的 URL
@@ -52,31 +67,33 @@ std::string trimTrailingSlash(std::string strUrl)
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief   : 打印 HTTP 命令响应
  * @param    {std::string} &strTitle：命令标题
- * @param    {HttpResult} &stResult：HTTP 响应结果
+ * @param    {HttpResult_S} &stResult：HTTP 响应结果
  * @return   {void}
  */
-void printHttpResult(const std::string &strTitle, const HttpResult &stResult)
+void printHttpResult(const std::string &strTitle, const HttpResult_S &stResult)
 {
     std::cout << "\n[" << strTitle << "] HTTP状态码=" << stResult.nStatus << std::endl;
     std::cout << stResult.strBody << std::endl;
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief   : 发送 HTTP JSON 命令
  * @param    {std::string} &strMethod：HTTP 方法
  * @param    {std::string} &strBaseUrl：设备 CGI 基础 URL
  * @param    {std::string} &strPath：接口路径
  * @param    {std::string} &strBody：JSON 请求体，GET 可为空
- * @return   {HttpResult} HTTP 响应结果
+ * @return   {HttpResult_S} HTTP 响应结果
  */
-HttpResult sendJsonCommand(const std::string &strMethod,
+HttpResult_S sendJsonCommand(const std::string &strMethod,
                            const std::string &strBaseUrl,
                            const std::string &strPath,
                            const std::string &strBody = "")
 {
-    HttpResult stResult;
+    HttpResult_S stResult;
 
     httplib::Client cli(trimTrailingSlash(strBaseUrl));
     cli.set_connection_timeout(5, 0);
@@ -124,6 +141,7 @@ HttpResult sendJsonCommand(const std::string &strMethod,
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief   : 构造 HTTP-SDK 转发命令 JSON
  * @param    {std::string} &strCommand：SDK 命令名，例如 NET_TV_GET_FACECAPTUREINFO
  * @param    {std::string} &strDataJson：业务数据 JSON，传空时使用空对象
@@ -136,13 +154,14 @@ std::string buildSdkCommandBody(const std::string &strCommand, const std::string
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief   : 通过 HTTP-SDK 转发入口发送 SDK 命令
  * @param    {std::string} &strBaseUrl：设备 CGI 基础 URL
  * @param    {std::string} &strCommand：SDK 命令名
  * @param    {std::string} &strDataJson：业务数据 JSON
- * @return   {HttpResult} HTTP 响应结果
+ * @return   {HttpResult_S} HTTP 响应结果
  */
-HttpResult sendSdkCommand(const std::string &strBaseUrl,
+HttpResult_S sendSdkCommand(const std::string &strBaseUrl,
                           const std::string &strCommand,
                           const std::string &strDataJson = "{}")
 {
@@ -153,6 +172,7 @@ HttpResult sendSdkCommand(const std::string &strBaseUrl,
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief   : 打印 multipart 普通字段
  * @param    {httplib::Request} &req：HTTP 请求
  * @return   {void}
@@ -166,6 +186,7 @@ void printMultipartFields(const httplib::Request &req)
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief   : 打印 multipart 文件字段
  * @param    {httplib::Request} &req：HTTP 请求
  * @return   {void}
@@ -184,6 +205,7 @@ void printMultipartFiles(const httplib::Request &req)
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief   : 判断当前推送是否为人脸比对事件
  * @param    {httplib::Request} &req：HTTP 请求
  * @return   {bool} true：人脸比对 false：非人脸比对
@@ -195,6 +217,7 @@ bool isFaceCompareEvent(const httplib::Request &req)
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief   : 判断当前推送是否为人脸抓拍事件
  * @param    {httplib::Request} &req：HTTP 请求
  * @return   {bool} true：人脸抓拍 false：非人脸抓拍
@@ -206,6 +229,7 @@ bool isFaceCaptureEvent(const httplib::Request &req)
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief   : 打印人脸比对推送摘要
  * @param    {httplib::Request} &req：HTTP 请求
  * @return   {void}
@@ -223,6 +247,7 @@ void printFaceCompareSummary(const httplib::Request &req)
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief   : 打印人脸抓拍推送摘要
  * @param    {httplib::Request} &req：HTTP 请求
  * @return   {void}
@@ -237,6 +262,7 @@ void printFaceCaptureSummary(const httplib::Request &req)
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief   : 启动 HTTP 推送回调服务
  * @param    {int} nListenPort：监听端口
  * @param    {httplib::Server} &server：HTTP 服务实例
@@ -281,6 +307,7 @@ void startCallbackServer(int nListenPort, httplib::Server &server)
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief   : 发送设备 HTTP 命令示例
  * @param    {std::string} &strDeviceBaseUrl：设备 CGI 基础 URL
  * @return   {void}
@@ -338,10 +365,11 @@ void sendCommandExamples(const std::string &strDeviceBaseUrl)
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief   : 打印交互式命令菜单
  * @return   {void}
  */
-void printCommandMenu()
+static void printCommandMenu()
 {
     std::cout << "\n========== HTTP人脸命令菜单 ==========\n"
               << "1. 获取人脸抓拍配置\n"
@@ -361,6 +389,7 @@ void printCommandMenu()
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief   : 根据菜单编号发送指定 HTTP 命令
  * @param    {std::string} &strDeviceBaseUrl：设备 HTTP 基础地址
  * @param    {std::string} &strChoice：用户输入的菜单编号
@@ -504,6 +533,7 @@ bool handleMenuChoice(const std::string &strDeviceBaseUrl, const std::string &st
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief   : 运行交互式命令循环
  * @param    {std::string} &strDeviceBaseUrl：设备 HTTP 基础地址
  * @return   {void}
@@ -525,7 +555,7 @@ void runCommandLoop(const std::string &strDeviceBaseUrl)
         }
     }
 }
-} // namespace
+} /* namespace */
 
 int main(int argc, char *argv[])
 {

@@ -1,3 +1,16 @@
+/**
+ * @file main.cpp
+ * @author tianl (tianl@kfb.cn)
+ * @date 2026-07-28
+ * @LastEditors  : qinjt@kfb.cn
+ * @LastEditTime : 2026-07-28
+ *
+ * @brief 客户端报警订阅 Demo
+ * 功能说明：
+ * 1. 初始化 SDK 客户端并登录设备
+ * 2. 订阅设备报警与通道状态事件
+ * 3. 输出回调接收到的报警信息
+ */
 #include <iostream>
 #include <algorithm>
 #include <cstring>
@@ -22,6 +35,11 @@
 #ifdef _WIN32
 extern "C" __declspec(dllimport) void __stdcall Sleep(unsigned long dwMilliseconds);
 #endif
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 SaveAlarmImage 对应的处理。
+ * @return 返回该处理的状态或结果。
+ */
 
 
 static std::string SaveAlarmImage(const char* deviceIp,
@@ -71,6 +89,12 @@ static std::string SaveAlarmImage(const char* deviceIp,
         return std::string();
     }
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 SleepSeconds 定义的内部处理。
+ * @param [in] seconds 函数处理参数。
+ * @return 无返回值。
+ */
 
 static void SleepSeconds(unsigned int seconds) {
 #ifdef _WIN32
@@ -79,6 +103,12 @@ static void SleepSeconds(unsigned int seconds) {
     sleep(seconds);
 #endif
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 查询或校验 GetStatisticsTypeName 对应的数据。
+ * @param [in] type 函数处理参数。
+ * @return 返回该处理的状态或结果。
+ */
 
 
 static const char* GetStatisticsTypeName(UINT32 type) {
@@ -88,6 +118,12 @@ static const char* GetStatisticsTypeName(UINT32 type) {
         default: return "Unknown";
     }
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 查询或校验 GetAlarmBaseName 对应的数据。
+ * @param [in] command 函数处理参数。
+ * @return 返回该处理的状态或结果。
+ */
 
 static const char* GetAlarmBaseName(INT64 command) {
     switch (command & 0xF000) {
@@ -100,8 +136,14 @@ static const char* GetAlarmBaseName(INT64 command) {
         default: return "UNKNOWN_BASE";
     }
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 查询或校验 GetAlarmTypeName 对应的数据。
+ * @param [in] alarmType 函数处理参数。
+ * @return 返回该处理的状态或结果。
+ */
 
-static const char* GetAlarmTypeName(UINT32 alarmType) 
+static const char* GetAlarmTypeName(UINT32 alarmType)
 {
     switch (alarmType) {
         case NET_TV_ALARM_MOTION_DETECT: return "MOTION_DETECT";
@@ -133,6 +175,12 @@ static const char* GetAlarmTypeName(UINT32 alarmType)
         default: return "UNKNOWN_ALARM_TYPE";
     }
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 查询或校验 GetAlarmCommandName 对应的数据。
+ * @param [in] command 函数处理参数。
+ * @return 返回该处理的状态或结果。
+ */
 
 static const char* GetAlarmCommandName(INT64 command) {
     switch (command) {
@@ -153,20 +201,25 @@ static const char* GetAlarmCommandName(INT64 command) {
     }
 }
 
-// ==================== 异步图片保存 ====================
-struct ImageSaveTask {
+/* ==================== 异步图片保存 ==================== */
+struct ImageSaveTask_S {
     std::string deviceIp;
     std::string eventName;
     std::string imageKind;
     std::vector<BYTE> imageData;
 };
 
-std::queue<ImageSaveTask> g_saveQueue;
+std::queue<ImageSaveTask_S> g_saveQueue;
 std::mutex g_queueMutex;
 std::condition_variable g_queueCV;
 bool g_saveThreadRunning = true;
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 ImageSaveThread 定义的内部处理。
+ * @return 无返回值。
+ */
 
-void ImageSaveThread() {
+static void ImageSaveThread() {
     while (g_saveThreadRunning) {
         std::unique_lock<std::mutex> lock(g_queueMutex);
         g_queueCV.wait(lock, []{ return !g_saveQueue.empty() || !g_saveThreadRunning; });
@@ -174,7 +227,7 @@ void ImageSaveThread() {
         if (!g_saveThreadRunning && g_saveQueue.empty()) break;
 
         while (!g_saveQueue.empty()) {
-            ImageSaveTask task = std::move(g_saveQueue.front());
+            ImageSaveTask_S task = std::move(g_saveQueue.front());
             g_saveQueue.pop();
             lock.unlock();
 
@@ -191,8 +244,13 @@ void ImageSaveThread() {
         }
     }
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 SubmitImageSave 定义的内部处理。
+ * @return 无返回值。
+ */
 
-inline void SubmitImageSave(const char* ip, const char* event, const char* kind,
+static inline void SubmitImageSave(const char* ip, const char* event, const char* kind,
                             const BYTE* data, UINT32 len) {
     if (!data || len == 0) return;
     std::lock_guard<std::mutex> lock(g_queueMutex);
@@ -200,36 +258,36 @@ inline void SubmitImageSave(const char* ip, const char* event, const char* kind,
                       kind ? kind : "unknown", std::vector<BYTE>(data, data + len)});
     g_queueCV.notify_one();
 }
-// ==================== 异步图片保存结束 ====================
+/* ==================== 异步图片保存结束 ==================== */
 
-// Global flag to control the main loop
+/* Global flag to control the main loop */
 volatile sig_atomic_t g_running = 1;
 
-// Signal handler for Ctrl+C
-void signal_handler(int signum) {
+/* Signal handler for Ctrl+C */
+static void signal_handler(int signum) {
     if (signum == SIGINT) {
         printf("\nReceived Ctrl+C. Stopping...\n");
         g_running = 0;
     }
 }
 
-// Alarm callback function
-void STDCALL AlarmCallBack(OUT INT64 lCommand,
-                           OUT NET_Alarmer_S *pAlarmer,
-                           OUT CHAR* pAlarmInfo,
-                           OUT INT32* dwBufLen,
-                           OUT LPVOID lpUserData) {
+/* Alarm callback function */
+static void NET_TV_STDCALL AlarmCallBack(NET_TV_OUT INT64 lCommand,
+                           NET_TV_OUT NET_Alarmer_S *pAlarmer,
+                           NET_TV_OUT CHAR* pAlarmInfo,
+                           NET_TV_OUT INT32* dwBufLen,
+                           NET_TV_OUT LPVOID lpUserData) {
 
-    // 立即刷新stdout，确保日志及时输出
+    /* 立即刷新stdout，确保日志及时输出 */
     fflush(stdout);
 
-    // 第一时间打印标记（无任何格式化开销）
+    /* 第一时间打印标记（无任何格式化开销） */
     auto now_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
         std::chrono::system_clock::now().time_since_epoch()).count();
     printf("[%lld] ALARM_CB_ENTRY cmd=0x%llx\n", (long long)now_ms, (long long)lCommand);
     fflush(stdout);
 
-    // 打印当前时间戳
+    /* 打印当前时间戳 */
     {
         auto now = std::chrono::system_clock::now();
         auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
@@ -394,7 +452,7 @@ void STDCALL AlarmCallBack(OUT INT64 lCommand,
             if (targetCount > NET_TV_ALARM_STATISTICS_TARGET_MAX_NUM) {
                 targetCount = NET_TV_ALARM_STATISTICS_TARGET_MAX_NUM;
             }
-            // ========== 特写图片信息 / Close-up Image Info ==========
+            /* ========== 特写图片信息 / Close-up Image Info ========== */
             printf("  [STATISTICS/统计告警][特写图片/Close-up] 目标数量 / TargetCount: %u\n", targetCount);
             for (UINT32 i = 0; i < targetCount; ++i) {
                 const auto& target = info->stTargets[i];
@@ -423,7 +481,7 @@ void STDCALL AlarmCallBack(OUT INT64 lCommand,
                     printf("  [STATISTICS/统计告警][特写图片/Close-up][目标%u] ❌ 无图片数据 / No image\n", i);
                 }
             }
-            // ========== 全景图片信息 / Panorama Image Info ==========
+            /* ========== 全景图片信息 / Panorama Image Info ========== */
             printf("  [STATISTICS/统计告警][全景图片/Panorama] ");
             if (info->uPanoramaImgLen > 0) {
                 const UINT32 imgLen = std::min<UINT32>(info->uPanoramaImgLen, NET_TV_PIC_DATA_MAX_LEN);
@@ -436,14 +494,21 @@ void STDCALL AlarmCallBack(OUT INT64 lCommand,
                 printf("❌ 无图片数据 / No image\n");
             }
         } else {
-            // 未知结构：按字符串尝试打印（一般是 JSON 兜底透传）
+            /* 未知结构：按字符串尝试打印（一般是 JSON 兜底透传） */
             printf("  [UNKNOWN/未知类型] Alarm Info (raw): %s\n", pAlarmInfo);
         }
     }
     printf("----------------------------------------\n");
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 OnChannelStatus 定义的内部处理。
+ * @param [in,out] pInfo 函数处理参数。
+ * @param [in] pUserData 函数处理参数。
+ * @return 无返回值。
+ */
 
-void STDCALL OnChannelStatus(NET_TV_CHANNEL_INFO_S *pInfo, LPVOID pUserData)
+static void NET_TV_STDCALL OnChannelStatus(NET_TV_CHANNEL_INFO_S *pInfo, LPVOID pUserData)
  {
     (void)pUserData;
     if (!pInfo) {
@@ -452,8 +517,8 @@ void STDCALL OnChannelStatus(NET_TV_CHANNEL_INFO_S *pInfo, LPVOID pUserData)
         return;
     }
 
-    struct ChnPrev { int online; int devState; int recordStatus; };
-    static std::map<UINT32, ChnPrev> s_prev;
+    struct ChnPrev_S { int online; int devState; int recordStatus; };
+    static std::map<UINT32, ChnPrev_S> s_prev;
     static bool s_first = true;
 
     UINT32 ch = pInfo->dwChannel;
@@ -504,17 +569,22 @@ void STDCALL OnChannelStatus(NET_TV_CHANNEL_INFO_S *pInfo, LPVOID pUserData)
     s_prev[ch] = {pInfo->byOnline, pInfo->nDevState, pInfo->nRecordStatus};
     printf("----------------------------------------\n");
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 运行当前 Demo 的主流程。
+ * @return 返回该处理的状态或结果。
+ */
 
 int main() {
-    // Register signal handler
+    /* Register signal handler */
     signal(SIGINT, signal_handler);
 
     printf("Starting SDK Client Alarm Demo...\n");
 
-    // 启动图片异步保存线程
+    /* 启动图片异步保存线程 */
     std::thread saveThread(ImageSaveThread);
 
-    // Initialize SDK
+    /* Initialize SDK */
     if (!NET_TV_Init()) {
         printf("NET_TV_Init failed!\n");
         g_saveThreadRunning = false;
@@ -524,7 +594,7 @@ int main() {
     }
     printf("NET_TV_Init success.\n");
 
-        // Set log to file
+        /* Set log to file */
 #ifdef _WIN32
     const char* logDir = "root/log";
     _mkdir("root");
@@ -540,7 +610,7 @@ int main() {
         printf("NET_TV_SetLogToFile success, log directory: %s\n", logDir);
     }
 
-    // Login Information (Hardcoded as per existing demo)
+    /* Login Information (Hardcoded as per existing demo) */
     NET_TV_DEVICE_LOGIN_INFO_S struLoginInfo = {0};
     NET_DeviceInfo_S struDeviceInfo = {0};
 
@@ -551,16 +621,16 @@ int main() {
 
     printf("Logging in to %s:%d...\n", struLoginInfo.szIPAddr, struLoginInfo.dwPort);
     LPVOID lpUserID = NET_TV_Login(&struLoginInfo, &struDeviceInfo);
-    if (lpUserID == NULL) { // Assuming NULL indicates failure, usually API returns handle or ID > 0
-        // Note: The API interface says "返回值为用户ID", verify if 0 or NULL checks are appropriate.
-        // Usually pointers are checked against NULL.
+    if (lpUserID == NULL) { /* Assuming NULL indicates failure, usually API returns handle or ID > 0 */
+        /* Note: The API interface says "返回值为用户ID", verify if 0 or NULL checks are appropriate. */
+        /* Usually pointers are checked against NULL. */
         printf("NET_TV_Login failed!\n");
         NET_TV_Cleanup();
         return -1;
     }
     printf("Login success. UserID: %p\n", lpUserID);
 
-    // Set Alarm Callback
+    /* Set Alarm Callback */
     if (!NET_TV_SetAlarmCallBack(lpUserID, AlarmCallBack, NULL)) {
         printf("NET_TV_SetAlarmCallBack failed!\n");
         NET_TV_Logout(lpUserID);
@@ -577,7 +647,7 @@ int main() {
     }
     printf("SetChannelStatusCallBack success.\n");
 
-    // Start Listening
+    /* Start Listening */
     if (!NET_TV_StartListen(lpUserID)) {
         printf("NET_TV_StartListen failed!\n");
         NET_TV_Logout(lpUserID);
@@ -586,7 +656,7 @@ int main() {
     }
     printf("StartListen success. Waiting for alarms... (Press Ctrl+C to stop)\n");
 
-    // Main loop
+    /* Main loop */
     while (g_running) {
         SleepSeconds(1);
     }
@@ -600,7 +670,7 @@ int main() {
     printf("Cleaning up SDK...\n");
     NET_TV_Cleanup();
 
-    // 停止图片保存线程
+    /* 停止图片保存线程 */
     printf("Stopping image save thread...\n");
     g_saveThreadRunning = false;
     g_queueCV.notify_one();

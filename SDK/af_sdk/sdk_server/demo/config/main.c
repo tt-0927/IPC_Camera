@@ -1,16 +1,17 @@
 /**
  * @file main.c
- * @brief SDK服务端 配置(Get/Set) Demo
+ * @author tianl (tianl@kfb.cn)
+ * @date 2026-07-28
+ * @LastEditors  : qinjt@kfb.cn
+ * @LastEditTime : 2026-07-28
  *
- * 演示内容：
- * 1. 注册设备信息回调（用于客户端登录）
- * 2. 注册设备基本信息/网络配置的 Get/Set 配置回调
- * 3. 启动 SDK 服务端，等待客户端通过 NET_TV_GetDevConfig/NET_TV_SetDevConfig 访问配置
- *
- * 说明：
- * - 本 Demo 仅在内存中保存配置，不做持久化存储
- * - 主要用于演示配置获取与设置的调用流程
+ * @brief SDK 设备配置读写 Demo
+ * 功能说明：
+ * 1. 实现 main 模块核心逻辑
+ * 2. 校验输入参数并管理模块资源生命周期
+ * 3. 向上层提供可复用的 SDK 能力
  */
+
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -29,28 +30,34 @@
 #include "NetTVSDKServerInterface.h"
 
 /* 日志配置 */
-#define MAX_LOG_SIZE  (20 * 1024 * 1024)
-#define MAX_LOG_FILES (10)
+#define NETSDK_DEMO_LOG_MAX_SIZE  (20 * 1024 * 1024)
+#define NETSDK_DEMO_LOG_MAX_FILES (10)
 
 /* 服务端口与默认账号 */
-#define SDKSERVER_PORT 9888
-#define SDKSERVER_USERNAME "admin"
-#define SDKSERVER_PASSWORD "sj2@2025"
-#define DEMO_VOICECOM_PORT 9006
-#define DEMO_VOICECOM_SERVER_RECV_DUMP "/tmp/VoiceComServerRecv.audio"
+#define NETSDK_DEMO_SERVER_PORT 9888
+#define NETSDK_DEMO_SERVER_USERNAME "admin"
+#define NETSDK_DEMO_SERVER_PASSWORD "sj2@2025"
+#define NETSDK_DEMO_VOICE_COM_PORT 9006
+#define NETSDK_DEMO_VOICE_COM_SERVER_RECEIVE_DUMP "/tmp/VoiceComServerRecv.audio"
 /* 当前IPC能力只开放前4个自定义OSD槽位，结构体数组长度仍按SDK ABI保留。 */
-#define DEMO_OSD_CUSTOM_MAX_NUM NET_TV_OSD_CUSTOM_MAX_NUM
-#define DEMO_OSD_STRUCT_SLOT_NUM NET_TV_OSD_TYPE_MAX_NUM
+#define NETSDK_DEMO_OSD_CUSTOM_MAX_NUM NET_TV_OSD_CUSTOM_MAX_NUM
+#define NETSDK_DEMO_OSD_STRUCT_SLOT_NUM NET_TV_OSD_TYPE_MAX_NUM
 
-static INT32 g_serverPort = SDKSERVER_PORT;
-static CHAR g_serverUsername[NET_TV_LEN_132] = SDKSERVER_USERNAME;
-static CHAR g_serverPassword[NET_TV_LEN_132] = SDKSERVER_PASSWORD;
+static INT32 g_serverPort = NETSDK_DEMO_SERVER_PORT;
+static CHAR g_serverUsername[NET_TV_LEN_132] = NETSDK_DEMO_SERVER_USERNAME;
+static CHAR g_serverPassword[NET_TV_LEN_132] = NETSDK_DEMO_SERVER_PASSWORD;
 
 /* 运行标志，用于优雅退出 */
 static volatile sig_atomic_t g_running = 1;
 static unsigned long long g_voiceComFrameCount = 0;
 static unsigned long long g_voiceComBytes = 0;
 static FILE* g_voiceComDumpFp = NULL;
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 VoiceComSilenceByte 定义的内部处理。
+ * @param [in] enFormat 函数处理参数。
+ * @return 返回该处理的状态或结果。
+ */
 
 static unsigned char VoiceComSilenceByte(INT32 enFormat)
 {
@@ -64,6 +71,12 @@ static unsigned char VoiceComSilenceByte(INT32 enFormat)
     }
     return 0x00;
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 signal_handler 定义的内部处理。
+ * @param [in] signum 函数处理参数。
+ * @return 无返回值。
+ */
 
 static void signal_handler(int signum)
 {
@@ -73,6 +86,14 @@ static void signal_handler(int signum)
         g_running = 0;
     }
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 CopyString 对应的处理。
+ * @param [in,out] pDst 函数处理参数。
+ * @param [in] dstSize 函数处理参数。
+ * @param [in] pSrc 函数处理参数。
+ * @return 无返回值。
+ */
 
 static void CopyString(char* pDst, size_t dstSize, const char* pSrc)
 {
@@ -90,6 +111,12 @@ static void CopyString(char* pDst, size_t dstSize, const char* pSrc)
     strncpy(pDst, pSrc, dstSize - 1);
     pDst[dstSize - 1] = '\0';
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 PrintUsage 定义的内部处理。
+ * @param [in] pProgram 函数处理参数。
+ * @return 无返回值。
+ */
 
 static void PrintUsage(const char* pProgram)
 {
@@ -98,6 +125,13 @@ static void PrintUsage(const char* pProgram)
     printf("Example: %s 9888 admin sj2@2025\n",
            pProgram ? pProgram : "ConfigServerDemo");
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 ConfigureByArgs 定义的内部处理。
+ * @param [in] argc 函数处理参数。
+ * @param [in,out] argv 函数处理参数。
+ * @return 无返回值。
+ */
 
 static void ConfigureByArgs(int argc, char* argv[])
 {
@@ -224,6 +258,12 @@ static NET_TV_RECORD_SCHEDULE_S g_stRecordSchedule;
 static NET_RecordAdvancedParam_S g_stRecordAdvancedParam;
 static NET_RecordFileList_S g_stRecordFileList;
 static NET_TV_RECORD_DOWNLOAD_LIST_S g_stRecordDownloadList;
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 InitSimpleAiAlarmSchedule 对应的处理。
+ * @param [in,out] pSchedule 函数处理参数。
+ * @return 无返回值。
+ */
 
 static void InitSimpleAiAlarmSchedule(NET_AlarmSchedule_S* pSchedule)
 {
@@ -241,6 +281,12 @@ static void InitSimpleAiAlarmSchedule(NET_AlarmSchedule_S* pSchedule)
         pSchedule->stTimeSection[day][0].nEndMinute = 59;
     }
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 InitDemoSmartRegion 对应的处理。
+ * @param [in,out] pRegion 函数处理参数。
+ * @return 无返回值。
+ */
 
 static void InitDemoSmartRegion(NET_SmartRegion_S* pRegion)
 {
@@ -255,6 +301,12 @@ static void InitDemoSmartRegion(NET_SmartRegion_S* pRegion)
     pRegion->afPointX[2] = 0.8f; pRegion->afPointY[2] = 0.8f;
     pRegion->afPointX[3] = 0.2f; pRegion->afPointY[3] = 0.8f;
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 InitDemoSmartRegionRule 对应的处理。
+ * @param [in,out] pRule 函数处理参数。
+ * @return 无返回值。
+ */
 
 static void InitDemoSmartRegionRule(NET_SmartRegionRule_S* pRule)
 {
@@ -263,7 +315,7 @@ static void InitDemoSmartRegionRule(NET_SmartRegionRule_S* pRule)
         return;
     }
 
-    pRule->bEnable = TRUE;
+    pRule->bEnable = NET_TV_TRUE;
     pRule->uPointCount = 4;
     pRule->afPointX[0] = 0.2f; pRule->afPointY[0] = 0.2f;
     pRule->afPointX[1] = 0.8f; pRule->afPointY[1] = 0.2f;
@@ -274,6 +326,12 @@ static void InitDemoSmartRegionRule(NET_SmartRegionRule_S* pRule)
     pRule->dwDetectionTargetCount = 1;
     pRule->adwDetectionTarget[0] = NET_TV_TARGET_HUMAN;
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 InitDemoSmartLineRule 对应的处理。
+ * @param [in,out] pRule 函数处理参数。
+ * @return 无返回值。
+ */
 
 static void InitDemoSmartLineRule(NET_SmartLineRule_S* pRule)
 {
@@ -282,7 +340,7 @@ static void InitDemoSmartLineRule(NET_SmartLineRule_S* pRule)
         return;
     }
 
-    pRule->bEnable = TRUE;
+    pRule->bEnable = NET_TV_TRUE;
     pRule->fStartPosX = 0.2f;
     pRule->fStartPosY = 0.5f;
     pRule->fEndPosX = 0.8f;
@@ -290,6 +348,11 @@ static void InitDemoSmartLineRule(NET_SmartLineRule_S* pRule)
     pRule->enCrossDirection = NET_TV_CROSS_A_TO_B;
     pRule->nSensitivity = 50;
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 FillOsdAttr 对应的处理。
+ * @return 无返回值。
+ */
 
 static void FillOsdAttr(OsdAttribute_S* pAttr,
                         INT32 x,
@@ -323,6 +386,12 @@ static void FillOsdAttr(OsdAttribute_S* pAttr,
         strncpy(pAttr->strToken, pToken, sizeof(pAttr->strToken) - 1);
     }
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 InitDemoOsdConfig 对应的处理。
+ * @param [in,out] pCfg 函数处理参数。
+ * @return 无返回值。
+ */
 
 static void InitDemoOsdConfig(NET_TV_VIDEO_OSD_CFG_S* pCfg)
 {
@@ -336,7 +405,7 @@ static void InitDemoOsdConfig(NET_TV_VIDEO_OSD_CFG_S* pCfg)
     memset(pCfg, 0, sizeof(*pCfg));
     pCfg->enAlign = OSD_ALIFN_CUSTOMIZE;
 
-    pCfg->stOsdNameInfo.bEnable = TRUE;
+    pCfg->stOsdNameInfo.bEnable = NET_TV_TRUE;
     strncpy(pCfg->stOsdNameInfo.strName,
             "Demo-Camera",
             sizeof(pCfg->stOsdNameInfo.strName) - 1);
@@ -350,8 +419,8 @@ static void InitDemoOsdConfig(NET_TV_VIDEO_OSD_CFG_S* pCfg)
                 "#FFFFFF",
                 "name_token_0");
 
-    pCfg->stOsdTimeInfo.bEnable = TRUE;
-    pCfg->stOsdTimeInfo.bEnableWeek = TRUE;
+    pCfg->stOsdTimeInfo.bEnable = NET_TV_TRUE;
+    pCfg->stOsdTimeInfo.bEnableWeek = NET_TV_TRUE;
     pCfg->stOsdTimeInfo.enTimeFormat = OSD_TIME_FORMAT_24;
     pCfg->stOsdTimeInfo.enDateFormat = ENGLISH_YYYY_MM_DD;
     FillOsdAttr(&pCfg->stOsdTimeInfo.stOsdAttr,
@@ -364,7 +433,7 @@ static void InitDemoOsdConfig(NET_TV_VIDEO_OSD_CFG_S* pCfg)
                 "#FFFFFF",
                 "time_token_0");
 
-    for (i = 0; i < DEMO_OSD_CUSTOM_MAX_NUM; ++i)
+    for (i = 0; i < NETSDK_DEMO_OSD_CUSTOM_MAX_NUM; ++i)
     {
         char name[NET_TV_LEN_128] = {0};
         char color[NET_TV_LEN_16] = {0};
@@ -375,7 +444,7 @@ static void InitDemoOsdConfig(NET_TV_VIDEO_OSD_CFG_S* pCfg)
         snprintf(token, sizeof(token), "custom_token_%d", i);
 
         pCfg->OsdInfo[i].nId = i + 1;
-        pCfg->OsdInfo[i].bEnable = (i < 2) ? TRUE : FALSE;
+        pCfg->OsdInfo[i].bEnable = (i < 2) ? NET_TV_TRUE : NET_TV_FALSE;
         strncpy(pCfg->OsdInfo[i].strName, name, sizeof(pCfg->OsdInfo[i].strName) - 1);
         FillOsdAttr(&pCfg->OsdInfo[i].stOsdAttr,
                     32,
@@ -388,11 +457,18 @@ static void InitDemoOsdConfig(NET_TV_VIDEO_OSD_CFG_S* pCfg)
                     token);
     }
 
-    for (i = DEMO_OSD_CUSTOM_MAX_NUM; i < DEMO_OSD_STRUCT_SLOT_NUM; ++i)
+    for (i = NETSDK_DEMO_OSD_CUSTOM_MAX_NUM; i < NETSDK_DEMO_OSD_STRUCT_SLOT_NUM; ++i)
     {
         memset(&pCfg->OsdInfo[i], 0, sizeof(pCfg->OsdInfo[i]));
     }
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 PrintOsdAttr 定义的内部处理。
+ * @param [in] pPrefix 函数处理参数。
+ * @param [in] pAttr 函数处理参数。
+ * @return 无返回值。
+ */
 
 static void PrintOsdAttr(const char* pPrefix, const OsdAttribute_S* pAttr)
 {
@@ -413,6 +489,13 @@ static void PrintOsdAttr(const char* pPrefix, const OsdAttribute_S* pAttr)
            pAttr->strFontColor,
            pAttr->strToken);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 PrintOsdConfigSummary 定义的内部处理。
+ * @param [in] pTitle 函数处理参数。
+ * @param [in] pCfg 函数处理参数。
+ * @return 无返回值。
+ */
 
 static void PrintOsdConfigSummary(const char* pTitle, const NET_TV_VIDEO_OSD_CFG_S* pCfg)
 {
@@ -437,7 +520,7 @@ static void PrintOsdConfigSummary(const char* pTitle, const NET_TV_VIDEO_OSD_CFG
            pCfg->stOsdTimeInfo.enDateFormat);
     PrintOsdAttr("    ", &pCfg->stOsdTimeInfo.stOsdAttr);
 
-    for (i = 0; i < DEMO_OSD_CUSTOM_MAX_NUM; ++i)
+    for (i = 0; i < NETSDK_DEMO_OSD_CUSTOM_MAX_NUM; ++i)
     {
         if (pCfg->OsdInfo[i].bEnable)
         {
@@ -453,9 +536,15 @@ static void PrintOsdConfigSummary(const char* pTitle, const NET_TV_VIDEO_OSD_CFG
     }
 
     printf("  Enabled custom OSD count in first %d slots=%d\n",
-           DEMO_OSD_CUSTOM_MAX_NUM,
+           NETSDK_DEMO_OSD_CUSTOM_MAX_NUM,
            enabledCustomCount);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 NormalizeDemoOsdConfig 对应的处理。
+ * @param [in,out] pCfg 函数处理参数。
+ * @return 无返回值。
+ */
 
 static void NormalizeDemoOsdConfig(NET_TV_VIDEO_OSD_CFG_S* pCfg)
 {
@@ -466,7 +555,7 @@ static void NormalizeDemoOsdConfig(NET_TV_VIDEO_OSD_CFG_S* pCfg)
         return;
     }
 
-    for (i = 0; i < DEMO_OSD_CUSTOM_MAX_NUM; ++i)
+    for (i = 0; i < NETSDK_DEMO_OSD_CUSTOM_MAX_NUM; ++i)
     {
         if (pCfg->OsdInfo[i].nId <= 0)
         {
@@ -474,11 +563,16 @@ static void NormalizeDemoOsdConfig(NET_TV_VIDEO_OSD_CFG_S* pCfg)
         }
     }
 
-    for (i = DEMO_OSD_CUSTOM_MAX_NUM; i < DEMO_OSD_STRUCT_SLOT_NUM; ++i)
+    for (i = NETSDK_DEMO_OSD_CUSTOM_MAX_NUM; i < NETSDK_DEMO_OSD_STRUCT_SLOT_NUM; ++i)
     {
         memset(&pCfg->OsdInfo[i], 0, sizeof(pCfg->OsdInfo[i]));
     }
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 InitDefaultConfig 对应的处理。
+ * @return 无返回值。
+ */
 
 static void InitDefaultConfig(void)
 {
@@ -574,16 +668,16 @@ static void InitDefaultConfig(void)
     memset(&g_stRecordDownloadList, 0, sizeof(g_stRecordDownloadList));
 
     /* 人流统计配置默认值 */
-    g_stPeopleFlowStatisticsCfg.bEnable = FALSE;
+    g_stPeopleFlowStatisticsCfg.bEnable = NET_TV_FALSE;
     g_stPeopleFlowStatisticsCfg.nSensitivity = 50;
     g_stPeopleFlowStatisticsCfg.nReportInterval = 60;
     g_stPeopleFlowStatisticsCfg.enStatisticsType = NET_PeopleFlowStatTotal;
-    g_stPeopleFlowStatisticsCfg.stTimedReset.bEnable = FALSE;
+    g_stPeopleFlowStatisticsCfg.stTimedReset.bEnable = NET_TV_FALSE;
     g_stPeopleFlowStatisticsCfg.stTimedReset.nHour = 0;
     g_stPeopleFlowStatisticsCfg.stTimedReset.nMinute = 0;
 
     /* 人员密度检测配置默认值 */
-    g_stPeopleDensityDetectionCfg.bEnable = FALSE;
+    g_stPeopleDensityDetectionCfg.bEnable = NET_TV_FALSE;
     g_stPeopleDensityDetectionCfg.nSensitivity = 50;
     g_stPeopleDensityDetectionCfg.nReportInterval = 60;
 
@@ -611,10 +705,10 @@ static void InitDefaultConfig(void)
     /* 系统校时配置默认值 */
     g_stSystemNtpCfg.enTimeZone = 8;
     g_stSystemNtpCfg.enDateFormat = 0;
-    g_stSystemNtpCfg.bEnableNTPSync = FALSE;
-    g_stSystemNtpCfg.bManualSync = TRUE;
+    g_stSystemNtpCfg.bEnableNTPSync = NET_TV_FALSE;
+    g_stSystemNtpCfg.bManualSync = NET_TV_TRUE;
     strncpy(g_stSystemNtpCfg.szDateTime, "2026-06-23 10:00:00", sizeof(g_stSystemNtpCfg.szDateTime) - 1);
-    g_stSystemNtpCfg.bIsSyncWithComputer = FALSE;
+    g_stSystemNtpCfg.bIsSyncWithComputer = NET_TV_FALSE;
     strncpy(g_stSystemNtpCfg.szAddress, "time.windows.com", sizeof(g_stSystemNtpCfg.szAddress) - 1);
     g_stSystemNtpCfg.nPort = 123;
     g_stSystemNtpCfg.nSyncInterval = 60;
@@ -630,26 +724,26 @@ static void InitDefaultConfig(void)
     g_stStreamCfg.nBitrateUpperLimit = 4096;
     g_stStreamCfg.nAverageBitrate = 2048;
     g_stStreamCfg.enVideoCodec = NET_TV_VIDEO_CODE_H264;
-    g_stStreamCfg.bSmartEnable = FALSE;
+    g_stStreamCfg.bSmartEnable = NET_TV_FALSE;
     g_stStreamCfg.enEncodingComplexity = 1;
     g_stStreamCfg.nIFrameInterval = 50;
     g_stStreamCfg.enSvcEnable = 0;
     g_stStreamCfg.nBitrateSmoothing = 50;
 
     /* 音频配置默认值 */
-    g_stAudioCfg.bAudioSwitch = TRUE;
+    g_stAudioCfg.bAudioSwitch = NET_TV_TRUE;
     g_stAudioCfg.enInputType = NET_TV_AUDIO_INPUT_MICIN;
     g_stAudioCfg.enFormat = NET_TV_AUDIO_FORMAT_AAC;
     g_stAudioCfg.enSampRate = NET_TV_AUDIO_SAMPRATE_16000;
     g_stAudioCfg.enBitRate = NET_TV_AUDIO_BITRATE_64K;
     g_stAudioCfg.u32InputVolume = 60;
-    g_stAudioCfg.bDenoise = TRUE;
+    g_stAudioCfg.bDenoise = NET_TV_TRUE;
     g_stAudioCfg.enOutputType = NET_TV_AUDIO_OUTPUT_SPEAKER;
     g_stAudioCfg.u32OutputVolume = 50;
 
     /* WiFi配置默认值 */
-    g_stWifiStaCfg.bEnableWifi = TRUE;
-    g_stWifiStaCfg.bEnableBoost = FALSE;
+    g_stWifiStaCfg.bEnableWifi = NET_TV_TRUE;
+    g_stWifiStaCfg.bEnableBoost = NET_TV_FALSE;
 
     strncpy(g_stWifiStaConnect.szSsid, "DemoWifi", sizeof(g_stWifiStaConnect.szSsid) - 1);
     g_stWifiStaConnect.nSecurityMode = NET_TV_WIFI_SECURITY_WPA_PERSONAL;
@@ -657,7 +751,7 @@ static void InitDefaultConfig(void)
     strncpy(g_stWifiStaConnect.szPassword, "12345678", sizeof(g_stWifiStaConnect.szPassword) - 1);
     strncpy(g_stWifiStaConnect.szPairwise, "CCMP", sizeof(g_stWifiStaConnect.szPairwise) - 1);
     g_stWifiStaConnect.nWepKeyLen = 128;
-    g_stWifiStaConnect.bWepIsHex = FALSE;
+    g_stWifiStaConnect.bWepIsHex = NET_TV_FALSE;
     strncpy(g_stWifiStaConnect.szAuthAlg, "OPEN", sizeof(g_stWifiStaConnect.szAuthAlg) - 1);
     g_stWifiStaConnect.nWepKeyCount = 1;
     g_stWifiStaConnect.astWepKeys[0].nIndex = 1;
@@ -672,7 +766,7 @@ static void InitDefaultConfig(void)
     g_st4GInfo.nNetworkMode = 0;
     g_st4GInfo.nDialMode = 0;
 
-    g_stHotspotInfo.bEnabled = FALSE;
+    g_stHotspotInfo.bEnabled = NET_TV_FALSE;
     strncpy(g_stHotspotInfo.szSsid, "DemoHotspot", sizeof(g_stHotspotInfo.szSsid) - 1);
     strncpy(g_stHotspotInfo.szSecurityMode, "WPA2-personal", sizeof(g_stHotspotInfo.szSecurityMode) - 1);
     strncpy(g_stHotspotInfo.szEncryptionType, "TKIP", sizeof(g_stHotspotInfo.szEncryptionType) - 1);
@@ -692,20 +786,20 @@ static void InitDefaultConfig(void)
     strncpy(g_stHotspotConnInfo.astDevices[1].szConnTime, "2026-04-30 10:05:00", sizeof(g_stHotspotConnInfo.astDevices[1].szConnTime) - 1);
 
     /* 安全服务、日志与日志服务器默认值 */
-    g_stSecurityServicesInfo.stLoginLock.bIllegalLoginEnable = TRUE;
+    g_stSecurityServicesInfo.stLoginLock.bIllegalLoginEnable = NET_TV_TRUE;
     g_stSecurityServicesInfo.stLoginLock.nCheckInterval = 30;
     g_stSecurityServicesInfo.stLoginLock.nMaxErrorTimes = 5;
     g_stSecurityServicesInfo.stLoginLock.nLockDuration = 0;
-    g_stSecurityServicesInfo.stPwdPolicy.bPwdSecurityLevelEnable = FALSE;
-    g_stSecurityServicesInfo.stPwdPolicy.bAllowLowLevelPwdLogin = FALSE;
-    g_stSecurityServicesInfo.stSshAdmin.bSshEnable = FALSE;
+    g_stSecurityServicesInfo.stPwdPolicy.bPwdSecurityLevelEnable = NET_TV_FALSE;
+    g_stSecurityServicesInfo.stPwdPolicy.bAllowLowLevelPwdLogin = NET_TV_FALSE;
+    g_stSecurityServicesInfo.stSshAdmin.bSshEnable = NET_TV_FALSE;
     g_stSecurityServicesInfo.stSshAdmin.nSshPort = 22;
     strncpy(g_stSecurityServicesInfo.stSshAdmin.szSshStartTime, "2026-05-06 10:00:00", sizeof(g_stSecurityServicesInfo.stSshAdmin.szSshStartTime) - 1);
     strncpy(g_stSecurityServicesInfo.stSshAdmin.szSshCountdown, "08:00:00", sizeof(g_stSecurityServicesInfo.stSshAdmin.szSshCountdown) - 1);
     strncpy(g_stSshCountdownInfo.szCountdown, "08:00:00", sizeof(g_stSshCountdownInfo.szCountdown) - 1);
 
-    g_stLogServerInfo.bEnable = TRUE;
-    g_stLogServerInfo.bEnSsl = FALSE;
+    g_stLogServerInfo.bEnable = NET_TV_TRUE;
+    g_stLogServerInfo.bEnSsl = NET_TV_FALSE;
     strncpy(g_stLogServerInfo.szServerAddr, "oam.itc-pa.cn", sizeof(g_stLogServerInfo.szServerAddr) - 1);
     g_stLogServerInfo.nPort = 1883;
 
@@ -744,7 +838,7 @@ static void InitDefaultConfig(void)
 
     g_stRecordStatusInfo.nStatus = NET_TV_RECORD_STATUS_STOP;
 
-    g_stRecordSchedule.bEnable = TRUE;
+    g_stRecordSchedule.bEnable = NET_TV_TRUE;
     g_stRecordSchedule.nDayScheduleCount = NET_TV_PLAN_DAY_NUM_AWEEK;
     for (int i = 0; i < NET_TV_PLAN_DAY_NUM_AWEEK; ++i)
     {
@@ -755,7 +849,7 @@ static void InitDefaultConfig(void)
         g_stRecordSchedule.astDaySchedules[i].astRecordTimes[0].nEndTime = 86400;
     }
 
-    g_stRecordAdvancedParam.bLoopWrite = TRUE;
+    g_stRecordAdvancedParam.bLoopWrite = NET_TV_TRUE;
     g_stRecordAdvancedParam.nPreTime = 0;
     g_stRecordAdvancedParam.nDelayTime = 5;
     g_stRecordAdvancedParam.nStreamType = 0;
@@ -789,8 +883,8 @@ static void InitDefaultConfig(void)
     InitDemoOsdConfig(&g_stOsdCfg);
 
     /* 移动侦测配置默认值 */
-    g_stMotionAlarmInfo.bEnable = TRUE;
-    g_stMotionAlarmInfo.bDynamicAnalysisEnable = FALSE;
+    g_stMotionAlarmInfo.bEnable = NET_TV_TRUE;
+    g_stMotionAlarmInfo.bDynamicAnalysisEnable = NET_TV_FALSE;
     g_stMotionAlarmInfo.dwMode = NET_TV_MOTION_MODE_NORMAL;
     g_stMotionAlarmInfo.stNormalMode.nSensitivity = 50;
     g_stMotionAlarmInfo.stNormalMode.nRegionType = 0; /* 筒型 */
@@ -809,17 +903,17 @@ static void InitDefaultConfig(void)
     }
 
     /* 隐私遮盖配置默认值 */
-    g_stPrivacyMaskCfg.bEnable = TRUE;
+    g_stPrivacyMaskCfg.bEnable = NET_TV_TRUE;
     g_stPrivacyMaskCfg.dwAreaCount = 1;
     g_stPrivacyMaskCfg.astArea[0].nAreaID = 0;
-    g_stPrivacyMaskCfg.astArea[0].bEnable = TRUE;
+    g_stPrivacyMaskCfg.astArea[0].bEnable = NET_TV_TRUE;
     g_stPrivacyMaskCfg.astArea[0].nRectLeft = 100;
     g_stPrivacyMaskCfg.astArea[0].nRectTop = 100;
     g_stPrivacyMaskCfg.astArea[0].nRectRight = 400;
     g_stPrivacyMaskCfg.astArea[0].nRectBottom = 300;
 
     /* 遮挡报警配置默认值 */
-    g_stTamperAlarmInfo.bEnable = FALSE;
+    g_stTamperAlarmInfo.bEnable = NET_TV_FALSE;
     g_stTamperAlarmInfo.dwSensitivity = 2;
     g_stTamperAlarmInfo.nRectLeft = 200;
     g_stTamperAlarmInfo.nRectTop = 200;
@@ -835,9 +929,9 @@ static void InitDefaultConfig(void)
     }
 
     /* 越界检测配置默认值 */
-    g_stCrossLineAlarmInfo.bEnable = FALSE;
+    g_stCrossLineAlarmInfo.bEnable = NET_TV_FALSE;
     g_stCrossLineAlarmInfo.uRuleCount = 1;
-    g_stCrossLineAlarmInfo.astRule[0].bEnable = TRUE;
+    g_stCrossLineAlarmInfo.astRule[0].bEnable = NET_TV_TRUE;
     g_stCrossLineAlarmInfo.astRule[0].fStartPosX = 0.1f;
     g_stCrossLineAlarmInfo.astRule[0].fStartPosY = 0.5f;
     g_stCrossLineAlarmInfo.astRule[0].fEndPosX = 0.9f;
@@ -856,9 +950,9 @@ static void InitDefaultConfig(void)
     }
 
     /* 入侵检测配置默认值 */
-    g_stIntrusionAlarmInfo.bEnable = FALSE;
+    g_stIntrusionAlarmInfo.bEnable = NET_TV_FALSE;
     g_stIntrusionAlarmInfo.uRuleCount = 1;
-    g_stIntrusionAlarmInfo.astRule[0].bEnable = TRUE;
+    g_stIntrusionAlarmInfo.astRule[0].bEnable = NET_TV_TRUE;
     g_stIntrusionAlarmInfo.astRule[0].uPointCount = 4;
     /* 矩形区域：左上、右上、右下、左下 */
     g_stIntrusionAlarmInfo.astRule[0].afPointX[0] = 0.2f; g_stIntrusionAlarmInfo.astRule[0].afPointY[0] = 0.2f;
@@ -879,9 +973,9 @@ static void InitDefaultConfig(void)
     }
 
     /* 进入区域侦测配置默认值 */
-    g_stEnterRegionAlarmInfo.bEnable = FALSE;
+    g_stEnterRegionAlarmInfo.bEnable = NET_TV_FALSE;
     g_stEnterRegionAlarmInfo.uRuleCount = 1;
-    g_stEnterRegionAlarmInfo.astRule[0].bEnable = TRUE;
+    g_stEnterRegionAlarmInfo.astRule[0].bEnable = NET_TV_TRUE;
     g_stEnterRegionAlarmInfo.astRule[0].uPointCount = 4;
     g_stEnterRegionAlarmInfo.astRule[0].afPointX[0] = 0.2f; g_stEnterRegionAlarmInfo.astRule[0].afPointY[0] = 0.2f;
     g_stEnterRegionAlarmInfo.astRule[0].afPointX[1] = 0.8f; g_stEnterRegionAlarmInfo.astRule[0].afPointY[1] = 0.2f;
@@ -914,9 +1008,9 @@ static void InitDefaultConfig(void)
     }
 
     /* 徘徊侦测配置默认值 */
-    g_stLoiteringAlarmInfo.bEnable = FALSE;
+    g_stLoiteringAlarmInfo.bEnable = NET_TV_FALSE;
     g_stLoiteringAlarmInfo.uRuleCount = 1;
-    g_stLoiteringAlarmInfo.astRule[0].bEnable = TRUE;
+    g_stLoiteringAlarmInfo.astRule[0].bEnable = NET_TV_TRUE;
     g_stLoiteringAlarmInfo.astRule[0].uPointCount = 4;
     /* 矩形区域：左上、右上、右下、左下 */
     g_stLoiteringAlarmInfo.astRule[0].afPointX[0] = 0.2f; g_stLoiteringAlarmInfo.astRule[0].afPointY[0] = 0.2f;
@@ -937,7 +1031,7 @@ static void InitDefaultConfig(void)
     }
 
     /* 场景变更侦测配置默认值 */
-    g_stSceneChangeAlarmInfo.bEnable = FALSE;
+    g_stSceneChangeAlarmInfo.bEnable = NET_TV_FALSE;
     g_stSceneChangeAlarmInfo.nSensitivity = 50;
     for (int day = 0; day < 7; day++)
     {
@@ -949,7 +1043,7 @@ static void InitDefaultConfig(void)
     }
 
     /* 人员聚集侦测配置默认值 */
-    g_stCrowdGatheringAlarmInfo.bEnable = FALSE;
+    g_stCrowdGatheringAlarmInfo.bEnable = NET_TV_FALSE;
     g_stCrowdGatheringAlarmInfo.uRuleCount = 1;
     g_stCrowdGatheringAlarmInfo.astRule[0].uPointCount = 4;
     g_stCrowdGatheringAlarmInfo.astRule[0].afPointX[0] = 0.2f; g_stCrowdGatheringAlarmInfo.astRule[0].afPointY[0] = 0.2f;
@@ -967,7 +1061,7 @@ static void InitDefaultConfig(void)
     }
 
     /* 停车侦测配置默认值 */
-    g_stParkingAlarmInfo.bEnable = FALSE;
+    g_stParkingAlarmInfo.bEnable = NET_TV_FALSE;
     g_stParkingAlarmInfo.uRuleCount = 1;
     g_stParkingAlarmInfo.astRule[0].uPointCount = 4;
     g_stParkingAlarmInfo.astRule[0].afPointX[0] = 0.2f; g_stParkingAlarmInfo.astRule[0].afPointY[0] = 0.2f;
@@ -986,7 +1080,7 @@ static void InitDefaultConfig(void)
     }
 
     /* 物品遗留侦测配置默认值 */
-    g_stUnattendedObjectAlarmInfo.bEnable = FALSE;
+    g_stUnattendedObjectAlarmInfo.bEnable = NET_TV_FALSE;
     g_stUnattendedObjectAlarmInfo.dwRuleCount = 1;
     g_stUnattendedObjectAlarmInfo.astRule[0].uPointCount = 4;
     g_stUnattendedObjectAlarmInfo.astRule[0].afPointX[0] = 0.2f; g_stUnattendedObjectAlarmInfo.astRule[0].afPointY[0] = 0.2f;
@@ -1005,7 +1099,7 @@ static void InitDefaultConfig(void)
     }
 
     /* 物品拿取侦测配置默认值 */
-    g_stObjectRemovalAlarmInfo.bEnable = FALSE;
+    g_stObjectRemovalAlarmInfo.bEnable = NET_TV_FALSE;
     g_stObjectRemovalAlarmInfo.uRuleCount = 1;
     g_stObjectRemovalAlarmInfo.astRule[0].uPointCount = 4;
     g_stObjectRemovalAlarmInfo.astRule[0].afPointX[0] = 0.2f; g_stObjectRemovalAlarmInfo.astRule[0].afPointY[0] = 0.2f;
@@ -1024,12 +1118,12 @@ static void InitDefaultConfig(void)
     }
 
     /* 音频异常侦测配置默认值 */
-    g_stAudioAnomalyAlarmInfo.bEnable = FALSE;
-    g_stAudioAnomalyAlarmInfo.bAudioInputAnomaly = TRUE;
-    g_stAudioAnomalyAlarmInfo.bUpEnable = TRUE;
+    g_stAudioAnomalyAlarmInfo.bEnable = NET_TV_FALSE;
+    g_stAudioAnomalyAlarmInfo.bAudioInputAnomaly = NET_TV_TRUE;
+    g_stAudioAnomalyAlarmInfo.bUpEnable = NET_TV_TRUE;
     g_stAudioAnomalyAlarmInfo.nUpSensitivity = 50;
     g_stAudioAnomalyAlarmInfo.nUpThreshold = 50;
-    g_stAudioAnomalyAlarmInfo.bDownEnable = FALSE;
+    g_stAudioAnomalyAlarmInfo.bDownEnable = NET_TV_FALSE;
     g_stAudioAnomalyAlarmInfo.nDownSensitivity = 50;
     for (int day = 0; day < 7; day++)
     {
@@ -1045,7 +1139,7 @@ static void InitDefaultConfig(void)
     g_stImageCfg.nContrast = 50;
     g_stImageCfg.nSaturation = 50;
     g_stImageCfg.nSharpness = 50;
-    
+
     /* 预览信息默认值 */
     strncpy(g_stPreviewInfo.stRtspUrl.szRtspMainUrl,
             "rtsp://127.0.0.1:554/live/main",
@@ -1061,8 +1155,8 @@ static void InitDefaultConfig(void)
     g_stPreviewInfo.stImageParam.nSharpness = 50;
 
       /* 通道信息默认值 */
-    g_stChannelInfo.byEnable = TRUE;
-    g_stChannelInfo.byOnline = TRUE;
+    g_stChannelInfo.byEnable = NET_TV_TRUE;
+    g_stChannelInfo.byOnline = NET_TV_TRUE;
     g_stChannelInfo.byStreamType = 0;
     g_stChannelInfo.dwChannel = 1;
 
@@ -1086,9 +1180,9 @@ static void InitDefaultConfig(void)
             sizeof(g_stChannelInfo.szDeviceIP) - 1);
 
     /* 对讲相关默认值 */
-    g_stTalkbackStateInfo.bEnable = FALSE;
+    g_stTalkbackStateInfo.bEnable = NET_TV_FALSE;
     strncpy(g_stTalkbackStateInfo.szSdp,
-            "v=0\\r\\no=- 0 0 IN IP4 127.0.0.1\\r\\ns=Talkback\\r\\n",
+            "v=0\\r\\no=- 0 0 NET_TV_IN IP4 127.0.0.1\\r\\ns=Talkback\\r\\n",
             sizeof(g_stTalkbackStateInfo.szSdp) - 1);
     strncpy(g_stTalkbackStateInfo.szUrl,
             "rtsp://127.0.0.1:554/talkback",
@@ -1101,7 +1195,7 @@ static void InitDefaultConfig(void)
     g_stTalkbackToStreamInfo.nPort = 5004;
     g_stTalkbackToStreamInfo.nChnId = 1;
     g_stTalkbackToStreamInfo.nUserID = 1001;
-    g_stTalkbackToStreamInfo.bMainStream = TRUE;
+    g_stTalkbackToStreamInfo.bMainStream = NET_TV_TRUE;
     strncpy(g_stTalkbackToStreamInfo.szProtocol, "rtp", sizeof(g_stTalkbackToStreamInfo.szProtocol) - 1);
     strncpy(g_stTalkbackToStreamInfo.szStartTime, "2026-01-01 08:00:00", sizeof(g_stTalkbackToStreamInfo.szStartTime) - 1);
     strncpy(g_stTalkbackToStreamInfo.szEndTime, "2026-01-01 08:30:00", sizeof(g_stTalkbackToStreamInfo.szEndTime) - 1);
@@ -1129,7 +1223,7 @@ static void InitDefaultConfig(void)
     /* 抓图参数默认值 */
     memset(&g_stCaptureParamInfo, 0, sizeof(g_stCaptureParamInfo));
 
-    g_stCaptureParamInfo.stCaptureTimingConfig.bEnable = TRUE;
+    g_stCaptureParamInfo.stCaptureTimingConfig.bEnable = NET_TV_TRUE;
     g_stCaptureParamInfo.stCaptureTimingConfig.enPictureFormat = NET_TV_CAPTURE_PICTURE_FORMAT_JPEG;
     g_stCaptureParamInfo.stCaptureTimingConfig.nWidth = 1920;
     g_stCaptureParamInfo.stCaptureTimingConfig.nHeight = 1080;
@@ -1138,7 +1232,7 @@ static void InitDefaultConfig(void)
     g_stCaptureParamInfo.stCaptureTimingConfig.enTimeUnit = NET_TV_CAPTURE_TIME_UNIT_MILLISECONDS;
     g_stCaptureParamInfo.stCaptureTimingConfig.unNumber = 20;
 
-    g_stCaptureParamInfo.stCaptureEventConfig.bEnable = TRUE;
+    g_stCaptureParamInfo.stCaptureEventConfig.bEnable = NET_TV_TRUE;
     g_stCaptureParamInfo.stCaptureEventConfig.enPictureFormat = NET_TV_CAPTURE_PICTURE_FORMAT_JPEG;
     g_stCaptureParamInfo.stCaptureEventConfig.nWidth = 1920;
     g_stCaptureParamInfo.stCaptureEventConfig.nHeight = 1080;
@@ -1149,7 +1243,7 @@ static void InitDefaultConfig(void)
 
     /* 曝光信息默认值 */
     g_stExposureInfo.enExpTime = 0;
-    g_stExposureInfo.bAntiBanding = TRUE;
+    g_stExposureInfo.bAntiBanding = NET_TV_TRUE;
 
     /* 日夜转换信息默认值 */
     g_stDayNightInfo.enDayNightMode = 0;
@@ -1163,19 +1257,19 @@ static void InitDefaultConfig(void)
     g_stDayNightInfo.nEndMilliSec = 0;
     g_stDayNightInfo.nSensitivityLevel = 50;
     g_stDayNightInfo.nFilterTime = 5;
-    g_stDayNightInfo.bFillLightExp = TRUE;
+    g_stDayNightInfo.bFillLightExp = NET_TV_TRUE;
     g_stDayNightInfo.enLightMode = 0;
     g_stDayNightInfo.enLightType = 0;
-    g_stDayNightInfo.bWhiteLightEnable = TRUE;
+    g_stDayNightInfo.bWhiteLightEnable = NET_TV_TRUE;
     g_stDayNightInfo.nWhiteLightLevel = 50;
-    g_stDayNightInfo.bRedLightEnable = FALSE;
+    g_stDayNightInfo.bRedLightEnable = NET_TV_FALSE;
     g_stDayNightInfo.nRedLightLevel = 0;
 
     /* 背光信息默认值 */
     g_stBackLightInfo.enBackLightArea = 0;
-    g_stBackLightInfo.bWdrEnable = TRUE;
+    g_stBackLightInfo.bWdrEnable = NET_TV_TRUE;
     g_stBackLightInfo.nWdrLevel = 50;
-    g_stBackLightInfo.bHlsEnable = FALSE;
+    g_stBackLightInfo.bHlsEnable = NET_TV_FALSE;
     g_stBackLightInfo.nHlsLevel = 0;
 
     /* 降噪信息默认值 */
@@ -1190,7 +1284,7 @@ static void InitDefaultConfig(void)
     g_stWhiteBalanceInfo.nBGain = 100;
 
     /* 人脸抓拍配置默认值 */
-    g_stFaceCaptureInfo.bEnable = FALSE;
+    g_stFaceCaptureInfo.bEnable = NET_TV_FALSE;
     g_stFaceCaptureInfo.stRule.nSensitivity = 55;
     g_stFaceCaptureInfo.stRule.stRegion.uPointCount = 4;
     g_stFaceCaptureInfo.stRule.stRegion.afPointX[0] = 0.20f; g_stFaceCaptureInfo.stRule.stRegion.afPointY[0] = 0.20f;
@@ -1222,7 +1316,7 @@ static void InitDefaultConfig(void)
     }
 
     /* 人脸比对配置默认值 */
-    g_stFaceCompareInfo.bEnable = FALSE;
+    g_stFaceCompareInfo.bEnable = NET_TV_FALSE;
     InitSimpleAiAlarmSchedule(&g_stFaceCompareInfo.stAlarmSchedule);
     g_stFaceCompareInfo.stLinkageListSuccess.dwSnapshotChannelCount = 1;
     g_stFaceCompareInfo.stLinkageListSuccess.adwSnapshotChannel[0] = 1;
@@ -1267,7 +1361,7 @@ static void InitDefaultConfig(void)
     g_stFaceInfoList.astFaceInfos[0].nRatingLevel = 3;
 
     /* 垃圾暴露配置默认值 */
-    g_stGarbageExposureCfg.bEnable = FALSE;
+    g_stGarbageExposureCfg.bEnable = NET_TV_FALSE;
     g_stGarbageExposureCfg.stRule.nSensitivity = 50;
     g_stGarbageExposureCfg.stRule.uPointCount = 4;
     g_stGarbageExposureCfg.stRule.afPointX[0] = 0.2f; g_stGarbageExposureCfg.stRule.afPointY[0] = 0.2f;
@@ -1284,7 +1378,7 @@ static void InitDefaultConfig(void)
     }
 
     /* 垃圾满溢配置默认值 */
-    g_stGarbageOverflowCfg.bEnable = FALSE;
+    g_stGarbageOverflowCfg.bEnable = NET_TV_FALSE;
     g_stGarbageOverflowCfg.stRule.nSensitivity = 50;
     g_stGarbageOverflowCfg.stRule.uPointCount = 4;
     g_stGarbageOverflowCfg.stRule.afPointX[0] = 0.2f; g_stGarbageOverflowCfg.stRule.afPointY[0] = 0.2f;
@@ -1301,116 +1395,116 @@ static void InitDefaultConfig(void)
         g_stGarbageOverflowCfg.stAlarmSchedule.astTimeSection[day][0].nEndMinute = 59;
     }
 
-    g_stManholeCoverAbnormalCfg.bEnable = FALSE;
+    g_stManholeCoverAbnormalCfg.bEnable = NET_TV_FALSE;
     g_stManholeCoverAbnormalCfg.stRule.nSensitivity = 50;
     InitSimpleAiAlarmSchedule(&g_stManholeCoverAbnormalCfg.stAlarmSchedule);
 
-    g_stSleepOnDutyCfg.bEnable = FALSE;
+    g_stSleepOnDutyCfg.bEnable = NET_TV_FALSE;
     g_stSleepOnDutyCfg.stRule.nSensitivity = 50;
     InitSimpleAiAlarmSchedule(&g_stSleepOnDutyCfg.stAlarmSchedule);
 
-    g_stElectricVehicleInElevatorCfg.bEnable = FALSE;
+    g_stElectricVehicleInElevatorCfg.bEnable = NET_TV_FALSE;
     g_stElectricVehicleInElevatorCfg.stRule.nSensitivity = 50;
     InitSimpleAiAlarmSchedule(&g_stElectricVehicleInElevatorCfg.stAlarmSchedule);
 
-    g_stPersonFallDownCfg.bEnable = FALSE;
+    g_stPersonFallDownCfg.bEnable = NET_TV_FALSE;
     g_stPersonFallDownCfg.stRule.nSensitivity = 50;
     InitSimpleAiAlarmSchedule(&g_stPersonFallDownCfg.stAlarmSchedule);
 
-    g_stConstructionOccupyRoadCfg.bEnable = FALSE;
+    g_stConstructionOccupyRoadCfg.bEnable = NET_TV_FALSE;
     g_stConstructionOccupyRoadCfg.stRule.nSensitivity = 50;
     InitSimpleAiAlarmSchedule(&g_stConstructionOccupyRoadCfg.stAlarmSchedule);
 
-    g_stCongestionCfg.bEnable = FALSE;
+    g_stCongestionCfg.bEnable = NET_TV_FALSE;
     g_stCongestionCfg.stRule.nSensitivity = 50;
     InitSimpleAiAlarmSchedule(&g_stCongestionCfg.stAlarmSchedule);
 
-    g_stLicensePlateRecognitionCfg.bEnable = FALSE;
+    g_stLicensePlateRecognitionCfg.bEnable = NET_TV_FALSE;
     g_stLicensePlateRecognitionCfg.stRule.nSensitivity = 50;
     InitSimpleAiAlarmSchedule(&g_stLicensePlateRecognitionCfg.stAlarmSchedule);
 
-    g_stHighAltitudeSeatbeltCfg.bEnable = FALSE;
+    g_stHighAltitudeSeatbeltCfg.bEnable = NET_TV_FALSE;
     g_stHighAltitudeSeatbeltCfg.stRule.nSensitivity = 50;
     InitSimpleAiAlarmSchedule(&g_stHighAltitudeSeatbeltCfg.stAlarmSchedule);
 
-    g_stSafetyHelmetCfg.bEnable = FALSE;
+    g_stSafetyHelmetCfg.bEnable = NET_TV_FALSE;
     g_stSafetyHelmetCfg.stRule.nSensitivity = 50;
     InitSimpleAiAlarmSchedule(&g_stSafetyHelmetCfg.stAlarmSchedule);
 
-    g_stPersonFallCfg.bEnable = FALSE;
+    g_stPersonFallCfg.bEnable = NET_TV_FALSE;
     g_stPersonFallCfg.stRule.nSensitivity = 50;
     InitSimpleAiAlarmSchedule(&g_stPersonFallCfg.stAlarmSchedule);
 
-    g_stPhoneUsageCfg.bEnable = FALSE;
+    g_stPhoneUsageCfg.bEnable = NET_TV_FALSE;
     g_stPhoneUsageCfg.stRule.nSensitivity = 50;
     InitSimpleAiAlarmSchedule(&g_stPhoneUsageCfg.stAlarmSchedule);
 
-    g_stSmokingCfg.bEnable = FALSE;
+    g_stSmokingCfg.bEnable = NET_TV_FALSE;
     g_stSmokingCfg.stRule.nSensitivity = 50;
     InitSimpleAiAlarmSchedule(&g_stSmokingCfg.stAlarmSchedule);
 
-    g_stOpenFlameCfg.bEnable = FALSE;
+    g_stOpenFlameCfg.bEnable = NET_TV_FALSE;
     g_stOpenFlameCfg.stRule.nSensitivity = 50;
     InitSimpleAiAlarmSchedule(&g_stOpenFlameCfg.stAlarmSchedule);
 
-    g_stBareSoilCfg.bEnable = FALSE;
+    g_stBareSoilCfg.bEnable = NET_TV_FALSE;
     g_stBareSoilCfg.stRule.nSensitivity = 50;
     InitSimpleAiAlarmSchedule(&g_stBareSoilCfg.stAlarmSchedule);
 
-    g_stHoleProtectionBarCfg.bEnable = FALSE;
+    g_stHoleProtectionBarCfg.bEnable = NET_TV_FALSE;
     g_stHoleProtectionBarCfg.stRule.nSensitivity = 50;
     InitSimpleAiAlarmSchedule(&g_stHoleProtectionBarCfg.stAlarmSchedule);
 
-    g_stReflectiveClothingCfg.bEnable = FALSE;
+    g_stReflectiveClothingCfg.bEnable = NET_TV_FALSE;
     g_stReflectiveClothingCfg.stRule.nSensitivity = 50;
     InitSimpleAiAlarmSchedule(&g_stReflectiveClothingCfg.stAlarmSchedule);
 
-    g_stPetRecognitionInfo.bEnable = FALSE;
-    g_stPetRecognitionInfo.bDynamicAnalysisEnable = FALSE;
+    g_stPetRecognitionInfo.bEnable = NET_TV_FALSE;
+    g_stPetRecognitionInfo.bDynamicAnalysisEnable = NET_TV_FALSE;
     g_stPetRecognitionInfo.nSensitivity = 50;
     InitDemoSmartRegion(&g_stPetRecognitionInfo.stRegion);
     InitSimpleAiAlarmSchedule(&g_stPetRecognitionInfo.stAlarmSchedule);
 
-    g_stClimbFenceInfo.bEnable = FALSE;
+    g_stClimbFenceInfo.bEnable = NET_TV_FALSE;
     g_stClimbFenceInfo.dwRuleCount = 1;
     InitDemoSmartRegionRule(&g_stClimbFenceInfo.astRule[0]);
     InitSimpleAiAlarmSchedule(&g_stClimbFenceInfo.stAlarmSchedule);
 
-    g_stDimissionInfo.bEnable = FALSE;
+    g_stDimissionInfo.bEnable = NET_TV_FALSE;
     g_stDimissionInfo.dwRuleCount = 1;
     InitDemoSmartRegionRule(&g_stDimissionInfo.astRule[0]);
     InitSimpleAiAlarmSchedule(&g_stDimissionInfo.stAlarmSchedule);
 
-    g_stIllegalLaneInfo.bEnable = FALSE;
+    g_stIllegalLaneInfo.bEnable = NET_TV_FALSE;
     g_stIllegalLaneInfo.dwRuleCount = 1;
     InitDemoSmartLineRule(&g_stIllegalLaneInfo.astRule[0]);
     InitSimpleAiAlarmSchedule(&g_stIllegalLaneInfo.stAlarmSchedule);
 
-    g_stRetrogradeInfo.bEnable = FALSE;
+    g_stRetrogradeInfo.bEnable = NET_TV_FALSE;
     g_stRetrogradeInfo.dwRuleCount = 1;
     InitDemoSmartLineRule(&g_stRetrogradeInfo.astRule[0]);
     InitSimpleAiAlarmSchedule(&g_stRetrogradeInfo.stAlarmSchedule);
 
-    g_stNonmotorVehicleIntrusionInfo.bEnable = FALSE;
+    g_stNonmotorVehicleIntrusionInfo.bEnable = NET_TV_FALSE;
     g_stNonmotorVehicleIntrusionInfo.dwRuleCount = 1;
     InitDemoSmartRegionRule(&g_stNonmotorVehicleIntrusionInfo.astRule[0]);
     InitSimpleAiAlarmSchedule(&g_stNonmotorVehicleIntrusionInfo.stAlarmSchedule);
 
-    g_stOccupationEmergencyInfo.bEnable = FALSE;
+    g_stOccupationEmergencyInfo.bEnable = NET_TV_FALSE;
     g_stOccupationEmergencyInfo.dwRuleCount = 1;
     InitDemoSmartRegionRule(&g_stOccupationEmergencyInfo.astRule[0]);
     InitSimpleAiAlarmSchedule(&g_stOccupationEmergencyInfo.stAlarmSchedule);
 
-    g_stPedestrianIntrusionInfo.bEnable = FALSE;
+    g_stPedestrianIntrusionInfo.bEnable = NET_TV_FALSE;
     g_stPedestrianIntrusionInfo.dwRuleCount = 1;
     InitDemoSmartRegionRule(&g_stPedestrianIntrusionInfo.astRule[0]);
     InitSimpleAiAlarmSchedule(&g_stPedestrianIntrusionInfo.stAlarmSchedule);
 
-    g_stSmokeFireCfg.bEnable = FALSE;
+    g_stSmokeFireCfg.bEnable = NET_TV_FALSE;
     g_stSmokeFireCfg.stRule.nSensitivity = 50;
     InitSimpleAiAlarmSchedule(&g_stSmokeFireCfg.stAlarmSchedule);
 
-    g_stRoadPondingCfg.bEnable = FALSE;
+    g_stRoadPondingCfg.bEnable = NET_TV_FALSE;
     g_stRoadPondingCfg.stRule.nSensitivity = 50;
     InitSimpleAiAlarmSchedule(&g_stRoadPondingCfg.stAlarmSchedule);
 }
@@ -1830,6 +1924,13 @@ static NET_TV_COMMON_ECODE_E MyGetHotspotConnCb(INT32 dwChannelID, LPVOID lpOutB
 
     return NET_TV_E_SUCCEED;
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 MyGetSecurityServicesInfoCb 定义的内部处理。
+ * @param [in] dwChannelID 函数处理参数。
+ * @param [in] lpOutBuffer 函数处理参数。
+ * @return 返回该处理的状态或结果。
+ */
 
 static NET_TV_COMMON_ECODE_E MyGetSecurityServicesInfoCb(INT32 dwChannelID, LPVOID lpOutBuffer)
 {
@@ -1845,6 +1946,13 @@ static NET_TV_COMMON_ECODE_E MyGetSecurityServicesInfoCb(INT32 dwChannelID, LPVO
            g_stSecurityServicesInfo.stSshAdmin.nSshPort);
     return NET_TV_E_SUCCEED;
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 MySetSecurityServicesInfoCb 定义的内部处理。
+ * @param [in] dwChannelID 函数处理参数。
+ * @param [in] lpInBuffer 函数处理参数。
+ * @return 返回该处理的状态或结果。
+ */
 
 static NET_TV_COMMON_ECODE_E MySetSecurityServicesInfoCb(INT32 dwChannelID, LPVOID lpInBuffer)
 {
@@ -1864,6 +1972,13 @@ static NET_TV_COMMON_ECODE_E MySetSecurityServicesInfoCb(INT32 dwChannelID, LPVO
            g_stSecurityServicesInfo.stSshAdmin.nSshPort);
     return NET_TV_E_SUCCEED;
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 MyGetSshCountdownCb 定义的内部处理。
+ * @param [in] dwChannelID 函数处理参数。
+ * @param [in] lpOutBuffer 函数处理参数。
+ * @return 返回该处理的状态或结果。
+ */
 
 static NET_TV_COMMON_ECODE_E MyGetSshCountdownCb(INT32 dwChannelID, LPVOID lpOutBuffer)
 {
@@ -1877,6 +1992,13 @@ static NET_TV_COMMON_ECODE_E MyGetSshCountdownCb(INT32 dwChannelID, LPVOID lpOut
            dwChannelID, g_stSshCountdownInfo.szCountdown);
     return NET_TV_E_SUCCEED;
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 MyFindLogCb 定义的内部处理。
+ * @param [in] dwChannelID 函数处理参数。
+ * @param [in] lpOutBuffer 函数处理参数。
+ * @return 返回该处理的状态或结果。
+ */
 
 static NET_TV_COMMON_ECODE_E MyFindLogCb(INT32 dwChannelID, LPVOID lpOutBuffer)
 {
@@ -1899,12 +2021,26 @@ static NET_TV_COMMON_ECODE_E MyFindLogCb(INT32 dwChannelID, LPVOID lpOutBuffer)
            g_stLogList.nLogCount);
     return NET_TV_E_SUCCEED;
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 MyExportLogCb 定义的内部处理。
+ * @param [in] dwChannelID 函数处理参数。
+ * @param [in] lpOutBuffer 函数处理参数。
+ * @return 返回该处理的状态或结果。
+ */
 
 static NET_TV_COMMON_ECODE_E MyExportLogCb(INT32 dwChannelID, LPVOID lpOutBuffer)
 {
     printf("[ConfigServerDemo] ExportLog callback, Channel=%d\n", dwChannelID);
     return MyFindLogCb(dwChannelID, lpOutBuffer);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 MyGetLogServerCb 定义的内部处理。
+ * @param [in] dwChannelID 函数处理参数。
+ * @param [in] lpOutBuffer 函数处理参数。
+ * @return 返回该处理的状态或结果。
+ */
 
 static NET_TV_COMMON_ECODE_E MyGetLogServerCb(INT32 dwChannelID, LPVOID lpOutBuffer)
 {
@@ -1922,6 +2058,13 @@ static NET_TV_COMMON_ECODE_E MyGetLogServerCb(INT32 dwChannelID, LPVOID lpOutBuf
            g_stLogServerInfo.nPort);
     return NET_TV_E_SUCCEED;
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 MySetLogServerCb 定义的内部处理。
+ * @param [in] dwChannelID 函数处理参数。
+ * @param [in] lpInBuffer 函数处理参数。
+ * @return 返回该处理的状态或结果。
+ */
 
 static NET_TV_COMMON_ECODE_E MySetLogServerCb(INT32 dwChannelID, LPVOID lpInBuffer)
 {
@@ -1939,6 +2082,13 @@ static NET_TV_COMMON_ECODE_E MySetLogServerCb(INT32 dwChannelID, LPVOID lpInBuff
            g_stLogServerInfo.nPort);
     return NET_TV_E_SUCCEED;
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 MyTestLogServerCb 定义的内部处理。
+ * @param [in] dwChannelID 函数处理参数。
+ * @param [in] lpInBuffer 函数处理参数。
+ * @return 返回该处理的状态或结果。
+ */
 
 static NET_TV_COMMON_ECODE_E MyTestLogServerCb(INT32 dwChannelID, LPVOID lpInBuffer)
 {
@@ -1954,6 +2104,13 @@ static NET_TV_COMMON_ECODE_E MyTestLogServerCb(INT32 dwChannelID, LPVOID lpInBuf
            pInfo->nPort);
     return NET_TV_E_SUCCEED;
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 MyControlRecordInfoCb 定义的内部处理。
+ * @param [in] dwChannelID 函数处理参数。
+ * @param [in] lpInBuffer 函数处理参数。
+ * @return 返回该处理的状态或结果。
+ */
 
 static NET_TV_COMMON_ECODE_E MyControlRecordInfoCb(INT32 dwChannelID, LPVOID lpInBuffer)
 {
@@ -1971,6 +2128,13 @@ static NET_TV_COMMON_ECODE_E MyControlRecordInfoCb(INT32 dwChannelID, LPVOID lpI
            g_stRecordInfo.szRecordName);
     return NET_TV_E_SUCCEED;
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 MyGetRecordStatusCb 定义的内部处理。
+ * @param [in] dwChannelID 函数处理参数。
+ * @param [in] lpOutBuffer 函数处理参数。
+ * @return 返回该处理的状态或结果。
+ */
 
 static NET_TV_COMMON_ECODE_E MyGetRecordStatusCb(INT32 dwChannelID, LPVOID lpOutBuffer)
 {
@@ -1985,6 +2149,13 @@ static NET_TV_COMMON_ECODE_E MyGetRecordStatusCb(INT32 dwChannelID, LPVOID lpOut
            g_stRecordStatusInfo.nStatus);
     return NET_TV_E_SUCCEED;
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 MyGetRecordScheduleCb 定义的内部处理。
+ * @param [in] dwChannelID 函数处理参数。
+ * @param [in] lpOutBuffer 函数处理参数。
+ * @return 返回该处理的状态或结果。
+ */
 
 static NET_TV_COMMON_ECODE_E MyGetRecordScheduleCb(INT32 dwChannelID, LPVOID lpOutBuffer)
 {
@@ -2000,6 +2171,13 @@ static NET_TV_COMMON_ECODE_E MyGetRecordScheduleCb(INT32 dwChannelID, LPVOID lpO
            g_stRecordSchedule.nDayScheduleCount);
     return NET_TV_E_SUCCEED;
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 MySetRecordScheduleCb 定义的内部处理。
+ * @param [in] dwChannelID 函数处理参数。
+ * @param [in] lpInBuffer 函数处理参数。
+ * @return 返回该处理的状态或结果。
+ */
 
 static NET_TV_COMMON_ECODE_E MySetRecordScheduleCb(INT32 dwChannelID, LPVOID lpInBuffer)
 {
@@ -2015,6 +2193,13 @@ static NET_TV_COMMON_ECODE_E MySetRecordScheduleCb(INT32 dwChannelID, LPVOID lpI
            g_stRecordSchedule.nDayScheduleCount);
     return NET_TV_E_SUCCEED;
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 MyGetRecordAdvancedParamCb 定义的内部处理。
+ * @param [in] dwChannelID 函数处理参数。
+ * @param [in] lpOutBuffer 函数处理参数。
+ * @return 返回该处理的状态或结果。
+ */
 
 static NET_TV_COMMON_ECODE_E MyGetRecordAdvancedParamCb(INT32 dwChannelID, LPVOID lpOutBuffer)
 {
@@ -2031,6 +2216,13 @@ static NET_TV_COMMON_ECODE_E MyGetRecordAdvancedParamCb(INT32 dwChannelID, LPVOI
            g_stRecordAdvancedParam.nDelayTime);
     return NET_TV_E_SUCCEED;
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 MySetRecordAdvancedParamCb 定义的内部处理。
+ * @param [in] dwChannelID 函数处理参数。
+ * @param [in] lpInBuffer 函数处理参数。
+ * @return 返回该处理的状态或结果。
+ */
 
 static NET_TV_COMMON_ECODE_E MySetRecordAdvancedParamCb(INT32 dwChannelID, LPVOID lpInBuffer)
 {
@@ -2047,6 +2239,13 @@ static NET_TV_COMMON_ECODE_E MySetRecordAdvancedParamCb(INT32 dwChannelID, LPVOI
            g_stRecordAdvancedParam.nDelayTime);
     return NET_TV_E_SUCCEED;
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 MyFindRecordFileInfoCb 定义的内部处理。
+ * @param [in] dwChannelID 函数处理参数。
+ * @param [in] lpOutBuffer 函数处理参数。
+ * @return 返回该处理的状态或结果。
+ */
 
 static NET_TV_COMMON_ECODE_E MyFindRecordFileInfoCb(INT32 dwChannelID, LPVOID lpOutBuffer)
 {
@@ -2066,6 +2265,13 @@ static NET_TV_COMMON_ECODE_E MyFindRecordFileInfoCb(INT32 dwChannelID, LPVOID lp
            g_stRecordFileList.nResultCount);
     return NET_TV_E_SUCCEED;
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 MyDownloadRecordFileCb 定义的内部处理。
+ * @param [in] dwChannelID 函数处理参数。
+ * @param [in] lpInBuffer 函数处理参数。
+ * @return 返回该处理的状态或结果。
+ */
 
 static NET_TV_COMMON_ECODE_E MyDownloadRecordFileCb(INT32 dwChannelID, LPVOID lpInBuffer)
 {
@@ -2156,8 +2362,8 @@ static NET_TV_COMMON_ECODE_E MyGetMotionAlarmCb(INT32 dwChannelID, LPVOID lpOutB
     *pOut = g_stMotionAlarmInfo;
 
     printf("[ConfigServerDemo] GetMotionAlarm callback, Channel=%d\n", dwChannelID);
-    printf("  Enable=%d, Mode=%d, Sensitivity=%d\n", 
-           g_stMotionAlarmInfo.bEnable, g_stMotionAlarmInfo.uMode, 
+    printf("  Enable=%d, Mode=%d, Sensitivity=%d\n",
+           g_stMotionAlarmInfo.bEnable, g_stMotionAlarmInfo.uMode,
            g_stMotionAlarmInfo.stNormalMode.nSensitivity);
 
     return NET_TV_E_SUCCEED;
@@ -2177,7 +2383,7 @@ static NET_TV_COMMON_ECODE_E MySetMotionAlarmCb(INT32 dwChannelID, LPVOID lpInBu
     g_stMotionAlarmInfo = *pIn;
 
     printf("[ConfigServerDemo] SetMotionAlarm callback, Channel=%d\n", dwChannelID);
-    printf("  New Enable=%d, Mode=%d, Sensitivity=%d\n", 
+    printf("  New Enable=%d, Mode=%d, Sensitivity=%d\n",
            g_stMotionAlarmInfo.bEnable, g_stMotionAlarmInfo.uMode,
            g_stMotionAlarmInfo.stNormalMode.nSensitivity);
 
@@ -2276,7 +2482,7 @@ static NET_TV_COMMON_ECODE_E MySetTamperAlarmCb(INT32 dwChannelID, LPVOID lpInBu
     g_stTamperAlarmInfo = *pIn;
 
     printf("[ConfigServerDemo] SetTamperAlarm callback, Channel=%d\n", dwChannelID);
-    printf("  New Enable=%d, Sensitivity=%d\n", 
+    printf("  New Enable=%d, Sensitivity=%d\n",
            g_stTamperAlarmInfo.bEnable, g_stTamperAlarmInfo.uSensitivity);
 
     return NET_TV_E_SUCCEED;
@@ -2296,7 +2502,7 @@ static NET_TV_COMMON_ECODE_E MyGetCrossLineAlarmCb(INT32 dwChannelID, LPVOID lpO
     *pOut = g_stCrossLineAlarmInfo;
 
     printf("[ConfigServerDemo] GetCrossLineAlarm callback, Channel=%d\n", dwChannelID);
-    printf("  Enable=%d, RuleCount=%d\n", 
+    printf("  Enable=%d, RuleCount=%d\n",
            g_stCrossLineAlarmInfo.bEnable, g_stCrossLineAlarmInfo.uRuleCount);
 
     return NET_TV_E_SUCCEED;
@@ -2316,7 +2522,7 @@ static NET_TV_COMMON_ECODE_E MySetCrossLineAlarmCb(INT32 dwChannelID, LPVOID lpI
     g_stCrossLineAlarmInfo = *pIn;
 
     printf("[ConfigServerDemo] SetCrossLineAlarm callback, Channel=%d\n", dwChannelID);
-    printf("  New Enable=%d, RuleCount=%d\n", 
+    printf("  New Enable=%d, RuleCount=%d\n",
            g_stCrossLineAlarmInfo.bEnable, g_stCrossLineAlarmInfo.uRuleCount);
 
     return NET_TV_E_SUCCEED;
@@ -2336,7 +2542,7 @@ static NET_TV_COMMON_ECODE_E MyGetIntrusionAlarmCb(INT32 dwChannelID, LPVOID lpO
     *pOut = g_stIntrusionAlarmInfo;
 
     printf("[ConfigServerDemo] GetIntrusionAlarm callback, Channel=%d\n", dwChannelID);
-    printf("  Enable=%d, RuleCount=%d\n", 
+    printf("  Enable=%d, RuleCount=%d\n",
            g_stIntrusionAlarmInfo.bEnable, g_stIntrusionAlarmInfo.uRuleCount);
 
     return NET_TV_E_SUCCEED;
@@ -2356,7 +2562,7 @@ static NET_TV_COMMON_ECODE_E MySetIntrusionAlarmCb(INT32 dwChannelID, LPVOID lpI
     g_stIntrusionAlarmInfo = *pIn;
 
     printf("[ConfigServerDemo] SetIntrusionAlarm callback, Channel=%d\n", dwChannelID);
-    printf("  New Enable=%d, RuleCount=%d\n", 
+    printf("  New Enable=%d, RuleCount=%d\n",
            g_stIntrusionAlarmInfo.bEnable, g_stIntrusionAlarmInfo.uRuleCount);
 
     return NET_TV_E_SUCCEED;
@@ -2460,7 +2666,7 @@ static NET_TV_COMMON_ECODE_E MyGetLoiteringAlarmCb(INT32 dwChannelID, LPVOID lpO
     *pOut = g_stLoiteringAlarmInfo;
 
     printf("[ConfigServerDemo] GetIntrusionAlarm callback, Channel=%d\n", dwChannelID);
-    printf("  Enable=%d, RuleCount=%d\n", 
+    printf("  Enable=%d, RuleCount=%d\n",
            g_stLoiteringAlarmInfo.bEnable, g_stLoiteringAlarmInfo.uRuleCount);
 
     return NET_TV_E_SUCCEED;
@@ -2480,7 +2686,7 @@ static NET_TV_COMMON_ECODE_E MySetLoiteringAlarmCb(INT32 dwChannelID, LPVOID lpI
     g_stLoiteringAlarmInfo = *pIn;
 
     printf("[ConfigServerDemo] SetIntrusionAlarm callback, Channel=%d\n", dwChannelID);
-    printf("  New Enable=%d, RuleCount=%d\n", 
+    printf("  New Enable=%d, RuleCount=%d\n",
            g_stLoiteringAlarmInfo.bEnable, g_stLoiteringAlarmInfo.uRuleCount);
 
     return NET_TV_E_SUCCEED;
@@ -2988,6 +3194,13 @@ static NET_TV_COMMON_ECODE_E MyGetCongestionCfgCb(INT32 dwChannelID, LPVOID lpOu
 
     return NET_TV_E_SUCCEED;
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 MyGetChannelListCb 定义的内部处理。
+ * @param [in] dwChannelID 函数处理参数。
+ * @param [in] lpOutBuffer 函数处理参数。
+ * @return 返回该处理的状态或结果。
+ */
 
 static NET_TV_COMMON_ECODE_E MyGetChannelListCb(INT32 dwChannelID, LPVOID lpOutBuffer)
 {
@@ -4204,6 +4417,13 @@ static NET_TV_COMMON_ECODE_E MyGetChannelInfoCb(INT32 dwChannelID, LPVOID lpOutB
 
     return NET_TV_E_SUCCEED;
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 MySetTalkbackStateCb 定义的内部处理。
+ * @param [in] dwChannelID 函数处理参数。
+ * @param [in] lpInBuffer 函数处理参数。
+ * @return 返回该处理的状态或结果。
+ */
 
 static NET_TV_COMMON_ECODE_E MySetTalkbackStateCb(INT32 dwChannelID, LPVOID lpInBuffer)
 {
@@ -4222,8 +4442,15 @@ static NET_TV_COMMON_ECODE_E MySetTalkbackStateCb(INT32 dwChannelID, LPVOID lpIn
            g_stTalkbackStateInfo.szLocalIP);
     return NET_TV_E_SUCCEED;
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 MyVoiceComPlayCb 定义的内部处理。
+ * @param [in] data 函数处理参数。
+ * @param [in] size 函数处理参数。
+ * @return 无返回值。
+ */
 
-static void STDCALL MyVoiceComPlayCb(const char* data, unsigned int size)
+static void NET_TV_STDCALL MyVoiceComPlayCb(const char* data, unsigned int size)
 {
     if (!data || size == 0)
     {
@@ -4249,8 +4476,13 @@ static void STDCALL MyVoiceComPlayCb(const char* data, unsigned int size)
     }
 
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 MyVoiceComCaptureCb 定义的内部处理。
+ * @return 返回该处理的状态或结果。
+ */
 
-static INT32 STDCALL MyVoiceComCaptureCb(const NET_VoiceComAudioParam_S* pstAudioParam,
+static INT32 NET_TV_STDCALL MyVoiceComCaptureCb(const NET_VoiceComAudioParam_S* pstAudioParam,
                                          CHAR* pBuffer,
                                          UINT32 dwBufferSize,
                                          LPVOID lpUserData)
@@ -4271,6 +4503,13 @@ static INT32 STDCALL MyVoiceComCaptureCb(const NET_VoiceComAudioParam_S* pstAudi
     memset(pBuffer, VoiceComSilenceByte(pstAudioParam->enFormat), (size_t)pstAudioParam->uFrameBytes);
     return pstAudioParam->uFrameBytes;
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 MySetTalkbackToStreamCb 定义的内部处理。
+ * @param [in] dwChannelID 函数处理参数。
+ * @param [in] lpInBuffer 函数处理参数。
+ * @return 返回该处理的状态或结果。
+ */
 
 static NET_TV_COMMON_ECODE_E MySetTalkbackToStreamCb(INT32 dwChannelID, LPVOID lpInBuffer)
 {
@@ -4294,6 +4533,13 @@ static NET_TV_COMMON_ECODE_E MySetTalkbackToStreamCb(INT32 dwChannelID, LPVOID l
            g_stTalkbackToStreamInfo.szProtocol);
     return NET_TV_E_SUCCEED;
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 MyGetTalkbackFromStreamCb 定义的内部处理。
+ * @param [in] dwChannelID 函数处理参数。
+ * @param [in] lpOutBuffer 函数处理参数。
+ * @return 返回该处理的状态或结果。
+ */
 
 static NET_TV_COMMON_ECODE_E MyGetTalkbackFromStreamCb(INT32 dwChannelID, LPVOID lpOutBuffer)
 {
@@ -4314,6 +4560,12 @@ static NET_TV_COMMON_ECODE_E MyGetTalkbackFromStreamCb(INT32 dwChannelID, LPVOID
            g_stTalkbackFromStreamInfo.szProtocol);
     return NET_TV_E_SUCCEED;
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 MyGetReplayUrlCb 定义的内部处理。
+ * @param [in] pInfo 函数处理参数。
+ * @return 返回该处理的状态或结果。
+ */
 
 static NET_TV_COMMON_ECODE_E MyGetReplayUrlCb(pNET_ReplayUrlInfo_S pInfo)
 {
@@ -4337,11 +4589,25 @@ static NET_TV_COMMON_ECODE_E MyGetReplayUrlCb(pNET_ReplayUrlInfo_S pInfo)
     printf("  Url=%s\n", pInfo->szUrl);
     return NET_TV_E_SUCCEED;
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 查询或校验 HasTextValue 对应的数据。
+ * @param [in] text 函数处理参数。
+ * @return 返回该处理的状态或结果。
+ */
 
 static int HasTextValue(const CHAR* text)
 {
     return (text != NULL && text[0] != '\0');
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 CopyTextIfPresent 对应的处理。
+ * @param [in,out] dst 函数处理参数。
+ * @param [in] dstSize 函数处理参数。
+ * @param [in] src 函数处理参数。
+ * @return 无返回值。
+ */
 
 static void CopyTextIfPresent(char* dst, size_t dstSize, const char* src)
 {
@@ -4353,6 +4619,13 @@ static void CopyTextIfPresent(char* dst, size_t dstSize, const char* src)
     strncpy(dst, src, dstSize - 1);
     dst[dstSize - 1] = '\0';
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 查询或校验 ParseDateTimeText 对应的数据。
+ * @param [in] text 函数处理参数。
+ * @param [out] outTm 函数处理参数。
+ * @return 返回该处理的状态或结果。
+ */
 
 static int ParseDateTimeText(const char* text, struct tm* outTm)
 {
@@ -4384,6 +4657,15 @@ static int ParseDateTimeText(const char* text, struct tm* outTm)
     outTm->tm_isdst = -1;
     return 1;
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 ShiftDateTimeText 定义的内部处理。
+ * @param [in] src 函数处理参数。
+ * @param [in] deltaSeconds 函数处理参数。
+ * @param [in,out] dst 函数处理参数。
+ * @param [in] dstSize 函数处理参数。
+ * @return 返回该处理的状态或结果。
+ */
 
 static int ShiftDateTimeText(const char* src, int deltaSeconds, char* dst, size_t dstSize)
 {
@@ -4416,6 +4698,12 @@ static int ShiftDateTimeText(const char* src, int deltaSeconds, char* dst, size_
 
     return 1;
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 BuildReplayUrl 定义的内部处理。
+ * @param [in,out] pInfo 函数处理参数。
+ * @return 无返回值。
+ */
 
 static void BuildReplayUrl(NET_TV_REPLAY_CTRL_INFO_S* pInfo)
 {
@@ -4435,6 +4723,13 @@ static void BuildReplayUrl(NET_TV_REPLAY_CTRL_INFO_S* pInfo)
              pInfo->nReplayType,
              pInfo->nSeekTime);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 MergeReplayCtrlState 定义的内部处理。
+ * @param [in,out] pDst 函数处理参数。
+ * @param [in] pSrc 函数处理参数。
+ * @return 无返回值。
+ */
 
 static void MergeReplayCtrlState(NET_TV_REPLAY_CTRL_INFO_S* pDst, const NET_TV_REPLAY_CTRL_INFO_S* pSrc)
 {
@@ -4465,6 +4760,12 @@ static void MergeReplayCtrlState(NET_TV_REPLAY_CTRL_INFO_S* pDst, const NET_TV_R
     CopyTextIfPresent(pDst->szEndTime, sizeof(pDst->szEndTime), pSrc->szEndTime);
     CopyTextIfPresent(pDst->szUrl, sizeof(pDst->szUrl), pSrc->szUrl);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 MyControlReplayCb 定义的内部处理。
+ * @param [in] pInfo 函数处理参数。
+ * @return 返回该处理的状态或结果。
+ */
 
 static NET_TV_COMMON_ECODE_E MyControlReplayCb(pNET_ReplayCtrlInfo_S pInfo)
 {
@@ -4602,6 +4903,14 @@ static NET_TV_COMMON_ECODE_E MyControlReplayCb(pNET_ReplayCtrlInfo_S pInfo)
            pInfo->szUrl);
     return NET_TV_E_SUCCEED;
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 FillReplayRecordSegment 对应的处理。
+ * @param [in,out] pSegment 函数处理参数。
+ * @param [in] nStartTime 函数处理参数。
+ * @param [in] nEndTime 函数处理参数。
+ * @return 无返回值。
+ */
 
 static void FillReplayRecordSegment(NET_ReplayRecordTime_S* pSegment, INT32 nStartTime, INT32 nEndTime)
 {
@@ -4614,6 +4923,12 @@ static void FillReplayRecordSegment(NET_ReplayRecordTime_S* pSegment, INT32 nSta
     pSegment->nStartTime = nStartTime;
     pSegment->nEndTime = nEndTime;
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 MyGetReplayRecordListCb 定义的内部处理。
+ * @param [in] pInfo 函数处理参数。
+ * @return 返回该处理的状态或结果。
+ */
 
 static NET_TV_COMMON_ECODE_E MyGetReplayRecordListCb(pNET_ReplayRecordList_S pInfo)
 {
@@ -4663,6 +4978,13 @@ static NET_TV_COMMON_ECODE_E MyGetReplayRecordListCb(pNET_ReplayRecordList_S pIn
            pInfo->nOtherEventCount);
     return NET_TV_E_SUCCEED;
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 MySetReplayTalkbackCb 定义的内部处理。
+ * @param [in] dwChannelID 函数处理参数。
+ * @param [in] lpInBuffer 函数处理参数。
+ * @return 返回该处理的状态或结果。
+ */
 
 static NET_TV_COMMON_ECODE_E MySetReplayTalkbackCb(INT32 dwChannelID, LPVOID lpInBuffer)
 {
@@ -4707,7 +5029,7 @@ static NET_TV_COMMON_ECODE_E MySetUpgrade(INT32 dwChannelID, LPVOID lpInBuffer)
     memset(&g_stUpgradeInfo, 0, sizeof(g_stUpgradeInfo));
     strncpy(g_stUpgradeInfo.szUpgradePath, pIn->szUpgradePath, sizeof(g_stUpgradeInfo.szUpgradePath) - 1);
     g_stUpgradeInfo.szUpgradePath[sizeof(g_stUpgradeInfo.szUpgradePath) - 1] = '\0';
-    
+
     printf("[ConfigServerDemo] MySetUpgrade callback, Channel=%d\n", dwChannelID);
     printf("    szUpgradePath=%s\n", pIn->szUpgradePath);
     printf("    Demo only: skip AC_SET_UPGRADE / AC_CHECK_UPGRADE.\n");
@@ -4846,6 +5168,7 @@ static NET_TV_COMMON_ECODE_E MySetCaptureParamInfo(INT32 dwChannelID, LPVOID lpI
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 打印曝光信息
  * @param pstCfg 曝光信息结构体指针
  */
@@ -4857,6 +5180,7 @@ static void PrintExposureInfo(const NET_ExposureInfo_S *pstCfg)
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 打印日夜信息
  * @param pstCfg 日夜信息结构体指针
  */
@@ -4888,6 +5212,7 @@ static void PrintDayNightInfo(const NET_DayNightInfo_S *pstCfg)
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 打印背光信息
  * @param pstCfg 背光信息结构体指针
  */
@@ -4904,6 +5229,7 @@ static void PrintBackLightInfo(const NET_BackLightInfo_S *pstCfg)
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 打印降噪信息
  * @param pstCfg 降噪信息结构体指针
  */
@@ -4919,6 +5245,7 @@ static void PrintDenoiseInfo(const NET_DenoiseInfo_S *pstCfg)
            pstCfg->nTnrLevel);
 }
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 打印白平衡信息
  * @param pstCfg 白平衡信息结构体指针
  */
@@ -4933,6 +5260,7 @@ static void PrintWhiteBalanceInfo(const NET_TV_WHITEBALANCE_INFO_S *pstCfg)
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 获取曝光信息的回调函数
  */
 static NET_TV_COMMON_ECODE_E MyGetExposureInfo(INT32 dwChannelID, LPVOID lpOutBuffer)
@@ -4951,6 +5279,7 @@ static NET_TV_COMMON_ECODE_E MyGetExposureInfo(INT32 dwChannelID, LPVOID lpOutBu
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 设置曝光信息的回调函数
  */
 static NET_TV_COMMON_ECODE_E MySetExposureInfo(INT32 dwChannelID, LPVOID lpInBuffer)
@@ -4969,6 +5298,7 @@ static NET_TV_COMMON_ECODE_E MySetExposureInfo(INT32 dwChannelID, LPVOID lpInBuf
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 获取日夜信息的回调函数
  */
 static NET_TV_COMMON_ECODE_E MyGetDayNightInfo(INT32 dwChannelID, LPVOID lpOutBuffer)
@@ -4987,6 +5317,7 @@ static NET_TV_COMMON_ECODE_E MyGetDayNightInfo(INT32 dwChannelID, LPVOID lpOutBu
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 设置日夜信息的回调函数
  */
 static NET_TV_COMMON_ECODE_E MySetDayNightInfo(INT32 dwChannelID, LPVOID lpInBuffer)
@@ -5005,6 +5336,7 @@ static NET_TV_COMMON_ECODE_E MySetDayNightInfo(INT32 dwChannelID, LPVOID lpInBuf
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 获取背光信息的回调函数
  */
 static NET_TV_COMMON_ECODE_E MyGetBackLightInfo(INT32 dwChannelID, LPVOID lpOutBuffer)
@@ -5023,6 +5355,7 @@ static NET_TV_COMMON_ECODE_E MyGetBackLightInfo(INT32 dwChannelID, LPVOID lpOutB
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 设置背光信息的回调函数
  */
 static NET_TV_COMMON_ECODE_E MySetBackLightInfo(INT32 dwChannelID, LPVOID lpInBuffer)
@@ -5041,6 +5374,7 @@ static NET_TV_COMMON_ECODE_E MySetBackLightInfo(INT32 dwChannelID, LPVOID lpInBu
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 获取降噪信息的回调函数
  */
 static NET_TV_COMMON_ECODE_E MyGetDenoiseInfo(INT32 dwChannelID, LPVOID lpOutBuffer)
@@ -5059,6 +5393,7 @@ static NET_TV_COMMON_ECODE_E MyGetDenoiseInfo(INT32 dwChannelID, LPVOID lpOutBuf
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 设置降噪信息的回调函数
  */
 static NET_TV_COMMON_ECODE_E MySetDenoiseInfo(INT32 dwChannelID, LPVOID lpInBuffer)
@@ -5077,6 +5412,7 @@ static NET_TV_COMMON_ECODE_E MySetDenoiseInfo(INT32 dwChannelID, LPVOID lpInBuff
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 获取白平衡信息的回调函数
  */
 static NET_TV_COMMON_ECODE_E MyGetWhiteBalanceInfo(INT32 dwChannelID, LPVOID lpOutBuffer)
@@ -5095,6 +5431,7 @@ static NET_TV_COMMON_ECODE_E MyGetWhiteBalanceInfo(INT32 dwChannelID, LPVOID lpO
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 设置白平衡信息的回调函数
  */
 static NET_TV_COMMON_ECODE_E MySetWhiteBalanceInfo(INT32 dwChannelID, LPVOID lpInBuffer)
@@ -5157,6 +5494,12 @@ static NET_TV_COMMON_ECODE_E MySetFaceCaptureInfoCb(INT32 dwChannelID, LPVOID lp
 
     return NET_TV_E_SUCCEED;
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 查询或校验 FindTargetLibIndex 对应的数据。
+ * @param [in] szFaceLibName 函数处理参数。
+ * @return 返回该处理的状态或结果。
+ */
 
 static INT32 FindTargetLibIndex(const CHAR* szFaceLibName)
 {
@@ -5175,6 +5518,12 @@ static INT32 FindTargetLibIndex(const CHAR* szFaceLibName)
 
     return -1;
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 查询或校验 FindFaceInfoIndex 对应的数据。
+ * @param [in] nId 函数处理参数。
+ * @return 返回该处理的状态或结果。
+ */
 
 static INT32 FindFaceInfoIndex(INT32 nId)
 {
@@ -5523,7 +5872,7 @@ static void RegisterCallbacks(void)
     {
         printf("[ConfigServerDemo] RegisterCb_SetStreamCfg FAILED\n");
     }
-    
+
     /* WIFI/4G/热点配置回调 */
     if (NET_TV_SERVER_RegisterCb_SetConfigWifiSta(MySetConfigWifiStaCb))
     {
@@ -6358,7 +6707,7 @@ static void RegisterCallbacks(void)
     {
         printf("[ConfigServerDemo] RegisterCb_SetClimbFenceInfo FAILED\n");
     }
-    
+
     /* 离岗配置回调 */
     if (NET_TV_SERVER_RegisterCb_GetDimissionInfo(MyGetDimissionInfoCb))
     {
@@ -6510,7 +6859,7 @@ static void RegisterCallbacks(void)
     {
         printf("[ConfigServerDemo] RegisterCb_SetRoadPondingCfg FAILED\n");
     }
-    
+
     /* 停车侦测配置回调 */
     if (NET_TV_SERVER_RegisterCb_GetParkingAlarm(MyGetParkingAlarmCb))
     {
@@ -6773,7 +7122,7 @@ static void RegisterCallbacks(void)
     {
         printf("[ConfigServerDemo] RegisterCb_SetBackLightInfo FAILED\n");
     }
-    
+
     /* 降噪信息回调 */
     if(NET_TV_SERVER_RegisterCb_GetDenoiseInfo(MyGetDenoiseInfo))
     {
@@ -6979,6 +7328,13 @@ static void RegisterCallbacks(void)
         printf("[ConfigServerDemo] RegisterCb_GetFaceInfo FAILED\n");
     }
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 运行当前 Demo 的主流程。
+ * @param [in] argc 函数处理参数。
+ * @param [in,out] argv 函数处理参数。
+ * @return 返回该处理的状态或结果。
+ */
 
 int main(int argc, char* argv[])
 {
@@ -6995,7 +7351,7 @@ int main(int argc, char* argv[])
     signal(SIGTERM, signal_handler);
 
     /* 初始化日志 */
-    initSdkLogBySize("ConfigServerDemo", "/opt/course/ConfigServerDemo.log", MAX_LOG_SIZE, MAX_LOG_FILES);
+    initSdkLogBySize("ConfigServerDemo", "/opt/course/ConfigServerDemo.log", NETSDK_DEMO_LOG_MAX_SIZE, NETSDK_DEMO_LOG_MAX_FILES);
     syncPrintf(1);
     setLogLevel(NETSDK_LOG_TRACE);
 
@@ -7016,19 +7372,19 @@ int main(int argc, char* argv[])
     }
 
     printf("[ConfigServerDemo] Server started successfully.\n");
-    g_voiceComDumpFp = fopen(DEMO_VOICECOM_SERVER_RECV_DUMP, "wb");
+    g_voiceComDumpFp = fopen(NETSDK_DEMO_VOICE_COM_SERVER_RECEIVE_DUMP, "wb");
     if (!g_voiceComDumpFp)
     {
         printf("[ConfigServerDemo][VoiceCom] open recv dump failed, continue without dump: %s\n",
-               DEMO_VOICECOM_SERVER_RECV_DUMP);
+               NETSDK_DEMO_VOICE_COM_SERVER_RECEIVE_DUMP);
     }
     if (NET_TV_SERVER_RegisterCb_VoiceComPlay(MyVoiceComPlayCb) &&
         NET_TV_SERVER_RegisterCb_VoiceComCapture(MyVoiceComCaptureCb, NULL) &&
-        NET_TV_SERVER_StartVoiceComServer(DEMO_VOICECOM_PORT))
+        NET_TV_SERVER_StartVoiceComServer(NETSDK_DEMO_VOICE_COM_PORT))
     {
-        printf("[ConfigServerDemo][VoiceCom] Server started on port %d.\n", DEMO_VOICECOM_PORT);
+        printf("[ConfigServerDemo][VoiceCom] Server started on port %d.\n", NETSDK_DEMO_VOICE_COM_PORT);
         printf("[ConfigServerDemo][VoiceCom] Received audio dump: %s\n",
-               DEMO_VOICECOM_SERVER_RECV_DUMP);
+               NETSDK_DEMO_VOICE_COM_SERVER_RECEIVE_DUMP);
     }
     else
     {

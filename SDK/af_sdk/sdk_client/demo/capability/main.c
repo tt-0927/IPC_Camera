@@ -1,10 +1,15 @@
 /**
- * @file main.cpp
+ * @file main.c
  * @author tianl (tianl@kfb.cn)
- * @date 2025-01-30
- * 
- * @brief SDK客户端 设备能力集Demo
- *        支持终端输入命令码获取不同类型的设备能力集
+ * @date 2026-07-28
+ * @LastEditors  : qinjt@kfb.cn
+ * @LastEditTime : 2026-07-28
+ *
+ * @brief SDK 设备能力查询 Demo
+ * 功能说明：
+ * 1. 实现 main 模块核心逻辑
+ * 2. 校验输入参数并管理模块资源生命周期
+ * 3. 向上层提供可复用的 SDK 能力
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -15,23 +20,31 @@
 #include "NetTVSDKClientInterface.h"
 
 /* 日志配置 */
-#define MAX_LOG_SIZE  (20 * 1024 * 1024)
-#define MAX_LOG_FILES (10)
+#define NETSDK_DEMO_LOG_MAX_SIZE  (20 * 1024 * 1024)
+#define NETSDK_DEMO_LOG_MAX_FILES (10)
 
 /* 服务端配置 */
-#define SERVER_IP   "127.0.0.1"
-#define SERVER_PORT 8888
-#define USERNAME    "admin"
-#define PASSWORD    "Admin@123456"
-#define CLIENT_OSD_ALIGN_MAX_NUM 8
+#define NETSDK_DEMO_SERVER_IP   "127.0.0.1"
+#define NETSDK_DEMO_SERVER_PORT 8888
+#define NETSDK_DEMO_USERNAME    "admin"
+#define NETSDK_DEMO_PASSWORD    "Admin@123456"
+#define NETSDK_DEMO_CLIENT_OSD_ALIGN_MAX_NUM 8
 
-static char g_serverIp[64] = SERVER_IP;
-static INT32 g_serverPort = SERVER_PORT;
-static char g_username[64] = USERNAME;
-static char g_password[64] = PASSWORD;
+static char g_serverIp[64] = NETSDK_DEMO_SERVER_IP;
+static INT32 g_serverPort = NETSDK_DEMO_SERVER_PORT;
+static char g_username[64] = NETSDK_DEMO_USERNAME;
+static char g_password[64] = NETSDK_DEMO_PASSWORD;
 
 /* 全局用户句柄 */
 static LPVOID g_lpUserID = NULL;
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 CopyString 对应的处理。
+ * @param [in,out] pDst 函数处理参数。
+ * @param [in] dstSize 函数处理参数。
+ * @param [in] pSrc 函数处理参数。
+ * @return 无返回值。
+ */
 
 static void CopyString(char* pDst, size_t dstSize, const char* pSrc)
 {
@@ -49,6 +62,12 @@ static void CopyString(char* pDst, size_t dstSize, const char* pSrc)
     strncpy(pDst, pSrc, dstSize - 1);
     pDst[dstSize - 1] = '\0';
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 PrintUsage 定义的内部处理。
+ * @param [in] pProgram 函数处理参数。
+ * @return 无返回值。
+ */
 
 static void PrintUsage(const char* pProgram)
 {
@@ -57,6 +76,13 @@ static void PrintUsage(const char* pProgram)
     printf("Example: %s 172.16.25.199 8888 admin Admin@123456\n",
            pProgram ? pProgram : "CapabilityClientDemo");
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 ConfigureByArgs 定义的内部处理。
+ * @param [in] argc 函数处理参数。
+ * @param [in,out] argv 函数处理参数。
+ * @return 无返回值。
+ */
 
 static void ConfigureByArgs(int argc, char* argv[])
 {
@@ -91,9 +117,10 @@ static void ConfigureByArgs(int argc, char* argv[])
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 打印命令菜单
  */
-void PrintMenu()
+static void PrintMenu()
 {
     printf("\n");
     printf("========== 设备能力集获取Demo ==========\n");
@@ -109,6 +136,7 @@ void PrintMenu()
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 打印分辨率支持的帧率数组
  */
 static void PrintFrameRateList(const char* indent, const NET_VideoResolution_S* pResolution)
@@ -136,6 +164,13 @@ static void PrintFrameRateList(const char* indent, const NET_VideoResolution_S* 
     }
     printf("\n");
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 PrintEncodeComplexityList 定义的内部处理。
+ * @param [in] indent 函数处理参数。
+ * @param [in] pAbility 函数处理参数。
+ * @return 无返回值。
+ */
 
 static void PrintEncodeComplexityList(const char* indent, const NET_VideoEncodeAbility_S* pAbility)
 {
@@ -165,13 +200,14 @@ static void PrintEncodeComplexityList(const char* indent, const NET_VideoEncodeA
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 打印视频编码能力集信息
  */
-void PrintVideoEncodeCap(const NET_TV_VIDEO_ENCODE_CAP_S* pCap)
+static void PrintVideoEncodeCap(const NET_TV_VIDEO_ENCODE_CAP_S* pCap)
 {
     printf("\n[Client] ===== 视频编码能力集 =====\n");
     printf("  码流数量: %d\n", pCap->dwStreamCount);
-    
+
     for (int i = 0; i < pCap->dwStreamCount && i < NET_TV_VIDEO_STREAM_MAX; i++)
     {
         const NET_TV_VIDEO_STREAM_CAP_S* pStream = &pCap->astStreamCap[i];
@@ -236,6 +272,12 @@ void PrintVideoEncodeCap(const NET_TV_VIDEO_ENCODE_CAP_S* pCap)
     }
     printf("===================================\n");
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 AudioInputTypeToString 定义的内部处理。
+ * @param [in] enType 函数处理参数。
+ * @return 返回该处理的状态或结果。
+ */
 
 static const char* AudioInputTypeToString(INT32 enType)
 {
@@ -249,6 +291,12 @@ static const char* AudioInputTypeToString(INT32 enType)
         return "UNKNOWN";
     }
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 AudioOutputTypeToString 定义的内部处理。
+ * @param [in] enType 函数处理参数。
+ * @return 返回该处理的状态或结果。
+ */
 
 static const char* AudioOutputTypeToString(INT32 enType)
 {
@@ -264,6 +312,12 @@ static const char* AudioOutputTypeToString(INT32 enType)
         return "UNKNOWN";
     }
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 AudioFormatToString 定义的内部处理。
+ * @param [in] enFormat 函数处理参数。
+ * @return 返回该处理的状态或结果。
+ */
 
 static const char* AudioFormatToString(INT32 enFormat)
 {
@@ -289,6 +343,12 @@ static const char* AudioFormatToString(INT32 enFormat)
         return "UNKNOWN";
     }
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 OsdFontSizeToString 定义的内部处理。
+ * @param [in] enValue 函数处理参数。
+ * @return 返回该处理的状态或结果。
+ */
 
 static const char* OsdFontSizeToString(UINT32 enValue)
 {
@@ -308,6 +368,12 @@ static const char* OsdFontSizeToString(UINT32 enValue)
         return "UNKNOWN";
     }
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 OsdDateFormatToString 定义的内部处理。
+ * @param [in] enValue 函数处理参数。
+ * @return 返回该处理的状态或结果。
+ */
 
 static const char* OsdDateFormatToString(UINT32 enValue)
 {
@@ -335,6 +401,12 @@ static const char* OsdDateFormatToString(UINT32 enValue)
         return "UNKNOWN";
     }
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 OsdTimeFormatToString 定义的内部处理。
+ * @param [in] enValue 函数处理参数。
+ * @return 返回该处理的状态或结果。
+ */
 
 static const char* OsdTimeFormatToString(UINT32 enValue)
 {
@@ -348,6 +420,12 @@ static const char* OsdTimeFormatToString(UINT32 enValue)
         return "UNKNOWN";
     }
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 OsdAlignToString 定义的内部处理。
+ * @param [in] enValue 函数处理参数。
+ * @return 返回该处理的状态或结果。
+ */
 
 static const char* OsdAlignToString(UINT32 enValue)
 {
@@ -369,11 +447,24 @@ static const char* OsdAlignToString(UINT32 enValue)
         return "UNKNOWN";
     }
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 ClampUint32 定义的内部处理。
+ * @param [in] value 函数处理参数。
+ * @param [in] maxValue 函数处理参数。
+ * @return 返回该处理的状态或结果。
+ */
 
 static UINT32 ClampUint32(UINT32 value, UINT32 maxValue)
 {
     return (value > maxValue) ? maxValue : value;
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 PrintNamedUint32List 定义的内部处理。
+ * @param [in,out] parameter 函数处理参数。
+ * @return 无返回值。
+ */
 
 static void PrintNamedUint32List(const char* pName,
                                  const UINT32* pList,
@@ -391,9 +482,10 @@ static void PrintNamedUint32List(const char* pName,
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 打印音频编码能力集信息
  */
-void PrintAudioEncodeCap(const NET_TV_AUDIO_CAP_S* pCap)
+static void PrintAudioEncodeCap(const NET_TV_AUDIO_CAP_S* pCap)
 {
     if (pCap == NULL)
     {
@@ -471,9 +563,10 @@ void PrintAudioEncodeCap(const NET_TV_AUDIO_CAP_S* pCap)
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 打印OSD能力集信息
  */
-void PrintOsdCap(const NET_TV_OSD_CAP_S* pCap)
+static void PrintOsdCap(const NET_TV_OSD_CAP_S* pCap)
 {
     UINT32 fontSizeNum = 0;
     UINT32 dateFormatNum = 0;
@@ -488,21 +581,21 @@ void PrintOsdCap(const NET_TV_OSD_CAP_S* pCap)
     fontSizeNum = ClampUint32(pCap->udwSupportedFontSizeNum, NET_TV_OSD_FONT_SIZE_TYPE_MAX_NUM);
     dateFormatNum = ClampUint32(pCap->udwSupportedDateFormatNum, NET_TV_OSD_DATE_FORMAT_MAX_NUM);
     timeFormatNum = ClampUint32(pCap->udwSupportedTimeFormatNum, NET_TV_OSD_TIME_FORMAT_MAX_NUM);
-    alignNum = ClampUint32(pCap->udwSupportedAlignNum, CLIENT_OSD_ALIGN_MAX_NUM);
+    alignNum = ClampUint32(pCap->udwSupportedAlignNum, NETSDK_DEMO_CLIENT_OSD_ALIGN_MAX_NUM);
 
     printf("\n[Client] ===== OSD能力集 =====\n");
-    
-    // 基础能力
+
+    /* 基础能力 */
     printf("  支持OSD: %s\n", pCap->bSupportOsd ? "是" : "否");
     printf("  支持通道名称: %s\n", pCap->bSupportName ? "是" : "否");
     printf("  支持时间: %s\n", pCap->bSupportTime ? "是" : "否");
     printf("  支持星期: %s\n", pCap->bSupportWeek ? "是" : "否");
     printf("  支持自定义颜色: %s\n", pCap->bSupportCustomColor ? "是" : "否");
-    
-    // 字符叠加能力
+
+    /* 字符叠加能力 */
     printf("  最大字符叠加数量: %u\n", pCap->udwMaxOsdNum);
-    
-    // 字体大小能力
+
+    /* 字体大小能力 */
     printf("  字体大小数量: %u", pCap->udwSupportedFontSizeNum);
     if (fontSizeNum != pCap->udwSupportedFontSizeNum)
     {
@@ -513,8 +606,8 @@ void PrintOsdCap(const NET_TV_OSD_CAP_S* pCap)
                          pCap->audwSupportedFontSizeList,
                          fontSizeNum,
                          OsdFontSizeToString);
-    
-    // 日期格式能力
+
+    /* 日期格式能力 */
     printf("  日期格式数量: %u", pCap->udwSupportedDateFormatNum);
     if (dateFormatNum != pCap->udwSupportedDateFormatNum)
     {
@@ -525,8 +618,8 @@ void PrintOsdCap(const NET_TV_OSD_CAP_S* pCap)
                          pCap->audwSupportedDateFormatList,
                          dateFormatNum,
                          OsdDateFormatToString);
-    
-    // 时间格式能力        
+
+    /* 时间格式能力         */
     printf("  时间格式数量: %u", pCap->udwSupportedTimeFormatNum);
     if (timeFormatNum != pCap->udwSupportedTimeFormatNum)
     {
@@ -537,8 +630,8 @@ void PrintOsdCap(const NET_TV_OSD_CAP_S* pCap)
                          pCap->audwSupportedTimeFormatList,
                          timeFormatNum,
                          OsdTimeFormatToString);
-    
-    // 对齐方式能力
+
+    /* 对齐方式能力 */
     printf("  对齐方式数量: %u", pCap->udwSupportedAlignNum);
     if (alignNum != pCap->udwSupportedAlignNum)
     {
@@ -554,17 +647,18 @@ void PrintOsdCap(const NET_TV_OSD_CAP_S* pCap)
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 获取视频编码能力集
  */
-BOOL GetVideoEncodeCap(INT32 dwChannelID)
+static BOOL GetVideoEncodeCap(INT32 dwChannelID)
 {
     NET_TV_VIDEO_ENCODE_CAP_S stCap;
     memset(&stCap, 0, sizeof(NET_TV_VIDEO_ENCODE_CAP_S));
-    
+
     INT32 dwBytesReturned = 0;
-    
+
     printf("[Client] 正在获取视频编码能力集, channelID=%d ...\n", dwChannelID);
-    
+
     BOOL bRet = NET_TV_GetDeviceCapability(
         g_lpUserID,
         dwChannelID,
@@ -573,32 +667,33 @@ BOOL GetVideoEncodeCap(INT32 dwChannelID)
         sizeof(NET_TV_VIDEO_ENCODE_CAP_S),
         &dwBytesReturned
     );
-    
+
     if (bRet)
     {
         printf("[Client] 获取视频编码能力集成功!\n");
         PrintVideoEncodeCap(&stCap);
-        return TRUE;
+        return NET_TV_TRUE;
     }
     else
     {
         printf("[Client] 获取视频编码能力集失败! Error=%d\n", NET_TV_GetLastError());
-        return FALSE;
+        return NET_TV_FALSE;
     }
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 获取音频编码能力集
  */
-BOOL GetAudioEncodeCap(INT32 dwChannelID)
+static BOOL GetAudioEncodeCap(INT32 dwChannelID)
 {
     NET_TV_AUDIO_CAP_S stCap;
     memset(&stCap, 0, sizeof(NET_TV_AUDIO_CAP_S));
-    
+
     INT32 dwBytesReturned = 0;
-    
+
     printf("[Client] 正在获取音频编码能力集, channelID=%d ...\n", dwChannelID);
-    
+
     BOOL bRet = NET_TV_GetDeviceCapability(
         g_lpUserID,
         dwChannelID,
@@ -607,35 +702,36 @@ BOOL GetAudioEncodeCap(INT32 dwChannelID)
         sizeof(NET_TV_AUDIO_CAP_S),
         &dwBytesReturned
     );
-    
+
     if (bRet)
     {
         printf("[Client] 获取音频编码能力集成功!\n");
         PrintAudioEncodeCap(&stCap);
-        return TRUE;
+        return NET_TV_TRUE;
     }
     else
     {
         printf("[Client] 获取音频编码能力集失败! Error=%d\n", NET_TV_GetLastError());
-        return FALSE;
+        return NET_TV_FALSE;
     }
 }
 
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 获取OSD能力集
  */
-BOOL GetOsdCap(INT32 dwChannelID)
+static BOOL GetOsdCap(INT32 dwChannelID)
 {
     NET_TV_OSD_CAP_S stCap;
     memset(&stCap, 0, sizeof(NET_TV_OSD_CAP_S));
-    
+
     INT32 dwBytesReturned = 0;
-    
+
     printf("[Client] 正在获取OSD能力集, channelID=%d, command=%d ...\n",
            dwChannelID,
            NET_TV_CAP_OSD);
-    
+
     BOOL bRet = NET_TV_GetDeviceCapability(
         g_lpUserID,
         dwChannelID,
@@ -644,63 +740,71 @@ BOOL GetOsdCap(INT32 dwChannelID)
         sizeof(NET_TV_OSD_CAP_S),
         &dwBytesReturned
     );
-    
+
     if (bRet)
     {
         printf("[Client] 获取OSD能力集成功! bytesReturned=%d\n", dwBytesReturned);
         PrintOsdCap(&stCap);
-        return TRUE;
+        return NET_TV_TRUE;
     }
     else
     {
         printf("[Client] 获取OSD能力集失败! Error=%d\n", NET_TV_GetLastError());
-        return FALSE;
+        return NET_TV_FALSE;
     }
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 处理用户命令
  */
-void ProcessCommand(int cmd)
+static void ProcessCommand(int cmd)
 {
-    INT32 dwChannelID = 1; // 默认通道号
-    
+    INT32 dwChannelID = 1; /* 默认通道号 */
+
     switch (cmd)
     {
-        case 1: // NET_TV_CAP_VIDEO_ENCODE
+        case 1: /* NET_TV_CAP_VIDEO_ENCODE */
             GetVideoEncodeCap(dwChannelID);
             break;
-            
-        case 2: // NET_TV_CAP_OSD
+
+        case 2: /* NET_TV_CAP_OSD */
             GetOsdCap(dwChannelID);
             break;
-            
-        case 3: // NET_TV_CAP_SMART
+
+        case 3: /* NET_TV_CAP_SMART */
             printf("[Client] 该能力集类型暂未实现!\n");
             break;
-        case 5: // NET_TV_CAP_IMAGE
+        case 5: /* NET_TV_CAP_IMAGE */
             printf("[Client] 该能力集类型暂未实现!\n");
             break;
-        case 6: // NET_TV_CAP_AUDIO
+        case 6: /* NET_TV_CAP_AUDIO */
             GetAudioEncodeCap(dwChannelID);
             break;
-            
+
         default:
             printf("[Client] 无效的命令码: %d\n", cmd);
             break;
     }
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 运行当前 Demo 的主流程。
+ * @param [in] argc 函数处理参数。
+ * @param [in,out] argv 函数处理参数。
+ * @return 返回该处理的状态或结果。
+ */
 
 int main(int argc, char* argv[])
 {
     printf("=============== SDK Client Capability Demo ================\n");
     ConfigureByArgs(argc, argv);
-    
+
     /* 初始化日志 */
-    initSdkLogBySize("CapabilityClientDemo", "/tmp/CapabilityClientDemo.log", MAX_LOG_SIZE, MAX_LOG_FILES);
+    initSdkLogBySize("CapabilityClientDemo", "/tmp/CapabilityClientDemo.log", NETSDK_DEMO_LOG_MAX_SIZE, NETSDK_DEMO_LOG_MAX_FILES);
     syncPrintf(1);
     setLogLevel(NETSDK_LOG_TRACE);
-    
+
     /* 初始化SDK */
     printf("[Client] Initializing SDK...\n");
     if (!NET_TV_Init())
@@ -709,24 +813,24 @@ int main(int argc, char* argv[])
         return -1;
     }
     printf("[Client] SDK initialized.\n");
-    
+
     /* 登录设备 */
     NET_TV_DEVICE_LOGIN_INFO_S struLoginInfo;
     NET_DeviceInfo_S struDeviceInfo;
     memset(&struLoginInfo, 0, sizeof(NET_TV_DEVICE_LOGIN_INFO_S));
     memset(&struDeviceInfo, 0, sizeof(NET_DeviceInfo_S));
-    
+
     struLoginInfo.dwPort = g_serverPort;
     strncpy(struLoginInfo.szIPAddr, g_serverIp, sizeof(struLoginInfo.szIPAddr) - 1);
     strncpy(struLoginInfo.szUserName, g_username, sizeof(struLoginInfo.szUserName) - 1);
     strncpy(struLoginInfo.szPassword, g_password, sizeof(struLoginInfo.szPassword) - 1);
-    
+
     printf("[Client] Logging in to %s:%d, username=%s...\n",
            g_serverIp,
            g_serverPort,
            g_username);
     g_lpUserID = NET_TV_Login(&struLoginInfo, &struDeviceInfo);
-    
+
     if (!g_lpUserID)
     {
         printf("[Client] Login FAILED! Error=%d\n", NET_TV_GetLastError());
@@ -734,41 +838,41 @@ int main(int argc, char* argv[])
         return -1;
     }
     printf("[Client] Login SUCCESS! UserID=%p\n", g_lpUserID);
-    
+
     /* 主循环 - 处理用户输入 */
     int cmd = -1;
     while (1)
     {
         PrintMenu();
-        
+
         if (scanf("%d", &cmd) != 1)
         {
-            // 清除输入缓冲
+            /* 清除输入缓冲 */
             int c;
             while ((c = getchar()) != '\n' && c != EOF);
             printf("[Client] 输入无效，请输入数字!\n");
             continue;
         }
-        
+
         if (cmd == 0)
         {
             printf("[Client] 退出程序...\n");
             break;
         }
-        
+
         ProcessCommand(cmd);
     }
-    
+
     /* 登出 */
     if (g_lpUserID)
     {
         NET_TV_Logout(g_lpUserID);
         printf("[Client] Logged out.\n");
     }
-    
+
     /* 清理SDK */
     NET_TV_Cleanup();
     printf("[Client] SDK cleaned up. Bye!\n");
-    
+
     return 0;
 }

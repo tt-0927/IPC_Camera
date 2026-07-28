@@ -1,9 +1,22 @@
+/**
+ * @file SessionModule.cpp
+ * @author tianl (tianl@kfb.cn)
+ * @date 2026-07-28
+ * @LastEditors  : qinjt@kfb.cn
+ * @LastEditTime : 2026-07-28
+ *
+ * @brief CSessionModule 模块实现
+ * 功能说明：
+ * 1. 实现 CSessionModule 模块核心逻辑
+ * 2. 校验输入参数并管理模块资源生命周期
+ * 3. 向上层提供可复用的 SDK 能力
+ */
 /*
  * @Author       : chenchl
  * @Date         : 2025-01-02 16:01:20
  * @LastEditors  : chenchl
  * @LastEditTime : 2025-01-02 17:03:03
- * @FilePath     : SessionModule.cpp
+ * @FilePath     : CSessionModule.cpp
  * @Description  : 会话和鉴权管理模块实现，负责HTTP鉴权信息设置和会话管理
  */
 
@@ -15,23 +28,23 @@
 /**
  * 构造函数
  */
-SessionModule::SessionModule()
+CSessionModule::CSessionModule()
     : m_strRealm("")
     , m_strUsername("")
     , m_strPassword("")
     , m_bInitialized(false)
 {
-    NSDK_LOG_DEBUG("SessionModule created");
+    NETSDK_LOG_MESSAGE_DEBUG("CSessionModule created");
 }
 
 /**
  * 析构函数
  * @details 自动调用Cleanup()清理会话和鉴权资源
  */
-SessionModule::~SessionModule()
+CSessionModule::~CSessionModule()
 {
     Cleanup();
-    NSDK_LOG_DEBUG("SessionModule destroyed");
+    NETSDK_LOG_MESSAGE_DEBUG("CSessionModule destroyed");
 }
 
 /**
@@ -42,26 +55,26 @@ SessionModule::~SessionModule()
  * @param password 密码
  * @return TRUE表示成功，FALSE表示失败
  */
-BOOL SessionModule::SetAuthInfo(const std::string& realm, 
-                                const std::string& username, 
+BOOL CSessionModule::SetAuthInfo(const std::string& realm,
+                                const std::string& username,
                                 const std::string& password)
 {
     if (realm.empty() || username.empty() || password.empty())
     {
-        NSDK_LOG_ERROR("SetAuthInfo: Invalid parameters (empty string)");
-        return FALSE;
+        NETSDK_LOG_MESSAGE_ERROR("SetAuthInfo: Invalid parameters (empty string)");
+        return NET_TV_FALSE;
     }
 
     m_strRealm = realm;
     m_strUsername = username;
     m_strPassword = password;
 
-    NSDK_LOG_INFO("Setting auth info: realm=%s, user=%s", realm.c_str(), username.c_str());
+    NETSDK_LOG_MESSAGE_INFO("Setting auth info: realm=%s, user=%s", realm.c_str(), username.c_str());
 
     CHttpAuthHandler::instance()->set_auth_info(realm.c_str(), username.c_str(), password.c_str());
-    
+
     m_bInitialized = true;
-    return TRUE;
+    return NET_TV_TRUE;
 }
 
 /**
@@ -71,29 +84,29 @@ BOOL SessionModule::SetAuthInfo(const std::string& realm,
  * @param password 新密码
  * @return TRUE表示成功，FALSE表示失败
  */
-BOOL SessionModule::UpdatePassword(const std::string& username, 
+BOOL CSessionModule::UpdatePassword(const std::string& username,
                                    const std::string& password)
 {
     if (username.empty() || password.empty())
     {
-        NSDK_LOG_ERROR("UpdatePassword: Invalid parameters (empty string)");
-        return FALSE;
+        NETSDK_LOG_MESSAGE_ERROR("UpdatePassword: Invalid parameters (empty string)");
+        return NET_TV_FALSE;
     }
 
     if (!m_bInitialized)
     {
-        NSDK_LOG_ERROR("UpdatePassword: Auth not initialized");
-        return FALSE;
+        NETSDK_LOG_MESSAGE_ERROR("UpdatePassword: Auth not initialized");
+        return NET_TV_FALSE;
     }
 
     m_strUsername = username;
     m_strPassword = password;
 
-    NSDK_LOG_INFO("Updating password for user: %s", username.c_str());
+    NETSDK_LOG_MESSAGE_INFO("Updating password for user: %s", username.c_str());
 
     CHttpAuthHandler::instance()->set_auth_info(m_strRealm.c_str(), username.c_str(), password.c_str());
-    
-    return TRUE;
+
+    return NET_TV_TRUE;
 }
 
 /**
@@ -101,7 +114,7 @@ BOOL SessionModule::UpdatePassword(const std::string& username,
  * @details 查询会话管理器中当前活跃的HTTP会话数量
  * @return 当前活跃的会话数
  */
-size_t SessionModule::GetActiveSessionCount() const
+size_t CSessionModule::GetActiveSessionCount() const
 {
     if (!m_bInitialized)
     {
@@ -121,33 +134,33 @@ size_t SessionModule::GetActiveSessionCount() const
  * 清理所有会话和鉴权资源
  * @details 销毁会话管理器和鉴权处理器实例，重置初始化标志和鉴权信息
  */
-void SessionModule::Cleanup()
+void CSessionModule::Cleanup()
 {
     if (!m_bInitialized)
     {
         return;
     }
 
-    NSDK_LOG_INFO("Cleaning up SessionModule...");
+    NETSDK_LOG_MESSAGE_INFO("Cleaning up CSessionModule...");
 
-    // 清理会话管理器
+    /* 清理会话管理器 */
     if (CSessionManager::instance())
     {
         CSessionManager::DestroyInstance();
-        NSDK_LOG_DEBUG("SessionManager destroyed");
+        NETSDK_LOG_MESSAGE_DEBUG("SessionManager destroyed");
     }
 
-    // 清理鉴权处理器
+    /* 清理鉴权处理器 */
     if (CHttpAuthHandler::instance())
     {
         CHttpAuthHandler::DestroyInstance();
-        NSDK_LOG_DEBUG("HttpAuthHandler destroyed");
+        NETSDK_LOG_MESSAGE_DEBUG("HttpAuthHandler destroyed");
     }
 
     m_bInitialized = false;
     m_strRealm.clear();
     m_strUsername.clear();
     m_strPassword.clear();
-    
-    NSDK_LOG_INFO("SessionModule cleanup completed");
+
+    NETSDK_LOG_MESSAGE_INFO("CSessionModule cleanup completed");
 }

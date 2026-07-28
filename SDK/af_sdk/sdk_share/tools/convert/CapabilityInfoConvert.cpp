@@ -1,15 +1,26 @@
 /**
  * @file CapabilityInfoConvert.cpp
  * @author tianl (tianl@kfb.cn)
- * @date 2025-01-30
- * 
- * @brief 能力集结构体JSON转换实现
+ * @date 2026-07-28
+ * @LastEditors  : qinjt@kfb.cn
+ * @LastEditTime : 2026-07-28
+ *
+ * @brief CapabilityInfoConvert 模块实现
+ * 功能说明：
+ * 1. 实现 CapabilityInfoConvert 模块核心逻辑
+ * 2. 校验输入参数并管理模块资源生命周期
+ * 3. 向上层提供可复用的 SDK 能力
  */
-
 #include "CapabilityInfoConvert.h"
 #include "SDKConvert.h"
 
 #include <cstring>
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 NormalizeEncodeComplexityNum 对应的处理。
+ * @param [in] complexityNum 函数处理参数。
+ * @return 返回该处理的状态或结果。
+ */
 
 static INT32 NormalizeEncodeComplexityNum(INT32 complexityNum)
 {
@@ -23,6 +34,12 @@ static INT32 NormalizeEncodeComplexityNum(INT32 complexityNum)
     }
     return complexityNum;
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 NormalizeFrameRateNum 对应的处理。
+ * @param [in] frameRateNum 函数处理参数。
+ * @return 返回该处理的状态或结果。
+ */
 
 static INT32 NormalizeFrameRateNum(INT32 frameRateNum)
 {
@@ -36,6 +53,14 @@ static INT32 NormalizeFrameRateNum(INT32 frameRateNum)
     }
     return frameRateNum;
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 DealFrameRateList 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 static void DealFrameRateList(Json::Object* pRootJson, NET_TV_VIDEO_RESOLUTION_S& stInfo, bool bOutStruct)
 {
@@ -77,6 +102,7 @@ static void DealFrameRateList(Json::Object* pRootJson, NET_TV_VIDEO_RESOLUTION_S
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 视频分辨率结构体转换
  */
 void SDKConvert::deal(Json::Object* pRootJson, NET_TV_VIDEO_RESOLUTION_S& stInfo, bool bOutStruct)
@@ -102,6 +128,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_VIDEO_RESOLUTION_S& stInfo
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 取值范围结构体转换
  */
 void SDKConvert::deal(Json::Object* pRootJson, NET_TV_RANGE_S& stInfo, bool bOutStruct)
@@ -116,6 +143,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_RANGE_S& stInfo, bool bOut
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 视频编码参数配置转换
  */
 void SDKConvert::deal(Json::Object* pRootJson, NET_TV_VIDEO_ENCODE_OPTION_S& stInfo, bool bOutStruct)
@@ -144,6 +172,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_VIDEO_ENCODE_OPTION_S& stI
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 视频编码格式能力转换
  */
 void SDKConvert::deal(Json::Object* pRootJson, NET_TV_VIDEO_ENCODE_ABILITY_S& stInfo, bool bOutStruct)
@@ -179,6 +208,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_VIDEO_ENCODE_ABILITY_S& st
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 视频码流参数能力集转换 (NET_TV_CAP_VIDEO_ENCODE)
  */
 void SDKConvert::deal(Json::Object* pRootJson, NET_TV_VIDEO_STREAM_CAP_S& stInfo, bool bOutStruct)
@@ -195,11 +225,11 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_VIDEO_STREAM_CAP_S& stInfo
     convert.field(pRootJson, "EncodeAbilityNum", (int&)stInfo.dwEncodeAbilityNum);
     convert.field(pRootJson, "IFrameIntervalMin", (int&)stInfo.dwIFrameIntervalMin);
     convert.field(pRootJson, "IFrameIntervalMax", (int&)stInfo.dwIFrameIntervalMax);
-    
-    // 编码能力数组处理
+
+    /* 编码能力数组处理 */
     if (bOutStruct)
     {
-        // JSON -> Struct
+        /* JSON -> Struct */
         Json::Object* pArray = Json::get(pRootJson, "EncodeCap");
         int nSize = Json::Array::size(pArray);
         int nParsedSize = 0;
@@ -219,7 +249,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_VIDEO_STREAM_CAP_S& stInfo
     }
     else
     {
-        // Struct -> JSON
+        /* Struct -> JSON */
         Json::Object* pArray = Json::Array::init();
         for (int i = 0; i < stInfo.dwEncodeCapSize && i < NET_TV_VIDEO_ENCODE_TYPE_MAX; i++)
         {
@@ -229,7 +259,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_VIDEO_STREAM_CAP_S& stInfo
         }
         Json::add(pRootJson, "EncodeCap", pArray);
     }
-    
+
     if (bOutStruct)
     {
         Json::Object* pAbilityArray = Json::get(pRootJson, "EncodeAbility");
@@ -265,16 +295,16 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_VIDEO_STREAM_CAP_S& stInfo
         Json::add(pRootJson, "EncodeAbility", pAbilityArray);
     }
 
-    // 图像质量范围
+    /* 图像质量范围 */
     convert.structure(pRootJson, "Quality", stInfo.stQuality);
-    // 码流平滑范围
+    /* 码流平滑范围 */
     convert.structure(pRootJson, "StreamSmooth", stInfo.stStreamSmooth);
 
-    // 分辨率列表
+    /* 分辨率列表 */
     convert.field(pRootJson, "ResolutionNum", (int&)stInfo.dwResolutionNum);
     if (bOutStruct)
     {
-        // JSON -> Struct
+        /* JSON -> Struct */
         Json::Object* pResArray = Json::get(pRootJson, "Resolution");
         int nResSize = Json::Array::size(pResArray);
         int nParsedResSize = 0;
@@ -294,7 +324,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_VIDEO_STREAM_CAP_S& stInfo
     }
     else
     {
-        // Struct -> JSON
+        /* Struct -> JSON */
         Json::Object* pResArray = Json::Array::init();
         for (int i = 0; i < stInfo.dwResolutionNum && i < NET_TV_RESOLUTION_NUM_MAX; i++)
         {
@@ -305,6 +335,12 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_VIDEO_STREAM_CAP_S& stInfo
         Json::add(pRootJson, "Resolution", pResArray);
     }
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 NormalizeOsdCap 对应的处理。
+ * @param [in,out] stInfo 函数处理参数。
+ * @return 无返回值。
+ */
 
 static void NormalizeOsdCap(NET_TV_OSD_CAP_S& stInfo)
 {
@@ -316,6 +352,7 @@ static void NormalizeOsdCap(NET_TV_OSD_CAP_S& stInfo)
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 视频编码能力集转换 (多码流, NET_TV_CAP_VIDEO_ENCODE)
  */
 void SDKConvert::deal(Json::Object* pRootJson, NET_TV_VIDEO_ENCODE_CAP_S& stInfo, bool bOutStruct)
@@ -326,11 +363,11 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_VIDEO_ENCODE_CAP_S& stInfo
     }
     SDKConvert::CSDKConvert convert(bOutStruct);
     convert.field(pRootJson, "StreamCount", (int&)stInfo.dwStreamCount);
-    
-    // 各码流能力数组处理
+
+    /* 各码流能力数组处理 */
     if (bOutStruct)
     {
-        // JSON -> Struct
+        /* JSON -> Struct */
         Json::Object* pArray = Json::get(pRootJson, "StreamCap");
         int nSize = Json::Array::size(pArray);
         int nParsedSize = 0;
@@ -350,7 +387,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_VIDEO_ENCODE_CAP_S& stInfo
     }
     else
     {
-        // Struct -> JSON
+        /* Struct -> JSON */
         Json::Object* pArray = Json::Array::init();
         for (int i = 0; i < stInfo.dwStreamCount && i < NET_TV_VIDEO_STREAM_MAX; i++)
         {
@@ -358,9 +395,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_VIDEO_ENCODE_CAP_S& stInfo
             deal(pItem, stInfo.astStreamCap[i], bOutStruct);
             Json::Array::add(pArray, pItem);
         }
-        Json::add(pRootJson, "StreamCap", pArray);  
+        Json::add(pRootJson, "StreamCap", pArray);
     }
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 dealIntArray 定义的内部处理。
+ * @return 无返回值。
+ */
 
 static void dealIntArray(Json::Object* pRootJson,
                          const std::string& strKey,
@@ -376,7 +418,7 @@ static void dealIntArray(Json::Object* pRootJson,
 
     if (bOutStruct)
     {
-        // JSON -> Struct
+        /* JSON -> Struct */
         Json::Object* pArray = Json::get(pRootJson, strKey);
         if (!pArray)
         {
@@ -396,7 +438,7 @@ static void dealIntArray(Json::Object* pRootJson,
     }
     else
     {
-        // Struct -> JSON
+        /* Struct -> JSON */
         Json::Object* pArray = Json::Array::init();
         for (int i = 0; i < (int)dwValidSize && i < (int)dwMaxSize; i++)
         {
@@ -408,6 +450,7 @@ static void dealIntArray(Json::Object* pRootJson,
 
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 音频范围转换
  */
 void SDKConvert::deal(Json::Object* pRootJson, NET_TV_AUDIO_RANGE_S& stInfo, bool bOutStruct)
@@ -426,6 +469,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_AUDIO_RANGE_S& stInfo, boo
 
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 音频格式能力转换
  */
 void SDKConvert::deal(Json::Object* pRootJson, NET_TV_AUDIO_FORMAT_CAP_S& stInfo, bool bOutStruct)
@@ -440,7 +484,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_AUDIO_FORMAT_CAP_S& stInfo
     convert.field(pRootJson, "SampleRateSize", (int&)stInfo.dwSampleRateSize);
     convert.field(pRootJson, "BitRateSize",    (int&)stInfo.dwBitRateSize);
 
-    // 采样率数组
+    /* 采样率数组 */
     dealIntArray(pRootJson,
                  "SampleRate",
                  stInfo.adwSampleRate,
@@ -448,7 +492,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_AUDIO_FORMAT_CAP_S& stInfo
                  NET_TV_AUDIO_SAMPRATE_MAX,
                  bOutStruct);
 
-    // 码率数组
+    /* 码率数组 */
     dealIntArray(pRootJson,
                  "BitRate",
                  stInfo.adwBitRate,
@@ -458,7 +502,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_AUDIO_FORMAT_CAP_S& stInfo
 
     if (bOutStruct)
     {
-        // JSON -> Struct
+        /* JSON -> Struct */
         Json::Object* pSampleRateRange = Json::get(pRootJson, "SampleRateRange");
         if (pSampleRateRange)
         {
@@ -473,7 +517,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_AUDIO_FORMAT_CAP_S& stInfo
     }
     else
     {
-        // Struct -> JSON
+        /* Struct -> JSON */
         Json::Object* pSampleRateRange = Json::init();
         deal(pSampleRateRange, stInfo.stSampleRateRange, bOutStruct);
         Json::add(pRootJson, "SampleRateRange", pSampleRateRange);
@@ -486,6 +530,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_AUDIO_FORMAT_CAP_S& stInfo
 
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 音频编码能力集转换（NET_TV_CAP_AUDIO_ENCODE）
  */
 void SDKConvert::deal(Json::Object* pRootJson, NET_TV_AUDIO_CAP_S& stInfo, bool bOutStruct)
@@ -501,7 +546,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_AUDIO_CAP_S& stInfo, bool 
     convert.field(pRootJson, "FormatSize",       (int&)stInfo.dwFormatSize);
     convert.field(pRootJson, "FormatDetailSize", (int&)stInfo.dwFormatDetailSize);
 
-    // 输入类型数组
+    /* 输入类型数组 */
     dealIntArray(pRootJson,
                  "InputType",
                  stInfo.adwInputType,
@@ -509,7 +554,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_AUDIO_CAP_S& stInfo, bool 
                  NET_TV_AUDIO_INPUT_TYPE_MAX,
                  bOutStruct);
 
-    // 输出类型数组
+    /* 输出类型数组 */
     dealIntArray(pRootJson,
                  "OutputType",
                  stInfo.adwOutputType,
@@ -517,7 +562,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_AUDIO_CAP_S& stInfo, bool 
                  NET_TV_AUDIO_OUTPUT_TYPE_MAX,
                  bOutStruct);
 
-    // 音频格式数组
+    /* 音频格式数组 */
     dealIntArray(pRootJson,
                  "Format",
                  stInfo.adwFormat,
@@ -525,10 +570,10 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_AUDIO_CAP_S& stInfo, bool 
                  NET_TV_AUDIO_FORMAT_MAX,
                  bOutStruct);
 
-    // 各音频格式详细能力数组
+    /* 各音频格式详细能力数组 */
     if (bOutStruct)
     {
-        // JSON -> Struct
+        /* JSON -> Struct */
         Json::Object* pArray = Json::get(pRootJson, "FormatDetail");
         if (!pArray)
         {
@@ -547,7 +592,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_AUDIO_CAP_S& stInfo, bool 
     }
     else
     {
-        // Struct -> JSON
+        /* Struct -> JSON */
         Json::Object* pArray = Json::Array::init();
         for (int i = 0; i < stInfo.dwFormatDetailSize && i < NET_TV_AUDIO_FORMAT_MAX; i++)
         {
@@ -560,6 +605,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_AUDIO_CAP_S& stInfo, bool 
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief OSD参数能力集转换 (NET_TV_CAP_OSD)
  */
 void SDKConvert::deal(Json::Object* pRootJson, NET_TV_OSD_CAP_S& stInfo, bool bOutStruct)
@@ -574,30 +620,30 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TV_OSD_CAP_S& stInfo, bool bO
     {
         NormalizeOsdCap(stInfo);
     }
-    
-    // 基础能力
+
+    /* 基础能力 */
     convert.field(pRootJson, "SupportOsd", (int&)stInfo.bSupportOsd);
     convert.field(pRootJson, "SupportName", (int&)stInfo.bSupportName);
     convert.field(pRootJson, "SupportTime", (int&)stInfo.bSupportTime);
     convert.field(pRootJson, "SupportWeek", (int&)stInfo.bSupportWeek);
     convert.field(pRootJson, "SupportCustomColor", (int&)stInfo.bSupportCustomColor);
-    
-    // 字符叠加能力
+
+    /* 字符叠加能力 */
     convert.field(pRootJson, "MaxOsdNum", (UINT32&)stInfo.udwMaxOsdNum);
-    
-    // 字体大小能力
+
+    /* 字体大小能力 */
     convert.field(pRootJson, "SupportedFontSizeNum", (UINT32&)stInfo.udwSupportedFontSizeNum);
     convert.field_array(pRootJson, "SupportedFontSizeList", (int*)stInfo.audwSupportedFontSizeList, stInfo.udwSupportedFontSizeNum, NET_TV_OSD_FONT_SIZE_TYPE_MAX_NUM);
-    
-    // 日期格式能力
+
+    /* 日期格式能力 */
     convert.field(pRootJson, "SupportedDateFormatNum", (UINT32&)stInfo.udwSupportedDateFormatNum);
     convert.field_array(pRootJson, "SupportedDateFormatList", (int*)stInfo.audwSupportedDateFormatList, stInfo.udwSupportedDateFormatNum, NET_TV_OSD_DATE_FORMAT_MAX_NUM);
-    
-    // 时间格式能力
+
+    /* 时间格式能力 */
     convert.field(pRootJson, "SupportedTimeFormatNum", (UINT32&)stInfo.udwSupportedTimeFormatNum);
     convert.field_array(pRootJson, "SupportedTimeFormatList", (int*)stInfo.audwSupportedTimeFormatList, stInfo.udwSupportedTimeFormatNum, NET_TV_OSD_TIME_FORMAT_MAX_NUM);
-    
-    // 对齐方式能力
+
+    /* 对齐方式能力 */
     convert.field(pRootJson, "SupportedAlignNum", (UINT32&)stInfo.udwSupportedAlignNum);
     convert.field_array(pRootJson, "SupportedAlignList", (int*)stInfo.audwSupportedAlignList, stInfo.udwSupportedAlignNum, 8);
 

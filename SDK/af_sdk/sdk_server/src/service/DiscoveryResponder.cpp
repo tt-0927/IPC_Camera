@@ -1,7 +1,17 @@
 /**
  * @file DiscoveryResponder.cpp
- * @brief 设备发现服务端实现
+ * @author tianl (tianl@kfb.cn)
+ * @date 2026-07-28
+ * @LastEditors  : qinjt@kfb.cn
+ * @LastEditTime : 2026-07-28
+ *
+ * @brief CDiscoveryResponder 模块实现
+ * 功能说明：
+ * 1. 实现 CDiscoveryResponder 模块核心逻辑
+ * 2. 校验输入参数并管理模块资源生命周期
+ * 3. 向上层提供可复用的 SDK 能力
  */
+
 #include "DiscoveryResponder.h"
 
 #include "DiscoveryProtocol.h"
@@ -30,6 +40,13 @@
 /* ---- helpers ---- */
 
 #ifndef _WIN32
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 查询或校验 get_iface_mac 对应的数据。
+ * @param [in] iface 函数处理参数。
+ * @param [in] mac 函数处理参数。
+ * @return 返回该处理的状态或结果。
+ */
 static bool get_iface_mac(const char* iface, uint8_t mac[6])
 {
     int fd = socket(AF_INET, SOCK_DGRAM, 0);
@@ -42,6 +59,13 @@ static bool get_iface_mac(const char* iface, uint8_t mac[6])
     if (ok) std::memcpy(mac, ifr.ifr_hwaddr.sa_data, 6);
     return ok;
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 查询或校验 get_iface_ip 对应的数据。
+ * @param [in] iface 函数处理参数。
+ * @param [in,out] ip 函数处理参数。
+ * @return 返回该处理的状态或结果。
+ */
 
 static bool get_iface_ip(const char* iface, uint32_t& ip)
 {
@@ -57,12 +81,25 @@ static bool get_iface_ip(const char* iface, uint32_t& ip)
     }
     return ok;
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 查询或校验 get_iface_index 对应的数据。
+ * @param [in] iface 函数处理参数。
+ * @param [in,out] ifindex 函数处理参数。
+ * @return 返回该处理的状态或结果。
+ */
 
 static bool get_iface_index(const char* iface, int& ifindex)
 {
     ifindex = static_cast<int>(if_nametoindex(iface));
     return ifindex > 0;
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 attach_discovery_filter 定义的内部处理。
+ * @param [in] fd 函数处理参数。
+ * @return 返回该处理的状态或结果。
+ */
 
 static bool attach_discovery_filter(int fd)
 {
@@ -98,30 +135,30 @@ static bool attach_discovery_filter(int fd)
 }
 #endif /* _WIN32 */
 
-/* ---- DiscoveryResponder ---- */
+/* ---- CDiscoveryResponder ---- */
 
-int DiscoveryResponder::init(const char* szInterfaceName)
+int CDiscoveryResponder::init(const char* szInterfaceName)
 {
     if (!szInterfaceName || szInterfaceName[0] == '\0') return -1;
-    m_ifaceName = szInterfaceName;
+    m_strInterfaceName = szInterfaceName;
 
 #ifdef _WIN32
     /* Windows: 使用普通 UDP 组播接收，不支持 AF_PACKET raw socket */
-    m_localMac[0] = 0; m_localMac[1] = 0; m_localMac[2] = 0;
-    m_localMac[3] = 0; m_localMac[4] = 0; m_localMac[5] = 0;
-    m_localIP = 0;
-    m_ifindex = 0;
+    m_aLocalMac[0] = 0; m_aLocalMac[1] = 0; m_aLocalMac[2] = 0;
+    m_aLocalMac[3] = 0; m_aLocalMac[4] = 0; m_aLocalMac[5] = 0;
+    m_uLocalIp = 0;
+    m_nInterfaceIndex = 0;
 
     /* 创建 UDP 组播接收套接字 */
-    m_udpSock = socket(AF_INET, SOCK_DGRAM, 0);
-    if (m_udpSock == INVALID_SOCKET) {
+    m_nUdpSocket = socket(AF_INET, SOCK_DGRAM, 0);
+    if (m_nUdpSocket == NETSDK_DEMO_INVALID_SOCKET) {
         fprintf(stderr, "discovery-responder: socket failed, error=%d\n", WSAGetLastError());
         return -6;
     }
 
     /* 允许端口复用 */
     int reuse = 1;
-    setsockopt(m_udpSock, SOL_SOCKET, SO_REUSEADDR,
+    setsockopt(m_nUdpSocket, SOL_SOCKET, SO_REUSEADDR,
                reinterpret_cast<const char*>(&reuse), sizeof(reuse));
 
     /* 绑定到组播地址和端口 */
@@ -129,10 +166,10 @@ int DiscoveryResponder::init(const char* szInterfaceName)
     bind_addr.sin_family = AF_INET;
     bind_addr.sin_addr.s_addr = inet_addr(NET_TV_DISCOVERY_MCAST_ADDR);
     bind_addr.sin_port = htons(NET_TV_DISCOVERY_MCAST_PORT);
-    if (bind(m_udpSock, reinterpret_cast<struct sockaddr*>(&bind_addr), sizeof(bind_addr)) < 0) {
+    if (bind(m_nUdpSocket, reinterpret_cast<struct sockaddr*>(&bind_addr), sizeof(bind_addr)) < 0) {
         fprintf(stderr, "discovery-responder: bind failed, error=%d\n", WSAGetLastError());
-        socket_close(m_udpSock);
-        m_udpSock = INVALID_SOCKET;
+        NETSDK_SOCKET_CLOSE(m_nUdpSocket);
+        m_nUdpSocket = NETSDK_DEMO_INVALID_SOCKET;
         return -6;
     }
 
@@ -140,50 +177,50 @@ int DiscoveryResponder::init(const char* szInterfaceName)
     struct ip_mreq mreq{};
     mreq.imr_multiaddr.s_addr = inet_addr(NET_TV_DISCOVERY_MCAST_ADDR);
     mreq.imr_interface.s_addr = INADDR_ANY;
-    if (setsockopt(m_udpSock, IPPROTO_IP, IP_ADD_MEMBERSHIP,
+    if (setsockopt(m_nUdpSocket, IPPROTO_IP, IP_ADD_MEMBERSHIP,
                    reinterpret_cast<const char*>(&mreq), sizeof(mreq)) < 0) {
         fprintf(stderr, "discovery-responder: IGMP join failed, error=%d\n", WSAGetLastError());
     }
 
     printf("[discovery-responder] init ok (Windows UDP multicast mode): iface=%s\n",
-           m_ifaceName.c_str());
+           m_strInterfaceName.c_str());
     fflush(stdout);
     return 0;
 #else
-    if (!get_iface_mac(szInterfaceName, m_localMac)) return -2;
-    if (!get_iface_ip(szInterfaceName, m_localIP))   return -3;
-    if (!get_iface_index(szInterfaceName, m_ifindex)) return -4;
+    if (!get_iface_mac(szInterfaceName, m_aLocalMac)) return -2;
+    if (!get_iface_ip(szInterfaceName, m_uLocalIp))   return -3;
+    if (!get_iface_index(szInterfaceName, m_nInterfaceIndex)) return -4;
 
     if (!init_raw_socket()) return -5;
 
     /* 创建 UDP 回包套接字 */
-    m_udpSock = socket(AF_INET, SOCK_DGRAM, 0);
-    if (m_udpSock < 0) {
+    m_nUdpSocket = socket(AF_INET, SOCK_DGRAM, 0);
+    if (m_nUdpSocket < 0) {
         close_raw_socket();
         return -6;
     }
 
     /* bind to interface for UDP send */
     struct ifreq ifr{};
-    std::strncpy(ifr.ifr_name, m_ifaceName.c_str(), IFNAMSIZ - 1);
-    setsockopt(m_udpSock, SOL_SOCKET, SO_BINDTODEVICE, &ifr, sizeof(ifr));
+    std::strncpy(ifr.ifr_name, m_strInterfaceName.c_str(), IFNAMSIZ - 1);
+    setsockopt(m_nUdpSocket, SOL_SOCKET, SO_BINDTODEVICE, &ifr, sizeof(ifr));
 
     /* 加入组播组 — 触发 IGMP join，告诉交换机转发该组播流到此端口 */
-    m_igmpSock = socket(AF_INET, SOCK_DGRAM, 0);
-    if (m_igmpSock >= 0) {
+    m_nIgmpSocket = socket(AF_INET, SOCK_DGRAM, 0);
+    if (m_nIgmpSocket >= 0) {
         struct ip_mreq mreq{};
         mreq.imr_multiaddr.s_addr = inet_addr(NET_TV_DISCOVERY_MCAST_ADDR);
-        mreq.imr_interface.s_addr = m_localIP;
-        if (setsockopt(m_igmpSock, IPPROTO_IP, IP_ADD_MEMBERSHIP,
+        mreq.imr_interface.s_addr = m_uLocalIp;
+        if (setsockopt(m_nIgmpSocket, IPPROTO_IP, IP_ADD_MEMBERSHIP,
                        &mreq, sizeof(mreq)) < 0) {
             perror("discovery-responder: IGMP join");
         }
     }
 
     printf("[discovery-responder] init ok: iface=%s ifindex=%d ip=0x%x mac=%02x:%02x:%02x:%02x:%02x:%02x\n",
-           m_ifaceName.c_str(), m_ifindex, m_localIP,
-           m_localMac[0], m_localMac[1], m_localMac[2],
-           m_localMac[3], m_localMac[4], m_localMac[5]);
+           m_strInterfaceName.c_str(), m_nInterfaceIndex, m_uLocalIp,
+           m_aLocalMac[0], m_aLocalMac[1], m_aLocalMac[2],
+           m_aLocalMac[3], m_aLocalMac[4], m_aLocalMac[5]);
     fflush(stdout);
 
     return 0;
@@ -191,12 +228,17 @@ int DiscoveryResponder::init(const char* szInterfaceName)
 }
 
 #ifndef _WIN32
-bool DiscoveryResponder::init_raw_socket()
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 init_raw_socket 对应的处理。
+ * @return 返回该处理的状态或结果。
+ */
+bool CDiscoveryResponder::init_raw_socket()
 {
-    m_rawFd = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_IP));
-    if (m_rawFd < 0) return false;
+    m_nRawFd = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_IP));
+    if (m_nRawFd < 0) return false;
 
-    if (!attach_discovery_filter(m_rawFd)) {
+    if (!attach_discovery_filter(m_nRawFd)) {
         close_raw_socket();
         return false;
     }
@@ -205,14 +247,14 @@ bool DiscoveryResponder::init_raw_socket()
     struct timeval tv{};
     tv.tv_sec  = 1;
     tv.tv_usec = 0;
-    setsockopt(m_rawFd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+    setsockopt(m_nRawFd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
 
     /* bind to specific interface */
     struct sockaddr_ll sll{};
     sll.sll_family   = AF_PACKET;
     sll.sll_protocol = htons(ETH_P_IP);
-    sll.sll_ifindex  = m_ifindex;
-    if (bind(m_rawFd, reinterpret_cast<struct sockaddr*>(&sll), sizeof(sll)) < 0) {
+    sll.sll_ifindex  = m_nInterfaceIndex;
+    if (bind(m_nRawFd, reinterpret_cast<struct sockaddr*>(&sll), sizeof(sll)) < 0) {
         close_raw_socket();
         return false;
     }
@@ -220,29 +262,39 @@ bool DiscoveryResponder::init_raw_socket()
 }
 #endif /* _WIN32 */
 
-void DiscoveryResponder::close_raw_socket()
+void CDiscoveryResponder::close_raw_socket()
 {
 #ifndef _WIN32
-    if (m_rawFd >= 0)  { close(m_rawFd);  m_rawFd  = -1; }
-    if (m_igmpSock >= 0) { close(m_igmpSock); m_igmpSock = -1; }
+    if (m_nRawFd >= 0)  { close(m_nRawFd);  m_nRawFd  = -1; }
+    if (m_nIgmpSocket >= 0) { close(m_nIgmpSocket); m_nIgmpSocket = -1; }
 #endif
-    if (m_udpSock != INVALID_SOCKET_FD) { socket_close(m_udpSock); m_udpSock = INVALID_SOCKET_FD; }
+    if (m_nUdpSocket != INVALID_SOCKET_FD) { NETSDK_SOCKET_CLOSE(m_nUdpSocket); m_nUdpSocket = INVALID_SOCKET_FD; }
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 start 对应的处理。
+ * @return 返回该处理的状态或结果。
+ */
 
-int DiscoveryResponder::start()
+int CDiscoveryResponder::start()
 {
-    if (m_running.exchange(true)) return 0;  /* already running */
-    if (!m_deviceInfoCb) return -1;          /* callback not set */
+    if (m_bRunning.exchange(true)) return 0;  /* already running */
+    if (!m_fnDeviceInfoCallback) return -1;          /* callback not set */
 
-    m_thread = std::thread(&DiscoveryResponder::receive_thread, this);
+    m_stThread = std::thread(&CDiscoveryResponder::receive_thread, this);
     return 0;
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 stop 对应的处理。
+ * @return 无返回值。
+ */
 
-void DiscoveryResponder::stop()
+void CDiscoveryResponder::stop()
 {
-    m_running.store(false);
-    if (m_thread.joinable()) {
-        m_thread.join();
+    m_bRunning.store(false);
+    if (m_stThread.joinable()) {
+        m_stThread.join();
     }
     close_raw_socket();
 }
@@ -250,7 +302,12 @@ void DiscoveryResponder::stop()
 /* ---- frame parsing (Linux only, uses AF_PACKET raw socket) ---- */
 
 #ifndef _WIN32
-bool DiscoveryResponder::parse_frame(const uint8_t* data, ssize_t len,
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 查询或校验 parse_frame 对应的数据。
+ * @return 返回该处理的状态或结果。
+ */
+bool CDiscoveryResponder::parse_frame(const uint8_t* data, ssize_t len,
                                       std::vector<uint8_t>& udp_payload,
                                       uint8_t client_mac[6],
                                       uint32_t& client_ip, uint16_t& client_port)
@@ -314,8 +371,13 @@ static uint16_t ip_checksum(const void* data, size_t len)
     }
     return static_cast<uint16_t>(~sum);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 build_l2_response 定义的内部处理。
+ * @return 返回该处理的状态或结果。
+ */
 
-std::vector<uint8_t> DiscoveryResponder::build_l2_response(
+std::vector<uint8_t> CDiscoveryResponder::build_l2_response(
     const uint8_t client_mac[6],
     uint32_t client_ip, uint16_t client_port,
     const NET_TV_DISCOVERY_DEVICE_INFO_S& info) const
@@ -330,7 +392,7 @@ std::vector<uint8_t> DiscoveryResponder::build_l2_response(
     /* Ethernet */
     auto* eth = reinterpret_cast<struct ethhdr*>(p);
     std::memcpy(eth->h_dest,   client_mac,  6);
-    std::memcpy(eth->h_source, m_localMac,   6);
+    std::memcpy(eth->h_source, m_aLocalMac,   6);
     eth->h_proto = htons(ETH_P_IP);
     p += sizeof(struct ethhdr);
 
@@ -343,7 +405,7 @@ std::vector<uint8_t> DiscoveryResponder::build_l2_response(
     ip->id       = htons(static_cast<uint16_t>(rand() & 0xFFFF));
     ip->ttl      = 64;
     ip->protocol = IPPROTO_UDP;
-    ip->saddr    = m_localIP;
+    ip->saddr    = m_uLocalIp;
     ip->daddr    = client_ip;
     ip->check    = 0;
     ip->check    = ip_checksum(ip, sizeof(struct iphdr));
@@ -366,7 +428,7 @@ std::vector<uint8_t> DiscoveryResponder::build_l2_response(
 
 /* ---- standard UDP response ---- */
 
-int DiscoveryResponder::send_udp_response(uint32_t client_ip, uint16_t client_port,
+int CDiscoveryResponder::send_udp_response(uint32_t client_ip, uint16_t client_port,
                                            const NET_TV_DISCOVERY_DEVICE_INFO_S& info)
 {
     std::string json = discovery::build_response_json(info);
@@ -376,14 +438,14 @@ int DiscoveryResponder::send_udp_response(uint32_t client_ip, uint16_t client_po
     addr.sin_port   = htons(client_port);
     addr.sin_addr.s_addr = client_ip;
 
-    ssize_t ret = sendto(m_udpSock, json.data(), json.size(), 0,
+    ssize_t ret = sendto(m_nUdpSocket, json.data(), json.size(), 0,
                          reinterpret_cast<struct sockaddr*>(&addr), sizeof(addr));
     return ret >= 0 ? 0 : -1;
 }
 
 /* ---- main receive loop ---- */
 
-void DiscoveryResponder::receive_thread()
+void CDiscoveryResponder::receive_thread()
 {
 #ifdef _WIN32
     /* Windows: 使用 UDP 组播接收，不支持 AF_PACKET raw socket */
@@ -398,10 +460,10 @@ void DiscoveryResponder::receive_thread()
     printf("[discovery-responder] thread started (Windows UDP multicast mode)\n");
     fflush(stdout);
 
-    while (m_running.load()) {
+    while (m_bRunning.load()) {
         struct sockaddr_in from_addr{};
         int from_len = sizeof(from_addr);
-        int n = recvfrom(m_udpSock, buf, sizeof(buf) - 1, 0,
+        int n = recvfrom(m_nUdpSocket, buf, sizeof(buf) - 1, 0,
                          reinterpret_cast<struct sockaddr*>(&from_addr), &from_len);
         if (n <= 0) {
             int err = WSAGetLastError();
@@ -425,7 +487,7 @@ void DiscoveryResponder::receive_thread()
 
         /* 获取本机设备信息 */
         NET_TV_DISCOVERY_DEVICE_INFO_S devInfo{};
-        m_deviceInfoCb(&devInfo);
+        m_fnDeviceInfoCallback(&devInfo);
 
         /* UDP 单播回包 */
         int udp_ret = send_udp_response(client_ip, client_port, devInfo);
@@ -470,11 +532,11 @@ void DiscoveryResponder::receive_thread()
     int l2_fail_count = 0;
     auto last_probe_log = std::chrono::steady_clock::now();
 
-    printf("[discovery-responder] thread started, listening on ifindex=%d\n", m_ifindex);
+    printf("[discovery-responder] thread started, listening on ifindex=%d\n", m_nInterfaceIndex);
     fflush(stdout);
 
-    while (m_running.load()) {
-        ssize_t n = recvfrom(m_rawFd, buf, sizeof(buf), 0, nullptr, nullptr);
+    while (m_bRunning.load()) {
+        ssize_t n = recvfrom(m_nRawFd, buf, sizeof(buf), 0, nullptr, nullptr);
         if (n <= 0) {
             if (errno == EINTR || errno == EAGAIN) continue;
             perror("discovery-responder: recvfrom");
@@ -511,7 +573,7 @@ void DiscoveryResponder::receive_thread()
 
         /* 获取本机设备信息 */
         NET_TV_DISCOVERY_DEVICE_INFO_S devInfo{};
-        m_deviceInfoCb(&devInfo);
+        m_fnDeviceInfoCallback(&devInfo);
 
         /* 1. 标准 UDP 单播回包 */
         int udp_ret = send_udp_response(client_ip, client_port, devInfo);
@@ -528,12 +590,12 @@ void DiscoveryResponder::receive_thread()
 
         struct sockaddr_ll sll{};
         sll.sll_family   = AF_PACKET;
-        sll.sll_ifindex  = m_ifindex;
+        sll.sll_ifindex  = m_nInterfaceIndex;
         sll.sll_hatype   = 1;  /* ARPHRD_ETHER */
         sll.sll_halen    = ETH_ALEN;
         std::memcpy(sll.sll_addr, client_mac, ETH_ALEN);
 
-        ssize_t l2_ret = sendto(m_rawFd, l2frame.data(), l2frame.size(), 0,
+        ssize_t l2_ret = sendto(m_nRawFd, l2frame.data(), l2frame.size(), 0,
                                 reinterpret_cast<struct sockaddr*>(&sll), sizeof(sll));
         if (l2_ret >= 0) {
             l2_ok_count++;

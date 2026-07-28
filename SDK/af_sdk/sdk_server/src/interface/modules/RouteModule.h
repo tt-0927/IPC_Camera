@@ -1,9 +1,22 @@
+/**
+ * @file RouteModule.h
+ * @author tianl (tianl@kfb.cn)
+ * @date 2026-07-28
+ * @LastEditors  : qinjt@kfb.cn
+ * @LastEditTime : 2026-07-28
+ *
+ * @brief CRouteModule 模块接口与类型定义
+ * 功能说明：
+ * 1. 声明 CRouteModule 模块对外接口和数据类型
+ * 2. 定义模块依赖的常量、回调或辅助类型
+ * 3. 为调用方提供明确且稳定的编译期契约
+ */
 /*
  * @Author       : chenchl
  * @Date         : 2025-01-02 16:01:20
  * @LastEditors  : chenchl
  * @LastEditTime : 2025-01-02 17:03:03
- * @FilePath     : RouteModule.h
+ * @FilePath     : CRouteModule.h
  * @Description  : 路由注册管理模块，负责HTTP路由的注册和业务单例的生命周期管理
  */
 
@@ -11,30 +24,30 @@
 #include <stddef.h>
 #include "NetTVSDKServerInterface.h"
 
-// 前向声明
+/* 前向声明 */
 class CRouteRegistry;
 
 /**
  * 路由注册管理模块类
  * 负责HTTP路由的注册和业务单例的生命周期管理
  */
-class RouteModule
+class CRouteModule
 {
 public:
     /**
      * 构造函数
      */
-    RouteModule();
+    CRouteModule();
 
     /**
      * 析构函数
      * @details 自动调用ClearRoutes()清理路由和业务单例
      */
-    ~RouteModule();
+    ~CRouteModule();
 
-    // 禁止拷贝
-    RouteModule(const RouteModule&) = delete;
-    RouteModule& operator=(const RouteModule&) = delete;
+    /* 禁止拷贝 */
+    CRouteModule(const CRouteModule&) = delete;
+    CRouteModule& operator=(const CRouteModule&) = delete;
 
     /**
      * 注册所有业务路由
@@ -92,5 +105,5 @@ private:
      */
     void RegisterUpgradeRoutes();
 
-    size_t m_routeCount; /* 已注册路由计数 */
+    size_t m_nRouteCount; /* 已注册路由计数 */
 };

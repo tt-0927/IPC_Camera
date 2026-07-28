@@ -1,11 +1,16 @@
 /**
  * @file NetTVSDKClientInterface.cpp
  * @author tianl (tianl@kfb.cn)
- * @date 2025-12-22
- * 
- * @brief 客户端SDK接口实现，包含初始化、登录、配置获取/设置、回放控制、录像帧流、语音对讲等核心功能
+ * @date 2026-07-28
+ * @LastEditors  : qinjt@kfb.cn
+ * @LastEditTime : 2026-07-28
+ *
+ * @brief NetTVSDKClientInterface 模块实现
+ * 功能说明：
+ * 1. 实现 NetTVSDKClientInterface 模块核心逻辑
+ * 2. 校验输入参数并管理模块资源生命周期
+ * 3. 向上层提供可复用的 SDK 能力
  */
-
 #include <stdio.h>
 #include <stdint.h>
 #include <cctype>
@@ -26,7 +31,7 @@
 #include "RecordFrameClient.h"
 #include "VoiceComClient.h"
 
-#define NETTVSDK_MAKE_VERSION(major, minor, rev1, rev2) \
+#define NETSDK_MAKE_VERSION(major, minor, rev1, rev2) \
     ((uint32_t)( \
         ((major & 0xFF) << 24) |  /* 主版本左移24位（占高8位） */ \
         ((minor & 0xFF) << 16) |  /* 次版本左移16位（占次高8位） */ \
@@ -34,15 +39,15 @@
         (rev2 & 0xFF)             /* 附加版本2占最低8位 */ \
     ))
 
-#define NETTVSDK_GET_MAJOR(version)    ((uint8_t)((version >> 24) & 0xFF))  // 提取主版本
-#define NETTVSDK_GET_MINOR(version)    ((uint8_t)((version >> 16) & 0xFF))  // 提取次版本
-#define NETTVSDK_GET_REV1(version)     ((uint8_t)((version >> 8) & 0xFF))   // 提取附加版本1
-#define NETTVSDK_GET_REV2(version)     ((uint8_t)(version & 0xFF))          // 提取附加版本2
+#define NETSDK_GET_MAJOR(version)    ((uint8_t)((version >> 24) & 0xFF))  /* 提取主版本 */
+#define NETSDK_GET_MINOR(version)    ((uint8_t)((version >> 16) & 0xFF))  /* 提取次版本 */
+#define NETSDK_GET_REV1(version)     ((uint8_t)((version >> 8) & 0xFF))   /* 提取附加版本1 */
+#define NETSDK_GET_REV2(version)     ((uint8_t)(version & 0xFF))          /* 提取附加版本2 */
 
-#define NETTVSDK_VERSION        NETTVSDK_MAKE_VERSION(1, 0, 0, 0)			/* 当前版本 */
+#define NETSDK_VERSION        NETSDK_MAKE_VERSION(1, 0, 0, 0)			/* 当前版本 */
 
 /* 检查SDK是否初始化 */
-#define CHECK_SDK_INIT(val) \
+#define NETSDK_CHECK_SDK_INIT(val) \
     do { \
         auto* pMgr = CDeviceManage::instance(); \
         /* 检查单例是否存在 以及 标志位是否为 true */ \
@@ -53,7 +58,7 @@
     } while(0)
 
 /* 检查SDK是否已经初始化 */
-#define CHECK_SDK_ALREADY_INIT(val) \
+#define NETSDK_CHECK_SDK_ALREADY_INIT(val) \
     do { \
         auto* pMgr = CDeviceManage::instance(); \
         /* 如果单例存在 且 标志位为 true，说明已经 Init 过了 */ \
@@ -64,70 +69,73 @@
     } while(0)
 
 /* 全局错误码 */
-thread_local int CErrorManage::lastErrorCode_ = NET_TV_E_SDK_NOT_INIT;
+thread_local int CErrorManage::s_nLastErrorCode = NET_TV_E_SDK_NOT_INIT;
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief SDK初始化接口
  * @return 成功返回TRUE，失败返回FALSE
  * @note 调用其他SDK接口前必须先调用此接口；重复调用会返回失败
  */
-NET_TV_API BOOL STDCALL NET_TV_Init(void)
+NET_TV_API BOOL NET_TV_STDCALL NET_TV_Init(void)
 {
-	CHECK_SDK_ALREADY_INIT(FALSE);
-	try 
+	NETSDK_CHECK_SDK_ALREADY_INIT(NET_TV_FALSE);
+	try
 	{
         auto* pDevMgr = CDeviceManage::instance();
-        
-        if (!pDevMgr) 
+
+        if (!pDevMgr)
 		{
-            return FALSE;
+            return NET_TV_FALSE;
         }
 		pDevMgr->SetInitialized(true);
         CErrorManage::instance()->SetLastError(NET_TV_E_SUCCEED);
-        return TRUE;
-    } 
-    catch (...) 
+        return NET_TV_TRUE;
+    }
+    catch (...)
 	{
-        return FALSE;
+        return NET_TV_FALSE;
     }
 
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief SDK清理接口
  * @return 成功返回TRUE，失败返回FALSE
  * @note 退出程序前调用，释放SDK内部资源；SDK未初始化时调用会返回失败
  */
-NET_TV_API BOOL STDCALL NET_TV_Cleanup(void)
+NET_TV_API BOOL NET_TV_STDCALL NET_TV_Cleanup(void)
 {
-	
-	CHECK_SDK_INIT(FALSE);
 
-	try 
+	NETSDK_CHECK_SDK_INIT(NET_TV_FALSE);
+
+	try
 	{
         auto* pDevMgr = CDeviceManage::instance();
 
-        if (pDevMgr) 
+        if (pDevMgr)
 		{
-            pDevMgr->Cleanup(); 
+            pDevMgr->Cleanup();
         }
 		pDevMgr->SetInitialized(false);
         CDeviceManage::DestroyInstance();
 
         CErrorManage::instance()->SetLastError(NET_TV_E_SDK_NOT_INIT);
-        
-        return TRUE;
-    } 
-    catch (...) 
+
+        return NET_TV_TRUE;
+    }
+    catch (...)
 	{
-        return FALSE;
+        return NET_TV_FALSE;
     }
 
 
-	return FALSE;
+	return NET_TV_FALSE;
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 设置日志输出到文件
  * @param dwLogLevel 日志等级
  * @param strLogDir 日志文件存放目录
@@ -136,11 +144,11 @@ NET_TV_API BOOL STDCALL NET_TV_Cleanup(void)
  * @return 成功返回TRUE，失败返回FALSE
  * @note 必须在NET_TV_Init之前调用
  */
-NET_TV_API BOOL STDCALL NET_TV_SetLogToFile(IN INT32 dwLogLevel,IN CHAR  *strLogDir,IN INT32 dwLogFileSize,IN INT32 dwLogFileNum)
+NET_TV_API BOOL NET_TV_STDCALL NET_TV_SetLogToFile(NET_TV_IN INT32 dwLogLevel,NET_TV_IN CHAR  *strLogDir,NET_TV_IN INT32 dwLogFileSize,NET_TV_IN INT32 dwLogFileNum)
 {
     if (strLogDir == NULL)
     {
-        return FALSE;
+        return NET_TV_FALSE;
     }
 
     /* 构造完整日志路径 */
@@ -151,149 +159,155 @@ NET_TV_API BOOL STDCALL NET_TV_SetLogToFile(IN INT32 dwLogLevel,IN CHAR  *strLog
     sprintf(szLogPath, "%s/NetTVSDKClient.log", strLogDir);
 #endif
 
-    if (dwLogFileSize <= 0) 
+    if (dwLogFileSize <= 0)
     {
-        dwLogFileSize = 5 * 1024 * 1024; // Default 5MB
+        dwLogFileSize = 5 * 1024 * 1024; /* Default 5MB */
     }
-    
+
     if (dwLogFileNum <= 0)
     {
-        dwLogFileNum = 10; // Default 10 files
+        dwLogFileNum = 10; /* Default 10 files */
     }
 
 	/* 初始化日志 */
-    // 使用 "NetTVSDKClient" 作为 logger 名称
+    /* 使用 "NetTVSDKClient" 作为 logger 名称 */
     if (initSdkLogBySize("NetTVSDKClient", szLogPath, dwLogFileSize, dwLogFileNum) != 0)
     {
-        return FALSE;
+        return NET_TV_FALSE;
     }
-    
+
     /* 设置日志输出同步输出控制台 */
 	syncPrintf(true);
 
     /* 设置日志等级 */
 	setLogLevel(dwLogLevel);
 
-	return TRUE;
+	return NET_TV_TRUE;
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 获取SDK版本号
  * @return 返回版本号，格式为NETTVSDK_MAKE_VERSION(major, minor, rev1, rev2)
  */
-NET_TV_API INT32 STDCALL NET_TV_GetSDKVersion(void)
+NET_TV_API INT32 NET_TV_STDCALL NET_TV_GetSDKVersion(void)
 {
 
-	return NETTVSDK_VERSION;
+	return NETSDK_VERSION;
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 获取最后一次错误码
  * @return 返回错误码，参见NET_TV_COMMON_ECODE_E枚举
  * @note 每次SDK接口调用失败后，可通过此接口获取具体错误原因
  */
-NET_TV_API INT32 STDCALL NET_TV_GetLastError()
+NET_TV_API INT32 NET_TV_STDCALL NET_TV_GetLastError()
 {
 	return CErrorManage::instance()->GetLastError();
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 设置异常回调函数
  * @param cbExceptionCallBack 异常回调函数指针
  * @param lpUserData 用户自定义数据
  * @return 暂未实现，返回FALSE
  */
-NET_TV_API BOOL STDCALL NET_TV_SetExceptionCallBack(IN NET_TV_ExceptionCallBack_PF cbExceptionCallBack,
-                                                                 IN LPVOID lpUserData)
+NET_TV_API BOOL NET_TV_STDCALL NET_TV_SetExceptionCallBack(NET_TV_IN NET_TV_ExceptionCallBack_PF cbExceptionCallBack,
+                                                                 NET_TV_IN LPVOID lpUserData)
 {
-	return FALSE;
-}																 
+	return NET_TV_FALSE;
+}
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 设置接收超时时间
  * @param pstRevTimeout 超时时间配置结构体
  * @return 暂未实现，返回FALSE
  * @note 设置SDK网络请求的接收超时时间
  */
-NET_TV_API BOOL STDCALL NET_TV_SetRevTimeOut(IN pNET_RevTimeout_S pstRevTimeout)
+NET_TV_API BOOL NET_TV_STDCALL NET_TV_SetRevTimeOut(NET_TV_IN pNET_RevTimeout_S pstRevTimeout)
 {
-	CHECK_SDK_INIT(FALSE);
+	NETSDK_CHECK_SDK_INIT(NET_TV_FALSE);
 
     if (!pstRevTimeout)
 	{
 		CErrorManage::instance()->SetLastError(NET_TV_E_INVALID_PARAM);
-		return FALSE;
-	} 
+		return NET_TV_FALSE;
+	}
 
 	auto* pDevMgr = CDeviceManage::instance();
 
-	if (!pDevMgr) 
+	if (!pDevMgr)
 	{
 		CErrorManage::instance()->SetLastError(NET_TV_E_ALLOC_RESOURCE_ERROR);
-		return FALSE;
+		return NET_TV_FALSE;
 	}
 
-    pDevMgr->SetGlobalRevTimeout(pstRevTimeout->dwRevTimeOut); 
+    pDevMgr->SetGlobalRevTimeout(pstRevTimeout->dwRevTimeOut);
 	CErrorManage::instance()->SetLastError(NET_TV_E_SUCCEED);
-	return FALSE;
+	return NET_TV_TRUE;
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 设置连接超时时间
  * @param dwWaitTime 单次连接等待时间
  * @param dwTrytimes 连接重试次数
  * @return 暂未实现，返回FALSE
  * @note 设置SDK网络连接的超时时间和重试次数
  */
-NET_TV_API BOOL STDCALL NET_TV_SetConnectTime(IN INT32 dwWaitTime,
-                                                           IN INT32 dwTrytimes)
+NET_TV_API BOOL NET_TV_STDCALL NET_TV_SetConnectTime(NET_TV_IN INT32 dwWaitTime,
+                                                           NET_TV_IN INT32 dwTrytimes)
 {
-	CHECK_SDK_INIT(FALSE);
+	NETSDK_CHECK_SDK_INIT(NET_TV_FALSE);
     auto* pDevMgr = CDeviceManage::instance();
 
-	if (!pDevMgr) 
+	if (!pDevMgr)
 	{
 		CErrorManage::instance()->SetLastError(NET_TV_E_ALLOC_RESOURCE_ERROR);
-		return FALSE;
+		return NET_TV_FALSE;
 	}
 
 	pDevMgr->SetGlobalConnectTime(dwWaitTime, dwTrytimes);
 	CErrorManage::instance()->SetLastError(NET_TV_E_SUCCEED);
-	return FALSE;
+	return NET_TV_TRUE;
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 登录设备接口
  * @param pstDevLoginInfo 登录信息结构体，包含设备IP、端口、用户名、密码
  * @param pstDevInfo 输出参数，登录成功后返回设备基本信息
  * @return 成功返回用户句柄(LPVOID)，失败返回NULL
  * @note 登录成功后会自动获取设备信息并填充到pstDevInfo
  */
-NET_TV_API LPVOID STDCALL NET_TV_Login(IN pNET_DeviceLoginInfo_S pstDevLoginInfo, 
-                                                        OUT pNET_DeviceInfo_S pstDevInfo)
+NET_TV_API LPVOID NET_TV_STDCALL NET_TV_Login(NET_TV_IN pNET_DeviceLoginInfo_S pstDevLoginInfo,
+                                                        NET_TV_OUT pNET_DeviceInfo_S pstDevInfo)
 {
-    NSDK_LOG_INFO("[NetTVSDK] NET_TV_Login called, IP=%s, Port=%d, User=%s",
+    NETSDK_LOG_MESSAGE_INFO("[NetTVSDK] NET_TV_Login called, IP=%s, Port=%d, User=%s",
                   pstDevLoginInfo ? pstDevLoginInfo->szIPAddr : "NULL",
                   pstDevLoginInfo ? pstDevLoginInfo->dwPort : 0,
                   pstDevLoginInfo ? pstDevLoginInfo->szUserName : "NULL");
 
-	CHECK_SDK_INIT(NULL);
+	NETSDK_CHECK_SDK_INIT(NULL);
 	auto* pDevMgr = CDeviceManage::instance();
-	if (!pDevMgr) 
+	if (!pDevMgr)
 	{
 		CErrorManage::instance()->SetLastError(NET_TV_E_ALLOC_RESOURCE_ERROR);
-        NSDK_LOG_ERROR("[NetTVSDK] NET_TV_Login failed, DeviceManager is NULL");
+        NETSDK_LOG_MESSAGE_ERROR("[NetTVSDK] NET_TV_Login failed, DeviceManager is NULL");
 		return NULL;
 	}
 	LPVOID lpUserID = pDevMgr->Login(pstDevLoginInfo->szIPAddr, pstDevLoginInfo->dwPort, pstDevLoginInfo->szUserName, pstDevLoginInfo->szPassword);
-    NSDK_LOG_INFO("[NetTVSDK] NET_TV_Login returned, userID=%p", lpUserID);
+    NETSDK_LOG_MESSAGE_INFO("[NetTVSDK] NET_TV_Login returned, userID=%p", lpUserID);
 
 	/* 发送获取设备信息命令 */
 	if(lpUserID != NULL)
 	{
-		if(!CommandExecutor::instance()->ExecuteGet<NET_DeviceInfo_S>(lpUserID,TVAPI_PATH_DEVICE_GETINFO,pstDevInfo,NULL))
+		if(!CommandExecutor::instance()->ExecuteGet<NET_DeviceInfo_S>(lpUserID,NET_TV_API_PATH_DEVICE_GETINFO,pstDevInfo,NULL))
 		{
-            NSDK_LOG_ERROR("[NetTVSDK] NET_TV_Login failed to get device info");
+            NETSDK_LOG_MESSAGE_ERROR("[NetTVSDK] NET_TV_Login failed to get device info");
             pDevMgr->Logout(lpUserID);
 			return NULL;
 		}
@@ -303,34 +317,36 @@ NET_TV_API LPVOID STDCALL NET_TV_Login(IN pNET_DeviceLoginInfo_S pstDevLoginInfo
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 注销登录接口
  * @param lpUserID 用户句柄，由NET_TV_Login返回
  * @return 成功返回TRUE，失败返回FALSE
  * @note 注销后释放登录会话资源，用户句柄失效
  */
-NET_TV_API BOOL STDCALL NET_TV_Logout(IN LPVOID lpUserID)
+NET_TV_API BOOL NET_TV_STDCALL NET_TV_Logout(NET_TV_IN LPVOID lpUserID)
 {
-	CHECK_SDK_INIT(FALSE);
+	NETSDK_CHECK_SDK_INIT(NET_TV_FALSE);
 
 	auto* pDevMgr = CDeviceManage::instance();
 
-	if (!pDevMgr) 
+	if (!pDevMgr)
 	{
 		CErrorManage::instance()->SetLastError(NET_TV_E_ALLOC_RESOURCE_ERROR);
-		return FALSE;
+		return NET_TV_FALSE;
 	}
 
 	if(!pDevMgr->Logout(lpUserID))
 	{
 		CErrorManage::instance()->SetLastError(NET_TV_E_NO_USER);
-		return FALSE;
+		return NET_TV_FALSE;
 	}
 
 	CErrorManage::instance()->SetLastError(NET_TV_E_SUCCEED);
-	return TRUE;
+	return NET_TV_TRUE;
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 设置报警消息回调函数
  * @param lpUserID 用户句柄
  * @param cbAlarmMessCallBack 报警消息回调函数指针
@@ -338,26 +354,27 @@ NET_TV_API BOOL STDCALL NET_TV_Logout(IN LPVOID lpUserID)
  * @return 成功返回TRUE，失败返回FALSE
  * @note 需先调用NET_TV_StartListen开启监听，报警消息才会通过回调通知
  */
-NET_TV_API BOOL STDCALL NET_TV_SetAlarmCallBack(IN LPVOID lpUserID,
-                                            IN NET_TV_AlarmCallBack cbAlarmMessCallBack,
-                                            IN LPVOID lpUserData)
+NET_TV_API BOOL NET_TV_STDCALL NET_TV_SetAlarmCallBack(NET_TV_IN LPVOID lpUserID,
+                                            NET_TV_IN NET_TV_AlarmCallBack cbAlarmMessCallBack,
+                                            NET_TV_IN LPVOID lpUserData)
 {
-    CHECK_SDK_INIT(FALSE);
+    NETSDK_CHECK_SDK_INIT(NET_TV_FALSE);
     auto* pDevMgr = CDeviceManage::instance();
-    if (!pDevMgr) return FALSE;
-    
+    if (!pDevMgr) return NET_TV_FALSE;
+
     auto session = pDevMgr->GetSession((LPUSER_HANDLE)lpUserID);
     if (!session) {
         CErrorManage::instance()->SetLastError(NET_TV_E_NO_USER);
-        return FALSE;
+        return NET_TV_FALSE;
     }
-    
+
     session->SetAlarmCallback(cbAlarmMessCallBack, lpUserData);
     CErrorManage::instance()->SetLastError(NET_TV_E_SUCCEED);
-    return TRUE;
+    return NET_TV_TRUE;
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 设置通道状态回调函数
  * @param lpUserID 用户句柄
  * @param cbChannelStatusCallBack 通道状态回调函数指针
@@ -365,109 +382,112 @@ NET_TV_API BOOL STDCALL NET_TV_SetAlarmCallBack(IN LPVOID lpUserID,
  * @return 成功返回TRUE，失败返回FALSE
  * @note 需先调用NET_TV_StartListen开启监听，通道状态变化才会通过回调通知
  */
-NET_TV_API BOOL STDCALL NET_TV_SetChannelStatusCallBack(IN LPVOID lpUserID,
-                                                        IN NET_TV_ChannelStatusCallBack cbChannelStatusCallBack,
-                                                        IN LPVOID lpUserData)
+NET_TV_API BOOL NET_TV_STDCALL NET_TV_SetChannelStatusCallBack(NET_TV_IN LPVOID lpUserID,
+                                                        NET_TV_IN NET_TV_ChannelStatusCallBack cbChannelStatusCallBack,
+                                                        NET_TV_IN LPVOID lpUserData)
 {
-    CHECK_SDK_INIT(FALSE);
+    NETSDK_CHECK_SDK_INIT(NET_TV_FALSE);
     auto* pDevMgr = CDeviceManage::instance();
-    if (!pDevMgr) return FALSE;
+    if (!pDevMgr) return NET_TV_FALSE;
 
     auto session = pDevMgr->GetSession((LPUSER_HANDLE)lpUserID);
     if (!session)
     {
         CErrorManage::instance()->SetLastError(NET_TV_E_NO_USER);
-        return FALSE;
+        return NET_TV_FALSE;
     }
 
     session->SetChannelStatusCallback(cbChannelStatusCallBack, lpUserData);
     CErrorManage::instance()->SetLastError(NET_TV_E_SUCCEED);
-    return TRUE;
+    return NET_TV_TRUE;
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 开启报警监听接口
  * @param lpUserID 用户句柄
  * @return 成功返回TRUE，失败返回FALSE
  * @note 开启后，报警消息和通道状态变化会通过已注册的回调函数通知
  */
-NET_TV_API BOOL STDCALL NET_TV_StartListen(IN LPVOID lpUserID)
+NET_TV_API BOOL NET_TV_STDCALL NET_TV_StartListen(NET_TV_IN LPVOID lpUserID)
 {
-    CHECK_SDK_INIT(FALSE);
+    NETSDK_CHECK_SDK_INIT(NET_TV_FALSE);
     auto* pDevMgr = CDeviceManage::instance();
-    if (!pDevMgr) return FALSE;
-    
+    if (!pDevMgr) return NET_TV_FALSE;
+
     auto session = pDevMgr->GetSession((LPUSER_HANDLE)lpUserID);
-    if (!session) 
+    if (!session)
     {
         CErrorManage::instance()->SetLastError(NET_TV_E_NO_USER);
-        return FALSE;
+        return NET_TV_FALSE;
     }
-    
-    if (!session->StartAlarmListen()) 
+
+    if (!session->StartAlarmListen())
     {
         CErrorManage::instance()->SetLastError(NET_TV_E_FAILED);
-        return FALSE;
+        return NET_TV_FALSE;
     }
-    
+
     CErrorManage::instance()->SetLastError(NET_TV_E_SUCCEED);
-    return TRUE;
+    return NET_TV_TRUE;
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 停止报警监听接口
  * @param lpUserID 用户句柄
  * @return 成功返回TRUE，失败返回FALSE
  * @note 停止后，不再接收报警消息和通道状态变化通知
  */
-NET_TV_API BOOL STDCALL NET_TV_StopListen(IN LPVOID lpUserID)
+NET_TV_API BOOL NET_TV_STDCALL NET_TV_StopListen(NET_TV_IN LPVOID lpUserID)
 {
-    CHECK_SDK_INIT(FALSE);
+    NETSDK_CHECK_SDK_INIT(NET_TV_FALSE);
     auto* pDevMgr = CDeviceManage::instance();
-    if (!pDevMgr) return FALSE;
-    
+    if (!pDevMgr) return NET_TV_FALSE;
+
     auto session = pDevMgr->GetSession((LPUSER_HANDLE)lpUserID);
     if (!session)
     {
         CErrorManage::instance()->SetLastError(NET_TV_E_NO_USER);
-        return FALSE;
+        return NET_TV_FALSE;
     }
-    
+
     if (!session->StopAlarmListen())
     {
         CErrorManage::instance()->SetLastError(NET_TV_E_FAILED);
-        return FALSE;
+        return NET_TV_FALSE;
     }
-    
+
     CErrorManage::instance()->SetLastError(NET_TV_E_SUCCEED);
-    return TRUE;
+    return NET_TV_TRUE;
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 设备控制接口
  * @param lpUserID 用户句柄
  * @param pstCtrlInfo 控制信息结构体，包含通道号、控制类型、命令等
  * @return 成功返回TRUE，失败返回FALSE
  * @note 支持PTZ云台控制等设备控制功能
  */
-NET_TV_API BOOL STDCALL NET_TV_DeviceControl(IN LPVOID lpUserID,
-                                             IN pNET_DeviceControlInfo_S pstCtrlInfo)
+NET_TV_API BOOL NET_TV_STDCALL NET_TV_DeviceControl(NET_TV_IN LPVOID lpUserID,
+                                             NET_TV_IN pNET_DeviceControlInfo_S pstCtrlInfo)
 {
-    CHECK_SDK_INIT(FALSE);
+    NETSDK_CHECK_SDK_INIT(NET_TV_FALSE);
 
     if (!lpUserID || !pstCtrlInfo || pstCtrlInfo->uChannelID <= 0 ||
         pstCtrlInfo->uControlType <= 0 || pstCtrlInfo->uCommand <= 0 ||
         pstCtrlInfo->uDurationMs < 0)
     {
         CErrorManage::instance()->SetLastError(NET_TV_E_INVALID_PARAM);
-        return FALSE;
+        return NET_TV_FALSE;
     }
 
     if (pstCtrlInfo->uControlType == NET_TV_DEVICE_CTRL_TYPE_PTZ &&
         (pstCtrlInfo->uSpeed < NET_TV_MIN_PTZ_SPEED_LEVEL || pstCtrlInfo->uSpeed > NET_TV_MAX_PTZ_SPEED_LEVEL))
     {
         CErrorManage::instance()->SetLastError(NET_TV_E_INVALID_PARAM);
-        return FALSE;
+        return NET_TV_FALSE;
     }
 
     if (pstCtrlInfo->uSize == 0)
@@ -477,19 +497,20 @@ NET_TV_API BOOL STDCALL NET_TV_DeviceControl(IN LPVOID lpUserID,
 
     std::string body = SDKConvert::to_string(*pstCtrlInfo);
     std::string respBody;
-    if (!CommandExecutor::instance()->ExecuteRaw((LPUSER_HANDLE)lpUserID, "POST", TVAPI_PATH_DEVICE_CONTROL, body, respBody))
+    if (!CommandExecutor::instance()->ExecuteRaw((LPUSER_HANDLE)lpUserID, "POST", NET_TV_API_PATH_DEVICE_CONTROL, body, respBody))
     {
-        return FALSE;
+        return NET_TV_FALSE;
     }
 
     const int respCode = SDKConvert::get_respCode(respBody);
     CErrorManage::instance()->SetLastError(respCode);
-    return respCode == NET_TV_E_SUCCEED ? TRUE : FALSE;
+    return respCode == NET_TV_E_SUCCEED ? NET_TV_TRUE : NET_TV_FALSE;
 }
 
 #include "CapabilityInfoConvert.h"
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 获取设备能力集接口
  * @param lpUserID 用户句柄
  * @param dwChannelID 通道号
@@ -500,24 +521,24 @@ NET_TV_API BOOL STDCALL NET_TV_DeviceControl(IN LPVOID lpUserID,
  * @return 成功返回TRUE，失败返回FALSE
  * @note 根据dwCommand不同，返回不同类型的能力集结构体
  */
-NET_TV_API BOOL STDCALL NET_TV_GetDeviceCapability(IN LPVOID lpUserID,
-                                                   IN INT32 dwChannelID,
-                                                   IN INT32 dwCommand,
-                                                   OUT LPVOID lpOutBuffer,
-                                                   OUT INT32 dwOutBufferSize,
-                                                   OUT INT32 *pdwBytesReturned)
+NET_TV_API BOOL NET_TV_STDCALL NET_TV_GetDeviceCapability(NET_TV_IN LPVOID lpUserID,
+                                                   NET_TV_IN INT32 dwChannelID,
+                                                   NET_TV_IN INT32 dwCommand,
+                                                   NET_TV_OUT LPVOID lpOutBuffer,
+                                                   NET_TV_OUT INT32 dwOutBufferSize,
+                                                   NET_TV_OUT INT32 *pdwBytesReturned)
 {
-    CHECK_SDK_INIT(FALSE);
-    
+    NETSDK_CHECK_SDK_INIT(NET_TV_FALSE);
+
     if (!lpOutBuffer || dwOutBufferSize <= 0)
     {
         CErrorManage::instance()->SetLastError(NET_TV_E_INVALID_PARAM);
-        return FALSE;
+        return NET_TV_FALSE;
     }
-    
-    // 使用宏生成统一URL
-    std::string url = TVAPI_URL_DEVICE_CAPABILITY(dwChannelID, dwCommand);
-    
+
+    /* 使用宏生成统一URL */
+    std::string url = NET_TV_API_URL_DEVICE_CAPABILITY(dwChannelID, dwCommand);
+
     switch (dwCommand)
     {
         case NET_TV_CAP_VIDEO_ENCODE:
@@ -525,15 +546,15 @@ NET_TV_API BOOL STDCALL NET_TV_GetDeviceCapability(IN LPVOID lpUserID,
             if (dwOutBufferSize < (INT32)sizeof(NET_VideoEncodeCap_S))
             {
                 CErrorManage::instance()->SetLastError(NET_TV_E_NOENOUGH_BUF);
-                return FALSE;
+                return NET_TV_FALSE;
             }
-            
+
             if (CommandExecutor::instance()->ExecuteGet<NET_VideoEncodeCap_S>(
                     lpUserID, url, lpOutBuffer, pdwBytesReturned))
             {
-                return TRUE;
+                return NET_TV_TRUE;
             }
-            return FALSE;
+            return NET_TV_FALSE;
         }
 
         case NET_TV_CAP_AUDIO:
@@ -541,46 +562,47 @@ NET_TV_API BOOL STDCALL NET_TV_GetDeviceCapability(IN LPVOID lpUserID,
             if (dwOutBufferSize < (INT32)sizeof(NET_AudioCap_S))
             {
                 CErrorManage::instance()->SetLastError(NET_TV_E_NOENOUGH_BUF);
-                return FALSE;
+                return NET_TV_FALSE;
             }
-            
+
             if (CommandExecutor::instance()->ExecuteGet<NET_AudioCap_S>(
                     lpUserID, url, lpOutBuffer, pdwBytesReturned))
             {
-                
-                return TRUE;
+
+                return NET_TV_TRUE;
             }
-            return FALSE;
+            return NET_TV_FALSE;
         }
-        
+
         case NET_TV_CAP_OSD:
         {
             if (dwOutBufferSize < (INT32)sizeof(NET_OsdCap_S))
             {
                 CErrorManage::instance()->SetLastError(NET_TV_E_NOENOUGH_BUF);
-                return FALSE;
+                return NET_TV_FALSE;
             }
-            
+
             if (CommandExecutor::instance()->ExecuteGet<NET_OsdCap_S>(
                     lpUserID, url, lpOutBuffer, pdwBytesReturned))
             {
-                return TRUE;
+                return NET_TV_TRUE;
             }
-            return FALSE;
+            return NET_TV_FALSE;
         }
 
-        // 后续扩展其他能力集类型
-        // case NET_TV_CAP_SMART:
-        // case NET_TV_CAP_IMAGE:
-        // case NET_TV_CAP_AUDIO:
-        
+        /* 后续扩展其他能力集类型 */
+        /* case NET_TV_CAP_SMART: */
+        /* case NET_TV_CAP_IMAGE: */
+        /* case NET_TV_CAP_AUDIO: */
+
         default:
             CErrorManage::instance()->SetLastError(NET_TV_E_CMD_NOT_SUPPORT);
-            return FALSE;
+            return NET_TV_FALSE;
     }
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 获取设备配置模板实现函数
  * @tparam T_CFG 配置结构体类型
  * @param lpUserID 用户句柄
@@ -593,6 +615,11 @@ NET_TV_API BOOL STDCALL NET_TV_GetDeviceCapability(IN LPVOID lpUserID,
  * @note NET_TV_GetDevConfig内部调用此模板函数，根据命令码分发到不同配置类型
  */
 template <typename T_CFG>
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 NetTV_GetDevConfig_Impl 定义的内部处理。
+ * @return 返回该处理的状态或结果。
+ */
 static BOOL NetTV_GetDevConfig_Impl(LPVOID lpUserID,
                                     INT32 dwChannelID,
                                     INT32 dwCommand,
@@ -603,20 +630,21 @@ static BOOL NetTV_GetDevConfig_Impl(LPVOID lpUserID,
     if (!lpOutBuffer || dwOutBufferSize <= 0)
     {
         CErrorManage::instance()->SetLastError(NET_TV_E_INVALID_PARAM);
-        return FALSE;
+        return NET_TV_FALSE;
     }
 
     if (dwOutBufferSize < (INT32)sizeof(T_CFG))
     {
         CErrorManage::instance()->SetLastError(NET_TV_E_NOENOUGH_BUF);
-        return FALSE;
+        return NET_TV_FALSE;
     }
 
-    std::string url = TVAPI_URL_DEVICE_GET_DEV_CONFIG(dwChannelID, dwCommand);
-    return CommandExecutor::instance()->ExecuteGet<T_CFG>(lpUserID, url, lpOutBuffer, pdwBytesReturned) ? TRUE : FALSE;
+    std::string url = NET_TV_API_URL_DEVICE_GET_DEV_CONFIG(dwChannelID, dwCommand);
+    return CommandExecutor::instance()->ExecuteGet<T_CFG>(lpUserID, url, lpOutBuffer, pdwBytesReturned) ? NET_TV_TRUE : NET_TV_FALSE;
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief URL编码函数
  * @param value 需要编码的字符串
  * @return 编码后的字符串
@@ -648,6 +676,7 @@ static std::string NetTV_UrlEncode(const char* value)
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 获取录像文件列表实现函数
  * @param lpUserID 用户句柄
  * @param dwChannelID 通道号
@@ -668,18 +697,18 @@ static BOOL NetTV_GetRecordFileList_Impl(LPVOID lpUserID,
     if (!lpOutBuffer || dwOutBufferSize <= 0)
     {
         CErrorManage::instance()->SetLastError(NET_TV_E_INVALID_PARAM);
-        return FALSE;
+        return NET_TV_FALSE;
     }
 
     if (dwOutBufferSize < (INT32)sizeof(NET_RecordFileList_S))
     {
         CErrorManage::instance()->SetLastError(NET_TV_E_NOENOUGH_BUF);
-        return FALSE;
+        return NET_TV_FALSE;
     }
 
     NET_RecordFileList_S* pCfg = static_cast<NET_RecordFileList_S*>(lpOutBuffer);
     std::ostringstream url;
-    url << TVAPI_URL_DEVICE_GET_DEV_CONFIG(dwChannelID, dwCommand)
+    url << NET_TV_API_URL_DEVICE_GET_DEV_CONFIG(dwChannelID, dwCommand)
         << "&ChnId=" << pCfg->stFind.nChnId
         << "&Type=" << pCfg->stFind.nType
         << "&Year=" << NetTV_UrlEncode(pCfg->stFind.szYear)
@@ -689,10 +718,11 @@ static BOOL NetTV_GetRecordFileList_Impl(LPVOID lpUserID,
         << "&EndTime=" << NetTV_UrlEncode(pCfg->stFind.szEndTime)
         << "&Filename=" << NetTV_UrlEncode(pCfg->stFind.szFilename);
 
-    return CommandExecutor::instance()->ExecuteGet<NET_RecordFileList_S>(lpUserID, url.str(), lpOutBuffer, pdwBytesReturned) ? TRUE : FALSE;
+    return CommandExecutor::instance()->ExecuteGet<NET_RecordFileList_S>(lpUserID, url.str(), lpOutBuffer, pdwBytesReturned) ? NET_TV_TRUE : NET_TV_FALSE;
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 获取日志列表实现函数
  * @param lpUserID 用户句柄
  * @param dwChannelID 通道号
@@ -713,13 +743,13 @@ static BOOL NetTV_GetLogList_Impl(LPVOID lpUserID,
     if (!lpOutBuffer || dwOutBufferSize <= 0)
     {
         CErrorManage::instance()->SetLastError(NET_TV_E_INVALID_PARAM);
-        return FALSE;
+        return NET_TV_FALSE;
     }
 
     if (dwOutBufferSize < (INT32)sizeof(NET_LogList_S))
     {
         CErrorManage::instance()->SetLastError(NET_TV_E_NOENOUGH_BUF);
-        return FALSE;
+        return NET_TV_FALSE;
     }
 
     NET_LogList_S* pCfg = static_cast<NET_LogList_S*>(lpOutBuffer);
@@ -727,7 +757,7 @@ static BOOL NetTV_GetLogList_Impl(LPVOID lpUserID,
     INT32 nPageSize = pCfg->stPage.nPageSize <= 0 ? NET_TV_LOG_QUERY_COND_NUM : pCfg->stPage.nPageSize;
 
     std::ostringstream url;
-    url << TVAPI_URL_DEVICE_GET_DEV_CONFIG(dwChannelID, dwCommand)
+    url << NET_TV_API_URL_DEVICE_GET_DEV_CONFIG(dwChannelID, dwCommand)
         << "&Type=" << pCfg->stCond.nType
         << "&Action=" << pCfg->stCond.nAction
         << "&StartTime=" << NetTV_UrlEncode(pCfg->stCond.szStartTime)
@@ -735,10 +765,11 @@ static BOOL NetTV_GetLogList_Impl(LPVOID lpUserID,
         << "&CurPage=" << nCurPage
         << "&PageSize=" << nPageSize;
 
-    return CommandExecutor::instance()->ExecuteGet<NET_LogList_S>(lpUserID, url.str(), lpOutBuffer, pdwBytesReturned) ? TRUE : FALSE;
+    return CommandExecutor::instance()->ExecuteGet<NET_LogList_S>(lpUserID, url.str(), lpOutBuffer, pdwBytesReturned) ? NET_TV_TRUE : NET_TV_FALSE;
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 回放控制接口
  * @param lpUserID 用户句柄
  * @param pstInfo 输入输出参数，包含回放控制命令（开始/停止/暂停/倍速等）和返回信息
@@ -746,29 +777,29 @@ static BOOL NetTV_GetLogList_Impl(LPVOID lpUserID,
  * @return 成功返回TRUE，失败返回FALSE
  * @note 支持回放开始、停止、暂停、倍速等控制操作
  */
-NET_TV_API BOOL STDCALL NET_TV_ControlReplay(IN    LPVOID lpUserID,
-                                             INOUT pNET_ReplayCtrlInfo_S pstInfo,
-                                             OUT   INT32 *pdwBytesReturned)
+NET_TV_API BOOL NET_TV_STDCALL NET_TV_ControlReplay(NET_TV_IN    LPVOID lpUserID,
+                                             NET_TV_INOUT pNET_ReplayCtrlInfo_S pstInfo,
+                                             NET_TV_OUT   INT32 *pdwBytesReturned)
 {
-    CHECK_SDK_INIT(FALSE);
+    NETSDK_CHECK_SDK_INIT(NET_TV_FALSE);
 
     if (!pstInfo)
     {
         CErrorManage::instance()->SetLastError(NET_TV_E_INVALID_PARAM);
-        return FALSE;
+        return NET_TV_FALSE;
     }
 
     if (pstInfo->dwChannel <= 0)
     {
         CErrorManage::instance()->SetLastError(NET_TV_E_INVALID_PARAM);
-        return FALSE;
+        return NET_TV_FALSE;
     }
 
     std::string body = SDKConvert::to_string(*pstInfo);
     std::string respBody;
-    if (!CommandExecutor::instance()->ExecuteRaw(lpUserID, "POST", TVAPI_URL_REPLAY_CONTROL(), body, respBody))
+    if (!CommandExecutor::instance()->ExecuteRaw(lpUserID, "POST", NET_TV_API_URL_REPLAY_CONTROL(), body, respBody))
     {
-        return FALSE;
+        return NET_TV_FALSE;
     }
 
     SDKConvert::to_respStruct(respBody, *pstInfo);
@@ -777,10 +808,11 @@ NET_TV_API BOOL STDCALL NET_TV_ControlReplay(IN    LPVOID lpUserID,
         *pdwBytesReturned = sizeof(NET_ReplayCtrlInfo_S);
     }
 
-    return TRUE;
+    return NET_TV_TRUE;
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 获取回放录像列表接口
  * @param lpUserID 用户句柄
  * @param pstInfo 输入输出参数，包含查询条件和返回的录像列表
@@ -788,29 +820,29 @@ NET_TV_API BOOL STDCALL NET_TV_ControlReplay(IN    LPVOID lpUserID,
  * @return 成功返回TRUE，失败返回FALSE
  * @note 获取指定通道、时间范围内的录像片段列表
  */
-NET_TV_API BOOL STDCALL NET_TV_GetReplayRecordList(IN    LPVOID lpUserID,
-                                                   INOUT pNET_ReplayRecordList_S pstInfo,
-                                                   OUT   INT32 *pdwBytesReturned)
+NET_TV_API BOOL NET_TV_STDCALL NET_TV_GetReplayRecordList(NET_TV_IN    LPVOID lpUserID,
+                                                   NET_TV_INOUT pNET_ReplayRecordList_S pstInfo,
+                                                   NET_TV_OUT   INT32 *pdwBytesReturned)
 {
-    CHECK_SDK_INIT(FALSE);
+    NETSDK_CHECK_SDK_INIT(NET_TV_FALSE);
 
     if (!pstInfo)
     {
         CErrorManage::instance()->SetLastError(NET_TV_E_INVALID_PARAM);
-        return FALSE;
+        return NET_TV_FALSE;
     }
 
     if (pstInfo->dwChannel <= 0)
     {
         CErrorManage::instance()->SetLastError(NET_TV_E_INVALID_PARAM);
-        return FALSE;
+        return NET_TV_FALSE;
     }
 
     std::string body = SDKConvert::to_string(*pstInfo);
     std::string respBody;
-    if (!CommandExecutor::instance()->ExecuteRaw(lpUserID, "POST", TVAPI_URL_REPLAY_GET_RECORD_LIST(), body, respBody))
+    if (!CommandExecutor::instance()->ExecuteRaw(lpUserID, "POST", NET_TV_API_URL_REPLAY_GET_RECORD_LIST(), body, respBody))
     {
-        return FALSE;
+        return NET_TV_FALSE;
     }
 
     SDKConvert::to_respStruct(respBody, *pstInfo);
@@ -819,10 +851,11 @@ NET_TV_API BOOL STDCALL NET_TV_GetReplayRecordList(IN    LPVOID lpUserID,
         *pdwBytesReturned = sizeof(NET_ReplayRecordList_S);
     }
 
-    return TRUE;
+    return NET_TV_TRUE;
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 获取回放URL接口
  * @param lpUserID 用户句柄
  * @param pstInfo 输入输出参数，包含回放条件和返回的URL信息
@@ -830,29 +863,29 @@ NET_TV_API BOOL STDCALL NET_TV_GetReplayRecordList(IN    LPVOID lpUserID,
  * @return 成功返回TRUE，失败返回FALSE
  * @note 获取指定录像片段的播放URL
  */
-NET_TV_API BOOL STDCALL NET_TV_GetReplayUrl(IN    LPVOID lpUserID,
-                                            INOUT pNET_ReplayUrlInfo_S pstInfo,
-                                            OUT   INT32 *pdwBytesReturned)
+NET_TV_API BOOL NET_TV_STDCALL NET_TV_GetReplayUrl(NET_TV_IN    LPVOID lpUserID,
+                                            NET_TV_INOUT pNET_ReplayUrlInfo_S pstInfo,
+                                            NET_TV_OUT   INT32 *pdwBytesReturned)
 {
-    CHECK_SDK_INIT(FALSE);
+    NETSDK_CHECK_SDK_INIT(NET_TV_FALSE);
 
     if (!pstInfo)
     {
         CErrorManage::instance()->SetLastError(NET_TV_E_INVALID_PARAM);
-        return FALSE;
+        return NET_TV_FALSE;
     }
 
     if (pstInfo->dwChannel <= 0)
     {
         CErrorManage::instance()->SetLastError(NET_TV_E_INVALID_PARAM);
-        return FALSE;
+        return NET_TV_FALSE;
     }
 
     std::string body = SDKConvert::to_string(*pstInfo);
     std::string respBody;
-    if (!CommandExecutor::instance()->ExecuteRaw(lpUserID, "POST", TVAPI_URL_REPLAY_GET_URL(), body, respBody))
+    if (!CommandExecutor::instance()->ExecuteRaw(lpUserID, "POST", NET_TV_API_URL_REPLAY_GET_URL(), body, respBody))
     {
-        return FALSE;
+        return NET_TV_FALSE;
     }
 
     SDKConvert::to_respStruct(respBody, *pstInfo);
@@ -861,10 +894,11 @@ NET_TV_API BOOL STDCALL NET_TV_GetReplayUrl(IN    LPVOID lpUserID,
         *pdwBytesReturned = sizeof(NET_ReplayUrlInfo_S);
     }
 
-    return TRUE;
+    return NET_TV_TRUE;
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 设置设备配置模板实现函数
  * @tparam T_CFG 配置结构体类型
  * @param lpUserID 用户句柄
@@ -877,6 +911,11 @@ NET_TV_API BOOL STDCALL NET_TV_GetReplayUrl(IN    LPVOID lpUserID,
  * @note NET_TV_SetDevConfig内部调用此模板函数，根据命令码分发到不同配置类型
  */
 template <typename T_CFG>
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 NetTV_SetDevConfig_Impl 定义的内部处理。
+ * @return 返回该处理的状态或结果。
+ */
 static BOOL NetTV_SetDevConfig_Impl(LPVOID lpUserID,
                                     INT32 dwChannelID,
                                     INT32 dwCommand,
@@ -887,17 +926,17 @@ static BOOL NetTV_SetDevConfig_Impl(LPVOID lpUserID,
     if (!lpInBuffer || dwInBufferSize <= 0)
     {
         CErrorManage::instance()->SetLastError(NET_TV_E_INVALID_PARAM);
-        return FALSE;
+        return NET_TV_FALSE;
     }
 
     if (dwInBufferSize < (INT32)sizeof(T_CFG))
     {
         CErrorManage::instance()->SetLastError(NET_TV_E_INVALID_PARAM);
-        return FALSE;
+        return NET_TV_FALSE;
     }
 
-    std::string url = TVAPI_URL_DEVICE_SET_DEV_CONFIG(dwChannelID, dwCommand);
-    BOOL bRet = CommandExecutor::instance()->ExecuteSet<T_CFG>(lpUserID, "POST", url, lpInBuffer) ? TRUE : FALSE;
+    std::string url = NET_TV_API_URL_DEVICE_SET_DEV_CONFIG(dwChannelID, dwCommand);
+    BOOL bRet = CommandExecutor::instance()->ExecuteSet<T_CFG>(lpUserID, "POST", url, lpInBuffer) ? NET_TV_TRUE : NET_TV_FALSE;
     if (bRet && pdwBytesReturned != NULL)
     {
         *pdwBytesReturned = 0;
@@ -906,6 +945,7 @@ static BOOL NetTV_SetDevConfig_Impl(LPVOID lpUserID,
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 获取设备配置接口（通用）
  * @param lpUserID 用户句柄
  * @param dwChannelID 通道号，设备级配置填0，通道级配置填实际通道号
@@ -916,14 +956,14 @@ static BOOL NetTV_SetDevConfig_Impl(LPVOID lpUserID,
  * @return 成功返回TRUE，失败返回FALSE
  * @note 根据dwCommand不同，返回不同类型的配置结构体；支持设备信息、NTP配置、网络配置、报警配置等多种配置类型
  */
-NET_TV_API BOOL STDCALL NET_TV_GetDevConfig(IN  LPVOID  lpUserID,
-                                            IN    INT32   dwChannelID,
-                                            IN    INT32   dwCommand,
-                                            INOUT LPVOID  lpOutBuffer,
-                                            OUT   INT32   dwOutBufferSize,
-                                            OUT   INT32   *pdwBytesReturned)
+NET_TV_API BOOL NET_TV_STDCALL NET_TV_GetDevConfig(NET_TV_IN  LPVOID  lpUserID,
+                                            NET_TV_IN    INT32   dwChannelID,
+                                            NET_TV_IN    INT32   dwCommand,
+                                            NET_TV_INOUT LPVOID  lpOutBuffer,
+                                            NET_TV_OUT   INT32   dwOutBufferSize,
+                                            NET_TV_OUT   INT32   *pdwBytesReturned)
 {
-    CHECK_SDK_INIT(FALSE);
+    NETSDK_CHECK_SDK_INIT(NET_TV_FALSE);
 
     switch (dwCommand)
     {
@@ -1088,11 +1128,12 @@ NET_TV_API BOOL STDCALL NET_TV_GetDevConfig(IN  LPVOID  lpUserID,
             return NetTV_GetDevConfig_Impl<NET_FaceInfoList_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
         default:
             CErrorManage::instance()->SetLastError(NET_TV_E_CMD_NOT_SUPPORT);
-            return FALSE;
+            return NET_TV_FALSE;
     }
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 设置设备配置接口（通用）
  * @param lpUserID 用户句柄
  * @param dwChannelID 通道号，设备级配置填0，通道级配置填实际通道号
@@ -1103,14 +1144,14 @@ NET_TV_API BOOL STDCALL NET_TV_GetDevConfig(IN  LPVOID  lpUserID,
  * @return 成功返回TRUE，失败返回FALSE
  * @note 根据dwCommand不同，设置不同类型的配置结构体；支持NTP配置、网络配置、报警配置等多种配置类型
  */
-NET_TV_API BOOL STDCALL NET_TV_SetDevConfig(IN  LPVOID  lpUserID,
-                                            IN    INT32   dwChannelID,
-                                            IN    INT32   dwCommand,
-                                            INOUT LPVOID  lpOutBuffer,
-                                            OUT   INT32   dwOutBufferSize,
-                                            OUT   INT32   *pdwBytesReturned)
+NET_TV_API BOOL NET_TV_STDCALL NET_TV_SetDevConfig(NET_TV_IN  LPVOID  lpUserID,
+                                            NET_TV_IN    INT32   dwChannelID,
+                                            NET_TV_IN    INT32   dwCommand,
+                                            NET_TV_INOUT LPVOID  lpOutBuffer,
+                                            NET_TV_OUT   INT32   dwOutBufferSize,
+                                            NET_TV_OUT   INT32   *pdwBytesReturned)
 {
-    CHECK_SDK_INIT(FALSE);
+    NETSDK_CHECK_SDK_INIT(NET_TV_FALSE);
 
     switch (dwCommand)
     {
@@ -1169,15 +1210,15 @@ NET_TV_API BOOL STDCALL NET_TV_SetDevConfig(IN  LPVOID  lpUserID,
         case NET_TV_SET_LEAVEREGIONALARM:
             return NetTV_SetDevConfig_Impl<NET_LeaveRegionAlarmInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
         case NET_TV_SET_LOITERINGALARM:
-            return NetTV_SetDevConfig_Impl<NET_LoiteringAlarmInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);   
+            return NetTV_SetDevConfig_Impl<NET_LoiteringAlarmInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
         case NET_TV_SET_SCENECHANGEALARM:
             return NetTV_SetDevConfig_Impl<NET_SceneChangeAlarmInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
         case NET_TV_SET_CROWDGATHERINGALARM:
-            return NetTV_SetDevConfig_Impl<NET_CrowdGatheringAlarmInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);  
+            return NetTV_SetDevConfig_Impl<NET_CrowdGatheringAlarmInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
         case NET_TV_SET_GARBAGE_EXPOSURE_CFG:
             return NetTV_SetDevConfig_Impl<NET_GarbageExposureCfg_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
         case NET_TV_SET_GARBAGE_OVERFLOW_CFG:
-            return NetTV_SetDevConfig_Impl<NET_GarbageOverflowCfg_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);      
+            return NetTV_SetDevConfig_Impl<NET_GarbageOverflowCfg_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
         case NET_TV_SET_PEOPLE_FLOW_STATISTICS_CFG:
             return NetTV_SetDevConfig_Impl<NET_PeopleFlowStatisticsCfg_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
         case NET_TV_RESET_PEOPLE_FLOW_STATISTICS:
@@ -1283,13 +1324,14 @@ NET_TV_API BOOL STDCALL NET_TV_SetDevConfig(IN  LPVOID  lpUserID,
             return NetTV_SetDevConfig_Impl<NET_FaceIdInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
         default:
             CErrorManage::instance()->SetLastError(NET_TV_E_CMD_NOT_SUPPORT);
-            return FALSE;
+            return NET_TV_FALSE;
     }
 }
 
 /* ==================== 文件上传 ==================== */
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 文件上传接口
  * @param lpUserID 用户句柄
  * @param szFilePath 本地文件路径
@@ -1297,19 +1339,19 @@ NET_TV_API BOOL STDCALL NET_TV_SetDevConfig(IN  LPVOID  lpUserID,
  * @return 成功返回TRUE，失败返回FALSE
  * @note 用于上传升级包等文件到设备
  */
-BOOL STDCALL
-NET_TV_UploadFile(IN LPVOID   lpUserID,
-                  IN const CHAR* szFilePath,
-                  IN const CHAR* szRemoteName)
+BOOL NET_TV_STDCALL
+NET_TV_UploadFile(NET_TV_IN LPVOID   lpUserID,
+                  NET_TV_IN const CHAR* szFilePath,
+                  NET_TV_IN const CHAR* szRemoteName)
 {
     if (!lpUserID || !szFilePath || !szRemoteName) {
         CErrorManage::instance()->SetLastError(NET_TV_E_INVALID_PARAM);
-        return FALSE;
+        return NET_TV_FALSE;
     }
 
     std::string remoteName(szRemoteName);
-    std::string url = std::string(TVAPI_PATH_UPGRADE_UPLOAD)
-                      + "?" TVAPI_PARAM_FILENAME "=" + remoteName;
+    std::string url = std::string(NET_TV_API_PATH_UPGRADE_UPLOAD)
+                      + "?" NET_TV_API_PARAM_FILENAME "=" + remoteName;
 
     std::string ignoreResp;
     return CommandExecutor::instance()->ExecuteUpload(
@@ -1318,10 +1360,11 @@ NET_TV_UploadFile(IN LPVOID   lpUserID,
 
 /* ==================== 录像帧流 RecordFrame ==================== */
 
-static std::map<std::string, std::shared_ptr<tvsdk::RecordFrameClient>> g_recordFrameMap;
+static std::map<std::string, std::shared_ptr<tvsdk::CRecordFrameClient>> g_recordFrameMap;
 static std::mutex g_recordFrameMutex;
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 启动录像帧流接口
  * @param lpUserID 用户句柄
  * @param pstCond 帧流条件结构体，包含通道号、时间范围等查询条件
@@ -1331,20 +1374,20 @@ static std::mutex g_recordFrameMutex;
  * @return 成功返回TRUE，失败返回FALSE
  * @note 启动后通过TCP连接接收录像帧数据，需调用NET_TV_StopRecordFrameStream停止
  */
-NET_TV_API BOOL STDCALL
-NET_TV_StartRecordFrameStream(IN LPVOID lpUserID,
-                              IN pNET_RecordFrameStreamCond_S pstCond,
-                              OUT pNET_RecordFrameStreamInfo_S pstStreamInfo,
-                              IN NET_TV_RecordFrameCallBack cbRecordFrame,
-                              IN LPVOID lpUserData)
+NET_TV_API BOOL NET_TV_STDCALL
+NET_TV_StartRecordFrameStream(NET_TV_IN LPVOID lpUserID,
+                              NET_TV_IN pNET_RecordFrameStreamCond_S pstCond,
+                              NET_TV_OUT pNET_RecordFrameStreamInfo_S pstStreamInfo,
+                              NET_TV_IN NET_TV_RecordFrameCallBack cbRecordFrame,
+                              NET_TV_IN LPVOID lpUserData)
 {
-    CHECK_SDK_INIT(FALSE);
+    NETSDK_CHECK_SDK_INIT(NET_TV_FALSE);
 
     if (!lpUserID || !pstCond || !pstStreamInfo || pstCond->uChannel <= 0 ||
         pstCond->szStartTime[0] == '\0' || pstCond->szEndTime[0] == '\0')
     {
         CErrorManage::instance()->SetLastError(NET_TV_E_INVALID_PARAM);
-        return FALSE;
+        return NET_TV_FALSE;
     }
 
     if (pstCond->uSize == 0)
@@ -1356,18 +1399,18 @@ NET_TV_StartRecordFrameStream(IN LPVOID lpUserID,
     std::string respBody;
     if (!CommandExecutor::instance()->ExecuteRaw((LPUSER_HANDLE)lpUserID,
                                                  "POST",
-                                                 TVAPI_PATH_RECORD_FRAME_STREAM_START,
+                                                 NET_TV_API_PATH_RECORD_FRAME_STREAM_START,
                                                  body,
                                                  respBody))
     {
-        return FALSE;
+        return NET_TV_FALSE;
     }
 
     const int respCode = SDKConvert::get_respCode(respBody);
     CErrorManage::instance()->SetLastError(respCode);
     if (respCode != NET_TV_E_SUCCEED)
     {
-        return FALSE;
+        return NET_TV_FALSE;
     }
 
     std::memset(pstStreamInfo, 0, sizeof(*pstStreamInfo));
@@ -1380,24 +1423,24 @@ NET_TV_StartRecordFrameStream(IN LPVOID lpUserID,
     if (pstStreamInfo->uTcpPort == 0 || pstStreamInfo->szStreamId[0] == '\0')
     {
         CErrorManage::instance()->SetLastError(NET_TV_E_INVALID_PARAM);
-        return FALSE;
+        return NET_TV_FALSE;
     }
 
     auto session = CDeviceManage::instance()->GetSession(lpUserID);
     if (!session)
     {
         CErrorManage::instance()->SetLastError(NET_TV_E_NO_USER);
-        return FALSE;
+        return NET_TV_FALSE;
     }
 
     const std::string host = session->GetHost();
     if (host.empty())
     {
         CErrorManage::instance()->SetLastError(NET_TV_E_INVALID_PARAM);
-        return FALSE;
+        return NET_TV_FALSE;
     }
 
-    auto client = std::make_shared<tvsdk::RecordFrameClient>();
+    auto client = std::make_shared<tvsdk::CRecordFrameClient>();
     tvsdk::RecordFrameCallback cb = [cbRecordFrame, lpUserData](const NET_RecordFrameInfo_S& frameInfo,
                                                                const char* data,
                                                                size_t size) {
@@ -1422,11 +1465,11 @@ NET_TV_StartRecordFrameStream(IN LPVOID lpUserID,
         std::string stopResp;
         CommandExecutor::instance()->ExecuteRaw((LPUSER_HANDLE)lpUserID,
                                                 "POST",
-                                                TVAPI_PATH_RECORD_FRAME_STREAM_STOP,
+                                                NET_TV_API_PATH_RECORD_FRAME_STREAM_STOP,
                                                 SDKConvert::to_string(stStopInfo),
                                                 stopResp);
         CErrorManage::instance()->SetLastError(NET_TV_E_SYSCALL_FALIED);
-        return FALSE;
+        return NET_TV_FALSE;
     }
 
     {
@@ -1441,26 +1484,27 @@ NET_TV_StartRecordFrameStream(IN LPVOID lpUserID,
     }
 
     CErrorManage::instance()->SetLastError(NET_TV_E_SUCCEED);
-    return TRUE;
+    return NET_TV_TRUE;
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 停止录像帧流接口
  * @param lpUserID 用户句柄
  * @param szStreamId 流ID，由NET_TV_StartRecordFrameStream返回
  * @return 成功返回TRUE，失败返回FALSE
  * @note 停止录像帧流接收，释放相关资源
  */
-NET_TV_API BOOL STDCALL
-NET_TV_StopRecordFrameStream(IN LPVOID lpUserID,
-                             IN const CHAR* szStreamId)
+NET_TV_API BOOL NET_TV_STDCALL
+NET_TV_StopRecordFrameStream(NET_TV_IN LPVOID lpUserID,
+                             NET_TV_IN const CHAR* szStreamId)
 {
-    CHECK_SDK_INIT(FALSE);
+    NETSDK_CHECK_SDK_INIT(NET_TV_FALSE);
 
     if (!lpUserID || !szStreamId || szStreamId[0] == '\0')
     {
         CErrorManage::instance()->SetLastError(NET_TV_E_INVALID_PARAM);
-        return FALSE;
+        return NET_TV_FALSE;
     }
 
     NET_RecordFrameStopInfo_S stStopInfo;
@@ -1475,11 +1519,16 @@ NET_TV_StopRecordFrameStream(IN LPVOID lpUserID,
     std::string respBody;
     if (!CommandExecutor::instance()->ExecuteRaw((LPUSER_HANDLE)lpUserID,
                                                  "POST",
-                                                 TVAPI_PATH_RECORD_FRAME_STREAM_STOP,
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 to_string 定义的内部处理。
+ * @return 返回该处理的状态或结果。
+ */
+                                                 NET_TV_API_PATH_RECORD_FRAME_STREAM_STOP,
                                                  SDKConvert::to_string(stStopInfo),
                                                  respBody))
     {
-        return FALSE;
+        return NET_TV_FALSE;
     }
 
     const int respCode = SDKConvert::get_respCode(respBody);
@@ -1495,15 +1544,16 @@ NET_TV_StopRecordFrameStream(IN LPVOID lpUserID,
         }
     }
 
-    return respCode == NET_TV_E_SUCCEED ? TRUE : FALSE;
+    return respCode == NET_TV_E_SUCCEED ? NET_TV_TRUE : NET_TV_FALSE;
 }
 
 /* ==================== 语音对讲 VoiceCom ==================== */
 
-static std::map<LPVOID, std::shared_ptr<tvsdk::VoiceComClient>> g_voiceComMap;
+static std::map<LPVOID, std::shared_ptr<tvsdk::CVoiceComClient>> g_voiceComMap;
 static std::mutex g_voiceComMutex;
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 语音对讲音频参数校验与规范化
  * @param audioParam 音频参数结构体，会被校验和规范化
  * @return 校验通过返回true，校验失败返回false
@@ -1555,7 +1605,7 @@ static bool normalize_voicecom_audio_param(NET_VoiceComAudioParam_S& audioParam)
             if (audioParam.uBitRate <= 0) {
                 audioParam.uBitRate = 48000;
             }
-            audioParam.bLittleEndian = TRUE;
+            audioParam.bLittleEndian = NET_TV_TRUE;
             return true;
         }
         case NET_TV_AUDIO_FORMAT_G711A:
@@ -1598,11 +1648,12 @@ static bool normalize_voicecom_audio_param(NET_VoiceComAudioParam_S& audioParam)
     }
 
     audioParam.uBitRate = audioParam.uSampleRate * audioParam.uChannels * audioParam.uBitDepth;
-    audioParam.bLittleEndian = TRUE;
+    audioParam.bLittleEndian = NET_TV_TRUE;
     return true;
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 启动语音对讲接口
  * @param lpUserID 用户句柄
  * @param pstStartInfo 语音对讲启动信息结构体，包含音频端口、音频参数等
@@ -1611,38 +1662,38 @@ static bool normalize_voicecom_audio_param(NET_VoiceComAudioParam_S& audioParam)
  * @return 成功返回TRUE，失败返回FALSE
  * @note 启动后通过UDP连接传输音频数据；需调用NET_TV_StopVoiceCom停止；音频参数需与设备端保持一致
  */
-BOOL STDCALL
-NET_TV_StartVoiceCom(IN LPVOID              lpUserID,
-                     IN pNET_VoiceComStartInfo_S pstStartInfo,
-                     IN NET_TV_VoiceComCallBack cbVoiceCom,
-                     IN LPVOID              lpUserData)
+BOOL NET_TV_STDCALL
+NET_TV_StartVoiceCom(NET_TV_IN LPVOID              lpUserID,
+                     NET_TV_IN pNET_VoiceComStartInfo_S pstStartInfo,
+                     NET_TV_IN NET_TV_VoiceComCallBack cbVoiceCom,
+                     NET_TV_IN LPVOID              lpUserData)
 {
     if (!lpUserID || !pstStartInfo || pstStartInfo->uAudioPort == 0) {
         CErrorManage::instance()->SetLastError(NET_TV_E_INVALID_PARAM);
-        return FALSE;
+        return NET_TV_FALSE;
     }
 
     NET_VoiceComAudioParam_S audioParam = pstStartInfo->stAudioParam;
     if (!normalize_voicecom_audio_param(audioParam)) {
         CErrorManage::instance()->SetLastError(NET_TV_E_INVALID_PARAM);
-        return FALSE;
+        return NET_TV_FALSE;
     }
 
     auto session = CDeviceManage::instance()->GetSession(lpUserID);
     if (!session) {
         CErrorManage::instance()->SetLastError(NET_TV_E_NO_USER);
-        return FALSE;
+        return NET_TV_FALSE;
     }
 
     const std::string host = session->GetHost();
     if (host.empty()) {
         CErrorManage::instance()->SetLastError(NET_TV_E_INVALID_PARAM);
-        return FALSE;
+        return NET_TV_FALSE;
     }
 
-    auto client = std::make_shared<tvsdk::VoiceComClient>();
+    auto client = std::make_shared<tvsdk::CVoiceComClient>();
 
-    // 绑定C回调到C++ callback
+    /* 绑定C回调到C++ callback */
     tvsdk::VoiceComCallback cb = [cbVoiceCom, lpUserData](const char* data, size_t size) {
         if (cbVoiceCom) {
             cbVoiceCom(data, static_cast<unsigned int>(size), lpUserData);
@@ -1651,7 +1702,7 @@ NET_TV_StartVoiceCom(IN LPVOID              lpUserID,
 
     if (!client->start(host, static_cast<int>(pstStartInfo->uAudioPort), audioParam, std::move(cb))) {
         CErrorManage::instance()->SetLastError(NET_TV_E_SYSCALL_FALIED);
-        return FALSE;
+        return NET_TV_FALSE;
     }
 
     {
@@ -1664,10 +1715,11 @@ NET_TV_StartVoiceCom(IN LPVOID              lpUserID,
         g_voiceComMap[lpUserID] = client;
     }
 
-    return TRUE;
+    return NET_TV_TRUE;
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 语音对讲发送数据接口
  * @param lpUserID 用户句柄
  * @param pData 要发送的语音数据缓冲区
@@ -1675,54 +1727,55 @@ NET_TV_StartVoiceCom(IN LPVOID              lpUserID,
  * @return 成功返回TRUE，失败返回FALSE
  * @note 必须在NET_TV_StartVoiceCom成功后调用；音频格式需与启动时配置一致
  */
-BOOL STDCALL
-NET_TV_VoiceComSendData(IN LPVOID       lpUserID,
-                        IN const CHAR*  pData,
-                        IN UINT32       dwSize)
+BOOL NET_TV_STDCALL
+NET_TV_VoiceComSendData(NET_TV_IN LPVOID       lpUserID,
+                        NET_TV_IN const CHAR*  pData,
+                        NET_TV_IN UINT32       dwSize)
 {
     if (!lpUserID || !pData || dwSize == 0) {
         CErrorManage::instance()->SetLastError(NET_TV_E_INVALID_PARAM);
-        return FALSE;
+        return NET_TV_FALSE;
     }
 
     std::lock_guard<std::mutex> lock(g_voiceComMutex);
     auto it = g_voiceComMap.find(lpUserID);
     if (it == g_voiceComMap.end() || !it->second->is_running()) {
         CErrorManage::instance()->SetLastError(NET_TV_E_AUDIO_NO_EXISTED);
-        return FALSE;
+        return NET_TV_FALSE;
     }
 
     if (!it->second->send(pData, static_cast<size_t>(dwSize))) {
         CErrorManage::instance()->SetLastError(NET_TV_E_AUDIO_FAILED);
-        return FALSE;
+        return NET_TV_FALSE;
     }
-    return TRUE;
+    return NET_TV_TRUE;
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 停止语音对讲接口
  * @param lpUserID 用户句柄
  * @return 成功返回TRUE，失败返回FALSE
  * @note 停止语音对讲，释放UDP连接和相关资源；需在NET_TV_StartVoiceCom成功后调用
  */
-BOOL STDCALL
-NET_TV_StopVoiceCom(IN LPVOID lpUserID)
+BOOL NET_TV_STDCALL
+NET_TV_StopVoiceCom(NET_TV_IN LPVOID lpUserID)
 {
     if (!lpUserID) {
         CErrorManage::instance()->SetLastError(NET_TV_E_INVALID_PARAM);
-        return FALSE;
+        return NET_TV_FALSE;
     }
 
     std::lock_guard<std::mutex> lock(g_voiceComMutex);
     auto it = g_voiceComMap.find(lpUserID);
     if (it == g_voiceComMap.end()) {
         CErrorManage::instance()->SetLastError(NET_TV_E_AUDIO_NO_EXISTED);
-        return FALSE;
+        return NET_TV_FALSE;
     }
 
     it->second->stop();
     g_voiceComMap.erase(it);
-    return TRUE;
+    return NET_TV_TRUE;
 }
 
 /* ==================== 设备发现 ==================== */
@@ -1730,6 +1783,7 @@ NET_TV_StopVoiceCom(IN LPVOID lpUserID)
 #include "DiscoverySearcher.h"
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 设备发现接口（局域网搜索）
  * @param szInterfaceIP 本地网络接口IP地址，填NULL则在所有接口上搜索
  * @param dwTimeoutMs 搜索超时时间（毫秒）
@@ -1739,23 +1793,23 @@ NET_TV_StopVoiceCom(IN LPVOID lpUserID)
  * @return 成功返回TRUE，失败返回FALSE
  * @note 通过UDP广播方式搜索局域网内的设备；无需登录即可调用
  */
-BOOL STDCALL
-NET_TV_Discovery_Search(IN  const CHAR*                      szInterfaceIP,
-                        IN  UINT32                           dwTimeoutMs,
-                        OUT NET_DiscoveryDeviceInfo_S*       pDeviceList,
-                        IN  int                              nMaxCount,
-                        OUT int*                             pnOutCount)
+BOOL NET_TV_STDCALL
+NET_TV_Discovery_Search(NET_TV_IN  const CHAR*                      szInterfaceIP,
+                        NET_TV_IN  UINT32                           dwTimeoutMs,
+                        NET_TV_OUT NET_DiscoveryDeviceInfo_S*       pDeviceList,
+                        NET_TV_IN  int                              nMaxCount,
+                        NET_TV_OUT int*                             pnOutCount)
 {
     if (!pDeviceList || nMaxCount <= 0 || !pnOutCount) {
         CErrorManage::instance()->SetLastError(NET_TV_E_INVALID_PARAM);
-        return FALSE;
+        return NET_TV_FALSE;
     }
 
-    DiscoverySearcher searcher;
+    CDiscoverySearcher searcher;
     int ret = searcher.search(szInterfaceIP, dwTimeoutMs, pDeviceList, nMaxCount, pnOutCount);
     if (ret < 0) {
         CErrorManage::instance()->SetLastError(NET_TV_E_SYSCALL_FALIED);
-        return FALSE;
+        return NET_TV_FALSE;
     }
-    return TRUE;
+    return NET_TV_TRUE;
 }

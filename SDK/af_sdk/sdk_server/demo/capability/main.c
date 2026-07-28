@@ -1,9 +1,15 @@
 /**
  * @file main.c
  * @author tianl (tianl@kfb.cn)
- * @date 2025-01-30
- * 
- * @brief SDK服务端 设备能力集Demo
+ * @date 2026-07-28
+ * @LastEditors  : qinjt@kfb.cn
+ * @LastEditTime : 2026-07-28
+ *
+ * @brief SDK 设备能力查询 Demo
+ * 功能说明：
+ * 1. 实现 main 模块核心逻辑
+ * 2. 校验输入参数并管理模块资源生命周期
+ * 3. 向上层提供可复用的 SDK 能力
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -14,21 +20,29 @@
 #include "NetTVSDKServerInterface.h"
 
 /* 日志记录单个日志文件的最大大小 */
-#define MAX_LOG_SIZE  (20 * 1024 * 1024)
+#define NETSDK_DEMO_LOG_MAX_SIZE  (20 * 1024 * 1024)
 /* 日志记录最大保留的日志文件数量 */
-#define MAX_LOG_FILES (10)
+#define NETSDK_DEMO_LOG_MAX_FILES (10)
 /* 服务端口 */
-#define SDKSERVER_PORT 8888
+#define NETSDK_DEMO_SERVER_PORT 8888
 /* 服务端默认账号 */
-#define SDKSERVER_USERNAME "admin"
-#define SDKSERVER_PASSWORD "Admin@123456"
+#define NETSDK_DEMO_SERVER_USERNAME "admin"
+#define NETSDK_DEMO_SERVER_PASSWORD "Admin@123456"
 /* Demo声明的最大字符叠加数量，需与当前IPC OSD能力保持一致 */
-#define SDKSERVER_OSD_MAX_NUM NET_TV_OSD_CUSTOM_MAX_NUM
-#define SDKSERVER_OSD_ALIGN_MAX_NUM 8
+#define NETSDK_DEMO_SERVER_OSD_MAX_NUM NET_TV_OSD_CUSTOM_MAX_NUM
+#define NETSDK_DEMO_SERVER_OSD_ALIGN_MAX_NUM 8
 
-static INT32 g_serverPort = SDKSERVER_PORT;
-static char g_serverUsername[64] = SDKSERVER_USERNAME;
-static char g_serverPassword[64] = SDKSERVER_PASSWORD;
+static INT32 g_serverPort = NETSDK_DEMO_SERVER_PORT;
+static char g_serverUsername[64] = NETSDK_DEMO_SERVER_USERNAME;
+static char g_serverPassword[64] = NETSDK_DEMO_SERVER_PASSWORD;
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 CopyString 对应的处理。
+ * @param [in,out] pDst 函数处理参数。
+ * @param [in] dstSize 函数处理参数。
+ * @param [in] pSrc 函数处理参数。
+ * @return 无返回值。
+ */
 
 static void CopyString(char* pDst, size_t dstSize, const char* pSrc)
 {
@@ -46,12 +60,25 @@ static void CopyString(char* pDst, size_t dstSize, const char* pSrc)
     strncpy(pDst, pSrc, dstSize - 1);
     pDst[dstSize - 1] = '\0';
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 PrintUsage 定义的内部处理。
+ * @param [in] pProgram 函数处理参数。
+ * @return 无返回值。
+ */
 
 static void PrintUsage(const char* pProgram)
 {
     printf("Usage: %s [port] [username] [password]\n", pProgram ? pProgram : "CapabilityServerDemo");
     printf("Example: %s 8888 admin Admin@123456\n", pProgram ? pProgram : "CapabilityServerDemo");
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 ConfigureByArgs 定义的内部处理。
+ * @param [in] argc 函数处理参数。
+ * @param [in,out] argv 函数处理参数。
+ * @return 无返回值。
+ */
 
 static void ConfigureByArgs(int argc, char* argv[])
 {
@@ -79,6 +106,15 @@ static void ConfigureByArgs(int argc, char* argv[])
         CopyString(g_serverPassword, sizeof(g_serverPassword), argv[3]);
     }
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 FillUint32List 对应的处理。
+ * @param [in,out] pDst 函数处理参数。
+ * @param [in] dstCount 函数处理参数。
+ * @param [in] pSrc 函数处理参数。
+ * @param [in] srcCount 函数处理参数。
+ * @return 返回该处理的状态或结果。
+ */
 
 static UINT32 FillUint32List(UINT32* pDst, UINT32 dstCount, const UINT32* pSrc, UINT32 srcCount)
 {
@@ -102,6 +138,14 @@ static UINT32 FillUint32List(UINT32* pDst, UINT32 dstCount, const UINT32* pSrc, 
 
     return count;
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 PrintUint32List 定义的内部处理。
+ * @param [in] pName 函数处理参数。
+ * @param [in] pList 函数处理参数。
+ * @param [in] count 函数处理参数。
+ * @return 无返回值。
+ */
 
 static void PrintUint32List(const char* pName, const UINT32* pList, UINT32 count)
 {
@@ -114,6 +158,11 @@ static void PrintUint32List(const char* pName, const UINT32* pList, UINT32 count
     }
     printf("\n");
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 FillDemoResolution 对应的处理。
+ * @return 无返回值。
+ */
 
 static void FillDemoResolution(pNET_VideoResolution_S pResolution,
                                INT32 width,
@@ -161,6 +210,11 @@ static void FillDemoResolution(pNET_VideoResolution_S pResolution,
         }
     }
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 FillDemoEncodeAbility 对应的处理。
+ * @return 无返回值。
+ */
 
 static void FillDemoEncodeAbility(pNET_VideoEncodeAbility_S pAbility,
                                   const char* pCodec,
@@ -204,26 +258,27 @@ static void FillDemoEncodeAbility(pNET_VideoEncodeAbility_S pAbility,
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 视频编码能力集回调实现
  * @note 模拟填充2个码流(主/子码流)的能力集数据
  */
-NET_TV_COMMON_ECODE_E MyVideoEncodeCb(INT32 dwChannelID, LPNET_TV_VIDEO_ENCODE_CAP_S pCap)
+static NET_TV_COMMON_ECODE_E MyVideoEncodeCb(INT32 dwChannelID, LPNET_TV_VIDEO_ENCODE_CAP_S pCap)
 {
     if (!pCap)
     {
         return NET_TV_E_INVALID_PARAM;
     }
-    
+
     printf("[Server] GetVideoEncodeCap callback, channelID=%d\n", dwChannelID);
 
     memset(pCap, 0, sizeof(NET_TV_VIDEO_ENCODE_CAP_S));
-    
-    // 填充2个码流的能力集
+
+    /* 填充2个码流的能力集 */
     pCap->dwStreamCount = 2;
-    
-    // ============ 主码流能力 (索引0) ============
-    pCap->astStreamCap[0].dwStreamType = 0;          // NET_TV_LIVE_STREAM_INDEX_MAIN
-    pCap->astStreamCap[0].bSupportMultiStream = 1;   // 支持复合流
+
+    /* ============ 主码流能力 (索引0) ============ */
+    pCap->astStreamCap[0].dwStreamType = 0;          /* NET_TV_LIVE_STREAM_INDEX_MAIN */
+    pCap->astStreamCap[0].bSupportMultiStream = 1;   /* 支持复合流 */
     pCap->astStreamCap[0].dwEncodeCapSize = 3;
     pCap->astStreamCap[0].dwEncodeTypeNum = 3;
     pCap->astStreamCap[0].dwEncodeAbilityNum = 3;
@@ -240,8 +295,8 @@ NET_TV_COMMON_ECODE_E MyVideoEncodeCb(INT32 dwChannelID, LPNET_TV_VIDEO_ENCODE_C
         FillDemoEncodeAbility(&pCap->astStreamCap[0].astEncodeAbility[1], "H.265", NET_TV_VIDEO_CODE_H265, 0, complexityMain, 1, 1, 1, 1);
         FillDemoEncodeAbility(&pCap->astStreamCap[0].astEncodeAbility[2], "MJPEG", NET_TV_VIDEO_CODE_MJPEG, 0, complexityMain, 1, 1, 0, 0);
     }
-    
-    // H.264编码配置示例
+
+    /* H.264编码配置示例 */
     pCap->astStreamCap[0].astEncodeCap[0].nId = NET_TV_LIVE_STREAM_INDEX_MAIN;
     pCap->astStreamCap[0].astEncodeCap[0].enVideoType = 0;
     FillDemoResolution(&pCap->astStreamCap[0].astEncodeCap[0].stVideoResolution, 1920, 1080, 1.0f / 16.0f, 30.0f, 256, 8192);
@@ -251,13 +306,13 @@ NET_TV_COMMON_ECODE_E MyVideoEncodeCb(INT32 dwChannelID, LPNET_TV_VIDEO_ENCODE_C
     pCap->astStreamCap[0].astEncodeCap[0].nBitrateUpperLimit = 8192;
     pCap->astStreamCap[0].astEncodeCap[0].nAverageBitrate = 4096;
     pCap->astStreamCap[0].astEncodeCap[0].enVideoCodec = NET_TV_VIDEO_CODE_H264;
-    pCap->astStreamCap[0].astEncodeCap[0].bSmartEnable = FALSE;
+    pCap->astStreamCap[0].astEncodeCap[0].bSmartEnable = NET_TV_FALSE;
     pCap->astStreamCap[0].astEncodeCap[0].enEncodingComplexity = 1;
     pCap->astStreamCap[0].astEncodeCap[0].nIFrameInterval = 50;
     pCap->astStreamCap[0].astEncodeCap[0].enSvcEnable = 1;
     pCap->astStreamCap[0].astEncodeCap[0].nBitrateSmoothing = 50;
-    
-    // H.265编码配置示例
+
+    /* H.265编码配置示例 */
     pCap->astStreamCap[0].astEncodeCap[1].nId = NET_TV_LIVE_STREAM_INDEX_MAIN;
     pCap->astStreamCap[0].astEncodeCap[1].enVideoType = 0;
     FillDemoResolution(&pCap->astStreamCap[0].astEncodeCap[1].stVideoResolution, 2560, 1440, 1.0f / 16.0f, 25.0f, 512, 16384);
@@ -267,13 +322,13 @@ NET_TV_COMMON_ECODE_E MyVideoEncodeCb(INT32 dwChannelID, LPNET_TV_VIDEO_ENCODE_C
     pCap->astStreamCap[0].astEncodeCap[1].nBitrateUpperLimit = 16384;
     pCap->astStreamCap[0].astEncodeCap[1].nAverageBitrate = 8192;
     pCap->astStreamCap[0].astEncodeCap[1].enVideoCodec = NET_TV_VIDEO_CODE_H265;
-    pCap->astStreamCap[0].astEncodeCap[1].bSmartEnable = FALSE;
+    pCap->astStreamCap[0].astEncodeCap[1].bSmartEnable = NET_TV_FALSE;
     pCap->astStreamCap[0].astEncodeCap[1].enEncodingComplexity = 1;
     pCap->astStreamCap[0].astEncodeCap[1].nIFrameInterval = 50;
     pCap->astStreamCap[0].astEncodeCap[1].enSvcEnable = 0;
     pCap->astStreamCap[0].astEncodeCap[1].nBitrateSmoothing = 50;
 
-    // MJPEG编码配置示例
+    /* MJPEG编码配置示例 */
     pCap->astStreamCap[0].astEncodeCap[2].nId = NET_TV_LIVE_STREAM_INDEX_MAIN;
     pCap->astStreamCap[0].astEncodeCap[2].enVideoType = 1;
     FillDemoResolution(&pCap->astStreamCap[0].astEncodeCap[2].stVideoResolution, 1920, 1080, 1.0f / 16.0f, 30.0f, 256, 8192);
@@ -283,22 +338,22 @@ NET_TV_COMMON_ECODE_E MyVideoEncodeCb(INT32 dwChannelID, LPNET_TV_VIDEO_ENCODE_C
     pCap->astStreamCap[0].astEncodeCap[2].nBitrateUpperLimit = 8192;
     pCap->astStreamCap[0].astEncodeCap[2].nAverageBitrate = 4096;
     pCap->astStreamCap[0].astEncodeCap[2].enVideoCodec = NET_TV_VIDEO_CODE_MJPEG;
-    pCap->astStreamCap[0].astEncodeCap[2].bSmartEnable = FALSE;
+    pCap->astStreamCap[0].astEncodeCap[2].bSmartEnable = NET_TV_FALSE;
     pCap->astStreamCap[0].astEncodeCap[2].enEncodingComplexity = 1;
     pCap->astStreamCap[0].astEncodeCap[2].nIFrameInterval = 50;
     pCap->astStreamCap[0].astEncodeCap[2].enSvcEnable = 0;
     pCap->astStreamCap[0].astEncodeCap[2].nBitrateSmoothing = 0;
 
-    // 主码流支持的分辨率列表
+    /* 主码流支持的分辨率列表 */
     pCap->astStreamCap[0].dwResolutionNum = 4;
     FillDemoResolution(&pCap->astStreamCap[0].astResolution[0], 2560, 1440, 1.0f / 16.0f, 25.0f, 512, 16384);
     FillDemoResolution(&pCap->astStreamCap[0].astResolution[1], 1920, 1080, 1.0f / 16.0f, 30.0f, 256, 8192);
     FillDemoResolution(&pCap->astStreamCap[0].astResolution[2], 1280, 720, 1.0f / 16.0f, 30.0f, 256, 4096);
     FillDemoResolution(&pCap->astStreamCap[0].astResolution[3], 704, 576, 1.0f / 16.0f, 30.0f, 128, 2048);
 
-    // ============ 子码流能力 (索引1) ============
-    pCap->astStreamCap[1].dwStreamType = 1;          // NET_TV_LIVE_STREAM_INDEX_SUB
-    pCap->astStreamCap[1].bSupportMultiStream = 0;   // 不支持复合流
+    /* ============ 子码流能力 (索引1) ============ */
+    pCap->astStreamCap[1].dwStreamType = 1;          /* NET_TV_LIVE_STREAM_INDEX_SUB */
+    pCap->astStreamCap[1].bSupportMultiStream = 0;   /* 不支持复合流 */
     pCap->astStreamCap[1].dwEncodeCapSize = 2;
     pCap->astStreamCap[1].dwEncodeTypeNum = 2;
     pCap->astStreamCap[1].dwEncodeAbilityNum = 2;
@@ -314,8 +369,8 @@ NET_TV_COMMON_ECODE_E MyVideoEncodeCb(INT32 dwChannelID, LPNET_TV_VIDEO_ENCODE_C
         FillDemoEncodeAbility(&pCap->astStreamCap[1].astEncodeAbility[0], "H.264", NET_TV_VIDEO_CODE_H264, 1, complexityAll, 3, 0, 1, 1);
         FillDemoEncodeAbility(&pCap->astStreamCap[1].astEncodeAbility[1], "H.265", NET_TV_VIDEO_CODE_H265, 0, complexityMain, 1, 1, 1, 1);
     }
-    
-    // H.264编码配置示例
+
+    /* H.264编码配置示例 */
     pCap->astStreamCap[1].astEncodeCap[0].nId = NET_TV_LIVE_STREAM_INDEX_AUX;
     pCap->astStreamCap[1].astEncodeCap[0].enVideoType = 1;
     FillDemoResolution(&pCap->astStreamCap[1].astEncodeCap[0].stVideoResolution, 640, 480, 1.0f / 16.0f, 30.0f, 64, 1024);
@@ -325,13 +380,13 @@ NET_TV_COMMON_ECODE_E MyVideoEncodeCb(INT32 dwChannelID, LPNET_TV_VIDEO_ENCODE_C
     pCap->astStreamCap[1].astEncodeCap[0].nBitrateUpperLimit = 1024;
     pCap->astStreamCap[1].astEncodeCap[0].nAverageBitrate = 512;
     pCap->astStreamCap[1].astEncodeCap[0].enVideoCodec = NET_TV_VIDEO_CODE_H264;
-    pCap->astStreamCap[1].astEncodeCap[0].bSmartEnable = FALSE;
+    pCap->astStreamCap[1].astEncodeCap[0].bSmartEnable = NET_TV_FALSE;
     pCap->astStreamCap[1].astEncodeCap[0].enEncodingComplexity = 1;
     pCap->astStreamCap[1].astEncodeCap[0].nIFrameInterval = 50;
     pCap->astStreamCap[1].astEncodeCap[0].enSvcEnable = 0;
     pCap->astStreamCap[1].astEncodeCap[0].nBitrateSmoothing = 50;
 
-    // H.265编码配置示例
+    /* H.265编码配置示例 */
     pCap->astStreamCap[1].astEncodeCap[1].nId = NET_TV_LIVE_STREAM_INDEX_AUX;
     pCap->astStreamCap[1].astEncodeCap[1].enVideoType = 1;
     FillDemoResolution(&pCap->astStreamCap[1].astEncodeCap[1].stVideoResolution, 704, 576, 1.0f / 16.0f, 30.0f, 128, 2048);
@@ -341,13 +396,13 @@ NET_TV_COMMON_ECODE_E MyVideoEncodeCb(INT32 dwChannelID, LPNET_TV_VIDEO_ENCODE_C
     pCap->astStreamCap[1].astEncodeCap[1].nBitrateUpperLimit = 2048;
     pCap->astStreamCap[1].astEncodeCap[1].nAverageBitrate = 1024;
     pCap->astStreamCap[1].astEncodeCap[1].enVideoCodec = NET_TV_VIDEO_CODE_H265;
-    pCap->astStreamCap[1].astEncodeCap[1].bSmartEnable = FALSE;
+    pCap->astStreamCap[1].astEncodeCap[1].bSmartEnable = NET_TV_FALSE;
     pCap->astStreamCap[1].astEncodeCap[1].enEncodingComplexity = 1;
     pCap->astStreamCap[1].astEncodeCap[1].nIFrameInterval = 50;
     pCap->astStreamCap[1].astEncodeCap[1].enSvcEnable = 0;
     pCap->astStreamCap[1].astEncodeCap[1].nBitrateSmoothing = 50;
 
-    // 子码流支持的分辨率列表
+    /* 子码流支持的分辨率列表 */
     pCap->astStreamCap[1].dwResolutionNum = 3;
     FillDemoResolution(&pCap->astStreamCap[1].astResolution[0], 704, 576, 1.0f / 16.0f, 30.0f, 128, 2048);
     FillDemoResolution(&pCap->astStreamCap[1].astResolution[1], 640, 480, 1.0f / 16.0f, 30.0f, 64, 1024);
@@ -358,10 +413,11 @@ NET_TV_COMMON_ECODE_E MyVideoEncodeCb(INT32 dwChannelID, LPNET_TV_VIDEO_ENCODE_C
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 音频编码能力集回调实现
  * @note 模拟填充音频编码能力集的能力集数据
  */
-NET_TV_COMMON_ECODE_E MyAudioEncodeCb(INT32 dwChannelID, LPNET_TV_AUDIO_CAP_S pCap)
+static NET_TV_COMMON_ECODE_E MyAudioEncodeCb(INT32 dwChannelID, LPNET_TV_AUDIO_CAP_S pCap)
 {
     if (!pCap)
     {
@@ -372,30 +428,30 @@ NET_TV_COMMON_ECODE_E MyAudioEncodeCb(INT32 dwChannelID, LPNET_TV_AUDIO_CAP_S pC
 
     memset(pCap, 0, sizeof(NET_TV_AUDIO_CAP_S));
 
-    // ================= 输入类型能力 =================
+    /* ================= 输入类型能力 ================= */
     pCap->dwInputTypeSize = 2;
     pCap->adwInputType[0] = NET_TV_AUDIO_INPUT_MICIN;
     pCap->adwInputType[1] = NET_TV_AUDIO_INPUT_LINEIN;
 
-    // ================= 输出类型能力 =================
+    /* ================= 输出类型能力 ================= */
     pCap->dwOutputTypeSize = 3;
     pCap->adwOutputType[0] = NET_TV_AUDIO_OUTPUT_SPEAKER;
     pCap->adwOutputType[1] = NET_TV_AUDIO_OUTPUT_LINEOUT;
     pCap->adwOutputType[2] = NET_TV_AUDIO_OUTPUT_MUTE;
 
-    // ================= 音频格式能力 =================
+    /* ================= 音频格式能力 ================= */
     pCap->dwFormatSize = 4;
     pCap->adwFormat[0] = NET_TV_AUDIO_FORMAT_G711A;
     pCap->adwFormat[1] = NET_TV_AUDIO_FORMAT_G711U;
     pCap->adwFormat[2] = NET_TV_AUDIO_FORMAT_AAC;
     pCap->adwFormat[3] = NET_TV_AUDIO_FORMAT_MP3;
 
-    // 格式详细能力数量
+    /* 格式详细能力数量 */
     pCap->dwFormatDetailSize = 4;
 
-    // =========================================================
-    // G711A 能力
-    // =========================================================
+    /* ========================================================= */
+    /* G711A 能力 */
+    /* ========================================================= */
     pCap->astFormatDetail[0].dwFormat = NET_TV_AUDIO_FORMAT_G711A;
 
     pCap->astFormatDetail[0].dwSampleRateSize = 1;
@@ -414,9 +470,9 @@ NET_TV_COMMON_ECODE_E MyAudioEncodeCb(INT32 dwChannelID, LPNET_TV_AUDIO_CAP_S pC
     pCap->astFormatDetail[0].stBitRateRange.dwMax = 64000;
     pCap->astFormatDetail[0].stBitRateRange.dwStep = 0;
 
-    // =========================================================
-    // G711U 能力
-    // =========================================================
+    /* ========================================================= */
+    /* G711U 能力 */
+    /* ========================================================= */
     pCap->astFormatDetail[1].dwFormat = NET_TV_AUDIO_FORMAT_G711U;
 
     pCap->astFormatDetail[1].dwSampleRateSize = 1;
@@ -435,9 +491,9 @@ NET_TV_COMMON_ECODE_E MyAudioEncodeCb(INT32 dwChannelID, LPNET_TV_AUDIO_CAP_S pC
     pCap->astFormatDetail[1].stBitRateRange.dwMax = 64000;
     pCap->astFormatDetail[1].stBitRateRange.dwStep = 0;
 
-    // =========================================================
-    // AAC 能力
-    // =========================================================
+    /* ========================================================= */
+    /* AAC 能力 */
+    /* ========================================================= */
     pCap->astFormatDetail[2].dwFormat = NET_TV_AUDIO_FORMAT_AAC;
 
     pCap->astFormatDetail[2].dwSampleRateSize = 4;
@@ -463,9 +519,9 @@ NET_TV_COMMON_ECODE_E MyAudioEncodeCb(INT32 dwChannelID, LPNET_TV_AUDIO_CAP_S pC
     pCap->astFormatDetail[2].stBitRateRange.dwMax = 256000;
     pCap->astFormatDetail[2].stBitRateRange.dwStep = 0;
 
-    // =========================================================
-    // MP3 能力
-    // =========================================================
+    /* ========================================================= */
+    /* MP3 能力 */
+    /* ========================================================= */
     pCap->astFormatDetail[3].dwFormat = NET_TV_AUDIO_FORMAT_MP3;
 
     pCap->astFormatDetail[3].dwSampleRateSize = 3;
@@ -494,6 +550,12 @@ NET_TV_COMMON_ECODE_E MyAudioEncodeCb(INT32 dwChannelID, LPNET_TV_AUDIO_CAP_S pC
     printf("[Server] Filled %d audio formats capability\n", pCap->dwFormatDetailSize);
     return NET_TV_E_SUCCEED;
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 FillDemoOsdCap 对应的处理。
+ * @param [in] pCap 函数处理参数。
+ * @return 无返回值。
+ */
 
 static void FillDemoOsdCap(LPNET_TV_OSD_CAP_S pCap)
 {
@@ -534,12 +596,12 @@ static void FillDemoOsdCap(LPNET_TV_OSD_CAP_S pCap)
 
     memset(pCap, 0, sizeof(NET_TV_OSD_CAP_S));
 
-    pCap->bSupportOsd = TRUE;
-    pCap->bSupportName = TRUE;
-    pCap->bSupportTime = TRUE;
-    pCap->bSupportWeek = TRUE;
-    pCap->bSupportCustomColor = TRUE;
-    pCap->udwMaxOsdNum = SDKSERVER_OSD_MAX_NUM;
+    pCap->bSupportOsd = NET_TV_TRUE;
+    pCap->bSupportName = NET_TV_TRUE;
+    pCap->bSupportTime = NET_TV_TRUE;
+    pCap->bSupportWeek = NET_TV_TRUE;
+    pCap->bSupportCustomColor = NET_TV_TRUE;
+    pCap->udwMaxOsdNum = NETSDK_DEMO_SERVER_OSD_MAX_NUM;
 
     pCap->udwSupportedFontSizeNum =
         FillUint32List(pCap->audwSupportedFontSizeList,
@@ -558,10 +620,16 @@ static void FillDemoOsdCap(LPNET_TV_OSD_CAP_S pCap)
                        (UINT32)(sizeof(kTimeFormatList) / sizeof(kTimeFormatList[0])));
     pCap->udwSupportedAlignNum =
         FillUint32List(pCap->audwSupportedAlignList,
-                       SDKSERVER_OSD_ALIGN_MAX_NUM,
+                       NETSDK_DEMO_SERVER_OSD_ALIGN_MAX_NUM,
                        kAlignList,
                        (UINT32)(sizeof(kAlignList) / sizeof(kAlignList[0])));
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 PrintDemoOsdCap 定义的内部处理。
+ * @param [in] pCap 函数处理参数。
+ * @return 无返回值。
+ */
 
 static void PrintDemoOsdCap(const NET_TV_OSD_CAP_S* pCap)
 {
@@ -593,50 +661,53 @@ static void PrintDemoOsdCap(const NET_TV_OSD_CAP_S* pCap)
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief OSD能力集回调实现
  */
-NET_TV_COMMON_ECODE_E MyOsdCapCb(INT32 dwChannelID, LPNET_TV_OSD_CAP_S pCap)
+static NET_TV_COMMON_ECODE_E MyOsdCapCb(INT32 dwChannelID, LPNET_TV_OSD_CAP_S pCap)
 {
     if (!pCap)
     {
         return NET_TV_E_INVALID_PARAM;
     }
-    
+
     printf("[Server] GetOsdCap callback, channelID=%d\n", dwChannelID);
 
     FillDemoOsdCap(pCap);
     PrintDemoOsdCap(pCap);
-    
+
     return NET_TV_E_SUCCEED;
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 设备信息回调实现
  */
-NET_TV_COMMON_ECODE_E MyDeviceInfoCb(pNET_DeviceInfo_S pInfo)
+static NET_TV_COMMON_ECODE_E MyDeviceInfoCb(pNET_DeviceInfo_S pInfo)
 {
     if (!pInfo)
     {
         return NET_TV_E_INVALID_PARAM;
     }
-    
+
     printf("[Server] GetDeviceInfo callback\n");
-    
-    // 填充设备信息
-    pInfo->uDevType = 0;           // 设备类型
-    pInfo->uAlarmInPortNum = 4;     // 报警输入端口数
-    pInfo->uAlarmOutPortNum = 2;    // 报警输出端口数
-    pInfo->uChannelNum = 4;        // 通道数
-    
+
+    /* 填充设备信息 */
+    pInfo->uDevType = 0;           /* 设备类型 */
+    pInfo->uAlarmInPortNum = 4;     /* 报警输入端口数 */
+    pInfo->uAlarmOutPortNum = 2;    /* 报警输出端口数 */
+    pInfo->uChannelNum = 4;        /* 通道数 */
+
     return NET_TV_E_SUCCEED;
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 注册回调函数
  */
-void AddRegisterCb()
+static void AddRegisterCb()
 {
-    // 注册设备信息回调
+    /* 注册设备信息回调 */
     if (NET_TV_SERVER_RegisterCb_GetDeviceInfo(MyDeviceInfoCb))
     {
         printf("[Server] RegisterCb_GetDeviceInfo SUCCESS\n");
@@ -646,7 +717,7 @@ void AddRegisterCb()
         printf("[Server] RegisterCb_GetDeviceInfo FAILED\n");
     }
 
-    // 注册视频编码能力集回调
+    /* 注册视频编码能力集回调 */
     if (NET_TV_SERVER_RegisterCb_GetVideoEncodeCap(MyVideoEncodeCb))
     {
         printf("[Server] RegisterCb_GetVideoEncodeCap SUCCESS\n");
@@ -656,7 +727,7 @@ void AddRegisterCb()
         printf("[Server] RegisterCb_GetVideoEncodeCap FAILED\n");
     }
 
-    // 注册音频编码能力集回调
+    /* 注册音频编码能力集回调 */
     if (NET_TV_SERVER_RegisterCb_GetAudioEncodeCap(MyAudioEncodeCb))
     {
         printf("[Server] RegisterCb_GetAudioEncodeCap SUCCESS\n");
@@ -666,7 +737,7 @@ void AddRegisterCb()
         printf("[Server] RegisterCb_GetAudioEncodeCap FAILED\n");
     }
 
-    // 注册OSD能力集回调
+    /* 注册OSD能力集回调 */
     if (NET_TV_SERVER_RegisterCb_GetOsdCap(MyOsdCapCb))
     {
         printf("[Server] RegisterCb_GetOsdCap SUCCESS\n");
@@ -676,20 +747,27 @@ void AddRegisterCb()
         printf("[Server] RegisterCb_GetOsdCap FAILED\n");
     }
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 运行当前 Demo 的主流程。
+ * @param [in] argc 函数处理参数。
+ * @param [in,out] argv 函数处理参数。
+ * @return 返回该处理的状态或结果。
+ */
 
 int main(int argc, char* argv[])
 {
     printf("=============== SDK Server Capability Demo ================\n");
     ConfigureByArgs(argc, argv);
-    
+
     /* 初始化日志 */
-    initSdkLogBySize("CapabilityDemo", "/opt/course/CapabilityDemo.log", MAX_LOG_SIZE, MAX_LOG_FILES);
+    initSdkLogBySize("CapabilityDemo", "/opt/course/CapabilityDemo.log", NETSDK_DEMO_LOG_MAX_SIZE, NETSDK_DEMO_LOG_MAX_FILES);
     syncPrintf(1);
     setLogLevel(NETSDK_LOG_TRACE);
-    
+
     /* 注册回调 */
     AddRegisterCb();
-    
+
     /* 启动服务 */
     printf("[Server] Starting on port %d, username=%s...\n", g_serverPort, g_serverUsername);
     if (NET_TV_SERVER_Init(g_serverPort, g_serverUsername, g_serverPassword))
@@ -701,15 +779,15 @@ int main(int argc, char* argv[])
         printf("[Server] Server start FAILED!\n");
         return -1;
     }
-    
+
     printf("[Server] Waiting for client requests...\n");
     printf("Press Ctrl+C to stop.\n");
-    
+
     while (1)
     {
         sleep(1);
     }
-    
+
     NET_TV_SERVER_Cleanup();
     return 0;
 }
