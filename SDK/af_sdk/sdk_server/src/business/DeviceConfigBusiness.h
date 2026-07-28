@@ -1,3 +1,16 @@
+/**
+ * @file DeviceConfigBusiness.h
+ * @author tianl (tianl@kfb.cn)
+ * @date 2026-07-28
+ * @LastEditors  : qinjt@kfb.cn
+ * @LastEditTime : 2026-07-28
+ *
+ * @brief DeviceConfigBusiness 模块接口与类型定义
+ * 功能说明：
+ * 1. 声明 DeviceConfigBusiness 模块对外接口和数据类型
+ * 2. 定义模块依赖的常量、回调或辅助类型
+ * 3. 为调用方提供明确且稳定的编译期契约
+ */
 /*
  * @Author       : chenchl
  * @Date         : 2025-01-02 16:01:20
@@ -62,21 +75,28 @@ private:
      * @return JSON格式的响应数据
      */
     template<typename T_CFG>
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 HandleGetConfig 定义的内联处理。
+ * @param [in] channelId 函数处理参数。
+ * @param [in] command 函数处理参数。
+ * @return 返回该处理的状态或结果。
+ */
     std::string HandleGetConfig(INT32 channelId, INT32 command)
     {
         T_CFG stCfg;
         memset(&stCfg, 0, sizeof(T_CFG));
-        NSDK_LOG_INFO("GetDevConfig callback START");
-        NSDK_LOG_INFO("[SDK] stCfg address=%p, sizeof(T_CFG)=%zu\n", (void*)&stCfg, sizeof(T_CFG));
+        NETSDK_LOG_MESSAGE_INFO("GetDevConfig callback START");
+        NETSDK_LOG_MESSAGE_INFO("[SDK] stCfg address=%p, sizeof(T_CFG)=%zu\n", (void*)&stCfg, sizeof(T_CFG));
 
         int nRespCode = NetSDK_ExecuteCb_GetDevConfig(channelId, command, &stCfg);
-        NSDK_LOG_INFO("[SDK] after callback: stCfg address=%p\n", (void*)&stCfg);
+        NETSDK_LOG_MESSAGE_INFO("[SDK] after callback: stCfg address=%p\n", (void*)&stCfg);
         if (nRespCode != NET_TV_E_SUCCEED)
         {
-            NSDK_LOG_WARN("GetDevConfig callback failed, cmd=%d, ret=%d", command, nRespCode);
+            NETSDK_LOG_MESSAGE_WARN("GetDevConfig callback failed, cmd=%d, ret=%d", command, nRespCode);
         }
-        NSDK_LOG_INFO("GetDevConfig callback cmd=%d, ret=%d", command, nRespCode);
-        NSDK_LOG_INFO("GetDevConfig callback END");
+        NETSDK_LOG_MESSAGE_INFO("GetDevConfig callback cmd=%d, ret=%d", command, nRespCode);
+        NETSDK_LOG_MESSAGE_INFO("GetDevConfig callback END");
         return SDKConvert::to_respString(nRespCode, stCfg);
     }
 
@@ -90,6 +110,14 @@ private:
      * @return JSON格式的响应数据
      */
     template<typename T_CFG>
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 HandleSetConfig 定义的内联处理。
+ * @param [in] channelId 函数处理参数。
+ * @param [in] command 函数处理参数。
+ * @param [in] req_data 函数处理参数。
+ * @return 返回该处理的状态或结果。
+ */
     std::string HandleSetConfig(INT32 channelId, INT32 command, const std::string& req_data)
     {
         if (req_data.empty())
@@ -112,7 +140,7 @@ private:
         int nRespCode = NetSDK_ExecuteCb_SetDevConfig(channelId, command, &stCfg);
         if (nRespCode != NET_TV_E_SUCCEED)
         {
-            NSDK_LOG_WARN("SetDevConfig callback failed, cmd=%d, ret=%d", command, nRespCode);
+            NETSDK_LOG_MESSAGE_WARN("SetDevConfig callback failed, cmd=%d, ret=%d", command, nRespCode);
         }
 
         return SDKConvert::to_respString((NET_TV_COMMON_ECODE_E)nRespCode);

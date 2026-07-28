@@ -1,9 +1,15 @@
 /**
  * @file RouteRegistry.h
  * @author tianl (tianl@kfb.cn)
- * @date 2025-12-12
- * 
- * @brief 路由注册类 解耦URL与事务
+ * @date 2026-07-28
+ * @LastEditors  : qinjt@kfb.cn
+ * @LastEditTime : 2026-07-28
+ *
+ * @brief RouteRegistry 模块接口与类型定义
+ * 功能说明：
+ * 1. 声明 RouteRegistry 模块对外接口和数据类型
+ * 2. 定义模块依赖的常量、回调或辅助类型
+ * 3. 为调用方提供明确且稳定的编译期契约
  */
 #pragma once
 #include <string>
@@ -26,46 +32,63 @@
 using namespace tvsdk;
 
 /* http方法枚举 */
-enum class HttpMethod { GET, PUT, POST, DELETE };
+enum class HttpMethod_E { GET, PUT, POST, DELETE };
 using HttpHandler = std::function<void(const httplib::Request&, httplib::Response&)>;
 using HttpContentReaderHandler = std::function<void(const httplib::Request&, httplib::Response&, const httplib::ContentReader&)>;
-class CRouteRegistry 
+class CRouteRegistry
 {
 public:
-   
-    struct Route 
+
+    struct Route_S
 	{
-        std::string url;		
-        HttpMethod method;
+        std::string url;
+        HttpMethod_E method;
         HttpHandler handler;
         HttpContentReaderHandler contentReaderHandler;
         bool useContentReader;
     };
 
 public:
-    static void registerRoute(const std::string& url, HttpMethod method, HttpHandler handler) 
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 registerRoute 定义的内联处理。
+ * @param [in] url 函数处理参数。
+ * @param [in] method 函数处理参数。
+ * @param [in] handler 函数处理参数。
+ * @return 无返回值。
+ */
+    static void registerRoute(const std::string& url, HttpMethod_E method, HttpHandler handler)
 	{
-        m_routes.emplace_back(Route{url, method, handler, HttpContentReaderHandler(), false});
+        s_aRoutes.emplace_back(Route_S{url, method, handler, HttpContentReaderHandler(), false});
     }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 registerRoute 定义的内联处理。
+ * @param [in] url 函数处理参数。
+ * @param [in] method 函数处理参数。
+ * @param [in] handler 函数处理参数。
+ * @return 无返回值。
+ */
 
-    static void registerRoute(const std::string& url, HttpMethod method, HttpContentReaderHandler handler)
+    static void registerRoute(const std::string& url, HttpMethod_E method, HttpContentReaderHandler handler)
     {
-        m_routes.emplace_back(Route{url, method, HttpHandler(), handler, true});
+        s_aRoutes.emplace_back(Route_S{url, method, HttpHandler(), handler, true});
     }
-    static const std::vector<Route>& getRoutes() { return m_routes; }
-     static void clearRoutes() { m_routes.clear(); }
+    static const std::vector<Route_S>& getRoutes() { return s_aRoutes; }
+     static void clearRoutes() { s_aRoutes.clear(); }
 private:
-    static std::vector<Route> m_routes;
+    static std::vector<Route_S> s_aRoutes;
 };
 
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 注册http url的回调方法（单例类）
  */
-#define REGISTER_ROUTE_URL_SINGLETON(url, method, clazz, func) \
+#define NETSDK_REGISTER_ROUTE_URL_SINGLETON(url, method, clazz, func) \
     /* 静态注册器，程序启动时自动执行 */ \
-    struct RouteRegistrar_##clazz##_##func { \
-        RouteRegistrar_##clazz##_##func() { \
+    struct CRouteRegistrar_##clazz##_##func { \
+        CRouteRegistrar_##clazz##_##func() { \
             /* 1. 绑定单例的成员函数 */ \
             auto bizFunc = std::bind(&clazz::func, clazz::instance(), std::placeholders::_1, std::placeholders::_2); \
             /* 2. 生成通用 HTTP Handler（复用 MakeHttpCallbackHandler */ \
@@ -75,16 +98,17 @@ private:
         } \
     }; \
     /* 定义静态变量触发构造 */ \
-    static RouteRegistrar_##clazz##_##func s_route_registrar_##clazz##_##func;
+    static CRouteRegistrar_##clazz##_##func s_route_registrar_##clazz##_##func;
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 注册http url的回调方法（全局/自由函数）
  */
-#define REGISTER_ROUTE_URL_FUNC(url, method, func) \
-    struct RouteRegistrar_##func { \
-        RouteRegistrar_##func() { \
+#define NETSDK_REGISTER_ROUTE_URL_FUNC(url, method, func) \
+    struct CRouteRegistrar_##func { \
+        CRouteRegistrar_##func() { \
              HttpHandler httpHandler = CHttpBasicCommand::MakeHttpCallbackHandler(func); \
             CRouteRegistry::registerRoute(url, method, httpHandler); \
         } \
     }; \
-    static RouteRegistrar_##func s_route_registrar_##func;
+    static CRouteRegistrar_##func s_route_registrar_##func;

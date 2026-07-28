@@ -1,3 +1,16 @@
+/**
+ * @file Base64Util.cpp
+ * @author tianl (tianl@kfb.cn)
+ * @date 2026-07-28
+ * @LastEditors  : qinjt@kfb.cn
+ * @LastEditTime : 2026-07-28
+ *
+ * @brief Base64Util 模块实现
+ * 功能说明：
+ * 1. 实现 Base64Util 模块核心逻辑
+ * 2. 校验输入参数并管理模块资源生命周期
+ * 3. 向上层提供可复用的 SDK 能力
+ */
 #include "Base64Util.h"
 
 #include <cctype>
@@ -6,11 +19,24 @@ namespace SDKConvert
 {
 static const char kBase64Table[] =
     "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 查询或校验 IsBase64Char 对应的数据。
+ * @param [in] c 函数处理参数。
+ * @return 返回该处理的状态或结果。
+ */
 
 static inline bool IsBase64Char(unsigned char c)
 {
     return (std::isalnum(c) || (c == '+') || (c == '/') || (c == '='));
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 Base64Encode 定义的内部处理。
+ * @param [in] bytes_to_encode 函数处理参数。
+ * @param [in] in_len 函数处理参数。
+ * @return 返回该处理的状态或结果。
+ */
 
 std::string Base64Encode(const unsigned char* bytes_to_encode, size_t in_len)
 {
@@ -60,6 +86,13 @@ std::string Base64Encode(const unsigned char* bytes_to_encode, size_t in_len)
 
     return ret;
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 Base64Decode 定义的内部处理。
+ * @param [in] encoded 函数处理参数。
+ * @param [out] out 函数处理参数。
+ * @return 返回该处理的状态或结果。
+ */
 
 bool Base64Decode(const std::string& encoded, std::vector<unsigned char>& out)
 {
@@ -125,5 +158,5 @@ bool Base64Decode(const std::string& encoded, std::vector<unsigned char>& out)
 
     return true;
 }
-} // namespace SDKConvert
+} /* namespace SDKConvert */
 

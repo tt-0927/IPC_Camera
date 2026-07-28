@@ -1,15 +1,21 @@
 /**
  * @file DiscoveryResponder.h
- * @brief 设备发现服务端 — AF_PACKET 接收 + UDP/L2 双路回包
+ * @author tianl (tianl@kfb.cn)
+ * @date 2026-07-28
+ * @LastEditors  : qinjt@kfb.cn
+ * @LastEditTime : 2026-07-28
  *
- * 收到客户端探测包后，同时通过:
- *   1. 标准 UDP 单播回包（覆盖同网段 + 路由可达场景）
- *   2. AF_PACKET L2 以太网帧回包（覆盖同广播域跨子网场景）
+ * @brief CDiscoveryResponder 模块接口与类型定义
+ * 功能说明：
+ * 1. 声明 CDiscoveryResponder 模块对外接口和数据类型
+ * 2. 定义模块依赖的常量、回调或辅助类型
+ * 3. 为调用方提供明确且稳定的编译期契约
  */
-#ifndef DISCOVERY_RESPONDER_H_
-#define DISCOVERY_RESPONDER_H_
 
-#ifndef NETTVSDK_COMMON_H
+#ifndef NETSDK_DISCOVERY_RESPONDER_H
+#define NETSDK_DISCOVERY_RESPONDER_H
+
+#ifndef NETSDK_COMMON_H
 #include "NetTVSDKCommon.h"
 #endif
 
@@ -22,18 +28,20 @@
 #include <vector>
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 设备信息回调类型
- * @param pInfo [OUT] 由回调填充设备信息
+ * @param pInfo [out] 由回调填充设备信息
  */
 using DiscoveryDeviceInfoCallback =
     std::function<void(NET_TV_DISCOVERY_DEVICE_INFO_S* pInfo)>;
 
-class DiscoveryResponder {
+class CDiscoveryResponder {
 public:
-    DiscoveryResponder() = default;
-    ~DiscoveryResponder() { stop(); }
+    CDiscoveryResponder() = default;
+    ~CDiscoveryResponder() { stop(); }
 
     /**
+ * @author tianl (tianl@kfb.cn)
      * @brief 初始化，获取本机 MAC 等信息
      * @param szInterfaceName 网卡名称 (如 "eth0")
      * @return 0 成功，<0 失败
@@ -41,24 +49,27 @@ public:
     int init(const char* szInterfaceName);
 
     /**
+ * @author tianl (tianl@kfb.cn)
      * @brief 设置设备信息回调
      */
     void set_device_info_callback(DiscoveryDeviceInfoCallback cb) {
-        m_deviceInfoCb = std::move(cb);
+        m_fnDeviceInfoCallback = std::move(cb);
     }
 
     /**
+ * @author tianl (tianl@kfb.cn)
      * @brief 启动响应线程
      * @return 0 成功，<0 失败
      */
     int start();
 
     /**
+ * @author tianl (tianl@kfb.cn)
      * @brief 停止响应线程
      */
     void stop();
 
-    bool is_running() const { return m_running.load(); }
+    bool is_running() const { return m_bRunning.load(); }
 
 private:
     void receive_thread();
@@ -83,18 +94,18 @@ private:
     int send_udp_response(uint32_t client_ip, uint16_t client_port,
                           const NET_TV_DISCOVERY_DEVICE_INFO_S& info);
 
-    int m_rawFd{-1};
-    int m_ifindex{0};
-    uint8_t m_localMac[6]{};
-    std::string m_ifaceName;
-    uint32_t m_localIP{0};
+    int m_nRawFd{-1};
+    int m_nInterfaceIndex{0};
+    uint8_t m_aLocalMac[6]{};
+    std::string m_strInterfaceName;
+    uint32_t m_uLocalIp{0};
 
-    int m_udpSock{-1};   /* UDP 回包套接字 */
-    int m_igmpSock{-1};   /* IGMP 组播加入套接字，触发交换机 IGMP Snooping 转发 */
+    int m_nUdpSocket{-1};   /* UDP 回包套接字 */
+    int m_nIgmpSocket{-1};   /* IGMP 组播加入套接字，触发交换机 IGMP Snooping 转发 */
 
-    DiscoveryDeviceInfoCallback m_deviceInfoCb;
-    std::thread m_thread;
-    std::atomic<bool> m_running{false};
+    DiscoveryDeviceInfoCallback m_fnDeviceInfoCallback;
+    std::thread m_stThread;
+    std::atomic<bool> m_bRunning{false};
 };
 
-#endif  // DISCOVERY_RESPONDER_H_
+#endif  /* NETSDK_DISCOVERY_RESPONDER_H */

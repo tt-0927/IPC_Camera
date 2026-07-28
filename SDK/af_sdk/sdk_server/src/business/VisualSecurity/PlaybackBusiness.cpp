@@ -1,7 +1,17 @@
 /**
  * @file PlaybackBusiness.cpp
- * @brief Playback business implementation
+ * @author tianl (tianl@kfb.cn)
+ * @date 2026-07-28
+ * @LastEditors  : qinjt@kfb.cn
+ * @LastEditTime : 2026-07-28
+ *
+ * @brief PlaybackBusiness 模块实现
+ * 功能说明：
+ * 1. 实现 PlaybackBusiness 模块核心逻辑
+ * 2. 校验输入参数并管理模块资源生命周期
+ * 3. 向上层提供可复用的 SDK 能力
  */
+
 
 #include "PlaybackBusiness.h"
 
@@ -9,12 +19,24 @@
 
 namespace
 {
-bool HasText(const CHAR* text)
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 查询或校验 HasText 对应的数据。
+ * @param [in] text 函数处理参数。
+ * @return 返回该处理的状态或结果。
+ */
+static bool HasText(const CHAR* text)
 {
     return text != NULL && text[0] != '\0';
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 ValidateReplayCtrlInfo 定义的内部处理。
+ * @param [in,out] stInfo 函数处理参数。
+ * @return 返回该处理的状态或结果。
+ */
 
-int ValidateReplayCtrlInfo(NET_ReplayCtrlInfo_S& stInfo)
+static int ValidateReplayCtrlInfo(NET_ReplayCtrlInfo_S& stInfo)
 {
     if (stInfo.dwChannel <= 0)
     {
@@ -98,6 +120,13 @@ int ValidateReplayCtrlInfo(NET_ReplayCtrlInfo_S& stInfo)
     return NET_TV_E_SUCCEED;
 }
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 查询或校验 GetReplayUrl 对应的数据。
+ * @param [in] req_data 函数处理参数。
+ * @param [in] url_param 函数处理参数。
+ * @return 返回该处理的状态或结果。
+ */
 
 std::string CPlaybackBusiness::GetReplayUrl(const std::string& req_data, const std::string& url_param)
 {
@@ -120,7 +149,7 @@ std::string CPlaybackBusiness::GetReplayUrl(const std::string& req_data, const s
     SDKConvert::deal(pRoot, stInfo, true);
     Json::deinit(pRoot);
 
-    NSDK_LOG_INFO("GetReplayUrl request: channel=%d, start=%s, end=%s",
+    NETSDK_LOG_MESSAGE_INFO("GetReplayUrl request: channel=%d, start=%s, end=%s",
                   stInfo.dwChannel,
                   stInfo.szStartTime,
                   stInfo.szEndTime);
@@ -128,11 +157,18 @@ std::string CPlaybackBusiness::GetReplayUrl(const std::string& req_data, const s
     int nRespCode = NetSDK_ExecuteCb_GetReplayUrl(&stInfo);
     if (nRespCode != NET_TV_E_SUCCEED)
     {
-        NSDK_LOG_WARN("GetReplayUrl callback failed, ret=%d", nRespCode);
+        NETSDK_LOG_MESSAGE_WARN("GetReplayUrl callback failed, ret=%d", nRespCode);
     }
 
     return SDKConvert::to_respString(nRespCode, stInfo);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 ControlReplay 定义的内部处理。
+ * @param [in] req_data 函数处理参数。
+ * @param [in] url_param 函数处理参数。
+ * @return 返回该处理的状态或结果。
+ */
 
 std::string CPlaybackBusiness::ControlReplay(const std::string& req_data, const std::string& url_param)
 {
@@ -155,7 +191,7 @@ std::string CPlaybackBusiness::ControlReplay(const std::string& req_data, const 
     SDKConvert::deal(pRoot, stInfo, true);
     Json::deinit(pRoot);
 
-    NSDK_LOG_INFO("ControlReplay after JSON parse: channel=%d, ctrlType=%d, startTime=[%s], endTime=[%s], sessionId=[%s]",
+    NETSDK_LOG_MESSAGE_INFO("ControlReplay after JSON parse: channel=%d, ctrlType=%d, startTime=[%s], endTime=[%s], sessionId=[%s]",
                   stInfo.dwChannel,
                   stInfo.dwCtrlType,
                   stInfo.szStartTime,
@@ -165,7 +201,7 @@ std::string CPlaybackBusiness::ControlReplay(const std::string& req_data, const 
     int nValidCode = ValidateReplayCtrlInfo(stInfo);
     if (nValidCode != NET_TV_E_SUCCEED)
     {
-        NSDK_LOG_WARN("ControlReplay request invalid: channel=%d, ctrlType=%d, replayType=%d, session=%s, speed=%.3f, seek=%d, start=%s, end=%s",
+        NETSDK_LOG_MESSAGE_WARN("ControlReplay request invalid: channel=%d, ctrlType=%d, replayType=%d, session=%s, speed=%.3f, seek=%d, start=%s, end=%s",
                       stInfo.dwChannel,
                       stInfo.dwCtrlType,
                       stInfo.nReplayType,
@@ -177,7 +213,7 @@ std::string CPlaybackBusiness::ControlReplay(const std::string& req_data, const 
         return SDKConvert::to_respString(nValidCode);
     }
 
-    NSDK_LOG_INFO("ControlReplay request: channel=%d, ctrlType=%d, replayType=%d, session=%s, speed=%.3f, seek=%d, start=%s, end=%s",
+    NETSDK_LOG_MESSAGE_INFO("ControlReplay request: channel=%d, ctrlType=%d, replayType=%d, session=%s, speed=%.3f, seek=%d, start=%s, end=%s",
                   stInfo.dwChannel,
                   stInfo.dwCtrlType,
                   stInfo.nReplayType,
@@ -190,9 +226,9 @@ std::string CPlaybackBusiness::ControlReplay(const std::string& req_data, const 
     int nRespCode = NetSDK_ExecuteCb_ControlReplay(&stInfo);
     if (nRespCode != NET_TV_E_SUCCEED)
     {
-        NSDK_LOG_WARN("ControlReplay callback failed, ret=%d", nRespCode);
+        NETSDK_LOG_MESSAGE_WARN("ControlReplay callback failed, ret=%d", nRespCode);
     }
-    NSDK_LOG_INFO("ControlReplay after callback: channel=%d, ctrlType=%d, url=[%s], start=[%s], end=[%s]",
+    NETSDK_LOG_MESSAGE_INFO("ControlReplay after callback: channel=%d, ctrlType=%d, url=[%s], start=[%s], end=[%s]",
                   stInfo.dwChannel,
                   stInfo.dwCtrlType,
                   stInfo.szUrl,
@@ -201,6 +237,13 @@ std::string CPlaybackBusiness::ControlReplay(const std::string& req_data, const 
 
     return SDKConvert::to_respString(nRespCode, stInfo);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 查询或校验 GetReplayRecordList 对应的数据。
+ * @param [in] req_data 函数处理参数。
+ * @param [in] url_param 函数处理参数。
+ * @return 返回该处理的状态或结果。
+ */
 
 std::string CPlaybackBusiness::GetReplayRecordList(const std::string& req_data, const std::string& url_param)
 {
@@ -223,7 +266,7 @@ std::string CPlaybackBusiness::GetReplayRecordList(const std::string& req_data, 
     SDKConvert::deal(pRoot, stInfo, true);
     Json::deinit(pRoot);
 
-    NSDK_LOG_INFO("GetReplayRecordList request: channel=%d, filterByEventType=%d, eventType=%d, date=%s, start=%s, end=%s",
+    NETSDK_LOG_MESSAGE_INFO("GetReplayRecordList request: channel=%d, filterByEventType=%d, eventType=%d, date=%s, start=%s, end=%s",
                   stInfo.dwChannel,
                   stInfo.bFilterByEventType,
                   stInfo.dwEventType,
@@ -234,7 +277,7 @@ std::string CPlaybackBusiness::GetReplayRecordList(const std::string& req_data, 
     int nRespCode = NetSDK_ExecuteCb_GetReplayRecordList(&stInfo);
     if (nRespCode != NET_TV_E_SUCCEED)
     {
-        NSDK_LOG_WARN("GetReplayRecordList callback failed, ret=%d", nRespCode);
+        NETSDK_LOG_MESSAGE_WARN("GetReplayRecordList callback failed, ret=%d", nRespCode);
     }
 
     return SDKConvert::to_respString(nRespCode, stInfo);

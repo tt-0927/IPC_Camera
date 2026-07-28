@@ -1,11 +1,21 @@
 /**
  * @file DiscoverySearcher.h
- * @brief 设备发现客户端 — UDP 组播搜索
+ * @author tianl (tianl@kfb.cn)
+ * @date 2026-07-28
+ * @LastEditors  : qinjt@kfb.cn
+ * @LastEditTime : 2026-07-28
+ *
+ * @brief CDiscoverySearcher 模块接口与类型定义
+ * 功能说明：
+ * 1. 声明 CDiscoverySearcher 模块对外接口和数据类型
+ * 2. 定义模块依赖的常量、回调或辅助类型
+ * 3. 为调用方提供明确且稳定的编译期契约
  */
-#ifndef DISCOVERY_SEARCHER_H_
-#define DISCOVERY_SEARCHER_H_
 
-#ifndef NETTVSDK_COMMON_H
+#ifndef NETSDK_DISCOVERY_SEARCHER_H
+#define NETSDK_DISCOVERY_SEARCHER_H
+
+#ifndef NETSDK_COMMON_H
 #include "NetTVSDKCommon.h"
 #endif
 #include "PlatformCompat.h"
@@ -13,17 +23,19 @@
 #include <vector>
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 设备发现搜索器
  *
  * 使用 UDP 组播发送探测包，收集设备响应。
  * 同网段和路由可达场景都能覆盖。
  */
-class DiscoverySearcher {
+class CDiscoverySearcher {
 public:
-    DiscoverySearcher()  = default;
-    ~DiscoverySearcher() = default;
+    CDiscoverySearcher()  = default;
+    ~CDiscoverySearcher() = default;
 
     /**
+ * @author tianl (tianl@kfb.cn)
      * @brief 搜索局域网内设备
      * @param szInterfaceIP   网卡 IP，NULL 用默认路由
      * @param dwTimeoutMs     等待响应的超时时间 (ms)，建议 2000~5000
@@ -52,8 +64,8 @@ private:
                       const NET_TV_DISCOVERY_DEVICE_INFO_S* pList,
                       int nCount) const;
 
-    socket_fd_t m_sock{INVALID_SOCKET_FD};
-    std::string m_ifaceIP;
+    socket_fd_t m_nSocket{INVALID_SOCKET_FD};
+    std::string m_strInterfaceIp;
 };
 
-#endif  // DISCOVERY_SEARCHER_H_
+#endif  /* NETSDK_DISCOVERY_SEARCHER_H */

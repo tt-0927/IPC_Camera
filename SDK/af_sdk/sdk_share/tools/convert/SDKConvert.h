@@ -1,4 +1,16 @@
-
+/**
+ * @file SDKConvert.h
+ * @author tianl (tianl@kfb.cn)
+ * @date 2026-07-28
+ * @LastEditors  : qinjt@kfb.cn
+ * @LastEditTime : 2026-07-28
+ *
+ * @brief SDKConvert 模块接口与类型定义
+ * 功能说明：
+ * 1. 声明 SDKConvert 模块对外接口和数据类型
+ * 2. 定义模块依赖的常量、回调或辅助类型
+ * 3. 为调用方提供明确且稳定的编译期契约
+ */
 #pragma once
 #include <list>
 #include <chrono>
@@ -8,7 +20,7 @@
 #include "Json.h"
 #include "NetTVSDKHttpUrl.h"
 
-// 库通用头文件
+/* 库通用头文件 */
 #ifdef NET_TV_SDK_SERVER_API
     #include "NetTVSDKServerInterface.h"
 #elif defined(NET_TV_SDK_CLIENT_API)
@@ -18,43 +30,55 @@
 #endif
 
 
-//关键字段定义
-#define JSON_REQ_KEY                "Req"               /* 请求内容 */
-#define JSON_RESP_KEY               "Resp"              /* 响应内容 */
-#define JSON_RESP_CODE_KEY          "RespCode"          /* 响应码字段 */
-#define JSON_DATA_KEY               "Data"              /* 数据字段 */
+/*关键字段定义 */
+#define NETSDK_JSON_REQ_KEY                "Req"               /* 请求内容 */
+#define NETSDK_JSON_RESP_KEY               "Resp"              /* 响应内容 */
+#define NETSDK_JSON_RESP_CODE_KEY          "RespCode"          /* 响应码字段 */
+#define NETSDK_JSON_DATA_KEY               "Data"              /* 数据字段 */
 
-class RunTimer
+class CRunTimer
 {
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 CRunTimer 定义的内联处理。
+ * @param [in] jsonData 函数处理参数。
+ * @return 返回该处理的状态或结果。
+ */
 public:
-    RunTimer(const std::string &jsonData)
-        : m_data(jsonData)
+    CRunTimer(const std::string &jsonData)
+        : m_strData(jsonData)
     {
-        m_startTime = std::chrono::high_resolution_clock::now();
+        m_stStartTime = std::chrono::high_resolution_clock::now();
     }
-    ~RunTimer()
+    ~CRunTimer()
     {
         auto endTime = std::chrono::high_resolution_clock::now();
         /*** 打印函数执行时间,单位为微秒 */
-        auto duration = std::chrono::duration_cast<std::chrono::microseconds>(endTime - m_startTime).count();
+        auto duration = std::chrono::duration_cast<std::chrono::microseconds>(endTime - m_stStartTime).count();
 
         /* 超过1秒则打印 */
         if (duration > 1 * 1000 * 1000)
         {
-            printf("RunTimer: cost %lld ms, data %s", duration / 1000, m_data.c_str());
+            printf("CRunTimer: cost %lld ms, data %s", duration / 1000, m_strData.c_str());
         }
     }
 private:
-    const std::string &m_data;
-    std::chrono::high_resolution_clock::time_point m_startTime;
+    const std::string &m_strData;
+    std::chrono::high_resolution_clock::time_point m_stStartTime;
 };
 
 
 namespace SDKConvert
 {
-   
+
 	class CSDKConvert
     {
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 CSDKConvert 定义的内联处理。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 返回该处理的状态或结果。
+ */
     public:
         CSDKConvert(bool bOutStruct)
             : m_bOutValue(bOutStruct),
@@ -62,6 +86,7 @@ namespace SDKConvert
         {
         }
         /**
+ * @author tianl (tianl@kfb.cn)
          * @brief 字段转换
          * @tparam T 模板类型，支持类型见Json.h中get、add的value
          * @param pRootJson Json句柄
@@ -69,6 +94,14 @@ namespace SDKConvert
          * @param value 值
          */
         template <typename T>
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 field 定义的内联处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in] key 函数处理参数。
+ * @param [in,out] value 函数处理参数。
+ * @return 无返回值。
+ */
         void field(Json::Object *pRootJson, std::string key, T &value)
         {
             if (m_bOutValue)
@@ -82,6 +115,14 @@ namespace SDKConvert
         }
 
         template <size_t N>
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 field 定义的内联处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in] key 函数处理参数。
+ * @param [in,out] parameter 函数处理参数。
+ * @return 无返回值。
+ */
         void field(Json::Object *pRootJson, std::string key, char (&value)[N])
         {
             if (m_bOutValue)
@@ -90,7 +131,7 @@ namespace SDKConvert
                 field(pRootJson, key, json_str);
                 size_t copy_len = (std::min)(json_str.size(), static_cast<size_t>(N - 1));
                 std::memcpy(value, json_str.c_str(), copy_len);
-                value[copy_len] = '\0';  
+                value[copy_len] = '\0';
             }
             else
             {
@@ -100,6 +141,7 @@ namespace SDKConvert
         }
 
         /**
+ * @author tianl (tianl@kfb.cn)
          * @brief 数组转换转换
          * @tparam T 模板类型，支持类型见Json.h中get、add的value
          * @param pRootJson Json句柄
@@ -107,6 +149,14 @@ namespace SDKConvert
          * @param value 值
          */
         template <typename T>
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 field 定义的内联处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in] key 函数处理参数。
+ * @param [in,out] vec 函数处理参数。
+ * @return 无返回值。
+ */
         void field(Json::Object *pRootJson, const std::string key, std::vector<T> &vec)
         {
             /* 调用已实现的结构体转换 */
@@ -133,6 +183,7 @@ namespace SDKConvert
         }
 
         /**
+ * @author tianl (tianl@kfb.cn)
          * @brief 数组转换转换
          * @tparam T 模板类型，支持类型见Json.h中get、add的value
          * @param pRootJson Json句柄
@@ -140,6 +191,14 @@ namespace SDKConvert
          * @param value 值
          */
         template <typename T>
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 field 定义的内联处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in] key 函数处理参数。
+ * @param [in,out] setData 函数处理参数。
+ * @return 无返回值。
+ */
         void field(Json::Object *pRootJson, const std::string key, std::set<T> &setData)
         {
             /* 调用已实现的结构体转换 */
@@ -159,12 +218,23 @@ namespace SDKConvert
 
 
         /**
+ * @author tianl (tianl@kfb.cn)
          * @brief 数组字段转换 (custom for fixed size array)
          */
         template <typename T>
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 field_array 定义的内联处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in] key 函数处理参数。
+ * @param [in,out] value 函数处理参数。
+ * @param [in] count 函数处理参数。
+ * @param [in] max_len 函数处理参数。
+ * @return 无返回值。
+ */
         void field_array(Json::Object *pRootJson, std::string key, T *value, UINT32 count, UINT32 max_len)
         {
-            if (m_bOutValue) // Json -> Array
+            if (m_bOutValue) /* Json -> Array */
             {
                 Json::Object *pArray = Json::get(pRootJson, key);
                 int nSize = Json::Array::size(pArray);
@@ -172,14 +242,14 @@ namespace SDKConvert
                 {
                     int nVal = 0;
                     Json::Object *pItem = Json::Array::get(pArray, i);
-                    if (pItem) 
+                    if (pItem)
                     {
                         Json::Value::get(pItem, nVal);
                         value[i] = (T)nVal;
                     }
                 }
             }
-            else // Array -> Json
+            else /* Array -> Json */
             {
                 Json::Object *pArray = Json::Array::init();
                 for (UINT32 i = 0; i < count && i < max_len; i++)
@@ -191,12 +261,20 @@ namespace SDKConvert
         }
 
         /**
+ * @author tianl (tianl@kfb.cn)
          * @brief 结构体转换
          * @tparam T 模板类型，支持类型基于已实现的deal
          * @param pRootJson Json句柄
          * @param stStruct 结构体
          */
         template <typename T>
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 structure 定义的内联处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stStruct 函数处理参数。
+ * @return 无返回值。
+ */
         void structure(Json::Object *pRootJson, T &stStruct)
         {
             /* 调用已实现的结构体转换 */
@@ -204,6 +282,7 @@ namespace SDKConvert
         }
 
         /**
+ * @author tianl (tianl@kfb.cn)
          * @brief 结构体转换
          * @tparam T 模板类型，支持类型基于已实现的deal
          * @param pRootJson Json句柄
@@ -211,6 +290,14 @@ namespace SDKConvert
          * @param stStruct 结构体
          */
         template <typename T>
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 structure 定义的内联处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in] key 函数处理参数。
+ * @param [in,out] stStruct 函数处理参数。
+ * @return 无返回值。
+ */
         void structure(Json::Object *pRootJson, const std::string key, T &stStruct)
         {
             /* 调用已实现的结构体转换 */
@@ -231,6 +318,7 @@ namespace SDKConvert
         }
 
         /**
+ * @author tianl (tianl@kfb.cn)
          * @brief 结构体数组转换
          * @tparam T 模板类型，支持类型基于已实现的deal
          * @param pRootJson Json句柄
@@ -238,6 +326,14 @@ namespace SDKConvert
          * @param vec 结构体数组
          */
         template <typename T>
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 structure 定义的内联处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in] key 函数处理参数。
+ * @param [in,out] vec 函数处理参数。
+ * @return 无返回值。
+ */
         void structure(Json::Object *pRootJson, const std::string key, std::vector<T> &vec)
         {
             /* 调用已实现的结构体转换 */
@@ -289,6 +385,7 @@ namespace SDKConvert
         }
 
         /**
+ * @author tianl (tianl@kfb.cn)
          * @brief 结构体链表转换
          * @tparam T 模板类型，支持类型基于已实现的deal
          * @param pRootJson Json句柄
@@ -296,6 +393,14 @@ namespace SDKConvert
          * @param vec 结构体数组
          */
         template <typename T>
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 structure 定义的内联处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in] key 函数处理参数。
+ * @param [in,out] list 函数处理参数。
+ * @return 无返回值。
+ */
         void structure(Json::Object *pRootJson, const std::string key, std::list<T> &list)
         {
             /* 调用已实现的结构体转换 */
@@ -343,8 +448,9 @@ namespace SDKConvert
                 Json::add(pRootJson, key.c_str(), items);
             }
         }
-        
+
         /**
+ * @author tianl (tianl@kfb.cn)
          * @brief 结构体set容器转换
          * @tparam T 模板类型，支持类型基于已实现的deal
          * @param pRootJson Json句柄
@@ -352,6 +458,14 @@ namespace SDKConvert
          * @param vec 结构体数组
          */
         template <typename T>
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 structure 定义的内联处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in] key 函数处理参数。
+ * @param [in,out] set 函数处理参数。
+ * @return 无返回值。
+ */
         void structure(Json::Object *pRootJson, const std::string key, std::set<T> &set)
         {
             /* 调用已实现的结构体转换 */
@@ -394,6 +508,14 @@ namespace SDKConvert
         bool m_bOutValue = false;
         bool m_bOutStruct = false;
     };
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内联处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
      inline void deal(Json::Object* pRootJson, SeesionMessage_S& stInfo, bool bOutStruct)
     {
@@ -406,45 +528,75 @@ namespace SDKConvert
     }
 
 
-    // 可变模板参数的递归处理函数
+    /* 可变模板参数的递归处理函数 */
     template <typename T>
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 process_data 定义的内联处理。
+ * @param [in] bStruct 函数处理参数。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] data 函数处理参数。
+ * @return 无返回值。
+ */
     void process_data(bool bStruct, Json::Object *pRootJson, T &data)
     {
         deal(pRootJson, data, bStruct);
     }
 
-    
-    // 空参数包的终止版本
+
+    /* 空参数包的终止版本 */
     inline void process_data(bool /*bStruct*/, Json::Object * /*pRootJson*/)
     {
-        // 空参数包，什么也不做
+        /* 空参数包，什么也不做 */
     }
 
-    // 递归展开的函数模板，用于处理多个参数
+    /* 递归展开的函数模板，用于处理多个参数 */
     template <typename T, typename... Args>
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 process_data 定义的内联处理。
+ * @param [in] bStruct 函数处理参数。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] data 函数处理参数。
+ * @param [in,out] args 函数处理参数。
+ * @return 无返回值。
+ */
     void process_data(bool bStruct, Json::Object *pRootJson, T &data, Args &... args)
     {
         deal(pRootJson, data, bStruct);
-        process_data(bStruct, pRootJson, args...); // 递归调用处理剩余参数
+        process_data(bStruct, pRootJson, args...); /* 递归调用处理剩余参数 */
     }
 
 
-    // 多参模板 to_string 函数
+    /* 多参模板 to_string 函数 */
     template <typename... Args>
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 to_string 定义的内联处理。
+ * @param [in,out] args 函数处理参数。
+ * @return 返回该处理的状态或结果。
+ */
     inline std::string to_string(Args &... args)
     {
-        RunTimer timer();
+        CRunTimer timer();
         Json::Object *pRootJson = Json::init();
-        process_data(false, pRootJson, args...);  // 处理所有传入的参数
+        process_data(false, pRootJson, args...);  /* 处理所有传入的参数 */
         std::string jsonString = Json::to_string(pRootJson);
         Json::deinit(pRootJson);
         return jsonString;
     }
 
     template <typename... Args>
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 from_string 定义的内联处理。
+ * @param [in] jsonData 函数处理参数。
+ * @param [in,out] args 函数处理参数。
+ * @return 返回该处理的状态或结果。
+ */
     inline bool from_string(const std::string& jsonData, Args &... args)
     {
-        RunTimer timer(jsonData);
+        CRunTimer timer(jsonData);
         Json::Object *pRootJson = Json::init(jsonData);
         if (!pRootJson)
         {
@@ -457,20 +609,27 @@ namespace SDKConvert
     }
 
     template <typename... Args>
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 to_respString 定义的内联处理。
+ * @param [in] nRespCode 函数处理参数。
+ * @param [in,out] args 函数处理参数。
+ * @return 返回该处理的状态或结果。
+ */
     inline std::string to_respString(int nRespCode,Args &... args)
     {
-        RunTimer timer();
+        CRunTimer timer();
           fprintf(stderr, "[SDKConvert::to_respString] enter respCode=%d argc=%zu\n",
                     nRespCode, (size_t)sizeof...(Args));
         Json::Object *pRootJson = Json::init();
          fprintf(stderr, "[SDKConvert::to_respString] root init=%p\n", (void*)pRootJson);
-        Json::add(pRootJson, JSON_RESP_CODE_KEY, nRespCode);
+        Json::add(pRootJson, NETSDK_JSON_RESP_CODE_KEY, nRespCode);
 
         Json::Object *pRespJson = Json::init();
          fprintf(stderr, "[SDKConvert::to_respString] resp init=%p\n", (void*)pRespJson);
-        process_data(false, pRespJson, args...);  
+        process_data(false, pRespJson, args...);
 
-        Json::add(pRootJson, JSON_RESP_KEY, pRespJson);
+        Json::add(pRootJson, NETSDK_JSON_RESP_KEY, pRespJson);
 
         fprintf(stderr, "[SDKConvert::to_respString] before to_string root=%p resp=%p\n",
                     (void*)pRootJson, (void*)pRespJson);
@@ -486,16 +645,22 @@ namespace SDKConvert
     }
 
     template <typename... Args>
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 to_respString 定义的内联处理。
+ * @param [in] enCode 函数处理参数。
+ * @return 返回该处理的状态或结果。
+ */
     inline std::string to_respString(NET_TV_COMMON_ECODE_E enCode)
     {
-        RunTimer timer();
+        CRunTimer timer();
         Json::Object *pRootJson = Json::init();
-        Json::add(pRootJson, JSON_RESP_CODE_KEY, (int &)enCode);
+        Json::add(pRootJson, NETSDK_JSON_RESP_CODE_KEY, (int &)enCode);
 
         Json::Object *pRespJson = Json::init();
-        // process_data(false, pRespJson, args...);  
+        /* process_data(false, pRespJson, args...);   */
 
-        Json::add(pRootJson, JSON_RESP_KEY, pRespJson);
+        Json::add(pRootJson, NETSDK_JSON_RESP_KEY, pRespJson);
 
         std::string data = Json::to_string(pRootJson);
 
@@ -505,31 +670,52 @@ namespace SDKConvert
     }
 
      template <typename... Args>
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 to_respStruct 定义的内联处理。
+ * @param [in] jsonData 函数处理参数。
+ * @param [in,out] args 函数处理参数。
+ * @return 无返回值。
+ */
     inline void to_respStruct(const std::string &jsonData, Args &... args)
     {
-        RunTimer timer(jsonData);
+        CRunTimer timer(jsonData);
         Json::Object *pRootJson = Json::init(jsonData);
-        Json::Object *pRespJson = Json::get(pRootJson, JSON_RESP_KEY);
+        Json::Object *pRespJson = Json::get(pRootJson, NETSDK_JSON_RESP_KEY);
 
-        process_data(true, pRespJson, args...);  // 处理所有传入的参数
-        // Json::deinit(pRespJson);
+        process_data(true, pRespJson, args...);  /* 处理所有传入的参数 */
+        /* Json::deinit(pRespJson); */
         Json::deinit(pRootJson);
     }
 
     template <typename... Args>
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 to_struct 定义的内联处理。
+ * @param [in] jsonData 函数处理参数。
+ * @param [in,out] args 函数处理参数。
+ * @return 无返回值。
+ */
     inline void to_struct(const std::string &jsonData, Args &... args)
     {
-        RunTimer timer(jsonData);
+        CRunTimer timer(jsonData);
         Json::Object *pRootJson = Json::init(jsonData);
         Json::Object *pJsonData = Json::get(pRootJson, "DATA");
 
-        process_data(true, pJsonData, args...);  // 处理所有传入的参数
+        process_data(true, pJsonData, args...);  /* 处理所有传入的参数 */
         Json::deinit(pRootJson);
     }
     template <typename T>
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 to_struct 定义的内联处理。
+ * @param [in] jsonData 函数处理参数。
+ * @param [in,out] data 函数处理参数。
+ * @return 无返回值。
+ */
     inline void to_struct(const std::string &jsonData, T &data)
     {
-        //RunTimer timer(jsonData);
+        /*CRunTimer timer(jsonData); */
         printf("jsonData[%s]\n",jsonData.c_str());
         Json::Object *pRootJson = Json::init(jsonData);
         Json::Object *pJsonData = Json::get(pRootJson, "DATA");
@@ -537,38 +723,58 @@ namespace SDKConvert
         deal(pJsonData, data, true);
         Json::deinit(pRootJson);
     }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 fill_head 定义的内联处理。
+ * @param [in,out] data 函数处理参数。
+ * @param [in] nCode 函数处理参数。
+ * @return 无返回值。
+ */
 
     inline void fill_head(std::string &data,int nCode)
     {
         Json::Object *pJsonRoot = Json::init();
-        Json::add(pJsonRoot,JSON_RESP_CODE_KEY, nCode);
+        Json::add(pJsonRoot,NETSDK_JSON_RESP_CODE_KEY, nCode);
 
         Json::Object *pJsonData = Json::init(data);
         if (pJsonData)
         {
-            Json::add(pJsonRoot, JSON_DATA_KEY, pJsonData);
+            Json::add(pJsonRoot, NETSDK_JSON_DATA_KEY, pJsonData);
         }
 
         data = Json::to_string(pJsonRoot);
         Json::deinit(pJsonRoot);
         return;
     }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 fill_resp 定义的内联处理。
+ * @param [in,out] data 函数处理参数。
+ * @param [in] nCode 函数处理参数。
+ * @return 无返回值。
+ */
 
     inline void fill_resp(std::string &data,int nCode)
     {
         Json::Object *pJsonRoot = Json::init();
-        Json::add(pJsonRoot,JSON_RESP_CODE_KEY, nCode);
+        Json::add(pJsonRoot,NETSDK_JSON_RESP_CODE_KEY, nCode);
 
         Json::Object *pJsonData = Json::init(data);
         if (pJsonData)
         {
-            Json::add(pJsonRoot, JSON_DATA_KEY, pJsonData);
+            Json::add(pJsonRoot, NETSDK_JSON_DATA_KEY, pJsonData);
         }
 
         data = Json::to_string(pJsonRoot);
         Json::deinit(pJsonRoot);
         return;
     }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 get_respCode 定义的内联处理。
+ * @param [in] data 函数处理参数。
+ * @return 返回该处理的状态或结果。
+ */
 
     inline int get_respCode(const std::string &data)
     {
@@ -577,7 +783,7 @@ namespace SDKConvert
         Json::Object *pJsonData = Json::init(data);
         if (pJsonData)
         {
-            Json::get(pJsonData, JSON_RESP_CODE_KEY, nCode);
+            Json::get(pJsonData, NETSDK_JSON_RESP_CODE_KEY, nCode);
             Json::deinit(pJsonData);
         }
 

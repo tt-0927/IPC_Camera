@@ -1,3 +1,16 @@
+/**
+ * @file RecordFrameBusiness.cpp
+ * @author tianl (tianl@kfb.cn)
+ * @date 2026-07-28
+ * @LastEditors  : qinjt@kfb.cn
+ * @LastEditTime : 2026-07-28
+ *
+ * @brief RecordFrameBusiness 模块实现
+ * 功能说明：
+ * 1. 实现 RecordFrameBusiness 模块核心逻辑
+ * 2. 校验输入参数并管理模块资源生命周期
+ * 3. 向上层提供可复用的 SDK 能力
+ */
 /*
  * @Author       : chenchl
  * @Date         : 2025-01-02 16:01:20
@@ -13,22 +26,24 @@ namespace
 {
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 判断字符串是否非空
  * @param text 字符串指针
  * @return true表示字符串非空，false表示字符串为空或指针为空
  */
-bool HasText(const CHAR* text)
+static bool HasText(const CHAR* text)
 {
     return text && text[0] != '\0';
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 验证录像帧流启动条件参数
  * @details 检查通道号、时间范围、媒体类型、端口号等参数的有效性，设置默认值
  * @param stCond 流启动条件结构体
  * @return 错误码，NET_TV_E_SUCCEED表示成功，其他值表示失败
  */
-int ValidateRecordFrameCond(NET_RecordFrameStreamCond_S& stCond)
+static int ValidateRecordFrameCond(NET_RecordFrameStreamCond_S& stCond)
 {
     if (stCond.uSize == 0)
     {
@@ -59,9 +74,10 @@ int ValidateRecordFrameCond(NET_RecordFrameStreamCond_S& stCond)
     return NET_TV_E_SUCCEED;
 }
 
-} // namespace
+} /* namespace */
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 处理启动录像帧流请求
  * @details 解析请求数据（JSON格式），验证参数有效性，启动RecordFrameServer（如果未运行），
  *          调用RecordFrameServer::open_stream开启流，返回流信息
@@ -92,24 +108,25 @@ std::string CRecordFrameBusiness::StartRecordFrameStream(const std::string& req_
     }
 
     if (stCond.uTcpPort > 0 &&
-        !tvsdk::RecordFrameServer::instance()->is_running() &&
-        !tvsdk::RecordFrameServer::instance()->start(static_cast<int>(stCond.uTcpPort)))
+        !tvsdk::CRecordFrameServer::instance()->is_running() &&
+        !tvsdk::CRecordFrameServer::instance()->start(static_cast<int>(stCond.uTcpPort)))
     {
         return SDKConvert::to_respString(NET_TV_E_SYSCALL_FALIED);
     }
 
     NET_RecordFrameStreamInfo_S stInfo;
     std::memset(&stInfo, 0, sizeof(stInfo));
-    NET_TV_COMMON_ECODE_E nRespCode = tvsdk::RecordFrameServer::instance()->open_stream(stCond, stInfo);
+    NET_TV_COMMON_ECODE_E nRespCode = tvsdk::CRecordFrameServer::instance()->open_stream(stCond, stInfo);
     if (nRespCode == NET_TV_E_SUCCEED && stInfo.uTcpPort == 0)
     {
-        stInfo.uTcpPort = static_cast<UINT32>(tvsdk::RecordFrameServer::instance()->port());
+        stInfo.uTcpPort = static_cast<UINT32>(tvsdk::CRecordFrameServer::instance()->port());
     }
 
     return SDKConvert::to_respString(nRespCode, stInfo);
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 处理停止录像帧流请求
  * @details 解析请求数据（JSON格式），验证流ID有效性，调用RecordFrameServer::close_stream关闭流，返回操作结果
  * @param req_data 请求数据（JSON格式），包含流ID
@@ -142,6 +159,6 @@ std::string CRecordFrameBusiness::StopRecordFrameStream(const std::string& req_d
         return SDKConvert::to_respString(NET_TV_E_INVALID_PARAM, stInfo);
     }
 
-    NET_TV_COMMON_ECODE_E nRespCode = tvsdk::RecordFrameServer::instance()->close_stream(stInfo.szStreamId);
+    NET_TV_COMMON_ECODE_E nRespCode = tvsdk::CRecordFrameServer::instance()->close_stream(stInfo.szStreamId);
     return SDKConvert::to_respString(nRespCode, stInfo);
 }

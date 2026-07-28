@@ -1,7 +1,17 @@
 /**
  * @file DiscoveryProtocol.cpp
- * @brief 设备发现协议 JSON 序列化实现
+ * @author tianl (tianl@kfb.cn)
+ * @date 2026-07-28
+ * @LastEditors  : qinjt@kfb.cn
+ * @LastEditTime : 2026-07-28
+ *
+ * @brief DiscoveryProtocol 模块实现
+ * 功能说明：
+ * 1. 实现 DiscoveryProtocol 模块核心逻辑
+ * 2. 校验输入参数并管理模块资源生命周期
+ * 3. 向上层提供可复用的 SDK 能力
  */
+
 #include "DiscoveryProtocol.h"
 
 #include "Json.h"
@@ -24,6 +34,11 @@ static const char* kKeyMACAddress    = "MACAddress";
 static const char* kKeyFirmwareVersion = "FirmwareVersion";
 static const char* kKeyHttpPort      = "HttpPort";
 static const char* kKeyManufacturer  = "Manufacturer";
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 build_probe_json 定义的内部处理。
+ * @return 返回该处理的状态或结果。
+ */
 
 std::string build_probe_json()
 {
@@ -35,6 +50,12 @@ std::string build_probe_json()
     Json::deinit(root);
     return result;
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 查询或校验 parse_probe_json 对应的数据。
+ * @param [in] json_str 函数处理参数。
+ * @return 返回该处理的状态或结果。
+ */
 
 bool parse_probe_json(const std::string& json_str)
 {
@@ -49,6 +70,12 @@ bool parse_probe_json(const std::string& json_str)
     Json::deinit(root);
     return valid;
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 build_response_json 定义的内部处理。
+ * @param [in] info 函数处理参数。
+ * @return 返回该处理的状态或结果。
+ */
 
 std::string build_response_json(const NET_DiscoveryDeviceInfo_S& info)
 {
@@ -72,6 +99,11 @@ std::string build_response_json(const NET_DiscoveryDeviceInfo_S& info)
     Json::deinit(root);
     return result;
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 查询或校验 parse_response_json 对应的数据。
+ * @return 返回该处理的状态或结果。
+ */
 
 bool parse_response_json(const std::string& json_str,
                          NET_DiscoveryDeviceInfo_S& info)
@@ -116,4 +148,4 @@ bool parse_response_json(const std::string& json_str,
     return true;
 }
 
-}  // namespace discovery
+}  /* namespace discovery */

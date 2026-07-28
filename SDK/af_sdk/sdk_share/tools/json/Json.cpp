@@ -1,3 +1,16 @@
+/**
+ * @file Json.cpp
+ * @author tianl (tianl@kfb.cn)
+ * @date 2026-07-28
+ * @LastEditors  : qinjt@kfb.cn
+ * @LastEditTime : 2026-07-28
+ *
+ * @brief Json 模块实现
+ * 功能说明：
+ * 1. 实现 Json 模块核心逻辑
+ * 2. 校验输入参数并管理模块资源生命周期
+ * 3. 向上层提供可复用的 SDK 能力
+ */
 /*
  *  File Name: JsonInterfase.cpp
  *  Created on: 2022年12月02日
@@ -29,6 +42,12 @@ Object *Json::init(std::string strObj)
 {
     return cJSON_Parse(strObj.c_str());
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deinit 定义的内部处理。
+ * @param [in,out] pObj 函数处理参数。
+ * @return 无返回值。
+ */
 
 void Json::deinit(Object *&pObj)
 {
@@ -38,6 +57,14 @@ void Json::deinit(Object *&pObj)
         pObj = nullptr;
     }
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 add 定义的内部处理。
+ * @param [in,out] pObj 函数处理参数。
+ * @param [in] key 函数处理参数。
+ * @param [in] nValue 函数处理参数。
+ * @return 无返回值。
+ */
 
 void Json::add(Object *pObj, std::string key, bool nValue)
 {
@@ -51,6 +78,14 @@ void Json::add(Object *pObj, std::string key, bool nValue)
         return;
     }
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 add 定义的内部处理。
+ * @param [in,out] pObj 函数处理参数。
+ * @param [in] key 函数处理参数。
+ * @param [in] nValue 函数处理参数。
+ * @return 无返回值。
+ */
 void Json::add(Object *pObj, std::string key, int nValue)
 {
     if (!pObj || key.empty())
@@ -62,11 +97,27 @@ void Json::add(Object *pObj, std::string key, int nValue)
         return;
     }
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 add 定义的内部处理。
+ * @param [in,out] pObj 函数处理参数。
+ * @param [in] key 函数处理参数。
+ * @param [in] nValue 函数处理参数。
+ * @return 无返回值。
+ */
 
 void Json::add(Object *pObj, std::string key, unsigned int nValue)
 {
     add(pObj, key, (int)nValue);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 add 定义的内部处理。
+ * @param [in,out] pObj 函数处理参数。
+ * @param [in] key 函数处理参数。
+ * @param [in] lValue 函数处理参数。
+ * @return 无返回值。
+ */
 void Json::add(Object *pObj, std::string key, long long lValue)
 {
     if (!pObj || key.empty())
@@ -78,6 +129,14 @@ void Json::add(Object *pObj, std::string key, long long lValue)
         return;
     }
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 add 定义的内部处理。
+ * @param [in,out] pObj 函数处理参数。
+ * @param [in] key 函数处理参数。
+ * @param [in] dValue 函数处理参数。
+ * @return 无返回值。
+ */
 
 void Json::add(Object *pObj, std::string key, double dValue)
 {
@@ -90,6 +149,14 @@ void Json::add(Object *pObj, std::string key, double dValue)
         return;
     }
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 add 定义的内部处理。
+ * @param [in,out] pObj 函数处理参数。
+ * @param [in] key 函数处理参数。
+ * @param [in,out] pItem 函数处理参数。
+ * @return 无返回值。
+ */
 
 void Json::add(Object *pObj, std::string key, Object *pItem)
 {
@@ -165,6 +232,14 @@ bool Json::Value::get(Object *pObj, std::string &value)
     value = pObj->valuestring;
     return true;
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 查询或校验 get 对应的数据。
+ * @param [in,out] pObj 函数处理参数。
+ * @param [in] key 函数处理参数。
+ * @param [in,out] bValue 函数处理参数。
+ * @return 返回该处理的状态或结果。
+ */
 
 bool Json::get(Object *pObj, std::string key, bool &bValue)
 {
@@ -193,6 +268,14 @@ bool Json::get(Object *pObj, std::string key, bool &bValue)
     } while (0);
     return bRet;
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 查询或校验 get 对应的数据。
+ * @param [in,out] pObj 函数处理参数。
+ * @param [in] key 函数处理参数。
+ * @param [in,out] nValue 函数处理参数。
+ * @return 返回该处理的状态或结果。
+ */
 
 bool Json::get(Object *pObj, std::string key, int &nValue)
 {
@@ -213,6 +296,14 @@ bool Json::get(Object *pObj, std::string key, int &nValue)
     } while (0);
     return bRet;
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 查询或校验 get 对应的数据。
+ * @param [in,out] pObj 函数处理参数。
+ * @param [in] key 函数处理参数。
+ * @param [in,out] nValue 函数处理参数。
+ * @return 返回该处理的状态或结果。
+ */
 
 bool Json::get(Object *pObj, std::string key, int16_t &nValue)
 {
@@ -233,11 +324,27 @@ bool Json::get(Object *pObj, std::string key, int16_t &nValue)
     } while (0);
     return bRet;
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 查询或校验 get 对应的数据。
+ * @param [in,out] pObj 函数处理参数。
+ * @param [in] key 函数处理参数。
+ * @param [in,out] nValue 函数处理参数。
+ * @return 返回该处理的状态或结果。
+ */
 
 bool Json::get(Object *pObj, std::string key, unsigned int &nValue)
 {
     return get(pObj, key, (int &)nValue);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 查询或校验 get 对应的数据。
+ * @param [in,out] pObj 函数处理参数。
+ * @param [in] key 函数处理参数。
+ * @param [in,out] lValue 函数处理参数。
+ * @return 返回该处理的状态或结果。
+ */
 
 bool Json::get(Object *pObj, std::string key, long long &lValue)
 {
@@ -258,6 +365,14 @@ bool Json::get(Object *pObj, std::string key, long long &lValue)
     } while (0);
     return bRet;
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 查询或校验 get 对应的数据。
+ * @param [in,out] pObj 函数处理参数。
+ * @param [in] key 函数处理参数。
+ * @param [in,out] dValue 函数处理参数。
+ * @return 返回该处理的状态或结果。
+ */
 
 bool Json::get(Object *pObj, std::string key, double &dValue)
 {
@@ -278,6 +393,14 @@ bool Json::get(Object *pObj, std::string key, double &dValue)
     } while (0);
     return bRet;
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 查询或校验 get 对应的数据。
+ * @param [in,out] pObj 函数处理参数。
+ * @param [in] key 函数处理参数。
+ * @param [in,out] fValue 函数处理参数。
+ * @return 返回该处理的状态或结果。
+ */
 
 bool Json::get(Object *pObj, std::string key, float &fValue)
 {
@@ -298,6 +421,14 @@ bool Json::get(Object *pObj, std::string key, float &fValue)
     } while (0);
     return bRet;
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 查询或校验 get 对应的数据。
+ * @param [in,out] pObj 函数处理参数。
+ * @param [in] key 函数处理参数。
+ * @param [in,out] value 函数处理参数。
+ * @return 返回该处理的状态或结果。
+ */
 
 bool Json::get(Object *pObj, std::string key, std::string &value)
 {
@@ -323,6 +454,15 @@ bool Json::get(Object *pObj, std::string key, std::string &value)
 
     return bRet;
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 查询或校验 get 对应的数据。
+ * @param [in,out] pObj 函数处理参数。
+ * @param [in] key 函数处理参数。
+ * @param [in] nSize 函数处理参数。
+ * @param [in,out] pValue 函数处理参数。
+ * @return 返回该处理的状态或结果。
+ */
 
 bool Json::get(Object *pObj, std::string key, size_t nSize, char *pValue)
 {
@@ -338,6 +478,14 @@ bool Json::get(Object *pObj, std::string key, size_t nSize, char *pValue)
     strncpy(pValue, value.c_str(), nSize);
     return true;
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 查询或校验 get 对应的数据。
+ * @param [in] pObj 函数处理参数。
+ * @param [in] key 函数处理参数。
+ * @param [in,out] nValue 函数处理参数。
+ * @return 返回该处理的状态或结果。
+ */
 
 bool Json::get(const char *pObj, std::string key, int &nValue)
 {
@@ -354,6 +502,14 @@ bool Json::get(const char *pObj, std::string key, int &nValue)
     deinit(pRoot);
     return bRet;
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 查询或校验 get 对应的数据。
+ * @param [in] pObj 函数处理参数。
+ * @param [in] key 函数处理参数。
+ * @param [in,out] dValue 函数处理参数。
+ * @return 返回该处理的状态或结果。
+ */
 
 bool Json::get(const char *pObj, std::string key, double &dValue)
 {
@@ -370,6 +526,15 @@ bool Json::get(const char *pObj, std::string key, double &dValue)
     deinit(pRoot);
     return bRet;
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 查询或校验 get 对应的数据。
+ * @param [in] pObj 函数处理参数。
+ * @param [in] item 函数处理参数。
+ * @param [in] key 函数处理参数。
+ * @param [in,out] nValue 函数处理参数。
+ * @return 返回该处理的状态或结果。
+ */
 
 bool Json::get(const char *pObj, std::string item, std::string key, int &nValue)
 {
@@ -403,6 +568,15 @@ bool Json::get(const char *pObj, std::string item, std::string key, int &nValue)
     deinit(pRoot);
     return bRet;
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 查询或校验 get 对应的数据。
+ * @param [in] pObj 函数处理参数。
+ * @param [in] item 函数处理参数。
+ * @param [in] key 函数处理参数。
+ * @param [in,out] dValue 函数处理参数。
+ * @return 返回该处理的状态或结果。
+ */
 
 bool Json::get(const char *pObj, std::string item, std::string key, double &dValue)
 {
@@ -436,6 +610,15 @@ bool Json::get(const char *pObj, std::string item, std::string key, double &dVal
     deinit(pRoot);
     return bRet;
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 查询或校验 get 对应的数据。
+ * @param [in] pObj 函数处理参数。
+ * @param [in] item 函数处理参数。
+ * @param [in] key 函数处理参数。
+ * @param [in,out] value 函数处理参数。
+ * @return 返回该处理的状态或结果。
+ */
 
 bool Json::get(const char *pObj, std::string item, std::string key, std::string &value)
 {
@@ -469,6 +652,14 @@ bool Json::get(const char *pObj, std::string item, std::string key, std::string 
     deinit(pRoot);
     return bRet;
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 查询或校验 get 对应的数据。
+ * @param [in] pObj 函数处理参数。
+ * @param [in] key 函数处理参数。
+ * @param [in,out] value 函数处理参数。
+ * @return 返回该处理的状态或结果。
+ */
 
 bool Json::get(const char *pObj, std::string key, std::string &value)
 {
@@ -485,6 +676,15 @@ bool Json::get(const char *pObj, std::string key, std::string &value)
     deinit(pRoot);
     return bRet;
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 查询或校验 get 对应的数据。
+ * @param [in] pObj 函数处理参数。
+ * @param [in] key 函数处理参数。
+ * @param [in] nSize 函数处理参数。
+ * @param [in,out] pValue 函数处理参数。
+ * @return 返回该处理的状态或结果。
+ */
 
 bool Json::get(const char *pObj, std::string key, size_t nSize, char *pValue)
 {
@@ -500,6 +700,16 @@ bool Json::get(const char *pObj, std::string key, size_t nSize, char *pValue)
     strncpy(pValue, value.c_str(), nSize);
     return true;
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 查询或校验 get 对应的数据。
+ * @param [in] pObj 函数处理参数。
+ * @param [in] item 函数处理参数。
+ * @param [in] key 函数处理参数。
+ * @param [in] nSize 函数处理参数。
+ * @param [in,out] pValue 函数处理参数。
+ * @return 返回该处理的状态或结果。
+ */
 bool Json::get(const char *pObj, std::string item, std::string key, size_t nSize, char *pValue)
 {
     if (!pObj || item.empty() || key.empty() || !pValue)
@@ -514,14 +724,38 @@ bool Json::get(const char *pObj, std::string item, std::string key, size_t nSize
     strncpy(pValue, value.c_str(), nSize);
     return true;
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 add 定义的内部处理。
+ * @param [in,out] pObj 函数处理参数。
+ * @param [in] key 函数处理参数。
+ * @param [in,out] pValue 函数处理参数。
+ * @return 无返回值。
+ */
 void Json::add(Object *pObj, std::string key, char *pValue)
 {
     add(pObj, key, std::string(pValue));
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 add 定义的内部处理。
+ * @param [in,out] pObj 函数处理参数。
+ * @param [in] key 函数处理参数。
+ * @param [in] pValue 函数处理参数。
+ * @return 无返回值。
+ */
 void Json::add(Object *pObj, std::string key, const char *pValue)
 {
     add(pObj, key, std::string(pValue));
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 add 定义的内部处理。
+ * @param [in,out] pObj 函数处理参数。
+ * @param [in] key 函数处理参数。
+ * @param [in] value 函数处理参数。
+ * @return 无返回值。
+ */
 
 void Json::add(Object *pObj, std::string key, std::string value)
 {
@@ -544,6 +778,14 @@ void Json::remove(Object *pObj, std::string key)
     }
     cJSON_DeleteItemFromObject(pObj, key.c_str());
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 update 对应的处理。
+ * @param [in,out] pObj 函数处理参数。
+ * @param [in] key 函数处理参数。
+ * @param [in] nValue 函数处理参数。
+ * @return 无返回值。
+ */
 
 void Json::update(Object *pObj, std::string key, int nValue)
 {
@@ -556,6 +798,14 @@ void Json::update(Object *pObj, std::string key, int nValue)
         return;
     }
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 update 对应的处理。
+ * @param [in,out] pObj 函数处理参数。
+ * @param [in] key 函数处理参数。
+ * @param [in] value 函数处理参数。
+ * @return 无返回值。
+ */
 
 void Json::update(Object *pObj, std::string key, std::string value)
 {
@@ -568,6 +818,12 @@ void Json::update(Object *pObj, std::string key, std::string value)
         return;
     }
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 to_string 定义的内部处理。
+ * @param [in,out] pObj 函数处理参数。
+ * @return 返回该处理的状态或结果。
+ */
 
 std::string Json::to_string(Object *pObj)
 {
@@ -597,6 +853,12 @@ char *Json::print(Object *pObj)
     }
     return cJSON_Print(pObj);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 release 定义的内部处理。
+ * @param [in,out] p 函数处理参数。
+ * @return 无返回值。
+ */
 
 void Json::release(char *&p)
 {
@@ -702,6 +964,11 @@ void Json::Array::add(Object *pArr, std::string value)
 }
 #if 0
 #include <iostream>
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 运行当前 Demo 的主流程。
+ * @return 返回该处理的状态或结果。
+ */
 int main()
 {
     Json::Object *pObj = Json::init();

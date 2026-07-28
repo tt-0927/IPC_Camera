@@ -1,3 +1,16 @@
+/**
+ * @file DeviceInfoConvert.cpp
+ * @author tianl (tianl@kfb.cn)
+ * @date 2026-07-28
+ * @LastEditors  : qinjt@kfb.cn
+ * @LastEditTime : 2026-07-28
+ *
+ * @brief DeviceInfoConvert 模块实现
+ * 功能说明：
+ * 1. 实现 DeviceInfoConvert 模块核心逻辑
+ * 2. 校验输入参数并管理模块资源生命周期
+ * 3. 向上层提供可复用的 SDK 能力
+ */
 #include "DeviceInfoConvert.h"
 #include "SDKConvert.h"
 #include <algorithm>
@@ -5,11 +18,26 @@
 #include <cstring>
 
 static constexpr int kOsdCustomSlotCount = NET_TV_OSD_CUSTOM_MAX_NUM;
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 clamp_time_count 定义的内部处理。
+ * @param [in] count 函数处理参数。
+ * @return 返回该处理的状态或结果。
+ */
 
 static UINT32 clamp_time_count(UINT32 count)
 {
     return (count > NET_TV_PLAN_TIME_SECTION_NUM_ADAY) ? NET_TV_PLAN_TIME_SECTION_NUM_ADAY : count;
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 JsonToFloatArray 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in] key 函数处理参数。
+ * @param [in,out] values 函数处理参数。
+ * @param [in] maxCount 函数处理参数。
+ * @return 无返回值。
+ */
 
 static void JsonToFloatArray(Json::Object* pRootJson, const char* key, FLOAT* values, int maxCount)
 {
@@ -31,6 +59,16 @@ static void JsonToFloatArray(Json::Object* pRootJson, const char* key, FLOAT* va
         }
     }
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 FloatArrayToJson 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in] key 函数处理参数。
+ * @param [in] values 函数处理参数。
+ * @param [in] count 函数处理参数。
+ * @param [in] maxCount 函数处理参数。
+ * @return 无返回值。
+ */
 
 static void FloatArrayToJson(Json::Object* pRootJson, const char* key, const FLOAT* values, int count, int maxCount)
 {
@@ -45,6 +83,14 @@ static void FloatArrayToJson(Json::Object* pRootJson, const char* key, const FLO
     }
     Json::add(pRootJson, key, pArray);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_DeviceInfo_S& stInfo, bool bOutStruct)
 {
@@ -59,6 +105,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_DeviceInfo_S& stInfo, bool bO
     convert.field(pRootJson, "ChannelNum", (int &)stInfo.uChannelNum);
 
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_DeviceBasicInfo_S& stInfo, bool bOutStruct)
 {
@@ -76,6 +130,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_DeviceBasicInfo_S& stInfo, bo
     convert.field(pRootJson, "Manufacturer", stInfo.strManufacturer);
     convert.field(pRootJson, "DeviceTypeV2", stInfo.strDeviceTypeV2);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_SystemNtpInfo_S& stInfo, bool bOutStruct)
 {
@@ -95,6 +157,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_SystemNtpInfo_S& stInfo, bool
     convert.field(pRootJson, "Port", stInfo.nPort);
     convert.field(pRootJson, "SyncInterval", stInfo.nSyncInterval);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_NetworkCfg_S& stInfo, bool bOutStruct)
 {
@@ -110,6 +180,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_NetworkCfg_S& stInfo, bool bO
     convert.field(pRootJson, "IPv4GateWay", stInfo.szIPv4GateWay);
     convert.field(pRootJson, "IPv4SubnetMask", stInfo.szIPv4SubnetMask);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_WifiStaCfg_S& stInfo, bool bOutStruct)
 {
@@ -122,6 +200,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_WifiStaCfg_S& stInfo, bool bO
     convert.field(pRootJson, "EnableWifi", stInfo.bEnableWifi);
     convert.field(pRootJson, "EnableBoost", stInfo.bEnableBoost);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_WifiWepKey_S& stInfo, bool bOutStruct)
 {
@@ -134,6 +220,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_WifiWepKey_S& stInfo, bool bO
     convert.field(pRootJson, "Index", stInfo.nIndex);
     convert.field(pRootJson, "Value", stInfo.szValue);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_WifiStaConnect_S& stInfo, bool bOutStruct)
 {
@@ -210,6 +304,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_WifiStaConnect_S& stInfo, boo
         }
     }
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_4GInfo_S& stInfo, bool bOutStruct)
 {
@@ -228,6 +330,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_4GInfo_S& stInfo, bool bOutSt
     convert.field(pRootJson, "NetworkMode", stInfo.nNetworkMode);
     convert.field(pRootJson, "DialMode", stInfo.nDialMode);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_HotspotInfo_S& stInfo, bool bOutStruct)
 {
@@ -244,6 +354,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_HotspotInfo_S& stInfo, bool b
     convert.field(pRootJson, "Password", stInfo.szPassword);
     convert.field(pRootJson, "ConfirmPassword", stInfo.szConfirmPassword);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_HotspotConnDevice_S& stInfo, bool bOutStruct)
 {
@@ -258,6 +376,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_HotspotConnDevice_S& stInfo, 
     convert.field(pRootJson, "Ip", stInfo.szIp);
     convert.field(pRootJson, "ConnTime", stInfo.szConnTime);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_HotspotConnInfo_S& stInfo, bool bOutStruct)
 {
@@ -336,6 +462,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_HotspotConnInfo_S& stInfo, bo
         Json::add(pRootJson, "Devices", pArray);
     }
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_PageInfo_S& stInfo, bool bOutStruct)
 {
@@ -350,6 +484,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_PageInfo_S& stInfo, bool bOut
     convert.field(pRootJson, "DataTotal", stInfo.nDataTotal);
     convert.field(pRootJson, "PageTotal", stInfo.nPageTotal);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_LoginLockInfo_S& stInfo, bool bOutStruct)
 {
@@ -364,6 +506,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_LoginLockInfo_S& stInfo, bool
     convert.field(pRootJson, "MaxErrorTimes", stInfo.nMaxErrorTimes);
     convert.field(pRootJson, "LockDuration", stInfo.nLockDuration);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_PwdPolicyInfo_S& stInfo, bool bOutStruct)
 {
@@ -376,6 +526,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_PwdPolicyInfo_S& stInfo, bool
     convert.field(pRootJson, "PwdSecurityLevelEnable", stInfo.bPwdSecurityLevelEnable);
     convert.field(pRootJson, "AllowLowLevelPwdLogin", stInfo.bAllowLowLevelPwdLogin);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_SshAdminInfo_S& stInfo, bool bOutStruct)
 {
@@ -390,6 +548,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_SshAdminInfo_S& stInfo, bool 
     convert.field(pRootJson, "SshStartTime", stInfo.szSshStartTime);
     convert.field(pRootJson, "SshCountdown", stInfo.szSshCountdown);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_SecurityServicesInfo_S& stInfo, bool bOutStruct)
 {
@@ -403,6 +569,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_SecurityServicesInfo_S& stInf
     convert.structure(pRootJson, stInfo.stPwdPolicy);
     convert.structure(pRootJson, stInfo.stSshAdmin);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_SshCountdownInfo_S& stInfo, bool bOutStruct)
 {
@@ -414,6 +588,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_SshCountdownInfo_S& stInfo, b
     SDKConvert::CSDKConvert convert(bOutStruct);
     convert.field(pRootJson, "Countdown", stInfo.szCountdown);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_LogServerInfo_S& stInfo, bool bOutStruct)
 {
@@ -428,6 +610,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_LogServerInfo_S& stInfo, bool
     convert.field(pRootJson, "ServerAddr", stInfo.szServerAddr);
     convert.field(pRootJson, "Port", stInfo.nPort);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_LogRetrievalCond_S& stInfo, bool bOutStruct)
 {
@@ -442,6 +632,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_LogRetrievalCond_S& stInfo, b
     convert.field(pRootJson, "StartTime", stInfo.szStartTime);
     convert.field(pRootJson, "EndTime", stInfo.szEndTime);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_LogInfo_S& stInfo, bool bOutStruct)
 {
@@ -459,6 +657,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_LogInfo_S& stInfo, bool bOutS
     convert.field(pRootJson, "Host", stInfo.szHost);
     convert.field(pRootJson, "Context", stInfo.szContext);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_LogList_S& stInfo, bool bOutStruct)
 {
@@ -535,6 +741,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_LogList_S& stInfo, bool bOutS
         Json::add(pRootJson, "LogInfos", pArray);
     }
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_RecordInfo_S& stInfo, bool bOutStruct)
 {
@@ -556,6 +770,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_RecordInfo_S& stInfo, bool bO
     convert.field(pRootJson, "RecordTime", stInfo.szRecordTime);
     convert.field(pRootJson, "StreamType", stInfo.nStreamType);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_RecordStatusInfo_S& stInfo, bool bOutStruct)
 {
@@ -567,6 +789,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_RecordStatusInfo_S& stInfo, b
     SDKConvert::CSDKConvert convert(bOutStruct);
     convert.field(pRootJson, "Status", stInfo.nStatus);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_RecordTime_S& stInfo, bool bOutStruct)
 {
@@ -580,6 +810,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_RecordTime_S& stInfo, bool bO
     convert.field(pRootJson, "StartTime", stInfo.nStartTime);
     convert.field(pRootJson, "EndTime", stInfo.nEndTime);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_RecordDaySchedule_S& stInfo, bool bOutStruct)
 {
@@ -647,6 +885,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_RecordDaySchedule_S& stInfo, 
         Json::add(pRootJson, "RecordTimes", pArray);
     }
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_RecordSchedule_S& stInfo, bool bOutStruct)
 {
@@ -714,6 +960,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_RecordSchedule_S& stInfo, boo
         Json::add(pRootJson, "DaySchedules", pArray);
     }
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_RecordAdvancedParam_S& stInfo, bool bOutStruct)
 {
@@ -728,6 +982,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_RecordAdvancedParam_S& stInfo
     convert.field(pRootJson, "DelayTime", stInfo.nDelayTime);
     convert.field(pRootJson, "StreamType", stInfo.nStreamType);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_RecordFindCond_S& stInfo, bool bOutStruct)
 {
@@ -746,6 +1008,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_RecordFindCond_S& stInfo, boo
     convert.field(pRootJson, "EndTime", stInfo.szEndTime);
     convert.field(pRootJson, "Filename", stInfo.szFilename);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_RecordVideoTime_S& stInfo, bool bOutStruct)
 {
@@ -758,6 +1028,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_RecordVideoTime_S& stInfo, bo
     convert.field(pRootJson, "StartTime", stInfo.nStartTime);
     convert.field(pRootJson, "EndTime", stInfo.nEndTime);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_RecordFindResult_S& stInfo, bool bOutStruct)
 {
@@ -866,6 +1144,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_RecordFindResult_S& stInfo, b
         Json::add(pRootJson, "VideoTimes", pArray);
     }
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_RecordFileList_S& stInfo, bool bOutStruct)
 {
@@ -929,6 +1215,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_RecordFileList_S& stInfo, boo
         Json::add(pRootJson, "Infos", pArray);
     }
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_RecordDownloadInfo_S& stInfo, bool bOutStruct)
 {
@@ -943,6 +1237,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_RecordDownloadInfo_S& stInfo,
     convert.field(pRootJson, "StartTime", stInfo.szStartTime);
     convert.field(pRootJson, "EndTime", stInfo.szEndTime);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_RecordDownloadProgress_S& stInfo, bool bOutStruct)
 {
@@ -955,6 +1257,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_RecordDownloadProgress_S& stI
     convert.field(pRootJson, "Filename", stInfo.szFilename);
     convert.field(pRootJson, "DownloadProgress", stInfo.nProgress);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_RecordDownloadList_S& stInfo, bool bOutStruct)
 {
@@ -1063,6 +1373,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_RecordDownloadList_S& stInfo,
         }
     }
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_VideoOsdCfg_S& stInfo, bool bOutStruct)
 {
@@ -1077,7 +1395,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_VideoOsdCfg_S& stInfo, bool b
         std::memset(stInfo.OsdInfo, 0, sizeof(stInfo.OsdInfo));
     }
 
-#define CONVERT_ENUM_FIELD(jsonKey, enumField, enumType)      \
+#define NETSDK_CONVERT_ENUM_FIELD(jsonKey, enumField, enumType)      \
     do                                                        \
     {                                                         \
         int nTmpValue = (int)(enumField);                     \
@@ -1089,7 +1407,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_VideoOsdCfg_S& stInfo, bool b
     } while (0)
 
     /* 全局对齐方式 */
-    CONVERT_ENUM_FIELD("Align", stInfo.enAlign, OSD_ALIGN_E);
+    NETSDK_CONVERT_ENUM_FIELD("Align", stInfo.enAlign, OSD_ALIGN_E);
 
     /* Name OSD */
     convert.field(pRootJson, "NameEnable",      stInfo.stOsdNameInfo.bEnable);
@@ -1098,24 +1416,24 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_VideoOsdCfg_S& stInfo, bool b
     convert.field(pRootJson, "NameY",           stInfo.stOsdNameInfo.stOsdAttr.nY);
     convert.field(pRootJson, "NameW",           stInfo.stOsdNameInfo.stOsdAttr.nW);
     convert.field(pRootJson, "NameH",           stInfo.stOsdNameInfo.stOsdAttr.nH);
-    CONVERT_ENUM_FIELD("NameAttribute", stInfo.stOsdNameInfo.stOsdAttr.enAttribute, OSD_ATTRIBUTE_E);
-    CONVERT_ENUM_FIELD("NameFontSize",  stInfo.stOsdNameInfo.stOsdAttr.enFontSize,  OSD_FONT_SIZE_E);
-    CONVERT_ENUM_FIELD("NameFontColor", stInfo.stOsdNameInfo.stOsdAttr.enFontColor, OSD_COLOR_E);
+    NETSDK_CONVERT_ENUM_FIELD("NameAttribute", stInfo.stOsdNameInfo.stOsdAttr.enAttribute, OSD_ATTRIBUTE_E);
+    NETSDK_CONVERT_ENUM_FIELD("NameFontSize",  stInfo.stOsdNameInfo.stOsdAttr.enFontSize,  OSD_FONT_SIZE_E);
+    NETSDK_CONVERT_ENUM_FIELD("NameFontColor", stInfo.stOsdNameInfo.stOsdAttr.enFontColor, OSD_COLOR_E);
     convert.field(pRootJson, "NameCustomColor", stInfo.stOsdNameInfo.stOsdAttr.strFontColor);
     convert.field(pRootJson, "NameToken",       stInfo.stOsdNameInfo.stOsdAttr.strToken);
 
     /* Time OSD */
     convert.field(pRootJson, "TimeEnable",      stInfo.stOsdTimeInfo.bEnable);
     convert.field(pRootJson, "TimeEnableWeek",  stInfo.stOsdTimeInfo.bEnableWeek);
-    CONVERT_ENUM_FIELD("TimeFormat", stInfo.stOsdTimeInfo.enTimeFormat, OSD_TIME_FORMAT_E);
-    CONVERT_ENUM_FIELD("DateFormat", stInfo.stOsdTimeInfo.enDateFormat, OSD_DATE_FORMAT_E);
+    NETSDK_CONVERT_ENUM_FIELD("TimeFormat", stInfo.stOsdTimeInfo.enTimeFormat, OSD_TIME_FORMAT_E);
+    NETSDK_CONVERT_ENUM_FIELD("DateFormat", stInfo.stOsdTimeInfo.enDateFormat, OSD_DATE_FORMAT_E);
     convert.field(pRootJson, "TimeX",           stInfo.stOsdTimeInfo.stOsdAttr.nX);
     convert.field(pRootJson, "TimeY",           stInfo.stOsdTimeInfo.stOsdAttr.nY);
     convert.field(pRootJson, "TimeW",           stInfo.stOsdTimeInfo.stOsdAttr.nW);
     convert.field(pRootJson, "TimeH",           stInfo.stOsdTimeInfo.stOsdAttr.nH);
-    CONVERT_ENUM_FIELD("TimeAttribute", stInfo.stOsdTimeInfo.stOsdAttr.enAttribute, OSD_ATTRIBUTE_E);
-    CONVERT_ENUM_FIELD("TimeFontSize",  stInfo.stOsdTimeInfo.stOsdAttr.enFontSize,  OSD_FONT_SIZE_E);
-    CONVERT_ENUM_FIELD("TimeFontColor", stInfo.stOsdTimeInfo.stOsdAttr.enFontColor, OSD_COLOR_E);
+    NETSDK_CONVERT_ENUM_FIELD("TimeAttribute", stInfo.stOsdTimeInfo.stOsdAttr.enAttribute, OSD_ATTRIBUTE_E);
+    NETSDK_CONVERT_ENUM_FIELD("TimeFontSize",  stInfo.stOsdTimeInfo.stOsdAttr.enFontSize,  OSD_FONT_SIZE_E);
+    NETSDK_CONVERT_ENUM_FIELD("TimeFontColor", stInfo.stOsdTimeInfo.stOsdAttr.enFontColor, OSD_COLOR_E);
     convert.field(pRootJson, "TimeCustomColor", stInfo.stOsdTimeInfo.stOsdAttr.strFontColor);
     convert.field(pRootJson, "TimeToken",       stInfo.stOsdTimeInfo.stOsdAttr.strToken);
 
@@ -1184,8 +1502,16 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_VideoOsdCfg_S& stInfo, bool b
 
     /* byRes 为保留字段，不做转换 */
 
-#undef CONVERT_ENUM_FIELD
+#undef NETSDK_CONVERT_ENUM_FIELD
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_RtspUrlInfo_S& stInfo, bool bOutStruct)
 {
@@ -1199,6 +1525,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_RtspUrlInfo_S& stInfo, bool b
     convert.field(pRootJson, "StreamIndex", stInfo.dwStreamIndex);
     convert.field(pRootJson, "RtspUrl", stInfo.szRtspUrl);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_DeviceControlInfo_S& stInfo, bool bOutStruct)
 {
@@ -1218,6 +1552,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_DeviceControlInfo_S& stInfo, 
     convert.field(pRootJson, "param2", stInfo.uParam2);
     convert.field(pRootJson, "ext", stInfo.szExt);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_RecordFrameStreamCond_S& stInfo, bool bOutStruct)
 {
@@ -1236,6 +1578,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_RecordFrameStreamCond_S& stIn
     convert.field(pRootJson, "codecType", stInfo.uCodecType);
     convert.field(pRootJson, "tcpPort", stInfo.uTcpPort);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_RecordFrameStreamInfo_S& stInfo, bool bOutStruct)
 {
@@ -1254,6 +1604,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_RecordFrameStreamInfo_S& stIn
     convert.field(pRootJson, "width", stInfo.uWidth);
     convert.field(pRootJson, "height", stInfo.uHeight);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_RecordFrameStopInfo_S& stInfo, bool bOutStruct)
 {
@@ -1266,6 +1624,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_RecordFrameStopInfo_S& stInfo
     convert.field(pRootJson, "uSize", stInfo.uSize);
     convert.field(pRootJson, "streamId", stInfo.szStreamId);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_ReplayUrlInfo_S& stInfo, bool bOutStruct)
 {
@@ -1280,6 +1646,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_ReplayUrlInfo_S& stInfo, bool
     convert.field(pRootJson, "EndTime", stInfo.szEndTime);
     convert.field(pRootJson, "Url", stInfo.szUrl);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_ReplayCtrlInfo_S& stInfo, bool bOutStruct)
 {
@@ -1299,6 +1673,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_ReplayCtrlInfo_S& stInfo, boo
     convert.field(pRootJson, "EndTime", stInfo.szEndTime);
     convert.field(pRootJson, "Url", stInfo.szUrl);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_ReplayRecordTime_S& stInfo, bool bOutStruct)
 {
@@ -1311,6 +1693,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_ReplayRecordTime_S& stInfo, b
     convert.field(pRootJson, "StartTime", stInfo.nStartTime);
     convert.field(pRootJson, "EndTime", stInfo.nEndTime);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_ReplayRecordList_S& stInfo, bool bOutStruct)
 {
@@ -1417,6 +1807,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_ReplayRecordList_S& stInfo, b
         convert.structure(pRootJson, "OtherEventTimes", otherEventTimes);
     }
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_ChannelInfo_S& stInfo, bool bOutStruct)
 {
@@ -1493,6 +1891,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_ChannelInfo_S& stInfo, bool b
         }
     }
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_ChannelList_S& stInfo, bool bOutStruct)
 {
@@ -1551,6 +1957,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_PreviewRtspUrl_S& stInfo, boo
     convert.field(pRootJson, "RtspMainUrl", stInfo.szRtspMainUrl);
     convert.field(pRootJson, "RtspSubUrl", stInfo.szRtspSubUrl);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_PreviewImageParam_S& stInfo, bool bOutStruct)
 {
@@ -1565,6 +1979,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_PreviewImageParam_S& stInfo, 
     convert.field(pRootJson, "Saturation", stInfo.nSaturation);
     convert.field(pRootJson, "Sharpness", stInfo.nSharpness);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_ImageSetting_S& stInfo, bool bOutStruct)
 {
@@ -1579,6 +2001,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_ImageSetting_S& stInfo, bool 
     convert.field(pRootJson, "Saturation", stInfo.nSaturation);
     convert.field(pRootJson, "Sharpness", stInfo.nSharpness);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_PreviewInfo_S& stInfo, bool bOutStruct)
 {
@@ -1606,6 +2036,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_SchedTime_S& stInfo, bool bOu
     convert.field(pRootJson, "EndHour", stInfo.nEndHour);
     convert.field(pRootJson, "EndMinute", stInfo.nEndMinute);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_AlarmSchedule_S& stInfo, bool bOutStruct)
 {
@@ -1615,11 +2053,11 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_AlarmSchedule_S& stInfo, bool
     }
 
     SDKConvert::CSDKConvert convert(bOutStruct);
-    
-    // 处理每天的时间段数量
+
+    /* 处理每天的时间段数量 */
     if (bOutStruct)
     {
-        // JSON -> 结构体
+        /* JSON -> 结构体 */
         Json::Object* pTimeSectionCount = Json::get(pRootJson, "TimeSectionCount");
         if (pTimeSectionCount)
         {
@@ -1631,8 +2069,8 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_AlarmSchedule_S& stInfo, bool
                 stInfo.uTimeSectionCount[day] = count;
             }
         }
-        
-        // 处理每天的时间段数组
+
+        /* 处理每天的时间段数组 */
         Json::Object* pTimeSections = Json::get(pRootJson, "TimeSections");
         if (pTimeSections)
         {
@@ -1644,7 +2082,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_AlarmSchedule_S& stInfo, bool
                 {
                     int count = stInfo.uTimeSectionCount[day];
                     if (count > NET_TV_PLAN_SECTION_NUM) count = NET_TV_PLAN_SECTION_NUM;
-                    
+
                     for (int i = 0; i < count; i++)
                     {
                         std::string idxKey = std::to_string(i);
@@ -1660,20 +2098,20 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_AlarmSchedule_S& stInfo, bool
     }
     else
     {
-        // 结构体 -> JSON
+        /* 结构体 -> JSON */
         Json::Object* pTimeSectionCount = Json::init();
         for (int day = 0; day < 7; day++)
         {
             Json::add(pTimeSectionCount, std::to_string(day).c_str(), stInfo.uTimeSectionCount[day]);
         }
         Json::add(pRootJson, "TimeSectionCount", pTimeSectionCount);
-        
+
         Json::Object* pTimeSections = Json::init();
         for (int day = 0; day < 7; day++)
         {
             int count = stInfo.uTimeSectionCount[day];
             if (count > NET_TV_PLAN_SECTION_NUM) count = NET_TV_PLAN_SECTION_NUM;
-            
+
             Json::Object* pDaySections = Json::init();
             for (int i = 0; i < count; i++)
             {
@@ -1686,6 +2124,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_AlarmSchedule_S& stInfo, bool
         Json::add(pRootJson, "TimeSections", pTimeSections);
     }
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_LinkageList_S& stInfo, bool bOutStruct)
 {
@@ -1695,12 +2141,12 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_LinkageList_S& stInfo, bool b
     }
 
     SDKConvert::CSDKConvert convert(bOutStruct);
-    
+
     if (bOutStruct)
     {
-        // JSON -> 结构体
+        /* JSON -> 结构体 */
         convert.field(pRootJson, "AlarmOutputCount", stInfo.uAlarmOutputCount);
-        convert.field_array(pRootJson, "AlarmOutput", stInfo.auAlarmOutput, 
+        convert.field_array(pRootJson, "AlarmOutput", stInfo.auAlarmOutput,
                            stInfo.uAlarmOutputCount, NET_TV_MAX_ALARM_OUT_NUM);
         convert.field(pRootJson, "RecordChannelCount", stInfo.uRecordChannelCount);
         convert.field_array(pRootJson, "RecordChannel", stInfo.auRecordChannel,
@@ -1711,7 +2157,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_LinkageList_S& stInfo, bool b
     }
     else
     {
-        // 结构体 -> JSON
+        /* 结构体 -> JSON */
         convert.field(pRootJson, "AlarmOutputCount", stInfo.uAlarmOutputCount);
         convert.field_array(pRootJson, "AlarmOutput", stInfo.auAlarmOutput,
                            stInfo.uAlarmOutputCount, NET_TV_MAX_ALARM_OUT_NUM);
@@ -1743,6 +2189,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_MotionRegion_S& stInfo, bool 
     convert.field(pRootJson, "DaytimeSensitivity", stInfo.nDaytimeSensitivity);
     convert.field(pRootJson, "NightSensitivity", stInfo.nNightSensitivity);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_MotionExpertMode_S& stInfo, bool bOutStruct)
 {
@@ -1755,8 +2209,8 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_MotionExpertMode_S& stInfo, b
     convert.field(pRootJson, "ExpertDayNightCtrl", stInfo.nExpertDayNightCtrl);
     convert.structure(pRootJson, "DayTime", stInfo.stDayTime);
     convert.field(pRootJson, "RegionCount", stInfo.uRegionCount);
-    
-    // 处理区域数组
+
+    /* 处理区域数组 */
     if (bOutStruct)
     {
         Json::Object* pRegions = Json::get(pRootJson, "Regions");
@@ -1789,6 +2243,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_MotionExpertMode_S& stInfo, b
         Json::add(pRootJson, "Regions", pRegions);
     }
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_MotionNormalMode_S& stInfo, bool bOutStruct)
 {
@@ -1806,8 +2268,8 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_MotionNormalMode_S& stInfo, b
     convert.field(pRootJson, "RectBottom", stInfo.nRectBottom);
     convert.field(pRootJson, "GridWidth", stInfo.uGridWidth);
     convert.field(pRootJson, "GridHeight", stInfo.uGridHeight);
-    
-    // 处理网格区域数组
+
+    /* 处理网格区域数组 */
     if (bOutStruct)
     {
         Json::Object* pGridArea = Json::get(pRootJson, "GridArea");
@@ -1845,6 +2307,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_MotionNormalMode_S& stInfo, b
         Json::add(pRootJson, "GridArea", pGridArea);
     }
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_MotionAlarmInfo_S& stInfo, bool bOutStruct)
 {
@@ -1880,6 +2350,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_PrivacyMaskArea_S& stInfo, bo
     convert.field(pRootJson, "RectRight", stInfo.nRectRight);
     convert.field(pRootJson, "RectBottom", stInfo.nRectBottom);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_PrivacyMaskCfg_S& stInfo, bool bOutStruct)
 {
@@ -1979,8 +2457,8 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_BoundaryPlane_S& stInfo, bool
 
     SDKConvert::CSDKConvert convert(bOutStruct);
     convert.field(pRootJson, "Enable", stInfo.bEnable);
-    
-    // 处理FLOAT字段
+
+    /* 处理FLOAT字段 */
     if (bOutStruct)
     {
         double dVal = 0.0;
@@ -2008,13 +2486,21 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_BoundaryPlane_S& stInfo, bool
         Json::add(pRootJson, "EndPosX", (double)stInfo.fEndPosX);
         Json::add(pRootJson, "EndPosY", (double)stInfo.fEndPosY);
     }
-    
+
     convert.field(pRootJson, "CrossDirection", stInfo.enCrossDirection);
     convert.field(pRootJson, "Sensitivity", stInfo.nSensitivity);
     convert.field(pRootJson, "DetectionTargetCount", stInfo.uDetectionTargetCount);
     convert.field_array(pRootJson, "DetectionTarget", stInfo.auDetectionTarget,
                        stInfo.uDetectionTargetCount, 8);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_CrossLineAlarmInfo_S& stInfo, bool bOutStruct)
 {
@@ -2026,8 +2512,8 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_CrossLineAlarmInfo_S& stInfo,
     SDKConvert::CSDKConvert convert(bOutStruct);
     convert.field(pRootJson, "Enable", stInfo.bEnable);
     convert.field(pRootJson, "RuleCount", stInfo.uRuleCount);
-    
-    // 处理规则数组
+
+    /* 处理规则数组 */
     if (bOutStruct)
     {
         Json::Object* pRules = Json::get(pRootJson, "Rules");
@@ -2059,7 +2545,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_CrossLineAlarmInfo_S& stInfo,
         }
         Json::add(pRootJson, "Rules", pRules);
     }
-    
+
     convert.structure(pRootJson, "AlarmSchedule", stInfo.stAlarmSchedule);
     convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
 }
@@ -2076,8 +2562,8 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_IntrusionRule_S& stInfo, bool
     SDKConvert::CSDKConvert convert(bOutStruct);
     convert.field(pRootJson, "Enable", stInfo.bEnable);
     convert.field(pRootJson, "PointCount", stInfo.uPointCount);
-    
-    // 处理FLOAT数组 PointX
+
+    /* 处理FLOAT数组 PointX */
     if (bOutStruct)
     {
         Json::Object* pArray = Json::get(pRootJson, "PointX");
@@ -2107,8 +2593,8 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_IntrusionRule_S& stInfo, bool
         }
         Json::add(pRootJson, "PointX", pArray);
     }
-    
-    // 处理FLOAT数组 PointY
+
+    /* 处理FLOAT数组 PointY */
     if (bOutStruct)
     {
         Json::Object* pArray = Json::get(pRootJson, "PointY");
@@ -2138,13 +2624,21 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_IntrusionRule_S& stInfo, bool
         }
         Json::add(pRootJson, "PointY", pArray);
     }
-    
+
     convert.field(pRootJson, "TimeThreshold", stInfo.nTimeThreshold);
     convert.field(pRootJson, "Sensitivity", stInfo.nSensitivity);
     convert.field(pRootJson, "DetectionTargetCount", stInfo.uDetectionTargetCount);
     convert.field_array(pRootJson, "DetectionTarget", stInfo.auDetectionTarget,
                        stInfo.uDetectionTargetCount, 8);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_IntrusionAlarmInfo_S& stInfo, bool bOutStruct)
 {
@@ -2156,8 +2650,8 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_IntrusionAlarmInfo_S& stInfo,
     SDKConvert::CSDKConvert convert(bOutStruct);
     convert.field(pRootJson, "Enable", stInfo.bEnable);
     convert.field(pRootJson, "RuleCount", stInfo.uRuleCount);
-    
-    // 处理规则数组
+
+    /* 处理规则数组 */
     if (bOutStruct)
     {
         Json::Object* pRules = Json::get(pRootJson, "Rules");
@@ -2189,7 +2683,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_IntrusionAlarmInfo_S& stInfo,
         }
         Json::add(pRootJson, "Rules", pRules);
     }
-    
+
     convert.structure(pRootJson, "AlarmSchedule", stInfo.stAlarmSchedule);
     convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
 }
@@ -2206,8 +2700,8 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_LoiteringRule_S& stInfo, bool
     SDKConvert::CSDKConvert convert(bOutStruct);
     convert.field(pRootJson, "Enable", stInfo.bEnable);
     convert.field(pRootJson, "PointCount", stInfo.uPointCount);
-    
-    // 处理FLOAT数组 PointX
+
+    /* 处理FLOAT数组 PointX */
     if (bOutStruct)
     {
         Json::Object* pArray = Json::get(pRootJson, "PointX");
@@ -2237,8 +2731,8 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_LoiteringRule_S& stInfo, bool
         }
         Json::add(pRootJson, "PointX", pArray);
     }
-    
-    // 处理FLOAT数组 PointY
+
+    /* 处理FLOAT数组 PointY */
     if (bOutStruct)
     {
         Json::Object* pArray = Json::get(pRootJson, "PointY");
@@ -2268,13 +2762,21 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_LoiteringRule_S& stInfo, bool
         }
         Json::add(pRootJson, "PointY", pArray);
     }
-    
+
     convert.field(pRootJson, "TimeThreshold", stInfo.nTimeThreshold);
     convert.field(pRootJson, "Sensitivity", stInfo.nSensitivity);
     convert.field(pRootJson, "DetectionTargetCount", stInfo.uDetectionTargetCount);
     convert.field_array(pRootJson, "DetectionTarget", stInfo.auDetectionTarget,
                        stInfo.uDetectionTargetCount, 8);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_LoiteringAlarmInfo_S& stInfo, bool bOutStruct)
 {
@@ -2286,8 +2788,8 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_LoiteringAlarmInfo_S& stInfo,
     SDKConvert::CSDKConvert convert(bOutStruct);
     convert.field(pRootJson, "Enable", stInfo.bEnable);
     convert.field(pRootJson, "RuleCount", stInfo.uRuleCount);
-    
-    // 处理规则数组
+
+    /* 处理规则数组 */
     if (bOutStruct)
     {
         Json::Object* pRules = Json::get(pRootJson, "Rules");
@@ -2319,10 +2821,18 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_LoiteringAlarmInfo_S& stInfo,
         }
         Json::add(pRootJson, "Rules", pRules);
     }
-    
+
     convert.structure(pRootJson, "AlarmSchedule", stInfo.stAlarmSchedule);
     convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_SceneChangeAlarmInfo_S& stInfo, bool bOutStruct)
 {
@@ -2337,6 +2847,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_SceneChangeAlarmInfo_S& stInf
     convert.structure(pRootJson, "AlarmSchedule", stInfo.stAlarmSchedule);
     convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_CrowdGatheringRule_S& stInfo, bool bOutStruct)
 {
@@ -2362,6 +2880,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_CrowdGatheringRule_S& stInfo,
 
     convert.field(pRootJson, "ObjectOccup", stInfo.nObjectOccup);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_CrowdGatheringAlarmInfo_S& stInfo, bool bOutStruct)
 {
@@ -2409,6 +2935,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_CrowdGatheringAlarmInfo_S& st
     convert.structure(pRootJson, "AlarmSchedule", stInfo.stAlarmSchedule);
     convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_ParkingRule_S& stInfo, bool bOutStruct)
 {
@@ -2434,6 +2968,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_ParkingRule_S& stInfo, bool b
     convert.field(pRootJson, "Sensitivity", stInfo.nSensitivity);
     convert.field(pRootJson, "TimeThreshold", stInfo.nTimeThreshold);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_ParkingAlarmInfo_S& stInfo, bool bOutStruct)
 {
@@ -2481,6 +3023,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_ParkingAlarmInfo_S& stInfo, b
     convert.structure(pRootJson, "AlarmSchedule", stInfo.stAlarmSchedule);
     convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_UnattendedObjectRule_S& stInfo, bool bOutStruct)
 {
@@ -2506,6 +3056,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_UnattendedObjectRule_S& stInf
     convert.field(pRootJson, "Sensitivity", stInfo.nSensitivity);
     convert.field(pRootJson, "TimeThreshold", stInfo.nTimeThreshold);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_UnattendedObjectAlarmInfo_S& stInfo, bool bOutStruct)
 {
@@ -2553,6 +3111,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_UnattendedObjectAlarmInfo_S& 
     convert.structure(pRootJson, "AlarmSchedule", stInfo.stAlarmSchedule);
     convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_ObjectRemovalRule_S& stInfo, bool bOutStruct)
 {
@@ -2578,6 +3144,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_ObjectRemovalRule_S& stInfo, 
     convert.field(pRootJson, "Sensitivity", stInfo.nSensitivity);
     convert.field(pRootJson, "TimeThreshold", stInfo.nTimeThreshold);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_ObjectRemovalAlarmInfo_S& stInfo, bool bOutStruct)
 {
@@ -2649,6 +3223,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_GarbageExposureRule_S& stInfo
         FloatArrayToJson(pRootJson, "PointY", stInfo.afPointY, stInfo.uPointCount, 32);
     }
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_GarbageExposureCfg_S& stInfo, bool bOutStruct)
 {
@@ -2687,6 +3269,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_GarbageOverflowRule_S& stInfo
         FloatArrayToJson(pRootJson, "PointY", stInfo.afPointY, stInfo.uPointCount, 32);
     }
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_GarbageOverflowCfg_S& stInfo, bool bOutStruct)
 {
@@ -2714,6 +3304,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_AiSimpleRule_S& stInfo, bool 
     SDKConvert::CSDKConvert convert(bOutStruct);
     convert.field(pRootJson, "Sensitivity", stInfo.nSensitivity);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_ManholeCoverAbnormalCfg_S& stInfo, bool bOutStruct)
 {
@@ -2728,6 +3326,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_ManholeCoverAbnormalCfg_S& st
     convert.structure(pRootJson, "AlarmSchedule", stInfo.stAlarmSchedule);
     convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_SleepOnDutyCfg_S& stInfo, bool bOutStruct)
 {
@@ -2742,6 +3348,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_SleepOnDutyCfg_S& stInfo, boo
     convert.structure(pRootJson, "AlarmSchedule", stInfo.stAlarmSchedule);
     convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_ElectricVehicleInElevatorCfg_S& stInfo, bool bOutStruct)
 {
@@ -2756,6 +3370,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_ElectricVehicleInElevatorCfg_
     convert.structure(pRootJson, "AlarmSchedule", stInfo.stAlarmSchedule);
     convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_PersonFallDownCfg_S& stInfo, bool bOutStruct)
 {
@@ -2770,6 +3392,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_PersonFallDownCfg_S& stInfo, 
     convert.structure(pRootJson, "AlarmSchedule", stInfo.stAlarmSchedule);
     convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_ConstructionOccupyRoadCfg_S& stInfo, bool bOutStruct)
 {
@@ -2784,6 +3414,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_ConstructionOccupyRoadCfg_S& 
     convert.structure(pRootJson, "AlarmSchedule", stInfo.stAlarmSchedule);
     convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_CongestionCfg_S& stInfo, bool bOutStruct)
 {
@@ -2798,6 +3436,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_CongestionCfg_S& stInfo, bool
     convert.structure(pRootJson, "AlarmSchedule", stInfo.stAlarmSchedule);
     convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_LicensePlateRecognitionCfg_S& stInfo, bool bOutStruct)
 {
@@ -2812,6 +3458,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_LicensePlateRecognitionCfg_S&
     convert.structure(pRootJson, "AlarmSchedule", stInfo.stAlarmSchedule);
     convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_HighAltitudeSeatbeltCfg_S& stInfo, bool bOutStruct)
 {
@@ -2826,6 +3480,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_HighAltitudeSeatbeltCfg_S& st
     convert.structure(pRootJson, "AlarmSchedule", stInfo.stAlarmSchedule);
     convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_SafetyHelmetCfg_S& stInfo, bool bOutStruct)
 {
@@ -2840,6 +3502,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_SafetyHelmetCfg_S& stInfo, bo
     convert.structure(pRootJson, "AlarmSchedule", stInfo.stAlarmSchedule);
     convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_PersonFallCfg_S& stInfo, bool bOutStruct)
 {
@@ -2854,6 +3524,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_PersonFallCfg_S& stInfo, bool
     convert.structure(pRootJson, "AlarmSchedule", stInfo.stAlarmSchedule);
     convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_PhoneUsageCfg_S& stInfo, bool bOutStruct)
 {
@@ -2868,6 +3546,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_PhoneUsageCfg_S& stInfo, bool
     convert.structure(pRootJson, "AlarmSchedule", stInfo.stAlarmSchedule);
     convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_SmokingCfg_S& stInfo, bool bOutStruct)
 {
@@ -2882,6 +3568,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_SmokingCfg_S& stInfo, bool bO
     convert.structure(pRootJson, "AlarmSchedule", stInfo.stAlarmSchedule);
     convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_OpenFlameCfg_S& stInfo, bool bOutStruct)
 {
@@ -2896,6 +3590,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_OpenFlameCfg_S& stInfo, bool 
     convert.structure(pRootJson, "AlarmSchedule", stInfo.stAlarmSchedule);
     convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_BareSoilCfg_S& stInfo, bool bOutStruct)
 {
@@ -2910,6 +3612,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_BareSoilCfg_S& stInfo, bool b
     convert.structure(pRootJson, "AlarmSchedule", stInfo.stAlarmSchedule);
     convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_HoleProtectionBarCfg_S& stInfo, bool bOutStruct)
 {
@@ -2924,6 +3634,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_HoleProtectionBarCfg_S& stInf
     convert.structure(pRootJson, "AlarmSchedule", stInfo.stAlarmSchedule);
     convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_ReflectiveClothingCfg_S& stInfo, bool bOutStruct)
 {
@@ -2959,6 +3677,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_SmartRegion_S& stInfo, bool b
         FloatArrayToJson(pRootJson, "PointY", stInfo.afPointY, stInfo.uPointCount, 32);
     }
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_SmartRegionRule_S& stInfo, bool bOutStruct)
 {
@@ -2985,6 +3711,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_SmartRegionRule_S& stInfo, bo
     convert.field(pRootJson, "DetectionTargetCount", stInfo.uDetectionTargetCount);
     convert.field_array(pRootJson, "DetectionTarget", stInfo.auDetectionTarget, stInfo.uDetectionTargetCount, 8);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_SmartLineRule_S& stInfo, bool bOutStruct)
 {
@@ -3025,6 +3759,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_SmartLineRule_S& stInfo, bool
     convert.field(pRootJson, "CrossDirection", stInfo.enCrossDirection);
     convert.field(pRootJson, "Sensitivity", stInfo.nSensitivity);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_PetRecognitionInfo_S& stInfo, bool bOutStruct)
 {
@@ -3041,6 +3783,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_PetRecognitionInfo_S& stInfo,
     convert.structure(pRootJson, "AlarmSchedule", stInfo.stAlarmSchedule);
     convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_ClimbFenceInfo_S& stInfo, bool bOutStruct)
 {
@@ -3086,6 +3836,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_ClimbFenceInfo_S& stInfo, boo
     convert.structure(pRootJson, "AlarmSchedule", stInfo.stAlarmSchedule);
     convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_DimissionInfo_S& stInfo, bool bOutStruct)
 {
@@ -3131,6 +3889,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_DimissionInfo_S& stInfo, bool
     convert.structure(pRootJson, "AlarmSchedule", stInfo.stAlarmSchedule);
     convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_IllegalLaneInfo_S& stInfo, bool bOutStruct)
 {
@@ -3176,6 +3942,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_IllegalLaneInfo_S& stInfo, bo
     convert.structure(pRootJson, "AlarmSchedule", stInfo.stAlarmSchedule);
     convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_RetrogradeInfo_S& stInfo, bool bOutStruct)
 {
@@ -3221,6 +3995,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_RetrogradeInfo_S& stInfo, boo
     convert.structure(pRootJson, "AlarmSchedule", stInfo.stAlarmSchedule);
     convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_NonmotorVehicleIntrusionInfo_S& stInfo, bool bOutStruct)
 {
@@ -3266,6 +4048,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_NonmotorVehicleIntrusionInfo_
     convert.structure(pRootJson, "AlarmSchedule", stInfo.stAlarmSchedule);
     convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_OccupationEmergencyInfo_S& stInfo, bool bOutStruct)
 {
@@ -3311,6 +4101,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_OccupationEmergencyInfo_S& st
     convert.structure(pRootJson, "AlarmSchedule", stInfo.stAlarmSchedule);
     convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_PedestrianIntrusionInfo_S& stInfo, bool bOutStruct)
 {
@@ -3356,6 +4154,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_PedestrianIntrusionInfo_S& st
     convert.structure(pRootJson, "AlarmSchedule", stInfo.stAlarmSchedule);
     convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_SmokeFireCfg_S& stInfo, bool bOutStruct)
 {
@@ -3370,6 +4176,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_SmokeFireCfg_S& stInfo, bool 
     convert.structure(pRootJson, "AlarmSchedule", stInfo.stAlarmSchedule);
     convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_RoadPondingCfg_S& stInfo, bool bOutStruct)
 {
@@ -3416,9 +4230,17 @@ void SDKConvert::deal(Json::Object*& pRootJson, tagNET_UpgradeInfo* stInfo, bool
     SDKConvert::CSDKConvert convert(bOutStruct);
     convert.field(pRootJson, "UpgradePath",            stInfo->szUpgradePath);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_UpgradeInfo_S& stInfo, bool bOutStruct)
-{   
+{
     if (!pRootJson)
     {
         return;
@@ -3426,6 +4248,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_UpgradeInfo_S& stInfo, bool b
     SDKConvert::CSDKConvert convert(bOutStruct);
     convert.field(pRootJson, "UpgradePath",            stInfo.szUpgradePath);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_UpgradeStatus_S& stInfo, bool bOutStruct)
 {
@@ -3436,6 +4266,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_UpgradeStatus_S& stInfo, bool
     SDKConvert::CSDKConvert convert(bOutStruct);
     convert.field(pRootJson, "UpgradeStatus",            stInfo.nUpgradeStatus);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_UpgradeVersion_S& stInfo, bool bOutStruct)
 {
@@ -3458,6 +4296,14 @@ void SDKConvert::deal(Json::Object *pRootJson, NET_CaptureTime_S &stInfo, bool b
     convert.field(pRootJson, "StartTime", stInfo.nStartTime);
     convert.field(pRootJson, "EndTime", stInfo.nEndTime);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object *pRootJson, NET_CaptureDaySchedule_S &stInfo, bool bOutStruct)
 {
@@ -3507,6 +4353,14 @@ void SDKConvert::deal(Json::Object *pRootJson, NET_CaptureDaySchedule_S &stInfo,
         Json::add(pRootJson, "Times", pTimes);
     }
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object *pRootJson, NET_CapturePlanInfo_S &stInfo, bool bOutStruct)
 {
@@ -3548,6 +4402,14 @@ void SDKConvert::deal(Json::Object *pRootJson, NET_CapturePlanInfo_S &stInfo, bo
         Json::add(pRootJson, "DaySchedules", pDays);
     }
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object *pRootJson, NET_CaptureConfig_S &stInfo, bool bOutStruct)
 {
@@ -3566,6 +4428,14 @@ void SDKConvert::deal(Json::Object *pRootJson, NET_CaptureConfig_S &stInfo, bool
     convert.field(pRootJson, "TimeUnit", stInfo.enTimeUnit);
     convert.field(pRootJson, "Number", stInfo.unNumber);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object *pRootJson, NET_CaptureParamInfo_S &stInfo, bool bOutStruct)
 {
@@ -3598,6 +4468,14 @@ void SDKConvert::deal(Json::Object *pRootJson, NET_CaptureParamInfo_S &stInfo, b
         }
     }
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object *pRootJson, NET_ExposureInfo_S &stInfo, bool bOutStruct)
 {
@@ -3610,6 +4488,14 @@ void SDKConvert::deal(Json::Object *pRootJson, NET_ExposureInfo_S &stInfo, bool 
     convert.field(pRootJson, "ExpTime", stInfo.enExpTime);
     convert.field(pRootJson, "AntiBanding", stInfo.bAntiBanding);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object *pRootJson, NET_DayNightInfo_S &stInfo, bool bOutStruct)
 {
@@ -3638,6 +4524,14 @@ void SDKConvert::deal(Json::Object *pRootJson, NET_DayNightInfo_S &stInfo, bool 
     convert.field(pRootJson, "RedLightEnable", stInfo.bRedLightEnable);
     convert.field(pRootJson, "RedLightLevel", stInfo.nRedLightLevel);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object *pRootJson, NET_BackLightInfo_S &stInfo, bool bOutStruct)
 {
@@ -3652,8 +4546,16 @@ void SDKConvert::deal(Json::Object *pRootJson, NET_BackLightInfo_S &stInfo, bool
     convert.field(pRootJson, "WdrLevel", stInfo.nWdrLevel);
     convert.field(pRootJson, "HlsEnable", stInfo.bHlsEnable);
     convert.field(pRootJson, "HlsLevel", stInfo.nHlsLevel);
-    printf("\n Test \n");
+    printf("\n CTest \n");
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object *pRootJson, NET_DenoiseInfo_S &stInfo, bool bOutStruct)
 {
@@ -3668,6 +4570,14 @@ void SDKConvert::deal(Json::Object *pRootJson, NET_DenoiseInfo_S &stInfo, bool b
     convert.field(pRootJson, "SnrLevel", stInfo.nSnrLevel);
     convert.field(pRootJson, "TnrLevel", stInfo.nTnrLevel);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object *pRootJson, NET_WhiteBalanceInfo_S &stInfo, bool bOutStruct)
 {
@@ -3681,6 +4591,14 @@ void SDKConvert::deal(Json::Object *pRootJson, NET_WhiteBalanceInfo_S &stInfo, b
     convert.field(pRootJson, "RGain", stInfo.nRGain);
     convert.field(pRootJson, "BGain", stInfo.nBGain);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_TalkbackStateInfo_S& stInfo, bool bOutStruct)
 {
@@ -3695,6 +4613,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TalkbackStateInfo_S& stInfo, 
     convert.field(pRootJson, "Url", stInfo.szUrl);
     convert.field(pRootJson, "LocalIp", stInfo.szLocalIP);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_TalkbackStreamInfo_S& stInfo, bool bOutStruct)
 {
@@ -3714,6 +4640,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_TalkbackStreamInfo_S& stInfo,
     convert.field(pRootJson, "EndTime", stInfo.szEndTime);
     convert.field(pRootJson, "Filename", stInfo.szFileName);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_ReplayTalkbackInfo_S& stInfo, bool bOutStruct)
 {
@@ -3727,6 +4661,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_ReplayTalkbackInfo_S& stInfo,
     convert.field(pRootJson, "RemoteIp", stInfo.szRemoteIp);
     convert.structure(pRootJson, "IpcInfo", stInfo.stIPCInfo);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_VoiceComAudioCfg_S& stInfo, bool bOutStruct)
 {
@@ -3745,6 +4687,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_VoiceComAudioCfg_S& stInfo, b
     convert.field(pRootJson, "BitRate", stInfo.uBitRate);
     convert.field(pRootJson, "LittleEndian", stInfo.bLittleEndian);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_AudioCfg_S& stInfo, bool bOutStruct)
 {
@@ -3764,6 +4714,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_AudioCfg_S& stInfo, bool bOut
     convert.field(pRootJson, "OutputType", stInfo.enOutputType);
     convert.field(pRootJson, "OutputVolume", stInfo.u32OutputVolume);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_EnterRegionAlarmInfo_S& stInfo, bool bOutStruct)
 {
@@ -3811,6 +4769,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_EnterRegionAlarmInfo_S& stInf
     convert.structure(pRootJson, "AlarmSchedule", stInfo.stAlarmSchedule);
     convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_LeaveRegionAlarmInfo_S& stInfo, bool bOutStruct)
 {
@@ -3858,6 +4824,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_LeaveRegionAlarmInfo_S& stInf
     convert.structure(pRootJson, "AlarmSchedule", stInfo.stAlarmSchedule);
     convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_FaceCaptureRegion_S& stInfo, bool bOutStruct)
 {
@@ -3880,6 +4854,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_FaceCaptureRegion_S& stInfo, 
         FloatArrayToJson(pRootJson, "PointY", stInfo.afPointY, stInfo.uPointCount, 32);
     }
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_FaceCaptureRule_S& stInfo, bool bOutStruct)
 {
@@ -3935,6 +4917,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_FaceCaptureRule_S& stInfo, bo
     convert.field(pRootJson, "MaxHeight", stInfo.nMaxHeight);
     convert.field(pRootJson, "Interval", stInfo.nInterval);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_FaceCaptureInfo_S& stInfo, bool bOutStruct)
 {
@@ -3949,6 +4939,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_FaceCaptureInfo_S& stInfo, bo
     convert.structure(pRootJson, "AlarmSchedule", stInfo.stAlarmSchedule);
     convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_FaceCompareInfo_S& stInfo, bool bOutStruct)
 {
@@ -3963,6 +4961,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_FaceCompareInfo_S& stInfo, bo
     convert.structure(pRootJson, "LinkageSuccessMode", stInfo.stLinkageListSuccess);
     convert.structure(pRootJson, "LinkageFailMode", stInfo.stLinkageListFail);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_FaceLibInfo_S& stInfo, bool bOutStruct)
 {
@@ -3977,6 +4983,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_FaceLibInfo_S& stInfo, bool b
     convert.field(pRootJson, "NormalNum", stInfo.nNormalNum);
     convert.field(pRootJson, "AbnormalNum", stInfo.nAbnormalNum);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_FaceLibList_S& stInfo, bool bOutStruct)
 {
@@ -4022,6 +5036,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_FaceLibList_S& stInfo, bool b
         Json::add(pRootJson, "TargetLibInfos", pArray);
     }
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_FaceIdInfo_S& stInfo, bool bOutStruct)
 {
@@ -4069,6 +5091,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_FaceIdInfo_S& stInfo, bool bO
         Json::add(pRootJson, "Ids", pArray);
     }
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_FaceInfo_S& stInfo, bool bOutStruct)
 {
@@ -4090,6 +5120,14 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_FaceInfo_S& stInfo, bool bOut
     convert.field(pRootJson, "ModelState", stInfo.nModelState);
     convert.field(pRootJson, "RatingLevel", stInfo.nRatingLevel);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 deal 定义的内部处理。
+ * @param [in,out] pRootJson 函数处理参数。
+ * @param [in,out] stInfo 函数处理参数。
+ * @param [in] bOutStruct 函数处理参数。
+ * @return 无返回值。
+ */
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_FaceInfoList_S& stInfo, bool bOutStruct)
 {

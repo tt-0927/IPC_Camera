@@ -1,3 +1,16 @@
+/**
+ * @file RecordFrameServer.cpp
+ * @author tianl (tianl@kfb.cn)
+ * @date 2026-07-28
+ * @LastEditors  : qinjt@kfb.cn
+ * @LastEditTime : 2026-07-28
+ *
+ * @brief CRecordFrameServer 模块实现
+ * 功能说明：
+ * 1. 实现 CRecordFrameServer 模块核心逻辑
+ * 2. 校验输入参数并管理模块资源生命周期
+ * 3. 向上层提供可复用的 SDK 能力
+ */
 #include "RecordFrameServer.h"
 
 #include <chrono>
@@ -10,8 +23,16 @@
 
 namespace tvsdk {
 namespace {
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 send_all 对应的处理。
+ * @param [in] fd 函数处理参数。
+ * @param [in] data 函数处理参数。
+ * @param [in] size 函数处理参数。
+ * @return 返回该处理的状态或结果。
+ */
 
-bool send_all(socket_fd_t fd, const char* data, size_t size) {
+static bool send_all(socket_fd_t fd, const char* data, size_t size) {
 #ifdef _WIN32
     int send_flags = 0;
 #else
@@ -28,121 +49,167 @@ bool send_all(socket_fd_t fd, const char* data, size_t size) {
     }
     return true;
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 to_be16 定义的内部处理。
+ * @param [in] value 函数处理参数。
+ * @return 返回该处理的状态或结果。
+ */
 
-uint16_t to_be16(uint16_t value) {
+static uint16_t to_be16(uint16_t value) {
     return htons(value);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 to_be32 定义的内部处理。
+ * @param [in] value 函数处理参数。
+ * @return 返回该处理的状态或结果。
+ */
 
-uint32_t to_be32(uint32_t value) {
+static uint32_t to_be32(uint32_t value) {
     return htonl(value);
 }
 
-} // namespace
+} /* namespace */
 
-RecordFrameServer* RecordFrameServer::instance() {
-    static RecordFrameServer s_instance;
+CRecordFrameServer* CRecordFrameServer::instance() {
+    static CRecordFrameServer s_instance;
     return &s_instance;
 }
 
-RecordFrameServer::RecordFrameServer() = default;
+CRecordFrameServer::CRecordFrameServer() = default;
 
-RecordFrameServer::~RecordFrameServer() { stop(); }
+CRecordFrameServer::~CRecordFrameServer() { stop(); }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 start 对应的处理。
+ * @param [in] port 函数处理参数。
+ * @return 返回该处理的状态或结果。
+ */
 
-bool RecordFrameServer::start(int port) {
-    if (m_running) {
+bool CRecordFrameServer::start(int port) {
+    if (m_bRunning) {
         return true;
     }
 
     if (port <= 0 || port > 65535) {
-        NSDK_LOG_ERROR("RecordFrameServer: invalid port %d", port);
+        NETSDK_LOG_MESSAGE_ERROR("CRecordFrameServer: invalid port %d", port);
         return false;
     }
 
-    m_listen_fd = socket(AF_INET, SOCK_STREAM, 0);
-    if (m_listen_fd == INVALID_SOCKET_FD) {
-        NSDK_LOG_ERROR("RecordFrameServer: socket failed, errno=%d", socket_errno());
+    m_nListenFd = socket(AF_INET, SOCK_STREAM, 0);
+    if (m_nListenFd == INVALID_SOCKET_FD) {
+        NETSDK_LOG_MESSAGE_ERROR("CRecordFrameServer: socket failed, errno=%d", NETSDK_SOCKET_GET_ERROR());
         return false;
     }
 
     int opt = 1;
-    setsockopt(m_listen_fd, SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<const char*>(&opt), sizeof(opt));
+    setsockopt(m_nListenFd, SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<const char*>(&opt), sizeof(opt));
 
     sockaddr_in addr{};
     addr.sin_family = AF_INET;
     addr.sin_addr.s_addr = INADDR_ANY;
     addr.sin_port = htons(static_cast<uint16_t>(port));
 
-    if (bind(m_listen_fd, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) != 0) {
-        NSDK_LOG_ERROR("RecordFrameServer: bind port %d failed, errno=%d", port, socket_errno());
-        socket_close(m_listen_fd);
-        m_listen_fd = INVALID_SOCKET_FD;
+    if (bind(m_nListenFd, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) != 0) {
+        NETSDK_LOG_MESSAGE_ERROR("CRecordFrameServer: bind port %d failed, errno=%d", port, NETSDK_SOCKET_GET_ERROR());
+        NETSDK_SOCKET_CLOSE(m_nListenFd);
+        m_nListenFd = INVALID_SOCKET_FD;
         return false;
     }
 
-    if (listen(m_listen_fd, 1) != 0) {
-        NSDK_LOG_ERROR("RecordFrameServer: listen failed, errno=%d", socket_errno());
-        socket_close(m_listen_fd);
-        m_listen_fd = INVALID_SOCKET_FD;
+    if (listen(m_nListenFd, 1) != 0) {
+        NETSDK_LOG_MESSAGE_ERROR("CRecordFrameServer: listen failed, errno=%d", NETSDK_SOCKET_GET_ERROR());
+        NETSDK_SOCKET_CLOSE(m_nListenFd);
+        m_nListenFd = INVALID_SOCKET_FD;
         return false;
     }
 
-    m_port = port;
-    m_running = true;
-    m_accept_thread = std::thread(&RecordFrameServer::accept_loop, this);
+    m_nPort = port;
+    m_bRunning = true;
+    m_stAcceptThread = std::thread(&CRecordFrameServer::accept_loop, this);
 
-    NSDK_LOG_INFO("RecordFrameServer: listening on port %d", port);
+    NETSDK_LOG_MESSAGE_INFO("CRecordFrameServer: listening on port %d", port);
     return true;
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 stop 对应的处理。
+ * @return 无返回值。
+ */
 
-void RecordFrameServer::stop() {
-    m_running = false;
+void CRecordFrameServer::stop() {
+    m_bRunning = false;
 
-    if (m_listen_fd != INVALID_SOCKET_FD) {
-        shutdown(m_listen_fd, SHUT_RDWR);
-        socket_close(m_listen_fd);
-        m_listen_fd = INVALID_SOCKET_FD;
+    if (m_nListenFd != INVALID_SOCKET_FD) {
+        shutdown(m_nListenFd, SHUT_RDWR);
+        NETSDK_SOCKET_CLOSE(m_nListenFd);
+        m_nListenFd = INVALID_SOCKET_FD;
     }
 
     {
-        std::lock_guard<std::mutex> lock(m_client_mutex);
-        if (m_client_fd != INVALID_SOCKET_FD) {
-            shutdown(m_client_fd, SHUT_RDWR);
-            socket_close(m_client_fd);
-            m_client_fd = INVALID_SOCKET_FD;
+        std::lock_guard<std::mutex> lock(m_stClientMutex);
+        if (m_nClientFd != INVALID_SOCKET_FD) {
+            shutdown(m_nClientFd, SHUT_RDWR);
+            NETSDK_SOCKET_CLOSE(m_nClientFd);
+            m_nClientFd = INVALID_SOCKET_FD;
         }
     }
 
-    if (m_accept_thread.joinable()) {
-        m_accept_thread.join();
+    if (m_stAcceptThread.joinable()) {
+        m_stAcceptThread.join();
     }
-    if (m_client_thread.joinable()) {
-        m_client_thread.join();
+    if (m_stClientThread.joinable()) {
+        m_stClientThread.join();
     }
 
-    NSDK_LOG_INFO("RecordFrameServer: stopped");
+    NETSDK_LOG_MESSAGE_INFO("CRecordFrameServer: stopped");
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 set_start_callback 对应的处理。
+ * @param [in] cb 函数处理参数。
+ * @return 无返回值。
+ */
 
-void RecordFrameServer::set_start_callback(RecordFrameStartCallback cb) {
-    std::lock_guard<std::mutex> lock(m_callback_mutex);
-    m_start_cb = std::move(cb);
+void CRecordFrameServer::set_start_callback(RecordFrameStartCallback cb) {
+    std::lock_guard<std::mutex> lock(m_stCallbackMutex);
+    m_fnStartCallback = std::move(cb);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 set_read_callback 对应的处理。
+ * @param [in] cb 函数处理参数。
+ * @return 无返回值。
+ */
 
-void RecordFrameServer::set_read_callback(RecordFrameReadCallback cb) {
-    std::lock_guard<std::mutex> lock(m_callback_mutex);
-    m_read_cb = std::move(cb);
+void CRecordFrameServer::set_read_callback(RecordFrameReadCallback cb) {
+    std::lock_guard<std::mutex> lock(m_stCallbackMutex);
+    m_fnReadCallback = std::move(cb);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 set_stop_callback 对应的处理。
+ * @param [in] cb 函数处理参数。
+ * @return 无返回值。
+ */
 
-void RecordFrameServer::set_stop_callback(RecordFrameStopCallback cb) {
-    std::lock_guard<std::mutex> lock(m_callback_mutex);
-    m_stop_cb = std::move(cb);
+void CRecordFrameServer::set_stop_callback(RecordFrameStopCallback cb) {
+    std::lock_guard<std::mutex> lock(m_stCallbackMutex);
+    m_fnStopCallback = std::move(cb);
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 open_stream 定义的内部处理。
+ * @return 返回该处理的状态或结果。
+ */
 
-NET_TV_COMMON_ECODE_E RecordFrameServer::open_stream(const NET_TV_RECORD_FRAME_STREAM_COND_S& cond,
+NET_TV_COMMON_ECODE_E CRecordFrameServer::open_stream(const NET_TV_RECORD_FRAME_STREAM_COND_S& cond,
                                                      NET_TV_RECORD_FRAME_STREAM_INFO_S& info) {
     RecordFrameStartCallback cb;
     {
-        std::lock_guard<std::mutex> lock(m_callback_mutex);
-        cb = m_start_cb;
+        std::lock_guard<std::mutex> lock(m_stCallbackMutex);
+        cb = m_fnStartCallback;
     }
     if (!cb) {
         return NET_TV_E_NOT_SUPPORT;
@@ -156,7 +223,7 @@ NET_TV_COMMON_ECODE_E RecordFrameServer::open_stream(const NET_TV_RECORD_FRAME_S
     }
 
     if (info.dwTcpPort == 0) {
-        info.dwTcpPort = static_cast<UINT32>(m_port);
+        info.dwTcpPort = static_cast<UINT32>(m_nPort);
     }
     if (info.dwMediaType == 0) {
         info.dwMediaType = NET_TV_RECORD_FRAME_MEDIA_VIDEO;
@@ -171,30 +238,36 @@ NET_TV_COMMON_ECODE_E RecordFrameServer::open_stream(const NET_TV_RECORD_FRAME_S
     }
 
     {
-        std::lock_guard<std::mutex> lock(m_stream_mutex);
-        m_stream_id = info.szStreamId;
-        ++m_ssrc;
-        if (m_ssrc == 0) {
-            m_ssrc = 1;
+        std::lock_guard<std::mutex> lock(m_stStreamMutex);
+        m_strStreamId = info.szStreamId;
+        ++m_uSsrc;
+        if (m_uSsrc == 0) {
+            m_uSsrc = 1;
         }
     }
 
-    if (!m_running && !start(static_cast<int>(info.dwTcpPort))) {
+    if (!m_bRunning && !start(static_cast<int>(info.dwTcpPort))) {
         return NET_TV_E_SYSCALL_FALIED;
     }
 
     return NET_TV_E_SUCCEED;
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 close_stream 定义的内部处理。
+ * @param [in] stream_id 函数处理参数。
+ * @return 返回该处理的状态或结果。
+ */
 
-NET_TV_COMMON_ECODE_E RecordFrameServer::close_stream(const std::string& stream_id) {
+NET_TV_COMMON_ECODE_E CRecordFrameServer::close_stream(const std::string& stream_id) {
     if (stream_id.empty()) {
         return NET_TV_E_INVALID_PARAM;
     }
 
     RecordFrameStopCallback cb;
     {
-        std::lock_guard<std::mutex> lock(m_callback_mutex);
-        cb = m_stop_cb;
+        std::lock_guard<std::mutex> lock(m_stCallbackMutex);
+        cb = m_fnStopCallback;
     }
 
     NET_TV_COMMON_ECODE_E code = NET_TV_E_SUCCEED;
@@ -203,57 +276,73 @@ NET_TV_COMMON_ECODE_E RecordFrameServer::close_stream(const std::string& stream_
     }
 
     {
-        std::lock_guard<std::mutex> lock(m_stream_mutex);
-        if (m_stream_id == stream_id) {
-            m_stream_id.clear();
+        std::lock_guard<std::mutex> lock(m_stStreamMutex);
+        if (m_strStreamId == stream_id) {
+            m_strStreamId.clear();
         }
     }
 
     return code;
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 current_stream_id 定义的内部处理。
+ * @return 返回该处理的状态或结果。
+ */
 
-std::string RecordFrameServer::current_stream_id() const {
-    std::lock_guard<std::mutex> lock(m_stream_mutex);
-    return m_stream_id;
+std::string CRecordFrameServer::current_stream_id() const {
+    std::lock_guard<std::mutex> lock(m_stStreamMutex);
+    return m_strStreamId;
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 accept_loop 定义的内部处理。
+ * @return 无返回值。
+ */
 
-void RecordFrameServer::accept_loop() {
-    while (m_running) {
+void CRecordFrameServer::accept_loop() {
+    while (m_bRunning) {
         sockaddr_in cli_addr{};
         socklen_t cli_len = sizeof(cli_addr);
-        socket_fd_t fd = accept(m_listen_fd, reinterpret_cast<sockaddr*>(&cli_addr), &cli_len);
+        socket_fd_t fd = accept(m_nListenFd, reinterpret_cast<sockaddr*>(&cli_addr), &cli_len);
         if (fd == INVALID_SOCKET_FD) {
-            if (m_running) {
-                NSDK_LOG_WARN("RecordFrameServer: accept failed, errno=%d", socket_errno());
+            if (m_bRunning) {
+                NETSDK_LOG_MESSAGE_WARN("CRecordFrameServer: accept failed, errno=%d", NETSDK_SOCKET_GET_ERROR());
             }
             continue;
         }
 
         int tcp_no_delay = 1;
         if (setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, reinterpret_cast<const char*>(&tcp_no_delay), sizeof(tcp_no_delay)) != 0) {
-            NSDK_LOG_WARN("RecordFrameServer: set TCP_NODELAY failed, errno=%d", socket_errno());
+            NETSDK_LOG_MESSAGE_WARN("CRecordFrameServer: set TCP_NODELAY failed, errno=%d", NETSDK_SOCKET_GET_ERROR());
         }
 
         {
-            std::lock_guard<std::mutex> lock(m_client_mutex);
-            if (m_client_fd != INVALID_SOCKET_FD) {
-                shutdown(m_client_fd, SHUT_RDWR);
-                socket_close(m_client_fd);
+            std::lock_guard<std::mutex> lock(m_stClientMutex);
+            if (m_nClientFd != INVALID_SOCKET_FD) {
+                shutdown(m_nClientFd, SHUT_RDWR);
+                NETSDK_SOCKET_CLOSE(m_nClientFd);
             }
-            m_client_fd = fd;
+            m_nClientFd = fd;
         }
 
-        if (m_client_thread.joinable()) {
-            m_client_thread.join();
+        if (m_stClientThread.joinable()) {
+            m_stClientThread.join();
         }
-        m_client_thread = std::thread(&RecordFrameServer::client_send_loop, this, fd);
+        m_stClientThread = std::thread(&CRecordFrameServer::client_send_loop, this, fd);
     }
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 client_send_loop 定义的内部处理。
+ * @param [in] client_fd 函数处理参数。
+ * @return 无返回值。
+ */
 
-void RecordFrameServer::client_send_loop(socket_fd_t client_fd) {
+void CRecordFrameServer::client_send_loop(socket_fd_t client_fd) {
     std::vector<char> buffer(NET_TV_RECORD_FRAME_MAX_PAYLOAD_SIZE);
 
-    while (m_running) {
+    while (m_bRunning) {
         const std::string stream_id = current_stream_id();
         if (stream_id.empty()) {
             std::this_thread::sleep_for(std::chrono::milliseconds(20));
@@ -262,11 +351,11 @@ void RecordFrameServer::client_send_loop(socket_fd_t client_fd) {
 
         RecordFrameReadCallback cb;
         {
-            std::lock_guard<std::mutex> lock(m_callback_mutex);
-            cb = m_read_cb;
+            std::lock_guard<std::mutex> lock(m_stCallbackMutex);
+            cb = m_fnReadCallback;
         }
         if (!cb) {
-            NSDK_LOG_WARN("RecordFrameServer: read callback is not registered");
+            NETSDK_LOG_MESSAGE_WARN("CRecordFrameServer: read callback is not registered");
             break;
         }
 
@@ -274,7 +363,7 @@ void RecordFrameServer::client_send_loop(socket_fd_t client_fd) {
         frame_info.dwSize = sizeof(frame_info);
         const int read_len = cb(stream_id, frame_info, buffer.data(), buffer.size());
         if (read_len < 0) {
-            NSDK_LOG_WARN("RecordFrameServer: read callback returned %d", read_len);
+            NETSDK_LOG_MESSAGE_WARN("CRecordFrameServer: read callback returned %d", read_len);
             break;
         }
         if (read_len == 0) {
@@ -284,7 +373,7 @@ void RecordFrameServer::client_send_loop(socket_fd_t client_fd) {
 
         frame_info.dwPayloadLen = static_cast<UINT32>(read_len);
         if (!send_packet(client_fd, frame_info, buffer.data())) {
-            NSDK_LOG_WARN("RecordFrameServer: send packet failed, errno=%d", socket_errno());
+            NETSDK_LOG_MESSAGE_WARN("CRecordFrameServer: send packet failed, errno=%d", NETSDK_SOCKET_GET_ERROR());
             break;
         }
 
@@ -296,16 +385,21 @@ void RecordFrameServer::client_send_loop(socket_fd_t client_fd) {
     }
 
     {
-        std::lock_guard<std::mutex> lock(m_client_mutex);
-        if (m_client_fd == client_fd) {
-            shutdown(m_client_fd, SHUT_RDWR);
-            socket_close(m_client_fd);
-            m_client_fd = INVALID_SOCKET_FD;
+        std::lock_guard<std::mutex> lock(m_stClientMutex);
+        if (m_nClientFd == client_fd) {
+            shutdown(m_nClientFd, SHUT_RDWR);
+            NETSDK_SOCKET_CLOSE(m_nClientFd);
+            m_nClientFd = INVALID_SOCKET_FD;
         }
     }
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 send_packet 对应的处理。
+ * @return 返回该处理的状态或结果。
+ */
 
-bool RecordFrameServer::send_packet(socket_fd_t fd,
+bool CRecordFrameServer::send_packet(socket_fd_t fd,
                                     const NET_TV_RECORD_FRAME_INFO_S& frame_info,
                                     const char* payload) {
     if (fd == INVALID_SOCKET_FD || frame_info.dwPayloadLen > NET_TV_RECORD_FRAME_MAX_PAYLOAD_SIZE) {
@@ -314,8 +408,8 @@ bool RecordFrameServer::send_packet(socket_fd_t fd,
 
     uint32_t ssrc = 0;
     {
-        std::lock_guard<std::mutex> lock(m_stream_mutex);
-        ssrc = m_ssrc;
+        std::lock_guard<std::mutex> lock(m_stStreamMutex);
+        ssrc = m_uSsrc;
     }
 
     NET_TV_RECORD_FRAME_RTP_HEADER_S header{};
@@ -341,4 +435,4 @@ bool RecordFrameServer::send_packet(socket_fd_t fd,
     return payload && send_all(fd, payload, frame_info.dwPayloadLen);
 }
 
-}  // namespace tvsdk
+}  /* namespace tvsdk */

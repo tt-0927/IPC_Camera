@@ -1,39 +1,52 @@
+/**
+ * @file ServerModule.h
+ * @author tianl (tianl@kfb.cn)
+ * @date 2026-07-28
+ * @LastEditors  : qinjt@kfb.cn
+ * @LastEditTime : 2026-07-28
+ *
+ * @brief CServerModule 模块接口与类型定义
+ * 功能说明：
+ * 1. 声明 CServerModule 模块对外接口和数据类型
+ * 2. 定义模块依赖的常量、回调或辅助类型
+ * 3. 为调用方提供明确且稳定的编译期契约
+ */
 /*
  * @Author       : chenchl
  * @Date         : 2025-01-02 16:01:20
  * @LastEditors  : chenchl
  * @LastEditTime : 2025-01-02 17:03:03
- * @FilePath     : ServerModule.h
+ * @FilePath     : CServerModule.h
  * @Description  : HTTP服务器管理模块，负责HTTP服务器的启动、停止和状态管理
  */
 
 #pragma once
 #include "NetTVSDKServerInterface.h"
 
-// 前向声明
+/* 前向声明 */
 class CSdkHttpServer;
 
 /**
  * HTTP服务器管理模块类
  * 负责HTTP服务器的启动、停止和状态管理
  */
-class ServerModule
+class CServerModule
 {
 public:
     /**
      * 构造函数
      */
-    ServerModule();
+    CServerModule();
 
     /**
      * 析构函数
      * @details 自动调用Stop()停止服务器并释放资源
      */
-    ~ServerModule();
+    ~CServerModule();
 
-    // 禁止拷贝
-    ServerModule(const ServerModule&) = delete;
-    ServerModule& operator=(const ServerModule&) = delete;
+    /* 禁止拷贝 */
+    CServerModule(const CServerModule&) = delete;
+    CServerModule& operator=(const CServerModule&) = delete;
 
     /**
      * 启动HTTP服务器
@@ -63,6 +76,6 @@ public:
     UINT32 GetPort() const;
 
 private:
-    UINT32 m_dwPort; /* 服务器端口 */
+    UINT32 m_uPort; /* 服务器端口 */
     bool m_bRunning; /* 运行状态标志 */
 };

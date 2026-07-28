@@ -1,19 +1,17 @@
 /**
  * @file main.c
- * @brief HTTP 人脸服务端模拟 Demo
+ * @author tianl (tianl@kfb.cn)
+ * @date 2026-07-28
+ * @LastEditors  : qinjt@kfb.cn
+ * @LastEditTime : 2026-07-28
  *
- * 编译示例:
- *   cmake -S . -B build
- *   cmake --build build
- *
- * 运行示例:
- *   ./HttpFaceServerDemo 9000 http://127.0.0.1:18080/face/event 5
- *
- * 说明:
- *   本 Demo 用于模拟设备侧 HTTP 能力：
- *   1. 提供 HTTP-SDK 转发命令接口，便于客户端 Demo 发送 NET_TV_* 命令；
- *   2. 定时向客户端 HTTP 回调地址推送人脸抓拍和人脸比对事件。
+ * @brief SDK HTTP 人脸业务 Demo
+ * 功能说明：
+ * 1. 实现 main 模块核心逻辑
+ * 2. 校验输入参数并管理模块资源生命周期
+ * 3. 向上层提供可复用的 SDK 能力
  */
+
 
 #include <errno.h>
 #include <signal.h>
@@ -28,8 +26,8 @@
 #include <ws2tcpip.h>
 #include <windows.h>
 typedef SOCKET socket_handle_t;
-#define CLOSE_SOCKET closesocket
-#define THREAD_RET DWORD WINAPI
+#define NETSDK_DEMO_CLOSE_SOCKET closesocket
+#define NETSDK_DEMO_THREAD_RETURN_TYPE DWORD WINAPI
 #else
 #include <arpa/inet.h>
 #include <netdb.h>
@@ -39,24 +37,26 @@ typedef SOCKET socket_handle_t;
 #include <sys/types.h>
 #include <unistd.h>
 typedef int socket_handle_t;
-#define INVALID_SOCKET (-1)
-#define SOCKET_ERROR (-1)
-#define CLOSE_SOCKET close
-#define THREAD_RET void *
+#define NETSDK_DEMO_INVALID_SOCKET (-1)
+#define NETSDK_DEMO_SOCKET_ERROR (-1)
+#define NETSDK_DEMO_CLOSE_SOCKET close
+#define NETSDK_DEMO_THREAD_RETURN_TYPE void *
 #endif
 
-#define HTTP_RECV_BUFFER_SIZE (16 * 1024)
-#define HTTP_SMALL_BUFFER_SIZE 512
-#define HTTP_URL_HOST_SIZE 128
-#define HTTP_URL_PATH_SIZE 512
-#define HTTP_BOUNDARY "----NetTvFaceHttpDemoBoundary7MA4YWxkTrZu0gW"
+#define NETSDK_DEMO_HTTP_RECEIVE_BUFFER_SIZE (16 * 1024)
+#define NETSDK_DEMO_HTTP_SMALL_BUFFER_SIZE 512
+#define NETSDK_DEMO_HTTP_URL_HOST_SIZE 128
+#define NETSDK_DEMO_HTTP_URL_PATH_SIZE 512
+#define NETSDK_DEMO_HTTP_BOUNDARY "----NetTvFaceHttpDemoBoundary7MA4YWxkTrZu0gW"
 
 static volatile sig_atomic_t g_running = 1;
-static socket_handle_t g_listen_socket = INVALID_SOCKET;
+static socket_handle_t g_listen_socket = NETSDK_DEMO_INVALID_SOCKET;
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 打印 socket 调用失败原因
- * @param operation 失败的操作名称
+ * @param [in] operation 失败的操作名称。
+ * @return 无返回值。
  */
 static void print_socket_error(const char *operation)
 {
@@ -68,64 +68,71 @@ static void print_socket_error(const char *operation)
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief HTTP 响应结果
  */
-typedef struct HttpResult
+typedef struct HttpResult_S
 {
     int status;
-    char body[HTTP_SMALL_BUFFER_SIZE];
-} HttpResult;
+    char body[NETSDK_DEMO_HTTP_SMALL_BUFFER_SIZE];
+} HttpResult_S;
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief HTTP URL 解析结果
  */
-typedef struct UrlParts
+typedef struct UrlParts_S
 {
-    char host[HTTP_URL_HOST_SIZE];
+    char host[NETSDK_DEMO_HTTP_URL_HOST_SIZE];
     int port;
-    char path[HTTP_URL_PATH_SIZE];
-} UrlParts;
+    char path[NETSDK_DEMO_HTTP_URL_PATH_SIZE];
+} UrlParts_S;
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 动态缓冲区，用于拼接 multipart 请求体和 HTTP 报文
  */
-typedef struct DynamicBuffer
+typedef struct DynamicBuffer_S
 {
     char *data;
     size_t size;
     size_t capacity;
-} DynamicBuffer;
+} DynamicBuffer_S;
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief multipart 表单字段
  */
-typedef struct FormPart
+typedef struct FormPart_S
 {
     const char *name;
     const unsigned char *data;
     size_t data_len;
     const char *filename;
     const char *content_type;
-} FormPart;
+} FormPart_S;
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 服务监听线程参数
  */
-typedef struct ServerThreadParam
+typedef struct ServerThreadParam_S
 {
     int listen_port;
-} ServerThreadParam;
+} ServerThreadParam_S;
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 推送线程参数
  */
-typedef struct PushThreadParam
+typedef struct PushThreadParam_S
 {
-    char callback_url[HTTP_URL_HOST_SIZE + HTTP_URL_PATH_SIZE];
+    char callback_url[NETSDK_DEMO_HTTP_URL_HOST_SIZE + NETSDK_DEMO_HTTP_URL_PATH_SIZE];
     int interval_sec;
-} PushThreadParam;
+} PushThreadParam_S;
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 返回一段最小 JPEG 数据，用于模拟图片字段
  */
 static const unsigned char g_demo_jpeg[] = {
@@ -144,8 +151,10 @@ static const unsigned char g_demo_jpeg[] = {
 };
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 处理退出信号
- * @param signal_value 信号值
+ * @param [in] signal_value 操作系统传入的信号编号。
+ * @return 无返回值。
  */
 static void signal_handler(int signal_value)
 {
@@ -156,19 +165,22 @@ static void signal_handler(int signal_value)
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 跨平台毫秒睡眠
- * @param milliseconds 睡眠时间，单位毫秒
+ * @param [in] milliseconds 睡眠时间，单位为毫秒。
+ * @return 无返回值。
  */
 static void sleep_ms(int milliseconds)
 {
 #ifdef _WIN32
     Sleep((DWORD)milliseconds);
 #else
-    usleep((useconds_t)milliseconds * 1000);
+    NETSDK_MICRO_SLEEP((useconds_t)milliseconds * 1000);
 #endif
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 初始化网络环境
  * @return 0 表示成功，非 0 表示失败
  */
@@ -183,6 +195,7 @@ static int network_init(void)
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 清理网络环境
  */
 static void network_cleanup(void)
@@ -193,6 +206,7 @@ static void network_cleanup(void)
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 获取当前毫秒时间戳
  * @return 当前 Unix 毫秒时间戳
  */
@@ -208,10 +222,11 @@ static long long current_timestamp_ms(void)
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 初始化动态缓冲区
  * @param buffer 动态缓冲区指针
  */
-static void buffer_init(DynamicBuffer *buffer)
+static void buffer_init(DynamicBuffer_S *buffer)
 {
     buffer->data = NULL;
     buffer->size = 0;
@@ -219,10 +234,11 @@ static void buffer_init(DynamicBuffer *buffer)
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 释放动态缓冲区
  * @param buffer 动态缓冲区指针
  */
-static void buffer_free(DynamicBuffer *buffer)
+static void buffer_free(DynamicBuffer_S *buffer)
 {
     free(buffer->data);
     buffer->data = NULL;
@@ -231,12 +247,13 @@ static void buffer_free(DynamicBuffer *buffer)
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 预留动态缓冲区容量
  * @param buffer 动态缓冲区指针
  * @param extra_size 额外所需字节数
  * @return 0 表示成功，非 0 表示失败
  */
-static int buffer_reserve(DynamicBuffer *buffer, size_t extra_size)
+static int buffer_reserve(DynamicBuffer_S *buffer, size_t extra_size)
 {
     size_t required = buffer->size + extra_size + 1;
     char *new_data = NULL;
@@ -269,13 +286,14 @@ static int buffer_reserve(DynamicBuffer *buffer, size_t extra_size)
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 向动态缓冲区追加二进制数据
  * @param buffer 动态缓冲区指针
  * @param data 数据指针
  * @param data_len 数据长度
  * @return 0 表示成功，非 0 表示失败
  */
-static int buffer_append(DynamicBuffer *buffer, const void *data, size_t data_len)
+static int buffer_append(DynamicBuffer_S *buffer, const void *data, size_t data_len)
 {
     if (buffer_reserve(buffer, data_len) != 0)
     {
@@ -289,23 +307,25 @@ static int buffer_append(DynamicBuffer *buffer, const void *data, size_t data_le
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 向动态缓冲区追加字符串
  * @param buffer 动态缓冲区指针
  * @param text 字符串
  * @return 0 表示成功，非 0 表示失败
  */
-static int buffer_append_string(DynamicBuffer *buffer, const char *text)
+static int buffer_append_string(DynamicBuffer_S *buffer, const char *text)
 {
     return buffer_append(buffer, text, strlen(text));
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 向动态缓冲区追加格式化字符串
  * @param buffer 动态缓冲区指针
  * @param fmt 格式字符串
  * @return 0 表示成功，非 0 表示失败
  */
-static int buffer_append_format(DynamicBuffer *buffer, const char *fmt, ...)
+static int buffer_append_format(DynamicBuffer_S *buffer, const char *fmt, ...)
 {
     va_list args;
     va_list args_copy;
@@ -340,6 +360,7 @@ static int buffer_append_format(DynamicBuffer *buffer, const char *fmt, ...)
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 发送完整 socket 数据
  * @param sock socket 句柄
  * @param data 数据指针
@@ -364,6 +385,7 @@ static int send_all(socket_handle_t sock, const char *data, size_t data_len)
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 判断 HTTP 路径是否匹配，允许携带 query 参数
  * @param path 请求路径
  * @param expected 期望路径
@@ -377,6 +399,7 @@ static int path_matches(const char *path, const char *expected)
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 发送 JSON HTTP 响应
  * @param client 客户端 socket
  * @param status_code HTTP 状态码
@@ -384,7 +407,7 @@ static int path_matches(const char *path, const char *expected)
  */
 static void send_json_response(socket_handle_t client, int status_code, const char *body)
 {
-    char header[HTTP_SMALL_BUFFER_SIZE];
+    char header[NETSDK_DEMO_HTTP_SMALL_BUFFER_SIZE];
     const char *status_text = status_code == 200 ? "OK" : "Not Found";
     int body_len = (int)strlen(body);
     int header_len = snprintf(header,
@@ -409,6 +432,7 @@ static void send_json_response(socket_handle_t client, int status_code, const ch
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 打印收到的 HTTP 命令
  * @param name 命令名称
  * @param method HTTP 方法
@@ -425,14 +449,15 @@ static void print_command_request(const char *name, const char *method, const ch
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 处理单个 HTTP 客户端连接
  * @param client 客户端 socket
  */
 static void handle_http_client(socket_handle_t client)
 {
-    char buffer[HTTP_RECV_BUFFER_SIZE];
+    char buffer[NETSDK_DEMO_HTTP_RECEIVE_BUFFER_SIZE];
     char method[16] = {0};
-    char path[HTTP_URL_PATH_SIZE] = {0};
+    char path[NETSDK_DEMO_HTTP_URL_PATH_SIZE] = {0};
     char *body = NULL;
     int recv_len = recv(client, buffer, sizeof(buffer) - 1, 0);
 
@@ -537,21 +562,22 @@ static void handle_http_client(socket_handle_t client)
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 创建监听 socket
  * @param port 监听端口
- * @return socket 句柄，失败返回 INVALID_SOCKET
+ * @return socket 句柄，失败返回 NETSDK_DEMO_INVALID_SOCKET
  */
 static socket_handle_t create_listen_socket(int port)
 {
-    socket_handle_t sock = INVALID_SOCKET;
+    socket_handle_t sock = NETSDK_DEMO_INVALID_SOCKET;
     struct sockaddr_in addr;
     int reuse = 1;
 
     sock = socket(AF_INET, SOCK_STREAM, 0);
-    if (sock == INVALID_SOCKET)
+    if (sock == NETSDK_DEMO_INVALID_SOCKET)
     {
         print_socket_error("socket");
-        return INVALID_SOCKET;
+        return NETSDK_DEMO_INVALID_SOCKET;
     }
 
     setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (const char *)&reuse, sizeof(reuse));
@@ -561,31 +587,32 @@ static socket_handle_t create_listen_socket(int port)
     addr.sin_addr.s_addr = htonl(INADDR_ANY);
     addr.sin_port = htons((unsigned short)port);
 
-    if (bind(sock, (struct sockaddr *)&addr, sizeof(addr)) == SOCKET_ERROR)
+    if (bind(sock, (struct sockaddr *)&addr, sizeof(addr)) == NETSDK_DEMO_SOCKET_ERROR)
     {
         print_socket_error("bind");
-        CLOSE_SOCKET(sock);
-        return INVALID_SOCKET;
+        NETSDK_DEMO_CLOSE_SOCKET(sock);
+        return NETSDK_DEMO_INVALID_SOCKET;
     }
 
-    if (listen(sock, 16) == SOCKET_ERROR)
+    if (listen(sock, 16) == NETSDK_DEMO_SOCKET_ERROR)
     {
         print_socket_error("listen");
-        CLOSE_SOCKET(sock);
-        return INVALID_SOCKET;
+        NETSDK_DEMO_CLOSE_SOCKET(sock);
+        return NETSDK_DEMO_INVALID_SOCKET;
     }
 
     return sock;
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief HTTP 命令服务线程
- * @param arg ServerThreadParam 指针
+ * @param arg ServerThreadParam_S 指针
  */
-static THREAD_RET server_thread_proc(void *arg)
+static NETSDK_DEMO_THREAD_RETURN_TYPE server_thread_proc(void *arg)
 {
-    ServerThreadParam *param = (ServerThreadParam *)arg;
-    if (g_listen_socket == INVALID_SOCKET)
+    ServerThreadParam_S *param = (ServerThreadParam_S *)arg;
+    if (g_listen_socket == NETSDK_DEMO_INVALID_SOCKET)
     {
         g_running = 0;
 #ifdef _WIN32
@@ -602,7 +629,7 @@ static THREAD_RET server_thread_proc(void *arg)
         fd_set read_set;
         struct timeval timeout;
         int select_ret = 0;
-        socket_handle_t client = INVALID_SOCKET;
+        socket_handle_t client = NETSDK_DEMO_INVALID_SOCKET;
 
         FD_ZERO(&read_set);
         FD_SET(g_listen_socket, &read_set);
@@ -616,19 +643,19 @@ static THREAD_RET server_thread_proc(void *arg)
         }
 
         client = accept(g_listen_socket, NULL, NULL);
-        if (client == INVALID_SOCKET)
+        if (client == NETSDK_DEMO_INVALID_SOCKET)
         {
             continue;
         }
 
         handle_http_client(client);
-        CLOSE_SOCKET(client);
+        NETSDK_DEMO_CLOSE_SOCKET(client);
     }
 
-    if (g_listen_socket != INVALID_SOCKET)
+    if (g_listen_socket != NETSDK_DEMO_INVALID_SOCKET)
     {
-        CLOSE_SOCKET(g_listen_socket);
-        g_listen_socket = INVALID_SOCKET;
+        NETSDK_DEMO_CLOSE_SOCKET(g_listen_socket);
+        g_listen_socket = NETSDK_DEMO_INVALID_SOCKET;
     }
 
 #ifdef _WIN32
@@ -639,18 +666,19 @@ static THREAD_RET server_thread_proc(void *arg)
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 解析 HTTP URL，仅支持 http://host:port/path
  * @param url URL 字符串
  * @param parts 输出解析结果
  * @return 0 表示成功，非 0 表示失败
  */
-static int parse_http_url(const char *url, UrlParts *parts)
+static int parse_http_url(const char *url, UrlParts_S *parts)
 {
     const char *cursor = url;
     const char *slash = NULL;
     const char *colon = NULL;
     size_t host_len = 0;
-    char host_port[HTTP_URL_HOST_SIZE + 16] = {0};
+    char host_port[NETSDK_DEMO_HTTP_URL_HOST_SIZE + 16] = {0};
 
     memset(parts, 0, sizeof(*parts));
     parts->port = 80;
@@ -710,10 +738,11 @@ static int parse_http_url(const char *url, UrlParts *parts)
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 连接指定主机
  * @param host 主机名或 IP
  * @param port 端口
- * @return socket 句柄，失败返回 INVALID_SOCKET
+ * @return socket 句柄，失败返回 NETSDK_DEMO_INVALID_SOCKET
  */
 static socket_handle_t connect_to_host(const char *host, int port)
 {
@@ -721,7 +750,7 @@ static socket_handle_t connect_to_host(const char *host, int port)
     struct addrinfo *result = NULL;
     struct addrinfo *item = NULL;
     char port_text[16];
-    socket_handle_t sock = INVALID_SOCKET;
+    socket_handle_t sock = NETSDK_DEMO_INVALID_SOCKET;
 
     memset(&hints, 0, sizeof(hints));
     hints.ai_family = AF_UNSPEC;
@@ -730,13 +759,13 @@ static socket_handle_t connect_to_host(const char *host, int port)
 
     if (getaddrinfo(host, port_text, &hints, &result) != 0)
     {
-        return INVALID_SOCKET;
+        return NETSDK_DEMO_INVALID_SOCKET;
     }
 
     for (item = result; item != NULL; item = item->ai_next)
     {
         sock = socket(item->ai_family, item->ai_socktype, item->ai_protocol);
-        if (sock == INVALID_SOCKET)
+        if (sock == NETSDK_DEMO_INVALID_SOCKET)
         {
             continue;
         }
@@ -746,8 +775,8 @@ static socket_handle_t connect_to_host(const char *host, int port)
             break;
         }
 
-        CLOSE_SOCKET(sock);
-        sock = INVALID_SOCKET;
+        NETSDK_DEMO_CLOSE_SOCKET(sock);
+        sock = NETSDK_DEMO_INVALID_SOCKET;
     }
 
     freeaddrinfo(result);
@@ -755,21 +784,22 @@ static socket_handle_t connect_to_host(const char *host, int port)
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 构造 multipart 请求体
  * @param parts 表单字段数组
  * @param part_count 表单字段数量
  * @param out_body 输出请求体
  * @return 0 表示成功，非 0 表示失败
  */
-static int build_multipart_body(const FormPart *parts, size_t part_count, DynamicBuffer *out_body)
+static int build_multipart_body(const FormPart_S *parts, size_t part_count, DynamicBuffer_S *out_body)
 {
     size_t i = 0;
     buffer_init(out_body);
 
     for (i = 0; i < part_count; ++i)
     {
-        const FormPart *part = &parts[i];
-        if (buffer_append_format(out_body, "--%s\r\n", HTTP_BOUNDARY) != 0)
+        const FormPart_S *part = &parts[i];
+        if (buffer_append_format(out_body, "--%s\r\n", NETSDK_DEMO_HTTP_BOUNDARY) != 0)
         {
             return -1;
         }
@@ -803,24 +833,25 @@ static int build_multipart_body(const FormPart *parts, size_t part_count, Dynami
         }
     }
 
-    return buffer_append_format(out_body, "--%s--\r\n", HTTP_BOUNDARY);
+    return buffer_append_format(out_body, "--%s--\r\n", NETSDK_DEMO_HTTP_BOUNDARY);
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 发送 multipart HTTP 推送
  * @param callback_url 客户端回调 URL
  * @param parts 表单字段数组
  * @param part_count 表单字段数量
  * @return HTTP 响应结果
  */
-static HttpResult post_multipart_event(const char *callback_url, const FormPart *parts, size_t part_count)
+static HttpResult_S post_multipart_event(const char *callback_url, const FormPart_S *parts, size_t part_count)
 {
-    UrlParts url_parts;
-    DynamicBuffer body;
-    DynamicBuffer request;
-    HttpResult result;
-    socket_handle_t sock = INVALID_SOCKET;
-    char response[HTTP_SMALL_BUFFER_SIZE];
+    UrlParts_S url_parts;
+    DynamicBuffer_S body;
+    DynamicBuffer_S request;
+    HttpResult_S result;
+    socket_handle_t sock = NETSDK_DEMO_INVALID_SOCKET;
+    char response[NETSDK_DEMO_HTTP_SMALL_BUFFER_SIZE];
     int recv_len = 0;
 
     memset(&result, 0, sizeof(result));
@@ -850,7 +881,7 @@ static HttpResult post_multipart_event(const char *callback_url, const FormPart 
                              url_parts.path,
                              url_parts.host,
                              url_parts.port,
-                             HTTP_BOUNDARY,
+                             NETSDK_DEMO_HTTP_BOUNDARY,
                              (unsigned int)body.size) != 0 ||
         buffer_append(&request, body.data, body.size) != 0)
     {
@@ -861,7 +892,7 @@ static HttpResult post_multipart_event(const char *callback_url, const FormPart 
     }
 
     sock = connect_to_host(url_parts.host, url_parts.port);
-    if (sock == INVALID_SOCKET)
+    if (sock == NETSDK_DEMO_INVALID_SOCKET)
     {
         printf("[推送] 连接客户端失败: %s:%d\n", url_parts.host, url_parts.port);
         buffer_free(&body);
@@ -872,7 +903,7 @@ static HttpResult post_multipart_event(const char *callback_url, const FormPart 
     if (send_all(sock, request.data, request.size) != 0)
     {
         printf("[推送] 发送HTTP请求失败\n");
-        CLOSE_SOCKET(sock);
+        NETSDK_DEMO_CLOSE_SOCKET(sock);
         buffer_free(&body);
         buffer_free(&request);
         return result;
@@ -886,21 +917,22 @@ static HttpResult post_multipart_event(const char *callback_url, const FormPart 
         snprintf(result.body, sizeof(result.body), "%s", response);
     }
 
-    CLOSE_SOCKET(sock);
+    NETSDK_DEMO_CLOSE_SOCKET(sock);
     buffer_free(&body);
     buffer_free(&request);
     return result;
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 构造文本表单字段
  * @param name 字段名
  * @param text 字段值
  * @return 表单字段
  */
-static FormPart make_text_part(const char *name, const char *text)
+static FormPart_S make_text_part(const char *name, const char *text)
 {
-    FormPart part;
+    FormPart_S part;
     part.name = name;
     part.data = (const unsigned char *)text;
     part.data_len = strlen(text);
@@ -910,6 +942,7 @@ static FormPart make_text_part(const char *name, const char *text)
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 构造文件表单字段
  * @param name 字段名
  * @param data 文件数据
@@ -918,13 +951,13 @@ static FormPart make_text_part(const char *name, const char *text)
  * @param content_type 文件类型
  * @return 表单字段
  */
-static FormPart make_file_part(const char *name,
+static FormPart_S make_file_part(const char *name,
                                const unsigned char *data,
                                size_t data_len,
                                const char *filename,
                                const char *content_type)
 {
-    FormPart part;
+    FormPart_S part;
     part.name = name;
     part.data = data;
     part.data_len = data_len;
@@ -934,6 +967,7 @@ static FormPart make_file_part(const char *name,
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 构造并推送人脸抓拍事件
  * @param callback_url 客户端回调 URL
  */
@@ -941,8 +975,8 @@ static void push_face_capture_event(const char *callback_url)
 {
     char timestamp[32];
     char jpeg_len[32];
-    HttpResult result;
-    FormPart parts[16];
+    HttpResult_S result;
+    FormPart_S parts[16];
     int index = 0;
 
     snprintf(timestamp, sizeof(timestamp), "%lld", current_timestamp_ms());
@@ -973,6 +1007,7 @@ static void push_face_capture_event(const char *callback_url)
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 构造并推送人脸比对事件
  * @param callback_url 客户端回调 URL
  * @param success 是否比对成功
@@ -982,8 +1017,8 @@ static void push_face_compare_event(const char *callback_url, int success)
     char timestamp[32];
     char capture_len[32];
     char lib_len[32];
-    HttpResult result;
-    FormPart parts[21];
+    HttpResult_S result;
+    FormPart_S parts[21];
     int index = 0;
 
     snprintf(timestamp, sizeof(timestamp), "%lld", current_timestamp_ms());
@@ -1023,12 +1058,13 @@ static void push_face_compare_event(const char *callback_url, int success)
 }
 
 /**
+ * @author tianl (tianl@kfb.cn)
  * @brief 定时推送线程
- * @param arg PushThreadParam 指针
+ * @param arg PushThreadParam_S 指针
  */
-static THREAD_RET push_thread_proc(void *arg)
+static NETSDK_DEMO_THREAD_RETURN_TYPE push_thread_proc(void *arg)
 {
-    PushThreadParam *param = (PushThreadParam *)arg;
+    PushThreadParam_S *param = (PushThreadParam_S *)arg;
     int index = 0;
 
     while (g_running)
@@ -1055,11 +1091,18 @@ static THREAD_RET push_thread_proc(void *arg)
     return NULL;
 #endif
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 运行当前 Demo 的主流程。
+ * @param [in] argc 函数处理参数。
+ * @param [in,out] argv 函数处理参数。
+ * @return 返回该处理的状态或结果。
+ */
 
 int main(int argc, char *argv[])
 {
-    ServerThreadParam server_param;
-    PushThreadParam push_param;
+    ServerThreadParam_S server_param;
+    PushThreadParam_S push_param;
 
 #ifdef _WIN32
     HANDLE server_thread = NULL;
@@ -1098,7 +1141,7 @@ int main(int argc, char *argv[])
     printf("按 Ctrl+C 停止Demo。\n");
 
     g_listen_socket = create_listen_socket(server_param.listen_port);
-    if (g_listen_socket == INVALID_SOCKET)
+    if (g_listen_socket == NETSDK_DEMO_INVALID_SOCKET)
     {
         printf("监听端口%d失败，请检查端口是否已被占用。\n",
                server_param.listen_port);
@@ -1128,10 +1171,10 @@ int main(int argc, char *argv[])
         sleep_ms(200);
     }
 
-    if (g_listen_socket != INVALID_SOCKET)
+    if (g_listen_socket != NETSDK_DEMO_INVALID_SOCKET)
     {
-        CLOSE_SOCKET(g_listen_socket);
-        g_listen_socket = INVALID_SOCKET;
+        NETSDK_DEMO_CLOSE_SOCKET(g_listen_socket);
+        g_listen_socket = NETSDK_DEMO_INVALID_SOCKET;
     }
 
 #ifdef _WIN32

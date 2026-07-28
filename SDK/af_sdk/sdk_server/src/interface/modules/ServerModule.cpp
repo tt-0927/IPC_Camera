@@ -1,9 +1,22 @@
+/**
+ * @file ServerModule.cpp
+ * @author tianl (tianl@kfb.cn)
+ * @date 2026-07-28
+ * @LastEditors  : qinjt@kfb.cn
+ * @LastEditTime : 2026-07-28
+ *
+ * @brief CServerModule 模块实现
+ * 功能说明：
+ * 1. 实现 CServerModule 模块核心逻辑
+ * 2. 校验输入参数并管理模块资源生命周期
+ * 3. 向上层提供可复用的 SDK 能力
+ */
 /*
  * @Author       : chenchl
  * @Date         : 2025-01-02 16:01:20
  * @LastEditors  : chenchl
  * @LastEditTime : 2025-01-02 17:03:03
- * @FilePath     : ServerModule.cpp
+ * @FilePath     : CServerModule.cpp
  * @Description  : HTTP服务器管理模块实现，负责HTTP服务器的启动、停止和状态管理
  */
 
@@ -14,24 +27,24 @@
 /**
  * 构造函数
  */
-ServerModule::ServerModule()
-    : m_dwPort(0)
+CServerModule::CServerModule()
+    : m_uPort(0)
     , m_bRunning(false)
 {
-    NSDK_LOG_DEBUG("ServerModule created");
+    NETSDK_LOG_MESSAGE_DEBUG("CServerModule created");
 }
 
 /**
  * 析构函数
  * @details 自动调用Stop()停止服务器并释放资源
  */
-ServerModule::~ServerModule()
+CServerModule::~CServerModule()
 {
     if (m_bRunning)
     {
         Stop();
     }
-    NSDK_LOG_DEBUG("ServerModule destroyed");
+    NETSDK_LOG_MESSAGE_DEBUG("CServerModule destroyed");
 }
 
 /**
@@ -40,26 +53,26 @@ ServerModule::~ServerModule()
  * @param dwPort 服务器端口号
  * @return TRUE表示成功，FALSE表示失败
  */
-BOOL ServerModule::Start(UINT32 dwPort)
+BOOL CServerModule::Start(UINT32 dwPort)
 {
     if (m_bRunning)
     {
-        NSDK_LOG_WARN("HTTP Server already running on port %u", m_dwPort);
-        return FALSE;
+        NETSDK_LOG_MESSAGE_WARN("HTTP Server already running on port %u", m_uPort);
+        return NET_TV_FALSE;
     }
 
-    NSDK_LOG_INFO("Starting HTTP Server on port %u...", dwPort);
+    NETSDK_LOG_MESSAGE_INFO("Starting HTTP Server on port %u...", dwPort);
 
     if (CSdkHttpServer::instance()->startServer(static_cast<uint32_t>(dwPort)) != 0)
     {
-        NSDK_LOG_ERROR("Failed to start HTTP server on port %u", dwPort);
-        return FALSE;
+        NETSDK_LOG_MESSAGE_ERROR("Failed to start HTTP server on port %u", dwPort);
+        return NET_TV_FALSE;
     }
 
-    m_dwPort = dwPort;
+    m_uPort = dwPort;
     m_bRunning = true;
-    NSDK_LOG_INFO("HTTP Server started successfully on port %u", dwPort);
-    return TRUE;
+    NETSDK_LOG_MESSAGE_INFO("HTTP Server started successfully on port %u", dwPort);
+    return NET_TV_TRUE;
 }
 
 /**
@@ -67,30 +80,30 @@ BOOL ServerModule::Start(UINT32 dwPort)
  * @details 停止HTTP服务器监听，销毁服务器实例
  * @return TRUE表示成功，FALSE表示失败
  */
-BOOL ServerModule::Stop()
+BOOL CServerModule::Stop()
 {
     if (!m_bRunning)
     {
-        NSDK_LOG_DEBUG("HTTP Server not running, skip stop");
-        return TRUE;
+        NETSDK_LOG_MESSAGE_DEBUG("HTTP Server not running, skip stop");
+        return NET_TV_TRUE;
     }
 
-    NSDK_LOG_INFO("Stopping HTTP Server on port %u...", m_dwPort);
+    NETSDK_LOG_MESSAGE_INFO("Stopping HTTP Server on port %u...", m_uPort);
 
     CSdkHttpServer::instance()->StopServer();
     CSdkHttpServer::DestroyInstance();
 
     m_bRunning = false;
-    m_dwPort = 0;
-    NSDK_LOG_INFO("HTTP Server stopped successfully");
-    return TRUE;
+    m_uPort = 0;
+    NETSDK_LOG_MESSAGE_INFO("HTTP Server stopped successfully");
+    return NET_TV_TRUE;
 }
 
 /**
  * 检查服务器是否正在运行
  * @return TRUE表示运行中，FALSE表示已停止
  */
-BOOL ServerModule::IsRunning() const
+BOOL CServerModule::IsRunning() const
 {
     return m_bRunning;
 }
@@ -99,7 +112,7 @@ BOOL ServerModule::IsRunning() const
  * 获取当前服务器端口
  * @return 端口号，0表示未启动
  */
-UINT32 ServerModule::GetPort() const
+UINT32 CServerModule::GetPort() const
 {
-    return m_dwPort;
+    return m_uPort;
 }
