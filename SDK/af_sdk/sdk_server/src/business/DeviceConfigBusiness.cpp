@@ -40,7 +40,7 @@ static std::string HandleGetChannelInfo(INT32 channelId, INT32 command)
 
     NETSDK_LOG_MESSAGE_INFO("GetChannelInfo callback START");
     int nRespCode = NetSDK_ExecuteCb_GetDevConfig(channelId, command, &stCfg);
-    if (nRespCode != NET_TV_E_SUCCEED)
+    if (nRespCode != NET_E_SUCCEED)
     {
         NETSDK_LOG_MESSAGE_WARN("GetChannelInfo callback failed, cmd=%d, ret=%d", command, nRespCode);
     }
@@ -61,7 +61,7 @@ static std::string HandleGetChannelList(INT32 channelId, INT32 command)
     if (!stCfg)
     {
         NETSDK_LOG_MESSAGE_WARN("GetChannelList callback alloc failed");
-        return SDKConvert::to_respString(NET_TV_E_FAILED);
+        return SDKConvert::to_respString(NET_E_FAILED);
     }
 
     memset(stCfg.get(), 0, sizeof(NET_ChannelList_S));
@@ -71,7 +71,7 @@ static std::string HandleGetChannelList(INT32 channelId, INT32 command)
                   (void*)stCfg.get(), sizeof(NET_ChannelList_S));
 
     int nRespCode = NetSDK_ExecuteCb_GetDevConfig(channelId, command, stCfg.get());
-    if (nRespCode != NET_TV_E_SUCCEED)
+    if (nRespCode != NET_E_SUCCEED)
     {
         NETSDK_LOG_MESSAGE_WARN("GetChannelList callback failed, cmd=%d, ret=%d", command, nRespCode);
     }
@@ -102,19 +102,19 @@ std::string CDeviceConfigBusiness::HandleGetLogList(INT32 channelId, INT32 comma
     strncpy(stCfg.stCond.szEndTime, strEndTime.c_str(), sizeof(stCfg.stCond.szEndTime) - 1);
 
     stCfg.stPage.nCurPage = ParseIntParam(url_param, "CurPage", 1);
-    stCfg.stPage.nPageSize = ParseIntParam(url_param, "PageSize", NET_TV_LOG_QUERY_COND_NUM);
+    stCfg.stPage.nPageSize = ParseIntParam(url_param, "PageSize", NET_LOG_QUERY_COND_NUM);
     if (stCfg.stPage.nCurPage == 0)
     {
         stCfg.stPage.nCurPage = 1;
     }
     if (stCfg.stPage.nPageSize <= 0)
     {
-        stCfg.stPage.nPageSize = NET_TV_LOG_QUERY_COND_NUM;
+        stCfg.stPage.nPageSize = NET_LOG_QUERY_COND_NUM;
     }
 
     NETSDK_LOG_MESSAGE_INFO("GetLogList callback START");
     int nRespCode = NetSDK_ExecuteCb_GetDevConfig(channelId, command, &stCfg);
-    if (nRespCode != NET_TV_E_SUCCEED)
+    if (nRespCode != NET_E_SUCCEED)
     {
         NETSDK_LOG_MESSAGE_WARN("GetLogList callback failed, cmd=%d, ret=%d", command, nRespCode);
     }
@@ -154,7 +154,7 @@ std::string CDeviceConfigBusiness::HandleGetRecordFileList(INT32 channelId, INT3
 
     NETSDK_LOG_MESSAGE_INFO("GetRecordFileList callback START");
     int nRespCode = NetSDK_ExecuteCb_GetDevConfig(channelId, command, &stCfg);
-    if (nRespCode != NET_TV_E_SUCCEED)
+    if (nRespCode != NET_E_SUCCEED)
     {
         NETSDK_LOG_MESSAGE_WARN("GetRecordFileList callback failed, cmd=%d, ret=%d", command, nRespCode);
     }
@@ -178,8 +178,8 @@ static void PrintMotionAlarmInfo(const NET_MotionAlarmInfo_S* pInfo)
     printf("\n[Client] ===== 移动侦测配置 =====\n");
     printf("  Enable              : %s\n", pInfo->bEnable ? "ON" : "OFF");
     printf("  DynamicAnalysis     : %s\n", pInfo->bDynamicAnalysisEnable ? "ON" : "OFF");
-    printf("  Mode                : %s\n", pInfo->uMode == NET_TV_MOTION_MODE_NORMAL ? "普通模式" : "专家模式");
-    if (pInfo->uMode == NET_TV_MOTION_MODE_NORMAL)
+    printf("  Mode                : %s\n", pInfo->uMode == NET_MOTION_MODE_NORMAL ? "普通模式" : "专家模式");
+    if (pInfo->uMode == NET_MOTION_MODE_NORMAL)
     {
         printf("  Sensitivity         : %d\n", pInfo->stNormalMode.nSensitivity);
         printf("  RegionType          : %s\n", pInfo->stNormalMode.nRegionType == 0 ? "筒型" : "网格");
@@ -204,8 +204,8 @@ static void PrintMotionAlarmInfo(const NET_MotionAlarmInfo_S* pInfo)
 std::string CDeviceConfigBusiness::GetDevConfig(const std::string& req_data, const std::string& url_param)
 {
     (void)req_data;
-    INT32 channelId = ParseIntParam(url_param, NET_TV_API_PARAM_CHANNEL, 1);
-    INT32 command = ParseIntParam(url_param, NET_TV_API_PARAM_COMMAND, NET_TV_CFG_INVALID);
+    INT32 channelId = ParseIntParam(url_param, NET_API_PARAM_CHANNEL, 1);
+    INT32 command = ParseIntParam(url_param, NET_API_PARAM_COMMAND, NET_CFG_INVALID);
     NETSDK_LOG_MESSAGE_INFO("GetDevConfig request: url[%s], channel=%d, command=%d",
                   url_param.c_str(),
                   channelId,
@@ -213,246 +213,246 @@ std::string CDeviceConfigBusiness::GetDevConfig(const std::string& req_data, con
 
     switch (command)
     {
-        case NET_TV_GET_DEVICECFG:
+        case NET_GET_DEVICECFG:
             return HandleGetConfig<NET_DeviceBasicInfo_S>(channelId, command);
 
-        case NET_TV_GET_NTPCFG:
+        case NET_GET_NTPCFG:
             return HandleGetConfig<NET_SystemNtpInfo_S>(channelId, command);
 
-        case NET_TV_GET_AUDIOCFG:
+        case NET_GET_AUDIOCFG:
             return HandleGetConfig<NET_AudioCfg_S>(channelId, command);
 
-        case NET_TV_GET_NETWORKCFG:
+        case NET_GET_NETWORKCFG:
             return HandleGetConfig<NET_NetworkCfg_S>(channelId, command);
 
-        case NET_TV_GET_4G_INFO:
+        case NET_GET_4G_INFO:
             return HandleGetConfig<NET_4GInfo_S>(channelId, command);
 
-        case NET_TV_GET_HOTSPOT_CONN:
+        case NET_GET_HOTSPOT_CONN:
             return HandleGetConfig<NET_HotspotConnInfo_S>(channelId, command);
 
-        case NET_TV_GET_SECURITY_SERVICES_INFO:
+        case NET_GET_SECURITY_SERVICES_INFO:
             return HandleGetConfig<NET_SecurityServicesInfo_S>(channelId, command);
 
-        case NET_TV_GET_SSH_COUNTDOWN:
+        case NET_GET_SSH_COUNTDOWN:
             return HandleGetConfig<NET_SshCountdownInfo_S>(channelId, command);
 
-        case NET_TV_FIND_LOG:
-        case NET_TV_EXPORT_LOG:
+        case NET_FIND_LOG:
+        case NET_EXPORT_LOG:
             return HandleGetLogList(channelId, command, url_param);
 
-        case NET_TV_GET_LOG_SERVER:
+        case NET_GET_LOG_SERVER:
             return HandleGetConfig<NET_LogServerInfo_S>(channelId, command);
 
-        case NET_TV_GET_RECORD_STATUS:
+        case NET_GET_RECORD_STATUS:
             return HandleGetConfig<NET_RecordStatusInfo_S>(channelId, command);
 
-        case NET_TV_GET_RECORD_SCHEDULE:
+        case NET_GET_RECORD_SCHEDULE:
             return HandleGetConfig<NET_RecordSchedule_S>(channelId, command);
 
-        case NET_TV_GET_RECORD_ADVANCED_PARAM:
+        case NET_GET_RECORD_ADVANCED_PARAM:
             return HandleGetConfig<NET_RecordAdvancedParam_S>(channelId, command);
 
-        case NET_TV_FIND_RECORD_FILE_INFO:
+        case NET_FIND_RECORD_FILE_INFO:
             return HandleGetRecordFileList(channelId, command, url_param);
 
-        case NET_TV_GET_STREAMCFG:
+        case NET_GET_STREAMCFG:
             return HandleGetConfig<NET_VideoEncodeOption_S>(channelId, command);
 
-        case NET_TV_GET_RTSPURLCFG:
+        case NET_GET_RTSPURLCFG:
             return HandleGetConfig<NET_RtspUrlInfo_S>(channelId, command);
 
-        case NET_TV_GET_OSDCAPCFG:
+        case NET_GET_OSDCAPCFG:
             return HandleGetConfig<NET_VideoOsdCfg_S>(channelId, command);
 
-        case NET_TV_GET_IMAGECFG:
+        case NET_GET_IMAGECFG:
             return HandleGetConfig<NET_ImageSetting_S>(channelId, command);
 
-        case NET_TV_GET_PRIVACYMASKCFG:
+        case NET_GET_PRIVACYMASKCFG:
             return HandleGetConfig<NET_PrivacyMaskCfg_S>(channelId, command);
 
-        case NET_TV_GET_TAMPERALARM:
+        case NET_GET_TAMPERALARM:
             return HandleGetConfig<NET_TamperAlarmInfo_S>(channelId, command);
 
-        case NET_TV_GET_MOTIONALARM:
+        case NET_GET_MOTIONALARM:
             return HandleGetConfig<NET_MotionAlarmInfo_S>(channelId, command);
 
-        case NET_TV_GET_CROSSLINEALARM:
+        case NET_GET_CROSSLINEALARM:
             return HandleGetConfig<NET_CrossLineAlarmInfo_S>(channelId, command);
 
-        case NET_TV_GET_INTRUSIONALARM:
+        case NET_GET_INTRUSIONALARM:
             return HandleGetConfig<NET_IntrusionAlarmInfo_S>(channelId, command);
 
-        case NET_TV_GET_ENTERREGIONALARM:
+        case NET_GET_ENTERREGIONALARM:
             return HandleGetConfig<NET_EnterRegionAlarmInfo_S>(channelId, command);
 
-        case NET_TV_GET_LEAVEREGIONALARM:
+        case NET_GET_LEAVEREGIONALARM:
             return HandleGetConfig<NET_LeaveRegionAlarmInfo_S>(channelId, command);
 
-        case NET_TV_GET_LOITERINGALARM:
+        case NET_GET_LOITERINGALARM:
             return HandleGetConfig<NET_LoiteringAlarmInfo_S>(channelId, command);
 
-        case NET_TV_GET_SCENECHANGEALARM:
+        case NET_GET_SCENECHANGEALARM:
             return HandleGetConfig<NET_SceneChangeAlarmInfo_S>(channelId, command);
 
-        case NET_TV_GET_CROWDGATHERINGALARM:
+        case NET_GET_CROWDGATHERINGALARM:
             return HandleGetConfig<NET_CrowdGatheringAlarmInfo_S>(channelId, command);
 
-        case NET_TV_GET_GARBAGE_EXPOSURE_CFG:
+        case NET_GET_GARBAGE_EXPOSURE_CFG:
             return HandleGetConfig<NET_GarbageExposureCfg_S>(channelId, command);
 
-        case NET_TV_GET_GARBAGE_OVERFLOW_CFG:
+        case NET_GET_GARBAGE_OVERFLOW_CFG:
             return HandleGetConfig<NET_GarbageOverflowCfg_S>(channelId, command);
 
-        case NET_TV_GET_PARKINGALARM:
+        case NET_GET_PARKINGALARM:
             return HandleGetConfig<NET_ParkingAlarmInfo_S>(channelId, command);
 
-        case NET_TV_GET_UNATTENDEDOBJECTALARM:
+        case NET_GET_UNATTENDEDOBJECTALARM:
             return HandleGetConfig<NET_UnattendedObjectAlarmInfo_S>(channelId, command);
 
-        case NET_TV_GET_OBJECTREMOVALALARM:
+        case NET_GET_OBJECTREMOVALALARM:
             return HandleGetConfig<NET_ObjectRemovalAlarmInfo_S>(channelId, command);
 
-        case NET_TV_GET_AUDIOANOMALYALARM:
+        case NET_GET_AUDIOANOMALYALARM:
             return HandleGetConfig<NET_AudioAnomalyAlarmInfo_S>(channelId, command);
 
-        case NET_TV_GET_PREVIEW_INFO:
+        case NET_GET_PREVIEW_INFO:
             return HandleGetConfig<NET_PreviewInfo_S>(channelId, command);
 
-        case NET_TV_GET_CHANNEL_INFO:
+        case NET_GET_CHANNEL_INFO:
             return HandleGetChannelInfo(channelId, command);
 
-        case NET_TV_GET_CHANNEL_LIST:
+        case NET_GET_CHANNEL_LIST:
             return HandleGetChannelList(channelId, command);
 
-        case NET_TV_FROM_STREAM_TALKBACK:
+        case NET_FROM_STREAM_TALKBACK:
             return HandleGetConfig<NET_TalkbackStreamInfo_S>(channelId, command);
 
-        case NET_TV_GET_VOICECOM_AUDIO_CFG:
+        case NET_GET_VOICECOM_AUDIO_CFG:
             return HandleGetConfig<NET_VoiceComAudioCfg_S>(channelId, command);
 
-        case NET_TV_GET_UPGRADESTATUS:
+        case NET_GET_UPGRADESTATUS:
             return HandleGetConfig<NET_UpgradeStatus_S>(channelId, command);
 
-        case NET_TV_GET_UPGRADEVERSION:
+        case NET_GET_UPGRADEVERSION:
             return HandleGetConfig<NET_UpgradeVersion_S>(channelId, command);
 
-        case NET_TV_GET_CAPTURE_PLAN_INFO:
+        case NET_GET_CAPTURE_PLAN_INFO:
             return HandleGetConfig<NET_CapturePlanInfo_S>(channelId, command);
 
-        case NET_TV_GET_CAPTURE_PARAM_INFO:
+        case NET_GET_CAPTURE_PARAM_INFO:
             return HandleGetConfig<NET_CaptureParamInfo_S>(channelId, command);
 
-        case NET_TV_GET_EXPOSURE_INFO:
+        case NET_GET_EXPOSURE_INFO:
             return HandleGetConfig<NET_ExposureInfo_S>(channelId, command);
 
-        case NET_TV_GET_DAYNIGHT_INFO:
+        case NET_GET_DAYNIGHT_INFO:
             return HandleGetConfig<NET_DayNightInfo_S>(channelId, command);
 
-        case NET_TV_GET_BACKLIGHT_INFO:
+        case NET_GET_BACKLIGHT_INFO:
             return HandleGetConfig<NET_BackLightInfo_S>(channelId, command);
 
-        case NET_TV_GET_DENOISE_INFO:
+        case NET_GET_DENOISE_INFO:
             return HandleGetConfig<NET_DenoiseInfo_S>(channelId, command);
 
-        case NET_TV_GET_WHITEBALANCE_INFO:
+        case NET_GET_WHITEBALANCE_INFO:
             return HandleGetConfig<NET_WhiteBalanceInfo_S>(channelId, command);
 
-        case NET_TV_GET_FACECAPTUREINFO:
+        case NET_GET_FACECAPTUREINFO:
             return HandleGetConfig<NET_FaceCaptureInfo_S>(channelId, command);
 
-        case NET_TV_GET_TARGET_LIB:
+        case NET_GET_TARGET_LIB:
             return HandleGetConfig<NET_FaceLibList_S>(channelId, command);
 
-        case NET_TV_GET_FACE_INFO:
+        case NET_GET_FACE_INFO:
             return HandleGetConfig<NET_FaceInfoList_S>(channelId, command);
 
-        case NET_TV_GET_PEOPLE_FLOW_STATISTICS_CFG:
+        case NET_GET_PEOPLE_FLOW_STATISTICS_CFG:
             return HandleGetConfig<NET_PeopleFlowStatisticsCfg_S>(channelId, command);
 
-        case NET_TV_GET_PEOPLE_DENSITY_DETECTION_CFG:
+        case NET_GET_PEOPLE_DENSITY_DETECTION_CFG:
             return HandleGetConfig<NET_PeopleDensityDetectionCfg_S>(channelId, command);
 
-        case NET_TV_GET_MANHOLE_COVER_ABNORMAL_CFG:
+        case NET_GET_MANHOLE_COVER_ABNORMAL_CFG:
             return HandleGetConfig<NET_ManholeCoverAbnormalCfg_S>(channelId, command);
 
-        case NET_TV_GET_SLEEP_ON_DUTY_CFG:
+        case NET_GET_SLEEP_ON_DUTY_CFG:
             return HandleGetConfig<NET_SleepOnDutyCfg_S>(channelId, command);
 
-        case NET_TV_GET_ELECTRIC_VEHICLE_IN_ELEVATOR_CFG:
+        case NET_GET_ELECTRIC_VEHICLE_IN_ELEVATOR_CFG:
             return HandleGetConfig<NET_ElectricVehicleInElevatorCfg_S>(channelId, command);
 
-        case NET_TV_GET_PERSON_FALL_DOWN_CFG:
+        case NET_GET_PERSON_FALL_DOWN_CFG:
             return HandleGetConfig<NET_PersonFallDownCfg_S>(channelId, command);
 
-        case NET_TV_GET_CONSTRUCTION_OCCUPY_ROAD_CFG:
+        case NET_GET_CONSTRUCTION_OCCUPY_ROAD_CFG:
             return HandleGetConfig<NET_ConstructionOccupyRoadCfg_S>(channelId, command);
 
-        case NET_TV_GET_CONGESTION_CFG:
+        case NET_GET_CONGESTION_CFG:
             return HandleGetConfig<NET_CongestionCfg_S>(channelId, command);
 
-        case NET_TV_GET_LICENSE_PLATE_RECOGNITION_CFG:
+        case NET_GET_LICENSE_PLATE_RECOGNITION_CFG:
             return HandleGetConfig<NET_LicensePlateRecognitionCfg_S>(channelId, command);
 
-        case NET_TV_GET_HIGH_ALTITUDE_SEATBELT_CFG:
+        case NET_GET_HIGH_ALTITUDE_SEATBELT_CFG:
             return HandleGetConfig<NET_HighAltitudeSeatbeltCfg_S>(channelId, command);
 
-        case NET_TV_GET_SAFETY_HELMET_CFG:
+        case NET_GET_SAFETY_HELMET_CFG:
             return HandleGetConfig<NET_SafetyHelmetCfg_S>(channelId, command);
 
-        case NET_TV_GET_PERSON_FALL_CFG:
+        case NET_GET_PERSON_FALL_CFG:
             return HandleGetConfig<NET_PersonFallCfg_S>(channelId, command);
 
-        case NET_TV_GET_PHONE_USAGE_CFG:
+        case NET_GET_PHONE_USAGE_CFG:
             return HandleGetConfig<NET_PhoneUsageCfg_S>(channelId, command);
 
-        case NET_TV_GET_SMOKING_CFG:
+        case NET_GET_SMOKING_CFG:
             return HandleGetConfig<NET_SmokingCfg_S>(channelId, command);
 
-        case NET_TV_GET_OPEN_FLAME_CFG:
+        case NET_GET_OPEN_FLAME_CFG:
             return HandleGetConfig<NET_OpenFlameCfg_S>(channelId, command);
 
-        case NET_TV_GET_BARE_SOIL_CFG:
+        case NET_GET_BARE_SOIL_CFG:
             return HandleGetConfig<NET_BareSoilCfg_S>(channelId, command);
 
-        case NET_TV_GET_HOLE_PROTECTION_BAR_CFG:
+        case NET_GET_HOLE_PROTECTION_BAR_CFG:
             return HandleGetConfig<NET_HoleProtectionBarCfg_S>(channelId, command);
 
-        case NET_TV_GET_REFLECTIVE_CLOTHING_CFG:
+        case NET_GET_REFLECTIVE_CLOTHING_CFG:
             return HandleGetConfig<NET_ReflectiveClothingCfg_S>(channelId, command);
 
-        case NET_TV_GET_PET_RECOGNITION_INFO:
+        case NET_GET_PET_RECOGNITION_INFO:
             return HandleGetConfig<NET_PetRecognitionInfo_S>(channelId, command);
 
-        case NET_TV_GET_CLIMB_FENCE_INFO:
+        case NET_GET_CLIMB_FENCE_INFO:
             return HandleGetConfig<NET_ClimbFenceInfo_S>(channelId, command);
 
-        case NET_TV_GET_DIMISSION_INFO:
+        case NET_GET_DIMISSION_INFO:
             return HandleGetConfig<NET_DimissionInfo_S>(channelId, command);
 
-        case NET_TV_GET_ILLEGAL_LANE_INFO:
+        case NET_GET_ILLEGAL_LANE_INFO:
             return HandleGetConfig<NET_IllegalLaneInfo_S>(channelId, command);
 
-        case NET_TV_GET_RETROGRADE_INFO:
+        case NET_GET_RETROGRADE_INFO:
             return HandleGetConfig<NET_RetrogradeInfo_S>(channelId, command);
 
-        case NET_TV_GET_NONMOTOR_VEHICLE_INTRUSION_INFO:
+        case NET_GET_NONMOTOR_VEHICLE_INTRUSION_INFO:
             return HandleGetConfig<NET_NonmotorVehicleIntrusionInfo_S>(channelId, command);
 
-        case NET_TV_GET_OCCUPATION_EMERGENCY_INFO:
+        case NET_GET_OCCUPATION_EMERGENCY_INFO:
             return HandleGetConfig<NET_OccupationEmergencyInfo_S>(channelId, command);
 
-        case NET_TV_GET_PEDESTRIAN_INTRUSION_INFO:
+        case NET_GET_PEDESTRIAN_INTRUSION_INFO:
             return HandleGetConfig<NET_PedestrianIntrusionInfo_S>(channelId, command);
 
-        case NET_TV_GET_SMOKE_FIRE_CFG:
+        case NET_GET_SMOKE_FIRE_CFG:
             return HandleGetConfig<NET_SmokeFireCfg_S>(channelId, command);
 
-        case NET_TV_GET_ROAD_PONDING_CFG:
+        case NET_GET_ROAD_PONDING_CFG:
             return HandleGetConfig<NET_RoadPondingCfg_S>(channelId, command);
         default:
             NETSDK_LOG_MESSAGE_WARN("Unsupported GetDevConfig command: %d", command);
-            return SDKConvert::to_respString(NET_TV_E_CMD_NOT_SUPPORT);
+            return SDKConvert::to_respString(NET_E_CMD_NOT_SUPPORT);
     }
 }
 
@@ -465,8 +465,8 @@ std::string CDeviceConfigBusiness::GetDevConfig(const std::string& req_data, con
  */
 std::string CDeviceConfigBusiness::SetDevConfig(const std::string& req_data, const std::string& url_param)
 {
-    INT32 channelId = ParseIntParam(url_param, NET_TV_API_PARAM_CHANNEL, 1);
-    INT32 command = ParseIntParam(url_param, NET_TV_API_PARAM_COMMAND, NET_TV_CFG_INVALID);
+    INT32 channelId = ParseIntParam(url_param, NET_API_PARAM_CHANNEL, 1);
+    INT32 command = ParseIntParam(url_param, NET_API_PARAM_COMMAND, NET_CFG_INVALID);
     NETSDK_LOG_MESSAGE_INFO("SetDevConfig request: url[%s], channel=%d, command=%d",
                   url_param.c_str(),
                   channelId,
@@ -474,258 +474,258 @@ std::string CDeviceConfigBusiness::SetDevConfig(const std::string& req_data, con
 
     switch (command)
     {
-        case NET_TV_SET_DEVICECFG:
+        case NET_SET_DEVICECFG:
             return HandleSetConfig<NET_DeviceBasicInfo_S>(channelId, command, req_data);
 
-        case NET_TV_SET_NTPCFG:
+        case NET_SET_NTPCFG:
             return HandleSetConfig<NET_SystemNtpInfo_S>(channelId, command, req_data);
 
-        case NET_TV_SET_AUDIOCFG:
+        case NET_SET_AUDIOCFG:
             return HandleSetConfig<NET_AudioCfg_S>(channelId, command, req_data);
 
-        case NET_TV_SET_NETWORKCFG:
+        case NET_SET_NETWORKCFG:
             return HandleSetConfig<NET_NetworkCfg_S>(channelId, command, req_data);
 
-        case NET_TV_SET_CONFIG_WIFI_STA:
+        case NET_SET_CONFIG_WIFI_STA:
             return HandleSetConfig<NET_WifiStaCfg_S>(channelId, command, req_data);
 
-        case NET_TV_CONNECT_WIFI_STA:
+        case NET_CONNECT_WIFI_STA:
             return HandleSetConfig<NET_WifiStaConnect_S>(channelId, command, req_data);
 
-        case NET_TV_DISCONNECT_WIFI_STA:
+        case NET_DISCONNECT_WIFI_STA:
             return HandleSetConfig<NET_WifiStaConnect_S>(channelId, command, req_data);
 
-        case NET_TV_SET_4G_INFO:
+        case NET_SET_4G_INFO:
             return HandleSetConfig<NET_4GInfo_S>(channelId, command, req_data);
 
-        case NET_TV_SET_HOTSPOT_INFO:
+        case NET_SET_HOTSPOT_INFO:
             return HandleSetConfig<NET_HotspotInfo_S>(channelId, command, req_data);
 
-        case NET_TV_SET_SECURITY_SERVICES_INFO:
+        case NET_SET_SECURITY_SERVICES_INFO:
             return HandleSetConfig<NET_SecurityServicesInfo_S>(channelId, command, req_data);
 
-        case NET_TV_SET_LOG_SERVER:
+        case NET_SET_LOG_SERVER:
             return HandleSetConfig<NET_LogServerInfo_S>(channelId, command, req_data);
 
-        case NET_TV_TEST_LOG_SERVER:
+        case NET_TEST_LOG_SERVER:
             return HandleSetConfig<NET_LogServerInfo_S>(channelId, command, req_data);
 
-        case NET_TV_CONTROL_RECORD_INFO:
+        case NET_CONTROL_RECORD_INFO:
             return HandleSetConfig<NET_RecordInfo_S>(channelId, command, req_data);
 
-        case NET_TV_SET_RECORD_SCHEDULE:
+        case NET_SET_RECORD_SCHEDULE:
             return HandleSetConfig<NET_RecordSchedule_S>(channelId, command, req_data);
 
-        case NET_TV_SET_RECORD_ADVANCED_PARAM:
+        case NET_SET_RECORD_ADVANCED_PARAM:
             return HandleSetConfig<NET_RecordAdvancedParam_S>(channelId, command, req_data);
 
-        case NET_TV_DOWNLOAD_RECORD_FILE:
+        case NET_DOWNLOAD_RECORD_FILE:
             return HandleSetConfig<NET_RecordDownloadList_S>(channelId, command, req_data);
 
-        case NET_TV_SET_STREAMCFG:
+        case NET_SET_STREAMCFG:
             return HandleSetConfig<NET_VideoEncodeOption_S>(channelId, command, req_data);
 
-        case NET_TV_SET_OSDCAPCFG:
+        case NET_SET_OSDCAPCFG:
             return HandleSetConfig<NET_VideoOsdCfg_S>(channelId, command, req_data);
 
-        case NET_TV_SET_IMAGECFG:
+        case NET_SET_IMAGECFG:
             return HandleSetConfig<NET_ImageSetting_S>(channelId, command, req_data);
 
-        case NET_TV_SET_PRIVACYMASKCFG:
+        case NET_SET_PRIVACYMASKCFG:
             return HandleSetConfig<NET_PrivacyMaskCfg_S>(channelId, command, req_data);
 
-        case NET_TV_SET_TAMPERALARM:
+        case NET_SET_TAMPERALARM:
             return HandleSetConfig<NET_TamperAlarmInfo_S>(channelId, command, req_data);
 
-        case NET_TV_SET_MOTIONALARM:
+        case NET_SET_MOTIONALARM:
             return HandleSetConfig<NET_MotionAlarmInfo_S>(channelId, command, req_data);
 
-        case NET_TV_SET_CROSSLINEALARM:
+        case NET_SET_CROSSLINEALARM:
             return HandleSetConfig<NET_CrossLineAlarmInfo_S>(channelId, command, req_data);
 
-        case NET_TV_SET_INTRUSIONALARM:
+        case NET_SET_INTRUSIONALARM:
             return HandleSetConfig<NET_IntrusionAlarmInfo_S>(channelId, command, req_data);
 
-        case NET_TV_SET_ENTERREGIONALARM:
+        case NET_SET_ENTERREGIONALARM:
             return HandleSetConfig<NET_EnterRegionAlarmInfo_S>(channelId, command, req_data);
 
-        case NET_TV_SET_LEAVEREGIONALARM:
+        case NET_SET_LEAVEREGIONALARM:
             return HandleSetConfig<NET_LeaveRegionAlarmInfo_S>(channelId, command, req_data);
 
-        case NET_TV_SET_LOITERINGALARM:
+        case NET_SET_LOITERINGALARM:
             return HandleSetConfig<NET_LoiteringAlarmInfo_S>(channelId, command, req_data);
 
-        case NET_TV_SET_SCENECHANGEALARM:
+        case NET_SET_SCENECHANGEALARM:
             return HandleSetConfig<NET_SceneChangeAlarmInfo_S>(channelId, command, req_data);
 
-        case NET_TV_SET_CROWDGATHERINGALARM:
+        case NET_SET_CROWDGATHERINGALARM:
             return HandleSetConfig<NET_CrowdGatheringAlarmInfo_S>(channelId, command, req_data);
 
-        case NET_TV_SET_GARBAGE_EXPOSURE_CFG:
+        case NET_SET_GARBAGE_EXPOSURE_CFG:
             return HandleSetConfig<NET_GarbageExposureCfg_S>(channelId, command, req_data);
 
-        case NET_TV_SET_GARBAGE_OVERFLOW_CFG:
+        case NET_SET_GARBAGE_OVERFLOW_CFG:
             return HandleSetConfig<NET_GarbageOverflowCfg_S>(channelId, command, req_data);
 
-        case NET_TV_SET_PARKINGALARM:
+        case NET_SET_PARKINGALARM:
             return HandleSetConfig<NET_ParkingAlarmInfo_S>(channelId, command, req_data);
 
-        case NET_TV_SET_UNATTENDEDOBJECTALARM:
+        case NET_SET_UNATTENDEDOBJECTALARM:
             return HandleSetConfig<NET_UnattendedObjectAlarmInfo_S>(channelId, command, req_data);
 
-        case NET_TV_SET_OBJECTREMOVALALARM:
+        case NET_SET_OBJECTREMOVALALARM:
             return HandleSetConfig<NET_ObjectRemovalAlarmInfo_S>(channelId, command, req_data);
 
-        case NET_TV_SET_AUDIOANOMALYALARM:
+        case NET_SET_AUDIOANOMALYALARM:
             return HandleSetConfig<NET_AudioAnomalyAlarmInfo_S>(channelId, command, req_data);
 
-        case NET_TV_SET_PREVIEW_INFO:
+        case NET_SET_PREVIEW_INFO:
             return HandleSetConfig<NET_PreviewInfo_S>(channelId, command, req_data);
 
-        case NET_TV_SET_VOICECOM_AUDIO_CFG:
+        case NET_SET_VOICECOM_AUDIO_CFG:
             return HandleSetConfig<NET_VoiceComAudioCfg_S>(channelId, command, req_data);
 
-        case NET_TV_SET_UPGRADE:
+        case NET_SET_UPGRADE:
             return HandleSetConfig<NET_UpgradeInfo_S>(channelId, command, req_data);
 
-        case NET_TV_SET_CAPTURE_PLAN_INFO:
+        case NET_SET_CAPTURE_PLAN_INFO:
             return HandleSetConfig<NET_CapturePlanInfo_S>(channelId, command, req_data);
 
-        case NET_TV_SET_CAPTURE_PARAM_INFO:
+        case NET_SET_CAPTURE_PARAM_INFO:
             return HandleSetConfig<NET_CaptureParamInfo_S>(channelId, command, req_data);
 
-        case NET_TV_SET_EXPOSURE_INFO:
+        case NET_SET_EXPOSURE_INFO:
             return HandleSetConfig<NET_ExposureInfo_S>(channelId, command, req_data);
 
-        case NET_TV_SET_DAYNIGHT_INFO:
+        case NET_SET_DAYNIGHT_INFO:
             return HandleSetConfig<NET_DayNightInfo_S>(channelId, command, req_data);
 
-        case NET_TV_SET_BACKLIGHT_INFO:
+        case NET_SET_BACKLIGHT_INFO:
             return HandleSetConfig<NET_BackLightInfo_S>(channelId, command, req_data);
 
-        case NET_TV_SET_DENOISE_INFO:
+        case NET_SET_DENOISE_INFO:
             return HandleSetConfig<NET_DenoiseInfo_S>(channelId, command, req_data);
 
-        case NET_TV_SET_WHITEBALANCE_INFO:
+        case NET_SET_WHITEBALANCE_INFO:
             return HandleSetConfig<NET_WhiteBalanceInfo_S>(channelId, command, req_data);
 
-        case NET_TV_STATE_TALKBACK:
+        case NET_STATE_TALKBACK:
             return HandleSetConfig<NET_TalkbackStateInfo_S>(channelId, command, req_data);
 
-        case NET_TV_TO_STREAM_TALKBACK:
+        case NET_TO_STREAM_TALKBACK:
             return HandleSetConfig<NET_TalkbackStreamInfo_S>(channelId, command, req_data);
 
-        case NET_TV_REPLAY_TALKBACK:
+        case NET_REPLAY_TALKBACK:
             return HandleSetConfig<NET_ReplayTalkbackInfo_S>(channelId, command, req_data);
 
-        case NET_TV_SET_FACECAPTUREINFO:
+        case NET_SET_FACECAPTUREINFO:
             return HandleSetConfig<NET_FaceCaptureInfo_S>(channelId, command, req_data);
 
-        case NET_TV_SET_FACE_COMPARE_INFO:
+        case NET_SET_FACE_COMPARE_INFO:
             return HandleSetConfig<NET_FaceCompareInfo_S>(channelId, command, req_data);
 
-        case NET_TV_ADD_TARGET_LIB:
-        case NET_TV_DEL_TARGET_LIB:
-        case NET_TV_SET_TARGET_LIB:
+        case NET_ADD_TARGET_LIB:
+        case NET_DEL_TARGET_LIB:
+        case NET_SET_TARGET_LIB:
             return HandleSetConfig<NET_FaceLibInfo_S>(channelId, command, req_data);
 
-        case NET_TV_ADD_FACE_INFO:
-        case NET_TV_SET_FACE_INFO:
+        case NET_ADD_FACE_INFO:
+        case NET_SET_FACE_INFO:
             return HandleSetConfig<NET_FaceInfo_S>(channelId, command, req_data);
 
-        case NET_TV_DEL_FACE_INFO:
+        case NET_DEL_FACE_INFO:
             return HandleSetConfig<NET_FaceIdInfo_S>(channelId, command, req_data);
 
-        case NET_TV_SET_PEOPLE_FLOW_STATISTICS_CFG:
+        case NET_SET_PEOPLE_FLOW_STATISTICS_CFG:
             return HandleSetConfig<NET_PeopleFlowStatisticsCfg_S>(channelId, command, req_data);
 
-        case NET_TV_RESET_PEOPLE_FLOW_STATISTICS:
+        case NET_RESET_PEOPLE_FLOW_STATISTICS:
             return HandleSetConfig<NET_PeopleFlowStatisticsCfg_S>(channelId, command, req_data);
 
-        case NET_TV_SET_PEOPLE_DENSITY_DETECTION_CFG:
+        case NET_SET_PEOPLE_DENSITY_DETECTION_CFG:
             return HandleSetConfig<NET_PeopleDensityDetectionCfg_S>(channelId, command, req_data);
 
-        case NET_TV_SET_MANHOLE_COVER_ABNORMAL_CFG:
+        case NET_SET_MANHOLE_COVER_ABNORMAL_CFG:
             return HandleSetConfig<NET_ManholeCoverAbnormalCfg_S>(channelId, command, req_data);
 
-        case NET_TV_SET_SLEEP_ON_DUTY_CFG:
+        case NET_SET_SLEEP_ON_DUTY_CFG:
             return HandleSetConfig<NET_SleepOnDutyCfg_S>(channelId, command, req_data);
 
-        case NET_TV_SET_ELECTRIC_VEHICLE_IN_ELEVATOR_CFG:
+        case NET_SET_ELECTRIC_VEHICLE_IN_ELEVATOR_CFG:
             return HandleSetConfig<NET_ElectricVehicleInElevatorCfg_S>(channelId, command, req_data);
 
-        case NET_TV_SET_PERSON_FALL_DOWN_CFG:
+        case NET_SET_PERSON_FALL_DOWN_CFG:
             return HandleSetConfig<NET_PersonFallDownCfg_S>(channelId, command, req_data);
 
-        case NET_TV_SET_CONSTRUCTION_OCCUPY_ROAD_CFG:
+        case NET_SET_CONSTRUCTION_OCCUPY_ROAD_CFG:
             return HandleSetConfig<NET_ConstructionOccupyRoadCfg_S>(channelId, command, req_data);
 
-        case NET_TV_SET_CONGESTION_CFG:
+        case NET_SET_CONGESTION_CFG:
             return HandleSetConfig<NET_CongestionCfg_S>(channelId, command, req_data);
 
-        case NET_TV_SET_LICENSE_PLATE_RECOGNITION_CFG:
+        case NET_SET_LICENSE_PLATE_RECOGNITION_CFG:
             return HandleSetConfig<NET_LicensePlateRecognitionCfg_S>(channelId, command, req_data);
 
-        case NET_TV_SET_HIGH_ALTITUDE_SEATBELT_CFG:
+        case NET_SET_HIGH_ALTITUDE_SEATBELT_CFG:
             return HandleSetConfig<NET_HighAltitudeSeatbeltCfg_S>(channelId, command, req_data);
 
-        case NET_TV_SET_SAFETY_HELMET_CFG:
+        case NET_SET_SAFETY_HELMET_CFG:
             return HandleSetConfig<NET_SafetyHelmetCfg_S>(channelId, command, req_data);
 
-        case NET_TV_SET_PERSON_FALL_CFG:
+        case NET_SET_PERSON_FALL_CFG:
             return HandleSetConfig<NET_PersonFallCfg_S>(channelId, command, req_data);
 
-        case NET_TV_SET_PHONE_USAGE_CFG:
+        case NET_SET_PHONE_USAGE_CFG:
             return HandleSetConfig<NET_PhoneUsageCfg_S>(channelId, command, req_data);
 
-        case NET_TV_SET_SMOKING_CFG:
+        case NET_SET_SMOKING_CFG:
             return HandleSetConfig<NET_SmokingCfg_S>(channelId, command, req_data);
 
-        case NET_TV_SET_OPEN_FLAME_CFG:
+        case NET_SET_OPEN_FLAME_CFG:
             return HandleSetConfig<NET_OpenFlameCfg_S>(channelId, command, req_data);
 
-        case NET_TV_SET_BARE_SOIL_CFG:
+        case NET_SET_BARE_SOIL_CFG:
             return HandleSetConfig<NET_BareSoilCfg_S>(channelId, command, req_data);
 
-        case NET_TV_SET_HOLE_PROTECTION_BAR_CFG:
+        case NET_SET_HOLE_PROTECTION_BAR_CFG:
             return HandleSetConfig<NET_HoleProtectionBarCfg_S>(channelId, command, req_data);
 
-        case NET_TV_SET_REFLECTIVE_CLOTHING_CFG:
+        case NET_SET_REFLECTIVE_CLOTHING_CFG:
             return HandleSetConfig<NET_ReflectiveClothingCfg_S>(channelId, command, req_data);
 
-        case NET_TV_SET_PET_RECOGNITION_INFO:
+        case NET_SET_PET_RECOGNITION_INFO:
             return HandleSetConfig<NET_PetRecognitionInfo_S>(channelId, command, req_data);
 
-        case NET_TV_SET_CLIMB_FENCE_INFO:
+        case NET_SET_CLIMB_FENCE_INFO:
             return HandleSetConfig<NET_ClimbFenceInfo_S>(channelId, command, req_data);
 
-        case NET_TV_SET_DIMISSION_INFO:
+        case NET_SET_DIMISSION_INFO:
             return HandleSetConfig<NET_DimissionInfo_S>(channelId, command, req_data);
 
-        case NET_TV_SET_ILLEGAL_LANE_INFO:
+        case NET_SET_ILLEGAL_LANE_INFO:
             return HandleSetConfig<NET_IllegalLaneInfo_S>(channelId, command, req_data);
 
-        case NET_TV_SET_RETROGRADE_INFO:
+        case NET_SET_RETROGRADE_INFO:
             return HandleSetConfig<NET_RetrogradeInfo_S>(channelId, command, req_data);
 
-        case NET_TV_SET_NONMOTOR_VEHICLE_INTRUSION_INFO:
+        case NET_SET_NONMOTOR_VEHICLE_INTRUSION_INFO:
             return HandleSetConfig<NET_NonmotorVehicleIntrusionInfo_S>(channelId, command, req_data);
 
-        case NET_TV_SET_OCCUPATION_EMERGENCY_INFO:
+        case NET_SET_OCCUPATION_EMERGENCY_INFO:
             return HandleSetConfig<NET_OccupationEmergencyInfo_S>(channelId, command, req_data);
 
-        case NET_TV_SET_PEDESTRIAN_INTRUSION_INFO:
+        case NET_SET_PEDESTRIAN_INTRUSION_INFO:
             return HandleSetConfig<NET_PedestrianIntrusionInfo_S>(channelId, command, req_data);
 
-        case NET_TV_SET_SMOKE_FIRE_CFG:
+        case NET_SET_SMOKE_FIRE_CFG:
             return HandleSetConfig<NET_SmokeFireCfg_S>(channelId, command, req_data);
 
-        case NET_TV_SET_ROAD_PONDING_CFG:
+        case NET_SET_ROAD_PONDING_CFG:
             return HandleSetConfig<NET_RoadPondingCfg_S>(channelId, command, req_data);
 
         default:
             NETSDK_LOG_MESSAGE_WARN("Unsupported SetDevConfig command: %d", command);
-            return SDKConvert::to_respString(NET_TV_E_CMD_NOT_SUPPORT);
+            return SDKConvert::to_respString(NET_E_CMD_NOT_SUPPORT);
     }
 }
 

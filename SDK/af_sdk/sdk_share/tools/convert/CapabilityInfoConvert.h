@@ -21,9 +21,9 @@
 #include "Json.h"
 
 /* 库通用头文件 */
-#ifdef NET_TV_SDK_SERVER_API
+#ifdef NET_SDK_SERVER_API
     #include "NetTVSDKServerInterface.h"
-#elif defined(NET_TV_SDK_CLIENT_API)
+#elif defined(NET_SDK_CLIENT_API)
     #include "NetTVSDKClientInterface.h"
 #else
     #include "NetTVSDKCommon.h"
@@ -35,67 +35,67 @@ namespace SDKConvert
  * @author tianl (tianl@kfb.cn)
      * @brief 视频分辨率结构体转换
      */
-    void deal(Json::Object* pRootJson, NET_TV_VIDEO_RESOLUTION_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_VIDEO_RESOLUTION_S& stInfo, bool bOutStruct);
 
     /**
  * @author tianl (tianl@kfb.cn)
      * @brief 取值范围结构体转换
      */
-    void deal(Json::Object* pRootJson, NET_TV_RANGE_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_RANGE_S& stInfo, bool bOutStruct);
 
     /**
  * @author tianl (tianl@kfb.cn)
      * @brief 视频编码参数配置转换
      */
-    void deal(Json::Object* pRootJson, NET_TV_VIDEO_ENCODE_OPTION_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_VIDEO_ENCODE_OPTION_S& stInfo, bool bOutStruct);
 
     /**
  * @author tianl (tianl@kfb.cn)
      * @brief 视频编码格式能力转换
      */
-    void deal(Json::Object* pRootJson, NET_TV_VIDEO_ENCODE_ABILITY_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_VIDEO_ENCODE_ABILITY_S& stInfo, bool bOutStruct);
 
     /**
  * @author tianl (tianl@kfb.cn)
      * @brief 视频码流参数能力集转换 (单个码流)
      */
-    void deal(Json::Object* pRootJson, NET_TV_VIDEO_STREAM_CAP_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_VIDEO_STREAM_CAP_S& stInfo, bool bOutStruct);
 
     /**
  * @author tianl (tianl@kfb.cn)
-     * @brief 视频编码能力集转换 (多码流, NET_TV_CAP_VIDEO_ENCODE)
+     * @brief 视频编码能力集转换 (多码流, NET_CAP_VIDEO_ENCODE)
      */
-    void deal(Json::Object* pRootJson, NET_TV_VIDEO_ENCODE_CAP_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_VIDEO_ENCODE_CAP_S& stInfo, bool bOutStruct);
 
     /**
  * @author tianl (tianl@kfb.cn)
      * @brief 音频范围转换
      */
-    void deal(Json::Object* pRootJson, NET_TV_AUDIO_RANGE_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_AUDIO_RANGE_S& stInfo, bool bOutStruct);
 
     /**
  * @author tianl (tianl@kfb.cn)
      * @brief 音频格式能力转换
      */
-    void deal(Json::Object* pRootJson, NET_TV_AUDIO_FORMAT_CAP_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_AUDIO_FORMAT_CAP_S& stInfo, bool bOutStruct);
 
     /**
  * @author tianl (tianl@kfb.cn)
-     * @brief 音频编码能力集转换 (多码流, NET_TV_CAP_VIDEO_ENCODE)
+     * @brief 音频编码能力集转换 (多码流, NET_CAP_VIDEO_ENCODE)
      */
-    void deal(Json::Object* pRootJson, NET_TV_AUDIO_CAP_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_AUDIO_CAP_S& stInfo, bool bOutStruct);
 
     /**
  * @author tianl (tianl@kfb.cn)
-     * @brief OSD参数能力集转换 (NET_TV_CAP_OSD)
+     * @brief OSD参数能力集转换 (NET_CAP_OSD)
      */
-    void deal(Json::Object* pRootJson, NET_TV_OSD_CAP_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_OSD_CAP_S& stInfo, bool bOutStruct);
 
     /* ==================== 后续扩展能力集 ==================== */
-    /* NET_TV_CAP_OSD: void deal(Json::Object*, NET_TV_OSD_CAP_S&, bool); */
-    /* NET_TV_CAP_SMART: void deal(Json::Object*, NET_TV_SMART_CAP_S&, bool); */
-    /* NET_TV_CAP_IMAGE: void deal(Json::Object*, NET_TV_IMAGE_CAP_S&, bool); */
-    /* NET_TV_CAP_AUDIO: void deal(Json::Object*, NET_TV_AUDIO_CAP_S&, bool); */
+    /* NET_CAP_OSD: void deal(Json::Object*, NET_OSD_CAP_S&, bool); */
+    /* NET_CAP_SMART: void deal(Json::Object*, NET_SMART_CAP_S&, bool); */
+    /* NET_CAP_IMAGE: void deal(Json::Object*, NET_IMAGE_CAP_S&, bool); */
+    /* NET_CAP_AUDIO: void deal(Json::Object*, NET_AUDIO_CAP_S&, bool); */
 };
 
 #endif

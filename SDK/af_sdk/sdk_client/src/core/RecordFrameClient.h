@@ -25,7 +25,7 @@
 
 namespace tvsdk {
 
-using RecordFrameCallback = std::function<void(const NET_TV_RECORD_FRAME_INFO_S& frame_info,
+using RecordFrameCallback = std::function<void(const NET_RECORD_FRAME_INFO_S& frame_info,
                                                const char* data,
                                                size_t size)>;
 

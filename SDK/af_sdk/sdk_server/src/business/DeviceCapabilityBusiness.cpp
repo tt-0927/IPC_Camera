@@ -26,27 +26,27 @@ std::string CDeviceCapabilityBusiness::GetDeviceCapability(const std::string& re
     NETSDK_LOG_MESSAGE_DEBUG("GetDeviceCapability url_param: %s", url_param.c_str());
 
     /* 解析URL参数 */
-    int channelId = ParseIntParam(url_param, NET_TV_API_PARAM_CHANNEL, 1);
-    int command = ParseIntParam(url_param, NET_TV_API_PARAM_COMMAND, 0);
+    int channelId = ParseIntParam(url_param, NET_API_PARAM_CHANNEL, 1);
+    int command = ParseIntParam(url_param, NET_API_PARAM_COMMAND, 0);
 
     switch (command)
     {
-        case NET_TV_CAP_VIDEO_ENCODE:
+        case NET_CAP_VIDEO_ENCODE:
             return HandleVideoEncode(channelId);
 
         /* 后续扩展 */
-        case NET_TV_CAP_OSD:
+        case NET_CAP_OSD:
             return HandleOsd(channelId);
-        /* case NET_TV_CAP_SMART: */
+        /* case NET_CAP_SMART: */
         /*     return HandleSmart(channelId); */
-        /* case NET_TV_CAP_IMAGE: */
+        /* case NET_CAP_IMAGE: */
         /*     return HandleImage(channelId); */
-        case NET_TV_CAP_AUDIO:
+        case NET_CAP_AUDIO:
              return HandleAudioEncode(channelId);
 
         default:
             NETSDK_LOG_MESSAGE_WARN("Unsupported capability command: %d", command);
-            return SDKConvert::to_respString(NET_TV_E_CMD_NOT_SUPPORT);
+            return SDKConvert::to_respString(NET_E_CMD_NOT_SUPPORT);
     }
 }
 /**
@@ -58,12 +58,12 @@ std::string CDeviceCapabilityBusiness::GetDeviceCapability(const std::string& re
 
 std::string CDeviceCapabilityBusiness::HandleVideoEncode(int channelId)
 {
-    int nRespCode = NET_TV_E_FAILED;
+    int nRespCode = NET_E_FAILED;
     NET_VideoEncodeCap_S stCap;
     memset(&stCap, 0, sizeof(NET_VideoEncodeCap_S));
 
     nRespCode = NetSDK_ExecuteCb_GetVideoEncodeCap(channelId, &stCap);
-    if (nRespCode != NET_TV_E_SUCCEED)
+    if (nRespCode != NET_E_SUCCEED)
     {
         NETSDK_LOG_MESSAGE_DEBUG("视频编码能力集回调执行失败! ret=%d", nRespCode);
     }
@@ -79,12 +79,12 @@ std::string CDeviceCapabilityBusiness::HandleVideoEncode(int channelId)
 
 std::string CDeviceCapabilityBusiness::HandleAudioEncode(int channelId)
 {
-    int nRespCode = NET_TV_E_FAILED;
+    int nRespCode = NET_E_FAILED;
     NET_AudioCap_S stCap;
     memset(&stCap, 0, sizeof(NET_AudioCap_S));
 
     nRespCode = NetSDK_ExecuteCb_GetAudioCap(channelId, &stCap);
-    if (nRespCode != NET_TV_E_SUCCEED)
+    if (nRespCode != NET_E_SUCCEED)
     {
         NETSDK_LOG_MESSAGE_DEBUG("音频编码能力集回调执行失败! ret=%d", nRespCode);
     }
@@ -100,12 +100,12 @@ std::string CDeviceCapabilityBusiness::HandleAudioEncode(int channelId)
 
 std::string CDeviceCapabilityBusiness::HandleOsd(int channelId)
 {
-    int nRespCode = NET_TV_E_FAILED;
+    int nRespCode = NET_E_FAILED;
     NET_OsdCap_S stCap;
     memset(&stCap, 0, sizeof(NET_OsdCap_S));
 
     nRespCode = NetSDK_ExecuteCb_GetOsdCap(channelId, &stCap);
-    if (nRespCode != NET_TV_E_SUCCEED)
+    if (nRespCode != NET_E_SUCCEED)
     {
         NETSDK_LOG_MESSAGE_DEBUG("OSD能力集回调执行失败! ret=%d", nRespCode);
     }

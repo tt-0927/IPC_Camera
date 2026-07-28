@@ -52,7 +52,7 @@ int main(int argc, char* argv[])
 
     printf("[discovery-client] searching...\n");
 
-    BOOL ret = NET_TV_Discovery_Search(iface_ip,
+    BOOL ret = NET_Discovery_Search(iface_ip,
                                         static_cast<UINT32>(timeout_ms),
                                         devices,
                                         NETSDK_DEMO_MAX_DEVICES,
@@ -60,7 +60,7 @@ int main(int argc, char* argv[])
 
     if (!ret) {
         printf("[discovery-client] search failed, err=%d\n",
-               NET_TV_GetLastError());
+               NET_GetLastError());
         return -1;
     }
 

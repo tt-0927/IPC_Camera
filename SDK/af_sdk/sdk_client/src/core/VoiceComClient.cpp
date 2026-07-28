@@ -27,7 +27,7 @@ constexpr uint32_t kVoiceComParamMagic = 0x56435031;
 
 struct VoiceComParamFrame_S {
     uint32_t magic;
-    NET_TV_VOICECOM_AUDIO_PARAM_S audio_param;
+    NET_VOICECOM_AUDIO_PARAM_S audio_param;
 };
 /**
  * @author tianl (tianl@kfb.cn)
@@ -63,7 +63,7 @@ CVoiceComClient::~CVoiceComClient() { stop(); }
 
 bool CVoiceComClient::start(const std::string& host,
                            int port,
-                           const NET_TV_VOICECOM_AUDIO_PARAM_S& audio_param,
+                           const NET_VOICECOM_AUDIO_PARAM_S& audio_param,
                            VoiceComCallback callback) {
     if (m_bRunning) {
         NETSDK_LOG_MESSAGE_WARN("CVoiceComClient: already running");
@@ -127,7 +127,7 @@ bool CVoiceComClient::start(const std::string& host,
  * @return 返回该处理的状态或结果。
  */
 
-bool CVoiceComClient::send_audio_param(const NET_TV_VOICECOM_AUDIO_PARAM_S& audio_param) {
+bool CVoiceComClient::send_audio_param(const NET_VOICECOM_AUDIO_PARAM_S& audio_param) {
     VoiceComParamFrame_S frame{};
     frame.magic = htonl(kVoiceComParamMagic);
     frame.audio_param = audio_param;

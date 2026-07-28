@@ -71,7 +71,7 @@ public:
  * @return 无返回值。
  */
 
-    void SetCallback(NET_TV_AlarmCallBack cb, void* userData)
+    void SetCallback(NET_AlarmCallBack cb, void* userData)
     {
         m_fnAlarmCallback = cb;
         m_pAlarmUserData = userData;
@@ -84,7 +84,7 @@ public:
  * @return 无返回值。
  */
 
-    void SetChannelStatusCallback(NET_TV_ChannelStatusCallBack cb, void* userData)
+    void SetChannelStatusCallback(NET_ChannelStatusCallBack cb, void* userData)
     {
         m_fnChannelStatusCallback = cb;
         m_pChannelStatusUserData = userData;
@@ -108,10 +108,10 @@ private:
     std::thread m_stThread;
     std::atomic<bool> m_bRunning{false};
 
-    NET_TV_AlarmCallBack m_fnAlarmCallback = nullptr;
+    NET_AlarmCallBack m_fnAlarmCallback = nullptr;
     void* m_pAlarmUserData = nullptr;
 
-    NET_TV_ChannelStatusCallBack m_fnChannelStatusCallback = nullptr;
+    NET_ChannelStatusCallBack m_fnChannelStatusCallback = nullptr;
     void* m_pChannelStatusUserData = nullptr;
 
     SessionExpiredCallback m_fnSessionExpiredCallback = nullptr;

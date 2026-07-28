@@ -33,7 +33,7 @@
 #include "spdlog/pattern_formatter.h"
 #include "spdlog/sinks/dist_sink.h"
 
-#define NETSDK_LOG_FILENAME     "NET_TV_LOG.log"
+#define NETSDK_LOG_FILENAME     "NET_LOG.log"
 
 namespace
 {

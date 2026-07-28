@@ -56,9 +56,9 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_Alarmer_S& stAlarmInfo, bool 
         /* JSON转结构体：字符串转BYTE数组 */
         std::string serialNumberStr;
         convert.field(pRootJson, "SerialNumber", serialNumberStr);
-        size_t copy_len = std::min(serialNumberStr.size(), static_cast<size_t>(NET_TV_LEN_64));
+        size_t copy_len = std::min(serialNumberStr.size(), static_cast<size_t>(NET_LEN_64));
         memcpy(stAlarmInfo.strSerialNumber, serialNumberStr.c_str(), copy_len);
-        if (copy_len < NET_TV_LEN_64)
+        if (copy_len < NET_LEN_64)
         {
             stAlarmInfo.strSerialNumber[copy_len] = '\0';
         }
@@ -66,9 +66,9 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_Alarmer_S& stAlarmInfo, bool 
     else
     {
         /* 结构体转JSON：BYTE数组转字符串 */
-        std::string serialNumberStr(reinterpret_cast<const char*>(stAlarmInfo.strSerialNumber), NET_TV_LEN_64);
+        std::string serialNumberStr(reinterpret_cast<const char*>(stAlarmInfo.strSerialNumber), NET_LEN_64);
         /* 去除末尾的空字符 */
-        size_t len = strnlen(serialNumberStr.c_str(), NET_TV_LEN_64);
+        size_t len = strnlen(serialNumberStr.c_str(), NET_LEN_64);
         serialNumberStr.resize(len);
         Json::add(pRootJson, "SerialNumber", serialNumberStr);
     }
@@ -92,7 +92,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_Alarmer_S& stAlarmInfo, bool 
         std::stringstream ss(macAddrStr);
         std::string byteStr;
         int idx = 0;
-        while (std::getline(ss, byteStr, delimiter[0]) && idx < NET_TV_LEN_6)
+        while (std::getline(ss, byteStr, delimiter[0]) && idx < NET_LEN_6)
         {
             unsigned int byteVal = 0;
             std::stringstream hexStream(byteStr);
@@ -100,7 +100,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_Alarmer_S& stAlarmInfo, bool 
             stAlarmInfo.byMacAddr[idx++] = static_cast<BYTE>(byteVal & 0xFF);
         }
         /* 填充剩余的字节为0 */
-        while (idx < NET_TV_LEN_6)
+        while (idx < NET_LEN_6)
         {
             stAlarmInfo.byMacAddr[idx++] = 0;
         }
@@ -109,7 +109,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_Alarmer_S& stAlarmInfo, bool 
     {
         /* 结构体转JSON：BYTE数组转MAC地址字符串 */
         std::ostringstream oss;
-        for (int i = 0; i < NET_TV_LEN_6; ++i)
+        for (int i = 0; i < NET_LEN_6; ++i)
         {
             if (i > 0) oss << ":";
             oss << std::hex << std::setfill('0') << std::setw(2)
@@ -372,7 +372,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_AlarmPlateInfo_S& stInfo, boo
             std::vector<unsigned char> decoded;
             if (SDKConvert::Base64Decode(b64, decoded))
             {
-                size_t copyLen = std::min(decoded.size(), (size_t)NET_TV_VEH_PLATE_IMAGE_LEN);
+                size_t copyLen = std::min(decoded.size(), (size_t)NET_VEH_PLATE_IMAGE_LEN);
                 if (copyLen > 0)
                 {
                     std::memcpy(stInfo.byPlateImg, decoded.data(), copyLen);
@@ -384,7 +384,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_AlarmPlateInfo_S& stInfo, boo
     else
     {
         UINT32 len = stInfo.uPlateImgLen;
-        if (len > (UINT32)NET_TV_VEH_PLATE_IMAGE_LEN) len = (UINT32)NET_TV_VEH_PLATE_IMAGE_LEN;
+        if (len > (UINT32)NET_VEH_PLATE_IMAGE_LEN) len = (UINT32)NET_VEH_PLATE_IMAGE_LEN;
         if (len > 0)
         {
             std::string b64 = SDKConvert::Base64Encode((const unsigned char*)stInfo.byPlateImg, (size_t)len);
@@ -473,9 +473,9 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_AlarmStatisticsInfo_S& stInfo
         {
             count = (UINT32)nSize;
         }
-        if (count > NET_TV_ALARM_STATISTICS_TARGET_MAX_NUM)
+        if (count > NET_ALARM_STATISTICS_TARGET_MAX_NUM)
         {
-            count = NET_TV_ALARM_STATISTICS_TARGET_MAX_NUM;
+            count = NET_ALARM_STATISTICS_TARGET_MAX_NUM;
         }
 
         for (UINT32 i = 0; i < count; ++i)
@@ -489,9 +489,9 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_AlarmStatisticsInfo_S& stInfo
     {
         Json::Object* pArray = Json::Array::init();
         UINT32 count = stInfo.uTargetCount;
-        if (count > NET_TV_ALARM_STATISTICS_TARGET_MAX_NUM)
+        if (count > NET_ALARM_STATISTICS_TARGET_MAX_NUM)
         {
-            count = NET_TV_ALARM_STATISTICS_TARGET_MAX_NUM;
+            count = NET_ALARM_STATISTICS_TARGET_MAX_NUM;
         }
 
         for (UINT32 i = 0; i < count; ++i)
@@ -511,7 +511,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_AlarmStatisticsInfo_S& stInfo
             std::vector<unsigned char> decoded;
             if (SDKConvert::Base64Decode(b64, decoded))
             {
-                size_t copyLen = std::min(decoded.size(), (size_t)NET_TV_PIC_DATA_MAX_LEN);
+                size_t copyLen = std::min(decoded.size(), (size_t)NET_PIC_DATA_MAX_LEN);
                 if (copyLen > 0)
                 {
                     std::memcpy(stInfo.byPanoramaImg, decoded.data(), copyLen);
@@ -523,7 +523,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_AlarmStatisticsInfo_S& stInfo
     else
     {
         UINT32 len = stInfo.uPanoramaImgLen;
-        if (len > (UINT32)NET_TV_PIC_DATA_MAX_LEN) len = (UINT32)NET_TV_PIC_DATA_MAX_LEN;
+        if (len > (UINT32)NET_PIC_DATA_MAX_LEN) len = (UINT32)NET_PIC_DATA_MAX_LEN;
         if (len > 0)
         {
             std::string b64 = SDKConvert::Base64Encode((const unsigned char*)stInfo.byPanoramaImg, (size_t)len);

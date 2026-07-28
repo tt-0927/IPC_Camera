@@ -46,7 +46,7 @@ public:
      * @param dwBufLen pAlarmInfo 长度
      * @return TRUE表示成功，FALSE表示失败
      */
-    BOOL PushAlarmInfo(NET_TV_ALARMER_S* pAlarmer,
+    BOOL PushAlarmInfo(NET_ALARMER_S* pAlarmer,
                       INT32 lCommand,
                       LPVOID pAlarmInfo,
                       INT32 dwBufLen);
@@ -57,7 +57,7 @@ public:
      * @param pChannelInfo 通道状态信息
      * @return TRUE表示成功，FALSE表示失败
      */
-    BOOL PushChannelStatusInfo(NET_TV_CHANNEL_INFO_S* pChannelInfo);
+    BOOL PushChannelStatusInfo(NET_CHANNEL_INFO_S* pChannelInfo);
 
     /**
  * @author tianl (tianl@kfb.cn)

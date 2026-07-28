@@ -50,7 +50,7 @@ static void signal_handler(int signum)
  * @author tianl (tianl@kfb.cn)
  * @brief 设备发现信息回调 — 填充本机 NVR 信息
  */
-static void NET_TV_STDCALL FillDeviceInfo(NET_DiscoveryDeviceInfo_S* pInfo)
+static void NET_STDCALL FillDeviceInfo(NET_DiscoveryDeviceInfo_S* pInfo)
 {
     if (!pInfo) return;
 
@@ -97,14 +97,14 @@ int main(int argc, char* argv[])
     syncPrintf(1);
 
     /* 注册设备发现信息回调（启动前必须调用） */
-    if (!NET_TV_SERVER_RegisterCb_GetDiscoveryDeviceInfo(FillDeviceInfo)) {
+    if (!NET_SERVER_RegisterCb_GetDiscoveryDeviceInfo(FillDeviceInfo)) {
         printf("[discovery-server] FATAL: register callback failed\n");
         return -1;
     }
     printf("[discovery-server] callback registered\n");
 
     /* 启动设备发现响应服务 */
-    if (!NET_TV_SERVER_Discovery_Start(iface)) {
+    if (!NET_SERVER_Discovery_Start(iface)) {
         printf("[discovery-server] FATAL: start failed on iface[%s]\n", iface);
         return -1;
     }
@@ -120,10 +120,10 @@ int main(int argc, char* argv[])
     }
 
     /* 停止 */
-    NET_TV_SERVER_Discovery_Stop();
+    NET_SERVER_Discovery_Stop();
     printf("[discovery-server] stopped\n");
 
-    NET_TV_SERVER_Cleanup();
+    NET_SERVER_Cleanup();
     printf("[discovery-server] cleanup done, exiting\n");
     return 0;
 }

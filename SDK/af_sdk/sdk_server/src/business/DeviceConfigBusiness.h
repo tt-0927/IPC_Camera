@@ -91,7 +91,7 @@ private:
 
         int nRespCode = NetSDK_ExecuteCb_GetDevConfig(channelId, command, &stCfg);
         NETSDK_LOG_MESSAGE_INFO("[SDK] after callback: stCfg address=%p\n", (void*)&stCfg);
-        if (nRespCode != NET_TV_E_SUCCEED)
+        if (nRespCode != NET_E_SUCCEED)
         {
             NETSDK_LOG_MESSAGE_WARN("GetDevConfig callback failed, cmd=%d, ret=%d", command, nRespCode);
         }
@@ -122,7 +122,7 @@ private:
     {
         if (req_data.empty())
         {
-            return SDKConvert::to_respString(NET_TV_E_INVALID_PARAM);
+            return SDKConvert::to_respString(NET_E_INVALID_PARAM);
         }
 
         T_CFG stCfg;
@@ -131,19 +131,19 @@ private:
         Json::Object* pRoot = Json::init(req_data);
         if (!pRoot)
         {
-            return SDKConvert::to_respString(NET_TV_E_INVALID_PARAM);
+            return SDKConvert::to_respString(NET_E_INVALID_PARAM);
         }
 
         SDKConvert::deal(pRoot, stCfg, true);
         Json::deinit(pRoot);
 
         int nRespCode = NetSDK_ExecuteCb_SetDevConfig(channelId, command, &stCfg);
-        if (nRespCode != NET_TV_E_SUCCEED)
+        if (nRespCode != NET_E_SUCCEED)
         {
             NETSDK_LOG_MESSAGE_WARN("SetDevConfig callback failed, cmd=%d, ret=%d", command, nRespCode);
         }
 
-        return SDKConvert::to_respString((NET_TV_COMMON_ECODE_E)nRespCode);
+        return SDKConvert::to_respString((NET_COMMON_ECODE_E)nRespCode);
     }
 
     /**

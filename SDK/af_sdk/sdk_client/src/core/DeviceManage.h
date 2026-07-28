@@ -95,7 +95,7 @@ public:
      * @param [in] tryTimes 尝试次数
      */
     void SetGlobalConnectTime(int waitTime, int tryTimes);
-    /* void SetExceptionCallBack(NET_TV_ExceptionCallBack_PF cb, LPVOID pUser); */
+    /* void SetExceptionCallBack(NET_ExceptionCallBack_PF cb, LPVOID pUser); */
 
 private:
     /**

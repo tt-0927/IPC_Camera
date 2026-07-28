@@ -9,7 +9,7 @@
  * 功能说明：
  * 1. 初始化 SDK 服务器
  * 2. 定时模拟推送不同类型的报警事件
- * 3. 演示如何使用 NET_TV_SERVER_PushAlarmInfo 推送报警信息
+ * 3. 演示如何使用 NET_SERVER_PushAlarmInfo 推送报警信息
  */
 /* 日志记录单个日志文件的最大大小 */
 #define NETSDK_DEMO_LOG_MAX_SIZE  (20 * 1024 * 1024) /* 20MB */
@@ -72,8 +72,8 @@ static void InitAlarmInfo(NET_Alarmer_S* pAlarmInfo, const char* deviceName,
     /* 设置设备名称 */
     if (deviceName)
     {
-        strncpy(pAlarmInfo->strDeviceName, deviceName, NET_TV_LEN_32 - 1);
-        pAlarmInfo->strDeviceName[NET_TV_LEN_32 - 1] = '\0';
+        strncpy(pAlarmInfo->strDeviceName, deviceName, NET_LEN_32 - 1);
+        pAlarmInfo->strDeviceName[NET_LEN_32 - 1] = '\0';
     }
 
     /* 设置设备IP */
@@ -87,13 +87,13 @@ static void InitAlarmInfo(NET_Alarmer_S* pAlarmInfo, const char* deviceName,
     if (serialNumber)
     {
         memcpy(pAlarmInfo->strSerialNumber, serialNumber,
-               strlen(serialNumber) < NET_TV_LEN_64 ? strlen(serialNumber) : NET_TV_LEN_64);
+               strlen(serialNumber) < NET_LEN_64 ? strlen(serialNumber) : NET_LEN_64);
     }
 
     /* 设置MAC地址 */
     if (macAddr)
     {
-        memcpy(pAlarmInfo->byMacAddr, macAddr, NET_TV_LEN_6);
+        memcpy(pAlarmInfo->byMacAddr, macAddr, NET_LEN_6);
     }
     else
     {
@@ -122,10 +122,10 @@ static void PushMotionDetectAlarm()
     InitAlarmInfo(&stAlarmInfo, "Camera-01", "192.168.1.100",
                   "SN202312120001", NULL);
 
-    stBasic.uAlarmType = NET_TV_ALARM_MOTION_DETECT;
+    stBasic.uAlarmType = NET_ALARM_MOTION_DETECT;
     stBasic.uAlarmInputNumber = 1;
 
-    if (NET_TV_SERVER_PushAlarmInfo(&stAlarmInfo, NET_TV_ALARM_BASE_BASIC, &stBasic, (INT32)sizeof(stBasic)))
+    if (NET_SERVER_PushAlarmInfo(&stAlarmInfo, NET_ALARM_BASE_BASIC, &stBasic, (INT32)sizeof(stBasic)))
     {
         printf("[Demo] Motion Detection Alarm pushed successfully!\n");
     }
@@ -152,16 +152,16 @@ static void PushIntrusionAlarm()
 
     printf("[Demo] Pushing Intrusion Alarm...\n");
 
-    BYTE macAddr[NET_TV_LEN_6] = {0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF};
+    BYTE macAddr[NET_LEN_6] = {0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF};
     InitAlarmInfo(&stAlarmInfo, "Camera-02", "192.168.1.101",
                   "SN202312120002", macAddr);
 
-    pRule->uAlarmType = NET_TV_ALARM_INTRUSION;
+    pRule->uAlarmType = NET_ALARM_INTRUSION;
     pRule->uRuleID = 1001;
     strncpy(pRule->strRuleName, "IntrusionRule-1", sizeof(pRule->strRuleName) - 1);
     pRule->strRuleName[sizeof(pRule->strRuleName) - 1] = '\0';
 
-    if (NET_TV_SERVER_PushAlarmInfo(&stAlarmInfo, NET_TV_ALARM_BASE_RULE, pRule, (INT32)sizeof(*pRule)))
+    if (NET_SERVER_PushAlarmInfo(&stAlarmInfo, NET_ALARM_BASE_RULE, pRule, (INT32)sizeof(*pRule)))
     {
         printf("[Demo] Intrusion Alarm pushed successfully!\n");
     }
@@ -188,12 +188,12 @@ static void PushVideoLossAlarm()
     InitAlarmInfo(&stAlarmInfo, "Camera-03", "192.168.1.102",
                   "SN202312120003", NULL);
 
-    stEx.uAlarmType = NET_TV_ALARM_VIDEO_LOSS;
+    stEx.uAlarmType = NET_ALARM_VIDEO_LOSS;
     stEx.uChannel = 1;
     stEx.uDiskNo = 0;
     stEx.uStatus = 1; /* 1=触发 */
 
-    if (NET_TV_SERVER_PushAlarmInfo(&stAlarmInfo, NET_TV_ALARM_BASE_EXCEPTION, &stEx, (INT32)sizeof(stEx)))
+    if (NET_SERVER_PushAlarmInfo(&stAlarmInfo, NET_ALARM_BASE_EXCEPTION, &stEx, (INT32)sizeof(stEx)))
     {
         printf("[Demo] Video Loss Alarm pushed successfully!\n");
     }
@@ -215,16 +215,16 @@ static void PushDiskFullAlarm()
 
     printf("[Demo] Pushing Disk Full Alarm...\n");
 
-    BYTE macAddr[NET_TV_LEN_6] = {0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC};
+    BYTE macAddr[NET_LEN_6] = {0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC};
     InitAlarmInfo(&stAlarmInfo, "NVR-01", "192.168.1.200",
                   "SN202312120100", macAddr);
 
-    stEx.uAlarmType = NET_TV_ALARM_DISK_FULL;
+    stEx.uAlarmType = NET_ALARM_DISK_FULL;
     stEx.uChannel = 0;
     stEx.uDiskNo = 1;
     stEx.uStatus = 1; /* 1=触发 */
 
-    if (NET_TV_SERVER_PushAlarmInfo(&stAlarmInfo, NET_TV_ALARM_BASE_EXCEPTION, &stEx, (INT32)sizeof(stEx)))
+    if (NET_SERVER_PushAlarmInfo(&stAlarmInfo, NET_ALARM_BASE_EXCEPTION, &stEx, (INT32)sizeof(stEx)))
     {
         printf("[Demo] Disk Full Alarm pushed successfully!\n");
     }
@@ -250,9 +250,9 @@ static void PushPeopleFlowStatisticsAlarm()
     InitAlarmInfo(&stAlarmInfo, "Camera-04", "192.168.1.103",
                   "SN202312120004", NULL);
 
-    stStat.uAlarmType = NET_TV_ALARM_PEOPLE_FLOW_STATISTICS;
+    stStat.uAlarmType = NET_ALARM_PEOPLE_FLOW_STATISTICS;
     stStat.uChannel = 1;
-    stStat.uStatisticsType = NET_TV_STATISTICS_TYPE_PEOPLE_FLOW;
+    stStat.uStatisticsType = NET_STATISTICS_TYPE_PEOPLE_FLOW;
     stStat.uRuleID = 1;
     stStat.llTimestampMs = (INT64)time(NULL) * 1000;
     stStat.uReportSeq = 1;
@@ -272,7 +272,7 @@ static void PushPeopleFlowStatisticsAlarm()
     stStat.stTargets[0].llTimestampMs = stStat.llTimestampMs;
     stStat.stTargets[0].nDirection = 1;
 
-    if (NET_TV_SERVER_PushAlarmInfo(&stAlarmInfo, NET_TV_ALARM_PEOPLE_FLOW_STATISTICS, &stStat, (INT32)sizeof(stStat)))
+    if (NET_SERVER_PushAlarmInfo(&stAlarmInfo, NET_ALARM_PEOPLE_FLOW_STATISTICS, &stStat, (INT32)sizeof(stStat)))
     {
         printf("[Demo] People Flow Statistics Alarm pushed successfully!\n");
     }
@@ -317,7 +317,7 @@ static void PushFaceCompareAlarm()
     InitAlarmInfo(&stAlarmInfo, "Camera-05", "192.168.1.104",
                   "SN202312120005", NULL);
 
-    stCompare.uAlarmType = NET_TV_ALARM_FACE_COMPARE;
+    stCompare.uAlarmType = NET_ALARM_FACE_COMPARE;
     stCompare.uChannel = 1;
     stCompare.llTimestampMs = (INT64)time(NULL) * 1000;
     stCompare.nEventId = 1001;
@@ -339,7 +339,7 @@ static void PushFaceCompareAlarm()
     memcpy(stCompare.byCapFaceImg, demoJpeg, sizeof(demoJpeg));
     stCompare.uCapFaceImgLen = (UINT32)sizeof(demoJpeg);
 
-    if (NET_TV_SERVER_PushAlarmInfo(&stAlarmInfo, NET_TV_ALARM_FACE_COMPARE, &stCompare, (INT32)sizeof(stCompare)))
+    if (NET_SERVER_PushAlarmInfo(&stAlarmInfo, NET_ALARM_FACE_COMPARE, &stCompare, (INT32)sizeof(stCompare)))
     {
         printf("[Demo] Face Compare Alarm pushed successfully! faceId=%d name=%s lib=%s result=%d similarity=%d\n",
                stCompare.nFaceId,
@@ -388,11 +388,11 @@ static void PushRandomAlarm()
 }
 
 /* 回调函数：获取设备信息 */
-static NET_TV_COMMON_ECODE_E MyDeviceInfoCb(pNET_DeviceInfo_S pInfo)
+static NET_COMMON_ECODE_E MyDeviceInfoCb(pNET_DeviceInfo_S pInfo)
 {
     if (!pInfo)
     {
-        return NET_TV_E_FAILED;
+        return NET_E_FAILED;
     }
 
     /* 示例：填充最基本的设备信息（字段见 NET_DeviceInfo_S） */
@@ -400,13 +400,13 @@ static NET_TV_COMMON_ECODE_E MyDeviceInfoCb(pNET_DeviceInfo_S pInfo)
     pInfo->uAlarmInPortNum = 2;
     pInfo->uAlarmOutPortNum = 1;
     pInfo->uChannelNum = 4;
-    return NET_TV_E_SUCCEED;
+    return NET_E_SUCCEED;
 }
 
 /* 注册回调函数 */
 static void AddRegisterCb()
 {
-    NET_TV_SERVER_RegisterCb_GetDeviceInfo(MyDeviceInfoCb);
+    NET_SERVER_RegisterCb_GetDeviceInfo(MyDeviceInfoCb);
 }
 /**
  * @author tianl (tianl@kfb.cn)
@@ -449,24 +449,24 @@ int main(int argc, char* argv[])
     }
 
     /* 获取用户名和密码（可选） */
-    CHAR szUserName[NET_TV_LEN_132] = "admin";
-    CHAR szPassword[NET_TV_LEN_132] = "Admin@123456";
+    CHAR szUserName[NET_LEN_132] = "admin";
+    CHAR szPassword[NET_LEN_132] = "Admin@123456";
 
     if (argc > 2)
     {
-        strncpy(szUserName, argv[2], NET_TV_LEN_132 - 1);
-        szUserName[NET_TV_LEN_132 - 1] = '\0';
+        strncpy(szUserName, argv[2], NET_LEN_132 - 1);
+        szUserName[NET_LEN_132 - 1] = '\0';
     }
 
     if (argc > 3)
     {
-        strncpy(szPassword, argv[3], NET_TV_LEN_132 - 1);
-        szPassword[NET_TV_LEN_132 - 1] = '\0';
+        strncpy(szPassword, argv[3], NET_LEN_132 - 1);
+        szPassword[NET_LEN_132 - 1] = '\0';
     }
 
     /* 初始化SDK服务器 */
     printf("[Demo] Initializing SDK Server on port %u...\n", dwPort);
-    if (!NET_TV_SERVER_Init(dwPort, szUserName, szPassword))
+    if (!NET_SERVER_Init(dwPort, szUserName, szPassword))
     {
         printf("[Demo] Failed to initialize SDK Server!\n");
         return -1;
@@ -507,7 +507,7 @@ int main(int argc, char* argv[])
 
     /* 清理资源 */
     printf("\n[Demo] Cleaning up...\n");
-    NET_TV_SERVER_Cleanup();
+    NET_SERVER_Cleanup();
     printf("[Demo] Demo stopped. Total alarms pushed: %d\n", pushCount);
 
     return 0;

@@ -45,17 +45,17 @@ public:
                     NETSDK_LOG_MESSAGE_DEBUG("return ---------------------------------------------------------------");
                     NETSDK_LOG_MESSAGE_DEBUG("返回http响应: resp[%s] url[%s] method[%s]",resp_data.c_str(),req.target.c_str(),req.method.c_str());
                 }
-                res.status = NET_TV_HTTP_RESP_CODE_SUCCESS;
-                res.set_content(resp_data, NET_TV_JSON_CONTENT_TYPE);
+                res.status = NET_HTTP_RESP_CODE_SUCCESS;
+                res.set_content(resp_data, NET_JSON_CONTENT_TYPE);
             } catch (const std::invalid_argument& e) {
-                res.status = NET_TV_HTTP_RESP_CODE_BAD_REQUEST;
-                res.set_content(R"({"error":")" + std::string(e.what()) + R"("})", NET_TV_JSON_CONTENT_TYPE);
+                res.status = NET_HTTP_RESP_CODE_BAD_REQUEST;
+                res.set_content(R"({"error":")" + std::string(e.what()) + R"("})", NET_JSON_CONTENT_TYPE);
             } catch (const std::out_of_range& e) {
-                res.status = NET_TV_HTTP_RESP_CODE_NOT_FOUND;
-                res.set_content(R"({"error":"URL not found: )" + std::string(e.what()) + R"("})", NET_TV_JSON_CONTENT_TYPE);
+                res.status = NET_HTTP_RESP_CODE_NOT_FOUND;
+                res.set_content(R"({"error":"URL not found: )" + std::string(e.what()) + R"("})", NET_JSON_CONTENT_TYPE);
             } catch (const std::exception& e) {
-                res.status = NET_TV_HTTP_RESP_CODE_INTERNAL_SERVER_ERROR;
-                res.set_content(R"({"error":"internal server error"})", NET_TV_JSON_CONTENT_TYPE);
+                res.status = NET_HTTP_RESP_CODE_INTERNAL_SERVER_ERROR;
+                res.set_content(R"({"error":"internal server error"})", NET_JSON_CONTENT_TYPE);
             }
         };
     }

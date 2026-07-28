@@ -21,9 +21,9 @@
 #include "Json.h"
 
 /* 库通用头文件 */
-#ifdef NET_TV_SDK_SERVER_API
+#ifdef NET_SDK_SERVER_API
     #include "NetTVSDKServerInterface.h"
-#elif defined(NET_TV_SDK_CLIENT_API)
+#elif defined(NET_SDK_CLIENT_API)
     #include "NetTVSDKClientInterface.h"
 #else
     #include "NetTVSDKCommon.h"

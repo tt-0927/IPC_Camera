@@ -37,7 +37,7 @@ CAlarmModule::~CAlarmModule()
  * @return 返回该处理的状态或结果。
  */
 
-BOOL CAlarmModule::PushAlarmInfo(NET_TV_ALARMER_S* pAlarmer,
+BOOL CAlarmModule::PushAlarmInfo(NET_ALARMER_S* pAlarmer,
                                INT32 lCommand,
                                LPVOID pAlarmInfo,
                                INT32 dwBufLen)
@@ -45,7 +45,7 @@ BOOL CAlarmModule::PushAlarmInfo(NET_TV_ALARMER_S* pAlarmer,
     if (!pAlarmer || !pAlarmInfo || dwBufLen <= 0)
     {
         NETSDK_LOG_MESSAGE_ERROR("PushAlarmInfo: Invalid parameters");
-        return NET_TV_FALSE;
+        return NET_FALSE;
     }
 
     NETSDK_LOG_MESSAGE_DEBUG("Pushing alarm info: cmd=0x%x, device=%s", lCommand, pAlarmer->szDeviceIP);
@@ -56,7 +56,7 @@ BOOL CAlarmModule::PushAlarmInfo(NET_TV_ALARMER_S* pAlarmer,
     if (!pRoot)
     {
         NETSDK_LOG_MESSAGE_ERROR("PushAlarmInfo: Failed to init JSON");
-        return NET_TV_FALSE;
+        return NET_FALSE;
     }
 
     /* [诊断] 注入入队时间戳，方便下游测量队列延迟 */
@@ -80,7 +80,7 @@ BOOL CAlarmModule::PushAlarmInfo(NET_TV_ALARMER_S* pAlarmer,
     /* 添加Alarmer信息 */
     {
         Json::Object* pAlarmerJson = Json::init();
-        NET_TV_ALARMER_S tmp = *pAlarmer;
+        NET_ALARMER_S tmp = *pAlarmer;
         SDKConvert::deal(pAlarmerJson, tmp, false);
         Json::add(pRoot, "Alarmer", pAlarmerJson);
     }
@@ -90,48 +90,48 @@ BOOL CAlarmModule::PushAlarmInfo(NET_TV_ALARMER_S* pAlarmer,
         Json::Object* pInfoJson = Json::init();
         INT32 alarmBase = lCommand & 0xF000;
 
-        if (lCommand == NET_TV_ALARM_FACE_COMPARE)
+        if (lCommand == NET_ALARM_FACE_COMPARE)
         {
-            if (dwBufLen < (INT32)sizeof(NET_TV_ALARM_FACE_COMPARE_INFO_S))
+            if (dwBufLen < (INT32)sizeof(NET_ALARM_FACE_COMPARE_INFO_S))
             {
                 Json::add(pInfoJson, "AlarmType", (long long)lCommand);
             }
             else
             {
                 /* 含大图片数组，禁止栈上拷贝，直接引用原始数据 */
-                NET_TV_ALARM_FACE_COMPARE_INFO_S& info = *(NET_TV_ALARM_FACE_COMPARE_INFO_S*)pAlarmInfo;
+                NET_ALARM_FACE_COMPARE_INFO_S& info = *(NET_ALARM_FACE_COMPARE_INFO_S*)pAlarmInfo;
                 SDKConvert::deal(pInfoJson, info, false);
             }
         }
-        else if (alarmBase == NET_TV_ALARM_BASE_BASIC)
+        else if (alarmBase == NET_ALARM_BASE_BASIC)
         {
-            if (dwBufLen < (INT32)sizeof(NET_TV_ALARM_BASIC_INFO_S))
+            if (dwBufLen < (INT32)sizeof(NET_ALARM_BASIC_INFO_S))
             {
                 Json::add(pInfoJson, "AlarmType", (long long)lCommand);
             }
             else
             {
-                NET_TV_ALARM_BASIC_INFO_S& info = *(NET_TV_ALARM_BASIC_INFO_S*)pAlarmInfo;
+                NET_ALARM_BASIC_INFO_S& info = *(NET_ALARM_BASIC_INFO_S*)pAlarmInfo;
                 NETSDK_LOG_MESSAGE_INFO("[DIAG-ALARM] Basic input: cmd=0x%x, alarmType=0x%x, timestamp=%lld, panoramaLen=%u, bufLen=%d, structSize=%zu",
                               lCommand,
                               info.dwAlarmType,
                               (long long)info.llTimestampMs,
                               info.dwPanoramaImgLen,
                               dwBufLen,
-                              sizeof(NET_TV_ALARM_BASIC_INFO_S));
+                              sizeof(NET_ALARM_BASIC_INFO_S));
                 SDKConvert::deal(pInfoJson, info, false);
             }
         }
-        else if (alarmBase == NET_TV_ALARM_BASE_RULE)
+        else if (alarmBase == NET_ALARM_BASE_RULE)
         {
-            if (dwBufLen < (INT32)sizeof(NET_TV_ALARM_RULE_INFO_S))
+            if (dwBufLen < (INT32)sizeof(NET_ALARM_RULE_INFO_S))
             {
                 Json::add(pInfoJson, "AlarmType", (long long)lCommand);
             }
             else
             {
                 /* 含大图片数组，禁止栈上拷贝，直接引用原始数据 */
-                NET_TV_ALARM_RULE_INFO_S& info = *(NET_TV_ALARM_RULE_INFO_S*)pAlarmInfo;
+                NET_ALARM_RULE_INFO_S& info = *(NET_ALARM_RULE_INFO_S*)pAlarmInfo;
                 NETSDK_LOG_MESSAGE_INFO("[DIAG-ALARM] Rule input: cmd=0x%x, alarmType=0x%x, channel=%u, rule=%u, target=%u, "
                               "objType=%u, timestamp=%lld, rect=[%d,%d,%d,%d], panoramaLen=%u, targetLen=%u, bufLen=%d, structSize=%zu",
                               lCommand,
@@ -148,20 +148,20 @@ BOOL CAlarmModule::PushAlarmInfo(NET_TV_ALARMER_S* pAlarmer,
                               info.dwPanoramaImgLen,
                               info.dwTargetImgLen,
                               dwBufLen,
-                              sizeof(NET_TV_ALARM_RULE_INFO_S));
+                              sizeof(NET_ALARM_RULE_INFO_S));
                 SDKConvert::deal(pInfoJson, info, false);
             }
         }
-        else if (alarmBase == NET_TV_ALARM_BASE_AI)
+        else if (alarmBase == NET_ALARM_BASE_AI)
         {
-            if (dwBufLen < (INT32)sizeof(NET_TV_ALARM_AI_OBJECT_INFO_S))
+            if (dwBufLen < (INT32)sizeof(NET_ALARM_AI_OBJECT_INFO_S))
             {
                 Json::add(pInfoJson, "AlarmType", (long long)lCommand);
             }
             else
             {
                 /* 含大图片数组，禁止栈上拷贝，直接引用原始数据 */
-                NET_TV_ALARM_AI_OBJECT_INFO_S& info = *(NET_TV_ALARM_AI_OBJECT_INFO_S*)pAlarmInfo;
+                NET_ALARM_AI_OBJECT_INFO_S& info = *(NET_ALARM_AI_OBJECT_INFO_S*)pAlarmInfo;
                 NETSDK_LOG_MESSAGE_INFO("[DIAG-ALARM] AI object input: cmd=0x%x, alarmType=0x%x, channel=%u, object=%s, "
                               "objType=%u, timestamp=%lld, rect=[%d,%d,%d,%d], panoramaLen=%u, imgLen=%u, bufLen=%d, structSize=%zu",
                               lCommand,
@@ -177,54 +177,54 @@ BOOL CAlarmModule::PushAlarmInfo(NET_TV_ALARMER_S* pAlarmer,
                               info.dwPanoramaImgLen,
                               info.dwImgLen,
                               dwBufLen,
-                              sizeof(NET_TV_ALARM_AI_OBJECT_INFO_S));
+                              sizeof(NET_ALARM_AI_OBJECT_INFO_S));
                 SDKConvert::deal(pInfoJson, info, false);
             }
         }
-        else if (alarmBase == NET_TV_ALARM_BASE_TRAFFIC)
+        else if (alarmBase == NET_ALARM_BASE_TRAFFIC)
         {
-            if (dwBufLen < (INT32)sizeof(NET_TV_ALARM_PLATE_INFO_S))
+            if (dwBufLen < (INT32)sizeof(NET_ALARM_PLATE_INFO_S))
             {
                 Json::add(pInfoJson, "AlarmType", (long long)lCommand);
             }
             else
             {
-                SDKConvert::deal(pInfoJson, *(NET_TV_ALARM_PLATE_INFO_S*)pAlarmInfo, false);
+                SDKConvert::deal(pInfoJson, *(NET_ALARM_PLATE_INFO_S*)pAlarmInfo, false);
             }
         }
-        else if (alarmBase == NET_TV_ALARM_BASE_EXCEPTION)
+        else if (alarmBase == NET_ALARM_BASE_EXCEPTION)
         {
-            if (dwBufLen < (INT32)sizeof(NET_TV_ALARM_EXCEPTION_INFO_S))
+            if (dwBufLen < (INT32)sizeof(NET_ALARM_EXCEPTION_INFO_S))
             {
                 Json::add(pInfoJson, "AlarmType", (long long)lCommand);
             }
             else
             {
-                SDKConvert::deal(pInfoJson, *(NET_TV_ALARM_EXCEPTION_INFO_S*)pAlarmInfo, false);
+                SDKConvert::deal(pInfoJson, *(NET_ALARM_EXCEPTION_INFO_S*)pAlarmInfo, false);
             }
         }
-        else if (alarmBase == NET_TV_ALARM_BASE_STATISTICS)
+        else if (alarmBase == NET_ALARM_BASE_STATISTICS)
         {
-            if (dwBufLen < (INT32)sizeof(NET_TV_ALARM_STATISTICS_INFO_S))
+            if (dwBufLen < (INT32)sizeof(NET_ALARM_STATISTICS_INFO_S))
             {
                 Json::add(pInfoJson, "AlarmType", (long long)lCommand);
             }
             else
             {
                 /* 统计类结构体含多个 1MB 图片数组，总大小约 3MB，禁止栈上拷贝，直接使用指针引用原始数据 */
-                NET_TV_ALARM_STATISTICS_INFO_S& info = *(NET_TV_ALARM_STATISTICS_INFO_S*)pAlarmInfo;
+                NET_ALARM_STATISTICS_INFO_S& info = *(NET_ALARM_STATISTICS_INFO_S*)pAlarmInfo;
                 SDKConvert::deal(pInfoJson, info, false);
             }
         }
-        else if (lCommand == NET_TV_NOTICE_DOWNLOAD_RECORD_PROGRESS)
+        else if (lCommand == NET_NOTICE_DOWNLOAD_RECORD_PROGRESS)
         {
-            if (dwBufLen < (INT32)sizeof(NET_TV_RECORD_DOWNLOAD_PROGRESS_S))
+            if (dwBufLen < (INT32)sizeof(NET_RECORD_DOWNLOAD_PROGRESS_S))
             {
                 Json::add(pInfoJson, "AlarmType", (long long)lCommand);
             }
             else
             {
-                SDKConvert::deal(pInfoJson, *(NET_TV_RECORD_DOWNLOAD_PROGRESS_S*)pAlarmInfo, false);
+                SDKConvert::deal(pInfoJson, *(NET_RECORD_DOWNLOAD_PROGRESS_S*)pAlarmInfo, false);
             }
         }
         else
@@ -238,8 +238,8 @@ BOOL CAlarmModule::PushAlarmInfo(NET_TV_ALARMER_S* pAlarmer,
     /* 转换为JSON字符串 */
     std::string jsonStr = Json::to_string(pRoot);
     Json::deinit(pRoot);
-    if ((lCommand & 0xF000) == NET_TV_ALARM_BASE_RULE ||
-        (lCommand & 0xF000) == NET_TV_ALARM_BASE_AI)
+    if ((lCommand & 0xF000) == NET_ALARM_BASE_RULE ||
+        (lCommand & 0xF000) == NET_ALARM_BASE_AI)
     {
         NETSDK_LOG_MESSAGE_INFO("[DIAG-ALARM] JSON output: cmd=0x%x, jsonLen=%zu, hasPanoramaB64=%d, hasTargetB64=%d, hasImgDataB64=%d",
                       lCommand,
@@ -276,7 +276,7 @@ BOOL CAlarmModule::PushAlarmInfo(NET_TV_ALARMER_S* pAlarmer,
     }
 
     m_lPushCount++;
-    return (pushCount > 0) ? NET_TV_TRUE : NET_TV_FALSE;
+    return (pushCount > 0) ? NET_TRUE : NET_FALSE;
 }
 /**
  * @author tianl (tianl@kfb.cn)
@@ -285,7 +285,7 @@ BOOL CAlarmModule::PushAlarmInfo(NET_TV_ALARMER_S* pAlarmer,
  * @return 返回该处理的状态或结果。
  */
 
-BOOL CAlarmModule::PushChannelStatusInfo(NET_TV_CHANNEL_INFO_S* pChannelInfo)
+BOOL CAlarmModule::PushChannelStatusInfo(NET_CHANNEL_INFO_S* pChannelInfo)
 {
     NETSDK_LOG_MESSAGE_WARN("[CAlarmModule] ===== PushChannelStatusInfo Start ===== ");
 
@@ -293,7 +293,7 @@ BOOL CAlarmModule::PushChannelStatusInfo(NET_TV_CHANNEL_INFO_S* pChannelInfo)
     {
         NETSDK_LOG_MESSAGE_ERROR("[CAlarmModule] PushChannelStatusInfo: Invalid parameters (NULL)");
         NETSDK_LOG_MESSAGE_WARN("[CAlarmModule] ===== PushChannelStatusInfo End (Failed) ===== ");
-        return NET_TV_FALSE;
+        return NET_FALSE;
     }
 
     /* 打印输入参数详情 */
@@ -315,15 +315,15 @@ BOOL CAlarmModule::PushChannelStatusInfo(NET_TV_CHANNEL_INFO_S* pChannelInfo)
     {
         NETSDK_LOG_MESSAGE_ERROR("[CAlarmModule] PushChannelStatusInfo: Failed to init JSON");
         NETSDK_LOG_MESSAGE_WARN("[CAlarmModule] ===== PushChannelStatusInfo End (JSON init failed) ===== ");
-        return NET_TV_FALSE;
+        return NET_FALSE;
     }
 
     Json::add(pRoot, "Event", "ChannelStatus");
-    Json::add(pRoot, "Command", (long long)NET_TV_NOTIFY_CHANNEL_STATUS);
-    NETSDK_LOG_MESSAGE_WARN("[CAlarmModule] Command: NET_TV_NOTIFY_CHANNEL_STATUS (0x%X)", NET_TV_NOTIFY_CHANNEL_STATUS);
+    Json::add(pRoot, "Command", (long long)NET_NOTIFY_CHANNEL_STATUS);
+    NETSDK_LOG_MESSAGE_WARN("[CAlarmModule] Command: NET_NOTIFY_CHANNEL_STATUS (0x%X)", NET_NOTIFY_CHANNEL_STATUS);
 
     Json::Object* pChannelJson = Json::init();
-    NET_TV_CHANNEL_INFO_S info = *pChannelInfo;
+    NET_CHANNEL_INFO_S info = *pChannelInfo;
     SDKConvert::deal(pChannelJson, info, false);
     Json::add(pRoot, "ChannelInfo", pChannelJson);
 
@@ -358,7 +358,7 @@ BOOL CAlarmModule::PushChannelStatusInfo(NET_TV_CHANNEL_INFO_S* pChannelInfo)
     m_lPushCount++;
     NETSDK_LOG_MESSAGE_WARN("[CAlarmModule] Total push count: %lld", m_lPushCount);
     NETSDK_LOG_MESSAGE_WARN("[CAlarmModule] ===== PushChannelStatusInfo End ===== ");
-    return NET_TV_TRUE;
+    return NET_TRUE;
 }
 /**
  * @author tianl (tianl@kfb.cn)

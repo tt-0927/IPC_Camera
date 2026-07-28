@@ -41,7 +41,7 @@ static bool HasText(const CHAR* text)
  * @brief 验证录像帧流启动条件参数
  * @details 检查通道号、时间范围、媒体类型、端口号等参数的有效性，设置默认值
  * @param stCond 流启动条件结构体
- * @return 错误码，NET_TV_E_SUCCEED表示成功，其他值表示失败
+ * @return 错误码，NET_E_SUCCEED表示成功，其他值表示失败
  */
 static int ValidateRecordFrameCond(NET_RecordFrameStreamCond_S& stCond)
 {
@@ -52,26 +52,26 @@ static int ValidateRecordFrameCond(NET_RecordFrameStreamCond_S& stCond)
 
     if (stCond.uChannel <= 0 || !HasText(stCond.szStartTime) || !HasText(stCond.szEndTime))
     {
-        return NET_TV_E_INVALID_PARAM;
+        return NET_E_INVALID_PARAM;
     }
 
     if (stCond.uMediaType == 0)
     {
-        stCond.uMediaType = NET_TV_RECORD_FRAME_MEDIA_VIDEO;
+        stCond.uMediaType = NET_RECORD_FRAME_MEDIA_VIDEO;
     }
 
-    if (stCond.uMediaType != NET_TV_RECORD_FRAME_MEDIA_VIDEO &&
-        stCond.uMediaType != NET_TV_RECORD_FRAME_MEDIA_AUDIO)
+    if (stCond.uMediaType != NET_RECORD_FRAME_MEDIA_VIDEO &&
+        stCond.uMediaType != NET_RECORD_FRAME_MEDIA_AUDIO)
     {
-        return NET_TV_E_INVALID_PARAM;
+        return NET_E_INVALID_PARAM;
     }
 
     if (stCond.uTcpPort > 65535)
     {
-        return NET_TV_E_INVALID_PARAM;
+        return NET_E_INVALID_PARAM;
     }
 
-    return NET_TV_E_SUCCEED;
+    return NET_E_SUCCEED;
 }
 
 } /* namespace */
@@ -91,18 +91,18 @@ std::string CRecordFrameBusiness::StartRecordFrameStream(const std::string& req_
 
     if (req_data.empty())
     {
-        return SDKConvert::to_respString(NET_TV_E_INVALID_PARAM);
+        return SDKConvert::to_respString(NET_E_INVALID_PARAM);
     }
 
     NET_RecordFrameStreamCond_S stCond;
     std::memset(&stCond, 0, sizeof(stCond));
     if (!SDKConvert::from_string(req_data, stCond))
     {
-        return SDKConvert::to_respString(NET_TV_E_INVALID_PARAM);
+        return SDKConvert::to_respString(NET_E_INVALID_PARAM);
     }
 
     int nValidCode = ValidateRecordFrameCond(stCond);
-    if (nValidCode != NET_TV_E_SUCCEED)
+    if (nValidCode != NET_E_SUCCEED)
     {
         return SDKConvert::to_respString(nValidCode);
     }
@@ -111,13 +111,13 @@ std::string CRecordFrameBusiness::StartRecordFrameStream(const std::string& req_
         !tvsdk::CRecordFrameServer::instance()->is_running() &&
         !tvsdk::CRecordFrameServer::instance()->start(static_cast<int>(stCond.uTcpPort)))
     {
-        return SDKConvert::to_respString(NET_TV_E_SYSCALL_FALIED);
+        return SDKConvert::to_respString(NET_E_SYSCALL_FALIED);
     }
 
     NET_RecordFrameStreamInfo_S stInfo;
     std::memset(&stInfo, 0, sizeof(stInfo));
-    NET_TV_COMMON_ECODE_E nRespCode = tvsdk::CRecordFrameServer::instance()->open_stream(stCond, stInfo);
-    if (nRespCode == NET_TV_E_SUCCEED && stInfo.uTcpPort == 0)
+    NET_COMMON_ECODE_E nRespCode = tvsdk::CRecordFrameServer::instance()->open_stream(stCond, stInfo);
+    if (nRespCode == NET_E_SUCCEED && stInfo.uTcpPort == 0)
     {
         stInfo.uTcpPort = static_cast<UINT32>(tvsdk::CRecordFrameServer::instance()->port());
     }
@@ -139,14 +139,14 @@ std::string CRecordFrameBusiness::StopRecordFrameStream(const std::string& req_d
 
     if (req_data.empty())
     {
-        return SDKConvert::to_respString(NET_TV_E_INVALID_PARAM);
+        return SDKConvert::to_respString(NET_E_INVALID_PARAM);
     }
 
     NET_RecordFrameStopInfo_S stInfo;
     std::memset(&stInfo, 0, sizeof(stInfo));
     if (!SDKConvert::from_string(req_data, stInfo))
     {
-        return SDKConvert::to_respString(NET_TV_E_INVALID_PARAM);
+        return SDKConvert::to_respString(NET_E_INVALID_PARAM);
     }
 
     if (stInfo.uSize == 0)
@@ -156,9 +156,9 @@ std::string CRecordFrameBusiness::StopRecordFrameStream(const std::string& req_d
 
     if (!HasText(stInfo.szStreamId))
     {
-        return SDKConvert::to_respString(NET_TV_E_INVALID_PARAM, stInfo);
+        return SDKConvert::to_respString(NET_E_INVALID_PARAM, stInfo);
     }
 
-    NET_TV_COMMON_ECODE_E nRespCode = tvsdk::CRecordFrameServer::instance()->close_stream(stInfo.szStreamId);
+    NET_COMMON_ECODE_E nRespCode = tvsdk::CRecordFrameServer::instance()->close_stream(stInfo.szStreamId);
     return SDKConvert::to_respString(nRespCode, stInfo);
 }

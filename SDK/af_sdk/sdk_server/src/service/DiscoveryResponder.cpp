@@ -103,7 +103,7 @@ static bool get_iface_index(const char* iface, int& ifindex)
 
 static bool attach_discovery_filter(int fd)
 {
-    const uint32_t mcast_addr = ntohl(inet_addr(NET_TV_DISCOVERY_MCAST_ADDR));
+    const uint32_t mcast_addr = ntohl(inet_addr(NET_DISCOVERY_MCAST_ADDR));
 
     struct sock_filter filter[] = {
         /* Ethernet type: IPv4 */
@@ -118,7 +118,7 @@ static bool attach_discovery_filter(int fd)
         /* UDP destination port, accounting for variable IP header length */
         BPF_STMT(BPF_LDX | BPF_B | BPF_MSH, 14),
         BPF_STMT(BPF_LD | BPF_H | BPF_IND, 16),
-        BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, NET_TV_DISCOVERY_MCAST_PORT, 0, 1),
+        BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, NET_DISCOVERY_MCAST_PORT, 0, 1),
         BPF_STMT(BPF_RET | BPF_K, 0xFFFF),
         BPF_STMT(BPF_RET | BPF_K, 0),
     };
@@ -164,8 +164,8 @@ int CDiscoveryResponder::init(const char* szInterfaceName)
     /* 绑定到组播地址和端口 */
     struct sockaddr_in bind_addr{};
     bind_addr.sin_family = AF_INET;
-    bind_addr.sin_addr.s_addr = inet_addr(NET_TV_DISCOVERY_MCAST_ADDR);
-    bind_addr.sin_port = htons(NET_TV_DISCOVERY_MCAST_PORT);
+    bind_addr.sin_addr.s_addr = inet_addr(NET_DISCOVERY_MCAST_ADDR);
+    bind_addr.sin_port = htons(NET_DISCOVERY_MCAST_PORT);
     if (bind(m_nUdpSocket, reinterpret_cast<struct sockaddr*>(&bind_addr), sizeof(bind_addr)) < 0) {
         fprintf(stderr, "discovery-responder: bind failed, error=%d\n", WSAGetLastError());
         NETSDK_SOCKET_CLOSE(m_nUdpSocket);
@@ -175,7 +175,7 @@ int CDiscoveryResponder::init(const char* szInterfaceName)
 
     /* 加入组播组 */
     struct ip_mreq mreq{};
-    mreq.imr_multiaddr.s_addr = inet_addr(NET_TV_DISCOVERY_MCAST_ADDR);
+    mreq.imr_multiaddr.s_addr = inet_addr(NET_DISCOVERY_MCAST_ADDR);
     mreq.imr_interface.s_addr = INADDR_ANY;
     if (setsockopt(m_nUdpSocket, IPPROTO_IP, IP_ADD_MEMBERSHIP,
                    reinterpret_cast<const char*>(&mreq), sizeof(mreq)) < 0) {
@@ -209,7 +209,7 @@ int CDiscoveryResponder::init(const char* szInterfaceName)
     m_nIgmpSocket = socket(AF_INET, SOCK_DGRAM, 0);
     if (m_nIgmpSocket >= 0) {
         struct ip_mreq mreq{};
-        mreq.imr_multiaddr.s_addr = inet_addr(NET_TV_DISCOVERY_MCAST_ADDR);
+        mreq.imr_multiaddr.s_addr = inet_addr(NET_DISCOVERY_MCAST_ADDR);
         mreq.imr_interface.s_addr = m_uLocalIp;
         if (setsockopt(m_nIgmpSocket, IPPROTO_IP, IP_ADD_MEMBERSHIP,
                        &mreq, sizeof(mreq)) < 0) {
@@ -329,7 +329,7 @@ bool CDiscoveryResponder::parse_frame(const uint8_t* data, ssize_t len,
     if (ip->protocol != IPPROTO_UDP) return false;
 
     /* 检查目标 IP 是否匹配组播地址 */
-    if (ip->daddr != inet_addr(NET_TV_DISCOVERY_MCAST_ADDR)) return false;
+    if (ip->daddr != inet_addr(NET_DISCOVERY_MCAST_ADDR)) return false;
 
     client_ip = ip->saddr;
 
@@ -341,7 +341,7 @@ bool CDiscoveryResponder::parse_frame(const uint8_t* data, ssize_t len,
 
     const auto* udp = reinterpret_cast<const struct udphdr*>(udp_data);
     uint16_t dst_port = ntohs(udp->dest);
-    if (dst_port != NET_TV_DISCOVERY_MCAST_PORT) return false;
+    if (dst_port != NET_DISCOVERY_MCAST_PORT) return false;
 
     client_port = ntohs(udp->source);
 
@@ -380,7 +380,7 @@ static uint16_t ip_checksum(const void* data, size_t len)
 std::vector<uint8_t> CDiscoveryResponder::build_l2_response(
     const uint8_t client_mac[6],
     uint32_t client_ip, uint16_t client_port,
-    const NET_TV_DISCOVERY_DEVICE_INFO_S& info) const
+    const NET_DISCOVERY_DEVICE_INFO_S& info) const
 {
     std::string json = discovery::build_response_json(info);
     uint16_t udp_total_len = static_cast<uint16_t>(sizeof(struct udphdr) + json.size());
@@ -413,7 +413,7 @@ std::vector<uint8_t> CDiscoveryResponder::build_l2_response(
 
     /* UDP header */
     auto* udp = reinterpret_cast<struct udphdr*>(p);
-    udp->source = htons(NET_TV_DISCOVERY_MCAST_PORT);
+    udp->source = htons(NET_DISCOVERY_MCAST_PORT);
     udp->dest   = htons(client_port);
     udp->len    = htons(udp_total_len);
     udp->check  = 0;
@@ -429,7 +429,7 @@ std::vector<uint8_t> CDiscoveryResponder::build_l2_response(
 /* ---- standard UDP response ---- */
 
 int CDiscoveryResponder::send_udp_response(uint32_t client_ip, uint16_t client_port,
-                                           const NET_TV_DISCOVERY_DEVICE_INFO_S& info)
+                                           const NET_DISCOVERY_DEVICE_INFO_S& info)
 {
     std::string json = discovery::build_response_json(info);
 
@@ -486,7 +486,7 @@ void CDiscoveryResponder::receive_thread()
         probe_count++;
 
         /* 获取本机设备信息 */
-        NET_TV_DISCOVERY_DEVICE_INFO_S devInfo{};
+        NET_DISCOVERY_DEVICE_INFO_S devInfo{};
         m_fnDeviceInfoCallback(&devInfo);
 
         /* UDP 单播回包 */
@@ -572,7 +572,7 @@ void CDiscoveryResponder::receive_thread()
         }
 
         /* 获取本机设备信息 */
-        NET_TV_DISCOVERY_DEVICE_INFO_S devInfo{};
+        NET_DISCOVERY_DEVICE_INFO_S devInfo{};
         m_fnDeviceInfoCallback(&devInfo);
 
         /* 1. 标准 UDP 单播回包 */

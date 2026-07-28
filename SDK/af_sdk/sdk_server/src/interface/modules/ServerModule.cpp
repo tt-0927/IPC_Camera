@@ -58,7 +58,7 @@ BOOL CServerModule::Start(UINT32 dwPort)
     if (m_bRunning)
     {
         NETSDK_LOG_MESSAGE_WARN("HTTP Server already running on port %u", m_uPort);
-        return NET_TV_FALSE;
+        return NET_FALSE;
     }
 
     NETSDK_LOG_MESSAGE_INFO("Starting HTTP Server on port %u...", dwPort);
@@ -66,13 +66,13 @@ BOOL CServerModule::Start(UINT32 dwPort)
     if (CSdkHttpServer::instance()->startServer(static_cast<uint32_t>(dwPort)) != 0)
     {
         NETSDK_LOG_MESSAGE_ERROR("Failed to start HTTP server on port %u", dwPort);
-        return NET_TV_FALSE;
+        return NET_FALSE;
     }
 
     m_uPort = dwPort;
     m_bRunning = true;
     NETSDK_LOG_MESSAGE_INFO("HTTP Server started successfully on port %u", dwPort);
-    return NET_TV_TRUE;
+    return NET_TRUE;
 }
 
 /**
@@ -85,7 +85,7 @@ BOOL CServerModule::Stop()
     if (!m_bRunning)
     {
         NETSDK_LOG_MESSAGE_DEBUG("HTTP Server not running, skip stop");
-        return NET_TV_TRUE;
+        return NET_TRUE;
     }
 
     NETSDK_LOG_MESSAGE_INFO("Stopping HTTP Server on port %u...", m_uPort);
@@ -96,7 +96,7 @@ BOOL CServerModule::Stop()
     m_bRunning = false;
     m_uPort = 0;
     NETSDK_LOG_MESSAGE_INFO("HTTP Server stopped successfully");
-    return NET_TV_TRUE;
+    return NET_TRUE;
 }
 
 /**

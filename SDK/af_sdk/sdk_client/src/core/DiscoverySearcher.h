@@ -46,7 +46,7 @@ public:
      */
     int search(const char* szInterfaceIP,
                UINT32 dwTimeoutMs,
-               NET_TV_DISCOVERY_DEVICE_INFO_S* pDeviceList,
+               NET_DISCOVERY_DEVICE_INFO_S* pDeviceList,
                int nMaxCount,
                int* pnOutCount);
 
@@ -55,13 +55,13 @@ private:
     void close_socket();
     int send_probes();
     int recv_responses(UINT32 dwTimeoutMs,
-                       NET_TV_DISCOVERY_DEVICE_INFO_S* pDeviceList,
+                       NET_DISCOVERY_DEVICE_INFO_S* pDeviceList,
                        int nMaxCount,
                        int* pnOutCount);
 
     /* 用 device_id 去重 */
-    bool is_duplicate(const NET_TV_DISCOVERY_DEVICE_INFO_S& info,
-                      const NET_TV_DISCOVERY_DEVICE_INFO_S* pList,
+    bool is_duplicate(const NET_DISCOVERY_DEVICE_INFO_S& info,
+                      const NET_DISCOVERY_DEVICE_INFO_S* pList,
                       int nCount) const;
 
     socket_fd_t m_nSocket{INVALID_SOCKET_FD};

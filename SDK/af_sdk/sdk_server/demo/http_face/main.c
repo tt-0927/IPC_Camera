@@ -491,7 +491,7 @@ static void handle_http_client(socket_handle_t client)
              path_matches(path, "/api/v1/sdk/command"))
     {
         print_command_request("HTTP-SDK转发命令", method, path, body);
-        if (strstr(body, "NET_TV_SET_FACE_COMPARE_INFO") != NULL)
+        if (strstr(body, "NET_SET_FACE_COMPARE_INFO") != NULL)
         {
             send_json_response(client, 200, "{\"ActionCode\":2528,\"Return\":0,\"Data\":{}}");
         }
@@ -984,8 +984,8 @@ static void push_face_capture_event(const char *callback_url)
     (void)jpeg_len;
 
     parts[index++] = make_text_part("EventType", "FACE_CAPTURE");
-    parts[index++] = make_text_part("Command", "NET_TV_ALARM_FACE_CAPTURE");
-    parts[index++] = make_text_part("AlarmType", "NET_TV_ALARM_FACE_CAPTURE");
+    parts[index++] = make_text_part("Command", "NET_ALARM_FACE_CAPTURE");
+    parts[index++] = make_text_part("AlarmType", "NET_ALARM_FACE_CAPTURE");
     parts[index++] = make_text_part("AlarmCode", "12290");
     parts[index++] = make_text_part("DeviceCode", "SDK_HTTP_FACE_SERVER");
     parts[index++] = make_text_part("Channel", "0");
@@ -1026,8 +1026,8 @@ static void push_face_compare_event(const char *callback_url, int success)
     snprintf(lib_len, sizeof(lib_len), "%u", success ? (unsigned int)sizeof(g_demo_jpeg) : 0U);
 
     parts[index++] = make_text_part("EventType", "FACE_COMPARE");
-    parts[index++] = make_text_part("Command", "NET_TV_ALARM_FACE_COMPARE");
-    parts[index++] = make_text_part("AlarmType", "NET_TV_ALARM_FACE_COMPARE");
+    parts[index++] = make_text_part("Command", "NET_ALARM_FACE_COMPARE");
+    parts[index++] = make_text_part("AlarmType", "NET_ALARM_FACE_COMPARE");
     parts[index++] = make_text_part("AlarmCode", "12295");
     parts[index++] = make_text_part("DeviceCode", "SDK_HTTP_FACE_SERVER");
     parts[index++] = make_text_part("Channel", "0");

@@ -28,14 +28,14 @@ extern "C" {
 #endif
 /**
  * @author tianl (tianl@kfb.cn)
- * @brief 执行 NET_TV_SERVER_Init 定义的内部处理。
+ * @brief 执行 NET_SERVER_Init 定义的内部处理。
  * @param [in] udwPort 函数处理参数。
  * @param [in] szUserName 函数处理参数。
  * @param [in] szPassword 函数处理参数。
  * @return 返回该处理的状态或结果。
  */
 
-NET_TV_API BOOL NET_TV_STDCALL NET_TV_SERVER_Init(NET_TV_IN UINT32 udwPort,NET_TV_IN CHAR szUserName[NET_TV_LEN_132],NET_TV_IN CHAR szPassword[NET_TV_LEN_132])
+NET_API BOOL NET_STDCALL NET_SERVER_Init(NET_IN UINT32 udwPort,NET_IN CHAR szUserName[NET_LEN_132],NET_IN CHAR szPassword[NET_LEN_132])
 {
 	if (!g_pServerImpl)
 	{
@@ -45,11 +45,11 @@ NET_TV_API BOOL NET_TV_STDCALL NET_TV_SERVER_Init(NET_TV_IN UINT32 udwPort,NET_T
 }
 /**
  * @author tianl (tianl@kfb.cn)
- * @brief 执行 NET_TV_SERVER_Cleanup 定义的内部处理。
+ * @brief 执行 NET_SERVER_Cleanup 定义的内部处理。
  * @return 返回该处理的状态或结果。
  */
 
-NET_TV_API BOOL NET_TV_STDCALL NET_TV_SERVER_Cleanup(void)
+NET_API BOOL NET_STDCALL NET_SERVER_Cleanup(void)
 {
 	if (g_pServerImpl)
 	{
@@ -57,11 +57,11 @@ NET_TV_API BOOL NET_TV_STDCALL NET_TV_SERVER_Cleanup(void)
 		g_pServerImpl.reset();
 		return ret;
 	}
-	return NET_TV_TRUE;
+	return NET_TRUE;
 }
 /**
  * @author tianl (tianl@kfb.cn)
- * @brief 执行 NET_TV_SERVER_SetLogToFile 定义的内部处理。
+ * @brief 执行 NET_SERVER_SetLogToFile 定义的内部处理。
  * @param [in] dwLogLevel 函数处理参数。
  * @param [in,out] strLogDir 函数处理参数。
  * @param [in] dwLogFileSize 函数处理参数。
@@ -69,7 +69,7 @@ NET_TV_API BOOL NET_TV_STDCALL NET_TV_SERVER_Cleanup(void)
  * @return 返回该处理的状态或结果。
  */
 
-NET_TV_API BOOL NET_TV_STDCALL NET_TV_SERVER_SetLogToFile(NET_TV_IN INT32 dwLogLevel,NET_TV_IN CHAR  *strLogDir,NET_TV_IN INT32 dwLogFileSize,NET_TV_IN INT32 dwLogFileNum)
+NET_API BOOL NET_STDCALL NET_SERVER_SetLogToFile(NET_IN INT32 dwLogLevel,NET_IN CHAR  *strLogDir,NET_IN INT32 dwLogFileSize,NET_IN INT32 dwLogFileNum)
 {
 	if (!g_pServerImpl)
 	{
@@ -79,11 +79,11 @@ NET_TV_API BOOL NET_TV_STDCALL NET_TV_SERVER_SetLogToFile(NET_TV_IN INT32 dwLogL
 }
 /**
  * @author tianl (tianl@kfb.cn)
- * @brief 执行 NET_TV_SERVER_GetSDKVersion 定义的内部处理。
+ * @brief 执行 NET_SERVER_GetSDKVersion 定义的内部处理。
  * @return 返回该处理的状态或结果。
  */
 
-NET_TV_API INT32 NET_TV_STDCALL NET_TV_SERVER_GetSDKVersion(void)
+NET_API INT32 NET_STDCALL NET_SERVER_GetSDKVersion(void)
 {
 	if (!g_pServerImpl)
 	{
@@ -93,11 +93,11 @@ NET_TV_API INT32 NET_TV_STDCALL NET_TV_SERVER_GetSDKVersion(void)
 }
 /**
  * @author tianl (tianl@kfb.cn)
- * @brief 执行 NET_TV_SERVER_GetClientCount 定义的内部处理。
+ * @brief 执行 NET_SERVER_GetClientCount 定义的内部处理。
  * @return 返回该处理的状态或结果。
  */
 
-NET_TV_API INT32 NET_TV_STDCALL NET_TV_SERVER_GetClientCount(void)
+NET_API INT32 NET_STDCALL NET_SERVER_GetClientCount(void)
 {
 	if (!g_pServerImpl)
 	{
@@ -107,13 +107,13 @@ NET_TV_API INT32 NET_TV_STDCALL NET_TV_SERVER_GetClientCount(void)
 }
 /**
  * @author tianl (tianl@kfb.cn)
- * @brief 执行 NET_TV_SERVER_SetUserPasswd 定义的内部处理。
+ * @brief 执行 NET_SERVER_SetUserPasswd 定义的内部处理。
  * @param [in] szUserName 函数处理参数。
  * @param [in] szPassword 函数处理参数。
  * @return 返回该处理的状态或结果。
  */
 
-NET_TV_API BOOL NET_TV_STDCALL NET_TV_SERVER_SetUserPasswd(NET_TV_IN CHAR szUserName[NET_TV_LEN_132],NET_TV_IN CHAR szPassword[NET_TV_LEN_132])
+NET_API BOOL NET_STDCALL NET_SERVER_SetUserPasswd(NET_IN CHAR szUserName[NET_LEN_132],NET_IN CHAR szPassword[NET_LEN_132])
 {
 	if (!g_pServerImpl)
 	{
@@ -123,14 +123,14 @@ NET_TV_API BOOL NET_TV_STDCALL NET_TV_SERVER_SetUserPasswd(NET_TV_IN CHAR szUser
 }
 /**
  * @author tianl (tianl@kfb.cn)
- * @brief 执行 NET_TV_SERVER_PushAlarmInfo 定义的内部处理。
+ * @brief 执行 NET_SERVER_PushAlarmInfo 定义的内部处理。
  * @return 返回该处理的状态或结果。
  */
 
-NET_TV_API BOOL NET_TV_STDCALL NET_TV_SERVER_PushAlarmInfo(NET_TV_IN NET_Alarmer_S *pAlarmer,
-                                                    NET_TV_IN INT32 lCommand,
-                                                    NET_TV_IN LPVOID pAlarmInfo,
-                                                    NET_TV_IN INT32 dwBufLen)
+NET_API BOOL NET_STDCALL NET_SERVER_PushAlarmInfo(NET_IN NET_Alarmer_S *pAlarmer,
+                                                    NET_IN INT32 lCommand,
+                                                    NET_IN LPVOID pAlarmInfo,
+                                                    NET_IN INT32 dwBufLen)
 {
 	if (!g_pServerImpl)
 	{
@@ -140,12 +140,12 @@ NET_TV_API BOOL NET_TV_STDCALL NET_TV_SERVER_PushAlarmInfo(NET_TV_IN NET_Alarmer
 }
 /**
  * @author tianl (tianl@kfb.cn)
- * @brief 执行 NET_TV_SERVER_PushChannelStatusInfo 定义的内部处理。
+ * @brief 执行 NET_SERVER_PushChannelStatusInfo 定义的内部处理。
  * @param [in,out] pChannelInfo 函数处理参数。
  * @return 返回该处理的状态或结果。
  */
 
-NET_TV_API BOOL NET_TV_STDCALL NET_TV_SERVER_PushChannelStatusInfo(NET_TV_IN NET_ChannelInfo_S *pChannelInfo)
+NET_API BOOL NET_STDCALL NET_SERVER_PushChannelStatusInfo(NET_IN NET_ChannelInfo_S *pChannelInfo)
 {
 	if (!g_pServerImpl)
 	{
@@ -155,13 +155,13 @@ NET_TV_API BOOL NET_TV_STDCALL NET_TV_SERVER_PushChannelStatusInfo(NET_TV_IN NET
 }
 /**
  * @author tianl (tianl@kfb.cn)
- * @brief 执行 NET_TV_SERVER_RegisterCb_GetDiscoveryDeviceInfo 定义的内部处理。
+ * @brief 执行 NET_SERVER_RegisterCb_GetDiscoveryDeviceInfo 定义的内部处理。
  * @return 返回该处理的状态或结果。
  */
 
-NET_TV_API BOOL NET_TV_STDCALL
-NET_TV_SERVER_RegisterCb_GetDiscoveryDeviceInfo(
-    NET_TV_IN NET_TV_CB_GetDiscoveryDeviceInfo cbFunc)
+NET_API BOOL NET_STDCALL
+NET_SERVER_RegisterCb_GetDiscoveryDeviceInfo(
+    NET_IN NET_CB_GetDiscoveryDeviceInfo cbFunc)
 {
 	if (!g_pServerImpl) {
 		g_pServerImpl = std::make_unique<CNetTVSDKServerImpl>();
@@ -170,13 +170,13 @@ NET_TV_SERVER_RegisterCb_GetDiscoveryDeviceInfo(
 }
 /**
  * @author tianl (tianl@kfb.cn)
- * @brief 执行 NET_TV_SERVER_Discovery_Start 定义的内部处理。
+ * @brief 执行 NET_SERVER_Discovery_Start 定义的内部处理。
  * @param [in] szInterfaceName 函数处理参数。
  * @return 返回该处理的状态或结果。
  */
 
-NET_TV_API BOOL NET_TV_STDCALL
-NET_TV_SERVER_Discovery_Start(NET_TV_IN const CHAR* szInterfaceName)
+NET_API BOOL NET_STDCALL
+NET_SERVER_Discovery_Start(NET_IN const CHAR* szInterfaceName)
 {
 	if (!g_pServerImpl) {
 		g_pServerImpl = std::make_unique<CNetTVSDKServerImpl>();
@@ -185,72 +185,72 @@ NET_TV_SERVER_Discovery_Start(NET_TV_IN const CHAR* szInterfaceName)
 }
 /**
  * @author tianl (tianl@kfb.cn)
- * @brief 执行 NET_TV_SERVER_Discovery_Stop 定义的内部处理。
+ * @brief 执行 NET_SERVER_Discovery_Stop 定义的内部处理。
  * @return 返回该处理的状态或结果。
  */
 
-NET_TV_API BOOL NET_TV_STDCALL
-NET_TV_SERVER_Discovery_Stop(void)
+NET_API BOOL NET_STDCALL
+NET_SERVER_Discovery_Stop(void)
 {
 	if (!g_pServerImpl) {
-		return NET_TV_FALSE;
+		return NET_FALSE;
 	}
 	return g_pServerImpl->DoDiscoveryStop();
 }
 
 /* ==================== 语音对讲 VoiceCom (服务端) ==================== */
 
-NET_TV_API BOOL NET_TV_STDCALL
-NET_TV_SERVER_StartVoiceComServer(NET_TV_IN UINT32 dwPort)
+NET_API BOOL NET_STDCALL
+NET_SERVER_StartVoiceComServer(NET_IN UINT32 dwPort)
 {
-	return tvsdk::CVoiceComServer::instance()->start(static_cast<int>(dwPort)) ? NET_TV_TRUE : NET_TV_FALSE;
+	return tvsdk::CVoiceComServer::instance()->start(static_cast<int>(dwPort)) ? NET_TRUE : NET_FALSE;
 }
 /**
  * @author tianl (tianl@kfb.cn)
- * @brief 执行 NET_TV_SERVER_StopVoiceComServer 定义的内部处理。
+ * @brief 执行 NET_SERVER_StopVoiceComServer 定义的内部处理。
  * @return 返回该处理的状态或结果。
  */
 
-NET_TV_API BOOL NET_TV_STDCALL
-NET_TV_SERVER_StopVoiceComServer(void)
+NET_API BOOL NET_STDCALL
+NET_SERVER_StopVoiceComServer(void)
 {
 	tvsdk::CVoiceComServer::instance()->stop();
-	return NET_TV_TRUE;
+	return NET_TRUE;
 }
 /**
  * @author tianl (tianl@kfb.cn)
- * @brief 执行 NET_TV_SERVER_RegisterCb_VoiceComPlay 定义的内部处理。
+ * @brief 执行 NET_SERVER_RegisterCb_VoiceComPlay 定义的内部处理。
  * @param [in] cb 函数处理参数。
  * @return 返回该处理的状态或结果。
  */
 
-NET_TV_API BOOL NET_TV_STDCALL
-NET_TV_SERVER_RegisterCb_VoiceComPlay(NET_TV_IN NET_TV_SERVER_VoiceComPlayCallBack cb)
+NET_API BOOL NET_STDCALL
+NET_SERVER_RegisterCb_VoiceComPlay(NET_IN NET_SERVER_VoiceComPlayCallBack cb)
 {
 	if (!cb) {
 		tvsdk::CVoiceComServer::instance()->set_play_callback(nullptr);
-		return NET_TV_TRUE;
+		return NET_TRUE;
 	}
 
 	tvsdk::CVoiceComServer::instance()->set_play_callback(
 		[cb](const char* data, size_t size) {
 			cb(data, static_cast<unsigned int>(size));
 		});
-	return NET_TV_TRUE;
+	return NET_TRUE;
 }
 /**
  * @author tianl (tianl@kfb.cn)
- * @brief 执行 NET_TV_SERVER_RegisterCb_VoiceComCapture 定义的内部处理。
+ * @brief 执行 NET_SERVER_RegisterCb_VoiceComCapture 定义的内部处理。
  * @return 返回该处理的状态或结果。
  */
 
-NET_TV_API BOOL NET_TV_STDCALL
-NET_TV_SERVER_RegisterCb_VoiceComCapture(NET_TV_IN NET_TV_SERVER_VoiceComCaptureCallBack cb,
-										 NET_TV_IN LPVOID lpUserData)
+NET_API BOOL NET_STDCALL
+NET_SERVER_RegisterCb_VoiceComCapture(NET_IN NET_SERVER_VoiceComCaptureCallBack cb,
+										 NET_IN LPVOID lpUserData)
 {
 	if (!cb) {
 		tvsdk::CVoiceComServer::instance()->set_capture_callback(nullptr);
-		return NET_TV_TRUE;
+		return NET_TRUE;
 	}
 
 	tvsdk::CVoiceComServer::instance()->set_capture_callback(
@@ -262,36 +262,36 @@ NET_TV_SERVER_RegisterCb_VoiceComCapture(NET_TV_IN NET_TV_SERVER_VoiceComCapture
 					  static_cast<UINT32>(bufferSize),
 					  lpUserData);
 		});
-	return NET_TV_TRUE;
+	return NET_TRUE;
 }
 /**
  * @author tianl (tianl@kfb.cn)
- * @brief 执行 NET_TV_SERVER_SendVoiceComData 定义的内部处理。
+ * @brief 执行 NET_SERVER_SendVoiceComData 定义的内部处理。
  * @param [in] pData 函数处理参数。
  * @param [in] dwSize 函数处理参数。
  * @return 返回该处理的状态或结果。
  */
 
-NET_TV_API BOOL NET_TV_STDCALL
-NET_TV_SERVER_SendVoiceComData(NET_TV_IN const CHAR* pData, NET_TV_IN UINT32 dwSize)
+NET_API BOOL NET_STDCALL
+NET_SERVER_SendVoiceComData(NET_IN const CHAR* pData, NET_IN UINT32 dwSize)
 {
-	if (!pData || dwSize == 0) return NET_TV_FALSE;
+	if (!pData || dwSize == 0) return NET_FALSE;
 
-	return tvsdk::CVoiceComServer::instance()->send_to_client(pData, dwSize) ? NET_TV_TRUE : NET_TV_FALSE;
+	return tvsdk::CVoiceComServer::instance()->send_to_client(pData, dwSize) ? NET_TRUE : NET_FALSE;
 }
 /**
  * @author tianl (tianl@kfb.cn)
- * @brief 执行 NET_TV_SERVER_GetVoiceComAudioParam 定义的内部处理。
+ * @brief 执行 NET_SERVER_GetVoiceComAudioParam 定义的内部处理。
  * @param [out] pstAudioParam 函数处理参数。
  * @return 返回该处理的状态或结果。
  */
 
-NET_TV_API BOOL NET_TV_STDCALL
-NET_TV_SERVER_GetVoiceComAudioParam(NET_TV_OUT pNET_VoiceComAudioParam_S pstAudioParam)
+NET_API BOOL NET_STDCALL
+NET_SERVER_GetVoiceComAudioParam(NET_OUT pNET_VoiceComAudioParam_S pstAudioParam)
 {
-	if (!pstAudioParam) return NET_TV_FALSE;
+	if (!pstAudioParam) return NET_FALSE;
 
-	return tvsdk::CVoiceComServer::instance()->get_audio_param(*pstAudioParam) ? NET_TV_TRUE : NET_TV_FALSE;
+	return tvsdk::CVoiceComServer::instance()->get_audio_param(*pstAudioParam) ? NET_TRUE : NET_FALSE;
 }
 
 /* ==================== 录像帧流 RecordFrame (服务端) ==================== */
@@ -301,26 +301,26 @@ NET_TV_SERVER_GetVoiceComAudioParam(NET_TV_OUT pNET_VoiceComAudioParam_S pstAudi
  * @brief 启动录像帧流 TCP 服务
  * @details 创建监听socket，开始接收客户端连接
  * @param [in] dwPort TCP监听端口，建议使用9005
- * @return NET_TV_TRUE 成功，NET_TV_FALSE 失败
+ * @return NET_TRUE 成功，NET_FALSE 失败
  * @note 服务端必须先启动此服务，客户端才能建立TCP连接接收帧数据
  */
-NET_TV_API BOOL NET_TV_STDCALL
-NET_TV_SERVER_StartRecordFrameServer(NET_TV_IN UINT32 dwPort)
+NET_API BOOL NET_STDCALL
+NET_SERVER_StartRecordFrameServer(NET_IN UINT32 dwPort)
 {
-	return tvsdk::CRecordFrameServer::instance()->start(static_cast<int>(dwPort)) ? NET_TV_TRUE : NET_TV_FALSE;
+	return tvsdk::CRecordFrameServer::instance()->start(static_cast<int>(dwPort)) ? NET_TRUE : NET_FALSE;
 }
 
 /**
  * @author tianl (tianl@kfb.cn)
  * @brief 停止录像帧流 TCP 服务
  * @details 关闭监听socket，停止所有客户端连接，释放资源
- * @return NET_TV_TRUE 成功
+ * @return NET_TRUE 成功
  */
-NET_TV_API BOOL NET_TV_STDCALL
-NET_TV_SERVER_StopRecordFrameServer(void)
+NET_API BOOL NET_STDCALL
+NET_SERVER_StopRecordFrameServer(void)
 {
 	tvsdk::CRecordFrameServer::instance()->stop();
-	return NET_TV_TRUE;
+	return NET_TRUE;
 }
 
 /**
@@ -330,33 +330,33 @@ NET_TV_SERVER_StopRecordFrameServer(void)
  *          Lambda捕获cb和lpUserData，在回调执行时恢复C风格函数调用
  * @param [in] cb 宿主实现的启动回调函数指针，NULL表示取消注册
  * @param [in] lpUserData 用户自定义数据，SDK会原样传回给宿主
- * @return NET_TV_TRUE 成功
+ * @return NET_TRUE 成功
  * @note 为什么要这样写？
  *       1. 宿主程序使用C语言，回调是C风格函数指针，带有lpUserData参数
  *       2. SDK内部使用C++，RecordFrameServer期望的是C++风格的std::function
  *       3. 需要用Lambda做适配器，将C风格回调转换为C++风格回调
  *       4. cond参数做了拷贝（condCopy），因为C回调期望指针，防止引用失效
  */
-NET_TV_API BOOL NET_TV_STDCALL
-NET_TV_SERVER_RegisterCb_RecordFrameStart(NET_TV_IN NET_TV_SERVER_RecordFrameStartCallBack cb,
-										 NET_TV_IN LPVOID lpUserData)
+NET_API BOOL NET_STDCALL
+NET_SERVER_RegisterCb_RecordFrameStart(NET_IN NET_SERVER_RecordFrameStartCallBack cb,
+										 NET_IN LPVOID lpUserData)
 {
 	if (!cb) {
 		/* 取消注册，设置为空回调 */
 		tvsdk::CRecordFrameServer::instance()->set_start_callback(nullptr);
-		return NET_TV_TRUE;
+		return NET_TRUE;
 	}
 
 	/* 使用Lambda做适配器：C风格回调 → C++风格回调 */
 	tvsdk::CRecordFrameServer::instance()->set_start_callback(
 		[cb, lpUserData](const NET_RecordFrameStreamCond_S& cond,
-						 NET_RecordFrameStreamInfo_S& info) -> NET_TV_COMMON_ECODE_E {
+						 NET_RecordFrameStreamInfo_S& info) -> NET_COMMON_ECODE_E {
 			/* cond参数做拷贝，因为C回调期望指针，防止引用失效 */
 			NET_RecordFrameStreamCond_S condCopy = cond;
 			/* 调用宿主注册的C风格回调，传入lpUserData */
 			return cb(&condCopy, &info, lpUserData);
 		});
-	return NET_TV_TRUE;
+	return NET_TRUE;
 }
 
 /**
@@ -366,20 +366,20 @@ NET_TV_SERVER_RegisterCb_RecordFrameStart(NET_TV_IN NET_TV_SERVER_RecordFrameSta
  *          Lambda捕获cb和lpUserData，在回调执行时恢复C风格函数调用
  * @param [in] cb 宿主实现的读取回调函数指针，NULL表示取消注册
  * @param [in] lpUserData 用户自定义数据，SDK会原样传回给宿主
- * @return NET_TV_TRUE 成功
+ * @return NET_TRUE 成功
  * @note 为什么要这样写？
  *       1. C回调参数：const CHAR* szStreamId, UINT32 dwBufferSize
  *       2. C++回调参数：const std::string& streamId, size_t bufferSize
  *       3. 需要做类型转换：std::string → const char*, size_t → UINT32
  *       4. Read回调会被持续循环调用，Lambda捕获保证cb和lpUserData不会失效
  */
-NET_TV_API BOOL NET_TV_STDCALL
-NET_TV_SERVER_RegisterCb_RecordFrameRead(NET_TV_IN NET_TV_SERVER_RecordFrameReadCallBack cb,
-										NET_TV_IN LPVOID lpUserData)
+NET_API BOOL NET_STDCALL
+NET_SERVER_RegisterCb_RecordFrameRead(NET_IN NET_SERVER_RecordFrameReadCallBack cb,
+										NET_IN LPVOID lpUserData)
 {
 	if (!cb) {
 		tvsdk::CRecordFrameServer::instance()->set_read_callback(nullptr);
-		return NET_TV_TRUE;
+		return NET_TRUE;
 	}
 
 	tvsdk::CRecordFrameServer::instance()->set_read_callback(
@@ -390,7 +390,7 @@ NET_TV_SERVER_RegisterCb_RecordFrameRead(NET_TV_IN NET_TV_SERVER_RecordFrameRead
 			/* 类型转换：std::string → const char*, size_t → UINT32 */
 			return cb(streamId.c_str(), &frameInfo, buffer, static_cast<UINT32>(bufferSize), lpUserData);
 		});
-	return NET_TV_TRUE;
+	return NET_TRUE;
 }
 
 /**
@@ -400,26 +400,26 @@ NET_TV_SERVER_RegisterCb_RecordFrameRead(NET_TV_IN NET_TV_SERVER_RecordFrameRead
  *          Lambda捕获cb和lpUserData，在回调执行时恢复C风格函数调用
  * @param [in] cb 宿主实现的停止回调函数指针，NULL表示取消注册
  * @param [in] lpUserData 用户自定义数据，SDK会原样传回给宿主
- * @return NET_TV_TRUE 成功
+ * @return NET_TRUE 成功
  * @note 为什么要这样写？
  *       1. C回调参数：const CHAR* szStreamId
  *       2. C++回调参数：const std::string& streamId
  *       3. 需要做类型转换：std::string → const char*
  */
-NET_TV_API BOOL NET_TV_STDCALL
-NET_TV_SERVER_RegisterCb_RecordFrameStop(NET_TV_IN NET_TV_SERVER_RecordFrameStopCallBack cb,
-										NET_TV_IN LPVOID lpUserData)
+NET_API BOOL NET_STDCALL
+NET_SERVER_RegisterCb_RecordFrameStop(NET_IN NET_SERVER_RecordFrameStopCallBack cb,
+										NET_IN LPVOID lpUserData)
 {
 	if (!cb) {
 		tvsdk::CRecordFrameServer::instance()->set_stop_callback(nullptr);
-		return NET_TV_TRUE;
+		return NET_TRUE;
 	}
 
 	tvsdk::CRecordFrameServer::instance()->set_stop_callback(
-		[cb, lpUserData](const std::string& streamId) -> NET_TV_COMMON_ECODE_E {
+		[cb, lpUserData](const std::string& streamId) -> NET_COMMON_ECODE_E {
 			return cb(streamId.c_str(), lpUserData);
 		});
-	return NET_TV_TRUE;
+	return NET_TRUE;
 }
 
 

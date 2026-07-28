@@ -100,7 +100,7 @@ int CDiscoverySearcher::create_socket(const char* szInterfaceIP)
     }
 
     /* 组播 TTL */
-    int ttl = NET_TV_DISCOVERY_TTL;
+    int ttl = NET_DISCOVERY_TTL;
     setsockopt(m_nSocket, IPPROTO_IP, IP_MULTICAST_TTL,
                reinterpret_cast<const char*>(&ttl), sizeof(ttl));
 
@@ -130,11 +130,11 @@ int CDiscoverySearcher::send_probes()
 {
     struct sockaddr_in dst_addr{};
     dst_addr.sin_family = AF_INET;
-    dst_addr.sin_port   = htons(NET_TV_DISCOVERY_MCAST_PORT);
+    dst_addr.sin_port   = htons(NET_DISCOVERY_MCAST_PORT);
 #ifdef _WIN32
-    inet_pton(AF_INET, NET_TV_DISCOVERY_MCAST_ADDR, &dst_addr.sin_addr);
+    inet_pton(AF_INET, NET_DISCOVERY_MCAST_ADDR, &dst_addr.sin_addr);
 #else
-    dst_addr.sin_addr.s_addr = inet_addr(NET_TV_DISCOVERY_MCAST_ADDR);
+    dst_addr.sin_addr.s_addr = inet_addr(NET_DISCOVERY_MCAST_ADDR);
 #endif
 
     std::string probe = discovery::build_probe_json();

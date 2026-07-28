@@ -59,14 +59,14 @@ static bool recv_exact(socket_fd_t fd, char* data, size_t size) {
 
 static void fill_default_voicecom_audio_param(NET_VoiceComAudioParam_S& audio_param) {
     std::memset(&audio_param, 0, sizeof(audio_param));
-    audio_param.enFormat = NET_TV_AUDIO_FORMAT_PCM;
-    audio_param.uSampleRate = NET_TV_AUDIO_SAMPRATE_16000;
+    audio_param.enFormat = NET_AUDIO_FORMAT_PCM;
+    audio_param.uSampleRate = NET_AUDIO_SAMPRATE_16000;
     audio_param.uBitDepth = 16;
     audio_param.uChannels = 1;
     audio_param.uFrameIntervalMs = 20;
     audio_param.uFrameBytes = 640;
     audio_param.uBitRate = 256000;
-    audio_param.bLittleEndian = NET_TV_TRUE;
+    audio_param.bLittleEndian = NET_TRUE;
 }
 /**
  * @author tianl (tianl@kfb.cn)
@@ -82,7 +82,7 @@ static bool normalize_voicecom_audio_param(NET_VoiceComAudioParam_S& audio_param
 
     int bytes_per_sample = 0;
     switch (audio_param.enFormat) {
-        case NET_TV_AUDIO_FORMAT_PCM:
+        case NET_AUDIO_FORMAT_PCM:
             if (audio_param.uBitDepth <= 0) {
                 audio_param.uBitDepth = 16;
             }
@@ -90,17 +90,17 @@ static bool normalize_voicecom_audio_param(NET_VoiceComAudioParam_S& audio_param
                 return false;
             }
             switch (audio_param.uSampleRate) {
-                case NET_TV_AUDIO_SAMPRATE_8000:
-                case NET_TV_AUDIO_SAMPRATE_16000:
+                case NET_AUDIO_SAMPRATE_8000:
+                case NET_AUDIO_SAMPRATE_16000:
                     break;
                 default:
                     return false;
             }
             bytes_per_sample = audio_param.uBitDepth / 8;
             break;
-        case NET_TV_AUDIO_FORMAT_G711A:
-        case NET_TV_AUDIO_FORMAT_G711U:
-            if (audio_param.uSampleRate != NET_TV_AUDIO_SAMPRATE_8000) {
+        case NET_AUDIO_FORMAT_G711A:
+        case NET_AUDIO_FORMAT_G711U:
+            if (audio_param.uSampleRate != NET_AUDIO_SAMPRATE_8000) {
                 return false;
             }
             if (audio_param.uBitDepth <= 0) {
@@ -124,7 +124,7 @@ static bool normalize_voicecom_audio_param(NET_VoiceComAudioParam_S& audio_param
 
     const int frame_bytes = audio_param.uSampleRate * audio_param.uChannels *
                             bytes_per_sample * audio_param.uFrameIntervalMs / 1000;
-    if (frame_bytes <= 0 || frame_bytes > NET_TV_LEN_4096) {
+    if (frame_bytes <= 0 || frame_bytes > NET_LEN_4096) {
         return false;
     }
 
@@ -136,7 +136,7 @@ static bool normalize_voicecom_audio_param(NET_VoiceComAudioParam_S& audio_param
     }
 
     audio_param.uBitRate = audio_param.uSampleRate * audio_param.uChannels * audio_param.uBitDepth;
-    audio_param.bLittleEndian = NET_TV_TRUE;
+    audio_param.bLittleEndian = NET_TRUE;
     return true;
 }
 /**
@@ -438,7 +438,7 @@ void CVoiceComServer::capture_loop() {
         logged_wait_source = false;
 
         const size_t frame_bytes = static_cast<size_t>(audio_param.uFrameBytes);
-        if (frame_bytes == 0 || frame_bytes > NET_TV_LEN_4096) {
+        if (frame_bytes == 0 || frame_bytes > NET_LEN_4096) {
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
             continue;
         }

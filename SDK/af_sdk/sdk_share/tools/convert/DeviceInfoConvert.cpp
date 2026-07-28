@@ -17,7 +17,7 @@
 #include <string>
 #include <cstring>
 
-static constexpr int kOsdCustomSlotCount = NET_TV_OSD_CUSTOM_MAX_NUM;
+static constexpr int kOsdCustomSlotCount = NET_OSD_CUSTOM_MAX_NUM;
 /**
  * @author tianl (tianl@kfb.cn)
  * @brief 执行 clamp_time_count 定义的内部处理。
@@ -27,7 +27,7 @@ static constexpr int kOsdCustomSlotCount = NET_TV_OSD_CUSTOM_MAX_NUM;
 
 static UINT32 clamp_time_count(UINT32 count)
 {
-    return (count > NET_TV_PLAN_TIME_SECTION_NUM_ADAY) ? NET_TV_PLAN_TIME_SECTION_NUM_ADAY : count;
+    return (count > NET_PLAN_TIME_SECTION_NUM_ADAY) ? NET_PLAN_TIME_SECTION_NUM_ADAY : count;
 }
 /**
  * @author tianl (tianl@kfb.cn)
@@ -402,9 +402,9 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_HotspotConnInfo_S& stInfo, bo
         {
             stInfo.nDeviceCount = 0;
         }
-        if (stInfo.nDeviceCount > NET_TV_HOTSPOT_CONN_MAX_NUM)
+        if (stInfo.nDeviceCount > NET_HOTSPOT_CONN_MAX_NUM)
         {
-            stInfo.nDeviceCount = NET_TV_HOTSPOT_CONN_MAX_NUM;
+            stInfo.nDeviceCount = NET_HOTSPOT_CONN_MAX_NUM;
         }
     }
 
@@ -415,9 +415,9 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_HotspotConnInfo_S& stInfo, bo
         Json::Object* pArray = Json::get(pRootJson, "Devices");
         int nSize = pArray ? Json::Array::size(pArray) : 0;
         int nCount = nSize;
-        if (nCount > NET_TV_HOTSPOT_CONN_MAX_NUM)
+        if (nCount > NET_HOTSPOT_CONN_MAX_NUM)
         {
-            nCount = NET_TV_HOTSPOT_CONN_MAX_NUM;
+            nCount = NET_HOTSPOT_CONN_MAX_NUM;
         }
         if (nCount < 0)
         {
@@ -683,9 +683,9 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_LogList_S& stInfo, bool bOutS
         {
             stInfo.nLogCount = 0;
         }
-        if (stInfo.nLogCount > NET_TV_LOG_QUERY_COND_NUM)
+        if (stInfo.nLogCount > NET_LOG_QUERY_COND_NUM)
         {
-            stInfo.nLogCount = NET_TV_LOG_QUERY_COND_NUM;
+            stInfo.nLogCount = NET_LOG_QUERY_COND_NUM;
         }
     }
 
@@ -696,9 +696,9 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_LogList_S& stInfo, bool bOutS
         Json::Object* pArray = Json::get(pRootJson, "LogInfos");
         int nSize = pArray ? Json::Array::size(pArray) : 0;
         int nCount = nSize;
-        if (nCount > NET_TV_LOG_QUERY_COND_NUM)
+        if (nCount > NET_LOG_QUERY_COND_NUM)
         {
-            nCount = NET_TV_LOG_QUERY_COND_NUM;
+            nCount = NET_LOG_QUERY_COND_NUM;
         }
         if (nCount < 0)
         {
@@ -835,9 +835,9 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_RecordDaySchedule_S& stInfo, 
         {
             stInfo.nRecordTimeCount = 0;
         }
-        if (stInfo.nRecordTimeCount > NET_TV_TIME_DURATION_NUM)
+        if (stInfo.nRecordTimeCount > NET_TIME_DURATION_NUM)
         {
-            stInfo.nRecordTimeCount = NET_TV_TIME_DURATION_NUM;
+            stInfo.nRecordTimeCount = NET_TIME_DURATION_NUM;
         }
     }
     convert.field(pRootJson, "RecordTimeCount", stInfo.nRecordTimeCount);
@@ -847,9 +847,9 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_RecordDaySchedule_S& stInfo, 
         Json::Object* pArray = Json::get(pRootJson, "RecordTimes");
         int nSize = pArray ? Json::Array::size(pArray) : 0;
         int nCount = nSize;
-        if (nCount > NET_TV_TIME_DURATION_NUM)
+        if (nCount > NET_TIME_DURATION_NUM)
         {
-            nCount = NET_TV_TIME_DURATION_NUM;
+            nCount = NET_TIME_DURATION_NUM;
         }
         if (nCount < 0)
         {
@@ -910,9 +910,9 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_RecordSchedule_S& stInfo, boo
         {
             stInfo.nDayScheduleCount = 0;
         }
-        if (stInfo.nDayScheduleCount > NET_TV_PLAN_DAY_NUM_AWEEK)
+        if (stInfo.nDayScheduleCount > NET_PLAN_DAY_NUM_AWEEK)
         {
-            stInfo.nDayScheduleCount = NET_TV_PLAN_DAY_NUM_AWEEK;
+            stInfo.nDayScheduleCount = NET_PLAN_DAY_NUM_AWEEK;
         }
     }
     convert.field(pRootJson, "DayScheduleCount", stInfo.nDayScheduleCount);
@@ -922,9 +922,9 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_RecordSchedule_S& stInfo, boo
         Json::Object* pArray = Json::get(pRootJson, "DaySchedules");
         int nSize = pArray ? Json::Array::size(pArray) : 0;
         int nCount = nSize;
-        if (nCount > NET_TV_PLAN_DAY_NUM_AWEEK)
+        if (nCount > NET_PLAN_DAY_NUM_AWEEK)
         {
-            nCount = NET_TV_PLAN_DAY_NUM_AWEEK;
+            nCount = NET_PLAN_DAY_NUM_AWEEK;
         }
         if (nCount < 0)
         {
@@ -1053,17 +1053,17 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_RecordFindResult_S& stInfo, b
         {
             stInfo.nDateCount = 0;
         }
-        if (stInfo.nDateCount > NET_TV_RECORD_DATE_MAX_NUM)
+        if (stInfo.nDateCount > NET_RECORD_DATE_MAX_NUM)
         {
-            stInfo.nDateCount = NET_TV_RECORD_DATE_MAX_NUM;
+            stInfo.nDateCount = NET_RECORD_DATE_MAX_NUM;
         }
         if (stInfo.nVideoTimeCount < 0)
         {
             stInfo.nVideoTimeCount = 0;
         }
-        if (stInfo.nVideoTimeCount > NET_TV_TIME_DURATION_NUM)
+        if (stInfo.nVideoTimeCount > NET_TIME_DURATION_NUM)
         {
-            stInfo.nVideoTimeCount = NET_TV_TIME_DURATION_NUM;
+            stInfo.nVideoTimeCount = NET_TIME_DURATION_NUM;
         }
     }
 
@@ -1073,9 +1073,9 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_RecordFindResult_S& stInfo, b
         Json::Object* pDates = Json::get(pRootJson, "Dates");
         int nSize = pDates ? Json::Array::size(pDates) : 0;
         int nCount = nSize;
-        if (nCount > NET_TV_RECORD_DATE_MAX_NUM)
+        if (nCount > NET_RECORD_DATE_MAX_NUM)
         {
-            nCount = NET_TV_RECORD_DATE_MAX_NUM;
+            nCount = NET_RECORD_DATE_MAX_NUM;
         }
         for (int i = 0; pDates && i < nCount; ++i)
         {
@@ -1110,9 +1110,9 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_RecordFindResult_S& stInfo, b
         Json::Object* pArray = Json::get(pRootJson, "VideoTimes");
         int nSize = pArray ? Json::Array::size(pArray) : 0;
         int nCount = nSize;
-        if (nCount > NET_TV_TIME_DURATION_NUM)
+        if (nCount > NET_TIME_DURATION_NUM)
         {
-            nCount = NET_TV_TIME_DURATION_NUM;
+            nCount = NET_TIME_DURATION_NUM;
         }
         for (int i = 0; pArray && i < nCount; ++i)
         {
@@ -1169,9 +1169,9 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_RecordFileList_S& stInfo, boo
         {
             stInfo.nResultCount = 0;
         }
-        if (stInfo.nResultCount > NET_TV_RECORD_FILE_MAX_NUM)
+        if (stInfo.nResultCount > NET_RECORD_FILE_MAX_NUM)
         {
-            stInfo.nResultCount = NET_TV_RECORD_FILE_MAX_NUM;
+            stInfo.nResultCount = NET_RECORD_FILE_MAX_NUM;
         }
     }
     convert.field(pRootJson, "ResultCount", stInfo.nResultCount);
@@ -1181,9 +1181,9 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_RecordFileList_S& stInfo, boo
         Json::Object* pArray = Json::get(pRootJson, "Infos");
         int nSize = pArray ? Json::Array::size(pArray) : 0;
         int nCount = nSize;
-        if (nCount > NET_TV_RECORD_FILE_MAX_NUM)
+        if (nCount > NET_RECORD_FILE_MAX_NUM)
         {
-            nCount = NET_TV_RECORD_FILE_MAX_NUM;
+            nCount = NET_RECORD_FILE_MAX_NUM;
         }
         for (int i = 0; pArray && i < nCount; ++i)
         {
@@ -1281,17 +1281,17 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_RecordDownloadList_S& stInfo,
         {
             stInfo.nDownloadCount = 0;
         }
-        if (stInfo.nDownloadCount > NET_TV_RECORD_DOWNLOAD_MAX_NUM)
+        if (stInfo.nDownloadCount > NET_RECORD_DOWNLOAD_MAX_NUM)
         {
-            stInfo.nDownloadCount = NET_TV_RECORD_DOWNLOAD_MAX_NUM;
+            stInfo.nDownloadCount = NET_RECORD_DOWNLOAD_MAX_NUM;
         }
         if (stInfo.nProgressCount < 0)
         {
             stInfo.nProgressCount = 0;
         }
-        if (stInfo.nProgressCount > NET_TV_RECORD_DOWNLOAD_MAX_NUM)
+        if (stInfo.nProgressCount > NET_RECORD_DOWNLOAD_MAX_NUM)
         {
-            stInfo.nProgressCount = NET_TV_RECORD_DOWNLOAD_MAX_NUM;
+            stInfo.nProgressCount = NET_RECORD_DOWNLOAD_MAX_NUM;
         }
     }
 
@@ -1301,9 +1301,9 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_RecordDownloadList_S& stInfo,
         Json::Object* pArray = Json::get(pRootJson, "DownloadInfos");
         int nSize = pArray ? Json::Array::size(pArray) : 0;
         int nCount = nSize;
-        if (nCount > NET_TV_RECORD_DOWNLOAD_MAX_NUM)
+        if (nCount > NET_RECORD_DOWNLOAD_MAX_NUM)
         {
-            nCount = NET_TV_RECORD_DOWNLOAD_MAX_NUM;
+            nCount = NET_RECORD_DOWNLOAD_MAX_NUM;
         }
         for (int i = 0; pArray && i < nCount; ++i)
         {
@@ -1340,9 +1340,9 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_RecordDownloadList_S& stInfo,
         Json::Object* pArray = Json::get(pRootJson, "DownloadProgressInfos");
         int nSize = pArray ? Json::Array::size(pArray) : 0;
         int nCount = nSize;
-        if (nCount > NET_TV_RECORD_DOWNLOAD_MAX_NUM)
+        if (nCount > NET_RECORD_DOWNLOAD_MAX_NUM)
         {
-            nCount = NET_TV_RECORD_DOWNLOAD_MAX_NUM;
+            nCount = NET_RECORD_DOWNLOAD_MAX_NUM;
         }
         for (int i = 0; pArray && i < nCount; ++i)
         {
@@ -1733,10 +1733,10 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_ReplayRecordList_S& stInfo, b
         convert.structure(pRootJson, "VehicleEventTimes", vehicleEventTimes);
         convert.structure(pRootJson, "OtherEventTimes", otherEventTimes);
 
-        stInfo.nVideoCount = (INT32)std::min<size_t>(videoTimes.size(), NET_TV_REPLAY_RECORD_SEGMENT_MAX);
-        stInfo.nPersonEventCount = (INT32)std::min<size_t>(personEventTimes.size(), NET_TV_REPLAY_RECORD_SEGMENT_MAX);
-        stInfo.nVehicleEventCount = (INT32)std::min<size_t>(vehicleEventTimes.size(), NET_TV_REPLAY_RECORD_SEGMENT_MAX);
-        stInfo.nOtherEventCount = (INT32)std::min<size_t>(otherEventTimes.size(), NET_TV_REPLAY_RECORD_SEGMENT_MAX);
+        stInfo.nVideoCount = (INT32)std::min<size_t>(videoTimes.size(), NET_REPLAY_RECORD_SEGMENT_MAX);
+        stInfo.nPersonEventCount = (INT32)std::min<size_t>(personEventTimes.size(), NET_REPLAY_RECORD_SEGMENT_MAX);
+        stInfo.nVehicleEventCount = (INT32)std::min<size_t>(vehicleEventTimes.size(), NET_REPLAY_RECORD_SEGMENT_MAX);
+        stInfo.nOtherEventCount = (INT32)std::min<size_t>(otherEventTimes.size(), NET_REPLAY_RECORD_SEGMENT_MAX);
 
         for (INT32 i = 0; i < stInfo.nVideoCount; ++i)
         {
@@ -1774,10 +1774,10 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_ReplayRecordList_S& stInfo, b
             stInfo.nOtherEventCount = 0;
         }
 
-        stInfo.nVideoCount = std::min<INT32>(stInfo.nVideoCount, NET_TV_REPLAY_RECORD_SEGMENT_MAX);
-        stInfo.nPersonEventCount = std::min<INT32>(stInfo.nPersonEventCount, NET_TV_REPLAY_RECORD_SEGMENT_MAX);
-        stInfo.nVehicleEventCount = std::min<INT32>(stInfo.nVehicleEventCount, NET_TV_REPLAY_RECORD_SEGMENT_MAX);
-        stInfo.nOtherEventCount = std::min<INT32>(stInfo.nOtherEventCount, NET_TV_REPLAY_RECORD_SEGMENT_MAX);
+        stInfo.nVideoCount = std::min<INT32>(stInfo.nVideoCount, NET_REPLAY_RECORD_SEGMENT_MAX);
+        stInfo.nPersonEventCount = std::min<INT32>(stInfo.nPersonEventCount, NET_REPLAY_RECORD_SEGMENT_MAX);
+        stInfo.nVehicleEventCount = std::min<INT32>(stInfo.nVehicleEventCount, NET_REPLAY_RECORD_SEGMENT_MAX);
+        stInfo.nOtherEventCount = std::min<INT32>(stInfo.nOtherEventCount, NET_REPLAY_RECORD_SEGMENT_MAX);
 
         std::vector<NET_ReplayRecordTime_S> videoTimes;
         std::vector<NET_ReplayRecordTime_S> personEventTimes;
@@ -1921,7 +1921,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_ChannelList_S& stInfo, bool b
     {
         std::vector<NET_ChannelInfo_S> channels;
         convert.structure(pRootJson, "Channels", channels);
-        stInfo.dwChannelCount = (UINT32)std::min<size_t>(channels.size(), NET_TV_MAX_CHANNEL_NUM);
+        stInfo.dwChannelCount = (UINT32)std::min<size_t>(channels.size(), NET_MAX_CHANNEL_NUM);
         for (UINT32 i = 0; i < stInfo.dwChannelCount; ++i)
         {
             stInfo.stChannels[i] = channels[i];
@@ -1934,7 +1934,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_ChannelList_S& stInfo, bool b
     else
     {
         std::vector<NET_ChannelInfo_S> channels;
-        const UINT32 count = std::min<UINT32>(stInfo.dwChannelCount, NET_TV_MAX_CHANNEL_NUM);
+        const UINT32 count = std::min<UINT32>(stInfo.dwChannelCount, NET_MAX_CHANNEL_NUM);
         stInfo.dwChannelCount = count;
         for (UINT32 i = 0; i < count; ++i)
         {
@@ -2081,7 +2081,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_AlarmSchedule_S& stInfo, bool
                 if (pDaySections)
                 {
                     int count = stInfo.uTimeSectionCount[day];
-                    if (count > NET_TV_PLAN_SECTION_NUM) count = NET_TV_PLAN_SECTION_NUM;
+                    if (count > NET_PLAN_SECTION_NUM) count = NET_PLAN_SECTION_NUM;
 
                     for (int i = 0; i < count; i++)
                     {
@@ -2110,7 +2110,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_AlarmSchedule_S& stInfo, bool
         for (int day = 0; day < 7; day++)
         {
             int count = stInfo.uTimeSectionCount[day];
-            if (count > NET_TV_PLAN_SECTION_NUM) count = NET_TV_PLAN_SECTION_NUM;
+            if (count > NET_PLAN_SECTION_NUM) count = NET_PLAN_SECTION_NUM;
 
             Json::Object* pDaySections = Json::init();
             for (int i = 0; i < count; i++)
@@ -2147,26 +2147,26 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_LinkageList_S& stInfo, bool b
         /* JSON -> 结构体 */
         convert.field(pRootJson, "AlarmOutputCount", stInfo.uAlarmOutputCount);
         convert.field_array(pRootJson, "AlarmOutput", stInfo.auAlarmOutput,
-                           stInfo.uAlarmOutputCount, NET_TV_MAX_ALARM_OUT_NUM);
+                           stInfo.uAlarmOutputCount, NET_MAX_ALARM_OUT_NUM);
         convert.field(pRootJson, "RecordChannelCount", stInfo.uRecordChannelCount);
         convert.field_array(pRootJson, "RecordChannel", stInfo.auRecordChannel,
-                           stInfo.uRecordChannelCount, NET_TV_CHANNEL_MAX);
+                           stInfo.uRecordChannelCount, NET_CHANNEL_MAX);
         convert.field(pRootJson, "SnapshotChannelCount", stInfo.uSnapshotChannelCount);
         convert.field_array(pRootJson, "SnapshotChannel", stInfo.auSnapshotChannel,
-                           stInfo.uSnapshotChannelCount, NET_TV_CHANNEL_MAX);
+                           stInfo.uSnapshotChannelCount, NET_CHANNEL_MAX);
     }
     else
     {
         /* 结构体 -> JSON */
         convert.field(pRootJson, "AlarmOutputCount", stInfo.uAlarmOutputCount);
         convert.field_array(pRootJson, "AlarmOutput", stInfo.auAlarmOutput,
-                           stInfo.uAlarmOutputCount, NET_TV_MAX_ALARM_OUT_NUM);
+                           stInfo.uAlarmOutputCount, NET_MAX_ALARM_OUT_NUM);
         convert.field(pRootJson, "RecordChannelCount", stInfo.uRecordChannelCount);
         convert.field_array(pRootJson, "RecordChannel", stInfo.auRecordChannel,
-                           stInfo.uRecordChannelCount, NET_TV_CHANNEL_MAX);
+                           stInfo.uRecordChannelCount, NET_CHANNEL_MAX);
         convert.field(pRootJson, "SnapshotChannelCount", stInfo.uSnapshotChannelCount);
         convert.field_array(pRootJson, "SnapshotChannel", stInfo.auSnapshotChannel,
-                           stInfo.uSnapshotChannelCount, NET_TV_CHANNEL_MAX);
+                           stInfo.uSnapshotChannelCount, NET_CHANNEL_MAX);
     }
 }
 
@@ -2376,9 +2376,9 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_PrivacyMaskCfg_S& stInfo, boo
         {
             return 0;
         }
-        if (nCount > NET_TV_MAX_PRIVACY_MASK_AREA_NUM)
+        if (nCount > NET_MAX_PRIVACY_MASK_AREA_NUM)
         {
-            return NET_TV_MAX_PRIVACY_MASK_AREA_NUM;
+            return NET_MAX_PRIVACY_MASK_AREA_NUM;
         }
         return nCount;
     };
@@ -4375,7 +4375,7 @@ void SDKConvert::deal(Json::Object *pRootJson, NET_CapturePlanInfo_S &stInfo, bo
         if (!pDays)
             return;
 
-        for (i = 0; i < NET_TV_PLAN_DAY_NUM_AWEEK; ++i)
+        for (i = 0; i < NET_PLAN_DAY_NUM_AWEEK; ++i)
         {
             std::string key = std::to_string(i);
             Json::Object *pDay = Json::get(pDays, key.c_str());
@@ -4390,7 +4390,7 @@ void SDKConvert::deal(Json::Object *pRootJson, NET_CapturePlanInfo_S &stInfo, bo
         if (!pDays)
             return;
 
-        for (i = 0; i < NET_TV_PLAN_DAY_NUM_AWEEK; ++i)
+        for (i = 0; i < NET_PLAN_DAY_NUM_AWEEK; ++i)
         {
             std::string key = std::to_string(i);
             Json::Object *pDay = Json::init();
@@ -5005,9 +5005,9 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_FaceLibList_S& stInfo, bool b
     {
         Json::Object* pArray = Json::get(pRootJson, "TargetLibInfos");
         int nSize = Json::Array::size(pArray);
-        if (nSize > NET_TV_FACE_LIB_MAX_NUM)
+        if (nSize > NET_FACE_LIB_MAX_NUM)
         {
-            nSize = NET_TV_FACE_LIB_MAX_NUM;
+            nSize = NET_FACE_LIB_MAX_NUM;
         }
         stInfo.nTargetLibCount = nSize;
         for (int i = 0; i < nSize; ++i)
@@ -5023,9 +5023,9 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_FaceLibList_S& stInfo, bool b
     {
         Json::Object* pArray = Json::Array::init();
         int nCount = stInfo.nTargetLibCount;
-        if (nCount > NET_TV_FACE_LIB_MAX_NUM)
+        if (nCount > NET_FACE_LIB_MAX_NUM)
         {
-            nCount = NET_TV_FACE_LIB_MAX_NUM;
+            nCount = NET_FACE_LIB_MAX_NUM;
         }
         for (int i = 0; i < nCount; ++i)
         {
@@ -5058,9 +5058,9 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_FaceIdInfo_S& stInfo, bool bO
     {
         Json::Object* pArray = Json::get(pRootJson, "Ids");
         int nSize = Json::Array::size(pArray);
-        if (nSize > NET_TV_FACE_ID_MAX_NUM)
+        if (nSize > NET_FACE_ID_MAX_NUM)
         {
-            nSize = NET_TV_FACE_ID_MAX_NUM;
+            nSize = NET_FACE_ID_MAX_NUM;
         }
         stInfo.nIdCount = nSize;
         for (int i = 0; i < nSize; ++i)
@@ -5076,9 +5076,9 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_FaceIdInfo_S& stInfo, bool bO
     {
         Json::Object* pArray = Json::Array::init();
         int nCount = stInfo.nIdCount;
-        if (nCount > NET_TV_FACE_ID_MAX_NUM)
+        if (nCount > NET_FACE_ID_MAX_NUM)
         {
-            nCount = NET_TV_FACE_ID_MAX_NUM;
+            nCount = NET_FACE_ID_MAX_NUM;
         }
         if (nCount < 0)
         {
@@ -5142,9 +5142,9 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_FaceInfoList_S& stInfo, bool 
     {
         Json::Object* pArray = Json::get(pRootJson, "FaceInfos");
         int nSize = Json::Array::size(pArray);
-        if (nSize > NET_TV_FACE_INFO_MAX_NUM)
+        if (nSize > NET_FACE_INFO_MAX_NUM)
         {
-            nSize = NET_TV_FACE_INFO_MAX_NUM;
+            nSize = NET_FACE_INFO_MAX_NUM;
         }
         stInfo.nFaceInfoCount = nSize;
         for (int i = 0; i < nSize; ++i)
@@ -5160,9 +5160,9 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_FaceInfoList_S& stInfo, bool 
     {
         Json::Object* pArray = Json::Array::init();
         int nCount = stInfo.nFaceInfoCount;
-        if (nCount > NET_TV_FACE_INFO_MAX_NUM)
+        if (nCount > NET_FACE_INFO_MAX_NUM)
         {
-            nCount = NET_TV_FACE_INFO_MAX_NUM;
+            nCount = NET_FACE_INFO_MAX_NUM;
         }
         for (int i = 0; i < nCount; ++i)
         {

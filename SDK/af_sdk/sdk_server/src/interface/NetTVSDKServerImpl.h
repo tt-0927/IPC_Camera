@@ -45,7 +45,7 @@ public:
      * @param szPassword 密码
      * @return TRUE表示成功，FALSE表示失败
      */
-    BOOL DoInit(UINT32 udwPort, CHAR szUserName[NET_TV_LEN_132], CHAR szPassword[NET_TV_LEN_132]);
+    BOOL DoInit(UINT32 udwPort, CHAR szUserName[NET_LEN_132], CHAR szPassword[NET_LEN_132]);
 
     /**
  * @author tianl (tianl@kfb.cn)
@@ -86,7 +86,7 @@ public:
      * @param szPassword 密码
      * @return TRUE表示成功，FALSE表示失败
      */
-    BOOL DoSetUserPasswd(CHAR szUserName[NET_TV_LEN_132], CHAR szPassword[NET_TV_LEN_132]);
+    BOOL DoSetUserPasswd(CHAR szUserName[NET_LEN_132], CHAR szPassword[NET_LEN_132]);
 
     /**
  * @author tianl (tianl@kfb.cn)
@@ -111,7 +111,7 @@ public:
  * @author tianl (tianl@kfb.cn)
      * @brief 注册设备发现信息回调
      */
-    BOOL DoRegisterCb_GetDiscoveryDeviceInfo(NET_TV_CB_GetDiscoveryDeviceInfo cbFunc);
+    BOOL DoRegisterCb_GetDiscoveryDeviceInfo(NET_CB_GetDiscoveryDeviceInfo cbFunc);
 
     /**
  * @author tianl (tianl@kfb.cn)
@@ -136,5 +136,5 @@ private:
 
     /* 设备发现 */
     std::unique_ptr<CDiscoveryResponder> m_pDiscoveryResponder;
-    NET_TV_CB_GetDiscoveryDeviceInfo m_fnDiscoveryDeviceInfoCallback{nullptr};
+    NET_CB_GetDiscoveryDeviceInfo m_fnDiscoveryDeviceInfoCallback{nullptr};
 };

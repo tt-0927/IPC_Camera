@@ -49,19 +49,19 @@ public:
 private:
     /**
  * @author tianl (tianl@kfb.cn)
-     * @brief 处理视频编码能力集 (NET_TV_CAP_VIDEO_ENCODE)
+     * @brief 处理视频编码能力集 (NET_CAP_VIDEO_ENCODE)
      */
     std::string HandleVideoEncode(int channelId);
 
     /**
  * @author tianl (tianl@kfb.cn)
-     * @brief 处理音频编码能力集 (NET_TV_CAP_AUDIO)
+     * @brief 处理音频编码能力集 (NET_CAP_AUDIO)
      */
     std::string HandleAudioEncode(int channelId);
 
     /**
  * @author tianl (tianl@kfb.cn)
-     * @brief 处理OSD参数能力集 (NET_TV_CAP_OSD)
+     * @brief 处理OSD参数能力集 (NET_CAP_OSD)
      */
     std::string HandleOsd(int channelId);
 

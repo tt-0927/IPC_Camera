@@ -62,7 +62,7 @@ BOOL CSessionModule::SetAuthInfo(const std::string& realm,
     if (realm.empty() || username.empty() || password.empty())
     {
         NETSDK_LOG_MESSAGE_ERROR("SetAuthInfo: Invalid parameters (empty string)");
-        return NET_TV_FALSE;
+        return NET_FALSE;
     }
 
     m_strRealm = realm;
@@ -74,7 +74,7 @@ BOOL CSessionModule::SetAuthInfo(const std::string& realm,
     CHttpAuthHandler::instance()->set_auth_info(realm.c_str(), username.c_str(), password.c_str());
 
     m_bInitialized = true;
-    return NET_TV_TRUE;
+    return NET_TRUE;
 }
 
 /**
@@ -90,13 +90,13 @@ BOOL CSessionModule::UpdatePassword(const std::string& username,
     if (username.empty() || password.empty())
     {
         NETSDK_LOG_MESSAGE_ERROR("UpdatePassword: Invalid parameters (empty string)");
-        return NET_TV_FALSE;
+        return NET_FALSE;
     }
 
     if (!m_bInitialized)
     {
         NETSDK_LOG_MESSAGE_ERROR("UpdatePassword: Auth not initialized");
-        return NET_TV_FALSE;
+        return NET_FALSE;
     }
 
     m_strUsername = username;
@@ -106,7 +106,7 @@ BOOL CSessionModule::UpdatePassword(const std::string& username,
 
     CHttpAuthHandler::instance()->set_auth_info(m_strRealm.c_str(), username.c_str(), password.c_str());
 
-    return NET_TV_TRUE;
+    return NET_TRUE;
 }
 
 /**
