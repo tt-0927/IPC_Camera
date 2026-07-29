@@ -663,7 +663,7 @@ namespace Network
 
         // 构造函数：提供默认初始化值，防止空数据导致崩溃
         Network_4G_Config_t()
-            : apn(""), username(""), password(""), call_number("*99#"), mtu(1500), auth_mode(AUTH_NONE), network_mode(NET_AUTO),
+            : enabled(false),apn(""), username(""), password(""), call_number("*99#"), mtu(1500), auth_mode(AUTH_NONE), network_mode(NET_AUTO),
               dial_mode(DIAL_AUTO)
         {
         }

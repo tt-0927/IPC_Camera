@@ -964,6 +964,8 @@ typedef enum
     AC_GET_FACE_INFO = 7207,
     /// @brief 删除人脸文件
     AC_DEL_FACE_FILE = 7208,
+    /// @brief SD卡格式化后清空所有人脸人员及特征数据
+    AC_CLEAR_FACE_DATABASE = 7209,
 #ifdef ENABLE_AI_STUDENT
     /**
      * @brief 无感考勤相关

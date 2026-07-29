@@ -943,6 +943,9 @@ void Task::Network::SetWifiStaInfo::handle()
     
     bool EnhancedMode = false; 
     std::string resultStr = "[]"; 
+    
+    CWifiManager::instance()->setWifiEnhancedMode(stInfo.bEnableBoost);        
+    
     set_wifi_config(stInfo);
 
     if(stInfo.bEnableWifi)
@@ -998,11 +1001,11 @@ void Task::Network::SetWifiStaInfo::handle()
         cJSON_AddItemToObject(rootObj, "list", apArray);
 
         // 处理增强模式
-        if(stInfo.bEnableBoost)
-        {
-            EnhancedMode = CWifiManager::instance()->setWifiEnhancedMode();
-            cJSON_AddBoolToObject(rootObj, "enhancedMode", EnhancedMode);
-        }
+        // if(stInfo.bEnableBoost)
+        // {
+        //     EnhancedMode = CWifiManager::instance()->setWifiEnhancedMode();
+        //     cJSON_AddBoolToObject(rootObj, "enhancedMode", EnhancedMode);
+        // }
 
 
         // 2. 序列化为字符串
@@ -1092,40 +1095,51 @@ void Task::Network::Set4GInfo::handle()
 void Task::Network::SetHotspot::handle()
 {
     ::Network::HotspotConfig stInfo;
-    APConfig ap_cfg;
+    // APConfig ap_cfg;
     Convert::to_struct(m_taskData, stInfo);
     if(stInfo.enabled)
     {
         if(stInfo.password == stInfo.confirmPassword)
         {
-            ap_cfg.ssid = stInfo.ssid;
-            ap_cfg.password = stInfo.password;
-            ap_cfg.confirm_password = stInfo.confirmPassword;
-            if(stInfo.encryptionType == "AES")
+            // ap_cfg.ssid = stInfo.ssid;
+            // ap_cfg.password = stInfo.password;
+            // ap_cfg.confirm_password = stInfo.confirmPassword;
+            // if(stInfo.encryptionType == "AES")
+            // {
+            //     ap_cfg.encryption = EncryptionType::AES;
+            // }else if(stInfo.encryptionType == "TKIP")
+            // {
+            //     ap_cfg.encryption = EncryptionType::TKIP;
+            // }else if(stInfo.encryptionType == "TKIP_AES")
+            // {
+            //     ap_cfg.encryption = EncryptionType::TKIP_AES;
+            // }
+            // if (!HostapdManager::instance()->SetNetworkConfig(ap_cfg)) {
+            //     std::cerr << "Config Error" << std::endl;
+            //     result(1);
+            //     return;
+            // }
+            /* 先校验参数，再关闭 WiFi STA，避免无效热点配置导致现有 WiFi 被断开。 */
+            if (stInfo.ssid.empty() || stInfo.ssid.length() > 32)
             {
-                ap_cfg.encryption = EncryptionType::AES;
-            }else if(stInfo.encryptionType == "TKIP")
-            {
-                ap_cfg.encryption = EncryptionType::TKIP;
-            }else if(stInfo.encryptionType == "TKIP_AES")
-            {
-                ap_cfg.encryption = EncryptionType::TKIP_AES;
-            }
-            if (!HostapdManager::instance()->SetNetworkConfig(ap_cfg)) {
-                std::cerr << "Config Error" << std::endl;
+                printf("初始化失败：热点参数无效（SSID 长度必须为 1-32）！\n");
+                result(1);
                 return;
             }
-            HostapdManager::instance()->set_hostapd_config(stInfo);
-            DHCPConfig dhcp_cfg;
-            dhcp_cfg.interface = "wlan0";
-            dhcp_cfg.gateway = "192.168.4.1";
-            HostapdManager::instance()->SetDHCPConfig(dhcp_cfg);
+            // HostapdManager::instance()->set_hostapd_config(stInfo);
+            // DHCPConfig dhcp_cfg;
+            // dhcp_cfg.interface = "wlan0";
+            // dhcp_cfg.gateway = "192.168.4.1";
+            // HostapdManager::instance()->SetDHCPConfig(dhcp_cfg);
             CWifiManager::instance()->deinit();/*关闭WiFi功能 */
-            auto ret = HostapdManager::instance()->Init("eth0");
+            // auto ret = HostapdManager::instance()->Init("eth0");
+            auto ret = HostapdManager::instance()->Init(stInfo, "eth0");
             if (ret != InitResult::SUCCESS) {
                 switch (ret) {
+                    case InitResult::ERR_AP_CONFIG:
                     case InitResult::ERR_SSID_EMPTY:
-                        printf("初始化失败：SSID 不能为空！\n");
+                        // printf("初始化失败：SSID 不能为空！\n");
+                        printf("初始化失败：热点参数无效（SSID 长度必须为 1-32）！\n");
                         result(1);
                         break;
                     case InitResult::ERR_CONFIG_FILE:
@@ -1141,10 +1155,18 @@ void Task::Network::SetHotspot::handle()
                         result(5);
                         break;
                 }
+                return;
             } else {
                 printf("热点启动成功！\n");
+                HostapdManager::instance()->set_hostapd_config(stInfo);
+                result(0);
             }
-            result(0);
+            // result(0);
+        }
+        else
+        {
+            std::cerr << "热点密码和确认密码不一致" << std::endl;
+            result(2);
         }
     }
     else {
@@ -1216,7 +1238,7 @@ void Task::Network::ConnPlatform::handle()
     
     Convert::to_struct(m_taskData, stInfo);
     CPlatformManager *pPlatformManager = CPlatformManager::instance();
-
+   
     /* 登录失败时恢复旧运行时配置，避免旧 MQTT/RTMP 会话与新参数混用。 */
     ::Network::Platform_Info_t stPreviousInfo;
     pPlatformManager->getplatforminfo(stPreviousInfo);

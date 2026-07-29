@@ -51,7 +51,8 @@ enum class InitResult {
     ERR_DHCP_IFACE_EMPTY,   // DHCP 接口未设置
     ERR_CONFIG_FILE,        // 配置文件生成/写入失败
     ERR_STARTUP_FAILED,     // 进程启动失败 (如密码错误导致秒退)
-    ERR_UNKNOWN             // 未知错误
+    ERR_UNKNOWN,             // 未知错误
+    ERR_AP_CONFIG           // 热点参数无效
 };
 // --- 核心管理类 ---
 
@@ -62,6 +63,7 @@ public:
 
     // 生命周期管理
     InitResult  Init(const std::string& uplink_interface);
+    InitResult  Init(const Network::HotspotConfig& config, const std::string& uplink_interface);
     void Deinit();
 
     // 配置管理

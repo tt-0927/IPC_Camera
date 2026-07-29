@@ -454,6 +454,16 @@ std::string CCaptureCtrl::capture_image(Capture_NS::CaptureType_E eCaptureType,
         return strFilePath;
     }
 
+    /*
+     * send_frameData() 之外也有直接调用抓图的入口。在格式化或SD卡异常时
+     * 必须在创建目录和访问抓图数据库之前退出。
+     */
+     if (CStorageManage::instance()->get_SdCardStatus() != SD_CARD_STATUS_E::NORMAL)
+     {
+         dlog_warn("SD card is not ready, skip capture");
+         return strFilePath;
+     }
+
     int nSize = 0;
 
     /* 事件抓图 */

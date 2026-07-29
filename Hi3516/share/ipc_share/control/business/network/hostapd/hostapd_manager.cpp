@@ -40,9 +40,15 @@ void HostapdManager::StopServices() {
 InitResult HostapdManager::Init(const std::string& uplink_interface) {
      // [防止重复初始化检查]
      if (is_running_) {
-         std::cerr << "Warning: Hotspot is already running. Init ignored." << std::endl;
-         return InitResult::SUCCESS;
-     }
+        //  std::cerr << "Warning: Hotspot is already running. Init ignored." << std::endl;
+        //  return InitResult::SUCCESS;
+        std::cout << "Hotspot configuration changed, restarting services..." << std::endl;
+        Deinit();
+    } else {
+        // 管理进程重新启动后，成员状态会丢失，但后台 hostapd 可能仍然存在。
+        // 启动前清理残留进程，防止旧热点继续广播原来的 SSID。
+        StopServices();
+    }
  
      this->uplink_iface_ = uplink_interface;
  
@@ -143,6 +149,38 @@ InitResult HostapdManager::Init(const std::string& uplink_interface) {
      std::cout << "Hotspot Initialized Successfully!" << std::endl;
      return InitResult::SUCCESS;
  }
+
+
+ /**
+ * @brief 使用业务层热点配置启动热点
+ * @note  网页设置和设备启动恢复统一走此入口，避免两处配置转换不一致。
+ */
+InitResult HostapdManager::Init(const Network::HotspotConfig& config,
+    const std::string& uplink_interface) {
+APConfig ap_config;
+ap_config.ssid = config.ssid;
+ap_config.password = config.password;
+ap_config.confirm_password = config.confirmPassword;
+
+if (config.encryptionType == "AES") {
+ap_config.encryption = EncryptionType::AES;
+} else if (config.encryptionType == "TKIP_AES") {
+ap_config.encryption = EncryptionType::TKIP_AES;
+} else {
+ap_config.encryption = EncryptionType::TKIP;
+}
+
+if (!SetNetworkConfig(ap_config)) {
+return InitResult::ERR_AP_CONFIG;
+}
+
+DHCPConfig dhcp_config;
+dhcp_config.interface = "wlan0";
+dhcp_config.gateway = "192.168.4.1";
+SetDHCPConfig(dhcp_config);
+
+return Init(uplink_interface);
+}
 
 /**
  * @brief 反初始化：增加了状态检查，防止对未运行的服务执行关闭操作

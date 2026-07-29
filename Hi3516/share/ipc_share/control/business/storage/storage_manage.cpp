@@ -28,8 +28,23 @@
 #include "capture_ctrl.h"
 #include "capture_database.h"
 #include "event_database.h"
-
+#include "event_manage.h"
 // namespace fs = std::filesystem;
+static void clear_face_database_after_sd_format()
+{
+#if CAP_AI_FACE_COMPARE
+    int nAlgoRet = -1;
+    const int nSendRet = CEventManage::instance()->send_algo_controlData(
+        AC_CLEAR_FACE_DATABASE, "{}", &nAlgoRet);
+    if ((nSendRet != 0) || (nAlgoRet != 0))
+    {
+        dlog_error("clear face database after SD format failed, sendRet=%d, algoRet=%d",
+                   nSendRet, nAlgoRet);
+        return;
+    }
+    dlog_info("face persons and feature data cleared after SD format");
+#endif
+}
 
 #if CAP_STORAGE_MMCBLK1  // 存储 mmcblk1 路径逻辑
 
@@ -973,6 +988,9 @@ int CStorageManage::format_sd_card(bool bIsInitSdCard)
 
                         if (nRet == 0)
                         {
+                            #if CAP_AI_FACE_COMPARE
+                            clear_face_database_after_sd_format();
+                            #endif
                             std::string strMkstrRecordPath = SD_CARD_MOUNT_PATH + std::string("/record");
                             std::string strMkCapturePath   = SD_CARD_MOUNT_PATH + std::string("/capture");
                             mkdirIfNotExist(strMkstrRecordPath);
@@ -1067,6 +1085,9 @@ int CStorageManage::format_sd_card(bool bIsInitSdCard)
         {
             if (sd_card_is_exist() && sd_card_is_mounted())
             {
+                #if CAP_AI_FACE_COMPARE
+                clear_face_database_after_sd_format();
+                #endif
                 CStorageManageConfigure::instance()->set_configure(m_stStorageManageParam);
 
                 /* 插入sd卡初始化存放到sd卡空间的数据库 */

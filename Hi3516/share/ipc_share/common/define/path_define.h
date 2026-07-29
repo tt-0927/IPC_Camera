@@ -327,6 +327,8 @@
 #define IP_FILTER_CONFIG_FILE      USER_DATA_PATH "ip_filter.json"
 /* wifi配置 */
 #define WIFI_CONFIG_FILE           USER_DATA_PATH "wifi.json"
+/* 4G配置 */
+#define NETWORK_4G_CONFIG_FILE     USER_DATA_PATH "network_4g.json"
 /*热点功能配置*/
 #define HOSTAPD_CONFIG_FILE        USER_DATA_PATH "hostapd.json"
 /* 系统配置 */

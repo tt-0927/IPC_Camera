@@ -99,6 +99,14 @@ std::string build_rtmp_url(const Network::Platform_Info_t &stPlatformInfo,
  */
 bool get_rtmp_platform_info(Network::Platform_Info_t &stPlatformInfo)
 {
+    // Network::LoginInfo stLoginInfo;
+    // CPlatformManager::instance()->getlogininfo(stLoginInfo);
+
+    // stPlatformInfo.server_ip = stLoginInfo.host;
+    // stPlatformInfo.server_port = stLoginInfo.port;
+    // stPlatformInfo.enable = stLoginInfo.enable;
+    // stPlatformInfo.Custom = stLoginInfo.Custom;
+
     /* 读取完整平台配置，确保启动及按通道重推时使用网页保存的 RTMP 端口。 */
     CPlatformManager::instance()->getplatforminfo(stPlatformInfo);
 
@@ -447,6 +455,7 @@ int CPushStream::restart_rtmp_stream(const Network::Platform_Info_t &stPlatformI
     /* 确保 RTMP 推流管理器已初始化 */
     if (!CRtmpPusher::instance()->is_init())
     {
+        //CRtmpPusher::instance()->init();
         const int nInitRet = CRtmpPusher::instance()->init();
         if (nInitRet != OK)
         {
@@ -462,7 +471,7 @@ int CPushStream::restart_rtmp_stream(const Network::Platform_Info_t &stPlatformI
     std::set<Video_NS::VideoConfig_S> setVideoConfig;
     CAVConfigure::instance()->get_configure(setVideoConfig);
 
-    /* 遍历所有视频通道，热更新推流地址。 */
+    /* 遍历所有视频通道，热更新推流地址 */
     int nRestartRet = OK;
     for (const auto &stVideoConfig : setVideoConfig)
     {
@@ -502,6 +511,7 @@ int CPushStream::restart_rtmp_stream(const Network::Platform_Info_t &stPlatformI
 
     dlog_info("RTMP 推流地址更新完成");
     return OK;
+    //return 0;
 }
 
 int CPushStream::restart_rtmp_by_channel(int nChannel)

@@ -319,7 +319,19 @@ void CAVConfigure::setAudioAoIdle() const
         m_setAudioAoIdleCallback();
     }
 }
+void CAVConfigure::setMuteAudioOutputCallback(const std::function<void()> &callback)
+{
+    m_muteAudioOutputCallback = callback;
+}
+void CAVConfigure::muteAudioOutput() const
+{
+    if (m_muteAudioOutputCallback)
+    {
+        m_muteAudioOutputCallback();
+    }
+}
 #endif
+#if CAP_IO_EXTERNAL_DDR_00S
 void CAVConfigure::muteAudioOutput() const
 {
     if (m_muteAudioOutputCallback)
@@ -328,12 +340,12 @@ void CAVConfigure::muteAudioOutput() const
     }
 }
 
-// void CAVConfigure::setMuteAudioOutputCallback(const std::function<void()> &callback)
+
 void CAVConfigure::setMuteAudioOutputCallback(const MuteAudioOutputCallback &callback)
 {
     m_muteAudioOutputCallback = callback;
 }
-// #endif
+#endif
 
 int CAVConfigure::setAudioAoSampleRateCallback(const SetAudioAoSampleRateCallback &callback)
 {

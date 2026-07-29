@@ -234,13 +234,15 @@ public:
      * @param    {std::function<void()>} &callback
      */
     void setAudioAoIdleCallback(const std::function<void()> &callback);
+
+    #if CAP_IO_EXTERNAL_DDR_00S
     /** @brief 立即关闭当前音频输出功放GPIO */
     void muteAudioOutput() const;
 
     /** @brief 设置关闭音频输出功放的回调 */
     void setMuteAudioOutputCallback(const MuteAudioOutputCallback &callback);
     // #endif
-
+#endif
     /**
      * @brief   : 设置 AO 排空等待回调
      * @param    {WaitAoDrainedCallback} &callback
@@ -289,8 +291,10 @@ private:
     /* 静音功放输出回调 */
     std::function<void()> m_muteAudioOutputCallback;
 #endif
+#if CAP_IO_EXTERNAL_DDR_00S
     /* 静音功放输出回调，V1/V2播放路径共用 */
     MuteAudioOutputCallback m_muteAudioOutputCallback;
+#endif
     /* 等待 AO 通道缓冲区完全排空回调 */
     WaitAoDrainedCallback m_waitAoDrainedCallback;
     /* 记录被强制修改前的I帧间隔值 */

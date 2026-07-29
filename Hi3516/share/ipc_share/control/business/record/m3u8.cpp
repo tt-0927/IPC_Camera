@@ -13,7 +13,7 @@
 /*定义视频分片时长，秒*/
 #define SLICING_TIME 60
 /* EXTINF解析容忍时长，秒：实际分片需等待关键帧，可能略超过标准分片时长 */
-#define EXTINF_DURATION_TOLERANCE_SEC 5
+#define EXTINF_DURATION_TOLERANCE_SEC 10
 
 M3U8::M3U8()
 {

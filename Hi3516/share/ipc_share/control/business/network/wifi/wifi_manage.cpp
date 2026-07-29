@@ -11,13 +11,14 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <sys/wait.h>
-#include <arpa/inet.h>
 #include <chrono>
+#include <arpa/inet.h>
 #include <algorithm>
 #include "wifi_manage.h" 
 #include "platform_manager.h"
 #include "rtsp_server.h"
-
+#include "record_ctrl.h"
+#include "capture_ctrl.h"
 namespace {
 const char* WIFI_SUPPLICANT_LOG_PATH = "/tmp/wpa_supplicant_wifi.log";
 const std::streamoff WIFI_SUPPLICANT_LOG_MAX_SIZE = 256 * 1024;
@@ -90,7 +91,6 @@ int detectSupplicantError(const std::string& log, ::Network::WifiSecurityMode mo
 
     return ::Network::WIFI_CONNECT_UNKNOWN_ERROR;
 }
-
 bool isIpv4RoutePrefix(const std::string& routePrefix) {
     const std::size_t slashPos = routePrefix.find('/');
     const std::string address = routePrefix.substr(0, slashPos);
@@ -1502,12 +1502,38 @@ std::string generateWpaConfContent(const ::Network::WifiStaConncet_S& config) {
 
 
 
-bool CWifiManager::setWifiEnhancedMode() {
+bool CWifiManager::setWifiEnhancedMode(bool bEnableBoost) {
     bool nRet = true;
-    std::cout << "[增强] 正在开启 WiFi 增强模式..." << std::endl;
-    execShell("ip link set " + config.interface_name + " up");
-    execShell("iw dev " + config.interface_name + " set txpower fixed 3000"); 
-    std::cout << "[增强] 增强模式命令已发送" << std::endl;
+    ::Network::WifiStaInfo_S stInfo;
+    get_wifi_config(stInfo);
+    if(stInfo.bEnableBoost == bEnableBoost)
+    {
+        return nRet;
+    }
+    else {
+        if(bEnableBoost)
+        {
+            stInfo.bEnableBoost = bEnableBoost;
+            dlog_debug("[增强] 正在开启 WiFi 增强模式..." );
+            execShell("cp /lib/firmware/aic8800D80/aic_userconfig_8800d80_plus2dB.txt /lib/firmware/aic8800D80/aic_userconfig_8800d80.txt");
+        }
+        else {
+            stInfo.bEnableBoost = bEnableBoost;
+            dlog_debug("[增强] 正在关闭 WiFi 增强模式..." );
+            execShell("cp /lib/firmware/aic8800D80/aic_userconfig_8800d80_original.txt /lib/firmware/aic8800D80/aic_userconfig_8800d80.txt");
+        }
+    }
+    set_wifi_config(stInfo);
+    auto thrRun = []()
+    {
+        CCaptureCtrl::instance()->stop_capture();
+        CRecordCtrl::instance()->stop_record();
+        /* 延时2秒重启 */
+        std::this_thread::sleep_for(std::chrono::seconds(2));  
+        system("sync;reboot");
+    };
+    std::thread thr(thrRun);
+    thr.detach();
     return nRet;
 }
 
@@ -1676,6 +1702,8 @@ bool CWifiManager::isWifiConnectedAndWiredDisconnected(bool bWiredDisconnected)
         return true;
     }
 
+    //m_lastWiredDisconnected = bWiredDisconnected;
+
     if (bWiredDisconnected)
     {
         std::cout << "[路由] 检测到网线断开" << std::endl;
@@ -1687,6 +1715,7 @@ bool CWifiManager::isWifiConnectedAndWiredDisconnected(bool bWiredDisconnected)
             return false;
         }
 
+        //return switchToWifi();
         if (!switchToWifi())
         {
             /* 保留旧状态，下一轮 5 秒检测会继续尝试切换。 */
@@ -1700,6 +1729,7 @@ bool CWifiManager::isWifiConnectedAndWiredDisconnected(bool bWiredDisconnected)
     {
         std::cout << "[路由] 检测到网线恢复" << std::endl;
 
+        //return switchToEth();
         if (!switchToEth())
         {
             /* 保留旧状态，避免有线恢复但路由未恢复后停止重试。 */
@@ -1824,6 +1854,7 @@ bool CWifiManager::switchToWifi()
 
     std::string cmd = "ip route add default via " + m_wifiGateway + " dev wlan0";
 
+    //int ret = system(cmd.c_str());
     if (!executeRouteCommand(cmd))
     {
         return false;
@@ -1831,13 +1862,35 @@ bool CWifiManager::switchToWifi()
 
     system("ip route flush cache");
 
+    // std::cout << "[路由] 已切换到WiFi:" << m_wifiGateway << std::endl;
+    // // CPlatformManager::instance()->change_net_relogin();
+    // usleep(50000);
+    // const int max_retries = 3;
+    // for (int i = 0; i < max_retries; ++i)
     dlog_info("[路由] 已切换到 WiFi，gateway=%s", m_wifiGateway.c_str());
 
     /* 平台失败后由 PlatformManager 的 30 秒后台重试接管，避免阻塞路由检测线程。 */
     if (CPlatformManager::instance()->change_net_relogin() != OK)
     {
+        // int ret = CPlatformManager::instance()->change_net_relogin();
+        // if (ret == 0)
+        // {
+        //     break;
+        // }
+        // else
+        // {
+        //     if (i < max_retries - 1)
+        //     {
+        //         dlog_error("，准备进行第 (%d)  次重试...", (i + 1));
+        //     }
+        //     else
+        //     {
+        //         dlog_error("，已达最大重试次数，放弃执行。");
+        //     }
+        // }
         dlog_warn("[路由] WiFi 已切换，平台立即重登失败，等待后台重试");
     }
+    //return (ret == 0);
     return true;
 }
 bool CWifiManager::switchToEth()
@@ -1851,7 +1904,7 @@ bool CWifiManager::switchToEth()
         return false;
     }
 
-    if (!restore_eth_direct_routes())
+     if (!restore_eth_direct_routes())
     {
         return false;
     }
@@ -1866,18 +1919,40 @@ bool CWifiManager::switchToEth()
 
     dlog_info("[路由] %s", cmd.c_str());
 
+    //int ret = system(cmd.c_str());
     if (!executeRouteCommand(cmd))
     {
         return false;
     }
 
     system("ip route flush cache");
+    // CPlatformManager::instance()->change_net_relogin();
+    // usleep(50000);
+    // const int max_retries = 3;
+    // for (int i = 0; i < max_retries; ++i)
     dlog_info("[路由] 已切换到 eth0，gateway=%s", ethGateway.c_str());
 
     if (CPlatformManager::instance()->change_net_relogin() != OK)
     {
+        // int ret = CPlatformManager::instance()->change_net_relogin();
+        // if (ret == 0)
+        // {
+        //     break;
+        // }
+        // else
+        // {
+        //     if (i < max_retries - 1)
+        //     {
+        //         dlog_error("，准备进行第 (%d)  次重试...", (i + 1));
+        //     }
+        //     else
+        //     {
+        //         dlog_error("，已达最大重试次数，放弃执行。");
+        //     }
+        // }
         dlog_warn("[路由] eth0 已切换，平台立即重登失败，等待后台重试");
     }
+    //return (ret == 0);
     return true;
 }
 #endif

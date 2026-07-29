@@ -168,6 +168,14 @@ namespace Log
         GARBAGE_OVERFLOW_STOP   = 1239, /**< 垃圾溢满识别结束 */
 #endif
 
+#if defined CAP_AI_FACE_COMPARE
+        // info ========== 人脸比对 ==========
+        FACE_COMPARE_SUCCESS_START  = 1275, /**< 人脸比对成功开始 */
+        FACE_COMPARE_SUCCESS_STOP   = 1276, /**< 人脸比对成功结束 */
+        FACE_COMPARE_FAIL_START  = 1277, /**< 人脸比对失败开始 */
+        FACE_COMPARE_FAIL_STOP   = 1278, /**< 人脸比对失败结束 */
+#endif
+
 #if CAP_AI_PEOPLE_STATISTICS
         // info ========== 人数统计 ==========
         PEOPLE_FLOW_STATISTICS_START = 1279,   /**< 人流统计开始 */
@@ -693,7 +701,13 @@ namespace Log
         case Event::Type::GARBAGE_OVERFLOW:
             return bStart ? GARBAGE_OVERFLOW_START : GARBAGE_OVERFLOW_STOP;
 #endif
-
+#if defined CAP_AI_FACE_COMPARE
+        /* 人脸比对 */
+        case Event::Type::FACE_COMPARE_SUCCESS:
+            return bStart ? FACE_COMPARE_SUCCESS_START : FACE_COMPARE_SUCCESS_STOP;
+        case Event::Type::FACE_COMPARE_FAIL:
+            return bStart ? FACE_COMPARE_FAIL_START :FACE_COMPARE_FAIL_STOP;
+#endif
 #if CAP_AI_PEOPLE_STATISTICS
         case Event::Type::PEOPLE_FLOW_STATISTICS:
             return bStart ? PEOPLE_FLOW_STATISTICS_START : PEOPLE_FLOW_STATISTICS_STOP;
@@ -832,7 +846,12 @@ namespace Log
         case GARBAGE_OVERFLOW_START: return "垃圾满溢识别开始";
         case GARBAGE_OVERFLOW_STOP: return "垃圾满溢识别结束"; 
 #endif
-
+#if defined CAP_AI_FACE_COMPARE
+        case FACE_COMPARE_SUCCESS_START: return "人脸比对成功开始";
+        case FACE_COMPARE_SUCCESS_STOP: return "人脸比对成功结束";
+        case FACE_COMPARE_FAIL_START: return "人脸比对失败开始";
+        case FACE_COMPARE_FAIL_STOP: return "人脸比对失败结束"; 
+#endif
 #if CAP_AI_PEOPLE_STATISTICS
         case PEOPLE_FLOW_STATISTICS_START: return "人流统计开始";
         case PEOPLE_FLOW_STATISTICS_STOP: return "人流统计结束";

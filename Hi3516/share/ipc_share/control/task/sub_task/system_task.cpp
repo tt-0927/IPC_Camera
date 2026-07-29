@@ -3,7 +3,7 @@
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2026-04-23 17:04:24
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-06-05 15:53:36
+ * @LastEditTime : 2026-07-17 13:40:47
  * @Description  : 系统相关任务
  */
 
@@ -666,6 +666,14 @@ void Task::System::DoUpgrade::handle()
     // {
     //     stUpgradeInfo.strUpgradePath = "/root/test/" + stUpgradeInfo.strUpgradePath;
     // }
+    /* 操作日志：记录用户已发起本地升级，不代表升级包已校验或安装成功。 */
+    Log::Info_S stLogInfo;
+    stLogInfo.nType = Log::OPERATION;
+    stLogInfo.nAction = Log::LOCAL_UPGRADE;
+    Json::get(m_data.c_str(), "UserName", stLogInfo.user);
+    stLogInfo.host = m_strUserIp;
+    LogHandler::instance()->write(stLogInfo);
+
     /* 通知upgrade */
     stUpgradeInfo.strUpgradePath = UPLOAD_PATH + stUpgradeInfo.strUpgradePath;
     dlog_trace("升级路径[%s]", stUpgradeInfo.strUpgradePath.c_str());
@@ -718,6 +726,17 @@ void Task::System::FindLog::handle()
 
 void Task::System::ExportLog::handle()
 {
+    static constexpr int EXPORT_DEBOUNCE_SEC = 2;
+    static std::atomic<time_t> s_lastExportTime{0};
+    time_t now = time(NULL);
+    time_t last = s_lastExportTime.load();
+    if (now - last < EXPORT_DEBOUNCE_SEC)
+    {
+        dlog_warn("导出日志请求过于频繁，已忽略 (距上次导出%lds)", (long)(now - last));
+        return;
+    }
+    s_lastExportTime.store(now);
+
     Log::RetrievalCond_S stRetrievalCond;
     Common::PageInfo_S stPageInfo;
     Convert::to_struct(m_taskData, stRetrievalCond, stPageInfo);
