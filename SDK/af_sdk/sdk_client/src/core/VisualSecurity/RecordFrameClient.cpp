@@ -61,13 +61,13 @@ uint32_t from_be32(uint32_t value) {
 /**
  * @brief 构造函数
  */
-RecordFrameClient::RecordFrameClient() = default;
+CRecordFrameClient::CRecordFrameClient() = default;
 
 /**
  * @brief 析构函数
  * @details 自动调用stop()停止接收并释放资源
  */
-RecordFrameClient::~RecordFrameClient() { stop(); }
+CRecordFrameClient::~CRecordFrameClient() { stop(); }
 
 /**
  * @brief 连接设备录像帧端口并启动接收
@@ -79,58 +79,58 @@ RecordFrameClient::~RecordFrameClient() { stop(); }
  * @param callback 帧数据回调函数，用于接收设备发送的录像帧数据
  * @return true表示成功，false表示失败
  */
-bool RecordFrameClient::start(const std::string& host,
+bool CRecordFrameClient::start(const std::string& host,
                               int port,
                               const std::string& stream_id,
                               RecordFrameCallback callback) {
-    if (m_running) {
-        NSDK_LOG_WARN("RecordFrameClient: already running");
+    if (m_bRunning) {
+        NETSDK_LOG_MESSAGE_WARN("RecordFrameClient: already running");
         return false;
     }
     if (host.empty() || port <= 0 || port > 65535 || stream_id.empty()) {
         return false;
     }
 
-    m_socket = socket(AF_INET, SOCK_STREAM, 0);
-    if (m_socket == INVALID_SOCKET_FD) {
-        NSDK_LOG_ERROR("RecordFrameClient: socket failed, errno=%d", socket_errno());
+    m_nSocket = socket(AF_INET, SOCK_STREAM, 0);
+    if (m_nSocket == INVALID_SOCKET_FD) {
+        NETSDK_LOG_MESSAGE_ERROR("RecordFrameClient: socket failed, errno=%d", NETSDK_SOCKET_GET_ERROR());
         return false;
     }
 
     timeval tv{};
     tv.tv_sec = 5;
     tv.tv_usec = 0;
-    setsockopt(m_socket, SOL_SOCKET, SO_SNDTIMEO, reinterpret_cast<const char*>(&tv), sizeof(tv));
-    setsockopt(m_socket, SOL_SOCKET, SO_RCVTIMEO, reinterpret_cast<const char*>(&tv), sizeof(tv));
+    setsockopt(m_nSocket, SOL_SOCKET, SO_SNDTIMEO, reinterpret_cast<const char*>(&tv), sizeof(tv));
+    setsockopt(m_nSocket, SOL_SOCKET, SO_RCVTIMEO, reinterpret_cast<const char*>(&tv), sizeof(tv));
 
     sockaddr_in addr{};
     addr.sin_family = AF_INET;
     addr.sin_port = htons(static_cast<uint16_t>(port));
     if (inet_pton(AF_INET, host.c_str(), &addr.sin_addr) != 1) {
-        NSDK_LOG_ERROR("RecordFrameClient: invalid host %s", host.c_str());
-        socket_close(m_socket);
-        m_socket = INVALID_SOCKET_FD;
+        NETSDK_LOG_MESSAGE_ERROR("RecordFrameClient: invalid host %s", host.c_str());
+        NETSDK_SOCKET_CLOSE(m_nSocket);
+        m_nSocket = INVALID_SOCKET_FD;
         return false;
     }
 
-    if (connect(m_socket, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) != 0) {
-        NSDK_LOG_ERROR("RecordFrameClient: connect %s:%d failed, errno=%d", host.c_str(), port, socket_errno());
-        socket_close(m_socket);
-        m_socket = INVALID_SOCKET_FD;
+    if (connect(m_nSocket, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) != 0) {
+        NETSDK_LOG_MESSAGE_ERROR("RecordFrameClient: connect %s:%d failed, errno=%d", host.c_str(), port, NETSDK_SOCKET_GET_ERROR());
+        NETSDK_SOCKET_CLOSE(m_nSocket);
+        m_nSocket = INVALID_SOCKET_FD;
         return false;
     }
 
     int tcp_no_delay = 1;
-    if (setsockopt(m_socket, IPPROTO_TCP, TCP_NODELAY, reinterpret_cast<const char*>(&tcp_no_delay), sizeof(tcp_no_delay)) != 0) {
-        NSDK_LOG_WARN("RecordFrameClient: set TCP_NODELAY failed, errno=%d", socket_errno());
+    if (setsockopt(m_nSocket, IPPROTO_TCP, TCP_NODELAY, reinterpret_cast<const char*>(&tcp_no_delay), sizeof(tcp_no_delay)) != 0) {
+        NETSDK_LOG_MESSAGE_WARN("RecordFrameClient: set TCP_NODELAY failed, errno=%d", NETSDK_SOCKET_GET_ERROR());
     }
 
-    m_stream_id = stream_id;
-    m_callback = std::move(callback);
-    m_running = true;
-    m_recv_thread = std::thread(&RecordFrameClient::recv_loop, this);
+    m_strStreamId = stream_id;
+    m_fnCallback = std::move(callback);
+    m_bRunning = true;
+    m_stReceiveThread = std::thread(&CRecordFrameClient::recv_loop, this);
 
-    NSDK_LOG_INFO("RecordFrameClient: connected to %s:%d, stream_id=%s", host.c_str(), port, stream_id.c_str());
+    NETSDK_LOG_MESSAGE_INFO("RecordFrameClient: connected to %s:%d, stream_id=%s", host.c_str(), port, stream_id.c_str());
     return true;
 }
 
@@ -138,22 +138,22 @@ bool RecordFrameClient::start(const std::string& host,
  * @brief 停止并关闭连接
  * @details 设置停止标志，关闭socket，等待接收线程结束
  */
-void RecordFrameClient::stop() {
-    std::lock_guard<std::mutex> lock(m_stop_mutex);
-    if (!m_running && m_socket == INVALID_SOCKET_FD) {
+void CRecordFrameClient::stop() {
+    std::lock_guard<std::mutex> lock(m_stStopMutex);
+    if (!m_bRunning && m_nSocket == INVALID_SOCKET_FD) {
         return;
     }
 
-    m_running = false;
-    if (m_socket != INVALID_SOCKET_FD) {
-        shutdown(m_socket, SHUT_RDWR);
-        socket_close(m_socket);
-        m_socket = INVALID_SOCKET_FD;
+    m_bRunning = false;
+    if (m_nSocket != INVALID_SOCKET_FD) {
+        shutdown(m_nSocket, SHUT_RDWR);
+        NETSDK_SOCKET_CLOSE(m_nSocket);
+        m_nSocket = INVALID_SOCKET_FD;
     }
-    if (m_recv_thread.joinable()) {
-        m_recv_thread.join();
+    if (m_stReceiveThread.joinable()) {
+        m_stReceiveThread.join();
     }
-    NSDK_LOG_INFO("RecordFrameClient: stopped, stream_id=%s", m_stream_id.c_str());
+    NETSDK_LOG_MESSAGE_INFO("RecordFrameClient: stopped, stream_id=%s", m_strStreamId.c_str());
 }
 
 /**
@@ -162,31 +162,31 @@ void RecordFrameClient::stop() {
  *          根据负载类型判断媒体类型（视频/音频/结束帧），组装帧信息后通过回调函数转发给上层，
  *          遇到流结束标志或接收失败时退出循环
  */
-void RecordFrameClient::recv_loop() {
-    while (m_running) {
+void CRecordFrameClient::recv_loop() {
+    while (m_bRunning) {
         NET_RecordFrameRtpHeader_S header{};
-        if (!recv_exact(m_socket, reinterpret_cast<char*>(&header), sizeof(header))) {
-            if (m_running) {
-                NSDK_LOG_WARN("RecordFrameClient: recv header failed, errno=%d", socket_errno());
+        if (!recv_exact(m_nSocket, reinterpret_cast<char*>(&header), sizeof(header))) {
+            if (m_bRunning) {
+                NETSDK_LOG_MESSAGE_WARN("RecordFrameClient: recv header failed, errno=%d", NETSDK_SOCKET_GET_ERROR());
             }
             break;
         }
 
         if (header.byVersion != 2) {
-            NSDK_LOG_WARN("RecordFrameClient: invalid rtp-like version %u", static_cast<unsigned>(header.byVersion));
+            NETSDK_LOG_MESSAGE_WARN("RecordFrameClient: invalid rtp-like version %u", static_cast<unsigned>(header.byVersion));
             break;
         }
 
         const uint32_t payload_len = from_be32(header.uPayloadLen);
         if (payload_len > NET_RECORD_FRAME_MAX_PAYLOAD_SIZE) {
-            NSDK_LOG_WARN("RecordFrameClient: invalid payload len %u", payload_len);
+            NETSDK_LOG_MESSAGE_WARN("RecordFrameClient: invalid payload len %u", payload_len);
             break;
         }
 
         std::vector<char> payload(payload_len);
-        if (payload_len > 0 && !recv_exact(m_socket, payload.data(), payload_len)) {
-            if (m_running) {
-                NSDK_LOG_WARN("RecordFrameClient: recv payload failed, errno=%d", socket_errno());
+        if (payload_len > 0 && !recv_exact(m_nSocket, payload.data(), payload_len)) {
+            if (m_bRunning) {
+                NETSDK_LOG_MESSAGE_WARN("RecordFrameClient: recv payload failed, errno=%d", NETSDK_SOCKET_GET_ERROR());
             }
             break;
         }
@@ -211,8 +211,8 @@ void RecordFrameClient::recv_loop() {
                 break;
         }
 
-        if (m_callback) {
-            m_callback(frame_info, payload_len > 0 ? payload.data() : nullptr, payload_len);
+        if (m_fnCallback) {
+            m_fnCallback(frame_info, payload_len > 0 ? payload.data() : nullptr, payload_len);
         }
 
         if ((frame_info.uFlags & NET_RECORD_FRAME_FLAG_STREAM_END) != 0) {
@@ -220,7 +220,7 @@ void RecordFrameClient::recv_loop() {
         }
     }
 
-    m_running = false;
+    m_bRunning = false;
 }
 
 }  // namespace tvsdk

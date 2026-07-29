@@ -23,8 +23,8 @@
 #include "ErrorManage.h"
 #include "DeviceManage.h"
 #include "NetSdkLog.h"
-#include "RecordFrameClient.h"
-#include "VoiceComClient.h"
+#include "VisualSecurity/RecordFrameClient.h"
+#include "VisualSecurity/VoiceComClient.h"
 
 #define NETTVSDK_MAKE_VERSION(major, minor, rev1, rev2) \
     ((uint32_t)( \
@@ -64,7 +64,7 @@
     } while(0)
 
 /* 全局错误码 */
-thread_local int CErrorManage::lastErrorCode_ = NET_E_SDK_NOT_INIT;
+thread_local int CErrorManage::s_nLastErrorCode = NET_E_SDK_NOT_INIT;
 
 /**
  * @brief SDK初始化接口
@@ -272,7 +272,7 @@ NET_API BOOL STDCALL NET_SetConnectTime(IN INT32 dwWaitTime,
 NET_API LPVOID STDCALL NET_Login(IN pNET_DeviceLoginInfo_S pstDevLoginInfo,
                                                         OUT pNET_DeviceInfo_S pstDevInfo)
 {
-    NSDK_LOG_INFO("[NetTVSDK] NET_Login called, IP=%s, Port=%d, User=%s",
+    NETSDK_LOG_MESSAGE_INFO("[NetTVSDK] NET_Login called, IP=%s, Port=%d, User=%s",
                   pstDevLoginInfo ? pstDevLoginInfo->szIPAddr : "NULL",
                   pstDevLoginInfo ? pstDevLoginInfo->uPort : 0,
                   pstDevLoginInfo ? pstDevLoginInfo->szUserName : "NULL");
@@ -282,18 +282,18 @@ NET_API LPVOID STDCALL NET_Login(IN pNET_DeviceLoginInfo_S pstDevLoginInfo,
 	if (!pDevMgr)
 	{
 		CErrorManage::instance()->SetLastError(NET_E_ALLOC_RESOURCE_ERROR);
-        NSDK_LOG_ERROR("[NetTVSDK] NET_Login failed, DeviceManager is NULL");
+        NETSDK_LOG_MESSAGE_ERROR("[NetTVSDK] NET_Login failed, DeviceManager is NULL");
 		return NULL;
 	}
 	LPVOID lpUserID = pDevMgr->Login(pstDevLoginInfo->szIPAddr, pstDevLoginInfo->uPort, pstDevLoginInfo->szUserName, pstDevLoginInfo->szPassword);
-    NSDK_LOG_INFO("[NetTVSDK] NET_Login returned, userID=%p", lpUserID);
+    NETSDK_LOG_MESSAGE_INFO("[NetTVSDK] NET_Login returned, userID=%p", lpUserID);
 
 	/* 发送获取设备信息命令 */
 	if(lpUserID != NULL)
 	{
-		if(!CommandExecutor::instance()->ExecuteGet<NET_DeviceInfo_S>(lpUserID,TVAPI_PATH_DEVICE_GETINFO,pstDevInfo,NULL))
+		if(!CommandExecutor::instance()->ExecuteGet<NET_DeviceInfo_S>(lpUserID,NET_API_PATH_DEVICE_GETINFO,pstDevInfo,NULL))
 		{
-            NSDK_LOG_ERROR("[NetTVSDK] NET_Login failed to get device info");
+            NETSDK_LOG_MESSAGE_ERROR("[NetTVSDK] NET_Login failed to get device info");
             pDevMgr->Logout(lpUserID);
 			return NULL;
 		}
@@ -477,7 +477,7 @@ NET_API BOOL STDCALL NET_DeviceControl(IN LPVOID lpUserID,
 
     std::string body = SDKConvert::to_string(*pstCtrlInfo);
     std::string respBody;
-    if (!CommandExecutor::instance()->ExecuteRaw((LPUSER_HANDLE)lpUserID, "POST", TVAPI_PATH_DEVICE_CONTROL, body, respBody))
+    if (!CommandExecutor::instance()->ExecuteRaw((LPUSER_HANDLE)lpUserID, "POST", NET_API_PATH_DEVICE_CONTROL, body, respBody))
     {
         return FALSE;
     }
@@ -487,7 +487,7 @@ NET_API BOOL STDCALL NET_DeviceControl(IN LPVOID lpUserID,
     return respCode == NET_E_SUCCEED ? TRUE : FALSE;
 }
 
-#include "CapabilityInfoConvert.h"
+#include "VisualSecurity/CapabilityInfoConvert.h"
 
 /**
  * @brief 获取设备能力集接口
@@ -516,7 +516,7 @@ NET_API BOOL STDCALL NET_GetDeviceCapability(IN LPVOID lpUserID,
     }
 
     // 使用宏生成统一URL
-    std::string url = TVAPI_URL_DEVICE_CAPABILITY(dwChannelID, dwCommand);
+    std::string url = NET_API_URL_DEVICE_CAPABILITY(dwChannelID, dwCommand);
 
     switch (dwCommand)
     {
@@ -612,7 +612,7 @@ static BOOL NetTV_GetDevConfig_Impl(LPVOID lpUserID,
         return FALSE;
     }
 
-    std::string url = TVAPI_URL_DEVICE_GET_DEV_CONFIG(dwChannelID, dwCommand);
+    std::string url = NET_API_URL_DEVICE_GET_DEV_CONFIG(dwChannelID, dwCommand);
     return CommandExecutor::instance()->ExecuteGet<T_CFG>(lpUserID, url, lpOutBuffer, pdwBytesReturned) ? TRUE : FALSE;
 }
 
@@ -679,7 +679,7 @@ static BOOL NetTV_GetRecordFileList_Impl(LPVOID lpUserID,
 
     NET_RecordFileList_S* pCfg = static_cast<NET_RecordFileList_S*>(lpOutBuffer);
     std::ostringstream url;
-    url << TVAPI_URL_DEVICE_GET_DEV_CONFIG(dwChannelID, dwCommand)
+    url << NET_API_URL_DEVICE_GET_DEV_CONFIG(dwChannelID, dwCommand)
         << "&ChnId=" << pCfg->stFind.nChnId
         << "&Type=" << pCfg->stFind.nType
         << "&Year=" << NetTV_UrlEncode(pCfg->stFind.szYear)
@@ -727,7 +727,7 @@ static BOOL NetTV_GetLogList_Impl(LPVOID lpUserID,
     INT32 nPageSize = pCfg->stPage.nPageSize <= 0 ? NET_LOG_QUERY_COND_NUM : pCfg->stPage.nPageSize;
 
     std::ostringstream url;
-    url << TVAPI_URL_DEVICE_GET_DEV_CONFIG(dwChannelID, dwCommand)
+    url << NET_API_URL_DEVICE_GET_DEV_CONFIG(dwChannelID, dwCommand)
         << "&Type=" << pCfg->stCond.nType
         << "&Action=" << pCfg->stCond.nAction
         << "&StartTime=" << NetTV_UrlEncode(pCfg->stCond.szStartTime)
@@ -766,7 +766,7 @@ NET_API BOOL STDCALL NET_ControlReplay(IN    LPVOID lpUserID,
 
     std::string body = SDKConvert::to_string(*pstInfo);
     std::string respBody;
-    if (!CommandExecutor::instance()->ExecuteRaw(lpUserID, "POST", TVAPI_URL_REPLAY_CONTROL(), body, respBody))
+    if (!CommandExecutor::instance()->ExecuteRaw(lpUserID, "POST", NET_API_URL_REPLAY_CONTROL(), body, respBody))
     {
         return FALSE;
     }
@@ -808,7 +808,7 @@ NET_API BOOL STDCALL NET_GetReplayRecordList(IN    LPVOID lpUserID,
 
     std::string body = SDKConvert::to_string(*pstInfo);
     std::string respBody;
-    if (!CommandExecutor::instance()->ExecuteRaw(lpUserID, "POST", TVAPI_URL_REPLAY_GET_RECORD_LIST(), body, respBody))
+    if (!CommandExecutor::instance()->ExecuteRaw(lpUserID, "POST", NET_API_URL_REPLAY_GET_RECORD_LIST(), body, respBody))
     {
         return FALSE;
     }
@@ -850,7 +850,7 @@ NET_API BOOL STDCALL NET_GetReplayUrl(IN    LPVOID lpUserID,
 
     std::string body = SDKConvert::to_string(*pstInfo);
     std::string respBody;
-    if (!CommandExecutor::instance()->ExecuteRaw(lpUserID, "POST", TVAPI_URL_REPLAY_GET_URL(), body, respBody))
+    if (!CommandExecutor::instance()->ExecuteRaw(lpUserID, "POST", NET_API_URL_REPLAY_GET_URL(), body, respBody))
     {
         return FALSE;
     }
@@ -896,7 +896,7 @@ static BOOL NetTV_SetDevConfig_Impl(LPVOID lpUserID,
         return FALSE;
     }
 
-    std::string url = TVAPI_URL_DEVICE_SET_DEV_CONFIG(dwChannelID, dwCommand);
+    std::string url = NET_API_URL_DEVICE_SET_DEV_CONFIG(dwChannelID, dwCommand);
     BOOL bRet = CommandExecutor::instance()->ExecuteSet<T_CFG>(lpUserID, "POST", url, lpInBuffer) ? TRUE : FALSE;
     if (bRet && pdwBytesReturned != NULL)
     {
@@ -1308,8 +1308,8 @@ NET_UploadFile(IN LPVOID   lpUserID,
     }
 
     std::string remoteName(szRemoteName);
-    std::string url = std::string(TVAPI_PATH_UPGRADE_UPLOAD)
-                      + "?" TVAPI_PARAM_FILENAME "=" + remoteName;
+    std::string url = std::string(NET_API_PATH_UPGRADE_UPLOAD)
+                      + "?" NET_API_PARAM_FILENAME "=" + remoteName;
 
     std::string ignoreResp;
     return CommandExecutor::instance()->ExecuteUpload(
@@ -1318,7 +1318,7 @@ NET_UploadFile(IN LPVOID   lpUserID,
 
 /* ==================== 录像帧流 RecordFrame ==================== */
 
-static std::map<std::string, std::shared_ptr<tvsdk::RecordFrameClient>> g_recordFrameMap;
+static std::map<std::string, std::shared_ptr<tvsdk::CRecordFrameClient>> g_recordFrameMap;
 static std::mutex g_recordFrameMutex;
 
 /**
@@ -1356,7 +1356,7 @@ NET_StartRecordFrameStream(IN LPVOID lpUserID,
     std::string respBody;
     if (!CommandExecutor::instance()->ExecuteRaw((LPUSER_HANDLE)lpUserID,
                                                  "POST",
-                                                 TVAPI_PATH_RECORD_FRAME_STREAM_START,
+                                                 NET_API_PATH_RECORD_FRAME_STREAM_START,
                                                  body,
                                                  respBody))
     {
@@ -1397,7 +1397,7 @@ NET_StartRecordFrameStream(IN LPVOID lpUserID,
         return FALSE;
     }
 
-    auto client = std::make_shared<tvsdk::RecordFrameClient>();
+    auto client = std::make_shared<tvsdk::CRecordFrameClient>();
     tvsdk::RecordFrameCallback cb = [cbRecordFrame, lpUserData](const NET_RecordFrameInfo_S& frameInfo,
                                                                const char* data,
                                                                size_t size) {
@@ -1422,7 +1422,7 @@ NET_StartRecordFrameStream(IN LPVOID lpUserID,
         std::string stopResp;
         CommandExecutor::instance()->ExecuteRaw((LPUSER_HANDLE)lpUserID,
                                                 "POST",
-                                                TVAPI_PATH_RECORD_FRAME_STREAM_STOP,
+                                                NET_API_PATH_RECORD_FRAME_STREAM_STOP,
                                                 SDKConvert::to_string(stStopInfo),
                                                 stopResp);
         CErrorManage::instance()->SetLastError(NET_E_SYSCALL_FALIED);
@@ -1475,7 +1475,7 @@ NET_StopRecordFrameStream(IN LPVOID lpUserID,
     std::string respBody;
     if (!CommandExecutor::instance()->ExecuteRaw((LPUSER_HANDLE)lpUserID,
                                                  "POST",
-                                                 TVAPI_PATH_RECORD_FRAME_STREAM_STOP,
+                                                 NET_API_PATH_RECORD_FRAME_STREAM_STOP,
                                                  SDKConvert::to_string(stStopInfo),
                                                  respBody))
     {
@@ -1500,7 +1500,7 @@ NET_StopRecordFrameStream(IN LPVOID lpUserID,
 
 /* ==================== 语音对讲 VoiceCom ==================== */
 
-static std::map<LPVOID, std::shared_ptr<tvsdk::VoiceComClient>> g_voiceComMap;
+static std::map<LPVOID, std::shared_ptr<tvsdk::CVoiceComClient>> g_voiceComMap;
 static std::mutex g_voiceComMutex;
 
 /**
@@ -1640,7 +1640,7 @@ NET_StartVoiceCom(IN LPVOID              lpUserID,
         return FALSE;
     }
 
-    auto client = std::make_shared<tvsdk::VoiceComClient>();
+    auto client = std::make_shared<tvsdk::CVoiceComClient>();
 
     // 绑定C回调到C++ callback
     tvsdk::VoiceComCallback cb = [cbVoiceCom, lpUserData](const char* data, size_t size) {
@@ -1727,7 +1727,7 @@ NET_StopVoiceCom(IN LPVOID lpUserID)
 
 /* ==================== 设备发现 ==================== */
 
-#include "DiscoverySearcher.h"
+#include "VisualSecurity/DiscoverySearcher.h"
 
 /**
  * @brief 设备发现接口（局域网搜索）
@@ -1751,7 +1751,7 @@ NET_Discovery_Search(IN  const CHAR*                      szInterfaceIP,
         return FALSE;
     }
 
-    DiscoverySearcher searcher;
+    CDiscoverySearcher searcher;
     int ret = searcher.search(szInterfaceIP, dwTimeoutMs, pDeviceList, nMaxCount, pnOutCount);
     if (ret < 0) {
         CErrorManage::instance()->SetLastError(NET_E_SYSCALL_FALIED);

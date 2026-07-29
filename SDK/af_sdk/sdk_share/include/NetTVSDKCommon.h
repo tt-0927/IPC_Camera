@@ -36,6 +36,19 @@ extern "C"{
     #define INOUT
 #endif
 
+/* Keep the public SDK parameter annotations source-compatible. */
+#ifndef NET_IN
+    #define NET_IN IN
+#endif
+
+#ifndef NET_OUT
+    #define NET_OUT OUT
+#endif
+
+#ifndef NET_INOUT
+    #define NET_INOUT INOUT
+#endif
+
 #ifndef NEWINTERFACE
     #define NEWINTERFACE
 #endif
@@ -72,6 +85,10 @@ extern "C"{
             #endif
         #endif
     #endif
+#endif
+
+#ifndef NET_STDCALL
+    #define NET_STDCALL            STDCALL
 #endif
 
 
@@ -161,6 +178,14 @@ extern "C"{
 
 #ifndef TRUE
     #define TRUE                    1
+#endif
+
+#ifndef NET_FALSE
+    #define NET_FALSE               FALSE
+#endif
+
+#ifndef NET_TRUE
+    #define NET_TRUE                TRUE
 #endif
 
 #ifdef _WIN32
@@ -562,7 +587,7 @@ extern "C"{
 
 /**
  * @brief Smart/AI 行为分析 (0x3000 - 0x3FFF)
- * @struct NET_AlarmAIObjectInfo_S
+ * @struct NET_AlarmAiObjectInfo_S
  */
 // ------------------------------------------
 #define NET_ALARM_BASE_AI            0x3000
@@ -978,42 +1003,42 @@ typedef enum tagNETTVCfgCmd
     NET_GET_NTPCFG                   = 110,              /* 获取NTP参数,参见#NET_SystemNtpInfo_S  Get NTP parameter, see #NET_SystemNtpInfo_S */
     NET_SET_NTPCFG                   = 111,              /* 设置NTP参数,参见#NET_SystemNtpInfo_S  Set NTP parameter, see #NET_SystemNtpInfo_S */
 
-    NET_GET_STREAMCFG                = 120,              /* 获取视频编码参数,参见#NET_VIDEO_ENCODE_OPTION_S  Get video encoding parameter, see #NET_VIDEO_ENCODE_OPTION_S */
-    NET_SET_STREAMCFG                = 121,              /* 设置视频编码参数,参见#NET_VIDEO_ENCODE_OPTION_S  Set video encoding parameter, see #NET_VIDEO_ENCODE_OPTION_S */
-    NET_GET_RTSPURLCFG               = 122,              /* 获取RTSP流地址,参见#NET_RTSP_URL_INFO_S  Get RTSP URL, see #NET_RTSP_URL_INFO_S */
-    NET_GET_REPLAY_URLCFG            = 123,              /* 获取回放播放地址,参见#NET_REPLAY_URL_INFO_S  Get playback URL */
-    NET_GET_REPLAY_RECORD_LIST       = 124,              /* 获取NVR回放录像时间段,参见#NET_REPLAY_RECORD_LIST_S */
-    NET_SET_REPLAY_CTRL              = 125,              /* 控制回放开始/停止/暂停/倍速,参见#NET_REPLAY_CTRL_INFO_S */
+    NET_GET_STREAMCFG                = 120,              /* 获取视频编码参数,参见#NET_VideoEncodeOption_S  Get video encoding parameter, see #NET_VideoEncodeOption_S */
+    NET_SET_STREAMCFG                = 121,              /* 设置视频编码参数,参见#NET_VideoEncodeOption_S  Set video encoding parameter, see #NET_VideoEncodeOption_S */
+    NET_GET_RTSPURLCFG               = 122,              /* 获取RTSP流地址,参见#NET_RtspUrlInfo_S  Get RTSP URL, see #NET_RtspUrlInfo_S */
+    NET_GET_REPLAY_URLCFG            = 123,              /* 获取回放播放地址,参见#NET_ReplayUrlInfo_S  Get playback URL */
+    NET_GET_REPLAY_RECORD_LIST       = 124,              /* 获取NVR回放录像时间段,参见#NET_ReplayRecordList_S */
+    NET_SET_REPLAY_CTRL              = 125,              /* 控制回放开始/停止/暂停/倍速,参见#NET_ReplayCtrlInfo_S */
 
-    NET_GET_AUDIOCFG                 = 130,              /* 获取音频编码参数,参见#NET_AUDIO_CFG_S  Get audio encoding parameter, see #NET_AUDIO_CFG_S */
-    NET_SET_AUDIOCFG                 = 131,              /* 设置音频编码参数,参见#NET_AUDIO_CFG_S  Set audio encoding parameter, see #NET_AUDIO_CFG_S */
+    NET_GET_AUDIOCFG                 = 130,              /* 获取音频编码参数,参见#NET_AudioCfg_S  Get audio encoding parameter, see #NET_AudioCfg_S */
+    NET_SET_AUDIOCFG                 = 131,              /* 设置音频编码参数,参见#NET_AudioCfg_S  Set audio encoding parameter, see #NET_AudioCfg_S */
 
-    NET_GET_OSDCAPCFG                = 140,              /* 获取OSD能力集配置信息,参见#NET_VIDEO_OSD_CFG_S  Get OSD configuration information, see #NET_VIDEO_OSD_CFG_S */
-    NET_SET_OSDCAPCFG                = 141,              /* 设置OSD能力集配置信息,参见#NET_VIDEO_OSD_CFG_S  Set OSD configuration information, see #NET_VIDEO_OSD_CFG_S */
+    NET_GET_OSDCAPCFG                = 140,              /* 获取OSD能力集配置信息,参见#NET_VideoOsdCfg_S  Get OSD configuration information, see #NET_VideoOsdCfg_S */
+    NET_SET_OSDCAPCFG                = 141,              /* 设置OSD能力集配置信息,参见#NET_VideoOsdCfg_S  Set OSD configuration information, see #NET_VideoOsdCfg_S */
 
-    NET_GET_IMAGECFG                 = 160,              /* 获取图像配置信息,参见#NET_IMAGE_SETTING_S  Get image configuration information, see #NET_IMAGE_SETTING_S */
-    NET_SET_IMAGECFG                 = 161,              /* 设置图像配置信息,参见#NET_IMAGE_SETTING_S  Set image configuration information, see #NET_IMAGE_SETTING_S */
+    NET_GET_IMAGECFG                 = 160,              /* 获取图像配置信息,参见#NET_ImageSetting_S  Get image configuration information, see #NET_ImageSetting_S */
+    NET_SET_IMAGECFG                 = 161,              /* 设置图像配置信息,参见#NET_ImageSetting_S  Set image configuration information, see #NET_ImageSetting_S */
 
-    NET_GET_NETWORKCFG               = 170,              /* 获取网络配置信息,参见#NET_NETWORKCFG_S  Get network configuration information, see #NET_NETWORKCFG_S */
-    NET_SET_NETWORKCFG               = 171,              /* 设置网络配置信息,参见#NET_NETWORKCFG_S  Set network configuration information, see #NET_NETWORKCFG_S */
+    NET_GET_NETWORKCFG               = 170,              /* 获取网络配置信息,参见#NET_NetworkCfg_S  Get network configuration information, see #NET_NetworkCfg_S */
+    NET_SET_NETWORKCFG               = 171,              /* 设置网络配置信息,参见#NET_NetworkCfg_S  Set network configuration information, see #NET_NetworkCfg_S */
 
-    NET_GET_PRIVACYMASKCFG           = 180,              /* 获取隐私遮盖配置信息,参见#NET_PRIVACY_MASK_CFG_S  Get privacy mask configuration information, see #NET_PRIVACY_MASK_CFG_S */
-    NET_SET_PRIVACYMASKCFG           = 181,              /* 设置隐私遮盖配置信息,参见#NET_PRIVACY_MASK_CFG_S  Set privacy mask configuration information, see #NET_PRIVACY_MASK_CFG_S */
+    NET_GET_PRIVACYMASKCFG           = 180,              /* 获取隐私遮盖配置信息,参见#NET_PrivacyMaskCfg_S  Get privacy mask configuration information, see #NET_PrivacyMaskCfg_S */
+    NET_SET_PRIVACYMASKCFG           = 181,              /* 设置隐私遮盖配置信息,参见#NET_PrivacyMaskCfg_S  Set privacy mask configuration information, see #NET_PrivacyMaskCfg_S */
 
-    NET_GET_TAMPERALARM              = 190,              /* 获取遮挡检测告警信息  参见#NET_TAMPER_ALARM_INFO_S  Get tamper alarm configuration information, see #NET_TAMPER_ALARM_INFO_S */
-    NET_SET_TAMPERALARM              = 191,              /* 设置遮挡检测告警信息  参见#NET_TAMPER_ALARM_INFO_S  Set tamper alarm configuration information, see #NET_TAMPER_ALARM_INFO_S */
+    NET_GET_TAMPERALARM              = 190,              /* 获取遮挡检测告警信息  参见#NET_TamperAlarmInfo_S  Get tamper alarm configuration information, see #NET_TamperAlarmInfo_S */
+    NET_SET_TAMPERALARM              = 191,              /* 设置遮挡检测告警信息  参见#NET_TamperAlarmInfo_S  Set tamper alarm configuration information, see #NET_TamperAlarmInfo_S */
 
-    NET_GET_MOTIONALARM              = 200,              /* 获取运动检测告警信息 参见#NET_MOTION_ALARM_INFO_S  Get motion alarm configuration information, see #NET_MOTION_ALARM_INFO_S */
-    NET_SET_MOTIONALARM              = 201,              /* 设置运动检测告警信息 参见#NET_MOTION_ALARM_INFO_S  Set motion alarm configuration information, see #NET_MOTION_ALARM_INFO_S */
+    NET_GET_MOTIONALARM              = 200,              /* 获取运动检测告警信息 参见#NET_MotionAlarmInfo_S  Get motion alarm configuration information, see #NET_MotionAlarmInfo_S */
+    NET_SET_MOTIONALARM              = 201,              /* 设置运动检测告警信息 参见#NET_MotionAlarmInfo_S  Set motion alarm configuration information, see #NET_MotionAlarmInfo_S */
 
-    NET_GET_CROSSLINEALARM           = 202,              /* 获取越界检测告警信息 参见NET_TV_CROSS_LINE_ALARM_INFO_S Get Cross Line alarm configuration information, see #NET_CROSS_LINE_ALARM_INFO_S*/
-    NET_SET_CROSSLINEALARM           = 203,              /* 设置越界检测告警信息 参见NET_TV_CROSS_LINE_ALARM_INFO_S Set Cross Line alarm configuration information, see #NET_CROSS_LINE_ALARM_INFO_S*/
+    NET_GET_CROSSLINEALARM           = 202,              /* 获取越界检测告警信息 参见NET_TV_CROSS_LINE_ALARM_INFO_S Get Cross Line alarm configuration information, see #NET_CrossLineAlarmInfo_S*/
+    NET_SET_CROSSLINEALARM           = 203,              /* 设置越界检测告警信息 参见NET_TV_CROSS_LINE_ALARM_INFO_S Set Cross Line alarm configuration information, see #NET_CrossLineAlarmInfo_S*/
 
-    NET_GET_INTRUSIONALARM           = 204,              /* 获取入侵检测告警信息 参见NET_TV_INTRUSION_ALARM_INFO_S Get intrusion alarm configuration information, see #NET_INTRUSION_ALARM_INFO_S*/
-    NET_SET_INTRUSIONALARM           = 205,              /* 设置入侵检测告警信息 参见NET_TV_INTRUSION_ALARM_INFO_S Set intrusion alarm configuration information, see #NET_INTRUSION_ALARM_INFO_S*/
+    NET_GET_INTRUSIONALARM           = 204,              /* 获取入侵检测告警信息 参见NET_TV_INTRUSION_ALARM_INFO_S Get intrusion alarm configuration information, see #NET_IntrusionAlarmInfo_S*/
+    NET_SET_INTRUSIONALARM           = 205,              /* 设置入侵检测告警信息 参见NET_TV_INTRUSION_ALARM_INFO_S Set intrusion alarm configuration information, see #NET_IntrusionAlarmInfo_S*/
 
-    NET_GET_LOITERINGALARM           = 206,              /* 获取徘徊侦测告警信息 参见NET_TV_LOITERING_ALARM_INFO_S Get loitering alarm configuration information, see #NET_LOITERING_ALARM_INFO_S*/
-    NET_SET_LOITERINGALARM           = 207,              /* 设置徘徊侦测告警信息 参见NET_TV_LOITERING_ALARM_INFO_S Set loitering alarm configuration information, see #NET_LOITERING_ALARM_INFO_S*/
+    NET_GET_LOITERINGALARM           = 206,              /* 获取徘徊侦测告警信息 参见NET_TV_LOITERING_ALARM_INFO_S Get loitering alarm configuration information, see #NET_LoiteringAlarmInfo_S*/
+    NET_SET_LOITERINGALARM           = 207,              /* 设置徘徊侦测告警信息 参见NET_TV_LOITERING_ALARM_INFO_S Set loitering alarm configuration information, see #NET_LoiteringAlarmInfo_S*/
 
     NET_GET_CAPTURE_PLAN_INFO        = 208,              /* 获取抓图计划信息 */
     NET_SET_CAPTURE_PLAN_INFO        = 209,              /* 设置抓图计划信息 */
@@ -1045,12 +1070,12 @@ typedef enum tagNETTVCfgCmd
     NET_SET_UNATTENDEDOBJECTALARM    = 233,              /* 设置物品遗留侦测告警信息 参见NET_TV_UNATTENDED_OBJECT_ALARM_INFO_S */
     NET_GET_OBJECTREMOVALALARM       = 234,              /* 获取物品拿取侦测告警信息 参见NET_TV_OBJECT_REMOVAL_ALARM_INFO_S */
     NET_SET_OBJECTREMOVALALARM       = 235,              /* 设置物品拿取侦测告警信息 参见NET_TV_OBJECT_REMOVAL_ALARM_INFO_S */
-    NET_SET_CONFIG_WIFI_STA          = 236,              /* WIFI配置（STA） 参见 NET_WIFI_STA_CFG_S */
-    NET_CONNECT_WIFI_STA             = 237,              /* WIFI连接（STA） 参见 NET_WIFI_STA_CONNECT_S */
+    NET_SET_CONFIG_WIFI_STA          = 236,              /* WIFI配置（STA） 参见 NET_WifiStaCfg_S */
+    NET_CONNECT_WIFI_STA             = 237,              /* WIFI连接（STA） 参见 NET_WifiStaConnect_S */
     NET_DISCONNECT_WIFI_STA          = 238,              /* WIFI断开（STA） */
-    NET_GET_4G_INFO                  = 239,              /* 获取4G配置 参见 NET_4G_INFO_S */
-    NET_SET_4G_INFO                  = 240,              /* 设置4G配置 参见 NET_4G_INFO_S */
-    NET_SET_HOTSPOT_INFO             = 241,              /* 设置热点配置 参见 NET_HOTSPOT_INFO_S */
+    NET_GET_4G_INFO                  = 239,              /* 获取4G配置 参见 NET_4GInfo_S */
+    NET_SET_4G_INFO                  = 240,              /* 设置4G配置 参见 NET_4GInfo_S */
+    NET_SET_HOTSPOT_INFO             = 241,              /* 设置热点配置 参见 NET_HotspotInfo_S */
 
     NET_GET_ENTERREGIONALARM         = 242,              /* 获取进入区域侦测告警信息 参见NET_TV_ENTER_REGION_ALARM_INFO_S */
     NET_SET_ENTERREGIONALARM         = 243,              /* 设置进入区域侦测告警信息 参见NET_TV_ENTER_REGION_ALARM_INFO_S */
@@ -1058,7 +1083,7 @@ typedef enum tagNETTVCfgCmd
     NET_SET_LEAVEREGIONALARM         = 245,              /* 设置离开区域侦测告警信息 参见NET_TV_LEAVE_REGION_ALARM_INFO_S */
     NET_GET_FACECAPTUREINFO          = 246,              /* 获取人脸抓拍配置信息 参见NET_TV_FACE_CAPTURE_INFO_S */
     NET_SET_FACECAPTUREINFO          = 247,              /* 设置人脸抓拍配置信息 参见NET_TV_FACE_CAPTURE_INFO_S */
-    NET_GET_HOTSPOT_CONN             = 248,              /* 获取热点连接设备 参见 NET_HOTSPOT_CONN_INFO_S */
+    NET_GET_HOTSPOT_CONN             = 248,              /* 获取热点连接设备 参见 NET_HotspotConnInfo_S */
 
     NET_GET_CHANNEL_INFO             = 300,              /* 获取通道信息 参见NET_TV_CHANNEL_INFO_S */
     NET_GET_CHANNEL_LIST             = 301,              /* 获取全部通道信息 参见NET_TV_CHANNEL_LIST_S */
@@ -1247,7 +1272,7 @@ typedef enum tagNETTVAlarmLightControlCmd
  * @enum tagNETTVResetControlCmd
  * @brief 配置重置命令枚举，dwControlType 为 NET_DEVICE_CTRL_TYPE_RESET 时使用。
  * @details 数据流向说明：
- *          1. 客户端调用 NET_DeviceControl 接口时，填充 NET_DEVICE_CONTROL_INFO_S 结构体
+ *          1. 客户端调用 NET_DeviceControl 接口时，填充 NET_DeviceControlInfo_S 结构体
  *          2. 设置 dwControlType = NET_DEVICE_CTRL_TYPE_RESET
  *          3. 设置 dwCommand = NET_RESET_CTRL_FULL(1) 或 NET_RESET_CTRL_SIMPLE(2)
  *          4. 服务端在 DeviceControl 回调中读取 dwCommand 字段判断重置类型
@@ -1322,7 +1347,7 @@ typedef struct tagNET_RecordFrameStreamCond
     INT32  uChannel;
     CHAR   szStartTime[NET_LEN_64];
     CHAR   szEndTime[NET_LEN_64];
-    INT32  uStreamIndex;        /* 码流索引，参见 NET_LiveStreamIndex_E；0 表示默认主码流 */
+    INT32  uStreamIndex;        /* 码流索引，参见 NET_LIVE_STREAM_INDEX_E；0 表示默认主码流 */
     INT32  uMediaType;          /* 请求媒体类型，参见 NET_RecordFrameMediaType_E；默认视频 */
     INT32  uCodecType;          /* 期望编码，参见 NET_RecordFrameCodec_E；0 表示由服务端决定 */
     UINT32 uTcpPort;            /* 服务端录像帧TCP端口；0 表示使用服务端默认端口 */
@@ -4699,7 +4724,7 @@ typedef NET_VideoEncodeAbility_S* pNET_VideoEncodeAbility_S;
 */
 typedef struct tagNET_VideoStreamCap
 {
-    INT32                           uStreamType;                                   /* 码流类型 入参 参见 NET_LIVES_TREAM_INDEX_E */
+    INT32                           uStreamType;                                   /* 码流类型 入参 参见 NET_LIVE_STREAM_INDEX_E */
     INT32                           bSupportMultiStream;                            /* 是否支持复合流(包含音频) Support multi stream */
     INT32                           uEncodeCapSize;                                /* 编码能力集个数 Encode capability size */
     NET_VideoEncodeOption_S    astEncodeCap[NET_VIDEO_ENCODE_TYPE_MAX];     /* 编码能力 Encode capability */

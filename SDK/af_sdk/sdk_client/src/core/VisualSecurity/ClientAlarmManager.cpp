@@ -10,7 +10,7 @@
 #include "NetSdkLog.h"
 #include "NetTVSDKHttpUrl.h"
 #include "Json.h"
-#include "AlarmInfoConvert.h"
+#include "VisualSecurity/AlarmInfoConvert.h"
 #include "DeviceInfoConvert.h"
 
 #include <algorithm>
@@ -162,7 +162,7 @@ bool IsCompleteJsonBody(const std::string& body)
  * @param [IN] pass 密码
  */
 CClientAlarmManager::CClientAlarmManager(const std::string& host, int port, const std::string& user, const std::string& pass)
-    : host_(host), port_(port), username_(user), password_(pass)
+    : m_strHost(host), m_nPort(port), m_strUsername(user), m_strPassword(pass)
 {
 
 }
@@ -174,7 +174,7 @@ CClientAlarmManager::CClientAlarmManager(const std::string& host, int port, cons
 CClientAlarmManager::~CClientAlarmManager()
 {
     Stop();
-    NSDK_LOG_INFO("[DIAG-ALARM] CClientAlarmManager destroyed, totalReconnects=%d", m_reconnectCount.load());
+    NETSDK_LOG_MESSAGE_INFO("[DIAG-ALARM] CClientAlarmManager destroyed, totalReconnects=%d", m_nReconnectCount.load());
 }
 
 /**
@@ -189,24 +189,24 @@ bool CClientAlarmManager::StartListen(void* userHandle, const std::string& sessi
     // 确保旧线程完全停止再启动
     Stop();
 
-    userHandle_ = userHandle;
-    sessionId_ = sessionId;
-    isRunning_ = true;
+    m_hUser = userHandle;
+    m_strSessionId = sessionId;
+    m_bRunning = true;
 
-    // 赋值前 thread_ 已经被 Stop() 中 join/detach 处理完毕，安全赋值
-    thread_ = std::thread(&CClientAlarmManager::AlarmLoop, this);
+    // 赋值前 m_stThread 已经被 Stop() 中 join/detach 处理完毕，安全赋值
+    m_stThread = std::thread(&CClientAlarmManager::AlarmLoop, this);
 
     // 启动健康监控线程：当 read_timeout 失效导致 AlarmLoop 阻塞时，强制中断恢复
-    m_lastDataTimeMs.store(
+    m_lLastDataTimeMilliseconds.store(
         std::chrono::duration_cast<std::chrono::milliseconds>(
             std::chrono::steady_clock::now().time_since_epoch()).count());
-    if (!m_healthMonitorRunning.exchange(true)) {
-        if (m_healthMonitorThread.joinable()) m_healthMonitorThread.join();
-        m_healthMonitorThread = std::thread(&CClientAlarmManager::HealthMonitorLoop, this);
+    if (!m_bHealthMonitorRunning.exchange(true)) {
+        if (m_stHealthMonitorThread.joinable()) m_stHealthMonitorThread.join();
+        m_stHealthMonitorThread = std::thread(&CClientAlarmManager::HealthMonitorLoop, this);
     }
 
-    NSDK_LOG_INFO("[DIAG-ALARM] User-%p StartListen: session=%s, starting AlarmLoop+HealthMonitor",
-                  userHandle_, sessionId_.c_str());
+    NETSDK_LOG_MESSAGE_INFO("[DIAG-ALARM] User-%p StartListen: session=%s, starting AlarmLoop+HealthMonitor",
+                  m_hUser, m_strSessionId.c_str());
     return true;
 }
 
@@ -217,40 +217,40 @@ bool CClientAlarmManager::StartListen(void* userHandle, const std::string& sessi
  */
 void CClientAlarmManager::Stop()
 {
-    isRunning_ = false;
+    m_bRunning = false;
 
     // 先停健康监控线程
-    if (m_healthMonitorRunning.exchange(false)) {
-        if (m_healthMonitorThread.joinable()) {
-            if (std::this_thread::get_id() != m_healthMonitorThread.get_id())
-                m_healthMonitorThread.join();
+    if (m_bHealthMonitorRunning.exchange(false)) {
+        if (m_stHealthMonitorThread.joinable()) {
+            if (std::this_thread::get_id() != m_stHealthMonitorThread.get_id())
+                m_stHealthMonitorThread.join();
             else
-                m_healthMonitorThread.detach();
+                m_stHealthMonitorThread.detach();
         }
     }
 
-    // 在锁内调用 client_->stop() 并释放成员引用，防止与 AlarmLoop 重建 client_ 并发
+    // 在锁内调用 m_pClient->stop() 并释放成员引用，防止与 AlarmLoop 重建 m_pClient 并发
     {
-        std::lock_guard<std::mutex> lk(clientMutex_);
-        if (client_) client_->stop();
-        client_.reset();  // 释放成员引用，旧 AlarmLoop 持有的 localClient 仍保持对象存活
+        std::lock_guard<std::mutex> lk(m_stClientMutex);
+        if (m_pClient) m_pClient->stop();
+        m_pClient.reset();  // 释放成员引用，旧 AlarmLoop 持有的 localClient 仍保持对象存活
     }
 
-    // 使用 m_alarmLoopExited 标志 + 超时来安全关闭 AlarmLoop 线程
-    // 在此平台 read_timeout 和 client_->stop() 均无法中断阻塞的 recv()，
+    // 使用 m_bAlarmLoopExited 标志 + 超时来安全关闭 AlarmLoop 线程
+    // 在此平台 read_timeout 和 m_pClient->stop() 均无法中断阻塞的 recv()，
     // 如果 AlarmLoop 卡在 recv() 中，直接 join 会永久阻塞
-    if (thread_.joinable())
+    if (m_stThread.joinable())
     {
-        if (std::this_thread::get_id() == thread_.get_id())
+        if (std::this_thread::get_id() == m_stThread.get_id())
         {
-            thread_.detach();
+            m_stThread.detach();
         }
         else
         {
             // 等待 AlarmLoop 自然退出（最多 3 秒）
             bool exited = false;
             for (int i = 0; i < 30; ++i) {
-                if (m_alarmLoopExited.load()) {
+                if (m_bAlarmLoopExited.load()) {
                     exited = true;
                     break;
                 }
@@ -258,15 +258,15 @@ void CClientAlarmManager::Stop()
             }
 
             if (exited) {
-                thread_.join();
-                NSDK_LOG_INFO("[DIAG-ALARM] User-%p Stopped: AlarmLoop joined normally, totalReconnects=%d",
-                              userHandle_, m_reconnectCount.load());
+                m_stThread.join();
+                NETSDK_LOG_MESSAGE_INFO("[DIAG-ALARM] User-%p Stopped: AlarmLoop joined normally, totalReconnects=%d",
+                              m_hUser, m_nReconnectCount.load());
             } else {
                 // AlarmLoop 卡在 recv() 中无法退出，只能 detach
-                thread_.detach();
-                NSDK_LOG_WARN("[DIAG-ALARM] User-%p Stopped: AlarmLoop STUCK in recv(), detached. "
+                m_stThread.detach();
+                NETSDK_LOG_MESSAGE_WARN("[DIAG-ALARM] User-%p Stopped: AlarmLoop STUCK in recv(), detached. "
                               "totalReconnects=%d",
-                              userHandle_, m_reconnectCount.load());
+                              m_hUser, m_nReconnectCount.load());
             }
         }
     }
@@ -286,7 +286,7 @@ void CClientAlarmManager::AlarmLoop()
     auto dispatch_alarm = [&](const std::string& jsonBody) -> bool {
         Json::Object* root = Json::init(jsonBody);
         if (!root) {
-            NSDK_LOG_WARN("[DIAG-ALARM] User-%p JSON parse failed, len=%zu", userHandle_, jsonBody.size());
+            NETSDK_LOG_MESSAGE_WARN("[DIAG-ALARM] User-%p JSON parse failed, len=%zu", m_hUser, jsonBody.size());
             return true;  // JSON 解析失败，不是致命错误，继续处理
         }
 
@@ -300,18 +300,18 @@ void CClientAlarmManager::AlarmLoop()
         std::string msgType;
         Json::get(root, "type", msgType);
         if (msgType == "heartbeat") {
-            heartbeatRecvCount_++;
+            m_nReceivedHeartbeatCount++;
             // 心跳日志降级为 DEBUG，避免刷屏；每 30 条打印一次 INFO
-            int hb = heartbeatRecvCount_.load();
+            int hb = m_nReceivedHeartbeatCount.load();
             if (hb % 30 == 0) {
-                NSDK_LOG_INFO("[DIAG-ALARM] User-%p heartbeat #%d, alarms=%d, conn_alive",
-                              userHandle_, hb, alarmRecvCount_.load());
+                NETSDK_LOG_MESSAGE_INFO("[DIAG-ALARM] User-%p heartbeat #%d, alarms=%d, conn_alive",
+                              m_hUser, hb, m_nReceivedAlarmCount.load());
             }
             Json::deinit(root);
             return true;
         }
-        alarmRecvCount_++;
-        m_lastAlarmTime = std::chrono::steady_clock::now();
+        m_nReceivedAlarmCount++;
+        m_stLastAlarmTime = std::chrono::steady_clock::now();
 
         // [DIAG] 提取入队时间戳，计算端到端延迟
         long long enqueueTs = 0;
@@ -319,11 +319,11 @@ void CClientAlarmManager::AlarmLoop()
         if (enqueueTs > 0) {
             auto nowMs = std::chrono::duration_cast<std::chrono::milliseconds>(
                 std::chrono::steady_clock::now().time_since_epoch()).count();
-            NSDK_LOG_INFO("[DIAG-ALARM] User-%p alarm received: cmd=0x%llX, event=%s, e2e_delay_ms=%lld",
-                          userHandle_, lCommand, eventType.c_str(), nowMs - enqueueTs);
+            NETSDK_LOG_MESSAGE_INFO("[DIAG-ALARM] User-%p alarm received: cmd=0x%llX, event=%s, e2e_delay_ms=%lld",
+                          m_hUser, lCommand, eventType.c_str(), nowMs - enqueueTs);
         } else {
-            NSDK_LOG_INFO("[DIAG-ALARM] User-%p alarm received: cmd=0x%llX, event=%s",
-                          userHandle_, lCommand, eventType.c_str());
+            NETSDK_LOG_MESSAGE_INFO("[DIAG-ALARM] User-%p alarm received: cmd=0x%llX, event=%s",
+                          m_hUser, lCommand, eventType.c_str());
         }
 
         if (eventType == "ChannelStatus" || lCommand == NET_NOTIFY_CHANNEL_STATUS)
@@ -337,16 +337,16 @@ void CClientAlarmManager::AlarmLoop()
                 parseSuccess = true;
             }
 
-            if (parseSuccess && channelStatusCb_)
+            if (parseSuccess && m_fnChannelStatusCallback)
             {
-                channelStatusCb_(&info, channelStatusUserData_);
+                m_fnChannelStatusCallback(&info, m_pChannelStatusUserData);
             }
 
             Json::deinit(root);
             return true;
         }
 
-        if (!alarmCb_)
+        if (!m_fnAlarmCallback)
         {
             Json::deinit(root);
             return true;
@@ -366,7 +366,7 @@ void CClientAlarmManager::AlarmLoop()
             std::vector<char> tmp(jsonBody.begin(), jsonBody.end());
             tmp.push_back('\0'); // ensure C-string
             INT32 len = (INT32)(tmp.size() - 1);
-            alarmCb_(lCommand, &alarmer, tmp.data(), &len, alarmUserData_);
+            m_fnAlarmCallback(lCommand, &alarmer, tmp.data(), &len, m_pAlarmUserData);
             Json::deinit(root);
             return true;
         }
@@ -376,28 +376,28 @@ void CClientAlarmManager::AlarmLoop()
             std::unique_ptr<NET_AlarmFaceCompareInfo_S> info(new NET_AlarmFaceCompareInfo_S());
             SDKConvert::deal(alarmInfoObj, *info, true);
             INT32 len = (INT32)sizeof(*info);
-            alarmCb_(lCommand, &alarmer, (CHAR*)info.get(), &len, alarmUserData_);
+            m_fnAlarmCallback(lCommand, &alarmer, (CHAR*)info.get(), &len, m_pAlarmUserData);
         }else if (alarmBase == NET_ALARM_BASE_BASIC)
         {
             NET_AlarmBasicInfo_S info = {0};
             SDKConvert::deal(alarmInfoObj, info, true);
-            NSDK_LOG_INFO("[DIAG-ALARM] User-%p basic parsed: cmd=0x%llX, alarmType=0x%X, timestamp=%lld, panoramaLen=%u",
-                          userHandle_,
+            NETSDK_LOG_MESSAGE_INFO("[DIAG-ALARM] User-%p basic parsed: cmd=0x%llX, alarmType=0x%X, timestamp=%lld, panoramaLen=%u",
+                          m_hUser,
                           lCommand,
                           info.uAlarmType,
                           (long long)info.llTimestampMs,
                           info.uPanoramaImgLen);
             INT32 len = (INT32)sizeof(info);
-            alarmCb_(lCommand, &alarmer, (CHAR*)&info, &len, alarmUserData_);
+            m_fnAlarmCallback(lCommand, &alarmer, (CHAR*)&info, &len, m_pAlarmUserData);
         }
         else if (alarmBase == NET_ALARM_BASE_RULE)
         {
             auto info = std::make_unique<NET_AlarmRuleInfo_S>();
             SDKConvert::deal(alarmInfoObj, *info, true);
-            NSDK_LOG_INFO("[DIAG-ALARM] User-%p rule parsed: cmd=0x%llX, alarmType=0x%X, channel=%u, rule=%u, "
+            NETSDK_LOG_MESSAGE_INFO("[DIAG-ALARM] User-%p rule parsed: cmd=0x%llX, alarmType=0x%X, channel=%u, rule=%u, "
                           "target=%u, objType=%u, timestamp=%lld, rect=[%d,%d,%d,%d], panoramaLen=%u, targetLen=%u, "
                           "jsonHasPanoramaB64=%d, jsonHasTargetB64=%d",
-                          userHandle_,
+                          m_hUser,
                           lCommand,
                           info->uAlarmType,
                           info->uChannel,
@@ -414,16 +414,16 @@ void CClientAlarmManager::AlarmLoop()
                           jsonBody.find("PanoramaImgBase64") != std::string::npos ? 1 : 0,
                           jsonBody.find("TargetImgBase64") != std::string::npos ? 1 : 0);
             INT32 len = (INT32)sizeof(*info);
-            alarmCb_(lCommand, &alarmer, (CHAR*)info.get(), &len, alarmUserData_);
+            m_fnAlarmCallback(lCommand, &alarmer, (CHAR*)info.get(), &len, m_pAlarmUserData);
         }
         else if (alarmBase == NET_ALARM_BASE_AI)
         {
             auto info = std::make_unique<NET_AlarmAiObjectInfo_S>();
             SDKConvert::deal(alarmInfoObj, *info, true);
-            NSDK_LOG_INFO("[DIAG-ALARM] User-%p ai object parsed: cmd=0x%llX, alarmType=0x%X, channel=%u, object=%s, "
+            NETSDK_LOG_MESSAGE_INFO("[DIAG-ALARM] User-%p ai object parsed: cmd=0x%llX, alarmType=0x%X, channel=%u, object=%s, "
                           "objType=%u, timestamp=%lld, rect=[%d,%d,%d,%d], panoramaLen=%u, imgLen=%u, "
                           "jsonHasPanoramaB64=%d, jsonHasImgDataB64=%d",
-                          userHandle_,
+                          m_hUser,
                           lCommand,
                           info->uAlarmType,
                           info->uChannel,
@@ -439,42 +439,42 @@ void CClientAlarmManager::AlarmLoop()
                           jsonBody.find("PanoramaImgBase64") != std::string::npos ? 1 : 0,
                           jsonBody.find("ImgDataBase64") != std::string::npos ? 1 : 0);
             INT32 len = (INT32)sizeof(*info);
-            alarmCb_(lCommand, &alarmer, (CHAR*)info.get(), &len, alarmUserData_);
+            m_fnAlarmCallback(lCommand, &alarmer, (CHAR*)info.get(), &len, m_pAlarmUserData);
         }
         else if (alarmBase == NET_ALARM_BASE_TRAFFIC)
         {
             NET_AlarmPlateInfo_S info = {0};
             SDKConvert::deal(alarmInfoObj, info, true);
             INT32 len = (INT32)sizeof(info);
-            alarmCb_(lCommand, &alarmer, (CHAR*)&info, &len, alarmUserData_);
+            m_fnAlarmCallback(lCommand, &alarmer, (CHAR*)&info, &len, m_pAlarmUserData);
         }
         else if (alarmBase == NET_ALARM_BASE_EXCEPTION)
         {
             NET_AlarmExceptionInfo_S info = {0};
             SDKConvert::deal(alarmInfoObj, info, true);
             INT32 len = (INT32)sizeof(info);
-            alarmCb_(lCommand, &alarmer, (CHAR*)&info, &len, alarmUserData_);
+            m_fnAlarmCallback(lCommand, &alarmer, (CHAR*)&info, &len, m_pAlarmUserData);
         }
         else if (alarmBase == NET_ALARM_BASE_STATISTICS)
         {
             auto info = std::make_unique<NET_AlarmStatisticsInfo_S>();
             SDKConvert::deal(alarmInfoObj, *info, true);
             INT32 len = (INT32)sizeof(*info);
-            alarmCb_(lCommand, &alarmer, (CHAR*)info.get(), &len, alarmUserData_);
+            m_fnAlarmCallback(lCommand, &alarmer, (CHAR*)info.get(), &len, m_pAlarmUserData);
         }
         else if (lCommand == NET_NOTICE_DOWNLOAD_RECORD_PROGRESS)
         {
             NET_RecordDownloadProgress_S info = {0};
             SDKConvert::deal(alarmInfoObj, info, true);
             INT32 len = (INT32)sizeof(info);
-            alarmCb_(lCommand, &alarmer, (CHAR*)&info, &len, alarmUserData_);
+            m_fnAlarmCallback(lCommand, &alarmer, (CHAR*)&info, &len, m_pAlarmUserData);
         }
         else
         {
             std::vector<char> tmp(jsonBody.begin(), jsonBody.end());
             tmp.push_back('\0'); // ensure C-string
             INT32 len = (INT32)(tmp.size() - 1);
-            alarmCb_(lCommand, &alarmer, tmp.data(), &len, alarmUserData_);
+            m_fnAlarmCallback(lCommand, &alarmer, tmp.data(), &len, m_pAlarmUserData);
         }
 
         Json::deinit(root);
@@ -482,54 +482,54 @@ void CClientAlarmManager::AlarmLoop()
     };
 
     int loopCount = 0;
-    m_alarmLoopExited = false;
-    while(isRunning_)
+    m_bAlarmLoopExited = false;
+    while(m_bRunning)
     {
         loopCount++;
         auto tp_before_connect = std::chrono::steady_clock::now();
 
-        // 在锁内重建 client_，防止与 Stop()/HealthMonitor 并发访问
-        // 使用 shared_ptr：HealthMonitor 重建 client_ 后，旧 AlarmLoop 持有的
+        // 在锁内重建 m_pClient，防止与 Stop()/HealthMonitor 并发访问
+        // 使用 shared_ptr：HealthMonitor 重建 m_pClient 后，旧 AlarmLoop 持有的
         // localClient 仍能保持旧 Client 存活，避免 use-after-free
         std::shared_ptr<httplib::Client> localClient;
         {
-            std::lock_guard<std::mutex> lk(clientMutex_);
-            client_ = std::make_shared<httplib::Client>(host_, port_);
-            client_->set_digest_auth(username_.c_str(), password_.c_str());
-            client_->set_read_timeout(75);
-            client_->set_keep_alive(true);
-            localClient = client_;  // 保持本地引用，防止 HealthMonitor 替换 client_ 后析构
+            std::lock_guard<std::mutex> lk(m_stClientMutex);
+            m_pClient = std::make_shared<httplib::Client>(m_strHost, m_nPort);
+            m_pClient->set_digest_auth(m_strUsername.c_str(), m_strPassword.c_str());
+            m_pClient->set_read_timeout(75);
+            m_pClient->set_keep_alive(true);
+            localClient = m_pClient;  // 保持本地引用，防止 HealthMonitor 替换 m_pClient 后析构
         }
 
         // 重置连接健康计数器
-        heartbeatRecvCount_ = 0;
-        alarmRecvCount_ = 0;
-        m_firstDataReceived = false;
-        m_lastStatTime = std::chrono::steady_clock::time_point{};
-        m_connStartTime = std::chrono::steady_clock::now();
-        m_lastAlarmTime = std::chrono::steady_clock::now();
+        m_nReceivedHeartbeatCount = 0;
+        m_nReceivedAlarmCount = 0;
+        m_bFirstDataReceived = false;
+        m_stLastStatisticTime = std::chrono::steady_clock::time_point{};
+        m_stConnectionStartTime = std::chrono::steady_clock::now();
+        m_stLastAlarmTime = std::chrono::steady_clock::now();
         // 更新时间戳，防止健康监控线程误判为假死
-        m_lastDataTimeMs.store(
+        m_lLastDataTimeMilliseconds.store(
             std::chrono::duration_cast<std::chrono::milliseconds>(
                 std::chrono::steady_clock::now().time_since_epoch()).count());
 
         // 每次重连时读取最新的 sessionId（ReconnectLoop 登录后会通过 UpdateSessionId 更新）
         std::string currentSessionId;
         {
-            std::lock_guard<std::mutex> lk(sessionIdMutex_);
-            currentSessionId = sessionId_;
+            std::lock_guard<std::mutex> lk(m_stSessionIdMutex);
+            currentSessionId = m_strSessionId;
         }
 
-        m_reconnectCount++;
-        std::string url = std::string(TVAPI_PATH_ALARMEVENT_LISTEN) + "?session_id=" + currentSessionId;
-        NSDK_LOG_INFO("[DIAG-ALARM] User-%p [CONNECT #%d] url=%s, host=%s:%d",
-                      userHandle_, m_reconnectCount.load(), url.c_str(), host_.c_str(), port_);
+        m_nReconnectCount++;
+        std::string url = std::string(NET_API_PATH_ALARMEVENT_LISTEN) + "?session_id=" + currentSessionId;
+        NETSDK_LOG_MESSAGE_INFO("[DIAG-ALARM] User-%p [CONNECT #%d] url=%s, host=%s:%d",
+                      m_hUser, m_nReconnectCount.load(), url.c_str(), m_strHost.c_str(), m_nPort);
 
         bool bGot401 = false;  // 标记是否收到 401 响应
         auto res = localClient->Get(url.c_str(), [&](const httplib::Response& response)
         {
-            NSDK_LOG_INFO("[DIAG-ALARM] User-%p [RESPONSE] status=%d, ct=%s",
-                          userHandle_, response.status,
+            NETSDK_LOG_MESSAGE_INFO("[DIAG-ALARM] User-%p [RESPONSE] status=%d, ct=%s",
+                          m_hUser, response.status,
                           response.get_header_value("Content-Type").c_str());
             if (response.status == 401) {
                 bGot401 = true;  // 记录 401，后续将触发重新登录
@@ -537,7 +537,7 @@ void CClientAlarmManager::AlarmLoop()
             }
             if (response.status != 200) return false;
             // HTTP 200 响应到达说明连接已建立，更新活跃时间戳防止 HealthMonitor 误判
-            m_lastDataTimeMs.store(
+            m_lLastDataTimeMilliseconds.store(
                 std::chrono::duration_cast<std::chrono::milliseconds>(
                     std::chrono::steady_clock::now().time_since_epoch()).count());
             std::string ct = response.get_header_value("Content-Type");
@@ -548,24 +548,24 @@ void CClientAlarmManager::AlarmLoop()
             return true;
         }, [&](const char* data, size_t len)
         {
-            if (!isRunning_) return false;
+            if (!m_bRunning) return false;
 
             auto tp_now = std::chrono::steady_clock::now();
-            m_lastDataTimeMs.store(
+            m_lLastDataTimeMilliseconds.store(
                 std::chrono::duration_cast<std::chrono::milliseconds>(
                     tp_now.time_since_epoch()).count());
-            m_firstDataReceived = true;  // 收到任何数据都标记连接正常
+            m_bFirstDataReceived = true;  // 收到任何数据都标记连接正常
 
             buffer.append(data, len);
 
             // 每 60 秒输出一次数据接收统计（防止日志刷屏）
             auto statElapsed = std::chrono::duration_cast<std::chrono::seconds>(
-                tp_now - m_lastStatTime).count();
-            if (m_lastStatTime == std::chrono::steady_clock::time_point{} || statElapsed >= 60) {
-                NSDK_LOG_INFO("[DIAG-ALARM] User-%p [DATA] buffer=%zu bytes, hb=%d, alarms=%d",
-                              userHandle_, buffer.size(),
-                              heartbeatRecvCount_.load(), alarmRecvCount_.load());
-                m_lastStatTime = tp_now;
+                tp_now - m_stLastStatisticTime).count();
+            if (m_stLastStatisticTime == std::chrono::steady_clock::time_point{} || statElapsed >= 60) {
+                NETSDK_LOG_MESSAGE_INFO("[DIAG-ALARM] User-%p [DATA] buffer=%zu bytes, hb=%d, alarms=%d",
+                              m_hUser, buffer.size(),
+                              m_nReceivedHeartbeatCount.load(), m_nReceivedAlarmCount.load());
+                m_stLastStatisticTime = tp_now;
             }
 
             if (boundary.empty()) return true;
@@ -680,29 +680,29 @@ void CClientAlarmManager::AlarmLoop()
             return true;
         });
 
-        if (!isRunning_) break;
+        if (!m_bRunning) break;
 
         // 长连接断开，记录详细状态
         auto connDuration = std::chrono::duration_cast<std::chrono::seconds>(
-            std::chrono::steady_clock::now() - m_connStartTime).count();
+            std::chrono::steady_clock::now() - m_stConnectionStartTime).count();
         auto totalElapsed = std::chrono::duration_cast<std::chrono::seconds>(
             std::chrono::steady_clock::now() - tp_before_connect).count();
 
         if (res) {
-            if (res->status == HTTP_RESP_CODE_UNAUTHORIZED || res->status == 401)
+            if (res->status == NET_HTTP_RESP_CODE_UNAUTHORIZED || res->status == 401)
             {
-                NSDK_LOG_ERROR("[DIAG-ALARM] User-%p [DISCONNECT] 401 Unauthorized: conn=%llds, "
+                NETSDK_LOG_MESSAGE_ERROR("[DIAG-ALARM] User-%p [DISCONNECT] 401 Unauthorized: conn=%llds, "
                               "hb=%d, alarms=%d, triggering re-login",
-                              userHandle_, (long long)connDuration,
-                              heartbeatRecvCount_.load(), alarmRecvCount_.load());
-                if (sessionExpiredCb_) sessionExpiredCb_();
+                              m_hUser, (long long)connDuration,
+                              m_nReceivedHeartbeatCount.load(), m_nReceivedAlarmCount.load());
+                if (m_fnSessionExpiredCallback) m_fnSessionExpiredCallback();
                 break; // 退出循环，由上层重新登录后重启 AlarmListen
             }
             // 其他 HTTP 错误（500/503 等）
-            NSDK_LOG_WARN("[DIAG-ALARM] User-%p [DISCONNECT] HTTP status=%d: conn=%llds, "
+            NETSDK_LOG_MESSAGE_WARN("[DIAG-ALARM] User-%p [DISCONNECT] HTTP status=%d: conn=%llds, "
                           "hb=%d, alarms=%d",
-                          userHandle_, res->status, (long long)connDuration,
-                          heartbeatRecvCount_.load(), alarmRecvCount_.load());
+                          m_hUser, res->status, (long long)connDuration,
+                          m_nReceivedHeartbeatCount.load(), m_nReceivedAlarmCount.load());
         } else {
             // no response: 服务端关闭了 TCP 连接、网络中断、或 read_timeout 超时
             auto err = res.error();
@@ -710,24 +710,24 @@ void CClientAlarmManager::AlarmLoop()
             // 读取当前 session 信息
             std::string currentSessionIdLog;
             {
-                std::lock_guard<std::mutex> lk(sessionIdMutex_);
-                currentSessionIdLog = sessionId_;
+                std::lock_guard<std::mutex> lk(m_stSessionIdMutex);
+                currentSessionIdLog = m_strSessionId;
             }
 
             // err=7(Canceled) 且之前收到过 401，识别为 session 过期，触发重新登录
             if (bGot401) {
-                NSDK_LOG_ERROR("[DIAG-ALARM] User-%p [DISCONNECT] 401 Unauthorized (Canceled): "
+                NETSDK_LOG_MESSAGE_ERROR("[DIAG-ALARM] User-%p [DISCONNECT] 401 Unauthorized (Canceled): "
                               "conn=%llds, hb=%d, alarms=%d, session=%s, triggering re-login",
-                              userHandle_, (long long)connDuration,
-                              heartbeatRecvCount_.load(), alarmRecvCount_.load(), currentSessionIdLog.c_str());
-                if (sessionExpiredCb_) sessionExpiredCb_();
+                              m_hUser, (long long)connDuration,
+                              m_nReceivedHeartbeatCount.load(), m_nReceivedAlarmCount.load(), currentSessionIdLog.c_str());
+                if (m_fnSessionExpiredCallback) m_fnSessionExpiredCallback();
                 break; // 退出循环，由上层重新登录后重启 AlarmListen
             }
 
-            NSDK_LOG_WARN("[DIAG-ALARM] User-%p [DISCONNECT] No response (err=%d): "
+            NETSDK_LOG_MESSAGE_WARN("[DIAG-ALARM] User-%p [DISCONNECT] No response (err=%d): "
                           "conn=%llds, total=%llds, hb=%d, alarms=%d, session=%s, reconnecting...",
-                          userHandle_, (int)err, (long long)connDuration, (long long)totalElapsed,
-                          heartbeatRecvCount_.load(), alarmRecvCount_.load(), currentSessionIdLog.c_str());
+                          m_hUser, (int)err, (long long)connDuration, (long long)totalElapsed,
+                          m_nReceivedHeartbeatCount.load(), m_nReceivedAlarmCount.load(), currentSessionIdLog.c_str());
         }
 
         // 清空缓冲区，避免脏数据
@@ -737,9 +737,9 @@ void CClientAlarmManager::AlarmLoop()
         // 统一等 0.5 秒再重连
         std::this_thread::sleep_for(std::chrono::milliseconds(500));
     }
-    m_alarmLoopExited = true;
-    NSDK_LOG_INFO("[DIAG-ALARM] User-%p AlarmLoop EXIT: totalLoops=%d, totalReconnects=%d",
-                  userHandle_, loopCount, m_reconnectCount.load());
+    m_bAlarmLoopExited = true;
+    NETSDK_LOG_MESSAGE_INFO("[DIAG-ALARM] User-%p AlarmLoop EXIT: totalLoops=%d, totalReconnects=%d",
+                  m_hUser, loopCount, m_nReconnectCount.load());
 }
 
 /**
@@ -749,42 +749,42 @@ void CClientAlarmManager::AlarmLoop()
  */
 void CClientAlarmManager::HealthMonitorLoop()
 {
-    NSDK_LOG_INFO("[DIAG-ALARM] User-%p HealthMonitor started: checkInterval=5s, "
+    NETSDK_LOG_MESSAGE_INFO("[DIAG-ALARM] User-%p HealthMonitor started: checkInterval=5s, "
                   "timeoutInitial=30s, timeoutDataLoss=60s",
-                  userHandle_);
+                  m_hUser);
 
-    while (m_healthMonitorRunning.load()) {
-        for (int i = 0; i < 5 && m_healthMonitorRunning.load(); ++i) {
+    while (m_bHealthMonitorRunning.load()) {
+        for (int i = 0; i < 5 && m_bHealthMonitorRunning.load(); ++i) {
             std::this_thread::sleep_for(std::chrono::seconds(1));
         }
-        if (!m_healthMonitorRunning.load()) break;
+        if (!m_bHealthMonitorRunning.load()) break;
 
         auto nowMs = std::chrono::duration_cast<std::chrono::milliseconds>(
             std::chrono::steady_clock::now().time_since_epoch()).count();
-        auto lastMs = m_lastDataTimeMs.load();
+        auto lastMs = m_lLastDataTimeMilliseconds.load();
         auto elapsedSec = (lastMs > 0) ? (nowMs - lastMs) / 1000 : 0;
 
         // 分级超时：未收过数据 30s，数据中断 60s
-        int64_t timeoutSec = m_firstDataReceived.load() ? 60 : 30;
+        int64_t timeoutSec = m_bFirstDataReceived.load() ? 60 : 30;
 
         if (lastMs > 0 && elapsedSec > timeoutSec) {
-            NSDK_LOG_ERROR("[DIAG-ALARM] User-%p [HEALTH] NO DATA for %llds (threshold=%llds, "
+            NETSDK_LOG_MESSAGE_ERROR("[DIAG-ALARM] User-%p [HEALTH] NO DATA for %llds (threshold=%llds, "
                           "hadData=%d). Connection is STUCK in recv(). "
                           "Requesting AlarmListen reconnect with the current session.",
-                          userHandle_, (long long)elapsedSec, (long long)timeoutSec,
-                          (int)m_firstDataReceived.load());
+                          m_hUser, (long long)elapsedSec, (long long)timeoutSec,
+                          (int)m_bFirstDataReceived.load());
 
-            // 仅中断当前 AlarmListen。AlarmLoop 的外层循环会使用同一 sessionId_
+            // 仅中断当前 AlarmListen。AlarmLoop 的外层循环会使用同一 m_strSessionId
             // 重建长连接；无数据不等于登录 session 已失效，不能触发 Basic/Login。
             {
-                std::lock_guard<std::mutex> lk(clientMutex_);
-                if (client_) client_->stop();
+                std::lock_guard<std::mutex> lk(m_stClientMutex);
+                if (m_pClient) m_pClient->stop();
             }
 
             // 防止当前 Get() 尚未退出时每个监控周期重复触发恢复。
             // 若 stop() 生效，AlarmLoop 很快会进入下一轮连接并刷新该时间戳。
-            m_lastDataTimeMs.store(nowMs);
+            m_lLastDataTimeMilliseconds.store(nowMs);
         }
     }
-    NSDK_LOG_INFO("[DIAG-ALARM] User-%p HealthMonitor EXIT", userHandle_);
+    NETSDK_LOG_MESSAGE_INFO("[DIAG-ALARM] User-%p HealthMonitor EXIT", m_hUser);
 }

@@ -8,9 +8,9 @@
 #pragma once
 #include "DeviceManage.h"
 #include "ErrorManage.h"
-#include "CapabilityInfoConvert.h"
+#include "VisualSecurity/CapabilityInfoConvert.h"
 #include "DeviceInfoConvert.h"
-#include "AlarmInfoConvert.h"
+#include "VisualSecurity/AlarmInfoConvert.h"
 #include "SDKConvert.h"
 #include <cstring>
 #include <string>
@@ -110,7 +110,7 @@ public:
         }
 
         std::string respBody;
-        CommandRequest req("GET", url);
+        CommandRequest_S req("GET", url);
 
         if (session->SendRequest(req, respBody))
 		{
@@ -161,7 +161,7 @@ public:
         T_REQ* pStruct = static_cast<T_REQ*>(pIn);
         std::string jsonBody = SDKConvert::to_string(*pStruct);
 
-        CommandRequest req(method, url);
+        CommandRequest_S req(method, url);
         req.jsonBody = jsonBody;
 
         std::string ignoreResp;
@@ -191,7 +191,7 @@ public:
             return false;
         }
 
-        CommandRequest req(method, url);
+        CommandRequest_S req(method, url);
         req.jsonBody = body;
         return session->SendRequest(req, outResp);
     }
@@ -237,7 +237,7 @@ public:
             return false;
         }
 
-        CommandRequest req(method, url);
+        CommandRequest_S req(method, url);
         req.binData = fileData.data();
         req.binSize = static_cast<std::size_t>(fileSize);
 

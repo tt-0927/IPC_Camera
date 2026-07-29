@@ -92,18 +92,18 @@ std::string CRecordFrameBusiness::StartRecordFrameStream(const std::string& req_
     }
 
     if (stCond.uTcpPort > 0 &&
-        !tvsdk::RecordFrameServer::instance()->is_running() &&
-        !tvsdk::RecordFrameServer::instance()->start(static_cast<int>(stCond.uTcpPort)))
+        !tvsdk::CRecordFrameServer::instance()->is_running() &&
+        !tvsdk::CRecordFrameServer::instance()->start(static_cast<int>(stCond.uTcpPort)))
     {
         return SDKConvert::to_respString(NET_E_SYSCALL_FALIED);
     }
 
     NET_RecordFrameStreamInfo_S stInfo;
     std::memset(&stInfo, 0, sizeof(stInfo));
-    NET_COMMON_ECODE_E nRespCode = tvsdk::RecordFrameServer::instance()->open_stream(stCond, stInfo);
+    NET_COMMON_ECODE_E nRespCode = tvsdk::CRecordFrameServer::instance()->open_stream(stCond, stInfo);
     if (nRespCode == NET_E_SUCCEED && stInfo.uTcpPort == 0)
     {
-        stInfo.uTcpPort = static_cast<UINT32>(tvsdk::RecordFrameServer::instance()->port());
+        stInfo.uTcpPort = static_cast<UINT32>(tvsdk::CRecordFrameServer::instance()->port());
     }
 
     return SDKConvert::to_respString(nRespCode, stInfo);
@@ -142,6 +142,6 @@ std::string CRecordFrameBusiness::StopRecordFrameStream(const std::string& req_d
         return SDKConvert::to_respString(NET_E_INVALID_PARAM, stInfo);
     }
 
-    NET_COMMON_ECODE_E nRespCode = tvsdk::RecordFrameServer::instance()->close_stream(stInfo.szStreamId);
+    NET_COMMON_ECODE_E nRespCode = tvsdk::CRecordFrameServer::instance()->close_stream(stInfo.szStreamId);
     return SDKConvert::to_respString(nRespCode, stInfo);
 }

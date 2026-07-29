@@ -69,12 +69,13 @@
 
 #else /* Linux / POSIX */
     #include <arpa/inet.h>
+    #include <cerrno>
     #include <fcntl.h>
     #include <net/if.h>
     #include <netdb.h>
     #include <netinet/in.h>
     #include <netinet/tcp.h>
-    #include <NETSDK_POLL.h>
+    #include <poll.h>
     #include <sys/ioctl.h>
     #include <sys/socket.h>
     #include <sys/time.h>
@@ -83,6 +84,7 @@
     using socket_fd_t = int;
     constexpr socket_fd_t INVALID_SOCKET_FD = -1;
 
+    #define NETSDK_POLL poll
     #define NETSDK_SOCKET_CLOSE(fd) close(fd)
 
     #define NETSDK_SOCKET_SET_NONBLOCK(fd) \
@@ -92,4 +94,5 @@
         } while (0)
 
     #define NETSDK_SOCKET_GET_ERROR() errno
+    #define NETSDK_MICRO_SLEEP(us) usleep((us))
 #endif /* _WIN32 */

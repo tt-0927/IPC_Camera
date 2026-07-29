@@ -373,12 +373,12 @@ NET_COMMON_ECODE_E MyAudioEncodeCb(INT32 dwChannelID, pNET_AudioCap_S pCap)
     memset(pCap, 0, sizeof(NET_AudioCap_S));
 
     // ================= 输入类型能力 =================
-    pCap->dwInputTypeSize = 2;
+    pCap->uInputTypeSize = 2;
     pCap->auInputType[0] = NET_AUDIO_INPUT_MICIN;
     pCap->auInputType[1] = NET_AUDIO_INPUT_LINEIN;
 
     // ================= 输出类型能力 =================
-    pCap->dwOutputTypeSize = 3;
+    pCap->uOutputTypeSize = 3;
     pCap->auOutputType[0] = NET_AUDIO_OUTPUT_SPEAKER;
     pCap->auOutputType[1] = NET_AUDIO_OUTPUT_LINEOUT;
     pCap->auOutputType[2] = NET_AUDIO_OUTPUT_MUTE;

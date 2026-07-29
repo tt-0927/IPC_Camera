@@ -6,8 +6,8 @@
 
 #include "NetTVSDKServerInterface.h"
 #include "NetTVSDKServerImpl.h"
-#include "VoiceComServer.h"
-#include "RecordFrameServer.h"
+#include "VisualSecurity/VoiceComServer.h"
+#include "VisualSecurity/RecordFrameServer.h"
 
 // 全局Impl单例（使用智能指针）
 static std::unique_ptr<CNetTVSDKServerImpl> g_pServerImpl;
@@ -126,13 +126,13 @@ NET_SERVER_Discovery_Stop(void)
 NET_API BOOL STDCALL
 NET_SERVER_StartVoiceComServer(IN UINT32 dwPort)
 {
-	return tvsdk::VoiceComServer::instance()->start(static_cast<int>(dwPort)) ? TRUE : FALSE;
+	return tvsdk::CVoiceComServer::instance()->start(static_cast<int>(dwPort)) ? TRUE : FALSE;
 }
 
 NET_API BOOL STDCALL
 NET_SERVER_StopVoiceComServer(void)
 {
-	tvsdk::VoiceComServer::instance()->stop();
+	tvsdk::CVoiceComServer::instance()->stop();
 	return TRUE;
 }
 
@@ -140,11 +140,11 @@ NET_API BOOL STDCALL
 NET_SERVER_RegisterCb_VoiceComPlay(IN NET_SERVER_VoiceComPlayCallBack cb)
 {
 	if (!cb) {
-		tvsdk::VoiceComServer::instance()->set_play_callback(nullptr);
+		tvsdk::CVoiceComServer::instance()->set_play_callback(nullptr);
 		return TRUE;
 	}
 
-	tvsdk::VoiceComServer::instance()->set_play_callback(
+	tvsdk::CVoiceComServer::instance()->set_play_callback(
 		[cb](const char* data, size_t size) {
 			cb(data, static_cast<unsigned int>(size));
 		});
@@ -156,11 +156,11 @@ NET_SERVER_RegisterCb_VoiceComCapture(IN NET_SERVER_VoiceComCaptureCallBack cb,
 										 IN LPVOID lpUserData)
 {
 	if (!cb) {
-		tvsdk::VoiceComServer::instance()->set_capture_callback(nullptr);
+		tvsdk::CVoiceComServer::instance()->set_capture_callback(nullptr);
 		return TRUE;
 	}
 
-	tvsdk::VoiceComServer::instance()->set_capture_callback(
+	tvsdk::CVoiceComServer::instance()->set_capture_callback(
 		[cb, lpUserData](const NET_VoiceComAudioParam_S& audioParam,
 						 char* buffer,
 						 size_t bufferSize) -> int {
@@ -177,7 +177,7 @@ NET_SERVER_SendVoiceComData(IN const CHAR* pData, IN UINT32 dwSize)
 {
 	if (!pData || dwSize == 0) return FALSE;
 
-	return tvsdk::VoiceComServer::instance()->send_to_client(pData, dwSize) ? TRUE : FALSE;
+	return tvsdk::CVoiceComServer::instance()->send_to_client(pData, dwSize) ? TRUE : FALSE;
 }
 
 NET_API BOOL STDCALL
@@ -185,7 +185,7 @@ NET_SERVER_GetVoiceComAudioParam(OUT pNET_VoiceComAudioParam_S pstAudioParam)
 {
 	if (!pstAudioParam) return FALSE;
 
-	return tvsdk::VoiceComServer::instance()->get_audio_param(*pstAudioParam) ? TRUE : FALSE;
+	return tvsdk::CVoiceComServer::instance()->get_audio_param(*pstAudioParam) ? TRUE : FALSE;
 }
 
 /* ==================== 录像帧流 RecordFrame (服务端) ==================== */
@@ -200,7 +200,7 @@ NET_SERVER_GetVoiceComAudioParam(OUT pNET_VoiceComAudioParam_S pstAudioParam)
 NET_API BOOL STDCALL
 NET_SERVER_StartRecordFrameServer(IN UINT32 dwPort)
 {
-	return tvsdk::RecordFrameServer::instance()->start(static_cast<int>(dwPort)) ? TRUE : FALSE;
+	return tvsdk::CRecordFrameServer::instance()->start(static_cast<int>(dwPort)) ? TRUE : FALSE;
 }
 
 /**
@@ -211,7 +211,7 @@ NET_SERVER_StartRecordFrameServer(IN UINT32 dwPort)
 NET_API BOOL STDCALL
 NET_SERVER_StopRecordFrameServer(void)
 {
-	tvsdk::RecordFrameServer::instance()->stop();
+	tvsdk::CRecordFrameServer::instance()->stop();
 	return TRUE;
 }
 
@@ -234,12 +234,12 @@ NET_SERVER_RegisterCb_RecordFrameStart(IN NET_SERVER_RecordFrameStartCallBack cb
 {
 	if (!cb) {
 		// 取消注册，设置为空回调
-		tvsdk::RecordFrameServer::instance()->set_start_callback(nullptr);
+		tvsdk::CRecordFrameServer::instance()->set_start_callback(nullptr);
 		return TRUE;
 	}
 
 	// 使用Lambda做适配器：C风格回调 → C++风格回调
-	tvsdk::RecordFrameServer::instance()->set_start_callback(
+	tvsdk::CRecordFrameServer::instance()->set_start_callback(
 		[cb, lpUserData](const NET_RecordFrameStreamCond_S& cond,
 						 NET_RecordFrameStreamInfo_S& info) -> NET_COMMON_ECODE_E {
 			// cond参数做拷贝，因为C回调期望指针，防止引用失效
@@ -268,11 +268,11 @@ NET_SERVER_RegisterCb_RecordFrameRead(IN NET_SERVER_RecordFrameReadCallBack cb,
 										IN LPVOID lpUserData)
 {
 	if (!cb) {
-		tvsdk::RecordFrameServer::instance()->set_read_callback(nullptr);
+		tvsdk::CRecordFrameServer::instance()->set_read_callback(nullptr);
 		return TRUE;
 	}
 
-	tvsdk::RecordFrameServer::instance()->set_read_callback(
+	tvsdk::CRecordFrameServer::instance()->set_read_callback(
 		[cb, lpUserData](const std::string& streamId,
 						 NET_RecordFrameInfo_S& frameInfo,
 						 char* buffer,
@@ -300,11 +300,11 @@ NET_SERVER_RegisterCb_RecordFrameStop(IN NET_SERVER_RecordFrameStopCallBack cb,
 										IN LPVOID lpUserData)
 {
 	if (!cb) {
-		tvsdk::RecordFrameServer::instance()->set_stop_callback(nullptr);
+		tvsdk::CRecordFrameServer::instance()->set_stop_callback(nullptr);
 		return TRUE;
 	}
 
-	tvsdk::RecordFrameServer::instance()->set_stop_callback(
+	tvsdk::CRecordFrameServer::instance()->set_stop_callback(
 		[cb, lpUserData](const std::string& streamId) -> NET_COMMON_ECODE_E {
 			return cb(streamId.c_str(), lpUserData);
 		});

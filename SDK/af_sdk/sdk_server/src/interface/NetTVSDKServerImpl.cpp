@@ -6,7 +6,7 @@
 #include "modules/SessionModule.h"
 #include "modules/RouteModule.h"
 #include "modules/VisualSecurity/AlarmModule.h"
-#include "DiscoveryResponder.h"
+#include "VisualSecurity/DiscoveryResponder.h"
 #include "NetSdkLog.h"
 
 #define NETTVSDK_MAKE_VERSION(major, minor, rev1, rev2) \
@@ -22,15 +22,15 @@
 CNetTVSDKServerImpl::CNetTVSDKServerImpl()
     : m_bInitialized(false)
 {
-    NSDK_LOG_DEBUG("CNetTVSDKServerImpl: Creating all modules...");
+    NETSDK_LOG_MESSAGE_DEBUG("CNetTVSDKServerImpl: Creating all modules...");
 
     // 创建所有模块
-    m_pServerModule = std::make_unique<ServerModule>();
-    m_pSessionModule = std::make_unique<SessionModule>();
-    m_pRouteModule = std::make_unique<RouteModule>();
-    m_pAlarmModule = std::make_unique<AlarmModule>(m_pSessionModule.get());
+    m_pServerModule = std::make_unique<CServerModule>();
+    m_pSessionModule = std::make_unique<CSessionModule>();
+    m_pRouteModule = std::make_unique<CRouteModule>();
+    m_pAlarmModule = std::make_unique<CAlarmModule>(m_pSessionModule.get());
 
-    NSDK_LOG_DEBUG("CNetTVSDKServerImpl: All modules created");
+    NETSDK_LOG_MESSAGE_DEBUG("CNetTVSDKServerImpl: All modules created");
 }
 
 CNetTVSDKServerImpl::~CNetTVSDKServerImpl()
@@ -39,7 +39,7 @@ CNetTVSDKServerImpl::~CNetTVSDKServerImpl()
     {
         DoCleanup();
     }
-    NSDK_LOG_DEBUG("CNetTVSDKServerImpl: Destroyed");
+    NETSDK_LOG_MESSAGE_DEBUG("CNetTVSDKServerImpl: Destroyed");
 }
 
 BOOL CNetTVSDKServerImpl::DoInit(UINT32 udwPort,
@@ -48,11 +48,11 @@ BOOL CNetTVSDKServerImpl::DoInit(UINT32 udwPort,
 {
     if (m_bInitialized)
     {
-        NSDK_LOG_WARN("SDK Server already initialized");
+        NETSDK_LOG_MESSAGE_WARN("SDK Server already initialized");
         return FALSE;
     }
 
-    NSDK_LOG_INFO("=== SDK Server Initialization Started ===");
+    NETSDK_LOG_MESSAGE_INFO("=== SDK Server Initialization Started ===");
 
     // 1. 设置鉴权信息
     std::string username = (strlen(szUserName) > 0) ? szUserName : "admin";
@@ -60,27 +60,27 @@ BOOL CNetTVSDKServerImpl::DoInit(UINT32 udwPort,
 
     if (!m_pSessionModule->SetAuthInfo("NetTVSDK", username, password))
     {
-        NSDK_LOG_ERROR("Failed to set authentication info");
+        NETSDK_LOG_MESSAGE_ERROR("Failed to set authentication info");
         return FALSE;
     }
 
     // 2. 注册路由
     if (!m_pRouteModule->RegisterAllRoutes())
     {
-        NSDK_LOG_ERROR("Failed to register routes");
+        NETSDK_LOG_MESSAGE_ERROR("Failed to register routes");
         return FALSE;
     }
 
     // 3. 启动HTTP服务器
     if (!m_pServerModule->Start(udwPort))
     {
-        NSDK_LOG_ERROR("Failed to start HTTP server");
+        NETSDK_LOG_MESSAGE_ERROR("Failed to start HTTP server");
         m_pRouteModule->ClearRoutes();
         return FALSE;
     }
 
     m_bInitialized = true;
-    NSDK_LOG_INFO("=== SDK Server Initialized Successfully (Port: %u) ===", udwPort);
+    NETSDK_LOG_MESSAGE_INFO("=== SDK Server Initialized Successfully (Port: %u) ===", udwPort);
     return TRUE;
 }
 
@@ -88,11 +88,11 @@ BOOL CNetTVSDKServerImpl::DoCleanup()
 {
     if (!m_bInitialized)
     {
-        NSDK_LOG_DEBUG("SDK Server not initialized, skip cleanup");
+        NETSDK_LOG_MESSAGE_DEBUG("SDK Server not initialized, skip cleanup");
         return TRUE;
     }
 
-    NSDK_LOG_INFO("=== SDK Server Cleanup Started ===");
+    NETSDK_LOG_MESSAGE_INFO("=== SDK Server Cleanup Started ===");
 
     // 按相反顺序清理模块
     // 1. 停止HTTP服务器（阻止新请求）
@@ -105,7 +105,7 @@ BOOL CNetTVSDKServerImpl::DoCleanup()
     m_pRouteModule->ClearRoutes();
 
     m_bInitialized = false;
-    NSDK_LOG_INFO("=== SDK Server Cleanup Completed ===");
+    NETSDK_LOG_MESSAGE_INFO("=== SDK Server Cleanup Completed ===");
     return TRUE;
 }
 
@@ -176,7 +176,7 @@ BOOL CNetTVSDKServerImpl::DoSetUserPasswd(CHAR szUserName[NET_LEN_132],
 {
     if (!strlen(szUserName) || !strlen(szPassword))
     {
-        NSDK_LOG_ERROR("SetUserPasswd: Invalid parameters (empty string)");
+        NETSDK_LOG_MESSAGE_ERROR("SetUserPasswd: Invalid parameters (empty string)");
         return FALSE;
     }
 
@@ -190,7 +190,7 @@ BOOL CNetTVSDKServerImpl::DoPushAlarmInfo(NET_Alarmer_S* pAlarmer,
 {
     if (!m_bInitialized)
     {
-        NSDK_LOG_ERROR("PushAlarmInfo: SDK Server not initialized");
+        NETSDK_LOG_MESSAGE_ERROR("PushAlarmInfo: SDK Server not initialized");
         return FALSE;
     }
 
@@ -201,7 +201,7 @@ BOOL CNetTVSDKServerImpl::DoPushChannelStatusInfo(NET_ChannelInfo_S* pChannelInf
 {
     if (!m_bInitialized)
     {
-        NSDK_LOG_ERROR("PushChannelStatusInfo: SDK Server not initialized");
+        NETSDK_LOG_MESSAGE_ERROR("PushChannelStatusInfo: SDK Server not initialized");
         return FALSE;
     }
 
@@ -218,14 +218,14 @@ BOOL CNetTVSDKServerImpl::DoRegisterCb_GetDiscoveryDeviceInfo(
 BOOL CNetTVSDKServerImpl::DoDiscoveryStart(const CHAR* szInterfaceName)
 {
     if (!m_cbDiscoveryDeviceInfo) {
-        NSDK_LOG_ERROR("DiscoveryStart: callback not registered");
+        NETSDK_LOG_MESSAGE_ERROR("DiscoveryStart: callback not registered");
         return FALSE;
     }
     if (m_pDiscoveryResponder && m_pDiscoveryResponder->is_running()) {
         return TRUE;  /* already running */
     }
 
-    m_pDiscoveryResponder = std::make_unique<DiscoveryResponder>();
+    m_pDiscoveryResponder = std::make_unique<CDiscoveryResponder>();
 
     /* 注册回调：C 回调 → C++ lambda */
     NET_CB_GetDiscoveryDeviceInfo cb = m_cbDiscoveryDeviceInfo;
@@ -235,18 +235,18 @@ BOOL CNetTVSDKServerImpl::DoDiscoveryStart(const CHAR* szInterfaceName)
         });
 
     if (m_pDiscoveryResponder->init(szInterfaceName) < 0) {
-        NSDK_LOG_ERROR("DiscoveryStart: init failed for iface[%s]", szInterfaceName);
+        NETSDK_LOG_MESSAGE_ERROR("DiscoveryStart: init failed for iface[%s]", szInterfaceName);
         m_pDiscoveryResponder.reset();
         return FALSE;
     }
 
     if (m_pDiscoveryResponder->start() < 0) {
-        NSDK_LOG_ERROR("DiscoveryStart: start failed");
+        NETSDK_LOG_MESSAGE_ERROR("DiscoveryStart: start failed");
         m_pDiscoveryResponder.reset();
         return FALSE;
     }
 
-    NSDK_LOG_INFO("Discovery started on iface[%s]", szInterfaceName);
+    NETSDK_LOG_MESSAGE_INFO("Discovery started on iface[%s]", szInterfaceName);
     return TRUE;
 }
 
@@ -255,7 +255,7 @@ BOOL CNetTVSDKServerImpl::DoDiscoveryStop()
     if (m_pDiscoveryResponder) {
         m_pDiscoveryResponder->stop();
         m_pDiscoveryResponder.reset();
-        NSDK_LOG_INFO("Discovery stopped");
+        NETSDK_LOG_MESSAGE_INFO("Discovery stopped");
     }
     return TRUE;
 }

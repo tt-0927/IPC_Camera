@@ -25,14 +25,14 @@ static std::string HandleGetChannelInfo(INT32 channelId, INT32 command)
     NET_ChannelInfo_S stCfg;
     memset(&stCfg, 0, sizeof(stCfg));
 
-    NSDK_LOG_INFO("GetChannelInfo callback START");
+    NETSDK_LOG_MESSAGE_INFO("GetChannelInfo callback START");
     int nRespCode = NetSDK_ExecuteCb_GetDevConfig(channelId, command, &stCfg);
     if (nRespCode != NET_E_SUCCEED)
     {
-        NSDK_LOG_WARN("GetChannelInfo callback failed, cmd=%d, ret=%d", command, nRespCode);
+        NETSDK_LOG_MESSAGE_WARN("GetChannelInfo callback failed, cmd=%d, ret=%d", command, nRespCode);
     }
-    NSDK_LOG_INFO("GetChannelInfo callback cmd=%d, ret=%d", command, nRespCode);
-    NSDK_LOG_INFO("GetChannelInfo callback END");
+    NETSDK_LOG_MESSAGE_INFO("GetChannelInfo callback cmd=%d, ret=%d", command, nRespCode);
+    NETSDK_LOG_MESSAGE_INFO("GetChannelInfo callback END");
     return SDKConvert::to_respString(nRespCode, stCfg);
 }
 
@@ -47,23 +47,23 @@ static std::string HandleGetChannelList(INT32 channelId, INT32 command)
     auto stCfg = std::make_unique<NET_ChannelList_S>();
     if (!stCfg)
     {
-        NSDK_LOG_WARN("GetChannelList callback alloc failed");
+        NETSDK_LOG_MESSAGE_WARN("GetChannelList callback alloc failed");
         return SDKConvert::to_respString(NET_E_FAILED);
     }
 
     memset(stCfg.get(), 0, sizeof(NET_ChannelList_S));
 
-    NSDK_LOG_INFO("GetChannelList callback START");
-    NSDK_LOG_INFO("[SDK] channel list cfg address=%p, sizeof=%zu",
+    NETSDK_LOG_MESSAGE_INFO("GetChannelList callback START");
+    NETSDK_LOG_MESSAGE_INFO("[SDK] channel list cfg address=%p, sizeof=%zu",
                   (void*)stCfg.get(), sizeof(NET_ChannelList_S));
 
     int nRespCode = NetSDK_ExecuteCb_GetDevConfig(channelId, command, stCfg.get());
     if (nRespCode != NET_E_SUCCEED)
     {
-        NSDK_LOG_WARN("GetChannelList callback failed, cmd=%d, ret=%d", command, nRespCode);
+        NETSDK_LOG_MESSAGE_WARN("GetChannelList callback failed, cmd=%d, ret=%d", command, nRespCode);
     }
-    NSDK_LOG_INFO("GetChannelList callback cmd=%d, ret=%d", command, nRespCode);
-    NSDK_LOG_INFO("GetChannelList callback END");
+    NETSDK_LOG_MESSAGE_INFO("GetChannelList callback cmd=%d, ret=%d", command, nRespCode);
+    NETSDK_LOG_MESSAGE_INFO("GetChannelList callback END");
     return SDKConvert::to_respString(nRespCode, *stCfg);
 }
 
@@ -99,14 +99,14 @@ std::string CDeviceConfigBusiness::HandleGetLogList(INT32 channelId, INT32 comma
         stCfg.stPage.nPageSize = NET_LOG_QUERY_COND_NUM;
     }
 
-    NSDK_LOG_INFO("GetLogList callback START");
+    NETSDK_LOG_MESSAGE_INFO("GetLogList callback START");
     int nRespCode = NetSDK_ExecuteCb_GetDevConfig(channelId, command, &stCfg);
     if (nRespCode != NET_E_SUCCEED)
     {
-        NSDK_LOG_WARN("GetLogList callback failed, cmd=%d, ret=%d", command, nRespCode);
+        NETSDK_LOG_MESSAGE_WARN("GetLogList callback failed, cmd=%d, ret=%d", command, nRespCode);
     }
-    NSDK_LOG_INFO("GetLogList callback cmd=%d, ret=%d", command, nRespCode);
-    NSDK_LOG_INFO("GetLogList callback END");
+    NETSDK_LOG_MESSAGE_INFO("GetLogList callback cmd=%d, ret=%d", command, nRespCode);
+    NETSDK_LOG_MESSAGE_INFO("GetLogList callback END");
     return SDKConvert::to_respString(nRespCode, stCfg);
 }
 
@@ -139,14 +139,14 @@ std::string CDeviceConfigBusiness::HandleGetRecordFileList(INT32 channelId, INT3
     strncpy(stCfg.stFind.szEndTime, strEndTime.c_str(), sizeof(stCfg.stFind.szEndTime) - 1);
     strncpy(stCfg.stFind.szFilename, strFilename.c_str(), sizeof(stCfg.stFind.szFilename) - 1);
 
-    NSDK_LOG_INFO("GetRecordFileList callback START");
+    NETSDK_LOG_MESSAGE_INFO("GetRecordFileList callback START");
     int nRespCode = NetSDK_ExecuteCb_GetDevConfig(channelId, command, &stCfg);
     if (nRespCode != NET_E_SUCCEED)
     {
-        NSDK_LOG_WARN("GetRecordFileList callback failed, cmd=%d, ret=%d", command, nRespCode);
+        NETSDK_LOG_MESSAGE_WARN("GetRecordFileList callback failed, cmd=%d, ret=%d", command, nRespCode);
     }
-    NSDK_LOG_INFO("GetRecordFileList callback cmd=%d, ret=%d", command, nRespCode);
-    NSDK_LOG_INFO("GetRecordFileList callback END");
+    NETSDK_LOG_MESSAGE_INFO("GetRecordFileList callback cmd=%d, ret=%d", command, nRespCode);
+    NETSDK_LOG_MESSAGE_INFO("GetRecordFileList callback END");
     return SDKConvert::to_respString(nRespCode, stCfg);
 }
 
@@ -191,9 +191,9 @@ static void PrintMotionAlarmInfo(const NET_MotionAlarmInfo_S* pInfo)
 std::string CDeviceConfigBusiness::GetDevConfig(const std::string& req_data, const std::string& url_param)
 {
     (void)req_data;
-    INT32 channelId = ParseIntParam(url_param, TVAPI_PARAM_CHANNEL, 1);
-    INT32 command = ParseIntParam(url_param, TVAPI_PARAM_COMMAND, NET_CFG_INVALID);
-    NSDK_LOG_INFO("GetDevConfig request: url[%s], channel=%d, command=%d",
+    INT32 channelId = ParseIntParam(url_param, NET_API_PARAM_CHANNEL, 1);
+    INT32 command = ParseIntParam(url_param, NET_API_PARAM_COMMAND, NET_CFG_INVALID);
+    NETSDK_LOG_MESSAGE_INFO("GetDevConfig request: url[%s], channel=%d, command=%d",
                   url_param.c_str(),
                   channelId,
                   command);
@@ -438,7 +438,7 @@ std::string CDeviceConfigBusiness::GetDevConfig(const std::string& req_data, con
         case NET_GET_ROAD_PONDING_CFG:
             return HandleGetConfig<NET_RoadPondingCfg_S>(channelId, command);
         default:
-            NSDK_LOG_WARN("Unsupported GetDevConfig command: %d", command);
+            NETSDK_LOG_MESSAGE_WARN("Unsupported GetDevConfig command: %d", command);
             return SDKConvert::to_respString(NET_E_CMD_NOT_SUPPORT);
     }
 }
@@ -452,9 +452,9 @@ std::string CDeviceConfigBusiness::GetDevConfig(const std::string& req_data, con
  */
 std::string CDeviceConfigBusiness::SetDevConfig(const std::string& req_data, const std::string& url_param)
 {
-    INT32 channelId = ParseIntParam(url_param, TVAPI_PARAM_CHANNEL, 1);
-    INT32 command = ParseIntParam(url_param, TVAPI_PARAM_COMMAND, NET_CFG_INVALID);
-    NSDK_LOG_INFO("SetDevConfig request: url[%s], channel=%d, command=%d",
+    INT32 channelId = ParseIntParam(url_param, NET_API_PARAM_CHANNEL, 1);
+    INT32 command = ParseIntParam(url_param, NET_API_PARAM_COMMAND, NET_CFG_INVALID);
+    NETSDK_LOG_MESSAGE_INFO("SetDevConfig request: url[%s], channel=%d, command=%d",
                   url_param.c_str(),
                   channelId,
                   command);
@@ -711,7 +711,7 @@ std::string CDeviceConfigBusiness::SetDevConfig(const std::string& req_data, con
             return HandleSetConfig<NET_RoadPondingCfg_S>(channelId, command, req_data);
 
         default:
-            NSDK_LOG_WARN("Unsupported SetDevConfig command: %d", command);
+            NETSDK_LOG_MESSAGE_WARN("Unsupported SetDevConfig command: %d", command);
             return SDKConvert::to_respString(NET_E_CMD_NOT_SUPPORT);
     }
 }

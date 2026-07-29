@@ -23,7 +23,7 @@
 #include <iostream>
 
 #include "NetTVSDKClientInterface.h"
-#include "ClientAlarmManager.h"
+#include "VisualSecurity/ClientAlarmManager.h"
 
 using namespace tvsdk;
 

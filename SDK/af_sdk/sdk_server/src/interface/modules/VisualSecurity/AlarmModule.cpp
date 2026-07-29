@@ -3,14 +3,14 @@
  * @Date         : 2025-01-02 16:01:20
  * @LastEditors  : chenchl
  * @LastEditTime : 2025-01-02 17:03:03
- * @FilePath     : AlarmModule.cpp
+ * @FilePath     : CAlarmModule.cpp
  * @Description  : 告警推送管理模块实现，负责告警信息的推送和统计
  */
 
 #include "AlarmModule.h"
 #include "SessionModule.h"
 #include "SessionManager.h"
-#include "AlarmInfoConvert.h"
+#include "VisualSecurity/AlarmInfoConvert.h"
 #include "DeviceInfoConvert.h"
 #include "SDKConvert.h"
 #include "Json.h"
@@ -20,19 +20,19 @@
  * 构造函数
  * @param pSessionModule 会话模块指针（用于获取会话信息）
  */
-AlarmModule::AlarmModule(SessionModule* pSessionModule)
+CAlarmModule::CAlarmModule(CSessionModule* pSessionModule)
     : m_pSessionModule(pSessionModule)
-    , m_pushCount(0)
+    , m_lPushCount(0)
 {
-    NSDK_LOG_DEBUG("AlarmModule created");
+    NETSDK_LOG_MESSAGE_DEBUG("CAlarmModule created");
 }
 
 /**
  * 析构函数
  */
-AlarmModule::~AlarmModule()
+CAlarmModule::~CAlarmModule()
 {
-    NSDK_LOG_DEBUG("AlarmModule destroyed, total pushes: %llu", m_pushCount);
+    NETSDK_LOG_MESSAGE_DEBUG("CAlarmModule destroyed, total pushes: %llu", m_lPushCount);
 }
 
 /**
@@ -45,25 +45,25 @@ AlarmModule::~AlarmModule()
  * @param dwBufLen pAlarmInfo 长度
  * @return TRUE表示成功推送到至少一个客户端，FALSE表示失败
  */
-BOOL AlarmModule::PushAlarmInfo(NET_Alarmer_S* pAlarmer,
+BOOL CAlarmModule::PushAlarmInfo(NET_Alarmer_S* pAlarmer,
                                INT32 lCommand,
                                LPVOID pAlarmInfo,
                                INT32 dwBufLen)
 {
     if (!pAlarmer || !pAlarmInfo || dwBufLen <= 0)
     {
-        NSDK_LOG_ERROR("PushAlarmInfo: Invalid parameters");
+        NETSDK_LOG_MESSAGE_ERROR("PushAlarmInfo: Invalid parameters");
         return FALSE;
     }
 
-    NSDK_LOG_DEBUG("Pushing alarm info: cmd=0x%x, device=%s", lCommand, pAlarmer->strDeviceIP);
+    NETSDK_LOG_MESSAGE_DEBUG("Pushing alarm info: cmd=0x%x, device=%s", lCommand, pAlarmer->strDeviceIP);
     const size_t totalSessions = CSessionManager::instance()->GetSessionCount();
 
     // 构建告警JSON
     Json::Object* pRoot = Json::init();
     if (!pRoot)
     {
-        NSDK_LOG_ERROR("PushAlarmInfo: Failed to init JSON");
+        NETSDK_LOG_MESSAGE_ERROR("PushAlarmInfo: Failed to init JSON");
         return FALSE;
     }
 
@@ -120,7 +120,7 @@ BOOL AlarmModule::PushAlarmInfo(NET_Alarmer_S* pAlarmer,
             else
             {
                 NET_AlarmBasicInfo_S& info = *(NET_AlarmBasicInfo_S*)pAlarmInfo;
-                NSDK_LOG_INFO("[DIAG-ALARM] Basic input: cmd=0x%x, alarmType=0x%x, timestamp=%lld, panoramaLen=%u, bufLen=%d, structSize=%zu",
+                NETSDK_LOG_MESSAGE_INFO("[DIAG-ALARM] Basic input: cmd=0x%x, alarmType=0x%x, timestamp=%lld, panoramaLen=%u, bufLen=%d, structSize=%zu",
                               lCommand,
                               info.uAlarmType,
                               (long long)info.llTimestampMs,
@@ -140,7 +140,7 @@ BOOL AlarmModule::PushAlarmInfo(NET_Alarmer_S* pAlarmer,
             {
                 /* 含大图片数组，禁止栈上拷贝，直接引用原始数据 */
                 NET_AlarmRuleInfo_S& info = *(NET_AlarmRuleInfo_S*)pAlarmInfo;
-                NSDK_LOG_INFO("[DIAG-ALARM] Rule input: cmd=0x%x, alarmType=0x%x, channel=%u, rule=%u, target=%u, "
+                NETSDK_LOG_MESSAGE_INFO("[DIAG-ALARM] Rule input: cmd=0x%x, alarmType=0x%x, channel=%u, rule=%u, target=%u, "
                               "objType=%u, timestamp=%lld, rect=[%d,%d,%d,%d], panoramaLen=%u, targetLen=%u, bufLen=%d, structSize=%zu",
                               lCommand,
                               info.uAlarmType,
@@ -170,7 +170,7 @@ BOOL AlarmModule::PushAlarmInfo(NET_Alarmer_S* pAlarmer,
             {
                 /* 含大图片数组，禁止栈上拷贝，直接引用原始数据 */
                 NET_AlarmAiObjectInfo_S& info = *(NET_AlarmAiObjectInfo_S*)pAlarmInfo;
-                NSDK_LOG_INFO("[DIAG-ALARM] AI object input: cmd=0x%x, alarmType=0x%x, channel=%u, object=%s, "
+                NETSDK_LOG_MESSAGE_INFO("[DIAG-ALARM] AI object input: cmd=0x%x, alarmType=0x%x, channel=%u, object=%s, "
                               "objType=%u, timestamp=%lld, rect=[%d,%d,%d,%d], panoramaLen=%u, imgLen=%u, bufLen=%d, structSize=%zu",
                               lCommand,
                               info.uAlarmType,
@@ -249,7 +249,7 @@ BOOL AlarmModule::PushAlarmInfo(NET_Alarmer_S* pAlarmer,
     if ((lCommand & 0xF000) == NET_ALARM_BASE_RULE ||
         (lCommand & 0xF000) == NET_ALARM_BASE_AI)
     {
-        NSDK_LOG_INFO("[DIAG-ALARM] JSON output: cmd=0x%x, jsonLen=%zu, hasPanoramaB64=%d, hasTargetB64=%d, hasImgDataB64=%d",
+        NETSDK_LOG_MESSAGE_INFO("[DIAG-ALARM] JSON output: cmd=0x%x, jsonLen=%zu, hasPanoramaB64=%d, hasTargetB64=%d, hasImgDataB64=%d",
                       lCommand,
                       jsonStr.size(),
                       jsonStr.find("PanoramaImgBase64") != std::string::npos ? 1 : 0,
@@ -268,22 +268,22 @@ BOOL AlarmModule::PushAlarmInfo(NET_Alarmer_S* pAlarmer,
     auto tp_after_push = std::chrono::steady_clock::now();
     long long ts_after_push = std::chrono::duration_cast<std::chrono::milliseconds>(
         tp_after_push.time_since_epoch()).count();
-    NSDK_LOG_INFO("[DIAG] PushToAll done: cmd=0x%x, enqueue_ts=%lld, cost_ms=%lld",
+    NETSDK_LOG_MESSAGE_INFO("[DIAG] PushToAll done: cmd=0x%x, enqueue_ts=%lld, cost_ms=%lld",
                   lCommand, ts_before_push, ts_after_push - ts_before_push);
     if (pushCount == 0)
     {
         std::string diagInfo = CSessionManager::instance()->GetSessionDiagnosticInfo();
-        NSDK_LOG_WARN("AlarmModule::PushAlarmInfo: FAILED - No eligible clients, cmd=0x%x, device=%s, totalSessions=%zu, bufLen=%d. "
+        NETSDK_LOG_MESSAGE_WARN("CAlarmModule::PushAlarmInfo: FAILED - No eligible clients, cmd=0x%x, device=%s, totalSessions=%zu, bufLen=%d. "
                       "Client status: %s",
                       lCommand, pAlarmer->strDeviceIP, totalSessions, dwBufLen, diagInfo.c_str());
     }
     else
     {
-        NSDK_LOG_INFO("AlarmModule::PushAlarmInfo: SUCCESS - Forwarded to %zu client(s), cmd=0x%x, device=%s, totalSessions=%zu, bufLen=%d",
+        NETSDK_LOG_MESSAGE_INFO("CAlarmModule::PushAlarmInfo: SUCCESS - Forwarded to %zu client(s), cmd=0x%x, device=%s, totalSessions=%zu, bufLen=%d",
                       pushCount, lCommand, pAlarmer->strDeviceIP, totalSessions, dwBufLen);
     }
 
-    m_pushCount++;
+    m_lPushCount++;
     return (pushCount > 0) ? TRUE : FALSE;
 }
 
@@ -293,42 +293,42 @@ BOOL AlarmModule::PushAlarmInfo(NET_Alarmer_S* pAlarmer,
  * @param pChannelInfo 通道状态信息
  * @return TRUE表示成功，FALSE表示失败
  */
-BOOL AlarmModule::PushChannelStatusInfo(NET_ChannelInfo_S* pChannelInfo)
+BOOL CAlarmModule::PushChannelStatusInfo(NET_ChannelInfo_S* pChannelInfo)
 {
-    NSDK_LOG_WARN("[AlarmModule] ===== PushChannelStatusInfo Start ===== ");
+    NETSDK_LOG_MESSAGE_WARN("[CAlarmModule] ===== PushChannelStatusInfo Start ===== ");
 
     if (!pChannelInfo)
     {
-        NSDK_LOG_ERROR("[AlarmModule] PushChannelStatusInfo: Invalid parameters (NULL)");
-        NSDK_LOG_WARN("[AlarmModule] ===== PushChannelStatusInfo End (Failed) ===== ");
+        NETSDK_LOG_MESSAGE_ERROR("[CAlarmModule] PushChannelStatusInfo: Invalid parameters (NULL)");
+        NETSDK_LOG_MESSAGE_WARN("[CAlarmModule] ===== PushChannelStatusInfo End (Failed) ===== ");
         return FALSE;
     }
 
     // 打印输入参数详情
-    NSDK_LOG_WARN("[AlarmModule] Input Channel Info:");
-    NSDK_LOG_WARN("[AlarmModule]   Channel:      %u", pChannelInfo->uChannel);
-    NSDK_LOG_WARN("[AlarmModule]   ChannelName:  %s", pChannelInfo->szChannelName);
-    NSDK_LOG_WARN("[AlarmModule]   DeviceName:   %s", pChannelInfo->szDevName);
-    NSDK_LOG_WARN("[AlarmModule]   DeviceIP:     %s", pChannelInfo->szDeviceIP);
-    NSDK_LOG_WARN("[AlarmModule]   SerialNum:    %s", pChannelInfo->szSerialNum);
-    NSDK_LOG_WARN("[AlarmModule]   Enable:       %d (%s)", pChannelInfo->byEnable,
+    NETSDK_LOG_MESSAGE_WARN("[CAlarmModule] Input Channel Info:");
+    NETSDK_LOG_MESSAGE_WARN("[CAlarmModule]   Channel:      %u", pChannelInfo->uChannel);
+    NETSDK_LOG_MESSAGE_WARN("[CAlarmModule]   ChannelName:  %s", pChannelInfo->szChannelName);
+    NETSDK_LOG_MESSAGE_WARN("[CAlarmModule]   DeviceName:   %s", pChannelInfo->szDevName);
+    NETSDK_LOG_MESSAGE_WARN("[CAlarmModule]   DeviceIP:     %s", pChannelInfo->szDeviceIP);
+    NETSDK_LOG_MESSAGE_WARN("[CAlarmModule]   SerialNum:    %s", pChannelInfo->szSerialNum);
+    NETSDK_LOG_MESSAGE_WARN("[CAlarmModule]   Enable:       %d (%s)", pChannelInfo->byEnable,
                   pChannelInfo->byEnable ? "ENABLED" : "DISABLED");
-    NSDK_LOG_WARN("[AlarmModule]   Online:       %d (%s)", pChannelInfo->byOnline,
+    NETSDK_LOG_MESSAGE_WARN("[CAlarmModule]   Online:       %d (%s)", pChannelInfo->byOnline,
                   pChannelInfo->byOnline ? "ONLINE" : "OFFLINE");
-    NSDK_LOG_WARN("[AlarmModule]   RecordStatus: %d", pChannelInfo->nRecordStatus);
-    NSDK_LOG_WARN("[AlarmModule]   DevState:     %d", pChannelInfo->nDevState);
+    NETSDK_LOG_MESSAGE_WARN("[CAlarmModule]   RecordStatus: %d", pChannelInfo->nRecordStatus);
+    NETSDK_LOG_MESSAGE_WARN("[CAlarmModule]   DevState:     %d", pChannelInfo->nDevState);
 
     Json::Object* pRoot = Json::init();
     if (!pRoot)
     {
-        NSDK_LOG_ERROR("[AlarmModule] PushChannelStatusInfo: Failed to init JSON");
-        NSDK_LOG_WARN("[AlarmModule] ===== PushChannelStatusInfo End (JSON init failed) ===== ");
+        NETSDK_LOG_MESSAGE_ERROR("[CAlarmModule] PushChannelStatusInfo: Failed to init JSON");
+        NETSDK_LOG_MESSAGE_WARN("[CAlarmModule] ===== PushChannelStatusInfo End (JSON init failed) ===== ");
         return FALSE;
     }
 
     Json::add(pRoot, "Event", "ChannelStatus");
     Json::add(pRoot, "Command", (long long)NET_NOTIFY_CHANNEL_STATUS);
-    NSDK_LOG_WARN("[AlarmModule] Command: NET_NOTIFY_CHANNEL_STATUS (0x%X)", NET_NOTIFY_CHANNEL_STATUS);
+    NETSDK_LOG_MESSAGE_WARN("[CAlarmModule] Command: NET_NOTIFY_CHANNEL_STATUS (0x%X)", NET_NOTIFY_CHANNEL_STATUS);
 
     Json::Object* pChannelJson = Json::init();
     NET_ChannelInfo_S info = *pChannelInfo;
@@ -339,33 +339,33 @@ BOOL AlarmModule::PushChannelStatusInfo(NET_ChannelInfo_S* pChannelInfo)
     Json::deinit(pRoot);
 
     // 打印将要推送的JSON数据
-    NSDK_LOG_DEBUG("[AlarmModule] Channel Status JSON: %s", jsonStr.c_str());
+    NETSDK_LOG_MESSAGE_DEBUG("[CAlarmModule] Channel Status JSON: %s", jsonStr.c_str());
 
     // 获取在线客户端数量
     size_t clientCount = CSessionManager::instance()->GetSessionCount();
-    NSDK_LOG_WARN("[AlarmModule] Current online clients: %zu", clientCount);
+    NETSDK_LOG_MESSAGE_WARN("[CAlarmModule] Current online clients: %zu", clientCount);
 
     // 执行推送
-    NSDK_LOG_WARN("[AlarmModule] Calling PushToAll...");
+    NETSDK_LOG_MESSAGE_WARN("[CAlarmModule] Calling PushToAll...");
     size_t pushCount = CSessionManager::instance()->PushToAll(jsonStr);
 
     if (pushCount == 0)
     {
-        NSDK_LOG_WARN("[AlarmModule] No active clients for channel status!");
-        NSDK_LOG_WARN("[AlarmModule]   Channel: %u, Online: %u",
+        NETSDK_LOG_MESSAGE_WARN("[CAlarmModule] No active clients for channel status!");
+        NETSDK_LOG_MESSAGE_WARN("[CAlarmModule]   Channel: %u, Online: %u",
                       pChannelInfo->uChannel, pChannelInfo->byOnline);
     }
     else
     {
-        NSDK_LOG_WARN("[AlarmModule] Channel status pushed to %zu client(s) SUCCESS", pushCount);
-        NSDK_LOG_WARN("[AlarmModule]   Channel: %u, Online: %s",
+        NETSDK_LOG_MESSAGE_WARN("[CAlarmModule] Channel status pushed to %zu client(s) SUCCESS", pushCount);
+        NETSDK_LOG_MESSAGE_WARN("[CAlarmModule]   Channel: %u, Online: %s",
                       pChannelInfo->uChannel,
                       pChannelInfo->byOnline ? "ONLINE" : "OFFLINE");
     }
 
-    m_pushCount++;
-    NSDK_LOG_WARN("[AlarmModule] Total push count: %lld", m_pushCount);
-    NSDK_LOG_WARN("[AlarmModule] ===== PushChannelStatusInfo End ===== ");
+    m_lPushCount++;
+    NETSDK_LOG_MESSAGE_WARN("[CAlarmModule] Total push count: %lld", m_lPushCount);
+    NETSDK_LOG_MESSAGE_WARN("[CAlarmModule] ===== PushChannelStatusInfo End ===== ");
     return TRUE;
 }
 
@@ -373,16 +373,16 @@ BOOL AlarmModule::PushChannelStatusInfo(NET_ChannelInfo_S* pChannelInfo)
  * 获取告警推送总次数
  * @return 推送次数
  */
-INT64 AlarmModule::GetPushCount() const
+INT64 CAlarmModule::GetPushCount() const
 {
-    return m_pushCount;
+    return m_lPushCount;
 }
 
 /**
  * 重置推送计数
  */
-void AlarmModule::ResetPushCount()
+void CAlarmModule::ResetPushCount()
 {
-    NSDK_LOG_DEBUG("Resetting push count from %llu to 0", m_pushCount);
-    m_pushCount = 0;
+    NETSDK_LOG_MESSAGE_DEBUG("Resetting push count from %llu to 0", m_lPushCount);
+    m_lPushCount = 0;
 }
