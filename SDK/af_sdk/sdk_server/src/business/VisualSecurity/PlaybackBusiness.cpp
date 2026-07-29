@@ -120,7 +120,7 @@ std::string CPlaybackBusiness::GetReplayUrl(const std::string& req_data, const s
     SDKConvert::deal(pRoot, stInfo, true);
     Json::deinit(pRoot);
 
-    NSDK_LOG_INFO("GetReplayUrl request: channel=%d, start=%s, end=%s",
+    NETSDK_LOG_MESSAGE_INFO("GetReplayUrl request: channel=%d, start=%s, end=%s",
                   stInfo.uChannel,
                   stInfo.szStartTime,
                   stInfo.szEndTime);
@@ -128,7 +128,7 @@ std::string CPlaybackBusiness::GetReplayUrl(const std::string& req_data, const s
     int nRespCode = NetSDK_ExecuteCb_GetReplayUrl(&stInfo);
     if (nRespCode != NET_E_SUCCEED)
     {
-        NSDK_LOG_WARN("GetReplayUrl callback failed, ret=%d", nRespCode);
+        NETSDK_LOG_MESSAGE_WARN("GetReplayUrl callback failed, ret=%d", nRespCode);
     }
 
     return SDKConvert::to_respString(nRespCode, stInfo);
@@ -155,7 +155,7 @@ std::string CPlaybackBusiness::ControlReplay(const std::string& req_data, const 
     SDKConvert::deal(pRoot, stInfo, true);
     Json::deinit(pRoot);
 
-    NSDK_LOG_INFO("ControlReplay after JSON parse: channel=%d, ctrlType=%d, startTime=[%s], endTime=[%s], sessionId=[%s]",
+    NETSDK_LOG_MESSAGE_INFO("ControlReplay after JSON parse: channel=%d, ctrlType=%d, startTime=[%s], endTime=[%s], sessionId=[%s]",
                   stInfo.uChannel,
                   stInfo.uCtrlType,
                   stInfo.szStartTime,
@@ -165,7 +165,7 @@ std::string CPlaybackBusiness::ControlReplay(const std::string& req_data, const 
     int nValidCode = ValidateReplayCtrlInfo(stInfo);
     if (nValidCode != NET_E_SUCCEED)
     {
-        NSDK_LOG_WARN("ControlReplay request invalid: channel=%d, ctrlType=%d, replayType=%d, session=%s, speed=%.3f, seek=%d, start=%s, end=%s",
+        NETSDK_LOG_MESSAGE_WARN("ControlReplay request invalid: channel=%d, ctrlType=%d, replayType=%d, session=%s, speed=%.3f, seek=%d, start=%s, end=%s",
                       stInfo.uChannel,
                       stInfo.uCtrlType,
                       stInfo.nReplayType,
@@ -177,7 +177,7 @@ std::string CPlaybackBusiness::ControlReplay(const std::string& req_data, const 
         return SDKConvert::to_respString(nValidCode);
     }
 
-    NSDK_LOG_INFO("ControlReplay request: channel=%d, ctrlType=%d, replayType=%d, session=%s, speed=%.3f, seek=%d, start=%s, end=%s",
+    NETSDK_LOG_MESSAGE_INFO("ControlReplay request: channel=%d, ctrlType=%d, replayType=%d, session=%s, speed=%.3f, seek=%d, start=%s, end=%s",
                   stInfo.uChannel,
                   stInfo.uCtrlType,
                   stInfo.nReplayType,
@@ -190,9 +190,9 @@ std::string CPlaybackBusiness::ControlReplay(const std::string& req_data, const 
     int nRespCode = NetSDK_ExecuteCb_ControlReplay(&stInfo);
     if (nRespCode != NET_E_SUCCEED)
     {
-        NSDK_LOG_WARN("ControlReplay callback failed, ret=%d", nRespCode);
+        NETSDK_LOG_MESSAGE_WARN("ControlReplay callback failed, ret=%d", nRespCode);
     }
-    NSDK_LOG_INFO("ControlReplay after callback: channel=%d, ctrlType=%d, url=[%s], start=[%s], end=[%s]",
+    NETSDK_LOG_MESSAGE_INFO("ControlReplay after callback: channel=%d, ctrlType=%d, url=[%s], start=[%s], end=[%s]",
                   stInfo.uChannel,
                   stInfo.uCtrlType,
                   stInfo.szUrl,
@@ -223,7 +223,7 @@ std::string CPlaybackBusiness::GetReplayRecordList(const std::string& req_data, 
     SDKConvert::deal(pRoot, stInfo, true);
     Json::deinit(pRoot);
 
-    NSDK_LOG_INFO("GetReplayRecordList request: channel=%d, filterByEventType=%d, eventType=%d, date=%s, start=%s, end=%s",
+    NETSDK_LOG_MESSAGE_INFO("GetReplayRecordList request: channel=%d, filterByEventType=%d, eventType=%d, date=%s, start=%s, end=%s",
                   stInfo.uChannel,
                   stInfo.bFilterByEventType,
                   stInfo.uEventType,
@@ -234,7 +234,7 @@ std::string CPlaybackBusiness::GetReplayRecordList(const std::string& req_data, 
     int nRespCode = NetSDK_ExecuteCb_GetReplayRecordList(&stInfo);
     if (nRespCode != NET_E_SUCCEED)
     {
-        NSDK_LOG_WARN("GetReplayRecordList callback failed, ret=%d", nRespCode);
+        NETSDK_LOG_MESSAGE_WARN("GetReplayRecordList callback failed, ret=%d", nRespCode);
     }
 
     return SDKConvert::to_respString(nRespCode, stInfo);

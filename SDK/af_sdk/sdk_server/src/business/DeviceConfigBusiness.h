@@ -29,8 +29,8 @@
 #include "NetTVSDKServerInterface.h"
 #include "NetTVConfigCbExecute.h"
 #include "DeviceInfoConvert.h"
-#include "CapabilityInfoConvert.h"
-#include "AlarmInfoConvert.h"
+#include "VisualSecurity/CapabilityInfoConvert.h"
+#include "VisualSecurity/AlarmInfoConvert.h"
 #include "SDKConvert.h"
 #include "NetSdkLog.h"
 #include <sstream>

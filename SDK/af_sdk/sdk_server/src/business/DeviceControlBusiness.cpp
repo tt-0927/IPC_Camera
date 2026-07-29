@@ -54,7 +54,7 @@ std::string CDeviceControlBusiness::DeviceControl(const std::string& req_data, c
     int nValidCode = ValidateDeviceControlInfo(stInfo);
     if (nValidCode != NET_E_SUCCEED)
     {
-        NSDK_LOG_WARN("DeviceControl request invalid: channel=%d, controlType=%d, command=%d, speed=%d, durationMs=%d",
+        NETSDK_LOG_MESSAGE_WARN("DeviceControl request invalid: channel=%d, controlType=%d, command=%d, speed=%d, durationMs=%d",
                       stInfo.uChannelID,
                       stInfo.uControlType,
                       stInfo.uCommand,
@@ -63,7 +63,7 @@ std::string CDeviceControlBusiness::DeviceControl(const std::string& req_data, c
         return SDKConvert::to_respString(nValidCode, stInfo);
     }
 
-    NSDK_LOG_INFO("DeviceControl request: channel=%d, controlType=%d, command=%d, speed=%d, durationMs=%d",
+    NETSDK_LOG_MESSAGE_INFO("DeviceControl request: channel=%d, controlType=%d, command=%d, speed=%d, durationMs=%d",
                   stInfo.uChannelID,
                   stInfo.uControlType,
                   stInfo.uCommand,
@@ -73,7 +73,7 @@ std::string CDeviceControlBusiness::DeviceControl(const std::string& req_data, c
     int nRespCode = NetSDK_ExecuteCb_DeviceControl(&stInfo);
     if (nRespCode != NET_E_SUCCEED)
     {
-        NSDK_LOG_WARN("DeviceControl callback failed, ret=%d", nRespCode);
+        NETSDK_LOG_MESSAGE_WARN("DeviceControl callback failed, ret=%d", nRespCode);
     }
 
     return SDKConvert::to_respString(nRespCode, stInfo);

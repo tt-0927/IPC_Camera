@@ -1,5 +1,5 @@
 /**
- * @file DiscoveryResponder.cpp
+ * @file CDiscoveryResponder.cpp
  * @author tianl (tianl@kfb.cn)
  * @date 2026-07-28
  * @LastEditors  : qinjt@kfb.cn

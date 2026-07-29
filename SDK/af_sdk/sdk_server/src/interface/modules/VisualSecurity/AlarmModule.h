@@ -1,19 +1,7 @@
 /**
- * @file AlarmModule.h
- * @author tianl (tianl@kfb.cn)
- * @date 2026-07-28
- * @LastEditors  : qinjt@kfb.cn
- * @LastEditTime : 2026-07-28
- *
- * @brief CAlarmModule 模块接口与类型定义
- * 功能说明：
- * 1. 声明 CAlarmModule 模块对外接口和数据类型
- * 2. 定义模块依赖的常量、回调或辅助类型
- * 3. 为调用方提供明确且稳定的编译期契约
- */
-/*
- * @Author       : chenchl
- * @Date         : 2025-01-02 16:01:20
+ * @brief 告警推送管理模块
+ * @author chenchl
+ * @date 2025-01-02
  * @LastEditors  : chenchl
  * @LastEditTime : 2025-01-02 17:03:03
  * @FilePath     : CAlarmModule.h

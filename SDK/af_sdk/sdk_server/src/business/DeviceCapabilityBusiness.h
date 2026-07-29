@@ -11,7 +11,7 @@
 #include <functional>
 
 #include "NetTVCapabilityCbExecute.h"
-#include "CapabilityInfoConvert.h"
+#include "VisualSecurity/CapabilityInfoConvert.h"
 #include "SDKConvert.h"
 #include "NetSdkLog.h"
 #include "Singleton.h"

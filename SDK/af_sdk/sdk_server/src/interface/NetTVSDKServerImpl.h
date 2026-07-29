@@ -3,11 +3,11 @@
 #include "NetTVSDKServerInterface.h"
 
 // 前向声明模块类
-class ServerModule;
-class SessionModule;
-class RouteModule;
-class AlarmModule;
-class DiscoveryResponder;
+class CServerModule;
+class CSessionModule;
+class CRouteModule;
+class CAlarmModule;
+class CDiscoveryResponder;
 
 /**
  * @brief Server实现类 - PIMPL协调器
@@ -104,12 +104,12 @@ private:
     bool m_bInitialized;  // 初始化标志
 
     // 模块智能指针（PIMPL第二层）
-    std::unique_ptr<ServerModule> m_pServerModule;
-    std::unique_ptr<SessionModule> m_pSessionModule;
-    std::unique_ptr<RouteModule> m_pRouteModule;
-    std::unique_ptr<AlarmModule> m_pAlarmModule;
+    std::unique_ptr<CServerModule> m_pServerModule;
+    std::unique_ptr<CSessionModule> m_pSessionModule;
+    std::unique_ptr<CRouteModule> m_pRouteModule;
+    std::unique_ptr<CAlarmModule> m_pAlarmModule;
 
     // 设备发现
-    std::unique_ptr<DiscoveryResponder> m_pDiscoveryResponder;
+    std::unique_ptr<CDiscoveryResponder> m_pDiscoveryResponder;
     NET_CB_GetDiscoveryDeviceInfo m_cbDiscoveryDeviceInfo{nullptr};
 };

@@ -11,11 +11,11 @@
 
 std::string CDeviceCapabilityBusiness::GetDeviceCapability(const std::string& req_data, const std::string& url_param)
 {
-    NSDK_LOG_DEBUG("GetDeviceCapability url_param: %s", url_param.c_str());
+    NETSDK_LOG_MESSAGE_DEBUG("GetDeviceCapability url_param: %s", url_param.c_str());
 
     // 解析URL参数
-    int channelId = ParseIntParam(url_param, TVAPI_PARAM_CHANNEL, 1);
-    int command = ParseIntParam(url_param, TVAPI_PARAM_COMMAND, 0);
+    int channelId = ParseIntParam(url_param, NET_API_PARAM_CHANNEL, 1);
+    int command = ParseIntParam(url_param, NET_API_PARAM_COMMAND, 0);
 
     switch (command)
     {
@@ -33,7 +33,7 @@ std::string CDeviceCapabilityBusiness::GetDeviceCapability(const std::string& re
              return HandleAudioEncode(channelId);
 
         default:
-            NSDK_LOG_WARN("Unsupported capability command: %d", command);
+            NETSDK_LOG_MESSAGE_WARN("Unsupported capability command: %d", command);
             return SDKConvert::to_respString(NET_E_CMD_NOT_SUPPORT);
     }
 }
@@ -47,7 +47,7 @@ std::string CDeviceCapabilityBusiness::HandleVideoEncode(int channelId)
     nRespCode = NetSDK_ExecuteCb_GetVideoEncodeCap(channelId, &stCap);
     if (nRespCode != NET_E_SUCCEED)
     {
-        NSDK_LOG_DEBUG("视频编码能力集回调执行失败! ret=%d", nRespCode);
+        NETSDK_LOG_MESSAGE_DEBUG("视频编码能力集回调执行失败! ret=%d", nRespCode);
     }
 
     return SDKConvert::to_respString(nRespCode, stCap);
@@ -62,7 +62,7 @@ std::string CDeviceCapabilityBusiness::HandleAudioEncode(int channelId)
     nRespCode = NetSDK_ExecuteCb_GetAudioCap(channelId, &stCap);
     if (nRespCode != NET_E_SUCCEED)
     {
-        NSDK_LOG_DEBUG("音频编码能力集回调执行失败! ret=%d", nRespCode);
+        NETSDK_LOG_MESSAGE_DEBUG("音频编码能力集回调执行失败! ret=%d", nRespCode);
     }
 
     return SDKConvert::to_respString(nRespCode, stCap);
@@ -77,7 +77,7 @@ std::string CDeviceCapabilityBusiness::HandleOsd(int channelId)
     nRespCode = NetSDK_ExecuteCb_GetOsdCap(channelId, &stCap);
     if (nRespCode != NET_E_SUCCEED)
     {
-        NSDK_LOG_DEBUG("OSD能力集回调执行失败! ret=%d", nRespCode);
+        NETSDK_LOG_MESSAGE_DEBUG("OSD能力集回调执行失败! ret=%d", nRespCode);
     }
 
     return SDKConvert::to_respString(nRespCode, stCap);

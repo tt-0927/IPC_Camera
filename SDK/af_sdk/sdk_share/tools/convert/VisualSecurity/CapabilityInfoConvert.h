@@ -70,10 +70,10 @@ namespace SDKConvert
     void deal(Json::Object* pRootJson, NET_OsdCap_S& stInfo, bool bOutStruct);
 
     // ==================== 后续扩展能力集 ====================
-    // NET_CAP_OSD: void deal(Json::Object*, NET_OSD_CAP_S&, bool);
-    // NET_CAP_SMART: void deal(Json::Object*, NET_SMART_CAP_S&, bool);
+    // NET_CAP_OSD: void deal(Json::Object*, NET_OsdCap_S&, bool);
+    // NET_CAP_SMART: void deal(Json::Object*, NET_SmartCap_S&, bool);
     // NET_CAP_IMAGE: void deal(Json::Object*, NET_IMAGE_CAP_S&, bool);
-    // NET_CAP_AUDIO: void deal(Json::Object*, NET_AUDIO_CAP_S&, bool);
+    // NET_CAP_AUDIO: void deal(Json::Object*, NET_AudioCap_S&, bool);
 };
 
 #endif
