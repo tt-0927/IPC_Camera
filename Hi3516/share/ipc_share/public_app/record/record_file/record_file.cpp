@@ -164,8 +164,10 @@ void CRecordFile::set_videoInfo(Record_NS::VideoConfigInfo_S stVideoConfigInfo)
 	bool bConfigChanged = false;
 	
 	/*检查分辨率是否变化*/
-	if (m_stSliceInfo.nVencWidth != stVideoConfigInfo.nVencWidth || 
-		m_stSliceInfo.nVencHeight != stVideoConfigInfo.nVencHeight) {
+	if ((m_stSliceInfo.nVencWidth != stVideoConfigInfo.nVencWidth || 
+		m_stSliceInfo.nVencHeight != stVideoConfigInfo.nVencHeight) && 
+		m_stSliceInfo.nVencWidth != 0)
+	{
 		dlog(LOG_FAULT, "分辨率变化: %dx%d ==> %dx%d", 
 			m_stSliceInfo.nVencWidth, m_stSliceInfo.nVencHeight,
 			stVideoConfigInfo.nVencWidth, stVideoConfigInfo.nVencHeight);
@@ -173,13 +175,15 @@ void CRecordFile::set_videoInfo(Record_NS::VideoConfigInfo_S stVideoConfigInfo)
 	}
 	
 	/*检查帧率是否变化*/
-	if (m_stSliceInfo.nFps != stVideoConfigInfo.nFps) {
+	if (m_stSliceInfo.nFps != stVideoConfigInfo.nFps && m_stSliceInfo.nFps != 0) 
+	{
 		dlog(LOG_FAULT, "帧率变化: %d ==> %d", m_stSliceInfo.nFps, stVideoConfigInfo.nFps);
 		bConfigChanged = true;
 	}
 	
 	/*检查视频编码格式是否变化*/
-	if (m_stSliceInfo.nVideoCodeID != stVideoConfigInfo.nVideoCodeID) {
+	if (m_stSliceInfo.nVideoCodeID != stVideoConfigInfo.nVideoCodeID && m_stSliceInfo.nVideoCodeID != 0) 
+	{
 		dlog(LOG_FAULT, "视频格式变化: %d ==> %d", m_stSliceInfo.nVideoCodeID, stVideoConfigInfo.nVideoCodeID);
 		bConfigChanged = true;
 	}
@@ -633,7 +637,7 @@ void CRecordFile::write_record()
 	}
 
 	/*检查视频配置是否变化，如果变化则触发切片*/
-	if (m_bHandleSlice.load() && stFfData.nType == AVMEDIA_TYPE_VIDEO && stFfData.nKey)
+	if (m_bHandleSlice.load() && stFfData.nType == AVMEDIA_TYPE_VIDEO && stFfData.nKey && m_ffmpegRecord.get_videoCount() != 0)
 	{
 		dlog_info("检测到视频配置变化，触发切片");
 		

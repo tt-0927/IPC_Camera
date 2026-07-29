@@ -5,6 +5,22 @@
 /* 命令相关 */
 using namespace Task;
 
+/*屏蔽相关action的日志打印*/
+static bool shouldSkipResultLog(int code)
+{
+    switch (code)
+    {
+    case 2604: // AC_GET_REAL_ALARM_PUSH_INFO
+    case 2606: // AC_OPERATE_IMAGE_ANALYSIS_RECORD
+    case 3105: // AC_GET_REPLAY_MEDIA_INFO
+    case 5011: // AC_FIND_LOG
+    case 5012: // AC_EXPORT_LOG
+        return true;
+    default:
+        return false;
+    }
+}
+
 std::string CTask::get_data(std::string jsonData)
 {
     Json::Object *pJsonRoot = Json::init(jsonData);
@@ -52,7 +68,7 @@ void CTask::deal_result(std::string data)
         fnDealResult(data);
         fnDealResult = nullptr;
 
-        if (m_nActionCode != 3105 /* AC_GET_REPLAY_MEDIA_INFO */)
+        if (!shouldSkipResultLog(m_nActionCode))
         {
             dlog_debug("result:%s", data.c_str());
         }
@@ -67,7 +83,7 @@ int CTask::result(std::string res, int nRes)
         if (stInfo.fnResultCallbacks)
         {
             stInfo.fnResultCallbacks(static_cast<const void *>(data.c_str()), data.size(), m_nActionCode, stInfo.pHandler);
-            if (m_nActionCode != 3105 /* AC_GET_REPLAY_MEDIA_INFO */)
+            if (!shouldSkipResultLog(m_nActionCode))
             {
                 dlog_debug("result:%s", data.c_str());
             }
@@ -89,7 +105,7 @@ void CTask::result(int nRet)
         if (stInfo.fnResultCallbacks)
         {
             stInfo.fnResultCallbacks(static_cast<const void *>(data.c_str()), data.size(), m_nActionCode, stInfo.pHandler);
-            if (m_nActionCode != 3105 /* AC_GET_REPLAY_MEDIA_INFO */)
+            if (!shouldSkipResultLog(m_nActionCode))
             {
                 dlog_debug("result:%s", data.c_str());
             }
@@ -130,7 +146,7 @@ void CTask::set_info(int nActionCode, Info_S stInfo)
     Json::get(stInfo.data.c_str(), "UniqueId", stInfo.nUniqueId);
     m_infos.insert(stInfo);
 
-    if (m_nActionCode != 3105 /* AC_GET_REPLAY_MEDIA_INFO */)
+    if (!shouldSkipResultLog(m_nActionCode))
     {
         dlog_debug("m_taskData:%s\n", m_taskData.c_str());
     }

@@ -188,7 +188,7 @@ public:
     bool disconnectWifi();// 断开当前 WiFi 连接
 
     // 4. 开启增强模式
-    bool setWifiEnhancedMode();
+    bool setWifiEnhancedMode(bool bEnableBoost);
     
     // // 5. 获取当前配置（可选）
     // GlobalConfig getConfig() const { return config; }

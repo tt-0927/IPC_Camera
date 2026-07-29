@@ -15,7 +15,9 @@
 #include <sstream>      // 用于字符串流
 #include <arpa/inet.h>
 #include <algorithm> 
-
+#include "network_convert.h"
+#include "convert_interface.h"
+#include "path_define.h"
 #define DEFAULT_PORT "/dev/ttyAMA2"
 #define BAUDRATE 115200
 
@@ -131,6 +133,15 @@ FourGManager::FourGManager() : port_name(DEFAULT_PORT), fd(-1), init_status(RET_
     system("bspmm 0x11130048 0x1105");/*io复用*/
     system("bspmm 0x1113004c 0x1105");
     #endif
+
+    if (Convert::read_file(NETWORK_4G_CONFIG_FILE, m_config) != OK)
+    {
+        dlog_info("[4G] No saved configuration, using defaults (enabled=false)");
+    }
+    else
+    {
+        dlog_info("[4G] Configuration loaded, enabled=%d", m_config.enabled ? 1 : 0);
+    }
     std::cout << "[4G] Module Initialized with APN: " << m_config.apn << std::endl;
 }
 
@@ -670,6 +681,16 @@ RetCode FourGManager::setConfig(const ::Network::Network_4G_Config_t &config) {
     }
 
     std::cout << "[4G] Configuration applied." << std::endl;
+    if (Convert::write_file(NETWORK_4G_CONFIG_FILE, m_config) != OK)
+    {
+        dlog_error("[4G] Failed to save configuration, enabled=%d", m_config.enabled ? 1 : 0);
+        return RET_ERR_CONFIG;
+    }
+
+    /* getSimInfo() 有短时缓存，设置成功后必须同步配置，避免立即获取时返回旧 enabled。 */
+    last_cached_info.set_config_ret = m_config;
+
+    std::cout << "[4G] Configuration applied and saved. enabled=" << m_config.enabled << std::endl;
     return RET_OK;
 }
 

@@ -272,8 +272,8 @@ public:
                const bool &enable,
                const bool &Custom,
                LoginResponse &out_response);
-
-    /**
+    
+               /**
      * @brief 将网页平台参数应用到运行时配置
      * @note 自定义平台时，HTTP 与 MQTT 共用 user/password。
      */
@@ -488,6 +488,7 @@ private:
     /* 自动登录最大重试次数（0 表示无限重试） */
     static constexpr int AUTO_LOGIN_MAX_RETRIES = 0;
     /* 当前已重试次数 */
+    //int m_nRetryCount = 0;
     std::atomic<int> m_nRetryCount{0};
     /* 初始化完成标志 */
     bool m_bInited = false;

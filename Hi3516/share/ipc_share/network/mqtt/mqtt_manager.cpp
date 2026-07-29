@@ -85,8 +85,15 @@ void CMqttManager::deinit()
         m_ReconnectThread.join();
     }
 
-    /* 与 publish()/do_connect() 共用句柄锁，避免释放期间仍有异步发送。 */
+    /* 断开 MQTT 连接 
+    if (m_pstMqtt != nullptr)
     {
+        m_pstMqtt->uninit(m_pstMqtt);
+        bl_mqtt_release(m_pstMqtt);
+        m_pstMqtt = nullptr;
+    }*/
+   /* 与 publish()/do_connect() 共用句柄锁，避免释放期间仍有异步发送。 */
+   {
         std::lock_guard<std::mutex> lock(m_mtxConnect);
         m_bConnected.store(false);
         if (m_pstMqtt != nullptr)
@@ -96,6 +103,8 @@ void CMqttManager::deinit()
             m_pstMqtt = nullptr;
         }
     }
+
+    //m_bConnected.store(false);
     {
         std::lock_guard<std::mutex> lock(m_mtxTopics);
         m_vecSubscribedTopics.clear();
@@ -123,6 +132,13 @@ int CMqttManager::publish(const std::string &strTopic, const std::string &strPay
         dlog_warn("MQTT 发布失败：未连接");
         return ERR_UNINIT;
     }
+
+    /* 参数校验 
+    if (strTopic.empty() || strPayload.empty())
+    {
+        dlog_error("MQTT 发布失败：Topic 或 Payload 为空");
+        return ERR_PARAM_NULL;
+    }*/
 
     /* 异步发布消息 */
     char *pTopic = const_cast<char *>(strTopic.c_str());

@@ -260,7 +260,8 @@ int EventSearch::searchByImageType(Event::RetrievalCond_S &stCond, std::vector<C
         stPageInfo.nPageTotal = (stPageInfo.nDataTotal + stPageInfo.nPageSize - 1) / stPageInfo.nPageSize;
         /* 根据id升序 */
         std::string key = "order by " + std::string(DB_COMMON_FIELD_ID);
-        std::string order = "asc";
+        // std::string order = "asc";
+        std::string order = "desc"; /* 根据id降序，最新的图片优先返回 */
         methods.push_back(MatchMethod(Element(key, order), FIND_CRITERION_NONE, FIND_CRITERION_NONE));
         /* 一页数据个数 */
         key = "limit";
@@ -279,6 +280,9 @@ int EventSearch::searchByImageType(Event::RetrievalCond_S &stCond, std::vector<C
         int nCount = -1;
         CCaptureDatabase::instance()->get_count(methods, nCount, DB_COMMON_FIELD_ID);
         stPageInfo.nDataTotal = nCount;
+         /* 不分页查询也按id降序返回 */
+         std::string key = "order by " + std::string(DB_COMMON_FIELD_ID);
+         methods.push_back(MatchMethod(Element(key, "desc"), FIND_CRITERION_NONE, FIND_CRITERION_NONE));
     }
     if (methods.size() != 0)
     {

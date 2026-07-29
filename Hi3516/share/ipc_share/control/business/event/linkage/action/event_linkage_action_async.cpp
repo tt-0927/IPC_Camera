@@ -348,9 +348,11 @@ void EventLinkageAsyncAction::play_audio(const std::string &strAudioPath,
 
     bRunningFlag.store(false);
 #endif
+#if CAP_IO_EXTERNAL_DDR_00S
     /* 等待尾帧播放完成后关闭功放，V1/V2播放路径均生效 */
     CAVConfigure::instance()->waitAoDrained(0, 200);
     CAVConfigure::instance()->muteAudioOutput();
+    #endif
 }
 
 void EventLinkageAsyncAction::execute_email(const LinkageTask_S &stTask, std::atomic<bool> &bRunningFlag)

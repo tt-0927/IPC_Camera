@@ -44,7 +44,9 @@ public:
             return -1;
         }
 		if (empty()) {
-            if (nTimeout == TIMEOUT_FOREVER) {
+			if (nTimeout == TIMEOUT_NONE) {
+				return -1;
+			} else if (nTimeout == TIMEOUT_FOREVER) {
                 m_cond.wait(mtx);
             } else {
                 m_cond.wait_for(mtx, std::chrono::milliseconds(nTimeout));
@@ -70,7 +72,9 @@ public:
             return -1;
         }
 		if (empty()) {
-            if (nTimeout == TIMEOUT_FOREVER) {
+			if (nTimeout == TIMEOUT_NONE) {
+				return -1;
+			} else if (nTimeout == TIMEOUT_FOREVER) {
                 m_cond.wait(mtx);
             } else {
                 m_cond.wait_for(mtx, std::chrono::milliseconds(nTimeout));
@@ -93,7 +97,9 @@ public:
         }
 
 		if (full()) {
-            if (nTimeout == TIMEOUT_FOREVER) {
+			if (nTimeout == TIMEOUT_NONE) {
+				return -1;
+			} else if (nTimeout == TIMEOUT_FOREVER) {
                 m_cond.wait(mtx);
             } else {
 			    m_cond.wait_for(mtx, std::chrono::milliseconds(nTimeout));

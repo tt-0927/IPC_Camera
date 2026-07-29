@@ -227,8 +227,10 @@ int CPreviewManage::set_intercom_info(Preview::IntercomInfo_S stInfo)
         /* 对讲结束，立即关闭功放消除结尾噗声 */
         CAVConfigure::instance()->muteAudioOutput();
 #endif
+#if CAP_IO_EXTERNAL_DDR_00S
         CAVConfigure::instance()->waitAoDrained(0, 200);
         CAVConfigure::instance()->muteAudioOutput();
+#endif
     }
 
 	return OK;
@@ -285,9 +287,11 @@ int CPreviewManage::set_broadcast_info(Preview::BroadcastInfo_S stInfo)
         /* 广播结束，立即关闭功放消除结尾噗声 */
         CAVConfigure::instance()->muteAudioOutput();
 #endif
+#if CAP_IO_EXTERNAL_DDR_00S
         /* 广播结束，立即关闭功放消除结尾噗声 */
         CAVConfigure::instance()->waitAoDrained(0, 200);
         CAVConfigure::instance()->muteAudioOutput();
+        #endif
     }
 
 	return OK;

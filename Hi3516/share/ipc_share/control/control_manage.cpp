@@ -62,6 +62,7 @@
 #include "wifi_manage.h"
 #include "production_test_task.h"
 #include "4g_manage.h"
+#include "hostapd_manager.h"
 #ifdef ENABLE_AI_STUDENT
 #include "ai_student_business.hpp"
 #include "ai_student_task.h"
@@ -170,11 +171,34 @@ int ControlManage::init_business()
     }
 #if CAP_NETWORK_WIFI
     /* wifi初始化 */
-    nRet = CWifiManager::instance()->init();
-    if (nRet < OK)
+    // nRet = CWifiManager::instance()->init();
+    // if (nRet < OK)
+    // {
+    //     dlog_error("wifi管理模块初始化失败：%d", nRet);
+    //     return nRet;
+    // }
+    Network::HotspotConfig hotspotConfig;
+    HostapdManager::instance()->get_hostapd_config(hotspotConfig);
+
+    if (hotspotConfig.enabled)
     {
-        dlog_error("wifi管理模块初始化失败：%d", nRet);
-        return nRet;
+        /* 热点和 WiFi STA 共用 wlan0，配置为热点时只恢复热点，不能再启动 STA。 */
+        InitResult hotspotResult = HostapdManager::instance()->Init(hotspotConfig, "eth0");
+        if (hotspotResult != InitResult::SUCCESS)
+        {
+            dlog_error("热点开机恢复失败：%d", static_cast<int>(hotspotResult));
+            return ERR;
+        }
+        dlog_info("热点已根据持久化配置自动恢复：%s", hotspotConfig.ssid.c_str());
+    }
+    else
+    {        /* 热点未启用时，按原逻辑启动 WiFi STA。 */
+        nRet = CWifiManager::instance()->init();
+        if (nRet < OK)
+        {
+            dlog_error("wifi管理模块初始化失败：%d", nRet);
+            return nRet;
+        }
     }
 #endif
 #if CAP_NETWORK_4G

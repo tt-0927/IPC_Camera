@@ -48,6 +48,7 @@ bool read_platform_port(Json::Object *pJson, const char *pszKey, int &nPort)
 }
 }
 
+
 void Convert::deal(Json::Object *pRootJson, Network::CheckMacValid_S &stInfo, bool bOutStruct)
 {
 	if (!pRootJson)

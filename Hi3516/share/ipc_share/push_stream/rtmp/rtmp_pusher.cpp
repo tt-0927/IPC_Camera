@@ -217,6 +217,7 @@ void CRtmpPusher::reconnect_loop()
         {
             std::unique_lock<std::mutex> lock(m_mutexReconnect);
             m_cvReconnect.wait_for(lock, std::chrono::seconds(5), [this]() {
+                //return m_bStopReconnect.load();
                 return m_bStopReconnect.load() || m_bReconnectRequested.load();
             });
 
@@ -258,6 +259,7 @@ void CRtmpPusher::reconnect_loop()
 
 void CRtmpPusher::trigger_reconnect()
 {
+    //std::lock_guard<std::mutex> lock(m_mutexReconnect);
     /* 先记录请求，再唤醒等待线程；通知早到也会由等待条件消费。 */
     m_bReconnectRequested.store(true);
     m_cvReconnect.notify_one();
