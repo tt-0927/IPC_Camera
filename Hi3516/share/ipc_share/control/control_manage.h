@@ -46,7 +46,7 @@ public:
 #ifdef ENABLE_TVSDK_SRC
     /**
      * @brief TVSDK：推送告警（事件模块使用）
-     * @param lCommand 告警命令码/类型（NET_TV_ALARM_*）
+     * @param lCommand 告警命令码/类型（NET_ALARM_*）
      * @param pAlarmInfo 告警结构体指针
      * @param dwBufLen 告警结构体长度
      * @return 0 成功，负值失败

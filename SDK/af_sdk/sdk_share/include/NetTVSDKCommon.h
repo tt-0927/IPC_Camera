@@ -1031,14 +1031,14 @@ typedef enum tagNETTVCfgCmd
     NET_GET_MOTIONALARM              = 200,              /* 获取运动检测告警信息 参见#NET_MotionAlarmInfo_S  Get motion alarm configuration information, see #NET_MotionAlarmInfo_S */
     NET_SET_MOTIONALARM              = 201,              /* 设置运动检测告警信息 参见#NET_MotionAlarmInfo_S  Set motion alarm configuration information, see #NET_MotionAlarmInfo_S */
 
-    NET_GET_CROSSLINEALARM           = 202,              /* 获取越界检测告警信息 参见NET_TV_CROSS_LINE_ALARM_INFO_S Get Cross Line alarm configuration information, see #NET_CrossLineAlarmInfo_S*/
-    NET_SET_CROSSLINEALARM           = 203,              /* 设置越界检测告警信息 参见NET_TV_CROSS_LINE_ALARM_INFO_S Set Cross Line alarm configuration information, see #NET_CrossLineAlarmInfo_S*/
+    NET_GET_CROSSLINEALARM           = 202,              /* 获取越界检测告警信息 参见NET_CROSS_LINE_ALARM_INFO_S Get Cross Line alarm configuration information, see #NET_CrossLineAlarmInfo_S*/
+    NET_SET_CROSSLINEALARM           = 203,              /* 设置越界检测告警信息 参见NET_CROSS_LINE_ALARM_INFO_S Set Cross Line alarm configuration information, see #NET_CrossLineAlarmInfo_S*/
 
-    NET_GET_INTRUSIONALARM           = 204,              /* 获取入侵检测告警信息 参见NET_TV_INTRUSION_ALARM_INFO_S Get intrusion alarm configuration information, see #NET_IntrusionAlarmInfo_S*/
-    NET_SET_INTRUSIONALARM           = 205,              /* 设置入侵检测告警信息 参见NET_TV_INTRUSION_ALARM_INFO_S Set intrusion alarm configuration information, see #NET_IntrusionAlarmInfo_S*/
+    NET_GET_INTRUSIONALARM           = 204,              /* 获取入侵检测告警信息 参见NET_INTRUSION_ALARM_INFO_S Get intrusion alarm configuration information, see #NET_IntrusionAlarmInfo_S*/
+    NET_SET_INTRUSIONALARM           = 205,              /* 设置入侵检测告警信息 参见NET_INTRUSION_ALARM_INFO_S Set intrusion alarm configuration information, see #NET_IntrusionAlarmInfo_S*/
 
-    NET_GET_LOITERINGALARM           = 206,              /* 获取徘徊侦测告警信息 参见NET_TV_LOITERING_ALARM_INFO_S Get loitering alarm configuration information, see #NET_LoiteringAlarmInfo_S*/
-    NET_SET_LOITERINGALARM           = 207,              /* 设置徘徊侦测告警信息 参见NET_TV_LOITERING_ALARM_INFO_S Set loitering alarm configuration information, see #NET_LoiteringAlarmInfo_S*/
+    NET_GET_LOITERINGALARM           = 206,              /* 获取徘徊侦测告警信息 参见NET_LOITERING_ALARM_INFO_S Get loitering alarm configuration information, see #NET_LoiteringAlarmInfo_S*/
+    NET_SET_LOITERINGALARM           = 207,              /* 设置徘徊侦测告警信息 参见NET_LOITERING_ALARM_INFO_S Set loitering alarm configuration information, see #NET_LoiteringAlarmInfo_S*/
 
     NET_GET_CAPTURE_PLAN_INFO        = 208,              /* 获取抓图计划信息 */
     NET_SET_CAPTURE_PLAN_INFO        = 209,              /* 设置抓图计划信息 */
@@ -1056,20 +1056,20 @@ typedef enum tagNETTVCfgCmd
     NET_GET_WHITEBALANCE_INFO        = 220,              /* 获取白平衡信息 */
     NET_SET_WHITEBALANCE_INFO        = 221,              /* 设置白平衡信息 */
 
-    NET_GET_AUDIOANOMALYALARM        = 222,              /* 获取音频异常侦测告警信息 参见NET_TV_AUDIO_ANOMALY_ALARM_INFO_S */
-    NET_SET_AUDIOANOMALYALARM        = 223,              /* 设置音频异常侦测告警信息 参见NET_TV_AUDIO_ANOMALY_ALARM_INFO_S */
-    NET_GET_PREVIEW_INFO             = 224,              /* 获取预览信息 参见NET_TV_PREVIEW_INFO_S */
-    NET_SET_PREVIEW_INFO             = 225,              /* 设置预览信息 参见NET_TV_PREVIEW_INFO_S */
-    NET_GET_SCENECHANGEALARM         = 226,              /* 获取场景变更侦测告警信息 参见NET_TV_SCENE_CHANGE_ALARM_INFO_S */
-    NET_SET_SCENECHANGEALARM         = 227,              /* 设置场景变更侦测告警信息 参见NET_TV_SCENE_CHANGE_ALARM_INFO_S */
-    NET_GET_CROWDGATHERINGALARM      = 228,              /* 获取人员聚集侦测告警信息 参见NET_TV_CROWD_GATHERING_ALARM_INFO_S */
-    NET_SET_CROWDGATHERINGALARM      = 229,              /* 设置人员聚集侦测告警信息 参见NET_TV_CROWD_GATHERING_ALARM_INFO_S */
-    NET_GET_PARKINGALARM             = 230,              /* 获取停车侦测告警信息 参见NET_TV_PARKING_ALARM_INFO_S */
-    NET_SET_PARKINGALARM             = 231,              /* 设置停车侦测告警信息 参见NET_TV_PARKING_ALARM_INFO_S */
-    NET_GET_UNATTENDEDOBJECTALARM    = 232,              /* 获取物品遗留侦测告警信息 参见NET_TV_UNATTENDED_OBJECT_ALARM_INFO_S */
-    NET_SET_UNATTENDEDOBJECTALARM    = 233,              /* 设置物品遗留侦测告警信息 参见NET_TV_UNATTENDED_OBJECT_ALARM_INFO_S */
-    NET_GET_OBJECTREMOVALALARM       = 234,              /* 获取物品拿取侦测告警信息 参见NET_TV_OBJECT_REMOVAL_ALARM_INFO_S */
-    NET_SET_OBJECTREMOVALALARM       = 235,              /* 设置物品拿取侦测告警信息 参见NET_TV_OBJECT_REMOVAL_ALARM_INFO_S */
+    NET_GET_AUDIOANOMALYALARM        = 222,              /* 获取音频异常侦测告警信息 参见NET_AUDIO_ANOMALY_ALARM_INFO_S */
+    NET_SET_AUDIOANOMALYALARM        = 223,              /* 设置音频异常侦测告警信息 参见NET_AUDIO_ANOMALY_ALARM_INFO_S */
+    NET_GET_PREVIEW_INFO             = 224,              /* 获取预览信息 参见NET_PREVIEW_INFO_S */
+    NET_SET_PREVIEW_INFO             = 225,              /* 设置预览信息 参见NET_PREVIEW_INFO_S */
+    NET_GET_SCENECHANGEALARM         = 226,              /* 获取场景变更侦测告警信息 参见NET_SCENE_CHANGE_ALARM_INFO_S */
+    NET_SET_SCENECHANGEALARM         = 227,              /* 设置场景变更侦测告警信息 参见NET_SCENE_CHANGE_ALARM_INFO_S */
+    NET_GET_CROWDGATHERINGALARM      = 228,              /* 获取人员聚集侦测告警信息 参见NET_CROWD_GATHERING_ALARM_INFO_S */
+    NET_SET_CROWDGATHERINGALARM      = 229,              /* 设置人员聚集侦测告警信息 参见NET_CROWD_GATHERING_ALARM_INFO_S */
+    NET_GET_PARKINGALARM             = 230,              /* 获取停车侦测告警信息 参见NET_PARKING_ALARM_INFO_S */
+    NET_SET_PARKINGALARM             = 231,              /* 设置停车侦测告警信息 参见NET_PARKING_ALARM_INFO_S */
+    NET_GET_UNATTENDEDOBJECTALARM    = 232,              /* 获取物品遗留侦测告警信息 参见NET_UNATTENDED_OBJECT_ALARM_INFO_S */
+    NET_SET_UNATTENDEDOBJECTALARM    = 233,              /* 设置物品遗留侦测告警信息 参见NET_UNATTENDED_OBJECT_ALARM_INFO_S */
+    NET_GET_OBJECTREMOVALALARM       = 234,              /* 获取物品拿取侦测告警信息 参见NET_OBJECT_REMOVAL_ALARM_INFO_S */
+    NET_SET_OBJECTREMOVALALARM       = 235,              /* 设置物品拿取侦测告警信息 参见NET_OBJECT_REMOVAL_ALARM_INFO_S */
     NET_SET_CONFIG_WIFI_STA          = 236,              /* WIFI配置（STA） 参见 NET_WifiStaCfg_S */
     NET_CONNECT_WIFI_STA             = 237,              /* WIFI连接（STA） 参见 NET_WifiStaConnect_S */
     NET_DISCONNECT_WIFI_STA          = 238,              /* WIFI断开（STA） */
@@ -1077,114 +1077,114 @@ typedef enum tagNETTVCfgCmd
     NET_SET_4G_INFO                  = 240,              /* 设置4G配置 参见 NET_4GInfo_S */
     NET_SET_HOTSPOT_INFO             = 241,              /* 设置热点配置 参见 NET_HotspotInfo_S */
 
-    NET_GET_ENTERREGIONALARM         = 242,              /* 获取进入区域侦测告警信息 参见NET_TV_ENTER_REGION_ALARM_INFO_S */
-    NET_SET_ENTERREGIONALARM         = 243,              /* 设置进入区域侦测告警信息 参见NET_TV_ENTER_REGION_ALARM_INFO_S */
-    NET_GET_LEAVEREGIONALARM         = 244,              /* 获取离开区域侦测告警信息 参见NET_TV_LEAVE_REGION_ALARM_INFO_S */
-    NET_SET_LEAVEREGIONALARM         = 245,              /* 设置离开区域侦测告警信息 参见NET_TV_LEAVE_REGION_ALARM_INFO_S */
-    NET_GET_FACECAPTUREINFO          = 246,              /* 获取人脸抓拍配置信息 参见NET_TV_FACE_CAPTURE_INFO_S */
-    NET_SET_FACECAPTUREINFO          = 247,              /* 设置人脸抓拍配置信息 参见NET_TV_FACE_CAPTURE_INFO_S */
+    NET_GET_ENTERREGIONALARM         = 242,              /* 获取进入区域侦测告警信息 参见NET_ENTER_REGION_ALARM_INFO_S */
+    NET_SET_ENTERREGIONALARM         = 243,              /* 设置进入区域侦测告警信息 参见NET_ENTER_REGION_ALARM_INFO_S */
+    NET_GET_LEAVEREGIONALARM         = 244,              /* 获取离开区域侦测告警信息 参见NET_LEAVE_REGION_ALARM_INFO_S */
+    NET_SET_LEAVEREGIONALARM         = 245,              /* 设置离开区域侦测告警信息 参见NET_LEAVE_REGION_ALARM_INFO_S */
+    NET_GET_FACECAPTUREINFO          = 246,              /* 获取人脸抓拍配置信息 参见NET_FACE_CAPTURE_INFO_S */
+    NET_SET_FACECAPTUREINFO          = 247,              /* 设置人脸抓拍配置信息 参见NET_FACE_CAPTURE_INFO_S */
     NET_GET_HOTSPOT_CONN             = 248,              /* 获取热点连接设备 参见 NET_HotspotConnInfo_S */
 
-    NET_GET_CHANNEL_INFO             = 300,              /* 获取通道信息 参见NET_TV_CHANNEL_INFO_S */
-    NET_GET_CHANNEL_LIST             = 301,              /* 获取全部通道信息 参见NET_TV_CHANNEL_LIST_S */
+    NET_GET_CHANNEL_INFO             = 300,              /* 获取通道信息 参见NET_CHANNEL_INFO_S */
+    NET_GET_CHANNEL_LIST             = 301,              /* 获取全部通道信息 参见NET_CHANNEL_LIST_S */
 
-    NET_STATE_TALKBACK               = 400,              /* 设置对讲状态信息 参见NET_TV_INTERCOM_INFO_S */
-    NET_TO_STREAM_TALKBACK           = 401,              /* 流媒体对讲：发送对讲数据 参见NET_TV_REPLAY_TALKBACK_INFO_S */
-    NET_FROM_STREAM_TALKBACK         = 402,              /* 流媒体对讲：接收对讲数据 参见NET_TV_REPLAY_TALKBACK_INFO_S */
-    NET_REPLAY_TALKBACK              = 403,              /* 流媒体对讲：回放对讲数据 参见NET_TV_REPLAY_TALKBACK_INFO_S */
+    NET_STATE_TALKBACK               = 400,              /* 设置对讲状态信息 参见NET_INTERCOM_INFO_S */
+    NET_TO_STREAM_TALKBACK           = 401,              /* 流媒体对讲：发送对讲数据 参见NET_REPLAY_TALKBACK_INFO_S */
+    NET_FROM_STREAM_TALKBACK         = 402,              /* 流媒体对讲：接收对讲数据 参见NET_REPLAY_TALKBACK_INFO_S */
+    NET_REPLAY_TALKBACK              = 403,              /* 流媒体对讲：回放对讲数据 参见NET_REPLAY_TALKBACK_INFO_S */
 
-    NET_GET_GARBAGE_EXPOSURE_CFG     = 404,              /* 获取垃圾暴露配置 参见NET_TV_GARBAGE_EXPOSURE_CFG_S */
-    NET_SET_GARBAGE_EXPOSURE_CFG     = 405,              /* 设置垃圾暴露配置 参见NET_TV_GARBAGE_EXPOSURE_CFG_S */
-    NET_GET_GARBAGE_OVERFLOW_CFG     = 406,              /* 获取垃圾满溢配置 参见NET_TV_GARBAGE_OVERFLOW_CFG_S */
-    NET_SET_GARBAGE_OVERFLOW_CFG     = 407,              /* 设置垃圾满溢配置 参见NET_TV_GARBAGE_OVERFLOW_CFG_S */
+    NET_GET_GARBAGE_EXPOSURE_CFG     = 404,              /* 获取垃圾暴露配置 参见NET_GARBAGE_EXPOSURE_CFG_S */
+    NET_SET_GARBAGE_EXPOSURE_CFG     = 405,              /* 设置垃圾暴露配置 参见NET_GARBAGE_EXPOSURE_CFG_S */
+    NET_GET_GARBAGE_OVERFLOW_CFG     = 406,              /* 获取垃圾满溢配置 参见NET_GARBAGE_OVERFLOW_CFG_S */
+    NET_SET_GARBAGE_OVERFLOW_CFG     = 407,              /* 设置垃圾满溢配置 参见NET_GARBAGE_OVERFLOW_CFG_S */
 
-    NET_GET_PEOPLE_FLOW_STATISTICS_CFG = 408,           /* 获取人流统计配置 参见NET_TV_PEOPLE_FLOW_STATISTICS_CFG_S */
-    NET_SET_PEOPLE_FLOW_STATISTICS_CFG = 409,           /* 设置人流统计配置 参见NET_TV_PEOPLE_FLOW_STATISTICS_CFG_S */
+    NET_GET_PEOPLE_FLOW_STATISTICS_CFG = 408,           /* 获取人流统计配置 参见NET_PEOPLE_FLOW_STATISTICS_CFG_S */
+    NET_SET_PEOPLE_FLOW_STATISTICS_CFG = 409,           /* 设置人流统计配置 参见NET_PEOPLE_FLOW_STATISTICS_CFG_S */
     NET_RESET_PEOPLE_FLOW_STATISTICS   = 410,           /* 立即清零人流统计结果 */
-    NET_GET_PEOPLE_DENSITY_DETECTION_CFG = 411,         /* 获取人员密度检测配置 参见NET_TV_PEOPLE_DENSITY_DETECTION_CFG_S */
-    NET_SET_PEOPLE_DENSITY_DETECTION_CFG = 412,         /* 设置人员密度检测配置 参见NET_TV_PEOPLE_DENSITY_DETECTION_CFG_S */
+    NET_GET_PEOPLE_DENSITY_DETECTION_CFG = 411,         /* 获取人员密度检测配置 参见NET_PEOPLE_DENSITY_DETECTION_CFG_S */
+    NET_SET_PEOPLE_DENSITY_DETECTION_CFG = 412,         /* 设置人员密度检测配置 参见NET_PEOPLE_DENSITY_DETECTION_CFG_S */
 
-    NET_GET_MANHOLE_COVER_ABNORMAL_CFG = 413,           /* 获取井盖异常检测配置 参见NET_TV_MANHOLE_COVER_ABNORMAL_CFG_S */
-    NET_SET_MANHOLE_COVER_ABNORMAL_CFG = 414,           /* 设置井盖异常检测配置 参见NET_TV_MANHOLE_COVER_ABNORMAL_CFG_S */
-    NET_GET_SLEEP_ON_DUTY_CFG          = 415,           /* 获取睡岗识别配置 参见NET_TV_SLEEP_ON_DUTY_CFG_S */
-    NET_SET_SLEEP_ON_DUTY_CFG          = 416,           /* 设置睡岗识别配置 参见NET_TV_SLEEP_ON_DUTY_CFG_S */
-    NET_GET_ELECTRIC_VEHICLE_IN_ELEVATOR_CFG = 417,    /* 获取电瓶车进电梯识别配置 参见NET_TV_ELECTRIC_VEHICLE_IN_ELEVATOR_CFG_S */
-    NET_SET_ELECTRIC_VEHICLE_IN_ELEVATOR_CFG = 418,    /* 设置电瓶车进电梯识别配置 参见NET_TV_ELECTRIC_VEHICLE_IN_ELEVATOR_CFG_S */
-    NET_GET_PERSON_FALL_DOWN_CFG       = 419,           /* 获取人员倒地识别配置 参见NET_TV_PERSON_FALL_DOWN_CFG_S */
-    NET_SET_PERSON_FALL_DOWN_CFG       = 420,           /* 设置人员倒地识别配置 参见NET_TV_PERSON_FALL_DOWN_CFG_S */
-    NET_GET_CONSTRUCTION_OCCUPY_ROAD_CFG = 421,         /* 获取施工占道识别配置 参见NET_TV_CONSTRUCTION_OCCUPY_ROAD_CFG_S */
-    NET_SET_CONSTRUCTION_OCCUPY_ROAD_CFG = 422,         /* 设置施工占道识别配置 参见NET_TV_CONSTRUCTION_OCCUPY_ROAD_CFG_S */
-    NET_GET_CONGESTION_CFG             = 423,           /* 获取拥堵识别配置 参见NET_TV_CONGESTION_CFG_S */
-    NET_SET_CONGESTION_CFG             = 424,           /* 设置拥堵识别配置 参见NET_TV_CONGESTION_CFG_S */
-    NET_GET_LICENSE_PLATE_RECOGNITION_CFG = 425,        /* 获取车牌识别配置 参见NET_TV_LICENSE_PLATE_RECOGNITION_CFG_S */
-    NET_SET_LICENSE_PLATE_RECOGNITION_CFG = 426,        /* 设置车牌识别配置 参见NET_TV_LICENSE_PLATE_RECOGNITION_CFG_S */
-    NET_GET_HIGH_ALTITUDE_SEATBELT_CFG = 427,           /* 获取高空安全带识别配置 参见NET_TV_HIGH_ALTITUDE_SEATBELT_CFG_S */
-    NET_SET_HIGH_ALTITUDE_SEATBELT_CFG = 428,           /* 设置高空安全带识别配置 参见NET_TV_HIGH_ALTITUDE_SEATBELT_CFG_S */
-    NET_GET_SAFETY_HELMET_CFG          = 429,           /* 获取安全帽识别配置 参见NET_TV_SAFETY_HELMET_CFG_S */
-    NET_SET_SAFETY_HELMET_CFG          = 430,           /* 设置安全帽识别配置 参见NET_TV_SAFETY_HELMET_CFG_S */
-    NET_GET_PERSON_FALL_CFG            = 431,           /* 获取摔倒识别配置 参见NET_TV_PERSON_FALL_CFG_S */
-    NET_SET_PERSON_FALL_CFG            = 432,           /* 设置摔倒识别配置 参见NET_TV_PERSON_FALL_CFG_S */
-    NET_GET_PHONE_USAGE_CFG            = 433,           /* 获取玩手机识别配置 参见NET_TV_PHONE_USAGE_CFG_S */
-    NET_SET_PHONE_USAGE_CFG            = 434,           /* 设置玩手机识别配置 参见NET_TV_PHONE_USAGE_CFG_S */
-    NET_GET_SMOKING_CFG                = 435,           /* 获取抽烟识别配置 参见NET_TV_SMOKING_CFG_S */
-    NET_SET_SMOKING_CFG                = 436,           /* 设置抽烟识别配置 参见NET_TV_SMOKING_CFG_S */
-    NET_GET_OPEN_FLAME_CFG             = 437,           /* 获取明火识别配置 参见NET_TV_OPEN_FLAME_CFG_S */
-    NET_SET_OPEN_FLAME_CFG             = 438,           /* 设置明火识别配置 参见NET_TV_OPEN_FLAME_CFG_S */
-    NET_GET_BARE_SOIL_CFG              = 439,           /* 获取黄土裸露识别配置 参见NET_TV_BARE_SOIL_CFG_S */
-    NET_SET_BARE_SOIL_CFG              = 440,           /* 设置黄土裸露识别配置 参见NET_TV_BARE_SOIL_CFG_S */
-    NET_GET_HOLE_PROTECTION_BAR_CFG    = 441,           /* 获取洞口防护栏识别配置 参见NET_TV_HOLE_PROTECTION_BAR_CFG_S */
-    NET_SET_HOLE_PROTECTION_BAR_CFG    = 442,           /* 设置洞口防护栏识别配置 参见NET_TV_HOLE_PROTECTION_BAR_CFG_S */
-    NET_GET_REFLECTIVE_CLOTHING_CFG    = 443,           /* 获取反光衣识别配置 参见NET_TV_REFLECTIVE_CLOTHING_CFG_S */
-    NET_SET_REFLECTIVE_CLOTHING_CFG    = 444,           /* 设置反光衣识别配置 参见NET_TV_REFLECTIVE_CLOTHING_CFG_S */
+    NET_GET_MANHOLE_COVER_ABNORMAL_CFG = 413,           /* 获取井盖异常检测配置 参见NET_MANHOLE_COVER_ABNORMAL_CFG_S */
+    NET_SET_MANHOLE_COVER_ABNORMAL_CFG = 414,           /* 设置井盖异常检测配置 参见NET_MANHOLE_COVER_ABNORMAL_CFG_S */
+    NET_GET_SLEEP_ON_DUTY_CFG          = 415,           /* 获取睡岗识别配置 参见NET_SLEEP_ON_DUTY_CFG_S */
+    NET_SET_SLEEP_ON_DUTY_CFG          = 416,           /* 设置睡岗识别配置 参见NET_SLEEP_ON_DUTY_CFG_S */
+    NET_GET_ELECTRIC_VEHICLE_IN_ELEVATOR_CFG = 417,    /* 获取电瓶车进电梯识别配置 参见NET_ELECTRIC_VEHICLE_IN_ELEVATOR_CFG_S */
+    NET_SET_ELECTRIC_VEHICLE_IN_ELEVATOR_CFG = 418,    /* 设置电瓶车进电梯识别配置 参见NET_ELECTRIC_VEHICLE_IN_ELEVATOR_CFG_S */
+    NET_GET_PERSON_FALL_DOWN_CFG       = 419,           /* 获取人员倒地识别配置 参见NET_PERSON_FALL_DOWN_CFG_S */
+    NET_SET_PERSON_FALL_DOWN_CFG       = 420,           /* 设置人员倒地识别配置 参见NET_PERSON_FALL_DOWN_CFG_S */
+    NET_GET_CONSTRUCTION_OCCUPY_ROAD_CFG = 421,         /* 获取施工占道识别配置 参见NET_CONSTRUCTION_OCCUPY_ROAD_CFG_S */
+    NET_SET_CONSTRUCTION_OCCUPY_ROAD_CFG = 422,         /* 设置施工占道识别配置 参见NET_CONSTRUCTION_OCCUPY_ROAD_CFG_S */
+    NET_GET_CONGESTION_CFG             = 423,           /* 获取拥堵识别配置 参见NET_CONGESTION_CFG_S */
+    NET_SET_CONGESTION_CFG             = 424,           /* 设置拥堵识别配置 参见NET_CONGESTION_CFG_S */
+    NET_GET_LICENSE_PLATE_RECOGNITION_CFG = 425,        /* 获取车牌识别配置 参见NET_LICENSE_PLATE_RECOGNITION_CFG_S */
+    NET_SET_LICENSE_PLATE_RECOGNITION_CFG = 426,        /* 设置车牌识别配置 参见NET_LICENSE_PLATE_RECOGNITION_CFG_S */
+    NET_GET_HIGH_ALTITUDE_SEATBELT_CFG = 427,           /* 获取高空安全带识别配置 参见NET_HIGH_ALTITUDE_SEATBELT_CFG_S */
+    NET_SET_HIGH_ALTITUDE_SEATBELT_CFG = 428,           /* 设置高空安全带识别配置 参见NET_HIGH_ALTITUDE_SEATBELT_CFG_S */
+    NET_GET_SAFETY_HELMET_CFG          = 429,           /* 获取安全帽识别配置 参见NET_SAFETY_HELMET_CFG_S */
+    NET_SET_SAFETY_HELMET_CFG          = 430,           /* 设置安全帽识别配置 参见NET_SAFETY_HELMET_CFG_S */
+    NET_GET_PERSON_FALL_CFG            = 431,           /* 获取摔倒识别配置 参见NET_PERSON_FALL_CFG_S */
+    NET_SET_PERSON_FALL_CFG            = 432,           /* 设置摔倒识别配置 参见NET_PERSON_FALL_CFG_S */
+    NET_GET_PHONE_USAGE_CFG            = 433,           /* 获取玩手机识别配置 参见NET_PHONE_USAGE_CFG_S */
+    NET_SET_PHONE_USAGE_CFG            = 434,           /* 设置玩手机识别配置 参见NET_PHONE_USAGE_CFG_S */
+    NET_GET_SMOKING_CFG                = 435,           /* 获取抽烟识别配置 参见NET_SMOKING_CFG_S */
+    NET_SET_SMOKING_CFG                = 436,           /* 设置抽烟识别配置 参见NET_SMOKING_CFG_S */
+    NET_GET_OPEN_FLAME_CFG             = 437,           /* 获取明火识别配置 参见NET_OPEN_FLAME_CFG_S */
+    NET_SET_OPEN_FLAME_CFG             = 438,           /* 设置明火识别配置 参见NET_OPEN_FLAME_CFG_S */
+    NET_GET_BARE_SOIL_CFG              = 439,           /* 获取黄土裸露识别配置 参见NET_BARE_SOIL_CFG_S */
+    NET_SET_BARE_SOIL_CFG              = 440,           /* 设置黄土裸露识别配置 参见NET_BARE_SOIL_CFG_S */
+    NET_GET_HOLE_PROTECTION_BAR_CFG    = 441,           /* 获取洞口防护栏识别配置 参见NET_HOLE_PROTECTION_BAR_CFG_S */
+    NET_SET_HOLE_PROTECTION_BAR_CFG    = 442,           /* 设置洞口防护栏识别配置 参见NET_HOLE_PROTECTION_BAR_CFG_S */
+    NET_GET_REFLECTIVE_CLOTHING_CFG    = 443,           /* 获取反光衣识别配置 参见NET_REFLECTIVE_CLOTHING_CFG_S */
+    NET_SET_REFLECTIVE_CLOTHING_CFG    = 444,           /* 设置反光衣识别配置 参见NET_REFLECTIVE_CLOTHING_CFG_S */
 
-    NET_GET_PET_RECOGNITION_INFO       = 445,           /* 获取宠物识别配置 参见NET_TV_PET_RECOGNITION_INFO_S */
-    NET_SET_PET_RECOGNITION_INFO       = 446,           /* 设置宠物识别配置 参见NET_TV_PET_RECOGNITION_INFO_S */
-    NET_GET_CLIMB_FENCE_INFO           = 447,           /* 获取翻越围栏配置 参见NET_TV_CLIMB_FENCE_INFO_S */
-    NET_SET_CLIMB_FENCE_INFO           = 448,           /* 设置翻越围栏配置 参见NET_TV_CLIMB_FENCE_INFO_S */
-    NET_GET_DIMISSION_INFO             = 449,           /* 获取离岗配置 参见NET_TV_DIMISSION_INFO_S */
-    NET_SET_DIMISSION_INFO             = 450,           /* 设置离岗配置 参见NET_TV_DIMISSION_INFO_S */
-    NET_GET_ILLEGAL_LANE_INFO          = 451,           /* 获取违规变道配置 参见NET_TV_ILLEGAL_LANE_INFO_S */
-    NET_SET_ILLEGAL_LANE_INFO          = 452,           /* 设置违规变道配置 参见NET_TV_ILLEGAL_LANE_INFO_S */
-    NET_GET_RETROGRADE_INFO            = 453,           /* 获取逆行配置 参见NET_TV_RETROGRADE_INFO_S */
-    NET_SET_RETROGRADE_INFO            = 454,           /* 设置逆行配置 参见NET_TV_RETROGRADE_INFO_S */
-    NET_GET_NONMOTOR_VEHICLE_INTRUSION_INFO = 455,     /* 获取非机动车闯入配置 参见NET_TV_NONMOTOR_VEHICLE_INTRUSION_INFO_S */
-    NET_SET_NONMOTOR_VEHICLE_INTRUSION_INFO = 456,     /* 设置非机动车闯入配置 参见NET_TV_NONMOTOR_VEHICLE_INTRUSION_INFO_S */
-    NET_GET_OCCUPATION_EMERGENCY_INFO  = 457,           /* 获取应急车道占用识别配置 参见NET_TV_OCCUPATION_EMERGENCY_INFO_S */
-    NET_SET_OCCUPATION_EMERGENCY_INFO  = 458,           /* 设置应急车道占用识别配置 参见NET_TV_OCCUPATION_EMERGENCY_INFO_S */
-    NET_GET_PEDESTRIAN_INTRUSION_INFO  = 459,           /* 获取行人闯入配置 参见NET_TV_PEDESTRIAN_INTRUSION_INFO_S */
-    NET_SET_PEDESTRIAN_INTRUSION_INFO  = 460,           /* 设置行人闯入配置 参见NET_TV_PEDESTRIAN_INTRUSION_INFO_S */
-    NET_GET_SMOKE_FIRE_CFG             = 461,           /* 获取烟火识别配置 参见NET_TV_SMOKE_FIRE_CFG_S */
-    NET_SET_SMOKE_FIRE_CFG             = 462,           /* 设置烟火识别配置 参见NET_TV_SMOKE_FIRE_CFG_S */
-    NET_GET_ROAD_PONDING_CFG           = 463,           /* 获取道路积水检测配置 参见NET_TV_ROAD_PONDING_CFG_S */
-    NET_SET_ROAD_PONDING_CFG           = 464,           /* 设置道路积水检测配置 参见NET_TV_ROAD_PONDING_CFG_S */
-    NET_GET_SECURITY_SERVICES_INFO     = 465,           /* 获取安全服务配置 参见NET_TV_SECURITY_SERVICES_INFO_S */
-    NET_SET_SECURITY_SERVICES_INFO     = 466,           /* 设置安全服务配置 参见NET_TV_SECURITY_SERVICES_INFO_S */
-    NET_GET_SSH_COUNTDOWN              = 467,           /* 获取SSH倒计时 参见NET_TV_SSH_COUNTDOWN_INFO_S */
-    NET_FIND_LOG                       = 468,           /* 查询日志 参见NET_TV_LOG_LIST_S */
-    NET_EXPORT_LOG                     = 469,           /* 导出日志 参见NET_TV_LOG_LIST_S */
-    NET_GET_LOG_SERVER                 = 470,           /* 获取日志服务器配置 参见NET_TV_LOG_SERVER_INFO_S */
-    NET_SET_LOG_SERVER                 = 471,           /* 设置日志服务器配置 参见NET_TV_LOG_SERVER_INFO_S */
-    NET_TEST_LOG_SERVER                = 472,           /* 测试日志服务器配置 参见NET_TV_LOG_SERVER_INFO_S */
-    NET_CONTROL_RECORD_INFO            = 473,           /* 手动录像/停止录像 参见NET_TV_RECORD_INFO_S，IPC实际接AC_SET_HUMAN_RECORD */
-    NET_GET_RECORD_STATUS              = 474,           /* 获取录像状态 参见NET_TV_RECORD_STATUS_INFO_S */
-    NET_GET_RECORD_SCHEDULE            = 475,           /* 获取录像计划 参见NET_TV_RECORD_SCHEDULE_S */
-    NET_SET_RECORD_SCHEDULE            = 476,           /* 设置录像计划 参见NET_TV_RECORD_SCHEDULE_S */
-    NET_GET_RECORD_ADVANCED_PARAM      = 477,           /* 获取录像高级参数 参见NET_TV_RECORD_ADVANCED_PARAM_S */
-    NET_SET_RECORD_ADVANCED_PARAM      = 478,           /* 设置录像高级参数 参见NET_TV_RECORD_ADVANCED_PARAM_S */
-    NET_FIND_RECORD_FILE_INFO          = 479,           /* 查找录像文件 参见NET_TV_RECORD_FILE_LIST_S */
-    NET_DOWNLOAD_RECORD_FILE           = 480,           /* 下载录像文件 参见NET_TV_RECORD_DOWNLOAD_LIST_S */
-    NET_NOTICE_DOWNLOAD_RECORD_PROGRESS = 481,          /* 录像下载进度通知 参见NET_TV_RECORD_DOWNLOAD_PROGRESS_S */
-    NET_SET_FACE_COMPARE_INFO          = 482,           /* 设置人脸比对配置 参见NET_TV_FACE_COMPARE_INFO_S */
-    NET_ADD_TARGET_LIB                 = 483,           /* 添加目标库 参见NET_TV_FACE_LIB_INFO_S */
-    NET_DEL_TARGET_LIB                 = 484,           /* 删除目标库 参见NET_TV_FACE_LIB_INFO_S */
-    NET_SET_TARGET_LIB                 = 485,           /* 修改目标库 参见NET_TV_FACE_LIB_INFO_S */
-    NET_GET_TARGET_LIB                 = 486,           /* 获取目标库 参见NET_TV_FACE_LIB_LIST_S */
-    NET_ADD_FACE_INFO                  = 487,           /* 添加人脸 参见NET_TV_FACE_INFO_S */
-    NET_DEL_FACE_INFO                  = 488,           /* 删除人脸 参见NET_TV_FACE_ID_INFO_S */
-    NET_SET_FACE_INFO                  = 489,           /* 修改人脸 参见NET_TV_FACE_INFO_S */
-    NET_GET_FACE_INFO                  = 490,           /* 获取人脸 参见NET_TV_FACE_INFO_LIST_S */
-    NET_GET_VOICECOM_AUDIO_CFG         = 491,           /* 获取对讲音频参数 参见NET_TV_VOICECOM_AUDIO_CFG_S */
-    NET_SET_VOICECOM_AUDIO_CFG         = 492,           /* 设置对讲音频参数 参见NET_TV_VOICECOM_AUDIO_CFG_S */
+    NET_GET_PET_RECOGNITION_INFO       = 445,           /* 获取宠物识别配置 参见NET_PET_RECOGNITION_INFO_S */
+    NET_SET_PET_RECOGNITION_INFO       = 446,           /* 设置宠物识别配置 参见NET_PET_RECOGNITION_INFO_S */
+    NET_GET_CLIMB_FENCE_INFO           = 447,           /* 获取翻越围栏配置 参见NET_CLIMB_FENCE_INFO_S */
+    NET_SET_CLIMB_FENCE_INFO           = 448,           /* 设置翻越围栏配置 参见NET_CLIMB_FENCE_INFO_S */
+    NET_GET_DIMISSION_INFO             = 449,           /* 获取离岗配置 参见NET_DIMISSION_INFO_S */
+    NET_SET_DIMISSION_INFO             = 450,           /* 设置离岗配置 参见NET_DIMISSION_INFO_S */
+    NET_GET_ILLEGAL_LANE_INFO          = 451,           /* 获取违规变道配置 参见NET_ILLEGAL_LANE_INFO_S */
+    NET_SET_ILLEGAL_LANE_INFO          = 452,           /* 设置违规变道配置 参见NET_ILLEGAL_LANE_INFO_S */
+    NET_GET_RETROGRADE_INFO            = 453,           /* 获取逆行配置 参见NET_RETROGRADE_INFO_S */
+    NET_SET_RETROGRADE_INFO            = 454,           /* 设置逆行配置 参见NET_RETROGRADE_INFO_S */
+    NET_GET_NONMOTOR_VEHICLE_INTRUSION_INFO = 455,     /* 获取非机动车闯入配置 参见NET_NONMOTOR_VEHICLE_INTRUSION_INFO_S */
+    NET_SET_NONMOTOR_VEHICLE_INTRUSION_INFO = 456,     /* 设置非机动车闯入配置 参见NET_NONMOTOR_VEHICLE_INTRUSION_INFO_S */
+    NET_GET_OCCUPATION_EMERGENCY_INFO  = 457,           /* 获取应急车道占用识别配置 参见NET_OCCUPATION_EMERGENCY_INFO_S */
+    NET_SET_OCCUPATION_EMERGENCY_INFO  = 458,           /* 设置应急车道占用识别配置 参见NET_OCCUPATION_EMERGENCY_INFO_S */
+    NET_GET_PEDESTRIAN_INTRUSION_INFO  = 459,           /* 获取行人闯入配置 参见NET_PEDESTRIAN_INTRUSION_INFO_S */
+    NET_SET_PEDESTRIAN_INTRUSION_INFO  = 460,           /* 设置行人闯入配置 参见NET_PEDESTRIAN_INTRUSION_INFO_S */
+    NET_GET_SMOKE_FIRE_CFG             = 461,           /* 获取烟火识别配置 参见NET_SMOKE_FIRE_CFG_S */
+    NET_SET_SMOKE_FIRE_CFG             = 462,           /* 设置烟火识别配置 参见NET_SMOKE_FIRE_CFG_S */
+    NET_GET_ROAD_PONDING_CFG           = 463,           /* 获取道路积水检测配置 参见NET_ROAD_PONDING_CFG_S */
+    NET_SET_ROAD_PONDING_CFG           = 464,           /* 设置道路积水检测配置 参见NET_ROAD_PONDING_CFG_S */
+    NET_GET_SECURITY_SERVICES_INFO     = 465,           /* 获取安全服务配置 参见NET_SECURITY_SERVICES_INFO_S */
+    NET_SET_SECURITY_SERVICES_INFO     = 466,           /* 设置安全服务配置 参见NET_SECURITY_SERVICES_INFO_S */
+    NET_GET_SSH_COUNTDOWN              = 467,           /* 获取SSH倒计时 参见NET_SSH_COUNTDOWN_INFO_S */
+    NET_FIND_LOG                       = 468,           /* 查询日志 参见NET_LOG_LIST_S */
+    NET_EXPORT_LOG                     = 469,           /* 导出日志 参见NET_LOG_LIST_S */
+    NET_GET_LOG_SERVER                 = 470,           /* 获取日志服务器配置 参见NET_LOG_SERVER_INFO_S */
+    NET_SET_LOG_SERVER                 = 471,           /* 设置日志服务器配置 参见NET_LOG_SERVER_INFO_S */
+    NET_TEST_LOG_SERVER                = 472,           /* 测试日志服务器配置 参见NET_LOG_SERVER_INFO_S */
+    NET_CONTROL_RECORD_INFO            = 473,           /* 手动录像/停止录像 参见NET_RECORD_INFO_S，IPC实际接AC_SET_HUMAN_RECORD */
+    NET_GET_RECORD_STATUS              = 474,           /* 获取录像状态 参见NET_RECORD_STATUS_INFO_S */
+    NET_GET_RECORD_SCHEDULE            = 475,           /* 获取录像计划 参见NET_RECORD_SCHEDULE_S */
+    NET_SET_RECORD_SCHEDULE            = 476,           /* 设置录像计划 参见NET_RECORD_SCHEDULE_S */
+    NET_GET_RECORD_ADVANCED_PARAM      = 477,           /* 获取录像高级参数 参见NET_RECORD_ADVANCED_PARAM_S */
+    NET_SET_RECORD_ADVANCED_PARAM      = 478,           /* 设置录像高级参数 参见NET_RECORD_ADVANCED_PARAM_S */
+    NET_FIND_RECORD_FILE_INFO          = 479,           /* 查找录像文件 参见NET_RECORD_FILE_LIST_S */
+    NET_DOWNLOAD_RECORD_FILE           = 480,           /* 下载录像文件 参见NET_RECORD_DOWNLOAD_LIST_S */
+    NET_NOTICE_DOWNLOAD_RECORD_PROGRESS = 481,          /* 录像下载进度通知 参见NET_RECORD_DOWNLOAD_PROGRESS_S */
+    NET_SET_FACE_COMPARE_INFO          = 482,           /* 设置人脸比对配置 参见NET_FACE_COMPARE_INFO_S */
+    NET_ADD_TARGET_LIB                 = 483,           /* 添加目标库 参见NET_FACE_LIB_INFO_S */
+    NET_DEL_TARGET_LIB                 = 484,           /* 删除目标库 参见NET_FACE_LIB_INFO_S */
+    NET_SET_TARGET_LIB                 = 485,           /* 修改目标库 参见NET_FACE_LIB_INFO_S */
+    NET_GET_TARGET_LIB                 = 486,           /* 获取目标库 参见NET_FACE_LIB_LIST_S */
+    NET_ADD_FACE_INFO                  = 487,           /* 添加人脸 参见NET_FACE_INFO_S */
+    NET_DEL_FACE_INFO                  = 488,           /* 删除人脸 参见NET_FACE_ID_INFO_S */
+    NET_SET_FACE_INFO                  = 489,           /* 修改人脸 参见NET_FACE_INFO_S */
+    NET_GET_FACE_INFO                  = 490,           /* 获取人脸 参见NET_FACE_INFO_LIST_S */
+    NET_GET_VOICECOM_AUDIO_CFG         = 491,           /* 获取对讲音频参数 参见NET_VOICECOM_AUDIO_CFG_S */
+    NET_SET_VOICECOM_AUDIO_CFG         = 492,           /* 设置对讲音频参数 参见NET_VOICECOM_AUDIO_CFG_S */
 
     NET_CFG_INVALID                  = 0xFFFF            /* 无效值  Invalid value */
 
@@ -1966,7 +1966,7 @@ typedef NET_VoiceComStartInfo_S* pNET_VoiceComStartInfo_S;
 /**
  * @struct tagNET_VoiceComAudioCfg
  * @brief 对讲音频参数配置
- * @note 用于NET_TV_GET_VOICECOM_AUDIO_CFG/NET_SET_VOICECOM_AUDIO_CFG
+ * @note 用于NET_GET_VOICECOM_AUDIO_CFG/NET_SET_VOICECOM_AUDIO_CFG
  */
 typedef struct tagNET_VoiceComAudioCfg
 {
@@ -2296,7 +2296,7 @@ typedef NET_DeviceBasicInfo_S* pNET_DeviceBasicInfo_S;
 
 /**
  * @brief 系统时间/NTP校时配置结构体
- * @note  对应IPC侧System::TimeInfo_S，用于NET_TV_GET_NTPCFG/NET_SET_NTPCFG
+ * @note  对应IPC侧System::TimeInfo_S，用于NET_GET_NTPCFG/NET_SET_NTPCFG
  */
 typedef struct tagNET_SystemNtpInfo
 {
@@ -2995,7 +2995,7 @@ typedef NET_ImageSetting_S* pNET_ImageSetting_S;
 /**
  * @struct tagNETTVPreviewInfo
  * @brief 预览信息 Preview information
- * @note 用于NET_TV_GET_PREVIEW_INFO/NET_SET_PREVIEW_INFO
+ * @note 用于NET_GET_PREVIEW_INFO/NET_SET_PREVIEW_INFO
  */
 typedef struct tagNET_PreviewInfo
 {
@@ -3416,7 +3416,7 @@ typedef NET_StatisticsResetConfig_S* pNET_StatisticsResetConfig_S;
 /**
  * @struct tagNET_PeopleFlowStatisticsCfg
  * @brief 人流统计配置信息
- * @note 用于NET_TV_GET_PEOPLE_FLOW_STATISTICS_CFG/NET_SET_PEOPLE_FLOW_STATISTICS_CFG
+ * @note 用于NET_GET_PEOPLE_FLOW_STATISTICS_CFG/NET_SET_PEOPLE_FLOW_STATISTICS_CFG
  */
 typedef struct tagNET_PeopleFlowStatisticsCfg
 {
@@ -3439,7 +3439,7 @@ typedef NET_PeopleFlowStatisticsCfg_S* pNET_PeopleFlowStatisticsCfg_S;
 /**
  * @struct tagNET_PeopleDensityDetectionCfg
  * @brief 人员密度检测配置信息
- * @note 用于NET_TV_GET_PEOPLE_DENSITY_DETECTION_CFG/NET_SET_PEOPLE_DENSITY_DETECTION_CFG
+ * @note 用于NET_GET_PEOPLE_DENSITY_DETECTION_CFG/NET_SET_PEOPLE_DENSITY_DETECTION_CFG
  */
 typedef struct tagNET_PeopleDensityDetectionCfg
 {
@@ -3516,7 +3516,7 @@ typedef NET_MotionNormalMode_S* pNET_MotionNormalMode_S;
 /**
  * @struct tagNET_MotionAlarmInfo
  * @brief 移动侦测告警配置信息 Motion detection alarm configuration
- * @note 用于NET_TV_GET_MOTIONALARM/NET_SET_MOTIONALARM
+ * @note 用于NET_GET_MOTIONALARM/NET_SET_MOTIONALARM
  */
 typedef struct tagNET_MotionAlarmInfo
 {
@@ -3537,7 +3537,7 @@ typedef NET_MotionAlarmInfo_S* pNET_MotionAlarmInfo_S;
 /**
  * @struct tagNETTVPrivacyMaskArea
  * @brief 单个隐私遮盖区域 Privacy mask area
- * @note 用于NET_TV_PRIVACY_MASK_CFG_S中配置单个遮盖区域
+ * @note 用于NET_PRIVACY_MASK_CFG_S中配置单个遮盖区域
  */
 typedef struct tagNET_PrivacyMaskArea
 {
@@ -3555,7 +3555,7 @@ typedef NET_PrivacyMaskArea_S* pNET_PrivacyMaskArea_S;
 /**
  * @struct tagNETTVPrivacyMaskCfg
  * @brief 隐私遮盖配置信息 Privacy mask configuration
- * @note 用于NET_TV_GET_PRIVACYMASKCFG/NET_SET_PRIVACYMASKCFG
+ * @note 用于NET_GET_PRIVACYMASKCFG/NET_SET_PRIVACYMASKCFG
  */
 typedef struct tagNET_PrivacyMaskCfg
 {
@@ -3572,7 +3572,7 @@ typedef NET_PrivacyMaskCfg_S* pNET_PrivacyMaskCfg_S;
 /**
  * @struct tagNET_TamperAlarmInfo
  * @brief 遮挡检测告警配置信息 Tamper detection alarm configuration
- * @note 用于NET_TV_GET_TAMPERALARM/NET_SET_TAMPERALARM
+ * @note 用于NET_GET_TAMPERALARM/NET_SET_TAMPERALARM
  */
 typedef struct tagNET_TamperAlarmInfo
 {
@@ -3614,7 +3614,7 @@ typedef NET_BoundaryPlane_S* pNET_BoundaryPlane_S;
 /**
  * @struct tagNET_CrossLineAlarmInfo
  * @brief 越界检测告警配置信息 Cross line detection alarm configuration
- * @note 用于NET_TV_GET_CROSSLINEALARM/NET_SET_CROSSLINEALARM
+ * @note 用于NET_GET_CROSSLINEALARM/NET_SET_CROSSLINEALARM
  */
 typedef struct tagNET_CrossLineAlarmInfo
 {
@@ -3652,7 +3652,7 @@ typedef NET_IntrusionRule_S* pNET_IntrusionRule_S;
 /**
  * @struct tagNET_IntrusionAlarmInfo
  * @brief 入侵检测告警配置信息 Intrusion detection alarm configuration
- * @note 用于NET_TV_GET_INTRUSIONALARM/NET_SET_INTRUSIONALARM
+ * @note 用于NET_GET_INTRUSIONALARM/NET_SET_INTRUSIONALARM
  */
 typedef struct tagNET_IntrusionAlarmInfo
 {
@@ -3669,7 +3669,7 @@ typedef NET_IntrusionAlarmInfo_S* pNET_IntrusionAlarmInfo_S;
 /**
  * @struct tagNET_EnterRegionAlarmInfo
  * @brief 进入区域侦测告警配置信息 Enter region detection alarm configuration
- * @note 用于NET_TV_GET_ENTERREGIONALARM/NET_SET_ENTERREGIONALARM
+ * @note 用于NET_GET_ENTERREGIONALARM/NET_SET_ENTERREGIONALARM
  */
 typedef struct tagNET_EnterRegionAlarmInfo
 {
@@ -3686,7 +3686,7 @@ typedef NET_EnterRegionAlarmInfo_S* pNET_EnterRegionAlarmInfo_S;
 /**
  * @struct tagNET_LeaveRegionAlarmInfo
  * @brief 离开区域侦测告警配置信息 Leave region detection alarm configuration
- * @note 用于NET_TV_GET_LEAVEREGIONALARM/NET_SET_LEAVEREGIONALARM
+ * @note 用于NET_GET_LEAVEREGIONALARM/NET_SET_LEAVEREGIONALARM
  */
 typedef struct tagNET_LeaveRegionAlarmInfo
 {
@@ -3724,7 +3724,7 @@ typedef NET_LoiteringRule_S* pNET_LoiteringRule_S;
 /**
  * @struct tagNET_LoiteringAlarmInfo
  * @brief 徘徊告警配置信息 Loitering detection alarm configuration
- * @note 用于NET_TV_GET_LOITERINGALARM/NET_SET_LOITERINGALARM
+ * @note 用于NET_GET_LOITERINGALARM/NET_SET_LOITERINGALARM
  */
 typedef struct tagNET_LoiteringAlarmInfo
 {
@@ -3741,7 +3741,7 @@ typedef NET_LoiteringAlarmInfo_S* pNET_LoiteringAlarmInfo_S;
 /**
  * @struct tagNET_SceneChangeAlarmInfo
  * @brief 场景变更侦测告警配置信息 Scene change detection alarm configuration
- * @note 用于NET_TV_GET_SCENECHANGEALARM/NET_SET_SCENECHANGEALARM
+ * @note 用于NET_GET_SCENECHANGEALARM/NET_SET_SCENECHANGEALARM
  */
 typedef struct tagNET_SceneChangeAlarmInfo
 {
@@ -3773,7 +3773,7 @@ typedef NET_CrowdGatheringRule_S* pNET_CrowdGatheringRule_S;
 /**
  * @struct tagNET_CrowdGatheringAlarmInfo
  * @brief 人员聚集侦测告警配置信息 Crowd gathering detection alarm configuration
- * @note 用于NET_TV_GET_CROWDGATHERINGALARM/NET_SET_CROWDGATHERINGALARM
+ * @note 用于NET_GET_CROWDGATHERINGALARM/NET_SET_CROWDGATHERINGALARM
  */
 typedef struct tagNET_CrowdGatheringAlarmInfo
 {
@@ -3806,7 +3806,7 @@ typedef NET_ParkingRule_S* pNET_ParkingRule_S;
 /**
  * @struct tagNET_ParkingAlarmInfo
  * @brief 停车侦测告警配置信息 Parking detection alarm configuration
- * @note 用于NET_TV_GET_PARKINGALARM/NET_SET_PARKINGALARM
+ * @note 用于NET_GET_PARKINGALARM/NET_SET_PARKINGALARM
  */
 typedef struct tagNET_ParkingAlarmInfo
 {
@@ -3840,7 +3840,7 @@ typedef NET_GarbageExposureRule_S* pNET_GarbageExposureRule_S;
 /**
  * @struct tagNET_GarbageExposureCfg
  * @brief 垃圾暴露检测配置信息 Garbage exposure detection configuration
- * @note 用于NET_TV_GET_GARBAGE_EXPOSURE_CFG/NET_SET_GARBAGE_EXPOSURE_CFG
+ * @note 用于NET_GET_GARBAGE_EXPOSURE_CFG/NET_SET_GARBAGE_EXPOSURE_CFG
  */
 typedef struct tagNET_GarbageExposureCfg
 {
@@ -3873,7 +3873,7 @@ typedef NET_GarbageOverflowRule_S* pNET_GarbageOverflowRule_S;
 /**
  * @struct tagNET_GarbageOverflowCfg
  * @brief 垃圾满溢检测配置信息 Garbage overflow detection configuration
- * @note 用于NET_TV_GET_GARBAGE_OVERFLOW_CFG/NET_SET_GARBAGE_OVERFLOW_CFG
+ * @note 用于NET_GET_GARBAGE_OVERFLOW_CFG/NET_SET_GARBAGE_OVERFLOW_CFG
  */
 typedef struct tagNET_GarbageOverflowCfg
 {
@@ -3904,7 +3904,7 @@ typedef NET_AiSimpleRule_S* pNET_AiSimpleRule_S;
 /**
  * @struct tagNETTVManholeCoverAbnormalCfg
  * @brief 井盖异常检测配置信息 Manhole cover abnormal detection configuration
- * @note 用于NET_TV_GET_MANHOLE_COVER_ABNORMAL_CFG/NET_SET_MANHOLE_COVER_ABNORMAL_CFG
+ * @note 用于NET_GET_MANHOLE_COVER_ABNORMAL_CFG/NET_SET_MANHOLE_COVER_ABNORMAL_CFG
  */
 typedef struct tagNET_ManholeCoverAbnormalCfg
 {
@@ -3920,7 +3920,7 @@ typedef NET_ManholeCoverAbnormalCfg_S* pNET_ManholeCoverAbnormalCfg_S;
 /**
  * @struct tagNET_SleepOnDutyCfg
  * @brief 睡岗识别配置信息 Sleep on duty detection configuration
- * @note 用于NET_TV_GET_SLEEP_ON_DUTY_CFG/NET_SET_SLEEP_ON_DUTY_CFG
+ * @note 用于NET_GET_SLEEP_ON_DUTY_CFG/NET_SET_SLEEP_ON_DUTY_CFG
  */
 typedef struct tagNET_SleepOnDutyCfg
 {
@@ -3936,7 +3936,7 @@ typedef NET_SleepOnDutyCfg_S* pNET_SleepOnDutyCfg_S;
 /**
  * @struct tagNET_ElectricVehicleInElevatorCfg
  * @brief 电瓶车进电梯识别配置信息 Electric vehicle in elevator detection configuration
- * @note 用于NET_TV_GET_ELECTRIC_VEHICLE_IN_ELEVATOR_CFG/NET_SET_ELECTRIC_VEHICLE_IN_ELEVATOR_CFG
+ * @note 用于NET_GET_ELECTRIC_VEHICLE_IN_ELEVATOR_CFG/NET_SET_ELECTRIC_VEHICLE_IN_ELEVATOR_CFG
  */
 typedef struct tagNET_ElectricVehicleInElevatorCfg
 {
@@ -3952,7 +3952,7 @@ typedef NET_ElectricVehicleInElevatorCfg_S* pNET_ElectricVehicleInElevatorCfg_S;
 /**
  * @struct tagNET_PersonFallDownCfg
  * @brief 人员倒地识别配置信息 Person fall down detection configuration
- * @note 用于NET_TV_GET_PERSON_FALL_DOWN_CFG/NET_SET_PERSON_FALL_DOWN_CFG
+ * @note 用于NET_GET_PERSON_FALL_DOWN_CFG/NET_SET_PERSON_FALL_DOWN_CFG
  */
 typedef struct tagNET_PersonFallDownCfg
 {
@@ -3968,7 +3968,7 @@ typedef NET_PersonFallDownCfg_S* pNET_PersonFallDownCfg_S;
 /**
  * @struct tagNET_ConstructionOccupyRoadCfg
  * @brief 施工占道识别配置信息 Construction occupy road detection configuration
- * @note 用于NET_TV_GET_CONSTRUCTION_OCCUPY_ROAD_CFG/NET_SET_CONSTRUCTION_OCCUPY_ROAD_CFG
+ * @note 用于NET_GET_CONSTRUCTION_OCCUPY_ROAD_CFG/NET_SET_CONSTRUCTION_OCCUPY_ROAD_CFG
  */
 typedef struct tagNET_ConstructionOccupyRoadCfg
 {
@@ -3984,7 +3984,7 @@ typedef NET_ConstructionOccupyRoadCfg_S* pNET_ConstructionOccupyRoadCfg_S;
 /**
  * @struct tagNET_CongestionCfg
  * @brief 拥堵识别配置信息 Congestion detection configuration
- * @note 用于NET_TV_GET_CONGESTION_CFG/NET_SET_CONGESTION_CFG
+ * @note 用于NET_GET_CONGESTION_CFG/NET_SET_CONGESTION_CFG
  */
 typedef struct tagNET_CongestionCfg
 {
@@ -4000,7 +4000,7 @@ typedef NET_CongestionCfg_S* pNET_CongestionCfg_S;
 /**
  * @struct tagNETTVLicensePlateRecognitionCfg
  * @brief 车牌识别配置信息 License plate recognition configuration
- * @note 用于NET_TV_GET_LICENSE_PLATE_RECOGNITION_CFG/NET_SET_LICENSE_PLATE_RECOGNITION_CFG
+ * @note 用于NET_GET_LICENSE_PLATE_RECOGNITION_CFG/NET_SET_LICENSE_PLATE_RECOGNITION_CFG
  */
 typedef struct tagNET_LicensePlateRecognitionCfg
 {
@@ -4016,7 +4016,7 @@ typedef NET_LicensePlateRecognitionCfg_S* pNET_LicensePlateRecognitionCfg_S;
 /**
  * @struct tagNET_HighAltitudeSeatbeltCfg
  * @brief 高空安全带识别配置信息 High altitude seatbelt detection configuration
- * @note 用于NET_TV_GET_HIGH_ALTITUDE_SEATBELT_CFG/NET_SET_HIGH_ALTITUDE_SEATBELT_CFG
+ * @note 用于NET_GET_HIGH_ALTITUDE_SEATBELT_CFG/NET_SET_HIGH_ALTITUDE_SEATBELT_CFG
  */
 typedef struct tagNET_HighAltitudeSeatbeltCfg
 {
@@ -4032,7 +4032,7 @@ typedef NET_HighAltitudeSeatbeltCfg_S* pNET_HighAltitudeSeatbeltCfg_S;
 /**
  * @struct tagNET_SafetyHelmetCfg
  * @brief 安全帽识别配置信息 Safety helmet detection configuration
- * @note 用于NET_TV_GET_SAFETY_HELMET_CFG/NET_SET_SAFETY_HELMET_CFG
+ * @note 用于NET_GET_SAFETY_HELMET_CFG/NET_SET_SAFETY_HELMET_CFG
  */
 typedef struct tagNET_SafetyHelmetCfg
 {
@@ -4048,7 +4048,7 @@ typedef NET_SafetyHelmetCfg_S* pNET_SafetyHelmetCfg_S;
 /**
  * @struct tagNET_PersonFallCfg
  * @brief 摔倒识别配置信息 Person fall detection configuration
- * @note 用于NET_TV_GET_PERSON_FALL_CFG/NET_SET_PERSON_FALL_CFG
+ * @note 用于NET_GET_PERSON_FALL_CFG/NET_SET_PERSON_FALL_CFG
  */
 typedef struct tagNET_PersonFallCfg
 {
@@ -4064,7 +4064,7 @@ typedef NET_PersonFallCfg_S* pNET_PersonFallCfg_S;
 /**
  * @struct tagNET_PhoneUsageCfg
  * @brief 玩手机识别配置信息 Phone usage detection configuration
- * @note 用于NET_TV_GET_PHONE_USAGE_CFG/NET_SET_PHONE_USAGE_CFG
+ * @note 用于NET_GET_PHONE_USAGE_CFG/NET_SET_PHONE_USAGE_CFG
  */
 typedef struct tagNET_PhoneUsageCfg
 {
@@ -4080,7 +4080,7 @@ typedef NET_PhoneUsageCfg_S* pNET_PhoneUsageCfg_S;
 /**
  * @struct tagNET_SmokingCfg
  * @brief 抽烟识别配置信息 Smoking detection configuration
- * @note 用于NET_TV_GET_SMOKING_CFG/NET_SET_SMOKING_CFG
+ * @note 用于NET_GET_SMOKING_CFG/NET_SET_SMOKING_CFG
  */
 typedef struct tagNET_SmokingCfg
 {
@@ -4096,7 +4096,7 @@ typedef NET_SmokingCfg_S* pNET_SmokingCfg_S;
 /**
  * @struct tagNET_OpenFlameCfg
  * @brief 明火识别配置信息 Open flame detection configuration
- * @note 用于NET_TV_GET_OPEN_FLAME_CFG/NET_SET_OPEN_FLAME_CFG
+ * @note 用于NET_GET_OPEN_FLAME_CFG/NET_SET_OPEN_FLAME_CFG
  */
 typedef struct tagNET_OpenFlameCfg
 {
@@ -4112,7 +4112,7 @@ typedef NET_OpenFlameCfg_S* pNET_OpenFlameCfg_S;
 /**
  * @struct tagNET_BareSoilCfg
  * @brief 黄土裸露识别配置信息 Bare soil detection configuration
- * @note 用于NET_TV_GET_BARE_SOIL_CFG/NET_SET_BARE_SOIL_CFG
+ * @note 用于NET_GET_BARE_SOIL_CFG/NET_SET_BARE_SOIL_CFG
  */
 typedef struct tagNET_BareSoilCfg
 {
@@ -4128,7 +4128,7 @@ typedef NET_BareSoilCfg_S* pNET_BareSoilCfg_S;
 /**
  * @struct tagNET_HoleProtectionBarCfg
  * @brief 洞口防护栏识别配置信息 Hole protection bar detection configuration
- * @note 用于NET_TV_GET_HOLE_PROTECTION_BAR_CFG/NET_SET_HOLE_PROTECTION_BAR_CFG
+ * @note 用于NET_GET_HOLE_PROTECTION_BAR_CFG/NET_SET_HOLE_PROTECTION_BAR_CFG
  */
 typedef struct tagNET_HoleProtectionBarCfg
 {
@@ -4144,7 +4144,7 @@ typedef NET_HoleProtectionBarCfg_S* pNET_HoleProtectionBarCfg_S;
 /**
  * @struct tagNET_ReflectiveClothingCfg
  * @brief 反光衣识别配置信息 Reflective clothing detection configuration
- * @note 用于NET_TV_GET_REFLECTIVE_CLOTHING_CFG/NET_SET_REFLECTIVE_CLOTHING_CFG
+ * @note 用于NET_GET_REFLECTIVE_CLOTHING_CFG/NET_SET_REFLECTIVE_CLOTHING_CFG
  */
 typedef struct tagNET_ReflectiveClothingCfg
 {
@@ -4213,7 +4213,7 @@ typedef NET_SmartLineRule_S* pNET_SmartLineRule_S;
 /**
  * @struct tagNETTVPetRecognitionInfo
  * @brief 宠物识别配置信息 Pet recognition configuration
- * @note 用于NET_TV_GET_PET_RECOGNITION_INFO/NET_SET_PET_RECOGNITION_INFO
+ * @note 用于NET_GET_PET_RECOGNITION_INFO/NET_SET_PET_RECOGNITION_INFO
  */
 typedef struct tagNET_PetRecognitionInfo
 {
@@ -4231,7 +4231,7 @@ typedef NET_PetRecognitionInfo_S* pNET_PetRecognitionInfo_S;
 /**
  * @struct tagNET_ClimbFenceInfo
  * @brief 翻越围栏配置信息 Climb fence detection configuration
- * @note 用于NET_TV_GET_CLIMB_FENCE_INFO/NET_SET_CLIMB_FENCE_INFO
+ * @note 用于NET_GET_CLIMB_FENCE_INFO/NET_SET_CLIMB_FENCE_INFO
  */
 typedef struct tagNET_ClimbFenceInfo
 {
@@ -4248,7 +4248,7 @@ typedef NET_ClimbFenceInfo_S* pNET_ClimbFenceInfo_S;
 /**
  * @struct tagNET_DimissionInfo
  * @brief 离岗配置信息 Leave post detection configuration
- * @note 用于NET_TV_GET_DIMISSION_INFO/NET_SET_DIMISSION_INFO
+ * @note 用于NET_GET_DIMISSION_INFO/NET_SET_DIMISSION_INFO
  */
 typedef struct tagNET_DimissionInfo
 {
@@ -4265,7 +4265,7 @@ typedef NET_DimissionInfo_S* pNET_DimissionInfo_S;
 /**
  * @struct tagNET_IllegalLaneInfo
  * @brief 违规变道配置信息 Illegal lane change detection configuration
- * @note 用于NET_TV_GET_ILLEGAL_LANE_INFO/NET_SET_ILLEGAL_LANE_INFO
+ * @note 用于NET_GET_ILLEGAL_LANE_INFO/NET_SET_ILLEGAL_LANE_INFO
  */
 typedef struct tagNET_IllegalLaneInfo
 {
@@ -4282,7 +4282,7 @@ typedef NET_IllegalLaneInfo_S* pNET_IllegalLaneInfo_S;
 /**
  * @struct tagNET_RetrogradeInfo
  * @brief 逆行配置信息 Retrograde detection configuration
- * @note 用于NET_TV_GET_RETROGRADE_INFO/NET_SET_RETROGRADE_INFO
+ * @note 用于NET_GET_RETROGRADE_INFO/NET_SET_RETROGRADE_INFO
  */
 typedef struct tagNET_RetrogradeInfo
 {
@@ -4299,7 +4299,7 @@ typedef NET_RetrogradeInfo_S* pNET_RetrogradeInfo_S;
 /**
  * @struct tagNET_NonmotorVehicleIntrusionInfo
  * @brief 非机动车闯入配置信息 Non-motor vehicle intrusion detection configuration
- * @note 用于NET_TV_GET_NONMOTOR_VEHICLE_INTRUSION_INFO/NET_SET_NONMOTOR_VEHICLE_INTRUSION_INFO
+ * @note 用于NET_GET_NONMOTOR_VEHICLE_INTRUSION_INFO/NET_SET_NONMOTOR_VEHICLE_INTRUSION_INFO
  */
 typedef struct tagNET_NonmotorVehicleIntrusionInfo
 {
@@ -4316,7 +4316,7 @@ typedef NET_NonmotorVehicleIntrusionInfo_S* pNET_NonmotorVehicleIntrusionInfo_S;
 /**
  * @struct tagNET_OccupationEmergencyInfo
  * @brief 应急车道占用识别配置信息 Emergency lane occupancy detection configuration
- * @note 用于NET_TV_GET_OCCUPATION_EMERGENCY_INFO/NET_SET_OCCUPATION_EMERGENCY_INFO
+ * @note 用于NET_GET_OCCUPATION_EMERGENCY_INFO/NET_SET_OCCUPATION_EMERGENCY_INFO
  */
 typedef struct tagNET_OccupationEmergencyInfo
 {
@@ -4333,7 +4333,7 @@ typedef NET_OccupationEmergencyInfo_S* pNET_OccupationEmergencyInfo_S;
 /**
  * @struct tagNET_PedestrianIntrusionInfo
  * @brief 行人闯入配置信息 Pedestrian intrusion detection configuration
- * @note 用于NET_TV_GET_PEDESTRIAN_INTRUSION_INFO/NET_SET_PEDESTRIAN_INTRUSION_INFO
+ * @note 用于NET_GET_PEDESTRIAN_INTRUSION_INFO/NET_SET_PEDESTRIAN_INTRUSION_INFO
  */
 typedef struct tagNET_PedestrianIntrusionInfo
 {
@@ -4350,7 +4350,7 @@ typedef NET_PedestrianIntrusionInfo_S* pNET_PedestrianIntrusionInfo_S;
 /**
  * @struct tagNET_SmokeFireCfg
  * @brief 烟火识别配置信息 Smoke fire detection configuration
- * @note 用于NET_TV_GET_SMOKE_FIRE_CFG/NET_SET_SMOKE_FIRE_CFG
+ * @note 用于NET_GET_SMOKE_FIRE_CFG/NET_SET_SMOKE_FIRE_CFG
  */
 typedef struct tagNET_SmokeFireCfg
 {
@@ -4366,7 +4366,7 @@ typedef NET_SmokeFireCfg_S* pNET_SmokeFireCfg_S;
 /**
  * @struct tagNET_RoadPondingCfg
  * @brief 道路积水检测配置信息 Road ponding detection configuration
- * @note 用于NET_TV_GET_ROAD_PONDING_CFG/NET_SET_ROAD_PONDING_CFG
+ * @note 用于NET_GET_ROAD_PONDING_CFG/NET_SET_ROAD_PONDING_CFG
  */
 typedef struct tagNET_RoadPondingCfg
 {
@@ -4398,7 +4398,7 @@ typedef NET_UnattendedObjectRule_S* pNET_UnattendedObjectRule_S;
 /**
  * @struct tagNETTVUnattendedObjectAlarmInfo
  * @brief 物品遗留侦测告警配置信息 Unattended object detection alarm configuration
- * @note 用于NET_TV_GET_UNATTENDEDOBJECTALARM/NET_SET_UNATTENDEDOBJECTALARM
+ * @note 用于NET_GET_UNATTENDEDOBJECTALARM/NET_SET_UNATTENDEDOBJECTALARM
  */
 typedef struct tagNET_UnattendedObjectAlarmInfo
 {
@@ -4431,7 +4431,7 @@ typedef NET_ObjectRemovalRule_S* pNET_ObjectRemovalRule_S;
 /**
  * @struct tagNETTVObjectRemovalAlarmInfo
  * @brief 物品拿取侦测告警配置信息 Object removal detection alarm configuration
- * @note 用于NET_TV_GET_OBJECTREMOVALALARM/NET_SET_OBJECTREMOVALALARM
+ * @note 用于NET_GET_OBJECTREMOVALALARM/NET_SET_OBJECTREMOVALALARM
  */
 typedef struct tagNET_ObjectRemovalAlarmInfo
 {
@@ -4448,7 +4448,7 @@ typedef NET_ObjectRemovalAlarmInfo_S* pNET_ObjectRemovalAlarmInfo_S;
 /**
  * @struct tagNETTVAudioAnomalyAlarmInfo
  * @brief 音频异常侦测告警配置信息 Audio anomaly detection alarm configuration
- * @note 用于NET_TV_GET_AUDIOANOMALYALARM/NET_SET_AUDIOANOMALYALARM
+ * @note 用于NET_GET_AUDIOANOMALYALARM/NET_SET_AUDIOANOMALYALARM
  */
 typedef struct tagNET_AudioAnomalyAlarmInfo
 {
@@ -4509,7 +4509,7 @@ typedef NET_FaceCaptureRule_S* pNET_FaceCaptureRule_S;
 /**
  * @struct tagNET_FaceCaptureInfo
  * @brief 人脸抓拍配置信息 Face capture configuration
- * @note 用于NET_TV_GET_FACECAPTUREINFO/NET_SET_FACECAPTUREINFO
+ * @note 用于NET_GET_FACECAPTUREINFO/NET_SET_FACECAPTUREINFO
  */
 typedef struct tagNET_FaceCaptureInfo
 {
@@ -4525,7 +4525,7 @@ typedef NET_FaceCaptureInfo_S* pNET_FaceCaptureInfo_S;
 /**
  * @struct tagNET_FaceCompareInfo
  * @brief 人脸比对配置信息 Face compare configuration
- * @note 用于NET_TV_SET_FACE_COMPARE_INFO
+ * @note 用于NET_SET_FACE_COMPARE_INFO
  */
 typedef struct tagNET_FaceCompareInfo
 {
@@ -4541,7 +4541,7 @@ typedef NET_FaceCompareInfo_S* pNET_FaceCompareInfo_S;
 /**
  * @struct tagNETTVFaceLibInfo
  * @brief 目标库信息 Face library information
- * @note 用于NET_TV_ADD_TARGET_LIB/NET_DEL_TARGET_LIB/NET_SET_TARGET_LIB
+ * @note 用于NET_ADD_TARGET_LIB/NET_DEL_TARGET_LIB/NET_SET_TARGET_LIB
  */
 typedef struct tagNET_FaceLibInfo
 {
@@ -4557,7 +4557,7 @@ typedef NET_FaceLibInfo_S* pNET_FaceLibInfo_S;
 /**
  * @struct tagNETTVFaceLibList
  * @brief 目标库列表 Face library list
- * @note 用于NET_TV_GET_TARGET_LIB
+ * @note 用于NET_GET_TARGET_LIB
  */
 typedef struct tagNET_FaceLibList
 {
@@ -4571,7 +4571,7 @@ typedef NET_FaceLibList_S* pNET_FaceLibList_S;
 /**
  * @struct tagNETTVFaceIdInfo
  * @brief 人脸ID信息 Face id information
- * @note 用于NET_TV_DEL_FACE_INFO
+ * @note 用于NET_DEL_FACE_INFO
  */
 typedef struct tagNET_FaceIdInfo
 {
@@ -4585,7 +4585,7 @@ typedef NET_FaceIdInfo_S* pNET_FaceIdInfo_S;
 /**
  * @struct tagNETTVFaceInfo
  * @brief 人脸信息 Face information
- * @note 用于NET_TV_ADD_FACE_INFO/NET_SET_FACE_INFO
+ * @note 用于NET_ADD_FACE_INFO/NET_SET_FACE_INFO
  */
 typedef struct tagNET_FaceInfo
 {
@@ -4608,7 +4608,7 @@ typedef NET_FaceInfo_S* pNET_FaceInfo_S;
 /**
  * @struct tagNETTVFaceInfoList
  * @brief 人脸信息列表 Face information list
- * @note 用于NET_TV_GET_FACE_INFO
+ * @note 用于NET_GET_FACE_INFO
  */
 typedef struct tagNET_FaceInfoList
 {
