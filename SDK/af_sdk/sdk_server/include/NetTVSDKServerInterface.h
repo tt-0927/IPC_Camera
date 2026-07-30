@@ -8,10 +8,6 @@
 #ifndef _NET_SDKSERVER_INTERFACE_H
 #define _NET_SDKSERVER_INTERFACE_H
 
-#ifdef NET_SDK_SERVER_API
-    #include "NetTVSDKServer.h"
-#else
-
 #include "NetTVSDKCommon.h"
 
 #ifdef __cplusplus
@@ -589,8 +585,6 @@ NET_SERVER_RegisterCb_RecordFrameStop(IN NET_SERVER_RecordFrameStopCallBack cb,
 
 #ifdef __cplusplus
 }
-#endif
-
 #endif
 
 #endif
