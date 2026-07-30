@@ -36,8 +36,8 @@
 #if CAP_GARBAGE_STATION_PLATFORM
 namespace
 {
-constexpr const char *MQTT_EVENT_ALARM_COMMAND = "NET_TV_EVENT_ALARM";
-constexpr const char *MQTT_EVENT_IMAGE_UPLOAD_COMMAND = "NET_TV_EVENT_IMAGE_UPLOAD";
+constexpr const char *MQTT_EVENT_ALARM_COMMAND = "NET_EVENT_ALARM";
+constexpr const char *MQTT_EVENT_IMAGE_UPLOAD_COMMAND = "NET_EVENT_IMAGE_UPLOAD";
 constexpr int EVENT_IMAGE_WAIT_INTERVAL_MS = 500;
 constexpr int EVENT_IMAGE_WAIT_TIMEOUT_MS = 3000;
 
@@ -543,7 +543,7 @@ int EventLinkageDirectAction::deal_upload(const ResolvedLinkagePlan_S &stPlan)
                   static_cast<int>(stPlan.stContext.enEventType));
     }
 
-    /* 报警消息先发；图片上传放到后台线程，成功或失败都会再发NET_TV_EVENT_IMAGE_UPLOAD结果 */
+    /* 报警消息先发；图片上传放到后台线程，成功或失败都会再发NET_EVENT_IMAGE_UPLOAD结果 */
     if (!stPlan.stContext.bEventEnded && stPlan.bUploadSdCard)
     {
         std::thread(upload_event_image_async, stPlan, strRequestId).detach();

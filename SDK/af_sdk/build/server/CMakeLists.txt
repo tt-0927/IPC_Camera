@@ -64,12 +64,12 @@ set_target_properties(${LIB_NAME}-shared PROPERTIES
 # 添加宏定义
 target_compile_definitions(${LIB_NAME}-static 
     PUBLIC LINUX
-    PUBLIC NET_TV_SDK_SERVER_API
+    PUBLIC NET_SDK_SERVER_API
 )
 target_compile_definitions(${LIB_NAME}-shared  
     PUBLIC LINUX
-    PUBLIC NET_TV_SDK_SERVER_API
- )
+    PUBLIC NET_SDK_SERVER_API
+)
 # 添加头文件目录
 target_include_directories(${LIB_NAME}-static PUBLIC 
     ${SDK_BUILD_PATH}/include

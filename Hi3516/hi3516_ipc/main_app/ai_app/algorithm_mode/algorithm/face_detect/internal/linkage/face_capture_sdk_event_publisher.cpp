@@ -27,7 +27,7 @@ unsigned int get_face_capture_alarm_type()
 #ifndef ENABLE_TVSDK_SRC
     return 0;
 #else
-    return NET_TV_ALARM_FACE_CAPTURE;
+    return NET_ALARM_FACE_CAPTURE;
 #endif
 }
 } // namespace

@@ -16,8 +16,8 @@
 
 namespace
 {
-/* HTTP 推送对外保留 SDK 告警命令语义，便于平台按 NET_TV_ALARM_* 体系识别事件类型 */
-constexpr const char *FACE_CAPTURE_ALARM_COMMAND = "NET_TV_ALARM_FACE_CAPTURE";
+/* HTTP 推送对外保留 SDK 告警命令语义，便于平台按 NET_ALARM_* 体系识别事件类型 */
+constexpr const char *FACE_CAPTURE_ALARM_COMMAND = "NET_ALARM_FACE_CAPTURE";
 constexpr int FACE_CAPTURE_ALARM_CODE = 0x3002;
 
 /**

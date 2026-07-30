@@ -1690,7 +1690,7 @@ int CPlatformManager::init_mqtt()
     /* 设置 LWT 遗嘱消息：设备异常断开时 Broker 自动发布离线状态 */
     std::string strWillTopic = MQTT_TOPIC_STATUS(m_strMqttClientId);
     cJSON *pWillRoot = cJSON_CreateObject();
-    cJSON_AddStringToObject(pWillRoot, "Command", "NET_TV_DEVICE_STATUS");
+    cJSON_AddStringToObject(pWillRoot, "Command", "NET_DEVICE_STATUS");
     cJSON_AddStringToObject(pWillRoot, "RequestId", "lwt");
     cJSON *pWillData = cJSON_CreateObject();
     cJSON_AddStringToObject(pWillData, "Status", "offline");
@@ -1850,7 +1850,7 @@ void CPlatformManager::on_mqtt_message(const std::string &strTopic, const std::s
         dlog_info("MQTT SDK 网关转发命令：%s", strCommand.c_str());
 
         const std::string strNormalizedCommand = normalize_mqtt_command(strCommand);
-        if (strNormalizedCommand == "NET_TV_ADD_FACE_INFO" || strNormalizedCommand == "NET_TV_SET_FACE_INFO")
+        if (strNormalizedCommand == "NET_ADD_FACE_INFO" || strNormalizedCommand == "NET_SET_FACE_INFO")
         {
             std::string strError;
             if (!prepare_face_image_command(strNormalizedCommand, strData, strError))
@@ -1926,7 +1926,7 @@ bool CPlatformManager::prepare_face_image_command(const std::string &strCommand,
                                                   std::string &strError)
 {
     const std::string strNormalizedCommand = normalize_mqtt_command(strCommand);
-    if (strNormalizedCommand != "NET_TV_ADD_FACE_INFO" && strNormalizedCommand != "NET_TV_SET_FACE_INFO")
+    if (strNormalizedCommand != "NET_ADD_FACE_INFO" && strNormalizedCommand != "NET_SET_FACE_INFO")
     {
         return true;
     }
@@ -1950,7 +1950,7 @@ bool CPlatformManager::prepare_face_image_command(const std::string &strCommand,
     }
 
     bool bRet = true;
-    if (strNormalizedCommand == "NET_TV_ADD_FACE_INFO")
+    if (strNormalizedCommand == "NET_ADD_FACE_INFO")
     {
         bRet = ensure_face_nv21_local(pData, strError);
     }
@@ -2216,7 +2216,7 @@ std::string CPlatformManager::resolve_platform_file_url(const std::string &strPa
  * @brief 注册 MQTT 自定义命令处理器
  * @note  注册在此的命令优先于 MQTT SDK 网关处理
  *        适用于需要特殊处理逻辑的命令（非标准 SDK 命令透传）
- *        大部分 SDK 命令（NET_TV_GET_xxx / NET_TV_SET_xxx）由 on_mqtt_message 自动通过网关转发
+ *        大部分 SDK 命令（NET_GET_xxx / NET_SET_xxx）由 on_mqtt_message 自动通过网关转发
  */
 void CPlatformManager::register_mqtt_handlers()
 {
@@ -2384,7 +2384,7 @@ int CPlatformManager::publish_device_status(bool bOnline, const std::string &str
 
     /* 构造 JSON */
     cJSON *pRoot = cJSON_CreateObject();
-    cJSON_AddStringToObject(pRoot, "Command", "NET_TV_DEVICE_STATUS");
+    cJSON_AddStringToObject(pRoot, "Command", "NET_DEVICE_STATUS");
 
     /* RequestId: status-{SN}-{timestamp} */
     auto now = std::chrono::system_clock::now();

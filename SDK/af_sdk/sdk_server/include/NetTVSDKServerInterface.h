@@ -5,8 +5,8 @@
  * @brief SDK服务端接口头文件，定义服务端初始化、配置回调注册、设备发现、语音对讲、录像帧流等核心接口
  * @note 服务端接口采用C风格API，供宿主程序（如NVR、IPC）调用，用于注册回调和推送消息
  */
-#ifndef _NET_TV_SDKSERVER_INTERFACE_H
-#define _NET_TV_SDKSERVER_INTERFACE_H
+#ifndef _NET_SDKSERVER_INTERFACE_H
+#define _NET_SDKSERVER_INTERFACE_H
 
 #ifdef NET_SDK_SERVER_API
     #include "NetTVSDKServer.h"

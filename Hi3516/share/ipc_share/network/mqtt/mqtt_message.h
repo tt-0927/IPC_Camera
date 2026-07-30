@@ -18,7 +18,7 @@
  */
 struct MqttMessage_S
 {
-    std::string str_command;    /* 命令名，如 "NET_TV_GET_FACECAPTUREINFO" */
+    std::string str_command;    /* 命令名，如 "NET_GET_FACECAPTUREINFO" */
     std::string str_request_id; /* 请求唯一标识，UUID 格式 */
     std::string str_data;       /* JSON 格式业务数据 */
 };

@@ -149,11 +149,11 @@ UINT32 get_basic_alarm_type(Event::Type_E enEventType)
 {
     switch (enEventType)
     {
-    case Event::Type_E::MOTION_DETECT:    return NET_TV_ALARM_MOTION_DETECT;
-    case Event::Type_E::OCCLUSION_DETECT: return NET_TV_ALARM_OCCLUSION;
-    case Event::Type_E::ANOMALY_ALARM:    return NET_TV_ALARM_ANOMALY;
-    case Event::Type_E::ALARM_INPUT:      return NET_TV_ALARM_INPUT;
-    case Event::Type_E::PIR_ALARM:        return NET_TV_ALARM_PIR;
+    case Event::Type_E::MOTION_DETECT:    return NET_ALARM_MOTION_DETECT;
+    case Event::Type_E::OCCLUSION_DETECT: return NET_ALARM_OCCLUSION;
+    case Event::Type_E::ANOMALY_ALARM:    return NET_ALARM_ANOMALY;
+    case Event::Type_E::ALARM_INPUT:      return NET_ALARM_INPUT;
+    case Event::Type_E::PIR_ALARM:        return NET_ALARM_PIR;
     default:                              return 0;
     }
 }
@@ -167,12 +167,12 @@ UINT32 get_rule_alarm_type(Event::Type_E enEventType)
 {
     switch (enEventType)
     {
-    case Event::Type_E::LINE_CROSSING:     return NET_TV_ALARM_LINE_CROSSING;
-    case Event::Type_E::INTRUSION:         return NET_TV_ALARM_INTRUSION;
-    case Event::Type_E::ENTER_REGION:      return NET_TV_ALARM_ENTER_REGION;
-    case Event::Type_E::LEAVE_REGION:      return NET_TV_ALARM_LEAVE_REGION;
-    case Event::Type_E::OBJECT_REMOVAL:    return NET_TV_ALARM_OBJECT_REMOVAL;
-    case Event::Type_E::UNATTENDED_OBJECT: return NET_TV_ALARM_UNATTENDED_OBJECT;
+    case Event::Type_E::LINE_CROSSING:     return NET_ALARM_LINE_CROSSING;
+    case Event::Type_E::INTRUSION:         return NET_ALARM_INTRUSION;
+    case Event::Type_E::ENTER_REGION:      return NET_ALARM_ENTER_REGION;
+    case Event::Type_E::LEAVE_REGION:      return NET_ALARM_LEAVE_REGION;
+    case Event::Type_E::OBJECT_REMOVAL:    return NET_ALARM_OBJECT_REMOVAL;
+    case Event::Type_E::UNATTENDED_OBJECT: return NET_ALARM_UNATTENDED_OBJECT;
     default:                               return 0;
     }
 }
@@ -186,10 +186,10 @@ UINT32 get_exception_alarm_type(Event::Type_E enEventType)
 {
     switch (enEventType)
     {
-    case Event::Type_E::DISK_FULL:   return NET_TV_ALARM_DISK_FULL;
-    case Event::Type_E::DISK_ERROR:  return NET_TV_ALARM_DISK_ERROR;
-    case Event::Type_E::NET_BROKEN:  return NET_TV_ALARM_NET_BROKEN;
-    case Event::Type_E::IP_CONFLICT: return NET_TV_ALARM_IP_CONFLICT;
+    case Event::Type_E::DISK_FULL:   return NET_ALARM_DISK_FULL;
+    case Event::Type_E::DISK_ERROR:  return NET_ALARM_DISK_ERROR;
+    case Event::Type_E::NET_BROKEN:  return NET_ALARM_NET_BROKEN;
+    case Event::Type_E::IP_CONFLICT: return NET_ALARM_IP_CONFLICT;
     default:                         return 0;
     }
 }
@@ -203,8 +203,8 @@ UINT32 get_ai_object_alarm_type(Event::Type_E enEventType)
 {
     switch (enEventType)
     {
-    case Event::Type_E::LOITERING_DETECT: return NET_TV_ALARM_LOITERING;
-    case Event::Type_E::PARKING_DETECT:   return NET_TV_ALARM_PARKING_DETECT;
+    case Event::Type_E::LOITERING_DETECT: return NET_ALARM_LOITERING;
+    case Event::Type_E::PARKING_DETECT:   return NET_ALARM_PARKING_DETECT;
     default:                              return 0;
     }
 }
@@ -236,33 +236,33 @@ bool is_statistics_event(Event::Type_E enEventType)
  */
 void push_basic_alarm(const EventTriggerContext_S &stContext, UINT32 dwAlarmType)
 {
-    std::unique_ptr<NET_TV_ALARM_BASIC_INFO_S> pInfo(new NET_TV_ALARM_BASIC_INFO_S());
+    std::unique_ptr<NET_AlarmBasicInfo_S> pInfo(new NET_AlarmBasicInfo_S());
     memset(pInfo.get(), 0, sizeof(*pInfo));
-    pInfo->dwAlarmType = dwAlarmType;
+    pInfo->uAlarmType = dwAlarmType;
     pInfo->llTimestampMs = get_context_timestamp_ms(stContext);
 
-    if (stContext.nChnId >= 0 && stContext.nChnId < NET_TV_MAX_ALARM_IN_NUM)
+    if (stContext.nChnId >= 0 && stContext.nChnId < NET_MAX_ALARM_IN_NUM)
     {
         pInfo->byChannel[stContext.nChnId] = 1;
     }
 
     if (stContext.pTvSdkPayload && !copy_tvsdk_image(stContext.pTvSdkPayload->stPanoramaImage,
                                                      pInfo->byPanoramaImg,
-                                                     pInfo->dwPanoramaImgLen,
+                                                     pInfo->uPanoramaImgLen,
                                                      sizeof(pInfo->byPanoramaImg)))
     {
         return;
     }
 
-    int nRet = ControlManage::instance()->tvsdk_push_alarm(static_cast<int>(pInfo->dwAlarmType), pInfo.get(), sizeof(*pInfo));
+    int nRet = ControlManage::instance()->tvsdk_push_alarm(static_cast<int>(pInfo->uAlarmType), pInfo.get(), sizeof(*pInfo));
     if (nRet < 0)
     {
-        dlog_warn("TVSDK推送普通告警失败: cmd[0x%x] ret[%d]", pInfo->dwAlarmType, nRet);
+        dlog_warn("TVSDK推送普通告警失败: cmd[0x%x] ret[%d]", pInfo->uAlarmType, nRet);
     }
     else
     {
         dlog_info("TVSDK推送普通告警成功: cmd[0x%x] timestamp[%lld]",
-                  pInfo->dwAlarmType,
+                  pInfo->uAlarmType,
                   static_cast<long long>(pInfo->llTimestampMs));
     }
 }
@@ -275,14 +275,14 @@ void push_basic_alarm(const EventTriggerContext_S &stContext, UINT32 dwAlarmType
  */
 void push_rule_alarm(const EventTriggerContext_S &stContext, UINT32 dwAlarmType)
 {
-    std::unique_ptr<NET_TV_ALARM_RULE_INFO_S> pInfo(new NET_TV_ALARM_RULE_INFO_S());
+    std::unique_ptr<NET_AlarmRuleInfo_S> pInfo(new NET_AlarmRuleInfo_S());
     memset(pInfo.get(), 0, sizeof(*pInfo));
-    pInfo->dwAlarmType = dwAlarmType;
-    pInfo->dwChannel = static_cast<UINT32>(stContext.nChnId < 0 ? 0 : stContext.nChnId);
-    pInfo->dwRuleID = static_cast<UINT32>(std::max(0, get_context_attr_int(stContext, "rule_id", 0)));
-    pInfo->dwRuleType = pInfo->dwAlarmType;
-    pInfo->dwTargetID = static_cast<UINT32>(std::max(0, stContext.nTargetId));
-    pInfo->dwObjectType = static_cast<UINT32>(std::max(0, stContext.nObjectType));
+    pInfo->uAlarmType = dwAlarmType;
+    pInfo->uChannel = static_cast<UINT32>(stContext.nChnId < 0 ? 0 : stContext.nChnId);
+    pInfo->uRuleID = static_cast<UINT32>(std::max(0, get_context_attr_int(stContext, "rule_id", 0)));
+    pInfo->uRuleType = pInfo->uAlarmType;
+    pInfo->uTargetID = static_cast<UINT32>(std::max(0, stContext.nTargetId));
+    pInfo->uObjectType = static_cast<UINT32>(std::max(0, stContext.nObjectType));
     pInfo->fConfidence = stContext.fConfidence;
     pInfo->nLeft = stContext.nLeft;
     pInfo->nTop = stContext.nTop;
@@ -297,31 +297,31 @@ void push_rule_alarm(const EventTriggerContext_S &stContext, UINT32 dwAlarmType)
 
     if (!copy_tvsdk_image(stPanoramaImage,
                           pInfo->byPanoramaImg,
-                          pInfo->dwPanoramaImgLen,
+                          pInfo->uPanoramaImgLen,
                           sizeof(pInfo->byPanoramaImg)))
     {
-        dlog_warn("TVSDK周界告警全景图超过协议上限: cmd[0x%x]", pInfo->dwAlarmType);
+        dlog_warn("TVSDK周界告警全景图超过协议上限: cmd[0x%x]", pInfo->uAlarmType);
         return;
     }
 
     if (!copy_tvsdk_image(stContext.stTargetImage,
                           pInfo->byTargetImg,
-                          pInfo->dwTargetImgLen,
+                          pInfo->uTargetImgLen,
                           sizeof(pInfo->byTargetImg)))
     {
-        dlog_warn("TVSDK周界告警特写图超过协议上限: cmd[0x%x]", pInfo->dwAlarmType);
+        dlog_warn("TVSDK周界告警特写图超过协议上限: cmd[0x%x]", pInfo->uAlarmType);
         return;
     }
 
     dlog_info("TVSDK周界告警内容: cmd[0x%x], event[%d], chn[%u], rule[%u], target[%u], objType[%u], timestamp[%lld], "
               "rect[%d,%d,%d,%d], contextPanorama[%zu], contextTarget[%zu], payload[%d], "
               "sendPanorama[%u], sendTarget[%u], structSize[%zu]",
-              pInfo->dwAlarmType,
+              pInfo->uAlarmType,
               static_cast<int>(stContext.enEventType),
-              pInfo->dwChannel,
-              pInfo->dwRuleID,
-              pInfo->dwTargetID,
-              pInfo->dwObjectType,
+              pInfo->uChannel,
+              pInfo->uRuleID,
+              pInfo->uTargetID,
+              pInfo->uObjectType,
               static_cast<long long>(pInfo->llTimestampMs),
               pInfo->nLeft,
               pInfo->nTop,
@@ -330,18 +330,18 @@ void push_rule_alarm(const EventTriggerContext_S &stContext, UINT32 dwAlarmType)
               stContext.stPanoramaImage.vecJpeg.size(),
               stContext.stTargetImage.vecJpeg.size(),
               stContext.pTvSdkPayload ? 1 : 0,
-              pInfo->dwPanoramaImgLen,
-              pInfo->dwTargetImgLen,
+              pInfo->uPanoramaImgLen,
+              pInfo->uTargetImgLen,
               sizeof(*pInfo));
 
-    int nRet = ControlManage::instance()->tvsdk_push_alarm(static_cast<int>(pInfo->dwAlarmType), pInfo.get(), sizeof(*pInfo));
+    int nRet = ControlManage::instance()->tvsdk_push_alarm(static_cast<int>(pInfo->uAlarmType), pInfo.get(), sizeof(*pInfo));
     if (nRet < 0)
     {
-        dlog_warn("TVSDK推送周界告警失败: cmd[0x%x] ret[%d]", pInfo->dwAlarmType, nRet);
+        dlog_warn("TVSDK推送周界告警失败: cmd[0x%x] ret[%d]", pInfo->uAlarmType, nRet);
     }
     else
     {
-        dlog_info("TVSDK推送周界告警成功: cmd[0x%x]", pInfo->dwAlarmType);
+        dlog_info("TVSDK推送周界告警成功: cmd[0x%x]", pInfo->uAlarmType);
     }
 }
 
@@ -353,23 +353,23 @@ void push_rule_alarm(const EventTriggerContext_S &stContext, UINT32 dwAlarmType)
  */
 void push_ai_object_alarm(const EventTriggerContext_S &stContext, UINT32 dwAlarmType)
 {
-    std::unique_ptr<NET_TV_ALARM_AI_OBJECT_INFO_S> pInfo(new (std::nothrow) NET_TV_ALARM_AI_OBJECT_INFO_S);
+    std::unique_ptr<NET_AlarmAiObjectInfo_S> pInfo(new (std::nothrow) NET_AlarmAiObjectInfo_S);
     if (!pInfo)
     {
-        dlog_warn("TVSDK AI目标告警内存分配失败，丢弃本次推送: buf_len[%zu]", sizeof(NET_TV_ALARM_AI_OBJECT_INFO_S));
+        dlog_warn("TVSDK AI目标告警内存分配失败，丢弃本次推送: buf_len[%zu]", sizeof(NET_AlarmAiObjectInfo_S));
         return;
     }
 
     memset(pInfo.get(), 0, sizeof(*pInfo));
-    pInfo->dwAlarmType = dwAlarmType;
-    pInfo->dwChannel = static_cast<UINT32>(stContext.nChnId < 0 ? 0 : stContext.nChnId);
-    pInfo->dwObjectType = static_cast<UINT32>(std::max(0, stContext.nObjectType));
+    pInfo->uAlarmType = dwAlarmType;
+    pInfo->uChannel = static_cast<UINT32>(stContext.nChnId < 0 ? 0 : stContext.nChnId);
+    pInfo->uObjectType = static_cast<UINT32>(std::max(0, stContext.nObjectType));
     pInfo->fConfidence = stContext.fConfidence;
     pInfo->nLeft = stContext.nLeft;
     pInfo->nTop = stContext.nTop;
     pInfo->nRight = stContext.nRight;
     pInfo->nBottom = stContext.nBottom;
-    copy_tvsdk_string(pInfo->szObjectID, std::to_string(stContext.nTargetId));
+    copy_tvsdk_string(pInfo->strObjectID, std::to_string(stContext.nTargetId));
     pInfo->llTimestampMs = get_context_timestamp_ms(stContext);
 
     const EventTvSdkImage_S &stPanoramaImage =
@@ -379,30 +379,30 @@ void push_ai_object_alarm(const EventTriggerContext_S &stContext, UINT32 dwAlarm
 
     if (!copy_tvsdk_image(stPanoramaImage,
                           pInfo->byPanoramaImg,
-                          pInfo->dwPanoramaImgLen,
+                          pInfo->uPanoramaImgLen,
                           sizeof(pInfo->byPanoramaImg)))
     {
-        dlog_warn("TVSDK AI目标告警全景图超过协议上限: cmd[0x%x]", pInfo->dwAlarmType);
+        dlog_warn("TVSDK AI目标告警全景图超过协议上限: cmd[0x%x]", pInfo->uAlarmType);
         return;
     }
 
     if (!copy_tvsdk_image(stContext.stTargetImage,
                           pInfo->byImgData,
-                          pInfo->dwImgLen,
+                          pInfo->uImgLen,
                           sizeof(pInfo->byImgData)))
     {
-        dlog_warn("TVSDK AI目标告警特写图超过协议上限: cmd[0x%x]", pInfo->dwAlarmType);
+        dlog_warn("TVSDK AI目标告警特写图超过协议上限: cmd[0x%x]", pInfo->uAlarmType);
         return;
     }
 
     dlog_info("TVSDK AI目标告警内容: cmd[0x%x], event[%d], chn[%u], target[%d], objType[%u], timestamp[%lld], "
               "rect[%d,%d,%d,%d], contextPanorama[%zu], contextTarget[%zu], payload[%d], "
               "sendPanorama[%u], sendTarget[%u], structSize[%zu]",
-              pInfo->dwAlarmType,
+              pInfo->uAlarmType,
               static_cast<int>(stContext.enEventType),
-              pInfo->dwChannel,
+              pInfo->uChannel,
               stContext.nTargetId,
-              pInfo->dwObjectType,
+              pInfo->uObjectType,
               static_cast<long long>(pInfo->llTimestampMs),
               pInfo->nLeft,
               pInfo->nTop,
@@ -411,18 +411,18 @@ void push_ai_object_alarm(const EventTriggerContext_S &stContext, UINT32 dwAlarm
               stContext.stPanoramaImage.vecJpeg.size(),
               stContext.stTargetImage.vecJpeg.size(),
               stContext.pTvSdkPayload ? 1 : 0,
-              pInfo->dwPanoramaImgLen,
-              pInfo->dwImgLen,
+              pInfo->uPanoramaImgLen,
+              pInfo->uImgLen,
               sizeof(*pInfo));
 
-    int nRet = ControlManage::instance()->tvsdk_push_alarm(static_cast<int>(pInfo->dwAlarmType), pInfo.get(), sizeof(*pInfo));
+    int nRet = ControlManage::instance()->tvsdk_push_alarm(static_cast<int>(pInfo->uAlarmType), pInfo.get(), sizeof(*pInfo));
     if (nRet < 0)
     {
-        dlog_warn("TVSDK推送AI目标告警失败: cmd[0x%x] ret[%d]", pInfo->dwAlarmType, nRet);
+        dlog_warn("TVSDK推送AI目标告警失败: cmd[0x%x] ret[%d]", pInfo->uAlarmType, nRet);
     }
     else
     {
-        dlog_info("TVSDK推送AI目标告警成功: cmd[0x%x]", pInfo->dwAlarmType);
+        dlog_info("TVSDK推送AI目标告警成功: cmd[0x%x]", pInfo->uAlarmType);
     }
 }
 
@@ -434,20 +434,20 @@ void push_ai_object_alarm(const EventTriggerContext_S &stContext, UINT32 dwAlarm
  */
 void push_exception_alarm(const EventTriggerContext_S &stContext, UINT32 dwAlarmType)
 {
-    NET_TV_ALARM_EXCEPTION_INFO_S stInfo;
+    NET_AlarmExceptionInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
-    stInfo.dwAlarmType = dwAlarmType;
-    stInfo.dwChannel = static_cast<UINT32>(stContext.nChnId < 0 ? 0 : stContext.nChnId);
-    stInfo.dwDiskNo = 0;
-    stInfo.dwStatus = 1;
-    int nRet = ControlManage::instance()->tvsdk_push_alarm(static_cast<int>(stInfo.dwAlarmType), &stInfo, sizeof(stInfo));
+    stInfo.uAlarmType = dwAlarmType;
+    stInfo.uChannel = static_cast<UINT32>(stContext.nChnId < 0 ? 0 : stContext.nChnId);
+    stInfo.uDiskNo = 0;
+    stInfo.uStatus = 1;
+    int nRet = ControlManage::instance()->tvsdk_push_alarm(static_cast<int>(stInfo.uAlarmType), &stInfo, sizeof(stInfo));
     if (nRet < 0)
     {
-        dlog_warn("TVSDK推送异常告警失败: cmd[0x%x] ret[%d]", stInfo.dwAlarmType, nRet);
+        dlog_warn("TVSDK推送异常告警失败: cmd[0x%x] ret[%d]", stInfo.uAlarmType, nRet);
     }
     else
     {
-        dlog_info("TVSDK推送异常告警成功: cmd[0x%x]", stInfo.dwAlarmType);
+        dlog_info("TVSDK推送异常告警成功: cmd[0x%x]", stInfo.uAlarmType);
     }
 }
 
@@ -464,10 +464,10 @@ void push_face_compare_alarm(const EventTriggerContext_S &stContext)
     }
 
     const Event::FaceCompareInfo_S &stSrc = stContext.pTvSdkPayload->stFaceCompare.stFaceCompareInfo;
-    std::unique_ptr<NET_TV_ALARM_FACE_COMPARE_INFO_S> pInfo(new (std::nothrow) NET_TV_ALARM_FACE_COMPARE_INFO_S);
+    std::unique_ptr<NET_AlarmFaceCompareInfo_S> pInfo(new (std::nothrow) NET_AlarmFaceCompareInfo_S);
     if (!pInfo)
     {
-        dlog_warn("TVSDK人脸比对告警内存分配失败，丢弃本次推送: buf_len[%zu]", sizeof(NET_TV_ALARM_FACE_COMPARE_INFO_S));
+        dlog_warn("TVSDK人脸比对告警内存分配失败，丢弃本次推送: buf_len[%zu]", sizeof(NET_AlarmFaceCompareInfo_S));
         return;
     }
 
@@ -483,63 +483,63 @@ void push_face_compare_alarm(const EventTriggerContext_S &stContext)
         nChannel = 0;
     }
 
-    pInfo->dwAlarmType = NET_TV_ALARM_FACE_COMPARE;
-    pInfo->dwChannel = static_cast<UINT32>(nChannel);
+    pInfo->uAlarmType = NET_ALARM_FACE_COMPARE;
+    pInfo->uChannel = static_cast<UINT32>(nChannel);
     pInfo->llTimestampMs = stSrc.stInfo.lTimestamp > 0 ? stSrc.stInfo.lTimestamp : stContext.llTimestamp;
     pInfo->nEventId = stSrc.nEventId;
     pInfo->nCompResult = stSrc.nCompResult;
     pInfo->nSimilarity = stSrc.nSimilarity;
     pInfo->nFaceId = stSrc.nFaceId;
-    copy_tvsdk_string(pInfo->szFaceLibName, stSrc.strFaceLibName);
-    copy_tvsdk_string(pInfo->szFaceName, stSrc.strFaceName);
-    copy_tvsdk_string(pInfo->szLibFacePath, stSrc.strLibFacePath);
-    copy_tvsdk_string(pInfo->szCapFacePath, stSrc.strCapFacePath);
-    copy_tvsdk_string(pInfo->szCapImagePath, stSrc.strCapImagePath);
+    copy_tvsdk_string(pInfo->strFaceLibName, stSrc.strFaceLibName);
+    copy_tvsdk_string(pInfo->strFaceName, stSrc.strFaceName);
+    copy_tvsdk_string(pInfo->strLibFacePath, stSrc.strLibFacePath);
+    copy_tvsdk_string(pInfo->strCapFacePath, stSrc.strCapFacePath);
+    copy_tvsdk_string(pInfo->strCapImagePath, stSrc.strCapImagePath);
     load_tvsdk_image_file(stSrc.strLibFacePath,
                           pInfo->byLibFaceImg,
-                          pInfo->dwLibFaceImgLen,
+                          pInfo->uLibFaceImgLen,
                           sizeof(pInfo->byLibFaceImg));
     load_tvsdk_image_file(stSrc.strCapFacePath,
                           pInfo->byCapFaceImg,
-                          pInfo->dwCapFaceImgLen,
+                          pInfo->uCapFaceImgLen,
                           sizeof(pInfo->byCapFaceImg));
 
     dlog_info("TVSDK人脸比对告警填充: cmd[0x%x] 通道[%u] 事件ID[%d] 结果[%d] 相似度[%d] "
               "人脸ID[%d] 库[%s] 名称[%s] 库图长度[%u] 抓拍图长度[%u] buf_len[%zu]",
-              pInfo->dwAlarmType,
-              pInfo->dwChannel,
+              pInfo->uAlarmType,
+              pInfo->uChannel,
               pInfo->nEventId,
               pInfo->nCompResult,
               pInfo->nSimilarity,
               pInfo->nFaceId,
-              pInfo->szFaceLibName,
-              pInfo->szFaceName,
-              pInfo->dwLibFaceImgLen,
-              pInfo->dwCapFaceImgLen,
+              pInfo->strFaceLibName,
+              pInfo->strFaceName,
+              pInfo->uLibFaceImgLen,
+              pInfo->uCapFaceImgLen,
               sizeof(*pInfo));
 
-    int nRet = ControlManage::instance()->tvsdk_push_alarm(static_cast<int>(pInfo->dwAlarmType), pInfo.get(), sizeof(*pInfo));
+    int nRet = ControlManage::instance()->tvsdk_push_alarm(static_cast<int>(pInfo->uAlarmType), pInfo.get(), sizeof(*pInfo));
     if (nRet < 0)
     {
-        dlog_warn("TVSDK推送人脸比对告警失败: cmd[0x%x] ret[%d]", pInfo->dwAlarmType, nRet);
+        dlog_warn("TVSDK推送人脸比对告警失败: cmd[0x%x] ret[%d]", pInfo->uAlarmType, nRet);
     }
     else
     {
-        dlog_info("TVSDK推送人脸比对告警成功: cmd[0x%x]", pInfo->dwAlarmType);
+        dlog_info("TVSDK推送人脸比对告警成功: cmd[0x%x]", pInfo->uAlarmType);
     }
 }
 
 /**
  * @brief   : 填充统计类目标快照
  * @param    {EventTvSdkTarget_S} &stSrc 源目标快照
- * @param    {NET_TV_ALARM_STATISTICS_TARGET_S} &stDst 目标协议结构
+ * @param    {NET_AlarmStatisticsTarget_S} &stDst 目标协议结构
  * @return   {void}
  */
-void fill_statistics_target(const EventTvSdkTarget_S &stSrc, NET_TV_ALARM_STATISTICS_TARGET_S &stDst)
+void fill_statistics_target(const EventTvSdkTarget_S &stSrc, NET_AlarmStatisticsTarget_S &stDst)
 {
     stDst.nTrackID = stSrc.nTrackId;
-    stDst.dwRuleID = static_cast<UINT32>(std::max(0, stSrc.nRuleId));
-    stDst.dwSnapshotType = static_cast<UINT32>(std::max(0, stSrc.nSnapshotType));
+    stDst.uRuleID = static_cast<UINT32>(std::max(0, stSrc.nRuleId));
+    stDst.uSnapshotType = static_cast<UINT32>(std::max(0, stSrc.nSnapshotType));
     stDst.nLeft = stSrc.nLeft;
     stDst.nTop = stSrc.nTop;
     stDst.nRight = stSrc.nRight;
@@ -550,10 +550,10 @@ void fill_statistics_target(const EventTvSdkTarget_S &stSrc, NET_TV_ALARM_STATIS
     stTargetImage.vecJpeg = stSrc.vecJpeg;
     if (!copy_tvsdk_image(stTargetImage,
                           stDst.byImgData,
-                          stDst.dwImgLen,
+                          stDst.uImgLen,
                           sizeof(stDst.byImgData)))
     {
-        stDst.dwImgLen = 0;
+        stDst.uImgLen = 0;
     }
 }
 
@@ -572,34 +572,34 @@ void push_statistics_alarm(const EventTriggerContext_S &stContext)
     try
     {
         const EventTvSdkStatisticsPayload_S &stPayload = stContext.pTvSdkPayload->stStatistics;
-        std::unique_ptr<NET_TV_ALARM_STATISTICS_INFO_S> pInfo(new (std::nothrow) NET_TV_ALARM_STATISTICS_INFO_S);
+        std::unique_ptr<NET_AlarmStatisticsInfo_S> pInfo(new (std::nothrow) NET_AlarmStatisticsInfo_S);
         if (!pInfo)
         {
-            dlog_warn("TVSDK统计告警内存分配失败，丢弃本次推送: buf_len[%zu]", sizeof(NET_TV_ALARM_STATISTICS_INFO_S));
+            dlog_warn("TVSDK统计告警内存分配失败，丢弃本次推送: buf_len[%zu]", sizeof(NET_AlarmStatisticsInfo_S));
             return;
         }
 
         memset(pInfo.get(), 0, sizeof(*pInfo));
-        pInfo->dwChannel = static_cast<UINT32>(stContext.nChnId < 0 ? 0 : stContext.nChnId);
-        pInfo->dwRuleID = static_cast<UINT32>(std::max(0, stPayload.nRuleId));
+        pInfo->uChannel = static_cast<UINT32>(stContext.nChnId < 0 ? 0 : stContext.nChnId);
+        pInfo->uRuleID = static_cast<UINT32>(std::max(0, stPayload.nRuleId));
         pInfo->llTimestampMs = stPayload.llTimestampMs > 0 ? stPayload.llTimestampMs : stContext.llTimestamp;
-        pInfo->dwReportSeq = stPayload.nReportSeq;
-        pInfo->dwEnterCount = stPayload.nEnterCount;
-        pInfo->dwLeaveCount = stPayload.nLeaveCount;
-        pInfo->dwTotalCount = stPayload.nTotalCount;
-        pInfo->dwCurrentPeopleCount = stPayload.nCurrentPeopleCount;
+        pInfo->uReportSeq = stPayload.nReportSeq;
+        pInfo->uEnterCount = stPayload.nEnterCount;
+        pInfo->uLeaveCount = stPayload.nLeaveCount;
+        pInfo->uTotalCount = stPayload.nTotalCount;
+        pInfo->uCurrentPeopleCount = stPayload.nCurrentPeopleCount;
         const UINT32 dwAverageStayTimeSec = static_cast<UINT32>(stPayload.nAverageStayTimeSec);
-        pInfo->dwAverageStayTimeSec = dwAverageStayTimeSec;
+        pInfo->uAverageStayTimeSec = dwAverageStayTimeSec;
 
         if (stPayload.nStatisticsType == static_cast<int>(EventTvSdkStatisticsType_E::PEOPLE_FLOW))
         {
-            pInfo->dwAlarmType = NET_TV_ALARM_PEOPLE_FLOW_STATISTICS;
-            pInfo->dwStatisticsType = NET_TV_STATISTICS_TYPE_PEOPLE_FLOW;
+            pInfo->uAlarmType = NET_ALARM_PEOPLE_FLOW_STATISTICS;
+            pInfo->uStatisticsType = NET_STATISTICS_TYPE_PEOPLE_FLOW;
         }
         else if (stPayload.nStatisticsType == static_cast<int>(EventTvSdkStatisticsType_E::PEOPLE_DENSITY))
         {
-            pInfo->dwAlarmType = NET_TV_ALARM_PEOPLE_DENSITY_STATISTICS;
-            pInfo->dwStatisticsType = NET_TV_STATISTICS_TYPE_PEOPLE_DENSITY;
+            pInfo->uAlarmType = NET_ALARM_PEOPLE_DENSITY_STATISTICS;
+            pInfo->uStatisticsType = NET_STATISTICS_TYPE_PEOPLE_DENSITY;
         }
         else
         {
@@ -607,8 +607,8 @@ void push_statistics_alarm(const EventTriggerContext_S &stContext)
         }
 
         const size_t nTargetCount = std::min(stPayload.vecTargets.size(),
-                                             static_cast<size_t>(NET_TV_ALARM_STATISTICS_TARGET_MAX_NUM));
-        pInfo->dwTargetCount = static_cast<UINT32>(nTargetCount);
+                                             static_cast<size_t>(NET_ALARM_STATISTICS_TARGET_MAX_NUM));
+        pInfo->uTargetCount = static_cast<UINT32>(nTargetCount);
         for (size_t i = 0; i < nTargetCount; ++i)
         {
             fill_statistics_target(stPayload.vecTargets[i], pInfo->stTargets[i]);
@@ -616,36 +616,36 @@ void push_statistics_alarm(const EventTriggerContext_S &stContext)
 
         if (!copy_tvsdk_image(stPayload.stPanoramaImage,
                               pInfo->byPanoramaImg,
-                              pInfo->dwPanoramaImgLen,
+                              pInfo->uPanoramaImgLen,
                               sizeof(pInfo->byPanoramaImg)))
         {
             dlog_warn("TVSDK统计告警全景图超过协议上限，丢弃图片但保留统计数据");
-            pInfo->dwPanoramaImgLen = 0;
+            pInfo->uPanoramaImgLen = 0;
         }
 
         dlog_info("TVSDK统计告警填充: cmd[0x%x] 通道[%u] 类型[%u] 规则[%u] 时间戳[%lld] 序号[%u] "
                   "进入[%u] 离开[%u] 总数[%u] 当前人数[%u] 平均停留[%u] 目标数[%u] buf_len[%zu]",
-                  pInfo->dwAlarmType,
-                  pInfo->dwChannel,
-                  pInfo->dwStatisticsType,
-                  pInfo->dwRuleID,
+                  pInfo->uAlarmType,
+                  pInfo->uChannel,
+                  pInfo->uStatisticsType,
+                  pInfo->uRuleID,
                   static_cast<long long>(pInfo->llTimestampMs),
-                  pInfo->dwReportSeq,
-                  pInfo->dwEnterCount,
-                  pInfo->dwLeaveCount,
-                  pInfo->dwTotalCount,
-                  pInfo->dwCurrentPeopleCount,
+                  pInfo->uReportSeq,
+                  pInfo->uEnterCount,
+                  pInfo->uLeaveCount,
+                  pInfo->uTotalCount,
+                  pInfo->uCurrentPeopleCount,
                   dwAverageStayTimeSec,
-                  pInfo->dwTargetCount,
+                  pInfo->uTargetCount,
                   sizeof(*pInfo));
-        int nRet = ControlManage::instance()->tvsdk_push_alarm(static_cast<int>(pInfo->dwAlarmType), pInfo.get(), sizeof(*pInfo));
+        int nRet = ControlManage::instance()->tvsdk_push_alarm(static_cast<int>(pInfo->uAlarmType), pInfo.get(), sizeof(*pInfo));
         if (nRet < 0)
         {
-            dlog_warn("TVSDK推送统计告警失败: cmd[0x%x] ret[%d]", pInfo->dwAlarmType, nRet);
+            dlog_warn("TVSDK推送统计告警失败: cmd[0x%x] ret[%d]", pInfo->uAlarmType, nRet);
         }
         else
         {
-            dlog_info("TVSDK推送统计告警成功: cmd[0x%x]", pInfo->dwAlarmType);
+            dlog_info("TVSDK推送统计告警成功: cmd[0x%x]", pInfo->uAlarmType);
         }
     }
     catch (const std::bad_alloc &e)

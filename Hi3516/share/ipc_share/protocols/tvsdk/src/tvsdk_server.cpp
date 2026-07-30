@@ -37,23 +37,23 @@ constexpr int kNetTvAudioFormatPcm = 6;
 constexpr size_t kVoiceComNvrRecvDumpMaxBytes = 5 * 1024 * 1024;
 UINT32 g_discoveryHttpPort = IN_CONTROL_SDK_PROT;
 std::string g_discoveryInterface = kDefaultDiscoveryInterface;
-NET_TV_DISCOVERY_DEVICE_INFO_S g_cachedDiscoveryInfo;
+NET_DiscoveryDeviceInfo_S g_cachedDiscoveryInfo;
 std::chrono::steady_clock::time_point g_cachedDiscoveryInfoTime;
 bool g_hasCachedDiscoveryInfo = false;
 FILE *g_voiceComNvrRecvDumpFp = nullptr;
 size_t g_voiceComNvrRecvDumpBytes = 0;
 constexpr auto kDiscoveryInfoCacheTtl = std::chrono::seconds(30);
 
-void fill_default_voice_com_audio_param(NET_TV_VOICECOM_AUDIO_PARAM_S &audioParam)
+void fill_default_voice_com_audio_param(NET_VoiceComAudioParam_S &audioParam)
 {
     std::memset(&audioParam, 0, sizeof(audioParam));
     audioParam.enFormat = kNetTvAudioFormatPcm;
-    audioParam.dwSampleRate = 16000;
-    audioParam.dwBitDepth = 16;
-    audioParam.dwChannels = 1;
-    audioParam.dwFrameIntervalMs = 20;
-    audioParam.dwFrameBytes = 640;
-    audioParam.dwBitRate = 256000;
+    audioParam.uSampleRate = 16000;
+    audioParam.uBitDepth = 16;
+    audioParam.uChannels = 1;
+    audioParam.uFrameIntervalMs = 20;
+    audioParam.uFrameBytes = 640;
+    audioParam.uBitRate = 256000;
     audioParam.bLittleEndian = TRUE;
 }
 
@@ -127,16 +127,16 @@ void STDCALL cb_voice_com_play(const char *data, unsigned int size)
 
     dump_voice_com_nvr_audio(data, size);
 
-    NET_TV_VOICECOM_AUDIO_PARAM_S audioParam;
+    NET_VoiceComAudioParam_S audioParam;
     fill_default_voice_com_audio_param(audioParam);
-    if (NET_TV_SERVER_GetVoiceComAudioParam(&audioParam))
+    if (NET_SERVER_GetVoiceComAudioParam(&audioParam))
     {
         int nRet = CAVConfigure::instance()->setAudioAoSampleRate(
-            static_cast<Audio_NS::AudioSamprate_E>(audioParam.dwSampleRate));
+            static_cast<Audio_NS::AudioSamprate_E>(audioParam.uSampleRate));
         if (nRet != OK)
         {
             dlog_warn("TVSDK VoiceCom set AO sample rate failed, sampleRate=%d ret=%d",
-                      audioParam.dwSampleRate, nRet);
+                      audioParam.uSampleRate, nRet);
         }
     }
 
@@ -148,7 +148,7 @@ void STDCALL cb_voice_com_play(const char *data, unsigned int size)
     CAVConfigure::instance()->setAoSpeakInfo(stAoInfo);
 }
 
-INT32 STDCALL cb_voice_com_capture(const NET_TV_VOICECOM_AUDIO_PARAM_S *pstAudioParam,
+INT32 STDCALL cb_voice_com_capture(const NET_VoiceComAudioParam_S *pstAudioParam,
                                    CHAR *pBuffer,
                                    UINT32 dwBufferSize,
                                    LPVOID lpUserData)
@@ -162,27 +162,27 @@ INT32 STDCALL cb_voice_com_capture(const NET_TV_VOICECOM_AUDIO_PARAM_S *pstAudio
      * 如果 NVR 后续改成 G711，需要在这里或采集源中补重采样/编码转换。
      */
     const int nExpectedFrameBytes =
-        pstAudioParam->dwSampleRate *
-        pstAudioParam->dwChannels *
-        (pstAudioParam->dwBitDepth / 8) *
-        pstAudioParam->dwFrameIntervalMs / 1000;
+        pstAudioParam->uSampleRate *
+        pstAudioParam->uChannels *
+        (pstAudioParam->uBitDepth / 8) *
+        pstAudioParam->uFrameIntervalMs / 1000;
     if (pstAudioParam->enFormat != kNetTvAudioFormatPcm ||
-        pstAudioParam->dwSampleRate != 16000 ||
-        pstAudioParam->dwBitDepth != 16 ||
-        pstAudioParam->dwChannels != 1 ||
+        pstAudioParam->uSampleRate != 16000 ||
+        pstAudioParam->uBitDepth != 16 ||
+        pstAudioParam->uChannels != 1 ||
         pstAudioParam->bLittleEndian != TRUE ||
-        pstAudioParam->dwFrameIntervalMs <= 0 ||
-        pstAudioParam->dwFrameBytes <= 0 ||
-        pstAudioParam->dwFrameBytes != nExpectedFrameBytes)
+        pstAudioParam->uFrameIntervalMs <= 0 ||
+        pstAudioParam->uFrameBytes <= 0 ||
+        pstAudioParam->uFrameBytes != nExpectedFrameBytes)
     {
         dlog_warn("TVSDK VoiceCom capture only supports PCM/16k/16bit/mono/little-endian now, format=%d sampleRate=%d bitDepth=%d channels=%d littleEndian=%d frameMs=%d frameBytes=%d expected=%d",
                   pstAudioParam->enFormat,
-                  pstAudioParam->dwSampleRate,
-                  pstAudioParam->dwBitDepth,
-                  pstAudioParam->dwChannels,
+                  pstAudioParam->uSampleRate,
+                  pstAudioParam->uBitDepth,
+                  pstAudioParam->uChannels,
                   pstAudioParam->bLittleEndian,
-                  pstAudioParam->dwFrameIntervalMs,
-                  pstAudioParam->dwFrameBytes,
+                  pstAudioParam->uFrameIntervalMs,
+                  pstAudioParam->uFrameBytes,
                   nExpectedFrameBytes);
         return 0;
     }
@@ -190,7 +190,7 @@ INT32 STDCALL cb_voice_com_capture(const NET_TV_VOICECOM_AUDIO_PARAM_S *pstAudio
     int nRead = CVoiceComCaptureSource::instance()->read_pcm_frame(
         pBuffer,
         dwBufferSize,
-        pstAudioParam->dwFrameBytes);
+        pstAudioParam->uFrameBytes);
     if (nRead <= 0)
         return 0;
 
@@ -199,15 +199,15 @@ INT32 STDCALL cb_voice_com_capture(const NET_TV_VOICECOM_AUDIO_PARAM_S *pstAudio
 
 void start_voice_com_server()
 {
-    if (!NET_TV_SERVER_RegisterCb_VoiceComPlay(cb_voice_com_play))
+    if (!NET_SERVER_RegisterCb_VoiceComPlay(cb_voice_com_play))
     {
         dlog_warn("TVSDK VoiceCom register play callback failed");
     }
-    else if (!NET_TV_SERVER_RegisterCb_VoiceComCapture(cb_voice_com_capture, nullptr))
+    else if (!NET_SERVER_RegisterCb_VoiceComCapture(cb_voice_com_capture, nullptr))
     {
         dlog_warn("TVSDK VoiceCom register capture callback failed");
     }
-    else if (!NET_TV_SERVER_StartVoiceComServer(kVoiceComPort))
+    else if (!NET_SERVER_StartVoiceComServer(kVoiceComPort))
     {
         dlog_warn("TVSDK VoiceCom server start failed, port=%u", kVoiceComPort);
     }
@@ -221,7 +221,7 @@ void stop_voice_com_server()
 {
     close_voice_com_nvr_audio_dump();
     CVoiceComCaptureSource::instance()->clear();
-    NET_TV_SERVER_StopVoiceComServer();
+    NET_SERVER_StopVoiceComServer();
 }
 
 template <size_t N>
@@ -251,7 +251,7 @@ std::string get_discovery_interface()
     return iface.empty() ? kDefaultDiscoveryInterface : iface;
 }
 
-void STDCALL cb_get_discovery_device_info(NET_TV_DISCOVERY_DEVICE_INFO_S *pInfo)
+void STDCALL cb_get_discovery_device_info(NET_DiscoveryDeviceInfo_S *pInfo)
 {
     if (!pInfo)
         return;
@@ -268,41 +268,41 @@ void STDCALL cb_get_discovery_device_info(NET_TV_DISCOVERY_DEVICE_INFO_S *pInfo)
     System::DeviceInfo_S stDev;
     if (SystemManage::instance()->get_device_info(stDev) == OK)
     {
-        copy_text(pInfo->szDeviceName, first_not_empty(stDev.deviceName, "Camera"));
-        copy_text(pInfo->szDeviceID, first_not_empty(stDev.serialNumber, std::to_string(stDev.deviceID)));
-        copy_text(pInfo->szDeviceType, first_not_empty(stDev.strUnitTpye, "IPC"));
-        copy_text(pInfo->szFirmwareVersion, first_not_empty(stDev.systemVersion, stDev.hardwareVersion));
+        copy_text(pInfo->strDeviceName, first_not_empty(stDev.deviceName, "Camera"));
+        copy_text(pInfo->strDeviceID, first_not_empty(stDev.serialNumber, std::to_string(stDev.deviceID)));
+        copy_text(pInfo->strDeviceType, first_not_empty(stDev.strUnitTpye, "IPC"));
+        copy_text(pInfo->strFirmwareVersion, first_not_empty(stDev.systemVersion, stDev.hardwareVersion));
     }
     else
     {
-        copy_text(pInfo->szDeviceName, "Camera");
-        copy_text(pInfo->szDeviceID, "1");
-        copy_text(pInfo->szDeviceType, "IPC");
+        copy_text(pInfo->strDeviceName, "Camera");
+        copy_text(pInfo->strDeviceID, "1");
+        copy_text(pInfo->strDeviceType, "IPC");
     }
 
     Network::Info_S stNet;
     stNet.stIp.netName = g_discoveryInterface.empty() ? kDefaultDiscoveryInterface : g_discoveryInterface;
     if (CNetworkManage::instance()->get_ip_and_dns(stNet) == OK)
     {
-        copy_text(pInfo->szIPv4Address, stNet.stIp.ipv4Ip);
-        copy_text(pInfo->szIPv4SubnetMask, stNet.stIp.ipv4Mask);
-        copy_text(pInfo->szIPv4Gateway, stNet.stIp.ipv4Gateway);
+        copy_text(pInfo->strIPv4Address, stNet.stIp.ipv4Ip);
+        copy_text(pInfo->strIPv4SubnetMask, stNet.stIp.ipv4Mask);
+        copy_text(pInfo->strIPv4Gateway, stNet.stIp.ipv4Gateway);
 
         std::string mac = stNet.stIp.physicalAddress;
         if (mac.empty())
             mac = CNetworkManage::instance()->get_macAddress(stNet.stIp.netName);
-        copy_text(pInfo->szMACAddress, mac);
+        copy_text(pInfo->strMACAddress, mac);
     }
 
-    pInfo->dwHttpPort = g_discoveryHttpPort;
-    copy_text(pInfo->szManufacturer, kDefaultDiscoveryManufacturer);
+    pInfo->uHttpPort = g_discoveryHttpPort;
+    copy_text(pInfo->strManufacturer, kDefaultDiscoveryManufacturer);
 
     dlog_debug("TVSDK discovery info: name[%s] id[%s] ip[%s] mac[%s] port[%u]",
-               pInfo->szDeviceName,
-               pInfo->szDeviceID,
-               pInfo->szIPv4Address,
-               pInfo->szMACAddress,
-               pInfo->dwHttpPort);
+               pInfo->strDeviceName,
+               pInfo->strDeviceID,
+               pInfo->strIPv4Address,
+               pInfo->strMACAddress,
+               pInfo->uHttpPort);
 
     std::memcpy(&g_cachedDiscoveryInfo, pInfo, sizeof(g_cachedDiscoveryInfo));
     g_cachedDiscoveryInfoTime = now;
@@ -322,8 +322,8 @@ int CTvSdkServer::init()
     }
 
     UINT32 port = (m_udwPort > 0) ? (UINT32)m_udwPort : (UINT32)IN_CONTROL_SDK_PROT;
-    CHAR szUser[NET_TV_LEN_132] = {0};
-    CHAR szPass[NET_TV_LEN_132] = {0};
+    CHAR szUser[NET_LEN_132] = {0};
+    CHAR szPass[NET_LEN_132] = {0};
     /* 通过用户管理获取管理员用户名和密码 */
     std::string strAdminUser = USER_DEFAULT_NAME;
     std::string strAdminPass = CUserManage::instance()->get_passwd(USER_DEFAULT_NAME);
@@ -336,10 +336,10 @@ int CTvSdkServer::init()
     strncpy(szPass, strAdminPass.c_str(), sizeof(szPass) - 1);
     szPass[sizeof(szPass) - 1] = '\0';
 
-    BOOL bRet = NET_TV_SERVER_Init(port, szUser, szPass);
+    BOOL bRet = NET_SERVER_Init(port, szUser, szPass);
     if (!bRet)
     {
-        dlog_error("NET_TV_SERVER_Init failed, port=%u", port);
+        dlog_error("NET_SERVER_Init failed, port=%u", port);
         return -1;
     }
 
@@ -351,11 +351,11 @@ int CTvSdkServer::init()
 
     g_discoveryHttpPort = port;
     g_discoveryInterface = get_discovery_interface();
-    if (!NET_TV_SERVER_RegisterCb_GetDiscoveryDeviceInfo(cb_get_discovery_device_info))
+    if (!NET_SERVER_RegisterCb_GetDiscoveryDeviceInfo(cb_get_discovery_device_info))
     {
         dlog_warn("TVSDK discovery register callback failed");
     }
-    else if (!NET_TV_SERVER_Discovery_Start(g_discoveryInterface.c_str()))
+    else if (!NET_SERVER_Discovery_Start(g_discoveryInterface.c_str()))
     {
         dlog_warn("TVSDK discovery start failed, iface=%s", g_discoveryInterface.c_str());
     }
@@ -374,8 +374,8 @@ void CTvSdkServer::deinit()
     if (!m_bInit)
         return;
     stop_voice_com_server();
-    NET_TV_SERVER_Discovery_Stop();
-    NET_TV_SERVER_Cleanup();
+    NET_SERVER_Discovery_Stop();
+    NET_SERVER_Cleanup();
     TvSdkCallbacks::clear_task_manage();
     m_bInit = false;
     dlog_info("TVSDK server deinit");
@@ -392,8 +392,8 @@ int CTvSdkServer::push_alarm(const void *pAlarmer, int lCommand, const void *pAl
     if (!m_bInit || !pAlarmInfo || dwBufLen <= 0)
         return -1;
      // SDK 内部通常要求 pAlarmer 非空，这里按需填默认告警设备信息
-    NET_TV_ALARMER_S stAlarmer;
-    NET_TV_ALARMER_S *pUseAlarmer = (NET_TV_ALARMER_S *)pAlarmer;
+    NET_Alarmer_S stAlarmer;
+    NET_Alarmer_S *pUseAlarmer = (NET_Alarmer_S *)pAlarmer;
     if (!pUseAlarmer)
     {
         memset(&stAlarmer, 0, sizeof(stAlarmer));
@@ -402,15 +402,15 @@ int CTvSdkServer::push_alarm(const void *pAlarmer, int lCommand, const void *pAl
         ::System::DeviceInfo_S stDev;
         if (SystemManage::instance()->get_device_info(stDev) == 0)
         {
-            strncpy((char *)stAlarmer.szSerialNumber, stDev.serialNumber.c_str(), sizeof(stAlarmer.szSerialNumber) - 1);
-            strncpy(stAlarmer.szDeviceName, stDev.deviceName.c_str(), sizeof(stAlarmer.szDeviceName) - 1);
+            strncpy((char *)stAlarmer.strSerialNumber, stDev.serialNumber.c_str(), sizeof(stAlarmer.strSerialNumber) - 1);
+            strncpy(stAlarmer.strDeviceName, stDev.deviceName.c_str(), sizeof(stAlarmer.strDeviceName) - 1);
         }
 
         // ip + mac
         Network::Info_S stNet;
         if (CNetworkManage::instance()->get_ip_and_dns(stNet) == 0)
         {
-            strncpy(stAlarmer.szDeviceIP, stNet.stIp.ipv4Ip.c_str(), sizeof(stAlarmer.szDeviceIP) - 1);
+            strncpy(stAlarmer.strDeviceIP, stNet.stIp.ipv4Ip.c_str(), sizeof(stAlarmer.strDeviceIP) - 1);
         }
         std::string mac = CNetworkManage::instance()->get_macAddress("eth0");
         unsigned int b[6] = {0};
@@ -422,133 +422,133 @@ int CTvSdkServer::push_alarm(const void *pAlarmer, int lCommand, const void *pAl
 
         pUseAlarmer = &stAlarmer;
     }
-    if ((lCommand & 0xF000) == NET_TV_ALARM_BASE_BASIC)
+    if ((lCommand & 0xF000) == NET_ALARM_BASE_BASIC)
     {
         dlog_info("[基础告警推送诊断] push_alarm 进入TVSDK层: cmd[0x%x] buf_len[%d] expect_size[%zu]",
                   lCommand,
                   dwBufLen,
-                  sizeof(NET_TV_ALARM_BASIC_INFO_S));
-        if (dwBufLen >= static_cast<int>(sizeof(NET_TV_ALARM_BASIC_INFO_S)))
+                  sizeof(NET_AlarmBasicInfo_S));
+        if (dwBufLen >= static_cast<int>(sizeof(NET_AlarmBasicInfo_S)))
         {
-            const NET_TV_ALARM_BASIC_INFO_S *pBasic =
-                static_cast<const NET_TV_ALARM_BASIC_INFO_S *>(pAlarmInfo);
+            const NET_AlarmBasicInfo_S *pBasic =
+                static_cast<const NET_AlarmBasicInfo_S *>(pAlarmInfo);
             dlog_info("[基础告警推送诊断] push_alarm 基础内容: alarm_type[0x%x] 时间戳[%lld] 全景图长度[%u]",
-                      pBasic->dwAlarmType,
+                      pBasic->uAlarmType,
                       static_cast<long long>(pBasic->llTimestampMs),
-                      pBasic->dwPanoramaImgLen);
+                      pBasic->uPanoramaImgLen);
         }
         else
         {
             dlog_warn("[基础告警推送诊断] push_alarm 缓冲区过小: cmd[0x%x] buf_len[%d] expect_size[%zu]",
                       lCommand,
                       dwBufLen,
-                      sizeof(NET_TV_ALARM_BASIC_INFO_S));
+                      sizeof(NET_AlarmBasicInfo_S));
         }
     }
-    else if ((lCommand & 0xF000) == NET_TV_ALARM_BASE_STATISTICS)
+    else if ((lCommand & 0xF000) == NET_ALARM_BASE_STATISTICS)
     {
         dlog_info("[统计推送诊断] push_alarm 进入TVSDK层: cmd[0x%x] buf_len[%d] expect_size[%zu]", lCommand, dwBufLen,
-                  sizeof(NET_TV_ALARM_STATISTICS_INFO_S));
-        if (dwBufLen >= static_cast<int>(sizeof(NET_TV_ALARM_STATISTICS_INFO_S)))
+                  sizeof(NET_AlarmStatisticsInfo_S));
+        if (dwBufLen >= static_cast<int>(sizeof(NET_AlarmStatisticsInfo_S)))
         {
-            const NET_TV_ALARM_STATISTICS_INFO_S *pStatistics =
-                static_cast<const NET_TV_ALARM_STATISTICS_INFO_S *>(pAlarmInfo);
+            const NET_AlarmStatisticsInfo_S *pStatistics =
+                static_cast<const NET_AlarmStatisticsInfo_S *>(pAlarmInfo);
             dlog_info("[统计推送诊断] push_alarm 统计内容: alarm_type[0x%x] 通道[%u] 类型[%u] 规则[%u] 时间戳[%lld] 序号[%u] "
                       "进入[%u] 离开[%u] 总数[%u] 当前人数[%u] 目标数[%u] 全景图长度[%u]",
-                      pStatistics->dwAlarmType,
-                      pStatistics->dwChannel,
-                      pStatistics->dwStatisticsType,
-                      pStatistics->dwRuleID,
+                      pStatistics->uAlarmType,
+                      pStatistics->uChannel,
+                      pStatistics->uStatisticsType,
+                      pStatistics->uRuleID,
                       static_cast<long long>(pStatistics->llTimestampMs),
-                      pStatistics->dwReportSeq,
-                      pStatistics->dwEnterCount,
-                      pStatistics->dwLeaveCount,
-                      pStatistics->dwTotalCount,
-                      pStatistics->dwCurrentPeopleCount,
-                      pStatistics->dwTargetCount,
-                      pStatistics->dwPanoramaImgLen);
+                      pStatistics->uReportSeq,
+                      pStatistics->uEnterCount,
+                      pStatistics->uLeaveCount,
+                      pStatistics->uTotalCount,
+                      pStatistics->uCurrentPeopleCount,
+                      pStatistics->uTargetCount,
+                      pStatistics->uPanoramaImgLen);
         }
         else
         {
             dlog_warn("[统计推送诊断] push_alarm 缓冲区过小: cmd[0x%x] buf_len[%d] expect_size[%zu]", lCommand, dwBufLen,
-                      sizeof(NET_TV_ALARM_STATISTICS_INFO_S));
+                      sizeof(NET_AlarmStatisticsInfo_S));
         }
     }
-    else if ((lCommand & 0xF000) == NET_TV_ALARM_BASE_RULE)
+    else if ((lCommand & 0xF000) == NET_ALARM_BASE_RULE)
     {
         dlog_info("[周界推送诊断] push_alarm 进入TVSDK层: cmd[0x%x] buf_len[%d] expect_size[%zu]",
                   lCommand,
                   dwBufLen,
-                  sizeof(NET_TV_ALARM_RULE_INFO_S));
-        if (dwBufLen >= static_cast<int>(sizeof(NET_TV_ALARM_RULE_INFO_S)))
+                  sizeof(NET_AlarmRuleInfo_S));
+        if (dwBufLen >= static_cast<int>(sizeof(NET_AlarmRuleInfo_S)))
         {
-            const NET_TV_ALARM_RULE_INFO_S *pRule =
-                static_cast<const NET_TV_ALARM_RULE_INFO_S *>(pAlarmInfo);
+            const NET_AlarmRuleInfo_S *pRule =
+                static_cast<const NET_AlarmRuleInfo_S *>(pAlarmInfo);
             dlog_info("[周界推送诊断] push_alarm 周界内容: alarm_type[0x%x] 通道[%u] 规则[%u] 目标[%u] "
                       "类型[%u] 时间戳[%lld] 框[%d,%d,%d,%d] 全景图长度[%u] 特写图长度[%u]",
-                      pRule->dwAlarmType,
-                      pRule->dwChannel,
-                      pRule->dwRuleID,
-                      pRule->dwTargetID,
-                      pRule->dwObjectType,
+                      pRule->uAlarmType,
+                      pRule->uChannel,
+                      pRule->uRuleID,
+                      pRule->uTargetID,
+                      pRule->uObjectType,
                       static_cast<long long>(pRule->llTimestampMs),
                       pRule->nLeft,
                       pRule->nTop,
                       pRule->nRight,
                       pRule->nBottom,
-                      pRule->dwPanoramaImgLen,
-                      pRule->dwTargetImgLen);
+                      pRule->uPanoramaImgLen,
+                      pRule->uTargetImgLen);
         }
         else
         {
             dlog_warn("[周界推送诊断] push_alarm 缓冲区过小: cmd[0x%x] buf_len[%d] expect_size[%zu]",
                       lCommand,
                       dwBufLen,
-                      sizeof(NET_TV_ALARM_RULE_INFO_S));
+                      sizeof(NET_AlarmRuleInfo_S));
         }
     }
-    else if ((lCommand & 0xF000) == NET_TV_ALARM_BASE_AI)
+    else if ((lCommand & 0xF000) == NET_ALARM_BASE_AI)
     {
         dlog_info("[AI目标推送诊断] push_alarm 进入TVSDK层: cmd[0x%x] buf_len[%d] expect_size[%zu]",
                   lCommand,
                   dwBufLen,
-                  sizeof(NET_TV_ALARM_AI_OBJECT_INFO_S));
-        if (dwBufLen >= static_cast<int>(sizeof(NET_TV_ALARM_AI_OBJECT_INFO_S)))
+                  sizeof(NET_AlarmAiObjectInfo_S));
+        if (dwBufLen >= static_cast<int>(sizeof(NET_AlarmAiObjectInfo_S)))
         {
-            const NET_TV_ALARM_AI_OBJECT_INFO_S *pObject =
-                static_cast<const NET_TV_ALARM_AI_OBJECT_INFO_S *>(pAlarmInfo);
+            const NET_AlarmAiObjectInfo_S *pObject =
+                static_cast<const NET_AlarmAiObjectInfo_S *>(pAlarmInfo);
             dlog_info("[AI目标推送诊断] push_alarm AI目标内容: alarm_type[0x%x] 通道[%u] 目标[%s] "
                       "类型[%u] 时间戳[%lld] 框[%d,%d,%d,%d] 全景图长度[%u] 特写图长度[%u]",
-                      pObject->dwAlarmType,
-                      pObject->dwChannel,
-                      pObject->szObjectID,
-                      pObject->dwObjectType,
+                      pObject->uAlarmType,
+                      pObject->uChannel,
+                      pObject->strObjectID,
+                      pObject->uObjectType,
                       static_cast<long long>(pObject->llTimestampMs),
                       pObject->nLeft,
                       pObject->nTop,
                       pObject->nRight,
                       pObject->nBottom,
-                      pObject->dwPanoramaImgLen,
-                      pObject->dwImgLen);
+                      pObject->uPanoramaImgLen,
+                      pObject->uImgLen);
         }
         else
         {
             dlog_warn("[AI目标推送诊断] push_alarm 缓冲区过小: cmd[0x%x] buf_len[%d] expect_size[%zu]",
                       lCommand,
                       dwBufLen,
-                      sizeof(NET_TV_ALARM_AI_OBJECT_INFO_S));
+                      sizeof(NET_AlarmAiObjectInfo_S));
         }
     }
 
-    BOOL bRet = NET_TV_SERVER_PushAlarmInfo(
+    BOOL bRet = NET_SERVER_PushAlarmInfo(
          pUseAlarmer,
         (INT32)lCommand,
         (LPVOID)pAlarmInfo,
         (INT32)dwBufLen);
 
-    if ((lCommand & 0xF000) == NET_TV_ALARM_BASE_STATISTICS)
+    if ((lCommand & 0xF000) == NET_ALARM_BASE_STATISTICS)
     {
-        dlog_info("[统计推送诊断] push_alarm NET_TV_SERVER_PushAlarmInfo 返回: cmd[0x%x] bRet[%d]", lCommand, bRet);
+        dlog_info("[统计推送诊断] push_alarm NET_SERVER_PushAlarmInfo 返回: cmd[0x%x] bRet[%d]", lCommand, bRet);
     }
 
     return bRet ? OK : -1;
@@ -562,7 +562,7 @@ int CTvSdkServer::get_client_count() const
         return -1;
     }
 
-    return (int)NET_TV_SERVER_GetClientCount();
+    return (int)NET_SERVER_GetClientCount();
 }
 
 void CTvSdkServer::set_port(unsigned int port)

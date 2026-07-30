@@ -37,7 +37,7 @@ public:
     /**
      * @brief 推送告警信息给已连接的 SDK 客户端
      * @param pAlarmer 告警设备信息（可为 nullptr，内部会填默认）
-     * @param lCommand 命令码/报警类型（见 NetTVSDKServer.h 中 NET_TV_ALARM_*）
+     * @param lCommand 命令码/报警类型（见 NetTVSDKServer.h 中 NET_ALARM_*）
      * @param pAlarmInfo 告警结构体指针，类型由 lCommand 决定
      * @param dwBufLen pAlarmInfo 长度
      * @return 0 成功，负值失败

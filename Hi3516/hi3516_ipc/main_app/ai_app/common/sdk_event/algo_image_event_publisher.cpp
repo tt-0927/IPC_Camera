@@ -49,20 +49,20 @@ bool CAlgoImageEventPublisher::publishImageObject(const SdkImageObjectRequest_S 
         return false;
     }
 
-    if (stRequest.pvecJpeg->size() > NET_TV_PIC_DATA_MAX_LEN)
+    if (stRequest.pvecJpeg->size() > NET_PIC_DATA_MAX_LEN)
     {
         dlog_warn("SDK 图片事件推送跳过，图片大小[%zu]超过协议上限[%u]",
                   stRequest.pvecJpeg->size(),
-                  static_cast<unsigned int>(NET_TV_PIC_DATA_MAX_LEN));
+                  static_cast<unsigned int>(NET_PIC_DATA_MAX_LEN));
         return false;
     }
 
     /* TVSDK AI_OBJECT 告警结构，只由公共推送层填充协议字段 */
-    std::unique_ptr<NET_TV_ALARM_AI_OBJECT_INFO_S> pInfo(new NET_TV_ALARM_AI_OBJECT_INFO_S());
+    std::unique_ptr<NET_AlarmAiObjectInfo_S> pInfo(new NET_AlarmAiObjectInfo_S());
     std::memset(pInfo.get(), 0, sizeof(*pInfo));
-    pInfo->dwAlarmType = stRequest.unAlarmType;
-    pInfo->dwChannel = static_cast<UINT32>(normalizeChannel(stRequest.nChnId));
-    pInfo->dwObjectType = stRequest.unObjectType;
+    pInfo->uAlarmType = stRequest.unAlarmType;
+    pInfo->uChannel = static_cast<UINT32>(normalizeChannel(stRequest.nChnId));
+    pInfo->uObjectType = stRequest.unObjectType;
     pInfo->fConfidence = stRequest.fConfidence;
     pInfo->nLeft = stRequest.stRect.nX1;
     pInfo->nTop = stRequest.stRect.nY1;
@@ -70,22 +70,22 @@ bool CAlgoImageEventPublisher::publishImageObject(const SdkImageObjectRequest_S 
     pInfo->nBottom = stRequest.stRect.nY2;
     pInfo->llTimestampMs = stRequest.llTimestampMs > 0 ? stRequest.llTimestampMs : current_timestamp_ms();
     std::memcpy(pInfo->byImgData, stRequest.pvecJpeg->data(), stRequest.pvecJpeg->size());
-    pInfo->dwImgLen = static_cast<UINT32>(stRequest.pvecJpeg->size());
+    pInfo->uImgLen = static_cast<UINT32>(stRequest.pvecJpeg->size());
 
-    const int nRet = ControlManage::instance()->tvsdk_push_alarm(static_cast<int>(pInfo->dwAlarmType),
+    const int nRet = ControlManage::instance()->tvsdk_push_alarm(static_cast<int>(pInfo->uAlarmType),
                                                                  pInfo.get(),
                                                                  sizeof(*pInfo));
     if (nRet != 0)
     {
-        dlog_warn("SDK 图片事件推送失败，alarm[%u] ret[%d]", pInfo->dwAlarmType, nRet);
+        dlog_warn("SDK 图片事件推送失败，alarm[%u] ret[%d]", pInfo->uAlarmType, nRet);
         return false;
     }
 
     dlog_info("SDK 图片事件推送成功，alarm[%u] 通道[%u] 时间戳[%lld] 图片长度[%u] 置信度[%.3f]",
-              pInfo->dwAlarmType,
-              pInfo->dwChannel,
+              pInfo->uAlarmType,
+              pInfo->uChannel,
               static_cast<long long>(pInfo->llTimestampMs),
-              pInfo->dwImgLen,
+              pInfo->uImgLen,
               pInfo->fConfidence);
     return true;
 #endif
