@@ -3390,8 +3390,7 @@ static NET_COMMON_ECODE_E cb_set_face_capture_info(INT32 dwChannelID, LPVOID lpI
 
 void register_all()
 {
-    NET_SERVER_RegisterCb_GetDeviceInfo(
-        reinterpret_cast<NET_COMMON_ECODE_E (*)(NET_DeviceInfo_S)>(cb_get_device_info_impl));
+    NET_SERVER_RegisterCb_GetDeviceInfo(cb_get_device_info_impl);
     NET_SERVER_RegisterCb_DeviceControl(cb_device_control);
     NET_SERVER_RegisterCb_GetVideoEncodeCap(cb_get_video_encode_cap);
     NET_SERVER_RegisterCb_GetAudioEncodeCap(cb_get_audio_encode_cap);

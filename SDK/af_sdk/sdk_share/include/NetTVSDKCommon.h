@@ -1693,20 +1693,6 @@ typedef enum _TiUpgradeRuslut_
 } TiUpgradeRuslut_E;
 
 /**
- * @brief 星期一日枚举
- */
-typedef enum DayOfWeek
-{
-    Monday = 1,
-    Tuesday,
-    Wednesday,
-    Thursday,
-    Friday,
-    Saturday,
-    Sunday
-} DayOfWeek_E;
-
-/**
  * @struct tagNETTVCapturePictureFormat
  * @brief 抓图格式
  * @attention
