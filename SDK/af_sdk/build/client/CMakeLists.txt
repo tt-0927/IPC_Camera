@@ -67,11 +67,11 @@ set_target_properties(${LIB_NAME}-shared PROPERTIES
 
 # 添加宏定义
 target_compile_definitions(${LIB_NAME}-static 
-    PUBLIC NET_TV_SDK_CLIENT_API
+    PUBLIC NET_SDK_CLIENT_API
     PUBLIC CPPHTTPLIB_OPENSSL_SUPPORT
 )
 target_compile_definitions(${LIB_NAME}-shared  
-    PUBLIC NET_TV_SDK_CLIENT_API
+    PUBLIC NET_SDK_CLIENT_API
     PUBLIC CPPHTTPLIB_OPENSSL_SUPPORT
  )
 # 添加头文件目录

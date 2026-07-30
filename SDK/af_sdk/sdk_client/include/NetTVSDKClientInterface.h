@@ -14,10 +14,6 @@
 #ifndef NETSDK_CLIENT_INTERFACE_H
 #define NETSDK_CLIENT_INTERFACE_H
 
-#ifdef NET_SDK_CLIENT_API
-    #include "NetTVSDK.h"
-#else
-
 #include "NetTVSDKCommon.h"
 
 #ifdef __cplusplus
@@ -405,8 +401,6 @@ NET_StopVoiceCom(NET_IN LPVOID lpUserID);
 
 #ifdef __cplusplus
 }
-#endif
-
 #endif
 
 #endif
