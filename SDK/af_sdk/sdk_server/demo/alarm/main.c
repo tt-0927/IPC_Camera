@@ -7,7 +7,7 @@
  * 功能说明：
  * 1. 初始化SDK服务器
  * 2. 定时模拟推送不同类型的报警事件
- * 3. 演示如何使用NET_SERVER_PushAlarmInfo推送报警信息
+ * 3. 演示如何使用NET_TV_SERVER_PushAlarmInfo推送报警信息
  */
 
 /* 日志记录单个日志文件的最大大小 */

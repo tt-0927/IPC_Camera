@@ -56,13 +56,13 @@ echo "正在处理 ${COMMON_H}..."
 sed \
     -e '/^#ifndef NETTVSDK_COMMON_H/,/^#endif/ d' \
     -e '/^#ifdef  __cplusplus/,/^#endif  \* end of __cplusplus \*\/$/ d' \
-    -e '/^#endif  \* end of _NET_SDK_H_ \*\/$/ d' \
+    -e '/^#endif  \* end of _NET_TV_SDK_H_ \*\/$/ d' \
     "${COMMON_H}" >> "${TARGET_H}"
 
 # 3. 处理NetTVSDKServerInterface.h：剔除头尾保护块，只保留核心内容
 echo "正在处理 ${SERVER_INTERFACE_H}..."
 sed \
-    -e '/^#ifndef _NET_SDKSERVER_INTERFACE_H/,/^#endif/ d' \
+    -e '/^#ifndef _NET_TV_SDKSERVER_INTERFACE_H/,/^#endif/ d' \
     -e '/^#ifdef __cplusplus/,/^#endif/ d' \
     -e '/^#endif$/ d' \
     "${SERVER_INTERFACE_H}" >> "${TARGET_H}"
