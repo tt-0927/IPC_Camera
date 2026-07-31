@@ -57,10 +57,17 @@ extern "C" {
     #define NEWINTERFACE
 #endif
 
-#if defined(_WIN32)  /* windows */
-#define NET_API
+/* Public SDK APIs must remain visible when the shared library hides internals. */
+#if defined(_WIN32)
+    #if defined(NET_SDK_SERVER_API) || defined(NET_SDK_CLIENT_API)
+        #define NET_API __declspec(dllexport)
+    #else
+        #define NET_API __declspec(dllimport)
+    #endif
+#elif defined(__GNUC__) || defined(__clang__)
+    #define NET_API __attribute__((visibility("default")))
 #else
-#define NET_API
+    #define NET_API
 #endif
 
 #ifdef i386
@@ -5557,6 +5564,13 @@ typedef NET_DiscoveryDeviceInfo_S* pNET_DiscoveryDeviceInfo_S;
  * @brief SDK服务端接口头文件，定义服务端初始化、配置回调注册、设备发现、语音对讲、录像帧流等核心接口
  * @note 服务端接口采用C风格API，供宿主程序（如NVR、IPC）调用，用于注册回调和推送消息
  */
+#ifndef _NET_SDKSERVER_INTERFACE_H
+#define _NET_SDKSERVER_INTERFACE_H
+
+
+
+#include "NetTVSDKCommon.h"
+
 
 /************************************************************************/
 /*                          SDK服务端核心接口                           */
@@ -6128,6 +6142,7 @@ NET_SERVER_RegisterCb_RecordFrameStop(IN NET_SERVER_RecordFrameStopCallBack cb,
                                         IN LPVOID lpUserData);
 
 
+#endif
 
 #ifdef __cplusplus
 }

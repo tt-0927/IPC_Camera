@@ -8,6 +8,8 @@
 #ifndef _NET_SDKSERVER_INTERFACE_H
 #define _NET_SDKSERVER_INTERFACE_H
 
+
+
 #include "NetTVSDKCommon.h"
 
 #ifdef __cplusplus
