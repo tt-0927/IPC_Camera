@@ -57,10 +57,17 @@ extern "C" {
     #define NEWINTERFACE
 #endif
 
-#if defined(_WIN32)  /* windows */
-#define NET_API
+/* Public SDK APIs must remain visible when the shared library hides internals. */
+#if defined(_WIN32)
+    #if defined(NET_SDK_SERVER_API) || defined(NET_SDK_CLIENT_API)
+        #define NET_API __declspec(dllexport)
+    #else
+        #define NET_API __declspec(dllimport)
+    #endif
+#elif defined(__GNUC__) || defined(__clang__)
+    #define NET_API __attribute__((visibility("default")))
 #else
-#define NET_API
+    #define NET_API
 #endif
 
 #ifdef i386
