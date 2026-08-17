@@ -197,6 +197,28 @@ BOOL CNetTVSDKServerImpl::DoPushAlarmInfo(NET_Alarmer_S* pAlarmer,
     return m_pAlarmModule->PushAlarmInfo(pAlarmer, lCommand, pAlarmInfo, dwBufLen);
 }
 
+/**
+ * @brief 推送动态图片 V2 告警。
+ * @param [in] pAlarmer 告警设备信息。
+ * @param [in] lCommand 告警命令码。
+ * @param [in] pAlarmInfo V2 告警结构体。
+ * @param [in] dwBufLen V2 告警结构体长度。
+ * @return 成功返回 TRUE，失败返回 FALSE。
+ */
+BOOL CNetTVSDKServerImpl::DoPushAlarmInfoV2(NET_Alarmer_S* pAlarmer,
+                                            INT32 lCommand,
+                                            LPVOID pAlarmInfo,
+                                            INT32 dwBufLen)
+{
+    if (!m_bInitialized)
+    {
+        NETSDK_LOG_MESSAGE_ERROR("PushAlarmInfoV2: SDK server is not initialized");
+        return FALSE;
+    }
+
+    return m_pAlarmModule->PushAlarmInfoV2(pAlarmer, lCommand, pAlarmInfo, dwBufLen);
+}
+
 BOOL CNetTVSDKServerImpl::DoPushChannelStatusInfo(NET_ChannelInfo_S* pChannelInfo)
 {
     if (!m_bInitialized)

@@ -83,6 +83,56 @@ NET_API BOOL STDCALL NET_SERVER_PushAlarmInfo(IN NET_Alarmer_S *pAlarmer,
                                                     IN INT32 dwBufLen);
 
 /**
+ * @brief 推送使用动态图片视图的 V2 告警。
+ * @details pAlarmInfo 指向与 lCommand 匹配的 NET_Alarm*V2_S。图片指针只需在本函数返回前有效。
+ * @param [in] pAlarmer 告警设备信息。
+ * @param [in] lCommand 告警命令码。
+ * @param [in] pAlarmInfo V2 告警结构体。
+ * @param [in] dwBufLen V2 告警结构体长度。
+ * @return 至少成功推送给一个已订阅客户端时返回 TRUE，否则返回 FALSE。
+ */
+NET_API BOOL STDCALL NET_SERVER_PushAlarmInfoV2(IN NET_Alarmer_S* pAlarmer,
+                                                IN INT32 lCommand,
+                                                IN LPVOID pAlarmInfo,
+                                                IN INT32 dwBufLen);
+
+/**
+ * @brief 推送人脸抓拍事件。
+ * @param [in] pAlarmer 告警设备信息。
+ * @param [in] pCaptureInfo 人脸抓拍信息。
+ * @return 成功提交推送时返回 TRUE，否则返回 FALSE。
+ */
+NET_API BOOL STDCALL NET_SERVER_PushFaceCaptureInfo(IN NET_Alarmer_S* pAlarmer,
+                                                     IN NET_FaceCapturePushInfo_S* pCaptureInfo);
+
+/**
+ * @brief 推送行人抓拍事件。
+ * @param [in] pAlarmer 告警设备信息。
+ * @param [in] pCaptureInfo 行人抓拍信息。
+ * @return 成功提交推送时返回 TRUE，否则返回 FALSE。
+ */
+NET_API BOOL STDCALL NET_SERVER_PushPersonCaptureInfo(IN NET_Alarmer_S* pAlarmer,
+                                                       IN NET_PersonCapturePushInfo_S* pCaptureInfo);
+
+/**
+ * @brief 推送机动车抓拍事件。
+ * @param [in] pAlarmer 告警设备信息。
+ * @param [in] pCaptureInfo 机动车抓拍信息。
+ * @return 成功提交推送时返回 TRUE，否则返回 FALSE。
+ */
+NET_API BOOL STDCALL NET_SERVER_PushMotorvehicleCaptureInfo(IN NET_Alarmer_S* pAlarmer,
+                                                             IN NET_MotorvehicleCapturePushInfo_S* pCaptureInfo);
+
+/**
+ * @brief 推送非机动车抓拍事件。
+ * @param [in] pAlarmer 告警设备信息。
+ * @param [in] pCaptureInfo 非机动车抓拍信息。
+ * @return 成功提交推送时返回 TRUE，否则返回 FALSE。
+ */
+NET_API BOOL STDCALL NET_SERVER_PushNonMotorvehicleCaptureInfo(IN NET_Alarmer_S* pAlarmer,
+                                                                IN NET_NonMotorvehicleCapturePushInfo_S* pCaptureInfo);
+
+/**
  * @brief 推送通道上下线状态
  * @param [IN] pChannelInfo 通道信息，byOnline/nDevState 表示当前状态
  * @return TRUE表示成功,其他表示失败 TRUE means success, and any other value means failure.
@@ -361,6 +411,13 @@ NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetFlashingLightAlarmInfo(NET_CB_GetD
  * @return 注册成功返回 TRUE；回调函数为空或重复注册时返回 FALSE。
  */
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_SetFlashingLightAlarmInfo(NET_CB_SetDevConfigByCommand pCb);
+
+/**
+ * @brief 注册手动声光报警联动触发回调。
+ * @param [in] pCb 处理 NET_SoundLightAlarmTrigger_S 的设置回调。
+ * @return 注册成功返回 TRUE，失败返回 FALSE。
+ */
+NET_API BOOL STDCALL NET_SERVER_RegisterCb_TriggerSoundLightAlarm(NET_CB_SetDevConfigByCommand pCb);
 /*
  * 功能描述：注册获取人体红外（PIR）报警配置的回调函数。
  * 作者：ITC
@@ -450,6 +507,18 @@ NET_API BOOL STDCALL NET_SERVER_RegisterCb_SetLeaveRegionAlarm(NET_CB_SetDevConf
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetFaceCaptureInfo(NET_CB_GetDevConfigByCommand pCb);
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_SetFaceCaptureInfo(NET_CB_SetDevConfigByCommand pCb);
+/**
+ * @brief 注册获取人脸抓拍图片叠加配置的回调。
+ * @param [in] pCb 填充 NET_FaceCaptureOverlayInfo_S 的回调。
+ * @return 注册成功返回 TRUE，失败返回 FALSE。
+ */
+NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetFaceCaptureOverlayInfo(NET_CB_GetDevConfigByCommand pCb);
+/**
+ * @brief 注册设置人脸抓拍图片叠加配置的回调。
+ * @param [in] pCb 处理 NET_FaceCaptureOverlayInfo_S 的回调。
+ * @return 注册成功返回 TRUE，失败返回 FALSE。
+ */
+NET_API BOOL STDCALL NET_SERVER_RegisterCb_SetFaceCaptureOverlayInfo(NET_CB_SetDevConfigByCommand pCb);
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_SetFaceCompareInfo(NET_CB_SetDevConfigByCommand pCb);
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_AddTargetLib(NET_CB_SetDevConfigByCommand pCb);
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_DelTargetLib(NET_CB_SetDevConfigByCommand pCb);

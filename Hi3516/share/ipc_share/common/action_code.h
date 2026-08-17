@@ -1096,4 +1096,9 @@ typedef enum
     /// @brief 重置产测结果
     AC_RESET_PRODUCTION_TEST = 10004,
 
+    /**
+     * @brief 手动触发声光报警联动事件。
+     */
+    AC_TRIGGER_SOUND_LIGHT_ALARM = 11000,
+
 } ActionCode_E;

@@ -79,6 +79,16 @@ public:
     BOOL DoPushAlarmInfo(NET_Alarmer_S* pAlarmer, INT32 lCommand, LPVOID pAlarmInfo, INT32 dwBufLen);
 
     /**
+     * @brief 推送动态图片 V2 告警。
+     * @param [in] pAlarmer 告警设备信息。
+     * @param [in] lCommand 告警命令码。
+     * @param [in] pAlarmInfo V2 告警结构体。
+     * @param [in] dwBufLen V2 告警结构体长度。
+     * @return 成功返回 TRUE，失败返回 FALSE。
+     */
+    BOOL DoPushAlarmInfoV2(NET_Alarmer_S* pAlarmer, INT32 lCommand, LPVOID pAlarmInfo, INT32 dwBufLen);
+
+    /**
      * @brief 推送通道上下线状态
      * @param pChannelInfo 通道信息
      * @return TRUE表示成功，FALSE表示失败

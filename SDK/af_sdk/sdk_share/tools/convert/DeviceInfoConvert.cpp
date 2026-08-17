@@ -2100,6 +2100,9 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_LinkageList_S& stInfo, bool b
         convert.field(pRootJson, "SnapshotChannelCount", stInfo.uSnapshotChannelCount);
         convert.field_array(pRootJson, "SnapshotChannel", stInfo.auSnapshotChannel,
                            stInfo.uSnapshotChannelCount, NET_CHANNEL_MAX);
+        convert.field(pRootJson, "TraditionalLinkageCount", stInfo.uTraditionalLinkageCount);
+        convert.field_array(pRootJson, "TraditionalLinkage", stInfo.auTraditionalLinkage,
+                           stInfo.uTraditionalLinkageCount, NET_TRADITIONAL_LINKAGE_MAX_NUM);
     }
     else
     {
@@ -2113,7 +2116,28 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_LinkageList_S& stInfo, bool b
         convert.field(pRootJson, "SnapshotChannelCount", stInfo.uSnapshotChannelCount);
         convert.field_array(pRootJson, "SnapshotChannel", stInfo.auSnapshotChannel,
                            stInfo.uSnapshotChannelCount, NET_CHANNEL_MAX);
+        convert.field(pRootJson, "TraditionalLinkageCount", stInfo.uTraditionalLinkageCount);
+        convert.field_array(pRootJson, "TraditionalLinkage", stInfo.auTraditionalLinkage,
+                           stInfo.uTraditionalLinkageCount, NET_TRADITIONAL_LINKAGE_MAX_NUM);
     }
+}
+
+/**
+ * @brief 在 JSON 与手动声光报警触发请求之间转换。
+ * @param [in,out] pRootJson 根据 bOutStruct 作为源或目标 JSON 对象。
+ * @param [in,out] stInfo 根据 bOutStruct 作为源或目标请求结构体。
+ * @param [in] bOutStruct TRUE 表示 JSON 转结构体，FALSE 表示结构体转 JSON。
+ * @return 无。
+ */
+void SDKConvert::deal(Json::Object* pRootJson, NET_SoundLightAlarmTrigger_S& stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+
+    SDKConvert::CSDKConvert stConvert(bOutStruct);
+    stConvert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
 }
 
 /* ==================== 移动侦测相关转换函数 ==================== */
@@ -4340,6 +4364,35 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_FaceCaptureInfo_S& stInfo, bo
     convert.structure(pRootJson, "Rule", stInfo.stRule);
     convert.structure(pRootJson, "AlarmSchedule", stInfo.stAlarmSchedule);
     convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
+}
+
+/**
+ * @brief 在 JSON 与人脸抓拍图片叠加配置之间转换。
+ * @param [in,out] pRootJson 根据 bOutStruct 作为源或目标 JSON 对象。
+ * @param [in,out] stInfo 根据 bOutStruct 作为源或目标配置结构体。
+ * @param [in] bOutStruct TRUE 表示 JSON 转结构体，FALSE 表示结构体转 JSON。
+ * @return 无。
+ */
+void SDKConvert::deal(Json::Object* pRootJson, NET_FaceCaptureOverlayInfo_S& stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+
+    SDKConvert::CSDKConvert stConvert(bOutStruct);
+    INT32 nFontColor = static_cast<INT32>(stInfo.enFontColor);
+    stConvert.field(pRootJson, "DeviceID", stInfo.nDeviceID);
+    stConvert.field(pRootJson, "MonitoryPointInfo", stInfo.strMonitoryPointInfo);
+    stConvert.field(pRootJson, "OverlayDeviceID", stInfo.bOverlayDeviceID);
+    stConvert.field(pRootJson, "OverlayCaptureTime", stInfo.bOverlayCaptureTime);
+    stConvert.field(pRootJson, "OverlayMonitoryPointInfo", stInfo.bOverlayMonitoryPointInfo);
+    stConvert.field(pRootJson, "FontColor", nFontColor);
+    stConvert.field(pRootJson, "CustomFontColor", stInfo.strFontColor);
+    if (bOutStruct)
+    {
+        stInfo.enFontColor = static_cast<NET_OSD_COLOR_E>(nFontColor);
+    }
 }
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_FaceCompareInfo_S& stInfo, bool bOutStruct)

@@ -493,6 +493,11 @@ extern "C" {
 #define NET_VEHICLE_COMP_IMAGE_MAX_LEN              2097152         /* 车辆布控比对图片的最大长度 2M*/
 #define NET_VEHICLE_IMAGE_MAX_LEN                   4194304         /* 车辆图片数据最大字节数 4M */
 #define NET_PIC_DATA_MAX_LEN                        (1024*1024)     /* 图片数据信息加密后最大大小 */
+#define NET_CAPTURE_REGION_POINT_MAX_NUM            10              /* 抓拍事件区域最大顶点数 */
+#define NET_CAPTURE_PICTURE_REFERENCE_MAX_LEN        1024            /* 抓拍图片引用最大长度 */
+#define NET_CAPTURE_TIMESTAMP_MAX_LEN                64              /* 抓拍时间戳字符串最大长度 */
+#define NET_CAPTURE_VEHICLE_BRAND_MAX_LEN            128             /* 机动车品牌最大长度 */
+#define NET_CAPTURE_LICENSE_PLATE_MAX_LEN            64              /* 机动车号牌最大长度 */
 
 #define NET_RES_CHANGE_INFO_LIST_NUM                64              /* 定义LAPI事件上报信息结构体 */
 
@@ -1140,6 +1145,8 @@ typedef enum tagNETTVCfgCmd
     NET_GET_FACECAPTUREINFO          = 246,              /* 获取人脸抓拍配置信息 参见NET_FACE_CAPTURE_INFO_S */
     NET_SET_FACECAPTUREINFO          = 247,              /* 设置人脸抓拍配置信息 参见NET_FACE_CAPTURE_INFO_S */
     NET_GET_HOTSPOT_CONN             = 248,              /* 获取热点连接设备 参见 NET_HotspotConnInfo_S */
+    NET_GET_FACECAPTUREOVERLAYINFO   = 249,              /* 获取人脸抓拍叠加信息 参见 NET_FaceCaptureOverlayInfo_S */
+    NET_SET_FACECAPTUREOVERLAYINFO   = 250,              /* 设置人脸抓拍叠加信息 参见 NET_FaceCaptureOverlayInfo_S */
 
     NET_GET_CHANNEL_INFO             = 300,              /* 获取通道信息 参见NET_CHANNEL_INFO_S */
     NET_GET_CHANNEL_LIST             = 301,              /* 获取全部通道信息 参见NET_CHANNEL_LIST_S */
@@ -1253,6 +1260,11 @@ typedef enum tagNETTVCfgCmd
     NET_SET_FLASHING_LIGHT_ALARM_INFO     = 501,           /* 设置闪光报警配置 参见NET_FlashingLightAlarmInfo_S */
     NET_GET_PIR_ALARM_INFO                = 502,           /* 获取 PIR 报警配置 参见NET_PirAlarmInfo_S */
     NET_SET_PIR_ALARM_INFO                = 503,           /* 设置 PIR 报警配置 参见NET_PirAlarmInfo_S */
+    NET_PUSH_FACE_CAPTURE_INFO            = 504,           /* 推送人脸抓拍信息 参见 NET_FaceCapturePushInfo_S */
+    NET_PUSH_PERSON_CAPTURE_INFO          = 505,           /* 推送行人抓拍信息 参见 NET_PersonCapturePushInfo_S */
+    NET_PUSH_MOTORVEHICLE_CAPTURE_INFO    = 506,           /* 推送机动车抓拍信息 参见 NET_MotorvehicleCapturePushInfo_S */
+    NET_PUSH_NONMOTORVEHICLE_CAPTURE_INFO = 507,           /* 推送非机动车抓拍信息 参见 NET_NonMotorvehicleCapturePushInfo_S */
+    NET_TRIGGER_SOUND_LIGHT_ALARM         = 508,           /* 触发声光报警联动 参见 NET_SoundLightAlarmTrigger_S */
 
     NET_CFG_INVALID                  = 0xFFFF            /* 无效值  Invalid value */
 
@@ -3384,6 +3396,143 @@ typedef struct tagNET_AlarmStatisticsInfo
  */
 typedef NET_AlarmStatisticsInfo_S* pNET_AlarmStatisticsInfo_S;
 
+/**
+ * @brief 动态图片视图。
+ * @details 图片内存归调用者所有。服务端仅在 NET_SERVER_PushAlarmInfoV2 调用期间读取，
+ *          客户端仅在 NET_AlarmCallBackV2 回调期间读取。
+ */
+typedef struct tagNET_ImageData
+{
+    const BYTE* pData;      /* JPEG 二进制数据，空图片为 NULL */
+    UINT32 uLen;            /* JPEG 实际字节数 */
+    UINT32 uWidth;          /* 图片宽度，未知时为 0 */
+    UINT32 uHeight;         /* 图片高度，未知时为 0 */
+} NET_ImageData_S;
+
+/** @brief 基础告警 V2 结构，使用动态图片视图代替固定大数组。 */
+typedef struct tagNET_AlarmBasicInfoV2
+{
+    UINT32 uAlarmType;
+    UINT32 uAlarmInputNumber;
+    BYTE byAlarmOutputNumber[NET_MAX_ALARM_OUT_NUM];
+    BYTE byAlarmRelateChannel[NET_MAX_ALARM_IN_NUM];
+    BYTE byChannel[NET_MAX_ALARM_IN_NUM];
+    BYTE byDiskNumber[NET_LOCAL_DISK_MAX_NUM];
+    NET_ImageData_S stPanoramaImg;
+    INT64 llTimestampMs;
+    BYTE byRes[128];
+} NET_AlarmBasicInfoV2_S;
+
+/** @brief 规则告警 V2 结构，使用动态图片视图代替固定大数组。 */
+typedef struct tagNET_AlarmRuleInfoV2
+{
+    UINT32 uAlarmType;
+    UINT32 uChannel;
+    UINT32 uRuleID;
+    UINT32 uRuleType;
+    CHAR strRuleName[NET_LEN_64];
+    UINT32 uTargetID;
+    UINT32 uObjectType;
+    FLOAT fConfidence;
+    INT32 nLeft;
+    INT32 nTop;
+    INT32 nRight;
+    INT32 nBottom;
+    NET_ImageData_S stPanoramaImg;
+    NET_ImageData_S stTargetImg;
+    INT64 llTimestampMs;
+    BYTE byRes[128];
+} NET_AlarmRuleInfoV2_S;
+
+/** @brief AI 对象告警 V2 结构，使用动态图片视图代替固定大数组。 */
+typedef struct tagNET_AlarmAiObjectInfoV2
+{
+    UINT32 uAlarmType;
+    UINT32 uChannel;
+    UINT32 uObjectType;
+    FLOAT fConfidence;
+    INT32 nLeft;
+    INT32 nTop;
+    INT32 nRight;
+    INT32 nBottom;
+    CHAR strObjectID[NET_LEN_64];
+    NET_ImageData_S stPanoramaImg;
+    NET_ImageData_S stImgData;
+    INT64 llTimestampMs;
+    BYTE byRes[32];
+} NET_AlarmAiObjectInfoV2_S;
+
+/** @brief 人脸比对告警 V2 结构，使用动态图片视图代替固定大数组。 */
+typedef struct tagNET_AlarmFaceCompareInfoV2
+{
+    UINT32 uAlarmType;
+    UINT32 uChannel;
+    INT64 llTimestampMs;
+    INT32 nEventId;
+    INT32 nCompResult;
+    INT32 nSimilarity;
+    INT32 nFaceId;
+    CHAR strFaceLibName[NET_FACE_DB_NAME_LEN];
+    CHAR strFaceName[NET_FACE_MEMBER_NAME_LEN];
+    CHAR strLibFacePath[NET_LEN_260];
+    CHAR strCapFacePath[NET_LEN_260];
+    CHAR strCapImagePath[NET_LEN_260];
+    NET_ImageData_S stLibFaceImg;
+    NET_ImageData_S stCapFaceImg;
+    BYTE byRes[256];
+} NET_AlarmFaceCompareInfoV2_S;
+
+/** @brief 车牌告警 V2 结构，使用动态图片视图代替固定大数组。 */
+typedef struct tagNET_AlarmPlateInfoV2
+{
+    UINT32 uAlarmType;
+    UINT32 uChannel;
+    CHAR strPlateNumber[NET_LEN_32];
+    UINT32 uPlateColor;
+    UINT32 uVehicleType;
+    FLOAT fConfidence;
+    UINT32 uSpeed;
+    UINT32 uLaneNo;
+    NET_ImageData_S stPlateImg;
+    BYTE byRes[64];
+} NET_AlarmPlateInfoV2_S;
+
+/** @brief 统计告警单目标 V2 结构。 */
+typedef struct tagNET_AlarmStatisticsTargetV2
+{
+    INT32 nTrackID;
+    UINT32 uRuleID;
+    UINT32 uSnapshotType;
+    INT32 nLeft;
+    INT32 nTop;
+    INT32 nRight;
+    INT32 nBottom;
+    INT64 llTimestampMs;
+    INT32 nDirection;
+    NET_ImageData_S stImgData;
+    BYTE byRes[64];
+} NET_AlarmStatisticsTargetV2_S;
+
+/** @brief 统计告警 V2 结构，使用动态图片视图代替固定大数组。 */
+typedef struct tagNET_AlarmStatisticsInfoV2
+{
+    UINT32 uAlarmType;
+    UINT32 uChannel;
+    UINT32 uStatisticsType;
+    UINT32 uRuleID;
+    INT64 llTimestampMs;
+    UINT32 uReportSeq;
+    UINT32 uEnterCount;
+    UINT32 uLeaveCount;
+    UINT32 uTotalCount;
+    UINT32 uCurrentPeopleCount;
+    UINT32 uAverageStayTimeSec;
+    UINT32 uTargetCount;
+    NET_AlarmStatisticsTargetV2_S stTargets[NET_ALARM_STATISTICS_TARGET_MAX_NUM];
+    NET_ImageData_S stPanoramaImg;
+    BYTE byRes[256];
+} NET_AlarmStatisticsInfoV2_S;
+
 /* ==================== 布防时间和联动相关结构体 ==================== */
 
 /**
@@ -3419,6 +3568,20 @@ typedef struct tagNET_AlarmSchedule
  */
 typedef NET_AlarmSchedule_S* pNET_AlarmSchedule_S;
 
+#define NET_TRADITIONAL_LINKAGE_MAX_NUM 7
+
+/** @brief 常规联动类型，取值与 IPC Alarm::LinkageType_E 一致。 */
+typedef enum tagNET_TraditionalLinkageType
+{
+    NET_TRADITIONAL_LINKAGE_SEND_EMAIL = 1,
+    NET_TRADITIONAL_LINKAGE_UPLOAD_TO_CENTER = 2,
+    NET_TRADITIONAL_LINKAGE_UPLOAD_SD_CARD = 3,
+    NET_TRADITIONAL_LINKAGE_SOUND = 4,
+    NET_TRADITIONAL_LINKAGE_FLASHING_LIGHT_ALARM = 5,
+    NET_TRADITIONAL_LINKAGE_UPLOAD_PANORAMIC_IMAGE = 6,
+    NET_TRADITIONAL_LINKAGE_UPLOAD_TARGET_IMAGE = 7
+} NET_TraditionalLinkageType_EN;
+
 /**
  * @struct tagNET_LinkageList
  * @brief 联动配置列表 Linkage configuration list
@@ -3431,6 +3594,8 @@ typedef struct tagNET_LinkageList
     INT32       auRecordChannel[NET_CHANNEL_MAX]; /* 录像通道号数组 */
     INT32       uSnapshotChannelCount;               /* 抓拍通道数量 */
     INT32       auSnapshotChannel[NET_CHANNEL_MAX]; /* 抓拍通道号数组 */
+    INT32       uTraditionalLinkageCount;            /* 常规联动类型数量 */
+    INT32       auTraditionalLinkage[NET_TRADITIONAL_LINKAGE_MAX_NUM]; /* 常规联动类型数组 */
     BYTE        byRes[256];                         /* 保留字段 */
 } NET_LinkageList_S;
 
@@ -3638,6 +3803,18 @@ typedef struct tagNETFlashingLightAlarmInfo
     /* 保留字段，调用方应置零。 */
     BYTE abyReserved[NET_ALARM_CONFIG_RESERVED_LEN];
 } NET_FlashingLightAlarmInfo_S, *pNET_FlashingLightAlarmInfo_S;
+
+/**
+ * @brief 手动声光报警联动触发请求。
+ * @details 调用 NET_SetDevConfig 并使用 NET_TRIGGER_SOUND_LIGHT_ALARM 时传入。
+ */
+typedef struct tagNET_SoundLightAlarmTrigger
+{
+    NET_LinkageList_S stLinkageList;                 /* 本次触发使用的联动配置 */
+    BYTE byRes[NET_ALARM_CONFIG_RESERVED_LEN];       /* 保留字段 */
+} NET_SoundLightAlarmTrigger_S;
+
+typedef NET_SoundLightAlarmTrigger_S* pNET_SoundLightAlarmTrigger_S;
 
 /*
  * 描述：人体红外（PIR）报警配置。
@@ -4834,6 +5011,91 @@ typedef struct tagNET_FaceCaptureInfo
 typedef NET_FaceCaptureInfo_S* pNET_FaceCaptureInfo_S;
 
 /**
+ * @brief 人脸抓拍图片叠加配置。
+ * @note 用于 NET_GET_FACECAPTUREOVERLAYINFO 和 NET_SET_FACECAPTUREOVERLAYINFO。
+ */
+typedef struct tagNET_FaceCaptureOverlayInfo
+{
+    INT32 nDeviceID;                                  /* 设备编号 */
+    CHAR strMonitoryPointInfo[NET_LEN_256];           /* 监控点信息 */
+    BOOL bOverlayDeviceID;                            /* 是否叠加设备编号 */
+    BOOL bOverlayCaptureTime;                         /* 是否叠加抓拍时间 */
+    BOOL bOverlayMonitoryPointInfo;                   /* 是否叠加监控点信息 */
+    NET_OSD_COLOR_E enFontColor;                      /* 字体颜色 */
+    CHAR strFontColor[NET_LEN_16];                    /* 自定义 RGB 字体颜色 */
+    BYTE byRes[128];                                  /* 保留字段 */
+} NET_FaceCaptureOverlayInfo_S;
+
+typedef NET_FaceCaptureOverlayInfo_S* pNET_FaceCaptureOverlayInfo_S;
+
+/** @brief 抓拍事件区域多边形。 */
+typedef struct tagNET_CapturePolygon
+{
+    UINT32 uPointCount;                               /* 有效顶点数 */
+    FLOAT afPointX[NET_CAPTURE_REGION_POINT_MAX_NUM]; /* 顶点 X 坐标 */
+    FLOAT afPointY[NET_CAPTURE_REGION_POINT_MAX_NUM]; /* 顶点 Y 坐标 */
+    BYTE byRes[32];                                   /* 保留字段 */
+} NET_CapturePolygon_S;
+
+/** @brief 人脸抓拍推送信息，图片字段为 IPC 可访问的路径或引用。 */
+typedef struct tagNET_FaceCapturePushInfo
+{
+    BOOL bMale;
+    INT32 nAgeLabel;
+    BOOL bGlasses;
+    BOOL bBeard;
+    BOOL bMask;
+    INT32 nEmotionLabel;
+    NET_CapturePolygon_S stFaceRegion;
+    CHAR strFacePicture[NET_CAPTURE_PICTURE_REFERENCE_MAX_LEN];
+    CHAR strCurrentPicture[NET_CAPTURE_PICTURE_REFERENCE_MAX_LEN];
+    CHAR strTimestamp[NET_CAPTURE_TIMESTAMP_MAX_LEN];
+    BOOL bDownloadable;
+    BYTE byRes[64];
+} NET_FaceCapturePushInfo_S;
+
+/** @brief 行人抓拍推送信息，图片字段为 IPC 可访问的路径或引用。 */
+typedef struct tagNET_PersonCapturePushInfo
+{
+    BOOL bMale;
+    INT32 nAgeLabel;
+    BOOL bBag;
+    INT32 nTopColorLabel;
+    INT32 nBottomColorLabel;
+    CHAR strPersonPicture[NET_CAPTURE_PICTURE_REFERENCE_MAX_LEN];
+    CHAR strCurrentPicture[NET_CAPTURE_PICTURE_REFERENCE_MAX_LEN];
+    CHAR strTimestamp[NET_CAPTURE_TIMESTAMP_MAX_LEN];
+    BOOL bDownloadable;
+    BYTE byRes[64];
+} NET_PersonCapturePushInfo_S;
+
+/** @brief 机动车抓拍推送信息，图片字段为 IPC 可访问的路径或引用。 */
+typedef struct tagNET_MotorvehicleCapturePushInfo
+{
+    CHAR strVehicleBrand[NET_CAPTURE_VEHICLE_BRAND_MAX_LEN];
+    INT32 nVehicleType;
+    INT32 nVehicleColor;
+    CHAR strLicensePlateNumber[NET_CAPTURE_LICENSE_PLATE_MAX_LEN];
+    CHAR strTargetPicture[NET_CAPTURE_PICTURE_REFERENCE_MAX_LEN];
+    CHAR strCurrentPicture[NET_CAPTURE_PICTURE_REFERENCE_MAX_LEN];
+    CHAR strTimestamp[NET_CAPTURE_TIMESTAMP_MAX_LEN];
+    BOOL bDownloadable;
+    BYTE byRes[64];
+} NET_MotorvehicleCapturePushInfo_S;
+
+/** @brief 非机动车抓拍推送信息，图片字段为 IPC 可访问的路径或引用。 */
+typedef struct tagNET_NonMotorvehicleCapturePushInfo
+{
+    INT32 nVehicleType;
+    INT32 nVehicleColor;
+    CHAR strTargetPicture[NET_CAPTURE_PICTURE_REFERENCE_MAX_LEN];
+    CHAR strCurrentPicture[NET_CAPTURE_PICTURE_REFERENCE_MAX_LEN];
+    CHAR strTimestamp[NET_CAPTURE_TIMESTAMP_MAX_LEN];
+    BOOL bDownloadable;
+    BYTE byRes[64];
+} NET_NonMotorvehicleCapturePushInfo_S;
+
+/**
  * @struct tagNET_FaceCompareInfo
  * @brief 人脸比对配置信息 Face compare configuration
  * @note 用于NET_SET_FACE_COMPARE_INFO
@@ -6007,6 +6269,17 @@ typedef void(NET_STDCALL *NET_AlarmCallBack)(NET_OUT INT64 lCommand,
                                                    NET_OUT LPVOID lpUserData);
 
 /**
+ * @brief V2 告警回调函数。
+ * @details 对基础、规则、AI、人脸比对、车牌和统计告警，pAlarmInfo 指向对应的 NET_Alarm*V2_S。
+ *          其中 NET_ImageData_S::pData 只在本次回调执行期间有效，异步使用前调用方必须自行复制。
+ */
+typedef void(NET_STDCALL *NET_AlarmCallBackV2)(NET_OUT INT64 lCommand,
+                                               NET_OUT NET_Alarmer_S* pAlarmer,
+                                               NET_OUT CHAR* pAlarmInfo,
+                                               NET_OUT INT32* dwBufLen,
+                                               NET_OUT LPVOID lpUserData);
+
+/**
  * @author tianl (tianl@kfb.cn)
 * @brief 设置报警回调函数
 * @param [in] lpUserID              用户登录ID
@@ -6017,6 +6290,18 @@ typedef void(NET_STDCALL *NET_AlarmCallBack)(NET_OUT INT64 lCommand,
 NET_API BOOL NET_STDCALL NET_SetAlarmCallBack(NET_IN LPVOID lpUserID,
                                             NET_IN NET_AlarmCallBack cbAlarmMessCallBack,
                                             NET_IN LPVOID lpUserData);
+
+/**
+ * @brief 设置动态图片 V2 告警回调函数。
+ * @details V2 支持的告警优先由该回调处理；不支持 V2 的历史告警仍由 NET_AlarmCallBack 处理。
+ * @param [in] lpUserID 用户登录句柄。
+ * @param [in] cbAlarmMessCallBack V2 告警回调函数。
+ * @param [in] lpUserData 回调用户数据。
+ * @return 设置成功返回 TRUE，失败返回 FALSE。
+ */
+NET_API BOOL NET_STDCALL NET_SetAlarmCallBackV2(NET_IN LPVOID lpUserID,
+                                                NET_IN NET_AlarmCallBackV2 cbAlarmMessCallBack,
+                                                NET_IN LPVOID lpUserData);
 
 /**
  * @author tianl (tianl@kfb.cn)
@@ -6271,8 +6556,6 @@ NET_VoiceComSendData(NET_IN LPVOID       lpUserID,
 NET_API BOOL NET_STDCALL
 NET_StopVoiceCom(NET_IN LPVOID lpUserID);
 
-
-#endif
 
 
 #ifdef __cplusplus

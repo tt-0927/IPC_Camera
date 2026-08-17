@@ -523,6 +523,16 @@ NET_API BOOL STDCALL NET_SERVER_RegisterCb_SetFlashingLightAlarmInfo(NET_CB_SetD
 }
 
 /**
+ * @brief 注册手动声光报警联动触发回调。
+ * @param [in] pCb 处理 NET_SoundLightAlarmTrigger_S 的设置回调。
+ * @return 注册成功返回 TRUE，失败返回 FALSE。
+ */
+NET_API BOOL STDCALL NET_SERVER_RegisterCb_TriggerSoundLightAlarm(NET_CB_SetDevConfigByCommand pCb)
+{
+    return Net_RegisterSetCmdCb(NET_TRIGGER_SOUND_LIGHT_ALARM, pCb);
+}
+
+/**
  * @brief 注册获取 PIR 告警配置的回调函数。
  * @author ITC
  * @param [in] pCb 用于填充 NET_PirAlarmInfo_S 的回调函数。
@@ -837,6 +847,26 @@ NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetFaceCaptureInfo(NET_CB_GetDevConfi
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_SetFaceCaptureInfo(NET_CB_SetDevConfigByCommand pCb)
 {
     return Net_RegisterSetCmdCb(NET_SET_FACECAPTUREINFO, pCb);
+}
+
+/**
+ * @brief 注册获取人脸抓拍图片叠加配置的回调。
+ * @param [in] pCb 填充 NET_FaceCaptureOverlayInfo_S 的回调。
+ * @return 注册成功返回 TRUE，失败返回 FALSE。
+ */
+NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetFaceCaptureOverlayInfo(NET_CB_GetDevConfigByCommand pCb)
+{
+    return Net_RegisterGetCmdCb(NET_GET_FACECAPTUREOVERLAYINFO, pCb);
+}
+
+/**
+ * @brief 注册设置人脸抓拍图片叠加配置的回调。
+ * @param [in] pCb 处理 NET_FaceCaptureOverlayInfo_S 的回调。
+ * @return 注册成功返回 TRUE，失败返回 FALSE。
+ */
+NET_API BOOL STDCALL NET_SERVER_RegisterCb_SetFaceCaptureOverlayInfo(NET_CB_SetDevConfigByCommand pCb)
+{
+    return Net_RegisterSetCmdCb(NET_SET_FACECAPTUREOVERLAYINFO, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_SetFaceCompareInfo(NET_CB_SetDevConfigByCommand pCb)

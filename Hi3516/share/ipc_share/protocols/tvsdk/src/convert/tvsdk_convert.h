@@ -195,8 +195,72 @@ void ToExitingDetection(const NET_LeaveRegionAlarmInfo_S &src, Alarm::ExitingDet
 void FillAudioCfg(const Audio_NS::AudioConfig_S &src, NET_AudioCfg_S &dst);
 void ToAudioConfig(const NET_AudioCfg_S &src, Audio_NS::AudioConfig_S &dst);
 
+#ifdef SCENE_INTELLIGENCE
+/**
+ * @brief 将 IPC 人脸抓拍事件转换为 SDK 推送结构体。
+ * @param [in] stSource IPC 人脸抓拍事件。
+ * @param [out] stDestination SDK 人脸抓拍推送信息。
+ * @return 无。
+ */
+void FillFaceCapturePushInfo(const Alarm::FaceAlarmInfo_S &stSource,
+                             NET_FaceCapturePushInfo_S &stDestination);
+
+/**
+ * @brief 将 IPC 行人抓拍事件转换为 SDK 推送结构体。
+ * @param [in] stSource IPC 行人抓拍事件。
+ * @param [out] stDestination SDK 行人抓拍推送信息。
+ * @return 无。
+ */
+void FillPersonCapturePushInfo(const Alarm::PersonAlarmInfo_S &stSource,
+                               NET_PersonCapturePushInfo_S &stDestination);
+
+/**
+ * @brief 将 IPC 机动车抓拍事件转换为 SDK 推送结构体。
+ * @param [in] stSource IPC 机动车抓拍事件。
+ * @param [out] stDestination SDK 机动车抓拍推送信息。
+ * @return 无。
+ */
+void FillMotorvehicleCapturePushInfo(const Alarm::MotorvehicleAlarmInfo_S &stSource,
+                                     NET_MotorvehicleCapturePushInfo_S &stDestination);
+
+/**
+ * @brief 将 IPC 非机动车抓拍事件转换为 SDK 推送结构体。
+ * @param [in] stSource IPC 非机动车抓拍事件。
+ * @param [out] stDestination SDK 非机动车抓拍推送信息。
+ * @return 无。
+ */
+void FillNonMotorvehicleCapturePushInfo(const Alarm::NonMotorvehicleAlarmInfo_S &stSource,
+                                        NET_NonMotorvehicleCapturePushInfo_S &stDestination);
+#endif
+
 void FillFaceCaptureInfo(const Alarm::FaceCapture_S &src, NET_FaceCaptureInfo_S &dst);
 void ToFaceCapture(const NET_FaceCaptureInfo_S &src, Alarm::FaceCapture_S &dst);
+
+/**
+ * @brief 将 TVSDK 联动配置转换为 IPC 联动配置。
+ * @param [in] src TVSDK 联动配置。
+ * @param [out] dst IPC 联动配置。
+ * @return 无。
+ */
+void ToLinkageList(const NET_LinkageList_S &src, Alarm::LinkageList_S &dst);
+
+/**
+ * @brief 将 IPC 人脸抓拍图片叠加配置转换为 TVSDK 配置。
+ * @param [in] src IPC 人脸抓拍图片叠加配置。
+ * @param [out] dst TVSDK 人脸抓拍图片叠加配置。
+ * @return 无。
+ */
+void FillFaceCaptureOverlayInfo(const Alarm::OverlayInfo_S &src,
+                                NET_FaceCaptureOverlayInfo_S &dst);
+
+/**
+ * @brief 将 TVSDK 人脸抓拍图片叠加配置转换为 IPC 配置。
+ * @param [in] src TVSDK 人脸抓拍图片叠加配置。
+ * @param [out] dst IPC 人脸抓拍图片叠加配置。
+ * @return 无。
+ */
+void ToFaceCaptureOverlayInfo(const NET_FaceCaptureOverlayInfo_S &src,
+                              Alarm::OverlayInfo_S &dst);
 
 } // namespace TvSdkConvert
 

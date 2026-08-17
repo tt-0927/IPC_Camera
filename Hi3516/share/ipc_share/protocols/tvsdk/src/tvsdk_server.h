@@ -45,6 +45,17 @@ public:
     int push_alarm(const void *pAlarmer, int lCommand, const void *pAlarmInfo, int dwBufLen);
 
     /**
+     * @brief 推送 V2 告警信息。
+     * @details 图片通过指针和实际长度传递，调用期间图片内存必须保持有效。
+     * @param [in] pAlarmer 告警设备信息，为空时由服务端填充当前设备信息。
+     * @param [in] lCommand 告警命令码。
+     * @param [in] pAlarmInfo V2 告警结构体指针。
+     * @param [in] dwBufLen V2 告警结构体长度。
+     * @return 成功返回 OK，失败返回 ERR。
+     */
+    int push_alarm_v2(const void *pAlarmer, int lCommand, const void *pAlarmInfo, int dwBufLen);
+
+    /**
      * @brief 获取当前 TVSDK 在线客户端数量（活跃会话数）
      * @return >=0 客户端数量，<0 表示失败
      */
@@ -66,6 +77,29 @@ public:
     void set_user_passwd(const std::string &user, const std::string &passwd);
 
 private:
+#ifdef SCENE_INTELLIGENCE
+    /**
+     * @brief 注册智能抓拍事件订阅回调。
+     * @details 订阅 IPC 任务管理器发布的人脸、行人、机动车和非机动车抓拍事件。
+     * @return 无。
+     */
+    void register_capture_event_subscribers();
+
+    /**
+     * @brief 转发 IPC 抓拍事件到 TVSDK 客户端。
+     * @param [in] pData IPC 发布的 JSON 数据。
+     * @param [in] nDataLength IPC 发布数据长度。
+     * @param [in] nActionCode IPC 动作码。
+     * @param [in] pUserData 订阅回调用户数据，当前未使用。
+     * @return 成功返回 OK，失败返回 ERR。
+     */
+    int handle_capture_event(const void *pData,
+                             int nDataLength,
+                             int nActionCode,
+                             void *pUserData);
+
+    bool m_bCaptureEventSubscribed = false;
+#endif
     std::shared_ptr<CTaskManage> m_pTaskManage;
     bool m_bInit = false;
     std::string m_strUser;

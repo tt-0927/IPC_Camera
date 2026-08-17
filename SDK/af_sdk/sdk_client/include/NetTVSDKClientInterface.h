@@ -137,6 +137,17 @@ typedef void(NET_STDCALL *NET_AlarmCallBack)(NET_OUT INT64 lCommand,
                                                    NET_OUT LPVOID lpUserData);
 
 /**
+ * @brief V2 告警回调函数。
+ * @details 对基础、规则、AI、人脸比对、车牌和统计告警，pAlarmInfo 指向对应的 NET_Alarm*V2_S。
+ *          其中 NET_ImageData_S::pData 只在本次回调执行期间有效，异步使用前调用方必须自行复制。
+ */
+typedef void(NET_STDCALL *NET_AlarmCallBackV2)(NET_OUT INT64 lCommand,
+                                               NET_OUT NET_Alarmer_S* pAlarmer,
+                                               NET_OUT CHAR* pAlarmInfo,
+                                               NET_OUT INT32* dwBufLen,
+                                               NET_OUT LPVOID lpUserData);
+
+/**
  * @author tianl (tianl@kfb.cn)
 * @brief 设置报警回调函数
 * @param [in] lpUserID              用户登录ID
@@ -147,6 +158,18 @@ typedef void(NET_STDCALL *NET_AlarmCallBack)(NET_OUT INT64 lCommand,
 NET_API BOOL NET_STDCALL NET_SetAlarmCallBack(NET_IN LPVOID lpUserID,
                                             NET_IN NET_AlarmCallBack cbAlarmMessCallBack,
                                             NET_IN LPVOID lpUserData);
+
+/**
+ * @brief 设置动态图片 V2 告警回调函数。
+ * @details V2 支持的告警优先由该回调处理；不支持 V2 的历史告警仍由 NET_AlarmCallBack 处理。
+ * @param [in] lpUserID 用户登录句柄。
+ * @param [in] cbAlarmMessCallBack V2 告警回调函数。
+ * @param [in] lpUserData 回调用户数据。
+ * @return 设置成功返回 TRUE，失败返回 FALSE。
+ */
+NET_API BOOL NET_STDCALL NET_SetAlarmCallBackV2(NET_IN LPVOID lpUserID,
+                                                NET_IN NET_AlarmCallBackV2 cbAlarmMessCallBack,
+                                                NET_IN LPVOID lpUserData);
 
 /**
  * @author tianl (tianl@kfb.cn)

@@ -54,6 +54,17 @@ public:
     int tvsdk_push_alarm(int lCommand, const void *pAlarmInfo, int dwBufLen, const void *pAlarmer = nullptr);
 
     /**
+     * @brief TVSDK：推送动态图片 V2 告警。
+     * @details 调用返回前图片数据必须保持有效。
+     * @param [in] lCommand 告警命令码。
+     * @param [in] pAlarmInfo V2 告警结构体指针。
+     * @param [in] dwBufLen V2 告警结构体长度。
+     * @param [in] pAlarmer 可选的告警设备信息。
+     * @return 成功返回 OK，失败返回 ERR。
+     */
+    int tvsdk_push_alarm_v2(int lCommand, const void *pAlarmInfo, int dwBufLen, const void *pAlarmer = nullptr);
+
+    /**
      * @brief TVSDK：获取当前在线客户端数量
      * @return >=0 在线客户端数量，<0 表示 TVSDK 服务不可用或获取失败
      */

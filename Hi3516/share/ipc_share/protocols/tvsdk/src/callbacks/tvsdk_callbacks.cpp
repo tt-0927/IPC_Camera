@@ -3387,6 +3387,121 @@ static NET_COMMON_ECODE_E cb_set_face_capture_info(INT32 dwChannelID, LPVOID lpI
     return (nExec == 0) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
 }
 
+/**
+ * @brief 校验 TVSDK 联动配置中的计数和常规联动枚举值。
+ * @param [in] stLinkageList TVSDK 联动配置。
+ * @return 配置合法返回 true，否则返回 false。
+ */
+static bool IsValidSdkLinkageList(const NET_LinkageList_S &stLinkageList)
+{
+    if (stLinkageList.uAlarmOutputCount < 0 ||
+        stLinkageList.uAlarmOutputCount > NET_MAX_ALARM_OUT_NUM ||
+        stLinkageList.uRecordChannelCount < 0 ||
+        stLinkageList.uRecordChannelCount > NET_CHANNEL_MAX ||
+        stLinkageList.uSnapshotChannelCount < 0 ||
+        stLinkageList.uSnapshotChannelCount > NET_CHANNEL_MAX ||
+        stLinkageList.uTraditionalLinkageCount < 0 ||
+        stLinkageList.uTraditionalLinkageCount > NET_TRADITIONAL_LINKAGE_MAX_NUM)
+    {
+        return false;
+    }
+
+    for (INT32 i = 0; i < stLinkageList.uTraditionalLinkageCount; ++i)
+    {
+        const INT32 nLinkageType = stLinkageList.auTraditionalLinkage[i];
+        if (nLinkageType < NET_TRADITIONAL_LINKAGE_SEND_EMAIL ||
+            nLinkageType > NET_TRADITIONAL_LINKAGE_UPLOAD_TARGET_IMAGE)
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+/**
+ * @brief 获取 IPC 人脸抓拍图片叠加配置。
+ * @param [in] dwChannelID 通道编号，当前 IPC 为单通道设备，不参与查询。
+ * @param [out] lpOutBuffer SDK 人脸抓拍叠加配置输出缓冲区。
+ * @return 成功返回 NET_E_SUCCEED，否则返回相应错误码。
+ */
+static NET_COMMON_ECODE_E cb_get_face_capture_overlay_info(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    (void)dwChannelID;
+    if (!lpOutBuffer)
+    {
+        return NET_E_INVALID_PARAM;
+    }
+
+    std::string strResultJson;
+    if (execute_get_result(AC_GET_FACE_CAPTURE_OVERLAY_INFO_INFO, "{}", strResultJson) != 0 ||
+        strResultJson.empty())
+    {
+        return NET_E_GET_CFG_FAILED;
+    }
+
+    Alarm::OverlayInfo_S stOverlayInfo;
+    Convert::to_struct(normalize_data_json(strResultJson), stOverlayInfo);
+    TvSdkConvert::FillFaceCaptureOverlayInfo(stOverlayInfo,
+                                             *static_cast<pNET_FaceCaptureOverlayInfo_S>(lpOutBuffer));
+    return NET_E_SUCCEED;
+}
+
+/**
+ * @brief 设置 IPC 人脸抓拍图片叠加配置。
+ * @param [in] dwChannelID 通道编号，当前 IPC 为单通道设备，不参与设置。
+ * @param [in] lpInBuffer SDK 人脸抓拍叠加配置输入缓冲区。
+ * @return 成功返回 NET_E_SUCCEED，否则返回相应错误码。
+ */
+static NET_COMMON_ECODE_E cb_set_face_capture_overlay_info(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    (void)dwChannelID;
+    if (!lpInBuffer || !s_taskManage)
+    {
+        return NET_E_INVALID_PARAM;
+    }
+
+    Alarm::OverlayInfo_S stOverlayInfo;
+    TvSdkConvert::ToFaceCaptureOverlayInfo(*static_cast<const NET_FaceCaptureOverlayInfo_S*>(lpInBuffer),
+                                            stOverlayInfo);
+
+    Task::Info_S stTaskInfo = {};
+    stTaskInfo.data = wrap_data_json(Convert::to_string(stOverlayInfo));
+    return (s_taskManage->execute(AC_SET_FACE_CAPTURE_OVERLAY_INFO_INFO, stTaskInfo) == 0)
+               ? NET_E_SUCCEED
+               : NET_E_SET_CFG_FAILED;
+}
+
+/**
+ * @brief 触发 IPC 手动声光报警联动。
+ * @param [in] dwChannelID 通道编号，当前 IPC 为单通道设备，不参与设置。
+ * @param [in] lpInBuffer 指向 NET_SoundLightAlarmTrigger_S 的输入缓冲区。
+ * @return 成功返回 NET_E_SUCCEED，否则返回相应错误码。
+ */
+static NET_COMMON_ECODE_E cb_trigger_sound_light_alarm(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    (void)dwChannelID;
+    if (!lpInBuffer || !s_taskManage)
+    {
+        return NET_E_INVALID_PARAM;
+    }
+
+    const auto* pstTriggerInfo = static_cast<const NET_SoundLightAlarmTrigger_S*>(lpInBuffer);
+    if (!IsValidSdkLinkageList(pstTriggerInfo->stLinkageList))
+    {
+        return NET_E_INVALID_PARAM;
+    }
+
+    Alarm::LinkageList_S stLinkageList;
+    TvSdkConvert::ToLinkageList(pstTriggerInfo->stLinkageList, stLinkageList);
+
+    Task::Info_S stTaskInfo = {};
+    stTaskInfo.data = wrap_data_json(Convert::to_string(stLinkageList));
+    return (s_taskManage->execute(AC_TRIGGER_SOUND_LIGHT_ALARM, stTaskInfo) == 0)
+               ? NET_E_SUCCEED
+               : NET_E_SET_CFG_FAILED;
+}
+
 
 void register_all()
 {
@@ -3544,6 +3659,9 @@ void register_all()
 
     NET_SERVER_RegisterCb_GetFaceCaptureInfo(cb_get_face_capture_info);
     NET_SERVER_RegisterCb_SetFaceCaptureInfo(cb_set_face_capture_info);
+    NET_SERVER_RegisterCb_GetFaceCaptureOverlayInfo(cb_get_face_capture_overlay_info);
+    NET_SERVER_RegisterCb_SetFaceCaptureOverlayInfo(cb_set_face_capture_overlay_info);
+    NET_SERVER_RegisterCb_TriggerSoundLightAlarm(cb_trigger_sound_light_alarm);
 
 }
 

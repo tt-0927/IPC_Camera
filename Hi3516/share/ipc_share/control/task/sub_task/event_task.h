@@ -54,6 +54,8 @@ namespace Task
         /* 闪光报警 */
         TaskSubClass(GetFlashAlarmInfo)
         TaskSubClass(SetFlashAlarmInfo)
+        /* 手动声光报警联动 */
+        TaskSubClass(TriggerSoundLightAlarm)
         /* PIR报警 */
         TaskSubClass(GetPirAlarmInfo)
         TaskSubClass(SetPirAlarmInfo)

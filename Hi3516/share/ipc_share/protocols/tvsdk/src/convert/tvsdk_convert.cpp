@@ -97,8 +97,15 @@ static void FillLinkageList(const Alarm::LinkageList_S &src, NET_LinkageList_S &
         dst.auRecordChannel[i] = (INT32)src.recordChn[i];
     }
 
-    // 抓拍通道 (tradition 中与抓拍相关的联动类型映射)
-    // tradition 包含 LinkageType_E 枚举值，UPLOAD_PANORAMIC_IMAGE(6)/UPLOAD_TARGET_IMAGE(7) -> 抓拍
+    /* 将 IPC 常规联动完整映射到 SDK 的专用字段。 */
+    dst.uTraditionalLinkageCount = static_cast<INT32>(
+        std::min(src.tradition.size(), static_cast<size_t>(NET_TRADITIONAL_LINKAGE_MAX_NUM)));
+    for (INT32 i = 0; i < dst.uTraditionalLinkageCount; ++i)
+    {
+        dst.auTraditionalLinkage[i] = src.tradition[static_cast<size_t>(i)];
+    }
+
+    /* 保留旧版抓拍字段，兼容仍按该字段读取抓拍动作的调用方。 */
     dst.uSnapshotChannelCount = 0;
     for (size_t i = 0; i < src.tradition.size() && dst.uSnapshotChannelCount < NET_CHANNEL_MAX; ++i)
     {
@@ -110,7 +117,15 @@ static void FillLinkageList(const Alarm::LinkageList_S &src, NET_LinkageList_S &
     }
 }
 
-static void ToLinkageList(const NET_LinkageList_S &src, Alarm::LinkageList_S &dst)
+/**
+ * @brief 将 TVSDK 联动配置转换为 IPC 联动配置。
+ * @details 优先使用 uTraditionalLinkageCount 字段。该字段为 0 时，兼容读取旧版
+ *          uSnapshotChannelCount 中保存的抓拍联动类型。
+ * @param [in] src TVSDK 联动配置。
+ * @param [out] dst IPC 联动配置。
+ * @return 无。
+ */
+void ToLinkageList(const NET_LinkageList_S &src, Alarm::LinkageList_S &dst)
 {
     dst.alarmOutput.clear();
     dst.recordChn.clear();
@@ -128,7 +143,18 @@ static void ToLinkageList(const NET_LinkageList_S &src, Alarm::LinkageList_S &ds
         dst.recordChn.push_back((int)src.auRecordChannel[i]);
     }
 
-    // 抓拍 -> tradition
+    if (src.uTraditionalLinkageCount > 0)
+    {
+        const INT32 nCount = std::min(src.uTraditionalLinkageCount,
+                                      static_cast<INT32>(NET_TRADITIONAL_LINKAGE_MAX_NUM));
+        for (INT32 i = 0; i < nCount; ++i)
+        {
+            dst.tradition.push_back(src.auTraditionalLinkage[i]);
+        }
+        return;
+    }
+
+    /* 兼容早期 SDK：抓拍动作复用 uSnapshotChannel 字段传输。 */
     for (INT32 i = 0; i < src.uSnapshotChannelCount && i < NET_CHANNEL_MAX; ++i)
     {
         dst.tradition.push_back((int)src.auSnapshotChannel[i]);
@@ -1034,6 +1060,172 @@ void ToMotionDetection(const NET_MotionAlarmInfo_S &src, Alarm::MotionDetection_
         }
     }
 }
+
+/**
+ * @brief 将 IPC 人脸抓拍图片叠加配置转换为 TVSDK 配置。
+ * @param [in] src IPC 人脸抓拍图片叠加配置。
+ * @param [out] dst TVSDK 人脸抓拍图片叠加配置。
+ * @return 无。
+ */
+void TvSdkConvert::FillFaceCaptureOverlayInfo(const Alarm::OverlayInfo_S &src,
+                                              NET_FaceCaptureOverlayInfo_S &dst)
+{
+    std::memset(&dst, 0, sizeof(dst));
+    dst.nDeviceID = src.nDeviceID;
+    std::strncpy(dst.strMonitoryPointInfo,
+                 src.strMonitoryPointInfo.c_str(),
+                 sizeof(dst.strMonitoryPointInfo) - 1);
+    dst.bOverlayDeviceID = src.bOverlayDeviceID ? TRUE : FALSE;
+    dst.bOverlayCaptureTime = src.bOverlayCaptureTime ? TRUE : FALSE;
+    dst.bOverlayMonitoryPointInfo = src.bOverlayMonitoryPointInfo ? TRUE : FALSE;
+    dst.enFontColor = static_cast<NET_OSD_COLOR_E>(src.enFontColor);
+    std::strncpy(dst.strFontColor, src.strFontColor.c_str(), sizeof(dst.strFontColor) - 1);
+}
+
+/**
+ * @brief 将 TVSDK 人脸抓拍图片叠加配置转换为 IPC 配置。
+ * @param [in] src TVSDK 人脸抓拍图片叠加配置。
+ * @param [out] dst IPC 人脸抓拍图片叠加配置。
+ * @return 无。
+ */
+void TvSdkConvert::ToFaceCaptureOverlayInfo(const NET_FaceCaptureOverlayInfo_S &src,
+                                            Alarm::OverlayInfo_S &dst)
+{
+    dst.nDeviceID = src.nDeviceID;
+    dst.strMonitoryPointInfo.assign(src.strMonitoryPointInfo,
+                                    std::find(src.strMonitoryPointInfo,
+                                              src.strMonitoryPointInfo + sizeof(src.strMonitoryPointInfo),
+                                              '\0'));
+    dst.bOverlayDeviceID = (src.bOverlayDeviceID == TRUE);
+    dst.bOverlayCaptureTime = (src.bOverlayCaptureTime == TRUE);
+    dst.bOverlayMonitoryPointInfo = (src.bOverlayMonitoryPointInfo == TRUE);
+    dst.enFontColor = static_cast<Osd::OSD_COLOR_E>(src.enFontColor);
+    dst.strFontColor.assign(src.strFontColor,
+                            std::find(src.strFontColor,
+                                      src.strFontColor + sizeof(src.strFontColor),
+                                      '\0'));
+}
+
+#ifdef SCENE_INTELLIGENCE
+/**
+ * @brief 将字符串安全复制到 SDK 固定长度字符数组。
+ * @tparam N 目标数组长度。
+ * @param [out] strDestination 固定长度目标数组。
+ * @param [in] strSource 源字符串。
+ * @return 无。
+ */
+template <size_t N>
+static void CopyCaptureString(CHAR (&strDestination)[N], const std::string &strSource)
+{
+    std::snprintf(strDestination, N, "%s", strSource.c_str());
+}
+
+/**
+ * @brief 将 IPC 区域坐标转换为 SDK 抓拍区域坐标。
+ * @param [in] stSource IPC 区域。
+ * @param [out] stDestination SDK 抓拍区域。
+ * @return 无。
+ */
+static void FillCapturePolygon(const Alarm::Region_S &stSource,
+                               NET_CapturePolygon_S &stDestination)
+{
+    std::memset(&stDestination, 0, sizeof(stDestination));
+    size_t uPointCount = (std::min)(static_cast<size_t>(stSource.nPointNum), stSource.aPoint.size());
+    uPointCount = (std::min)(uPointCount, static_cast<size_t>(NET_CAPTURE_REGION_POINT_MAX_NUM));
+    stDestination.uPointCount = static_cast<UINT32>(uPointCount);
+
+    for (size_t i = 0; i < uPointCount; ++i)
+    {
+        stDestination.afPointX[i] = stSource.aPoint[i].fX;
+        stDestination.afPointY[i] = stSource.aPoint[i].fY;
+    }
+}
+
+/**
+ * @brief 将 IPC 人脸抓拍事件转换为 SDK 推送结构体。
+ * @param [in] stSource IPC 人脸抓拍事件。
+ * @param [out] stDestination SDK 人脸抓拍推送信息。
+ * @return 无。
+ */
+void TvSdkConvert::FillFaceCapturePushInfo(const Alarm::FaceAlarmInfo_S &stSource,
+                                           NET_FaceCapturePushInfo_S &stDestination)
+{
+    std::memset(&stDestination, 0, sizeof(stDestination));
+    stDestination.bMale = stSource.stFaceAlarmAttribute.bIsMale ? TRUE : FALSE;
+    stDestination.nAgeLabel = stSource.stFaceAlarmAttribute.nAgeLabel;
+    stDestination.bGlasses = stSource.stFaceAlarmAttribute.bIsGlasses ? TRUE : FALSE;
+    stDestination.bBeard = stSource.stFaceAlarmAttribute.bIsBeard ? TRUE : FALSE;
+    stDestination.bMask = stSource.stFaceAlarmAttribute.bIsMask ? TRUE : FALSE;
+    stDestination.nEmotionLabel = stSource.stFaceAlarmAttribute.nEmotionLabel;
+    FillCapturePolygon(stSource.stFaceRegion, stDestination.stFaceRegion);
+    CopyCaptureString(stDestination.strFacePicture, stSource.strFacePicture);
+    CopyCaptureString(stDestination.strCurrentPicture, stSource.strCurrentPicture);
+    CopyCaptureString(stDestination.strTimestamp, stSource.strTimeStamp);
+    stDestination.bDownloadable = stSource.bIsDownLoad ? TRUE : FALSE;
+}
+
+/**
+ * @brief 将 IPC 行人抓拍事件转换为 SDK 推送结构体。
+ * @param [in] stSource IPC 行人抓拍事件。
+ * @param [out] stDestination SDK 行人抓拍推送信息。
+ * @return 无。
+ */
+void TvSdkConvert::FillPersonCapturePushInfo(const Alarm::PersonAlarmInfo_S &stSource,
+                                             NET_PersonCapturePushInfo_S &stDestination)
+{
+    std::memset(&stDestination, 0, sizeof(stDestination));
+    stDestination.bMale = stSource.stPersonAlarmAttribute.bIsMale ? TRUE : FALSE;
+    stDestination.nAgeLabel = stSource.stPersonAlarmAttribute.nAgeLabel;
+    stDestination.bBag = stSource.stPersonAlarmAttribute.bBag ? TRUE : FALSE;
+    stDestination.nTopColorLabel = static_cast<INT32>(stSource.stPersonAlarmAttribute.eTopColorLabel);
+    stDestination.nBottomColorLabel = static_cast<INT32>(stSource.stPersonAlarmAttribute.eBottomColorLabel);
+    CopyCaptureString(stDestination.strPersonPicture, stSource.strPersonPicture);
+    CopyCaptureString(stDestination.strCurrentPicture, stSource.strCurrentPicture);
+    CopyCaptureString(stDestination.strTimestamp, stSource.strTimeStamp);
+    stDestination.bDownloadable = stSource.bIsDownLoad ? TRUE : FALSE;
+}
+
+/**
+ * @brief 将 IPC 机动车抓拍事件转换为 SDK 推送结构体。
+ * @param [in] stSource IPC 机动车抓拍事件。
+ * @param [out] stDestination SDK 机动车抓拍推送信息。
+ * @return 无。
+ */
+void TvSdkConvert::FillMotorvehicleCapturePushInfo(const Alarm::MotorvehicleAlarmInfo_S &stSource,
+                                                   NET_MotorvehicleCapturePushInfo_S &stDestination)
+{
+    std::memset(&stDestination, 0, sizeof(stDestination));
+    CopyCaptureString(stDestination.strVehicleBrand,
+                      stSource.stMotorvehicleAlarmAttribute.strVehicleBrand);
+    stDestination.nVehicleType = static_cast<INT32>(stSource.stMotorvehicleAlarmAttribute.eVehicleType);
+    stDestination.nVehicleColor = static_cast<INT32>(stSource.stMotorvehicleAlarmAttribute.eVehicleColor);
+    CopyCaptureString(stDestination.strLicensePlateNumber, stSource.strLicensePlateNumber);
+    CopyCaptureString(stDestination.strTargetPicture, stSource.strTargetPicture);
+    CopyCaptureString(stDestination.strCurrentPicture, stSource.strCurrentPicture);
+    CopyCaptureString(stDestination.strTimestamp, stSource.strTimeStamp);
+    stDestination.bDownloadable = stSource.bIsDownLoad ? TRUE : FALSE;
+}
+
+/**
+ * @brief 将 IPC 非机动车抓拍事件转换为 SDK 推送结构体。
+ * @param [in] stSource IPC 非机动车抓拍事件。
+ * @param [out] stDestination SDK 非机动车抓拍推送信息。
+ * @return 无。
+ */
+void TvSdkConvert::FillNonMotorvehicleCapturePushInfo(const Alarm::NonMotorvehicleAlarmInfo_S &stSource,
+                                                      NET_NonMotorvehicleCapturePushInfo_S &stDestination)
+{
+    std::memset(&stDestination, 0, sizeof(stDestination));
+    stDestination.nVehicleType = static_cast<INT32>(
+        stSource.stNonMotorvehicleAlarmAttribute.eNonMotorizedVehicleType);
+    stDestination.nVehicleColor = static_cast<INT32>(
+        stSource.stNonMotorvehicleAlarmAttribute.eNonMotorizedVehicleColor);
+    CopyCaptureString(stDestination.strTargetPicture, stSource.strTargetPicture);
+    CopyCaptureString(stDestination.strCurrentPicture, stSource.strCurrentPicture);
+    CopyCaptureString(stDestination.strTimestamp, stSource.strTimeStamp);
+    stDestination.bDownloadable = stSource.bIsDownLoad ? TRUE : FALSE;
+}
+#endif
 
 // --------- Tamper (IPC HideAlarm_S <-> SDK NET_TamperAlarmInfo_S) ---------
 void FillTamperAlarmInfo(const Alarm::HideAlarm_S &src, NET_TamperAlarmInfo_S &dst)

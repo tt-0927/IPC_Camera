@@ -16,12 +16,18 @@
 #include "voice_com_capture_source.h"
 #include "system_manage.h"
 #include "network_manage.h"
+#include "task_manage.h"
+#include "convert_interface.h"
+#include "alarm_convert.h"
+#include "convert/tvsdk_convert.h"
 
 #include <cstdio>
 #include <cstdint>
 #include <cstring>
 #include <chrono>
+#include <functional>
 #include <string>
+#include <vector>
 
 /* 回调实现/注册已拆分到 callbacks/ 目录 */
 
@@ -119,6 +125,40 @@ void close_voice_com_nvr_audio_dump()
     }
     g_voiceComNvrRecvDumpBytes = 0;
 }
+
+#ifdef SCENE_INTELLIGENCE
+/**
+ * @brief 从任务发布消息中提取抓拍业务数据。
+ * @details TaskPublish 会把业务 JSON 包装在 Data 字段中；为兼容旧发布者，
+ *          未包含 Data 时直接使用原始消息。
+ * @param [in] pData 任务发布的 JSON 数据指针。
+ * @param [in] nDataLength 任务发布数据长度。
+ * @return 有效的抓拍业务 JSON；解析失败时返回空字符串。
+ */
+static std::string ExtractCaptureEventData(const void *pData, int nDataLength)
+{
+    if (!pData || nDataLength <= 0)
+    {
+        return std::string();
+    }
+
+    const std::string strMessage(static_cast<const char *>(pData), static_cast<size_t>(nDataLength));
+    Json::Object *pRootJson = Json::init(strMessage);
+    if (!pRootJson)
+    {
+        return std::string();
+    }
+
+    std::string strPayload = strMessage;
+    Json::Object *pPayloadJson = Json::get(pRootJson, "Data");
+    if (pPayloadJson)
+    {
+        strPayload = Json::to_string(pPayloadJson);
+    }
+    Json::deinit(pRootJson);
+    return strPayload;
+}
+#endif
 
 void STDCALL cb_voice_com_play(const char *data, unsigned int size)
 {
@@ -365,6 +405,9 @@ int CTvSdkServer::init()
     }
 
     m_bInit = true;
+#ifdef SCENE_INTELLIGENCE
+    register_capture_event_subscribers();
+#endif
     dlog_info("TVSDK server init ok, port=%u", port);
     return OK;
 }
@@ -386,6 +429,128 @@ void CTvSdkServer::set_taskManage(std::shared_ptr<CTaskManage> pTaskManage)
     m_pTaskManage = std::move(pTaskManage);
     TvSdkCallbacks::set_task_manage(m_pTaskManage);
 }
+
+#ifdef SCENE_INTELLIGENCE
+/**
+ * @brief 注册智能抓拍事件订阅。
+ * @details 同一 CTaskManage 只注册一次，避免 TVSDK 重启后重复推送相同抓拍事件。
+ * @return 无。
+ */
+void CTvSdkServer::register_capture_event_subscribers()
+{
+    if (!m_pTaskManage || m_bCaptureEventSubscribed)
+    {
+        return;
+    }
+
+    const std::vector<int> vecActionCodes = {
+        AC_PUSH_FACE_CAPTURE_INFO,
+        AC_PUSH_PERSON_CAPTURE_INFO,
+        AC_PUSH_MOTORVEHICLE_CAPTURE_INFO,
+        AC_PUSH_NONMOTORVEHICLE_CAPTURE_INFO};
+    m_pTaskManage->register_subscribe(
+        vecActionCodes,
+        std::bind(&CTvSdkServer::handle_capture_event,
+                  this,
+                  std::placeholders::_1,
+                  std::placeholders::_2,
+                  std::placeholders::_3,
+                  std::placeholders::_4));
+    m_bCaptureEventSubscribed = true;
+}
+
+/**
+ * @brief 转换并推送一条智能抓拍事件。
+ * @param [in] pData 任务发布的 JSON 数据。
+ * @param [in] nDataLength JSON 数据长度。
+ * @param [in] nActionCode 抓拍事件动作码。
+ * @param [in] pUserData 订阅用户数据，当前未使用。
+ * @return 推送成功返回 OK，失败返回 ERR。
+ */
+int CTvSdkServer::handle_capture_event(const void *pData,
+                                       int nDataLength,
+                                       int nActionCode,
+                                       void *pUserData)
+{
+    (void)pUserData;
+    if (!m_bInit)
+    {
+        return ERR;
+    }
+
+    const std::string strCaptureData = ExtractCaptureEventData(pData, nDataLength);
+    if (strCaptureData.empty())
+    {
+        dlog_warn("TVSDK capture event payload is empty, action=%d", nActionCode);
+        return ERR;
+    }
+
+    BOOL bPushResult = FALSE;
+    switch (nActionCode)
+    {
+        case AC_PUSH_FACE_CAPTURE_INFO:
+        {
+            Alarm::FaceAlarmInfo_S stSource;
+            NET_FaceCapturePushInfo_S stDestination = {};
+            Convert::to_struct(strCaptureData, stSource);
+            TvSdkConvert::FillFaceCapturePushInfo(stSource, stDestination);
+            bPushResult = push_alarm(nullptr,
+                                     NET_PUSH_FACE_CAPTURE_INFO,
+                                     &stDestination,
+                                     static_cast<int>(sizeof(stDestination))) == OK;
+            break;
+        }
+        case AC_PUSH_PERSON_CAPTURE_INFO:
+        {
+            Alarm::PersonAlarmInfo_S stSource;
+            NET_PersonCapturePushInfo_S stDestination = {};
+            Convert::to_struct(strCaptureData, stSource);
+            TvSdkConvert::FillPersonCapturePushInfo(stSource, stDestination);
+            bPushResult = push_alarm(nullptr,
+                                     NET_PUSH_PERSON_CAPTURE_INFO,
+                                     &stDestination,
+                                     static_cast<int>(sizeof(stDestination))) == OK;
+            break;
+        }
+        case AC_PUSH_MOTORVEHICLE_CAPTURE_INFO:
+        {
+            Alarm::MotorvehicleAlarmInfo_S stSource;
+            NET_MotorvehicleCapturePushInfo_S stDestination = {};
+            Convert::to_struct(strCaptureData, stSource);
+            TvSdkConvert::FillMotorvehicleCapturePushInfo(stSource, stDestination);
+            bPushResult = push_alarm(nullptr,
+                                     NET_PUSH_MOTORVEHICLE_CAPTURE_INFO,
+                                     &stDestination,
+                                     static_cast<int>(sizeof(stDestination))) == OK;
+            break;
+        }
+        case AC_PUSH_NONMOTORVEHICLE_CAPTURE_INFO:
+        {
+            Alarm::NonMotorvehicleAlarmInfo_S stSource;
+            NET_NonMotorvehicleCapturePushInfo_S stDestination = {};
+            Convert::to_struct(strCaptureData, stSource);
+            TvSdkConvert::FillNonMotorvehicleCapturePushInfo(stSource, stDestination);
+            bPushResult = push_alarm(nullptr,
+                                     NET_PUSH_NONMOTORVEHICLE_CAPTURE_INFO,
+                                     &stDestination,
+                                     static_cast<int>(sizeof(stDestination))) == OK;
+            break;
+        }
+        default:
+        {
+            dlog_warn("TVSDK capture event action is unsupported, action=%d", nActionCode);
+            return ERR;
+        }
+    }
+
+    if (!bPushResult)
+    {
+        dlog_warn("TVSDK capture event push failed, action=%d", nActionCode);
+        return ERR;
+    }
+    return OK;
+}
+#endif
 
 int CTvSdkServer::push_alarm(const void *pAlarmer, int lCommand, const void *pAlarmInfo, int dwBufLen)
 {
@@ -552,6 +717,69 @@ int CTvSdkServer::push_alarm(const void *pAlarmer, int lCommand, const void *pAl
     }
 
     return bRet ? OK : -1;
+}
+
+/**
+ * @brief 推送包含动态图片的 V2 告警。
+ * @details V2 图片指针只在本次同步调用期间读取，调用者必须保证返回前内存有效。
+ * @param [in] pAlarmer 告警设备信息，为空时自动填充本机信息。
+ * @param [in] lCommand 告警命令码。
+ * @param [in] pAlarmInfo V2 告警结构体。
+ * @param [in] dwBufLen V2 告警结构体长度。
+ * @return 成功返回 OK，失败返回 ERR。
+ */
+int CTvSdkServer::push_alarm_v2(const void *pAlarmer,
+                                int lCommand,
+                                const void *pAlarmInfo,
+                                int dwBufLen)
+{
+    if (!m_bInit || !pAlarmInfo || dwBufLen <= 0)
+    {
+        return ERR;
+    }
+
+    NET_Alarmer_S stAlarmer = {};
+    NET_Alarmer_S *pUseAlarmer = static_cast<NET_Alarmer_S *>(const_cast<void *>(pAlarmer));
+    if (!pUseAlarmer)
+    {
+        System::DeviceInfo_S stDeviceInfo;
+        if (SystemManage::instance()->get_device_info(stDeviceInfo) == OK)
+        {
+            std::strncpy(reinterpret_cast<char *>(stAlarmer.strSerialNumber),
+                         stDeviceInfo.serialNumber.c_str(),
+                         sizeof(stAlarmer.strSerialNumber) - 1);
+            std::strncpy(stAlarmer.strDeviceName,
+                         stDeviceInfo.deviceName.c_str(),
+                         sizeof(stAlarmer.strDeviceName) - 1);
+        }
+
+        Network::Info_S stNetworkInfo;
+        if (CNetworkManage::instance()->get_ip_and_dns(stNetworkInfo) == OK)
+        {
+            std::strncpy(stAlarmer.strDeviceIP,
+                         stNetworkInfo.stIp.ipv4Ip.c_str(),
+                         sizeof(stAlarmer.strDeviceIP) - 1);
+        }
+
+        const std::string strMacAddress = CNetworkManage::instance()->get_macAddress("eth0");
+        unsigned int auMacBytes[6] = {};
+        if (std::sscanf(strMacAddress.c_str(),
+                        "%x:%x:%x:%x:%x:%x",
+                        &auMacBytes[0], &auMacBytes[1], &auMacBytes[2],
+                        &auMacBytes[3], &auMacBytes[4], &auMacBytes[5]) == 6)
+        {
+            for (int i = 0; i < 6; ++i)
+            {
+                stAlarmer.byMacAddr[i] = static_cast<BYTE>(auMacBytes[i] & 0xFF);
+            }
+        }
+        pUseAlarmer = &stAlarmer;
+    }
+
+    return NET_SERVER_PushAlarmInfoV2(pUseAlarmer,
+                                      static_cast<INT32>(lCommand),
+                                      const_cast<void *>(pAlarmInfo),
+                                      static_cast<INT32>(dwBufLen)) ? OK : ERR;
 }
 
 int CTvSdkServer::get_client_count() const

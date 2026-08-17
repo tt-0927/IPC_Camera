@@ -366,6 +366,9 @@ std::string CDeviceConfigBusiness::GetDevConfig(const std::string& req_data, con
         case NET_GET_FACECAPTUREINFO:
             return HandleGetConfig<NET_FaceCaptureInfo_S>(channelId, command);
 
+        case NET_GET_FACECAPTUREOVERLAYINFO:
+            return HandleGetConfig<NET_FaceCaptureOverlayInfo_S>(channelId, command);
+
         case NET_GET_TARGET_LIB:
             return HandleGetConfig<NET_FaceLibList_S>(channelId, command);
 
@@ -599,6 +602,9 @@ std::string CDeviceConfigBusiness::SetDevConfig(const std::string& req_data, con
         case NET_SET_PIR_ALARM_INFO:
             return HandleSetConfig<NET_PirAlarmInfo_S>(channelId, command, req_data);
 
+        case NET_TRIGGER_SOUND_LIGHT_ALARM:
+            return HandleSetConfig<NET_SoundLightAlarmTrigger_S>(channelId, command, req_data);
+
         case NET_SET_PREVIEW_INFO:
             return HandleSetConfig<NET_PreviewInfo_S>(channelId, command, req_data);
 
@@ -640,6 +646,9 @@ std::string CDeviceConfigBusiness::SetDevConfig(const std::string& req_data, con
 
         case NET_SET_FACECAPTUREINFO:
             return HandleSetConfig<NET_FaceCaptureInfo_S>(channelId, command, req_data);
+
+        case NET_SET_FACECAPTUREOVERLAYINFO:
+            return HandleSetConfig<NET_FaceCaptureOverlayInfo_S>(channelId, command, req_data);
 
         case NET_SET_FACE_COMPARE_INFO:
             return HandleSetConfig<NET_FaceCompareInfo_S>(channelId, command, req_data);
