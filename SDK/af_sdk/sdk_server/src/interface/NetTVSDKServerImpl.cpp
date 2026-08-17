@@ -120,9 +120,9 @@ BOOL CNetTVSDKServerImpl::DoSetLogToFile(INT32 dwLogLevel, CHAR* strLogDir,
     // 构造完整日志路径
    char szLogPath[512] = {0};
 #ifdef _WIN32
-    sprintf(szLogPath, "%s\\NetTVSDKServer.log", strLogDir);
+    snprintf(szLogPath, sizeof(szLogPath), "%s\\NetTVSDKServer.log", strLogDir);
 #else
-    sprintf(szLogPath, "%s/NetTVSDKServer.log", strLogDir);
+    snprintf(szLogPath, sizeof(szLogPath), "%s/NetTVSDKServer.log", strLogDir);
 #endif
 
     if (dwLogFileSize <= 0)

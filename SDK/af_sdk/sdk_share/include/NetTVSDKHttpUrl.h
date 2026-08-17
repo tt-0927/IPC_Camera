@@ -21,10 +21,10 @@
  * @author tianl (tianl@kfb.cn)
  * @brief HTTP会话管理交互使用
  */
-typedef struct tagSeesionMessage
+typedef struct tagSessionMessage
 {
-  std::string SeesionId;
-}SeesionMessage_S;
+  std::string SessionId;
+}SessionMessage_S;
 
 /************************ HTTP响应码 - 信息响应（1xx） ************************/
 #define NET_HTTP_RESP_CODE_CONTINUE				100						/* HTTP响应码 继续 */

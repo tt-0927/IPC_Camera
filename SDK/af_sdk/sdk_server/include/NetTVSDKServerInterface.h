@@ -289,6 +289,94 @@ NET_API BOOL STDCALL NET_SERVER_RegisterCb_ControlRecordInfo(NET_CB_SetDevConfig
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetRecordStatus(NET_CB_GetDevConfigByCommand pCb);
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetRecordSchedule(NET_CB_GetDevConfigByCommand pCb);
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_SetRecordSchedule(NET_CB_SetDevConfigByCommand pCb);
+/**
+ * @brief 注册获取 SD 卡物理状态的回调函数。
+ * @author ITC
+ * @param [in] pCb 用于填充 NET_SdCardStatus_S 输出缓冲区的回调函数。
+ * @param [out] 无。SDK 将回调函数保存到配置回调表。
+ * @return 注册成功返回 TRUE；回调函数非法或已注册时返回 FALSE。
+ */
+NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetSdCardStatus(NET_CB_GetDevConfigByCommand pCb);
+/*
+ * 功能描述：注册获取声音报警配置的回调函数。
+ * 作者：ITC
+ * @param [in] pCb 用于填写 NET_AudibleAlarmInfo_S 输出数据的回调函数。
+ * @param [out] 无。注册成功后，回调函数将保存到内部配置回调表。
+ * @return 注册成功返回 TRUE；回调函数为空或重复注册时返回 FALSE。
+ */
+NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetAudibleAlarmInfo(NET_CB_GetDevConfigByCommand pCb);
+/*
+ * 功能描述：注册设置声音报警配置的回调函数。
+ * 作者：ITC
+ * @param [in] pCb 用于处理 NET_AudibleAlarmInfo_S 输入数据的回调函数。
+ * @param [out] 无。注册成功后，回调函数将保存到内部配置回调表。
+ * @return 注册成功返回 TRUE；回调函数为空或重复注册时返回 FALSE。
+ */
+NET_API BOOL STDCALL NET_SERVER_RegisterCb_SetAudibleAlarmInfo(NET_CB_SetDevConfigByCommand pCb);
+/*
+ * 功能描述：注册获取报警输入配置的回调函数。
+ * 作者：ITC
+ * @param [in] pCb 用于填写 NET_AlarmInputInfoList_S 输出数据的回调函数。
+ * @param [out] 无。注册成功后，回调函数将保存到内部配置回调表。
+ * @return 注册成功返回 TRUE；回调函数为空或重复注册时返回 FALSE。
+ */
+NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetAlarmInputInfo(NET_CB_GetDevConfigByCommand pCb);
+/*
+ * 功能描述：注册设置单个报警输入配置的回调函数。
+ * 作者：ITC
+ * @param [in] pCb 用于处理 NET_AlarmInputInfo_S 输入数据的回调函数。
+ * @param [out] 无。注册成功后，回调函数将保存到内部配置回调表。
+ * @return 注册成功返回 TRUE；回调函数为空或重复注册时返回 FALSE。
+ */
+NET_API BOOL STDCALL NET_SERVER_RegisterCb_SetAlarmInputInfo(NET_CB_SetDevConfigByCommand pCb);
+/*
+ * 功能描述：注册获取报警输出配置的回调函数。
+ * 作者：ITC
+ * @param [in] pCb 用于填写 NET_AlarmOutputInfoList_S 输出数据的回调函数。
+ * @param [out] 无。注册成功后，回调函数将保存到内部配置回调表。
+ * @return 注册成功返回 TRUE；回调函数为空或重复注册时返回 FALSE。
+ */
+NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetAlarmOutputInfo(NET_CB_GetDevConfigByCommand pCb);
+/*
+ * 功能描述：注册设置单个报警输出配置的回调函数。
+ * 作者：ITC
+ * @param [in] pCb 用于处理 NET_AlarmOutputInfo_S 输入数据的回调函数。
+ * @param [out] 无。注册成功后，回调函数将保存到内部配置回调表。
+ * @return 注册成功返回 TRUE；回调函数为空或重复注册时返回 FALSE。
+ */
+NET_API BOOL STDCALL NET_SERVER_RegisterCb_SetAlarmOutputInfo(NET_CB_SetDevConfigByCommand pCb);
+/*
+ * 功能描述：注册获取闪光报警配置的回调函数。
+ * 作者：ITC
+ * @param [in] pCb 用于填写 NET_FlashingLightAlarmInfo_S 输出数据的回调函数。
+ * @param [out] 无。注册成功后，回调函数将保存到内部配置回调表。
+ * @return 注册成功返回 TRUE；回调函数为空或重复注册时返回 FALSE。
+ */
+NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetFlashingLightAlarmInfo(NET_CB_GetDevConfigByCommand pCb);
+/*
+ * 功能描述：注册设置闪光报警配置的回调函数。
+ * 作者：ITC
+ * @param [in] pCb 用于处理 NET_FlashingLightAlarmInfo_S 输入数据的回调函数。
+ * @param [out] 无。注册成功后，回调函数将保存到内部配置回调表。
+ * @return 注册成功返回 TRUE；回调函数为空或重复注册时返回 FALSE。
+ */
+NET_API BOOL STDCALL NET_SERVER_RegisterCb_SetFlashingLightAlarmInfo(NET_CB_SetDevConfigByCommand pCb);
+/*
+ * 功能描述：注册获取人体红外（PIR）报警配置的回调函数。
+ * 作者：ITC
+ * @param [in] pCb 用于填写 NET_PirAlarmInfo_S 输出数据的回调函数。
+ * @param [out] 无。注册成功后，回调函数将保存到内部配置回调表。
+ * @return 注册成功返回 TRUE；回调函数为空或重复注册时返回 FALSE。
+ */
+NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetPirAlarmInfo(NET_CB_GetDevConfigByCommand pCb);
+/*
+ * 功能描述：注册设置人体红外（PIR）报警配置的回调函数。
+ * 作者：ITC
+ * @param [in] pCb 用于处理 NET_PirAlarmInfo_S 输入数据的回调函数。
+ * @param [out] 无。注册成功后，回调函数将保存到内部配置回调表。
+ * @return 注册成功返回 TRUE；回调函数为空或重复注册时返回 FALSE。
+ */
+NET_API BOOL STDCALL NET_SERVER_RegisterCb_SetPirAlarmInfo(NET_CB_SetDevConfigByCommand pCb);
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetRecordAdvancedParam(NET_CB_GetDevConfigByCommand pCb);
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_SetRecordAdvancedParam(NET_CB_SetDevConfigByCommand pCb);
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_FindRecordFileInfo(NET_CB_GetDevConfigByCommand pCb);

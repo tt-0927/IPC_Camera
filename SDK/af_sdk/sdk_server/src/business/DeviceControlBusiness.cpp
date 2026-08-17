@@ -60,7 +60,7 @@ std::string CDeviceControlBusiness::DeviceControl(const std::string& req_data, c
                       stInfo.uCommand,
                       stInfo.uSpeed,
                       stInfo.uDurationMs);
-        return SDKConvert::to_respString(nValidCode, stInfo);
+        return SDKConvert::to_respString(nValidCode, stInfo.uCommand, stInfo);
     }
 
     NETSDK_LOG_MESSAGE_INFO("DeviceControl request: channel=%d, controlType=%d, command=%d, speed=%d, durationMs=%d",
@@ -76,5 +76,5 @@ std::string CDeviceControlBusiness::DeviceControl(const std::string& req_data, c
         NETSDK_LOG_MESSAGE_WARN("DeviceControl callback failed, ret=%d", nRespCode);
     }
 
-    return SDKConvert::to_respString(nRespCode, stInfo);
+    return SDKConvert::to_respString(nRespCode, stInfo.uCommand, stInfo);
 }

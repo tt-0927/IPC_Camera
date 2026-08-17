@@ -131,7 +131,7 @@ std::string CPlaybackBusiness::GetReplayUrl(const std::string& req_data, const s
         NETSDK_LOG_MESSAGE_WARN("GetReplayUrl callback failed, ret=%d", nRespCode);
     }
 
-    return SDKConvert::to_respString(nRespCode, stInfo);
+    return SDKConvert::to_respString(nRespCode, 0, stInfo);
 }
 
 std::string CPlaybackBusiness::ControlReplay(const std::string& req_data, const std::string& url_param)
@@ -174,7 +174,7 @@ std::string CPlaybackBusiness::ControlReplay(const std::string& req_data, const 
                       stInfo.nSeekTime,
                       stInfo.szStartTime,
                       stInfo.szEndTime);
-        return SDKConvert::to_respString(nValidCode);
+        return SDKConvert::to_respString((NET_COMMON_ECODE_E)nValidCode);
     }
 
     NETSDK_LOG_MESSAGE_INFO("ControlReplay request: channel=%d, ctrlType=%d, replayType=%d, session=%s, speed=%.3f, seek=%d, start=%s, end=%s",
@@ -199,7 +199,7 @@ std::string CPlaybackBusiness::ControlReplay(const std::string& req_data, const 
                   stInfo.szStartTime,
                   stInfo.szEndTime);
 
-    return SDKConvert::to_respString(nRespCode, stInfo);
+    return SDKConvert::to_respString(nRespCode, 0, stInfo);
 }
 
 std::string CPlaybackBusiness::GetReplayRecordList(const std::string& req_data, const std::string& url_param)
@@ -237,5 +237,5 @@ std::string CPlaybackBusiness::GetReplayRecordList(const std::string& req_data, 
         NETSDK_LOG_MESSAGE_WARN("GetReplayRecordList callback failed, ret=%d", nRespCode);
     }
 
-    return SDKConvert::to_respString(nRespCode, stInfo);
+    return SDKConvert::to_respString(nRespCode, 0, stInfo);
 }

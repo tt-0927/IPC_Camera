@@ -97,7 +97,6 @@ bool CHttpAuthHandler::handle_authentication(const httplib::Request& req, httpli
         case AuthType_E::BASIC:
             NETSDK_LOG_MESSAGE_DEBUG("使用 Basic 认证，客户端 IP: %s", req.remote_addr.c_str());
             return handle_basic_auth(req, res);
-
         case AuthType_E::DIGEST:
             NETSDK_LOG_MESSAGE_DEBUG("使用 Digest 认证，客户端 IP: %s", req.remote_addr.c_str());
             return handle_digest_auth(req, res);
@@ -423,6 +422,11 @@ std::string CHttpAuthHandler::base64_decode(const std::string& encoded)
 {
     BIO *bio, *b64;
     char* buffer = static_cast<char*>(malloc(encoded.size()));
+    if (buffer == NULL)
+    {
+        NETSDK_LOG_MESSAGE_WARN("base64_decode: malloc(%zu) failed", encoded.size());
+        return "";
+    }
     memset(buffer, 0, encoded.size());
 
     bio = BIO_new_mem_buf(encoded.c_str(), -1);
@@ -431,6 +435,12 @@ std::string CHttpAuthHandler::base64_decode(const std::string& encoded)
 
     BIO_set_flags(bio, BIO_FLAGS_BASE64_NO_NL); /* 不处理换行 */
     int length = BIO_read(bio, buffer, encoded.size());
+    if (length <= 0)
+    {
+        BIO_free_all(bio);
+        free(buffer);
+        return "";
+    }
 
     std::string result(buffer, length);
 
@@ -543,7 +553,7 @@ std::string CHttpAuthHandler::md5_hex(const std::string& input) {
 
     char md5_str[33];
     for (int i = 0; i < 16; i++) {
-        sprintf(&md5_str[i*2], "%02x", (unsigned int)digest[i]);
+        snprintf(&md5_str[i*2], 3, "%02x", (unsigned int)digest[i]);
     }
     md5_str[32] = '\0';
 

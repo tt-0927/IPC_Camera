@@ -22,7 +22,7 @@ class CSingleton
 {
 public:
     /* 获取实例 */
-    static T *instance()
+    static std::shared_ptr<T> instance()
     {
         /*
          * std::make_shared cannot access a derived class private constructor even
@@ -31,7 +31,7 @@ public:
          */
         std::call_once(s_stInstantiated, []()
                        { s_pInstance = std::shared_ptr<T>(new T); });
-        return s_pInstance.get();
+        return s_pInstance;
     }
 
     /**

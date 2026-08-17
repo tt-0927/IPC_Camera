@@ -58,8 +58,8 @@ public:
     CUserSession(LPUSER_HANDLE userHand,  const std::string& host, int port,
                  const std::string& user, const std::string& pass,
                  int hbInterval, int maxRetry,
-				 int connectTimeout, int receiveTimeout,
-				 OnSessionLostCallback callback);
+                 int connectTimeout, int receiveTimeout,
+                 OnSessionLostCallback callback);
     ~CUserSession();
 
     /**
@@ -96,15 +96,15 @@ public:
      * @param [out] outRespBody 响应体输出
      * @return 成功返回true，失败返回false
      */
-	bool SendRequest(const CommandRequest_S& req, std::string& outRespBody);
+    bool SendRequest(const CommandRequest_S& req, std::string& outRespBody);
 
-	/**
+    /**
  * @author tianl (tianl@kfb.cn)
      * @brief 设置报警回调函数
      * @param [in] cb 报警回调函数指针
      * @param [in] userData 用户数据
      */
-	void SetAlarmCallback(NET_AlarmCallBack cb, void* userData);
+    void SetAlarmCallback(NET_AlarmCallBack cb, void* userData);
 
     /**
  * @author tianl (tianl@kfb.cn)
@@ -168,16 +168,16 @@ private:
      * @brief 心跳保活循环线程函数
      * @details 定时发送心跳包检测连接状态
      */
-	void HeartbeatLoop();
+    void HeartbeatLoop();
 
-	/**
+    /**
  * @author tianl (tianl@kfb.cn)
      * @brief 报警监听由ClientAlarmManager管理
      */
-	/* AlarmLoop managed by ClientAlarmManager */
+    /* AlarmLoop managed by ClientAlarmManager */
 
 private:
-	LPUSER_HANDLE m_hUser;
+    LPUSER_HANDLE m_hUser;
     std::string m_strHost;
     int m_nPort;
     std::string m_strUsername;
@@ -194,27 +194,27 @@ private:
     std::mutex m_stCommandMutex;
 
     std::thread m_stSseThread;
-	std::thread m_stHeartbeatThread;
+    std::thread m_stHeartbeatThread;
 
     int m_nConnectionTimeout;      /* 连接超时（秒） */
     int m_nReceiveTimeout;     /* 接收超时（秒） */
 
-	/**
+    /**
  * @author tianl (tianl@kfb.cn)
-	 * @brief 双客户端隔离设计
-	 */
+     * @brief 双客户端隔离设计
+     */
     std::unique_ptr<httplib::Client> m_pCommandClient; /* 短连接：发命令 */
     std::unique_ptr<httplib::Client> m_pSseClient; /* 长连接：SSE心跳 */
 
-	OnSessionLostCallback m_fnSessionLostCallback;		/* 会话断开 回调处理 */
+    OnSessionLostCallback m_fnSessionLostCallback;        /* 会话断开 回调处理 */
 
 
-	/* Reconnect members */
+    /* Reconnect members */
     std::atomic<bool> m_bReconnecting{false};  /* 重连中标志 */
     std::atomic<int> m_nReconnectDelay{1};       /* 当前重连延迟（秒） */
     std::thread m_stReconnectThread;              /* 重连线程 */
     std::mutex m_stReconnectMutex;                /* 重连互斥锁 */
 
-	/* Alarm members */
+    /* Alarm members */
     std::shared_ptr<CClientAlarmManager> m_pAlarmManager;
 };

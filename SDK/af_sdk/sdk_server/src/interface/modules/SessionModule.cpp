@@ -121,7 +121,7 @@ size_t CSessionModule::GetActiveSessionCount() const
         return 0;
     }
 
-    CSessionManager* pSessionMgr = CSessionManager::instance();
+    auto pSessionMgr = CSessionManager::instance();
     if (!pSessionMgr)
     {
         return 0;

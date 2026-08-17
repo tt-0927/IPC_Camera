@@ -20,25 +20,25 @@ std::string CDeviceCapabilityBusiness::GetDeviceCapability(const std::string& re
     switch (command)
     {
         case NET_CAP_VIDEO_ENCODE:
-            return HandleVideoEncode(channelId);
+            return HandleVideoEncode(channelId, command);
 
         // 后续扩展
         case NET_CAP_OSD:
-            return HandleOsd(channelId);
+            return HandleOsd(channelId, command);
         // case NET_CAP_SMART:
         //     return HandleSmart(channelId);
         // case NET_CAP_IMAGE:
         //     return HandleImage(channelId);
         case NET_CAP_AUDIO:
-             return HandleAudioEncode(channelId);
+             return HandleAudioEncode(channelId, command);
 
         default:
             NETSDK_LOG_MESSAGE_WARN("Unsupported capability command: %d", command);
-            return SDKConvert::to_respString(NET_E_CMD_NOT_SUPPORT);
+            return SDKConvert::to_respString(NET_E_CMD_NOT_SUPPORT, command);
     }
 }
 
-std::string CDeviceCapabilityBusiness::HandleVideoEncode(int channelId)
+std::string CDeviceCapabilityBusiness::HandleVideoEncode(int channelId, int command)
 {
     int nRespCode = NET_E_FAILED;
     NET_VideoEncodeCap_S stCap;
@@ -50,10 +50,10 @@ std::string CDeviceCapabilityBusiness::HandleVideoEncode(int channelId)
         NETSDK_LOG_MESSAGE_DEBUG("视频编码能力集回调执行失败! ret=%d", nRespCode);
     }
 
-    return SDKConvert::to_respString(nRespCode, stCap);
+    return SDKConvert::to_respString(nRespCode, command, stCap);
 }
 
-std::string CDeviceCapabilityBusiness::HandleAudioEncode(int channelId)
+std::string CDeviceCapabilityBusiness::HandleAudioEncode(int channelId, int command)
 {
     int nRespCode = NET_E_FAILED;
     NET_AudioCap_S stCap;
@@ -65,10 +65,10 @@ std::string CDeviceCapabilityBusiness::HandleAudioEncode(int channelId)
         NETSDK_LOG_MESSAGE_DEBUG("音频编码能力集回调执行失败! ret=%d", nRespCode);
     }
 
-    return SDKConvert::to_respString(nRespCode, stCap);
+    return SDKConvert::to_respString(nRespCode, command, stCap);
 }
 
-std::string CDeviceCapabilityBusiness::HandleOsd(int channelId)
+std::string CDeviceCapabilityBusiness::HandleOsd(int channelId, int command)
 {
     int nRespCode = NET_E_FAILED;
     NET_OsdCap_S stCap;
@@ -80,7 +80,7 @@ std::string CDeviceCapabilityBusiness::HandleOsd(int channelId)
         NETSDK_LOG_MESSAGE_DEBUG("OSD能力集回调执行失败! ret=%d", nRespCode);
     }
 
-    return SDKConvert::to_respString(nRespCode, stCap);
+    return SDKConvert::to_respString(nRespCode, command, stCap);
 }
 
 int CDeviceCapabilityBusiness::ParseIntParam(const std::string& url_param, const std::string& key, int defaultVal)

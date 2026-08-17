@@ -37,12 +37,12 @@
 CUserSession::CUserSession(LPUSER_HANDLE userHand, const std::string& host, int port,
                            const std::string& user, const std::string& pass,
                            int hbInterval, int maxRetry,
-						   int connectTimeout, int receiveTimeout,
-						   OnSessionLostCallback callback)
+                           int connectTimeout, int receiveTimeout,
+                           OnSessionLostCallback callback)
     : m_hUser(userHand), m_strHost(host), m_nPort(port),
       m_strUsername(user), m_strPassword(pass),
       m_nHeartbeatInterval(std::min(hbInterval, 60)), m_nMaxRetry(std::max(maxRetry, 1)),
-	  m_fnSessionLostCallback(callback)
+      m_fnSessionLostCallback(callback)
 {
     m_pCommandClient = std::make_unique<httplib::Client>(m_strHost, m_nPort);
     m_pCommandClient->set_digest_auth(m_strUsername.c_str(), m_strPassword.c_str());
@@ -55,8 +55,8 @@ CUserSession::CUserSession(LPUSER_HANDLE userHand, const std::string& host, int 
     m_pSseClient = std::make_unique<httplib::Client>(m_strHost, m_nPort);
     m_pSseClient->set_digest_auth(m_strUsername.c_str(), m_strPassword.c_str());
     m_pSseClient->set_keep_alive(true);
-	m_pSseClient->set_read_timeout(std::max(receiveTimeout, 300)); /* SSE 建议至少 300s */
-	m_pSseClient->set_connection_timeout(connectTimeout);
+    m_pSseClient->set_read_timeout(std::max(receiveTimeout, 300)); /* SSE 建议至少 300s */
+    m_pSseClient->set_connection_timeout(connectTimeout);
 
     /* Initialize Alarm Manager */
     m_pAlarmManager = std::make_shared<CClientAlarmManager>(m_strHost, m_nPort, m_strUsername, m_strPassword);
@@ -98,36 +98,36 @@ bool CUserSession::ConnectAndLogin()
     auto res = m_pCommandClient->Post(NET_API_PATH_BASIC_LOGIN);
 
     if (res)
-	{
-		NETSDK_LOG_MESSAGE_DEBUG("[DIAG-SESSION] User-%p Login HTTP response: status=%d", m_hUser, res->status);
+    {
+        NETSDK_LOG_MESSAGE_DEBUG("[DIAG-SESSION] User-%p Login HTTP response: status=%d", m_hUser, res->status);
 
-		if (res->status == NET_HTTP_RESP_CODE_SUCCESS)
-		{
-			NETSDK_LOG_MESSAGE_DEBUG("[DIAG-SESSION] User-%p 登录JSon响应： Login JSON response: [%s]", m_hUser, res->body.c_str());
-			SeesionMessage_S stSeesionMessage;
-			int nRespCode = SDKConvert::get_respCode(res->body);
-			if (nRespCode == NET_E_SUCCEED)
-			{
-				m_bOnline = true;
-				SDKConvert::to_respStruct(res->body.c_str(),stSeesionMessage);
-				m_strSessionId = stSeesionMessage.SeesionId;
+        if (res->status == NET_HTTP_RESP_CODE_SUCCESS)
+        {
+            NETSDK_LOG_MESSAGE_DEBUG("[DIAG-SESSION] User-%p 登录JSon响应： Login JSON response: [%s]", m_hUser, res->body.c_str());
+            SessionMessage_S stSessionMessage;
+            int nRespCode = SDKConvert::get_respCode(res->body);
+            if (nRespCode == NET_E_SUCCEED)
+            {
+                m_bOnline = true;
+                SDKConvert::to_respStruct(res->body.c_str(),stSessionMessage);
+                m_strSessionId = stSessionMessage.SessionId;
 
-				NETSDK_LOG_MESSAGE_INFO("[DIAG-SESSION] User-%p Login SUCCESS, newSession=%s", m_hUser, m_strSessionId.c_str());
+                NETSDK_LOG_MESSAGE_INFO("[DIAG-SESSION] User-%p Login SUCCESS, newSession=%s", m_hUser, m_strSessionId.c_str());
 
-				return true;
-			}
-			else
-			{
-				NETSDK_LOG_MESSAGE_ERROR("[DIAG-SESSION] User-%p Login FAILED, respCode=%d (NET_E_SUCCEED=0)", m_hUser, nRespCode);
-			}
-		}
-		else
-		{
-			NETSDK_LOG_MESSAGE_ERROR("[DIAG-SESSION] User-%p Login FAILED, HTTP status=%d (expected 200)", m_hUser, res->status);
-			if (!res->body.empty()) {
-				NETSDK_LOG_MESSAGE_ERROR("[DIAG-SESSION] User-%p Login FAILED response body: [%s]", m_hUser, res->body.c_str());
-			}
-		}
+                return true;
+            }
+            else
+            {
+                NETSDK_LOG_MESSAGE_ERROR("[DIAG-SESSION] User-%p Login FAILED, respCode=%d (NET_E_SUCCEED=0)", m_hUser, nRespCode);
+            }
+        }
+        else
+        {
+            NETSDK_LOG_MESSAGE_ERROR("[DIAG-SESSION] User-%p Login FAILED, HTTP status=%d (expected 200)", m_hUser, res->status);
+            if (!res->body.empty()) {
+                NETSDK_LOG_MESSAGE_ERROR("[DIAG-SESSION] User-%p Login FAILED response body: [%s]", m_hUser, res->body.c_str());
+            }
+        }
     }
     else
     {
@@ -153,7 +153,7 @@ void CUserSession::StartHeartbeat()
     NETSDK_LOG_MESSAGE_INFO("[DIAG-SESSION] User-%p Starting HeartbeatLoop thread, session=%s", m_hUser, m_strSessionId.c_str());
     /* m_stSseThread = std::thread(&CUserSession::SseLoop, this); */
 
-	m_stHeartbeatThread = std::thread(&CUserSession::HeartbeatLoop, this);
+    m_stHeartbeatThread = std::thread(&CUserSession::HeartbeatLoop, this);
 }
 
 /**
@@ -232,7 +232,7 @@ void CUserSession::SseLoop()
     int retryCount = 0;
 
     while (m_bRunning)
-	{
+    {
         /* 构造 SSE URL */
         std::string url = "/TVAPI/V1.0/Basic/KeepLive?session_id=" + m_strSessionId;
 
@@ -240,47 +240,47 @@ void CUserSession::SseLoop()
 
         /* 发起长连接请求 */
         auto res = m_pSseClient->Get(url.c_str(), [&](const httplib::Response& response)
-		{
-			 NETSDK_LOG_MESSAGE_DEBUG("[User] SSE response code [%d]", response.status);
+        {
+             NETSDK_LOG_MESSAGE_DEBUG("[User] SSE response code [%d]", response.status);
             if (response.status != NET_HTTP_RESP_CODE_SUCCESS) return false;
 
             /* 连接成功 */
             retryCount = 0;
             if (!m_bOnline)
-			{
+            {
                 m_bOnline = true;
                 NETSDK_LOG_MESSAGE_INFO("[User-%p] Online (Heartbeat Restored)", m_hUser);
             }
             return true;
         },
         [&](const char* data, size_t len)
-		{
+        {
             /* [Data 回调] */
             if (!m_bRunning)
-			{
-				return false;
-			}
+            {
+                return false;
+            }
 
-			NETSDK_LOG_MESSAGE_DEBUG("Received: data[%s] len[%d]",std::string(data, len).c_str(),len);
+            NETSDK_LOG_MESSAGE_DEBUG("Received: data[%s] len[%d]",std::string(data, len).c_str(),len);
 
             return true;
         });
 
         /* --- 连接断开 --- */
-		m_bOnline = false;
+        m_bOnline = false;
         if (!m_bRunning) break; /* 主动停止 */
 
         NETSDK_LOG_MESSAGE_ERROR("[DIAG-SESSION] User-%p SSE Connection Lost", m_hUser);
 
         /* 重连机制 */
         if (retryCount < m_nMaxRetry)
-		{
+        {
             NETSDK_LOG_MESSAGE_INFO("[User-%p] Waiting %d sec to retry (%d/%d)...", m_hUser, m_nHeartbeatInterval, retryCount + 1, m_nMaxRetry);
             std::this_thread::sleep_for(std::chrono::seconds(m_nHeartbeatInterval));
             retryCount++;
         }
-		else
-		{
+        else
+        {
             NETSDK_LOG_MESSAGE_ERROR("[User-%p] Max retries reached. Starting reconnect thread and exiting SSE loop.", m_hUser);
 
             /* 启动异步重连线程（只启动一次） */
@@ -316,7 +316,7 @@ void CUserSession::HeartbeatLoop()
     while (m_bRunning)
     {
         for (int i = 0; i < m_nHeartbeatInterval; ++i)
-		{
+        {
             if (!m_bRunning) break;
             std::this_thread::sleep_for(std::chrono::seconds(1));
         }
@@ -331,17 +331,17 @@ void CUserSession::HeartbeatLoop()
         }
 
         if (res && res->status == NET_HTTP_RESP_CODE_SUCCESS)
-		{
+        {
             failCount = 0;
-			/* NETSDK_LOG_MESSAGE_DEBUG("[User-%p] This Heartbeat Message.", m_hUser); */
+            /* NETSDK_LOG_MESSAGE_DEBUG("[User-%p] This Heartbeat Message.", m_hUser); */
             if (!m_bOnline)
-			{
+            {
                 m_bOnline = true;
                 NETSDK_LOG_MESSAGE_INFO("[DIAG-SESSION] User-%p Heartbeat recovered, session=%s", m_hUser, m_strSessionId.c_str());
             }
         }
         else
-		{
+        {
             /* 心跳失败处理 */
             failCount++;                                                                       /* 累计失败次数 */
             NETSDK_LOG_MESSAGE_WARN("[DIAG-SESSION] User-%p Heartbeat FAIL #%d/%d (http=%d), session=%s",                   /* 打印警告日志 */
@@ -353,7 +353,7 @@ void CUserSession::HeartbeatLoop()
 
             /* 判断是否达到最大重试次数 */
             if (failCount >= m_nMaxRetry)
-			{
+            {
                 NETSDK_LOG_MESSAGE_ERROR("[DIAG-SESSION] User-%p Heartbeat DEAD (fail=%d, maxRetry=%d), starting ReconnectLoop, session=%s",
                               m_hUser, failCount, m_nMaxRetry, m_strSessionId.c_str());
                 m_bOnline = false;
@@ -579,7 +579,7 @@ bool CUserSession::SendRequest(const CommandRequest_S& req, std::string& outResp
         /* 处理 URL 参数拼接 */
         std::string finalUrl = req.url;
         if (!req.queryParams.empty())
-		{
+        {
             finalUrl += "?";
             for (const auto& p : req.queryParams) finalUrl += p.first + "=" + p.second + "&";
         }
@@ -588,7 +588,7 @@ bool CUserSession::SendRequest(const CommandRequest_S& req, std::string& outResp
 
         /* 根据 Method 分发 */
         if (req.method == "GET")
-		{
+        {
             res = m_pCommandClient->Get(finalUrl.c_str());
         } else if (req.method == "POST") {
             if (req.binData != nullptr && req.binSize > 0) {
@@ -605,12 +605,12 @@ bool CUserSession::SendRequest(const CommandRequest_S& req, std::string& outResp
         }
 
         if (res && res->status == NET_HTTP_RESP_CODE_SUCCESS)
-		{
+        {
             int bizCode = SDKConvert::get_respCode(res->body);
-			CErrorManage::instance()->SetLastError(bizCode);
+            CErrorManage::instance()->SetLastError(bizCode);
 
             if (bizCode == NET_E_SUCCEED)
-			{
+            {
                 outRespBody = res->body;
                 return true;
             }
@@ -673,7 +673,7 @@ bool CUserSession::SendRequest(const CommandRequest_S& req, std::string& outResp
             NETSDK_LOG_MESSAGE_WARN("[DIAG-SESSION] User-%p SendRequest retry after 401 failed", m_hUser);
         }
 
-		CErrorManage::instance()->SetLastError(NET_E_SOCKET_RECV_ERR);
+        CErrorManage::instance()->SetLastError(NET_E_SOCKET_RECV_ERR);
         return false;
     }
 

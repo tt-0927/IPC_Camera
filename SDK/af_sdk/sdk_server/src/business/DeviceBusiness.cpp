@@ -33,6 +33,6 @@ std::string CDeviceBusiness::GetDeviceInfo(const std::string& req_data, const st
         NETSDK_LOG_MESSAGE_DEBUG("设备信息回调执行失败!");
     }
 
-    strResp = SDKConvert::to_respString(nRespCode,stInfo);
+    strResp = SDKConvert::to_respString(nRespCode, 0, stInfo);
     return strResp;
 }

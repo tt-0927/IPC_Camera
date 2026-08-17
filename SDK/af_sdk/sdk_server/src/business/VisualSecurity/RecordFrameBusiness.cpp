@@ -88,7 +88,7 @@ std::string CRecordFrameBusiness::StartRecordFrameStream(const std::string& req_
     int nValidCode = ValidateRecordFrameCond(stCond);
     if (nValidCode != NET_E_SUCCEED)
     {
-        return SDKConvert::to_respString(nValidCode);
+        return SDKConvert::to_respString((NET_COMMON_ECODE_E)nValidCode);
     }
 
     if (stCond.uTcpPort > 0 &&
@@ -106,7 +106,7 @@ std::string CRecordFrameBusiness::StartRecordFrameStream(const std::string& req_
         stInfo.uTcpPort = static_cast<UINT32>(tvsdk::CRecordFrameServer::instance()->port());
     }
 
-    return SDKConvert::to_respString(nRespCode, stInfo);
+    return SDKConvert::to_respString(nRespCode, 0, stInfo);
 }
 
 /**
@@ -139,9 +139,9 @@ std::string CRecordFrameBusiness::StopRecordFrameStream(const std::string& req_d
 
     if (!HasText(stInfo.szStreamId))
     {
-        return SDKConvert::to_respString(NET_E_INVALID_PARAM, stInfo);
+        return SDKConvert::to_respString(NET_E_INVALID_PARAM, 0, stInfo);
     }
 
     NET_COMMON_ECODE_E nRespCode = tvsdk::CRecordFrameServer::instance()->close_stream(stInfo.szStreamId);
-    return SDKConvert::to_respString(nRespCode, stInfo);
+    return SDKConvert::to_respString(nRespCode, 0, stInfo);
 }

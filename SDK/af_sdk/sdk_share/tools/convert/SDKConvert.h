@@ -30,11 +30,12 @@
 #endif
 
 
-/*关键字段定义 */
-#define NETSDK_JSON_REQ_KEY                "Req"               /* 请求内容 */
-#define NETSDK_JSON_RESP_KEY               "Resp"              /* 响应内容 */
-#define NETSDK_JSON_RESP_CODE_KEY          "RespCode"          /* 响应码字段 */
-#define NETSDK_JSON_DATA_KEY               "Data"              /* 数据字段 */
+//关键字段定义
+#define NETSDK_JSON_MESSAGE_KEY            "message"           /* 响应消息 */
+#define NETSDK_JSON_ACTIONCODE_KEY         "actioncode"        /* 命令码 */
+#define NETSDK_JSON_DEVICE_NAME_KEY        "device_name"       /* 设备名称 */
+#define NETSDK_JSON_INNER_DATA_KEY         "data"              /* 具体业务数据 */
+#define NETSDK_JSON_RETURN_KEY             "return"            /* 返回码 */
 
 class CRunTimer
 {
@@ -517,14 +518,14 @@ namespace SDKConvert
  * @return 无返回值。
  */
 
-     inline void deal(Json::Object* pRootJson, SeesionMessage_S& stInfo, bool bOutStruct)
+     inline void deal(Json::Object* pRootJson, SessionMessage_S& stInfo, bool bOutStruct)
     {
         if (!pRootJson)
         {
             return;
         }
         CSDKConvert convert(bOutStruct);
-        convert.field(pRootJson, "SeesionId", stInfo.SeesionId);
+        convert.field(pRootJson, "SessionId", stInfo.SessionId);
     }
 
 
@@ -608,6 +609,83 @@ namespace SDKConvert
         return true;
     }
 
+    /**
+     * @brief 根据错误码获取对应的中文描述
+     * @param nCode 错误码，参见 NET_COMMON_ECODE_E
+     * @return 错误码对应的描述字符串
+     */
+    inline std::string get_errMessage(int nCode)
+    {
+        switch (nCode)
+        {
+        case NET_E_FAILED:                     return "Failed";
+        case NET_E_SUCCEED:                    return "Succeeded";
+        case NET_E_SVC_FAILED:                 return "Server failed";
+        case NET_E_NOT_AUTHORIZED:             return "User not authorized";
+        case NET_E_NO_USER:                    return "User does not exist";
+        case NET_E_SDK_NOT_INIT:               return "SDK not initialized";
+        case NET_E_NO_RESULT:                  return "No results found";
+        case NET_E_NOENOUGH_BUF:               return "Buffer too small";
+        case NET_E_SDK_SOCKET_LSN_FAIL:        return "Failed to create socket listener";
+        case NET_E_INIT_MUTEX_FAIL:            return "Failed to initialize mutex";
+        case NET_E_INIT_SEMA_FAIL:             return "Failed to initialize semaphore";
+        case NET_E_ALLOC_RESOURCE_ERROR:       return "SDK resource allocation error";
+        case NET_E_HAVEDATA:                   return "Not all data sent";
+        case NET_E_NEEDMOREDATA:               return "More data needed";
+        case NET_E_TRANSFILE_FAIL:             return "File transfer failed";
+        case NET_E_DEVICE_TYPE_ERR:            return "Unsupported device type";
+        case NET_E_NONCE_TIMEOUT:              return "Nonce expired";
+        case NET_E_INNER_ERR:                  return "Internal system error";
+        case NET_E_BINDNOTIFY_FAIL:            return "Failed to bind alarm notification";
+        case NET_E_SYSCALL_FALIED:             return "System call failed";
+        case NET_E_NULL_POINT:                 return "Null pointer";
+        case NET_E_INVALID_PARAM:              return "Invalid parameter";
+        case NET_E_INVALID_MODULEID:           return "Invalid module ID";
+        case NET_E_INVALID_HANDLE:             return "Invalid handle";
+        case NET_E_NO_MEMORY:                  return "Memory allocation failed";
+        case NET_E_FILE_NO_EXIST:              return "File does not exist";
+        case NET_E_NO_DEV:                     return "Device does not exist";
+        case NET_E_NO_FIT_LOG:                 return "No matching log found";
+        case NET_E_BUSY:                       return "Device busy";
+        case NET_E_TIMER_REG_FAILED:           return "Failed to register timer";
+        case NET_E_COMMON_FAILED:              return "General error";
+        case NET_E_CMD_NOT_SUPPORT:            return "Command not supported";
+        case NET_E_NOT_SUPPORT:                return "Feature not supported by device";
+        case NET_E_TIMEOUT:                    return "Timeout";
+        case NET_E_MSG_ERR:                    return "Message mismatch";
+        case NET_E_MODULE_INEXIST:             return "Module does not exist";
+        case NET_E_SOCKET_RECV_ERR:            return "Failed to receive message";
+        case NET_E_DECODE_IE_FAILED:           return "Failed to get message IE";
+        case NET_E_ENCODE_IE_FAILED:           return "Failed to add message IE";
+        case NET_E_SDK_NOINTE_ERROR:           return "SDK not initialized";
+        case NET_E_ALREDY_INIT_ERROR:          return "SDK already initialized";
+        case NET_E_DEVICE_FACTURER_ERR:        return "Unsupported device manufacturer";
+        case NET_E_NAME_EXIST:                 return "Name already exists";
+        case NET_E_GET_CFG_FAILED:             return "Failed to get configuration";
+        case NET_E_SET_CFG_FAILED:             return "Failed to set configuration";
+        case NET_E_CHANNEL_OVER_SPEC:          return "Channel count exceeds specification";
+        case NET_E_CALL_DRV_COMMON:            return "Driver call failed";
+        case NET_E_TOTAL_QUOTA_FULL:           return "Allocable quota space insufficient";
+        case NET_E_CALL_DB_COMMON:             return "Database call failed";
+        case NET_E_NEED_MORE_MEMORY:           return "Insufficient memory allocation";
+        case NET_E_T2U_CONNECT_FAILED:         return "T2U connection failed";
+        case NET_E_FUNC_IS_INITIALIZING:       return "Feature is initializing";
+        case NET_E_CONNECT_ERROR:              return "Failed to create connection";
+        case NET_E_SEND_MSG_ERROR:             return "Failed to send message";
+        case NET_E_DECODE_RSP_ERROR:           return "Failed to parse response message";
+        case NET_E_NONSUPPORT:                 return "Feature not implemented";
+        case NET_E_JSON_ERROR:                 return "JSON general error";
+        case NET_E_NORESULT:                   return "Query result is empty";
+        case NET_E_SOCKET_RECV_ERROR:          return "Socket receive message failed";
+        case NET_E_CREATE_THREAD_FAIL:         return "Failed to create thread";
+        case NET_E_RESCODE_NO_EXIST:           return "Resource code does not exist";
+        case NET_E_MSG_DATA_INVALID:           return "Message content error";
+        case NET_E_JSON_NO_IMAGE:              return "Image data is empty";
+        case NET_E_IMAGE_SIZE_BEYOND_THE_LIMIT:return "Image size exceeds limit";
+        default:                                  return "Unknown error code";
+        }
+    }
+
     template <typename... Args>
 /**
  * @author tianl (tianl@kfb.cn)
@@ -616,56 +694,51 @@ namespace SDKConvert
  * @param [in,out] args 函数处理参数。
  * @return 返回该处理的状态或结果。
  */
-    inline std::string to_respString(int nRespCode,Args &... args)
+    inline std::string to_respString(int nRespCode, int nActionCode, Args &... args)
     {
-        CRunTimer timer();
-          fprintf(stderr, "[SDKConvert::to_respString] enter respCode=%d argc=%zu\n",
-                    nRespCode, (size_t)sizeof...(Args));
         Json::Object *pRootJson = Json::init();
-         fprintf(stderr, "[SDKConvert::to_respString] root init=%p\n", (void*)pRootJson);
-        Json::add(pRootJson, NETSDK_JSON_RESP_CODE_KEY, nRespCode);
+        Json::add(pRootJson, NETSDK_JSON_DEVICE_NAME_KEY, "AF_SDK");
+        if (nActionCode != 0)
+        {
+            Json::add(pRootJson, NETSDK_JSON_ACTIONCODE_KEY, nActionCode);
+        }
 
-        Json::Object *pRespJson = Json::init();
-         fprintf(stderr, "[SDKConvert::to_respString] resp init=%p\n", (void*)pRespJson);
-        process_data(false, pRespJson, args...);
+        Json::Object *pInnerData = Json::init();
+        if (nRespCode == 0)
+        {
+            process_data(false, pInnerData, args...);
+        }
+        Json::add(pRootJson, NETSDK_JSON_INNER_DATA_KEY, pInnerData);
 
-        Json::add(pRootJson, NETSDK_JSON_RESP_KEY, pRespJson);
-
-        fprintf(stderr, "[SDKConvert::to_respString] before to_string root=%p resp=%p\n",
-                    (void*)pRootJson, (void*)pRespJson);
+        Json::add(pRootJson, NETSDK_JSON_RETURN_KEY, nRespCode);
+        Json::add(pRootJson, NETSDK_JSON_MESSAGE_KEY, get_errMessage(nRespCode));
 
         std::string data = Json::to_string(pRootJson);
-          fprintf(stderr, "[SDKConvert::to_respString] after to_string len=%zu\n", data.size());
-
         Json::deinit(pRootJson);
-
-         fprintf(stderr, "[SDKConvert::to_respString] leave\n");
-
         return data;
     }
 
-    template <typename... Args>
 /**
  * @author tianl (tianl@kfb.cn)
  * @brief 执行 to_respString 定义的内联处理。
  * @param [in] enCode 函数处理参数。
  * @return 返回该处理的状态或结果。
  */
-    inline std::string to_respString(NET_COMMON_ECODE_E enCode)
+    inline std::string to_respString(NET_COMMON_ECODE_E enCode, int nActionCode = 0)
     {
-        CRunTimer timer();
+        int nCode = (int)enCode;
         Json::Object *pRootJson = Json::init();
-        Json::add(pRootJson, NETSDK_JSON_RESP_CODE_KEY, (int &)enCode);
-
-        Json::Object *pRespJson = Json::init();
-        /* process_data(false, pRespJson, args...);   */
-
-        Json::add(pRootJson, NETSDK_JSON_RESP_KEY, pRespJson);
+        Json::add(pRootJson, NETSDK_JSON_DEVICE_NAME_KEY, "AF_SDK");
+        if (nActionCode != 0)
+        {
+            Json::add(pRootJson, NETSDK_JSON_ACTIONCODE_KEY, nActionCode);
+        }
+        Json::add(pRootJson, NETSDK_JSON_INNER_DATA_KEY, Json::init());
+        Json::add(pRootJson, NETSDK_JSON_RETURN_KEY, nCode);
+        Json::add(pRootJson, NETSDK_JSON_MESSAGE_KEY, get_errMessage(nCode));
 
         std::string data = Json::to_string(pRootJson);
-
         Json::deinit(pRootJson);
-
         return data;
     }
 
@@ -679,12 +752,12 @@ namespace SDKConvert
  */
     inline void to_respStruct(const std::string &jsonData, Args &... args)
     {
-        CRunTimer timer(jsonData);
         Json::Object *pRootJson = Json::init(jsonData);
-        Json::Object *pRespJson = Json::get(pRootJson, NETSDK_JSON_RESP_KEY);
-
-        process_data(true, pRespJson, args...);  /* 处理所有传入的参数 */
-        /* Json::deinit(pRespJson); */
+        Json::Object *pInnerData = Json::get(pRootJson, NETSDK_JSON_INNER_DATA_KEY);
+        if (pInnerData)
+        {
+            process_data(true, pInnerData, args...);
+        }
         Json::deinit(pRootJson);
     }
 
@@ -700,9 +773,11 @@ namespace SDKConvert
     {
         CRunTimer timer(jsonData);
         Json::Object *pRootJson = Json::init(jsonData);
-        Json::Object *pJsonData = Json::get(pRootJson, "DATA");
-
-        process_data(true, pJsonData, args...);  /* 处理所有传入的参数 */
+        Json::Object *pJsonData = Json::get(pRootJson, NETSDK_JSON_INNER_DATA_KEY);
+        if (pJsonData)
+        {
+            process_data(true, pJsonData, args...);
+        }
         Json::deinit(pRootJson);
     }
     template <typename T>
@@ -715,59 +790,14 @@ namespace SDKConvert
  */
     inline void to_struct(const std::string &jsonData, T &data)
     {
-        /*CRunTimer timer(jsonData); */
-        printf("jsonData[%s]\n",jsonData.c_str());
+        CRunTimer timer(jsonData);
         Json::Object *pRootJson = Json::init(jsonData);
-        Json::Object *pJsonData = Json::get(pRootJson, "DATA");
-
-        deal(pJsonData, data, true);
+        Json::Object *pJsonData = Json::get(pRootJson, NETSDK_JSON_INNER_DATA_KEY);
+        if (pJsonData)
+        {
+            deal(pJsonData, data, true);
+        }
         Json::deinit(pRootJson);
-    }
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 fill_head 定义的内联处理。
- * @param [in,out] data 函数处理参数。
- * @param [in] nCode 函数处理参数。
- * @return 无返回值。
- */
-
-    inline void fill_head(std::string &data,int nCode)
-    {
-        Json::Object *pJsonRoot = Json::init();
-        Json::add(pJsonRoot,NETSDK_JSON_RESP_CODE_KEY, nCode);
-
-        Json::Object *pJsonData = Json::init(data);
-        if (pJsonData)
-        {
-            Json::add(pJsonRoot, NETSDK_JSON_DATA_KEY, pJsonData);
-        }
-
-        data = Json::to_string(pJsonRoot);
-        Json::deinit(pJsonRoot);
-        return;
-    }
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 fill_resp 定义的内联处理。
- * @param [in,out] data 函数处理参数。
- * @param [in] nCode 函数处理参数。
- * @return 无返回值。
- */
-
-    inline void fill_resp(std::string &data,int nCode)
-    {
-        Json::Object *pJsonRoot = Json::init();
-        Json::add(pJsonRoot,NETSDK_JSON_RESP_CODE_KEY, nCode);
-
-        Json::Object *pJsonData = Json::init(data);
-        if (pJsonData)
-        {
-            Json::add(pJsonRoot, NETSDK_JSON_DATA_KEY, pJsonData);
-        }
-
-        data = Json::to_string(pJsonRoot);
-        Json::deinit(pJsonRoot);
-        return;
     }
 /**
  * @author tianl (tianl@kfb.cn)
@@ -783,7 +813,7 @@ namespace SDKConvert
         Json::Object *pJsonData = Json::init(data);
         if (pJsonData)
         {
-            Json::get(pJsonData, NETSDK_JSON_RESP_CODE_KEY, nCode);
+            Json::get(pJsonData, NETSDK_JSON_RETURN_KEY, nCode);
             Json::deinit(pJsonData);
         }
 

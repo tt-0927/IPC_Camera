@@ -4,7 +4,7 @@
  * @note 本文件实现配置回调的注册、查找和执行逻辑，采用两级回调机制：
  *       1. 按命令码注册的专用回调（优先级高）
  *       2. 通用回调（优先级低，当专用回调未注册时使用）
- *       新增配置项时需在 g_astConfigCmdCbTable 数组中添加命令码映射条目
+ *       新增配置项时调用Register函数即可，无需预声明命令码条目
  */
 #include <stdio.h>
 #include <stddef.h>
@@ -37,123 +37,24 @@ typedef struct tagNETTVConfigCmdCbItem
 
 static NET_CONFIG_CB_TABLE_S g_stConfigCbTable = {0};   /* 通用配置回调表实例 */
 
+#define MAX_CMD_CB_ENTRIES 256  /* 动态注册表最大条目数 */
+
 /**
- * @brief 命令码与回调映射表（新增配置项时需在此添加条目）
- * @note 格式：{Get命令码, Set命令码, Get回调指针(初始为NULL), Set回调指针(初始为NULL)}
- *       当某个命令码不存在时填 NET_CFG_INVALID
+ * @brief 动态配置回调表（运行时注册，无需预声明命令码）
+ * @note 注册回调时自动追加条目，新增配置项只需调用Register函数即可
  */
-static NET_CONFIG_CMD_CB_ITEM_S g_astConfigCmdCbTable[] =
-{
-    {NET_GET_DEVICECFG,              NET_SET_DEVICECFG,               NULL,   NULL},
-    {NET_GET_NTPCFG,                 NET_SET_NTPCFG,                  NULL,   NULL},
-    {NET_GET_STREAMCFG,              NET_SET_STREAMCFG,               NULL,   NULL},
-    {NET_GET_UPGRADESTATUS,          NULL,                               NULL,   NULL},
-    {NULL,                              NET_SET_UPGRADE,                 NULL,   NULL},
-    {NET_GET_UPGRADEVERSION,         NULL,                               NULL,   NULL},
-    {NET_GET_RTSPURLCFG,             NET_CFG_INVALID,                 NULL,   NULL},
-    {NET_GET_REPLAY_URLCFG,          NET_CFG_INVALID,                 NULL,   NULL},
-    {NET_GET_OSDCAPCFG,              NET_SET_OSDCAPCFG,               NULL,   NULL},
-    {NET_GET_IMAGECFG,               NET_SET_IMAGECFG,                NULL,   NULL},
-    {NET_GET_AUDIOCFG,               NET_SET_AUDIOCFG,                NULL,   NULL},
-    {NET_GET_NETWORKCFG,             NET_SET_NETWORKCFG,              NULL,   NULL},
-    {NET_GET_ENTERREGIONALARM,       NET_SET_ENTERREGIONALARM,        NULL,   NULL},
-    {NET_GET_LEAVEREGIONALARM,       NET_SET_LEAVEREGIONALARM,        NULL,   NULL},
-    {NET_CFG_INVALID,                NET_SET_CONFIG_WIFI_STA,         NULL,   NULL},
-    {NET_CFG_INVALID,                NET_CONNECT_WIFI_STA,            NULL,   NULL},
-    {NET_CFG_INVALID,                NET_DISCONNECT_WIFI_STA,         NULL,   NULL},
-    {NET_GET_4G_INFO,                NET_SET_4G_INFO,                 NULL,   NULL},
-    {NET_CFG_INVALID,                NET_SET_HOTSPOT_INFO,            NULL,   NULL},
-    {NET_GET_HOTSPOT_CONN,           NET_CFG_INVALID,                 NULL,   NULL},
-    {NET_GET_SECURITY_SERVICES_INFO, NET_SET_SECURITY_SERVICES_INFO,  NULL,   NULL},
-    {NET_GET_SSH_COUNTDOWN,          NET_CFG_INVALID,                 NULL,   NULL},
-    {NET_FIND_LOG,                   NET_CFG_INVALID,                 NULL,   NULL},
-    {NET_EXPORT_LOG,                 NET_CFG_INVALID,                 NULL,   NULL},
-    {NET_GET_LOG_SERVER,             NET_SET_LOG_SERVER,              NULL,   NULL},
-    {NET_CFG_INVALID,                NET_TEST_LOG_SERVER,             NULL,   NULL},
-    {NET_CFG_INVALID,                NET_CONTROL_RECORD_INFO,         NULL,   NULL},
-    {NET_GET_RECORD_STATUS,          NET_CFG_INVALID,                 NULL,   NULL},
-    {NET_GET_RECORD_SCHEDULE,        NET_SET_RECORD_SCHEDULE,         NULL,   NULL},
-    {NET_GET_RECORD_ADVANCED_PARAM,  NET_SET_RECORD_ADVANCED_PARAM,   NULL,   NULL},
-    {NET_FIND_RECORD_FILE_INFO,      NET_CFG_INVALID,                 NULL,   NULL},
-    {NET_CFG_INVALID,                NET_DOWNLOAD_RECORD_FILE,        NULL,   NULL},
-    {NET_GET_PRIVACYMASKCFG,         NET_SET_PRIVACYMASKCFG,          NULL,   NULL},
-    {NET_GET_TAMPERALARM,            NET_SET_TAMPERALARM,             NULL,   NULL},
-    {NET_GET_MOTIONALARM,            NET_SET_MOTIONALARM,             NULL,   NULL},
-    {NET_GET_CROSSLINEALARM,         NET_SET_CROSSLINEALARM,          NULL,   NULL},
-    {NET_GET_INTRUSIONALARM,         NET_SET_INTRUSIONALARM,          NULL,   NULL},
-    {NET_GET_SCENECHANGEALARM,       NET_SET_SCENECHANGEALARM,        NULL,   NULL},
-    {NET_GET_CROWDGATHERINGALARM,    NET_SET_CROWDGATHERINGALARM,     NULL,   NULL},
-    {NET_GET_GARBAGE_EXPOSURE_CFG,   NET_SET_GARBAGE_EXPOSURE_CFG,    NULL,   NULL},
-    {NET_GET_GARBAGE_OVERFLOW_CFG,   NET_SET_GARBAGE_OVERFLOW_CFG,    NULL,   NULL},
-    {NET_GET_LOITERINGALARM,         NET_SET_LOITERINGALARM,          NULL,   NULL},
-    {NET_GET_CAPTURE_PLAN_INFO,      NET_SET_CAPTURE_PLAN_INFO,       NULL,   NULL},
-    {NET_GET_CAPTURE_PARAM_INFO,     NET_SET_CAPTURE_PARAM_INFO,      NULL,   NULL},
-    {NET_GET_EXPOSURE_INFO,          NET_SET_EXPOSURE_INFO,           NULL,   NULL},
-    {NET_GET_DAYNIGHT_INFO,          NET_SET_DAYNIGHT_INFO,           NULL,   NULL},
-    {NET_GET_BACKLIGHT_INFO,         NET_SET_BACKLIGHT_INFO,          NULL,   NULL},
-    {NET_GET_DENOISE_INFO,           NET_SET_DENOISE_INFO,            NULL,   NULL},
-    {NET_GET_WHITEBALANCE_INFO,      NET_SET_WHITEBALANCE_INFO,       NULL,   NULL},
-    {NET_GET_AUDIOANOMALYALARM,      NET_SET_AUDIOANOMALYALARM,       NULL,   NULL},
-    {NET_GET_PREVIEW_INFO,           NET_SET_PREVIEW_INFO,            NULL,   NULL},
-    {NET_GET_CHANNEL_INFO,           NET_CFG_INVALID,                 NULL,   NULL},
-    {NET_GET_CHANNEL_LIST,           NET_CFG_INVALID,                 NULL,   NULL},
-    {NET_CFG_INVALID,                NET_STATE_TALKBACK,              NULL,   NULL},
-    {NET_CFG_INVALID,                NET_TO_STREAM_TALKBACK,          NULL,   NULL},
-    {NET_FROM_STREAM_TALKBACK,       NET_CFG_INVALID,                 NULL,   NULL},
-    {NET_CFG_INVALID,                NET_REPLAY_TALKBACK,             NULL,   NULL},
-    {NET_GET_VOICECOM_AUDIO_CFG,     NET_SET_VOICECOM_AUDIO_CFG,      NULL,   NULL},
-    {NET_GET_PARKINGALARM,           NET_SET_PARKINGALARM,            NULL,   NULL},
-    {NET_GET_UNATTENDEDOBJECTALARM,  NET_SET_UNATTENDEDOBJECTALARM,   NULL,   NULL},
-    {NET_GET_OBJECTREMOVALALARM,     NET_SET_OBJECTREMOVALALARM,      NULL,   NULL},
-    {NET_GET_FACECAPTUREINFO,        NET_SET_FACECAPTUREINFO,         NULL,   NULL},
-    {NET_CFG_INVALID,                NET_SET_FACE_COMPARE_INFO,       NULL,   NULL},
-    {NET_GET_TARGET_LIB,             NET_ADD_TARGET_LIB,              NULL,   NULL},
-    {NET_CFG_INVALID,                NET_DEL_TARGET_LIB,              NULL,   NULL},
-    {NET_CFG_INVALID,                NET_SET_TARGET_LIB,              NULL,   NULL},
-    {NET_GET_FACE_INFO,              NET_ADD_FACE_INFO,               NULL,   NULL},
-    {NET_CFG_INVALID,                NET_DEL_FACE_INFO,               NULL,   NULL},
-    {NET_CFG_INVALID,                NET_SET_FACE_INFO,               NULL,   NULL},
-    {NET_GET_PEOPLE_FLOW_STATISTICS_CFG,    NET_SET_PEOPLE_FLOW_STATISTICS_CFG,    NULL,   NULL},
-    {NET_CFG_INVALID,                       NET_RESET_PEOPLE_FLOW_STATISTICS,       NULL,   NULL},
-    {NET_GET_PEOPLE_DENSITY_DETECTION_CFG,  NET_SET_PEOPLE_DENSITY_DETECTION_CFG,  NULL,   NULL},
-    {NET_GET_MANHOLE_COVER_ABNORMAL_CFG,    NET_SET_MANHOLE_COVER_ABNORMAL_CFG,    NULL,   NULL},
-    {NET_GET_SLEEP_ON_DUTY_CFG,             NET_SET_SLEEP_ON_DUTY_CFG,              NULL,   NULL},
-    {NET_GET_ELECTRIC_VEHICLE_IN_ELEVATOR_CFG, NET_SET_ELECTRIC_VEHICLE_IN_ELEVATOR_CFG, NULL, NULL},
-    {NET_GET_PERSON_FALL_DOWN_CFG,          NET_SET_PERSON_FALL_DOWN_CFG,           NULL,   NULL},
-    {NET_GET_CONSTRUCTION_OCCUPY_ROAD_CFG,  NET_SET_CONSTRUCTION_OCCUPY_ROAD_CFG,   NULL,   NULL},
-    {NET_GET_CONGESTION_CFG,                NET_SET_CONGESTION_CFG,                 NULL,   NULL},
-    {NET_GET_LICENSE_PLATE_RECOGNITION_CFG, NET_SET_LICENSE_PLATE_RECOGNITION_CFG,  NULL,   NULL},
-    {NET_GET_HIGH_ALTITUDE_SEATBELT_CFG,    NET_SET_HIGH_ALTITUDE_SEATBELT_CFG,     NULL,   NULL},
-    {NET_GET_SAFETY_HELMET_CFG,             NET_SET_SAFETY_HELMET_CFG,              NULL,   NULL},
-    {NET_GET_PERSON_FALL_CFG,               NET_SET_PERSON_FALL_CFG,                NULL,   NULL},
-    {NET_GET_PHONE_USAGE_CFG,               NET_SET_PHONE_USAGE_CFG,                NULL,   NULL},
-    {NET_GET_SMOKING_CFG,                   NET_SET_SMOKING_CFG,                    NULL,   NULL},
-    {NET_GET_OPEN_FLAME_CFG,                NET_SET_OPEN_FLAME_CFG,                 NULL,   NULL},
-    {NET_GET_BARE_SOIL_CFG,                 NET_SET_BARE_SOIL_CFG,                  NULL,   NULL},
-    {NET_GET_HOLE_PROTECTION_BAR_CFG,       NET_SET_HOLE_PROTECTION_BAR_CFG,        NULL,   NULL},
-    {NET_GET_REFLECTIVE_CLOTHING_CFG,       NET_SET_REFLECTIVE_CLOTHING_CFG,        NULL,   NULL},
-    {NET_GET_PET_RECOGNITION_INFO,          NET_SET_PET_RECOGNITION_INFO,           NULL,   NULL},
-    {NET_GET_CLIMB_FENCE_INFO,              NET_SET_CLIMB_FENCE_INFO,               NULL,   NULL},
-    {NET_GET_DIMISSION_INFO,                NET_SET_DIMISSION_INFO,                 NULL,   NULL},
-    {NET_GET_ILLEGAL_LANE_INFO,             NET_SET_ILLEGAL_LANE_INFO,              NULL,   NULL},
-    {NET_GET_RETROGRADE_INFO,               NET_SET_RETROGRADE_INFO,                NULL,   NULL},
-    {NET_GET_NONMOTOR_VEHICLE_INTRUSION_INFO, NET_SET_NONMOTOR_VEHICLE_INTRUSION_INFO, NULL, NULL},
-    {NET_GET_OCCUPATION_EMERGENCY_INFO,     NET_SET_OCCUPATION_EMERGENCY_INFO,      NULL,   NULL},
-    {NET_GET_PEDESTRIAN_INTRUSION_INFO,     NET_SET_PEDESTRIAN_INTRUSION_INFO,      NULL,   NULL},
-    {NET_GET_SMOKE_FIRE_CFG,                NET_SET_SMOKE_FIRE_CFG,                 NULL,   NULL},
-    {NET_GET_ROAD_PONDING_CFG,              NET_SET_ROAD_PONDING_CFG,               NULL,   NULL},
-};
+static NET_CONFIG_CMD_CB_ITEM_S g_astConfigCmdCbTable[MAX_CMD_CB_ENTRIES];
+static UINT32 g_dwCmdCbCount = 0;
 
 /**
  * @brief 根据Get命令码查找回调条目
  * @param [IN] nCommand Get命令码
  * @return 找到返回条目指针，未找到返回NULL
  */
-static NET_CONFIG_CMD_CB_ITEM_S* NetTV_FindCmdCbItemByGetCommand(INT32 nCommand)
+static NET_CONFIG_CMD_CB_ITEM_S* Net_FindCmdCbItemByGetCommand(INT32 nCommand)
 {
     UINT32 i = 0;
-    UINT32 nCount = (UINT32)(sizeof(g_astConfigCmdCbTable) / sizeof(g_astConfigCmdCbTable[0]));
-    for (i = 0; i < nCount; ++i)
+    for (i = 0; i < g_dwCmdCbCount; ++i)
     {
         if (g_astConfigCmdCbTable[i].nGetCommand == nCommand)
         {
@@ -168,11 +69,10 @@ static NET_CONFIG_CMD_CB_ITEM_S* NetTV_FindCmdCbItemByGetCommand(INT32 nCommand)
  * @param [IN] nCommand Set命令码
  * @return 找到返回条目指针，未找到返回NULL
  */
-static NET_CONFIG_CMD_CB_ITEM_S* NetTV_FindCmdCbItemBySetCommand(INT32 nCommand)
+static NET_CONFIG_CMD_CB_ITEM_S* Net_FindCmdCbItemBySetCommand(INT32 nCommand)
 {
     UINT32 i = 0;
-    UINT32 nCount = (UINT32)(sizeof(g_astConfigCmdCbTable) / sizeof(g_astConfigCmdCbTable[0]));
-    for (i = 0; i < nCount; ++i)
+    for (i = 0; i < g_dwCmdCbCount; ++i)
     {
         if (g_astConfigCmdCbTable[i].nSetCommand == nCommand)
         {
@@ -186,10 +86,10 @@ static NET_CONFIG_CMD_CB_ITEM_S* NetTV_FindCmdCbItemBySetCommand(INT32 nCommand)
  * @brief 注册按命令码分发的Get回调
  * @param [IN] nCommand Get命令码
  * @param [IN] pCb 回调函数指针
- * @return 注册成功返回TRUE，失败返回FALSE（命令码不存在或已注册）
- * @note 必须先在 g_astConfigCmdCbTable 数组中添加对应命令码条目
+ * @return 注册成功返回TRUE，失败返回FALSE（已注册或表满）
+ * @note 回调在运行时动态注册，无需预声明命令码条目
  */
-static BOOL NetTV_RegisterGetCmdCb(INT32 nCommand, NET_CB_GetDevConfigByCommand pCb)
+static BOOL Net_RegisterGetCmdCb(INT32 nCommand, NET_CB_GetDevConfigByCommand pCb)
 {
     NET_CONFIG_CMD_CB_ITEM_S* pItem = NULL;
     if (pCb == NULL)
@@ -197,13 +97,28 @@ static BOOL NetTV_RegisterGetCmdCb(INT32 nCommand, NET_CB_GetDevConfigByCommand 
         return FALSE;
     }
 
-    pItem = NetTV_FindCmdCbItemByGetCommand(nCommand);
-    if (pItem == NULL || pItem->cbGetByCmd != NULL)
+    pItem = Net_FindCmdCbItemByGetCommand(nCommand);
+    if (pItem != NULL)
+    {
+        if (pItem->cbGetByCmd != NULL)
+        {
+            return FALSE;
+        }
+        pItem->cbGetByCmd = pCb;
+        return TRUE;
+    }
+
+    /* 未找到：追加新条目 */
+    if (g_dwCmdCbCount >= MAX_CMD_CB_ENTRIES)
     {
         return FALSE;
     }
-
+    pItem = &g_astConfigCmdCbTable[g_dwCmdCbCount];
+    pItem->nGetCommand = nCommand;
+    pItem->nSetCommand = NET_CFG_INVALID;
     pItem->cbGetByCmd = pCb;
+    pItem->cbSetByCmd = NULL;
+    g_dwCmdCbCount++;
     return TRUE;
 }
 
@@ -211,10 +126,10 @@ static BOOL NetTV_RegisterGetCmdCb(INT32 nCommand, NET_CB_GetDevConfigByCommand 
  * @brief 注册按命令码分发的Set回调
  * @param [IN] nCommand Set命令码
  * @param [IN] pCb 回调函数指针
- * @return 注册成功返回TRUE，失败返回FALSE（命令码不存在或已注册）
- * @note 必须先在 g_astConfigCmdCbTable 数组中添加对应命令码条目
+ * @return 注册成功返回TRUE，失败返回FALSE（已注册或表满）
+ * @note 回调在运行时动态注册，无需预声明命令码条目
  */
-static BOOL NetTV_RegisterSetCmdCb(INT32 nCommand, NET_CB_SetDevConfigByCommand pCb)
+static BOOL Net_RegisterSetCmdCb(INT32 nCommand, NET_CB_SetDevConfigByCommand pCb)
 {
     NET_CONFIG_CMD_CB_ITEM_S* pItem = NULL;
     if (pCb == NULL)
@@ -222,13 +137,28 @@ static BOOL NetTV_RegisterSetCmdCb(INT32 nCommand, NET_CB_SetDevConfigByCommand 
         return FALSE;
     }
 
-    pItem = NetTV_FindCmdCbItemBySetCommand(nCommand);
-    if (pItem == NULL || pItem->cbSetByCmd != NULL)
+    pItem = Net_FindCmdCbItemBySetCommand(nCommand);
+    if (pItem != NULL)
+    {
+        if (pItem->cbSetByCmd != NULL)
+        {
+            return FALSE;
+        }
+        pItem->cbSetByCmd = pCb;
+        return TRUE;
+    }
+
+    /* 未找到：追加新条目 */
+    if (g_dwCmdCbCount >= MAX_CMD_CB_ENTRIES)
     {
         return FALSE;
     }
-
+    pItem = &g_astConfigCmdCbTable[g_dwCmdCbCount];
+    pItem->nGetCommand = NET_CFG_INVALID;
+    pItem->nSetCommand = nCommand;
+    pItem->cbGetByCmd = NULL;
     pItem->cbSetByCmd = pCb;
+    g_dwCmdCbCount++;
     return TRUE;
 }
 
@@ -330,800 +260,933 @@ NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetReplayRecordList(NET_CB_GetReplayR
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetDeviceCfg(NET_CB_GetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterGetCmdCb(NET_GET_DEVICECFG, pCb);
+    return Net_RegisterGetCmdCb(NET_GET_DEVICECFG, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_SetDeviceCfg(NET_CB_SetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterSetCmdCb(NET_SET_DEVICECFG, pCb);
+    return Net_RegisterSetCmdCb(NET_SET_DEVICECFG, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetNtpCfg(NET_CB_GetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterGetCmdCb(NET_GET_NTPCFG, pCb);
+    return Net_RegisterGetCmdCb(NET_GET_NTPCFG, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_SetNtpCfg(NET_CB_SetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterSetCmdCb(NET_SET_NTPCFG, pCb);
+    return Net_RegisterSetCmdCb(NET_SET_NTPCFG, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetStreamCfg(NET_CB_GetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterGetCmdCb(NET_GET_STREAMCFG, pCb);
+    return Net_RegisterGetCmdCb(NET_GET_STREAMCFG, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_SetStreamCfg(NET_CB_SetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterSetCmdCb(NET_SET_STREAMCFG, pCb);
+    return Net_RegisterSetCmdCb(NET_SET_STREAMCFG, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetOsdCapCfg(NET_CB_GetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterGetCmdCb(NET_GET_OSDCAPCFG, pCb);
+    return Net_RegisterGetCmdCb(NET_GET_OSDCAPCFG, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_SetOsdCapCfg(NET_CB_SetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterSetCmdCb(NET_SET_OSDCAPCFG, pCb);
+    return Net_RegisterSetCmdCb(NET_SET_OSDCAPCFG, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetImageCfg(NET_CB_GetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterGetCmdCb(NET_GET_IMAGECFG, pCb);
+    return Net_RegisterGetCmdCb(NET_GET_IMAGECFG, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_SetImageCfg(NET_CB_SetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterSetCmdCb(NET_SET_IMAGECFG, pCb);
+    return Net_RegisterSetCmdCb(NET_SET_IMAGECFG, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetAudioCfg(NET_CB_GetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterGetCmdCb(NET_GET_AUDIOCFG, pCb);
+    return Net_RegisterGetCmdCb(NET_GET_AUDIOCFG, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_SetAudioCfg(NET_CB_SetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterSetCmdCb(NET_SET_AUDIOCFG, pCb);
+    return Net_RegisterSetCmdCb(NET_SET_AUDIOCFG, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetNetworkCfg(NET_CB_GetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterGetCmdCb(NET_GET_NETWORKCFG, pCb);
+    return Net_RegisterGetCmdCb(NET_GET_NETWORKCFG, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_SetNetworkCfg(NET_CB_SetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterSetCmdCb(NET_SET_NETWORKCFG, pCb);
+    return Net_RegisterSetCmdCb(NET_SET_NETWORKCFG, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_SetConfigWifiSta(NET_CB_SetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterSetCmdCb(NET_SET_CONFIG_WIFI_STA, pCb);
+    return Net_RegisterSetCmdCb(NET_SET_CONFIG_WIFI_STA, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_ConnectWifiSta(NET_CB_SetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterSetCmdCb(NET_CONNECT_WIFI_STA, pCb);
+    return Net_RegisterSetCmdCb(NET_CONNECT_WIFI_STA, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_DisconnectWifiSta(NET_CB_SetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterSetCmdCb(NET_DISCONNECT_WIFI_STA, pCb);
+    return Net_RegisterSetCmdCb(NET_DISCONNECT_WIFI_STA, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_Get4GInfo(NET_CB_GetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterGetCmdCb(NET_GET_4G_INFO, pCb);
+    return Net_RegisterGetCmdCb(NET_GET_4G_INFO, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_Set4GInfo(NET_CB_SetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterSetCmdCb(NET_SET_4G_INFO, pCb);
+    return Net_RegisterSetCmdCb(NET_SET_4G_INFO, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_SetHotspotInfo(NET_CB_SetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterSetCmdCb(NET_SET_HOTSPOT_INFO, pCb);
+    return Net_RegisterSetCmdCb(NET_SET_HOTSPOT_INFO, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetHotspotConn(NET_CB_GetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterGetCmdCb(NET_GET_HOTSPOT_CONN, pCb);
+    return Net_RegisterGetCmdCb(NET_GET_HOTSPOT_CONN, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetSecurityServicesInfo(NET_CB_GetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterGetCmdCb(NET_GET_SECURITY_SERVICES_INFO, pCb);
+    return Net_RegisterGetCmdCb(NET_GET_SECURITY_SERVICES_INFO, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_SetSecurityServicesInfo(NET_CB_SetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterSetCmdCb(NET_SET_SECURITY_SERVICES_INFO, pCb);
+    return Net_RegisterSetCmdCb(NET_SET_SECURITY_SERVICES_INFO, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetSshCountdown(NET_CB_GetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterGetCmdCb(NET_GET_SSH_COUNTDOWN, pCb);
+    return Net_RegisterGetCmdCb(NET_GET_SSH_COUNTDOWN, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_FindLog(NET_CB_GetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterGetCmdCb(NET_FIND_LOG, pCb);
+    return Net_RegisterGetCmdCb(NET_FIND_LOG, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_ExportLog(NET_CB_GetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterGetCmdCb(NET_EXPORT_LOG, pCb);
+    return Net_RegisterGetCmdCb(NET_EXPORT_LOG, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetLogServer(NET_CB_GetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterGetCmdCb(NET_GET_LOG_SERVER, pCb);
+    return Net_RegisterGetCmdCb(NET_GET_LOG_SERVER, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_SetLogServer(NET_CB_SetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterSetCmdCb(NET_SET_LOG_SERVER, pCb);
+    return Net_RegisterSetCmdCb(NET_SET_LOG_SERVER, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_TestLogServer(NET_CB_SetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterSetCmdCb(NET_TEST_LOG_SERVER, pCb);
+    return Net_RegisterSetCmdCb(NET_TEST_LOG_SERVER, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_ControlRecordInfo(NET_CB_SetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterSetCmdCb(NET_CONTROL_RECORD_INFO, pCb);
+    return Net_RegisterSetCmdCb(NET_CONTROL_RECORD_INFO, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetRecordStatus(NET_CB_GetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterGetCmdCb(NET_GET_RECORD_STATUS, pCb);
+    return Net_RegisterGetCmdCb(NET_GET_RECORD_STATUS, pCb);
+}
+
+/**
+ * @brief 注册获取 SD 卡物理状态的回调函数。
+ * @author ITC
+ * @param [in] pCb 用于填充 NET_SdCardStatus_S 输出缓冲区的回调函数。
+ * @param [out] 无。SDK 将回调函数保存到配置回调表。
+ * @return 注册成功返回 TRUE；回调函数非法或已注册时返回 FALSE。
+ */
+NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetSdCardStatus(NET_CB_GetDevConfigByCommand pCb)
+{
+    return Net_RegisterGetCmdCb(NET_GET_SD_CARD_STATUS, pCb);
+}
+
+
+/**
+ * @brief 注册获取声音告警配置的回调函数。
+ * @author ITC
+ * @param [in] pCb 用于填充 NET_AudibleAlarmInfo_S 的回调函数。
+ * @param [out] 无。SDK 将回调函数保存到配置回调表。
+ * @return 注册成功返回 TRUE；回调函数非法或已注册时返回 FALSE。
+ */
+NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetAudibleAlarmInfo(NET_CB_GetDevConfigByCommand pCb)
+{
+    return Net_RegisterGetCmdCb(NET_GET_AUDIBLE_ALARM_INFO, pCb);
+}
+
+/**
+ * @brief 注册设置声音告警配置的回调函数。
+ * @author ITC
+ * @param [in] pCb 用于读取 NET_AudibleAlarmInfo_S 的回调函数。
+ * @param [out] 无。SDK 将回调函数保存到配置回调表。
+ * @return 注册成功返回 TRUE；回调函数非法或已注册时返回 FALSE。
+ */
+NET_API BOOL STDCALL NET_SERVER_RegisterCb_SetAudibleAlarmInfo(NET_CB_SetDevConfigByCommand pCb)
+{
+    return Net_RegisterSetCmdCb(NET_SET_AUDIBLE_ALARM_INFO, pCb);
+}
+
+/**
+ * @brief 注册获取报警输入配置集合的回调函数。
+ * @author ITC
+ * @param [in] pCb 用于填充 NET_AlarmInputInfoList_S 的回调函数。
+ * @param [out] 无。SDK 将回调函数保存到配置回调表。
+ * @return 注册成功返回 TRUE；回调函数非法或已注册时返回 FALSE。
+ */
+NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetAlarmInputInfo(NET_CB_GetDevConfigByCommand pCb)
+{
+    return Net_RegisterGetCmdCb(NET_GET_ALARM_INPUT_INFO, pCb);
+}
+
+/**
+ * @brief 注册设置单路报警输入配置的回调函数。
+ * @author ITC
+ * @param [in] pCb 用于读取 NET_AlarmInputInfo_S 的回调函数。
+ * @param [out] 无。SDK 将回调函数保存到配置回调表。
+ * @return 注册成功返回 TRUE；回调函数非法或已注册时返回 FALSE。
+ */
+NET_API BOOL STDCALL NET_SERVER_RegisterCb_SetAlarmInputInfo(NET_CB_SetDevConfigByCommand pCb)
+{
+    return Net_RegisterSetCmdCb(NET_SET_ALARM_INPUT_INFO, pCb);
+}
+
+/**
+ * @brief 注册获取报警输出配置集合的回调函数。
+ * @author ITC
+ * @param [in] pCb 用于填充 NET_AlarmOutputInfoList_S 的回调函数。
+ * @param [out] 无。SDK 将回调函数保存到配置回调表。
+ * @return 注册成功返回 TRUE；回调函数非法或已注册时返回 FALSE。
+ */
+NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetAlarmOutputInfo(NET_CB_GetDevConfigByCommand pCb)
+{
+    return Net_RegisterGetCmdCb(NET_GET_ALARM_OUTPUT_INFO, pCb);
+}
+
+/**
+ * @brief 注册设置单路报警输出配置的回调函数。
+ * @author ITC
+ * @param [in] pCb 用于读取 NET_AlarmOutputInfo_S 的回调函数。
+ * @param [out] 无。SDK 将回调函数保存到配置回调表。
+ * @return 注册成功返回 TRUE；回调函数非法或已注册时返回 FALSE。
+ */
+NET_API BOOL STDCALL NET_SERVER_RegisterCb_SetAlarmOutputInfo(NET_CB_SetDevConfigByCommand pCb)
+{
+    return Net_RegisterSetCmdCb(NET_SET_ALARM_OUTPUT_INFO, pCb);
+}
+
+/**
+ * @brief 注册获取闪光灯告警配置的回调函数。
+ * @author ITC
+ * @param [in] pCb 用于填充 NET_FlashingLightAlarmInfo_S 的回调函数。
+ * @param [out] 无。SDK 将回调函数保存到配置回调表。
+ * @return 注册成功返回 TRUE；回调函数非法或已注册时返回 FALSE。
+ */
+NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetFlashingLightAlarmInfo(NET_CB_GetDevConfigByCommand pCb)
+{
+    return Net_RegisterGetCmdCb(NET_GET_FLASHING_LIGHT_ALARM_INFO, pCb);
+}
+
+/**
+ * @brief 注册设置闪光灯告警配置的回调函数。
+ * @author ITC
+ * @param [in] pCb 用于读取 NET_FlashingLightAlarmInfo_S 的回调函数。
+ * @param [out] 无。SDK 将回调函数保存到配置回调表。
+ * @return 注册成功返回 TRUE；回调函数非法或已注册时返回 FALSE。
+ */
+NET_API BOOL STDCALL NET_SERVER_RegisterCb_SetFlashingLightAlarmInfo(NET_CB_SetDevConfigByCommand pCb)
+{
+    return Net_RegisterSetCmdCb(NET_SET_FLASHING_LIGHT_ALARM_INFO, pCb);
+}
+
+/**
+ * @brief 注册获取 PIR 告警配置的回调函数。
+ * @author ITC
+ * @param [in] pCb 用于填充 NET_PirAlarmInfo_S 的回调函数。
+ * @param [out] 无。SDK 将回调函数保存到配置回调表。
+ * @return 注册成功返回 TRUE；回调函数非法或已注册时返回 FALSE。
+ */
+NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetPirAlarmInfo(NET_CB_GetDevConfigByCommand pCb)
+{
+    return Net_RegisterGetCmdCb(NET_GET_PIR_ALARM_INFO, pCb);
+}
+
+/**
+ * @brief 注册设置 PIR 告警配置的回调函数。
+ * @author ITC
+ * @param [in] pCb 用于读取 NET_PirAlarmInfo_S 的回调函数。
+ * @param [out] 无。SDK 将回调函数保存到配置回调表。
+ * @return 注册成功返回 TRUE；回调函数非法或已注册时返回 FALSE。
+ */
+NET_API BOOL STDCALL NET_SERVER_RegisterCb_SetPirAlarmInfo(NET_CB_SetDevConfigByCommand pCb)
+{
+    return Net_RegisterSetCmdCb(NET_SET_PIR_ALARM_INFO, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetRecordSchedule(NET_CB_GetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterGetCmdCb(NET_GET_RECORD_SCHEDULE, pCb);
+    return Net_RegisterGetCmdCb(NET_GET_RECORD_SCHEDULE, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_SetRecordSchedule(NET_CB_SetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterSetCmdCb(NET_SET_RECORD_SCHEDULE, pCb);
+    return Net_RegisterSetCmdCb(NET_SET_RECORD_SCHEDULE, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetRecordAdvancedParam(NET_CB_GetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterGetCmdCb(NET_GET_RECORD_ADVANCED_PARAM, pCb);
+    return Net_RegisterGetCmdCb(NET_GET_RECORD_ADVANCED_PARAM, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_SetRecordAdvancedParam(NET_CB_SetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterSetCmdCb(NET_SET_RECORD_ADVANCED_PARAM, pCb);
+    return Net_RegisterSetCmdCb(NET_SET_RECORD_ADVANCED_PARAM, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_FindRecordFileInfo(NET_CB_GetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterGetCmdCb(NET_FIND_RECORD_FILE_INFO, pCb);
+    return Net_RegisterGetCmdCb(NET_FIND_RECORD_FILE_INFO, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_DownloadRecordFile(NET_CB_SetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterSetCmdCb(NET_DOWNLOAD_RECORD_FILE, pCb);
+    return Net_RegisterSetCmdCb(NET_DOWNLOAD_RECORD_FILE, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetPrivacyMaskCfg(NET_CB_GetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterGetCmdCb(NET_GET_PRIVACYMASKCFG, pCb);
+    return Net_RegisterGetCmdCb(NET_GET_PRIVACYMASKCFG, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_SetPrivacyMaskCfg(NET_CB_SetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterSetCmdCb(NET_SET_PRIVACYMASKCFG, pCb);
+    return Net_RegisterSetCmdCb(NET_SET_PRIVACYMASKCFG, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetTamperAlarm(NET_CB_GetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterGetCmdCb(NET_GET_TAMPERALARM, pCb);
+    return Net_RegisterGetCmdCb(NET_GET_TAMPERALARM, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_SetTamperAlarm(NET_CB_SetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterSetCmdCb(NET_SET_TAMPERALARM, pCb);
+    return Net_RegisterSetCmdCb(NET_SET_TAMPERALARM, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetMotionAlarm(NET_CB_GetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterGetCmdCb(NET_GET_MOTIONALARM, pCb);
+    return Net_RegisterGetCmdCb(NET_GET_MOTIONALARM, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_SetMotionAlarm(NET_CB_SetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterSetCmdCb(NET_SET_MOTIONALARM, pCb);
+    return Net_RegisterSetCmdCb(NET_SET_MOTIONALARM, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetCrossLineAlarm(NET_CB_GetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterGetCmdCb(NET_GET_CROSSLINEALARM, pCb);
+    return Net_RegisterGetCmdCb(NET_GET_CROSSLINEALARM, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_SetCrossLineAlarm(NET_CB_SetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterSetCmdCb(NET_SET_CROSSLINEALARM, pCb);
+    return Net_RegisterSetCmdCb(NET_SET_CROSSLINEALARM, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetIntrusionAlarm(NET_CB_GetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterGetCmdCb(NET_GET_INTRUSIONALARM, pCb);
+    return Net_RegisterGetCmdCb(NET_GET_INTRUSIONALARM, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_SetIntrusionAlarm(NET_CB_SetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterSetCmdCb(NET_SET_INTRUSIONALARM, pCb);
+    return Net_RegisterSetCmdCb(NET_SET_INTRUSIONALARM, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetEnterRegionAlarm(NET_CB_GetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterGetCmdCb(NET_GET_ENTERREGIONALARM, pCb);
+    return Net_RegisterGetCmdCb(NET_GET_ENTERREGIONALARM, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_SetEnterRegionAlarm(NET_CB_SetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterSetCmdCb(NET_SET_ENTERREGIONALARM, pCb);
+    return Net_RegisterSetCmdCb(NET_SET_ENTERREGIONALARM, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetLeaveRegionAlarm(NET_CB_GetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterGetCmdCb(NET_GET_LEAVEREGIONALARM, pCb);
+    return Net_RegisterGetCmdCb(NET_GET_LEAVEREGIONALARM, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_SetLeaveRegionAlarm(NET_CB_SetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterSetCmdCb(NET_SET_LEAVEREGIONALARM, pCb);
+    return Net_RegisterSetCmdCb(NET_SET_LEAVEREGIONALARM, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetLoiteringAlarm(NET_CB_GetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterGetCmdCb(NET_GET_LOITERINGALARM, pCb);
+    return Net_RegisterGetCmdCb(NET_GET_LOITERINGALARM, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_SetLoiteringAlarm(NET_CB_SetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterSetCmdCb(NET_SET_LOITERINGALARM, pCb);
+    return Net_RegisterSetCmdCb(NET_SET_LOITERINGALARM, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetSceneChangeAlarm(NET_CB_GetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterGetCmdCb(NET_GET_SCENECHANGEALARM, pCb);
+    return Net_RegisterGetCmdCb(NET_GET_SCENECHANGEALARM, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_SetSceneChangeAlarm(NET_CB_SetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterSetCmdCb(NET_SET_SCENECHANGEALARM, pCb);
+    return Net_RegisterSetCmdCb(NET_SET_SCENECHANGEALARM, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetCrowGatheringAlarm(NET_CB_GetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterGetCmdCb(NET_GET_CROWDGATHERINGALARM, pCb);
+    return Net_RegisterGetCmdCb(NET_GET_CROWDGATHERINGALARM, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_SetCrowGatheringAlarm(NET_CB_SetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterSetCmdCb(NET_SET_CROWDGATHERINGALARM, pCb);
+    return Net_RegisterSetCmdCb(NET_SET_CROWDGATHERINGALARM, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetParkingAlarm(NET_CB_GetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterGetCmdCb(NET_GET_PARKINGALARM, pCb);
+    return Net_RegisterGetCmdCb(NET_GET_PARKINGALARM, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_SetParkingAlarm(NET_CB_SetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterSetCmdCb(NET_SET_PARKINGALARM, pCb);
+    return Net_RegisterSetCmdCb(NET_SET_PARKINGALARM, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetUnattendedObjectAlarm(NET_CB_GetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterGetCmdCb(NET_GET_UNATTENDEDOBJECTALARM, pCb);
+    return Net_RegisterGetCmdCb(NET_GET_UNATTENDEDOBJECTALARM, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_SetUnattendedObjectAlarm(NET_CB_SetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterSetCmdCb(NET_SET_UNATTENDEDOBJECTALARM, pCb);
+    return Net_RegisterSetCmdCb(NET_SET_UNATTENDEDOBJECTALARM, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetObjectRemovalAlarm(NET_CB_GetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterGetCmdCb(NET_GET_OBJECTREMOVALALARM, pCb);
+    return Net_RegisterGetCmdCb(NET_GET_OBJECTREMOVALALARM, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_SetObjectRemovalAlarm(NET_CB_SetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterSetCmdCb(NET_SET_OBJECTREMOVALALARM, pCb);
+    return Net_RegisterSetCmdCb(NET_SET_OBJECTREMOVALALARM, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetAudioAnomalyAlarm(NET_CB_GetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterGetCmdCb(NET_GET_AUDIOANOMALYALARM, pCb);
+    return Net_RegisterGetCmdCb(NET_GET_AUDIOANOMALYALARM, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_SetAudioAnomalyAlarm(NET_CB_SetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterSetCmdCb(NET_SET_AUDIOANOMALYALARM, pCb);
+    return Net_RegisterSetCmdCb(NET_SET_AUDIOANOMALYALARM, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetPreviewInfo(NET_CB_GetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterGetCmdCb(NET_GET_PREVIEW_INFO, pCb);
+    return Net_RegisterGetCmdCb(NET_GET_PREVIEW_INFO, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_SetPreviewInfo(NET_CB_SetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterSetCmdCb(NET_SET_PREVIEW_INFO, pCb);
+    return Net_RegisterSetCmdCb(NET_SET_PREVIEW_INFO, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetUpgradeStatus(NET_CB_GetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterGetCmdCb(NET_GET_UPGRADESTATUS, pCb);
+    return Net_RegisterGetCmdCb(NET_GET_UPGRADESTATUS, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetUpgradeVersion(NET_CB_GetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterGetCmdCb(NET_GET_UPGRADEVERSION, pCb);
+    return Net_RegisterGetCmdCb(NET_GET_UPGRADEVERSION, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_SetUpgrade(NET_CB_SetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterSetCmdCb(NET_SET_UPGRADE, pCb);
+    return Net_RegisterSetCmdCb(NET_SET_UPGRADE, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetCapturePlanInfo(NET_CB_GetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterGetCmdCb(NET_GET_CAPTURE_PLAN_INFO, pCb);
+    return Net_RegisterGetCmdCb(NET_GET_CAPTURE_PLAN_INFO, pCb);
 }
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_SetCapturePlanInfo(NET_CB_SetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterSetCmdCb(NET_SET_CAPTURE_PLAN_INFO, pCb);
+    return Net_RegisterSetCmdCb(NET_SET_CAPTURE_PLAN_INFO, pCb);
 }
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetCaptureParamInfo(NET_CB_GetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterGetCmdCb(NET_GET_CAPTURE_PARAM_INFO, pCb);
+    return Net_RegisterGetCmdCb(NET_GET_CAPTURE_PARAM_INFO, pCb);
 }
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_SetCaptureParamInfo(NET_CB_SetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterSetCmdCb(NET_SET_CAPTURE_PARAM_INFO, pCb);
+    return Net_RegisterSetCmdCb(NET_SET_CAPTURE_PARAM_INFO, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetExposureInfo(NET_CB_GetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterGetCmdCb(NET_GET_EXPOSURE_INFO, pCb);
+    return Net_RegisterGetCmdCb(NET_GET_EXPOSURE_INFO, pCb);
 }
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_SetExposureInfo(NET_CB_SetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterSetCmdCb(NET_SET_EXPOSURE_INFO, pCb);
+    return Net_RegisterSetCmdCb(NET_SET_EXPOSURE_INFO, pCb);
 }
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetDayNightInfo(NET_CB_GetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterGetCmdCb(NET_GET_DAYNIGHT_INFO, pCb);
+    return Net_RegisterGetCmdCb(NET_GET_DAYNIGHT_INFO, pCb);
 }
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_SetDayNightInfo(NET_CB_SetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterSetCmdCb(NET_SET_DAYNIGHT_INFO, pCb);
+    return Net_RegisterSetCmdCb(NET_SET_DAYNIGHT_INFO, pCb);
 }
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetBackLightInfo(NET_CB_GetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterGetCmdCb(NET_GET_BACKLIGHT_INFO, pCb);
+    return Net_RegisterGetCmdCb(NET_GET_BACKLIGHT_INFO, pCb);
 }
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_SetBackLightInfo(NET_CB_SetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterSetCmdCb(NET_SET_BACKLIGHT_INFO, pCb);
+    return Net_RegisterSetCmdCb(NET_SET_BACKLIGHT_INFO, pCb);
 }
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetDenoiseInfo(NET_CB_GetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterGetCmdCb(NET_GET_DENOISE_INFO, pCb);
+    return Net_RegisterGetCmdCb(NET_GET_DENOISE_INFO, pCb);
 }
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_SetDenoiseInfo(NET_CB_SetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterSetCmdCb(NET_SET_DENOISE_INFO, pCb);
+    return Net_RegisterSetCmdCb(NET_SET_DENOISE_INFO, pCb);
 }
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetWhiteBalanceInfo(NET_CB_GetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterGetCmdCb(NET_GET_WHITEBALANCE_INFO, pCb);
+    return Net_RegisterGetCmdCb(NET_GET_WHITEBALANCE_INFO, pCb);
 }
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_SetWhiteBalanceInfo(NET_CB_SetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterSetCmdCb(NET_SET_WHITEBALANCE_INFO, pCb);
+    return Net_RegisterSetCmdCb(NET_SET_WHITEBALANCE_INFO, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_SetTalkbackState(NET_CB_SetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterSetCmdCb(NET_STATE_TALKBACK, pCb);
+    return Net_RegisterSetCmdCb(NET_STATE_TALKBACK, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_SetTalkbackToStream(NET_CB_SetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterSetCmdCb(NET_TO_STREAM_TALKBACK, pCb);
+    return Net_RegisterSetCmdCb(NET_TO_STREAM_TALKBACK, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetTalkbackFromStream(NET_CB_GetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterGetCmdCb(NET_FROM_STREAM_TALKBACK, pCb);
+    return Net_RegisterGetCmdCb(NET_FROM_STREAM_TALKBACK, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_SetReplayTalkback(NET_CB_SetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterSetCmdCb(NET_REPLAY_TALKBACK, pCb);
+    return Net_RegisterSetCmdCb(NET_REPLAY_TALKBACK, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetChannelInfo(NET_CB_GetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterGetCmdCb(NET_GET_CHANNEL_INFO, pCb);
+    return Net_RegisterGetCmdCb(NET_GET_CHANNEL_INFO, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetChannelList(NET_CB_GetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterGetCmdCb(NET_GET_CHANNEL_LIST, pCb);
+    return Net_RegisterGetCmdCb(NET_GET_CHANNEL_LIST, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetFaceCaptureInfo(NET_CB_GetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterGetCmdCb(NET_GET_FACECAPTUREINFO, pCb);
+    return Net_RegisterGetCmdCb(NET_GET_FACECAPTUREINFO, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_SetFaceCaptureInfo(NET_CB_SetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterSetCmdCb(NET_SET_FACECAPTUREINFO, pCb);
+    return Net_RegisterSetCmdCb(NET_SET_FACECAPTUREINFO, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_SetFaceCompareInfo(NET_CB_SetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterSetCmdCb(NET_SET_FACE_COMPARE_INFO, pCb);
+    return Net_RegisterSetCmdCb(NET_SET_FACE_COMPARE_INFO, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_AddTargetLib(NET_CB_SetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterSetCmdCb(NET_ADD_TARGET_LIB, pCb);
+    return Net_RegisterSetCmdCb(NET_ADD_TARGET_LIB, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_DelTargetLib(NET_CB_SetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterSetCmdCb(NET_DEL_TARGET_LIB, pCb);
+    return Net_RegisterSetCmdCb(NET_DEL_TARGET_LIB, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_SetTargetLib(NET_CB_SetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterSetCmdCb(NET_SET_TARGET_LIB, pCb);
+    return Net_RegisterSetCmdCb(NET_SET_TARGET_LIB, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetTargetLib(NET_CB_GetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterGetCmdCb(NET_GET_TARGET_LIB, pCb);
+    return Net_RegisterGetCmdCb(NET_GET_TARGET_LIB, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_AddFaceInfo(NET_CB_SetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterSetCmdCb(NET_ADD_FACE_INFO, pCb);
+    return Net_RegisterSetCmdCb(NET_ADD_FACE_INFO, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_DelFaceInfo(NET_CB_SetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterSetCmdCb(NET_DEL_FACE_INFO, pCb);
+    return Net_RegisterSetCmdCb(NET_DEL_FACE_INFO, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_SetFaceInfo(NET_CB_SetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterSetCmdCb(NET_SET_FACE_INFO, pCb);
+    return Net_RegisterSetCmdCb(NET_SET_FACE_INFO, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetFaceInfo(NET_CB_GetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterGetCmdCb(NET_GET_FACE_INFO, pCb);
+    return Net_RegisterGetCmdCb(NET_GET_FACE_INFO, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetGarbageExposureCfg(NET_CB_GetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterGetCmdCb(NET_GET_GARBAGE_EXPOSURE_CFG, pCb);
+    return Net_RegisterGetCmdCb(NET_GET_GARBAGE_EXPOSURE_CFG, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_SetGarbageExposureCfg(NET_CB_SetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterSetCmdCb(NET_SET_GARBAGE_EXPOSURE_CFG, pCb);
+    return Net_RegisterSetCmdCb(NET_SET_GARBAGE_EXPOSURE_CFG, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetGarbageOverflowCfg(NET_CB_GetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterGetCmdCb(NET_GET_GARBAGE_OVERFLOW_CFG, pCb);
+    return Net_RegisterGetCmdCb(NET_GET_GARBAGE_OVERFLOW_CFG, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_SetGarbageOverflowCfg(NET_CB_SetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterSetCmdCb(NET_SET_GARBAGE_OVERFLOW_CFG, pCb);
+    return Net_RegisterSetCmdCb(NET_SET_GARBAGE_OVERFLOW_CFG, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetPeopleFlowStatisticsCfg(NET_CB_GetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterGetCmdCb(NET_GET_PEOPLE_FLOW_STATISTICS_CFG, pCb);
+    return Net_RegisterGetCmdCb(NET_GET_PEOPLE_FLOW_STATISTICS_CFG, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_SetPeopleFlowStatisticsCfg(NET_CB_SetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterSetCmdCb(NET_SET_PEOPLE_FLOW_STATISTICS_CFG, pCb);
+    return Net_RegisterSetCmdCb(NET_SET_PEOPLE_FLOW_STATISTICS_CFG, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_ResetPeopleFlowStatistics(NET_CB_SetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterSetCmdCb(NET_RESET_PEOPLE_FLOW_STATISTICS, pCb);
+    return Net_RegisterSetCmdCb(NET_RESET_PEOPLE_FLOW_STATISTICS, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetPeopleDensityDetectionCfg(NET_CB_GetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterGetCmdCb(NET_GET_PEOPLE_DENSITY_DETECTION_CFG, pCb);
+    return Net_RegisterGetCmdCb(NET_GET_PEOPLE_DENSITY_DETECTION_CFG, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_SetPeopleDensityDetectionCfg(NET_CB_SetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterSetCmdCb(NET_SET_PEOPLE_DENSITY_DETECTION_CFG, pCb);
+    return Net_RegisterSetCmdCb(NET_SET_PEOPLE_DENSITY_DETECTION_CFG, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetManholeCoverAbnormalCfg(NET_CB_GetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterGetCmdCb(NET_GET_MANHOLE_COVER_ABNORMAL_CFG, pCb);
+    return Net_RegisterGetCmdCb(NET_GET_MANHOLE_COVER_ABNORMAL_CFG, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_SetManholeCoverAbnormalCfg(NET_CB_SetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterSetCmdCb(NET_SET_MANHOLE_COVER_ABNORMAL_CFG, pCb);
+    return Net_RegisterSetCmdCb(NET_SET_MANHOLE_COVER_ABNORMAL_CFG, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetSleepOnDutyCfg(NET_CB_GetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterGetCmdCb(NET_GET_SLEEP_ON_DUTY_CFG, pCb);
+    return Net_RegisterGetCmdCb(NET_GET_SLEEP_ON_DUTY_CFG, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_SetSleepOnDutyCfg(NET_CB_SetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterSetCmdCb(NET_SET_SLEEP_ON_DUTY_CFG, pCb);
+    return Net_RegisterSetCmdCb(NET_SET_SLEEP_ON_DUTY_CFG, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetElectricVehicleInElevatorCfg(NET_CB_GetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterGetCmdCb(NET_GET_ELECTRIC_VEHICLE_IN_ELEVATOR_CFG, pCb);
+    return Net_RegisterGetCmdCb(NET_GET_ELECTRIC_VEHICLE_IN_ELEVATOR_CFG, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_SetElectricVehicleInElevatorCfg(NET_CB_SetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterSetCmdCb(NET_SET_ELECTRIC_VEHICLE_IN_ELEVATOR_CFG, pCb);
+    return Net_RegisterSetCmdCb(NET_SET_ELECTRIC_VEHICLE_IN_ELEVATOR_CFG, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetPersonFallDownCfg(NET_CB_GetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterGetCmdCb(NET_GET_PERSON_FALL_DOWN_CFG, pCb);
+    return Net_RegisterGetCmdCb(NET_GET_PERSON_FALL_DOWN_CFG, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_SetPersonFallDownCfg(NET_CB_SetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterSetCmdCb(NET_SET_PERSON_FALL_DOWN_CFG, pCb);
+    return Net_RegisterSetCmdCb(NET_SET_PERSON_FALL_DOWN_CFG, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetConstructionOccupyRoadCfg(NET_CB_GetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterGetCmdCb(NET_GET_CONSTRUCTION_OCCUPY_ROAD_CFG, pCb);
+    return Net_RegisterGetCmdCb(NET_GET_CONSTRUCTION_OCCUPY_ROAD_CFG, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_SetConstructionOccupyRoadCfg(NET_CB_SetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterSetCmdCb(NET_SET_CONSTRUCTION_OCCUPY_ROAD_CFG, pCb);
+    return Net_RegisterSetCmdCb(NET_SET_CONSTRUCTION_OCCUPY_ROAD_CFG, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetCongestionCfg(NET_CB_GetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterGetCmdCb(NET_GET_CONGESTION_CFG, pCb);
+    return Net_RegisterGetCmdCb(NET_GET_CONGESTION_CFG, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_SetCongestionCfg(NET_CB_SetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterSetCmdCb(NET_SET_CONGESTION_CFG, pCb);
+    return Net_RegisterSetCmdCb(NET_SET_CONGESTION_CFG, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetLicensePlateRecognitionCfg(NET_CB_GetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterGetCmdCb(NET_GET_LICENSE_PLATE_RECOGNITION_CFG, pCb);
+    return Net_RegisterGetCmdCb(NET_GET_LICENSE_PLATE_RECOGNITION_CFG, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_SetLicensePlateRecognitionCfg(NET_CB_SetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterSetCmdCb(NET_SET_LICENSE_PLATE_RECOGNITION_CFG, pCb);
+    return Net_RegisterSetCmdCb(NET_SET_LICENSE_PLATE_RECOGNITION_CFG, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetHighAltitudeSeatbeltCfg(NET_CB_GetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterGetCmdCb(NET_GET_HIGH_ALTITUDE_SEATBELT_CFG, pCb);
+    return Net_RegisterGetCmdCb(NET_GET_HIGH_ALTITUDE_SEATBELT_CFG, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_SetHighAltitudeSeatbeltCfg(NET_CB_SetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterSetCmdCb(NET_SET_HIGH_ALTITUDE_SEATBELT_CFG, pCb);
+    return Net_RegisterSetCmdCb(NET_SET_HIGH_ALTITUDE_SEATBELT_CFG, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetSafetyHelmetCfg(NET_CB_GetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterGetCmdCb(NET_GET_SAFETY_HELMET_CFG, pCb);
+    return Net_RegisterGetCmdCb(NET_GET_SAFETY_HELMET_CFG, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_SetSafetyHelmetCfg(NET_CB_SetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterSetCmdCb(NET_SET_SAFETY_HELMET_CFG, pCb);
+    return Net_RegisterSetCmdCb(NET_SET_SAFETY_HELMET_CFG, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetPersonFallCfg(NET_CB_GetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterGetCmdCb(NET_GET_PERSON_FALL_CFG, pCb);
+    return Net_RegisterGetCmdCb(NET_GET_PERSON_FALL_CFG, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_SetPersonFallCfg(NET_CB_SetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterSetCmdCb(NET_SET_PERSON_FALL_CFG, pCb);
+    return Net_RegisterSetCmdCb(NET_SET_PERSON_FALL_CFG, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetPhoneUsageCfg(NET_CB_GetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterGetCmdCb(NET_GET_PHONE_USAGE_CFG, pCb);
+    return Net_RegisterGetCmdCb(NET_GET_PHONE_USAGE_CFG, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_SetPhoneUsageCfg(NET_CB_SetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterSetCmdCb(NET_SET_PHONE_USAGE_CFG, pCb);
+    return Net_RegisterSetCmdCb(NET_SET_PHONE_USAGE_CFG, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetSmokingCfg(NET_CB_GetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterGetCmdCb(NET_GET_SMOKING_CFG, pCb);
+    return Net_RegisterGetCmdCb(NET_GET_SMOKING_CFG, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_SetSmokingCfg(NET_CB_SetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterSetCmdCb(NET_SET_SMOKING_CFG, pCb);
+    return Net_RegisterSetCmdCb(NET_SET_SMOKING_CFG, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetOpenFlameCfg(NET_CB_GetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterGetCmdCb(NET_GET_OPEN_FLAME_CFG, pCb);
+    return Net_RegisterGetCmdCb(NET_GET_OPEN_FLAME_CFG, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_SetOpenFlameCfg(NET_CB_SetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterSetCmdCb(NET_SET_OPEN_FLAME_CFG, pCb);
+    return Net_RegisterSetCmdCb(NET_SET_OPEN_FLAME_CFG, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetBareSoilCfg(NET_CB_GetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterGetCmdCb(NET_GET_BARE_SOIL_CFG, pCb);
+    return Net_RegisterGetCmdCb(NET_GET_BARE_SOIL_CFG, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_SetBareSoilCfg(NET_CB_SetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterSetCmdCb(NET_SET_BARE_SOIL_CFG, pCb);
+    return Net_RegisterSetCmdCb(NET_SET_BARE_SOIL_CFG, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetHoleProtectionBarCfg(NET_CB_GetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterGetCmdCb(NET_GET_HOLE_PROTECTION_BAR_CFG, pCb);
+    return Net_RegisterGetCmdCb(NET_GET_HOLE_PROTECTION_BAR_CFG, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_SetHoleProtectionBarCfg(NET_CB_SetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterSetCmdCb(NET_SET_HOLE_PROTECTION_BAR_CFG, pCb);
+    return Net_RegisterSetCmdCb(NET_SET_HOLE_PROTECTION_BAR_CFG, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetReflectiveClothingCfg(NET_CB_GetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterGetCmdCb(NET_GET_REFLECTIVE_CLOTHING_CFG, pCb);
+    return Net_RegisterGetCmdCb(NET_GET_REFLECTIVE_CLOTHING_CFG, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_SetReflectiveClothingCfg(NET_CB_SetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterSetCmdCb(NET_SET_REFLECTIVE_CLOTHING_CFG, pCb);
+    return Net_RegisterSetCmdCb(NET_SET_REFLECTIVE_CLOTHING_CFG, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetPetRecognitionInfo(NET_CB_GetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterGetCmdCb(NET_GET_PET_RECOGNITION_INFO, pCb);
+    return Net_RegisterGetCmdCb(NET_GET_PET_RECOGNITION_INFO, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_SetPetRecognitionInfo(NET_CB_SetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterSetCmdCb(NET_SET_PET_RECOGNITION_INFO, pCb);
+    return Net_RegisterSetCmdCb(NET_SET_PET_RECOGNITION_INFO, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetClimbFenceInfo(NET_CB_GetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterGetCmdCb(NET_GET_CLIMB_FENCE_INFO, pCb);
+    return Net_RegisterGetCmdCb(NET_GET_CLIMB_FENCE_INFO, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_SetClimbFenceInfo(NET_CB_SetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterSetCmdCb(NET_SET_CLIMB_FENCE_INFO, pCb);
+    return Net_RegisterSetCmdCb(NET_SET_CLIMB_FENCE_INFO, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetDimissionInfo(NET_CB_GetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterGetCmdCb(NET_GET_DIMISSION_INFO, pCb);
+    return Net_RegisterGetCmdCb(NET_GET_DIMISSION_INFO, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_SetDimissionInfo(NET_CB_SetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterSetCmdCb(NET_SET_DIMISSION_INFO, pCb);
+    return Net_RegisterSetCmdCb(NET_SET_DIMISSION_INFO, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetIllegalLaneInfo(NET_CB_GetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterGetCmdCb(NET_GET_ILLEGAL_LANE_INFO, pCb);
+    return Net_RegisterGetCmdCb(NET_GET_ILLEGAL_LANE_INFO, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_SetIllegalLaneInfo(NET_CB_SetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterSetCmdCb(NET_SET_ILLEGAL_LANE_INFO, pCb);
+    return Net_RegisterSetCmdCb(NET_SET_ILLEGAL_LANE_INFO, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetRetrogradeInfo(NET_CB_GetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterGetCmdCb(NET_GET_RETROGRADE_INFO, pCb);
+    return Net_RegisterGetCmdCb(NET_GET_RETROGRADE_INFO, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_SetRetrogradeInfo(NET_CB_SetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterSetCmdCb(NET_SET_RETROGRADE_INFO, pCb);
+    return Net_RegisterSetCmdCb(NET_SET_RETROGRADE_INFO, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetNonmotorVehicleIntrusionInfo(NET_CB_GetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterGetCmdCb(NET_GET_NONMOTOR_VEHICLE_INTRUSION_INFO, pCb);
+    return Net_RegisterGetCmdCb(NET_GET_NONMOTOR_VEHICLE_INTRUSION_INFO, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_SetNonmotorVehicleIntrusionInfo(NET_CB_SetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterSetCmdCb(NET_SET_NONMOTOR_VEHICLE_INTRUSION_INFO, pCb);
+    return Net_RegisterSetCmdCb(NET_SET_NONMOTOR_VEHICLE_INTRUSION_INFO, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetOccupationEmergencyInfo(NET_CB_GetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterGetCmdCb(NET_GET_OCCUPATION_EMERGENCY_INFO, pCb);
+    return Net_RegisterGetCmdCb(NET_GET_OCCUPATION_EMERGENCY_INFO, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_SetOccupationEmergencyInfo(NET_CB_SetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterSetCmdCb(NET_SET_OCCUPATION_EMERGENCY_INFO, pCb);
+    return Net_RegisterSetCmdCb(NET_SET_OCCUPATION_EMERGENCY_INFO, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetPedestrianIntrusionInfo(NET_CB_GetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterGetCmdCb(NET_GET_PEDESTRIAN_INTRUSION_INFO, pCb);
+    return Net_RegisterGetCmdCb(NET_GET_PEDESTRIAN_INTRUSION_INFO, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_SetPedestrianIntrusionInfo(NET_CB_SetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterSetCmdCb(NET_SET_PEDESTRIAN_INTRUSION_INFO, pCb);
+    return Net_RegisterSetCmdCb(NET_SET_PEDESTRIAN_INTRUSION_INFO, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetSmokeFireCfg(NET_CB_GetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterGetCmdCb(NET_GET_SMOKE_FIRE_CFG, pCb);
+    return Net_RegisterGetCmdCb(NET_GET_SMOKE_FIRE_CFG, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_SetSmokeFireCfg(NET_CB_SetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterSetCmdCb(NET_SET_SMOKE_FIRE_CFG, pCb);
+    return Net_RegisterSetCmdCb(NET_SET_SMOKE_FIRE_CFG, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetRoadPondingCfg(NET_CB_GetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterGetCmdCb(NET_GET_ROAD_PONDING_CFG, pCb);
+    return Net_RegisterGetCmdCb(NET_GET_ROAD_PONDING_CFG, pCb);
 }
 
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_SetRoadPondingCfg(NET_CB_SetDevConfigByCommand pCb)
 {
-    return NetTV_RegisterSetCmdCb(NET_SET_ROAD_PONDING_CFG, pCb);
+    return Net_RegisterSetCmdCb(NET_SET_ROAD_PONDING_CFG, pCb);
 }
 
 /**
@@ -1188,7 +1251,7 @@ int NetSDK_ExecuteCb_GetDevConfig(INT32 dwChannelID, INT32 dwCommand, LPVOID lpO
     }
 
     /* 查找按命令码注册的专用回调 */
-    pItem = NetTV_FindCmdCbItemByGetCommand(dwCommand);
+    pItem = Net_FindCmdCbItemByGetCommand(dwCommand);
     if (pItem != NULL && pItem->cbGetByCmd != NULL)
     {
         return pItem->cbGetByCmd(dwChannelID, lpOutBuffer);
@@ -1327,7 +1390,7 @@ int NetSDK_ExecuteCb_SetDevConfig(INT32 dwChannelID, INT32 dwCommand, LPVOID lpI
     }
 
     /* 查找按命令码注册的专用回调 */
-    pItem = NetTV_FindCmdCbItemBySetCommand(dwCommand);
+    pItem = Net_FindCmdCbItemBySetCommand(dwCommand);
     if (pItem != NULL && pItem->cbSetByCmd != NULL)
     {
         return pItem->cbSetByCmd(dwChannelID, lpInBuffer);
