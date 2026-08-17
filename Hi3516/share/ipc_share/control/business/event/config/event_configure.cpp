@@ -23,6 +23,7 @@ CEventConfigure::CEventConfigure():
       m_IoInputAlarm(EVENT_ALARM_INPUT_CONFIG_FILE),
       m_IoOutputAlarm(EVENT_ALARM_OUTPUT_CONFIG_FILE),
       m_FlashAlarm(EVENT_FLASHING_LIGHT_ALARM_OUTPUT_CONFIG_FILE),
+      m_ManualSoundLightAlarm(EVENT_MANUAL_SOUND_LIGHT_ALARM_CONFIG_FILE),
       m_PirAlarm(EVENT_PIR_ALARM_CONFIG_FILE),
       m_BoundaryDetection(EVENT_LINE_CROSSING_DETECTION_CONFIG_FILE),
       m_FieldDetection(EVENT_REGIONAL_INTRUSION_DETECTION_CONFIG_FILE),
@@ -218,6 +219,26 @@ int CEventConfigure::set_configure(const Alarm::FlashInfo_S &stFlashAlarm)
 int CEventConfigure::get_configure(Alarm::FlashInfo_S &stFlashAlarm) const
 {
     return m_FlashAlarm.get(stFlashAlarm);
+}
+
+/**
+ * @brief 保存手动声光报警联动配置。
+ * @param [in] stManualSoundLightAlarm 本次手动触发使用的联动配置。
+ * @return 保存成功返回 OK，失败返回错误码。
+ */
+int CEventConfigure::set_configure(const Alarm::LinkageList_S &stManualSoundLightAlarm)
+{
+    return m_ManualSoundLightAlarm.set(stManualSoundLightAlarm);
+}
+
+/**
+ * @brief 获取手动声光报警联动配置。
+ * @param [out] stManualSoundLightAlarm 已保存的手动触发联动配置。
+ * @return 获取成功返回 OK，失败返回错误码。
+ */
+int CEventConfigure::get_configure(Alarm::LinkageList_S &stManualSoundLightAlarm) const
+{
+    return m_ManualSoundLightAlarm.get(stManualSoundLightAlarm);
 }
 
 int CEventConfigure::set_configure(const Alarm::PirAlarmInfo_S &stPirAlarm)

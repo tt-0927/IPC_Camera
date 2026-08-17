@@ -37,6 +37,32 @@ namespace SDKConvert
     void deal(Json::Object* pRootJson, NET_AlarmExceptionInfo_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_AlarmStatisticsTarget_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_AlarmStatisticsInfo_S& stInfo, bool bOutStruct);
+
+    /** @brief 转换抓拍区域多边形。 */
+    void deal(Json::Object* pRootJson, NET_CapturePolygon_S& stInfo, bool bOutStruct);
+    /** @brief 转换人脸抓拍推送信息。 */
+    void deal(Json::Object* pRootJson, NET_FaceCapturePushInfo_S& stInfo, bool bOutStruct);
+    /** @brief 转换行人抓拍推送信息。 */
+    void deal(Json::Object* pRootJson, NET_PersonCapturePushInfo_S& stInfo, bool bOutStruct);
+    /** @brief 转换机动车抓拍推送信息。 */
+    void deal(Json::Object* pRootJson, NET_MotorvehicleCapturePushInfo_S& stInfo, bool bOutStruct);
+    /** @brief 转换非机动车抓拍推送信息。 */
+    void deal(Json::Object* pRootJson, NET_NonMotorvehicleCapturePushInfo_S& stInfo, bool bOutStruct);
+
+    /** @brief 转换基础告警 V2 信息。 */
+    void deal(Json::Object* pRootJson, NET_AlarmBasicInfoV2_S& stInfo, bool bOutStruct);
+    /** @brief 转换规则告警 V2 信息。 */
+    void deal(Json::Object* pRootJson, NET_AlarmRuleInfoV2_S& stInfo, bool bOutStruct);
+    /** @brief 转换 AI 对象告警 V2 信息。 */
+    void deal(Json::Object* pRootJson, NET_AlarmAiObjectInfoV2_S& stInfo, bool bOutStruct);
+    /** @brief 转换人脸比对告警 V2 信息。 */
+    void deal(Json::Object* pRootJson, NET_AlarmFaceCompareInfoV2_S& stInfo, bool bOutStruct);
+    /** @brief 转换车牌告警 V2 信息。 */
+    void deal(Json::Object* pRootJson, NET_AlarmPlateInfoV2_S& stInfo, bool bOutStruct);
+    /** @brief 转换统计告警目标 V2 信息。 */
+    void deal(Json::Object* pRootJson, NET_AlarmStatisticsTargetV2_S& stInfo, bool bOutStruct);
+    /** @brief 转换统计告警 V2 信息。 */
+    void deal(Json::Object* pRootJson, NET_AlarmStatisticsInfoV2_S& stInfo, bool bOutStruct);
 }
 
 #endif

@@ -52,6 +52,19 @@ public:
                       INT32 dwBufLen);
 
     /**
+     * @brief 推送动态图片 V2 告警到全部已订阅客户端。
+     * @param [in] pAlarmer 告警设备信息。
+     * @param [in] lCommand 告警命令码。
+     * @param [in] pAlarmInfo V2 告警结构体。
+     * @param [in] dwBufLen V2 告警结构体长度。
+     * @return 至少推送到一个客户端时返回 TRUE，否则返回 FALSE。
+     */
+    BOOL PushAlarmInfoV2(NET_Alarmer_S* pAlarmer,
+                         INT32 lCommand,
+                         LPVOID pAlarmInfo,
+                         INT32 dwBufLen);
+
+    /**
      * 推送通道上下线状态到所有客户端
      * @details 将通道状态信息转换为JSON格式后推送到所有活跃会话客户端
      * @param pChannelInfo 通道状态信息

@@ -76,6 +76,18 @@ public:
         m_fnAlarmCallback = cb;
         m_pAlarmUserData = userData;
     }
+
+    /**
+     * @brief 设置动态图片 V2 告警回调。
+     * @param [in] pCallback V2 告警回调函数。
+     * @param [in] pUserData 回调用户数据。
+     * @return 无。
+     */
+    void SetCallbackV2(NET_AlarmCallBackV2 pCallback, void* pUserData)
+    {
+        m_fnAlarmCallbackV2 = pCallback;
+        m_pAlarmUserDataV2 = pUserData;
+    }
 /**
  * @author tianl (tianl@kfb.cn)
  * @brief 执行 SetChannelStatusCallback 定义的内联处理。
@@ -110,6 +122,8 @@ private:
 
     NET_AlarmCallBack m_fnAlarmCallback = nullptr;
     void* m_pAlarmUserData = nullptr;
+    NET_AlarmCallBackV2 m_fnAlarmCallbackV2 = nullptr;
+    void* m_pAlarmUserDataV2 = nullptr;
 
     NET_ChannelStatusCallBack m_fnChannelStatusCallback = nullptr;
     void* m_pChannelStatusUserData = nullptr;

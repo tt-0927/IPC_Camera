@@ -645,6 +645,27 @@ int ControlManage::tvsdk_push_alarm(int lCommand, const void *pAlarmInfo, int dw
     return m_pTvSdkServer->push_alarm(pAlarmer, lCommand, pAlarmInfo, dwBufLen);
 }
 
+/**
+ * @brief 向已连接 TVSDK 客户端推送动态图片 V2 告警。
+ * @param [in] lCommand 告警命令码。
+ * @param [in] pAlarmInfo V2 告警结构体。
+ * @param [in] dwBufLen 告警结构体长度。
+ * @param [in] pAlarmer 可选的告警设备信息。
+ * @return 成功返回 OK，失败返回 ERR。
+ */
+int ControlManage::tvsdk_push_alarm_v2(int lCommand,
+                                       const void *pAlarmInfo,
+                                       int dwBufLen,
+                                       const void *pAlarmer)
+{
+    if (!m_pTvSdkServer)
+    {
+        return ERR;
+    }
+
+    return m_pTvSdkServer->push_alarm_v2(pAlarmer, lCommand, pAlarmInfo, dwBufLen);
+}
+
 int ControlManage::tvsdk_get_client_count() const
 {
     if (!m_pTvSdkServer)
@@ -897,6 +918,8 @@ void ControlManage::bind_task(std::shared_ptr<CTaskManage> &pTaskManage)
     /*闪光报警*/
     pTaskManage->bind<Task::Event::GetFlashAlarmInfo>(AC_GET_FLASHING_LIGHT_ALARM_INFO);
     pTaskManage->bind<Task::Event::SetFlashAlarmInfo>(AC_SET_FLASHING_LIGHT_ALARM_INFO);
+    /*手动声光报警联动*/
+    pTaskManage->bind<Task::Event::TriggerSoundLightAlarm>(AC_TRIGGER_SOUND_LIGHT_ALARM);
     /*PIR报警*/
     pTaskManage->bind<Task::Event::GetPirAlarmInfo>(AC_GET_PIR_ALARM_INFO);
     pTaskManage->bind<Task::Event::SetPirAlarmInfo>(AC_SET_PIR_ALARM_INFO);

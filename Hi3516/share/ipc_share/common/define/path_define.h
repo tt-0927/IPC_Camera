@@ -122,6 +122,8 @@
 #define EVENT_ALARM_OUTPUT_CONFIG_FILE                  USER_DATA_PATH "event_alarm_output.json"
 /* 闪光报警灯输出 */
 #define EVENT_FLASHING_LIGHT_ALARM_OUTPUT_CONFIG_FILE   USER_DATA_PATH "event_flashing_light_alarm_output.json"
+/* 手动声光报警联动 */
+#define EVENT_MANUAL_SOUND_LIGHT_ALARM_CONFIG_FILE      USER_DATA_PATH "event_manual_sound_light_alarm.json"
 /* PIR报警 */
 #define EVENT_PIR_ALARM_CONFIG_FILE                     USER_DATA_PATH "event_pir_alarm.json"
 /**

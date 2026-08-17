@@ -195,6 +195,14 @@ int EventLinkageResolver::load_default_linkage_list(Event::Type_E enEventType, A
         stLinkageList = alarm.stLinkageList;
         break;
     }
+    case Event::Type_E::MANUAL_SOUND_LIGHT_ALARM:
+    {
+        if (CEventConfigure::instance()->get_configure(stLinkageList) != OK)
+        {
+            return ERR;
+        }
+        break;
+    }
     case Event::Type_E::LINE_CROSSING:
     {
         Alarm::BoundaryDetection_S alarm;

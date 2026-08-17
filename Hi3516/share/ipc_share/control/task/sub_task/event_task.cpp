@@ -18,6 +18,7 @@
 #include "event_resource.h"
 #include "event_configure.h"
 #include "event_abnormal_detector.h"
+#include "event_linkage.h"
 #ifdef SCENE_INTELLIGENT_ANALYSIS
 #include "event_vlm_manage.hpp"
 #endif
@@ -636,6 +637,44 @@ void Task::Event::SetFlashAlarmInfo::handle()
     CEventManage::instance()->update_event_schedule();
     result(nRet);
   
+}
+
+/**
+ * @brief 触发手动声光报警联动事件。
+ * @details 先持久化本次请求的联动配置，再依次投递开始与结束状态，保证联动调度器完整执行
+ *          瞬时事件生命周期并释放事件状态。
+ * @return 无。处理结果通过任务响应返回。
+ */
+void Task::Event::TriggerSoundLightAlarm::handle()
+{
+    Alarm::LinkageList_S stLinkageList;
+    Convert::to_struct(m_taskData, stLinkageList);
+
+    if (CEventConfigure::instance()->set_configure(stLinkageList) != OK)
+    {
+        dlog_error("保存手动声光报警联动配置失败");
+        result(ERR);
+        return;
+    }
+
+    EventTriggerContext_S stContext;
+    stContext.enEventType = ::Event::Type_E::MANUAL_SOUND_LIGHT_ALARM;
+    if (!CEventLinkage::instance()->handleEvent(stContext))
+    {
+        dlog_error("触发手动声光报警联动事件失败");
+        result(ERR);
+        return;
+    }
+
+    stContext.bEventEnded = true;
+    if (!CEventLinkage::instance()->handleEvent(stContext))
+    {
+        dlog_error("结束手动声光报警联动事件失败");
+        result(ERR);
+        return;
+    }
+
+    result(OK);
 }
 
 /* 获取PIR参数 */

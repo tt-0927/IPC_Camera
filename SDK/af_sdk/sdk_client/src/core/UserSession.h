@@ -107,6 +107,14 @@ public:
     void SetAlarmCallback(NET_AlarmCallBack cb, void* userData);
 
     /**
+     * @brief 设置动态图片 V2 告警回调函数。
+     * @param [in] pCallback V2 告警回调函数。
+     * @param [in] pUserData 回调用户数据。
+     * @return 无。
+     */
+    void SetAlarmCallbackV2(NET_AlarmCallBackV2 pCallback, void* pUserData);
+
+    /**
  * @author tianl (tianl@kfb.cn)
      * @brief 设置通道状态回调函数
      * @param [in] cb 通道状态回调函数指针

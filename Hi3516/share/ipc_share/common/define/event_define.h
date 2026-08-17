@@ -162,6 +162,7 @@ namespace Event
         LABEL = 1001,        /* 标签 */
         SCREENSHOT = 1002,   /* 抓图事件 */
         HUMAN_RECORD = 1003, /* 人工录制事件 */
+        MANUAL_SOUND_LIGHT_ALARM = 1004, /* 手动声光报警事件 */
 
         /**
          * @brief   : 异常事件
@@ -212,6 +213,8 @@ namespace Event
         case Type::FLASH_ALARM:
         case Type::PIR_ALARM:
             return Category_E::NORMAL;
+        case Type::MANUAL_SOUND_LIGHT_ALARM:
+            return Category_E::OTHER;
         /* 周界事件 */
         case Type::LINE_CROSSING:
         case Type::INTRUSION:

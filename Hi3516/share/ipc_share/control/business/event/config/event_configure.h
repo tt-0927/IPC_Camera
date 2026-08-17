@@ -90,6 +90,9 @@ public:
     /* 闪光报警配置 */
     int set_configure(const Alarm::FlashInfo_S &stFlashAlarm);
     int get_configure(Alarm::FlashInfo_S &stFlashAlarm) const;
+    /* 手动声光报警联动配置 */
+    int set_configure(const Alarm::LinkageList_S &stManualSoundLightAlarm);
+    int get_configure(Alarm::LinkageList_S &stManualSoundLightAlarm) const;
     /* Pir报警配置 */
     int set_configure(const Alarm::PirAlarmInfo_S &stPirAlarm);
     int get_configure(Alarm::PirAlarmInfo_S &stPirAlarm) const;
@@ -303,6 +306,8 @@ private:
     ConfigStorage<Alarm::IoOutputInfo_S> m_IoOutputAlarm; 
     /* 闪光报警配置 */
     ConfigStorage<Alarm::FlashInfo_S, StorageType_E::Single> m_FlashAlarm; 
+    /* 手动声光报警联动配置 */
+    ConfigStorage<Alarm::LinkageList_S, StorageType_E::Single> m_ManualSoundLightAlarm;
     /* Pir报警配置 */
     ConfigStorage<Alarm::PirAlarmInfo_S, StorageType_E::Single> m_PirAlarm; 
     
