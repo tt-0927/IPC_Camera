@@ -23,8 +23,8 @@
 #include "ErrorManage.h"
 #include "DeviceManage.h"
 #include "NetSdkLog.h"
-#include "VisualSecurity/RecordFrameClient.h"
-#include "VisualSecurity/VoiceComClient.h"
+#include "BG6_ZHSJ/RecordFrameClient.h"
+#include "BG6_ZHSJ/VoiceComClient.h"
 
 #define NETTVSDK_MAKE_VERSION(major, minor, rev1, rev2) \
     ((uint32_t)( \
@@ -517,7 +517,7 @@ NET_API BOOL STDCALL NET_DeviceControl(IN LPVOID lpUserID,
     return respCode == NET_E_SUCCEED ? TRUE : FALSE;
 }
 
-#include "VisualSecurity/CapabilityInfoConvert.h"
+#include "BG6_ZHSJ/CapabilityInfoConvert.h"
 
 /**
  * @brief 获取设备能力集接口
@@ -1787,7 +1787,7 @@ NET_StopVoiceCom(IN LPVOID lpUserID)
 
 /* ==================== 设备发现 ==================== */
 
-#include "VisualSecurity/DiscoverySearcher.h"
+#include "BG6_ZHSJ/DiscoverySearcher.h"
 
 /**
  * @brief 设备发现接口（局域网搜索）
