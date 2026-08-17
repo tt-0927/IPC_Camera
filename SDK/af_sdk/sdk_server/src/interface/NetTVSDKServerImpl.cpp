@@ -2,11 +2,11 @@
 #include <cstdint>
 #include <limits>
 #include "NetTVSDKServerImpl.h"
-#include "modules/ServerModule.h"
-#include "modules/SessionModule.h"
-#include "modules/RouteModule.h"
-#include "modules/VisualSecurity/AlarmModule.h"
-#include "VisualSecurity/DiscoveryResponder.h"
+#include "modules/Common/ServerModule.h"
+#include "modules/Common/SessionModule.h"
+#include "modules/Common/RouteModule.h"
+#include "modules/BG6_ZHSJ/AlarmModule.h"
+#include "BG6_ZHSJ/DiscoveryResponder.h"
 #include "NetSdkLog.h"
 
 #define NETTVSDK_MAKE_VERSION(major, minor, rev1, rev2) \

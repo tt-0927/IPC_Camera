@@ -6875,7 +6875,6 @@ NET_SERVER_RegisterCb_RecordFrameStop(IN NET_SERVER_RecordFrameStopCallBack cb,
                                         IN LPVOID lpUserData);
 
 
-#endif
 
 #ifdef __cplusplus
 }

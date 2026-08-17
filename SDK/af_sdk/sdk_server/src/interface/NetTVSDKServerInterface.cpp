@@ -6,8 +6,8 @@
 
 #include "NetTVSDKServerInterface.h"
 #include "NetTVSDKServerImpl.h"
-#include "VisualSecurity/VoiceComServer.h"
-#include "VisualSecurity/RecordFrameServer.h"
+#include "BG6_ZHSJ/VoiceComServer.h"
+#include "BG6_ZHSJ/RecordFrameServer.h"
 
 // 全局Impl单例（使用智能指针）
 static std::unique_ptr<CNetTVSDKServerImpl> g_pServerImpl;
