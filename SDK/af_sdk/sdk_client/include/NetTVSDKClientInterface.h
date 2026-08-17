@@ -14,6 +14,8 @@
 #ifndef NETSDK_CLIENT_INTERFACE_H
 #define NETSDK_CLIENT_INTERFACE_H
 
+
+
 #include "NetTVSDKCommon.h"
 
 #ifdef __cplusplus

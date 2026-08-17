@@ -512,6 +512,43 @@ extern "C"{
 #define NET_MAX_SCENE_TYPE_NUM                      16              /* 最大支持的场景类型数量 */
 #define NET_MAX_ENV_TYPE_NUM                        2               /* 最大支持的环境类型数量 */
 
+/* 告警周布防时间表包含的天数。 */
+#define NET_ALARM_SCHEDULE_DAY_COUNT            7
+/* 告警周布防时间表中的最小小时值。 */
+#define NET_ALARM_SCHEDULE_HOUR_MIN             0
+/* 告警周布防时间表中的最大小时值。 */
+#define NET_ALARM_SCHEDULE_HOUR_MAX             23
+/* 告警周布防时间表中的最小分钟值。 */
+#define NET_ALARM_SCHEDULE_MINUTE_MIN           0
+/* 告警周布防时间表中的最大分钟值。 */
+#define NET_ALARM_SCHEDULE_MINUTE_MAX           59
+/* 报警输入处理方式：禁用报警输入。 */
+#define NET_ALARM_INPUT_DEAL_TYPE_DISABLED      0
+/* 报警输入处理方式：启用报警输入。 */
+#define NET_ALARM_INPUT_DEAL_TYPE_ENABLED       1
+/* 声音报警重复播放的最小次数。 */
+#define NET_AUDIBLE_ALARM_PLAY_TIMES_MIN        1
+/* 声音报警重复播放的最大次数。 */
+#define NET_AUDIBLE_ALARM_PLAY_TIMES_MAX        50
+/* 闪光报警灯持续时间的最小值，单位为秒。 */
+#define NET_FLASHING_LIGHT_ALARM_TIME_MIN       1
+/* 闪光报警灯持续时间的最大值，单位为秒。 */
+#define NET_FLASHING_LIGHT_ALARM_TIME_MAX       300
+/* 声音报警可配置的自定义音频最大数量。 */
+#define NET_AUDIBLE_ALARM_CUSTOM_AUDIO_MAX_NUM 3
+/* 报警输入或输出地址字符串的最大长度。 */
+#define NET_ALARM_ADDRESS_LEN                  64
+/* 报警名称字符串的最大长度。 */
+#define NET_ALARM_NAME_LEN                     64
+/* 自定义音频名称字符串的最大长度。 */
+#define NET_ALARM_CUSTOM_AUDIO_NAME_LEN        64
+/* 自定义音频文件路径字符串的最大长度。 */
+#define NET_ALARM_CUSTOM_AUDIO_PATH_LEN        64
+/* 报警配置可关联的最大复制目标数量。 */
+#define NET_ALARM_COPY_TO_MAX_NUM              64
+/* 报警配置结构体中保留字段的字节长度。 */
+#define NET_ALARM_CONFIG_RESERVED_LEN          64
+
 #define NET_INVALID_PARAM                           (0xffffff)
 
 /* 停车场车牌、车辆图片大小 单位：字节*/
@@ -617,6 +654,14 @@ extern "C"{
 #define NET_ALARM_HELMET_MISSING     (NET_ALARM_BASE_AI + 0x24)    // 未戴安全帽 (SAFETY_HELMET)
 #define NET_ALARM_NO_REFLECTIVE_VEST (NET_ALARM_BASE_AI + 0x25)    // 未穿反光衣 (REFLECTIVE_CLOTHING)
 #define NET_ALARM_SMOKE_FIRE         (NET_ALARM_BASE_AI + 0x26)    // 烟火检测
+#define NET_TV_ALARM_PERSON_TRIP        (NET_TV_ALARM_BASE_AI + 0x27)    // 摔倒识别
+#define NET_TV_ALARM_ELECTRIC_VEHICLE_IN_ELEVATOR \
+                                        (NET_TV_ALARM_BASE_AI + 0x28)    // 电瓶车进电梯识别
+#define NET_TV_ALARM_GARBAGE_EXPOSURE   (NET_TV_ALARM_BASE_AI + 0x29)    // 垃圾暴露识别
+#define NET_TV_ALARM_GARBAGE_OVERFLOW   (NET_TV_ALARM_BASE_AI + 0x2A)    // 垃圾满溢识别
+#define NET_TV_ALARM_MANHOLE_COVER_ABNORMAL \
+                                        (NET_TV_ALARM_BASE_AI + 0x2B)    // 井盖异常检测
+
 
 // > 音频智能
 #define NET_ALARM_AUDIO_ANOMALY      (NET_ALARM_BASE_AI + 0x50)    // 音频异常
@@ -1192,6 +1237,18 @@ typedef enum tagNETTVCfgCmd
     NET_GET_FACE_INFO                  = 490,           /* 获取人脸 参见NET_FACE_INFO_LIST_S */
     NET_GET_VOICECOM_AUDIO_CFG         = 491,           /* 获取对讲音频参数 参见NET_VOICECOM_AUDIO_CFG_S */
     NET_SET_VOICECOM_AUDIO_CFG         = 492,           /* 设置对讲音频参数 参见NET_VOICECOM_AUDIO_CFG_S */
+
+    NET_GET_SD_CARD_STATUS                = 493,           /* 获取 SD 卡状态 参见NET_SdCardStatus_S */
+    NET_GET_AUDIBLE_ALARM_INFO            = 494,           /* 获取声音报警配置 参见NET_AudibleAlarmInfo_S */
+    NET_SET_AUDIBLE_ALARM_INFO            = 495,           /* 设置声音报警配置 参见NET_AudibleAlarmInfo_S */
+    NET_GET_ALARM_INPUT_INFO              = 496,           /* 获取报警输入配置 参见NET_AlarmInputInfoList_S */
+    NET_SET_ALARM_INPUT_INFO              = 497,           /* 设置报警输入配置 参见NET_AlarmInputInfo_S */
+    NET_GET_ALARM_OUTPUT_INFO             = 498,           /* 获取报警输出配置 参见NET_AlarmOutputInfoList_S */
+    NET_SET_ALARM_OUTPUT_INFO             = 499,           /* 设置报警输出配置 参见NET_AlarmOutputInfo_S */
+    NET_GET_FLASHING_LIGHT_ALARM_INFO     = 500,           /* 获取闪光报警配置 参见NET_FlashingLightAlarmInfo_S */
+    NET_SET_FLASHING_LIGHT_ALARM_INFO     = 501,           /* 设置闪光报警配置 参见NET_FlashingLightAlarmInfo_S */
+    NET_GET_PIR_ALARM_INFO                = 502,           /* 获取 PIR 报警配置 参见NET_PirAlarmInfo_S */
+    NET_SET_PIR_ALARM_INFO                = 503,           /* 设置 PIR 报警配置 参见NET_PirAlarmInfo_S */
 
     NET_CFG_INVALID                  = 0xFFFF            /* 无效值  Invalid value */
 
@@ -2509,6 +2566,37 @@ typedef struct tagNET_RecordStatusInfo
 typedef NET_RecordStatusInfo_S* pNET_RecordStatusInfo_S;
 
 /**
+ * @brief SD 卡物理状态码。
+ */
+typedef enum tagNETSdCardStatusCode
+{
+    NET_SD_CARD_STATUS_WRITE_ERROR  = -1,  /* SD 卡写入失败。 */
+    NET_SD_CARD_STATUS_INITIALIZING = 0,   /* SD 卡正在初始化。 */
+    NET_SD_CARD_STATUS_UNPLUGGED    = 1,   /* 未检测到 SD 卡。 */
+    NET_SD_CARD_STATUS_FORMATTING   = 2,   /* SD 卡正在格式化。 */
+    NET_SD_CARD_STATUS_NORMAL       = 3    /* SD 卡可正常使用。 */
+} NET_SdCardStatus_EN;
+
+#define NET_SD_CARD_STATUS_TEXT_LEN     32
+#define NET_SD_CARD_STATUS_RESERVED_LEN 64
+
+/**
+ * @brief SD 卡物理状态信息。
+ * @note 用于 NET_GET_SD_CARD_STATUS。
+ */
+typedef struct tagNETSdCardStatusInfo
+{
+    /* NET_SdCardStatus_EN 枚举值。 */
+    INT32 nStatus;
+    /* 可读的状态文本。 */
+    CHAR strStatusText[NET_SD_CARD_STATUS_TEXT_LEN];
+    /* SD 卡可用时为 TRUE。 */
+    BOOL bReady;
+    /* 预留给后续 SDK 扩展。 */
+    BYTE abyReserved[NET_SD_CARD_STATUS_RESERVED_LEN];
+} NET_SdCardStatus_S, *pNET_SdCardStatus_S;
+
+/**
  * @struct tagNETTVRecordTime
  * @brief 录像计划时间段
  */
@@ -3341,6 +3429,232 @@ typedef struct tagNET_LinkageList
     INT32       auSnapshotChannel[NET_CHANNEL_MAX]; /* 抓拍通道号数组 */
     BYTE        byRes[256];                         /* 保留字段 */
 } NET_LinkageList_S;
+
+/*
+ * 描述：声音报警选择的音源类型。
+ */
+typedef enum tagNETAudibleAlarmSoundType
+{
+    /* 使用默认警示音。 */
+    NET_AUDIBLE_ALARM_SOUND_TYPE_WARNING = 0,
+    /* 使用内置警报音。 */
+    NET_AUDIBLE_ALARM_SOUND_TYPE_ALERT   = 1,
+    /* 使用自定义音频。 */
+    NET_AUDIBLE_ALARM_SOUND_TYPE_CUSTOM  = 2
+} NET_AudibleAlarmSoundType_EN;
+
+/*
+ * 描述：内置声音报警音频的标识。
+ */
+typedef enum tagNETAudibleAlarmAlertSound
+{
+    /* 请立即离开警戒区域。 */
+    NET_AUDIBLE_ALARM_ALERT_SOUND_WARNING_ZONE_LEAVE_IMMEDIATELY = 0,
+    /* 危险区域，请勿靠近。 */
+    NET_AUDIBLE_ALARM_ALERT_SOUND_DANGER_ZONE_DO_NOT_APPROACH   = 1,
+    /* 禁止停车区域。 */
+    NET_AUDIBLE_ALARM_ALERT_SOUND_NO_PARKING_ZONE               = 2,
+    /* 已进入监控区域。 */
+    NET_AUDIBLE_ALARM_ALERT_SOUND_ENTERING_SURVEILLANCE_ZONE    = 3,
+    /* 欢迎光临。 */
+    NET_AUDIBLE_ALARM_ALERT_SOUND_WELCOME_GREETING              = 4,
+    /* 请勿触摸贵重物品。 */
+    NET_AUDIBLE_ALARM_ALERT_SOUND_DO_NOT_TOUCH_VALUABLES        = 5,
+    /* 私人区域，禁止入内。 */
+    NET_AUDIBLE_ALARM_ALERT_SOUND_PRIVATE_PROPERTY_NO_ENTRY     = 6,
+    /* 深水危险。 */
+    NET_AUDIBLE_ALARM_ALERT_SOUND_DEEP_WATER_WARNING            = 7,
+    /* 高处危险。 */
+    NET_AUDIBLE_ALARM_ALERT_SOUND_HIGH_PLACE_DANGER             = 8,
+    /* 尖叫报警音。 */
+    NET_AUDIBLE_ALARM_ALERT_SOUND_SHRIEK_ALARM                  = 9,
+    /* 通用警示音。 */
+    NET_AUDIBLE_ALARM_ALERT_SOUND_GENERAL_WARNING_TONE          = 10
+} NET_AudibleAlarmAlertSound_EN;
+
+/*
+ * 描述：报警输出通道的控制状态。
+ */
+typedef enum tagNETAlarmOutputState
+{
+    /* 关闭报警输出。 */
+    NET_ALARM_OUTPUT_STATE_OFF       = 0,
+    /* 开启报警输出。 */
+    NET_ALARM_OUTPUT_STATE_ON        = 1,
+    /* 人工关闭报警输出。 */
+    NET_ALARM_OUTPUT_STATE_HUMAN_OFF = 2,
+    /* 人工开启报警输出。 */
+    NET_ALARM_OUTPUT_STATE_HUMAN_ON  = 3
+} NET_AlarmOutputState_EN;
+
+/*
+ * 描述：闪光报警灯的闪烁频率。
+ */
+typedef enum tagNETFlashingLightFrequency
+{
+    /* 持续常亮。 */
+    NET_FLASHING_LIGHT_FREQUENCY_STEADY_ON = 0,
+    /* 低频闪烁。 */
+    NET_FLASHING_LIGHT_FREQUENCY_LOW       = 1,
+    /* 中频闪烁。 */
+    NET_FLASHING_LIGHT_FREQUENCY_MIDDLE    = 2,
+    /* 高频闪烁。 */
+    NET_FLASHING_LIGHT_FREQUENCY_HIGH      = 3
+} NET_FlashingLightFrequency_EN;
+
+/*
+ * 描述：声音报警使用的一条自定义音频信息。
+ */
+typedef struct tagNETAudibleAlarmCustomAudio
+{
+    /* 是否选中当前自定义音频。 */
+    BOOL bSelected;
+    /* 自定义音频名称。 */
+    CHAR strName[NET_ALARM_CUSTOM_AUDIO_NAME_LEN];
+    /* 自定义音频文件路径。 */
+    CHAR strPath[NET_ALARM_CUSTOM_AUDIO_PATH_LEN];
+    /* 保留字段，调用方应置零。 */
+    BYTE abyReserved[NET_ALARM_CONFIG_RESERVED_LEN];
+} NET_AudibleAlarmCustomAudio_S, *pNET_AudibleAlarmCustomAudio_S;
+
+/*
+ * 描述：声音报警输出配置。
+ */
+typedef struct tagNETAudibleAlarmInfo
+{
+    /* 音源类型，取值见 NET_AudibleAlarmSoundType_EN。 */
+    INT32 enSoundType;
+    /* 内置警报音标识，取值见 NET_AudibleAlarmAlertSound_EN。 */
+    INT32 enAlertSound;
+    /* 声音重复播放次数。 */
+    INT32 nTimes;
+    /* 自定义音频数量。 */
+    INT32 nCustomAudioCount;
+    /* 自定义音频列表。 */
+    NET_AudibleAlarmCustomAudio_S astCustomAudios[NET_AUDIBLE_ALARM_CUSTOM_AUDIO_MAX_NUM];
+    /* 声音报警的布防时间表。 */
+    NET_AlarmSchedule_S stAlarmSchedule;
+    /* 保留字段，调用方应置零。 */
+    BYTE abyReserved[NET_ALARM_CONFIG_RESERVED_LEN];
+} NET_AudibleAlarmInfo_S, *pNET_AudibleAlarmInfo_S;
+
+/*
+ * 描述：单个报警输入通道的配置。
+ */
+typedef struct tagNETAlarmInputInfo
+{
+    /* 报警输入通道编号。 */
+    INT32 nAlarmNumber;
+    /* 报警输入通道地址。 */
+    CHAR strAlarmAddress[NET_ALARM_ADDRESS_LEN];
+    /* 报警输入通道名称。 */
+    CHAR strAlarmName[NET_ALARM_NAME_LEN];
+    /* 是否采用常开接线方式。 */
+    BOOL bNormallyOpen;
+    /* 报警输入处理方式。 */
+    INT32 nDealType;
+    /* 报警输入的布防时间表。 */
+    NET_AlarmSchedule_S stAlarmSchedule;
+    /* 报警输入触发后的联动配置。 */
+    NET_LinkageList_S stLinkageList;
+    /* 复制目标通道数量。 */
+    INT32 nCopyToCount;
+    /* 复制目标通道编号列表。 */
+    INT32 anCopyTo[NET_ALARM_COPY_TO_MAX_NUM];
+    /* 保留字段，调用方应置零。 */
+    BYTE abyReserved[NET_ALARM_CONFIG_RESERVED_LEN];
+} NET_AlarmInputInfo_S, *pNET_AlarmInputInfo_S;
+
+/*
+ * 描述：获取报警输入配置时返回的通道配置集合。
+ */
+typedef struct tagNETAlarmInputInfoList
+{
+    /* 有效报警输入通道数量。 */
+    INT32 nAlarmInputCount;
+    /* 报警输入通道配置列表。 */
+    NET_AlarmInputInfo_S astAlarmInputs[NET_MAX_ALARM_IN_NUM];
+    /* 保留字段，调用方应置零。 */
+    BYTE abyReserved[NET_ALARM_CONFIG_RESERVED_LEN];
+} NET_AlarmInputInfoList_S, *pNET_AlarmInputInfoList_S;
+
+/*
+ * 描述：单个报警输出通道的配置。
+ */
+typedef struct tagNETAlarmOutputInfo
+{
+    /* 报警输出通道编号。 */
+    INT32 nAlarmNumber;
+    /* 报警输出通道地址。 */
+    CHAR strAlarmAddress[NET_ALARM_ADDRESS_LEN];
+    /* 报警输出通道名称。 */
+    CHAR strAlarmName[NET_ALARM_NAME_LEN];
+    /* 报警输出保持时间，单位为秒。 */
+    INT32 nDelayTime;
+    /* 报警输出状态，取值见 NET_AlarmOutputState_EN。 */
+    INT32 enState;
+    /* 报警输出的布防时间表。 */
+    NET_AlarmSchedule_S stAlarmSchedule;
+    /* 复制目标通道数量。 */
+    INT32 nCopyToCount;
+    /* 复制目标通道编号列表。 */
+    INT32 anCopyTo[NET_ALARM_COPY_TO_MAX_NUM];
+    /* 保留字段，调用方应置零。 */
+    BYTE abyReserved[NET_ALARM_CONFIG_RESERVED_LEN];
+} NET_AlarmOutputInfo_S, *pNET_AlarmOutputInfo_S;
+
+/*
+ * 描述：获取报警输出配置时返回的通道配置集合。
+ */
+typedef struct tagNETAlarmOutputInfoList
+{
+    /* 有效报警输出通道数量。 */
+    INT32 nAlarmOutputCount;
+    /* 报警输出通道配置列表。 */
+    NET_AlarmOutputInfo_S astAlarmOutputs[NET_MAX_ALARM_OUT_NUM];
+    /* 保留字段，调用方应置零。 */
+    BYTE abyReserved[NET_ALARM_CONFIG_RESERVED_LEN];
+} NET_AlarmOutputInfoList_S, *pNET_AlarmOutputInfoList_S;
+
+/*
+ * 描述：闪光报警灯的配置。
+ */
+typedef struct tagNETFlashingLightAlarmInfo
+{
+    /* 闪光持续时间，单位为秒。 */
+    INT32 nFlashTime;
+    /* 闪烁频率，取值见 NET_FlashingLightFrequency_EN。 */
+    INT32 enFlashFrequency;
+    /* 闪光报警的布防时间表。 */
+    NET_AlarmSchedule_S stAlarmSchedule;
+    /* 复制目标通道数量。 */
+    INT32 nCopyToCount;
+    /* 复制目标通道编号列表。 */
+    INT32 anCopyTo[NET_ALARM_COPY_TO_MAX_NUM];
+    /* 保留字段，调用方应置零。 */
+    BYTE abyReserved[NET_ALARM_CONFIG_RESERVED_LEN];
+} NET_FlashingLightAlarmInfo_S, *pNET_FlashingLightAlarmInfo_S;
+
+/*
+ * 描述：人体红外（PIR）报警配置。
+ */
+typedef struct tagNETPirAlarmInfo
+{
+    /* 是否启用人体红外报警。 */
+    BOOL bEnable;
+    /* 人体红外报警名称。 */
+    CHAR strAlarmName[NET_ALARM_NAME_LEN];
+    /* 人体红外报警的布防时间表。 */
+    NET_AlarmSchedule_S stAlarmSchedule;
+    /* 人体红外报警触发后的联动配置。 */
+    NET_LinkageList_S stLinkageList;
+    /* 复制目标通道数量。 */
+    INT32 nCopyToCount;
+    /* 复制目标通道编号列表。 */
+    INT32 anCopyTo[NET_ALARM_COPY_TO_MAX_NUM];
+    /* 保留字段，调用方应置零。 */
+    BYTE abyReserved[NET_ALARM_CONFIG_RESERVED_LEN];
+} NET_PirAlarmInfo_S, *pNET_PirAlarmInfo_S;
 
 /**
  * @brief 联动配置列表结构体指针类型

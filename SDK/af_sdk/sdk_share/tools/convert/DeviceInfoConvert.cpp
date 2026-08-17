@@ -568,6 +568,398 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_RecordStatusInfo_S& stInfo, b
     convert.field(pRootJson, "Status", stInfo.nStatus);
 }
 
+/**
+ * @brief 在 JSON 与 SDK SD 卡状态结构体之间转换。
+ * @author ITC
+ * @param [in,out] pRootJson 根据 bOutStruct 作为源 JSON 或目标 JSON 对象。
+ * @param [in,out] stInfo 根据 bOutStruct 作为源或目标 SD 卡状态结构体。
+ * @param [in] bOutStruct 为 TRUE 时将 JSON 解析到 stInfo；为 FALSE 时将 stInfo 序列化到 JSON。
+ * @return 无。
+ */
+void SDKConvert::deal(Json::Object* pRootJson, NET_SdCardStatus_S& stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+
+    SDKConvert::CSDKConvert convert(bOutStruct);
+    convert.field(pRootJson, "Status", stInfo.nStatus);
+    convert.field(pRootJson, "StatusText", stInfo.strStatusText);
+    convert.field(pRootJson, "Ready", stInfo.bReady);
+}
+
+
+/**
+ * @brief 告警联动通道数组转换参数。
+ */
+typedef struct AlarmCopyToConvertParam_S
+{
+    const char* pJsonKey;
+    INT32& nCopyToCount;
+    INT32* pCopyTo;
+    INT32 nCapacity;
+    bool bOutStruct;
+} AlarmCopyToConvertParam_S;
+
+/**
+ * @brief 将数组元素数量限制在 SDK 二进制接口定义的最大容量内。
+ * @author ITC
+ * @param [in] nCount 待限制的数组元素数量。
+ * @param [in] nMaximum 数组允许的最大元素数量。
+ * @return 返回位于零和 nMaximum 之间的元素数量。
+ */
+static INT32 clamp_alarm_config_count(INT32 nCount, INT32 nMaximum)
+{
+    if (nCount < 0)
+    {
+        return 0;
+    }
+    if (nCount > nMaximum)
+    {
+        return nMaximum;
+    }
+    return nCount;
+}
+
+/**
+ * @brief 在 JSON 与 SDK 固定长度联动通道数组之间转换。
+ * @author ITC
+ * @param [in,out] pRootJson 根据 stConvertParam.bOutStruct 作为源或目标 JSON 对象。
+ * @param [in,out] stConvertParam 固定长度联动通道数组的转换参数。
+ * @return 无。
+ */
+static void deal_alarm_copy_to(Json::Object* pRootJson,
+                               AlarmCopyToConvertParam_S& stConvertParam)
+{
+    if (!pRootJson || !stConvertParam.pJsonKey || !stConvertParam.pCopyTo ||
+        stConvertParam.nCapacity <= 0)
+    {
+        return;
+    }
+
+    if (stConvertParam.bOutStruct)
+    {
+        Json::Object* pArray = Json::get(pRootJson, stConvertParam.pJsonKey);
+        const INT32 nArrayCount = pArray ? (INT32)Json::Array::size(pArray) : 0;
+        stConvertParam.nCopyToCount = clamp_alarm_config_count(nArrayCount,
+                                                                stConvertParam.nCapacity);
+        for (INT32 nIndex = 0; nIndex < stConvertParam.nCopyToCount; ++nIndex)
+        {
+            Json::Object* pItem = Json::Array::get(pArray, nIndex);
+            if (pItem)
+            {
+                Json::Value::get(pItem, stConvertParam.pCopyTo[nIndex]);
+            }
+        }
+        return;
+    }
+
+    stConvertParam.nCopyToCount = clamp_alarm_config_count(stConvertParam.nCopyToCount,
+                                                            stConvertParam.nCapacity);
+    Json::Object* pArray = Json::Array::init();
+    if (!pArray)
+    {
+        return;
+    }
+    for (INT32 nIndex = 0; nIndex < stConvertParam.nCopyToCount; ++nIndex)
+    {
+        Json::Array::add(pArray, stConvertParam.pCopyTo[nIndex]);
+    }
+    Json::add(pRootJson, stConvertParam.pJsonKey, pArray);
+}
+
+/**
+ * @brief 在 JSON 与 SDK 自定义声音告警音频信息之间转换。
+ * @author ITC
+ * @param [in,out] pRootJson 根据 bOutStruct 作为源或目标 JSON 对象。
+ * @param [in,out] stInfo 根据 bOutStruct 作为源或目标自定义音频结构体。
+ * @param [in] bOutStruct 为 TRUE 时将 JSON 解析到结构体；为 FALSE 时将结构体序列化到 JSON。
+ * @return 无。
+ */
+void SDKConvert::deal(Json::Object* pRootJson, NET_AudibleAlarmCustomAudio_S& stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+
+    SDKConvert::CSDKConvert stConvert(bOutStruct);
+    stConvert.field(pRootJson, "Selected", stInfo.bSelected);
+    stConvert.field(pRootJson, "Name", stInfo.strName);
+    stConvert.field(pRootJson, "Path", stInfo.strPath);
+}
+
+/**
+ * @brief 在 JSON 与 SDK 声音告警配置之间转换。
+ * @author ITC
+ * @param [in,out] pRootJson 根据 bOutStruct 作为源或目标 JSON 对象。
+ * @param [in,out] stInfo 根据 bOutStruct 作为源或目标声音告警配置结构体。
+ * @param [in] bOutStruct 为 TRUE 时将 JSON 解析到结构体；为 FALSE 时将结构体序列化到 JSON。
+ * @return 无。
+ */
+void SDKConvert::deal(Json::Object* pRootJson, NET_AudibleAlarmInfo_S& stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+
+    SDKConvert::CSDKConvert stConvert(bOutStruct);
+    stConvert.field(pRootJson, "SoundType", stInfo.enSoundType);
+    stConvert.field(pRootJson, "AlertSound", stInfo.enAlertSound);
+    stConvert.field(pRootJson, "Times", stInfo.nTimes);
+    stConvert.structure(pRootJson, "AlarmSchedule", stInfo.stAlarmSchedule);
+
+    if (bOutStruct)
+    {
+        Json::Object* pArray = Json::get(pRootJson, "CustomAudios");
+        const INT32 nArrayCount = pArray ? (INT32)Json::Array::size(pArray) : 0;
+        stInfo.nCustomAudioCount = clamp_alarm_config_count(nArrayCount,
+                                                             NET_AUDIBLE_ALARM_CUSTOM_AUDIO_MAX_NUM);
+        for (INT32 nIndex = 0; nIndex < stInfo.nCustomAudioCount; ++nIndex)
+        {
+            Json::Object* pItem = Json::Array::get(pArray, nIndex);
+            if (pItem)
+            {
+                deal(pItem, stInfo.astCustomAudios[nIndex], bOutStruct);
+            }
+        }
+        return;
+    }
+
+    stInfo.nCustomAudioCount = clamp_alarm_config_count(stInfo.nCustomAudioCount,
+                                                         NET_AUDIBLE_ALARM_CUSTOM_AUDIO_MAX_NUM);
+    stConvert.field(pRootJson, "CustomAudioCount", stInfo.nCustomAudioCount);
+    Json::Object* pArray = Json::Array::init();
+    if (!pArray)
+    {
+        return;
+    }
+    for (INT32 nIndex = 0; nIndex < stInfo.nCustomAudioCount; ++nIndex)
+    {
+        Json::Object* pItem = Json::init();
+        if (!pItem)
+        {
+            continue;
+        }
+        deal(pItem, stInfo.astCustomAudios[nIndex], bOutStruct);
+        Json::Array::add(pArray, pItem);
+    }
+    Json::add(pRootJson, "CustomAudios", pArray);
+}
+
+/**
+ * @brief 在 JSON 与 SDK 单路报警输入配置之间转换。
+ * @author ITC
+ * @param [in,out] pRootJson 根据 bOutStruct 作为源或目标 JSON 对象。
+ * @param [in,out] stInfo 根据 bOutStruct 作为源或目标报警输入配置结构体。
+ * @param [in] bOutStruct 为 TRUE 时将 JSON 解析到结构体；为 FALSE 时将结构体序列化到 JSON。
+ * @return 无。
+ */
+void SDKConvert::deal(Json::Object* pRootJson, NET_AlarmInputInfo_S& stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+
+    SDKConvert::CSDKConvert stConvert(bOutStruct);
+    stConvert.field(pRootJson, "AlarmNumber", stInfo.nAlarmNumber);
+    stConvert.field(pRootJson, "AlarmAddress", stInfo.strAlarmAddress);
+    stConvert.field(pRootJson, "AlarmName", stInfo.strAlarmName);
+    stConvert.field(pRootJson, "NormallyOpen", stInfo.bNormallyOpen);
+    stConvert.field(pRootJson, "DealType", stInfo.nDealType);
+    stConvert.structure(pRootJson, "AlarmSchedule", stInfo.stAlarmSchedule);
+    stConvert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
+    AlarmCopyToConvertParam_S stCopyToConvertParam = {
+        "CopyTo", stInfo.nCopyToCount, stInfo.anCopyTo, NET_ALARM_COPY_TO_MAX_NUM, bOutStruct};
+    deal_alarm_copy_to(pRootJson, stCopyToConvertParam);
+}
+
+/**
+ * @brief 在 JSON 与 SDK 报警输入配置集合之间转换。
+ * @author ITC
+ * @param [in,out] pRootJson 根据 bOutStruct 作为源或目标 JSON 对象。
+ * @param [in,out] stInfo 根据 bOutStruct 作为源或目标报警输入配置集合结构体。
+ * @param [in] bOutStruct 为 TRUE 时将 JSON 解析到结构体；为 FALSE 时将结构体序列化到 JSON。
+ * @return 无。
+ */
+void SDKConvert::deal(Json::Object* pRootJson, NET_AlarmInputInfoList_S& stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+
+    SDKConvert::CSDKConvert stConvert(bOutStruct);
+    if (bOutStruct)
+    {
+        Json::Object* pArray = Json::get(pRootJson, "AlarmInputs");
+        const INT32 nArrayCount = pArray ? (INT32)Json::Array::size(pArray) : 0;
+        stInfo.nAlarmInputCount = clamp_alarm_config_count(nArrayCount, NET_MAX_ALARM_IN_NUM);
+        for (INT32 nIndex = 0; nIndex < stInfo.nAlarmInputCount; ++nIndex)
+        {
+            Json::Object* pItem = Json::Array::get(pArray, nIndex);
+            if (pItem)
+            {
+                deal(pItem, stInfo.astAlarmInputs[nIndex], bOutStruct);
+            }
+        }
+        return;
+    }
+
+    stInfo.nAlarmInputCount = clamp_alarm_config_count(stInfo.nAlarmInputCount,
+                                                        NET_MAX_ALARM_IN_NUM);
+    stConvert.field(pRootJson, "AlarmInputCount", stInfo.nAlarmInputCount);
+    Json::Object* pArray = Json::Array::init();
+    if (!pArray)
+    {
+        return;
+    }
+    for (INT32 nIndex = 0; nIndex < stInfo.nAlarmInputCount; ++nIndex)
+    {
+        Json::Object* pItem = Json::init();
+        if (!pItem)
+        {
+            continue;
+        }
+        deal(pItem, stInfo.astAlarmInputs[nIndex], bOutStruct);
+        Json::Array::add(pArray, pItem);
+    }
+    Json::add(pRootJson, "AlarmInputs", pArray);
+}
+
+/**
+ * @brief 在 JSON 与 SDK 单路报警输出配置之间转换。
+ * @author ITC
+ * @param [in,out] pRootJson 根据 bOutStruct 作为源或目标 JSON 对象。
+ * @param [in,out] stInfo 根据 bOutStruct 作为源或目标报警输出配置结构体。
+ * @param [in] bOutStruct 为 TRUE 时将 JSON 解析到结构体；为 FALSE 时将结构体序列化到 JSON。
+ * @return 无。
+ */
+void SDKConvert::deal(Json::Object* pRootJson, NET_AlarmOutputInfo_S& stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+
+    SDKConvert::CSDKConvert stConvert(bOutStruct);
+    stConvert.field(pRootJson, "AlarmNumber", stInfo.nAlarmNumber);
+    stConvert.field(pRootJson, "AlarmAddress", stInfo.strAlarmAddress);
+    stConvert.field(pRootJson, "AlarmName", stInfo.strAlarmName);
+    stConvert.field(pRootJson, "DelayTime", stInfo.nDelayTime);
+    stConvert.field(pRootJson, "State", stInfo.enState);
+    stConvert.structure(pRootJson, "AlarmSchedule", stInfo.stAlarmSchedule);
+    AlarmCopyToConvertParam_S stCopyToConvertParam = {
+        "CopyTo", stInfo.nCopyToCount, stInfo.anCopyTo, NET_ALARM_COPY_TO_MAX_NUM, bOutStruct};
+    deal_alarm_copy_to(pRootJson, stCopyToConvertParam);
+}
+
+/**
+ * @brief 在 JSON 与 SDK 报警输出配置集合之间转换。
+ * @author ITC
+ * @param [in,out] pRootJson 根据 bOutStruct 作为源或目标 JSON 对象。
+ * @param [in,out] stInfo 根据 bOutStruct 作为源或目标报警输出配置集合结构体。
+ * @param [in] bOutStruct 为 TRUE 时将 JSON 解析到结构体；为 FALSE 时将结构体序列化到 JSON。
+ * @return 无。
+ */
+void SDKConvert::deal(Json::Object* pRootJson, NET_AlarmOutputInfoList_S& stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+
+    SDKConvert::CSDKConvert stConvert(bOutStruct);
+    if (bOutStruct)
+    {
+        Json::Object* pArray = Json::get(pRootJson, "AlarmOutputs");
+        const INT32 nArrayCount = pArray ? (INT32)Json::Array::size(pArray) : 0;
+        stInfo.nAlarmOutputCount = clamp_alarm_config_count(nArrayCount,
+                                                             NET_MAX_ALARM_OUT_NUM);
+        for (INT32 nIndex = 0; nIndex < stInfo.nAlarmOutputCount; ++nIndex)
+        {
+            Json::Object* pItem = Json::Array::get(pArray, nIndex);
+            if (pItem)
+            {
+                deal(pItem, stInfo.astAlarmOutputs[nIndex], bOutStruct);
+            }
+        }
+        return;
+    }
+
+    stInfo.nAlarmOutputCount = clamp_alarm_config_count(stInfo.nAlarmOutputCount,
+                                                         NET_MAX_ALARM_OUT_NUM);
+    stConvert.field(pRootJson, "AlarmOutputCount", stInfo.nAlarmOutputCount);
+    Json::Object* pArray = Json::Array::init();
+    if (!pArray)
+    {
+        return;
+    }
+    for (INT32 nIndex = 0; nIndex < stInfo.nAlarmOutputCount; ++nIndex)
+    {
+        Json::Object* pItem = Json::init();
+        if (!pItem)
+        {
+            continue;
+        }
+        deal(pItem, stInfo.astAlarmOutputs[nIndex], bOutStruct);
+        Json::Array::add(pArray, pItem);
+    }
+    Json::add(pRootJson, "AlarmOutputs", pArray);
+}
+
+/**
+ * @brief 在 JSON 与 SDK 闪光灯告警配置之间转换。
+ * @author ITC
+ * @param [in,out] pRootJson 根据 bOutStruct 作为源或目标 JSON 对象。
+ * @param [in,out] stInfo 根据 bOutStruct 作为源或目标闪光灯告警配置结构体。
+ * @param [in] bOutStruct 为 TRUE 时将 JSON 解析到结构体；为 FALSE 时将结构体序列化到 JSON。
+ * @return 无。
+ */
+void SDKConvert::deal(Json::Object* pRootJson, NET_FlashingLightAlarmInfo_S& stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+
+    SDKConvert::CSDKConvert stConvert(bOutStruct);
+    stConvert.field(pRootJson, "FlashTime", stInfo.nFlashTime);
+    stConvert.field(pRootJson, "FlashFrequency", stInfo.enFlashFrequency);
+    stConvert.structure(pRootJson, "AlarmSchedule", stInfo.stAlarmSchedule);
+    AlarmCopyToConvertParam_S stCopyToConvertParam = {
+        "CopyTo", stInfo.nCopyToCount, stInfo.anCopyTo, NET_ALARM_COPY_TO_MAX_NUM, bOutStruct};
+    deal_alarm_copy_to(pRootJson, stCopyToConvertParam);
+}
+
+/**
+ * @brief 在 JSON 与 SDK PIR 告警配置之间转换。
+ * @author ITC
+ * @param [in,out] pRootJson 根据 bOutStruct 作为源或目标 JSON 对象。
+ * @param [in,out] stInfo 根据 bOutStruct 作为源或目标 PIR 告警配置结构体。
+ * @param [in] bOutStruct 为 TRUE 时将 JSON 解析到结构体；为 FALSE 时将结构体序列化到 JSON。
+ * @return 无。
+ */
+void SDKConvert::deal(Json::Object* pRootJson, NET_PirAlarmInfo_S& stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+
+    SDKConvert::CSDKConvert stConvert(bOutStruct);
+    stConvert.field(pRootJson, "Enable", stInfo.bEnable);
+    stConvert.field(pRootJson, "AlarmName", stInfo.strAlarmName);
+    stConvert.structure(pRootJson, "AlarmSchedule", stInfo.stAlarmSchedule);
+    stConvert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
+    AlarmCopyToConvertParam_S stCopyToConvertParam = {
+        "CopyTo", stInfo.nCopyToCount, stInfo.anCopyTo, NET_ALARM_COPY_TO_MAX_NUM, bOutStruct};
+    deal_alarm_copy_to(pRootJson, stCopyToConvertParam);
+}
+
 void SDKConvert::deal(Json::Object* pRootJson, NET_RecordTime_S& stInfo, bool bOutStruct)
 {
     if (!pRootJson)

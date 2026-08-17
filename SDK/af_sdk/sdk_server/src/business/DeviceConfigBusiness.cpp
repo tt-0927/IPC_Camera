@@ -33,7 +33,7 @@ static std::string HandleGetChannelInfo(INT32 channelId, INT32 command)
     }
     NETSDK_LOG_MESSAGE_INFO("GetChannelInfo callback cmd=%d, ret=%d", command, nRespCode);
     NETSDK_LOG_MESSAGE_INFO("GetChannelInfo callback END");
-    return SDKConvert::to_respString(nRespCode, stCfg);
+    return SDKConvert::to_respString(nRespCode, command, stCfg);
 }
 
 /**
@@ -48,7 +48,7 @@ static std::string HandleGetChannelList(INT32 channelId, INT32 command)
     if (!stCfg)
     {
         NETSDK_LOG_MESSAGE_WARN("GetChannelList callback alloc failed");
-        return SDKConvert::to_respString(NET_E_FAILED);
+        return SDKConvert::to_respString(NET_E_FAILED, command);
     }
 
     memset(stCfg.get(), 0, sizeof(NET_ChannelList_S));
@@ -64,7 +64,7 @@ static std::string HandleGetChannelList(INT32 channelId, INT32 command)
     }
     NETSDK_LOG_MESSAGE_INFO("GetChannelList callback cmd=%d, ret=%d", command, nRespCode);
     NETSDK_LOG_MESSAGE_INFO("GetChannelList callback END");
-    return SDKConvert::to_respString(nRespCode, *stCfg);
+    return SDKConvert::to_respString(nRespCode, command, *stCfg);
 }
 
 /**
@@ -85,8 +85,8 @@ std::string CDeviceConfigBusiness::HandleGetLogList(INT32 channelId, INT32 comma
 
     std::string strStartTime = ParseStringParam(url_param, "StartTime");
     std::string strEndTime = ParseStringParam(url_param, "EndTime");
-    strncpy(stCfg.stCond.szStartTime, strStartTime.c_str(), sizeof(stCfg.stCond.szStartTime) - 1);
-    strncpy(stCfg.stCond.szEndTime, strEndTime.c_str(), sizeof(stCfg.stCond.szEndTime) - 1);
+    snprintf(stCfg.stCond.szStartTime, sizeof(stCfg.stCond.szStartTime), "%s", strStartTime.c_str());
+    snprintf(stCfg.stCond.szEndTime, sizeof(stCfg.stCond.szEndTime), "%s", strEndTime.c_str());
 
     stCfg.stPage.nCurPage = ParseIntParam(url_param, "CurPage", 1);
     stCfg.stPage.nPageSize = ParseIntParam(url_param, "PageSize", NET_LOG_QUERY_COND_NUM);
@@ -107,7 +107,7 @@ std::string CDeviceConfigBusiness::HandleGetLogList(INT32 channelId, INT32 comma
     }
     NETSDK_LOG_MESSAGE_INFO("GetLogList callback cmd=%d, ret=%d", command, nRespCode);
     NETSDK_LOG_MESSAGE_INFO("GetLogList callback END");
-    return SDKConvert::to_respString(nRespCode, stCfg);
+    return SDKConvert::to_respString(nRespCode, command, stCfg);
 }
 
 /**
@@ -132,12 +132,12 @@ std::string CDeviceConfigBusiness::HandleGetRecordFileList(INT32 channelId, INT3
     std::string strStartTime = ParseStringParam(url_param, "StartTime");
     std::string strEndTime = ParseStringParam(url_param, "EndTime");
     std::string strFilename = ParseStringParam(url_param, "Filename");
-    strncpy(stCfg.stFind.szYear, strYear.c_str(), sizeof(stCfg.stFind.szYear) - 1);
-    strncpy(stCfg.stFind.szMonth, strMonth.c_str(), sizeof(stCfg.stFind.szMonth) - 1);
-    strncpy(stCfg.stFind.szDate, strDate.c_str(), sizeof(stCfg.stFind.szDate) - 1);
-    strncpy(stCfg.stFind.szStartTime, strStartTime.c_str(), sizeof(stCfg.stFind.szStartTime) - 1);
-    strncpy(stCfg.stFind.szEndTime, strEndTime.c_str(), sizeof(stCfg.stFind.szEndTime) - 1);
-    strncpy(stCfg.stFind.szFilename, strFilename.c_str(), sizeof(stCfg.stFind.szFilename) - 1);
+    snprintf(stCfg.stFind.szYear, sizeof(stCfg.stFind.szYear), "%s", strYear.c_str());
+    snprintf(stCfg.stFind.szMonth, sizeof(stCfg.stFind.szMonth), "%s", strMonth.c_str());
+    snprintf(stCfg.stFind.szDate, sizeof(stCfg.stFind.szDate), "%s", strDate.c_str());
+    snprintf(stCfg.stFind.szStartTime, sizeof(stCfg.stFind.szStartTime), "%s", strStartTime.c_str());
+    snprintf(stCfg.stFind.szEndTime, sizeof(stCfg.stFind.szEndTime), "%s", strEndTime.c_str());
+    snprintf(stCfg.stFind.szFilename, sizeof(stCfg.stFind.szFilename), "%s", strFilename.c_str());
 
     NETSDK_LOG_MESSAGE_INFO("GetRecordFileList callback START");
     int nRespCode = NetSDK_ExecuteCb_GetDevConfig(channelId, command, &stCfg);
@@ -147,7 +147,7 @@ std::string CDeviceConfigBusiness::HandleGetRecordFileList(INT32 channelId, INT3
     }
     NETSDK_LOG_MESSAGE_INFO("GetRecordFileList callback cmd=%d, ret=%d", command, nRespCode);
     NETSDK_LOG_MESSAGE_INFO("GetRecordFileList callback END");
-    return SDKConvert::to_respString(nRespCode, stCfg);
+    return SDKConvert::to_respString(nRespCode, command, stCfg);
 }
 
 /**
@@ -233,6 +233,24 @@ std::string CDeviceConfigBusiness::GetDevConfig(const std::string& req_data, con
 
         case NET_GET_RECORD_STATUS:
             return HandleGetConfig<NET_RecordStatusInfo_S>(channelId, command);
+
+        case NET_GET_SD_CARD_STATUS:
+            return HandleGetConfig<NET_SdCardStatus_S>(channelId, command);
+
+        case NET_GET_AUDIBLE_ALARM_INFO:
+            return HandleGetConfig<NET_AudibleAlarmInfo_S>(channelId, command);
+
+        case NET_GET_ALARM_INPUT_INFO:
+            return HandleGetConfig<NET_AlarmInputInfoList_S>(channelId, command);
+
+        case NET_GET_ALARM_OUTPUT_INFO:
+            return HandleGetConfig<NET_AlarmOutputInfoList_S>(channelId, command);
+
+        case NET_GET_FLASHING_LIGHT_ALARM_INFO:
+            return HandleGetConfig<NET_FlashingLightAlarmInfo_S>(channelId, command);
+
+        case NET_GET_PIR_ALARM_INFO:
+            return HandleGetConfig<NET_PirAlarmInfo_S>(channelId, command);
 
         case NET_GET_RECORD_SCHEDULE:
             return HandleGetConfig<NET_RecordSchedule_S>(channelId, command);
@@ -439,7 +457,7 @@ std::string CDeviceConfigBusiness::GetDevConfig(const std::string& req_data, con
             return HandleGetConfig<NET_RoadPondingCfg_S>(channelId, command);
         default:
             NETSDK_LOG_MESSAGE_WARN("Unsupported GetDevConfig command: %d", command);
-            return SDKConvert::to_respString(NET_E_CMD_NOT_SUPPORT);
+            return SDKConvert::to_respString(NET_E_CMD_NOT_SUPPORT, command);
     }
 }
 
@@ -565,6 +583,21 @@ std::string CDeviceConfigBusiness::SetDevConfig(const std::string& req_data, con
 
         case NET_SET_AUDIOANOMALYALARM:
             return HandleSetConfig<NET_AudioAnomalyAlarmInfo_S>(channelId, command, req_data);
+
+        case NET_SET_AUDIBLE_ALARM_INFO:
+            return HandleSetConfig<NET_AudibleAlarmInfo_S>(channelId, command, req_data);
+
+        case NET_SET_ALARM_INPUT_INFO:
+            return HandleSetConfig<NET_AlarmInputInfo_S>(channelId, command, req_data);
+
+        case NET_SET_ALARM_OUTPUT_INFO:
+            return HandleSetConfig<NET_AlarmOutputInfo_S>(channelId, command, req_data);
+
+        case NET_SET_FLASHING_LIGHT_ALARM_INFO:
+            return HandleSetConfig<NET_FlashingLightAlarmInfo_S>(channelId, command, req_data);
+
+        case NET_SET_PIR_ALARM_INFO:
+            return HandleSetConfig<NET_PirAlarmInfo_S>(channelId, command, req_data);
 
         case NET_SET_PREVIEW_INFO:
             return HandleSetConfig<NET_PreviewInfo_S>(channelId, command, req_data);
@@ -712,7 +745,7 @@ std::string CDeviceConfigBusiness::SetDevConfig(const std::string& req_data, con
 
         default:
             NETSDK_LOG_MESSAGE_WARN("Unsupported SetDevConfig command: %d", command);
-            return SDKConvert::to_respString(NET_E_CMD_NOT_SUPPORT);
+            return SDKConvert::to_respString(NET_E_CMD_NOT_SUPPORT, command);
     }
 }
 

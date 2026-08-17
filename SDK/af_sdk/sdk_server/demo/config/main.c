@@ -41,6 +41,8 @@
 /* 当前IPC能力只开放前4个自定义OSD槽位，结构体数组长度仍按SDK ABI保留。 */
 #define DEMO_OSD_CUSTOM_MAX_NUM NET_OSD_CUSTOM_MAX_NUM
 #define DEMO_OSD_STRUCT_SLOT_NUM NET_OSD_TYPE_MAX_NUM
+#define DEMO_ALARM_CHANNEL_INDEX 0
+#define DEMO_ALARM_OUTPUT_DELAY_SECONDS 5
 
 static INT32 g_serverPort = SDKSERVER_PORT;
 static CHAR g_serverUsername[NET_LEN_132] = SDKSERVER_USERNAME;
@@ -151,6 +153,11 @@ static NET_ParkingAlarmInfo_S g_stParkingAlarmInfo;
 static NET_UnattendedObjectAlarmInfo_S g_stUnattendedObjectAlarmInfo;
 static NET_ObjectRemovalAlarmInfo_S g_stObjectRemovalAlarmInfo;
 static NET_AudioAnomalyAlarmInfo_S g_stAudioAnomalyAlarmInfo;
+static NET_AudibleAlarmInfo_S gs_stAudibleAlarmInfo;
+static NET_AlarmInputInfoList_S gs_stAlarmInputInfoList;
+static NET_AlarmOutputInfoList_S gs_stAlarmOutputInfoList;
+static NET_FlashingLightAlarmInfo_S gs_stFlashingLightAlarmInfo;
+static NET_PirAlarmInfo_S gs_stPirAlarmInfo;
 static NET_ImageSetting_S g_stImageCfg;
 static NET_PreviewInfo_S g_stPreviewInfo;
 static NET_ChannelInfo_S g_stChannelInfo;
@@ -480,6 +487,32 @@ static void NormalizeDemoOsdConfig(NET_VideoOsdCfg_S* pCfg)
     }
 }
 
+/**
+ * @brief 初始化告警配置示例使用的全天布防时间表。
+ * @author ITC
+ * @param [out] pSchedule 待初始化的告警时间表。
+ * @return 无。
+ */
+static void ConfigDemoInitAlarmSchedule(NET_AlarmSchedule_S* pSchedule)
+{
+    INT32 nDay = 0;
+
+    if (!pSchedule)
+    {
+        return;
+    }
+
+    memset(pSchedule, 0, sizeof(*pSchedule));
+    for (nDay = 0; nDay < NET_ALARM_SCHEDULE_DAY_COUNT; ++nDay)
+    {
+        pSchedule->uTimeSectionCount[nDay] = 1;
+        pSchedule->astTimeSection[nDay][0].nStartHour = NET_ALARM_SCHEDULE_HOUR_MIN;
+        pSchedule->astTimeSection[nDay][0].nStartMinute = NET_ALARM_SCHEDULE_MINUTE_MIN;
+        pSchedule->astTimeSection[nDay][0].nEndHour = NET_ALARM_SCHEDULE_HOUR_MAX;
+        pSchedule->astTimeSection[nDay][0].nEndMinute = NET_ALARM_SCHEDULE_MINUTE_MAX;
+    }
+}
+
 static void InitDefaultConfig(void)
 {
     memset(&g_stDeviceBasicInfo, 0, sizeof(g_stDeviceBasicInfo));
@@ -505,6 +538,12 @@ static void InitDefaultConfig(void)
     memset(&g_stUnattendedObjectAlarmInfo, 0, sizeof(g_stUnattendedObjectAlarmInfo));
     memset(&g_stObjectRemovalAlarmInfo, 0, sizeof(g_stObjectRemovalAlarmInfo));
     memset(&g_stAudioAnomalyAlarmInfo, 0, sizeof(g_stAudioAnomalyAlarmInfo));
+    memset(&gs_stAudibleAlarmInfo, 0, sizeof(gs_stAudibleAlarmInfo));
+    memset(&gs_stAlarmInputInfoList, 0, sizeof(gs_stAlarmInputInfoList));
+    memset(&gs_stAlarmOutputInfoList, 0, sizeof(gs_stAlarmOutputInfoList));
+    memset(&gs_stFlashingLightAlarmInfo, 0, sizeof(gs_stFlashingLightAlarmInfo));
+    memset(&gs_stPirAlarmInfo, 0, sizeof(gs_stPirAlarmInfo));
+
     memset(&g_stImageCfg, 0, sizeof(g_stImageCfg));
     memset(&g_stPreviewInfo, 0, sizeof(g_stPreviewInfo));
 
@@ -1039,6 +1078,50 @@ static void InitDefaultConfig(void)
         g_stAudioAnomalyAlarmInfo.stAlarmSchedule.astTimeSection[day][0].nEndHour = 23;
         g_stAudioAnomalyAlarmInfo.stAlarmSchedule.astTimeSection[day][0].nEndMinute = 59;
     }
+
+    /* 声音报警配置默认值。 */
+    gs_stAudibleAlarmInfo.enSoundType = NET_AUDIBLE_ALARM_SOUND_TYPE_ALERT;
+    gs_stAudibleAlarmInfo.enAlertSound = NET_AUDIBLE_ALARM_ALERT_SOUND_GENERAL_WARNING_TONE;
+    gs_stAudibleAlarmInfo.nTimes = NET_AUDIBLE_ALARM_PLAY_TIMES_MIN;
+    ConfigDemoInitAlarmSchedule(&gs_stAudibleAlarmInfo.stAlarmSchedule);
+
+    /* 报警输入配置默认值。 */
+    gs_stAlarmInputInfoList.nAlarmInputCount = 1;
+    gs_stAlarmInputInfoList.astAlarmInputs[DEMO_ALARM_CHANNEL_INDEX].nAlarmNumber = DEMO_ALARM_CHANNEL_INDEX;
+    CopyString(gs_stAlarmInputInfoList.astAlarmInputs[DEMO_ALARM_CHANNEL_INDEX].strAlarmAddress,
+               sizeof(gs_stAlarmInputInfoList.astAlarmInputs[DEMO_ALARM_CHANNEL_INDEX].strAlarmAddress),
+               "AlarmInput0");
+    CopyString(gs_stAlarmInputInfoList.astAlarmInputs[DEMO_ALARM_CHANNEL_INDEX].strAlarmName,
+               sizeof(gs_stAlarmInputInfoList.astAlarmInputs[DEMO_ALARM_CHANNEL_INDEX].strAlarmName),
+               "Demo Alarm Input");
+    gs_stAlarmInputInfoList.astAlarmInputs[DEMO_ALARM_CHANNEL_INDEX].bNormallyOpen = TRUE;
+    gs_stAlarmInputInfoList.astAlarmInputs[DEMO_ALARM_CHANNEL_INDEX].nDealType = NET_ALARM_INPUT_DEAL_TYPE_ENABLED;
+    ConfigDemoInitAlarmSchedule(&gs_stAlarmInputInfoList.astAlarmInputs[DEMO_ALARM_CHANNEL_INDEX].stAlarmSchedule);
+
+    /* 报警输出配置默认值。 */
+    gs_stAlarmOutputInfoList.nAlarmOutputCount = 1;
+    gs_stAlarmOutputInfoList.astAlarmOutputs[DEMO_ALARM_CHANNEL_INDEX].nAlarmNumber = DEMO_ALARM_CHANNEL_INDEX;
+    CopyString(gs_stAlarmOutputInfoList.astAlarmOutputs[DEMO_ALARM_CHANNEL_INDEX].strAlarmAddress,
+               sizeof(gs_stAlarmOutputInfoList.astAlarmOutputs[DEMO_ALARM_CHANNEL_INDEX].strAlarmAddress),
+               "AlarmOutput0");
+    CopyString(gs_stAlarmOutputInfoList.astAlarmOutputs[DEMO_ALARM_CHANNEL_INDEX].strAlarmName,
+               sizeof(gs_stAlarmOutputInfoList.astAlarmOutputs[DEMO_ALARM_CHANNEL_INDEX].strAlarmName),
+               "Demo Alarm Output");
+    gs_stAlarmOutputInfoList.astAlarmOutputs[DEMO_ALARM_CHANNEL_INDEX].nDelayTime = DEMO_ALARM_OUTPUT_DELAY_SECONDS;
+    gs_stAlarmOutputInfoList.astAlarmOutputs[DEMO_ALARM_CHANNEL_INDEX].enState = NET_ALARM_OUTPUT_STATE_OFF;
+    ConfigDemoInitAlarmSchedule(&gs_stAlarmOutputInfoList.astAlarmOutputs[DEMO_ALARM_CHANNEL_INDEX].stAlarmSchedule);
+
+    /* 闪光报警灯配置默认值。 */
+    gs_stFlashingLightAlarmInfo.nFlashTime = NET_FLASHING_LIGHT_ALARM_TIME_MIN;
+    gs_stFlashingLightAlarmInfo.enFlashFrequency = NET_FLASHING_LIGHT_FREQUENCY_MIDDLE;
+    ConfigDemoInitAlarmSchedule(&gs_stFlashingLightAlarmInfo.stAlarmSchedule);
+
+    /* PIR 报警配置默认值。 */
+    gs_stPirAlarmInfo.bEnable = TRUE;
+    CopyString(gs_stPirAlarmInfo.strAlarmName,
+               sizeof(gs_stPirAlarmInfo.strAlarmName),
+               "Demo PIR Alarm");
+    ConfigDemoInitAlarmSchedule(&gs_stPirAlarmInfo.stAlarmSchedule);
 
     /* 图像配置默认值，对应 ISP::ImageParam_S */
     g_stImageCfg.nBrightness = 50;
@@ -4084,6 +4167,286 @@ static NET_COMMON_ECODE_E MySetAudioAnomalyAlarmCb(INT32 dwChannelID, LPVOID lpI
     return NET_E_SUCCEED;
 }
 
+/**
+ * @brief 获取内存中的声音报警配置。
+ * @author ITC
+ * @param [in] nChannelId 请求通道标识，本示例不区分通道。
+ * @param [out] pOutBuffer 指向 NET_AudibleAlarmInfo_S 的输出缓冲区。
+ * @return 成功返回 NET_TV_E_SUCCEED；参数为空返回 NET_TV_E_INVALID_PARAM。
+ */
+static NET_COMMON_ECODE_E ConfigDemoGetAudibleAlarmInfo(INT32 nChannelId, LPVOID pOutBuffer)
+{
+    pNET_AudibleAlarmInfo_S pAlarmInfo = NULL;
+
+    if (!pOutBuffer)
+    {
+        return NET_E_INVALID_PARAM;
+    }
+
+    pAlarmInfo = (pNET_AudibleAlarmInfo_S)pOutBuffer;
+    *pAlarmInfo = gs_stAudibleAlarmInfo;
+    printf("[ConfigServerDemo] GetAudibleAlarmInfo callback, Channel=%d\n", nChannelId);
+    return NET_E_SUCCEED;
+}
+
+/**
+ * @brief 设置内存中的声音报警配置。
+ * @author ITC
+ * @param [in] nChannelId 请求通道标识，本示例不区分通道。
+ * @param [in] pInBuffer 指向 NET_AudibleAlarmInfo_S 的输入缓冲区。
+ * @return 成功返回 NET_E_SUCCEED；参数为空返回 NET_TV_E_INVALID_PARAM。
+ */
+static NET_COMMON_ECODE_E ConfigDemoSetAudibleAlarmInfo(INT32 nChannelId, LPVOID pInBuffer)
+{
+    pNET_AudibleAlarmInfo_S pAlarmInfo = NULL;
+
+    if (!pInBuffer)
+    {
+        return NET_E_INVALID_PARAM;
+    }
+
+    pAlarmInfo = (pNET_AudibleAlarmInfo_S)pInBuffer;
+    gs_stAudibleAlarmInfo = *pAlarmInfo;
+    printf("[ConfigServerDemo] SetAudibleAlarmInfo callback, Channel=%d\n", nChannelId);
+    return NET_E_SUCCEED;
+}
+
+/**
+ * @brief 获取内存中的报警输入配置集合。
+ * @author ITC
+ * @param [in] nChannelId 请求通道标识，本示例不区分通道。
+ * @param [out] pOutBuffer 指向 NET_AlarmInputInfoList_S 的输出缓冲区。
+ * @return 成功返回 NET_E_SUCCEED；参数为空返回 NET_E_INVALID_PARAM。
+ */
+static NET_COMMON_ECODE_E ConfigDemoGetAlarmInputInfo(INT32 nChannelId, LPVOID pOutBuffer)
+{
+    pNET_AlarmInputInfoList_S pAlarmInputList = NULL;
+
+    if (!pOutBuffer)
+    {
+        return NET_E_INVALID_PARAM;
+    }
+
+    pAlarmInputList = (pNET_AlarmInputInfoList_S)pOutBuffer;
+    *pAlarmInputList = gs_stAlarmInputInfoList;
+    printf("[ConfigServerDemo] GetAlarmInputInfo callback, Channel=%d, Count=%d\n",
+           nChannelId,
+           gs_stAlarmInputInfoList.nAlarmInputCount);
+    return NET_E_SUCCEED;
+}
+
+/**
+ * @brief 按报警输入通道号更新或追加配置。
+ * @author ITC
+ * @param [in] nChannelId 请求通道标识，本示例不区分通道。
+ * @param [in] pInBuffer 指向 NET_AlarmInputInfo_S 的输入缓冲区。
+ * @return 成功返回 NET_TV_E_SUCCEED；参数或通道数量异常返回 NET_TV_E_INVALID_PARAM。
+ */
+static NET_COMMON_ECODE_E ConfigDemoSetAlarmInputInfo(INT32 nChannelId, LPVOID pInBuffer)
+{
+    pNET_AlarmInputInfo_S pAlarmInput = NULL;
+    INT32 nIndex = 0;
+    INT32 nInputCount = 0;
+
+    if (!pInBuffer)
+    {
+        return NET_E_INVALID_PARAM;
+    }
+
+    pAlarmInput = (pNET_AlarmInputInfo_S)pInBuffer;
+    nInputCount = gs_stAlarmInputInfoList.nAlarmInputCount;
+    if (nInputCount < 0 || nInputCount > NET_MAX_ALARM_IN_NUM)
+    {
+        return NET_E_INVALID_PARAM;
+    }
+
+    for (nIndex = 0; nIndex < nInputCount; ++nIndex)
+    {
+        if (gs_stAlarmInputInfoList.astAlarmInputs[nIndex].nAlarmNumber == pAlarmInput->nAlarmNumber)
+        {
+            gs_stAlarmInputInfoList.astAlarmInputs[nIndex] = *pAlarmInput;
+            printf("[ConfigServerDemo] SetAlarmInputInfo updated, Channel=%d, AlarmNumber=%d\n",
+                   nChannelId,
+                   pAlarmInput->nAlarmNumber);
+            return NET_E_SUCCEED;
+        }
+    }
+
+    if (nInputCount >= NET_MAX_ALARM_IN_NUM)
+    {
+        return NET_E_INVALID_PARAM;
+    }
+
+    gs_stAlarmInputInfoList.astAlarmInputs[nInputCount] = *pAlarmInput;
+    gs_stAlarmInputInfoList.nAlarmInputCount = nInputCount + 1;
+    printf("[ConfigServerDemo] SetAlarmInputInfo appended, Channel=%d, AlarmNumber=%d\n",
+           nChannelId,
+           pAlarmInput->nAlarmNumber);
+    return NET_E_SUCCEED;
+}
+
+/**
+ * @brief 获取内存中的报警输出配置集合。
+ * @author ITC
+ * @param [in] nChannelId 请求通道标识，本示例不区分通道。
+ * @param [out] pOutBuffer 指向 NET_AlarmOutputInfoList_S 的输出缓冲区。
+ * @return 成功返回 NET_TV_E_SUCCEED；参数为空返回 NET_TV_E_INVALID_PARAM。
+ */
+static NET_COMMON_ECODE_E ConfigDemoGetAlarmOutputInfo(INT32 nChannelId, LPVOID pOutBuffer)
+{
+    pNET_AlarmOutputInfoList_S pAlarmOutputList = NULL;
+
+    if (!pOutBuffer)
+    {
+        return NET_E_INVALID_PARAM;
+    }
+
+    pAlarmOutputList = (pNET_AlarmOutputInfoList_S)pOutBuffer;
+    *pAlarmOutputList = gs_stAlarmOutputInfoList;
+    printf("[ConfigServerDemo] GetAlarmOutputInfo callback, Channel=%d, Count=%d\n",
+           nChannelId,
+           gs_stAlarmOutputInfoList.nAlarmOutputCount);
+    return NET_E_SUCCEED;
+}
+
+/**
+ * @brief 按报警输出通道号更新或追加配置。
+ * @author ITC
+ * @param [in] nChannelId 请求通道标识，本示例不区分通道。
+ * @param [in] pInBuffer 指向 NET_AlarmOutputInfo_S 的输入缓冲区。
+ * @return 成功返回 NET_TV_E_SUCCEED；参数或通道数量异常返回 NET_TV_E_INVALID_PARAM。
+ */
+static NET_COMMON_ECODE_E ConfigDemoSetAlarmOutputInfo(INT32 nChannelId, LPVOID pInBuffer)
+{
+    pNET_AlarmOutputInfo_S pAlarmOutput = NULL;
+    INT32 nIndex = 0;
+    INT32 nOutputCount = 0;
+
+    if (!pInBuffer)
+    {
+        return NET_E_INVALID_PARAM;
+    }
+
+    pAlarmOutput = (pNET_AlarmOutputInfo_S)pInBuffer;
+    nOutputCount = gs_stAlarmOutputInfoList.nAlarmOutputCount;
+    if (nOutputCount < 0 || nOutputCount > NET_MAX_ALARM_OUT_NUM)
+    {
+        return NET_E_INVALID_PARAM;
+    }
+
+    for (nIndex = 0; nIndex < nOutputCount; ++nIndex)
+    {
+        if (gs_stAlarmOutputInfoList.astAlarmOutputs[nIndex].nAlarmNumber == pAlarmOutput->nAlarmNumber)
+        {
+            gs_stAlarmOutputInfoList.astAlarmOutputs[nIndex] = *pAlarmOutput;
+            printf("[ConfigServerDemo] SetAlarmOutputInfo updated, Channel=%d, AlarmNumber=%d\n",
+                   nChannelId,
+                   pAlarmOutput->nAlarmNumber);
+            return NET_E_SUCCEED;
+        }
+    }
+
+    if (nOutputCount >= NET_MAX_ALARM_OUT_NUM)
+    {
+        return NET_E_INVALID_PARAM;
+    }
+
+    gs_stAlarmOutputInfoList.astAlarmOutputs[nOutputCount] = *pAlarmOutput;
+    gs_stAlarmOutputInfoList.nAlarmOutputCount = nOutputCount + 1;
+    printf("[ConfigServerDemo] SetAlarmOutputInfo appended, Channel=%d, AlarmNumber=%d\n",
+           nChannelId,
+           pAlarmOutput->nAlarmNumber);
+    return NET_E_SUCCEED;
+}
+
+/**
+ * @brief 获取内存中的闪光报警灯配置。
+ * @author ITC
+ * @param [in] nChannelId 请求通道标识，本示例不区分通道。
+ * @param [out] pOutBuffer 指向 NET_FlashingLightAlarmInfo_S 的输出缓冲区。
+ * @return 成功返回 NET_TV_E_SUCCEED；参数为空返回 NET_TV_E_INVALID_PARAM。
+ */
+static NET_COMMON_ECODE_E ConfigDemoGetFlashingLightAlarmInfo(INT32 nChannelId, LPVOID pOutBuffer)
+{
+    pNET_FlashingLightAlarmInfo_S pAlarmInfo = NULL;
+
+    if (!pOutBuffer)
+    {
+        return NET_E_INVALID_PARAM;
+    }
+
+    pAlarmInfo = (pNET_FlashingLightAlarmInfo_S)pOutBuffer;
+    *pAlarmInfo = gs_stFlashingLightAlarmInfo;
+    printf("[ConfigServerDemo] GetFlashingLightAlarmInfo callback, Channel=%d\n", nChannelId);
+    return NET_E_SUCCEED;
+}
+
+/**
+ * @brief 设置内存中的闪光报警灯配置。
+ * @author ITC
+ * @param [in] nChannelId 请求通道标识，本示例不区分通道。
+ * @param [in] pInBuffer 指向 NET_FlashingLightAlarmInfo_S 的输入缓冲区。
+ * @return 成功返回 NET_TV_E_SUCCEED；参数为空返回 NET_TV_E_INVALID_PARAM。
+ */
+static NET_COMMON_ECODE_E ConfigDemoSetFlashingLightAlarmInfo(INT32 nChannelId, LPVOID pInBuffer)
+{
+    pNET_FlashingLightAlarmInfo_S pAlarmInfo = NULL;
+
+    if (!pInBuffer)
+    {
+        return NET_E_INVALID_PARAM;
+    }
+
+    pAlarmInfo = (pNET_FlashingLightAlarmInfo_S)pInBuffer;
+    gs_stFlashingLightAlarmInfo = *pAlarmInfo;
+    printf("[ConfigServerDemo] SetFlashingLightAlarmInfo callback, Channel=%d\n", nChannelId);
+    return NET_E_SUCCEED;
+}
+
+/**
+ * @brief 获取内存中的 PIR 报警配置。
+ * @author ITC
+ * @param [in] nChannelId 请求通道标识，本示例不区分通道。
+ * @param [out] pOutBuffer 指向 NET_PirAlarmInfo_S 的输出缓冲区。
+ * @return 成功返回 NET_TV_E_SUCCEED；参数为空返回 NET_TV_E_INVALID_PARAM。
+ */
+static NET_COMMON_ECODE_E ConfigDemoGetPirAlarmInfo(INT32 nChannelId, LPVOID pOutBuffer)
+{
+    pNET_PirAlarmInfo_S pAlarmInfo = NULL;
+
+    if (!pOutBuffer)
+    {
+        return NET_E_INVALID_PARAM;
+    }
+
+    pAlarmInfo = (pNET_PirAlarmInfo_S)pOutBuffer;
+    *pAlarmInfo = gs_stPirAlarmInfo;
+    printf("[ConfigServerDemo] GetPirAlarmInfo callback, Channel=%d\n", nChannelId);
+    return NET_E_SUCCEED;
+}
+
+/**
+ * @brief 设置内存中的 PIR 报警配置。
+ * @author ITC
+ * @param [in] nChannelId 请求通道标识，本示例不区分通道。
+ * @param [in] pInBuffer 指向 NET_PirAlarmInfo_S 的输入缓冲区。
+ * @return 成功返回 NET_TV_E_SUCCEED；参数为空返回 NET_TV_E_INVALID_PARAM。
+ */
+static NET_COMMON_ECODE_E ConfigDemoSetPirAlarmInfo(INT32 nChannelId, LPVOID pInBuffer)
+{
+    pNET_PirAlarmInfo_S pAlarmInfo = NULL;
+
+    if (!pInBuffer)
+    {
+        return NET_E_INVALID_PARAM;
+    }
+
+    pAlarmInfo = (pNET_PirAlarmInfo_S)pInBuffer;
+    gs_stPirAlarmInfo = *pAlarmInfo;
+    printf("[ConfigServerDemo] SetPirAlarmInfo callback, Channel=%d\n", nChannelId);
+    return NET_E_SUCCEED;
+}
+
 /* 图像配置 Get 回调，对应命令 NET_GET_IMAGECFG */
 static NET_COMMON_ECODE_E MyGetImageCfgCb(INT32 dwChannelID, LPVOID lpOutBuffer)
 {
@@ -6584,6 +6947,88 @@ static void RegisterCallbacks(void)
     else
     {
         printf("[ConfigServerDemo] RegisterCb_SetAudioAnomalyAlarm FAILED\n");
+    }
+
+    /* 声音报警、报警输入输出、闪光报警灯和 PIR 报警配置回调。 */
+    if (NET_SERVER_RegisterCb_GetAudibleAlarmInfo(ConfigDemoGetAudibleAlarmInfo))
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetAudibleAlarmInfo SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetAudibleAlarmInfo FAILED\n");
+    }
+    if (NET_SERVER_RegisterCb_SetAudibleAlarmInfo(ConfigDemoSetAudibleAlarmInfo))
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetAudibleAlarmInfo SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetAudibleAlarmInfo FAILED\n");
+    }
+    if (NET_SERVER_RegisterCb_GetAlarmInputInfo(ConfigDemoGetAlarmInputInfo))
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetAlarmInputInfo SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetAlarmInputInfo FAILED\n");
+    }
+    if (NET_SERVER_RegisterCb_SetAlarmInputInfo(ConfigDemoSetAlarmInputInfo))
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetAlarmInputInfo SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetAlarmInputInfo FAILED\n");
+    }
+    if (NET_SERVER_RegisterCb_GetAlarmOutputInfo(ConfigDemoGetAlarmOutputInfo))
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetAlarmOutputInfo SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetAlarmOutputInfo FAILED\n");
+    }
+    if (NET_SERVER_RegisterCb_SetAlarmOutputInfo(ConfigDemoSetAlarmOutputInfo))
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetAlarmOutputInfo SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetAlarmOutputInfo FAILED\n");
+    }
+    if (NET_SERVER_RegisterCb_GetFlashingLightAlarmInfo(ConfigDemoGetFlashingLightAlarmInfo))
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetFlashingLightAlarmInfo SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetFlashingLightAlarmInfo FAILED\n");
+    }
+    if (NET_SERVER_RegisterCb_SetFlashingLightAlarmInfo(ConfigDemoSetFlashingLightAlarmInfo))
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetFlashingLightAlarmInfo SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetFlashingLightAlarmInfo FAILED\n");
+    }
+    if (NET_SERVER_RegisterCb_GetPirAlarmInfo(ConfigDemoGetPirAlarmInfo))
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetPirAlarmInfo SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetPirAlarmInfo FAILED\n");
+    }
+    if (NET_SERVER_RegisterCb_SetPirAlarmInfo(ConfigDemoSetPirAlarmInfo))
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetPirAlarmInfo SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetPirAlarmInfo FAILED\n");
     }
 
     /* 图像配置回调 */

@@ -42,6 +42,9 @@
 /* 当前IPC能力只开放前4个自定义OSD槽位，结构体数组长度仍按SDK ABI保留。 */
 #define DEMO_OSD_CUSTOM_MAX_NUM NET_OSD_CUSTOM_MAX_NUM
 #define DEMO_OSD_STRUCT_SLOT_NUM NET_OSD_TYPE_MAX_NUM
+#define DEMO_CONFIG_CHANNEL_ID 1
+#define DEMO_ALARM_CHANNEL_INDEX 0
+#define DEMO_ALARM_OUTPUT_DELAY_SECONDS 5
 #define DEMO_VOICECOM_PORT 9006
 #define DEMO_VOICECOM_FRAME_INTERVAL_MS 20
 #define DEMO_VOICECOM_CHANNELS 1
@@ -301,6 +304,16 @@ static void PrintMenu()
     printf("171 - 设置对讲音频参数 (NET_SET_VOICECOM_AUDIO_CFG)\n");
     printf("172 - 获取系统校时配置 (NET_GET_NTPCFG)\n");
     printf("173 - 设置系统校时配置 (NET_SET_NTPCFG)\n");
+    printf("174 - 获取声音报警配置 (NET_GET_AUDIBLE_ALARM_INFO)\n");
+    printf("175 - 设置声音报警配置 (NET_SET_AUDIBLE_ALARM_INFO)\n");
+    printf("176 - 获取报警输入配置 (NET_GET_ALARM_INPUT_INFO)\n");
+    printf("177 - 设置报警输入配置 (NET_SET_ALARM_INPUT_INFO)\n");
+    printf("178 - 获取报警输出配置 (NET_GET_ALARM_OUTPUT_INFO)\n");
+    printf("179 - 设置报警输出配置 (NET_SET_ALARM_OUTPUT_INFO)\n");
+    printf("180 - 获取闪光报警灯配置 (NET_GET_FLASHING_LIGHT_ALARM_INFO)\n");
+    printf("181 - 设置闪光报警灯配置 (NET_SET_FLASHING_LIGHT_ALARM_INFO)\n");
+    printf("182 - 获取 PIR 报警配置 (NET_GET_PIR_ALARM_INFO)\n");
+    printf("183 - 设置 PIR 报警配置 (NET_SET_PIR_ALARM_INFO)\n");
     printf("3213 - 平台点播回放控制类型 (自定义选择 1~8)\n");
     printf("3214 - 平台点播暂停播放 (NET_SET_REPLAY_CTRL/PAUSE)\n");
     printf("3215 - 平台点播恢复播放 (NET_SET_REPLAY_CTRL/RESUME)\n");
@@ -5884,6 +5897,567 @@ static void DoSetAudioAnomalyAlarm()
     }
 }
 
+/**
+ * @brief 初始化告警配置示例使用的全天布防时间表。
+ * @author ITC
+ * @param [out] pSchedule 待初始化的告警时间表。
+ * @return 无。
+ */
+static void FillDemoAlarmSchedule(NET_AlarmSchedule_S* pSchedule)
+{
+    if (!pSchedule)
+    {
+        return;
+    }
+
+    memset(pSchedule, 0, sizeof(*pSchedule));
+    for (INT32 nDay = 0; nDay < NET_ALARM_SCHEDULE_DAY_COUNT; ++nDay)
+    {
+        pSchedule->uTimeSectionCount[nDay] = 1;
+        pSchedule->astTimeSection[nDay][0].nStartHour = NET_ALARM_SCHEDULE_HOUR_MIN;
+        pSchedule->astTimeSection[nDay][0].nStartMinute = NET_ALARM_SCHEDULE_MINUTE_MIN;
+        pSchedule->astTimeSection[nDay][0].nEndHour = NET_ALARM_SCHEDULE_HOUR_MAX;
+        pSchedule->astTimeSection[nDay][0].nEndMinute = NET_ALARM_SCHEDULE_MINUTE_MAX;
+    }
+}
+
+/**
+ * @brief 打印告警布防时间表。
+ * @author ITC
+ * @param [in] pSchedule 待打印的告警时间表。
+ * @return 无。
+ */
+static void PrintAlarmSchedule(const NET_AlarmSchedule_S* pSchedule)
+{
+    if (!pSchedule)
+    {
+        return;
+    }
+
+    for (INT32 nDay = 0; nDay < NET_ALARM_SCHEDULE_DAY_COUNT; ++nDay)
+    {
+        INT32 nSectionCount = pSchedule->uTimeSectionCount[nDay];
+        if (nSectionCount < 0)
+        {
+            nSectionCount = 0;
+        }
+        if (nSectionCount > NET_PLAN_SECTION_NUM)
+        {
+            nSectionCount = NET_PLAN_SECTION_NUM;
+        }
+
+        printf("    星期%d: ", nDay + 1);
+        if (nSectionCount == 0)
+        {
+            printf("未布防\n");
+            continue;
+        }
+
+        for (INT32 nSection = 0; nSection < nSectionCount; ++nSection)
+        {
+            const NET_SchedTime_S* pTime = &pSchedule->astTimeSection[nDay][nSection];
+            printf("%02d:%02d-%02d:%02d%s",
+                   pTime->nStartHour,
+                   pTime->nStartMinute,
+                   pTime->nEndHour,
+                   pTime->nEndMinute,
+                   nSection == nSectionCount - 1 ? "\n" : ", ");
+        }
+    }
+}
+
+/**
+ * @brief 打印告警联动通道数量。
+ * @author ITC
+ * @param [in] pLinkage 待打印的联动配置。
+ * @return 无。
+ */
+static void PrintAlarmLinkage(const NET_LinkageList_S* pLinkage)
+{
+    if (!pLinkage)
+    {
+        return;
+    }
+
+    printf("    联动报警输出=%d, 联动录像=%d, 联动抓拍=%d\n",
+           pLinkage->uAlarmOutputCount,
+           pLinkage->uRecordChannelCount,
+           pLinkage->uSnapshotChannelCount);
+}
+
+/**
+ * @brief 打印声音报警配置。
+ * @author ITC
+ * @param [in] pInfo 待打印的声音报警配置。
+ * @return 无。
+ */
+static void PrintAudibleAlarmInfo(const NET_AudibleAlarmInfo_S* pInfo)
+{
+    if (!pInfo)
+    {
+        return;
+    }
+
+    INT32 nAudioCount = pInfo->nCustomAudioCount;
+    if (nAudioCount < 0)
+    {
+        nAudioCount = 0;
+    }
+    if (nAudioCount > NET_AUDIBLE_ALARM_CUSTOM_AUDIO_MAX_NUM)
+    {
+        nAudioCount = NET_AUDIBLE_ALARM_CUSTOM_AUDIO_MAX_NUM;
+    }
+
+    printf("\n[Client] ===== 声音报警配置 =====\n");
+    printf("  声音类型=%d, 警示音=%d, 播放次数=%d\n",
+           pInfo->enSoundType,
+           pInfo->enAlertSound,
+           pInfo->nTimes);
+    printf("  自定义音频数量=%d\n", nAudioCount);
+    for (INT32 nIndex = 0; nIndex < nAudioCount; ++nIndex)
+    {
+        const NET_AudibleAlarmCustomAudio_S* pAudio = &pInfo->astCustomAudios[nIndex];
+        printf("    [%d] 已选择=%d, 名称=%s, 路径=%s\n",
+               nIndex,
+               pAudio->bSelected,
+               pAudio->strName,
+               pAudio->strPath);
+    }
+    printf("  布防时间：\n");
+    PrintAlarmSchedule(&pInfo->stAlarmSchedule);
+}
+
+/**
+ * @brief 获取并打印声音报警配置。
+ * @author ITC
+ * @param [in] 无。
+ * @return 无。
+ */
+static void DoGetAudibleAlarmInfo()
+{
+    NET_AudibleAlarmInfo_S stInfo;
+    INT32 nBytesReturned = 0;
+    memset(&stInfo, 0, sizeof(stInfo));
+
+    if (NET_GetDevConfig(g_lpUserID, DEMO_CONFIG_CHANNEL_ID, NET_GET_AUDIBLE_ALARM_INFO,
+                            &stInfo, (INT32)sizeof(stInfo), &nBytesReturned))
+    {
+        printf("[Client] 获取声音报警配置成功，返回字节数=%d\n", nBytesReturned);
+        PrintAudibleAlarmInfo(&stInfo);
+        return;
+    }
+
+    printf("[Client] 获取声音报警配置失败，错误码=%d\n", NET_GetLastError());
+}
+
+/**
+ * @brief 设置声音报警配置示例。
+ * @author ITC
+ * @param [in] 无。
+ * @return 无。
+ */
+static void DoSetAudibleAlarmInfo()
+{
+    NET_AudibleAlarmInfo_S stInfo;
+    INT32 nBytesReturned = 0;
+    memset(&stInfo, 0, sizeof(stInfo));
+
+    if (!NET_GetDevConfig(g_lpUserID, DEMO_CONFIG_CHANNEL_ID, NET_GET_AUDIBLE_ALARM_INFO,
+                             &stInfo, (INT32)sizeof(stInfo), &nBytesReturned))
+    {
+        printf("[Client] 预读取声音报警配置失败，使用示例默认值，错误码=%d\n",
+               NET_GetLastError());
+        memset(&stInfo, 0, sizeof(stInfo));
+    }
+
+    stInfo.enSoundType = NET_AUDIBLE_ALARM_SOUND_TYPE_ALERT;
+    stInfo.enAlertSound = NET_AUDIBLE_ALARM_ALERT_SOUND_GENERAL_WARNING_TONE;
+    stInfo.nTimes = NET_AUDIBLE_ALARM_PLAY_TIMES_MIN;
+    stInfo.nCustomAudioCount = 0;
+    FillDemoAlarmSchedule(&stInfo.stAlarmSchedule);
+
+    nBytesReturned = 0;
+    if (NET_SetDevConfig(g_lpUserID, DEMO_CONFIG_CHANNEL_ID, NET_SET_AUDIBLE_ALARM_INFO,
+                            &stInfo, (INT32)sizeof(stInfo), &nBytesReturned))
+    {
+        printf("[Client] 设置声音报警配置成功，返回字节数=%d\n", nBytesReturned);
+        DoGetAudibleAlarmInfo();
+        return;
+    }
+
+    printf("[Client] 设置声音报警配置失败，错误码=%d\n", NET_GetLastError());
+}
+
+/**
+ * @brief 打印报警输入配置集合。
+ * @author ITC
+ * @param [in] pInfo 待打印的报警输入配置集合。
+ * @return 无。
+ */
+static void PrintAlarmInputInfoList(const NET_AlarmInputInfoList_S* pInfo)
+{
+    if (!pInfo)
+    {
+        return;
+    }
+
+    INT32 nInputCount = pInfo->nAlarmInputCount;
+    if (nInputCount < 0)
+    {
+        nInputCount = 0;
+    }
+    if (nInputCount > NET_MAX_ALARM_IN_NUM)
+    {
+        nInputCount = NET_MAX_ALARM_IN_NUM;
+    }
+
+    printf("\n[Client] ===== 报警输入配置，共 %d 路 =====\n", nInputCount);
+    for (INT32 nIndex = 0; nIndex < nInputCount; ++nIndex)
+    {
+        const NET_AlarmInputInfo_S* pInput = &pInfo->astAlarmInputs[nIndex];
+        printf("  [%d] 编号=%d, 地址=%s, 名称=%s, 常开=%d, 处理方式=%d\n",
+               nIndex,
+               pInput->nAlarmNumber,
+               pInput->strAlarmAddress,
+               pInput->strAlarmName,
+               pInput->bNormallyOpen,
+               pInput->nDealType);
+        PrintAlarmLinkage(&pInput->stLinkageList);
+        PrintAlarmSchedule(&pInput->stAlarmSchedule);
+    }
+}
+
+/**
+ * @brief 获取并打印报警输入配置集合。
+ * @author ITC
+ * @param [in] 无。
+ * @return 无。
+ */
+static void DoGetAlarmInputInfo()
+{
+    NET_AlarmInputInfoList_S stInfo;
+    INT32 nBytesReturned = 0;
+    memset(&stInfo, 0, sizeof(stInfo));
+
+    if (NET_GetDevConfig(g_lpUserID, DEMO_CONFIG_CHANNEL_ID, NET_GET_ALARM_INPUT_INFO,
+                            &stInfo, (INT32)sizeof(stInfo), &nBytesReturned))
+    {
+        printf("[Client] 获取报警输入配置成功，返回字节数=%d\n", nBytesReturned);
+        PrintAlarmInputInfoList(&stInfo);
+        return;
+    }
+
+    printf("[Client] 获取报警输入配置失败，错误码=%d\n", NET_GetLastError());
+}
+
+/**
+ * @brief 设置一路报警输入配置示例。
+ * @author ITC
+ * @param [in] 无。
+ * @return 无。
+ */
+static void DoSetAlarmInputInfo()
+{
+    NET_AlarmInputInfoList_S stInputList;
+    NET_AlarmInputInfo_S stInfo;
+    INT32 nBytesReturned = 0;
+    memset(&stInputList, 0, sizeof(stInputList));
+    memset(&stInfo, 0, sizeof(stInfo));
+
+    if (NET_GetDevConfig(g_lpUserID, DEMO_CONFIG_CHANNEL_ID, NET_GET_ALARM_INPUT_INFO,
+                            &stInputList, (INT32)sizeof(stInputList), &nBytesReturned) &&
+        stInputList.nAlarmInputCount > 0)
+    {
+        stInfo = stInputList.astAlarmInputs[0];
+    }
+    else
+    {
+        printf("[Client] 未读取到报警输入配置，使用 0 号通道示例值。\n");
+        stInfo.nAlarmNumber = DEMO_ALARM_CHANNEL_INDEX;
+    }
+
+    CopyString(stInfo.strAlarmName, sizeof(stInfo.strAlarmName), "Demo Alarm Input");
+    stInfo.bNormallyOpen = TRUE;
+    stInfo.nDealType = NET_ALARM_INPUT_DEAL_TYPE_ENABLED;
+    FillDemoAlarmSchedule(&stInfo.stAlarmSchedule);
+
+    nBytesReturned = 0;
+    if (NET_SetDevConfig(g_lpUserID, DEMO_CONFIG_CHANNEL_ID, NET_SET_ALARM_INPUT_INFO,
+                            &stInfo, (INT32)sizeof(stInfo), &nBytesReturned))
+    {
+        printf("[Client] 设置报警输入配置成功，返回字节数=%d\n", nBytesReturned);
+        DoGetAlarmInputInfo();
+        return;
+    }
+
+    printf("[Client] 设置报警输入配置失败，错误码=%d\n", NET_GetLastError());
+}
+
+/**
+ * @brief 打印报警输出配置集合。
+ * @author ITC
+ * @param [in] pInfo 待打印的报警输出配置集合。
+ * @return 无。
+ */
+static void PrintAlarmOutputInfoList(const NET_AlarmOutputInfoList_S* pInfo)
+{
+    if (!pInfo)
+    {
+        return;
+    }
+
+    INT32 nOutputCount = pInfo->nAlarmOutputCount;
+    if (nOutputCount < 0)
+    {
+        nOutputCount = 0;
+    }
+    if (nOutputCount > NET_MAX_ALARM_OUT_NUM)
+    {
+        nOutputCount = NET_MAX_ALARM_OUT_NUM;
+    }
+
+    printf("\n[Client] ===== 报警输出配置，共 %d 路 =====\n", nOutputCount);
+    for (INT32 nIndex = 0; nIndex < nOutputCount; ++nIndex)
+    {
+        const NET_AlarmOutputInfo_S* pOutput = &pInfo->astAlarmOutputs[nIndex];
+        printf("  [%d] 编号=%d, 地址=%s, 名称=%s, 延时=%d 秒, 状态=%d\n",
+               nIndex,
+               pOutput->nAlarmNumber,
+               pOutput->strAlarmAddress,
+               pOutput->strAlarmName,
+               pOutput->nDelayTime,
+               pOutput->enState);
+        PrintAlarmSchedule(&pOutput->stAlarmSchedule);
+    }
+}
+
+/**
+ * @brief 获取并打印报警输出配置集合。
+ * @author ITC
+ * @param [in] 无。
+ * @return 无。
+ */
+static void DoGetAlarmOutputInfo()
+{
+    NET_AlarmOutputInfoList_S stInfo;
+    INT32 nBytesReturned = 0;
+    memset(&stInfo, 0, sizeof(stInfo));
+
+    if (NET_GetDevConfig(g_lpUserID, DEMO_CONFIG_CHANNEL_ID, NET_GET_ALARM_OUTPUT_INFO,
+                            &stInfo, (INT32)sizeof(stInfo), &nBytesReturned))
+    {
+        printf("[Client] 获取报警输出配置成功，返回字节数=%d\n", nBytesReturned);
+        PrintAlarmOutputInfoList(&stInfo);
+        return;
+    }
+
+    printf("[Client] 获取报警输出配置失败，错误码=%d\n", NET_GetLastError());
+}
+
+/**
+ * @brief 设置一路报警输出配置示例。
+ * @author ITC
+ * @param [in] 无。
+ * @return 无。
+ */
+static void DoSetAlarmOutputInfo()
+{
+    NET_AlarmOutputInfoList_S stOutputList;
+    NET_AlarmOutputInfo_S stInfo;
+    INT32 nBytesReturned = 0;
+    memset(&stOutputList, 0, sizeof(stOutputList));
+    memset(&stInfo, 0, sizeof(stInfo));
+
+    if (NET_GetDevConfig(g_lpUserID, DEMO_CONFIG_CHANNEL_ID, NET_GET_ALARM_OUTPUT_INFO,
+                            &stOutputList, (INT32)sizeof(stOutputList), &nBytesReturned) &&
+        stOutputList.nAlarmOutputCount > 0)
+    {
+        stInfo = stOutputList.astAlarmOutputs[0];
+    }
+    else
+    {
+        printf("[Client] 未读取到报警输出配置，使用 0 号通道示例值。\n");
+        stInfo.nAlarmNumber = DEMO_ALARM_CHANNEL_INDEX;
+    }
+
+    CopyString(stInfo.strAlarmName, sizeof(stInfo.strAlarmName), "Demo Alarm Output");
+    stInfo.nDelayTime = DEMO_ALARM_OUTPUT_DELAY_SECONDS;
+    stInfo.enState = NET_ALARM_OUTPUT_STATE_OFF;
+    FillDemoAlarmSchedule(&stInfo.stAlarmSchedule);
+
+    nBytesReturned = 0;
+    if (NET_SetDevConfig(g_lpUserID, DEMO_CONFIG_CHANNEL_ID, NET_SET_ALARM_OUTPUT_INFO,
+                            &stInfo, (INT32)sizeof(stInfo), &nBytesReturned))
+    {
+        printf("[Client] 设置报警输出配置成功，返回字节数=%d\n", nBytesReturned);
+        DoGetAlarmOutputInfo();
+        return;
+    }
+
+    printf("[Client] 设置报警输出配置失败，错误码=%d\n", NET_GetLastError());
+}
+
+/**
+ * @brief 打印闪光报警灯配置。
+ * @author ITC
+ * @param [in] pInfo 待打印的闪光报警灯配置。
+ * @return 无。
+ */
+static void PrintFlashingLightAlarmInfo(const NET_FlashingLightAlarmInfo_S* pInfo)
+{
+    if (!pInfo)
+    {
+        return;
+    }
+
+    printf("\n[Client] ===== 闪光报警灯配置 =====\n");
+    printf("  闪光时长=%d 秒, 闪烁频率=%d, 复制通道数量=%d\n",
+           pInfo->nFlashTime,
+           pInfo->enFlashFrequency,
+           pInfo->nCopyToCount);
+    PrintAlarmSchedule(&pInfo->stAlarmSchedule);
+}
+
+/**
+ * @brief 获取并打印闪光报警灯配置。
+ * @author ITC
+ * @param [in] 无。
+ * @return 无。
+ */
+static void DoGetFlashingLightAlarmInfo()
+{
+    NET_FlashingLightAlarmInfo_S stInfo;
+    INT32 nBytesReturned = 0;
+    memset(&stInfo, 0, sizeof(stInfo));
+
+    if (NET_GetDevConfig(g_lpUserID, DEMO_CONFIG_CHANNEL_ID, NET_GET_FLASHING_LIGHT_ALARM_INFO,
+                            &stInfo, (INT32)sizeof(stInfo), &nBytesReturned))
+    {
+        printf("[Client] 获取闪光报警灯配置成功，返回字节数=%d\n", nBytesReturned);
+        PrintFlashingLightAlarmInfo(&stInfo);
+        return;
+    }
+
+    printf("[Client] 获取闪光报警灯配置失败，错误码=%d\n", NET_GetLastError());
+}
+
+/**
+ * @brief 设置闪光报警灯配置示例。
+ * @author ITC
+ * @param [in] 无。
+ * @return 无。
+ */
+static void DoSetFlashingLightAlarmInfo()
+{
+    NET_FlashingLightAlarmInfo_S stInfo;
+    INT32 nBytesReturned = 0;
+    memset(&stInfo, 0, sizeof(stInfo));
+
+    if (!NET_GetDevConfig(g_lpUserID, DEMO_CONFIG_CHANNEL_ID, NET_GET_FLASHING_LIGHT_ALARM_INFO,
+                             &stInfo, (INT32)sizeof(stInfo), &nBytesReturned))
+    {
+        printf("[Client] 预读取闪光报警灯配置失败，使用示例默认值，错误码=%d\n",
+               NET_GetLastError());
+        memset(&stInfo, 0, sizeof(stInfo));
+    }
+
+    stInfo.nFlashTime = NET_FLASHING_LIGHT_ALARM_TIME_MIN;
+    stInfo.enFlashFrequency = NET_FLASHING_LIGHT_FREQUENCY_MIDDLE;
+    FillDemoAlarmSchedule(&stInfo.stAlarmSchedule);
+
+    nBytesReturned = 0;
+    if (NET_SetDevConfig(g_lpUserID, DEMO_CONFIG_CHANNEL_ID, NET_SET_FLASHING_LIGHT_ALARM_INFO,
+                            &stInfo, (INT32)sizeof(stInfo), &nBytesReturned))
+    {
+        printf("[Client] 设置闪光报警灯配置成功，返回字节数=%d\n", nBytesReturned);
+        DoGetFlashingLightAlarmInfo();
+        return;
+    }
+
+    printf("[Client] 设置闪光报警灯配置失败，错误码=%d\n", NET_GetLastError());
+}
+
+/**
+ * @brief 打印 PIR 报警配置。
+ * @author ITC
+ * @param [in] pInfo 待打印的 PIR 报警配置。
+ * @return 无。
+ */
+static void PrintPirAlarmInfo(const NET_PirAlarmInfo_S* pInfo)
+{
+    if (!pInfo)
+    {
+        return;
+    }
+
+    printf("\n[Client] ===== PIR 报警配置 =====\n");
+    printf("  启用=%d, 名称=%s, 复制通道数量=%d\n",
+           pInfo->bEnable,
+           pInfo->strAlarmName,
+           pInfo->nCopyToCount);
+    PrintAlarmLinkage(&pInfo->stLinkageList);
+    PrintAlarmSchedule(&pInfo->stAlarmSchedule);
+}
+
+/**
+ * @brief 获取并打印 PIR 报警配置。
+ * @author ITC
+ * @param [in] 无。
+ * @return 无。
+ */
+static void DoGetPirAlarmInfo()
+{
+    NET_PirAlarmInfo_S stInfo;
+    INT32 nBytesReturned = 0;
+    memset(&stInfo, 0, sizeof(stInfo));
+
+    if (NET_GetDevConfig(g_lpUserID, DEMO_CONFIG_CHANNEL_ID, NET_GET_PIR_ALARM_INFO,
+                            &stInfo, (INT32)sizeof(stInfo), &nBytesReturned))
+    {
+        printf("[Client] 获取 PIR 报警配置成功，返回字节数=%d\n", nBytesReturned);
+        PrintPirAlarmInfo(&stInfo);
+        return;
+    }
+
+    printf("[Client] 获取 PIR 报警配置失败，错误码=%d\n", NET_GetLastError());
+}
+
+/**
+ * @brief 设置 PIR 报警配置示例。
+ * @author ITC
+ * @param [in] 无。
+ * @return 无。
+ */
+static void DoSetPirAlarmInfo()
+{
+    NET_PirAlarmInfo_S stInfo;
+    INT32 nBytesReturned = 0;
+    memset(&stInfo, 0, sizeof(stInfo));
+
+    if (!NET_GetDevConfig(g_lpUserID, DEMO_CONFIG_CHANNEL_ID, NET_GET_PIR_ALARM_INFO,
+                             &stInfo, (INT32)sizeof(stInfo), &nBytesReturned))
+    {
+        printf("[Client] 预读取 PIR 报警配置失败，使用示例默认值，错误码=%d\n",
+               NET_GetLastError());
+        memset(&stInfo, 0, sizeof(stInfo));
+    }
+
+    stInfo.bEnable = TRUE;
+    CopyString(stInfo.strAlarmName, sizeof(stInfo.strAlarmName), "Demo PIR Alarm");
+    FillDemoAlarmSchedule(&stInfo.stAlarmSchedule);
+
+    nBytesReturned = 0;
+    if (NET_SetDevConfig(g_lpUserID, DEMO_CONFIG_CHANNEL_ID, NET_SET_PIR_ALARM_INFO,
+                            &stInfo, (INT32)sizeof(stInfo), &nBytesReturned))
+    {
+        printf("[Client] 设置 PIR 报警配置成功，返回字节数=%d\n", nBytesReturned);
+        DoGetPirAlarmInfo();
+        return;
+    }
+
+    printf("[Client] 设置 PIR 报警配置失败，错误码=%d\n", NET_GetLastError());
+}
+
 /* Print preview info */
 static void PrintPreviewInfo(const NET_PreviewInfo_S* pInfo)
 {
@@ -8902,6 +9476,36 @@ static void ProcessCommand(int cmd)
             break;
         case 173:
             DoSetSystemNtpCfg();
+            break;
+        case 174:
+            DoGetAudibleAlarmInfo();
+            break;
+        case 175:
+            DoSetAudibleAlarmInfo();
+            break;
+        case 176:
+            DoGetAlarmInputInfo();
+            break;
+        case 177:
+            DoSetAlarmInputInfo();
+            break;
+        case 178:
+            DoGetAlarmOutputInfo();
+            break;
+        case 179:
+            DoSetAlarmOutputInfo();
+            break;
+        case 180:
+            DoGetFlashingLightAlarmInfo();
+            break;
+        case 181:
+            DoSetFlashingLightAlarmInfo();
+            break;
+        case 182:
+            DoGetPirAlarmInfo();
+            break;
+        case 183:
+            DoSetPirAlarmInfo();
             break;
         case DEMO_REPLAY_PAUSE_CMD:
             DoControlReplayPause();

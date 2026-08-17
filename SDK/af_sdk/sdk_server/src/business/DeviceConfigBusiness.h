@@ -97,7 +97,7 @@ private:
         }
         NETSDK_LOG_MESSAGE_INFO("GetDevConfig callback cmd=%d, ret=%d", command, nRespCode);
         NETSDK_LOG_MESSAGE_INFO("GetDevConfig callback END");
-        return SDKConvert::to_respString(nRespCode, stCfg);
+        return SDKConvert::to_respString(nRespCode, command, stCfg);
     }
 
     /**
@@ -122,7 +122,7 @@ private:
     {
         if (req_data.empty())
         {
-            return SDKConvert::to_respString(NET_E_INVALID_PARAM);
+            return SDKConvert::to_respString(NET_E_INVALID_PARAM, command);
         }
 
         T_CFG stCfg;
@@ -131,7 +131,7 @@ private:
         Json::Object* pRoot = Json::init(req_data);
         if (!pRoot)
         {
-            return SDKConvert::to_respString(NET_E_INVALID_PARAM);
+            return SDKConvert::to_respString(NET_E_INVALID_PARAM, command);
         }
 
         SDKConvert::deal(pRoot, stCfg, true);
@@ -143,7 +143,7 @@ private:
             NETSDK_LOG_MESSAGE_WARN("SetDevConfig callback failed, cmd=%d, ret=%d", command, nRespCode);
         }
 
-        return SDKConvert::to_respString((NET_COMMON_ECODE_E)nRespCode);
+        return SDKConvert::to_respString((NET_COMMON_ECODE_E)nRespCode, command);
     }
 
     /**

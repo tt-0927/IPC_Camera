@@ -137,11 +137,12 @@ bool CSessionManager::Logout(const std::string& SessionId)
 
 bool CSessionManager::EnablePush(const std::string& SessionId)
 {
-	auto session = GetSession(SessionId);
-    if (session && session->IsLogined())
+	std::lock_guard<std::mutex> Lock(m_stMutex);
+	auto It = m_stSessions.find(SessionId);
+    if (It != m_stSessions.end() && It->second->IsLogined())
 	{
-        session->SetPushEnabled(true);
-        std::string clientIP = session->GetClientIP();
+        It->second->SetPushEnabled(true);
+        std::string clientIP = It->second->GetClientIP();
         NETSDK_LOG_MESSAGE_INFO("[SessionManager] Client subscribed to alarms: SessionId=%s, ClientIP=%s, Status=Subscribed",
                       SessionId.c_str(), clientIP.c_str());
         return true;
@@ -197,15 +198,16 @@ void CSessionManager::CleanupLoop()
 
 void CSessionManager::MarkDisconnected(const std::string& SessionId)
 {
-	auto session = GetSession(SessionId);
-    if (session)
+	std::lock_guard<std::mutex> Lock(m_stMutex);
+	auto It = m_stSessions.find(SessionId);
+    if (It != m_stSessions.end())
 	{
-        session->SetConnected(false);
+        It->second->SetConnected(false);
         /* 断线时清空队列，避免客户端重连后收到大量已过期的历史报警 */
         /* 报警是实时性事件，断线期间的报警对于客户端已无意义 */
-        session->ClearMessageQueue();
+        It->second->ClearMessageQueue();
         NETSDK_LOG_MESSAGE_INFO("[SessionManager] Client disconnected, queue cleared: SessionId=%s, ClientIP=%s",
-                      SessionId.c_str(), session->GetClientIP().c_str());
+                      SessionId.c_str(), It->second->GetClientIP().c_str());
     }
 }
 /**
@@ -359,18 +361,28 @@ void CSessionManager::HttpCommandLogin(const httplib::Request& req, httplib::Res
 	/* 鉴权 */
 	if(!CHttpAuthHandler::instance()->handle_authentication(req, res))
 	{
+		SessionMessage_S stAuthErr;
+		res.status = NET_HTTP_RESP_CODE_SUCCESS;
+		res.set_content(SDKConvert::to_respString(NET_E_NOT_AUTHORIZED, 0, stAuthErr), NET_JSON_CONTENT_TYPE);
 		return;
 	}
 
-	SeesionMessage_S stSeesionMessage;
+	SessionMessage_S stSessionMessage;
 	int nRespCode = NET_E_SUCCEED;
 	std::string SessionId;
 
 	std::string clientIP = req.remote_addr;
-	Login(SessionId, clientIP);
-	stSeesionMessage.SeesionId = SessionId;
+	if (!Login(SessionId, clientIP))
+	{
+		NETSDK_LOG_MESSAGE_WARN("[SessionManager] Login failed: ClientIP=%s", clientIP.c_str());
+		nRespCode = NET_E_FAILED;
+	}
+	else
+	{
+		stSessionMessage.SessionId = SessionId;
+	}
 	res.status = NET_HTTP_RESP_CODE_SUCCESS;
-	res.set_content(SDKConvert::to_respString(nRespCode,stSeesionMessage), NET_JSON_CONTENT_TYPE);
+	res.set_content(SDKConvert::to_respString(nRespCode, 0, stSessionMessage), NET_JSON_CONTENT_TYPE);
 }
 /**
  * @author tianl (tianl@kfb.cn)
@@ -385,6 +397,9 @@ void CSessionManager::HttpCommandLout(const httplib::Request& req, httplib::Resp
 	/* 鉴权 */
 	if(!CHttpAuthHandler::instance()->handle_authentication(req, res))
 	{
+		SessionMessage_S stAuthErr;
+		res.status = NET_HTTP_RESP_CODE_SUCCESS;
+		res.set_content(SDKConvert::to_respString(NET_E_NOT_AUTHORIZED, 0, stAuthErr), NET_JSON_CONTENT_TYPE);
 		return;
 	}
 

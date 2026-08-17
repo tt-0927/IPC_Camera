@@ -44,17 +44,17 @@ private:
     /**
      * @brief 处理视频编码能力集 (NET_CAP_VIDEO_ENCODE)
      */
-    std::string HandleVideoEncode(int channelId);
+    std::string HandleVideoEncode(int channelId, int command);
 
     /**
      * @brief 处理音频编码能力集 (NET_CAP_AUDIO)
      */
-    std::string HandleAudioEncode(int channelId);
+    std::string HandleAudioEncode(int channelId, int command);
 
     /**
      * @brief 处理OSD参数能力集 (NET_CAP_OSD)
      */
-    std::string HandleOsd(int channelId);
+    std::string HandleOsd(int channelId, int command);
 
     /**
      * @brief 从URL参数中解析整型值

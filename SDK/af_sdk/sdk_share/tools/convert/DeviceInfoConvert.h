@@ -207,6 +207,97 @@ namespace SDKConvert
     void deal(Json::Object* pRootJson, NET_StatisticsResetConfig_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_PeopleFlowStatisticsCfg_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_PeopleDensityDetectionCfg_S& stInfo, bool bOutStruct);
+
+    /**
+     * @brief 在 JSON 与 SDK SD 卡状态结构体之间转换。
+     * @author ITC
+     * @param [in,out] pRootJson 根据 bOutStruct 作为源 JSON 或目标 JSON 对象。
+     * @param [in,out] stInfo 根据 bOutStruct 作为源或目标 SD 卡状态结构体。
+     * @param [in] bOutStruct 为 TRUE 时将 JSON 解析到 stInfo；为 FALSE 时将 stInfo 序列化到 JSON。
+     * @return 无。
+     */
+    void deal(Json::Object* pRootJson, NET_SdCardStatus_S& stInfo, bool bOutStruct);
+
+    /**
+     * @brief 在 JSON 与 SDK 自定义声音告警音频信息之间转换。
+     * @author ITC
+     * @param [in,out] pRootJson 根据 bOutStruct 作为源或目标 JSON 对象。
+     * @param [in,out] stInfo 根据 bOutStruct 作为源或目标自定义音频结构体。
+     * @param [in] bOutStruct 为 TRUE 时将 JSON 解析到结构体；为 FALSE 时将结构体序列化到 JSON。
+     * @return 无。
+     */
+    void deal(Json::Object* pRootJson, NET_AudibleAlarmCustomAudio_S& stInfo, bool bOutStruct);
+
+    /**
+     * @brief 在 JSON 与 SDK 声音告警配置之间转换。
+     * @author ITC
+     * @param [in,out] pRootJson 根据 bOutStruct 作为源或目标 JSON 对象。
+     * @param [in,out] stInfo 根据 bOutStruct 作为源或目标声音告警配置结构体。
+     * @param [in] bOutStruct 为 TRUE 时将 JSON 解析到结构体；为 FALSE 时将结构体序列化到 JSON。
+     * @return 无。
+     */
+    void deal(Json::Object* pRootJson, NET_AudibleAlarmInfo_S& stInfo, bool bOutStruct);
+
+    /**
+     * @brief 在 JSON 与 SDK 单路报警输入配置之间转换。
+     * @author ITC
+     * @param [in,out] pRootJson 根据 bOutStruct 作为源或目标 JSON 对象。
+     * @param [in,out] stInfo 根据 bOutStruct 作为源或目标报警输入配置结构体。
+     * @param [in] bOutStruct 为 TRUE 时将 JSON 解析到结构体；为 FALSE 时将结构体序列化到 JSON。
+     * @return 无。
+     */
+    void deal(Json::Object* pRootJson, NET_AlarmInputInfo_S& stInfo, bool bOutStruct);
+
+    /**
+     * @brief 在 JSON 与 SDK 报警输入配置集合之间转换。
+     * @author ITC
+     * @param [in,out] pRootJson 根据 bOutStruct 作为源或目标 JSON 对象。
+     * @param [in,out] stInfo 根据 bOutStruct 作为源或目标报警输入配置集合结构体。
+     * @param [in] bOutStruct 为 TRUE 时将 JSON 解析到结构体；为 FALSE 时将结构体序列化到 JSON。
+     * @return 无。
+     */
+    void deal(Json::Object* pRootJson, NET_AlarmInputInfoList_S& stInfo, bool bOutStruct);
+
+    /**
+     * @brief 在 JSON 与 SDK 单路报警输出配置之间转换。
+     * @author ITC
+     * @param [in,out] pRootJson 根据 bOutStruct 作为源或目标 JSON 对象。
+     * @param [in,out] stInfo 根据 bOutStruct 作为源或目标报警输出配置结构体。
+     * @param [in] bOutStruct 为 TRUE 时将 JSON 解析到结构体；为 FALSE 时将结构体序列化到 JSON。
+     * @return 无。
+     */
+    void deal(Json::Object* pRootJson, NET_AlarmOutputInfo_S& stInfo, bool bOutStruct);
+
+    /**
+     * @brief 在 JSON 与 SDK 报警输出配置集合之间转换。
+     * @author ITC
+     * @param [in,out] pRootJson 根据 bOutStruct 作为源或目标 JSON 对象。
+     * @param [in,out] stInfo 根据 bOutStruct 作为源或目标报警输出配置集合结构体。
+     * @param [in] bOutStruct 为 TRUE 时将 JSON 解析到结构体；为 FALSE 时将结构体序列化到 JSON。
+     * @return 无。
+     */
+    void deal(Json::Object* pRootJson, NET_AlarmOutputInfoList_S& stInfo, bool bOutStruct);
+
+    /**
+     * @brief 在 JSON 与 SDK 闪光灯告警配置之间转换。
+     * @author ITC
+     * @param [in,out] pRootJson 根据 bOutStruct 作为源或目标 JSON 对象。
+     * @param [in,out] stInfo 根据 bOutStruct 作为源或目标闪光灯告警配置结构体。
+     * @param [in] bOutStruct 为 TRUE 时将 JSON 解析到结构体；为 FALSE 时将结构体序列化到 JSON。
+     * @return 无。
+     */
+    void deal(Json::Object* pRootJson, NET_FlashingLightAlarmInfo_S& stInfo, bool bOutStruct);
+
+    /**
+     * @brief 在 JSON 与 SDK PIR 告警配置之间转换。
+     * @author ITC
+     * @param [in,out] pRootJson 根据 bOutStruct 作为源或目标 JSON 对象。
+     * @param [in,out] stInfo 根据 bOutStruct 作为源或目标 PIR 告警配置结构体。
+     * @param [in] bOutStruct 为 TRUE 时将 JSON 解析到结构体；为 FALSE 时将结构体序列化到 JSON。
+     * @return 无。
+     */
+    void deal(Json::Object* pRootJson, NET_PirAlarmInfo_S& stInfo, bool bOutStruct);
+
 };
 
 #endif

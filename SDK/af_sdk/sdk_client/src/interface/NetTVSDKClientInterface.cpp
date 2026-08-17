@@ -44,7 +44,7 @@
 /* 检查SDK是否初始化 */
 #define CHECK_SDK_INIT(val) \
     do { \
-        auto* pMgr = CDeviceManage::instance(); \
+        auto pMgr = CDeviceManage::instance(); \
         /* 检查单例是否存在 以及 标志位是否为 true */ \
         if (!pMgr || !pMgr->IsInitialized()) { \
             CErrorManage::instance()->SetLastError(NET_E_SDK_NOT_INIT); \
@@ -55,7 +55,7 @@
 /* 检查SDK是否已经初始化 */
 #define CHECK_SDK_ALREADY_INIT(val) \
     do { \
-        auto* pMgr = CDeviceManage::instance(); \
+        auto pMgr = CDeviceManage::instance(); \
         /* 如果单例存在 且 标志位为 true，说明已经 Init 过了 */ \
         if (pMgr && pMgr->IsInitialized()) { \
             CErrorManage::instance()->SetLastError(NET_E_ALREDY_INIT_ERROR); \
@@ -76,7 +76,7 @@ NET_API BOOL STDCALL NET_Init(void)
 	CHECK_SDK_ALREADY_INIT(FALSE);
 	try
 	{
-        auto* pDevMgr = CDeviceManage::instance();
+        auto pDevMgr = CDeviceManage::instance();
 
         if (!pDevMgr)
 		{
@@ -105,7 +105,7 @@ NET_API BOOL STDCALL NET_Cleanup(void)
 
 	try
 	{
-        auto* pDevMgr = CDeviceManage::instance();
+        auto pDevMgr = CDeviceManage::instance();
 
         if (pDevMgr)
 		{
@@ -146,9 +146,9 @@ NET_API BOOL STDCALL NET_SetLogToFile(IN INT32 dwLogLevel,IN CHAR  *strLogDir,IN
     /* 构造完整日志路径 */
     char szLogPath[512] = {0};
 #ifdef _WIN32
-    sprintf(szLogPath, "%s\\NetTVSDKClient.log", strLogDir);
+    snprintf(szLogPath, sizeof(szLogPath), "%s\\NetTVSDKClient.log", strLogDir);
 #else
-    sprintf(szLogPath, "%s/NetTVSDKClient.log", strLogDir);
+    snprintf(szLogPath, sizeof(szLogPath), "%s/NetTVSDKClient.log", strLogDir);
 #endif
 
     if (dwLogFileSize <= 0)
@@ -225,7 +225,7 @@ NET_API BOOL STDCALL NET_SetRevTimeOut(IN pNET_RevTimeout_S pstRevTimeout)
 		return FALSE;
 	}
 
-	auto* pDevMgr = CDeviceManage::instance();
+	auto pDevMgr = CDeviceManage::instance();
 
 	if (!pDevMgr)
 	{
@@ -249,7 +249,7 @@ NET_API BOOL STDCALL NET_SetConnectTime(IN INT32 dwWaitTime,
                                                            IN INT32 dwTrytimes)
 {
 	CHECK_SDK_INIT(FALSE);
-    auto* pDevMgr = CDeviceManage::instance();
+    auto pDevMgr = CDeviceManage::instance();
 
 	if (!pDevMgr)
 	{
@@ -278,7 +278,7 @@ NET_API LPVOID STDCALL NET_Login(IN pNET_DeviceLoginInfo_S pstDevLoginInfo,
                   pstDevLoginInfo ? pstDevLoginInfo->szUserName : "NULL");
 
 	CHECK_SDK_INIT(NULL);
-	auto* pDevMgr = CDeviceManage::instance();
+	auto pDevMgr = CDeviceManage::instance();
 	if (!pDevMgr)
 	{
 		CErrorManage::instance()->SetLastError(NET_E_ALLOC_RESOURCE_ERROR);
@@ -312,7 +312,7 @@ NET_API BOOL STDCALL NET_Logout(IN LPVOID lpUserID)
 {
 	CHECK_SDK_INIT(FALSE);
 
-	auto* pDevMgr = CDeviceManage::instance();
+	auto pDevMgr = CDeviceManage::instance();
 
 	if (!pDevMgr)
 	{
@@ -343,7 +343,7 @@ NET_API BOOL STDCALL NET_SetAlarmCallBack(IN LPVOID lpUserID,
                                             IN LPVOID lpUserData)
 {
     CHECK_SDK_INIT(FALSE);
-    auto* pDevMgr = CDeviceManage::instance();
+    auto pDevMgr = CDeviceManage::instance();
     if (!pDevMgr) return FALSE;
 
     auto session = pDevMgr->GetSession((LPUSER_HANDLE)lpUserID);
@@ -370,7 +370,7 @@ NET_API BOOL STDCALL NET_SetChannelStatusCallBack(IN LPVOID lpUserID,
                                                         IN LPVOID lpUserData)
 {
     CHECK_SDK_INIT(FALSE);
-    auto* pDevMgr = CDeviceManage::instance();
+    auto pDevMgr = CDeviceManage::instance();
     if (!pDevMgr) return FALSE;
 
     auto session = pDevMgr->GetSession((LPUSER_HANDLE)lpUserID);
@@ -394,7 +394,7 @@ NET_API BOOL STDCALL NET_SetChannelStatusCallBack(IN LPVOID lpUserID,
 NET_API BOOL STDCALL NET_StartListen(IN LPVOID lpUserID)
 {
     CHECK_SDK_INIT(FALSE);
-    auto* pDevMgr = CDeviceManage::instance();
+    auto pDevMgr = CDeviceManage::instance();
     if (!pDevMgr) return FALSE;
 
     auto session = pDevMgr->GetSession((LPUSER_HANDLE)lpUserID);
@@ -423,7 +423,7 @@ NET_API BOOL STDCALL NET_StartListen(IN LPVOID lpUserID)
 NET_API BOOL STDCALL NET_StopListen(IN LPVOID lpUserID)
 {
     CHECK_SDK_INIT(FALSE);
-    auto* pDevMgr = CDeviceManage::instance();
+    auto pDevMgr = CDeviceManage::instance();
     if (!pDevMgr) return FALSE;
 
     auto session = pDevMgr->GetSession((LPUSER_HANDLE)lpUserID);
@@ -958,6 +958,18 @@ NET_API BOOL STDCALL NET_GetDevConfig(IN  LPVOID  lpUserID,
             return NetTV_GetDevConfig_Impl<NET_LogServerInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
         case NET_GET_RECORD_STATUS:
             return NetTV_GetDevConfig_Impl<NET_RecordStatusInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_GET_SD_CARD_STATUS:
+            return NetTV_GetDevConfig_Impl<NET_SdCardStatus_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_GET_AUDIBLE_ALARM_INFO:
+            return NetTV_GetDevConfig_Impl<NET_AudibleAlarmInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_GET_ALARM_INPUT_INFO:
+            return NetTV_GetDevConfig_Impl<NET_AlarmInputInfoList_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_GET_ALARM_OUTPUT_INFO:
+            return NetTV_GetDevConfig_Impl<NET_AlarmOutputInfoList_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_GET_FLASHING_LIGHT_ALARM_INFO:
+            return NetTV_GetDevConfig_Impl<NET_FlashingLightAlarmInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_GET_PIR_ALARM_INFO:
+            return NetTV_GetDevConfig_Impl<NET_PirAlarmInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
         case NET_GET_RECORD_SCHEDULE:
             return NetTV_GetDevConfig_Impl<NET_RecordSchedule_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
         case NET_GET_RECORD_ADVANCED_PARAM:
@@ -1242,6 +1254,16 @@ NET_API BOOL STDCALL NET_SetDevConfig(IN  LPVOID  lpUserID,
             return NetTV_SetDevConfig_Impl<NET_UnattendedObjectAlarmInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
         case NET_SET_OBJECTREMOVALALARM:
             return NetTV_SetDevConfig_Impl<NET_ObjectRemovalAlarmInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_SET_AUDIBLE_ALARM_INFO:
+            return NetTV_SetDevConfig_Impl<NET_AudibleAlarmInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_SET_ALARM_INPUT_INFO:
+            return NetTV_SetDevConfig_Impl<NET_AlarmInputInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_SET_ALARM_OUTPUT_INFO:
+            return NetTV_SetDevConfig_Impl<NET_AlarmOutputInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_SET_FLASHING_LIGHT_ALARM_INFO:
+            return NetTV_SetDevConfig_Impl<NET_FlashingLightAlarmInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_SET_PIR_ALARM_INFO:
+            return NetTV_SetDevConfig_Impl<NET_PirAlarmInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
         case NET_SET_AUDIOANOMALYALARM:
             return NetTV_SetDevConfig_Impl<NET_AudioAnomalyAlarmInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
         case NET_SET_PREVIEW_INFO:
@@ -1418,6 +1440,7 @@ NET_StartRecordFrameStream(IN LPVOID lpUserID,
         strncpy_s(stStopInfo.szStreamId, pstStreamInfo->szStreamId, sizeof(stStopInfo.szStreamId) - 1);
 #else
         std::strncpy(stStopInfo.szStreamId, pstStreamInfo->szStreamId, sizeof(stStopInfo.szStreamId) - 1);
+        stStopInfo.szStreamId[sizeof(stStopInfo.szStreamId) - 1] = '\0';
 #endif
         std::string stopResp;
         CommandExecutor::instance()->ExecuteRaw((LPUSER_HANDLE)lpUserID,
@@ -1470,6 +1493,7 @@ NET_StopRecordFrameStream(IN LPVOID lpUserID,
     strncpy_s(stStopInfo.szStreamId, szStreamId, sizeof(stStopInfo.szStreamId) - 1);
 #else
     std::strncpy(stStopInfo.szStreamId, szStreamId, sizeof(stStopInfo.szStreamId) - 1);
+    stStopInfo.szStreamId[sizeof(stStopInfo.szStreamId) - 1] = '\0';
 #endif
 
     std::string respBody;
