@@ -517,48 +517,6 @@ NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetFaceInfo(NET_CB_GetDevConfigByComm
     return Net_RegisterGetCmdCb(NET_GET_FACE_INFO, pCb);
 }
 
-/* ===================== 垃圾检测回调 ===================== */
-
-/**
- * @brief 注册获取垃圾暴露检测配置的回调函数
- * @param [in] pCb 用于填充 NET_GarbageExposureCfg_S 的回调函数
- * @return 注册成功返回 TRUE；回调函数非法或已注册时返回 FALSE
- */
-NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetGarbageExposureCfg(NET_CB_GetDevConfigByCommand pCb)
-{
-    return Net_RegisterGetCmdCb(NET_GET_GARBAGE_EXPOSURE_CFG, pCb);
-}
-
-/**
- * @brief 注册设置垃圾暴露检测配置的回调函数
- * @param [in] pCb 用于读取 NET_GarbageExposureCfg_S 的回调函数
- * @return 注册成功返回 TRUE；回调函数非法或已注册时返回 FALSE
- */
-NET_API BOOL STDCALL NET_SERVER_RegisterCb_SetGarbageExposureCfg(NET_CB_SetDevConfigByCommand pCb)
-{
-    return Net_RegisterSetCmdCb(NET_SET_GARBAGE_EXPOSURE_CFG, pCb);
-}
-
-/**
- * @brief 注册获取垃圾溢出检测配置的回调函数
- * @param [in] pCb 用于填充 NET_GarbageOverflowCfg_S 的回调函数
- * @return 注册成功返回 TRUE；回调函数非法或已注册时返回 FALSE
- */
-NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetGarbageOverflowCfg(NET_CB_GetDevConfigByCommand pCb)
-{
-    return Net_RegisterGetCmdCb(NET_GET_GARBAGE_OVERFLOW_CFG, pCb);
-}
-
-/**
- * @brief 注册设置垃圾溢出检测配置的回调函数
- * @param [in] pCb 用于读取 NET_GarbageOverflowCfg_S 的回调函数
- * @return 注册成功返回 TRUE；回调函数非法或已注册时返回 FALSE
- */
-NET_API BOOL STDCALL NET_SERVER_RegisterCb_SetGarbageOverflowCfg(NET_CB_SetDevConfigByCommand pCb)
-{
-    return Net_RegisterSetCmdCb(NET_SET_GARBAGE_OVERFLOW_CFG, pCb);
-}
-
 /* ===================== 人流统计回调 ===================== */
 
 /**

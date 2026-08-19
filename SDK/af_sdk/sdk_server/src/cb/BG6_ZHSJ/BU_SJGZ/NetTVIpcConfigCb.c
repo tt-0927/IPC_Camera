@@ -10,6 +10,7 @@
  *                 2. Wifi无线配置回调（STA连接/断开/参数配置，IPC独有无线能力）
  *                 3. 4G蜂窝网络配置回调（4G模块信息查询与参数设置，IPC独有移动网络）
  *                 4. Hotspot热点配置回调（热点参数与连接状态，IPC独有AP能力）
+ *                 5. 垃圾检测配置回调（垃圾暴露/满溢检测，IPC行业AI能力）
  *                 依赖：所有注册函数最终调用 Net_RegisterGetCmdCb/Net_RegisterSetCmdCb
  *                       （定义于Common/config/NetTVConfigCb.c，声明于NetTVConfigCbExecute.h）
  */
@@ -114,4 +115,50 @@ NET_API BOOL STDCALL NET_SERVER_RegisterCb_SetHotspotInfo(NET_CB_SetDevConfigByC
 NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetHotspotConn(NET_CB_GetDevConfigByCommand pCb)
 {
     return Net_RegisterGetCmdCb(NET_GET_HOTSPOT_CONN, pCb);
+}
+
+/* ===================== 垃圾检测配置回调（IPC独有） ===================== */
+
+/**
+ * @brief 注册获取垃圾暴露检测配置的回调函数
+ * @param [in] pCb 用于填充 NET_GarbageExposureCfg_S 的回调函数
+ * @return 注册成功返回 TRUE；回调函数非法或已注册时返回 FALSE
+ * @note IPC独有：配置垃圾暴露检测的布防、检测区域和联动参数
+ */
+NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetGarbageExposureCfg(NET_CB_GetDevConfigByCommand pCb)
+{
+    return Net_RegisterGetCmdCb(NET_GET_GARBAGE_EXPOSURE_CFG, pCb);
+}
+
+/**
+ * @brief 注册设置垃圾暴露检测配置的回调函数
+ * @param [in] pCb 用于接收 NET_GarbageExposureCfg_S 的回调函数
+ * @return 注册成功返回 TRUE；回调函数非法或已注册时返回 FALSE
+ * @note IPC独有：配置垃圾暴露检测的布防、检测区域和联动参数
+ */
+NET_API BOOL STDCALL NET_SERVER_RegisterCb_SetGarbageExposureCfg(NET_CB_SetDevConfigByCommand pCb)
+{
+    return Net_RegisterSetCmdCb(NET_SET_GARBAGE_EXPOSURE_CFG, pCb);
+}
+
+/**
+ * @brief 注册获取垃圾满溢检测配置的回调函数
+ * @param [in] pCb 用于填充 NET_GarbageOverflowCfg_S 的回调函数
+ * @return 注册成功返回 TRUE；回调函数非法或已注册时返回 FALSE
+ * @note IPC独有：配置垃圾满溢检测的布防、检测区域和联动参数
+ */
+NET_API BOOL STDCALL NET_SERVER_RegisterCb_GetGarbageOverflowCfg(NET_CB_GetDevConfigByCommand pCb)
+{
+    return Net_RegisterGetCmdCb(NET_GET_GARBAGE_OVERFLOW_CFG, pCb);
+}
+
+/**
+ * @brief 注册设置垃圾满溢检测配置的回调函数
+ * @param [in] pCb 用于接收 NET_GarbageOverflowCfg_S 的回调函数
+ * @return 注册成功返回 TRUE；回调函数非法或已注册时返回 FALSE
+ * @note IPC独有：配置垃圾满溢检测的布防、检测区域和联动参数
+ */
+NET_API BOOL STDCALL NET_SERVER_RegisterCb_SetGarbageOverflowCfg(NET_CB_SetDevConfigByCommand pCb)
+{
+    return Net_RegisterSetCmdCb(NET_SET_GARBAGE_OVERFLOW_CFG, pCb);
 }
