@@ -20,6 +20,12 @@ foreach(item ${SDK_SERVER_PATH})
     list(APPEND SDK_SERVER_LIST ${SDK_SERVER_LIST_TMP})
 endforeach()
 
+# IPC 配置回调已迁移至 BG6_ZHSJ/BU_SJGZ。
+# 兼容编译目录未清理干净的场景，禁止旧根目录实现参与编译。
+list(REMOVE_ITEM SDK_SERVER_LIST
+    "${CMAKE_CURRENT_LIST_DIR}/src/cb/BG6_ZHSJ/NetTVIpcConfigCb.c"
+)
+
 # 头文件目录
 set(SDK_SERVER_INCLUDE
     ${CMAKE_CURRENT_LIST_DIR}/include
