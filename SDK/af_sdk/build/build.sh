@@ -23,6 +23,7 @@ TOOLCHAIN_64_NAME="gcc-linaro-7.5.0-2019.12-x86_64_aarch64-linux-gnu"
 TOOLCHAIN_32_FILE="${TOOLCHAIN_ROOT}/../toolchain-arm32.cmake"
 TOOLCHAIN_HISI32_FILE="${TOOLCHAIN_ROOT}/../toolchain-hisi32.cmake"
 TOOLCHAIN_64_FILE="${TOOLCHAIN_ROOT}/../toolchain-aarch64.cmake"
+TOOLCHAIN_64_FT_FILE="${TOOLCHAIN_ROOT}/../toolchain-aarch64-ft.cmake"
 TOOLCHAIN_WIN64_FILE="${TOOLCHAIN_ROOT}/../toolchain-win64.cmake"
 TOOLCHAIN_X86_64_FILE="${TOOLCHAIN_ROOT}/../toolchain-x86.cmake"
 BUILD_ROOT="${CURRENT_ROOT}/output"
@@ -36,11 +37,12 @@ usage() {
     echo_green "  <编译端>   必须，可选值："
     echo_green "             ${YELLOW}server${GREEN} <位数>      （服务端库，32或64位）"
     echo_green "             ${YELLOW}client${GREEN} <位数>      （客户端库，32或64位）"
-    echo_green "             可选平台：32 / hisi32 / 64 / linux64 / win64"
-    echo_green "             其中：32=arm32(RK), hisi32=arm32(Hisi), 64=aarch64, linux64=x86_64 Linux, win64=x86_64 Windows-mingw"
+    echo_green "             可选平台：32 / hisi32 / 64 / 64_ft / linux64 / win64"
+    echo_green "             其中：32=arm32(RK), hisi32=arm32(Hisi), 64=aarch64(RK), 64_ft=aarch64(飞腾), linux64=x86_64 Linux, win64=x86_64 Windows-mingw"
     echo_green "             ${YELLOW}all${GREEN}                （编译所有库并打包）"
     echo_green "             ${YELLOW}all_32${GREEN}             （仅编译并打包32位 server/client）"
     echo_green "             ${YELLOW}all_64${GREEN}             （仅编译并打包64位 server/client）"
+    echo_green "             ${YELLOW}all_64_ft${GREEN}          （仅编译并打包飞腾64位 server/client）"
     echo_green "             ${YELLOW}all_linux64${GREEN}        （仅编译并打包 linux64 server/client）"
     echo_green "             ${YELLOW}all_win64${GREEN}          （仅编译并打包 win64 server/client）"
     echo_green "             ${YELLOW}demo_server${GREEN} <demo名称> [工具链前缀]（服务端demo）"
@@ -61,6 +63,7 @@ usage() {
     echo_green "  编译64位客户端库并传输：     ${YELLOW}$0 client 64 --autofile${RESET}"
     echo_green "  一键编译打包并传输：          ${YELLOW}$0 all --autofile${RESET}"
     echo_green "  仅打包64位 server/client：   ${YELLOW}$0 all_64 --autofile${RESET}"
+    echo_green "  仅打包飞腾64位 server/client：${YELLOW}$0 all_64_ft --autofile${RESET}"
     echo_green "  仅打包 linux64 server/client：${YELLOW}$0 all_linux64 --autofile${RESET}"
     echo_green "  编译demo（使用默认编译器）：  ${YELLOW}$0 demo_server capability --autofile${RESET}"
     echo_green "  编译64位版demo：            ${YELLOW}$0 demo_client config aarch64-linux-gnu --autofile${RESET}"
@@ -176,9 +179,21 @@ build_project() {
         WORK_BUILD_DIR="$BUILD_ROOT/${TARGET_NAME}_64"
         LIB_OUT_DIR="$CURRENT_ROOT/${TARGET_NAME}/lib64"
         # BIN_OUT_DIR="$BUILD_ROOT/bin/${TARGET_NAME}_64"
-        
+
         if [ ! -d "$TOOLCHAIN_ROOT/$TOOLCHAIN_64_NAME" ]; then
             echo_red "错误：64位工具链不存在！"
+            return 1
+        fi
+    elif [ "$BIT_MODE" = "64_ft" ]; then
+        TOOLCHAIN_FILE="$TOOLCHAIN_64_FT_FILE"
+        WORK_BUILD_DIR="$BUILD_ROOT/${TARGET_NAME}_64_ft"
+        LIB_OUT_DIR="$CURRENT_ROOT/${TARGET_NAME}/lib64_ft"
+        # BIN_OUT_DIR="$BUILD_ROOT/bin/${TARGET_NAME}_64_ft"
+
+        # 飞腾工具链在 /opt 目录下，不在本地 toolchain 目录
+        local FT_TOOLCHAIN_ROOT="/opt/gcc-linaro-7.5.0-2019.12-x86_64_aarch64-linux-gnu"
+        if [ ! -d "$FT_TOOLCHAIN_ROOT" ]; then
+            echo_red "错误：飞腾64位工具链不存在！路径: $FT_TOOLCHAIN_ROOT"
             return 1
         fi
     elif [ "$BIT_MODE" = "linux64" ]; then
@@ -197,7 +212,7 @@ build_project() {
             return 1
         fi
     else
-        echo_red "错误：位数/平台必须是 32、hisi32、64、linux64 或 win64！"
+        echo_red "错误：位数/平台必须是 32、hisi32、64、64_ft、linux64 或 win64！"
         return 1
     fi
     
@@ -355,6 +370,10 @@ package_selected() {
                 mkdir -p "$PACKAGE_DIR/server/lib64"
                 mkdir -p "$PACKAGE_DIR/client/lib64"
                 ;;
+            64_ft)
+                mkdir -p "$PACKAGE_DIR/server/lib64_ft"
+                mkdir -p "$PACKAGE_DIR/client/lib64_ft"
+                ;;
             linux64)
                 mkdir -p "$PACKAGE_DIR/server/lib_linux64"
                 mkdir -p "$PACKAGE_DIR/client/lib_linux64"
@@ -391,6 +410,12 @@ package_selected() {
                 cp server/lib64/*.a  "$PACKAGE_DIR/server/lib64/" 2>/dev/null || true
                 cp client/lib64/*.so "$PACKAGE_DIR/client/lib64/" 2>/dev/null || true
                 cp client/lib64/*.a  "$PACKAGE_DIR/client/lib64/" 2>/dev/null || true
+                ;;
+            64_ft)
+                cp server/lib64_ft/*.so "$PACKAGE_DIR/server/lib64_ft/" 2>/dev/null || true
+                cp server/lib64_ft/*.a  "$PACKAGE_DIR/server/lib64_ft/" 2>/dev/null || true
+                cp client/lib64_ft/*.so "$PACKAGE_DIR/client/lib64_ft/" 2>/dev/null || true
+                cp client/lib64_ft/*.a  "$PACKAGE_DIR/client/lib64_ft/" 2>/dev/null || true
                 ;;
             linux64)
                 cp server/lib_linux64/*.so "$PACKAGE_DIR/server/lib_linux64/" 2>/dev/null || true
@@ -478,7 +503,7 @@ build_demo() {
     local DEMO_SRC_DIR=""
     local WORK_BUILD_DIR=""
     local DEMO_OUT_DIR=""
-    
+
     # 根据demo名称确定子目录分类（Common 或 BG6_ZHSJ）
     local DEMO_SUBDIR=""
     case "$DEMO_NAME" in
@@ -494,7 +519,7 @@ build_demo() {
             return 1
             ;;
     esac
-
+    
     if [ "$DEMO_TYPE" = "server" ]; then
         DEMO_SRC_DIR="$CURRENT_ROOT/../sdk_server/demo/${DEMO_SUBDIR}/${DEMO_NAME}"
     else
@@ -650,6 +675,10 @@ elif [ "$TARGET_ARG" == "all_64" ]; then
     build_project server 64 || exit 1
     build_project client 64 || exit 1
     package_selected "all_64" 64
+elif [ "$TARGET_ARG" == "all_64_ft" ]; then
+    build_project server 64_ft || exit 1
+    build_project client 64_ft || exit 1
+    package_selected "all_64_ft" 64_ft
 elif [ "$TARGET_ARG" == "all_linux64" ]; then
     build_project server linux64 || exit 1
     build_project client linux64 || exit 1
@@ -681,8 +710,8 @@ else
     fi
     BIT_ARG="$2"
     
-    if [ "$BIT_ARG" != "32" ] && [ "$BIT_ARG" != "hisi32" ] && [ "$BIT_ARG" != "64" ] && [ "$BIT_ARG" != "linux64" ] && [ "$BIT_ARG" != "win64" ]; then
-        echo_red "错误：位数/平台必须是 32、hisi32、64、linux64 或 win64！"
+    if [ "$BIT_ARG" != "32" ] && [ "$BIT_ARG" != "hisi32" ] && [ "$BIT_ARG" != "64" ] && [ "$BIT_ARG" != "64_ft" ] && [ "$BIT_ARG" != "linux64" ] && [ "$BIT_ARG" != "win64" ]; then
+        echo_red "错误：位数/平台必须是 32、hisi32、64、64_ft、linux64 或 win64！"
         usage
     fi
     

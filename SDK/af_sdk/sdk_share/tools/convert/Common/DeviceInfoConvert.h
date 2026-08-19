@@ -104,15 +104,6 @@ namespace SDKConvert
     void deal(Json::Object* pRootJson, NET_AlarmSchedule_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_LinkageList_S& stInfo, bool bOutStruct);
 
-    /**
-     * @brief 在 JSON 与手动声光报警触发请求之间转换。
-     * @param [in,out] pRootJson 根据 bOutStruct 作为源或目标 JSON 对象。
-     * @param [in,out] stInfo 根据 bOutStruct 作为源或目标请求结构体。
-     * @param [in] bOutStruct TRUE 表示 JSON 转结构体，FALSE 表示结构体转 JSON。
-     * @return 无。
-     */
-    void deal(Json::Object* pRootJson, NET_SoundLightAlarmTrigger_S& stInfo, bool bOutStruct);
-
     void deal(Json::Object* pRootJson, NET_MotionRegion_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_MotionExpertMode_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_MotionNormalMode_S& stInfo, bool bOutStruct);
@@ -202,14 +193,6 @@ namespace SDKConvert
     void deal(Json::Object* pRootJson, NET_FaceCaptureRegion_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_FaceCaptureRule_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_FaceCaptureInfo_S& stInfo, bool bOutStruct);
-    /**
-     * @brief 在 JSON 与人脸抓拍图片叠加配置之间转换。
-     * @param [in,out] pRootJson 根据 bOutStruct 作为源或目标 JSON 对象。
-     * @param [in,out] stInfo 根据 bOutStruct 作为源或目标配置结构体。
-     * @param [in] bOutStruct TRUE 表示 JSON 转结构体，FALSE 表示结构体转 JSON。
-     * @return 无。
-     */
-    void deal(Json::Object* pRootJson, NET_FaceCaptureOverlayInfo_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_FaceCompareInfo_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_FaceLibInfo_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_FaceLibList_S& stInfo, bool bOutStruct);
@@ -235,7 +218,7 @@ namespace SDKConvert
      */
     void deal(Json::Object* pRootJson, NET_SdCardStatus_S& stInfo, bool bOutStruct);
 
-
+    
     /**
      * @brief 在 JSON 与 SDK 自定义声音告警音频信息之间转换。
      * @author ITC

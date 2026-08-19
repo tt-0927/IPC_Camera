@@ -7454,7 +7454,7 @@ int main(int argc, char* argv[])
     printf("[ConfigServerDemo] Starting server on port %d, username=%s ...\n",
            g_serverPort,
            g_serverUsername);
-    if (!NET_SERVER_Init(g_serverPort, g_serverUsername, g_serverPassword))
+    if (!NET_SERVER_Init(g_serverPort, g_serverUsername, g_serverPassword, NULL))
     {
         printf("[ConfigServerDemo] NET_SERVER_Init FAILED!\n");
         return -1;

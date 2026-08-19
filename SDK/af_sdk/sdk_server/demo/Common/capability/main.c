@@ -692,7 +692,7 @@ int main(int argc, char* argv[])
 
     /* 启动服务 */
     printf("[Server] Starting on port %d, username=%s...\n", g_serverPort, g_serverUsername);
-    if (NET_SERVER_Init(g_serverPort, g_serverUsername, g_serverPassword))
+    if (NET_SERVER_Init(g_serverPort, g_serverUsername, g_serverPassword, NULL))
     {
         printf("[Server] Server started successfully!\n");
     }

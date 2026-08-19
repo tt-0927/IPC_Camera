@@ -33,7 +33,7 @@ static std::string HandleGetChannelInfo(INT32 channelId, INT32 command)
     }
     NETSDK_LOG_MESSAGE_INFO("GetChannelInfo callback cmd=%d, ret=%d", command, nRespCode);
     NETSDK_LOG_MESSAGE_INFO("GetChannelInfo callback END");
-    return SDKConvert::to_respString(nRespCode, command, stCfg);
+    return SDKConvert::to_respString(nRespCode, command, channelId, stCfg);
 }
 
 /**
@@ -64,7 +64,7 @@ static std::string HandleGetChannelList(INT32 channelId, INT32 command)
     }
     NETSDK_LOG_MESSAGE_INFO("GetChannelList callback cmd=%d, ret=%d", command, nRespCode);
     NETSDK_LOG_MESSAGE_INFO("GetChannelList callback END");
-    return SDKConvert::to_respString(nRespCode, command, *stCfg);
+    return SDKConvert::to_respString(nRespCode, command, channelId, *stCfg);
 }
 
 /**
@@ -191,7 +191,7 @@ static void PrintMotionAlarmInfo(const NET_MotionAlarmInfo_S* pInfo)
 std::string CDeviceConfigBusiness::GetDevConfig(const std::string& req_data, const std::string& url_param)
 {
     (void)req_data;
-    INT32 channelId = ParseIntParam(url_param, NET_API_PARAM_CHANNEL, 1);
+    INT32 channelId = ParseIntParam(url_param, NET_API_PARAM_CHANNEL, NET_API_PARAM_NVRCHN);
     INT32 command = ParseIntParam(url_param, NET_API_PARAM_COMMAND, NET_CFG_INVALID);
     NETSDK_LOG_MESSAGE_INFO("GetDevConfig request: url[%s], channel=%d, command=%d",
                   url_param.c_str(),
@@ -366,9 +366,6 @@ std::string CDeviceConfigBusiness::GetDevConfig(const std::string& req_data, con
         case NET_GET_FACECAPTUREINFO:
             return HandleGetConfig<NET_FaceCaptureInfo_S>(channelId, command);
 
-        case NET_GET_FACECAPTUREOVERLAYINFO:
-            return HandleGetConfig<NET_FaceCaptureOverlayInfo_S>(channelId, command);
-
         case NET_GET_TARGET_LIB:
             return HandleGetConfig<NET_FaceLibList_S>(channelId, command);
 
@@ -473,7 +470,7 @@ std::string CDeviceConfigBusiness::GetDevConfig(const std::string& req_data, con
  */
 std::string CDeviceConfigBusiness::SetDevConfig(const std::string& req_data, const std::string& url_param)
 {
-    INT32 channelId = ParseIntParam(url_param, NET_API_PARAM_CHANNEL, 1);
+    INT32 channelId = ParseIntParam(url_param, NET_API_PARAM_CHANNEL, NET_API_PARAM_NVRCHN);
     INT32 command = ParseIntParam(url_param, NET_API_PARAM_COMMAND, NET_CFG_INVALID);
     NETSDK_LOG_MESSAGE_INFO("SetDevConfig request: url[%s], channel=%d, command=%d",
                   url_param.c_str(),
@@ -602,9 +599,6 @@ std::string CDeviceConfigBusiness::SetDevConfig(const std::string& req_data, con
         case NET_SET_PIR_ALARM_INFO:
             return HandleSetConfig<NET_PirAlarmInfo_S>(channelId, command, req_data);
 
-        case NET_TRIGGER_SOUND_LIGHT_ALARM:
-            return HandleSetConfig<NET_SoundLightAlarmTrigger_S>(channelId, command, req_data);
-
         case NET_SET_PREVIEW_INFO:
             return HandleSetConfig<NET_PreviewInfo_S>(channelId, command, req_data);
 
@@ -646,9 +640,6 @@ std::string CDeviceConfigBusiness::SetDevConfig(const std::string& req_data, con
 
         case NET_SET_FACECAPTUREINFO:
             return HandleSetConfig<NET_FaceCaptureInfo_S>(channelId, command, req_data);
-
-        case NET_SET_FACECAPTUREOVERLAYINFO:
-            return HandleSetConfig<NET_FaceCaptureOverlayInfo_S>(channelId, command, req_data);
 
         case NET_SET_FACE_COMPARE_INFO:
             return HandleSetConfig<NET_FaceCompareInfo_S>(channelId, command, req_data);

@@ -17,8 +17,8 @@
 #include "DeviceCapabilityBusiness.h"
 #include "DeviceConfigBusiness.h"
 #include "DeviceControlBusiness.h"
-#include "BG6_ZHSJ/PlaybackBusiness.h"
-#include "BG6_ZHSJ/RecordFrameBusiness.h"
+#include "PlaybackBusiness.h"
+#include "RecordFrameBusiness.h"
 #include "HttpAuthHandler.h"
 #include "NetSdkLog.h"
 #include "SDKConvert.h"
@@ -265,7 +265,7 @@ void CRouteModule::RegisterDeviceRoutes()
     NETSDK_LOG_MESSAGE_DEBUG("Registering device routes...");
 
     // 注册设备信息路由
-    NETSDK_REGISTER_ROUTE_URL_SINGLETON(NET_API_PATH_DEVICE_GETINFO,
+    NETSDK_REGISTER_ROUTE_URL_SINGLETON_WITH_SESSION(NET_API_PATH_DEVICE_GETINFO,
                                  HttpMethod_E::GET,
                                  CDeviceBusiness,
                                  GetDeviceInfo);
@@ -283,7 +283,7 @@ void CRouteModule::RegisterCapabilityRoutes()
     NETSDK_LOG_MESSAGE_DEBUG("Registering capability routes...");
 
     // 注册设备能力集路由
-    NETSDK_REGISTER_ROUTE_URL_SINGLETON(NET_API_PATH_DEVICE_CAPABILITY,
+    NETSDK_REGISTER_ROUTE_URL_SINGLETON_WITH_SESSION(NET_API_PATH_DEVICE_CAPABILITY,
                                  HttpMethod_E::GET,
                                  CDeviceCapabilityBusiness,
                                  GetDeviceCapability);
@@ -300,13 +300,13 @@ void CRouteModule::RegisterConfigRoutes()
 {
     NETSDK_LOG_MESSAGE_DEBUG("Registering config routes...");
 
-    NETSDK_REGISTER_ROUTE_URL_SINGLETON(NET_API_PATH_DEVICE_GET_DEV_CONFIG,
+    NETSDK_REGISTER_ROUTE_URL_SINGLETON_WITH_SESSION(NET_API_PATH_DEVICE_GET_DEV_CONFIG,
                                  HttpMethod_E::GET,
                                  CDeviceConfigBusiness,
                                  GetDevConfig);
     m_nRouteCount++;
 
-    NETSDK_REGISTER_ROUTE_URL_SINGLETON(NET_API_PATH_DEVICE_SET_DEV_CONFIG,
+    NETSDK_REGISTER_ROUTE_URL_SINGLETON_WITH_SESSION(NET_API_PATH_DEVICE_SET_DEV_CONFIG,
                                  HttpMethod_E::POST,
                                  CDeviceConfigBusiness,
                                  SetDevConfig);
@@ -323,7 +323,7 @@ void CRouteModule::RegisterDeviceControlRoutes()
 {
     NETSDK_LOG_MESSAGE_DEBUG("Registering device control routes...");
 
-    NETSDK_REGISTER_ROUTE_URL_SINGLETON(NET_API_PATH_DEVICE_CONTROL,
+    NETSDK_REGISTER_ROUTE_URL_SINGLETON_WITH_SESSION(NET_API_PATH_DEVICE_CONTROL,
                                  HttpMethod_E::POST,
                                  CDeviceControlBusiness,
                                  DeviceControl);

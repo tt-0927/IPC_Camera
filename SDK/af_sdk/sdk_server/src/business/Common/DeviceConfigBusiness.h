@@ -29,8 +29,8 @@
 #include "NetTVSDKServerInterface.h"
 #include "NetTVConfigCbExecute.h"
 #include "DeviceInfoConvert.h"
-#include "BG6_ZHSJ/CapabilityInfoConvert.h"
-#include "BG6_ZHSJ/AlarmInfoConvert.h"
+#include "BG6_ZHSJ/BU_SJGZ/CapabilityInfoConvert.h"
+#include "BG6_ZHSJ/BU_SJCL/AlarmInfoConvert.h"
 #include "SDKConvert.h"
 #include "NetSdkLog.h"
 #include <sstream>
@@ -97,7 +97,7 @@ private:
         }
         NETSDK_LOG_MESSAGE_INFO("GetDevConfig callback cmd=%d, ret=%d", command, nRespCode);
         NETSDK_LOG_MESSAGE_INFO("GetDevConfig callback END");
-        return SDKConvert::to_respString(nRespCode, command, stCfg);
+        return SDKConvert::to_respString(nRespCode, command, channelId, stCfg);
     }
 
     /**

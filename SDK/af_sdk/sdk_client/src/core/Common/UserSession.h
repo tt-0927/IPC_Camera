@@ -23,7 +23,7 @@
 #include <iostream>
 
 #include "NetTVSDKClientInterface.h"
-#include "BG6_ZHSJ/ClientAlarmManager.h"
+#include "BG6_ZHSJ/BU_SJCL/ClientAlarmManager.h"
 
 using namespace tvsdk;
 
@@ -105,14 +105,6 @@ public:
      * @param [in] userData 用户数据
      */
     void SetAlarmCallback(NET_AlarmCallBack cb, void* userData);
-
-    /**
-     * @brief 设置动态图片 V2 告警回调函数。
-     * @param [in] pCallback V2 告警回调函数。
-     * @param [in] pUserData 回调用户数据。
-     * @return 无。
-     */
-    void SetAlarmCallbackV2(NET_AlarmCallBackV2 pCallback, void* pUserData);
 
     /**
  * @author tianl (tianl@kfb.cn)

@@ -8,9 +8,9 @@
 #pragma once
 #include "DeviceManage.h"
 #include "ErrorManage.h"
-#include "BG6_ZHSJ/CapabilityInfoConvert.h"
+#include "BG6_ZHSJ/BU_SJGZ/CapabilityInfoConvert.h"
 #include "DeviceInfoConvert.h"
-#include "BG6_ZHSJ/AlarmInfoConvert.h"
+#include "BG6_ZHSJ/BU_SJCL/AlarmInfoConvert.h"
 #include "SDKConvert.h"
 #include <cstring>
 #include <string>
@@ -56,10 +56,6 @@ public:
     {
         std::memset(&out, 0, sizeof(out));
         SDKConvert::to_respStruct(respBody, out);
-        if (out.uSize == 0)
-        {
-            out.uSize = sizeof(out);
-        }
         return true;
     }
 
@@ -73,10 +69,6 @@ public:
     {
         std::memset(&out, 0, sizeof(out));
         SDKConvert::to_respStruct(respBody, out);
-        if (out.uSize == 0)
-        {
-            out.uSize = sizeof(out);
-        }
         return true;
     }
 
