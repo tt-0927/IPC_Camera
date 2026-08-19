@@ -12,6 +12,7 @@ set(SDK_SERVER_PATH
     ${CMAKE_CURRENT_LIST_DIR}/src/business/BG6_ZHSJ/BU_SJCL
     ${CMAKE_CURRENT_LIST_DIR}/src/cb/Common
     ${CMAKE_CURRENT_LIST_DIR}/src/cb/BG6_ZHSJ
+    ${CMAKE_CURRENT_LIST_DIR}/src/cb/BG6_ZHSJ/BU_SJGZ
 )
 set(SDK_SERVER_LIST "")
 foreach(item ${SDK_SERVER_PATH})
@@ -31,6 +32,7 @@ set(SDK_SERVER_INCLUDE
     ${CMAKE_CURRENT_LIST_DIR}/src/business/BG6_ZHSJ/BU_SJCL
     ${CMAKE_CURRENT_LIST_DIR}/src/cb/Common
     ${CMAKE_CURRENT_LIST_DIR}/src/cb/BG6_ZHSJ
+    ${CMAKE_CURRENT_LIST_DIR}/src/cb/BG6_ZHSJ/BU_SJGZ
 )
 foreach(item ${SDK_SERVER_INCLUDE})
     include_directories(${item})
