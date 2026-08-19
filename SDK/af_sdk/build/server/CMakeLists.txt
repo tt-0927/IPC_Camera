@@ -33,12 +33,6 @@ file(GLOB_RECURSE LIB_SRC
     "${SDK_SHARE_PATH}/*.cpp"
 )
 
-# IPC 配置回调已迁移至 BG6_ZHSJ/BU_SJGZ。
-# 排除旧根目录实现，避免编译机残留旧文件时与新实现产生重复符号。
-list(REMOVE_ITEM LIB_SRC
-    "${SDK_SERVER_PATH}/src/cb/BG6_ZHSJ/NetTVIpcConfigCb.c"
-)
-
 file(GLOB_RECURSE LIB_INCLUDE_TMP
     LIST_DIRECTORIES true  
     "${SDK_SERVER_PATH}/*" 
