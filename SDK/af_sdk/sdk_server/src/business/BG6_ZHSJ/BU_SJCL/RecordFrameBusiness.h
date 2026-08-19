@@ -27,7 +27,7 @@
 
 #include "Singleton.h"
 #include "NetTVSDKServerInterface.h"
-#include "BG6_ZHSJ/RecordFrameServer.h"
+#include "RecordFrameServer.h"
 #include "DeviceInfoConvert.h"
 #include "SDKConvert.h"
 #include "NetSdkLog.h"

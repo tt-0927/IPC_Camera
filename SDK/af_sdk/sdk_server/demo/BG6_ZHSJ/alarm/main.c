@@ -415,7 +415,7 @@ int main(int argc, char* argv[])
 
     // 初始化SDK服务器
     printf("[Demo] Initializing SDK Server on port %u...\n", dwPort);
-    if (!NET_SERVER_Init(dwPort, szUserName, szPassword))
+    if (!NET_SERVER_Init(dwPort, szUserName, szPassword, NULL))
     {
         printf("[Demo] Failed to initialize SDK Server!\n");
         return -1;

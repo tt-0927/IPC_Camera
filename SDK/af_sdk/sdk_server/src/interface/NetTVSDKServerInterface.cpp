@@ -6,8 +6,8 @@
 
 #include "NetTVSDKServerInterface.h"
 #include "NetTVSDKServerImpl.h"
-#include "BG6_ZHSJ/VoiceComServer.h"
-#include "BG6_ZHSJ/RecordFrameServer.h"
+#include "VoiceComServer.h"
+#include "RecordFrameServer.h"
 
 // 全局Impl单例（使用智能指针）
 static std::unique_ptr<CNetTVSDKServerImpl> g_pServerImpl;
@@ -16,13 +16,13 @@ static std::unique_ptr<CNetTVSDKServerImpl> g_pServerImpl;
 extern "C" {
 #endif
 
-NET_API BOOL STDCALL NET_SERVER_Init(IN UINT32 udwPort,IN CHAR szUserName[NET_LEN_132],IN CHAR szPassword[NET_LEN_132])
+NET_API BOOL STDCALL NET_SERVER_Init(IN UINT32 udwPort,IN CHAR szUserName[NET_LEN_132],IN CHAR szPassword[NET_LEN_132],IN CHAR szDeviceName[NET_LEN_132])
 {
 	if (!g_pServerImpl)
 	{
 		g_pServerImpl = std::make_unique<CNetTVSDKServerImpl>();
 	}
-	return g_pServerImpl->DoInit(udwPort, szUserName, szPassword);
+	return g_pServerImpl->DoInit(udwPort, szUserName, szPassword, szDeviceName);
 }
 
 NET_API BOOL STDCALL NET_SERVER_Cleanup(void)
@@ -82,86 +82,6 @@ NET_API BOOL STDCALL NET_SERVER_PushAlarmInfo(IN NET_Alarmer_S *pAlarmer,
 		g_pServerImpl = std::make_unique<CNetTVSDKServerImpl>();
 	}
 	return g_pServerImpl->DoPushAlarmInfo(pAlarmer, lCommand, pAlarmInfo, dwBufLen);
-}
-
-/**
- * @brief 推送动态图片 V2 告警。
- * @param [in] pAlarmer 告警设备信息。
- * @param [in] lCommand 告警命令码。
- * @param [in] pAlarmInfo V2 告警结构体。
- * @param [in] dwBufLen V2 告警结构体长度。
- * @return 成功返回 TRUE，失败返回 FALSE。
- */
-NET_API BOOL STDCALL NET_SERVER_PushAlarmInfoV2(IN NET_Alarmer_S* pAlarmer,
-                                                IN INT32 lCommand,
-                                                IN LPVOID pAlarmInfo,
-                                                IN INT32 dwBufLen)
-{
-	if (!g_pServerImpl)
-	{
-		g_pServerImpl = std::make_unique<CNetTVSDKServerImpl>();
-	}
-	return g_pServerImpl->DoPushAlarmInfoV2(pAlarmer, lCommand, pAlarmInfo, dwBufLen);
-}
-
-/**
- * @brief 推送人脸抓拍事件。
- * @param [in] pAlarmer 告警设备信息。
- * @param [in] pCaptureInfo 人脸抓拍信息。
- * @return 成功返回 TRUE，失败返回 FALSE。
- */
-NET_API BOOL STDCALL NET_SERVER_PushFaceCaptureInfo(IN NET_Alarmer_S* pAlarmer,
-                                                     IN NET_FaceCapturePushInfo_S* pCaptureInfo)
-{
-	return pAlarmer && pCaptureInfo ? NET_SERVER_PushAlarmInfo(pAlarmer,
-	                                               NET_PUSH_FACE_CAPTURE_INFO,
-	                                               pCaptureInfo,
-	                                               static_cast<INT32>(sizeof(*pCaptureInfo))) : FALSE;
-}
-
-/**
- * @brief 推送行人抓拍事件。
- * @param [in] pAlarmer 告警设备信息。
- * @param [in] pCaptureInfo 行人抓拍信息。
- * @return 成功返回 TRUE，失败返回 FALSE。
- */
-NET_API BOOL STDCALL NET_SERVER_PushPersonCaptureInfo(IN NET_Alarmer_S* pAlarmer,
-                                                       IN NET_PersonCapturePushInfo_S* pCaptureInfo)
-{
-	return pAlarmer && pCaptureInfo ? NET_SERVER_PushAlarmInfo(pAlarmer,
-	                                               NET_PUSH_PERSON_CAPTURE_INFO,
-	                                               pCaptureInfo,
-	                                               static_cast<INT32>(sizeof(*pCaptureInfo))) : FALSE;
-}
-
-/**
- * @brief 推送机动车抓拍事件。
- * @param [in] pAlarmer 告警设备信息。
- * @param [in] pCaptureInfo 机动车抓拍信息。
- * @return 成功返回 TRUE，失败返回 FALSE。
- */
-NET_API BOOL STDCALL NET_SERVER_PushMotorvehicleCaptureInfo(IN NET_Alarmer_S* pAlarmer,
-                                                             IN NET_MotorvehicleCapturePushInfo_S* pCaptureInfo)
-{
-	return pAlarmer && pCaptureInfo ? NET_SERVER_PushAlarmInfo(pAlarmer,
-	                                               NET_PUSH_MOTORVEHICLE_CAPTURE_INFO,
-	                                               pCaptureInfo,
-	                                               static_cast<INT32>(sizeof(*pCaptureInfo))) : FALSE;
-}
-
-/**
- * @brief 推送非机动车抓拍事件。
- * @param [in] pAlarmer 告警设备信息。
- * @param [in] pCaptureInfo 非机动车抓拍信息。
- * @return 成功返回 TRUE，失败返回 FALSE。
- */
-NET_API BOOL STDCALL NET_SERVER_PushNonMotorvehicleCaptureInfo(IN NET_Alarmer_S* pAlarmer,
-                                                                IN NET_NonMotorvehicleCapturePushInfo_S* pCaptureInfo)
-{
-	return pAlarmer && pCaptureInfo ? NET_SERVER_PushAlarmInfo(pAlarmer,
-	                                               NET_PUSH_NONMOTORVEHICLE_CAPTURE_INFO,
-	                                               pCaptureInfo,
-	                                               static_cast<INT32>(sizeof(*pCaptureInfo))) : FALSE;
 }
 
 NET_API BOOL STDCALL NET_SERVER_PushChannelStatusInfo(IN NET_ChannelInfo_S *pChannelInfo)

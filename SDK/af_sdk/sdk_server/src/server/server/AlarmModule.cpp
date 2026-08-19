@@ -10,7 +10,7 @@
 #include "AlarmModule.h"
 #include "SessionModule.h"
 #include "SessionManager.h"
-#include "BG6_ZHSJ/AlarmInfoConvert.h"
+#include "BG6_ZHSJ/BU_SJCL/AlarmInfoConvert.h"
 #include "DeviceInfoConvert.h"
 #include "SDKConvert.h"
 #include "Json.h"
@@ -109,54 +109,6 @@ BOOL CAlarmModule::PushAlarmInfo(NET_Alarmer_S* pAlarmer,
                 /* 含大图片数组，禁止栈上拷贝，直接引用原始数据 */
                 NET_AlarmFaceCompareInfo_S& info = *(NET_AlarmFaceCompareInfo_S*)pAlarmInfo;
                 SDKConvert::deal(pInfoJson, info, false);
-            }
-        }
-        else if (lCommand == NET_PUSH_FACE_CAPTURE_INFO)
-        {
-            if (dwBufLen < static_cast<INT32>(sizeof(NET_FaceCapturePushInfo_S)))
-            {
-                Json::add(pInfoJson, "AlarmType", static_cast<long long>(lCommand));
-            }
-            else
-            {
-                NET_FaceCapturePushInfo_S& stCaptureInfo = *static_cast<NET_FaceCapturePushInfo_S*>(pAlarmInfo);
-                SDKConvert::deal(pInfoJson, stCaptureInfo, false);
-            }
-        }
-        else if (lCommand == NET_PUSH_PERSON_CAPTURE_INFO)
-        {
-            if (dwBufLen < static_cast<INT32>(sizeof(NET_PersonCapturePushInfo_S)))
-            {
-                Json::add(pInfoJson, "AlarmType", static_cast<long long>(lCommand));
-            }
-            else
-            {
-                NET_PersonCapturePushInfo_S& stCaptureInfo = *static_cast<NET_PersonCapturePushInfo_S*>(pAlarmInfo);
-                SDKConvert::deal(pInfoJson, stCaptureInfo, false);
-            }
-        }
-        else if (lCommand == NET_PUSH_MOTORVEHICLE_CAPTURE_INFO)
-        {
-            if (dwBufLen < static_cast<INT32>(sizeof(NET_MotorvehicleCapturePushInfo_S)))
-            {
-                Json::add(pInfoJson, "AlarmType", static_cast<long long>(lCommand));
-            }
-            else
-            {
-                NET_MotorvehicleCapturePushInfo_S& stCaptureInfo = *static_cast<NET_MotorvehicleCapturePushInfo_S*>(pAlarmInfo);
-                SDKConvert::deal(pInfoJson, stCaptureInfo, false);
-            }
-        }
-        else if (lCommand == NET_PUSH_NONMOTORVEHICLE_CAPTURE_INFO)
-        {
-            if (dwBufLen < static_cast<INT32>(sizeof(NET_NonMotorvehicleCapturePushInfo_S)))
-            {
-                Json::add(pInfoJson, "AlarmType", static_cast<long long>(lCommand));
-            }
-            else
-            {
-                NET_NonMotorvehicleCapturePushInfo_S& stCaptureInfo = *static_cast<NET_NonMotorvehicleCapturePushInfo_S*>(pAlarmInfo);
-                SDKConvert::deal(pInfoJson, stCaptureInfo, false);
             }
         }
         else if (alarmBase == NET_ALARM_BASE_BASIC)
@@ -341,109 +293,6 @@ BOOL CAlarmModule::PushAlarmInfo(NET_Alarmer_S* pAlarmer,
  * @param pChannelInfo 通道状态信息
  * @return TRUE表示成功，FALSE表示失败
  */
-/**
- * @brief 将 V2 动态图片告警序列化后推送给已订阅客户端。
- * @param [in] pAlarmer 告警设备信息。
- * @param [in] lCommand 告警命令码。
- * @param [in] pAlarmInfo 与命令码匹配的 V2 告警结构体。
- * @param [in] dwBufLen 告警结构体长度。
- * @return 至少推送到一个客户端时返回 TRUE，否则返回 FALSE。
- */
-BOOL CAlarmModule::PushAlarmInfoV2(NET_Alarmer_S* pAlarmer,
-                                   INT32 lCommand,
-                                   LPVOID pAlarmInfo,
-                                   INT32 dwBufLen)
-{
-    if (!pAlarmer || !pAlarmInfo || dwBufLen <= 0)
-    {
-        NETSDK_LOG_MESSAGE_ERROR("PushAlarmInfoV2: invalid parameters");
-        return FALSE;
-    }
-
-    Json::Object* pRootJson = Json::init();
-    Json::Object* pAlarmInfoJson = Json::init();
-    if (!pRootJson || !pAlarmInfoJson)
-    {
-        Json::deinit(pAlarmInfoJson);
-        Json::deinit(pRootJson);
-        NETSDK_LOG_MESSAGE_ERROR("PushAlarmInfoV2: failed to create JSON object");
-        return FALSE;
-    }
-
-    Json::add(pRootJson, "Command", static_cast<long long>(lCommand));
-    Json::Object* pAlarmerJson = Json::init();
-    NET_Alarmer_S stAlarmer = *pAlarmer;
-    SDKConvert::deal(pAlarmerJson, stAlarmer, false);
-    Json::add(pRootJson, "Alarmer", pAlarmerJson);
-
-    BOOL bSupported = TRUE;
-    const INT32 nAlarmBase = lCommand & 0xF000;
-    if (lCommand == NET_ALARM_FACE_COMPARE &&
-        dwBufLen >= static_cast<INT32>(sizeof(NET_AlarmFaceCompareInfoV2_S)))
-    {
-        SDKConvert::deal(pAlarmInfoJson, *static_cast<NET_AlarmFaceCompareInfoV2_S*>(pAlarmInfo), false);
-    }
-    else if (nAlarmBase == NET_ALARM_BASE_BASIC &&
-             dwBufLen >= static_cast<INT32>(sizeof(NET_AlarmBasicInfoV2_S)))
-    {
-        SDKConvert::deal(pAlarmInfoJson, *static_cast<NET_AlarmBasicInfoV2_S*>(pAlarmInfo), false);
-    }
-    else if (nAlarmBase == NET_ALARM_BASE_RULE &&
-             dwBufLen >= static_cast<INT32>(sizeof(NET_AlarmRuleInfoV2_S)))
-    {
-        SDKConvert::deal(pAlarmInfoJson, *static_cast<NET_AlarmRuleInfoV2_S*>(pAlarmInfo), false);
-    }
-    else if (nAlarmBase == NET_ALARM_BASE_AI &&
-             dwBufLen >= static_cast<INT32>(sizeof(NET_AlarmAiObjectInfoV2_S)))
-    {
-        SDKConvert::deal(pAlarmInfoJson, *static_cast<NET_AlarmAiObjectInfoV2_S*>(pAlarmInfo), false);
-    }
-    else if (nAlarmBase == NET_ALARM_BASE_TRAFFIC &&
-             dwBufLen >= static_cast<INT32>(sizeof(NET_AlarmPlateInfoV2_S)))
-    {
-        SDKConvert::deal(pAlarmInfoJson, *static_cast<NET_AlarmPlateInfoV2_S*>(pAlarmInfo), false);
-    }
-    else if (nAlarmBase == NET_ALARM_BASE_STATISTICS &&
-             dwBufLen >= static_cast<INT32>(sizeof(NET_AlarmStatisticsInfoV2_S)))
-    {
-        SDKConvert::deal(pAlarmInfoJson, *static_cast<NET_AlarmStatisticsInfoV2_S*>(pAlarmInfo), false);
-    }
-    else
-    {
-        bSupported = FALSE;
-    }
-
-    if (!bSupported)
-    {
-        Json::deinit(pAlarmInfoJson);
-        Json::deinit(pRootJson);
-        NETSDK_LOG_MESSAGE_ERROR("PushAlarmInfoV2: unsupported command or invalid buffer, command=0x%x, length=%d",
-                                 lCommand,
-                                 dwBufLen);
-        return FALSE;
-    }
-
-    Json::add(pRootJson, "AlarmInfo", pAlarmInfoJson);
-    const std::string strJson = Json::to_string(pRootJson);
-    Json::deinit(pRootJson);
-
-    const size_t uPushCount = CSessionManager::instance()->PushToAll(strJson);
-    if (uPushCount == 0)
-    {
-        NETSDK_LOG_MESSAGE_WARN("PushAlarmInfoV2: no eligible clients, command=0x%x, length=%d",
-                                lCommand,
-                                dwBufLen);
-        return FALSE;
-    }
-
-    ++m_lPushCount;
-    NETSDK_LOG_MESSAGE_INFO("PushAlarmInfoV2: forwarded to %zu client(s), command=0x%x, jsonLength=%zu",
-                            uPushCount,
-                            lCommand,
-                            strJson.size());
-    return TRUE;
-}
-
 BOOL CAlarmModule::PushChannelStatusInfo(NET_ChannelInfo_S* pChannelInfo)
 {
     NETSDK_LOG_MESSAGE_WARN("[CAlarmModule] ===== PushChannelStatusInfo Start ===== ");

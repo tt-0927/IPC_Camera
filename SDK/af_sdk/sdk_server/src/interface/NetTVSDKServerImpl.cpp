@@ -1,13 +1,17 @@
 #include <cstring>
 #include <cstdint>
 #include <limits>
+#include <string>
 #include "NetTVSDKServerImpl.h"
-#include "modules/Common/ServerModule.h"
-#include "modules/Common/SessionModule.h"
-#include "modules/Common/RouteModule.h"
-#include "modules/BG6_ZHSJ/AlarmModule.h"
+#include "ServerModule.h"
+#include "SessionModule.h"
+#include "RouteModule.h"
+#include "AlarmModule.h"
 #include "BG6_ZHSJ/DiscoveryResponder.h"
 #include "NetSdkLog.h"
+
+// 全局设备名称变量，供SDKConvert使用
+std::string g_sdkDeviceName = "AF_SDK";
 
 #define NETTVSDK_MAKE_VERSION(major, minor, rev1, rev2) \
     ((uint32_t)( \
@@ -44,7 +48,8 @@ CNetTVSDKServerImpl::~CNetTVSDKServerImpl()
 
 BOOL CNetTVSDKServerImpl::DoInit(UINT32 udwPort,
                                 CHAR szUserName[NET_LEN_132],
-                                CHAR szPassword[NET_LEN_132])
+                                CHAR szPassword[NET_LEN_132],
+                                CHAR szDeviceName[NET_LEN_132])
 {
     if (m_bInitialized)
     {
@@ -53,6 +58,13 @@ BOOL CNetTVSDKServerImpl::DoInit(UINT32 udwPort,
     }
 
     NETSDK_LOG_MESSAGE_INFO("=== SDK Server Initialization Started ===");
+
+    // 保存设备名称到全局变量
+    if (szDeviceName && strlen(szDeviceName) > 0)
+    {
+        g_sdkDeviceName = szDeviceName;
+    }
+    NETSDK_LOG_MESSAGE_INFO("SDK Server device name: %s", g_sdkDeviceName.c_str());
 
     // 1. 设置鉴权信息
     std::string username = (strlen(szUserName) > 0) ? szUserName : "admin";
@@ -195,28 +207,6 @@ BOOL CNetTVSDKServerImpl::DoPushAlarmInfo(NET_Alarmer_S* pAlarmer,
     }
 
     return m_pAlarmModule->PushAlarmInfo(pAlarmer, lCommand, pAlarmInfo, dwBufLen);
-}
-
-/**
- * @brief 推送动态图片 V2 告警。
- * @param [in] pAlarmer 告警设备信息。
- * @param [in] lCommand 告警命令码。
- * @param [in] pAlarmInfo V2 告警结构体。
- * @param [in] dwBufLen V2 告警结构体长度。
- * @return 成功返回 TRUE，失败返回 FALSE。
- */
-BOOL CNetTVSDKServerImpl::DoPushAlarmInfoV2(NET_Alarmer_S* pAlarmer,
-                                            INT32 lCommand,
-                                            LPVOID pAlarmInfo,
-                                            INT32 dwBufLen)
-{
-    if (!m_bInitialized)
-    {
-        NETSDK_LOG_MESSAGE_ERROR("PushAlarmInfoV2: SDK server is not initialized");
-        return FALSE;
-    }
-
-    return m_pAlarmModule->PushAlarmInfoV2(pAlarmer, lCommand, pAlarmInfo, dwBufLen);
 }
 
 BOOL CNetTVSDKServerImpl::DoPushChannelStatusInfo(NET_ChannelInfo_S* pChannelInfo)

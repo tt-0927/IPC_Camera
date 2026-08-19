@@ -139,7 +139,7 @@ bool CSessionManager::EnablePush(const std::string& SessionId)
 {
 	std::lock_guard<std::mutex> Lock(m_stMutex);
 	auto It = m_stSessions.find(SessionId);
-    if (It != m_stSessions.end() && It->second->IsLogined())
+    if (It != m_stSessions.end() && It->second->IsLogined()) 
 	{
         It->second->SetPushEnabled(true);
         std::string clientIP = It->second->GetClientIP();
@@ -200,7 +200,7 @@ void CSessionManager::MarkDisconnected(const std::string& SessionId)
 {
 	std::lock_guard<std::mutex> Lock(m_stMutex);
 	auto It = m_stSessions.find(SessionId);
-    if (It != m_stSessions.end())
+    if (It != m_stSessions.end()) 
 	{
         It->second->SetConnected(false);
         /* 断线时清空队列，避免客户端重连后收到大量已过期的历史报警 */
@@ -407,7 +407,7 @@ void CSessionManager::HttpCommandLout(const httplib::Request& req, httplib::Resp
 
 	if (SessionId.empty())
 	{
-		res.set_content(R"({"code":-1,"msg":"Session ID required"})", NET_JSON_CONTENT_TYPE);
+		res.set_content(R"({"return":-1,"message":"Session ID required"})", NET_JSON_CONTENT_TYPE);
 		res.status = NET_HTTP_RESP_CODE_SUCCESS;
 		return;
 	}
@@ -416,10 +416,10 @@ void CSessionManager::HttpCommandLout(const httplib::Request& req, httplib::Resp
 
 	if (LogoutOk)
 	{
-		res.set_content(R"({"code":0,"msg":"Logout successful"})", NET_JSON_CONTENT_TYPE);
+		res.set_content(R"({"return":0,"message":"Logout successful"})", NET_JSON_CONTENT_TYPE);
 		res.status = NET_HTTP_RESP_CODE_SUCCESS;
 	} else {
-		res.set_content(R"({"code":-1,"msg":"Invalid session or not logged in"})", NET_JSON_CONTENT_TYPE);
+		res.set_content(R"({"return":-1,"message":"Invalid session or not logged in"})", NET_JSON_CONTENT_TYPE);
 		res.status = NET_HTTP_RESP_CODE_SUCCESS;
 	}
 }
@@ -442,12 +442,12 @@ void CSessionManager::HttpCommandKeepAlive(const httplib::Request& req, httplib:
         session->UpdateLastActive();
 
         res.status = NET_HTTP_RESP_CODE_SUCCESS;
-        res.set_content(R"({"code":0, "msg":"KeepAlive OK"})", "application/json");
+        res.set_content(R"({"return":0, "message":"KeepAlive OK"})", "application/json");
     }
 	else
 	{
         res.status = NET_HTTP_RESP_CODE_UNAUTHORIZED;
-        res.set_content(R"({"code":401, "msg":"Session Expired"})", "application/json");
+        res.set_content(R"({"return":401, "message":"Session Expired"})", "application/json");
     }
 }
 /**
@@ -466,7 +466,7 @@ void CSessionManager::HttpCommandAlarmListen(const httplib::Request& req, httpli
     if (!session || !session->IsLogined())
     {
         res.status = NET_HTTP_RESP_CODE_UNAUTHORIZED;
-        res.set_content(R"({"code":401, "msg":"Invalid Session"})", "application/json");
+        res.set_content(R"({"return":401, "message":"Invalid Session"})", "application/json");
         return;
     }
 

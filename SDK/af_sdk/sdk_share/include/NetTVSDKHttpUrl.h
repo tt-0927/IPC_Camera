@@ -72,12 +72,12 @@ typedef struct tagSessionMessage
 #define NET_API_INTERFACE_LOGIN    		"Login"
 #define NET_API_INTERFACE_LOGOUT   		"Logout"
 
-#define NET_API_PATH_BASIC_LOGIN  		"/TVAPI/V1.0/Basic/Login"		    /* 登录 */
-#define NET_API_PATH_BASIC_LOGOUT  		"/TVAPI/V1.0/Basic/Logout"		  /* 注销 */
-#define NET_API_PATH_BASIC_KEEPLIVE  		"/TVAPI/V1.0/Basic/KeepLive"	/* 保活 */
+#define NET_API_PATH_BASIC_LOGIN  		"/TVAPI/V1.0/Basic/Login"           /* 登录 */
+#define NET_API_PATH_BASIC_LOGOUT  		"/TVAPI/V1.0/Basic/Logout"          /* 注销 */
+#define NET_API_PATH_BASIC_KEEPLIVE     "/TVAPI/V1.0/Basic/KeepLive"        /* 保活 */
 
 /********************************** 	设备通用接口URL宏定义 	***************************/
-#define NET_API_PATH_DEVICE_GETINFO  		"/TVAPI/V1.0/Device/GetInfo"		/* 获取设备信息 */
+#define NET_API_PATH_DEVICE_GETINFO  	"/TVAPI/V1.0/Device/GetInfo"		/* 获取设备信息 */
 #define NET_API_PATH_DEVICE_CAPABILITY 	"/TVAPI/V1.0/Device/Capability"		/* 获取设备能力集 */
 #define NET_API_PATH_DEVICE_GET_DEV_CONFIG "/TVAPI/V1.0/Device/GetDevConfig"  /* 获取设备配置 */
 #define NET_API_PATH_DEVICE_SET_DEV_CONFIG "/TVAPI/V1.0/Device/SetDevConfig"  /* 设置设备配置 */
@@ -87,7 +87,8 @@ typedef struct tagSessionMessage
 /********************************** 	URL参数名宏定义 	***************************/
 #define NET_API_PARAM_CHANNEL				"channel"		/* 通道号参数 */
 #define NET_API_PARAM_COMMAND				"command"		/* 命令参数 */
-#define NET_API_PARAM_FILENAME            "filename"      /* 文件名参数 */
+#define NET_API_PARAM_FILENAME				"filename"      /* 文件名参数 */
+#define NET_API_PARAM_NVRCHN				(-1)			/* 标识NVR本机通道号 */
 
 /********************************** 	带参数的URL生成宏定义 	***************************/
 /* 设备能力集URL生成宏: NET_API_URL_DEVICE_CAPABILITY(channel, command) */
@@ -136,8 +137,8 @@ typedef struct tagSessionMessage
 
 
 /********************************** 	事件通用接口URL宏定义 	***************************/
-#define NET_API_PATH_EVENT_SUBSCRIBE  		                  "/TVAPI/V1.0/Event/Subscribe"	        /* 订阅报警事件 */
-#define NET_API_PATH_EVENT_UNSUBSCRIBE  		                "/TVAPI/V1.0/Event/UnSubscribe"	      /* 取消订阅报警事件 */
-#define NET_API_PATH_ALARMEVENT_LISTEN  		                "/TVAPI/V1.0/Event/AlarmListen"	      /* 监听报警事件 */
+#define NET_API_PATH_EVENT_SUBSCRIBE  		                  "/TVAPI/V1.0/Event/Subscribe"	          /* 订阅报警事件 */
+#define NET_API_PATH_EVENT_UNSUBSCRIBE  		              "/TVAPI/V1.0/Event/UnSubscribe"	      /* 取消订阅报警事件 */
+#define NET_API_PATH_ALARMEVENT_LISTEN  		              "/TVAPI/V1.0/Event/AlarmListen"	      /* 监听报警事件 */
 
 #endif

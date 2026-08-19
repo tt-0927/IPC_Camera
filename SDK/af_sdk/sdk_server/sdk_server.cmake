@@ -4,12 +4,14 @@
 # 源文件目录
 set(SDK_SERVER_PATH
     ${CMAKE_CURRENT_LIST_DIR}/src/interface
-    ${CMAKE_CURRENT_LIST_DIR}/src/interface/modules
-    ${CMAKE_CURRENT_LIST_DIR}/src/service
-    ${CMAKE_CURRENT_LIST_DIR}/src/business
-    ${CMAKE_CURRENT_LIST_DIR}/src/cb/config
-    ${CMAKE_CURRENT_LIST_DIR}/src/cb/device
-    ${CMAKE_CURRENT_LIST_DIR}/src/cb/capability
+    ${CMAKE_CURRENT_LIST_DIR}/src/server/http
+    ${CMAKE_CURRENT_LIST_DIR}/src/server/session
+    ${CMAKE_CURRENT_LIST_DIR}/src/server/server
+    ${CMAKE_CURRENT_LIST_DIR}/src/server/BG6_ZHSJ
+    ${CMAKE_CURRENT_LIST_DIR}/src/business/Common
+    ${CMAKE_CURRENT_LIST_DIR}/src/business/BG6_ZHSJ/BU_SJCL
+    ${CMAKE_CURRENT_LIST_DIR}/src/cb/Common
+    ${CMAKE_CURRENT_LIST_DIR}/src/cb/BG6_ZHSJ
 )
 set(SDK_SERVER_LIST "")
 foreach(item ${SDK_SERVER_PATH})
@@ -21,12 +23,14 @@ endforeach()
 set(SDK_SERVER_INCLUDE
     ${CMAKE_CURRENT_LIST_DIR}/include
     ${CMAKE_CURRENT_LIST_DIR}/src/interface
-    ${CMAKE_CURRENT_LIST_DIR}/src/interface/modules
-    ${CMAKE_CURRENT_LIST_DIR}/src/service
-    ${CMAKE_CURRENT_LIST_DIR}/src/business
-    ${CMAKE_CURRENT_LIST_DIR}/src/cb/config
-    ${CMAKE_CURRENT_LIST_DIR}/src/cb/device
-    ${CMAKE_CURRENT_LIST_DIR}/src/cb/capability
+    ${CMAKE_CURRENT_LIST_DIR}/src/server/http
+    ${CMAKE_CURRENT_LIST_DIR}/src/server/session
+    ${CMAKE_CURRENT_LIST_DIR}/src/server/server
+    ${CMAKE_CURRENT_LIST_DIR}/src/server/BG6_ZHSJ
+    ${CMAKE_CURRENT_LIST_DIR}/src/business/Common
+    ${CMAKE_CURRENT_LIST_DIR}/src/business/BG6_ZHSJ/BU_SJCL
+    ${CMAKE_CURRENT_LIST_DIR}/src/cb/Common
+    ${CMAKE_CURRENT_LIST_DIR}/src/cb/BG6_ZHSJ
 )
 foreach(item ${SDK_SERVER_INCLUDE})
     include_directories(${item})

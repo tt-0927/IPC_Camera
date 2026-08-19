@@ -62,9 +62,10 @@ sed \
 # 3. 处理NetTVSDKClientInterface.h：剔除头尾保护块，只保留核心内容
 echo "正在处理 ${SERVER_INTERFACE_H}..."
 sed \
-    -e '/^#ifndef _NETTVSDKCLIENTINTERFACE_H/,/^#endif/ d' \
+    -e '/^#ifndef NETSDK_CLIENT_INTERFACE_H/,/^#endif/ d' \
     -e '/^#ifdef __cplusplus/,/^#endif/ d' \
     -e '/^#endif$/ d' \
+    -e '/^#include "NetTVSDKCommon.h"/ d' \
     "${SERVER_INTERFACE_H}" >> "${TARGET_H}"
 
 # 4. 写入目标文件的统一结尾

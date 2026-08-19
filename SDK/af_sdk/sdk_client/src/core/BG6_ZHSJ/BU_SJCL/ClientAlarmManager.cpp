@@ -10,8 +10,7 @@
 #include "NetSdkLog.h"
 #include "NetTVSDKHttpUrl.h"
 #include "Json.h"
-#include "BG6_ZHSJ/AlarmInfoConvert.h"
-#include "Base64Util.h"
+#include "BG6_ZHSJ/BU_SJCL/AlarmInfoConvert.h"
 #include "DeviceInfoConvert.h"
 
 #include <algorithm>
@@ -152,180 +151,6 @@ bool IsCompleteJsonBody(const std::string& body)
 
     Json::deinit(root);
     return true;
-}
-
-/**
- * @brief 将 JSON 中的 Base64 图片恢复为回调期间有效的动态图片视图。
- * @param [in] pAlarmInfo 告警 JSON 对象。
- * @param [in] pszField 图片 Base64 字段名。
- * @param [out] vecImage 图片字节缓存，必须存活至回调返回。
- * @param [out] stImage 指向 vecImage 的动态图片视图。
- * @return 无。
- */
-static void DecodeAlarmImage(Json::Object* pAlarmInfo,
-                             const char* pszField,
-                             std::vector<BYTE>& vecImage,
-                             NET_ImageData_S& stImage)
-{
-    stImage.pData = nullptr;
-    stImage.uLen = 0;
-    stImage.uWidth = 0;
-    stImage.uHeight = 0;
-    vecImage.clear();
-
-    std::string strBase64;
-    if (!pAlarmInfo || !Json::get(pAlarmInfo, pszField, strBase64) || strBase64.empty())
-    {
-        return;
-    }
-
-    std::vector<unsigned char> vecDecoded;
-    if (!SDKConvert::Base64Decode(strBase64, vecDecoded))
-    {
-        NETSDK_LOG_MESSAGE_WARN("V2 alarm image Base64 decode failed, field=%s", pszField);
-        return;
-    }
-
-    if (vecDecoded.size() > static_cast<size_t>(std::numeric_limits<UINT32>::max()))
-    {
-        NETSDK_LOG_MESSAGE_WARN("V2 alarm image exceeds UINT32 limit, field=%s, size=%zu",
-                                pszField,
-                                vecDecoded.size());
-        return;
-    }
-
-    vecImage.assign(vecDecoded.begin(), vecDecoded.end());
-    if (!vecImage.empty())
-    {
-        stImage.pData = vecImage.data();
-        stImage.uLen = static_cast<UINT32>(vecImage.size());
-    }
-}
-
-/**
- * @brief 在图片缓存仍有效时调用 V2 告警回调。
- * @tparam TAlarmInfo V2 告警结构类型。
- * @param [in] pCallback V2 告警回调函数。
- * @param [in] lCommand 告警命令码。
- * @param [in,out] stAlarmer 告警设备信息。
- * @param [in,out] stAlarmInfo V2 告警结构体。
- * @param [in] pUserData 回调用户数据。
- * @return 无。
- */
-template <typename TAlarmInfo>
-static void InvokeAlarmCallbackV2(NET_AlarmCallBackV2 pCallback,
-                                  INT64 lCommand,
-                                  NET_Alarmer_S& stAlarmer,
-                                  TAlarmInfo& stAlarmInfo,
-                                  void* pUserData)
-{
-    INT32 nBufferLength = static_cast<INT32>(sizeof(TAlarmInfo));
-    pCallback(lCommand,
-              &stAlarmer,
-              reinterpret_cast<CHAR*>(&stAlarmInfo),
-              &nBufferLength,
-              pUserData);
-}
-
-/**
- * @brief 将支持动态图片的报警分发给 V2 回调。
- * @details 图片缓存仅为本函数栈变量，回调返回后立即失效。
- * @param [in] lCommand 告警命令码。
- * @param [in] pAlarmInfo 告警 JSON 对象。
- * @param [in,out] stAlarmer 告警设备信息。
- * @param [in] pCallback V2 告警回调函数。
- * @param [in] pUserData 回调用户数据。
- * @return 已按 V2 结构分发返回 true，不支持或参数非法返回 false。
- */
-static bool DispatchAlarmV2(INT64 lCommand,
-                            Json::Object* pAlarmInfo,
-                            NET_Alarmer_S& stAlarmer,
-                            NET_AlarmCallBackV2 pCallback,
-                            void* pUserData)
-{
-    if (!pAlarmInfo || !pCallback)
-    {
-        return false;
-    }
-
-    const INT32 nAlarmBase = static_cast<INT32>(lCommand) & 0xF000;
-    if (lCommand == NET_ALARM_FACE_COMPARE)
-    {
-        NET_AlarmFaceCompareInfoV2_S stInfo = {};
-        std::vector<BYTE> vecLibraryFace;
-        std::vector<BYTE> vecCapturedFace;
-        SDKConvert::deal(pAlarmInfo, stInfo, true);
-        DecodeAlarmImage(pAlarmInfo, "LibFaceImgBase64", vecLibraryFace, stInfo.stLibFaceImg);
-        DecodeAlarmImage(pAlarmInfo, "CapFaceImgBase64", vecCapturedFace, stInfo.stCapFaceImg);
-        InvokeAlarmCallbackV2(pCallback, lCommand, stAlarmer, stInfo, pUserData);
-        return true;
-    }
-
-    if (nAlarmBase == NET_ALARM_BASE_BASIC)
-    {
-        NET_AlarmBasicInfoV2_S stInfo = {};
-        std::vector<BYTE> vecPanorama;
-        SDKConvert::deal(pAlarmInfo, stInfo, true);
-        DecodeAlarmImage(pAlarmInfo, "PanoramaImgBase64", vecPanorama, stInfo.stPanoramaImg);
-        InvokeAlarmCallbackV2(pCallback, lCommand, stAlarmer, stInfo, pUserData);
-        return true;
-    }
-
-    if (nAlarmBase == NET_ALARM_BASE_RULE)
-    {
-        NET_AlarmRuleInfoV2_S stInfo = {};
-        std::vector<BYTE> vecPanorama;
-        std::vector<BYTE> vecTarget;
-        SDKConvert::deal(pAlarmInfo, stInfo, true);
-        DecodeAlarmImage(pAlarmInfo, "PanoramaImgBase64", vecPanorama, stInfo.stPanoramaImg);
-        DecodeAlarmImage(pAlarmInfo, "TargetImgBase64", vecTarget, stInfo.stTargetImg);
-        InvokeAlarmCallbackV2(pCallback, lCommand, stAlarmer, stInfo, pUserData);
-        return true;
-    }
-
-    if (nAlarmBase == NET_ALARM_BASE_AI)
-    {
-        NET_AlarmAiObjectInfoV2_S stInfo = {};
-        std::vector<BYTE> vecPanorama;
-        std::vector<BYTE> vecTarget;
-        SDKConvert::deal(pAlarmInfo, stInfo, true);
-        DecodeAlarmImage(pAlarmInfo, "PanoramaImgBase64", vecPanorama, stInfo.stPanoramaImg);
-        DecodeAlarmImage(pAlarmInfo, "ImgDataBase64", vecTarget, stInfo.stImgData);
-        InvokeAlarmCallbackV2(pCallback, lCommand, stAlarmer, stInfo, pUserData);
-        return true;
-    }
-
-    if (nAlarmBase == NET_ALARM_BASE_TRAFFIC)
-    {
-        NET_AlarmPlateInfoV2_S stInfo = {};
-        std::vector<BYTE> vecPlate;
-        SDKConvert::deal(pAlarmInfo, stInfo, true);
-        DecodeAlarmImage(pAlarmInfo, "PlateImgBase64", vecPlate, stInfo.stPlateImg);
-        InvokeAlarmCallbackV2(pCallback, lCommand, stAlarmer, stInfo, pUserData);
-        return true;
-    }
-
-    if (nAlarmBase == NET_ALARM_BASE_STATISTICS)
-    {
-        NET_AlarmStatisticsInfoV2_S stInfo = {};
-        std::vector<BYTE> vecPanorama;
-        std::vector<BYTE> avecTargetImage[NET_ALARM_STATISTICS_TARGET_MAX_NUM];
-        SDKConvert::deal(pAlarmInfo, stInfo, true);
-
-        Json::Object* pTargets = Json::get(pAlarmInfo, "Targets");
-        const UINT32 uTargetCount = std::min(stInfo.uTargetCount,
-                                             static_cast<UINT32>(NET_ALARM_STATISTICS_TARGET_MAX_NUM));
-        for (UINT32 uIndex = 0; pTargets && uIndex < uTargetCount; ++uIndex)
-        {
-            Json::Object* pTarget = Json::Array::get(pTargets, static_cast<INT32>(uIndex));
-            DecodeAlarmImage(pTarget, "ImgDataBase64", avecTargetImage[uIndex], stInfo.stTargets[uIndex].stImgData);
-        }
-        DecodeAlarmImage(pAlarmInfo, "PanoramaImgBase64", vecPanorama, stInfo.stPanoramaImg);
-        InvokeAlarmCallbackV2(pCallback, lCommand, stAlarmer, stInfo, pUserData);
-        return true;
-    }
-
-    return false;
 }
 }
 
@@ -521,7 +346,7 @@ void CClientAlarmManager::AlarmLoop()
             return true;
         }
 
-        if (!m_fnAlarmCallback && !m_fnAlarmCallbackV2)
+        if (!m_fnAlarmCallback)
         {
             Json::deinit(root);
             return true;
@@ -538,29 +363,10 @@ void CClientAlarmManager::AlarmLoop()
         Json::Object* alarmInfoObj = Json::get(root, "AlarmInfo");
         if (!alarmInfoObj)
         {
-            if (!m_fnAlarmCallback)
-            {
-                Json::deinit(root);
-                return true;
-            }
-
             std::vector<char> tmp(jsonBody.begin(), jsonBody.end());
             tmp.push_back('\0'); // ensure C-string
             INT32 len = (INT32)(tmp.size() - 1);
             m_fnAlarmCallback(lCommand, &alarmer, tmp.data(), &len, m_pAlarmUserData);
-            Json::deinit(root);
-            return true;
-        }
-
-        if (m_fnAlarmCallbackV2 &&
-            DispatchAlarmV2(lCommand, alarmInfoObj, alarmer, m_fnAlarmCallbackV2, m_pAlarmUserDataV2))
-        {
-            Json::deinit(root);
-            return true;
-        }
-
-        if (!m_fnAlarmCallback)
-        {
             Json::deinit(root);
             return true;
         }

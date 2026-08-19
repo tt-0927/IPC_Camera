@@ -36,6 +36,10 @@
 #define NETSDK_JSON_DEVICE_NAME_KEY        "device_name"       /* 设备名称 */
 #define NETSDK_JSON_INNER_DATA_KEY         "data"              /* 具体业务数据 */
 #define NETSDK_JSON_RETURN_KEY             "return"            /* 返回码 */
+#define NETSDK_JSON_CHANNEL_KEY            "channel"           /* 通道号（-1表示NVR本机） */
+
+// 全局设备名称变量，在NetTVSDKServerImpl.cpp中定义
+extern std::string g_sdkDeviceName;
 
 class CRunTimer
 {
@@ -697,10 +701,49 @@ namespace SDKConvert
     inline std::string to_respString(int nRespCode, int nActionCode, Args &... args)
     {
         Json::Object *pRootJson = Json::init();
-        Json::add(pRootJson, NETSDK_JSON_DEVICE_NAME_KEY, "AF_SDK");
+        Json::add(pRootJson, NETSDK_JSON_DEVICE_NAME_KEY, g_sdkDeviceName);
         if (nActionCode != 0)
         {
             Json::add(pRootJson, NETSDK_JSON_ACTIONCODE_KEY, nActionCode);
+        }
+
+        Json::Object *pInnerData = Json::init();
+        if (nRespCode == 0)
+        {
+            process_data(false, pInnerData, args...);
+        }
+        Json::add(pRootJson, NETSDK_JSON_INNER_DATA_KEY, pInnerData);
+
+        Json::add(pRootJson, NETSDK_JSON_RETURN_KEY, nRespCode);
+        Json::add(pRootJson, NETSDK_JSON_MESSAGE_KEY, get_errMessage(nRespCode));
+
+        std::string data = Json::to_string(pRootJson);
+        Json::deinit(pRootJson);
+        return data;
+    }
+
+    /**
+     * @brief 带通道号的响应JSON生成重载
+     * @details 在顶层响应中追加Channel字段，便于调用方识别响应数据归属通道；
+     *          nChannel == NET_API_PARAM_NVRCHN(-1) 表示NVR本机参数。
+     * @param nRespCode 返回码
+     * @param nActionCode 命令码
+     * @param nChannel 通道号
+     * @param args 业务数据结构体
+     * @return JSON格式响应字符串
+     */
+    template <typename... Args>
+    inline std::string to_respString(int nRespCode, int nActionCode, int nChannel, Args &... args)
+    {
+        Json::Object *pRootJson = Json::init();
+        Json::add(pRootJson, NETSDK_JSON_DEVICE_NAME_KEY, g_sdkDeviceName);
+        if (nActionCode != 0)
+        {
+            Json::add(pRootJson, NETSDK_JSON_ACTIONCODE_KEY, nActionCode);
+        }
+        if (nChannel >= 0)
+        {
+            Json::add(pRootJson, NETSDK_JSON_CHANNEL_KEY, nChannel);
         }
 
         Json::Object *pInnerData = Json::init();
@@ -728,7 +771,7 @@ namespace SDKConvert
     {
         int nCode = (int)enCode;
         Json::Object *pRootJson = Json::init();
-        Json::add(pRootJson, NETSDK_JSON_DEVICE_NAME_KEY, "AF_SDK");
+        Json::add(pRootJson, NETSDK_JSON_DEVICE_NAME_KEY, g_sdkDeviceName);
         if (nActionCode != 0)
         {
             Json::add(pRootJson, NETSDK_JSON_ACTIONCODE_KEY, nActionCode);

@@ -102,6 +102,26 @@ private:
 
 /**
  * @author tianl (tianl@kfb.cn)
+ * @brief 注册需要 session 校验的 http url 回调方法（单例类）
+ * @details 在 HTTP 认证基础上，额外校验 URL 中的 session_id 有效性，适用于需要会话上下文的业务接口。
+ */
+#define NETSDK_REGISTER_ROUTE_URL_SINGLETON_WITH_SESSION(url, method, clazz, func) \
+    /* 静态注册器，程序启动时自动执行 */ \
+    struct CRouteRegistrar_##clazz##_##func##_WithSession { \
+        CRouteRegistrar_##clazz##_##func##_WithSession() { \
+            /* 1. 绑定单例的成员函数 */ \
+            auto bizFunc = std::bind(&clazz::func, clazz::instance(), std::placeholders::_1, std::placeholders::_2); \
+            /* 2. 生成带 session 校验的 HTTP Handler */ \
+            HttpHandler httpHandler = CHttpBasicCommand::MakeHttpCallbackHandlerWithSession(bizFunc); \
+            /* 3. 注册路由 */ \
+            CRouteRegistry::registerRoute(url, method, httpHandler); \
+        } \
+    }; \
+    /* 定义静态变量触发构造 */ \
+    static CRouteRegistrar_##clazz##_##func##_WithSession s_route_registrar_##clazz##_##func##_WithSession;
+
+/**
+ * @author tianl (tianl@kfb.cn)
  * @brief 注册http url的回调方法（全局/自由函数）
  */
 #define NETSDK_REGISTER_ROUTE_URL_FUNC(url, method, func) \

@@ -44,7 +44,13 @@ public:
 	size_t GetSessionCount();
 
 	/**
- * @author tianl (tianl@kfb.cn)
+	 * @brief 根据 SessionId 获取会话共享指针（公开，供 HttpBasicCommand 等外部校验使用）
+	 * @param [in] SessionId 会话ID
+	 * @return 找到则返回 shared_ptr，否则返回 nullptr
+	 */
+	std::shared_ptr<CServerSession> GetSession(const std::string& SessionId);
+
+	/**
 	 * @brief 获取所有会话的诊断状态信息（用于日志排查）
 	 * @return 诊断信息字符串，包含每个客户端的IP、登录/连接/订阅状态
 	 */
@@ -59,7 +65,6 @@ private:
 	bool Login(std::string& OutSessionId, const std::string& clientIP = "");
 	bool Logout(const std::string& SessionId);
 	std::string GenerateSessionId();
-    std::shared_ptr<CServerSession> GetSession(const std::string& SessionId);
 
     void CleanupLoop();
 private:

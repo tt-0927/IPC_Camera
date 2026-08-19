@@ -25,6 +25,7 @@
 #include "NetSdkLog.h"
 #include "BG6_ZHSJ/RecordFrameClient.h"
 #include "BG6_ZHSJ/VoiceComClient.h"
+#include "BG6_ZHSJ/BU_SJGZ/CapabilityInfoConvert.h"
 
 #define NETTVSDK_MAKE_VERSION(major, minor, rev1, rev2) \
     ((uint32_t)( \
@@ -358,36 +359,6 @@ NET_API BOOL STDCALL NET_SetAlarmCallBack(IN LPVOID lpUserID,
 }
 
 /**
- * @brief 设置动态图片 V2 告警回调函数。
- * @param [in] lpUserID 用户登录句柄。
- * @param [in] cbAlarmMessCallBack V2 告警回调函数。
- * @param [in] lpUserData 回调用户数据。
- * @return 设置成功返回 TRUE，失败返回 FALSE。
- */
-NET_API BOOL STDCALL NET_SetAlarmCallBackV2(IN LPVOID lpUserID,
-                                            IN NET_AlarmCallBackV2 cbAlarmMessCallBack,
-                                            IN LPVOID lpUserData)
-{
-    CHECK_SDK_INIT(FALSE);
-    const auto pDeviceManage = CDeviceManage::instance();
-    if (!pDeviceManage)
-    {
-        return FALSE;
-    }
-
-    const auto pSession = pDeviceManage->GetSession(static_cast<LPUSER_HANDLE>(lpUserID));
-    if (!pSession)
-    {
-        CErrorManage::instance()->SetLastError(NET_E_NO_USER);
-        return FALSE;
-    }
-
-    pSession->SetAlarmCallbackV2(cbAlarmMessCallBack, lpUserData);
-    CErrorManage::instance()->SetLastError(NET_E_SUCCEED);
-    return TRUE;
-}
-
-/**
  * @brief 设置通道状态回调函数
  * @param lpUserID 用户句柄
  * @param cbChannelStatusCallBack 通道状态回调函数指针
@@ -517,7 +488,7 @@ NET_API BOOL STDCALL NET_DeviceControl(IN LPVOID lpUserID,
     return respCode == NET_E_SUCCEED ? TRUE : FALSE;
 }
 
-#include "BG6_ZHSJ/CapabilityInfoConvert.h"
+
 
 /**
  * @brief 获取设备能力集接口
@@ -1124,8 +1095,6 @@ NET_API BOOL STDCALL NET_GetDevConfig(IN  LPVOID  lpUserID,
             return NetTV_GetDevConfig_Impl<NET_TalkbackStreamInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
         case NET_GET_FACECAPTUREINFO:
             return NetTV_GetDevConfig_Impl<NET_FaceCaptureInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_GET_FACECAPTUREOVERLAYINFO:
-            return NetTV_GetDevConfig_Impl<NET_FaceCaptureOverlayInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
         case NET_GET_TARGET_LIB:
             return NetTV_GetDevConfig_Impl<NET_FaceLibList_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
         case NET_GET_FACE_INFO:
@@ -1296,8 +1265,6 @@ NET_API BOOL STDCALL NET_SetDevConfig(IN  LPVOID  lpUserID,
             return NetTV_SetDevConfig_Impl<NET_FlashingLightAlarmInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
         case NET_SET_PIR_ALARM_INFO:
             return NetTV_SetDevConfig_Impl<NET_PirAlarmInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_TRIGGER_SOUND_LIGHT_ALARM:
-            return NetTV_SetDevConfig_Impl<NET_SoundLightAlarmTrigger_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
         case NET_SET_AUDIOANOMALYALARM:
             return NetTV_SetDevConfig_Impl<NET_AudioAnomalyAlarmInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
         case NET_SET_PREVIEW_INFO:
@@ -1326,8 +1293,6 @@ NET_API BOOL STDCALL NET_SetDevConfig(IN  LPVOID  lpUserID,
             return NetTV_SetDevConfig_Impl<NET_ReplayTalkbackInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
         case NET_SET_FACECAPTUREINFO:
             return NetTV_SetDevConfig_Impl<NET_FaceCaptureInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_SET_FACECAPTUREOVERLAYINFO:
-            return NetTV_SetDevConfig_Impl<NET_FaceCaptureOverlayInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
         case NET_SET_FACE_COMPARE_INFO:
             return NetTV_SetDevConfig_Impl<NET_FaceCompareInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
         case NET_ADD_TARGET_LIB:

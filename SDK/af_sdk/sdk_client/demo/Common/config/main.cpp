@@ -6522,7 +6522,6 @@ static void PrintChannelList(const NET_ChannelList_S* pInfo)
     }
 
     printf("\n[Client] ===== Channel List =====\n");
-    printf("  Size         : %u\n", pInfo->uSize);
     printf("  ChannelCount : %u\n", pInfo->uChannelCount);
     for (UINT32 i = 0; i < pInfo->uChannelCount && i < NET_MAX_CHANNEL_NUM; ++i)
     {

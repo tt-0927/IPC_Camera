@@ -14,7 +14,7 @@ std::string CDeviceCapabilityBusiness::GetDeviceCapability(const std::string& re
     NETSDK_LOG_MESSAGE_DEBUG("GetDeviceCapability url_param: %s", url_param.c_str());
 
     // 解析URL参数
-    int channelId = ParseIntParam(url_param, NET_API_PARAM_CHANNEL, 1);
+    int channelId = ParseIntParam(url_param, NET_API_PARAM_CHANNEL, NET_API_PARAM_NVRCHN);
     int command = ParseIntParam(url_param, NET_API_PARAM_COMMAND, 0);
 
     switch (command)
@@ -50,7 +50,7 @@ std::string CDeviceCapabilityBusiness::HandleVideoEncode(int channelId, int comm
         NETSDK_LOG_MESSAGE_DEBUG("视频编码能力集回调执行失败! ret=%d", nRespCode);
     }
 
-    return SDKConvert::to_respString(nRespCode, command, stCap);
+    return SDKConvert::to_respString(nRespCode, command, channelId, stCap);
 }
 
 std::string CDeviceCapabilityBusiness::HandleAudioEncode(int channelId, int command)
@@ -65,7 +65,7 @@ std::string CDeviceCapabilityBusiness::HandleAudioEncode(int channelId, int comm
         NETSDK_LOG_MESSAGE_DEBUG("音频编码能力集回调执行失败! ret=%d", nRespCode);
     }
 
-    return SDKConvert::to_respString(nRespCode, command, stCap);
+    return SDKConvert::to_respString(nRespCode, command, channelId, stCap);
 }
 
 std::string CDeviceCapabilityBusiness::HandleOsd(int channelId, int command)
@@ -80,7 +80,7 @@ std::string CDeviceCapabilityBusiness::HandleOsd(int channelId, int command)
         NETSDK_LOG_MESSAGE_DEBUG("OSD能力集回调执行失败! ret=%d", nRespCode);
     }
 
-    return SDKConvert::to_respString(nRespCode, command, stCap);
+    return SDKConvert::to_respString(nRespCode, command, channelId, stCap);
 }
 
 int CDeviceCapabilityBusiness::ParseIntParam(const std::string& url_param, const std::string& key, int defaultVal)
