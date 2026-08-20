@@ -40,3 +40,6 @@
 
 /* 设备 → 平台：设备状态上报（在线/离线） */
 #define MQTT_TOPIC_STATUS(sn)       (MQTT_TOPIC_PREFIX(sn) + "/status")
+
+/* 设备 → 平台：设备注册及取流信息上报 */
+#define MQTT_TOPIC_REGISTER(sn)     (MQTT_TOPIC_PREFIX(sn) + "/register")

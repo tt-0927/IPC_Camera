@@ -9,14 +9,17 @@
 
 #if CAP_GARBAGE_STATION_PLATFORM
 #include "platform_manager.h"
+#include "platform_register_crypto.h"
 #include "mqtt_sdk_gateway.h"
 #include "httplib.h"
 #include "path_define.h"
 #include "convert_interface.h"
 #include "push_stream.h"
+#include "rtsp_server.h"
 #include "av_configure.h"
 #include "network_manage.h"
 #include "storage_manage.h"
+#include "user_manage.h"
 #include "IpcRet.h"
 #include "dlog.h"
 #include "mqtt_manager.h"
@@ -38,7 +41,13 @@
 #include <sstream>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
+#include <netdb.h>
+#include <ifaddrs.h>
 #include <unistd.h>
+
+#include <openssl/crypto.h>
 
 // --- Base64 编码实现 ---
 static const std::string base64_chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -46,6 +55,204 @@ static const std::string base64_chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
                                         "0123456789+/";
 
 static const char *FACE_NV21_UPLOAD_DIR = "/opt/course/upload";
+
+namespace
+{
+constexpr const char *MQTT_DEVICE_REGISTER_COMMAND = "NET_DEVICE_REGISTER";
+constexpr const char *PLATFORM_REGISTER_CREDENTIAL_KEY_ID = "platform-rsa-2026-08";
+constexpr const char *PLATFORM_REGISTER_CREDENTIAL_PUBLIC_KEY = CA_TRUST_PATH "platform_register_public.pem";
+
+void cleanse_string(std::string &strValue)
+{
+    if (!strValue.empty())
+    {
+        OPENSSL_cleanse(&strValue[0], strValue.size());
+        strValue.clear();
+    }
+}
+
+std::string escape_json_string(const std::string &strValue)
+{
+    static const char HEX_DIGITS[] = "0123456789abcdef";
+    std::string strEscaped;
+    strEscaped.reserve(strValue.size());
+
+    for (const unsigned char ch : strValue)
+    {
+        switch (ch)
+        {
+        case '"':
+            strEscaped += "\\\"";
+            break;
+        case '\\':
+            strEscaped += "\\\\";
+            break;
+        case '\b':
+            strEscaped += "\\b";
+            break;
+        case '\f':
+            strEscaped += "\\f";
+            break;
+        case '\n':
+            strEscaped += "\\n";
+            break;
+        case '\r':
+            strEscaped += "\\r";
+            break;
+        case '\t':
+            strEscaped += "\\t";
+            break;
+        default:
+            if (ch < 0x20)
+            {
+                strEscaped += "\\u00";
+                strEscaped += HEX_DIGITS[(ch >> 4) & 0x0f];
+                strEscaped += HEX_DIGITS[ch & 0x0f];
+            }
+            else
+            {
+                strEscaped += static_cast<char>(ch);
+            }
+            break;
+        }
+    }
+
+    return strEscaped;
+}
+
+std::string build_register_credential_plaintext(const std::string &strRtspUrl,
+                                                const std::string &strUsername,
+                                                const std::string &strPassword)
+{
+    return "{\"RtspUrl\":\"" + escape_json_string(strRtspUrl) +
+           "\",\"Username\":\"" + escape_json_string(strUsername) +
+           "\",\"Password\":\"" + escape_json_string(strPassword) + "\"}";
+}
+
+std::string build_register_credential_aad(const std::string &strDeviceSn,
+                                          const std::string &strRequestId,
+                                          long long nTimestampMs,
+                                          const char *pUplinkType,
+                                          const char *pStreamMode)
+{
+    std::ostringstream oss;
+    oss << MQTT_DEVICE_REGISTER_COMMAND << "|1|" << strDeviceSn << "|" << strRequestId << "|" << nTimestampMs << "|"
+        << (pUplinkType ? pUplinkType : "") << "|" << (pStreamMode ? pStreamMode : "");
+    return oss.str();
+}
+
+bool get_platform_route_interface(const std::string &strHost,
+                                  int nPort,
+                                  std::string &strInterface,
+                                  std::string &strLocalIp)
+{
+    strInterface.clear();
+    strLocalIp.clear();
+
+    if (strHost.empty() || nPort <= 0 || nPort > 65535)
+    {
+        return false;
+    }
+
+    struct addrinfo hints;
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_DGRAM;
+
+    struct addrinfo *pResult = nullptr;
+    const std::string strPort = std::to_string(nPort);
+    if (getaddrinfo(strHost.c_str(), strPort.c_str(), &hints, &pResult) != 0)
+    {
+        dlog_warn("无法解析 MQTT Broker 地址，无法识别取流出口: host[%s]", strHost.c_str());
+        return false;
+    }
+
+    struct sockaddr_in stLocalAddr;
+    memset(&stLocalAddr, 0, sizeof(stLocalAddr));
+    bool bFoundRoute = false;
+
+    for (struct addrinfo *pAddr = pResult; pAddr != nullptr; pAddr = pAddr->ai_next)
+    {
+        const int nSocket = socket(pAddr->ai_family, pAddr->ai_socktype, pAddr->ai_protocol);
+        if (nSocket < 0)
+        {
+            continue;
+        }
+
+        if (connect(nSocket, pAddr->ai_addr, pAddr->ai_addrlen) == 0)
+        {
+            socklen_t nAddrLen = sizeof(stLocalAddr);
+            if (getsockname(nSocket, reinterpret_cast<struct sockaddr *>(&stLocalAddr), &nAddrLen) == 0)
+            {
+                bFoundRoute = true;
+            }
+        }
+        close(nSocket);
+
+        if (bFoundRoute)
+        {
+            break;
+        }
+    }
+    freeaddrinfo(pResult);
+
+    if (!bFoundRoute)
+    {
+        dlog_warn("无法获取到 MQTT Broker 的路由出口: host[%s], port[%d]", strHost.c_str(), nPort);
+        return false;
+    }
+
+    char achIp[INET_ADDRSTRLEN] = {0};
+    if (inet_ntop(AF_INET, &stLocalAddr.sin_addr, achIp, sizeof(achIp)) == nullptr)
+    {
+        return false;
+    }
+    strLocalIp = achIp;
+
+    struct ifaddrs *pInterfaces = nullptr;
+    if (getifaddrs(&pInterfaces) != 0)
+    {
+        dlog_warn("无法枚举网络接口，无法识别取流出口: ip[%s]", strLocalIp.c_str());
+        return false;
+    }
+
+    for (struct ifaddrs *pIfa = pInterfaces; pIfa != nullptr; pIfa = pIfa->ifa_next)
+    {
+        if (pIfa->ifa_addr == nullptr || pIfa->ifa_addr->sa_family != AF_INET)
+        {
+            continue;
+        }
+
+        const struct sockaddr_in *pIfAddr = reinterpret_cast<const struct sockaddr_in *>(pIfa->ifa_addr);
+        if (pIfAddr->sin_addr.s_addr == stLocalAddr.sin_addr.s_addr)
+        {
+            strInterface = pIfa->ifa_name;
+            break;
+        }
+    }
+    freeifaddrs(pInterfaces);
+    return !strInterface.empty();
+}
+
+bool is_wireless_uplink_interface(const std::string &strInterface)
+{
+    return strInterface.compare(0, 2, "wl") == 0 ||
+           strInterface.compare(0, 4, "wwan") == 0 ||
+           strInterface.compare(0, 3, "ppp") == 0 ||
+           strInterface.compare(0, 5, "rmnet") == 0 ||
+           strInterface.compare(0, 3, "usb") == 0;
+}
+
+std::string build_rtmp_main_url(const std::string &strHost, int nPort, const std::string &strDeviceSn)
+{
+    if (strHost.empty() || strDeviceSn.empty() || nPort <= 0 || nPort > 65535)
+    {
+        return std::string();
+    }
+
+    return "rtmp://" + strHost + ":" + std::to_string(nPort) + "/live/" + strDeviceSn + "-main";
+}
+} // namespace
 
 static bool file_exists(const std::string &path)
 {
@@ -2303,10 +2510,171 @@ void CPlatformManager::on_mqtt_connection_changed(bool bConnected, const std::st
 
     if (bConnected)
     {
-        /* 连接成功 → 主动发布在线状态 */
+        /* 订阅恢复后先上报取流信息，再通知设备在线。 */
+        publish_device_register();
         publish_device_status(true, "connect");
     }
     /* 离线状态由 LWT 自动发布（异常断开）或 deinit() 主动发布（正常关机），这里不需要额外处理 */
+}
+
+int CPlatformManager::publish_device_register()
+{
+    if (!m_pstMqtt || !m_pstMqtt->is_connected())
+    {
+        dlog_warn("MQTT 未连接，无法发布设备注册信息");
+        return ERR_UNINIT;
+    }
+
+    std::string strRouteInterface;
+    std::string strLocalIp;
+    const bool bRouteResolved = get_platform_route_interface(m_strMqttBroker,
+                                                             m_nMqttPort,
+                                                             strRouteInterface,
+                                                             strLocalIp);
+    const bool bUseRtsp = bRouteResolved && !is_wireless_uplink_interface(strRouteInterface);
+    const char *pUplinkType = !bRouteResolved ? "unknown" : (bUseRtsp ? "wired" : "wireless");
+    const char *pStreamMode = bUseRtsp ? "rtsp" : "rtmp";
+
+    if (!bRouteResolved)
+    {
+        /* 未能取得路由出口时保守使用设备主动推流，避免平台回拉不可达的私网 RTSP。 */
+        dlog_warn("未识别 MQTT 路由出口，设备注册将按 RTMP 上报");
+    }
+
+    std::string strRtspUrl;
+    if (CRtspServer::instance()->isInit())
+    {
+        const char *pRtspUrl = CRtspServer::instance()->getRtspUrl(RTSP_CHN_MAIN, false);
+        if (pRtspUrl != nullptr)
+        {
+            strRtspUrl = pRtspUrl;
+        }
+    }
+
+    if (strRtspUrl.empty())
+    {
+        dlog_warn("RTSP 主码流地址不可用，仍发布设备注册信息: sn[%s]", m_strMqttClientId.c_str());
+    }
+
+    const std::string strPlatformHost = g_custom ? custom_host : host_;
+    const std::string strRtmpUrl = build_rtmp_main_url(strPlatformHost, m_nRtmpPort, m_strMqttClientId);
+
+    const auto now = std::chrono::system_clock::now();
+    const auto nTimestampMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+                                  now.time_since_epoch())
+                                  .count();
+    const std::string strRequestId = "register-" + m_strMqttClientId + "-" + std::to_string(nTimestampMs);
+    PlatformRegisterCrypto::EncryptedCredential_S stEncryptedCredential;
+    std::string strCredentialError;
+    bool bCredentialEncrypted = false;
+
+    if (bUseRtsp && !strRtspUrl.empty())
+    {
+        const std::string strCameraAccount = USER_DEFAULT_NAME;
+        std::string strCameraPassword = CUserManage::instance()->get_passwd(strCameraAccount);
+        if (strCameraPassword.empty())
+        {
+            dlog_warn("未获取到 RTSP 管理员密码，设备注册凭据将使用空密码: sn[%s]",
+                      m_strMqttClientId.c_str());
+        }
+
+        std::string strCredentialPlaintext = build_register_credential_plaintext(strRtspUrl,
+                                                                                  strCameraAccount,
+                                                                                  strCameraPassword);
+        const std::string strAad = build_register_credential_aad(m_strMqttClientId,
+                                                                 strRequestId,
+                                                                 nTimestampMs,
+                                                                 pUplinkType,
+                                                                 pStreamMode);
+        bCredentialEncrypted = PlatformRegisterCrypto::encrypt_credential(PLATFORM_REGISTER_CREDENTIAL_PUBLIC_KEY,
+                                                                            PLATFORM_REGISTER_CREDENTIAL_KEY_ID,
+                                                                            strCredentialPlaintext,
+                                                                            strAad,
+                                                                            stEncryptedCredential,
+                                                                            strCredentialError);
+        cleanse_string(strCredentialPlaintext);
+        cleanse_string(strCameraPassword);
+    }
+    else if (bUseRtsp)
+    {
+        strCredentialError = "RTSP URL unavailable";
+    }
+
+    if (bUseRtsp && !bCredentialEncrypted)
+    {
+        dlog_warn("设备注册凭据加密失败，注册消息不携带任何RTSP凭据: sn[%s], reason[%s], publicKey[%s]",
+                  m_strMqttClientId.c_str(),
+                  strCredentialError.c_str(),
+                  PLATFORM_REGISTER_CREDENTIAL_PUBLIC_KEY);
+    }
+
+    cJSON *pRoot = cJSON_CreateObject();
+    if (pRoot == nullptr)
+    {
+        return ERR;
+    }
+
+    cJSON_AddStringToObject(pRoot, "Command", MQTT_DEVICE_REGISTER_COMMAND);
+    cJSON_AddStringToObject(pRoot, "RequestId", strRequestId.c_str());
+
+    cJSON *pData = cJSON_CreateObject();
+    cJSON_AddStringToObject(pData, "Sn", m_strMqttClientId.c_str());
+    cJSON_AddStringToObject(pData, "UplinkType", pUplinkType);
+    cJSON_AddStringToObject(pData, "UplinkInterface", bRouteResolved ? strRouteInterface.c_str() : "");
+    cJSON_AddStringToObject(pData, "LocalIp", bRouteResolved ? strLocalIp.c_str() : "");
+    cJSON_AddStringToObject(pData, "StreamMode", pStreamMode);
+    cJSON_AddStringToObject(pData, "Timestamp", std::to_string(nTimestampMs).c_str());
+
+    if (bCredentialEncrypted)
+    {
+        cJSON *pCredential = cJSON_AddObjectToObject(pData, "Credential");
+        cJSON_AddNumberToObject(pCredential, "Version", 1);
+        cJSON_AddStringToObject(pCredential, "Algorithm", stEncryptedCredential.strAlgorithm.c_str());
+        cJSON_AddStringToObject(pCredential, "KeyId", stEncryptedCredential.strKeyId.c_str());
+        cJSON_AddStringToObject(pCredential, "EncryptedKey", stEncryptedCredential.strEncryptedKey.c_str());
+        cJSON_AddStringToObject(pCredential, "Nonce", stEncryptedCredential.strNonce.c_str());
+        cJSON_AddStringToObject(pCredential, "Ciphertext", stEncryptedCredential.strCiphertext.c_str());
+        cJSON_AddStringToObject(pCredential, "Tag", stEncryptedCredential.strTag.c_str());
+    }
+    else
+    {
+        cJSON_AddStringToObject(pData, "CredentialState", bUseRtsp ? "unavailable" : "not_required");
+    }
+
+    if (!bUseRtsp)
+    {
+        cJSON *pRtmp = cJSON_AddObjectToObject(pData, "Rtmp");
+        cJSON_AddStringToObject(pRtmp, "Url", strRtmpUrl.c_str());
+    }
+    cJSON_AddItemToObject(pRoot, "Data", pData);
+
+    char *pJson = cJSON_PrintUnformatted(pRoot);
+    const std::string strPayload = pJson ? pJson : "{}";
+    if (pJson != nullptr)
+    {
+        cJSON_free(pJson);
+    }
+    cJSON_Delete(pRoot);
+
+    const std::string strTopic = MQTT_TOPIC_REGISTER(m_strMqttClientId);
+    const int nRet = m_pstMqtt->publish(strTopic, strPayload, MQTT_QOS_RESPONSE);
+    if (nRet == OK)
+    {
+        dlog_info("设备注册信息已提交发送: topic[%s], sn[%s], uplink[%s], interface[%s], mode[%s]",
+                  strTopic.c_str(),
+                  m_strMqttClientId.c_str(),
+                  pUplinkType,
+                  bRouteResolved ? strRouteInterface.c_str() : "",
+                  pStreamMode);
+    }
+    else
+    {
+        dlog_warn("设备注册信息发布失败: ret[%d], sn[%s], mode[%s]",
+                  nRet,
+                  m_strMqttClientId.c_str(),
+                  pStreamMode);
+    }
+    return nRet;
 }
 
 void CPlatformManager::start_status_heartbeat()
