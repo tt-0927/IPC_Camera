@@ -439,6 +439,13 @@ private:
     void on_mqtt_connection_changed(bool bConnected, const std::string &strReason);
 
     /**
+     * @brief MQTT 连接成功后向平台上报设备注册及取流信息
+     * @return OK=已提交发送，非OK=未连接或参数不完整
+     * @note 发布到 device/{SN}/register Topic，QoS=1
+     */
+    int publish_device_register();
+
+    /**
      * @brief 启动设备在线状态心跳线程
      * @note  MQTT 连接成功后的首个在线状态仍由连接回调发送；该线程负责周期性续报。
      */
