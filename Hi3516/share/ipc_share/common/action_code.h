@@ -3,7 +3,7 @@
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2024-10-06 15:23:25
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-05-15 10:45:02
+ * @LastEditTime : 2026-07-29 17:43:13
  * @Description  : 通讯命令码
  */
 
@@ -305,6 +305,8 @@ typedef enum
     /* 设置声音报警自定义信息 */
     AC_SET_AUDIO_CUSTOM_INFO = 2318,
 
+    /* 获取普通事件启用状态 */
+    AC_GET_ORDINARY_EVENT_ENABLE_STATUS = 2319,
     /**
      * @brief   : 周界事件
      */
@@ -841,6 +843,11 @@ typedef enum
     AC_GM_GET_CERT_INFO = 6065,
     /* 删除证书文件 */
     AC_GM_DELETE_CERT_FILE = 6066,
+
+    /*设置网络服务 */
+    AC_SET_NETWORK_SERVICE = 6081,
+    /* 获取网络服务 */
+    AC_GET_NETWORK_SERVICE = 6082,
     /* 上传平台证书 */
     AC_GM_UPLOAD_PLATFORM_CERT = 6080,
 
@@ -1014,6 +1021,8 @@ typedef enum
     AC_DOWNLOAD_RECORD_FILE = 8013,
     /// @brief 通知下载录制文件进度
     AC_NOTICE_DOWNLOAD_RECORD_PROGRESS = 8014,
+    /// @brief 通知录制音频编码链路重启
+    AC_NOTICE_RECORD_AUDIO_RESTART = 8015,
 
     /// @brief 获取高级录制参数
     AC_GET_RECORD_ADVANCED_PARAM = 8100,
@@ -1061,6 +1070,8 @@ typedef enum
     AC_SET_STORAGE_MANAGE_INFO = 8301,
     /* 格式化sd卡 */
     AC_INIT_SD_CARD = 8302,
+    /* 获取 SD 卡状态 */
+    AC_GET_SD_CARD_STATUS = 8303,
 
     /**
      * @brief 设备激活相关
@@ -1097,7 +1108,7 @@ typedef enum
     AC_RESET_PRODUCTION_TEST = 10004,
 
     /**
-     * @brief 手动触发声光报警联动事件。
+     * @brief 手动触发声光报警联动事件
      */
     AC_TRIGGER_SOUND_LIGHT_ALARM = 11000,
 

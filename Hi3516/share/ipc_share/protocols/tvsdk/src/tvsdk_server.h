@@ -1,12 +1,19 @@
 /**
  * @FilePath     : tvsdk_server.h
+ * @Author       : zhouzr@kfb.cn
+ * @Date         : 2026-03-23 11:17:50
+ * @LastEditors  : zhouzr@kfb.cn
+ * @LastEditTime : 2026-08-13 18:07:12
  * @Description  : TVSDK 服务端封装，对接 NetTVSDKServer.h 的 C 接口
  */
 
 #pragma once
 
+#include <mutex>
 #include <memory>
 #include <string>
+
+#include "NetTVSDKServer.h"
 #include "IpcRet.h"
 
 
@@ -37,7 +44,7 @@ public:
     /**
      * @brief 推送告警信息给已连接的 SDK 客户端
      * @param pAlarmer 告警设备信息（可为 nullptr，内部会填默认）
-     * @param lCommand 命令码/报警类型（见 NetTVSDKServer.h 中 NET_ALARM_*）
+     * @param lCommand 命令码/报警类型（见 NetTVSDKServer.h 中 NET_TV_ALARM_*）
      * @param pAlarmInfo 告警结构体指针，类型由 lCommand 决定
      * @param dwBufLen pAlarmInfo 长度
      * @return 0 成功，负值失败
@@ -45,13 +52,7 @@ public:
     int push_alarm(const void *pAlarmer, int lCommand, const void *pAlarmInfo, int dwBufLen);
 
     /**
-     * @brief 推送 V2 告警信息。
-     * @details 图片通过指针和实际长度传递，调用期间图片内存必须保持有效。
-     * @param [in] pAlarmer 告警设备信息，为空时由服务端填充当前设备信息。
-     * @param [in] lCommand 告警命令码。
-     * @param [in] pAlarmInfo V2 告警结构体指针。
-     * @param [in] dwBufLen V2 告警结构体长度。
-     * @return 成功返回 OK，失败返回 ERR。
+     * @brief 推送 V2 告警信息。图片仅通过指针和实际长度传递，调用期间需保持图片内存有效。
      */
     int push_alarm_v2(const void *pAlarmer, int lCommand, const void *pAlarmInfo, int dwBufLen);
 
@@ -77,32 +78,22 @@ public:
     void set_user_passwd(const std::string &user, const std::string &passwd);
 
 private:
-#ifdef SCENE_INTELLIGENCE
     /**
-     * @brief 注册智能抓拍事件订阅回调。
-     * @details 订阅 IPC 任务管理器发布的人脸、行人、机动车和非机动车抓拍事件。
-     * @return 无。
+     * @brief   : 在 TVSDK 启动阶段准备告警设备信息缓存
+     * @return  : 无
+     * @note    : 设备序列号、MAC 和 IP 在告警推送期间保持不变，避免每次告警执行网络命令。
      */
-    void register_capture_event_subscribers();
+    void prepare_default_alarmer();
 
-    /**
-     * @brief 转发 IPC 抓拍事件到 TVSDK 客户端。
-     * @param [in] pData IPC 发布的 JSON 数据。
-     * @param [in] nDataLength IPC 发布数据长度。
-     * @param [in] nActionCode IPC 动作码。
-     * @param [in] pUserData 订阅回调用户数据，当前未使用。
-     * @return 成功返回 OK，失败返回 ERR。
-     */
-    int handle_capture_event(const void *pData,
-                             int nDataLength,
-                             int nActionCode,
-                             void *pUserData);
-
-    bool m_bCaptureEventSubscribed = false;
-#endif
     std::shared_ptr<CTaskManage> m_pTaskManage;
     bool m_bInit = false;
     std::string m_strUser;
     std::string m_strPassword;
     unsigned int m_udwPort = 0;  /* 0 表示使用 IN_CONTROL_SDK_PROT */
+    /* lock: 保护默认告警设备信息缓存，避免初始化与告警线程并发读取时产生数据竞争 */
+    mutable std::mutex m_mtxDefaultAlarmer;
+    /* memory: 仅保存固定长度的设备信息，不携带告警图片等大块数据 */
+    NET_TV_ALARMER_S m_stDefaultAlarmer{};
+    /* 默认告警设备信息是否已经在启动阶段准备完成 */
+    bool m_bDefaultAlarmerReady = false;
 };

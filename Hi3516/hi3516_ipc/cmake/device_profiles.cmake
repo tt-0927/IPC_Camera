@@ -35,8 +35,7 @@
 # - CAP_GPIO_LAYOUT_RV1126: RV1126 系列 GPIO 布局
 #   使用: share/ipc_share/control/business/system/gpioCtrl/gpio_ctrl.h
 # - CAP_LIGHT_WHITE_ONLY: 仅白光灯能力
-#   使用: share/ipc_share/control/business/system/pwmCtrl/pwm_ctrl.h,
-#         share/ipc_share/control/business/system/pwmCtrl/light_manager.cpp
+#   使用: hi3516_ipc/main_app/peripheral/peripheral_profile_builder.cpp
 # - CAP_PWM_NEED_POLARITY: PWM 需要极性配置
 #   使用: share/ipc_share/hardware/pwm_utils/pwm_utils.cpp
 # - CAP_EVENT_AUDIO_PLAYBACK_V2: 事件音频播放 V2 路径
@@ -54,6 +53,12 @@
 #   使用: share/ipc_share/public_app/daemon/process_manager.cpp
 # - CAP_DAEMON_LOG_BY_SIZE: 守护进程按文件大小滚动日志
 #   使用: share/ipc_share/public_app/daemon/main.cpp
+# - CAP_PROCESS_LOG_SWITCH: 进程日志级别切换（1=发布模式/WARN级别/syncPrintf关闭，0=开发模式/TRACE级别/syncPrintf开启）
+#   使用: hi3516_ipc/main_app/stream_main.cpp,
+#         share/ipc_share/public_app/record/main.cpp,
+#         share/ipc_share/public_app/operation/main.cpp,
+#         share/ipc_share/public_app/daemon/main.cpp,
+#         hi3516_ipc/upgrade/main.cpp
 # - CAP_RECORD_NEEDS_CAM_SHARE_INCLUDE: record 需要额外 cam_share include
 #   使用: hi3516_ipc/ipc.cmake, share/ipc_share/public_app/record/CMakeLists.txt
 # - CAP_RECORD_LINK_FDK_AAC: record 需要链接 fdk-aac
@@ -78,18 +83,7 @@
 #         share/ipc_share/control/task/sub_task/picture_task.cpp
 # - CAP_AI_USE_SIMPLE_JSON: AI 使用 simple Json 头
 #   使用: share/ai_share/AiModules/Inference/Hisilicon/CVInferenceHISI.hpp
-# - CAP_ISP_DAY_NIGHT_DIFFERENT_TUNING: ISP 日夜差异化调参能力（WDR/曝光补偿/锐度）
-#   使用: hi3516_ipc/main_app/stream_media/video/isp/isp_control.h,
-#         hi3516_ipc/main_app/stream_media/video/isp/isp_control.cpp
-#   说明: 仅 TV-3852H* 系列启用；TV-3852T* 系列白天黑夜都走白天参数逻辑
-# - CAP_ISP_SCENE_LIGHT_PARAM: ISP 白光场景参数能力
-#   使用: hi3516_ipc/main_app/stream_media/video/isp/isp_scene.cpp,
-#         share/ipc_share/control/business/isp/isp_manage.cpp
-#   说明: 仅 TV-3852H* 系列启用；夜间白光模式使用独立 light 场景参数
-# - CAP_ISP_CMOS_GAMMA_3852H: TV-3852H* 系列 CMOS Gamma 曲线能力
-#   使用: hi_pipeline/mpp/cbb/isp/user/sensor/hi3516cv610/smart_sc533hai/sc533hai_cmos_param.h,
-#         hi_pipeline/mpp/cbb/isp/user/sensor/sensor_foundation/sensor_template/template_sns_cmos_param.h
-#   说明: 仅 TV-3852H* 系列启用；TV-3852T* 系列保持原 Gamma 曲线
+# ISP参数映射、日夜阈值、Scene/DRC、Gamma和安装方向已迁移到Sensor目录下的INI配置。
 # - CAP_NETWORK_4G: 4G 网络能力
 #   使用: （预留，暂未实现）
 # - CAP_NETWORK_WIFI: WIFI 网络能力
@@ -110,6 +104,19 @@
 #   使用: hi3516_ipc/ipc.cmake, share/ipc_share/public_app/record/CMakeLists.txt
 # - IPC_CAP_EXHIBITION_OSD_PANEL: CMake 变量版展会面板能力
 #   使用: hi3516_ipc/main_app/ai_app/common/common.cmake
+# - CAP_AI_FACE_COMPARE: 启用人脸比对能力
+#   使用: hi3516_ipc/main_app/ai_app/algorithm_mode/algorithm/face_detect/internal/processors/feature/face_feature_processor.cpp
+# - CAP_IO_EXTERNAL_DDR_00S=1            #外置DDR适配io
+#   使用: /hi3516_ipc/hi3516_ipc/main_app/stream_media/audio/ao/stream_ao.h
+# - CAP_RTMP_PUSH: RTMP 推流能力（独立于平台接入，允许有平台接入但无 RTMP）
+#   使用: share/ipc_share/push_stream/push_stream.h,
+#         share/ipc_share/push_stream/push_stream.cpp,
+#         hi3516_ipc/main_app/stream_media/video/stream_video.cpp,
+#         share/ipc_share/control/business/network/platform/platform_manager.cpp
+# - CAP_RTSP_HIGH_CONCURRENCY: RTSP 会话高并发能力（0=Hi3516 默认4路总额，1=高配8路总额）
+#   使用: share/ipc_share/push_stream/rtsp/rtsp_server.h
+# - IPC_CAP_RTMP_PUSH: CMake 变量版 RTMP 推流能力
+#   使用: share/ipc_share/push_stream/push_stream.cmake
 
 set(DEVICE_PROFILE_KEYS
     TV_3852T
@@ -140,7 +147,7 @@ set(DEVICE_PROFILE_TV_3852T_DEFINES
     CAP_ISP_IR_SWITCH=1                  # ISP 红外切换（isp_manage.cpp）
     CAP_GPIO_LAYOUT_3852_SERIES=1         # 3852 系列 GPIO 布局（gpio_ctrl.h）
     CAP_GPIO_LAYOUT_RV1126=0             # RV1126 系列 GPIO 布局（gpio_ctrl.h）
-    CAP_LIGHT_WHITE_ONLY=0               # 仅白光灯能力（pwm_ctrl.h / light_manager.cpp）
+    CAP_LIGHT_WHITE_ONLY=0               # 仅白光灯能力（peripheral_profile_builder.cpp）
     CAP_PWM_NEED_POLARITY=0              # PWM 极性配置（pwm_utils.cpp）
     CAP_EVENT_AUDIO_PLAYBACK_V2=0        # 事件音频播放 V2（event_linkage.cpp）
     CAP_AUDIO_PLAYBACK_SLEEP_HALF=1      # 音频播放 half-sleep（event_linkage.cpp）
@@ -149,6 +156,7 @@ set(DEVICE_PROFILE_TV_3852T_DEFINES
     CAP_PROCESS_USE_PS_GREP=0            # 进程探测 ps|grep（process_manager.cpp）
     CAP_PROCESS_KILL_CROND_BEFORE_STREAM=0  # 拉流前处理 crond（process_manager.cpp）
     CAP_DAEMON_LOG_BY_SIZE=1             # 守护进程按大小滚动日志（daemon/main.cpp）
+    CAP_PROCESS_LOG_SWITCH=0             # 进程日志级别切换（0=开发模式/TRACE，1=发布模式/WARN）
     CAP_RECORD_NEEDS_CAM_SHARE_INCLUDE=0 # record 额外 include（ipc.cmake / record/CMakeLists.txt）
     CAP_RECORD_LINK_FDK_AAC=0            # record 链接 fdk-aac（ipc.cmake / record/CMakeLists.txt）
     CAP_AI_GARBAGE_DETECT=0              # 垃圾暴露/垃圾满溢检测能力（garbage_detect.hpp / algo_stream_deal.cpp / event_define.h）
@@ -158,16 +166,17 @@ set(DEVICE_PROFILE_TV_3852T_DEFINES
     CAP_EXHIBITION_OSD_PANEL=0           # 展会版AI左上角汇总面板能力
     CAP_AI_USE_SIMPLE_JSON=1             # AI 使用 simple Json 头（CVInferenceHISI.hpp）
     CAP_GPIO_IR_CUT_JSON=1               # gpio控制ir_cut方式（gpio_ctrl.cpp）
-    CAP_ISP_SCENE_LIGHT_PARAM=0          # 独立白光场景参数能力（TV-3852H* 专用）
-    CAP_ISP_CMOS_GAMMA_3852H=0           # TV-3852H* CMOS Gamma 曲线能力
     CAP_RECORD_USE_MAIN_STREAM=0         # 录制使用主码流
     CAP_NETWORK_TELNET_SERVICE=0         # telnet 服务能力；发布版本不启动 telnetd
     CAP_NETWORK_FTP_SERVICE=0            # ftp 服务能力；发布版本不启动 uftpd
+    CAP_RTSP_HIGH_CONCURRENCY=0          # RTSP 高并发能力（普通 Hi3516）
+    CAP_RTMP_PUSH=0                      # RTMP 推流能力
 )
 set(DEVICE_PROFILE_TV_3852T_CMAKE_VARS
     IPC_CAP_RECORD_NEEDS_CAM_SHARE_INCLUDE=0 # record 额外 include（ipc.cmake / record/CMakeLists.txt）
     IPC_CAP_RECORD_LINK_FDK_AAC=0            # record 链接 fdk-aac（ipc.cmake / record/CMakeLists.txt）
     IPC_CAP_EXHIBITION_OSD_PANEL=0           # 展会版AI左上角汇总面板能力
+    IPC_CAP_RTMP_PUSH=0                      # RTMP 推流能力
 )
 
 set(DEVICE_PROFILE_TV_3852H_DEVICE_TYPE "TV-3852H")
@@ -200,6 +209,7 @@ set(DEVICE_PROFILE_TV_3852H_DEFINES
     CAP_PROCESS_USE_PS_GREP=0
     CAP_PROCESS_KILL_CROND_BEFORE_STREAM=0
     CAP_DAEMON_LOG_BY_SIZE=1
+    CAP_PROCESS_LOG_SWITCH=0             # 进程日志级别切换（0=开发模式/TRACE，1=发布模式/WARN）
     CAP_RECORD_NEEDS_CAM_SHARE_INCLUDE=0
     CAP_RECORD_LINK_FDK_AAC=0
     CAP_AI_GARBAGE_DETECT=0
@@ -208,16 +218,16 @@ set(DEVICE_PROFILE_TV_3852H_DEFINES
     CAP_AI_PEOPLE_DENSITY_V2=0
     CAP_AI_USE_SIMPLE_JSON=1
     CAP_GPIO_IR_CUT_JSON=0
-    CAP_ISP_DAY_NIGHT_DIFFERENT_TUNING=1 # ISP 日夜差异化调参开启；仅 TV-3852H* 系列生效
-    CAP_ISP_SCENE_LIGHT_PARAM=1          # 夜间白光模式使用独立 light 场景参数
-    CAP_ISP_CMOS_GAMMA_3852H=1           # TV-3852H* 使用独立 CMOS Gamma 曲线
-    CAP_RECORD_USE_MAIN_STREAM=1         # 录制使用主码流
+    CAP_RECORD_USE_MAIN_STREAM=0         # 录制使用主码流
     CAP_NETWORK_TELNET_SERVICE=0         # telnet 服务能力；发布版本不启动 telnetd
     CAP_NETWORK_FTP_SERVICE=0            # ftp 服务能力；发布版本不启动 uftpd
+    CAP_RTSP_HIGH_CONCURRENCY=0          # RTSP 高并发能力（普通 Hi3516）
+    CAP_RTMP_PUSH=0                      # RTMP 推流能力
 )
 set(DEVICE_PROFILE_TV_3852H_CMAKE_VARS
     IPC_CAP_RECORD_NEEDS_CAM_SHARE_INCLUDE=0
     IPC_CAP_RECORD_LINK_FDK_AAC=0
+    IPC_CAP_RTMP_PUSH=0                      # RTMP 推流能力
 )
 
 # ========== 智能垃圾站系列型号 ==========
@@ -252,6 +262,7 @@ set(DEVICE_PROFILE_TV_3852TL_DEFINES
     CAP_PROCESS_USE_PS_GREP=0
     CAP_PROCESS_KILL_CROND_BEFORE_STREAM=0
     CAP_DAEMON_LOG_BY_SIZE=1
+    CAP_PROCESS_LOG_SWITCH=0             # 进程日志级别切换（0=开发模式/TRACE，1=发布模式/WARN）
     CAP_RECORD_NEEDS_CAM_SHARE_INCLUDE=0
     CAP_RECORD_LINK_FDK_AAC=0
     CAP_AI_GARBAGE_DETECT=1              # 垃圾暴露/垃圾满溢检测能力
@@ -265,15 +276,19 @@ set(DEVICE_PROFILE_TV_3852TL_DEFINES
     CAP_NETWORK_FTP_SERVICE=0            # ftp 服务能力；发布版本不启动 uftpd
     CAP_NETWORK_4G=0                     # 4G网络（预留）
     CAP_NETWORK_WIFI=0                   # WIFI网络（预留）
-    CAP_RECORD_USE_MAIN_STREAM=1         # 录制使用主码流
+    CAP_RECORD_USE_MAIN_STREAM=0         # 录制使用主码流
     CAP_GARBAGE_STATION_PLATFORM=1       # 垃圾站平台接入能力
     CAP_NETWORK_TELNET_SERVICE=0         # telnet 服务能力；发布版本不启动 telnetd
     CAP_NETWORK_FTP_SERVICE=0            # ftp 服务能力；发布版本不启动 uftpd
+    CAP_IO_EXTERNAL_DDR_00S=0            #外置DDR适配io
+    CAP_RTSP_HIGH_CONCURRENCY=0          # RTSP 高并发能力（普通 Hi3516）
+    CAP_RTMP_PUSH=0                      # RTMP 推流能力（TL 型号不需要 RTMP）
 )
 set(DEVICE_PROFILE_TV_3852TL_CMAKE_VARS
     IPC_CAP_RECORD_NEEDS_CAM_SHARE_INCLUDE=0
     IPC_CAP_RECORD_LINK_FDK_AAC=0
     IPC_CAP_EXHIBITION_OSD_PANEL=0           # 展会版AI左上角汇总面板能力
+    IPC_CAP_RTMP_PUSH=0                      # RTMP 推流能力
 )
 
 set(DEVICE_PROFILE_TV_3852HL_DEVICE_TYPE "TV-3852HL")
@@ -306,6 +321,7 @@ set(DEVICE_PROFILE_TV_3852HL_DEFINES
     CAP_PROCESS_USE_PS_GREP=0
     CAP_PROCESS_KILL_CROND_BEFORE_STREAM=0
     CAP_DAEMON_LOG_BY_SIZE=1
+    CAP_PROCESS_LOG_SWITCH=0             # 进程日志级别切换（0=开发模式/TRACE，1=发布模式/WARN）
     CAP_RECORD_NEEDS_CAM_SHARE_INCLUDE=0
     CAP_RECORD_LINK_FDK_AAC=0
     CAP_AI_GARBAGE_DETECT=1              # 垃圾暴露/垃圾满溢检测能力
@@ -316,15 +332,16 @@ set(DEVICE_PROFILE_TV_3852HL_DEFINES
     CAP_AI_USE_SIMPLE_JSON=1
     CAP_NETWORK_4G=0                     # 4G网络（预留）
     CAP_NETWORK_WIFI=0                   # WIFI网络（预留）
-    CAP_RECORD_USE_MAIN_STREAM=1         # 录制使用主码流
+    CAP_RECORD_USE_MAIN_STREAM=0         # 录制使用主码流
     CAP_GARBAGE_STATION_PLATFORM=1       # 垃圾站平台接入能力
-    CAP_ISP_DAY_NIGHT_DIFFERENT_TUNING=1
-    CAP_ISP_SCENE_LIGHT_PARAM=1
-    CAP_ISP_CMOS_GAMMA_3852H=1
+    CAP_IO_EXTERNAL_DDR_00S=0            #外置DDR适配io
+    CAP_RTSP_HIGH_CONCURRENCY=0          # RTSP 高并发能力（普通 Hi3516）
+    CAP_RTMP_PUSH=0                      # RTMP 推流能力（HL 型号不需要 RTMP）
 )
 set(DEVICE_PROFILE_TV_3852HL_CMAKE_VARS
     IPC_CAP_RECORD_NEEDS_CAM_SHARE_INCLUDE=0
     IPC_CAP_RECORD_LINK_FDK_AAC=0
+    IPC_CAP_RTMP_PUSH=0                      # RTMP 推流能力
 )
 
 set(DEVICE_PROFILE_TV_3852TL4G_DEVICE_TYPE "TV-3852TL4G")
@@ -357,6 +374,7 @@ set(DEVICE_PROFILE_TV_3852TL4G_DEFINES
     CAP_PROCESS_USE_PS_GREP=0
     CAP_PROCESS_KILL_CROND_BEFORE_STREAM=0
     CAP_DAEMON_LOG_BY_SIZE=1
+    CAP_PROCESS_LOG_SWITCH=0             # 进程日志级别切换（0=开发模式/TRACE，1=发布模式/WARN）
     CAP_RECORD_NEEDS_CAM_SHARE_INCLUDE=0
     CAP_RECORD_LINK_FDK_AAC=0
     CAP_AI_GARBAGE_DETECT=1              # 垃圾暴露/垃圾满溢检测能力
@@ -368,18 +386,19 @@ set(DEVICE_PROFILE_TV_3852TL4G_DEFINES
     CAP_GPIO_IR_CUT_JSON=1
     CAP_NETWORK_4G=1                     # 4G网络（预留）
     CAP_NETWORK_WIFI=0                   # WIFI网络（预留）
-    CAP_RECORD_USE_MAIN_STREAM=1         # 录制使用主码流
+    CAP_RECORD_USE_MAIN_STREAM=0         # 录制使用主码流
     CAP_GARBAGE_STATION_PLATFORM=1       # 垃圾站平台接入能力
     CAP_NETWORK_TELNET_SERVICE=0         # telnet 服务能力；发布版本不启动 telnetd
     CAP_NETWORK_FTP_SERVICE=0            # ftp 服务能力；发布版本不启动 uftpd
-    CAP_ISP_DAY_NIGHT_DIFFERENT_TUNING=1 #使用3852H图像参数
-    CAP_ISP_SCENE_LIGHT_PARAM=1          #使用3852H图像参数
-    CAP_ISP_CMOS_GAMMA_3852H=1           #使用3852H图像参数
+    CAP_IO_EXTERNAL_DDR_00S=1            #外置DDR适配io
+    CAP_RTSP_HIGH_CONCURRENCY=0          # RTSP 高并发能力（普通 Hi3516）
+    CAP_RTMP_PUSH=1                      # RTMP 推流能力
 )
 set(DEVICE_PROFILE_TV_3852TL4G_CMAKE_VARS
     IPC_CAP_RECORD_NEEDS_CAM_SHARE_INCLUDE=0
     IPC_CAP_RECORD_LINK_FDK_AAC=0
     IPC_CAP_EXHIBITION_OSD_PANEL=0           # 展会版AI左上角汇总面板能力
+    IPC_CAP_RTMP_PUSH=1                      # RTMP 推流能力
 )
 
 set(DEVICE_PROFILE_TV_3852TLW_DEVICE_TYPE "TV-3852TLW")
@@ -412,6 +431,7 @@ set(DEVICE_PROFILE_TV_3852TLW_DEFINES
     CAP_PROCESS_USE_PS_GREP=0
     CAP_PROCESS_KILL_CROND_BEFORE_STREAM=0
     CAP_DAEMON_LOG_BY_SIZE=1
+    CAP_PROCESS_LOG_SWITCH=0             # 进程日志级别切换（0=开发模式/TRACE，1=发布模式/WARN）
     CAP_RECORD_NEEDS_CAM_SHARE_INCLUDE=0
     CAP_RECORD_LINK_FDK_AAC=0
     CAP_AI_GARBAGE_DETECT=1              # 垃圾暴露/垃圾满溢检测能力
@@ -423,18 +443,19 @@ set(DEVICE_PROFILE_TV_3852TLW_DEFINES
     CAP_GPIO_IR_CUT_JSON=1
     CAP_NETWORK_4G=0                     # 4G网络（预留）
     CAP_NETWORK_WIFI=1                   # WIFI网络（预留）
-    CAP_RECORD_USE_MAIN_STREAM=1         # 录制使用主码流
+    CAP_RECORD_USE_MAIN_STREAM=0         # 录制使用主码流
     CAP_GARBAGE_STATION_PLATFORM=1       # 垃圾站平台接入能力
     CAP_NETWORK_TELNET_SERVICE=0         # telnet 服务能力；发布版本不启动 telnetd
     CAP_NETWORK_FTP_SERVICE=0            # ftp 服务能力；发布版本不启动 uftpd
-    CAP_ISP_DAY_NIGHT_DIFFERENT_TUNING=1 #使用3852H图像参数
-    CAP_ISP_SCENE_LIGHT_PARAM=1          #使用3852H图像参数
-    CAP_ISP_CMOS_GAMMA_3852H=1           #使用3852H图像参数
+    CAP_IO_EXTERNAL_DDR_00S=1            #外置DDR适配io
+    CAP_RTSP_HIGH_CONCURRENCY=0          # RTSP 高并发能力（普通 Hi3516）
+    CAP_RTMP_PUSH=1                      # RTMP 推流能力
 )
 set(DEVICE_PROFILE_TV_3852TLW_CMAKE_VARS
     IPC_CAP_RECORD_NEEDS_CAM_SHARE_INCLUDE=0
     IPC_CAP_RECORD_LINK_FDK_AAC=0
     IPC_CAP_EXHIBITION_OSD_PANEL=0           # 展会版AI左上角汇总面板能力
+    IPC_CAP_RTMP_PUSH=1                      # RTMP 推流能力
 )
 
 # 展厅特殊版本
@@ -468,6 +489,7 @@ set(DEVICE_PROFILE_TV_3852HZT_DEFINES
     CAP_PROCESS_USE_PS_GREP=0
     CAP_PROCESS_KILL_CROND_BEFORE_STREAM=0
     CAP_DAEMON_LOG_BY_SIZE=1
+    CAP_PROCESS_LOG_SWITCH=0             # 进程日志级别切换（0=开发模式/TRACE，1=发布模式/WARN）
     CAP_RECORD_NEEDS_CAM_SHARE_INCLUDE=0
     CAP_RECORD_LINK_FDK_AAC=0
     CAP_AI_GARBAGE_DETECT=0
@@ -477,17 +499,17 @@ set(DEVICE_PROFILE_TV_3852HZT_DEFINES
     CAP_EXHIBITION_OSD_PANEL=0              # 展会版AI左上角汇总面板能力
     CAP_AI_USE_SIMPLE_JSON=1
     CAP_GPIO_IR_CUT_JSON=0
-    CAP_ISP_DAY_NIGHT_DIFFERENT_TUNING=1
-    CAP_ISP_SCENE_LIGHT_PARAM=1
-    CAP_ISP_CMOS_GAMMA_3852H=1
     CAP_RECORD_USE_MAIN_STREAM=0         # 录制使用主码流
     CAP_NETWORK_TELNET_SERVICE=1
     CAP_NETWORK_FTP_SERVICE=1
+    CAP_RTSP_HIGH_CONCURRENCY=0          # RTSP 高并发能力（普通 Hi3516）
+    CAP_RTMP_PUSH=0                      # RTMP 推流能力
 )
 set(DEVICE_PROFILE_TV_3852HZT_CMAKE_VARS
     IPC_CAP_RECORD_NEEDS_CAM_SHARE_INCLUDE=0
     IPC_CAP_RECORD_LINK_FDK_AAC=0
     IPC_CAP_EXHIBITION_OSD_PANEL=0           # 展会版AI左上角汇总面板能力
+    IPC_CAP_RTMP_PUSH=0                      # RTMP 推流能力
 )
 
 function(apply_device_profile device_type)

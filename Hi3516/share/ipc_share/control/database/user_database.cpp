@@ -48,6 +48,7 @@ int CUserDatabase::create()
     m_database.add_tableKey(TableKey(PERMISSION_FIELD_EVENT_CONFIG, CDbBase::type_int()));
     m_database.add_tableKey(TableKey(PERMISSION_FIELD_VIDEO_MANAGE, CDbBase::type_int()));
     m_database.add_tableKey(TableKey(PERMISSION_FIELD_OBJECT_LIB, CDbBase::type_int()));
+    m_database.add_tableKey(TableKey(PERMISSION_FIELD_FACE_CONFIG, CDbBase::type_int()));
     m_database.add_tableKey(TableKey(PERMISSION_FIELD_VEHICLE_DETECT_CONFIG, CDbBase::type_int()));
     m_database.add_tableKey(TableKey(PERMISSION_FIELD_LOCAL_SHUTDOWN, CDbBase::type_int()));
     m_database.add_tableKey(TableKey(PERMISSION_FIELD_PTZ_CONTROL, CDbBase::type_int()));
@@ -87,6 +88,7 @@ int CUserDatabase::create()
         stUserInfo.stPermissions.stMenuPermission.bEventConfig = true;            /* 事件配置 */
         stUserInfo.stPermissions.stMenuPermission.bVideoManage = true;            /* 录像管理 */
         stUserInfo.stPermissions.stMenuPermission.bObjectLib = true;              /* 目标库 */
+        stUserInfo.stPermissions.stMenuPermission.bFaceConfig = true;             /* 人脸功能 */
         stUserInfo.stPermissions.stMenuPermission.bVehicleDetecConfig = true;     /* 车辆检测配置 */
         stUserInfo.stPermissions.stMenuPermission.bLocalShutdown = true;          /* 本地关机 */
         stUserInfo.stPermissions.stOperatePermission.bPTZControl = true;          /* 云台控制 */
@@ -131,6 +133,7 @@ int CUserDatabase::add(const User::UserInfo_S &stInfo)
     item.push_back(Element(PERMISSION_FIELD_EVENT_CONFIG, static_cast<int>(stInfo.stPermissions.stMenuPermission.bEventConfig)));
     item.push_back(Element(PERMISSION_FIELD_VIDEO_MANAGE, static_cast<int>(stInfo.stPermissions.stMenuPermission.bVideoManage)));
     item.push_back(Element(PERMISSION_FIELD_OBJECT_LIB, static_cast<int>(stInfo.stPermissions.stMenuPermission.bObjectLib)));
+    item.push_back(Element(PERMISSION_FIELD_FACE_CONFIG, static_cast<int>(stInfo.stPermissions.stMenuPermission.bFaceConfig)));
     item.push_back(Element(PERMISSION_FIELD_VEHICLE_DETECT_CONFIG, static_cast<int>(stInfo.stPermissions.stMenuPermission.bVehicleDetecConfig)));
     item.push_back(Element(PERMISSION_FIELD_LOCAL_SHUTDOWN, static_cast<int>(stInfo.stPermissions.stMenuPermission.bLocalShutdown)));
 
@@ -246,6 +249,9 @@ int CUserDatabase::find(const MatchMethods &methods, std::vector<User::UserInfo_
                 break;
             case str2tag(PERMISSION_FIELD_OBJECT_LIB):
                 stInfo.stPermissions.stMenuPermission.bObjectLib = mpark::get<int>(value);
+                break;
+            case str2tag(PERMISSION_FIELD_FACE_CONFIG):
+                stInfo.stPermissions.stMenuPermission.bFaceConfig = mpark::get<int>(value);
                 break;
             case str2tag(PERMISSION_FIELD_VEHICLE_DETECT_CONFIG):
                 stInfo.stPermissions.stMenuPermission.bVehicleDetecConfig = mpark::get<int>(value);

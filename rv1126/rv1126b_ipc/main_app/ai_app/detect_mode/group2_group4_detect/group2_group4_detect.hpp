@@ -1,8 +1,8 @@
 /*
  * @Author: lianghy lianghy@kfb.cn
  * @Date: 2026-01-09 10:47:39
- * @LastEditors: lianghy lianghy@kfb.cn
- * @LastEditTime: 2026-04-25 11:41:18
+ * @LastEditors: leiyy leiyy@kfb.cn
+ * @LastEditTime: 2026-08-14 15:54:16
  * @FilePath: /1126/rv1126b_ipc/main_app/ai_app/detect_mode/group2_group4_detect/group2_group4_detect.hpp
  * @Description: 人、车非 事件相关
  */
@@ -10,6 +10,7 @@
 #pragma once
 
 #include <atomic>
+#include <chrono>
 #include <condition_variable>
 #include <mutex>
 #include <thread>
@@ -21,6 +22,7 @@
 #include "Group4DetectV1_0.hpp"
 #include "LicensePlateCognitionV1_0.hpp"
 #include "PresonAttributeV2_0.hpp"
+#include "share_data.h"
 #include "VehicleAttributeV2_0.hpp"
 #include "NonMotorizedAttributeV2_0.hpp"
 
@@ -381,15 +383,16 @@ class CGroup2_Group4Detect : public CAlgorithm {
      * @return [*]
      * @note
      */
-    void processGroup2Detect(const Group2Detect_NS::OutData_S &stGroup2OutData);
+    void processGroup2Detect(const Group2Detect_NS::OutData_S &stGroup2OutData, std::vector<Group2Detect_NS::Result_S> &vecResult);
 
     /**
      * @brief 模型组合4识别后处理
-     * @param stGroup2OutData 模型组合4识别结果
+     * @param stGroup4OutData 模型组合4识别结果
+     * @param vecResult 模型组合2检测结果（用于获取bbox和特写图）
      * @return [*]
      * @note
      */
-    void processGroup4Detect(const Group4Detect_NS::OutData_S &stGroup4OutData);
+    void processGroup4Detect(const Group4Detect_NS::OutData_S &stGroup4OutData, const std::vector<Group2Detect_NS::Result_S> &vecResult);
 
     /**
      * @brief 动态分析函数
@@ -468,6 +471,23 @@ class CGroup2_Group4Detect : public CAlgorithm {
      * @return
      */
     void pushNonMotorvehicleCaptureInfo(const std::string &strCurrentPicture, const std::string &strTargetPicture, const NonMotorizedAttribute_NS::Result_S &stResult);
+
+#ifdef ENABLE_TVSDK_SRC
+    /**
+     * @brief 行人抓拍信息 TVSDK 二进制直推
+     */
+    void pushPersonCaptureInfoToTvSdk(const cv::Mat &srcData, const Common::Rect_S &stRect, const PresonAttribute_NS::Result_S &stResult);
+
+    /**
+     * @brief 机动车抓拍信息 TVSDK 二进制直推
+     */
+    void pushMotorvehicleCaptureInfoToTvSdk(const cv::Mat &srcData, const Common::Rect_S &stRect, const std::string &strLicensePlateNumber, const VehicleAttribute_NS::Result_S &stResult);
+
+    /**
+     * @brief 非机动车抓拍信息 TVSDK 二进制直推
+     */
+    void pushNonMotorvehicleCaptureInfoToTvSdk(const cv::Mat &srcData, const Common::Rect_S &stRect, const NonMotorizedAttribute_NS::Result_S &stResult);
+#endif
 
     /**
      * @brief   : 越界侦测转换区域坐标并判断是否使能算法
@@ -667,6 +687,9 @@ class CGroup2_Group4Detect : public CAlgorithm {
     CUploadStateMachine m_IllegalParkingUploadStateMachine;           /* 违规停车 */
     CUploadStateMachine m_CongestionUploadStateMachine;               /* 拥堵 */
 #endif
+
+    int m_nChannelId = 0;
+    cv::Mat m_fullRgbMat;
 
     /* 送到AI模块的帧的宽高 */
     int m_nAiChnWith = PIXEL_WIDTH_1280;

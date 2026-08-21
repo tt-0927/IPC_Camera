@@ -3,7 +3,7 @@
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2025-08-18 11:36:11
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2025-08-18 17:27:26
+ * @LastEditTime : 2026-08-21 09:24:25
  * @Description  : 封装FFmpeg图像编码功能的类（仅支持YVU420SP输入）
  */
 
@@ -13,6 +13,7 @@ extern "C"
 {
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
+#include <libavutil/opt.h>
 }
 
 #include <string>
@@ -36,6 +37,13 @@ public:
      * @note    : 支持jpg/jpeg和png格式，根据文件后缀自动选择编码器
      */
     bool Open(const std::string &strFilename, int nWidth, int nHeight);
+
+    /**
+     * @brief   : 设置编码质量
+     * @param   {int} nQuality：JPEG质量值（1-100，100为最佳），仅对JPEG编码生效
+     * @note    : 必须在调用Open()之前调用才能生效；人脸抓拍场景建议设为95
+     */
+    void SetQuality(int nQuality);
 
     /**
      * @brief   : 发送图像数据进行编码并写入文件
@@ -76,4 +84,5 @@ private:
     std::string m_strFilename;   /* 输出文件名 */
     int m_nWidth;                /* 图像宽度 */
     int m_nHeight;               /* 图像高度 */
+    int m_nQuality;              /* 编码质量（1-100，0表示默认），仅JPEG生效 */
 };

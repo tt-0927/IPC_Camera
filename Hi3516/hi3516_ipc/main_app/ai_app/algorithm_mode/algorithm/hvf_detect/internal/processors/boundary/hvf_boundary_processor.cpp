@@ -3,7 +3,7 @@
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2026-03-26 16:20:00
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-03-28 10:39:18
+ * @LastEditTime : 2026-08-15 10:45:39
  * @Description  : HVF 越界侦测处理器实现
  */
 
@@ -165,7 +165,8 @@ bool process_boundary_detection(
     stEventContext.nChnId = stCtx.nChnId;
     stEventContext.llTimestamp = stCtx.llTimestamp;
 #ifdef ENABLE_TVSDK_SRC
-    if (bIsAlarm && pAlarmObject != nullptr)
+    /* perf: 有TVSDK客户端订阅时才软件编码全景图，无订阅者或冷却期跳过编码 */
+    if (bIsAlarm && alarmStateMachine.canStartAlarm() && pAlarmObject != nullptr && AiAppCommon::tvsdk_event_image_required())
     {
         fill_hvf_tvsdk_event_context(stEventContext, stCtx, pstObjectClass, *pAlarmObject, nAlarmRuleId);
     }

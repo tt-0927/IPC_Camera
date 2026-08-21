@@ -18,6 +18,7 @@ namespace
 {
 /* 事件类型优先级映射 */
 const std::map<Event::Type_E, int> g_event_priority_map = {
+    {Event::Type_E::FACE_COMPARE_SUCCESS, 0}, /* 人脸比对成功播报优先于通用报警音 */
     {    Event::Type_E::MOTION_DETECT,  1}, /* 移动侦测事件 */
     { Event::Type_E::OCCLUSION_DETECT,  2}, /* 遮挡侦测事件 */
     {    Event::Type_E::ANOMALY_ALARM,  3}, /* 异常报警事件 */
@@ -39,6 +40,7 @@ const std::map<Event::Type_E, int> g_event_priority_map = {
     {   Event::Type_E::OBJECT_REMOVAL, 19}, /* 物品移除事件 */
     {  Event::Type_E::PET_RECOGNITION, 20}, /* 宠物识别事件 */
     {     Event::Type_E::FACE_CAPTURE, 21}, /* 人脸抓拍事件 */
+    {   Event::Type_E::FACE_COMPARE_FAIL, 23}, /* 人脸比对失败事件 */
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_GARBAGE_DETECT
     { Event::Type_E::GARBAGE_EXPOSURE, 70}, /* 垃圾暴露识别事件 */
     { Event::Type_E::GARBAGE_OVERFLOW, 71}, /* 垃圾满溢识别事件 */

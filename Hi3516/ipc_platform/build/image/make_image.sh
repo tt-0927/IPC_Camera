@@ -4,7 +4,7 @@
 # @Author       : zhouzr@kfb.cn
 # @Date         : 2026-01-21 10:36:39
  # @LastEditors  : zhouzr@kfb.cn
- # @LastEditTime : 2026-06-22 11:07:41
+ # @LastEditTime : 2026-07-28 13:35:54
 # @Description  : 打包固件脚本
 ###
 
@@ -52,7 +52,7 @@ if [[ ! -d "$PROJECT_ROOT_PATH" ]]; then
 fi
 
 # 解析参数
-if ! ARGS=$(getopt -o d:v:c:s: --long version:,project:,autofile -n "$0" -- "$@"); then
+if ! ARGS=$(getopt -o d:v:c:s: --long version:,project:,autofile,copyright -n "$0" -- "$@"); then
     error "选项和参数解析失败"
 fi
 eval set -- "$ARGS"
@@ -71,6 +71,8 @@ CHIP_TYPE="Hi3516CV610-20S"
 VERSION_NUM=""
 # 是否自动摆渡
 AUTOFILE_MODE=false
+# 是否启用软著打包模式
+COPYRIGHT_MODE=false
 
 while true; do
     case "$1" in
@@ -98,6 +100,10 @@ while true; do
         AUTOFILE_MODE=true
         shift
         ;;
+    --copyright)
+        COPYRIGHT_MODE=true
+        shift
+        ;;
     --)
         shift
         break
@@ -109,6 +115,13 @@ done
 check_device_type "$DEVICE_TYPE" || error "设备型号无效: $DEVICE_TYPE"
 check_sensor_type "$SENSOR_TYPE" || error "镜头型号无效: $SENSOR_TYPE"
 check_project_type "$PROJECT_TYPE" || error "项目类型无效: $PROJECT_TYPE"
+
+# 3852TLW 和 3852TL4G 使用 Hi3516CV610-00S 主控，其他型号使用 Hi3516CV610-20S
+if [[ "$DEVICE_TYPE" =~ ^TV-3852(TLW|TL4G)$ ]]; then
+    CHIP_TYPE="Hi3516CV610-00S"
+    info "当前型号 $DEVICE_TYPE 使用主控: $CHIP_TYPE"
+fi
+
 info "项目根路径: $PROJECT_ROOT_PATH"
 
 # ==============================
@@ -157,6 +170,11 @@ generate_sensor_name_for_package "$SENSOR_TYPE"
 # 软件包名称格式：型号-芯片型号-镜头标识-版本号-[中英文类型]-软件包类型-项目类型
 SOFTWARE_NAME="${DEVICE_TYPE}-${CHIP_TYPE}-${SENSOR_NAME_FOR_PACKAGE}-${VERSION_NUM}-${LANGUAGE_TYPE}-${SOFTWARE_TYPE}-${PROJECT_TYPE}"
 
+# 软著模式：用软著前缀包裹文件名
+if [[ "$COPYRIGHT_MODE" == true ]]; then
+    SOFTWARE_NAME="${COPYRIGHT_PREFIX}(${SOFTWARE_NAME})"
+fi
+
 STRIP_TOOL="/opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/bin/arm-v01c02-linux-musleabi-strip"
 
 FIRMWARE_BASE_PATH="${PROJECT_ROOT_PATH}/hi3516cv610"
@@ -164,6 +182,31 @@ ROOTFS_PATH="$FIRMWARE_BASE_PATH/rootfs_debug_musl_arm"
 
 # rootfs 子路径
 ROOTFS_UDHCPC="$ROOTFS_PATH/usr/share/udhcpc"
+
+# ==============================
+# 函数：生成镜头信息文件
+# 说明：仅写入烧录固件的 rootfs，升级包不得携带该文件，防止覆盖设备出厂镜头信息
+# ==============================
+generate_lens_info_file() {
+    local sensor_type="$SENSOR_TYPE"
+    local focal_length=""
+    local lens_info_file="${ROOTFS_PATH}${RUN_PATH}/lens_info.txt"
+
+    # 提取焦距部分（如 f4mm 或 f2_8mm）。
+    if [[ "$sensor_type" =~ (f[0-9_]+mm) ]]; then
+        local focal_part="${BASH_REMATCH[1]}"
+        focal_length="${focal_part#f}"
+        focal_length="${focal_length//_/.}"
+    fi
+
+    mkdir -p "$(dirname "$lens_info_file")"
+    printf 'SENSOR_TYPE=%s\n' "$sensor_type" >"$lens_info_file"
+    if [[ -n "$focal_length" ]]; then
+        printf 'FOCAL_LENGTH=%s\n' "$focal_length" >>"$lens_info_file"
+    fi
+
+    info "镜头信息已写入烧录固件: ${lens_info_file}"
+}
 
 # ==============================
 # 函数：拷贝AI模型
@@ -187,6 +230,10 @@ copy_model_files() {
                 info "跳过垃圾检测模型: $filename"
                 continue
             fi
+            if [[ "$filename" =~ mobileface ]]; then
+                info "跳过特征点提取模型: $filename"
+                continue
+            fi
             cp -a "$model_file" "${UPGRADE_PATH}${RUN_PATH}/model/"
         elif [[ -d "$model_file" ]]; then
             cp -a "$model_file" "${UPGRADE_PATH}${RUN_PATH}/model/"
@@ -195,12 +242,16 @@ copy_model_files() {
 
     # 垃圾站型号特征：TV-3852*L* (TL/HL/TL4G/TLW)
     if [[ "$DEVICE_TYPE" =~ ^TV-3852.*L ]]; then
-        info "当前型号 $DEVICE_TYPE 为垃圾站型号，拷贝垃圾检测模型..."
+        info "当前型号 $DEVICE_TYPE 为垃圾站型号，拷贝垃圾检测模型和特征点提取模型..."
         for model_file in "${MODEL_PATH}"/*; do
             if [[ -f "$model_file" ]]; then
                 filename=$(basename "$model_file")
                 if [[ "$filename" =~ rubish ]]; then
                     info "拷贝垃圾检测模型: $filename"
+                    cp -a "$model_file" "${UPGRADE_PATH}${RUN_PATH}/model/"
+                fi
+                if [[ "$filename" =~ mobileface ]]; then
+                    info "拷贝特征点提取模型: $filename"
                     cp -a "$model_file" "${UPGRADE_PATH}${RUN_PATH}/model/"
                 fi
             fi
@@ -264,6 +315,9 @@ tar -xzvf rootfs_debug_musl_arm.tar.gz
 # 合并到 rootfs
 info "合并升级内容到 rootfs..."
 cp -af "$UPGRADE_PATH"/* "$ROOTFS_PATH"/
+
+# 镜头信息属于设备出厂属性，仅在生成烧录固件时写入 rootfs。
+generate_lens_info_file
 
 # 拷贝 DHCP 脚本
 info "拷贝 DHCP 脚本..."

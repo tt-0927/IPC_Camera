@@ -138,6 +138,9 @@ private:
     /* 是否初始化 */
     bool m_bInit = false;
 
+    /* 通道号 */
+    int m_nChannelId = 0;
+
     /* 配置参数 */
     /* 音频异常侦测 */
     Alarm::AudioAnomaly_S m_stAudioAnomalyCfg;

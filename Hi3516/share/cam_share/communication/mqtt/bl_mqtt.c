@@ -1,11 +1,12 @@
-/*
+/**
+ * @FilePath     : bl_mqtt.c
  * @Author       : EasonLu
  * @Date         : 2024-03-12 16:54:36
- * @LastEditors  : huangjunda
- * @LastEditTime : 2025-07-15 17:43:05
- * @FilePath     : bl_mqtt.c
+ * @LastEditors  : zhouzr@kfb.cn
+ * @LastEditTime : 2026-07-29 14:23:14
  * @Description  : mqtt接口
  */
+
 #include "bl_mqtt.h"
 #include "dlog.h"
 #include "edukit_network.h"
@@ -211,7 +212,7 @@ static void bl_mqtt_pubsSuccess(
             pHandle->stNeedParam.pfnCallback(stMsg);
         }
     }
-    dlog_debug("发布消息成功");
+    /* perf: 发布成功可能由心跳、事件和命令响应高频触发，禁止逐条输出日志。 */
 }
 
 /**
@@ -326,14 +327,11 @@ static void connlost(void *context, char *cause)
     stConnOpts.context = pHandle;
     stConnOpts.automaticReconnect = pHandle->stExParam.bAutoReconnect ? 1 : 0;
 
-    dlog_info("mqtt重连CONNECT参数: url=%s, clientId=%s, username=%s, password=%s, clientIdLen=%zu, usernameLen=%zu, passwordLen=%zu, keepAlive=%u, timeout=%u",
-              achServerUrl,
+    /* ! 连接参数日志禁止输出用户名、密码和遗嘱内容，避免凭据通过串口或平台日志泄露。 */
+    dlog_info("mqtt重连CONNECT参数: clientId=%s, usernameSet=%d, passwordSet=%d, keepAlive=%u, timeout=%u",
               pHandle->stExParam.achClientID,
-              pHandle->stExParam.achUserName,
-              pHandle->stExParam.achPassword,
-              strlen(pHandle->stExParam.achClientID),
-              strlen(pHandle->stExParam.achUserName),
-              strlen(pHandle->stExParam.achPassword),
+              pHandle->stExParam.achUserName[0] != '\0',
+              pHandle->stExParam.achPassword[0] != '\0',
               pHandle->stExParam.unKeepAlive,
               pHandle->stExParam.unConnectTimeout);
 
@@ -407,14 +405,12 @@ static int bl_mqtt_init(BlMqtt_S *pHandle)
     stConnOpts.context = pHandle;
     stConnOpts.automaticReconnect = pHandle->stExParam.bAutoReconnect ? 1 : 0;
 
-    dlog_info("mqtt首次CONNECT参数: url=%s, clientId=%s, username=%s, password=%s, clientIdLen=%zu, usernameLen=%zu, passwordLen=%zu, keepAlive=%u, timeout=%u",
+    /* ! 连接参数日志禁止输出用户名、密码和遗嘱内容，避免凭据通过串口或平台日志泄露。 */
+    dlog_info("mqtt首次CONNECT参数: url=%s, clientId=%s, usernameSet=%d, passwordSet=%d, keepAlive=%u, timeout=%u",
               achServerUrl,
               pHandle->stExParam.achClientID,
-              pHandle->stExParam.achUserName,
-              pHandle->stExParam.achPassword,
-              strlen(pHandle->stExParam.achClientID),
-              strlen(pHandle->stExParam.achUserName),
-              strlen(pHandle->stExParam.achPassword),
+              pHandle->stExParam.achUserName[0] != '\0',
+              pHandle->stExParam.achPassword[0] != '\0',
               pHandle->stExParam.unKeepAlive,
               pHandle->stExParam.unConnectTimeout);
 

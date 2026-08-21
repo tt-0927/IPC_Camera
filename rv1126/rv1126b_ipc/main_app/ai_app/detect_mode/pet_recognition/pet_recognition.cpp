@@ -43,6 +43,8 @@ void CPetRecognition::recvMediaData(MediaData_S stMediaData)
         return;
     }
 
+    m_nChannelId = stMediaData.stMediaParam.nChannel;
+
     if (m_RecvManager.handleEvent(stMediaData.stMediaParam.nChannel))
     {
         if (m_dateQueue.size() >= QUEUE_MAX)
@@ -189,6 +191,9 @@ void CPetRecognition::run()
             cv::Mat rgbMat;
             cv::cvtColor(i420Mat, rgbMat, cv::COLOR_YUV2RGB_NV12);
 
+            /* 缓存RGB帧用于事件上下文 */
+            m_fullRgbMat = rgbMat.clone();
+
             /* 分辨率大小转换 */
             cv::resize(
                 rgbMat,          
@@ -233,8 +238,6 @@ void CPetRecognition::run()
 // info /*----------------------- 算法后处理 -----------------------*/
 void CPetRecognition::processPetRecognition(std::vector<PetRecognition_NS::Result_S> &stResults)
 {
-    /* 是否报警 */
-    bool bIsAlarm = false;
     /* OSD 动态分析显示数组 */
     std::vector<Common::RectInfo_S> vstRectInfo;
 
@@ -255,21 +258,55 @@ void CPetRecognition::processPetRecognition(std::vector<PetRecognition_NS::Resul
             {
                 vstRectInfo.emplace_back(stInfo);
             }
-            bIsAlarm = true;
+            
+            /* 上报事件 */
+#ifdef ENABLE_TVSDK_SRC
+            EventTriggerContext_S stContext;
+            stContext.enEventType = Event::Type_E::PET_RECOGNITION;
+            stContext.nChnId = m_nChannelId;
+            stContext.llTimestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
+                                       std::chrono::system_clock::now().time_since_epoch())
+                                       .count();
+            if (!m_fullRgbMat.empty())
+            {
+                auto pPayload = std::make_shared<EventTvSdkPayload_S>();
+                pPayload->enType = get_tvsdk_payload_type(stContext.enEventType);
+                if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage))
+                {
+                    stContext.pTvSdkPayload = pPayload;
+                }
+                int nX1 = static_cast<int>(stResults.at(i).fX1);
+                int nY1 = static_cast<int>(stResults.at(i).fY1);
+                int nX2 = static_cast<int>(stResults.at(i).fX2);
+                int nY2 = static_cast<int>(stResults.at(i).fY2);
+                stContext.nLeft = nX1;
+                stContext.nTop = nY1;
+                stContext.nRight = nX2;
+                stContext.nBottom = nY2;
+                stContext.nObjectType = 3; // 3表示动物
+                if (nX1 >= 0 && nY1 >= 0 && nX2 > nX1 && nY2 > nY1
+                    && nX2 <= m_fullRgbMat.cols && nY2 <= m_fullRgbMat.rows) {
+                    cv::Rect roi(nX1, nY1, nX2 - nX1, nY2 - nY1);
+                    cv::Mat targetMat = m_fullRgbMat(roi).clone();
+                    EventTvSdkImage_S stTarget;
+                    if (encode_mat_to_tvsdk_image(targetMat, stTarget)) {
+                        stContext.stTargetImage = std::move(stTarget);
+                    }
+                }
+            }
+            m_petAlarmStateMachine.handleAlarmState(true, stContext);
+#else
+            m_petAlarmStateMachine.handleAlarmState(true, Event::Type_E::PET_RECOGNITION);
+#endif
         }
     }
 
-    /* 判断是否报警 */
-    if (bIsAlarm)
+    /* 宠物识别 动态分析 */
+    if (!vstRectInfo.empty() && m_stPetDetCfg.bDynamicAnalysisEnable)
     {
-        /* 宠物识别 动态分析 */
-        if (m_stPetDetCfg.bDynamicAnalysisEnable)
-        {
-            /* 发送结果至OSD模块，进行框选显示 */
-            send_detectionResult_to_osd(m_nWidth, m_nHeight, vstRectInfo);
-        }
+        /* 发送结果至OSD模块，进行框选显示 */
+        send_detectionResult_to_osd(m_nWidth, m_nHeight, vstRectInfo);
     }
-    m_petAlarmStateMachine.handleAlarmState(bIsAlarm, Event::Type_E::PET_RECOGNITION);
 
     return ;
 }

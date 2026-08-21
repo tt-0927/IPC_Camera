@@ -53,6 +53,9 @@ namespace FaceDataDB_NS
          */
         IpcRet_E deleteData(int nId);
         
+        /* 清空所有名单组中的人员和特征数据，保留名单组表 */
+        IpcRet_E clearAllData();
+
         /**
          * @brief 查找数据
          * @param [int] nId: 需要删除的ID

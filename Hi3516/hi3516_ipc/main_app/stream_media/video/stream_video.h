@@ -3,13 +3,14 @@
  * @Author       : zhouzirui
  * @Date         : 2025-03-21 10:24:45
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-01-08 10:21:25
+ * @LastEditTime : 2026-08-14 10:56:36
  * @Description  : 流媒体视频模块头文件
  */
 
 #pragma once
 
 #include <iostream>
+#include <array>
 #include <mutex>
 #include <thread>
 #include <atomic>
@@ -33,6 +34,7 @@
 #include "mpp_handle_wrapper.h"
 #include "venc_channel_handler.h"
 #include "nal_parser.h"
+#include "av_configure.h"
 
 extern "C"
 {
@@ -48,7 +50,28 @@ typedef enum StreamMediaNum
     STREAM_MEDIA_SUM,
 } StreamMediaNum_E;
 
-class CStreamVideo
+namespace Video_NS
+{
+    /**
+     * @brief   : 码流通道的运行时有效画面几何
+     * @note    : 配置分辨率表示用户期望的基础尺寸；该结构记录 VPSS 裁剪和 VENC 重建后 RGN 实际应使用的坐标系。
+     */
+    typedef struct
+    {
+        int nSourceWidth = 0;  /* VPSS 通道裁剪前实际宽度 */
+        int nSourceHeight = 0; /* VPSS 通道裁剪前实际高度 */
+        bool bCropEnable = false; /* 是否已在 VPSS 通道启用裁剪 */
+        int nCropX = 0;       /* 底层实际生效的裁剪起点 X */
+        int nCropY = 0;       /* 底层实际生效的裁剪起点 Y */
+        int nCropWidth = 0;   /* 底层实际生效的裁剪宽度 */
+        int nCropHeight = 0;  /* 底层实际生效的裁剪高度 */
+        int nOutputWidth = 0; /* VPSS 输出及 VENC 编码实际宽度 */
+        int nOutputHeight = 0;/* VPSS 输出及 VENC 编码实际高度 */
+        uint64_t unGeneration = 0; /* 几何版本，用于识别裁剪/分辨率切换 */
+    } StreamGeometry_S;
+}
+
+class CStreamVideo : public IAVVideoConfigApplier
 {
 private:
     CStreamVideo();
@@ -105,11 +128,27 @@ public:
     int getVideoConfig(std::vector<Video_NS::VideoConfig_S> &vstVideoConfig);
 
     /**
+     * @brief   : 获取指定编码通道的运行时有效画面几何
+     * @param    {int} nChn：VENC 通道号
+     * @param    {Video_NS::StreamGeometry_S &} stGeometry：输出的有效几何
+     * @return   {int} OK：成功，ERR_PARAM：通道非法
+     * @note    : OSD、Cover 和 AI 角框必须使用该结构，不得以持久化 VideoConfig 替代。
+     */
+    int get_stream_geometry(int nChn, Video_NS::StreamGeometry_S &stGeometry) const;
+
+    /**
      * @brief   : 设置视频配置
      * @param    {VideoConfig_S} &stVideoConfig：视频配置
      * @return   {int}0：成功，非0：失败
      */
     int setVideoConfig(const Video_NS::VideoConfig_S &stVideoConfig);
+
+    /**
+     * @brief   : 应用视频配置
+     * @param    {Video_NS::VideoConfig_S} &stConfig：视频配置
+     * @return   {int} 0：成功，非0：失败
+     */
+    int apply_video_config(const Video_NS::VideoConfig_S &stConfig) override;
 
     /**
      * @brief   : 设置视频ROI配置
@@ -119,12 +158,26 @@ public:
     int setVideoRoiConfig(const Video_NS::VideoRoiConfig_S  &stVideoRoiConfig);
 
     /**
+     * @brief   : 应用视频 ROI 配置
+     * @param    {Video_NS::VideoRoiConfig_S} &stConfig：视频 ROI 配置
+     * @return   {int} 0：成功，非0：失败
+     */
+    int apply_video_roi_config(const Video_NS::VideoRoiConfig_S &stConfig) override;
+
+    /**
      * @brief   : 设置区域裁剪配置
      * @param    {Video_NS::AreaCrop_S} &stAreaCrop：区域裁剪配置
      * @param    {bool} bIsMandateSet：是否强制设置配置
      * @return   {int} 0：成功，非0：失败
      */
     int setAreaCropConfig(const Video_NS::AreaCrop_S &stAreaCrop, bool bIsMandateSet = false);
+
+    /**
+     * @brief   : 应用区域裁剪配置
+     * @param    {Video_NS::AreaCrop_S} &stConfig：区域裁剪配置
+     * @return   {int} 0：成功，非0：失败
+     */
+    int apply_area_crop_config(const Video_NS::AreaCrop_S &stConfig) override;
 
     /**
      * @brief       : 请求IDR帧
@@ -179,25 +232,27 @@ private:
      */
     void initCallbackBinding();
 
+    /**
+     * @brief   : 将已生效的视频编码配置同步到录制进程
+     * @param    {Video_NS::VideoConfig_S} stVideoConfig：VENC 实际生效的视频配置
+     * @return   {int} OK：成功；ERR：录制进程未接入或发送失败
+     * @note    : 仅同步当前录制源通道，必须在新 VENC 启动取流前调用
+     */
+    int sync_record_video_config(const Video_NS::VideoConfig_S &stVideoConfig);
+
+    /**
+     * @brief   : 更新指定 VENC 通道的运行时有效画面几何
+     * @param    {int} nChn：VENC 通道号
+     * @param    {Video_NS::VideoConfig_S} stEffectiveVideoConfig：已生效的 VENC 配置
+     * @param    {ot_vpss_crop_info *} pstAppliedCrop：VPSS 实际接受的裁剪参数，空表示未裁剪
+     * @return   {void}
+     * @note    : 仅保存运行时状态，不修改用户持久化视频配置。
+     */
+    void update_stream_geometry(int nChn,
+                                const Video_NS::VideoConfig_S &stEffectiveVideoConfig,
+                                const ot_vpss_crop_info *pstAppliedCrop);
+
 private:
-    /**
-     * @brief       : 创建帧包
-     * @author      : zhouzirui
-     * @param        {VENC_CHN_E} enChn：编码通道号 0：第一码流 1：第二码流
-     * @param        {uint8_t} *pData：视频数据
-     * @param        {int} nDataLen：视频数据长度
-     * @return       {*}NULL：失败 非NULL：成功
-     */
-    Video_NS::VideoFrame_S *createFrame(VENC_CHN_E enChn, uint8_t *pData, int nDataLen);
-
-    /**
-     * @brief       : 销毁帧包（不释放内部 pData）
-     * @author      : zhouzirui
-     * @param        {VideoFrame_S} *pVideoFrame：待释放的视频帧数据指针
-     * @return       {*}
-     */
-    void freeFrame(Video_NS::VideoFrame_S *pVideoFrame);
-
     //info /*----------------------- 私有线程函数 -----------------------*/
     /**
      * @brief       : 获取编码后的数据送推流
@@ -250,8 +305,6 @@ private:
     HiAiDetect_S *m_pAiDetect[32];
     /* AI检测结果分析句柄*/
     CAiDetect m_cAiDetect;
-    /*送编码数据互斥锁*/
-    std::mutex m_mutexSendData;
 
     /* VENC通道处理器策略 */
     std::array<std::unique_ptr<CIVencChannelHandler>, VENC_CHN_MAX> m_channelHandlers;
@@ -270,4 +323,8 @@ private:
     std::string last_error_;
     /*控制操作互斥锁*/
     std::mutex m_mutexCtrl;
+    /* lock: 保护 OSD/算法线程读取的有效画面几何快照。 */
+    mutable std::mutex m_mutexGeometry;
+    /* 当前各 VENC 通道的运行时有效画面几何。 */
+    std::array<Video_NS::StreamGeometry_S, VENC_CHN_MAX> m_astStreamGeometry;
 };

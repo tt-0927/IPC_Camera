@@ -3,7 +3,7 @@
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2026-06-03 16:31:46
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-06-05 15:52:04
+ * @LastEditTime : 2026-08-07 13:56:56
  * @Description  : 录制文件管理
  */
 
@@ -1361,7 +1361,7 @@ int RecordFileManage::loop_write()
     strTables = RecordFileDatabase::instance()->get_all_tables();
     if(strTables.size() <= 2)
     {
-        dlog_error("没有查询到录制文件表格")
+        dlog_error("没有查询到录制文件表格");
         // return -1;
     }
 
@@ -2138,13 +2138,10 @@ void RecordFileManage::setLoopWrite(bool bLoopWrite)
     return ;
 } 
 
-void RecordFileManage::record_file_manage_thread() 
+void RecordFileManage::record_file_manage_thread()
 {
     pthread_setname_np(pthread_self(), "RecordFile");
-    TimeUtils_NS::TimeJumpCheck_S stTimeJumpCheck;
-
-    stTimeJumpCheck.init();
-    double dTimeDiff;
+    /* info: 正常校时由时间模块同步重建录制，避免轮询检测与统一通知链路重复清理文件。 */
     while(m_bRun.load(std::memory_order_acquire))
     {
         if(m_bLoopWriteFlag)
@@ -2178,25 +2175,6 @@ void RecordFileManage::record_file_manage_thread()
             m_bLoopWriteFlag.store(false, std::memory_order_release);
         }
         
-        dTimeDiff = stTimeJumpCheck.probe();
-        if(dTimeDiff != 0.0)
-        {
-            dlog_info("时间发生跳变 %lf", dTimeDiff);
-            CRecordCtrl::instance()->stop_record();
-            /* 等待录制进程停止操作m3u8文件 */
-            sleep(1);
-            time_t nCurTime = time(NULL);
-            dealTimeChange(nCurTime);
-        }
-        // else if(dTimeDiff > 0)
-        // {
-        //     dlog_info("时间发生跳变 %lf", dTimeDiff);
-        //     CRecordCtrl::instance()->stop_record();
-        //     /* 等待录制进程停止操作m3u8文件 */
-        //     sleep(1);
-        //     CRecordCtrl::instance()->start_record();
-        // }
-
         usleep(500 * 1000);
     }
     return ;

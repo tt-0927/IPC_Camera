@@ -33,8 +33,9 @@ protected:
   H264or5VideoRTPSink(int hNumber, // 264 or 265
 		      UsageEnvironment& env, Groupsock* RTPgs, unsigned char rtpPayloadFormat,
 		      u_int8_t const* vps = NULL, unsigned vpsSize = 0,
-		      u_int8_t const* sps = NULL, unsigned spsSize = 0,
-		      u_int8_t const* pps = NULL, unsigned ppsSize = 0);
+			      u_int8_t const* sps = NULL, unsigned spsSize = 0,
+			      u_int8_t const* pps = NULL, unsigned ppsSize = 0,
+			      unsigned maxBufferSize = 0);
 	// we're an abstrace base class
   virtual ~H264or5VideoRTPSink();
 

@@ -25,13 +25,15 @@ along with this library; if not, write to the Free Software Foundation, Inc.,
 ////////// MultiFramedRTPSink //////////
 
 void MultiFramedRTPSink::setPacketSizes(unsigned preferredPacketSize,
-					unsigned maxPacketSize) {
+					unsigned maxPacketSize,
+					unsigned maxBufferSize) {
   if (preferredPacketSize > maxPacketSize || preferredPacketSize == 0) return;
       // sanity check
 
   delete fOutBuf;
-  fOutBuf = new OutPacketBuffer(preferredPacketSize, maxPacketSize);
+  fOutBuf = new OutPacketBuffer(preferredPacketSize, maxPacketSize, maxBufferSize);
   fOurMaxPacketSize = maxPacketSize; // save value, in case subclasses need it
+  fMaxBufferSize = maxBufferSize == 0 ? OutPacketBuffer::maxSize : maxBufferSize;
 }
 
 #ifndef RTP_PAYLOAD_MAX_SIZE
@@ -48,12 +50,14 @@ MultiFramedRTPSink::MultiFramedRTPSink(UsageEnvironment& env,
 				       unsigned char rtpPayloadType,
 				       unsigned rtpTimestampFrequency,
 				       char const* rtpPayloadFormatName,
-				       unsigned numChannels)
+				       unsigned numChannels,
+				       unsigned maxBufferSize)
   : RTPSink(env, rtpGS, rtpPayloadType, rtpTimestampFrequency,
 	    rtpPayloadFormatName, numChannels),
     fOutBuf(NULL), fCurFragmentationOffset(0), fPreviousFrameEndedFragmentation(False),
+    fMaxBufferSize(0),
     fOnSendErrorFunc(NULL), fOnSendErrorData(NULL) {
-    setPacketSizes((RTP_PAYLOAD_PREFERRED_SIZE), (RTP_PAYLOAD_MAX_SIZE));
+    setPacketSizes((RTP_PAYLOAD_PREFERRED_SIZE), (RTP_PAYLOAD_MAX_SIZE), maxBufferSize);
   // setPacketSizes(1000, 8192);
 }
 
@@ -255,9 +259,9 @@ void MultiFramedRTPSink
     unsigned const bufferSize = fOutBuf->totalBytesAvailable();
     envir() << "MultiFramedRTPSink::afterGettingFrame1(): The input frame data was too large for our buffer size ("
 	    << bufferSize << ").  "
-	    << numTruncatedBytes << " bytes of trailing data was dropped!  Correct this by increasing \"OutPacketBuffer::maxSize\" to at least "
-	    << OutPacketBuffer::maxSize + numTruncatedBytes << ", *before* creating this 'RTPSink'.  (Current value is "
-	    << OutPacketBuffer::maxSize << ".)\n";
+	    << numTruncatedBytes << " bytes of trailing data was dropped!  Correct this by increasing the RTPSink buffer to at least "
+	    << ourMaxBufferSize() + numTruncatedBytes << ", *before* creating this 'RTPSink'.  (Current value is "
+	    << ourMaxBufferSize() << ".)\n";
   }
   unsigned curFragmentationOffset = fCurFragmentationOffset;
   unsigned numFrameBytesToUse = frameSize;

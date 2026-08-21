@@ -1,9 +1,9 @@
-/*** 
+/**
  * @FilePath     : pwm_utils.h
  * @Author       : cyc
  * @Date         : 2025-06-06 16:16:10
- * @LastEditors  : cyc
- * @LastEditTime : 2025-11-27 15:42:45
+ * @LastEditors  : zhouzr@kfb.cn
+ * @LastEditTime : 2026-07-18 09:13:45
  * @Description  : pwm控制通用类
  */
 

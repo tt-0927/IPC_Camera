@@ -4,8 +4,8 @@
  * @FilePath: MJPEG_FRAME_SOURCE.cpp
  * @Author: yangwenyao
  * @Date: 2023-01-03 14:08:38
- * @LastEditors: yangwenyao
- * @LastEditTime: 2023-01-05 11:04:45
+ * @LastEditors: zhouzr@kfb.cn
+ * @LastEditTime: 2026-08-14 10:48:49
  * @Descripttion: h265 rtp source
  */
 #include "mpeg_frame_source.h"
@@ -61,7 +61,9 @@ void MJPEG_FRAME_SOURCE::doGetNextFrame()
 
 unsigned int MJPEG_FRAME_SOURCE::maxFrameSize() const
 {
-  return REV_BUF_SIZE;
+  return m_stSourceInfo.outPacketBufferSize == 0
+             ? REV_BUF_SIZE
+             : m_stSourceInfo.outPacketBufferSize;
 }
 
 void MJPEG_FRAME_SOURCE::getNextFrame(void * ptr)

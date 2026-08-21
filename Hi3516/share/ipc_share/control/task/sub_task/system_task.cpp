@@ -3,7 +3,7 @@
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2026-04-23 17:04:24
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-07-17 13:40:47
+ * @LastEditTime : 2026-07-27 09:00:04
  * @Description  : 系统相关任务
  */
 
@@ -26,7 +26,7 @@
 #include "web_server.h"
 #include "path_define.h"
 #include "base_define.h"
-#include "light_manager.h"
+#include "peripheral_manage.h"
 #include "time_utils.h"
 #include "record_ctrl.h"
 
@@ -854,17 +854,20 @@ void Task::System::ModifyIpFilterAddress::handle()
 void Task::System::GetPeripheralConfig::handle()
 {
     ::System::Peripheral_S stInfo;
-    Convert::read_file(PERIPHERAL_CONFIG_FILE, stInfo);
-    result(Convert::to_string(stInfo));  
+    const int nRet = CPeripheralManage::instance()->get_fill_light_config(stInfo);
+    if (nRet != OK)
+    {
+        result(nRet);
+        return;
+    }
+    result(Convert::to_string(stInfo));
 }
 /* 设置外设配置 */
 void Task::System::SetPeripheralConfig::handle()
 {
     ::System::Peripheral_S stInfo;
     Convert::to_struct(m_taskData, stInfo);
-    int nRet = Convert::write_file(PERIPHERAL_CONFIG_FILE, stInfo);
-    nRet = CLightManager::instance()->set_peripheral_config(stInfo);
-    result(nRet); 
+    result(CPeripheralManage::instance()->set_fill_light_config(stInfo));
 }
 
 /* 获取智能资源分配-智能事件启用情况 */

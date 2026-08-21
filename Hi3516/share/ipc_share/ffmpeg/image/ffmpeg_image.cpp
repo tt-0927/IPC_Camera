@@ -3,7 +3,7 @@
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2025-08-18 11:36:15
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2025-10-30 15:48:22
+ * @LastEditTime : 2026-08-21 09:24:36
  * @Description  : 封装FFmpeg图像编码功能的类（仅支持YVU420SP输入）
  */
 
@@ -14,8 +14,7 @@
 #include <sys/stat.h>
 #include <iostream>
 
-CFfmpegImage::CFfmpegImage()
-    : m_pFmtCtx(nullptr), m_pCodecCtx(nullptr), m_pFrame(nullptr), m_pPkt(nullptr)
+CFfmpegImage::CFfmpegImage() : m_pFmtCtx(nullptr), m_pCodecCtx(nullptr), m_pFrame(nullptr), m_pPkt(nullptr), m_nQuality(0)
 {
 }
 
@@ -49,6 +48,11 @@ bool CFfmpegImage::CreateDirectoryRecursive(const std::string &path)
 
     /* 创建当前目录 */
     return mkdir(path.c_str(), 0755) == 0;
+}
+
+void CFfmpegImage::SetQuality(int nQuality)
+{
+    m_nQuality = nQuality;
 }
 
 bool CFfmpegImage::Open(const std::string &strFilename, int nWidth, int nHeight)
@@ -148,6 +152,10 @@ bool CFfmpegImage::Open(const std::string &strFilename, int nWidth, int nHeight)
             // m_pCodecCtx->bit_rate = 0;                      /* 使用质量模式而非码率模式 */
             // m_pCodecCtx->flags |= AV_CODEC_FLAG_QSCALE;     /* 启用质量模式 */
             // m_pCodecCtx->global_quality = FF_QP2LAMBDA * 2; /* 全局质量 */
+            if (m_nQuality > 0)
+            {
+                av_opt_set_int(m_pCodecCtx->priv_data, "quality", m_nQuality, AV_OPT_SEARCH_CHILDREN);
+            }
         }
         else if (ext == "png")
         {

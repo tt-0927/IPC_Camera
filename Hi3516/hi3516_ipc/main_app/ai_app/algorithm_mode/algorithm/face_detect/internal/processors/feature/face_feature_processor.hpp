@@ -21,6 +21,9 @@
 #include "face_capture_processor.hpp"
 #include "./face_detect_worker/face_detect_worker.hpp"
 
+#define  ERR_DETECT_NO_FACES -1   //未检测到人脸
+#define  ERR_DETECT_MULTIPLE_FACES -2   //检测到多张人脸
+#define  ERR_ADD_DUPLICATE_FACE    -3   //重复人脸
 namespace FaceDetectInternal
 {
 class CFaceCaptureProcessor;
@@ -95,7 +98,7 @@ public:
      * @param    {int} nHeight：算法分辨率高度
      * @return   {bool} true：成功 false：失败
      */
-    bool addFaceLibGroup(FaceDataDB_NS::FaceLibsInfo_S &stFaceLibData, CFaceDetectWorker &detectWorker, int nWidth, int nHeight);
+    int addFaceLibGroup(FaceDataDB_NS::FaceLibsInfo_S &stFaceLibData, CFaceDetectWorker &detectWorker, int nWidth, int nHeight);
 
     /**
      * @brief   : 获取当前是否使能
@@ -207,6 +210,14 @@ private:
     //                          int nWidth,
     //                          int nHeight,
     //                          ot_video_frame_info &stDstFrameInfo) const;
+
+    int saveCompareImage(const Common::RectInfo_S &stRect,
+        ot_video_frame_info *pSrcFrameInfo,
+        int nChnId,
+        long long llTimestamp,
+        CFaceCaptureProcessor &stCaptureProcessor,
+        std::vector<std::string> &vecImageFile,
+        std::string &strImagePath);
 
     bool prepareFace160Frame(
         const Common::RectInfo_S &rect, 

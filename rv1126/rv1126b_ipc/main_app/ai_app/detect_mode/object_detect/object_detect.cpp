@@ -56,7 +56,7 @@ void CObjectDetect::recvMediaData(MediaData_S stMediaData)
         dlog_debug("ai_app: 物品检测-开关未启用");
         return;
     }
-	 
+	 m_nChannelId = stMediaData.stMediaParam.nChannel;
     if (m_RecvManager.handleEvent(stMediaData.stMediaParam.nChannel))
     {
         if (m_dateQueue.size() >= QUEUE_MAX)
@@ -74,6 +74,8 @@ void CObjectDetect::recvMediaData(MediaData_S stMediaData)
  */
 void CObjectDetect::setAlgoEnCfg(const Event::AlgorithmConfig &stAlgoConfig)
 {
+	std::lock_guard<std::mutex> lock(m_mutex);
+
     m_stAlgoUnattendedObjectCfg.bEnable = stAlgoConfig.nEnUnattendedObject;
     m_stAlgoObjectRemovalCfg.bEnable = stAlgoConfig.nEnObjectRemoval;
 	m_bOnlyRemoval = (!m_stAlgoUnattendedObjectCfg.bEnable && m_stAlgoObjectRemovalCfg.bEnable);
@@ -84,6 +86,10 @@ void CObjectDetect::setAlgoEnCfg(const Event::AlgorithmConfig &stAlgoConfig)
 		m_lastHighS1TimeMap.clear();
 		m_eventTriggeredMap.clear();
 		m_lastEndTimeMap.clear();
+		m_eventTriggerStartMap.clear();
+		m_removalHighStartMap.clear();
+		m_removalHighDropTime.clear();
+		m_lastLowTimeMap.clear();
 		m_highSustainedStartMap.clear();
 		m_freezeBgUntilMap.clear();
 		m_highS1RateMap.clear();
@@ -224,6 +230,7 @@ void CObjectDetect::run()
 
         // /* 转换为RGB */  
         cv::Mat rgbMat; cv::cvtColor(i420Mat, rgbMat, cv::COLOR_YUV2BGR_I420);
+        m_lastRgbFrame = rgbMat.clone();
 		// cv::rotate(rgbMat, rgbMat, cv::ROTATE_180);
         
         /* 送分析 */
@@ -302,6 +309,10 @@ void CObjectDetect::run()
                             m_highS1RateMap.clear();
                             m_eventTriggeredMap.clear();
                             m_lastEndTimeMap.clear();
+                            m_eventTriggerStartMap.clear();
+                            m_removalHighStartMap.clear();
+                            m_removalHighDropTime.clear();
+                            m_lastLowTimeMap.clear();
                             m_lastItemState = NONE;
                             if (access("/testPrint", F_OK) == 0) {dlog_debug("ai_app: 物品检测: 全局场景变化,更新背景");}
                             continue;
@@ -356,53 +367,74 @@ void CObjectDetect::run()
 							/* 区分事件类型 */
 							if (rule.enType == Event::Type::UNATTENDED_OBJECT && m_stAlgoUnattendedObjectCfg.bEnable)
 							{
-								/* 冷却期检查：结束事件后 15 秒内不检测，等待背景帧更新（背景每10秒更新一次） */
+								/*
+							 * 物品遗留触发条件：
+							 *   1. S1_rate > 4%         — 区域有明显变化
+							 *   2. fObjDiffThrd >= 0.45 — 区域变化率 ≥ 全图的 45%
+							 *   3. 局部/全局自适应：
+							 *      - 小区域(<50%画面): S1_rate - ST_rate > 1%
+							 *      - 大区域(≥50%画面): ST_rate < 25%
+							 */
+							bool bTrigger;
+							if (areaRatio < 0.5f) {
+								bTrigger = (S1_rate * 100 > 4) && (fObjDiffThrd >= 0.45f) && (S1_rate - ST_rate > 0.01);
+							} else {
+								bTrigger = (S1_rate * 100 > 4) && (fObjDiffThrd >= 0.45f) && (ST_rate < 0.25);
+							}
+								/* 冷却期检查：结束事件后 15 秒内冷却，但 S1 曾 LOW >5s 又 HIGH 视为新放置 */
 								auto endIt = m_lastEndTimeMap.find(i);
 								if (endIt != m_lastEndTimeMap.end())
 								{
 									auto elapsedSinceEnd = std::chrono::duration_cast<std::chrono::seconds>(now - endIt->second).count();
-									if (elapsedSinceEnd < 15)
+									if (elapsedSinceEnd < 5)
 									{
-										continue; /* 冷却期内，跳过该规则 */
+										/* 冷却期内：检查是否 S1 曾 LOW >5s 又变 HIGH（新放置） */
+										auto lowIt = m_lastLowTimeMap.find(i);
+										if (lowIt != m_lastLowTimeMap.end() && bTrigger)
+										{
+											auto lowDuration = std::chrono::duration_cast<std::chrono::seconds>(now - lowIt->second).count();
+											if (lowDuration >= 5)
+											{
+												dlog_debug("规则[%d]冷却期内检测到新放置(低电平>5s), 提前结束冷却", i);
+												m_lastEndTimeMap.erase(i);
+												lastStayTimeMap.erase(i);
+												m_lastLowTimeMap.erase(i);
+											}
+											else
+											{
+												continue;
+											}
+										}
+										else
+										{
+											continue;
+										}
 									}
 									else
 									{
-									/* 冷却期结束，清除冷却记录，重置 state
-									 * 冷却期 15 秒已足够等 S1 飙升消退（背景每 10 秒更新一次，飙升持续约 10-11 秒）
-									 * 之后重置 state 允许新物体放入触发
-									 */
-									dlog_debug("规则[%d]冷却期结束, state重置为NONE", i);
+									/* 冷却期结束，清除冷却记录 */
+									dlog_debug("规则[%d]冷却期结束", i);
 									lastStayTimeMap.erase(i);
 									m_lastEndTimeMap.erase(i);
-									m_lastItemState = NONE;
 									}
 								}
-								/*
-							 * 物品遗留触发条件：
-							 *   1. S1_rate > 6%         — 区域有明显变化
-							 *   2. fObjDiffThrd >= 0.7  — 区域变化率 ≥ 全图的 70%（排除纯噪声）
-							 *   3. 局部/全局自适应：
-							 *      - 小区域(<50%画面): S1_rate - ST_rate > 2%（区域变化 > 全图变化）
-							 *      - 大区域(≥50%画面): ST_rate < 15%（全图变化不能太高，排除晃动）
-							 */
-							bool bTrigger;
-							if (areaRatio < 0.5f) {
-								bTrigger = (S1_rate * 100 > 6) && (fObjDiffThrd >= 0.7f) && (S1_rate - ST_rate > 0.02);
-							} else {
-								bTrigger = (S1_rate * 100 > 6) && (fObjDiffThrd >= 0.7f) && (ST_rate < 0.15);
-							}
 							//dlog_debug("物品遗留检测 - S1_rate:%.2f%%, ST_rate:%.4f, area:%.0f%%, fObjDiffThrd:%.2f, bTrigger:%d, state:%d",
-							 //          S1_rate * 100, ST_rate, areaRatio * 100, fObjDiffThrd, bTrigger, m_lastItemState);
+							//           S1_rate * 100, ST_rate, areaRatio * 100, fObjDiffThrd, bTrigger, m_lastItemState);
 								/* 物品遗留逻辑 */
 								if (bTrigger)
 								{
-									/* 每帧持续冻结背景，防止计数期间或事件触发后背景吸收物体 */
-									m_lastBgUpdateTime = now;
+									/* 冻结背景：仅在事件未触发过或事件进行中时冻结
+									 * 事件已结束(state=LEFT)时不冻结，让 bg 更新吸收物体后 S1 跌落重置状态 */
+									if (!(m_lastItemState == LEFT && !m_eventTriggeredMap[i]))
+									{
+										m_lastBgUpdateTime = now;
+									}
 
 									if (lastStayTimeMap.find(i) == lastStayTimeMap.end())
 									{
 										dlog_debug("规则[%d]物品遗留首次检测到物体", i);
 										lastStayTimeMap[i] = now;
+										m_lastLowTimeMap.erase(i);
 									}
 									else if (!m_eventTriggeredMap[i])
 									{
@@ -413,10 +445,49 @@ void CObjectDetect::run()
 											/* 在规则循环内直接处理，防止 m_eventTriggeredMap 提前设 true 后又被 state 拦截 */
 											if (m_lastItemState == NONE || m_lastItemState == PICKED)
 											{
+												/* 防误判：OBJECT_REMOVAL 正在跟踪连续 HIGH 时，不触发遗留（可能是移除） */
+												if (m_stAlgoObjectRemovalCfg.bEnable && !m_bOnlyRemoval)
+												{
+													bool bRemovalActive = false;
+													for (size_t j = 0; j < m_vstRuleInfo.size(); j++)
+													{
+														if (m_vstRuleInfo[j].enType == Event::Type::OBJECT_REMOVAL
+														    && m_removalHighStartMap.find((int)j) != m_removalHighStartMap.end())
+														{
+															bRemovalActive = true;
+															break;
+														}
+													}
+													if (bRemovalActive)
+													{
+														dlog_debug("ai_app: 物体移除检测中, 跳过物品遗留触发");
+														continue;
+													}
+												}
 												m_lastItemState = LEFT;
 												m_eventTriggeredMap[i] = true;
-												dlog_debug("=======ai_app: 物品遗留事件触发==========");
-												CEventLinkage::instance()->handleEvent(Event::Type::UNATTENDED_OBJECT, false);
+												m_eventTriggerStartMap[i] = now;
+											dlog_debug("=======ai_app: 物品遗留事件触发==========");
+#ifdef ENABLE_TVSDK_SRC
+											{
+												EventTriggerContext_S stCtx;
+												stCtx.enEventType = Event::Type::UNATTENDED_OBJECT;
+												stCtx.nChnId = m_nChannelId;
+												stCtx.llTimestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
+													std::chrono::system_clock::now().time_since_epoch()).count();
+												if (!m_lastRgbFrame.empty()) {
+												auto pPayload = std::make_shared<EventTvSdkPayload_S>();
+												pPayload->enType = get_tvsdk_payload_type(stCtx.enEventType);
+												if (encode_mat_to_tvsdk_image(m_lastRgbFrame, pPayload->stPanoramaImage, 85, false)) {
+													stCtx.pTvSdkPayload = pPayload;
+												}
+												}
+												stCtx.bEventEnded = false;
+												CEventLinkage::instance()->handleEvent(stCtx);
+											}
+#else
+											CEventLinkage::instance()->handleEvent(Event::Type::UNATTENDED_OBJECT, false);
+#endif
 												lastRemoveTimeMap.clear();
 											}
 											else
@@ -429,19 +500,44 @@ void CObjectDetect::run()
 								else
 								{
 									/* 触发条件不满足（物体消失） */
+									if (m_lastItemState == LEFT && !m_eventTriggeredMap[i])
+									{
+										m_lastItemState = NONE;
+									}
 									if (lastStayTimeMap.find(i) != lastStayTimeMap.end())
 									{
 										auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(now - lastStayTimeMap[i]).count();
 										if (duration >= 1800)
 										{
 											dlog_debug("物品遗留检测 - 物体消失超过1.8秒, 重置检测");
+											m_lastLowTimeMap[i] = now;
 											lastStayTimeMap.erase(i);
 											/* 事件结束：物体消失，物品遗留事件结束 */
 											if (m_eventTriggeredMap[i])
 											{
 												dlog_debug("=======ai_app: 物品遗留事件结束==========");
+#ifdef ENABLE_TVSDK_SRC
+												{
+													EventTriggerContext_S stCtx;
+													stCtx.enEventType = Event::Type::UNATTENDED_OBJECT;
+													stCtx.nChnId = m_nChannelId;
+													stCtx.llTimestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
+														std::chrono::system_clock::now().time_since_epoch()).count();
+													if (!m_lastRgbFrame.empty()) {
+														auto pPayload = std::make_shared<EventTvSdkPayload_S>();
+														pPayload->enType = get_tvsdk_payload_type(stCtx.enEventType);
+														if (encode_mat_to_tvsdk_image(m_lastRgbFrame, pPayload->stPanoramaImage, 85, false)) {
+															stCtx.pTvSdkPayload = pPayload;
+														}
+													}
+													stCtx.bEventEnded = true;
+													CEventLinkage::instance()->handleEvent(stCtx);
+												}
+#else
 												CEventLinkage::instance()->handleEvent(Event::Type::UNATTENDED_OBJECT, true);
+#endif
 												m_eventTriggeredMap[i] = false;
+												m_eventTriggerStartMap.erase(i);
 												m_lastEndTimeMap[i] = now; /* 记录结束时间，进入 30 秒冷却期 */
 											}
 											else
@@ -455,7 +551,7 @@ void CObjectDetect::run()
 							}
 							else if (rule.enType == Event::Type::OBJECT_REMOVAL && m_stAlgoObjectRemovalCfg.bEnable)
 							{
-								float pickupThreshold = 1.0f + (ST_rate * m_fSensiThrd * 0.5f);
+								float pickupThreshold = 1.2f + (ST_rate * m_fSensiThrd * 0.3f);
 
 								/*
 								 * 物品拿取触发条件：
@@ -468,14 +564,28 @@ void CObjectDetect::run()
 								 * 物体拿走：区域曾 HIGH→现在 LOW → 触发
 								 */
 								/* 记录 S1_rate 为 HIGH 开始跟踪，要求场景稳定（排除摄像头晃动）。小区域宽、大区域更宽 */
-								float stRateGuard = (areaRatio < 0.5f) ? 0.15f : 0.25f;
-								if (S1_rate * 100 > 5.0 && ST_rate < stRateGuard)
+								float stRateGuard = (areaRatio < 0.5f) ? 0.20f : 0.30f;
+								if (S1_rate * 100 > 3.0 && ST_rate < stRateGuard)
 								{
 									if (m_highSustainedStartMap.find(i) == m_highSustainedStartMap.end())
 									{
 										m_highSustainedStartMap[i] = now;
 									}
 									m_lastHighS1TimeMap[i] = now;
+									/* 记录连续 HIGH 起始时间（用于启动时物体已在场景的拿取检测） */
+									if (m_removalHighStartMap.find(i) == m_removalHighStartMap.end())
+									{
+										m_removalHighStartMap[i] = now;
+										m_highS1RateMap.erase(i); /* 新周期清除旧峰值 */
+									}
+								}
+								else
+								{
+									if (m_removalHighStartMap.find(i) != m_removalHighStartMap.end())
+									{
+										m_removalHighDropTime[i] = now;
+									}
+									m_removalHighStartMap.erase(i);
 								}
 								auto it = m_lastHighS1TimeMap.find(i);
 								bool hadRecentChange = false;
@@ -487,28 +597,25 @@ void CObjectDetect::run()
 									if (sustainedIt != m_highSustainedStartMap.end())
 									{
 										auto dur = std::chrono::duration_cast<std::chrono::seconds>(now - sustainedIt->second).count();
-										if (S1_rate * 100 > 5.0)
+										if (S1_rate * 100 > 3.0)
 										{
-											sustained = (dur >= 5);
+											sustained = (dur >= 2);
 										}
 										else
 										{
 											auto highDur = std::chrono::duration_cast<std::chrono::seconds>(it->second - sustainedIt->second).count();
-											sustained = (highDur >= 5);
+											sustained = (highDur >= 2);
 										}
 									}
-									hadRecentChange = (elapsed < 30) && sustained;
+									hadRecentChange = (elapsed < 20) && sustained;
 									if (hadRecentChange)
 									{
 										m_freezeBgUntilMap[i] = now + std::chrono::seconds(15);
-										if (S1_rate * 100 > 5.0)
+										float curr = S1_rate * 100;
+										auto highIt = m_highS1RateMap.find(i);
+										if (highIt == m_highS1RateMap.end() || curr > highIt->second)
 										{
-											float curr = S1_rate * 100;
-											auto highIt = m_highS1RateMap.find(i);
-											if (highIt == m_highS1RateMap.end() || curr > highIt->second)
-											{
-												m_highS1RateMap[i] = curr;
-											}
+											m_highS1RateMap[i] = curr;
 										}
 									}
 								}
@@ -518,16 +625,16 @@ void CObjectDetect::run()
 									auto highIt = m_highS1RateMap.find(i);
 									if (highIt != m_highS1RateMap.end())
 									{
-										isLow = (S1_rate * 100 < highIt->second * 0.7f);
+										isLow = (S1_rate * 100 < highIt->second * 0.5f);
 									}
 								}
 								/* 状态机要求：非纯拿取模式下 state 必须是 LEFT（物品曾遗留过） */
 								bool stateAllowsRemoval = m_bOnlyRemoval
 								    ? (m_lastItemState == NONE || m_lastItemState == PICKED)
 								    : (m_lastItemState == LEFT);
-								bool bTrigger = hadRecentChange && isLow
-								                && (fObjDiffThrd < pickupThreshold)
-								                && stateAllowsRemoval;
+								/* fObjDiffThrd 仅在 S1 较高时做 check（S1<3% 说明已稳定拿走，比值无意义） */
+								bool bObjDiffOk = (S1_rate * 100 < 3.0) || (fObjDiffThrd < pickupThreshold);
+								bool bTrigger = (hadRecentChange && isLow && bObjDiffOk && stateAllowsRemoval);
 								//dlog_debug("物品拿取检测 - S1_rate:%.2f%%, hadRecentChange:%d, isLow:%d, bTrigger:%d",
 								//           S1_rate * 100, hadRecentChange, isLow, bTrigger);
 								/* 物品拿取逻辑 */
@@ -551,6 +658,7 @@ void CObjectDetect::run()
 										{
 											triggeredEvents.push_back((int)Event::Type::OBJECT_REMOVAL);
 											m_eventTriggeredMap[i] = true;
+											m_eventTriggerStartMap[i] = now;
 											m_lastBgUpdateTime -= std::chrono::seconds(10);
 										}
 									}
@@ -568,29 +676,97 @@ void CObjectDetect::run()
 											/* 事件结束：区域又发生变化，物品拿取事件结束 */
 											if (m_eventTriggeredMap[i])
 											{
-												dlog_debug("=======ai_app: 物品拿取事件结束======");
-												CEventLinkage::instance()->handleEvent(Event::Type::OBJECT_REMOVAL, true);
+											dlog_debug("=======ai_app: 物品拿取事件结束======");
+#ifdef ENABLE_TVSDK_SRC
+											{
+												EventTriggerContext_S stCtx;
+												stCtx.enEventType = Event::Type::OBJECT_REMOVAL;
+												stCtx.nChnId = m_nChannelId;
+												stCtx.llTimestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
+													std::chrono::system_clock::now().time_since_epoch()).count();
+												if (!m_lastRgbFrame.empty()) {
+												auto pPayload = std::make_shared<EventTvSdkPayload_S>();
+												pPayload->enType = get_tvsdk_payload_type(stCtx.enEventType);
+												if (encode_mat_to_tvsdk_image(m_lastRgbFrame, pPayload->stPanoramaImage, 85, false)) {
+													stCtx.pTvSdkPayload = pPayload;
+												}
+												}
+												stCtx.bEventEnded = true;
+												CEventLinkage::instance()->handleEvent(stCtx);
+											}
+#else
+											CEventLinkage::instance()->handleEvent(Event::Type::OBJECT_REMOVAL, true);
+#endif
 												m_eventTriggeredMap[i] = false;
+												m_eventTriggerStartMap.erase(i);
+												m_removalHighDropTime[i] = now;
+												m_removalHighStartMap.erase(i);
+												m_lastEndTimeMap[i] = now;
 											}
 										}
 									}
 										}
 									}
-									/* 安全阀：事件触发后 120 秒仍未结束则强制重置，防止背景冻结导致死锁 */
-									if (m_eventTriggeredMap[i])
+								/* 强制超时结束：事件触发后超过阈值仍未自然结束则强制结束 */
+								if (m_eventTriggeredMap[i])
+								{
+									auto triggerIt = m_eventTriggerStartMap.find(i);
+									if (triggerIt != m_eventTriggerStartMap.end())
 									{
-										auto stuckDur = std::chrono::duration_cast<std::chrono::seconds>(now - lastStayTimeMap[i]).count();
-										if (stuckDur > 120)
+										auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - triggerIt->second).count();
+										bool shouldEnd = false;
+										if (rule.enType == Event::Type::UNATTENDED_OBJECT)
 										{
-											dlog_debug("ai_app: 事件卡住超过120秒, 强制重置");
+											shouldEnd = (elapsed > 2500);
+										}
+										else if (rule.enType == Event::Type::OBJECT_REMOVAL)
+										{
+											shouldEnd = (elapsed > 2500);
+										}
+										if (shouldEnd)
+										{
+										dlog_debug("ai_app: 事件触发超时(%lldms), 强制结束", (long long)elapsed);
+#ifdef ENABLE_TVSDK_SRC
+										{
+											EventTriggerContext_S stCtx;
+											stCtx.enEventType = rule.enType;
+											stCtx.nChnId = m_nChannelId;
+											stCtx.llTimestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
+												std::chrono::system_clock::now().time_since_epoch()).count();
+											if (!m_lastRgbFrame.empty()) {
+												auto pPayload = std::make_shared<EventTvSdkPayload_S>();
+												pPayload->enType = get_tvsdk_payload_type(stCtx.enEventType);
+												if (encode_mat_to_tvsdk_image(m_lastRgbFrame, pPayload->stPanoramaImage, 85, false)) {
+													stCtx.pTvSdkPayload = pPayload;
+												}
+											}
+											stCtx.bEventEnded = true;
+											CEventLinkage::instance()->handleEvent(stCtx);
+										}
+#else
+										CEventLinkage::instance()->handleEvent(rule.enType, true);
+#endif
 											m_eventTriggeredMap[i] = false;
-											m_lastItemState = NONE;
-											lastStayTimeMap.erase(i);
+											if (rule.enType == Event::Type::UNATTENDED_OBJECT)
+											{
+												lastStayTimeMap.erase(i);
+											}
+											else if (rule.enType == Event::Type::OBJECT_REMOVAL)
+											{
+												lastRemoveTimeMap.erase(i);
+											}
 											m_lastEndTimeMap[i] = now;
+											m_eventTriggerStartMap.erase(i);
+											if (rule.enType == Event::Type::OBJECT_REMOVAL)
+											{
+												m_removalHighDropTime[i] = now;
+											}
+											m_removalHighStartMap.erase(i);
 										}
 									}
 								}
-                        
+								}
+                            
                     }
                     
                     for (auto eventType : triggeredEvents)
@@ -610,7 +786,26 @@ void CObjectDetect::run()
                                 m_lastItemState = PICKED;
 								/* 上报事件 */
                                 dlog_debug("=======ai_app: 物品拿取事件触发======");
+#ifdef ENABLE_TVSDK_SRC
+                                {
+                                    EventTriggerContext_S stCtx;
+                                    stCtx.enEventType = Event::Type::OBJECT_REMOVAL;
+                                    stCtx.nChnId = m_nChannelId;
+                                    stCtx.llTimestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
+                                        std::chrono::system_clock::now().time_since_epoch()).count();
+                                    if (!m_lastRgbFrame.empty()) {
+                                        auto pPayload = std::make_shared<EventTvSdkPayload_S>();
+                                        pPayload->enType = get_tvsdk_payload_type(stCtx.enEventType);
+                                        if (encode_mat_to_tvsdk_image(m_lastRgbFrame, pPayload->stPanoramaImage, 85, false)) {
+                                            stCtx.pTvSdkPayload = pPayload;
+                                        }
+                                    }
+                                    stCtx.bEventEnded = false;
+                                    CEventLinkage::instance()->handleEvent(stCtx);
+                                }
+#else
                                 CEventLinkage::instance()->handleEvent(Event::Type::OBJECT_REMOVAL, false);
+#endif
 								lastStayTimeMap.clear();
 								m_freezeBgUntilMap.clear();
 								m_highS1RateMap.clear();

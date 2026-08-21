@@ -1,9 +1,10 @@
 /**
- * @file device.c
- * @author tianl (tianl@kfb.cn)
- * @date 2025-09-23
- * 
- * @brief onvif device服务接口
+ * @FilePath     : device.c
+ * @Author       : tianl@kfb.cn
+ * @Date         : 2025-09-23 13:40:43
+ * @LastEditors  : zhouzr@kfb.cn
+ * @LastEditTime : 2026-07-20 17:17:30
+ * @Description  : ONVIF设备服务接口
  */
 
 #include "onvif_server_wrapper.h"
@@ -601,8 +602,12 @@ SOAP_FMAC5 int SOAP_FMAC6 __tds__SetSystemDateAndTime(struct soap* soap, struct 
                        .tm_mon = tds__SetSystemDateAndTime->UTCDateTime->Date->Month - 1,
                        .tm_year = tds__SetSystemDateAndTime->UTCDateTime->Date->Year - 1900};
 
-    stuTv.tv_sec = mktime(&stuTm) + 8 * 60 * 60;
-    settimeofday(&stuTv, NULL);
+    stuTv.tv_sec = timegm(&stuTm);
+    if (stuTv.tv_sec == (time_t)-1 || onvif_set_system_utc_time(stuTv.tv_sec) != 0)
+    {
+        dlog_error("ONVIF设置系统UTC时间失败");
+        return SOAP_EOF;
+    }
 
     return SOAP_OK;
 }

@@ -1482,6 +1482,33 @@ std::string CNetworkManage::get_macAddress(const std::string &interfaceName)
  * @author      : zhouzirui
  * @return       {bool} ERROR, false; SUCCESS, true
  */
+
+ #if CAP_GARBAGE_STATION_PLATFORM
+int CNetworkManage::check_mac_valid(const std::string &strMac)
+{
+   const std::string mac = strMac.empty() ? get_macAddress(ETH0_INTERFACE) : strMac;
+   if (mac.length() != 17 ||
+	   mac[2] != ':' || mac[5] != ':' || mac[8] != ':' ||
+	   mac[11] != ':' || mac[14] != ':')
+   {
+	   dlog_error("invalid mac address format: %s", mac.c_str());
+	   return -1;
+   }
+
+   unsigned int bytes[6] = {0};
+   char extra = '\0';
+   const int count = sscanf(mac.c_str(), "%2x:%2x:%2x:%2x:%2x:%2x%c",
+							&bytes[0], &bytes[1], &bytes[2],
+							&bytes[3], &bytes[4], &bytes[5], &extra);
+   if (count != 6)
+   {
+	   dlog_error("invalid mac address: %s", mac.c_str());
+	   return -1;
+   }
+
+   return (bytes[0] == MAC_0 && bytes[1] == MAC_1 && bytes[2] == MAC_2) ? 0 : -1;
+}
+#else
 bool CNetworkManage::check_mac_valid()
 {
     /* ifreq结构体常用来配置和获取ip地址 */
@@ -1513,6 +1540,7 @@ bool CNetworkManage::check_mac_valid()
     return 0;
 }
 
+#endif
 int CNetworkManage::get_network_port(Network::PortConfig_S &stPortConfig)
 {
 	if (Convert::read_file(PORT_CONFIG_FILE, stPortConfig))

@@ -1316,9 +1316,21 @@ void COverlayDraw::draw_text(RkRgn_S *pHandle, Osd::OverplayInfo_S stuOverplayIn
         return;
     }
 #endif
-    
     /* 贴图(pitch:表示每一行像素数据占用的字节数, pitch * h:整个图像数据大小) */
-    pHandle->rockitRgn_overlay_loadPic(pHandle, pSurface->pixels, pSurface->pitch * pSurface->h);
+    {
+        RGN_CANVAS_INFO_S stCanvasInfo;
+        memset(&stCanvasInfo, 0, sizeof(RGN_CANVAS_INFO_S));
+
+        if (!pHandle->rockitRgn_getCanvasInfo(pHandle, &stCanvasInfo) && stCanvasInfo.u64VirAddr)
+        {
+            memcpy((void *)stCanvasInfo.u64VirAddr, pSurface->pixels, pSurface->pitch * pSurface->h);
+            pHandle->rockitRgn_updateCanvas(pHandle);
+        }
+        else
+        {
+            pHandle->rockitRgn_overlay_loadPic(pHandle, pSurface->pixels, pSurface->pitch * pSurface->h);
+        }
+    }
 
     /* 释放指针 */
     if (NULL != pSurface)

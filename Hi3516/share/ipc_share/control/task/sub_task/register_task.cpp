@@ -72,6 +72,7 @@ void Task::Register::SetActivationPasswd::handle()
     stUserInfo.stPermissions.stMenuPermission.bEventConfig = true;
     stUserInfo.stPermissions.stMenuPermission.bVideoManage = true;
     stUserInfo.stPermissions.stMenuPermission.bObjectLib = true;
+    stUserInfo.stPermissions.stMenuPermission.bFaceConfig = true;
     stUserInfo.stPermissions.stMenuPermission.bVehicleDetecConfig = true;
     stUserInfo.stPermissions.stMenuPermission.bLocalShutdown = true;
 

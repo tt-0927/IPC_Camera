@@ -33,6 +33,21 @@ namespace TimeUtils_NS
     }
 
     /**
+     * @brief   : 获取当前本地月份
+     * @return   {int} 当前月份，取值 1-12
+     * @note    : 使用 localtime_r 避免多个业务线程同时读取本地日期时竞争静态缓冲区
+     */
+    int get_today_month()
+    {
+        /* 当前时间快照只用于取得本地日历月份，避免跨月瞬间重复取时。 */
+        const auto stNow = std::chrono::system_clock::now();
+        const std::time_t stTime = std::chrono::system_clock::to_time_t(stNow);
+        std::tm stLocalTime;
+        localtime_r(&stTime, &stLocalTime);
+        return stLocalTime.tm_mon + 1;
+    }
+
+    /**
      * @brief   : 获取自当天开始的秒数
      * @return   {int} 自当天开始的秒数
      */

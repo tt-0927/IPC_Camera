@@ -141,6 +141,9 @@ private:
     std::vector<std::string> m_ethDirectRoutes;
     bool m_ethDirectRoutesRemoved = false;
     bool m_lastWiredDisconnected = false;
+    bool m_lastWifiConnected = false;
+    std::atomic<bool> m_routeStateInitialized{false};
+
 
     // 私有辅助函数
     void execShell(const std::string& cmd);
@@ -153,7 +156,7 @@ private:
     // void set_wifi_config(Network::WifiStaInfo_S stWifiConfigInfo);
     // Network::WifiStaInfo_S load_wifi_config();
     
-    
+    bool switchToWifiPreferred();
     void restoreConnection(); // 尝试从文件恢复并连接
     bool saveConfigToFile(const ::Network::WifiStaConncet_S& config); // 保存配置
     bool loadConfigFromFile(::Network::WifiStaConncet_S& config);     // 读取配置

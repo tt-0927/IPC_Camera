@@ -3,6 +3,7 @@
 include(${CMAKE_CURRENT_LIST_DIR}/network/network.cmake)
 # include(${CMAKE_CURRENT_LIST_DIR}/sdl/sdl.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/time/time.cmake)
+include(${CMAKE_CURRENT_LIST_DIR}/web_plugin/web_plugin.cmake)
 
 # 头文件
 set (INCLUDE_PATH

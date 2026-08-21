@@ -97,5 +97,8 @@ RTPSink* G726AudioStreamServerMediaSubsession
 
     return SimpleRTPSink::createNew(envir(), rtpGroupsock,
             payloadFormatCode, fSamplingFrequency,
-            "audio", mimeType, fNumChannels);
+            "audio", mimeType, fNumChannels,
+            False,
+            True,
+            m_stuG726SourceInfo.outPacketBufferSize);
 }

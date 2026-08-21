@@ -3,7 +3,7 @@
  * @Author       : huangjunda
  * @Date         : 2025-06-20 11:05:06
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2025-11-18 11:28:44
+ * @LastEditTime : 2026-07-30 15:14:08
  * @Description  : 遮挡绘制
  */
 
@@ -112,7 +112,7 @@ void CCoverDraw::stop()
 
 HiRgnNeedParam_S CCoverDraw::set_rgn(Osd::CoverInfo_S stuCoverInfo, int nChn, uint32_t unHandle)
 {
-    /* 获取码流的分辨率大小 */
+    /* 获取码流配置，仅在运行时几何不可用时兜底。 */
     std::vector<Video_NS::VideoConfig_S> vstVideoConfig;
     CStreamVideo::instance()->getVideoConfig(vstVideoConfig);
 
@@ -124,9 +124,19 @@ HiRgnNeedParam_S CCoverDraw::set_rgn(Osd::CoverInfo_S stuCoverInfo, int nChn, ui
     stuRgnNeedParam.unDevId = RGN_OSD_VPSS;
     stuRgnNeedParam.unType = OT_RGN_COVER;
 
-    /* 实际分辨率宽高和参考分辨率宽高 */
+    /*
+     * Cover 挂到 VPSS 的输出通道。VPSS 通道 Crop 生效后，Cover 的参考坐标必须落在
+     * 裁剪输出画面，而不是持久化 VideoConfig 所表示的裁剪前画面。
+     */
+    Video_NS::StreamGeometry_S stGeometry;
     int nActualWidth = vstVideoConfig.at(nChn).stVideoResolution.nWidth;
     int nActualHeight = vstVideoConfig.at(nChn).stVideoResolution.nHeight;
+    if (OK == CStreamVideo::instance()->get_stream_geometry(nChn, stGeometry) &&
+        stGeometry.nOutputWidth > 0 && stGeometry.nOutputHeight > 0)
+    {
+        nActualWidth = stGeometry.nOutputWidth;
+        nActualHeight = stGeometry.nOutputHeight;
+    }
     int nReferenceWidth = 0;
     int nReferenceHeight = 0;
 

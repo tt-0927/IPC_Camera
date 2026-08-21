@@ -200,7 +200,8 @@ void FaceManage::recvData(
         {
             FaceLibsInfo_S stOutFaceInfo;
             /* 获取信息 */
-            int            nDbId = vFaceIndices.at(0);
+            int            nDbId       = vFaceIndices.at(0);
+            float          fSimilarity = vfFaceSimilarity.at(0);
             if (m_FaceInfodb.searchDataById(nDbId, stOutFaceInfo) >= OK)
             {
                 HumanLibsInfo_S stHumanInfo;
@@ -210,9 +211,10 @@ void FaceManage::recvData(
                 stHumanInfo.nPostureType  = nPosture;
                 stHumanInfo.nClassTime    = stUserHeader.nClassTime;
                 stHumanInfo.lTimestamp    = stUserHeader.lTimestamp;
+                stHumanInfo.fConfidence   = fSimilarity;
                 sig_sendData.emit(stHeader, stUserHeader, stOutFaceInfo, stHumanInfo);
 
-                dlog(LOG_INFO, "%d 识别到人脸: [%d]", nId, stOutFaceInfo.nMemberId);
+                dlog(LOG_INFO, "%d 识别到人脸: [%d], 相识度：%f", nId, stOutFaceInfo.nMemberId, fSimilarity);
                 stHumanInfo.print();
 
 

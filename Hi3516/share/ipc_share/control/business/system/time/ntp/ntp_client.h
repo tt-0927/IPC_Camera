@@ -3,7 +3,7 @@
  * @Author: tianl
  * @Date: 2024-09-28 10:53:59
  * @LastEditors: tianl
- * @LastEditTime: 2024-09-30 11:22:29
+ * @LastEditTime: 2026-07-20 15:34:05
  * @Description: ntp校时
  */
 #pragma once
@@ -11,8 +11,12 @@
 #include <iostream>
 #include <cstring>
 #include <cstdlib>
+#include <ctime>
+#include <functional>
+#include <mutex>
 #include <string>
 #include <thread>
+#include <utility>
 #include <sys/time.h>
 #include <arpa/inet.h>
 #include <netdb.h>
@@ -61,6 +65,9 @@
 class CNtpClient : public CSingleton<CNtpClient>
 {
 public:
+    /* NTP完成系统时钟写入后的非拥有通知回调。 */
+    using TimeChangedCallback = std::function<void(std::time_t nOldTime, std::time_t nNewTime)>;
+
     CNtpClient() : running(false), m_nSockfd(-1) {};
     ~CNtpClient();
 
@@ -120,7 +127,22 @@ public:
     * @param stTestNtp 
     * @return int 
     */
-   int test_ntp(System::TestNtp_S stTestNtp);
+    int test_ntp(System::TestNtp_S stTestNtp);
+
+    /**
+     * @brief   : 设置NTP校时成功后的时间变化回调
+     * @param    {TimeChangedCallback} fnCallback：接收校时前后UTC时间戳的回调
+     * @return   {void}
+     * @note    : 回调在NTP线程中串行执行，注销会等待正在执行的回调结束。
+     */
+    void set_time_changed_callback(TimeChangedCallback fnCallback);
+
+    /**
+     * @brief   : 清除NTP校时成功后的时间变化回调
+     * @return   {void}
+     * @note    : 返回后不会再调用旧回调，可作为外部对象销毁前的生命周期屏障。
+     */
+    void clear_time_changed_callback();
 
     bool bIsUpdate;
 
@@ -171,6 +193,10 @@ private:
      * @brief:  ntp校时线程
      */
     std::thread ntpThread;
+    /* lock: 串行时间变化回调与注销，避免NTP线程访问已释放的接收方。 */
+    std::mutex m_mtxTimeChangedCallback;
+    /* NTP成功校时后通知时间管理层的非拥有回调。 */
+    TimeChangedCallback m_fnTimeChangedCallback;
 
     /**
      * @brief:构建并填充NTP请求报文.

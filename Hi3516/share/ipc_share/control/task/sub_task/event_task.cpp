@@ -277,7 +277,29 @@ static int check_analytics_resource(const Event::Type_E enable_type, const bool 
     return 0;
 }
 
+/* 获取普通事件启用状态 */
+void Task::Event::GetOrdinaryEventEnableStatus::handle()
+{
+    ::Event::AlgorithmConfig_S stAlgorithmConfig;
+    int nRet = CEventConfigure::instance()->get_configure(stAlgorithmConfig);
+    if (nRet != 0)
+    {
+        dlog_error("获取普通事件启用状态失败，错误码: %d", nRet);
+        result(nRet);
+        return;
+    }
 
+    ::Event::OrdinaryEventEnableStatus_S stInfo;
+    stInfo.bMotionDetect = stAlgorithmConfig.nEnMotionDetect != 0;
+    stInfo.bOcclusionDetect = stAlgorithmConfig.nEnOcclusionDetect != 0;
+    stInfo.bAnomalyAlarm = stAlgorithmConfig.nEnAnomalyAlarm != 0;
+    stInfo.bAudioAlarm = stAlgorithmConfig.nEnAudioAlarm != 0;
+    stInfo.bAlarmInput = stAlgorithmConfig.nEnAlarmInput != 0;
+    stInfo.bAlarmOutput = stAlgorithmConfig.nEnAlarmOutput != 0;
+    stInfo.bFlashAlarm = stAlgorithmConfig.nEnFlashAlarm != 0;
+    stInfo.bPIRAlarm = stAlgorithmConfig.nEnPIRAlarm != 0;
+    result(Convert::to_string(stInfo));
+}
 /**
  * @brief   : 普通事件
  */
@@ -641,8 +663,9 @@ void Task::Event::SetFlashAlarmInfo::handle()
 
 /**
  * @brief 触发手动声光报警联动事件。
- * @details 先持久化本次请求的联动配置，再依次投递开始与结束状态，保证联动调度器完整执行
- *          瞬时事件生命周期并释放事件状态。
+ * @author ITC
+ * @param [in] m_taskData NVR 下发的手动声光报警联动配置。
+ * @param [out] 无。
  * @return 无。处理结果通过任务响应返回。
  */
 void Task::Event::TriggerSoundLightAlarm::handle()
@@ -659,6 +682,7 @@ void Task::Event::TriggerSoundLightAlarm::handle()
 
     EventTriggerContext_S stContext;
     stContext.enEventType = ::Event::Type_E::MANUAL_SOUND_LIGHT_ALARM;
+
     if (!CEventLinkage::instance()->handleEvent(stContext))
     {
         dlog_error("触发手动声光报警联动事件失败");
@@ -666,6 +690,7 @@ void Task::Event::TriggerSoundLightAlarm::handle()
         return;
     }
 
+    /* 该事件为瞬时事件，补发结束状态以完成事件生命周期并释放事件状态。 */
     stContext.bEventEnded = true;
     if (!CEventLinkage::instance()->handleEvent(stContext))
     {
@@ -1553,11 +1578,11 @@ void Task::Event::GetTargetLib::handle()
 /* 添加人脸信息 */
 void Task::Event::AddFaceInfo::handle()
 {
-    int nRet = 0;
+    auto pData = std::make_shared<std::string>();
     CEventManage::instance()->send_algo_controlData(AC_ADD_FACE_INFO,
-                                                    m_taskData.c_str(),&nRet);
-    
-    result(nRet);
+                                                    m_taskData.c_str(),pData.get());
+
+    result(*pData);
 }
 /* 删除人脸信息 */
 void Task::Event::DelFaceInfo::handle()

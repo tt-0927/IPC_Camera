@@ -33,6 +33,9 @@ const char* to_string(IpcRet_E code)
         case IpcRet_E::ERR_SEND:
             gs_dict = "发送失败";
             break;
+        case IpcRet_E::ERR_UNSUPPORT:
+            gs_dict = "功能不支持";
+            break;
         case IpcRet_E::ERR_USER_NOT_EXIST:
             gs_dict = "用户不存在";
             break;

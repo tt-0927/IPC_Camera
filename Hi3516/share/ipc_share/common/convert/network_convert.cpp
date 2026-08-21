@@ -571,6 +571,18 @@ void Convert::deal(Json::Object* pRootJson, Network::Gat1400Client_S &stInfo, bo
 	convert.field(pRootJson, "version", stInfo.version);
 }
 #endif
+void Convert::deal(Json::Object *pRootJson, Network::NetService_S &stInfo, bool bOutStruct)
+{
+	if (!pRootJson)
+	{
+		return;
+	}
+
+	Convert::CConvert convert(bOutStruct);
+
+	convert.field(pRootJson, "NetServiceVersion", stInfo.NetServiceVersion);
+	
+}
 
 void  Convert::deal(Json::Object* pRootJson, Network::WifiStaInfo_S &stInfo, bool bOutStruct)
 {

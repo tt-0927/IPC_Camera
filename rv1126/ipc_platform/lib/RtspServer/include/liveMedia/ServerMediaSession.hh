@@ -1,3 +1,11 @@
+/**
+ * @FilePath     : ServerMediaSession.hh
+ * @Author       : 17343431340@163.com
+ * @Date         : 2026-02-27 13:40:43
+ * @LastEditors  : zhouzr@kfb.cn
+ * @LastEditTime : 2026-08-19 15:58:15
+ * @Description  : live555媒体会话及客户端准入接口
+ */
 /**********
 This library is free software; you can redistribute it and/or modify it under
 the terms of the GNU Lesser General Public License as published by the
@@ -28,7 +36,21 @@ along with this library; if not, write to the Free Software Foundation, Inc.,
 #include "RTCP.hh"
 #endif
 
-#define CLIENTMAX 4
+/* fClientInfo 的容量必须覆盖 rtsp_setclient_maxNum() 支持的连接数。 */
+#ifndef CLIENTMAX
+#define CLIENTMAX 32
+#endif
+
+/* 容量扩展不能改变未显式配置会话的兼容默认上限。 */
+#ifndef CLIENT_DEFAULT_MAX
+#define CLIENT_DEFAULT_MAX 4
+#endif
+
+/*
+ * 通用 RTSP 会话准入回调。liveMedia 只传递不透明上下文，不依赖业务层头文件；
+ * 返回 0 表示允许首个 SETUP，非 0 表示拒绝。
+ */
+typedef int (*ServerMediaSessionAdmissionCallback)(void* opaque);
 typedef struct
 {
 	char ip[16];
@@ -116,6 +138,22 @@ public:
 
   }
 
+  /**
+   * @brief   : 注册首个 SETUP 前执行的通用会话准入回调
+   * @param   {ServerMediaSessionAdmissionCallback} callback：准入回调，返回0表示允许
+   * @param   {void*} opaque：传递给准入回调的不透明上下文
+   * @return  {void} 无
+   * @note    : 回调由 live555 事件线程调用，执行时尚未增加引用计数。
+   */
+  void setClientAdmissionCallback(ServerMediaSessionAdmissionCallback callback, void* opaque);
+
+  /**
+   * @brief   : 检查当前媒体会话是否允许新增一个 RTSP 客户端
+   * @return  {int} 0表示允许，非0表示拒绝
+   * @note    : 业务回调负责跨会话策略，fReferenceMax 始终作为本媒体会话硬上限。
+   */
+  int checkClientAdmission() const;
+
 protected:
   ServerMediaSession(UsageEnvironment& env, char const* streamName,
 		     char const* info, char const* description,
@@ -151,6 +189,10 @@ public:
 private:
   struct sockaddr_in flocal;
   int faddr_len;
+  /* 首个 SETUP 前由 mediaServer 封装层提供的准入判断。 */
+  ServerMediaSessionAdmissionCallback fClientAdmissionCallback;
+  /* 准入回调使用的长期有效业务上下文，不由 liveMedia 释放。 */
+  void* fClientAdmissionOpaque;
 };
 
 

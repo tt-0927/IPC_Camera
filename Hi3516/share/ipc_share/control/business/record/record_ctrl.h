@@ -3,7 +3,7 @@
  * @Author       : zhangjc (zhangjc@kfb.cn)
  * @Date         : 2024-12-16
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2025-07-31 11:19:32
+ * @LastEditTime : 2026-07-20 17:13:15
  * @Description  : 录制控制
  */
 
@@ -85,6 +85,13 @@ public:
      * @brief   : 控制录制关闭
      */
     void stop_record();
+
+    /**
+     * @brief   : 查询录制控制线程是否处于运行状态
+     * @return   {bool} true：已启动，false：未启动或已停止
+     * @note    : 时间跳变重建录制前必须检查，避免启动或销毁阶段访问未初始化的录制数据库。
+     */
+    bool is_running() const;
 
     /**
      * @brief   : 获取录制状态

@@ -28,7 +28,8 @@ along with this library; if not, write to the Free Software Foundation, Inc.,
 
 class MultiFramedRTPSink: public RTPSink {
 public:
-  void setPacketSizes(unsigned preferredPacketSize, unsigned maxPacketSize);
+  void setPacketSizes(unsigned preferredPacketSize, unsigned maxPacketSize,
+                      unsigned maxBufferSize = 0);
 
   typedef void (onSendErrorFunc)(void* clientData);
   void setOnSendErrorFunc(onSendErrorFunc* onSendErrorFunc, void* onSendErrorFuncData) {
@@ -40,9 +41,10 @@ public:
 protected:
   MultiFramedRTPSink(UsageEnvironment& env,
 		     Groupsock* rtpgs, unsigned char rtpPayloadType,
-		     unsigned rtpTimestampFrequency,
-		     char const* rtpPayloadFormatName,
-		     unsigned numChannels = 1);
+			     unsigned rtpTimestampFrequency,
+			     char const* rtpPayloadFormatName,
+			     unsigned numChannels = 1,
+			     unsigned maxBufferSize = 0);
 	// we're a virtual base class
 
   virtual ~MultiFramedRTPSink();
@@ -90,6 +92,7 @@ protected:
   void setFramePadding(unsigned numPaddingBytes);
   unsigned numFramesUsedSoFar() const { return fNumFramesUsedSoFar; }
   unsigned ourMaxPacketSize() const { return fOurMaxPacketSize; }
+  unsigned ourMaxBufferSize() const { return fMaxBufferSize; }
 
 public: // redefined virtual functions:
   virtual void stopPlaying();
@@ -132,6 +135,7 @@ private:
   unsigned fCurFrameSpecificHeaderSize; // size in bytes of cur frame-specific header
   unsigned fTotalFrameSpecificHeaderSizes; // size of all frame-specific hdrs in pkt
   unsigned fOurMaxPacketSize;
+  unsigned fMaxBufferSize;
 
   onSendErrorFunc* fOnSendErrorFunc;
   void* fOnSendErrorData;

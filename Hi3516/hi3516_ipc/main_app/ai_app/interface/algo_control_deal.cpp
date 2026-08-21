@@ -62,10 +62,20 @@ void AlgoControlDeal::deal_message(int nCode, std::string strData, void *pData)
     }
 #endif
 #if CAP_AI_FACE_COMPARE
+    case AC_CLEAR_FACE_DATABASE: /* SD卡格式化后清空人脸人员及特征数据 */
+    {
+        const int nRet = FaceManage::AIFaceManage::instance()->clearFaceLibData();
+        if (pData != nullptr)
+        {
+            *static_cast<int *>(pData) = nRet;
+        }
+        break;
+    }
     case AC_ADD_FACE_INFO:                    /* 添加名单组成员 */
     {
         FaceLibsInfo_S stFaceList; stFaceList.clear();
-        bool nRet;
+        int nRet;
+        std::string hashId;
         Json::get(pJsonData, "LibId", stFaceList.strFaceLibName);
         Json::get(pJsonData, "Name", stFaceList.strName);
         Json::get(pJsonData, "PhoneNum", stFaceList.strPhoneNum);
@@ -76,18 +86,20 @@ void AlgoControlDeal::deal_message(int nCode, std::string strData, void *pData)
         Json::get(pJsonData, "PicDate", stFaceList.strPicDate);
         Json::get(pJsonData, "PicWidth", stFaceList.PicWidth);
         Json::get(pJsonData, "PicHeight", stFaceList.PicHeight);
+        Json::get(pJsonData, "hashId", hashId);
         /* 发送到 AlgoStreamDeal 通知 Algorithm */
         nRet = CAlgoStreamDeal::instance()->add_Facelib_Groups(stFaceList);
 
         if (pData != nullptr)
         {
-            int* nRetData = (int*)pData;
-            if(nRet!=true)
-            {
-                *nRetData = -1;
-            }else {
-                *nRetData = 0;
-            }
+            std::string strDataRet;
+            std::string* pOutString = (std::string*)pData;
+            Event::AddFaceInfoResult Result;
+            Result.hashId = hashId;
+            Result.nRet = nRet;
+            strDataRet = Convert::to_string(Result);
+            *pOutString = strDataRet;
+
             dlog_debug("添加名单组成员 %d",nRet);
         }
         
@@ -320,7 +332,7 @@ void AlgoControlDeal::deal_message(int nCode, std::string strData, void *pData)
     case AC_DEL_FACE_FILE:
     {
         int nRet = 0;
-
+/*
         do
         {
             if (pJsonData == nullptr)
@@ -398,7 +410,8 @@ void AlgoControlDeal::deal_message(int nCode, std::string strData, void *pData)
             dlog_info("AC_DEL_FACE_FILE loop finish");
         }
         while (0);
-
+*/
+        FaceManage::AIFaceManage::instance()->cleanupOrphanFaceFiles();
         if (pData)
         {
             *(int *) pData = nRet;

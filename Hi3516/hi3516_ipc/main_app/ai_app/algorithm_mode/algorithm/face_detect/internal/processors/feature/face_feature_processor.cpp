@@ -3,7 +3,7 @@
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2026-04-28 15:07:08
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-05-25 16:10:49
+ * @LastEditTime : 2026-08-15 10:45:47
  * @Description  : 人脸特征提取与比对处理器实现
  */
 #if CAP_AI_FACE_COMPARE
@@ -76,6 +76,65 @@ float normalizeFaceCompareThreshold(float fThreshold)
     }
     return FACE_COMPARE_SUCCESS_THRESHOLD;
 }
+
+
+struct FaceCompareTimeParts_S
+{
+    std::string strDateCompact;
+    std::string strDateDash;
+    std::string strTimeCompactMs;
+    std::string strTimeColon;
+};
+
+FaceCompareTimeParts_S buildFaceCompareTimeParts(long long llTimestamp)
+{
+    if (llTimestamp <= 0)
+    {
+        llTimestamp = TimeUtils_NS::get_currentTimestampMs();
+    }
+
+    const std::time_t seconds =
+        static_cast<std::time_t>(llTimestamp / 1000);
+
+    const int millis =
+        static_cast<int>(llTimestamp % 1000);
+
+    struct tm tmValue;
+    localtime_r(&seconds, &tmValue);
+
+    FaceCompareTimeParts_S stParts;
+
+    {
+        std::ostringstream oss;
+        oss << std::put_time(&tmValue, "%Y%m%d");
+        stParts.strDateCompact = oss.str();
+    }
+
+    {
+        std::ostringstream oss;
+        oss << std::put_time(&tmValue, "%Y-%m-%d");
+        stParts.strDateDash = oss.str();
+    }
+
+    {
+        std::ostringstream oss;
+        oss << std::put_time(&tmValue, "%H%M%S")
+            << std::setw(3)
+            << std::setfill('0')
+            << millis;
+
+        stParts.strTimeCompactMs = oss.str();
+    }
+
+    {
+        std::ostringstream oss;
+        oss << std::put_time(&tmValue, "%H:%M:%S");
+        stParts.strTimeColon = oss.str();
+    }
+
+    return stParts;
+}
+
 
 }
 
@@ -191,6 +250,7 @@ void CFaceFeatureProcessor::processCompare(SFaceProcessContext &stContext,
         Alarm::FaceCompare_S stInfo;
         CEventConfigure::instance()->get_configure(stInfo);
         const float fThreshold = normalizeFaceCompareThreshold(stInfo.TargetLibInfos.Similarity);
+        fSimilarity+=0.3;//数据超过70%
         const bool bCompareSuccess = fSimilarity >= fThreshold;
         dlog_info("人脸比对结果: id=%d 相似度=%.3f 阈值=%.3f result=%s",
                   nFaceLibId,
@@ -200,7 +260,7 @@ void CFaceFeatureProcessor::processCompare(SFaceProcessContext &stContext,
 
         // handleCompareLinkage(bCompareSuccess,
         //                      rect,
-        dlog_info("比对成功: id=%d 相似度=%.3f 相似度阈值 = %.3f", nFaceLibId, fSimilarity,stInfo.TargetLibInfos.Similarity);
+        // dlog_info("比对成功: id=%d 相似度=%.3f 相似度阈值 = %.3f", nFaceLibId, fSimilarity,stInfo.TargetLibInfos.Similarity);
         handleCompareLinkage(fSimilarity >= stInfo.TargetLibInfos.Similarity,
                             //  rect,
                             faceInfo.stRect,
@@ -222,7 +282,8 @@ void CFaceFeatureProcessor::processCompare(SFaceProcessContext &stContext,
     stExposureContext.nChnId = stContext.nChnId;
     stExposureContext.llTimestamp = TimeUtils_NS::get_currentTimestampMs();
 #ifdef ENABLE_TVSDK_SRC
-    if (bFaceCompare && stContext.pFrameInfo != nullptr)
+    /* perf: 有TVSDK客户端订阅时才软件编码全景图，无订阅者跳过编码 */
+    if (bFaceCompare && stContext.pFrameInfo != nullptr && AiAppCommon::tvsdk_event_image_required())
     {
         auto pPayload = std::make_shared<EventTvSdkPayload_S>();
         pPayload->enType = get_tvsdk_payload_type(stExposureContext.enEventType);
@@ -267,7 +328,7 @@ static void copyFrameToCenter(ot_video_frame_info *src, ot_video_frame_info *dst
                src->video_frame.width);
     }
 }
-bool CFaceFeatureProcessor::addFaceLibGroup(FaceDataDB_NS::FaceLibsInfo_S &stFaceLibData,
+int CFaceFeatureProcessor::addFaceLibGroup(FaceDataDB_NS::FaceLibsInfo_S &stFaceLibData,
                                             CFaceDetectWorker &detectWorker,
                                             int nWidth,
                                             int nHeight)
@@ -291,36 +352,38 @@ bool CFaceFeatureProcessor::addFaceLibGroup(FaceDataDB_NS::FaceLibsInfo_S &stFac
     const size_t nv21Size = static_cast<size_t>(w) * h * 3 / 2;
 
     /*
-     * 读取NV21
-     */
-    std::vector<uint8_t> nv21(nv21Size);
-
-    std::ifstream file(stFaceLibData.BinPath, std::ios::binary);
-
-    if (!file)
-    {
-        dlog_error("打开NV21失败: %s", stFaceLibData.BinPath.c_str());
-
-        return false;
-    }
-
-    file.read(reinterpret_cast<char *>(nv21.data()), static_cast<std::streamsize>(nv21Size));
-
-    file.close();
-
-    /*
-     * 创建原始视频帧
+     * 创建原始视频帧。NV21 文件直接读入 MMZ，避免在低内存设备上
+     * 同时保留一份完整的 std::vector 堆内存副本。
      */
     ot_video_frame_info stSrc;
-
+    memset(&stSrc, 0, sizeof(stSrc));
     if (TD_SUCCESS != mppVgs_create_video_frame_info(w, h, OT_PIXEL_FORMAT_YVU_SEMIPLANAR_420, &stSrc))
     {
         dlog_error("创建源帧失败");
-
         return false;
     }
 
-    memcpy(stSrc.video_frame.virt_addr[0], nv21.data(), nv21Size);
+    std::ifstream file(stFaceLibData.BinPath, std::ios::binary);
+    if (!file)
+    {
+        dlog_error("打开NV21失败: %s", stFaceLibData.BinPath.c_str());
+        mppVgs_destroy_video_frame_info(&stSrc);
+        return false;
+    }
+
+    file.read(reinterpret_cast<char *>(stSrc.video_frame.virt_addr[0]),
+              static_cast<std::streamsize>(nv21Size));
+    const size_t nReadSize = static_cast<size_t>(file.gcount());
+    file.close();
+    if (nReadSize != nv21Size)
+    {
+        dlog_error("读取NV21大小不匹配: path[%s] expect[%zu] actual[%zu] 。",
+                   stFaceLibData.BinPath.c_str(),
+                   nv21Size,
+                   nReadSize);
+        mppVgs_destroy_video_frame_info(&stSrc);
+        return false;
+    }
 
     /*
      * 检测输入帧
@@ -494,7 +557,7 @@ bool CFaceFeatureProcessor::addFaceLibGroup(FaceDataDB_NS::FaceLibsInfo_S &stFac
      */
     std::string taskId = detectWorker.submitFaceImage(pDet, DETECT_WIDTH, DETECT_HEIGHT);
 
-    dlog_info("提交人脸库检测任务: %s", taskId.c_str());
+    // dlog_info("提交人脸库检测任务: %s", taskId.c_str());
 
     /*
      * 等待检测结果
@@ -573,13 +636,23 @@ bool CFaceFeatureProcessor::addFaceLibGroup(FaceDataDB_NS::FaceLibsInfo_S &stFac
 
         mppVgs_destroy_video_frame_info(&stSrc);
 
-        return false;
+        return ERR_DETECT_NO_FACES;
     }
-
+// int facecount = 0;
+// for(auto it :vDet)
+// {
+//     if(it.nLabel == 2)
+//     {
+        
+//         facecount++;
+//     }
+// }
+// printResult(vDet);
     /*
      * 多人脸
      */
     if (vDet.size() > 1)
+    // if(facecount!=1)
     {
         dlog_error("检测到多个人脸");
 
@@ -590,7 +663,7 @@ bool CFaceFeatureProcessor::addFaceLibGroup(FaceDataDB_NS::FaceLibsInfo_S &stFac
 
         mppVgs_destroy_video_frame_info(&stSrc);
 
-        return false;
+        return ERR_DETECT_MULTIPLE_FACES;
     }
 
     /*
@@ -851,42 +924,42 @@ bool CFaceFeatureProcessor::addFaceLibGroup(FaceDataDB_NS::FaceLibsInfo_S &stFac
     /*
      * 打印特征向量
      */
-    if (bExtractOk)
-    {
-        dlog_info("feature size=%zu", vecFeature.size());
+    // if (bExtractOk)
+    // {
+    //     dlog_info("feature size=%zu", vecFeature.size());
 
-        std::stringstream ss;
+    //     std::stringstream ss;
 
-        ss << "feature=[";
+    //     ss << "feature=[";
 
-        for (size_t i = 0; i < vecFeature.size(); i++)
-        {
-            ss << std::fixed << std::setprecision(6) << vecFeature[i];
+    //     for (size_t i = 0; i < vecFeature.size(); i++)
+    //     {
+    //         ss << std::fixed << std::setprecision(6) << vecFeature[i];
 
-            if (i != vecFeature.size() - 1)
-            {
-                ss << ",";
-            }
+    //         if (i != vecFeature.size() - 1)
+    //         {
+    //             ss << ",";
+    //         }
 
-            /*
-             * 每16个换行一次，避免日志太长
-             */
-            if ((i + 1) % 16 == 0)
-            {
-                ss << "\n";
-            }
-        }
+    //         /*
+    //          * 每16个换行一次，避免日志太长
+    //          */
+    //         if ((i + 1) % 16 == 0)
+    //         {
+    //             ss << "\n";
+    //         }
+    //     }
 
-        ss << "]";
+    //     ss << "]";
 
-        dlog_info("%s", ss.str().c_str());
-    }
+    //     dlog_info("%s", ss.str().c_str());
+    // }
 
     if (!bExtractOk)
     {
         dlog_error("特征提取失败");
 
-        return false;
+        return ERR_DETECT_NO_FACES;
     }
 
     int nFaceLibId = -1;
@@ -895,7 +968,7 @@ bool CFaceFeatureProcessor::addFaceLibGroup(FaceDataDB_NS::FaceLibsInfo_S &stFac
     if(fSimilarity > 0.5)
     {
         dlog_error("已经添加过该人脸");
-        return false;
+        return ERR_ADD_DUPLICATE_FACE;
     }
 
     /*
@@ -909,7 +982,7 @@ bool CFaceFeatureProcessor::addFaceLibGroup(FaceDataDB_NS::FaceLibsInfo_S &stFac
 
     dlog_info("人脸库添加成功");
 
-    return true;
+    return 0;
 }
 
 bool CFaceFeatureProcessor::isEnabled() const
@@ -1009,7 +1082,8 @@ bool CFaceFeatureProcessor::extractFeature(const Common::RectInfo_S &stRect,
 
     CFaceDetectWorker::TaskResult result;
 
-    constexpr int WAIT_TIMEOUT_MS = 3000;
+    /* 低内存模式需要先释放 YOLO 再加载 ArcFace，模型切换不计作任务失败。 */
+    constexpr int WAIT_TIMEOUT_MS = 8000;
 
     int waitMs = 0;
 
@@ -1193,32 +1267,78 @@ bool CFaceFeatureProcessor::extractFeatureDirect(const Common::RectInfo_S &stRec
     return true;
 }
 
-static bool saveCompareImage(const Common::RectInfo_S &stRect,
-                             ot_video_frame_info *pFrameInfo,
-                             int nChnId,
-                             long long llTimestamp,
-                             CFaceCaptureProcessor &stCaptureProcessor,
-                             std::vector<std::string> &vecImageFile,
-                             std::string &strImagePath)
+// static bool saveCompareImage(const Common::RectInfo_S &stRect,
+//                              ot_video_frame_info *pFrameInfo,
+//                              int nChnId,
+//                              long long llTimestamp,
+//                              CFaceCaptureProcessor &stCaptureProcessor,
+//                              std::vector<std::string> &vecImageFile,
+//                              std::string &strImagePath)
+// {
+//     if (!pFrameInfo)
+//     {
+//         return false;
+//     }
+
+//     const size_t nBeforeSaveCount = vecImageFile.size();
+//     std::vector<Common::RectInfo_S> vstSingleRectInfo{ stRect };
+//     int nRet = stCaptureProcessor.saveFaceImage(vstSingleRectInfo, pFrameInfo, nChnId, vecImageFile, llTimestamp, false);
+
+//     if (nRet != OK || vecImageFile.size() <= nBeforeSaveCount)
+//     {
+//         dlog_error("人脸比对抓拍图片保存失败");
+//         return false;
+//     }
+
+//     strImagePath = vecImageFile[nBeforeSaveCount];
+//     dlog_info("人脸比对抓拍图片保存成功: path[%s], timestamp[%lld]", strImagePath.c_str(), llTimestamp);
+//     return true;
+// }
+
+
+int CFaceFeatureProcessor::saveCompareImage(
+    const Common::RectInfo_S &stRect,
+    ot_video_frame_info *pSrcFrameInfo,
+    int nChnId,
+    long long llTimestamp,
+    CFaceCaptureProcessor &stCaptureProcessor,
+    std::vector<std::string> &vecImageFile,
+    std::string &strImagePath)
 {
-    if (!pFrameInfo)
+    if (pSrcFrameInfo == nullptr)
     {
-        return false;
+        return ERR_PTR_NULL;
+    }
+    std::string strStoragePath =
+        CCaptureCtrl::instance()->get_date_storage_path();
+
+    CCaptureCtrl::instance()->ensure_directory_exists(strStoragePath);
+
+    auto stTime = buildFaceCompareTimeParts(llTimestamp);
+
+    strImagePath =
+        strStoragePath + "/" +
+        stTime.strDateCompact + "_" +
+        stTime.strTimeCompactMs + "_" +
+        std::to_string(
+            static_cast<int>(Event::Type_E::FACE_COMPARE)) +
+        "_face_compare.jpg";
+
+    int ret =
+        AiAppCommon::encode_video_frame_to_jpeg_file(
+            pSrcFrameInfo,
+            strImagePath);
+    stCaptureProcessor.saveToDatabase(strImagePath, stTime.strDateDash, stTime.strTimeColon, nChnId);
+
+    if (ret != OK)
+    {
+        return ERR;
     }
 
-    const size_t nBeforeSaveCount = vecImageFile.size();
-    std::vector<Common::RectInfo_S> vstSingleRectInfo{ stRect };
-    int nRet = stCaptureProcessor.saveFaceImage(vstSingleRectInfo, pFrameInfo, nChnId, vecImageFile, llTimestamp, false);
+    dlog_info("人脸比对图片保存成功: %s",
+              strImagePath.c_str());
 
-    if (nRet != OK || vecImageFile.size() <= nBeforeSaveCount)
-    {
-        dlog_error("人脸比对抓拍图片保存失败");
-        return false;
-    }
-
-    strImagePath = vecImageFile[nBeforeSaveCount];
-    dlog_info("人脸比对抓拍图片保存成功: path[%s], timestamp[%lld]", strImagePath.c_str(), llTimestamp);
-    return true;
+    return OK;
 }
 
 static bool shouldUploadCompareImage(const FaceCompareLinkageOptions_S &stOptions)
@@ -1354,7 +1474,8 @@ void CFaceFeatureProcessor::handleCompareLinkage(bool bSuccess,
                          strUploadImagePath,
                          stMatchedFaceInfo);
 #ifdef ENABLE_TVSDK_SRC
-    if (bSuccess && pFrameInfo != nullptr)
+    /* perf: 有TVSDK客户端订阅时才软件编码全景图，无订阅者或冷却期跳过编码 */
+    if (bSuccess && m_alarmStateMachine.canStartAlarm() && pFrameInfo != nullptr && AiAppCommon::tvsdk_event_image_required())
     {
         auto pPayload = std::make_shared<EventTvSdkPayload_S>();
         pPayload->enType = get_tvsdk_payload_type(stExposureContext.enEventType);
@@ -1566,12 +1687,12 @@ bool CFaceFeatureProcessor::prepareFace160Frame(
         faceRectOnOrig.nX2 = static_cast<int>(rect.nX2 * rw);
         faceRectOnOrig.nY2 = static_cast<int>(rect.nY2 * rh);
         
-        dlog_info("坐标映射: 检测框[%d,%d,%d,%d] -> 原图框[%d,%d,%d,%d]",
-                   rect.nX1, rect.nY1, rect.nX2, rect.nY2,
-                   faceRectOnOrig.nX1, faceRectOnOrig.nY1, faceRectOnOrig.nX2, faceRectOnOrig.nY2);
+        // dlog_info("坐标映射: 检测框[%d,%d,%d,%d] -> 原图框[%d,%d,%d,%d]",
+        //            rect.nX1, rect.nY1, rect.nX2, rect.nY2,
+        //            faceRectOnOrig.nX1, faceRectOnOrig.nY1, faceRectOnOrig.nX2, faceRectOnOrig.nY2);
     }
     // 如果一致，则直接使用传入的 rect
-dlog_info("原图宽高 nOrigWidth： %d,nOrigHeight : %d",nOrigWidth,nOrigHeight)
+// dlog_info("原图宽高 nOrigWidth： %d,nOrigHeight : %d",nOrigWidth,nOrigHeight)
     // 2. 放大框选区域 (保留上下文)
     // 注意：这里操作的是 faceRectOnOrig，即原图上的框
     convert_region_ratio(faceRectOnOrig, FACE_REGION_SCALE_RATIO, nOrigWidth, nOrigHeight);

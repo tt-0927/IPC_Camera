@@ -35,6 +35,19 @@ void Convert::deal(Json::Object* pRootJson, StorageManage_NS::StorageManage_S &S
 	// convert.field(pRootJson, "SdCardUuid", StorageManageParam.strSdCardUuid);
 }
 
+void Convert::deal(Json::Object* pRootJson, StorageManage_NS::SdCardStatus_S &stSdCardStatus, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+
+    Convert::CConvert convert(bOutStruct);
+    convert.field(pRootJson, "Status", stSdCardStatus.nStatus);
+    convert.field(pRootJson, "StatusText", stSdCardStatus.strStatusText);
+    convert.field(pRootJson, "Ready", stSdCardStatus.bReady);
+}
+
 void Convert::deal(Json::Object* pRootJson, StorageManage_NS::DirInfo_S &stDirInfo, bool bOutStruct)
 {
 	if (!pRootJson)

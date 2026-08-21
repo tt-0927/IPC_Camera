@@ -3,7 +3,7 @@
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2025-06-09 11:04:21
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-07-01 14:45:10
+ * @LastEditTime : 2026-08-13 18:07:12
  * @Description  : 算法基类
  */
 
@@ -42,6 +42,8 @@ extern "C"
     ((EVENT_MIN_TRIGGER_INTERVAL_SECONDS > EVENT_END_TIME_THRESHOLD) ?                                               \
          (EVENT_MIN_TRIGGER_INTERVAL_SECONDS - EVENT_END_TIME_THRESHOLD) :                                           \
          0)
+/* 移动侦测单次事件最长持续时间，超时后强制结束以允许下一轮联动 */
+#define MOTION_EVENT_MAX_DURATION_SECONDS (60)
 
 /* 算法基类 */
 struct RuntimeCommand_S
@@ -126,7 +128,7 @@ public:
      * @brief 添加人脸名单库
      * @param stFaceLibData
      */
-    virtual bool addFaceLibGroup(FaceDataDB_NS::FaceLibsInfo_S &stFaceLibData) { return 0; }
+    virtual int addFaceLibGroup(FaceDataDB_NS::FaceLibsInfo_S &stFaceLibData) { return 0; }
 
     /**
      * @brief 人员检索人脸比对
@@ -287,11 +289,24 @@ public:
                 /* 缓存最近一次激活上下文，结束事件需要复用同一事件属性 */
                 m_stActiveContext = build_active_context_cache(stStartContext);
                 m_bIsAlarmActive = true;
+                m_alarmStartTimestamp = now;
             }
             else
             {
+                const auto activeElapsed = std::chrono::duration_cast<std::chrono::seconds>(now - m_alarmStartTimestamp);
+                if ((stContext.enEventType == Event::Type_E::MOTION_DETECT || 
+                    stContext.enEventType == Event::Type_E::OCCLUSION_DETECT ||
+                    stContext.enEventType == Event::Type_E:: GARBAGE_OVERFLOW ||
+                    stContext.enEventType == Event::Type_E:: GARBAGE_EXPOSURE) &&
+                    activeElapsed.count() >= MOTION_EVENT_MAX_DURATION_SECONDS)
+                {
+                    dlog_info("移动侦测事件持续[%lld]秒，达到单次事件上限，强制结束",
+                              static_cast<long long>(activeElapsed.count()));
+                    endAlarmImmediately(stContext);
+                    return m_bIsAlarmActive;
+                }
                 /* 事件持续中，不做任何操作 */
-                dlog_info("事件[%d]持续中", static_cast<int>(stContext.enEventType));
+                dlog_debug("事件[%d]持续中", static_cast<int>(stContext.enEventType));
 
                 /* 持续报警阶段刷新上下文，确保结束事件能拿到最新摘要属性 */
                 m_stActiveContext = build_active_context_cache(stContext);
@@ -330,6 +345,7 @@ public:
                     /* 进入冷却期 */
                     m_bInCooldown = true;
                     m_lastAlarmEndTimestamp = now;
+                    m_alarmStartTimestamp = std::chrono::steady_clock::time_point();
                     m_stActiveContext = EventTriggerContext_S();
                 }
             }
@@ -394,6 +410,28 @@ public:
     }
 
     /**
+     * @brief   : 判断当前帧是否可能开启新的报警事件
+     * @return  : true 表示允许当前调用方准备事件开始负载，false 表示事件活跃或仍在冷却
+     * @note    : 该接口只做无副作用预判，调用方应紧接着调用 handleAlarmState()；用于避免在持续帧上重复编码大图。
+     */
+    bool canStartAlarm() const
+    {
+        if (m_bIsAlarmActive)
+        {
+            return false;
+        }
+
+        if (!m_bInCooldown)
+        {
+            return true;
+        }
+
+        const auto now = std::chrono::steady_clock::now();
+        const auto cooldownElapsed = std::chrono::duration_cast<std::chrono::seconds>(now - m_lastAlarmEndTimestamp);
+        return cooldownElapsed.count() >= m_nCooldownSeconds;
+    }
+
+    /**
      * @brief   : 重置状态机
      */
     void reset()
@@ -402,6 +440,7 @@ public:
         m_bInCooldown = false;
         m_lastAlarmTimestamp = std::chrono::steady_clock::time_point();
         m_lastAlarmEndTimestamp = std::chrono::steady_clock::time_point();
+        m_alarmStartTimestamp = std::chrono::steady_clock::time_point();
         m_stActiveContext = EventTriggerContext_S();
     }
 
@@ -466,6 +505,9 @@ private:
     /* 上次触发报警的时间点 */
     std::chrono::steady_clock::time_point m_lastAlarmTimestamp;
 
+    /* 当前事件开始时间，用于限制单次移动侦测事件最长持续 60 秒 */
+    std::chrono::steady_clock::time_point m_alarmStartTimestamp;
+    
     /* 上次事件结束的时间点 */
     std::chrono::steady_clock::time_point m_lastAlarmEndTimestamp;
 

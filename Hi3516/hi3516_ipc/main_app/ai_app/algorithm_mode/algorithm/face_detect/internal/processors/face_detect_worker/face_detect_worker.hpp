@@ -63,6 +63,9 @@ public:
 
         DetectCallback callback;
 
+        /* 视频任务结束或被丢弃时执行的资源归还函数。 */
+        std::function<void()> cleanup;
+        
         uint64_t seq = 0;
 
         std::chrono::steady_clock::time_point submitTime;
@@ -84,7 +87,7 @@ public:
     CFaceDetectWorker();
 
     ~CFaceDetectWorker();
-    bool start();
+    bool start(bool bExclusiveModelResidency = false);
     bool init();
 
     void deinit();
@@ -95,7 +98,11 @@ public:
     /*
      * 视频流异步接口
      */
-    void submitVideoFrame(ot_video_frame_info *frame, int width, int height, DetectCallback callback);
+    void submitVideoFrame(ot_video_frame_info *frame,
+                          int width,
+                          int height,
+                          DetectCallback callback,
+                          std::function<void()> cleanup);
 
     /*
      * 人脸库异步接口
@@ -120,6 +127,13 @@ private:
     void workerLoop();
 
     std::string generateTaskId();
+
+    bool ensureDetectionModel();
+    void releaseDetectionModel();
+#if CAP_AI_FACE_COMPARE
+    bool ensureFeatureModel();
+    void releaseFeatureModel();
+#endif
 
 private:
     struct TaskCompare
@@ -159,6 +173,9 @@ private:
 
 private:
     std::mutex m_npuMutex;
+
+    /* 低内存临时任务中，YOLO 与 ArcFace 不允许同时驻留。 */
+    bool m_bExclusiveModelResidency = false;
 
     // Inference_NS::CYoloUltralyticsPoint *m_pFaceDetHandle = nullptr;
     Inference_NS::CYoloUltralytics *m_pFaceDetHandle = nullptr;

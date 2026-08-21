@@ -2,7 +2,6 @@
 
 case "$1" in
   start)
-    ifconfig eth0 hw ether 42:4C:45:00:00:00
     ifconfig eth0 mtu 1500
     ifconfig lo 127.0.0.1
     #eth0 dhcp-close
@@ -11,8 +10,8 @@ case "$1" in
     ifconfig eth0 up
     ip -6 route add default via fe80::1 dev eth0
 
-    # telnetd &
-    # uftpd -o "ftp=21 tftp=69 writable" /
+    telnetd &
+    uftpd -o "ftp=21 tftp=69 writable" /
     ;;
   stop)
     ifconfig eth0 down

@@ -36,7 +36,8 @@ public:
 	    char const* rtpPayloadFormatName,
 	    unsigned numChannels = 1,
 	    Boolean allowMultipleFramesPerPacket = True,
-	    Boolean doNormalMBitRule = True);
+	    Boolean doNormalMBitRule = True,
+	    unsigned maxBufferSize = 0);
   // "doNormalMBitRule" means: If the medium (i.e., "sdpMediaTypeString") is other than "audio", set the RTP "M" bit
   // on each outgoing packet iff it contains the last (or only) fragment of a frame.
   // Otherwise (i.e., if "doNormalMBitRule" is False, or the medium is "audio"), leave the "M" bit unset.
@@ -51,7 +52,8 @@ protected:
 		char const* rtpPayloadFormatName,
 		unsigned numChannels,
 		Boolean allowMultipleFramesPerPacket,
-		Boolean doNormalMBitRule);
+		Boolean doNormalMBitRule,
+		unsigned maxBufferSize);
 	// called only by createNew()
 
   virtual ~SimpleRTPSink();

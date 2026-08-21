@@ -3,7 +3,7 @@
  * @Author       : zhouzirui
  * @Date         : 2025-05-08 16:35:40
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-04-01 16:49:58
+ * @LastEditTime : 2026-07-30 15:14:08
  * @Description  : 区域管理
  */
 
@@ -498,12 +498,12 @@ static int mppRgn_changeRect(HiRgn_S *pHandle, int nWidth, int nHeight)
         /* 获取区域通道显示属性 */
         CHECK_API_RETURN(ss_mpi_rgn_get_chn_display_attr(unHandle, &stMppChn, &stRgnChnAttr));
 
-        if (OT_RGN_COVER == pHandle->unType && (td_bool)OT_COVER_RECT == pHandle->bIsRectangle)
+        if (OT_RGN_COVER == pHandle->unType && pHandle->bIsRectangle)
         {
             stRgnChnAttr.attr.cover_chn.cover.rect_attr.rect.width = MPI_ALIGN_UP(pHandle->unWidth, OT_RGN_ALIGN);
             stRgnChnAttr.attr.cover_chn.cover.rect_attr.rect.height = MPI_ALIGN_UP(pHandle->unHeight, OT_RGN_ALIGN);
         }
-        else if (OT_RGN_COVEREX == pHandle->unType && (td_bool)OT_COVER_RECT == pHandle->bIsRectangle)
+        else if (OT_RGN_COVEREX == pHandle->unType && pHandle->bIsRectangle)
         {
             stRgnChnAttr.attr.coverex_chn.coverex.rect_attr.rect.width = MPI_ALIGN_UP(pHandle->unWidth, OT_RGN_ALIGN);
             stRgnChnAttr.attr.coverex_chn.coverex.rect_attr.rect.height = MPI_ALIGN_UP(pHandle->unHeight, OT_RGN_ALIGN);

@@ -37,5 +37,6 @@ RTPSink* aacAudioServerMediaSubsession
 					rtpPayloadTypeIfDynamic,
 					adtsSource->samplingFrequency(),
 					"audio", "AAC-hbr", adtsSource->configStr(),
-					adtsSource->numChannels());
+					adtsSource->numChannels(),
+					m_aacSouceInfo.outPacketBufferSize);
 }

@@ -9,6 +9,7 @@ include( ${CMAKE_CURRENT_LIST_DIR}/debug/debug.cmake )
 include( ${CMAKE_CURRENT_LIST_DIR}/kernel/kernel.cmake )
 include( ${CMAKE_CURRENT_LIST_DIR}/atom/atom.cmake )
 include( ${CMAKE_CURRENT_LIST_DIR}/hashCode/hashCode.cmake )
+# include( ${CMAKE_CURRENT_LIST_DIR}/diagnostics/thread_performance.cmake )
 
 #源文件
 set (OS_PATH

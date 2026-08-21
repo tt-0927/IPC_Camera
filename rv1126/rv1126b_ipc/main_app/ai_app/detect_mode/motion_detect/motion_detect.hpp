@@ -141,6 +141,8 @@ private:
 
     /* 检测频率控制 */
     EventManager m_RecvManager{500};
+    /* 当前通道号 */
+    int m_nChannelId = 0;
     /* 移动侦测报警状态机，判断是否进行报警 */
     CAlarmStateMachine m_motionAlarmStateMachine;
 

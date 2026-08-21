@@ -8,13 +8,15 @@
 #include "FaceRecExtern.hpp"
 
 /* 考勤图片临时路径 */
-#define GANCIAN_PICTURE_TEMP_PATH ("/opt/course/Attendance")
+#define GANCIAN_PICTURE_TEMP_PATH     ("/opt/course/Attendance")
+#define GANCIAN_PICTURE_PPT_TEMP_PATH ("/opt/course/PPT")
 
 namespace Ai0630_NS
 {
 
-    typedef std::function<BlError_E(int)> notifyGetSteamDataFunc;
-    typedef std::function<bool(void)>     PTZControlFunc;
+    typedef std::function<BlError_E(int)>    notifyGetSteamDataFunc;
+    typedef std::function<bool(void)>        PTZControlFunc;
+    typedef std::function<void(std::string)> PPTScreenshotFunc;
 
 #pragma pack(push, 1)
 

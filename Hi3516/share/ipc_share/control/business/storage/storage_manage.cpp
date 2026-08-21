@@ -550,6 +550,77 @@ int CStorageManage::get_captureDirUseStatus()
     return OK;
 }
 
+bool CStorageManage::has_capture_write_space(long long llIncomingSize)
+{
+    if (llIncomingSize <= 0)
+    {
+        return false;
+    }
+
+    std::lock_guard<std::mutex> lock(m_mutex);
+    if (m_SdCardStatus != SD_CARD_STATUS_E::NORMAL)
+    {
+        return false;
+    }
+
+    Capture_NS::CaptureDirInfo_S stCaptureDirInfo;
+    stCaptureDirInfo.nChnId = 0;
+    if (CCaptureDatabase::instance()->get_itemInfo(stCaptureDirInfo) == OK)
+    {
+        m_llCaptureDirUseSize = stCaptureDirInfo.nTotalSize;
+    }
+
+    /* 把即将写入的图片也计入判断，禁止普通抓图越过自身配额。 */
+    const long long llCaptureLimit = static_cast<long long>(
+        m_llCaptureSpaceByte * DISK_DEL_CAPTURE_DEFAULT_VALUE_UP);
+    if (llCaptureLimit > 0 &&
+        m_llCaptureDirUseSize + llIncomingSize > llCaptureLimit)
+    {
+        dlog_warn("capture quota insufficient, used:%lld incoming:%lld limit:%lld",
+                  m_llCaptureDirUseSize,
+                  llIncomingSize,
+                  llCaptureLimit);
+        return false;
+    }
+
+    struct statvfs stVfs;
+    if (statvfs(SD_CARD_MOUNT_PATH, &stVfs) != 0)
+    {
+        dlog_error("statvfs failed before capture, errno:%d", errno);
+        return false;
+    }
+
+    const unsigned long long ullAvailable =
+        static_cast<unsigned long long>(stVfs.f_bavail) * stVfs.f_frsize;
+    unsigned long long ullFaceReserve = 0;
+
+#if CAP_AI_FACE_COMPARE
+    /*
+     * 普通抓图不得使用人脸目录尚未使用的配额，保证后续仍可导入人脸图片。
+     * 人脸配额按SD卡总容量的 FACE_QUOTA_PERCENT 计算。
+     */
+    const unsigned long long ullTotal =
+        static_cast<unsigned long long>(stVfs.f_blocks) * stVfs.f_frsize;
+    const unsigned long long ullFaceQuota =
+        ullTotal * FACE_QUOTA_PERCENT / 100;
+    const unsigned long long ullFaceUsed =
+        m_llFaceDirUseSize > 0 ? static_cast<unsigned long long>(m_llFaceDirUseSize) : 0;
+    ullFaceReserve = ullFaceQuota > ullFaceUsed ? ullFaceQuota - ullFaceUsed : 0;
+#endif
+
+    if (ullAvailable < static_cast<unsigned long long>(llIncomingSize) + ullFaceReserve)
+    {
+        dlog_warn("sd free space insufficient for capture, available:%llu incoming:%lld faceReserve:%llu",
+                  ullAvailable,
+                  llIncomingSize,
+                  ullFaceReserve);
+        return false;
+    }
+
+    return true;
+}
+
+
 int CStorageManage::get_recordDirUseStatus()
 {
     std::lock_guard<std::mutex> lock(m_mutex);

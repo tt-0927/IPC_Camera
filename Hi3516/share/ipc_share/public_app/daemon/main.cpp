@@ -10,6 +10,7 @@
 #include "process_manager.h"
 #include "dlog.h"
 #include "timezone_runtime.h"
+#include "path_define.h"
 
 #include <iostream>
 #include <unistd.h>
@@ -93,6 +94,21 @@ int main(int argc, char *argv[])
         /* 如果日志初始化失败，守护进程无法记录任何信息，直接退出 */
         return 1;
     }
+
+#if CAP_PROCESS_LOG_SWITCH
+    /* 发布模式：关闭控制台同步输出，日志级别设置为 WARN */
+    syncPrintf(false);
+    setLogLevel(LOG_WARN);
+#else
+    /* 开发模式：开启控制台同步输出，日志级别设置为 TRACE */
+    syncPrintf(true);
+    setLogLevel(LOG_TRACE);
+#endif
+
+    /* 设置日志限流：同一调用点至少间隔1000ms才允许再次输出，防止高频日志阻塞业务线程 */
+    setLogThrottleInterval(1000);
+    /* 启动日志级别文件监控，支持运行时通过文件切换日志级别 */
+    startLogLevelMonitor(DAEMON_LOG_LEVEL_PATH);
 
     dlog_info("守护进程已启动. PID: %d", getpid());
 

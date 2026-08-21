@@ -1,9 +1,9 @@
-/***
+/**
  * @FilePath     : onvif_server_wrapper.h
  * @Author       : tianl (tianl@kfb.cn)
  * @Date         : 2025-04-02 09:59:36
- * @LastEditors  : huangjunda
- * @LastEditTime : 2025-04-26 10:00:31
+ * @LastEditors  : zhouzr@kfb.cn
+ * @LastEditTime : 2026-07-20 17:13:15
  * @Description  : onvif服务端调用接口封装
  */
 
@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <unistd.h>
 #include <sys/socket.h>
 #include <sys/ioctl.h>
@@ -145,6 +146,14 @@ extern "C"
      * @return       {int} - 0成功，其他失败
      */
     int onvif_get_ntpServerAddress(char *ntpServerAddress, int nLen);
+
+    /**
+     * @brief   : 通过时间管理模块设置ONVIF协议传入的UTC时间
+     * @param    {time_t} nUtcTime：UTC时间戳
+     * @return   {int} 0：成功，非0：失败
+     * @note    : 禁止ONVIF服务直接设置系统墙钟，确保所有时间敏感模块收到通知。
+     */
+    int onvif_set_system_utc_time(time_t nUtcTime);
 
     /***
      * @description : onvif获取profile参数

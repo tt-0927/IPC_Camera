@@ -1,8 +1,8 @@
 /*
  * @Author: leiyy leiyy@kfb.cn
  * @Date: 2025-12-29 10:11:46
- * @LastEditors: lianghy lianghy@kfb.cn
- * @LastEditTime: 2026-06-01 16:54:18
+ * @LastEditors: leiyy leiyy@kfb.cn
+ * @LastEditTime: 2026-07-20 09:10:56
  * @FilePath: /RV1126B/rv1126b_ipc/include/share_define.h
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
@@ -87,13 +87,13 @@ extern "C"{
 /* 软著版本号的前缀v1.0.0 */
 #define PREFIX_VERSION       "V3.357"
 /* 固件版本 */
-#define FIRMWARE_VERSION     "V1.0.6"
+#define FIRMWARE_VERSION     "V1.0.8"
 /* 硬件版本 */
 #define HARDWARE_VERSION     "V1.0.0"
 /* 系统版本 */
-#define SYSTEM_VERSION       "V1.0.6"
+#define SYSTEM_VERSION       "V1.0.8"
 /* 插件版本 */
-#define PLUG_VERSION         "V2.0.10"
+#define PLUG_VERSION         "V2.0.24"
 /* web版本 */
 #define WEB_VERSION          "V1.0.1"
 /* 报警输入GPIO个数 */

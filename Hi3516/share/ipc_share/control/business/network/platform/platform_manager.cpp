@@ -3,7 +3,7 @@
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2026-05-08 17:44:21
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-05-21 17:32:00
+ * @LastEditTime : 2026-07-29 14:24:16
  * @Description  : 平台管理
  */
 
@@ -49,18 +49,13 @@
 
 #include <openssl/crypto.h>
 
-// --- Base64 编码实现 ---
-static const std::string base64_chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-                                        "abcdefghijklmnopqrstuvwxyz"
-                                        "0123456789+/";
 
-static const char *FACE_NV21_UPLOAD_DIR = "/opt/course/upload";
 
 namespace
 {
 constexpr const char *MQTT_DEVICE_REGISTER_COMMAND = "NET_DEVICE_REGISTER";
 constexpr const char *PLATFORM_REGISTER_CREDENTIAL_KEY_ID = "platform-rsa-2026-08";
-constexpr const char *PLATFORM_REGISTER_CREDENTIAL_PUBLIC_KEY = CA_TRUST_PATH "platform_register_public.pem";
+constexpr const char *PLATFORM_REGISTER_CREDENTIAL_PUBLIC_KEY = CA_MQTT_TRUST_KEY "platform_register_public.pem";
 
 void cleanse_string(std::string &strValue)
 {
@@ -253,6 +248,69 @@ std::string build_rtmp_main_url(const std::string &strHost, int nPort, const std
     return "rtmp://" + strHost + ":" + std::to_string(nPort) + "/live/" + strDeviceSn + "-main";
 }
 } // namespace
+
+// --- Base64 编码实现 ---
+static const std::string base64_chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+                                        "abcdefghijklmnopqrstuvwxyz"
+                                        "0123456789+/";
+
+static const char *FACE_NV21_UPLOAD_DIR = "/opt/course/upload";
+
+/*
+ * Convert::read_file() 只检查文件是否存在且非空，JSON 解析失败时仍可能保留结构体默认值。
+ * 网络 重连必须避免把损坏的配置文件误当作默认平台配置，因此先严格检查字段类型后再转换。
+ */
+static int read_platform_config_for_reconnect(const std::string &path,
+                                              Network::Platform_Info_t &stInfo)
+{
+    std::ifstream file(path, std::ios::binary);
+    if (!file.is_open())
+    {
+        return ERR_FREAD;
+    }
+
+    std::stringstream buffer;
+    buffer << file.rdbuf();
+    const std::string jsonData = buffer.str();
+    if (jsonData.empty())
+    {
+        return ERR_FREAD;
+    }
+
+    cJSON *pRoot = cJSON_Parse(jsonData.c_str());
+    if (pRoot == nullptr || !cJSON_IsObject(pRoot))
+    {
+        if (pRoot != nullptr)
+        {
+            cJSON_Delete(pRoot);
+        }
+        return ERR_PARSE;
+    }
+
+    cJSON *pServerIp = cJSON_GetObjectItemCaseSensitive(pRoot, "server_ip");
+    cJSON *pServerPort = cJSON_GetObjectItemCaseSensitive(pRoot, "server_port");
+    cJSON *pRtmpPort = cJSON_GetObjectItemCaseSensitive(pRoot, "RtmpPort");
+    cJSON *pMqttPort = cJSON_GetObjectItemCaseSensitive(pRoot, "MqttPort");
+    cJSON *pUser = cJSON_GetObjectItemCaseSensitive(pRoot, "user");
+    cJSON *pPassword = cJSON_GetObjectItemCaseSensitive(pRoot, "password");
+    cJSON *pEnable = cJSON_GetObjectItemCaseSensitive(pRoot, "enable");
+    cJSON *pCustom = cJSON_GetObjectItemCaseSensitive(pRoot, "Custom");
+
+    const bool bFieldsValid =
+        cJSON_IsString(pServerIp) && cJSON_IsNumber(pServerPort) &&
+        cJSON_IsNumber(pRtmpPort) && cJSON_IsNumber(pMqttPort) &&
+        cJSON_IsString(pUser) && cJSON_IsString(pPassword) &&
+        cJSON_IsBool(pEnable) && cJSON_IsBool(pCustom);
+    cJSON_Delete(pRoot);
+
+    if (!bFieldsValid)
+    {
+        return ERR_PARSE;
+    }
+
+    Convert::to_struct(jsonData, stInfo);
+    return OK;
+}
 
 static bool file_exists(const std::string &path)
 {
@@ -750,13 +808,14 @@ bool CPlatformManager::login(const std::string &host,
                             const std::string &password,
                             const bool &enable,
                             const bool &Custom,
-                            LoginResponse &out_response)
+                            LoginResponse &out_response,
+                            bool bIgnoreEnable)
 {
     bool result = false;
     g_custom = Custom;
     g_enable = enable;
 
-    if (enable != true)
+    if (!enable && !bIgnoreEnable)
     {
         return result;
     }
@@ -892,6 +951,8 @@ bool CPlatformManager::apply_platform_config(const ::Network::Platform_Info_t &s
     login_password = stInfo.password;
     g_enable = stInfo.enable;
     g_custom = stInfo.Custom;
+    /* 网页保存新配置后，不再沿用本次启动的强制连接状态。 */
+    m_bBootConnectOverride.store(false);
     return true;
 }
 
@@ -1460,11 +1521,16 @@ CPlatformManager::~CPlatformManager()
 
 int CPlatformManager::init()
 {
+    const std::lock_guard<std::recursive_mutex> lock(m_mtxPlatformOperation);
+
     if (m_bInited)
     {
         dlog_warn("平台管理模块已初始化");
         return OK;
     }
+
+    /* deinit() 后重新初始化时，允许按新配置重新创建自动登录线程。 */
+    m_bStopAutoLogin.store(false);
 
     /* 从配置文件加载历史登录信息 */
     if (load_config())
@@ -1472,22 +1538,37 @@ int CPlatformManager::init()
         dlog_info("平台管理模块从配置文件恢复登录信息成功");
 
         /* 初始化 MQTT（仅在启用平台接入时），先启动 MQTT 连接线程并登记订阅 Topic */
-        if (g_enable)
+        /*
+         * 临时测试逻辑：配置文件即使保存为未启用，设备重启后仍尝试连接。
+         * 保持 g_enable 原值，配置文件继续如实记录网页选择；仅本次启动使用覆盖状态。
+         */
+        const bool bBootConnectOverride = !g_enable;
+        m_bBootConnectOverride.store(bBootConnectOverride);
+
+        const auto is_valid_port = [](int nPort) {
+            return nPort > 0 && nPort <= 65535;
+        };
+        const bool bCustomConfigValid =
+            !g_custom ||
+            (!custom_host.empty() && is_valid_port(custom_post) &&
+             is_valid_port(m_nRtmpPort) && is_valid_port(m_nMqttPort) &&
+             !login_user.empty() && !login_password.empty());
+
+        if (bBootConnectOverride && !bCustomConfigValid)
         {
+            m_bBootConnectOverride.store(false);
+            dlog_warn("平台自动连接已跳过：未启用的自定义平台配置不完整");
+        }
+        else
+        {
+            /* 先启动 MQTT，再启动平台登录重试线程。 */
             int nRet = init_mqtt();
             if (nRet != OK)
             {
                 dlog_warn("MQTT 初始化失败，将在平台登录成功后重试");
             }
-        }
 
-        /* 若已启用平台接入，启动自动登录重试线程 */
-        if (g_enable)
-        {
-            // m_bStopAutoLogin.store(false);
-            // m_nRetryCount = 0;
-            // m_autoLoginThread = std::thread(&CPlatformManager::auto_login_loop, this);
-            // dlog_info("平台自动登录重试线程已启动");
+            /* 启用配置和启动覆盖配置都需要启动登录重试线程。 */
             ensure_auto_login_thread();
         }
     }
@@ -1502,9 +1583,12 @@ int CPlatformManager::init()
 
 int CPlatformManager::deinit()
 {
-    if (!m_bInited)
     {
-        return OK;
+        const std::lock_guard<std::recursive_mutex> lock(m_mtxPlatformOperation);
+        if (!m_bInited)
+        {
+            return OK;
+        }
     }
 
     /* 正常关机前主动发布离线状态（比 LWT 更可靠，确保平台及时感知） */
@@ -1527,10 +1611,29 @@ int CPlatformManager::deinit()
         autoLoginThread.join();
     }
 
-    /* 反初始化 MQTT */
-    deinit_mqtt();
+    /*
+     * 自动登录线程退出后再获取平台锁，避免线程正在等待该锁时与 join 形成死锁。
+     * 此后网页保存和网络切换重连都不能再修改 MQTT 会话或平台运行时参数。
+     */
+    {
+        const std::lock_guard<std::recursive_mutex> lock(m_mtxPlatformOperation);
+        if (!m_bInited)
+        {
+            return OK;
+        }
 
-    m_bInited = false;
+        /* 正常关机前主动发布离线状态（比 LWT 更可靠，确保平台及时感知） */
+        publish_device_status(false, "shutdown");
+
+        /* 进程退出时清理临时启动覆盖状态。 */
+        m_bBootConnectOverride.store(false);
+
+        /* 反初始化 MQTT */
+        deinit_mqtt();
+
+        m_bInited = false;
+    }
+    
     dlog_info("平台管理模块反初始化完成");
     return OK;
 }
@@ -1689,11 +1792,29 @@ bool CPlatformManager::register_current_device(const std::string &strToken,
 
 void CPlatformManager::auto_login_loop()
 {
+    pthread_setname_np(pthread_self(), "PlatformLogin");
     while (!m_bStopAutoLogin.load())
     {
+
+        bool bPlatformActive = false;
+        bool bNeedRelogin = false;
+        {
+            /* 与网页保存和网络切换共享状态锁，避免读取到半更新的平台参数。 */
+            const std::lock_guard<std::recursive_mutex> lock(m_mtxPlatformOperation);
+            bPlatformActive = g_enable || m_bBootConnectOverride.load();
+            bNeedRelogin = m_bNetworkReloginPending.load() || access_token_.empty();
+        }
+
+        if (!bPlatformActive)
+        {
+            /* 网页关闭平台后保留线程，但不再继续发起重试连接。 */
+            std::this_thread::sleep_for(std::chrono::seconds(AUTO_LOGIN_RETRY_INTERVAL_SEC));
+            continue;
+        }
+
         /* 若已登录（有有效 token），无需重试 */
         //if (!access_token_.empty())
-        const bool bNeedRelogin = m_bNetworkReloginPending.load() || access_token_.empty();
+        //const bool bNeedRelogin = m_bNetworkReloginPending.load() || access_token_.empty();
         if (!bNeedRelogin)
         {
             std::this_thread::sleep_for(std::chrono::seconds(AUTO_LOGIN_RETRY_INTERVAL_SEC));
@@ -1719,7 +1840,8 @@ void CPlatformManager::auto_login_loop()
         // bool bSuccess = login(target_host, target_port, login_user, login_password, g_enable, g_custom, out_response);
         // if (bSuccess)
         dlog_info("平台自动登录重试第 %d 次", m_nRetryCount.load() + 1);
-        if (change_net_relogin() == OK)
+        const int nReloginRet = change_net_relogin();
+        if (nReloginRet == OK)
         {
             dlog_info("平台自动登录成功");
             // register_current_device(out_response.data.access_token, login_user, login_password);
@@ -1748,17 +1870,83 @@ void CPlatformManager::ensure_auto_login_thread()
         return;
     }
 
-    m_bStopAutoLogin.store(false);
+    //m_bStopAutoLogin.store(false);
     m_nRetryCount.store(0);
     m_autoLoginThread = std::thread(&CPlatformManager::auto_login_loop, this);
     dlog_info("平台自动登录重试线程已启动");
 }
 
+std::unique_lock<std::recursive_mutex> CPlatformManager::lock_platform_operation()
+{
+    return std::unique_lock<std::recursive_mutex>(m_mtxPlatformOperation);
+}
+
+int CPlatformManager::reconnect_from_persisted_config()
+{
+    const std::lock_guard<std::recursive_mutex> lock(m_mtxPlatformOperation);
+
+    if (!m_bInited)
+    {
+        dlog_warn("网络 切换时平台管理模块尚未初始化，跳过配置重载");
+        return ERR_UNINIT;
+    }
+
+    Network::Platform_Info_t stInfo;
+    const int nReadRet = read_platform_config_for_reconnect(PLATFORM_CONFIG_FILE, stInfo);
+    if (nReadRet != OK)
+    {
+        dlog_warn("网络 切换时读取平台配置失败或格式不完整: %s, ret=%d",
+                  PLATFORM_CONFIG_FILE, nReadRet);
+        return nReadRet;
+    }
+
+    const auto is_valid_port = [](int nPort) {
+        return nPort > 0 && nPort <= 65535;
+    };
+    const bool bCustomConfigValid =
+        !stInfo.Custom ||
+        (!stInfo.server_ip.empty() && is_valid_port(stInfo.server_port) &&
+         is_valid_port(stInfo.rtmp_port) && is_valid_port(stInfo.mqtt_port) &&
+         !stInfo.user.empty() && !stInfo.password.empty());
+    if (!bCustomConfigValid)
+    {
+        dlog_warn("网络 切换时跳过平台重连：自定义平台配置不完整");
+        return ERR_PARAM;
+    }
+
+    /* 仅在校验通过后替换运行时参数，避免配置文件异常破坏现有平台连接。 */
+    if (!apply_platform_config(stInfo))
+    {
+        dlog_error("网络 切换时应用平台配置失败");
+        return ERR_PARAM;
+    }
+
+    /*
+     * 与重新上电保持一致：配置文件的 enable 字段继续保留网页选择，
+     * 但本次 网络 切换仍按临时自动连接规则尝试连接该平台。
+     */
+    m_bBootConnectOverride.store(!stInfo.enable);
+    m_bNetworkReloginPending.store(true);
+    m_nRetryCount.store(0);
+
+    /* MQTT 的 Broker、端口和账号可能已经改变，必须基于新配置重建会话。 */
+    if (restart_mqtt() != OK)
+    {
+        dlog_warn("网络 切换后 MQTT 重建失败，继续尝试 HTTP 平台登录");
+    }
+
+    return change_net_relogin();
+}
+
 int CPlatformManager::change_net_relogin()
 {
-    int ret = -1;
+    const std::lock_guard<std::recursive_mutex> lock(m_mtxPlatformOperation);
+
+        int ret = -1;
     //if (access_token_.empty())
-    if (!g_enable)
+    /* 自动连接覆盖生效时，允许未启用配置继续自动登录。 */
+    const bool bPlatformActive = g_enable || m_bBootConnectOverride.load();
+    if (!bPlatformActive)
     {
         return ret;
     }
@@ -1794,7 +1982,8 @@ int CPlatformManager::change_net_relogin()
     dlog_info("change_net_relogin: host=%s, port=%d", target_host.c_str(), target_port);
 
     const bool bSuccess = login(target_host, target_port, login_user, login_password,
-                                g_enable, g_custom, out_response);
+                                g_enable, g_custom, out_response,
+                                m_bBootConnectOverride.load());
     if (bSuccess)
     {
         if (register_current_device(out_response.data.access_token, login_user, login_password) &&
@@ -1822,15 +2011,19 @@ int CPlatformManager::change_net_relogin()
 
 int CPlatformManager::relogin_and_update_stream()
 {
+#if CAP_RTMP_PUSH
+    /* 自动连接覆盖生效时，RTMP 也按已启用状态重新建立。 */
+    const bool bPlatformActive = g_enable || m_bBootConnectOverride.load();
+
     /* 构造当前平台信息 */
     Network::Platform_Info_t stPlatformInfo;
     stPlatformInfo.server_ip = g_custom ? custom_host : host_;
     stPlatformInfo.server_port = g_custom ? custom_post : port_;
     stPlatformInfo.rtmp_port = m_nRtmpPort;
-    stPlatformInfo.enable = g_enable;
+    stPlatformInfo.enable = bPlatformActive;
     stPlatformInfo.Custom = g_custom;
 
-    if (!g_enable)
+    if (!bPlatformActive)
     {
         dlog_info("平台接入未启用，停止 RTMP 推流");
     }
@@ -1841,6 +2034,11 @@ int CPlatformManager::relogin_and_update_stream()
 
     /* 通过推流模块更新 RTMP（enable=false 时内部会停止推流） */
     return CPushStream::instance()->restart_rtmp_stream(stPlatformInfo);
+#else
+    /* 当前型号不支持 RTMP 推流，平台登录成功即视为完成 */
+    dlog_info("RTMP 推流未启用（CAP_RTMP_PUSH=0），跳过推流更新");
+    return OK;
+#endif
 }
 
 int CPlatformManager::init_mqtt()
@@ -1881,6 +2079,7 @@ int CPlatformManager::init_mqtt()
 
     /* 获取 MQTT 管理器实例 */
     m_pstMqtt = CMqttManager::instance();
+    start_mqtt_command_worker();
 
     /* 设置消息回调 */
     m_pstMqtt->set_message_callback(
@@ -1897,7 +2096,7 @@ int CPlatformManager::init_mqtt()
     /* 设置 LWT 遗嘱消息：设备异常断开时 Broker 自动发布离线状态 */
     std::string strWillTopic = MQTT_TOPIC_STATUS(m_strMqttClientId);
     cJSON *pWillRoot = cJSON_CreateObject();
-    cJSON_AddStringToObject(pWillRoot, "Command", "NET_DEVICE_STATUS");
+    cJSON_AddStringToObject(pWillRoot, "Command", "NET_TV_DEVICE_STATUS");
     cJSON_AddStringToObject(pWillRoot, "RequestId", "lwt");
     cJSON *pWillData = cJSON_CreateObject();
     cJSON_AddStringToObject(pWillData, "Status", "offline");
@@ -1926,6 +2125,7 @@ int CPlatformManager::init_mqtt()
     {
         dlog_error("MQTT 初始化失败");
         /* 初始化未成功不保留指针，后续重新勾选平台可以再次发起连接 */
+        stop_mqtt_command_worker();
         m_pstMqtt = nullptr;
         return ERR;
     }
@@ -1953,11 +2153,15 @@ int CPlatformManager::restart_mqtt()
         deinit_mqtt();
     }
 
-    return g_enable ? init_mqtt() : OK;
+    /* MQTT 重建与自动连接覆盖保持一致。 */
+    return (g_enable || m_bBootConnectOverride.load()) ? init_mqtt() : OK;
 }
+
 
 void CPlatformManager::deinit_mqtt()
 {
+    /* 先停止可能执行HTTP下载或同步任务的命令线程，再释放底层 MQTT 句柄。 */
+    stop_mqtt_command_worker();
     /* 先停止心跳，确保不会与底层 MQTT 句柄释放并发执行。 */
     stop_status_heartbeat();
 
@@ -1979,6 +2183,124 @@ void CPlatformManager::set_taskManage(CTaskManage *pTaskManage)
     dlog_info("平台管理模块：CTaskManage 实例已注入 MQTT SDK 网关");
 }
 
+void CPlatformManager::start_mqtt_command_worker()
+{
+    /* lock: 生命周期锁覆盖“检查 joinable 到创建线程”的完整区间，避免并发初始化产生两个消费者。 */
+    std::lock_guard<std::mutex> lockLifecycle(m_mtxMqttCommandLifecycle);
+    if (m_mqttCommandThread.joinable())
+    {
+        return;
+    }
+
+    {
+        /* lock: 重启时丢弃上一轮遗留命令，并与 SDK 回调的入队操作互斥。 */
+        std::lock_guard<std::mutex> lockQueue(m_mtxMqttCommandQueue);
+        m_deqMqttCommands.clear();
+        m_nLastMqttCommandDropLogMs = 0;
+    }
+    m_uMqttCommandDropCount.store(0);
+    m_bStopMqttCommand.store(false);
+    m_mqttCommandThread = std::thread(&CPlatformManager::mqtt_command_loop, this);
+    dlog_info("MQTT 平台命令工作线程已启动，队列上限=%d", static_cast<int>(MQTT_COMMAND_QUEUE_MAX_SIZE));
+}
+
+void CPlatformManager::stop_mqtt_command_worker()
+{
+    /* lock: join 必须与 start 串行，防止旧线程尚未退出时被重新启动。 */
+    std::lock_guard<std::mutex> lockLifecycle(m_mtxMqttCommandLifecycle);
+    if (!m_mqttCommandThread.joinable())
+    {
+        return;
+    }
+
+    {
+        /* memory: 停止时主动释放尚未执行的 Payload 副本；正在执行的命令允许完成后再退出。 */
+        std::lock_guard<std::mutex> lockQueue(m_mtxMqttCommandQueue);
+        m_bStopMqttCommand.store(true);
+        m_deqMqttCommands.clear();
+    }
+    m_cvMqttCommand.notify_all();
+    m_mqttCommandThread.join();
+    dlog_info("MQTT 平台命令工作线程已停止，累计拒绝命令=%llu", static_cast<unsigned long long>(m_uMqttCommandDropCount.load()));
+}
+
+bool CPlatformManager::enqueue_mqtt_command(const std::string &strTopic, const std::string &strPayload)
+{
+    /* lock: 入队、容量检查和限频时间戳必须属于同一临界区，避免多个回调同时突破容量上限。 */
+    std::lock_guard<std::mutex> lockQueue(m_mtxMqttCommandQueue);
+    if (m_bStopMqttCommand.load())
+    {
+        return false;
+    }
+
+    if (m_deqMqttCommands.size() >= MQTT_COMMAND_QUEUE_MAX_SIZE)
+    {
+        const uint64_t uDropCount = m_uMqttCommandDropCount.fetch_add(1) + 1;
+        /* 使用 steady_clock，避免校时导致限频窗口被错误拉长或缩短。 */
+        const int64_t nNowMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+                                   std::chrono::steady_clock::now().time_since_epoch())
+                                   .count();
+        if (m_nLastMqttCommandDropLogMs == 0 || nNowMs - m_nLastMqttCommandDropLogMs >= MQTT_COMMAND_DROP_LOG_INTERVAL_MS)
+        {
+            m_nLastMqttCommandDropLogMs = nNowMs;
+            dlog_warn("MQTT 平台命令队列已满，拒绝新命令，queue=%d, drop=%llu",
+                      static_cast<int>(m_deqMqttCommands.size()),
+                      static_cast<unsigned long long>(uDropCount));
+        }
+        return false;
+    }
+
+    /* memory: 在 SDK 回调返回前深拷贝 Topic/Payload；底层 MQTT 缓冲区随后可能被释放。 */
+    MqttCommand_S stCommand;
+    stCommand.strTopic = strTopic;
+    stCommand.strPayload = strPayload;
+    m_deqMqttCommands.push_back(std::move(stCommand));
+    m_cvMqttCommand.notify_one();
+    return true;
+}
+
+void CPlatformManager::on_mqtt_message(const std::string &strTopic, const std::string &strPayload)
+{
+    /* perf: 此函数运行在 MQTT SDK 回调上下文，只允许复制数据并入队，禁止解析JSON或执行同步任务。 */
+    if (!enqueue_mqtt_command(strTopic, strPayload))
+    {
+        return;
+    }
+}
+
+void CPlatformManager::mqtt_command_loop()
+{
+    /* trace: 固定线程名便于 top/perf 统计区分 MQTT 业务耗时与 MQTT SDK 回调耗时。 */
+    pthread_setname_np(pthread_self(), "MqttCommand");
+    dlog_info("MQTT 平台命令工作线程运行");
+
+    while (true)
+    {
+        MqttCommand_S stCommand;
+        {
+            std::unique_lock<std::mutex> lockQueue(m_mtxMqttCommandQueue);
+            /* worker 只在停止或存在命令时唤醒，避免空队列轮询占用 CPU。 */
+            m_cvMqttCommand.wait(lockQueue,
+                                 [this]()
+                                 {
+                                     return m_bStopMqttCommand.load() || !m_deqMqttCommands.empty();
+                                 });
+            if (m_bStopMqttCommand.load())
+            {
+                break;
+            }
+
+            /* memory: 将队首所有权移交给当前循环，解锁后再执行可能阻塞的 HTTP/任务逻辑。 */
+            stCommand = std::move(m_deqMqttCommands.front());
+            m_deqMqttCommands.pop_front();
+        }
+
+        process_mqtt_command(stCommand.strTopic, stCommand.strPayload);
+    }
+
+    dlog_info("MQTT 平台命令工作线程退出");
+}
+
 /**
  * @brief 处理收到的 MQTT 命令消息
  * @param strTopic 消息 Topic
@@ -1988,9 +2310,9 @@ void CPlatformManager::set_taskManage(CTaskManage *pTaskManage)
  *        2. 校验 Token（防止未授权访问）
  *        3. 优先查找自定义处理器，未命中则通过 MQTT SDK 网关转发到 CTaskManage
  */
-void CPlatformManager::on_mqtt_message(const std::string &strTopic, const std::string &strPayload)
+void CPlatformManager::process_mqtt_command(const std::string &strTopic, const std::string &strPayload)
 {
-    dlog_debug("收到 MQTT 消息，Topic[%s]：\n%s", strTopic.c_str(), strPayload.c_str());
+    dlog_debug("MQTT 命令开始处理，Topic[%s]，长度[%zu]", strTopic.c_str(), strPayload.size());
 
     /* 解析 JSON */
     cJSON *pRoot = strPayload.empty() ? nullptr : cJSON_Parse(strPayload.c_str());
@@ -2039,16 +2361,21 @@ void CPlatformManager::on_mqtt_message(const std::string &strTopic, const std::s
      * · Broker 层面的 ACL 已确保只有合法连接才能发送命令，消息层不做重复校验
      */
 
-    /* 查找并调用处理器 */
+    /* lock: 仅在锁内复制处理器；业务回调可能执行HTTP或任务，禁止在m_mtxMqttHandlers内调用。 */
+    CommandHandler fnHandler;
     {
         std::lock_guard<std::mutex> lock(m_mtxMqttHandlers);
         auto it = m_mapMqttHandlers.find(strCommand);
         if (it != m_mapMqttHandlers.end())
         {
-            dlog_info("MQTT 命令分发：%s", strCommand.c_str());
-            it->second(strRequestId, strData);
-            return;
+            fnHandler = it->second;
         }
+    }
+    if (fnHandler)
+    {
+        dlog_info("MQTT 命令分发：%s", strCommand.c_str());
+        fnHandler(strRequestId, strData);
+        return;
     }
 
     /* 未命中自定义处理器，尝试通过 MQTT SDK 网关转发 */
@@ -2057,7 +2384,7 @@ void CPlatformManager::on_mqtt_message(const std::string &strTopic, const std::s
         dlog_info("MQTT SDK 网关转发命令：%s", strCommand.c_str());
 
         const std::string strNormalizedCommand = normalize_mqtt_command(strCommand);
-        if (strNormalizedCommand == "NET_ADD_FACE_INFO" || strNormalizedCommand == "NET_SET_FACE_INFO")
+        if (strNormalizedCommand == "NET_TV_ADD_FACE_INFO" || strNormalizedCommand == "NET_TV_SET_FACE_INFO")
         {
             std::string strError;
             if (!prepare_face_image_command(strNormalizedCommand, strData, strError))
@@ -2133,7 +2460,7 @@ bool CPlatformManager::prepare_face_image_command(const std::string &strCommand,
                                                   std::string &strError)
 {
     const std::string strNormalizedCommand = normalize_mqtt_command(strCommand);
-    if (strNormalizedCommand != "NET_ADD_FACE_INFO" && strNormalizedCommand != "NET_SET_FACE_INFO")
+    if (strNormalizedCommand != "NET_TV_ADD_FACE_INFO" && strNormalizedCommand != "NET_TV_SET_FACE_INFO")
     {
         return true;
     }
@@ -2157,7 +2484,7 @@ bool CPlatformManager::prepare_face_image_command(const std::string &strCommand,
     }
 
     bool bRet = true;
-    if (strNormalizedCommand == "NET_ADD_FACE_INFO")
+    if (strNormalizedCommand == "NET_TV_ADD_FACE_INFO")
     {
         bRet = ensure_face_nv21_local(pData, strError);
     }
@@ -2423,7 +2750,7 @@ std::string CPlatformManager::resolve_platform_file_url(const std::string &strPa
  * @brief 注册 MQTT 自定义命令处理器
  * @note  注册在此的命令优先于 MQTT SDK 网关处理
  *        适用于需要特殊处理逻辑的命令（非标准 SDK 命令透传）
- *        大部分 SDK 命令（NET_GET_xxx / NET_SET_xxx）由 on_mqtt_message 自动通过网关转发
+ *        大部分 SDK 命令（NET_TV_GET_xxx / NET_TV_SET_xxx）由 on_mqtt_message 自动通过网关转发
  */
 void CPlatformManager::register_mqtt_handlers()
 {
@@ -2706,6 +3033,7 @@ void CPlatformManager::stop_status_heartbeat()
 
 void CPlatformManager::status_heartbeat_loop()
 {
+    pthread_setname_np(pthread_self(), "PlatformHeart");
     dlog_info("设备在线状态心跳线程运行");
     /*
      * 使用 steady_clock 计时配合 1 秒轮询，规避目标环境中长时间定时等待
@@ -2752,7 +3080,7 @@ int CPlatformManager::publish_device_status(bool bOnline, const std::string &str
 
     /* 构造 JSON */
     cJSON *pRoot = cJSON_CreateObject();
-    cJSON_AddStringToObject(pRoot, "Command", "NET_DEVICE_STATUS");
+    cJSON_AddStringToObject(pRoot, "Command", "NET_TV_DEVICE_STATUS");
 
     /* RequestId: status-{SN}-{timestamp} */
     auto now = std::chrono::system_clock::now();

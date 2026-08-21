@@ -3,7 +3,7 @@
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2026-05-21 10:39:50
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-05-21 17:18:18
+ * @LastEditTime : 2026-07-29 14:24:27
  * @Description  : MQTT 管理器实现
  */
 
@@ -11,17 +11,46 @@
 #include "dlog.h"
 #include "IpcRet.h"
 #include <algorithm>
+#include <chrono>
 #include <cstring>
+#include <utility>
 
-/* 静态全局实例指针，用于 C 回调转 C++ 成员函数 */
-static CMqttManager *g_pstMqttManagerInstance = nullptr;
+/* lock: C 回调与反初始化可能并发发生，使用原子指针避免读写全局实例指针的数据竞争。 */
+static std::atomic<CMqttManager *> g_pstMqttManagerInstance{ nullptr };
 
-/* C 风格回调函数，转发到 CMqttManager 成员函数 */
+/**
+ * @brief   : 判断限频日志是否允许在当前时刻输出
+ * @param    {std::atomic<int64_t> &} nLastLogMs：最近一次日志时间，使用 steady_clock 毫秒时间基
+ * @param    {int64_t} nIntervalMs：两条日志之间允许的最小间隔，单位毫秒
+ * @param    {int64_t} nNowMs：本次判断的 steady_clock 毫秒时间
+ * @return   {bool} true：当前线程获得输出资格，false：仍处于限频窗口
+ * @note   : 使用 CAS 保证多个发布线程同时失败时只产生一条汇总日志
+ */
+static bool should_log_rate_limited(std::atomic<int64_t> &nLastLogMs, int64_t nIntervalMs, int64_t nNowMs)
+{
+    int64_t nLastMs = nLastLogMs.load();
+    while (nLastMs == 0 || nNowMs - nLastMs >= nIntervalMs)
+    {
+        if (nLastLogMs.compare_exchange_weak(nLastMs, nNowMs))
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+/**
+ * @brief   : 将 bl_mqtt 的 C 回调转发至 MQTT 管理器
+ * @param    {BlMqttMsg_S} stMsg：底层 MQTT 事件，消息缓冲区只在本次回调期间有效
+ * @return   {int} 0：事件已转发或管理器已退出
+ * @note    : 先原子读取管理器指针；反初始化会先置空，阻止释放后的新回调进入 C++ 对象
+ */
 int mqtt_callback_wrapper(BlMqttMsg_S stMsg)
 {
-    if (g_pstMqttManagerInstance != nullptr)
+    CMqttManager *pMqttManager = g_pstMqttManagerInstance.load();
+    if (pMqttManager != nullptr)
     {
-        g_pstMqttManagerInstance->on_mqtt_message(stMsg);
+        pMqttManager->on_mqtt_message(stMsg);
     }
     return 0;
 }
@@ -50,6 +79,12 @@ int CMqttManager::init(const std::string &strBroker,
         return ERR_PARAM_NULL;
     }
 
+    if (m_bRunning.exchange(true))
+    {
+        dlog_warn("MQTT 管理器已初始化，忽略重复初始化请求");
+        return OK;
+    }
+
     /* 保存配置信息 */
     m_strBroker = strBroker;
     m_nPort = nPort;
@@ -58,15 +93,27 @@ int CMqttManager::init(const std::string &strBroker,
     m_strClientId = strClientId;
 
     {
+        /* lock: 初始化阶段清空上一轮订阅记录，避免重新配置后恢复到旧 Broker 的 Topic。 */
         std::lock_guard<std::mutex> lock(m_mtxTopics);
         m_vecSubscribedTopics.clear();
     }
 
     /* 设置全局实例指针，供 C 回调使用 */
-    g_pstMqttManagerInstance = this;
+    g_pstMqttManagerInstance.store(this);
 
     /* 启动重连守护线程 */
-    m_bRunning.store(true);
+    m_bConnected.store(false);
+    m_bNeedReconnect.store(true);
+    m_bConnecting.store(false);
+    m_bNeedRestoreSubscriptions.store(false);
+    m_nReconnectCount.store(0);
+    m_uPublishRejectCount.store(0);
+    m_nLastPublishRejectLogMs.store(0);
+    {
+        /* lock: 清除上一生命周期未派发的状态事件，避免新连接收到旧断连通知。 */
+        std::lock_guard<std::mutex> lock(m_mtxConnectionStateEvents);
+        m_deqConnectionStateEvents.clear();
+    }
     m_ReconnectThread = std::thread(&CMqttManager::reconnect_thread, this);
 
     dlog_info("MQTT 管理器初始化完成，ClientID[%s]，Broker[%s:%d]", m_strClientId.c_str(), m_strBroker.c_str(), m_nPort);
@@ -79,21 +126,20 @@ void CMqttManager::deinit()
     /* 停止重连线程 */
     m_bRunning.store(false);
     m_bNeedReconnect.store(false);
+    m_bConnecting.store(false);
+    m_bNeedRestoreSubscriptions.store(false);
+    notify_reconnect_thread();
 
     if (m_ReconnectThread.joinable())
     {
         m_ReconnectThread.join();
     }
 
-    /* 断开 MQTT 连接 
-    if (m_pstMqtt != nullptr)
+    /* lock: 先阻止新的 C 回调进入，再销毁底层句柄，避免释放后继续访问管理器状态。 */
+    g_pstMqttManagerInstance.store(nullptr);
+
+    /* lock: 与 publish()/do_connect() 共用句柄锁，避免释放期间仍有异步发送。 */
     {
-        m_pstMqtt->uninit(m_pstMqtt);
-        bl_mqtt_release(m_pstMqtt);
-        m_pstMqtt = nullptr;
-    }*/
-   /* 与 publish()/do_connect() 共用句柄锁，避免释放期间仍有异步发送。 */
-   {
         std::lock_guard<std::mutex> lock(m_mtxConnect);
         m_bConnected.store(false);
         if (m_pstMqtt != nullptr)
@@ -104,13 +150,15 @@ void CMqttManager::deinit()
         }
     }
 
-    //m_bConnected.store(false);
     {
         std::lock_guard<std::mutex> lock(m_mtxTopics);
         m_vecSubscribedTopics.clear();
     }
-    g_pstMqttManagerInstance = nullptr;
-
+    {
+        /* lock: deinit 期间不允许残留连接事件在下一次 init 后被派发。 */
+        std::lock_guard<std::mutex> lock(m_mtxConnectionStateEvents);
+        m_deqConnectionStateEvents.clear();
+    }
     dlog_info("MQTT 管理器已反初始化");
 }
 
@@ -129,16 +177,20 @@ int CMqttManager::publish(const std::string &strTopic, const std::string &strPay
     /* 检查连接状态 */
     if (!m_bConnected.load() || m_pstMqtt == nullptr)
     {
-        dlog_warn("MQTT 发布失败：未连接");
+        /* 仅保留计数，不缓存离线期间的 Payload；避免断网时无界占用内存和发送过期事件。 */
+        const uint64_t uRejectCount = m_uPublishRejectCount.fetch_add(1) + 1;
+        const int64_t nNowMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+                                   std::chrono::steady_clock::now().time_since_epoch())
+                                   .count();
+        if (should_log_rate_limited(m_nLastPublishRejectLogMs, PUBLISH_REJECT_LOG_INTERVAL_MS, nNowMs))
+        {
+            const uint64_t uRejectedSinceLastLog = m_uPublishRejectCount.exchange(0);
+            dlog_warn("MQTT 未连接，拒绝发布消息，最近%llu条（本次序号=%llu）",
+                      static_cast<unsigned long long>(uRejectedSinceLastLog),
+                      static_cast<unsigned long long>(uRejectCount));
+        }
         return ERR_UNINIT;
     }
-
-    /* 参数校验 
-    if (strTopic.empty() || strPayload.empty())
-    {
-        dlog_error("MQTT 发布失败：Topic 或 Payload 为空");
-        return ERR_PARAM_NULL;
-    }*/
 
     /* 异步发布消息 */
     char *pTopic = const_cast<char *>(strTopic.c_str());
@@ -146,11 +198,7 @@ int CMqttManager::publish(const std::string &strTopic, const std::string &strPay
 
     int nRet = m_pstMqtt->publish(m_pstMqtt, pTopic, pPayload, static_cast<int>(strPayload.length()), nQos);
 
-    if (nRet == 0)
-    {
-        dlog_debug("MQTT 发布成功，Topic[%s]，QoS[%d]，长度[%zu]", strTopic.c_str(), nQos, strPayload.length());
-    }
-    else
+    if (nRet != 0)
     {
         dlog_error("MQTT 发布失败，Topic[%s]，返回值[%d]", strTopic.c_str(), nRet);
     }
@@ -173,11 +221,8 @@ int CMqttManager::subscribe(const std::string &strTopic, int nQos)
         return OK;
     }
 
-    /* 检查连接状态 */
-    if (!m_bConnected.load() || m_pstMqtt == nullptr)
+    /* 无论当前是否已连接，均先登记订阅，保证重连后可恢复。 */
     {
-        dlog_warn("MQTT 订阅失败：未连接，Topic[%s] 将在连接后自动订阅", strTopic.c_str());
-        /* 记录到待订阅列表，连接成功后自动订阅 */
         std::lock_guard<std::mutex> lock(m_mtxTopics);
         if (std::find_if(m_vecSubscribedTopics.begin(), m_vecSubscribedTopics.end(),
                          [&strTopic](const std::pair<std::string, int> &item) {
@@ -186,6 +231,13 @@ int CMqttManager::subscribe(const std::string &strTopic, int nQos)
         {
             m_vecSubscribedTopics.emplace_back(strTopic, nQos);
         }
+    }
+
+    /* lock: 与do_connect()/deinit()串行，防止订阅时使用已释放的底层句柄。 */
+    std::lock_guard<std::mutex> lockConnect(m_mtxConnect);
+    if (!m_bConnected.load() || m_pstMqtt == nullptr)
+    {
+        dlog_warn("MQTT 订阅延后：未连接，Topic[%s] 将在连接后自动订阅", strTopic.c_str());
         return ERR_UNINIT;
     }
 
@@ -197,15 +249,6 @@ int CMqttManager::subscribe(const std::string &strTopic, int nQos)
     {
         dlog_info("MQTT 订阅成功，Topic[%s]，QoS[%d]", strTopic.c_str(), nQos);
 
-        /* 记录到已订阅列表 */
-        std::lock_guard<std::mutex> lock(m_mtxTopics);
-        if (std::find_if(m_vecSubscribedTopics.begin(), m_vecSubscribedTopics.end(),
-                         [&strTopic](const std::pair<std::string, int> &item) {
-                             return item.first == strTopic;
-                         }) == m_vecSubscribedTopics.end())
-        {
-            m_vecSubscribedTopics.emplace_back(strTopic, nQos);
-        }
     }
     else
     {
@@ -229,6 +272,7 @@ void CMqttManager::set_message_callback(MqttRawMessageCallback callback)
 
 void CMqttManager::set_connection_callback(MqttConnectionCallback callback)
 {
+    std::lock_guard<std::mutex> lock(m_mtxConnectionCallback);
     m_fnConnectionCallback = callback;
     dlog_info("MQTT 连接状态回调已设置");
 }
@@ -275,6 +319,7 @@ void CMqttManager::on_mqtt_message(BlMqttMsg_S stMsg)
         /* 收到订阅主题的消息 */
         if (stMsg.pTopicName != nullptr)
         {
+            /* memory: bl_mqtt 在本函数返回后释放 pTopicName/pMsg，必须先复制到 C++ 字符串。 */
             std::string strTopic(stMsg.pTopicName ? stMsg.pTopicName : "");
             std::string strPayload;
             if (stMsg.pMsg != nullptr && stMsg.nMsgLen > 0)
@@ -282,9 +327,7 @@ void CMqttManager::on_mqtt_message(BlMqttMsg_S stMsg)
                 strPayload.assign(stMsg.pMsg, stMsg.nMsgLen);
             }
 
-            dlog_debug("MQTT 收到消息，Topic[%s]，长度[%d]", strTopic.c_str(), stMsg.nMsgLen);
-
-            /* 透传给业务层回调 */
+            /* lock: 回调在锁外执行，业务层可安全注册/替换回调或继续调用 MQTT 接口。 */
             MqttRawMessageCallback fnCallback;
             {
                 std::lock_guard<std::mutex> lock(m_mtxMessageCallback);
@@ -295,6 +338,14 @@ void CMqttManager::on_mqtt_message(BlMqttMsg_S stMsg)
                 fnCallback(strTopic, strPayload);
             }
         }
+        break;
+    }
+    case BL_MQTT_MSG_PUBLISH_SUCCESS:
+    case BL_MQTT_MSG_SUBSCRIBE_SUCCESS:
+    case BL_MQTT_MSG_PUBLISH_FAILURE:
+    case BL_MQTT_MSG_SUBSCRIBE_FAILURE:
+    {
+        /* perf: 底层已记录发布/订阅的详细结果；管理层不重复逐条输出，避免异常时日志放大。 */
         break;
     }
     default:
@@ -311,57 +362,90 @@ void CMqttManager::reconnect_thread()
 
     while (m_bRunning.load())
     {
-        /* 如果已连接，等待一段时间后检查 */
+        if (m_bConnected.load() && m_bNeedRestoreSubscriptions.exchange(false))
+        {
+            /* lock: 此处位于重连线程，do_connect() 已返回；订阅操作可安全获取m_mtxConnect。 */
+            restore_subscriptions();
+        }
+        dispatch_connection_state_changes();
+
         if (m_bConnected.load())
         {
-            std::this_thread::sleep_for(std::chrono::seconds(1));
+            /* perf: 已连接状态不再每秒唤醒，直到断连、停止或显式状态变化才检查。 */
+            std::unique_lock<std::mutex> lock(m_mtxReconnectWait);
+            m_cvReconnect.wait(lock,
+                               [this]()
+                               {
+                                   return !m_bRunning.load() || !m_bConnected.load();
+                               });
             continue;
         }
 
-        /* 如果需要重连或首次连接（且当前未在连接中） */
         if ((m_bNeedReconnect.load() || m_pstMqtt == nullptr) && !m_bConnecting.load())
         {
-            /* 首次连接立即执行，失败后的重连再按退避时间等待 */
-            const bool bFirstConnect = (m_nReconnectCount == 0 && m_pstMqtt == nullptr);
-            int nInterval = bFirstConnect ? 0 : RECONNECT_INITIAL_INTERVAL_SEC * (1 << m_nReconnectCount);
-            if (nInterval > RECONNECT_MAX_INTERVAL_SEC)
-            {
-                nInterval = RECONNECT_MAX_INTERVAL_SEC;
-            }
-
-            dlog_info("MQTT 第[%d]次%s尝试，等待[%d]秒",
-                      m_nReconnectCount + 1,
-                      bFirstConnect ? "连接" : "重连",
-                      nInterval);
+            /* 读取本轮退避快照，回调线程可并发重置计数但不影响正在执行的重连等待。 */
+            const int nReconnectCount = m_nReconnectCount.load();
+            const bool bFirstConnect = (nReconnectCount == 0 && m_pstMqtt == nullptr);
+            const int nMaxExponent = 6;
+            const int nExponent = std::min(nReconnectCount, nMaxExponent);
+            const int nInterval = bFirstConnect
+                                      ? 0
+                                      : std::min(RECONNECT_MAX_INTERVAL_SEC, RECONNECT_INITIAL_INTERVAL_SEC * (1 << nExponent));
 
             if (nInterval > 0)
             {
-                std::this_thread::sleep_for(std::chrono::seconds(nInterval));
+                dlog_info("MQTT 第[%d]次重连，等待[%d]秒", nReconnectCount + 1, nInterval);
+                std::unique_lock<std::mutex> lock(m_mtxReconnectWait);
+                m_cvReconnect.wait_for(lock,
+                                       std::chrono::seconds(nInterval),
+                                       [this]()
+                                       {
+                                           return !m_bRunning.load() || m_bConnected.load();
+                                       });
+                if (!m_bRunning.load() || m_bConnected.load())
+                {
+                    continue;
+                }
             }
 
-            if (!m_bRunning.load())
-            {
-                break;
-            }
-
-            /* 执行连接 */
+            dlog_info("MQTT 第[%d]次%s尝试", nReconnectCount + 1, bFirstConnect ? "连接" : "重连");
             m_bConnecting.store(true);
             if (do_connect())
             {
-                /* 连接请求已发送，等待回调确认 */
-                std::this_thread::sleep_for(std::chrono::seconds(3));
+                /* 异步连接结果由回调唤醒；超时后才允许下一次退避重试。 */
+                std::unique_lock<std::mutex> lock(m_mtxReconnectWait);
+                m_cvReconnect.wait_for(lock,
+                                       std::chrono::seconds(CONNECT_RESULT_TIMEOUT_SEC),
+                                       [this]()
+                                       {
+                                           return !m_bRunning.load() || m_bConnected.load() || !m_bConnecting.load();
+                                       });
+                if (m_bRunning.load() && !m_bConnected.load() && m_bConnecting.load())
+                {
+                    m_bConnecting.store(false);
+                    m_bNeedReconnect.store(true);
+                    m_nReconnectCount.fetch_add(1);
+                    dlog_warn("MQTT 连接等待结果超时，将继续退避重试");
+                }
             }
             else
             {
-                /* 连接失败，增加重连计数 */
                 m_bConnecting.store(false);
-                m_nReconnectCount++;
-                dlog_warn("MQTT 连接失败，将在[%d]秒后重试", RECONNECT_INITIAL_INTERVAL_SEC * (1 << m_nReconnectCount));
+                m_bNeedReconnect.store(true);
+                m_nReconnectCount.fetch_add(1);
+                dlog_warn("MQTT 连接请求失败，将进入退避重试");
             }
         }
         else
         {
-            std::this_thread::sleep_for(std::chrono::seconds(1));
+            /* perf: 所有状态改变都会主动 notify，异常状态下也不再固定每秒轮询。 */
+            std::unique_lock<std::mutex> lock(m_mtxReconnectWait);
+            m_cvReconnect.wait(lock,
+                               [this]()
+                               {
+                                   return !m_bRunning.load() || m_bConnected.load() ||
+                                          (m_bNeedReconnect.load() && !m_bConnecting.load());
+                               });
         }
     }
 
@@ -372,18 +456,14 @@ void CMqttManager::handle_connect_success()
 {
     m_bConnecting.store(false);
     m_bConnected.store(true);
-    m_nReconnectCount = 0;
+    m_nReconnectCount.store(0);
     m_bNeedReconnect.store(false);
+    m_bNeedRestoreSubscriptions.store(true);
     dlog_info("MQTT 连接成功");
 
-    /* 恢复订阅 */
-    restore_subscriptions();
-
-    /* 通知上层连接状态变化 */
-    if (m_fnConnectionCallback)
-    {
-        m_fnConnectionCallback(true, "connect");
-    }
+    /* perf: SDK 回调线程不得直接恢复订阅或调用上层，避免与连接锁重入及业务阻塞。 */
+    enqueue_connection_state_change(true, "connect");
+    notify_reconnect_thread();
 }
 
 void CMqttManager::handle_disconnect(const std::string &strReason)
@@ -392,14 +472,63 @@ void CMqttManager::handle_disconnect(const std::string &strReason)
     m_bConnected.store(false);
     dlog_warn("MQTT 连接断开：%s", strReason.c_str());
 
-    /* 通知上层连接状态变化（异常断开时 LWT 由 Broker 自动发布，这里仅通知上层感知） */
-    if (m_fnConnectionCallback)
-    {
-        m_fnConnectionCallback(false, strReason);
-    }
-
     /* 标记需要重连 */
     m_bNeedReconnect.store(true);
+    /* perf: 上层连接回调可能发布状态或切换业务，必须由重连线程执行。 */
+    enqueue_connection_state_change(false, strReason);
+    notify_reconnect_thread();
+}
+
+void CMqttManager::enqueue_connection_state_change(bool bConnected, const std::string &strReason)
+{
+    /* lock: SDK 回调仅在此锁内移动事件；不得持锁执行平台连接状态回调。 */
+    std::lock_guard<std::mutex> lock(m_mtxConnectionStateEvents);
+    if (m_deqConnectionStateEvents.size() >= CONNECTION_EVENT_QUEUE_MAX_SIZE)
+    {
+        /* warn: 仅在异常状态频繁抖动时触发；保留最新状态比保留过期状态更重要。 */
+        m_deqConnectionStateEvents.pop_front();
+        dlog_warn("MQTT 连接状态事件队列已满，丢弃最早事件");
+    }
+
+    /* memory: 原因字符串复制进事件，调用方返回后不依赖底层 MQTT 的错误文本。 */
+    ConnectionStateEvent_S stEvent;
+    stEvent.bConnected = bConnected;
+    stEvent.strReason = strReason;
+    m_deqConnectionStateEvents.push_back(std::move(stEvent));
+}
+
+void CMqttManager::dispatch_connection_state_changes()
+{
+    while (true)
+    {
+        ConnectionStateEvent_S stEvent;
+        {
+            /* lock: 只在锁内弹出事件，随后立即释放，防止平台回调反调 MQTT 时锁递归。 */
+            std::lock_guard<std::mutex> lock(m_mtxConnectionStateEvents);
+            if (m_deqConnectionStateEvents.empty())
+            {
+                return;
+            }
+            stEvent = std::move(m_deqConnectionStateEvents.front());
+            m_deqConnectionStateEvents.pop_front();
+        }
+
+        MqttConnectionCallback fnCallback;
+        {
+            /* lock: 快照连接回调后在锁外调用，注册/注销回调不会被业务处理阻塞。 */
+            std::lock_guard<std::mutex> lock(m_mtxConnectionCallback);
+            fnCallback = m_fnConnectionCallback;
+        }
+        if (fnCallback)
+        {
+            fnCallback(stEvent.bConnected, stEvent.strReason);
+        }
+    }
+}
+
+void CMqttManager::notify_reconnect_thread()
+{
+    m_cvReconnect.notify_all();
 }
 
 bool CMqttManager::do_connect()
@@ -473,33 +602,24 @@ bool CMqttManager::do_connect()
 
 void CMqttManager::restore_subscriptions()
 {
-    std::lock_guard<std::mutex> lock(m_mtxTopics);
-
-    if (m_vecSubscribedTopics.empty())
+    std::vector<std::pair<std::string, int>> vTopics;
+    {
+        std::lock_guard<std::mutex> lock(m_mtxTopics);
+        vTopics = m_vecSubscribedTopics;
+    }
+    if (vTopics.empty())
     {
         return;
     }
 
-    dlog_info("MQTT 恢复[%zu]个订阅", m_vecSubscribedTopics.size());
+    dlog_info("MQTT 恢复[%zu]个订阅", vTopics.size());
 
-    for (const auto &stPair : m_vecSubscribedTopics)
+    for (const auto &stPair : vTopics)
     {
-        const std::string &strTopic = stPair.first;
-        int nQos = stPair.second;
-
-        if (m_pstMqtt != nullptr && m_pstMqtt->bConnected == 1)
+        const int nRet = subscribe(stPair.first, stPair.second);
+        if (nRet != OK)
         {
-            char *pTopic = const_cast<char *>(strTopic.c_str());
-            int nRet = m_pstMqtt->subscribe(m_pstMqtt, pTopic, nQos);
-
-            if (nRet == 0)
-            {
-                dlog_info("MQTT 恢复订阅成功，Topic[%s]，QoS[%d]", strTopic.c_str(), nQos);
-            }
-            else
-            {
-                dlog_error("MQTT 恢复订阅失败，Topic[%s]，返回值[%d]", strTopic.c_str(), nRet);
-            }
+            dlog_error("MQTT 恢复订阅失败，Topic[%s]，返回值[%d]", stPair.first.c_str(), nRet);
         }
     }
 }

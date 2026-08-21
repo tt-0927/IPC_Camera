@@ -38,3 +38,39 @@ void Task::StorageManage::FormatSdCard::handle()
     std::string strRet = nRet < 0 ? "格式化失败" : "格式化成功";
     result(Convert::to_string(strRet), nRet);
 }
+
+/**
+ * @brief 获取 SD 卡状态
+ * @return 通过任务结果返回 SD 卡状态 JSON，任务执行成功时返回值为 0
+ */
+void Task::StorageManage::GetSdCardStatus::handle()
+{
+    StorageManage_NS::SdCardStatus_S stSdCardStatus;
+    const SD_CARD_STATUS_E enSdCardStatus = CStorageManage::instance()->get_SdCardStatus();
+    stSdCardStatus.nStatus = static_cast<int>(enSdCardStatus);
+
+    switch (enSdCardStatus)
+    {
+        case SD_CARD_STATUS_E::WRITE_ERROR:
+            stSdCardStatus.strStatusText = "write_error";
+            break;
+        case SD_CARD_STATUS_E::INSERT:
+            stSdCardStatus.strStatusText = "initializing";
+            break;
+        case SD_CARD_STATUS_E::UNPLUG:
+            stSdCardStatus.strStatusText = "unplugged";
+            break;
+        case SD_CARD_STATUS_E::FORMATING:
+            stSdCardStatus.strStatusText = "formatting";
+            break;
+        case SD_CARD_STATUS_E::NORMAL:
+            stSdCardStatus.strStatusText = "normal";
+            stSdCardStatus.bReady = true;
+            break;
+        default:
+            stSdCardStatus.strStatusText = "unknown";
+            break;
+    }
+
+    result(Convert::to_string(stSdCardStatus), 0);
+}

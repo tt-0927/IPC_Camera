@@ -18,7 +18,10 @@
 
 namespace StorageManage_NS 
 {
-    /* 存储管理结构体 */
+    /* SD 卡未插入状态值，与 SD_CARD_STATUS_E::UNPLUG 保持一致。 */
+    static constexpr int STORAGE_MANAGE_SD_CARD_STATUS_UNPLUGGED = 1;
+
+        /* 存储管理结构体 */
     typedef struct StorageManage
 	{
         /* 是否启用 */
@@ -58,6 +61,17 @@ namespace StorageManage_NS
         }
 
 	} StorageManage_S;
+
+    /**
+     * @brief SD 卡当前状态信息
+     * @note  nStatus 对应 CStorageManage 的 SD_CARD_STATUS_E 枚举值
+     */
+    typedef struct SdCardStatus
+    {
+        int nStatus = STORAGE_MANAGE_SD_CARD_STATUS_UNPLUGGED;
+        std::string strStatusText = "unplugged";
+        bool bReady = false;
+    } SdCardStatus_S;
 
     typedef struct DirInfo
     {

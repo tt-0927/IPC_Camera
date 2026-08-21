@@ -28,7 +28,7 @@ enum class EventTvSdkPayloadType_E
     FACE_COMPARE,
 };
 
-/* TVSDK 统计业务子类型，数值与 NET_StatisticsType_E 保持一致 */
+/* TVSDK 统计业务子类型，数值与 NET_TV_STATISTICS_TYPE_E 保持一致 */
 enum class EventTvSdkStatisticsType_E
 {
     PEOPLE_FLOW = 1,
@@ -78,7 +78,7 @@ struct EventTvSdkTarget_S
 /* TVSDK 统计类负载，第一阶段用于人流统计，后续可复用到人员密度 */
 struct EventTvSdkStatisticsPayload_S
 {
-    /* 统计子类型，取值由 TVSDK 协议 NET_STATISTICS_TYPE_* 对齐 */
+    /* 统计子类型，取值由 TVSDK 协议 NET_TV_STATISTICS_TYPE_* 对齐 */
     int nStatisticsType = 0;
     /* 规则 ID 或规则下标 */
     int nRuleId = 0;
@@ -108,6 +108,21 @@ struct EventTvSdkFaceComparePayload_S
     Event::FaceCompareInfo_S stFaceCompareInfo;
 };
 
+/* TVSDK 车牌识别负载 */
+struct EventTvSdkPlatePayload_S
+{
+    /* 车牌号 */
+    std::string strPlateNumber;
+    /* 车牌颜色 */
+    uint32_t dwPlateColor;
+    /* 车辆类型 */
+    uint32_t dwVehicleType;
+    /* 车速(km/h) */
+    uint32_t dwSpeed;
+    /* 车道号 */
+    uint32_t dwLaneNo;
+};
+
 /* TVSDK 事件推送统一负载对象，通过 shared_ptr 挂载到事件上下文中传递所有权 */
 struct EventTvSdkPayload_S
 {
@@ -121,4 +136,6 @@ struct EventTvSdkPayload_S
     EventTvSdkStatisticsPayload_S stStatistics;
     /* 人脸比对结果负载 */
     EventTvSdkFaceComparePayload_S stFaceCompare;
+    /* 车牌识别负载 */
+    EventTvSdkPlatePayload_S stPlate;
 };

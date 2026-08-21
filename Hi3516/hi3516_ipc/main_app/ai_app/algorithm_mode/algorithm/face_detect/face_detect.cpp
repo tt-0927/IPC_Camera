@@ -23,6 +23,10 @@ constexpr int FACE_DETECT_QUEUE_MAX = 2;
 CFaceDetect::CFaceDetect() : m_dateQueue(FACE_DETECT_QUEUE_MAX)
 {
     memset_s(&m_stDstFrameInfo, sizeof(ot_video_frame_info), 0, sizeof(ot_video_frame_info));
+    for (auto &stFrame : m_astAsyncFrames)
+    {
+        memset_s(&stFrame, sizeof(stFrame), 0, sizeof(stFrame));
+    }
     m_bRunning.store(true);
     m_thread = std::thread(&CFaceDetect::run, this);
 }
@@ -36,6 +40,8 @@ CFaceDetect::~CFaceDetect()
         m_thread.join();
     }
     m_dateQueue.clear();
+    /* worker会归还正在使用和排队中的帧，必须先停止它再销毁帧池。 */
+    m_detectWorker.deinit();
     unInit();
 }
 
@@ -130,7 +136,7 @@ void CFaceDetect::setFaceCmpCfg(const Alarm::FaceCompare_S &stAlgoCfg)
     m_featureProcessor.setAlgoParamCfg(stAlgoCfg);
 }
 
-bool CFaceDetect::addFaceLibGroup(FaceDataDB_NS::FaceLibsInfo_S &stFaceLibData)
+int CFaceDetect::addFaceLibGroup(FaceDataDB_NS::FaceLibsInfo_S &stFaceLibData)
 {
     dlog_info("=== [FaceLib] 开始添加人脸库===");
     bool bTempStart = false;
@@ -142,7 +148,9 @@ bool CFaceDetect::addFaceLibGroup(FaceDataDB_NS::FaceLibsInfo_S &stFaceLibData)
     if (!m_detectWorker.isRunning())
     {
 
-        if (!m_detectWorker.start())
+        // if (!m_detectWorker.start())
+        /* 临时入库采用低内存模式，确保 YOLO 与 ArcFace 不同时驻留。 */
+        if (!m_detectWorker.start(true))
         {
             return false;
         }
@@ -150,7 +158,7 @@ bool CFaceDetect::addFaceLibGroup(FaceDataDB_NS::FaceLibsInfo_S &stFaceLibData)
         bTempStart = true;
     }
 
-    bool bRet = m_featureProcessor.addFaceLibGroup(stFaceLibData, m_detectWorker, m_nWidth, m_nHeight);
+    int bRet = m_featureProcessor.addFaceLibGroup(stFaceLibData, m_detectWorker, m_nWidth, m_nHeight);
 
     /*
      * 临时启动的则关闭
@@ -178,6 +186,10 @@ bool CFaceDetect::init()
             return false;
         }
     }
+    if (!initAsyncFramePool())
+    {
+        return false;
+    }
 #if CAP_AI_FACE_COMPARE
     /*
      * 初始化特征模型
@@ -192,12 +204,95 @@ bool CFaceDetect::init()
 
 bool CFaceDetect::unInit()
 {
+    deinitAsyncFramePool();
     mppVgs_destroy_video_frame_info(&m_stDstFrameInfo);
     memset_s(&m_stDstFrameInfo, sizeof(ot_video_frame_info), 0, sizeof(ot_video_frame_info));
 #if CAP_AI_FACE_COMPARE
     m_featureProcessor.deinit();
 #endif
     return true;
+}
+
+bool CFaceDetect::initAsyncFramePool()
+{
+    std::lock_guard<std::mutex> lock(m_asyncFramePoolMutex);
+    if (m_bAsyncFramePoolInitialized)
+    {
+        return true;
+    }
+
+    while (!m_availableAsyncFrames.empty())
+    {
+        m_availableAsyncFrames.pop();
+    }
+
+    size_t nCreated = 0;
+    for (; nCreated < m_astAsyncFrames.size(); ++nCreated)
+    {
+        auto &stFrame = m_astAsyncFrames[nCreated];
+        memset_s(&stFrame, sizeof(stFrame), 0, sizeof(stFrame));
+        if (TD_SUCCESS != mppVgs_create_video_frame_info(
+                              m_nWidth, m_nHeight, OT_PIXEL_FORMAT_YVU_SEMIPLANAR_420, &stFrame))
+        {
+            dlog_error("初始化人脸异步VB帧池失败，已创建[%zu/%zu]", nCreated, m_astAsyncFrames.size());
+            for (size_t i = 0; i < nCreated; ++i)
+            {
+                mppVgs_destroy_video_frame_info(&m_astAsyncFrames[i]);
+                memset_s(&m_astAsyncFrames[i], sizeof(m_astAsyncFrames[i]), 0, sizeof(m_astAsyncFrames[i]));
+            }
+            return false;
+        }
+        m_availableAsyncFrames.push(&stFrame);
+    }
+
+    m_bAsyncFramePoolInitialized = true;
+    dlog_info("人脸异步VB帧池初始化成功，帧数[%zu]，分辨率[%dx%d]",
+              m_astAsyncFrames.size(), m_nWidth, m_nHeight);
+    return true;
+}
+
+void CFaceDetect::deinitAsyncFramePool()
+{
+    std::lock_guard<std::mutex> lock(m_asyncFramePoolMutex);
+    if (!m_bAsyncFramePoolInitialized)
+    {
+        return;
+    }
+    while (!m_availableAsyncFrames.empty())
+    {
+        m_availableAsyncFrames.pop();
+    }
+    for (auto &stFrame : m_astAsyncFrames)
+    {
+        mppVgs_destroy_video_frame_info(&stFrame);
+        memset_s(&stFrame, sizeof(stFrame), 0, sizeof(stFrame));
+    }
+    m_bAsyncFramePoolInitialized = false;
+}
+
+ot_video_frame_info *CFaceDetect::acquireAsyncFrame()
+{
+    std::lock_guard<std::mutex> lock(m_asyncFramePoolMutex);
+    if (!m_bAsyncFramePoolInitialized || m_availableAsyncFrames.empty())
+    {
+        return nullptr;
+    }
+    ot_video_frame_info *pFrameInfo = m_availableAsyncFrames.front();
+    m_availableAsyncFrames.pop();
+    return pFrameInfo;
+}
+
+void CFaceDetect::releaseAsyncFrame(ot_video_frame_info *pFrameInfo)
+{
+    if (!pFrameInfo)
+    {
+        return;
+    }
+    std::lock_guard<std::mutex> lock(m_asyncFramePoolMutex);
+    if (m_bAsyncFramePoolInitialized)
+    {
+        m_availableAsyncFrames.push(pFrameInfo);
+    }
 }
 
 void CFaceDetect::run()
@@ -291,16 +386,10 @@ void CFaceDetect::run()
          * 2. MediaData释放
          * 3. worker线程访问野指针
          */
-        ot_video_frame_info *pAsyncFrame = new ot_video_frame_info;
-
-        memset(pAsyncFrame, 0, sizeof(ot_video_frame_info));
-
-        if (TD_SUCCESS != mppVgs_create_video_frame_info(m_nWidth, m_nHeight, OT_PIXEL_FORMAT_YVU_SEMIPLANAR_420, pAsyncFrame))
+        ot_video_frame_info *pAsyncFrame = acquireAsyncFrame();
+        if (!pAsyncFrame)
         {
-            dlog_error("创建异步frame失败");
-
-            delete pAsyncFrame;
-
+            dlog_warn("人脸异步VB帧池暂无空闲帧，丢弃当前输入帧。");
             continue;
         }
 
@@ -403,12 +492,10 @@ void CFaceDetect::run()
                     send_detectionResult_to_osd(m_nWidth, m_nHeight, vstRectInfo);
                 }
 
-                /*
-                 * 释放异步frame
-                 */
-                mppVgs_destroy_video_frame_info(pAsyncFrame);
-
-                delete pAsyncFrame;
+            },
+            [this, pAsyncFrame]()
+            {
+                releaseAsyncFrame(pAsyncFrame);
             });
     }
 }

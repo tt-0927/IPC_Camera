@@ -3,11 +3,12 @@
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2026-01-08 09:49:07
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-01-08 10:22:57
+ * @LastEditTime : 2026-08-20 17:30:00
  * @Description  : VENC通道处理策略实现
  */
 
 #include "venc_channel_handler.h"
+
 #include "stream_video.h"
 #include "push_stream.h"
 #include "RtpServer.h"
@@ -18,46 +19,62 @@
 #include "dlog.h"
 #include "IpcRet.h"
 
+namespace
+{
 /* JPEG帧最大尺寸 */
 constexpr int MAX_JPEG_FRAME = 5 * 1024 * 1024;
 
 /* IDR帧请求间隔时间（毫秒） */
 constexpr int IDR_REQUEST_INTERVAL_MS = 5500;
+}
 
-CMainChannelHandler::CMainChannelHandler(CStreamVideo* pStreamVideo) : m_pStreamVideo(pStreamVideo), m_llLastIdrTimestamp(-1)
+CMainChannelHandler::CMainChannelHandler(CStreamVideo *pStreamVideo) : m_pStreamVideo(pStreamVideo), m_llLastIdrTimestamp(-1)
 {
 }
 
-void CMainChannelHandler::handleFrame(const uint8_t* pData,
-                                     int nDataLen,
-                                     Video_NS::VideoFrame_S* pVideoFrame,
-                                     CStreamVideoConfig& configManager,
-                                     int nChannel)
+void CMainChannelHandler::handleFrame(const VencFrameView_S &stFrame, CStreamVideoConfig &configManager, int nChannel)
 {
-    if (!pVideoFrame)
+    if (!stFrame.pData || stFrame.nDataLen <= 0)
     {
-        dlog_error("主码流处理器：视频帧指针为空");
+        dlog_error("主码流处理器：VENC帧视图无效");
         return;
     }
 
-    const auto& videoConfig = configManager.getVideoConfigs().at(nChannel);
+    const auto &videoConfig = configManager.getVideoConfigs().at(nChannel);
 
     /* SVAC3编码不发送到RTSP */
     if (videoConfig.enVideoCodec != Video_NS::VideoCodec_E::SVAC3)
     {
-        /* 发送到RTSP推流模块 */
-        CPushStream::instance()->sendVideoData(pVideoFrame, true, true);
+        /*
+         * perf: 共享帧优先走零拷贝路径（RTSP/RTMP 直接持有引用）；
+         * 无共享帧时（构造失败回退）走旧拷贝路径。
+         */
+        if (stFrame.stSharedFrame.pData)
+        {
+            CPushStream::instance()->sendVideoData(stFrame.stSharedFrame, stFrame.enVideoCodec, stFrame.eType, true, true);
+        }
+        else
+        {
+            CPushStream::instance()->sendVideoData(stFrame.pData, stFrame.nDataLen, stFrame.enVideoCodec, stFrame.eType, true, true);
+        }
     }
 
-    /* 发送到GB28181 */
-    SIP::CRtpServer::instance()->sendVideoData(pVideoFrame);
+    /* 发送到GB28181（C风格RTP队列保持独立拷贝，不参与共享） */
+    SIP::CRtpServer::instance()->sendVideoData(stFrame.pData, stFrame.nDataLen);
 
 #if CAP_RECORD_USE_MAIN_STREAM
     /* 检查是否在录制状态 */
     if (CRecordCtrl::instance()->get_record_status() == Record_NS::Status_E::RECORD_OPERATION)
     {
-        /* 发送到录制模块 */
-        CStreamServer::instance()->sendVideoData(pVideoFrame);
+        /* 发送到录制模块（共享帧零拷贝入队） */
+        if (stFrame.stSharedFrame.pData)
+        {
+            CStreamServer::instance()->sendVideoData(stFrame.stSharedFrame);
+        }
+        else
+        {
+            CStreamServer::instance()->sendVideoData(stFrame.pData, stFrame.nDataLen);
+        }
 
         /* 检查是否需要请求IDR帧 */
         checkAndRequestIdr(configManager, nChannel);
@@ -65,9 +82,9 @@ void CMainChannelHandler::handleFrame(const uint8_t* pData,
 #endif
 }
 
-void CMainChannelHandler::checkAndRequestIdr(CStreamVideoConfig& configManager, int nChannel)
+void CMainChannelHandler::checkAndRequestIdr(CStreamVideoConfig &configManager, int nChannel)
 {
-    const auto& videoConfig = configManager.getVideoConfigs().at(nChannel);
+    const auto &videoConfig = configManager.getVideoConfigs().at(nChannel);
 
     /* I帧间隔/帧率 >= 5：防止因获取不到I帧导致TS文件时长比预设的6s要长 */
     if (1.0 * videoConfig.nIFrameInterval / videoConfig.getFrameRateAsInt() >= 5)
@@ -92,31 +109,41 @@ void CMainChannelHandler::checkAndRequestIdr(CStreamVideoConfig& configManager, 
     }
 }
 
-CSubChannelHandler::CSubChannelHandler(CStreamVideo* pStreamVideo) : m_pStreamVideo(pStreamVideo), m_llLastIdrTimestamp(-1)
+CSubChannelHandler::CSubChannelHandler(CStreamVideo *pStreamVideo) : m_pStreamVideo(pStreamVideo), m_llLastIdrTimestamp(-1)
 {
 }
 
-void CSubChannelHandler::handleFrame(const uint8_t* pData,
-                                    int nDataLen,
-                                    Video_NS::VideoFrame_S* pVideoFrame,
-                                    CStreamVideoConfig& configManager,
-                                    int nChannel)
+void CSubChannelHandler::handleFrame(const VencFrameView_S &stFrame, CStreamVideoConfig &configManager, int nChannel)
 {
-    if (!pVideoFrame)
+    if (!stFrame.pData || stFrame.nDataLen <= 0)
     {
-        dlog_error("子码流处理器：视频帧指针为空");
+        dlog_error("子码流处理器：VENC帧视图无效");
         return;
     }
 
-    /* 发送到RTSP推流模块 */
-    CPushStream::instance()->sendVideoData(pVideoFrame, false, true);
+    /* perf: 共享帧优先走零拷贝路径，无共享帧时（构造失败回退）走旧拷贝路径 */
+    if (stFrame.stSharedFrame.pData)
+    {
+        CPushStream::instance()->sendVideoData(stFrame.stSharedFrame, stFrame.enVideoCodec, stFrame.eType, false, true);
+    }
+    else
+    {
+        CPushStream::instance()->sendVideoData(stFrame.pData, stFrame.nDataLen, stFrame.enVideoCodec, stFrame.eType, false, true);
+    }
 
 #if !CAP_RECORD_USE_MAIN_STREAM
     /* 检查是否在录制状态 */
     if (CRecordCtrl::instance()->get_record_status() == Record_NS::Status_E::RECORD_OPERATION)
     {
-        /* 发送到录制模块 */
-        CStreamServer::instance()->sendVideoData(pVideoFrame);
+        /* 发送到录制模块（共享帧零拷贝入队） */
+        if (stFrame.stSharedFrame.pData)
+        {
+            CStreamServer::instance()->sendVideoData(stFrame.stSharedFrame);
+        }
+        else
+        {
+            CStreamServer::instance()->sendVideoData(stFrame.pData, stFrame.nDataLen);
+        }
 
         /* 检查是否需要请求IDR帧 */
         checkAndRequestIdr(configManager, nChannel);
@@ -124,9 +151,9 @@ void CSubChannelHandler::handleFrame(const uint8_t* pData,
 #endif
 }
 
-void CSubChannelHandler::checkAndRequestIdr(CStreamVideoConfig& configManager, int nChannel)
+void CSubChannelHandler::checkAndRequestIdr(CStreamVideoConfig &configManager, int nChannel)
 {
-    const auto& videoConfig = configManager.getVideoConfigs().at(nChannel);
+    const auto &videoConfig = configManager.getVideoConfigs().at(nChannel);
 
     /* I帧间隔/帧率 >= 5：防止因获取不到I帧导致TS文件时长比预设的6s要长 */
     if (1.0 * videoConfig.nIFrameInterval / videoConfig.getFrameRateAsInt() >= 5)
@@ -156,20 +183,16 @@ CJpegChannelHandler::CJpegChannelHandler() : m_nFrameCount(0)
     m_prevFrame.reserve(MAX_JPEG_FRAME / 2);
 }
 
-void CJpegChannelHandler::handleFrame(const uint8_t* pData,
-                                     int nDataLen,
-                                     Video_NS::VideoFrame_S* pVideoFrame,
-                                     CStreamVideoConfig& configManager,
-                                     int nChannel)
+void CJpegChannelHandler::handleFrame(const VencFrameView_S &stFrame, CStreamVideoConfig &configManager, int nChannel)
 {
-    /* JPEG通道直接处理原始数据，不使用VideoFrame */
-    if (pData && nDataLen > 0)
+    /* JPEG通道直接处理VENC pack原始数据，不创建VideoFrame副本。 */
+    if (stFrame.pData && stFrame.nDataLen > 0)
     {
-        sendFrameData(pData, nDataLen);
+        sendFrameData(stFrame.pData, stFrame.nDataLen);
     }
 }
 
-int CJpegChannelHandler::sendFrameData(const uint8_t* pData, int nDataLen)
+int CJpegChannelHandler::sendFrameData(const uint8_t *pData, int nDataLen)
 {
     if (!pData || nDataLen <= 0)
     {
@@ -231,7 +254,7 @@ int CJpegChannelHandler::sendFrameData(const uint8_t* pData, int nDataLen)
 
             return OK;
         }
-        catch (const std::bad_alloc&)
+        catch (const std::bad_alloc &)
         {
             dlog_error("JPEG帧内存分配失败，自动恢复");
             m_nFrameCount = 0;

@@ -7,7 +7,7 @@ project(${PRO_NAME})
 # ipc_share
 include(${IPC_SHARE_PATH}/ipc_share.cmake)
 include(${IPC_SHARE_PATH}/common/utils/sdl/sdl.cmake)
-#include(${IPC_SHARE_PATH}/protocols/tvsdk/tvsdk.cmake)
+include(${IPC_SHARE_PATH}/protocols/tvsdk/tvsdk.cmake)
 
 # cam_share
 include(${CAM_SHARE_PATH}/include/include.cmake)
@@ -52,7 +52,7 @@ foreach(item ${MAIN_INC_PATH})
 endforeach()
 
 # 过滤
-set(GREP_DIR "demo|Demo|ai_app")
+set(GREP_DIR "demo|Demo|ai_app|diagnostics")
 # set(GREP_DIR "demo|Demo")
 
 # 获取本程序子目录

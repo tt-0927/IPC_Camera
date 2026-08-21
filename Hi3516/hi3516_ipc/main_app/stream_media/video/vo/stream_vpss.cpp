@@ -3,7 +3,7 @@
  * @Author       : zhouzirui
  * @Date         : 2025-03-21 10:29:00
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-06-30 09:45:07
+ * @LastEditTime : 2026-07-30 15:14:08
  * @Description  : VPSS 视频处理
  */
 
@@ -78,22 +78,22 @@ HiVpss_S **streamVpss_init(HiVpss_S ***pHandle, const std::vector<Video_NS::Vide
                 }
                 else if (nVpssChn == VPSS_CHANNEL_AI) // AI 检测
                 {
-#if CAP_AI_FACE_COMPARE
-                    pVpssChnAttr->nWidth = PIXEL_WIDTH_1024;
-                    pVpssChnAttr->nHeight = PIXEL_HEIGHT_576;
-                    pVpssChnAttr->nMaxWidth = PIXEL_WIDTH_1024;
-                    pVpssChnAttr->nMaxHeight = PIXEL_HEIGHT_576;
-                    pVpssChnAttr->nDepth = 2;
+#if CAP_AI_FACE_COMPARE && CAP_IO_EXTERNAL_DDR_00S
+                    pVpssChnAttr->nWidth = PIXEL_WIDTH_1920;
+                    pVpssChnAttr->nHeight = PIXEL_HEIGHT_1080;
+                    pVpssChnAttr->nMaxWidth = PIXEL_WIDTH_1920;
+                    pVpssChnAttr->nMaxHeight = PIXEL_HEIGHT_1080;
+                    pVpssChnAttr->nDepth = 6;
                     pVpssChnAttr->nSrcFrameRate = 30;
-                    pVpssChnAttr->nDstFrameRate = 2;
-#else
+                    pVpssChnAttr->nDstFrameRate = 3;    
+                    #else
                     pVpssChnAttr->nWidth = PIXEL_WIDTH_1024;
                     pVpssChnAttr->nHeight = PIXEL_HEIGHT_576;
                     pVpssChnAttr->nMaxWidth = PIXEL_WIDTH_1024;
                     pVpssChnAttr->nMaxHeight = PIXEL_HEIGHT_576;
                     pVpssChnAttr->nDepth = 6;
                     pVpssChnAttr->nSrcFrameRate = 30;
-                    pVpssChnAttr->nDstFrameRate = 30;
+                    pVpssChnAttr->nDstFrameRate = 3;
 #endif
                 }
             }
@@ -173,11 +173,20 @@ int streamVpss_set_chnAttr(HiVpss_S *pHandle, const Video_NS::VideoConfig_S &stV
     return OK;
 }
 
-int streamVpss_set_chnCrop(HiVpss_S *pHandle, const Video_NS::AreaCrop_S &stAreaCrop)
+int streamVpss_set_chnCrop(HiVpss_S *pHandle,
+                            const Video_NS::AreaCrop_S &stAreaCrop,
+                            ot_vpss_crop_info *pstAppliedCrop)
 {
+    if (!pHandle || stAreaCrop.nId < 0 || stAreaCrop.nId >= pHandle->nVpssChnSum)
+    {
+        dlog_error("设置 VPSS 裁剪失败，参数错误");
+        return ERR_PARAM;
+    }
+
     int nRet = OK;
     /* 设置 VPSS 通道CROP裁剪 */
     ot_vpss_crop_info stCropInfo;
+    memset(&stCropInfo, 0, sizeof(stCropInfo));
     stCropInfo.enable = (td_bool)stAreaCrop.bEnable;
     stCropInfo.crop_mode = OT_COORD_ABS; // 绝对坐标模式
     // note：转换坐标 插件比例->实际比例
@@ -196,12 +205,53 @@ int streamVpss_set_chnCrop(HiVpss_S *pHandle, const Video_NS::AreaCrop_S &stArea
     // stCropInfo.crop_rect.height = ALIGN_BACK(stRect.nHeight, 2);
     stCropInfo.crop_rect.width = ALIGN_BACK(stAreaCrop.stResolution.nWidth, 2);
     stCropInfo.crop_rect.height = ALIGN_BACK(stAreaCrop.stResolution.nHeight, 2);
+
+    if (stCropInfo.enable &&
+        (stCropInfo.crop_rect.width <= 0 || stCropInfo.crop_rect.height <= 0 ||
+         stCropInfo.crop_rect.x < 0 || stCropInfo.crop_rect.y < 0 ||
+         stCropInfo.crop_rect.x + stCropInfo.crop_rect.width > pHandle->astVpssChnAttr[nId].nWidth ||
+         stCropInfo.crop_rect.y + stCropInfo.crop_rect.height > pHandle->astVpssChnAttr[nId].nHeight))
+    {
+        dlog_error("设置 VPSS 裁剪失败，区域超出当前通道画面，通道:%d 画面:%dx%d 区域:[%d,%d,%d,%d]",
+                   nId,
+                   pHandle->astVpssChnAttr[nId].nWidth,
+                   pHandle->astVpssChnAttr[nId].nHeight,
+                   stCropInfo.crop_rect.x,
+                   stCropInfo.crop_rect.y,
+                   stCropInfo.crop_rect.width,
+                   stCropInfo.crop_rect.height);
+        return ERR_PARAM;
+    }
     nRet = pHandle->mppVpss_set_chnCrop(pHandle, &stCropInfo, nId);
     if (TD_SUCCESS != nRet)
     {
         dlog_error("设置Grp:%d 通道:%d 裁剪失败: %#x", pHandle->nVpssGrp, nId, nRet);
         return ERR;
     }
+
+    /* memory: 调用方保存该副本，用作 OSD/RGN 坐标变换的唯一有效裁剪几何。 */
+    if (pstAppliedCrop)
+    {
+        *pstAppliedCrop = stCropInfo;
+    }
+    return OK;
+}
+
+int streamVpss_get_chnCrop(HiVpss_S *pHandle, int nVpssChn, ot_vpss_crop_info &stCropInfo)
+{
+    if (!pHandle || nVpssChn < 0 || nVpssChn >= pHandle->nVpssChnSum)
+    {
+        dlog_error("获取 VPSS 裁剪参数失败，参数错误");
+        return ERR_PARAM;
+    }
+
+    memset(&stCropInfo, 0, sizeof(stCropInfo));
+    if (TD_SUCCESS != ss_mpi_vpss_get_chn_crop(pHandle->nVpssGrp, nVpssChn, &stCropInfo))
+    {
+        dlog_error("获取 Grp:%d 通道:%d 裁剪参数失败", pHandle->nVpssGrp, nVpssChn);
+        return ERR;
+    }
+
     return OK;
 }
 

@@ -1,9 +1,9 @@
-/*** 
+/**
  * @FilePath     : isp_control.cpp
  * @Author       : cyc
  * @Date         : 2025-06-05 10:16:15
- * @LastEditors  : cyc
- * @LastEditTime : 2026-01-29 16:30:19
+ * @LastEditors  : zhouzr@kfb.cn
+ * @LastEditTime : 2026-08-11 13:43:07
  * @Description  : isp参数控制模块
  */
 
@@ -12,12 +12,8 @@
 #include "isp_control.h"
 #include "IpcRet.h"
 #include "sample_comm.h"
-#include "gpio_ctrl.h"
-#include "pwm_ctrl.h"
 #include "dlog.h"
 #include "isp_configure.h"
-#include "isp_scene.h"
-#include "isp_manage.h"
 #include "rk_mpi_vpss.h"
 
 CIspControl::CIspControl()
@@ -36,6 +32,7 @@ CIspControl::~CIspControl()
 
 int CIspControl::init()
 {
+    /* step: 先建立并启动RK AIQ，成功后bootstrap才能把该上下文借给共享ISP适配器。 */
     XCamReturn nRet = XCAM_RETURN_NO_ERROR;
 
 	nRet = rk_isp_init(CAMERA_IQFILE_PATH);
@@ -54,12 +51,22 @@ int CIspControl::init()
 
 int CIspControl::deinit()
 {
-    XCamReturn nRet = XCAM_RETURN_NO_ERROR;
+    /* memory: 共享service必须先注销；本函数只释放自己拥有的RK AIQ上下文。 */
+    if (!m_isInitialized.load())
+    {
+        return XCAM_RETURN_NO_ERROR;
+    }
 
-    rk_isp_deInit();
-
-    m_isInitialized.store(false);;
-
+    const XCamReturn nRet = rk_isp_deInit();
+    if (nRet == XCAM_RETURN_NO_ERROR)
+    {
+        m_isInitialized.store(false);
+    }
+    else
+    {
+        /* ! AIQ释放失败时保留初始化状态和上下文，允许上层按生命周期重试，避免遗留悬空借用。 */
+        dlog_error("RV1126B RK AIQ释放失败，保留上下文等待重试: %d", nRet);
+    }
     return nRet;
 }
 
@@ -134,12 +141,16 @@ XCamReturn CIspControl::rk_isp_init(const std::string strIqfilesDir)
 XCamReturn CIspControl::rk_isp_deInit()
 {
     XCamReturn  nRet = XCAM_RETURN_NO_ERROR;
-    /* 停止AIQ控制系统 */
+    if (g_aiq_ctx == NULL)
+    {
+        return nRet;
+    }
+
+    /* step: 先停止3A线程；停止失败时保留context，避免后续adapter访问已失效对象。 */
 	nRet = rk_aiq_uapi2_sysctl_stop(g_aiq_ctx, false);
     if (nRet != XCAM_RETURN_NO_ERROR)
     {
         dlog(LOG_ERROR, "rk_aiq_uapi2_sysctl_stop error: %d", nRet);
-        g_aiq_ctx = NULL;
         return nRet;
     }
 
@@ -252,7 +263,8 @@ int CIspControl::set_sharpness(const unsigned int nSharpen)
     XCamReturn nRet =  XCAM_RETURN_NO_ERROR;
 
 #ifdef DEVICE_TV_3882TI
-    nRet = rk_aiq_uapi2_setSharpness(g_aiq_ctx, nSharpen + 10);
+    unsigned int mapped_sharpness = (8 * nSharpen + 205) / 10;// 纯整数四舍五入: (0.8 * x + 20)
+    nRet = rk_aiq_uapi2_setSharpness(g_aiq_ctx, mapped_sharpness);
 #else
     nRet = rk_aiq_uapi2_setSharpness(g_aiq_ctx, nSharpen);
 #endif
@@ -571,7 +583,14 @@ int CIspControl::set_exposure_attr(const ExposureAttr_S &stExpAttr)
         dlog(LOG_ERROR, "rk_aiq_user_api2_ae_setLinExpAttr failed: %d", nRet);
         return nRet;
     }
-
+    
+    nRet = rk_aiq_uapi2_setAntiFlickerEn(g_aiq_ctx,stExpAttr.bAntiBanding);
+    if (nRet != XCAM_RETURN_NO_ERROR)
+    {
+        dlog(LOG_ERROR, " rk_aiq_uapi2_setAntiFlickerEn failed: %d", nRet);
+        return nRet;
+    }
+    
     return nRet;
 }
 
@@ -949,22 +968,10 @@ int CIspControl::get_dayNight_attr(DayNightAttr_S &stDayNightAttr) const
 
 int CIspControl::set_dayNight_attr(const DayNightAttr_S &stDayNightAttr)
 {
-    int nRet = IpcRet_E::OK;
-    
-    CDayNightController::instance()->setMode(stDayNightAttr.enDayNightMode);
-
-    if (stDayNightAttr.enDayNightMode == TIME_MODE) 
-    {
-        TimeRange_S stRange;
-        stRange.stStartTime = stDayNightAttr.stBeginTime;
-        stRange.stEndTime = stDayNightAttr.stEndTime;
-        CDayNightController::instance()->setTimeRange(stRange);
-    }
-    
-    CDayNightController::instance()->setSensitivity(stDayNightAttr.nSensitivityLevel);
-    CDayNightController::instance()->setFilterTime(stDayNightAttr.nFilterTime);
-
-    return nRet;
+    (void) stDayNightAttr;
+    /* ! 日夜模式、定时和过滤由共享CIspBusinessService统一裁决，禁止CIspControl绕过运行态仲裁器。 */
+    /* note: 保留旧接口仅为兼容已有调用方，实际请求必须改走CIspManage。 */
+    return ERR_UNSUPPORT;
 }
 
 /**************************高级参数控制 end************************/

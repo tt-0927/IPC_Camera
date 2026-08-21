@@ -7,6 +7,8 @@
 #include "Singleton.h"
 #include <thread> 
 #include "platform_manager.h"
+#include <chrono>
+#include <atomic>
 // 运营商类型枚举
 typedef enum {
     OPERATOR_UNKNOWN = 0,
@@ -120,7 +122,18 @@ private:
     static constexpr int UPDATE_INTERVAL_MS = 2000; // 更新间隔：2000毫秒 (2秒)
     std::mutex port_mutex;
     bool m_lastWiredDisconnected = false;
-
+    std::atomic<bool> m_dial_in_progress{false};
+    std::atomic<bool> m_4gDataConnected{false};
+    std::atomic<long long> m_nextAutoDialTimeMs{0};
+    enum RoutePreference { ROUTE_UNKNOWN = 0, ROUTE_ETH0, ROUTE_4G };
+    RoutePreference m_routePreference = ROUTE_UNKNOWN;
+    int m_ethInternetSuccess = 0;
+    int m_ethInternetFailure = 0;
+    int m_4gInternetSuccess = 0;
+    int m_4gInternetFailure = 0;
+    bool m_lastWiredAvailable = false;
+    bool m_last4gAvailable = false;
+    void connectAsync();
     // 自动识别相关
     void autoDetectOperator(); 
     std::string getApnForOperator(Operator_Type op);

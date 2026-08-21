@@ -141,6 +141,10 @@ private:
     int m_nHeight = PIXEL_HEIGHT_576;
     /* 是否需要裁剪源视频 */
     bool m_bIsCrop = false;
+    /* 源视频分辨率与算法分辨率不一致时使用的缩放帧 */
+    ot_video_frame_info m_stScaleFrameInfo;
+    /* 缩放帧是否已创建 */
+    bool m_bScaleFrameCreated = false;
     /* 是否绘制了区域 */
     bool m_bIsDraw = false;
     /* 目标视频帧 */

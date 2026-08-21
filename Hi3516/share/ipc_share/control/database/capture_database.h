@@ -1,8 +1,8 @@
 /*
  * @Author: 梁浩尧 lianghaoyao@kfb.cn
  * @Date: 2025-10-16 17:22:50
- * @LastEditors: lianghy lianghy@kfb.cn
- * @LastEditTime: 2026-01-04 08:44:25
+ * @LastEditors: zhouzr@kfb.cn
+ * @LastEditTime: 2026-08-13 15:03:25
  * @FilePath: /hisi/share/ipc_share/control/database/capture_database.h
  * @Description: 抓图信息数据库
  */
@@ -118,6 +118,12 @@ namespace Db
         * @return int <0:失败
         */
         int create(std::string tableName, bool bAddTableKey = true);
+
+        /**
+        * @brief 设置SQLite同步模式为NORMAL
+        * @note 图片文件本身已fsync，元数据索引允许容忍断电丢失最近一次提交
+        */
+        void set_sync_mode();
 
     private:
         CDbBase m_database;

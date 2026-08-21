@@ -28,7 +28,7 @@ void StudentSummary::addEmotion(
 void StudentSummary::finalize(int nId, const void* pParam)
 {
     /* 保存文件 */
-    std::string strPath = ToolFunc::toString((char*)pParam, "/", nId, ".json");
+    std::string strPath = ToolFunc::toString((char*)pParam, "/Student/", nId, ".json");
     saveFile(strPath);
 }
 

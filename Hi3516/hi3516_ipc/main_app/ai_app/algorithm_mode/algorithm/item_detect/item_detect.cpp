@@ -3,7 +3,7 @@
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2025-07-29 20:10:37
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-01-04 06:25:07
+ * @LastEditTime : 2026-08-15 10:46:02
  * @Description  : 物品侦测
  */
 
@@ -665,7 +665,9 @@ bool CItemDetect::processUnattendedObjectDetect(HiLdRegionResult_S *pstResult,
     stAlarmCtx.nChnId = stCtx.nChnId;
     stAlarmCtx.llTimestamp = stCtx.llTimestamp;
 #ifdef ENABLE_TVSDK_SRC
-    if (bAnyRegionAlarm && stCtx.pFrameInfo != nullptr)
+    /* perf: 有TVSDK客户端订阅时才软件编码全景图，无订阅者或冷却期跳过编码 */
+    if (bAnyRegionAlarm && m_unattendedObjectAlarmStateMachine.canStartAlarm() && stCtx.pFrameInfo != nullptr &&
+        AiAppCommon::tvsdk_event_image_required())
     {
         auto pPayload = std::make_shared<EventTvSdkPayload_S>();
         pPayload->enType = get_tvsdk_payload_type(stAlarmCtx.enEventType);
@@ -877,7 +879,9 @@ bool CItemDetect::processObjectRemovalDetect(HiLdRegionResult_S *pstResult,
     stAlarmCtx.nChnId = stCtx.nChnId;
     stAlarmCtx.llTimestamp = stCtx.llTimestamp;
 #ifdef ENABLE_TVSDK_SRC
-    if (bAnyRegionAlarm && stCtx.pFrameInfo != nullptr)
+    /* perf: 有TVSDK客户端订阅时才软件编码全景图，无订阅者或冷却期跳过编码 */
+    if (bAnyRegionAlarm && m_objectRemovalAlarmStateMachine.canStartAlarm() && stCtx.pFrameInfo != nullptr &&
+        AiAppCommon::tvsdk_event_image_required())
     {
         auto pPayload = std::make_shared<EventTvSdkPayload_S>();
         pPayload->enType = get_tvsdk_payload_type(stAlarmCtx.enEventType);
@@ -1193,7 +1197,9 @@ void CItemDetect::processUnattendedObjectDetect(ot_aidetect_result_array &stResu
     stAlarmCtx.nChnId = stCtx.nChnId;
     stAlarmCtx.llTimestamp = stCtx.llTimestamp;
 #ifdef ENABLE_TVSDK_SRC
-    if (bIsAlarmedOverall && stCtx.pFrameInfo != nullptr)
+    /* perf: 有TVSDK客户端订阅时才软件编码全景图，无订阅者或冷却期跳过编码 */
+    if (bIsAlarmedOverall && m_unattendedObjectAlarmStateMachine.canStartAlarm() && stCtx.pFrameInfo != nullptr &&
+        AiAppCommon::tvsdk_event_image_required())
     {
         auto pPayload = std::make_shared<EventTvSdkPayload_S>();
         pPayload->enType = get_tvsdk_payload_type(stAlarmCtx.enEventType);
@@ -1244,7 +1250,9 @@ void CItemDetect::processObjectRemovalDetect(ot_aidetect_result_array &stResult,
     stAlarmCtx.nChnId = stCtx.nChnId;
     stAlarmCtx.llTimestamp = stCtx.llTimestamp;
 #ifdef ENABLE_TVSDK_SRC
-    if (bIsAlarmedOverall && stCtx.pFrameInfo != nullptr)
+    /* perf: 有TVSDK客户端订阅时才软件编码全景图，无订阅者或冷却期跳过编码 */
+    if (bIsAlarmedOverall && m_objectRemovalAlarmStateMachine.canStartAlarm() && stCtx.pFrameInfo != nullptr &&
+        AiAppCommon::tvsdk_event_image_required())
     {
         auto pPayload = std::make_shared<EventTvSdkPayload_S>();
         pPayload->enType = get_tvsdk_payload_type(stAlarmCtx.enEventType);

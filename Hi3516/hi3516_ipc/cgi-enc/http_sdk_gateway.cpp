@@ -23,17 +23,17 @@ namespace WebCGI
         constexpr const char *HTTP_DEVICE_NAME = "IPC";
         constexpr const char *HTTP_DEFAULT_USER = "admin";
 
-        constexpr int SDK_NET_GET_FACECAPTUREINFO = 246;
-        constexpr int SDK_NET_SET_FACECAPTUREINFO = 247;
-        constexpr int SDK_NET_SET_FACE_COMPARE_INFO = 482;
-        constexpr int SDK_NET_ADD_TARGET_LIB = 483;
-        constexpr int SDK_NET_DEL_TARGET_LIB = 484;
-        constexpr int SDK_NET_SET_TARGET_LIB = 485;
-        constexpr int SDK_NET_GET_TARGET_LIB = 486;
-        constexpr int SDK_NET_ADD_FACE_INFO = 487;
-        constexpr int SDK_NET_DEL_FACE_INFO = 488;
-        constexpr int SDK_NET_SET_FACE_INFO = 489;
-        constexpr int SDK_NET_GET_FACE_INFO = 490;
+        constexpr int SDK_NET_TV_GET_FACECAPTUREINFO = 246;
+        constexpr int SDK_NET_TV_SET_FACECAPTUREINFO = 247;
+        constexpr int SDK_NET_TV_SET_FACE_COMPARE_INFO = 482;
+        constexpr int SDK_NET_TV_ADD_TARGET_LIB = 483;
+        constexpr int SDK_NET_TV_DEL_TARGET_LIB = 484;
+        constexpr int SDK_NET_TV_SET_TARGET_LIB = 485;
+        constexpr int SDK_NET_TV_GET_TARGET_LIB = 486;
+        constexpr int SDK_NET_TV_ADD_FACE_INFO = 487;
+        constexpr int SDK_NET_TV_DEL_FACE_INFO = 488;
+        constexpr int SDK_NET_TV_SET_FACE_INFO = 489;
+        constexpr int SDK_NET_TV_GET_FACE_INFO = 490;
 
         /**
          * @brief SDK 命令到内部 ActionCode 的映射项
@@ -47,19 +47,19 @@ namespace WebCGI
         };
 
         const SdkCommandMap_S g_astCommandMap[] = {
-            {"NET_GET_FACECAPTUREINFO", SDK_NET_GET_FACECAPTUREINFO, AC_GET_FACE_CAPTURE_INFO, "获取人脸抓拍配置"},
-            {"NET_GET_FACE_CAPTURE_INFO", SDK_NET_GET_FACECAPTUREINFO, AC_GET_FACE_CAPTURE_INFO, "获取人脸抓拍配置"},
-            {"NET_SET_FACECAPTUREINFO", SDK_NET_SET_FACECAPTUREINFO, AC_SET_FACE_CAPTURE_INFO, "设置人脸抓拍配置"},
-            {"NET_SET_FACE_CAPTURE_INFO", SDK_NET_SET_FACECAPTUREINFO, AC_SET_FACE_CAPTURE_INFO, "设置人脸抓拍配置"},
-            {"NET_SET_FACE_COMPARE_INFO", SDK_NET_SET_FACE_COMPARE_INFO, AC_SET_FACE_COMPARE_INFO, "设置人脸比对配置"},
-            {"NET_ADD_TARGET_LIB", SDK_NET_ADD_TARGET_LIB, AC_ADD_TARGET_LIB, "添加目标库"},
-            {"NET_DEL_TARGET_LIB", SDK_NET_DEL_TARGET_LIB, AC_DEL_TARGET_LIB, "删除目标库"},
-            {"NET_SET_TARGET_LIB", SDK_NET_SET_TARGET_LIB, AC_SET_TARGET_LIB, "修改目标库"},
-            {"NET_GET_TARGET_LIB", SDK_NET_GET_TARGET_LIB, AC_GET_TARGET_LIB, "获取目标库"},
-            {"NET_ADD_FACE_INFO", SDK_NET_ADD_FACE_INFO, AC_ADD_FACE_INFO, "添加人脸"},
-            {"NET_DEL_FACE_INFO", SDK_NET_DEL_FACE_INFO, AC_DEL_FACE_INFO, "删除人脸"},
-            {"NET_SET_FACE_INFO", SDK_NET_SET_FACE_INFO, AC_SET_FACE_INFO, "修改人脸"},
-            {"NET_GET_FACE_INFO", SDK_NET_GET_FACE_INFO, AC_GET_FACE_INFO, "获取人脸"},
+            {"NET_TV_GET_FACECAPTUREINFO", SDK_NET_TV_GET_FACECAPTUREINFO, AC_GET_FACE_CAPTURE_INFO, "获取人脸抓拍配置"},
+            {"NET_TV_GET_FACE_CAPTURE_INFO", SDK_NET_TV_GET_FACECAPTUREINFO, AC_GET_FACE_CAPTURE_INFO, "获取人脸抓拍配置"},
+            {"NET_TV_SET_FACECAPTUREINFO", SDK_NET_TV_SET_FACECAPTUREINFO, AC_SET_FACE_CAPTURE_INFO, "设置人脸抓拍配置"},
+            {"NET_TV_SET_FACE_CAPTURE_INFO", SDK_NET_TV_SET_FACECAPTUREINFO, AC_SET_FACE_CAPTURE_INFO, "设置人脸抓拍配置"},
+            {"NET_TV_SET_FACE_COMPARE_INFO", SDK_NET_TV_SET_FACE_COMPARE_INFO, AC_SET_FACE_COMPARE_INFO, "设置人脸比对配置"},
+            {"NET_TV_ADD_TARGET_LIB", SDK_NET_TV_ADD_TARGET_LIB, AC_ADD_TARGET_LIB, "添加目标库"},
+            {"NET_TV_DEL_TARGET_LIB", SDK_NET_TV_DEL_TARGET_LIB, AC_DEL_TARGET_LIB, "删除目标库"},
+            {"NET_TV_SET_TARGET_LIB", SDK_NET_TV_SET_TARGET_LIB, AC_SET_TARGET_LIB, "修改目标库"},
+            {"NET_TV_GET_TARGET_LIB", SDK_NET_TV_GET_TARGET_LIB, AC_GET_TARGET_LIB, "获取目标库"},
+            {"NET_TV_ADD_FACE_INFO", SDK_NET_TV_ADD_FACE_INFO, AC_ADD_FACE_INFO, "添加人脸"},
+            {"NET_TV_DEL_FACE_INFO", SDK_NET_TV_DEL_FACE_INFO, AC_DEL_FACE_INFO, "删除人脸"},
+            {"NET_TV_SET_FACE_INFO", SDK_NET_TV_SET_FACE_INFO, AC_SET_FACE_INFO, "修改人脸"},
+            {"NET_TV_GET_FACE_INFO", SDK_NET_TV_GET_FACE_INFO, AC_GET_FACE_INFO, "获取人脸"},
         };
 
         using JsonPtr = std::unique_ptr<cJSON, void (*)(cJSON *)>;

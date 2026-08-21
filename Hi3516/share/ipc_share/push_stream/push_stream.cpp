@@ -3,7 +3,7 @@
  * @Author       : zhouzirui
  * @Date         : 2025-03-27 17:42:05
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-05-18 14:12:14
+ * @LastEditTime : 2026-08-20 16:00:01
  * @Description  : 推流模块
  */
 
@@ -18,7 +18,7 @@
 
 namespace
 {
-#if CAP_GARBAGE_STATION_PLATFORM
+#if CAP_RTMP_PUSH
 /**
  * @brief 判断视频配置是否可用于RTMP推流
  * @param stVideoConfig 视频配置
@@ -143,7 +143,7 @@ IpcRet_E CPushStream::init()
     }
 
     /* 初始化RTMP推流（按平台配置开关控制） */
-#if CAP_GARBAGE_STATION_PLATFORM
+#if CAP_RTMP_PUSH
     {
         Network::Platform_Info_t stPlatformInfo;
         if (get_rtmp_platform_info(stPlatformInfo))
@@ -190,7 +190,7 @@ IpcRet_E CPushStream::deinit()
     {
         CRtspServer::instance()->deinit();
     }
-#if CAP_GARBAGE_STATION_PLATFORM
+#if CAP_RTMP_PUSH
     if (CRtmpPusher::instance()->is_init())
     {
         CRtmpPusher::instance()->deinit();
@@ -209,6 +209,26 @@ int CPushStream::sendVideoData(Video_NS::VideoFrame_S *pVideoFrame, bool bIsMain
         return ERR_PTR_NULL;
     }
 
+    return sendVideoData(pVideoFrame->pData,
+                         pVideoFrame->nLen,
+                         pVideoFrame->enVideoCodec,
+                         pVideoFrame->eType,
+                         bIsMain,
+                         bIsRtsp);
+}
+
+int CPushStream::sendVideoData(const uint8_t *pData,
+                               int nDataLen,
+                               Video_NS::VideoCodec_E enVideoCodec,
+                               Video_NS::NalType_E eType,
+                               bool bIsMain,
+                               bool bIsRtsp)
+{
+    if (!pData || nDataLen <= 0)
+    {
+        return ERR_PARAM;
+    }
+
     int nRet = OK;
     if (m_bInitFlag == true)
     {
@@ -217,19 +237,21 @@ int CPushStream::sendVideoData(Video_NS::VideoFrame_S *pVideoFrame, bool bIsMain
             /* 发送到RTSP */
             if (bIsMain == true)
             {
-                nRet = CRtspServer::instance()->sendVideoData(RTSP_CHN_MAIN, pVideoFrame);
+                nRet = CRtspServer::instance()->sendVideoData(
+                    RTSP_CHN_MAIN, pData, nDataLen, enVideoCodec, eType);
             }
             else
             {
-                nRet = CRtspServer::instance()->sendVideoData(RTSP_CHN_SUB, pVideoFrame);
+                nRet = CRtspServer::instance()->sendVideoData(
+                    RTSP_CHN_SUB, pData, nDataLen, enVideoCodec, eType);
             }
 
             /* 同时发送到RTMP（如果RTMP已初始化） */
-#if CAP_GARBAGE_STATION_PLATFORM
+#if CAP_RTMP_PUSH
             if (CRtmpPusher::instance()->is_init())
             {
                 int nChannel = bIsMain ? 0 : 1;
-                CRtmpPusher::instance()->send_video_data(nChannel, pVideoFrame);
+                CRtmpPusher::instance()->send_video_data(nChannel, pData, nDataLen, eType);
             }
 #endif
         }
@@ -238,6 +260,47 @@ int CPushStream::sendVideoData(Video_NS::VideoFrame_S *pVideoFrame, bool bIsMain
     return nRet;
 }
 
+int CPushStream::sendVideoData(const Video_NS::SharedMediaFrame_S &stSharedFrame,
+                               Video_NS::VideoCodec_E enVideoCodec,
+                               Video_NS::NalType_E eType,
+                               bool bIsMain,
+                               bool bIsRtsp)
+{
+    if (!stSharedFrame.pData || stSharedFrame.nLen <= 0)
+    {
+        return ERR_PARAM;
+    }
+
+    int nRet = OK;
+    if (m_bInitFlag == true)
+    {
+        if (bIsRtsp == true)
+        {
+            /* 发送到RTSP（零拷贝，共享引用） */
+            if (bIsMain == true)
+            {
+                nRet = CRtspServer::instance()->sendVideoData(RTSP_CHN_MAIN, stSharedFrame, enVideoCodec, eType);
+            }
+            else
+            {
+                nRet = CRtspServer::instance()->sendVideoData(RTSP_CHN_SUB, stSharedFrame, enVideoCodec, eType);
+            }
+
+            /* 同时发送到RTMP（如果RTMP已初始化），同样零拷贝共享引用 */
+#if CAP_RTMP_PUSH
+            if (CRtmpPusher::instance()->is_init())
+            {
+                int nChannel = bIsMain ? 0 : 1;
+                CRtmpPusher::instance()->send_video_data(nChannel, stSharedFrame, eType);
+            }
+#endif
+        }
+    }
+
+    return nRet;
+}
+
+#if CAP_RTMP_PUSH
 int CPushStream::sendVideoData(Video_NS::VideoFrame_S *pVideoFrame, bool bIsMain, PushStreamProtocol_E enProtocol)
 {
     if (!pVideoFrame)
@@ -262,12 +325,10 @@ int CPushStream::sendVideoData(Video_NS::VideoFrame_S *pVideoFrame, bool bIsMain
             }
             break;
         case PROTOCOL_RTMP:
-#if CAP_GARBAGE_STATION_PLATFORM
         {
             int nChannel = bIsMain ? 0 : 1;
             nRet = CRtmpPusher::instance()->send_video_data(nChannel, pVideoFrame);
         }
-#endif
         break;
         default:
             dlog_error("未知的推流协议: %d", enProtocol);
@@ -277,6 +338,7 @@ int CPushStream::sendVideoData(Video_NS::VideoFrame_S *pVideoFrame, bool bIsMain
 
     return nRet;
 }
+#endif
 
 int CPushStream::sendAudioData(Audio_NS::AudioFrame_S *pAudioFrame, bool bIsMain, bool bIsRtsp)
 {
@@ -302,7 +364,7 @@ int CPushStream::sendAudioData(Audio_NS::AudioFrame_S *pAudioFrame, bool bIsMain
             }
 
             /* 同时发送到RTMP（如果RTMP已初始化） */
-#if CAP_GARBAGE_STATION_PLATFORM
+#if CAP_RTMP_PUSH
             if (CRtmpPusher::instance()->is_init())
             {
                 int nChannel = bIsMain ? 0 : 1;
@@ -318,6 +380,7 @@ int CPushStream::sendAudioData(Audio_NS::AudioFrame_S *pAudioFrame, bool bIsMain
     return nRet;
 }
 
+#if CAP_RTMP_PUSH
 int CPushStream::sendAudioData(Audio_NS::AudioFrame_S *pAudioFrame, bool bIsMain, PushStreamProtocol_E enProtocol)
 {
     if (!pAudioFrame)
@@ -342,12 +405,10 @@ int CPushStream::sendAudioData(Audio_NS::AudioFrame_S *pAudioFrame, bool bIsMain
             }
             break;
         case PROTOCOL_RTMP:
-#if CAP_GARBAGE_STATION_PLATFORM
         {
             int nChannel = bIsMain ? 0 : 1;
             nRet = CRtmpPusher::instance()->send_audio_data(nChannel, pAudioFrame);
         }
-#endif
         break;
         default:
             dlog_error("未知的推流协议: %d", enProtocol);
@@ -357,6 +418,7 @@ int CPushStream::sendAudioData(Audio_NS::AudioFrame_S *pAudioFrame, bool bIsMain
 
     return nRet;
 }
+#endif
 
 int CPushStream::sendAudioData(Audio_NS::AudioFrame_S *pAudioFrame, bool bIsRtsp)
 {
@@ -376,7 +438,7 @@ int CPushStream::sendAudioData(Audio_NS::AudioFrame_S *pAudioFrame, bool bIsRtsp
             nRet = CRtspServer::instance()->sendAudioData(RTSP_CHN_SUB, pAudioFrame);
 
             /* 同时发送到RTMP（如果RTMP已初始化） */
-#if CAP_GARBAGE_STATION_PLATFORM
+#if CAP_RTMP_PUSH
             if (CRtmpPusher::instance()->is_init())
             {
                 /* 音频广播为高频路径，默认关闭逐帧日志，排查多码流音频时再临时打开。 */
@@ -391,6 +453,7 @@ int CPushStream::sendAudioData(Audio_NS::AudioFrame_S *pAudioFrame, bool bIsRtsp
     return nRet;
 }
 
+#if CAP_RTMP_PUSH
 int CPushStream::sendAudioData(Audio_NS::AudioFrame_S *pAudioFrame, PushStreamProtocol_E enProtocol)
 {
     if (!pAudioFrame)
@@ -409,9 +472,7 @@ int CPushStream::sendAudioData(Audio_NS::AudioFrame_S *pAudioFrame, PushStreamPr
             nRet = CRtspServer::instance()->sendAudioData(RTSP_CHN_SUB, pAudioFrame);
             break;
         case PROTOCOL_RTMP:
-#if CAP_GARBAGE_STATION_PLATFORM
             nRet = CRtmpPusher::instance()->send_audio_data(pAudioFrame);
-#endif
             break;
         default:
             dlog_error("未知的推流协议: %d", enProtocol);
@@ -421,8 +482,9 @@ int CPushStream::sendAudioData(Audio_NS::AudioFrame_S *pAudioFrame, PushStreamPr
 
     return nRet;
 }
+#endif
 
-#if CAP_GARBAGE_STATION_PLATFORM
+#if CAP_RTMP_PUSH
 int CPushStream::restart_rtmp_stream(const Network::Platform_Info_t &stPlatformInfo)
 {
     if (!stPlatformInfo.enable)

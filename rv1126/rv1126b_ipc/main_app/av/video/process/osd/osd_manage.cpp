@@ -22,6 +22,7 @@
 
 namespace
 {
+
 bool normalize_cover_config(Osd::CoverConfig_S &stConfig)
 {
     bool bChanged = false;
@@ -453,6 +454,7 @@ std::size_t COsdManage::get_cover_max_area_count() const
 
 IpcRet_E COsdManage::set_cover_config(Osd::CoverConfig_S stInfo)
 {
+
     if (stInfo.vecCoverAttr.size() > get_cover_max_area_count())
     {
         dlog_warn("隐私遮盖区域数超出平台能力, request:%zu, max:%zu",

@@ -61,6 +61,7 @@
 #define TIMEOUT_150_MS                 (150)
 #define TIMEOUT_500_MS                 (500)
 #define TIMEOUT_1000_MS                (1000)
+#define TIMEOUT_1500_MS                (1500)
 /*AI检测超时时间*/
 #define AI_DETECT_TIMEOUTMS (2000)
 

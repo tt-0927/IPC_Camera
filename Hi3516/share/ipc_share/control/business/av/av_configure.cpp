@@ -63,6 +63,8 @@ CAVConfigure::CAVConfigure()
     m_setAoSpeakCallback = nullptr;
     m_setVideoRoiConfigCallback = nullptr;
     m_waitAoDrainedCallback = nullptr;
+    m_pVideoConfigApplier = nullptr;
+    m_pAudioConfigApplier = nullptr;
     m_nOriginalIFrameInterval = DEFAULTE_GOP;
     m_bIFrameIntervalModified = false;
 
@@ -80,6 +82,66 @@ CAVConfigure::CAVConfigure()
 
 CAVConfigure::~CAVConfigure()
 {
+}
+
+int CAVConfigure::setAVVideoConfigApplier(IAVVideoConfigApplier *pApplier)
+{
+    if (pApplier == nullptr)
+    {
+        dlog_error("无效的 AV 视频配置应用接口");
+        return ERR_PARAM_NULL;
+    }
+
+    m_pVideoConfigApplier = pApplier;
+    return OK;
+}
+
+int CAVConfigure::clearAVVideoConfigApplier(IAVVideoConfigApplier *pApplier)
+{
+    if (pApplier == nullptr)
+    {
+        dlog_error("无效的 AV 视频配置应用接口");
+        return ERR_PARAM_NULL;
+    }
+
+    if (m_pVideoConfigApplier != pApplier)
+    {
+        dlog_warn("清理 AV 视频配置应用接口失败，接口指针不匹配");
+        return ERR_PARAM;
+    }
+
+    m_pVideoConfigApplier = nullptr;
+    return OK;
+}
+
+int CAVConfigure::setAVAudioConfigApplier(IAVAudioConfigApplier *pApplier)
+{
+    if (pApplier == nullptr)
+    {
+        dlog_error("无效的 AV 音频配置应用接口");
+        return ERR_PARAM_NULL;
+    }
+
+    m_pAudioConfigApplier = pApplier;
+    return OK;
+}
+
+int CAVConfigure::clearAVAudioConfigApplier(IAVAudioConfigApplier *pApplier)
+{
+    if (pApplier == nullptr)
+    {
+        dlog_error("无效的 AV 音频配置应用接口");
+        return ERR_PARAM_NULL;
+    }
+
+    if (m_pAudioConfigApplier != pApplier)
+    {
+        dlog_warn("清理 AV 音频配置应用接口失败，接口指针不匹配");
+        return ERR_PARAM;
+    }
+
+    m_pAudioConfigApplier = nullptr;
+    return OK;
 }
 
 void CAVConfigure::setVideoConfigCallback(const SetVideoConfigCallback &callback)
@@ -150,8 +212,17 @@ int CAVConfigure::set_configure(const Video_NS::VideoConfig_S& data)
         m_bIFrameIntervalModified = false;
     }
 
-    /*调用回调通知StreamVideo更新*/
-    if (m_setVideoConfigCallback)
+    /* 优先通过业务仓库注册的配置应用接口更新，兼容旧回调兜底 */
+    if (m_pVideoConfigApplier)
+    {
+        nRet = m_pVideoConfigApplier->apply_video_config(stVideoConfig);
+        if (nRet != OK)
+        {
+            dlog_debug("调用 AV 视频配置应用接口失败:%d", nRet);
+            return nRet;
+        }
+    }
+    else if (m_setVideoConfigCallback)
     {
         nRet = m_setVideoConfigCallback(stVideoConfig);
         if (nRet != OK)
@@ -184,8 +255,16 @@ int CAVConfigure::set_configure(const Video_NS::VideoRoiConfig_S &data)
     int nRet = OK;
     /*验证配置参数的有效性*/
     
-    /*调用回调通知StreamVideo更新*/
-    if (m_setVideoRoiConfigCallback)
+    /* 优先通过业务仓库注册的配置应用接口更新，兼容旧回调兜底 */
+    if (m_pVideoConfigApplier)
+    {
+        nRet = m_pVideoConfigApplier->apply_video_roi_config(data);
+        if (nRet != OK)
+        {
+            return nRet;
+        }
+    }
+    else if (m_setVideoRoiConfigCallback)
     {
         nRet = m_setVideoRoiConfigCallback(data);
         if (nRet != OK)
@@ -217,8 +296,16 @@ int CAVConfigure::set_configure(const Video_NS::AreaCrop_S &data)
     int nRet = OK;
     /*验证配置参数的有效性*/
 
-    /*调用回调通知StreamVideo更新*/
-    if (m_setAreaCropConfigCallback)
+    /* 优先通过业务仓库注册的配置应用接口更新，兼容旧回调兜底 */
+    if (m_pVideoConfigApplier)
+    {
+        nRet = m_pVideoConfigApplier->apply_area_crop_config(data);
+        if (nRet != OK)
+        {
+            return nRet;
+        }
+    }
+    else if (m_setAreaCropConfigCallback)
     {
         nRet = m_setAreaCropConfigCallback(data);
         if (nRet != OK)
@@ -265,8 +352,16 @@ int CAVConfigure::set_configure(const Audio_NS::AudioConfig_S &data)
         return ERR_PARAM;
     }
     
-    /*调用回调通知StreamAudio更新*/
-    if (m_setAudioConfigCallback)
+    /* 优先通过业务仓库注册的配置应用接口更新，兼容旧回调兜底 */
+    if (m_pAudioConfigApplier)
+    {
+        nRet = m_pAudioConfigApplier->apply_audio_config(data);
+        if (nRet != OK)
+        {
+            return nRet;
+        }
+    }
+    else if (m_setAudioConfigCallback)
     {
         nRet = m_setAudioConfigCallback(data);
         if (nRet != OK)

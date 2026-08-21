@@ -3,7 +3,7 @@
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2025-10-13 10:52:02
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-07-01 09:24:20
+ * @LastEditTime : 2026-08-07 17:50:36
  * @Description  : 升级包升级进程
  */
 
@@ -60,10 +60,20 @@ int main(int argc, char *argv[])
     {
         printf("日志初始化失败\n");
     }
-    /* 设置日志输出同步输出控制台 */
+#if CAP_PROCESS_LOG_SWITCH
+    /* 发布模式：关闭控制台同步输出，日志级别设置为 WARN */
+    syncPrintf(false);
+    setLogLevel(LOG_WARN);
+#else
+    /* 开发模式：开启控制台同步输出，日志级别设置为 TRACE */
     syncPrintf(true);
-    /* 设置日志等级 */
     setLogLevel(LOG_TRACE);
+#endif
+
+    /* 设置日志限流：同一调用点至少间隔1000ms才允许再次输出，防止高频日志阻塞业务线程 */
+    setLogThrottleInterval(1000);
+    /* 启动日志级别文件监控，支持运行时通过文件切换日志级别 */
+    startLogLevelMonitor(UPGRADE_LOG_LEVEL_PATH);
 
     dlog_trace("启动升级程序");
 

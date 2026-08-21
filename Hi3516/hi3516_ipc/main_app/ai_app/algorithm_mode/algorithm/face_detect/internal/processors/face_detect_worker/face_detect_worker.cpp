@@ -1,9 +1,19 @@
+/**
+ * @FilePath     : face_detect_worker.cpp
+ * @Author       : zhouzr@kfb.cn
+ * @Date         : 2026-05-15 14:16:15
+ * @LastEditors  : zhouzr@kfb.cn
+ * @LastEditTime : 2026-07-29 14:29:37
+ * @Description  : 人脸检测与特征提取异步工作线程实现
+ */
+
 #include "face_detect_worker.hpp"
 #include "dlog.h"
 #include "path_define.h"
 #include "internal/base/hvf_detect_common.hpp"
 #include <unistd.h>
 #include "YoloUltralytics_rpn.hpp"
+#include "garbage_detect.hpp"
 namespace
 {
 constexpr int VIDEO_QUEUE_MAX = 2;
@@ -21,7 +31,7 @@ CFaceDetectWorker::~CFaceDetectWorker()
     deinit();
 }
 
-bool CFaceDetectWorker::start()
+bool CFaceDetectWorker::start(bool bExclusiveModelResidency)
 {
     /*
      * 已启动
@@ -31,6 +41,11 @@ bool CFaceDetectWorker::start()
         return true;
     }
 
+    m_bExclusiveModelResidency = bExclusiveModelResidency;
+    if (m_bExclusiveModelResidency)
+    {
+        dlog_info("启用低内存模型互斥模式，YOLO 与 ArcFace 将按任务切换");
+    }
     m_running.store(true);
     // m_faceProcessor.setEnabled(true);
     m_thread = std::thread(&CFaceDetectWorker::workerLoop, this);
@@ -44,58 +59,99 @@ bool CFaceDetectWorker::isRunning() const
 
 bool CFaceDetectWorker::init()
 {
+    if (m_bExclusiveModelResidency)
+    {
+        return true;
+    }
 
-    if (!m_pFaceDetHandle)
+    if (!m_pFaceDetHandle
+#if CAP_AI_FACE_COMPARE
+        || !m_pFaceFeatureHandle
+#endif
+    )
     {
         dlog_info("开始显式初始化 YOLO 和 ArcFace 模型...");
-
-        // 1. YOLO 检测模型初始化
-        std::string detectModel = AI_FACE_DETECTION_CONFIG_FILE;
-
-        m_pFaceDetHandle =  new Inference_NS::CYoloUltralytics(detectModel);
-
-        if (!m_pFaceDetHandle || !m_pFaceDetHandle->init())
-        {
-            dlog_error("YOLO模型初始化失败");
-            m_running.store(false);
-            return false;
-        }
-
-        dlog_info("YOLO模型初始化成功");
     }
-
-
-    // if (!m_pFaceDetHandle)
-    // {
-    //     m_pFaceDetHandle = streamAiDetect_init(AI_DETECT_CHN_HVF, AI_HVF_NORMAL_MODEL_PATH);
-    //     if (!m_pFaceDetHandle)
-    //     {
-    //         dlog_error("脸人车侦测初始化失败");
-    //         return false;
-    //     }
-    //     dlog_info("脸人车侦测初始化成功");
-    // }
-    #if CAP_AI_FACE_COMPARE
-    if (!m_pFaceFeatureHandle)
+    if (!ensureDetectionModel())
     {
-        // 2. ArcFace 特征提取模型初始化
-        std::string featureModel = AI_FACE_FEATURE_CONFIG_FILE;
-
-        m_pFaceFeatureHandle = new Inference_NS ::CImageFeature(featureModel);
-
-        if (!m_pFaceFeatureHandle || !m_pFaceFeatureHandle->init())
-        {
-            dlog_error("ArcFace模型初始化失败");
-            m_running.store(false);
-            return false;
-            ;
-        }
-
-        dlog_info("ArcFace模型初始化成功");
+        return false;
     }
-    #endif
+#if CAP_AI_FACE_COMPARE
+    return ensureFeatureModel();
+#else
+    return true;
+#endif
+}
+
+bool CFaceDetectWorker::ensureDetectionModel()
+{
+#if CAP_AI_FACE_COMPARE
+    if (m_bExclusiveModelResidency)
+    {
+        releaseFeatureModel();
+    }
+#endif
+    if (m_pFaceDetHandle)
+    {
+        return true;
+    }
+
+    std::string detectModel = AI_FACE_DETECTION_CONFIG_FILE;
+    m_pFaceDetHandle = new Inference_NS::CYoloUltralytics(detectModel);
+    if (!m_pFaceDetHandle || !m_pFaceDetHandle->init())
+    {
+        dlog_error("YOLO模型初始化失败");
+        releaseDetectionModel();
+        return false;
+    }
+    dlog_info("YOLO模型初始化成功");
     return true;
 }
+
+void CFaceDetectWorker::releaseDetectionModel()
+{
+    if (m_pFaceDetHandle)
+    {
+        delete m_pFaceDetHandle;
+        m_pFaceDetHandle = nullptr;
+        dlog_info("YOLO模型已释放");
+    }
+}
+
+#if CAP_AI_FACE_COMPARE
+bool CFaceDetectWorker::ensureFeatureModel()
+{
+    if (m_bExclusiveModelResidency)
+    {
+        releaseDetectionModel();
+    }
+    if (m_pFaceFeatureHandle)
+    {
+        return true;
+    }
+
+    std::string featureModel = AI_FACE_FEATURE_CONFIG_FILE;
+    m_pFaceFeatureHandle = new Inference_NS::CImageFeature(featureModel);
+    if (!m_pFaceFeatureHandle || !m_pFaceFeatureHandle->init())
+    {
+        dlog_error("ArcFace模型初始化失败");
+        releaseFeatureModel();
+        return false;
+    }
+    dlog_info("ArcFace模型初始化成功");
+    return true;
+}
+
+void CFaceDetectWorker::releaseFeatureModel()
+{
+    if (m_pFaceFeatureHandle)
+    {
+        delete m_pFaceFeatureHandle;
+        m_pFaceFeatureHandle = nullptr;
+        dlog_info("ArcFace模型已释放");
+    }
+}
+#endif
 
 void CFaceDetectWorker::deinit()
 {
@@ -108,12 +164,25 @@ void CFaceDetectWorker::deinit()
         m_thread.join();
     }
 
-    if (m_pFaceDetHandle)
+    std::vector<std::function<void()>> pendingCleanups;
     {
-        delete m_pFaceDetHandle;
-
-        m_pFaceDetHandle = nullptr;
+        std::lock_guard<std::mutex> lock(m_mutex);
+        while (!m_queue.empty())
+        {
+            auto task = m_queue.top();
+            m_queue.pop();
+            if (task && task->cleanup)
+            {
+                pendingCleanups.push_back(task->cleanup);
+            }
+        }
     }
+    for (auto &cleanup : pendingCleanups)
+    {
+        cleanup();
+    }
+
+    releaseDetectionModel();
     // if (m_pFaceDetHandle)
     // {
     //     streamAiDetect_uninit(m_pFaceDetHandle);
@@ -121,39 +190,29 @@ void CFaceDetectWorker::deinit()
     // }
     // m_faceProcessor.setEnabled(false);
     #if CAP_AI_FACE_COMPARE
-    if (m_pFaceFeatureHandle)
-    {
-        delete m_pFaceFeatureHandle;
-
-        m_pFaceFeatureHandle = nullptr;
-    }
+    releaseFeatureModel();
     #endif
+    m_bExclusiveModelResidency = false;
 }
 
 void CFaceDetectWorker::releaseHandle()
 {
-    if (m_pFaceDetHandle)
-    {
-        delete m_pFaceDetHandle;
-
-        m_pFaceDetHandle = nullptr;
-    }
+    releaseDetectionModel();
     // if (m_pFaceDetHandle)
     // {
     //     streamAiDetect_uninit(m_pFaceDetHandle);
     //     m_pFaceDetHandle = nullptr;
     // }
     #if CAP_AI_FACE_COMPARE
-    if (m_pFaceFeatureHandle)
-    {
-        delete m_pFaceFeatureHandle;
-
-        m_pFaceFeatureHandle = nullptr;
-    }
+    releaseFeatureModel();
     #endif
 }
 
-void CFaceDetectWorker::submitVideoFrame(ot_video_frame_info *frame, int width, int height, DetectCallback callback)
+void CFaceDetectWorker::submitVideoFrame(ot_video_frame_info *frame,
+                                         int width,
+                                         int height,
+                                         DetectCallback callback,
+                                         std::function<void()> cleanup)
 {
     auto task = std::make_shared<DetectTask>();
 
@@ -162,34 +221,61 @@ void CFaceDetectWorker::submitVideoFrame(ot_video_frame_info *frame, int width, 
     task->width = width;
     task->height = height;
     task->callback = callback;
+    task->cleanup = cleanup;
     task->submitTime = std::chrono::steady_clock::now();
 
+    std::vector<std::function<void()>> droppedCleanups;
+    bool bAccepted = false;
     {
         std::lock_guard<std::mutex> lock(m_mutex);
 
-        /*
-         * 丢弃旧视频帧
-         */
-        while (m_queue.size() >= VIDEO_QUEUE_MAX)
+        if (!m_running.load())
         {
-            auto top = m_queue.top();
-
-            if (top->type == TaskType::VIDEO_FRAME)
+            if (task->cleanup)
             {
-                m_queue.pop();
-            }
-            else
-            {
-                break;
+                droppedCleanups.push_back(task->cleanup);
             }
         }
+        else
+        {
 
-        task->seq = ++m_seq;
+            /*
+             * 丢弃旧视频帧
+             */
+            while (m_queue.size() >= VIDEO_QUEUE_MAX)
+            {
+                auto top = m_queue.top();
 
-        m_queue.push(task);
+                if (top->type == TaskType::VIDEO_FRAME)
+                {
+                    m_queue.pop();
+                    if (top->cleanup)
+                    {
+                        droppedCleanups.push_back(top->cleanup);
+                    }
+                }
+                else
+                {
+                    break;
+                }
+            }
+
+            task->seq = ++m_seq;
+
+            m_queue.push(task);
+            bAccepted = true;
+        }
     }
 
-    m_cond.notify_one();
+    for (auto &droppedCleanup : droppedCleanups)
+    {
+        droppedCleanup();
+    }
+
+    if (bAccepted)
+    {
+        m_cond.notify_one();
+    }
 }
 
 std::string CFaceDetectWorker::submitFaceImage(ot_video_frame_info *frame, int width, int height)
@@ -340,6 +426,35 @@ void CFaceDetectWorker::workerLoop()
             continue;
         }
 
+        bool bModelReady = false;
+        if (task->type == TaskType::VIDEO_FRAME || task->type == TaskType::FACE_IMAGE)
+        {
+            bModelReady = ensureDetectionModel();
+        }
+#if CAP_AI_FACE_COMPARE
+        else if (task->type == TaskType::FEATURE_EXTRACT)
+        {
+            bModelReady = ensureFeatureModel();
+        }
+#endif
+        if (!bModelReady)
+        {
+            dlog_error("任务所需模型初始化失败，任务类型[%d]", static_cast<int>(task->type));
+            if (task->cleanup)
+            {
+                task->cleanup();
+                task->cleanup = nullptr;
+            }
+            if (!task->taskId.empty())
+            {
+                std::lock_guard<std::mutex> lock(m_resultMutex);
+                auto &result = m_taskResults[task->taskId];
+                result.state = TaskState::FAILED;
+                result.updateTime = std::chrono::steady_clock::now();
+            }
+            continue;
+        }
+
         /*
          * 更新RUNNING状态
          */
@@ -430,10 +545,26 @@ void CFaceDetectWorker::workerLoop()
             /*
              * 视频流回调
              */
+            // #define FACE_DETECT_LABEL_ID (2)
+            // if( vPointDatas[0].nLabel == FACE_DETECT_LABEL_ID)
+            // {
+            //     dlog_info("检测到人脸");
+           
             if (task->callback)
             {
                 task->callback(vPointDatas);
             }
+            if (task->cleanup)
+            {
+                task->cleanup();
+                task->cleanup = nullptr;
+            }
+            // }
+            // else {
+            //     dlog_info("检测到垃圾");
+            //     CGarbageDetect garbageDetect;
+            //     garbageDetect.handleDetectResult(vPointDatas,task->pFrame);
+            // }
 
         }
         #if CAP_AI_FACE_COMPARE

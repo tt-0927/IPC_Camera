@@ -3,7 +3,7 @@
  * @Author       : zhangjc (zhangjc@kfb.cn)
  * @Date         : 2024-12-16
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2025-12-23 16:25:42
+ * @LastEditTime : 2026-07-20 17:13:15
  * @Description  : 录制控制
  */
 
@@ -116,6 +116,11 @@ void CRecordCtrl::stop_record()
 {
     std::lock_guard<std::mutex> lock(m_mutex);
     m_stop = true;
+}
+
+bool CRecordCtrl::is_running() const
+{
+    return m_bRun.load(std::memory_order_acquire);
 }
 
 /* 获取录制状态 */

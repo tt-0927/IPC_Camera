@@ -20,7 +20,7 @@ namespace TvSdkCallbacks
 
     /**
      * @brief 注册所有 NetTVSDKServer 回调
-     * @note 需要在 NET_SERVER_Init 成功后调用
+     * @note 需要在 NET_TV_SERVER_Init 成功后调用
      */
     void register_all();
 } // namespace TvSdkCallbacks

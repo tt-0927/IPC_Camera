@@ -30,7 +30,8 @@ protected:
   VideoRTPSink(UsageEnvironment& env,
 	       Groupsock* rtpgs, unsigned char rtpPayloadType,
 	       unsigned rtpTimestampFrequency,
-	       char const* rtpPayloadFormatName);
+	       char const* rtpPayloadFormatName,
+	       unsigned maxBufferSize = 0);
   // (we're an abstract base class)
   virtual ~VideoRTPSink();
 

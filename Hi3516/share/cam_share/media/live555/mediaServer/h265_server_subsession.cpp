@@ -112,7 +112,10 @@ FramedSource* H265_Server_Subsession::createNewStreamSource(unsigned /*clientSes
 RTPSink* H265_Server_Subsession::createNewRTPSink(Groupsock* rtpGroupsock,
 		   unsigned char rtpPayloadTypeIfDynamic,
 		   FramedSource* /*inputSource*/) {
-  return H265VideoRTPSink::createNew(envir(), rtpGroupsock, rtpPayloadTypeIfDynamic);
+  return H265VideoRTPSink::createNew(envir(),
+                                     rtpGroupsock,
+                                     rtpPayloadTypeIfDynamic,
+                                     m_pSouceInfo.outPacketBufferSize);
 }
 
 // info ------------------ zhouzr ------------------

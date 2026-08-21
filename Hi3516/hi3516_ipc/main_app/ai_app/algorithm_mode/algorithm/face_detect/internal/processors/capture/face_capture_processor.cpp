@@ -29,7 +29,8 @@ namespace
 {
 /* 人脸目标框放大倍率，用于目标小图裁剪时保留周边上下文 */
 constexpr float FACE_REGION_SCALE_RATIO = 1.5f;
-
+/* 算法未返回眼部关键点时，以人脸框宽度的 70% 估算瞳距 */
+constexpr int ESTIMATED_IPD_RATIO_PERCENT = 70;
 struct FaceCaptureTimeParts_S
 {
     std::string strDateCompact;
@@ -255,7 +256,6 @@ bool CFaceCaptureProcessor::collectTargets(std::vector<Inference_NS::BoxData_S> 
 
      if (pointData.fConfidence < fSensitivityThreshold)
         {
-            dlog_info("fConfidence :%d",pointData.fConfidence)
             continue;
         }   
 
@@ -265,21 +265,29 @@ bool CFaceCaptureProcessor::collectTargets(std::vector<Inference_NS::BoxData_S> 
         // {
         //     continue;
         // }
+      /* 算法未返回眼部关键点，以人脸框宽度的 70% 估算瞳距 */
+      const int nFaceWidth = std::max(0, pointData.stBoxs.nX2 - pointData.stBoxs.nX1);
+      const int nEstimatedIpd = nFaceWidth * ESTIMATED_IPD_RATIO_PERCENT / 100;
+      if (nEstimatedIpd < nMinIpd)
+      {
+          continue;
+      }
 
         bIsAlarm = true;
-        dlog_info("[人脸抓拍] 灵敏度[%.3f] > 阈值[%.3f] 瞳距 [%d] > [%d]",
+        dlog_debug("[人脸抓拍] 灵敏度[%.3f] > 阈值[%.3f] 瞳距 [%d] > [%d]",
                   pointData.fConfidence,
                   fSensitivityThreshold,
                 //   nIpd,
+                nEstimatedIpd,
                   nMinIpd);
-        dlog_info("[人脸抓拍][原图框] X1=%d Y1=%d X2=%d Y2=%d W=%d H=%d Confidence=%.3f",
-                  pointData.stBoxs.nX1,
-                  pointData.stBoxs.nY1,
-                  pointData.stBoxs.nX2,
-                  pointData.stBoxs.nY2,
-                  pointData.stBoxs.nX2 - pointData.stBoxs.nX1,
-                  pointData.stBoxs.nY2 - pointData.stBoxs.nY1,
-                  pointData.fConfidence);
+        // dlog_info("[人脸抓拍][原图框] X1=%d Y1=%d X2=%d Y2=%d W=%d H=%d Confidence=%.3f",
+        //           pointData.stBoxs.nX1,
+        //           pointData.stBoxs.nY1,
+        //           pointData.stBoxs.nX2,
+        //           pointData.stBoxs.nY2,
+        //           pointData.stBoxs.nX2 - pointData.stBoxs.nX1,
+        //           pointData.stBoxs.nY2 - pointData.stBoxs.nY1,
+        //           pointData.fConfidence);
         add_result_to_vector(pointData, vstRectInfo);
         if (pvecTargets != nullptr)
         {
@@ -324,8 +332,11 @@ int CFaceCaptureProcessor::saveFaceImage(std::vector<Common::RectInfo_S> vstRect
         /* VGS 裁剪必须是4字节对齐，宽度需16字节向下对齐，防止超限 */
         rect.nX1 = ALIGN_BACK(rect.nX1, 16);
         rect.nY1 = ALIGN_BACK(rect.nY1, 4);
-        rect.nX2 = ALIGN_BACK(rect.nX2, 16);
-        rect.nY2 = ALIGN_BACK(rect.nY2, 4);
+        // rect.nX2 = ALIGN_BACK(rect.nX2, 16);
+        // rect.nY2 = ALIGN_BACK(rect.nY2, 4);
+         /* 右下角向外对齐，避免 1.5 倍扩框在 VGS 对齐时被重新缩小。 */
+         rect.nX2 = std::min(ALIGN_UP(rect.nX2, 16), static_cast<int>(pSrcFrameInfo->video_frame.width));
+         rect.nY2 = std::min(ALIGN_UP(rect.nY2, 4), static_cast<int>(pSrcFrameInfo->video_frame.height));
 
         /* 裁剪后目标小图宽高 */
         const unsigned int unDstWidth = rect.nX2 - rect.nX1;
@@ -374,10 +385,10 @@ int CFaceCaptureProcessor::saveFaceImage(std::vector<Common::RectInfo_S> vstRect
             continue;
         }
         vecImageFile.emplace_back(strFilename);
-        dlog_info("人脸抓拍目标图保存成功: path[%s], timestamp[%lld], save_db[%d]",
-                  strFilename.c_str(),
-                  llTimestamp,
-                  bSaveDatabase ? 1 : 0);
+        // dlog_info("人脸抓拍目标图保存成功: path[%s], timestamp[%lld], save_db[%d]",
+        //           strFilename.c_str(),
+        //           llTimestamp,
+        //           bSaveDatabase ? 1 : 0);
         if (bSaveDatabase)
         {
             saveToDatabase(strFilename, stTimeParts.strDateDash, stTimeParts.strTimeColon, nChnId);
@@ -513,9 +524,9 @@ void CFaceCaptureProcessor::handleLinkage(bool bAlarm,
     }
 
     /* 传统报警状态机负责触发MQTT事件；上下文携带首张抓拍图路径，上传线程无需再等待数据库 */
-    dlog_info("人脸抓拍事件上下文准备完成: timestamp[%lld], upload_image[%s]",
-              llEventTimestamp,
-              strUploadImagePath.c_str());
+    // dlog_info("人脸抓拍事件上下文准备完成: timestamp[%lld], upload_image[%s]",
+    //           llEventTimestamp,
+    //           strUploadImagePath.c_str());
     m_alarmStateMachine.handleAlarmState(true, build_face_capture_event_context(nChnId, llEventTimestamp, strUploadImagePath));
 }
 
@@ -650,6 +661,19 @@ int CFaceCaptureProcessor::saveToDatabase(const std::string &strFilename,
                                           const std::string &strCurrentTime,
                                           int nChnId)
 {
+    Event::Type_E nEventType = Event::Type_E::FACE_CAPTURE;
+    if (strFilename.find("compare") != std::string::npos)
+    {
+        nEventType = Event::Type_E::FACE_COMPARE;
+
+        // dlog_info("保存人脸比对记录到数据库: %s",
+        //           strFilename.c_str());
+    }
+    // else
+    // {
+    //     dlog_info("保存人脸抓拍记录到数据库: %s",
+    //               strFilename.c_str());
+    // }
     using namespace Db;
     Capture_NS::CaptureInfo_S stInfo;
     stInfo.nChnId = nChnId < 0 ? 0 : nChnId;
@@ -657,7 +681,8 @@ int CFaceCaptureProcessor::saveToDatabase(const std::string &strFilename,
     stInfo.nImageSize = std::filesystem::file_size(strFilename);
     stInfo.strStartTime = strCurrentDate + " " + strCurrentTime;
     stInfo.strEndTime = stInfo.strStartTime;
-    stInfo.enType = Event::Type_E::FACE_CAPTURE;
+    // stInfo.enType = Event::Type_E::FACE_CAPTURE;
+    stInfo.enType = nEventType;
     CCaptureDatabase::instance()->add(stInfo);
 
     /* 更新图片数量、总大小至数据库表 */

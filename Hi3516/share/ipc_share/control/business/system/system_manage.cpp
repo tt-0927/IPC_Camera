@@ -3,7 +3,7 @@
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2026-03-02 15:32:46
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-05-15 17:06:12
+ * @LastEditTime : 2026-07-22 11:17:41
  * @Description  : 系统管理
  */
 
@@ -34,6 +34,7 @@
 #include "email_manage.h"
 #include "ca_manage.h"
 #include "network_manage.h"
+#include "plugin_version_utils.h"
 #include "share_define.h"
 #include "base_define.h"
 #include "log_handler.h"
@@ -41,7 +42,6 @@
 #include "event_linkage.h"
 #include "event_alarm.h"
 #include "gpio_ctrl.h"
-#include "light_manager.h"
 #include "record_ctrl.h"
 #include "capture_ctrl.h"
 #if CAP_SYSTEM_REBOOT_MUTE // 系统重启静音处理
@@ -116,9 +116,6 @@ IpcRet_E SystemManage::init()
     /* 启用收集到的IO输入编号 */ 
     enable_ioInputNumber(stListenMap);
 
-    /* 灯光管理初始化 */
-    CLightManager::instance()->init();
-
     /* 操作日志-开机 */
     Log::Info_S stLogInfo;
     stLogInfo.nType = Log::OPERATION;
@@ -136,8 +133,6 @@ IpcRet_E SystemManage::deinit()
     m_ioInput.stop_detectiond();
     stop_logUptime();
 
-    /* 灯光管理去初始化 */
-    CLightManager::instance()->deinit();
     return OK;
 }
 
@@ -185,8 +180,8 @@ int SystemManage::get_device_info(System::DeviceInfo_S &stDeviceInfo)
     stDeviceInfo.hardwareVersion = HARDWARE_VERSION;
     /* 系统版本 */
     stDeviceInfo.systemVersion = SYSTEM_VERSION;
-    /* 插件版本 */
-    stDeviceInfo.pluginVersion = PLUG_VERSION;
+    /* 插件版本必须与 S81appinit 当前指向的实际插件文件保持一致。 */
+    stDeviceInfo.pluginVersion = PluginVersionUtils_NS::get_active_version();
     /* web版本 */
     stDeviceInfo.webVersion = WEB_VERSION;
     /* 报警输入个数 */

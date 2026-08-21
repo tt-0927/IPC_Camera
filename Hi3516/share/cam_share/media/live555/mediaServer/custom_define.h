@@ -18,6 +18,12 @@ extern "C" {
 #define MAX_FRAME_SIZE (1572864)  // 1.5 MB
 /* OutPacketBuffer缓存大小 2.5MB */
 #define REV_BUF_SIZE  (2621440)
+/* 主码流先保留2MiB安全余量，待VENC基线确认最大I帧后再继续下调。 */
+#define RTSP_MAIN_OUT_PACKET_BUFFER_SIZE (2U * 1024U * 1024U)
+/* 子码流通常码率和I帧显著较小，单独限制每个RTPSink的缓存。 */
+#define RTSP_SUB_OUT_PACKET_BUFFER_SIZE  (1U * 1024U * 1024U)
+/* 音频帧远小于视频，避免沿用视频级2.5MiB缓存。 */
+#define RTSP_AUDIO_OUT_PACKET_BUFFER_SIZE (64U * 1024U)
 
 /*封装printf*/
 #define live_log(fmt...) \
@@ -102,6 +108,10 @@ typedef struct
 	int nAudioBitWidth;	//zhouzr 新增字段，用于设置采样位宽
 	int param1;//扩展参数
 	void* param2;//扩展参数
+	/* 每个RTPSink实例的输出缓存上限，0表示沿用live555全局默认值。 */
+	unsigned int outPacketBufferSize;
+	/* 每个音频RTPSink实例的输出缓存上限，0表示沿用live555全局默认值。 */
+	unsigned int audioOutPacketBufferSize;
 }Rtsp_Create_Info_t;
 
 typedef struct
@@ -113,6 +123,8 @@ typedef struct
 	int samplingFreqIndex;  // zhouzr 新增字段，用于设置采样率索引，基于AAC
 	int channel;  // zhouzr 新增字段，用于设置通道个数
 	int bitWidth;	//zhouzr 新增字段，用于设置采样位宽
+	/* 音频RTPSink实例的输出缓存上限。 */
+	unsigned int outPacketBufferSize;
 }Audio_Source_Info_t;
 
 typedef struct
@@ -122,6 +134,8 @@ typedef struct
 	void *videoindex;
 	char streamName[STREAM_NAME_MAX];
 	int nAudio;
+	/* 视频RTPSink实例的输出缓存上限。 */
+	unsigned int outPacketBufferSize;
 }Video_Source_Info_t;
 
 #ifdef __cplusplus

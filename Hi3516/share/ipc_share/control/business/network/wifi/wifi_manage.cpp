@@ -268,6 +268,7 @@ void CWifiManager::monitorLoop() {
             if (is_connected.load()) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(500));
                 lockCurrentIp(); // 重连后立即重新锁定 IP
+                m_routeStateInitialized.store(false);
 
                 const int max_retries = 3;
                 for (int i = 0; i < max_retries; ++i)
@@ -773,7 +774,7 @@ std::vector<WifiInfo> CWifiManager::scanWifi() {
     }
 
     // 等待扫描完成 (通常 3-5 秒)
-    std::this_thread::sleep_for(std::chrono::seconds(3)); 
+    std::this_thread::sleep_for(std::chrono::seconds(5)); 
 
     std::string res = sendCommand("SCAN_RESULTS");
     std::cout << "[调试] SCAN_RESULTS 原始返回长度: " << res.length() << std::endl;
@@ -936,16 +937,28 @@ bool CWifiManager::disconnectWifi() {
            
         }
 
-        // 2. 清理路由
-        system("route del default dev wlan0 2>/dev/null || true");
-        system("ip route replace default via 172.16.25.254 dev eth0");
-
         {
             std::lock_guard<std::mutex> lock(m_configMutex);
             config.current_ssid = "";
             config.current_psk = "";
             is_connected.store(false);
             m_hasLastConfig = false; 
+        }
+
+        /*
+         * 不再写死 eth0 网关。WiFi 断开后立即交给统一状态机：
+         * 有线存在则使用配置中的有线网关，否则清理全部失效默认路由。
+         */
+        int carrier = 0;
+        std::ifstream carrierFile("/sys/class/net/eth0/carrier");
+        if (carrierFile.is_open())
+        {
+            carrierFile >> carrier;
+        }
+        m_routeStateInitialized.store(false);
+        if (!isWifiConnectedAndWiredDisconnected(carrier != 1))
+        {
+            dlog_warn("[路由] WiFi断开后的路由回退失败，后台检测线程将继续重试");
         }
     
         std::cout << "[断开] 清理流程完成." << std::endl;
@@ -1444,26 +1457,11 @@ std::string generateWpaConfContent(const ::Network::WifiStaConncet_S& config) {
             
                 std::this_thread::sleep_for(std::chrono::milliseconds(100));
                 lockCurrentIp(); 
+                /* 由统一路由状态机在下一轮配置 WiFi 优先或 WiFi 独占路由。 */
+                m_routeStateInitialized.store(false);
 
                 result.success = true;
                 result.error_code = ::Network::WIFI_CONNECT_SUCCESS;
-                
-
-                int eth0_has_default_route = system("ip route | grep default | grep eth0 > /dev/null 2>&1");
-
-                if (eth0_has_default_route == 0) {
-                    // 情况 A: 有线网络正在使用中
-                    std::cout << "[路由] 检测到有线网络已连接，WiFi 仅作为局域网使用。" << std::endl;
-                    
-                    // 确保删除 WiFi 的默认网关，防止双网关冲突
-                    system("route del default dev wlan0 2>/dev/null || true");
-                } else {
-                //     // 情况 B: 有线网络未连接，WiFi 接管互联网
-                //     std::cout << "[路由] 未检测到有线网络，WiFi 接管默认网关。" << std::endl;
-                    
-                //     // 添加 WiFi 默认网关
-                //     system("route add default dev wlan0");
-                }
                 return result;
             }
         }
@@ -1697,25 +1695,43 @@ void CWifiManager::lockCurrentIp() {
 // --- 检测 WiFi 连接且有线断开 ---
 bool CWifiManager::isWifiConnectedAndWiredDisconnected(bool bWiredDisconnected)
 {
-    if (m_lastWiredDisconnected == bWiredDisconnected)
+    const bool bWifiConnected = is_connected.load();
+
+    /*
+     * 路由状态同时取决于有线和 WiFi。只比较网线状态会漏掉以下场景：
+     * 1. 有线一直连接，WiFi 后连接，需要切换为 WiFi 优先双默认路由；
+     * 2. 有线一直连接，WiFi 后断开，需要立即回退到 eth0 默认路由。
+     */
+    if (m_routeStateInitialized.load() &&
+        m_lastWiredDisconnected == bWiredDisconnected &&
+        m_lastWifiConnected == bWifiConnected)
     {
         return true;
     }
-
-    //m_lastWiredDisconnected = bWiredDisconnected;
 
     if (bWiredDisconnected)
     {
         std::cout << "[路由] 检测到网线断开" << std::endl;
 
-        if (!is_connected.load())
+        if (!bWifiConnected)
         {
             std::cout << "[路由] WiFi未连接" << std::endl;
 
-            return false;
+            /* 两个出口都不可用时清理残留默认路由，避免后续连接误用旧网关。 */
+            system("ip route del default dev wlan0 2>/dev/null");
+            system("ip route del default dev eth0 2>/dev/null");
+            if (!remove_eth_direct_routes())
+            {
+                return false;
+            }
+            system("ip route flush cache");
+
+            m_lastWiredDisconnected = true;
+            m_lastWifiConnected = false;
+            m_routeStateInitialized.store(true);
+            return true;
         }
 
-        //return switchToWifi();
         if (!switchToWifi())
         {
             /* 保留旧状态，下一轮 5 秒检测会继续尝试切换。 */
@@ -1723,22 +1739,39 @@ bool CWifiManager::isWifiConnectedAndWiredDisconnected(bool bWiredDisconnected)
         }
 
         m_lastWiredDisconnected = true;
+        m_lastWifiConnected = true;
+        m_routeStateInitialized.store(true);
         return true;
     }
-    else
-    {
-        std::cout << "[路由] 检测到网线恢复" << std::endl;
 
-        //return switchToEth();
-        if (!switchToEth())
+    /* 有线存在且 WiFi 已连接：局域网保留 eth0，公网优先 wlan0。 */
+    if (bWifiConnected)
+    {
+        std::cout << "[路由] 有线和WiFi均可用，配置WiFi优先双默认路由" << std::endl;
+
+        if (!switchToWifiPreferred())
         {
-            /* 保留旧状态，避免有线恢复但路由未恢复后停止重试。 */
+            /* 保留旧状态，下一轮检测继续尝试配置双默认路由。 */
             return false;
         }
 
         m_lastWiredDisconnected = false;
+        m_lastWifiConnected = true;
+        m_routeStateInitialized.store(true);
         return true;
     }
+
+    /* 有线存在但 WiFi 未连接：公网和局域网都回退到 eth0。 */
+    std::cout << "[路由] WiFi未连接，使用有线默认路由" << std::endl;
+    if (!switchToEth())
+    {
+        return false;
+    }
+
+    m_lastWiredDisconnected = false;
+    m_lastWifiConnected = false;
+    m_routeStateInitialized.store(true);
+    return true;
 }
 
 std::string CWifiManager::getEthGateway()
@@ -1838,6 +1871,11 @@ bool CWifiManager::switchToWifi()
 {
     if (m_wifiGateway.empty())
     {
+        m_wifiGateway = getGatewayByInterface("wlan0");
+    }
+
+    if (m_wifiGateway.empty())
+    {
         std::cout << "[路由] WiFi网关为空" << std::endl;
 
         return false;
@@ -1869,8 +1907,11 @@ bool CWifiManager::switchToWifi()
     // for (int i = 0; i < max_retries; ++i)
     dlog_info("[路由] 已切换到 WiFi，gateway=%s", m_wifiGateway.c_str());
 
-    /* 平台失败后由 PlatformManager 的 30 秒后台重试接管，避免阻塞路由检测线程。 */
-    if (CPlatformManager::instance()->change_net_relogin() != OK)
+    /*
+     * WiFi 默认路由生效后重新读取网页持久化的平台参数。
+     * 这样网页保存为未启用后，也能按重新上电的临时自动连接规则使用最新配置重连。
+     */
+    if (CPlatformManager::instance()->reconnect_from_persisted_config() != OK)
     {
         // int ret = CPlatformManager::instance()->change_net_relogin();
         // if (ret == 0)
@@ -1888,11 +1929,75 @@ bool CWifiManager::switchToWifi()
         //         dlog_error("，已达最大重试次数，放弃执行。");
         //     }
         // }
-        dlog_warn("[路由] WiFi 已切换，平台立即重登失败，等待后台重试");
+        dlog_warn("[路由] WiFi 已切换，平台配置重载或立即重登失败");
     }
     //return (ret == 0);
     return true;
 }
+
+bool CWifiManager::switchToWifiPreferred()
+{
+    if (m_wifiGateway.empty())
+    {
+        /* DHCP 通常已先创建 wlan0 默认路由，切换前从中补取网关。 */
+        m_wifiGateway = getGatewayByInterface("wlan0");
+    }
+
+    if (m_wifiGateway.empty())
+    {
+        dlog_error("[路由] WiFi网关为空，无法配置WiFi优先路由");
+        return false;
+    }
+
+    const std::string ethGateway = getEthGateway();
+    if (ethGateway.empty())
+    {
+        dlog_error("[路由] eth0网关为空，无法配置有线备用路由");
+        return false;
+    }
+
+    /*
+     * 有线存在时必须恢复并保留 eth0 的直连路由。由于直连路由前缀
+     * 比 default 更长，访问有线局域网仍会稳定选择 eth0。
+     */
+    if (!restore_eth_direct_routes())
+    {
+        return false;
+    }
+
+    /* 清理旧默认路由，避免历史路由没有 metric 而抢占 WiFi。 */
+    system("ip route del default dev wlan0 2>/dev/null");
+    system("ip route del default dev eth0 2>/dev/null");
+
+    const std::string wifiCommand =
+        "ip route add default via " + m_wifiGateway +
+        " dev wlan0 metric 10";
+    if (!executeRouteCommand(wifiCommand))
+    {
+        return false;
+    }
+
+    const std::string ethCommand =
+        "ip route add default via " + ethGateway +
+        " dev eth0 metric 200";
+    if (!executeRouteCommand(ethCommand))
+    {
+        /* WiFi 默认路由已经可用，保留它以避免设备失去公网出口；下轮继续补加有线备用路由。 */
+        return false;
+    }
+
+    system("ip route flush cache");
+    dlog_info("[路由] WiFi优先双默认路由配置完成: wlan0 gateway=%s metric=10, eth0 gateway=%s metric=200",
+              m_wifiGateway.c_str(), ethGateway.c_str());
+
+    if (CPlatformManager::instance()->change_net_relogin() != OK)
+    {
+        dlog_warn("[路由] 双默认路由已配置，平台立即重登失败，等待后台重试");
+    }
+
+    return true;
+}
+
 bool CWifiManager::switchToEth()
 {
     std::string ethGateway = getEthGateway();

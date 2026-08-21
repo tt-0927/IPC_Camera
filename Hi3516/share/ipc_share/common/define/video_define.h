@@ -3,12 +3,13 @@
  * @Author       : zhouzirui
  * @Date         : 2025-03-21 10:55:08
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-06-09 09:46:46
+ * @LastEditTime : 2026-08-20 17:30:00
  * @Description  : 视频定义
  */
 #pragma once
 
 #include <iostream>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -542,6 +543,28 @@ namespace Video_NS
 
     } VideoConfig_S;
 
+    /**
+     * @brief   : 根据视频配置估算视频单帧最大字节安全上限（含最大I帧）
+     * @param   {const VideoConfig_S &} stVideoConfig：视频配置
+     * @return  {std::size_t} 单帧最大字节上限，保底512KB
+     * @note    : 变码率(VBR/AVBR/QVBR/CVBR)使用平均码率估算，其余码率类型使用
+     *            码率上限估算；以1秒码量作为单帧安全上限，用于录制UDS单帧上限与
+     *            RTSP队列字节预算，避免高码率下大I帧被固定上限击穿而整帧丢弃。
+     *            低码率时返回512KB保底，保持原有行为。
+     */
+    inline std::size_t calcMaxFrameBytes(const VideoConfig_S &stVideoConfig)
+    {
+        /* 变码率家族使用平均码率，其余码率类型使用码率上限，保证CBR大I帧不被低估 */
+        const bool bVariableBitrate = stVideoConfig.enBitrateType == BitrateType_E::VBR ||
+                                      stVideoConfig.enBitrateType == BitrateType_E::AVBR ||
+                                      stVideoConfig.enBitrateType == BitrateType_E::QVBR ||
+                                      stVideoConfig.enBitrateType == BitrateType_E::CVBR;
+        const int nBitrateKbps = bVariableBitrate ? stVideoConfig.nAverageBitrate : stVideoConfig.nBitrateUpperLimit;
+        const std::size_t unOneSecondBytes = (nBitrateKbps > 0 ? static_cast<std::size_t>(nBitrateKbps) : 0U) * 1000U / 8U;
+        const std::size_t unFloorBytes = 512U * 1024U;
+        return unOneSecondBytes > unFloorBytes ? unOneSecondBytes : unFloorBytes;
+    }
+
     /* 分辨率能力 */
     typedef struct _Resolution_S_
     {
@@ -770,6 +793,18 @@ namespace Video_NS
         uint8_t pData[]; /* 柔性数组，视频数据紧跟在结构体后面 */
         // uint8_t *pData; /* 视频数据指针 */
     } VideoFrame_S;
+
+    /*
+     * 共享媒体帧：引用计数数据 buffer。
+     * 上游（VENC 取流线程）只拷贝一次，RTSP/RTMP/录制等多个下游队列
+     * 持有同一份数据的 shared_ptr 引用，避免每消费者各拷贝一份。
+     * 注意：共享的是拷贝副本，不是 VENC 编码器原始 buffer（release_stream 仍需尽快调用）。
+     */
+    typedef struct
+    {
+        std::shared_ptr<uint8_t[]> pData; /* 共享数据 buffer */
+        int nLen = 0;                     /* 数据长度 */
+    } SharedMediaFrame_S;
 
     /* 视频感兴趣区域结构 */
     typedef struct _VideoRoi_

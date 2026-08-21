@@ -14,7 +14,7 @@ set -e
 
 # 使用getopt来处理长选项
 # :前面的需要带参数, 没有的不需要带参数
-if ! ARGS=$(getopt -o m:b:s:d:e:v:t:cahpi -l target:,build:,device:,sensor:,project:,packet_type:,extra:,version:,clean,all,help,strip,packet,img,autofile,all-focal,all-project -n "$0" -- "$@"); then
+if ! ARGS=$(getopt -o m:b:s:d:e:v:t:cahpi -l target:,build:,device:,sensor:,project:,packet_type:,extra:,version:,clean,all,help,strip,packet,img,autofile,all-focal,all-project,daily,copyright -n "$0" -- "$@"); then
     error "选项和参数解析失败"
     error "查看帮助说明：./build.sh -h/--help"
     exit 1
@@ -63,6 +63,10 @@ DID_SET=false
 ALL_FOCAL_MODE=false
 # 是否打包所有项目类型
 ALL_PROJECT_MODE=false
+# 是否追加日期序号后缀（小迭代构建）
+DAILY_MODE=false
+# 是否启用软著打包模式
+COPYRIGHT_MODE=false
 
 # 解析选项
 while true; do
@@ -139,6 +143,14 @@ while true; do
         ALL_PROJECT_MODE=true
         shift
         ;;
+    --daily) # 追加日期序号后缀（小迭代构建）
+        DAILY_MODE=true
+        shift
+        ;;
+    --copyright) # 软著模式：文件名用软著名称包裹，版本号转为软著格式
+        COPYRIGHT_MODE=true
+        shift
+        ;;
     --)
         shift
         break
@@ -186,8 +198,17 @@ if [ "$DEVICE_MODE" = true ]; then
 
         # 确定目标分支
         case "$DEVICE_TYPE" in
-        TV-3852TL4G | TV-3852TLW)
-            TARGET_BRANCH="$DEVICE_TYPE"
+        TV-3852TL4G)
+            TARGET_BRANCH="TV-3852TL4G-00S"
+            ;;
+        TV-3852TLW)
+            TARGET_BRANCH="TV-3852TLW-00S"
+            ;;
+        TV-3852TL)
+            TARGET_BRANCH="TV-3852TL"
+            ;;
+        TV-3852HL)
+            TARGET_BRANCH="TV-3852TL"
             ;;
         *)
             TARGET_BRANCH="TV-3852T"
@@ -320,6 +341,9 @@ get_packet_type_label() {
     custom)
         echo "-CUSTOM"
         ;;
+    script)
+        echo "-SCRIPT"
+        ;;
     *)
         error "不支持的升级包类型: $packet_type"
         exit 1
@@ -345,6 +369,11 @@ record_packet_outputs() {
     type_label=$(get_packet_type_label "$PACKET_TYPE")
     software_name="${DEVICE_TYPE}-${chip_type}-${sensor_name}${type_label}-${VERSION_NUM}-${language_type}-${software_type}-${project_type}"
 
+    # 软著模式：用软著前缀包裹文件名
+    if [ "$COPYRIGHT_MODE" = true ]; then
+        software_name="${COPYRIGHT_PREFIX}(${software_name})"
+    fi
+
     if [ -f "$PACK_BIN_PATH/${software_name}.bin" ]; then
         PACKET_OUTPUT_FILES+=("$PACK_BIN_PATH/${software_name}.bin")
     fi
@@ -368,6 +397,11 @@ record_image_outputs() {
 
     sensor_name=$(get_package_sensor_name "$sensor_type")
     software_name="${DEVICE_TYPE}-${chip_type}-${sensor_name}-${VERSION_NUM}-${language_type}-${software_type}-${project_type}"
+
+    # 软著模式：用软著前缀包裹文件名
+    if [ "$COPYRIGHT_MODE" = true ]; then
+        software_name="${COPYRIGHT_PREFIX}(${software_name})"
+    fi
 
     if [ -f "$IMAGE_BIN_PATH/${software_name}.zip" ]; then
         IMAGE_OUTPUT_FILES+=("$IMAGE_BIN_PATH/${software_name}.zip")
@@ -405,8 +439,9 @@ print_generated_outputs() {
 # 说明：根据 --all-focal 和 --all-project 展开镜头焦距与项目类型
 # ============================================================
 prepare_package_matrix() {
-    local sensor_model="${SENSOR_TYPE%%-*}"
-    local sensor_type
+    local focal_lengths
+    local sensor_model
+    local focal
 
     check_device_type "$DEVICE_TYPE"
     check_sensor_type "$SENSOR_TYPE"
@@ -414,22 +449,34 @@ prepare_package_matrix() {
 
     PACKAGE_SENSOR_TYPES=("$SENSOR_TYPE")
     if [ "$ALL_FOCAL_MODE" = true ]; then
-        if [ "$sensor_model" != "sc533hai" ]; then
-            error "--all-focal 当前仅支持 sc533hai-*，当前镜头型号: $SENSOR_TYPE"
+        # 从设备焦距映射表获取当前型号支持的焦距列表
+        focal_lengths=$(get_device_focal_lengths "$DEVICE_TYPE")
+        if [ $? -ne 0 ] || [ -z "$focal_lengths" ]; then
+            error "设备型号 $DEVICE_TYPE 未配置焦距映射表，无法使用 --all-focal"
             exit 1
         fi
 
+        # 从设备传感器映射表获取对应的传感器型号
+        sensor_model=$(get_device_sensor_model "$DEVICE_TYPE")
+        if [ $? -ne 0 ] || [ -z "$sensor_model" ]; then
+            error "设备型号 $DEVICE_TYPE 未配置传感器型号映射表"
+            exit 1
+        fi
+
+        # 校验当前镜头型号与设备映射是否匹配
+        local current_model="${SENSOR_TYPE%%-*}"
+        if [ "$current_model" != "$sensor_model" ]; then
+            error "当前镜头型号 $SENSOR_TYPE 与设备 $DEVICE_TYPE 的传感器型号 $sensor_model 不匹配"
+            exit 1
+        fi
+
+        # 按设备映射的焦距列表展开传感器型号
         PACKAGE_SENSOR_TYPES=()
-        for sensor_type in "${SENSOR_TYPES[@]}"; do
-            if [[ "$sensor_type" == "${sensor_model}-"* ]]; then
-                PACKAGE_SENSOR_TYPES+=("$sensor_type")
-            fi
+        for focal in $focal_lengths; do
+            PACKAGE_SENSOR_TYPES+=("${sensor_model}-${focal}")
         done
 
-        if [ "${#PACKAGE_SENSOR_TYPES[@]}" -eq 0 ]; then
-            error "未找到 ${sensor_model} 的可打包焦距列表"
-            exit 1
-        fi
+        info "--all-focal: 设备 $DEVICE_TYPE 将打包 ${#PACKAGE_SENSOR_TYPES[@]} 个焦距: ${PACKAGE_SENSOR_TYPES[*]}"
     fi
 
     PACKAGE_PROJECT_TYPES=("$PROJECT_TYPE")
@@ -453,6 +500,9 @@ run_make_packet() {
 
         if [ "$AUTOFILE_MODE" = true ]; then
             make_packet_args+=(--autofile)
+        fi
+        if [ "$COPYRIGHT_MODE" = true ]; then
+            make_packet_args+=(--copyright)
         fi
         echo "${make_packet_args[@]}"
         if ! ./make_packet.sh "${make_packet_args[@]}"; then
@@ -479,6 +529,9 @@ run_make_image() {
 
         if [ "$AUTOFILE_MODE" = true ]; then
             make_image_args+=(--autofile)
+        fi
+        if [ "$COPYRIGHT_MODE" = true ]; then
+            make_image_args+=(--copyright)
         fi
         echo "${make_image_args[@]}"
         if ! ./make_image.sh "${make_image_args[@]}"; then
@@ -528,16 +581,31 @@ run_image_matrix() {
 # 打包升级包
 if [ "$PACKET_MODE" = true ]; then
     info "============> 打包升级包前，先生成版本号 <============"
-    # set_version
+    # 版本号优先级：-v 手动指定 > 自动从 share_define.h 提取
+    if [ -z "$VERSION_NUM" ]; then
+        if ! resolve_version "$DAILY_MODE" "$COPYRIGHT_MODE"; then
+            error "版本号自动提取失败，请使用 -v 手动指定版本号"
+            exit 1
+        fi
+    else
+        info "============> 使用手动指定版本号: $VERSION_NUM <============"
+    fi
     run_packet_matrix
     exit 0
 fi
 
 # 打包固件
 if [ "$IMAGE_MODE" = true ]; then
-
-    info "============> 编译升级包前，先生成版本号 <============"
-    # set_version
+    info "============> 编译固件包前，先生成版本号 <============"
+    # 版本号优先级：-v 手动指定 > 自动从 share_define.h 提取
+    if [ -z "$VERSION_NUM" ]; then
+        if ! resolve_version "$DAILY_MODE" "$COPYRIGHT_MODE"; then
+            error "版本号自动提取失败，请使用 -v 手动指定版本号"
+            exit 1
+        fi
+    else
+        info "============> 使用手动指定版本号: $VERSION_NUM <============"
+    fi
     run_image_matrix
     exit 0
 fi

@@ -50,6 +50,8 @@ public:
      */
     void setAlgoParamCfg(const Alarm::GarbageOverflowDetection_S &stAlgoCfg);
 
+    void handleDetectResult(const std::vector<Inference_NS::BoxData_S> &vBoxDatas, ot_video_frame_info *pFrameInfo);
+
 private:
     /* 初始化 */
     bool init();

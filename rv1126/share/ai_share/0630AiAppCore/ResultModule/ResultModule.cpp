@@ -199,7 +199,7 @@ void ResultModule::recvFaceData(
         m_pAttendanceManager->add(syFaceLibsInfo, stUserHeader);
     }
 
-    if (m_pClassStudentSummary)
+    if (m_pClassStudentSummary && syFaceLibsInfo.nIdentity == 0)
     {
         /* 添加个人行为 */
         m_pClassStudentSummary->addStudentBehavior(
@@ -266,14 +266,35 @@ void ResultModule::finalize(const void* pParam)
         m_pClassroomSummary->addClassParam(stClassParamParam);
         m_pClassroomSummary->finalize(pParam);
     }
+
+    /* 整合完，清空 */
+    if (m_pAttendanceManager)
+    {
+        m_pAttendanceManager->reset();
+    }
+
+    if (m_pClassStudentSummary)
+    {
+        m_pClassStudentSummary->reset();
+    }
+
+    if (m_pTeacherSummary)
+    {
+        m_pTeacherSummary->reset();
+    }
+
+    if (m_pClassroomSummary)
+    {
+        m_pClassroomSummary->reset();
+    }
 }
 
 /* PPT切换 */
-BlError_E Ai0630_NS::ResultModule::pptSwitch()
+BlError_E Ai0630_NS::ResultModule::pptSwitch(long long lTimestamp, std::string strJpgName)
 {
     if (m_pClassroomSummary)
     {
-        m_pClassroomSummary->addPPTSwitch(m_nRecordTime);
+        m_pClassroomSummary->addPPTSwitch(m_nRecordTime, lTimestamp, strJpgName);
     }
     return OK;
 }

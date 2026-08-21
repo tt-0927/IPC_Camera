@@ -3,7 +3,7 @@
  * @Author       : zhangjunbin
  * @Date         : 2021年3月30日
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2025-10-16 09:19:08
+ * @LastEditTime : 2026-08-08 10:20:09
  * @Description  : 日志的基础库，基于spdlog封装
  */
 
@@ -24,6 +24,12 @@
 #include "spdlog/sinks/stdout_color_sinks.h"
 #include "spdlog/pattern_formatter.h"
 #include "spdlog/sinks/dist_sink.h"
+#include <chrono>
+#include <fstream>
+#include <mutex>
+#include <thread>
+#include <unordered_map>
+#include <atomic>
 // #include "mqtt_ctrl_communication.h"
 
 typedef struct dlogHandle
@@ -51,6 +57,32 @@ typedef struct dlogHandle
 
 dlogHandle_S g_dlogInnerHandle = NULL;
 
+/* ---- 日志限流 ---- */
+/* 限流间隔（毫秒），0 表示禁用限流 */
+static int g_nLogThrottleIntervalMs = 0;
+/* 限流互斥锁，保护限流 Map */
+static std::mutex g_mtxThrottle;
+
+struct LogThrottleEntry_S
+{
+    /* 上次输出的时间点 */
+    std::chrono::steady_clock::time_point tpLastTime;
+};
+/* key: (filename_ptr << 32) | line，利用文件字符串地址+行号唯一标识调用点 */
+static std::unordered_map<size_t, LogThrottleEntry_S> g_mapThrottle;
+/* 限流 Map 最大容量，超过时清空重建，防止内存持续增长 */
+static constexpr size_t THROTTLE_MAP_MAX_SIZE = 512;
+
+/* ---- 日志级别文件监控 ---- */
+/* 监控线程运行标志 */
+static std::atomic<bool> g_bMonitorRunning(false);
+/* 监控线程句柄，用于进程退出时 join */
+static std::shared_ptr<std::thread> g_pMonitorThread;
+/* 日志级别文件路径，setLogLevel 时同步写入，监控线程读取 */
+static std::string g_strLevelFilePath;
+/* 日志级别文件路径的互斥锁 */
+static std::mutex g_mtxLevelFile;
+
 int initLog(char* logname,char* logfile)
 {
 	dlogInnerHandle_S* handle = new dlogInnerHandle_S;
@@ -67,10 +99,17 @@ int initLog(char* logname,char* logfile)
 	/*默认不同步输出打印*/
 	handle->bSynPrintf = false;
 
-	handle->logger = spdlog::daily_logger_mt(logName, logFile, 0, 0, false, max_days);
+	/* 异步模式：I/O 在后台线程执行，不阻塞业务线程 */
+	auto tp = std::make_shared<spdlog::details::thread_pool>(8192, 1);
+	/* 将 thread_pool 注册到全局 registry，确保其生命周期覆盖所有 async_logger */
+	spdlog::details::registry::instance().set_tp(tp);
+	auto sink = std::make_shared<spdlog::sinks::daily_file_sink_mt>(logFile, 0, 0, false, max_days);
+	handle->logger = std::make_shared<spdlog::async_logger>(
+		logName, sink, tp, spdlog::async_overflow_policy::block);
+	spdlog::details::registry::instance().initialize_logger(handle->logger);
 
-	/* [][%@,%!] */
-	spdlog::set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%s:%#,%!] [%l] %v");
+	/* 异步 logger 必须通过实例方法设置 pattern，spdlog::set_pattern 对异步 logger 无效 */
+	handle->logger->set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%s:%#,%!] [%l] %v");
 
 	/* 设置日志等级 */
 	spdlog::set_level(spdlog::level::trace);
@@ -102,10 +141,17 @@ int initLogBySize(char *logname, char *logfile, int max_file_size, int max_files
 	/*默认不同步输出打印*/
 	handle->bSynPrintf = false;
 
-	handle->logger = spdlog::rotating_logger_mt(logName, logFile, max_file_size, max_files);
+	/* 异步模式：I/O 在后台线程执行，不阻塞业务线程 */
+	auto tp = std::make_shared<spdlog::details::thread_pool>(8192, 1);
+	/* 将 thread_pool 注册到全局 registry，确保其生命周期覆盖所有 async_logger */
+	spdlog::details::registry::instance().set_tp(tp);
+	auto sink = std::make_shared<spdlog::sinks::rotating_file_sink_mt>(logFile, max_file_size, max_files);
+	handle->logger = std::make_shared<spdlog::async_logger>(
+		logName, sink, tp, spdlog::async_overflow_policy::block);
+	spdlog::details::registry::instance().initialize_logger(handle->logger);
 
-    /* [][%@,%!] */
-	spdlog::set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%s:%#,%!] [%l] %v");
+    /* 异步 logger 必须通过实例方法设置 pattern，spdlog::set_pattern 对异步 logger 无效 */
+	handle->logger->set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%s:%#,%!] [%l] %v");
 
 	/* 设置日志等级 */
 	spdlog::set_level(spdlog::level::trace);
@@ -129,6 +175,23 @@ int uninitLog()
 	{
 		printf("no init log base!!!!\n");
 		return -1;
+	}
+
+	/* 停止日志级别监控线程，避免 drop_all 后仍操作已销毁的 logger 导致段错误 */
+	if (g_bMonitorRunning.load())
+	{
+		g_bMonitorRunning.store(false);
+		if (g_pMonitorThread && g_pMonitorThread->joinable())
+		{
+			g_pMonitorThread->join();
+		}
+		g_pMonitorThread.reset();
+	}
+
+	/* 清理限流 Map，释放内存 */
+	{
+		std::lock_guard<std::mutex> lock(g_mtxThrottle);
+		g_mapThrottle.clear();
 	}
 
 	// Release and close all loggers
@@ -179,7 +242,60 @@ int setLogLevel(int level)
 			break;
 		}
 	}
+
+	/* 同步写入级别文件，确保文件内容与当前日志级别一致 */
+	{
+		std::lock_guard<std::mutex> lock(g_mtxLevelFile);
+		if (!g_strLevelFilePath.empty())
+		{
+			const char *pLevelStr = nullptr;
+			switch (level)
+			{
+			case LOG_TRACE: pLevelStr = "trace"; break;
+			case LOG_DEBUG: pLevelStr = "debug"; break;
+			case LOG_INFO:  pLevelStr = "info";  break;
+			case LOG_WARN:  pLevelStr = "warn";  break;
+			case LOG_ERROR: pLevelStr = "error"; break;
+			default: break;
+			}
+			if (pLevelStr != nullptr)
+			{
+				std::ofstream ofs(g_strLevelFilePath, std::ios::trunc);
+				if (ofs.is_open())
+				{
+					ofs << pLevelStr;
+					ofs.close();
+				}
+			}
+		}
+	}
+
 	return 0;
+}
+
+/**
+ * @brief   : 创建异步级别日志（内部辅助函数）
+ * @note    : 所有级别日志统一使用异步模式，与主日志共享同一个 thread_pool
+ */
+static std::shared_ptr<spdlog::async_logger> createAsyncLevelLogger(
+    const std::string &logName,
+    std::shared_ptr<spdlog::sinks::sink> sink,
+    const std::string &pattern)
+{
+    auto &registry = spdlog::details::registry::instance();
+    auto tp = registry.get_tp();
+    if (tp == nullptr)
+    {
+        /* 主日志尚未初始化，创建默认 thread_pool */
+        tp = std::make_shared<spdlog::details::thread_pool>(8192, 1);
+        registry.set_tp(tp);
+    }
+    auto logger = std::make_shared<spdlog::async_logger>(
+        logName, sink, tp, spdlog::async_overflow_policy::block);
+    /* 先设置 pattern，再注册到 registry，避免 registry 的全局 pattern 覆盖自定义 pattern */
+    logger->set_pattern(pattern);
+    registry.initialize_logger(logger);
+    return logger;
 }
 
 static int createLevelLog(dlogInnerHandle_S *handle, char *logname, char *logfile, int level)
@@ -191,46 +307,39 @@ static int createLevelLog(dlogInnerHandle_S *handle, char *logname, char *logfil
 	}
 
 	int max_days = 7;
-	std::string logName = logname;//"logger";
-	std::string logFile = logfile;//"vss.log";
+	std::string logName = logname;
+	std::string logFile = logfile;
 
 	switch(level)
 	{
 		case LOG_FAULT:
 		{
-			handle->faultLogger = spdlog::daily_logger_mt(\
-					logName, logFile, 0, 0, false, max_days);
-            handle->faultLogger->set_pattern("[%Y-%m-%d %H:%M:%S.%e] %v");
+			auto sink = std::make_shared<spdlog::sinks::daily_file_sink_mt>(logFile, 0, 0, false, max_days);
+			handle->faultLogger = createAsyncLevelLogger(logName, sink, "[%Y-%m-%d %H:%M:%S.%e] %v");
 			break;
 		}
 		case LOG_USER:
 		{
-			handle->userLogger = spdlog::daily_logger_mt(\
-					logName, logFile, 0, 0, false, max_days);
-            handle->userLogger->set_pattern("[%Y-%m-%d %H:%M:%S.%e] %v");
+			auto sink = std::make_shared<spdlog::sinks::daily_file_sink_mt>(logFile, 0, 0, false, max_days);
+			handle->userLogger = createAsyncLevelLogger(logName, sink, "[%Y-%m-%d %H:%M:%S.%e] %v");
 			break;
 		}
 		case LOG_WARN:
 		{
-			handle->warnLogger = spdlog::daily_logger_mt(\
-					logName, logFile, 0, 0, false, max_days);
-            handle->warnLogger->set_pattern("[%H:%M:%S.%e] [%s:%#,%!] [%l] %v");
+			auto sink = std::make_shared<spdlog::sinks::daily_file_sink_mt>(logFile, 0, 0, false, max_days);
+			handle->warnLogger = createAsyncLevelLogger(logName, sink, "[%H:%M:%S.%e] [%s:%#,%!] [%l] %v");
 			break;
 		}
 		case LOG_ERROR:
 		{
-			handle->errorLogger = spdlog::daily_logger_mt(\
-					logName, logFile, 0, 0, false, max_days);
-            handle->errorLogger->set_pattern("[%H:%M:%S.%e] [%s:%#,%!] [%l] %v");
+			auto sink = std::make_shared<spdlog::sinks::daily_file_sink_mt>(logFile, 0, 0, false, max_days);
+			handle->errorLogger = createAsyncLevelLogger(logName, sink, "[%H:%M:%S.%e] [%s:%#,%!] [%l] %v");
 			break;
 		}
 		default:
 			printf("this level[%d] is not support!!!\n",level);
 			return -1;
 	}
-
-    /* [][%@,%!] *//*单独设置每个日志级别的输出格式*/
-//    spdlog::set_pattern("[%Y-%m-%d %H:%M:%S.%e] %@ %! [%l] %v");
 
 	return 0;
 }
@@ -250,26 +359,26 @@ static int createLevelLogBySize(dlogInnerHandle_S* handle, char* logname, char* 
 	{
 		case LOG_FAULT:
 		{
-			handle->faultLogger = spdlog::rotating_logger_mt(logName, logFile, max_file_size, max_files);
-            handle->faultLogger->set_pattern("[%Y-%m-%d %H:%M:%S.%e] %v");
+			auto sink = std::make_shared<spdlog::sinks::rotating_file_sink_mt>(logFile, max_file_size, max_files);
+			handle->faultLogger = createAsyncLevelLogger(logName, sink, "[%Y-%m-%d %H:%M:%S.%e] %v");
 			break;
 		}
 		case LOG_USER:
 		{
-			handle->userLogger = spdlog::rotating_logger_mt(logName, logFile, max_file_size, max_files);
-            handle->userLogger->set_pattern("[%Y-%m-%d %H:%M:%S.%e] %v");
+			auto sink = std::make_shared<spdlog::sinks::rotating_file_sink_mt>(logFile, max_file_size, max_files);
+			handle->userLogger = createAsyncLevelLogger(logName, sink, "[%Y-%m-%d %H:%M:%S.%e] %v");
 			break;
 		}
 		case LOG_WARN:
 		{
-			handle->warnLogger = spdlog::rotating_logger_mt(logName, logFile, max_file_size, max_files);
-            handle->warnLogger->set_pattern("[%H:%M:%S.%e] [%s:%#,%!] [%l] %v");
+			auto sink = std::make_shared<spdlog::sinks::rotating_file_sink_mt>(logFile, max_file_size, max_files);
+			handle->warnLogger = createAsyncLevelLogger(logName, sink, "[%H:%M:%S.%e] [%s:%#,%!] [%l] %v");
 			break;
 		}
 		case LOG_ERROR:
 		{
-			handle->errorLogger = spdlog::rotating_logger_mt(logName, logFile, max_file_size, max_files);
-            handle->errorLogger->set_pattern("[%H:%M:%S.%e] [%s:%#,%!] [%l] %v");
+			auto sink = std::make_shared<spdlog::sinks::rotating_file_sink_mt>(logFile, max_file_size, max_files);
+			handle->errorLogger = createAsyncLevelLogger(logName, sink, "[%H:%M:%S.%e] [%s:%#,%!] [%l] %v");
 			break;
 		}
 		default:
@@ -353,10 +462,42 @@ int dlog_printf(int level,\
 		const char *filename_in, int line_in, const char *funcname_in,\
 		const char *format, ...)
 {
+	/* 限流检查：在格式化之前拦截，同时节省 CPU 和 I/O */
+	/* ERROR 和 FAULT 级别不限流，确保关键日志不被吞掉 */
+	if (g_nLogThrottleIntervalMs > 0 && level < LOG_ERROR)
+	{
+		/* 利用文件名指针和行号构造唯一 key，同一调用点的指针地址在编译后不变 */
+		size_t nKey = (reinterpret_cast<size_t>(filename_in) ^ static_cast<size_t>(line_in * 2654435761u));
+		auto now = std::chrono::steady_clock::now();
+
+		std::lock_guard<std::mutex> lock(g_mtxThrottle);
+		auto it = g_mapThrottle.find(nKey);
+		if (it != g_mapThrottle.end())
+		{
+			auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - it->second.tpLastTime).count();
+			if (elapsed < g_nLogThrottleIntervalMs)
+			{
+				/* 未达到间隔，直接跳过本次日志 */
+				return 0;
+			}
+			it->second.tpLastTime = now;
+		}
+		else
+		{
+			/* Map 过大时清空重建，避免内存持续增长 */
+			if (g_mapThrottle.size() >= THROTTLE_MAP_MAX_SIZE)
+			{
+				g_mapThrottle.clear();
+			}
+			g_mapThrottle[nKey] = {now};
+		}
+	}
+
 	dlogInnerHandle_S* logHandle = NULL;
 	logHandle = (dlogInnerHandle_S*)g_dlogInnerHandle;
 
-    std::string strFileName  = filename_in;
+    /* 仅用于当前函数内的控制台文件名处理；不得把其 c_str() 交给异步 logger。 */
+    std::string strFileName = filename_in != NULL ? filename_in : "";
 
 	if(logHandle == NULL)
 	{
@@ -410,22 +551,23 @@ int dlog_printf(int level,\
 		{
 		case LOG_TRACE:
 		{
+			/* source_loc 不深拷贝文件名，必须使用生命周期覆盖整个进程的 __FILE__ 指针。 */
 			(logHandle->logger)->log(spdlog::source_loc{\
-				strFileName.c_str(), line_in, funcname_in}, \
+				filename_in, line_in, funcname_in}, \
 					spdlog::level::trace, ptrFmt);
 			break;
 		}
 		case LOG_DEBUG:
 		{
 			(logHandle->logger)->log(spdlog::source_loc{\
-				strFileName.c_str(), line_in, funcname_in}, \
+				filename_in, line_in, funcname_in}, \
 					spdlog::level::debug, ptrFmt);
 			break;
 		}
 		case LOG_INFO:
 		{
 			(logHandle->logger)->log(spdlog::source_loc{\
-				strFileName.c_str(), line_in, funcname_in}, \
+				filename_in, line_in, funcname_in}, \
 					spdlog::level::info, ptrFmt);
 
 			// if (nLen != 0)
@@ -437,7 +579,7 @@ int dlog_printf(int level,\
 			logger = (logHandle->warnLogger) ? logHandle->warnLogger : \
 					logHandle->logger;
 			logger->log(spdlog::source_loc{\
-				strFileName.c_str(), line_in, funcname_in}, \
+				filename_in, line_in, funcname_in}, \
 					spdlog::level::warn, ptrFmt);
 
 			// if (nLen != 0)
@@ -449,7 +591,7 @@ int dlog_printf(int level,\
 			logger = (logHandle->errorLogger) ? logHandle->errorLogger : \
 					logHandle->logger;
 			logger->log(spdlog::source_loc{\
-				strFileName.c_str(), line_in, funcname_in}, \
+				filename_in, line_in, funcname_in}, \
 					spdlog::level::err, ptrFmt);
 
 			// if (nLen != 0)
@@ -479,36 +621,18 @@ int dlog_printf(int level,\
 		}
 		}
 
-
-#ifndef RELEASE_VERSION
-
-#if CAP_PROCESS_LOG_SWITCH
-		/*Debug版默认同步输出打印*/
-		if ( logHandle != NULL && (level == LOG_ERROR || level == LOG_FAULT) )
-#else
-		/*Debug版默认同步输出打印*/
-		if (logHandle != NULL)
-#endif
-		{
-			char timeBuf[64];
-			getCurrTime(timeBuf, NULL);
-			size_t lastSlash = strFileName.find_last_of("/\\");
-			std::string fileNameOnly = (lastSlash != std::string::npos) ? strFileName.substr(lastSlash + 1) : strFileName;
-			printf("%s[%s:%d] %s\n", timeBuf, fileNameOnly.c_str(), line_in, ptrFmt);
-			fflush(stdout);
-		}
-#else
-		/*Release版需手动启用同步输出打印*/
-		if (logHandle != NULL && logHandle->bSynPrintf)
-		{
-			char timeBuf[64];
-			getCurrTime(timeBuf, NULL);
-			printf("%s[%s:%d] %s\n", timeBuf, strFileName.c_str(), line_in, ptrFmt);
-			fflush(stdout);
-		}
-#endif
-
-	}
+        /* 同步输出到控制台：Debug 和 Release 统一由 bSynPrintf 控制 */
+        /* 各进程 main 中通过 syncPrintf() 设置，CAP_PROCESS_LOG_SWITCH 控制初始值 */
+        if (logHandle != NULL && logHandle->bSynPrintf)
+        {
+            char timeBuf[64];
+            getCurrTime(timeBuf, NULL);
+            size_t lastSlash = strFileName.find_last_of("/\\");
+            std::string fileNameOnly = (lastSlash != std::string::npos) ? strFileName.substr(lastSlash + 1) : strFileName;
+            printf("%s[%s:%d] %s\n", timeBuf, fileNameOnly.c_str(), line_in, ptrFmt);
+            fflush(stdout);
+        }
+    }
 
 
 	return 0;
@@ -565,6 +689,121 @@ int setFlushLevel(int nLevel)
 
     dlogInnerHandle_S* handle = (dlogInnerHandle_S*)g_dlogInnerHandle;
     handle->logger->flush_on(enLevel);
+
+    return 0;
+}
+
+int setLogThrottleInterval(int nIntervalMs)
+{
+    if (nIntervalMs < 0)
+    {
+        return -1;
+    }
+    g_nLogThrottleIntervalMs = nIntervalMs;
+    return 0;
+}
+
+/* 监控间隔（秒） */
+static constexpr int LOG_LEVEL_CHECK_INTERVAL_SEC = 5;
+
+/**
+ * @brief   : 从文件读取日志级别字符串，转换为日志级别常量
+ * @param   {const std::string&} strLevel：级别字符串（trace/debug/info/warn/error）
+ * @return  {int} 对应的 LOG_xxx 常量，-1 表示无法识别
+ */
+static int parseLogLevelFromFile(const std::string &strLevel)
+{
+    /* 去除首尾空白字符 */
+    std::string strTrimmed = strLevel;
+    size_t nStart = strTrimmed.find_first_not_of(" \t\r\n");
+    size_t nEnd = strTrimmed.find_last_not_of(" \t\r\n");
+    if (nStart == std::string::npos)
+    {
+        return -1;
+    }
+    strTrimmed = strTrimmed.substr(nStart, nEnd - nStart + 1);
+
+    /* 转为小写比较 */
+    for (auto &ch : strTrimmed)
+    {
+        ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+    }
+
+    if (strTrimmed == "trace") return LOG_TRACE;
+    if (strTrimmed == "debug") return LOG_DEBUG;
+    if (strTrimmed == "info")  return LOG_INFO;
+    if (strTrimmed == "warn")  return LOG_WARN;
+    if (strTrimmed == "error") return LOG_ERROR;
+
+    return -1;
+}
+
+/**
+ * @brief   : 日志级别文件监控线程函数
+ * @note    : 定时读取指定文件，文件内容变化时切换日志级别
+ */
+static void logLevelMonitorThread(const std::string strFilePath)
+{
+    /* 设置线程名，便于调试和性能分析时识别线程 */
+    pthread_setname_np(pthread_self(), "log_lvl_mon");
+
+    int nLastLevel = -1;
+
+    while (g_bMonitorRunning.load())
+    {
+        std::ifstream ifs(strFilePath);
+        if (ifs.is_open())
+        {
+            std::string strContent;
+            std::getline(ifs, strContent);
+            ifs.close();
+
+            int nLevel = parseLogLevelFromFile(strContent);
+            if (nLevel >= 0 && nLevel != nLastLevel)
+            {
+                setLogLevel(nLevel);
+                nLastLevel = nLevel;
+                /* 级别切换时立即输出一条提示，方便确认生效 */
+                dlog_info("日志级别已切换为: %s", strContent.c_str());
+            }
+        }
+
+        /* 分段 sleep，每 500ms 检查一次退出标志，避免退出时长时间阻塞 */
+        for (int i = 0; i < LOG_LEVEL_CHECK_INTERVAL_SEC * 2 && g_bMonitorRunning.load(); i++)
+        {
+            std::this_thread::sleep_for(std::chrono::milliseconds(500));
+        }
+    }
+}
+
+int startLogLevelMonitor(const char *pLevelFilePath)
+{
+    if (pLevelFilePath == NULL || pLevelFilePath[0] == '\0')
+    {
+        return -1;
+    }
+
+    /* 设置级别文件路径，使 setLogLevel 能够同步写入 */
+    {
+        std::lock_guard<std::mutex> lock(g_mtxLevelFile);
+        g_strLevelFilePath = pLevelFilePath;
+    }
+
+    if (g_bMonitorRunning.load())
+    {
+        /* 已经启动过，先停止旧的监控线程 */
+        g_bMonitorRunning.store(false);
+        if (g_pMonitorThread && g_pMonitorThread->joinable())
+        {
+            g_pMonitorThread->join();
+        }
+    }
+
+    g_bMonitorRunning.store(true);
+    g_pMonitorThread = std::make_shared<std::thread>(logLevelMonitorThread, std::string(pLevelFilePath));
+
+    /* 不 detach，在 uninitLog 中 join，确保进程退出前监控线程已安全停止 */
+    /* 避免 detach 后监控线程操作已销毁的 spdlog 实例导致段错误 */
 
     return 0;
 }

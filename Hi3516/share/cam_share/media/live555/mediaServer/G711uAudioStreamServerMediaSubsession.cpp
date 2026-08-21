@@ -80,5 +80,6 @@ RTPSink* G711uAudioStreamServerMediaSubsession ::createNewRTPSink(Groupsock* rtp
                                     mimeType,
                                     fNumChannels,
                                     False, // 禁用多帧打包
-                                    True);
+                                    True,
+                                    m_stuG711SourceInfo.outPacketBufferSize);
 }

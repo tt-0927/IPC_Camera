@@ -4,7 +4,7 @@
 # @Author       : zhouzr@kfb.cn
 # @Date         : 2025-06-12 10:59:07
  # @LastEditors  : zhouzr@kfb.cn
- # @LastEditTime : 2026-06-29 10:13:02
+ # @LastEditTime : 2026-08-04 13:46:27
 # @Description  : 编译升级包脚本
 ###
 
@@ -20,7 +20,7 @@ set -e
 
 # 使用getopt来处理长选项
 # :前面的需要带参数, 没有的不需要带参数
-if ! ARGS=$(getopt -o d:b:g:v:c:s:t: --long version:,sensor:,project:,packet_type:,autofile -n "$0" -- "$@"); then
+if ! ARGS=$(getopt -o d:b:g:v:c:s:t: --long version:,sensor:,project:,packet_type:,autofile,copyright -n "$0" -- "$@"); then
     error "选项和参数解析失败"
     exit 1
 fi
@@ -39,7 +39,9 @@ CLEAN_MODE=false
 VERSION_NUM=""
 # 是否自动摆渡
 AUTOFILE_MODE=false
-# 打升级包类型 all、app、model、lib、custom
+# 是否启用软著打包模式
+COPYRIGHT_MODE=false
+# 打升级包类型 all、app、model、lib、custom、script
 PACKET_TYPE="all"
 # 语言类型 中文、英文、中英文通用
 LANGUAGE_TYPE="中文"
@@ -77,6 +79,10 @@ while true; do
         ;;
     --autofile)
         AUTOFILE_MODE=true
+        shift
+        ;;
+    --copyright) # 软著模式：文件名用软著名称包裹
+        COPYRIGHT_MODE=true
         shift
         ;;
     --)
@@ -201,40 +207,17 @@ RUN_PATH=/opt/cam
 # 网页程序路径
 WEB_PATH=${THIRD_PARTY_PATH}/html
 
-# 芯片型号
+# 芯片型号（默认 20S，3852TLW/TL4G 使用 00S）
 CHIP_TYPE=Hi3516CV610-20S
+
+# 3852TLW 和 3852TL4G 使用 Hi3516CV610-00S 主控，其他型号使用 Hi3516CV610-20S
+if [[ "$DEVICE_TYPE" =~ ^TV-3852(TLW|TL4G)$ ]]; then
+    CHIP_TYPE="Hi3516CV610-00S"
+    info "当前型号 $DEVICE_TYPE 使用主控: $CHIP_TYPE"
+fi
+
 # 软件包类型
 SOFTWARE_TYPE=升级包
-
-# ============================================================
-# 函数：生成镜头信息文件
-# 说明：生成 lens_info.txt 文件，包含镜头型号和焦距
-# ============================================================
-generate_lens_info_file() {
-    info "生成镜头信息文件"
-
-    local sensor_type=$SENSOR_TYPE
-    local focal_length=""
-
-    # 提取焦距部分（如 f4mm 或 f2_8mm）
-    # 支持格式：sc533hai-f4mm 或 sc533hai_f4mm 或 sc533hai f4mm
-    if [[ "$sensor_type" =~ (f[0-9_]+mm) ]]; then
-        local focal_part="${BASH_REMATCH[1]}"
-        # 将 f4mm 转换为 4mm，f2_8mm 转换为 2.8mm
-        focal_length="${focal_part#f}"
-        focal_length="${focal_length//_/.}"
-        info "提取到焦距: ${focal_length}"
-    fi
-
-    # 写入 lens_info.txt 文件
-    local lens_info_file="${UPGRADE_PATH}/opt/cam/lens_info.txt"
-    echo "SENSOR_TYPE=${sensor_type}" >"$lens_info_file"
-    if [ -n "$focal_length" ]; then
-        echo "FOCAL_LENGTH=${focal_length}" >>"$lens_info_file"
-    fi
-
-    info "镜头信息文件已生成: ${lens_info_file}"
-}
 
 # ============================================================
 # 函数：根据镜头型号生成包名中的镜头标识
@@ -265,7 +248,7 @@ generate_sensor_name_for_package() {
 
 # ============================================================
 # 函数：生成软件包名称
-# 参数：$1 - PACKET_TYPE (all/app/model/lib/custom)
+# 参数：$1 - PACKET_TYPE (all/app/model/lib/custom/script)
 # 返回：设置全局变量 SOFTWARE_NAME
 # ============================================================
 generate_software_name() {
@@ -289,6 +272,9 @@ generate_software_name() {
     custom)
         type_label="-CUSTOM"
         ;;
+    script)
+        type_label="-SCRIPT"
+        ;;
     *)
         error "不支持的升级包类型: $packet_type"
         exit 1
@@ -303,6 +289,11 @@ generate_software_name() {
         SOFTWARE_NAME="${DEVICE_TYPE}-${CHIP_TYPE}-${SENSOR_NAME_FOR_PACKAGE}-${VERSION_NUM}-${LANGUAGE_TYPE}-${SOFTWARE_TYPE}-${PROJECT_TYPE}"
     else
         SOFTWARE_NAME="${DEVICE_TYPE}-${CHIP_TYPE}-${SENSOR_NAME_FOR_PACKAGE}${type_label}-${VERSION_NUM}-${LANGUAGE_TYPE}-${SOFTWARE_TYPE}-${PROJECT_TYPE}"
+    fi
+
+    # 软著模式：用软著前缀包裹文件名
+    if [ "$COPYRIGHT_MODE" = true ]; then
+        SOFTWARE_NAME="${COPYRIGHT_PREFIX}(${SOFTWARE_NAME})"
     fi
 
     info "生成的软件包名称: ${SOFTWARE_NAME}"
@@ -323,7 +314,6 @@ create_upgrade_directories() {
     mkdir -p "${UPGRADE_PATH}"/bin
     mkdir -p "${UPGRADE_PATH}"/sbin
     mkdir -p "${UPGRADE_PATH}"/opt/cam
-    mkdir -p "${UPGRADE_PATH}"/opt/course/upload
     mkdir -p "${UPGRADE_PATH}"/etc/init.d
     mkdir -p "${UPGRADE_PATH}"/etc/scripts
     mkdir -p "${UPGRADE_PATH}"/home/admin
@@ -402,7 +392,7 @@ copy_config_files() {
     # 拷贝 sensor ini配置，根据镜头型号和设备型号选择
     SENSOR_INI_NAME="sensor_${SENSOR_MODEL}"
     SENSOR_INI_SRC="$(get_sensor_config_dir_by_device "$SENSOR_INI_NAME" "$DEVICE_TYPE")"
-    SENSOR_INI_DST="${UPGRADE_PATH}/${RUN_PATH}/.config/${SENSOR_INI_NAME}"
+    SENSOR_INI_DST="${UPGRADE_PATH}/${RUN_PATH}/.config/sensor"
 
     if [ -d "$SENSOR_INI_SRC" ]; then
         info "使用的sensor ini目录: ${SENSOR_INI_SRC}"
@@ -569,6 +559,7 @@ copy_third_party_files() {
 
     # 拷贝插件
     # cp -a "${THIRD_PARTY_PATH}"/IpcComponents-V* "${UPGRADE_PATH}/${RUN_PATH}"/third-party
+    # cp -a "${THIRD_PARTY_PATH}/ttf" "${UPGRADE_PATH}/${RUN_PATH}/third-party/"
     # 拷贝开源许可证
     cp -a "${THIRD_PARTY_PATH}"/softwareLicense.txt "${UPGRADE_PATH}/${RUN_PATH}"/third-party
     # 拷贝nginx
@@ -607,15 +598,39 @@ copy_system_scripts() {
     cp -a "${ETC_PATH}"/mdev.conf "${UPGRADE_PATH}"/etc/
     cp -a "${ETC_PATH}"/profile "${UPGRADE_PATH}"/etc/
     cp -a "${ETC_PATH}"/resolv.conf "${UPGRADE_PATH}"/etc/
-    cp -a "${ETC_PATH}"/init.d/* "${UPGRADE_PATH}"/etc/init.d
+    
+    if [[ "$DEVICE_TYPE" =~ ^TV-3852.*L ]]; then #垃圾站项目
+    cp -a "${ETC_PATH}"/scripts_face/* "${UPGRADE_PATH}"/etc/scripts
+    else
     cp -a "${ETC_PATH}"/scripts/* "${UPGRADE_PATH}"/etc/scripts
+    fi
 
+    # 拷贝 init.d 脚本，排除 S90upgrade（垃圾站项目 init_00S.d 下无 S90）
+    if [[ "$DEVICE_TYPE" =~ ^TV-3852(TLW|TL4G)$ ]]; then
+        cp -a "${ETC_PATH}"/init_00S.d/* "${UPGRADE_PATH}"/etc/init.d
+    else
+        # 只有非垃圾站项目才需要排除 S90upgrade
+        for file in "${ETC_PATH}"/init.d/*; do
+            if [ -f "$file" ]; then
+                filename=$(basename "$file")
+                if [[ "$filename" != "S90upgrade" ]]; then
+                    cp -a "$file" "${UPGRADE_PATH}"/etc/init.d/
+                fi
+            fi
+        done
+    fi
     # 拷贝admin用户profile
     cp -a "${ADMIN_USER_PATH}"/profile "${UPGRADE_PATH}"/home/admin/.profile
 
     # 拷贝root驱动加载脚本，根据镜头型号选择
+    
+    if [[ "$DEVICE_TYPE" =~ ^TV-3852(TLW|TL4G)$ ]]; then #垃圾站项目
+    INSMOD_NAME="insmod_sc533hai_00S.sh"
+    INSMOD_SRC="${ROOT_USER_PATH}/insmod_sc533hai_00S.sh"
+    else
     INSMOD_NAME="insmod_${SENSOR_MODEL}.sh"
     INSMOD_SRC="${ROOT_USER_PATH}/insmod_${SENSOR_MODEL}.sh"
+    fi
 
     if [ -f "$INSMOD_SRC" ]; then
         info "使用驱动加载脚本: ${INSMOD_NAME}"
@@ -633,8 +648,6 @@ info "清理上次编译的文件成功"
 
 # 创建目录结构
 create_upgrade_directories
-# 生成镜头信息文件
-generate_lens_info_file
 
 # ============================================================
 # 函数：拷贝完整升级包内容（PACKET_TYPE=all）
@@ -717,6 +730,18 @@ copy_custom_files() {
 }
 
 # ============================================================
+# 函数：拷贝脚本升级包内容（PACKET_TYPE=script）
+# 说明：仅拷贝 /etc/init.d/S90upgrade
+# ============================================================
+copy_script_only_files() {
+    info "============> 开始拷贝脚本升级包内容（仅 S90upgrade） <============"
+
+    cp -a "${ETC_PATH}"/init.d/S90upgrade "${UPGRADE_PATH}"/etc/init.d/
+
+    info "============> 脚本升级包内容拷贝完成 <============"
+}
+
+# ============================================================
 # 根据 PACKET_TYPE 执行对应的拷贝操作
 # ============================================================
 info "当前升级包类型: ${PACKET_TYPE}"
@@ -737,8 +762,11 @@ lib)
 custom)
     copy_custom_files
     ;;
+script)
+    copy_script_only_files
+    ;;
 *)
-    error "不支持的升级包类型: ${PACKET_TYPE}，支持的类型: all, app, model, lib, custom"
+    error "不支持的升级包类型: ${PACKET_TYPE}，支持的类型: all, app, model, lib, custom, script"
     exit 1
     ;;
 esac

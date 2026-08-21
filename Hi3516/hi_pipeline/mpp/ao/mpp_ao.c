@@ -3,7 +3,7 @@
  * @Author       : zhouzirui
  * @Date         : 2025-03-31 17:30:59
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-06-03 19:16:45
+ * @LastEditTime : 2026-07-23 11:31:22
  * @Description  : 海思ao模块封装
  */
 
@@ -14,7 +14,16 @@
 #include <sys/ioctl.h>
 #include <fcntl.h>
 
-int convert_volume(int nVolume, int nMinVolume, int nMaxVolume)
+/**
+ * @brief   : 将用户音量百分比映射为 AO 设备使用的整数 dB
+ * @param    {int} nVolume：用户设置的音量，取值范围 0~100
+ * @param    {int} nMinVolume：AO 输出音量最小值，单位 dB
+ * @param    {int} nMaxVolume：AO 输出音量最大值，单位 dB
+ * @param    {double} dCurveBase：指数曲线 BASE，必须大于 0 且不等于 1
+ * @return   {int} 映射后的 AO 整数 dB 音量
+ * @note    : BASE 非法或为 1 时退化为线性映射，避免除零并保证参数异常时可用。
+ */
+int convert_volume(int nVolume, int nMinVolume, int nMaxVolume, double dCurveBase)
 {
     /* 参数验证 */
     if (nVolume < 0)
@@ -26,33 +35,30 @@ int convert_volume(int nVolume, int nMinVolume, int nMaxVolume)
         nVolume = 100;
     }
 
-    /* 指数曲线映射，模拟人耳对数感知特性
+    /* 指数曲线映射，低中音量段变化更细，高音量段变化更集中。
      *
-     * 公式：dB = nMinVolume + (nMaxVolume - nMinVolume) × (BASE^(v/100) - 1) / (BASE - 1)
-     * 其中 v 为用户音量（0~100），BASE 为指数底数
+     * 公式：dB = nMinVolume + (nMaxVolume - nMinVolume) ×
+     *        (BASE^(v/100) - 1) / (BASE - 1)
+     * 其中 v 为用户音量（0~100），BASE 由上层按设备声学标定传入。
      *
-     * 当前约束点（nMinVolume=-25, nMaxVolume=6, BASE=1.573）：
-     *   音量 0   → -25 dB（静音）
-     *   音量 1   → -24 dB
-     *   音量 50  → -0.4 dB
-     *   音量 100 → 6 dB
-     *
-     * 手动调整指南：
-     *   - BASE：控制曲线弯曲程度，值越大低音量区越安静，值越小曲线越接近线性
-     *     修改 nMinVolume 后需重新计算 BASE：
-     *       range = nMaxVolume - nMinVolume
-     *       BASE = ((range - 29.6) / range) ^ (-2)
-     *   - nMinVolume（stream_ao.cpp 中设置）：控制最低音量 dB，值越小低音量越安静
-     *   - nMaxVolume（stream_ao.cpp 中设置）：控制最大音量 dB
+     * BASE 大于 1 时，低中音量段衰减越明显；BASE 小于 1 时，前段音量上升更快。
+     * BASE 越接近 1，曲线越接近线性。
      */
     if (nVolume == 0)
     {
         return nMinVolume;
     }
-    static const double BASE = 1.573;
     double range = (double)(nMaxVolume - nMinVolume);
     double normalized = (double)nVolume / 100.0;
-    double converted = (double)nMinVolume + range * (pow(BASE, normalized) - 1.0) / (BASE - 1.0);
+    double converted;
+    if (dCurveBase <= 0.0 || dCurveBase == 1.0)
+    {
+        converted = (double)nMinVolume + range * normalized;
+    }
+    else
+    {
+        converted = (double)nMinVolume + range * (pow(dCurveBase, normalized) - 1.0) / (dCurveBase - 1.0);
+    }
     if (converted < (double)nMinVolume)
     {
         converted = (double)nMinVolume;
@@ -61,6 +67,7 @@ int convert_volume(int nVolume, int nMinVolume, int nMaxVolume)
     {
         converted = (double)nMaxVolume;
     }
+    /* note: 保留现网取整方式，确保既有型号的整数 dB 输出不发生变化。 */
     return (int)(converted + 0.5);
 }
 
@@ -152,7 +159,8 @@ static int mppAo_init(HiAo_S *pHandle)
     {
         /* 设置AO设备静音 */
         CHECK_API_RETURN(ss_mpi_ao_set_mute(nAoDev, TD_FALSE, &stFade));
-        int nConvertVolume = convert_volume(pHandle->stExParam.nVolume, pHandle->stExParam.nMinVolume, pHandle->stExParam.nMaxVolume);
+        int nConvertVolume = convert_volume(pHandle->stExParam.nVolume, pHandle->stExParam.nMinVolume,
+                                             pHandle->stExParam.nMaxVolume, pHandle->stExParam.dVolumeCurveBase);
         /*设置AO设备音量大小 音频设备音量大小（以dB为单位）取值范围：[-121, 6]*/
         CHECK_API_RETURN(ss_mpi_ao_set_volume(nAoDev, nConvertVolume));
     }
@@ -288,7 +296,8 @@ static int mppAo_setVolume(HiAo_S *pHandle, int nVolume)
     {
         /* 设置AO设备静音 */
         CHECK_API_RETURN(ss_mpi_ao_set_mute(nAoDev, TD_FALSE, &stFade));
-        int nConvertVolume = convert_volume(pHandle->stExParam.nVolume, pHandle->stExParam.nMinVolume, pHandle->stExParam.nMaxVolume);
+        int nConvertVolume = convert_volume(pHandle->stExParam.nVolume, pHandle->stExParam.nMinVolume,
+                                             pHandle->stExParam.nMaxVolume, pHandle->stExParam.dVolumeCurveBase);
         /* 设置AO设备音量大小 音频设备音量大小（以dB为单位）取值范围：[-121, 6] */
         CHECK_API_RETURN(ss_mpi_ao_set_volume(nAoDev, nConvertVolume));
     }
@@ -322,6 +331,7 @@ HiAo_S *mppAo_alloc(HiAoNeedParam_S stNeedParam)
     pHandle->stExParam.nVolume                  = 100;
     pHandle->stExParam.nMinVolume               = -121;
     pHandle->stExParam.nMaxVolume               = 6;
+    pHandle->stExParam.dVolumeCurveBase         = 1.573;
 
     //info /**********************函数列表***************************/
     pHandle->mppAo_init                 = mppAo_init;

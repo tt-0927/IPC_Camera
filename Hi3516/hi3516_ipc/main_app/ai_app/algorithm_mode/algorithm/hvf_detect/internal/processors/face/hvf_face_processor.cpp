@@ -3,7 +3,7 @@
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2026-03-26 16:20:00
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-03-28 10:43:02
+ * @LastEditTime : 2026-08-15 10:45:43
  * @Description  : HVF 人脸侦测处理器实现
  */
 
@@ -83,7 +83,9 @@ void CHVFFaceProcessor::process(SHVFProcessContext &stContext)
     stEventContext.nChnId = stContext.nChnId;
     stEventContext.llTimestamp = stContext.llTimestamp;
 #ifdef ENABLE_TVSDK_SRC
-    if (bIsAlarm && stContext.pFrameInfo != nullptr)
+    /* perf: 有TVSDK客户端订阅时才软件编码全景图，无订阅者或冷却期跳过编码 */
+    if (bIsAlarm && m_alarmStateMachine.canStartAlarm() && stContext.pFrameInfo != nullptr &&
+        AiAppCommon::tvsdk_event_image_required())
     {
         auto pPayload = std::make_shared<EventTvSdkPayload_S>();
         pPayload->enType = get_tvsdk_payload_type(stEventContext.enEventType);

@@ -45,7 +45,9 @@ void CGroup3Detect::recvMediaData(MediaData_S stMediaData)
         return;
     }
 
-    if (m_RecvManager.handleEvent(stMediaData.stMediaParam.nChannel))
+    m_nChannelId = stMediaData.stMediaParam.nChannel;
+
+    if (m_RecvManager.handleEvent(m_nChannelId))
     {
         if (m_dateQueue.size() >= QUEUE_MAX)
         {
@@ -277,6 +279,7 @@ void CGroup3Detect::run()
 
             if (!stInData.inMat.empty())
             {
+                m_fullRgbMat = rgbMat.clone();
                 if (access("group3Detect_debugImage", F_OK) == 0)
                 {
                     dlog_debug("============>debugImage");
@@ -378,27 +381,147 @@ void CGroup3Detect::processGroup3Detect(const Group3Detect_NS::OutData_S &stOutD
 {
     if (m_stAlgoSmokeFireCfg.bEnable)
     {
+        /* 上报事件 */
+#ifdef ENABLE_TVSDK_SRC
+        EventTriggerContext_S stContext;
+        stContext.enEventType = Event::Type_E::SMOKE_FIRE;
+        stContext.nChnId = m_nChannelId;
+        stContext.llTimestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
+                                   std::chrono::system_clock::now().time_since_epoch())
+                                   .count();
+        if (!m_fullRgbMat.empty())
+        {
+            auto pPayload = std::make_shared<EventTvSdkPayload_S>();
+            pPayload->enType = get_tvsdk_payload_type(stContext.enEventType);
+            if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage))
+            {
+                stContext.pTvSdkPayload = pPayload;
+            }
+        }
+        m_SmokeFireStateMachine.handleAlarmState(stOutData.bSmoke, stContext);
+#else
         m_SmokeFireStateMachine.handleAlarmState(stOutData.bSmoke, Event::Type_E::SMOKE_FIRE);
+#endif
     }
     if (m_stAlgoOpenFlameCfg.bEnable)
     {
+        /* 上报事件 */
+#ifdef ENABLE_TVSDK_SRC
+        EventTriggerContext_S stContext;
+        stContext.enEventType = Event::Type_E::OPEN_FLAME;
+        stContext.nChnId = m_nChannelId;
+        stContext.llTimestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
+                                   std::chrono::system_clock::now().time_since_epoch())
+                                   .count();
+        if (!m_fullRgbMat.empty())
+        {
+            auto pPayload = std::make_shared<EventTvSdkPayload_S>();
+            pPayload->enType = get_tvsdk_payload_type(stContext.enEventType);
+            if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage))
+            {
+                stContext.pTvSdkPayload = pPayload;
+            }
+        }
+        m_OpenFlameStateMachine.handleAlarmState(stOutData.bOpenFire, stContext);
+#else
         m_OpenFlameStateMachine.handleAlarmState(stOutData.bOpenFire, Event::Type_E::OPEN_FLAME);
+#endif
     }
     if (m_stAlgoGarbageExposureCfg.bEnable)
     {
+        /* 上报事件 */
+#ifdef ENABLE_TVSDK_SRC
+        EventTriggerContext_S stContext;
+        stContext.enEventType = Event::Type_E::GARBAGE_EXPOSURE;
+        stContext.nChnId = m_nChannelId;
+        stContext.llTimestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
+                                   std::chrono::system_clock::now().time_since_epoch())
+                                   .count();
+        if (!m_fullRgbMat.empty())
+        {
+            auto pPayload = std::make_shared<EventTvSdkPayload_S>();
+            pPayload->enType = get_tvsdk_payload_type(stContext.enEventType);
+            if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage))
+            {
+                stContext.pTvSdkPayload = pPayload;
+            }
+        }
+        m_GarbageExposureStateMachine.handleAlarmState(stOutData.bGarbageExposure, stContext);
+#else
         m_GarbageExposureStateMachine.handleAlarmState(stOutData.bGarbageExposure, Event::Type_E::GARBAGE_EXPOSURE);
+#endif
     }
     if (m_stAlgoGarbageOverflowCfg.bEnable)
     {
+        /* 上报事件 */
+#ifdef ENABLE_TVSDK_SRC
+        EventTriggerContext_S stContext;
+        stContext.enEventType = Event::Type_E::GARBAGE_OVERFLOW;
+        stContext.nChnId = m_nChannelId;
+        stContext.llTimestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
+                                   std::chrono::system_clock::now().time_since_epoch())
+                                   .count();
+        if (!m_fullRgbMat.empty())
+        {
+            auto pPayload = std::make_shared<EventTvSdkPayload_S>();
+            pPayload->enType = get_tvsdk_payload_type(stContext.enEventType);
+            if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage))
+            {
+                stContext.pTvSdkPayload = pPayload;
+            }
+        }
+        m_GarbageOverStateMachine.handleAlarmState(stOutData.bGarbageOver, stContext);
+#else
         m_GarbageOverStateMachine.handleAlarmState(stOutData.bGarbageOver, Event::Type_E::GARBAGE_OVERFLOW);
+#endif
     }
     if (m_stAlgoManholeCoverAbnormalCfg.bEnable)
     {
+        /* 上报事件 */
+#ifdef ENABLE_TVSDK_SRC
+        EventTriggerContext_S stContext;
+        stContext.enEventType = Event::Type_E::MANHOLE_COVER_ABNORMAL;
+        stContext.nChnId = m_nChannelId;
+        stContext.llTimestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
+                                   std::chrono::system_clock::now().time_since_epoch())
+                                   .count();
+        if (!m_fullRgbMat.empty())
+        {
+            auto pPayload = std::make_shared<EventTvSdkPayload_S>();
+            pPayload->enType = get_tvsdk_payload_type(stContext.enEventType);
+            if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage))
+            {
+                stContext.pTvSdkPayload = pPayload;
+            }
+        }
+        m_ManholeCoverAbnormalStateMachine.handleAlarmState(stOutData.bManholeCoverAbnormal, stContext);
+#else
         m_ManholeCoverAbnormalStateMachine.handleAlarmState(stOutData.bManholeCoverAbnormal, Event::Type_E::MANHOLE_COVER_ABNORMAL);
+#endif
     }
     if (m_stAlgoRoadPondingCfg.bEnable)
     {
+        /* 上报事件 */
+#ifdef ENABLE_TVSDK_SRC
+        EventTriggerContext_S stContext;
+        stContext.enEventType = Event::Type_E::ROAD_PONDING;
+        stContext.nChnId = m_nChannelId;
+        stContext.llTimestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
+                                   std::chrono::system_clock::now().time_since_epoch())
+                                   .count();
+        if (!m_fullRgbMat.empty())
+        {
+            auto pPayload = std::make_shared<EventTvSdkPayload_S>();
+            pPayload->enType = get_tvsdk_payload_type(stContext.enEventType);
+            if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage))
+            {
+                stContext.pTvSdkPayload = pPayload;
+            }
+        }
+        m_RoadPondingStateMachine.handleAlarmState(stOutData.bRoadPonding, stContext);
+#else
         m_RoadPondingStateMachine.handleAlarmState(stOutData.bRoadPonding, Event::Type_E::ROAD_PONDING);
+#endif
     }
 
     return;

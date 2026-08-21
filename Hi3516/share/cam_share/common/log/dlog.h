@@ -3,7 +3,7 @@
  * @Author       : zhangjunbin
  * @Date         : 2021年3月30日
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2025-09-25 14:55:24
+ * @LastEditTime : 2026-08-07 13:57:34
  * @Description  : 日志的基础库，基于spdlog封装
  */
 
@@ -98,6 +98,24 @@ int getCurrTime(char *outputBuf, char *timeFormat);
 
 /*设置立即刷新等级*/
 int setFlushLevel(int nLevel);
+
+/**
+ * @brief    : 设置日志限流间隔
+ * @note     : 同一调用点（文件+行号）在间隔内只输出一次，防止高频日志阻塞业务线程。
+ *             设为 0 则禁用限流。
+ * @param    {int} nIntervalMs：限流间隔（毫秒），0 表示禁用限流
+ * @return   {int} 0：成功，非0：失败
+ */
+int setLogThrottleInterval(int nIntervalMs);
+
+/**
+ * @brief    : 启动日志级别文件监控线程
+ * @note     : 定时读取指定文件内容，根据文件内容动态切换日志级别。
+ *             文件内容支持：trace、debug、info、warn、error
+ * @param    {const char*} pLevelFilePath：日志级别配置文件路径
+ * @return   {int} 0：成功，非0：失败
+ */
+int startLogLevelMonitor(const char *pLevelFilePath);
 
 /*查找并跳过ANSI转义序列 */
 void skip_ansi_escape_sequences(char *str);

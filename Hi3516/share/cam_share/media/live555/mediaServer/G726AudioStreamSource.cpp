@@ -97,7 +97,9 @@ G726AudioStreamSource::~G726AudioStreamSource()
 }
 unsigned int G726AudioStreamSource::maxFrameSize() const
 {
-    return MAX_FRAME_SIZE;
+    return m_g726SouceInfo.outPacketBufferSize == 0
+               ? MAX_FRAME_SIZE
+               : m_g726SouceInfo.outPacketBufferSize;
 }
 
 void G726AudioStreamSource::doGetNextFrame()

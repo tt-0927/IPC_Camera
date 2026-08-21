@@ -3,7 +3,7 @@
  * @Author       : zhouzirui
  * @Date         : 2025-03-21 10:29:00
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2025-09-22 17:40:38
+ * @LastEditTime : 2026-07-30 15:14:08
  * @Description  : VPSS 视频处理
  */
 
@@ -68,9 +68,23 @@ int streamVpss_set_chnAttr(HiVpss_S *pHandle, const Video_NS::VideoConfig_S &stV
  * @brief   : stream设置VPSS通道裁剪
  * @param    {HiVpss_S} *pHandle：句柄
  * @param    {AreaCrop_S} &stAreaCrop：裁剪信息
+ * @param    {ot_vpss_crop_info *} pstAppliedCrop：输出底层实际生效的裁剪参数，可为空
  * @return   {int}0：成功 非零：失败
+ * @note    : 裁剪起点与尺寸会按底层约束对齐，调用方必须使用输出参数进行后续坐标换算。
  */
-int streamVpss_set_chnCrop(HiVpss_S *pHandle, const Video_NS::AreaCrop_S &stAreaCrop);
+int streamVpss_set_chnCrop(HiVpss_S *pHandle,
+                            const Video_NS::AreaCrop_S &stAreaCrop,
+                            ot_vpss_crop_info *pstAppliedCrop = nullptr);
+
+/**
+ * @brief   : 获取 VPSS 通道当前实际生效的裁剪参数
+ * @param    {HiVpss_S *} pHandle：VPSS 句柄
+ * @param    {int} nVpssChn：VPSS 通道号
+ * @param    {ot_vpss_crop_info &} stCropInfo：输出的底层裁剪参数
+ * @return   {int} OK：成功，ERR：失败
+ * @note    : 用于让 OSD 坐标转换严格采用底层已生效的对齐坐标，而非网页原始配置。
+ */
+int streamVpss_get_chnCrop(HiVpss_S *pHandle, int nVpssChn, ot_vpss_crop_info &stCropInfo);
 
 /**
  * @brief   : 重新设置卷绕

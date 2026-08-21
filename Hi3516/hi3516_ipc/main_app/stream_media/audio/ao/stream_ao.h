@@ -10,6 +10,8 @@
 #pragma once
 
 #include <atomic>
+#include <mutex>
+
 
 #include "audio_define.h"
 #include "IpcRet.h"
@@ -83,14 +85,35 @@ public:
      */
     int update_audioConfig(const Audio_NS::AudioConfig_S &stConfig);
 
+
+       /**
+     * @brief   : 开启或关闭当前选中的音频输出功放
+     * @param   : enable true开启，false关闭
+     */
+     int setOutputEnable(bool enable);
+
 private:
+#if CAP_IO_EXTERNAL_DDR_00S
+
+    /* 扬声器用户空间GPIO ID */
+    const int SPEAKER_GPIO = 10;
+    /* 线路输出用户空间GPIO ID */
+    const int LINEOUT_GPIO = 8;
+
+#else
     /* 扬声器用户空间GPIO ID */
     const int SPEAKER_GPIO = 60;
     /* 线路输出用户空间GPIO ID */
     const int LINEOUT_GPIO = 61;
-
+#endif
     /* 初始化标志 */
     std::atomic<bool> m_bInit;
+    /* 当前选择的音频输出类型 */
+    Audio_NS::AudioOutputType_E m_enOutputType = Audio_NS::AudioOutputType_E::SPEAKER;
+    /* 当前功放使能状态，避免每个音频帧重复写GPIO */
+    bool m_bOutputEnabled = false;
+    /* 保护输出类型切换和GPIO电平控制 */
+    std::mutex m_outputMutex;
     /* 扬声器GPIO句柄 */
     GpioHandle_S* m_pSpeaker = nullptr;
     /* 线路输出GPIO句柄 */

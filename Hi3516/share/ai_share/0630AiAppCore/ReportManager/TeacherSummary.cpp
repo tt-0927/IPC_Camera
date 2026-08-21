@@ -316,7 +316,7 @@ void TeacherSummary::finalize(const void* pParam)
     for (auto& kv : s.mapPostureRatio)
     {
         std::cout << postureToStr(kv.first)
-                  << " 占比: " << kv.second * 100 << "%\n";
+                  << " 占比: " << kv.second << "%\n";
     }
 #endif
 }
@@ -429,7 +429,7 @@ TeacherBehaviorSummary_S TeacherSummary::getSummary() const
             float ratio = float(kv.second.nTotalDurations) /
                 float(totalPostureDur);
 
-            out.mapPostureRatio[kv.first] = ratio;
+            out.mapPostureRatio[kv.first] = ratio * 100;
         }
     }
 
@@ -531,25 +531,25 @@ void TeacherSummary::saveFile(std::string strFilePath)
     auto pPostureInfoJson = Json::init();
     /* 正面讲解，单位% */
     Json::add(pPostureInfoJson, "frontExplainPercent",
-              getOrDefault(s.mapPostureRatio, TeacherPosture_E::FRONT_EXPLAIN, 0.0f));
+              getOrDefault(s.mapPostureRatio, TeacherPosture_E::FRONT_EXPLAIN, 0));
     /* 双手抱臂，单位% */
     Json::add(pPostureInfoJson, "armsCrossedPercent",
-              getOrDefault(s.mapPostureRatio, TeacherPosture_E::ARMS_CROSSED, 0.0f));
+              getOrDefault(s.mapPostureRatio, TeacherPosture_E::ARMS_CROSSED, 0));
     /* 面向黑板，单位% */
     Json::add(pPostureInfoJson, "facingBlackboardPercent",
-              getOrDefault(s.mapPostureRatio, TeacherPosture_E::FACE_BLACKBOARD, 0.0f));
+              getOrDefault(s.mapPostureRatio, TeacherPosture_E::FACE_BLACKBOARD, 0));
     /* 叉腰表达，单位% */
     Json::add(pPostureInfoJson, "handsOnWaistPercent",
-              getOrDefault(s.mapPostureRatio, TeacherPosture_E::HANDS_ON_HIP, 0.0f));
+              getOrDefault(s.mapPostureRatio, TeacherPosture_E::HANDS_ON_HIP, 0));
     /* 低头，单位% */
     Json::add(pPostureInfoJson, "headDownPercent",
-              getOrDefault(s.mapPostureRatio, TeacherPosture_E::HEAD_DOWN, 0.0f));
+              getOrDefault(s.mapPostureRatio, TeacherPosture_E::HEAD_DOWN, 0));
     /* 抬头，单位% */
     Json::add(pPostureInfoJson, "headUpPercent",
-              getOrDefault(s.mapPostureRatio, TeacherPosture_E::HEAD_UP, 0.0f));
+              getOrDefault(s.mapPostureRatio, TeacherPosture_E::HEAD_UP, 0));
     /* 举手示意，单位% */
     Json::add(pPostureInfoJson, "handRaisePercent",
-              getOrDefault(s.mapPostureRatio, TeacherPosture_E::HAND_UP, 0.0f));
+              getOrDefault(s.mapPostureRatio, TeacherPosture_E::HAND_UP, 0));
     Json::add(pDataJson, "PostureInfo", pPostureInfoJson);
 
 

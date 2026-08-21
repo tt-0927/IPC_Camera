@@ -124,6 +124,17 @@ private:
     std::map<int, bool> m_eventTriggeredMap;
     /* 记录每个区域事件结束时间（用于冷却期，防止冷却期内重复触发） */
     std::map<int, std::chrono::steady_clock::time_point> m_lastEndTimeMap;
+    /* 记录每个区域 S1 最后一次跌至 LOW 的时间（用于冷却期内判断新的放置事件） */
+    std::map<int, std::chrono::steady_clock::time_point> m_lastLowTimeMap;
+    /* 记录每个区域事件触发时间（用于强制超时结束） */
+    std::map<int, std::chrono::steady_clock::time_point> m_eventTriggerStartMap;
+    /* 记录每个区域连续 HIGH 的起始时间（用于启动时物体已存在的拿取检测） */
+    std::map<int, std::chrono::steady_clock::time_point> m_removalHighStartMap;
+    /* 记录每个区域 OBJECT_REMOVAL HIGH 跌落时间（用于区分首次移除 vs 后续放置） */
+    std::map<int, std::chrono::steady_clock::time_point> m_removalHighDropTime;
+    /* 鬼影检测相关（仅bOnlyRemoval模式） */
+    std::map<int, std::chrono::steady_clock::time_point> m_ghostStartMap;
+    std::map<int, bool> m_ghostUsedMap;
 
     /* 物品检测灵敏度 静态场景 x=5，动态场景 x=10~15 */
     float m_fSensiThrd = 5.0f;
@@ -144,4 +155,7 @@ private:
      /* 算法默认分辨率 */
     int m_nWidth = 1280;
     int m_nHeight = 720;
+
+    int m_nChannelId = 0;
+    cv::Mat m_lastRgbFrame;
 };

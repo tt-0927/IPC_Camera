@@ -80,6 +80,19 @@
      int encodeFaceTargetImageToFile(const Common::RectInfo_S &stRectInfo,
         ot_video_frame_info *pSrcFrameInfo,
         const std::string &strFilename);
+
+             /**
+      * @brief   : 保存信息至抓图图片数据库
+      * @param    {std::string} &strFilename：图片文件路径
+      * @param    {std::string} &strCurrentDate：图片日期
+      * @param    {std::string} &strCurrentTime：图片时间
+      * @param    {int} nChnId：通道号
+      * @return   {int} 0：成功，非0：失败
+      */
+     int saveToDatabase(const std::string &strFilename,
+        const std::string &strCurrentDate,
+        const std::string &strCurrentTime,
+        int nChnId);
  private:
      /**
       * @brief   : 构造人脸抓拍联动配置快照
@@ -152,18 +165,7 @@
       */
      std::string buildTempFilePath(const std::string &strImageType, size_t nIndex) const;
 
-     /**
-      * @brief   : 保存信息至抓图图片数据库
-      * @param    {std::string} &strFilename：图片文件路径
-      * @param    {std::string} &strCurrentDate：图片日期
-      * @param    {std::string} &strCurrentTime：图片时间
-      * @param    {int} nChnId：通道号
-      * @return   {int} 0：成功，非0：失败
-      */
-     int saveToDatabase(const std::string &strFilename,
-                        const std::string &strCurrentDate,
-                        const std::string &strCurrentTime,
-                        int nChnId);
+
 
      /* 人脸抓拍配置 */
      Alarm::FaceCapture_S m_stAlgoCfg;

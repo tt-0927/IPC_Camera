@@ -459,6 +459,93 @@ IpcRet_E CFaceSqlite::deleteData(int nId)
     return enRetCode;
 }
 
+IpcRet_E CFaceSqlite::clearAllData()
+{
+    std::unique_lock<std::mutex> lock(m_mutex);
+
+    if (m_pDb == nullptr)
+    {
+        dlog_error("face database is not initialized");
+        return ERR_UNINIT;
+    }
+
+    std::vector<std::string> vecTables;
+    sqlite3_stmt* pTableStmt = nullptr;
+    const char* pSelectTables =
+        "SELECT name FROM sqlite_master "
+        "WHERE type='table' AND name NOT LIKE 'sqlite_%';";
+
+    if (sqlite3_prepare_v2(m_pDb, pSelectTables, -1, &pTableStmt, nullptr) != SQLITE_OK)
+    {
+        dlog_error("query face tables failed: %s", sqlite3_errmsg(m_pDb));
+        return ERR;
+    }
+
+    while (sqlite3_step(pTableStmt) == SQLITE_ROW)
+    {
+        const unsigned char* pName = sqlite3_column_text(pTableStmt, 0);
+        if (pName != nullptr)
+        {
+            vecTables.emplace_back(reinterpret_cast<const char*>(pName));
+        }
+    }
+    sqlite3_finalize(pTableStmt);
+
+    if (!beginTransaction())
+    {
+        dlog_error("begin clear face database transaction failed");
+        return ERR;
+    }
+
+    for (const std::string& strTable : vecTables)
+    {
+        char* pDeleteSql = sqlite3_mprintf("DELETE FROM \"%w\";", strTable.c_str());
+        char* pErrMsg = nullptr;
+        const int nRet = (pDeleteSql == nullptr)
+            ? SQLITE_NOMEM
+            : sqlite3_exec(m_pDb, pDeleteSql, nullptr, nullptr, &pErrMsg);
+
+        if (pDeleteSql != nullptr)
+        {
+            sqlite3_free(pDeleteSql);
+        }
+
+        if (nRet != SQLITE_OK)
+        {
+            dlog_error("clear face table [%s] failed: %s", strTable.c_str(),
+                       pErrMsg != nullptr ? pErrMsg : sqlite3_errmsg(m_pDb));
+            if (pErrMsg != nullptr)
+            {
+                sqlite3_free(pErrMsg);
+            }
+            rollbackTransaction();
+            return ERR;
+        }
+
+        if (pErrMsg != nullptr)
+        {
+            sqlite3_free(pErrMsg);
+        }
+    }
+
+    if (!commitTransaction())
+    {
+        dlog_error("commit clear face database transaction failed");
+        rollbackTransaction();
+        return ERR;
+    }
+
+    /* 防止数据库恢复时从旧备份重新带回已经清除的人脸特征。 */
+    if (!backup_database(m_pDb, DB_FACE_DATA_BUCKUP_PATH, true))
+    {
+        dlog_error("backup cleared face database failed");
+        return ERR;
+    }
+
+    dlog_info("cleared all face data from %zu face tables", vecTables.size());
+    return OK;
+}
+
 IpcRet_E CFaceSqlite::searchDataById(int nId, FaceLibsInfo_S& stOutInfo)
 {
     if (!m_pDb)

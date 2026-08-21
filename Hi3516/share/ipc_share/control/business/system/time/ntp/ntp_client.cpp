@@ -3,7 +3,7 @@
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2026-01-21 11:12:16
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-06-05 15:52:48
+ * @LastEditTime : 2026-07-20 17:13:15
  * @Description  : ntp校时
  */
 
@@ -79,6 +79,19 @@ int CNtpClient::init(System::NTPInfo_S &stNtp, System::TimeZone_E enTimeZone)
     bIsUpdate = true;
 
     return 0;
+}
+
+void CNtpClient::set_time_changed_callback(TimeChangedCallback fnCallback)
+{
+    std::lock_guard<std::mutex> stLock(m_mtxTimeChangedCallback);
+    m_fnTimeChangedCallback = std::move(fnCallback);
+}
+
+void CNtpClient::clear_time_changed_callback()
+{
+    /* lock: 返回前等待正在执行的时间通知结束，避免回调目标在NTP线程中悬空。 */
+    std::lock_guard<std::mutex> stLock(m_mtxTimeChangedCallback);
+    m_fnTimeChangedCallback = TimeChangedCallback{};
 }
 
 void CNtpClient::deinit()
@@ -279,9 +292,6 @@ void CNtpClient::run()
             sync_result = syncTime();
             if (0 == sync_result)
             {
-                /* 重置RtspServer上次请求IDR帧时间，防止无法请求出IDR帧 */
-                CRtspServer::instance()->reset_lastIdrRequestTime();
-
                 /* 信息日志-系统校时 */
                 Log::Info_S stLogInfo;
                 stLogInfo.nType = Log::INFOMATION;
@@ -485,6 +495,8 @@ void CNtpClient::updateSystemTime(double dOffset)
         return;
     }
 
+    /* 记录校时前UTC时间，用于所有受墙钟影响模块的原子重算与现场诊断。 */
+    const std::time_t nOldTime = ts.tv_sec;
     /* 计算新时间（处理秒和纳秒） */
     ts.tv_sec += static_cast<time_t>(dOffset);
     double fractional = dOffset - static_cast<time_t>(dOffset);
@@ -507,6 +519,15 @@ void CNtpClient::updateSystemTime(double dOffset)
     {
         dlog_error("clock_settime 失败: %s", strerror(errno));
         return;
+    }
+
+    {
+        /* lock: 回调与注销串行，时间管理模块停止后NTP线程不会访问其旧地址。 */
+        std::lock_guard<std::mutex> stLock(m_mtxTimeChangedCallback);
+        if (m_fnTimeChangedCallback)
+        {
+            m_fnTimeChangedCallback(nOldTime, ts.tv_sec);
+        }
     }
 
     /* 同步写到RTC（硬件时钟）中，RTC统一保存UTC时间 */

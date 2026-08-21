@@ -41,7 +41,7 @@ char* MDFile_key_len(char* pFileName, char* pkey, unsigned int uiLen);
 }
 #endif
 
-/*
+/* 
 * MD5lib.h - md5 library
 */
 
@@ -137,8 +137,16 @@ typedef struct
 	(a) += (b); \
 	}
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 void MD5Init1 (MD5_CTX *context);
 void MD5Update1(MD5_CTX *context, unsigned char *input,unsigned int inputLen);
 void MD5Final1 (unsigned char digest[16], MD5_CTX *context);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

@@ -21,6 +21,14 @@ namespace Convert
      */
     void deal(Json::Object* pRootJson, StorageManage_NS::StorageManage_S &StorageManageParam, bool bOutStruct);
 
+     /**
+     * @brief 转换 SD 卡状态信息
+     * @param pRootJson JSON 句柄
+     * @param stSdCardStatus SD 卡状态信息
+     * @param bOutStruct true 表示 JSON 转结构体，false 表示结构体转 JSON
+     */
+    void deal(Json::Object* pRootJson, StorageManage_NS::SdCardStatus_S &stSdCardStatus, bool bOutStruct);
+
     /**
      * @brief 转换存储目录信息函数
      * @param pRootJson json句柄

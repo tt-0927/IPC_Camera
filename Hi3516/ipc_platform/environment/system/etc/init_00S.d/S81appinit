@@ -1,0 +1,163 @@
+#!/bin/sh
+#
+# @FilePath     : S81appinit
+# @Author       : zhouzr@kfb.cn
+# @Date         : 2026-02-27 13:40:43
+# @LastEditors  : zhouzr@kfb.cn
+# @LastEditTime : 2026-08-04 10:01:33
+# @Description  : Hi3516 IPC 00S 主程序启动脚本
+#
+
+# 设置环境变量
+export LD_LIBRARY_PATH=/lib
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/cam/lib
+export PATH="$PATH":/opt/cam/tools
+
+# 初始化系统
+# /root/init.sh
+/root/insmod.sh
+
+# 上传文件只作为运行期间的临时数据保存，兼容路径仍由网页和业务代码使用。
+UPLOAD_RUNTIME_DIR="/tmp/upload"
+UPLOAD_COMPAT_DIR="/opt/course/upload"
+
+# ! 只清理明确的临时上传目录，禁止扩大为 /opt/course 下的其他数据。
+prepare_upload_directory() {
+    if [ -L "$UPLOAD_RUNTIME_DIR" ]; then
+        rm -f "$UPLOAD_RUNTIME_DIR" || return 1
+    elif [ -e "$UPLOAD_RUNTIME_DIR" ]; then
+        rm -rf "$UPLOAD_RUNTIME_DIR" || return 1
+    fi
+    mkdir -p "$UPLOAD_RUNTIME_DIR" || return 1
+
+    # 旧版本可能把 upload 生成为普通目录；先移除旧节点，再创建兼容软链接。
+    mkdir -p "$(dirname "$UPLOAD_COMPAT_DIR")" || return 1
+    if [ -L "$UPLOAD_COMPAT_DIR" ]; then
+        rm -f "$UPLOAD_COMPAT_DIR" || return 1
+    elif [ -e "$UPLOAD_COMPAT_DIR" ]; then
+        rm -rf "$UPLOAD_COMPAT_DIR" || return 1
+    fi
+    ln -s "$UPLOAD_RUNTIME_DIR" "$UPLOAD_COMPAT_DIR" || return 1
+    chmod 770 "$UPLOAD_RUNTIME_DIR" || return 1
+    return 0
+}
+
+if ! prepare_upload_directory; then
+    echo "上传目录初始化失败，停止启动业务进程" >&2
+    exit 1
+fi
+
+# 设置系统时区，必须在同步RTC与启动业务进程前完成
+if [ -f /opt/cam/shell/set_timezone.sh ]; then
+    . /opt/cam/shell/set_timezone.sh
+fi
+
+# 同步硬件时间，必须在程序起来前，RTC统一按UTC保存
+hwclock -s -u
+
+# 设置发送缓冲区最大768KB (默认通常128KB)
+sysctl -w net.core.wmem_max=786432
+# 设置默认发送缓冲区512KB
+sysctl -w net.core.wmem_default=524288
+# 开启地址空间随机化
+echo 2 > /proc/sys/kernel/randomize_va_space
+# 最大限度使用所有物理内存
+echo 0 > /proc/sys/vm/swappiness
+# 预留最小空闲内存
+echo 1024 > /proc/sys/vm/min_free_kbytes
+
+# -----------------优化内核网络内存-----------------
+# 限制路由缓存 (ip_dst_cache)
+# 默认值通常是 20多亿，限制为 2048 或 4096
+echo 2048 > /proc/sys/net/ipv4/route/max_size
+
+# 加快路由缓存的垃圾回收 (GC)
+# 原值通常很大，改为 5秒 或 10秒 回收一次
+echo 5 > /proc/sys/net/ipv4/route/gc_timeout
+echo 1 > /proc/sys/net/ipv4/route/gc_interval
+# 降低开始 GC 的阈值
+echo 128 > /proc/sys/net/ipv4/route/gc_thresh
+echo 5 > /proc/sys/net/ipv4/route/gc_elasticity
+
+# 限制 IP 分片重组内存 (针对 ip4-frags )
+# 默认通常是 4MB (4194304)，对64MB设备太大
+# 意味着如果分片包太多，内核直接丢弃，不再尝试重组，从而保护内存
+echo 262144 > /proc/sys/net/ipv4/ipfrag_high_thresh  # 256KB上限
+echo 131072 > /proc/sys/net/ipv4/ipfrag_low_thresh   # 128KB下限
+# 缩短分片包在内存中的存活时间 (默认30秒 -> 改为5秒)
+echo 5 > /proc/sys/net/ipv4/ipfrag_time
+
+# 限制conntrack表大小（如果启用）
+if [ -f /proc/sys/net/netfilter/nf_conntrack_max ]; then
+    echo 1024 > /proc/sys/net/netfilter/nf_conntrack_max
+fi
+
+# 减少ARP缓存
+echo 128 > /proc/sys/net/ipv4/neigh/default/gc_thresh1
+echo 256 > /proc/sys/net/ipv4/neigh/default/gc_thresh2
+echo 512 > /proc/sys/net/ipv4/neigh/default/gc_thresh3
+
+# -----------------优化内核网络内存结束-----------------
+
+# 获取所有IpcComponents-V*.exe文件（版本排序）
+file_list=$(find /opt/cam/third-party/ -maxdepth 1 -type f -name "IpcComponents-V*.exe" 2>/dev/null | sort -V)
+
+# 计数器初始化
+count=0
+last_file=""
+
+# 遍历文件，保留最后一个
+for file in $file_list; do
+    count=$((count + 1))
+    if [ -n "$last_file" ]; then
+        echo "删除旧文件: $last_file"
+        rm -f "$last_file"
+    fi
+    last_file="$file"
+done
+
+# 创建软链接
+if [ -n "$last_file" ]; then
+    echo "使用最新文件: $last_file"
+    rm -f /opt/cam/third-party/IpcComponents.exe
+    ln -s "$last_file" /opt/cam/third-party/IpcComponents.exe
+fi
+
+#在/var/www/html下，创建/opt相关目录的软链接
+#用于网页资源访问
+if [ ! -d "/var/www/html/opt" ]; then
+    echo "ln opt"
+    ln -s /opt /var/www/html/opt
+fi
+
+# 国密 SM2 私钥由业务代码通过 CCryptoManager 生成，避免脚本 gmssl 与 OpenSSL Provider 私钥格式不兼容
+
+# 修改权限
+chmod 770 -R /opt/cam
+chmod 770 -R /opt/course
+# ssh admin连接需赋权限
+chmod 777 /etc
+chmod 777 /lib
+
+# 升级程序
+/opt/cam/bin/upgrade &
+
+# 运维程序
+/opt/cam/bin/operation &
+
+# 主控程序
+/opt/cam/bin/stream &
+# 启动主控程序后延迟4秒启动其他程序
+# 在S01led_open 启动的，这里关闭索引
+sleep 2
+echo 0 > /sys/class/pwm/pwmchip3/pwm1/enable
+echo 0 > /sys/class/pwm/pwmchip3/unexport
+sleep 2
+
+# 录制程序
+/opt/cam/bin/record &
+# nginx
+# /opt/cam/third-party/nginx/sbin/nginx -p /opt/cam/third-party/nginx
+
+# 所有程序启动后启动守护进程
+/opt/cam/bin/daemon &

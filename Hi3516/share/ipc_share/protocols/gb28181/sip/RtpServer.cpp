@@ -3,7 +3,7 @@
  * @Author       : cyc
  * @Date         : 2025-05-15 11:09:53
  * @LastEditors  : cyc
- * @LastEditTime : 2025-05-16 09:23:04
+ * @LastEditTime : 2026-08-14 10:56:36
  * @Description  : rtp服务器,获取音视频数据推至rtp
  */
 
@@ -184,10 +184,21 @@ IpcRet_E CRtpServer::rtpServer_deinit()
 
 IpcRet_E CRtpServer::sendVideoData(Video_NS::VideoFrame_S *pVideoFrame)
 {
-    if(pVideoFrame == NULL)
+    if (!pVideoFrame)
     {
         dlog_error("sendVideoData 指针为空");
         return ERR_PTR_NULL;
+    }
+
+    return sendVideoData(pVideoFrame->pData, pVideoFrame->nLen);
+}
+
+IpcRet_E CRtpServer::sendVideoData(const uint8_t *pData, int nDataLen)
+{
+    if (!pData || nDataLen <= 0)
+    {
+        dlog_error("sendVideoData 数据为空");
+        return ERR_PARAM;
     }
 
     if (false == get_rtpStatus())
@@ -203,8 +214,8 @@ IpcRet_E CRtpServer::sendVideoData(Video_NS::VideoFrame_S *pVideoFrame)
     }
 
 
-    /* 媒体数据放入队列 */ 
-    pPacketInfo->achBuff = (char *)manag_malloc(pVideoFrame->nLen);
+    /* memory: 仅在RTP队列中保留一份独立副本，不保存VENC原始指针。 */
+    pPacketInfo->achBuff = (char *)manag_malloc(nDataLen);
     if (pPacketInfo->achBuff == NULL)
     {
         manag_free(pPacketInfo);
@@ -212,8 +223,8 @@ IpcRet_E CRtpServer::sendVideoData(Video_NS::VideoFrame_S *pVideoFrame)
         return ERR_PTR_NULL;
     }
 
-    r_memcpy(pPacketInfo->achBuff, pVideoFrame->pData, pVideoFrame->nLen);
-    pPacketInfo->nframeSize = pVideoFrame->nLen;
+    r_memcpy(pPacketInfo->achBuff, pData, nDataLen);
+    pPacketInfo->nframeSize = nDataLen;
     
     int nSize = 0;
     /* 抛帧策略，视频队列满则先丢掉非I帧 */ 

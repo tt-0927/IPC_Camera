@@ -75,6 +75,9 @@ namespace Task
         TaskSubClass(GmGetCertInfo)
         TaskSubClass(GmDeleteCertFile)
 
+        TaskSubClass(SetNetworkService)
+        TaskSubClass(GetNetworkService)
+
 #if CAP_NETWORK_WIFI
         /** 
         *  @brief ：WiFi功能

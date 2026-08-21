@@ -15,6 +15,7 @@
 #include <ctime>
 #include <iomanip>
 #include <cstring>
+#include <cerrno>
 
 #include "dlog.h"
 // #include "time.h"
@@ -86,6 +87,17 @@ int CM3U8File::add_ts(SliceInfo_S stSliceInfo)
     if(stSliceInfo.filename.empty())
     {
         dlog_error("ts filename is empty");
+        return -1;
+    }
+    if (stSliceInfo.nSize <= 0)
+    {
+        dlog_warn("ts data size is empty, skip adding to m3u8: %s", stSliceInfo.filename.c_str());
+        if (unlink(stSliceInfo.filename.c_str()) != 0 && errno != ENOENT)
+        {
+            dlog_error("remove empty ts file failed: %s, error: %s",
+                       stSliceInfo.filename.c_str(),
+                       std::strerror(errno));
+        }
         return -1;
     }
     std::fstream file(m_path.c_str(), std::ios::in | std::ios::out | std::ios::binary);

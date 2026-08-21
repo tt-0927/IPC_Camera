@@ -159,6 +159,13 @@ public:
      */
     int get_captureDirUseStatus();
 
+        /**
+     * @brief 检查普通抓图写入后是否仍满足抓图配额和人脸图片保留空间
+     * @param llIncomingSize 本次准备写入的图片大小，单位字节
+     * @return true：允许写入 false：需要先清理普通抓图或停止写入
+     */
+     bool has_capture_write_space(long long llIncomingSize);
+
     /**
      * @brief   : 获取录制目录使用状态
      * @return   {int} 空间未达到设定大小：0 空间达到设定大小：-1

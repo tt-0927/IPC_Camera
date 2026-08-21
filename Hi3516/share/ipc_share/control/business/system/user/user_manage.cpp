@@ -85,6 +85,7 @@ IpcRet_E CUserManage::init()
         stItcUser.stPermissions.stMenuPermission.bEventConfig = true;
         stItcUser.stPermissions.stMenuPermission.bVideoManage = true;
         stItcUser.stPermissions.stMenuPermission.bObjectLib = true;
+        stItcUser.stPermissions.stMenuPermission.bFaceConfig = true;
         stItcUser.stPermissions.stMenuPermission.bVehicleDetecConfig = true;
         stItcUser.stPermissions.stMenuPermission.bLocalShutdown = true;
         stItcUser.stPermissions.stOperatePermission.bPTZControl = true;
@@ -635,6 +636,7 @@ int CUserManage::update(User::UpdateInfo_S stUserUpdateInfo, ::System::SecurityS
     item.push_back(Element(PERMISSION_FIELD_EVENT_CONFIG, static_cast<int>(stUserUpdateInfo.stNewUserInfo.stPermissions.stMenuPermission.bEventConfig)));
     item.push_back(Element(PERMISSION_FIELD_VIDEO_MANAGE, static_cast<int>(stUserUpdateInfo.stNewUserInfo.stPermissions.stMenuPermission.bVideoManage)));
     item.push_back(Element(PERMISSION_FIELD_OBJECT_LIB, static_cast<int>(stUserUpdateInfo.stNewUserInfo.stPermissions.stMenuPermission.bObjectLib)));
+    item.push_back(Element(PERMISSION_FIELD_FACE_CONFIG, static_cast<int>(stUserUpdateInfo.stNewUserInfo.stPermissions.stMenuPermission.bFaceConfig)));
     item.push_back(Element(PERMISSION_FIELD_VEHICLE_DETECT_CONFIG, static_cast<int>(stUserUpdateInfo.stNewUserInfo.stPermissions.stMenuPermission.bVehicleDetecConfig)));
     item.push_back(Element(PERMISSION_FIELD_LOCAL_SHUTDOWN, static_cast<int>(stUserUpdateInfo.stNewUserInfo.stPermissions.stMenuPermission.bLocalShutdown)));
 
@@ -1255,6 +1257,11 @@ int CUserManage::user_permssion_auth(User::UserOperation_S stUserOperation)
     }
     /* 目标库权限 */
     else if (stUserOperation.strOperation == "ObjectLib" && stUserInfo.stPermissions.stMenuPermission.bObjectLib)
+    {
+        return IpcRet_E::OK_USER_PERMISSION;
+    }
+    /* 人脸功能权限 */
+    else if (stUserOperation.strOperation == "FaceConfig" && stUserInfo.stPermissions.stMenuPermission.bFaceConfig)
     {
         return IpcRet_E::OK_USER_PERMISSION;
     }

@@ -3,7 +3,7 @@
  * @Author       : zhouzirui
  * @Date         : 2025-03-31 15:31:43
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-06-03 16:12:30
+ * @LastEditTime : 2026-07-29 17:43:13
  * @Description  : 流媒体音频模块
  */
 
@@ -218,6 +218,10 @@ IpcRet_E CStreamAudio::deinit()
 
     m_bInitFlag = false;
 
+
+    m_streamAO.setOutputEnable(false);
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+
     /*关闭音频数据解码线程*/
     // m_bGetAdecFlag[SPEAK_CHN].store(false, std::memory_order_release);
 
@@ -323,6 +327,13 @@ int CStreamAudio::sendAudio_to_Adec(const Audio_NS::AoInfo_S &stAoInfo)
     if (stAoInfo.nChannel < SPEAK_CHN || stAoInfo.nChannel >= ADEC_MAX_CHN)
     {
         dlog_error("无效的通道号: %d", stAoInfo.nChannel);
+        return ERR;
+    }
+
+    /* 有有效播放数据时才开启当前输出功放 */
+    if (m_streamAO.setOutputEnable(true) != OK)
+    {
+        dlog_error("开启音频输出功放失败");
         return ERR;
     }
 
@@ -450,6 +461,15 @@ int CStreamAudio::setAudioConfig(const Audio_NS::AudioConfig_S &stAudioConfig)
 
     if(bIsReset)
     {
+        /*
+         * 音频格式切换会销毁并重建编码通道，编码帧PTS会出现间隔。
+         * 先通知录制端在I帧切片，避免新旧音频时间线写入同一TS文件。
+         */
+        if (CStreamServer::instance()->notify_record_audio_restart() != OK)
+        {
+            dlog_warn("通知录制进程音频编码链路重启失败，将在录制进程重连后同步配置");
+        }
+
         /* 同步RTSP */
         CRtspServer::instance()->setAudioConfig(m_stAudioConfig);
         /*重新启动RTSP服务器*/
@@ -534,14 +554,15 @@ int CStreamAudio::audioMange_set_volume(int nVolumeL,  int nVolumeR)
     return OK;
 }
 
+int CStreamAudio::apply_audio_config(const Audio_NS::AudioConfig_S &stConfig)
+{
+    return setAudioConfig(stConfig);
+}
+
 void CStreamAudio::initCallbackBinding()
 {
-    /*绑定音频配置更新回调*/
-    CAVConfigure::instance()->setAudioConfigCallback(
-        [this](const Audio_NS::AudioConfig_S &stAudioConfig) -> int
-        {
-            return this->setAudioConfig(stAudioConfig);
-        });
+    /* 注册音频配置应用接口，由 CAVConfigure 通过抽象接口触发业务侧配置应用 */
+    CAVConfigure::instance()->setAVAudioConfigApplier(this);
 
     /*绑定音频对讲更新回调*/
     CAVConfigure::instance()->setAoSpeakCallback(
@@ -563,6 +584,14 @@ void CStreamAudio::initCallbackBinding()
         {
             return this->waitAoDrained(nChn, nTimeoutMs);
         });
+        #if CAP_IO_EXTERNAL_DDR_00S
+            /* V1/V2播放路径共用的功放静音回调 */
+    CAVConfigure::instance()->setMuteAudioOutputCallback(
+        [this]()
+        {
+            this->m_streamAO.setOutputEnable(false);
+        });
+        #endif
 }
 
 Audio_NS::AudioFrame_S *CStreamAudio::createFrame(uint8_t *pData, int nDataLen)
@@ -573,14 +602,15 @@ Audio_NS::AudioFrame_S *CStreamAudio::createFrame(uint8_t *pData, int nDataLen)
         return nullptr;
     }
 
-    /*分配连续内存：结构体 + 数据*/
-    Audio_NS::AudioFrame_S *pAudioFrame = nullptr;
-    pAudioFrame = (Audio_NS::AudioFrame_S *) malloc(sizeof(Audio_NS::AudioFrame_S) + nDataLen);
-    if (!pAudioFrame)
+    /* memory: 使用字节数组连续保存帧头和柔性数组数据，释放时必须使用 delete[]。 */
+    uint8_t *pFrameBuffer = new (std::nothrow) uint8_t[sizeof(Audio_NS::AudioFrame_S) + nDataLen];
+    if (!pFrameBuffer)
     {
         dlog_error("内存分配失败");
         return nullptr;
     }
+
+    Audio_NS::AudioFrame_S *pAudioFrame = reinterpret_cast<Audio_NS::AudioFrame_S *>(pFrameBuffer);
 
     memcpy(pAudioFrame->pData, pData, nDataLen);
     pAudioFrame->nLen = nDataLen;
@@ -593,8 +623,8 @@ void CStreamAudio::freeFrame(Audio_NS::AudioFrame_S *pAudioFrame)
 {
     if (pAudioFrame)
     {
-        delete pAudioFrame;
-        pAudioFrame = nullptr;
+        /* memory: createFrame 以 uint8_t[] 分配连续存储，需按原始分配类型释放。 */
+        delete[] reinterpret_cast<uint8_t *>(pAudioFrame);
     }
 }
 
@@ -729,12 +759,8 @@ void CStreamAudio::deal_aiFrame_thr(int param)
 
                     /* 音量调整 */
                     volume_adjust(reinterpret_cast<int8_t *>(stFrame.virt_addr[0]), stFrame.len);
-
-                    /*
-                     * VoiceCom 设备端回传音频源。
-                     * 这里使用已完成 MIC/LINEIN 选择、单声道整理和音量调整后的 PCM，
-                     * NVR 侧按 PCM 参数建立 VoiceCom 后，TVSDK capture 回调会从该缓存取帧发送。
-                     */
+                    
+                    // NVR测按PCM参数建立VoiceCom后，TVSDK captrue 回调会该缓存区帧发送
                     CVoiceComCaptureSource::instance()->push_pcm_frame(stFrame.virt_addr[0], stFrame.len);
 
                     /* 送 AENC 模块 */

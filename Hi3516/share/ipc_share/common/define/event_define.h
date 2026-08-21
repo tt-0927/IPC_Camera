@@ -214,7 +214,7 @@ namespace Event
         case Type::PIR_ALARM:
             return Category_E::NORMAL;
         case Type::MANUAL_SOUND_LIGHT_ALARM:
-            return Category_E::OTHER;
+            return Category_E::OTHER;    
         /* 周界事件 */
         case Type::LINE_CROSSING:
         case Type::INTRUSION:
@@ -559,7 +559,18 @@ namespace Event
             return false;
         }
     } AlgorithmConfig_S;
-
+    /* 普通事件启用状态，供网页一次性查询 */
+    typedef struct _OrdinaryEventEnableStatus_S_
+    {
+        bool bMotionDetect = false;    /* 移动侦测 */
+        bool bOcclusionDetect = false; /* 遮挡侦测 */
+        bool bAnomalyAlarm = false;    /* 异常报警 */
+        bool bAudioAlarm = false;      /* 声音报警 */
+        bool bAlarmInput = false;      /* 报警输入 */
+        bool bAlarmOutput = false;     /* 报警输出 */
+        bool bFlashAlarm = false;      /* 闪光灯报警 */
+        bool bPIRAlarm = false;        /* PIR红外感应报警 */
+    } OrdinaryEventEnableStatus_S;
     /* 智能资源分配-智能事件启用情况 */
     typedef struct _SmartEventEnableStatus_S_
     {
@@ -930,6 +941,12 @@ namespace Event
         int nRatingLevel = 0;       /* 评估等级, 0全部，1 评分未知，2 低， 3高 */
     } FaceInfo_S;
 
+
+    typedef struct AddFaceInfoResult
+    {
+        std::string hashId;   // 外部传入的 hashId
+        int nRet;             // 原始返回码
+    }AddFaceInfoResult_S;
     /* 实时人脸比对结果 */
     typedef struct FaceCompareInfo
     {

@@ -53,6 +53,7 @@ void DataComm::recvData(
     }
 
 #if 0
+    std::vector<uchar> jpegBuf;
     if (nCode == toInt(CommCode_E::AI_COM_ST_ANALYSE) ||
         nCode == toInt(CommCode_E::AI_COM_TE_ANALYSE))
     {
@@ -63,7 +64,6 @@ void DataComm::recvData(
             return;
         }
 
-        std::vector<uchar> jpegBuf;
         if (!encodeJpeg(img, jpegBuf))
         {
             dlog(LOG_ERROR, "【数据通讯】JPEG 编码失败");
@@ -269,10 +269,11 @@ CommData_S* DataComm::buildCommPacket(
 
     int nHeaderSize = strHeader.size();
 
-    auto* pstData = (CommData_S*)new (std::nothrow) char[sizeof(CommData_S) +
-                                                         nHeaderSize +
-                                                         nUserSize +
-                                                         nDataLen];
+    int nTotalSize = sizeof(CommData_S) +
+        nHeaderSize +
+        nUserSize +
+        nDataLen;
+    auto* pstData = (CommData_S*)new (std::nothrow) char[nTotalSize];
 
     if (!pstData)
     {

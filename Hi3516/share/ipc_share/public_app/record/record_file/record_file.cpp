@@ -3,7 +3,7 @@
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2025-06-28 10:36:11
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-06-04 09:02:02
+ * @LastEditTime : 2026-07-29 17:43:13
  * @Description  : 通道通讯录制
  */
 
@@ -29,7 +29,6 @@ CRecordFile::CRecordFile(int nChnId)
 #endif
 {
 	m_nRecordStatus.store(Record_NS::NO_OPERATION);
-	m_bFirstInit.store(false);
 	m_bDisconnect.store(false);
 
 	m_bRunning.store(true);
@@ -126,17 +125,21 @@ void CRecordFile::start(Record_NS::Info_S &stRecordInfos)
 		// dlog_debug("未检测到软链接");
 		usleep(10*1000);
 	}
+
+	std::lock_guard<std::mutex> lock(m_recordStateMutex);
+	if (m_nRecordStatus.load() == Record_NS::RECORD_OPERATION)
+	{
+		return;
+	}
+
 	/* 每次重新开始录制前清楚上一次可能遗留下来的的帧数据 */
 	clear_mediaDataQueue();
 
 	m_stSliceInfo.nEventFlag = (Record_NS::Event_E)stRecordInfos.nEventType;
-	m_ffmpegRecord.reset_lastPts();
-	m_ffmpegRecord.init(m_stSliceInfo);
 	m_stRecordInfo = stRecordInfos;
 	m_strRecvStratTime = Time::get_hhmmss();
 	m_nRecordStatus.store(Record_NS::RECORD_OPERATION);
 
-	dlog_info("启动录制");
 }
 void CRecordFile::pause()
 {
@@ -147,15 +150,6 @@ void CRecordFile::pause()
 void CRecordFile::stop()
 {
 	m_nRecordStatus.store(Record_NS::STOP_OPERATION);
-	if (m_ffmpegRecord.is_init())
-	{
-		clear_mediaDataQueue();
-		m_ffmpegRecord.deinit();
-		m_m3u8.add_ts(m_ffmpegRecord.get_mediaInfo());
-		m_ffmpegRecord.reset();
-		m_bFirstInit.store(false);
-	}
-	dlog_info("停止录制");
 }
 
 void CRecordFile::set_videoInfo(Record_NS::VideoConfigInfo_S stVideoConfigInfo)
@@ -216,6 +210,18 @@ void CRecordFile::set_audioInfo(Record_NS::AudioConfigInfo_S stAudioConfigInfo)
 	m_stSliceInfo.nChannel = stAudioConfigInfo.nChannel;
 	m_stSliceInfo.nAudioFlag = 1;
 	dlog_debug("nSampleRate:%d nSampleFmt:%d nChannel:%d nAudioCodeID:%d", m_stSliceInfo.nSampleRate, m_stSliceInfo.nSampleFmt, m_stSliceInfo.nChannel, m_stSliceInfo.nAudioCodeID);
+}
+
+void CRecordFile::notify_audio_restart()
+{
+	if (m_nRecordStatus.load() != Record_NS::RECORD_OPERATION)
+	{
+		return;
+	}
+
+	/* lock: 通讯线程只设置标记，录制线程在视频I帧处串行完成切片。 */
+	m_bHandleAudioRestartSlice.store(true);
+	dlog_info("检测到录制音频编码链路重启，等待视频I帧切片");
 }
 
 void CRecordFile::push(const void *pData, int nLen, Record_NS::MediaDataType_E enType)
@@ -464,10 +470,12 @@ void CRecordFile::slice()
 		nAptsMs = 0;
 		m_stSliceInfo.nIndex = 0;
 	}
-	
+
 	/*使用更新后的m_stSliceInfo添加到m3u8*/
-	m_m3u8.add_ts(std::move(stSliceInfo));
-	send_tsFileInfo();
+	if (m_m3u8.add_ts(std::move(stSliceInfo)) == 0)
+	{
+		send_tsFileInfo();
+	}
 	m_ffmpegRecord.reset();
 }
 
@@ -572,6 +580,8 @@ int CRecordFile::init_record()
 	nRet = m_ffmpegRecord.init(stNeedParam);
 	if(nRet < 0)
 	{
+		/* 初始化失败时释放可能已创建的FFmpeg上下文，确保后续可以重试 */
+		m_ffmpegRecord.deinit();
 		dlog_error("ffmpeg record init error")
 		return -1;
 	}
@@ -608,8 +618,8 @@ void CRecordFile::write_record()
 	/* 录制句柄需要的数据参数 */
 	RecordData_S stFfData = to_ffmpegData(stMediaData);
 
-	/*开始录制，判断还没初始化，清空变量，初始化录制*/
-	if (!m_bFirstInit.load())
+	/* 以FFmpeg实际句柄状态为准，句柄未初始化时重新初始化 */
+	if (!m_ffmpegRecord.is_init())
 	{
 		if (init_record() == -1)
 		{
@@ -618,7 +628,6 @@ void CRecordFile::write_record()
 		}
 		else
 		{
-			m_bFirstInit.store(true);
 			dlog_debug("初始化录制");
 			if (is_newDay())
 			{
@@ -636,10 +645,26 @@ void CRecordFile::write_record()
 		return;
 	}
 
-	/*检查视频配置是否变化，如果变化则触发切片*/
-	if (m_bHandleSlice.load() && stFfData.nType == AVMEDIA_TYPE_VIDEO && stFfData.nKey && m_ffmpegRecord.get_videoCount() != 0)
+	/*
+	 * 视频配置变化和音频编码链路重启都必须从I帧开始新TS文件。
+	 * 音频重启期间可能积压旧帧，切片后清空队列以隔离两段PTS时间线。
+	 */
+	const bool bVideoConfigChanged = m_bHandleSlice.load();
+	const bool bAudioRestarted = m_bHandleAudioRestartSlice.load();
+	if ((bVideoConfigChanged || bAudioRestarted) && stFfData.nType == AVMEDIA_TYPE_VIDEO && stFfData.nKey && m_ffmpegRecord.get_videoCount() != 0)
 	{
-		dlog_info("检测到视频配置变化，触发切片");
+		if (bVideoConfigChanged && bAudioRestarted)
+		{
+			dlog_info("检测到视频配置变化及音频链路重启，触发切片");
+		}
+		else if (bVideoConfigChanged)
+		{
+			dlog_info("检测到视频配置变化，触发切片");
+		}
+		else
+		{
+			dlog_info("检测到音频编码链路重启，触发切片");
+		}
 		
 		/* 分片 */
 		slice();
@@ -656,12 +681,14 @@ void CRecordFile::write_record()
 			{
 				dlog_debug("初始化录制失败");
 				m_bHandleSlice.store(false);
+				m_bHandleAudioRestartSlice.store(false);
 				return;
 			}
 			/* init_record()内部已处理PTS设置，无需再次设置 */
-			
-			/*重置配置变化标志*/
+
+			/* 重置本次切片已处理的控制标志。 */
 			m_bHandleSlice.store(false);
+			m_bHandleAudioRestartSlice.store(false);
 		}
 	}
 	
@@ -714,15 +741,28 @@ bool CRecordFile::is_record()
 		break;
 	case Record_NS::STOP_OPERATION:
 		bRet = false;
-		// dlog_debug("通道%d停止录制", m_nChnId);
-		if (m_ffmpegRecord.is_init())
 		{
-			m_ffmpegRecord.deinit();
-			m_m3u8.add_ts(m_ffmpegRecord.get_mediaInfo());
-			m_ffmpegRecord.reset();
-			m_bFirstInit.store(false);
-
-			clear_mediaDataQueue();
+			std::lock_guard<std::mutex> lock(m_recordStateMutex);
+			Record_NS::Status_E enStatus = m_nRecordStatus.load();
+			if (enStatus == Record_NS::STOP_OPERATION)
+			{
+				if (m_ffmpegRecord.is_init())
+				{
+					m_ffmpegRecord.deinit();
+					if (m_m3u8.add_ts(m_ffmpegRecord.get_mediaInfo()) == 0)
+					{
+						send_tsFileInfo();
+					}
+				}
+				/* 无论句柄是否存在，都重置录制状态，避免残留状态影响下次启动 */
+				m_ffmpegRecord.reset();
+				clear_mediaDataQueue();
+			}
+			else if (enStatus == Record_NS::RECORD_OPERATION)
+			{
+				/* START先于STOP收尾生效时，继续当前录像 */
+				bRet = true;
+			}
 		}
 		break;
 	default:
@@ -735,7 +775,6 @@ bool CRecordFile::is_record()
 		m_ffmpegRecord.deinit();
 		m_m3u8.add_ts(m_ffmpegRecord.get_mediaInfo());
 		m_ffmpegRecord.reset();
-		m_bFirstInit.store(false);
 
 		clear_mediaDataQueue();
 	}

@@ -27,28 +27,31 @@ along with this library; if not, write to the Free Software Foundation, Inc.,
 
 H264VideoRTPSink
 ::H264VideoRTPSink(UsageEnvironment& env, Groupsock* RTPgs, unsigned char rtpPayloadFormat,
-		   u_int8_t const* sps, unsigned spsSize, u_int8_t const* pps, unsigned ppsSize)
+		   u_int8_t const* sps, unsigned spsSize, u_int8_t const* pps, unsigned ppsSize,
+		   unsigned maxBufferSize)
   : H264or5VideoRTPSink(264, env, RTPgs, rtpPayloadFormat,
-			NULL, 0, sps, spsSize, pps, ppsSize) {
+			NULL, 0, sps, spsSize, pps, ppsSize, maxBufferSize) {
 }
 
 H264VideoRTPSink::~H264VideoRTPSink() {
 }
 
 H264VideoRTPSink* H264VideoRTPSink
-::createNew(UsageEnvironment& env, Groupsock* RTPgs, unsigned char rtpPayloadFormat) {
-  return new H264VideoRTPSink(env, RTPgs, rtpPayloadFormat);
+::createNew(UsageEnvironment& env, Groupsock* RTPgs, unsigned char rtpPayloadFormat,
+	    unsigned maxBufferSize) {
+  return new H264VideoRTPSink(env, RTPgs, rtpPayloadFormat, NULL, 0, NULL, 0, maxBufferSize);
 }
 
 H264VideoRTPSink* H264VideoRTPSink
 ::createNew(UsageEnvironment& env, Groupsock* RTPgs, unsigned char rtpPayloadFormat,
-	    u_int8_t const* sps, unsigned spsSize, u_int8_t const* pps, unsigned ppsSize) {
-  return new H264VideoRTPSink(env, RTPgs, rtpPayloadFormat, sps, spsSize, pps, ppsSize);
+			    u_int8_t const* sps, unsigned spsSize, u_int8_t const* pps, unsigned ppsSize,
+			    unsigned maxBufferSize) {
+  return new H264VideoRTPSink(env, RTPgs, rtpPayloadFormat, sps, spsSize, pps, ppsSize, maxBufferSize);
 }
 
 H264VideoRTPSink* H264VideoRTPSink
 ::createNew(UsageEnvironment& env, Groupsock* RTPgs, unsigned char rtpPayloadFormat,
-	    char const* sPropParameterSetsStr) {
+			    char const* sPropParameterSetsStr, unsigned maxBufferSize) {
   u_int8_t* sps = NULL; unsigned spsSize = 0;
   u_int8_t* pps = NULL; unsigned ppsSize = 0;
 
@@ -67,7 +70,7 @@ H264VideoRTPSink* H264VideoRTPSink
   }
 
   H264VideoRTPSink* result
-    = new H264VideoRTPSink(env, RTPgs, rtpPayloadFormat, sps, spsSize, pps, ppsSize);
+    = new H264VideoRTPSink(env, RTPgs, rtpPayloadFormat, sps, spsSize, pps, ppsSize, maxBufferSize);
   delete[] sPropRecords;
 
   return result;

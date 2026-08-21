@@ -3,12 +3,44 @@
  * @Author       : zhouzirui
  * @Date         : 2025-03-31 20:08:18
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-06-03 19:25:15
+ * @LastEditTime : 2026-07-23 16:06:19
  * @Description  : AO 音频流输出
  */
 
 #include "stream_ao.h"
 #include "dlog.h"
+
+namespace
+{
+struct AudioOutputVolumeCalibration_S
+{
+    /* AO 输出音量最小值，单位 dB */
+    int nMinVolume;
+    /* AO 输出音量最大值，单位 dB */
+    int nMaxVolume;
+    /* 指数音量曲线底数 */
+    double dCurveBase;
+};
+
+/**
+ * @brief   : 获取当前设备的扬声器输出音量标定参数
+ * @return  {AudioOutputVolumeCalibration_S} AO 输出音量范围和指数曲线参数
+ * @note    : 2W 功放型号单独使用较低的起始 dB 和更陡的曲线，避免中低档音量过大。
+ */
+AudioOutputVolumeCalibration_S get_output_volume_calibration()
+{
+#if defined(DEVICE_TV_3852T) || defined(DEVICE_TV_3852TL)
+    // return {-25, 6, 0.167355};
+    return {-24, -12, 0.510204};
+#elif defined(DEVICE_TV_3852H) || defined(DEVICE_TV_3852HL) || defined(DEVICE_TV_3852HZT)
+    return {-25, -14, 0.049383};
+#elif defined(DEVICE_TV_3852TLW) || defined(DEVICE_TV_3852TL4G)
+    return {-25, -5, 0.444444};
+#else
+    return {-25, 6, 1.573};
+#endif
+}
+} // namespace
 
 HiAo_S *streamAo_init(int nAoDevice, const Audio_NS::AudioConfig_S &stAudioConfig)
 {
@@ -55,10 +87,12 @@ HiAo_S *streamAo_init(int nAoDevice, const Audio_NS::AudioConfig_S &stAudioConfi
     }
     int nRet = OK;
 
-    /* 设置默认输出音量 */
+    /* 根据扬声器功放标定设置默认输出音量范围和指数曲线。 */
+    const AudioOutputVolumeCalibration_S stVolumeCalibration = get_output_volume_calibration();
     pHandle->stExParam.nVolume = stAudioConfig.u32OutputVolume;
-    pHandle->stExParam.nMinVolume = -25;
-    pHandle->stExParam.nMaxVolume = 6;
+    pHandle->stExParam.nMinVolume = stVolumeCalibration.nMinVolume;
+    pHandle->stExParam.nMaxVolume = stVolumeCalibration.nMaxVolume;
+    pHandle->stExParam.dVolumeCurveBase = stVolumeCalibration.dCurveBase;
 
     /* 去初始化ao */
     nRet = pHandle->mppAo_uninit(pHandle);
@@ -147,6 +181,8 @@ CStreamAo::CStreamAo()
     stNeedParam.nGpio = LINEOUT_GPIO;
     stNeedParam.nIsOutput = true;
     stNeedParam.nLowActive = false;
+    // stNeedParam.nValue = 0;
+    /* 上电默认关闭功放，避免AO/Codec尚未稳定时产生爆音 */
     stNeedParam.nValue = 0;
     m_pLineOut = gpio_alloc(stNeedParam);
     if (m_pLineOut == nullptr)
@@ -198,6 +234,8 @@ int CStreamAo::init(Audio_NS::AudioConfig_S &stConfig)
 
 int CStreamAo::uninit()
 {
+    /* 必须先静音再释放GPIO，避免GPIO进入高阻态时功放产生爆音 */
+    setOutputEnable(false);
     if (m_pSpeaker)
     {
         m_pSpeaker->gpio_uninit(m_pSpeaker);
@@ -213,19 +251,66 @@ int CStreamAo::uninit()
 
 int CStreamAo::update_audioConfig(const Audio_NS::AudioConfig_S &stConfig)
 {
-    using namespace Audio_NS;
-    if (stConfig.enOutputType == AudioOutputType_E::SPEAKER)
+    // using namespace Audio_NS;
+    // if (stConfig.enOutputType == AudioOutputType_E::SPEAKER)
+    // {
+    //     /* 扬声器输出时，拉高Speaker使能脚，拉低LineOut的使能脚 */
+    //     m_pSpeaker->set_value(m_pSpeaker->stNeedParam.nGpio, true);
+    //     m_pLineOut->set_value(m_pLineOut->stNeedParam.nGpio, false);
+    // }
+    // else if (stConfig.enOutputType == AudioOutputType_E::LINEOUT)
+    // {
+    //     /* LineOut输出时，拉高LineOut使能脚，拉低Speaker的使能脚 */
+    //     m_pSpeaker->set_value(m_pSpeaker->stNeedParam.nGpio, false);
+    //     m_pLineOut->set_value(m_pLineOut->stNeedParam.nGpio, true);
+    // }
+
+    // return OK;
+    std::lock_guard<std::mutex> lock(m_outputMutex);
+    m_enOutputType = stConfig.enOutputType;
+
+    /* 切换输出类型时先关闭两个输出，下一帧音频到来时再开启选中的输出 */
+    int nRet = OK;
+    if (m_pSpeaker)
     {
-        /* 扬声器输出时，拉高Speaker使能脚，拉低LineOut的使能脚 */
-        m_pSpeaker->set_value(m_pSpeaker->stNeedParam.nGpio, true);
-        m_pLineOut->set_value(m_pLineOut->stNeedParam.nGpio, false);
+        nRet |= m_pSpeaker->set_value(m_pSpeaker->stNeedParam.nGpio, false);
     }
-    else if (stConfig.enOutputType == AudioOutputType_E::LINEOUT)
+    if (m_pLineOut)
     {
-        /* LineOut输出时，拉高LineOut使能脚，拉低Speaker的使能脚 */
-        m_pSpeaker->set_value(m_pSpeaker->stNeedParam.nGpio, false);
-        m_pLineOut->set_value(m_pLineOut->stNeedParam.nGpio, true);
+        nRet |= m_pLineOut->set_value(m_pLineOut->stNeedParam.nGpio, false);
+    }
+    m_bOutputEnabled = false;
+    return nRet;
+}
+
+int CStreamAo::setOutputEnable(bool enable)
+{
+    std::lock_guard<std::mutex> lock(m_outputMutex);
+    if (m_bOutputEnabled == enable)
+    {
+        return OK;
     }
 
-    return OK;
+    int nRet = OK;
+
+    /* 先关闭非选中输出，防止Speaker和LineOut同时使能 */
+    if (m_pSpeaker)
+    {
+        const bool bSpeakerEnable = enable &&
+            m_enOutputType == Audio_NS::AudioOutputType_E::SPEAKER;
+        nRet |= m_pSpeaker->set_value(m_pSpeaker->stNeedParam.nGpio, bSpeakerEnable);
+    }
+    if (m_pLineOut)
+    {
+        const bool bLineOutEnable = enable &&
+            m_enOutputType == Audio_NS::AudioOutputType_E::LINEOUT;
+        nRet |= m_pLineOut->set_value(m_pLineOut->stNeedParam.nGpio, bLineOutEnable);
+    }
+
+    if (nRet == OK)
+    {
+        m_bOutputEnabled = enable;
+    }
+
+    return nRet;
 }
