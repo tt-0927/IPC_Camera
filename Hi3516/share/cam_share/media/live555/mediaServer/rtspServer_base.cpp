@@ -303,11 +303,13 @@ int rtsp_server_create(RtSpServerHandle_t pHandle, Rtsp_Create_Info_t *pCreatSer
 	stuAudioSourceInfo.samplingFreqIndex = pCreatServerInfo->nAuidoSamplingFreqIndex;
 	stuAudioSourceInfo.bitWidth = pCreatServerInfo->nAudioBitWidth;
 	stuAudioSourceInfo.channel = pCreatServerInfo->nAudioChannel;
+	stuAudioSourceInfo.outPacketBufferSize = pCreatServerInfo->audioOutPacketBufferSize;
 	memcpy(stuAudioSourceInfo.streamName, pCreatServerInfo->streamName, STREAM_NAME_MAX);
 
 	stuVideoSourceInfo.clientFun = pCreatServerInfo->clientFun;
 	stuVideoSourceInfo.dataGetfun = pCreatServerInfo->dataGetfun;
 	stuVideoSourceInfo.videoindex = pCreatServerInfo->Videoindex;
+	stuVideoSourceInfo.outPacketBufferSize = pCreatServerInfo->outPacketBufferSize;
 	memcpy(stuVideoSourceInfo.streamName, pCreatServerInfo->streamName, STREAM_NAME_MAX);
 
 	/* 最大4路 拓展参数为最大client个数*/

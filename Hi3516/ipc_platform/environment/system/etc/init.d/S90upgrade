@@ -1,0 +1,11 @@
+#!/bin/sh
+
+echo "Preparing upgrade..."
+# 删除插件文件
+rm -f /opt/cam/third-party/IpcComponents*
+# 删除模型文件
+rm -rf /opt/cam/model/*
+sync
+
+# 只执行一次，执行后自删（tar 覆盖式升级无法删除该文件）
+rm -f "$0"

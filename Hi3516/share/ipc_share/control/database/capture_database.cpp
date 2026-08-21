@@ -1,8 +1,8 @@
 /*
  * @Author: 梁浩尧 lianghaoyao@kfb.cn
  * @Date: 2025-10-16 17:22:43
- * @LastEditors: lianghy lianghy@kfb.cn
- * @LastEditTime: 2026-03-20 13:43:15
+ * @LastEditors: zhouzr@kfb.cn
+ * @LastEditTime: 2026-08-13 15:03:25
  * @FilePath: /hisi/share/ipc_share/control/database/capture_database.cpp
  * @Description: 抓图信息数据库
  */
@@ -16,7 +16,7 @@ CCaptureDatabase::CCaptureDatabase()
 {
     create(CAPTURE_TABLE_NAME);
     create(CAPTURE_DIR_INFO_TABLE_NAME);
-
+    set_sync_mode();
 }
 
 CCaptureDatabase::~CCaptureDatabase()
@@ -61,6 +61,8 @@ int CCaptureDatabase::init()
 {
     create(CAPTURE_TABLE_NAME, false);
     create(CAPTURE_DIR_INFO_TABLE_NAME, false);
+    /* 数据库可能因SD卡格式化被deinit后重新打开，需重新应用同步模式 */
+    set_sync_mode();
 
     return 0;
 }
@@ -71,7 +73,26 @@ int CCaptureDatabase::deinit()
     m_captureDirDatabase.deinit();
 
     return 0;
-}  
+}
+
+void CCaptureDatabase::set_sync_mode()
+{
+    /*
+     * 抓图元数据库采用 NORMAL 同步模式：图片文件本身已做fsync落盘，
+     * 索引记录即使断电丢失最近一次提交，最坏影响仅是检索不到该图片，
+     * 换取每次INSERT/UPDATE提交延迟的大幅下降（FULL模式每提交需多次SD卡fsync）。
+     */
+    /* PRAGMA synchronous=NORMAL 对应值（避开sqlite3.h中同名宏SQLITE_SYNC_NORMAL） */
+    constexpr int PRAGMA_SYNC_NORMAL = 1;
+    if (m_database.set_sync_mode(PRAGMA_SYNC_NORMAL) < 0)
+    {
+        dlog_warn("设置抓图信息数据库同步模式失败");
+    }
+    if (m_captureDirDatabase.set_sync_mode(PRAGMA_SYNC_NORMAL) < 0)
+    {
+        dlog_warn("设置抓图目录统计数据库同步模式失败");
+    }
+}
 
 int CCaptureDatabase::add(const Capture_NS::CaptureInfo_S &stInfo)
 {

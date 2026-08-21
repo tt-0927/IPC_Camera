@@ -3,7 +3,7 @@
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2025-06-28 10:36:11
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-06-05 15:54:55
+ * @LastEditTime : 2026-08-07 17:07:21
  * @Description  : 录制程序入口
  */
 
@@ -63,16 +63,19 @@ int main()
 	}
 
 #if CAP_PROCESS_LOG_SWITCH
-    /* 设置日志输出同步输出控制台 */
-	syncPrintf(true);
-    /* 设置日志等级 */
-	setLogLevel(LOG_ERROR);
+    /* 发布模式：关闭控制台同步输出，日志级别设置为 WARN */
+    syncPrintf(false);
+    setLogLevel(LOG_WARN);
 #else
-    /* 设置日志输出同步输出控制台 */
-	syncPrintf(true);
-    /* 设置日志等级 */
-	setLogLevel(LOG_TRACE);
+    /* 开发模式：开启控制台同步输出，日志级别设置为 TRACE */
+    syncPrintf(true);
+    setLogLevel(LOG_TRACE);
 #endif
+
+    /* 设置日志限流：同一调用点至少间隔1000ms才允许再次输出，防止高频日志阻塞业务线程 */
+    setLogThrottleInterval(1000);
+    /* 启动日志级别文件监控，支持运行时通过文件切换日志级别 */
+    startLogLevelMonitor(RECORD_LOG_LEVEL_PATH);
 
     dlog_trace("启动录制程序");
 

@@ -28,6 +28,9 @@ WHITE="[1;37m"
 
 umask 027
 
+# 减小线程栈空间为 2MB：默认 8MB 时多线程进程虚拟栈预留过大
+ulimit -s 2048
+
 echo "${GREEN}Welcome to Linux.${NORMAL}"
 #!bin/sh
 export LD_LIBRARY_PATH=/lib

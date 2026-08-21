@@ -3,18 +3,36 @@
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2026-01-08 09:49:07
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-01-08 10:22:05
+ * @LastEditTime : 2026-08-20 15:57:17
  * @Description  : VENC通道处理策略接口及实现类
  */
 
 #pragma once
 
+#include <cstdint>
 #include <memory>
+#include <vector>
 #include "video_define.h"
 #include "stream_video_config.h"
 
 /* 前向声明 */
 class CStreamVideo;
+
+/**
+ * @brief   : VENC 取流期间的只读编码帧视图
+ * @note    : 视图只在当前 VENC 取流线程的同步分发调用期间有效，禁止下游异步保存 pData。
+ *            各下游模块需要在自己的有界队列入队时完成一次必要的数据复制；
+ *            若 stSharedFrame.pData 非空，则数据已由取流线程拷贝到共享 buffer，
+ *            下游可直接零拷贝共享（RTSP/RTMP/录制），无需再次复制。
+ */
+struct VencFrameView_S
+{
+    const uint8_t *pData = nullptr;                                     /* VENC pack 数据地址，不转移所有权 */
+    int nDataLen = 0;                                                   /* 当前 pack 的有效数据长度 */
+    Video_NS::VideoCodec_E enVideoCodec = Video_NS::VideoCodec_E::H264; /* 编码格式 */
+    Video_NS::NalType_E eType = Video_NS::UNKNOWN_TYPE;                 /* NAL 类型 */
+    Video_NS::SharedMediaFrame_S stSharedFrame;                         /* 共享帧（一次拷贝多消费者），可为空 */
+};
 
 /**
  * @brief   : VENC通道处理策略接口
@@ -27,15 +45,11 @@ public:
 
     /**
      * @brief   : 处理视频帧数据
-     * @param   {uint8_t*} pData：帧数据指针
-     * @param   {int} nDataLen：帧数据长度
-     * @param   {Video_NS::VideoFrame_S*} pVideoFrame：视频帧结构体指针
+     * @param   {const VencFrameView_S&} stFrame：VENC 只读帧视图
      * @param   {CStreamVideoConfig&} configManager：配置管理器引用
      * @param   {int} nChannel：通道号
      */
-    virtual void handleFrame(const uint8_t* pData,
-                             int nDataLen,
-                             Video_NS::VideoFrame_S* pVideoFrame,
+    virtual void handleFrame(const VencFrameView_S& stFrame,
                              CStreamVideoConfig& configManager,
                              int nChannel) = 0;
 };
@@ -55,15 +69,11 @@ public:
 
     /**
      * @brief   : 处理主码流帧数据
-     * @param   {uint8_t*} pData：帧数据指针
-     * @param   {int} nDataLen：帧数据长度
-     * @param   {Video_NS::VideoFrame_S*} pVideoFrame：视频帧结构体指针
+     * @param   {const VencFrameView_S&} stFrame：VENC 只读帧视图
      * @param   {CStreamVideoConfig&} configManager：配置管理器引用
      * @param   {int} nChannel：通道号
      */
-    void handleFrame(const uint8_t* pData,
-                     int nDataLen,
-                     Video_NS::VideoFrame_S* pVideoFrame,
+    void handleFrame(const VencFrameView_S& stFrame,
                      CStreamVideoConfig& configManager,
                      int nChannel) override;
 
@@ -97,15 +107,11 @@ public:
 
     /**
      * @brief   : 处理子码流帧数据
-     * @param   {uint8_t*} pData：帧数据指针
-     * @param   {int} nDataLen：帧数据长度
-     * @param   {Video_NS::VideoFrame_S*} pVideoFrame：视频帧结构体指针
+     * @param   {const VencFrameView_S&} stFrame：VENC 只读帧视图
      * @param   {CStreamVideoConfig&} configManager：配置管理器引用
      * @param   {int} nChannel：通道号
      */
-    void handleFrame(const uint8_t* pData,
-                     int nDataLen,
-                     Video_NS::VideoFrame_S* pVideoFrame,
+    void handleFrame(const VencFrameView_S& stFrame,
                      CStreamVideoConfig& configManager,
                      int nChannel) override;
 
@@ -138,15 +144,11 @@ public:
 
     /**
      * @brief   : 处理JPEG帧数据
-     * @param   {uint8_t*} pData：帧数据指针
-     * @param   {int} nDataLen：帧数据长度
-     * @param   {Video_NS::VideoFrame_S*} pVideoFrame：视频帧结构体指针（JPEG不使用）
+     * @param   {VencFrameView_S&} stFrame：VENC 只读帧视图
      * @param   {CStreamVideoConfig&} configManager：配置管理器引用（JPEG不使用）
      * @param   {int} nChannel：通道号
      */
-    void handleFrame(const uint8_t* pData,
-                     int nDataLen,
-                     Video_NS::VideoFrame_S* pVideoFrame,
+    void handleFrame(const VencFrameView_S& stFrame,
                      CStreamVideoConfig& configManager,
                      int nChannel) override;
 

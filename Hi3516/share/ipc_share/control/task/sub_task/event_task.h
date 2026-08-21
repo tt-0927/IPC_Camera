@@ -30,6 +30,8 @@ namespace Task
         /**
          * @brief   : 普通事件
          */
+        /* 普通事件启用状态 */
+        TaskSubClass(GetOrdinaryEventEnableStatus)
         /* 移动侦测 */
         TaskSubClass(GetMotionDetectionInfo)
         TaskSubClass(SetMotionDetectionInfo)

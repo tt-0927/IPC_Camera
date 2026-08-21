@@ -3,7 +3,7 @@
  * @Author       : huangjunda
  * @Date         : 2025-05-27 14:12:40
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-04-15 16:34:19
+ * @LastEditTime : 2026-07-30 15:14:08
  * @Description  : OSD覆盖
  */
 
@@ -15,6 +15,7 @@
 #include "stream_video.h"
 #include "event_configure.h"
 #include "mpp_rgn.h"
+#include "time_utils.h"
 #include <algorithm>
 #include <chrono>
 #include <cstring>
@@ -365,6 +366,10 @@ COverplayDraw::COverplayDraw()
     m_pVecRgns.resize(OT_RGN_VENC_MAX_OVERLAY_NUM * VENC_CHN_MAX); /* 初始化rgn指针向量 */
     m_bIsTimeUpdate = true;                                        /* 时间信息rgn是否需要更新 */
     m_bIsOthersUpdate = true;                                      /* 其他信息rgn是否需要更新 */
+    for (int nChn = 0; nChn < VENC_CHN_MAX; ++nChn)
+    {
+        m_abVencReconfiguring[nChn].store(false, std::memory_order_release);
+    }
 }
 
 COverplayDraw::~COverplayDraw()
@@ -534,6 +539,48 @@ void COverplayDraw::set_update_flag(bool bIsUpdate)
     m_bIsOthersUpdate = bIsUpdate;
 }
 
+void COverplayDraw::detach_venc_channel(int nChn)
+{
+    if (!m_bIsRunning || nChn < 0 || nChn >= VENC_CHN_MAX)
+    {
+        return;
+    }
+
+    /* lock: 先置位，阻止后台线程在摘除后又将旧 RGN 重新挂载到待销毁的 VENC。 */
+    m_abVencReconfiguring[nChn].store(true, std::memory_order_release);
+
+    /* lock: VENC 重建期间禁止同时绘制，避免向已销毁的通道更新 Canvas。 */
+    std::lock_guard<std::mutex> lock(m_mutex);
+    for (HiRgn_S *pHandle : m_pVecRgns)
+    {
+        if (!pHandle || pHandle->unModId != OT_ID_VENC || pHandle->unChnId != nChn || !pHandle->bIsAttached)
+        {
+            continue;
+        }
+
+        if (pHandle->mppRgn_detachFromChn(pHandle) != OK)
+        {
+            dlog_error("VENC通道:%d 重建前摘除 Overlay RGN失败，句柄:%u", nChn, pHandle->unHandle);
+        }
+    }
+}
+
+void COverplayDraw::resume_venc_channel(int nChn)
+{
+    if (nChn < 0 || nChn >= VENC_CHN_MAX)
+    {
+        return;
+    }
+
+    m_abVencReconfiguring[nChn].store(false, std::memory_order_release);
+}
+
+bool COverplayDraw::is_venc_channel_reconfiguring(int nChn) const
+{
+    return nChn >= 0 && nChn < VENC_CHN_MAX &&
+           m_abVencReconfiguring[nChn].load(std::memory_order_acquire);
+}
+
 void COverplayDraw::update_ai_result(int nWidth, int nHeight, const std::vector<Common::RectInfo_S> &vRectInfo, const Osd::OverplayInfo_S stOverplayInfo)
 {
     if(!m_bIsRunning)
@@ -546,6 +593,11 @@ void COverplayDraw::update_ai_result(int nWidth, int nHeight, const std::vector<
     for (size_t i = 0; i < m_pVecRgns.size(); i++)
     {
         if (!m_pVecRgns[i] || Osd::ELEMENT_TYPE_PEOPLE != m_pVecRgns[i]->unLayer)
+        {
+            continue;
+        }
+
+        if (is_venc_channel_reconfiguring(m_pVecRgns[i]->unChnId))
         {
             continue;
         }
@@ -678,7 +730,7 @@ HiRgnNeedParam_S COverplayDraw::set_rgn(Osd::OverplayInfo_S stuOverplayInfo, int
     Osd::ShareInfo_S stuShareInfo;
     COsdManage::instance()->get_osd_share_info(stuShareInfo);
 
-    /* 获取码流的分辨率大小 */
+    /* 获取码流配置，仅在运行时几何不可用时兜底。 */
     std::vector<Video_NS::VideoConfig_S> vstVideoConfig;
     CStreamVideo::instance()->getVideoConfig(vstVideoConfig);
 
@@ -690,9 +742,19 @@ HiRgnNeedParam_S COverplayDraw::set_rgn(Osd::OverplayInfo_S stuOverplayInfo, int
     stuRgnNeedParam.unDevId = RGN_OSD_VENC;
     stuRgnNeedParam.unType = OT_RGN_OVERLAY;
 
-    /* 实际分辨率宽高和参考分辨率宽高 */
+    /*
+     * RGN_OVERLAY 挂载到 VENC，所有位置、画布、字体均以裁剪后的 VENC 有效输出为准。
+     * 禁止直接把持久化 VideoConfig 视为实际编码画面，因为 VPSS Crop 不会改写该配置。
+     */
+    Video_NS::StreamGeometry_S stGeometry;
     int nActualWidth = vstVideoConfig.at(nChn).stVideoResolution.nWidth;
     int nActualHeight = vstVideoConfig.at(nChn).stVideoResolution.nHeight;
+    if (OK == CStreamVideo::instance()->get_stream_geometry(nChn, stGeometry) &&
+        stGeometry.nOutputWidth > 0 && stGeometry.nOutputHeight > 0)
+    {
+        nActualWidth = stGeometry.nOutputWidth;
+        nActualHeight = stGeometry.nOutputHeight;
+    }
     int nReferenceWidth = 0;
     int nReferenceHeight = 0;
     // int nFontSize = 0;
@@ -820,11 +882,7 @@ void COverplayDraw::osd_show_time()
     pthread_setname_np(pthread_self(), "OsdShowTime");
 
     int nIndex = 0;
-    time_t stuLastTime = 0;
-    time_t stuNowTime = time(NULL);
-    /* 线程绘制睡眠用 */
-    struct timeval tv;
-    gettimeofday(&tv, NULL);
+    long long ll_last_time_s = -1;
     /* 获取osd信息 */
     std::vector<Osd::OverplayInfo_S> vecOverplayInfo;
     COsdManage::instance()->get_overplay_info(vecOverplayInfo);
@@ -844,13 +902,18 @@ void COverplayDraw::osd_show_time()
             continue;
         }
 
-        stuNowTime = time(NULL);
-        if (stuNowTime != stuLastTime)
+        const long long ll_now_time_s = TimeUtils_NS::get_currentTimestampS();
+        if (ll_now_time_s != ll_last_time_s)
         {
             /* 对相应的rgn画出对应文本 */
             for (size_t i = 0; i < vecOverplayInfo.size() * VENC_CHN_JPEG; i++)
             {
                 if (!m_pVecRgns.at(i) || Osd::ElementType_E::ELEMENT_TYPE_TIME != m_pVecRgns.at(i)->unLayer)
+                {
+                    continue;
+                }
+
+                if (is_venc_channel_reconfiguring(m_pVecRgns.at(i)->unChnId))
                 {
                     continue;
                 }
@@ -880,10 +943,10 @@ void COverplayDraw::osd_show_time()
                     COsdManage::instance()->get_osd_share_info(stuShareInfo);
                     // dlog_info("%s", get_template_text(vecOverplayInfo.at(nIndex), stuShareInfo).c_str());
 
-                    if (m_pVecRgns.at(i)->bIsFlicker && (stuNowTime % 2) && stuLastTime)
+                    if (m_pVecRgns.at(i)->bIsFlicker && (ll_now_time_s % 2) && ll_last_time_s >= 0)
                     {
                         /* 奇数显示达到闪烁效果 */
-                        if (m_pVecRgns.at(i)->mppRgn_showOrHide(m_pVecRgns.at(i), (td_bool)((stuNowTime % 2) ? true : false)))
+                        if (m_pVecRgns.at(i)->mppRgn_showOrHide(m_pVecRgns.at(i), (td_bool)((ll_now_time_s % 2) ? true : false)))
                         {
                             dlog_error("设置rgn闪烁失败");
                         }
@@ -895,10 +958,10 @@ void COverplayDraw::osd_show_time()
                         draw_text(m_pVecRgns.at(i), vecOverplayInfo.at(nIndex), get_template_text(vecOverplayInfo.at(nIndex), stuShareInfo).c_str());
                     }
 
-                    if (m_pVecRgns.at(i)->bIsFlicker && !(stuNowTime % 2) && stuLastTime)
+                    if (m_pVecRgns.at(i)->bIsFlicker && !(ll_now_time_s % 2) && ll_last_time_s >= 0)
                     {
                         /* 偶数隐藏达到闪烁效果 */
-                        if (m_pVecRgns.at(i)->mppRgn_showOrHide(m_pVecRgns.at(i), (td_bool)((stuNowTime % 2) ? true : false)))
+                        if (m_pVecRgns.at(i)->mppRgn_showOrHide(m_pVecRgns.at(i), (td_bool)((ll_now_time_s % 2) ? true : false)))
                         {
                             dlog_error("设置rgn闪烁失败");
                         }
@@ -926,38 +989,17 @@ void COverplayDraw::osd_show_time()
             {
                 m_bIsTimeUpdate = !m_bIsTimeUpdate;
             }
-            stuLastTime = stuNowTime;
-
-            /* 计算到下一秒剩余的时间（毫秒级精度） */
-            gettimeofday(&tv, NULL);
-            /* 获取当前时间的微秒部分 */
-            long current_us = tv.tv_usec;
-            /* 计算到下一秒还剩多少微秒 */
-            long us_to_next_second = 1000000 - current_us;
-            /* 计算实际睡眠时间 */
-            long sleep_us = us_to_next_second - WAKEUP_ADVANCE_US;
-
-            /* 如果计算结果为负数或过小,说明当前时间点已经很接近下一秒 */
-            /* 此时应该立即绘制,或者睡眠一个很短的时间后绘制 */
-            if (sleep_us < 80000) /* 小于80ms */
-            {
-                /* 时间太紧,跳到下一个周期 */
-                /* 睡眠到再下一秒前的唤醒时间点 */
-                sleep_us = us_to_next_second + 1000000 - WAKEUP_ADVANCE_US;
-            }
-
-            /* 执行睡眠 */
-            if (sleep_us > 0 && sleep_us < 2000000) /* 确保在合理范围内(0~2秒) */
-            {
-                usleep(sleep_us);
-            }
-            else
-            {
-                /* 异常情况,使用默认睡眠 */
-                usleep(800000); /* 睡眠800ms */
-            }
-
+            ll_last_time_s = ll_now_time_s;
         }
+
+        /*
+         * perf: 时间 OSD 仅需秒级刷新。使用与展示时间同源的 TimeUtils 墙钟计算剩余毫秒，
+         * 直接睡到下一秒边界，避免提前唤醒后再次轮询造成无效 CPU 消耗。
+         */
+        constexpr long long TIME_OSD_REFRESH_INTERVAL_MS = 1000;
+        const long long ll_sleep_time_ms = TIME_OSD_REFRESH_INTERVAL_MS -
+                                           (TimeUtils_NS::get_currentTimestampMs() % TIME_OSD_REFRESH_INTERVAL_MS);
+        std::this_thread::sleep_for(std::chrono::milliseconds(ll_sleep_time_ms));
     }
 
     return;
@@ -1000,6 +1042,11 @@ void COverplayDraw::osd_show_others()
             if (!m_pVecRgns.at(i) || Osd::ElementType_E::ELEMENT_TYPE_TIME == m_pVecRgns.at(i)->unLayer ||
                 Osd::ElementType_E::ELEMENT_TYPE_PEOPLE == m_pVecRgns.at(i)->unLayer ||
                 is_exhibition_panel_handle(i))
+            {
+                continue;
+            }
+
+            if (is_venc_channel_reconfiguring(m_pVecRgns.at(i)->unChnId))
             {
                 continue;
             }
@@ -1230,6 +1277,11 @@ void COverplayDraw::osd_show_exhibition_panel()
             /* 当前编码通道对应的面板 RGN 句柄 */
             HiRgn_S *pHandle = m_pVecRgns.at(i);
             if (!pHandle || !is_exhibition_panel_handle(i))
+            {
+                continue;
+            }
+
+            if (is_venc_channel_reconfiguring(pHandle->unChnId))
             {
                 continue;
             }

@@ -45,14 +45,19 @@ void ClassroomSummary::addClassParam(const ClassParamParam_S& stParam)
 }
 
 /* 添加 PPT 翻页时间点 */
-void ClassroomSummary::addPPTSwitch(int nClassTime)
+void ClassroomSummary::addPPTSwitch(int nClassTime, long long lTimestamp, std::string strJpgName)
 {
     if (nClassTime < 0)
     {
         return; /* 非法时间直接忽略 */
     }
 
-    m_stClasstSummary.vecPPTSwitchTimes.push_back(nClassTime);
+    PPTInfo_S stInfo;
+    stInfo.nClassTime = nClassTime;
+    stInfo.lTimestamp = lTimestamp;
+    stInfo.strJpgName = strJpgName;
+
+    m_stClasstSummary.vecPPTInfo.push_back(stInfo);
 }
 
 /* 添加课堂分贝值 */
@@ -93,26 +98,44 @@ void ClassroomSummary::finalize(const void* pParam)
     m_stClasstSummary.nHeadUpRate        = 100 - m_stClasstSummary.nHeadDownRate;
 
     /* PPT总结 */
-    std::vector<int> intervals;
-    if (m_stClasstSummary.vecPPTSwitchTimes.size() > 2)
+    std::vector<PPTInfo_S> intervals;
+    std::vector<long long> diffList;    // 同步存储有效时间间隔
+
+    if (m_stClasstSummary.vecPPTInfo.size() > 2)
     {
-        /* 拷贝并排序，保证不破坏原始数据 */
-        std::vector<int> times = m_stClasstSummary.vecPPTSwitchTimes;
-        std::sort(times.begin(), times.end());
+        std::vector<PPTInfo_S> pptInfos = m_stClasstSummary.vecPPTInfo;
+        std::sort(pptInfos.begin(), pptInfos.end(),
+                  [](const PPTInfo_S& a, const PPTInfo_S& b) {
+            return a.lTimestamp < b.lTimestamp;
+        });
 
-        for (size_t i = 1; i < times.size(); ++i)
+        if (!pptInfos.empty())
         {
-
-            int dt = times[i] - times[i - 1];
-            if (dt > 0)
+            intervals.push_back(pptInfos[0]);    // 先存第一条
+        }
+        for (size_t i = 1; i < pptInfos.size(); ++i)
+        {
+            long long dtLL = pptInfos[i].lTimestamp - pptInfos[i - 1].lTimestamp;
+            if (dtLL > 0)
             {
-                intervals.push_back(dt);
+                intervals.push_back(pptInfos[i]);
+                diffList.push_back(dtLL);
             }
         }
     }
-    if (!intervals.empty())
+
+    m_stClasstSummary.vecPPTInfo.clear();
+    m_stClasstSummary.vecPPTInfo = intervals;
+
+    /* 求平均间隔 */
+    if (!diffList.empty())
     {
-        m_stClasstSummary.nPPTInterval = std::accumulate(intervals.begin(), intervals.end(), 0) / intervals.size();
+        long long sum = 0;
+        for (long long diff : diffList)
+        {
+            sum += diff;
+        }
+        m_stClasstSummary.nPPTInterval = static_cast<int>(sum / diffList.size());
     }
 
     std::ostringstream oss;
@@ -484,8 +507,20 @@ void ClassroomSummary::saveFile(std::string strFilePath)
     Json::add(pRtJson, "Y", m_stClasstSummary.fRtChY);
     Json::add(pDataJson, "RT_CH", pRtJson);
 
-
-    Json::add(pDataJson, "PPTInterval", m_stClasstSummary.nPPTInterval);
+    /* PPT总结 */
+    auto pPPTJson = Json::init();
+    Json::add(pPPTJson, "Interval", m_stClasstSummary.nPPTInterval);
+    auto pPPTInfoJson = Json::Array::init();
+    for (auto item : m_stClasstSummary.vecPPTInfo)
+    {
+        auto pTmpJson = Json::init();
+        Json::add(pTmpJson, "Time", item.lTimestamp);
+        Json::add(pTmpJson, "RecordTime", item.nClassTime);
+        Json::add(pTmpJson, "Name", item.strJpgName);
+        Json::Array::add(pPPTInfoJson, pTmpJson);
+    }
+    Json::add(pPPTJson, "Info", pPPTInfoJson);
+    Json::add(pDataJson, "PPTInfo", pPPTJson);
 
     /* ST曲线 */
     auto pStArrayJson = Json::Array::init();

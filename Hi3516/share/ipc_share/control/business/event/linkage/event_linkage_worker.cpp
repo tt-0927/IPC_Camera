@@ -185,7 +185,6 @@ void EventLinkageWorker::task_loop()
 {
     pthread_setname_np(pthread_self(), "EventLinkTask");
     dlog_info("联动任务处理线程启动");
-
     while (m_bLinkageThreadRunning.load())
     {
         LinkageTask_S stTask;
@@ -217,8 +216,70 @@ void EventLinkageWorker::task_loop()
             continue;
         }
 
+
+        /*
+         * 闪光任务从登记到异步线程置位之间存在极短启动窗口；该窗口也按“正在执行”处理，
+         * 避免人脸抓拍、人脸比对和移动侦测同时触发时重复启动灯光override。
+         */
+         bool bFlashingTaskStarting = false;
+         if (stTask.enLinkageType == LinkageType_E::FLASHING_LIGHT)
+         {
+             std::lock_guard<std::mutex> lock(m_currentLinkageMutex);
+             auto itCurrent = m_currentLinkages.find(LinkageType_E::FLASHING_LIGHT);
+             bFlashingTaskStarting = itCurrent != m_currentLinkages.end();
+         }
         /* 同类联动若仍在执行，先判断当前任务是否允许抢占 */
-        if (is_task_running(stTask.enLinkageType) && !handle_running_task_conflict(stTask))
+        // if (is_task_running(stTask.enLinkageType) && !handle_running_task_conflict(stTask))
+         /*
+         * SOUND任务登记到m_currentLinkages后，异步线程还要经过调度和播放锁，随后才会
+         * 置running=true。把这段时间也视为“启动中”，避免第二条声音进入异步队列，
+         * 在第一条播放完后又继续播报。
+         */
+         bool bSoundTaskStarting = false;
+         int nStartingSoundPriority = INT_MAX;
+         if (stTask.enLinkageType == LinkageType_E::SOUND && !is_task_running(LinkageType_E::SOUND))
+         {
+             std::lock_guard<std::mutex> lock(m_currentLinkageMutex);
+             auto itCurrent = m_currentLinkages.find(LinkageType_E::SOUND);
+             if (itCurrent != m_currentLinkages.end())
+             {
+                 bSoundTaskStarting = true;
+                 nStartingSoundPriority = itCurrent->second.nPriority;
+             }
+         }
+ 
+         if (bSoundTaskStarting && stTask.nPriority < nStartingSoundPriority)
+         {
+             /*
+              * 高优先级人脸比对到达时，给已登记的抓拍声音最多500ms完成启动置位。
+              * 置位后走正常抢占；若旧任务自行退出，则新任务直接执行。
+              */
+             constexpr int SOUND_START_WAIT_STEP_MS = 10;
+             constexpr int SOUND_START_WAIT_MAX_MS = 500;
+             int nWaitMs = 0;
+             while (!is_task_running(LinkageType_E::SOUND) && nWaitMs < SOUND_START_WAIT_MAX_MS)
+             {
+                 bool bStillStarting = false;
+                 {
+                     std::lock_guard<std::mutex> lock(m_currentLinkageMutex);
+                     bStillStarting = m_currentLinkages.count(LinkageType_E::SOUND) > 0;
+                 }
+                 if (!bStillStarting)
+                 {
+                     break;
+                 }
+                 std::this_thread::sleep_for(std::chrono::milliseconds(SOUND_START_WAIT_STEP_MS));
+                 nWaitMs += SOUND_START_WAIT_STEP_MS;
+             }
+ 
+             std::lock_guard<std::mutex> lock(m_currentLinkageMutex);
+             bSoundTaskStarting = m_currentLinkages.count(LinkageType_E::SOUND) > 0 &&
+                                  !is_task_running(LinkageType_E::SOUND);
+         }
+ 
+         /* 同类联动若正在执行，或声光任务仍处于异步启动窗口，先处理冲突。 */
+         if ((is_task_running(stTask.enLinkageType) || bFlashingTaskStarting || bSoundTaskStarting) &&
+             !handle_running_task_conflict(stTask))
         {
             continue;
         }
@@ -298,10 +359,13 @@ bool EventLinkageWorker::is_task_expired(const LinkageTask_S &stTask) const
 
 bool EventLinkageWorker::handle_running_task_conflict(const LinkageTask_S &stTask)
 {
+    /* 人脸比对成功使用专用音频，不能用通用报警音路径参与“同音频”去重。 */
+    const bool bUseDedicatedFaceAudio = stTask.stContext.enEventType == Event::Type_E::FACE_COMPARE_SUCCESS;
     if (stTask.enLinkageType == LinkageType_E::SOUND)
     {
         std::string strNewAudioPath;
-        if (m_asyncAction.get_audio_file_path(strNewAudioPath) == OK)
+        // if (m_asyncAction.get_audio_file_path(strNewAudioPath) == OK)
+        if (!bUseDedicatedFaceAudio && m_asyncAction.get_audio_file_path(strNewAudioPath) == OK)
         {
             const std::string strPlayingAudio = m_asyncAction.get_playing_audio_path();
             if (strPlayingAudio == strNewAudioPath)

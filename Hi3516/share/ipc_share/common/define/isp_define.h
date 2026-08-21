@@ -3,7 +3,7 @@
  * @Author       : cyc
  * @Date         : 2025-06-13 10:47:06
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-04-24 17:21:12
+ * @LastEditTime : 2026-07-15 15:39:07
  * @Description  : 图像配置相关定义
  */
 
@@ -218,7 +218,7 @@ namespace ISP
         AUTO_LIGHT_BRIGHT,    /* 自动调整灯光亮度 */
     }LightBrightMode_E;
 
-     /// @brief 场景类型枚举
+     /// @brief 网页图像配置场景枚举
     typedef enum _SceneType_E_
     {
         SCENE_NORMAL,         /* 普通场景 */
@@ -227,8 +227,6 @@ namespace ISP
         SCENE_LOWLIGHT,       /* 低光照场景 */
         SCENE_CUSTOM1,        /* 自定义1场景 */
         SCENE_CUSTOM2,        /* 自定义2场景 */
-        SCENE_NIGHT,          /* 夜晚场景 */
-        SCENE_NIGHT_LIGHT,    /* 夜晚白光场景 */
         SCENE_MAX
     } SceneType_E;
 
@@ -433,7 +431,7 @@ namespace ISP
         _WdrAttr_S_()
         {
             bEnable = false;
-            nWdrLevel = 12;
+            nWdrLevel = 50;
         }
 
          /* 重载运算符 */
@@ -458,7 +456,7 @@ namespace ISP
         _HlsAttr_S_()
         {
             bEnable = false;
-            nHlsLevel = 12;
+            nHlsLevel = 50;
         }
 
          /* 重载运算符 */

@@ -28,16 +28,18 @@ along with this library; if not, write to the Free Software Foundation, Inc.,
 class H264VideoRTPSink: public H264or5VideoRTPSink {
 public:
   static H264VideoRTPSink*
-  createNew(UsageEnvironment& env, Groupsock* RTPgs, unsigned char rtpPayloadFormat);
+  createNew(UsageEnvironment& env, Groupsock* RTPgs, unsigned char rtpPayloadFormat,
+	    unsigned maxBufferSize = 0);
   static H264VideoRTPSink*
   createNew(UsageEnvironment& env, Groupsock* RTPgs, unsigned char rtpPayloadFormat,
-	    u_int8_t const* sps, unsigned spsSize, u_int8_t const* pps, unsigned ppsSize);
+	    u_int8_t const* sps, unsigned spsSize, u_int8_t const* pps, unsigned ppsSize,
+	    unsigned maxBufferSize = 0);
     // an optional variant of "createNew()", useful if we know, in advance,
     // the stream's SPS and PPS NAL units.
     // This avoids us having to 'pre-read' from the input source in order to get these values.
   static H264VideoRTPSink*
   createNew(UsageEnvironment& env, Groupsock* RTPgs, unsigned char rtpPayloadFormat,
-	    char const* sPropParameterSetsStr);
+	    char const* sPropParameterSetsStr, unsigned maxBufferSize = 0);
     // an optional variant of "createNew()", useful if we know, in advance,
     // the stream's SPS and PPS NAL units.
     // This avoids us having to 'pre-read' from the input source in order to get these values.
@@ -45,7 +47,8 @@ public:
 protected:
   H264VideoRTPSink(UsageEnvironment& env, Groupsock* RTPgs, unsigned char rtpPayloadFormat,
 		   u_int8_t const* sps = NULL, unsigned spsSize = 0,
-		   u_int8_t const* pps = NULL, unsigned ppsSize = 0);
+		   u_int8_t const* pps = NULL, unsigned ppsSize = 0,
+		   unsigned maxBufferSize = 0);
 	// called only by createNew()
   virtual ~H264VideoRTPSink();
 

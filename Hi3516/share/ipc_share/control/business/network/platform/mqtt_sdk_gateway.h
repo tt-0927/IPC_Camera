@@ -31,7 +31,7 @@ public:
 
     /**
      * @brief  : 执行 MQTT GET 命令（同步等待结果）
-     * @param  {const std::string &} strCommand：SDK 命令名（如 "NET_GET_FACECAPTUREINFO"）
+     * @param  {const std::string &} strCommand：SDK 命令名（如 "NET_TV_GET_FACECAPTUREINFO"）
      * @param  {const std::string &} strData：请求数据（JSON）
      * @param  {std::string &} strResult：输出结果（JSON）
      * @return {int} 0：成功，非0：失败
@@ -41,7 +41,7 @@ public:
 
     /**
      * @brief  : 执行 MQTT SET 命令
-     * @param  {const std::string &} strCommand：SDK 命令名（如 "NET_SET_FACECAPTUREINFO"）
+     * @param  {const std::string &} strCommand：SDK 命令名（如 "NET_TV_SET_FACECAPTUREINFO"）
      * @param  {const std::string &} strData：请求数据（JSON）
      * @return {int} 0：成功，非0：失败
      * @note   : 内部解析命令名 → ActionCode，通过 CTaskManage 执行

@@ -144,6 +144,12 @@ class CGroup3Detect : public CAlgorithm {
     CAlarmStateMachine m_ManholeCoverAbnormalStateMachine; /* 井盖异常 */
     CAlarmStateMachine m_RoadPondingStateMachine;          /* 道路积水 */
 
+    /* 通道号 */
+    int m_nChannelId = -1;
+
+    /* 缓存RGB原图 */
+    cv::Mat m_fullRgbMat;
+
     /* 算法默认分辨率 */
     int m_nWidth  = 640;
     int m_nHeight = 384;

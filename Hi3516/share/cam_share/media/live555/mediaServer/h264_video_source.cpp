@@ -62,7 +62,9 @@ void H264_Video_Source::doGetNextFrame()
 
 unsigned int H264_Video_Source::maxFrameSize() const
 {
-    return REV_BUF_SIZE;
+    return m_stSourceInfo.outPacketBufferSize == 0
+               ? REV_BUF_SIZE
+               : m_stSourceInfo.outPacketBufferSize;
 }
 
 void H264_Video_Source::getNextFrame(void* ptr)

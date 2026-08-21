@@ -3,7 +3,7 @@
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2025-07-10 11:28:50
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2025-12-29 17:03:57
+ * @LastEditTime : 2026-08-15 10:46:58
  * @Description  : 场景变更侦测
  */
 
@@ -220,7 +220,9 @@ void CSceneChangeDetect::processSceneChangeMode(ot_sample_svp_rect_info &stRectI
     stContext.nChnId = stCtx.nChnId;
     stContext.llTimestamp = stCtx.llTimestamp;
 #ifdef ENABLE_TVSDK_SRC
-    if (bIsAlarm && stCtx.pFrameInfo != nullptr)
+    /* perf: 有TVSDK客户端订阅时才软件编码全景图，无订阅者或冷却期跳过编码 */
+    if (bIsAlarm && m_sceneChangeAlarmStateMachine.canStartAlarm() && stCtx.pFrameInfo != nullptr &&
+        AiAppCommon::tvsdk_event_image_required())
     {
         auto pPayload = std::make_shared<EventTvSdkPayload_S>();
         pPayload->enType = get_tvsdk_payload_type(stContext.enEventType);

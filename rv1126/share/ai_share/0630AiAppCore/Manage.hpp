@@ -27,6 +27,7 @@ namespace Ai0630_NS
          */
         void setNotifyGetSteamData(notifyGetSteamDataFunc func);
         void setPTZControl(PTZControlFunc func);
+        void setPPTScreenshot(PPTScreenshotFunc func);
 
         /**
          * @brief 发送流数据
@@ -212,6 +213,7 @@ namespace Ai0630_NS
 
         notifyGetSteamDataFunc m_notifyGetSteamData = nullptr;
         PTZControlFunc         m_setPTZControl      = nullptr;
+        PPTScreenshotFunc      m_sendPPTScreenshot  = nullptr;
 
         int              m_nRecordTime = 0;
         std::atomic_bool m_bRecord     = false;     /* 是否在录制 */

@@ -16,6 +16,7 @@
 #include "stream_server.h"
 #include "algo_detect.h"
 #include "record_ctrl.h"
+#include "voice_com_capture_source.h"
 
 /*用来控制1:1输出的比例*/
 #define VOLUME_RATION   (1.12)
@@ -844,6 +845,7 @@ void CStreamAudio::deal_aiFrame_thr(int param)
             {
                 /* 音量调整 */
                 volume_adjust(reinterpret_cast<int8_t *>(pData), stFrame.u32Len);
+                CVoiceComCaptureSource::instance()->push_pcm_frame(pData, stFrame.u32Len);
 
                 /* 送ffmpeg AAC编码 */
                 if (m_pFfAencHandle != NULL)

@@ -96,7 +96,7 @@ public:
      * @brief 添加人脸名单库
      * @param stFaceLibData 
      */
-     bool add_Facelib_Groups(FaceDataDB_NS::FaceLibsInfo_S &stFaceLibData);
+     int add_Facelib_Groups(FaceDataDB_NS::FaceLibsInfo_S &stFaceLibData);
 
       /**
      * @brief 人员检索人脸比对

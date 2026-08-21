@@ -9,6 +9,7 @@ project(ipc)
 # set(CMAKE_FIND_LIBRARY_SUFFIXES .a .so)
 
 # add_compile_options(-fstack-protector-strong -D_FORTIFY_SOURCE=2)
+# add_compile_definitions(ENABLE_CRASH_DIAGNOSTICS=1)
 
 add_subdirectory(main_app)
 add_subdirectory(cgi-enc)

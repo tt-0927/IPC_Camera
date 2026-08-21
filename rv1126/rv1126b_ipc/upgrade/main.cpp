@@ -1,11 +1,12 @@
-/**
+/*
  * @FilePath     : main.cpp
- * @Author       : zhouzr@kfb.cn
- * @Date         : 2025-10-13 10:52:02
- * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2025-11-19 11:10:29
- * @Description  : 升级包升级进程
+ * @Author       : yanzeh yanzeh@kfb.cn
+ * @Date         : 2023-05-16 10:02:32
+ * @LastEditors: lianghy lianghy@kfb.cn
+ * @LastEditTime: 2026-03-31 10:40:50
+ * @Description  :
  */
+
 
 #include <iostream>
 #include <chrono>
@@ -17,10 +18,10 @@
 #include "upgrade_communicate.h"
 #include "data_manage.h"
 #include "dlog.h"
-
+#include "timezone_runtime.h"
 
 /* 日志记录单个日志文件的最大大小 */
-#define MAX_LOG_SIZE  (1 * 512 * 1024) // 512KB
+#define MAX_LOG_SIZE  (1 * 1024 * 1024) // 1MB
 /* 日志记录最大保留的日志文件数量 */
 #define MAX_LOG_FILES (1)
 
@@ -60,12 +61,22 @@ int main(int argc, char *argv[])
     {
         printf("日志初始化失败\n");
     }
-    /* 设置日志输出同步输出控制台 */
-    syncPrintf(true);
-    /* 设置日志等级 */
-    setLogLevel(LOG_TRACE);
 
+#if CAP_PROCESS_LOG_SWITCH
+    /* 设置日志输出同步输出控制台 */
+	syncPrintf(true);
+    /* 设置日志等级 */
+	setLogLevel(LOG_ERROR);
+#else
+    /* 设置日志输出同步输出控制台 */
+	syncPrintf(true);
+    /* 设置日志等级 */
+	setLogLevel(LOG_TRACE);
+#endif
     dlog_trace("启动升级程序");
+
+    /* 初始化进程时区运行时，收到 SIGHUP 后重新加载时区配置 */
+    TimezoneRuntime_NS::init_timezone_runtime("upgrade");
 
     /* 初始化升级程序 */
     dataManage_init();

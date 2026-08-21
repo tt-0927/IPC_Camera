@@ -105,6 +105,10 @@ private:
 
     /* 检测频率控制 */
     EventManager m_RecvManager{500};
+    /* 当前通道号 */
+    int m_nChannelId = 0;
+    /* 缓存最新RGB帧用于TVSDK图像推送 */
+    cv::Mat m_stInDataMat;
     /* 场景变更参考帧更新频率控制:默认10分钟检测一次变更 */
     time_t m_UpdateLastFrameDuration = 10 * 60;
     /* 更新上一帧缓存的时间戳 */

@@ -52,8 +52,8 @@ namespace Ai0630_NS
         long long nPatrolDuration = 0;     /* 巡视时长（指导 + 巡视） */
         int       nPatrolCount    = 0;     /* 巡视次数 */
 
-        /* 比例范围 0.0~1.0，例如 0.25 表示 25% */
-        std::unordered_map<TeacherPosture_E, float> mapPostureRatio;
+        /* 百分比 */
+        std::unordered_map<TeacherPosture_E, int> mapPostureRatio;
     };
 
     struct HeatPoint_S

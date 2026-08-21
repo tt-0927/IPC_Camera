@@ -73,6 +73,16 @@ namespace FaceManage
          */
         int delFaceLibInfo(int nId);
         
+
+        /* 清空所有名单组中的人员和人脸特征 */
+        int clearFaceLibData();
+
+        /**
+         * @brief 删除人脸目录中未被人脸数据库引用的图片和特征文件
+         * @return OK：完成，其他：数据库读取或目录清理失败
+         */
+        int cleanupOrphanFaceFiles();
+
         /**
          * @brief 更新人脸名单库
          * @param nId 

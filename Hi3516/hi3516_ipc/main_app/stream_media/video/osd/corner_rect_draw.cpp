@@ -3,7 +3,7 @@
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2025-11-17 09:18:43
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2025-12-08 17:33:27
+ * @LastEditTime : 2026-07-30 15:14:08
  * @Description  : 角框类型绘制：AI动态分析用
  */
 
@@ -12,6 +12,72 @@
 #include "osd_manage.h"
 #include "stream_video.h"
 #include "mpp_rgn.h"
+
+#include <algorithm>
+
+namespace
+{
+/**
+ * @brief   : 将 AI 检测框转换到指定码流裁剪后的有效输出坐标系
+ * @param    {Common::RectInfo_S} stSourceRect：检测结果坐标
+ * @param    {int} nDetectWidth：检测结果参考宽度
+ * @param    {int} nDetectHeight：检测结果参考高度
+ * @param    {Video_NS::StreamGeometry_S} stGeometry：目标码流有效几何
+ * @param    {Common::RectInfo_S &} stOutputRect：输出的目标坐标
+ * @return   {bool} true：存在可见区域 false：检测框完全落在裁剪区外
+ * @note    : 先缩放到裁剪前 VPSS 源画面，再减去 Crop 偏移并缩放到实际 VENC 输出。
+ */
+bool convert_rect_to_stream_output(const Common::RectInfo_S &stSourceRect,
+                                   int nDetectWidth,
+                                   int nDetectHeight,
+                                   const Video_NS::StreamGeometry_S &stGeometry,
+                                   Common::RectInfo_S &stOutputRect)
+{
+    if (nDetectWidth <= 0 || nDetectHeight <= 0 || stGeometry.nSourceWidth <= 0 ||
+        stGeometry.nSourceHeight <= 0 || stGeometry.nOutputWidth <= 0 || stGeometry.nOutputHeight <= 0)
+    {
+        return false;
+    }
+
+    int nX1 = stSourceRect.nX1 * stGeometry.nSourceWidth / nDetectWidth;
+    int nY1 = stSourceRect.nY1 * stGeometry.nSourceHeight / nDetectHeight;
+    int nX2 = stSourceRect.nX2 * stGeometry.nSourceWidth / nDetectWidth;
+    int nY2 = stSourceRect.nY2 * stGeometry.nSourceHeight / nDetectHeight;
+
+    int nCropX = 0;
+    int nCropY = 0;
+    int nCropWidth = stGeometry.nSourceWidth;
+    int nCropHeight = stGeometry.nSourceHeight;
+    if (stGeometry.bCropEnable)
+    {
+        nCropX = stGeometry.nCropX;
+        nCropY = stGeometry.nCropY;
+        nCropWidth = stGeometry.nCropWidth;
+        nCropHeight = stGeometry.nCropHeight;
+    }
+    if (nCropWidth <= 0 || nCropHeight <= 0)
+    {
+        return false;
+    }
+
+    const int nCropRight = nCropX + nCropWidth;
+    const int nCropBottom = nCropY + nCropHeight;
+    nX1 = std::max(nX1, nCropX);
+    nY1 = std::max(nY1, nCropY);
+    nX2 = std::min(nX2, nCropRight);
+    nY2 = std::min(nY2, nCropBottom);
+    if (nX2 <= nX1 || nY2 <= nY1)
+    {
+        return false;
+    }
+
+    stOutputRect.nX1 = (nX1 - nCropX) * stGeometry.nOutputWidth / nCropWidth;
+    stOutputRect.nY1 = (nY1 - nCropY) * stGeometry.nOutputHeight / nCropHeight;
+    stOutputRect.nX2 = (nX2 - nCropX) * stGeometry.nOutputWidth / nCropWidth;
+    stOutputRect.nY2 = (nY2 - nCropY) * stGeometry.nOutputHeight / nCropHeight;
+    return stOutputRect.nX2 > stOutputRect.nX1 && stOutputRect.nY2 > stOutputRect.nY1;
+}
+}
 
 CCornerRectDraw::CCornerRectDraw()
 {
@@ -90,10 +156,6 @@ IpcRet_E CCornerRectDraw::deinit()
 
 void CCornerRectDraw::update_ai_result(int nWidth, int nHeight, const std::vector<Common::RectInfo_S> &vRectInfo)
 {
-    /* 获取码流的分辨率大小 */
-    std::vector<Video_NS::VideoConfig_S> vstVideoConfig;
-    CStreamVideo::instance()->getVideoConfig(vstVideoConfig);
-
     for (size_t i = 0; i < m_pVecRgns.size(); i++)
     {
         if (!m_pVecRgns[i])
@@ -106,9 +168,15 @@ void CCornerRectDraw::update_ai_result(int nWidth, int nHeight, const std::vecto
    
         if (vRectInfo.size() > nIndex)
         {
-            /* 转换坐标 */
-            Common::RectInfo_S stRectInfo = vRectInfo[nIndex];
-            stRectInfo.ConvertResolution(nWidth, nHeight, vstVideoConfig[nChn].stVideoResolution.nWidth, vstVideoConfig[nChn].stVideoResolution.nHeight);
+            /* 将算法坐标转换到 VPSS Crop 后、RGN 实际显示的码流坐标系。 */
+            Video_NS::StreamGeometry_S stGeometry;
+            Common::RectInfo_S stRectInfo;
+            if (OK != CStreamVideo::instance()->get_stream_geometry(static_cast<int>(nChn), stGeometry) ||
+                !convert_rect_to_stream_output(vRectInfo[nIndex], nWidth, nHeight, stGeometry, stRectInfo))
+            {
+                m_pVecRgns[i]->mppRgn_showOrHide(m_pVecRgns[i], TD_FALSE);
+                continue;
+            }
             /* 更新rgn */
             m_pVecRgns[i]->mppRgn_update(m_pVecRgns[i], set_rgn(m_pVecRgns[i]->unChnId, m_pVecRgns[i]->unHandle, stRectInfo));
             m_pVecRgns[i]->mppRgn_changePos(m_pVecRgns[i], m_pVecRgns[i]->unStartX, m_pVecRgns[i]->unStartY);
@@ -118,6 +186,22 @@ void CCornerRectDraw::update_ai_result(int nWidth, int nHeight, const std::vecto
         else
         {
             m_pVecRgns[i]->mppRgn_showOrHide(m_pVecRgns[i], TD_FALSE);
+        }
+    }
+}
+
+void CCornerRectDraw::clear_channel(int nChn)
+{
+    if (nChn < 0 || nChn >= VPSS_CHN_MAX)
+    {
+        return;
+    }
+
+    for (HiRgn_S *pHandle : m_pVecRgns)
+    {
+        if (pHandle && pHandle->unChnId == nChn)
+        {
+            pHandle->mppRgn_showOrHide(pHandle, TD_FALSE);
         }
     }
 }

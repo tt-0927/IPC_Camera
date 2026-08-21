@@ -1,444 +1,305 @@
-/*** 
+/**
  * @FilePath     : isp_dayNight.cpp
- * @Author       : cyc
- * @Date         : 2025-08-27 19:02:28
- * @LastEditors  : cyc
- * @LastEditTime : 2026-01-29 17:10:45
- * @Description  : 日夜切换控制器实现
+ * @Author       : zhouzr@kfb.cn
+ * @Date         : 2026-07-22 15:30:00
+ * @LastEditors  : zhouzr@kfb.cn
+ * @LastEditTime : 2026-08-11 13:52:37
+ * @Description  : RV1126B SmartIR自动日夜观测控制实现
  */
 
- #include "isp_dayNight.h"
- #include "dlog.h"
- #include "IpcRet.h"
- #include "path_define.h"
- #include "isp_control.h"
- #include <ctime>
- 
- 
-CDayNightController::CDayNightController()
+#include "isp_dayNight.h"
+
+#include <algorithm>
+#include <cstdint>
+#include <cstring>
+#include <utility>
+
+#include "IpcRet.h"
+#include "dlog.h"
+#include "isp_control.h"
+
+namespace
 {
-    aiq_ctx = NULL;
-    smartIr_ctx = NULL;
-    memset(&m_stSmartAttr, 0, sizeof(rk_smart_ir_attr_t));
+constexpr unsigned int SMART_IR_SENSITIVITY_MIN = 1U;
+constexpr unsigned int SMART_IR_SENSITIVITY_MAX = 10U;
+constexpr unsigned int SMART_IR_DEFAULT_SENSITIVITY = 5U;
+constexpr unsigned int SMART_IR_SAMPLE_RATE = 30U;
+constexpr float SMART_IR_D2N_ENVL_THRESHOLD = 0.01F;
+constexpr float SMART_IR_N2D_ENVL_THRESHOLD = 0.20F;
+constexpr float SMART_IR_RGGAIN_BASE = 1.00F;
+constexpr float SMART_IR_BGGAIN_BASE = 1.00F;
+constexpr float SMART_IR_AWBGAIN_RADIUS = 0.10F;
+constexpr float SMART_IR_AWBGAIN_DISPERSION = 0.20F;
+
+/**
+ * @brief   : 将共享灵敏度转换为SmartIR稳定样本数
+ * @param    {unsigned int} nLevel：灵敏度等级[1,10]
+ * @return   {uint16_t} SmartIR稳定样本数
+ * @note    : 保持旧产品的等级映射；共享过滤时间不写入该字段，避免双重过滤。
+ */
+uint16_t to_switch_count_threshold(unsigned int nLevel)
+{
+    const unsigned int nClampedLevel = std::max(SMART_IR_SENSITIVITY_MIN, std::min(nLevel, SMART_IR_SENSITIVITY_MAX));
+    return static_cast<uint16_t>(nClampedLevel * SMART_IR_SAMPLE_RATE);
 }
-  
- 
+} // namespace
+
+CDayNightController::CDayNightController()
+    : m_pstAiqContext(nullptr), m_pstSmartIrContext(nullptr), m_bAcceptedNight(false),
+      m_nSensitivity(SMART_IR_DEFAULT_SENSITIVITY), m_bRunning(false), m_nActiveObservationCallbacks(0U)
+{
+    std::memset(&m_stSmartIrAttr, 0, sizeof(m_stSmartIrAttr));
+}
+
 CDayNightController::~CDayNightController()
 {
     stop();
 }
 
-void CDayNightController::smartIr_cb(rk_smart_ir_result_t stResult)
+int CDayNightController::start()
 {
-    CDayNightController::instance()->handleSmartIrCallback(stResult);
+    /* lock: 启动、属性配置和SmartIR句柄创建必须串行，避免stop并发释放同一context。 */
+    std::lock_guard<std::mutex> stLock(m_mtxObserver);
+    if (m_bRunning)
+    {
+        return OK;
+    }
+    if (m_pstSmartIrContext != nullptr)
+    {
+        /* ! 上一次SmartIR释放失败时保留context，必须先由stop重试，禁止覆盖仍可能运行的SDK对象。 */
+        return ERR_UNINIT;
+    }
+
+    m_pstAiqContext = CIspControl::instance()->get_aiq_ctx();
+    if (m_pstAiqContext == nullptr)
+    {
+        return ERR_UNINIT;
+    }
+
+    m_pstSmartIrContext = rk_smart_ir_init(m_pstAiqContext);
+    if (m_pstSmartIrContext == nullptr)
+    {
+        dlog_error("RV1126B SmartIR初始化失败");
+        return ERR;
+    }
+
+    XCamReturn nRet = rk_smart_ir_getAttr(m_pstSmartIrContext, &m_stSmartIrAttr);
+    if (nRet != XCAM_RETURN_NO_ERROR)
+    {
+        dlog_error("RV1126B读取SmartIR属性失败: %d", nRet);
+        const XCamReturn enDeinitRet = rk_smart_ir_deInit(m_pstSmartIrContext);
+        if (enDeinitRet == XCAM_RETURN_NO_ERROR)
+        {
+            m_pstSmartIrContext = nullptr;
+            m_pstAiqContext = nullptr;
+        }
+        else
+        {
+            dlog_error("RV1126B读取SmartIR属性失败后释放context失败: %d", enDeinitRet);
+        }
+        return static_cast<int>(nRet);
+    }
+
+    /* note: SmartIR只输出环境候选；固定AUTO和可见光观测，禁止其接管白光PWM。 */
+    m_stSmartIrAttr.init_status = m_bAcceptedNight.load() ? RK_SMART_IR_STATUS_NIGHT : RK_SMART_IR_STATUS_DAY;
+    m_stSmartIrAttr.switch_mode = RK_SMART_IR_SWITCH_MODE_AUTO;
+    m_stSmartIrAttr.light_mode = RK_SMART_IR_LIGHT_MODE_MANUAL;
+    m_stSmartIrAttr.light_type = RK_SMART_IR_LIGHT_TYPE_VIS;
+    m_stSmartIrAttr.light_value = 0U;
+    /* 保留历史SmartIR环境阈值与AWB标定值；仅过滤时间改由共享控制器统一处理。 */
+    m_stSmartIrAttr.params.d2n_envL_th = SMART_IR_D2N_ENVL_THRESHOLD;
+    m_stSmartIrAttr.params.n2d_envL_th = SMART_IR_N2D_ENVL_THRESHOLD;
+    m_stSmartIrAttr.params.rggain_base = SMART_IR_RGGAIN_BASE;
+    m_stSmartIrAttr.params.bggain_base = SMART_IR_BGGAIN_BASE;
+    m_stSmartIrAttr.params.awbgain_rad = SMART_IR_AWBGAIN_RADIUS;
+    m_stSmartIrAttr.params.awbgain_dis = SMART_IR_AWBGAIN_DISPERSION;
+    m_stSmartIrAttr.params.switch_cnts_th = to_switch_count_threshold(m_nSensitivity);
+    m_stSmartIrAttr.en_quick_switch = false;
+    m_stSmartIrAttr.en_grid_weight = false;
+    m_stSmartIrAttr.en_auto_n2dth = true;
+
+    nRet = rk_smart_ir_setAttr(m_pstSmartIrContext, &m_stSmartIrAttr);
+    if (nRet != XCAM_RETURN_NO_ERROR)
+    {
+        dlog_error("RV1126B设置SmartIR观测属性失败: %d", nRet);
+        const XCamReturn enDeinitRet = rk_smart_ir_deInit(m_pstSmartIrContext);
+        if (enDeinitRet == XCAM_RETURN_NO_ERROR)
+        {
+            m_pstSmartIrContext = nullptr;
+            m_pstAiqContext = nullptr;
+        }
+        else
+        {
+            dlog_error("RV1126B设置SmartIR属性失败后释放context失败: %d", enDeinitRet);
+        }
+        return static_cast<int>(nRet);
+    }
+
+    nRet = rk_smart_ir_runCb(m_pstSmartIrContext, false, CDayNightController::smart_ir_callback);
+    if (nRet != XCAM_RETURN_NO_ERROR)
+    {
+        dlog_error("RV1126B注册SmartIR回调失败: %d", nRet);
+        const XCamReturn enDeinitRet = rk_smart_ir_deInit(m_pstSmartIrContext);
+        if (enDeinitRet == XCAM_RETURN_NO_ERROR)
+        {
+            m_pstSmartIrContext = nullptr;
+            m_pstAiqContext = nullptr;
+        }
+        else
+        {
+            dlog_error("RV1126B注册SmartIR回调失败后释放context失败: %d", enDeinitRet);
+        }
+        return static_cast<int>(nRet);
+    }
+
+    m_bRunning = true;
+    return OK;
 }
 
- void CDayNightController::handleSmartIrCallback(rk_smart_ir_result_t stResult)
- {
-    /* 只有在自动模式下，才响应 smart_ir 的回调 */ 
-    if (m_currentMode.load() != AUTO_MODE) 
+int CDayNightController::stop()
+{
+    /* step: 先摘除运行标志，再在锁外释放SDK，避免底层回调反向等待本锁。 */
+    rk_smart_ir_ctx_t *pstSmartIrContext = nullptr;
     {
-        return;
-    }
-
-    bool shouldBeNight = (stResult.status == RK_SMART_IR_STATUS_NIGHT);
-    
-    /* 仅当状态发生变化时才处理 */ 
-    if (stResult.is_status_change && shouldBeNight != m_isNight.load()) 
-    {
-        dlog_info("SmartIR Callback: Switch to %s", shouldBeNight ? "Night" : "Day");
-        performStateChange(shouldBeNight);
-    }
- }
- 
- 
- bool CDayNightController::start()
- {
-    if (m_running.load()) 
-    {
-        dlog_warn("DayNight controller already running");
-        return true;
-    }
-
-    m_running.store(true);
-
-    aiq_ctx = CIspControl::instance()->get_aiq_ctx();
-
-    XCamReturn nRet;
- 
-    /* smartIr 初始化 */
-    smartIr_ctx = rk_smart_ir_init(aiq_ctx);
-    if (!smartIr_ctx)
-    {
-        dlog_error("rk_smart_ir_init error");
-        m_running.store(false);
-        return false;
-    } 
-
-    /* 获取当前 smartIr 的属性 */
-    nRet = rk_smart_ir_getAttr(smartIr_ctx, &m_stSmartAttr);
-    if (nRet != XCAM_RETURN_NO_ERROR) 
-    {
-        dlog_error("rk_smart_ir_getAttr error,%u",nRet);
-        rk_smart_ir_deInit(smartIr_ctx);
-        smartIr_ctx = NULL;
-        m_running.store(false);
-        return false;
-    }
-
-    /* 设置 smartIr 的属性 */
-    /* 配置⽇夜状态 */
-    m_stSmartAttr.init_status = RK_SMART_IR_STATUS_DAY;
-    /* ⽇夜转化模式 */
-    m_stSmartAttr.switch_mode = RK_SMART_IR_SWITCH_MODE_AUTO;
-    /* 补光灯亮度调节模式，包括⾃动亮度补光模式和固定亮度补光模式。 */
-    m_stSmartAttr.light_mode = RK_SMART_IR_LIGHT_MODE_MANUAL;
-    /* 补光灯光源类型，包括可⻅光、红外光、⽆补光、混合光四种类型。 */
-    m_stSmartAttr.light_type = RK_SMART_IR_LIGHT_TYPE_VIS;
-    /* 补光灯亮度值 */
-    m_stSmartAttr.light_value = 50;
-    /* ⽇转夜亮度阈值 */
-    m_stSmartAttr.params.d2n_envL_th = 0.01f;
-    /* 夜转⽇亮度阈值 */
-    m_stSmartAttr.params.n2d_envL_th = 0.20f;
-    /* ⿊夜切⽩天的Rgain/Ggain基准值 */
-    m_stSmartAttr.params.rggain_base = 1.00f;
-    /* ⿊夜切⽩天的Bgain/Ggain基准值 */
-    m_stSmartAttr.params.bggain_base = 1.00f;
-    /* ⿊夜切⽩天的awbgain滤波半径 */
-    m_stSmartAttr.params.awbgain_rad = 0.10f;
-    /* ⿊夜切⽩天的awbgain离散度阈值 */
-    m_stSmartAttr.params.awbgain_dis = 0.20f;
-    /* 切换阈值， 保持相同状态次数⼤于该阈值时才允许状态切换。状态保持时⻓ (ms) = 1 / fps x 1000 x switch_cnts_th*/
-    m_stSmartAttr.params.switch_cnts_th = 100;
-    /* 是否加快⽇夜转化，对转化速度有要求的可以将此参数配置为true,切换速度提升了，相应的误切概率也会增加 */
-    m_stSmartAttr.en_quick_switch = false;
-    /* 是否启⽤带分块权重的⽇夜转化，该权重值与AE模块中的GridWeights参数是⼀致的。 */
-    m_stSmartAttr.en_grid_weight = false;
-    /* 补光灯类型配置为⾃动，⿊夜切⽩天时，是否⾃动调整的⿊切⽩阈值。true为 ⾃动调整，false为不调整。*/
-    m_stSmartAttr.en_auto_n2dth = true;
-
-    updateSmartIrAttr();
-
-
-    /* 注册回调函数 */
-    nRet = rk_smart_ir_runCb(smartIr_ctx, false, CDayNightController::smartIr_cb);
-    if (nRet != XCAM_RETURN_NO_ERROR) 
-    {
-        dlog_error("rk_smart_ir_runCb failed!");
-        rk_smart_ir_deInit(smartIr_ctx);
-        smartIr_ctx = NULL;
-        m_running.store(false);
-        return false;
-    }
-
-    m_workerThread = std::make_unique<std::thread>(&CDayNightController::workerThread, this);
-    if (m_workerThread) 
-    {
-        dlog_info("DayNight controller started successfully");
-        return true;
-    } 
-    else 
-    {
-        dlog_error("Failed to start day night worker thread");
-        m_running.store(false);
-        rk_smart_ir_deInit(smartIr_ctx);
-        smartIr_ctx = NULL;
-        return false;
-    }
- }
-  
- 
- void CDayNightController::stop()
- {
-    if (!m_running.load()) 
-    {
-        return;
-    }
-    
-    m_running.store(false);
-    
-    if (m_workerThread && m_workerThread->joinable()) 
-    {
-        m_workerThread->join();
-    }
-    m_workerThread.reset();
-
-    /* smartIr 去初始化 */
-    if (smartIr_ctx) 
-    {
-        rk_smart_ir_deInit(smartIr_ctx);
-        smartIr_ctx = NULL;
-    }
-
-    aiq_ctx = NULL;
-    
-    dlog_info("DayNight controller stopped");
- }
-  
- void CDayNightController::setMode(DayNightMode_E enDayNightMode)
- {
-    dlog_info("Set DayNight mode to: %d", enDayNightMode);
-    m_currentMode.store(enDayNightMode);
-    
-    if (!smartIr_ctx) 
-    {
-        dlog_warn("smartIr not initialized, mode will be applied on start.");
-        return;
-    }
-
-    switch (enDayNightMode) 
-    {
-        case DAY_MODE:
-            m_stSmartAttr.switch_mode = RK_SMART_IR_SWITCH_MODE_DAY;
-            performStateChange(false);
-            break;
-        case NIGHT_MODE:
-            m_stSmartAttr.switch_mode = RK_SMART_IR_SWITCH_MODE_NIGHT;
-            performStateChange(true);
-            break;
-        case AUTO_MODE:
-            m_stSmartAttr.switch_mode = RK_SMART_IR_SWITCH_MODE_AUTO;
-            break;
-        case TIME_MODE:
+        std::lock_guard<std::mutex> stLock(m_mtxObserver);
+        if (!m_bRunning && m_pstSmartIrContext == nullptr)
         {
-            /* 立即检查当前时间应该处于什么状态 */ 
-            bool shouldBeNight = shouldBeNightByTime();
-            m_stSmartAttr.switch_mode = shouldBeNight ? RK_SMART_IR_SWITCH_MODE_NIGHT:RK_SMART_IR_SWITCH_MODE_DAY;
-            dlog_info("定时模式：当前应该处于%s模式", shouldBeNight ? "夜晚" : "白天");
-            performStateChange(shouldBeNight);
-            break;
+            m_pstAiqContext = nullptr;
+            return OK;
         }
-        default:
-            dlog_error("Unknown day night mode: %d", enDayNightMode);
+
+        /* lock: 先禁止回调上送，再在锁外等待SDK停止，避免SDK反调本类时发生锁等待。 */
+        m_bRunning = false;
+        pstSmartIrContext = m_pstSmartIrContext;
+    }
+
+    int nRet = OK;
+    /* memory: 释放失败时保留context和AIQ借用关系，下一次stop必须继续重试。 */
+    if (pstSmartIrContext != nullptr)
+    {
+        const XCamReturn enRet = rk_smart_ir_deInit(pstSmartIrContext);
+        if (enRet != XCAM_RETURN_NO_ERROR)
+        {
+            dlog_error("RV1126B释放SmartIR失败: %d", enRet);
+            nRet = static_cast<int>(enRet);
+        }
+    }
+
+    {
+        std::unique_lock<std::mutex> stLock(m_mtxObserver);
+        /* memory: stop返回前等待已取出回调完成，适配器才能释放其回调桥接对象。 */
+        m_stObservationCallbackIdleCv.wait(stLock,
+                                           [this]
+                                           {
+                                               return m_nActiveObservationCallbacks == 0U;
+                                           });
+        if (nRet == OK)
+        {
+            m_pstSmartIrContext = nullptr;
+            m_pstAiqContext = nullptr;
+        }
+    }
+    return nRet;
+}
+
+int CDayNightController::sync_runtime_context(const ISP::IspDayNightObservationContext_S &stContext)
+{
+    std::lock_guard<std::mutex> stLock(m_mtxObserver);
+    m_bAcceptedNight.store(stContext.bIsNight);
+    if (!m_bRunning)
+    {
+        return OK;
+    }
+
+    m_stSmartIrAttr.init_status = m_bAcceptedNight.load() ? RK_SMART_IR_STATUS_NIGHT : RK_SMART_IR_STATUS_DAY;
+    return apply_attr_locked();
+}
+
+int CDayNightController::set_sensitivity(unsigned int nLevel)
+{
+    std::lock_guard<std::mutex> stLock(m_mtxObserver);
+    m_nSensitivity = std::max(SMART_IR_SENSITIVITY_MIN, std::min(nLevel, SMART_IR_SENSITIVITY_MAX));
+    m_stSmartIrAttr.params.switch_cnts_th = to_switch_count_threshold(m_nSensitivity);
+    if (!m_bRunning)
+    {
+        return OK;
+    }
+    return apply_attr_locked();
+}
+
+bool CDayNightController::is_night_mode() const
+{
+    return m_bAcceptedNight.load();
+}
+
+void CDayNightController::set_observation_callback(ObservationCallback stCallback)
+{
+    std::lock_guard<std::mutex> stLock(m_mtxObserver);
+    m_stObservationCallback = std::move(stCallback);
+}
+
+void CDayNightController::smart_ir_callback(rk_smart_ir_result_t stResult)
+{
+    CDayNightController::instance()->handle_smart_ir_result(stResult);
+}
+
+void CDayNightController::handle_smart_ir_result(rk_smart_ir_result_t stResult)
+{
+    ObservationCallback stCallback;
+    bool bSuggestedNight = false;
+    {
+        std::lock_guard<std::mutex> stLock(m_mtxObserver);
+        if (!m_bRunning || !m_stObservationCallback)
+        {
             return;
-    }
-    
-    updateSmartIrAttr();
- }
-  
- 
- void CDayNightController::setTimeRange(const TimeRange_S& timeRange)
- {
-    m_timeRange = timeRange;
-    dlog_info("Time range updated: %02d:%02d:%02d - %02d:%02d:%02d",
-            timeRange.stStartTime.nHour, timeRange.stStartTime.nMinute, timeRange.stStartTime.nSecond,
-            timeRange.stEndTime.nHour, timeRange.stEndTime.nMinute, timeRange.stEndTime.nSecond);
-    
-    /* 如果当前是定时模式，立即重新评估状态 */ 
-    if (m_currentMode.load() == TIME_MODE) 
-    {
-        bool shouldBeNight = shouldBeNightByTime();
-        if (shouldBeNight != m_isNight.load()) 
-        {
-            m_stSmartAttr.switch_mode = shouldBeNight ? RK_SMART_IR_SWITCH_MODE_NIGHT:RK_SMART_IR_SWITCH_MODE_DAY;
-            updateSmartIrAttr();
-            dlog_info("Time range updated, immediately adjusting state to: %s", shouldBeNight ? "Night" : "Day");
-            performStateChange(shouldBeNight);
         }
-    }
- }
-  
 
- void CDayNightController::setSensitivity(unsigned int sensitivity)
- {
-    if (sensitivity < 1)
-    {
-        sensitivity = 1;
-    } 
-    if (sensitivity > 10) 
-    {
-        sensitivity = 10;
-    }
-    m_sensitivity.store(sensitivity);
-    m_stSmartAttr.params.switch_cnts_th = sensitivity * 30;
-    dlog_info("sensitivity %u,switch_cnts_th: %u", sensitivity, m_stSmartAttr.params.switch_cnts_th);
-    updateSmartIrAttr();
- }
-  
-
- void CDayNightController::setFilterTime(unsigned int filterTimeSeconds)
- {
-    if (filterTimeSeconds < FILTER_TIME_MIN) 
-    {
-        filterTimeSeconds = FILTER_TIME_MIN;
-    } 
-    else if (filterTimeSeconds > FILTER_TIME_MAX) 
-    {
-        filterTimeSeconds = FILTER_TIME_MAX;
-    }
-    
-    /* 状态保持时⻓ (ms) = 1 / fps x 1000 x switch_cnts_th */
-    m_stSmartAttr.params.switch_cnts_th = filterTimeSeconds * 30;
-    dlog_info("Filter time updated to %u seconds (switch_cnts_th: %u)", 
-            filterTimeSeconds, m_stSmartAttr.params.switch_cnts_th);
-
-    updateSmartIrAttr();
- }
- 
- /* 更新 rk_smart_ir 的属性 */ 
- void CDayNightController::updateSmartIrAttr()
- {
-    if (smartIr_ctx && m_running.load()) 
-    {
-        XCamReturn ret = rk_smart_ir_setAttr(smartIr_ctx, &m_stSmartAttr);
-        if (ret != XCAM_RETURN_NO_ERROR) 
+        /* SmartIR异常结果按最后成功态回报，用于取消共享层正在等待的反向候选。 */
+        if (stResult.status == RK_SMART_IR_STATUS_NIGHT)
         {
-            dlog_error("rk_smart_ir_setAttr failed!");
-        } 
-        else 
-        {
-            dlog_debug("rk_smart_ir_setAttr successfully, switch_mode=%d", m_stSmartAttr.switch_mode);
+            bSuggestedNight = true;
         }
+        else if (stResult.status == RK_SMART_IR_STATUS_DAY)
+        {
+            bSuggestedNight = false;
+        }
+        else
+        {
+            bSuggestedNight = m_bAcceptedNight.load();
+        }
+        stCallback = m_stObservationCallback;
+        ++m_nActiveObservationCallbacks;
     }
- }
 
- 
-void CDayNightController::sample_smartIr_calib()
-{
-    rk_smart_ir_calib_t calib_cfg;
-    calib_cfg.calib_en = true;
-
-    /* calib d2n_envL_th
-     * 1. Switch to ISP day mode
-     * 2. Enable IR-cutter, disable IR-LED
-     * 3. Adjust brightness threshold for day-to-night switch
-     */
-    calib_cfg.calib_mode = RK_SMART_IR_CALIB_MODE_D2N;
-    calib_cfg.calib_params.d2n_envL_th = 0.04f; //need cfg, init calib params
-    rk_smart_ir_calib(smartIr_ctx, &calib_cfg);
-
-    /* calib n2d_envL_th
-     * 1. Switch to ISP night mode
-     * 2. Disable IR-cutter, enable IR-LED
-     * 3. Adjust brightness threshold for night-to-day switch
-     */
-    calib_cfg.calib_mode = RK_SMART_IR_CALIB_MODE_N2D;
-    calib_cfg.calib_params.n2d_envL_th = 0.2f; //need cfg, init calib params
-    rk_smart_ir_calib(smartIr_ctx, &calib_cfg);
-
-    /* calib awbgain base
-     * 1. Switch to ISP night mode
-     * 2. Disable IR-cutter, enable IR-LED
-     * 3. Ensure no visible light
-     */
-    calib_cfg.calib_mode = RK_SMART_IR_CALIB_MODE_BASE;
-    rk_smart_ir_calib(smartIr_ctx, &calib_cfg);
-
-    /* tune awbgain dis
-     * 1. Switch to ISP night mode
-     * 2. Disable IR-cutter, enable IR-LED
-     * 3. Test various scenarios and get the maximum value
-     */
-    calib_cfg.calib_mode = RK_SMART_IR_CALIB_MODE_DIS;
-    calib_cfg.calib_params.rggain_base = 1.00f; //need cfg
-    calib_cfg.calib_params.bggain_base = 1.00f; //need cfg
-    calib_cfg.calib_params.awbgain_rad = 0.10f; //need cfg
-    rk_smart_ir_calib(smartIr_ctx, &calib_cfg);
-    dlog_debug("calib result: d2n_envL_th = %f,n2d_envL_th = %f,awbgain_base = %f, %f,awbgain_rad = %f", calib_cfg.calib_params.d2n_envL_th,calib_cfg.calib_params.n2d_envL_th,
-        calib_cfg.calib_params.rggain_base,calib_cfg.calib_params.bggain_base,calib_cfg.calib_params.awbgain_rad);
+    /* lock: 回调在锁外执行，避免共享reconciler同步运行态时反向等待SmartIR锁。 */
+    stCallback(bSuggestedNight);
+    release_observation_callback();
 }
 
-  
- void CDayNightController::workerThread()
- {  
-    while (m_running.load()) 
-    {  
-        /* test */
-        //  sample_smartIr_calib();
-        if (m_currentMode.load() == TIME_MODE) 
-        {
-            handleTimeMode();
-        }
-            
-     std::this_thread::sleep_for(THREAD_SLEEP_INTERVAL);
-    }
-    
-    dlog_info("DayNight worker thread exited");
- }
-  
-
- void CDayNightController::handleTimeMode()
- {
-    bool shouldBeNight = shouldBeNightByTime();
-    
-    if (shouldBeNight != m_isNight.load()) 
+void CDayNightController::release_observation_callback()
+{
+    std::lock_guard<std::mutex> stLock(m_mtxObserver);
+    if (m_nActiveObservationCallbacks == 0U)
     {
-        performStateChange(shouldBeNight);
-    }
- }
-  
- bool CDayNightController::shouldBeNightByTime() const
- {
-    auto now = std::time(nullptr);
-    auto* localTime = std::localtime(&now);
-    
-    int currentSeconds = localTime->tm_hour * 3600 + 
-                        localTime->tm_min * 60 + 
-                        localTime->tm_sec;
-    
-    int startSeconds = m_timeRange.stStartTime.nHour * 3600 + 
-                    m_timeRange.stStartTime.nMinute * 60 + 
-                    m_timeRange.stStartTime.nSecond;
-    
-    int endSeconds = m_timeRange.stEndTime.nHour * 3600 + 
-                    m_timeRange.stEndTime.nMinute * 60 + 
-                    m_timeRange.stEndTime.nSecond;
-    
-    /* 判断是否在白天时间范围内 */ 
-    bool isDayTime;
-    if (startSeconds < endSeconds) 
-    {
-        /* 正常情况：如 08:00 - 18:00 */ 
-        isDayTime = (currentSeconds >= startSeconds) && (currentSeconds < endSeconds);
-    } 
-    else 
-    {
-        /* 跨天情况：如 18:00 - 08:00 (次日) */ 
-        isDayTime = (currentSeconds >= startSeconds) || (currentSeconds < endSeconds);
-    }
-    
-    return !isDayTime;
- }
-  
- 
- void CDayNightController::performStateChange(bool bToNight)
- {
-    if (!aiq_ctx) 
-    {
-        dlog_error("Cannot perform state change, aiq_ctx is null");
         return;
     }
-
-    dlog_info("Performing state change to %s", bToNight ? "Night" : "Day");
-
-    #if 0  /* 这款不做夜间黑白,灯光控制用rk本身 */
-    if (bToNight) 
+    --m_nActiveObservationCallbacks;
+    if (m_nActiveObservationCallbacks == 0U)
     {
-        /* 切换到夜晚 */ 
-        rk_aiq_uapi2_sysctl_switch_scene(aiq_ctx, "normal", "night");
-    } 
-    else 
-    {
-        /* 切换到白天 */ 
-        rk_aiq_uapi2_sysctl_switch_scene(aiq_ctx, "normal", "day");
+        m_stObservationCallbackIdleCv.notify_all();
     }
-    #endif
-    
+}
 
-    // 更新内部状态
-    m_isNight.store(bToNight);
-    
-    if (m_stateChangeCallback) 
+int CDayNightController::apply_attr_locked()
+{
+    if (m_pstSmartIrContext == nullptr)
     {
-        m_stateChangeCallback(bToNight, m_currentMode.load());
+        return ERR_UNINIT;
     }
-    
- }
-
- void CDayNightController::setStateChangeCallback(StateChangeCallback callback)
- {
-    m_stateChangeCallback = std::move(callback);
- }
- 
- 
+    const XCamReturn nRet = rk_smart_ir_setAttr(m_pstSmartIrContext, &m_stSmartIrAttr);
+    if (nRet != XCAM_RETURN_NO_ERROR)
+    {
+        dlog_error("RV1126B更新SmartIR观测属性失败: %d", nRet);
+    }
+    return static_cast<int>(nRet);
+}

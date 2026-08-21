@@ -128,6 +128,12 @@ class CGroup5Detect : public CAlgorithm {
     CAlarmStateMachine m_HoleProtectionBarStateMachine;            /* 洞口防护栏识别 */
     CAlarmStateMachine m_ConstructionEncroachmentRoadStateMachine; /* 施工占道 */
 
+    /* 通道号 */
+    int m_nChannelId = 0;
+
+    /* 缓存RGB原图 */
+    cv::Mat m_fullRgbMat;
+
     /* 算法默认分辨率 */
     int m_nWidth  = 640;
     int m_nHeight = 384;

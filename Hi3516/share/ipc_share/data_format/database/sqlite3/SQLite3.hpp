@@ -1,9 +1,10 @@
 /**
- * @file SQLite3.h
- * @author zhangjc (zhangjc@kfb.cn)
- * @date 2025-01-16
- *
- * @brief SQLite3封装接口
+ * @FilePath     : SQLite3.hpp
+ * @Author       : zhangjc (zhangjc@kfb.cn)
+ * @Date         : 2025-01-16 00:00:00
+ * @LastEditors  : zhouzr@kfb.cn
+ * @LastEditTime : 2026-08-13 15:03:25
+ * @Description  : SQLite3封装接口
  */
 
 #pragma once
@@ -55,6 +56,15 @@ public:
      * @return 成功返回0，失败返回-1
      */
     int deal_sql(std::string sql);
+
+    /**
+     * @brief 设置SQLite同步模式（PRAGMA synchronous）
+     * @param nMode 同步模式：0=OFF，1=NORMAL，2=FULL（SQLite默认）
+     * @return 成功返回0，失败返回-1
+     * @note NORMAL 模式仅在检查点时同步数据库文件，提交延迟显著低于 FULL，
+     *       适用于可容忍断电丢失最近一次提交的元数据场景（如抓图索引）
+     */
+    int set_synchronous_mode(int nMode);
     /**
      * @brief 获取最后插入的ID
      * @return 最后插入的ID

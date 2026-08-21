@@ -10,9 +10,11 @@
 #pragma once
 
 #include <atomic>
+#include <array>
 #include <chrono>
 #include <algorithm>
 #include <mutex>
+#include <queue>
 #include <thread>
 #include <vector>
 #include <sys/time.h>
@@ -62,7 +64,7 @@ public:
      * @param stFaceLibData
      */
 #if CAP_AI_FACE_COMPARE
-    bool addFaceLibGroup(FaceDataDB_NS::FaceLibsInfo_S &stFaceLibData);
+    int addFaceLibGroup(FaceDataDB_NS::FaceLibsInfo_S &stFaceLibData);
 #endif
 
 private:
@@ -90,6 +92,12 @@ private:
      * @return   {bool} true：至少有一项人脸业务使能 false：全部关闭
      */
     bool hasEnabledAlgorithm() const;
+
+    bool initAsyncFramePool();
+    void deinitAsyncFramePool();
+    ot_video_frame_info *acquireAsyncFrame();
+    void releaseAsyncFrame(ot_video_frame_info *pFrameInfo);
+
 
 private:
     /* 人脸检测句柄 */
@@ -122,6 +130,16 @@ private:
     int m_nHeight = PIXEL_HEIGHT_640;
     // int m_nWidth = PIXEL_WIDTH_1024;
     // int m_nHeight = PIXEL_HEIGHT_576;
+        /* 固定预申请异步帧池，避免运行中频繁申请和释放VB块。 */
+    #if   CAP_IO_EXTERNAL_DDR_00S
+    static constexpr size_t ASYNC_FRAME_POOL_SIZE = 5;
+    #else
+    static constexpr size_t ASYNC_FRAME_POOL_SIZE = 3;
+    #endif
+    std::array<ot_video_frame_info, ASYNC_FRAME_POOL_SIZE> m_astAsyncFrames;
+    std::queue<ot_video_frame_info *> m_availableAsyncFrames;
+    std::mutex m_asyncFramePoolMutex;
+    bool m_bAsyncFramePoolInitialized = false;
     /* 目标视频帧 */
     ot_video_frame_info m_stDstFrameInfo;
     /* 人脸抓拍处理器 */

@@ -32,7 +32,8 @@ public:
 	    u_int8_t rtpPayloadFormat, u_int32_t rtpTimestampFrequency,
 	    char const* sdpMediaTypeString, char const* mpeg4Mode,
 	    char const* configString,
-	    unsigned numChannels = 1);
+	    unsigned numChannels = 1,
+	    unsigned maxBufferSize = 0);
 
 protected:
   MPEG4GenericRTPSink(UsageEnvironment& env, Groupsock* RTPgs,
@@ -40,7 +41,8 @@ protected:
 		      u_int32_t rtpTimestampFrequency,
 		      char const* sdpMediaTypeString,
 		      char const* mpeg4Mode, char const* configString,
-		      unsigned numChannels);
+		      unsigned numChannels,
+		      unsigned maxBufferSize);
 	// called only by createNew()
 
   virtual ~MPEG4GenericRTPSink();

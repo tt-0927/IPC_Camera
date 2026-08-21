@@ -1,8 +1,10 @@
-/*
- *  File Name: DbBase.cpp
- *  Created on: 2022年1月02日
- *  Author: zjc
- *  description: 数据库
+/**
+ * @FilePath     : DbBase.cpp
+ * @Author       : zjc
+ * @Date         : 2022-01-02 00:00:00
+ * @LastEditors  : zhouzr@kfb.cn
+ * @LastEditTime : 2026-08-13 15:03:25
+ * @Description  : 数据库
  */
 
 #include "DbBase.h"
@@ -96,6 +98,11 @@ int CDbBase::init(bool bAddDefault)
 void CDbBase::deinit()
 {
     m_sqlite3.deinit();
+}
+
+int CDbBase::set_sync_mode(int nMode)
+{
+    return m_sqlite3.set_synchronous_mode(nMode);
 }
 
 int CDbBase::add(const Item &item, std::string strTargetTableName)

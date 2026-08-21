@@ -1,9 +1,9 @@
-/***
+/**
  * @FilePath     : preview_manage.h
  * @Author       : 严泽辉 (yanzeh@kfb.cn)
  * @Date         : 2024-10-11 17:21:30
- * @LastEditors  : huangjunda
- * @LastEditTime : 2025-07-09 11:16:47
+ * @LastEditors  : zhouzr@kfb.cn
+ * @LastEditTime : 2026-07-27 09:25:49
  * @Description  : 预览管理
  */
 
@@ -144,7 +144,7 @@ private:
 
     /**
      * @brief 执行硬件停止
-     * @note 关闭 GPIO 报警输出、停止白光闪烁、重新应用原有补光配置。手动 STOP 和超时停止共用它，确保行为一致。
+     * @note 关闭 GPIO 报警输出、释放白光临时抢占，由 ISP reconciler 恢复原有补光配置。手动 STOP 和超时停止共用它，确保行为一致。
      */
     int stop_alarm_light_output();
 
@@ -164,6 +164,8 @@ private:
     std::thread m_alarmLightTimerThread;                            /* 常驻定时线程，负责等待 dwDurationMs 到期后自动关闭声光。避免每次控制都创建 detached 线程 */
     std::chrono::steady_clock::time_point m_alarmLightDeadline;     /* 当前声光报警的自动停止时间点，使用 steady_clock，不会受系统校时/NTP 修改影响。 */
     uint64_t m_alarmLightTimerGeneration = 0;                       /* 定时器版本号。每次 START 或 STOP 都递增；旧定时任务发现版本不一致就失效，不能关闭新报警。 */
+    uint64_t m_u64AlarmLightOverrideToken = 0; /* 当前 TVSDK 灯光抢占编号。仅由 m_alarmLightOperationMutex 保护，STOP
+                                                  和超时必须使用该编号释放对应请求。 */
     bool m_alarmLightTimerArmed = false;                            /* 当前是否存在有效的自动停止任务。 */
     bool m_alarmLightTimerExit = false;                             /* deinit 或析构时通知定时线程退出，并配合 join() 保证不会留下后台线程。 */
 };

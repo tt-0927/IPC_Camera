@@ -43,6 +43,7 @@ namespace Db
     constexpr const char *PERMISSION_FIELD_EVENT_CONFIG = "permission_event_config";                   /* 事件配置 */
     constexpr const char *PERMISSION_FIELD_VIDEO_MANAGE = "permission_video_manage";                   /* 录像管理 */
     constexpr const char *PERMISSION_FIELD_OBJECT_LIB = "permission_object_lib";                       // 目标库
+    constexpr const char *PERMISSION_FIELD_FACE_CONFIG = "permission_face_config";                      //人脸功能
     constexpr const char *PERMISSION_FIELD_VEHICLE_DETECT_CONFIG = "permission_vehicle_detect_config"; /* 车辆检测配置 */
     constexpr const char *PERMISSION_FIELD_LOCAL_SHUTDOWN = "permission_local_shutdown";               /* 本地关机 */
 

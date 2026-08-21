@@ -115,7 +115,10 @@ RTPSink* H264_Server_Subsession
 ::createNewRTPSink(Groupsock* rtpGroupsock,
 		   unsigned char rtpPayloadTypeIfDynamic,
 		   FramedSource* /*inputSource*/) {
-  return H264VideoRTPSink::createNew(envir(), rtpGroupsock, rtpPayloadTypeIfDynamic);
+  return H264VideoRTPSink::createNew(envir(),
+                                     rtpGroupsock,
+                                     rtpPayloadTypeIfDynamic,
+                                     m_pSouceInfo.outPacketBufferSize);
 }
 
 // info ------------------ zhouzr ------------------

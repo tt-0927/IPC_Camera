@@ -3,16 +3,17 @@
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2025-09-30 17:09:25
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-04-27 11:08:03
+ * @LastEditTime : 2026-07-22 11:16:28
  * @Description  : 系统配置策略
  */
- 
+
 #pragma once
 
 #include "config_strategy.h"
 #include "system_define.h"
 #include "share_define.h"
 #include "system_manage.h"
+#include "plugin_version_utils.h"
 #include "dlog.h"
 
 /**
@@ -34,7 +35,7 @@ public:
         config.serialNumber = SystemManage::instance()->get_cpu_serialNumber(); /* 设备序列号 */
         config.hardwareVersion = HARDWARE_VERSION;                              /* 硬件版本 */
         config.systemVersion = SYSTEM_VERSION;                                  /* 系统版本 */
-        config.pluginVersion = PLUG_VERSION;                                    /* 插件版本 */
+        config.pluginVersion = PluginVersionUtils_NS::get_active_version(); /* 以板端当前生效插件文件为准，禁止使用编译期版本。 */
         config.webVersion = WEB_VERSION;                                        /* web版本 */
         /* 设备配置信息 */
         config.nAlarmInputCount = GPIO_INPUT_COUNT; /* 报警输入个数 */
@@ -66,7 +67,7 @@ public:
         config.serialNumber = SystemManage::instance()->get_cpu_serialNumber(); /* 设备序列号 */
         config.hardwareVersion = HARDWARE_VERSION;                              /* 硬件版本 */
         config.systemVersion = SYSTEM_VERSION;                                  /* 系统版本 */
-        config.pluginVersion = PLUG_VERSION;                                    /* 插件版本 */
+        config.pluginVersion = PluginVersionUtils_NS::get_active_version(); /* 以板端当前生效插件文件为准，禁止使用编译期版本。 */
         config.webVersion = WEB_VERSION;                                        /* web版本 */
         /* 设备配置信息 */
         config.nAlarmInputCount = GPIO_INPUT_COUNT; /* 报警输入个数 */
@@ -98,7 +99,7 @@ public:
         config.serialNumber = SystemManage::instance()->get_cpu_serialNumber(); /* 设备序列号 */
         config.hardwareVersion = HARDWARE_VERSION;                              /* 硬件版本 */
         config.systemVersion = SYSTEM_VERSION;                                  /* 系统版本 */
-        config.pluginVersion = PLUG_VERSION;                                    /* 插件版本 */
+        config.pluginVersion = PluginVersionUtils_NS::get_active_version(); /* 以板端当前生效插件文件为准，禁止使用编译期版本。 */
         config.webVersion = WEB_VERSION;                                        /* web版本 */
         /* 设备配置信息 */
         config.nAlarmInputCount = GPIO_INPUT_COUNT; /* 报警输入个数 */
@@ -130,7 +131,7 @@ public:
         config.serialNumber = SystemManage::instance()->get_cpu_serialNumber(); /* 设备序列号 */
         config.hardwareVersion = HARDWARE_VERSION;                              /* 硬件版本 */
         config.systemVersion = SYSTEM_VERSION;                                  /* 系统版本 */
-        config.pluginVersion = PLUG_VERSION;                                    /* 插件版本 */
+        config.pluginVersion = PluginVersionUtils_NS::get_active_version(); /* 以板端当前生效插件文件为准，禁止使用编译期版本。 */
         config.webVersion = WEB_VERSION;                                        /* web版本 */
         /* 设备配置信息 */
         config.nAlarmInputCount = GPIO_INPUT_COUNT; /* 报警输入个数 */
@@ -162,7 +163,7 @@ public:
         config.serialNumber = SystemManage::instance()->get_cpu_serialNumber(); /* 设备序列号 */
         config.hardwareVersion = HARDWARE_VERSION;                              /* 硬件版本 */
         config.systemVersion = SYSTEM_VERSION;                                  /* 系统版本 */
-        config.pluginVersion = PLUG_VERSION;                                    /* 插件版本 */
+        config.pluginVersion = PluginVersionUtils_NS::get_active_version(); /* 以板端当前生效插件文件为准，禁止使用编译期版本。 */
         config.webVersion = WEB_VERSION;                                        /* web版本 */
         /* 设备配置信息 */
         config.nAlarmInputCount = GPIO_INPUT_COUNT; /* 报警输入个数 */
@@ -194,7 +195,7 @@ public:
         config.serialNumber = SystemManage::instance()->get_cpu_serialNumber(); /* 设备序列号 */
         config.hardwareVersion = HARDWARE_VERSION;                              /* 硬件版本 */
         config.systemVersion = SYSTEM_VERSION;                                  /* 系统版本 */
-        config.pluginVersion = PLUG_VERSION;                                    /* 插件版本 */
+        config.pluginVersion = PluginVersionUtils_NS::get_active_version(); /* 以板端当前生效插件文件为准，禁止使用编译期版本。 */
         config.webVersion = WEB_VERSION;                                        /* web版本 */
         /* 设备配置信息 */
         config.nAlarmInputCount = GPIO_INPUT_COUNT; /* 报警输入个数 */
@@ -226,7 +227,7 @@ public:
         config.serialNumber = SystemManage::instance()->get_cpu_serialNumber(); /* 设备序列号 */
         config.hardwareVersion = HARDWARE_VERSION;                              /* 硬件版本 */
         config.systemVersion = SYSTEM_VERSION;                                  /* 系统版本 */
-        config.pluginVersion = PLUG_VERSION;                                    /* 插件版本 */
+        config.pluginVersion = PluginVersionUtils_NS::get_active_version(); /* 以板端当前生效插件文件为准，禁止使用编译期版本。 */
         config.webVersion = WEB_VERSION;                                        /* web版本 */
         /* 设备配置信息 */
         config.nAlarmInputCount = GPIO_INPUT_COUNT; /* 报警输入个数 */

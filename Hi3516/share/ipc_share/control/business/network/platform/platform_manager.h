@@ -3,7 +3,7 @@
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2026-05-08 17:44:21
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-05-15 17:43:08
+ * @LastEditTime : 2026-07-29 14:24:22
  * @Description  : 平台管理
  */
 
@@ -13,6 +13,9 @@
 #include <vector>
 #include <thread>
 #include <atomic>
+#include <condition_variable>
+#include <cstdint>
+#include <deque>
 #include <functional>
 #include <unordered_map>
 #include <mutex>
@@ -265,13 +268,15 @@ public:
      * @param out_response 返回的响应结构体
      * @return true 登录成功, false 失败
      */
+    /* bIgnoreEnable 仅供启动或网络切换配置重载后的自动重连使用，网页保存仍遵循 enable。 */
     bool login(const std::string &host,
                int port,
                const std::string &user,
                const std::string &password,
                const bool &enable,
                const bool &Custom,
-               LoginResponse &out_response);
+               LoginResponse &out_response,
+               bool bIgnoreEnable = false);
     
                /**
      * @brief 将网页平台参数应用到运行时配置
@@ -380,6 +385,20 @@ public:
 
     int change_net_relogin();//切换无线重新登录
 
+    /**
+     * @brief   : 获取平台配置与重连操作锁
+     * @note    : 网页保存必须持有该锁覆盖“应用配置、登录、MQTT 重建、RTMP 更新”的完整序列，
+     *            避免与 WiFi/4G 网络切换使用不同平台参数并发执行。
+     */
+    std::unique_lock<std::recursive_mutex> lock_platform_operation();
+
+    /**
+     * @brief   : 网络切换完成后，从持久化配置重新加载平台参数并重连
+     * @return  : OK 登录、注册和 RTMP 更新成功；其他值表示读取、校验或重连失败
+     * @note    : enable=false 时按本次启动的临时自动连接规则处理，网页保存的 enable 值不被改写
+     */
+    int reconnect_from_persisted_config();
+    
 private:
     // 辅助函数：Base64 编码
     std::string base64_encode(const std::string &input);
@@ -403,9 +422,49 @@ private:
      * @brief   : 处理收到的 MQTT 消息
      * @param    {const std::string &} strTopic：消息 Topic
      * @param    {const std::string &} strPayload：消息内容（JSON）
-     * @note    : 解析 JSON 并分发到对应处理器
+     * @return   {void}
+     * @note    : 此函数由 MQTT SDK 回调触发，只复制 Topic/Payload 并投入命令队列
      */
     void on_mqtt_message(const std::string &strTopic, const std::string &strPayload);
+
+    /**
+     * @brief   : 启动 MQTT 平台命令工作线程
+     * @return   {void}
+     * @note    : MQTT SDK 回调线程只负责复制并入队，HTTP、JSON 和任务执行均在该线程处理
+     */
+    void start_mqtt_command_worker();
+
+    /**
+     * @brief   : 停止 MQTT 平台命令工作线程
+     * @return   {void}
+     * @note    : 必须在释放 MQTT 管理器前完成，避免命令线程访问失效发布句柄
+     */
+    void stop_mqtt_command_worker();
+
+    /**
+     * @brief   : 将 MQTT 原始消息放入有界命令队列
+     * @param    {const std::string &} strTopic：消息 Topic
+     * @param    {const std::string &} strPayload：消息内容
+     * @return   {bool} true：入队成功，false：工作线程停止或队列已满
+     * @note    : 队列满时直接拒绝新命令，保护 MQTT SDK 回调线程和设备内存
+     */
+    bool enqueue_mqtt_command(const std::string &strTopic, const std::string &strPayload);
+
+    /**
+     * @brief   : MQTT 平台命令工作线程函数
+     * @return   {void}
+     * @note    : 单线程串行执行，保持同设备 MQTT 控制命令顺序
+     */
+    void mqtt_command_loop();
+
+    /**
+     * @brief   : 在平台命令线程中执行 MQTT 业务逻辑
+     * @param    {const std::string &} strTopic：消息 Topic
+     * @param    {const std::string &} strPayload：消息内容
+     * @return   {void}
+     * @note    : 仅可在 m_mqttCommandThread 中调用；同步任务和 HTTP 下载不得回到 MQTT SDK 回调上下文
+     */
+    void process_mqtt_command(const std::string &strTopic, const std::string &strPayload);
 
     /**
      * @brief   : MQTT 人脸命令预处理，确保平台 NV21 文件已下载到设备本地
@@ -424,6 +483,8 @@ private:
                                std::string &strError);
     std::string resolve_platform_file_url(const std::string &strPathOrUrl) const;
 
+    /* 临时启动覆盖：网页保存新配置后立即清除。 */
+    std::atomic<bool> m_bBootConnectOverride{false};
     /**
      * @brief   : 注册 MQTT 命令处理器
      * @note    : 在 init_mqtt() 中调用，注册所有业务命令
@@ -434,7 +495,8 @@ private:
      * @brief   : MQTT 连接状态变化回调
      * @param    {bool} bConnected：true=已连接, false=已断开
      * @param    {const std::string &} strReason：状态原因
-     * @note    : 注册到 CMqttManager，连接成功时主动发布在线状态
+     * @return   {void}
+     * @note    : 由 CMqttManager 重连线程调用，连接成功时主动发布在线状态
      */
     void on_mqtt_connection_changed(bool bConnected, const std::string &strReason);
 
@@ -444,7 +506,7 @@ private:
      * @note 发布到 device/{SN}/register Topic，QoS=1
      */
     int publish_device_register();
-
+    
     /**
      * @brief 启动设备在线状态心跳线程
      * @note  MQTT 连接成功后的首个在线状态仍由连接回调发送；该线程负责周期性续报。
@@ -473,6 +535,10 @@ private:
     std::string login_password = "";
     bool g_enable = false;
     bool g_custom = false;
+    /* 串行化网页保存、配置重载与网络切换重连，递归锁允许重连入口内部复用 change_net_relogin。 */
+    std::recursive_mutex m_mtxPlatformOperation;
+    /* 临时自动连接覆盖：网页保存新配置后立即清除；WiFi 重读配置时会按启动规则重新设置。 */
+    //std::atomic<bool> m_bBootConnectOverride{false};
     const std::string login_path_ = "/api/auth/login";
     const std::string store_path_ = "/api/device/store_device";
     const std::string workorder_path_ = "/api/workorder/store";
@@ -487,7 +553,7 @@ private:
     std::atomic<bool> m_bStopAutoLogin{false};
     /* 网络已切换但平台登录未恢复时，即使旧 token 存在也必须继续重试。 */
     std::atomic<bool> m_bNetworkReloginPending{false};
-    /* 串行化自动重试与 WiFi 切换触发的重登，避免并发 HTTP 登录。 */
+    /* 串行化自动重试与网络切换触发的重登，避免并发 HTTP 登录。 */
     std::atomic<bool> m_bReloginInProgress{false};
     std::mutex m_mtxAutoLoginLifecycle;
     /* 自动登录重试间隔（秒） */
@@ -510,13 +576,46 @@ private:
     #define RTMP_DEFAULT_PORT   4920
     /* MQTT 相关 */
     CMqttManager *m_pstMqtt = nullptr;                      /* MQTT 管理器指针 */
-    std::string m_strMqttBroker;                             /* MQTT Broker 地址 */
-    int m_nMqttPort = MQTT_DEFAULT_PORT;                     /* MQTT Broker 端口 */
-    int m_nRtmpPort = RTMP_DEFAULT_PORT;                     /* RTMP Broker 端口 */
-    std::string m_strMqttUsername;                           /* MQTT 用户名 */
+    std::string m_strMqttBroker;                            /* MQTT Broker 地址 */
+    int m_nMqttPort = MQTT_DEFAULT_PORT;                    /* MQTT Broker 端口 */
+    int m_nRtmpPort = RTMP_DEFAULT_PORT;                    /* RTMP Broker 端口 */
+    std::string m_strMqttUsername;                          /* MQTT 用户名 */
     std::string m_strMqttPassword;                          /* MQTT 密码 */
     std::string m_strMqttClientId;                          /* MQTT 客户端标识（设备SN） */
-    
+
+    /**
+     * @brief   : MQTT SDK 回调与平台工作线程之间传递的原始命令
+     * @note    : 数据在 SDK 回调返回前完成深拷贝，避免底层 MQTT 缓冲区释放后被异步访问
+     */
+    struct MqttCommand_S
+    {
+        /* 原始 MQTT Topic；当前用于日志和后续按 Topic 扩展路由。 */
+        std::string strTopic;
+        /* 原始 MQTT Payload；由工作线程负责 JSON 解析与业务处理。 */
+        std::string strPayload;
+    };
+
+    /* memory: 有界队列中的命令由 m_mqttCommandThread 取走或 stop 时丢弃，避免命令风暴耗尽内存。 */
+    std::deque<MqttCommand_S> m_deqMqttCommands;
+    /* lock: 保护 m_deqMqttCommands、m_nLastMqttCommandDropLogMs 与停止前的清队列操作。 */
+    std::mutex m_mtxMqttCommandQueue;
+    /* worker 在队列为空时等待；入队和停止路径必须 notify，避免固定周期轮询。 */
+    std::condition_variable m_cvMqttCommand;
+    /* lock: 串行化命令线程的创建、停止和 join，防止平台重复启停创建多个消费者。 */
+    std::mutex m_mtxMqttCommandLifecycle;
+    /* worker 生命周期；true 时停止接收新命令并在当前任务结束后退出。 */
+    std::atomic<bool> m_bStopMqttCommand{ true };
+    /* worker 线程；仅可由 start_mqtt_command_worker 创建，并由 stop_mqtt_command_worker join。 */
+    std::thread m_mqttCommandThread;
+    /* 队列满时累计拒绝的新命令数量；原子计数允许 SDK 回调线程无额外日志锁地更新。 */
+    std::atomic<uint64_t> m_uMqttCommandDropCount{ 0 };
+    /* lock: 使用 steady_clock 的毫秒时间基；仅在 m_mtxMqttCommandQueue 保护下读写，用于限频满队列日志。 */
+    int64_t m_nLastMqttCommandDropLogMs = 0;
+    /* 命令队列容量上限；超过上限时拒绝最新消息，以优先保护媒体和 MQTT SDK 线程。 */
+    static constexpr size_t MQTT_COMMAND_QUEUE_MAX_SIZE = 32;
+    /* 队列满告警最小输出间隔，单位毫秒。 */
+    static constexpr int64_t MQTT_COMMAND_DROP_LOG_INTERVAL_MS = 5000;
+
     /* 命令处理器 */
     using CommandHandler = std::function<void(const std::string &strRequestId, const std::string &strData)>;
     std::unordered_map<std::string, CommandHandler> m_mapMqttHandlers;

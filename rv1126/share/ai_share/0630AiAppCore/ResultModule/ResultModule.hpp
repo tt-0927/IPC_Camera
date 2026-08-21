@@ -45,9 +45,11 @@ namespace Ai0630_NS
 
         /**
          * @brief PPT切换
+         * @param lTimestamp 时间戳
+         * @param strJpgName jpg图片名称
          * @return BlError_E
          */
-        BlError_E pptSwitch();
+        BlError_E pptSwitch(long long lTimestamp, std::string strJpgName);
 
         /**
          * @brief 切换老师画面

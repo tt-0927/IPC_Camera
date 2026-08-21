@@ -3,12 +3,13 @@
  * @Author       : cyc
  * @Date         : 2025-05-15 11:09:53
  * @LastEditors  : cyc
- * @LastEditTime : 2025-05-16 09:27:53
+ * @LastEditTime : 2026-08-14 11:14:30
  * @Description  : rtp服务器,获取音视频数据推至rtp
  */
 
 #pragma once
 
+#include <cstdint>
 #include "video_define.h"
 #include "audio_define.h"
 #include "list_use_lock.h"
@@ -108,6 +109,15 @@ namespace SIP
              * @return       {*}0：成功，非0：失败
              */
             IpcRet_E sendVideoData(Video_NS::VideoFrame_S *pVideoFrame);
+
+            /**
+             * @brief       : 发送 VENC 只读视频帧到 GB28181
+             * @param        {uint8_t*} pData：VENC pack 数据地址，仅在本次调用期间有效
+             * @param        {int} nDataLen：视频数据长度
+             * @return       {*}0：成功，非0：失败
+             * @note         : RTP 队列入队时复制一次，不保存 VENC 原始指针。
+             */
+            IpcRet_E sendVideoData(const uint8_t *pData, int nDataLen);
 
             /**
              * @brief       : 外部送音频数据至GB28181

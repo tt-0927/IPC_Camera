@@ -3,7 +3,7 @@
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2026-06-22 17:41:46
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-06-25 10:07:40
+ * @LastEditTime : 2026-08-04 10:51:45
  * @Description  : 网络配置任务
  */
 
@@ -53,8 +53,8 @@
 
 namespace {
 
-/* 国密证书网页上传临时目录 */
-constexpr const char *GM_CERT_UPLOAD_DIR = "/opt/course/upload/";
+/* 国密证书网页上传临时目录兼容路径 */
+constexpr const char *GM_CERT_UPLOAD_DIR = "/opt/course/upload";
 
 /**
  * @brief   : 清理国密证书导入失败后遗留的上传临时文件
@@ -89,6 +89,18 @@ void cleanup_failed_gm_cert_upload(const std::string &strPath)
         return;
     }
 
+    /* 解析兼容上传路径后的真实目录，用于软链接场景下的边界校验。 */
+    char achResolvedUploadDir[PATH_MAX] = {};
+    if (realpath(GM_CERT_UPLOAD_DIR, achResolvedUploadDir) == nullptr)
+    {
+        dlog_warn("解析国密证书上传目录失败: %s, errno=%d, error=%s",
+                  GM_CERT_UPLOAD_DIR,
+                  errno,
+                  std::strerror(errno));
+        return;
+    }
+
+    /* 解析待清理文件后的真实路径，避免按未解析的输入路径删除。 */
     char achResolvedPath[PATH_MAX] = {};
     if (realpath(strPath.c_str(), achResolvedPath) == nullptr)
     {
@@ -97,8 +109,11 @@ void cleanup_failed_gm_cert_upload(const std::string &strPath)
         return;
     }
 
+    /* 真实文件路径和真实目录前缀，目录边界必须以完整路径段结束。 */
     const std::string strResolvedPath(achResolvedPath);
-    if (strResolvedPath.compare(0, std::strlen(GM_CERT_UPLOAD_DIR), GM_CERT_UPLOAD_DIR) != 0)
+    const std::string strResolvedUploadDir(achResolvedUploadDir);
+    const std::string strUploadPrefix = strResolvedUploadDir + "/";
+    if (strResolvedPath.compare(0, strUploadPrefix.size(), strUploadPrefix) != 0)
     {
         dlog_error("拒绝清理上传目录外的国密证书文件: %s", strResolvedPath.c_str());
         return;
@@ -181,6 +196,23 @@ int reset_gm_crl_configure()
 }
 
 }
+#if CAP_GARBAGE_STATION_PLATFORM
+/* 检查Mac地址是否符合规范 */
+void Task::Network::GetCheckMacValid::handle()
+{
+    ::Network::Info_S stInfo;
+    CNetworkManage::instance()->get_system_networkInfo(stInfo);
+
+    ::Network::CheckMacValid_S stRetInfo;
+    const int nRet = CNetworkManage::instance()->check_mac_valid(stInfo.stIp.physicalAddress);
+    stRetInfo.bMacValid = (nRet == 0);
+    dlog_info("获取MAC烧录状态：网卡[%s] Mac:[%s] 状态:[%d]", 
+            stInfo.stIp.netName.c_str(), stInfo.stIp.physicalAddress.c_str(), 
+            stRetInfo.bMacValid);
+
+    result(Convert::to_string(stRetInfo), nRet);
+}
+#else
 
 /* 检查Mac地址是否符合规范 */
 void Task::Network::GetCheckMacValid::handle()
@@ -225,7 +257,7 @@ void Task::Network::GetCheckMacValid::handle()
 
     result(Convert::to_string(stRetInfo));
 }
-
+#endif
 void Task::Network::GetNetworkInfo::handle()
 {
     ::Network::Info_S stInfo;
@@ -927,6 +959,28 @@ exit:
     result(Convert::to_string(astInfo), nRet);
 }
 
+
+
+void Task::Network::SetNetworkService::handle()
+{
+
+    ::Network::NetService_S stInfo;
+    Convert::to_struct(m_taskData, stInfo);
+
+    {
+        Convert::write_file(NETSERVICE_CONFIG_FILE, stInfo);
+    }
+    result(0);
+}
+
+void Task::Network::GetNetworkService::handle()
+{
+    ::Network::NetService_S stInfo;
+    {
+        Convert::read_file(NETSERVICE_CONFIG_FILE, stInfo);
+    }
+    result(Convert::to_string(stInfo));
+}
 #if CAP_NETWORK_WIFI
 
 void Task::Network::GetWifiStaInfo::handle()
@@ -1088,6 +1142,11 @@ void Task::Network::Set4GInfo::handle()
     {
         result(0);
     }
+    else
+    {
+        dlog_error("[4G] Set4GInfo failed, ret=%d", nRet);
+        result(-1);
+    }
 }
 #endif
 
@@ -1238,6 +1297,12 @@ void Task::Network::ConnPlatform::handle()
     
     Convert::to_struct(m_taskData, stInfo);
     CPlatformManager *pPlatformManager = CPlatformManager::instance();
+   
+    /*
+     * 网页保存与 WiFi/4G 切换重连必须串行执行，防止 HTTP 登录、MQTT 重建和配置写入混用两套参数。
+     * 锁覆盖本次保存的完整业务序列，包含失败回滚、设备注册和 RTMP 更新。
+     */
+    auto platformOperationLock = pPlatformManager->lock_platform_operation();
    
     /* 登录失败时恢复旧运行时配置，避免旧 MQTT/RTMP 会话与新参数混用。 */
     ::Network::Platform_Info_t stPreviousInfo;

@@ -3,7 +3,7 @@
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2026-04-29 13:50:30
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-04-29 14:19:54
+ * @LastEditTime : 2026-08-21 09:26:33
  * @Description  : 视频帧 JPEG 编码公共工具实现
  */
 
@@ -16,8 +16,15 @@
 #include "ffmpeg_image.h"
 #include "IpcRet.h"
 
+#ifdef ENABLE_TVSDK_SRC
+#include "control_manage.h"
+#endif
+
 namespace AiAppCommon
 {
+/* 默认 JPEG 编码质量 95，人脸抓拍场景需要高质量 */
+static constexpr int DEFAULT_JPEG_QUALITY = 95;
+
 int encode_video_frame_to_jpeg_file(ot_video_frame_info *pFrameInfo, const std::string &strFilename)
 {
     if (pFrameInfo == nullptr || strFilename.empty())
@@ -28,6 +35,8 @@ int encode_video_frame_to_jpeg_file(ot_video_frame_info *pFrameInfo, const std::
 
     /* 公共编码逻辑以人脸抓拍原保存功能为准，直接使用 MPP 视频帧首地址编码整帧 JPEG */
     CFfmpegImage image;
+    /* 设置默认质量系数 */
+    image.SetQuality(DEFAULT_JPEG_QUALITY);
     if (!image.Open(strFilename, pFrameInfo->video_frame.width, pFrameInfo->video_frame.height))
     {
         return ERR;
@@ -97,5 +106,19 @@ int encode_video_frame_to_jpeg_memory(ot_video_frame_info *pFrameInfo, EventTvSd
     stImage.nHeight = pFrameInfo->video_frame.height;
     stImage.strTag = "panorama";
     return OK;
+}
+
+bool tvsdk_event_image_required()
+{
+#ifdef ENABLE_TVSDK_SRC
+    /*
+     * perf: 软件JPEG编码（FFmpeg上下文每帧重建）代价高，
+     * 无TVSDK客户端订阅时编码结果无人消费，直接跳过。
+     */
+    return ControlManage::instance()->tvsdk_get_client_count() > 0;
+#else
+    /* 未编译TVSDK源码时告警图无人消费，恒跳过 */
+    return false;
+#endif
 }
 } // namespace AiAppCommon

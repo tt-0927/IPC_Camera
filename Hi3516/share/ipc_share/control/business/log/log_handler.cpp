@@ -44,8 +44,6 @@ void LogHandler::write(Log::Info_S stInfo)
     memset(&stMsg, 0, sizeof(MqttMsg_S));
     switch (stInfo.nType)
     {
-
-        case Log::ALARM:
         case Log::EXCEPTION:
             stMsg.enType = MQTT_TYPE_EXCEPTION;
             stMsg.enLevel = MQTT_LEVEL_COMMONLY;
@@ -56,12 +54,17 @@ void LogHandler::write(Log::Info_S stInfo)
             stMsg.enLevel = MQTT_LEVEL_SLIGHT;
             stMsg.enSource = MQTT_SOURCE_OTHER_USER;
             break;
+        case Log::ALARM:
         case Log::INFOMATION:
             stMsg.enType = MQTT_TYPE_BUSSINESS;
             stMsg.enLevel = MQTT_LEVEL_COMMONLY;
             if (Log::DEVICE_RUNTIME == stInfo.nAction)
             {
                 stMsg.enSource = MQTT_SOURCE_DURATION_OF_USE;
+            }
+            else if(Log::ALARM == stInfo.nType)
+            {
+                stMsg.enSource = MQTT_SOURCE_TASK;
             }
             else
             {

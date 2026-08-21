@@ -1,13 +1,14 @@
-/*
- * @FilePath     : stream_video.c
+/**
+ * @FilePath     : stream_video.cpp
  * @Author       : huangjunda
  * @Date         : 2025-03-17 15:37:06
- * @LastEditors: lianghy lianghy@kfb.cn
- * @LastEditTime: 2026-06-05 15:58:06
- * @Description  : 
+ * @LastEditors  : zhouzr@kfb.cn
+ * @LastEditTime : 2026-08-12 14:21:19
+ * @Description  : RV1126B视频流生命周期管理
  */
 
 #include "stream_video.h"
+#include "isp_runtime_bootstrap.h"
 #include "RtpServer.h"
 #include "push_stream.h"
 #include "IpcRet.h"
@@ -16,6 +17,7 @@
 #include "record_ctrl.h"
 #include "capture_ctrl.h"
 #include "isp_control.h"
+#include "isp_manage.h"
 #include "algo_detect.h"
 
 #ifdef DEVICE_TV_3882TI
@@ -102,19 +104,74 @@ int CStreamVideo::init()
 
     /* 图像初始化 note:要在流初始化前加载，不然isp会失效 */
     nRet = CIspControl::instance()->init();
-    if(nRet < 0)
+    if(nRet != OK)
     {
         dlog_error("图像模块初始化失败：%d", nRet);
         return ERR;
     }
 
-    /*初始化stream 编码*/
-    nRet = initStream();
-    if(nRet < 0)
+    /* step: RK AIQ就绪后注册共享ISP服务，后续所有图像配置均由CIspManage统一事务下发。 */
+    nRet = CRv1126bIspRuntimeBootstrap::instance()->init();
+    if (nRet != OK)
     {
-        dlog_error("视频模块初始化失败：%d", nRet);
+        dlog_error("RV1126B共享ISP服务注册失败：%d", nRet);
+        /* memory: 只有共享service已完整注销后才能释放其借用的RK AIQ上下文。 */
+        const int nBootstrapDeinitRet = CRv1126bIspRuntimeBootstrap::instance()->deinit();
+        if (nBootstrapDeinitRet != OK)
+        {
+            dlog_error("RV1126B共享ISP服务注册失败后仍有资源未释放：%d", nBootstrapDeinitRet);
+            return ERR;
+        }
+        const int nIspDeinitRet = CIspControl::instance()->deinit();
+        if (nIspDeinitRet != OK)
+        {
+            dlog_warn("RV1126B共享ISP服务注册失败后释放RK AIQ失败：%d", nIspDeinitRet);
+        }
         return ERR;
     }
+
+    /*初始化stream 编码*/
+    nRet = initStream();
+    if(nRet != OK)
+    {
+        dlog_error("视频模块初始化失败：%d", nRet);
+
+        /* step: 共享ISP服务持有RK AIQ借用引用；流初始化失败时必须按正常反序回滚，禁止遗留回调。 */
+        const int nBootstrapRet = CRv1126bIspRuntimeBootstrap::instance()->deinit();
+        if (nBootstrapRet != OK)
+        {
+            /* ! service仍可能借用AIQ，不能继续释放上下文；后续需重试bootstrap deinit。 */
+            dlog_error("视频模块初始化失败后仍有共享ISP资源未释放：%d", nBootstrapRet);
+            return ERR;
+        }
+
+        const int nIspDeinitRet = CIspControl::instance()->deinit();
+        if (nIspDeinitRet != OK)
+        {
+            dlog_warn("视频模块初始化失败后释放RK AIQ失败：%d", nIspDeinitRet);
+        }
+        return ERR;
+    }
+
+    /*
+     * step: VI和传感器stream-on可能重新下发传感器默认寄存器，覆盖共享ISP启动阶段的镜像设置。
+     * 通过CIspManage转发给同一个共享reconciler，等待全部已保存配置完成后再结束初始化；
+     * ! 禁止在这里直接调用CIspControl或RKISP镜像ioctl，避免绕过共享参数重放顺序和串行执行器。
+     */
+    nRet = CIspManage::instance()->reconcile_all();
+    if (nRet != OK)
+    {
+        dlog_error("VI初始化完成后强制重放ISP配置失败：%d", nRet);
+
+        /*
+         * ! stream_main在init()失败后会统一调用deinit()。此处不能提前释放VI和RK AIQ，
+         * 否则调用方的失败清理会再次进入deinitStream()，并可能重复操作Rockit句柄。
+         * reboot()失败时则保留已完成的流和共享服务，调用方可再次执行完整deinit/reboot。
+         */
+        return ERR;
+    }
+
+    dlog_info("VI初始化完成后共享ISP配置已同步重放");
 
     return OK;
 }
@@ -122,23 +179,33 @@ int CStreamVideo::init()
 int CStreamVideo::deinit()
 {
     int nRet = OK;
+    int nResult = OK;
     /*去初始化视频流*/
     nRet = deinitStream();
-    if(nRet < 0)
+    if(nRet != OK)
     {
         dlog_error("视频模块去初始化失败：%d", nRet);
-        return ERR;
+        nResult = ERR;
     }
 
     /* 图像去初始化 */
-    nRet = CIspControl::instance()->deinit();
-    if(nRet < 0)
+    /* memory: 共享服务必须先停止，避免SmartIR回调或补光worker继续借用即将销毁的RK AIQ上下文。 */
+    nRet = CRv1126bIspRuntimeBootstrap::instance()->deinit();
+    if(nRet != OK)
     {
-        dlog_error("图像模块去初始化失败：%d", nRet);
+        dlog_error("RV1126B共享ISP服务去初始化失败：%d", nRet);
+        /* ! CIspManage仍可能持有共享对象时，不能释放被SmartIR借用的RK AIQ。 */
         return ERR;
     }
+
+    nRet = CIspControl::instance()->deinit();
+    if(nRet != OK)
+    {
+        dlog_error("图像模块去初始化失败：%d", nRet);
+        nResult = ERR;
+    }
     
-    return OK;
+    return nResult;
 }
 
 int CStreamVideo::initStream()

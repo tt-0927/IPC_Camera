@@ -1,6 +1,8 @@
 include( ${CMAKE_CURRENT_LIST_DIR}/common/common.cmake )
 include( ${CMAKE_CURRENT_LIST_DIR}/rtsp/rtsp.cmake )
-include( ${CMAKE_CURRENT_LIST_DIR}/rtmp/rtmp.cmake )
+if(IPC_CAP_RTMP_PUSH)
+    include( ${CMAKE_CURRENT_LIST_DIR}/rtmp/rtmp.cmake )
+endif()
 
 #源文件
 set (PUSH_STREAM_PATH

@@ -84,6 +84,13 @@ namespace TimeUtils_NS
     int getTodayDayOfWeek();
 
     /**
+     * @brief   : 获取当前本地月份
+     * @return   {int} 当前月份，取值 1-12
+     * @note    : 基于本地时区计算，适用于按自然月组织的计划与配置
+     */
+    int get_today_month();
+
+    /**
      * @brief   : 获取自当天开始的秒数
      * @return   {int} 自当天开始的秒数
      */

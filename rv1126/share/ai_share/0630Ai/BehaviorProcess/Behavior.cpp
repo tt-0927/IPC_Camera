@@ -87,7 +87,7 @@ int Behavior::getType(
 
 #endif
 
-    /*
+    /* 旧的
     种类，{
     0:'低头',
     1:'抬头',
@@ -99,44 +99,55 @@ int Behavior::getType(
     }
     */
 
+    // enum class StudentBehavior_E 新的
+    // {
+    //     ACTION_NULL = -1, /* 未识别到 */
+    //     LISTEN      = 0,  /* 听讲，抬头（专注） */
+    //     PRACTICE    = 1,  /* 实践，举手（专注） */
+    //     DEMO        = 2,  /* 演示，站立（专注） */
+    //     READ        = 3,  /* 阅读，低头（涣散） */
+    //     DISCUSS     = 4,  /* 讨论，转头（涣散） */
+    //     DOWN_DESK   = 5,  /* 趴桌（涣散） */
+    // };
+
     /* 趴桌判断 */
     if (isLyingOnDesk(vecInfo, stParam.stLyingOnDesk))
     {
-        return 6;
+        return 5;
     }
 
     /* 转身判断 */
     if (isTurningBody(vecInfo, stParam.stTurningBody))
     {
-        return 5;
+        return 4;
     }
 
     /* 站立判断 */
     if (isStanding(vecInfo, stParam.stStanding))
     {
-        return 4;
+        return 2;
     }
 
     /* 举手判断 */
     if (isRaisingHand(vecInfo, stParam.stRaisingHand))
     {
-        return 3;
+        return 1;
     }
 
     /* 低头判断 */
     if (isBendingHead(vecInfo, stParam.stBendingHead))
     {
-        return 0;
+        return 4;
     }
     /* 转头判断 */
     else if (isTurningHead(vecInfo, stParam.stTurningHead))
     {
-        return 2;
+        return 4;
     }
     /* 抬头判断 */
     else if (isRaisingHead(vecInfo, stParam.stRaisingHead))
     {
-        return 1;
+        return 0;
     }
 
     return -1;
@@ -273,17 +284,17 @@ int Behavior::getType(
         return 5;
     }
 
-    /* 接打电话判断 */
-    if (isCallPhone(vecInfo, stParam.stCallPhone))
-    {
-        return 8;
-    }
+    // /* 接打电话判断 */
+    // if (isCallPhone(vecInfo, stParam.stCallPhone))
+    // {
+    //     return 8;
+    // }
 
-    /* 玩手机判断 */
-    if (isPlayPhone(vecInfo, stParam.stPlayPhone))
-    {
-        return 7;
-    }
+    // /* 玩手机判断 */
+    // if (isPlayPhone(vecInfo, stParam.stPlayPhone))
+    // {
+    //     return 7;
+    // }
 
     /* 正面判断 */
     return 0;

@@ -67,12 +67,21 @@ void FfmpegRecord::deinit()
     gettimeofday(&stTval, NULL);
     m_stSliceInfo.nEndTimestampMs = stTval.tv_sec * 1000 + stTval.tv_usec / 1000;
 
-    if (m_nFirstFrame == 1)
+    if (m_pFormatContext != nullptr)
     {
-        av_write_trailer(m_pFormatContext);
-        avio_closep(&m_pFormatContext->pb);
+        /* 仅在成功写入文件头后写入文件尾 */
+        if (m_nFirstFrame == 1)
+        {
+            av_write_trailer(m_pFormatContext);
+        }
+
+        /* 即使首个I帧尚未到达，也必须关闭文件并释放上下文 */
+        if (m_pFormatContext->pb != nullptr)
+        {
+            avio_closep(&m_pFormatContext->pb);
+        }
         avformat_free_context(m_pFormatContext);
-        m_pFormatContext = NULL;
+        m_pFormatContext = nullptr;
     }
 
     /* 重置流索引值 */
@@ -119,10 +128,15 @@ bool FfmpegRecord::is_init()
 
 int FfmpegRecord::init_context()
 {
-    avformat_alloc_output_context2(&m_pFormatContext, NULL, NULL, m_stSliceInfo.filename.c_str());
-    if (!m_pFormatContext)
+    int nRet = avformat_alloc_output_context2(&m_pFormatContext,
+                                              nullptr,
+                                              "mpegts",
+                                              m_stSliceInfo.filename.c_str());
+    if (nRet < 0 || m_pFormatContext == nullptr)
     {
-        avformat_alloc_output_context2(&m_pFormatContext, NULL, "mpegts", m_stSliceInfo.filename.c_str());
+        dlog_error("创建mpegts输出上下文失败, ret:%d, file:%s",
+                   nRet,
+                   m_stSliceInfo.filename.c_str());
         return -1;
     }
     return 0;

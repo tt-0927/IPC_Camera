@@ -17,5 +17,6 @@ namespace Task
         TaskSubClass(GetStorageManageInfo)
         TaskSubClass(SetStorageManageInfo)
         TaskSubClass(FormatSdCard)
+        TaskSubClass(GetSdCardStatus);
     } /* namespace Storage end */
 } /* namespace Task end */

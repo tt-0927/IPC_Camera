@@ -44,11 +44,13 @@ void Task::User::Login::handle()
         stLogInfo.nType = Log::EXCEPTION;
         stLogInfo.nAction = Log::UNAUTHORIZED_ACCESS;
         stLogInfo.user = stAccountInfo.account;
-        LogHandler::instance()->write(stLogInfo);
+        
 
         /* 同IP重复登录错误，返回带提示信息的JSON */
         if (nRet == IpcRet_E::ERR_REPEAT_LOGIN_IP)
         {
+            stLogInfo.nType = Log::OPERATION;
+            stLogInfo.nAction = Log::REPEATED_LOGIN;
             std::string res = "{\"Msg\":\"" + std::string(pass_check_msg(nRet)) + "\"}";
             result(res, nRet);
         }
@@ -56,6 +58,7 @@ void Task::User::Login::handle()
         {
             result(std::string(), nRet);
         }
+        LogHandler::instance()->write(stLogInfo);
     }
     else
     {

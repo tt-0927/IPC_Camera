@@ -83,8 +83,9 @@ H264or5VideoRTPSink ::H264or5VideoRTPSink(int hNumber,
                                           u_int8_t const* sps,
                                           unsigned spsSize,
                                           u_int8_t const* pps,
-                                          unsigned ppsSize)
-    : VideoRTPSink(env, RTPgs, rtpPayloadFormat, 90000, hNumber == 264 ? "H264" : "H265"), fHNumber(hNumber),
+                                          unsigned ppsSize,
+                                          unsigned maxBufferSize)
+    : VideoRTPSink(env, RTPgs, rtpPayloadFormat, 90000, hNumber == 264 ? "H264" : "H265", maxBufferSize), fHNumber(hNumber),
       fOurFragmenter(NULL), fFmtpSDPLine(NULL)
 {
     if (vps != NULL)
@@ -146,7 +147,7 @@ Boolean H264or5VideoRTPSink::continuePlaying()
         fOurFragmenter = new H264or5Fragmenter(fHNumber,
                                                envir(),
                                                fSource,
-                                               OutPacketBuffer::maxSize,
+                                               ourMaxBufferSize(),
                                                ourMaxPacketSize() - 12 /*RTP hdr size*/);
     }
     else

@@ -23,6 +23,7 @@
 #include "result_manager.hpp"
 #include <opencv2/opencv.hpp>
 #include "alarm_define.h"
+#include "event_tvsdk_payload.h"
 #include "RockchipRga.h"
 #include "im2d.h" 
 
@@ -354,3 +355,29 @@ bool rga_image_transform(void* src_vir, int sw, int sh, int src_format,
                          int cx = 0, int cy = 0, int cw = 0, int ch = 0,
                          int rotation = 0);
 
+/**
+ * @brief   : 将 cv::Mat 编码为 JPEG 到 EventTvSdkImage_S
+ * @param    {cv::Mat} &mat 输入图像
+ * @param    {EventTvSdkImage_S} &stImage 输出图像
+ * @param    {int} nQuality JPEG质量(1-100)
+ * @param    {bool} bInputRgb 输入图片格式是否RGB
+ * @return   {bool} true 成功 false 失败
+ */
+bool encode_mat_to_tvsdk_image(const cv::Mat &mat, EventTvSdkImage_S &stImage, int nQuality = 85, bool bInputRgb = true);
+
+/**
+ * @brief 从原图生成目标小图
+ * @param sourceImage 原图
+ * @param detectRect 检测坐标系中的矩形，格式为 x、y、width、height
+ * @param detectCoordinateSize 检测框所属坐标系尺寸
+ * @param targetSize 输出小图尺寸
+ * @param targetImage 输出目标小图
+ * @return true 成功，false 输入无效或处理失败
+ * @note 裁剪图按原始比例缩放并居中放置，不足区域填充黑色；
+ *       本接口不进行 RGB/BGR 转换，输出保持源图的颜色通道顺序。
+ */
+bool cropTargetImage(const cv::Mat &sourceImage,
+                     const cv::Rect2f &detectRect,
+                     const cv::Size &detectCoordinateSize,
+                     const cv::Size &targetSize,
+                     cv::Mat &targetImage);

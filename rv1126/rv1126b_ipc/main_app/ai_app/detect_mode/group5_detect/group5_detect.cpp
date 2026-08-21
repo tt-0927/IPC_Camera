@@ -45,7 +45,9 @@ void CGroup5Detect::recvMediaData(MediaData_S stMediaData)
         return;
     }
 	 
-    if (m_RecvManager.handleEvent(stMediaData.stMediaParam.nChannel))
+    m_nChannelId = stMediaData.stMediaParam.nChannel;
+
+    if (m_RecvManager.handleEvent(m_nChannelId))
     {
         if (m_dateQueue.size() >= QUEUE_MAX)
         {
@@ -220,6 +222,7 @@ void CGroup5Detect::run()
 
             if (!stInData.inMat.empty())
             {
+                m_fullRgbMat = rgbMat.clone();
                 if (access("group5Detect_debugImage", F_OK) == 0)
                 {
                     dlog_debug("============>debugImage");
@@ -288,11 +291,51 @@ void CGroup5Detect::processGroup5Detect(const Group5Detect_NS::OutData_S &stOutD
 {
     if(m_stAlgoHoleProtectionBarCfg.bEnable)
     {
+        /* 上报事件 */
+#ifdef ENABLE_TVSDK_SRC
+        EventTriggerContext_S stContext;
+        stContext.enEventType = Event::Type_E::HOLE_PROTECTION_BAR;
+        stContext.nChnId = m_nChannelId;
+        stContext.llTimestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
+                                   std::chrono::system_clock::now().time_since_epoch())
+                                   .count();
+        if (!m_fullRgbMat.empty())
+        {
+            auto pPayload = std::make_shared<EventTvSdkPayload_S>();
+            pPayload->enType = get_tvsdk_payload_type(stContext.enEventType);
+            if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage))
+            {
+                stContext.pTvSdkPayload = pPayload;
+            }
+        }
+        m_HoleProtectionBarStateMachine.handleAlarmState(stOutData.bHoleProtectionBar, stContext);
+#else
         m_HoleProtectionBarStateMachine.handleAlarmState(stOutData.bHoleProtectionBar, Event::Type_E::HOLE_PROTECTION_BAR);
+#endif
     }
     if(m_stAlgoConstructionEncroachmentRoadCfg.bEnable)
     {
+        /* 上报事件 */
+#ifdef ENABLE_TVSDK_SRC
+        EventTriggerContext_S stContext;
+        stContext.enEventType = Event::Type_E::CONSTRUCTION_OCCUPY_ROAD;
+        stContext.nChnId = m_nChannelId;
+        stContext.llTimestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
+                                   std::chrono::system_clock::now().time_since_epoch())
+                                   .count();
+        if (!m_fullRgbMat.empty())
+        {
+            auto pPayload = std::make_shared<EventTvSdkPayload_S>();
+            pPayload->enType = get_tvsdk_payload_type(stContext.enEventType);
+            if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage))
+            {
+                stContext.pTvSdkPayload = pPayload;
+            }
+        }
+        m_ConstructionEncroachmentRoadStateMachine.handleAlarmState(stOutData.bConstructionEncroachmentRoad, stContext);
+#else
         m_ConstructionEncroachmentRoadStateMachine.handleAlarmState(stOutData.bConstructionEncroachmentRoad, Event::Type_E::CONSTRUCTION_OCCUPY_ROAD);
+#endif
     }
 
     return ;

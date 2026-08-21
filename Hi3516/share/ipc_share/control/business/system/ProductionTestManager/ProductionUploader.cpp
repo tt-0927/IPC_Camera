@@ -156,9 +156,10 @@ int ProductionUploader::doUploadFile(const std::string &strToken,
     strSerial.erase(std::remove(strSerial.begin(), strSerial.end(), ':'), strSerial.end());
     strSerial.erase(std::remove(strSerial.begin(), strSerial.end(), '-'), strSerial.end());
 
-    /* 判断整体测试结果：有失败项则test_resource=2 */
+    /* 判断整体测试结果：有失败项则test_resource=2，同时提取test_user */
     std::string strResults = ProductionTestManager::instance()->getUploadData();
     int nTestResource = 1;
+    std::string strTestUser;
     cJSON *pResultsJson = cJSON_Parse(strResults.c_str());
     if (pResultsJson)
     {
@@ -166,6 +167,11 @@ int ProductionUploader::doUploadFile(const std::string &strToken,
         if (pFailed && pFailed->valueint > 0)
         {
             nTestResource = 2;
+        }
+        cJSON *pTestUser = cJSON_GetObjectItem(pResultsJson, "tester");
+        if (pTestUser && cJSON_IsString(pTestUser) && pTestUser->valuestring)
+        {
+            strTestUser = pTestUser->valuestring;
         }
         cJSON_Delete(pResultsJson);
     }
@@ -255,6 +261,21 @@ int ProductionUploader::doUploadFile(const std::string &strToken,
     curl_formadd(&postFirst, &postLast,
                  CURLFORM_COPYNAME, "test_resource",
                  CURLFORM_COPYCONTENTS, std::to_string(nTestResource).c_str(),
+                 CURLFORM_END);
+
+    curl_formadd(&postFirst, &postLast,
+                 CURLFORM_COPYNAME, "test_type",
+                 CURLFORM_COPYCONTENTS, "1",
+                 CURLFORM_END);
+
+    curl_formadd(&postFirst, &postLast,
+                 CURLFORM_COPYNAME, "content",
+                 CURLFORM_COPYCONTENTS, "产测日志",
+                 CURLFORM_END);
+
+    curl_formadd(&postFirst, &postLast,
+                 CURLFORM_COPYNAME, "test_user",
+                 CURLFORM_COPYCONTENTS, strTestUser.c_str(),
                  CURLFORM_END);
 
     std::string strResponse;

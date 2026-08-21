@@ -1,9 +1,0 @@
-# CMake generated files
-CMakeFiles/
-CMakeCache.txt
-cmake_install.cmake
-Makefile
-CTestTestfile.cmake
-*.cmake
-# CMake build directory
-output

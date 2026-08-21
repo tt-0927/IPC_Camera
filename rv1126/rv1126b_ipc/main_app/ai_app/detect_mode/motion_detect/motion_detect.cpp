@@ -1,10 +1,10 @@
-/*
- * @Author: 梁浩尧 lianghaoyao@kfb.cn
- * @Date: 2025-11-05 10:38:00
- * @LastEditors: leiyy leiyy@kfb.cn
- * @LastEditTime: 2026-04-30 15:43:00
- * @FilePath: /1126/rv1126b_ipc/main_app/ai_app/algorithm_mode/algorithm/motion_detect/motion_detect.cpp
- * @Description: 移动侦测
+/**
+ * @FilePath     : motion_detect.cpp
+ * @Author       : 梁浩尧 lianghaoyao@kfb.cn
+ * @Date         : 2025-11-05 10:38:00
+ * @LastEditors  : zhouzr@kfb.cn
+ * @LastEditTime : 2026-08-11 13:43:07
+ * @Description  : 移动侦测
  */
 
 #include "motion_detect.hpp"
@@ -50,6 +50,8 @@ void CMotionDetect::recvMediaData(MediaData_S stMediaData)
     {
         return;
     }
+
+    m_nChannelId = stMediaData.stMediaParam.nChannel;
 
     if (m_RecvManager.handleEvent(stMediaData.stMediaParam.nChannel))
     {
@@ -445,7 +447,8 @@ bool CMotionDetect::isDaytime() const
     {
         /* 自动切换 - 这里需要根据光线传感器或其他硬件信息判断 */
         /* 获取白天黑夜状态 */
-        return CDayNightController::instance()->isNightMode();
+        /* note: 只读取共享层最后一次成功状态，不重新启动独立日夜检测或硬件控制。 */
+        return CDayNightController::instance()->is_night_mode();
     }
     else if (m_stMotionDetCfg.stMotionExpertMode.nExpertDayNightCtrl == 2)
     {
@@ -521,7 +524,29 @@ void CMotionDetect::processNormalMode(std::vector<Common::RectInfo_S> &vstRectsI
     }
 
     /* 判断是否报警 */
+#ifdef ENABLE_TVSDK_SRC
+    /* 构建事件触发上下文 */
+    EventTriggerContext_S stContext;
+    stContext.enEventType = Event::Type_E::MOTION_DETECT;
+    stContext.nChnId = m_nChannelId;
+    stContext.llTimestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
+                               std::chrono::system_clock::now().time_since_epoch())
+                               .count();
+
+    if (bIsAlarm && !m_fullRgbMat.empty())
+    {
+        auto pPayload = std::make_shared<EventTvSdkPayload_S>();
+        pPayload->enType = get_tvsdk_payload_type(stContext.enEventType);
+        if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage))
+        {
+            stContext.pTvSdkPayload = pPayload;
+        }
+    }
+
+    m_motionAlarmStateMachine.handleAlarmState(bIsAlarm, stContext);
+#else
     m_motionAlarmStateMachine.handleAlarmState(bIsAlarm, Event::Type_E::MOTION_DETECT);
+#endif
 }
 
 Common::RectInfo_S CMotionDetect::intersectRect(const Common::RectInfo_S& r1, const Common::RectInfo_S& r2)
@@ -668,5 +693,27 @@ void CMotionDetect::processExpertMode(std::vector<Common::RectInfo_S> &stRectInf
     }
 
     /* 判断是否报警 */
+#ifdef ENABLE_TVSDK_SRC
+    /* 构建事件触发上下文 */
+    EventTriggerContext_S stContext;
+    stContext.enEventType = Event::Type_E::MOTION_DETECT;
+    stContext.nChnId = m_nChannelId;
+    stContext.llTimestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
+                               std::chrono::system_clock::now().time_since_epoch())
+                               .count();
+
+    if (anyRegionTriggered && !m_fullRgbMat.empty())
+    {
+        auto pPayload = std::make_shared<EventTvSdkPayload_S>();
+        pPayload->enType = get_tvsdk_payload_type(stContext.enEventType);
+        if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage))
+        {
+            stContext.pTvSdkPayload = pPayload;
+        }
+    }
+
+    m_motionAlarmStateMachine.handleAlarmState(anyRegionTriggered, stContext);
+#else
     m_motionAlarmStateMachine.handleAlarmState(anyRegionTriggered, Event::Type_E::MOTION_DETECT);
+#endif
 }

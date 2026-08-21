@@ -3,7 +3,7 @@
  * @Author       : zhouzirui
  * @Date         : 2025-04-08 15:35:27
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-06-06 09:58:40
+ * @LastEditTime : 2026-07-13 10:20:31
  * @Description  : 文件、目录路径宏定义 
  */
 
@@ -53,6 +53,13 @@
 #define RECORD_LOG_PATH     LOG_PATH    "record/record.log"
 #define OPERATION_LOG_PATH  LOG_PATH    "operation/operation.log"
 
+/* 日志级别文件路径，写入 trace/debug/info/warn/error 即可运行时切换日志级别 */
+#define STREAM_LOG_LEVEL_PATH    LOG_PATH    "stream/level"
+#define UPGRADE_LOG_LEVEL_PATH   LOG_PATH    "upgrade/level"
+#define RECORD_LOG_LEVEL_PATH    LOG_PATH    "record/level"
+#define OPERATION_LOG_LEVEL_PATH LOG_PATH    "operation/level"
+#define DAEMON_LOG_LEVEL_PATH    LOG_PATH    "daemon/level"
+
 /* 证书路径 */
 #define CA_DEVICE_PATH        CA_PATH "device/"                   /* 设备证书路径 */
 #define CA_DEVICE_KEY         CA_PATH "device/device.key"         /* 设备证书私钥 */
@@ -66,6 +73,7 @@
 #define CA_REQ_PATH           CA_PATH "requset/"                  /* 请求证书路径 */
 #define UPLOAD_DEVICE_CA_PATH CA_PATH "device_ca"                 /* 导入设备证书路径 */
 #define CA_UPLOAD_TRUST_PATH  CA_PATH "trust_ca"                  /* 导入受信任证书路径 */
+#define CA_MQTT_TRUST_KEY     CA_PATH "trust/mqtt_register/"      /* MQTT 平台公钥路径 */
 
 /* 国密证书路径 */
 #define GM_CA_DEVICE_PATH       GM_CA_PATH          "device/"           /* 设备证书路径 */
@@ -79,13 +87,8 @@
 #define GM_CA_TRUST_CRL         GM_CA_TRUST_PATH    "caCrl.der"         /* CA证书吊销列表 */
 
 /* isp 配置 */
-#ifdef SENSOR_SC533HAI 
-#define ISP_CONFIG_PATH                                  CAM_PATH ".config/sensor_sc533hai"
-#elif defined SENSOR_SC500AI 
-#define ISP_CONFIG_PATH                                  CAM_PATH ".config/sensor_sc500ai"
-#else 
-#define ISP_CONFIG_PATH                                  CAM_PATH ".config/sensor_sc500ai"
-#endif
+#define ISP_CONFIG_PATH                                  CAM_PATH ".config/sensor"
+
 /* 音频文件地址 */
 #define AUDIO_CONFIG_PATH                                CAM_PATH ".config/audio/"
 /* 自定义音频文件地址 */
@@ -327,6 +330,8 @@
 #define HTTPS_CONFIG_FILE          USER_DATA_PATH "https.json"
 /* IP地址过滤配置 */
 #define IP_FILTER_CONFIG_FILE      USER_DATA_PATH "ip_filter.json"
+/* 网络服务配置 */
+#define NETSERVICE_CONFIG_FILE     USER_DATA_PATH "netservice.json"
 /* wifi配置 */
 #define WIFI_CONFIG_FILE           USER_DATA_PATH "wifi.json"
 /* 4G配置 */

@@ -31,7 +31,12 @@ IpcRet_E CBurnMacUdpServer::init()
     CNetworkManage::instance()->get_system_networkInfo(stInfo);
 
     /* Mac地址合规性检测 */
+    #if CAP_GARBAGE_STATION_PLATFORM
+    m_bMacValid = (CNetworkManage::instance()->check_mac_valid() == 0);
+    #else
+
     m_bMacValid = CNetworkManage::instance()->check_mac_valid();
+    #endif
 
     dlog_debug("开始初始化烧录UDP服务器");
     dlog_debug("初始化烧录网卡Mac地址通信：%s IP：%s 状态：%d", stInfo.stIp.netName.c_str(), stInfo.stIp.ipv4Ip.c_str(), nRet);

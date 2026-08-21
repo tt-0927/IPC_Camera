@@ -3,7 +3,7 @@
  * @Author       : cyc
  * @Date         : 2025-07-21 15:46:58
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2025-12-29 20:17:02
+ * @LastEditTime : 2026-08-15 10:45:54
  * @Description  : 遮挡检测
  */
 
@@ -144,6 +144,22 @@ bool CHideDetect::init()
             if (TD_SUCCESS == m_pHideDetHandle->svpOd_init(m_pHideDetHandle))
             {
                 dlog_info("遮挡侦测算法初始化成功");
+
+                /*
+                 * 输入码流可能不是算法固定的 1024x576。
+                 * 创建算法坐标系缩放帧，运行时根据实际输入尺寸决定是否使用。
+                 */
+                memset_s(&m_stScaleFrameInfo, sizeof(ot_video_frame_info), 0, sizeof(ot_video_frame_info));
+                if (TD_SUCCESS !=
+                    mppVgs_create_video_frame_info(m_nWidth, m_nHeight, OT_PIXEL_FORMAT_YVU_SEMIPLANAR_420, &m_stScaleFrameInfo))
+                {
+                    svpOd_release(m_pHideDetHandle);
+                    m_pHideDetHandle = nullptr;
+                    dlog_error("遮挡侦测初始化失败-创建缩放视频帧失败");
+                    return false;
+                }
+                m_bScaleFrameCreated = true;
+
                 /* 判断是否需要裁剪源视频 */
                 if(m_nWidth != m_stRect.nWidth || m_nHeight != m_stRect.nHeight)
                 {
@@ -155,6 +171,9 @@ bool CHideDetect::init()
                                                                      OT_PIXEL_FORMAT_YVU_SEMIPLANAR_420,
                                                                      &m_stDstFrameInfo))
                     {
+                        mppVgs_destroy_video_frame_info(&m_stScaleFrameInfo);
+                        m_bScaleFrameCreated = false;
+                        m_bIsCrop = false;
                         svpOd_release(m_pHideDetHandle);
                         m_pHideDetHandle = nullptr;
                         dlog_error("遮挡侦测初始化失败-创建目标视频帧失败");
@@ -185,6 +204,13 @@ bool CHideDetect::unInit()
     if (m_bIsCrop)
     {
         mppVgs_destroy_video_frame_info(&m_stDstFrameInfo);
+        m_bIsCrop = false;
+    }
+
+    if (m_bScaleFrameCreated)
+    {
+        mppVgs_destroy_video_frame_info(&m_stScaleFrameInfo);
+        m_bScaleFrameCreated = false;
     }
 
     if (m_pHideDetHandle)
@@ -259,8 +285,29 @@ void CHideDetect::run()
             continue;
         }
 
+ /*
+         * 先把实际输入帧缩放到算法坐标系，再按配置区域裁剪。
+         * 避免全屏区域时将 1920x1080 原始帧直接送入只接受
+         * 1024x576 的遮挡检测句柄。
+         */
+         ot_video_frame_info *pPreparedFrameInfo = pSrcFrameInfo;
+         const int nSrcWidth = pSrcFrameInfo->video_frame.width;
+         const int nSrcHeight = pSrcFrameInfo->video_frame.height;
+         if (nSrcWidth != m_nWidth || nSrcHeight != m_nHeight)
+         {
+             if (!m_bScaleFrameCreated ||
+                 TD_SUCCESS != mppVgs_scale(pSrcFrameInfo, &m_stScaleFrameInfo))
+             {
+                 dlog_error("遮挡侦测缩放失败: [%d,%d] -> [%d,%d]",
+                            nSrcWidth, nSrcHeight, m_nWidth, m_nHeight);
+                 continue;
+             }
+             pPreparedFrameInfo = &m_stScaleFrameInfo;
+         }
+
         /* 视频帧指针，执行需要送算法的视频帧 */
-        ot_video_frame_info *pFrameInfo = pSrcFrameInfo;
+        // ot_video_frame_info *pFrameInfo = pSrcFrameInfo;
+        ot_video_frame_info *pFrameInfo = pPreparedFrameInfo;
         if (m_bIsCrop)
         {
             ot_rect stRect;
@@ -269,7 +316,8 @@ void CHideDetect::run()
             stRect.width = m_stRect.nWidth;
             stRect.height = m_stRect.nHeight;
             /* VGS crop裁剪 */
-            if (TD_SUCCESS != mppVgs_crop(pSrcFrameInfo, &m_stDstFrameInfo, &stRect))
+            // if (TD_SUCCESS != mppVgs_crop(pSrcFrameInfo, &m_stDstFrameInfo, &stRect))
+            if (TD_SUCCESS != mppVgs_crop(pPreparedFrameInfo, &m_stDstFrameInfo, &stRect))
             {
                 /* shared_ptr会自动处理pSrcFrameInfo的释放 */
                 continue;
@@ -305,7 +353,9 @@ bool CHideDetect::processHideDetect(int nHideResult, const SEventProcessContext 
     stContext.nChnId = stCtx.nChnId;
     stContext.llTimestamp = stCtx.llTimestamp;
 #ifdef ENABLE_TVSDK_SRC
-    if (bIsAlarm && stCtx.pFrameInfo != nullptr)
+    /* perf: 有TVSDK客户端订阅时才软件编码全景图，无订阅者或冷却期跳过编码 */
+    if (bIsAlarm && m_hideAlarmStateMachine.canStartAlarm() && stCtx.pFrameInfo != nullptr &&
+        AiAppCommon::tvsdk_event_image_required())
     {
         auto pPayload = std::make_shared<EventTvSdkPayload_S>();
         pPayload->enType = get_tvsdk_payload_type(stContext.enEventType);

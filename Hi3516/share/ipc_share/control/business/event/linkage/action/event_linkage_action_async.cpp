@@ -3,7 +3,7 @@
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2026-04-15 16:29:58
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-06-03 16:09:15
+ * @LastEditTime : 2026-07-17 13:40:47
  * @Description  : 事件联动异步动作执行器实现
  */
 
@@ -25,7 +25,8 @@
 #include "event_configure.h"
 #include "event_linkage_dict.h"
 #include "gpio_ctrl.h"
-#include "light_manager.h"
+#include "isp_manage.h"
+#include "isp_runtime_intent.h"
 #include "onvif_SubscriptionManager.hpp"
 #include "preview_manage.h"
 #include "time_utils.h"
@@ -54,9 +55,9 @@ void EventLinkageAsyncAction::execute(const LinkageTask_S &stTask, std::atomic<b
         execute_audio(stTask, bRunningFlag);
         break;
     case LinkageType_E::FLASHING_LIGHT:
-        bRunningFlag.store(true);
+        // bRunningFlag.store(true);
         execute_warning_light(bRunningFlag);
-        bRunningFlag.store(false);
+        // bRunningFlag.store(false);
         break;
     case LinkageType_E::ALARM_IO:
         bRunningFlag.store(true);
@@ -78,6 +79,14 @@ void EventLinkageAsyncAction::play_audio(const std::string &strAudioPath,
                                          int nTimes,
                                          std::atomic<bool> &bRunningFlag)
 {
+
+
+     /*
+     * SOUND任务由异步线程执行。移动侦测和人脸比对同时触发时，两个线程可能在
+     * running flag置位前同时进入。锁住完整播放生命周期，避免并发写AO以及旧线程
+     * 在新线程播放期间调用muteAudioOutput()关闭功放。
+     */
+     std::unique_lock<std::mutex> playbackLock(m_audioPlaybackMutex);
 #if CAP_EVENT_AUDIO_PLAYBACK_V2
     /* 同一时刻只允许一条声音联动占用扬声器 */
     if (bRunningFlag.load())
@@ -87,6 +96,10 @@ void EventLinkageAsyncAction::play_audio(const std::string &strAudioPath,
     }
 
     bRunningFlag.store(true);
+    {
+        std::lock_guard<std::mutex> lock(m_audioPathMutex);
+        m_strPlayingAudioPath = strAudioPath;
+    }
     CAVConfigure::instance()->setAudioAoSampleRate(Audio_NS::AudioSamprate_E::AUDIO_SAMPRATE_16000);
 
     uint8_t zero_buffer[AUDIO_CHUNK_SIZE];
@@ -196,6 +209,10 @@ void EventLinkageAsyncAction::play_audio(const std::string &strAudioPath,
     }
 
     bRunningFlag.store(true);
+    {
+        std::lock_guard<std::mutex> lock(m_audioPathMutex);
+        m_strPlayingAudioPath = strAudioPath;
+    }
     dlog_info("开始音频播放: 文件=%s, 次数=%d", strAudioPath.c_str(), nTimes);
     CAVConfigure::instance()->setAudioAoSampleRate(Audio_NS::AudioSamprate_E::AUDIO_SAMPRATE_16000);
 
@@ -353,6 +370,10 @@ void EventLinkageAsyncAction::play_audio(const std::string &strAudioPath,
     CAVConfigure::instance()->waitAoDrained(0, 200);
     CAVConfigure::instance()->muteAudioOutput();
     #endif
+    {
+        std::lock_guard<std::mutex> lock(m_audioPathMutex);
+        m_strPlayingAudioPath.clear();
+    }
 }
 
 void EventLinkageAsyncAction::execute_email(const LinkageTask_S &stTask, std::atomic<bool> &bRunningFlag)
@@ -431,15 +452,15 @@ void EventLinkageAsyncAction::execute_audio(const LinkageTask_S &stTask, std::at
     }
 
     /* 记录音频路径 */
-    {
-        std::lock_guard<std::mutex> lock(m_audioPathMutex);
-        m_strPlayingAudioPath = strAudioPath;
-    }
+    // {
+    //     std::lock_guard<std::mutex> lock(m_audioPathMutex);
+    //     m_strPlayingAudioPath = strAudioPath;
+    // }
     play_audio(strAudioPath, nTimes, bRunningFlag);
-    {
-        std::lock_guard<std::mutex> lock(m_audioPathMutex);
-        m_strPlayingAudioPath.clear();
-    }
+    // {
+    //     std::lock_guard<std::mutex> lock(m_audioPathMutex);
+    //     m_strPlayingAudioPath.clear();
+    // }
 }
 
 int EventLinkageAsyncAction::get_audio_file_path(std::string &strAudioPath)
@@ -453,23 +474,36 @@ std::string EventLinkageAsyncAction::get_playing_audio_path()
     std::lock_guard<std::mutex> lock(m_audioPathMutex);
     return m_strPlayingAudioPath;
 }
-
 void EventLinkageAsyncAction::execute_warning_light(std::atomic<bool> &bRunningFlag)
 {
     pthread_setname_np(pthread_self(), "EventLinkLight");
 
-    bool bIsFlashing = false;
-    int nRemainTime = 0;
-    /* 如果白灯已经在闪烁，则沿用当前动作，不重复发起新的闪烁请求 */
-    if (CLightManager::instance()->get_flashing_status(LIGHT_TYPE_WHITE, bIsFlashing, nRemainTime) == IpcRet_E::OK &&
-        bIsFlashing)
+    /*
+     * ISP arbiter同一时刻只允许一个灯光override。锁住“申请token-闪烁-释放token”
+     * 完整生命周期，避免移动侦测的旧token尚未释放时，人脸比对申请失败。
+     */
+    std::unique_lock<std::mutex> lightLock(m_lightOverrideMutex, std::defer_lock);
+    if (!lightLock.try_lock())
     {
-        dlog_info("闪光灯已经在闪烁中，剩余时间: %d秒", nRemainTime);
+        if (bRunningFlag.load())
+        {
+            /* 普通重复任务不排队，避免旧事件结束后才补闪。 */
+            dlog_info("已有闪光灯任务正在执行，丢弃重复请求");
+            return;
+        }
+
+        /* running=false表示调度器已发出高优先级抢占，等待旧token真正释放。 */
+        lightLock.lock();
+    }
+    if (bRunningFlag.load())
+    {
+        dlog_info("已有闪光灯任务正在执行，忽略重复请求");
         return;
     }
+    bRunningFlag.store(true);
 
     Alarm::FlashInfo_S stFlashAlarm;
-    if (CEventConfigure::instance()->get_configure(stFlashAlarm) != 0)
+    if (CEventConfigure::instance()->get_configure(stFlashAlarm) != IpcRet_E::OK)
     {
         stFlashAlarm.nFlashTime = 3;
         stFlashAlarm.enFalshFrequency = Alarm::FlashFrequency_E::FLASH_MID_FREQ;
@@ -484,23 +518,69 @@ void EventLinkageAsyncAction::execute_warning_light(std::atomic<bool> &bRunningF
         stFlashAlarm.nFlashTime = 300;
     }
 
-    const int nRet = CLightManager::instance()->start_flashing(LIGHT_TYPE_WHITE,
-                                                               stFlashAlarm.nFlashTime,
-                                                               stFlashAlarm.enFalshFrequency);
+    /* 通过override API提交灯光抢占，reconciler经peripheral controller执行闪烁 */
+    ISP::IspLightOverride_S stOverride;
+    stOverride.stLight.enLightType = ISP::LIGHT_TYPE_WHITE;
+    stOverride.stLight.nLightLevel = 100;
+    stOverride.stLight.bFlashing = true;
+    stOverride.stLight.nFlashTimeSec = stFlashAlarm.nFlashTime;
+    stOverride.stLight.enFlashFrequency = stFlashAlarm.enFalshFrequency;
+    stOverride.nDeadlineMs = 0;
+
+    uint64_t u64Token = 0;
+    // const int nRet = CIspManage::instance()->begin_light_override(stOverride, u64Token);
+    int nRet = IpcRet_E::ERR;
+    constexpr int LIGHT_OVERRIDE_RETRY_COUNT = 3;
+    for (int nAttempt = 1; nAttempt <= LIGHT_OVERRIDE_RETRY_COUNT; ++nAttempt)
+    {
+        nRet = CIspManage::instance()->begin_light_override(stOverride, u64Token);
+        if (nRet == IpcRet_E::OK)
+        {
+            break;
+        }
+
+        /* 事件切换时gate/reconciler也可能短暂返回未启用或忙，统一进行有限重试。 */
+        if (nAttempt == LIGHT_OVERRIDE_RETRY_COUNT)
+        {
+            break;
+        }
+        dlog_warn("启动灯光抢占暂时失败，错误码:%d，第%d次重试 test1111", nRet, nAttempt);
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    }
     if (nRet != IpcRet_E::OK)
     {
-        dlog_error("启动闪光灯闪烁失败，错误码: %d", nRet);
+        if (nRet == IpcRet_E::ERR_NOT_ENABLED)
+        {
+            dlog_warn("外设补光总控禁止告警闪烁，忽略本次请求");
+        }
+        else
+        {
+            dlog_error("启动灯光抢占失败，错误码: %d", nRet);
+        }
+        bRunningFlag.store(false);
         return;
     }
-
     /* 线程只负责等待闪烁时长结束，便于中途被高优先级任务打断 */
-    for (int i = 0; i < stFlashAlarm.nFlashTime && bRunningFlag.load(); ++i)
+    // for (int i = 0; i < stFlashAlarm.nFlashTime && bRunningFlag.load(); ++i)
+    // {
+    //     std::this_thread::sleep_for(std::chrono::seconds(1));
+    // }
+
+    /* 50ms检查一次停止请求，使高优先级人脸比对不必等待旧任务完整的1秒sleep。 */
+    const int nWaitStepMs = 50;
+    const int nTotalWaitCount = stFlashAlarm.nFlashTime * 1000 / nWaitStepMs;
+    for (int i = 0; i < nTotalWaitCount && bRunningFlag.load(); ++i)
     {
-        std::this_thread::sleep_for(std::chrono::seconds(1));
+        std::this_thread::sleep_for(std::chrono::milliseconds(nWaitStepMs));
     }
-    
-    /* 恢复补光配置（重新应用） */
-    CLightManager::instance()->apply_peripheral_config();
+
+    /* 结束抢占，reconciler恢复正常灯光目标 */
+    const int nEndRet = CIspManage::instance()->end_light_override(u64Token);
+    if (nEndRet != IpcRet_E::OK && nEndRet != IpcRet_E::ERR_PARAM)
+    {
+        dlog_warn("结束灯光抢占失败，错误码: %d", nEndRet);
+    }
+    bRunningFlag.store(false);
 }
 
 void EventLinkageAsyncAction::execute_alarm_io(const LinkageTask_S &stTask, std::atomic<bool> &bRunningFlag)

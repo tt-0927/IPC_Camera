@@ -1,8 +1,8 @@
 /*
  * @Author: lianghy lianghy@kfb.cn
  * @Date: 2026-01-09 10:47:39
- * @LastEditors: lianghy lianghy@kfb.cn
- * @LastEditTime: 2026-06-03 09:37:42
+ * @LastEditors: leiyy leiyy@kfb.cn
+ * @LastEditTime: 2026-08-14 15:16:02
  * @FilePath: /1126/rv1126b_ipc/main_app/ai_app/detect_mode/group2_group4_detect/group2_group4_detect.hpp
  * @Description: 人、车、非/模型组合4事件相关
  */
@@ -15,9 +15,15 @@
 #include "capture_database.h"
 
 #include <algorithm>
+#include <cstring>
 
 #ifdef ENABLE_GAT1400_SRC
 #include "gat1400.h"
+#endif
+
+#ifdef ENABLE_TVSDK_SRC
+#include "convert/tvsdk_convert.h"
+#include "control_manage.h"
 #endif
 
 /* 数据队列 */
@@ -232,11 +238,13 @@ void CGroup2_Group4Detect::recvMediaData(MediaData_S stMediaData)
         return;
     }
 
+    m_nChannelId = stMediaData.stMediaParam.nChannel;
+
     if (m_RecvManager.handleEvent(stMediaData.stMediaParam.nChannel))
     {
         if (m_dateQueue.size() >= QUEUE_MAX)
         {
-            dlog_error("ai_app: 机动车、行人、非机动车/模型组合4/车牌检测模型-数据队列满了");
+            //dlog_error("ai_app: 机动车、行人、非机动车/模型组合4/车牌检测模型-数据队列满了");
         }
         m_dateQueue.pushOrReplace(stMediaData);
     }
@@ -1105,6 +1113,7 @@ void CGroup2_Group4Detect::run()
             cv::Mat rgbMat;
             cv::cvtColor(i420Mat, rgbMat, cv::COLOR_YUV2RGB_NV12);
             // cv::rotate(rgbMat, rgbMat, cv::ROTATE_180);
+            m_fullRgbMat = rgbMat.clone();
 
             /* 分辨率大小转换 */
             cv::resize(
@@ -1671,7 +1680,7 @@ void CGroup2_Group4Detect::run()
                     }
 
                     /* 人非车事件后处理 */
-                    processGroup2Detect(stOutData);
+                    processGroup2Detect(stOutData, vecResult);
 
                     float                                  fRoiW = (float)rgbMat.cols / m_nWidth;
                     float                                  fRoiH = (float)rgbMat.rows / m_nHeight;
@@ -1955,6 +1964,10 @@ int CGroup2_Group4Detect::personAttributeAnalysis(cv::Mat &srcData, std::vector<
                 /* 行人抓拍信息推送 */
                 pushPersonCaptureInfo(strCurrentPicture, strPersonPicture, stResult);
             }
+#ifdef ENABLE_TVSDK_SRC
+            /* 行人抓拍信息 TVSDK 二进制直推（内存编码，不依赖 SD 卡） */
+            pushPersonCaptureInfoToTvSdk(srcData, stRect, stOutData.at(0));
+#endif
         }
     }
 
@@ -2016,7 +2029,16 @@ int CGroup2_Group4Detect::motorvehicleAttributeAnalysis(cv::Mat &srcData, cv::Ma
         VehicleAttribute_NS::Result_S stVehicleAttributeResult = stOutData.at(0);
 
         pushMotorvehicleCaptureInfo(strCurrentPicture, strTargetPicture, stActualResult.licensePlateNumber, stVehicleAttributeResult);
+
+        return stVehicleAttributeResult.nVehicleType;
     }
+#ifdef ENABLE_TVSDK_SRC
+    if (stOutData.size())
+    {
+        /* 机动车抓拍信息 TVSDK 二进制直推（内存编码，不依赖 SD 卡） */
+        pushMotorvehicleCaptureInfoToTvSdk(srcData, stRect, stActualResult.licensePlateNumber, stOutData.at(0));
+    }
+#endif
 
     return 0;
 }
@@ -2102,6 +2124,10 @@ int CGroup2_Group4Detect::nonMotorvehicleAttributeAnalysis(cv::Mat &srcData, std
                 /* 非机动车抓拍信息推送 */
                 pushNonMotorvehicleCaptureInfo(strCurrentPicture, strTargetPicture, stResult);
             }
+#ifdef ENABLE_TVSDK_SRC
+            /* 非机动车抓拍信息 TVSDK 二进制直推（内存编码，不依赖 SD 卡） */
+            pushNonMotorvehicleCaptureInfoToTvSdk(srcData, stRect, stOutData.at(0));
+#endif
         }
     }
 
@@ -2122,6 +2148,7 @@ int CGroup2_Group4Detect::licensePlateDetectProcess(cv::Mat &srcData, const std:
 
     /* 所有的车牌检测结果 */
     std::vector<LicensePlateCognition_NS::Result_S> vecLicensePlateCognitionResult;
+    int nLastVehicleType = 0;
 
     stInData.stParam.fBoxThreshold = sensitivityToConfidence(m_stAlgoLicensePlateCognitionCfg.stRule.nSensitivity);
 
@@ -2224,7 +2251,7 @@ int CGroup2_Group4Detect::licensePlateDetectProcess(cv::Mat &srcData, const std:
                 }
 
                 /* 把车辆图片进行机动车属性分析 */
-                motorvehicleAttributeAnalysis(srcData, cropped, stActualResult);
+                nLastVehicleType = motorvehicleAttributeAnalysis(srcData, cropped, stActualResult);
             }
         }
     }
@@ -2243,7 +2270,56 @@ int CGroup2_Group4Detect::licensePlateDetectProcess(cv::Mat &srcData, const std:
 
     if (m_stAlgoLicensePlateCognitionCfg.bEnable)
     {
+    /* 上报事件 */
+#ifdef ENABLE_TVSDK_SRC
+        EventTriggerContext_S stContext;
+        stContext.enEventType = Event::Type_E::PLATE_NUMBER;
+        stContext.nChnId = m_nChannelId;
+        stContext.llTimestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
+                                   std::chrono::system_clock::now().time_since_epoch())
+                                   .count();
+        if (!m_fullRgbMat.empty())
+        {
+            auto pPayload = std::make_shared<EventTvSdkPayload_S>();
+            pPayload->enType = EventTvSdkPayloadType_E::PLATE;
+            if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage))
+            {
+                stContext.pTvSdkPayload = pPayload;
+            }
+            if (!vecLicensePlateCognitionResult.empty())
+            {
+                const auto &stFirst = vecLicensePlateCognitionResult.front();
+                pPayload->stPlate.strPlateNumber = stFirst.licensePlateNumber;
+                if (stFirst.licensePlateColor == "黑色") pPayload->stPlate.dwPlateColor = 0;
+                else if (stFirst.licensePlateColor == "蓝色") pPayload->stPlate.dwPlateColor = 1;
+                else if (stFirst.licensePlateColor == "绿色") pPayload->stPlate.dwPlateColor = 2;
+                else if (stFirst.licensePlateColor == "白色") pPayload->stPlate.dwPlateColor = 3;
+                else if (stFirst.licensePlateColor == "黄色") pPayload->stPlate.dwPlateColor = 4;
+                pPayload->stPlate.dwVehicleType = nLastVehicleType;
+                int nX = static_cast<int>(stFirst.fX);
+                int nY = static_cast<int>(stFirst.fY);
+                int nW = static_cast<int>(stFirst.fWidth);
+                int nH = static_cast<int>(stFirst.fHeight);
+                stContext.nLeft = nX;
+                stContext.nTop = nY;
+                stContext.nRight = nX + nW;
+                stContext.nBottom = nY + nH;
+                stContext.nObjectType = 2;
+                if (nX >= 0 && nY >= 0 && nW > 0 && nH > 0
+                    && nX + nW <= m_fullRgbMat.cols && nY + nH <= m_fullRgbMat.rows) {
+                    cv::Rect roi(nX, nY, nW, nH);
+                    cv::Mat targetMat = m_fullRgbMat(roi).clone();
+                    EventTvSdkImage_S stTarget;
+                    if (encode_mat_to_tvsdk_image(targetMat, stTarget)) {
+                        stContext.stTargetImage = std::move(stTarget);
+                    }
+                }
+            }
+        }
+        m_LicensePlateStateMachine.handleAlarmState(bIsAlarm, stContext);
+#else
         m_LicensePlateStateMachine.handleAlarmState(bIsAlarm, Event::Type_E::PLATE_NUMBER);
+#endif
     }
 
     return 0;
@@ -2498,110 +2574,1028 @@ int CGroup2_Group4Detect::group4DetectProcess(cv::Mat &srcData, const std::vecto
     }
 #endif
 
-    processGroup4Detect(stOutData);
+    processGroup4Detect(stOutData, vstResult);
 
     return 0;
 }
 
-void CGroup2_Group4Detect::processGroup4Detect(const Group4Detect_NS::OutData_S &stGroup4OutData)
+void CGroup2_Group4Detect::processGroup4Detect(const Group4Detect_NS::OutData_S &stGroup4OutData, const std::vector<Group2Detect_NS::Result_S> &vecResult)
 {
     if (m_stAlgoSmokingCfg.bEnable)
     {
+    /* 上报事件 */
+#ifdef ENABLE_TVSDK_SRC
+        EventTriggerContext_S stContext;
+        stContext.enEventType = Event::Type_E::SMOKING;
+        stContext.nChnId = m_nChannelId;
+        stContext.llTimestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
+                                   std::chrono::system_clock::now().time_since_epoch())
+                                   .count();
+        if (!m_fullRgbMat.empty())
+        {
+            auto pPayload = std::make_shared<EventTvSdkPayload_S>();
+            pPayload->enType = get_tvsdk_payload_type(stContext.enEventType);
+            if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage))
+            {
+                stContext.pTvSdkPayload = pPayload;
+            }
+            if (!vecResult.empty())
+            {
+                const auto& result = vecResult[0];
+                int nX1 = static_cast<int>(result.fX1);
+                int nY1 = static_cast<int>(result.fY1);
+                int nX2 = static_cast<int>(result.fX2);
+                int nY2 = static_cast<int>(result.fY2);
+                stContext.nLeft = nX1;
+                stContext.nTop = nY1;
+                stContext.nRight = nX2;
+                stContext.nBottom = nY2;
+                stContext.nObjectType = 1;
+                stContext.fConfidence = result.fBoxConfidence;
+                if (nX1 >= 0 && nY1 >= 0 && nX2 > nX1 && nY2 > nY1
+                    && nX2 <= m_fullRgbMat.cols && nY2 <= m_fullRgbMat.rows) {
+                    cv::Rect roi(nX1, nY1, nX2 - nX1, nY2 - nY1);
+                    cv::Mat targetMat = m_fullRgbMat(roi).clone();
+                    EventTvSdkImage_S stTarget;
+                    if (encode_mat_to_tvsdk_image(targetMat, stTarget)) {
+                        stContext.stTargetImage = std::move(stTarget);
+                    }
+                }
+            }
+        }
+        m_SmokingStateMachine.handleAlarmState(stGroup4OutData.bCigarette, stContext);
+#else
         m_SmokingStateMachine.handleAlarmState(stGroup4OutData.bCigarette, Event::Type_E::SMOKING);
+#endif
     }
 
     if (m_stAlgoSleepOnDutyCfg.bEnable)
     {
+    /* 上报事件 */
+#ifdef ENABLE_TVSDK_SRC
+        EventTriggerContext_S stContext;
+        stContext.enEventType = Event::Type_E::SLEEP_ON_DUTY;
+        stContext.nChnId = m_nChannelId;
+        stContext.llTimestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
+                                   std::chrono::system_clock::now().time_since_epoch())
+                                   .count();
+        if (!m_fullRgbMat.empty())
+        {
+            auto pPayload = std::make_shared<EventTvSdkPayload_S>();
+            pPayload->enType = get_tvsdk_payload_type(stContext.enEventType);
+            if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage))
+            {
+                stContext.pTvSdkPayload = pPayload;
+            }
+            if (!vecResult.empty())
+            {
+                const auto& result = vecResult[0];
+                int nX1 = static_cast<int>(result.fX1);
+                int nY1 = static_cast<int>(result.fY1);
+                int nX2 = static_cast<int>(result.fX2);
+                int nY2 = static_cast<int>(result.fY2);
+                stContext.nLeft = nX1;
+                stContext.nTop = nY1;
+                stContext.nRight = nX2;
+                stContext.nBottom = nY2;
+                stContext.nObjectType = 1;
+                stContext.fConfidence = result.fBoxConfidence;
+                if (nX1 >= 0 && nY1 >= 0 && nX2 > nX1 && nY2 > nY1
+                    && nX2 <= m_fullRgbMat.cols && nY2 <= m_fullRgbMat.rows) {
+                    cv::Rect roi(nX1, nY1, nX2 - nX1, nY2 - nY1);
+                    cv::Mat targetMat = m_fullRgbMat(roi).clone();
+                    EventTvSdkImage_S stTarget;
+                    if (encode_mat_to_tvsdk_image(targetMat, stTarget)) {
+                        stContext.stTargetImage = std::move(stTarget);
+                    }
+                }
+            }
+        }
+        m_SleepOnDutyStateMachine.handleAlarmState(stGroup4OutData.bSleep, stContext);
+#else
         m_SleepOnDutyStateMachine.handleAlarmState(stGroup4OutData.bSleep, Event::Type_E::SLEEP_ON_DUTY);
+#endif
     }
 
     if (m_stPhoneUsageCfg.bEnable)
     {
+    /* 上报事件 */
+#ifdef ENABLE_TVSDK_SRC
+        EventTriggerContext_S stContext;
+        stContext.enEventType = Event::Type_E::PHONE_USAGE;
+        stContext.nChnId = m_nChannelId;
+        stContext.llTimestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
+                                   std::chrono::system_clock::now().time_since_epoch())
+                                   .count();
+        if (!m_fullRgbMat.empty())
+        {
+            auto pPayload = std::make_shared<EventTvSdkPayload_S>();
+            pPayload->enType = get_tvsdk_payload_type(stContext.enEventType);
+            if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage))
+            {
+                stContext.pTvSdkPayload = pPayload;
+            }
+            if (!vecResult.empty())
+            {
+                const auto& result = vecResult[0];
+                int nX1 = static_cast<int>(result.fX1);
+                int nY1 = static_cast<int>(result.fY1);
+                int nX2 = static_cast<int>(result.fX2);
+                int nY2 = static_cast<int>(result.fY2);
+                stContext.nLeft = nX1;
+                stContext.nTop = nY1;
+                stContext.nRight = nX2;
+                stContext.nBottom = nY2;
+                stContext.nObjectType = 1;
+                stContext.fConfidence = result.fBoxConfidence;
+                if (nX1 >= 0 && nY1 >= 0 && nX2 > nX1 && nY2 > nY1
+                    && nX2 <= m_fullRgbMat.cols && nY2 <= m_fullRgbMat.rows) {
+                    cv::Rect roi(nX1, nY1, nX2 - nX1, nY2 - nY1);
+                    cv::Mat targetMat = m_fullRgbMat(roi).clone();
+                    EventTvSdkImage_S stTarget;
+                    if (encode_mat_to_tvsdk_image(targetMat, stTarget)) {
+                        stContext.stTargetImage = std::move(stTarget);
+                    }
+                }
+            }
+        }
+        m_PhoneUsageStateMachine.handleAlarmState(stGroup4OutData.bPhone, stContext);
+#else
         m_PhoneUsageStateMachine.handleAlarmState(stGroup4OutData.bPhone, Event::Type_E::PHONE_USAGE);
+#endif
     }
 
     if (m_stAlgoTripCfg.bEnable)
     {
+    /* 上报事件 */
+#ifdef ENABLE_TVSDK_SRC
+        EventTriggerContext_S stContext;
+        stContext.enEventType = Event::Type_E::PERSON_TRIP;
+        stContext.nChnId = m_nChannelId;
+        stContext.llTimestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
+                                   std::chrono::system_clock::now().time_since_epoch())
+                                   .count();
+        if (!m_fullRgbMat.empty())
+        {
+            auto pPayload = std::make_shared<EventTvSdkPayload_S>();
+            pPayload->enType = get_tvsdk_payload_type(stContext.enEventType);
+            if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage))
+            {
+                stContext.pTvSdkPayload = pPayload;
+            }
+            if (!vecResult.empty())
+            {
+                const auto& result = vecResult[0];
+                int nX1 = static_cast<int>(result.fX1);
+                int nY1 = static_cast<int>(result.fY1);
+                int nX2 = static_cast<int>(result.fX2);
+                int nY2 = static_cast<int>(result.fY2);
+                stContext.nLeft = nX1;
+                stContext.nTop = nY1;
+                stContext.nRight = nX2;
+                stContext.nBottom = nY2;
+                stContext.nObjectType = 1;
+                stContext.fConfidence = result.fBoxConfidence;
+                if (nX1 >= 0 && nY1 >= 0 && nX2 > nX1 && nY2 > nY1
+                    && nX2 <= m_fullRgbMat.cols && nY2 <= m_fullRgbMat.rows) {
+                    cv::Rect roi(nX1, nY1, nX2 - nX1, nY2 - nY1);
+                    cv::Mat targetMat = m_fullRgbMat(roi).clone();
+                    EventTvSdkImage_S stTarget;
+                    if (encode_mat_to_tvsdk_image(targetMat, stTarget)) {
+                        stContext.stTargetImage = std::move(stTarget);
+                    }
+                }
+            }
+        }
+        m_TripStateMachine.handleAlarmState(stGroup4OutData.bFall, stContext);
+#else
         m_TripStateMachine.handleAlarmState(stGroup4OutData.bFall, Event::Type_E::PERSON_TRIP);
+#endif
     }
 
     return;
 }
 
-void CGroup2_Group4Detect::processGroup2Detect(const Group2Detect_NS::OutData_S &stGroup2OutData)
+void CGroup2_Group4Detect::processGroup2Detect(const Group2Detect_NS::OutData_S &stGroup2OutData, std::vector<Group2Detect_NS::Result_S> &vecResult)
 {
+    /* 算法检测坐标系为 m_nWidth*m_nHeight，事件矩形/特写图基于全分辨率图 m_fullRgbMat，
+       此处统一将结果坐标换算到全分辨率坐标系 */
+    if (!m_fullRgbMat.empty() && m_nWidth > 0 && m_nHeight > 0)
+    {
+        const float fScaleX = static_cast<float>(m_fullRgbMat.cols) / static_cast<float>(m_nWidth);
+        const float fScaleY = static_cast<float>(m_fullRgbMat.rows) / static_cast<float>(m_nHeight);
+        for (auto &stResult : vecResult)
+        {
+            stResult.fX1 *= fScaleX;
+            stResult.fY1 *= fScaleY;
+            stResult.fX2 *= fScaleX;
+            stResult.fY2 *= fScaleY;
+        }
+    }
 
     if (m_stAlgoCrossCfg.bEnable)
     {
+    /* 上报事件 */
+#ifdef ENABLE_TVSDK_SRC
+        EventTriggerContext_S stContext;
+        stContext.enEventType = Event::Type_E::LINE_CROSSING;
+        stContext.nChnId = m_nChannelId;
+        stContext.llTimestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
+                                   std::chrono::system_clock::now().time_since_epoch())
+                                   .count();
+        if (!m_fullRgbMat.empty())
+        {
+            auto pPayload = std::make_shared<EventTvSdkPayload_S>();
+            pPayload->enType = get_tvsdk_payload_type(stContext.enEventType);
+            if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage))
+            {
+                stContext.pTvSdkPayload = pPayload;
+            }
+            if (!vecResult.empty())
+            {
+                const auto& result = vecResult[0];
+                int nX1 = static_cast<int>(result.fX1);
+                int nY1 = static_cast<int>(result.fY1);
+                int nX2 = static_cast<int>(result.fX2);
+                int nY2 = static_cast<int>(result.fY2);
+                stContext.nLeft = nX1;
+                stContext.nTop = nY1;
+                stContext.nRight = nX2;
+                stContext.nBottom = nY2;
+                stContext.nObjectType = (result.nID == 0) ? 1 : (result.nID == 1) ? 2 : 3;
+                stContext.fConfidence = result.fBoxConfidence;
+                if (nX1 >= 0 && nY1 >= 0 && nX2 > nX1 && nY2 > nY1
+                    && nX2 <= m_fullRgbMat.cols && nY2 <= m_fullRgbMat.rows) {
+                    cv::Rect roi(nX1, nY1, nX2 - nX1, nY2 - nY1);
+                    cv::Mat targetMat = m_fullRgbMat(roi).clone();
+                    EventTvSdkImage_S stTarget;
+                    if (encode_mat_to_tvsdk_image(targetMat, stTarget)) {
+                        stContext.stTargetImage = std::move(stTarget);
+                    }
+                }
+            }
+        }
+        m_CrossAlarmStateMachine.handleAlarmState(stGroup2OutData.bTripLineType, stContext);
+#else
         m_CrossAlarmStateMachine.handleAlarmState(stGroup2OutData.bTripLineType, Event::Type_E::LINE_CROSSING);
+#endif
     }
     if (m_stAlgoIntruCfg.bEnable)
     {
+    /* 上报事件 */
+#ifdef ENABLE_TVSDK_SRC
+        EventTriggerContext_S stContext;
+        stContext.enEventType = Event::Type_E::INTRUSION;
+        stContext.nChnId = m_nChannelId;
+        stContext.llTimestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
+                                   std::chrono::system_clock::now().time_since_epoch())
+                                   .count();
+        if (!m_fullRgbMat.empty())
+        {
+            auto pPayload = std::make_shared<EventTvSdkPayload_S>();
+            pPayload->enType = get_tvsdk_payload_type(stContext.enEventType);
+            if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage))
+            {
+                stContext.pTvSdkPayload = pPayload;
+            }
+            if (!vecResult.empty())
+            {
+                const auto& result = vecResult[0];
+                int nX1 = static_cast<int>(result.fX1);
+                int nY1 = static_cast<int>(result.fY1);
+                int nX2 = static_cast<int>(result.fX2);
+                int nY2 = static_cast<int>(result.fY2);
+                stContext.nLeft = nX1;
+                stContext.nTop = nY1;
+                stContext.nRight = nX2;
+                stContext.nBottom = nY2;
+                stContext.nObjectType = (result.nID == 0) ? 1 : (result.nID == 1) ? 2 : 3;
+                stContext.fConfidence = result.fBoxConfidence;
+                if (nX1 >= 0 && nY1 >= 0 && nX2 > nX1 && nY2 > nY1
+                    && nX2 <= m_fullRgbMat.cols && nY2 <= m_fullRgbMat.rows) {
+                    cv::Rect roi(nX1, nY1, nX2 - nX1, nY2 - nY1);
+                    cv::Mat targetMat = m_fullRgbMat(roi).clone();
+                    EventTvSdkImage_S stTarget;
+                    if (encode_mat_to_tvsdk_image(targetMat, stTarget)) {
+                        stContext.stTargetImage = std::move(stTarget);
+                    }
+                }
+            }
+        }
+        m_IntruAlarmStateMachine.handleAlarmState(stGroup2OutData.bIntrusionFlag, stContext);
+#else
         m_IntruAlarmStateMachine.handleAlarmState(stGroup2OutData.bIntrusionFlag, Event::Type_E::INTRUSION);
+#endif
     }
     if (m_stAlgoEntryCfg.bEnable)
     {
+    /* 上报事件 */
+#ifdef ENABLE_TVSDK_SRC
+        EventTriggerContext_S stContext;
+        stContext.enEventType = Event::Type_E::ENTER_REGION;
+        stContext.nChnId = m_nChannelId;
+        stContext.llTimestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
+                                   std::chrono::system_clock::now().time_since_epoch())
+                                   .count();
+        if (!m_fullRgbMat.empty())
+        {
+            auto pPayload = std::make_shared<EventTvSdkPayload_S>();
+            pPayload->enType = get_tvsdk_payload_type(stContext.enEventType);
+            if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage))
+            {
+                stContext.pTvSdkPayload = pPayload;
+            }
+            if (!vecResult.empty())
+            {
+                const auto& result = vecResult[0];
+                int nX1 = static_cast<int>(result.fX1);
+                int nY1 = static_cast<int>(result.fY1);
+                int nX2 = static_cast<int>(result.fX2);
+                int nY2 = static_cast<int>(result.fY2);
+                stContext.nLeft = nX1;
+                stContext.nTop = nY1;
+                stContext.nRight = nX2;
+                stContext.nBottom = nY2;
+                stContext.nObjectType = (result.nID == 0) ? 1 : (result.nID == 1) ? 2 : 3;
+                stContext.fConfidence = result.fBoxConfidence;
+                if (nX1 >= 0 && nY1 >= 0 && nX2 > nX1 && nY2 > nY1
+                    && nX2 <= m_fullRgbMat.cols && nY2 <= m_fullRgbMat.rows) {
+                    cv::Rect roi(nX1, nY1, nX2 - nX1, nY2 - nY1);
+                    cv::Mat targetMat = m_fullRgbMat(roi).clone();
+                    EventTvSdkImage_S stTarget;
+                    if (encode_mat_to_tvsdk_image(targetMat, stTarget)) {
+                        stContext.stTargetImage = std::move(stTarget);
+                    }
+                }
+            }
+        }
+        m_EntryAlarmStateMachine.handleAlarmState(stGroup2OutData.bEntryFlag, stContext);
+#else
         m_EntryAlarmStateMachine.handleAlarmState(stGroup2OutData.bEntryFlag, Event::Type_E::ENTER_REGION);
+#endif
     }
     if (m_stAlgoExitCfg.bEnable)
     {
+    /* 上报事件 */
+#ifdef ENABLE_TVSDK_SRC
+        EventTriggerContext_S stContext;
+        stContext.enEventType = Event::Type_E::LEAVE_REGION;
+        stContext.nChnId = m_nChannelId;
+        stContext.llTimestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
+                                   std::chrono::system_clock::now().time_since_epoch())
+                                   .count();
+        if (!m_fullRgbMat.empty())
+        {
+            auto pPayload = std::make_shared<EventTvSdkPayload_S>();
+            pPayload->enType = get_tvsdk_payload_type(stContext.enEventType);
+            if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage))
+            {
+                stContext.pTvSdkPayload = pPayload;
+            }
+            if (!vecResult.empty())
+            {
+                const auto& result = vecResult[0];
+                int nX1 = static_cast<int>(result.fX1);
+                int nY1 = static_cast<int>(result.fY1);
+                int nX2 = static_cast<int>(result.fX2);
+                int nY2 = static_cast<int>(result.fY2);
+                stContext.nLeft = nX1;
+                stContext.nTop = nY1;
+                stContext.nRight = nX2;
+                stContext.nBottom = nY2;
+                stContext.nObjectType = (result.nID == 0) ? 1 : (result.nID == 1) ? 2 : 3;
+                stContext.fConfidence = result.fBoxConfidence;
+                if (nX1 >= 0 && nY1 >= 0 && nX2 > nX1 && nY2 > nY1
+                    && nX2 <= m_fullRgbMat.cols && nY2 <= m_fullRgbMat.rows) {
+                    cv::Rect roi(nX1, nY1, nX2 - nX1, nY2 - nY1);
+                    cv::Mat targetMat = m_fullRgbMat(roi).clone();
+                    EventTvSdkImage_S stTarget;
+                    if (encode_mat_to_tvsdk_image(targetMat, stTarget)) {
+                        stContext.stTargetImage = std::move(stTarget);
+                    }
+                }
+            }
+        }
+        m_ExitAlarmStateMachine.handleAlarmState(stGroup2OutData.bLeaveFlag, stContext);
+#else
         m_ExitAlarmStateMachine.handleAlarmState(stGroup2OutData.bLeaveFlag, Event::Type_E::LEAVE_REGION);
+#endif
     }
     if (m_stLoiteringCfg.bEnable)
     {
+    /* 上报事件 */
+#ifdef ENABLE_TVSDK_SRC
+        EventTriggerContext_S stContext;
+        stContext.enEventType = Event::Type_E::LOITERING_DETECT;
+        stContext.nChnId = m_nChannelId;
+        stContext.llTimestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
+                                   std::chrono::system_clock::now().time_since_epoch())
+                                   .count();
+        if (!m_fullRgbMat.empty())
+        {
+            auto pPayload = std::make_shared<EventTvSdkPayload_S>();
+            pPayload->enType = get_tvsdk_payload_type(stContext.enEventType);
+            if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage))
+            {
+                stContext.pTvSdkPayload = pPayload;
+            }
+            if (!vecResult.empty())
+            {
+                const auto& result = vecResult[0];
+                int nX1 = static_cast<int>(result.fX1);
+                int nY1 = static_cast<int>(result.fY1);
+                int nX2 = static_cast<int>(result.fX2);
+                int nY2 = static_cast<int>(result.fY2);
+                stContext.nLeft = nX1;
+                stContext.nTop = nY1;
+                stContext.nRight = nX2;
+                stContext.nBottom = nY2;
+                stContext.nObjectType = (result.nID == 0) ? 1 : (result.nID == 1) ? 2 : 3;
+                stContext.fConfidence = result.fBoxConfidence;
+                if (nX1 >= 0 && nY1 >= 0 && nX2 > nX1 && nY2 > nY1
+                    && nX2 <= m_fullRgbMat.cols && nY2 <= m_fullRgbMat.rows) {
+                    cv::Rect roi(nX1, nY1, nX2 - nX1, nY2 - nY1);
+                    cv::Mat targetMat = m_fullRgbMat(roi).clone();
+                    EventTvSdkImage_S stTarget;
+                    if (encode_mat_to_tvsdk_image(targetMat, stTarget)) {
+                        stContext.stTargetImage = std::move(stTarget);
+                    }
+                }
+            }
+        }
+        m_LoiteringAlarmStateMachine.handleAlarmState(stGroup2OutData.bLoiteringFlag, stContext);
+#else
         m_LoiteringAlarmStateMachine.handleAlarmState(stGroup2OutData.bLoiteringFlag, Event::Type_E::LOITERING_DETECT);
+#endif
     }
     if (m_stFenceClimbingCfg.bEnable)
     {
+    /* 上报事件 */
+#ifdef ENABLE_TVSDK_SRC
+        EventTriggerContext_S stContext;
+        stContext.enEventType = Event::Type_E::FENCE_CLIMBING;
+        stContext.nChnId = m_nChannelId;
+        stContext.llTimestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
+                                   std::chrono::system_clock::now().time_since_epoch())
+                                   .count();
+        if (!m_fullRgbMat.empty())
+        {
+            auto pPayload = std::make_shared<EventTvSdkPayload_S>();
+            pPayload->enType = get_tvsdk_payload_type(stContext.enEventType);
+            if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage))
+            {
+                stContext.pTvSdkPayload = pPayload;
+            }
+            if (!vecResult.empty())
+            {
+                const auto& result = vecResult[0];
+                int nX1 = static_cast<int>(result.fX1);
+                int nY1 = static_cast<int>(result.fY1);
+                int nX2 = static_cast<int>(result.fX2);
+                int nY2 = static_cast<int>(result.fY2);
+                stContext.nLeft = nX1;
+                stContext.nTop = nY1;
+                stContext.nRight = nX2;
+                stContext.nBottom = nY2;
+                stContext.nObjectType = (result.nID == 0) ? 1 : (result.nID == 1) ? 2 : 3;
+                stContext.fConfidence = result.fBoxConfidence;
+                if (nX1 >= 0 && nY1 >= 0 && nX2 > nX1 && nY2 > nY1
+                    && nX2 <= m_fullRgbMat.cols && nY2 <= m_fullRgbMat.rows) {
+                    cv::Rect roi(nX1, nY1, nX2 - nX1, nY2 - nY1);
+                    cv::Mat targetMat = m_fullRgbMat(roi).clone();
+                    EventTvSdkImage_S stTarget;
+                    if (encode_mat_to_tvsdk_image(targetMat, stTarget)) {
+                        stContext.stTargetImage = std::move(stTarget);
+                    }
+                }
+            }
+        }
+        m_FenceClimbingAlarmStateMachine.handleAlarmState(stGroup2OutData.bFenceClimbFlag, stContext);
+#else
         m_FenceClimbingAlarmStateMachine.handleAlarmState(stGroup2OutData.bFenceClimbFlag, Event::Type_E::FENCE_CLIMBING);
+#endif
     }
     if (m_stPersonFallDownCfg.bEnable)
     {
+    /* 上报事件 */
+#ifdef ENABLE_TVSDK_SRC
+        EventTriggerContext_S stContext;
+        stContext.enEventType = Event::Type_E::PERSON_FALL_DOWN;
+        stContext.nChnId = m_nChannelId;
+        stContext.llTimestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
+                                   std::chrono::system_clock::now().time_since_epoch())
+                                   .count();
+        if (!m_fullRgbMat.empty())
+        {
+            auto pPayload = std::make_shared<EventTvSdkPayload_S>();
+            pPayload->enType = get_tvsdk_payload_type(stContext.enEventType);
+            if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage))
+            {
+                stContext.pTvSdkPayload = pPayload;
+            }
+            if (!vecResult.empty())
+            {
+                const auto& result = vecResult[0];
+                int nX1 = static_cast<int>(result.fX1);
+                int nY1 = static_cast<int>(result.fY1);
+                int nX2 = static_cast<int>(result.fX2);
+                int nY2 = static_cast<int>(result.fY2);
+                stContext.nLeft = nX1;
+                stContext.nTop = nY1;
+                stContext.nRight = nX2;
+                stContext.nBottom = nY2;
+                stContext.nObjectType = (result.nID == 0) ? 1 : (result.nID == 1) ? 2 : 3;
+                stContext.fConfidence = result.fBoxConfidence;
+                if (nX1 >= 0 && nY1 >= 0 && nX2 > nX1 && nY2 > nY1
+                    && nX2 <= m_fullRgbMat.cols && nY2 <= m_fullRgbMat.rows) {
+                    cv::Rect roi(nX1, nY1, nX2 - nX1, nY2 - nY1);
+                    cv::Mat targetMat = m_fullRgbMat(roi).clone();
+                    EventTvSdkImage_S stTarget;
+                    if (encode_mat_to_tvsdk_image(targetMat, stTarget)) {
+                        stContext.stTargetImage = std::move(stTarget);
+                    }
+                }
+            }
+        }
+        m_PersonFallDownStateMachine.handleAlarmState(stGroup2OutData.bPersonFalldownFlag, stContext);
+#else
         m_PersonFallDownStateMachine.handleAlarmState(stGroup2OutData.bPersonFalldownFlag, Event::Type_E::PERSON_FALL_DOWN);
+#endif
     }
 
     if (m_stLeavePostCfg.bEnable)
     {
+    /* 上报事件 */
+#ifdef ENABLE_TVSDK_SRC
+        EventTriggerContext_S stContext;
+        stContext.enEventType = Event::Type_E::LEAVE_POST;
+        stContext.nChnId = m_nChannelId;
+        stContext.llTimestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
+                                   std::chrono::system_clock::now().time_since_epoch())
+                                   .count();
+        if (!m_fullRgbMat.empty())
+        {
+            auto pPayload = std::make_shared<EventTvSdkPayload_S>();
+            pPayload->enType = get_tvsdk_payload_type(stContext.enEventType);
+            if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage))
+            {
+                stContext.pTvSdkPayload = pPayload;
+            }
+            if (!vecResult.empty())
+            {
+                const auto& result = vecResult[0];
+                int nX1 = static_cast<int>(result.fX1);
+                int nY1 = static_cast<int>(result.fY1);
+                int nX2 = static_cast<int>(result.fX2);
+                int nY2 = static_cast<int>(result.fY2);
+                stContext.nLeft = nX1;
+                stContext.nTop = nY1;
+                stContext.nRight = nX2;
+                stContext.nBottom = nY2;
+                stContext.nObjectType = (result.nID == 0) ? 1 : (result.nID == 1) ? 2 : 3;
+                stContext.fConfidence = result.fBoxConfidence;
+                if (nX1 >= 0 && nY1 >= 0 && nX2 > nX1 && nY2 > nY1
+                    && nX2 <= m_fullRgbMat.cols && nY2 <= m_fullRgbMat.rows) {
+                    cv::Rect roi(nX1, nY1, nX2 - nX1, nY2 - nY1);
+                    cv::Mat targetMat = m_fullRgbMat(roi).clone();
+                    EventTvSdkImage_S stTarget;
+                    if (encode_mat_to_tvsdk_image(targetMat, stTarget)) {
+                        stContext.stTargetImage = std::move(stTarget);
+                    }
+                }
+            }
+        }
+        m_LeavePostAlarmStateMachine.handleAlarmState(stGroup2OutData.bLeavePostFlag, stContext);
+#else
         m_LeavePostAlarmStateMachine.handleAlarmState(stGroup2OutData.bLeavePostFlag, Event::Type_E::LEAVE_POST);
+#endif
     }
     if (m_stPedestrianIntrusionCfg.bEnable)
     {
+    /* 上报事件 */
+#ifdef ENABLE_TVSDK_SRC
+        EventTriggerContext_S stContext;
+        stContext.enEventType = Event::Type_E::PEDESTRIAN_INTRUSION;
+        stContext.nChnId = m_nChannelId;
+        stContext.llTimestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
+                                   std::chrono::system_clock::now().time_since_epoch())
+                                   .count();
+        if (!m_fullRgbMat.empty())
+        {
+            auto pPayload = std::make_shared<EventTvSdkPayload_S>();
+            pPayload->enType = get_tvsdk_payload_type(stContext.enEventType);
+            if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage))
+            {
+                stContext.pTvSdkPayload = pPayload;
+            }
+            if (!vecResult.empty())
+            {
+                const auto& result = vecResult[0];
+                int nX1 = static_cast<int>(result.fX1);
+                int nY1 = static_cast<int>(result.fY1);
+                int nX2 = static_cast<int>(result.fX2);
+                int nY2 = static_cast<int>(result.fY2);
+                stContext.nLeft = nX1;
+                stContext.nTop = nY1;
+                stContext.nRight = nX2;
+                stContext.nBottom = nY2;
+                stContext.nObjectType = (result.nID == 0) ? 1 : (result.nID == 1) ? 2 : 3;
+                stContext.fConfidence = result.fBoxConfidence;
+                if (nX1 >= 0 && nY1 >= 0 && nX2 > nX1 && nY2 > nY1
+                    && nX2 <= m_fullRgbMat.cols && nY2 <= m_fullRgbMat.rows) {
+                    cv::Rect roi(nX1, nY1, nX2 - nX1, nY2 - nY1);
+                    cv::Mat targetMat = m_fullRgbMat(roi).clone();
+                    EventTvSdkImage_S stTarget;
+                    if (encode_mat_to_tvsdk_image(targetMat, stTarget)) {
+                        stContext.stTargetImage = std::move(stTarget);
+                    }
+                }
+            }
+        }
+        m_PedestrianIntrusionAlarmStateMachine.handleAlarmState(stGroup2OutData.bPedestrianIntrusionFlag, stContext);
+#else
         m_PedestrianIntrusionAlarmStateMachine.handleAlarmState(stGroup2OutData.bPedestrianIntrusionFlag, Event::Type_E::PEDESTRIAN_INTRUSION);
+#endif
     }
     if (m_stCrowdGatheringDetCfg.bEnable)
     {
+    /* 上报事件 */
+#ifdef ENABLE_TVSDK_SRC
+        EventTriggerContext_S stContext;
+        stContext.enEventType = Event::Type_E::CROWD_GATHERING;
+        stContext.nChnId = m_nChannelId;
+        stContext.llTimestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
+                                   std::chrono::system_clock::now().time_since_epoch())
+                                   .count();
+        if (!m_fullRgbMat.empty())
+        {
+            auto pPayload = std::make_shared<EventTvSdkPayload_S>();
+            pPayload->enType = get_tvsdk_payload_type(stContext.enEventType);
+            if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage))
+            {
+                stContext.pTvSdkPayload = pPayload;
+            }
+            if (!vecResult.empty())
+            {
+                const auto& result = vecResult[0];
+                int nX1 = static_cast<int>(result.fX1);
+                int nY1 = static_cast<int>(result.fY1);
+                int nX2 = static_cast<int>(result.fX2);
+                int nY2 = static_cast<int>(result.fY2);
+                stContext.nLeft = nX1;
+                stContext.nTop = nY1;
+                stContext.nRight = nX2;
+                stContext.nBottom = nY2;
+                stContext.nObjectType = (result.nID == 0) ? 1 : (result.nID == 1) ? 2 : 3;
+                stContext.fConfidence = result.fBoxConfidence;
+                if (nX1 >= 0 && nY1 >= 0 && nX2 > nX1 && nY2 > nY1
+                    && nX2 <= m_fullRgbMat.cols && nY2 <= m_fullRgbMat.rows) {
+                    cv::Rect roi(nX1, nY1, nX2 - nX1, nY2 - nY1);
+                    cv::Mat targetMat = m_fullRgbMat(roi).clone();
+                    EventTvSdkImage_S stTarget;
+                    if (encode_mat_to_tvsdk_image(targetMat, stTarget)) {
+                        stContext.stTargetImage = std::move(stTarget);
+                    }
+                }
+            }
+        }
+        m_CrowdGatheringAlarmStateMachine.handleAlarmState(stGroup2OutData.bCrowdGatheringDetParamFlag, stContext);
+#else
         m_CrowdGatheringAlarmStateMachine.handleAlarmState(stGroup2OutData.bCrowdGatheringDetParamFlag, Event::Type_E::CROWD_GATHERING);
+#endif
     }
 
     if (m_stAlgoElectricScooterCfg.bEnable)
     {
+    /* 上报事件 */
+#ifdef ENABLE_TVSDK_SRC
+        EventTriggerContext_S stContext;
+        stContext.enEventType = Event::Type_E::ELECTRIC_VEHICLE_IN_ELEVATOR;
+        stContext.nChnId = m_nChannelId;
+        stContext.llTimestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
+                                   std::chrono::system_clock::now().time_since_epoch())
+                                   .count();
+        if (!m_fullRgbMat.empty())
+        {
+            auto pPayload = std::make_shared<EventTvSdkPayload_S>();
+            pPayload->enType = get_tvsdk_payload_type(stContext.enEventType);
+            if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage))
+            {
+                stContext.pTvSdkPayload = pPayload;
+            }
+            if (!vecResult.empty())
+            {
+                const auto& result = vecResult[0];
+                int nX1 = static_cast<int>(result.fX1);
+                int nY1 = static_cast<int>(result.fY1);
+                int nX2 = static_cast<int>(result.fX2);
+                int nY2 = static_cast<int>(result.fY2);
+                stContext.nLeft = nX1;
+                stContext.nTop = nY1;
+                stContext.nRight = nX2;
+                stContext.nBottom = nY2;
+                stContext.nObjectType = (result.nID == 0) ? 1 : (result.nID == 1) ? 2 : 3;
+                stContext.fConfidence = result.fBoxConfidence;
+                if (nX1 >= 0 && nY1 >= 0 && nX2 > nX1 && nY2 > nY1
+                    && nX2 <= m_fullRgbMat.cols && nY2 <= m_fullRgbMat.rows) {
+                    cv::Rect roi(nX1, nY1, nX2 - nX1, nY2 - nY1);
+                    cv::Mat targetMat = m_fullRgbMat(roi).clone();
+                    EventTvSdkImage_S stTarget;
+                    if (encode_mat_to_tvsdk_image(targetMat, stTarget)) {
+                        stContext.stTargetImage = std::move(stTarget);
+                    }
+                }
+            }
+        }
+        m_ElectricScooterStateMachine.handleAlarmState(stGroup2OutData.bElectricScooter, stContext);
+#else
         m_ElectricScooterStateMachine.handleAlarmState(stGroup2OutData.bElectricScooter, Event::Type_E::ELECTRIC_VEHICLE_IN_ELEVATOR);
+#endif
     }
 
     if (m_stAlgoEmergencyLaneOccupancyCfg.bEnable)
     {
+    /* 上报事件 */
+#ifdef ENABLE_TVSDK_SRC
+        EventTriggerContext_S stContext;
+        stContext.enEventType = Event::Type_E::EMERGENCY_LANE_OCCUPANCY;
+        stContext.nChnId = m_nChannelId;
+        stContext.llTimestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
+                                   std::chrono::system_clock::now().time_since_epoch())
+                                   .count();
+        if (!m_fullRgbMat.empty())
+        {
+            auto pPayload = std::make_shared<EventTvSdkPayload_S>();
+            pPayload->enType = get_tvsdk_payload_type(stContext.enEventType);
+            if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage))
+            {
+                stContext.pTvSdkPayload = pPayload;
+            }
+            if (!vecResult.empty())
+            {
+                const auto& result = vecResult[0];
+                int nX1 = static_cast<int>(result.fX1);
+                int nY1 = static_cast<int>(result.fY1);
+                int nX2 = static_cast<int>(result.fX2);
+                int nY2 = static_cast<int>(result.fY2);
+                stContext.nLeft = nX1;
+                stContext.nTop = nY1;
+                stContext.nRight = nX2;
+                stContext.nBottom = nY2;
+                stContext.nObjectType = (result.nID == 0) ? 1 : (result.nID == 1) ? 2 : 3;
+                stContext.fConfidence = result.fBoxConfidence;
+                if (nX1 >= 0 && nY1 >= 0 && nX2 > nX1 && nY2 > nY1
+                    && nX2 <= m_fullRgbMat.cols && nY2 <= m_fullRgbMat.rows) {
+                    cv::Rect roi(nX1, nY1, nX2 - nX1, nY2 - nY1);
+                    cv::Mat targetMat = m_fullRgbMat(roi).clone();
+                    EventTvSdkImage_S stTarget;
+                    if (encode_mat_to_tvsdk_image(targetMat, stTarget)) {
+                        stContext.stTargetImage = std::move(stTarget);
+                    }
+                }
+            }
+        }
+        m_EmergencyLaneOccupancyAlarmStateMachine.handleAlarmState(stGroup2OutData.bEmergencyLaneOccupancyFlag, stContext);
+#else
         m_EmergencyLaneOccupancyAlarmStateMachine.handleAlarmState(stGroup2OutData.bEmergencyLaneOccupancyFlag, Event::Type_E::EMERGENCY_LANE_OCCUPANCY);
+#endif
     }
     if (m_stAlgoNonMotorVehicleIntrusionCfg.bEnable)
     {
+    /* 上报事件 */
+#ifdef ENABLE_TVSDK_SRC
+        EventTriggerContext_S stContext;
+        stContext.enEventType = Event::Type_E::NON_MOTOR_VEHICLE_INTRUSION;
+        stContext.nChnId = m_nChannelId;
+        stContext.llTimestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
+                                   std::chrono::system_clock::now().time_since_epoch())
+                                   .count();
+        if (!m_fullRgbMat.empty())
+        {
+            auto pPayload = std::make_shared<EventTvSdkPayload_S>();
+            pPayload->enType = get_tvsdk_payload_type(stContext.enEventType);
+            if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage))
+            {
+                stContext.pTvSdkPayload = pPayload;
+            }
+            if (!vecResult.empty())
+            {
+                const auto& result = vecResult[0];
+                int nX1 = static_cast<int>(result.fX1);
+                int nY1 = static_cast<int>(result.fY1);
+                int nX2 = static_cast<int>(result.fX2);
+                int nY2 = static_cast<int>(result.fY2);
+                stContext.nLeft = nX1;
+                stContext.nTop = nY1;
+                stContext.nRight = nX2;
+                stContext.nBottom = nY2;
+                stContext.nObjectType = (result.nID == 0) ? 1 : (result.nID == 1) ? 2 : 3;
+                stContext.fConfidence = result.fBoxConfidence;
+                if (nX1 >= 0 && nY1 >= 0 && nX2 > nX1 && nY2 > nY1
+                    && nX2 <= m_fullRgbMat.cols && nY2 <= m_fullRgbMat.rows) {
+                    cv::Rect roi(nX1, nY1, nX2 - nX1, nY2 - nY1);
+                    cv::Mat targetMat = m_fullRgbMat(roi).clone();
+                    EventTvSdkImage_S stTarget;
+                    if (encode_mat_to_tvsdk_image(targetMat, stTarget)) {
+                        stContext.stTargetImage = std::move(stTarget);
+                    }
+                }
+            }
+        }
+        m_NonMotorVehicleIntrusionAlarmStateMachine.handleAlarmState(stGroup2OutData.bNonMotorVehicleIntrusionFlag, stContext);
+#else
         m_NonMotorVehicleIntrusionAlarmStateMachine.handleAlarmState(stGroup2OutData.bNonMotorVehicleIntrusionFlag, Event::Type_E::NON_MOTOR_VEHICLE_INTRUSION);
+#endif
     }
 
     if (m_stDrivingAgainstTrafficDetectionCfg.bEnable)
     {
+    /* 上报事件 */
+#ifdef ENABLE_TVSDK_SRC
+        EventTriggerContext_S stContext;
+        stContext.enEventType = Event::Type_E::REVERSE_DIRECTION;
+        stContext.nChnId = m_nChannelId;
+        stContext.llTimestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
+                                   std::chrono::system_clock::now().time_since_epoch())
+                                   .count();
+        if (!m_fullRgbMat.empty())
+        {
+            auto pPayload = std::make_shared<EventTvSdkPayload_S>();
+            pPayload->enType = get_tvsdk_payload_type(stContext.enEventType);
+            if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage))
+            {
+                stContext.pTvSdkPayload = pPayload;
+            }
+            if (!vecResult.empty())
+            {
+                const auto& result = vecResult[0];
+                int nX1 = static_cast<int>(result.fX1);
+                int nY1 = static_cast<int>(result.fY1);
+                int nX2 = static_cast<int>(result.fX2);
+                int nY2 = static_cast<int>(result.fY2);
+                stContext.nLeft = nX1;
+                stContext.nTop = nY1;
+                stContext.nRight = nX2;
+                stContext.nBottom = nY2;
+                stContext.nObjectType = (result.nID == 0) ? 1 : (result.nID == 1) ? 2 : 3;
+                stContext.fConfidence = result.fBoxConfidence;
+                if (nX1 >= 0 && nY1 >= 0 && nX2 > nX1 && nY2 > nY1
+                    && nX2 <= m_fullRgbMat.cols && nY2 <= m_fullRgbMat.rows) {
+                    cv::Rect roi(nX1, nY1, nX2 - nX1, nY2 - nY1);
+                    cv::Mat targetMat = m_fullRgbMat(roi).clone();
+                    EventTvSdkImage_S stTarget;
+                    if (encode_mat_to_tvsdk_image(targetMat, stTarget)) {
+                        stContext.stTargetImage = std::move(stTarget);
+                    }
+                }
+            }
+        }
+        m_DrivingAgainstTrafficStateMachine.handleAlarmState(stGroup2OutData.bDrivingAgainstTrafficFlag, stContext);
+#else
         m_DrivingAgainstTrafficStateMachine.handleAlarmState(stGroup2OutData.bDrivingAgainstTrafficFlag, Event::Type_E::REVERSE_DIRECTION);
+#endif
     }
     if (m_stAlgoParkingDetectionCfg.bEnable)
     {
+    /* 上报事件 */
+#ifdef ENABLE_TVSDK_SRC
+        EventTriggerContext_S stContext;
+        stContext.enEventType = Event::Type_E::PARKING_DETECT;
+        stContext.nChnId = m_nChannelId;
+        stContext.llTimestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
+                                   std::chrono::system_clock::now().time_since_epoch())
+                                   .count();
+        if (!m_fullRgbMat.empty())
+        {
+            auto pPayload = std::make_shared<EventTvSdkPayload_S>();
+            pPayload->enType = get_tvsdk_payload_type(stContext.enEventType);
+            if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage))
+            {
+                stContext.pTvSdkPayload = pPayload;
+            }
+            if (!vecResult.empty())
+            {
+                const auto& result = vecResult[0];
+                int nX1 = static_cast<int>(result.fX1);
+                int nY1 = static_cast<int>(result.fY1);
+                int nX2 = static_cast<int>(result.fX2);
+                int nY2 = static_cast<int>(result.fY2);
+                stContext.nLeft = nX1;
+                stContext.nTop = nY1;
+                stContext.nRight = nX2;
+                stContext.nBottom = nY2;
+                stContext.nObjectType = (result.nID == 0) ? 1 : (result.nID == 1) ? 2 : 3;
+                stContext.fConfidence = result.fBoxConfidence;
+                if (nX1 >= 0 && nY1 >= 0 && nX2 > nX1 && nY2 > nY1
+                    && nX2 <= m_fullRgbMat.cols && nY2 <= m_fullRgbMat.rows) {
+                    cv::Rect roi(nX1, nY1, nX2 - nX1, nY2 - nY1);
+                    cv::Mat targetMat = m_fullRgbMat(roi).clone();
+                    EventTvSdkImage_S stTarget;
+                    if (encode_mat_to_tvsdk_image(targetMat, stTarget)) {
+                        stContext.stTargetImage = std::move(stTarget);
+                    }
+                }
+            }
+        }
+        m_IllegalParkingStateMachine.handleAlarmState(stGroup2OutData.bParkingFlag, stContext);
+#else
         m_IllegalParkingStateMachine.handleAlarmState(stGroup2OutData.bParkingFlag, Event::Type_E::PARKING_DETECT);
+#endif
     }
     if (m_stAlgoIllegalLaneChangeDetectionCfg.bEnable)
     {
+    /* 上报事件 */
+#ifdef ENABLE_TVSDK_SRC
+        EventTriggerContext_S stContext;
+        stContext.enEventType = Event::Type_E::ILLEGAL_LANE_CHANGE;
+        stContext.nChnId = m_nChannelId;
+        stContext.llTimestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
+                                   std::chrono::system_clock::now().time_since_epoch())
+                                   .count();
+        if (!m_fullRgbMat.empty())
+        {
+            auto pPayload = std::make_shared<EventTvSdkPayload_S>();
+            pPayload->enType = get_tvsdk_payload_type(stContext.enEventType);
+            if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage))
+            {
+                stContext.pTvSdkPayload = pPayload;
+            }
+            if (!vecResult.empty())
+            {
+                const auto& result = vecResult[0];
+                int nX1 = static_cast<int>(result.fX1);
+                int nY1 = static_cast<int>(result.fY1);
+                int nX2 = static_cast<int>(result.fX2);
+                int nY2 = static_cast<int>(result.fY2);
+                stContext.nLeft = nX1;
+                stContext.nTop = nY1;
+                stContext.nRight = nX2;
+                stContext.nBottom = nY2;
+                stContext.nObjectType = (result.nID == 0) ? 1 : (result.nID == 1) ? 2 : 3;
+                stContext.fConfidence = result.fBoxConfidence;
+                if (nX1 >= 0 && nY1 >= 0 && nX2 > nX1 && nY2 > nY1
+                    && nX2 <= m_fullRgbMat.cols && nY2 <= m_fullRgbMat.rows) {
+                    cv::Rect roi(nX1, nY1, nX2 - nX1, nY2 - nY1);
+                    cv::Mat targetMat = m_fullRgbMat(roi).clone();
+                    EventTvSdkImage_S stTarget;
+                    if (encode_mat_to_tvsdk_image(targetMat, stTarget)) {
+                        stContext.stTargetImage = std::move(stTarget);
+                    }
+                }
+            }
+        }
+        m_IllegalLaneChangeStateMachine.handleAlarmState(stGroup2OutData.bIllegalLaneChangeFlag, stContext);
+#else
         m_IllegalLaneChangeStateMachine.handleAlarmState(stGroup2OutData.bIllegalLaneChangeFlag, Event::Type_E::ILLEGAL_LANE_CHANGE);
+#endif
     }
     if (m_stAlgoCongestionDetectionCfg.bEnable)
     {
+    /* 上报事件 */
+#ifdef ENABLE_TVSDK_SRC
+        EventTriggerContext_S stContext;
+        stContext.enEventType = Event::Type_E::CONGESTION;
+        stContext.nChnId = m_nChannelId;
+        stContext.llTimestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
+                                   std::chrono::system_clock::now().time_since_epoch())
+                                   .count();
+        if (!m_fullRgbMat.empty())
+        {
+            auto pPayload = std::make_shared<EventTvSdkPayload_S>();
+            pPayload->enType = get_tvsdk_payload_type(stContext.enEventType);
+            if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage))
+            {
+                stContext.pTvSdkPayload = pPayload;
+            }
+            if (!vecResult.empty())
+            {
+                const auto& result = vecResult[0];
+                int nX1 = static_cast<int>(result.fX1);
+                int nY1 = static_cast<int>(result.fY1);
+                int nX2 = static_cast<int>(result.fX2);
+                int nY2 = static_cast<int>(result.fY2);
+                stContext.nLeft = nX1;
+                stContext.nTop = nY1;
+                stContext.nRight = nX2;
+                stContext.nBottom = nY2;
+                stContext.nObjectType = 2;
+                stContext.fConfidence = result.fBoxConfidence;
+                if (nX1 >= 0 && nY1 >= 0 && nX2 > nX1 && nY2 > nY1
+                    && nX2 <= m_fullRgbMat.cols && nY2 <= m_fullRgbMat.rows) {
+                    cv::Rect roi(nX1, nY1, nX2 - nX1, nY2 - nY1);
+                    cv::Mat targetMat = m_fullRgbMat(roi).clone();
+                    EventTvSdkImage_S stTarget;
+                    if (encode_mat_to_tvsdk_image(targetMat, stTarget)) {
+                        stContext.stTargetImage = std::move(stTarget);
+                    }
+                }
+            }
+            stContext.nObjectType = 2; // 2表示车（拥堵为帧级事件，无单个目标框）
+        }
+        m_CongestionStateMachine.handleAlarmState(stGroup2OutData.bCongestionFlag, stContext);
+#else
         m_CongestionStateMachine.handleAlarmState(stGroup2OutData.bCongestionFlag, Event::Type_E::CONGESTION);
+#endif
     }
 
     return;
@@ -2663,14 +3657,14 @@ int CGroup2_Group4Detect::dynamicAnalysis(const std::vector<Group4Detect_NS::Res
 {
     std::vector<Common::RectInfo_S> vstRectInfo;
 
-    float fWRatio = static_cast<float>(m_nWidth) / PIXEL_WIDTH_1280;
-    float fHRatio = static_cast<float>(m_nHeight) / PIXEL_HEIGHT_720;
+    float fWRatio = static_cast<float>(m_nWidth) / m_nAiChnWith;
+    float fHRatio = static_cast<float>(m_nHeight) / m_nAiChnHeigh;
 
     for (auto &stResult : vecResult)
     {
         Common::RectInfo_S stRectInfo;
-        stRectInfo.nX1 = (int)stResult.fX1 * fWRatio;
-        stRectInfo.nY1 = (int)stResult.fY1 * fHRatio;
+        stRectInfo.nX1 = (int)(stResult.fX1 * fWRatio);
+        stRectInfo.nY1 = (int)(stResult.fY1 * fHRatio);
         stRectInfo.nX2 = (int)(stResult.fX2 * fWRatio);
         stRectInfo.nY2 = (int)(stResult.fY2 * fHRatio);
         vstRectInfo.push_back(stRectInfo);
@@ -2686,16 +3680,16 @@ int CGroup2_Group4Detect::dynamicAnalysis(const std::vector<LicensePlateCognitio
 {
     std::vector<Common::RectInfo_S> vstRectInfo;
 
-    float fWRatio = static_cast<float>(m_nWidth) / PIXEL_WIDTH_1280;
-    float fHRatio = static_cast<float>(m_nHeight) / PIXEL_HEIGHT_720;
+    float fWRatio = static_cast<float>(m_nWidth) / m_nAiChnWith;
+    float fHRatio = static_cast<float>(m_nHeight) / m_nAiChnHeigh;
 
     for (auto &stResult : vecResult)
     {
         Common::RectInfo_S stRectInfo;
-        stRectInfo.nX1 = (int)stResult.fX * fWRatio;
-        stRectInfo.nY1 = (int)stResult.fY * fHRatio;
-        stRectInfo.nX2 = (int)(stResult.fX + stResult.fWidth) * fWRatio;
-        stRectInfo.nY2 = (int)(stResult.fY + stResult.fHeight) * fHRatio;
+        stRectInfo.nX1 = (int)(stResult.fX * fWRatio);
+        stRectInfo.nY1 = (int)(stResult.fY * fHRatio);
+        stRectInfo.nX2 = (int)((stResult.fX + stResult.fWidth) * fWRatio);
+        stRectInfo.nY2 = (int)((stResult.fY + stResult.fHeight) * fHRatio);
         vstRectInfo.push_back(stRectInfo);
     }
     if (vstRectInfo.size())
@@ -2843,7 +3837,7 @@ std::string CGroup2_Group4Detect::saveCropImage(cv::Mat image, Common::Rect_S st
     }
 }
 
-void CGroup2_Group4Detect::pushPersonCaptureInfo(const std::string &strCurrentPicture, const std::string &strPersonPicture, const PresonAttribute_NS::Result_S &stResult)
+static Alarm::PersonAlarmInfo_S buildPersonAlarmInfo(const PresonAttribute_NS::Result_S &stResult)
 {
     Alarm::PersonAlarmInfo_S stPersonAlarmInfo;
 
@@ -2927,6 +3921,13 @@ void CGroup2_Group4Detect::pushPersonCaptureInfo(const std::string &strCurrentPi
         break;
     }
 
+    return stPersonAlarmInfo;
+}
+
+void CGroup2_Group4Detect::pushPersonCaptureInfo(const std::string &strCurrentPicture, const std::string &strPersonPicture, const PresonAttribute_NS::Result_S &stResult)
+{
+    Alarm::PersonAlarmInfo_S stPersonAlarmInfo = buildPersonAlarmInfo(stResult);
+
     stPersonAlarmInfo.strPersonPicture  = strPersonPicture;
     stPersonAlarmInfo.strCurrentPicture = strCurrentPicture;
     if (SD_CARD_STATUS_E::NORMAL == CStorageManage::instance()->get_SdCardStatus())
@@ -2948,7 +3949,7 @@ void CGroup2_Group4Detect::pushPersonCaptureInfo(const std::string &strCurrentPi
     return;
 }
 
-void CGroup2_Group4Detect::pushMotorvehicleCaptureInfo(const std::string &strCurrentPicture, const std::string &strTargetPicture, const std::string &strLicensePlateNumber, const VehicleAttribute_NS::Result_S &stResult)
+static Alarm::MotorvehicleAlarmInfo_S buildMotorvehicleAlarmInfo(const VehicleAttribute_NS::Result_S &stResult, const std::string &strLicensePlateNumber)
 {
     Alarm::MotorvehicleAlarmInfo_S stMotorVehicleAlarmInfo;
 
@@ -3026,9 +4027,16 @@ void CGroup2_Group4Detect::pushMotorvehicleCaptureInfo(const std::string &strCur
     auto brand = static_cast<VehicleAttribute_NS::CVehicleAttributeV2_0::VehicleBrand>(stResult.nVehicleBrand);
 
     stMotorVehicleAlarmInfo.stMotorvehicleAlarmAttribute.strVehicleBrand = VehicleBrandToString(brand);
-    // printf("车辆品牌: %d - %s\n", stResult.nVehicleBrand, stMotorVehicleAlarmInfo.stMotorvehicleAlarmAttribute.strVehicleBrand.c_str());
 
     stMotorVehicleAlarmInfo.strLicensePlateNumber = strLicensePlateNumber;
+
+    return stMotorVehicleAlarmInfo;
+}
+
+void CGroup2_Group4Detect::pushMotorvehicleCaptureInfo(const std::string &strCurrentPicture, const std::string &strTargetPicture, const std::string &strLicensePlateNumber, const VehicleAttribute_NS::Result_S &stResult)
+{
+    Alarm::MotorvehicleAlarmInfo_S stMotorVehicleAlarmInfo = buildMotorvehicleAlarmInfo(stResult, strLicensePlateNumber);
+
     stMotorVehicleAlarmInfo.strTargetPicture      = strTargetPicture;
     stMotorVehicleAlarmInfo.strCurrentPicture     = strCurrentPicture;
     if (SD_CARD_STATUS_E::NORMAL == CStorageManage::instance()->get_SdCardStatus())
@@ -3051,7 +4059,7 @@ void CGroup2_Group4Detect::pushMotorvehicleCaptureInfo(const std::string &strCur
     return;
 }
 
-void CGroup2_Group4Detect::pushNonMotorvehicleCaptureInfo(const std::string &strCurrentPicture, const std::string &strTargetPicture, const NonMotorizedAttribute_NS::Result_S &stResult)
+static Alarm::NonMotorvehicleAlarmInfo_S buildNonMotorvehicleAlarmInfo(const NonMotorizedAttribute_NS::Result_S &stResult)
 {
     Alarm::NonMotorvehicleAlarmInfo_S stNonMotorvehicleAlarmInfo;
 
@@ -3111,6 +4119,13 @@ void CGroup2_Group4Detect::pushNonMotorvehicleCaptureInfo(const std::string &str
         break;
     }
 
+    return stNonMotorvehicleAlarmInfo;
+}
+
+void CGroup2_Group4Detect::pushNonMotorvehicleCaptureInfo(const std::string &strCurrentPicture, const std::string &strTargetPicture, const NonMotorizedAttribute_NS::Result_S &stResult)
+{
+    Alarm::NonMotorvehicleAlarmInfo_S stNonMotorvehicleAlarmInfo = buildNonMotorvehicleAlarmInfo(stResult);
+
     stNonMotorvehicleAlarmInfo.strTargetPicture  = strTargetPicture;
     stNonMotorvehicleAlarmInfo.strCurrentPicture = strCurrentPicture;
     if (SD_CARD_STATUS_E::NORMAL == CStorageManage::instance()->get_SdCardStatus())
@@ -3132,6 +4147,145 @@ void CGroup2_Group4Detect::pushNonMotorvehicleCaptureInfo(const std::string &str
 
     return;
 }
+
+#ifdef ENABLE_TVSDK_SRC
+static cv::Mat cropRectSafe(const cv::Mat &src, const Common::Rect_S &stRect)
+{
+    if (src.empty())
+    {
+        return cv::Mat();
+    }
+    cv::Rect roi(stRect.nX, stRect.nY, stRect.nWidth, stRect.nHeight);
+    roi &= cv::Rect(0, 0, src.cols, src.rows);
+    if (roi.width <= 0 || roi.height <= 0)
+    {
+        return cv::Mat();
+    }
+    return src(roi).clone();
+}
+
+static bool copy_tvsdk_image_data(const EventTvSdkImage_S &stImage, BYTE *pDst, UINT32 &uDstLen, size_t nMaxLen)
+{
+    uDstLen = 0;
+    if (stImage.vecJpeg.empty())
+    {
+        return true;
+    }
+    if (stImage.vecJpeg.size() > nMaxLen)
+    {
+        return false;
+    }
+    std::memcpy(pDst, stImage.vecJpeg.data(), stImage.vecJpeg.size());
+    uDstLen = static_cast<UINT32>(stImage.vecJpeg.size());
+    return true;
+}
+
+static bool encode_capture_image(const cv::Mat &mat, bool bInputRgb, BYTE *pDst, UINT32 &uDstLen, size_t nMaxLen)
+{
+    EventTvSdkImage_S stImage;
+    if (mat.empty() || !encode_mat_to_tvsdk_image(mat, stImage, 85, bInputRgb))
+    {
+        return false;
+    }
+    return copy_tvsdk_image_data(stImage, pDst, uDstLen, nMaxLen);
+}
+
+void CGroup2_Group4Detect::pushPersonCaptureInfoToTvSdk(const cv::Mat &srcData, const Common::Rect_S &stRect, const PresonAttribute_NS::Result_S &stResult)
+{
+    NET_PersonCapturePushInfo_S stInfo;
+    std::memset(&stInfo, 0, sizeof(stInfo));
+
+    Alarm::PersonAlarmInfo_S stAlarmInfo = buildPersonAlarmInfo(stResult);
+    stAlarmInfo.strTimeStamp = TimeUtils_NS::get_currentDateAndTimeNoT();
+    TvSdkConvert::FillPersonCapturePushInfo(stAlarmInfo, stInfo);
+
+    if (!encode_capture_image(srcData, true, stInfo.byPanoramaImg, stInfo.uPanoramaImgLen, sizeof(stInfo.byPanoramaImg)))
+    {
+        dlog_warn("TVSDK行人抓拍全景图编码失败或超上限");
+        return;
+    }
+    cv::Mat targetMat = cropRectSafe(srcData, stRect);
+    if (!encode_capture_image(targetMat, true, stInfo.byPersonImg, stInfo.uPersonImgLen, sizeof(stInfo.byPersonImg)))
+    {
+        dlog_warn("TVSDK行人抓拍特写图编码失败或超上限");
+        return;
+    }
+
+    int nRet = ControlManage::instance()->tvsdk_push_alarm(NET_PUSH_PERSON_CAPTURE_INFO, &stInfo, sizeof(stInfo));
+    if (nRet < 0)
+    {
+        dlog_warn("TVSDK推送行人抓拍失败: ret[%d]", nRet);
+    }
+    else
+    {
+        dlog_info("TVSDK推送行人抓拍成功: cmd[%d] person[%u] panorama[%u]", NET_PUSH_PERSON_CAPTURE_INFO, stInfo.uPersonImgLen, stInfo.uPanoramaImgLen);
+    }
+}
+
+void CGroup2_Group4Detect::pushMotorvehicleCaptureInfoToTvSdk(const cv::Mat &srcData, const Common::Rect_S &stRect, const std::string &strLicensePlateNumber, const VehicleAttribute_NS::Result_S &stResult)
+{
+    NET_MotorvehicleCapturePushInfo_S stInfo;
+    std::memset(&stInfo, 0, sizeof(stInfo));
+
+    Alarm::MotorvehicleAlarmInfo_S stAlarmInfo = buildMotorvehicleAlarmInfo(stResult, strLicensePlateNumber);
+    stAlarmInfo.strTimeStamp = TimeUtils_NS::get_currentDateAndTimeNoT();
+    TvSdkConvert::FillMotorvehicleCapturePushInfo(stAlarmInfo, stInfo);
+
+    if (!encode_capture_image(srcData, true, stInfo.byPanoramaImg, stInfo.uPanoramaImgLen, sizeof(stInfo.byPanoramaImg)))
+    {
+        dlog_warn("TVSDK机动车抓拍全景图编码失败或超上限");
+        return;
+    }
+    cv::Mat targetMat = cropRectSafe(srcData, stRect);
+    if (!encode_capture_image(targetMat, true, stInfo.byTargetImg, stInfo.uTargetImgLen, sizeof(stInfo.byTargetImg)))
+    {
+        dlog_warn("TVSDK机动车抓拍特写图编码失败或超上限");
+        return;
+    }
+
+    int nRet = ControlManage::instance()->tvsdk_push_alarm(NET_PUSH_MOTORVEHICLE_CAPTURE_INFO, &stInfo, sizeof(stInfo));
+    if (nRet < 0)
+    {
+        dlog_warn("TVSDK推送机动车抓拍失败: ret[%d]", nRet);
+    }
+    else
+    {
+        dlog_info("TVSDK推送机动车抓拍成功: cmd[%d] target[%u] panorama[%u]", NET_PUSH_MOTORVEHICLE_CAPTURE_INFO, stInfo.uTargetImgLen, stInfo.uPanoramaImgLen);
+    }
+}
+
+void CGroup2_Group4Detect::pushNonMotorvehicleCaptureInfoToTvSdk(const cv::Mat &srcData, const Common::Rect_S &stRect, const NonMotorizedAttribute_NS::Result_S &stResult)
+{
+    NET_NonMotorvehicleCapturePushInfo_S stInfo;
+    std::memset(&stInfo, 0, sizeof(stInfo));
+
+    Alarm::NonMotorvehicleAlarmInfo_S stAlarmInfo = buildNonMotorvehicleAlarmInfo(stResult);
+    stAlarmInfo.strTimeStamp = TimeUtils_NS::get_currentDateAndTimeNoT();
+    TvSdkConvert::FillNonMotorvehicleCapturePushInfo(stAlarmInfo, stInfo);
+
+    if (!encode_capture_image(srcData, true, stInfo.byPanoramaImg, stInfo.uPanoramaImgLen, sizeof(stInfo.byPanoramaImg)))
+    {
+        dlog_warn("TVSDK非机动车抓拍全景图编码失败或超上限");
+        return;
+    }
+    cv::Mat targetMat = cropRectSafe(srcData, stRect);
+    if (!encode_capture_image(targetMat, true, stInfo.byTargetImg, stInfo.uTargetImgLen, sizeof(stInfo.byTargetImg)))
+    {
+        dlog_warn("TVSDK非机动车抓拍特写图编码失败或超上限");
+        return;
+    }
+
+    int nRet = ControlManage::instance()->tvsdk_push_alarm(NET_PUSH_NONMOTORVEHICLE_CAPTURE_INFO, &stInfo, sizeof(stInfo));
+    if (nRet < 0)
+    {
+        dlog_warn("TVSDK推送非机动车抓拍失败: ret[%d]", nRet);
+    }
+    else
+    {
+        dlog_info("TVSDK推送非机动车抓拍成功: cmd[%d] target[%u] panorama[%u]", NET_PUSH_NONMOTORVEHICLE_CAPTURE_INFO, stInfo.uTargetImgLen, stInfo.uPanoramaImgLen);
+    }
+}
+#endif
 
 void CGroup2_Group4Detect::convertBoundaryAndEnable(Alarm::BoundaryDetection_S &stConfig)
 {

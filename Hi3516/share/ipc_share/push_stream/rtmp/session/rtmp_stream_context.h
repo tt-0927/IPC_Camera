@@ -3,13 +3,14 @@
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2026-05-13 08:55:30
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-05-13 09:37:12
+ * @LastEditTime : 2026-07-29 09:10:43
  * @Description  : RTMP FFmpeg流上下文封装
  */
 
 #pragma once
 
 #include <cstdint>
+#include <atomic>
 #include <string>
 #include <vector>
 
@@ -43,7 +44,7 @@ public:
      * @param strUrl RTMP推流地址
      * @return OK：成功，ERR：失败
      */
-    int open(const std::string& strUrl);
+    int open(const std::string &strUrl);
 
     /**
      * @brief 关闭RTMP IO并释放FFmpeg上下文
@@ -65,7 +66,7 @@ public:
                             int nWidth,
                             int nHeight,
                             int nFrameRate,
-                            const std::vector<uint8_t>& vExtradata,
+                            const std::vector<uint8_t> &vExtradata,
                             int nChannel);
 
     /**
@@ -76,7 +77,7 @@ public:
      * @param nChannel 通道号，仅用于日志
      * @return OK：成功，ERR：失败
      */
-    int create_audio_stream(int nSampleRate, int nChannels, const std::vector<uint8_t>& vExtradata, int nChannel);
+    int create_audio_stream(int nSampleRate, int nChannels, const std::vector<uint8_t> &vExtradata, int nChannel);
 
     /**
      * @brief 写入FLV header
@@ -91,7 +92,7 @@ public:
      * @param pPacket FFmpeg包
      * @return OK：成功，ERR：失败
      */
-    int write_frame(AVPacket* pPacket);
+    int write_frame(AVPacket *pPacket);
 
     /**
      * @brief 刷新FFmpeg内部缓冲区
@@ -99,22 +100,54 @@ public:
     void flush();
 
     /**
+     * @brief   : 请求中断正在进行的FFmpeg网络IO
+     * @return   {void}
+     * @note    : 会话退出时先请求中断，再等待发送线程退出，禁止detach后释放上下文
+     */
+    void request_interrupt();
+
+    /**
+     * @brief   : 清除IO中断请求
+     * @return   {void}
+     * @note    : 仅在新建连接前调用
+     */
+    void reset_interrupt();
+
+    /**
+     * @brief   : 查询是否已请求中断FFmpeg网络IO
+     * @return   {bool} true：应中断，false：可继续
+     */
+    bool is_interrupt_requested() const
+    {
+        return m_bInterruptRequested.load();
+    }
+
+    /**
      * @brief 获取上下文是否已打开
      * @return true已打开，false未打开
      */
-    bool is_open() const { return m_pFormatCtx != nullptr; }
+    bool is_open() const
+    {
+        return m_pFormatCtx != nullptr;
+    }
 
     /**
      * @brief 获取视频流索引
      * @return 视频流索引
      */
-    int video_stream_index() const { return m_nVideoStreamIndex; }
+    int video_stream_index() const
+    {
+        return m_nVideoStreamIndex;
+    }
 
     /**
      * @brief 获取音频流索引
      * @return 音频流索引
      */
-    int audio_stream_index() const { return m_nAudioStreamIndex; }
+    int audio_stream_index() const
+    {
+        return m_nAudioStreamIndex;
+    }
 
     /**
      * @brief 获取视频流time_base
@@ -157,19 +190,21 @@ private:
      * @param vExtradata extradata内容
      * @return OK：成功，ERR：失败
      */
-    int set_codec_extradata(AVCodecParameters* pCodecpar, const std::vector<uint8_t>& vExtradata);
+    int set_codec_extradata(AVCodecParameters *pCodecpar, const std::vector<uint8_t> &vExtradata);
 
 private:
     /* FFmpeg输出上下文 */
-    AVFormatContext* m_pFormatCtx = nullptr;
+    AVFormatContext *m_pFormatCtx = nullptr;
     /* 视频流索引 */
     int m_nVideoStreamIndex = -1;
     /* 音频流索引 */
     int m_nAudioStreamIndex = -1;
     /* 超时时间（秒） */
     int m_nTimeoutSec = 5;
+    /* ! 中断回调与控制线程并发访问，必须使用原子标志 */
+    std::atomic<bool> m_bInterruptRequested{ false };
 
     /* 禁止拷贝 */
-    CRtmpStreamContext(const CRtmpStreamContext&) = delete;
-    CRtmpStreamContext& operator=(const CRtmpStreamContext&) = delete;
+    CRtmpStreamContext(const CRtmpStreamContext &) = delete;
+    CRtmpStreamContext &operator=(const CRtmpStreamContext &) = delete;
 };

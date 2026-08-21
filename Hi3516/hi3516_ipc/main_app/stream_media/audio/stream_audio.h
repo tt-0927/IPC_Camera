@@ -3,7 +3,7 @@
  * @Author       : zhouzirui
  * @Date         : 2025-03-31 15:31:49
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-06-03 16:10:40
+ * @LastEditTime : 2026-07-27 08:58:38
  * @Description  : 流媒体音频模块头文件
  */
 
@@ -37,7 +37,7 @@ extern "C"
 #include "audio_processing.h"
 }
 
-class CStreamAudio
+class CStreamAudio : public IAVAudioConfigApplier
 {
 private:
     CStreamAudio();
@@ -102,6 +102,13 @@ public:
     int setAudioConfig(const Audio_NS::AudioConfig_S &stAudioConfig);
 
     /**
+     * @brief   : 应用音频配置
+     * @param    {Audio_NS::AudioConfig_S} &stConfig：音频配置
+     * @return   {int} 0：成功，非0：失败
+     */
+    int apply_audio_config(const Audio_NS::AudioConfig_S &stConfig) override;
+
+    /**
      * @brief   : 设置音频输出采样率
      * @param    {Audio_NS::AudioSamprate_E} enSampRate：音频采样率
      * @return   {int} 0：成功，非0：失败
@@ -163,10 +170,10 @@ private:
     Audio_NS::AudioFrame_S *createFrame(uint8_t *pData, int nDataLen);
 
     /**
-     * @brief       : 销毁音频帧包（不释放内部 pData）
+     * @brief       : 销毁由 createFrame 创建的连续音频帧包
      * @author      : zhouzirui
      * @param        {AudioFrame_S} *pAudioFrame：待释放的音频帧数据指针
-     * @return       {*}
+     * @return       {void}
      */
     void freeFrame(Audio_NS::AudioFrame_S *pAudioFrame);
 

@@ -3,7 +3,7 @@
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2025-06-09 11:04:21
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2025-07-21 15:07:23
+ * @LastEditTime : 2026-07-01 14:44:05
  * @Description  : 算法基类
  */
 
@@ -22,9 +22,19 @@
 #include "execution_timer.hpp"
 #include "StatisticsTimer.hpp"
 #include "event_linkage.h"
+#include "event_tvsdk_payload.h"
+#include <opencv2/opencv.hpp>
+#include "common_process.h"
 
 /* 事件结束事件阈值 x秒 （事件触发后，超过阈值时间未再次触发事件，则视为事件结束） */
 #define EVENT_END_TIME_THRESHOLD (3)
+/* 事件两次开始之间的最小间隔（秒），默认10秒 */
+#define EVENT_MIN_TRIGGER_INTERVAL_SECONDS (10)
+/* 事件冷却期时长（秒），需扣除结束判定阈值，保证整体触发间隔约为10秒 */
+#define EVENT_COOLDOWN_SECONDS                                                                                      \
+    ((EVENT_MIN_TRIGGER_INTERVAL_SECONDS > EVENT_END_TIME_THRESHOLD) ?                                               \
+         (EVENT_MIN_TRIGGER_INTERVAL_SECONDS - EVENT_END_TIME_THRESHOLD) :                                           \
+          0)
 
 /* 算法基类 */
 class CAlgorithm
@@ -145,17 +155,46 @@ private:
 class CAlarmStateMachine
 {
 public:
-    CAlarmStateMachine() = default;
+    /**
+     * @brief   : 构造函数
+     * @param    {int} nCooldownSeconds 冷却期时长（秒）
+     */
+    explicit CAlarmStateMachine(int nCooldownSeconds = EVENT_COOLDOWN_SECONDS) : m_nCooldownSeconds(nCooldownSeconds)
+    {
+    }
     ~CAlarmStateMachine() = default;
+ 
+    /**
+     * @brief   : 处理报警状态，兼容旧事件类型入口
+     * @param    {bool} bAlarm：是否满足报警条件
+     * @param    {Event::Type_E} enEventType：事件类型
+     * @return   {bool} true：报警状态活跃 false：报警状态未激活
+     * @note    : 内部会构造默认 EventTriggerContext_S，并统一走新的上下文联动接口
+     */
+    bool handleAlarmState(bool bAlarm, Event::Type_E enEventType)
+    {
+        /* 默认事件触发上下文，仅携带旧接口已有的事件类型 */
+        EventTriggerContext_S stContext;
+        stContext.enEventType = enEventType;
+        return handleAlarmState(bAlarm, stContext);
+    }
 
     /**
-     * @brief   : 处理报警状态，进行事件触发
-     * @param    {bool} bAlarm 是否报警
-     * @param    {Type_E} enEventType 事件类型
+     * @brief   : 处理报警状态，使用新事件触发上下文进行联动
+     * @param    {bool} bAlarm：是否满足报警条件
+     * @param    {EventTriggerContext_S} &stContext：事件触发上下文
+     * @return   {bool} true：报警状态活跃 false：报警状态未激活
+     * @note    : 事件开始和结束都会调用 CEventLinkage::handleEvent(const EventTriggerContext_S &)
      */
-    void handleAlarmState(bool bAlarm, Event::Type_E enEventType)
+    bool handleAlarmState(bool bAlarm, const EventTriggerContext_S &stContext)
     {
-        /* 全局告警状态机逻辑 */
+        if (stContext.enEventType == Event::Type_E::UNKNOWN)
+        {
+            dlog_warn("报警状态机收到未知事件类型，忽略本次状态处理");
+            return m_bIsAlarmActive;
+        }
+
+        /* 当前单调时钟时间点，用于状态机内部冷却与结束阈值判断 */
         auto now = std::chrono::steady_clock::now();
 
         if (bAlarm)
@@ -163,15 +202,46 @@ public:
             /* 条件满足，检查是否是新事件 */
             if (!m_bIsAlarmActive)
             {
-                dlog_info("事件[%d]开始", enEventType);
-                /* 发送事件开始消息 */
-                CEventLinkage::instance()->handleEvent(enEventType, false);
+                /* 检查是否在冷却期内 */
+                if (m_bInCooldown)
+                {
+                    const auto cooldownElapsed = std::chrono::duration_cast<std::chrono::seconds>(now - m_lastAlarmEndTimestamp);
+
+                    if (cooldownElapsed.count() < m_nCooldownSeconds)
+                    {
+                        /* 在冷却期内，不允许开始新事件 */
+                        dlog_info("事件[%d]在冷却期内，剩余时间：%d秒",
+                                  static_cast<int>(stContext.enEventType),
+                                  static_cast<int>(m_nCooldownSeconds - cooldownElapsed.count()));
+                        return false;
+                    }
+                    else
+                    {
+                        /* 冷却期已过 */
+                        m_bInCooldown = false;
+                    }
+                }
+
+                /* 事件开始上下文，强制设置为开始阶段，避免调用方误传结束标记 */
+                EventTriggerContext_S stStartContext = stContext;
+                stStartContext.bEventEnded = false;
+
+                dlog_info("事件[%d]开始", static_cast<int>(stStartContext.enEventType));
+                /* 使用新的上下文联动入口，支持通道、规则和扩展属性匹配 */
+                CEventLinkage::instance()->handleEvent(stStartContext);
+
+                /* 缓存最近一次激活上下文，结束事件需要复用同一事件属性 */
+                m_stActiveContext = build_active_context_cache(stStartContext);
                 m_bIsAlarmActive = true;
             }
             else
             {
                 /* 事件持续中，不做任何操作 */
-                dlog_info("事件[%d]持续中", enEventType);
+                dlog_info("事件[%d]持续中", static_cast<int>(stContext.enEventType));
+
+                /* 持续报警阶段刷新上下文，确保结束事件能拿到最新摘要属性 */
+                m_stActiveContext = build_active_context_cache(stContext);
+                m_stActiveContext.bEventEnded = false;
             }
             /* 更新最后满足条件的时间戳 */
             m_lastAlarmTimestamp = now;
@@ -185,18 +255,166 @@ public:
                 /* 如果距离上一次满足条件已超过阈值，则判定事件结束 */
                 if (elapsed.count() >= EVENT_END_TIME_THRESHOLD)
                 {
-                    dlog_info("事件[%d]结束", enEventType);
-                    /* 发送事件结束消息 */
-                    CEventLinkage::instance()->handleEvent(enEventType, true);
+                    /* 事件结束上下文优先复用激活上下文，保证联动规则属性前后一致 */
+                    EventTriggerContext_S stEndContext = m_stActiveContext;
+                    if (stEndContext.enEventType == Event::Type_E::UNKNOWN)
+                    {
+                        stEndContext = stContext;
+                    }
+                    stEndContext.bEventEnded = true;
+                    if (stContext.llTimestamp > 0)
+                    {
+                        /* 结束事件使用当前处理帧时间，避免沿用开始阶段时间戳 */
+                        stEndContext.llTimestamp = stContext.llTimestamp;
+                    }
+
+                    dlog_info("事件[%d]结束", static_cast<int>(stEndContext.enEventType));
+                    /* 使用新的上下文联动入口，结束阶段也保留属性匹配能力 */
+                    CEventLinkage::instance()->handleEvent(stEndContext);
                     m_bIsAlarmActive = false;
+
+                    /* 进入冷却期 */
+                    m_bInCooldown = true;
+                    m_lastAlarmEndTimestamp = now;
+                    m_stActiveContext = EventTriggerContext_S();
                 }
             }
         }
+        return m_bIsAlarmActive;
+    }
+
+    /**
+     * @brief   : 强制立即结束当前报警状态，兼容旧事件类型入口
+     * @param    {Event::Type_E} enEventType：事件类型
+     * @return   {bool} 是否成功结束
+     * @note    : 内部会构造默认 EventTriggerContext_S，并统一走新的上下文联动接口
+     */
+    bool endAlarmImmediately(Event::Type_E enEventType)
+    {
+        /* 默认事件触发上下文，仅携带旧接口已有的事件类型 */
+        EventTriggerContext_S stContext;
+        stContext.enEventType = enEventType;
+        return endAlarmImmediately(stContext);
+    }
+
+    /**
+     * @brief   : 强制立即结束当前报警状态
+     * @param    {EventTriggerContext_S} &stContext：事件触发上下文
+     * @return   {bool} 是否成功结束
+     * @note    : 不检查 EVENT_END_TIME_THRESHOLD，直接触发事件结束联动，适用于人脸抓拍等瞬时事件
+     */
+    bool endAlarmImmediately(const EventTriggerContext_S &stContext)
+    {
+        if (!m_bIsAlarmActive)
+        {
+            return false;
+        }
+
+        /* 当前单调时钟时间点 */
+        auto now = std::chrono::steady_clock::now();
+
+        /* 事件结束上下文优先复用激活上下文，保证联动规则属性前后一致 */
+        EventTriggerContext_S stEndContext = m_stActiveContext;
+        if (stEndContext.enEventType == Event::Type_E::UNKNOWN)
+        {
+            stEndContext = stContext;
+        }
+        stEndContext.bEventEnded = true;
+        if (stContext.llTimestamp > 0)
+        {
+            /* 结束事件使用当前处理帧时间，避免沿用开始阶段时间戳 */
+            stEndContext.llTimestamp = stContext.llTimestamp;
+        }
+
+        dlog_info("事件[%d]强制结束", static_cast<int>(stEndContext.enEventType));
+        /* 使用新的上下文联动入口，结束阶段也保留属性匹配能力 */
+        CEventLinkage::instance()->handleEvent(stEndContext);
+        m_bIsAlarmActive = false;
+
+        /* 进入冷却期 */
+        m_bInCooldown = true;
+        m_lastAlarmEndTimestamp = now;
+        m_stActiveContext = EventTriggerContext_S();
+
+        return true;
+    }
+
+    /**
+     * @brief   : 重置状态机
+     */
+    void reset()
+    {
+        m_bIsAlarmActive = false;
+        m_bInCooldown = false;
+        m_lastAlarmTimestamp = std::chrono::steady_clock::time_point();
+        m_lastAlarmEndTimestamp = std::chrono::steady_clock::time_point();
+        m_stActiveContext = EventTriggerContext_S();
+    }
+
+    /**
+     * @brief   : 获取是否在冷却期
+     * @return   {bool} 是否在冷却期
+     */
+    bool isInCooldown() const
+    {
+        return m_bInCooldown;
+    }
+
+    /**
+     * @brief   : 设置冷却期时长
+     * @param    {int} nCooldownSeconds 冷却期时长（秒）
+     */
+    void setCooldownSeconds(int nCooldownSeconds)
+    {
+        if (nCooldownSeconds >= 0)
+        {
+            m_nCooldownSeconds = nCooldownSeconds;
+        }
+    }
+
+    /**
+     * @brief   : 获取冷却期时长
+     * @return   {int} 冷却期时长（秒）
+     */
+    int getCooldownSeconds() const
+    {
+        return m_nCooldownSeconds;
     }
 
 private:
+    /**
+     * @brief   : 构造状态机内部缓存上下文
+     * @param    {EventTriggerContext_S} &stContext：待缓存的事件触发上下文
+     * @return   {EventTriggerContext_S} 可安全长期缓存的上下文
+     * @note    : 默认不缓存 TVSDK 负载，避免持续报警阶段长期占用大块内存
+     */
+    EventTriggerContext_S build_active_context_cache(const EventTriggerContext_S &stContext) const
+    {
+        EventTriggerContext_S stCachedContext = stContext;
+        stCachedContext.stPanoramaImage = EventTvSdkImage_S();
+        stCachedContext.stTargetImage = EventTvSdkImage_S();
+        if (stCachedContext.pTvSdkPayload && !stCachedContext.pTvSdkPayload->bAllowCacheInStateMachine)
+        {
+            stCachedContext.pTvSdkPayload.reset();
+        }
+        return stCachedContext;
+    }
+
     /* 报警状态是否处于活跃状态 */
     bool m_bIsAlarmActive = false;
+
+    /* 是否在冷却期（事件结束后的间隔期） */
+    bool m_bInCooldown = false;
+
+    /* 冷却期时长（秒） */
+    int m_nCooldownSeconds = EVENT_COOLDOWN_SECONDS;
+
     /* 上次触发报警的时间点 */
     std::chrono::steady_clock::time_point m_lastAlarmTimestamp;
+
+    /* 上次事件结束的时间点 */
+    std::chrono::steady_clock::time_point m_lastAlarmEndTimestamp;
+
+    /* 最近一次激活事件上下文，用于事件结束阶段复用属性与通道信息 */
+    EventTriggerContext_S m_stActiveContext;
 };

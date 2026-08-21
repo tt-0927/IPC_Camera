@@ -3,15 +3,17 @@
  * @Author       : zhouzirui
  * @Date         : 2025-03-29 10:05:19
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-06-10 11:19:09
+ * @LastEditTime : 2026-08-20 15:59:44
  * @Description  : RTSP服务器
  */
 #pragma once
 
+#include <cstdint>
 #include <iostream>
 #include <mutex>
 #include <thread>
 #include <atomic>
+#include <cstddef>
 #include <vector>
 #include <deque>
 #include <memory>
@@ -35,18 +37,71 @@ extern "C"
 #include "list_use_lock.h"
 }
 
-/*最大客户端数量*/
-#define MAX_CLIENT_NUM (4)
+/*
+ * 连接上限默认值定义在 custom_define.h，业务编译时可通过能力宏覆盖；
+ * 这里只按设备和码率计算当前生效值。首个 SETUP 前调用准入回调，
+ * 超限时保留已有连接并返回 453；正式 START/STOP 回调继续负责
+ * 供帧状态和连接断开日志。下面的 #ifndef 与 custom_define.h 保持一致，
+ * 保证本文件单独编译时不缺默认值；命令行 -D 覆盖时两处都不生效。
+ */
+#ifndef CAP_RTSP_HIGH_CONCURRENCY
+#define CAP_RTSP_HIGH_CONCURRENCY 0
+#endif
+#ifndef RTSP_DEFAULT_GLOBAL_MAX_CLIENT
+#define RTSP_DEFAULT_GLOBAL_MAX_CLIENT 4
+#endif
+#ifndef RTSP_DEFAULT_STREAM_MAX_CLIENT
+#define RTSP_DEFAULT_STREAM_MAX_CLIENT 4
+#endif
+#ifndef RTSP_MAIN_CLIENT_LIMIT_8M
+#define RTSP_MAIN_CLIENT_LIMIT_8M 2
+#endif
+#ifndef RTSP_MAIN_CLIENT_LIMIT_16M
+#define RTSP_MAIN_CLIENT_LIMIT_16M 1
+#endif
+
+/* 每通道最大客户端数量（兼容既有 Rtsp_Create_Info_t 参数语义）。 */
+#define MAX_CLIENT_NUM RTSP_DEFAULT_STREAM_MAX_CLIENT
+
+/* 设备能力等级乘数：TV-3881T/TV-3882TI 由能力宏提升到 8 路总额。 */
+constexpr int RTSP_CLIENT_CAPACITY_MULTIPLIER = CAP_RTSP_HIGH_CONCURRENCY ? 2 : 1;
+constexpr int RTSP_GLOBAL_MAX_CLIENT = RTSP_DEFAULT_GLOBAL_MAX_CLIENT * RTSP_CLIENT_CAPACITY_MULTIPLIER;
+
+/* 主码流码率档位（配置单位 kbps）：低于 8 Mbps 为默认，8 Mbps/16 Mbps 收紧。 */
+constexpr int RTSP_MAIN_BITRATE_THRESHOLD_8M = 8192;
+constexpr int RTSP_MAIN_BITRATE_THRESHOLD_16M = 16384;
+/* 未达高档位时的主码流客户端数，跟随单流默认上限。 */
+constexpr int RTSP_MAIN_CLIENT_LIMIT_DEFAULT = RTSP_DEFAULT_STREAM_MAX_CLIENT;
+
+/* RTSP OutPacketBuffer 缓存大小（应用层定义，覆盖 custom_define.h 的默认值） */
 #if defined(DEVICE_TV_3882TI) || defined(DEVICE_TV_3881T)
-    /*队列存储最大视频帧数*/
-    #define MAX_VIDEO_FRAME (32)
-    /*队列存储最大音频帧数*/
-    #define MAX_AUDIO_FRAME (16)
+    /* memory: 高配设备主码流4MiB，支持更多连接和更大I帧余量 */
+    constexpr std::size_t RTSP_APP_MAIN_OUT_PACKET_BUFFER_SIZE  = 4U * 1024U * 1024U;
+    constexpr std::size_t RTSP_APP_SUB_OUT_PACKET_BUFFER_SIZE   = 1U * 1024U * 1024U;
+    constexpr std::size_t RTSP_APP_AUDIO_OUT_PACKET_BUFFER_SIZE = 64U * 1024U;
 #else
-    /*队列存储最大视频帧数*/
-    #define MAX_VIDEO_FRAME (4)
-    /*队列存储最大音频帧数*/
-    #define MAX_AUDIO_FRAME (4)
+    /* memory: 普通设备按实测最大帧收紧，降低常驻内存 */
+    /* 主码流实测I帧峰值~1.66MiB，2MiB留约20%余量 */
+    constexpr std::size_t RTSP_APP_MAIN_OUT_PACKET_BUFFER_SIZE  = 2U * 1024U * 1024U;
+    /* 子码流实测I帧峰值~113KiB，256KiB留约2x余量 */
+    constexpr std::size_t RTSP_APP_SUB_OUT_PACKET_BUFFER_SIZE   = 256U * 1024U;
+    /* 音频帧远小于视频，实测~531B，32KiB充裕 */
+    constexpr std::size_t RTSP_APP_AUDIO_OUT_PACKET_BUFFER_SIZE = 32U * 1024U;
+#endif
+
+#if defined(DEVICE_TV_3882TI) || defined(DEVICE_TV_3881T)
+    /* 高内存型号允许更大的RTSP缓存，兼容原有低延迟配置。 */
+    constexpr std::size_t RTSP_VIDEO_QUEUE_DEPTH = 32U;
+    constexpr std::size_t RTSP_AUDIO_QUEUE_DEPTH = 16U;
+    constexpr std::size_t RTSP_VIDEO_QUEUE_MAX_BYTES = 4U * 1024U * 1024U;
+    constexpr std::size_t RTSP_AUDIO_QUEUE_MAX_BYTES = 256U * 1024U;
+#else
+    /* memory: 普通设备保持6帧上限，避免用队列换取延迟时放大常驻内存。 */
+    constexpr std::size_t RTSP_VIDEO_QUEUE_DEPTH = 6U;
+    constexpr std::size_t RTSP_AUDIO_QUEUE_DEPTH = 6U;
+    /* memory: 每路视频最多缓存1MiB，避免单个异常I帧突破板端内存预算。 */
+    constexpr std::size_t RTSP_VIDEO_QUEUE_MAX_BYTES = 1U * 1024U * 1024U;
+    constexpr std::size_t RTSP_AUDIO_QUEUE_MAX_BYTES = 64U * 1024U;
 #endif
 /*RTSP码流地址*/
 #define RTSP_URL_DEFAULT "rtsp://%s:%d/Streaming/Channels/%d"
@@ -93,6 +148,16 @@ typedef struct
     int nPort;
     Live_Stream_Info_t* listLive[RTSP_CHN_MAX];
 } LIVE_RTSP_S;
+
+/* RTSP队列入队诊断信息（生产线程独占访问，无需加锁） */
+typedef struct
+{
+    long long llLastPushOkMs = 0;  /* 上次成功入队时间戳(ms) */
+    long long llFirstDropMs = 0;   /* 本轮丢帧起始时间戳(ms) */
+    long long llLastDropLogMs = 0; /* 上次打印丢帧日志时间戳(ms)，用于限频 */
+    int nDropCount = 0;            /* 本轮连续丢帧计数 */
+    bool bDropping = false;        /* 是否处于连续丢帧状态 */
+} QueueDiag_S;
 
 /* 现场直播流消息结构体 */
 typedef struct Conference_Live_Messege
@@ -162,6 +227,37 @@ public:
     int sendVideoData(int nChannel, Video_NS::VideoFrame_S* pVideoFrame);
 
     /**
+     * @brief   : 发送 VENC 只读帧视图
+     * @param   {int} nChannel：RTSP 通道号
+     * @param   {uint8_t*} pData：VENC pack 数据地址，仅在本次调用期间有效
+     * @param   {int} nDataLen：编码数据长度
+     * @param   {VideoCodec_E} enVideoCodec：视频编码格式
+     * @param   {NalType_E} eType：NAL 类型
+     * @return  {int} 0：成功，非0：失败
+     * @note    : 该接口在队列入队时复制数据，不保存 VENC 原始指针。
+     */
+    int sendVideoData(int nChannel,
+                      const uint8_t* pData,
+                      int nDataLen,
+                      Video_NS::VideoCodec_E enVideoCodec,
+                      Video_NS::NalType_E eType);
+
+    /**
+     * @brief   : 发送共享媒体帧（引用计数零拷贝入队）
+     * @param   {int} nChannel：RTSP 通道号
+     * @param   {const Video_NS::SharedMediaFrame_S&} stSharedFrame：共享帧
+     * @param   {VideoCodec_E} enVideoCodec：视频编码格式
+     * @param   {NalType_E} eType：NAL 类型
+     * @return  {int} 0：成功，非0：失败
+     * @note    : 入队不复制数据，仅增加 shared_ptr 引用计数；
+     *            与 RTMP/录制共享同一份 buffer，降低多消费者总内存。
+     */
+    int sendVideoData(int nChannel,
+                      const Video_NS::SharedMediaFrame_S &stSharedFrame,
+                      Video_NS::VideoCodec_E enVideoCodec,
+                      Video_NS::NalType_E eType);
+
+    /**
      * @brief       : 外部送音频数据
      * @author      : zhouzirui
      * @param        {int} nChannel：码流通道号，第一码流：0，第二码流：1，以此类推
@@ -172,10 +268,18 @@ public:
 
     /**
      * @brief   : 设置视频配置
+     * @note    : 配置合法时同步更新各码流连接上限，不重启 RTSP 服务器；
+     *            码率升档只收紧新连接，不主动断开已有连接
      * @param    {vector<Video_NS::VideoConfig_S>} &vstVideoConfig：视频配置
      * @return   {int}0：成功 非0：失败
      */
     int setVideoConfig(const std::vector<Video_NS::VideoConfig_S>& vstVideoConfig);
+
+    /**
+     * @brief   : 获取视频配置
+     * @return   {const vector<Video_NS::VideoConfig_S>&} 视频配置引用
+     */
+    const std::vector<Video_NS::VideoConfig_S>& getVideoConfig() const { return m_vstVideoConfig; }
 
     /**
      * @brief   : 设置音频配置
@@ -247,15 +351,34 @@ public:
     int update_userInfo(std::string strUser, std::string strPwd, bool bReboot);
 
     /**
-     * @description  : 更新rtsp摘要算法
+     * @brief   : 更新rtsp摘要算法
      * @return        {*}
      */
     int updateRtspDigestAlgorithm();
 
+    /**
+     * @brief   : 队列入队失败诊断（丢帧开始/持续）
+     * @param    {QueueDiag_S} &stDiag：诊断状态
+     * @param    {const char} *strType：类型描述（视频/音频）
+     * @param    {int} nChannel：通道号
+     * @note    : 首帧丢弃打印警告，持续丢帧期间每秒汇总打印一次，
+     *            用于测量RTSP发送线程被阻塞的时长
+     */
+    void report_queue_drop(QueueDiag_S &stDiag, const char *strType, int nChannel);
+
+    /**
+     * @brief   : 队列入队成功诊断（丢帧恢复）
+     * @param    {QueueDiag_S} &stDiag：诊断状态
+     * @param    {const char} *strType：类型描述（视频/音频）
+     * @param    {int} nChannel：通道号
+     * @note    : 丢帧结束后打印本轮丢帧总数与持续时长
+     */
+    void report_queue_recover(QueueDiag_S &stDiag, const char *strType, int nChannel);
+
 public:
     // info /*----------------------- 模块句柄 -----------------------*/
     /*直播RTSP信息句柄*/
-    LIVE_RTSP_S* m_pLiveInfo;
+    LIVE_RTSP_S* m_pLiveInfo{nullptr};
 
 private:
     // info /*----------------------- 模块句柄 -----------------------*/
@@ -283,6 +406,10 @@ private:
     // std::map<int, bool> m_mapIsFirstFrame;
     /*视频配置*/
     std::vector<Video_NS::VideoConfig_S> m_vstVideoConfig;
+    /* 每通道视频队列总字节上限，按平均码率动态计算，避免高码率大I帧击穿固定上限。 */
+    std::size_t m_unVideoQueueMaxBytes[RTSP_CHN_MAX] = {RTSP_VIDEO_QUEUE_MAX_BYTES, RTSP_VIDEO_QUEUE_MAX_BYTES};
+    /* 每通道视频单帧最大字节，按平均码率动态计算。 */
+    std::size_t m_unVideoMaxFrameBytes[RTSP_CHN_MAX] = {RTSP_VIDEO_QUEUE_MAX_BYTES, RTSP_VIDEO_QUEUE_MAX_BYTES};
     /*音频配置*/
     Audio_NS::AudioConfig_S m_stAudioConfig;
     /*视频配置文件路径*/
@@ -313,4 +440,9 @@ private:
     std::string m_strLastIp;
     /* RTSP摘要算法 */
     int m_nRtspDigestAlgorithm = 0;
+
+    /* RTSP视频/音频队列入队诊断状态（丢帧时长测量） */
+    QueueDiag_S m_stVideoQueueDiag[RTSP_CHN_MAX];
+    QueueDiag_S m_stAudioQueueDiag[RTSP_CHN_MAX];
+
 };

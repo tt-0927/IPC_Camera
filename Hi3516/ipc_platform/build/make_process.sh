@@ -191,6 +191,26 @@ if [ "$MAKE_MODE" = true ]; then
         error "编译 $MAKE_NAME 失败"
         exit 1
     fi
+        # RelWithDebInfo 同时保留：未裁剪文件、独立符号文件、可部署的裁剪文件。
+    # 三者来自同一次链接，设备打印的 PC/LR 可直接由 .debug 解析。
+    if [ "$BUILD_MODE" == "RelWithDebInfo" ]; then
+        OBJCOPY_TOOL=$(command -v arm-v01c02-linux-musleabi-objcopy || true)
+        STRIP_TOOL=$(command -v arm-v01c02-linux-musleabi-strip || true)
+        if [ -z "$OBJCOPY_TOOL" ] || [ -z "$STRIP_TOOL" ]; then
+            error "未找到 arm-v01c02-linux-musleabi-objcopy/strip"
+            exit 1
+        fi
+        (
+            cd "$BIN_PATH"
+            cp -f "$MAKE_NAME" "$MAKE_NAME.unstripped"
+            "$OBJCOPY_TOOL" --only-keep-debug "$MAKE_NAME.unstripped" "$MAKE_NAME.debug"
+            "$STRIP_TOOL" --strip-unneeded "$MAKE_NAME"
+            "$OBJCOPY_TOOL" --add-gnu-debuglink="$MAKE_NAME.debug" "$MAKE_NAME"
+        )
+        info "调试文件: $BIN_PATH/$MAKE_NAME.debug"
+        info "未裁剪文件: $BIN_PATH/$MAKE_NAME.unstripped"
+        info "设备运行文件: $BIN_PATH/$MAKE_NAME"
+    fi
     # 提取.debug调试信息
     # if [ "$BUILD_MODE" == "Debug" ]; then
     #     (

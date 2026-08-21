@@ -37,6 +37,8 @@ namespace Convert
     void deal(Json::Object* pRootJson, Event::AlgorithmConfig_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, std::vector<Event::AlgorithmConfig_S>& stInfo, bool bOutStruct);
 
+    void deal(Json::Object *pRootJson, Event::OrdinaryEventEnableStatus_S &stInfo, bool bOutStruct);
+
     void deal(Json::Object *pRootJson, Event::SmartEventEnableStatus_S &stInfo, bool bOutStruct);
     void deal(Json::Object *pRootJson, std::vector<Event::Type_E> &stInfo, bool bOutStruct);
     void deal(Json::Object *pRootJson, Event::SmartResourceAlloc_S &stInfo, bool bOutStruct);
@@ -130,6 +132,7 @@ namespace Convert
 	void deal(Json::Object* pRootJson, std::list<Event::FaceLibInfo_S> &targetLibInfos, bool bOutStruct);
 	void deal(Json::Object* pRootJson, Event::FaceFind_S &stFaceFind, bool bOutStruct);
     void deal(Json::Object* pRootJson, Event::FaceIdInfo_S &stFaceIdInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, Event::AddFaceInfoResult &stAddFaceInfo, bool bOutStruct);
 	void deal(Json::Object* pRootJson, Event::FaceInfo_S &stFaceInfo, bool bOutStruct);
 	void deal(Json::Object* pRootJson, std::vector<Event::FaceInfo_S> &faceInfos, bool bOutStruct);
     void deal(Json::Object* pRootJson, Event::FaceCompareInfo_S &stFaceCompareInfo, bool bOutStruct);

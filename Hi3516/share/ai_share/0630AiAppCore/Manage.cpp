@@ -78,6 +78,12 @@ void Ai0630_NS::Manage::setPTZControl(PTZControlFunc func)
     m_setPTZControl = func;
 }
 
+/* 设置PPT截图命令 */
+void Ai0630_NS::Manage::setPPTScreenshot(PPTScreenshotFunc func)
+{
+    m_sendPPTScreenshot = func;
+}
+
 /* 发送流数据 */
 void Manage::sendSteamData(char* pchData, int nDataLen, int nCode, int nRecordTime)
 {
@@ -113,12 +119,36 @@ BlError_E Ai0630_NS::Manage::pptSwitch()
         return NOK;
     }
 
+    std::string strJpgName;
+    long long   lTimestamp = ToolFunc::getTimeStampUs();
+
     /* 判断当前为录制状态则记录PPT切换信息 */
     BlError_E enRet = OK;
     if (m_bRecord.load())
     {
-        enRet = m_pResultModule->pptSwitch();
+        if (m_sendPPTScreenshot)
+        {
+            /* 创建目录 */
+            ToolFunc::makeDirectory(GANCIAN_PICTURE_PPT_TEMP_PATH);
+
+            std::ostringstream oss;
+
+            oss << "ppt_" << lTimestamp << ".jpg";
+            strJpgName = oss.str();
+
+            /* 清空数据 */
+            oss.str("");
+            /* 重置错误/EOF标志 */
+            oss.clear();
+
+            oss << GANCIAN_PICTURE_PPT_TEMP_PATH << "/" << strJpgName;
+
+            m_sendPPTScreenshot(oss.str());
+        }
+
+        enRet = m_pResultModule->pptSwitch(lTimestamp, strJpgName);
     }
+
     return enRet;
 }
 
@@ -330,6 +360,10 @@ BlError_E Ai0630_NS::Manage::teacherBoard(bool bValue)
 BlError_E Ai0630_NS::Manage::setRecordTime(int nRecordTime)
 {
     m_nRecordTime = nRecordTime;
+    if (m_pResultModule)
+    {
+        m_pResultModule->setRecordTime(m_nRecordTime);
+    }
     return OK;
 }
 
@@ -344,6 +378,7 @@ BlError_E Ai0630_NS::Manage::setRecordStatus(int nStatus)
     else
     {
         m_bRecord.store(false);
+        m_pFaceManage->deleteHumanTable();
     }
 
     checkTask();
@@ -453,7 +488,7 @@ void Manage::initTask()
     m_nStTaskId = TimerManager::getInstance().addTask(
         "学生个人分析",
         5s,
-        6s,
+        1s,
         0,
         std::bind(&Manage::taskGetStudentSteam, this, std::placeholders::_1),
         std::make_shared<int>(toInt(CommCode_E::AI_COM_ST_ANALYSE)));
@@ -461,7 +496,7 @@ void Manage::initTask()
     m_nTeTaskId = TimerManager::getInstance().addTask(
         "老师个人分析",
         6s,
-        6s,
+        1s,
         0,
         std::bind(&Manage::taskGetSteam, this, std::placeholders::_1),
         std::make_shared<int>(toInt(CommCode_E::AI_COM_TE_ANALYSE)));

@@ -90,7 +90,7 @@ private:
      * @param    {bool} nHideResult 遮挡检测结果
      * @return   {bool} 是否有报警
      */
-    bool processHideDetect(bool bIsAlarm);
+    bool processHideDetect(bool bIsAlarm, const MediaData_S &stMediaData = MediaData_S());
 
      /**
      * @brief   : 转换区域坐标并判断是否使能算法

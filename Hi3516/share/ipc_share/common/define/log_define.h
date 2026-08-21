@@ -261,6 +261,7 @@ namespace Log
         ALARM_DEPLOY_FAIL          = 2602, /**< IP通道报警布防失败 */
         ALARM_UPLOAD_FAIL          = 2603, /**< 报警上传失败 */
         VCA_PIC_UPLOAD_ABNORMAL    = 2604, /**< VCA图片上传显示异常 */
+        REPEATED_LOGIN             = 2605, /**< 同一ip重复登陆*/
         /* 系统级异常(2700~2799) */
         IPC_MIGRATION_FAIL         = 2700, /**< IPC迁移失败 */
         CLUSTER_CONFIG_FAIL        = 2701, /**< 集群内设备配置失败 */

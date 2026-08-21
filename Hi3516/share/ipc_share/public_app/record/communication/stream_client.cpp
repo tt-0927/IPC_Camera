@@ -3,7 +3,7 @@
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2025-06-28 10:36:11
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2025-07-07 17:10:58
+ * @LastEditTime : 2026-07-29 17:43:13
  * @Description  : 录制接流、配置客户端
  */
 
@@ -129,6 +129,11 @@ void StreamClient::deal_message(Net::Message_S& stMessage, Net::UserParam_S &stU
             {
                 const Record_NS::AudioConfigInfo_S *pInfo = static_cast<const Record_NS::AudioConfigInfo_S *>(stMessage.pData);
                 file->set_audioInfo(*pInfo);
+                break;
+            }
+            case AC_NOTICE_RECORD_AUDIO_RESTART: //录制音频编码链路重启
+            {
+                file->notify_audio_restart();
                 break;
             }
             case AC_STREAM_VIDEO_DATE: //录制流媒体视频数据

@@ -144,7 +144,9 @@ void aacAudioSource::getNextFrame(void *ptr)
 }
 unsigned int aacAudioSource::maxFrameSize() const
 {
-	return MAX_FRAME_SIZE;
+	return m_aacSouceInfo.outPacketBufferSize == 0
+			   ? MAX_FRAME_SIZE
+			   : m_aacSouceInfo.outPacketBufferSize;
 }
 static int dealaac_frame_timestamp(int d_value, int continue_count, int *continue_count_lost, int lostframe)
 {

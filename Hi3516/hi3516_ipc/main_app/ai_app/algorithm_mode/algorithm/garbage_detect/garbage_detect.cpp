@@ -1,9 +1,9 @@
 /**
  * @FilePath     : garbage_detect.cpp
  * @Author       : zhouzr@kfb.cn
- * @Date         : 2026-03-05
+ * @Date         : 2026-03-12 09:07:02
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-03-11 17:16:45
+ * @LastEditTime : 2026-08-15 10:45:51
  * @Description  : 垃圾暴露/垃圾满溢检测
  */
 
@@ -326,7 +326,9 @@ void CGarbageDetect::processGarbageDetect(std::vector<Inference_NS::BoxData_S> &
     stOverflowContext.nChnId = stCtx.nChnId;
     stOverflowContext.llTimestamp = stCtx.llTimestamp;
 #ifdef ENABLE_TVSDK_SRC
-    if (bGarbageOverflow && stCtx.pFrameInfo != nullptr)
+    /* perf: 有TVSDK客户端订阅时才软件编码全景图，无订阅者或冷却期跳过编码 */
+    if (bGarbageOverflow && m_garbageOverflowAlarmStateMachine.canStartAlarm() && stCtx.pFrameInfo != nullptr &&
+        AiAppCommon::tvsdk_event_image_required())
     {
         auto pPayload = std::make_shared<EventTvSdkPayload_S>();
         pPayload->enType = get_tvsdk_payload_type(stOverflowContext.enEventType);
@@ -343,7 +345,9 @@ void CGarbageDetect::processGarbageDetect(std::vector<Inference_NS::BoxData_S> &
     stExposureContext.nChnId = stCtx.nChnId;
     stExposureContext.llTimestamp = stCtx.llTimestamp;
 #ifdef ENABLE_TVSDK_SRC
-    if (bGarbageExposure && stCtx.pFrameInfo != nullptr)
+    /* perf: 有TVSDK客户端订阅时才软件编码全景图，无订阅者或冷却期跳过编码 */
+    if (bGarbageExposure && m_garbageExposureAlarmStateMachine.canStartAlarm() && stCtx.pFrameInfo != nullptr &&
+        AiAppCommon::tvsdk_event_image_required())
     {
         auto pPayload = std::make_shared<EventTvSdkPayload_S>();
         pPayload->enType = get_tvsdk_payload_type(stExposureContext.enEventType);
@@ -354,6 +358,25 @@ void CGarbageDetect::processGarbageDetect(std::vector<Inference_NS::BoxData_S> &
     }
 #endif
     m_garbageExposureAlarmStateMachine.handleAlarmState(bGarbageExposure, stExposureContext);
+}
+
+void CGarbageDetect::handleDetectResult(const std::vector<Inference_NS::BoxData_S> &vBoxDatas, ot_video_frame_info *pFrameInfo)
+{
+    std::vector<Inference_NS::BoxData_S> tmp(vBoxDatas);
+
+    std::vector<Common::RectInfo_S> vstRectInfo;
+
+    SEventProcessContext stCtx;
+    stCtx.nChnId = 0;
+    stCtx.llTimestamp = TimeUtils_NS::get_currentTimestampMs();
+    stCtx.pFrameInfo = pFrameInfo;
+
+    processGarbageDetect(tmp, vstRectInfo, stCtx);
+
+    if (!vstRectInfo.empty())
+    {
+        send_detectionResult_to_osd(m_nWidth, m_nHeight, vstRectInfo);
+    }
 }
 
 #endif

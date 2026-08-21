@@ -3,7 +3,7 @@
  * @Author       : zhouzirui
  * @Date         : 2025-03-31 17:31:10
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-06-03 16:09:53
+ * @LastEditTime : 2026-07-23 11:31:22
  * @Description  : 海思ao模块封装
  */
 
@@ -62,6 +62,8 @@ typedef struct _HiAoExParam_S
     int nMinVolume;
     /* ao 输出音量最大值 */
     int nMaxVolume;
+    /* 指数音量曲线 BASE，取值大于 1 时低中音量段衰减更明显 */
+    double dVolumeCurveBase;
 } HiAoExParam_S;
 
 typedef struct _HiAo_S HiAo_S;

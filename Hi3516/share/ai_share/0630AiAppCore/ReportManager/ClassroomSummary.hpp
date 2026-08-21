@@ -16,6 +16,13 @@ namespace Ai0630_NS
             int nY = 0; /* Y 轴：学生行为累计 */
         };
 
+        struct PPTInfo_S
+        {
+            int         nClassTime = 0; /* 课堂时间 */
+            long long   lTimestamp = 0; /* 时间戳 */
+            std::string strJpgName;     /* 图片名称 */
+        };
+
         /* ================= 输出结果 ================= */
         struct ClassSummary_S
         {
@@ -35,16 +42,16 @@ namespace Ai0630_NS
             int nStudentTimeRatio; /* 学生活动时间，百分数*/
 
             /* 加起来100 */
-            int nTaughtPct;                     /* 教师讲授时间占比，单位% */
-            int nInteractionPct;                /* 师生互动时间占比，单位% */
-            int nStudyPct;                      /* 学生学习时间占比，单位% */
+            int nTaughtPct;                      /* 教师讲授时间占比，单位% */
+            int nInteractionPct;                 /* 师生互动时间占比，单位% */
+            int nStudyPct;                       /* 学生学习时间占比，单位% */
 
-            int nParticipationRate;             /* 参与率，单位% */
-            int nHeadUpRate;                    /* 抬头率，单位% */
-            int nHeadDownRate;                  /* 低头率，单位% */
+            int nParticipationRate;              /* 参与率，单位% */
+            int nHeadUpRate;                     /* 抬头率，单位% */
+            int nHeadDownRate;                   /* 低头率，单位% */
 
-            int              nPPTInterval;      /* PPT翻页间隔，单位/s*/
-            std::vector<int> vecPPTSwitchTimes; /* PPT翻页时间戳链表*/
+            int                    nPPTInterval; /* PPT翻页间隔，单位/s*/
+            std::vector<PPTInfo_S> vecPPTInfo;   /* PPT信息链表*/
 
             std::vector<Point_S> vecSTCurve;
 
@@ -71,7 +78,7 @@ namespace Ai0630_NS
                 nHeadUpRate        = 0;
                 nHeadDownRate      = 0;
                 nPPTInterval       = 0;
-                vecPPTSwitchTimes.clear();
+                vecPPTInfo.clear();
                 vecSTCurve.clear();
                 nCurClassTime = 0;
             }
@@ -100,9 +107,11 @@ namespace Ai0630_NS
 
         /**
          * @brief 添加 PPT 翻页时间点
-         * @param nClassTime
+         * @param nClassTime 课堂时间
+         * @param lTimestamp 时间戳
+         * @param strJpgName jpg图片名称
          */
-        void addPPTSwitch(int nClassTime);
+        void addPPTSwitch(int nClassTime, long long lTimestamp, std::string strJpgName);
 
         /**
          * @brief 添加课堂分贝值

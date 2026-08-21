@@ -9,6 +9,10 @@
 
 #include "face_manage.h"
 #include <unistd.h>
+#include <algorithm>
+#include <cctype>
+#include <filesystem>
+#include <unordered_set>
 
 using namespace Event;
 using namespace FaceDataDB_NS;
@@ -58,6 +62,115 @@ int AIFaceManage::delFaceLibInfo(int nId)
     return 0;
 }
 
+int AIFaceManage::clearFaceLibData()
+{
+    const int nRet = m_FaceInfodb.clearAllData();
+    if (nRet != OK)
+    {
+        dlog_error("ai_app: clear all face feature data failed, ret=%d", nRet);
+        return nRet;
+    }
+
+    dlog_info("ai_app: all face persons and feature data have been cleared");
+    return OK;
+}
+
+int AIFaceManage::cleanupOrphanFaceFiles()
+{
+    namespace fs = std::filesystem;
+    static const fs::path kFaceDirectory("/opt/course/face");
+
+    std::list<FaceLibsInfo_S> listFaceInfo;
+    const int nQueryRet = m_FaceInfodb.getAllData(listFaceInfo);
+    if (nQueryRet != OK)
+    {
+        dlog_error("ai_app: query face database before orphan cleanup failed, ret=%d", nQueryRet);
+        return nQueryRet;
+    }
+
+    std::unordered_set<std::string> referencedPaths;
+    for (const auto &stInfo : listFaceInfo)
+    {
+        if (!stInfo.strPicPath.empty())
+        {
+            referencedPaths.insert(fs::path(stInfo.strPicPath).lexically_normal().string());
+        }
+        if (!stInfo.BinPath.empty())
+        {
+            referencedPaths.insert(fs::path(stInfo.BinPath).lexically_normal().string());
+        }
+    }
+
+    std::error_code ec;
+    if (!fs::exists(kFaceDirectory, ec))
+    {
+        if (ec)
+        {
+            dlog_error("ai_app: check face directory failed, path=%s, error=%s",
+                       kFaceDirectory.string().c_str(), ec.message().c_str());
+            return ERR;
+        }
+        return OK;
+    }
+
+    int nDeletedCount = 0;
+    int nFailedCount = 0;
+    fs::directory_iterator iter(kFaceDirectory, ec);
+    fs::directory_iterator end;
+    if (ec)
+    {
+        dlog_error("ai_app: open face directory failed, path=%s, error=%s",
+                   kFaceDirectory.string().c_str(), ec.message().c_str());
+        return ERR;
+    }
+
+    for (; iter != end; iter.increment(ec))
+    {
+        if (ec)
+        {
+            dlog_error("ai_app: iterate face directory failed, error=%s", ec.message().c_str());
+            return ERR;
+        }
+
+        std::error_code fileEc;
+        if (!iter->is_regular_file(fileEc) || fileEc)
+        {
+            continue;
+        }
+
+        std::string strExtension = iter->path().extension().string();
+        std::transform(strExtension.begin(), strExtension.end(), strExtension.begin(),
+                       [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
+        if (strExtension != ".jpg" && strExtension != ".jpeg" &&
+            strExtension != ".png" && strExtension != ".bmp" &&
+            strExtension != ".bin" && strExtension != ".tmpart")
+        {
+            continue;
+        }
+
+        const std::string strFilePath = iter->path().lexically_normal().string();
+        if (referencedPaths.find(strFilePath) != referencedPaths.end())
+        {
+            continue;
+        }
+
+        if (fs::remove(iter->path(), fileEc))
+        {
+            ++nDeletedCount;
+            dlog_info("ai_app: removed orphan face file: %s", strFilePath.c_str());
+        }
+        else
+        {
+            ++nFailedCount;
+            dlog_error("ai_app: remove orphan face file failed, path=%s, error=%s",
+                       strFilePath.c_str(), fileEc.message().c_str());
+        }
+    }
+
+    dlog_info("ai_app: orphan face file cleanup finished, referenced=%zu deleted=%d failed=%d",
+              referencedPaths.size(), nDeletedCount, nFailedCount);
+    return nFailedCount == 0 ? OK : ERR;
+}
 
 /**
  * @brief 更新名单库人脸信息
@@ -408,12 +521,12 @@ bool AIFaceManage::comparisonFaceLib(const std::vector<float>& vfData, FaceLibsI
     std::list<FaceLibsInfo_S> libAllInfo;
     m_FaceInfodb.getAllData(libAllInfo);
 
-    std::cout << ">>> 输入比对向量 (Size: " << vfData.size() << "): ";
-    for (size_t i = 0; i < vfData.size(); ++i) {
-        std::cout << vfData[i];
-        if (i < vfData.size() - 1) std::cout << ", ";
-    }
-    std::cout << std::endl;
+    // std::cout << ">>> 输入比对向量 (Size: " << vfData.size() << "): ";
+    // for (size_t i = 0; i < vfData.size(); ++i) {
+    //     std::cout << vfData[i];
+    //     if (i < vfData.size() - 1) std::cout << ", ";
+    // }
+    // std::cout << std::endl;
 
     for (const auto& libInfo : libAllInfo)
     {
@@ -431,16 +544,16 @@ bool AIFaceManage::comparisonFaceLib(const std::vector<float>& vfData, FaceLibsI
         }
     }
 
-    if (!stInfo.vfData.empty()) {
-        std::cout << ">>> 库中最佳匹配向量 (ID: " << stInfo.nId << ", Size: " << stInfo.vfData.size() << "): ";
-        for (size_t i = 0; i < stInfo.vfData.size(); ++i) {
-            std::cout << stInfo.vfData[i];
-            if (i < stInfo.vfData.size() - 1) std::cout << ", ";
-        }
-        std::cout << std::endl;
-    } else {
-        std::cout << ">>> 库中未找到有效匹配向量" << std::endl;
-    }
+    // if (!stInfo.vfData.empty()) {
+    //     std::cout << ">>> 库中最佳匹配向量 (ID: " << stInfo.nId << ", Size: " << stInfo.vfData.size() << "): ";
+    //     for (size_t i = 0; i < stInfo.vfData.size(); ++i) {
+    //         std::cout << stInfo.vfData[i];
+    //         if (i < stInfo.vfData.size() - 1) std::cout << ", ";
+    //     }
+    //     std::cout << std::endl;
+    // } else {
+    //     std::cout << ">>> 库中未找到有效匹配向量" << std::endl;
+    // }
     
     std::cout << "本地名单库: 最相似的是: " << stInfo.nId << "; 距离: " << fSimilarity << std::endl;
     

@@ -240,7 +240,23 @@ void Convert::deal(Json::Object* pRootJson, std::vector<Event::AlgorithmConfig_S
     Convert::CConvert convert(bOutStruct);
     convert.structure(pRootJson, "AlgorithmConfigs", stInfo);
 }
+void Convert::deal(Json::Object *pRootJson, Event::OrdinaryEventEnableStatus_S &stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
 
+    Convert::CConvert convert(bOutStruct);
+    convert.field(pRootJson, "MotionDetect", stInfo.bMotionDetect);
+    convert.field(pRootJson, "OcclusionDetect", stInfo.bOcclusionDetect);
+    convert.field(pRootJson, "AnomalyAlarm", stInfo.bAnomalyAlarm);
+    convert.field(pRootJson, "AudioAlarm", stInfo.bAudioAlarm);
+    convert.field(pRootJson, "AlarmInput", stInfo.bAlarmInput);
+    convert.field(pRootJson, "AlarmOutput", stInfo.bAlarmOutput);
+    convert.field(pRootJson, "FlashAlarm", stInfo.bFlashAlarm);
+    convert.field(pRootJson, "PIRAlarm", stInfo.bPIRAlarm);
+}
 void Convert::deal(Json::Object* pRootJson, Event::SmartEventEnableStatus_S& stInfo, bool bOutStruct)
 {
     if (!pRootJson)
@@ -796,6 +812,17 @@ void Convert::deal(Json::Object* pRootJson, Event::FaceIdInfo_S &stFaceIdInfo, b
     convert.field(pRootJson, "Ids", stFaceIdInfo.ids);
 }
 
+void Convert::deal(Json::Object* pRootJson, Event::AddFaceInfoResult &stAddFaceInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+	{
+		return;
+	}
+
+	Convert::CConvert convert(bOutStruct);
+    convert.field(pRootJson, "nRet", stAddFaceInfo.nRet);
+	convert.field(pRootJson, "hashId", stAddFaceInfo.hashId);
+}
 void Convert::deal(Json::Object* pRootJson, Event::FaceInfo_S &stFaceInfo, bool bOutStruct)
 {
 	if (!pRootJson)

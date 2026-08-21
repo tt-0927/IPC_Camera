@@ -90,6 +90,10 @@ private:
     int select_audio_file(std::string &strAudioPath, int &nTimes);
 
 private:
+   /* 扬声器播放生命周期互斥锁：从首帧到静音/关闭功放只允许一个播放线程进入。 */
+   std::mutex m_audioPlaybackMutex;
+    /* 灯光抢占生命周期互斥锁：旧token释放后，新闪灯任务才允许申请override。 */
+    std::mutex m_lightOverrideMutex;
     /* 当前播放的音频路径 */
     std::string m_strPlayingAudioPath;
     /* 音频路径互斥锁 */

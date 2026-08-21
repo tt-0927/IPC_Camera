@@ -77,6 +77,7 @@ namespace User
         bool bEventConfig = false;        /* 事件配置 */
         bool bVideoManage = false;        /* 录像管理 */
         bool bObjectLib = false;          /* 目标库 */
+        bool bFaceConfig = false;           /*人脸功能 */
         bool bVehicleDetecConfig = false; /* 车辆检测配置 */
         bool bLocalShutdown = false;      /* 本地关机 */
     } MenuPermission_S;

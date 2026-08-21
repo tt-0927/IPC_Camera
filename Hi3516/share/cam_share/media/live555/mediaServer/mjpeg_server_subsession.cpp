@@ -2,8 +2,8 @@
  * @FilePath: mjpeg_server_subsession.cpp
  * @Author: yangwenyao
  * @Date: 2023-06-13 13:55:20
- * @LastEditors: error: error: git config user.name & please set dead value or install git && error: git config user.email & please set dead value or install git & please set dead value or install git
- * @LastEditTime: 2023-07-19 15:09:22
+ * @LastEditors: zhouzr@kfb.cn
+ * @LastEditTime: 2026-08-14 10:48:49
  * @Descripttion: mjpeg subsession server
  */
 #include "mjpeg_server_subsession.h"
@@ -130,5 +130,6 @@ FramedSource* Mjpeg_Server_Subsession::createNewStreamSource(unsigned /*clientSe
 RTPSink* Mjpeg_Server_Subsession::createNewRTPSink(Groupsock* rtpGroupsock,
 		   unsigned char rtpPayloadTypeIfDynamic,
 		   FramedSource* /*inputSource*/) {
-  return JPEGVideoRTPSink::createNew(envir(), rtpGroupsock);//MPEG4ESVideoRTPSink::createNew(envir(), rtpGroupsock, rtpPayloadTypeIfDynamic);
+  return JPEGVideoRTPSink::createNew(envir(), rtpGroupsock,
+                                     m_pSouceInfo.outPacketBufferSize);
 }

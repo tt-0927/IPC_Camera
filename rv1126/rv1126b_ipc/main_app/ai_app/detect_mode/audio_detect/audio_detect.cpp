@@ -45,7 +45,9 @@ void CAudioDetect::recvMediaData(MediaData_S stMediaData)
         return;
     }
 
-    if (m_RecvManager.handleEvent(stMediaData.stMediaParam.nChannel))
+    m_nChannelId = stMediaData.stMediaParam.nChannel;
+
+    if (m_RecvManager.handleEvent(m_nChannelId))
     {
         if (m_dateQueue.size() >= QUEUE_MAX)
         {
@@ -210,7 +212,19 @@ void CAudioDetect::processAudioAnomaly(char *pData, int nLength)
             m_nSilenceFrameCount = 0;
         }
         /* 判断是否报警 */
+#ifdef ENABLE_TVSDK_SRC
+        {
+            EventTriggerContext_S stContext;
+            stContext.enEventType = Event::Type_E::AUDIO_ANOMALY;
+            stContext.nChnId = m_nChannelId;
+            stContext.llTimestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
+                                       std::chrono::system_clock::now().time_since_epoch())
+                                       .count();
+            m_inputAlarmStateMachine.handleAlarmState(bAudioInputAnomaly, stContext);
+        }
+#else
         m_inputAlarmStateMachine.handleAlarmState(bAudioInputAnomaly, Event::Type_E::AUDIO_ANOMALY);
+#endif
     }
 
     /* 更新历史数据 */
@@ -238,7 +252,19 @@ void CAudioDetect::processAudioAnomaly(char *pData, int nLength)
             dlog_warn("检测到声强陡升: 当前%.1fdB, 平均%.1fdB, 差值%.1fdB", fCurrentDB, fAvgDB, fCurrentDB - fAvgDB);
         }
         /* 判断是否报警 */
+#ifdef ENABLE_TVSDK_SRC
+        {
+            EventTriggerContext_S stContext;
+            stContext.enEventType = Event::Type_E::AUDIO_SUDDEN_RISE;
+            stContext.nChnId = m_nChannelId;
+            stContext.llTimestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
+                                       std::chrono::system_clock::now().time_since_epoch())
+                                       .count();
+            m_riseAlarmStateMachine.handleAlarmState(bAudioSuddenRise, stContext);
+        }
+#else
         m_riseAlarmStateMachine.handleAlarmState(bAudioSuddenRise, Event::Type_E::AUDIO_SUDDEN_RISE);
+#endif
     }
 
     /* 声强陡降检测 */
@@ -250,7 +276,19 @@ void CAudioDetect::processAudioAnomaly(char *pData, int nLength)
             dlog_warn("检测到声强陡降: 当前%.1fdB, 平均%.1fdB, 差值%.1fdB", fCurrentDB, fAvgDB, fAvgDB - fCurrentDB);
         }
         /* 判断是否报警 */
+#ifdef ENABLE_TVSDK_SRC
+        {
+            EventTriggerContext_S stContext;
+            stContext.enEventType = Event::Type_E::AUDIO_SUDDEN_DROP;
+            stContext.nChnId = m_nChannelId;
+            stContext.llTimestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
+                                       std::chrono::system_clock::now().time_since_epoch())
+                                       .count();
+            m_dropAlarmStateMachine.handleAlarmState(bAudioSuddenDrop, stContext);
+        }
+#else
         m_dropAlarmStateMachine.handleAlarmState(bAudioSuddenDrop, Event::Type_E::AUDIO_SUDDEN_DROP);
+#endif
     }
 }
 

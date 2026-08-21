@@ -70,6 +70,8 @@
 #   使用: share/ipc_share/control/business/network/network_manage.cpp
 # - CAP_NETWORK_FTP_SERVICE: 启动 ftp 服务能力
 #   使用: share/ipc_share/control/business/network/network_manage.cpp
+# - CAP_RTSP_HIGH_CONCURRENCY: RTSP 会话高并发能力（TV-3881T/TV-3882TI 为 8 路总额）
+#   使用: share/ipc_share/push_stream/rtsp/rtsp_server.h
 # - IPC_CAP_EXHIBITION_OSD_PANEL: CMake 变量版展会面板能力
 #   使用: rv1126b_ipc/main_app/ai_app/common/common.cmake
 # - IPC_CAP_RECORD_NEEDS_CAM_SHARE_INCLUDE: CMake 变量版 record include 能力
@@ -119,6 +121,7 @@ set(DEVICE_PROFILE_TV_3881T_DEFINES
     CAP_PROCESS_LOG_SWITCH=0              # stream/record/operation等进程的日志开关（目前只输出error级别）
     CAP_NETWORK_TELNET_SERVICE=0         # telnet 服务能力；发布版本不启动 telnetd
     CAP_NETWORK_FTP_SERVICE=0            # ftp 服务能力；发布版本不启动 uftpd
+    CAP_RTSP_HIGH_CONCURRENCY=1          # RTSP 高并发能力（8 路总额）
     CAP_RECORD_USE_MAIN_STREAM=1         # 录制使用主码流
 )
 set(DEVICE_PROFILE_TV_3881T_CMAKE_VARS
@@ -167,6 +170,7 @@ set(DEVICE_PROFILE_TV_3882TI_DEFINES
     CAP_NETWORK_TELNET_SERVICE=0
     CAP_NETWORK_FTP_SERVICE=0
     CAP_PROCESS_LOG_SWITCH=0   
+    CAP_RTSP_HIGH_CONCURRENCY=1          # RTSP 高并发能力（8 路总额）
     CAP_RECORD_USE_MAIN_STREAM=1 # 录制使用主码流
 )
 set(DEVICE_PROFILE_TV_3882TI_CMAKE_VARS

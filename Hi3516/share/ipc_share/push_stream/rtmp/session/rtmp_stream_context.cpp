@@ -3,7 +3,7 @@
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2026-05-13 08:55:30
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-05-13 09:36:58
+ * @LastEditTime : 2026-07-29 09:10:43
  * @Description  : RTMP FFmpeg流上下文封装实现
  */
 
@@ -16,13 +16,13 @@
 
 namespace
 {
-    /* IO级诊断阈值：连接、写Header或关闭超过该值时输出warn */
-    const int64_t RTMP_IO_WARN_MS = 300;
+/* IO级诊断阈值：连接、写Header或关闭超过该值时输出warn */
+const int64_t RTMP_IO_WARN_MS = 300;
 
-    int64_t rtmp_io_now_ms()
-    {
-        return av_gettime_relative() / 1000;
-    }
+int64_t rtmp_io_now_ms()
+{
+    return av_gettime_relative() / 1000;
+}
 }
 
 /**
@@ -30,19 +30,23 @@ namespace
  * @param pCtx 上下文指针（CRtmpStreamContext实例）
  * @return 0：继续，1：中断
  */
-static int interrupt_callback(void* pCtx)
+static int interrupt_callback(void *pCtx)
 {
-    CRtmpStreamContext* pContext = static_cast<CRtmpStreamContext*>(pCtx);
+    CRtmpStreamContext *pContext = static_cast<CRtmpStreamContext *>(pCtx);
     if (!pContext)
     {
         return 0;
     }
 
+    if (pContext->is_interrupt_requested())
+    {
+        return 1;
+    }
+
     int64_t currentTime = av_gettime_relative() / 1000000; // 转换为秒
 
     /* 检查是否超时 */
-    if (pContext->m_nLastIoTimeSec > 0 &&
-        currentTime - pContext->m_nLastIoTimeSec > pContext->get_timeout_sec())
+    if (pContext->m_nLastIoTimeSec > 0 && currentTime - pContext->m_nLastIoTimeSec > pContext->get_timeout_sec())
     {
         dlog_error("RTMP IO超时，超时时间=%d秒", pContext->get_timeout_sec());
         return 1; // 中断
@@ -60,13 +64,14 @@ CRtmpStreamContext::~CRtmpStreamContext()
     close(false);
 }
 
-int CRtmpStreamContext::open(const std::string& strUrl)
+int CRtmpStreamContext::open(const std::string &strUrl)
 {
     if (m_pFormatCtx)
     {
         return OK;
     }
 
+    reset_interrupt();
     const int64_t nOpenStartMs = rtmp_io_now_ms();
     dlog_info("RTMP开始打开FFmpeg输出上下文，URL=%s", strUrl.c_str());
 
@@ -159,7 +164,7 @@ int CRtmpStreamContext::create_video_stream(Video_NS::VideoCodec_E enCodec,
                                             int nWidth,
                                             int nHeight,
                                             int nFrameRate,
-                                            const std::vector<uint8_t>& vExtradata,
+                                            const std::vector<uint8_t> &vExtradata,
                                             int nChannel)
 {
     if (!m_pFormatCtx)
@@ -167,7 +172,7 @@ int CRtmpStreamContext::create_video_stream(Video_NS::VideoCodec_E enCodec,
         return ERR;
     }
 
-    AVStream* pStream = avformat_new_stream(m_pFormatCtx, nullptr);
+    AVStream *pStream = avformat_new_stream(m_pFormatCtx, nullptr);
     if (!pStream)
     {
         dlog_error("创建视频流失败，通道=%d", nChannel);
@@ -178,7 +183,7 @@ int CRtmpStreamContext::create_video_stream(Video_NS::VideoCodec_E enCodec,
     pStream->time_base = { 1, 1000 };
     pStream->avg_frame_rate = { nFrameRate, 1 };
 
-    AVCodecParameters* pCodecpar = pStream->codecpar;
+    AVCodecParameters *pCodecpar = pStream->codecpar;
     pCodecpar->codec_type = AVMEDIA_TYPE_VIDEO;
     pCodecpar->codec_id = video_codec_to_avcodecid(enCodec);
     if (enCodec == Video_NS::VideoCodec_E::H265)
@@ -198,17 +203,14 @@ int CRtmpStreamContext::create_video_stream(Video_NS::VideoCodec_E enCodec,
     return OK;
 }
 
-int CRtmpStreamContext::create_audio_stream(int nSampleRate,
-                                            int nChannels,
-                                            const std::vector<uint8_t>& vExtradata,
-                                            int nChannel)
+int CRtmpStreamContext::create_audio_stream(int nSampleRate, int nChannels, const std::vector<uint8_t> &vExtradata, int nChannel)
 {
     if (!m_pFormatCtx)
     {
         return ERR;
     }
 
-    AVStream* pStream = avformat_new_stream(m_pFormatCtx, nullptr);
+    AVStream *pStream = avformat_new_stream(m_pFormatCtx, nullptr);
     if (!pStream)
     {
         dlog_error("创建音频流失败，通道=%d", nChannel);
@@ -218,7 +220,7 @@ int CRtmpStreamContext::create_audio_stream(int nSampleRate,
     m_nAudioStreamIndex = pStream->index;
     pStream->time_base = { 1, nSampleRate };
 
-    AVCodecParameters* pCodecpar = pStream->codecpar;
+    AVCodecParameters *pCodecpar = pStream->codecpar;
     pCodecpar->codec_type = AVMEDIA_TYPE_AUDIO;
     pCodecpar->codec_id = AV_CODEC_ID_AAC;
     pCodecpar->sample_rate = nSampleRate;
@@ -241,7 +243,7 @@ int CRtmpStreamContext::write_header(Video_NS::VideoCodec_E enCodec, int nChanne
         return ERR;
     }
 
-    AVDictionary* pOpts = nullptr;
+    AVDictionary *pOpts = nullptr;
     av_dict_set(&pOpts, "flvflags", "no_duration_filesize", 0);
 
     const int64_t nHeaderStartMs = rtmp_io_now_ms();
@@ -275,7 +277,7 @@ int CRtmpStreamContext::write_header(Video_NS::VideoCodec_E enCodec, int nChanne
     return OK;
 }
 
-int CRtmpStreamContext::write_frame(AVPacket* pPacket)
+int CRtmpStreamContext::write_frame(AVPacket *pPacket)
 {
     if (!m_pFormatCtx || !pPacket)
     {
@@ -294,6 +296,16 @@ void CRtmpStreamContext::flush()
     {
         avio_flush(m_pFormatCtx->pb);
     }
+}
+
+void CRtmpStreamContext::request_interrupt()
+{
+    m_bInterruptRequested.store(true);
+}
+
+void CRtmpStreamContext::reset_interrupt()
+{
+    m_bInterruptRequested.store(false);
 }
 
 AVRational CRtmpStreamContext::video_time_base() const
@@ -318,23 +330,23 @@ AVCodecID CRtmpStreamContext::video_codec_to_avcodecid(Video_NS::VideoCodec_E en
 {
     switch (enCodec)
     {
-        case Video_NS::VideoCodec_E::H264:
-            return AV_CODEC_ID_H264;
-        case Video_NS::VideoCodec_E::H265:
-            return AV_CODEC_ID_HEVC;
-        default:
-            return AV_CODEC_ID_H264;
+    case Video_NS::VideoCodec_E::H264:
+        return AV_CODEC_ID_H264;
+    case Video_NS::VideoCodec_E::H265:
+        return AV_CODEC_ID_HEVC;
+    default:
+        return AV_CODEC_ID_H264;
     }
 }
 
-int CRtmpStreamContext::set_codec_extradata(AVCodecParameters* pCodecpar, const std::vector<uint8_t>& vExtradata)
+int CRtmpStreamContext::set_codec_extradata(AVCodecParameters *pCodecpar, const std::vector<uint8_t> &vExtradata)
 {
     if (!pCodecpar || vExtradata.empty())
     {
         return ERR;
     }
 
-    pCodecpar->extradata = static_cast<uint8_t*>(av_mallocz(vExtradata.size() + AV_INPUT_BUFFER_PADDING_SIZE));
+    pCodecpar->extradata = static_cast<uint8_t *>(av_mallocz(vExtradata.size() + AV_INPUT_BUFFER_PADDING_SIZE));
     if (!pCodecpar->extradata)
     {
         return ERR;

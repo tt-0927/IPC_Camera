@@ -10,7 +10,7 @@
 #pragma once
 
 #include <atomic>
-// #include <chrono>
+#include <chrono>
 #include <condition_variable>
 #include <mutex>
 #include <thread>
@@ -19,6 +19,7 @@
 #include <sys/time.h>
 // #include <unordered_set>
 
+#include <opencv2/opencv.hpp>
 #include "blocking_queue.hpp"
 // #include "common_process.h"
 #include "algorithm.hpp"
@@ -105,6 +106,10 @@ private:
     /* 宠物识别 */
     Alarm::PetRecognition_S m_stPetDetCfg;
 
+    /* 通道号 */
+    int m_nChannelId = 0;
+    /* 缓存RGB帧 */
+    cv::Mat m_fullRgbMat;
     /* 算法默认分辨率 */
     int m_nWidth = 640;
     int m_nHeight = 384;

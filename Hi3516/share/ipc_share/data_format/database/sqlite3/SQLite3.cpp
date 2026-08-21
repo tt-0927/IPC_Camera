@@ -1,13 +1,17 @@
 /**
- * @file SQLite3.cpp
- * @author zhangjc (zhangjc@kfb.cn)
- * @date 2025-01-16
- *
- * @brief SQLite3封装接口
+ * @FilePath     : SQLite3.cpp
+ * @Author       : zhangjc (zhangjc@kfb.cn)
+ * @Date         : 2025-01-16 00:00:00
+ * @LastEditors  : zhouzr@kfb.cn
+ * @LastEditTime : 2026-08-13 15:03:25
+ * @Description  : SQLite3封装接口
  */
 
 #include "SQLite3.hpp"
 #include "dlog.h"
+
+/* 单条SQL执行耗时告警阈值(ms)，超过视为数据库操作（多为SD卡fsync）造成停顿 */
+#define SQLITE_SLOW_WARN_MS (100)
 
 /**
  * @brief 构造函数，初始化提交间隔为5秒，退出标志为false，并启动一个线程用于周期性提交
@@ -114,6 +118,32 @@ int SQLite3::deal_sql(std::string sql)
         return delay_deal(std::move(sql));
     }
 }
+
+int SQLite3::set_synchronous_mode(int nMode)
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    if (!m_handle)
+    {
+        dlog_error("数据库未打开，无法设置同步模式");
+        return -1;
+    }
+
+    std::string strSql = "PRAGMA synchronous = " + std::to_string(nMode);
+    char *pErrMsg = nullptr;
+    int nRet = sqlite3_exec(m_handle, strSql.c_str(), nullptr, nullptr, &pErrMsg);
+    if (nRet != SQLITE_OK)
+    {
+        dlog_error("设置数据库同步模式失败, code %d error: %s", nRet, pErrMsg ? pErrMsg : "");
+        if (pErrMsg)
+        {
+            sqlite3_free(pErrMsg);
+        }
+        return -1;
+    }
+
+    dlog_info("数据库同步模式已设置: synchronous=%d, path: %s", nMode, m_path.c_str());
+    return 0;
+}
 /**
  * @brief 获取最后插入的ID
  * @return 最后插入的ID
@@ -197,6 +227,9 @@ int SQLite3::delay_deal(std::string sql)
  */
 int SQLite3::quick_deal(std::string sql)
 {
+    /* perf: 记录单条SQL执行起始时刻，用于定位SD卡数据库操作导致的系统停顿 */
+    const auto startTime = std::chrono::steady_clock::now();
+
     int nRet = begin_transaction();
     if (nRet < 0)
     {
@@ -208,7 +241,18 @@ int SQLite3::quick_deal(std::string sql)
         rollback_transaction();
         return -1;
     }
-    return commit_transaction();
+    nRet = commit_transaction();
+
+    /* perf: 单条SQL执行耗时告警（FULL同步模式下提交涉及多次磁盘fsync） */
+    const auto costMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+                            std::chrono::steady_clock::now() - startTime)
+                            .count();
+    if (costMs > SQLITE_SLOW_WARN_MS)
+    {
+        dlog_warn("数据库操作耗时过长: %lldms path[%s]", static_cast<long long>(costMs), m_path.c_str());
+    }
+
+    return nRet;
 }
 /**
  * @brief 添加保存点并处理SQL语句

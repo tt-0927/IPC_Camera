@@ -1,9 +1,9 @@
-/***
+/**
  * @FilePath     : onvif_server_wrapper.cpp
  * @Author       : tianl (tianl@kfb.cn)
  * @Date         : 2025-04-02 09:59:36
- * @LastEditors  : huangjunda
- * @LastEditTime : 2025-04-26 10:02:29
+ * @LastEditors  : zhouzr@kfb.cn
+ * @LastEditTime : 2026-07-20 17:13:15
  * @Description  : onvif服务端调用接口封装
  */
 
@@ -642,6 +642,11 @@ extern "C"
         memcpy(ntpServerAddress, stTimeInfo.stNTPInfo.address.c_str(), nLen);
 		return 0;
 	}
+
+    int onvif_set_system_utc_time(time_t nUtcTime)
+    {
+        return CTimeManage::instance()->set_system_utc_time(nUtcTime, SystemTimeChangeSource_E::ONVIF);
+    }
 
 	int onvif_get_profileParam(OnvifProfile_t *pstProfile, int nStreamNum)
 	{

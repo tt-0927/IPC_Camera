@@ -99,9 +99,35 @@ inline EventTvSdkPayloadType_E get_tvsdk_payload_type(Event::Type_E enEventType)
 
     /* AI 检测类事件 */
     case Event::Type_E::FACE_DETECT:
+    case Event::Type_E::FACE_CAPTURE:
     case Event::Type_E::PET_RECOGNITION:
     case Event::Type_E::LOITERING_DETECT:
     case Event::Type_E::PARKING_DETECT:
+    case Event::Type_E::CROWD_GATHERING:
+    case Event::Type_E::SLEEP_ON_DUTY:
+    case Event::Type_E::LEAVE_POST:
+    case Event::Type_E::PERSON_FALL_DOWN:
+    case Event::Type_E::FENCE_CLIMBING:
+    case Event::Type_E::SMOKING:
+    case Event::Type_E::PHONE_USAGE:
+    case Event::Type_E::SMOKE_FIRE:
+    case Event::Type_E::OPEN_FLAME:
+    case Event::Type_E::MANHOLE_COVER_ABNORMAL:
+    case Event::Type_E::BARE_SOIL:
+    case Event::Type_E::HOLE_PROTECTION_BAR:
+    case Event::Type_E::PEDESTRIAN_INTRUSION:
+    case Event::Type_E::PERSON_TRIP:
+    case Event::Type_E::SAFETY_HELMET:
+    case Event::Type_E::REFLECTIVE_CLOTHING:
+    case Event::Type_E::HIGH_ALTITUDE_SEATBELT:
+    case Event::Type_E::CONSTRUCTION_OCCUPY_ROAD:
+    case Event::Type_E::EMERGENCY_LANE_OCCUPANCY:
+    case Event::Type_E::REVERSE_DIRECTION:
+    case Event::Type_E::NON_MOTOR_VEHICLE_INTRUSION:
+    case Event::Type_E::ROAD_PONDING:
+    case Event::Type_E::CONGESTION:
+    case Event::Type_E::ILLEGAL_LANE_CHANGE:
+    case Event::Type_E::ELECTRIC_VEHICLE_IN_ELEVATOR:
     case Event::Type_E::GARBAGE_EXPOSURE:
     case Event::Type_E::GARBAGE_OVERFLOW:
     case Event::Type_E::SCENE_CHANGE:
@@ -109,6 +135,10 @@ inline EventTvSdkPayloadType_E get_tvsdk_payload_type(Event::Type_E enEventType)
     case Event::Type_E::AUDIO_SUDDEN_RISE:
     case Event::Type_E::AUDIO_SUDDEN_DROP:
         return EventTvSdkPayloadType_E::AI_OBJECT;
+
+    /* 车牌识别类事件 */
+    case Event::Type_E::PLATE_NUMBER:
+        return EventTvSdkPayloadType_E::PLATE;
 
     /* 统计类事件 */
 #if CAP_AI_PEOPLE_STATISTICS

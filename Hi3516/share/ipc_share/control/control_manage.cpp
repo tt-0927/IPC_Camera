@@ -3,7 +3,7 @@
  * @Author       : huangjunda
  * @Date         : 2025-03-27 19:38:25
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-06-04 14:10:24
+ * @LastEditTime : 2026-07-20 17:13:15
  * @Description  : 控制事务任务管理
  */
 
@@ -13,10 +13,13 @@
 #include <iostream>
 #include <memory>
 #include <thread>
+#include <utility>
 
+#include "network_task.h"
 #include "time_manage.h"
 #include "user_manage.h"
 #include "system_manage.h"
+#include "peripheral_manage.h"
 
 #include "ip_filter_manage.h"
 #include "bonjour_manage.h"
@@ -101,12 +104,13 @@ IpcRet_E ControlManage::init()
     if (nRet < OK)
     {
         dlog_error("服务初始化失败：%d", nRet);
-        /* 初始化失败，进行去初始化 */ 
+        /* ! server失败时business已全部启动，必须同时逆序清理，避免遗留外设gate等后台线程。 */
         deinit_server();
+        deinit_business();
         return ERR;
     }
     /* 图像初始化完后加载 */
-    CIspManage::instance()->apply_awb_config();
+    // CIspManage::instance()->apply_awb_config();
     m_initialized = true;
 
     return OK;
@@ -139,6 +143,31 @@ int ControlManage::init_business()
         dlog_error("时间管理模块初始化失败：%d", nRet);
         return nRet;
     }
+    /* 外设补光总控依赖本地时间，必须在时间模块之后启动。 */
+    nRet = CPeripheralManage::instance()->init();
+    if (nRet < OK)
+    {
+        dlog_error("外设补光管理模块初始化失败：%d", nRet);
+        return nRet;
+    }
+    /* 时间模块只发布变化事件；由组合根将其路由至补光gate，避免时间模块直接依赖外设实现。 */
+    CTimeManage::instance()->set_time_change_callback(
+        [](const SystemTimeChangeInfo_S &stChangeInfo) -> int
+        {
+            switch (stChangeInfo.enSource)
+            {
+            case SystemTimeChangeSource_E::MANUAL:
+                return CPeripheralManage::instance()->refresh_fill_light_gate_after_time_change("手动校时");
+            case SystemTimeChangeSource_E::NTP:
+                return CPeripheralManage::instance()->refresh_fill_light_gate_after_time_change("NTP校时");
+            case SystemTimeChangeSource_E::ONVIF:
+                return CPeripheralManage::instance()->refresh_fill_light_gate_after_time_change("ONVIF校时");
+            case SystemTimeChangeSource_E::TIMEZONE:
+                return CPeripheralManage::instance()->refresh_fill_light_gate_after_time_change("时区变化");
+            default:
+                return ERR_PARAM;
+            }
+        });
     /* 系统管理初始化 */
     nRet = SystemManage::instance()->init();
     if (nRet < OK)
@@ -333,6 +362,8 @@ void ControlManage::deinit_business()
     {
         dlog_error("抓图模块去初始化失败：%d", nRet);
     } 
+    /* lock: 先注销统一时间通知并等待已开始的通知完成，避免录制数据库销毁后仍被校时线程清理。 */
+    CTimeManage::instance()->clear_time_change_callback();
     /* 录制去初始化 */
     nRet = CRecordCtrl::instance()->deinit();
     if (nRet < OK)
@@ -430,6 +461,12 @@ void ControlManage::deinit_business()
     if (nRet < OK)
     {
         dlog_error("系统管理模块去初始化失败：%d", nRet);
+    }
+    /* 外设补光gate在时间模块之前停止，避免worker读取已释放的时间依赖。 */
+    nRet = CPeripheralManage::instance()->deinit();
+    if (nRet < OK)
+    {
+        dlog_error("外设补光管理模块去初始化失败：%d", nRet);
     }
     /* 时间去初始化 */
     nRet = CTimeManage::instance()->deinit();
@@ -645,18 +682,7 @@ int ControlManage::tvsdk_push_alarm(int lCommand, const void *pAlarmInfo, int dw
     return m_pTvSdkServer->push_alarm(pAlarmer, lCommand, pAlarmInfo, dwBufLen);
 }
 
-/**
- * @brief 向已连接 TVSDK 客户端推送动态图片 V2 告警。
- * @param [in] lCommand 告警命令码。
- * @param [in] pAlarmInfo V2 告警结构体。
- * @param [in] dwBufLen 告警结构体长度。
- * @param [in] pAlarmer 可选的告警设备信息。
- * @return 成功返回 OK，失败返回 ERR。
- */
-int ControlManage::tvsdk_push_alarm_v2(int lCommand,
-                                       const void *pAlarmInfo,
-                                       int dwBufLen,
-                                       const void *pAlarmer)
+int ControlManage::tvsdk_push_alarm_v2(int lCommand, const void *pAlarmInfo, int dwBufLen, const void *pAlarmer)
 {
     if (!m_pTvSdkServer)
     {
@@ -816,6 +842,9 @@ void ControlManage::bind_task(std::shared_ptr<CTaskManage> &pTaskManage)
     pTaskManage->bind<Task::Network::GmGetCertInfo>(AC_GM_GET_CERT_INFO);
     pTaskManage->bind<Task::Network::GmDeleteCertFile>(AC_GM_DELETE_CERT_FILE);
 
+    pTaskManage->bind<Task::Network::SetNetworkService>(AC_SET_NETWORK_SERVICE);
+    pTaskManage->bind<Task::Network::GetNetworkService>(AC_GET_NETWORK_SERVICE);
+
     #if CAP_NETWORK_WIFI
     /*WIFI */
     pTaskManage->bind<Task::Network::SetWifiStaInfo>(AC_SET_CONFIG_WIFI_STA);
@@ -894,6 +923,8 @@ void ControlManage::bind_task(std::shared_ptr<CTaskManage> &pTaskManage)
     /**
      * @brief   : 普通事件
      */
+      /*普通事件启用状态*/
+    pTaskManage->bind<Task::Event::GetOrdinaryEventEnableStatus>(AC_GET_ORDINARY_EVENT_ENABLE_STATUS);
     /*移动侦测*/
     pTaskManage->bind<Task::Event::GetMotionDetectionInfo>(AC_GET_MOTION_DETECT_INFO);
     pTaskManage->bind<Task::Event::SetMotionDetectionInfo>(AC_SET_MOTION_DETECT_INFO);
@@ -1179,6 +1210,7 @@ void ControlManage::bind_task(std::shared_ptr<CTaskManage> &pTaskManage)
     pTaskManage->bind<Task::StorageManage::GetStorageManageInfo>(AC_GET_STORAGE_MANAGE_INFO);
     pTaskManage->bind<Task::StorageManage::SetStorageManageInfo>(AC_SET_STORAGE_MANAGE_INFO);
     pTaskManage->bind<Task::StorageManage::FormatSdCard>(AC_INIT_SD_CARD);
+    pTaskManage->bind<Task::StorageManage::GetSdCardStatus>(AC_GET_SD_CARD_STATUS);
 
 
     /* 预览配置相关 */

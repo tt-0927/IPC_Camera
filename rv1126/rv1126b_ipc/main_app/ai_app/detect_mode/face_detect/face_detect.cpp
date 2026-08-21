@@ -542,15 +542,6 @@ void CFaceDetect::run()
                 cv::INTER_LINEAR 
             );
 
-            /* 分辨率大小转换 */
-            cv::resize(
-                bgrMat,          
-                bgrMat,              
-                cv::Size(m_nWidth, m_nHeight),  
-                0, 0,                    
-                cv::INTER_LINEAR 
-            );
-
             // cv::rotate(stFDInData.inMat, stFDInData.inMat, cv::ROTATE_180);
             // cv::rotate(bgrMat, bgrMat, cv::ROTATE_180);
 
@@ -629,6 +620,16 @@ void CFaceDetect::run()
                             /* 质量评估 */
                             m_pFaceQuaHandle->process(stFQInData, stFQOneRes.fFqaSouce);
                             dlog_debug("ai_app:  当前人脸质量评估得分 [%.2f] 置信度[%.2f]", stFQOneRes.fFqaSouce,stFQOneRes.fBoxConfidence);
+                            const cv::Rect2f faceRect(
+                                static_cast<float>(roi.x),
+                                static_cast<float>(roi.y),
+                                static_cast<float>(roi.width),
+                                static_cast<float>(roi.height)
+                            );
+                            const cv::Size faceImageSize(
+                                m_nFaceSaveWidth,
+                                m_nFaceSaveHeight
+                            );
                             Common::RectInfo_S rectInfo;
                             rectInfo.nX1 = result.fX1;
                             rectInfo.nY1 = result.fY1;
@@ -674,9 +675,13 @@ void CFaceDetect::run()
                                         cv::cvtColor(i420Mat, imageMat, cv::COLOR_YUV2BGR_NV12);
 
                                         // 人脸图片
-                                        faceMat = cv::Mat(m_nFaceSaveWidth, m_nFaceSaveHeight, CV_8UC3, cv::Scalar(0, 0, 0));
-                                        if (fillRGBToCenter(bgrMat, roi, faceMat)) {
-                                            removeBlackBorderAndConvertToBGR(faceMat,faceMat);
+                                        if (!cropTargetImage(bgrMat,
+                                                             faceRect,
+                                                             stFDInData.inMat.size(),
+                                                             faceImageSize,
+                                                             faceMat))
+                                        {
+                                            dlog_error("ai_app: 裁剪人脸目标小图失败");
                                         }
 
                                         pushFaceImageToGat1400(imageMat, faceMat, vecFARes, result);
@@ -757,16 +762,22 @@ void CFaceDetect::run()
                                     if(m_bIsLinkageFaceImage || !bIsSameTarget)
                                     {
                                         cv::Mat faceMat;
-                                        faceMat = cv::Mat(m_nFaceSaveWidth, m_nFaceSaveHeight, CV_8UC3, cv::Scalar(0, 0, 0));
-                                        if (fillRGBToCenter(bgrMat, roi, faceMat))
+                                        if (cropTargetImage(bgrMat,
+                                                            faceRect,
+                                                            stFDInData.inMat.size(),
+                                                            faceImageSize,
+                                                            faceMat))
                                         {
-                                            removeBlackBorderAndConvertToBGR(faceMat,faceMat);
                                             /* 保存人脸图片 */
                                             strFacePicture = saveFaceImage(faceMat,"");
                                             if(!strFacePicture.empty())
                                             {
                                                 vecImageFile.emplace_back(strFacePicture);
                                             }
+                                        }
+                                        else
+                                        {
+                                            dlog_error("ai_app: 裁剪人脸目标小图失败");
                                         }
                                         
                                     }
@@ -822,9 +833,13 @@ void CFaceDetect::run()
                                             cv::cvtColor(i420Mat, imageMat, cv::COLOR_YUV2BGR_NV12);
     
                                             // 人脸图片
-                                            faceMat = cv::Mat(m_nFaceSaveWidth, m_nFaceSaveHeight, CV_8UC3, cv::Scalar(0, 0, 0));
-                                            if (fillRGBToCenter(bgrMat, roi, faceMat)) {
-                                                removeBlackBorderAndConvertToBGR(faceMat,faceMat);
+                                            if (!cropTargetImage(bgrMat,
+                                                                 faceRect,
+                                                                 stFDInData.inMat.size(),
+                                                                 faceImageSize,
+                                                                 faceMat))
+                                            {
+                                                dlog_error("ai_app: 裁剪人脸目标小图失败");
                                             }
     
                                             pushFaceImageToGat1400(imageMat, faceMat, vecFARes, result);
@@ -990,8 +1005,7 @@ std::string CFaceDetect::saveFaceImage(const cv::Mat &image,std::string strFaceA
                             std::to_string(int(Alarm::LinkageType::UPLOAD_TARGET_IMAGE)) + ".jpg";
     
     dlog_debug("[人脸目标小图] 保存人脸图片[%s]",strFilename.c_str());
-    cv::imwrite(strFilename, image);
-  
+
     if( cv::imwrite(strFilename, image))
     {
         return strFilename;

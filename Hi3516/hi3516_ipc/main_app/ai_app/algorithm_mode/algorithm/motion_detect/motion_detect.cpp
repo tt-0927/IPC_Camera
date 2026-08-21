@@ -3,7 +3,7 @@
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2025-07-10 11:28:50
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-05-08 10:00:22
+ * @LastEditTime : 2026-08-15 10:46:47
  * @Description  : 移动侦测
  */
 
@@ -237,10 +237,30 @@ bool CMotionDetect::init()
         if (m_pMotionDetHandle)
         {
             /* 调整Sad阈值，使移动侦测更灵敏 */
+            #if CAP_IO_EXTERNAL_DDR_00S
+            m_pMotionDetHandle->stExParam.u16SadThreshold = 35;
+            #else
             m_pMotionDetHandle->stExParam.u16SadThreshold = 25;
+            #endif
             if (TD_SUCCESS == m_pMotionDetHandle->svpMd_init(m_pMotionDetHandle))
             {
                 dlog_info("移动侦测初始化成功");
+
+                /*
+                 * 输入码流分辨率可能不是算法固定的 1024x576。
+                 * 预先创建全尺寸缩放帧，运行时按实际输入尺寸决定是否使用。
+                 */
+                memset_s(&m_stScaleFrameInfo, sizeof(ot_video_frame_info), 0, sizeof(ot_video_frame_info));
+                if (TD_SUCCESS !=
+                    mppVgs_create_video_frame_info(m_nWidth, m_nHeight, OT_PIXEL_FORMAT_YVU_SEMIPLANAR_420, &m_stScaleFrameInfo))
+                {
+                    svpMd_release(m_pMotionDetHandle);
+                    m_pMotionDetHandle = nullptr;
+                    dlog_error("移动侦测初始化失败-创建缩放视频帧失败");
+                    return false;
+                }
+                m_bScaleFrameCreated = true;
+
                 /* 判断是否需要裁剪源视频 */
                 if(m_nWidth != m_stRect.nWidth || m_nHeight != m_stRect.nHeight)
                 {
@@ -266,6 +286,9 @@ bool CMotionDetect::init()
             }
             else
             {
+                mppVgs_destroy_video_frame_info(&m_stScaleFrameInfo);
+                m_bScaleFrameCreated = false;
+                m_bIsCrop = false;
                 svpMd_release(m_pMotionDetHandle);
                 m_pMotionDetHandle = nullptr;
                 dlog_error("移动侦测初始化失败");
@@ -282,6 +305,13 @@ bool CMotionDetect::unInit()
     if (m_bIsCrop)
     {
         mppVgs_destroy_video_frame_info(&m_stDstFrameInfo);
+        m_bIsCrop = false;
+    }
+
+    if (m_bScaleFrameCreated)
+    {
+        mppVgs_destroy_video_frame_info(&m_stScaleFrameInfo);
+        m_bScaleFrameCreated = false;
     }
 
     if (m_pMotionDetHandle)
@@ -357,9 +387,30 @@ void CMotionDetect::run()
             dlog_error("原始数据帧为空");
             continue;
         }
+       /*
+         * 先按实际输入帧尺寸缩放到算法坐标系，再按配置区域裁剪。
+         * 旧逻辑只比较算法尺寸和区域尺寸，全屏区域时会把 1920x1080
+         * 原始帧直接送入只接受 1024x576 的 MD 句柄。
+         */
+         ot_video_frame_info *pPreparedFrameInfo = pSrcFrameInfo;
+         const int nSrcWidth = pSrcFrameInfo->video_frame.width;
+         const int nSrcHeight = pSrcFrameInfo->video_frame.height;
+         if (nSrcWidth != m_nWidth || nSrcHeight != m_nHeight)
+         {
+             if (!m_bScaleFrameCreated ||
+                 TD_SUCCESS != mppVgs_scale(pSrcFrameInfo, &m_stScaleFrameInfo))
+             {
+                 dlog_error("移动侦测缩放失败: [%d,%d] -> [%d,%d]",
+                            nSrcWidth, nSrcHeight, m_nWidth, m_nHeight);
+                 continue;
+             }
+             pPreparedFrameInfo = &m_stScaleFrameInfo;
+         }
+ 
 
         /* 视频帧指针，执行需要送算法的视频帧 */
-        ot_video_frame_info *pFrameInfo = pSrcFrameInfo;
+        // ot_video_frame_info *pFrameInfo = pSrcFrameInfo;
+        ot_video_frame_info *pFrameInfo = pPreparedFrameInfo;
         if (m_bIsCrop)
         {
             ot_rect stRect;
@@ -369,7 +420,8 @@ void CMotionDetect::run()
             stRect.height = m_stRect.nHeight;
 
             /* VGS crop裁剪 */
-            if (TD_SUCCESS != mppVgs_crop(pSrcFrameInfo, &m_stDstFrameInfo, &stRect))
+            // if (TD_SUCCESS != mppVgs_crop(pSrcFrameInfo, &m_stDstFrameInfo, &stRect))
+            if (TD_SUCCESS != mppVgs_crop(pPreparedFrameInfo, &m_stDstFrameInfo, &stRect))
             {
                 /* shared_ptr会自动处理pSrcFrameInfo的释放 */
                 continue;
@@ -521,7 +573,9 @@ void CMotionDetect::processNormalMode(ot_sample_svp_rect_info &stRectInfo,
     stContext.nChnId = stCtx.nChnId;
     stContext.llTimestamp = stCtx.llTimestamp;
 #ifdef ENABLE_TVSDK_SRC
-    if (bIsAlarm && stCtx.pFrameInfo != nullptr)
+    /* perf: 有TVSDK客户端订阅时才软件编码全景图，无订阅者跳过编码 */
+    if (bIsAlarm && m_motionAlarmStateMachine.canStartAlarm() && stCtx.pFrameInfo != nullptr &&
+        AiAppCommon::tvsdk_event_image_required())
     {
         auto pPayload = std::make_shared<EventTvSdkPayload_S>();
         pPayload->enType = get_tvsdk_payload_type(stContext.enEventType);
@@ -641,7 +695,9 @@ void CMotionDetect::processExpertMode(ot_sample_svp_rect_info &stRectInfo,
     stContext.nChnId = stCtx.nChnId;
     stContext.llTimestamp = stCtx.llTimestamp;
 #ifdef ENABLE_TVSDK_SRC
-    if (anyRegionTriggered && stCtx.pFrameInfo != nullptr)
+    /* perf: 有TVSDK客户端订阅时才软件编码全景图，无订阅者跳过编码 */
+    if (anyRegionTriggered && m_motionAlarmStateMachine.canStartAlarm() && stCtx.pFrameInfo != nullptr &&
+        AiAppCommon::tvsdk_event_image_required())
     {
         auto pPayload = std::make_shared<EventTvSdkPayload_S>();
         pPayload->enType = get_tvsdk_payload_type(stContext.enEventType);

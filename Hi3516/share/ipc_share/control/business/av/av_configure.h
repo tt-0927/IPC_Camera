@@ -39,6 +39,54 @@ using SetVideoRoiConfigCallback = std::function<int(const Video_NS::VideoRoiConf
 /*设置区域裁剪配置的回调函数类型*/
 using SetAreaCropConfigCallback = std::function<int(const Video_NS::AreaCrop_S &stConfig)>;
 
+/**
+ * @brief   : AV 视频配置应用接口
+ * @note    : 由业务仓库实现，ipc_share 只依赖该抽象接口，避免直接依赖业务仓库的视频模块
+ */
+class IAVVideoConfigApplier
+{
+public:
+    virtual ~IAVVideoConfigApplier() {}
+
+    /**
+     * @brief   : 应用视频配置
+     * @param    {Video_NS::VideoConfig_S} &stConfig：视频配置
+     * @return   {int} OK：成功，非OK：失败
+     */
+    virtual int apply_video_config(const Video_NS::VideoConfig_S &stConfig) = 0;
+
+    /**
+     * @brief   : 应用视频 ROI 配置
+     * @param    {Video_NS::VideoRoiConfig_S} &stConfig：视频 ROI 配置
+     * @return   {int} OK：成功，非OK：失败
+     */
+    virtual int apply_video_roi_config(const Video_NS::VideoRoiConfig_S &stConfig) = 0;
+
+    /**
+     * @brief   : 应用区域裁剪配置
+     * @param    {Video_NS::AreaCrop_S} &stConfig：区域裁剪配置
+     * @return   {int} OK：成功，非OK：失败
+     */
+    virtual int apply_area_crop_config(const Video_NS::AreaCrop_S &stConfig) = 0;
+};
+
+/**
+ * @brief   : AV 音频配置应用接口
+ * @note    : 由业务仓库实现，ipc_share 只依赖该抽象接口，避免直接依赖业务仓库的音频模块
+ */
+class IAVAudioConfigApplier
+{
+public:
+    virtual ~IAVAudioConfigApplier() {}
+
+    /**
+     * @brief   : 应用音频配置
+     * @param    {Audio_NS::AudioConfig_S} &stConfig：音频配置
+     * @return   {int} OK：成功，非OK：失败
+     */
+    virtual int apply_audio_config(const Audio_NS::AudioConfig_S &stConfig) = 0;
+};
+
 class CAVConfigure : public CSingleton<CAVConfigure>
 {
     CAVConfigure();
@@ -46,6 +94,34 @@ class CAVConfigure : public CSingleton<CAVConfigure>
 public:
     ~CAVConfigure();
     friend class CSingleton<CAVConfigure>;
+
+    /**
+     * @brief   : 设置 AV 视频配置应用接口
+     * @param    {IAVVideoConfigApplier *} pApplier：业务仓库视频配置应用接口
+     * @return   {int} OK：成功，非OK：失败
+     */
+    int setAVVideoConfigApplier(IAVVideoConfigApplier *pApplier);
+
+    /**
+     * @brief   : 清理 AV 视频配置应用接口
+     * @param    {IAVVideoConfigApplier *} pApplier：需要清理的业务仓库视频配置应用接口
+     * @return   {int} OK：成功，非OK：失败
+     */
+    int clearAVVideoConfigApplier(IAVVideoConfigApplier *pApplier);
+
+    /**
+     * @brief   : 设置 AV 音频配置应用接口
+     * @param    {IAVAudioConfigApplier *} pApplier：业务仓库音频配置应用接口
+     * @return   {int} OK：成功，非OK：失败
+     */
+    int setAVAudioConfigApplier(IAVAudioConfigApplier *pApplier);
+
+    /**
+     * @brief   : 清理 AV 音频配置应用接口
+     * @param    {IAVAudioConfigApplier *} pApplier：需要清理的业务仓库音频配置应用接口
+     * @return   {int} OK：成功，非OK：失败
+     */
+    int clearAVAudioConfigApplier(IAVAudioConfigApplier *pApplier);
 
     // info /*----------------------- 视频配置相关接口 -----------------------*/
     /**
@@ -281,6 +357,10 @@ private:
     SetAreaCropConfigCallback m_setAreaCropConfigCallback;
     /*音频配置更新回调*/
     SetAudioConfigCallback m_setAudioConfigCallback;
+    /* AV 视频配置应用接口 */
+    IAVVideoConfigApplier *m_pVideoConfigApplier;
+    /* AV 音频配置应用接口 */
+    IAVAudioConfigApplier *m_pAudioConfigApplier;
     /*音频对讲更新回调*/
     AudioSpeakCallback m_setAoSpeakCallback;
     /* 设置音频模块AO采样率回调 */

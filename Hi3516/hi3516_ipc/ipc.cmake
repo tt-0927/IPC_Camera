@@ -91,21 +91,15 @@ if(NOT SENSOR_PART_COUNT EQUAL 2)
 endif()
 
 list(GET SENSOR_PARTS 0 SENSOR_MODEL)   # eg: sc500ai
-list(GET SENSOR_PARTS 1 SENSOR_FOCAL)   # eg: f2_8mm
 # 生成【传感器型号】宏
 string(TOUPPER "${SENSOR_MODEL}" SENSOR_MODEL_UPPER)
 string(REPLACE "-" "_" SENSOR_MODEL_UPPER "${SENSOR_MODEL_UPPER}")
 
-# 生成【焦距】宏
-# 去掉前缀 f
-string(REGEX REPLACE "^f" "" SENSOR_FOCAL_VAL "${SENSOR_FOCAL}")
-# 转为大写宏友好格式
-string(TOUPPER "${SENSOR_FOCAL_VAL}" SENSOR_FOCAL_UPPER)
-string(REPLACE "_" "_" SENSOR_FOCAL_UPPER "${SENSOR_FOCAL_UPPER}")
-
 add_compile_definitions(SENSOR_${SENSOR_MODEL_UPPER})
-add_compile_definitions(FOCAL_${SENSOR_FOCAL_UPPER})
+# 保留完整Sensor字符串供运行配置选择焦距段，不再生成独立焦距调参宏。
 add_compile_definitions(SENSOR_TYPE_STR="${SENSOR_TYPE}")
+# 设备字符串只用于选择INI覆盖段，不再通过DEVICE_TV_*分支构造ISP调参。
+add_compile_definitions(DEVICE_TYPE_STR="${DEVICE_TYPE}")
 
 # 项目类型宏
 if(PROJECT_TYPE STREQUAL "itc")
@@ -129,6 +123,14 @@ if(BUILD_VERSION STREQUAL "Debug")
     # set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g")
 
     message("==========> 当前编译版本: Debug")
+elseif(BUILD_VERSION STREQUAL "RelWithDebInfo")
+    # 保持 Release 的 -Os 优化和段回收策略，但不在链接阶段使用 -s，
+    # 便于生成与设备运行文件严格配套的独立 stream.debug。
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g -ggdb -Os -fno-omit-frame-pointer -ffunction-sections -fdata-sections")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -ggdb -Os -fno-omit-frame-pointer -ffunction-sections -fdata-sections")
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--gc-sections")
+    set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,--gc-sections")
+    message("==========> 当前编译版本: RelWithDebInfo (Release优化+调试符号)")
 else()
     # Release 构建类型设置
     # set(CMAKE_BUILD_TYPE Release)

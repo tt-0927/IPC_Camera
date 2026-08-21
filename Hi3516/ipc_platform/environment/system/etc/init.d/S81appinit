@@ -1,13 +1,54 @@
 #!/bin/sh
+#
+# @FilePath     : S81appinit
+# @Author       : zhouzr@kfb.cn
+# @Date         : 2026-02-27 13:40:43
+# @LastEditors  : zhouzr@kfb.cn
+# @LastEditTime : 2026-08-04 10:01:33
+# @Description  : Hi3516 IPC 主程序启动脚本
+#
 
 # 设置环境变量
 export LD_LIBRARY_PATH=/lib
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/cam/lib
 export PATH="$PATH":/opt/cam/tools
 
+# 减小线程栈空间为 2MB：默认 8MB 时多线程进程
+ulimit -s 2048
+
 # 初始化系统
 # /root/init.sh
 /root/insmod.sh
+
+# 上传文件只作为运行期间的临时数据保存，兼容路径仍由网页和业务代码使用。
+UPLOAD_RUNTIME_DIR="/tmp/upload"
+UPLOAD_COMPAT_DIR="/opt/course/upload"
+
+# ! 只清理明确的临时上传目录，禁止扩大为 /opt/course 下的其他数据。
+prepare_upload_directory() {
+    if [ -L "$UPLOAD_RUNTIME_DIR" ]; then
+        rm -f "$UPLOAD_RUNTIME_DIR" || return 1
+    elif [ -e "$UPLOAD_RUNTIME_DIR" ]; then
+        rm -rf "$UPLOAD_RUNTIME_DIR" || return 1
+    fi
+    mkdir -p "$UPLOAD_RUNTIME_DIR" || return 1
+
+    # 旧版本可能把 upload 生成为普通目录；先移除旧节点，再创建兼容软链接。
+    mkdir -p "$(dirname "$UPLOAD_COMPAT_DIR")" || return 1
+    if [ -L "$UPLOAD_COMPAT_DIR" ]; then
+        rm -f "$UPLOAD_COMPAT_DIR" || return 1
+    elif [ -e "$UPLOAD_COMPAT_DIR" ]; then
+        rm -rf "$UPLOAD_COMPAT_DIR" || return 1
+    fi
+    ln -s "$UPLOAD_RUNTIME_DIR" "$UPLOAD_COMPAT_DIR" || return 1
+    chmod 770 "$UPLOAD_RUNTIME_DIR" || return 1
+    return 0
+}
+
+if ! prepare_upload_directory; then
+    echo "上传目录初始化失败，停止启动业务进程" >&2
+    exit 1
+fi
 
 # 设置系统时区，必须在同步RTC与启动业务进程前完成
 if [ -f /opt/cam/shell/set_timezone.sh ]; then

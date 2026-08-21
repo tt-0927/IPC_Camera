@@ -44,6 +44,8 @@ void SceneChangeDetect::recvMediaData(MediaData_S stMediaData)
         return;
     }
 
+    m_nChannelId = stMediaData.stMediaParam.nChannel;
+
     if (m_RecvManager.handleEvent(stMediaData.stMediaParam.nChannel))
     {
         if (m_dateQueue.size() >= QUEUE_MAX)
@@ -179,6 +181,8 @@ void SceneChangeDetect::run()
             /* NV12→RGB */
             cv::cvtColor(nv12, stInData.inMat, cv::COLOR_YUV2RGB_NV12);
 
+            m_stInDataMat = stInData.inMat.clone();
+
             // cv::rotate(stInData.inMat, stInData.inMat, cv::ROTATE_180);
             
             // int time1 = time(NULL);
@@ -274,7 +278,29 @@ bool SceneChangeDetect::sceneChangeDetectProcess(std::vector<std::vector<int>> &
     }
 
     /* 判断是否报警 */
+#ifdef ENABLE_TVSDK_SRC
+    /* 构建事件触发上下文 */
+    EventTriggerContext_S stContext;
+    stContext.enEventType = Event::Type_E::SCENE_CHANGE;
+    stContext.nChnId = m_nChannelId;
+    stContext.llTimestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
+                               std::chrono::system_clock::now().time_since_epoch())
+                               .count();
+
+    if (bIsAlarm && !m_stInDataMat.empty())
+    {
+        auto pPayload = std::make_shared<EventTvSdkPayload_S>();
+        pPayload->enType = get_tvsdk_payload_type(stContext.enEventType);
+        if (encode_mat_to_tvsdk_image(m_stInDataMat, pPayload->stPanoramaImage))
+        {
+            stContext.pTvSdkPayload = pPayload;
+        }
+    }
+
+    m_sceneChangeAlarmStateMachine.handleAlarmState(bIsAlarm, stContext);
+#else
     m_sceneChangeAlarmStateMachine.handleAlarmState(bIsAlarm, Event::Type_E::SCENE_CHANGE);
+#endif
 
     return bIsAlarm;
 }

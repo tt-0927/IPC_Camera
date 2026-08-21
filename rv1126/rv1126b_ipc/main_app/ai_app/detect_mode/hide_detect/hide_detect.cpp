@@ -2,7 +2,7 @@
  * @Author: 梁浩尧 lianghaoyao@kfb.cn
  * @Date: 2025-11-05 10:38:00
  * @LastEditors: leiyy leiyy@kfb.cn
- * @LastEditTime: 2026-04-30 15:56:43
+ * @LastEditTime: 2026-07-22 16:42:14
  * @FilePath: /1126/rv1126b_ipc/main_app/ai_app/algorithm_mode/algorithm/motion_detect/hide_detect.cpp
  * @Description: 遮挡侦测
  */
@@ -362,14 +362,36 @@ void CHideDetect::run()
         }
         
         /* 遮挡侦测后处理函数 */
-        processHideDetect(stOutData.bBlockFlag);
+        processHideDetect(stOutData.bBlockFlag, stMediaData);
     }
 }
 
-bool CHideDetect::processHideDetect(bool bIsAlarm) 
+bool CHideDetect::processHideDetect(bool bIsAlarm, const MediaData_S &stMediaData) 
 {
-    /* 判断是否报警 */
+    /* 上报事件 */
+#ifdef ENABLE_TVSDK_SRC
+    EventTriggerContext_S stContext;
+    stContext.enEventType = Event::Type_E::OCCLUSION_DETECT;
+    stContext.nChnId = stMediaData.stMediaParam.nChannel;
+    stContext.llTimestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
+                               std::chrono::system_clock::now().time_since_epoch())
+                               .count();
+
+    if (bIsAlarm && !m_fullRgbMat.empty())
+    {
+        auto pPayload = std::make_shared<EventTvSdkPayload_S>();
+        pPayload->enType = get_tvsdk_payload_type(stContext.enEventType);
+        if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage))
+        {
+            stContext.pTvSdkPayload = pPayload;
+        }
+    }
+
+    m_hideAlarmStateMachine.handleAlarmState(bIsAlarm, stContext);
+#else
+    (void)stMediaData;
     m_hideAlarmStateMachine.handleAlarmState(bIsAlarm, Event::Type_E::OCCLUSION_DETECT);
+#endif
 
     return bIsAlarm;
 }

@@ -3,7 +3,7 @@
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2026-05-21 10:39:50
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-05-21 14:24:40
+ * @LastEditTime : 2026-07-29 14:24:35
  * @Description  : MQTT 管理器，提供异步双向通信能力
  */
 
@@ -19,6 +19,9 @@
 #include <string>
 #include <thread>
 #include <atomic>
+#include <condition_variable>
+#include <cstdint>
+#include <deque>
 #include <unordered_map>
 #include <vector>
 #include <mutex>
@@ -148,7 +151,8 @@ private:
     /**
      * @brief   : MQTT 底层消息回调
      * @param    {BlMqttMsg_S} stMsg：MQTT 消息
-     * @note    : 由 bl_mqtt 库异步调用，处理连接/断开/消息到达事件
+     * @return   {void}
+     * @note    : 由 bl_mqtt 库异步调用；仅更新连接状态、复制消息并唤醒工作线程，禁止执行上层业务
      */
     void on_mqtt_message(BlMqttMsg_S stMsg);
 
@@ -157,19 +161,22 @@ private:
      * @note    :
      *        · 独立线程运行，检测连接状态
      *        · 断开时按指数退避策略重试连接
-     *        · 连接成功后自动恢复订阅
+     *        · 连接成功后恢复订阅并派发上层状态回调
+     * @return   {void}
      */
     void reconnect_thread();
 
     /**
      * @brief   : 处理连接成功事件
-     * @note    : 输出 info 日志，恢复订阅
+     * @return   {void}
+     * @note    : 仅记录状态和投递恢复订阅任务，避免 MQTT SDK 回调与连接锁重入
      */
     void handle_connect_success();
 
     /**
      * @brief   : 处理断开连接事件
      * @param    {const std::string &} strReason：断开原因
+     * @return   {void}
      * @note    : 输出 warn 日志，触发重连流程
      */
     void handle_disconnect(const std::string &strReason);
@@ -183,9 +190,33 @@ private:
 
     /**
      * @brief   : 恢复所有已订阅的 Topic
+     * @return   {void}
      * @note    : 在连接成功后调用，重新订阅之前订阅过的 Topic
      */
     void restore_subscriptions();
+
+    /**
+     * @brief   : 在重连线程中派发已缓存的连接状态变化
+     * @return   {void}
+     * @note    : MQTT SDK 回调线程只更新状态和入队，禁止在回调上下文执行上层发布或业务逻辑
+     */
+    void dispatch_connection_state_changes();
+
+    /**
+     * @brief   : 缓存一条 MQTT 连接状态变化事件
+     * @param    {bool} bConnected：true：连接成功，false：连接断开
+     * @param    {const std::string &} strReason：状态变化原因
+     * @return   {void}
+     * @note    : 由 MQTT SDK 回调线程调用，事件将在重连线程中通知上层
+     */
+    void enqueue_connection_state_change(bool bConnected, const std::string &strReason);
+
+    /**
+     * @brief   : 唤醒重连守护线程
+     * @return   {void}
+     * @note    : 用于连接状态变化、停止和首次初始化，替代固定周期轮询
+     */
+    void notify_reconnect_thread();
 
 private:
     BlMqtt_S *m_pstMqtt = nullptr;                              /* bl_mqtt 句柄 */
@@ -197,26 +228,61 @@ private:
     MqttRawMessageCallback m_fnMessageCallback;                 /* 原始消息回调 */
     MqttConnectionCallback m_fnConnectionCallback;              /* 连接状态回调 */
 
-    /* LWT 遗嘱消息配置 */
-    std::string m_strWillTopic;                                 /* LWT Topic（空表示不启用） */
-    std::string m_strWillPayload;                               /* LWT 消息内容 */
-    int m_nWillQos = 1;                                         /* LWT QoS */
-    bool m_bWillRetain = true;                                  /* LWT retain */
+    /**
+     * @brief   : 由 MQTT SDK 回调投递、由重连线程消费的连接状态事件
+     * @note    : 事件队列将回调与平台业务隔离；队列满时仅保留较新的状态变化
+     */
+    struct ConnectionStateEvent_S
+    {
+        /* true 表示连接建立，false 表示连接丢失或建立失败。 */
+        bool bConnected;
+        /* 状态变化原因；在线程间传递时由本结构体独占字符串副本。 */
+        std::string strReason;
+    };
 
-    std::thread m_ReconnectThread;                              /* 重连守护线程 */
-    std::atomic<bool> m_bRunning{false};                        /* 线程运行标志 */
-    std::atomic<bool> m_bConnected{false};                      /* 连接状态标志 */
-    std::atomic<bool> m_bNeedReconnect{false};                  /* 需要重连标志 */
-    std::atomic<bool> m_bConnecting{false};                     /* 连接中标志 */
-    std::mutex  m_mtxConnect;                                   /* 连接互斥锁 */
+    /* LWT 遗嘱消息配置 */
+    std::string m_strWillTopic;   /* LWT Topic（空表示不启用） */
+    std::string m_strWillPayload; /* LWT 消息内容 */
+    int m_nWillQos = 1;           /* LWT QoS */
+    bool m_bWillRetain = true;    /* LWT retain */
+
+    std::thread m_ReconnectThread;               /* 重连守护线程 */
+    std::atomic<bool> m_bRunning{ false };       /* 线程运行标志 */
+    std::atomic<bool> m_bConnected{ false };     /* 连接状态标志 */
+    std::atomic<bool> m_bNeedReconnect{ false }; /* 需要重连标志 */
+    std::atomic<bool> m_bConnecting{ false };    /* 连接中标志 */
+    /* SDK 回调置位、重连线程 exchange 并清零；避免在回调线程内执行 subscribe。 */
+    std::atomic<bool> m_bNeedRestoreSubscriptions{ false };
+    std::mutex m_mtxConnect; /* 连接互斥锁 */
 
     /* 已订阅 Topic 列表（用于重连后恢复订阅） */
     std::vector<std::pair<std::string, int>> m_vecSubscribedTopics;
-    std::mutex m_mtxTopics;                                     /* Topic 列表锁 */
-    std::mutex m_mtxMessageCallback;                            /* 消息回调锁 */
+    std::mutex m_mtxTopics;          /* Topic 列表锁 */
+    std::mutex m_mtxMessageCallback; /* 消息回调锁 */
+    /* lock: 保护 m_fnConnectionCallback 的注册、替换和派发前快照。 */
+    std::mutex m_mtxConnectionCallback;
+    /* memory: SDK 回调写入、重连线程取出的有限状态事件；元素包含独立原因字符串副本。 */
+    std::deque<ConnectionStateEvent_S> m_deqConnectionStateEvents;
+    /* lock: 保护连接状态事件的入队、出队和 deinit 清理，回调函数必须在锁外执行。 */
+    std::mutex m_mtxConnectionStateEvents;
+    /* lock: 仅配合 m_cvReconnect 等待状态变化；不保护 MQTT 句柄或业务回调。 */
+    std::mutex m_mtxReconnectWait;
+    /* 连接结果、断连和反初始化均通过此条件变量唤醒重连线程，替代每秒轮询。 */
+    std::condition_variable m_cvReconnect;
+    /* 未连接时被拒绝的发布累计值；用于低成本汇总日志，不保存消息内容。 */
+    std::atomic<uint64_t> m_uPublishRejectCount{ 0 };
+    /* 使用 steady_clock 毫秒时间基的最近一次拒绝发布日志时间，CAS 保证并发限频正确。 */
+    std::atomic<int64_t> m_nLastPublishRejectLogMs{ 0 };
 
     /* 重连退避参数 */
-    static constexpr int RECONNECT_INITIAL_INTERVAL_SEC = 5;    /* 初始重连间隔：5 秒 */
-    static constexpr int RECONNECT_MAX_INTERVAL_SEC = 300;      /* 最大重连间隔：5 分钟 */
-    int m_nReconnectCount = 0;                                  /* 当前重连次数 */
+    static constexpr int RECONNECT_INITIAL_INTERVAL_SEC = 5; /* 初始重连间隔：5 秒 */
+    static constexpr int RECONNECT_MAX_INTERVAL_SEC = 300;   /* 最大重连间隔：5 分钟 */
+    /* 单次异步 CONNECT 等待上限，单位秒；超时后进入退避重试。 */
+    static constexpr int CONNECT_RESULT_TIMEOUT_SEC = 35;
+    /* 连接状态事件最大缓存量；溢出时淘汰最早事件以限制抖动场景下的内存。 */
+    static constexpr size_t CONNECTION_EVENT_QUEUE_MAX_SIZE = 8;
+    /* 未连接发布拒绝日志最小间隔，单位毫秒。 */
+    static constexpr int64_t PUBLISH_REJECT_LOG_INTERVAL_MS = 5000;
+    /* SDK 回调和重连线程共享的当前退避次数；必须使用原子读写。 */
+    std::atomic<int> m_nReconnectCount{0};
 };

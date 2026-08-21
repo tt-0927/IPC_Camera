@@ -20,6 +20,16 @@ EventLinkageDispatcher::EventLinkageDispatcher(EventLinkageDirectAction &stDirec
 
 int EventLinkageDispatcher::dispatch(const ResolvedLinkagePlan_S &stPlan, const Event::EventState_S &stEventState)
 {
+
+        /*
+     * 人脸比对以抓拍结果为输入，两者同时启用时属于同一条事件链。
+     * 抓拍仍执行存储、推送等直接动作，但声光统一交给最终的比对成功/失败事件，
+     * 从源头避免两组异步声光任务竞争。仅开启人脸抓拍时不受影响。
+     */
+     const bool bFaceCaptureDelegatesSoundAndLight =
+     stPlan.stContext.enEventType == Event::Type_E::FACE_CAPTURE &&
+     stPlan.stAlgorithmConfig.nEnFaceCompare;
+
     /* 先处理录像和抓图，这两类动作需要尽快和当前事件状态对齐 */
     if (stPlan.bUploadSdCard)
     {
@@ -53,12 +63,14 @@ int EventLinkageDispatcher::dispatch(const ResolvedLinkagePlan_S &stPlan, const 
         m_worker.pushTask(build_task(stPlan, LinkageType_E::EMAIL));
     }
 
-    if (stPlan.stAlgorithmConfig.nEnFlashAlarm && stPlan.bFlashingLightAlarm)
+    // if (stPlan.stAlgorithmConfig.nEnFlashAlarm && stPlan.bFlashingLightAlarm)
+    if (!bFaceCaptureDelegatesSoundAndLight && stPlan.stAlgorithmConfig.nEnFlashAlarm && stPlan.bFlashingLightAlarm)
     {
         m_worker.pushTask(build_task(stPlan, LinkageType_E::FLASHING_LIGHT));
     }
 
-    if (stPlan.stAlgorithmConfig.nEnAudioAlarm && stPlan.bSound)
+    // if (stPlan.stAlgorithmConfig.nEnAudioAlarm && stPlan.bSound)
+    if (!bFaceCaptureDelegatesSoundAndLight && stPlan.stAlgorithmConfig.nEnAudioAlarm && stPlan.bSound)
     {
         m_worker.pushTask(build_task(stPlan, LinkageType_E::SOUND));
     }

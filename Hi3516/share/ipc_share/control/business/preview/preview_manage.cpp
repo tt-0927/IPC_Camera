@@ -3,7 +3,7 @@
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2025-09-11 21:15:53
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2025-11-12 10:41:59
+ * @LastEditTime : 2026-07-27 09:34:00
  * @Description  : 预览管理
  */
 
@@ -16,8 +16,8 @@
 #include "rtsp_server.h"
 #include "gpio_ctrl.h"
 #include "isp_configure.h"
+#include "isp_manage.h"
 #include "event_linkage.h"
-#include "light_manager.h"
 
 namespace
 {
@@ -359,18 +359,40 @@ int CPreviewManage::device_control(const Preview::DeviceControl_S &stInfo)
     const auto enFrequency = static_cast<Alarm::FlashFrequency_E>(stInfo.nParam1);
     std::lock_guard<std::mutex> operationLock(m_alarmLightOperationMutex);
 
-    /* 先更新计时器代次，避免上一轮超时动作关闭本次刚开启的声光。 */
-    arm_alarm_light_timer(nDurationSec);
-    const int nLightRet = CLightManager::instance()->start_flashing(LIGHT_TYPE_WHITE,
-                                                                      nDurationSec,
-                                                                      enFrequency);
+    /* lock: 一个 TVSDK 请求仅持有一个 override token；重复 START 先释放旧请求，再申请新配置。 */
+    if (m_u64AlarmLightOverrideToken != 0)
+    {
+        const int nEndRet = CIspManage::instance()->end_light_override(m_u64AlarmLightOverrideToken);
+        if (nEndRet != OK && nEndRet != ERR_PARAM)
+        {
+            dlog_error("TVSDK释放已有灯光抢占失败: ret[%d]", nEndRet);
+            return nEndRet;
+        }
+        m_u64AlarmLightOverrideToken = 0;
+    }
+
+    /* 通过统一 ISP 仲裁器执行闪烁，停止 token 后由 reconciler 恢复原补光配置。 */
+    ISP::IspLightOverride_S stOverride;
+    stOverride.stLight.enLightType = ISP::LIGHT_TYPE_WHITE;
+    stOverride.stLight.nLightLevel = 100;
+    stOverride.stLight.bFlashing = true;
+    stOverride.stLight.nFlashTimeSec = nDurationSec;
+    stOverride.stLight.enFlashFrequency = enFrequency;
+
+    uint64_t u64Token = 0;
+    const int nLightRet = CIspManage::instance()->begin_light_override(stOverride, u64Token);
     if (nLightRet != OK)
     {
         cancel_alarm_light_timer();
+        CGpioCtrl::instance()->alarm_output_off(0);
         dlog_error("TVSDK启动闪光灯失败: ret[%d]", nLightRet);
         return nLightRet;
     }
 
+    /* lock: token 仅由 m_alarmLightOperationMutex 保护，用于精确释放本次 TVSDK 灯光抢占。 */
+    m_u64AlarmLightOverrideToken = u64Token;
+    /* 先成功申请硬件抢占，再启动计时，避免启动失败后遗留无效的自动停止任务。 */
+    arm_alarm_light_timer(nDurationSec);
     CGpioCtrl::instance()->alarm_output_on(0);
     dlog_info("TVSDK声光报警已开启: channel[%d], duration[%d]s, frequency[%d]",
               stInfo.nChannelId,
@@ -403,14 +425,20 @@ int CPreviewManage::stop_alarm_light_output()
     CGpioCtrl::instance()->alarm_output_off(0);
 #endif
 
-    const int nLightRet = CLightManager::instance()->stop_flashing(LIGHT_TYPE_WHITE);
-    const int nRestoreRet = CLightManager::instance()->apply_peripheral_config();
-    if (nLightRet != OK || nRestoreRet != OK)
+    if (m_u64AlarmLightOverrideToken == 0)
     {
-        dlog_error("TVSDK停止声光报警失败: stopLight[%d], restoreLight[%d]", nLightRet, nRestoreRet);
-        return ERR;
+        return OK;
     }
 
+    const int nLightRet = CIspManage::instance()->end_light_override(m_u64AlarmLightOverrideToken);
+    /* 总控关闭可能已撤销 token；此时视为灯光已停止，避免重复 STOP 误报失败。 */
+    if (nLightRet != OK && nLightRet != ERR_PARAM)
+    {
+        dlog_error("TVSDK停止灯光抢占失败: ret[%d]", nLightRet);
+        return nLightRet;
+    }
+
+    m_u64AlarmLightOverrideToken = 0;
     dlog_info("TVSDK声光报警已停止");
     return OK;
 }

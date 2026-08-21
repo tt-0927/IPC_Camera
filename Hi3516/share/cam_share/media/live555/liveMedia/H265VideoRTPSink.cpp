@@ -30,31 +30,35 @@ H265VideoRTPSink
 ::H265VideoRTPSink(UsageEnvironment& env, Groupsock* RTPgs, unsigned char rtpPayloadFormat,
 		   u_int8_t const* vps, unsigned vpsSize,
 		   u_int8_t const* sps, unsigned spsSize,
-		   u_int8_t const* pps, unsigned ppsSize)
+		   u_int8_t const* pps, unsigned ppsSize,
+		   unsigned maxBufferSize)
   : H264or5VideoRTPSink(265, env, RTPgs, rtpPayloadFormat,
-			vps, vpsSize, sps, spsSize, pps, ppsSize) {
+			vps, vpsSize, sps, spsSize, pps, ppsSize, maxBufferSize) {
 }
 
 H265VideoRTPSink::~H265VideoRTPSink() {
 }
 
 H265VideoRTPSink* H265VideoRTPSink
-::createNew(UsageEnvironment& env, Groupsock* RTPgs, unsigned char rtpPayloadFormat) {
-  return new H265VideoRTPSink(env, RTPgs, rtpPayloadFormat);
+::createNew(UsageEnvironment& env, Groupsock* RTPgs, unsigned char rtpPayloadFormat,
+	    unsigned maxBufferSize) {
+  return new H265VideoRTPSink(env, RTPgs, rtpPayloadFormat, NULL, 0, NULL, 0, NULL, 0, maxBufferSize);
 }
 
 H265VideoRTPSink* H265VideoRTPSink
 ::createNew(UsageEnvironment& env, Groupsock* RTPgs, unsigned char rtpPayloadFormat,
 	    u_int8_t const* vps, unsigned vpsSize,
-	    u_int8_t const* sps, unsigned spsSize,
-	    u_int8_t const* pps, unsigned ppsSize) {
+		    u_int8_t const* sps, unsigned spsSize,
+		    u_int8_t const* pps, unsigned ppsSize,
+		    unsigned maxBufferSize) {
   return new H265VideoRTPSink(env, RTPgs, rtpPayloadFormat,
-			      vps, vpsSize, sps, spsSize, pps, ppsSize);
+			      vps, vpsSize, sps, spsSize, pps, ppsSize, maxBufferSize);
 }
 
 H265VideoRTPSink* H265VideoRTPSink
 ::createNew(UsageEnvironment& env, Groupsock* RTPgs, unsigned char rtpPayloadFormat,
-	    char const* sPropVPSStr, char const* sPropSPSStr, char const* sPropPPSStr) {
+		    char const* sPropVPSStr, char const* sPropSPSStr, char const* sPropPPSStr,
+		    unsigned maxBufferSize) {
   u_int8_t* vps = NULL; unsigned vpsSize = 0;
   u_int8_t* sps = NULL; unsigned spsSize = 0;
   u_int8_t* pps = NULL; unsigned ppsSize = 0;
@@ -89,7 +93,7 @@ H265VideoRTPSink* H265VideoRTPSink
   }
 
   H265VideoRTPSink* result = new H265VideoRTPSink(env, RTPgs, rtpPayloadFormat,
-						  vps, vpsSize, sps, spsSize, pps, ppsSize);
+							  vps, vpsSize, sps, spsSize, pps, ppsSize, maxBufferSize);
   delete[] sPropRecords[0]; delete[] sPropRecords[1]; delete[] sPropRecords[2];
 
   return result;

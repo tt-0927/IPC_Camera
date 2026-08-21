@@ -267,7 +267,7 @@ namespace Network
     typedef struct
     {
         std::string strAddress; /* 地址 */
-        int         nPort = 0;  /* 端口 */
+        int         nPort = 1;  /* 端口 */
     } SmtpServer_S;
 
     /**
@@ -516,6 +516,17 @@ namespace Network
     } Gat1400Client_S;
 #endif
 
+    enum class NetServiceVersionMode
+    {
+        TLS1_1,
+        TLS1_2,
+        TLS1_3
+    };
+    typedef struct _NetService_S_
+    {
+        int NetServiceVersion = static_cast<int>(NetServiceVersionMode::TLS1_1);  /* 网络服务版本 */
+    } NetService_S;
+
     typedef struct _WifiStaInfo_S_
     {
         bool bEnableWifi = false;  /* 是否开启wifi */
@@ -678,8 +689,7 @@ namespace Network
         std::string password;        // 密码
         std::string confirmPassword; // 确认密码
         _HotspotConfig_()
-            : enabled(false), ssid(""), securityMode("WPA2-personal"), password(""), encryptionType(""),
-              confirmPassword("")
+            : enabled(false), ssid(""), securityMode("WPA2-personal"), encryptionType(""), password(""), confirmPassword("")
         {
         }
         void clear() {
@@ -714,14 +724,9 @@ namespace Network
         bool enable;           /* 是否开启 */
         bool Custom;           /* 是否自定义 */
 
-        // _Platform_Info_t_()
-        //     : server_ip("172.16.25.125"), server_port(388), mqtt_port(1884), user("admin"), password("Aa@135791"), enable(false), Custom(false),
-        //       rtmp_port(1935)
-        // {
-        // }
         _Platform_Info_t_()
-            : server_ip("183.129.224.253"), server_port(4910), mqtt_port(1884), user("admin"), password("Aa@135791"), enable(false), Custom(false),
-              rtmp_port(4920)
+            : server_ip("183.129.224.253"), server_port(4910), rtmp_port(4920), mqtt_port(1884), user("admin"),
+              password("Aa@135791"), enable(false), Custom(false)
         {
         }
     } Platform_Info_t;

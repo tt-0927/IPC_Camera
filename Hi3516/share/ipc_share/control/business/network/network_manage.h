@@ -178,8 +178,12 @@ public:
      * @param NULL
      * @return bool 
      */
-    bool check_mac_valid();
+    #if CAP_GARBAGE_STATION_PLATFORM
 
+    int check_mac_valid(const std::string &strMac = std::string());
+    #else
+    bool check_mac_valid();
+    #endif
     /*** 
      * @description : 获取网络端口
      * @author      : huangjunda

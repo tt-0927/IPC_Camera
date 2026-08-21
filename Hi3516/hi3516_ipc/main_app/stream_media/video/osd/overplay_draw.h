@@ -2,13 +2,14 @@
  * @FilePath     : overplay_draw.h
  * @Author       : huangjunda
  * @Date         : 2025-05-27 14:12:50
- * @LastEditors  : huangjunda
- * @LastEditTime : 2025-05-30 10:59:49
+ * @LastEditors  : zhouzr@kfb.cn
+ * @LastEditTime : 2026-07-30 15:14:08
  * @Description  :
  */
 #pragma once
 
 #include <atomic>
+#include <array>
 #include <map>
 #include <mutex>
 #include <thread>
@@ -65,6 +66,22 @@ public:
      * @return       {*}
      */    
     void set_update_flag(bool bIsUpdate);
+
+    /**
+     * @brief   : 在 VENC 销毁前摘除指定通道的 Overlay RGN
+     * @param    {int} nChn：VENC 通道号
+     * @return   {void}
+     * @note    : 防止 VENC 重建后软件 bIsAttached 状态与底层挂载状态不一致。
+     */
+    void detach_venc_channel(int nChn);
+
+    /**
+     * @brief   : 恢复指定 VENC 通道的 Overlay 绘制与挂载
+     * @param    {int} nChn：VENC 通道号
+     * @return   {void}
+     * @note    : 必须在 VENC 已重建、VPSS 已重新绑定且有效几何已更新后调用。
+     */
+    void resume_venc_channel(int nChn);
 
     /**
      * @brief   : 更新 AI 检测结果
@@ -269,6 +286,13 @@ private:
      */
     void draw_rect(HiRgn_S *pHandle, Osd::OverplayInfo_S stuOverplayInfo, const std::vector<Common::RectInfo_S> &vRectInfo);
 
+    /**
+     * @brief   : 判断指定 VENC 通道是否处于重建窗口
+     * @param    {int} nChn：VENC 通道号
+     * @return   {bool} true：禁止绘制和挂载 false：允许处理
+     */
+    bool is_venc_channel_reconfiguring(int nChn) const;
+
     /* 线程运行标志 */
     std::atomic<bool> m_bIsRunning;
     /* 互斥锁 */
@@ -290,8 +314,8 @@ private:
     bool m_bIsTimeUpdate;
     /* 其他信息rgn是否需要更新 */
     bool m_bIsOthersUpdate;
+    /* lock: 标识 VENC 正在销毁/重建，阻止后台线程向旧通道挂载 Overlay。 */
+    std::array<std::atomic<bool>, VENC_CHN_MAX> m_abVencReconfiguring;
     /* 用于绘制检测框覆盖图片的Surface。键: RGN 句柄 (unHandle), 值: 指向该 RGN 的 SDL_Surface 的指针 */
     std::map<int, SDL_Surface*> m_mapOverlaySurfaces;
-    /* 时间线程 提前多少ms唤醒，进行绘制 */
-    static constexpr long WAKEUP_ADVANCE_US = 200000; /* 200毫秒 */
 };

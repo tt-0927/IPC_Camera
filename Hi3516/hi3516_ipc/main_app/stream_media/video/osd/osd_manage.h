@@ -3,7 +3,7 @@
  * @Author       : huangjunda
  * @Date         : 2025-05-26 15:55:28
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2025-11-28 10:46:26
+ * @LastEditTime : 2026-07-30 15:14:08
  * @Description  : OSD管理类
  */
 
@@ -111,7 +111,7 @@ public:
      * 网页、ONVIF 和 TVSDK 应以该数量收敛配置，避免返回底层无法渲染的区域。
      */
     std::size_t get_cover_max_area_count() const;
-
+    
     /**
      * @brief   : 设置cover配置信息 
      * @param    {Osd::CoverConfig_S} stInfo
@@ -200,6 +200,20 @@ public:
      * @return       {void}
      */
     void update_osd_flag();
+
+    /**
+     * @brief   : 在指定 VENC 通道重建前摘除其 Overlay RGN
+     * @param    {int} nChn：VENC 通道号
+     * @return   {void}
+     */
+    void before_venc_channel_reset(int nChn);
+
+    /**
+     * @brief   : 在指定 VENC 通道重建并绑定后刷新关联 OSD
+     * @param    {int} nChn：VENC 通道号
+     * @return   {void}
+     */
+    void after_venc_channel_reset(int nChn);
 
     std::atomic<bool> m_bInit; /* 初始化标志 */
 private:

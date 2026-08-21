@@ -15,3 +15,4 @@ output/*
 device.txt
 sensor.txt
 project.txt
+build_count.txt

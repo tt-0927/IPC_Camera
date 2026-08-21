@@ -1,8 +1,10 @@
-/*
- *  File Name: DbBase.h
- *  Created on: 2022年11月02日
- *  Author: zjc
- *  description: 数据库
+/**
+ * @FilePath     : DbBase.h
+ * @Author       : zjc
+ * @Date         : 2022-11-02 00:00:00
+ * @LastEditors  : zhouzr@kfb.cn
+ * @LastEditTime : 2026-08-13 15:03:25
+ * @Description  : 数据库
  */
 
 #ifndef DB_BASE_H_
@@ -145,6 +147,15 @@ namespace Db
          * @return: <0 失败
          */
         void deinit();
+
+        /*
+         * @description: 设置SQLite同步模式（PRAGMA synchronous）
+         * @param[in]: nMode 同步模式：0=OFF，1=NORMAL，2=FULL（默认）
+         * @return: <0 失败
+         * @note: NORMAL 模式提交延迟显著低于 FULL，适用于抓图索引等
+         *        可容忍断电丢失最近一次提交的元数据场景
+         */
+        int set_sync_mode(int nMode);
 
         /*
          * @description: 添加数据

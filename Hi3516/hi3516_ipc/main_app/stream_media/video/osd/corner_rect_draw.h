@@ -3,7 +3,7 @@
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2025-11-17 09:18:43
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2025-11-17 15:29:37
+ * @LastEditTime : 2026-07-30 15:14:08
  * @Description  : 角框类型绘制：AI动态分析用
  */
 
@@ -47,6 +47,14 @@ public:
      * @param    {vector<Common::RectInfo_S>} &vRectInfo：矩形检测结果框
      */
     void update_ai_result(int nWidth, int nHeight, const std::vector<Common::RectInfo_S> &vRectInfo);
+
+    /**
+     * @brief   : 隐藏指定 VPSS 通道的全部 AI 角框
+     * @param    {int} nChn：VPSS 通道号
+     * @return   {void}
+     * @note    : 裁剪几何切换后，旧坐标的角框不得继续显示，等待下一帧 AI 结果重绘。
+     */
+    void clear_channel(int nChn);
 
 private:
 

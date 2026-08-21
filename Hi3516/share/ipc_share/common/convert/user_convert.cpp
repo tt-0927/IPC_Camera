@@ -31,6 +31,7 @@ void Convert::deal(Json::Object *pRootJson, User::MenuPermission_S &stMenuPermis
     convert.field(pRootJson, "EventConfig", stMenuPermission.bEventConfig);
     convert.field(pRootJson, "VideoManage", stMenuPermission.bVideoManage);
     convert.field(pRootJson, "ObjectLib", stMenuPermission.bObjectLib);
+    convert.field(pRootJson, "FaceConfig", stMenuPermission.bFaceConfig);
     convert.field(pRootJson, "VehicleDetecConfig", stMenuPermission.bVehicleDetecConfig);
     convert.field(pRootJson, "LocalShutdown", stMenuPermission.bLocalShutdown);
 }

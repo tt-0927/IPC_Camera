@@ -39,6 +39,8 @@ CGroup1Detect::~CGroup1Detect()
 /* 接受媒体数据 */
 void CGroup1Detect::recvMediaData(MediaData_S stMediaData)
 {
+    m_nChannelId = stMediaData.stMediaParam.nChannel;
+
     if (!m_stAlgoSafetyHelmetCfg.bEnable && m_stAlgoReflectiveClothingCfg.bEnable && !m_stAlgoHighAltitudeSeatbeltCfg.bEnable && m_stAlgoBareSoiletCfg.bEnable)
     {
         dlog_debug("ai_app:  模型组合1识别-开关未启用");
@@ -255,6 +257,7 @@ void CGroup1Detect::run()
                 /* rgb格式转换 */
                 cv::Mat rgbMat;
                 cv::cvtColor(i420Mat, rgbMat, cv::COLOR_YUV2RGB_NV12);
+                m_fullRgbMat = rgbMat.clone();
 
                 /* 分辨率大小转换 */
                 cv::resize(
@@ -358,19 +361,91 @@ void CGroup1Detect::processGroup1Detect(const Group1Detect_NS::OutData_S &stOutD
 {
     if (m_stAlgoSafetyHelmetCfg.bEnable)
     {
+        /* 上报事件 */
+#ifdef ENABLE_TVSDK_SRC
+        bool bIsAlarm = stOutData.bSafetyHelmet;
+        EventTriggerContext_S stContext;
+        stContext.enEventType = Event::Type_E::SAFETY_HELMET;
+        stContext.nChnId = m_nChannelId;
+        stContext.llTimestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::system_clock::now().time_since_epoch()).count();
+        if (!m_fullRgbMat.empty()) {
+            auto pPayload = std::make_shared<EventTvSdkPayload_S>();
+            pPayload->enType = get_tvsdk_payload_type(stContext.enEventType);
+            if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage)) {
+                stContext.pTvSdkPayload = pPayload;
+            }
+        }
+        m_SafetyHelmetStateMachine.handleAlarmState(bIsAlarm, stContext);
+#else
         m_SafetyHelmetStateMachine.handleAlarmState(stOutData.bSafetyHelmet, Event::Type_E::SAFETY_HELMET);
+#endif
     }
     if (m_stAlgoReflectiveClothingCfg.bEnable)
     {
+        /* 上报事件 */
+#ifdef ENABLE_TVSDK_SRC
+        bool bIsAlarm = stOutData.bReflectiveClothing;
+        EventTriggerContext_S stContext;
+        stContext.enEventType = Event::Type_E::REFLECTIVE_CLOTHING;
+        stContext.nChnId = m_nChannelId;
+        stContext.llTimestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::system_clock::now().time_since_epoch()).count();
+        if (!m_fullRgbMat.empty()) {
+            auto pPayload = std::make_shared<EventTvSdkPayload_S>();
+            pPayload->enType = get_tvsdk_payload_type(stContext.enEventType);
+            if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage)) {
+                stContext.pTvSdkPayload = pPayload;
+            }
+        }
+        m_ReflectiveClothingStateMachine.handleAlarmState(bIsAlarm, stContext);
+#else
         m_ReflectiveClothingStateMachine.handleAlarmState(stOutData.bReflectiveClothing, Event::Type_E::REFLECTIVE_CLOTHING);
+#endif
     }
     if (m_stAlgoHighAltitudeSeatbeltCfg.bEnable)
     {
+        /* 上报事件 */
+#ifdef ENABLE_TVSDK_SRC
+        bool bIsAlarm = stOutData.bHighAltitudeSeatbelt;
+        EventTriggerContext_S stContext;
+        stContext.enEventType = Event::Type_E::HIGH_ALTITUDE_SEATBELT;
+        stContext.nChnId = m_nChannelId;
+        stContext.llTimestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::system_clock::now().time_since_epoch()).count();
+        if (!m_fullRgbMat.empty()) {
+            auto pPayload = std::make_shared<EventTvSdkPayload_S>();
+            pPayload->enType = get_tvsdk_payload_type(stContext.enEventType);
+            if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage)) {
+                stContext.pTvSdkPayload = pPayload;
+            }
+        }
+        m_HighAltitudeSeatbeltStateMachine.handleAlarmState(bIsAlarm, stContext);
+#else
         m_HighAltitudeSeatbeltStateMachine.handleAlarmState(stOutData.bHighAltitudeSeatbelt, Event::Type_E::HIGH_ALTITUDE_SEATBELT);
+#endif
     }
     if (m_stAlgoBareSoiletCfg.bEnable)
     {
+        /* 上报事件 */
+#ifdef ENABLE_TVSDK_SRC
+        bool bIsAlarm = stOutData.bBareSoilet;
+        EventTriggerContext_S stContext;
+        stContext.enEventType = Event::Type_E::BARE_SOIL;
+        stContext.nChnId = m_nChannelId;
+        stContext.llTimestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::system_clock::now().time_since_epoch()).count();
+        if (!m_fullRgbMat.empty()) {
+            auto pPayload = std::make_shared<EventTvSdkPayload_S>();
+            pPayload->enType = get_tvsdk_payload_type(stContext.enEventType);
+            if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage)) {
+                stContext.pTvSdkPayload = pPayload;
+            }
+        }
+        m_BareSoilStateMachine.handleAlarmState(bIsAlarm, stContext);
+#else
         m_BareSoilStateMachine.handleAlarmState(stOutData.bBareSoilet, Event::Type_E::BARE_SOIL);
+#endif
     }
     return;
 }

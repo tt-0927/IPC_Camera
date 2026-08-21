@@ -382,9 +382,9 @@ void CAlgoStreamDeal::runOnce()
  * @brief 添加人脸名单库
  * @param stFaceLibData
  */
-bool CAlgoStreamDeal::add_Facelib_Groups(FaceDataDB_NS::FaceLibsInfo_S &stFaceLibData)
+int CAlgoStreamDeal::add_Facelib_Groups(FaceDataDB_NS::FaceLibsInfo_S &stFaceLibData)
 {
-        bool nRet;
+        int nRet;
         /* 通知 Algorithm 人脸检测 */
 
         sleep(1);

@@ -28,6 +28,8 @@ include(${CAM_SHARE_PATH}/file_processing/xml/xml.cmake)
 include(${CAM_SHARE_PATH}/media/codec/audio/g711/codec_g711.cmake)
 include(${CAM_SHARE_PATH}/media/calculate/calculate.cmake)
 include(${CAM_SHARE_PATH}/utils/utils.cmake)
+include(${CAM_SHARE_PATH}/communication/network/curl_http/curl_http.cmake)
+include(${CAM_SHARE_PATH}/utils/curl/curl.cmake)
 
 # include(${AFSDK_PATH}/sdk_share/sdk_share.cmake)
 # include(${AFSDK_PATH}/sdk_server/sdk_server.cmake)
@@ -215,6 +217,7 @@ target_link_libraries(${PROJECT_NAME}
     VehicleAttribute_Module
     NonMotorizedAttribute_Module
     libmqtt
+    libcurl
 )
 
 # target_link_libraries(${PROJECT_NAME} 

@@ -2,7 +2,7 @@
     "version": "v1.0",
     "model": "ImageFeature",
     "notes": "人脸特征提取",
-    "model_path": "/opt/cam/model/Hi3516CV610_mobileface_112_112_V4.om",
+    "model_path": "/opt/cam/model/Hi3516CV610_mobilefacelarge_112_112_V5.om",
     "pre_process": {
         "size": [
             112,

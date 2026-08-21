@@ -1073,4 +1073,140 @@ bool rga_image_transform(void* src_vir, int sw, int sh, int src_format,
 
     return true;
 }
- 
+
+/**
+ * @brief   : 将 cv::Mat 编码为 JPEG 到 EventTvSdkImage_S
+ * @param    {cv::Mat} &mat 输入图像
+ * @param    {EventTvSdkImage_S} &stImage 输出图像
+ * @param    {int} nQuality JPEG质量(1-100)
+ * @param    {bool} bInputRgb 输入图片格式是否RGB
+ * @return   {bool} true 成功 false 失败
+ */
+bool encode_mat_to_tvsdk_image(const cv::Mat &mat, EventTvSdkImage_S &stImage, int nQuality, bool bInputRgb)
+{
+    if (mat.empty())
+    {
+        return false;
+    }
+
+    cv::Mat encodeMat;
+    if (bInputRgb && mat.channels() == 3)
+    {
+        /* detect模块统一使用 RGB 格式，JPEG编码需要 BGR，仅交换通道指针无像素拷贝 */
+        cv::cvtColor(mat, encodeMat, cv::COLOR_RGB2BGR);
+    }
+    else
+    {
+        encodeMat = mat;
+    }
+
+    std::vector<unsigned char> vecBuf;
+    std::vector<int> params;
+    params.push_back(cv::IMWRITE_JPEG_QUALITY);
+    params.push_back(nQuality);
+
+    if (!cv::imencode(".jpg", encodeMat, vecBuf, params))
+    {
+        return false;
+    }
+
+    stImage.vecJpeg = std::move(vecBuf);
+    stImage.nWidth = mat.cols;
+    stImage.nHeight = mat.rows;
+    return true;
+}
+
+bool cropTargetImage(const cv::Mat &sourceImage,
+                     const cv::Rect2f &detectRect,
+                     const cv::Size &detectCoordinateSize,
+                     const cv::Size &targetSize,
+                     cv::Mat &targetImage)
+{
+    targetImage.release();
+
+    if (sourceImage.empty() || sourceImage.dims != 2 ||
+        detectCoordinateSize.width <= 0 || detectCoordinateSize.height <= 0 ||
+        targetSize.width <= 0 || targetSize.height <= 0 ||
+        !std::isfinite(detectRect.x) || !std::isfinite(detectRect.y) ||
+        !std::isfinite(detectRect.width) || !std::isfinite(detectRect.height) ||
+        detectRect.width <= 0.0f || detectRect.height <= 0.0f)
+    {
+        return false;
+    }
+
+    const double scaleX = static_cast<double>(sourceImage.cols) /
+                          static_cast<double>(detectCoordinateSize.width);
+    const double scaleY = static_cast<double>(sourceImage.rows) /
+                          static_cast<double>(detectCoordinateSize.height);
+
+    const double left = std::max(0.0, static_cast<double>(detectRect.x) * scaleX);
+    const double top = std::max(0.0, static_cast<double>(detectRect.y) * scaleY);
+    const double right = std::min(
+        static_cast<double>(sourceImage.cols),
+        (static_cast<double>(detectRect.x) + static_cast<double>(detectRect.width)) * scaleX);
+    const double bottom = std::min(
+        static_cast<double>(sourceImage.rows),
+        (static_cast<double>(detectRect.y) + static_cast<double>(detectRect.height)) * scaleY);
+
+    if (!std::isfinite(left) || !std::isfinite(top) ||
+        !std::isfinite(right) || !std::isfinite(bottom) ||
+        right <= left || bottom <= top)
+    {
+        return false;
+    }
+
+    const int x1 = std::max(0, std::min(sourceImage.cols,
+                                        static_cast<int>(std::floor(left))));
+    const int y1 = std::max(0, std::min(sourceImage.rows,
+                                        static_cast<int>(std::floor(top))));
+    const int x2 = std::max(0, std::min(sourceImage.cols,
+                                        static_cast<int>(std::ceil(right))));
+    const int y2 = std::max(0, std::min(sourceImage.rows,
+                                        static_cast<int>(std::ceil(bottom))));
+
+    if (x2 <= x1 || y2 <= y1)
+    {
+        return false;
+    }
+
+    const cv::Mat croppedImage =
+        sourceImage(cv::Rect(x1, y1, x2 - x1, y2 - y1));
+    const double resizeScale = std::min(
+        static_cast<double>(targetSize.width) / static_cast<double>(croppedImage.cols),
+        static_cast<double>(targetSize.height) / static_cast<double>(croppedImage.rows));
+
+    if (!std::isfinite(resizeScale) || resizeScale <= 0.0)
+    {
+        return false;
+    }
+
+    const int scaledWidth = std::max(
+        1,
+        std::min(targetSize.width,
+                 static_cast<int>(std::lround(croppedImage.cols * resizeScale))));
+    const int scaledHeight = std::max(
+        1,
+        std::min(targetSize.height,
+                 static_cast<int>(std::lround(croppedImage.rows * resizeScale))));
+
+    cv::Mat resizedImage;
+    const int interpolation =
+        resizeScale < 1.0 ? cv::INTER_AREA : cv::INTER_LINEAR;
+    cv::resize(croppedImage,
+               resizedImage,
+               cv::Size(scaledWidth, scaledHeight),
+               0.0,
+               0.0,
+               interpolation);
+
+    cv::Mat paddedImage = cv::Mat::zeros(targetSize, sourceImage.type());
+    const int offsetX = (targetSize.width - scaledWidth) / 2;
+    const int offsetY = (targetSize.height - scaledHeight) / 2;
+    resizedImage.copyTo(
+        paddedImage(cv::Rect(offsetX, offsetY, scaledWidth, scaledHeight)));
+    targetImage = std::move(paddedImage);
+
+    return !targetImage.empty() &&
+           targetImage.cols == targetSize.width &&
+           targetImage.rows == targetSize.height;
+}

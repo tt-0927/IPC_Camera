@@ -3,7 +3,7 @@
  * @Author       : huangjunda
  * @Date         : 2025-07-23 11:26:05
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2025-11-28 10:45:04
+ * @LastEditTime : 2026-07-30 15:14:08
  * @Description  : OSD管理定义
  */
 
@@ -506,7 +506,7 @@ IpcRet_E COsdManage::set_cover_config(Osd::CoverConfig_S stInfo)
 
     /* 禁用时允许省略区域数组，内部补齐为固定的单区域配置。 */
     normalize_cover_config(stInfo);
-
+    
     std::vector<Osd::CoverInfo_S> vecInfo;
     vecInfo = m_vecCoverInfo;
     for (size_t i = 0; vecInfo.size() > i; i++)
@@ -780,4 +780,27 @@ void COsdManage::update_osd_flag()
 {
     COverplayDraw::instance()->set_update_flag(true);
     CCoverDraw::instance()->set_update_flag(true);
+}
+
+void COsdManage::before_venc_channel_reset(int nChn)
+{
+    if (!m_bInit)
+    {
+        return;
+    }
+
+    COverplayDraw::instance()->detach_venc_channel(nChn);
+}
+
+void COsdManage::after_venc_channel_reset(int nChn)
+{
+    if (!m_bInit)
+    {
+        return;
+    }
+
+    COverplayDraw::instance()->resume_venc_channel(nChn);
+    /* 旧 AI 框属于切换前几何，必须在下一帧检测结果到达前隐藏。 */
+    CCornerRectDraw::instance()->clear_channel(nChn);
+    update_osd_flag();
 }

@@ -3,113 +3,16 @@
  * @Author       : cyc
  * @Date         : 2025-08-27 09:51:34
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-04-29 14:08:06
- * @Description  : 图像管理模块
+ * @LastEditTime : 2026-08-12 14:37:03
+ * @Description  : ISP共享层调用入口实现
  */
 
 #include "isp_manage.h"
-#include "isp_configure.h"
-#include "isp_control.h"
-#include "isp_sceneCtrl.h"
-#include "dlog.h"
+
 #include "IpcRet.h"
-#include "isp_scene.h"
-#include "isp_dayNight.h"
-#include "isp_light.h"
-#include "gpio_ctrl.h"
-#include "pwm_ctrl.h"
-#include "light_manager.h"
-#include <unistd.h>
+#include "dlog.h"
 
-namespace
-{
-/**
- * @brief   : 比较两组单灯属性是否完全一致
- * @param    {ISP::Light_S} stLeft：待比较的左侧灯光属性
- * @param    {ISP::Light_S} stRight：待比较的右侧灯光属性
- * @return   {bool} true：一致，false：不一致
- */
-bool is_light_attr_same(const ISP::Light_S& stLeft, const ISP::Light_S& stRight)
-{
-    return stLeft.bEnable == stRight.bEnable && stLeft.nLightLevel == stRight.nLightLevel;
-}
-
-/**
- * @brief   : 比较两组补光类型是否一致
- * @param    {ISP::FillLight_S} stLeft：待比较的左侧补光配置
- * @param    {ISP::FillLight_S} stRight：待比较的右侧补光配置
- * @return   {bool} true：一致，false：不一致
- */
-bool is_fill_light_type_same(const ISP::FillLight_S& stLeft, const ISP::FillLight_S& stRight)
-{
-    return stLeft.enLightType == stRight.enLightType;
-}
-
-/**
- * @brief   : 比较两组补光亮度参数是否一致
- * @param    {ISP::FillLight_S} stLeft：待比较的左侧补光配置
- * @param    {ISP::FillLight_S} stRight：待比较的右侧补光配置
- * @return   {bool} true：一致，false：不一致
- * @note    : 这里只比较白光和红外的亮度相关参数，不比较补光类型
- */
-bool is_fill_light_level_same(const ISP::FillLight_S& stLeft, const ISP::FillLight_S& stRight)
-{
-    return is_light_attr_same(stLeft.stWhiteAttr, stRight.stWhiteAttr) &&
-           is_light_attr_same(stLeft.stRedAttr, stRight.stRedAttr);
-}
-
-/**
- * @brief   : 判断夜晚运行态下的补光相关配置是否发生变化
- * @param    {ISP::DayNightAttr_S} stOldDayNightAttr：更新前的日夜配置
- * @param    {ISP::DayNightAttr_S} stNewDayNightAttr：更新后的日夜配置
- * @return   {bool} true：已变化，false：未变化
- * @note    : 自动亮度模式下，用户调整 WhiteAttr/RedAttr 的 LightLevel 不应立即下发到硬件；
- *            只有补光类型变化，或者处于手动亮度模式时亮度参数变化，才需要触发夜晚重同步
- */
-bool has_night_light_runtime_changed(const ISP::DayNightAttr_S& stOldDayNightAttr,
-                                     const ISP::DayNightAttr_S& stNewDayNightAttr)
-{
-    if (stOldDayNightAttr.enLightMode != stNewDayNightAttr.enLightMode)
-    {
-        return true;
-    }
-
-    if (!is_fill_light_type_same(stOldDayNightAttr.stFillLight, stNewDayNightAttr.stFillLight))
-    {
-        return true;
-    }
-
-    if (stNewDayNightAttr.enLightMode == ISP::LightBrightMode_E::MANUAL_LIGHT_BRIGHT &&
-        !is_fill_light_level_same(stOldDayNightAttr.stFillLight, stNewDayNightAttr.stFillLight))
-    {
-        return true;
-    }
-
-    return false;
-}
-
-/**
- * @brief   : IR-CUT 动作前关闭相反补光灯，避免出现Pwm灯光控制异常情况
- * @param    {ISP::LightType_E} enLightType：需要关闭的补光灯类型
- * @param    {const char*} pLightName：日志使用的补光灯名称
- * @return   {void}
- * @note    : 关闭失败不阻断 IR-CUT 动作，避免灯光控制异常导致日夜切换完全失效
- */
-void turn_off_light_before_ircut(ISP::LightType_E enLightType, const char* pLightName)
-{
-    int nRet = CPwmCtrl::instance()->light_turn_off(enLightType);
-    if (nRet != OK)
-    {
-        dlog_warn("IR-CUT动作前关闭%s失败: %d", pLightName, nRet);
-        return;
-    }
-
-    /* 等待 PWM 关闭写入生效，避免与 IR-CUT 线圈动作抢占电源余量。 */
-    usleep(100000);
-}
-} // namespace
-
-CIspManage::CIspManage()
+CIspManage::CIspManage() : m_pstService(nullptr)
 {
 }
 
@@ -117,581 +20,349 @@ CIspManage::~CIspManage()
 {
 }
 
+CIspManage::CServiceCallGuard::CServiceCallGuard(const CIspManage &rstManage) : m_rstManage(rstManage), m_pstService(nullptr)
+{
+    std::lock_guard<std::mutex> stLock(m_rstManage.m_mtxService);
+    m_pstService = m_rstManage.m_pstService;
+    if (m_pstService != nullptr)
+    {
+        ++m_rstManage.m_nActiveServiceCalls;
+    }
+}
+
+CIspManage::CServiceCallGuard::~CServiceCallGuard()
+{
+    if (m_pstService != nullptr)
+    {
+        m_rstManage.release_service_call();
+    }
+}
+
+ISP::IIspBusinessService *CIspManage::CServiceCallGuard::get() const
+{
+    return m_pstService;
+}
+
+void CIspManage::release_service_call() const
+{
+    std::lock_guard<std::mutex> stLock(m_mtxService);
+    --m_nActiveServiceCalls;
+    if (m_nActiveServiceCalls == 0)
+    {
+        m_stServiceIdleCv.notify_all();
+    }
+}
+
+int CIspManage::set_business_service(ISP::IIspBusinessService *pService)
+{
+    if (pService == nullptr)
+    {
+        return ERR_PARAM_NULL;
+    }
+
+    std::lock_guard<std::mutex> stLock(m_mtxService);
+
+    if (m_bServiceClearing)
+    {
+        dlog_warn("ISP业务服务正在注销，拒绝新的注册请求");
+        return ERR;
+    }
+
+    if (m_pstService != nullptr && m_pstService != pService)
+    {
+        dlog_error("ISP业务服务重复注册");
+        return ERR;
+    }
+
+    /* 只保存服务接口，不保存平台实现，方便其他芯片复用。 */
+    m_pstService = pService;
+    /* service注册成功后构造命令服务，typed API通过命令服务统一执行事务。 */
+    if (!m_pstCommandService)
+    {
+        m_pstCommandService = std::make_unique<CIspConfigCommandService>(m_stIspRepository, *pService);
+    }
+    return OK;
+}
+
+int CIspManage::clear_business_service(ISP::IIspBusinessService *pService)
+{
+    if (pService == nullptr)
+    {
+        return ERR_PARAM_NULL;
+    }
+
+    std::unique_lock<std::mutex> stLock(m_mtxService);
+
+    if (m_pstService != pService)
+    {
+        dlog_error("清理ISP业务服务失败: 指针不匹配");
+        return ERR_PARAM;
+    }
+
+    /* ! 先拒绝新服务句柄和新注册，再等待已发出的调用返回，外部方可在本函数返回后销毁业务对象。 */
+    m_bServiceClearing = true;
+    m_pstService = nullptr;
+    /* 命令服务在同一锁域内执行，取得本锁说明其不会继续借用已注销服务。 */
+    m_pstCommandService.reset();
+    m_stServiceIdleCv.wait(stLock,
+                           [this]
+                           {
+                               return m_nActiveServiceCalls == 0;
+                           });
+    m_bServiceClearing = false;
+    return OK;
+}
+
 int CIspManage::init()
 {
-    int nRet = OK;
-
-    /* 初始化场景参数 */
-    CSceneParamManager::instance()->scene_init(ISP_CONFIG_PATH);
-
-    /* 初始化日夜切换控制器并设置回调 */
-    nRet = init_daynight_controller();
-    if (nRet != OK)
+    CServiceCallGuard stServiceCall(*this);
+    ISP::IIspBusinessService *pService = stServiceCall.get();
+    if (pService == nullptr)
     {
-        dlog_error("日夜切换控制器初始化失败: %d", nRet);
-        return nRet;
+        dlog_warn("ISP业务服务未注册，跳过共享入口初始化");
+        return OK;
     }
 
-    /* 从配置文件加载所有图像参数并应用到硬件 */
-    nRet = load_and_apply_all_configs();
-    if (nRet != OK)
-    {
-        dlog_error("加载配置失败: %d", nRet);
-        return nRet;
-    }
-
-    dlog_info("=== 图像管理模块初始化完成 ===");
-    return nRet;
+    /* 初始化由业务实现完成；这里不保存平台状态。 */
+    return pService->init();
 }
 
 int CIspManage::deinit()
 {
-    int nRet = OK;
-
-    dlog_info("=== 图像管理模块去初始化 ===");
-
-    /* 停止日夜切换控制器 */
-    CDayNightController::instance()->stop();
-
-    /* 场景去初始化 */
-    CSceneParamManager::instance()->scene_deinit();
-
-    return nRet;
-}
-
-int CIspManage::update_config(const ISP::PicConfigureType_E& enConfigType)
-{
-    int nRet = OK;
-
-    switch (enConfigType)
+    CServiceCallGuard stServiceCall(*this);
+    ISP::IIspBusinessService *pService = stServiceCall.get();
+    if (pService == nullptr)
     {
-    case ISP::PicConfigureType_E::DAYNIGHT:
-        nRet = apply_daynight_config();
-        break;
-
-    case ISP::PicConfigureType_E::IAMGE:
-        nRet = apply_image_config();
-        break;
-
-    case ISP::PicConfigureType_E::EXPOSURE:
-        nRet = apply_exposure_config();
-        break;
-
-    case ISP::PicConfigureType_E::BACKLIGHT:
-        nRet = apply_backlight_config();
-        break;
-
-    case ISP::PicConfigureType_E::AWB:
-        nRet = apply_awb_config();
-        break;
-
-    case ISP::PicConfigureType_E::NR:
-        nRet = apply_dnr_config();
-        break;
-
-    case ISP::PicConfigureType_E::MIRROR:
-        nRet = apply_mirror_config();
-        break;
-
-    case ISP::PicConfigureType_E::SCENE:
-        nRet = apply_scene_config();
-        break;
-
-    default:
-        dlog_error("未知的配置类型: %d", static_cast<int>(enConfigType));
-        nRet = ERR;
-        break;
+        return OK;
     }
 
-    return nRet;
+    /* 去初始化必须在解除服务注册前完成，以便业务实现仍可完成自己的清理链路。 */
+    return pService->deinit();
+}
+
+int CIspManage::reconcile_all()
+{
+    CServiceCallGuard stServiceCall(*this);
+    ISP::IIspBusinessService *pService = stServiceCall.get();
+    if (pService == nullptr)
+    {
+        dlog_error("ISP全量配置重放失败: 业务服务未注册");
+        return ERR_UNINIT;
+    }
+
+    /* 通过受保护的服务句柄转发，保证全量重放期间业务服务不会被注销。 */
+    return pService->reconcile_all();
+}
+
+int CIspManage::update_config(const ISP::PicConfigureType_E &enConfigType)
+{
+    CServiceCallGuard stServiceCall(*this);
+    ISP::IIspBusinessService *pService = stServiceCall.get();
+    if (pService == nullptr)
+    {
+        dlog_error("ISP配置更新失败: 业务服务未注册, type:%d", static_cast<int>(enConfigType));
+        return ERR_UNINIT;
+    }
+
+    /* 具体参数类型的校验和硬件下发均由业务服务实现，避免共享层依赖平台代码。 */
+    return pService->update_param(enConfigType);
+}
+
+int CIspManage::update_daynight(const ISP::DayNightAttr_S &stOldDayNightAttr, const ISP::DayNightAttr_S &stNewDayNightAttr)
+{
+    CServiceCallGuard stServiceCall(*this);
+    ISP::IIspBusinessService *pService = stServiceCall.get();
+    if (pService == nullptr)
+    {
+        dlog_error("ISP日夜配置更新失败: 业务服务未注册");
+        return ERR_UNINIT;
+    }
+
+    /* 同时转发旧、新快照，使业务层可仅在运行态确实变化时触发重同步。 */
+    return pService->update_daynight(stOldDayNightAttr, stNewDayNightAttr);
 }
 
 int CIspManage::apply_scene_all_params(ISP::SceneType_E enSceneType)
 {
-    dlog_info("开始加载并应用场景 %d 的所有参数", enSceneType);
-
-    /* 更新当前场景类型到配置文件 */
-    ISP::AllSceneParams_S stAllParams;
-    int nRet = CIspConfigure::instance()->get_configure(stAllParams);
-    if (nRet != OK)
+    CServiceCallGuard stServiceCall(*this);
+    ISP::IIspBusinessService *pService = stServiceCall.get();
+    if (pService == nullptr)
     {
-        dlog_error("获取所有场景参数失败");
-        return nRet;
+        dlog_error("ISP场景应用失败: 业务服务未注册, scene:%d", static_cast<int>(enSceneType));
+        return ERR_UNINIT;
     }
 
-    /* 设置新的当前场景 */
-    stAllParams.enCurrentScene = enSceneType;
-    nRet = CIspConfigure::instance()->set_configure(stAllParams);
-    if (nRet != OK)
-    {
-        dlog_error("设置当前场景失败");
-        return nRet;
-    }
-
-    nRet = apply_image_config();
-    if (nRet != OK)
-    {
-        dlog_error("应用图像基础参数失败");
-        return nRet;
-    }
-
-    nRet = apply_awb_config();
-    if (nRet != OK)
-    {
-        dlog_error("应用白平衡参数失败");
-        return nRet;
-    }
-
-    // todo 暂时不生效曝光属性设置
-    nRet = apply_exposure_config();
-    if (nRet != OK)
-    {
-        dlog_error("应用曝光参数失败");
-        return nRet;
-    }
-
-    nRet = apply_daynight_config();
-    if (nRet != OK)
-    {
-        dlog_error("应用日夜切换参数失败");
-        return nRet;
-    }
-
-    /* 镜像配置与场景无关，不自动加载 */
-
-    dlog_info("场景 %d 的所有参数加载并应用成功", enSceneType);
-    return OK;
+    /* 共享层只表达场景请求，场景资源和参数重放留给业务实现编排。 */
+    return pService->apply_scene(enSceneType);
 }
 
-int CIspManage::init_daynight_controller()
+int CIspManage::on_schedule_changed()
 {
-    CDayNightController::instance()->setStateChangeCallback(
-        [this](bool isNight, DayNightMode_E mode) -> void
-        {
-            this->onDayNightStateChanged(isNight, mode);
-        });
-
-    /* 启动日夜切换控制 */
-    if (!CDayNightController::instance()->start())
+    CServiceCallGuard stServiceCall(*this);
+    ISP::IIspBusinessService *pService = stServiceCall.get();
+    if (pService == nullptr)
     {
-        dlog_error("Failed to start day night controller");
-        return ERR;
+        dlog_error("ISP场景计划更新失败: 业务服务未注册");
+        return ERR_UNINIT;
     }
 
-    dlog_info("日夜切换控制器初始化成功");
-    return OK;
+    return pService->on_schedule_changed();
 }
 
-int CIspManage::apply_daynight_config()
+int CIspManage::validate_image_param_config(ISP::ImageParam_S &stConfig) const
 {
-    ISP::DayNightAttr_S stDayNightAttr;
-    int nRet = CIspConfigure::instance()->get_configure(stDayNightAttr);
-    if (nRet != OK)
+    CServiceCallGuard stServiceCall(*this);
+    ISP::IIspBusinessService *pService = stServiceCall.get();
+    if (pService == nullptr)
     {
-        dlog_error("获取日夜切换配置失败");
-        return nRet;
+        dlog_error("ISP图像参数校验失败: 业务服务未注册");
+        return ERR_UNINIT;
     }
 
-    nRet = CIspControl::instance()->set_dayNight_attr(stDayNightAttr);
-    if (nRet != OK)
-    {
-        dlog_error("设置日夜切换配置失败");
-        return nRet;
-    }
-
-    dlog_info("日夜切换配置应用成功，模式: %d", stDayNightAttr.enDayNightMode);
-    return OK;
+    return pService->validate_image_param(stConfig);
 }
 
-int CIspManage::update_daynight(const ISP::DayNightAttr_S& stOldDayNightAttr,
-                                const ISP::DayNightAttr_S& stNewDayNightAttr)
+int CIspManage::validate_daynight_config(ISP::DayNightAttr_S &stConfig) const
 {
-    /* 更新前的夜晚运行态 */
-    bool bWasNight = CDayNightController::instance()->isNightMode();
-
-    /* 日夜配置应用结果 */
-    int nRet = apply_daynight_config();
-    if (nRet != OK)
+    CServiceCallGuard stServiceCall(*this);
+    ISP::IIspBusinessService *pService = stServiceCall.get();
+    if (pService == nullptr)
     {
-        return nRet;
+        dlog_error("ISP日夜参数校验失败: 业务服务未注册");
+        return ERR_UNINIT;
     }
 
-    /* 更新后的夜晚运行态 */
-    bool bIsNight = CDayNightController::instance()->isNightMode();
-
-    /* 当前后都处于夜晚且补光配置变化时，主动补做一次硬件同步。 */
-    if (bWasNight && bIsNight && has_night_light_runtime_changed(stOldDayNightAttr, stNewDayNightAttr))
-    {
-        dlog_info("夜晚状态未变化，但补光配置已更新，重新同步IR-CUT和补光灯硬件状态");
-        return sync_night_fill_light(stNewDayNightAttr);
-    }
-
-    return OK;
+    return pService->validate_daynight(stConfig);
 }
 
-int CIspManage::apply_image_config()
+int CIspManage::set_image_config(const ISP::ImageParam_S &stConfig)
 {
-    ISP::ImageParam_S stImageParam;
-    int nRet = CIspConfigure::instance()->get_configure(stImageParam);
-    if (nRet != OK)
+    /* lock: 命令事务期间保持 service/command service 生命周期稳定，禁止并发注销。 */
+    std::lock_guard<std::mutex> stLock(m_mtxService);
+    if (!m_pstCommandService)
     {
-        dlog_error("获取图像参数配置失败");
-        return nRet;
+        return ERR_UNINIT;
     }
-
-    nRet = CIspControl::instance()->set_imageParam_attr(stImageParam);
-    if (nRet != OK)
-    {
-        dlog_error("应用图像参数到硬件失败");
-        return nRet;
-    }
-
-    dlog_info("图像参数配置应用成功，亮度: %d, 对比度: %d, 饱和度: %d, 锐度: %d",
-              stImageParam.nBrightness,
-              stImageParam.nContrast,
-              stImageParam.nSaturation,
-              stImageParam.nSharpness);
-
-    return OK;
+    return m_pstCommandService->set_image_config(stConfig);
 }
 
-int CIspManage::apply_exposure_config()
+int CIspManage::set_exposure_config(const ISP::ExposureAttr_S &stConfig)
 {
-    ISP::ExposureAttr_S stExpAttr;
-    int nRet = CIspConfigure::instance()->get_configure(stExpAttr);
-    if (nRet != OK)
+    /* lock: 命令事务期间保持 service/command service 生命周期稳定，禁止并发注销。 */
+    std::lock_guard<std::mutex> stLock(m_mtxService);
+    if (!m_pstCommandService)
     {
-        dlog_error("获取曝光参数配置失败");
-        return nRet;
+        return ERR_UNINIT;
     }
-
-    nRet = CIspControl::instance()->set_exposure_attr(stExpAttr);
-    if (nRet != OK)
-    {
-        dlog_error("应用曝光参数到硬件失败");
-        return nRet;
-    }
-
-    dlog_info("曝光参数配置应用成功，防横纹: %s, 曝光时间: %d",
-              stExpAttr.bAntiBanding ? "开启" : "关闭",
-              stExpAttr.enExpTime);
-
-    return OK;
-}
-int CIspManage::apply_gamma_config()
-{
-#if CAP_ISP_DAY_NIGHT_DIFFERENT_TUNING
-    int nRet = CIspControl::instance()->apply_gamma_attr();
-    if (nRet != OK)
-    {
-        dlog_error("应用Gamma参数到硬件失败");
-        return nRet;
-    }
-
-    dlog_info("Gamma参数配置应用成功");
-#endif
-    return OK;
+    return m_pstCommandService->set_exposure_config(stConfig);
 }
 
-int CIspManage::apply_backlight_config()
+int CIspManage::set_daynight_config(const ISP::DayNightAttr_S &stConfig)
 {
-    ISP::BackLightArrt_S stBackLightAttr;
-    int nRet = CIspConfigure::instance()->get_configure(stBackLightAttr);
-    if (nRet != OK)
+    /* lock: 命令事务期间保持 service/command service 生命周期稳定，禁止并发注销。 */
+    std::lock_guard<std::mutex> stLock(m_mtxService);
+    if (!m_pstCommandService)
     {
-        dlog_error("获取背光参数配置失败");
-        return nRet;
+        return ERR_UNINIT;
     }
-
-    nRet = CIspControl::instance()->set_backLight_attr(stBackLightAttr);
-    if (nRet != OK)
-    {
-        dlog_error("应用背光参数到硬件失败");
-        return nRet;
-    }
-
-    dlog_info("背光参数配置应用成功，背光区域: %d, 宽动态: %s",
-              stBackLightAttr.enBackLightArea,
-              stBackLightAttr.stWdrAttr.bEnable ? "开启" : "关闭");
-
-    return OK;
+    return m_pstCommandService->set_daynight_config(stConfig);
 }
 
-int CIspManage::apply_awb_config()
+int CIspManage::set_backlight_config(const ISP::BackLightArrt_S &stConfig)
 {
-    ISP::AwbAttr_S stAwbAttr;
-    int nRet = CIspConfigure::instance()->get_configure(stAwbAttr);
-    if (nRet != OK)
+    /* lock: 命令事务期间保持 service/command service 生命周期稳定，禁止并发注销。 */
+    std::lock_guard<std::mutex> stLock(m_mtxService);
+    if (!m_pstCommandService)
     {
-        dlog_error("获取白平衡参数配置失败");
-        return nRet;
+        return ERR_UNINIT;
     }
-
-    nRet = CIspControl::instance()->set_awb_attr(stAwbAttr);
-    if (nRet != OK)
-    {
-        dlog_error("应用白平衡参数到硬件失败");
-        return nRet;
-    }
-
-    dlog_info("白平衡参数配置应用成功，模式: %d", stAwbAttr.enAwbMode);
-    return OK;
+    return m_pstCommandService->set_backlight_config(stConfig);
 }
 
-int CIspManage::apply_dnr_config()
+int CIspManage::set_awb_config(const ISP::AwbAttr_S &stConfig)
 {
-
-    ISP::DnrAttr_S stDnrAttr;
-    int nRet = CIspConfigure::instance()->get_configure(stDnrAttr);
-    if (nRet != OK)
+    /* lock: 命令事务期间保持 service/command service 生命周期稳定，禁止并发注销。 */
+    std::lock_guard<std::mutex> stLock(m_mtxService);
+    if (!m_pstCommandService)
     {
-        dlog_error("获取降噪参数配置失败");
-        return nRet;
+        return ERR_UNINIT;
     }
-
-    nRet = CIspControl::instance()->set_nr_attr(stDnrAttr);
-    if (nRet != OK)
-    {
-        dlog_error("应用降噪参数到硬件失败");
-        return nRet;
-    }
-
-    dlog_info("降噪参数配置应用成功，模式: %d, 等级: %d", stDnrAttr.enDnrMode, stDnrAttr.nDnrLevel);
-
-    return OK;
+    return m_pstCommandService->set_awb_config(stConfig);
 }
 
-int CIspManage::apply_mirror_config()
+int CIspManage::set_nr_config(const ISP::DnrAttr_S &stConfig)
 {
-
-    ISP::VideoAdjust_S stVideoAdjust;
-    int nRet = CIspConfigure::instance()->get_configure(stVideoAdjust);
-    if (nRet != OK)
+    /* lock: 命令事务期间保持 service/command service 生命周期稳定，禁止并发注销。 */
+    std::lock_guard<std::mutex> stLock(m_mtxService);
+    if (!m_pstCommandService)
     {
-        dlog_error("获取镜像参数配置失败");
-        return nRet;
+        return ERR_UNINIT;
     }
-
-    nRet = CIspControl::instance()->set_videoMirror_attr(stVideoAdjust);
-    if (nRet != OK)
-    {
-        dlog_error("应用镜像参数到硬件失败");
-        return nRet;
-    }
-
-    dlog_info("镜像参数配置应用成功，镜像模式: %d", stVideoAdjust.enMirrorMode);
-    return OK;
+    return m_pstCommandService->set_nr_config(stConfig);
 }
 
-int CIspManage::apply_scene_config()
+int CIspManage::set_mirror_config(const ISP::VideoAdjust_S &stConfig)
 {
-#if 0 /* 加载参数即可 */
-    ISP::SceneType_E enSceneType;
-    int nRet = CIspConfigure::instance()->get_configure(enSceneType);
-    if (nRet != OK) 
+    /* lock: 命令事务期间保持 service/command service 生命周期稳定，禁止并发注销。 */
+    std::lock_guard<std::mutex> stLock(m_mtxService);
+    if (!m_pstCommandService)
     {
-        dlog_error("获取场景参数配置失败");
-        return nRet;
+        return ERR_UNINIT;
     }
-    
-    nRet = CSceneParamManager::instance()->scene_set_mode(enSceneType);
-    if (nRet != OK) 
-    {
-        dlog_error("应用场景参数到硬件失败,enSceneType:%u",enSceneType);
-        return nRet;
-    }
-#endif
-
-    apply_image_config();
-
-    // dlog_info("场景参数配置应用成功，当前场景: %d", enSceneType);
-    return OK;
+    return m_pstCommandService->set_mirror_config(stConfig);
 }
 
-int CIspManage::apply_schedule_config()
+int CIspManage::set_scene_schedule(const ISP::SceneSchedule_S &stConfig)
 {
-
-    ISP::SceneSchedule_S stSchedule;
-    int nRet = CIspConfigure::instance()->get_configure(stSchedule);
-    if (nRet != OK)
+    /* lock: 命令事务期间保持 service/command service 生命周期稳定，禁止并发注销。 */
+    std::lock_guard<std::mutex> stLock(m_mtxService);
+    if (!m_pstCommandService)
     {
-        dlog_error("获取图像计划配置失败");
-        return nRet;
+        return ERR_UNINIT;
     }
-
-    /* 更新图像计划控制器 */
-    CSceneCtrl::instance()->update();
-
-    dlog_info("图像计划配置应用成功，启用状态: %s", stSchedule.bEnable ? "开启" : "关闭");
-    return OK;
+    return m_pstCommandService->set_scene_schedule(stConfig);
 }
 
-int CIspManage::load_and_apply_all_configs()
+int CIspManage::set_user_scene(ISP::SceneType_E enScene)
 {
-    int nRet = OK;
-
-    dlog_info("开始从配置文件加载并应用所有图像参数");
-
-    /* 按顺序应用各种配置 */
-    ISP::PicConfigureType_E configs[] = {
-        // ISP::PicConfigureType_E::SCENE,    // 加载场景
-        ISP::PicConfigureType_E::IAMGE, // 图像基础参数
-        ISP::PicConfigureType_E::EXPOSURE, // 曝光参数
-        ISP::PicConfigureType_E::BACKLIGHT,    // 背光参数
-        ISP::PicConfigureType_E::AWB,      // 白平衡参数
-        ISP::PicConfigureType_E::NR,       // 降噪参数
-        ISP::PicConfigureType_E::MIRROR,   // 镜像参数
-        ISP::PicConfigureType_E::DAYNIGHT, // 加载日夜切换
-    };
-
-    for (auto configType : configs)
+    /* lock: 命令事务期间保持 service/command service 生命周期稳定，禁止并发注销。 */
+    std::lock_guard<std::mutex> stLock(m_mtxService);
+    if (!m_pstCommandService)
     {
-        nRet = update_config(configType);
-        if (nRet != OK)
-        {
-            dlog_error("加载配置类型 %d 失败", static_cast<int>(configType));
-            return nRet;
-        }
+        return ERR_UNINIT;
     }
-
-    nRet = apply_schedule_config();
-    if (nRet != OK)
-    {
-        dlog_error("加载图像计划配置失败");
-        return nRet;
-    }
-
-    dlog_info("所有图像参数加载并应用完成");
-    return OK;
+    return m_pstCommandService->set_user_scene(enScene);
 }
 
-void CIspManage::update(const ISP::PicConfigureType_E& enPicConfigureInfo)
+int CIspManage::restore_default_config()
 {
-    update_config(enPicConfigureInfo);
+    /* lock: 恢复事务会读写多份配置，期间不允许清理其依赖的业务服务。 */
+    std::lock_guard<std::mutex> stLock(m_mtxService);
+    if (!m_pstCommandService)
+    {
+        return ERR_UNINIT;
+    }
+    return m_pstCommandService->restore_default_config();
 }
 
-void CIspManage::onDayNightStateChanged(bool isNight, ISP::DayNightMode_E mode)
+int CIspManage::begin_light_override(const ISP::IspLightOverride_S &stOverride, uint64_t &u64Token)
 {
-    dlog_info("日夜状态变化: %s, 模式: %d", isNight ? "夜晚" : "白天", static_cast<int>(mode));
-
-    /* 获取当前日夜切换配置 */
-    ISP::DayNightAttr_S stDayNightAttr;
-    if (CIspConfigure::instance()->get_configure(stDayNightAttr) != OK)
+    CServiceCallGuard stServiceCall(*this);
+    ISP::IIspBusinessService *pService = stServiceCall.get();
+    if (pService == nullptr)
     {
-        dlog_error("Failed to get daynight config");
-        return;
+        return ERR_UNINIT;
     }
-#if CAP_ISP_IR_SWITCH // ISP 红外切换
-    /* 执行IR切换 */
-    if (performIrSwitch(isNight, stDayNightAttr.stFillLight.enLightType) != OK)
-    {
-        dlog_error("IR-CUT硬件切换失败");
-        return;
-    }
-#endif
-
-    /* 灯光管理器控制补光灯 */
-    CLightManager::instance()->on_dayNight_changed(isNight, stDayNightAttr.stFillLight);
-
-    // if(!isNight)
-    // {
-    //     /* 再加载一下场景参数 */
-    //     apply_image_config();
-    // }
-
-    dlog_info("日夜状态切换处理完成");
+    return pService->begin_light_override(stOverride, u64Token);
 }
 
-int CIspManage::performIrSwitch(bool bNight, ISP::LightType_E enLightType)
+int CIspManage::end_light_override(uint64_t u64Token)
 {
-    dlog_info("执行IR切换: %s, 灯光类型: %d", bNight ? "夜晚" : "白天", static_cast<int>(enLightType));
-    int nRet = OK;
-
-    if (bNight)
+    CServiceCallGuard stServiceCall(*this);
+    ISP::IIspBusinessService *pService = stServiceCall.get();
+    if (pService == nullptr)
     {
-        if (enLightType == ISP::LIGHT_TYPE_RED || enLightType == ISP::LIGHT_TYPE_SMART)
-        {
-            /* 红外模式：切换到黑白 */
-            dlog_debug("切换到红外黑白模式");
-            turn_off_light_before_ircut(ISP::LIGHT_TYPE_WHITE, "白光灯");
-            CSceneParamManager::instance()->scene_set_mode(ISP::SCENE_NIGHT);
-            usleep(1000);
-            nRet = CGpioCtrl::instance()->ir_cut_switch_night();
-        }
-        else if (enLightType == ISP::LIGHT_TYPE_WHITE || enLightType == ISP::LIGHT_TYPE_WHITE_ON_RED_OFF)
-        {
-            /* 白光模式：保持彩色 */
-            dlog_debug("切换到夜间全彩模式");
-            turn_off_light_before_ircut(ISP::LIGHT_TYPE_RED, "红外灯");
-#if CAP_ISP_SCENE_LIGHT_PARAM
-            /* TV-3852H* 系列使用独立 light 场景参数，保证白光夜视与白天参数解耦。 */
-            CSceneParamManager::instance()->scene_set_mode(ISP::SCENE_NIGHT_LIGHT);
-#else
-            CSceneParamManager::instance()->scene_set_mode(ISP::SCENE_NORMAL);
-#endif
-            usleep(1000);
-            nRet = CGpioCtrl::instance()->ir_cut_switch_day();
-        }
-        else
-        {
-            /* 其他情况默认处理 */
-            dlog_debug("夜晚模式默认处理");
-            turn_off_light_before_ircut(ISP::LIGHT_TYPE_WHITE, "白光灯");
-            CSceneParamManager::instance()->scene_set_mode(ISP::SCENE_NIGHT);
-            usleep(1000);
-            nRet = CGpioCtrl::instance()->ir_cut_switch_night();
-        }
+        return ERR_UNINIT;
     }
-    else
-    {
-        /* 白天模式：恢复正常彩色模式 */
-        dlog_debug("切换到白天模式");
-        turn_off_light_before_ircut(ISP::LIGHT_TYPE_RED, "红外灯");
-        CSceneParamManager::instance()->scene_set_mode(ISP::SCENE_NORMAL);
-        usleep(1000);
-        nRet = CGpioCtrl::instance()->ir_cut_switch_day();
-    }
-
-    if (nRet != OK)
-    {
-        dlog_error("IR-CUT GPIO切换失败: %d", nRet);
-        return nRet;
-    }
-
-    // note 设置场景模式后，需要重新应用图像参数、曝光，否则图像将恢复默认
-    nRet = apply_image_config();
-    if (nRet != OK)
-    {
-        dlog_warn("IR-CUT已切换，重新应用图像参数失败但继续同步补光灯: %d", nRet);
-    }
-
-    nRet = apply_exposure_config();
-    if (nRet != OK)
-    {
-        dlog_warn("IR-CUT已切换，重新应用曝光参数失败但继续同步补光灯: %d", nRet);
-    }
-
-    nRet = apply_gamma_config();
-    if (nRet != OK)
-    {
-        dlog_warn("IR-CUT已切换，重新应用Gamma参数失败但继续同步补光灯: %d", nRet);
-    }
-
-    return OK;
-}
-
-int CIspManage::sync_night_fill_light(const ISP::DayNightAttr_S& stDayNightAttr)
-{
-#if CAP_ISP_IR_SWITCH // ISP 红外切换
-    /* 夜晚下切换补光类型时，除了灯光本身，还必须同步IR-CUT和夜景场景。 */
-    int nRet = performIrSwitch(true, stDayNightAttr.stFillLight.enLightType);
-    if (nRet != OK)
-    {
-        return nRet;
-    }
-#endif
-
-    /* 灯光管理器负责实际灯珠开关和亮度，因此需要把最新补光配置再次下发。 */
-    CLightManager::instance()->on_dayNight_changed(true, stDayNightAttr.stFillLight);
-    return OK;
+    return pService->end_light_override(u64Token);
 }

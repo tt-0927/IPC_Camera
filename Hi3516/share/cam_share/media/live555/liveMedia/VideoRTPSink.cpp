@@ -23,9 +23,10 @@ along with this library; if not, write to the Free Software Foundation, Inc.,
 VideoRTPSink::VideoRTPSink(UsageEnvironment& env,
 			   Groupsock* rtpgs, unsigned char rtpPayloadType,
 			   unsigned rtpTimestampFrequency,
-			   char const* rtpPayloadFormatName)
+			   char const* rtpPayloadFormatName,
+			   unsigned maxBufferSize)
   : MultiFramedRTPSink(env, rtpgs, rtpPayloadType, rtpTimestampFrequency,
-		       rtpPayloadFormatName) {
+			       rtpPayloadFormatName, 1, maxBufferSize) {
 }
 
 VideoRTPSink::~VideoRTPSink() {

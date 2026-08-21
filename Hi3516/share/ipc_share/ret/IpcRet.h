@@ -96,6 +96,7 @@ typedef enum IpcRet_E
     PASS_ERR_FIRST_LOGIN_PWD_CHANGE    =   -57,  /* 强制重置密码 */
     PASS_ERR_EXIST                     =   -58,  /* 新旧密码一样 */
     PASS_ERR_LOW_LEVEL_EXTERNAL_ACCESS =   -59,  /* 低等级密码, 外网低等级密码账号不允许访问系统 */
+    ERR_UNSUPPORT                      =   -60,  /* 功能不支持 */
 
     /* 处理WEB命令，任务异常返回值 */
     ERR_WEB_PARAM                   = -300, /* 参数错误 */

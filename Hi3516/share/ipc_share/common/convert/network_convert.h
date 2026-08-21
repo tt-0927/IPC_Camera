@@ -48,6 +48,7 @@ namespace Convert
 	void deal(Json::Object* pRootJson, Network::RevokedCertInfo_S &stInfo, bool bOutStruct);
 	void deal(Json::Object* pRootJson, std::vector<Network::RevokedCertInfo_S> &stInfo, bool bOutStruct);
 	void deal(Json::Object* pRootJson, Network::GmCrlFileInfo_S &stInfo, bool bOutStruct);
+	void deal(Json::Object *pRootJson, Network::NetService_S &stInfo, bool bOutStruct);
 	void deal(Json::Object* pRootJson, Network::WifiStaInfo_S &stInfo, bool bOutStruct);
 	void deal(Json::Object* pRootJson, Network::WifiStaConncet_S &stInfo, bool bOutStruct);
 	void deal(Json::Object* pJson, Network::WifiConnectResult &key, bool bOutStruct);

@@ -1,11 +1,12 @@
-/*
+/**
  * @FilePath     : upgrade_define.h
- * @Author       : yanzeh yanzeh@kfb.cn
- * @Date         : 2023-08-26 11:29:57
- * @LastEditors: 李辉 lihui@kfb.cn
- * @LastEditTime: 2025-02-18 09:31:14
- * @Description  :
+ * @Author       : zhouzr@kfb.cn
+ * @Date         : 2026-07-08 10:24:46
+ * @LastEditors  : zhouzr@kfb.cn
+ * @LastEditTime : 2026-08-04 08:45:53
+ * @Description  : 升级模块公共定义
  */
+
 #ifndef _UPGRADE_COMMON_H_
 #define _UPGRADE_COMMON_H_
 
@@ -14,13 +15,16 @@
 
 #define SYSCMDLEN (1024)
 
+/* 流式读取缓冲区大小，用于 MD5 校验和管道解压，避免一次性占用大量内存 */
+#define READ_BUF_SIZE 16384  /* 16KB */
+
+/* 系统升级包解压目标路径（根目录） */
+#define PATH_INSTALL_ROOT "/"
+
 #define TMP_STATUS    "/tmp/upgrade_tmp"
 
-#define UPGRADE_PATH        "/opt/cam"
-#define UPGRADE_BAK         "/opt/course"
-#define UPGRADE_SUFFIX_PATH "/opt/course"
-#define UPGRADE_BAK_DIR     "/opt/course/cam"
-#define TI_UPGRADE_TAR      "/opt/course/update.tar.gz"
+/* 运行期间的临时上传目录，升级失败或成功后只清理该目录内容 */
+#define UPLOAD_RUNTIME_PATH "/tmp/upload"
 
 /* 升级状态 */
 typedef enum _TiUpgradeRuslut_

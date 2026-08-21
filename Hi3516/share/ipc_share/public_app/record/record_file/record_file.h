@@ -3,7 +3,7 @@
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2025-06-28 10:36:11
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2025-07-08 17:28:30
+ * @LastEditTime : 2026-07-29 17:43:13
  * @Description  : 通道通讯录制
  */
 #pragma once
@@ -34,6 +34,14 @@ public:
 
     void set_videoInfo(Record_NS::VideoConfigInfo_S stVideoConfigInfo);
     void set_audioInfo(Record_NS::AudioConfigInfo_S stAudioConfigInfo);
+
+    /**
+     * @brief   : 标记录制音频编码链路发生重启
+     * @return   {void}
+     * @note    : 等待下一个视频I帧后切片，防止音频重启前后的PTS写入同一TS文件。
+     */
+    void notify_audio_restart();
+
     void push(const void *pData, int nLen, Record_NS::MediaDataType_E enType);
 
     /**
@@ -72,7 +80,7 @@ public:
      */
     int pop_mediaDataQueue(Record_NS::MediaData_S &stMediaData)
     {
-        return m_mediaDataQueue.pop(stMediaData, SafeQueue<Record_NS::MediaData_S>::TIMEOUT_FOREVER);
+        return m_mediaDataQueue.pop(stMediaData, SafeQueue<Record_NS::MediaData_S>::TIMEOUT_NONE);
     }
 
     /**
@@ -153,6 +161,8 @@ private:
 
     /* 录制状态 */
     std::atomic<Record_NS::Status_E> m_nRecordStatus;
+    /* 串行化START和录制线程的STOP收尾 */
+    std::mutex m_recordStateMutex;
 
     /*录制时间线程*/
     std::thread m_recordTd;
@@ -169,10 +179,6 @@ private:
 
     /* 数据链表 */
     SafeQueue<Record_NS::MediaData_S> m_mediaDataQueue;
-
-    /* 是否初始化 录制句柄 */
-    std::atomic<bool> m_bFirstInit = {false};
-
     /*是否断开数据接收*/
     std::atomic<bool> m_bDisconnect = {false};
 
@@ -191,4 +197,6 @@ private:
 
     /*是否需要配置变化切片*/
     std::atomic<bool> m_bHandleSlice = {false};
+    /* 音频编码链路重启后等待视频I帧切片 */
+    std::atomic<bool> m_bHandleAudioRestartSlice = {false};
 };

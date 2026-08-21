@@ -46,7 +46,7 @@ public:
 #ifdef ENABLE_TVSDK_SRC
     /**
      * @brief TVSDK：推送告警（事件模块使用）
-     * @param lCommand 告警命令码/类型（NET_ALARM_*）
+     * @param lCommand 告警命令码/类型（NET_TV_ALARM_*）
      * @param pAlarmInfo 告警结构体指针
      * @param dwBufLen 告警结构体长度
      * @return 0 成功，负值失败
@@ -54,13 +54,7 @@ public:
     int tvsdk_push_alarm(int lCommand, const void *pAlarmInfo, int dwBufLen, const void *pAlarmer = nullptr);
 
     /**
-     * @brief TVSDK：推送动态图片 V2 告警。
-     * @details 调用返回前图片数据必须保持有效。
-     * @param [in] lCommand 告警命令码。
-     * @param [in] pAlarmInfo V2 告警结构体指针。
-     * @param [in] dwBufLen V2 告警结构体长度。
-     * @param [in] pAlarmer 可选的告警设备信息。
-     * @return 成功返回 OK，失败返回 ERR。
+     * @brief TVSDK：推送动态图片 V2 告警。调用返回前图片数据必须保持有效。
      */
     int tvsdk_push_alarm_v2(int lCommand, const void *pAlarmInfo, int dwBufLen, const void *pAlarmer = nullptr);
 

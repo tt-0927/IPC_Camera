@@ -3,7 +3,7 @@
  * @Author       : huangjunda
  * @Date         : 2025-03-26 14:22:11
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2025-12-29 20:17:49
+ * @LastEditTime : 2026-07-27 09:33:35
  * @Description  : 公共定义
  */
 #pragma once
@@ -526,18 +526,18 @@ namespace Common
             if (nDay < 1 || nDay > 31) return false;
             
             /* 检查每月的天数 */
-            static const int daysInMonth[] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
-            int maxDays = daysInMonth[nMonth - 1];
-            
+            static const unsigned int DAYS_IN_MONTH[] = { 31U, 28U, 31U, 30U, 31U, 30U, 31U, 31U, 30U, 31U, 30U, 31U };
+            unsigned int nMaxDays = DAYS_IN_MONTH[nMonth - 1];
+
             /* 闰年2月有29天 */
             if (nMonth == 2 && IsLeapYear(nYear))
             {
-                maxDays = 29;
+                nMaxDays = 29U;
             }
-            
-            return nDay <= maxDays;
+
+            return nDay <= nMaxDays;
         }
-        
+
         /**
          * @brief 判断是否为闰年
          * @param year 年份
