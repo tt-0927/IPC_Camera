@@ -24,6 +24,7 @@
 #include "alarm_define.h"
 #include "preview_define.h"
 #include "preview_manage.h"
+#include "osd_manage.h"
 #include "Json.h"
 #include "convert_interface.h"
 #include "video_define.h"
@@ -1025,7 +1026,7 @@ static NET_COMMON_ECODE_E cb_get_privacy_mask_cfg(INT32 dwChannelID, LPVOID lpOu
     Osd::CoverConfig_S stCfg;
     stCfg.clear();
     Convert::to_struct(strJson, stCfg);
-    TvSdkConvert::FillPrivacyMaskCfg(stCfg, *pOut);
+    TvSdkConvert::FillPrivacyMaskCfg(stCfg, COsdManage::instance()->get_cover_max_area_count(), *pOut);
     return NET_E_SUCCEED;
 }
 static NET_COMMON_ECODE_E cb_set_privacy_mask_cfg(INT32 dwChannelID, LPVOID lpInBuffer)
@@ -1036,7 +1037,12 @@ static NET_COMMON_ECODE_E cb_set_privacy_mask_cfg(INT32 dwChannelID, LPVOID lpIn
 
     const NET_PrivacyMaskCfg_S *pIn = (const NET_PrivacyMaskCfg_S *)lpInBuffer;
     Osd::CoverConfig_S stCfg;
-    TvSdkConvert::ToPrivacyMaskCfg(*pIn, stCfg);
+    const size_t maxAreaCount = COsdManage::instance()->get_cover_max_area_count();
+    if (!TvSdkConvert::ToPrivacyMaskCfg(*pIn, maxAreaCount, stCfg))
+    {
+        dlog_warn("TVSDK隐私遮盖区域数非法, request:%d, max:%zu", pIn->uAreaCount, maxAreaCount);
+        return NET_E_INVALID_PARAM;
+    }
 
     Task::Info_S stInfo;
     stInfo.data = wrap_data_json(Convert::to_string(stCfg));

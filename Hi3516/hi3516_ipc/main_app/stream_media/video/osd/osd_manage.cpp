@@ -22,6 +22,47 @@
 
 namespace
 {
+bool normalize_cover_config(Osd::CoverConfig_S &stConfig)
+{
+    bool bChanged = false;
+    if (stConfig.vecCoverAttr.size() > RGN_COVER_MAX_NUM)
+    {
+        stConfig.vecCoverAttr.resize(RGN_COVER_MAX_NUM);
+        bChanged = true;
+    }
+
+    while (stConfig.vecCoverAttr.size() < RGN_COVER_MAX_NUM)
+    {
+        Osd::CoverAttribute_S stAttr;
+        stAttr.clear();
+        stAttr.nId = static_cast<int>(stConfig.vecCoverAttr.size()) + 1;
+        stAttr.strName += std::to_string(stAttr.nId);
+        stConfig.vecCoverAttr.push_back(stAttr);
+        bChanged = true;
+    }
+    return bChanged;
+}
+
+bool normalize_cover_info(std::vector<Osd::CoverInfo_S> &vecCoverInfo)
+{
+    bool bChanged = false;
+    if (vecCoverInfo.size() > RGN_COVER_MAX_NUM)
+    {
+        vecCoverInfo.resize(RGN_COVER_MAX_NUM);
+        bChanged = true;
+    }
+
+    while (vecCoverInfo.size() < RGN_COVER_MAX_NUM)
+    {
+        Osd::CoverInfo_S stCoverInfo;
+        stCoverInfo.clear();
+        stCoverInfo.stuInfo.nID = static_cast<int>(vecCoverInfo.size()) + 1;
+        vecCoverInfo.push_back(stCoverInfo);
+        bChanged = true;
+    }
+    return bChanged;
+}
+
 #if CAP_EXHIBITION_OSD_PANEL
 /**
  * @brief   : 获取稳态时钟的毫秒时间戳
@@ -117,13 +158,13 @@ IpcRet_E COsdManage::init()
     {
         dlog_error("没有找到cover_config.json文件, 重新创建");
         m_stCoverConfig.bEnable = false;
-        m_stCoverConfig.vecCoverAttr.resize(RGN_COVER_MAX_NUM);
-        for (size_t i = 0; i < m_stCoverConfig.vecCoverAttr.size(); i++)
-        {
-            m_stCoverConfig.vecCoverAttr[i].clear();
-            m_stCoverConfig.vecCoverAttr[i].nId = i + 1;
-            m_stCoverConfig.vecCoverAttr[i].strName += std::to_string(i + 1);
-        }
+        m_stCoverConfig.vecCoverAttr.clear();
+        normalize_cover_config(m_stCoverConfig);
+        Convert::write_file(m_strCoverConfigFile, m_stCoverConfig);
+    }
+    else if (normalize_cover_config(m_stCoverConfig))
+    {
+        /* 旧版本可能保存多个区域，启动时按本平台能力裁剪并持久化。 */
         Convert::write_file(m_strCoverConfigFile, m_stCoverConfig);
     }
 
@@ -167,13 +208,13 @@ IpcRet_E COsdManage::init()
     if (Convert::read_file(m_strCoverFile, m_vecCoverInfo))
     {
         dlog_error("没有找到cover.json文件, 重新创建");
-        Osd::CoverInfo_S stCoverInfo;
-        stCoverInfo.clear();
-        for (size_t i = 0; i < RGN_COVER_MAX_NUM; i++) // VPSS COVER 每个通道最多4个 
-        {
-            stCoverInfo.stuInfo.nID = i + 1;
-            m_vecCoverInfo.push_back(stCoverInfo);
-        }
+        m_vecCoverInfo.clear();
+        normalize_cover_info(m_vecCoverInfo);
+        Convert::write_file(m_strCoverFile, m_vecCoverInfo);
+    }
+    else if (normalize_cover_info(m_vecCoverInfo))
+    {
+        /* 保证绘制模块与配置模块使用同一数量的区域。 */
         Convert::write_file(m_strCoverFile, m_vecCoverInfo);
     }
 
@@ -445,11 +486,27 @@ IpcRet_E COsdManage::get_cover_config(Osd::CoverConfig_S &stInfo)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
     stInfo = m_stCoverConfig;
+    normalize_cover_config(stInfo);
     return OK;
+}
+
+std::size_t COsdManage::get_cover_max_area_count() const
+{
+    return RGN_COVER_MAX_NUM;
 }
 
 IpcRet_E COsdManage::set_cover_config(Osd::CoverConfig_S stInfo)
 {
+    if (stInfo.vecCoverAttr.size() > get_cover_max_area_count())
+    {
+        dlog_warn("隐私遮盖区域数超出平台能力, request:%zu, max:%zu",
+                  stInfo.vecCoverAttr.size(), get_cover_max_area_count());
+        return ERR_PARAM;
+    }
+
+    /* 禁用时允许省略区域数组，内部补齐为固定的单区域配置。 */
+    normalize_cover_config(stInfo);
+
     std::vector<Osd::CoverInfo_S> vecInfo;
     vecInfo = m_vecCoverInfo;
     for (size_t i = 0; vecInfo.size() > i; i++)
