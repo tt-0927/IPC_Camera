@@ -2,7 +2,7 @@
  * @file NetTVSDKClientInterface.cpp
  * @author tianl (tianl@kfb.cn)
  * @date 2025-12-22
- *
+ * 
  * @brief 客户端SDK接口实现，包含初始化、登录、配置获取/设置、回放控制、录像帧流、语音对讲等核心功能
  */
 
@@ -23,9 +23,8 @@
 #include "ErrorManage.h"
 #include "DeviceManage.h"
 #include "NetSdkLog.h"
-#include "BG6_ZHSJ/RecordFrameClient.h"
-#include "BG6_ZHSJ/VoiceComClient.h"
-#include "BG6_ZHSJ/BU_SJGZ/CapabilityInfoConvert.h"
+#include "RecordFrameClient.h"
+#include "VoiceComClient.h"
 
 #define NETTVSDK_MAKE_VERSION(major, minor, rev1, rev2) \
     ((uint32_t)( \
@@ -45,10 +44,10 @@
 /* 检查SDK是否初始化 */
 #define CHECK_SDK_INIT(val) \
     do { \
-        auto pMgr = CDeviceManage::instance(); \
+        auto* pMgr = CDeviceManage::instance(); \
         /* 检查单例是否存在 以及 标志位是否为 true */ \
         if (!pMgr || !pMgr->IsInitialized()) { \
-            CErrorManage::instance()->SetLastError(NET_E_SDK_NOT_INIT); \
+            CErrorManage::instance()->SetLastError(NET_TV_E_SDK_NOT_INIT); \
             return val; \
         } \
     } while(0)
@@ -56,38 +55,38 @@
 /* 检查SDK是否已经初始化 */
 #define CHECK_SDK_ALREADY_INIT(val) \
     do { \
-        auto pMgr = CDeviceManage::instance(); \
+        auto* pMgr = CDeviceManage::instance(); \
         /* 如果单例存在 且 标志位为 true，说明已经 Init 过了 */ \
         if (pMgr && pMgr->IsInitialized()) { \
-            CErrorManage::instance()->SetLastError(NET_E_ALREDY_INIT_ERROR); \
+            CErrorManage::instance()->SetLastError(NET_TV_E_ALREDY_INIT_ERROR); \
             return val; \
         } \
     } while(0)
 
 /* 全局错误码 */
-thread_local int CErrorManage::s_nLastErrorCode = NET_E_SDK_NOT_INIT;
+thread_local int CErrorManage::lastErrorCode_ = NET_TV_E_SDK_NOT_INIT;
 
 /**
  * @brief SDK初始化接口
  * @return 成功返回TRUE，失败返回FALSE
  * @note 调用其他SDK接口前必须先调用此接口；重复调用会返回失败
  */
-NET_API BOOL STDCALL NET_Init(void)
+NET_TV_API BOOL STDCALL NET_TV_Init(void)
 {
 	CHECK_SDK_ALREADY_INIT(FALSE);
-	try
+	try 
 	{
-        auto pDevMgr = CDeviceManage::instance();
-
-        if (!pDevMgr)
+        auto* pDevMgr = CDeviceManage::instance();
+        
+        if (!pDevMgr) 
 		{
             return FALSE;
         }
 		pDevMgr->SetInitialized(true);
-        CErrorManage::instance()->SetLastError(NET_E_SUCCEED);
+        CErrorManage::instance()->SetLastError(NET_TV_E_SUCCEED);
         return TRUE;
-    }
-    catch (...)
+    } 
+    catch (...) 
 	{
         return FALSE;
     }
@@ -99,27 +98,27 @@ NET_API BOOL STDCALL NET_Init(void)
  * @return 成功返回TRUE，失败返回FALSE
  * @note 退出程序前调用，释放SDK内部资源；SDK未初始化时调用会返回失败
  */
-NET_API BOOL STDCALL NET_Cleanup(void)
+NET_TV_API BOOL STDCALL NET_TV_Cleanup(void)
 {
-
+	
 	CHECK_SDK_INIT(FALSE);
 
-	try
+	try 
 	{
-        auto pDevMgr = CDeviceManage::instance();
+        auto* pDevMgr = CDeviceManage::instance();
 
-        if (pDevMgr)
+        if (pDevMgr) 
 		{
-            pDevMgr->Cleanup();
+            pDevMgr->Cleanup(); 
         }
 		pDevMgr->SetInitialized(false);
         CDeviceManage::DestroyInstance();
 
-        CErrorManage::instance()->SetLastError(NET_E_SDK_NOT_INIT);
-
+        CErrorManage::instance()->SetLastError(NET_TV_E_SDK_NOT_INIT);
+        
         return TRUE;
-    }
-    catch (...)
+    } 
+    catch (...) 
 	{
         return FALSE;
     }
@@ -137,7 +136,7 @@ NET_API BOOL STDCALL NET_Cleanup(void)
  * @return 成功返回TRUE，失败返回FALSE
  * @note 必须在NET_TV_Init之前调用
  */
-NET_API BOOL STDCALL NET_SetLogToFile(IN INT32 dwLogLevel,IN CHAR  *strLogDir,IN INT32 dwLogFileSize,IN INT32 dwLogFileNum)
+NET_TV_API BOOL STDCALL NET_TV_SetLogToFile(IN INT32 dwLogLevel,IN CHAR  *strLogDir,IN INT32 dwLogFileSize,IN INT32 dwLogFileNum)
 {
     if (strLogDir == NULL)
     {
@@ -147,16 +146,16 @@ NET_API BOOL STDCALL NET_SetLogToFile(IN INT32 dwLogLevel,IN CHAR  *strLogDir,IN
     /* 构造完整日志路径 */
     char szLogPath[512] = {0};
 #ifdef _WIN32
-    snprintf(szLogPath, sizeof(szLogPath), "%s\\NetTVSDKClient.log", strLogDir);
+    sprintf(szLogPath, "%s\\NetTVSDKClient.log", strLogDir);
 #else
-    snprintf(szLogPath, sizeof(szLogPath), "%s/NetTVSDKClient.log", strLogDir);
+    sprintf(szLogPath, "%s/NetTVSDKClient.log", strLogDir);
 #endif
 
-    if (dwLogFileSize <= 0)
+    if (dwLogFileSize <= 0) 
     {
         dwLogFileSize = 5 * 1024 * 1024; // Default 5MB
     }
-
+    
     if (dwLogFileNum <= 0)
     {
         dwLogFileNum = 10; // Default 10 files
@@ -168,7 +167,7 @@ NET_API BOOL STDCALL NET_SetLogToFile(IN INT32 dwLogLevel,IN CHAR  *strLogDir,IN
     {
         return FALSE;
     }
-
+    
     /* 设置日志输出同步输出控制台 */
 	syncPrintf(true);
 
@@ -182,7 +181,7 @@ NET_API BOOL STDCALL NET_SetLogToFile(IN INT32 dwLogLevel,IN CHAR  *strLogDir,IN
  * @brief 获取SDK版本号
  * @return 返回版本号，格式为NETTVSDK_MAKE_VERSION(major, minor, rev1, rev2)
  */
-NET_API INT32 STDCALL NET_GetSDKVersion(void)
+NET_TV_API INT32 STDCALL NET_TV_GetSDKVersion(void)
 {
 
 	return NETTVSDK_VERSION;
@@ -193,7 +192,7 @@ NET_API INT32 STDCALL NET_GetSDKVersion(void)
  * @return 返回错误码，参见NET_TV_COMMON_ECODE_E枚举
  * @note 每次SDK接口调用失败后，可通过此接口获取具体错误原因
  */
-NET_API INT32 STDCALL NET_GetLastError()
+NET_TV_API INT32 STDCALL NET_TV_GetLastError()
 {
 	return CErrorManage::instance()->GetLastError();
 }
@@ -204,11 +203,11 @@ NET_API INT32 STDCALL NET_GetLastError()
  * @param lpUserData 用户自定义数据
  * @return 暂未实现，返回FALSE
  */
-NET_API BOOL STDCALL NET_SetExceptionCallBack(IN NET_ExceptionCallBack_PF cbExceptionCallBack,
+NET_TV_API BOOL STDCALL NET_TV_SetExceptionCallBack(IN NET_TV_ExceptionCallBack_PF cbExceptionCallBack,
                                                                  IN LPVOID lpUserData)
 {
 	return FALSE;
-}
+}																 
 
 /**
  * @brief 设置接收超时时间
@@ -216,26 +215,26 @@ NET_API BOOL STDCALL NET_SetExceptionCallBack(IN NET_ExceptionCallBack_PF cbExce
  * @return 暂未实现，返回FALSE
  * @note 设置SDK网络请求的接收超时时间
  */
-NET_API BOOL STDCALL NET_SetRevTimeOut(IN pNET_RevTimeout_S pstRevTimeout)
+NET_TV_API BOOL STDCALL NET_TV_SetRevTimeOut(IN LPNET_TV_REV_TIMEOUT_S pstRevTimeout)
 {
 	CHECK_SDK_INIT(FALSE);
 
     if (!pstRevTimeout)
 	{
-		CErrorManage::instance()->SetLastError(NET_E_INVALID_PARAM);
+		CErrorManage::instance()->SetLastError(NET_TV_E_INVALID_PARAM);
 		return FALSE;
-	}
+	} 
 
-	auto pDevMgr = CDeviceManage::instance();
+	auto* pDevMgr = CDeviceManage::instance();
 
-	if (!pDevMgr)
+	if (!pDevMgr) 
 	{
-		CErrorManage::instance()->SetLastError(NET_E_ALLOC_RESOURCE_ERROR);
+		CErrorManage::instance()->SetLastError(NET_TV_E_ALLOC_RESOURCE_ERROR);
 		return FALSE;
 	}
 
-    pDevMgr->SetGlobalRevTimeout(pstRevTimeout->uRevTimeOut);
-	CErrorManage::instance()->SetLastError(NET_E_SUCCEED);
+    pDevMgr->SetGlobalRevTimeout(pstRevTimeout->dwRevTimeOut); 
+	CErrorManage::instance()->SetLastError(NET_TV_E_SUCCEED);
 	return FALSE;
 }
 
@@ -246,20 +245,20 @@ NET_API BOOL STDCALL NET_SetRevTimeOut(IN pNET_RevTimeout_S pstRevTimeout)
  * @return 暂未实现，返回FALSE
  * @note 设置SDK网络连接的超时时间和重试次数
  */
-NET_API BOOL STDCALL NET_SetConnectTime(IN INT32 dwWaitTime,
+NET_TV_API BOOL STDCALL NET_TV_SetConnectTime(IN INT32 dwWaitTime,
                                                            IN INT32 dwTrytimes)
 {
 	CHECK_SDK_INIT(FALSE);
-    auto pDevMgr = CDeviceManage::instance();
+    auto* pDevMgr = CDeviceManage::instance();
 
-	if (!pDevMgr)
+	if (!pDevMgr) 
 	{
-		CErrorManage::instance()->SetLastError(NET_E_ALLOC_RESOURCE_ERROR);
+		CErrorManage::instance()->SetLastError(NET_TV_E_ALLOC_RESOURCE_ERROR);
 		return FALSE;
 	}
 
 	pDevMgr->SetGlobalConnectTime(dwWaitTime, dwTrytimes);
-	CErrorManage::instance()->SetLastError(NET_E_SUCCEED);
+	CErrorManage::instance()->SetLastError(NET_TV_E_SUCCEED);
 	return FALSE;
 }
 
@@ -270,31 +269,31 @@ NET_API BOOL STDCALL NET_SetConnectTime(IN INT32 dwWaitTime,
  * @return 成功返回用户句柄(LPVOID)，失败返回NULL
  * @note 登录成功后会自动获取设备信息并填充到pstDevInfo
  */
-NET_API LPVOID STDCALL NET_Login(IN pNET_DeviceLoginInfo_S pstDevLoginInfo,
-                                                        OUT pNET_DeviceInfo_S pstDevInfo)
+NET_TV_API LPVOID STDCALL NET_TV_Login(IN LPNET_TV_DEVICE_LOGIN_INFO_S pstDevLoginInfo, 
+                                                        OUT LPNET_TV_DEVICE_INFO_S pstDevInfo)
 {
-    NETSDK_LOG_MESSAGE_INFO("[NetTVSDK] NET_Login called, IP=%s, Port=%d, User=%s",
+    NSDK_LOG_INFO("[NetTVSDK] NET_TV_Login called, IP=%s, Port=%d, User=%s",
                   pstDevLoginInfo ? pstDevLoginInfo->szIPAddr : "NULL",
-                  pstDevLoginInfo ? pstDevLoginInfo->uPort : 0,
+                  pstDevLoginInfo ? pstDevLoginInfo->dwPort : 0,
                   pstDevLoginInfo ? pstDevLoginInfo->szUserName : "NULL");
 
 	CHECK_SDK_INIT(NULL);
-	auto pDevMgr = CDeviceManage::instance();
-	if (!pDevMgr)
+	auto* pDevMgr = CDeviceManage::instance();
+	if (!pDevMgr) 
 	{
-		CErrorManage::instance()->SetLastError(NET_E_ALLOC_RESOURCE_ERROR);
-        NETSDK_LOG_MESSAGE_ERROR("[NetTVSDK] NET_Login failed, DeviceManager is NULL");
+		CErrorManage::instance()->SetLastError(NET_TV_E_ALLOC_RESOURCE_ERROR);
+        NSDK_LOG_ERROR("[NetTVSDK] NET_TV_Login failed, DeviceManager is NULL");
 		return NULL;
 	}
-	LPVOID lpUserID = pDevMgr->Login(pstDevLoginInfo->szIPAddr, pstDevLoginInfo->uPort, pstDevLoginInfo->szUserName, pstDevLoginInfo->szPassword);
-    NETSDK_LOG_MESSAGE_INFO("[NetTVSDK] NET_Login returned, userID=%p", lpUserID);
+	LPVOID lpUserID = pDevMgr->Login(pstDevLoginInfo->szIPAddr, pstDevLoginInfo->dwPort, pstDevLoginInfo->szUserName, pstDevLoginInfo->szPassword);
+    NSDK_LOG_INFO("[NetTVSDK] NET_TV_Login returned, userID=%p", lpUserID);
 
 	/* 发送获取设备信息命令 */
 	if(lpUserID != NULL)
 	{
-		if(!CommandExecutor::instance()->ExecuteGet<NET_DeviceInfo_S>(lpUserID,NET_API_PATH_DEVICE_GETINFO,pstDevInfo,NULL))
+		if(!CommandExecutor::instance()->ExecuteGet<NET_TV_DEVICE_INFO_S>(lpUserID,TVAPI_PATH_DEVICE_GETINFO,pstDevInfo,NULL))
 		{
-            NETSDK_LOG_MESSAGE_ERROR("[NetTVSDK] NET_Login failed to get device info");
+            NSDK_LOG_ERROR("[NetTVSDK] NET_TV_Login failed to get device info");
             pDevMgr->Logout(lpUserID);
 			return NULL;
 		}
@@ -309,25 +308,25 @@ NET_API LPVOID STDCALL NET_Login(IN pNET_DeviceLoginInfo_S pstDevLoginInfo,
  * @return 成功返回TRUE，失败返回FALSE
  * @note 注销后释放登录会话资源，用户句柄失效
  */
-NET_API BOOL STDCALL NET_Logout(IN LPVOID lpUserID)
+NET_TV_API BOOL STDCALL NET_TV_Logout(IN LPVOID lpUserID)
 {
 	CHECK_SDK_INIT(FALSE);
 
-	auto pDevMgr = CDeviceManage::instance();
+	auto* pDevMgr = CDeviceManage::instance();
 
-	if (!pDevMgr)
+	if (!pDevMgr) 
 	{
-		CErrorManage::instance()->SetLastError(NET_E_ALLOC_RESOURCE_ERROR);
+		CErrorManage::instance()->SetLastError(NET_TV_E_ALLOC_RESOURCE_ERROR);
 		return FALSE;
 	}
 
 	if(!pDevMgr->Logout(lpUserID))
 	{
-		CErrorManage::instance()->SetLastError(NET_E_NO_USER);
+		CErrorManage::instance()->SetLastError(NET_TV_E_NO_USER);
 		return FALSE;
 	}
 
-	CErrorManage::instance()->SetLastError(NET_E_SUCCEED);
+	CErrorManage::instance()->SetLastError(NET_TV_E_SUCCEED);
 	return TRUE;
 }
 
@@ -339,22 +338,42 @@ NET_API BOOL STDCALL NET_Logout(IN LPVOID lpUserID)
  * @return 成功返回TRUE，失败返回FALSE
  * @note 需先调用NET_TV_StartListen开启监听，报警消息才会通过回调通知
  */
-NET_API BOOL STDCALL NET_SetAlarmCallBack(IN LPVOID lpUserID,
-                                            IN NET_AlarmCallBack cbAlarmMessCallBack,
+NET_TV_API BOOL STDCALL NET_TV_SetAlarmCallBack(IN LPVOID lpUserID,
+                                            IN NET_TV_AlarmCallBack cbAlarmMessCallBack,
                                             IN LPVOID lpUserData)
 {
     CHECK_SDK_INIT(FALSE);
-    auto pDevMgr = CDeviceManage::instance();
+    auto* pDevMgr = CDeviceManage::instance();
+    if (!pDevMgr) return FALSE;
+    
+    auto session = pDevMgr->GetSession((LPUSER_HANDLE)lpUserID);
+    if (!session) {
+        CErrorManage::instance()->SetLastError(NET_TV_E_NO_USER);
+        return FALSE;
+    }
+    
+    session->SetAlarmCallback(cbAlarmMessCallBack, lpUserData);
+    CErrorManage::instance()->SetLastError(NET_TV_E_SUCCEED);
+    return TRUE;
+}
+
+NET_TV_API BOOL STDCALL NET_TV_SetAlarmCallBackV2(IN LPVOID lpUserID,
+                                                  IN NET_TV_AlarmCallBackV2 cbAlarmMessCallBack,
+                                                  IN LPVOID lpUserData)
+{
+    CHECK_SDK_INIT(FALSE);
+    auto* pDevMgr = CDeviceManage::instance();
     if (!pDevMgr) return FALSE;
 
     auto session = pDevMgr->GetSession((LPUSER_HANDLE)lpUserID);
-    if (!session) {
-        CErrorManage::instance()->SetLastError(NET_E_NO_USER);
+    if (!session)
+    {
+        CErrorManage::instance()->SetLastError(NET_TV_E_NO_USER);
         return FALSE;
     }
 
-    session->SetAlarmCallback(cbAlarmMessCallBack, lpUserData);
-    CErrorManage::instance()->SetLastError(NET_E_SUCCEED);
+    session->SetAlarmCallbackV2(cbAlarmMessCallBack, lpUserData);
+    CErrorManage::instance()->SetLastError(NET_TV_E_SUCCEED);
     return TRUE;
 }
 
@@ -366,23 +385,23 @@ NET_API BOOL STDCALL NET_SetAlarmCallBack(IN LPVOID lpUserID,
  * @return 成功返回TRUE，失败返回FALSE
  * @note 需先调用NET_TV_StartListen开启监听，通道状态变化才会通过回调通知
  */
-NET_API BOOL STDCALL NET_SetChannelStatusCallBack(IN LPVOID lpUserID,
-                                                        IN NET_ChannelStatusCallBack cbChannelStatusCallBack,
+NET_TV_API BOOL STDCALL NET_TV_SetChannelStatusCallBack(IN LPVOID lpUserID,
+                                                        IN NET_TV_ChannelStatusCallBack cbChannelStatusCallBack,
                                                         IN LPVOID lpUserData)
 {
     CHECK_SDK_INIT(FALSE);
-    auto pDevMgr = CDeviceManage::instance();
+    auto* pDevMgr = CDeviceManage::instance();
     if (!pDevMgr) return FALSE;
 
     auto session = pDevMgr->GetSession((LPUSER_HANDLE)lpUserID);
     if (!session)
     {
-        CErrorManage::instance()->SetLastError(NET_E_NO_USER);
+        CErrorManage::instance()->SetLastError(NET_TV_E_NO_USER);
         return FALSE;
     }
 
     session->SetChannelStatusCallback(cbChannelStatusCallBack, lpUserData);
-    CErrorManage::instance()->SetLastError(NET_E_SUCCEED);
+    CErrorManage::instance()->SetLastError(NET_TV_E_SUCCEED);
     return TRUE;
 }
 
@@ -392,26 +411,26 @@ NET_API BOOL STDCALL NET_SetChannelStatusCallBack(IN LPVOID lpUserID,
  * @return 成功返回TRUE，失败返回FALSE
  * @note 开启后，报警消息和通道状态变化会通过已注册的回调函数通知
  */
-NET_API BOOL STDCALL NET_StartListen(IN LPVOID lpUserID)
+NET_TV_API BOOL STDCALL NET_TV_StartListen(IN LPVOID lpUserID)
 {
     CHECK_SDK_INIT(FALSE);
-    auto pDevMgr = CDeviceManage::instance();
+    auto* pDevMgr = CDeviceManage::instance();
     if (!pDevMgr) return FALSE;
-
+    
     auto session = pDevMgr->GetSession((LPUSER_HANDLE)lpUserID);
-    if (!session)
+    if (!session) 
     {
-        CErrorManage::instance()->SetLastError(NET_E_NO_USER);
+        CErrorManage::instance()->SetLastError(NET_TV_E_NO_USER);
         return FALSE;
     }
-
-    if (!session->StartAlarmListen())
+    
+    if (!session->StartAlarmListen()) 
     {
-        CErrorManage::instance()->SetLastError(NET_E_FAILED);
+        CErrorManage::instance()->SetLastError(NET_TV_E_FAILED);
         return FALSE;
     }
-
-    CErrorManage::instance()->SetLastError(NET_E_SUCCEED);
+    
+    CErrorManage::instance()->SetLastError(NET_TV_E_SUCCEED);
     return TRUE;
 }
 
@@ -421,26 +440,26 @@ NET_API BOOL STDCALL NET_StartListen(IN LPVOID lpUserID)
  * @return 成功返回TRUE，失败返回FALSE
  * @note 停止后，不再接收报警消息和通道状态变化通知
  */
-NET_API BOOL STDCALL NET_StopListen(IN LPVOID lpUserID)
+NET_TV_API BOOL STDCALL NET_TV_StopListen(IN LPVOID lpUserID)
 {
     CHECK_SDK_INIT(FALSE);
-    auto pDevMgr = CDeviceManage::instance();
+    auto* pDevMgr = CDeviceManage::instance();
     if (!pDevMgr) return FALSE;
-
+    
     auto session = pDevMgr->GetSession((LPUSER_HANDLE)lpUserID);
     if (!session)
     {
-        CErrorManage::instance()->SetLastError(NET_E_NO_USER);
+        CErrorManage::instance()->SetLastError(NET_TV_E_NO_USER);
         return FALSE;
     }
-
+    
     if (!session->StopAlarmListen())
     {
-        CErrorManage::instance()->SetLastError(NET_E_FAILED);
+        CErrorManage::instance()->SetLastError(NET_TV_E_FAILED);
         return FALSE;
     }
-
-    CErrorManage::instance()->SetLastError(NET_E_SUCCEED);
+    
+    CErrorManage::instance()->SetLastError(NET_TV_E_SUCCEED);
     return TRUE;
 }
 
@@ -451,57 +470,57 @@ NET_API BOOL STDCALL NET_StopListen(IN LPVOID lpUserID)
  * @return 成功返回TRUE，失败返回FALSE
  * @note 支持PTZ云台控制等设备控制功能
  */
-NET_API BOOL STDCALL NET_DeviceControl(IN LPVOID lpUserID,
-                                             IN pNET_DeviceControlInfo_S pstCtrlInfo)
+NET_TV_API BOOL STDCALL NET_TV_DeviceControl(IN LPVOID lpUserID,
+                                             IN LPNET_TV_DEVICE_CONTROL_INFO_S pstCtrlInfo)
 {
     CHECK_SDK_INIT(FALSE);
 
-    if (!lpUserID || !pstCtrlInfo || pstCtrlInfo->uChannelID <= 0 ||
-        pstCtrlInfo->uControlType <= 0 || pstCtrlInfo->uCommand <= 0 ||
-        pstCtrlInfo->uDurationMs < 0)
+    if (!lpUserID || !pstCtrlInfo || pstCtrlInfo->dwChannelID <= 0 ||
+        pstCtrlInfo->dwControlType <= 0 || pstCtrlInfo->dwCommand <= 0 ||
+        pstCtrlInfo->dwDurationMs < 0)
     {
-        CErrorManage::instance()->SetLastError(NET_E_INVALID_PARAM);
+        CErrorManage::instance()->SetLastError(NET_TV_E_INVALID_PARAM);
         return FALSE;
     }
 
-    if (pstCtrlInfo->uControlType == NET_DEVICE_CTRL_TYPE_PTZ &&
-        (pstCtrlInfo->uSpeed < NET_MIN_PTZ_SPEED_LEVEL || pstCtrlInfo->uSpeed > NET_MAX_PTZ_SPEED_LEVEL))
+    if (pstCtrlInfo->dwControlType == NET_TV_DEVICE_CTRL_TYPE_PTZ &&
+        (pstCtrlInfo->dwSpeed < NET_TV_MIN_PTZ_SPEED_LEVEL || pstCtrlInfo->dwSpeed > NET_TV_MAX_PTZ_SPEED_LEVEL))
     {
-        CErrorManage::instance()->SetLastError(NET_E_INVALID_PARAM);
+        CErrorManage::instance()->SetLastError(NET_TV_E_INVALID_PARAM);
         return FALSE;
     }
 
-    if (pstCtrlInfo->uSize == 0)
+    if (pstCtrlInfo->dwSize == 0)
     {
-        pstCtrlInfo->uSize = sizeof(NET_DeviceControlInfo_S);
+        pstCtrlInfo->dwSize = sizeof(NET_TV_DEVICE_CONTROL_INFO_S);
     }
 
     std::string body = SDKConvert::to_string(*pstCtrlInfo);
     std::string respBody;
-    if (!CommandExecutor::instance()->ExecuteRaw((LPUSER_HANDLE)lpUserID, "POST", NET_API_PATH_DEVICE_CONTROL, body, respBody))
+    if (!CommandExecutor::instance()->ExecuteRaw((LPUSER_HANDLE)lpUserID, "POST", TVAPI_PATH_DEVICE_CONTROL, body, respBody))
     {
         return FALSE;
     }
 
     const int respCode = SDKConvert::get_respCode(respBody);
     CErrorManage::instance()->SetLastError(respCode);
-    return respCode == NET_E_SUCCEED ? TRUE : FALSE;
+    return respCode == NET_TV_E_SUCCEED ? TRUE : FALSE;
 }
 
-
+#include "CapabilityInfoConvert.h"
 
 /**
  * @brief 获取设备能力集接口
  * @param lpUserID 用户句柄
  * @param dwChannelID 通道号
- * @param dwCommand 能力集类型命令码，如NET_CAP_VIDEO_ENCODE、NET_CAP_AUDIO、NET_CAP_OSD等
+ * @param dwCommand 能力集类型命令码，如NET_TV_CAP_VIDEO_ENCODE、NET_TV_CAP_AUDIO、NET_TV_CAP_OSD等
  * @param lpOutBuffer 输出缓冲区，用于存储能力集信息
  * @param dwOutBufferSize 输出缓冲区大小
  * @param pdwBytesReturned 输出参数，实际返回的数据长度
  * @return 成功返回TRUE，失败返回FALSE
  * @note 根据dwCommand不同，返回不同类型的能力集结构体
  */
-NET_API BOOL STDCALL NET_GetDeviceCapability(IN LPVOID lpUserID,
+NET_TV_API BOOL STDCALL NET_TV_GetDeviceCapability(IN LPVOID lpUserID,
                                                    IN INT32 dwChannelID,
                                                    IN INT32 dwCommand,
                                                    OUT LPVOID lpOutBuffer,
@@ -509,27 +528,27 @@ NET_API BOOL STDCALL NET_GetDeviceCapability(IN LPVOID lpUserID,
                                                    OUT INT32 *pdwBytesReturned)
 {
     CHECK_SDK_INIT(FALSE);
-
+    
     if (!lpOutBuffer || dwOutBufferSize <= 0)
     {
-        CErrorManage::instance()->SetLastError(NET_E_INVALID_PARAM);
+        CErrorManage::instance()->SetLastError(NET_TV_E_INVALID_PARAM);
         return FALSE;
     }
-
+    
     // 使用宏生成统一URL
-    std::string url = NET_API_URL_DEVICE_CAPABILITY(dwChannelID, dwCommand);
-
+    std::string url = TVAPI_URL_DEVICE_CAPABILITY(dwChannelID, dwCommand);
+    
     switch (dwCommand)
     {
-        case NET_CAP_VIDEO_ENCODE:
+        case NET_TV_CAP_VIDEO_ENCODE:
         {
-            if (dwOutBufferSize < (INT32)sizeof(NET_VideoEncodeCap_S))
+            if (dwOutBufferSize < (INT32)sizeof(NET_TV_VIDEO_ENCODE_CAP_S))
             {
-                CErrorManage::instance()->SetLastError(NET_E_NOENOUGH_BUF);
+                CErrorManage::instance()->SetLastError(NET_TV_E_NOENOUGH_BUF);
                 return FALSE;
             }
-
-            if (CommandExecutor::instance()->ExecuteGet<NET_VideoEncodeCap_S>(
+            
+            if (CommandExecutor::instance()->ExecuteGet<NET_TV_VIDEO_ENCODE_CAP_S>(
                     lpUserID, url, lpOutBuffer, pdwBytesReturned))
             {
                 return TRUE;
@@ -537,32 +556,32 @@ NET_API BOOL STDCALL NET_GetDeviceCapability(IN LPVOID lpUserID,
             return FALSE;
         }
 
-        case NET_CAP_AUDIO:
+        case NET_TV_CAP_AUDIO:
         {
-            if (dwOutBufferSize < (INT32)sizeof(NET_AudioCap_S))
+            if (dwOutBufferSize < (INT32)sizeof(NET_TV_AUDIO_CAP_S))
             {
-                CErrorManage::instance()->SetLastError(NET_E_NOENOUGH_BUF);
+                CErrorManage::instance()->SetLastError(NET_TV_E_NOENOUGH_BUF);
                 return FALSE;
             }
-
-            if (CommandExecutor::instance()->ExecuteGet<NET_AudioCap_S>(
+            
+            if (CommandExecutor::instance()->ExecuteGet<NET_TV_AUDIO_CAP_S>(
                     lpUserID, url, lpOutBuffer, pdwBytesReturned))
             {
-
+                
                 return TRUE;
             }
             return FALSE;
         }
-
-        case NET_CAP_OSD:
+        
+        case NET_TV_CAP_OSD:
         {
-            if (dwOutBufferSize < (INT32)sizeof(NET_OsdCap_S))
+            if (dwOutBufferSize < (INT32)sizeof(NET_TV_OSD_CAP_S))
             {
-                CErrorManage::instance()->SetLastError(NET_E_NOENOUGH_BUF);
+                CErrorManage::instance()->SetLastError(NET_TV_E_NOENOUGH_BUF);
                 return FALSE;
             }
-
-            if (CommandExecutor::instance()->ExecuteGet<NET_OsdCap_S>(
+            
+            if (CommandExecutor::instance()->ExecuteGet<NET_TV_OSD_CAP_S>(
                     lpUserID, url, lpOutBuffer, pdwBytesReturned))
             {
                 return TRUE;
@@ -571,12 +590,12 @@ NET_API BOOL STDCALL NET_GetDeviceCapability(IN LPVOID lpUserID,
         }
 
         // 后续扩展其他能力集类型
-        // case NET_CAP_SMART:
-        // case NET_CAP_IMAGE:
-        // case NET_CAP_AUDIO:
-
+        // case NET_TV_CAP_SMART:
+        // case NET_TV_CAP_IMAGE:
+        // case NET_TV_CAP_AUDIO:
+        
         default:
-            CErrorManage::instance()->SetLastError(NET_E_CMD_NOT_SUPPORT);
+            CErrorManage::instance()->SetLastError(NET_TV_E_CMD_NOT_SUPPORT);
             return FALSE;
     }
 }
@@ -591,7 +610,7 @@ NET_API BOOL STDCALL NET_GetDeviceCapability(IN LPVOID lpUserID,
  * @param dwOutBufferSize 输出缓冲区大小
  * @param pdwBytesReturned 输出参数，实际返回的数据长度
  * @return 成功返回TRUE，失败返回FALSE
- * @note NET_GetDevConfig内部调用此模板函数，根据命令码分发到不同配置类型
+ * @note NET_TV_GetDevConfig内部调用此模板函数，根据命令码分发到不同配置类型
  */
 template <typename T_CFG>
 static BOOL NetTV_GetDevConfig_Impl(LPVOID lpUserID,
@@ -603,17 +622,17 @@ static BOOL NetTV_GetDevConfig_Impl(LPVOID lpUserID,
 {
     if (!lpOutBuffer || dwOutBufferSize <= 0)
     {
-        CErrorManage::instance()->SetLastError(NET_E_INVALID_PARAM);
+        CErrorManage::instance()->SetLastError(NET_TV_E_INVALID_PARAM);
         return FALSE;
     }
 
     if (dwOutBufferSize < (INT32)sizeof(T_CFG))
     {
-        CErrorManage::instance()->SetLastError(NET_E_NOENOUGH_BUF);
+        CErrorManage::instance()->SetLastError(NET_TV_E_NOENOUGH_BUF);
         return FALSE;
     }
 
-    std::string url = NET_API_URL_DEVICE_GET_DEV_CONFIG(dwChannelID, dwCommand);
+    std::string url = TVAPI_URL_DEVICE_GET_DEV_CONFIG(dwChannelID, dwCommand);
     return CommandExecutor::instance()->ExecuteGet<T_CFG>(lpUserID, url, lpOutBuffer, pdwBytesReturned) ? TRUE : FALSE;
 }
 
@@ -652,7 +671,7 @@ static std::string NetTV_UrlEncode(const char* value)
  * @brief 获取录像文件列表实现函数
  * @param lpUserID 用户句柄
  * @param dwChannelID 通道号
- * @param dwCommand 配置命令码（NET_FIND_RECORD_FILE_INFO）
+ * @param dwCommand 配置命令码（NET_TV_FIND_RECORD_FILE_INFO）
  * @param lpOutBuffer 输出缓冲区，用于存储录像文件列表信息
  * @param dwOutBufferSize 输出缓冲区大小
  * @param pdwBytesReturned 输出参数，实际返回的数据长度
@@ -668,19 +687,19 @@ static BOOL NetTV_GetRecordFileList_Impl(LPVOID lpUserID,
 {
     if (!lpOutBuffer || dwOutBufferSize <= 0)
     {
-        CErrorManage::instance()->SetLastError(NET_E_INVALID_PARAM);
+        CErrorManage::instance()->SetLastError(NET_TV_E_INVALID_PARAM);
         return FALSE;
     }
 
-    if (dwOutBufferSize < (INT32)sizeof(NET_RecordFileList_S))
+    if (dwOutBufferSize < (INT32)sizeof(NET_TV_RECORD_FILE_LIST_S))
     {
-        CErrorManage::instance()->SetLastError(NET_E_NOENOUGH_BUF);
+        CErrorManage::instance()->SetLastError(NET_TV_E_NOENOUGH_BUF);
         return FALSE;
     }
 
-    NET_RecordFileList_S* pCfg = static_cast<NET_RecordFileList_S*>(lpOutBuffer);
+    NET_TV_RECORD_FILE_LIST_S* pCfg = static_cast<NET_TV_RECORD_FILE_LIST_S*>(lpOutBuffer);
     std::ostringstream url;
-    url << NET_API_URL_DEVICE_GET_DEV_CONFIG(dwChannelID, dwCommand)
+    url << TVAPI_URL_DEVICE_GET_DEV_CONFIG(dwChannelID, dwCommand)
         << "&ChnId=" << pCfg->stFind.nChnId
         << "&Type=" << pCfg->stFind.nType
         << "&Year=" << NetTV_UrlEncode(pCfg->stFind.szYear)
@@ -690,14 +709,14 @@ static BOOL NetTV_GetRecordFileList_Impl(LPVOID lpUserID,
         << "&EndTime=" << NetTV_UrlEncode(pCfg->stFind.szEndTime)
         << "&Filename=" << NetTV_UrlEncode(pCfg->stFind.szFilename);
 
-    return CommandExecutor::instance()->ExecuteGet<NET_RecordFileList_S>(lpUserID, url.str(), lpOutBuffer, pdwBytesReturned) ? TRUE : FALSE;
+    return CommandExecutor::instance()->ExecuteGet<NET_TV_RECORD_FILE_LIST_S>(lpUserID, url.str(), lpOutBuffer, pdwBytesReturned) ? TRUE : FALSE;
 }
 
 /**
  * @brief 获取日志列表实现函数
  * @param lpUserID 用户句柄
  * @param dwChannelID 通道号
- * @param dwCommand 配置命令码（NET_FIND_LOG、NET_EXPORT_LOG）
+ * @param dwCommand 配置命令码（NET_TV_FIND_LOG、NET_TV_EXPORT_LOG）
  * @param lpOutBuffer 输出缓冲区，用于存储日志列表信息
  * @param dwOutBufferSize 输出缓冲区大小
  * @param pdwBytesReturned 输出参数，实际返回的数据长度
@@ -713,22 +732,22 @@ static BOOL NetTV_GetLogList_Impl(LPVOID lpUserID,
 {
     if (!lpOutBuffer || dwOutBufferSize <= 0)
     {
-        CErrorManage::instance()->SetLastError(NET_E_INVALID_PARAM);
+        CErrorManage::instance()->SetLastError(NET_TV_E_INVALID_PARAM);
         return FALSE;
     }
 
-    if (dwOutBufferSize < (INT32)sizeof(NET_LogList_S))
+    if (dwOutBufferSize < (INT32)sizeof(NET_TV_LOG_LIST_S))
     {
-        CErrorManage::instance()->SetLastError(NET_E_NOENOUGH_BUF);
+        CErrorManage::instance()->SetLastError(NET_TV_E_NOENOUGH_BUF);
         return FALSE;
     }
 
-    NET_LogList_S* pCfg = static_cast<NET_LogList_S*>(lpOutBuffer);
+    NET_TV_LOG_LIST_S* pCfg = static_cast<NET_TV_LOG_LIST_S*>(lpOutBuffer);
     INT32 nCurPage = pCfg->stPage.nCurPage == 0 ? 1 : pCfg->stPage.nCurPage;
-    INT32 nPageSize = pCfg->stPage.nPageSize <= 0 ? NET_LOG_QUERY_COND_NUM : pCfg->stPage.nPageSize;
+    INT32 nPageSize = pCfg->stPage.nPageSize <= 0 ? NET_TV_LOG_QUERY_COND_NUM : pCfg->stPage.nPageSize;
 
     std::ostringstream url;
-    url << NET_API_URL_DEVICE_GET_DEV_CONFIG(dwChannelID, dwCommand)
+    url << TVAPI_URL_DEVICE_GET_DEV_CONFIG(dwChannelID, dwCommand)
         << "&Type=" << pCfg->stCond.nType
         << "&Action=" << pCfg->stCond.nAction
         << "&StartTime=" << NetTV_UrlEncode(pCfg->stCond.szStartTime)
@@ -736,7 +755,7 @@ static BOOL NetTV_GetLogList_Impl(LPVOID lpUserID,
         << "&CurPage=" << nCurPage
         << "&PageSize=" << nPageSize;
 
-    return CommandExecutor::instance()->ExecuteGet<NET_LogList_S>(lpUserID, url.str(), lpOutBuffer, pdwBytesReturned) ? TRUE : FALSE;
+    return CommandExecutor::instance()->ExecuteGet<NET_TV_LOG_LIST_S>(lpUserID, url.str(), lpOutBuffer, pdwBytesReturned) ? TRUE : FALSE;
 }
 
 /**
@@ -747,27 +766,27 @@ static BOOL NetTV_GetLogList_Impl(LPVOID lpUserID,
  * @return 成功返回TRUE，失败返回FALSE
  * @note 支持回放开始、停止、暂停、倍速等控制操作
  */
-NET_API BOOL STDCALL NET_ControlReplay(IN    LPVOID lpUserID,
-                                             INOUT pNET_ReplayCtrlInfo_S pstInfo,
+NET_TV_API BOOL STDCALL NET_TV_ControlReplay(IN    LPVOID lpUserID,
+                                             INOUT LPNET_TV_REPLAY_CTRL_INFO_S pstInfo,
                                              OUT   INT32 *pdwBytesReturned)
 {
     CHECK_SDK_INIT(FALSE);
 
     if (!pstInfo)
     {
-        CErrorManage::instance()->SetLastError(NET_E_INVALID_PARAM);
+        CErrorManage::instance()->SetLastError(NET_TV_E_INVALID_PARAM);
         return FALSE;
     }
 
-    if (pstInfo->uChannel <= 0)
+    if (pstInfo->dwChannel <= 0)
     {
-        CErrorManage::instance()->SetLastError(NET_E_INVALID_PARAM);
+        CErrorManage::instance()->SetLastError(NET_TV_E_INVALID_PARAM);
         return FALSE;
     }
 
     std::string body = SDKConvert::to_string(*pstInfo);
     std::string respBody;
-    if (!CommandExecutor::instance()->ExecuteRaw(lpUserID, "POST", NET_API_URL_REPLAY_CONTROL(), body, respBody))
+    if (!CommandExecutor::instance()->ExecuteRaw(lpUserID, "POST", TVAPI_URL_REPLAY_CONTROL(), body, respBody))
     {
         return FALSE;
     }
@@ -775,7 +794,7 @@ NET_API BOOL STDCALL NET_ControlReplay(IN    LPVOID lpUserID,
     SDKConvert::to_respStruct(respBody, *pstInfo);
     if (pdwBytesReturned)
     {
-        *pdwBytesReturned = sizeof(NET_ReplayCtrlInfo_S);
+        *pdwBytesReturned = sizeof(NET_TV_REPLAY_CTRL_INFO_S);
     }
 
     return TRUE;
@@ -789,27 +808,27 @@ NET_API BOOL STDCALL NET_ControlReplay(IN    LPVOID lpUserID,
  * @return 成功返回TRUE，失败返回FALSE
  * @note 获取指定通道、时间范围内的录像片段列表
  */
-NET_API BOOL STDCALL NET_GetReplayRecordList(IN    LPVOID lpUserID,
-                                                   INOUT pNET_ReplayRecordList_S pstInfo,
+NET_TV_API BOOL STDCALL NET_TV_GetReplayRecordList(IN    LPVOID lpUserID,
+                                                   INOUT LPNET_TV_REPLAY_RECORD_LIST_S pstInfo,
                                                    OUT   INT32 *pdwBytesReturned)
 {
     CHECK_SDK_INIT(FALSE);
 
     if (!pstInfo)
     {
-        CErrorManage::instance()->SetLastError(NET_E_INVALID_PARAM);
+        CErrorManage::instance()->SetLastError(NET_TV_E_INVALID_PARAM);
         return FALSE;
     }
 
-    if (pstInfo->uChannel <= 0)
+    if (pstInfo->dwChannel <= 0)
     {
-        CErrorManage::instance()->SetLastError(NET_E_INVALID_PARAM);
+        CErrorManage::instance()->SetLastError(NET_TV_E_INVALID_PARAM);
         return FALSE;
     }
 
     std::string body = SDKConvert::to_string(*pstInfo);
     std::string respBody;
-    if (!CommandExecutor::instance()->ExecuteRaw(lpUserID, "POST", NET_API_URL_REPLAY_GET_RECORD_LIST(), body, respBody))
+    if (!CommandExecutor::instance()->ExecuteRaw(lpUserID, "POST", TVAPI_URL_REPLAY_GET_RECORD_LIST(), body, respBody))
     {
         return FALSE;
     }
@@ -817,7 +836,7 @@ NET_API BOOL STDCALL NET_GetReplayRecordList(IN    LPVOID lpUserID,
     SDKConvert::to_respStruct(respBody, *pstInfo);
     if (pdwBytesReturned)
     {
-        *pdwBytesReturned = sizeof(NET_ReplayRecordList_S);
+        *pdwBytesReturned = sizeof(NET_TV_REPLAY_RECORD_LIST_S);
     }
 
     return TRUE;
@@ -831,27 +850,27 @@ NET_API BOOL STDCALL NET_GetReplayRecordList(IN    LPVOID lpUserID,
  * @return 成功返回TRUE，失败返回FALSE
  * @note 获取指定录像片段的播放URL
  */
-NET_API BOOL STDCALL NET_GetReplayUrl(IN    LPVOID lpUserID,
-                                            INOUT pNET_ReplayUrlInfo_S pstInfo,
+NET_TV_API BOOL STDCALL NET_TV_GetReplayUrl(IN    LPVOID lpUserID,
+                                            INOUT LPNET_TV_REPLAY_URL_INFO_S pstInfo,
                                             OUT   INT32 *pdwBytesReturned)
 {
     CHECK_SDK_INIT(FALSE);
 
     if (!pstInfo)
     {
-        CErrorManage::instance()->SetLastError(NET_E_INVALID_PARAM);
+        CErrorManage::instance()->SetLastError(NET_TV_E_INVALID_PARAM);
         return FALSE;
     }
 
-    if (pstInfo->uChannel <= 0)
+    if (pstInfo->dwChannel <= 0)
     {
-        CErrorManage::instance()->SetLastError(NET_E_INVALID_PARAM);
+        CErrorManage::instance()->SetLastError(NET_TV_E_INVALID_PARAM);
         return FALSE;
     }
 
     std::string body = SDKConvert::to_string(*pstInfo);
     std::string respBody;
-    if (!CommandExecutor::instance()->ExecuteRaw(lpUserID, "POST", NET_API_URL_REPLAY_GET_URL(), body, respBody))
+    if (!CommandExecutor::instance()->ExecuteRaw(lpUserID, "POST", TVAPI_URL_REPLAY_GET_URL(), body, respBody))
     {
         return FALSE;
     }
@@ -859,7 +878,7 @@ NET_API BOOL STDCALL NET_GetReplayUrl(IN    LPVOID lpUserID,
     SDKConvert::to_respStruct(respBody, *pstInfo);
     if (pdwBytesReturned)
     {
-        *pdwBytesReturned = sizeof(NET_ReplayUrlInfo_S);
+        *pdwBytesReturned = sizeof(NET_TV_REPLAY_URL_INFO_S);
     }
 
     return TRUE;
@@ -875,7 +894,7 @@ NET_API BOOL STDCALL NET_GetReplayUrl(IN    LPVOID lpUserID,
  * @param dwInBufferSize 输入缓冲区大小
  * @param pdwBytesReturned 输出参数，实际返回的数据长度
  * @return 成功返回TRUE，失败返回FALSE
- * @note NET_SetDevConfig内部调用此模板函数，根据命令码分发到不同配置类型
+ * @note NET_TV_SetDevConfig内部调用此模板函数，根据命令码分发到不同配置类型
  */
 template <typename T_CFG>
 static BOOL NetTV_SetDevConfig_Impl(LPVOID lpUserID,
@@ -887,17 +906,17 @@ static BOOL NetTV_SetDevConfig_Impl(LPVOID lpUserID,
 {
     if (!lpInBuffer || dwInBufferSize <= 0)
     {
-        CErrorManage::instance()->SetLastError(NET_E_INVALID_PARAM);
+        CErrorManage::instance()->SetLastError(NET_TV_E_INVALID_PARAM);
         return FALSE;
     }
 
     if (dwInBufferSize < (INT32)sizeof(T_CFG))
     {
-        CErrorManage::instance()->SetLastError(NET_E_INVALID_PARAM);
+        CErrorManage::instance()->SetLastError(NET_TV_E_INVALID_PARAM);
         return FALSE;
     }
 
-    std::string url = NET_API_URL_DEVICE_SET_DEV_CONFIG(dwChannelID, dwCommand);
+    std::string url = TVAPI_URL_DEVICE_SET_DEV_CONFIG(dwChannelID, dwCommand);
     BOOL bRet = CommandExecutor::instance()->ExecuteSet<T_CFG>(lpUserID, "POST", url, lpInBuffer) ? TRUE : FALSE;
     if (bRet && pdwBytesReturned != NULL)
     {
@@ -917,7 +936,7 @@ static BOOL NetTV_SetDevConfig_Impl(LPVOID lpUserID,
  * @return 成功返回TRUE，失败返回FALSE
  * @note 根据dwCommand不同，返回不同类型的配置结构体；支持设备信息、NTP配置、网络配置、报警配置等多种配置类型
  */
-NET_API BOOL STDCALL NET_GetDevConfig(IN  LPVOID  lpUserID,
+NET_TV_API BOOL STDCALL NET_TV_GetDevConfig(IN  LPVOID  lpUserID,
                                             IN    INT32   dwChannelID,
                                             IN    INT32   dwCommand,
                                             INOUT LPVOID  lpOutBuffer,
@@ -928,37 +947,37 @@ NET_API BOOL STDCALL NET_GetDevConfig(IN  LPVOID  lpUserID,
 
     switch (dwCommand)
     {
-        case NET_GET_DEVICECFG:
-            return NetTV_GetDevConfig_Impl<NET_DeviceBasicInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_GET_NTPCFG:
-            return NetTV_GetDevConfig_Impl<NET_SystemNtpInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_GET_AUDIOCFG:
-            return NetTV_GetDevConfig_Impl<NET_AudioCfg_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_GET_STREAMCFG:
-            return NetTV_GetDevConfig_Impl<NET_VideoEncodeOption_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_GET_OSDCAPCFG:
-            return NetTV_GetDevConfig_Impl<NET_VideoOsdCfg_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_GET_IMAGECFG:
-            return NetTV_GetDevConfig_Impl<NET_ImageSetting_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_GET_RTSPURLCFG:
-            return NetTV_GetDevConfig_Impl<NET_RtspUrlInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_GET_NETWORKCFG:
-            return NetTV_GetDevConfig_Impl<NET_NetworkCfg_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_GET_4G_INFO:
-            return NetTV_GetDevConfig_Impl<NET_4GInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_GET_HOTSPOT_CONN:
-            return NetTV_GetDevConfig_Impl<NET_HotspotConnInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_GET_SECURITY_SERVICES_INFO:
-            return NetTV_GetDevConfig_Impl<NET_SecurityServicesInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_GET_SSH_COUNTDOWN:
-            return NetTV_GetDevConfig_Impl<NET_SshCountdownInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_FIND_LOG:
-        case NET_EXPORT_LOG:
+        case NET_TV_GET_DEVICECFG:
+            return NetTV_GetDevConfig_Impl<NET_TV_DEVICE_BASICINFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_GET_NTPCFG:
+            return NetTV_GetDevConfig_Impl<NET_TV_SYSTEM_NTP_INFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_GET_AUDIOCFG:
+            return NetTV_GetDevConfig_Impl<NET_TV_AUDIO_CFG_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_GET_STREAMCFG:
+            return NetTV_GetDevConfig_Impl<NET_TV_VIDEO_ENCODE_OPTION_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_GET_OSDCAPCFG:
+            return NetTV_GetDevConfig_Impl<NET_TV_VIDEO_OSD_CFG_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_GET_IMAGECFG:
+            return NetTV_GetDevConfig_Impl<NET_TV_IMAGE_SETTING_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_GET_RTSPURLCFG:
+            return NetTV_GetDevConfig_Impl<NET_TV_RTSP_URL_INFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_GET_NETWORKCFG:
+            return NetTV_GetDevConfig_Impl<NET_TV_NETWORKCFG_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_GET_4G_INFO:
+            return NetTV_GetDevConfig_Impl<NET_TV_4G_INFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_GET_HOTSPOT_CONN:
+            return NetTV_GetDevConfig_Impl<NET_TV_HOTSPOT_CONN_INFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_GET_SECURITY_SERVICES_INFO:
+            return NetTV_GetDevConfig_Impl<NET_TV_SECURITY_SERVICES_INFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_GET_SSH_COUNTDOWN:
+            return NetTV_GetDevConfig_Impl<NET_TV_SSH_COUNTDOWN_INFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_FIND_LOG:
+        case NET_TV_EXPORT_LOG:
             return NetTV_GetLogList_Impl(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_GET_LOG_SERVER:
-            return NetTV_GetDevConfig_Impl<NET_LogServerInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_GET_RECORD_STATUS:
-            return NetTV_GetDevConfig_Impl<NET_RecordStatusInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_GET_LOG_SERVER:
+            return NetTV_GetDevConfig_Impl<NET_TV_LOG_SERVER_INFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_GET_RECORD_STATUS:
+            return NetTV_GetDevConfig_Impl<NET_TV_RECORD_STATUS_INFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
         case NET_GET_SD_CARD_STATUS:
             return NetTV_GetDevConfig_Impl<NET_SdCardStatus_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
         case NET_GET_AUDIBLE_ALARM_INFO:
@@ -971,136 +990,136 @@ NET_API BOOL STDCALL NET_GetDevConfig(IN  LPVOID  lpUserID,
             return NetTV_GetDevConfig_Impl<NET_FlashingLightAlarmInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
         case NET_GET_PIR_ALARM_INFO:
             return NetTV_GetDevConfig_Impl<NET_PirAlarmInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_GET_RECORD_SCHEDULE:
-            return NetTV_GetDevConfig_Impl<NET_RecordSchedule_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_GET_RECORD_ADVANCED_PARAM:
-            return NetTV_GetDevConfig_Impl<NET_RecordAdvancedParam_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_FIND_RECORD_FILE_INFO:
+        case NET_TV_GET_RECORD_SCHEDULE:
+            return NetTV_GetDevConfig_Impl<NET_TV_RECORD_SCHEDULE_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_GET_RECORD_ADVANCED_PARAM:
+            return NetTV_GetDevConfig_Impl<NET_TV_RECORD_ADVANCED_PARAM_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_FIND_RECORD_FILE_INFO:
             return NetTV_GetRecordFileList_Impl(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_GET_PRIVACYMASKCFG:
-            printf("[ClientSDK] GET_PRIVACYMASKCFG cmd=%d, buf=%d, privacy_size=%zu\n",
-                   dwCommand, dwOutBufferSize, sizeof(NET_PrivacyMaskCfg_S));
-            return NetTV_GetDevConfig_Impl<NET_PrivacyMaskCfg_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_GET_TAMPERALARM:
-            return NetTV_GetDevConfig_Impl<NET_TamperAlarmInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_GET_MOTIONALARM:
-            return NetTV_GetDevConfig_Impl<NET_MotionAlarmInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_GET_CROSSLINEALARM:
-            return NetTV_GetDevConfig_Impl<NET_CrossLineAlarmInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_GET_INTRUSIONALARM:
-            return NetTV_GetDevConfig_Impl<NET_IntrusionAlarmInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_GET_ENTERREGIONALARM:
-            return NetTV_GetDevConfig_Impl<NET_EnterRegionAlarmInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_GET_LEAVEREGIONALARM:
-            return NetTV_GetDevConfig_Impl<NET_LeaveRegionAlarmInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_GET_LOITERINGALARM:
-            return NetTV_GetDevConfig_Impl<NET_LoiteringAlarmInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_GET_SCENECHANGEALARM:
-            return NetTV_GetDevConfig_Impl<NET_SceneChangeAlarmInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_GET_CROWDGATHERINGALARM:
-            return NetTV_GetDevConfig_Impl<NET_CrowdGatheringAlarmInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_GET_GARBAGE_EXPOSURE_CFG:
-            return NetTV_GetDevConfig_Impl<NET_GarbageExposureCfg_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_GET_GARBAGE_OVERFLOW_CFG:
-            return NetTV_GetDevConfig_Impl<NET_GarbageOverflowCfg_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_GET_PEOPLE_FLOW_STATISTICS_CFG:
-            return NetTV_GetDevConfig_Impl<NET_PeopleFlowStatisticsCfg_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_GET_PEOPLE_DENSITY_DETECTION_CFG:
-            return NetTV_GetDevConfig_Impl<NET_PeopleDensityDetectionCfg_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_GET_MANHOLE_COVER_ABNORMAL_CFG:
-            return NetTV_GetDevConfig_Impl<NET_ManholeCoverAbnormalCfg_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_GET_SLEEP_ON_DUTY_CFG:
-            return NetTV_GetDevConfig_Impl<NET_SleepOnDutyCfg_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_GET_ELECTRIC_VEHICLE_IN_ELEVATOR_CFG:
-            return NetTV_GetDevConfig_Impl<NET_ElectricVehicleInElevatorCfg_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_GET_PERSON_FALL_DOWN_CFG:
-            return NetTV_GetDevConfig_Impl<NET_PersonFallDownCfg_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_GET_CONSTRUCTION_OCCUPY_ROAD_CFG:
-            return NetTV_GetDevConfig_Impl<NET_ConstructionOccupyRoadCfg_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_GET_CONGESTION_CFG:
-            return NetTV_GetDevConfig_Impl<NET_CongestionCfg_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_GET_LICENSE_PLATE_RECOGNITION_CFG:
-            return NetTV_GetDevConfig_Impl<NET_LicensePlateRecognitionCfg_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_GET_HIGH_ALTITUDE_SEATBELT_CFG:
-            return NetTV_GetDevConfig_Impl<NET_HighAltitudeSeatbeltCfg_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_GET_SAFETY_HELMET_CFG:
-            return NetTV_GetDevConfig_Impl<NET_SafetyHelmetCfg_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_GET_PERSON_FALL_CFG:
-            return NetTV_GetDevConfig_Impl<NET_PersonFallCfg_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_GET_PHONE_USAGE_CFG:
-            return NetTV_GetDevConfig_Impl<NET_PhoneUsageCfg_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_GET_SMOKING_CFG:
-            return NetTV_GetDevConfig_Impl<NET_SmokingCfg_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_GET_OPEN_FLAME_CFG:
-            return NetTV_GetDevConfig_Impl<NET_OpenFlameCfg_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_GET_BARE_SOIL_CFG:
-            return NetTV_GetDevConfig_Impl<NET_BareSoilCfg_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_GET_HOLE_PROTECTION_BAR_CFG:
-            return NetTV_GetDevConfig_Impl<NET_HoleProtectionBarCfg_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_GET_REFLECTIVE_CLOTHING_CFG:
-            return NetTV_GetDevConfig_Impl<NET_ReflectiveClothingCfg_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_GET_PET_RECOGNITION_INFO:
-            return NetTV_GetDevConfig_Impl<NET_PetRecognitionInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_GET_CLIMB_FENCE_INFO:
-            return NetTV_GetDevConfig_Impl<NET_ClimbFenceInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_GET_DIMISSION_INFO:
-            return NetTV_GetDevConfig_Impl<NET_DimissionInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_GET_ILLEGAL_LANE_INFO:
-            return NetTV_GetDevConfig_Impl<NET_IllegalLaneInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_GET_RETROGRADE_INFO:
-            return NetTV_GetDevConfig_Impl<NET_RetrogradeInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_GET_NONMOTOR_VEHICLE_INTRUSION_INFO:
-            return NetTV_GetDevConfig_Impl<NET_NonmotorVehicleIntrusionInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_GET_OCCUPATION_EMERGENCY_INFO:
-            return NetTV_GetDevConfig_Impl<NET_OccupationEmergencyInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_GET_PEDESTRIAN_INTRUSION_INFO:
-            return NetTV_GetDevConfig_Impl<NET_PedestrianIntrusionInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_GET_SMOKE_FIRE_CFG:
-            return NetTV_GetDevConfig_Impl<NET_SmokeFireCfg_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_GET_ROAD_PONDING_CFG:
-            return NetTV_GetDevConfig_Impl<NET_RoadPondingCfg_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_GET_PARKINGALARM:
-            return NetTV_GetDevConfig_Impl<NET_ParkingAlarmInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_GET_UNATTENDEDOBJECTALARM:
-            return NetTV_GetDevConfig_Impl<NET_UnattendedObjectAlarmInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_GET_OBJECTREMOVALALARM:
-            return NetTV_GetDevConfig_Impl<NET_ObjectRemovalAlarmInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_GET_AUDIOANOMALYALARM:
-            return NetTV_GetDevConfig_Impl<NET_AudioAnomalyAlarmInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_GET_PREVIEW_INFO:
-            return NetTV_GetDevConfig_Impl<NET_PreviewInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_GET_CHANNEL_INFO:
-            return NetTV_GetDevConfig_Impl<NET_ChannelInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_GET_CHANNEL_LIST:
-            return NetTV_GetDevConfig_Impl<NET_ChannelList_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_GET_UPGRADESTATUS:
-            return NetTV_GetDevConfig_Impl<NET_UpgradeStatus_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_GET_UPGRADEVERSION:
-            return NetTV_GetDevConfig_Impl<NET_UpgradeVersion_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_GET_CAPTURE_PLAN_INFO:
-            return NetTV_GetDevConfig_Impl<NET_CapturePlanInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_GET_CAPTURE_PARAM_INFO:
-            return NetTV_GetDevConfig_Impl<NET_CaptureParamInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_GET_EXPOSURE_INFO:
-            return NetTV_GetDevConfig_Impl<NET_ExposureInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_GET_DAYNIGHT_INFO:
-            return NetTV_GetDevConfig_Impl<NET_DayNightInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_GET_BACKLIGHT_INFO:
-            return NetTV_GetDevConfig_Impl<NET_BackLightInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_GET_DENOISE_INFO:
-            return NetTV_GetDevConfig_Impl<NET_DenoiseInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_GET_WHITEBALANCE_INFO:
-            return NetTV_GetDevConfig_Impl<NET_WhiteBalanceInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_FROM_STREAM_TALKBACK:
-            return NetTV_GetDevConfig_Impl<NET_TalkbackStreamInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_GET_FACECAPTUREINFO:
-            return NetTV_GetDevConfig_Impl<NET_FaceCaptureInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_GET_TARGET_LIB:
-            return NetTV_GetDevConfig_Impl<NET_FaceLibList_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_GET_FACE_INFO:
-            return NetTV_GetDevConfig_Impl<NET_FaceInfoList_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_GET_PRIVACYMASKCFG:
+            return NetTV_GetDevConfig_Impl<NET_TV_PRIVACY_MASK_CFG_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_GET_TAMPERALARM:
+            return NetTV_GetDevConfig_Impl<NET_TV_TAMPER_ALARM_INFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_GET_MOTIONALARM:
+            return NetTV_GetDevConfig_Impl<NET_TV_MOTION_ALARM_INFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_GET_CROSSLINEALARM:
+            return NetTV_GetDevConfig_Impl<NET_TV_CROSS_LINE_ALARM_INFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_GET_INTRUSIONALARM:
+            return NetTV_GetDevConfig_Impl<NET_TV_INTRUSION_ALARM_INFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_GET_ENTERREGIONALARM:
+            return NetTV_GetDevConfig_Impl<NET_TV_ENTER_REGION_ALARM_INFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_GET_LEAVEREGIONALARM:
+            return NetTV_GetDevConfig_Impl<NET_TV_LEAVE_REGION_ALARM_INFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_GET_LOITERINGALARM:
+            return NetTV_GetDevConfig_Impl<NET_TV_LOITERING_ALARM_INFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_GET_SCENECHANGEALARM:
+            return NetTV_GetDevConfig_Impl<NET_TV_SCENE_CHANGE_ALARM_INFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_GET_CROWDGATHERINGALARM:
+            return NetTV_GetDevConfig_Impl<NET_TV_CROWD_GATHERING_ALARM_INFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_GET_GARBAGE_EXPOSURE_CFG:
+            return NetTV_GetDevConfig_Impl<NET_TV_GARBAGE_EXPOSURE_CFG_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_GET_GARBAGE_OVERFLOW_CFG:
+            return NetTV_GetDevConfig_Impl<NET_TV_GARBAGE_OVERFLOW_CFG_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_GET_PEOPLE_FLOW_STATISTICS_CFG:
+            return NetTV_GetDevConfig_Impl<NET_TV_PEOPLE_FLOW_STATISTICS_CFG_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_GET_PEOPLE_DENSITY_DETECTION_CFG:
+            return NetTV_GetDevConfig_Impl<NET_TV_PEOPLE_DENSITY_DETECTION_CFG_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_GET_MANHOLE_COVER_ABNORMAL_CFG:
+            return NetTV_GetDevConfig_Impl<NET_TV_MANHOLE_COVER_ABNORMAL_CFG_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_GET_SLEEP_ON_DUTY_CFG:
+            return NetTV_GetDevConfig_Impl<NET_TV_SLEEP_ON_DUTY_CFG_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_GET_ELECTRIC_VEHICLE_IN_ELEVATOR_CFG:
+            return NetTV_GetDevConfig_Impl<NET_TV_ELECTRIC_VEHICLE_IN_ELEVATOR_CFG_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_GET_PERSON_FALL_DOWN_CFG:
+            return NetTV_GetDevConfig_Impl<NET_TV_PERSON_FALL_DOWN_CFG_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_GET_CONSTRUCTION_OCCUPY_ROAD_CFG:
+            return NetTV_GetDevConfig_Impl<NET_TV_CONSTRUCTION_OCCUPY_ROAD_CFG_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_GET_CONGESTION_CFG:
+            return NetTV_GetDevConfig_Impl<NET_TV_CONGESTION_CFG_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_GET_LICENSE_PLATE_RECOGNITION_CFG:
+            return NetTV_GetDevConfig_Impl<NET_TV_LICENSE_PLATE_RECOGNITION_CFG_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_GET_HIGH_ALTITUDE_SEATBELT_CFG:
+            return NetTV_GetDevConfig_Impl<NET_TV_HIGH_ALTITUDE_SEATBELT_CFG_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_GET_SAFETY_HELMET_CFG:
+            return NetTV_GetDevConfig_Impl<NET_TV_SAFETY_HELMET_CFG_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_GET_PERSON_FALL_CFG:
+            return NetTV_GetDevConfig_Impl<NET_TV_PERSON_FALL_CFG_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_GET_PHONE_USAGE_CFG:
+            return NetTV_GetDevConfig_Impl<NET_TV_PHONE_USAGE_CFG_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_GET_SMOKING_CFG:
+            return NetTV_GetDevConfig_Impl<NET_TV_SMOKING_CFG_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_GET_OPEN_FLAME_CFG:
+            return NetTV_GetDevConfig_Impl<NET_TV_OPEN_FLAME_CFG_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_GET_BARE_SOIL_CFG:
+            return NetTV_GetDevConfig_Impl<NET_TV_BARE_SOIL_CFG_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_GET_HOLE_PROTECTION_BAR_CFG:
+            return NetTV_GetDevConfig_Impl<NET_TV_HOLE_PROTECTION_BAR_CFG_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_GET_REFLECTIVE_CLOTHING_CFG:
+            return NetTV_GetDevConfig_Impl<NET_TV_REFLECTIVE_CLOTHING_CFG_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_GET_PET_RECOGNITION_INFO:
+            return NetTV_GetDevConfig_Impl<NET_TV_PET_RECOGNITION_INFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_GET_CLIMB_FENCE_INFO:
+            return NetTV_GetDevConfig_Impl<NET_TV_CLIMB_FENCE_INFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_GET_DIMISSION_INFO:
+            return NetTV_GetDevConfig_Impl<NET_TV_DIMISSION_INFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_GET_ILLEGAL_LANE_INFO:
+            return NetTV_GetDevConfig_Impl<NET_TV_ILLEGAL_LANE_INFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_GET_RETROGRADE_INFO:
+            return NetTV_GetDevConfig_Impl<NET_TV_RETROGRADE_INFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_GET_NONMOTOR_VEHICLE_INTRUSION_INFO:
+            return NetTV_GetDevConfig_Impl<NET_TV_NONMOTOR_VEHICLE_INTRUSION_INFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_GET_OCCUPATION_EMERGENCY_INFO:
+            return NetTV_GetDevConfig_Impl<NET_TV_OCCUPATION_EMERGENCY_INFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_GET_PEDESTRIAN_INTRUSION_INFO:
+            return NetTV_GetDevConfig_Impl<NET_TV_PEDESTRIAN_INTRUSION_INFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_GET_SMOKE_FIRE_CFG:
+            return NetTV_GetDevConfig_Impl<NET_TV_SMOKE_FIRE_CFG_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_GET_ROAD_PONDING_CFG:
+            return NetTV_GetDevConfig_Impl<NET_TV_ROAD_PONDING_CFG_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_GET_PARKINGALARM:
+            return NetTV_GetDevConfig_Impl<NET_TV_PARKING_ALARM_INFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_GET_UNATTENDEDOBJECTALARM:
+            return NetTV_GetDevConfig_Impl<NET_TV_UNATTENDED_OBJECT_ALARM_INFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_GET_OBJECTREMOVALALARM:
+            return NetTV_GetDevConfig_Impl<NET_TV_OBJECT_REMOVAL_ALARM_INFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_GET_AUDIOANOMALYALARM:
+            return NetTV_GetDevConfig_Impl<NET_TV_AUDIO_ANOMALY_ALARM_INFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_GET_PREVIEW_INFO:
+            return NetTV_GetDevConfig_Impl<NET_TV_PREVIEW_INFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_GET_CHANNEL_INFO:
+            return NetTV_GetDevConfig_Impl<NET_TV_CHANNEL_INFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_GET_CHANNEL_LIST:
+            return NetTV_GetDevConfig_Impl<NET_TV_CHANNEL_LIST_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_GET_UPGRADESTATUS:
+            return NetTV_GetDevConfig_Impl<NET_TV_UPGRADE_STATUS_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_GET_UPGRADEVERSION:
+            return NetTV_GetDevConfig_Impl<NET_TV_UPGRADE_VERSION_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_GET_CAPTURE_PLAN_INFO:
+            return NetTV_GetDevConfig_Impl<NET_TV_CAPTURE_PLAN_INFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_GET_CAPTURE_PARAM_INFO:
+            return NetTV_GetDevConfig_Impl<NET_TV_CAPTURE_PARAM_INFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_GET_EXPOSURE_INFO:
+            return NetTV_GetDevConfig_Impl<NET_TV_EXPOSURE_INFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_GET_DAYNIGHT_INFO:
+            return NetTV_GetDevConfig_Impl<NET_TV_DAYNIGHT_INFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_GET_BACKLIGHT_INFO:
+            return NetTV_GetDevConfig_Impl<NET_TV_BACKLIGHT_INFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_GET_DENOISE_INFO:
+            return NetTV_GetDevConfig_Impl<NET_TV_DENOISE_INFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_GET_WHITEBALANCE_INFO:
+            return NetTV_GetDevConfig_Impl<NET_TV_WHITEBALANCE_INFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_FROM_STREAM_TALKBACK:
+            return NetTV_GetDevConfig_Impl<NET_TV_TALKBACK_STREAM_INFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_GET_FACECAPTUREINFO:
+            return NetTV_GetDevConfig_Impl<NET_TV_FACE_CAPTURE_INFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_GET_FACECAPTUREOVERLAYINFO:
+            return NetTV_GetDevConfig_Impl<NET_TV_FACE_CAPTURE_OVERLAY_INFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_GET_TARGET_LIB:
+            return NetTV_GetDevConfig_Impl<NET_TV_FACE_LIB_LIST_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_GET_FACE_INFO:
+            return NetTV_GetDevConfig_Impl<NET_TV_FACE_INFO_LIST_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
         default:
-            CErrorManage::instance()->SetLastError(NET_E_CMD_NOT_SUPPORT);
+            CErrorManage::instance()->SetLastError(NET_TV_E_CMD_NOT_SUPPORT);
             return FALSE;
     }
 }
@@ -1116,7 +1135,7 @@ NET_API BOOL STDCALL NET_GetDevConfig(IN  LPVOID  lpUserID,
  * @return 成功返回TRUE，失败返回FALSE
  * @note 根据dwCommand不同，设置不同类型的配置结构体；支持NTP配置、网络配置、报警配置等多种配置类型
  */
-NET_API BOOL STDCALL NET_SetDevConfig(IN  LPVOID  lpUserID,
+NET_TV_API BOOL STDCALL NET_TV_SetDevConfig(IN  LPVOID  lpUserID,
                                             IN    INT32   dwChannelID,
                                             IN    INT32   dwCommand,
                                             INOUT LPVOID  lpOutBuffer,
@@ -1127,134 +1146,136 @@ NET_API BOOL STDCALL NET_SetDevConfig(IN  LPVOID  lpUserID,
 
     switch (dwCommand)
     {
-        case NET_SET_DEVICECFG:
-            return NetTV_SetDevConfig_Impl<NET_DeviceBasicInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_SET_NTPCFG:
-            return NetTV_SetDevConfig_Impl<NET_SystemNtpInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_SET_AUDIOCFG:
-            return NetTV_SetDevConfig_Impl<NET_AudioCfg_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_SET_STREAMCFG:
-            return NetTV_SetDevConfig_Impl<NET_VideoEncodeOption_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_SET_OSDCAPCFG:
-            return NetTV_SetDevConfig_Impl<NET_VideoOsdCfg_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_SET_IMAGECFG:
-            return NetTV_SetDevConfig_Impl<NET_ImageSetting_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_SET_NETWORKCFG:
-            return NetTV_SetDevConfig_Impl<NET_NetworkCfg_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_SET_CONFIG_WIFI_STA:
-            return NetTV_SetDevConfig_Impl<NET_WifiStaCfg_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_CONNECT_WIFI_STA:
-            return NetTV_SetDevConfig_Impl<NET_WifiStaConnect_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_DISCONNECT_WIFI_STA:
-            return NetTV_SetDevConfig_Impl<NET_WifiStaConnect_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_SET_4G_INFO:
-            return NetTV_SetDevConfig_Impl<NET_4GInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_SET_HOTSPOT_INFO:
-            return NetTV_SetDevConfig_Impl<NET_HotspotInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_SET_SECURITY_SERVICES_INFO:
-            return NetTV_SetDevConfig_Impl<NET_SecurityServicesInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_SET_LOG_SERVER:
-            return NetTV_SetDevConfig_Impl<NET_LogServerInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_TEST_LOG_SERVER:
-            return NetTV_SetDevConfig_Impl<NET_LogServerInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_CONTROL_RECORD_INFO:
-            return NetTV_SetDevConfig_Impl<NET_RecordInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_SET_RECORD_SCHEDULE:
-            return NetTV_SetDevConfig_Impl<NET_RecordSchedule_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_SET_RECORD_ADVANCED_PARAM:
-            return NetTV_SetDevConfig_Impl<NET_RecordAdvancedParam_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_DOWNLOAD_RECORD_FILE:
-            return NetTV_SetDevConfig_Impl<NET_RecordDownloadList_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_SET_PRIVACYMASKCFG:
+        case NET_TV_SET_DEVICECFG:
+            return NetTV_SetDevConfig_Impl<NET_TV_DEVICE_BASICINFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_SET_NTPCFG:
+            return NetTV_SetDevConfig_Impl<NET_TV_SYSTEM_NTP_INFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_SET_AUDIOCFG:
+            return NetTV_SetDevConfig_Impl<NET_TV_AUDIO_CFG_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_SET_STREAMCFG:
+            return NetTV_SetDevConfig_Impl<NET_TV_VIDEO_ENCODE_OPTION_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_SET_OSDCAPCFG:
+            return NetTV_SetDevConfig_Impl<NET_TV_VIDEO_OSD_CFG_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_SET_IMAGECFG:
+            return NetTV_SetDevConfig_Impl<NET_TV_IMAGE_SETTING_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_SET_NETWORKCFG:
+            return NetTV_SetDevConfig_Impl<NET_TV_NETWORKCFG_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_SET_CONFIG_WIFI_STA:
+            return NetTV_SetDevConfig_Impl<NET_TV_WIFI_STA_CFG_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_CONNECT_WIFI_STA:
+            return NetTV_SetDevConfig_Impl<NET_TV_WIFI_STA_CONNECT_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_DISCONNECT_WIFI_STA:
+            return NetTV_SetDevConfig_Impl<NET_TV_WIFI_STA_CONNECT_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_SET_4G_INFO:
+            return NetTV_SetDevConfig_Impl<NET_TV_4G_INFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_SET_HOTSPOT_INFO:
+            return NetTV_SetDevConfig_Impl<NET_TV_HOTSPOT_INFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_SET_SECURITY_SERVICES_INFO:
+            return NetTV_SetDevConfig_Impl<NET_TV_SECURITY_SERVICES_INFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_SET_LOG_SERVER:
+            return NetTV_SetDevConfig_Impl<NET_TV_LOG_SERVER_INFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_TEST_LOG_SERVER:
+            return NetTV_SetDevConfig_Impl<NET_TV_LOG_SERVER_INFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_CONTROL_RECORD_INFO:
+            return NetTV_SetDevConfig_Impl<NET_TV_RECORD_INFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_SET_RECORD_SCHEDULE:
+            return NetTV_SetDevConfig_Impl<NET_TV_RECORD_SCHEDULE_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_SET_RECORD_ADVANCED_PARAM:
+            return NetTV_SetDevConfig_Impl<NET_TV_RECORD_ADVANCED_PARAM_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_DOWNLOAD_RECORD_FILE:
+            return NetTV_SetDevConfig_Impl<NET_TV_RECORD_DOWNLOAD_LIST_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_SET_PRIVACYMASKCFG:
             printf("[ClientSDK] SET_PRIVACYMASKCFG cmd=%d, buf=%d, privacy_size=%zu\n",
-                   dwCommand, dwOutBufferSize, sizeof(NET_PrivacyMaskCfg_S));
-            return NetTV_SetDevConfig_Impl<NET_PrivacyMaskCfg_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_SET_TAMPERALARM:
-            return NetTV_SetDevConfig_Impl<NET_TamperAlarmInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_SET_MOTIONALARM:
-            return NetTV_SetDevConfig_Impl<NET_MotionAlarmInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_SET_CROSSLINEALARM:
-            return NetTV_SetDevConfig_Impl<NET_CrossLineAlarmInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_SET_INTRUSIONALARM:
-            return NetTV_SetDevConfig_Impl<NET_IntrusionAlarmInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_SET_ENTERREGIONALARM:
-            return NetTV_SetDevConfig_Impl<NET_EnterRegionAlarmInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_SET_LEAVEREGIONALARM:
-            return NetTV_SetDevConfig_Impl<NET_LeaveRegionAlarmInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_SET_LOITERINGALARM:
-            return NetTV_SetDevConfig_Impl<NET_LoiteringAlarmInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_SET_SCENECHANGEALARM:
-            return NetTV_SetDevConfig_Impl<NET_SceneChangeAlarmInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_SET_CROWDGATHERINGALARM:
-            return NetTV_SetDevConfig_Impl<NET_CrowdGatheringAlarmInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_SET_GARBAGE_EXPOSURE_CFG:
-            return NetTV_SetDevConfig_Impl<NET_GarbageExposureCfg_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_SET_GARBAGE_OVERFLOW_CFG:
-            return NetTV_SetDevConfig_Impl<NET_GarbageOverflowCfg_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_SET_PEOPLE_FLOW_STATISTICS_CFG:
-            return NetTV_SetDevConfig_Impl<NET_PeopleFlowStatisticsCfg_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_RESET_PEOPLE_FLOW_STATISTICS:
-            return NetTV_SetDevConfig_Impl<NET_PeopleFlowStatisticsCfg_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_SET_PEOPLE_DENSITY_DETECTION_CFG:
-            return NetTV_SetDevConfig_Impl<NET_PeopleDensityDetectionCfg_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_SET_MANHOLE_COVER_ABNORMAL_CFG:
-            return NetTV_SetDevConfig_Impl<NET_ManholeCoverAbnormalCfg_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_SET_SLEEP_ON_DUTY_CFG:
-            return NetTV_SetDevConfig_Impl<NET_SleepOnDutyCfg_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_SET_ELECTRIC_VEHICLE_IN_ELEVATOR_CFG:
-            return NetTV_SetDevConfig_Impl<NET_ElectricVehicleInElevatorCfg_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_SET_PERSON_FALL_DOWN_CFG:
-            return NetTV_SetDevConfig_Impl<NET_PersonFallDownCfg_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_SET_CONSTRUCTION_OCCUPY_ROAD_CFG:
-            return NetTV_SetDevConfig_Impl<NET_ConstructionOccupyRoadCfg_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_SET_CONGESTION_CFG:
-            return NetTV_SetDevConfig_Impl<NET_CongestionCfg_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_SET_LICENSE_PLATE_RECOGNITION_CFG:
-            return NetTV_SetDevConfig_Impl<NET_LicensePlateRecognitionCfg_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_SET_HIGH_ALTITUDE_SEATBELT_CFG:
-            return NetTV_SetDevConfig_Impl<NET_HighAltitudeSeatbeltCfg_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_SET_SAFETY_HELMET_CFG:
-            return NetTV_SetDevConfig_Impl<NET_SafetyHelmetCfg_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_SET_PERSON_FALL_CFG:
-            return NetTV_SetDevConfig_Impl<NET_PersonFallCfg_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_SET_PHONE_USAGE_CFG:
-            return NetTV_SetDevConfig_Impl<NET_PhoneUsageCfg_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_SET_SMOKING_CFG:
-            return NetTV_SetDevConfig_Impl<NET_SmokingCfg_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_SET_OPEN_FLAME_CFG:
-            return NetTV_SetDevConfig_Impl<NET_OpenFlameCfg_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_SET_BARE_SOIL_CFG:
-            return NetTV_SetDevConfig_Impl<NET_BareSoilCfg_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_SET_HOLE_PROTECTION_BAR_CFG:
-            return NetTV_SetDevConfig_Impl<NET_HoleProtectionBarCfg_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_SET_REFLECTIVE_CLOTHING_CFG:
-            return NetTV_SetDevConfig_Impl<NET_ReflectiveClothingCfg_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_SET_PET_RECOGNITION_INFO:
-            return NetTV_SetDevConfig_Impl<NET_PetRecognitionInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_SET_CLIMB_FENCE_INFO:
-            return NetTV_SetDevConfig_Impl<NET_ClimbFenceInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_SET_DIMISSION_INFO:
-            return NetTV_SetDevConfig_Impl<NET_DimissionInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_SET_ILLEGAL_LANE_INFO:
-            return NetTV_SetDevConfig_Impl<NET_IllegalLaneInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_SET_RETROGRADE_INFO:
-            return NetTV_SetDevConfig_Impl<NET_RetrogradeInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_SET_NONMOTOR_VEHICLE_INTRUSION_INFO:
-            return NetTV_SetDevConfig_Impl<NET_NonmotorVehicleIntrusionInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_SET_OCCUPATION_EMERGENCY_INFO:
-            return NetTV_SetDevConfig_Impl<NET_OccupationEmergencyInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_SET_PEDESTRIAN_INTRUSION_INFO:
-            return NetTV_SetDevConfig_Impl<NET_PedestrianIntrusionInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_SET_SMOKE_FIRE_CFG:
-            return NetTV_SetDevConfig_Impl<NET_SmokeFireCfg_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_SET_ROAD_PONDING_CFG:
-            return NetTV_SetDevConfig_Impl<NET_RoadPondingCfg_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_SET_PARKINGALARM:
-            return NetTV_SetDevConfig_Impl<NET_ParkingAlarmInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_SET_UNATTENDEDOBJECTALARM:
-            return NetTV_SetDevConfig_Impl<NET_UnattendedObjectAlarmInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_SET_OBJECTREMOVALALARM:
-            return NetTV_SetDevConfig_Impl<NET_ObjectRemovalAlarmInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+                   dwCommand, dwOutBufferSize, sizeof(NET_TV_PRIVACY_MASK_CFG_S));
+            return NetTV_SetDevConfig_Impl<NET_TV_PRIVACY_MASK_CFG_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_SET_TAMPERALARM:
+            return NetTV_SetDevConfig_Impl<NET_TV_TAMPER_ALARM_INFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_SET_MOTIONALARM:
+            return NetTV_SetDevConfig_Impl<NET_TV_MOTION_ALARM_INFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_SET_CROSSLINEALARM:
+            return NetTV_SetDevConfig_Impl<NET_TV_CROSS_LINE_ALARM_INFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_SET_INTRUSIONALARM:
+            return NetTV_SetDevConfig_Impl<NET_TV_INTRUSION_ALARM_INFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_SET_ENTERREGIONALARM:
+            return NetTV_SetDevConfig_Impl<NET_TV_ENTER_REGION_ALARM_INFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_SET_LEAVEREGIONALARM:
+            return NetTV_SetDevConfig_Impl<NET_TV_LEAVE_REGION_ALARM_INFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_SET_LOITERINGALARM:
+            return NetTV_SetDevConfig_Impl<NET_TV_LOITERING_ALARM_INFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);   
+        case NET_TV_SET_SCENECHANGEALARM:
+            return NetTV_SetDevConfig_Impl<NET_TV_SCENE_CHANGE_ALARM_INFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_SET_CROWDGATHERINGALARM:
+            return NetTV_SetDevConfig_Impl<NET_TV_CROWD_GATHERING_ALARM_INFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);  
+        case NET_TV_SET_GARBAGE_EXPOSURE_CFG:
+            return NetTV_SetDevConfig_Impl<NET_TV_GARBAGE_EXPOSURE_CFG_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_SET_GARBAGE_OVERFLOW_CFG:
+            return NetTV_SetDevConfig_Impl<NET_TV_GARBAGE_OVERFLOW_CFG_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);      
+        case NET_TV_SET_PEOPLE_FLOW_STATISTICS_CFG:
+            return NetTV_SetDevConfig_Impl<NET_TV_PEOPLE_FLOW_STATISTICS_CFG_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_RESET_PEOPLE_FLOW_STATISTICS:
+            return NetTV_SetDevConfig_Impl<NET_TV_PEOPLE_FLOW_STATISTICS_CFG_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_SET_PEOPLE_DENSITY_DETECTION_CFG:
+            return NetTV_SetDevConfig_Impl<NET_TV_PEOPLE_DENSITY_DETECTION_CFG_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_SET_MANHOLE_COVER_ABNORMAL_CFG:
+            return NetTV_SetDevConfig_Impl<NET_TV_MANHOLE_COVER_ABNORMAL_CFG_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_SET_SLEEP_ON_DUTY_CFG:
+            return NetTV_SetDevConfig_Impl<NET_TV_SLEEP_ON_DUTY_CFG_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_SET_ELECTRIC_VEHICLE_IN_ELEVATOR_CFG:
+            return NetTV_SetDevConfig_Impl<NET_TV_ELECTRIC_VEHICLE_IN_ELEVATOR_CFG_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_SET_PERSON_FALL_DOWN_CFG:
+            return NetTV_SetDevConfig_Impl<NET_TV_PERSON_FALL_DOWN_CFG_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_SET_CONSTRUCTION_OCCUPY_ROAD_CFG:
+            return NetTV_SetDevConfig_Impl<NET_TV_CONSTRUCTION_OCCUPY_ROAD_CFG_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_SET_CONGESTION_CFG:
+            return NetTV_SetDevConfig_Impl<NET_TV_CONGESTION_CFG_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_SET_LICENSE_PLATE_RECOGNITION_CFG:
+            return NetTV_SetDevConfig_Impl<NET_TV_LICENSE_PLATE_RECOGNITION_CFG_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_SET_HIGH_ALTITUDE_SEATBELT_CFG:
+            return NetTV_SetDevConfig_Impl<NET_TV_HIGH_ALTITUDE_SEATBELT_CFG_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_SET_SAFETY_HELMET_CFG:
+            return NetTV_SetDevConfig_Impl<NET_TV_SAFETY_HELMET_CFG_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_SET_PERSON_FALL_CFG:
+            return NetTV_SetDevConfig_Impl<NET_TV_PERSON_FALL_CFG_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_SET_PHONE_USAGE_CFG:
+            return NetTV_SetDevConfig_Impl<NET_TV_PHONE_USAGE_CFG_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_SET_SMOKING_CFG:
+            return NetTV_SetDevConfig_Impl<NET_TV_SMOKING_CFG_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_SET_OPEN_FLAME_CFG:
+            return NetTV_SetDevConfig_Impl<NET_TV_OPEN_FLAME_CFG_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_SET_BARE_SOIL_CFG:
+            return NetTV_SetDevConfig_Impl<NET_TV_BARE_SOIL_CFG_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_SET_HOLE_PROTECTION_BAR_CFG:
+            return NetTV_SetDevConfig_Impl<NET_TV_HOLE_PROTECTION_BAR_CFG_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_SET_REFLECTIVE_CLOTHING_CFG:
+            return NetTV_SetDevConfig_Impl<NET_TV_REFLECTIVE_CLOTHING_CFG_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_SET_PET_RECOGNITION_INFO:
+            return NetTV_SetDevConfig_Impl<NET_TV_PET_RECOGNITION_INFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_SET_CLIMB_FENCE_INFO:
+            return NetTV_SetDevConfig_Impl<NET_TV_CLIMB_FENCE_INFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_SET_DIMISSION_INFO:
+            return NetTV_SetDevConfig_Impl<NET_TV_DIMISSION_INFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_SET_ILLEGAL_LANE_INFO:
+            return NetTV_SetDevConfig_Impl<NET_TV_ILLEGAL_LANE_INFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_SET_RETROGRADE_INFO:
+            return NetTV_SetDevConfig_Impl<NET_TV_RETROGRADE_INFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_SET_NONMOTOR_VEHICLE_INTRUSION_INFO:
+            return NetTV_SetDevConfig_Impl<NET_TV_NONMOTOR_VEHICLE_INTRUSION_INFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_SET_OCCUPATION_EMERGENCY_INFO:
+            return NetTV_SetDevConfig_Impl<NET_TV_OCCUPATION_EMERGENCY_INFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_SET_PEDESTRIAN_INTRUSION_INFO:
+            return NetTV_SetDevConfig_Impl<NET_TV_PEDESTRIAN_INTRUSION_INFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_SET_SMOKE_FIRE_CFG:
+            return NetTV_SetDevConfig_Impl<NET_TV_SMOKE_FIRE_CFG_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_SET_ROAD_PONDING_CFG:
+            return NetTV_SetDevConfig_Impl<NET_TV_ROAD_PONDING_CFG_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_SET_PARKINGALARM:
+            return NetTV_SetDevConfig_Impl<NET_TV_PARKING_ALARM_INFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_SET_UNATTENDEDOBJECTALARM:
+            return NetTV_SetDevConfig_Impl<NET_TV_UNATTENDED_OBJECT_ALARM_INFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_SET_OBJECTREMOVALALARM:
+            return NetTV_SetDevConfig_Impl<NET_TV_OBJECT_REMOVAL_ALARM_INFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_SET_AUDIOANOMALYALARM:
+            return NetTV_SetDevConfig_Impl<NET_TV_AUDIO_ANOMALY_ALARM_INFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
         case NET_SET_AUDIBLE_ALARM_INFO:
             return NetTV_SetDevConfig_Impl<NET_AudibleAlarmInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
         case NET_SET_ALARM_INPUT_INFO:
@@ -1265,47 +1286,49 @@ NET_API BOOL STDCALL NET_SetDevConfig(IN  LPVOID  lpUserID,
             return NetTV_SetDevConfig_Impl<NET_FlashingLightAlarmInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
         case NET_SET_PIR_ALARM_INFO:
             return NetTV_SetDevConfig_Impl<NET_PirAlarmInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_SET_AUDIOANOMALYALARM:
-            return NetTV_SetDevConfig_Impl<NET_AudioAnomalyAlarmInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_SET_PREVIEW_INFO:
-            return NetTV_SetDevConfig_Impl<NET_PreviewInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_SET_UPGRADE:
-            return NetTV_SetDevConfig_Impl<NET_UpgradeInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_SET_CAPTURE_PLAN_INFO:
-            return NetTV_SetDevConfig_Impl<NET_CapturePlanInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_SET_CAPTURE_PARAM_INFO:
-            return NetTV_SetDevConfig_Impl<NET_CaptureParamInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_SET_EXPOSURE_INFO:
-            return NetTV_SetDevConfig_Impl<NET_ExposureInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_SET_DAYNIGHT_INFO:
-            return NetTV_SetDevConfig_Impl<NET_DayNightInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_SET_BACKLIGHT_INFO:
-            return NetTV_SetDevConfig_Impl<NET_BackLightInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_SET_DENOISE_INFO:
-            return NetTV_SetDevConfig_Impl<NET_DenoiseInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_SET_WHITEBALANCE_INFO:
-            return NetTV_SetDevConfig_Impl<NET_WhiteBalanceInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_STATE_TALKBACK:
-            return NetTV_SetDevConfig_Impl<NET_TalkbackStateInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_TO_STREAM_TALKBACK:
-            return NetTV_SetDevConfig_Impl<NET_TalkbackStreamInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_REPLAY_TALKBACK:
-            return NetTV_SetDevConfig_Impl<NET_ReplayTalkbackInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_SET_FACECAPTUREINFO:
-            return NetTV_SetDevConfig_Impl<NET_FaceCaptureInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_SET_FACE_COMPARE_INFO:
-            return NetTV_SetDevConfig_Impl<NET_FaceCompareInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_ADD_TARGET_LIB:
-        case NET_DEL_TARGET_LIB:
-        case NET_SET_TARGET_LIB:
-            return NetTV_SetDevConfig_Impl<NET_FaceLibInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_ADD_FACE_INFO:
-        case NET_SET_FACE_INFO:
-            return NetTV_SetDevConfig_Impl<NET_FaceInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_DEL_FACE_INFO:
-            return NetTV_SetDevConfig_Impl<NET_FaceIdInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_TRIGGER_SOUND_LIGHT_ALARM:
+            return NetTV_SetDevConfig_Impl<NET_SoundLightAlarmTrigger_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_SET_PREVIEW_INFO:
+            return NetTV_SetDevConfig_Impl<NET_TV_PREVIEW_INFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_SET_UPGRADE:
+            return NetTV_SetDevConfig_Impl<NET_TV_UPGRADE_INFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_SET_CAPTURE_PLAN_INFO:
+            return NetTV_SetDevConfig_Impl<NET_TV_CAPTURE_PLAN_INFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_SET_CAPTURE_PARAM_INFO:
+            return NetTV_SetDevConfig_Impl<NET_TV_CAPTURE_PARAM_INFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_SET_EXPOSURE_INFO:
+            return NetTV_SetDevConfig_Impl<NET_TV_EXPOSURE_INFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_SET_DAYNIGHT_INFO:
+            return NetTV_SetDevConfig_Impl<NET_TV_DAYNIGHT_INFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_SET_BACKLIGHT_INFO:
+            return NetTV_SetDevConfig_Impl<NET_TV_BACKLIGHT_INFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_SET_DENOISE_INFO:
+            return NetTV_SetDevConfig_Impl<NET_TV_DENOISE_INFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_SET_WHITEBALANCE_INFO:
+            return NetTV_SetDevConfig_Impl<NET_TV_WHITEBALANCE_INFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_STATE_TALKBACK:
+            return NetTV_SetDevConfig_Impl<NET_TV_TALKBACK_STATE_INFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_TO_STREAM_TALKBACK:
+            return NetTV_SetDevConfig_Impl<NET_TV_TALKBACK_STREAM_INFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_REPLAY_TALKBACK:
+            return NetTV_SetDevConfig_Impl<NET_TV_REPLAY_TALKBACK_INFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_SET_FACECAPTUREINFO:
+            return NetTV_SetDevConfig_Impl<NET_TV_FACE_CAPTURE_INFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_SET_FACECAPTUREOVERLAYINFO:
+            return NetTV_SetDevConfig_Impl<NET_TV_FACE_CAPTURE_OVERLAY_INFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_SET_FACE_COMPARE_INFO:
+            return NetTV_SetDevConfig_Impl<NET_TV_FACE_COMPARE_INFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_ADD_TARGET_LIB:
+        case NET_TV_DEL_TARGET_LIB:
+        case NET_TV_SET_TARGET_LIB:
+            return NetTV_SetDevConfig_Impl<NET_TV_FACE_LIB_INFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_ADD_FACE_INFO:
+        case NET_TV_SET_FACE_INFO:
+            return NetTV_SetDevConfig_Impl<NET_TV_FACE_INFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_TV_DEL_FACE_INFO:
+            return NetTV_SetDevConfig_Impl<NET_TV_FACE_ID_INFO_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
         default:
-            CErrorManage::instance()->SetLastError(NET_E_CMD_NOT_SUPPORT);
+            CErrorManage::instance()->SetLastError(NET_TV_E_CMD_NOT_SUPPORT);
             return FALSE;
     }
 }
@@ -1321,18 +1344,18 @@ NET_API BOOL STDCALL NET_SetDevConfig(IN  LPVOID  lpUserID,
  * @note 用于上传升级包等文件到设备
  */
 BOOL STDCALL
-NET_UploadFile(IN LPVOID   lpUserID,
+NET_TV_UploadFile(IN LPVOID   lpUserID,
                   IN const CHAR* szFilePath,
                   IN const CHAR* szRemoteName)
 {
     if (!lpUserID || !szFilePath || !szRemoteName) {
-        CErrorManage::instance()->SetLastError(NET_E_INVALID_PARAM);
+        CErrorManage::instance()->SetLastError(NET_TV_E_INVALID_PARAM);
         return FALSE;
     }
 
     std::string remoteName(szRemoteName);
-    std::string url = std::string(NET_API_PATH_UPGRADE_UPLOAD)
-                      + "?" NET_API_PARAM_FILENAME "=" + remoteName;
+    std::string url = std::string(TVAPI_PATH_UPGRADE_UPLOAD)
+                      + "?" TVAPI_PARAM_FILENAME "=" + remoteName;
 
     std::string ignoreResp;
     return CommandExecutor::instance()->ExecuteUpload(
@@ -1341,7 +1364,7 @@ NET_UploadFile(IN LPVOID   lpUserID,
 
 /* ==================== 录像帧流 RecordFrame ==================== */
 
-static std::map<std::string, std::shared_ptr<tvsdk::CRecordFrameClient>> g_recordFrameMap;
+static std::map<std::string, std::shared_ptr<tvsdk::RecordFrameClient>> g_recordFrameMap;
 static std::mutex g_recordFrameMutex;
 
 /**
@@ -1354,32 +1377,32 @@ static std::mutex g_recordFrameMutex;
  * @return 成功返回TRUE，失败返回FALSE
  * @note 启动后通过TCP连接接收录像帧数据，需调用NET_TV_StopRecordFrameStream停止
  */
-NET_API BOOL STDCALL
-NET_StartRecordFrameStream(IN LPVOID lpUserID,
-                              IN pNET_RecordFrameStreamCond_S pstCond,
-                              OUT pNET_RecordFrameStreamInfo_S pstStreamInfo,
-                              IN NET_RecordFrameCallBack cbRecordFrame,
+NET_TV_API BOOL STDCALL
+NET_TV_StartRecordFrameStream(IN LPVOID lpUserID,
+                              IN LPNET_TV_RECORD_FRAME_STREAM_COND_S pstCond,
+                              OUT LPNET_TV_RECORD_FRAME_STREAM_INFO_S pstStreamInfo,
+                              IN NET_TV_RecordFrameCallBack cbRecordFrame,
                               IN LPVOID lpUserData)
 {
     CHECK_SDK_INIT(FALSE);
 
-    if (!lpUserID || !pstCond || !pstStreamInfo || pstCond->uChannel <= 0 ||
+    if (!lpUserID || !pstCond || !pstStreamInfo || pstCond->dwChannel <= 0 ||
         pstCond->szStartTime[0] == '\0' || pstCond->szEndTime[0] == '\0')
     {
-        CErrorManage::instance()->SetLastError(NET_E_INVALID_PARAM);
+        CErrorManage::instance()->SetLastError(NET_TV_E_INVALID_PARAM);
         return FALSE;
     }
 
-    if (pstCond->uSize == 0)
+    if (pstCond->dwSize == 0)
     {
-        pstCond->uSize = sizeof(NET_RecordFrameStreamCond_S);
+        pstCond->dwSize = sizeof(NET_TV_RECORD_FRAME_STREAM_COND_S);
     }
 
     std::string body = SDKConvert::to_string(*pstCond);
     std::string respBody;
     if (!CommandExecutor::instance()->ExecuteRaw((LPUSER_HANDLE)lpUserID,
                                                  "POST",
-                                                 NET_API_PATH_RECORD_FRAME_STREAM_START,
+                                                 TVAPI_PATH_RECORD_FRAME_STREAM_START,
                                                  body,
                                                  respBody))
     {
@@ -1388,40 +1411,40 @@ NET_StartRecordFrameStream(IN LPVOID lpUserID,
 
     const int respCode = SDKConvert::get_respCode(respBody);
     CErrorManage::instance()->SetLastError(respCode);
-    if (respCode != NET_E_SUCCEED)
+    if (respCode != NET_TV_E_SUCCEED)
     {
         return FALSE;
     }
 
     std::memset(pstStreamInfo, 0, sizeof(*pstStreamInfo));
     SDKConvert::to_respStruct(respBody, *pstStreamInfo);
-    if (pstStreamInfo->uSize == 0)
+    if (pstStreamInfo->dwSize == 0)
     {
-        pstStreamInfo->uSize = sizeof(NET_RecordFrameStreamInfo_S);
+        pstStreamInfo->dwSize = sizeof(NET_TV_RECORD_FRAME_STREAM_INFO_S);
     }
 
-    if (pstStreamInfo->uTcpPort == 0 || pstStreamInfo->szStreamId[0] == '\0')
+    if (pstStreamInfo->dwTcpPort == 0 || pstStreamInfo->szStreamId[0] == '\0')
     {
-        CErrorManage::instance()->SetLastError(NET_E_INVALID_PARAM);
+        CErrorManage::instance()->SetLastError(NET_TV_E_INVALID_PARAM);
         return FALSE;
     }
 
     auto session = CDeviceManage::instance()->GetSession(lpUserID);
     if (!session)
     {
-        CErrorManage::instance()->SetLastError(NET_E_NO_USER);
+        CErrorManage::instance()->SetLastError(NET_TV_E_NO_USER);
         return FALSE;
     }
 
     const std::string host = session->GetHost();
     if (host.empty())
     {
-        CErrorManage::instance()->SetLastError(NET_E_INVALID_PARAM);
+        CErrorManage::instance()->SetLastError(NET_TV_E_INVALID_PARAM);
         return FALSE;
     }
 
-    auto client = std::make_shared<tvsdk::CRecordFrameClient>();
-    tvsdk::RecordFrameCallback cb = [cbRecordFrame, lpUserData](const NET_RecordFrameInfo_S& frameInfo,
+    auto client = std::make_shared<tvsdk::RecordFrameClient>();
+    tvsdk::RecordFrameCallback cb = [cbRecordFrame, lpUserData](const NET_TV_RECORD_FRAME_INFO_S& frameInfo,
                                                                const char* data,
                                                                size_t size) {
         if (cbRecordFrame) {
@@ -1430,26 +1453,25 @@ NET_StartRecordFrameStream(IN LPVOID lpUserID,
     };
 
     if (!client->start(host,
-                       static_cast<int>(pstStreamInfo->uTcpPort),
+                       static_cast<int>(pstStreamInfo->dwTcpPort),
                        pstStreamInfo->szStreamId,
                        std::move(cb)))
     {
-        NET_RecordFrameStopInfo_S stStopInfo;
+        NET_TV_RECORD_FRAME_STOP_INFO_S stStopInfo;
         std::memset(&stStopInfo, 0, sizeof(stStopInfo));
-        stStopInfo.uSize = sizeof(stStopInfo);
+        stStopInfo.dwSize = sizeof(stStopInfo);
 #ifdef _WIN32
         strncpy_s(stStopInfo.szStreamId, pstStreamInfo->szStreamId, sizeof(stStopInfo.szStreamId) - 1);
 #else
         std::strncpy(stStopInfo.szStreamId, pstStreamInfo->szStreamId, sizeof(stStopInfo.szStreamId) - 1);
-        stStopInfo.szStreamId[sizeof(stStopInfo.szStreamId) - 1] = '\0';
 #endif
         std::string stopResp;
         CommandExecutor::instance()->ExecuteRaw((LPUSER_HANDLE)lpUserID,
                                                 "POST",
-                                                NET_API_PATH_RECORD_FRAME_STREAM_STOP,
+                                                TVAPI_PATH_RECORD_FRAME_STREAM_STOP,
                                                 SDKConvert::to_string(stStopInfo),
                                                 stopResp);
-        CErrorManage::instance()->SetLastError(NET_E_SYSCALL_FALIED);
+        CErrorManage::instance()->SetLastError(NET_TV_E_SYSCALL_FALIED);
         return FALSE;
     }
 
@@ -1464,7 +1486,7 @@ NET_StartRecordFrameStream(IN LPVOID lpUserID,
         g_recordFrameMap[pstStreamInfo->szStreamId] = client;
     }
 
-    CErrorManage::instance()->SetLastError(NET_E_SUCCEED);
+    CErrorManage::instance()->SetLastError(NET_TV_E_SUCCEED);
     return TRUE;
 }
 
@@ -1475,32 +1497,31 @@ NET_StartRecordFrameStream(IN LPVOID lpUserID,
  * @return 成功返回TRUE，失败返回FALSE
  * @note 停止录像帧流接收，释放相关资源
  */
-NET_API BOOL STDCALL
-NET_StopRecordFrameStream(IN LPVOID lpUserID,
+NET_TV_API BOOL STDCALL
+NET_TV_StopRecordFrameStream(IN LPVOID lpUserID,
                              IN const CHAR* szStreamId)
 {
     CHECK_SDK_INIT(FALSE);
 
     if (!lpUserID || !szStreamId || szStreamId[0] == '\0')
     {
-        CErrorManage::instance()->SetLastError(NET_E_INVALID_PARAM);
+        CErrorManage::instance()->SetLastError(NET_TV_E_INVALID_PARAM);
         return FALSE;
     }
 
-    NET_RecordFrameStopInfo_S stStopInfo;
+    NET_TV_RECORD_FRAME_STOP_INFO_S stStopInfo;
     std::memset(&stStopInfo, 0, sizeof(stStopInfo));
-    stStopInfo.uSize = sizeof(stStopInfo);
+    stStopInfo.dwSize = sizeof(stStopInfo);
 #ifdef _WIN32
     strncpy_s(stStopInfo.szStreamId, szStreamId, sizeof(stStopInfo.szStreamId) - 1);
 #else
     std::strncpy(stStopInfo.szStreamId, szStreamId, sizeof(stStopInfo.szStreamId) - 1);
-    stStopInfo.szStreamId[sizeof(stStopInfo.szStreamId) - 1] = '\0';
 #endif
 
     std::string respBody;
     if (!CommandExecutor::instance()->ExecuteRaw((LPUSER_HANDLE)lpUserID,
                                                  "POST",
-                                                 NET_API_PATH_RECORD_FRAME_STREAM_STOP,
+                                                 TVAPI_PATH_RECORD_FRAME_STREAM_STOP,
                                                  SDKConvert::to_string(stStopInfo),
                                                  respBody))
     {
@@ -1520,12 +1541,12 @@ NET_StopRecordFrameStream(IN LPVOID lpUserID,
         }
     }
 
-    return respCode == NET_E_SUCCEED ? TRUE : FALSE;
+    return respCode == NET_TV_E_SUCCEED ? TRUE : FALSE;
 }
 
 /* ==================== 语音对讲 VoiceCom ==================== */
 
-static std::map<LPVOID, std::shared_ptr<tvsdk::CVoiceComClient>> g_voiceComMap;
+static std::map<LPVOID, std::shared_ptr<tvsdk::VoiceComClient>> g_voiceComMap;
 static std::mutex g_voiceComMutex;
 
 /**
@@ -1534,65 +1555,65 @@ static std::mutex g_voiceComMutex;
  * @return 校验通过返回true，校验失败返回false
  * @note 支持PCM、AAC、G711A、G711U四种音频格式；校验通道数、采样率、位深度、帧间隔、帧大小等参数
  */
-static bool normalize_voicecom_audio_param(NET_VoiceComAudioParam_S& audioParam)
+static bool normalize_voicecom_audio_param(NET_TV_VOICECOM_AUDIO_PARAM_S& audioParam)
 {
-    if (audioParam.uChannels != 1) {
+    if (audioParam.dwChannels != 1) {
         return false;
     }
 
     int bytesPerSample = 0;
     switch (audioParam.enFormat) {
-        case NET_AUDIO_FORMAT_PCM:
+        case NET_TV_AUDIO_FORMAT_PCM:
         {
-            if (audioParam.uBitDepth <= 0) {
-                audioParam.uBitDepth = 16;
+            if (audioParam.dwBitDepth <= 0) {
+                audioParam.dwBitDepth = 16;
             }
-            if (audioParam.uBitDepth != 16) {
+            if (audioParam.dwBitDepth != 16) {
                 return false;
             }
-            switch (audioParam.uSampleRate) {
-                case NET_AUDIO_SAMPRATE_8000:
-                case NET_AUDIO_SAMPRATE_16000:
+            switch (audioParam.dwSampleRate) {
+                case NET_TV_AUDIO_SAMPRATE_8000:
+                case NET_TV_AUDIO_SAMPRATE_16000:
                     break;
                 default:
                     return false;
             }
-            bytesPerSample = audioParam.uBitDepth / 8;
+            bytesPerSample = audioParam.dwBitDepth / 8;
             break;
         }
-        case NET_AUDIO_FORMAT_AAC:
+        case NET_TV_AUDIO_FORMAT_AAC:
         {
-            if (audioParam.uSampleRate <= 0) {
-                audioParam.uSampleRate = NET_AUDIO_SAMPRATE_16000;
+            if (audioParam.dwSampleRate <= 0) {
+                audioParam.dwSampleRate = NET_TV_AUDIO_SAMPRATE_16000;
             }
-            if (audioParam.uBitDepth <= 0) {
-                audioParam.uBitDepth = 16;
+            if (audioParam.dwBitDepth <= 0) {
+                audioParam.dwBitDepth = 16;
             }
-            if (audioParam.uFrameIntervalMs <= 0) {
-                audioParam.uFrameIntervalMs = 64;
+            if (audioParam.dwFrameIntervalMs <= 0) {
+                audioParam.dwFrameIntervalMs = 64;
             }
-            if (audioParam.uFrameBytes <= 0) {
-                audioParam.uFrameBytes = NET_LEN_4096;
+            if (audioParam.dwFrameBytes <= 0) {
+                audioParam.dwFrameBytes = NET_TV_LEN_4096;
             }
-            if (audioParam.uFrameBytes > NET_LEN_4096) {
+            if (audioParam.dwFrameBytes > NET_TV_LEN_4096) {
                 return false;
             }
-            if (audioParam.uBitRate <= 0) {
-                audioParam.uBitRate = 48000;
+            if (audioParam.dwBitRate <= 0) {
+                audioParam.dwBitRate = 48000;
             }
             audioParam.bLittleEndian = TRUE;
             return true;
         }
-        case NET_AUDIO_FORMAT_G711A:
-        case NET_AUDIO_FORMAT_G711U:
+        case NET_TV_AUDIO_FORMAT_G711A:
+        case NET_TV_AUDIO_FORMAT_G711U:
         {
-            if (audioParam.uSampleRate != NET_AUDIO_SAMPRATE_8000) {
+            if (audioParam.dwSampleRate != NET_TV_AUDIO_SAMPRATE_8000) {
                 return false;
             }
-            if (audioParam.uBitDepth <= 0) {
-                audioParam.uBitDepth = 8;
+            if (audioParam.dwBitDepth <= 0) {
+                audioParam.dwBitDepth = 8;
             }
-            if (audioParam.uBitDepth != 8) {
+            if (audioParam.dwBitDepth != 8) {
                 return false;
             }
             bytesPerSample = 1;
@@ -1602,27 +1623,27 @@ static bool normalize_voicecom_audio_param(NET_VoiceComAudioParam_S& audioParam)
             return false;
     }
 
-    if (audioParam.uFrameIntervalMs <= 0) {
-        audioParam.uFrameIntervalMs = 20;
+    if (audioParam.dwFrameIntervalMs <= 0) {
+        audioParam.dwFrameIntervalMs = 20;
     }
-    if (audioParam.uFrameIntervalMs < 10 || audioParam.uFrameIntervalMs > 1000) {
+    if (audioParam.dwFrameIntervalMs < 10 || audioParam.dwFrameIntervalMs > 1000) {
         return false;
     }
 
-    const int frameBytes = audioParam.uSampleRate * audioParam.uChannels *
-                           bytesPerSample * audioParam.uFrameIntervalMs / 1000;
-    if (frameBytes <= 0 || frameBytes > NET_LEN_4096) {
+    const int frameBytes = audioParam.dwSampleRate * audioParam.dwChannels *
+                           bytesPerSample * audioParam.dwFrameIntervalMs / 1000;
+    if (frameBytes <= 0 || frameBytes > NET_TV_LEN_4096) {
         return false;
     }
 
-    if (audioParam.uFrameBytes <= 0) {
-        audioParam.uFrameBytes = frameBytes;
+    if (audioParam.dwFrameBytes <= 0) {
+        audioParam.dwFrameBytes = frameBytes;
     }
-    if (audioParam.uFrameBytes != frameBytes) {
+    if (audioParam.dwFrameBytes != frameBytes) {
         return false;
     }
 
-    audioParam.uBitRate = audioParam.uSampleRate * audioParam.uChannels * audioParam.uBitDepth;
+    audioParam.dwBitRate = audioParam.dwSampleRate * audioParam.dwChannels * audioParam.dwBitDepth;
     audioParam.bLittleEndian = TRUE;
     return true;
 }
@@ -1637,35 +1658,35 @@ static bool normalize_voicecom_audio_param(NET_VoiceComAudioParam_S& audioParam)
  * @note 启动后通过UDP连接传输音频数据；需调用NET_TV_StopVoiceCom停止；音频参数需与设备端保持一致
  */
 BOOL STDCALL
-NET_StartVoiceCom(IN LPVOID              lpUserID,
-                     IN pNET_VoiceComStartInfo_S pstStartInfo,
-                     IN NET_VoiceComCallBack cbVoiceCom,
+NET_TV_StartVoiceCom(IN LPVOID              lpUserID,
+                     IN LPNET_TV_VOICECOM_START_INFO_S pstStartInfo,
+                     IN NET_TV_VoiceComCallBack cbVoiceCom,
                      IN LPVOID              lpUserData)
 {
-    if (!lpUserID || !pstStartInfo || pstStartInfo->uAudioPort == 0) {
-        CErrorManage::instance()->SetLastError(NET_E_INVALID_PARAM);
+    if (!lpUserID || !pstStartInfo || pstStartInfo->dwAudioPort == 0) {
+        CErrorManage::instance()->SetLastError(NET_TV_E_INVALID_PARAM);
         return FALSE;
     }
 
-    NET_VoiceComAudioParam_S audioParam = pstStartInfo->stAudioParam;
+    NET_TV_VOICECOM_AUDIO_PARAM_S audioParam = pstStartInfo->stAudioParam;
     if (!normalize_voicecom_audio_param(audioParam)) {
-        CErrorManage::instance()->SetLastError(NET_E_INVALID_PARAM);
+        CErrorManage::instance()->SetLastError(NET_TV_E_INVALID_PARAM);
         return FALSE;
     }
 
     auto session = CDeviceManage::instance()->GetSession(lpUserID);
     if (!session) {
-        CErrorManage::instance()->SetLastError(NET_E_NO_USER);
+        CErrorManage::instance()->SetLastError(NET_TV_E_NO_USER);
         return FALSE;
     }
 
     const std::string host = session->GetHost();
     if (host.empty()) {
-        CErrorManage::instance()->SetLastError(NET_E_INVALID_PARAM);
+        CErrorManage::instance()->SetLastError(NET_TV_E_INVALID_PARAM);
         return FALSE;
     }
 
-    auto client = std::make_shared<tvsdk::CVoiceComClient>();
+    auto client = std::make_shared<tvsdk::VoiceComClient>();
 
     // 绑定C回调到C++ callback
     tvsdk::VoiceComCallback cb = [cbVoiceCom, lpUserData](const char* data, size_t size) {
@@ -1674,8 +1695,8 @@ NET_StartVoiceCom(IN LPVOID              lpUserID,
         }
     };
 
-    if (!client->start(host, static_cast<int>(pstStartInfo->uAudioPort), audioParam, std::move(cb))) {
-        CErrorManage::instance()->SetLastError(NET_E_SYSCALL_FALIED);
+    if (!client->start(host, static_cast<int>(pstStartInfo->dwAudioPort), audioParam, std::move(cb))) {
+        CErrorManage::instance()->SetLastError(NET_TV_E_SYSCALL_FALIED);
         return FALSE;
     }
 
@@ -1701,24 +1722,24 @@ NET_StartVoiceCom(IN LPVOID              lpUserID,
  * @note 必须在NET_TV_StartVoiceCom成功后调用；音频格式需与启动时配置一致
  */
 BOOL STDCALL
-NET_VoiceComSendData(IN LPVOID       lpUserID,
+NET_TV_VoiceComSendData(IN LPVOID       lpUserID,
                         IN const CHAR*  pData,
                         IN UINT32       dwSize)
 {
     if (!lpUserID || !pData || dwSize == 0) {
-        CErrorManage::instance()->SetLastError(NET_E_INVALID_PARAM);
+        CErrorManage::instance()->SetLastError(NET_TV_E_INVALID_PARAM);
         return FALSE;
     }
 
     std::lock_guard<std::mutex> lock(g_voiceComMutex);
     auto it = g_voiceComMap.find(lpUserID);
     if (it == g_voiceComMap.end() || !it->second->is_running()) {
-        CErrorManage::instance()->SetLastError(NET_E_AUDIO_NO_EXISTED);
+        CErrorManage::instance()->SetLastError(NET_TV_E_AUDIO_NO_EXISTED);
         return FALSE;
     }
 
     if (!it->second->send(pData, static_cast<size_t>(dwSize))) {
-        CErrorManage::instance()->SetLastError(NET_E_AUDIO_FAILED);
+        CErrorManage::instance()->SetLastError(NET_TV_E_AUDIO_FAILED);
         return FALSE;
     }
     return TRUE;
@@ -1731,17 +1752,17 @@ NET_VoiceComSendData(IN LPVOID       lpUserID,
  * @note 停止语音对讲，释放UDP连接和相关资源；需在NET_TV_StartVoiceCom成功后调用
  */
 BOOL STDCALL
-NET_StopVoiceCom(IN LPVOID lpUserID)
+NET_TV_StopVoiceCom(IN LPVOID lpUserID)
 {
     if (!lpUserID) {
-        CErrorManage::instance()->SetLastError(NET_E_INVALID_PARAM);
+        CErrorManage::instance()->SetLastError(NET_TV_E_INVALID_PARAM);
         return FALSE;
     }
 
     std::lock_guard<std::mutex> lock(g_voiceComMutex);
     auto it = g_voiceComMap.find(lpUserID);
     if (it == g_voiceComMap.end()) {
-        CErrorManage::instance()->SetLastError(NET_E_AUDIO_NO_EXISTED);
+        CErrorManage::instance()->SetLastError(NET_TV_E_AUDIO_NO_EXISTED);
         return FALSE;
     }
 
@@ -1752,7 +1773,7 @@ NET_StopVoiceCom(IN LPVOID lpUserID)
 
 /* ==================== 设备发现 ==================== */
 
-#include "BG6_ZHSJ/DiscoverySearcher.h"
+#include "DiscoverySearcher.h"
 
 /**
  * @brief 设备发现接口（局域网搜索）
@@ -1765,21 +1786,21 @@ NET_StopVoiceCom(IN LPVOID lpUserID)
  * @note 通过UDP广播方式搜索局域网内的设备；无需登录即可调用
  */
 BOOL STDCALL
-NET_Discovery_Search(IN  const CHAR*                      szInterfaceIP,
+NET_TV_Discovery_Search(IN  const CHAR*                      szInterfaceIP,
                         IN  UINT32                           dwTimeoutMs,
-                        OUT NET_DiscoveryDeviceInfo_S*       pDeviceList,
+                        OUT NET_TV_DISCOVERY_DEVICE_INFO_S*  pDeviceList,
                         IN  int                              nMaxCount,
                         OUT int*                             pnOutCount)
 {
     if (!pDeviceList || nMaxCount <= 0 || !pnOutCount) {
-        CErrorManage::instance()->SetLastError(NET_E_INVALID_PARAM);
+        CErrorManage::instance()->SetLastError(NET_TV_E_INVALID_PARAM);
         return FALSE;
     }
 
-    CDiscoverySearcher searcher;
+    DiscoverySearcher searcher;
     int ret = searcher.search(szInterfaceIP, dwTimeoutMs, pDeviceList, nMaxCount, pnOutCount);
     if (ret < 0) {
-        CErrorManage::instance()->SetLastError(NET_E_SYSCALL_FALIED);
+        CErrorManage::instance()->SetLastError(NET_TV_E_SYSCALL_FALIED);
         return FALSE;
     }
     return TRUE;

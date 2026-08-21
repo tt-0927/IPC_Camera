@@ -1,19 +1,13 @@
-/**
- * @file NetTVSDKTransport.h
- * @author tianl (tianl@kfb.cn)
- * @date 2026-07-28
- * @LastEditors  : qinjt@kfb.cn
- * @LastEditTime : 2026-07-28
- *
- * @brief NetTVSDKTransport 模块接口与类型定义
- * 功能说明：
- * 1. 声明 NetTVSDKTransport 模块对外接口和数据类型
- * 2. 定义模块依赖的常量、回调或辅助类型
- * 3. 为调用方提供明确且稳定的编译期契约
- */
 #pragma once
 
-
+/**
+ * @file NetTVSDKTransport.h
+ * @brief SDK 协议无关通信抽象。
+ *
+ * 该头文件只定义 HTTP/WebSocket/MQTT 等传输协议共同使用的请求、响应、
+ * 路由和传输接口，不依赖 httplib 或其他具体协议库，供客户端、服务端以及
+ * sdk_share 共同引用。
+ */
 
 #include <cstdint>
 #include <functional>
@@ -26,10 +20,9 @@ namespace nettv
 {
 
 /**
- * @author tianl (tianl@kfb.cn)
  * @brief 传输协议类型。
  */
-enum class TransportType_EN
+enum class TransportType
 {
     HTTP = 0,
     WEBSOCKET = 1,
@@ -38,121 +31,94 @@ enum class TransportType_EN
 };
 
 /**
- * @author tianl (tianl@kfb.cn)
  * @brief 协议无关请求对象。
  *
  * HTTP 适配器可将 method/path/header/query/body 映射到该结构；
  * WebSocket/MQTT 可将消息体中的 action/path/requestId/sessionId 映射到该结构。
  */
-struct RpcRequest_S
+struct RpcRequest
 {
-    std::string strRequestId;
-    std::string strMethod;
-    std::string strPath;
-    std::string strSessionId;
-    std::string strContentType;
-    std::map<std::string, std::string> stHeaders;
-    std::map<std::string, std::string> stQuery;
-    std::string strBody;
-    std::vector<unsigned char> aBinary;
+    std::string requestId;                         ///< 请求唯一标识，用于 WebSocket/MQTT 等异步协议匹配响应
+    std::string method;                            ///< 逻辑动作，例如 GET/POST/PUT/DELETE/query/set/event
+    std::string path;                              ///< 资源路径或命令名，例如 /ISAPI/xxx 或 device.config.get
+    std::string sessionId;                         ///< 会话标识
+    std::string contentType;                       ///< 内容类型，例如 application/json、application/octet-stream
+    std::map<std::string, std::string> headers;    ///< 统一头字段
+    std::map<std::string, std::string> query;      ///< 统一查询参数
+    std::string body;                              ///< 文本请求体，通常为 JSON
+    std::vector<unsigned char> binary;             ///< 二进制请求体，例如文件上传、音频帧
 };
 
 /**
- * @author tianl (tianl@kfb.cn)
  * @brief 协议无关响应对象。
  */
-struct RpcResponse_S
+struct RpcResponse
 {
-    int nCode{200};
-    std::string strMessage;
-    std::string strContentType{"application/json"};
-    std::map<std::string, std::string> stHeaders;
-    std::string strBody;
-    std::vector<unsigned char> aBinary;
+    int code = 200;                                ///< 业务/协议状态码，HTTP 可直接映射到 status
+    std::string message;                           ///< 状态描述或错误描述
+    std::string contentType = "application/json";  ///< 内容类型
+    std::map<std::string, std::string> headers;    ///< 统一响应头字段
+    std::string body;                              ///< 文本响应体，通常为 JSON
+    std::vector<unsigned char> binary;             ///< 二进制响应体
 };
 
-using RpcHandler_FN = std::function<void(const RpcRequest_S&, RpcResponse_S&)>;
+using RpcHandler = std::function<void(const RpcRequest&, RpcResponse&)>;
 
 /**
- * @author tianl (tianl@kfb.cn)
  * @brief 协议无关路由描述。
  *
- * 业务层只注册 RouteDescriptor_S。HTTP/WebSocket/MQTT 适配器负责把各自协议
- * 的请求转换为 RpcRequest_S 后分发到回调函数。
+ * 业务层只注册 RouteDescriptor。HTTP/WebSocket/MQTT 适配器负责把各自协议
+ * 的请求转换为 RpcRequest 后分发到 handler。
  */
-struct RouteDescriptor_S
+struct RouteDescriptor
 {
-    std::string strPath;
-    std::string strMethod;
-    RpcHandler_FN fnHandler;
-    bool bSupportBinary{false};
-    bool bLongConnection{false};
+    std::string path;                              ///< 资源路径或命令名
+    std::string method;                            ///< 逻辑动作，例如 GET/POST/PUT/DELETE/query/set
+    RpcHandler handler;                            ///< 业务处理函数
+    bool supportBinary = false;                    ///< 是否支持二进制输入/输出
+    bool longConnection = false;                   ///< 是否为长连接/订阅类路由，例如告警监听
 };
 
 /**
- * @author tianl (tianl@kfb.cn)
  * @brief 客户端传输通道抽象。
  */
-class CClientTransport
+class IClientTransport
 {
 public:
-    virtual ~CClientTransport() = default;
+    virtual ~IClientTransport() = default;
 
-    /**
- * @author tianl (tianl@kfb.cn)
-     * @brief 连接远端传输端点。
-     * @param [in] strHost 远端主机地址。
-     * @param [in] uPort 远端端口。
-     * @return 连接成功返回 true，否则返回 false。
-     */
-    virtual bool Connect(const std::string& strHost, std::uint16_t uPort) = 0;
-
-    /**
- * @author tianl (tianl@kfb.cn)
-     * @brief 关闭当前传输连接。
-     * @return 无。
-     */
-    virtual void Close() = 0;
-
-    /**
- * @author tianl (tianl@kfb.cn)
-     * @brief 发送统一请求并接收统一响应。
-     * @param [in] stRequest 请求数据。
-     * @param [out] stResponse 响应数据。
-     * @return 发送和响应解析成功返回 true，否则返回 false。
-     */
-    virtual bool Send(const RpcRequest_S& stRequest, RpcResponse_S& stResponse) = 0;
-    virtual TransportType_EN GetType() const = 0;
-    virtual const char* GetName() const = 0;
+    virtual bool connect(const std::string& host, std::uint16_t port) = 0;
+    virtual void close() = 0;
+    virtual bool send(const RpcRequest& request, RpcResponse& response) = 0;
+    virtual TransportType type() const = 0;
+    virtual const char* name() const = 0;
 };
 
 /**
- * @author tianl (tianl@kfb.cn)
  * @brief 服务端传输通道抽象。
  */
-class CServerTransport
+class IServerTransport
 {
 public:
-    virtual ~CServerTransport() = default;
+    virtual ~IServerTransport() = default;
 
-    virtual int Start(const std::string& strHost, std::uint16_t uPort) = 0;
-    virtual int Stop() = 0;
-    virtual TransportType_EN GetType() const = 0;
-    virtual const char* GetName() const = 0;
+    virtual int start(const std::string& host, std::uint16_t port) = 0;
+    virtual int stop() = 0;
+    virtual TransportType type() const = 0;
+    virtual const char* name() const = 0;
 };
 
 /**
- * @author tianl (tianl@kfb.cn)
  * @brief 事件通道抽象，用于告警、状态变化、语音等推送/订阅场景。
  */
-class CEventChannel
+class IEventChannel
 {
 public:
-    virtual ~CEventChannel() = default;
+    virtual ~IEventChannel() = default;
 
-    virtual bool Subscribe(const std::string& strTopic) = 0;
-    virtual bool Unsubscribe(const std::string& strTopic) = 0;
-    virtual bool Publish(const std::string& strTopic, const std::string& strPayload) = 0;
+    virtual bool subscribe(const std::string& topic) = 0;
+    virtual bool unsubscribe(const std::string& topic) = 0;
+    virtual bool publish(const std::string& topic, const std::string& payload) = 0;
 };
 
-} /* namespace nettv */
+} // namespace nettv

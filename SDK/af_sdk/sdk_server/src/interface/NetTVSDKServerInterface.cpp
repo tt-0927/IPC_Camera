@@ -16,16 +16,16 @@ static std::unique_ptr<CNetTVSDKServerImpl> g_pServerImpl;
 extern "C" {
 #endif
 
-NET_API BOOL STDCALL NET_SERVER_Init(IN UINT32 udwPort,IN CHAR szUserName[NET_LEN_132],IN CHAR szPassword[NET_LEN_132],IN CHAR szDeviceName[NET_LEN_132])
+NET_TV_API BOOL STDCALL NET_TV_SERVER_Init(IN UINT32 udwPort,IN CHAR szUserName[NET_TV_LEN_132],IN CHAR szPassword[NET_TV_LEN_132])
 {
 	if (!g_pServerImpl)
 	{
 		g_pServerImpl = std::make_unique<CNetTVSDKServerImpl>();
 	}
-	return g_pServerImpl->DoInit(udwPort, szUserName, szPassword, szDeviceName);
+	return g_pServerImpl->DoInit(udwPort, szUserName, szPassword);
 }
 
-NET_API BOOL STDCALL NET_SERVER_Cleanup(void)
+NET_TV_API BOOL STDCALL NET_TV_SERVER_Cleanup(void)
 {
 	if (g_pServerImpl)
 	{
@@ -36,7 +36,7 @@ NET_API BOOL STDCALL NET_SERVER_Cleanup(void)
 	return TRUE;
 }
 
-NET_API BOOL STDCALL NET_SERVER_SetLogToFile(IN INT32 dwLogLevel,IN CHAR  *strLogDir,IN INT32 dwLogFileSize,IN INT32 dwLogFileNum)
+NET_TV_API BOOL STDCALL NET_TV_SERVER_SetLogToFile(IN INT32 dwLogLevel,IN CHAR  *strLogDir,IN INT32 dwLogFileSize,IN INT32 dwLogFileNum)
 {
 	if (!g_pServerImpl)
 	{
@@ -45,7 +45,7 @@ NET_API BOOL STDCALL NET_SERVER_SetLogToFile(IN INT32 dwLogLevel,IN CHAR  *strLo
 	return g_pServerImpl->DoSetLogToFile(dwLogLevel, strLogDir, dwLogFileSize, dwLogFileNum);
 }
 
-NET_API INT32 STDCALL NET_SERVER_GetSDKVersion(void)
+NET_TV_API INT32 STDCALL NET_TV_SERVER_GetSDKVersion(void)
 {
 	if (!g_pServerImpl)
 	{
@@ -54,7 +54,7 @@ NET_API INT32 STDCALL NET_SERVER_GetSDKVersion(void)
 	return g_pServerImpl->DoGetSDKVersion();
 }
 
-NET_API INT32 STDCALL NET_SERVER_GetClientCount(void)
+NET_TV_API INT32 STDCALL NET_TV_SERVER_GetClientCount(void)
 {
 	if (!g_pServerImpl)
 	{
@@ -63,7 +63,7 @@ NET_API INT32 STDCALL NET_SERVER_GetClientCount(void)
 	return g_pServerImpl->DoGetClientCount();
 }
 
-NET_API BOOL STDCALL NET_SERVER_SetUserPasswd(IN CHAR szUserName[NET_LEN_132],IN CHAR szPassword[NET_LEN_132])
+NET_TV_API BOOL STDCALL NET_TV_SERVER_SetUserPasswd(IN CHAR szUserName[NET_TV_LEN_132],IN CHAR szPassword[NET_TV_LEN_132])
 {
 	if (!g_pServerImpl)
 	{
@@ -72,7 +72,7 @@ NET_API BOOL STDCALL NET_SERVER_SetUserPasswd(IN CHAR szUserName[NET_LEN_132],IN
 	return g_pServerImpl->DoSetUserPasswd(szUserName, szPassword);
 }
 
-NET_API BOOL STDCALL NET_SERVER_PushAlarmInfo(IN NET_Alarmer_S *pAlarmer,
+NET_TV_API BOOL STDCALL NET_TV_SERVER_PushAlarmInfo(IN NET_TV_ALARMER_S *pAlarmer,
                                                     IN INT32 lCommand,
                                                     IN LPVOID pAlarmInfo,
                                                     IN INT32 dwBufLen)
@@ -84,7 +84,75 @@ NET_API BOOL STDCALL NET_SERVER_PushAlarmInfo(IN NET_Alarmer_S *pAlarmer,
 	return g_pServerImpl->DoPushAlarmInfo(pAlarmer, lCommand, pAlarmInfo, dwBufLen);
 }
 
-NET_API BOOL STDCALL NET_SERVER_PushChannelStatusInfo(IN NET_ChannelInfo_S *pChannelInfo)
+NET_TV_API BOOL STDCALL NET_TV_SERVER_PushAlarmInfoV2(IN NET_TV_ALARMER_S *pAlarmer,
+                                                      IN INT32 lCommand,
+                                                      IN LPVOID pAlarmInfo,
+                                                      IN INT32 dwBufLen)
+{
+    if (!g_pServerImpl)
+    {
+        g_pServerImpl = std::make_unique<CNetTVSDKServerImpl>();
+    }
+    return g_pServerImpl->DoPushAlarmInfoV2(pAlarmer, lCommand, pAlarmInfo, dwBufLen);
+}
+
+NET_TV_API BOOL STDCALL NET_SERVER_PushFaceCaptureInfo(
+    IN NET_TV_ALARMER_S *pAlarmer,
+    IN NET_FaceCapturePushInfo_S *pCaptureInfo)
+{
+    if (!pAlarmer || !pCaptureInfo)
+    {
+        return FALSE;
+    }
+    return NET_TV_SERVER_PushAlarmInfo(pAlarmer,
+                                       NET_PUSH_FACE_CAPTURE_INFO,
+                                       pCaptureInfo,
+                                       (INT32)sizeof(*pCaptureInfo));
+}
+
+NET_TV_API BOOL STDCALL NET_SERVER_PushPersonCaptureInfo(
+    IN NET_TV_ALARMER_S *pAlarmer,
+    IN NET_PersonCapturePushInfo_S *pCaptureInfo)
+{
+    if (!pAlarmer || !pCaptureInfo)
+    {
+        return FALSE;
+    }
+    return NET_TV_SERVER_PushAlarmInfo(pAlarmer,
+                                       NET_PUSH_PERSON_CAPTURE_INFO,
+                                       pCaptureInfo,
+                                       (INT32)sizeof(*pCaptureInfo));
+}
+
+NET_TV_API BOOL STDCALL NET_SERVER_PushMotorvehicleCaptureInfo(
+    IN NET_TV_ALARMER_S *pAlarmer,
+    IN NET_MotorvehicleCapturePushInfo_S *pCaptureInfo)
+{
+    if (!pAlarmer || !pCaptureInfo)
+    {
+        return FALSE;
+    }
+    return NET_TV_SERVER_PushAlarmInfo(pAlarmer,
+                                       NET_PUSH_MOTORVEHICLE_CAPTURE_INFO,
+                                       pCaptureInfo,
+                                       (INT32)sizeof(*pCaptureInfo));
+}
+
+NET_TV_API BOOL STDCALL NET_SERVER_PushNonMotorvehicleCaptureInfo(
+    IN NET_TV_ALARMER_S *pAlarmer,
+    IN NET_NonMotorvehicleCapturePushInfo_S *pCaptureInfo)
+{
+    if (!pAlarmer || !pCaptureInfo)
+    {
+        return FALSE;
+    }
+    return NET_TV_SERVER_PushAlarmInfo(pAlarmer,
+                                       NET_PUSH_NONMOTORVEHICLE_CAPTURE_INFO,
+                                       pCaptureInfo,
+                                       (INT32)sizeof(*pCaptureInfo));
+}
+
+NET_TV_API BOOL STDCALL NET_TV_SERVER_PushChannelStatusInfo(IN NET_TV_CHANNEL_INFO_S *pChannelInfo)
 {
 	if (!g_pServerImpl)
 	{
@@ -93,9 +161,9 @@ NET_API BOOL STDCALL NET_SERVER_PushChannelStatusInfo(IN NET_ChannelInfo_S *pCha
 	return g_pServerImpl->DoPushChannelStatusInfo(pChannelInfo);
 }
 
-NET_API BOOL STDCALL
-NET_SERVER_RegisterCb_GetDiscoveryDeviceInfo(
-    IN NET_CB_GetDiscoveryDeviceInfo cbFunc)
+NET_TV_API BOOL STDCALL
+NET_TV_SERVER_RegisterCb_GetDiscoveryDeviceInfo(
+    IN NET_TV_CB_GetDiscoveryDeviceInfo cbFunc)
 {
 	if (!g_pServerImpl) {
 		g_pServerImpl = std::make_unique<CNetTVSDKServerImpl>();
@@ -103,8 +171,8 @@ NET_SERVER_RegisterCb_GetDiscoveryDeviceInfo(
 	return g_pServerImpl->DoRegisterCb_GetDiscoveryDeviceInfo(cbFunc);
 }
 
-NET_API BOOL STDCALL
-NET_SERVER_Discovery_Start(IN const CHAR* szInterfaceName)
+NET_TV_API BOOL STDCALL
+NET_TV_SERVER_Discovery_Start(IN const CHAR* szInterfaceName)
 {
 	if (!g_pServerImpl) {
 		g_pServerImpl = std::make_unique<CNetTVSDKServerImpl>();
@@ -112,8 +180,8 @@ NET_SERVER_Discovery_Start(IN const CHAR* szInterfaceName)
 	return g_pServerImpl->DoDiscoveryStart(szInterfaceName);
 }
 
-NET_API BOOL STDCALL
-NET_SERVER_Discovery_Stop(void)
+NET_TV_API BOOL STDCALL
+NET_TV_SERVER_Discovery_Stop(void)
 {
 	if (!g_pServerImpl) {
 		return FALSE;
@@ -123,45 +191,45 @@ NET_SERVER_Discovery_Stop(void)
 
 /* ==================== 语音对讲 VoiceCom (服务端) ==================== */
 
-NET_API BOOL STDCALL
-NET_SERVER_StartVoiceComServer(IN UINT32 dwPort)
+NET_TV_API BOOL STDCALL
+NET_TV_SERVER_StartVoiceComServer(IN UINT32 dwPort)
 {
-	return tvsdk::CVoiceComServer::instance()->start(static_cast<int>(dwPort)) ? TRUE : FALSE;
+	return tvsdk::VoiceComServer::instance()->start(static_cast<int>(dwPort)) ? TRUE : FALSE;
 }
 
-NET_API BOOL STDCALL
-NET_SERVER_StopVoiceComServer(void)
+NET_TV_API BOOL STDCALL
+NET_TV_SERVER_StopVoiceComServer(void)
 {
-	tvsdk::CVoiceComServer::instance()->stop();
+	tvsdk::VoiceComServer::instance()->stop();
 	return TRUE;
 }
 
-NET_API BOOL STDCALL
-NET_SERVER_RegisterCb_VoiceComPlay(IN NET_SERVER_VoiceComPlayCallBack cb)
+NET_TV_API BOOL STDCALL
+NET_TV_SERVER_RegisterCb_VoiceComPlay(IN NET_TV_SERVER_VoiceComPlayCallBack cb)
 {
 	if (!cb) {
-		tvsdk::CVoiceComServer::instance()->set_play_callback(nullptr);
+		tvsdk::VoiceComServer::instance()->set_play_callback(nullptr);
 		return TRUE;
 	}
 
-	tvsdk::CVoiceComServer::instance()->set_play_callback(
+	tvsdk::VoiceComServer::instance()->set_play_callback(
 		[cb](const char* data, size_t size) {
 			cb(data, static_cast<unsigned int>(size));
 		});
 	return TRUE;
 }
 
-NET_API BOOL STDCALL
-NET_SERVER_RegisterCb_VoiceComCapture(IN NET_SERVER_VoiceComCaptureCallBack cb,
+NET_TV_API BOOL STDCALL
+NET_TV_SERVER_RegisterCb_VoiceComCapture(IN NET_TV_SERVER_VoiceComCaptureCallBack cb,
 										 IN LPVOID lpUserData)
 {
 	if (!cb) {
-		tvsdk::CVoiceComServer::instance()->set_capture_callback(nullptr);
+		tvsdk::VoiceComServer::instance()->set_capture_callback(nullptr);
 		return TRUE;
 	}
 
-	tvsdk::CVoiceComServer::instance()->set_capture_callback(
-		[cb, lpUserData](const NET_VoiceComAudioParam_S& audioParam,
+	tvsdk::VoiceComServer::instance()->set_capture_callback(
+		[cb, lpUserData](const NET_TV_VOICECOM_AUDIO_PARAM_S& audioParam,
 						 char* buffer,
 						 size_t bufferSize) -> int {
 			return cb(&audioParam,
@@ -172,20 +240,20 @@ NET_SERVER_RegisterCb_VoiceComCapture(IN NET_SERVER_VoiceComCaptureCallBack cb,
 	return TRUE;
 }
 
-NET_API BOOL STDCALL
-NET_SERVER_SendVoiceComData(IN const CHAR* pData, IN UINT32 dwSize)
+NET_TV_API BOOL STDCALL
+NET_TV_SERVER_SendVoiceComData(IN const CHAR* pData, IN UINT32 dwSize)
 {
 	if (!pData || dwSize == 0) return FALSE;
 
-	return tvsdk::CVoiceComServer::instance()->send_to_client(pData, dwSize) ? TRUE : FALSE;
+	return tvsdk::VoiceComServer::instance()->send_to_client(pData, dwSize) ? TRUE : FALSE;
 }
 
-NET_API BOOL STDCALL
-NET_SERVER_GetVoiceComAudioParam(OUT pNET_VoiceComAudioParam_S pstAudioParam)
+NET_TV_API BOOL STDCALL
+NET_TV_SERVER_GetVoiceComAudioParam(OUT LPNET_TV_VOICECOM_AUDIO_PARAM_S pstAudioParam)
 {
 	if (!pstAudioParam) return FALSE;
 
-	return tvsdk::CVoiceComServer::instance()->get_audio_param(*pstAudioParam) ? TRUE : FALSE;
+	return tvsdk::VoiceComServer::instance()->get_audio_param(*pstAudioParam) ? TRUE : FALSE;
 }
 
 /* ==================== 录像帧流 RecordFrame (服务端) ==================== */
@@ -197,10 +265,10 @@ NET_SERVER_GetVoiceComAudioParam(OUT pNET_VoiceComAudioParam_S pstAudioParam)
  * @return TRUE 成功，FALSE 失败
  * @note 服务端必须先启动此服务，客户端才能建立TCP连接接收帧数据
  */
-NET_API BOOL STDCALL
-NET_SERVER_StartRecordFrameServer(IN UINT32 dwPort)
+NET_TV_API BOOL STDCALL
+NET_TV_SERVER_StartRecordFrameServer(IN UINT32 dwPort)
 {
-	return tvsdk::CRecordFrameServer::instance()->start(static_cast<int>(dwPort)) ? TRUE : FALSE;
+	return tvsdk::RecordFrameServer::instance()->start(static_cast<int>(dwPort)) ? TRUE : FALSE;
 }
 
 /**
@@ -208,10 +276,10 @@ NET_SERVER_StartRecordFrameServer(IN UINT32 dwPort)
  * @details 关闭监听socket，停止所有客户端连接，释放资源
  * @return TRUE 成功
  */
-NET_API BOOL STDCALL
-NET_SERVER_StopRecordFrameServer(void)
+NET_TV_API BOOL STDCALL
+NET_TV_SERVER_StopRecordFrameServer(void)
 {
-	tvsdk::CRecordFrameServer::instance()->stop();
+	tvsdk::RecordFrameServer::instance()->stop();
 	return TRUE;
 }
 
@@ -228,22 +296,22 @@ NET_SERVER_StopRecordFrameServer(void)
  *       3. 需要用Lambda做适配器，将C风格回调转换为C++风格回调
  *       4. cond参数做了拷贝（condCopy），因为C回调期望指针，防止引用失效
  */
-NET_API BOOL STDCALL
-NET_SERVER_RegisterCb_RecordFrameStart(IN NET_SERVER_RecordFrameStartCallBack cb,
+NET_TV_API BOOL STDCALL
+NET_TV_SERVER_RegisterCb_RecordFrameStart(IN NET_TV_SERVER_RecordFrameStartCallBack cb,
 										 IN LPVOID lpUserData)
 {
 	if (!cb) {
 		// 取消注册，设置为空回调
-		tvsdk::CRecordFrameServer::instance()->set_start_callback(nullptr);
+		tvsdk::RecordFrameServer::instance()->set_start_callback(nullptr);
 		return TRUE;
 	}
 
 	// 使用Lambda做适配器：C风格回调 → C++风格回调
-	tvsdk::CRecordFrameServer::instance()->set_start_callback(
-		[cb, lpUserData](const NET_RecordFrameStreamCond_S& cond,
-						 NET_RecordFrameStreamInfo_S& info) -> NET_COMMON_ECODE_E {
+	tvsdk::RecordFrameServer::instance()->set_start_callback(
+		[cb, lpUserData](const NET_TV_RECORD_FRAME_STREAM_COND_S& cond,
+						 NET_TV_RECORD_FRAME_STREAM_INFO_S& info) -> NET_TV_COMMON_ECODE_E {
 			// cond参数做拷贝，因为C回调期望指针，防止引用失效
-			NET_RecordFrameStreamCond_S condCopy = cond;
+			NET_TV_RECORD_FRAME_STREAM_COND_S condCopy = cond;
 			// 调用宿主注册的C风格回调，传入lpUserData
 			return cb(&condCopy, &info, lpUserData);
 		});
@@ -263,18 +331,18 @@ NET_SERVER_RegisterCb_RecordFrameStart(IN NET_SERVER_RecordFrameStartCallBack cb
  *       3. 需要做类型转换：std::string → const char*, size_t → UINT32
  *       4. Read回调会被持续循环调用，Lambda捕获保证cb和lpUserData不会失效
  */
-NET_API BOOL STDCALL
-NET_SERVER_RegisterCb_RecordFrameRead(IN NET_SERVER_RecordFrameReadCallBack cb,
+NET_TV_API BOOL STDCALL
+NET_TV_SERVER_RegisterCb_RecordFrameRead(IN NET_TV_SERVER_RecordFrameReadCallBack cb,
 										IN LPVOID lpUserData)
 {
 	if (!cb) {
-		tvsdk::CRecordFrameServer::instance()->set_read_callback(nullptr);
+		tvsdk::RecordFrameServer::instance()->set_read_callback(nullptr);
 		return TRUE;
 	}
 
-	tvsdk::CRecordFrameServer::instance()->set_read_callback(
+	tvsdk::RecordFrameServer::instance()->set_read_callback(
 		[cb, lpUserData](const std::string& streamId,
-						 NET_RecordFrameInfo_S& frameInfo,
+						 NET_TV_RECORD_FRAME_INFO_S& frameInfo,
 						 char* buffer,
 						 size_t bufferSize) -> int {
 			// 类型转换：std::string → const char*, size_t → UINT32
@@ -295,17 +363,17 @@ NET_SERVER_RegisterCb_RecordFrameRead(IN NET_SERVER_RecordFrameReadCallBack cb,
  *       2. C++回调参数：const std::string& streamId
  *       3. 需要做类型转换：std::string → const char*
  */
-NET_API BOOL STDCALL
-NET_SERVER_RegisterCb_RecordFrameStop(IN NET_SERVER_RecordFrameStopCallBack cb,
+NET_TV_API BOOL STDCALL
+NET_TV_SERVER_RegisterCb_RecordFrameStop(IN NET_TV_SERVER_RecordFrameStopCallBack cb,
 										IN LPVOID lpUserData)
 {
 	if (!cb) {
-		tvsdk::CRecordFrameServer::instance()->set_stop_callback(nullptr);
+		tvsdk::RecordFrameServer::instance()->set_stop_callback(nullptr);
 		return TRUE;
 	}
 
-	tvsdk::CRecordFrameServer::instance()->set_stop_callback(
-		[cb, lpUserData](const std::string& streamId) -> NET_COMMON_ECODE_E {
+	tvsdk::RecordFrameServer::instance()->set_stop_callback(
+		[cb, lpUserData](const std::string& streamId) -> NET_TV_COMMON_ECODE_E {
 			return cb(streamId.c_str(), lpUserData);
 		});
 	return TRUE;
