@@ -22,6 +22,47 @@
 
 namespace
 {
+bool normalize_cover_config(Osd::CoverConfig_S &stConfig)
+{
+    bool bChanged = false;
+    if (stConfig.vecCoverAttr.size() > MAX_OSD_COVER_NUM)
+    {
+        stConfig.vecCoverAttr.resize(MAX_OSD_COVER_NUM);
+        bChanged = true;
+    }
+
+    while (stConfig.vecCoverAttr.size() < MAX_OSD_COVER_NUM)
+    {
+        Osd::CoverAttribute_S stAttr;
+        stAttr.clear();
+        stAttr.nId = static_cast<int>(stConfig.vecCoverAttr.size()) + 1;
+        stAttr.strName += std::to_string(stAttr.nId);
+        stConfig.vecCoverAttr.push_back(stAttr);
+        bChanged = true;
+    }
+    return bChanged;
+}
+
+bool normalize_cover_info(std::vector<Osd::CoverInfo_S> &vecCoverInfo)
+{
+    bool bChanged = false;
+    if (vecCoverInfo.size() > MAX_OSD_COVER_NUM)
+    {
+        vecCoverInfo.resize(MAX_OSD_COVER_NUM);
+        bChanged = true;
+    }
+
+    while (vecCoverInfo.size() < MAX_OSD_COVER_NUM)
+    {
+        Osd::CoverInfo_S stCoverInfo;
+        stCoverInfo.clear();
+        stCoverInfo.stuInfo.nID = static_cast<int>(vecCoverInfo.size()) + 1;
+        vecCoverInfo.push_back(stCoverInfo);
+        bChanged = true;
+    }
+    return bChanged;
+}
+
 #if CAP_EXHIBITION_OSD_PANEL
 /* 展会面板专用 overlay 槽位下标。 */
 constexpr size_t EXHIBITION_PANEL_OVERPLAY_INDEX =  Osd::ElementType_E::ELEMENT_TYPE_MAC; //(ELEMENT_TYPE_MAC暂未使用，借用)
@@ -97,7 +138,14 @@ IpcRet_E COsdManage::init()
     if (Convert::read_file(m_strCoverConfigFile, m_stCoverConfig))
     {
         dlog_error("没有找到cover_config.json文件, 重新创建");
-        m_stCoverConfig.clear();
+        m_stCoverConfig.vecCoverAttr.clear();
+        m_stCoverConfig.bEnable = false;
+        normalize_cover_config(m_stCoverConfig);
+        Convert::write_file(m_strCoverConfigFile, m_stCoverConfig);
+    }
+    else if (normalize_cover_config(m_stCoverConfig))
+    {
+        /* 防止历史配置数量与 RK 绘制能力不一致。 */
         Convert::write_file(m_strCoverConfigFile, m_stCoverConfig);
     }
 
@@ -147,13 +195,13 @@ IpcRet_E COsdManage::init()
     if (Convert::read_file(m_strCoverFile, m_vecCoverInfo))
     {
         dlog_error("没有找到cover.json文件, 重新创建");
-        Osd::CoverInfo_S stCoverInfo;
-        stCoverInfo.clear();
-        for (size_t i = 0; i < MAX_OSD_COVER_NUM; i++)
-        {
-            stCoverInfo.stuInfo.nID = i + 1;
-            m_vecCoverInfo.push_back(stCoverInfo);
-        }
+        m_vecCoverInfo.clear();
+        normalize_cover_info(m_vecCoverInfo);
+        Convert::write_file(m_strCoverFile, m_vecCoverInfo);
+    }
+    else if (normalize_cover_info(m_vecCoverInfo))
+    {
+        /* 配置项数量必须与 RK 的四个绘制区域保持一致。 */
         Convert::write_file(m_strCoverFile, m_vecCoverInfo);
     }
 
@@ -393,12 +441,28 @@ IpcRet_E COsdManage::get_cover_config(Osd::CoverConfig_S &stInfo)
 {
     OS_mutexLock(&m_stuMutex);
     stInfo = m_stCoverConfig;
+    normalize_cover_config(stInfo);
     OS_mutexUnlock(&m_stuMutex);
     return OK;
 }
 
+std::size_t COsdManage::get_cover_max_area_count() const
+{
+    return MAX_OSD_COVER_NUM;
+}
+
 IpcRet_E COsdManage::set_cover_config(Osd::CoverConfig_S stInfo)
 {
+    if (stInfo.vecCoverAttr.size() > get_cover_max_area_count())
+    {
+        dlog_warn("隐私遮盖区域数超出平台能力, request:%zu, max:%zu",
+                  stInfo.vecCoverAttr.size(), get_cover_max_area_count());
+        return ERR_PARAM;
+    }
+
+    /* 禁用时允许省略区域数组，内部补齐为固定的四区域配置。 */
+    normalize_cover_config(stInfo);
+
     OS_mutexLock(&m_stuMutex);
 
     std::vector<Osd::CoverInfo_S> vecInfo;

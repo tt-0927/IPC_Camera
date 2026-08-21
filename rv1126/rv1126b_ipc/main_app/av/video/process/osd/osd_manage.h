@@ -13,6 +13,7 @@
 #pragma once
 
 #include <atomic>
+#include <cstddef>
 #include <cstdint>
 #include <iconv.h>
 #include <mutex>
@@ -115,6 +116,13 @@ public:
      * @return       {IpcRet_E}
      */
     IpcRet_E get_cover_config(Osd::CoverConfig_S &stInfo);
+
+    /**
+     * @brief 获取当前平台实际支持的隐私遮盖区域数量
+     *
+     * 网页、ONVIF 和 TVSDK 应以该数量收敛配置，避免返回底层无法渲染的区域。
+     */
+    std::size_t get_cover_max_area_count() const;
 
     /**
      * @brief   : 设置cover配置信息 

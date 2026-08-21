@@ -96,32 +96,19 @@ int COnvifFirmwareUpgradeServer::init()
                      }
 
                      Osd::CoverConfig_S stCoverConfig;
-                     Osd::CoverConfig_S stTmpCoverConfig;
                      Convert::to_struct(req.body, stCoverConfig);
 
-                     COsdManage::instance()->get_cover_config(stTmpCoverConfig);
-                     stTmpCoverConfig.bEnable = stCoverConfig.bEnable;
-                     /* 只允许设置一个遮盖区域 */
-                     for (size_t i = 0; i < stCoverConfig.vecCoverAttr.size(); i++)
+                     const size_t maxAreaCount = COsdManage::instance()->get_cover_max_area_count();
+                     if (stCoverConfig.vecCoverAttr.size() > maxAreaCount)
                      {
-                         if (i >= 1)
-                         {
-                             break;
-                         }
-                         dlog_debug("遮盖区域设置: 启用=%d, 坐标=(%d,%d), 宽=%d, 高=%d",
-                                    stCoverConfig.vecCoverAttr[i].bEnable,
-                                    stCoverConfig.vecCoverAttr[i].nX,
-                                    stCoverConfig.vecCoverAttr[i].nY,
-                                    stCoverConfig.vecCoverAttr[i].nWidth,
-                                    stCoverConfig.vecCoverAttr[i].nHeight);
-                         stTmpCoverConfig.vecCoverAttr[i].bEnable = stCoverConfig.vecCoverAttr[i].bEnable;
-                         stTmpCoverConfig.vecCoverAttr[i].nX = stCoverConfig.vecCoverAttr[i].nX;
-                         stTmpCoverConfig.vecCoverAttr[i].nY = stCoverConfig.vecCoverAttr[i].nY;
-                         stTmpCoverConfig.vecCoverAttr[i].nWidth = stCoverConfig.vecCoverAttr[i].nWidth;
-                         stTmpCoverConfig.vecCoverAttr[i].nHeight = stCoverConfig.vecCoverAttr[i].nHeight;
+                         dlog_warn("遮盖区域数超出平台能力, request:%zu, max:%zu",
+                                   stCoverConfig.vecCoverAttr.size(), maxAreaCount);
+                         res.status = 400;
+                         res.set_content("Cover area count exceeds platform capability", "text/plain");
+                         return;
                      }
 
-                     if (COsdManage::instance()->set_cover_config(stTmpCoverConfig) != 0)
+                     if (COsdManage::instance()->set_cover_config(stCoverConfig) != 0)
                      {
                          res.status = 500;
                          res.set_content("Failed to set cover config", "text/plain");

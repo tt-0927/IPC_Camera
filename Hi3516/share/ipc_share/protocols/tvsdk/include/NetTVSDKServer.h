@@ -3741,7 +3741,7 @@ typedef NET_PrivacyMaskArea_S* pNET_PrivacyMaskArea_S;
 typedef struct tagNET_PrivacyMaskCfg
 {
     BOOL        bEnable;                              /* 是否启用隐私遮盖 0-不启用 1-启用 */
-    INT32       uAreaCount;                          /* 遮盖区域数量 [0, NET_MAX_PRIVACY_MASK_AREA_NUM] */
+    INT32       uAreaCount;                          /* 遮盖区域数量；实际可用上限以 NET_GET_PRIVACYMASKCFG 查询结果为准 */
     NET_PrivacyMaskArea_S astArea[NET_MAX_PRIVACY_MASK_AREA_NUM]; /* 遮盖区域数组 */
     BYTE        byRes[256];                           /* 保留字段 */
 }NET_PrivacyMaskCfg_S;

@@ -539,12 +539,13 @@ void ToOsdConfig(const NET_VideoOsdCfg_S &src, Osd::OsdConfig_S &dst)
     dst.init_token();
 }
 
-void FillPrivacyMaskCfg(const Osd::CoverConfig_S &src, NET_PrivacyMaskCfg_S &dst)
+void FillPrivacyMaskCfg(const Osd::CoverConfig_S &src, std::size_t maxAreaCount, NET_PrivacyMaskCfg_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));
     dst.bEnable = src.bEnable ? TRUE : FALSE;
 
-    const size_t nCount = std::min(src.vecCoverAttr.size(), (size_t)NET_MAX_PRIVACY_MASK_AREA_NUM);
+    const size_t nSupportedCount = std::min(maxAreaCount, (size_t)NET_MAX_PRIVACY_MASK_AREA_NUM);
+    const size_t nCount = std::min(src.vecCoverAttr.size(), nSupportedCount);
     dst.uAreaCount = (INT32)nCount;
     for (size_t i = 0; i < nCount; ++i)
     {
@@ -560,13 +561,19 @@ void FillPrivacyMaskCfg(const Osd::CoverConfig_S &src, NET_PrivacyMaskCfg_S &dst
     }
 }
 
-void ToPrivacyMaskCfg(const NET_PrivacyMaskCfg_S &src, Osd::CoverConfig_S &dst)
+bool ToPrivacyMaskCfg(const NET_PrivacyMaskCfg_S &src, std::size_t maxAreaCount, Osd::CoverConfig_S &dst)
 {
+    const size_t nSupportedCount = std::min(maxAreaCount, (size_t)NET_MAX_PRIVACY_MASK_AREA_NUM);
+    if (src.uAreaCount < 0 || static_cast<size_t>(src.uAreaCount) > nSupportedCount)
+    {
+        return false;
+    }
+
     dst.clear();
     dst.bEnable = (src.bEnable == TRUE);
+    dst.vecCoverAttr.resize(nSupportedCount);
 
-    const size_t nMaxCount = std::min(dst.vecCoverAttr.size(), (size_t)NET_MAX_PRIVACY_MASK_AREA_NUM);
-    const size_t nCount = std::min<size_t>(std::max<INT32>(src.uAreaCount, 0), nMaxCount);
+    const size_t nCount = static_cast<size_t>(src.uAreaCount);
     for (size_t i = 0; i < nCount; ++i)
     {
         const NET_PrivacyMaskArea_S &srcArea = src.astArea[i];
@@ -582,6 +589,8 @@ void ToPrivacyMaskCfg(const NET_PrivacyMaskCfg_S &src, Osd::CoverConfig_S &dst)
         dstArea.nWidth = std::max(0, (int)(srcArea.nRectRight - srcArea.nRectLeft));
         dstArea.nHeight = std::max(0, (int)(srcArea.nRectBottom - srcArea.nRectTop));
     }
+
+    return true;
 }
 
 
