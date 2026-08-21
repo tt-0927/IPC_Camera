@@ -43,6 +43,19 @@ static NET_MotionAlarmInfo_S g_tvMotionAlarmInfo;
 static NET_TamperAlarmInfo_S g_tvTamperAlarmInfo;
 static NET_AudioAnomalyAlarmInfo_S g_tvAudioAnomalyAlarmInfo;
 
+/* 兼容不同 SDK 头文件中隐私遮盖区域计数字段的历史命名。 */
+template <typename T>
+auto get_privacy_mask_area_count(const T &stConfig, int) -> decltype(stConfig.uAreaCount)
+{
+    return stConfig.uAreaCount;
+}
+
+template <typename T>
+auto get_privacy_mask_area_count(const T &stConfig, long) -> decltype(stConfig.dwAreaCount)
+{
+    return stConfig.dwAreaCount;
+}
+
 static int execute_get_result(int actionCode, const std::string &inJson, std::string &outJson);
 
 static const char *kDefaultUpgradeDir = "/opt/course/";
@@ -1026,7 +1039,12 @@ static NET_COMMON_ECODE_E cb_get_privacy_mask_cfg(INT32 dwChannelID, LPVOID lpOu
     Osd::CoverConfig_S stCfg;
     stCfg.clear();
     Convert::to_struct(strJson, stCfg);
-    TvSdkConvert::FillPrivacyMaskCfg(stCfg, COsdManage::instance()->get_cover_max_area_count(), *pOut);
+    const size_t maxAreaCount = COsdManage::instance()->get_cover_max_area_count();
+    if (stCfg.vecCoverAttr.size() > maxAreaCount)
+    {
+        stCfg.vecCoverAttr.resize(maxAreaCount);
+    }
+    TvSdkConvert::FillPrivacyMaskCfg(stCfg, *pOut);
     return NET_E_SUCCEED;
 }
 static NET_COMMON_ECODE_E cb_set_privacy_mask_cfg(INT32 dwChannelID, LPVOID lpInBuffer)
@@ -1038,10 +1056,18 @@ static NET_COMMON_ECODE_E cb_set_privacy_mask_cfg(INT32 dwChannelID, LPVOID lpIn
     const NET_PrivacyMaskCfg_S *pIn = (const NET_PrivacyMaskCfg_S *)lpInBuffer;
     Osd::CoverConfig_S stCfg;
     const size_t maxAreaCount = COsdManage::instance()->get_cover_max_area_count();
-    if (!TvSdkConvert::ToPrivacyMaskCfg(*pIn, maxAreaCount, stCfg))
+    const long long nRequestedCount = static_cast<long long>(get_privacy_mask_area_count(*pIn, 0));
+    if (nRequestedCount < 0 || static_cast<size_t>(nRequestedCount) > maxAreaCount)
     {
-        dlog_warn("TVSDK隐私遮盖区域数非法, request:%d, max:%zu", pIn->uAreaCount, maxAreaCount);
+        dlog_warn("TVSDK隐私遮盖区域数非法, request:%lld, max:%zu", nRequestedCount, maxAreaCount);
         return NET_E_INVALID_PARAM;
+    }
+
+    TvSdkConvert::ToPrivacyMaskCfg(*pIn, stCfg);
+    /* 转换层沿用共享结构体的默认槽位，此处按实际平台能力裁剪。 */
+    if (stCfg.vecCoverAttr.size() > maxAreaCount)
+    {
+        stCfg.vecCoverAttr.resize(maxAreaCount);
     }
 
     Task::Info_S stInfo;
