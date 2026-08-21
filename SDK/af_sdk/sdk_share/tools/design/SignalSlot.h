@@ -1,16 +1,3 @@
-/**
- * @file SignalSlot.h
- * @author tianl (tianl@kfb.cn)
- * @date 2026-07-28
- * @LastEditors  : qinjt@kfb.cn
- * @LastEditTime : 2026-07-28
- *
- * @brief SignalSlot 模块接口与类型定义
- * 功能说明：
- * 1. 声明 SignalSlot 模块对外接口和数据类型
- * 2. 定义模块依赖的常量、回调或辅助类型
- * 3. 为调用方提供明确且稳定的编译期契约
- */
 /*
  * @FilePath     : SignalSlot.h
  * @Author       : 严泽辉 yanzeh@kfb.cn
@@ -19,8 +6,8 @@
  * @LastEditTime : 2024-08-07 09:32:54
  * @Description  :
  */
-#ifndef NETSDK_SIGNAL_SLOT_H
-#define NETSDK_SIGNAL_SLOT_H
+#ifndef _SIGNAL_SLOT_H_
+#define _SIGNAL_SLOT_H_
 
 #include <memory>
 #include <mutex>
@@ -32,18 +19,18 @@ template<typename T, typename... Args>
 using signal_function = void (T::*)(Args...);
 
 template<typename... Args>
-struct CTanSlotBase_S
+struct TanSlotBase
 {
     virtual void run(Args...)                  = 0;
     virtual bool contextMatches(void* context) = 0;
 };
 
 template<typename T, typename... Args>
-class CTanSlot : public CTanSlotBase_S<Args...>
+class TanSlot : public TanSlotBase<Args...>
 {
 public:
 
-    CTanSlot(T* class_ptr, signal_function<T, Args...> slot_func_ptr)
+    TanSlot(T* class_ptr, signal_function<T, Args...> slot_func_ptr)
         : class_ptr(class_ptr), slot_func_ptr(slot_func_ptr) {}
 
     bool operator==(T* ptr)
@@ -75,33 +62,27 @@ private:
 };
 
 template< typename... Args>
-class CTanSignal
+class TanSignal
 {
 public:
 
     using slot_func = void (*)(Args...);
 
-    CTanSignal()
+    TanSignal()
     {
-        m_aSlots.clear();
+        m_slots.clear();
     }
 
 public:
 
-    std::vector<std::shared_ptr<CTanSlotBase_S<Args...>>> m_aSlots;
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 emit 定义的内联处理。
- * @param [in] args 函数处理参数。
- * @return 无返回值。
- */
+    std::vector<std::shared_ptr<TanSlotBase<Args...>>> m_slots;
 
     void emit(Args... args)
     {
         /* 自动锁定互斥锁 */
         std::unique_lock<std::mutex> lock(gs_mutex);
 
-        for (auto slot : m_aSlots)
+        for (auto slot : m_slots)
         {
             if (slot)
             {
@@ -109,22 +90,16 @@ public:
             }
         }
     }
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 size 定义的内联处理。
- * @return 返回该处理的状态或结果。
- */
 
     int size()
     {
         /* 自动锁定互斥锁 */
         std::unique_lock<std::mutex> lock(gs_mutex);
-        return m_aSlots.size();
+        return m_slots.size();
     }
 };
 
 /**
- * @author tianl (tianl@kfb.cn)
  * @brief 连接信号
  * @param [SIGNAL*] signal: 信号函数指针
  * @param [CONTEXT*] context: 槽所在的指针
@@ -134,15 +109,6 @@ public:
  * @note
  */
 template<typename SIGNAL, typename CONTEXT, typename... Args>
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 connect 定义的内联处理。
- * @param [in,out] signal 函数处理参数。
- * @param [in,out] context 函数处理参数。
- * @param [in] slot 函数处理参数。
- * @param [in] true 函数处理参数。
- * @return 无返回值。
- */
 void connect(SIGNAL* signal, CONTEXT* context, signal_function<CONTEXT, Args...> slot, bool allow_duplicates = true)
 {
     if (!signal || !context)
@@ -155,36 +121,28 @@ void connect(SIGNAL* signal, CONTEXT* context, signal_function<CONTEXT, Args...>
 
     if (!allow_duplicates)
     {
-        int nSlotsNum = signal->m_aSlots.size();
+        int nSlotsNum = signal->m_slots.size();
         if (nSlotsNum > 0)
         {
-            auto slots = signal->m_aSlots;
+            auto slots = signal->m_slots;
 
             for (const auto& existing_slot : slots)
             {
                 if (existing_slot)
                 {
-                    CTanSlot<CONTEXT, Args...>* p_slot = dynamic_cast<CTanSlot<CONTEXT, Args...>*>(existing_slot.get());
+                    TanSlot<CONTEXT, Args...>* p_slot = dynamic_cast<TanSlot<CONTEXT, Args...>*>(existing_slot.get());
                     if (p_slot && *p_slot == context && *p_slot == slot)
                     {
-                        return;    /* Duplicate connection, return without adding */
+                        return;    // Duplicate connection, return without adding
                     }
                 }
             }
         }
     }
-    signal->m_aSlots.push_back(std::make_shared<CTanSlot<CONTEXT, Args...>>(context, slot));
+    signal->m_slots.push_back(std::make_shared<TanSlot<CONTEXT, Args...>>(context, slot));
 }
 
 template<typename SIGNAL, typename CONTEXT, typename... Args>
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 disconnect 定义的内联处理。
- * @param [in,out] signal 函数处理参数。
- * @param [in,out] context 函数处理参数。
- * @param [in] slot 函数处理参数。
- * @return 无返回值。
- */
 void disconnect(SIGNAL* signal, CONTEXT* context, signal_function<CONTEXT, Args...> slot)
 {
     if (!signal || !context)
@@ -195,12 +153,12 @@ void disconnect(SIGNAL* signal, CONTEXT* context, signal_function<CONTEXT, Args.
     /* 自动锁定互斥锁 */
     std::unique_lock<std::mutex> lock(gs_mutex);
 
-    for (auto iter = signal->m_aSlots.begin(); iter != signal->m_aSlots.end();)
+    for (auto iter = signal->m_slots.begin(); iter != signal->m_slots.end();)
     {
-        CTanSlot<CONTEXT, Args...>* p_slot = dynamic_cast<CTanSlot<CONTEXT, Args...>*>(iter->get());
+        TanSlot<CONTEXT, Args...>* p_slot = dynamic_cast<TanSlot<CONTEXT, Args...>*>(iter->get());
         if (p_slot && *p_slot == context && *p_slot == slot)
         {
-            iter = signal->m_aSlots.erase(iter);
+            iter = signal->m_slots.erase(iter);
         }
         else
         {
@@ -209,15 +167,8 @@ void disconnect(SIGNAL* signal, CONTEXT* context, signal_function<CONTEXT, Args.
     }
 }
 
-/* Disconnect all slots from a specific context */
+// Disconnect all slots from a specific context
 template<typename SIGNAL, typename CONTEXT>
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 disconnect 定义的内联处理。
- * @param [in,out] signal 函数处理参数。
- * @param [in,out] context 函数处理参数。
- * @return 无返回值。
- */
 void disconnect(SIGNAL* signal, CONTEXT* context)
 {
     if (!signal || !context)
@@ -228,11 +179,11 @@ void disconnect(SIGNAL* signal, CONTEXT* context)
     /* 自动锁定互斥锁 */
     std::unique_lock<std::mutex> lock(gs_mutex);
 
-    for (auto iter = signal->m_aSlots.begin(); iter != signal->m_aSlots.end();)
+    for (auto iter = signal->m_slots.begin(); iter != signal->m_slots.end();)
     {
         if ((*iter)->contextMatches(context))
         {
-            iter = signal->m_aSlots.erase(iter);
+            iter = signal->m_slots.erase(iter);
         }
         else
         {
@@ -241,14 +192,8 @@ void disconnect(SIGNAL* signal, CONTEXT* context)
     }
 }
 
-/* Disconnect all slots from a specific signal */
+// Disconnect all slots from a specific signal
 template<typename SIGNAL>
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 disconnect 定义的内联处理。
- * @param [in,out] signal 函数处理参数。
- * @return 无返回值。
- */
 void disconnect(SIGNAL* signal)
 {
     if (!signal)
@@ -259,7 +204,7 @@ void disconnect(SIGNAL* signal)
     /* 自动锁定互斥锁 */
     std::unique_lock<std::mutex> lock(gs_mutex);
 
-    signal->m_aSlots.clear();
+    signal->m_slots.clear();
 }
 
 #endif
