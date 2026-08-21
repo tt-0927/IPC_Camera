@@ -1,7 +1,5 @@
 #pragma once
 
-#include <cstddef>
-
 #include "system_define.h"
 #include "video_define.h"
 #include "network_define.h"
@@ -40,8 +38,8 @@ void FillVideoEncodeOption(const Video_NS::VideoConfig_S &src, NET_VideoEncodeOp
 void ToVideoConfig(const NET_VideoEncodeOption_S &src, Video_NS::VideoConfig_S &dst);
 void FillOsdConfig(const Osd::OsdConfig_S &src, NET_VideoOsdCfg_S &dst);
 void ToOsdConfig(const NET_VideoOsdCfg_S &src, Osd::OsdConfig_S &dst);
-void FillPrivacyMaskCfg(const Osd::CoverConfig_S &src, std::size_t maxAreaCount, NET_PrivacyMaskCfg_S &dst);
-bool ToPrivacyMaskCfg(const NET_PrivacyMaskCfg_S &src, std::size_t maxAreaCount, Osd::CoverConfig_S &dst);
+void FillPrivacyMaskCfg(const Osd::CoverConfig_S &src, NET_PrivacyMaskCfg_S &dst);
+void ToPrivacyMaskCfg(const NET_PrivacyMaskCfg_S &src, Osd::CoverConfig_S &dst);
 
 void ToUpgradeInfo(const NET_UpgradeInfo_S &src, ::System::UpgradeInfo_S &dst);
 void FillUpgradeStatus(const ::System::UpgradeStatus_S &src, NET_UpgradeStatus_S &dst);
