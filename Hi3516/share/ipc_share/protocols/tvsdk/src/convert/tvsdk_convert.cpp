@@ -15,36 +15,6 @@
 #include "dlog.h"
 namespace TvSdkConvert
 {
-namespace
-{
-/* 兼容不同 SDK 头文件中隐私遮盖区域计数字段的历史命名。 */
-template <typename T>
-auto get_privacy_mask_area_count(const T &stConfig, int) -> decltype(stConfig.uAreaCount)
-{
-    return stConfig.uAreaCount;
-}
-
-template <typename T>
-auto get_privacy_mask_area_count(const T &stConfig, long) -> decltype(stConfig.dwAreaCount)
-{
-    return stConfig.dwAreaCount;
-}
-
-template <typename T>
-auto set_privacy_mask_area_count(T &stConfig, INT32 nAreaCount, int)
-    -> decltype(stConfig.uAreaCount = nAreaCount, void())
-{
-    stConfig.uAreaCount = nAreaCount;
-}
-
-template <typename T>
-auto set_privacy_mask_area_count(T &stConfig, INT32 nAreaCount, long)
-    -> decltype(stConfig.dwAreaCount = nAreaCount, void())
-{
-    stConfig.dwAreaCount = nAreaCount;
-}
-}
-
 static constexpr size_t kOsdCustomSlotCount = 4;
 
 static bool HasCustomOsdPayload(const Osd::OsdInfo_S &info)
@@ -569,13 +539,14 @@ void ToOsdConfig(const NET_VideoOsdCfg_S &src, Osd::OsdConfig_S &dst)
     dst.init_token();
 }
 
-void FillPrivacyMaskCfg(const Osd::CoverConfig_S &src, NET_PrivacyMaskCfg_S &dst)
+void FillPrivacyMaskCfg(const Osd::CoverConfig_S &src, std::size_t maxAreaCount, NET_PrivacyMaskCfg_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));
     dst.bEnable = src.bEnable ? TRUE : FALSE;
 
-    const size_t nCount = std::min(src.vecCoverAttr.size(), (size_t)NET_MAX_PRIVACY_MASK_AREA_NUM);
-    set_privacy_mask_area_count(dst, static_cast<INT32>(nCount), 0);
+    const size_t nSupportedCount = std::min(maxAreaCount, (size_t)NET_MAX_PRIVACY_MASK_AREA_NUM);
+    const size_t nCount = std::min(src.vecCoverAttr.size(), nSupportedCount);
+    dst.uAreaCount = (INT32)nCount;
     for (size_t i = 0; i < nCount; ++i)
     {
         const Osd::CoverAttribute_S &srcArea = src.vecCoverAttr[i];
@@ -590,16 +561,19 @@ void FillPrivacyMaskCfg(const Osd::CoverConfig_S &src, NET_PrivacyMaskCfg_S &dst
     }
 }
 
-void ToPrivacyMaskCfg(const NET_PrivacyMaskCfg_S &src, Osd::CoverConfig_S &dst)
+bool ToPrivacyMaskCfg(const NET_PrivacyMaskCfg_S &src, std::size_t maxAreaCount, Osd::CoverConfig_S &dst)
 {
+    const size_t nSupportedCount = std::min(maxAreaCount, (size_t)NET_MAX_PRIVACY_MASK_AREA_NUM);
+    if (src.uAreaCount < 0 || static_cast<size_t>(src.uAreaCount) > nSupportedCount)
+    {
+        return false;
+    }
+
     dst.clear();
     dst.bEnable = (src.bEnable == TRUE);
+    dst.vecCoverAttr.resize(nSupportedCount);
 
-    const long long nRequestedCount = static_cast<long long>(get_privacy_mask_area_count(src, 0));
-    const size_t nMaxCount = std::min(dst.vecCoverAttr.size(), (size_t)NET_MAX_PRIVACY_MASK_AREA_NUM);
-    const size_t nCount = (nRequestedCount > 0)
-        ? std::min(static_cast<size_t>(nRequestedCount), nMaxCount)
-        : 0;
+    const size_t nCount = static_cast<size_t>(src.uAreaCount);
     for (size_t i = 0; i < nCount; ++i)
     {
         const NET_PrivacyMaskArea_S &srcArea = src.astArea[i];
@@ -616,6 +590,7 @@ void ToPrivacyMaskCfg(const NET_PrivacyMaskCfg_S &src, Osd::CoverConfig_S &dst)
         dstArea.nHeight = std::max(0, (int)(srcArea.nRectBottom - srcArea.nRectTop));
     }
 
+    return true;
 }
 
 
