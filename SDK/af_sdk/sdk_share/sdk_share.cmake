@@ -4,6 +4,9 @@
 # 源文件目录
 set(SDK_SHARE_PATH
     ${CMAKE_CURRENT_LIST_DIR}/tools/convert
+    ${CMAKE_CURRENT_LIST_DIR}/tools/convert/Common
+    ${CMAKE_CURRENT_LIST_DIR}/tools/convert/BG6_ZHSJ/BU_SJGZ
+    ${CMAKE_CURRENT_LIST_DIR}/tools/convert/BG6_ZHSJ/BU_SJCL
     ${CMAKE_CURRENT_LIST_DIR}/tools/log/sdk
     ${CMAKE_CURRENT_LIST_DIR}/tools/json
     ${CMAKE_CURRENT_LIST_DIR}/tools/discovery

@@ -5,12 +5,10 @@
  * @brief SDK服务端接口头文件，定义服务端初始化、配置回调注册、设备发现、语音对讲、录像帧流等核心接口
  * @note 服务端接口采用C风格API，供宿主程序（如NVR、IPC）调用，用于注册回调和推送消息
  */
-#ifndef _NET_TV_SDKSERVER_INTERFACE_H
-#define _NET_TV_SDKSERVER_INTERFACE_H
+#ifndef _NET_SDKSERVER_INTERFACE_H
+#define _NET_SDKSERVER_INTERFACE_H
 
-#ifdef NET_TV_SDK_SERVER_API
-    #include "NetTVSDKServer.h"
-#else
+
 
 #include "NetTVSDKCommon.h"
 
@@ -26,42 +24,43 @@ extern "C" {
  * @param [IN] dwPort 服务器端口号
  * @param [IN] szUserName 用户名
  * @param [IN] szPassword 密码
+ * @param [IN] szDeviceName 设备名称（响应JSON中device_name字段值）
  * @return TRUE表示成功,其他表示失败 TRUE means success, and any other value means failure.
  * @note
  */
-NET_TV_API BOOL STDCALL NET_TV_SERVER_Init(IN UINT32 udwPort,IN CHAR szUserName[NET_TV_LEN_132],IN CHAR szPassword[NET_TV_LEN_132]);
+NET_API BOOL STDCALL NET_serverInit(IN UINT32 udwPort,IN CHAR szUserName[NET_LEN_132],IN CHAR szPassword[NET_LEN_132],IN CHAR szDeviceName[NET_LEN_132]);
 
 /**
 * SDK 清理  SDK cleaning
 * @return TRUE表示成功,其他表示失败 TRUE means success, and any other value means failure.
 * @note
 */
-NET_TV_API BOOL STDCALL NET_TV_SERVER_Cleanup(void);
+NET_API BOOL STDCALL NET_serverCleanup(void);
 
 /**
  * @brief 设置日志
- * @param [IN] dwLogLevel   日志的等级（默认为0）：0-表示关闭日志，1-表示只输出ERROR错误日志，2-输出ERROR错误信息和DEBUG调试信息，3-输出ERROR错误信息、DEBUG调试信息和INFO普通信息等所有信息 
+ * @param [IN] dwLogLevel   日志的等级（默认为0）：0-表示关闭日志，1-表示只输出ERROR错误日志，2-输出ERROR错误信息和DEBUG调试信息，3-输出ERROR错误信息、DEBUG调试信息和INFO普通信息等所有信息
  * @param [IN] strLogDir    日志路径
- * @param [IN] dwLogFileSize 日志文件大小(单位：字节)
+ * @param [IN] nLogFileSize 日志文件大小(单位：字节)
  * @param [IN] dwLogFileNum 日志文件个数
  * @return TRUE表示成功,其他表示失败 TRUE means success, and any other value means failure.
  */
-NET_TV_API BOOL STDCALL NET_TV_SERVER_SetLogToFile(IN INT32 dwLogLevel,IN CHAR  *strLogDir,IN INT32 dwLogFileSize,IN INT32 dwLogFileNum);
+NET_API BOOL STDCALL NET_serverSetLogToFile(IN INT32 dwLogLevel,IN CHAR  *strLogDir,IN INT32 nLogFileSize,IN INT32 dwLogFileNum);
 
 /**
-* 获取SDK的版本信息 Get SDK version information 
+* 获取SDK的版本信息 Get SDK version information
 * @return SDK版本信息 SDK version information
 * @note
 * - 在两个高字节中高8位表示主版本,低八位表示次版本.两个低字节表示附加版本号如0x01080000：表示版本为1.8.0.0.
 * - The two high bytes,The high-8-bit indicate the major version, and the low-8-bytes indicate the minor version.Two low bytes for additional version numbers For example, 0x01080000 means version 1.8.0.0
 */
-NET_TV_API INT32 STDCALL NET_TV_SERVER_GetSDKVersion(void);
+NET_API INT32 STDCALL NET_serverGetSdkVersion(void);
 
 /**
  * @brief 获取当前在线客户端数量（活跃会话数）
  * @return 客户端数量
  */
-NET_TV_API INT32 STDCALL NET_TV_SERVER_GetClientCount(void);
+NET_API INT32 STDCALL NET_serverGetClientCount(void);
 
 /**
  * @brief 设置用户名密码
@@ -69,7 +68,7 @@ NET_TV_API INT32 STDCALL NET_TV_SERVER_GetClientCount(void);
  * @param [IN] szPassword 密码
  * @return TRUE表示成功,其他表示失败 TRUE means success, and any other value means failure.
  */
-NET_TV_API BOOL STDCALL NET_TV_SERVER_SetUserPasswd(IN CHAR szUserName[NET_TV_LEN_132],IN CHAR szPassword[NET_TV_LEN_132]);
+NET_API BOOL STDCALL NET_serverSetUserPassword(IN CHAR szUserName[NET_LEN_132],IN CHAR szPassword[NET_LEN_132]);
 
 /**
  * @brief 推送告警信息
@@ -79,157 +78,150 @@ NET_TV_API BOOL STDCALL NET_TV_SERVER_SetUserPasswd(IN CHAR szUserName[NET_TV_LE
  * @param [IN] dwBufLen    pAlarmInfo 长度（一般为 sizeof(对应结构体)）
  * @return TRUE表示成功,其他表示失败 TRUE means success, and any other value means failure.
  */
-NET_TV_API BOOL STDCALL NET_TV_SERVER_PushAlarmInfo(IN NET_TV_ALARMER_S *pAlarmer,
+NET_API BOOL STDCALL NET_serverPushAlarmInfo(IN NET_Alarmer_S *pAlarmer,
                                                     IN INT32 lCommand,
                                                     IN LPVOID pAlarmInfo,
                                                     IN INT32 dwBufLen);
-
-/**
- * @brief 推送动态图片 V2 告警。
- * @note pAlarmInfo 指向 NET_TV_ALARM_xxx_INFO_V2_S。图片指针仅需在本函数返回前有效。
- *       网络协议仍使用 Base64 JSON，因此不会向 NVR 暴露设备端地址。
- */
-NET_TV_API BOOL STDCALL NET_TV_SERVER_PushAlarmInfoV2(IN NET_TV_ALARMER_S *pAlarmer,
-                                                      IN INT32 lCommand,
-                                                      IN LPVOID pAlarmInfo,
-                                                      IN INT32 dwBufLen);
-
-/**
- * @brief 推送人脸抓拍信息。
- * @author ITC
- * @param [in] pAlarmer 告警设备信息。
- * @param [in] pCaptureInfo 人脸抓拍信息。
- * @return TRUE 表示推送请求已提交，FALSE 表示参数或服务状态异常。
- */
-NET_TV_API BOOL STDCALL NET_SERVER_PushFaceCaptureInfo(
-    IN NET_TV_ALARMER_S *pAlarmer,
-    IN NET_FaceCapturePushInfo_S *pCaptureInfo);
-
-/**
- * @brief 推送行人抓拍信息。
- * @author ITC
- * @param [in] pAlarmer 告警设备信息。
- * @param [in] pCaptureInfo 行人抓拍信息。
- * @return TRUE 表示推送请求已提交，FALSE 表示参数或服务状态异常。
- */
-NET_TV_API BOOL STDCALL NET_SERVER_PushPersonCaptureInfo(
-    IN NET_TV_ALARMER_S *pAlarmer,
-    IN NET_PersonCapturePushInfo_S *pCaptureInfo);
-
-/**
- * @brief 推送机动车抓拍信息。
- * @author ITC
- * @param [in] pAlarmer 告警设备信息。
- * @param [in] pCaptureInfo 机动车抓拍信息。
- * @return TRUE 表示推送请求已提交，FALSE 表示参数或服务状态异常。
- */
-NET_TV_API BOOL STDCALL NET_SERVER_PushMotorvehicleCaptureInfo(
-    IN NET_TV_ALARMER_S *pAlarmer,
-    IN NET_MotorvehicleCapturePushInfo_S *pCaptureInfo);
-
-/**
- * @brief 推送非机动车抓拍信息。
- * @author ITC
- * @param [in] pAlarmer 告警设备信息。
- * @param [in] pCaptureInfo 非机动车抓拍信息。
- * @return TRUE 表示推送请求已提交，FALSE 表示参数或服务状态异常。
- */
-NET_TV_API BOOL STDCALL NET_SERVER_PushNonMotorvehicleCaptureInfo(
-    IN NET_TV_ALARMER_S *pAlarmer,
-    IN NET_NonMotorvehicleCapturePushInfo_S *pCaptureInfo);
 
 /**
  * @brief 推送通道上下线状态
  * @param [IN] pChannelInfo 通道信息，byOnline/nDevState 表示当前状态
  * @return TRUE表示成功,其他表示失败 TRUE means success, and any other value means failure.
  */
-NET_TV_API BOOL STDCALL NET_TV_SERVER_PushChannelStatusInfo(IN NET_TV_CHANNEL_INFO_S *pChannelInfo);
+NET_API BOOL STDCALL NET_serverPushChannelStatusInfo(IN NET_ChannelInfo_S *pChannelInfo);
 
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetDeviceInfo(NET_TV_COMMON_ECODE_E (*CB)(LPNET_TV_DEVICE_INFO_S pInfo));
+/* 注册设备信息获取回调（NVR规模/能力数量：通道数/报警端口数等，BG6_ZHSJ/BU_SJCL专用） */
+NET_API BOOL STDCALL NET_serverRegisterGetDeviceInfoCb(NET_COMMON_ECODE_E (*CB)(pNET_DeviceInfo_S pInfo));
+
+/**
+ * @brief 设备基本信息回调类型（通用身份信息：型号/序列号/固件/MAC等）
+ * @note  NET_DeviceBasicInfo_S 为通用设备身份属性，收口于通用设备回调
+ * @param [OUT] pInfo 设备基本信息结构体指针，由回调填充
+ * @return NET_E_SUCCEED 成功，其他值失败
+ */
+typedef NET_COMMON_ECODE_E (*NET_CB_GetDeviceBasicInfo)(pNET_DeviceBasicInfo_S pInfo);
+
+/**
+ * @brief 注册获取设备基本信息回调 (NET_GET_DEVICECFG)
+ * @param [IN] pCb 回调函数指针
+ * @return TRUE表示成功,其他表示失败
+ */
+NET_API BOOL STDCALL NET_serverRegisterGetDeviceBasicInfoCb(NET_CB_GetDeviceBasicInfo pCb);
+
+/**
+ * @brief 设置设备基本信息回调类型（仅设备名strDeviceName可写，其余字段只读）
+ * @note  身份字段(序列号/固件/MAC/型号/厂商)只读，宿主回调应仅应用strDeviceName
+ * @param [IN] pInfo 设备基本信息结构体指针，含待设置字段
+ * @return NET_E_SUCCEED 成功，其他值失败
+ */
+typedef NET_COMMON_ECODE_E (*NET_CB_SetDeviceBasicInfo)(pNET_DeviceBasicInfo_S pInfo);
+
+/**
+ * @brief 注册设置设备基本信息回调 (NET_SET_DEVICECFG)
+ * @param [IN] pCb 回调函数指针
+ * @return TRUE表示成功,其他表示失败
+ */
+NET_API BOOL STDCALL NET_serverRegisterSetDeviceBasicInfoCb(NET_CB_SetDeviceBasicInfo pCb);
+
+/**
+ * @brief 设备存储信息回调类型（NVR/录播等有硬盘的设备专用）
+ * @param [OUT] pInfo 设备存储信息结构体指针，由回调函数填充
+ * @return NET_E_SUCCEED 成功，NET_E_NOT_SUPPORT 表示设备无存储，其他值失败
+ */
+typedef NET_COMMON_ECODE_E (*NET_CB_GetDeviceStorageInfo)(pNET_DeviceStorageInfo_S pInfo);
+
+/**
+ * @brief 注册获取设备存储信息回调 (NET_GET_STORAGE_INFO)
+ * @details 只有具备存储能力的设备才需要注册此回调。
+ *          编码器、矩阵等无存储设备不注册即可，SDK 返回 NET_E_NOT_SUPPORT。
+ * @param [IN] pCb 回调函数指针
+ * @return TRUE表示成功,其他表示失败
+ */
+NET_API BOOL STDCALL NET_serverRegisterGetDeviceStorageInfoCb(NET_CB_GetDeviceStorageInfo pCb);
 
 /**
  * @brief 设备控制回调类型
- * @param [IN] pstCtrlInfo 设备硬件控制参数，参见 NET_TV_DEVICE_CONTROL_INFO_S
- * @return NET_TV_E_SUCCEED 成功，其他值失败
+ * @param [IN] pstCtrlInfo 设备硬件控制参数，参见 NET_DeviceControlInfo_S
+ * @return NET_E_SUCCEED 成功，其他值失败
  */
-typedef NET_TV_COMMON_ECODE_E (*NET_TV_CB_DeviceControl)(LPNET_TV_DEVICE_CONTROL_INFO_S pstCtrlInfo);
+typedef NET_COMMON_ECODE_E (*NET_CB_DeviceControl)(pNET_DeviceControlInfo_S pstCtrlInfo);
 
 /**
  * @brief 注册设备控制回调
  * @param [IN] pCb 回调函数指针
  * @return TRUE表示成功,其他表示失败
  */
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_DeviceControl(NET_TV_CB_DeviceControl pCb);
+NET_API BOOL STDCALL NET_serverRegisterDeviceControlCb(NET_CB_DeviceControl pCb);
 
 /**
  * @brief 修改用户密码回调类型
  * @param [IN] pPasswordInfo 修改密码参数，包含用户名、旧密码、新密码
- * @return NET_TV_E_SUCCEED 成功，其他值失败
+ * @return NET_E_SUCCEED 成功，其他值失败
  */
-typedef NET_TV_COMMON_ECODE_E (*NET_TV_CB_SetUserPassword)(LPNET_TV_USER_PASSWORD_INFO_S pPasswordInfo);
+typedef NET_COMMON_ECODE_E (*NET_CB_SetUserPassword)(pNET_UserPasswordInfo_S pPasswordInfo);
 
 /**
  * @brief 注册修改用户密码回调
  * @param [IN] pCb 回调函数指针
  * @return TRUE表示成功,其他表示失败
  */
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetUserPassword(NET_TV_CB_SetUserPassword pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetUserPasswordCb(NET_CB_SetUserPassword pCb);
 
 /**
- * @brief 视频编码能力集回调类型 (NET_TV_CAP_VIDEO_ENCODE)
+ * @brief 视频编码能力集回调类型 (NET_CAP_VIDEO_ENCODE)
  * @param [IN]  dwChannelID  通道号
  * @param [OUT] pCap         视频编码能力集结构体指针(多码流)
- * @return NET_TV_E_SUCCEED 成功, 其他值失败
+ * @return NET_E_SUCCEED 成功, 其他值失败
  */
-typedef NET_TV_COMMON_ECODE_E (*NET_TV_CB_GetVideoEncodeCap)(INT32 dwChannelID, 
-                                                             LPNET_TV_VIDEO_ENCODE_CAP_S pCap);
+typedef NET_COMMON_ECODE_E (*NET_CB_GetVideoEncodeCap)(INT32 dwChannelID,
+                                                             pNET_VideoEncodeCap_S pCap);
 
 /**
  * @brief 注册视频编码能力集回调
  * @param [IN] pCb 回调函数指针
  * @return TRUE表示成功,其他表示失败
  */
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetVideoEncodeCap(NET_TV_CB_GetVideoEncodeCap pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetVideoEncodeCapCb(NET_CB_GetVideoEncodeCap pCb);
 
 /**
- * @brief 音频编码能力集回调类型 (NET_TV_CAP_AUDIO)
+ * @brief 音频编码能力集回调类型 (NET_CAP_AUDIO)
  * @param [IN]  dwChannelID  通道号
  * @param [OUT] pCap         音频编码能力集结构体指针
- * @return NET_TV_E_SUCCEED 成功, 其他值失败
+ * @return NET_E_SUCCEED 成功, 其他值失败
  */
-typedef NET_TV_COMMON_ECODE_E (*NET_TV_CB_GetAudioEncodeCap)(INT32 dwChannelID, 
-                                                             LPNET_TV_AUDIO_CAP_S pCap);
+typedef NET_COMMON_ECODE_E (*NET_CB_GetAudioEncodeCap)(INT32 dwChannelID,
+                                                             pNET_AudioCap_S pCap);
 
 /**
  * @brief 注册音频编码能力集回调
  * @param [IN] pCb 回调函数指针
  * @return TRUE表示成功,其他表示失败
  */
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetAudioEncodeCap(NET_TV_CB_GetAudioEncodeCap pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetAudioEncodeCapCb(NET_CB_GetAudioEncodeCap pCb);
 
 /**
- * @brief OSD能力集回调类型 (NET_TV_CAP_OSD)
+ * @brief OSD能力集回调类型 (NET_CAP_OSD)
  * @param [IN]  dwChannelID  通道号
  * @param [OUT] pCap         OSD能力集结构体指针
- * @return NET_TV_E_SUCCEED 成功, 其他值失败
+ * @return NET_E_SUCCEED 成功, 其他值失败
  */
-typedef NET_TV_COMMON_ECODE_E (*NET_TV_CB_GetOsdCap)(INT32 dwChannelID, LPNET_TV_OSD_CAP_S pCap);
+typedef NET_COMMON_ECODE_E (*NET_CB_GetOsdCap)(INT32 dwChannelID, pNET_OsdCap_S pCap);
 
 /**
  * @brief 注册OSD能力集回调
  * @param [IN] pCb 回调函数指针
  * @return TRUE表示成功,其他表示失败
  */
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetOsdCap(NET_TV_CB_GetOsdCap pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetOsdCapCb(NET_CB_GetOsdCap pCb);
 
 /**
  * @brief 通用配置回调类型（按命令码分发）
  * @param [IN] dwChannelID 通道号
  * @param [IN] dwCommand 命令码（标识配置类型）
  * @param [OUT] lpOutBuffer 输出缓冲区，存放配置数据
- * @return NET_TV_E_SUCCEED 成功，其他值失败
+ * @return NET_E_SUCCEED 成功，其他值失败
  */
-typedef NET_TV_COMMON_ECODE_E (*NET_TV_CB_GetDevConfig)(INT32 dwChannelID,
+typedef NET_COMMON_ECODE_E (*NET_CB_GetDevConfig)(INT32 dwChannelID,
                                                          INT32 dwCommand,
                                                          LPVOID lpOutBuffer);
 
@@ -238,9 +230,9 @@ typedef NET_TV_COMMON_ECODE_E (*NET_TV_CB_GetDevConfig)(INT32 dwChannelID,
  * @param [IN] dwChannelID 通道号
  * @param [IN] dwCommand 命令码（标识配置类型）
  * @param [IN] lpInBuffer 输入缓冲区，包含要设置的配置数据
- * @return NET_TV_E_SUCCEED 成功，其他值失败
+ * @return NET_E_SUCCEED 成功，其他值失败
  */
-typedef NET_TV_COMMON_ECODE_E (*NET_TV_CB_SetDevConfig)(INT32 dwChannelID,
+typedef NET_COMMON_ECODE_E (*NET_CB_SetDevConfig)(INT32 dwChannelID,
                                                          INT32 dwCommand,
                                                          LPVOID lpInBuffer);
 
@@ -248,37 +240,37 @@ typedef NET_TV_COMMON_ECODE_E (*NET_TV_CB_SetDevConfig)(INT32 dwChannelID,
  * @brief 按命令码注册的配置回调类型（专用回调）
  * @note 回调参数由命令码对应结构体决定，比通用回调更具体
  */
-typedef NET_TV_COMMON_ECODE_E (*NET_TV_CB_GetDevConfigByCommand)(INT32 dwChannelID, LPVOID lpOutBuffer);
-typedef NET_TV_COMMON_ECODE_E (*NET_TV_CB_SetDevConfigByCommand)(INT32 dwChannelID, LPVOID lpInBuffer);
+typedef NET_COMMON_ECODE_E (*NET_CB_GetDevConfigByCommand)(INT32 dwChannelID, LPVOID lpOutBuffer);
+typedef NET_COMMON_ECODE_E (*NET_CB_SetDevConfigByCommand)(INT32 dwChannelID, LPVOID lpInBuffer);
 
 /**
- * @brief 获取RTSP流地址回调类型 (NET_TV_GET_RTSPURLCFG)
+ * @brief 获取RTSP流地址回调类型 (NET_GET_RTSPURLCFG)
  * @param [IN]  dwChannelID  通道号
  * @param [OUT] pInfo        RTSP URL 信息结构体指针
- * @return NET_TV_E_SUCCEED 成功, 其他值失败
+ * @return NET_E_SUCCEED 成功, 其他值失败
  */
-typedef NET_TV_COMMON_ECODE_E (*NET_TV_CB_GetRtspUrl)(INT32 dwChannelID, LPNET_TV_RTSP_URL_INFO_S pInfo);
+typedef NET_COMMON_ECODE_E (*NET_CB_GetRtspUrl)(INT32 dwChannelID, pNET_RtspUrlInfo_S pInfo);
 
 /**
  * @brief 获取回放播放地址回调类型
  * @param [INOUT] pInfo 回放查询条件和播放URL返回信息
- * @return NET_TV_E_SUCCEED 成功, 其他值失败
+ * @return NET_E_SUCCEED 成功, 其他值失败
  */
-typedef NET_TV_COMMON_ECODE_E (*NET_TV_CB_GetReplayUrl)(LPNET_TV_REPLAY_URL_INFO_S pInfo);
+typedef NET_COMMON_ECODE_E (*NET_CB_GetReplayUrl)(pNET_ReplayUrlInfo_S pInfo);
 
 /**
  * @brief 回放控制回调类型
  * @param [INOUT] pInfo 回放控制输入输出参数
- * @return NET_TV_E_SUCCEED 成功, 其他值失败
+ * @return NET_E_SUCCEED 成功, 其他值失败
  */
-typedef NET_TV_COMMON_ECODE_E (*NET_TV_CB_ControlReplay)(LPNET_TV_REPLAY_CTRL_INFO_S pInfo);
+typedef NET_COMMON_ECODE_E (*NET_CB_ControlReplay)(pNET_ReplayCtrlInfo_S pInfo);
 
 /**
  * @brief 获取回放录像时间段回调类型
  * @param [INOUT] pInfo 查询条件及结果
- * @return NET_TV_E_SUCCEED 成功, 其他值失败
+ * @return NET_E_SUCCEED 成功, 其他值失败
  */
-typedef NET_TV_COMMON_ECODE_E (*NET_TV_CB_GetReplayRecordList)(LPNET_TV_REPLAY_RECORD_LIST_S pInfo);
+typedef NET_COMMON_ECODE_E (*NET_CB_GetReplayRecordList)(pNET_ReplayRecordList_S pInfo);
 
 /**
  * @brief 注册通用配置获取回调（所有命令码统一处理）
@@ -286,7 +278,7 @@ typedef NET_TV_COMMON_ECODE_E (*NET_TV_CB_GetReplayRecordList)(LPNET_TV_REPLAY_R
  * @return TRUE表示成功,其他表示失败
  * @note 当没有按命令码注册的专用回调时，会调用此通用回调
  */
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetDevConfig(NET_TV_CB_GetDevConfig pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetDevConfigCb(NET_CB_GetDevConfig pCb);
 
 /**
  * @brief 注册通用配置设置回调（所有命令码统一处理）
@@ -294,55 +286,63 @@ NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetDevConfig(NET_TV_CB_GetDevCo
  * @return TRUE表示成功,其他表示失败
  * @note 当没有按命令码注册的专用回调时，会调用此通用回调
  */
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetDevConfig(NET_TV_CB_SetDevConfig pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetDevConfigCb(NET_CB_SetDevConfig pCb);
+/************************************************************************/
+/*                          录播的配置回调接口                     */
+/************************************************************************/
+
+NET_API BOOL STDCALL NET_serverRegisterGetRegisterInfoCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetRegisterInfoCb(NET_CB_SetDevConfigByCommand pCb);
 
 /************************************************************************/
 /*                          按命令码注册的配置回调接口                     */
 /************************************************************************/
 /**
- * @brief 注册设备基本信息获取回调 (NET_TV_GET_DEVICECFG)
+ * @brief 注册设备基本信息获取回调 (NET_GET_DEVICECFG)
  * @param [IN] pCb 回调函数指针
  * @return TRUE表示成功,其他表示失败
  */
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetDeviceCfg(NET_TV_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetDeviceConfigCb(NET_CB_GetDevConfigByCommand pCb);
 
 /**
- * @brief 注册设备基本信息设置回调 (NET_TV_SET_DEVICECFG)
+ * @brief 注册设备基本信息设置回调 (NET_SET_DEVICECFG)
  * @param [IN] pCb 回调函数指针
  * @return TRUE表示成功,其他表示失败
  */
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetDeviceCfg(NET_TV_CB_SetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetNtpCfg(NET_TV_CB_GetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetNtpCfg(NET_TV_CB_SetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetStreamCfg(NET_TV_CB_GetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetStreamCfg(NET_TV_CB_SetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetRtspUrl(NET_TV_CB_GetRtspUrl pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetReplayUrl(NET_TV_CB_GetReplayUrl pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_ControlReplay(NET_TV_CB_ControlReplay pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetReplayRecordList(NET_TV_CB_GetReplayRecordList pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetOsdCapCfg(NET_TV_CB_GetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetOsdCapCfg(NET_TV_CB_SetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetImageCfg(NET_TV_CB_GetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetImageCfg(NET_TV_CB_SetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetNetworkCfg(NET_TV_CB_GetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetNetworkCfg(NET_TV_CB_SetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetConfigWifiSta(NET_TV_CB_SetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_ConnectWifiSta(NET_TV_CB_SetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_DisconnectWifiSta(NET_TV_CB_SetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_Get4GInfo(NET_TV_CB_GetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_Set4GInfo(NET_TV_CB_SetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetHotspotInfo(NET_TV_CB_SetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetHotspotConn(NET_TV_CB_GetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetSecurityServicesInfo(NET_TV_CB_GetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetSecurityServicesInfo(NET_TV_CB_SetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetSshCountdown(NET_TV_CB_GetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_FindLog(NET_TV_CB_GetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_ExportLog(NET_TV_CB_GetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetLogServer(NET_TV_CB_GetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetLogServer(NET_TV_CB_SetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_TestLogServer(NET_TV_CB_SetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_ControlRecordInfo(NET_TV_CB_SetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetRecordStatus(NET_TV_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetDeviceConfigCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetNtpConfigCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetNtpConfigCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetStreamConfigCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetStreamConfigCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetRtspUrlCb(NET_CB_GetRtspUrl pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetReplayUrlCb(NET_CB_GetReplayUrl pCb);
+NET_API BOOL STDCALL NET_serverRegisterControlReplayCb(NET_CB_ControlReplay pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetReplayRecordListCb(NET_CB_GetReplayRecordList pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetOsdCapConfigCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetOsdCapConfigCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetImageConfigCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetImageConfigCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetNetworkConfigCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetNetworkConfigCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetConfigWifiStaCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterConnectWifiStaCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterDisconnectWifiStaCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGet4GInfoCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSet4GInfoCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetHotspotInfoCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetHotspotConnCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetSecurityServicesInfoCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetSecurityServicesInfoCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetSshCountdownCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterFindLogCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterExportLogCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetLogServerCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetLogServerCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterTestLogServerCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterControlRecordInfoCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetRecordStatusCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetRecordScheduleCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetRecordScheduleCb(NET_CB_SetDevConfigByCommand pCb);
 /**
  * @brief 注册获取 SD 卡物理状态的回调函数。
  * @author ITC
@@ -350,7 +350,7 @@ NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetRecordStatus(NET_TV_CB_GetDe
  * @param [out] 无。SDK 将回调函数保存到配置回调表。
  * @return 注册成功返回 TRUE；回调函数非法或已注册时返回 FALSE。
  */
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetSdCardStatus(NET_TV_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetSdCardStatusCb(NET_CB_GetDevConfigByCommand pCb);
 /*
  * 功能描述：注册获取声音报警配置的回调函数。
  * 作者：ITC
@@ -358,7 +358,7 @@ NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetSdCardStatus(NET_TV_CB_GetDe
  * @param [out] 无。注册成功后，回调函数将保存到内部配置回调表。
  * @return 注册成功返回 TRUE；回调函数为空或重复注册时返回 FALSE。
  */
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetAudibleAlarmInfo(NET_TV_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetAudibleAlarmInfoCb(NET_CB_GetDevConfigByCommand pCb);
 /*
  * 功能描述：注册设置声音报警配置的回调函数。
  * 作者：ITC
@@ -366,7 +366,7 @@ NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetAudibleAlarmInfo(NET_TV_CB_G
  * @param [out] 无。注册成功后，回调函数将保存到内部配置回调表。
  * @return 注册成功返回 TRUE；回调函数为空或重复注册时返回 FALSE。
  */
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetAudibleAlarmInfo(NET_TV_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetAudibleAlarmInfoCb(NET_CB_SetDevConfigByCommand pCb);
 /*
  * 功能描述：注册获取报警输入配置的回调函数。
  * 作者：ITC
@@ -374,7 +374,7 @@ NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetAudibleAlarmInfo(NET_TV_CB_S
  * @param [out] 无。注册成功后，回调函数将保存到内部配置回调表。
  * @return 注册成功返回 TRUE；回调函数为空或重复注册时返回 FALSE。
  */
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetAlarmInputInfo(NET_TV_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetAlarmInputInfoCb(NET_CB_GetDevConfigByCommand pCb);
 /*
  * 功能描述：注册设置单个报警输入配置的回调函数。
  * 作者：ITC
@@ -382,7 +382,7 @@ NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetAlarmInputInfo(NET_TV_CB_Get
  * @param [out] 无。注册成功后，回调函数将保存到内部配置回调表。
  * @return 注册成功返回 TRUE；回调函数为空或重复注册时返回 FALSE。
  */
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetAlarmInputInfo(NET_TV_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetAlarmInputInfoCb(NET_CB_SetDevConfigByCommand pCb);
 /*
  * 功能描述：注册获取报警输出配置的回调函数。
  * 作者：ITC
@@ -390,7 +390,7 @@ NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetAlarmInputInfo(NET_TV_CB_Set
  * @param [out] 无。注册成功后，回调函数将保存到内部配置回调表。
  * @return 注册成功返回 TRUE；回调函数为空或重复注册时返回 FALSE。
  */
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetAlarmOutputInfo(NET_TV_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetAlarmOutputInfoCb(NET_CB_GetDevConfigByCommand pCb);
 /*
  * 功能描述：注册设置单个报警输出配置的回调函数。
  * 作者：ITC
@@ -398,7 +398,7 @@ NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetAlarmOutputInfo(NET_TV_CB_Ge
  * @param [out] 无。注册成功后，回调函数将保存到内部配置回调表。
  * @return 注册成功返回 TRUE；回调函数为空或重复注册时返回 FALSE。
  */
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetAlarmOutputInfo(NET_TV_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetAlarmOutputInfoCb(NET_CB_SetDevConfigByCommand pCb);
 /*
  * 功能描述：注册获取闪光报警配置的回调函数。
  * 作者：ITC
@@ -406,7 +406,7 @@ NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetAlarmOutputInfo(NET_TV_CB_Se
  * @param [out] 无。注册成功后，回调函数将保存到内部配置回调表。
  * @return 注册成功返回 TRUE；回调函数为空或重复注册时返回 FALSE。
  */
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetFlashingLightAlarmInfo(NET_TV_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetFlashingLightAlarmInfoCb(NET_CB_GetDevConfigByCommand pCb);
 /*
  * 功能描述：注册设置闪光报警配置的回调函数。
  * 作者：ITC
@@ -414,17 +414,7 @@ NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetFlashingLightAlarmInfo(NET_T
  * @param [out] 无。注册成功后，回调函数将保存到内部配置回调表。
  * @return 注册成功返回 TRUE；回调函数为空或重复注册时返回 FALSE。
  */
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetFlashingLightAlarmInfo(NET_TV_CB_SetDevConfigByCommand pCb);
-
-/*
- * 功能描述：注册触发声光报警联动事件的回调函数。
- * 作者：ITC
- * @param [in] pCb 用于处理 NET_SoundLightAlarmTrigger_S 输入数据的回调函数。
- * @param [out] 无。注册成功后，回调函数将保存到内部配置回调表。
- * @return 注册成功返回 TRUE；回调函数为空或重复注册时返回 FALSE。
- */
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_TriggerSoundLightAlarm(NET_TV_CB_SetDevConfigByCommand pCb);
-
+NET_API BOOL STDCALL NET_serverRegisterSetFlashingLightAlarmInfoCb(NET_CB_SetDevConfigByCommand pCb);
 /*
  * 功能描述：注册获取人体红外（PIR）报警配置的回调函数。
  * 作者：ITC
@@ -432,7 +422,7 @@ NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_TriggerSoundLightAlarm(NET_TV_C
  * @param [out] 无。注册成功后，回调函数将保存到内部配置回调表。
  * @return 注册成功返回 TRUE；回调函数为空或重复注册时返回 FALSE。
  */
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetPirAlarmInfo(NET_TV_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetPirAlarmInfoCb(NET_CB_GetDevConfigByCommand pCb);
 /*
  * 功能描述：注册设置人体红外（PIR）报警配置的回调函数。
  * 作者：ITC
@@ -440,170 +430,150 @@ NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetPirAlarmInfo(NET_TV_CB_GetDe
  * @param [out] 无。注册成功后，回调函数将保存到内部配置回调表。
  * @return 注册成功返回 TRUE；回调函数为空或重复注册时返回 FALSE。
  */
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetPirAlarmInfo(NET_TV_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetPirAlarmInfoCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetRecordAdvancedParamCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetRecordAdvancedParamCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterFindRecordFileInfoCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterDownloadRecordFileCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetPrivacyMaskConfigCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetPrivacyMaskConfigCb(NET_CB_SetDevConfigByCommand pCb);
 
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetRecordSchedule(NET_TV_CB_GetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetRecordSchedule(NET_TV_CB_SetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetRecordAdvancedParam(NET_TV_CB_GetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetRecordAdvancedParam(NET_TV_CB_SetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_FindRecordFileInfo(NET_TV_CB_GetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_DownloadRecordFile(NET_TV_CB_SetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetPrivacyMaskCfg(NET_TV_CB_GetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetPrivacyMaskCfg(NET_TV_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetTamperAlarmCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetTamperAlarmCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetMotionAlarmCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetMotionAlarmCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetCrossLineAlarmCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetCrossLineAlarmCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetIntrusionAlarmCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetIntrusionAlarmCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetLoiteringAlarmCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetLoiteringAlarmCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetAudioAnomalyAlarmCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetAudioAnomalyAlarmCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetPreviewInfoCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetPreviewInfoCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetChannelInfoCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetCrowGatheringAlarmCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetCrowGatheringAlarmCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetParkingAlarmCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetParkingAlarmCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetUnattendedObjectAlarmCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetUnattendedObjectAlarmCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetObjectRemovalAlarmCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetObjectRemovalAlarmCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetSceneChangeAlarmCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetSceneChangeAlarmCb(NET_CB_SetDevConfigByCommand pCb);
 
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetTamperAlarm(NET_TV_CB_GetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetTamperAlarm(NET_TV_CB_SetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetMotionAlarm(NET_TV_CB_GetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetMotionAlarm(NET_TV_CB_SetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetCrossLineAlarm(NET_TV_CB_GetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetCrossLineAlarm(NET_TV_CB_SetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetIntrusionAlarm(NET_TV_CB_GetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetIntrusionAlarm(NET_TV_CB_SetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetLoiteringAlarm(NET_TV_CB_GetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetLoiteringAlarm(NET_TV_CB_SetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetAudioAnomalyAlarm(NET_TV_CB_GetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetAudioAnomalyAlarm(NET_TV_CB_SetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetPreviewInfo(NET_TV_CB_GetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetPreviewInfo(NET_TV_CB_SetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetChannelInfo(NET_TV_CB_GetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetChannelList(NET_TV_CB_GetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetCrowGatheringAlarm(NET_TV_CB_GetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetCrowGatheringAlarm(NET_TV_CB_SetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetParkingAlarm(NET_TV_CB_GetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetParkingAlarm(NET_TV_CB_SetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetUnattendedObjectAlarm(NET_TV_CB_GetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetUnattendedObjectAlarm(NET_TV_CB_SetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetObjectRemovalAlarm(NET_TV_CB_GetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetObjectRemovalAlarm(NET_TV_CB_SetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetSceneChangeAlarm(NET_TV_CB_GetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetSceneChangeAlarm(NET_TV_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetGarbageExposureConfigCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetGarbageExposureConfigCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetGarbageOverflowConfigCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetGarbageOverflowConfigCb(NET_CB_SetDevConfigByCommand pCb);
 
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetGarbageExposureCfg(NET_TV_CB_GetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetGarbageExposureCfg(NET_TV_CB_SetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetGarbageOverflowCfg(NET_TV_CB_GetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetGarbageOverflowCfg(NET_TV_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetTalkbackStateCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetTalkbackToStreamCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetTalkbackFromStreamCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetReplayTalkbackCb(NET_CB_SetDevConfigByCommand pCb);
 
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetTalkbackState(NET_TV_CB_SetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetTalkbackToStream(NET_TV_CB_SetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetTalkbackFromStream(NET_TV_CB_GetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetReplayTalkback(NET_TV_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetUpgradeStatusCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetUpgradeCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetUpgradeVersionCb(NET_CB_GetDevConfigByCommand pCb);
 
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetUpgradeStatus(NET_TV_CB_GetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetUpgrade(NET_TV_CB_SetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetUpgradeVersion(NET_TV_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetCapturePlanInfoCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetCapturePlanInfoCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetCaptureParamInfoCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetCaptureParamInfoCb(NET_CB_SetDevConfigByCommand pCb);
 
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetCapturePlanInfo(NET_TV_CB_GetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetCapturePlanInfo(NET_TV_CB_SetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetCaptureParamInfo(NET_TV_CB_GetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetCaptureParamInfo(NET_TV_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetExposureInfoCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetExposureInfoCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetDayNightInfoCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetDayNightInfoCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetBackLightInfoCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetBackLightInfoCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetDenoiseInfoCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetDenoiseInfoCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetWhiteBalanceInfoCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetWhiteBalanceInfoCb(NET_CB_SetDevConfigByCommand pCb);
 
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetExposureInfo(NET_TV_CB_GetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetExposureInfo(NET_TV_CB_SetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetDayNightInfo(NET_TV_CB_GetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetDayNightInfo(NET_TV_CB_SetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetBackLightInfo(NET_TV_CB_GetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetBackLightInfo(NET_TV_CB_SetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetDenoiseInfo(NET_TV_CB_GetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetDenoiseInfo(NET_TV_CB_SetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetWhiteBalanceInfo(NET_TV_CB_GetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetWhiteBalanceInfo(NET_TV_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetAudioConfigCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetAudioConfigCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetEnterRegionAlarmCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetEnterRegionAlarmCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetLeaveRegionAlarmCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetLeaveRegionAlarmCb(NET_CB_SetDevConfigByCommand pCb);
 
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetAudioCfg(NET_TV_CB_GetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetAudioCfg(NET_TV_CB_SetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetEnterRegionAlarm(NET_TV_CB_GetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetEnterRegionAlarm(NET_TV_CB_SetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetLeaveRegionAlarm(NET_TV_CB_GetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetLeaveRegionAlarm(NET_TV_CB_SetDevConfigByCommand pCb);
-
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetFaceCaptureInfo(NET_TV_CB_GetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetFaceCaptureInfo(NET_TV_CB_SetDevConfigByCommand pCb);
-/**
- * @brief 注册获取人脸抓拍图片叠加配置的回调函数。
- * @author ITC
- * @param [in] pCb 获取人脸抓拍叠加配置的回调函数。
- * @param [out] 无。
- * @return TRUE 表示注册成功，FALSE 表示注册失败。
- */
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetFaceCaptureOverlayInfo(NET_TV_CB_GetDevConfigByCommand pCb);
-/**
- * @brief 注册设置人脸抓拍图片叠加配置的回调函数。
- * @author ITC
- * @param [in] pCb 设置人脸抓拍叠加配置的回调函数。
- * @param [out] 无。
- * @return TRUE 表示注册成功，FALSE 表示注册失败。
- */
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetFaceCaptureOverlayInfo(NET_TV_CB_SetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetFaceCompareInfo(NET_TV_CB_SetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_AddTargetLib(NET_TV_CB_SetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_DelTargetLib(NET_TV_CB_SetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetTargetLib(NET_TV_CB_SetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetTargetLib(NET_TV_CB_GetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_AddFaceInfo(NET_TV_CB_SetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_DelFaceInfo(NET_TV_CB_SetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetFaceInfo(NET_TV_CB_SetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetFaceInfo(NET_TV_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetFaceCaptureInfoCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetFaceCaptureInfoCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetFaceCompareInfoCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterAddTargetLibCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterDelTargetLibCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetTargetLibCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetTargetLibCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterAddFaceInfoCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterDelFaceInfoCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetFaceInfoCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetFaceInfoCb(NET_CB_GetDevConfigByCommand pCb);
 
 
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetPeopleFlowStatisticsCfg(NET_TV_CB_GetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetPeopleFlowStatisticsCfg(NET_TV_CB_SetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_ResetPeopleFlowStatistics(NET_TV_CB_SetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetPeopleDensityDetectionCfg(NET_TV_CB_GetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetPeopleDensityDetectionCfg(NET_TV_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetPeopleFlowStatisticsConfigCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetPeopleFlowStatisticsConfigCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterResetPeopleFlowStatisticsCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetPeopleDensityDetectionConfigCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetPeopleDensityDetectionConfigCb(NET_CB_SetDevConfigByCommand pCb);
 
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetManholeCoverAbnormalCfg(NET_TV_CB_GetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetManholeCoverAbnormalCfg(NET_TV_CB_SetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetSleepOnDutyCfg(NET_TV_CB_GetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetSleepOnDutyCfg(NET_TV_CB_SetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetElectricVehicleInElevatorCfg(NET_TV_CB_GetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetElectricVehicleInElevatorCfg(NET_TV_CB_SetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetPersonFallDownCfg(NET_TV_CB_GetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetPersonFallDownCfg(NET_TV_CB_SetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetConstructionOccupyRoadCfg(NET_TV_CB_GetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetConstructionOccupyRoadCfg(NET_TV_CB_SetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetCongestionCfg(NET_TV_CB_GetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetCongestionCfg(NET_TV_CB_SetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetLicensePlateRecognitionCfg(NET_TV_CB_GetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetLicensePlateRecognitionCfg(NET_TV_CB_SetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetHighAltitudeSeatbeltCfg(NET_TV_CB_GetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetHighAltitudeSeatbeltCfg(NET_TV_CB_SetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetSafetyHelmetCfg(NET_TV_CB_GetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetSafetyHelmetCfg(NET_TV_CB_SetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetPersonFallCfg(NET_TV_CB_GetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetPersonFallCfg(NET_TV_CB_SetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetPhoneUsageCfg(NET_TV_CB_GetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetPhoneUsageCfg(NET_TV_CB_SetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetSmokingCfg(NET_TV_CB_GetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetSmokingCfg(NET_TV_CB_SetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetOpenFlameCfg(NET_TV_CB_GetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetOpenFlameCfg(NET_TV_CB_SetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetBareSoilCfg(NET_TV_CB_GetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetBareSoilCfg(NET_TV_CB_SetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetHoleProtectionBarCfg(NET_TV_CB_GetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetHoleProtectionBarCfg(NET_TV_CB_SetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetReflectiveClothingCfg(NET_TV_CB_GetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetReflectiveClothingCfg(NET_TV_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetManholeCoverAbnormalConfigCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetManholeCoverAbnormalConfigCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetSleepOnDutyConfigCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetSleepOnDutyConfigCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetElectricVehicleInElevatorConfigCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetElectricVehicleInElevatorConfigCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetPersonFallDownConfigCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetPersonFallDownConfigCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetConstructionOccupyRoadConfigCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetConstructionOccupyRoadConfigCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetCongestionConfigCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetCongestionConfigCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetLicensePlateRecognitionConfigCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetLicensePlateRecognitionConfigCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetHighAltitudeSeatbeltConfigCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetHighAltitudeSeatbeltConfigCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetSafetyHelmetConfigCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetSafetyHelmetConfigCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetPersonFallConfigCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetPersonFallConfigCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetPhoneUsageConfigCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetPhoneUsageConfigCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetSmokingConfigCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetSmokingConfigCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetOpenFlameConfigCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetOpenFlameConfigCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetBareSoilConfigCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetBareSoilConfigCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetHoleProtectionBarConfigCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetHoleProtectionBarConfigCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetReflectiveClothingConfigCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetReflectiveClothingConfigCb(NET_CB_SetDevConfigByCommand pCb);
 
 /* 智能事件配置回调注册接口 */
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetPetRecognitionInfo(NET_TV_CB_GetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetPetRecognitionInfo(NET_TV_CB_SetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetClimbFenceInfo(NET_TV_CB_GetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetClimbFenceInfo(NET_TV_CB_SetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetDimissionInfo(NET_TV_CB_GetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetDimissionInfo(NET_TV_CB_SetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetIllegalLaneInfo(NET_TV_CB_GetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetIllegalLaneInfo(NET_TV_CB_SetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetRetrogradeInfo(NET_TV_CB_GetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetRetrogradeInfo(NET_TV_CB_SetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetNonmotorVehicleIntrusionInfo(NET_TV_CB_GetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetNonmotorVehicleIntrusionInfo(NET_TV_CB_SetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetOccupationEmergencyInfo(NET_TV_CB_GetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetOccupationEmergencyInfo(NET_TV_CB_SetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetPedestrianIntrusionInfo(NET_TV_CB_GetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetPedestrianIntrusionInfo(NET_TV_CB_SetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetSmokeFireCfg(NET_TV_CB_GetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetSmokeFireCfg(NET_TV_CB_SetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetRoadPondingCfg(NET_TV_CB_GetDevConfigByCommand pCb);
-NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetRoadPondingCfg(NET_TV_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetPetRecognitionInfoCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetPetRecognitionInfoCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetClimbFenceInfoCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetClimbFenceInfoCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetDimissionInfoCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetDimissionInfoCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetIllegalLaneInfoCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetIllegalLaneInfoCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetRetrogradeInfoCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetRetrogradeInfoCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetNonmotorVehicleIntrusionInfoCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetNonmotorVehicleIntrusionInfoCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetOccupationEmergencyInfoCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetOccupationEmergencyInfoCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetPedestrianIntrusionInfoCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetPedestrianIntrusionInfoCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetSmokeFireConfigCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetSmokeFireConfigCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetRoadPondingConfigCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetRoadPondingConfigCb(NET_CB_SetDevConfigByCommand pCb);
 
 /************************************************************************/
 /*                    设备发现 Device Discovery                           */
@@ -612,39 +582,39 @@ NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetRoadPondingCfg(NET_TV_CB_Set
  * @brief 获取设备发现信息的回调
  * @param [OUT] pDeviceInfo 由宿主应用填充设备信息
  */
-typedef void(STDCALL *NET_TV_CB_GetDiscoveryDeviceInfo)(
-    OUT NET_TV_DISCOVERY_DEVICE_INFO_S* pDeviceInfo);
+typedef void(STDCALL *NET_CB_GetDiscoveryDeviceInfo)(
+    OUT NET_DiscoveryDeviceInfo_S* pDeviceInfo);
 
 /**
  * @brief 注册设备发现信息回调（启动前必须调用）
  * @param [IN] cbFunc 回调函数指针
  * @return TRUE 成功，FALSE 失败
  */
-NET_TV_API BOOL STDCALL
-NET_TV_SERVER_RegisterCb_GetDiscoveryDeviceInfo(
-    IN NET_TV_CB_GetDiscoveryDeviceInfo cbFunc);
+NET_API BOOL STDCALL
+NET_serverRegisterGetDiscoveryDeviceInfoCb(
+    IN NET_CB_GetDiscoveryDeviceInfo cbFunc);
 
 /**
  * @brief 启动设备发现响应服务（阻塞线程中运行 AF_PACKET 接收循环）
  * @param [IN] szInterfaceName 网卡名称 (如 "eth0")
  * @return TRUE 成功，FALSE 失败
- * @note 需先调用 NET_TV_SERVER_RegisterCb_GetDiscoveryDeviceInfo 注册回调
+ * @note 需先调用 NET_serverRegisterGetDiscoveryDeviceInfoCb 注册回调
  */
-NET_TV_API BOOL STDCALL
-NET_TV_SERVER_Discovery_Start(IN const CHAR* szInterfaceName);
+NET_API BOOL STDCALL
+NET_serverStartDiscovery(IN const CHAR* szInterfaceName);
 
 /**
  * @brief 停止设备发现响应服务
  * @return TRUE 成功，FALSE 失败
  */
-NET_TV_API BOOL STDCALL
-NET_TV_SERVER_Discovery_Stop(void);
+NET_API BOOL STDCALL
+NET_serverStopDiscovery(void);
 
 /************************************************************************/
 /*                       语音对讲 VoiceCom (服务端)                       */
 /************************************************************************/
 /** @brief 语音对讲播放回调: 收到NVR端音频时调用, 推送到扬声器 */
-typedef void (STDCALL *NET_TV_SERVER_VoiceComPlayCallBack)(const char* data, unsigned int size);
+typedef void (STDCALL *NET_serverVoiceComPlayCallBack)(const char* data, unsigned int size);
 /**
  * @brief 语音对讲采集回调: SDK按协商参数主动拉取设备侧采集帧并发送到NVR
  * @param [IN]  pstAudioParam 当前 VoiceCom 会话协商的音频参数
@@ -654,8 +624,8 @@ typedef void (STDCALL *NET_TV_SERVER_VoiceComPlayCallBack)(const char* data, uns
  * @return 实际写入的音频字节数，返回 <=0 表示当前无可用音频帧
  * @note 回调内应写入与 pstAudioParam 匹配的裸音频帧；建议每次返回 dwFrameBytes 字节。
  */
-typedef INT32 (STDCALL *NET_TV_SERVER_VoiceComCaptureCallBack)(
-    IN const NET_TV_VOICECOM_AUDIO_PARAM_S* pstAudioParam,
+typedef INT32 (STDCALL *NET_serverVoiceComCaptureCallBack)(
+    IN const NET_VoiceComAudioParam_S* pstAudioParam,
     OUT CHAR* pBuffer,
     IN UINT32 dwBufferSize,
     IN LPVOID lpUserData);
@@ -665,23 +635,23 @@ typedef INT32 (STDCALL *NET_TV_SERVER_VoiceComCaptureCallBack)(
  * @param [IN]  dwPort  监听端口, 默认9006
  * @return TRUE 成功，FALSE 失败
  */
-NET_TV_API BOOL STDCALL
-NET_TV_SERVER_StartVoiceComServer(IN UINT32 dwPort);
+NET_API BOOL STDCALL
+NET_serverStartVoiceComServer(IN UINT32 dwPort);
 
 /**
  * @brief 停止语音对讲TCP监听
  * @return TRUE 成功，FALSE 失败
  */
-NET_TV_API BOOL STDCALL
-NET_TV_SERVER_StopVoiceComServer(void);
+NET_API BOOL STDCALL
+NET_serverStopVoiceComServer(void);
 
 /**
  * @brief 注册播放回调 (收到NVR音频 → 扬声器)
  * @param [IN]  cb  播放回调
  * @return TRUE 成功，FALSE 失败
  */
-NET_TV_API BOOL STDCALL
-NET_TV_SERVER_RegisterCb_VoiceComPlay(IN NET_TV_SERVER_VoiceComPlayCallBack cb);
+NET_API BOOL STDCALL
+NET_serverRegisterVoiceComPlayCb(IN NET_serverVoiceComPlayCallBack cb);
 
 /**
  * @brief 注册采集回调 (麦克风/LineIn -> NVR)
@@ -690,8 +660,8 @@ NET_TV_SERVER_RegisterCb_VoiceComPlay(IN NET_TV_SERVER_VoiceComPlayCallBack cb);
  * @return TRUE 成功，FALSE 失败
  * @note SDK负责按当前 VoiceCom 会话参数定时拉帧并发送，业务侧只需要提供采集帧。
  */
-NET_TV_API BOOL STDCALL
-NET_TV_SERVER_RegisterCb_VoiceComCapture(IN NET_TV_SERVER_VoiceComCaptureCallBack cb,
+NET_API BOOL STDCALL
+NET_serverRegisterVoiceComCaptureCb(IN NET_serverVoiceComCaptureCallBack cb,
                                          IN LPVOID lpUserData);
 
 /**
@@ -700,16 +670,16 @@ NET_TV_SERVER_RegisterCb_VoiceComCapture(IN NET_TV_SERVER_VoiceComCaptureCallBac
  * @param [IN]  dwSize 数据长度(字节)
  * @return TRUE 成功，FALSE 失败
  */
-NET_TV_API BOOL STDCALL
-NET_TV_SERVER_SendVoiceComData(IN const CHAR* pData, IN UINT32 dwSize);
+NET_API BOOL STDCALL
+NET_serverSendVoiceComData(IN const CHAR* pData, IN UINT32 dwSize);
 
 /**
  * @brief 获取当前 VoiceCom 会话协商的音频参数
  * @param [OUT] pstAudioParam  音频参数
  * @return TRUE 成功，FALSE 表示尚未建立会话或参数未协商
  */
-NET_TV_API BOOL STDCALL
-NET_TV_SERVER_GetVoiceComAudioParam(OUT LPNET_TV_VOICECOM_AUDIO_PARAM_S pstAudioParam);
+NET_API BOOL STDCALL
+NET_serverGetVoiceComAudioParam(OUT pNET_VoiceComAudioParam_S pstAudioParam);
 
 /************************************************************************/
 /*                       录像帧流 RecordFrame (服务端)                    */
@@ -717,49 +687,47 @@ NET_TV_SERVER_GetVoiceComAudioParam(OUT LPNET_TV_VOICECOM_AUDIO_PARAM_S pstAudio
 /**
  * @brief 录像帧流开始回调: 收到客户端起止时间查询后调用, 由宿主打开录像源并填充流信息
  */
-typedef NET_TV_COMMON_ECODE_E (STDCALL *NET_TV_SERVER_RecordFrameStartCallBack)(
-    IN LPNET_TV_RECORD_FRAME_STREAM_COND_S pstCond,
-    INOUT LPNET_TV_RECORD_FRAME_STREAM_INFO_S pstInfo,
+typedef NET_COMMON_ECODE_E (STDCALL *NET_serverRecordFrameStartCallBack)(
+    IN pNET_RecordFrameStreamCond_S pstCond,
+    INOUT pNET_RecordFrameStreamInfo_S pstInfo,
     IN LPVOID lpUserData);
 
 /**
  * @brief 录像帧读取回调: SDK在TCP连接建立后循环拉取帧并发送给客户端
  * @return 实际写入 pBuffer 的负载字节数；0 表示暂时无帧；<0 表示结束/失败
  */
-typedef INT32 (STDCALL *NET_TV_SERVER_RecordFrameReadCallBack)(
+typedef INT32 (STDCALL *NET_serverRecordFrameReadCallBack)(
     IN const CHAR* szStreamId,
-    OUT LPNET_TV_RECORD_FRAME_INFO_S pstFrameInfo,
+    OUT pNET_RecordFrameInfo_S pstFrameInfo,
     OUT CHAR* pBuffer,
     IN UINT32 dwBufferSize,
     IN LPVOID lpUserData);
 
 /** @brief 录像帧流停止回调: 客户端停止或流结束时调用 */
-typedef NET_TV_COMMON_ECODE_E (STDCALL *NET_TV_SERVER_RecordFrameStopCallBack)(
+typedef NET_COMMON_ECODE_E (STDCALL *NET_serverRecordFrameStopCallBack)(
     IN const CHAR* szStreamId,
     IN LPVOID lpUserData);
 
-NET_TV_API BOOL STDCALL
-NET_TV_SERVER_StartRecordFrameServer(IN UINT32 dwPort);
+NET_API BOOL STDCALL
+NET_serverStartRecordFrameServer(IN UINT32 dwPort);
 
-NET_TV_API BOOL STDCALL
-NET_TV_SERVER_StopRecordFrameServer(void);
+NET_API BOOL STDCALL
+NET_serverStopRecordFrameServer(void);
 
-NET_TV_API BOOL STDCALL
-NET_TV_SERVER_RegisterCb_RecordFrameStart(IN NET_TV_SERVER_RecordFrameStartCallBack cb,
+NET_API BOOL STDCALL
+NET_serverRegisterRecordFrameStartCb(IN NET_serverRecordFrameStartCallBack cb,
                                          IN LPVOID lpUserData);
 
-NET_TV_API BOOL STDCALL
-NET_TV_SERVER_RegisterCb_RecordFrameRead(IN NET_TV_SERVER_RecordFrameReadCallBack cb,
+NET_API BOOL STDCALL
+NET_serverRegisterRecordFrameReadCb(IN NET_serverRecordFrameReadCallBack cb,
                                         IN LPVOID lpUserData);
 
-NET_TV_API BOOL STDCALL
-NET_TV_SERVER_RegisterCb_RecordFrameStop(IN NET_TV_SERVER_RecordFrameStopCallBack cb,
+NET_API BOOL STDCALL
+NET_serverRegisterRecordFrameStopCb(IN NET_serverRecordFrameStopCallBack cb,
                                         IN LPVOID lpUserData);
 
 #ifdef __cplusplus
 }
-#endif
-
 #endif
 
 #endif

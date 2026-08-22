@@ -1,7 +1,17 @@
 /**
  * @file DiscoveryProtocol.cpp
- * @brief 设备发现协议 JSON 序列化实现
+ * @author tianl (tianl@kfb.cn)
+ * @date 2026-07-28
+ * @LastEditors  : qinjt@kfb.cn
+ * @LastEditTime : 2026-07-28
+ *
+ * @brief DiscoveryProtocol 模块实现
+ * 功能说明：
+ * 1. 实现 DiscoveryProtocol 模块核心逻辑
+ * 2. 校验输入参数并管理模块资源生命周期
+ * 3. 向上层提供可复用的 SDK 能力
  */
+
 #include "DiscoveryProtocol.h"
 
 #include "Json.h"
@@ -24,6 +34,11 @@ static const char* kKeyMACAddress    = "MACAddress";
 static const char* kKeyFirmwareVersion = "FirmwareVersion";
 static const char* kKeyHttpPort      = "HttpPort";
 static const char* kKeyManufacturer  = "Manufacturer";
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 build_probe_json 定义的内部处理。
+ * @return 返回该处理的状态或结果。
+ */
 
 std::string build_probe_json()
 {
@@ -35,6 +50,12 @@ std::string build_probe_json()
     Json::deinit(root);
     return result;
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 查询或校验 parse_probe_json 对应的数据。
+ * @param [in] json_str 函数处理参数。
+ * @return 返回该处理的状态或结果。
+ */
 
 bool parse_probe_json(const std::string& json_str)
 {
@@ -49,32 +70,43 @@ bool parse_probe_json(const std::string& json_str)
     Json::deinit(root);
     return valid;
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 执行 build_response_json 定义的内部处理。
+ * @param [in] info 函数处理参数。
+ * @return 返回该处理的状态或结果。
+ */
 
-std::string build_response_json(const NET_TV_DISCOVERY_DEVICE_INFO_S& info)
+std::string build_response_json(const NET_DiscoveryDeviceInfo_S& info)
 {
     Json::Object* root = Json::init();
     Json::Object* probe = Json::init();
 
     Json::add(probe, kKeyType,           kValDiscovery);
-    Json::add(probe, kKeyDeviceName,     info.szDeviceName);
-    Json::add(probe, kKeyDeviceID,       info.szDeviceID);
-    Json::add(probe, kKeyDeviceType,     info.szDeviceType);
-    Json::add(probe, kKeyIPv4Address,    info.szIPv4Address);
-    Json::add(probe, kKeyIPv4SubnetMask, info.szIPv4SubnetMask);
-    Json::add(probe, kKeyIPv4Gateway,    info.szIPv4Gateway);
-    Json::add(probe, kKeyMACAddress,     info.szMACAddress);
-    Json::add(probe, kKeyFirmwareVersion,info.szFirmwareVersion);
-    Json::add(probe, kKeyHttpPort,       static_cast<int>(info.dwHttpPort));
-    Json::add(probe, kKeyManufacturer,   info.szManufacturer);
+    Json::add(probe, kKeyDeviceName,     info.strDeviceName);
+    Json::add(probe, kKeyDeviceID,       info.strDeviceID);
+    Json::add(probe, kKeyDeviceType,     info.strDeviceType);
+    Json::add(probe, kKeyIPv4Address,    info.strIPv4Address);
+    Json::add(probe, kKeyIPv4SubnetMask, info.strIPv4SubnetMask);
+    Json::add(probe, kKeyIPv4Gateway,    info.strIPv4Gateway);
+    Json::add(probe, kKeyMACAddress,     info.strMACAddress);
+    Json::add(probe, kKeyFirmwareVersion,info.strFirmwareVersion);
+    Json::add(probe, kKeyHttpPort,       static_cast<int>(info.uHttpPort));
+    Json::add(probe, kKeyManufacturer,   info.strManufacturer);
 
     Json::add(root, kKeyProbe, probe);
     std::string result = Json::to_string(root);
     Json::deinit(root);
     return result;
 }
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 查询或校验 parse_response_json 对应的数据。
+ * @return 返回该处理的状态或结果。
+ */
 
 bool parse_response_json(const std::string& json_str,
-                         NET_TV_DISCOVERY_DEVICE_INFO_S& info)
+                         NET_DiscoveryDeviceInfo_S& info)
 {
     if (json_str.empty()) return false;
 
@@ -100,20 +132,20 @@ bool parse_response_json(const std::string& json_str,
 
     int port = 0;
     Json::get(probe, kKeyHttpPort, port);
-    info.dwHttpPort = static_cast<UINT32>(port > 0 ? port : 0);
+    info.uHttpPort = static_cast<UINT32>(port > 0 ? port : 0);
 
-    safe_str(kKeyDeviceName,     info.szDeviceName,      sizeof(info.szDeviceName));
-    safe_str(kKeyDeviceID,       info.szDeviceID,        sizeof(info.szDeviceID));
-    safe_str(kKeyDeviceType,     info.szDeviceType,      sizeof(info.szDeviceType));
-    safe_str(kKeyIPv4Address,    info.szIPv4Address,     sizeof(info.szIPv4Address));
-    safe_str(kKeyIPv4SubnetMask, info.szIPv4SubnetMask,  sizeof(info.szIPv4SubnetMask));
-    safe_str(kKeyIPv4Gateway,    info.szIPv4Gateway,     sizeof(info.szIPv4Gateway));
-    safe_str(kKeyMACAddress,     info.szMACAddress,      sizeof(info.szMACAddress));
-    safe_str(kKeyFirmwareVersion,info.szFirmwareVersion, sizeof(info.szFirmwareVersion));
-    safe_str(kKeyManufacturer,   info.szManufacturer,    sizeof(info.szManufacturer));
+    safe_str(kKeyDeviceName,     info.strDeviceName,      sizeof(info.strDeviceName));
+    safe_str(kKeyDeviceID,       info.strDeviceID,        sizeof(info.strDeviceID));
+    safe_str(kKeyDeviceType,     info.strDeviceType,      sizeof(info.strDeviceType));
+    safe_str(kKeyIPv4Address,    info.strIPv4Address,     sizeof(info.strIPv4Address));
+    safe_str(kKeyIPv4SubnetMask, info.strIPv4SubnetMask,  sizeof(info.strIPv4SubnetMask));
+    safe_str(kKeyIPv4Gateway,    info.strIPv4Gateway,     sizeof(info.strIPv4Gateway));
+    safe_str(kKeyMACAddress,     info.strMACAddress,      sizeof(info.strMACAddress));
+    safe_str(kKeyFirmwareVersion,info.strFirmwareVersion, sizeof(info.strFirmwareVersion));
+    safe_str(kKeyManufacturer,   info.strManufacturer,    sizeof(info.strManufacturer));
 
     Json::deinit(root);
     return true;
 }
 
-}  // namespace discovery
+}  /* namespace discovery */
