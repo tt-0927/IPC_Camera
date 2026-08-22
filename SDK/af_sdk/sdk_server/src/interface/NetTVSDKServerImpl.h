@@ -3,11 +3,11 @@
 #include "NetTVSDKServerInterface.h"
 
 // 前向声明模块类
-class ServerModule;
-class SessionModule;
-class RouteModule;
-class AlarmModule;
-class DiscoveryResponder;
+class CServerModule;
+class CSessionModule;
+class CRouteModule;
+class CAlarmModule;
+class CDiscoveryResponder;
 
 /**
  * @brief Server实现类 - PIMPL协调器
@@ -28,9 +28,10 @@ public:
      * @param udwPort 服务器端口号
      * @param szUserName 用户名
      * @param szPassword 密码
+     * @param szDeviceName 设备名称
      * @return TRUE表示成功，FALSE表示失败
      */
-    BOOL DoInit(UINT32 udwPort, CHAR szUserName[NET_TV_LEN_132], CHAR szPassword[NET_TV_LEN_132]);
+    BOOL DoInit(UINT32 udwPort, CHAR szUserName[NET_LEN_132], CHAR szPassword[NET_LEN_132], CHAR szDeviceName[NET_LEN_132]);
 
     /**
      * @brief 清理SDK服务器资源
@@ -40,13 +41,13 @@ public:
 
     /**
      * @brief 设置日志
-     * @param dwLogLevel 日志级别
+     * @param nLogLevel 日志级别
      * @param strLogDir 日志目录
-     * @param dwLogFileSize 日志文件大小
+     * @param nLogFileSize 日志文件大小
      * @param dwLogFileNum 日志文件数量
      * @return TRUE表示成功，FALSE表示失败
      */
-    BOOL DoSetLogToFile(INT32 dwLogLevel, CHAR* strLogDir, INT32 dwLogFileSize, INT32 dwLogFileNum);
+    BOOL DoSetLogToFile(INT32 nLogLevel, CHAR* strLogDir, INT32 nLogFileSize, INT32 dwLogFileNum);
 
     /**
      * @brief 获取SDK版本
@@ -66,7 +67,7 @@ public:
      * @param szPassword 密码
      * @return TRUE表示成功，FALSE表示失败
      */
-    BOOL DoSetUserPasswd(CHAR szUserName[NET_TV_LEN_132], CHAR szPassword[NET_TV_LEN_132]);
+    BOOL DoSetUserPasswd(CHAR szUserName[NET_LEN_132], CHAR szPassword[NET_LEN_132]);
 
     /**
      * @brief 推送告警信息
@@ -76,24 +77,19 @@ public:
      * @param dwBufLen 缓冲区长度
      * @return TRUE表示成功，FALSE表示失败
      */
-    BOOL DoPushAlarmInfo(NET_TV_ALARMER_S* pAlarmer, INT32 lCommand, LPVOID pAlarmInfo, INT32 dwBufLen);
-
-    /**
-     * @brief 推送动态图片 V2 告警信息
-     */
-    BOOL DoPushAlarmInfoV2(NET_TV_ALARMER_S* pAlarmer, INT32 lCommand, LPVOID pAlarmInfo, INT32 dwBufLen);
+    BOOL DoPushAlarmInfo(NET_Alarmer_S* pAlarmer, INT32 lCommand, LPVOID pAlarmInfo, INT32 dwBufLen);
 
     /**
      * @brief 推送通道上下线状态
      * @param pChannelInfo 通道信息
      * @return TRUE表示成功，FALSE表示失败
      */
-    BOOL DoPushChannelStatusInfo(NET_TV_CHANNEL_INFO_S* pChannelInfo);
+    BOOL DoPushChannelStatusInfo(NET_ChannelInfo_S* pChannelInfo);
 
     /**
      * @brief 注册设备发现信息回调
      */
-    BOOL DoRegisterCb_GetDiscoveryDeviceInfo(NET_TV_CB_GetDiscoveryDeviceInfo cbFunc);
+    BOOL DoRegisterCb_GetDiscoveryDeviceInfo(NET_CB_GetDiscoveryDeviceInfo cbFunc);
 
     /**
      * @brief 启动设备发现响应服务
@@ -107,14 +103,14 @@ public:
 
 private:
     bool m_bInitialized;  // 初始化标志
-    
+
     // 模块智能指针（PIMPL第二层）
-    std::unique_ptr<ServerModule> m_pServerModule;
-    std::unique_ptr<SessionModule> m_pSessionModule;
-    std::unique_ptr<RouteModule> m_pRouteModule;
-    std::unique_ptr<AlarmModule> m_pAlarmModule;
+    std::unique_ptr<CServerModule> m_pServerModule;
+    std::unique_ptr<CSessionModule> m_pSessionModule;
+    std::unique_ptr<CRouteModule> m_pRouteModule;
+    std::unique_ptr<CAlarmModule> m_pAlarmModule;
 
     // 设备发现
-    std::unique_ptr<DiscoveryResponder> m_pDiscoveryResponder;
-    NET_TV_CB_GetDiscoveryDeviceInfo m_cbDiscoveryDeviceInfo{nullptr};
+    std::unique_ptr<CDiscoveryResponder> m_pDiscoveryResponder;
+    NET_CB_GetDiscoveryDeviceInfo m_cbDiscoveryDeviceInfo{nullptr};
 };
