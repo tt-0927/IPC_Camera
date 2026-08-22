@@ -726,6 +726,327 @@ NET_API BOOL STDCALL
 NET_serverRegisterRecordFrameStopCb(IN NET_serverRecordFrameStopCallBack cb,
                                         IN LPVOID lpUserData);
 
+/************************************************************************/
+/*                     Platform communication module                    */
+/************************************************************************/
+#ifndef NETTVSDK_PLATFORM_ABI_H
+#define NETTVSDK_PLATFORM_ABI_H
+
+#define NET_PLATFORM_ABI_VERSION                 1U
+#define NET_PLATFORM_HOST_LENGTH                 256U
+#define NET_PLATFORM_ACCOUNT_LENGTH              128U
+#define NET_PLATFORM_PASSWORD_LENGTH             256U
+#define NET_PLATFORM_PATH_LENGTH                 512U
+#define NET_PLATFORM_KEY_ID_LENGTH               64U
+#define NET_PLATFORM_REQUEST_ID_LENGTH            128U
+#define NET_PLATFORM_COMMAND_LENGTH              128U
+#define NET_PLATFORM_COMMAND_RESULT_LENGTH       65536U
+#define NET_PLATFORM_ERROR_LENGTH                256U
+#define NET_PLATFORM_DEVICE_SN_LENGTH            128U
+
+/**
+ * @enum tagNETPlatformUplinkType
+ * @brief Device uplink network type used to select the platform stream mode.
+ */
+typedef enum tagNETPlatformUplinkType
+{
+    NET_PLATFORM_UPLINK_UNKNOWN = 0,
+    NET_PLATFORM_UPLINK_WIRED = 1,
+    NET_PLATFORM_UPLINK_WIRELESS = 2,
+    NET_PLATFORM_UPLINK_CELLULAR = 3
+} NET_PlatformUplinkType_EN;
+
+/**
+ * @enum tagNETPlatformStreamMode
+ * @brief Stream delivery mode reported during MQTT registration.
+ */
+typedef enum tagNETPlatformStreamMode
+{
+    NET_PLATFORM_STREAM_MODE_UNKNOWN = 0,
+    NET_PLATFORM_STREAM_MODE_RTSP = 1,
+    NET_PLATFORM_STREAM_MODE_RTMP = 2
+} NET_PlatformStreamMode_EN;
+
+/**
+ * @struct tagNETPlatformConfig
+ * @brief Platform HTTP, MQTT and image-transfer runtime configuration.
+ * @note The SDK copies the complete structure before this API returns.
+ */
+typedef struct tagNETPlatformConfig
+{
+    UINT32 uStructSize;
+    UINT32 uVersion;
+    BOOL bEnable;
+    CHAR strHttpHost[NET_PLATFORM_HOST_LENGTH];
+    INT32 nHttpPort;
+    CHAR strMqttHost[NET_PLATFORM_HOST_LENGTH];
+    INT32 nMqttPort;
+    INT32 nRtmpPort;
+    CHAR strPlatformUser[NET_PLATFORM_ACCOUNT_LENGTH];
+    CHAR strPlatformPassword[NET_PLATFORM_PASSWORD_LENGTH];
+    CHAR strMqttUser[NET_PLATFORM_ACCOUNT_LENGTH];
+    CHAR strMqttPassword[NET_PLATFORM_PASSWORD_LENGTH];
+    CHAR strRegisterPublicKeyPath[NET_PLATFORM_PATH_LENGTH];
+    CHAR strRegisterPublicKeyId[NET_PLATFORM_KEY_ID_LENGTH];
+    CHAR strMqttRuntimeLibrary[NET_PLATFORM_PATH_LENGTH];
+    CHAR strImageDownloadDirectory[NET_PLATFORM_PATH_LENGTH];
+    UINT32 uHeartbeatIntervalSec;
+    UINT32 uImageWaitTimeoutMs;
+    UINT32 uImageWaitIntervalMs;
+    BYTE byRes[256];
+} NET_PlatformConfig_S, *pNET_PlatformConfig_S;
+
+/**
+ * @struct tagNETPlatformDeviceProfile
+ * @brief Device identity and HTTP registration information supplied by the host.
+ */
+typedef struct tagNETPlatformDeviceProfile
+{
+    UINT32 uStructSize;
+    UINT32 uVersion;
+    CHAR strSerialNumber[NET_PLATFORM_DEVICE_SN_LENGTH];
+    CHAR strDeviceName[NET_LEN_128];
+    CHAR strFirmwareVersion[NET_LEN_128];
+    CHAR strMacAddress[NET_LEN_64];
+    CHAR strLocalIp[NET_LEN_64];
+    INT32 nServicePort;
+    CHAR strResolution[NET_LEN_64];
+    CHAR strStorage[NET_LEN_64];
+    CHAR strUseStorage[NET_LEN_64];
+    CHAR strLocation[NET_LEN_128];
+    BYTE byRes[128];
+} NET_PlatformDeviceProfile_S, *pNET_PlatformDeviceProfile_S;
+
+/**
+ * @struct tagNETPlatformStreamProfile
+ * @brief Current uplink and stream credentials supplied by the host.
+ * @note RTSP account and password are encrypted inside the SDK before publication.
+ */
+typedef struct tagNETPlatformStreamProfile
+{
+    UINT32 uStructSize;
+    UINT32 uVersion;
+    INT32 enUplinkType;
+    CHAR strUplinkInterface[NET_LEN_64];
+    CHAR strLocalIp[NET_LEN_64];
+    CHAR strRtspMainUrl[NET_MAX_URL_LEN];
+    CHAR strRtspSubUrl[NET_MAX_URL_LEN];
+    CHAR strRtspAccount[NET_PLATFORM_ACCOUNT_LENGTH];
+    CHAR strRtspPassword[NET_PLATFORM_PASSWORD_LENGTH];
+    BYTE byRes[128];
+} NET_PlatformStreamProfile_S, *pNET_PlatformStreamProfile_S;
+
+/**
+ * @struct tagNETPlatformEventReport
+ * @brief MQTT event report and optional event-image upload request.
+ * @note String pointers are copied synchronously by NET_serverPlatformReportEvent.
+ */
+typedef struct tagNETPlatformEventReport
+{
+    UINT32 uStructSize;
+    UINT32 uVersion;
+    const CHAR *pCommand;
+    const CHAR *pRequestId;
+    const CHAR *pDataJson;
+    INT32 nEventType;
+    const CHAR *pEventName;
+    INT32 nChannel;
+    INT64 llTimestampMs;
+    const CHAR *pImagePath;
+    BOOL bUploadImage;
+    BOOL bResolveImageIfMissing;
+    BYTE byRes[128];
+} NET_PlatformEventReport_S, *pNET_PlatformEventReport_S;
+
+/**
+ * @struct tagNETPlatformRuntimeStatus
+ * @brief Read-only platform communication runtime snapshot.
+ */
+typedef struct tagNETPlatformRuntimeStatus
+{
+    UINT32 uStructSize;
+    UINT32 uVersion;
+    BOOL bRunning;
+    BOOL bHttpAuthenticated;
+    BOOL bMqttConnected;
+    BOOL bDeviceRegistered;
+    INT32 nLastError;
+    UINT64 uReconnectCount;
+    UINT64 uPublishedEventCount;
+    UINT64 uUploadedImageCount;
+    UINT64 uDroppedCommandCount;
+    CHAR strLastError[NET_PLATFORM_ERROR_LENGTH];
+    BYTE byRes[128];
+} NET_PlatformRuntimeStatus_S, *pNET_PlatformRuntimeStatus_S;
+
+/**
+ * @typedef NET_CB_PlatformGetDeviceProfile
+ * @brief Host callback used by SDK registration to query device identity.
+ * @param [IN] pUserData Host context registered with the callback table.
+ * @param [OUT] pProfile Device profile initialized by the SDK before invocation.
+ * @return Zero on success, otherwise an implementation-defined error code.
+ */
+typedef INT32(STDCALL *NET_CB_PlatformGetDeviceProfile)(
+    IN LPVOID pUserData,
+    OUT pNET_PlatformDeviceProfile_S pProfile);
+
+/**
+ * @typedef NET_CB_PlatformGetStreamProfile
+ * @brief Host callback used by SDK registration to query the active uplink and RTSP credentials.
+ * @param [IN] pUserData Host context registered with the callback table.
+ * @param [OUT] pProfile Stream profile initialized by the SDK before invocation.
+ * @return Zero on success, otherwise an implementation-defined error code.
+ */
+typedef INT32(STDCALL *NET_CB_PlatformGetStreamProfile)(
+    IN LPVOID pUserData,
+    OUT pNET_PlatformStreamProfile_S pProfile);
+
+/**
+ * @typedef NET_CB_PlatformApplyRtmpStream
+ * @brief Host callback used to start, replace or stop the device RTMP push stream.
+ * @param [IN] pUserData Host context registered with the callback table.
+ * @param [IN] pRtmpUrl Target RTMP URL. It is empty when bEnable is FALSE.
+ * @param [IN] bEnable TRUE starts or replaces the stream; FALSE stops it.
+ * @return Zero on success, otherwise an implementation-defined error code.
+ */
+typedef INT32(STDCALL *NET_CB_PlatformApplyRtmpStream)(
+    IN LPVOID pUserData,
+    IN const CHAR *pRtmpUrl,
+    IN BOOL bEnable);
+
+/**
+ * @typedef NET_CB_PlatformResolveEventImage
+ * @brief Host callback used by the SDK transfer worker to resolve a delayed event image.
+ * @param [IN] pUserData Host context registered with the callback table.
+ * @param [IN] pEvent Event metadata whose strings remain valid during the callback.
+ * @param [OUT] pImagePath Output path buffer.
+ * @param [IN] uImagePathSize Output path buffer capacity in bytes.
+ * @return Zero when an image path is available; nonzero requests another retry until timeout.
+ */
+typedef INT32(STDCALL *NET_CB_PlatformResolveEventImage)(
+    IN LPVOID pUserData,
+    IN const NET_PlatformEventReport_S *pEvent,
+    OUT CHAR *pImagePath,
+    IN UINT32 uImagePathSize);
+
+/**
+ * @typedef NET_CB_PlatformRuntimeStatus
+ * @brief Optional host notification for significant platform state changes.
+ * @param [IN] pUserData Host context registered with the callback table.
+ * @param [IN] pStatus Runtime status snapshot valid only during the callback.
+ * @return No return value.
+ */
+typedef VOID(STDCALL *NET_CB_PlatformRuntimeStatus)(
+    IN LPVOID pUserData,
+    IN const NET_PlatformRuntimeStatus_S *pStatus);
+
+/**
+ * @typedef NET_CB_PlatformExecuteCommand
+ * @brief Fallback host command executor for legacy aliases or device-private commands.
+ * @param [IN] pUserData Host context registered with the callback table.
+ * @param [IN] pCommand Original platform command name.
+ * @param [IN] pDataJson Command Data JSON.
+ * @param [OUT] pResultJson Output JSON buffer. The callback must terminate text with zero.
+ * @param [IN] uResultCapacity Output buffer capacity in bytes.
+ * @return Device command return code. Zero indicates success.
+ */
+typedef INT32(STDCALL *NET_CB_PlatformExecuteCommand)(
+    IN LPVOID pUserData,
+    IN const CHAR *pCommand,
+    IN const CHAR *pDataJson,
+    OUT CHAR *pResultJson,
+    IN UINT32 uResultCapacity);
+
+/**
+ * @struct tagNETPlatformHostCallbacks
+ * @brief Host capability callbacks consumed by the SDK platform module.
+ */
+typedef struct tagNETPlatformHostCallbacks
+{
+    UINT32 uStructSize;
+    UINT32 uVersion;
+    LPVOID pUserData;
+    NET_CB_PlatformGetDeviceProfile fnGetDeviceProfile;
+    NET_CB_PlatformGetStreamProfile fnGetStreamProfile;
+    NET_CB_PlatformApplyRtmpStream fnApplyRtmpStream;
+    NET_CB_PlatformResolveEventImage fnResolveEventImage;
+    NET_CB_PlatformRuntimeStatus fnRuntimeStatus;
+    NET_CB_PlatformExecuteCommand fnExecuteCommand;
+    BYTE byRes[128];
+} NET_PlatformHostCallbacks_S, *pNET_PlatformHostCallbacks_S;
+
+/**
+ * @brief Register the host capability callbacks used by the platform module.
+ * @author Codex
+ * @param [IN] pCallbacks Callback table copied by the SDK.
+ * @return TRUE on success, otherwise FALSE.
+ */
+NET_API BOOL STDCALL NET_serverRegisterPlatformHostCallbacks(
+    IN const NET_PlatformHostCallbacks_S *pCallbacks);
+
+/**
+ * @brief Apply HTTP, MQTT, crypto and transfer configuration.
+ * @author Codex
+ * @param [IN] pConfig Platform configuration copied by the SDK.
+ * @return TRUE on success, otherwise FALSE.
+ */
+NET_API BOOL STDCALL NET_serverPlatformApplyConfig(
+    IN const NET_PlatformConfig_S *pConfig);
+
+/**
+ * @brief Start platform authentication, MQTT connection, subscription and heartbeat workers.
+ * @author Codex
+ * @return TRUE when the runtime is started or intentionally disabled, otherwise FALSE.
+ */
+NET_API BOOL STDCALL NET_serverPlatformStart(void);
+
+/**
+ * @brief Stop platform workers and publish the best-effort offline status.
+ * @author Codex
+ * @return TRUE after all workers are stopped.
+ */
+NET_API BOOL STDCALL NET_serverPlatformStop(void);
+
+/**
+ * @brief Notify the SDK that the active device network route changed.
+ * @author Codex
+ * @return TRUE when a reconnect request is accepted, otherwise FALSE.
+ */
+NET_API BOOL STDCALL NET_serverPlatformNotifyNetworkChanged(void);
+
+/**
+ * @brief Publish an event and optionally queue its image for HTTP upload.
+ * @author Codex
+ * @param [IN] pEvent Event request copied before this API returns.
+ * @return TRUE when the event is accepted for publication, otherwise FALSE.
+ */
+NET_API BOOL STDCALL NET_serverPlatformReportEvent(
+    IN const NET_PlatformEventReport_S *pEvent);
+
+/**
+ * @brief Download a platform image to a local file using atomic replacement.
+ * @author Codex
+ * @param [IN] pUrl Absolute or platform-relative source URL.
+ * @param [IN] pLocalPath Destination file path.
+ * @param [IN] llExpectedSize Expected byte size, or zero to skip size validation.
+ * @return TRUE on success, otherwise FALSE.
+ */
+NET_API BOOL STDCALL NET_serverPlatformDownloadImage(
+    IN const CHAR *pUrl,
+    IN const CHAR *pLocalPath,
+    IN INT64 llExpectedSize);
+
+/**
+ * @brief Read the current platform runtime status.
+ * @author Codex
+ * @param [OUT] pStatus Caller-owned status structure.
+ * @return TRUE on success, otherwise FALSE.
+ */
+NET_API BOOL STDCALL NET_serverPlatformGetStatus(
+    OUT NET_PlatformRuntimeStatus_S *pStatus);
+
+#endif
+
 #ifdef __cplusplus
 }
 #endif

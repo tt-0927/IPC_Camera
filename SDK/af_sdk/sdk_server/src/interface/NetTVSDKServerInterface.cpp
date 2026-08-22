@@ -31,6 +31,8 @@ NET_API BOOL STDCALL NET_serverInit(IN UINT32 udwPort,IN CHAR szUserName[NET_LEN
 
 NET_API BOOL STDCALL NET_serverCleanup(void)
 {
+	/* Platform workers must stop before callbacks and the main server are released. */
+	NET_serverPlatformStop();
 	if (g_pServerImpl)
 	{
 		BOOL ret = g_pServerImpl->DoCleanup();
