@@ -1459,6 +1459,355 @@ void ToMotionDetection(const NET_TV_MOTION_ALARM_INFO_S &src, Alarm::MotionDetec
     }
 }
 
+/* ---------- 安全服务与日志（465-472） ---------- */
+void FillSecurityServicesInfo(const ::System::SecurityServices_S &src,
+                              NET_TV_SECURITY_SERVICES_INFO_S &dst)
+{
+    std::memset(&dst, 0, sizeof(dst));
+    dst.stLoginLock.bIllegalLoginEnable = src.stLoginLock.bIllegalLoginEnable ? TRUE : FALSE;
+    dst.stLoginLock.nCheckInterval = src.stLoginLock.nCheckInterval;
+    dst.stLoginLock.nMaxErrorTimes = src.stLoginLock.nMaxErrorTimes;
+    dst.stLoginLock.nLockDuration = static_cast<INT32>(src.stLoginLock.nLockDuration);
+    dst.stPwdPolicy.bPwdSecurityLevelEnable = src.stPwdPolicy.bPwdSecurityLevelEnable ? TRUE : FALSE;
+    dst.stPwdPolicy.bAllowLowLevelPwdLogin = src.stPwdPolicy.bAllowLowLevelPwdLogin ? TRUE : FALSE;
+    dst.stSshAdmin.bSshEnable = src.stSshAdmin.bSshEnable ? TRUE : FALSE;
+    dst.stSshAdmin.nSshPort = src.stSshAdmin.nSshPort;
+    copy_alarm_string(src.stSshAdmin.strSshStartTime, dst.stSshAdmin.szSshStartTime,
+                      sizeof(dst.stSshAdmin.szSshStartTime));
+    copy_alarm_string(src.stSshAdmin.strSshCountdown, dst.stSshAdmin.szSshCountdown,
+                      sizeof(dst.stSshAdmin.szSshCountdown));
+}
+
+void ToSecurityServicesInfo(const NET_TV_SECURITY_SERVICES_INFO_S &src,
+                            ::System::SecurityServices_S &dst)
+{
+    dst.stLoginLock.bIllegalLoginEnable = (src.stLoginLock.bIllegalLoginEnable == TRUE);
+    dst.stLoginLock.nCheckInterval = src.stLoginLock.nCheckInterval;
+    dst.stLoginLock.nMaxErrorTimes = src.stLoginLock.nMaxErrorTimes;
+    dst.stLoginLock.nLockDuration = static_cast<::System::LockDuration_E>(src.stLoginLock.nLockDuration);
+    dst.stPwdPolicy.bPwdSecurityLevelEnable = (src.stPwdPolicy.bPwdSecurityLevelEnable == TRUE);
+    dst.stPwdPolicy.bAllowLowLevelPwdLogin = (src.stPwdPolicy.bAllowLowLevelPwdLogin == TRUE);
+    dst.stSshAdmin.bSshEnable = (src.stSshAdmin.bSshEnable == TRUE);
+    dst.stSshAdmin.nSshPort = src.stSshAdmin.nSshPort;
+    dst.stSshAdmin.strSshStartTime = read_alarm_string(src.stSshAdmin.szSshStartTime,
+                                                        sizeof(src.stSshAdmin.szSshStartTime));
+    dst.stSshAdmin.strSshCountdown = read_alarm_string(src.stSshAdmin.szSshCountdown,
+                                                        sizeof(src.stSshAdmin.szSshCountdown));
+}
+
+void FillSshCountdownInfo(const ::System::SshCountdown_S &src,
+                          NET_TV_SSH_COUNTDOWN_INFO_S &dst)
+{
+    std::memset(&dst, 0, sizeof(dst));
+    copy_alarm_string(src.strCountdown, dst.szCountdown, sizeof(dst.szCountdown));
+}
+
+void FillLogServerInfo(const ::System::LogServerInfo_S &src, NET_TV_LOG_SERVER_INFO_S &dst)
+{
+    std::memset(&dst, 0, sizeof(dst));
+    dst.bEnable = src.bEnable ? TRUE : FALSE;
+    dst.bEnSsl = src.bEnSsl ? TRUE : FALSE;
+    dst.nPort = src.nPort;
+    copy_alarm_string(src.strServerAddr, dst.szServerAddr, sizeof(dst.szServerAddr));
+}
+
+void ToLogServerInfo(const NET_TV_LOG_SERVER_INFO_S &src, ::System::LogServerInfo_S &dst)
+{
+    dst.bEnable = (src.bEnable == TRUE);
+    dst.bEnSsl = (src.bEnSsl == TRUE);
+    dst.nPort = src.nPort;
+    dst.strServerAddr = read_alarm_string(src.szServerAddr, sizeof(src.szServerAddr));
+}
+
+void ToLogListRequest(const NET_TV_LOG_LIST_S &src, Log::RetrievalCond_S &dstCond,
+                      Common::PageInfo_S &dstPage)
+{
+    dstCond.enType = static_cast<Log::Type_E>(src.stCond.nType);
+    dstCond.enAction = static_cast<Log::Action_E>(src.stCond.nAction);
+    dstCond.startTime = read_alarm_string(src.stCond.szStartTime, sizeof(src.stCond.szStartTime));
+    dstCond.endTime = read_alarm_string(src.stCond.szEndTime, sizeof(src.stCond.szEndTime));
+    dstPage.nCurPage = src.stPage.nCurPage;
+    dstPage.nPageSize = src.stPage.nPageSize;
+}
+
+void FillLogList(const Log::RetrievalCond_S &srcCond, const Common::PageInfo_S &srcPage,
+                 const std::vector<Log::Info_S> &srcLogs, NET_TV_LOG_LIST_S &dst)
+{
+    std::memset(&dst, 0, sizeof(dst));
+    dst.stCond.nType = static_cast<INT32>(srcCond.enType);
+    dst.stCond.nAction = static_cast<INT32>(srcCond.enAction);
+    copy_alarm_string(srcCond.startTime, dst.stCond.szStartTime, sizeof(dst.stCond.szStartTime));
+    copy_alarm_string(srcCond.endTime, dst.stCond.szEndTime, sizeof(dst.stCond.szEndTime));
+    dst.stPage.nCurPage = srcPage.nCurPage;
+    dst.stPage.nPageSize = srcPage.nPageSize;
+    dst.stPage.nDataTotal = srcPage.nDataTotal;
+    dst.stPage.nPageTotal = srcPage.nPageTotal;
+    dst.nLogCount = static_cast<INT32>(std::min(srcLogs.size(), static_cast<size_t>(NET_TV_LOG_QUERY_COND_NUM)));
+    for (INT32 i = 0; i < dst.nLogCount; ++i)
+    {
+        const Log::Info_S &srcLog = srcLogs[static_cast<size_t>(i)];
+        NET_TV_LOG_INFO_S &dstLog = dst.astLogs[i];
+        copy_alarm_string(srcLog.startTime, dstLog.szStartTime, sizeof(dstLog.szStartTime));
+        dstLog.nType = srcLog.nType;
+        dstLog.nAction = srcLog.nAction;
+        copy_alarm_string(srcLog.chnName, dstLog.szChnName, sizeof(dstLog.szChnName));
+        copy_alarm_string(srcLog.user, dstLog.szUser, sizeof(dstLog.szUser));
+        copy_alarm_string(srcLog.host, dstLog.szHost, sizeof(dstLog.szHost));
+        copy_alarm_string(srcLog.context, dstLog.szContext, sizeof(dstLog.szContext));
+    }
+}
+
+/* ---------- 录像控制、计划、检索与下载（473-481） ---------- */
+void ToRecordInfo(const NET_TV_RECORD_INFO_S &src, Record_NS::Info_S &dst)
+{
+    dst.nChnId = src.nChnId;
+    dst.nVideoStatus = src.nVideoStatus;
+    dst.nAudioStatus = src.nAudioStatus;
+    dst.nRecordStatus = src.nRecordStatus;
+    dst.nRecordFormat = src.nRecordFormat;
+    dst.nEventType = src.nEventType;
+    dst.path = read_alarm_string(src.szPath, sizeof(src.szPath));
+    dst.redunPath = read_alarm_string(src.szRedunPath, sizeof(src.szRedunPath));
+    dst.strRecordName = read_alarm_string(src.szRecordName, sizeof(src.szRecordName));
+    dst.strRecordTime = read_alarm_string(src.szRecordTime, sizeof(src.szRecordTime));
+    dst.nStreamType = src.nStreamType;
+}
+
+void FillRecordStatusInfo(const Record_NS::RecordStatusInfo_S &src, NET_TV_RECORD_STATUS_INFO_S &dst)
+{
+    std::memset(&dst, 0, sizeof(dst));
+    dst.nStatus = static_cast<INT32>(src.enStatus);
+}
+
+void FillRecordSchedule(const Record_NS::Schedule_S &src, NET_TV_RECORD_SCHEDULE_S &dst)
+{
+    std::memset(&dst, 0, sizeof(dst));
+    dst.bEnable = src.bEnable ? TRUE : FALSE;
+    for (const Record_NS::DaySchedule_S &srcDay : src.daySchedules)
+    {
+        const INT32 nDay = static_cast<INT32>(srcDay.enDayOfWeek);
+        if (nDay < 1 || nDay > NET_TV_PLAN_DAY_NUM_AWEEK)
+            continue;
+        /* ABI 数组固定按周一至周日下标存放，不依赖 IPC vector 的原始排序。 */
+        NET_TV_RECORD_DAY_SCHEDULE_S &dstDay = dst.astDaySchedules[nDay - 1];
+        dstDay.nDayOfWeek = nDay;
+        dstDay.nRecordTimeCount = static_cast<INT32>(std::min(srcDay.recordTimes.size(),
+                                                               static_cast<size_t>(NET_TV_TIME_DURATION_NUM)));
+        for (INT32 i = 0; i < dstDay.nRecordTimeCount; ++i)
+        {
+            const Record_NS::RecordTime_S &srcTime = srcDay.recordTimes[static_cast<size_t>(i)];
+            dstDay.astRecordTimes[i].nType = srcTime.nType;
+            dstDay.astRecordTimes[i].nStartTime = srcTime.nStartTime;
+            dstDay.astRecordTimes[i].nEndTime = srcTime.nEndTime;
+        }
+    }
+    dst.nDayScheduleCount = static_cast<INT32>(std::min(src.daySchedules.size(),
+                                                         static_cast<size_t>(NET_TV_PLAN_DAY_NUM_AWEEK)));
+}
+
+void ToRecordSchedule(const NET_TV_RECORD_SCHEDULE_S &src, Record_NS::Schedule_S &dst)
+{
+    dst.bEnable = (src.bEnable == TRUE);
+    dst.daySchedules.clear();
+    const INT32 nDayCount = std::max<INT32>(0, std::min<INT32>(src.nDayScheduleCount, NET_TV_PLAN_DAY_NUM_AWEEK));
+    for (INT32 i = 0; i < nDayCount; ++i)
+    {
+        const NET_TV_RECORD_DAY_SCHEDULE_S &srcDay = src.astDaySchedules[i];
+        INT32 nDay = srcDay.nDayOfWeek;
+        /* 兼容旧客户端未填写 nDayOfWeek 的情况，按数组下标补齐星期。 */
+        if (nDay < 1 || nDay > NET_TV_PLAN_DAY_NUM_AWEEK)
+            nDay = i + 1;
+        Record_NS::DaySchedule_S dstDay;
+        dstDay.enDayOfWeek = static_cast<Record_NS::DayOfWeek_E>(nDay);
+        const INT32 nTimeCount = std::max<INT32>(0, std::min<INT32>(srcDay.nRecordTimeCount, NET_TV_TIME_DURATION_NUM));
+        dstDay.recordTimes.reserve(static_cast<size_t>(nTimeCount));
+        for (INT32 j = 0; j < nTimeCount; ++j)
+        {
+            Record_NS::RecordTime_S dstTime;
+            dstTime.nType = srcDay.astRecordTimes[j].nType;
+            dstTime.nStartTime = srcDay.astRecordTimes[j].nStartTime;
+            dstTime.nEndTime = srcDay.astRecordTimes[j].nEndTime;
+            dstDay.recordTimes.push_back(dstTime);
+        }
+        dst.daySchedules.push_back(dstDay);
+    }
+}
+
+void FillRecordAdvancedParam(const Record_NS::AdvancedParam_S &src, NET_TV_RECORD_ADVANCED_PARAM_S &dst)
+{
+    std::memset(&dst, 0, sizeof(dst));
+    dst.bLoopWrite = src.bLoopWrite ? TRUE : FALSE;
+    dst.nPreTime = static_cast<INT32>(src.ePreTime);
+    dst.nDelayTime = static_cast<INT32>(src.eDelayTime);
+    dst.nStreamType = src.nStreamType;
+}
+
+void ToRecordAdvancedParam(const NET_TV_RECORD_ADVANCED_PARAM_S &src, Record_NS::AdvancedParam_S &dst)
+{
+    dst.bLoopWrite = (src.bLoopWrite == TRUE);
+    dst.ePreTime = static_cast<Record_NS::RecordPreTime_E>(src.nPreTime);
+    dst.eDelayTime = static_cast<Record_NS::RecordDelayTime_E>(src.nDelayTime);
+    dst.nStreamType = src.nStreamType;
+}
+
+void ToRecordFind(const NET_TV_RECORD_FILE_LIST_S &src, Record_NS::Find_S &dst)
+{
+    dst.nChnId = src.stFind.nChnId;
+    dst.nType = src.stFind.nType;
+    dst.year = read_alarm_string(src.stFind.szYear, sizeof(src.stFind.szYear));
+    dst.month = read_alarm_string(src.stFind.szMonth, sizeof(src.stFind.szMonth));
+    dst.date = read_alarm_string(src.stFind.szDate, sizeof(src.stFind.szDate));
+    dst.startTime = read_alarm_string(src.stFind.szStartTime, sizeof(src.stFind.szStartTime));
+    dst.endTime = read_alarm_string(src.stFind.szEndTime, sizeof(src.stFind.szEndTime));
+    dst.filename = read_alarm_string(src.stFind.szFilename, sizeof(src.stFind.szFilename));
+}
+
+void FillRecordFileList(const Record_NS::Find_S &srcFind,
+                        const std::vector<Record_NS::FindResult_S> &srcResults,
+                        NET_TV_RECORD_FILE_LIST_S &dst)
+{
+    std::memset(&dst, 0, sizeof(dst));
+    dst.stFind.nChnId = srcFind.nChnId;
+    dst.stFind.nType = srcFind.nType;
+    copy_alarm_string(srcFind.year, dst.stFind.szYear, sizeof(dst.stFind.szYear));
+    copy_alarm_string(srcFind.month, dst.stFind.szMonth, sizeof(dst.stFind.szMonth));
+    copy_alarm_string(srcFind.date, dst.stFind.szDate, sizeof(dst.stFind.szDate));
+    copy_alarm_string(srcFind.startTime, dst.stFind.szStartTime, sizeof(dst.stFind.szStartTime));
+    copy_alarm_string(srcFind.endTime, dst.stFind.szEndTime, sizeof(dst.stFind.szEndTime));
+    copy_alarm_string(srcFind.filename, dst.stFind.szFilename, sizeof(dst.stFind.szFilename));
+    /* SDK 公开数组容量有限，超过部分不返回，避免写越界。 */
+    dst.nResultCount = static_cast<INT32>(std::min(srcResults.size(), static_cast<size_t>(NET_TV_RECORD_FILE_MAX_NUM)));
+    for (INT32 i = 0; i < dst.nResultCount; ++i)
+    {
+        const Record_NS::FindResult_S &srcResult = srcResults[static_cast<size_t>(i)];
+        NET_TV_RECORD_FIND_RESULT_S &dstResult = dst.astResults[i];
+        dstResult.nChnId = srcResult.nChnId;
+        dstResult.nDateCount = static_cast<INT32>(std::min(srcResult.dates.size(), static_cast<size_t>(NET_TV_RECORD_DATE_MAX_NUM)));
+        for (INT32 j = 0; j < dstResult.nDateCount; ++j)
+            copy_alarm_string(srcResult.dates[static_cast<size_t>(j)], dstResult.aszDates[j], sizeof(dstResult.aszDates[j]));
+        copy_alarm_string(srcResult.filename, dstResult.szFilename, sizeof(dstResult.szFilename));
+        dstResult.nVideoTimeCount = static_cast<INT32>(std::min(srcResult.videoTimes.size(), static_cast<size_t>(NET_TV_TIME_DURATION_NUM)));
+        for (INT32 j = 0; j < dstResult.nVideoTimeCount; ++j)
+        {
+            dstResult.astVideoTimes[j].nStartTime = srcResult.videoTimes[static_cast<size_t>(j)].nStartTime;
+            dstResult.astVideoTimes[j].nEndTime = srcResult.videoTimes[static_cast<size_t>(j)].nEndTime;
+        }
+    }
+}
+
+void ToRecordDownloadList(const NET_TV_RECORD_DOWNLOAD_LIST_S &src,
+                          std::vector<Record_NS::DownloadInfo_S> &dst)
+{
+    dst.clear();
+    /* 输入计数不可信，强制收敛到 ABI 数组边界。 */
+    const INT32 nCount = std::max<INT32>(0, std::min<INT32>(src.nDownloadCount, NET_TV_RECORD_DOWNLOAD_MAX_NUM));
+    dst.reserve(static_cast<size_t>(nCount));
+    for (INT32 i = 0; i < nCount; ++i)
+    {
+        const NET_TV_RECORD_DOWNLOAD_INFO_S &srcInfo = src.astDownloads[i];
+        Record_NS::DownloadInfo_S dstInfo;
+        dstInfo.nChnId = srcInfo.nChnId;
+        dstInfo.path = read_alarm_string(srcInfo.szPath, sizeof(srcInfo.szPath));
+        dstInfo.startTime = read_alarm_string(srcInfo.szStartTime, sizeof(srcInfo.szStartTime));
+        dstInfo.endTime = read_alarm_string(srcInfo.szEndTime, sizeof(srcInfo.szEndTime));
+        dst.push_back(dstInfo);
+    }
+}
+
+void FillRecordDownloadProgress(const Record_NS::DownloadProgress_S &src,
+                                NET_TV_RECORD_DOWNLOAD_PROGRESS_S &dst)
+{
+    std::memset(&dst, 0, sizeof(dst));
+    dst.nProgress = src.nProgress;
+    copy_alarm_string(src.filename, dst.szFilename, sizeof(dst.szFilename));
+}
+
+/* ---------- 人脸比对、目标库与人员信息（482-490） ---------- */
+void FillFaceCompareInfo(const Alarm::FaceCompare_S &src, NET_TV_FACE_COMPARE_INFO_S &dst)
+{
+    std::memset(&dst, 0, sizeof(dst));
+    dst.bEnable = src.bEnable ? TRUE : FALSE;
+    fill_alarm_schedule(src.aAlarmTime, dst.stAlarmSchedule);
+    FillLinkageList(src.stLinkageListSuccess, dst.stLinkageListSuccess);
+    FillLinkageList(src.stLinkageListFail, dst.stLinkageListFail);
+}
+
+void ToFaceCompareInfo(const NET_TV_FACE_COMPARE_INFO_S &src, Alarm::FaceCompare_S &dst)
+{
+    /* TargetLibInfos 不在公开 ABI 中，故意不触碰，调用方负责先加载现有配置。 */
+    dst.bEnable = (src.bEnable == TRUE);
+    to_alarm_schedule(src.stAlarmSchedule, dst.aAlarmTime);
+    ToLinkageList(src.stLinkageListSuccess, dst.stLinkageListSuccess);
+    ToLinkageList(src.stLinkageListFail, dst.stLinkageListFail);
+}
+
+void ToFaceLibInfo(const NET_TV_FACE_LIB_INFO_S &src, Event::FaceLibInfo_S &dst)
+{
+    dst.strFaceLibName = read_alarm_string(src.szFaceLibName, sizeof(src.szFaceLibName));
+    dst.nTotalFace = src.nTotalFace;
+    dst.nNormalNum = src.nNormalNum;
+    dst.nAbnormalNum = src.nAbnormalNum;
+}
+
+void FillFaceLibList(const std::vector<Event::FaceLibInfo_S> &src, NET_TV_FACE_LIB_LIST_S &dst)
+{
+    std::memset(&dst, 0, sizeof(dst));
+    dst.nTargetLibCount = static_cast<INT32>(std::min(src.size(), static_cast<size_t>(NET_TV_FACE_LIB_MAX_NUM)));
+    for (INT32 i = 0; i < dst.nTargetLibCount; ++i)
+    {
+        const Event::FaceLibInfo_S &srcInfo = src[static_cast<size_t>(i)];
+        NET_TV_FACE_LIB_INFO_S &dstInfo = dst.astTargetLibInfos[i];
+        copy_alarm_string(srcInfo.strFaceLibName, dstInfo.szFaceLibName, sizeof(dstInfo.szFaceLibName));
+        dstInfo.nTotalFace = srcInfo.nTotalFace;
+        dstInfo.nNormalNum = srcInfo.nNormalNum;
+        dstInfo.nAbnormalNum = srcInfo.nAbnormalNum;
+    }
+}
+
+void ToFaceIdInfo(const NET_TV_FACE_ID_INFO_S &src, Event::FaceIdInfo_S &dst)
+{
+    const INT32 nCount = std::max<INT32>(0, std::min<INT32>(src.nIdCount, NET_TV_FACE_ID_MAX_NUM));
+    dst.ids.assign(src.anIds, src.anIds + nCount);
+}
+
+void ToFaceInfo(const NET_TV_FACE_INFO_S &src, Event::FaceInfo_S &dst)
+{
+    dst.nId = src.nId;
+    dst.strFaceLibName = read_alarm_string(src.szFaceLibName, sizeof(src.szFaceLibName));
+    dst.strName = read_alarm_string(src.szName, sizeof(src.szName));
+    dst.strPhoneNum = read_alarm_string(src.szPhoneNum, sizeof(src.szPhoneNum));
+    dst.strPicPath = read_alarm_string(src.szPicPath, sizeof(src.szPicPath));
+    dst.BinPath = read_alarm_string(src.szBinPath, sizeof(src.szBinPath));
+    dst.strPicType = read_alarm_string(src.szPicType, sizeof(src.szPicType));
+    dst.nPicSize = src.nPicSize;
+    dst.strPicDate = read_alarm_string(src.szPicDate, sizeof(src.szPicDate));
+    dst.nModelState = src.nModelState;
+    dst.nRatingLevel = src.nRatingLevel;
+}
+
+void FillFaceInfoList(const std::vector<Event::FaceInfo_S> &src, NET_TV_FACE_INFO_LIST_S &dst)
+{
+    std::memset(&dst, 0, sizeof(dst));
+    /* 人脸库可能大于单次 SDK 返回容量，只返回 ABI 可承载的前 N 项。 */
+    dst.nFaceInfoCount = static_cast<INT32>(std::min(src.size(), static_cast<size_t>(NET_TV_FACE_INFO_MAX_NUM)));
+    for (INT32 i = 0; i < dst.nFaceInfoCount; ++i)
+    {
+        const Event::FaceInfo_S &srcInfo = src[static_cast<size_t>(i)];
+        NET_TV_FACE_INFO_S &dstInfo = dst.astFaceInfos[i];
+        dstInfo.nId = srcInfo.nId;
+        copy_alarm_string(srcInfo.strFaceLibName, dstInfo.szFaceLibName, sizeof(dstInfo.szFaceLibName));
+        copy_alarm_string(srcInfo.strName, dstInfo.szName, sizeof(dstInfo.szName));
+        copy_alarm_string(srcInfo.strPhoneNum, dstInfo.szPhoneNum, sizeof(dstInfo.szPhoneNum));
+        copy_alarm_string(srcInfo.strPicPath, dstInfo.szPicPath, sizeof(dstInfo.szPicPath));
+        copy_alarm_string(srcInfo.BinPath, dstInfo.szBinPath, sizeof(dstInfo.szBinPath));
+        copy_alarm_string(srcInfo.strPicType, dstInfo.szPicType, sizeof(dstInfo.szPicType));
+        dstInfo.nPicSize = srcInfo.nPicSize;
+        copy_alarm_string(srcInfo.strPicDate, dstInfo.szPicDate, sizeof(dstInfo.szPicDate));
+        dstInfo.nModelState = srcInfo.nModelState;
+        dstInfo.nRatingLevel = srcInfo.nRatingLevel;
+    }
+}
+
 // --------- Tamper (IPC HideAlarm_S <-> SDK NET_TV_TAMPER_ALARM_INFO_S) ---------
 void FillTamperAlarmInfo(const Alarm::HideAlarm_S &src, NET_TV_TAMPER_ALARM_INFO_S &dst)
 {
