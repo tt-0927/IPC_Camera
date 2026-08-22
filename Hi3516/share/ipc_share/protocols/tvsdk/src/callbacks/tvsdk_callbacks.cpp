@@ -361,6 +361,26 @@ static int execute_action_expect_success(int actionCode, const std::string &inJs
     return 0;
 }
 
+/* 执行同步任务并提取统一响应中的 Data，避免各配置回调重复处理 Return 字段。 */
+static bool execute_get_success_data(int actionCode, const std::string &inJson, std::string &dataJson)
+{
+    std::string outJson;
+    if (execute_get_result(actionCode, inJson, outJson) != 0 || outJson.empty())
+    {
+        return false;
+    }
+
+    int nRet = -1;
+    if (!Json::get(outJson.c_str(), "Return", nRet) || nRet != 0)
+    {
+        dlog_warn("[TVSDK] action=%d get failed, ret=%d, body=%s", actionCode, nRet, outJson.c_str());
+        return false;
+    }
+
+    dataJson = normalize_data_json(outJson);
+    return !dataJson.empty();
+}
+
 void set_task_manage(const std::shared_ptr<CTaskManage> &taskManage)
 {
     s_taskManage = taskManage ? taskManage.get() : nullptr;
@@ -4067,6 +4087,492 @@ static NET_TV_COMMON_ECODE_E cb_set_face_capture_overlay_info(INT32 dwChannelID,
     return (nExecute == 0) ? NET_TV_E_SUCCEED : NET_TV_E_SET_CFG_FAILED;
 }
 
+/* ---------- 安全服务与日志（465-472） ---------- */
+static NET_TV_COMMON_ECODE_E cb_get_security_services_info(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    (void)dwChannelID;
+    if (!lpOutBuffer)
+        return NET_TV_E_INVALID_PARAM;
+
+    std::string dataJson;
+    if (!execute_get_success_data(AC_GET_SECURITY_SERVICES_INFO, "{}", dataJson))
+        return NET_TV_E_GET_CFG_FAILED;
+
+    System::SecurityServices_S stConfig;
+    Convert::to_struct(dataJson, stConfig);
+    TvSdkConvert::FillSecurityServicesInfo(stConfig,
+                                           *static_cast<LPNET_TV_SECURITY_SERVICES_INFO_S>(lpOutBuffer));
+    return NET_TV_E_SUCCEED;
+}
+
+static NET_TV_COMMON_ECODE_E cb_set_security_services_info(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    (void)dwChannelID;
+    if (!lpInBuffer)
+        return NET_TV_E_INVALID_PARAM;
+
+    System::SecurityServices_S stConfig;
+    TvSdkConvert::ToSecurityServicesInfo(
+        *static_cast<const NET_TV_SECURITY_SERVICES_INFO_S *>(lpInBuffer), stConfig);
+    return execute_action_expect_success(AC_SET_SECURITY_SERVICES_INFO,
+                                         wrap_data_json(Convert::to_string(stConfig))) == 0
+               ? NET_TV_E_SUCCEED
+               : NET_TV_E_SET_CFG_FAILED;
+}
+
+static NET_TV_COMMON_ECODE_E cb_get_ssh_countdown(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    (void)dwChannelID;
+    if (!lpOutBuffer)
+        return NET_TV_E_INVALID_PARAM;
+
+    std::string dataJson;
+    if (!execute_get_success_data(AC_GET_SSH_COUNTDOWN, "{}", dataJson))
+        return NET_TV_E_GET_CFG_FAILED;
+
+    System::SshCountdown_S stCountdown;
+    Convert::to_struct(dataJson, stCountdown);
+    TvSdkConvert::FillSshCountdownInfo(stCountdown,
+                                       *static_cast<LPNET_TV_SSH_COUNTDOWN_INFO_S>(lpOutBuffer));
+    return NET_TV_E_SUCCEED;
+}
+
+/*
+ * 查询和导出共用相同的入参/出参 ABI；区别只在 IPC ActionCode，
+ * 由 actionCode 分别路由至 AC_FIND_LOG 和 AC_EXPORT_LOG。
+ */
+static NET_TV_COMMON_ECODE_E cb_find_log_impl(INT32 dwChannelID, LPVOID lpOutBuffer, int actionCode)
+{
+    (void)dwChannelID;
+    if (!lpOutBuffer)
+        return NET_TV_E_INVALID_PARAM;
+
+    LPNET_TV_LOG_LIST_S pOut = static_cast<LPNET_TV_LOG_LIST_S>(lpOutBuffer);
+    Log::RetrievalCond_S stCond;
+    Common::PageInfo_S stPage;
+    TvSdkConvert::ToLogListRequest(*pOut, stCond, stPage);
+
+    std::string dataJson;
+    if (!execute_get_success_data(actionCode, wrap_data_json(Convert::to_string(stCond, stPage)), dataJson))
+        return NET_TV_E_GET_CFG_FAILED;
+
+    std::vector<Log::Info_S> logInfos;
+    Convert::to_struct(dataJson, logInfos, stPage);
+    TvSdkConvert::FillLogList(stCond, stPage, logInfos, *pOut);
+    return NET_TV_E_SUCCEED;
+}
+
+static NET_TV_COMMON_ECODE_E cb_find_log(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    return cb_find_log_impl(dwChannelID, lpOutBuffer, AC_FIND_LOG);
+}
+
+static NET_TV_COMMON_ECODE_E cb_export_log(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    return cb_find_log_impl(dwChannelID, lpOutBuffer, AC_EXPORT_LOG);
+}
+
+static NET_TV_COMMON_ECODE_E cb_get_log_server(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    (void)dwChannelID;
+    if (!lpOutBuffer)
+        return NET_TV_E_INVALID_PARAM;
+
+    std::string dataJson;
+    if (!execute_get_success_data(AC_GET_LOG_SERVER, "{}", dataJson))
+        return NET_TV_E_GET_CFG_FAILED;
+
+    System::LogServerInfo_S stConfig;
+    Convert::to_struct(dataJson, stConfig);
+    TvSdkConvert::FillLogServerInfo(stConfig,
+                                    *static_cast<LPNET_TV_LOG_SERVER_INFO_S>(lpOutBuffer));
+    return NET_TV_E_SUCCEED;
+}
+
+static NET_TV_COMMON_ECODE_E cb_set_log_server(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    (void)dwChannelID;
+    if (!lpInBuffer)
+        return NET_TV_E_INVALID_PARAM;
+
+    /* SDK ABI 没有 bLogUpload 字段，先读取现有配置后覆盖可见字段，避免意外关闭上传。 */
+    System::LogServerInfo_S stConfig;
+    std::string dataJson;
+    if (!execute_get_success_data(AC_GET_LOG_SERVER, "{}", dataJson))
+        return NET_TV_E_GET_CFG_FAILED;
+    Convert::to_struct(dataJson, stConfig);
+    TvSdkConvert::ToLogServerInfo(*static_cast<const NET_TV_LOG_SERVER_INFO_S *>(lpInBuffer), stConfig);
+
+    return execute_action_expect_success(AC_SET_LOG_SERVER,
+                                         wrap_data_json(Convert::to_string(stConfig))) == 0
+               ? NET_TV_E_SUCCEED
+               : NET_TV_E_SET_CFG_FAILED;
+}
+
+static NET_TV_COMMON_ECODE_E cb_test_log_server(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    (void)dwChannelID;
+    if (!lpInBuffer)
+        return NET_TV_E_INVALID_PARAM;
+
+    System::LogServerInfo_S stConfig;
+    TvSdkConvert::ToLogServerInfo(*static_cast<const NET_TV_LOG_SERVER_INFO_S *>(lpInBuffer), stConfig);
+    return execute_action_expect_success(AC_TEST_LOG_SERVER,
+                                         wrap_data_json(Convert::to_string(stConfig))) == 0
+               ? NET_TV_E_SUCCEED
+               : NET_TV_E_SET_CFG_FAILED;
+}
+
+/* ---------- 录像控制、计划、检索与下载（473-481） ---------- */
+static NET_TV_COMMON_ECODE_E cb_control_record_info(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    (void)dwChannelID;
+    if (!lpInBuffer)
+        return NET_TV_E_INVALID_PARAM;
+
+    Record_NS::Info_S stRecord;
+    TvSdkConvert::ToRecordInfo(*static_cast<const NET_TV_RECORD_INFO_S *>(lpInBuffer), stRecord);
+    return execute_action_expect_success(AC_SET_HUMAN_RECORD,
+                                         wrap_data_json(Convert::to_string(stRecord))) == 0
+               ? NET_TV_E_SUCCEED
+               : NET_TV_E_SET_CFG_FAILED;
+}
+
+static NET_TV_COMMON_ECODE_E cb_get_record_status(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    (void)dwChannelID;
+    if (!lpOutBuffer)
+        return NET_TV_E_INVALID_PARAM;
+
+    std::string dataJson;
+    if (!execute_get_success_data(AC_GET_RECORD_STATUS, "{}", dataJson))
+        return NET_TV_E_GET_CFG_FAILED;
+
+    Record_NS::RecordStatusInfo_S stStatus;
+    Convert::to_struct(dataJson, stStatus);
+    TvSdkConvert::FillRecordStatusInfo(stStatus,
+                                       *static_cast<LPNET_TV_RECORD_STATUS_INFO_S>(lpOutBuffer));
+    return NET_TV_E_SUCCEED;
+}
+
+static NET_TV_COMMON_ECODE_E cb_get_record_schedule(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    (void)dwChannelID;
+    if (!lpOutBuffer)
+        return NET_TV_E_INVALID_PARAM;
+
+    std::string dataJson;
+    if (!execute_get_success_data(AC_GET_RECORD_SCHEDULE, "{}", dataJson))
+        return NET_TV_E_GET_CFG_FAILED;
+
+    Record_NS::Schedule_S stSchedule;
+    Convert::to_struct(dataJson, stSchedule);
+    TvSdkConvert::FillRecordSchedule(stSchedule,
+                                     *static_cast<LPNET_TV_RECORD_SCHEDULE_S>(lpOutBuffer));
+    return NET_TV_E_SUCCEED;
+}
+
+static NET_TV_COMMON_ECODE_E cb_set_record_schedule(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    (void)dwChannelID;
+    if (!lpInBuffer)
+        return NET_TV_E_INVALID_PARAM;
+
+    Record_NS::Schedule_S stSchedule;
+    TvSdkConvert::ToRecordSchedule(*static_cast<const NET_TV_RECORD_SCHEDULE_S *>(lpInBuffer), stSchedule);
+    return execute_action_expect_success(AC_SET_RECORD_SCHEDULE,
+                                         wrap_data_json(Convert::to_string(stSchedule))) == 0
+               ? NET_TV_E_SUCCEED
+               : NET_TV_E_SET_CFG_FAILED;
+}
+
+static NET_TV_COMMON_ECODE_E cb_get_record_advanced_param(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    (void)dwChannelID;
+    if (!lpOutBuffer)
+        return NET_TV_E_INVALID_PARAM;
+
+    std::string dataJson;
+    if (!execute_get_success_data(AC_GET_RECORD_ADVANCED_PARAM, "{}", dataJson))
+        return NET_TV_E_GET_CFG_FAILED;
+
+    Record_NS::AdvancedParam_S stParam;
+    Convert::to_struct(dataJson, stParam);
+    TvSdkConvert::FillRecordAdvancedParam(stParam,
+                                          *static_cast<LPNET_TV_RECORD_ADVANCED_PARAM_S>(lpOutBuffer));
+    return NET_TV_E_SUCCEED;
+}
+
+static NET_TV_COMMON_ECODE_E cb_set_record_advanced_param(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    (void)dwChannelID;
+    if (!lpInBuffer)
+        return NET_TV_E_INVALID_PARAM;
+
+    Record_NS::AdvancedParam_S stParam;
+    TvSdkConvert::ToRecordAdvancedParam(*static_cast<const NET_TV_RECORD_ADVANCED_PARAM_S *>(lpInBuffer), stParam);
+    return execute_action_expect_success(AC_SET_RECORD_ADVANCED_PARAM,
+                                         wrap_data_json(Convert::to_string(stParam))) == 0
+               ? NET_TV_E_SUCCEED
+               : NET_TV_E_SET_CFG_FAILED;
+}
+
+static NET_TV_COMMON_ECODE_E cb_find_record_file_info(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    (void)dwChannelID;
+    if (!lpOutBuffer)
+        return NET_TV_E_INVALID_PARAM;
+
+    LPNET_TV_RECORD_FILE_LIST_S pOut = static_cast<LPNET_TV_RECORD_FILE_LIST_S>(lpOutBuffer);
+    Record_NS::Find_S stFind;
+    TvSdkConvert::ToRecordFind(*pOut, stFind);
+
+    std::string dataJson;
+    if (!execute_get_success_data(AC_FIND_RECORD_FILE_INFO,
+                                  wrap_data_json(Convert::to_string(stFind)), dataJson))
+        return NET_TV_E_GET_CFG_FAILED;
+
+    std::vector<Record_NS::FindResult_S> results;
+    Convert::to_struct(dataJson, results);
+    TvSdkConvert::FillRecordFileList(stFind, results, *pOut);
+    return NET_TV_E_SUCCEED;
+}
+
+static NET_TV_COMMON_ECODE_E cb_download_record_file(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    (void)dwChannelID;
+    if (!lpInBuffer)
+        return NET_TV_E_INVALID_PARAM;
+
+    std::vector<Record_NS::DownloadInfo_S> downloads;
+    TvSdkConvert::ToRecordDownloadList(*static_cast<const NET_TV_RECORD_DOWNLOAD_LIST_S *>(lpInBuffer), downloads);
+    if (downloads.empty())
+        return NET_TV_E_INVALID_PARAM;
+
+    /* 下载任务只负责受理；实际进度由 CTvSdkServer 订阅任务总线后以 481 异步上报。 */
+    return execute_action_expect_success(AC_DOWNLOAD_RECORD_FILE,
+                                         wrap_data_json(Convert::to_string(downloads))) == 0
+               ? NET_TV_E_SUCCEED
+               : NET_TV_E_SET_CFG_FAILED;
+}
+
+/* ---------- 人脸比对、目标库与人脸人员信息（482-490） ---------- */
+static NET_TV_COMMON_ECODE_E cb_set_face_compare_info(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    (void)dwChannelID;
+    if (!lpInBuffer)
+        return NET_TV_E_INVALID_PARAM;
+
+#if !CAP_AI_FACE_COMPARE
+    return NET_TV_E_CMD_NOT_SUPPORT;
+#else
+    /* 该 ABI 未携带关联库，读取当前配置后仅覆盖 SDK 可配置字段。 */
+    Alarm::FaceCompare_S stConfig;
+    std::string dataJson;
+    if (!execute_get_success_data(AC_GET_FACE_COMPARE_INFO, "{}", dataJson))
+        return NET_TV_E_GET_CFG_FAILED;
+    Convert::to_struct(dataJson, stConfig);
+    TvSdkConvert::ToFaceCompareInfo(*static_cast<const NET_TV_FACE_COMPARE_INFO_S *>(lpInBuffer), stConfig);
+
+    return execute_action_expect_success(AC_SET_FACE_COMPARE_INFO,
+                                         wrap_data_json(Convert::to_string(stConfig))) == 0
+               ? NET_TV_E_SUCCEED
+               : NET_TV_E_SET_CFG_FAILED;
+#endif
+}
+
+static NET_TV_COMMON_ECODE_E cb_add_target_lib(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    (void)dwChannelID;
+    if (!lpInBuffer)
+        return NET_TV_E_INVALID_PARAM;
+
+#if !CAP_AI_FACE_COMPARE
+    return NET_TV_E_CMD_NOT_SUPPORT;
+#else
+    Event::FaceLibInfo_S stInfo;
+    TvSdkConvert::ToFaceLibInfo(*static_cast<const NET_TV_FACE_LIB_INFO_S *>(lpInBuffer), stInfo);
+    if (stInfo.strFaceLibName.empty())
+        return NET_TV_E_INVALID_PARAM;
+
+    return execute_action_expect_success(AC_ADD_TARGET_LIB,
+                                         wrap_data_json(Convert::to_string(stInfo))) == 0
+               ? NET_TV_E_SUCCEED
+               : NET_TV_E_SET_CFG_FAILED;
+#endif
+}
+
+static NET_TV_COMMON_ECODE_E cb_del_target_lib(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    (void)dwChannelID;
+    if (!lpInBuffer)
+        return NET_TV_E_INVALID_PARAM;
+
+#if !CAP_AI_FACE_COMPARE
+    return NET_TV_E_CMD_NOT_SUPPORT;
+#else
+    Event::FaceLibInfo_S stInfo;
+    TvSdkConvert::ToFaceLibInfo(*static_cast<const NET_TV_FACE_LIB_INFO_S *>(lpInBuffer), stInfo);
+    if (stInfo.strFaceLibName.empty())
+        return NET_TV_E_INVALID_PARAM;
+
+    return execute_action_expect_success(AC_DEL_TARGET_LIB,
+                                         wrap_data_json(Convert::to_string(stInfo))) == 0
+               ? NET_TV_E_SUCCEED
+               : NET_TV_E_SET_CFG_FAILED;
+#endif
+}
+
+static NET_TV_COMMON_ECODE_E cb_set_target_lib(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    (void)dwChannelID;
+    if (!lpInBuffer)
+        return NET_TV_E_INVALID_PARAM;
+
+#if !CAP_AI_FACE_COMPARE
+    return NET_TV_E_CMD_NOT_SUPPORT;
+#else
+    Event::FaceLibInfo_S stInfo;
+    TvSdkConvert::ToFaceLibInfo(*static_cast<const NET_TV_FACE_LIB_INFO_S *>(lpInBuffer), stInfo);
+    if (stInfo.strFaceLibName.empty())
+        return NET_TV_E_INVALID_PARAM;
+
+    /* 内部重命名动作要求 old/new 两个库名；公开 ABI 只携带新名称，旧名称取当前关联库。 */
+    Alarm::FaceCompare_S stFaceCompare;
+    std::string dataJson;
+    if (!execute_get_success_data(AC_GET_FACE_COMPARE_INFO, "{}", dataJson))
+        return NET_TV_E_GET_CFG_FAILED;
+    Convert::to_struct(dataJson, stFaceCompare);
+    if (stFaceCompare.TargetLibInfos.LibId.empty())
+        return NET_TV_E_INVALID_PARAM;
+
+    Json::Object *pRoot = Json::init();
+    if (!pRoot)
+        return NET_TV_E_SET_CFG_FAILED;
+    Json::add(pRoot, "LibId_old", stFaceCompare.TargetLibInfos.LibId);
+    Json::add(pRoot, "LibId_new", stInfo.strFaceLibName);
+    const std::string requestJson = Json::to_string(pRoot);
+    Json::deinit(pRoot);
+
+    return execute_action_expect_success(AC_SET_TARGET_LIB, wrap_data_json(requestJson)) == 0
+               ? NET_TV_E_SUCCEED
+               : NET_TV_E_SET_CFG_FAILED;
+#endif
+}
+
+static NET_TV_COMMON_ECODE_E cb_get_target_lib(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    (void)dwChannelID;
+    if (!lpOutBuffer)
+        return NET_TV_E_INVALID_PARAM;
+
+#if !CAP_AI_FACE_COMPARE
+    return NET_TV_E_CMD_NOT_SUPPORT;
+#else
+    std::string dataJson;
+    if (!execute_get_success_data(AC_GET_TARGET_LIB, wrap_data_json("{}"), dataJson))
+        return NET_TV_E_GET_CFG_FAILED;
+
+    std::vector<Event::FaceLibInfo_S> targetLibs;
+    Convert::to_struct(dataJson, targetLibs);
+    TvSdkConvert::FillFaceLibList(targetLibs, *static_cast<LPNET_TV_FACE_LIB_LIST_S>(lpOutBuffer));
+    return NET_TV_E_SUCCEED;
+#endif
+}
+
+static NET_TV_COMMON_ECODE_E cb_add_face_info(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    (void)dwChannelID;
+    if (!lpInBuffer)
+        return NET_TV_E_INVALID_PARAM;
+
+#if !CAP_AI_FACE_COMPARE
+    return NET_TV_E_CMD_NOT_SUPPORT;
+#else
+    Event::FaceInfo_S stInfo;
+    TvSdkConvert::ToFaceInfo(*static_cast<const NET_TV_FACE_INFO_S *>(lpInBuffer), stInfo);
+    if (stInfo.strFaceLibName.empty())
+        return NET_TV_E_INVALID_PARAM;
+
+    std::string resultJson;
+    if (execute_action_expect_success(AC_ADD_FACE_INFO,
+                                      wrap_data_json(Convert::to_string(stInfo)),
+                                      &resultJson) != 0)
+        return NET_TV_E_SET_CFG_FAILED;
+
+    const std::string dataJson = normalize_data_json(resultJson);
+    int nRet = 0;
+    if (!dataJson.empty() && Json::get(dataJson.c_str(), "nRet", nRet) && nRet != 0)
+        return NET_TV_E_SET_CFG_FAILED;
+    return NET_TV_E_SUCCEED;
+#endif
+}
+
+static NET_TV_COMMON_ECODE_E cb_del_face_info(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    (void)dwChannelID;
+    if (!lpInBuffer)
+        return NET_TV_E_INVALID_PARAM;
+
+#if !CAP_AI_FACE_COMPARE
+    return NET_TV_E_CMD_NOT_SUPPORT;
+#else
+    Event::FaceIdInfo_S stInfo;
+    TvSdkConvert::ToFaceIdInfo(*static_cast<const NET_TV_FACE_ID_INFO_S *>(lpInBuffer), stInfo);
+    if (stInfo.ids.empty())
+        return NET_TV_E_INVALID_PARAM;
+
+    return execute_action_expect_success(AC_DEL_FACE_INFO,
+                                         wrap_data_json(Convert::to_string(stInfo))) == 0
+               ? NET_TV_E_SUCCEED
+               : NET_TV_E_SET_CFG_FAILED;
+#endif
+}
+
+static NET_TV_COMMON_ECODE_E cb_set_face_info(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    (void)dwChannelID;
+    if (!lpInBuffer)
+        return NET_TV_E_INVALID_PARAM;
+
+#if !CAP_AI_FACE_COMPARE
+    return NET_TV_E_CMD_NOT_SUPPORT;
+#else
+    Event::FaceInfo_S stInfo;
+    TvSdkConvert::ToFaceInfo(*static_cast<const NET_TV_FACE_INFO_S *>(lpInBuffer), stInfo);
+    if (stInfo.nId < 0)
+        return NET_TV_E_INVALID_PARAM;
+
+    return execute_action_expect_success(AC_SET_FACE_INFO,
+                                         wrap_data_json(Convert::to_string(stInfo))) == 0
+               ? NET_TV_E_SUCCEED
+               : NET_TV_E_SET_CFG_FAILED;
+#endif
+}
+
+static NET_TV_COMMON_ECODE_E cb_get_face_info(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    (void)dwChannelID;
+    if (!lpOutBuffer)
+        return NET_TV_E_INVALID_PARAM;
+
+#if !CAP_AI_FACE_COMPARE
+    return NET_TV_E_CMD_NOT_SUPPORT;
+#else
+    /* NET_TV_FACE_INFO_LIST_S 仅承载结果，当前 SDK 协议没有独立检索条件，默认查询全部。 */
+    Event::FaceFind_S stFind;
+    std::string dataJson;
+    if (!execute_get_success_data(AC_GET_FACE_INFO,
+                                  wrap_data_json(Convert::to_string(stFind)), dataJson))
+        return NET_TV_E_GET_CFG_FAILED;
+
+    std::vector<Event::FaceInfo_S> faceInfos;
+    Convert::to_struct(dataJson, faceInfos);
+    TvSdkConvert::FillFaceInfoList(faceInfos, *static_cast<LPNET_TV_FACE_INFO_LIST_S>(lpOutBuffer));
+    return NET_TV_E_SUCCEED;
+#endif
+}
+
 void register_all()
 {
     NET_TV_SERVER_RegisterCb_GetDeviceInfo(
@@ -4090,6 +4596,18 @@ void register_all()
     NET_TV_SERVER_RegisterCb_SetImageCfg(cb_set_image_cfg);
     NET_TV_SERVER_RegisterCb_GetNetworkCfg(cb_get_network_cfg);
     NET_TV_SERVER_RegisterCb_SetNetworkCfg(cb_set_network_cfg);
+
+    /* 安全服务、日志及录像接口。481 为异步通知，在 CTvSdkServer 中桥接，不注册请求回调。 */
+    NET_TV_SERVER_RegisterCb_GetSecurityServicesInfo(cb_get_security_services_info);
+    NET_TV_SERVER_RegisterCb_SetSecurityServicesInfo(cb_set_security_services_info);
+    NET_TV_SERVER_RegisterCb_GetSshCountdown(cb_get_ssh_countdown);
+    NET_TV_SERVER_RegisterCb_FindLog(cb_find_log);
+    NET_TV_SERVER_RegisterCb_ExportLog(cb_export_log);
+    NET_TV_SERVER_RegisterCb_GetLogServer(cb_get_log_server);
+    NET_TV_SERVER_RegisterCb_SetLogServer(cb_set_log_server);
+    NET_TV_SERVER_RegisterCb_TestLogServer(cb_test_log_server);
+    NET_TV_SERVER_RegisterCb_ControlRecordInfo(cb_control_record_info);
+    NET_TV_SERVER_RegisterCb_GetRecordStatus(cb_get_record_status);
     NET_TV_SERVER_RegisterCb_GetPrivacyMaskCfg(cb_get_privacy_mask_cfg);
     NET_TV_SERVER_RegisterCb_SetPrivacyMaskCfg(cb_set_privacy_mask_cfg);
     NET_TV_SERVER_RegisterCb_GetPreviewInfo(cb_get_preview_info);
@@ -4196,6 +4714,12 @@ void register_all()
     NET_TV_SERVER_RegisterCb_SetFlashingLightAlarmInfo(cb_set_flashing_light_alarm_info);
     NET_TV_SERVER_RegisterCb_GetPirAlarmInfo(cb_get_pir_alarm_info);
     NET_TV_SERVER_RegisterCb_SetPirAlarmInfo(cb_set_pir_alarm_info);
+    NET_TV_SERVER_RegisterCb_GetRecordSchedule(cb_get_record_schedule);
+    NET_TV_SERVER_RegisterCb_SetRecordSchedule(cb_set_record_schedule);
+    NET_TV_SERVER_RegisterCb_GetRecordAdvancedParam(cb_get_record_advanced_param);
+    NET_TV_SERVER_RegisterCb_SetRecordAdvancedParam(cb_set_record_advanced_param);
+    NET_TV_SERVER_RegisterCb_FindRecordFileInfo(cb_find_record_file_info);
+    NET_TV_SERVER_RegisterCb_DownloadRecordFile(cb_download_record_file);
 
     NET_TV_SERVER_RegisterCb_GetParkingAlarm(cb_get_parking_detect_alarm);
     NET_TV_SERVER_RegisterCb_SetParkingAlarm(cb_set_parking_detect_alarm);
@@ -4240,6 +4764,17 @@ void register_all()
     NET_TV_SERVER_RegisterCb_SetFaceCaptureInfo(cb_set_face_capture_info);
     NET_TV_SERVER_RegisterCb_GetFaceCaptureOverlayInfo(cb_get_face_capture_overlay_info);
     NET_TV_SERVER_RegisterCb_SetFaceCaptureOverlayInfo(cb_set_face_capture_overlay_info);
+
+    /* 人脸库和人员信息动作在未编译人脸算法能力时由对应回调返回“不支持”。 */
+    NET_TV_SERVER_RegisterCb_SetFaceCompareInfo(cb_set_face_compare_info);
+    NET_TV_SERVER_RegisterCb_AddTargetLib(cb_add_target_lib);
+    NET_TV_SERVER_RegisterCb_DelTargetLib(cb_del_target_lib);
+    NET_TV_SERVER_RegisterCb_SetTargetLib(cb_set_target_lib);
+    NET_TV_SERVER_RegisterCb_GetTargetLib(cb_get_target_lib);
+    NET_TV_SERVER_RegisterCb_AddFaceInfo(cb_add_face_info);
+    NET_TV_SERVER_RegisterCb_DelFaceInfo(cb_del_face_info);
+    NET_TV_SERVER_RegisterCb_SetFaceInfo(cb_set_face_info);
+    NET_TV_SERVER_RegisterCb_GetFaceInfo(cb_get_face_info);
 }
 
 } // namespace TvSdkCallbacks

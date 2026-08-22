@@ -415,7 +415,11 @@ extern "C" {
 #define NET_TV_XW_SERIAL_NUM                        16              /* 串口数量 */
 #define NET_TV_DNS_LIST_NUM                         2               /* DNS列表数量 */
 #define NET_TV_NETWORK_MACNAME_LEN                  48              /* MAC地址名称长度 */
+#define NET_TV_HOTSPOT_CONN_MAX_NUM                 128             /* 热点连接设备最大数量 */
 #define NET_TV_LOG_QUERY_COND_NUM                   48              /* 日志查询条件数量 */
+#define NET_TV_RECORD_FILE_MAX_NUM                  48              /* 录像查询结果最大数量 */
+#define NET_TV_RECORD_DATE_MAX_NUM                  64              /* 录像日期结果最大数量 */
+#define NET_TV_RECORD_DOWNLOAD_MAX_NUM              16              /* 录像下载任务最大数量 */
 #define NET_TV_FACE_DB_NAME_LEN                     256             /* 人脸库名称长度最大值 */
 #define NET_TV_FACE_MEMBER_NAME_LEN                 256             /* 人脸库成员名称长度最大值 */
 #define NET_TV_FACE_MEMBER_REGION_LEN               256             /* 人脸库成员所在地区名称最大值 */
@@ -429,6 +433,9 @@ extern "C" {
 #define NET_TV_FACE_ANALYSIS_SKILL_NUM              16              /* 设备支持的人脸分析能力数量 */
 #define NET_TV_FACE_MEMBER_BIRTHDAY_LEN             31              /* 成员出生日期字符串最大长度 */
 #define NET_TV_FACE_IDNUMBER_LEN                    128             /* 证件号最大范围*/
+#define NET_TV_FACE_LIB_MAX_NUM                     64              /* 目标库最大数量 */
+#define NET_TV_FACE_INFO_MAX_NUM                    128             /* 人脸信息最大数量 */
+#define NET_TV_FACE_ID_MAX_NUM                      128             /* 人脸 ID 最大数量 */
 #define NET_TV_LABEL_ID_MAX_LEN                     32
 #define NET_TV_TIME_RANGE_NUM                       8               /* 时间模板时间范围个数(周一到周日再加假日) */
 #define NET_TV_TIME_DURATION_NUM                    8               /* 时间模板中一天最多8个片段 */
@@ -1185,6 +1192,32 @@ typedef enum tagNETTVCfgCmd
     NET_TV_SET_SMOKE_FIRE_CFG             = 462,           /* 设置烟火识别配置 参见NET_TV_SMOKE_FIRE_CFG_S */
     NET_TV_GET_ROAD_PONDING_CFG           = 463,           /* 获取道路积水检测配置 参见NET_TV_ROAD_PONDING_CFG_S */
     NET_TV_SET_ROAD_PONDING_CFG           = 464,           /* 设置道路积水检测配置 参见NET_TV_ROAD_PONDING_CFG_S */
+    NET_TV_GET_SECURITY_SERVICES_INFO     = 465,           /* 获取安全服务配置 参见NET_TV_SECURITY_SERVICES_INFO_S */
+    NET_TV_SET_SECURITY_SERVICES_INFO     = 466,           /* 设置安全服务配置 参见NET_TV_SECURITY_SERVICES_INFO_S */
+    NET_TV_GET_SSH_COUNTDOWN              = 467,           /* 获取SSH倒计时 参见NET_TV_SSH_COUNTDOWN_INFO_S */
+    NET_TV_FIND_LOG                       = 468,           /* 查询日志 参见NET_TV_LOG_LIST_S */
+    NET_TV_EXPORT_LOG                     = 469,           /* 导出日志 参见NET_TV_LOG_LIST_S */
+    NET_TV_GET_LOG_SERVER                 = 470,           /* 获取日志服务器配置 参见NET_TV_LOG_SERVER_INFO_S */
+    NET_TV_SET_LOG_SERVER                 = 471,           /* 设置日志服务器配置 参见NET_TV_LOG_SERVER_INFO_S */
+    NET_TV_TEST_LOG_SERVER                = 472,           /* 测试日志服务器配置 参见NET_TV_LOG_SERVER_INFO_S */
+    NET_TV_CONTROL_RECORD_INFO            = 473,           /* 手动录像/停止录像，IPC 映射 AC_SET_HUMAN_RECORD，参见NET_TV_RECORD_INFO_S */
+    NET_TV_GET_RECORD_STATUS              = 474,           /* 获取录像状态 参见NET_TV_RECORD_STATUS_INFO_S */
+    NET_TV_GET_RECORD_SCHEDULE            = 475,           /* 获取录像计划 参见NET_TV_RECORD_SCHEDULE_S */
+    NET_TV_SET_RECORD_SCHEDULE            = 476,           /* 设置录像计划 参见NET_TV_RECORD_SCHEDULE_S */
+    NET_TV_GET_RECORD_ADVANCED_PARAM      = 477,           /* 获取录像高级参数 参见NET_TV_RECORD_ADVANCED_PARAM_S */
+    NET_TV_SET_RECORD_ADVANCED_PARAM      = 478,           /* 设置录像高级参数 参见NET_TV_RECORD_ADVANCED_PARAM_S */
+    NET_TV_FIND_RECORD_FILE_INFO          = 479,           /* 查找录像文件 参见NET_TV_RECORD_FILE_LIST_S */
+    NET_TV_DOWNLOAD_RECORD_FILE           = 480,           /* 下载录像文件 参见NET_TV_RECORD_DOWNLOAD_LIST_S */
+    NET_TV_NOTICE_DOWNLOAD_RECORD_PROGRESS = 481,          /* 录像下载进度通知 参见NET_TV_RECORD_DOWNLOAD_PROGRESS_S */
+    NET_TV_SET_FACE_COMPARE_INFO          = 482,           /* 设置人脸比对配置 参见NET_TV_FACE_COMPARE_INFO_S */
+    NET_TV_ADD_TARGET_LIB                 = 483,           /* 添加目标库 参见NET_TV_FACE_LIB_INFO_S */
+    NET_TV_DEL_TARGET_LIB                 = 484,           /* 删除目标库 参见NET_TV_FACE_LIB_INFO_S */
+    NET_TV_SET_TARGET_LIB                 = 485,           /* 修改目标库 参见NET_TV_FACE_LIB_INFO_S */
+    NET_TV_GET_TARGET_LIB                 = 486,           /* 获取目标库 参见NET_TV_FACE_LIB_LIST_S */
+    NET_TV_ADD_FACE_INFO                  = 487,           /* 添加人脸 参见NET_TV_FACE_INFO_S */
+    NET_TV_DEL_FACE_INFO                  = 488,           /* 删除人脸 参见NET_TV_FACE_ID_INFO_S */
+    NET_TV_SET_FACE_INFO                  = 489,           /* 修改人脸 参见NET_TV_FACE_INFO_S */
+    NET_TV_GET_FACE_INFO                  = 490,           /* 获取人脸 参见NET_TV_FACE_INFO_LIST_S */
 
     NET_GET_SD_CARD_STATUS                = 493,           /* 获取 SD 卡状态 参见NET_SdCardStatus_S */
     NET_GET_AUDIBLE_ALARM_INFO            = 494,            /* 获取声音报警配置，参见 NET_AudibleAlarmInfo_S。 */
@@ -2100,6 +2133,256 @@ typedef struct tagNETTVHotspotInfo
     CHAR    szConfirmPassword[NET_TV_LEN_132];
     BYTE    byRes[128];
 } NET_TV_HOTSPOT_INFO_S, *LPNET_TV_HOTSPOT_INFO_S;
+
+/**
+ * @brief 热点已连接设备项。
+ * @note 该结构仅用于 ABI 兼容；本次命令集未包含热点设备列表查询命令。
+ */
+typedef struct tagNETTVHotspotConnDevice
+{
+    INT32 nIndex;                              /* 列表序号 */
+    CHAR szMac[NET_TV_LEN_64];                 /* 客户端 MAC 地址 */
+    CHAR szIp[NET_TV_IPADDR_STR_MAX_LEN];      /* 客户端 IPv4 地址 */
+    CHAR szConnTime[NET_TV_LEN_64];            /* 接入时间 */
+} NET_TV_HOTSPOT_CONN_DEVICE_S, *LPNET_TV_HOTSPOT_CONN_DEVICE_S;
+
+/** @brief 热点已连接设备列表。 */
+typedef struct tagNETTVHotspotConnInfo
+{
+    CHAR szStatus[NET_TV_LEN_32];              /* 热点服务状态 */
+    INT32 nTotal;                              /* 实际连接总数 */
+    INT32 nDeviceCount;                        /* astDevices 中返回的数量 */
+    NET_TV_HOTSPOT_CONN_DEVICE_S astDevices[NET_TV_HOTSPOT_CONN_MAX_NUM];
+} NET_TV_HOTSPOT_CONN_INFO_S, *LPNET_TV_HOTSPOT_CONN_INFO_S;
+
+/** @brief 分页信息，用于日志查询结果。 */
+typedef struct tagNETTVPageInfo
+{
+    INT32 nCurPage;                            /* 当前页，从 1 开始 */
+    INT32 nPageSize;                           /* 每页数据量 */
+    INT32 nDataTotal;                          /* 满足条件的数据总数 */
+    INT32 nPageTotal;                          /* 总页数 */
+    BYTE byRes[64];                            /* 保留，必须置零 */
+} NET_TV_PAGE_INFO_S, *LPNET_TV_PAGE_INFO_S;
+
+/** @brief 非法登录锁定策略。 */
+typedef struct tagNETTVLoginLockInfo
+{
+    BOOL bIllegalLoginEnable;                  /* 是否启用非法登录锁定 */
+    INT32 nCheckInterval;                      /* 错误计数时间窗口，单位秒 */
+    INT32 nMaxErrorTimes;                      /* 时间窗口内允许的最大错误次数 */
+    INT32 nLockDuration;                       /* 锁定时长，取值见设备内部枚举 */
+    BYTE byRes[64];                            /* 保留，必须置零 */
+} NET_TV_LOGIN_LOCK_INFO_S, *LPNET_TV_LOGIN_LOCK_INFO_S;
+
+/** @brief 密码强度策略。 */
+typedef struct tagNETTVPwdPolicyInfo
+{
+    BOOL bPwdSecurityLevelEnable;              /* 是否校验密码安全等级 */
+    BOOL bAllowLowLevelPwdLogin;               /* 是否允许低安全等级密码登录 */
+    BYTE byRes[64];                            /* 保留，必须置零 */
+} NET_TV_PWD_POLICY_INFO_S, *LPNET_TV_PWD_POLICY_INFO_S;
+
+/** @brief SSH 服务管理信息。 */
+typedef struct tagNETTVSshAdminInfo
+{
+    BOOL bSshEnable;                           /* SSH 服务是否启用 */
+    INT32 nSshPort;                            /* SSH 监听端口 */
+    CHAR szSshStartTime[NET_TV_LEN_64];        /* 最近启用时间 */
+    CHAR szSshCountdown[NET_TV_LEN_64];        /* 剩余可用时间字符串 */
+    BYTE byRes[64];                            /* 保留，必须置零 */
+} NET_TV_SSH_ADMIN_INFO_S, *LPNET_TV_SSH_ADMIN_INFO_S;
+
+/** @brief 安全服务配置，供 465/466 获取和设置。 */
+typedef struct tagNETTVSecurityServicesInfo
+{
+    NET_TV_LOGIN_LOCK_INFO_S stLoginLock;
+    NET_TV_PWD_POLICY_INFO_S stPwdPolicy;
+    NET_TV_SSH_ADMIN_INFO_S stSshAdmin;
+    BYTE byRes[128];                           /* 保留，必须置零 */
+} NET_TV_SECURITY_SERVICES_INFO_S, *LPNET_TV_SECURITY_SERVICES_INFO_S;
+
+/** @brief SSH 倒计时，供 467 返回。 */
+typedef struct tagNETTVSshCountdownInfo
+{
+    CHAR szCountdown[NET_TV_LEN_64];           /* 剩余可用时间字符串 */
+    BYTE byRes[64];                            /* 保留，必须置零 */
+} NET_TV_SSH_COUNTDOWN_INFO_S, *LPNET_TV_SSH_COUNTDOWN_INFO_S;
+
+/** @brief 日志服务器配置，供 470/471/472 使用。 */
+typedef struct tagNETTVLogServerInfo
+{
+    BOOL bEnable;                              /* 是否启用日志服务器 */
+    BOOL bEnSsl;                               /* 是否使用 SSL */
+    CHAR szServerAddr[NET_TV_LEN_256];         /* 服务端地址或域名 */
+    INT32 nPort;                               /* 服务端端口 */
+    BYTE byRes[128];                           /* 保留，必须置零 */
+} NET_TV_LOG_SERVER_INFO_S, *LPNET_TV_LOG_SERVER_INFO_S;
+
+/** @brief 日志检索条件。 */
+typedef struct tagNETTVLogRetrievalCond
+{
+    INT32 nType;                               /* 日志类型，见 Log::Type_E */
+    INT32 nAction;                             /* 日志动作，见 Log::Action_E */
+    CHAR szStartTime[NET_TV_LEN_64];           /* 检索起始时间 */
+    CHAR szEndTime[NET_TV_LEN_64];             /* 检索结束时间 */
+    BYTE byRes[64];                            /* 保留，必须置零 */
+} NET_TV_LOG_RETRIEVAL_COND_S, *LPNET_TV_LOG_RETRIEVAL_COND_S;
+
+/** @brief 单条日志记录。 */
+typedef struct tagNETTVLogInfo
+{
+    CHAR szStartTime[NET_TV_LEN_64];
+    INT32 nType;
+    INT32 nAction;
+    CHAR szChnName[NET_TV_LEN_64];
+    CHAR szUser[NET_TV_LEN_64];
+    CHAR szHost[NET_TV_LEN_64];
+    CHAR szContext[NET_TV_LEN_512];
+    BYTE byRes[64];                            /* 保留，必须置零 */
+} NET_TV_LOG_INFO_S, *LPNET_TV_LOG_INFO_S;
+
+/** @brief 日志检索请求和分页返回结果，供 468/469 使用。 */
+typedef struct tagNETTVLogList
+{
+    NET_TV_LOG_RETRIEVAL_COND_S stCond;
+    NET_TV_PAGE_INFO_S stPage;
+    INT32 nLogCount;
+    NET_TV_LOG_INFO_S astLogs[NET_TV_LOG_QUERY_COND_NUM];
+    BYTE byRes[128];                           /* 保留，必须置零 */
+} NET_TV_LOG_LIST_S, *LPNET_TV_LOG_LIST_S;
+
+/** @brief 手动录像控制参数，供 473 使用。 */
+typedef struct tagNETTVRecordInfo
+{
+    INT32 nChnId;                              /* 通道号 */
+    INT32 nVideoStatus;                        /* 视频录像开关 */
+    INT32 nAudioStatus;                        /* 音频录像开关 */
+    INT32 nRecordStatus;                       /* 录像状态，见 NET_TV_RECORD_STATUS_E */
+    INT32 nRecordFormat;                       /* 录像封装格式 */
+    INT32 nEventType;                          /* 事件录像关联的事件类型 */
+    CHAR szPath[NET_TV_MAX_URL_LEN];           /* 主录像目录 */
+    CHAR szRedunPath[NET_TV_MAX_URL_LEN];      /* 备份录像目录 */
+    CHAR szRecordName[NET_TV_FILE_NAME_LEN];   /* 录像文件名 */
+    CHAR szRecordTime[NET_TV_LEN_64];          /* 录像触发时间 */
+    INT32 nStreamType;                         /* 码流类型 */
+    BYTE byRes[128];                           /* 保留，必须置零 */
+} NET_TV_RECORD_INFO_S, *LPNET_TV_RECORD_INFO_S;
+
+/** @brief 当前录像状态，供 474 返回。 */
+typedef struct tagNETTVRecordStatusInfo
+{
+    INT32 nStatus;                             /* 见 NET_TV_RECORD_STATUS_E */
+    BYTE byRes[64];                            /* 保留，必须置零 */
+} NET_TV_RECORD_STATUS_INFO_S, *LPNET_TV_RECORD_STATUS_INFO_S;
+
+/** @brief 单个录像计划时间段，起止时间为当天 0 点起的秒数。 */
+typedef struct tagNETTVRecordTime
+{
+    INT32 nType;                               /* 1: 定时录像，2: 事件录像 */
+    INT32 nStartTime;                          /* 开始秒数 */
+    INT32 nEndTime;                            /* 结束秒数 */
+    BYTE byRes[32];                            /* 保留，必须置零 */
+} NET_TV_RECORD_TIME_S, *LPNET_TV_RECORD_TIME_S;
+
+/** @brief 单日录像计划。 */
+typedef struct tagNETTVRecordDaySchedule
+{
+    INT32 nDayOfWeek;                          /* 1: 周一 ... 7: 周日 */
+    INT32 nRecordTimeCount;                    /* 有效时间段数 */
+    NET_TV_RECORD_TIME_S astRecordTimes[NET_TV_TIME_DURATION_NUM];
+    BYTE byRes[64];                            /* 保留，必须置零 */
+} NET_TV_RECORD_DAY_SCHEDULE_S, *LPNET_TV_RECORD_DAY_SCHEDULE_S;
+
+/** @brief 全周录像计划，供 475/476 使用。 */
+typedef struct tagNETTVRecordSchedule
+{
+    BOOL bEnable;                              /* 是否启用录像计划 */
+    INT32 nDayScheduleCount;                   /* 有效日计划数 */
+    NET_TV_RECORD_DAY_SCHEDULE_S astDaySchedules[NET_TV_PLAN_DAY_NUM_AWEEK];
+    BYTE byRes[128];                           /* 保留，必须置零 */
+} NET_TV_RECORD_SCHEDULE_S, *LPNET_TV_RECORD_SCHEDULE_S;
+
+/** @brief 录像高级参数，供 477/478 使用。 */
+typedef struct tagNETTVRecordAdvancedParam
+{
+    BOOL bLoopWrite;                           /* 是否循环覆盖 */
+    INT32 nPreTime;                            /* 预录时长枚举 */
+    INT32 nDelayTime;                          /* 延录时长枚举 */
+    INT32 nStreamType;                         /* 录像码流类型 */
+    BYTE byRes[128];                           /* 保留，必须置零 */
+} NET_TV_RECORD_ADVANCED_PARAM_S, *LPNET_TV_RECORD_ADVANCED_PARAM_S;
+
+/** @brief 录像文件检索条件，供 479 请求传入。 */
+typedef struct tagNETTVRecordFindCond
+{
+    INT32 nChnId;                              /* 通道号 */
+    INT32 nType;                               /* 录像类型 */
+    CHAR szYear[NET_TV_LEN_16];                /* 年份筛选条件 */
+    CHAR szMonth[NET_TV_LEN_16];               /* 月份筛选条件 */
+    CHAR szDate[NET_TV_LEN_64];                /* 日期筛选条件 */
+    CHAR szStartTime[NET_TV_LEN_64];           /* 起始时间筛选条件 */
+    CHAR szEndTime[NET_TV_LEN_64];             /* 结束时间筛选条件 */
+    CHAR szFilename[NET_TV_FILE_NAME_LEN];     /* 文件名筛选条件 */
+    BYTE byRes[128];                           /* 保留，必须置零 */
+} NET_TV_RECORD_FIND_COND_S, *LPNET_TV_RECORD_FIND_COND_S;
+
+/** @brief 指定日期内有录像的时间段，单位为当天 0 点起的秒数。 */
+typedef struct tagNETTVRecordVideoTime
+{
+    INT32 nStartTime;                          /* 开始秒数 */
+    INT32 nEndTime;                            /* 结束秒数 */
+    BYTE byRes[32];                            /* 保留，必须置零 */
+} NET_TV_RECORD_VIDEO_TIME_S, *LPNET_TV_RECORD_VIDEO_TIME_S;
+
+/** @brief 单个通道的录像检索结果。 */
+typedef struct tagNETTVRecordFindResult
+{
+    INT32 nChnId;                              /* 通道号 */
+    INT32 nDateCount;                          /* 有录像日期数量 */
+    CHAR aszDates[NET_TV_RECORD_DATE_MAX_NUM][NET_TV_LEN_64];
+    CHAR szFilename[NET_TV_FILE_NAME_LEN];     /* 录像文件名 */
+    INT32 nVideoTimeCount;                     /* 有效录像时间段数 */
+    NET_TV_RECORD_VIDEO_TIME_S astVideoTimes[NET_TV_TIME_DURATION_NUM];
+    BYTE byRes[128];                           /* 保留，必须置零 */
+} NET_TV_RECORD_FIND_RESULT_S, *LPNET_TV_RECORD_FIND_RESULT_S;
+
+/** @brief 录像文件检索请求和结果，供 479 使用。 */
+typedef struct tagNETTVRecordFileList
+{
+    NET_TV_RECORD_FIND_COND_S stFind;
+    INT32 nResultCount;                        /* astResults 中的有效结果数 */
+    NET_TV_RECORD_FIND_RESULT_S astResults[NET_TV_RECORD_FILE_MAX_NUM];
+    BYTE byRes[128];                           /* 保留，必须置零 */
+} NET_TV_RECORD_FILE_LIST_S, *LPNET_TV_RECORD_FILE_LIST_S;
+
+/** @brief 单个录像下载任务。 */
+typedef struct tagNETTVRecordDownloadInfo
+{
+    INT32 nChnId;                              /* 通道号 */
+    CHAR szPath[NET_TV_MAX_URL_LEN];           /* 下载文件保存路径 */
+    CHAR szStartTime[NET_TV_LEN_64];           /* 下载录像起始时间 */
+    CHAR szEndTime[NET_TV_LEN_64];             /* 下载录像结束时间 */
+    BYTE byRes[128];                           /* 保留，必须置零 */
+} NET_TV_RECORD_DOWNLOAD_INFO_S, *LPNET_TV_RECORD_DOWNLOAD_INFO_S;
+
+/** @brief 录像下载进度，由设备以 481 异步主动通知。 */
+typedef struct tagNETTVRecordDownloadProgress
+{
+    CHAR szFilename[NET_TV_FILE_NAME_LEN];     /* 正在下载的文件名 */
+    INT32 nProgress;                           /* 进度，100 表示完成，负值表示失败 */
+    BYTE byRes[64];                            /* 保留，必须置零 */
+} NET_TV_RECORD_DOWNLOAD_PROGRESS_S, *LPNET_TV_RECORD_DOWNLOAD_PROGRESS_S;
+
+/** @brief 录像下载任务批次，供 480 请求传入。 */
+typedef struct tagNETTVRecordDownloadList
+{
+    INT32 nDownloadCount;                      /* astDownloads 中的任务数 */
+    NET_TV_RECORD_DOWNLOAD_INFO_S astDownloads[NET_TV_RECORD_DOWNLOAD_MAX_NUM];
+    INT32 nProgressCount;                      /* 兼容字段；实时进度使用 481 通知 */
+    NET_TV_RECORD_DOWNLOAD_PROGRESS_S astProgress[NET_TV_RECORD_DOWNLOAD_MAX_NUM];
+    BYTE byRes[128];                           /* 保留，必须置零 */
+} NET_TV_RECORD_DOWNLOAD_LIST_S, *LPNET_TV_RECORD_DOWNLOAD_LIST_S;
 
 /**
  * @struct tagNETTVRtspUrlInfo
@@ -4346,6 +4629,70 @@ typedef struct tagNETNonMotorvehicleCapturePushInfo
 } NET_NonMotorvehicleCapturePushInfo_S, *pNET_NonMotorvehicleCapturePushInfo_S;
 
 /**
+ * @brief 人脸比对配置，供 482 设置。
+ * @note 当前公开 ABI 不包含目标库绑定字段；设置时 IPC 保留原有目标库选择。
+ */
+typedef struct tagNETTVFaceCompareInfo
+{
+    BOOL bEnable;                              /* 是否启用人脸比对 */
+    NET_TV_ALARM_SCHEDULE_S stAlarmSchedule;   /* 布防时间 */
+    NET_TV_LINKAGE_LIST_S stLinkageListSuccess;/* 比对成功联动 */
+    NET_TV_LINKAGE_LIST_S stLinkageListFail;   /* 比对失败联动 */
+    BYTE byRes[256];                           /* 保留，必须置零 */
+} NET_TV_FACE_COMPARE_INFO_S, *LPNET_TV_FACE_COMPARE_INFO_S;
+
+/** @brief 目标库摘要，供 483-486 使用。 */
+typedef struct tagNETTVFaceLibInfo
+{
+    CHAR szFaceLibName[NET_TV_FACE_DB_NAME_LEN]; /* 目标库名称 */
+    INT32 nTotalFace;                          /* 人脸总数 */
+    INT32 nNormalNum;                          /* 正常人脸数 */
+    INT32 nAbnormalNum;                        /* 异常人脸数 */
+    BYTE byRes[256];                           /* 保留，必须置零 */
+} NET_TV_FACE_LIB_INFO_S, *LPNET_TV_FACE_LIB_INFO_S;
+
+/** @brief 目标库列表，供 486 返回。 */
+typedef struct tagNETTVFaceLibList
+{
+    INT32 nTargetLibCount;                     /* astTargetLibInfos 中的有效数量 */
+    NET_TV_FACE_LIB_INFO_S astTargetLibInfos[NET_TV_FACE_LIB_MAX_NUM];
+    BYTE byRes[256];                           /* 保留，必须置零 */
+} NET_TV_FACE_LIB_LIST_S, *LPNET_TV_FACE_LIB_LIST_S;
+
+/** @brief 人脸 ID 列表，供 488 删除操作传入。 */
+typedef struct tagNETTVFaceIdInfo
+{
+    INT32 nIdCount;                            /* anIds 中的有效 ID 数量 */
+    INT32 anIds[NET_TV_FACE_ID_MAX_NUM];       /* 待删除人脸 ID */
+    BYTE byRes[256];                           /* 保留，必须置零 */
+} NET_TV_FACE_ID_INFO_S, *LPNET_TV_FACE_ID_INFO_S;
+
+/** @brief 人脸人员信息，供 487/489 设置及 490 返回。 */
+typedef struct tagNETTVFaceInfo
+{
+    INT32 nId;                                 /* 人脸 ID */
+    CHAR szFaceLibName[NET_TV_FACE_DB_NAME_LEN]; /* 所属目标库 */
+    CHAR szName[NET_TV_FACE_MEMBER_NAME_LEN];  /* 姓名 */
+    CHAR szPhoneNum[NET_TV_FACE_IDNUMBER_LEN]; /* 联系方式 */
+    CHAR szPicPath[NET_TV_LEN_260];            /* 人脸图片路径 */
+    CHAR szBinPath[NET_TV_LEN_260];            /* 图片二进制文件路径 */
+    CHAR szPicType[NET_TV_LEN_64];             /* 图片格式 */
+    INT32 nPicSize;                            /* 图片字节数 */
+    CHAR szPicDate[NET_TV_LEN_64];             /* 图片日期 */
+    INT32 nModelState;                         /* 模型状态：0 未处理，1 成功，-1 失败 */
+    INT32 nRatingLevel;                        /* 评分等级：0 全部，1 未知，2 低，3 高 */
+    BYTE byRes[256];                           /* 保留，必须置零 */
+} NET_TV_FACE_INFO_S, *LPNET_TV_FACE_INFO_S;
+
+/** @brief 人脸人员列表，供 490 返回。 */
+typedef struct tagNETTVFaceInfoList
+{
+    INT32 nFaceInfoCount;                      /* astFaceInfos 中的有效数量 */
+    NET_TV_FACE_INFO_S astFaceInfos[NET_TV_FACE_INFO_MAX_NUM];
+    BYTE byRes[256];                           /* 保留，必须置零 */
+} NET_TV_FACE_INFO_LIST_S, *LPNET_TV_FACE_INFO_LIST_S;
+
+/**
  * @struct tagNETTVLoiteringDetectCap
  * @brief 徘徊检测能力  Loitering detection capability
  * @attention
@@ -5058,6 +5405,18 @@ NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_DisconnectWifiSta(NET_TV_CB_Set
 NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_Get4GInfo(NET_TV_CB_GetDevConfigByCommand pCb);
 NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_Set4GInfo(NET_TV_CB_SetDevConfigByCommand pCb);
 NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetHotspotInfo(NET_TV_CB_SetDevConfigByCommand pCb);
+/* 安全服务与日志配置回调（465-472）。 */
+NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetSecurityServicesInfo(NET_TV_CB_GetDevConfigByCommand pCb);
+NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetSecurityServicesInfo(NET_TV_CB_SetDevConfigByCommand pCb);
+NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetSshCountdown(NET_TV_CB_GetDevConfigByCommand pCb);
+NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_FindLog(NET_TV_CB_GetDevConfigByCommand pCb);
+NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_ExportLog(NET_TV_CB_GetDevConfigByCommand pCb);
+NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetLogServer(NET_TV_CB_GetDevConfigByCommand pCb);
+NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetLogServer(NET_TV_CB_SetDevConfigByCommand pCb);
+NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_TestLogServer(NET_TV_CB_SetDevConfigByCommand pCb);
+/* 录像控制、计划、检索与下载回调（473-480）；481 由设备主动推送。 */
+NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_ControlRecordInfo(NET_TV_CB_SetDevConfigByCommand pCb);
+NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetRecordStatus(NET_TV_CB_GetDevConfigByCommand pCb);
 NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetPrivacyMaskCfg(NET_TV_CB_GetDevConfigByCommand pCb);
 NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetPrivacyMaskCfg(NET_TV_CB_SetDevConfigByCommand pCb);
 NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetTamperAlarm(NET_TV_CB_GetDevConfigByCommand pCb);
@@ -5268,6 +5627,12 @@ NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetPirAlarmInfo(NET_TV_CB_GetDe
  * @return 注册成功返回 TRUE；回调函数为空或重复注册时返回 FALSE。
  */
 NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetPirAlarmInfo(NET_TV_CB_SetDevConfigByCommand pCb);
+NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetRecordSchedule(NET_TV_CB_GetDevConfigByCommand pCb);
+NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetRecordSchedule(NET_TV_CB_SetDevConfigByCommand pCb);
+NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetRecordAdvancedParam(NET_TV_CB_GetDevConfigByCommand pCb);
+NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetRecordAdvancedParam(NET_TV_CB_SetDevConfigByCommand pCb);
+NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_FindRecordFileInfo(NET_TV_CB_GetDevConfigByCommand pCb);
+NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_DownloadRecordFile(NET_TV_CB_SetDevConfigByCommand pCb);
 /**
  * @brief 注册获取人脸抓拍图片叠加配置的回调函数。
  * @author ITC
@@ -5284,6 +5649,16 @@ NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetFaceCaptureOverlayInfo(NET_T
  * @return TRUE 表示注册成功，FALSE 表示注册失败。
  */
 NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetFaceCaptureOverlayInfo(NET_TV_CB_SetDevConfigByCommand pCb);
+/* 人脸比对、目标库与人员信息回调（482-490）。 */
+NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetFaceCompareInfo(NET_TV_CB_SetDevConfigByCommand pCb);
+NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_AddTargetLib(NET_TV_CB_SetDevConfigByCommand pCb);
+NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_DelTargetLib(NET_TV_CB_SetDevConfigByCommand pCb);
+NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetTargetLib(NET_TV_CB_SetDevConfigByCommand pCb);
+NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetTargetLib(NET_TV_CB_GetDevConfigByCommand pCb);
+NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_AddFaceInfo(NET_TV_CB_SetDevConfigByCommand pCb);
+NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_DelFaceInfo(NET_TV_CB_SetDevConfigByCommand pCb);
+NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_SetFaceInfo(NET_TV_CB_SetDevConfigByCommand pCb);
+NET_TV_API BOOL STDCALL NET_TV_SERVER_RegisterCb_GetFaceInfo(NET_TV_CB_GetDevConfigByCommand pCb);
 
 
 

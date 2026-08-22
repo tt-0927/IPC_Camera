@@ -85,7 +85,14 @@ private:
      */
     void prepare_default_alarmer();
 
+    /**
+     * @brief 将录像下载任务的异步进度转换为 TVSDK 481 通知。
+     */
+    void subscribe_record_download_progress();
+
     std::shared_ptr<CTaskManage> m_pTaskManage;
+    /* 已注册 481 订阅的任务管理器，用于避免同一实例重复注册回调。 */
+    CTaskManage *m_pRecordDownloadSubscribeManage = nullptr;
     bool m_bInit = false;
     std::string m_strUser;
     std::string m_strPassword;

@@ -20,6 +20,9 @@
 #include "system_manage.h"
 #include "network_manage.h"
 #include "task_manage.h"
+#include "convert/tvsdk_convert.h"
+#include "convert_interface.h"
+#include "Json.h"
 
 #include <cstdio>
 #include <cstddef>
@@ -373,6 +376,7 @@ int CTvSdkServer::init()
     }
 
     m_bInit = true;
+    subscribe_record_download_progress();
     dlog_info("TVSDK server init ok, port=%u", port);
     return OK;
 }
@@ -444,6 +448,67 @@ void CTvSdkServer::set_taskManage(std::shared_ptr<CTaskManage> pTaskManage)
 {
     m_pTaskManage = std::move(pTaskManage);
     TvSdkCallbacks::set_task_manage(m_pTaskManage);
+    if (m_bInit)
+    {
+        subscribe_record_download_progress();
+    }
+}
+
+void CTvSdkServer::subscribe_record_download_progress()
+{
+    /* 同一 TaskManage 只注册一次；任务层没有反注册接口，服务生命周期内复用该订阅。 */
+    if (!m_pTaskManage || m_pRecordDownloadSubscribeManage == m_pTaskManage.get())
+    {
+        return;
+    }
+
+    m_pTaskManage->register_subscribe(
+        AC_NOTICE_DOWNLOAD_RECORD_PROGRESS,
+        [this](const void *pData, int nDataLen, int nActionCode, void *) -> int
+        {
+            (void)nActionCode;
+            if (!m_bInit || !pData || nDataLen <= 0)
+            {
+                return 0;
+            }
+
+            const std::string strMessage(static_cast<const char *>(pData),
+                                         static_cast<size_t>(nDataLen));
+            Json::Object *pRoot = Json::init(strMessage.c_str());
+            if (!pRoot)
+            {
+                dlog_warn("TVSDK录像下载进度通知JSON无效");
+                return -1;
+            }
+
+            /* TaskPublish 包装为 {ActionCode,...,Data}；同时兼容直接发布 Data 的旧路径。 */
+            Json::Object *pDataJson = Json::get(pRoot, "Data");
+            const std::string strData = pDataJson ? Json::to_string(pDataJson) : strMessage;
+            Json::deinit(pRoot);
+
+            Record_NS::DownloadProgress_S stProgress;
+            Convert::to_struct(strData, stProgress);
+            if (stProgress.filename.empty())
+            {
+                dlog_warn("TVSDK录像下载进度缺少文件名: %s", strMessage.c_str());
+                return -1;
+            }
+
+            NET_TV_RECORD_DOWNLOAD_PROGRESS_S stSdkProgress{};
+            TvSdkConvert::FillRecordDownloadProgress(stProgress, stSdkProgress);
+            /* 481 复用 TVSDK 通用告警通道，但载荷是下载进度而非普通智能告警。 */
+            const int nRet = push_alarm(nullptr,
+                                        NET_TV_NOTICE_DOWNLOAD_RECORD_PROGRESS,
+                                        &stSdkProgress,
+                                        static_cast<int>(sizeof(stSdkProgress)));
+            if (nRet != OK)
+            {
+                dlog_warn("TVSDK录像下载进度推送失败: file=%s, progress=%d, ret=%d",
+                          stProgress.filename.c_str(), stProgress.nProgress, nRet);
+            }
+            return nRet;
+        });
+    m_pRecordDownloadSubscribeManage = m_pTaskManage.get();
 }
 
 int CTvSdkServer::push_alarm(const void *pAlarmer, int lCommand, const void *pAlarmInfo, int dwBufLen)

@@ -7,9 +7,12 @@
 #include "replay_define.h"
 #include "osd_define.h"
 #include "isp_define.h"
+#include "log_define.h"
+#include "record_define.h"
 
 #include "NetTVSDKServer.h"
 #include <set>
+#include <vector>
 /**
  * @brief IPC <-> TVSDK 结构体转换
  *
@@ -44,6 +47,44 @@ bool ToPrivacyMaskCfg(const NET_TV_PRIVACY_MASK_CFG_S &src, std::size_t maxAreaC
 void ToUpgradeInfo(const NET_TV_UPGRADE_INFO_S &src, ::System::UpgradeInfo_S &dst);
 void FillUpgradeStatus(const ::System::UpgradeStatus_S &src, NET_TV_UPGRADE_STATUS_S &dst);
 void FillUpgradeVersion(const ::System::UpgradeVersion_S &src, NET_TV_UPGRADE_VERSION_S &dst);
+
+/* 安全服务和日志：仅映射 TVSDK ABI 公开字段，IPC 内部扩展字段由回调层保留。 */
+void FillSecurityServicesInfo(const ::System::SecurityServices_S &src, NET_TV_SECURITY_SERVICES_INFO_S &dst);
+void ToSecurityServicesInfo(const NET_TV_SECURITY_SERVICES_INFO_S &src, ::System::SecurityServices_S &dst);
+void FillSshCountdownInfo(const ::System::SshCountdown_S &src, NET_TV_SSH_COUNTDOWN_INFO_S &dst);
+void FillLogServerInfo(const ::System::LogServerInfo_S &src, NET_TV_LOG_SERVER_INFO_S &dst);
+void ToLogServerInfo(const NET_TV_LOG_SERVER_INFO_S &src, ::System::LogServerInfo_S &dst);
+void ToLogListRequest(const NET_TV_LOG_LIST_S &src, Log::RetrievalCond_S &dstCond, Common::PageInfo_S &dstPage);
+void FillLogList(const Log::RetrievalCond_S &srcCond,
+                 const Common::PageInfo_S &srcPage,
+                 const std::vector<Log::Info_S> &srcLogs,
+                 NET_TV_LOG_LIST_S &dst);
+
+/* 录像：所有固定数组转换均以公开 ABI 的容量为上限，避免任务层数据越界写入。 */
+void ToRecordInfo(const NET_TV_RECORD_INFO_S &src, Record_NS::Info_S &dst);
+void FillRecordStatusInfo(const Record_NS::RecordStatusInfo_S &src, NET_TV_RECORD_STATUS_INFO_S &dst);
+void FillRecordSchedule(const Record_NS::Schedule_S &src, NET_TV_RECORD_SCHEDULE_S &dst);
+void ToRecordSchedule(const NET_TV_RECORD_SCHEDULE_S &src, Record_NS::Schedule_S &dst);
+void FillRecordAdvancedParam(const Record_NS::AdvancedParam_S &src, NET_TV_RECORD_ADVANCED_PARAM_S &dst);
+void ToRecordAdvancedParam(const NET_TV_RECORD_ADVANCED_PARAM_S &src, Record_NS::AdvancedParam_S &dst);
+void ToRecordFind(const NET_TV_RECORD_FILE_LIST_S &src, Record_NS::Find_S &dst);
+void FillRecordFileList(const Record_NS::Find_S &srcFind,
+                        const std::vector<Record_NS::FindResult_S> &srcResults,
+                        NET_TV_RECORD_FILE_LIST_S &dst);
+void ToRecordDownloadList(const NET_TV_RECORD_DOWNLOAD_LIST_S &src, std::vector<Record_NS::DownloadInfo_S> &dst);
+void FillRecordDownloadProgress(const Record_NS::DownloadProgress_S &src, NET_TV_RECORD_DOWNLOAD_PROGRESS_S &dst);
+
+/*
+ * 人脸：FaceCompare ABI 没有目标库绑定字段；ToFaceCompareInfo 只覆盖其可表达的配置，
+ * 调用方必须在转换前加载已有 IPC 配置以保留目标库绑定。
+ */
+void FillFaceCompareInfo(const Alarm::FaceCompare_S &src, NET_TV_FACE_COMPARE_INFO_S &dst);
+void ToFaceCompareInfo(const NET_TV_FACE_COMPARE_INFO_S &src, Alarm::FaceCompare_S &dst);
+void ToFaceLibInfo(const NET_TV_FACE_LIB_INFO_S &src, Event::FaceLibInfo_S &dst);
+void FillFaceLibList(const std::vector<Event::FaceLibInfo_S> &src, NET_TV_FACE_LIB_LIST_S &dst);
+void ToFaceIdInfo(const NET_TV_FACE_ID_INFO_S &src, Event::FaceIdInfo_S &dst);
+void ToFaceInfo(const NET_TV_FACE_INFO_S &src, Event::FaceInfo_S &dst);
+void FillFaceInfoList(const std::vector<Event::FaceInfo_S> &src, NET_TV_FACE_INFO_LIST_S &dst);
 
 void FillCapturePlan(const Capture_NS::CapturePlan_S &src, NET_TV_CAPTURE_PLAN_INFO_S &dst);
 void ToCapturePlan(const NET_TV_CAPTURE_PLAN_INFO_S &src, Capture_NS::CapturePlan_S &dst);
