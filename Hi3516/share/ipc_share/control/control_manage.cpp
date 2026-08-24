@@ -682,16 +682,6 @@ int ControlManage::tvsdk_push_alarm(int lCommand, const void *pAlarmInfo, int dw
     return m_pTvSdkServer->push_alarm(pAlarmer, lCommand, pAlarmInfo, dwBufLen);
 }
 
-int ControlManage::tvsdk_push_alarm_v2(int lCommand, const void *pAlarmInfo, int dwBufLen, const void *pAlarmer)
-{
-    if (!m_pTvSdkServer)
-    {
-        return ERR;
-    }
-
-    return m_pTvSdkServer->push_alarm_v2(pAlarmer, lCommand, pAlarmInfo, dwBufLen);
-}
-
 int ControlManage::tvsdk_get_client_count() const
 {
     if (!m_pTvSdkServer)

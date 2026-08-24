@@ -41,19 +41,8 @@ public:
     void publish(const std::vector<FaceCaptureTarget_S> &vecTargets,
                  ot_video_frame_info *pFrameInfo,
                  int nChnId,
+                 long long llTimestampMs,
                  const BuildPanoramaImageFunc &fnBuildPanoramaImage,
                  const BuildTargetImageFunc &fnBuildTargetImage);
-
-private:
-    /**
-     * @brief   : 推送单张人脸抓拍图片
-     * @param    {FaceCaptureTarget_S} &stTarget：人脸抓拍目标信息
-     * @param    {std::vector<unsigned char>} &vecJpeg：JPEG 二进制图片
-     * @param    {int} nChnId：通道号
-     * @return   {bool} true：推送成功 false：未推送或推送失败
-     */
-    bool publishFaceImage(const FaceCaptureTarget_S &stTarget,
-                          const std::vector<unsigned char> &vecJpeg,
-                          int nChnId) const;
 };
 } // namespace FaceDetectInternal

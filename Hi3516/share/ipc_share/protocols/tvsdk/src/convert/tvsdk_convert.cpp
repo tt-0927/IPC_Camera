@@ -53,7 +53,7 @@ static size_t GetOsdCopyStart(const std::vector<Osd::OsdInfo_S> &infos)
     return (!bFirstBlockHasPayload && bSecondBlockHasPayload) ? kOsdCustomSlotCount : 0;
 }
 
-static void FillSchedTime(const Common::SchedTime_S &src, NET_TV_SCHED_TIME_S &dst)
+static void FillSchedTime(const Common::SchedTime_S &src, NET_SchedTime_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));
     dst.nStartHour   = (INT32)src.stStart.nHour;
@@ -65,7 +65,7 @@ static void FillSchedTime(const Common::SchedTime_S &src, NET_TV_SCHED_TIME_S &d
               (int)dst.nEndHour, (int)dst.nEndMinute);
 }
 
-static void ToSchedTime(const NET_TV_SCHED_TIME_S &src, Common::SchedTime_S &dst)
+static void ToSchedTime(const NET_SchedTime_S &src, Common::SchedTime_S &dst)
 {
     dst.stStart.nHour   = (int)src.nStartHour;
     dst.stStart.nMinute = (int)src.nStartMinute;
@@ -79,73 +79,50 @@ static void ToSchedTime(const NET_TV_SCHED_TIME_S &src, Common::SchedTime_S &dst
               dst.stStop.nHour, dst.stStop.nMinute);
 }
 
-static void FillLinkageList(const Alarm::LinkageList_S &src, NET_TV_LINKAGE_LIST_S &dst)
+static void FillLinkageList(const Alarm::LinkageList_S &src, NET_LinkageList_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));
 
     /* 报警输出。 */
-    dst.dwAlarmOutputCount = (INT32)std::min(src.alarmOutput.size(), (size_t)NET_TV_MAX_ALARM_OUT_NUM);
-    for (size_t i = 0; i < (size_t)dst.dwAlarmOutputCount; ++i)
+    dst.uAlarmOutputCount = (INT32)std::min(src.alarmOutput.size(), (size_t)NET_MAX_ALARM_OUT_NUM);
+    for (size_t i = 0; i < (size_t)dst.uAlarmOutputCount; ++i)
     {
-        dst.adwAlarmOutput[i] = (INT32)src.alarmOutput[i];
+        dst.auAlarmOutput[i] = (INT32)src.alarmOutput[i];
     }
 
     /* 录像通道。 */
-    dst.dwRecordChannelCount = (INT32)std::min(src.recordChn.size(), (size_t)NET_TV_CHANNEL_MAX);
-    for (size_t i = 0; i < (size_t)dst.dwRecordChannelCount; ++i)
+    dst.uRecordChannelCount = (INT32)std::min(src.recordChn.size(), (size_t)NET_CHANNEL_MAX);
+    for (size_t i = 0; i < (size_t)dst.uRecordChannelCount; ++i)
     {
-        dst.adwRecordChannel[i] = (INT32)src.recordChn[i];
+        dst.auRecordChannel[i] = (INT32)src.recordChn[i];
     }
 
-    /* 保留旧版抓拍字段的转换逻辑，兼容历史 SDK 调用方。 */
-    dst.dwSnapshotChannelCount = 0;
-    for (size_t i = 0; i < src.tradition.size() && dst.dwSnapshotChannelCount < NET_TV_CHANNEL_MAX; ++i)
-    {
-        int type = src.tradition[i];
-        if (type == Alarm::UPLOAD_PANORAMIC_IMAGE || type == Alarm::UPLOAD_TARGET_IMAGE)
-        {
-            dst.adwSnapshotChannel[dst.dwSnapshotChannelCount++] = (INT32)type;
-        }
-    }
-
-    /* 输出全部常规联动类型，供新版本 SDK 明确表达声音、闪光灯等联动。 */
-    dst.dwTraditionalLinkageCount =
-        (INT32)std::min(src.tradition.size(), (size_t)NET_TV_TRADITIONAL_LINKAGE_MAX_NUM);
-    for (size_t i = 0; i < (size_t)dst.dwTraditionalLinkageCount; ++i)
-    {
-        dst.adwTraditionalLinkage[i] = (INT32)src.tradition[i];
-    }
+    /*
+     * 新版 NET_LinkageList_S 只承载报警输出、录像和抓拍通道。
+     * 历史 SDK 把常规联动类型复用到抓拍通道字段，既不符合新版语义，也会把类型值误当成通道号，
+     * 因此这里不再写入该类数据。
+     */
 }
 
-void ToLinkageList(const NET_TV_LINKAGE_LIST_S &src, Alarm::LinkageList_S &dst)
+void ToLinkageList(const NET_LinkageList_S &src, Alarm::LinkageList_S &dst)
 {
     dst.alarmOutput.clear();
     dst.recordChn.clear();
     dst.tradition.clear();
 
     /* 报警输出。 */
-    for (INT32 i = 0; i < src.dwAlarmOutputCount && i < NET_TV_MAX_ALARM_OUT_NUM; ++i)
+    for (INT32 i = 0; i < src.uAlarmOutputCount && i < NET_MAX_ALARM_OUT_NUM; ++i)
     {
-        dst.alarmOutput.push_back((int)src.adwAlarmOutput[i]);
+        dst.alarmOutput.push_back((int)src.auAlarmOutput[i]);
     }
 
     /* 录像通道。 */
-    for (INT32 i = 0; i < src.dwRecordChannelCount && i < NET_TV_CHANNEL_MAX; ++i)
+    for (INT32 i = 0; i < src.uRecordChannelCount && i < NET_CHANNEL_MAX; ++i)
     {
-        dst.recordChn.push_back((int)src.adwRecordChannel[i]);
+        dst.recordChn.push_back((int)src.auRecordChannel[i]);
     }
 
-    /* 优先读取新版常规联动数组。 */
-    for (INT32 i = 0; i < src.dwTraditionalLinkageCount && i < NET_TV_TRADITIONAL_LINKAGE_MAX_NUM; ++i)
-    {
-        dst.tradition.push_back((int)src.adwTraditionalLinkage[i]);
-    }
-
-    /* 兼容旧版 SDK 从抓拍字段传递全景图、目标图联动的方式。 */
-    for (INT32 i = 0; i < src.dwSnapshotChannelCount && i < NET_TV_CHANNEL_MAX; ++i)
-    {
-        dst.tradition.push_back((int)src.adwSnapshotChannel[i]);
-    }
+    /* 新版协议没有常规联动类型字段，不能从抓拍通道反推声音、邮件等动作。 */
 }
 
 /**
@@ -205,8 +182,8 @@ static void fill_alarm_schedule(const std::vector<std::vector<Common::SchedTime_
                                       static_cast<size_t>(NET_ALARM_SCHEDULE_DAY_COUNT));
     for (size_t uDay = 0; uDay < uDayCount; ++uDay)
     {
-        const size_t uSectionCount = std::min(aSource[uDay].size(), static_cast<size_t>(NET_TV_PLAN_SECTION_NUM));
-        stDestination.dwTimeSectionCount[uDay] = static_cast<INT32>(uSectionCount);
+        const size_t uSectionCount = std::min(aSource[uDay].size(), static_cast<size_t>(NET_PLAN_SECTION_NUM));
+        stDestination.uTimeSectionCount[uDay] = static_cast<INT32>(uSectionCount);
         for (size_t uSection = 0; uSection < uSectionCount; ++uSection)
         {
             FillSchedTime(aSource[uDay][uSection], stDestination.astTimeSection[uDay][uSection]);
@@ -229,7 +206,7 @@ static void to_alarm_schedule(const NET_AlarmSchedule_S& stSource,
     for (INT32 nDay = 0; nDay < NET_ALARM_SCHEDULE_DAY_COUNT; ++nDay)
     {
         const INT32 nSectionCount = std::max<INT32>(0,
-            std::min<INT32>(stSource.dwTimeSectionCount[nDay], NET_TV_PLAN_SECTION_NUM));
+            std::min<INT32>(stSource.uTimeSectionCount[nDay], NET_PLAN_SECTION_NUM));
         aDestination[nDay].resize(static_cast<size_t>(nSectionCount));
         for (INT32 nSection = 0; nSection < nSectionCount; ++nSection)
         {
@@ -408,7 +385,7 @@ void FillAlarmInputInfoList(const std::set<Alarm::IoInputInfo_S>& stSource,
     std::memset(&stDestination, 0, sizeof(stDestination));
     for (const Alarm::IoInputInfo_S& stInput : stSource)
     {
-        if (stDestination.nAlarmInputCount >= NET_TV_MAX_ALARM_IN_NUM)
+        if (stDestination.nAlarmInputCount >= NET_MAX_ALARM_IN_NUM)
         {
             break;
         }
@@ -471,7 +448,7 @@ void FillAlarmOutputInfoList(const std::set<Alarm::IoOutputInfo_S>& stSource,
     std::memset(&stDestination, 0, sizeof(stDestination));
     for (const Alarm::IoOutputInfo_S& stOutput : stSource)
     {
-        if (stDestination.nAlarmOutputCount >= NET_TV_MAX_ALARM_OUT_NUM)
+        if (stDestination.nAlarmOutputCount >= NET_MAX_ALARM_OUT_NUM)
         {
             break;
         }
@@ -552,35 +529,35 @@ void ToPirAlarmInfo(const NET_PirAlarmInfo_S& stSource,
                      stDestination.copyTo);
 }
 
-void FillDeviceInfo(const ::System::DeviceInfo_S &src, NET_TV_DEVICE_INFO_S &dst)
+void FillDeviceInfo(const ::System::DeviceInfo_S &src, NET_DeviceInfo_S &dst)
 {
     memset(&dst, 0, sizeof(dst));
-    dst.dwDevType        = (INT32)NET_TV_DTYPE_IPC;
-    dst.wAlarmInPortNum  = (INT16)src.nAlarmInputCount;
-    dst.wAlarmOutPortNum = (INT16)src.nAlarmOutputCount;
-    dst.dwChannelNum     = 1;
+    dst.uDevType        = (INT32)NET_DTYPE_IPC;
+    dst.uAlarmInPortNum  = (INT16)src.nAlarmInputCount;
+    dst.uAlarmOutPortNum = (INT16)src.nAlarmOutputCount;
+    dst.uChannelNum     = 1;
 }
 
-void FillDeviceBasicInfo(const ::System::DeviceInfo_S &src, NET_TV_DEVICE_BASICINFO_S &dst)
+void FillDeviceBasicInfo(const ::System::DeviceInfo_S &src, NET_DeviceBasicInfo_S &dst)
 {
     memset(&dst, 0, sizeof(dst));
-    strncpy(dst.szDevModel, src.strUnitTpye.c_str(), sizeof(dst.szDevModel) - 1);
-    strncpy(dst.szDeviceTypeV2, src.strUnitTpye.c_str(), sizeof(dst.szDeviceTypeV2) - 1);
-    strncpy(dst.szSerialNum, src.serialNumber.c_str(), sizeof(dst.szSerialNum) - 1);
-    strncpy(dst.szFirmwareVersion, src.systemVersion.c_str(), sizeof(dst.szFirmwareVersion) - 1);
-    strncpy(dst.szDeviceName, src.deviceName.c_str(), sizeof(dst.szDeviceName) - 1);
-    strncpy(dst.szManufacturer, src.strUnitTpye.c_str(), sizeof(dst.szManufacturer) - 1);
+    strncpy(dst.strDevModel, src.strUnitTpye.c_str(), sizeof(dst.strDevModel) - 1);
+    strncpy(dst.strDeviceTypeV2, src.strUnitTpye.c_str(), sizeof(dst.strDeviceTypeV2) - 1);
+    strncpy(dst.strSerialNum, src.serialNumber.c_str(), sizeof(dst.strSerialNum) - 1);
+    strncpy(dst.strFirmwareVersion, src.systemVersion.c_str(), sizeof(dst.strFirmwareVersion) - 1);
+    strncpy(dst.strDeviceName, src.deviceName.c_str(), sizeof(dst.strDeviceName) - 1);
+    strncpy(dst.strManufacturer, src.strUnitTpye.c_str(), sizeof(dst.strManufacturer) - 1);
 }
 
-void ToDeviceInfo(const NET_TV_DEVICE_BASICINFO_S &src, ::System::DeviceInfo_S &dst)
+void ToDeviceInfo(const NET_DeviceBasicInfo_S &src, ::System::DeviceInfo_S &dst)
 {
-    dst.deviceName   = src.szDeviceName;
-    dst.strUnitTpye  = src.szDevModel;
-    dst.serialNumber = src.szSerialNum;
-    dst.systemVersion = src.szFirmwareVersion;
+    dst.deviceName   = src.strDeviceName;
+    dst.strUnitTpye  = src.strDevModel;
+    dst.serialNumber = src.strSerialNum;
+    dst.systemVersion = src.strFirmwareVersion;
 }
 
-void FillSystemNtpInfo(const ::System::TimeInfo_S &src, NET_TV_SYSTEM_NTP_INFO_S &dst)
+void FillSystemNtpInfo(const ::System::TimeInfo_S &src, NET_SystemNtpInfo_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));
     dst.enTimeZone = static_cast<INT32>(src.enTimeZone);
@@ -590,56 +567,56 @@ void FillSystemNtpInfo(const ::System::TimeInfo_S &src, NET_TV_SYSTEM_NTP_INFO_S
     dst.bIsSyncWithComputer = src.bIsSyncWithComputer ? TRUE : FALSE;
     dst.nPort = src.stNTPInfo.nPort;
     dst.nSyncInterval = src.stNTPInfo.nSyncInterval;
-    std::strncpy(dst.szDateTime, src.strDateTime.c_str(), sizeof(dst.szDateTime) - 1);
-    std::strncpy(dst.szAddress, src.stNTPInfo.address.c_str(), sizeof(dst.szAddress) - 1);
+    std::strncpy(dst.strDateTime, src.strDateTime.c_str(), sizeof(dst.strDateTime) - 1);
+    std::strncpy(dst.strAddress, src.stNTPInfo.address.c_str(), sizeof(dst.strAddress) - 1);
 }
 
-void ToTimeInfo(const NET_TV_SYSTEM_NTP_INFO_S &src, ::System::TimeInfo_S &dst)
+void ToTimeInfo(const NET_SystemNtpInfo_S &src, ::System::TimeInfo_S &dst)
 {
     dst.enTimeZone = static_cast<::System::TimeZone_E>(src.enTimeZone);
     dst.enDateFormat = static_cast<::System::DateFormat_E>(src.enDateFormat);
     dst.bEnableNTPSync = (src.bEnableNTPSync == TRUE);
     dst.bManualSync = (src.bManualSync == TRUE);
     dst.bIsSyncWithComputer = (src.bIsSyncWithComputer == TRUE);
-    dst.strDateTime = src.szDateTime;
-    dst.stNTPInfo.address = src.szAddress;
+    dst.strDateTime = src.strDateTime;
+    dst.stNTPInfo.address = src.strAddress;
     dst.stNTPInfo.nPort = src.nPort;
     dst.stNTPInfo.nSyncInterval = src.nSyncInterval;
 }
 
-void FillNetworkCfg(const Network::Info_S &src, NET_TV_NETWORKCFG_S &dst)
+void FillNetworkCfg(const Network::Info_S &src, NET_NetworkCfg_S &dst)
 {
     memset(&dst, 0, sizeof(dst));
-    dst.dwMTU = (INT32)src.stIp.nMtu;
+    dst.uMTU = (INT32)src.stIp.nMtu;
     dst.bIPv4DHCP = src.stIp.bEnableDhcp ? TRUE : FALSE;
     strncpy(dst.szIpv4Address, src.stIp.ipv4Ip.c_str(), sizeof(dst.szIpv4Address) - 1);
     strncpy(dst.szIPv4GateWay, src.stIp.ipv4Gateway.c_str(), sizeof(dst.szIPv4GateWay) - 1);
     strncpy(dst.szIPv4SubnetMask, src.stIp.ipv4Mask.c_str(), sizeof(dst.szIPv4SubnetMask) - 1);
 }
 
-void ToNetworkInfo(const NET_TV_NETWORKCFG_S &src, Network::Info_S &dst)
+void ToNetworkInfo(const NET_NetworkCfg_S &src, Network::Info_S &dst)
 {
     dst.stIp.bEnableDhcp = (src.bIPv4DHCP == TRUE);
     dst.stIp.ipv4Ip      = src.szIpv4Address;
     dst.stIp.ipv4Gateway = src.szIPv4GateWay;
     dst.stIp.ipv4Mask    = src.szIPv4SubnetMask;
-    dst.stIp.nMtu        = (int)src.dwMTU;
+    dst.stIp.nMtu        = (int)src.uMTU;
 }
 
-void FillWifiStaCfg(const Network::WifiStaInfo_S &src, NET_TV_WIFI_STA_CFG_S &dst)
+void FillWifiStaCfg(const Network::WifiStaInfo_S &src, NET_WifiStaCfg_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));
     dst.bEnableWifi = src.bEnableWifi ? TRUE : FALSE;
     dst.bEnableBoost = src.bEnableBoost ? TRUE : FALSE;
 }
 
-void ToWifiStaInfo(const NET_TV_WIFI_STA_CFG_S &src, Network::WifiStaInfo_S &dst)
+void ToWifiStaInfo(const NET_WifiStaCfg_S &src, Network::WifiStaInfo_S &dst)
 {
     dst.bEnableWifi = (src.bEnableWifi == TRUE);
     dst.bEnableBoost = (src.bEnableBoost == TRUE);
 }
 
-void FillWifiStaConnect(const Network::WifiStaConncet_S &src, NET_TV_WIFI_STA_CONNECT_S &dst)
+void FillWifiStaConnect(const Network::WifiStaConncet_S &src, NET_WifiStaConnect_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));
     std::strncpy(dst.szSsid, src.ssid.c_str(), sizeof(dst.szSsid) - 1);
@@ -676,7 +653,7 @@ void FillWifiStaConnect(const Network::WifiStaConncet_S &src, NET_TV_WIFI_STA_CO
     std::strncpy(dst.szInterfaceName, src.interface_name.c_str(), sizeof(dst.szInterfaceName) - 1);
 }
 
-void ToWifiStaConnect(const NET_TV_WIFI_STA_CONNECT_S &src, Network::WifiStaConncet_S &dst)
+void ToWifiStaConnect(const NET_WifiStaConnect_S &src, Network::WifiStaConncet_S &dst)
 {
     dst.ssid = src.szSsid;
     if (src.nSecurityMode >= (INT32)Network::WifiSecurityMode::WPA_PERSONAL &&
@@ -723,7 +700,7 @@ void ToWifiStaConnect(const NET_TV_WIFI_STA_CONNECT_S &src, Network::WifiStaConn
     dst.interface_name = src.szInterfaceName;
 }
 
-void Fill4GInfo(const Network::Network_4G_Config_t &src, NET_TV_4G_INFO_S &dst)
+void Fill4GInfo(const Network::Network_4G_Config_t &src, NET_4GInfo_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));
     std::strncpy(dst.szApn, src.apn.c_str(), sizeof(dst.szApn) - 1);
@@ -736,7 +713,7 @@ void Fill4GInfo(const Network::Network_4G_Config_t &src, NET_TV_4G_INFO_S &dst)
     dst.nDialMode = src.dial_mode;
 }
 
-void To4GConfig(const NET_TV_4G_INFO_S &src, Network::Network_4G_Config_t &dst)
+void To4GConfig(const NET_4GInfo_S &src, Network::Network_4G_Config_t &dst)
 {
     dst.apn = src.szApn;
     dst.username = src.szUserName;
@@ -748,7 +725,7 @@ void To4GConfig(const NET_TV_4G_INFO_S &src, Network::Network_4G_Config_t &dst)
     dst.dial_mode = src.nDialMode;
 }
 
-void FillHotspotInfo(const Network::HotspotConfig &src, NET_TV_HOTSPOT_INFO_S &dst)
+void FillHotspotInfo(const Network::HotspotConfig &src, NET_HotspotInfo_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));
     dst.bEnabled = src.enabled ? TRUE : FALSE;
@@ -759,7 +736,7 @@ void FillHotspotInfo(const Network::HotspotConfig &src, NET_TV_HOTSPOT_INFO_S &d
     std::strncpy(dst.szConfirmPassword, src.confirmPassword.c_str(), sizeof(dst.szConfirmPassword) - 1);
 }
 
-void ToHotspotConfig(const NET_TV_HOTSPOT_INFO_S &src, Network::HotspotConfig &dst)
+void ToHotspotConfig(const NET_HotspotInfo_S &src, Network::HotspotConfig &dst)
 {
     dst.enabled = (src.bEnabled == TRUE);
     dst.ssid = src.szSsid;
@@ -774,19 +751,19 @@ static INT32 ToSdkVideoCodec(Video_NS::VideoCodec_E src)
     switch (src)
     {
         case Video_NS::VideoCodec_E::H264:
-            return NET_TV_VIDEO_CODE_H264;
+            return NET_VIDEO_CODE_H264;
         case Video_NS::VideoCodec_E::H265:
-            return NET_TV_VIDEO_CODE_H265;
+            return NET_VIDEO_CODE_H265;
         case Video_NS::VideoCodec_E::JPEG:
-            return NET_TV_VIDEO_CODE_JPEG;
+            return NET_VIDEO_CODE_JPEG;
         case Video_NS::VideoCodec_E::MJPEG:
-            return NET_TV_VIDEO_CODE_MJPEG;
+            return NET_VIDEO_CODE_MJPEG;
         case Video_NS::VideoCodec_E::SVAC3:
-            return NET_TV_VIDEO_CODE_SVAC3;
+            return NET_VIDEO_CODE_SVAC3;
         case Video_NS::VideoCodec_E::MPEG4:
-            return NET_TV_VIDEO_CODE_MPEG4;
+            return NET_VIDEO_CODE_MPEG4;
         default:
-            return NET_TV_VIDEO_CODE_INVALID;
+            return NET_VIDEO_CODE_INVALID;
     }
 }
 
@@ -794,30 +771,30 @@ static Video_NS::VideoCodec_E ToIpcVideoCodec(INT32 src)
 {
     switch (src)
     {
-        case NET_TV_VIDEO_CODE_H264:
+        case NET_VIDEO_CODE_H264:
             return Video_NS::VideoCodec_E::H264;
-        case NET_TV_VIDEO_CODE_H265:
+        case NET_VIDEO_CODE_H265:
             return Video_NS::VideoCodec_E::H265;
-        case NET_TV_VIDEO_CODE_JPEG:
+        case NET_VIDEO_CODE_JPEG:
             return Video_NS::VideoCodec_E::JPEG;
-        case NET_TV_VIDEO_CODE_MJPEG:
+        case NET_VIDEO_CODE_MJPEG:
             return Video_NS::VideoCodec_E::MJPEG;
-        case NET_TV_VIDEO_CODE_SVAC3:
+        case NET_VIDEO_CODE_SVAC3:
             return Video_NS::VideoCodec_E::SVAC3;
-        case NET_TV_VIDEO_CODE_MPEG4:
+        case NET_VIDEO_CODE_MPEG4:
             return Video_NS::VideoCodec_E::MPEG4;
         default:
             return Video_NS::VideoCodec_E::H264;
     }
 }
 
-void FillVideoEncodeOption(const Video_NS::VideoConfig_S &src, NET_TV_VIDEO_ENCODE_OPTION_S &dst)
+void FillVideoEncodeOption(const Video_NS::VideoConfig_S &src, NET_VideoEncodeOption_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));
     dst.nId = (INT32)src.nId;
     dst.enVideoType = (INT32)src.enVideoType;
-    dst.stVideoResolution.dwWidth = (INT32)src.stVideoResolution.nWidth;
-    dst.stVideoResolution.dwHeight = (INT32)src.stVideoResolution.nHeight;
+    dst.stVideoResolution.uWidth = (INT32)src.stVideoResolution.nWidth;
+    dst.stVideoResolution.uHeight = (INT32)src.stVideoResolution.nHeight;
     dst.enBitrateType = (INT32)src.enBitrateType;
     dst.enImageQuality = (INT32)src.enImageQuality;
     dst.enFrameRate = (INT32)src.getFrameRateAsInt();
@@ -831,12 +808,12 @@ void FillVideoEncodeOption(const Video_NS::VideoConfig_S &src, NET_TV_VIDEO_ENCO
     dst.nBitrateSmoothing = (INT32)src.nBitrateSmoothing;
 }
 
-void ToVideoConfig(const NET_TV_VIDEO_ENCODE_OPTION_S &src, Video_NS::VideoConfig_S &dst)
+void ToVideoConfig(const NET_VideoEncodeOption_S &src, Video_NS::VideoConfig_S &dst)
 {
     dst.nId = (int)src.nId;
     dst.enVideoType = (Video_NS::VideoType_E)src.enVideoType;
-    dst.stVideoResolution.nWidth = (int)src.stVideoResolution.dwWidth;
-    dst.stVideoResolution.nHeight = (int)src.stVideoResolution.dwHeight;
+    dst.stVideoResolution.nWidth = (int)src.stVideoResolution.uWidth;
+    dst.stVideoResolution.nHeight = (int)src.stVideoResolution.uHeight;
     dst.enBitrateType = (Video_NS::BitrateType_E)src.enBitrateType;
     dst.enImageQuality = (Video_NS::ImageQuality_E)src.enImageQuality;
     dst.setFrameRate((int)src.enFrameRate);
@@ -876,7 +853,7 @@ static void ToOsdAttribute(const OsdAttribute_S &src, Osd::OsdAttribute_S &dst)
     dst.strToken = src.strToken;
 }
 
-void FillOsdConfig(const Osd::OsdConfig_S &src, NET_TV_VIDEO_OSD_CFG_S &dst)
+void FillOsdConfig(const Osd::OsdConfig_S &src, NET_VideoOsdCfg_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));
     dst.enAlign = (OSD_ALIGN_E)src.enAlign;
@@ -903,7 +880,7 @@ void FillOsdConfig(const Osd::OsdConfig_S &src, NET_TV_VIDEO_OSD_CFG_S &dst)
     }
 }
 
-void ToOsdConfig(const NET_TV_VIDEO_OSD_CFG_S &src, Osd::OsdConfig_S &dst)
+void ToOsdConfig(const NET_VideoOsdCfg_S &src, Osd::OsdConfig_S &dst)
 {
     dst.clear();
     dst.enAlign = (Osd::OSD_ALIGN_E)src.enAlign;
@@ -930,18 +907,18 @@ void ToOsdConfig(const NET_TV_VIDEO_OSD_CFG_S &src, Osd::OsdConfig_S &dst)
     dst.init_token();
 }
 
-void FillPrivacyMaskCfg(const Osd::CoverConfig_S &src,std::size_t maxAreaCount, NET_TV_PRIVACY_MASK_CFG_S &dst)
+void FillPrivacyMaskCfg(const Osd::CoverConfig_S &src,std::size_t maxAreaCount, NET_PrivacyMaskCfg_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));
     dst.bEnable = src.bEnable ? TRUE : FALSE;
 
-    const size_t nSupportedCount = std::min(maxAreaCount, (size_t)NET_TV_MAX_PRIVACY_MASK_AREA_NUM);
+    const size_t nSupportedCount = std::min(maxAreaCount, (size_t)NET_MAX_PRIVACY_MASK_AREA_NUM);
     const size_t nCount = std::min(src.vecCoverAttr.size(), nSupportedCount);
     dst.uAreaCount = (INT32)nCount;
     for (size_t i = 0; i < nCount; ++i)
     {
         const Osd::CoverAttribute_S &srcArea = src.vecCoverAttr[i];
-        NET_TV_PRIVACY_MASK_AREA_S &dstArea = dst.astArea[i];
+        NET_PrivacyMaskArea_S &dstArea = dst.astArea[i];
 
         dstArea.nAreaID = (INT32)i;
         dstArea.bEnable = srcArea.bEnable ? TRUE : FALSE;
@@ -952,9 +929,9 @@ void FillPrivacyMaskCfg(const Osd::CoverConfig_S &src,std::size_t maxAreaCount, 
     }
 }
 
-bool ToPrivacyMaskCfg(const NET_TV_PRIVACY_MASK_CFG_S &src, std::size_t maxAreaCount, Osd::CoverConfig_S &dst)
+bool ToPrivacyMaskCfg(const NET_PrivacyMaskCfg_S &src, std::size_t maxAreaCount, Osd::CoverConfig_S &dst)
 {
-    const size_t nSupportedCount = std::min(maxAreaCount, (size_t)NET_TV_MAX_PRIVACY_MASK_AREA_NUM);
+    const size_t nSupportedCount = std::min(maxAreaCount, (size_t)NET_MAX_PRIVACY_MASK_AREA_NUM);
     if (src.uAreaCount < 0 || static_cast<size_t>(src.uAreaCount) > nSupportedCount)
     {
         return false;
@@ -967,7 +944,7 @@ bool ToPrivacyMaskCfg(const NET_TV_PRIVACY_MASK_CFG_S &src, std::size_t maxAreaC
     const size_t nCount = static_cast<size_t>(src.uAreaCount);
     for (size_t i = 0; i < nCount; ++i)
     {
-        const NET_TV_PRIVACY_MASK_AREA_S &srcArea = src.astArea[i];
+        const NET_PrivacyMaskArea_S &srcArea = src.astArea[i];
         Osd::CoverAttribute_S &dstArea = dst.vecCoverAttr[i];
 
         dstArea.nId = (int)i + 1;
@@ -985,7 +962,7 @@ bool ToPrivacyMaskCfg(const NET_TV_PRIVACY_MASK_CFG_S &src, std::size_t maxAreaC
 }
 
 
-void FillImageSetting(const ISP::ImageParam_S &src, NET_TV_IMAGE_SETTING_S &dst)
+void FillImageSetting(const ISP::ImageParam_S &src, NET_ImageSetting_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));
     dst.nBrightness = (UINT32)src.nBrightness;
@@ -994,7 +971,7 @@ void FillImageSetting(const ISP::ImageParam_S &src, NET_TV_IMAGE_SETTING_S &dst)
     dst.nSharpness = (UINT32)src.nSharpness;
 }
 
-void ToImageParam(const NET_TV_IMAGE_SETTING_S &src, ISP::ImageParam_S &dst)
+void ToImageParam(const NET_ImageSetting_S &src, ISP::ImageParam_S &dst)
 {
     dst.nBrightness = (unsigned int)src.nBrightness;
     dst.nContrast = (unsigned int)src.nContrast;
@@ -1002,40 +979,45 @@ void ToImageParam(const NET_TV_IMAGE_SETTING_S &src, ISP::ImageParam_S &dst)
     dst.nSharpness = (unsigned int)src.nSharpness;
 }
 
-void FillPreviewInfo(const Preview::PreviewInfo_S &src, NET_TV_PREVIEW_INFO_S &dst)
+void FillPreviewInfo(const Preview::PreviewInfo_S &src, NET_PreviewInfo_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));
-    std::strncpy(dst.szRtspMainUrl, src.stRtspUrl.strRtspMainUrl.c_str(), sizeof(dst.szRtspMainUrl) - 1);
-    std::strncpy(dst.szRtspSubUrl, src.stRtspUrl.strRtspSubUrl.c_str(), sizeof(dst.szRtspSubUrl) - 1);
-    dst.nBrightness = src.stImageParam.nBrightness;
-    dst.nContrast = src.stImageParam.nContrast;
-    dst.nSaturation = src.stImageParam.nSaturation;
-    dst.nSharpness = src.stImageParam.nSharpness;
+    /* SDK 将预览地址和图像参数拆分为嵌套结构，保持 IPC 侧数据语义不变。 */
+    std::strncpy(dst.stRtspUrl.szRtspMainUrl,
+                 src.stRtspUrl.strRtspMainUrl.c_str(),
+                 sizeof(dst.stRtspUrl.szRtspMainUrl) - 1);
+    std::strncpy(dst.stRtspUrl.szRtspSubUrl,
+                 src.stRtspUrl.strRtspSubUrl.c_str(),
+                 sizeof(dst.stRtspUrl.szRtspSubUrl) - 1);
+    dst.stImageParam.nBrightness = src.stImageParam.nBrightness;
+    dst.stImageParam.nContrast = src.stImageParam.nContrast;
+    dst.stImageParam.nSaturation = src.stImageParam.nSaturation;
+    dst.stImageParam.nSharpness = src.stImageParam.nSharpness;
 }
 
-void ToPreviewInfo(const NET_TV_PREVIEW_INFO_S &src, Preview::PreviewInfo_S &dst)
+void ToPreviewInfo(const NET_PreviewInfo_S &src, Preview::PreviewInfo_S &dst)
 {
-    dst.stRtspUrl.strRtspMainUrl = src.szRtspMainUrl;
-    dst.stRtspUrl.strRtspSubUrl = src.szRtspSubUrl;
-    dst.stImageParam.nBrightness = src.nBrightness;
-    dst.stImageParam.nContrast = src.nContrast;
-    dst.stImageParam.nSaturation = src.nSaturation;
-    dst.stImageParam.nSharpness = src.nSharpness;
+    dst.stRtspUrl.strRtspMainUrl = src.stRtspUrl.szRtspMainUrl;
+    dst.stRtspUrl.strRtspSubUrl = src.stRtspUrl.szRtspSubUrl;
+    dst.stImageParam.nBrightness = src.stImageParam.nBrightness;
+    dst.stImageParam.nContrast = src.stImageParam.nContrast;
+    dst.stImageParam.nSaturation = src.stImageParam.nSaturation;
+    dst.stImageParam.nSharpness = src.stImageParam.nSharpness;
 }
 
-static void ParseResolutionName(const std::string &name, NET_TV_VIDEO_RESOLUTION_S &dst)
+static void ParseResolutionName(const std::string &name, NET_VideoResolution_S &dst)
 {
     int width = 0;
     int height = 0;
     if (std::sscanf(name.c_str(), "%d*%d", &width, &height) == 2 ||
         std::sscanf(name.c_str(), "%dx%d", &width, &height) == 2)
     {
-        dst.dwWidth = (INT32)width;
-        dst.dwHeight = (INT32)height;
+        dst.uWidth = (INT32)width;
+        dst.uHeight = (INT32)height;
     }
 }
 
-static void FillFrameRateList(FLOAT frameRateMin, FLOAT frameRateMax, NET_TV_VIDEO_RESOLUTION_S &dst)
+static void FillFrameRateList(FLOAT frameRateMin, FLOAT frameRateMax, NET_VideoResolution_S &dst)
 {
     static const FLOAT kFrameRates[] = {
         1.0f / 16.0f, 1.0f / 8.0f, 1.0f / 4.0f, 1.0f / 2.0f,
@@ -1050,13 +1032,13 @@ static void FillFrameRateList(FLOAT frameRateMin, FLOAT frameRateMax, NET_TV_VID
         frameRateMax = tmp;
     }
 
-    dst.dwFrameRateNum = 0;
+    dst.uFrameRateNum = 0;
     for (size_t i = 0; i < sizeof(kFrameRates) / sizeof(kFrameRates[0]) &&
-                       dst.dwFrameRateNum < NET_TV_VIDEO_FRAME_RATE_MAX_NUM; ++i)
+                       dst.uFrameRateNum < NET_VIDEO_FRAME_RATE_MAX_NUM; ++i)
     {
         if (kFrameRates[i] >= frameRateMin && kFrameRates[i] <= frameRateMax)
         {
-            dst.adwFrameRate[dst.dwFrameRateNum++] = kFrameRates[i];
+            dst.afFrameRate[dst.uFrameRateNum++] = kFrameRates[i];
         }
     }
 }
@@ -1116,27 +1098,27 @@ static FLOAT FrameRateEnumToFloat(Video_NS::FrameRate_E enFrameRate)
 }
 
 /**
- * @brief 将 IPC 侧 Resolution_S 转换为 SDK 侧 NET_TV_VIDEO_RESOLUTION_S
+ * @brief 将 IPC 侧 Resolution_S 转换为 SDK 侧 NET_VideoResolution_S
  */
-static void FillOneResolution(const Video_NS::Resolution_S &src, NET_TV_VIDEO_RESOLUTION_S &dst)
+static void FillOneResolution(const Video_NS::Resolution_S &src, NET_VideoResolution_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));
     std::strncpy(dst.szName, src.strName.c_str(), sizeof(dst.szName) - 1);
     ParseResolutionName(src.strName, dst);
-    dst.dwFrameRateMin = FrameRateEnumToFloat(src.enFrameRateMin);
-    dst.dwFrameRateMax = FrameRateEnumToFloat(src.enFrameRateMax);
-    FillFrameRateList(dst.dwFrameRateMin, dst.dwFrameRateMax, dst);
-    dst.dwBitRateMin = (INT32)src.nBitRateMin;
-    dst.dwBitRateMax = (INT32)src.nBitRateMax;
+    dst.fFrameRateMin = FrameRateEnumToFloat(src.enFrameRateMin);
+    dst.fFrameRateMax = FrameRateEnumToFloat(src.enFrameRateMax);
+    FillFrameRateList(dst.fFrameRateMin, dst.fFrameRateMax, dst);
+    dst.uBitRateMin = (INT32)src.nBitRateMin;
+    dst.uBitRateMax = (INT32)src.nBitRateMax;
 }
 
-static void FillOneEncodeAbility(const Video_NS::EncodeAbility_S &src, NET_TV_VIDEO_ENCODE_ABILITY_S &dst)
+static void FillOneEncodeAbility(const Video_NS::EncodeAbility_S &src, NET_VideoEncodeAbility_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));
     std::strncpy(dst.szVideoCodec, src.strVideoCodec.c_str(), sizeof(dst.szVideoCodec) - 1);
     dst.enVideoCodec = ToSdkVideoCodec(Video_NS::string_toVideoCodec(src.strVideoCodec));
     dst.nSupportAdjustComplexity = (INT32)src.nSupportAdjustComplexity;
-    dst.nEncodeComplexityNum = (INT32)std::min(src.vEncodeComplexity.size(), (size_t)NET_TV_VIDEO_ENCODE_COMPLEXITY_MAX_NUM);
+    dst.nEncodeComplexityNum = (INT32)std::min(src.vEncodeComplexity.size(), (size_t)NET_VIDEO_ENCODE_COMPLEXITY_MAX_NUM);
     for (INT32 i = 0; i < dst.nEncodeComplexityNum; ++i)
     {
         dst.anEncodeComplexity[i] = (INT32)src.vEncodeComplexity[(size_t)i];
@@ -1148,7 +1130,7 @@ static void FillOneEncodeAbility(const Video_NS::EncodeAbility_S &src, NET_TV_VI
 
 static void FillOneEncodeOption(const Video_NS::VideoCapability_S &src,
                                 const Video_NS::EncodeAbility_S *ability,
-                                NET_TV_VIDEO_ENCODE_OPTION_S &dst,
+                                NET_VideoEncodeOption_S &dst,
                                 INT32 streamType)
 {
     std::memset(&dst, 0, sizeof(dst));
@@ -1175,7 +1157,7 @@ static void FillOneEncodeOption(const Video_NS::VideoCapability_S &src,
     }
     else
     {
-        dst.enVideoCodec = NET_TV_VIDEO_CODE_H264;
+        dst.enVideoCodec = NET_VIDEO_CODE_H264;
         dst.enEncodingComplexity = (INT32)Video_NS::EncodingComplexity_E::Main;
         dst.enSvcEnable = Video_NS::SVC_MODE_DISABLE;
     }
@@ -1183,34 +1165,34 @@ static void FillOneEncodeOption(const Video_NS::VideoCapability_S &src,
     dst.nIFrameInterval = src.nIFrameIntervalMax;
 }
 
-static void FillOneStreamCap(const Video_NS::VideoCapability_S &src, NET_TV_VIDEO_STREAM_CAP_S &dst, INT32 streamType)
+static void FillOneStreamCap(const Video_NS::VideoCapability_S &src, NET_VideoStreamCap_S &dst, INT32 streamType)
 {
     memset(&dst, 0, sizeof(dst));
-    dst.dwStreamType = streamType;
+    dst.uStreamType = streamType;
     dst.bSupportMultiStream = (INT32)src.bSupportMultiStream;
 
     /* 编码能力列表 */
-    dst.dwEncodeTypeNum = src.nEncodeTypeNum;
-    dst.dwEncodeAbilityNum = (INT32)std::min(src.aEncodeAbility.size(), (size_t)NET_TV_VIDEO_ENCODE_TYPE_MAX);
-    if (dst.dwEncodeTypeNum <= 0)
+    dst.uEncodeTypeNum = src.nEncodeTypeNum;
+    dst.uEncodeAbilityNum = (INT32)std::min(src.aEncodeAbility.size(), (size_t)NET_VIDEO_ENCODE_TYPE_MAX);
+    if (dst.uEncodeTypeNum <= 0)
     {
-        dst.dwEncodeTypeNum = dst.dwEncodeAbilityNum;
+        dst.uEncodeTypeNum = dst.uEncodeAbilityNum;
     }
 
-    for (INT32 i = 0; i < dst.dwEncodeAbilityNum; ++i)
+    for (INT32 i = 0; i < dst.uEncodeAbilityNum; ++i)
     {
         FillOneEncodeAbility(src.aEncodeAbility[(size_t)i], dst.astEncodeAbility[i]);
     }
 
-    dst.dwEncodeCapSize = dst.dwEncodeAbilityNum;
-    if (dst.dwEncodeCapSize == 0)
+    dst.uEncodeCapSize = dst.uEncodeAbilityNum;
+    if (dst.uEncodeCapSize == 0)
     {
-        dst.dwEncodeCapSize = 1;
+        dst.uEncodeCapSize = 1;
         FillOneEncodeOption(src, nullptr, dst.astEncodeCap[0], streamType);
     }
     else
     {
-        for (INT32 i = 0; i < dst.dwEncodeCapSize; ++i)
+        for (INT32 i = 0; i < dst.uEncodeCapSize; ++i)
         {
             FillOneEncodeOption(src, &src.aEncodeAbility[i], dst.astEncodeCap[i], streamType);
         }
@@ -1220,98 +1202,98 @@ static void FillOneStreamCap(const Video_NS::VideoCapability_S &src, NET_TV_VIDE
      * IPC 视频能力集只返回码流平滑范围，没有单独的图像质量能力范围。
      * 这里保留质量范围的兼容默认值，同时把真实的 StreamSmooth 范围填到对应字段。
      */
-    dst.stQuality.dwMin = 1;
-    dst.stQuality.dwMax = 100;
-    dst.stStreamSmooth.dwMin = src.nStreamSmoothMin;
-    dst.stStreamSmooth.dwMax = src.nStreamSmoothMax;
-    dst.dwIFrameIntervalMin = src.nIFrameIntervalMin;
-    dst.dwIFrameIntervalMax = src.nIFrameIntervalMax;
+    dst.stQuality.uMin = 1;
+    dst.stQuality.uMax = 100;
+    dst.stStreamSmooth.uMin = src.nStreamSmoothMin;
+    dst.stStreamSmooth.uMax = src.nStreamSmoothMax;
+    dst.uIFrameIntervalMin = src.nIFrameIntervalMin;
+    dst.uIFrameIntervalMax = src.nIFrameIntervalMax;
 
     /* 分辨率列表 */
-    dst.dwResolutionNum = (INT32)std::min(src.aResolution.size(), (size_t)NET_TV_RESOLUTION_NUM_MAX);
-    for (INT32 i = 0; i < dst.dwResolutionNum; ++i)
+    dst.uResolutionNum = (INT32)std::min(src.aResolution.size(), (size_t)NET_RESOLUTION_NUM_MAX);
+    for (INT32 i = 0; i < dst.uResolutionNum; ++i)
     {
         FillOneResolution(src.aResolution[i], dst.astResolution[i]);
     }
 }
 
-void FillVideoEncodeCap(const Video_NS::VideoCapabilitySet_S &src, NET_TV_VIDEO_ENCODE_CAP_S &dst)
+void FillVideoEncodeCap(const Video_NS::VideoCapabilitySet_S &src, NET_VideoEncodeCap_S &dst)
 {
     memset(&dst, 0, sizeof(dst));
-    dst.dwStreamCount = 0;
-    FillOneStreamCap(src.stMain, dst.astStreamCap[0], NET_TV_LIVE_STREAM_INDEX_MAIN);
-    dst.dwStreamCount++;
-    FillOneStreamCap(src.stSub, dst.astStreamCap[1], NET_TV_LIVE_STREAM_INDEX_AUX);
-    dst.dwStreamCount++;
+    dst.uStreamCount = 0;
+    FillOneStreamCap(src.stMain, dst.astStreamCap[0], NET_LIVE_STREAM_INDEX_MAIN);
+    dst.uStreamCount++;
+    FillOneStreamCap(src.stSub, dst.astStreamCap[1], NET_LIVE_STREAM_INDEX_AUX);
+    dst.uStreamCount++;
 }
 
 static void FillOneAudioFormatCap(const Audio_NS::AudioFormatCapability_S &src,
-                                  NET_TV_AUDIO_FORMAT_CAP_S &dst)
+                                  NET_AudioFormatCap_S &dst)
 {
     memset(&dst, 0, sizeof(dst));
 
-    dst.dwFormat = (INT32)Audio_NS::string_toAudioFormat(src.strFormat);
+    dst.uFormat = (INT32)Audio_NS::string_toAudioFormat(src.strFormat);
 
-    for (size_t i = 0; i < src.aSampleRates.size() && i < NET_TV_AUDIO_SAMPRATE_MAX; ++i)
+    for (size_t i = 0; i < src.aSampleRates.size() && i < NET_AUDIO_SAMPRATE_MAX; ++i)
     {
-        dst.adwSampleRate[i] = (INT32)src.aSampleRates[i];
-        dst.dwSampleRateSize++;
+        dst.auSampleRate[i] = (INT32)src.aSampleRates[i];
+        dst.uSampleRateSize++;
     }
 
-    for (size_t i = 0; i < src.aBitRates.size() && i < NET_TV_AUDIO_BITRATE_MAX; ++i)
+    for (size_t i = 0; i < src.aBitRates.size() && i < NET_AUDIO_BITRATE_MAX; ++i)
     {
-        dst.adwBitRate[i] = (INT32)src.aBitRates[i];
-        dst.dwBitRateSize++;
+        dst.auBitRate[i] = (INT32)src.aBitRates[i];
+        dst.uBitRateSize++;
     }
 
     dst.stSampleRateRange.bEnable = src.stSampleRateRange.bEnable ? 1 : 0;
-    dst.stSampleRateRange.dwMin   = src.stSampleRateRange.nMin;
-    dst.stSampleRateRange.dwMax   = src.stSampleRateRange.nMax;
-    dst.stSampleRateRange.dwStep  = src.stSampleRateRange.nStep;
+    dst.stSampleRateRange.uMin   = src.stSampleRateRange.nMin;
+    dst.stSampleRateRange.uMax   = src.stSampleRateRange.nMax;
+    dst.stSampleRateRange.uStep  = src.stSampleRateRange.nStep;
 
     dst.stBitRateRange.bEnable = src.stBitRateRange.bEnable ? 1 : 0;
-    dst.stBitRateRange.dwMin   = src.stBitRateRange.nMin;
-    dst.stBitRateRange.dwMax   = src.stBitRateRange.nMax;
-    dst.stBitRateRange.dwStep  = src.stBitRateRange.nStep;
+    dst.stBitRateRange.uMin   = src.stBitRateRange.nMin;
+    dst.stBitRateRange.uMax   = src.stBitRateRange.nMax;
+    dst.stBitRateRange.uStep  = src.stBitRateRange.nStep;
 }
 
 void FillAudioEncodeCap(const Audio_NS::AudioCapabilitySet_S &src,
-                        NET_TV_AUDIO_CAP_S &dst)
+                        NET_AudioCap_S &dst)
 {
     memset(&dst, 0, sizeof(dst));
 
-    for (size_t i = 0; i < src.aInputTypes.size() && i < NET_TV_AUDIO_INPUT_TYPE_MAX; ++i)
+    for (size_t i = 0; i < src.aInputTypes.size() && i < NET_AUDIO_INPUT_TYPE_MAX; ++i)
     {
-        dst.adwInputType[i] = (INT32)Audio_NS::string_toAudioInputType(src.aInputTypes[i]);
-        dst.dwInputTypeSize++;
+        dst.auInputType[i] = (INT32)Audio_NS::string_toAudioInputType(src.aInputTypes[i]);
+        dst.uInputTypeSize++;
     }
 
-    for (size_t i = 0; i < src.aOutputTypes.size() && i < NET_TV_AUDIO_OUTPUT_TYPE_MAX; ++i)
+    for (size_t i = 0; i < src.aOutputTypes.size() && i < NET_AUDIO_OUTPUT_TYPE_MAX; ++i)
     {
-        dst.adwOutputType[i] = (INT32)Audio_NS::string_toAudioOutputType(src.aOutputTypes[i]);
-        dst.dwOutputTypeSize++;
+        dst.auOutputType[i] = (INT32)Audio_NS::string_toAudioOutputType(src.aOutputTypes[i]);
+        dst.uOutputTypeSize++;
     }
 
-    for (size_t i = 0; i < src.aFormats.size() && i < NET_TV_AUDIO_FORMAT_MAX; ++i)
+    for (size_t i = 0; i < src.aFormats.size() && i < NET_AUDIO_FORMAT_MAX; ++i)
     {
-        dst.adwFormat[i] = (INT32)Audio_NS::string_toAudioFormat(src.aFormats[i]);
-        dst.dwFormatSize++;
+        dst.auFormat[i] = (INT32)Audio_NS::string_toAudioFormat(src.aFormats[i]);
+        dst.uFormatSize++;
     }
 
-    for (size_t i = 0; i < src.aFormatDetail.size() && i < NET_TV_AUDIO_FORMAT_MAX; ++i)
+    for (size_t i = 0; i < src.aFormatDetail.size() && i < NET_AUDIO_FORMAT_MAX; ++i)
     {
         FillOneAudioFormatCap(src.aFormatDetail[i], dst.astFormatDetail[i]);
-        dst.dwFormatDetailSize++;
+        dst.uFormatDetailSize++;
     }
 }
 
-// --------- Motion (IPC MotionDetection_S <-> SDK NET_TV_MOTION_ALARM_INFO_S) ---------
-void FillMotionAlarmInfo(const Alarm::MotionDetection_S &src, NET_TV_MOTION_ALARM_INFO_S &dst)
+// --------- Motion (IPC MotionDetection_S <-> SDK NET_MotionAlarmInfo_S) ---------
+void FillMotionAlarmInfo(const Alarm::MotionDetection_S &src, NET_MotionAlarmInfo_S &dst)
 {
     memset(&dst, 0, sizeof(dst));
     dst.bEnable = src.bEnable ? TRUE : FALSE;
     dst.bDynamicAnalysisEnable = src.bDynamicAnalysisEnable ? TRUE : FALSE;
-    dst.dwMode = (INT32)src.enMode; // 0 normal, 1 expert
+    dst.uMode = (INT32)src.enMode; // 0 normal, 1 expert
 
     // Normal mode
     dst.stNormalMode.nSensitivity = (INT32)src.stMotionNormalMode.nSensitivity;
@@ -1323,8 +1305,8 @@ void FillMotionAlarmInfo(const Alarm::MotionDetection_S &src, NET_TV_MOTION_ALAR
     dst.stNormalMode.nRectTop = 0;
     dst.stNormalMode.nRectRight = 0;
     dst.stNormalMode.nRectBottom = 0;
-    dst.stNormalMode.dwGridWidth = 22;
-    dst.stNormalMode.dwGridHeight = 18;
+    dst.stNormalMode.uGridWidth = 22;
+    dst.stNormalMode.uGridHeight = 18;
     // 普通模式区域：筒型(Rect) 或 网格(abyGridArea)
     if (dst.stNormalMode.nRegionType == 0)
     {
@@ -1353,8 +1335,8 @@ void FillMotionAlarmInfo(const Alarm::MotionDetection_S &src, NET_TV_MOTION_ALAR
             // 尝试按 IPC 网格实际尺寸填充；不足按 18x22 默认
             if (w > 0)
             {
-                dst.stNormalMode.dwGridHeight = h;
-                dst.stNormalMode.dwGridWidth = w;
+                dst.stNormalMode.uGridHeight = h;
+                dst.stNormalMode.uGridWidth = w;
                 for (int y = 0; y < h; ++y)
                 {
                     int rowW = (int)std::min<size_t>(grid[y].size(), (size_t)w);
@@ -1369,7 +1351,7 @@ void FillMotionAlarmInfo(const Alarm::MotionDetection_S &src, NET_TV_MOTION_ALAR
 
     // Expert mode: map first 16 regions
     dst.stExpertMode.nExpertDayNightCtrl = (INT32)src.stMotionExpertMode.nExpertDayNightCtrl;
-    // stDayTime schedule: SDK uses NET_TV_SCHED_TIME_S, IPC uses Common::SchedTime_S, leave default
+    // stDayTime schedule: SDK uses NET_SchedTime_S, IPC uses Common::SchedTime_S, leave default
     if (!src.aAlarmTime.empty())
     {
         for (int day = 0; day < 7; day++)
@@ -1377,15 +1359,15 @@ void FillMotionAlarmInfo(const Alarm::MotionDetection_S &src, NET_TV_MOTION_ALAR
             if (day >= (int)src.aAlarmTime.size())
                 break;
             const auto &vecDay = src.aAlarmTime[day];
-            int cnt = (int)std::min<size_t>(vecDay.size(), NET_TV_PLAN_SECTION_NUM);
-            dst.stAlarmSchedule.dwTimeSectionCount[day] = cnt;
+            int cnt = (int)std::min<size_t>(vecDay.size(), NET_PLAN_SECTION_NUM);
+            dst.stAlarmSchedule.uTimeSectionCount[day] = cnt;
             for (int seg = 0; seg < cnt; ++seg)
             {
                 FillSchedTime(vecDay[seg], dst.stAlarmSchedule.astTimeSection[day][seg]);
             }
         }
     }
-    dst.stExpertMode.dwRegionCount = 0;
+    dst.stExpertMode.uRegionCount = 0;
     for (size_t i = 0; i < src.stMotionExpertMode.vstMotionRegion.size() && i < 16; ++i)
     {
         const auto &reg = src.stMotionExpertMode.vstMotionRegion[i];
@@ -1399,15 +1381,15 @@ void FillMotionAlarmInfo(const Alarm::MotionDetection_S &src, NET_TV_MOTION_ALAR
         out.nCloseSensitivity   = (INT32)reg.nCloseSensitivity;
         out.nDaytimeSensitivity = (INT32)reg.nDaytimeSensitivity;
         out.nNightSensitivity   = (INT32)reg.nNightSensitivity;
-        dst.stExpertMode.dwRegionCount++;
+        dst.stExpertMode.uRegionCount++;
     }
 }
 
-void ToMotionDetection(const NET_TV_MOTION_ALARM_INFO_S &src, Alarm::MotionDetection_S &dst)
+void ToMotionDetection(const NET_MotionAlarmInfo_S &src, Alarm::MotionDetection_S &dst)
 {
     dst.bEnable = (src.bEnable == TRUE);
     dst.bDynamicAnalysisEnable = (src.bDynamicAnalysisEnable == TRUE);
-    dst.enMode = (Alarm::MotionType_E)src.dwMode;
+    dst.enMode = (Alarm::MotionType_E)src.uMode;
 
     dst.stMotionNormalMode.nSensitivity = (unsigned int)src.stNormalMode.nSensitivity;
     dst.stMotionNormalMode.nRegionType  = (unsigned int)src.stNormalMode.nRegionType;
@@ -1425,8 +1407,8 @@ void ToMotionDetection(const NET_TV_MOTION_ALARM_INFO_S &src, Alarm::MotionDetec
     else if (dst.stMotionNormalMode.nRegionType == 1)
     {
         // 网格区域：从 SDK abyGridArea 还原为 IPC AreaGrid（默认 18x22，按 dwGrid* 裁剪）
-        int h = src.stNormalMode.dwGridHeight;
-        int w = src.stNormalMode.dwGridWidth;
+        int h = src.stNormalMode.uGridHeight;
+        int w = src.stNormalMode.uGridWidth;
         if (h <= 0 || h > 18)
             h = 18;
         if (w <= 0 || w > 22)
@@ -1447,10 +1429,10 @@ void ToMotionDetection(const NET_TV_MOTION_ALARM_INFO_S &src, Alarm::MotionDetec
     dst.aAlarmTime.resize(7);
     for (int day = 0; day < 7; ++day)
     {
-        int cnt = src.stAlarmSchedule.dwTimeSectionCount[day];
+        int cnt = src.stAlarmSchedule.uTimeSectionCount[day];
         if (cnt <= 0)
             continue;
-        cnt = std::min(cnt, NET_TV_PLAN_SECTION_NUM);
+        cnt = std::min(cnt, NET_PLAN_SECTION_NUM);
         dst.aAlarmTime[day].resize(cnt);
         for (int seg = 0; seg < cnt; ++seg)
         {
@@ -1461,7 +1443,7 @@ void ToMotionDetection(const NET_TV_MOTION_ALARM_INFO_S &src, Alarm::MotionDetec
 
 /* ---------- 安全服务与日志（465-472） ---------- */
 void FillSecurityServicesInfo(const ::System::SecurityServices_S &src,
-                              NET_TV_SECURITY_SERVICES_INFO_S &dst)
+                              NET_SecurityServicesInfo_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));
     dst.stLoginLock.bIllegalLoginEnable = src.stLoginLock.bIllegalLoginEnable ? TRUE : FALSE;
@@ -1478,7 +1460,7 @@ void FillSecurityServicesInfo(const ::System::SecurityServices_S &src,
                       sizeof(dst.stSshAdmin.szSshCountdown));
 }
 
-void ToSecurityServicesInfo(const NET_TV_SECURITY_SERVICES_INFO_S &src,
+void ToSecurityServicesInfo(const NET_SecurityServicesInfo_S &src,
                             ::System::SecurityServices_S &dst)
 {
     dst.stLoginLock.bIllegalLoginEnable = (src.stLoginLock.bIllegalLoginEnable == TRUE);
@@ -1496,13 +1478,13 @@ void ToSecurityServicesInfo(const NET_TV_SECURITY_SERVICES_INFO_S &src,
 }
 
 void FillSshCountdownInfo(const ::System::SshCountdown_S &src,
-                          NET_TV_SSH_COUNTDOWN_INFO_S &dst)
+                          NET_SshCountdownInfo_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));
     copy_alarm_string(src.strCountdown, dst.szCountdown, sizeof(dst.szCountdown));
 }
 
-void FillLogServerInfo(const ::System::LogServerInfo_S &src, NET_TV_LOG_SERVER_INFO_S &dst)
+void FillLogServerInfo(const ::System::LogServerInfo_S &src, NET_LogServerInfo_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));
     dst.bEnable = src.bEnable ? TRUE : FALSE;
@@ -1511,7 +1493,7 @@ void FillLogServerInfo(const ::System::LogServerInfo_S &src, NET_TV_LOG_SERVER_I
     copy_alarm_string(src.strServerAddr, dst.szServerAddr, sizeof(dst.szServerAddr));
 }
 
-void ToLogServerInfo(const NET_TV_LOG_SERVER_INFO_S &src, ::System::LogServerInfo_S &dst)
+void ToLogServerInfo(const NET_LogServerInfo_S &src, ::System::LogServerInfo_S &dst)
 {
     dst.bEnable = (src.bEnable == TRUE);
     dst.bEnSsl = (src.bEnSsl == TRUE);
@@ -1519,7 +1501,7 @@ void ToLogServerInfo(const NET_TV_LOG_SERVER_INFO_S &src, ::System::LogServerInf
     dst.strServerAddr = read_alarm_string(src.szServerAddr, sizeof(src.szServerAddr));
 }
 
-void ToLogListRequest(const NET_TV_LOG_LIST_S &src, Log::RetrievalCond_S &dstCond,
+void ToLogListRequest(const NET_LogList_S &src, Log::RetrievalCond_S &dstCond,
                       Common::PageInfo_S &dstPage)
 {
     dstCond.enType = static_cast<Log::Type_E>(src.stCond.nType);
@@ -1531,7 +1513,7 @@ void ToLogListRequest(const NET_TV_LOG_LIST_S &src, Log::RetrievalCond_S &dstCon
 }
 
 void FillLogList(const Log::RetrievalCond_S &srcCond, const Common::PageInfo_S &srcPage,
-                 const std::vector<Log::Info_S> &srcLogs, NET_TV_LOG_LIST_S &dst)
+                 const std::vector<Log::Info_S> &srcLogs, NET_LogList_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));
     dst.stCond.nType = static_cast<INT32>(srcCond.enType);
@@ -1542,11 +1524,11 @@ void FillLogList(const Log::RetrievalCond_S &srcCond, const Common::PageInfo_S &
     dst.stPage.nPageSize = srcPage.nPageSize;
     dst.stPage.nDataTotal = srcPage.nDataTotal;
     dst.stPage.nPageTotal = srcPage.nPageTotal;
-    dst.nLogCount = static_cast<INT32>(std::min(srcLogs.size(), static_cast<size_t>(NET_TV_LOG_QUERY_COND_NUM)));
+    dst.nLogCount = static_cast<INT32>(std::min(srcLogs.size(), static_cast<size_t>(NET_LOG_QUERY_COND_NUM)));
     for (INT32 i = 0; i < dst.nLogCount; ++i)
     {
         const Log::Info_S &srcLog = srcLogs[static_cast<size_t>(i)];
-        NET_TV_LOG_INFO_S &dstLog = dst.astLogs[i];
+        NET_LogInfo_S &dstLog = dst.astLogs[i];
         copy_alarm_string(srcLog.startTime, dstLog.szStartTime, sizeof(dstLog.szStartTime));
         dstLog.nType = srcLog.nType;
         dstLog.nAction = srcLog.nAction;
@@ -1558,7 +1540,7 @@ void FillLogList(const Log::RetrievalCond_S &srcCond, const Common::PageInfo_S &
 }
 
 /* ---------- 录像控制、计划、检索与下载（473-481） ---------- */
-void ToRecordInfo(const NET_TV_RECORD_INFO_S &src, Record_NS::Info_S &dst)
+void ToRecordInfo(const NET_RecordInfo_S &src, Record_NS::Info_S &dst)
 {
     dst.nChnId = src.nChnId;
     dst.nVideoStatus = src.nVideoStatus;
@@ -1573,26 +1555,26 @@ void ToRecordInfo(const NET_TV_RECORD_INFO_S &src, Record_NS::Info_S &dst)
     dst.nStreamType = src.nStreamType;
 }
 
-void FillRecordStatusInfo(const Record_NS::RecordStatusInfo_S &src, NET_TV_RECORD_STATUS_INFO_S &dst)
+void FillRecordStatusInfo(const Record_NS::RecordStatusInfo_S &src, NET_RecordStatusInfo_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));
     dst.nStatus = static_cast<INT32>(src.enStatus);
 }
 
-void FillRecordSchedule(const Record_NS::Schedule_S &src, NET_TV_RECORD_SCHEDULE_S &dst)
+void FillRecordSchedule(const Record_NS::Schedule_S &src, NET_RecordSchedule_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));
     dst.bEnable = src.bEnable ? TRUE : FALSE;
     for (const Record_NS::DaySchedule_S &srcDay : src.daySchedules)
     {
         const INT32 nDay = static_cast<INT32>(srcDay.enDayOfWeek);
-        if (nDay < 1 || nDay > NET_TV_PLAN_DAY_NUM_AWEEK)
+        if (nDay < 1 || nDay > NET_PLAN_DAY_NUM_AWEEK)
             continue;
         /* ABI 数组固定按周一至周日下标存放，不依赖 IPC vector 的原始排序。 */
-        NET_TV_RECORD_DAY_SCHEDULE_S &dstDay = dst.astDaySchedules[nDay - 1];
+        NET_RecordDaySchedule_S &dstDay = dst.astDaySchedules[nDay - 1];
         dstDay.nDayOfWeek = nDay;
         dstDay.nRecordTimeCount = static_cast<INT32>(std::min(srcDay.recordTimes.size(),
-                                                               static_cast<size_t>(NET_TV_TIME_DURATION_NUM)));
+                                                               static_cast<size_t>(NET_TIME_DURATION_NUM)));
         for (INT32 i = 0; i < dstDay.nRecordTimeCount; ++i)
         {
             const Record_NS::RecordTime_S &srcTime = srcDay.recordTimes[static_cast<size_t>(i)];
@@ -1602,24 +1584,24 @@ void FillRecordSchedule(const Record_NS::Schedule_S &src, NET_TV_RECORD_SCHEDULE
         }
     }
     dst.nDayScheduleCount = static_cast<INT32>(std::min(src.daySchedules.size(),
-                                                         static_cast<size_t>(NET_TV_PLAN_DAY_NUM_AWEEK)));
+                                                         static_cast<size_t>(NET_PLAN_DAY_NUM_AWEEK)));
 }
 
-void ToRecordSchedule(const NET_TV_RECORD_SCHEDULE_S &src, Record_NS::Schedule_S &dst)
+void ToRecordSchedule(const NET_RecordSchedule_S &src, Record_NS::Schedule_S &dst)
 {
     dst.bEnable = (src.bEnable == TRUE);
     dst.daySchedules.clear();
-    const INT32 nDayCount = std::max<INT32>(0, std::min<INT32>(src.nDayScheduleCount, NET_TV_PLAN_DAY_NUM_AWEEK));
+    const INT32 nDayCount = std::max<INT32>(0, std::min<INT32>(src.nDayScheduleCount, NET_PLAN_DAY_NUM_AWEEK));
     for (INT32 i = 0; i < nDayCount; ++i)
     {
-        const NET_TV_RECORD_DAY_SCHEDULE_S &srcDay = src.astDaySchedules[i];
+        const NET_RecordDaySchedule_S &srcDay = src.astDaySchedules[i];
         INT32 nDay = srcDay.nDayOfWeek;
         /* 兼容旧客户端未填写 nDayOfWeek 的情况，按数组下标补齐星期。 */
-        if (nDay < 1 || nDay > NET_TV_PLAN_DAY_NUM_AWEEK)
+        if (nDay < 1 || nDay > NET_PLAN_DAY_NUM_AWEEK)
             nDay = i + 1;
         Record_NS::DaySchedule_S dstDay;
         dstDay.enDayOfWeek = static_cast<Record_NS::DayOfWeek_E>(nDay);
-        const INT32 nTimeCount = std::max<INT32>(0, std::min<INT32>(srcDay.nRecordTimeCount, NET_TV_TIME_DURATION_NUM));
+        const INT32 nTimeCount = std::max<INT32>(0, std::min<INT32>(srcDay.nRecordTimeCount, NET_TIME_DURATION_NUM));
         dstDay.recordTimes.reserve(static_cast<size_t>(nTimeCount));
         for (INT32 j = 0; j < nTimeCount; ++j)
         {
@@ -1633,7 +1615,7 @@ void ToRecordSchedule(const NET_TV_RECORD_SCHEDULE_S &src, Record_NS::Schedule_S
     }
 }
 
-void FillRecordAdvancedParam(const Record_NS::AdvancedParam_S &src, NET_TV_RECORD_ADVANCED_PARAM_S &dst)
+void FillRecordAdvancedParam(const Record_NS::AdvancedParam_S &src, NET_RecordAdvancedParam_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));
     dst.bLoopWrite = src.bLoopWrite ? TRUE : FALSE;
@@ -1642,7 +1624,7 @@ void FillRecordAdvancedParam(const Record_NS::AdvancedParam_S &src, NET_TV_RECOR
     dst.nStreamType = src.nStreamType;
 }
 
-void ToRecordAdvancedParam(const NET_TV_RECORD_ADVANCED_PARAM_S &src, Record_NS::AdvancedParam_S &dst)
+void ToRecordAdvancedParam(const NET_RecordAdvancedParam_S &src, Record_NS::AdvancedParam_S &dst)
 {
     dst.bLoopWrite = (src.bLoopWrite == TRUE);
     dst.ePreTime = static_cast<Record_NS::RecordPreTime_E>(src.nPreTime);
@@ -1650,7 +1632,7 @@ void ToRecordAdvancedParam(const NET_TV_RECORD_ADVANCED_PARAM_S &src, Record_NS:
     dst.nStreamType = src.nStreamType;
 }
 
-void ToRecordFind(const NET_TV_RECORD_FILE_LIST_S &src, Record_NS::Find_S &dst)
+void ToRecordFind(const NET_RecordFileList_S &src, Record_NS::Find_S &dst)
 {
     dst.nChnId = src.stFind.nChnId;
     dst.nType = src.stFind.nType;
@@ -1664,7 +1646,7 @@ void ToRecordFind(const NET_TV_RECORD_FILE_LIST_S &src, Record_NS::Find_S &dst)
 
 void FillRecordFileList(const Record_NS::Find_S &srcFind,
                         const std::vector<Record_NS::FindResult_S> &srcResults,
-                        NET_TV_RECORD_FILE_LIST_S &dst)
+                        NET_RecordFileList_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));
     dst.stFind.nChnId = srcFind.nChnId;
@@ -1676,17 +1658,17 @@ void FillRecordFileList(const Record_NS::Find_S &srcFind,
     copy_alarm_string(srcFind.endTime, dst.stFind.szEndTime, sizeof(dst.stFind.szEndTime));
     copy_alarm_string(srcFind.filename, dst.stFind.szFilename, sizeof(dst.stFind.szFilename));
     /* SDK 公开数组容量有限，超过部分不返回，避免写越界。 */
-    dst.nResultCount = static_cast<INT32>(std::min(srcResults.size(), static_cast<size_t>(NET_TV_RECORD_FILE_MAX_NUM)));
+    dst.nResultCount = static_cast<INT32>(std::min(srcResults.size(), static_cast<size_t>(NET_RECORD_FILE_MAX_NUM)));
     for (INT32 i = 0; i < dst.nResultCount; ++i)
     {
         const Record_NS::FindResult_S &srcResult = srcResults[static_cast<size_t>(i)];
-        NET_TV_RECORD_FIND_RESULT_S &dstResult = dst.astResults[i];
+        NET_RecordFindResult_S &dstResult = dst.astResults[i];
         dstResult.nChnId = srcResult.nChnId;
-        dstResult.nDateCount = static_cast<INT32>(std::min(srcResult.dates.size(), static_cast<size_t>(NET_TV_RECORD_DATE_MAX_NUM)));
+        dstResult.nDateCount = static_cast<INT32>(std::min(srcResult.dates.size(), static_cast<size_t>(NET_RECORD_DATE_MAX_NUM)));
         for (INT32 j = 0; j < dstResult.nDateCount; ++j)
             copy_alarm_string(srcResult.dates[static_cast<size_t>(j)], dstResult.aszDates[j], sizeof(dstResult.aszDates[j]));
         copy_alarm_string(srcResult.filename, dstResult.szFilename, sizeof(dstResult.szFilename));
-        dstResult.nVideoTimeCount = static_cast<INT32>(std::min(srcResult.videoTimes.size(), static_cast<size_t>(NET_TV_TIME_DURATION_NUM)));
+        dstResult.nVideoTimeCount = static_cast<INT32>(std::min(srcResult.videoTimes.size(), static_cast<size_t>(NET_TIME_DURATION_NUM)));
         for (INT32 j = 0; j < dstResult.nVideoTimeCount; ++j)
         {
             dstResult.astVideoTimes[j].nStartTime = srcResult.videoTimes[static_cast<size_t>(j)].nStartTime;
@@ -1695,16 +1677,16 @@ void FillRecordFileList(const Record_NS::Find_S &srcFind,
     }
 }
 
-void ToRecordDownloadList(const NET_TV_RECORD_DOWNLOAD_LIST_S &src,
+void ToRecordDownloadList(const NET_RecordDownloadList_S &src,
                           std::vector<Record_NS::DownloadInfo_S> &dst)
 {
     dst.clear();
     /* 输入计数不可信，强制收敛到 ABI 数组边界。 */
-    const INT32 nCount = std::max<INT32>(0, std::min<INT32>(src.nDownloadCount, NET_TV_RECORD_DOWNLOAD_MAX_NUM));
+    const INT32 nCount = std::max<INT32>(0, std::min<INT32>(src.nDownloadCount, NET_RECORD_DOWNLOAD_MAX_NUM));
     dst.reserve(static_cast<size_t>(nCount));
     for (INT32 i = 0; i < nCount; ++i)
     {
-        const NET_TV_RECORD_DOWNLOAD_INFO_S &srcInfo = src.astDownloads[i];
+        const NET_RecordDownloadInfo_S &srcInfo = src.astDownloads[i];
         Record_NS::DownloadInfo_S dstInfo;
         dstInfo.nChnId = srcInfo.nChnId;
         dstInfo.path = read_alarm_string(srcInfo.szPath, sizeof(srcInfo.szPath));
@@ -1715,7 +1697,7 @@ void ToRecordDownloadList(const NET_TV_RECORD_DOWNLOAD_LIST_S &src,
 }
 
 void FillRecordDownloadProgress(const Record_NS::DownloadProgress_S &src,
-                                NET_TV_RECORD_DOWNLOAD_PROGRESS_S &dst)
+                                NET_RecordDownloadProgress_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));
     dst.nProgress = src.nProgress;
@@ -1723,7 +1705,7 @@ void FillRecordDownloadProgress(const Record_NS::DownloadProgress_S &src,
 }
 
 /* ---------- 人脸比对、目标库与人员信息（482-490） ---------- */
-void FillFaceCompareInfo(const Alarm::FaceCompare_S &src, NET_TV_FACE_COMPARE_INFO_S &dst)
+void FillFaceCompareInfo(const Alarm::FaceCompare_S &src, NET_FaceCompareInfo_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));
     dst.bEnable = src.bEnable ? TRUE : FALSE;
@@ -1732,7 +1714,7 @@ void FillFaceCompareInfo(const Alarm::FaceCompare_S &src, NET_TV_FACE_COMPARE_IN
     FillLinkageList(src.stLinkageListFail, dst.stLinkageListFail);
 }
 
-void ToFaceCompareInfo(const NET_TV_FACE_COMPARE_INFO_S &src, Alarm::FaceCompare_S &dst)
+void ToFaceCompareInfo(const NET_FaceCompareInfo_S &src, Alarm::FaceCompare_S &dst)
 {
     /* TargetLibInfos 不在公开 ABI 中，故意不触碰，调用方负责先加载现有配置。 */
     dst.bEnable = (src.bEnable == TRUE);
@@ -1741,7 +1723,7 @@ void ToFaceCompareInfo(const NET_TV_FACE_COMPARE_INFO_S &src, Alarm::FaceCompare
     ToLinkageList(src.stLinkageListFail, dst.stLinkageListFail);
 }
 
-void ToFaceLibInfo(const NET_TV_FACE_LIB_INFO_S &src, Event::FaceLibInfo_S &dst)
+void ToFaceLibInfo(const NET_FaceLibInfo_S &src, Event::FaceLibInfo_S &dst)
 {
     dst.strFaceLibName = read_alarm_string(src.szFaceLibName, sizeof(src.szFaceLibName));
     dst.nTotalFace = src.nTotalFace;
@@ -1749,14 +1731,14 @@ void ToFaceLibInfo(const NET_TV_FACE_LIB_INFO_S &src, Event::FaceLibInfo_S &dst)
     dst.nAbnormalNum = src.nAbnormalNum;
 }
 
-void FillFaceLibList(const std::vector<Event::FaceLibInfo_S> &src, NET_TV_FACE_LIB_LIST_S &dst)
+void FillFaceLibList(const std::vector<Event::FaceLibInfo_S> &src, NET_FaceLibList_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));
-    dst.nTargetLibCount = static_cast<INT32>(std::min(src.size(), static_cast<size_t>(NET_TV_FACE_LIB_MAX_NUM)));
+    dst.nTargetLibCount = static_cast<INT32>(std::min(src.size(), static_cast<size_t>(NET_FACE_LIB_MAX_NUM)));
     for (INT32 i = 0; i < dst.nTargetLibCount; ++i)
     {
         const Event::FaceLibInfo_S &srcInfo = src[static_cast<size_t>(i)];
-        NET_TV_FACE_LIB_INFO_S &dstInfo = dst.astTargetLibInfos[i];
+        NET_FaceLibInfo_S &dstInfo = dst.astTargetLibInfos[i];
         copy_alarm_string(srcInfo.strFaceLibName, dstInfo.szFaceLibName, sizeof(dstInfo.szFaceLibName));
         dstInfo.nTotalFace = srcInfo.nTotalFace;
         dstInfo.nNormalNum = srcInfo.nNormalNum;
@@ -1764,13 +1746,13 @@ void FillFaceLibList(const std::vector<Event::FaceLibInfo_S> &src, NET_TV_FACE_L
     }
 }
 
-void ToFaceIdInfo(const NET_TV_FACE_ID_INFO_S &src, Event::FaceIdInfo_S &dst)
+void ToFaceIdInfo(const NET_FaceIdInfo_S &src, Event::FaceIdInfo_S &dst)
 {
-    const INT32 nCount = std::max<INT32>(0, std::min<INT32>(src.nIdCount, NET_TV_FACE_ID_MAX_NUM));
+    const INT32 nCount = std::max<INT32>(0, std::min<INT32>(src.nIdCount, NET_FACE_ID_MAX_NUM));
     dst.ids.assign(src.anIds, src.anIds + nCount);
 }
 
-void ToFaceInfo(const NET_TV_FACE_INFO_S &src, Event::FaceInfo_S &dst)
+void ToFaceInfo(const NET_FaceInfo_S &src, Event::FaceInfo_S &dst)
 {
     dst.nId = src.nId;
     dst.strFaceLibName = read_alarm_string(src.szFaceLibName, sizeof(src.szFaceLibName));
@@ -1785,15 +1767,15 @@ void ToFaceInfo(const NET_TV_FACE_INFO_S &src, Event::FaceInfo_S &dst)
     dst.nRatingLevel = src.nRatingLevel;
 }
 
-void FillFaceInfoList(const std::vector<Event::FaceInfo_S> &src, NET_TV_FACE_INFO_LIST_S &dst)
+void FillFaceInfoList(const std::vector<Event::FaceInfo_S> &src, NET_FaceInfoList_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));
     /* 人脸库可能大于单次 SDK 返回容量，只返回 ABI 可承载的前 N 项。 */
-    dst.nFaceInfoCount = static_cast<INT32>(std::min(src.size(), static_cast<size_t>(NET_TV_FACE_INFO_MAX_NUM)));
+    dst.nFaceInfoCount = static_cast<INT32>(std::min(src.size(), static_cast<size_t>(NET_FACE_INFO_MAX_NUM)));
     for (INT32 i = 0; i < dst.nFaceInfoCount; ++i)
     {
         const Event::FaceInfo_S &srcInfo = src[static_cast<size_t>(i)];
-        NET_TV_FACE_INFO_S &dstInfo = dst.astFaceInfos[i];
+        NET_FaceInfo_S &dstInfo = dst.astFaceInfos[i];
         dstInfo.nId = srcInfo.nId;
         copy_alarm_string(srcInfo.strFaceLibName, dstInfo.szFaceLibName, sizeof(dstInfo.szFaceLibName));
         copy_alarm_string(srcInfo.strName, dstInfo.szName, sizeof(dstInfo.szName));
@@ -1808,12 +1790,12 @@ void FillFaceInfoList(const std::vector<Event::FaceInfo_S> &src, NET_TV_FACE_INF
     }
 }
 
-// --------- Tamper (IPC HideAlarm_S <-> SDK NET_TV_TAMPER_ALARM_INFO_S) ---------
-void FillTamperAlarmInfo(const Alarm::HideAlarm_S &src, NET_TV_TAMPER_ALARM_INFO_S &dst)
+// --------- Tamper (IPC HideAlarm_S <-> SDK NET_TamperAlarmInfo_S) ---------
+void FillTamperAlarmInfo(const Alarm::HideAlarm_S &src, NET_TamperAlarmInfo_S &dst)
 {
      memset(&dst, 0, sizeof(dst));
     dst.bEnable = src.bEnable ? TRUE : FALSE;
-    dst.dwSensitivity = (INT32)src.nSensitivity;
+    dst.uSensitivity = (INT32)src.nSensitivity;
     dst.nRectLeft   = src.stRect.nX;
     dst.nRectTop    = src.stRect.nY;
     dst.nRectRight  = src.stRect.nX + src.stRect.nWidth;
@@ -1827,8 +1809,8 @@ void FillTamperAlarmInfo(const Alarm::HideAlarm_S &src, NET_TV_TAMPER_ALARM_INFO
             if (day >= (int)src.aAlarmTime.size())
                 break;
             const auto &vecDay = src.aAlarmTime[day];
-            int cnt = (int)std::min<size_t>(vecDay.size(), NET_TV_PLAN_SECTION_NUM);
-            dst.stAlarmSchedule.dwTimeSectionCount[day] = cnt;
+            int cnt = (int)std::min<size_t>(vecDay.size(), NET_PLAN_SECTION_NUM);
+            dst.stAlarmSchedule.uTimeSectionCount[day] = cnt;
             for (int seg = 0; seg < cnt; ++seg)
             {
                 FillSchedTime(vecDay[seg], dst.stAlarmSchedule.astTimeSection[day][seg]);
@@ -1837,10 +1819,10 @@ void FillTamperAlarmInfo(const Alarm::HideAlarm_S &src, NET_TV_TAMPER_ALARM_INFO
     }
 }
 
-void ToHideAlarm(const NET_TV_TAMPER_ALARM_INFO_S &src, Alarm::HideAlarm_S &dst)
+void ToHideAlarm(const NET_TamperAlarmInfo_S &src, Alarm::HideAlarm_S &dst)
 {
     dst.bEnable = (src.bEnable == TRUE);
-    dst.nSensitivity = (unsigned int)src.dwSensitivity;
+    dst.nSensitivity = (unsigned int)src.uSensitivity;
     dst.stRect.nX = src.nRectLeft;
     dst.stRect.nY = src.nRectTop;
     dst.stRect.nWidth  = src.nRectRight - src.nRectLeft;
@@ -1851,10 +1833,10 @@ void ToHideAlarm(const NET_TV_TAMPER_ALARM_INFO_S &src, Alarm::HideAlarm_S &dst)
     dst.aAlarmTime.resize(7);
     for (int day = 0; day < 7; ++day)
     {
-        int cnt = src.stAlarmSchedule.dwTimeSectionCount[day];
+        int cnt = src.stAlarmSchedule.uTimeSectionCount[day];
         if (cnt <= 0)
             continue;
-        cnt = std::min(cnt, NET_TV_PLAN_SECTION_NUM);
+        cnt = std::min(cnt, NET_PLAN_SECTION_NUM);
         dst.aAlarmTime[day].resize(cnt);
         for (int seg = 0; seg < cnt; ++seg)
         {
@@ -1863,16 +1845,16 @@ void ToHideAlarm(const NET_TV_TAMPER_ALARM_INFO_S &src, Alarm::HideAlarm_S &dst)
     }
 }
 
-// --------- CrossLine (IPC BoundaryDetection_S <-> SDK NET_TV_CROSS_LINE_ALARM_INFO_S) ---------
-void FillCrossLineAlarmInfo(const Alarm::BoundaryDetection_S &src, NET_TV_CROSS_LINE_ALARM_INFO_S &dst)
+// --------- CrossLine (IPC BoundaryDetection_S <-> SDK NET_CrossLineAlarmInfo_S) ---------
+void FillCrossLineAlarmInfo(const Alarm::BoundaryDetection_S &src, NET_CrossLineAlarmInfo_S &dst)
 {
     memset(&dst, 0, sizeof(dst));
     dst.bEnable = src.bEnable ? TRUE : FALSE;
-    dst.dwRuleCount = 0;
+    dst.uRuleCount = 0;
     for (size_t i = 0; i < src.aRule.size() && i < 4; ++i)
     {
         const auto &r = src.aRule[i];
-        auto &out = dst.astRule[i];
+        auto &out = dst.stRule[i];
         memset(&out, 0, sizeof(out));
         out.bEnable = TRUE;
         out.fStartPosX = r.stStartPos.fX;
@@ -1881,10 +1863,10 @@ void FillCrossLineAlarmInfo(const Alarm::BoundaryDetection_S &src, NET_TV_CROSS_
         out.fEndPosY   = r.stEndPos.fY;
         out.enCrossDirection = (INT32)r.enCrossDirection;
         out.nSensitivity = (INT32)r.nSensitivity;
-        out.dwDetectionTargetCount = (INT32)std::min<size_t>(r.aDetectionTarget.size(), 8);
-        for (int j = 0; j < out.dwDetectionTargetCount; ++j)
-            out.adwDetectionTarget[j] = r.aDetectionTarget[j];
-        dst.dwRuleCount++;
+        out.uDetectionTargetCount = (INT32)std::min<size_t>(r.aDetectionTarget.size(), 8);
+        for (int j = 0; j < out.uDetectionTargetCount; ++j)
+            out.auDetectionTarget[j] = r.aDetectionTarget[j];
+        dst.uRuleCount++;
     }
 
      // 布防时间
@@ -1895,8 +1877,8 @@ void FillCrossLineAlarmInfo(const Alarm::BoundaryDetection_S &src, NET_TV_CROSS_
             if (day >= (int)src.aAlarmTime.size())
                 break;
             const auto &vecDay = src.aAlarmTime[day];
-            int cnt = (int)std::min<size_t>(vecDay.size(), NET_TV_PLAN_SECTION_NUM);
-            dst.stAlarmSchedule.dwTimeSectionCount[day] = cnt;
+            int cnt = (int)std::min<size_t>(vecDay.size(), NET_PLAN_SECTION_NUM);
+            dst.stAlarmSchedule.uTimeSectionCount[day] = cnt;
             for (int seg = 0; seg < cnt; ++seg)
             {
                 FillSchedTime(vecDay[seg], dst.stAlarmSchedule.astTimeSection[day][seg]);
@@ -1905,19 +1887,19 @@ void FillCrossLineAlarmInfo(const Alarm::BoundaryDetection_S &src, NET_TV_CROSS_
     }
 }
 
-void ToBoundaryDetection(const NET_TV_CROSS_LINE_ALARM_INFO_S &src, Alarm::BoundaryDetection_S &dst)
+void ToBoundaryDetection(const NET_CrossLineAlarmInfo_S &src, Alarm::BoundaryDetection_S &dst)
 {
     dst.bEnable = (src.bEnable == TRUE);
     dst.aRule.clear();
-    for (int i = 0; i < src.dwRuleCount && i < 4; ++i)
+    for (int i = 0; i < src.uRuleCount && i < 4; ++i)
     {
-        const auto &r = src.astRule[i];
+        const auto &r = src.stRule[i];
         Alarm::BoundaryPlane_S out;
         out.stStartPos = { r.fStartPosX, r.fStartPosY };
         out.stEndPos   = { r.fEndPosX, r.fEndPosY };
         out.enCrossDirection = (Alarm::CrossDirection_E)r.enCrossDirection;
         out.nSensitivity = (unsigned int)r.nSensitivity;
-        out.aDetectionTarget.assign(r.adwDetectionTarget, r.adwDetectionTarget + std::min(r.dwDetectionTargetCount, 8));
+        out.aDetectionTarget.assign(r.auDetectionTarget, r.auDetectionTarget + std::min(r.uDetectionTargetCount, 8));
         dst.aRule.push_back(out);
     }
 
@@ -1926,10 +1908,10 @@ void ToBoundaryDetection(const NET_TV_CROSS_LINE_ALARM_INFO_S &src, Alarm::Bound
     dst.aAlarmTime.resize(7);
     for (int day = 0; day < 7; ++day)
     {
-        int cnt = src.stAlarmSchedule.dwTimeSectionCount[day];
+        int cnt = src.stAlarmSchedule.uTimeSectionCount[day];
         if (cnt <= 0)
             continue;
-        cnt = std::min(cnt, NET_TV_PLAN_SECTION_NUM);
+        cnt = std::min(cnt, NET_PLAN_SECTION_NUM);
         dst.aAlarmTime[day].resize(cnt);
         for (int seg = 0; seg < cnt; ++seg)
         {
@@ -1938,30 +1920,30 @@ void ToBoundaryDetection(const NET_TV_CROSS_LINE_ALARM_INFO_S &src, Alarm::Bound
     }
 }
 
-// --------- Intrusion (IPC FieldDetection_S <-> SDK NET_TV_INTRUSION_ALARM_INFO_S) ---------
-void FillIntrusionAlarmInfo(const Alarm::FieldDetection_S &src, NET_TV_INTRUSION_ALARM_INFO_S &dst)
+// --------- Intrusion (IPC FieldDetection_S <-> SDK NET_IntrusionAlarmInfo_S) ---------
+void FillIntrusionAlarmInfo(const Alarm::FieldDetection_S &src, NET_IntrusionAlarmInfo_S &dst)
 {
     memset(&dst, 0, sizeof(dst));
     dst.bEnable = src.bEnable ? TRUE : FALSE;
-    dst.dwRuleCount = 0;
+    dst.uRuleCount = 0;
     for (size_t i = 0; i < src.aRule.size() && i < 4; ++i)
     {
         const auto &r = src.aRule[i];
-        auto &out = dst.astRule[i];
+        auto &out = dst.stRule[i];
         memset(&out, 0, sizeof(out));
         out.bEnable = TRUE;
-        out.dwPointCount = (INT32)std::min<size_t>(r.stRegion.aPoint.size(), 32);
-        for (int p = 0; p < out.dwPointCount; ++p)
+        out.uPointCount = (INT32)std::min<size_t>(r.stRegion.aPoint.size(), 32);
+        for (int p = 0; p < out.uPointCount; ++p)
         {
             out.afPointX[p] = r.stRegion.aPoint[p].fX;
             out.afPointY[p] = r.stRegion.aPoint[p].fY;
         }
         out.nTimeThreshold = (INT32)r.nTimeThreshold;
         out.nSensitivity   = (INT32)r.nSensitivity;
-        out.dwDetectionTargetCount = (INT32)std::min<size_t>(r.aDetectionTarget.size(), 8);
-        for (int j = 0; j < out.dwDetectionTargetCount; ++j)
-            out.adwDetectionTarget[j] = r.aDetectionTarget[j];
-        dst.dwRuleCount++;
+        out.uDetectionTargetCount = (INT32)std::min<size_t>(r.aDetectionTarget.size(), 8);
+        for (int j = 0; j < out.uDetectionTargetCount; ++j)
+            out.auDetectionTarget[j] = r.aDetectionTarget[j];
+        dst.uRuleCount++;
     }
 
     // 布防时间
@@ -1972,8 +1954,8 @@ void FillIntrusionAlarmInfo(const Alarm::FieldDetection_S &src, NET_TV_INTRUSION
             if (day >= (int)src.aAlarmTime.size())
                 break;
             const auto &vecDay = src.aAlarmTime[day];
-            int cnt = (int)std::min<size_t>(vecDay.size(), NET_TV_PLAN_SECTION_NUM);
-            dst.stAlarmSchedule.dwTimeSectionCount[day] = cnt;
+            int cnt = (int)std::min<size_t>(vecDay.size(), NET_PLAN_SECTION_NUM);
+            dst.stAlarmSchedule.uTimeSectionCount[day] = cnt;
             for (int seg = 0; seg < cnt; ++seg)
             {
                 FillSchedTime(vecDay[seg], dst.stAlarmSchedule.astTimeSection[day][seg]);
@@ -1982,23 +1964,23 @@ void FillIntrusionAlarmInfo(const Alarm::FieldDetection_S &src, NET_TV_INTRUSION
     }
 }
 
-void ToFieldDetection(const NET_TV_INTRUSION_ALARM_INFO_S &src, Alarm::FieldDetection_S &dst)
+void ToFieldDetection(const NET_IntrusionAlarmInfo_S &src, Alarm::FieldDetection_S &dst)
 {
     dst.bEnable = (src.bEnable == TRUE);
     dst.aRule.clear();
-    for (int i = 0; i < src.dwRuleCount && i < 4; ++i)
+    for (int i = 0; i < src.uRuleCount && i < 4; ++i)
     {
-        const auto &r = src.astRule[i];
+        const auto &r = src.stRule[i];
         Alarm::Intrusion_S out;
         out.nTimeThreshold = (unsigned int)r.nTimeThreshold;
         out.nSensitivity = (unsigned int)r.nSensitivity;
         out.stRegion.aPoint.clear();
-        out.stRegion.nPointNum = r.dwPointCount;
-        for (int p = 0; p < r.dwPointCount && p < 32; ++p)
+        out.stRegion.nPointNum = r.uPointCount;
+        for (int p = 0; p < r.uPointCount && p < 32; ++p)
         {
             out.stRegion.aPoint.push_back({ r.afPointX[p], r.afPointY[p] });
         }
-        out.aDetectionTarget.assign(r.adwDetectionTarget, r.adwDetectionTarget + std::min(r.dwDetectionTargetCount, 8));
+        out.aDetectionTarget.assign(r.auDetectionTarget, r.auDetectionTarget + std::min(r.uDetectionTargetCount, 8));
         dst.aRule.push_back(out);
     }
 
@@ -2007,10 +1989,10 @@ void ToFieldDetection(const NET_TV_INTRUSION_ALARM_INFO_S &src, Alarm::FieldDete
     dst.aAlarmTime.resize(7);
     for (int day = 0; day < 7; ++day)
     {
-        int cnt = src.stAlarmSchedule.dwTimeSectionCount[day];
+        int cnt = src.stAlarmSchedule.uTimeSectionCount[day];
         if (cnt <= 0)
             continue;
-        cnt = std::min(cnt, NET_TV_PLAN_SECTION_NUM);
+        cnt = std::min(cnt, NET_PLAN_SECTION_NUM);
         dst.aAlarmTime[day].resize(cnt);
         for (int seg = 0; seg < cnt; ++seg)
         {
@@ -2019,30 +2001,30 @@ void ToFieldDetection(const NET_TV_INTRUSION_ALARM_INFO_S &src, Alarm::FieldDete
     }
 }
 
-// --------- Loitering (IPC LoiteringDetection_S <-> SDK NET_TV_LOITERING_ALARM_INFO_S) ---------
-void FillLoiteringAlarmInfo(const Alarm::LoiteringDetection_S &src, NET_TV_LOITERING_ALARM_INFO_S &dst)
+// --------- Loitering (IPC LoiteringDetection_S <-> SDK NET_LoiteringAlarmInfo_S) ---------
+void FillLoiteringAlarmInfo(const Alarm::LoiteringDetection_S &src, NET_LoiteringAlarmInfo_S &dst)
 {
     memset(&dst, 0, sizeof(dst));
     dst.bEnable = src.bEnable ? TRUE : FALSE;
-    dst.dwRuleCount = 0;
+    dst.uRuleCount = 0;
     for (size_t i = 0; i < src.aRule.size() && i < 4; ++i)
     {
         const auto &r = src.aRule[i];
-        auto &out = dst.astRule[i];
+        auto &out = dst.stRule[i];
         memset(&out, 0, sizeof(out));
         out.bEnable = TRUE;
-        out.dwPointCount = (INT32)std::min<size_t>(r.stRegion.aPoint.size(), 32);
-        for (int p = 0; p < out.dwPointCount; ++p)
+        out.uPointCount = (INT32)std::min<size_t>(r.stRegion.aPoint.size(), 32);
+        for (int p = 0; p < out.uPointCount; ++p)
         {
             out.afPointX[p] = r.stRegion.aPoint[p].fX;
             out.afPointY[p] = r.stRegion.aPoint[p].fY;
         }
         out.nTimeThreshold = (INT32)r.nTimeThreshold;
         out.nSensitivity   = (INT32)r.nSensitivity;
-        out.dwDetectionTargetCount = (INT32)std::min<size_t>(r.aDetectionTarget.size(), 8);
-        for (int j = 0; j < out.dwDetectionTargetCount; ++j)
-            out.adwDetectionTarget[j] = r.aDetectionTarget[j];
-        dst.dwRuleCount++;
+        out.uDetectionTargetCount = (INT32)std::min<size_t>(r.aDetectionTarget.size(), 8);
+        for (int j = 0; j < out.uDetectionTargetCount; ++j)
+            out.auDetectionTarget[j] = r.aDetectionTarget[j];
+        dst.uRuleCount++;
     }
 
     // 布防时间
@@ -2053,8 +2035,8 @@ void FillLoiteringAlarmInfo(const Alarm::LoiteringDetection_S &src, NET_TV_LOITE
             if (day >= (int)src.aAlarmTime.size())
                 break;
             const auto &vecDay = src.aAlarmTime[day];
-            int cnt = (int)std::min<size_t>(vecDay.size(), NET_TV_PLAN_SECTION_NUM);
-            dst.stAlarmSchedule.dwTimeSectionCount[day] = cnt;
+            int cnt = (int)std::min<size_t>(vecDay.size(), NET_PLAN_SECTION_NUM);
+            dst.stAlarmSchedule.uTimeSectionCount[day] = cnt;
             for (int seg = 0; seg < cnt; ++seg)
             {
                 FillSchedTime(vecDay[seg], dst.stAlarmSchedule.astTimeSection[day][seg]);
@@ -2063,23 +2045,23 @@ void FillLoiteringAlarmInfo(const Alarm::LoiteringDetection_S &src, NET_TV_LOITE
     }
 }
 
-void ToLoiteringDetection(const NET_TV_LOITERING_ALARM_INFO_S &src, Alarm::LoiteringDetection_S &dst)
+void ToLoiteringDetection(const NET_LoiteringAlarmInfo_S &src, Alarm::LoiteringDetection_S &dst)
 {
     dst.bEnable = (src.bEnable == TRUE);
     dst.aRule.clear();
-    for (int i = 0; i < src.dwRuleCount && i < 4; ++i)
+    for (int i = 0; i < src.uRuleCount && i < 4; ++i)
     {
-        const auto &r = src.astRule[i];
+        const auto &r = src.stRule[i];
         Alarm::LoiteringRule_S out;
         out.nTimeThreshold = (unsigned int)r.nTimeThreshold;
         out.nSensitivity = (unsigned int)r.nSensitivity;
         out.stRegion.aPoint.clear();
-        out.stRegion.nPointNum = r.dwPointCount;
-        for (int p = 0; p < r.dwPointCount && p < 32; ++p)
+        out.stRegion.nPointNum = r.uPointCount;
+        for (int p = 0; p < r.uPointCount && p < 32; ++p)
         {
             out.stRegion.aPoint.push_back({ r.afPointX[p], r.afPointY[p] });
         }
-        out.aDetectionTarget.assign(r.adwDetectionTarget, r.adwDetectionTarget + std::min(r.dwDetectionTargetCount, 8));
+        out.aDetectionTarget.assign(r.auDetectionTarget, r.auDetectionTarget + std::min(r.uDetectionTargetCount, 8));
         dst.aRule.push_back(out);
     }
 
@@ -2088,10 +2070,10 @@ void ToLoiteringDetection(const NET_TV_LOITERING_ALARM_INFO_S &src, Alarm::Loite
     dst.aAlarmTime.resize(7);
     for (int day = 0; day < 7; ++day)
     {
-        int cnt = src.stAlarmSchedule.dwTimeSectionCount[day];
+        int cnt = src.stAlarmSchedule.uTimeSectionCount[day];
         if (cnt <= 0)
             continue;
-        cnt = std::min(cnt, NET_TV_PLAN_SECTION_NUM);
+        cnt = std::min(cnt, NET_PLAN_SECTION_NUM);
         dst.aAlarmTime[day].resize(cnt);
         for (int seg = 0; seg < cnt; ++seg)
         {
@@ -2129,8 +2111,8 @@ static void ToRegionFromPolygon(INT32 pointCount, const FLOAT pointX[32], const 
     }
 }
 
-// --------- SceneChange (IPC SceneChange_S <-> SDK NET_TV_SCENE_CHANGE_ALARM_INFO_S) ---------
-void FillSceneChangeAlarmInfo(const Alarm::SceneChange_S &src, NET_TV_SCENE_CHANGE_ALARM_INFO_S &dst)
+// --------- SceneChange (IPC SceneChange_S <-> SDK NET_SceneChangeAlarmInfo_S) ---------
+void FillSceneChangeAlarmInfo(const Alarm::SceneChange_S &src, NET_SceneChangeAlarmInfo_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));
     dst.bEnable = src.bEnable ? TRUE : FALSE;
@@ -2143,8 +2125,8 @@ void FillSceneChangeAlarmInfo(const Alarm::SceneChange_S &src, NET_TV_SCENE_CHAN
             if (day >= (int)src.aAlarmTime.size())
                 break;
             const auto &vecDay = src.aAlarmTime[day];
-            int cnt = (int)std::min<size_t>(vecDay.size(), NET_TV_PLAN_SECTION_NUM);
-            dst.stAlarmSchedule.dwTimeSectionCount[day] = cnt;
+            int cnt = (int)std::min<size_t>(vecDay.size(), NET_PLAN_SECTION_NUM);
+            dst.stAlarmSchedule.uTimeSectionCount[day] = cnt;
             for (int seg = 0; seg < cnt; ++seg)
             {
                 FillSchedTime(vecDay[seg], dst.stAlarmSchedule.astTimeSection[day][seg]);
@@ -2153,7 +2135,7 @@ void FillSceneChangeAlarmInfo(const Alarm::SceneChange_S &src, NET_TV_SCENE_CHAN
     }
 }
 
-void ToSceneChange(const NET_TV_SCENE_CHANGE_ALARM_INFO_S &src, Alarm::SceneChange_S &dst)
+void ToSceneChange(const NET_SceneChangeAlarmInfo_S &src, Alarm::SceneChange_S &dst)
 {
     dst.bEnable = (src.bEnable == TRUE);
     dst.nSensitivity = (unsigned int)src.nSensitivity;
@@ -2162,10 +2144,10 @@ void ToSceneChange(const NET_TV_SCENE_CHANGE_ALARM_INFO_S &src, Alarm::SceneChan
     dst.aAlarmTime.resize(7);
     for (int day = 0; day < 7; ++day)
     {
-        int cnt = src.stAlarmSchedule.dwTimeSectionCount[day];
+        int cnt = src.stAlarmSchedule.uTimeSectionCount[day];
         if (cnt <= 0)
             continue;
-        cnt = std::min(cnt, NET_TV_PLAN_SECTION_NUM);
+        cnt = std::min(cnt, NET_PLAN_SECTION_NUM);
         dst.aAlarmTime[day].resize(cnt);
         for (int seg = 0; seg < cnt; ++seg)
         {
@@ -2174,21 +2156,21 @@ void ToSceneChange(const NET_TV_SCENE_CHANGE_ALARM_INFO_S &src, Alarm::SceneChan
     }
 }
 
-// --------- CrowdGathering (IPC CrowdGathering_S <-> SDK NET_TV_CROWD_GATHERING_ALARM_INFO_S) ---------
-void FillCrowdGatheringAlarmInfo(const Alarm::CrowdGathering_S &src, NET_TV_CROWD_GATHERING_ALARM_INFO_S &dst)
+// --------- CrowdGathering (IPC CrowdGathering_S <-> SDK NET_CrowdGatheringAlarmInfo_S) ---------
+void FillCrowdGatheringAlarmInfo(const Alarm::CrowdGathering_S &src, NET_CrowdGatheringAlarmInfo_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));
     dst.bEnable = src.bEnable ? TRUE : FALSE;
-    dst.dwRuleCount = 0;
+    dst.uRuleCount = 0;
     for (size_t i = 0; i < src.aRule.size() && i < 4; ++i)
     {
         const auto &r = src.aRule[i];
         auto &out = dst.astRule[i];
         std::memset(&out, 0, sizeof(out));
         out.bEnable = TRUE;
-        FillPolygonPoints(r.stRegion, out.dwPointCount, out.afPointX, out.afPointY);
+        FillPolygonPoints(r.stRegion, out.uPointCount, out.afPointX, out.afPointY);
         out.nObjectOccup = (INT32)r.nObjectOccup;
-        dst.dwRuleCount++;
+        dst.uRuleCount++;
     }
 
     if (!src.aAlarmTime.empty())
@@ -2198,8 +2180,8 @@ void FillCrowdGatheringAlarmInfo(const Alarm::CrowdGathering_S &src, NET_TV_CROW
             if (day >= (int)src.aAlarmTime.size())
                 break;
             const auto &vecDay = src.aAlarmTime[day];
-            int cnt = (int)std::min<size_t>(vecDay.size(), NET_TV_PLAN_SECTION_NUM);
-            dst.stAlarmSchedule.dwTimeSectionCount[day] = cnt;
+            int cnt = (int)std::min<size_t>(vecDay.size(), NET_PLAN_SECTION_NUM);
+            dst.stAlarmSchedule.uTimeSectionCount[day] = cnt;
             for (int seg = 0; seg < cnt; ++seg)
             {
                 FillSchedTime(vecDay[seg], dst.stAlarmSchedule.astTimeSection[day][seg]);
@@ -2208,15 +2190,15 @@ void FillCrowdGatheringAlarmInfo(const Alarm::CrowdGathering_S &src, NET_TV_CROW
     }
 }
 
-void ToCrowdGathering(const NET_TV_CROWD_GATHERING_ALARM_INFO_S &src, Alarm::CrowdGathering_S &dst)
+void ToCrowdGathering(const NET_CrowdGatheringAlarmInfo_S &src, Alarm::CrowdGathering_S &dst)
 {
     dst.bEnable = (src.bEnable == TRUE);
     dst.aRule.clear();
-    for (int i = 0; i < src.dwRuleCount && i < 4; ++i)
+    for (int i = 0; i < src.uRuleCount && i < 4; ++i)
     {
         const auto &r = src.astRule[i];
         Alarm::CrowdGatheringRule_S out;
-        ToRegionFromPolygon(r.dwPointCount, r.afPointX, r.afPointY, out.stRegion);
+        ToRegionFromPolygon(r.uPointCount, r.afPointX, r.afPointY, out.stRegion);
         out.nObjectOccup = (unsigned int)r.nObjectOccup;
         dst.aRule.push_back(out);
     }
@@ -2225,10 +2207,10 @@ void ToCrowdGathering(const NET_TV_CROWD_GATHERING_ALARM_INFO_S &src, Alarm::Cro
     dst.aAlarmTime.resize(7);
     for (int day = 0; day < 7; ++day)
     {
-        int cnt = src.stAlarmSchedule.dwTimeSectionCount[day];
+        int cnt = src.stAlarmSchedule.uTimeSectionCount[day];
         if (cnt <= 0)
             continue;
-        cnt = std::min(cnt, NET_TV_PLAN_SECTION_NUM);
+        cnt = std::min(cnt, NET_PLAN_SECTION_NUM);
         dst.aAlarmTime[day].resize(cnt);
         for (int seg = 0; seg < cnt; ++seg)
         {
@@ -2239,14 +2221,14 @@ void ToCrowdGathering(const NET_TV_CROWD_GATHERING_ALARM_INFO_S &src, Alarm::Cro
 
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_GARBAGE_DETECT
 
-// --------- GarbageExposure (IPC Alarm::GarbageExposureDetection_S <-> SDK NET_TV_GARBAGE_EXPOSURE_CFG_S) ---------
-void FillGarbageExposureCfg(const Alarm::GarbageExposureDetection_S &src, NET_TV_GARBAGE_EXPOSURE_CFG_S &dst)
+// --------- GarbageExposure (IPC Alarm::GarbageExposureDetection_S <-> SDK NET_GarbageExposureCfg_S) ---------
+void FillGarbageExposureCfg(const Alarm::GarbageExposureDetection_S &src, NET_GarbageExposureCfg_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));
     dst.bEnable = src.bEnable ? TRUE : FALSE;
 
     dst.stRule.nSensitivity = (INT32)src.stRule.nSensitivity;
-    FillPolygonPoints(src.stRule.stRegion, dst.stRule.dwPointCount, dst.stRule.afPointX, dst.stRule.afPointY);
+    FillPolygonPoints(src.stRule.stRegion, dst.stRule.uPointCount, dst.stRule.afPointX, dst.stRule.afPointY);
 
     if (!src.aAlarmTime.empty())
     {
@@ -2255,8 +2237,8 @@ void FillGarbageExposureCfg(const Alarm::GarbageExposureDetection_S &src, NET_TV
             if (day >= (int)src.aAlarmTime.size())
                 break;
             const auto &vecDay = src.aAlarmTime[day];
-            int cnt = (int)std::min<size_t>(vecDay.size(), NET_TV_PLAN_SECTION_NUM);
-            dst.stAlarmSchedule.dwTimeSectionCount[day] = cnt;
+            int cnt = (int)std::min<size_t>(vecDay.size(), NET_PLAN_SECTION_NUM);
+            dst.stAlarmSchedule.uTimeSectionCount[day] = cnt;
             for (int seg = 0; seg < cnt; ++seg)
             {
                 FillSchedTime(vecDay[seg], dst.stAlarmSchedule.astTimeSection[day][seg]);
@@ -2267,20 +2249,20 @@ void FillGarbageExposureCfg(const Alarm::GarbageExposureDetection_S &src, NET_TV
     FillLinkageList(src.stLinkageList, dst.stLinkageList);
 }
 
-void ToGarbageExposure(const NET_TV_GARBAGE_EXPOSURE_CFG_S &src, Alarm::GarbageExposureDetection_S &dst)
+void ToGarbageExposure(const NET_GarbageExposureCfg_S &src, Alarm::GarbageExposureDetection_S &dst)
 {
     dst.bEnable = (src.bEnable == TRUE);
     dst.stRule.nSensitivity = (unsigned int)src.stRule.nSensitivity;
-    ToRegionFromPolygon(src.stRule.dwPointCount, src.stRule.afPointX, src.stRule.afPointY, dst.stRule.stRegion);
+    ToRegionFromPolygon(src.stRule.uPointCount, src.stRule.afPointX, src.stRule.afPointY, dst.stRule.stRegion);
 
     dst.aAlarmTime.clear();
     dst.aAlarmTime.resize(7);
     for (int day = 0; day < 7; ++day)
     {
-        int cnt = src.stAlarmSchedule.dwTimeSectionCount[day];
+        int cnt = src.stAlarmSchedule.uTimeSectionCount[day];
         if (cnt <= 0)
             continue;
-        cnt = std::min(cnt, NET_TV_PLAN_SECTION_NUM);
+        cnt = std::min(cnt, NET_PLAN_SECTION_NUM);
         dst.aAlarmTime[day].resize(cnt);
         for (int seg = 0; seg < cnt; ++seg)
         {
@@ -2291,14 +2273,14 @@ void ToGarbageExposure(const NET_TV_GARBAGE_EXPOSURE_CFG_S &src, Alarm::GarbageE
     ToLinkageList(src.stLinkageList, dst.stLinkageList);
 }
 
-// --------- GarbageOverflow (IPC Alarm::GarbageOverflowDetection_S <-> SDK NET_TV_GARBAGE_OVERFLOW_CFG_S) ---------
-void FillGarbageOverflowCfg(const Alarm::GarbageOverflowDetection_S &src, NET_TV_GARBAGE_OVERFLOW_CFG_S &dst)
+// --------- GarbageOverflow (IPC Alarm::GarbageOverflowDetection_S <-> SDK NET_GarbageOverflowCfg_S) ---------
+void FillGarbageOverflowCfg(const Alarm::GarbageOverflowDetection_S &src, NET_GarbageOverflowCfg_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));
     dst.bEnable = src.bEnable ? TRUE : FALSE;
 
     dst.stRule.nSensitivity = (INT32)src.stRule.nSensitivity;
-    FillPolygonPoints(src.stRule.stRegion, dst.stRule.dwPointCount, dst.stRule.afPointX, dst.stRule.afPointY);
+    FillPolygonPoints(src.stRule.stRegion, dst.stRule.uPointCount, dst.stRule.afPointX, dst.stRule.afPointY);
 
     if (!src.aAlarmTime.empty())
     {
@@ -2307,8 +2289,8 @@ void FillGarbageOverflowCfg(const Alarm::GarbageOverflowDetection_S &src, NET_TV
             if (day >= (int)src.aAlarmTime.size())
                 break;
             const auto &vecDay = src.aAlarmTime[day];
-            int cnt = (int)std::min<size_t>(vecDay.size(), NET_TV_PLAN_SECTION_NUM);
-            dst.stAlarmSchedule.dwTimeSectionCount[day] = cnt;
+            int cnt = (int)std::min<size_t>(vecDay.size(), NET_PLAN_SECTION_NUM);
+            dst.stAlarmSchedule.uTimeSectionCount[day] = cnt;
             for (int seg = 0; seg < cnt; ++seg)
             {
                 FillSchedTime(vecDay[seg], dst.stAlarmSchedule.astTimeSection[day][seg]);
@@ -2319,20 +2301,20 @@ void FillGarbageOverflowCfg(const Alarm::GarbageOverflowDetection_S &src, NET_TV
     FillLinkageList(src.stLinkageList, dst.stLinkageList);
 }
 
-void ToGarbageOverflow(const NET_TV_GARBAGE_OVERFLOW_CFG_S &src, Alarm::GarbageOverflowDetection_S &dst)
+void ToGarbageOverflow(const NET_GarbageOverflowCfg_S &src, Alarm::GarbageOverflowDetection_S &dst)
 {
     dst.bEnable = (src.bEnable == TRUE);
     dst.stRule.nSensitivity = (unsigned int)src.stRule.nSensitivity;
-    ToRegionFromPolygon(src.stRule.dwPointCount, src.stRule.afPointX, src.stRule.afPointY, dst.stRule.stRegion);
+    ToRegionFromPolygon(src.stRule.uPointCount, src.stRule.afPointX, src.stRule.afPointY, dst.stRule.stRegion);
 
     dst.aAlarmTime.clear();
     dst.aAlarmTime.resize(7);
     for (int day = 0; day < 7; ++day)
     {
-        int cnt = src.stAlarmSchedule.dwTimeSectionCount[day];
+        int cnt = src.stAlarmSchedule.uTimeSectionCount[day];
         if (cnt <= 0)
             continue;
-        cnt = std::min(cnt, NET_TV_PLAN_SECTION_NUM);
+        cnt = std::min(cnt, NET_PLAN_SECTION_NUM);
         dst.aAlarmTime[day].resize(cnt);
         for (int seg = 0; seg < cnt; ++seg)
         {
@@ -2345,7 +2327,7 @@ void ToGarbageOverflow(const NET_TV_GARBAGE_OVERFLOW_CFG_S &src, Alarm::GarbageO
 
 #endif
 
-static void FillSingleRuleAlarmSchedule(const Alarm::DefenseTime &src, NET_TV_ALARM_SCHEDULE_S &dst)
+static void FillSingleRuleAlarmSchedule(const Alarm::DefenseTime &src, NET_AlarmSchedule_S &dst)
 {
     if (!src.empty())
     {
@@ -2355,8 +2337,8 @@ static void FillSingleRuleAlarmSchedule(const Alarm::DefenseTime &src, NET_TV_AL
                 break;
 
             const auto &vecDay = src[day];
-            int cnt = (int)std::min<size_t>(vecDay.size(), NET_TV_PLAN_SECTION_NUM);
-            dst.dwTimeSectionCount[day] = cnt;
+            int cnt = (int)std::min<size_t>(vecDay.size(), NET_PLAN_SECTION_NUM);
+            dst.uTimeSectionCount[day] = cnt;
             for (int seg = 0; seg < cnt; ++seg)
             {
                 FillSchedTime(vecDay[seg], dst.astTimeSection[day][seg]);
@@ -2365,17 +2347,17 @@ static void FillSingleRuleAlarmSchedule(const Alarm::DefenseTime &src, NET_TV_AL
     }
 }
 
-static void ToSingleRuleAlarmSchedule(const NET_TV_ALARM_SCHEDULE_S &src, Alarm::DefenseTime &dst)
+static void ToSingleRuleAlarmSchedule(const NET_AlarmSchedule_S &src, Alarm::DefenseTime &dst)
 {
     dst.clear();
     dst.resize(7);
     for (int day = 0; day < 7; ++day)
     {
-        int cnt = src.dwTimeSectionCount[day];
+        int cnt = src.uTimeSectionCount[day];
         if (cnt <= 0)
             continue;
 
-        cnt = std::min(cnt, NET_TV_PLAN_SECTION_NUM);
+        cnt = std::min(cnt, NET_PLAN_SECTION_NUM);
         dst[day].resize(cnt);
         for (int seg = 0; seg < cnt; ++seg)
         {
@@ -2385,7 +2367,7 @@ static void ToSingleRuleAlarmSchedule(const NET_TV_ALARM_SCHEDULE_S &src, Alarm:
 }
 
 #ifdef SCENE_INTELLIGENCE
-void FillManholeCoverAbnormalCfg(const Alarm::ManholeCoverAbnormalDetection_S &src, NET_TV_MANHOLE_COVER_ABNORMAL_CFG_S &dst)
+void FillManholeCoverAbnormalCfg(const Alarm::ManholeCoverAbnormalDetection_S &src, NET_ManholeCoverAbnormalCfg_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));
     dst.bEnable = src.bEnable ? TRUE : FALSE;
@@ -2394,7 +2376,7 @@ void FillManholeCoverAbnormalCfg(const Alarm::ManholeCoverAbnormalDetection_S &s
     FillLinkageList(src.stLinkageList, dst.stLinkageList);
 }
 
-void ToManholeCoverAbnormal(const NET_TV_MANHOLE_COVER_ABNORMAL_CFG_S &src, Alarm::ManholeCoverAbnormalDetection_S &dst)
+void ToManholeCoverAbnormal(const NET_ManholeCoverAbnormalCfg_S &src, Alarm::ManholeCoverAbnormalDetection_S &dst)
 {
     dst.bEnable = (src.bEnable == TRUE);
     dst.stRule.nSensitivity = (unsigned int)src.stRule.nSensitivity;
@@ -2402,7 +2384,7 @@ void ToManholeCoverAbnormal(const NET_TV_MANHOLE_COVER_ABNORMAL_CFG_S &src, Alar
     ToLinkageList(src.stLinkageList, dst.stLinkageList);
 }
 
-void FillSleepOnDutyCfg(const Alarm::SleepOnDutyDetection_S &src, NET_TV_SLEEP_ON_DUTY_CFG_S &dst)
+void FillSleepOnDutyCfg(const Alarm::SleepOnDutyDetection_S &src, NET_SleepOnDutyCfg_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));
     dst.bEnable = src.bEnable ? TRUE : FALSE;
@@ -2411,7 +2393,7 @@ void FillSleepOnDutyCfg(const Alarm::SleepOnDutyDetection_S &src, NET_TV_SLEEP_O
     FillLinkageList(src.stLinkageList, dst.stLinkageList);
 }
 
-void ToSleepOnDuty(const NET_TV_SLEEP_ON_DUTY_CFG_S &src, Alarm::SleepOnDutyDetection_S &dst)
+void ToSleepOnDuty(const NET_SleepOnDutyCfg_S &src, Alarm::SleepOnDutyDetection_S &dst)
 {
     dst.bEnable = (src.bEnable == TRUE);
     dst.stRule.nSensitivity = (unsigned int)src.stRule.nSensitivity;
@@ -2419,7 +2401,7 @@ void ToSleepOnDuty(const NET_TV_SLEEP_ON_DUTY_CFG_S &src, Alarm::SleepOnDutyDete
     ToLinkageList(src.stLinkageList, dst.stLinkageList);
 }
 
-void FillElectricVehicleInElevatorCfg(const Alarm::ElectricScooterDetection_S &src, NET_TV_ELECTRIC_VEHICLE_IN_ELEVATOR_CFG_S &dst)
+void FillElectricVehicleInElevatorCfg(const Alarm::ElectricScooterDetection_S &src, NET_ElectricVehicleInElevatorCfg_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));
     dst.bEnable = src.bEnable ? TRUE : FALSE;
@@ -2428,7 +2410,7 @@ void FillElectricVehicleInElevatorCfg(const Alarm::ElectricScooterDetection_S &s
     FillLinkageList(src.stLinkageList, dst.stLinkageList);
 }
 
-void ToElectricVehicleInElevator(const NET_TV_ELECTRIC_VEHICLE_IN_ELEVATOR_CFG_S &src, Alarm::ElectricScooterDetection_S &dst)
+void ToElectricVehicleInElevator(const NET_ElectricVehicleInElevatorCfg_S &src, Alarm::ElectricScooterDetection_S &dst)
 {
     dst.bEnable = (src.bEnable == TRUE);
     dst.stRule.nSensitivity = (unsigned int)src.stRule.nSensitivity;
@@ -2436,7 +2418,7 @@ void ToElectricVehicleInElevator(const NET_TV_ELECTRIC_VEHICLE_IN_ELEVATOR_CFG_S
     ToLinkageList(src.stLinkageList, dst.stLinkageList);
 }
 
-void FillPersonFallDownCfg(const Alarm::PersonFallDownDetection_S &src, NET_TV_PERSON_FALL_DOWN_CFG_S &dst)
+void FillPersonFallDownCfg(const Alarm::PersonFallDownDetection_S &src, NET_PersonFallDownCfg_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));
     dst.bEnable = src.bEnable ? TRUE : FALSE;
@@ -2445,7 +2427,7 @@ void FillPersonFallDownCfg(const Alarm::PersonFallDownDetection_S &src, NET_TV_P
     FillLinkageList(src.stLinkageList, dst.stLinkageList);
 }
 
-void ToPersonFallDown(const NET_TV_PERSON_FALL_DOWN_CFG_S &src, Alarm::PersonFallDownDetection_S &dst)
+void ToPersonFallDown(const NET_PersonFallDownCfg_S &src, Alarm::PersonFallDownDetection_S &dst)
 {
     dst.bEnable = (src.bEnable == TRUE);
     dst.stRule.nSensitivity = (unsigned int)src.stRule.nSensitivity;
@@ -2453,7 +2435,7 @@ void ToPersonFallDown(const NET_TV_PERSON_FALL_DOWN_CFG_S &src, Alarm::PersonFal
     ToLinkageList(src.stLinkageList, dst.stLinkageList);
 }
 
-void FillConstructionOccupyRoadCfg(const Alarm::ConstructionEncroachmentRoadDetection_S &src, NET_TV_CONSTRUCTION_OCCUPY_ROAD_CFG_S &dst)
+void FillConstructionOccupyRoadCfg(const Alarm::ConstructionEncroachmentRoadDetection_S &src, NET_ConstructionOccupyRoadCfg_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));
     dst.bEnable = src.bEnable ? TRUE : FALSE;
@@ -2462,7 +2444,7 @@ void FillConstructionOccupyRoadCfg(const Alarm::ConstructionEncroachmentRoadDete
     FillLinkageList(src.stLinkageList, dst.stLinkageList);
 }
 
-void ToConstructionOccupyRoad(const NET_TV_CONSTRUCTION_OCCUPY_ROAD_CFG_S &src, Alarm::ConstructionEncroachmentRoadDetection_S &dst)
+void ToConstructionOccupyRoad(const NET_ConstructionOccupyRoadCfg_S &src, Alarm::ConstructionEncroachmentRoadDetection_S &dst)
 {
     dst.bEnable = (src.bEnable == TRUE);
     dst.stRule.nSensitivity = (unsigned int)src.stRule.nSensitivity;
@@ -2470,7 +2452,7 @@ void ToConstructionOccupyRoad(const NET_TV_CONSTRUCTION_OCCUPY_ROAD_CFG_S &src, 
     ToLinkageList(src.stLinkageList, dst.stLinkageList);
 }
 
-void FillCongestionCfg(const Alarm::CongestionDetection_S &src, NET_TV_CONGESTION_CFG_S &dst)
+void FillCongestionCfg(const Alarm::CongestionDetection_S &src, NET_CongestionCfg_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));
     dst.bEnable = src.bEnable ? TRUE : FALSE;
@@ -2479,7 +2461,7 @@ void FillCongestionCfg(const Alarm::CongestionDetection_S &src, NET_TV_CONGESTIO
     FillLinkageList(src.stLinkageList, dst.stLinkageList);
 }
 
-void ToCongestion(const NET_TV_CONGESTION_CFG_S &src, Alarm::CongestionDetection_S &dst)
+void ToCongestion(const NET_CongestionCfg_S &src, Alarm::CongestionDetection_S &dst)
 {
     dst.bEnable = (src.bEnable == TRUE);
     dst.stRule.nSensitivity = (unsigned int)src.stRule.nSensitivity;
@@ -2487,7 +2469,7 @@ void ToCongestion(const NET_TV_CONGESTION_CFG_S &src, Alarm::CongestionDetection
     ToLinkageList(src.stLinkageList, dst.stLinkageList);
 }
 
-void FillLicensePlateRecognitionCfg(const Alarm::LicensePlateCognitionDetection_S &src, NET_TV_LICENSE_PLATE_RECOGNITION_CFG_S &dst)
+void FillLicensePlateRecognitionCfg(const Alarm::LicensePlateCognitionDetection_S &src, NET_LicensePlateRecognitionCfg_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));
     dst.bEnable = src.bEnable ? TRUE : FALSE;
@@ -2496,7 +2478,7 @@ void FillLicensePlateRecognitionCfg(const Alarm::LicensePlateCognitionDetection_
     FillLinkageList(src.stLinkageList, dst.stLinkageList);
 }
 
-void ToLicensePlateRecognition(const NET_TV_LICENSE_PLATE_RECOGNITION_CFG_S &src, Alarm::LicensePlateCognitionDetection_S &dst)
+void ToLicensePlateRecognition(const NET_LicensePlateRecognitionCfg_S &src, Alarm::LicensePlateCognitionDetection_S &dst)
 {
     dst.bEnable = (src.bEnable == TRUE);
     dst.stRule.nSensitivity = (unsigned int)src.stRule.nSensitivity;
@@ -2504,7 +2486,7 @@ void ToLicensePlateRecognition(const NET_TV_LICENSE_PLATE_RECOGNITION_CFG_S &src
     ToLinkageList(src.stLinkageList, dst.stLinkageList);
 }
 
-void FillHighAltitudeSeatbeltCfg(const Alarm::HighAltitudeSeatbeltDetection_S &src, NET_TV_HIGH_ALTITUDE_SEATBELT_CFG_S &dst)
+void FillHighAltitudeSeatbeltCfg(const Alarm::HighAltitudeSeatbeltDetection_S &src, NET_HighAltitudeSeatbeltCfg_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));
     dst.bEnable = src.bEnable ? TRUE : FALSE;
@@ -2513,7 +2495,7 @@ void FillHighAltitudeSeatbeltCfg(const Alarm::HighAltitudeSeatbeltDetection_S &s
     FillLinkageList(src.stLinkageList, dst.stLinkageList);
 }
 
-void ToHighAltitudeSeatbelt(const NET_TV_HIGH_ALTITUDE_SEATBELT_CFG_S &src, Alarm::HighAltitudeSeatbeltDetection_S &dst)
+void ToHighAltitudeSeatbelt(const NET_HighAltitudeSeatbeltCfg_S &src, Alarm::HighAltitudeSeatbeltDetection_S &dst)
 {
     dst.bEnable = (src.bEnable == TRUE);
     dst.stRule.nSensitivity = (unsigned int)src.stRule.nSensitivity;
@@ -2521,7 +2503,7 @@ void ToHighAltitudeSeatbelt(const NET_TV_HIGH_ALTITUDE_SEATBELT_CFG_S &src, Alar
     ToLinkageList(src.stLinkageList, dst.stLinkageList);
 }
 
-void FillSafetyHelmetCfg(const Alarm::SafetyHelmetDection_S &src, NET_TV_SAFETY_HELMET_CFG_S &dst)
+void FillSafetyHelmetCfg(const Alarm::SafetyHelmetDection_S &src, NET_SafetyHelmetCfg_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));
     dst.bEnable = src.bEnable ? TRUE : FALSE;
@@ -2530,7 +2512,7 @@ void FillSafetyHelmetCfg(const Alarm::SafetyHelmetDection_S &src, NET_TV_SAFETY_
     FillLinkageList(src.stLinkageList, dst.stLinkageList);
 }
 
-void ToSafetyHelmet(const NET_TV_SAFETY_HELMET_CFG_S &src, Alarm::SafetyHelmetDection_S &dst)
+void ToSafetyHelmet(const NET_SafetyHelmetCfg_S &src, Alarm::SafetyHelmetDection_S &dst)
 {
     dst.bEnable = (src.bEnable == TRUE);
     dst.stRule.nSensitivity = (unsigned int)src.stRule.nSensitivity;
@@ -2538,7 +2520,7 @@ void ToSafetyHelmet(const NET_TV_SAFETY_HELMET_CFG_S &src, Alarm::SafetyHelmetDe
     ToLinkageList(src.stLinkageList, dst.stLinkageList);
 }
 
-void FillPersonFallCfg(const Alarm::TripDetection_S &src, NET_TV_PERSON_FALL_CFG_S &dst)
+void FillPersonFallCfg(const Alarm::TripDetection_S &src, NET_PersonFallCfg_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));
     dst.bEnable = src.bEnable ? TRUE : FALSE;
@@ -2547,7 +2529,7 @@ void FillPersonFallCfg(const Alarm::TripDetection_S &src, NET_TV_PERSON_FALL_CFG
     FillLinkageList(src.stLinkageList, dst.stLinkageList);
 }
 
-void ToPersonFall(const NET_TV_PERSON_FALL_CFG_S &src, Alarm::TripDetection_S &dst)
+void ToPersonFall(const NET_PersonFallCfg_S &src, Alarm::TripDetection_S &dst)
 {
     dst.bEnable = (src.bEnable == TRUE);
     dst.stRule.nSensitivity = (unsigned int)src.stRule.nSensitivity;
@@ -2555,7 +2537,7 @@ void ToPersonFall(const NET_TV_PERSON_FALL_CFG_S &src, Alarm::TripDetection_S &d
     ToLinkageList(src.stLinkageList, dst.stLinkageList);
 }
 
-void FillPhoneUsageCfg(const Alarm::PhoneUsageDetection_S &src, NET_TV_PHONE_USAGE_CFG_S &dst)
+void FillPhoneUsageCfg(const Alarm::PhoneUsageDetection_S &src, NET_PhoneUsageCfg_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));
     dst.bEnable = src.bEnable ? TRUE : FALSE;
@@ -2564,7 +2546,7 @@ void FillPhoneUsageCfg(const Alarm::PhoneUsageDetection_S &src, NET_TV_PHONE_USA
     FillLinkageList(src.stLinkageList, dst.stLinkageList);
 }
 
-void ToPhoneUsage(const NET_TV_PHONE_USAGE_CFG_S &src, Alarm::PhoneUsageDetection_S &dst)
+void ToPhoneUsage(const NET_PhoneUsageCfg_S &src, Alarm::PhoneUsageDetection_S &dst)
 {
     dst.bEnable = (src.bEnable == TRUE);
     dst.stRule.nSensitivity = (unsigned int)src.stRule.nSensitivity;
@@ -2572,7 +2554,7 @@ void ToPhoneUsage(const NET_TV_PHONE_USAGE_CFG_S &src, Alarm::PhoneUsageDetectio
     ToLinkageList(src.stLinkageList, dst.stLinkageList);
 }
 
-void FillSmokingCfg(const Alarm::SmokingDection_S &src, NET_TV_SMOKING_CFG_S &dst)
+void FillSmokingCfg(const Alarm::SmokingDection_S &src, NET_SmokingCfg_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));
     dst.bEnable = src.bEnable ? TRUE : FALSE;
@@ -2581,7 +2563,7 @@ void FillSmokingCfg(const Alarm::SmokingDection_S &src, NET_TV_SMOKING_CFG_S &ds
     FillLinkageList(src.stLinkageList, dst.stLinkageList);
 }
 
-void ToSmoking(const NET_TV_SMOKING_CFG_S &src, Alarm::SmokingDection_S &dst)
+void ToSmoking(const NET_SmokingCfg_S &src, Alarm::SmokingDection_S &dst)
 {
     dst.bEnable = (src.bEnable == TRUE);
     dst.stRule.nSensitivity = (unsigned int)src.stRule.nSensitivity;
@@ -2589,7 +2571,7 @@ void ToSmoking(const NET_TV_SMOKING_CFG_S &src, Alarm::SmokingDection_S &dst)
     ToLinkageList(src.stLinkageList, dst.stLinkageList);
 }
 
-void FillOpenFlameCfg(const Alarm::OpenFlameDetection_S &src, NET_TV_OPEN_FLAME_CFG_S &dst)
+void FillOpenFlameCfg(const Alarm::OpenFlameDetection_S &src, NET_OpenFlameCfg_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));
     dst.bEnable = src.bEnable ? TRUE : FALSE;
@@ -2598,7 +2580,7 @@ void FillOpenFlameCfg(const Alarm::OpenFlameDetection_S &src, NET_TV_OPEN_FLAME_
     FillLinkageList(src.stLinkageList, dst.stLinkageList);
 }
 
-void ToOpenFlame(const NET_TV_OPEN_FLAME_CFG_S &src, Alarm::OpenFlameDetection_S &dst)
+void ToOpenFlame(const NET_OpenFlameCfg_S &src, Alarm::OpenFlameDetection_S &dst)
 {
     dst.bEnable = (src.bEnable == TRUE);
     dst.stRule.nSensitivity = (unsigned int)src.stRule.nSensitivity;
@@ -2606,7 +2588,7 @@ void ToOpenFlame(const NET_TV_OPEN_FLAME_CFG_S &src, Alarm::OpenFlameDetection_S
     ToLinkageList(src.stLinkageList, dst.stLinkageList);
 }
 
-void FillBareSoilCfg(const Alarm::BareSoiletDection_S &src, NET_TV_BARE_SOIL_CFG_S &dst)
+void FillBareSoilCfg(const Alarm::BareSoiletDection_S &src, NET_BareSoilCfg_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));
     dst.bEnable = src.bEnable ? TRUE : FALSE;
@@ -2615,7 +2597,7 @@ void FillBareSoilCfg(const Alarm::BareSoiletDection_S &src, NET_TV_BARE_SOIL_CFG
     FillLinkageList(src.stLinkageList, dst.stLinkageList);
 }
 
-void ToBareSoil(const NET_TV_BARE_SOIL_CFG_S &src, Alarm::BareSoiletDection_S &dst)
+void ToBareSoil(const NET_BareSoilCfg_S &src, Alarm::BareSoiletDection_S &dst)
 {
     dst.bEnable = (src.bEnable == TRUE);
     dst.stRule.nSensitivity = (unsigned int)src.stRule.nSensitivity;
@@ -2623,7 +2605,7 @@ void ToBareSoil(const NET_TV_BARE_SOIL_CFG_S &src, Alarm::BareSoiletDection_S &d
     ToLinkageList(src.stLinkageList, dst.stLinkageList);
 }
 
-void FillHoleProtectionBarCfg(const Alarm::HoleProtectionBarDection_S &src, NET_TV_HOLE_PROTECTION_BAR_CFG_S &dst)
+void FillHoleProtectionBarCfg(const Alarm::HoleProtectionBarDection_S &src, NET_HoleProtectionBarCfg_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));
     dst.bEnable = src.bEnable ? TRUE : FALSE;
@@ -2632,7 +2614,7 @@ void FillHoleProtectionBarCfg(const Alarm::HoleProtectionBarDection_S &src, NET_
     FillLinkageList(src.stLinkageList, dst.stLinkageList);
 }
 
-void ToHoleProtectionBar(const NET_TV_HOLE_PROTECTION_BAR_CFG_S &src, Alarm::HoleProtectionBarDection_S &dst)
+void ToHoleProtectionBar(const NET_HoleProtectionBarCfg_S &src, Alarm::HoleProtectionBarDection_S &dst)
 {
     dst.bEnable = (src.bEnable == TRUE);
     dst.stRule.nSensitivity = (unsigned int)src.stRule.nSensitivity;
@@ -2640,7 +2622,7 @@ void ToHoleProtectionBar(const NET_TV_HOLE_PROTECTION_BAR_CFG_S &src, Alarm::Hol
     ToLinkageList(src.stLinkageList, dst.stLinkageList);
 }
 
-void FillReflectiveClothingCfg(const Alarm::ReflectiveClothingDection_S &src, NET_TV_REFLECTIVE_CLOTHING_CFG_S &dst)
+void FillReflectiveClothingCfg(const Alarm::ReflectiveClothingDection_S &src, NET_ReflectiveClothingCfg_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));
     dst.bEnable = src.bEnable ? TRUE : FALSE;
@@ -2649,7 +2631,7 @@ void FillReflectiveClothingCfg(const Alarm::ReflectiveClothingDection_S &src, NE
     FillLinkageList(src.stLinkageList, dst.stLinkageList);
 }
 
-void ToReflectiveClothing(const NET_TV_REFLECTIVE_CLOTHING_CFG_S &src, Alarm::ReflectiveClothingDection_S &dst)
+void ToReflectiveClothing(const NET_ReflectiveClothingCfg_S &src, Alarm::ReflectiveClothingDection_S &dst)
 {
     dst.bEnable = (src.bEnable == TRUE);
     dst.stRule.nSensitivity = (unsigned int)src.stRule.nSensitivity;
@@ -2658,123 +2640,123 @@ void ToReflectiveClothing(const NET_TV_REFLECTIVE_CLOTHING_CFG_S &src, Alarm::Re
 }
 #endif
 
-void FillPetRecognitionInfo(const Alarm::PetRecognition_S &src, NET_TV_PET_RECOGNITION_INFO_S &dst)
+void FillPetRecognitionInfo(const Alarm::PetRecognition_S &src, NET_PetRecognitionInfo_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));
     dst.bEnable = src.bEnable ? TRUE : FALSE;
     dst.bDynamicAnalysisEnable = src.bDynamicAnalysisEnable ? TRUE : FALSE;
     dst.nSensitivity = (INT32)src.nSensitivity;
-    FillPolygonPoints(src.stRegion, dst.stRegion.dwPointCount, dst.stRegion.afPointX, dst.stRegion.afPointY);
+    FillPolygonPoints(src.stRegion, dst.stRegion.uPointCount, dst.stRegion.afPointX, dst.stRegion.afPointY);
     FillSingleRuleAlarmSchedule(src.aAlarmTime, dst.stAlarmSchedule);
     FillLinkageList(src.stLinkageList, dst.stLinkageList);
 }
 
-void ToPetRecognition(const NET_TV_PET_RECOGNITION_INFO_S &src, Alarm::PetRecognition_S &dst)
+void ToPetRecognition(const NET_PetRecognitionInfo_S &src, Alarm::PetRecognition_S &dst)
 {
     dst.bEnable = (src.bEnable == TRUE);
     dst.bDynamicAnalysisEnable = (src.bDynamicAnalysisEnable == TRUE);
     dst.nSensitivity = (unsigned int)src.nSensitivity;
-    ToRegionFromPolygon(src.stRegion.dwPointCount, src.stRegion.afPointX, src.stRegion.afPointY, dst.stRegion);
+    ToRegionFromPolygon(src.stRegion.uPointCount, src.stRegion.afPointX, src.stRegion.afPointY, dst.stRegion);
     ToSingleRuleAlarmSchedule(src.stAlarmSchedule, dst.aAlarmTime);
     ToLinkageList(src.stLinkageList, dst.stLinkageList);
 }
 
 #ifdef SCENE_INTELLIGENCE
-void FillClimbFenceInfo(const Alarm::FenceClimbingDetection_S &src, NET_TV_CLIMB_FENCE_INFO_S &dst)
+void FillClimbFenceInfo(const Alarm::FenceClimbingDetection_S &src, NET_ClimbFenceInfo_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));
     dst.bEnable = src.bEnable ? TRUE : FALSE;
-    dst.dwRuleCount = 0;
+    dst.uRuleCount = 0;
     for (size_t i = 0; i < src.aRule.size() && i < 4; ++i)
     {
         const auto &r = src.aRule[i];
-        NET_TV_SMART_REGION_RULE_S &out = dst.astRule[i];
+        NET_SmartRegionRule_S &out = dst.stRule[i];
         std::memset(&out, 0, sizeof(out));
         out.bEnable = TRUE;
-        FillPolygonPoints(r.stRegion, out.dwPointCount, out.afPointX, out.afPointY);
+        FillPolygonPoints(r.stRegion, out.uPointCount, out.afPointX, out.afPointY);
         out.nSensitivity = (INT32)r.nSensitivity;
         out.nTimeThreshold = (INT32)r.nTimeThreshold;
-        out.dwDetectionTargetCount = (INT32)std::min<size_t>(r.aDetectionTarget.size(), 8);
-        for (int j = 0; j < out.dwDetectionTargetCount; ++j)
+        out.uDetectionTargetCount = (INT32)std::min<size_t>(r.aDetectionTarget.size(), 8);
+        for (int j = 0; j < out.uDetectionTargetCount; ++j)
         {
-            out.adwDetectionTarget[j] = (INT32)r.aDetectionTarget[j];
+            out.auDetectionTarget[j] = (INT32)r.aDetectionTarget[j];
         }
-        dst.dwRuleCount++;
+        dst.uRuleCount++;
     }
     FillSingleRuleAlarmSchedule(src.aAlarmTime, dst.stAlarmSchedule);
     FillLinkageList(src.stLinkageList, dst.stLinkageList);
 }
 
-void ToClimbFence(const NET_TV_CLIMB_FENCE_INFO_S &src, Alarm::FenceClimbingDetection_S &dst)
+void ToClimbFence(const NET_ClimbFenceInfo_S &src, Alarm::FenceClimbingDetection_S &dst)
 {
     dst.bEnable = (src.bEnable == TRUE);
     dst.aRule.clear();
-    for (int i = 0; i < src.dwRuleCount && i < 4; ++i)
+    for (int i = 0; i < src.uRuleCount && i < 4; ++i)
     {
-        const NET_TV_SMART_REGION_RULE_S &r = src.astRule[i];
+        const NET_SmartRegionRule_S &r = src.stRule[i];
         Alarm::FenceClimbingRule_S out;
-        ToRegionFromPolygon(r.dwPointCount, r.afPointX, r.afPointY, out.stRegion);
+        ToRegionFromPolygon(r.uPointCount, r.afPointX, r.afPointY, out.stRegion);
         out.nSensitivity = (unsigned int)r.nSensitivity;
         out.nTimeThreshold = (unsigned int)r.nTimeThreshold;
-        out.aDetectionTarget.assign(r.adwDetectionTarget, r.adwDetectionTarget + std::min(r.dwDetectionTargetCount, 8));
+        out.aDetectionTarget.assign(r.auDetectionTarget, r.auDetectionTarget + std::min(r.uDetectionTargetCount, 8));
         dst.aRule.push_back(out);
     }
     ToSingleRuleAlarmSchedule(src.stAlarmSchedule, dst.aAlarmTime);
     ToLinkageList(src.stLinkageList, dst.stLinkageList);
 }
 
-void FillDimissionInfo(const Alarm::LeavePostDetection_S &src, NET_TV_DIMISSION_INFO_S &dst)
+void FillDimissionInfo(const Alarm::LeavePostDetection_S &src, NET_DimissionInfo_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));
     dst.bEnable = src.bEnable ? TRUE : FALSE;
-    dst.dwRuleCount = 0;
+    dst.uRuleCount = 0;
     for (size_t i = 0; i < src.aRule.size() && i < 4; ++i)
     {
         const auto &r = src.aRule[i];
-        NET_TV_SMART_REGION_RULE_S &out = dst.astRule[i];
+        NET_SmartRegionRule_S &out = dst.stRule[i];
         std::memset(&out, 0, sizeof(out));
         out.bEnable = TRUE;
-        FillPolygonPoints(r.stRegion, out.dwPointCount, out.afPointX, out.afPointY);
+        FillPolygonPoints(r.stRegion, out.uPointCount, out.afPointX, out.afPointY);
         out.nSensitivity = (INT32)r.nSensitivity;
         out.nTimeThreshold = (INT32)r.nTimeThreshold;
-        out.dwDetectionTargetCount = (INT32)std::min<size_t>(r.aDetectionTarget.size(), 8);
-        for (int j = 0; j < out.dwDetectionTargetCount; ++j)
+        out.uDetectionTargetCount = (INT32)std::min<size_t>(r.aDetectionTarget.size(), 8);
+        for (int j = 0; j < out.uDetectionTargetCount; ++j)
         {
-            out.adwDetectionTarget[j] = (INT32)r.aDetectionTarget[j];
+            out.auDetectionTarget[j] = (INT32)r.aDetectionTarget[j];
         }
-        dst.dwRuleCount++;
+        dst.uRuleCount++;
     }
     FillSingleRuleAlarmSchedule(src.aAlarmTime, dst.stAlarmSchedule);
     FillLinkageList(src.stLinkageList, dst.stLinkageList);
 }
 
-void ToDimission(const NET_TV_DIMISSION_INFO_S &src, Alarm::LeavePostDetection_S &dst)
+void ToDimission(const NET_DimissionInfo_S &src, Alarm::LeavePostDetection_S &dst)
 {
     dst.bEnable = (src.bEnable == TRUE);
     dst.aRule.clear();
-    for (int i = 0; i < src.dwRuleCount && i < 4; ++i)
+    for (int i = 0; i < src.uRuleCount && i < 4; ++i)
     {
-        const NET_TV_SMART_REGION_RULE_S &r = src.astRule[i];
+        const NET_SmartRegionRule_S &r = src.stRule[i];
         Alarm::LeavePostRule_S out;
-        ToRegionFromPolygon(r.dwPointCount, r.afPointX, r.afPointY, out.stRegion);
+        ToRegionFromPolygon(r.uPointCount, r.afPointX, r.afPointY, out.stRegion);
         out.nSensitivity = (unsigned int)r.nSensitivity;
         out.nTimeThreshold = (unsigned int)r.nTimeThreshold;
-        out.aDetectionTarget.assign(r.adwDetectionTarget, r.adwDetectionTarget + std::min(r.dwDetectionTargetCount, 8));
+        out.aDetectionTarget.assign(r.auDetectionTarget, r.auDetectionTarget + std::min(r.uDetectionTargetCount, 8));
         dst.aRule.push_back(out);
     }
     ToSingleRuleAlarmSchedule(src.stAlarmSchedule, dst.aAlarmTime);
     ToLinkageList(src.stLinkageList, dst.stLinkageList);
 }
 
-void FillIllegalLaneInfo(const Alarm::IllegalLaneChangeDetection_S &src, NET_TV_ILLEGAL_LANE_INFO_S &dst)
+void FillIllegalLaneInfo(const Alarm::IllegalLaneChangeDetection_S &src, NET_IllegalLaneInfo_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));
     dst.bEnable = src.bEnable ? TRUE : FALSE;
-    dst.dwRuleCount = 0;
+    dst.uRuleCount = 0;
     for (size_t i = 0; i < src.aRule.size() && i < 4; ++i)
     {
         const auto &r = src.aRule[i];
-        NET_TV_SMART_LINE_RULE_S &out = dst.astRule[i];
+        NET_SmartLineRule_S &out = dst.stRule[i];
         std::memset(&out, 0, sizeof(out));
         out.bEnable = TRUE;
         out.fStartPosX = r.stStartPos.fX;
@@ -2783,19 +2765,19 @@ void FillIllegalLaneInfo(const Alarm::IllegalLaneChangeDetection_S &src, NET_TV_
         out.fEndPosY = r.stEndPos.fY;
         out.enCrossDirection = (INT32)r.enCrossDirection;
         out.nSensitivity = (INT32)r.nSensitivity;
-        dst.dwRuleCount++;
+        dst.uRuleCount++;
     }
     FillSingleRuleAlarmSchedule(src.aAlarmTime, dst.stAlarmSchedule);
     FillLinkageList(src.stLinkageList, dst.stLinkageList);
 }
 
-void ToIllegalLane(const NET_TV_ILLEGAL_LANE_INFO_S &src, Alarm::IllegalLaneChangeDetection_S &dst)
+void ToIllegalLane(const NET_IllegalLaneInfo_S &src, Alarm::IllegalLaneChangeDetection_S &dst)
 {
     dst.bEnable = (src.bEnable == TRUE);
     dst.aRule.clear();
-    for (int i = 0; i < src.dwRuleCount && i < 4; ++i)
+    for (int i = 0; i < src.uRuleCount && i < 4; ++i)
     {
-        const NET_TV_SMART_LINE_RULE_S &r = src.astRule[i];
+        const NET_SmartLineRule_S &r = src.stRule[i];
         Alarm::IllegalLaneChangeRule_S out;
         out.stStartPos = {r.fStartPosX, r.fStartPosY};
         out.stEndPos = {r.fEndPosX, r.fEndPosY};
@@ -2807,15 +2789,15 @@ void ToIllegalLane(const NET_TV_ILLEGAL_LANE_INFO_S &src, Alarm::IllegalLaneChan
     ToLinkageList(src.stLinkageList, dst.stLinkageList);
 }
 
-void FillRetrogradeInfo(const Alarm::DrivingAgainstTrafficDetection_S &src, NET_TV_RETROGRADE_INFO_S &dst)
+void FillRetrogradeInfo(const Alarm::DrivingAgainstTrafficDetection_S &src, NET_RetrogradeInfo_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));
     dst.bEnable = src.bEnable ? TRUE : FALSE;
-    dst.dwRuleCount = 0;
+    dst.uRuleCount = 0;
     for (size_t i = 0; i < src.aRule.size() && i < 4; ++i)
     {
         const auto &r = src.aRule[i];
-        NET_TV_SMART_LINE_RULE_S &out = dst.astRule[i];
+        NET_SmartLineRule_S &out = dst.stRule[i];
         std::memset(&out, 0, sizeof(out));
         out.bEnable = TRUE;
         out.fStartPosX = r.stStartPos.fX;
@@ -2824,19 +2806,19 @@ void FillRetrogradeInfo(const Alarm::DrivingAgainstTrafficDetection_S &src, NET_
         out.fEndPosY = r.stEndPos.fY;
         out.enCrossDirection = (INT32)r.enCrossDirection;
         out.nSensitivity = (INT32)r.nSensitivity;
-        dst.dwRuleCount++;
+        dst.uRuleCount++;
     }
     FillSingleRuleAlarmSchedule(src.aAlarmTime, dst.stAlarmSchedule);
     FillLinkageList(src.stLinkageList, dst.stLinkageList);
 }
 
-void ToRetrograde(const NET_TV_RETROGRADE_INFO_S &src, Alarm::DrivingAgainstTrafficDetection_S &dst)
+void ToRetrograde(const NET_RetrogradeInfo_S &src, Alarm::DrivingAgainstTrafficDetection_S &dst)
 {
     dst.bEnable = (src.bEnable == TRUE);
     dst.aRule.clear();
-    for (int i = 0; i < src.dwRuleCount && i < 4; ++i)
+    for (int i = 0; i < src.uRuleCount && i < 4; ++i)
     {
-        const NET_TV_SMART_LINE_RULE_S &r = src.astRule[i];
+        const NET_SmartLineRule_S &r = src.stRule[i];
         Alarm::DrivingAgainstTrafficRule_S out;
         out.stStartPos = {r.fStartPosX, r.fStartPosY};
         out.stEndPos = {r.fEndPosX, r.fEndPosY};
@@ -2848,136 +2830,136 @@ void ToRetrograde(const NET_TV_RETROGRADE_INFO_S &src, Alarm::DrivingAgainstTraf
     ToLinkageList(src.stLinkageList, dst.stLinkageList);
 }
 
-void FillNonmotorVehicleIntrusionInfo(const Alarm::NonMotorVehicleIntrusionDetection_S &src, NET_TV_NONMOTOR_VEHICLE_INTRUSION_INFO_S &dst)
+void FillNonmotorVehicleIntrusionInfo(const Alarm::NonMotorVehicleIntrusionDetection_S &src, NET_NonmotorVehicleIntrusionInfo_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));
     dst.bEnable = src.bEnable ? TRUE : FALSE;
-    dst.dwRuleCount = 0;
+    dst.uRuleCount = 0;
     for (size_t i = 0; i < src.aRule.size() && i < 4; ++i)
     {
         const auto &r = src.aRule[i];
-        NET_TV_SMART_REGION_RULE_S &out = dst.astRule[i];
+        NET_SmartRegionRule_S &out = dst.stRule[i];
         std::memset(&out, 0, sizeof(out));
         out.bEnable = TRUE;
-        FillPolygonPoints(r.stRegion, out.dwPointCount, out.afPointX, out.afPointY);
+        FillPolygonPoints(r.stRegion, out.uPointCount, out.afPointX, out.afPointY);
         out.nSensitivity = (INT32)r.nSensitivity;
         out.nTimeThreshold = (INT32)r.nTimeThreshold;
-        out.dwDetectionTargetCount = (INT32)std::min<size_t>(r.aDetectionTarget.size(), 8);
-        for (int j = 0; j < out.dwDetectionTargetCount; ++j)
+        out.uDetectionTargetCount = (INT32)std::min<size_t>(r.aDetectionTarget.size(), 8);
+        for (int j = 0; j < out.uDetectionTargetCount; ++j)
         {
-            out.adwDetectionTarget[j] = (INT32)r.aDetectionTarget[j];
+            out.auDetectionTarget[j] = (INT32)r.aDetectionTarget[j];
         }
-        dst.dwRuleCount++;
+        dst.uRuleCount++;
     }
     FillSingleRuleAlarmSchedule(src.aAlarmTime, dst.stAlarmSchedule);
     FillLinkageList(src.stLinkageList, dst.stLinkageList);
 }
 
-void ToNonmotorVehicleIntrusion(const NET_TV_NONMOTOR_VEHICLE_INTRUSION_INFO_S &src, Alarm::NonMotorVehicleIntrusionDetection_S &dst)
+void ToNonmotorVehicleIntrusion(const NET_NonmotorVehicleIntrusionInfo_S &src, Alarm::NonMotorVehicleIntrusionDetection_S &dst)
 {
     dst.bEnable = (src.bEnable == TRUE);
     dst.aRule.clear();
-    for (int i = 0; i < src.dwRuleCount && i < 4; ++i)
+    for (int i = 0; i < src.uRuleCount && i < 4; ++i)
     {
-        const NET_TV_SMART_REGION_RULE_S &r = src.astRule[i];
+        const NET_SmartRegionRule_S &r = src.stRule[i];
         Alarm::NonMotorVehicleIntrusionRule_S out;
-        ToRegionFromPolygon(r.dwPointCount, r.afPointX, r.afPointY, out.stRegion);
+        ToRegionFromPolygon(r.uPointCount, r.afPointX, r.afPointY, out.stRegion);
         out.nSensitivity = (unsigned int)r.nSensitivity;
         out.nTimeThreshold = (unsigned int)r.nTimeThreshold;
-        out.aDetectionTarget.assign(r.adwDetectionTarget, r.adwDetectionTarget + std::min(r.dwDetectionTargetCount, 8));
+        out.aDetectionTarget.assign(r.auDetectionTarget, r.auDetectionTarget + std::min(r.uDetectionTargetCount, 8));
         dst.aRule.push_back(out);
     }
     ToSingleRuleAlarmSchedule(src.stAlarmSchedule, dst.aAlarmTime);
     ToLinkageList(src.stLinkageList, dst.stLinkageList);
 }
 
-void FillOccupationEmergencyInfo(const Alarm::EmergencyLaneOccupancyDetection_S &src, NET_TV_OCCUPATION_EMERGENCY_INFO_S &dst)
+void FillOccupationEmergencyInfo(const Alarm::EmergencyLaneOccupancyDetection_S &src, NET_OccupationEmergencyInfo_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));
     dst.bEnable = src.bEnable ? TRUE : FALSE;
-    dst.dwRuleCount = 0;
+    dst.uRuleCount = 0;
     for (size_t i = 0; i < src.aRule.size() && i < 4; ++i)
     {
         const auto &r = src.aRule[i];
-        NET_TV_SMART_REGION_RULE_S &out = dst.astRule[i];
+        NET_SmartRegionRule_S &out = dst.stRule[i];
         std::memset(&out, 0, sizeof(out));
         out.bEnable = TRUE;
-        FillPolygonPoints(r.stRegion, out.dwPointCount, out.afPointX, out.afPointY);
+        FillPolygonPoints(r.stRegion, out.uPointCount, out.afPointX, out.afPointY);
         out.nSensitivity = (INT32)r.nSensitivity;
         out.nTimeThreshold = (INT32)r.nTimeThreshold;
-        out.dwDetectionTargetCount = (INT32)std::min<size_t>(r.aDetectionTarget.size(), 8);
-        for (int j = 0; j < out.dwDetectionTargetCount; ++j)
+        out.uDetectionTargetCount = (INT32)std::min<size_t>(r.aDetectionTarget.size(), 8);
+        for (int j = 0; j < out.uDetectionTargetCount; ++j)
         {
-            out.adwDetectionTarget[j] = (INT32)r.aDetectionTarget[j];
+            out.auDetectionTarget[j] = (INT32)r.aDetectionTarget[j];
         }
-        dst.dwRuleCount++;
+        dst.uRuleCount++;
     }
     FillSingleRuleAlarmSchedule(src.aAlarmTime, dst.stAlarmSchedule);
     FillLinkageList(src.stLinkageList, dst.stLinkageList);
 }
 
-void ToOccupationEmergency(const NET_TV_OCCUPATION_EMERGENCY_INFO_S &src, Alarm::EmergencyLaneOccupancyDetection_S &dst)
+void ToOccupationEmergency(const NET_OccupationEmergencyInfo_S &src, Alarm::EmergencyLaneOccupancyDetection_S &dst)
 {
     dst.bEnable = (src.bEnable == TRUE);
     dst.aRule.clear();
-    for (int i = 0; i < src.dwRuleCount && i < 4; ++i)
+    for (int i = 0; i < src.uRuleCount && i < 4; ++i)
     {
-        const NET_TV_SMART_REGION_RULE_S &r = src.astRule[i];
+        const NET_SmartRegionRule_S &r = src.stRule[i];
         Alarm::EmergencyLaneOccupancyRule_S out;
-        ToRegionFromPolygon(r.dwPointCount, r.afPointX, r.afPointY, out.stRegion);
+        ToRegionFromPolygon(r.uPointCount, r.afPointX, r.afPointY, out.stRegion);
         out.nSensitivity = (unsigned int)r.nSensitivity;
         out.nTimeThreshold = (unsigned int)r.nTimeThreshold;
-        out.aDetectionTarget.assign(r.adwDetectionTarget, r.adwDetectionTarget + std::min(r.dwDetectionTargetCount, 8));
+        out.aDetectionTarget.assign(r.auDetectionTarget, r.auDetectionTarget + std::min(r.uDetectionTargetCount, 8));
         dst.aRule.push_back(out);
     }
     ToSingleRuleAlarmSchedule(src.stAlarmSchedule, dst.aAlarmTime);
     ToLinkageList(src.stLinkageList, dst.stLinkageList);
 }
 
-void FillPedestrianIntrusionInfo(const Alarm::PedestrianIntrusionDetection_S &src, NET_TV_PEDESTRIAN_INTRUSION_INFO_S &dst)
+void FillPedestrianIntrusionInfo(const Alarm::PedestrianIntrusionDetection_S &src, NET_PedestrianIntrusionInfo_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));
     dst.bEnable = src.bEnable ? TRUE : FALSE;
-    dst.dwRuleCount = 0;
+    dst.uRuleCount = 0;
     for (size_t i = 0; i < src.aRule.size() && i < 4; ++i)
     {
         const auto &r = src.aRule[i];
-        NET_TV_SMART_REGION_RULE_S &out = dst.astRule[i];
+        NET_SmartRegionRule_S &out = dst.stRule[i];
         std::memset(&out, 0, sizeof(out));
         out.bEnable = TRUE;
-        FillPolygonPoints(r.stRegion, out.dwPointCount, out.afPointX, out.afPointY);
+        FillPolygonPoints(r.stRegion, out.uPointCount, out.afPointX, out.afPointY);
         out.nSensitivity = (INT32)r.nSensitivity;
         out.nTimeThreshold = (INT32)r.nTimeThreshold;
-        out.dwDetectionTargetCount = (INT32)std::min<size_t>(r.aDetectionTarget.size(), 8);
-        for (int j = 0; j < out.dwDetectionTargetCount; ++j)
+        out.uDetectionTargetCount = (INT32)std::min<size_t>(r.aDetectionTarget.size(), 8);
+        for (int j = 0; j < out.uDetectionTargetCount; ++j)
         {
-            out.adwDetectionTarget[j] = (INT32)r.aDetectionTarget[j];
+            out.auDetectionTarget[j] = (INT32)r.aDetectionTarget[j];
         }
-        dst.dwRuleCount++;
+        dst.uRuleCount++;
     }
     FillSingleRuleAlarmSchedule(src.aAlarmTime, dst.stAlarmSchedule);
     FillLinkageList(src.stLinkageList, dst.stLinkageList);
 }
 
-void ToPedestrianIntrusion(const NET_TV_PEDESTRIAN_INTRUSION_INFO_S &src, Alarm::PedestrianIntrusionDetection_S &dst)
+void ToPedestrianIntrusion(const NET_PedestrianIntrusionInfo_S &src, Alarm::PedestrianIntrusionDetection_S &dst)
 {
     dst.bEnable = (src.bEnable == TRUE);
     dst.aRule.clear();
-    for (int i = 0; i < src.dwRuleCount && i < 4; ++i)
+    for (int i = 0; i < src.uRuleCount && i < 4; ++i)
     {
-        const NET_TV_SMART_REGION_RULE_S &r = src.astRule[i];
+        const NET_SmartRegionRule_S &r = src.stRule[i];
         Alarm::PedestrianIntrusionRule_S out;
-        ToRegionFromPolygon(r.dwPointCount, r.afPointX, r.afPointY, out.stRegion);
+        ToRegionFromPolygon(r.uPointCount, r.afPointX, r.afPointY, out.stRegion);
         out.nSensitivity = (unsigned int)r.nSensitivity;
         out.nTimeThreshold = (unsigned int)r.nTimeThreshold;
-        out.aDetectionTarget.assign(r.adwDetectionTarget, r.adwDetectionTarget + std::min(r.dwDetectionTargetCount, 8));
+        out.aDetectionTarget.assign(r.auDetectionTarget, r.auDetectionTarget + std::min(r.uDetectionTargetCount, 8));
         dst.aRule.push_back(out);
     }
     ToSingleRuleAlarmSchedule(src.stAlarmSchedule, dst.aAlarmTime);
     ToLinkageList(src.stLinkageList, dst.stLinkageList);
 }
 
-void FillSmokeFireCfg(const Alarm::SmokeFireDetection_S &src, NET_TV_SMOKE_FIRE_CFG_S &dst)
+void FillSmokeFireCfg(const Alarm::SmokeFireDetection_S &src, NET_SmokeFireCfg_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));
     dst.bEnable = src.bEnable ? TRUE : FALSE;
@@ -2986,7 +2968,7 @@ void FillSmokeFireCfg(const Alarm::SmokeFireDetection_S &src, NET_TV_SMOKE_FIRE_
     FillLinkageList(src.stLinkageList, dst.stLinkageList);
 }
 
-void ToSmokeFire(const NET_TV_SMOKE_FIRE_CFG_S &src, Alarm::SmokeFireDetection_S &dst)
+void ToSmokeFire(const NET_SmokeFireCfg_S &src, Alarm::SmokeFireDetection_S &dst)
 {
     dst.bEnable = (src.bEnable == TRUE);
     dst.stRule.nSensitivity = (unsigned int)src.stRule.nSensitivity;
@@ -2994,7 +2976,7 @@ void ToSmokeFire(const NET_TV_SMOKE_FIRE_CFG_S &src, Alarm::SmokeFireDetection_S
     ToLinkageList(src.stLinkageList, dst.stLinkageList);
 }
 
-void FillRoadPondingCfg(const Alarm::RoadPondingDetection_S &src, NET_TV_ROAD_PONDING_CFG_S &dst)
+void FillRoadPondingCfg(const Alarm::RoadPondingDetection_S &src, NET_RoadPondingCfg_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));
     dst.bEnable = src.bEnable ? TRUE : FALSE;
@@ -3003,7 +2985,7 @@ void FillRoadPondingCfg(const Alarm::RoadPondingDetection_S &src, NET_TV_ROAD_PO
     FillLinkageList(src.stLinkageList, dst.stLinkageList);
 }
 
-void ToRoadPonding(const NET_TV_ROAD_PONDING_CFG_S &src, Alarm::RoadPondingDetection_S &dst)
+void ToRoadPonding(const NET_RoadPondingCfg_S &src, Alarm::RoadPondingDetection_S &dst)
 {
     dst.bEnable = (src.bEnable == TRUE);
     dst.stRule.nSensitivity = (unsigned int)src.stRule.nSensitivity;
@@ -3013,63 +2995,8 @@ void ToRoadPonding(const NET_TV_ROAD_PONDING_CFG_S &src, Alarm::RoadPondingDetec
 
 #endif
 
-#ifdef SCENE_INTELLIGENCE
-static void FillCapturePolygonPoints(const Alarm::Region_S &src, NET_CapturePolygon_S &dst)
-{
-    std::memset(&dst, 0, sizeof(dst));
-    dst.uPointCount = static_cast<UINT32>(std::min<size_t>(src.aPoint.size(), NET_CAPTURE_REGION_POINT_MAX_NUM));
-    for (UINT32 p = 0; p < dst.uPointCount; ++p)
-    {
-        dst.afPointX[p] = src.aPoint[p].fX;
-        dst.afPointY[p] = src.aPoint[p].fY;
-    }
-}
-
-void FillFaceCapturePushInfo(const Alarm::FaceAlarmInfo_S& stSource, NET_FaceCapturePushInfo_S& stDestination)
-{
-    std::memset(&stDestination, 0, sizeof(stDestination));
-    stDestination.bMale = stSource.stFaceAlarmAttribute.bIsMale ? TRUE : FALSE;
-    stDestination.nAgeLabel = (INT32)stSource.stFaceAlarmAttribute.nAgeLabel;
-    stDestination.bGlasses = stSource.stFaceAlarmAttribute.bIsGlasses ? TRUE : FALSE;
-    stDestination.bBeard = stSource.stFaceAlarmAttribute.bIsBeard ? TRUE : FALSE;
-    stDestination.bMask = stSource.stFaceAlarmAttribute.bIsMask ? TRUE : FALSE;
-    stDestination.nEmotionLabel = (INT32)stSource.stFaceAlarmAttribute.nEmotionLabel;
-    FillCapturePolygonPoints(stSource.stFaceRegion, stDestination.stFaceRegion);
-    std::strncpy(stDestination.strTimestamp, stSource.strTimeStamp.c_str(), sizeof(stDestination.strTimestamp) - 1);
-}
-
-void FillPersonCapturePushInfo(const Alarm::PersonAlarmInfo_S& stSource, NET_PersonCapturePushInfo_S& stDestination)
-{
-    std::memset(&stDestination, 0, sizeof(stDestination));
-    stDestination.bMale = stSource.stPersonAlarmAttribute.bIsMale ? TRUE : FALSE;
-    stDestination.nAgeLabel = (INT32)stSource.stPersonAlarmAttribute.nAgeLabel;
-    stDestination.bBag = stSource.stPersonAlarmAttribute.bBag ? TRUE : FALSE;
-    stDestination.nTopColorLabel = (INT32)stSource.stPersonAlarmAttribute.eTopColorLabel;
-    stDestination.nBottomColorLabel = (INT32)stSource.stPersonAlarmAttribute.eBottomColorLabel;
-    std::strncpy(stDestination.strTimestamp, stSource.strTimeStamp.c_str(), sizeof(stDestination.strTimestamp) - 1);
-}
-
-void FillMotorvehicleCapturePushInfo(const Alarm::MotorvehicleAlarmInfo_S& stSource, NET_MotorvehicleCapturePushInfo_S& stDestination)
-{
-    std::memset(&stDestination, 0, sizeof(stDestination));
-    std::strncpy(stDestination.strVehicleBrand, stSource.stMotorvehicleAlarmAttribute.strVehicleBrand.c_str(), sizeof(stDestination.strVehicleBrand) - 1);
-    stDestination.nVehicleType = (INT32)stSource.stMotorvehicleAlarmAttribute.eVehicleType;
-    stDestination.nVehicleColor = (INT32)stSource.stMotorvehicleAlarmAttribute.eVehicleColor;
-    std::strncpy(stDestination.strLicensePlateNumber, stSource.strLicensePlateNumber.c_str(), sizeof(stDestination.strLicensePlateNumber) - 1);
-    std::strncpy(stDestination.strTimestamp, stSource.strTimeStamp.c_str(), sizeof(stDestination.strTimestamp) - 1);
-}
-
-void FillNonMotorvehicleCapturePushInfo(const Alarm::NonMotorvehicleAlarmInfo_S& stSource, NET_NonMotorvehicleCapturePushInfo_S& stDestination)
-{
-    std::memset(&stDestination, 0, sizeof(stDestination));
-    stDestination.nVehicleType = (INT32)stSource.stNonMotorvehicleAlarmAttribute.eNonMotorizedVehicleType;
-    stDestination.nVehicleColor = (INT32)stSource.stNonMotorvehicleAlarmAttribute.eNonMotorizedVehicleColor;
-    std::strncpy(stDestination.strTimestamp, stSource.strTimeStamp.c_str(), sizeof(stDestination.strTimestamp) - 1);
-}
-#endif
-
-// --------- AudioAnomaly (IPC AudioAnomaly_S <-> SDK NET_TV_AUDIO_ANOMALY_ALARM_INFO_S) ---------
-void FillAudioAnomalyAlarmInfo(const Alarm::AudioAnomaly_S &src, NET_TV_AUDIO_ANOMALY_ALARM_INFO_S &dst)
+// --------- AudioAnomaly (IPC AudioAnomaly_S <-> SDK NET_AudioAnomalyAlarmInfo_S) ---------
+void FillAudioAnomalyAlarmInfo(const Alarm::AudioAnomaly_S &src, NET_AudioAnomalyAlarmInfo_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));
     dst.bEnable = src.bEnable ? TRUE : FALSE;
@@ -3087,8 +3014,8 @@ void FillAudioAnomalyAlarmInfo(const Alarm::AudioAnomaly_S &src, NET_TV_AUDIO_AN
             if (day >= (int)src.aAlarmTime.size())
                 break;
             const auto &vecDay = src.aAlarmTime[day];
-            int cnt = (int)std::min<size_t>(vecDay.size(), NET_TV_PLAN_SECTION_NUM);
-            dst.stAlarmSchedule.dwTimeSectionCount[day] = cnt;
+            int cnt = (int)std::min<size_t>(vecDay.size(), NET_PLAN_SECTION_NUM);
+            dst.stAlarmSchedule.uTimeSectionCount[day] = cnt;
             for (int seg = 0; seg < cnt; ++seg)
             {
                 FillSchedTime(vecDay[seg], dst.stAlarmSchedule.astTimeSection[day][seg]);
@@ -3097,7 +3024,7 @@ void FillAudioAnomalyAlarmInfo(const Alarm::AudioAnomaly_S &src, NET_TV_AUDIO_AN
     }
 }
 
-void ToAudioAnomaly(const NET_TV_AUDIO_ANOMALY_ALARM_INFO_S &src, Alarm::AudioAnomaly_S &dst)
+void ToAudioAnomaly(const NET_AudioAnomalyAlarmInfo_S &src, Alarm::AudioAnomaly_S &dst)
 {
     dst.bEnable = (src.bEnable == TRUE);
     dst.bAudioInputAnomaly = (src.bAudioInputAnomaly == TRUE);
@@ -3111,10 +3038,10 @@ void ToAudioAnomaly(const NET_TV_AUDIO_ANOMALY_ALARM_INFO_S &src, Alarm::AudioAn
     dst.aAlarmTime.resize(7);
     for (int day = 0; day < 7; ++day)
     {
-        int cnt = src.stAlarmSchedule.dwTimeSectionCount[day];
+        int cnt = src.stAlarmSchedule.uTimeSectionCount[day];
         if (cnt <= 0)
             continue;
-        cnt = std::min(cnt, NET_TV_PLAN_SECTION_NUM);
+        cnt = std::min(cnt, NET_PLAN_SECTION_NUM);
         dst.aAlarmTime[day].resize(cnt);
         for (int seg = 0; seg < cnt; ++seg)
         {
@@ -3124,8 +3051,8 @@ void ToAudioAnomaly(const NET_TV_AUDIO_ANOMALY_ALARM_INFO_S &src, Alarm::AudioAn
 }
 
 #if CAP_AI_PEOPLE_STATISTICS
-// --------- PeopleFlowStatistics (IPC Alarm::PeopleFlowStatistics_S <-> SDK NET_TV_PEOPLE_FLOW_STATISTICS_CFG_S) ---------
-static void FillPeopleAlarmRule(const Alarm::PopulationAlarmRule_S &src, NET_TV_PEOPLE_ALARM_RULE_S &dst)
+// --------- PeopleFlowStatistics (IPC Alarm::PeopleFlowStatistics_S <-> SDK NET_PeopleFlowStatisticsCfg_S) ---------
+static void FillPeopleAlarmRule(const Alarm::PopulationAlarmRule_S &src, NET_PeopleAlarmRule_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));
     dst.bEnable = src.bEnable ? TRUE : FALSE;
@@ -3133,14 +3060,14 @@ static void FillPeopleAlarmRule(const Alarm::PopulationAlarmRule_S &src, NET_TV_
     FillLinkageList(src.stLinkageList, dst.stLinkageList);
 }
 
-static void ToPeopleAlarmRule(const NET_TV_PEOPLE_ALARM_RULE_S &src, Alarm::PopulationAlarmRule_S &dst)
+static void ToPeopleAlarmRule(const NET_PeopleAlarmRule_S &src, Alarm::PopulationAlarmRule_S &dst)
 {
     dst.bEnable = (src.bEnable == TRUE);
     dst.nThreshold = (unsigned int)src.nThreshold;
     ToLinkageList(src.stLinkageList, dst.stLinkageList);
 }
 
-void FillPeopleFlowStatisticsCfg(const Alarm::PeopleFlowStatistics_S &src, NET_TV_PEOPLE_FLOW_STATISTICS_CFG_S &dst)
+void FillPeopleFlowStatisticsCfg(const Alarm::PeopleFlowStatistics_S &src, NET_PeopleFlowStatisticsCfg_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));
     dst.bEnable = src.bEnable ? TRUE : FALSE;
@@ -3154,7 +3081,7 @@ void FillPeopleFlowStatisticsCfg(const Alarm::PeopleFlowStatistics_S &src, NET_T
     dst.stRuleLine.nDirection = (INT32)src.stRuleLine.enDirection;
 
     // 检测区域
-    FillPolygonPoints(src.stDetectRegion, dst.dwPointCount, dst.afPointX, dst.afPointY);
+    FillPolygonPoints(src.stDetectRegion, dst.uPointCount, dst.afPointX, dst.afPointY);
 
     dst.nReportInterval = (INT32)src.nReportInterval;
     dst.enStatisticsType = (INT32)src.enStatisticsType;
@@ -3177,8 +3104,8 @@ void FillPeopleFlowStatisticsCfg(const Alarm::PeopleFlowStatistics_S &src, NET_T
             if (day >= (int)src.aAlarmTime.size())
                 break;
             const auto &vecDay = src.aAlarmTime[day];
-            int cnt = (int)std::min<size_t>(vecDay.size(), NET_TV_PLAN_SECTION_NUM);
-            dst.stAlarmSchedule.dwTimeSectionCount[day] = cnt;
+            int cnt = (int)std::min<size_t>(vecDay.size(), NET_PLAN_SECTION_NUM);
+            dst.stAlarmSchedule.uTimeSectionCount[day] = cnt;
             for (int seg = 0; seg < cnt; ++seg)
             {
                 FillSchedTime(vecDay[seg], dst.stAlarmSchedule.astTimeSection[day][seg]);
@@ -3187,7 +3114,7 @@ void FillPeopleFlowStatisticsCfg(const Alarm::PeopleFlowStatistics_S &src, NET_T
     }
 }
 
-void ToPeopleFlowStatistics(const NET_TV_PEOPLE_FLOW_STATISTICS_CFG_S &src, Alarm::PeopleFlowStatistics_S &dst)
+void ToPeopleFlowStatistics(const NET_PeopleFlowStatisticsCfg_S &src, Alarm::PeopleFlowStatistics_S &dst)
 {
     dst.bEnable = (src.bEnable == TRUE);
     dst.nSensitivity = (unsigned int)src.nSensitivity;
@@ -3200,7 +3127,7 @@ void ToPeopleFlowStatistics(const NET_TV_PEOPLE_FLOW_STATISTICS_CFG_S &src, Alar
     dst.stRuleLine.enDirection = (Alarm::CrossDirection_E)src.stRuleLine.nDirection;
 
     // 检测区域
-    ToRegionFromPolygon(src.dwPointCount, src.afPointX, src.afPointY, dst.stDetectRegion);
+    ToRegionFromPolygon(src.uPointCount, src.afPointX, src.afPointY, dst.stDetectRegion);
 
     dst.nReportInterval = (unsigned int)src.nReportInterval;
     dst.enStatisticsType = (Alarm::PeopleFlowStatisticsType_E)src.enStatisticsType;
@@ -3221,10 +3148,10 @@ void ToPeopleFlowStatistics(const NET_TV_PEOPLE_FLOW_STATISTICS_CFG_S &src, Alar
     dst.aAlarmTime.resize(7);
     for (int day = 0; day < 7; ++day)
     {
-        int cnt = src.stAlarmSchedule.dwTimeSectionCount[day];
+        int cnt = src.stAlarmSchedule.uTimeSectionCount[day];
         if (cnt <= 0)
             continue;
-        cnt = std::min(cnt, NET_TV_PLAN_SECTION_NUM);
+        cnt = std::min(cnt, NET_PLAN_SECTION_NUM);
         dst.aAlarmTime[day].resize(cnt);
         for (int seg = 0; seg < cnt; ++seg)
         {
@@ -3233,15 +3160,15 @@ void ToPeopleFlowStatistics(const NET_TV_PEOPLE_FLOW_STATISTICS_CFG_S &src, Alar
     }
 }
 
-// --------- PeopleDensityDetection (IPC Alarm::PeopleDensityDetection_S <-> SDK NET_TV_PEOPLE_DENSITY_DETECTION_CFG_S) ---------
-void FillPeopleDensityDetectionCfg(const Alarm::PeopleDensityDetection_S &src, NET_TV_PEOPLE_DENSITY_DETECTION_CFG_S &dst)
+// --------- PeopleDensityDetection (IPC Alarm::PeopleDensityDetection_S <-> SDK NET_PeopleDensityDetectionCfg_S) ---------
+void FillPeopleDensityDetectionCfg(const Alarm::PeopleDensityDetection_S &src, NET_PeopleDensityDetectionCfg_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));
     dst.bEnable = src.bEnable ? TRUE : FALSE;
     dst.nSensitivity = (INT32)src.nSensitivity;
 
     // 检测区域
-    FillPolygonPoints(src.stDetectRegion, dst.dwPointCount, dst.afPointX, dst.afPointY);
+    FillPolygonPoints(src.stDetectRegion, dst.uPointCount, dst.afPointX, dst.afPointY);
 
     dst.nReportInterval = (INT32)src.nReportInterval;
 
@@ -3258,8 +3185,8 @@ void FillPeopleDensityDetectionCfg(const Alarm::PeopleDensityDetection_S &src, N
             if (day >= (int)src.aAlarmTime.size())
                 break;
             const auto &vecDay = src.aAlarmTime[day];
-            int cnt = (int)std::min<size_t>(vecDay.size(), NET_TV_PLAN_SECTION_NUM);
-            dst.stAlarmSchedule.dwTimeSectionCount[day] = cnt;
+            int cnt = (int)std::min<size_t>(vecDay.size(), NET_PLAN_SECTION_NUM);
+            dst.stAlarmSchedule.uTimeSectionCount[day] = cnt;
             for (int seg = 0; seg < cnt; ++seg)
             {
                 FillSchedTime(vecDay[seg], dst.stAlarmSchedule.astTimeSection[day][seg]);
@@ -3268,13 +3195,13 @@ void FillPeopleDensityDetectionCfg(const Alarm::PeopleDensityDetection_S &src, N
     }
 }
 
-void ToPeopleDensityDetection(const NET_TV_PEOPLE_DENSITY_DETECTION_CFG_S &src, Alarm::PeopleDensityDetection_S &dst)
+void ToPeopleDensityDetection(const NET_PeopleDensityDetectionCfg_S &src, Alarm::PeopleDensityDetection_S &dst)
 {
     dst.bEnable = (src.bEnable == TRUE);
     dst.nSensitivity = (unsigned int)src.nSensitivity;
 
     // 检测区域
-    ToRegionFromPolygon(src.dwPointCount, src.afPointX, src.afPointY, dst.stDetectRegion);
+    ToRegionFromPolygon(src.uPointCount, src.afPointX, src.afPointY, dst.stDetectRegion);
 
     dst.nReportInterval = (unsigned int)src.nReportInterval;
 
@@ -3288,10 +3215,10 @@ void ToPeopleDensityDetection(const NET_TV_PEOPLE_DENSITY_DETECTION_CFG_S &src, 
     dst.aAlarmTime.resize(7);
     for (int day = 0; day < 7; ++day)
     {
-        int cnt = src.stAlarmSchedule.dwTimeSectionCount[day];
+        int cnt = src.stAlarmSchedule.uTimeSectionCount[day];
         if (cnt <= 0)
             continue;
-        cnt = std::min(cnt, NET_TV_PLAN_SECTION_NUM);
+        cnt = std::min(cnt, NET_PLAN_SECTION_NUM);
         dst.aAlarmTime[day].resize(cnt);
         for (int seg = 0; seg < cnt; ++seg)
         {
@@ -3301,25 +3228,25 @@ void ToPeopleDensityDetection(const NET_TV_PEOPLE_DENSITY_DETECTION_CFG_S &src, 
 }
 #endif
 
-void ToUpgradeInfo(const NET_TV_UPGRADE_INFO_S &src, ::System::UpgradeInfo_S &dst)
+void ToUpgradeInfo(const NET_UpgradeInfo_S &src, ::System::UpgradeInfo_S &dst)
 {
     dst.strUpgradePath = src.szUpgradePath;
 }
 
-void FillUpgradeStatus(const ::System::UpgradeStatus_S &src, NET_TV_UPGRADE_STATUS_S &dst)
+void FillUpgradeStatus(const ::System::UpgradeStatus_S &src, NET_UpgradeStatus_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));
     dst.nUpgradeStatus = (INT32)src.nUpgradeStatus;
 }
 
-void FillUpgradeVersion(const ::System::UpgradeVersion_S &src, NET_TV_UPGRADE_VERSION_S &dst)
+void FillUpgradeVersion(const ::System::UpgradeVersion_S &src, NET_UpgradeVersion_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));
     std::strncpy(dst.szVersion, src.strVersion.c_str(), sizeof(dst.szVersion) - 1);
     dst.szVersion[sizeof(dst.szVersion) - 1] = '\0';
 }
 
-static void FillOneCaptureConfig(const Capture_NS::CaptureConfig_S &src, NET_TV_CAPTURE_CONFIG_S &dst)
+static void FillOneCaptureConfig(const Capture_NS::CaptureConfig_S &src, NET_CaptureConfig_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));
     dst.bEnable = src.bEnable ? TRUE : FALSE;
@@ -3332,7 +3259,7 @@ static void FillOneCaptureConfig(const Capture_NS::CaptureConfig_S &src, NET_TV_
     dst.unNumber = src.unNumber;
 }
 
-static void ToOneCaptureConfig(const NET_TV_CAPTURE_CONFIG_S &src, Capture_NS::CaptureConfig_S &dst)
+static void ToOneCaptureConfig(const NET_CaptureConfig_S &src, Capture_NS::CaptureConfig_S &dst)
 {
     dst.bEnable = (src.bEnable == TRUE);
     dst.enPictureFormat = (Capture_NS::PictureFormat_E)src.enPictureFormat;
@@ -3344,10 +3271,10 @@ static void ToOneCaptureConfig(const NET_TV_CAPTURE_CONFIG_S &src, Capture_NS::C
     dst.unNumber = src.unNumber;
 }
 
-void FillCapturePlan(const Capture_NS::CapturePlan_S &src, NET_TV_CAPTURE_PLAN_INFO_S &dst)
+void FillCapturePlan(const Capture_NS::CapturePlan_S &src, NET_CapturePlanInfo_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));
-    for (size_t i = 0; i < NET_TV_PLAN_DAY_NUM_AWEEK; ++i)
+    for (size_t i = 0; i < NET_PLAN_DAY_NUM_AWEEK; ++i)
     {
         dst.astDaySchedules[i].nDayOfWeek = (INT32)(i + 1);
         dst.astDaySchedules[i].udwTimeCount = 1;
@@ -3360,13 +3287,13 @@ void FillCapturePlan(const Capture_NS::CapturePlan_S &src, NET_TV_CAPTURE_PLAN_I
     {
         const Capture_NS::DaySchedule_S &day = src.vstDaySchedules[i];
         int nDayOfWeek = (int)day.enDayOfWeek;
-        if (nDayOfWeek < 1 || nDayOfWeek > (int)NET_TV_PLAN_DAY_NUM_AWEEK)
+        if (nDayOfWeek < 1 || nDayOfWeek > (int)NET_PLAN_DAY_NUM_AWEEK)
             continue;
-        NET_TV_CAPTURE_DAY_SCHEDULE_S &outDay = dst.astDaySchedules[(size_t)nDayOfWeek - 1];
+        NET_CaptureDaySchedule_S &outDay = dst.astDaySchedules[(size_t)nDayOfWeek - 1];
         outDay.nDayOfWeek = (INT32)nDayOfWeek;
 
         const size_t timeCount = day.captureTimes.size();
-        const size_t n = (timeCount < NET_TV_PLAN_TIME_SECTION_NUM_ADAY) ? timeCount : NET_TV_PLAN_TIME_SECTION_NUM_ADAY;
+        const size_t n = (timeCount < NET_PLAN_TIME_SECTION_NUM_ADAY) ? timeCount : NET_PLAN_TIME_SECTION_NUM_ADAY;
         outDay.udwTimeCount = (UINT32)n;
         if (n == 0)
             continue;
@@ -3379,12 +3306,12 @@ void FillCapturePlan(const Capture_NS::CapturePlan_S &src, NET_TV_CAPTURE_PLAN_I
     }
 }
 
-void ToCapturePlan(const NET_TV_CAPTURE_PLAN_INFO_S &src, Capture_NS::CapturePlan_S &dst)
+void ToCapturePlan(const NET_CapturePlanInfo_S &src, Capture_NS::CapturePlan_S &dst)
 {
     dst.init_weekSchedule();
-    for (size_t i = 0; i < NET_TV_PLAN_DAY_NUM_AWEEK; ++i)
+    for (size_t i = 0; i < NET_PLAN_DAY_NUM_AWEEK; ++i)
     {
-        const NET_TV_CAPTURE_DAY_SCHEDULE_S &inDay = src.astDaySchedules[i];
+        const NET_CaptureDaySchedule_S &inDay = src.astDaySchedules[i];
         int nDayOfWeek = inDay.nDayOfWeek;
         if (nDayOfWeek < 1 || nDayOfWeek > 7)
             nDayOfWeek = (int)i + 1;
@@ -3393,8 +3320,8 @@ void ToCapturePlan(const NET_TV_CAPTURE_PLAN_INFO_S &src, Capture_NS::CapturePla
 
         outDay.captureTimes.clear();
         size_t n = (size_t)inDay.udwTimeCount;
-        if (n > NET_TV_PLAN_TIME_SECTION_NUM_ADAY)
-            n = NET_TV_PLAN_TIME_SECTION_NUM_ADAY;
+        if (n > NET_PLAN_TIME_SECTION_NUM_ADAY)
+            n = NET_PLAN_TIME_SECTION_NUM_ADAY;
 
         if (n == 0)
         {
@@ -3414,34 +3341,34 @@ void ToCapturePlan(const NET_TV_CAPTURE_PLAN_INFO_S &src, Capture_NS::CapturePla
     }
 }
 
-void FillCaptureParam(const Capture_NS::CaptureParam_S &src, NET_TV_CAPTURE_PARAM_INFO_S &dst)
+void FillCaptureParam(const Capture_NS::CaptureParam_S &src, NET_CaptureParamInfo_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));
     FillOneCaptureConfig(src.stCaptureTimingConfig, dst.stCaptureTimingConfig);
     FillOneCaptureConfig(src.stCaptureEventConfig, dst.stCaptureEventConfig);
 }
 
-void ToCaptureParam(const NET_TV_CAPTURE_PARAM_INFO_S &src, Capture_NS::CaptureParam_S &dst)
+void ToCaptureParam(const NET_CaptureParamInfo_S &src, Capture_NS::CaptureParam_S &dst)
 {
     ToOneCaptureConfig(src.stCaptureTimingConfig, dst.stCaptureTimingConfig);
     ToOneCaptureConfig(src.stCaptureEventConfig, dst.stCaptureEventConfig);
 }
 } // namespace TvSdkConvert
 
-void TvSdkConvert::FillExposureInfo(const ISP::ExposureAttr_S &src, NET_TV_EXPOSURE_INFO_S &dst)
+void TvSdkConvert::FillExposureInfo(const ISP::ExposureAttr_S &src, NET_ExposureInfo_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));
     dst.enExpTime = (INT32)src.enExpTime;
     dst.bAntiBanding = src.bAntiBanding ? TRUE : FALSE;
 }
 
-void TvSdkConvert::ToExposureAttr(const NET_TV_EXPOSURE_INFO_S &src, ISP::ExposureAttr_S &dst)
+void TvSdkConvert::ToExposureAttr(const NET_ExposureInfo_S &src, ISP::ExposureAttr_S &dst)
 {
     dst.enExpTime = (ISP::ExpTimeMode_E)src.enExpTime;
     dst.bAntiBanding = (src.bAntiBanding == TRUE);
 }
 
-void TvSdkConvert::FillDayNightInfo(const ISP::DayNightAttr_S &src, NET_TV_DAYNIGHT_INFO_S &dst)
+void TvSdkConvert::FillDayNightInfo(const ISP::DayNightAttr_S &src, NET_DayNightInfo_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));
     dst.enDayNightMode = (INT32)src.enDayNightMode;
@@ -3464,7 +3391,7 @@ void TvSdkConvert::FillDayNightInfo(const ISP::DayNightAttr_S &src, NET_TV_DAYNI
     dst.nRedLightLevel = src.stFillLight.stRedAttr.nLightLevel;
 }
 
-void TvSdkConvert::ToDayNightAttr(const NET_TV_DAYNIGHT_INFO_S &src, ISP::DayNightAttr_S &dst)
+void TvSdkConvert::ToDayNightAttr(const NET_DayNightInfo_S &src, ISP::DayNightAttr_S &dst)
 {
     dst.enDayNightMode = (ISP::DayNightMode_E)src.enDayNightMode;
     dst.stBeginTime.nHour = (unsigned int)src.nBeginHour;
@@ -3486,7 +3413,7 @@ void TvSdkConvert::ToDayNightAttr(const NET_TV_DAYNIGHT_INFO_S &src, ISP::DayNig
     dst.stFillLight.stRedAttr.nLightLevel = src.nRedLightLevel;
 }
 
-void TvSdkConvert::FillBackLightInfo(const ISP::BackLightArrt_S &src, NET_TV_BACKLIGHT_INFO_S &dst)
+void TvSdkConvert::FillBackLightInfo(const ISP::BackLightArrt_S &src, NET_BackLightInfo_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));
     dst.enBackLightArea = (INT32)src.enBackLightArea;
@@ -3496,7 +3423,7 @@ void TvSdkConvert::FillBackLightInfo(const ISP::BackLightArrt_S &src, NET_TV_BAC
     dst.nHlsLevel = src.stHlsAttr.nHlsLevel;
 }
 
-void TvSdkConvert::ToBackLightAttr(const NET_TV_BACKLIGHT_INFO_S &src, ISP::BackLightArrt_S &dst)
+void TvSdkConvert::ToBackLightAttr(const NET_BackLightInfo_S &src, ISP::BackLightArrt_S &dst)
 {
     dst.enBackLightArea = (ISP::BackLightArea_E)src.enBackLightArea;
     dst.stWdrAttr.bEnable = (src.bWdrEnable == TRUE);
@@ -3505,7 +3432,7 @@ void TvSdkConvert::ToBackLightAttr(const NET_TV_BACKLIGHT_INFO_S &src, ISP::Back
     dst.stHlsAttr.nHlsLevel = src.nHlsLevel;
 }
 
-void TvSdkConvert::FillDenoiseInfo(const ISP::DnrAttr_S &src, NET_TV_DENOISE_INFO_S &dst)
+void TvSdkConvert::FillDenoiseInfo(const ISP::DnrAttr_S &src, NET_DenoiseInfo_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));
     dst.enDnrMode = (INT32)src.enDnrMode;
@@ -3514,7 +3441,7 @@ void TvSdkConvert::FillDenoiseInfo(const ISP::DnrAttr_S &src, NET_TV_DENOISE_INF
     dst.nTnrLevel = src.nTnrLevel;
 }
 
-void TvSdkConvert::ToDnrAttr(const NET_TV_DENOISE_INFO_S &src, ISP::DnrAttr_S &dst)
+void TvSdkConvert::ToDnrAttr(const NET_DenoiseInfo_S &src, ISP::DnrAttr_S &dst)
 {
     dst.enDnrMode = (ISP::DnrMode_E)src.enDnrMode;
     dst.nDnrLevel = src.nDnrLevel;
@@ -3522,7 +3449,7 @@ void TvSdkConvert::ToDnrAttr(const NET_TV_DENOISE_INFO_S &src, ISP::DnrAttr_S &d
     dst.nTnrLevel = src.nTnrLevel;
 }
 
-void TvSdkConvert::FillWhiteBalanceInfo(const ISP::AwbAttr_S &src, NET_TV_WHITEBALANCE_INFO_S &dst)
+void TvSdkConvert::FillWhiteBalanceInfo(const ISP::AwbAttr_S &src, NET_WhiteBalanceInfo_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));
     dst.enAwbMode = (INT32)src.enAwbMode;
@@ -3530,7 +3457,7 @@ void TvSdkConvert::FillWhiteBalanceInfo(const ISP::AwbAttr_S &src, NET_TV_WHITEB
     dst.nBGain = src.nBGain;
 }
 
-void TvSdkConvert::ToAwbAttr(const NET_TV_WHITEBALANCE_INFO_S &src, ISP::AwbAttr_S &dst)
+void TvSdkConvert::ToAwbAttr(const NET_WhiteBalanceInfo_S &src, ISP::AwbAttr_S &dst)
 {
     dst.enAwbMode = (ISP::AwbMode_E)src.enAwbMode;
     dst.nRGain = src.nRGain;
@@ -3538,7 +3465,7 @@ void TvSdkConvert::ToAwbAttr(const NET_TV_WHITEBALANCE_INFO_S &src, ISP::AwbAttr
 }
 
 
-void TvSdkConvert::FillTalkbackStateInfo(const Preview::IntercomInfo_S &src, NET_TV_TALKBACK_STATE_INFO_S &dst)
+void TvSdkConvert::FillTalkbackStateInfo(const Preview::IntercomInfo_S &src, NET_TalkbackStateInfo_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));
     dst.bEnable = src.bEnable ? TRUE : FALSE;
@@ -3547,7 +3474,7 @@ void TvSdkConvert::FillTalkbackStateInfo(const Preview::IntercomInfo_S &src, NET
     std::strncpy(dst.szLocalIP, src.strLocalIp.c_str(), sizeof(dst.szLocalIP) - 1);
 }
 
-void TvSdkConvert::ToIntercomInfo(const NET_TV_TALKBACK_STATE_INFO_S &src, Preview::IntercomInfo_S &dst)
+void TvSdkConvert::ToIntercomInfo(const NET_TalkbackStateInfo_S &src, Preview::IntercomInfo_S &dst)
 {
     dst.bEnable = (src.bEnable == TRUE);
     dst.strSdp = src.szSdp;
@@ -3555,7 +3482,7 @@ void TvSdkConvert::ToIntercomInfo(const NET_TV_TALKBACK_STATE_INFO_S &src, Previ
     dst.strLocalIp = src.szLocalIP;
 }
 
-void TvSdkConvert::FillTalkbackStreamInfo(const Replay::Stream::Info_S &src, NET_TV_TALKBACK_STREAM_INFO_S &dst)
+void TvSdkConvert::FillTalkbackStreamInfo(const Replay::Stream::Info_S &src, NET_TalkbackStreamInfo_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));
     std::strncpy(dst.szHost, src.host.c_str(), sizeof(dst.szHost) - 1);
@@ -3569,7 +3496,7 @@ void TvSdkConvert::FillTalkbackStreamInfo(const Replay::Stream::Info_S &src, NET
     std::strncpy(dst.szFileName, src.filename.c_str(), sizeof(dst.szFileName) - 1);
 }
 
-void TvSdkConvert::ToReplayStreamInfo(const NET_TV_TALKBACK_STREAM_INFO_S &src, Replay::Stream::Info_S &dst)
+void TvSdkConvert::ToReplayStreamInfo(const NET_TalkbackStreamInfo_S &src, Replay::Stream::Info_S &dst)
 {
     dst.host = src.szHost;
     dst.nPort = src.nPort;
@@ -3582,7 +3509,7 @@ void TvSdkConvert::ToReplayStreamInfo(const NET_TV_TALKBACK_STREAM_INFO_S &src, 
     dst.filename = src.szFileName;
 }
 
-void TvSdkConvert::FillReplayTalkbackInfo(const Replay::Stream::ReplayRtpInfo_S &src, NET_TV_REPLAY_TALKBACK_INFO_S &dst)
+void TvSdkConvert::FillReplayTalkbackInfo(const Replay::Stream::ReplayRtpInfo_S &src, NET_ReplayTalkbackInfo_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));
     std::strncpy(dst.szNvrIp, src.nvrIp.c_str(), sizeof(dst.szNvrIp) - 1);
@@ -3590,7 +3517,7 @@ void TvSdkConvert::FillReplayTalkbackInfo(const Replay::Stream::ReplayRtpInfo_S 
     FillTalkbackStreamInfo(src.ipcInfo, dst.stIPCInfo);
 }
 
-void TvSdkConvert::ToReplayRtpInfo(const NET_TV_REPLAY_TALKBACK_INFO_S &src, Replay::Stream::ReplayRtpInfo_S &dst)
+void TvSdkConvert::ToReplayRtpInfo(const NET_ReplayTalkbackInfo_S &src, Replay::Stream::ReplayRtpInfo_S &dst)
 {
     dst.nvrIp = src.szNvrIp;
     dst.remoteIp = src.szRemoteIp;
@@ -3607,22 +3534,22 @@ static void FillPolygonPoints(const Alarm::Region_S &src, INT32 &pointCount, FLO
     }
 }
 
-// --------- ParkingDetect (IPC ParkingDetection_S <-> SDK NET_TV_PARKING_ALARM_INFO_S) ---------
+// --------- ParkingDetect (IPC ParkingDetection_S <-> SDK NET_ParkingAlarmInfo_S) ---------
 
-void TvSdkConvert::FillParkingDetectAlarmInfo(const Alarm::ParkingDetection_S &src, NET_TV_PARKING_ALARM_INFO_S &dst)
+void TvSdkConvert::FillParkingDetectAlarmInfo(const Alarm::ParkingDetection_S &src, NET_ParkingAlarmInfo_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));
     dst.bEnable = src.bEnable ? TRUE : FALSE;
-    dst.dwRuleCount = 0;
+    dst.uRuleCount = 0;
     for (size_t i = 0; i < src.aRule.size() && i < 4; ++i)
     {
         const auto &r = src.aRule[i];
         auto &out = dst.astRule[i];
         std::memset(&out, 0, sizeof(out));
-        TvSdkConvert::FillPolygonPoints(r.stRegion, out.dwPointCount, out.afPointX, out.afPointY);
+        TvSdkConvert::FillPolygonPoints(r.stRegion, out.uPointCount, out.afPointX, out.afPointY);
         out.nSensitivity = (INT32)r.nSensitivity;
         out.nTimeThreshold = (INT32)r.nTimeThreshold;
-        dst.dwRuleCount++;
+        dst.uRuleCount++;
     }
 
     if (!src.aAlarmTime.empty())
@@ -3632,8 +3559,8 @@ void TvSdkConvert::FillParkingDetectAlarmInfo(const Alarm::ParkingDetection_S &s
             if (day >= (int)src.aAlarmTime.size())
                 break;
             const auto &vecDay = src.aAlarmTime[day];
-            int cnt = (int)std::min<size_t>(vecDay.size(), NET_TV_PLAN_SECTION_NUM);
-            dst.stAlarmSchedule.dwTimeSectionCount[day] = cnt;
+            int cnt = (int)std::min<size_t>(vecDay.size(), NET_PLAN_SECTION_NUM);
+            dst.stAlarmSchedule.uTimeSectionCount[day] = cnt;
             for (int seg = 0; seg < cnt; ++seg)
             {
                 TvSdkConvert::FillSchedTime(vecDay[seg], dst.stAlarmSchedule.astTimeSection[day][seg]);
@@ -3642,15 +3569,15 @@ void TvSdkConvert::FillParkingDetectAlarmInfo(const Alarm::ParkingDetection_S &s
     }
 }
 
-void TvSdkConvert::ToParkingDetection(const NET_TV_PARKING_ALARM_INFO_S &src, Alarm::ParkingDetection_S &dst)
+void TvSdkConvert::ToParkingDetection(const NET_ParkingAlarmInfo_S &src, Alarm::ParkingDetection_S &dst)
 {
     dst.bEnable = (src.bEnable == TRUE);
     dst.aRule.clear();
-    for (int i = 0; i < src.dwRuleCount && i < 4; ++i)
+    for (int i = 0; i < src.uRuleCount && i < 4; ++i)
     {
         const auto &r = src.astRule[i];
         Alarm::ParkingRule_S out;
-        TvSdkConvert::ToRegionFromPolygon(r.dwPointCount, r.afPointX, r.afPointY, out.stRegion);
+        TvSdkConvert::ToRegionFromPolygon(r.uPointCount, r.afPointX, r.afPointY, out.stRegion);
         out.nSensitivity = (unsigned int)r.nSensitivity;
         out.nTimeThreshold = (unsigned int)r.nTimeThreshold;
         dst.aRule.push_back(out);
@@ -3660,10 +3587,10 @@ void TvSdkConvert::ToParkingDetection(const NET_TV_PARKING_ALARM_INFO_S &src, Al
     dst.aAlarmTime.resize(7);
     for (int day = 0; day < 7; ++day)
     {
-        int cnt = src.stAlarmSchedule.dwTimeSectionCount[day];
+        int cnt = src.stAlarmSchedule.uTimeSectionCount[day];
         if (cnt <= 0)
             continue;
-        cnt = std::min(cnt, NET_TV_PLAN_SECTION_NUM);
+        cnt = std::min(cnt, NET_PLAN_SECTION_NUM);
         dst.aAlarmTime[day].resize(cnt);
         for (int seg = 0; seg < cnt; ++seg)
         {
@@ -3672,21 +3599,21 @@ void TvSdkConvert::ToParkingDetection(const NET_TV_PARKING_ALARM_INFO_S &src, Al
     }
 }
 
-// --------- UnattendedObject (IPC UnattendedObject_S <-> SDK NET_TV_UNATTENDED_OBJECT_ALARM_INFO_S) ---------
-void TvSdkConvert::FillUnattendedObjectAlarmInfo(const Alarm::UnattendedObject_S &src, NET_TV_UNATTENDED_OBJECT_ALARM_INFO_S &dst)
+// --------- UnattendedObject (IPC UnattendedObject_S <-> SDK NET_UnattendedObjectAlarmInfo_S) ---------
+void TvSdkConvert::FillUnattendedObjectAlarmInfo(const Alarm::UnattendedObject_S &src, NET_UnattendedObjectAlarmInfo_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));
     dst.bEnable = src.bEnable ? TRUE : FALSE;
-    dst.dwRuleCount = 0;
+    dst.uRuleCount = 0;
     for (size_t i = 0; i < src.aRule.size() && i < 4; ++i)
     {
         const auto &r = src.aRule[i];
-        auto &out = dst.astRule[i];
+        auto &out = dst.stRule[i];
         std::memset(&out, 0, sizeof(out));
-        TvSdkConvert::FillPolygonPoints(r.stRegion, out.dwPointCount, out.afPointX, out.afPointY);
+        TvSdkConvert::FillPolygonPoints(r.stRegion, out.uPointCount, out.afPointX, out.afPointY);
         out.nSensitivity = (INT32)r.nSensitivity;
         out.nTimeThreshold = (INT32)r.nTimeThreshold;
-        dst.dwRuleCount++;
+        dst.uRuleCount++;
     }
 
     if (!src.aAlarmTime.empty())
@@ -3696,8 +3623,8 @@ void TvSdkConvert::FillUnattendedObjectAlarmInfo(const Alarm::UnattendedObject_S
             if (day >= (int)src.aAlarmTime.size())
                 break;
             const auto &vecDay = src.aAlarmTime[day];
-            int cnt = (int)std::min<size_t>(vecDay.size(), NET_TV_PLAN_SECTION_NUM);
-            dst.stAlarmSchedule.dwTimeSectionCount[day] = cnt;
+            int cnt = (int)std::min<size_t>(vecDay.size(), NET_PLAN_SECTION_NUM);
+            dst.stAlarmSchedule.uTimeSectionCount[day] = cnt;
             for (int seg = 0; seg < cnt; ++seg)
             {
                TvSdkConvert::FillSchedTime(vecDay[seg], dst.stAlarmSchedule.astTimeSection[day][seg]);
@@ -3706,15 +3633,15 @@ void TvSdkConvert::FillUnattendedObjectAlarmInfo(const Alarm::UnattendedObject_S
     }
 }
 
-void TvSdkConvert::ToUnattendedObject(const NET_TV_UNATTENDED_OBJECT_ALARM_INFO_S &src, Alarm::UnattendedObject_S &dst)
+void TvSdkConvert::ToUnattendedObject(const NET_UnattendedObjectAlarmInfo_S &src, Alarm::UnattendedObject_S &dst)
 {
     dst.bEnable = (src.bEnable == TRUE);
     dst.aRule.clear();
-    for (int i = 0; i < src.dwRuleCount && i < 4; ++i)
+    for (int i = 0; i < src.uRuleCount && i < 4; ++i)
     {
-        const auto &r = src.astRule[i];
+        const auto &r = src.stRule[i];
         Alarm::UnattendedObjectRule_S out;
-        TvSdkConvert::ToRegionFromPolygon(r.dwPointCount, r.afPointX, r.afPointY, out.stRegion);
+        TvSdkConvert::ToRegionFromPolygon(r.uPointCount, r.afPointX, r.afPointY, out.stRegion);
         out.nSensitivity = (unsigned int)r.nSensitivity;
         out.nTimeThreshold = (unsigned int)r.nTimeThreshold;
         dst.aRule.push_back(out);
@@ -3724,10 +3651,10 @@ void TvSdkConvert::ToUnattendedObject(const NET_TV_UNATTENDED_OBJECT_ALARM_INFO_
     dst.aAlarmTime.resize(7);
     for (int day = 0; day < 7; ++day)
     {
-        int cnt = src.stAlarmSchedule.dwTimeSectionCount[day];
+        int cnt = src.stAlarmSchedule.uTimeSectionCount[day];
         if (cnt <= 0)
             continue;
-        cnt = std::min(cnt, NET_TV_PLAN_SECTION_NUM);
+        cnt = std::min(cnt, NET_PLAN_SECTION_NUM);
         dst.aAlarmTime[day].resize(cnt);
         for (int seg = 0; seg < cnt; ++seg)
         {
@@ -3736,21 +3663,21 @@ void TvSdkConvert::ToUnattendedObject(const NET_TV_UNATTENDED_OBJECT_ALARM_INFO_
     }
 }
 
-// --------- ObjectRemoval (IPC ObjectRemoval_S <-> SDK NET_TV_OBJECT_REMOVAL_ALARM_INFO_S) ---------
-void TvSdkConvert::FillObjectRemovalAlarmInfo(const Alarm::ObjectRemoval_S &src, NET_TV_OBJECT_REMOVAL_ALARM_INFO_S &dst)
+// --------- ObjectRemoval (IPC ObjectRemoval_S <-> SDK NET_ObjectRemovalAlarmInfo_S) ---------
+void TvSdkConvert::FillObjectRemovalAlarmInfo(const Alarm::ObjectRemoval_S &src, NET_ObjectRemovalAlarmInfo_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));
     dst.bEnable = src.bEnable ? TRUE : FALSE;
-    dst.dwRuleCount = 0;
+    dst.uRuleCount = 0;
     for (size_t i = 0; i < src.aRule.size() && i < 4; ++i)
     {
         const auto &r = src.aRule[i];
-        auto &out = dst.astRule[i];
+        auto &out = dst.stRule[i];
         std::memset(&out, 0, sizeof(out));
-        TvSdkConvert::FillPolygonPoints(r.stRegion, out.dwPointCount, out.afPointX, out.afPointY);
+        TvSdkConvert::FillPolygonPoints(r.stRegion, out.uPointCount, out.afPointX, out.afPointY);
         out.nSensitivity = (INT32)r.nSensitivity;
         out.nTimeThreshold = (INT32)r.nTimeThreshold;
-        dst.dwRuleCount++;
+        dst.uRuleCount++;
     }
 
     if (!src.aAlarmTime.empty())
@@ -3760,8 +3687,8 @@ void TvSdkConvert::FillObjectRemovalAlarmInfo(const Alarm::ObjectRemoval_S &src,
             if (day >= (int)src.aAlarmTime.size())
                 break;
             const auto &vecDay = src.aAlarmTime[day];
-            int cnt = (int)std::min<size_t>(vecDay.size(), NET_TV_PLAN_SECTION_NUM);
-            dst.stAlarmSchedule.dwTimeSectionCount[day] = cnt;
+            int cnt = (int)std::min<size_t>(vecDay.size(), NET_PLAN_SECTION_NUM);
+            dst.stAlarmSchedule.uTimeSectionCount[day] = cnt;
             for (int seg = 0; seg < cnt; ++seg)
             {
                 TvSdkConvert::FillSchedTime(vecDay[seg], dst.stAlarmSchedule.astTimeSection[day][seg]);
@@ -3770,15 +3697,15 @@ void TvSdkConvert::FillObjectRemovalAlarmInfo(const Alarm::ObjectRemoval_S &src,
     }
 }
 
-void TvSdkConvert::ToObjectRemoval(const NET_TV_OBJECT_REMOVAL_ALARM_INFO_S &src, Alarm::ObjectRemoval_S &dst)
+void TvSdkConvert::ToObjectRemoval(const NET_ObjectRemovalAlarmInfo_S &src, Alarm::ObjectRemoval_S &dst)
 {
     dst.bEnable = (src.bEnable == TRUE);
     dst.aRule.clear();
-    for (int i = 0; i < src.dwRuleCount && i < 4; ++i)
+    for (int i = 0; i < src.uRuleCount && i < 4; ++i)
     {
-        const auto &r = src.astRule[i];
+        const auto &r = src.stRule[i];
         Alarm::ObjectRemovalRule_S out;
-        TvSdkConvert::ToRegionFromPolygon(r.dwPointCount, r.afPointX, r.afPointY, out.stRegion);
+        TvSdkConvert::ToRegionFromPolygon(r.uPointCount, r.afPointX, r.afPointY, out.stRegion);
         out.nSensitivity = (unsigned int)r.nSensitivity;
         out.nTimeThreshold = (unsigned int)r.nTimeThreshold;
         dst.aRule.push_back(out);
@@ -3788,10 +3715,10 @@ void TvSdkConvert::ToObjectRemoval(const NET_TV_OBJECT_REMOVAL_ALARM_INFO_S &src
     dst.aAlarmTime.resize(7);
     for (int day = 0; day < 7; ++day)
     {
-        int cnt = src.stAlarmSchedule.dwTimeSectionCount[day];
+        int cnt = src.stAlarmSchedule.uTimeSectionCount[day];
         if (cnt <= 0)
             continue;
-        cnt = std::min(cnt, NET_TV_PLAN_SECTION_NUM);
+        cnt = std::min(cnt, NET_PLAN_SECTION_NUM);
         dst.aAlarmTime[day].resize(cnt);
         for (int seg = 0; seg < cnt; ++seg)
         {
@@ -3800,7 +3727,7 @@ void TvSdkConvert::ToObjectRemoval(const NET_TV_OBJECT_REMOVAL_ALARM_INFO_S &src
     }
 }
 
-void TvSdkConvert::FillAudioCfg(const Audio_NS::AudioConfig_S &src, NET_TV_AUDIO_CFG_S &dst)
+void TvSdkConvert::FillAudioCfg(const Audio_NS::AudioConfig_S &src, NET_AudioCfg_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));
     dst.bAudioSwitch = src.bAudioSwitch ? TRUE : FALSE;
@@ -3814,7 +3741,7 @@ void TvSdkConvert::FillAudioCfg(const Audio_NS::AudioConfig_S &src, NET_TV_AUDIO
     dst.u32OutputVolume = src.u32OutputVolume;
 }
 
-void TvSdkConvert::ToAudioConfig(const NET_TV_AUDIO_CFG_S &src, Audio_NS::AudioConfig_S &dst)
+void TvSdkConvert::ToAudioConfig(const NET_AudioCfg_S &src, Audio_NS::AudioConfig_S &dst)
 {
     dst.bAudioSwitch = (src.bAudioSwitch == TRUE);
     dst.enInputType = (Audio_NS::AudioInputType_E)src.enInputType;
@@ -3827,30 +3754,30 @@ void TvSdkConvert::ToAudioConfig(const NET_TV_AUDIO_CFG_S &src, Audio_NS::AudioC
     dst.u32OutputVolume = src.u32OutputVolume;
 }
 
-// --------- EnterRegion (IPC EntranceDetection_S <-> SDK NET_TV_ENTER_REGION_ALARM_INFO_S) ---------
-void TvSdkConvert::FillEnterRegionAlarmInfo(const Alarm::EntranceDetection_S &src, NET_TV_ENTER_REGION_ALARM_INFO_S &dst)
+// --------- EnterRegion (IPC EntranceDetection_S <-> SDK NET_EnterRegionAlarmInfo_S) ---------
+void TvSdkConvert::FillEnterRegionAlarmInfo(const Alarm::EntranceDetection_S &src, NET_EnterRegionAlarmInfo_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));
     dst.bEnable = src.bEnable ? TRUE : FALSE;
-    dst.dwRuleCount = 0;
+    dst.uRuleCount = 0;
     for (size_t i = 0; i < src.aRule.size() && i < 4; ++i)
     {
         const auto &r = src.aRule[i];
-        auto &out = dst.astRule[i];
+        auto &out = dst.stRule[i];
         std::memset(&out, 0, sizeof(out));
         out.bEnable = TRUE;
-        out.dwPointCount = (INT32)std::min<size_t>(r.stRegion.aPoint.size(), 32);
-        for (int p = 0; p < out.dwPointCount; ++p)
+        out.uPointCount = (INT32)std::min<size_t>(r.stRegion.aPoint.size(), 32);
+        for (int p = 0; p < out.uPointCount; ++p)
         {
             out.afPointX[p] = r.stRegion.aPoint[p].fX;
             out.afPointY[p] = r.stRegion.aPoint[p].fY;
         }
         out.nTimeThreshold = (INT32)r.nTimeThreshold;
         out.nSensitivity = (INT32)r.nSensitivity;
-        out.dwDetectionTargetCount = (INT32)std::min<size_t>(r.aDetectionTarget.size(), 8);
-        for (int j = 0; j < out.dwDetectionTargetCount; ++j)
-            out.adwDetectionTarget[j] = r.aDetectionTarget[j];
-        dst.dwRuleCount++;
+        out.uDetectionTargetCount = (INT32)std::min<size_t>(r.aDetectionTarget.size(), 8);
+        for (int j = 0; j < out.uDetectionTargetCount; ++j)
+            out.auDetectionTarget[j] = r.aDetectionTarget[j];
+        dst.uRuleCount++;
     }
 
     if (!src.aAlarmTime.empty())
@@ -3860,8 +3787,8 @@ void TvSdkConvert::FillEnterRegionAlarmInfo(const Alarm::EntranceDetection_S &sr
             if (day >= (int)src.aAlarmTime.size())
                 break;
             const auto &vecDay = src.aAlarmTime[day];
-            int cnt = (int)std::min<size_t>(vecDay.size(), NET_TV_PLAN_SECTION_NUM);
-            dst.stAlarmSchedule.dwTimeSectionCount[day] = cnt;
+            int cnt = (int)std::min<size_t>(vecDay.size(), NET_PLAN_SECTION_NUM);
+            dst.stAlarmSchedule.uTimeSectionCount[day] = cnt;
             for (int seg = 0; seg < cnt; ++seg)
             {
                 TvSdkConvert::FillSchedTime(vecDay[seg], dst.stAlarmSchedule.astTimeSection[day][seg]);
@@ -3870,23 +3797,23 @@ void TvSdkConvert::FillEnterRegionAlarmInfo(const Alarm::EntranceDetection_S &sr
     }
 }
 
-void TvSdkConvert::ToEntranceDetection(const NET_TV_ENTER_REGION_ALARM_INFO_S &src, Alarm::EntranceDetection_S &dst)
+void TvSdkConvert::ToEntranceDetection(const NET_EnterRegionAlarmInfo_S &src, Alarm::EntranceDetection_S &dst)
 {
     dst.bEnable = (src.bEnable == TRUE);
     dst.aRule.clear();
-    for (int i = 0; i < src.dwRuleCount && i < 4; ++i)
+    for (int i = 0; i < src.uRuleCount && i < 4; ++i)
     {
-        const auto &r = src.astRule[i];
+        const auto &r = src.stRule[i];
         Alarm::EnterExitIntrusion_S out;
         out.nTimeThreshold = (unsigned int)r.nTimeThreshold;
         out.nSensitivity = (unsigned int)r.nSensitivity;
         out.stRegion.aPoint.clear();
-        out.stRegion.nPointNum = r.dwPointCount;
-        for (int p = 0; p < r.dwPointCount && p < 32; ++p)
+        out.stRegion.nPointNum = r.uPointCount;
+        for (int p = 0; p < r.uPointCount && p < 32; ++p)
         {
             out.stRegion.aPoint.push_back({r.afPointX[p], r.afPointY[p]});
         }
-        out.aDetectionTarget.assign(r.adwDetectionTarget, r.adwDetectionTarget + std::min(r.dwDetectionTargetCount, 8));
+        out.aDetectionTarget.assign(r.auDetectionTarget, r.auDetectionTarget + std::min(r.uDetectionTargetCount, 8));
         dst.aRule.push_back(out);
     }
 
@@ -3894,10 +3821,10 @@ void TvSdkConvert::ToEntranceDetection(const NET_TV_ENTER_REGION_ALARM_INFO_S &s
     dst.aAlarmTime.resize(7);
     for (int day = 0; day < 7; ++day)
     {
-        int cnt = src.stAlarmSchedule.dwTimeSectionCount[day];
+        int cnt = src.stAlarmSchedule.uTimeSectionCount[day];
         if (cnt <= 0)
             continue;
-        cnt = std::min(cnt, NET_TV_PLAN_SECTION_NUM);
+        cnt = std::min(cnt, NET_PLAN_SECTION_NUM);
         dst.aAlarmTime[day].resize(cnt);
         for (int seg = 0; seg < cnt; ++seg)
         {
@@ -3906,30 +3833,30 @@ void TvSdkConvert::ToEntranceDetection(const NET_TV_ENTER_REGION_ALARM_INFO_S &s
     }
 }
 
-// --------- LeaveRegion (IPC ExitingDetection_S <-> SDK NET_TV_LEAVE_REGION_ALARM_INFO_S) ---------
-void TvSdkConvert::FillLeaveRegionAlarmInfo(const Alarm::ExitingDetection_S &src, NET_TV_LEAVE_REGION_ALARM_INFO_S &dst)
+// --------- LeaveRegion (IPC ExitingDetection_S <-> SDK NET_LeaveRegionAlarmInfo_S) ---------
+void TvSdkConvert::FillLeaveRegionAlarmInfo(const Alarm::ExitingDetection_S &src, NET_LeaveRegionAlarmInfo_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));
     dst.bEnable = src.bEnable ? TRUE : FALSE;
-    dst.dwRuleCount = 0;
+    dst.uRuleCount = 0;
     for (size_t i = 0; i < src.aRule.size() && i < 4; ++i)
     {
         const auto &r = src.aRule[i];
-        auto &out = dst.astRule[i];
+        auto &out = dst.stRule[i];
         std::memset(&out, 0, sizeof(out));
         out.bEnable = TRUE;
-        out.dwPointCount = (INT32)std::min<size_t>(r.stRegion.aPoint.size(), 32);
-        for (int p = 0; p < out.dwPointCount; ++p)
+        out.uPointCount = (INT32)std::min<size_t>(r.stRegion.aPoint.size(), 32);
+        for (int p = 0; p < out.uPointCount; ++p)
         {
             out.afPointX[p] = r.stRegion.aPoint[p].fX;
             out.afPointY[p] = r.stRegion.aPoint[p].fY;
         }
         out.nTimeThreshold = (INT32)r.nTimeThreshold;
         out.nSensitivity = (INT32)r.nSensitivity;
-        out.dwDetectionTargetCount = (INT32)std::min<size_t>(r.aDetectionTarget.size(), 8);
-        for (int j = 0; j < out.dwDetectionTargetCount; ++j)
-            out.adwDetectionTarget[j] = r.aDetectionTarget[j];
-        dst.dwRuleCount++;
+        out.uDetectionTargetCount = (INT32)std::min<size_t>(r.aDetectionTarget.size(), 8);
+        for (int j = 0; j < out.uDetectionTargetCount; ++j)
+            out.auDetectionTarget[j] = r.aDetectionTarget[j];
+        dst.uRuleCount++;
     }
 
     if (!src.aAlarmTime.empty())
@@ -3939,8 +3866,8 @@ void TvSdkConvert::FillLeaveRegionAlarmInfo(const Alarm::ExitingDetection_S &src
             if (day >= (int)src.aAlarmTime.size())
                 break;
             const auto &vecDay = src.aAlarmTime[day];
-            int cnt = (int)std::min<size_t>(vecDay.size(), NET_TV_PLAN_SECTION_NUM);
-            dst.stAlarmSchedule.dwTimeSectionCount[day] = cnt;
+            int cnt = (int)std::min<size_t>(vecDay.size(), NET_PLAN_SECTION_NUM);
+            dst.stAlarmSchedule.uTimeSectionCount[day] = cnt;
             for (int seg = 0; seg < cnt; ++seg)
             {
                 TvSdkConvert::FillSchedTime(vecDay[seg], dst.stAlarmSchedule.astTimeSection[day][seg]);
@@ -3949,23 +3876,23 @@ void TvSdkConvert::FillLeaveRegionAlarmInfo(const Alarm::ExitingDetection_S &src
     }
 }
 
-void TvSdkConvert::ToExitingDetection(const NET_TV_LEAVE_REGION_ALARM_INFO_S &src, Alarm::ExitingDetection_S &dst)
+void TvSdkConvert::ToExitingDetection(const NET_LeaveRegionAlarmInfo_S &src, Alarm::ExitingDetection_S &dst)
 {
     dst.bEnable = (src.bEnable == TRUE);
     dst.aRule.clear();
-    for (int i = 0; i < src.dwRuleCount && i < 4; ++i)
+    for (int i = 0; i < src.uRuleCount && i < 4; ++i)
     {
-        const auto &r = src.astRule[i];
+        const auto &r = src.stRule[i];
         Alarm::EnterExitIntrusion_S out;
         out.nTimeThreshold = (unsigned int)r.nTimeThreshold;
         out.nSensitivity = (unsigned int)r.nSensitivity;
         out.stRegion.aPoint.clear();
-        out.stRegion.nPointNum = r.dwPointCount;
-        for (int p = 0; p < r.dwPointCount && p < 32; ++p)
+        out.stRegion.nPointNum = r.uPointCount;
+        for (int p = 0; p < r.uPointCount && p < 32; ++p)
         {
             out.stRegion.aPoint.push_back({r.afPointX[p], r.afPointY[p]});
         }
-        out.aDetectionTarget.assign(r.adwDetectionTarget, r.adwDetectionTarget + std::min(r.dwDetectionTargetCount, 8));
+        out.aDetectionTarget.assign(r.auDetectionTarget, r.auDetectionTarget + std::min(r.uDetectionTargetCount, 8));
         dst.aRule.push_back(out);
     }
 
@@ -3973,10 +3900,10 @@ void TvSdkConvert::ToExitingDetection(const NET_TV_LEAVE_REGION_ALARM_INFO_S &sr
     dst.aAlarmTime.resize(7);
     for (int day = 0; day < 7; ++day)
     {
-        int cnt = src.stAlarmSchedule.dwTimeSectionCount[day];
+        int cnt = src.stAlarmSchedule.uTimeSectionCount[day];
         if (cnt <= 0)
             continue;
-        cnt = std::min(cnt, NET_TV_PLAN_SECTION_NUM);
+        cnt = std::min(cnt, NET_PLAN_SECTION_NUM);
         dst.aAlarmTime[day].resize(cnt);
         for (int seg = 0; seg < cnt; ++seg)
         {
@@ -3985,63 +3912,28 @@ void TvSdkConvert::ToExitingDetection(const NET_TV_LEAVE_REGION_ALARM_INFO_S &sr
     }
 }
 
-void TvSdkConvert::FillFaceCaptureOverlayInfo(const Alarm::OverlayInfo_S &src,
-                                              NET_TV_FACE_CAPTURE_OVERLAY_INFO_S &dst)
-{
-    std::memset(&dst, 0, sizeof(dst));
-    dst.nDeviceID = src.nDeviceID;
-    std::strncpy(dst.strMonitoryPointInfo,
-                 src.strMonitoryPointInfo.c_str(),
-                 sizeof(dst.strMonitoryPointInfo) - 1);
-    dst.bOverlayDeviceID = src.bOverlayDeviceID ? TRUE : FALSE;
-    dst.bOverlayCaptureTime = src.bOverlayCaptureTime ? TRUE : FALSE;
-    dst.bOverlayMonitoryPointInfo = src.bOverlayMonitoryPointInfo ? TRUE : FALSE;
-    dst.enFontColor = static_cast<NET_TV_OSD_COLOR_E>(src.enFontColor);
-    std::strncpy(dst.strFontColor,
-                 src.strFontColor.c_str(),
-                 sizeof(dst.strFontColor) - 1);
-}
-
-void TvSdkConvert::ToFaceCaptureOverlayInfo(const NET_TV_FACE_CAPTURE_OVERLAY_INFO_S &src,
-                                            Alarm::OverlayInfo_S &dst)
-{
-    dst.nDeviceID = src.nDeviceID;
-    dst.strMonitoryPointInfo.assign(src.strMonitoryPointInfo,
-                                    std::find(src.strMonitoryPointInfo,
-                                              src.strMonitoryPointInfo + sizeof(src.strMonitoryPointInfo),
-                                              '\0'));
-    dst.bOverlayDeviceID = (src.bOverlayDeviceID == TRUE);
-    dst.bOverlayCaptureTime = (src.bOverlayCaptureTime == TRUE);
-    dst.bOverlayMonitoryPointInfo = (src.bOverlayMonitoryPointInfo == TRUE);
-    dst.enFontColor = static_cast<Osd::OSD_COLOR_E>(src.enFontColor);
-    dst.strFontColor.assign(src.strFontColor,
-                            std::find(src.strFontColor,
-                                      src.strFontColor + sizeof(src.strFontColor),
-                                      '\0'));
-}
-
-// --------- FaceCapture (IPC FaceCapture_S <-> SDK NET_TV_FACE_CAPTURE_INFO_S) ---------
-void TvSdkConvert::FillFaceCaptureInfo(const Alarm::FaceCapture_S &src, NET_TV_FACE_CAPTURE_INFO_S &dst)
+// --------- FaceCapture (IPC FaceCapture_S <-> SDK NET_FaceCaptureInfo_S) ---------
+void TvSdkConvert::FillFaceCaptureInfo(const Alarm::FaceCapture_S &src, NET_FaceCaptureInfo_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));
     dst.bEnable = src.bEnable ? TRUE : FALSE;
 
     dst.stRule.nSensitivity = (INT32)src.stRule.nSensitivity;
 
-    dst.stRule.stRegion.dwPointCount = (INT32)std::min<size_t>(src.stRule.stRegion.aPoint.size(), 32);
-    for (int p = 0; p < dst.stRule.stRegion.dwPointCount; ++p)
+    dst.stRule.stRegion.uPointCount = (INT32)std::min<size_t>(src.stRule.stRegion.aPoint.size(), 32);
+    for (int p = 0; p < dst.stRule.stRegion.uPointCount; ++p)
     {
         dst.stRule.stRegion.afPointX[p] = src.stRule.stRegion.aPoint[p].fX;
         dst.stRule.stRegion.afPointY[p] = src.stRule.stRegion.aPoint[p].fY;
     }
 
-    dst.stRule.dwShieldRegionCount = (INT32)std::min<size_t>(src.stRule.vstShieldedRegion.size(), 4);
-    for (int i = 0; i < dst.stRule.dwShieldRegionCount; ++i)
+    dst.stRule.uShieldRegionCount = (INT32)std::min<size_t>(src.stRule.vstShieldedRegion.size(), 4);
+    for (int i = 0; i < dst.stRule.uShieldRegionCount; ++i)
     {
         const auto &reg = src.stRule.vstShieldedRegion[i];
         auto &out = dst.stRule.astShieldRegion[i];
-        out.dwPointCount = (INT32)std::min<size_t>(reg.aPoint.size(), 32);
-        for (int p = 0; p < out.dwPointCount; ++p)
+        out.uPointCount = (INT32)std::min<size_t>(reg.aPoint.size(), 32);
+        for (int p = 0; p < out.uPointCount; ++p)
         {
             out.afPointX[p] = reg.aPoint[p].fX;
             out.afPointY[p] = reg.aPoint[p].fY;
@@ -4065,8 +3957,8 @@ void TvSdkConvert::FillFaceCaptureInfo(const Alarm::FaceCapture_S &src, NET_TV_F
             if (day >= (int)src.aAlarmTime.size())
                 break;
             const auto &vecDay = src.aAlarmTime[day];
-            int cnt = (int)std::min<size_t>(vecDay.size(), NET_TV_PLAN_SECTION_NUM);
-            dst.stAlarmSchedule.dwTimeSectionCount[day] = cnt;
+            int cnt = (int)std::min<size_t>(vecDay.size(), NET_PLAN_SECTION_NUM);
+            dst.stAlarmSchedule.uTimeSectionCount[day] = cnt;
             for (int seg = 0; seg < cnt; ++seg)
             {
                 FillSchedTime(vecDay[seg], dst.stAlarmSchedule.astTimeSection[day][seg]);
@@ -4075,14 +3967,14 @@ void TvSdkConvert::FillFaceCaptureInfo(const Alarm::FaceCapture_S &src, NET_TV_F
     }
 }
 
-void TvSdkConvert::ToFaceCapture(const NET_TV_FACE_CAPTURE_INFO_S &src, Alarm::FaceCapture_S &dst)
+void TvSdkConvert::ToFaceCapture(const NET_FaceCaptureInfo_S &src, Alarm::FaceCapture_S &dst)
 {
     dst.bEnable = (src.bEnable == TRUE);
 
     dst.stRule.nSensitivity = (unsigned int)src.stRule.nSensitivity;
 
     dst.stRule.stRegion.aPoint.clear();
-    int pointCnt = std::max(0, std::min(src.stRule.stRegion.dwPointCount, 32));
+    int pointCnt = std::max(0, std::min(src.stRule.stRegion.uPointCount, 32));
     dst.stRule.stRegion.nPointNum = (unsigned int)pointCnt;
     for (int p = 0; p < pointCnt; ++p)
     {
@@ -4093,13 +3985,13 @@ void TvSdkConvert::ToFaceCapture(const NET_TV_FACE_CAPTURE_INFO_S &src, Alarm::F
     }
 
     dst.stRule.vstShieldedRegion.clear();
-    int shieldCnt = std::max(0, std::min(src.stRule.dwShieldRegionCount, 4));
+    int shieldCnt = std::max(0, std::min(src.stRule.uShieldRegionCount, 4));
     for (int i = 0; i < shieldCnt; ++i)
     {
         const auto &inReg = src.stRule.astShieldRegion[i];
         Alarm::Region_S outReg;
         outReg.aPoint.clear();
-        int shieldPointCnt = std::max(0, std::min(inReg.dwPointCount, 32));
+        int shieldPointCnt = std::max(0, std::min(inReg.uPointCount, 32));
         outReg.nPointNum = (unsigned int)shieldPointCnt;
         for (int p = 0; p < shieldPointCnt; ++p)
         {
@@ -4125,14 +4017,49 @@ void TvSdkConvert::ToFaceCapture(const NET_TV_FACE_CAPTURE_INFO_S &src, Alarm::F
     dst.aAlarmTime.resize(7);
     for (int day = 0; day < 7; ++day)
     {
-        int cnt = src.stAlarmSchedule.dwTimeSectionCount[day];
+        int cnt = src.stAlarmSchedule.uTimeSectionCount[day];
         if (cnt <= 0)
             continue;
-        cnt = std::min(cnt, NET_TV_PLAN_SECTION_NUM);
+        cnt = std::min(cnt, NET_PLAN_SECTION_NUM);
         dst.aAlarmTime[day].resize(cnt);
         for (int seg = 0; seg < cnt; ++seg)
         {
             ToSchedTime(src.stAlarmSchedule.astTimeSection[day][seg], dst.aAlarmTime[day][seg]);
         }
     }
+}
+
+void TvSdkConvert::FillFaceCaptureOverlayInfo(const Alarm::OverlayInfo_S &src,
+                                              NET_FaceCaptureOverlayInfo_S &dst)
+{
+    std::memset(&dst, 0, sizeof(dst));
+    dst.nDeviceID = src.nDeviceID;
+    std::strncpy(dst.strMonitoryPointInfo,
+                 src.strMonitoryPointInfo.c_str(),
+                 sizeof(dst.strMonitoryPointInfo) - 1);
+    dst.bOverlayDeviceID = src.bOverlayDeviceID ? TRUE : FALSE;
+    dst.bOverlayCaptureTime = src.bOverlayCaptureTime ? TRUE : FALSE;
+    dst.bOverlayMonitoryPointInfo = src.bOverlayMonitoryPointInfo ? TRUE : FALSE;
+    dst.enFontColor = static_cast<NET_OSD_COLOR_E>(src.enFontColor);
+    std::strncpy(dst.strFontColor,
+                 src.strFontColor.c_str(),
+                 sizeof(dst.strFontColor) - 1);
+}
+
+void TvSdkConvert::ToFaceCaptureOverlayInfo(const NET_FaceCaptureOverlayInfo_S &src,
+                                            Alarm::OverlayInfo_S &dst)
+{
+    dst.nDeviceID = src.nDeviceID;
+    dst.strMonitoryPointInfo.assign(src.strMonitoryPointInfo,
+                                    std::find(src.strMonitoryPointInfo,
+                                              src.strMonitoryPointInfo + sizeof(src.strMonitoryPointInfo),
+                                              '\0'));
+    dst.bOverlayDeviceID = (src.bOverlayDeviceID == TRUE);
+    dst.bOverlayCaptureTime = (src.bOverlayCaptureTime == TRUE);
+    dst.bOverlayMonitoryPointInfo = (src.bOverlayMonitoryPointInfo == TRUE);
+    dst.enFontColor = static_cast<Osd::OSD_COLOR_E>(src.enFontColor);
+    dst.strFontColor.assign(src.strFontColor,
+                            std::find(src.strFontColor,
+                                      src.strFontColor + sizeof(src.strFontColor),
+                                      '\0'));
 }

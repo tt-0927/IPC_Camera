@@ -436,11 +436,12 @@ void CFaceCaptureProcessor::handleLinkage(bool bAlarm,
     std::string strUploadImagePath;
     Event::Info_S stEventInfo = build_face_capture_event_info(nChnId, llEventTimestamp);
 
-    /* SDK 推送独立于传统联动：事件首帧先推全景图，随后每帧逐个推送当前人脸小图 */
+    /* SDK 推送独立于传统联动：事件首帧将全景图和当前全部人脸小图作为同一条抓拍告警发送。 */
     m_sdkEventPublisher.publish(
         vecTargets,
         pFrameInfo,
         nChnId,
+        llEventTimestamp,
         [this](ot_video_frame_info *pFrame, std::vector<unsigned char> &vecJpeg)
         {
             return buildSdkPanoramaImage(pFrame, vecJpeg);

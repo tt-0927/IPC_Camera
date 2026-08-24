@@ -443,6 +443,14 @@ static std::string normalize_mqtt_command(const std::string &command)
             result.push_back(static_cast<char>(std::toupper(uch)));
         }
     }
+
+    /* 新 SDK 使用 NET_* 命令名，兼容平台仍可能下发的历史 NET_TV_* 命令。 */
+    static const std::string kLegacyPrefix = "NET_TV_";
+    if (result.compare(0, kLegacyPrefix.size(), kLegacyPrefix) == 0)
+    {
+        result.replace(0, kLegacyPrefix.size(), "NET_");
+    }
+
     return result;
 }
 
@@ -2100,7 +2108,7 @@ void CPlatformManager::process_mqtt_command(const std::string &strTopic, const s
         dlog_info("MQTT SDK 网关转发命令：%s", strCommand.c_str());
 
         const std::string strNormalizedCommand = normalize_mqtt_command(strCommand);
-        if (strNormalizedCommand == "NET_TV_ADD_FACE_INFO" || strNormalizedCommand == "NET_TV_SET_FACE_INFO")
+        if (strNormalizedCommand == "NET_ADD_FACE_INFO" || strNormalizedCommand == "NET_SET_FACE_INFO")
         {
             std::string strError;
             if (!prepare_face_image_command(strNormalizedCommand, strData, strError))
@@ -2176,7 +2184,7 @@ bool CPlatformManager::prepare_face_image_command(const std::string &strCommand,
                                                   std::string &strError)
 {
     const std::string strNormalizedCommand = normalize_mqtt_command(strCommand);
-    if (strNormalizedCommand != "NET_TV_ADD_FACE_INFO" && strNormalizedCommand != "NET_TV_SET_FACE_INFO")
+    if (strNormalizedCommand != "NET_ADD_FACE_INFO" && strNormalizedCommand != "NET_SET_FACE_INFO")
     {
         return true;
     }
@@ -2200,7 +2208,7 @@ bool CPlatformManager::prepare_face_image_command(const std::string &strCommand,
     }
 
     bool bRet = true;
-    if (strNormalizedCommand == "NET_TV_ADD_FACE_INFO")
+    if (strNormalizedCommand == "NET_ADD_FACE_INFO")
     {
         bRet = ensure_face_nv21_local(pData, strError);
     }
@@ -2466,7 +2474,7 @@ std::string CPlatformManager::resolve_platform_file_url(const std::string &strPa
  * @brief 注册 MQTT 自定义命令处理器
  * @note  注册在此的命令优先于 MQTT SDK 网关处理
  *        适用于需要特殊处理逻辑的命令（非标准 SDK 命令透传）
- *        大部分 SDK 命令（NET_TV_GET_xxx / NET_TV_SET_xxx）由 on_mqtt_message 自动通过网关转发
+ *        大部分 SDK 命令（NET_GET_xxx / NET_SET_xxx）由 on_mqtt_message 自动通过网关转发
  */
 void CPlatformManager::register_mqtt_handlers()
 {
