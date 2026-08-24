@@ -12,6 +12,7 @@
 #include "Json.h"
 #include "BG6_ZHSJ/BU_SJCL/AlarmInfoConvert.h"
 #include "BG6_ZHSJ/BU_SJCL/RecordInfoConvert.h"
+#include "Base64Util.h"
 #include "DeviceInfoConvert.h"
 
 #include <algorithm>
@@ -56,6 +57,44 @@ bool EqualsNoCase(const std::string& lhs, const std::string& rhs)
         }
     }
 
+    return true;
+}
+
+/*
+ * 通用抓拍图片通过 JSON Base64 传输。图片存放在调用 Alarm 回调函数所在作用域的
+ * vector 中，回调返回前 pData 始终有效；回调结束后统一释放，符合告警回调的临时
+ * 缓冲区生命周期约定。
+ */
+bool DecodeCaptureImage(Json::Object* pJson,
+                        const char* strBase64Key,
+                        std::vector<std::vector<unsigned char>>& vecStorage,
+                        NET_ImageBuffer_S& stImage)
+{
+    stImage.pData = nullptr;
+    stImage.uDataLen = 0;
+    if (!pJson || !strBase64Key)
+    {
+        return false;
+    }
+
+    std::string strBase64;
+    if (!Json::get(pJson, strBase64Key, strBase64) || strBase64.empty())
+    {
+        return true;
+    }
+
+    std::vector<unsigned char> vecImage;
+    if (!SDKConvert::Base64Decode(strBase64, vecImage) || vecImage.size() > NET_PIC_DATA_MAX_LEN)
+    {
+        return false;
+    }
+
+    if (!vecImage.empty())
+    {
+        vecStorage.emplace_back(std::move(vecImage));
+        stImage.pData = vecStorage.back().data();
+        stImage.uDataLen = static_cast<UINT32>(vecStorage.back().size());
+    }
     return true;
 }
 
@@ -440,6 +479,48 @@ void CAlarmListener::AlarmLoop()
                           jsonBody.find("PanoramaImgBase64") != std::string::npos ? 1 : 0,
                           jsonBody.find("ImgDataBase64") != std::string::npos ? 1 : 0);
             INT32 len = (INT32)sizeof(*info);
+            m_fnAlarmCallback(lCommand, &alarmer, (CHAR*)info.get(), &len, m_pAlarmUserData);
+        }
+        else if (alarmBase == NET_ALARM_BASE_CAPTURE)
+        {
+            auto info = std::make_unique<NET_AlarmCaptureInfo_S>();
+            std::vector<std::vector<unsigned char>> vecImageStorage;
+            SDKConvert::deal(alarmInfoObj, *info, true);
+
+            bool bImageValid = DecodeCaptureImage(alarmInfoObj,
+                                                  "PanoramaImgBase64",
+                                                  vecImageStorage,
+                                                  info->stPanoramaImg);
+            Json::Object* pCrops = Json::get(alarmInfoObj, "Crops");
+            const UINT32 uCropCount = std::min(info->uCropCount,
+                                                static_cast<UINT32>(NET_CAPTURE_CROP_MAX_NUM));
+            for (UINT32 i = 0; i < uCropCount; ++i)
+            {
+                Json::Object* pCrop = pCrops ? Json::Array::get(pCrops, static_cast<int>(i)) : nullptr;
+                if (!DecodeCaptureImage(pCrop,
+                                        "ImageBase64",
+                                        vecImageStorage,
+                                        info->stCropImages[i].stImage))
+                {
+                    bImageValid = false;
+                }
+            }
+            if (!bImageValid)
+            {
+                NETSDK_LOG_MESSAGE_WARN("[DIAG-ALARM] User-%p capture image decode failed: cmd=0x%llX",
+                                        m_hUser,
+                                        lCommand);
+            }
+
+            NETSDK_LOG_MESSAGE_INFO("[DIAG-ALARM] User-%p capture parsed: cmd=0x%llX, alarmType=0x%X, channel=%u, type=%u, panoramaLen=%u, cropCount=%u",
+                                    m_hUser,
+                                    lCommand,
+                                    info->uAlarmType,
+                                    info->uChannel,
+                                    info->uCaptureType,
+                                    info->stPanoramaImg.uDataLen,
+                                    info->uCropCount);
+            INT32 len = static_cast<INT32>(sizeof(*info));
             m_fnAlarmCallback(lCommand, &alarmer, (CHAR*)info.get(), &len, m_pAlarmUserData);
         }
         else if (alarmBase == NET_ALARM_BASE_TRAFFIC)

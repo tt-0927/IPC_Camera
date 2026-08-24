@@ -35,6 +35,7 @@ namespace SDKConvert
     void deal(Json::Object* pRootJson, NET_FaceCaptureRegion_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_FaceCaptureRule_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_FaceCaptureInfo_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_FaceCaptureOverlayInfo_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_FaceCompareInfo_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_FaceLibInfo_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_FaceLibList_S& stInfo, bool bOutStruct);

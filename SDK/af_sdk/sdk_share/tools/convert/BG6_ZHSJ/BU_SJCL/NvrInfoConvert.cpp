@@ -383,6 +383,30 @@ void deal(Json::Object* pRootJson, NET_FaceCaptureInfo_S& stInfo, bool bOutStruc
     convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
 }
 
+/* 人脸抓拍图片叠加配置需支持 SDK JSON 与 IPC 回调之间的双向转换。 */
+void deal(Json::Object* pRootJson, NET_FaceCaptureOverlayInfo_S& stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+
+    SDKConvert::CSDKConvert convert(bOutStruct);
+    convert.field(pRootJson, "DeviceID", stInfo.nDeviceID);
+    convert.field(pRootJson, "MonitoryPointInfo", stInfo.strMonitoryPointInfo);
+    convert.field(pRootJson, "OverlayDeviceID", stInfo.bOverlayDeviceID);
+    convert.field(pRootJson, "OverlayCaptureTime", stInfo.bOverlayCaptureTime);
+    convert.field(pRootJson, "OverlayMonitoryPointInfo", stInfo.bOverlayMonitoryPointInfo);
+
+    INT32 nFontColor = static_cast<INT32>(stInfo.enFontColor);
+    convert.field(pRootJson, "FontColor", nFontColor);
+    if (bOutStruct)
+    {
+        stInfo.enFontColor = static_cast<NET_OSD_COLOR_E>(nFontColor);
+    }
+    convert.field(pRootJson, "CustomFontColor", stInfo.strFontColor);
+}
+
 
 void deal(Json::Object* pRootJson, NET_FaceCompareInfo_S& stInfo, bool bOutStruct)
 {

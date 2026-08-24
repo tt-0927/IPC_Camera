@@ -83,6 +83,20 @@ NET_API BOOL STDCALL NET_serverPushAlarmInfo(IN NET_Alarmer_S *pAlarmer,
                                                     IN LPVOID pAlarmInfo,
                                                     IN INT32 dwBufLen);
 
+/*
+ * 专用抓拍兼容入口。
+ * 服务端内部会转换为 NET_AlarmCaptureInfo_S 和 NET_ALARM_CAPTURE_* 统一协议后推送，
+ * 客户端无需再维护四套不同的接收分支。
+ */
+NET_API BOOL STDCALL NET_serverPushFaceCaptureInfo(IN NET_Alarmer_S* pAlarmer,
+                                                    IN NET_FaceCapturePushInfo_S* pCaptureInfo);
+NET_API BOOL STDCALL NET_serverPushPersonCaptureInfo(IN NET_Alarmer_S* pAlarmer,
+                                                      IN NET_PersonCapturePushInfo_S* pCaptureInfo);
+NET_API BOOL STDCALL NET_serverPushMotorvehicleCaptureInfo(IN NET_Alarmer_S* pAlarmer,
+                                                            IN NET_MotorvehicleCapturePushInfo_S* pCaptureInfo);
+NET_API BOOL STDCALL NET_serverPushNonMotorvehicleCaptureInfo(IN NET_Alarmer_S* pAlarmer,
+                                                               IN NET_NonMotorvehicleCapturePushInfo_S* pCaptureInfo);
+
 /**
  * @brief 推送通道上下线状态
  * @param [IN] pChannelInfo 通道信息，byOnline/nDevState 表示当前状态
@@ -503,6 +517,8 @@ NET_API BOOL STDCALL NET_serverRegisterSetLeaveRegionAlarmCb(NET_CB_SetDevConfig
 
 NET_API BOOL STDCALL NET_serverRegisterGetFaceCaptureInfoCb(NET_CB_GetDevConfigByCommand pCb);
 NET_API BOOL STDCALL NET_serverRegisterSetFaceCaptureInfoCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetFaceCaptureOverlayInfoCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetFaceCaptureOverlayInfoCb(NET_CB_SetDevConfigByCommand pCb);
 NET_API BOOL STDCALL NET_serverRegisterSetFaceCompareInfoCb(NET_CB_SetDevConfigByCommand pCb);
 NET_API BOOL STDCALL NET_serverRegisterAddTargetLibCb(NET_CB_SetDevConfigByCommand pCb);
 NET_API BOOL STDCALL NET_serverRegisterDelTargetLibCb(NET_CB_SetDevConfigByCommand pCb);

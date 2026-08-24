@@ -33,6 +33,7 @@ namespace SDKConvert
     void deal(Json::Object* pRootJson, NET_AlarmRuleInfo_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_AlarmAiObjectInfo_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_AlarmFaceCompareInfo_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_AlarmCaptureInfo_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_AlarmPlateInfo_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_AlarmExceptionInfo_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_AlarmStatisticsTarget_S& stInfo, bool bOutStruct);
