@@ -35,6 +35,29 @@ struct SdkImageObjectRequest_S
     const std::vector<unsigned char> *pvecJpeg = nullptr;
 };
 
+/* SDK 通用抓拍目标。图片内存由调用方持有，直至 publishCapture 返回。 */
+struct SdkCaptureTargetRequest_S
+{
+    Common::RectInfo_S stRect;
+    unsigned int unObjectType = 0;
+    float fConfidence = 0.0f;
+    int nTrackId = -1;
+    const std::vector<unsigned char> *pvecJpeg = nullptr;
+};
+
+/* SDK 通用抓拍请求：一条事件同时包含全景图和多个目标小图。 */
+struct SdkCaptureRequest_S
+{
+    unsigned int unAlarmType = 0;
+    unsigned int unCaptureType = 0;
+    int nChnId = 0;
+    unsigned int unPanoramaWidth = 0;
+    unsigned int unPanoramaHeight = 0;
+    long long llTimestampMs = 0;
+    const std::vector<unsigned char> *pvecPanoramaJpeg = nullptr;
+    std::vector<SdkCaptureTargetRequest_S> vecTargets;
+};
+
 class CAlgoImageEventPublisher : public CAlgoSdkEventPublisherBase
 {
 protected:
@@ -44,5 +67,11 @@ protected:
      * @return   {bool} true：推送成功 false：未推送或推送失败
      */
     bool publishImageObject(const SdkImageObjectRequest_S &stRequest) const;
+
+    /**
+     * @brief 推送统一抓拍事件到 TVSDK。
+     * @note 由通用层负责协议结构填充和长度校验，算法业务层只提供 JPEG 与目标元数据。
+     */
+    bool publishCapture(const SdkCaptureRequest_S &stRequest) const;
 };
 } // namespace AiAppCommon

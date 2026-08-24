@@ -44,17 +44,12 @@ public:
     /**
      * @brief 推送告警信息给已连接的 SDK 客户端
      * @param pAlarmer 告警设备信息（可为 nullptr，内部会填默认）
-     * @param lCommand 命令码/报警类型（见 NetTVSDKServer.h 中 NET_TV_ALARM_*）
+     * @param lCommand 命令码/报警类型（见 NetTVSDKCommon.h 中 NET_ALARM_*）
      * @param pAlarmInfo 告警结构体指针，类型由 lCommand 决定
      * @param dwBufLen pAlarmInfo 长度
      * @return 0 成功，负值失败
      */
     int push_alarm(const void *pAlarmer, int lCommand, const void *pAlarmInfo, int dwBufLen);
-
-    /**
-     * @brief 推送 V2 告警信息。图片仅通过指针和实际长度传递，调用期间需保持图片内存有效。
-     */
-    int push_alarm_v2(const void *pAlarmer, int lCommand, const void *pAlarmInfo, int dwBufLen);
 
     /**
      * @brief 获取当前 TVSDK 在线客户端数量（活跃会话数）
@@ -100,7 +95,7 @@ private:
     /* lock: 保护默认告警设备信息缓存，避免初始化与告警线程并发读取时产生数据竞争 */
     mutable std::mutex m_mtxDefaultAlarmer;
     /* memory: 仅保存固定长度的设备信息，不携带告警图片等大块数据 */
-    NET_TV_ALARMER_S m_stDefaultAlarmer{};
+    NET_Alarmer_S m_stDefaultAlarmer{};
     /* 默认告警设备信息是否已经在启动阶段准备完成 */
     bool m_bDefaultAlarmerReady = false;
 };

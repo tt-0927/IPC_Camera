@@ -28,7 +28,7 @@ enum class EventTvSdkPayloadType_E
     FACE_COMPARE,
 };
 
-/* TVSDK 统计业务子类型，数值与 NET_TV_STATISTICS_TYPE_E 保持一致 */
+/* TVSDK 统计业务子类型，数值与 NET_STATISTICS_TYPE_E 保持一致 */
 enum class EventTvSdkStatisticsType_E
 {
     PEOPLE_FLOW = 1,
@@ -78,7 +78,7 @@ struct EventTvSdkTarget_S
 /* TVSDK 统计类负载，第一阶段用于人流统计，后续可复用到人员密度 */
 struct EventTvSdkStatisticsPayload_S
 {
-    /* 统计子类型，取值由 TVSDK 协议 NET_TV_STATISTICS_TYPE_* 对齐 */
+    /* 统计子类型，取值由 TVSDK 协议 NET_STATISTICS_TYPE_* 对齐 */
     int nStatisticsType = 0;
     /* 规则 ID 或规则下标 */
     int nRuleId = 0;

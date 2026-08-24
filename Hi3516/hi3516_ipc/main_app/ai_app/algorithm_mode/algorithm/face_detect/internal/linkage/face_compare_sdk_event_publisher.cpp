@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <cstring>
+#include <memory>
 
 #include "control_manage.h"
 #include "dlog.h"
@@ -27,7 +28,7 @@ unsigned int get_face_compare_alarm_type()
 #ifndef ENABLE_TVSDK_SRC
     return 0;
 #else
-    return NET_TV_ALARM_FACE_COMPARE;
+    return NET_ALARM_FACE_COMPARE;
 #endif
 }
 
@@ -71,25 +72,26 @@ bool CFaceCompareSdkEventPublisher::publish(const FaceCompareSdkResult_S &stResu
         return false;
     }
 
-    NET_TV_ALARM_FACE_COMPARE_INFO_S stInfo;
-    std::memset(&stInfo, 0, sizeof(stInfo));
-    stInfo.dwAlarmType = get_face_compare_alarm_type();
-    stInfo.dwChannel = static_cast<UINT32>(normalizeChannel(stResult.nChnId));
+    /* 新 SDK 将两张 JPEG 内嵌在结构体中，避免事件线程栈承载大块图片数据。 */
+    std::unique_ptr<NET_AlarmFaceCompareInfo_S> pInfo(new NET_AlarmFaceCompareInfo_S());
+    NET_AlarmFaceCompareInfo_S &stInfo = *pInfo;
+    stInfo.uAlarmType = get_face_compare_alarm_type();
+    stInfo.uChannel = static_cast<UINT32>(normalizeChannel(stResult.nChnId));
     stInfo.llTimestampMs = TimeUtils_NS::get_currentTimestampMs();
     stInfo.nEventId = 0;
     stInfo.nCompResult = stResult.bSuccess ? 1 : 0;
     stInfo.nFaceId = stResult.nFaceId;
     stInfo.nSimilarity = static_cast<INT32>(std::max(0.0f, std::min(stResult.fSimilarity, 1.0f)) * 100.0f);
-    copy_string(stInfo.szFaceName, stResult.strFaceName);
-    copy_string(stInfo.szFaceLibName, stResult.strFaceLibName);
-    copy_string(stInfo.szLibFacePath, stResult.strLibFacePath);
-    copy_string(stInfo.szCapFacePath, stResult.strCapFacePath);
-    copy_string(stInfo.szCapImagePath, stResult.strCapImagePath);
-    stInfo.dwLibFaceImgLen = copy_image(stInfo.byLibFaceImg, stResult.pvecLibFaceJpeg);
-    stInfo.dwCapFaceImgLen = copy_image(stInfo.byCapFaceImg, stResult.pvecCaptureJpeg);
+    copy_string(stInfo.strFaceName, stResult.strFaceName);
+    copy_string(stInfo.strFaceLibName, stResult.strFaceLibName);
+    copy_string(stInfo.strLibFacePath, stResult.strLibFacePath);
+    copy_string(stInfo.strCapFacePath, stResult.strCapFacePath);
+    copy_string(stInfo.strCapImagePath, stResult.strCapImagePath);
+    stInfo.uLibFaceImgLen = copy_image(stInfo.byLibFaceImg, stResult.pvecLibFaceJpeg);
+    stInfo.uCapFaceImgLen = copy_image(stInfo.byCapFaceImg, stResult.pvecCaptureJpeg);
 
-    const int nRet = ControlManage::instance()->tvsdk_push_alarm(static_cast<int>(stInfo.dwAlarmType),
-                                                                 &stInfo,
+    const int nRet = ControlManage::instance()->tvsdk_push_alarm(static_cast<int>(stInfo.uAlarmType),
+                                                                 pInfo.get(),
                                                                  sizeof(stInfo));
     if (nRet != 0)
     {
@@ -101,14 +103,14 @@ bool CFaceCompareSdkEventPublisher::publish(const FaceCompareSdkResult_S &stResu
     }
 
     dlog_info("人脸比对 SDK 事件推送成功，通道[%u] result[%d] id[%d] name[%s] lib[%s] similarity[%d] capLen[%u] libLen[%u]",
-              stInfo.dwChannel,
+              stInfo.uChannel,
               stInfo.nCompResult,
               stInfo.nFaceId,
-              stInfo.szFaceName,
-              stInfo.szFaceLibName,
+              stInfo.strFaceName,
+              stInfo.strFaceLibName,
               stInfo.nSimilarity,
-              stInfo.dwCapFaceImgLen,
-              stInfo.dwLibFaceImgLen);
+              stInfo.uCapFaceImgLen,
+              stInfo.uLibFaceImgLen);
     return true;
 #endif
 }
