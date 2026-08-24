@@ -2,6 +2,7 @@
 
 #include<stdio.h>
 #include <stdint.h>
+#include <cstring>
 #include <memory>
 
 #include "NetTVSDKServerInterface.h"
@@ -15,6 +16,39 @@
 
 // 全局Impl单例（使用智能指针）
 static std::unique_ptr<CNetTVSDKServerImpl> g_pServerImpl;
+
+namespace
+{
+UINT32 ClampCaptureImageLength(UINT32 uLength)
+{
+    return uLength > NET_PIC_DATA_MAX_LEN ? NET_PIC_DATA_MAX_LEN : uLength;
+}
+
+void FillCaptureImage(NET_ImageBuffer_S& stImage, BYTE* pData, UINT32 uLength)
+{
+    stImage.pData = pData;
+    stImage.uDataLen = ClampCaptureImageLength(uLength);
+}
+
+void CopyCaptureTimestamp(CHAR* strDst, const CHAR* strSrc)
+{
+    if (!strDst || !strSrc)
+    {
+        return;
+    }
+    std::memcpy(strDst, strSrc, NET_CAPTURE_TIMESTAMP_MAX_LEN);
+    strDst[NET_CAPTURE_TIMESTAMP_MAX_LEN - 1] = '\0';
+}
+
+BOOL PushCompatibleCapture(NET_Alarmer_S* pAlarmer, NET_AlarmCaptureInfo_S& stCapture)
+{
+    /* NET_serverPushAlarmInfo 在当前调用中完成 JSON 序列化，因此图片指针只需在本函数返回前有效。 */
+    return NET_serverPushAlarmInfo(pAlarmer,
+                                   static_cast<INT32>(stCapture.uAlarmType),
+                                   &stCapture,
+                                   static_cast<INT32>(sizeof(stCapture)));
+}
+} // namespace
 
 #ifdef __cplusplus
 extern "C" {
@@ -88,6 +122,122 @@ NET_API BOOL STDCALL NET_serverPushAlarmInfo(IN NET_Alarmer_S *pAlarmer,
 		g_pServerImpl = std::make_unique<CNetTVSDKServerImpl>();
 	}
 	return g_pServerImpl->DoPushAlarmInfo(pAlarmer, lCommand, pAlarmInfo, dwBufLen);
+}
+
+NET_API BOOL STDCALL NET_serverPushFaceCaptureInfo(IN NET_Alarmer_S* pAlarmer,
+                                                    IN NET_FaceCapturePushInfo_S* pCaptureInfo)
+{
+    if (!pAlarmer || !pCaptureInfo)
+    {
+        return FALSE;
+    }
+
+    NET_AlarmCaptureInfo_S stCapture = {};
+    stCapture.uAlarmType = NET_ALARM_CAPTURE_FACE;
+    stCapture.uCaptureType = NET_CAPTURE_TYPE_FACE;
+    FillCaptureImage(stCapture.stPanoramaImg, pCaptureInfo->byPanoramaImg, pCaptureInfo->uPanoramaImgLen);
+    if (pCaptureInfo->uFaceImgLen > 0)
+    {
+        stCapture.uCropCount = 1;
+        stCapture.stCropImages[0].uTargetType = 3; /* 与历史 SDK 的人脸目标类型保持一致。 */
+        stCapture.stCropImages[0].nTrackID = -1;
+        FillCaptureImage(stCapture.stCropImages[0].stImage, pCaptureInfo->byFaceImg, pCaptureInfo->uFaceImgLen);
+    }
+    stCapture.stExtraInfo.bMale = pCaptureInfo->bMale;
+    stCapture.stExtraInfo.nAgeLabel = pCaptureInfo->nAgeLabel;
+    stCapture.stExtraInfo.bGlasses = pCaptureInfo->bGlasses;
+    stCapture.stExtraInfo.bBeard = pCaptureInfo->bBeard;
+    stCapture.stExtraInfo.bMask = pCaptureInfo->bMask;
+    stCapture.stExtraInfo.nEmotionLabel = pCaptureInfo->nEmotionLabel;
+    stCapture.stExtraInfo.stTargetRegion = pCaptureInfo->stFaceRegion;
+    CopyCaptureTimestamp(stCapture.stExtraInfo.strTimestamp, pCaptureInfo->strTimestamp);
+    return PushCompatibleCapture(pAlarmer, stCapture);
+}
+
+NET_API BOOL STDCALL NET_serverPushPersonCaptureInfo(IN NET_Alarmer_S* pAlarmer,
+                                                      IN NET_PersonCapturePushInfo_S* pCaptureInfo)
+{
+    if (!pAlarmer || !pCaptureInfo)
+    {
+        return FALSE;
+    }
+
+    NET_AlarmCaptureInfo_S stCapture = {};
+    stCapture.uAlarmType = NET_ALARM_CAPTURE_PEOPLE;
+    stCapture.uCaptureType = NET_CAPTURE_TYPE_PEOPLE;
+    FillCaptureImage(stCapture.stPanoramaImg, pCaptureInfo->byPanoramaImg, pCaptureInfo->uPanoramaImgLen);
+    if (pCaptureInfo->uPersonImgLen > 0)
+    {
+        stCapture.uCropCount = 1;
+        stCapture.stCropImages[0].uTargetType = NET_CAPTURE_TYPE_PEOPLE;
+        stCapture.stCropImages[0].nTrackID = -1;
+        FillCaptureImage(stCapture.stCropImages[0].stImage, pCaptureInfo->byPersonImg, pCaptureInfo->uPersonImgLen);
+    }
+    stCapture.stExtraInfo.bMale = pCaptureInfo->bMale;
+    stCapture.stExtraInfo.nAgeLabel = pCaptureInfo->nAgeLabel;
+    stCapture.stExtraInfo.bBag = pCaptureInfo->bBag;
+    stCapture.stExtraInfo.nTopColorLabel = pCaptureInfo->nTopColorLabel;
+    stCapture.stExtraInfo.nBottomColorLabel = pCaptureInfo->nBottomColorLabel;
+    CopyCaptureTimestamp(stCapture.stExtraInfo.strTimestamp, pCaptureInfo->strTimestamp);
+    return PushCompatibleCapture(pAlarmer, stCapture);
+}
+
+NET_API BOOL STDCALL NET_serverPushMotorvehicleCaptureInfo(IN NET_Alarmer_S* pAlarmer,
+                                                            IN NET_MotorvehicleCapturePushInfo_S* pCaptureInfo)
+{
+    if (!pAlarmer || !pCaptureInfo)
+    {
+        return FALSE;
+    }
+
+    NET_AlarmCaptureInfo_S stCapture = {};
+    stCapture.uAlarmType = NET_ALARM_CAPTURE_VEHICLE;
+    stCapture.uCaptureType = NET_CAPTURE_TYPE_VEHICLE;
+    FillCaptureImage(stCapture.stPanoramaImg, pCaptureInfo->byPanoramaImg, pCaptureInfo->uPanoramaImgLen);
+    if (pCaptureInfo->uTargetImgLen > 0)
+    {
+        stCapture.uCropCount = 1;
+        stCapture.stCropImages[0].uTargetType = NET_CAPTURE_TYPE_VEHICLE;
+        stCapture.stCropImages[0].nTrackID = -1;
+        FillCaptureImage(stCapture.stCropImages[0].stImage, pCaptureInfo->byTargetImg, pCaptureInfo->uTargetImgLen);
+    }
+    stCapture.stExtraInfo.nVehicleType = pCaptureInfo->nVehicleType;
+    stCapture.stExtraInfo.nVehicleColor = pCaptureInfo->nVehicleColor;
+    std::memcpy(stCapture.stExtraInfo.strVehicleBrand,
+                pCaptureInfo->strVehicleBrand,
+                sizeof(stCapture.stExtraInfo.strVehicleBrand));
+    std::memcpy(stCapture.stExtraInfo.strLicensePlateNumber,
+                pCaptureInfo->strLicensePlateNumber,
+                sizeof(stCapture.stExtraInfo.strLicensePlateNumber));
+    stCapture.stExtraInfo.strVehicleBrand[sizeof(stCapture.stExtraInfo.strVehicleBrand) - 1] = '\0';
+    stCapture.stExtraInfo.strLicensePlateNumber[sizeof(stCapture.stExtraInfo.strLicensePlateNumber) - 1] = '\0';
+    CopyCaptureTimestamp(stCapture.stExtraInfo.strTimestamp, pCaptureInfo->strTimestamp);
+    return PushCompatibleCapture(pAlarmer, stCapture);
+}
+
+NET_API BOOL STDCALL NET_serverPushNonMotorvehicleCaptureInfo(IN NET_Alarmer_S* pAlarmer,
+                                                               IN NET_NonMotorvehicleCapturePushInfo_S* pCaptureInfo)
+{
+    if (!pAlarmer || !pCaptureInfo)
+    {
+        return FALSE;
+    }
+
+    NET_AlarmCaptureInfo_S stCapture = {};
+    stCapture.uAlarmType = NET_ALARM_CAPTURE_NON_MOTOR;
+    stCapture.uCaptureType = NET_CAPTURE_TYPE_NON_MOTOR;
+    FillCaptureImage(stCapture.stPanoramaImg, pCaptureInfo->byPanoramaImg, pCaptureInfo->uPanoramaImgLen);
+    if (pCaptureInfo->uTargetImgLen > 0)
+    {
+        stCapture.uCropCount = 1;
+        stCapture.stCropImages[0].uTargetType = NET_CAPTURE_TYPE_NON_MOTOR;
+        stCapture.stCropImages[0].nTrackID = -1;
+        FillCaptureImage(stCapture.stCropImages[0].stImage, pCaptureInfo->byTargetImg, pCaptureInfo->uTargetImgLen);
+    }
+    stCapture.stExtraInfo.nVehicleType = pCaptureInfo->nVehicleType;
+    stCapture.stExtraInfo.nVehicleColor = pCaptureInfo->nVehicleColor;
+    CopyCaptureTimestamp(stCapture.stExtraInfo.strTimestamp, pCaptureInfo->strTimestamp);
+    return PushCompatibleCapture(pAlarmer, stCapture);
 }
 
 NET_API BOOL STDCALL NET_serverPushChannelStatusInfo(IN NET_ChannelInfo_S *pChannelInfo)

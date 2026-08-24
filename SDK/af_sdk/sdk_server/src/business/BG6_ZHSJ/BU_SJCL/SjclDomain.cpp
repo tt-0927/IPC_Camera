@@ -57,6 +57,7 @@ CSjclDomain::CSjclDomain()
     /* ===== 人脸库/人脸抓拍 ===== */
     m_getTable[NET_GET_TARGET_LIB]        = &CSjclDomain::TemplatedGet<NET_FaceLibList_S>;
     m_getTable[NET_GET_FACECAPTUREINFO]   = &CSjclDomain::TemplatedGet<NET_FaceCaptureInfo_S>;
+    m_getTable[NET_GET_FACECAPTUREOVERLAYINFO] = &CSjclDomain::TemplatedGet<NET_FaceCaptureOverlayInfo_S>;
     m_getTable[NET_GET_FACE_INFO]         = &CSjclDomain::TemplatedGet<NET_FaceInfoList_S>;
 
     /* ===== AI 分析配置 ===== */
@@ -147,6 +148,7 @@ CSjclDomain::CSjclDomain()
 
     /* ===== 人脸库/人脸信息 ===== */
     m_setTable[NET_SET_FACECAPTUREINFO]   = &CSjclDomain::TemplatedSet<NET_FaceCaptureInfo_S>;
+    m_setTable[NET_SET_FACECAPTUREOVERLAYINFO] = &CSjclDomain::TemplatedSet<NET_FaceCaptureOverlayInfo_S>;
     m_setTable[NET_SET_FACE_COMPARE_INFO] = &CSjclDomain::TemplatedSet<NET_FaceCompareInfo_S>;
     m_setTable[NET_ADD_TARGET_LIB]        = &CSjclDomain::TemplatedSet<NET_FaceLibInfo_S>;
     m_setTable[NET_DEL_TARGET_LIB]        = &CSjclDomain::TemplatedSet<NET_FaceLibInfo_S>;

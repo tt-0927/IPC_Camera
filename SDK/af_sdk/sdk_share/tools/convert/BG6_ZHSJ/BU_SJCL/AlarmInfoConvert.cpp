@@ -249,6 +249,218 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_AlarmAiObjectInfo_S& stInfo, 
     ImageBase64Field(pRootJson, "ImgDataBase64", stInfo.byImgData, stInfo.uImgLen, bOutStruct);
 }
 
+namespace
+{
+/*
+ * 通用抓拍结构使用“指针 + 长度”保存图片。服务端序列化时只读取调用方在本次
+ * NET_serverPushAlarmInfo 调用期间提供的内存；客户端反序列化由 AlarmListener
+ * 管理图片所有权，因此此处反序列化阶段只恢复长度和元数据，不保存悬空指针。
+ */
+void CaptureImageField(Json::Object* pRootJson,
+                       const char* strName,
+                       NET_ImageBuffer_S& stImage,
+                       bool bOutStruct)
+{
+    if (!pRootJson || !strName)
+    {
+        return;
+    }
+
+    const std::string strLengthKey = std::string(strName) + "Len";
+    const std::string strBase64Key = std::string(strName) + "Base64";
+    if (bOutStruct)
+    {
+        int nLength = 0;
+        Json::get(pRootJson, strLengthKey, nLength);
+        stImage.pData = nullptr;
+        stImage.uDataLen = static_cast<UINT32>(std::max(0, std::min(nLength, NET_PIC_DATA_MAX_LEN)));
+        return;
+    }
+
+    UINT32 uLength = stImage.uDataLen;
+    if (stImage.pData == nullptr || uLength == 0)
+    {
+        uLength = 0;
+    }
+    else if (uLength > NET_PIC_DATA_MAX_LEN)
+    {
+        /* 单张图片不能突破公开协议的最大长度，避免错误指针或异常长度放大报文。 */
+        uLength = NET_PIC_DATA_MAX_LEN;
+    }
+
+    Json::add(pRootJson, strLengthKey, static_cast<int>(uLength));
+    if (uLength > 0)
+    {
+        Json::add(pRootJson,
+                  strBase64Key,
+                  SDKConvert::Base64Encode(stImage.pData, static_cast<size_t>(uLength)));
+    }
+}
+
+void CaptureCropField(Json::Object* pRootJson, NET_CropImage_S& stCrop, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+
+    SDKConvert::CSDKConvert convert(bOutStruct);
+    int nCropX = static_cast<int>(stCrop.uCropX);
+    int nCropY = static_cast<int>(stCrop.uCropY);
+    int nCropWidth = static_cast<int>(stCrop.uCropWidth);
+    int nCropHeight = static_cast<int>(stCrop.uCropHeight);
+    int nTargetType = static_cast<int>(stCrop.uTargetType);
+    convert.field(pRootJson, "CropX", nCropX);
+    convert.field(pRootJson, "CropY", nCropY);
+    convert.field(pRootJson, "CropWidth", nCropWidth);
+    convert.field(pRootJson, "CropHeight", nCropHeight);
+    convert.field(pRootJson, "TargetType", nTargetType);
+    if (bOutStruct)
+    {
+        stCrop.uCropX = static_cast<UINT32>(std::max(0, nCropX));
+        stCrop.uCropY = static_cast<UINT32>(std::max(0, nCropY));
+        stCrop.uCropWidth = static_cast<UINT32>(std::max(0, nCropWidth));
+        stCrop.uCropHeight = static_cast<UINT32>(std::max(0, nCropHeight));
+        stCrop.uTargetType = static_cast<UINT32>(std::max(0, nTargetType));
+    }
+    convert.field(pRootJson, "Confidence", stCrop.fConfidence);
+    convert.field(pRootJson, "TrackID", stCrop.nTrackID);
+    CaptureImageField(pRootJson, "Image", stCrop.stImage, bOutStruct);
+}
+
+void CapturePolygonField(Json::Object* pRootJson, NET_CapturePolygon_S& stPolygon, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+
+    SDKConvert::CSDKConvert convert(bOutStruct);
+    int nPointCount = static_cast<int>(stPolygon.uPointCount);
+    convert.field(pRootJson, "PointCount", nPointCount);
+    if (bOutStruct)
+    {
+        stPolygon.uPointCount = static_cast<UINT32>(std::max(0, std::min(nPointCount, NET_CAPTURE_REGION_POINT_MAX_NUM)));
+    }
+
+    Json::Object* pPointX = Json::get(pRootJson, "PointX");
+    Json::Object* pPointY = Json::get(pRootJson, "PointY");
+    if (bOutStruct)
+    {
+        const int nPointXSize = pPointX ? Json::Array::size(pPointX) : 0;
+        const int nPointYSize = pPointY ? Json::Array::size(pPointY) : 0;
+        const UINT32 uPointCount = std::min(stPolygon.uPointCount,
+                                            static_cast<UINT32>(std::max(0, std::min(nPointXSize, nPointYSize))));
+        for (UINT32 i = 0; i < uPointCount; ++i)
+        {
+            double fPointX = 0.0;
+            double fPointY = 0.0;
+            Json::Value::get(Json::Array::get(pPointX, static_cast<int>(i)), fPointX);
+            Json::Value::get(Json::Array::get(pPointY, static_cast<int>(i)), fPointY);
+            stPolygon.afPointX[i] = static_cast<FLOAT>(fPointX);
+            stPolygon.afPointY[i] = static_cast<FLOAT>(fPointY);
+        }
+        stPolygon.uPointCount = uPointCount;
+        return;
+    }
+
+    Json::Object* pOutPointX = Json::Array::init();
+    Json::Object* pOutPointY = Json::Array::init();
+    const UINT32 uPointCount = std::min(stPolygon.uPointCount,
+                                        static_cast<UINT32>(NET_CAPTURE_REGION_POINT_MAX_NUM));
+    for (UINT32 i = 0; i < uPointCount; ++i)
+    {
+        Json::Array::add(pOutPointX, static_cast<float>(stPolygon.afPointX[i]));
+        Json::Array::add(pOutPointY, static_cast<float>(stPolygon.afPointY[i]));
+    }
+    Json::add(pRootJson, "PointX", pOutPointX);
+    Json::add(pRootJson, "PointY", pOutPointY);
+}
+
+void CaptureExtraField(Json::Object* pRootJson, NET_CaptureExtraInfo_S& stExtra, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+
+    SDKConvert::CSDKConvert convert(bOutStruct);
+    convert.field(pRootJson, "Male", stExtra.bMale);
+    convert.field(pRootJson, "AgeLabel", stExtra.nAgeLabel);
+    convert.field(pRootJson, "Glasses", stExtra.bGlasses);
+    convert.field(pRootJson, "Beard", stExtra.bBeard);
+    convert.field(pRootJson, "Mask", stExtra.bMask);
+    convert.field(pRootJson, "EmotionLabel", stExtra.nEmotionLabel);
+    convert.field(pRootJson, "Bag", stExtra.bBag);
+    convert.field(pRootJson, "TopColorLabel", stExtra.nTopColorLabel);
+    convert.field(pRootJson, "BottomColorLabel", stExtra.nBottomColorLabel);
+    convert.field(pRootJson, "VehicleType", stExtra.nVehicleType);
+    convert.field(pRootJson, "VehicleColor", stExtra.nVehicleColor);
+    CharArrayField(pRootJson, "VehicleBrand", stExtra.strVehicleBrand, bOutStruct);
+    CharArrayField(pRootJson, "LicensePlateNumber", stExtra.strLicensePlateNumber, bOutStruct);
+    CharArrayField(pRootJson, "CaptureTimestamp", stExtra.strTimestamp, bOutStruct);
+
+    Json::Object* pRegion = nullptr;
+    if (bOutStruct)
+    {
+        pRegion = Json::get(pRootJson, "TargetRegion");
+        if (pRegion)
+        {
+            CapturePolygonField(pRegion, stExtra.stTargetRegion, true);
+        }
+        return;
+    }
+
+    pRegion = Json::init();
+    CapturePolygonField(pRegion, stExtra.stTargetRegion, false);
+    Json::add(pRootJson, "TargetRegion", pRegion);
+}
+} // namespace
+
+void SDKConvert::deal(Json::Object* pRootJson, NET_AlarmCaptureInfo_S& stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+
+    SDKConvert::CSDKConvert convert(bOutStruct);
+    convert.field(pRootJson, "AlarmType", (int&)stInfo.uAlarmType);
+    convert.field(pRootJson, "Channel", (int&)stInfo.uChannel);
+    convert.field(pRootJson, "CaptureType", (int&)stInfo.uCaptureType);
+    convert.field(pRootJson, "TimestampMs", stInfo.llTimestampMs);
+    convert.field(pRootJson, "PanoramaWidth", (int&)stInfo.uPanoramaWidth);
+    convert.field(pRootJson, "PanoramaHeight", (int&)stInfo.uPanoramaHeight);
+    CaptureImageField(pRootJson, "PanoramaImg", stInfo.stPanoramaImg, bOutStruct);
+    convert.field(pRootJson, "CropCount", (int&)stInfo.uCropCount);
+    CaptureExtraField(pRootJson, stInfo.stExtraInfo, bOutStruct);
+
+    if (bOutStruct)
+    {
+        Json::Object* pCrops = Json::get(pRootJson, "Crops");
+        const int nArraySize = pCrops ? Json::Array::size(pCrops) : 0;
+        UINT32 uCropCount = std::min(stInfo.uCropCount, static_cast<UINT32>(std::max(0, nArraySize)));
+        uCropCount = std::min(uCropCount, static_cast<UINT32>(NET_CAPTURE_CROP_MAX_NUM));
+        for (UINT32 i = 0; i < uCropCount; ++i)
+        {
+            Json::Object* pCrop = Json::Array::get(pCrops, static_cast<int>(i));
+            CaptureCropField(pCrop, stInfo.stCropImages[i], true);
+        }
+        stInfo.uCropCount = uCropCount;
+        return;
+    }
+
+    Json::Object* pCrops = Json::Array::init();
+    const UINT32 uCropCount = std::min(stInfo.uCropCount, static_cast<UINT32>(NET_CAPTURE_CROP_MAX_NUM));
+    for (UINT32 i = 0; i < uCropCount; ++i)
+    {
+        Json::Object* pCrop = Json::init();
+        CaptureCropField(pCrop, stInfo.stCropImages[i], false);
+        Json::Array::add(pCrops, pCrop);
+    }
+    Json::add(pRootJson, "Crops", pCrops);
+}
+
 void SDKConvert::deal(Json::Object* pRootJson, NET_AlarmFaceCompareInfo_S& stInfo, bool bOutStruct)
 {
     if (!pRootJson) return;

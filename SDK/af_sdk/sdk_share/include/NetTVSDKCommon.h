@@ -654,17 +654,38 @@ extern "C"{
 #define NET_ALARM_HELMET_MISSING     (NET_ALARM_BASE_AI + 0x24)    // 未戴安全帽 (SAFETY_HELMET)
 #define NET_ALARM_NO_REFLECTIVE_VEST (NET_ALARM_BASE_AI + 0x25)    // 未穿反光衣 (REFLECTIVE_CLOTHING)
 #define NET_ALARM_SMOKE_FIRE         (NET_ALARM_BASE_AI + 0x26)    // 烟火检测
-#define NET_TV_ALARM_PERSON_TRIP        (NET_TV_ALARM_BASE_AI + 0x27)    // 摔倒识别
-#define NET_TV_ALARM_ELECTRIC_VEHICLE_IN_ELEVATOR \
-                                        (NET_TV_ALARM_BASE_AI + 0x28)    // 电瓶车进电梯识别
-#define NET_TV_ALARM_GARBAGE_EXPOSURE   (NET_TV_ALARM_BASE_AI + 0x29)    // 垃圾暴露识别
-#define NET_TV_ALARM_GARBAGE_OVERFLOW   (NET_TV_ALARM_BASE_AI + 0x2A)    // 垃圾满溢识别
-#define NET_TV_ALARM_MANHOLE_COVER_ABNORMAL \
-                                        (NET_TV_ALARM_BASE_AI + 0x2B)    // 井盖异常检测
+#define NET_ALARM_PERSON_TRIP        (NET_ALARM_BASE_AI + 0x27)    // 人员绊倒识别
+#define NET_ALARM_ELECTRIC_VEHICLE_IN_ELEVATOR \
+                                        (NET_ALARM_BASE_AI + 0x28)    // 电瓶车进电梯识别
+#define NET_ALARM_GARBAGE_EXPOSURE   (NET_ALARM_BASE_AI + 0x29)    // 垃圾暴露识别
+#define NET_ALARM_GARBAGE_OVERFLOW   (NET_ALARM_BASE_AI + 0x2A)    // 垃圾满溢识别
+#define NET_ALARM_MANHOLE_COVER_ABNORMAL \
+                                        (NET_ALARM_BASE_AI + 0x2B)    // 井盖异常检测
+#define NET_ALARM_FENCE_CLIMBING      (NET_ALARM_BASE_AI + 0x2C)    // 翻越围栏识别
+#define NET_ALARM_BARE_SOIL           (NET_ALARM_BASE_AI + 0x2D)    // 黄土裸露识别
+#define NET_ALARM_HOLE_PROTECTION_BAR (NET_ALARM_BASE_AI + 0x2E)    // 洞口防护栏识别
+#define NET_ALARM_PEDESTRIAN_INTRUSION \
+                                        (NET_ALARM_BASE_AI + 0x2F)    // 行人入侵识别
+#define NET_ALARM_HIGH_ALTITUDE_SEATBELT \
+                                        (NET_ALARM_BASE_AI + 0x30)    // 高空安全带识别
+#define NET_ALARM_CONSTRUCTION_OCCUPY_ROAD \
+                                        (NET_ALARM_BASE_AI + 0x31)    // 施工占道识别
+#define NET_ALARM_EMERGENCY_LANE_OCCUPANCY \
+                                        (NET_ALARM_BASE_AI + 0x32)    // 应急车道占用识别
+#define NET_ALARM_REVERSE_DIRECTION   (NET_ALARM_BASE_AI + 0x33)    // 逆行识别
+#define NET_ALARM_NON_MOTOR_VEHICLE_INTRUSION \
+                                        (NET_ALARM_BASE_AI + 0x34)    // 非机动车入侵识别
+#define NET_ALARM_ROAD_PONDING         (NET_ALARM_BASE_AI + 0x35)    // 道路积水识别
+#define NET_ALARM_CONGESTION           (NET_ALARM_BASE_AI + 0x36)    // 拥堵识别
+#define NET_ALARM_ILLEGAL_LANE_CHANGE  (NET_ALARM_BASE_AI + 0x37)    // 违法变道识别
+#define NET_ALARM_SCENE_CHANGE         (NET_ALARM_BASE_AI + 0x38)    // 场景变更识别
+#define NET_ALARM_OPEN_FLAME           (NET_ALARM_BASE_AI + 0x39)    // 明火识别
 
 
 // > 音频智能
 #define NET_ALARM_AUDIO_ANOMALY      (NET_ALARM_BASE_AI + 0x50)    // 音频异常
+#define NET_ALARM_AUDIO_SUDDEN_RISE  (NET_ALARM_BASE_AI + 0x51)    // 声强陡升检测
+#define NET_ALARM_AUDIO_SUDDEN_DROP  (NET_ALARM_BASE_AI + 0x52)    // 声强突降检测
 
 /**
  * @brief 交通/车辆相关 (0x4000 - 0x40FF)
@@ -1146,6 +1167,9 @@ typedef enum tagNETTVCfgCmd
     NET_GET_FACECAPTUREINFO          = 246,              /* 获取人脸抓拍配置信息 参见NET_FACE_CAPTURE_INFO_S */
     NET_SET_FACECAPTUREINFO          = 247,              /* 设置人脸抓拍配置信息 参见NET_FACE_CAPTURE_INFO_S */
     NET_GET_HOTSPOT_CONN             = 248,              /* 获取热点连接设备 参见 NET_HotspotConnInfo_S */
+    /* 保持旧版 249/250 的业务语义，仅迁移为新的 NET_* ABI 命名。 */
+    NET_GET_FACECAPTUREOVERLAYINFO   = 249,              /* 获取人脸抓拍图片叠加配置 参见NET_FaceCaptureOverlayInfo_S */
+    NET_SET_FACECAPTUREOVERLAYINFO   = 250,              /* 设置人脸抓拍图片叠加配置 参见NET_FaceCaptureOverlayInfo_S */
 
     NET_GET_CHANNEL_INFO             = 300,              /* 获取通道信息 参见NET_ChannelList_S（传channel=单通道；不传channel=全通道列表） */
 
@@ -2461,7 +2485,7 @@ typedef NET_SystemNtpInfo_S* pNET_SystemNtpInfo_S;
 
 /**
  * @brief 修改用户密码参数结构体
- * @note  用于 NET_SERVER_RegisterCb_SetUserPassword 回调
+ * @note  用于 NET_serverRegisterSetUserPasswordCb 回调
  */
 typedef struct tagNET_UserPasswordInfo
 {
@@ -3491,6 +3515,12 @@ typedef NET_AlarmStatisticsInfo_S* pNET_AlarmStatisticsInfo_S;
 
 #define NET_CAPTURE_CROP_MAX_NUM 8 /* 单次抓拍最多裁剪小图数量 */
 
+/* 专用抓拍兼容结构的字段长度，保持与历史 SDK 一致。 */
+#define NET_CAPTURE_REGION_POINT_MAX_NUM    10
+#define NET_CAPTURE_TIMESTAMP_MAX_LEN       64
+#define NET_CAPTURE_VEHICLE_BRAND_MAX_LEN   128
+#define NET_CAPTURE_LICENSE_PLATE_MAX_LEN   64
+
 /**
  * @struct tagNET_ImageBuffer
  * @brief 图片二进制数据缓冲区，指针 + 长度组合，用于存储图片数据。
@@ -3520,6 +3550,48 @@ typedef struct tagNET_CropImage
 } NET_CropImage_S;
 
 /**
+ * @struct tagNET_CapturePolygon
+ * @brief 专用抓拍目标区域多边形。
+ * @note 用于兼容 NET_FaceCapturePushInfo_S，并会映射到通用抓拍事件的 stExtraInfo。
+ */
+typedef struct tagNET_CapturePolygon
+{
+    UINT32 uPointCount;
+    FLOAT afPointX[NET_CAPTURE_REGION_POINT_MAX_NUM];
+    FLOAT afPointY[NET_CAPTURE_REGION_POINT_MAX_NUM];
+    BYTE abyReserved[32];
+} NET_CapturePolygon_S;
+
+typedef NET_CapturePolygon_S* pNET_CapturePolygon_S;
+
+/**
+ * @struct tagNET_CaptureExtraInfo
+ * @brief 通用抓拍事件的扩展属性。
+ * @note 该结构承载原四类专用抓拍结构的属性字段，避免统一传输后丢失人脸、行人和车辆元数据。
+ */
+typedef struct tagNET_CaptureExtraInfo
+{
+    BOOL bMale;                                               /* 性别：TRUE 男，FALSE 女/未知 */
+    INT32 nAgeLabel;                                          /* 年龄标签 */
+    BOOL bGlasses;                                            /* 是否佩戴眼镜 */
+    BOOL bBeard;                                              /* 是否有胡须 */
+    BOOL bMask;                                               /* 是否佩戴口罩 */
+    INT32 nEmotionLabel;                                      /* 表情标签 */
+    BOOL bBag;                                                /* 是否携带包 */
+    INT32 nTopColorLabel;                                     /* 上衣颜色标签 */
+    INT32 nBottomColorLabel;                                  /* 下衣颜色标签 */
+    INT32 nVehicleType;                                       /* 车辆类型 */
+    INT32 nVehicleColor;                                      /* 车辆颜色 */
+    CHAR strVehicleBrand[NET_CAPTURE_VEHICLE_BRAND_MAX_LEN];  /* 车辆品牌 */
+    CHAR strLicensePlateNumber[NET_CAPTURE_LICENSE_PLATE_MAX_LEN]; /* 车牌号码 */
+    CHAR strTimestamp[NET_CAPTURE_TIMESTAMP_MAX_LEN];         /* 原始抓拍时间文本 */
+    NET_CapturePolygon_S stTargetRegion;                      /* 目标多边形区域 */
+    BYTE byRes[64];                                           /* 保留字段 */
+} NET_CaptureExtraInfo_S;
+
+typedef NET_CaptureExtraInfo_S* pNET_CaptureExtraInfo_S;
+
+/**
  * @struct tagNET_AlarmCaptureInfo
  * @brief 通用抓拍告警信息，包含一张全景图及其裁剪出的小图列表
  */
@@ -3534,6 +3606,7 @@ typedef struct tagNET_AlarmCaptureInfo
     NET_ImageBuffer_S stPanoramaImg;                        /* 全景 JPEG 二进制图片数据 */
     UINT32 uCropCount;                                      /* 裁剪小图数量 */
     NET_CropImage_S stCropImages[NET_CAPTURE_CROP_MAX_NUM]; /* 裁剪小图数组 */
+    NET_CaptureExtraInfo_S stExtraInfo;                      /* 人脸/行人/车辆专用属性 */
     BYTE byRes[128];                                        /* 保留字段 */
 } NET_AlarmCaptureInfo_S;
 
@@ -3541,6 +3614,80 @@ typedef struct tagNET_AlarmCaptureInfo
  * @brief 通用抓拍告警结构体指针类型
  */
 typedef NET_AlarmCaptureInfo_S* pNET_AlarmCaptureInfo_S;
+
+/**
+ * @brief 人脸抓拍专用输入结构。
+ * @deprecated 新代码优先使用 NET_AlarmCaptureInfo_S + NET_ALARM_CAPTURE_FACE；
+ *             本结构和 NET_serverPushFaceCaptureInfo 保留以兼容已有调用方。
+ */
+typedef struct tagNET_FaceCapturePushInfo
+{
+    BOOL bMale;
+    INT32 nAgeLabel;
+    BOOL bGlasses;
+    BOOL bBeard;
+    BOOL bMask;
+    INT32 nEmotionLabel;
+    NET_CapturePolygon_S stFaceRegion;
+    UINT32 uFaceImgLen;
+    BYTE byFaceImg[NET_PIC_DATA_MAX_LEN];
+    UINT32 uPanoramaImgLen;
+    BYTE byPanoramaImg[NET_PIC_DATA_MAX_LEN];
+    CHAR strTimestamp[NET_CAPTURE_TIMESTAMP_MAX_LEN];
+    BYTE abyReserved[64];
+} NET_FaceCapturePushInfo_S;
+
+typedef NET_FaceCapturePushInfo_S* pNET_FaceCapturePushInfo_S;
+
+/** @brief 行人抓拍专用输入结构，兼容已有调用方。 */
+typedef struct tagNET_PersonCapturePushInfo
+{
+    BOOL bMale;
+    INT32 nAgeLabel;
+    BOOL bBag;
+    INT32 nTopColorLabel;
+    INT32 nBottomColorLabel;
+    UINT32 uPersonImgLen;
+    BYTE byPersonImg[NET_PIC_DATA_MAX_LEN];
+    UINT32 uPanoramaImgLen;
+    BYTE byPanoramaImg[NET_PIC_DATA_MAX_LEN];
+    CHAR strTimestamp[NET_CAPTURE_TIMESTAMP_MAX_LEN];
+    BYTE abyReserved[64];
+} NET_PersonCapturePushInfo_S;
+
+typedef NET_PersonCapturePushInfo_S* pNET_PersonCapturePushInfo_S;
+
+/** @brief 机动车抓拍专用输入结构，兼容已有调用方。 */
+typedef struct tagNET_MotorvehicleCapturePushInfo
+{
+    CHAR strVehicleBrand[NET_CAPTURE_VEHICLE_BRAND_MAX_LEN];
+    INT32 nVehicleType;
+    INT32 nVehicleColor;
+    CHAR strLicensePlateNumber[NET_CAPTURE_LICENSE_PLATE_MAX_LEN];
+    UINT32 uTargetImgLen;
+    BYTE byTargetImg[NET_PIC_DATA_MAX_LEN];
+    UINT32 uPanoramaImgLen;
+    BYTE byPanoramaImg[NET_PIC_DATA_MAX_LEN];
+    CHAR strTimestamp[NET_CAPTURE_TIMESTAMP_MAX_LEN];
+    BYTE abyReserved[64];
+} NET_MotorvehicleCapturePushInfo_S;
+
+typedef NET_MotorvehicleCapturePushInfo_S* pNET_MotorvehicleCapturePushInfo_S;
+
+/** @brief 非机动车抓拍专用输入结构，兼容已有调用方。 */
+typedef struct tagNET_NonMotorvehicleCapturePushInfo
+{
+    INT32 nVehicleType;
+    INT32 nVehicleColor;
+    UINT32 uTargetImgLen;
+    BYTE byTargetImg[NET_PIC_DATA_MAX_LEN];
+    UINT32 uPanoramaImgLen;
+    BYTE byPanoramaImg[NET_PIC_DATA_MAX_LEN];
+    CHAR strTimestamp[NET_CAPTURE_TIMESTAMP_MAX_LEN];
+    BYTE abyReserved[64];
+} NET_NonMotorvehicleCapturePushInfo_S;
+
+typedef NET_NonMotorvehicleCapturePushInfo_S* pNET_NonMotorvehicleCapturePushInfo_S;
 
 /* ==================== 布防时间和联动相关结构体 ==================== */
 
@@ -4990,6 +5137,25 @@ typedef struct tagNET_FaceCaptureInfo
 }NET_FaceCaptureInfo_S;
 
 typedef NET_FaceCaptureInfo_S* pNET_FaceCaptureInfo_S;
+
+/**
+ * @struct tagNET_FaceCaptureOverlayInfo
+ * @brief 人脸抓拍图片叠加配置。
+ * @note 用于 NET_GET_FACECAPTUREOVERLAYINFO 和 NET_SET_FACECAPTUREOVERLAYINFO。
+ */
+typedef struct tagNET_FaceCaptureOverlayInfo
+{
+    INT32           nDeviceID;                              /* 设备编号 */
+    CHAR            strMonitoryPointInfo[NET_LEN_256];      /* 监控点信息 */
+    BOOL            bOverlayDeviceID;                       /* 是否叠加设备编号 */
+    BOOL            bOverlayCaptureTime;                    /* 是否叠加抓拍时间 */
+    BOOL            bOverlayMonitoryPointInfo;              /* 是否叠加监控点信息 */
+    NET_OSD_COLOR_E enFontColor;                            /* 字体颜色 */
+    CHAR            strFontColor[NET_LEN_16];               /* 自定义 RGB 字体颜色 */
+    BYTE            byRes[128];                             /* 保留字段 */
+} NET_FaceCaptureOverlayInfo_S;
+
+typedef NET_FaceCaptureOverlayInfo_S* pNET_FaceCaptureOverlayInfo_S;
 
 /**
  * @struct tagNET_FaceCompareInfo

@@ -429,6 +429,22 @@ NET_API BOOL STDCALL NET_serverRegisterSetFaceCaptureInfoCb(NET_CB_SetDevConfigB
 }
 
 /**
+ * @brief 注册获取人脸抓拍图片叠加配置的回调函数。
+ */
+NET_API BOOL STDCALL NET_serverRegisterGetFaceCaptureOverlayInfoCb(NET_CB_GetDevConfigByCommand pCb)
+{
+    return registerGetCmdCb(NET_GET_FACECAPTUREOVERLAYINFO, pCb);
+}
+
+/**
+ * @brief 注册设置人脸抓拍图片叠加配置的回调函数。
+ */
+NET_API BOOL STDCALL NET_serverRegisterSetFaceCaptureOverlayInfoCb(NET_CB_SetDevConfigByCommand pCb)
+{
+    return registerSetCmdCb(NET_SET_FACECAPTUREOVERLAYINFO, pCb);
+}
+
+/**
  * @brief 注册设置人脸比对配置的回调函数
  * @param [in] pCb 用于读取 NET_FaceCompareInfo_S 的回调函数
  * @return 注册成功返回 TRUE；回调函数非法或已注册时返回 FALSE

@@ -190,6 +190,26 @@ BOOL CAlarmModule::PushAlarmInfo(NET_Alarmer_S* pAlarmer,
                 SDKConvert::deal(pInfoJson, info, false);
             }
         }
+        else if (alarmBase == NET_ALARM_BASE_CAPTURE)
+        {
+            if (dwBufLen < (INT32)sizeof(NET_AlarmCaptureInfo_S))
+            {
+                Json::add(pInfoJson, "AlarmType", (long long)lCommand);
+            }
+            else
+            {
+                /* 图片为调用方持有的指针，仅在当前同步 JSON 序列化期间访问。 */
+                NET_AlarmCaptureInfo_S& info = *(NET_AlarmCaptureInfo_S*)pAlarmInfo;
+                NETSDK_LOG_MESSAGE_INFO("[DIAG-ALARM] Capture input: cmd=0x%x, alarmType=0x%x, channel=%u, type=%u, panoramaLen=%u, cropCount=%u",
+                                        lCommand,
+                                        info.uAlarmType,
+                                        info.uChannel,
+                                        info.uCaptureType,
+                                        info.stPanoramaImg.uDataLen,
+                                        info.uCropCount);
+                SDKConvert::deal(pInfoJson, info, false);
+            }
+        }
         else if (alarmBase == NET_ALARM_BASE_TRAFFIC)
         {
             if (dwBufLen < (INT32)sizeof(NET_AlarmPlateInfo_S))
