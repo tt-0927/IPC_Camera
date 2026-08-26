@@ -25,7 +25,6 @@
 #include "4g_manage.h"
 #include "hostapd_manager.h"
 #include "platform_manager.h"
-#include "platform_sdk_adapter.h"
 #include "av_configure.h"
 #include "storage_manage.h"
 // #include "SipModule.h"
@@ -1291,23 +1290,21 @@ void Task::Network::GetHotspotConn::handle()
 #endif
 
 #if CAP_GARBAGE_STATION_PLATFORM
-/**
- * @brief Applies webpage platform configuration through the SDK-owned runtime.
- * @author Codex
- * @return No return value; the task result carries success JSON or an error code.
- */
 void Task::Network::ConnPlatform::handle()
 {
     ::Network::Platform_Info_t stInfo;
+    CPlatformManager::LoginResponse out_response;
+    
     Convert::to_struct(m_taskData, stInfo);
     CPlatformManager *pPlatformManager = CPlatformManager::instance();
-
+   
     /*
-     * Serialize webpage updates with WiFi and cellular route notifications so one
-     * SDK lifecycle can never observe endpoint fields from two configurations.
+     * 网页保存与 WiFi/4G 切换重连必须串行执行，防止 HTTP 登录、MQTT 重建和配置写入混用两套参数。
+     * 锁覆盖本次保存的完整业务序列，包含失败回滚、设备注册和 RTMP 更新。
      */
-    auto stPlatformOperationLock = pPlatformManager->lock_platform_operation();
-
+    auto platformOperationLock = pPlatformManager->lock_platform_operation();
+   
+    /* 登录失败时恢复旧运行时配置，避免旧 MQTT/RTMP 会话与新参数混用。 */
     ::Network::Platform_Info_t stPreviousInfo;
     pPlatformManager->getplatforminfo(stPreviousInfo);
     if (!pPlatformManager->apply_platform_config(stInfo))
@@ -1317,79 +1314,161 @@ void Task::Network::ConnPlatform::handle()
         return;
     }
 
-    if (!pPlatformManager->save_config())
+    bool success = pPlatformManager->login(
+        stInfo.server_ip, 
+        stInfo.server_port, 
+        stInfo.user, 
+        stInfo.password, 
+        stInfo.enable,
+        stInfo.Custom,
+        out_response
+    );
+    if (!stInfo.enable) /* 关闭平台接入 */
     {
-        pPlatformManager->apply_platform_config(stPreviousInfo);
-        dlog_error("保存平台配置失败，已恢复原运行时配置");
-        result(-1);
-        return;
-    }
-
-    if (!stInfo.enable)
-    {
+        /* login() 在 enable=false 时不会保存配置，需手动持久化禁用状态 */
+        pPlatformManager->save_config();
+        /* 停止 RTMP 推流 */
+        pPlatformManager->relogin_and_update_stream();
+        /* 在断开 MQTT 前通知平台*/
         pPlatformManager->disable_mqtt_for_platform();
         result(0);
         return;
     }
+    if(success){
 
-    CPlatformSdkAdapter *pSdkAdapter = CPlatformSdkAdapter::instance();
-    if (pSdkAdapter->start_runtime() != OK ||
-        !pSdkAdapter->wait_until_registered(15000U))
-    {
-        dlog_error("SDK 平台登录或设备注册超时，恢复原平台配置");
+        /* 切换平台时必须先释放旧 MQTT 会话，才能连接新的 Broker。 */
+        if(pPlatformManager->restart_mqtt() != OK)
+        {
+            dlog_warn("平台登陆成功，但 MQTT 初始化失败");
+        }
+        cJSON *root = cJSON_CreateObject();
+        
+        cJSON_AddNumberToObject(root, "status_code", out_response.status_code);
+        cJSON_AddStringToObject(root, "status", out_response.status.c_str());
+        cJSON_AddStringToObject(root, "message", out_response.message.c_str());
+
+        cJSON *data_obj = cJSON_CreateObject();
+        cJSON_AddItemToObject(root, "data", data_obj); // 将 data 对象挂载到 root 下
+        cJSON_AddStringToObject(data_obj, "access_token", out_response.data.access_token.c_str());
+        cJSON_AddStringToObject(data_obj, "token_type", out_response.data.token_type.c_str());
+        cJSON_AddNumberToObject(data_obj, "expires_in", out_response.data.expires_in);
+        cJSON_AddStringToObject(data_obj, "phone", out_response.data.phone.c_str());
+        cJSON_AddBoolToObject(data_obj, "need_modify_password", out_response.data.need_modify_password);
+        char *json_string = cJSON_PrintUnformatted(root);
+
+        if (json_string) {
+            result(json_string);
+            cJSON_free(json_string);
+        }
+
+        // 6. 清理资源
+        cJSON_Delete(root); // 删除整个 JSON 树
+
+        ::System::DeviceInfo_S stDeviceInfo;
+        CPlatformManager::StoreDevice req;
+        CPlatformManager::StoreResponse resp;
+        ::Network::Info_S NetstInfo;
+        Video_NS::VideoConfig_S stVideoConfig;
+        StorageManage_NS::StorageManage_S stStorageManageParam;
+
+        SystemManage::instance()->get_device_info(stDeviceInfo);
+        
+        CNetworkManage::instance()->get_system_networkInfo(NetstInfo);
+        
+        /* 仅判断第一码流 */
+        stVideoConfig.nId = 0;
+        CAVConfigure::instance()->get_configure(stVideoConfig);
+        
+        CStorageManage::instance()->get_storageManage_param(stStorageManageParam);
+        
+        // req.sn =  std::to_string(stDeviceInfo.deviceID);
+        req.sn =  stDeviceInfo.serialNumber;
+        req.name = stDeviceInfo.deviceName;
+        req.version = stDeviceInfo.systemVersion;
+        req.account = stInfo.user;
+        req.password = stInfo.password;
+        req.ip = NetstInfo.stIp.ipv4Ip;
+        req.port=554;
+        req.mac_address =NetstInfo.stIp.physicalAddress;
+        req.resolution =  std::to_string(stVideoConfig.stVideoResolution.nWidth) +"x" +  std::to_string(stVideoConfig.stVideoResolution.nHeight);
+        req.storage = stStorageManageParam.strAvailableSpace;
+        if (!stStorageManageParam.strAvailableSpace.empty() && !stStorageManageParam.strRecordRemainingSpace.empty()) {
+            req.use_storage = std::to_string(std::stof(stStorageManageParam.strAvailableSpace)-std::stof(stStorageManageParam.strRecordRemainingSpace));
+        }
+        else {
+            req.use_storage ="";
+        }
+        
+        pPlatformManager->storeDevice(req, out_response.data.access_token,resp);
+
+        /* 登录成功，触发 RTMP 推流地址热更新 */
+        pPlatformManager->relogin_and_update_stream();
+    }
+    else {
+        /* HTTP 登录未成功时恢复原平台参数，继续保持原有连接状态。 */
         pPlatformManager->apply_platform_config(stPreviousInfo);
-        pPlatformManager->save_config();
-        pSdkAdapter->restart_runtime();
         result(-1);
-        return;
     }
-
-    cJSON *pRoot = cJSON_CreateObject();
-    cJSON *pData = cJSON_CreateObject();
-    if (pRoot == nullptr || pData == nullptr)
-    {
-        if (pRoot != nullptr)
-        {
-            cJSON_Delete(pRoot);
-        }
-        if (pData != nullptr)
-        {
-            cJSON_Delete(pData);
-        }
-        result(-1);
-        return;
-    }
-
-    cJSON_AddNumberToObject(pRoot, "status_code", 200);
-    cJSON_AddStringToObject(pRoot, "status", "success");
-    cJSON_AddStringToObject(pRoot, "message", "");
-    cJSON_AddItemToObject(pRoot, "data", pData);
-    cJSON_AddStringToObject(pData, "access_token", "");
-    cJSON_AddStringToObject(pData, "token_type", "Bearer");
-    cJSON_AddNumberToObject(pData, "expires_in", 0);
-    cJSON_AddStringToObject(pData, "phone", "");
-    cJSON_AddBoolToObject(pData, "need_modify_password", false);
-
-    char *pJson = cJSON_PrintUnformatted(pRoot);
-    if (pJson == nullptr)
-    {
-        cJSON_Delete(pRoot);
-        result(-1);
-        return;
-    }
-    result(pJson);
-    cJSON_free(pJson);
-    cJSON_Delete(pRoot);
 }
 
-/**
- * @brief Returns the SDK-owned device registration state to the legacy webpage flow.
- * @author Codex
- * @return No return value; zero means the SDK already registered the device.
- */
 void Task::Network::storePlatformDevices::handle()
 {
-    result(CPlatformSdkAdapter::instance()->is_device_registered() ? 0 : -1);
+
+    ::Network::Platform_Store_Info_t stInfo;
+    
+    Convert::to_struct(m_taskData, stInfo);
+    if(!stInfo.access_token.empty()){
+    
+        ::System::DeviceInfo_S stDeviceInfo;
+        CPlatformManager::StoreDevice req;
+        CPlatformManager::StoreResponse resp;
+        ::Network::Info_S NetstInfo;
+        Video_NS::VideoConfig_S stVideoConfig;
+        StorageManage_NS::StorageManage_S stStorageManageParam;
+
+        SystemManage::instance()->get_device_info(stDeviceInfo);
+        
+        CNetworkManage::instance()->get_system_networkInfo(NetstInfo);
+        
+        /* 仅判断第一码流 */
+        stVideoConfig.nId = 0;
+        CAVConfigure::instance()->get_configure(stVideoConfig);
+        
+        CStorageManage::instance()->get_storageManage_param(stStorageManageParam);
+        
+        // req.sn =  std::to_string(stDeviceInfo.deviceID);
+        req.sn =  stDeviceInfo.serialNumber;
+        req.name = stDeviceInfo.deviceName;
+        req.version = stDeviceInfo.systemVersion;
+        req.account = stInfo.user;
+        req.password = stInfo.password;
+        req.ip = NetstInfo.stIp.ipv4Ip;
+        req.port=554;
+        req.mac_address =NetstInfo.stIp.physicalAddress;
+        req.protocol = "rtsp"; 
+        req.resolution =  std::to_string(stVideoConfig.stVideoResolution.nWidth) +"x" +  std::to_string(stVideoConfig.stVideoResolution.nHeight);
+        req.storage = stStorageManageParam.strAvailableSpace;
+        if (!stStorageManageParam.strAvailableSpace.empty() && !stStorageManageParam.strRecordRemainingSpace.empty()) {
+            req.use_storage = std::to_string(std::stof(stStorageManageParam.strAvailableSpace)-std::stof(stStorageManageParam.strRecordRemainingSpace));
+        }
+        else {
+            req.use_storage ="10";
+            req.storage = "10";
+        }
+        
+        CPlatformManager::instance()->storeDevice(req, stInfo.access_token,resp);
+        if(resp.status=="success" && resp.status_code == 200)
+        {
+            result(0);
+        }
+        else {
+            result(-1);
+        }
+
+    }
+    else {
+        result(-1);
+    }
 }
 
 void Task::Network::GetConnPlatformInfo::handle()
