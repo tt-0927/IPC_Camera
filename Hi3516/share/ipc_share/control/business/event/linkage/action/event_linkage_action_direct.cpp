@@ -12,13 +12,16 @@
 #include <algorithm>
 #include <chrono>
 #include <ctime>
+#include <unistd.h>
 
 #if CAP_GARBAGE_STATION_PLATFORM
 #include <cstdlib>
 #include <sstream>
+#include <thread>
 #endif
 
 #include "capture_ctrl.h"
+#include "capture_database.h"
 #include "event_database_manage.h"
 #include "event_linkage_dict.h"
 #include "log_handler.h"
@@ -27,13 +30,16 @@
 
 #if CAP_GARBAGE_STATION_PLATFORM
 #include "cJSON.h"
-#include "platform_sdk_adapter.h"
+#include "platform_manager.h"
 #endif
 
 #if CAP_GARBAGE_STATION_PLATFORM
 namespace
 {
 constexpr const char *MQTT_EVENT_ALARM_COMMAND = "NET_TV_EVENT_ALARM";
+constexpr const char *MQTT_EVENT_IMAGE_UPLOAD_COMMAND = "NET_TV_EVENT_IMAGE_UPLOAD";
+constexpr int EVENT_IMAGE_WAIT_INTERVAL_MS = 500;
+constexpr int EVENT_IMAGE_WAIT_TIMEOUT_MS = 3000;
 
 /* 事件链路中可能同时有上下文时间和事件信息时间，优先使用触发上下文的毫秒时间戳 */
 long long get_event_timestamp_ms(const ResolvedLinkagePlan_S &stPlan)
@@ -197,6 +203,233 @@ std::string build_mqtt_event_data(const ResolvedLinkagePlan_S &stPlan)
     return strData;
 }
 
+std::string build_event_image_upload_data(const ResolvedLinkagePlan_S &stPlan,
+                                          const std::string &strAlarmRequestId,
+                                          const CPlatformManager::EventImageUploadResponse &stResponse,
+                                          bool bUploadOk,
+                                          const std::string &strError)
+{
+    /* 图片上传结果单独发一条MQTT，避免图片上传耗时影响报警事件先到平台 */
+    cJSON *pRoot = cJSON_CreateObject();
+    if (!pRoot)
+    {
+        return "{}";
+    }
+
+    const Event::Info_S &stEventInfo = stPlan.stEventInfo;
+    const EventTriggerContext_S &stContext = stPlan.stContext;
+    const std::string strTimestamp = std::to_string(get_event_timestamp_ms(stPlan));
+
+    cJSON_AddNumberToObject(pRoot, "EventType", static_cast<int>(stContext.enEventType));
+    cJSON_AddStringToObject(pRoot, "EventName", EventLinkageDict::get_event_name(stContext.enEventType).c_str());
+    cJSON_AddNumberToObject(pRoot, "EventStatus", stContext.bEventEnded ? 0 : 1);
+    cJSON_AddNumberToObject(pRoot, "Channel", stContext.nChnId);
+    cJSON_AddStringToObject(pRoot, "Timestamp", strTimestamp.c_str());
+    cJSON_AddStringToObject(pRoot, "AlarmRequestId", strAlarmRequestId.c_str());
+    cJSON_AddNumberToObject(pRoot, "UploadStatus", bUploadOk ? 1 : 0);
+
+    add_string_if_not_empty(pRoot, "Date", stEventInfo.strDate);
+    cJSON_AddStringToObject(pRoot, "Time", strTimestamp.c_str());
+    add_string_if_not_empty(pRoot, "StartTime", stEventInfo.strStartTime);
+    add_string_if_not_empty(pRoot, "EndTime", stEventInfo.strEndTime);
+    add_string_if_not_empty(pRoot, "ImagePath", stResponse.image_path);
+    add_string_if_not_empty(pRoot, "FileName", stResponse.file_name);
+    add_string_if_not_empty(pRoot, "ImageUrl", stResponse.image_url);
+    for (const auto &item : stContext.mapAttrs)
+    {
+        if (is_internal_event_attr(item.first))
+        {
+            continue;
+        }
+        add_public_event_attr_to_root(pRoot, stContext.enEventType, item.first, item.second);
+    }
+
+    if (stResponse.status_code != 0)
+    {
+        cJSON_AddNumberToObject(pRoot, "StatusCode", stResponse.status_code);
+    }
+    add_string_if_not_empty(pRoot, "Message", stResponse.message);
+    add_string_if_not_empty(pRoot, "Error", strError);
+
+    char *pJson = cJSON_PrintUnformatted(pRoot);
+    std::string strData = pJson ? pJson : "{}";
+    if (pJson)
+    {
+        free(pJson);
+    }
+    cJSON_Delete(pRoot);
+    return strData;
+}
+
+void publish_event_image_upload_result(const ResolvedLinkagePlan_S &stPlan,
+                                       const std::string &strAlarmRequestId,
+                                       const CPlatformManager::EventImageUploadResponse &stResponse,
+                                       bool bUploadOk,
+                                       const std::string &strError)
+{
+    /* RequestId追加-image，既能区分报警消息，又能通过AlarmRequestId回查原报警 */
+    std::ostringstream oss;
+    oss << strAlarmRequestId << "-image";
+    const std::string strData = build_event_image_upload_data(stPlan, strAlarmRequestId, stResponse, bUploadOk, strError);
+    const int nRet = CPlatformManager::instance()->publish_event(MQTT_EVENT_IMAGE_UPLOAD_COMMAND, strData, oss.str());
+    if (nRet != OK)
+    {
+        dlog_warn("MQTT事件图片上传结果发布失败: ret[%d], eventType[%d]",
+                  nRet,
+                  static_cast<int>(stPlan.stContext.enEventType));
+    }
+}
+
+/**
+ * @brief   : 从抓图数据库查询指定事件类型的最新图片路径
+ * @param    {Event::Type_E} enEventType：事件类型
+ * @param    {std::string &} strImagePath：输出图片路径
+ * @return   {bool} true：找到图片 false：未找到
+ * @note    : 用于人脸抓拍等由 AI 算法层自行保存图片、不走通用抓图系统的事件
+ */
+static bool query_latest_capture_image(Event::Type_E enEventType, std::string &strImagePath)
+{
+    /* Element 是 std::pair<string, variant<int, string>>，用构造函数初始化 */
+    Db::Element stElem(Db::INFO_CAPTURE_EVENT_TYPE, static_cast<int>(enEventType));
+
+    std::vector<Capture_NS::CaptureInfo_S> vecInfos;
+    if (Db::CCaptureDatabase::instance()->find(stElem, vecInfos) != 0 || vecInfos.empty())
+    {
+        return false;
+    }
+
+    /* 取最新一条（数据库按插入时间排序，最后一条即最新） */
+    strImagePath = vecInfos.back().strImagePath;
+    return !strImagePath.empty();
+}
+
+static bool get_context_capture_image_path(const EventTriggerContext_S &stContext, std::string &strImagePath)
+{
+    auto it = stContext.mapAttrs.find("CaptureImagePath");
+    if (it == stContext.mapAttrs.end() || it->second.empty())
+    {
+        return false;
+    }
+
+    if (access(it->second.c_str(), F_OK) != 0)
+    {
+        dlog_warn("事件上下文抓拍图片不存在: path[%s]", it->second.c_str());
+        return false;
+    }
+
+    strImagePath = it->second;
+    return true;
+}
+
+static bool is_face_compare_event(Event::Type_E enEventType)
+{
+    return enEventType == Event::Type_E::FACE_COMPARE_SUCCESS ||
+           enEventType == Event::Type_E::FACE_COMPARE_FAIL;
+}
+
+void upload_event_image_async(ResolvedLinkagePlan_S stPlan, std::string strAlarmRequestId)
+{
+    /* 结束事件不上传图片；只有配置了抓图/存储联动时，才等待抓拍文件落盘 */
+    if (stPlan.stContext.bEventEnded || !stPlan.bUploadSdCard)
+    {
+        return;
+    }
+
+    std::string strImagePath;
+
+    if (get_context_capture_image_path(stPlan.stContext, strImagePath))
+    {
+        dlog_info("事件图片从事件上下文获取: eventType[%d], path[%s]",
+                  static_cast<int>(stPlan.stContext.enEventType),
+                  strImagePath.c_str());
+    }
+    /*
+     * 人脸抓拍/人脸比对目标图由 AI 算法层直接保存，并通过 CaptureImagePath 传入。
+     * 人脸抓拍保留数据库兜底；人脸比对要求上传当前比对目标图，没有上下文路径时直接失败，
+     * 避免误传通用全景抓图。
+     */
+    else if (stPlan.stContext.enEventType == Event::Type_E::FACE_CAPTURE)
+    {
+        const auto start = std::chrono::steady_clock::now();
+        while (true)
+        {
+            if (query_latest_capture_image(Event::Type_E::FACE_CAPTURE, strImagePath))
+            {
+                dlog_info("人脸抓拍图片从数据库获取: path[%s]", strImagePath.c_str());
+                break;
+            }
+
+            const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+                                     std::chrono::steady_clock::now() - start)
+                                     .count();
+            if (elapsed >= EVENT_IMAGE_WAIT_TIMEOUT_MS)
+            {
+                CPlatformManager::EventImageUploadResponse stResponse;
+                publish_event_image_upload_result(stPlan, strAlarmRequestId, stResponse, false, "face capture image not found in database");
+                dlog_warn("人脸抓拍图片数据库查询超时: eventType[%d]", static_cast<int>(stPlan.stContext.enEventType));
+                return;
+            }
+
+            std::this_thread::sleep_for(std::chrono::milliseconds(EVENT_IMAGE_WAIT_INTERVAL_MS));
+        }
+    }
+    else if (is_face_compare_event(stPlan.stContext.enEventType))
+    {
+        CPlatformManager::EventImageUploadResponse stResponse;
+        publish_event_image_upload_result(stPlan, strAlarmRequestId, stResponse, false, "face compare capture image not found in context");
+        dlog_warn("人脸比对抓拍图片未随事件上下文传入: eventType[%d]", static_cast<int>(stPlan.stContext.enEventType));
+        return;
+    }
+    else
+    {
+        /* 通用事件：轮询等待通用抓图系统完成首张图片 */
+        const auto start = std::chrono::steady_clock::now();
+        while (true)
+        {
+            if (CCaptureCtrl::instance()->get_event_first_capture_status(stPlan.stContext.enEventType, strImagePath) &&
+                !strImagePath.empty())
+            {
+                break;
+            }
+
+            const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+                                     std::chrono::steady_clock::now() - start)
+                                     .count();
+            if (elapsed >= EVENT_IMAGE_WAIT_TIMEOUT_MS)
+            {
+                CPlatformManager::EventImageUploadResponse stResponse;
+                publish_event_image_upload_result(stPlan, strAlarmRequestId, stResponse, false, "wait capture image timeout");
+                dlog_warn("等待事件首张抓拍图超时: eventType[%d]", static_cast<int>(stPlan.stContext.enEventType));
+                return;
+            }
+
+            std::this_thread::sleep_for(std::chrono::milliseconds(EVENT_IMAGE_WAIT_INTERVAL_MS));
+        }
+    }
+
+    /*
+     * 组装图片上传请求，字段结构与垃圾暴露事件完全一致：
+     * - event_type:    事件类型码（int）
+     * - event_name:    事件名称（string）
+     * - channel:       通道号（int）
+     * - timestamp:     毫秒级 Unix 时间戳（long long），格式与 get_event_timestamp_ms() 一致
+     * - request_id:    关联告警事件的 RequestId（string）
+     * - image_path:    设备端图片路径（string）
+     *
+     * HTTP 上传时由 CPlatformManager 统一补充 device_sn、生成文件名、读取图片二进制
+     */
+    CPlatformManager::EventImageUploadRequest stRequest;
+    stRequest.event_type = static_cast<int>(stPlan.stContext.enEventType);
+    stRequest.event_name = EventLinkageDict::get_event_name(stPlan.stContext.enEventType);
+    stRequest.channel = stPlan.stContext.nChnId;
+    stRequest.timestamp = get_event_timestamp_ms(stPlan);
+    stRequest.request_id = strAlarmRequestId;
+    stRequest.image_path = strImagePath;
+
+    CPlatformManager::EventImageUploadResponse stResponse;
+    const bool bUploadOk = CPlatformManager::instance()->upload_event_image(stRequest, stResponse);
+    publish_event_image_upload_result(stPlan, strAlarmRequestId, stResponse, bUploadOk, bUploadOk ? "" : "upload event image failed");
+}
 } // namespace
 #endif
 
@@ -292,30 +525,8 @@ int EventLinkageDirectAction::deal_upload(const ResolvedLinkagePlan_S &stPlan)
 #if CAP_GARBAGE_STATION_PLATFORM
     const std::string strMqttData = build_mqtt_event_data(stPlan);
     const std::string strRequestId = build_mqtt_event_request_id(stPlan);
-    const std::string strEventName =
-        EventLinkageDict::get_event_name(stPlan.stContext.enEventType);
-    std::string strImagePath;
-    const auto stImagePathIterator =
-        stPlan.stContext.mapAttrs.find("CaptureImagePath");
-    if (stImagePathIterator != stPlan.stContext.mapAttrs.end())
-    {
-        strImagePath = stImagePathIterator->second;
-    }
-
-    const bool bUploadImage =
-        !stPlan.stContext.bEventEnded && stPlan.bUploadSdCard;
     dlog_info("MQTT上传中心事件数据: requestId[%s], data[%s]", strRequestId.c_str(), strMqttData.c_str());
-    const int nMqttRet = CPlatformSdkAdapter::instance()->report_event(
-        MQTT_EVENT_ALARM_COMMAND,
-        strRequestId,
-        strMqttData,
-        static_cast<int>(stPlan.stContext.enEventType),
-        strEventName,
-        stPlan.stContext.nChnId,
-        get_event_timestamp_ms(stPlan),
-        strImagePath,
-        bUploadImage,
-        bUploadImage);
+    int nMqttRet = CPlatformManager::instance()->publish_event(MQTT_EVENT_ALARM_COMMAND, strMqttData, strRequestId);
     if (nMqttRet == OK)
     {
         dlog_info("MQTT上传中心事件发布成功: command[%s], requestId[%s], eventType[%d]",
@@ -332,7 +543,11 @@ int EventLinkageDirectAction::deal_upload(const ResolvedLinkagePlan_S &stPlan)
                   static_cast<int>(stPlan.stContext.enEventType));
     }
 
-    /* SDK publishes the alarm first, then its bounded transfer worker uploads the image. */
+    /* 报警消息先发；图片上传放到后台线程，成功或失败都会再发NET_TV_EVENT_IMAGE_UPLOAD结果 */
+    if (!stPlan.stContext.bEventEnded && stPlan.bUploadSdCard)
+    {
+        std::thread(upload_event_image_async, stPlan, strRequestId).detach();
+    }
 #endif
 
     dlog_info("上传中心联动");

@@ -26,7 +26,6 @@ set(SDK_SHARE_INCLUDE
     # ${CMAKE_CURRENT_LIST_DIR}/tools/json/cJSON
     ${CMAKE_CURRENT_LIST_DIR}/tools/design
     ${CMAKE_CURRENT_LIST_DIR}/tools/http
-    ${CMAKE_CURRENT_LIST_DIR}/third_party/paho/include
 )
 foreach(item ${SDK_SHARE_INCLUDE})
     include_directories(${item})
