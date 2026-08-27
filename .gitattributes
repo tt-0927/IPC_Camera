@@ -2,3 +2,4 @@
 rv1126/ipc_platform/environment/model/internvl3-1b-instruct_w8a8_rv1126b.rkllm filter=lfs diff=lfs merge=lfs -text
 rv1126/ipc_platform/environment/model/internvl3-2b_vision_rv1126b_v122.rknn filter=lfs diff=lfs merge=lfs -text
 rv1126/ipc_platform/lib/ZLMediaKit/lib/libmk_api.so filter=lfs diff=lfs merge=lfs -text
+SDK/af_sdk/af_sdk/build/client/lib64/libNetTVSDK.a filter=lfs diff=lfs merge=lfs -text
