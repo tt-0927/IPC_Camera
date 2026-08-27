@@ -25,6 +25,7 @@
 #include "crypto_init.h"
 // #include "event_manage.h"
 
+
 /* 日志记录单个日志文件的最大大小 */
 #define MAX_LOG_SIZE  (2 * 1024 * 1024) // 2MB
 /* 日志记录最大保留的日志文件数量 */
@@ -58,8 +59,9 @@ static void exitHandler(int nSigno)
     {
         emergencyMute();
 
-        // 必须立即调用 _exit，防止进入无限死循环或二次崩溃
-        _exit(nSigno); 
+        /* 恢复默认信号处理并重新触发，让默认行为终止进程并生成 core dump */
+        signal(nSigno, SIG_DFL);
+        raise(nSigno);
     }
 }
 

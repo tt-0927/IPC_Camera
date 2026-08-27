@@ -3,7 +3,7 @@
  * @Author       : zhouzirui
  * @Date         : 2025-03-21 10:29:00
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-07-30 15:14:08
+ * @LastEditTime : 2026-08-21 15:37:21
  * @Description  : VPSS 视频处理
  */
 
@@ -85,13 +85,17 @@ HiVpss_S **streamVpss_init(HiVpss_S ***pHandle, const std::vector<Video_NS::Vide
                     pVpssChnAttr->nMaxHeight = PIXEL_HEIGHT_1080;
                     pVpssChnAttr->nDepth = 6;
                     pVpssChnAttr->nSrcFrameRate = 30;
-                    pVpssChnAttr->nDstFrameRate = 3;    
-                    #else
-                    pVpssChnAttr->nWidth = PIXEL_WIDTH_1024;
-                    pVpssChnAttr->nHeight = PIXEL_HEIGHT_576;
-                    pVpssChnAttr->nMaxWidth = PIXEL_WIDTH_1024;
-                    pVpssChnAttr->nMaxHeight = PIXEL_HEIGHT_576;
-                    pVpssChnAttr->nDepth = 6;
+                    pVpssChnAttr->nDstFrameRate = 3;
+#else
+                    // pVpssChnAttr->nWidth = PIXEL_WIDTH_1024;
+                    // pVpssChnAttr->nHeight = PIXEL_HEIGHT_576;
+                    // pVpssChnAttr->nMaxWidth = PIXEL_WIDTH_1024;
+                    // pVpssChnAttr->nMaxHeight = PIXEL_HEIGHT_576;
+                    pVpssChnAttr->nWidth = PIXEL_WIDTH_1920;
+                    pVpssChnAttr->nHeight = PIXEL_HEIGHT_1080;
+                    pVpssChnAttr->nMaxWidth = PIXEL_WIDTH_1920;
+                    pVpssChnAttr->nMaxHeight = PIXEL_HEIGHT_1080;
+                    pVpssChnAttr->nDepth = 2;
                     pVpssChnAttr->nSrcFrameRate = 30;
                     pVpssChnAttr->nDstFrameRate = 3;
 #endif
@@ -142,7 +146,7 @@ int streamVpss_set_chnAttr(HiVpss_S *pHandle, int nVpssChn, std::vector<Video_NS
     stChnAttr.nWidth = vstVideoConfig[nVpssChn].stVideoResolution.nWidth;
     stChnAttr.nHeight = vstVideoConfig[nVpssChn].stVideoResolution.nHeight;
 
-    if(pHandle->mppVpss_set_chnAttr(pHandle, &stChnAttr, nVpssChn))
+    if (pHandle->mppVpss_set_chnAttr(pHandle, &stChnAttr, nVpssChn))
     {
         dlog_error("channel:%d 设置通道属性失败", nVpssChn);
         return ERR;
@@ -164,7 +168,7 @@ int streamVpss_set_chnAttr(HiVpss_S *pHandle, const Video_NS::VideoConfig_S &stV
     stChnAttr.nWidth = stVideoConfig.stVideoResolution.nWidth;
     stChnAttr.nHeight = stVideoConfig.stVideoResolution.nHeight;
 
-    if(pHandle->mppVpss_set_chnAttr(pHandle, &stChnAttr, nVpssChn))
+    if (pHandle->mppVpss_set_chnAttr(pHandle, &stChnAttr, nVpssChn))
     {
         dlog_error("channel:%d 设置通道属性失败", nVpssChn);
         return ERR;
@@ -173,9 +177,7 @@ int streamVpss_set_chnAttr(HiVpss_S *pHandle, const Video_NS::VideoConfig_S &stV
     return OK;
 }
 
-int streamVpss_set_chnCrop(HiVpss_S *pHandle,
-                            const Video_NS::AreaCrop_S &stAreaCrop,
-                            ot_vpss_crop_info *pstAppliedCrop)
+int streamVpss_set_chnCrop(HiVpss_S *pHandle, const Video_NS::AreaCrop_S &stAreaCrop, ot_vpss_crop_info *pstAppliedCrop)
 {
     if (!pHandle || stAreaCrop.nId < 0 || stAreaCrop.nId >= pHandle->nVpssChnSum)
     {
@@ -187,15 +189,20 @@ int streamVpss_set_chnCrop(HiVpss_S *pHandle,
     /* 设置 VPSS 通道CROP裁剪 */
     ot_vpss_crop_info stCropInfo;
     memset(&stCropInfo, 0, sizeof(stCropInfo));
-    stCropInfo.enable = (td_bool)stAreaCrop.bEnable;
+    stCropInfo.enable = (td_bool) stAreaCrop.bEnable;
     stCropInfo.crop_mode = OT_COORD_ABS; // 绝对坐标模式
     // note：转换坐标 插件比例->实际比例
     Common::Rect_S stRect = stAreaCrop.stRect;
     int nId = stAreaCrop.nId;
-    dlog_debug("VpssChn:[%d,%d],AreaCrop:[%d,%d][%d,%d]", pHandle->astVpssChnAttr[nId].nWidth,
-               pHandle->astVpssChnAttr[nId].nHeight, stRect.nX, stRect.nY, stRect.nWidth,
+    dlog_debug("VpssChn:[%d,%d],AreaCrop:[%d,%d][%d,%d]",
+               pHandle->astVpssChnAttr[nId].nWidth,
+               pHandle->astVpssChnAttr[nId].nHeight,
+               stRect.nX,
+               stRect.nY,
+               stRect.nWidth,
                stRect.nHeight);
-    stRect.ConvertResolution(PLUG_IN_WIDTH_DEFAULT, PLUG_IN_HEIGHT_DEFAULT,
+    stRect.ConvertResolution(PLUG_IN_WIDTH_DEFAULT,
+                             PLUG_IN_HEIGHT_DEFAULT,
                              pHandle->astVpssChnAttr[nId].nWidth,
                              pHandle->astVpssChnAttr[nId].nHeight);
     /* 裁剪区域起始点坐标和宽高要求2像素对齐 */
@@ -207,8 +214,7 @@ int streamVpss_set_chnCrop(HiVpss_S *pHandle,
     stCropInfo.crop_rect.height = ALIGN_BACK(stAreaCrop.stResolution.nHeight, 2);
 
     if (stCropInfo.enable &&
-        (stCropInfo.crop_rect.width <= 0 || stCropInfo.crop_rect.height <= 0 ||
-         stCropInfo.crop_rect.x < 0 || stCropInfo.crop_rect.y < 0 ||
+        (stCropInfo.crop_rect.width <= 0 || stCropInfo.crop_rect.height <= 0 || stCropInfo.crop_rect.x < 0 || stCropInfo.crop_rect.y < 0 ||
          stCropInfo.crop_rect.x + stCropInfo.crop_rect.width > pHandle->astVpssChnAttr[nId].nWidth ||
          stCropInfo.crop_rect.y + stCropInfo.crop_rect.height > pHandle->astVpssChnAttr[nId].nHeight))
     {
@@ -258,9 +264,7 @@ int streamVpss_get_chnCrop(HiVpss_S *pHandle, int nVpssChn, ot_vpss_crop_info &s
 int streamVpss_reset_wrap(HiVpss_S *pHandle, const Video_NS::VideoConfig_S &stVideoConfig)
 {
     int nRet = OK;
-    nRet = pHandle->mppVpss_reset_wrap(pHandle,
-                                       stVideoConfig.stVideoResolution.nWidth,
-                                       stVideoConfig.stVideoResolution.nHeight);
+    nRet = pHandle->mppVpss_reset_wrap(pHandle, stVideoConfig.stVideoResolution.nWidth, stVideoConfig.stVideoResolution.nHeight);
     if (TD_SUCCESS != nRet)
     {
         dlog_error("重新设置Grp:%d 通道:0 卷绕失败: %#x", pHandle->nVpssGrp, nRet);

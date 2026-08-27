@@ -1116,17 +1116,14 @@ bool encode_mat_to_tvsdk_image(const cv::Mat &mat, EventTvSdkImage_S &stImage, i
     return true;
 }
 
-bool cropTargetImage(const cv::Mat &sourceImage,
-                     const cv::Rect2f &detectRect,
-                     const cv::Size &detectCoordinateSize,
-                     const cv::Size &targetSize,
-                     cv::Mat &targetImage)
+/* 将检测坐标系矩形映射到源图坐标系，并做边界裁剪 */
+static bool mapDetectRectToSource(const cv::Mat &sourceImage,
+                                  const cv::Rect2f &detectRect,
+                                  const cv::Size &detectCoordinateSize,
+                                  cv::Rect &outRect)
 {
-    targetImage.release();
-
     if (sourceImage.empty() || sourceImage.dims != 2 ||
         detectCoordinateSize.width <= 0 || detectCoordinateSize.height <= 0 ||
-        targetSize.width <= 0 || targetSize.height <= 0 ||
         !std::isfinite(detectRect.x) || !std::isfinite(detectRect.y) ||
         !std::isfinite(detectRect.width) || !std::isfinite(detectRect.height) ||
         detectRect.width <= 0.0f || detectRect.height <= 0.0f)
@@ -1169,8 +1166,30 @@ bool cropTargetImage(const cv::Mat &sourceImage,
         return false;
     }
 
-    const cv::Mat croppedImage =
-        sourceImage(cv::Rect(x1, y1, x2 - x1, y2 - y1));
+    outRect = cv::Rect(x1, y1, x2 - x1, y2 - y1);
+    return true;
+}
+
+bool cropTargetImage(const cv::Mat &sourceImage,
+                     const cv::Rect2f &detectRect,
+                     const cv::Size &detectCoordinateSize,
+                     const cv::Size &targetSize,
+                     cv::Mat &targetImage)
+{
+    targetImage.release();
+
+    if (targetSize.width <= 0 || targetSize.height <= 0)
+    {
+        return false;
+    }
+
+    cv::Rect srcRect;
+    if (!mapDetectRectToSource(sourceImage, detectRect, detectCoordinateSize, srcRect))
+    {
+        return false;
+    }
+
+    const cv::Mat croppedImage = sourceImage(srcRect);
     const double resizeScale = std::min(
         static_cast<double>(targetSize.width) / static_cast<double>(croppedImage.cols),
         static_cast<double>(targetSize.height) / static_cast<double>(croppedImage.rows));
@@ -1209,4 +1228,200 @@ bool cropTargetImage(const cv::Mat &sourceImage,
     return !targetImage.empty() &&
            targetImage.cols == targetSize.width &&
            targetImage.rows == targetSize.height;
+}
+
+bool cropTargetImageFace(const cv::Mat &sourceImage,
+                         const cv::Rect2f &detectRect,
+                         const cv::Size &detectCoordinateSize,
+                         cv::Mat &targetImage,
+                         int nMinSide,
+                         int nMaxSide)
+{
+    targetImage.release();
+
+    if (nMinSide <= 0 || nMaxSide <= 0 || nMaxSide < nMinSide)
+    {
+        return false;
+    }
+
+    cv::Rect faceRect;
+    if (!mapDetectRectToSource(sourceImage, detectRect, detectCoordinateSize, faceRect))
+    {
+        return false;
+    }
+
+    const int nFaceW = faceRect.width;
+    const int nFaceH = faceRect.height;
+
+    /* 宽裕构图：左右各留 1.5 倍脸宽，头顶上方留 0.8 倍脸高，下巴下方留 1.5 倍脸高 */
+    const int nMarginX     = (nFaceW * 15) / 10;
+    const int nMarginTop   = (nFaceH * 8) / 10;
+    const int nMarginBottom = (nFaceH * 15) / 10;
+
+    const int nFaceCX = faceRect.x + nFaceW / 2;
+    int nLeft   = nFaceCX - nMarginX;
+    int nRight  = nFaceCX + nMarginX;
+    int nTop    = faceRect.y - nMarginTop;
+    int nBottom = faceRect.y + nFaceH + nMarginBottom;
+
+    /* 边界夹紧（展开框各方向均不小于脸部框，独立夹紧不会切到人脸） */
+    nLeft   = std::max(0, nLeft);
+    nTop    = std::max(0, nTop);
+    nRight  = std::min(sourceImage.cols, nRight);
+    nBottom = std::min(sourceImage.rows, nBottom);
+
+    if (nRight <= nLeft || nBottom <= nTop)
+    {
+        return false;
+    }
+
+    const cv::Rect cropRect(nLeft, nTop, nRight - nLeft, nBottom - nTop);
+    cv::Mat cropped = sourceImage(cropRect);
+    const int nShortSide = std::min(cropped.cols, cropped.rows);
+    const int nLongSide = std::max(cropped.cols, cropped.rows);
+
+    if (nShortSide < nMinSide)
+    {
+        /* 短边保底：等比放大到最小尺寸，CUBIC 保证插值质量 */
+        const double dScale = static_cast<double>(nMinSide) / nShortSide;
+        cv::resize(cropped, targetImage, cv::Size(), dScale, dScale, cv::INTER_CUBIC);
+    }
+    else if (nLongSide > nMaxSide)
+    {
+        /* 长边上限：等比缩小，避免过近人脸存出超大图 */
+        const double dScale = static_cast<double>(nMaxSide) / nLongSide;
+        cv::resize(cropped, targetImage, cv::Size(), dScale, dScale, cv::INTER_AREA);
+    }
+    else
+    {
+        targetImage = cropped.clone();
+    }
+
+    return !targetImage.empty();
+}
+
+bool cropTargetImageFaceNv12(const char *pNv12Data, int nSrcW, int nSrcH,
+                             const cv::Rect2f &detectRect,
+                             const cv::Size &detectCoordinateSize,
+                             cv::Mat &targetImage,
+                             int nMinSide, int nMaxSide)
+{
+    targetImage.release();
+
+    if (pNv12Data == nullptr || nSrcW <= 0 || nSrcH <= 0 ||
+        nMinSide <= 0 || nMaxSide <= 0 || nMaxSide < nMinSide ||
+        detectCoordinateSize.width <= 0 || detectCoordinateSize.height <= 0 ||
+        !std::isfinite(detectRect.x) || !std::isfinite(detectRect.y) ||
+        !std::isfinite(detectRect.width) || !std::isfinite(detectRect.height) ||
+        detectRect.width <= 0.0f || detectRect.height <= 0.0f)
+    {
+        return false;
+    }
+
+    /* 检测坐标系 → 源图坐标系 (与 cropTargetImageFace 一致) */
+    const double scaleX = static_cast<double>(nSrcW) /
+                          static_cast<double>(detectCoordinateSize.width);
+    const double scaleY = static_cast<double>(nSrcH) /
+                          static_cast<double>(detectCoordinateSize.height);
+
+    const double dLeft = std::max(0.0, static_cast<double>(detectRect.x) * scaleX);
+    const double dTop = std::max(0.0, static_cast<double>(detectRect.y) * scaleY);
+    const double dRight = std::min(
+        static_cast<double>(nSrcW),
+        (static_cast<double>(detectRect.x) + static_cast<double>(detectRect.width)) * scaleX);
+    const double dBottom = std::min(
+        static_cast<double>(nSrcH),
+        (static_cast<double>(detectRect.y) + static_cast<double>(detectRect.height)) * scaleY);
+
+    if (!std::isfinite(dLeft) || !std::isfinite(dTop) ||
+        !std::isfinite(dRight) || !std::isfinite(dBottom) ||
+        dRight <= dLeft || dBottom <= dTop)
+    {
+        return false;
+    }
+
+    const int nFaceX1 = std::max(0, std::min(nSrcW, static_cast<int>(std::floor(dLeft))));
+    const int nFaceY1 = std::max(0, std::min(nSrcH, static_cast<int>(std::floor(dTop))));
+    const int nFaceX2 = std::max(0, std::min(nSrcW, static_cast<int>(std::ceil(dRight))));
+    const int nFaceY2 = std::max(0, std::min(nSrcH, static_cast<int>(std::ceil(dBottom))));
+
+    if (nFaceX2 <= nFaceX1 || nFaceY2 <= nFaceY1)
+    {
+        return false;
+    }
+
+    const int nFaceW = nFaceX2 - nFaceX1;
+    const int nFaceH = nFaceY2 - nFaceY1;
+
+    /* 宽裕构图：左右各留 1.5 倍脸宽，头顶上方留 0.8 倍脸高，下巴下方留 1.5 倍脸高 */
+    const int nMarginX      = (nFaceW * 15) / 10;
+    const int nMarginTop    = (nFaceH * 8) / 10;
+    const int nMarginBottom = (nFaceH * 15) / 10;
+
+    const int nFaceCX = nFaceX1 + nFaceW / 2;
+    int nLeft   = nFaceCX - nMarginX;
+    int nRight  = nFaceCX + nMarginX;
+    int nTop    = nFaceY1 - nMarginTop;
+    int nBottom = nFaceY2 + nMarginBottom;
+
+    /* 边界夹紧 */
+    nLeft   = std::max(0, nLeft);
+    nTop    = std::max(0, nTop);
+    nRight  = std::min(nSrcW, nRight);
+    nBottom = std::min(nSrcH, nBottom);
+
+    if (nRight <= nLeft || nBottom <= nTop)
+    {
+        return false;
+    }
+
+    /* NV12 要求偶对齐 (UV 交错采样) */
+    nLeft &= ~1;
+    nTop &= ~1;
+    const int nCropW = (nRight - nLeft) & ~1;
+    const int nCropH = (nBottom - nTop) & ~1;
+    if (nCropW <= 0 || nCropH <= 0)
+    {
+        return false;
+    }
+
+    /* 组装 NV12 ROI (Y + UV 两平面) */
+    const char *pY  = pNv12Data;
+    const char *pUV = pNv12Data + static_cast<size_t>(nSrcW) * nSrcH;
+    cv::Mat nv12Roi(nCropH * 3 / 2, nCropW, CV_8UC1);
+    for (int r = 0; r < nCropH; ++r)
+    {
+        memcpy(nv12Roi.data + static_cast<size_t>(r) * nCropW,
+               pY + static_cast<size_t>(nTop + r) * nSrcW + nLeft, nCropW);
+    }
+    for (int r = 0; r < nCropH / 2; ++r)
+    {
+        memcpy(nv12Roi.data + static_cast<size_t>(nCropH) * nCropW + static_cast<size_t>(r) * nCropW,
+               pUV + static_cast<size_t>(nTop / 2 + r) * nSrcW + nLeft, nCropW);
+    }
+
+    cv::Mat bgrMat;
+    cv::cvtColor(nv12Roi, bgrMat, cv::COLOR_YUV2BGR_NV12);
+
+    const int nShortSide = std::min(bgrMat.cols, bgrMat.rows);
+    const int nLongSide = std::max(bgrMat.cols, bgrMat.rows);
+
+    if (nShortSide < nMinSide)
+    {
+        /* 短边保底：等比放大到最小尺寸，CUBIC 保证插值质量 */
+        const double dScale = static_cast<double>(nMinSide) / nShortSide;
+        cv::resize(bgrMat, targetImage, cv::Size(), dScale, dScale, cv::INTER_CUBIC);
+    }
+    else if (nLongSide > nMaxSide)
+    {
+        /* 长边上限：等比缩小，避免过近人脸存出超大图 */
+        const double dScale = static_cast<double>(nMaxSide) / nLongSide;
+        cv::resize(bgrMat, targetImage, cv::Size(), dScale, dScale, cv::INTER_AREA);
+    }
+    else
+    {
+        targetImage = bgrMat.clone();
+    }
+
+    return !targetImage.empty();
 }

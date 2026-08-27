@@ -153,8 +153,8 @@ private:
     enum ItemState { NONE, LEFT, PICKED }; ItemState m_lastItemState = NONE;
 
      /* 算法默认分辨率 */
-    int m_nWidth = 1280;
-    int m_nHeight = 720;
+    int m_nWidth = PIXEL_WIDTH_AI;
+    int m_nHeight = PIXEL_HEIGHT_AI;
 
     int m_nChannelId = 0;
     cv::Mat m_lastRgbFrame;

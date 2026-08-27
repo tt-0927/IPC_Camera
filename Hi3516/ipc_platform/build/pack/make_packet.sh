@@ -346,7 +346,8 @@ create_upgrade_directories() {
 # ============================================================
 # 函数：拷贝配置文件
 # 说明：拷贝系统配置、音频配置、sensor配置等
-#         仅垃圾站型号拷贝ai_garbage_detection.json
+#         仅垃圾站型号拷贝ai_garbage_detection.json、ai_mobileface.json
+#         仅HZT型号拷贝ai_exhibition.json
 # ============================================================
 copy_config_files() {
     info "拷贝配置文件"
@@ -364,6 +365,11 @@ copy_config_files() {
             # 排除特征点提取配置（非垃圾站型号不需要）
             if [[ "$filename" == "ai_mobileface.json" ]]; then
                 info "跳过特征点提取配置: $filename"
+                continue
+            fi
+            # 排除展会检测配置（非HZT型号不需要）
+            if [[ "$filename" == "ai_exhibition.json" ]]; then
+                info "跳过展会检测配置: $filename"
                 continue
             fi
             cp -a "$config_file" "${UPGRADE_PATH}/${RUN_PATH}"/.config/design_data/
@@ -384,6 +390,15 @@ copy_config_files() {
         if [ -f "$mobileface_config" ]; then
             info "当前型号 $DEVICE_TYPE 为垃圾站型号，拷贝特征点提取配置..."
             cp -a "$mobileface_config" "${UPGRADE_PATH}/${RUN_PATH}"/.config/design_data/
+        fi
+    fi
+
+    # 仅HZT型号拷贝展会检测配置
+    if [[ "$DEVICE_TYPE" == "TV-3852HZT" ]]; then
+        local exhibition_config="${CONFIG_PATH}/design_data/ai_exhibition.json"
+        if [ -f "$exhibition_config" ]; then
+            info "当前型号 $DEVICE_TYPE 为HZT型号，拷贝展会检测配置..."
+            cp -a "$exhibition_config" "${UPGRADE_PATH}/${RUN_PATH}"/.config/design_data/
         fi
     fi
 
@@ -456,8 +471,9 @@ copy_cert_files() {
 
 # ============================================================
 # 函数：拷贝AI模型
-# 说明：拷贝所有AI模型文件，仅垃圾站型号拷贝垃圾检测模型
+# 说明：拷贝所有AI模型文件，仅垃圾站型号拷贝垃圾检测模型，仅HZT型号拷贝展会检测模型
 #         垃圾检测模型: Hi3516CV610_yolov8n_rubish_640_384_V1.0.om
+#         展会检测模型: Hi3516CV610_yolov8n_exhibition_1024_576_V1.0.1.om
 # ============================================================
 copy_model_files() {
     info "拷贝AI模型"
@@ -477,6 +493,11 @@ copy_model_files() {
             fi
             if [[ "$filename" =~ mobileface ]]; then
                 info "跳过特征点提取模型: $filename"
+                continue
+            fi
+            # 排除展会检测模型（非HZT型号不需要）
+            if [[ "$filename" =~ exhibition ]]; then
+                info "跳过展会检测模型: $filename"
                 continue
             fi
             cp -a "$model_file" "${UPGRADE_PATH}/${RUN_PATH}"/model/
@@ -505,6 +526,22 @@ copy_model_files() {
         done
     else
         info "当前型号 $DEVICE_TYPE 非垃圾站型号，跳过垃圾检测模型"
+    fi
+
+    # 仅HZT型号拷贝展会检测模型
+    if [[ "$DEVICE_TYPE" == "TV-3852HZT" ]]; then
+        info "当前型号 $DEVICE_TYPE 为HZT型号，拷贝展会检测模型..."
+        for model_file in "${MODEL_PATH}"/*; do
+            if [ -f "$model_file" ]; then
+                filename=$(basename "$model_file")
+                if [[ "$filename" =~ exhibition ]]; then
+                    info "拷贝展会检测模型: $filename"
+                    cp -a "$model_file" "${UPGRADE_PATH}/${RUN_PATH}"/model/
+                fi
+            fi
+        done
+    else
+        info "当前型号 $DEVICE_TYPE 非HZT型号，跳过展会检测模型"
     fi
 }
 

@@ -20,6 +20,7 @@
 #include "algorithm.hpp"
 #include "algo_control_deal.h"
 #include "algo_stream_deal.h"
+#include "share_data.h"
 #include "CameraObstructionV1_0.hpp"
 
 enum class EOcclusionSens : int
@@ -124,8 +125,8 @@ private:
     /*RGA复用内存*/
     cv::Mat m_fullRgbMat;
     /* 算法默认分辨率 */
-    int m_nWidth = PIXEL_WIDTH_1280;
-    int m_nHeight = PIXEL_HEIGHT_720;
+    int m_nWidth = PIXEL_WIDTH_AI;
+    int m_nHeight = PIXEL_HEIGHT_AI;
     /* 是否需要重新初始化算法（宽高变化） */
     std::atomic<bool> m_bNeedReInit{false};
     /* 是否需要裁剪源视频 */

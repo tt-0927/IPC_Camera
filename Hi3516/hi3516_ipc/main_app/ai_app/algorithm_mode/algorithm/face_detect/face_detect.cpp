@@ -3,7 +3,7 @@
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2025-06-06 16:02:10
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-04-28 16:20:20
+ * @LastEditTime : 2026-08-21 16:11:50
  * @Description  : 人脸检测类实现，负责检测模型调度与 processor 编排
  */
 
@@ -432,11 +432,17 @@ void CFaceDetect::run()
 
                 /*
                  * 当前处理上下文
+                 *
+                 * perf: 抓拍裁剪源使用 VPSS AI 通道原始帧而非 640×640 检测帧，
+                 * 人脸小图分辨率更高、更清晰。原始帧分辨率由 VPSS AI 通道配置
+                 * 检测框坐标仍基于检测空间（m_nWidth/m_nHeight=640×640），由抓拍处理器在裁剪前按
+                 * 原始帧实际分辨率做拉伸逆变换换算。
+                 * nWidth/nHeight 保持检测空间，区域规则、瞳距判断不受影响。
                  */
                 FaceDetectInternal ::SFaceProcessContext stContext{
                     vPointDatas,
                     vstRectInfo,
-                    pAsyncFrame,
+                    pSrcFrameInfo,
                     m_nWidth,
                     m_nHeight,
                     stMediaData.stMediaParam.nChannel,

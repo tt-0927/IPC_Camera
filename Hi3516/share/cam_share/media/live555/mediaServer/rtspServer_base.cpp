@@ -1,3 +1,11 @@
+/**
+ * @FilePath     : rtspServer_base.cpp
+ * @Author       : 17343431340@163.com
+ * @Date         : 2026-02-27 13:40:43
+ * @LastEditors  : zhouzr@kfb.cn
+ * @LastEditTime : 2026-08-19 15:58:15
+ * @Description  : RTSP服务基础封装及媒体会话生命周期管理
+ */
 #include <stdio.h>
 #include <atomic>
 #include <pthread.h>
@@ -47,6 +55,46 @@ typedef struct
 static void *doEvenLoopThread(void *argv);
 static void *doPrintError(void *argv);
 static void handleRtspControlEvent(void *clientData);
+
+/**
+ * @brief   : 将业务状态回调转接为 liveMedia 的通用准入回调
+ * @param   {void*} opaque：指向长期有效的 Rtsp_Create_Info_t
+ * @return  {int} 0表示允许首个SETUP，非0表示拒绝
+ * @note    : liveMedia 的准入回调只有 void* 参数，这里还原为业务上下文，
+ *            并复用既有 clientFun 回调返回准入结果。
+ */
+static int invokeClientAdmission(void *opaque)
+{
+	Rtsp_Create_Info_t *pCreateInfo = static_cast<Rtsp_Create_Info_t *>(opaque);
+	if (pCreateInfo == NULL || pCreateInfo->clientFun == NULL)
+	{
+		live_log("invokeClientAdmission 参数为空");
+		return -1;
+	}
+
+	Rtsp_ClientStream_State_t state;
+	memset(&state, 0, sizeof(state));
+	state.status = RTSPCLIENT_ADMISSION;
+	state.param = pCreateInfo->Videoindex;
+	return pCreateInfo->clientFun(&state);
+}
+
+/**
+ * @brief   : 为媒体会话注册首个 SETUP 前的准入回调
+ * @param   {ServerMediaSession*} pSession：待配置的媒体会话
+ * @param   {Rtsp_Create_Info_t*} pCreateInfo：业务回调和流上下文
+ * @return  {int} 0表示配置成功，非0表示参数错误
+ */
+static int configureClientAdmission(ServerMediaSession *pSession, Rtsp_Create_Info_t *pCreateInfo)
+{
+	if (pSession == NULL || pCreateInfo == NULL)
+	{
+		return -1;
+	}
+
+	pSession->setClientAdmissionCallback(invokeClientAdmission, pCreateInfo);
+	return 0;
+}
 // static int findstreamName(Rtsp_Server_Info_t *pServerInfo, const char *streamName);
 // static int cleanServerMediaSession(Rtsp_Server_Info_t *pServerInfo, const char *streamName);
 // static int findServerMediaSessionUse(Rtsp_Server_Info_t *pServerInfo);
@@ -96,6 +144,8 @@ static int cleanServerMediaSession(Rtsp_Server_Info_t *pServerInfo, const char *
 static int cleanAllServerMediaSession(Rtsp_Server_Info_t *pServerInfo)
 {
 	int i = 0;
+	/* 是否清理了至少一个会话，供返回值和日志判断。 */
+	int nCleaned = 0;
 	if (pServerInfo == NULL)
 	{
 		live_log("findUseSocket is NULL");
@@ -108,11 +158,15 @@ static int cleanAllServerMediaSession(Rtsp_Server_Info_t *pServerInfo)
 			live_log("pServerInfo->server_session[i]: %p", pServerInfo->server_session[i]);
 			pServerInfo->rtspServer->deleteServerMediaSession(pServerInfo->server_session[i]);
 			pServerInfo->server_session[i] = NULL;
-			pServerInfo->nUse--;
-			return 0;
+			if (pServerInfo->nUse > 0)
+			{
+				--pServerInfo->nUse;
+			}
+			nCleaned = 1;
 		}
 	}
-	return -1;
+	/* 反初始化必须遍历所有槽位，否则第二路媒体会残留并占用会话引用。 */
+	return nCleaned == 1 ? 0 : -1;
 }
 
 static void handleRtspControlEvent(void *clientData)
@@ -134,7 +188,8 @@ static void handleRtspControlEvent(void *clientData)
 static int findstreamName(Rtsp_Server_Info_t *pServerInfo, const char *streamName)
 {
 	int i = 0;
-	if (pServerInfo == NULL && streamName == NULL)
+	/* 两个参数任一为空都不能进入 strcmp，避免查询接口把异常输入变成崩溃。 */
+	if (pServerInfo == NULL || streamName == NULL)
 	{
 		live_log("findUseSocket is NULL");
 		return -1;
@@ -291,7 +346,8 @@ int rtsp_server_create(RtSpServerHandle_t pHandle, Rtsp_Create_Info_t *pCreatSer
 	memset(&stuAudioSourceInfo, 0x0, sizeof(Audio_Source_Info_t));
 
 	int nUse = 0;
-	if (pServerInfo == NULL || pCreatServerInfo->clientFun == NULL || pCreatServerInfo->dataGetfun == NULL)
+	if (pServerInfo == NULL || pCreatServerInfo == NULL || pCreatServerInfo->clientFun == NULL ||
+		pCreatServerInfo->dataGetfun == NULL)
 	{
 		live_log("rtsp_server_create is NULL");
 		return -1;
@@ -312,8 +368,6 @@ int rtsp_server_create(RtSpServerHandle_t pHandle, Rtsp_Create_Info_t *pCreatSer
 	stuVideoSourceInfo.outPacketBufferSize = pCreatServerInfo->outPacketBufferSize;
 	memcpy(stuVideoSourceInfo.streamName, pCreatServerInfo->streamName, STREAM_NAME_MAX);
 
-	/* 最大4路 拓展参数为最大client个数*/
-	rtsp_setclient_maxNum(pHandle, pCreatServerInfo->streamName, pCreatServerInfo->param1);
 	/* h264 */
 	if (pCreatServerInfo->nProtolType == RTSP_FRAMEPROTOL_H264)
 	{
@@ -326,6 +380,18 @@ int rtsp_server_create(RtSpServerHandle_t pHandle, Rtsp_Create_Info_t *pCreatSer
 		}
 
 		pServerInfo->server_session[nUse] = ServerMediaSession::createNew(*(pServerInfo->usage_env), stuVideoSourceInfo.streamName, 0, "Session from MainStream");
+		if (configureClientAdmission(pServerInfo->server_session[nUse], pCreatServerInfo) != 0)
+		{
+			live_log("配置H264会话准入回调失败");
+			return -1;
+		}
+		/* param1 为0时保留 ServerMediaSession 的通用默认上限，兼容旧调用方。 */
+		if (pCreatServerInfo->param1 > 0 &&
+			rtsp_setclient_maxNum(pHandle, pCreatServerInfo->streamName, pCreatServerInfo->param1) != 0)
+		{
+			live_log("设置H264会话最大客户端数失败");
+			return -1;
+		}
 
 		if (stuAudioSourceInfo.audioindex != NULL)
 		{
@@ -376,6 +442,18 @@ int rtsp_server_create(RtSpServerHandle_t pHandle, Rtsp_Create_Info_t *pCreatSer
 		}
 
 		pServerInfo->server_session[nUse] = ServerMediaSession::createNew(*(pServerInfo->usage_env), stuVideoSourceInfo.streamName, 0, "Session from MainStream265");
+		if (configureClientAdmission(pServerInfo->server_session[nUse], pCreatServerInfo) != 0)
+		{
+			live_log("配置H265会话准入回调失败");
+			return -1;
+		}
+		/* param1 为0时保留 ServerMediaSession 的通用默认上限，兼容旧调用方。 */
+		if (pCreatServerInfo->param1 > 0 &&
+			rtsp_setclient_maxNum(pHandle, pCreatServerInfo->streamName, pCreatServerInfo->param1) != 0)
+		{
+			live_log("设置H265会话最大客户端数失败");
+			return -1;
+		}
 
 		if (stuAudioSourceInfo.audioindex != NULL)
 		{
@@ -427,6 +505,18 @@ int rtsp_server_create(RtSpServerHandle_t pHandle, Rtsp_Create_Info_t *pCreatSer
 		}
 
 		pServerInfo->server_session[nUse] = ServerMediaSession::createNew(*(pServerInfo->usage_env), stuVideoSourceInfo.streamName, 0, "Session from MainStreamMjpeg");
+		if (configureClientAdmission(pServerInfo->server_session[nUse], pCreatServerInfo) != 0)
+		{
+			live_log("配置MJPEG会话准入回调失败");
+			return -1;
+		}
+		/* param1 为0时保留 ServerMediaSession 的通用默认上限，兼容旧调用方。 */
+		if (pCreatServerInfo->param1 > 0 &&
+			rtsp_setclient_maxNum(pHandle, pCreatServerInfo->streamName, pCreatServerInfo->param1) != 0)
+		{
+			live_log("设置MJPEG会话最大客户端数失败");
+			return -1;
+		}
 
 		if (stuAudioSourceInfo.audioindex != NULL)
 		{
@@ -586,9 +676,9 @@ int rtsp_getclient_info(RtSpServerHandle_t pHandle, const char *streamName, Rtsp
 	Rtsp_Server_Info_t *pServerInfo = (Rtsp_Server_Info_t *)pHandle;
 	int nUse = 0;
 	int i = 0;
-	if (pServerInfo == NULL || pClientInfo == NULL)
+	if (pServerInfo == NULL || streamName == NULL || pClientInfo == NULL)
 	{
-		live_log("rtsp_server_destory is NULL");
+		live_log("rtsp_getclient_info 参数为空");
 		return -1;
 	}
 	nUse = findstreamName(pServerInfo, streamName);
@@ -597,10 +687,15 @@ int rtsp_getclient_info(RtSpServerHandle_t pHandle, const char *streamName, Rtsp
 		live_log("find streamName is fail");
 		return -1;
 	}
-	pClientInfo->nNumClient = pServerInfo->server_session[nUse]->referenceCount();
+	const unsigned nReferenceCount = pServerInfo->server_session[nUse]->referenceCount();
+	/* DESCRIBE 也会短暂持有引用；复制前先取 fClientInfo 与业务数组容量的较小值，防止越界。 */
+	const unsigned nClientCapacity = CLIENTMAX < RTSP_CLIENT_MAX ? CLIENTMAX : RTSP_CLIENT_MAX;
+	const unsigned nClientCount = nReferenceCount > nClientCapacity ? nClientCapacity : nReferenceCount;
+	pClientInfo->nNumClient = static_cast<int>(nClientCount);
 	for (i = 0; i < pClientInfo->nNumClient; i++)
 	{
-		strcpy(pClientInfo->ip[i], pServerInfo->server_session[nUse]->fClientInfo[i].ip);
+		snprintf(pClientInfo->ip[i], sizeof(pClientInfo->ip[i]), "%s",
+				 pServerInfo->server_session[nUse]->fClientInfo[i].ip);
 	}
 	return 0;
 }
@@ -609,9 +704,9 @@ int rtsp_setclient_maxNum(RtSpServerHandle_t pHandle, const char *streamName, in
 {
 	Rtsp_Server_Info_t *pServerInfo = (Rtsp_Server_Info_t *)pHandle;
 	int nUse = 0;
-	if (pServerInfo == NULL || maxNum > CLIENTMAX)
+	if (pServerInfo == NULL || streamName == NULL || maxNum < 0 || maxNum > CLIENTMAX)
 	{
-		live_log("rtsp_server_destory is NULL");
+		live_log("rtsp_setclient_maxNum 参数无效");
 		return -1;
 	}
 	nUse = findstreamName(pServerInfo, streamName);

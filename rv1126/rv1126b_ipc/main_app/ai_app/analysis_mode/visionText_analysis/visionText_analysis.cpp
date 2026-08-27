@@ -10,6 +10,8 @@
 #include "visionText_analysis.hpp"
 #include "event_vlm_manage.hpp"
 #include "event_linkage.h"
+#include "algorithm.hpp"
+#include "share_data.h"
 #include <fstream>
 #include <chrono>
 
@@ -132,6 +134,8 @@ void CVisionText::recvMediaData(MediaData_S stMediaData)
         return;
     }
     
+    m_nChannelId = stMediaData.stMediaParam.nChannel;
+
     if (m_RecvManager.handleEvent(stMediaData.stMediaParam.nChannel))
     {
         if (m_dataQueue.size() >= LLM_QUEUE_MAX)
@@ -272,7 +276,7 @@ void CVisionText::setAlgoParamCfg(const Alarm::TextPreset_S &stAlgoCfg)
         if (m_stTextPreseCfg.stRect.IsValid())
         {
             /* 转换区域坐标分辨率至算法分辨率 */
-            m_stTextPreseCfg.stRect.ConvertResolution(PIXEL_WIDTH_1920, PIXEL_HEIGHT_1080, PIXEL_WIDTH_1280, PIXEL_HEIGHT_720);
+            m_stTextPreseCfg.stRect.ConvertResolution(PIXEL_WIDTH_1920, PIXEL_HEIGHT_1080, PIXEL_WIDTH_AI, PIXEL_HEIGHT_AI);
             if (m_stTextPreseCfg.stRect.nWidth != 0 && m_stTextPreseCfg.stRect.nHeight != 0)
             {
                     m_bIsCrop = true;
@@ -759,7 +763,25 @@ void CVisionText::execute_TextPreset_Task(Alarm::TextPreset_S cfg, const std::st
             return;
         }
 
+#ifdef ENABLE_TVSDK_SRC
+        {
+            EventTriggerContext_S stContext;
+            stContext.enEventType = Event::Type_E::TEXT_PRESET;
+            stContext.nChnId = m_nChannelId;
+            stContext.llTimestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
+                std::chrono::system_clock::now().time_since_epoch()).count();
+            if (!Frame.empty()) {
+                auto pPayload = std::make_shared<EventTvSdkPayload_S>();
+                pPayload->enType = get_tvsdk_payload_type(stContext.enEventType);
+                if (encode_mat_to_tvsdk_image(Frame, pPayload->stPanoramaImage, 85, false)) {
+                    stContext.pTvSdkPayload = pPayload;
+                }
+            }
+            CEventLinkage::instance()->handleEvent(stContext);
+        }
+#else
         CEventLinkage::instance()->handleEvent(Event::Type_E::TEXT_PRESET);
+#endif
         dlog_warn("文字预设任务告警: [%s] 检测到符合条件!", cfg.strTaskName.c_str());
         std::string currentTimeStr = updateCreateTime();
         /* 进一步分析图片 - 生成详细描述 */
@@ -829,6 +851,8 @@ std::string CVisionText::perform_DetailedImage_Analysis(const Alarm::TextPreset_
 
 int CVisionText::UpdateImageAnalysisRecord(Alarm::AnalysisRecords_S& RecordInfo, bool bNewSession)
 {
+    std::lock_guard<std::mutex> lk(CEventConfigure::instance()->imageAnalysisRecordMutex());
+    
     if (RecordInfo.strInputText.empty() || RecordInfo.strOutputText.empty()) 
     {
         dlog_error("结果参数为空");
@@ -956,7 +980,7 @@ void CVisionText::run()
     bool rga_ok = false;
     MediaData_S stMediaData;
     cv::Mat croppedMat;
-    cv::Mat Desframe(PIXEL_HEIGHT_720, PIXEL_WIDTH_1280, CV_8UC3);
+    cv::Mat Desframe(PIXEL_HEIGHT_AI, PIXEL_WIDTH_AI, CV_8UC3);
     /*rknn模型使用*/
     cv::Mat ResizedFrame(MODEL_INPUT_HEIGHT, MODEL_INPUT_WIDTH, CV_8UC3);
 
@@ -1052,7 +1076,7 @@ void CVisionText::run()
             {
                 //RK_FORMAT_YCbCr_420_SP = NV12
                 rga_ok = rga_image_transform(stMediaData.pData.get(), stMediaData.stMediaParam.nVideoWidth, stMediaData.stMediaParam.nVideoHeight,
-                                                                RK_FORMAT_YCbCr_420_SP,Desframe.data, PIXEL_WIDTH_1280, PIXEL_HEIGHT_720, RK_FORMAT_BGR_888);
+                                                                RK_FORMAT_YCbCr_420_SP,Desframe.data, PIXEL_WIDTH_AI, PIXEL_HEIGHT_AI, RK_FORMAT_BGR_888);
                 if(!rga_ok) 
                 {
                     dlog_error("RGA-YUV 转 BGR error");
@@ -1212,7 +1236,7 @@ void CVisionText::run()
                     {
                         dlog_error("RGA 转换失败,使用CPU 处理!");
 
-                        // 情况 1: 如果第一路 RGA 成功生成了 Desframe (720P BGR)，基于它进行处理
+                        // 情况 1: 如果第一路 RGA 成功生成了全帧 Desframe (AI 通道分辨率 BGR)，基于它进行处理
                         if (rga_ok && !Desframe.empty()) 
                         {
                             try {

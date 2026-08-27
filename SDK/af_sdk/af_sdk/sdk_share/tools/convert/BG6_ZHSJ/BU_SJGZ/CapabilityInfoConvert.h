@@ -1,0 +1,96 @@
+
+#ifndef _CAPABILITYINFOCONVERT_H
+#define _CAPABILITYINFOCONVERT_H
+
+#include <string>
+#include <vector>
+#include <set>
+
+#include "Json.h"
+
+// 库通用头文件
+#ifdef NET_SDK_SERVER_API
+    #include "NetTVSDKServerInterface.h"
+#elif defined(NET_SDK_CLIENT_API)
+    #include "NetTVSDKClientInterface.h"
+#else
+    #include "NetTVSDKCommon.h"
+#endif
+
+namespace SDKConvert
+{
+    /**
+     * @brief 视频分辨率结构体转换
+     */
+    void deal(Json::Object* pRootJson, NET_VideoResolution_S& stInfo, bool bOutStruct);
+
+    /**
+     * @brief 取值范围结构体转换
+     */
+    void deal(Json::Object* pRootJson, NET_Range_S& stInfo, bool bOutStruct);
+
+    /**
+     * @brief 视频编码参数配置转换
+     */
+    void deal(Json::Object* pRootJson, NET_VideoEncodeOption_S& stInfo, bool bOutStruct);
+
+    /**
+     * @brief 视频编码格式能力转换
+     */
+    void deal(Json::Object* pRootJson, NET_VideoEncodeAbility_S& stInfo, bool bOutStruct);
+
+    /**
+     * @brief 视频码流参数能力集转换 (单个码流)
+     */
+    void deal(Json::Object* pRootJson, NET_VideoStreamCap_S& stInfo, bool bOutStruct);
+
+    /**
+     * @brief 视频编码能力集转换 (多码流, NET_CAP_VIDEO_ENCODE)
+     */
+    void deal(Json::Object* pRootJson, NET_VideoEncodeCap_S& stInfo, bool bOutStruct);
+
+    /**
+     * @brief 音频范围转换
+     */
+    void deal(Json::Object* pRootJson, NET_AudioRange_S& stInfo, bool bOutStruct);
+
+    /**
+     * @brief 音频格式能力转换
+     */
+    void deal(Json::Object* pRootJson, NET_AudioFormatCap_S& stInfo, bool bOutStruct);
+
+    /**
+     * @brief 音频编码能力集转换 (多码流, NET_CAP_VIDEO_ENCODE)
+     */
+    void deal(Json::Object* pRootJson, NET_AudioCap_S& stInfo, bool bOutStruct);
+
+    /**
+     * @brief OSD参数能力集转换 (NET_CAP_OSD)
+     */
+    void deal(Json::Object* pRootJson, NET_OsdCap_S& stInfo, bool bOutStruct);
+
+    // ==================== 后续扩展能力集 ====================
+    // NET_CAP_OSD: void deal(Json::Object*, NET_OsdCap_S&, bool);
+    // NET_CAP_SMART: void deal(Json::Object*, NET_SmartCap_S&, bool);
+    // NET_CAP_IMAGE: void deal(Json::Object*, NET_IMAGE_CAP_S&, bool);
+    // NET_CAP_AUDIO: void deal(Json::Object*, NET_AudioCap_S&, bool);
+
+    // ==================== 视频/图像参数配置 ====================
+    void deal(Json::Object* pRootJson, NET_VideoOsdCfg_S& stInfo, bool bOutStruct);
+
+    void deal(Json::Object* pRootJson, NET_PreviewRtspUrl_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_PreviewImageParam_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_ImageSetting_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_PreviewInfo_S& stInfo, bool bOutStruct);
+
+    void deal(Json::Object* pRootJson, NET_PrivacyMaskArea_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_PrivacyMaskCfg_S& stInfo, bool bOutStruct);
+
+    void deal(Json::Object *pRootJson, NET_ExposureInfo_S &stInfo, bool bOutStruct);
+    void deal(Json::Object *pRootJson, NET_DayNightInfo_S &stInfo, bool bOutStruct);
+    void deal(Json::Object *pRootJson, NET_BackLightInfo_S &stInfo, bool bOutStruct);
+    void deal(Json::Object *pRootJson, NET_DenoiseInfo_S &stInfo, bool bOutStruct);
+    void deal(Json::Object *pRootJson, NET_WhiteBalanceInfo_S &stInfo, bool bOutStruct);
+};
+
+#endif

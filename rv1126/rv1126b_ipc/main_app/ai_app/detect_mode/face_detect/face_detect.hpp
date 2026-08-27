@@ -97,6 +97,16 @@ private:
      */
     bool processFaceCapture(const FaceDetect_NS::Result_S &stResult);
 
+    /**
+     * @brief 从 4K 全分辨率帧裁剪人脸特写图 (无 4K 源时回退 1080p 全景图裁剪)
+     * @param detectRect 检测坐标系中未外扩的原始人脸框
+     * @param detectCoordinateSize 检测框所属坐标系尺寸
+     * @param outBgr 输出特写图 (BGR)
+     */
+    bool cropFaceCloseup(const cv::Rect2f &detectRect,
+                         const cv::Size &detectCoordinateSize,
+                         cv::Mat &outBgr);
+
      /**
      * @brief   : 保存人脸全景大图
      * @param    {cv::Mat} *image：当前检测帧
@@ -130,13 +140,27 @@ private:
      */
     void pushFaceCaptureInfo(FaceAttribute_NS::Result_S stFAResult,std::string strCurrentPicture,std::string strFacePicture);
 
+#ifdef ENABLE_TVSDK_SRC
+    /**
+     * @brief 人脸抓拍信息 TVSDK 二进制直推
+     * @param panoramaBgr 人脸全景图（BGR）
+     * @param faceRect 人脸检测框（检测坐标系，已外扩留边）
+     * @param rawFaceRect 未外扩的原始人脸框（检测坐标系）
+     * @param detectCoordinateSize 检测框所属坐标系尺寸
+     * @param stFAResult 人脸属性结果
+     */
+    void pushFaceCaptureInfoToTvSdk(const cv::Mat &panoramaBgr, const cv::Rect2f &faceRect, const cv::Rect2f &rawFaceRect, const cv::Size &detectCoordinateSize, const FaceAttribute_NS::Result_S &stFAResult);
+#endif
+
     /**
      * @brief 添加人脸叠加信息
      * @param image 
      */
     void addFaceOverlayInfo(const cv::Mat &image);
 
-    void processFaceEvent(const FcaeEventStatus_t &stFcaeEventStatus);
+    void processFaceEvent(const FcaeEventStatus_t &stFcaeEventStatus,
+                          const FaceDetect_NS::Result_S* pDetectResult = nullptr,
+                          const FaceDetect_NS::Result_S* pCaptureResult = nullptr);
 
 #ifdef ENABLE_GAT1400_SRC
     /**
@@ -216,10 +240,6 @@ private:
     int m_nFAWidth = 192;
     int m_nFAHeight = 192;
 
-    /* 人脸保存分辨率 */
-    int m_nFaceSaveWidth = 212;
-    int m_nFaceSaveHeight = 212;
-
     /* 是否联动保存人脸全景图片 */
     bool m_bIsLinkageFacePanoramicImage = false;
     /* 是否联动保存人脸图片 */
@@ -230,6 +250,15 @@ private:
     bool m_bUploadSdCard = false;
     /* 人脸抓拍叠加信息 */
     Alarm::OverlayInfo_S m_overlayInfo;
+
+    /* 通道号 */
+    int m_nChannelId = 0;
+    /* 缓存RGB帧 */
+    cv::Mat m_fullRgbMat;
+    /* 4K 全分辨率帧缓存 (人脸特写裁剪源, 与主帧同 PTS) */
+    std::shared_ptr<char[]> m_pFullNv12;
+    int m_nFullWidth  = 0;
+    int m_nFullHeight = 0;
 
     /* 上一帧人脸检测结果 */
     std::vector<FaceDetect_NS::Result_S> m_vstLastFrameResult;

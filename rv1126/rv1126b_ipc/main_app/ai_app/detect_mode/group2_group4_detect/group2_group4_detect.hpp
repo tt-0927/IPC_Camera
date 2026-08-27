@@ -2,7 +2,7 @@
  * @Author: lianghy lianghy@kfb.cn
  * @Date: 2026-01-09 10:47:39
  * @LastEditors: leiyy leiyy@kfb.cn
- * @LastEditTime: 2026-08-14 15:54:16
+ * @LastEditTime: 2026-08-26 15:29:25
  * @FilePath: /1126/rv1126b_ipc/main_app/ai_app/detect_mode/group2_group4_detect/group2_group4_detect.hpp
  * @Description: 人、车非 事件相关
  */
@@ -692,8 +692,8 @@ class CGroup2_Group4Detect : public CAlgorithm {
     cv::Mat m_fullRgbMat;
 
     /* 送到AI模块的帧的宽高 */
-    int m_nAiChnWith = PIXEL_WIDTH_1280;
-    int m_nAiChnHeigh = PIXEL_HEIGHT_720;
+    int m_nAiChnWith = PIXEL_WIDTH_AI;
+    int m_nAiChnHeigh = PIXEL_HEIGHT_AI;
 
     /* group2、group4 算法默认分辨率 */
     int m_nWidth  = 640;

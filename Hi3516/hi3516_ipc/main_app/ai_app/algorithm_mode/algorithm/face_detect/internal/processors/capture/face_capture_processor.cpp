@@ -3,7 +3,7 @@
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2026-04-28 15:07:08
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-06-12 09:50:01
+ * @LastEditTime : 2026-08-24 14:36:38
  * @Description  : 人脸抓拍处理器实现
  */
 
@@ -28,9 +28,10 @@
 namespace
 {
 /* 人脸目标框放大倍率，用于目标小图裁剪时保留周边上下文 */
-constexpr float FACE_REGION_SCALE_RATIO = 1.5f;
+constexpr float FACE_REGION_SCALE_RATIO = 2.0f;
 /* 算法未返回眼部关键点时，以人脸框宽度的 70% 估算瞳距 */
 constexpr int ESTIMATED_IPD_RATIO_PERCENT = 70;
+
 struct FaceCaptureTimeParts_S
 {
     std::string strDateCompact;
@@ -329,6 +330,11 @@ int CFaceCaptureProcessor::saveFaceImage(std::vector<Common::RectInfo_S> vstRect
     {
         auto &rect = vstRectInfo[i];
         convert_region_ratio(rect, FACE_REGION_SCALE_RATIO, m_nWidth, m_nHeight);
+        /* 检测空间(640×640) → 裁剪源帧(VPSS AI 通道原始帧) 拉伸逆变换，从原始 AI 帧高清裁剪 */
+        rect.ConvertResolution(m_nWidth,
+                               m_nHeight,
+                               static_cast<int>(pSrcFrameInfo->video_frame.width),
+                               static_cast<int>(pSrcFrameInfo->video_frame.height));
         /* VGS 裁剪必须是4字节对齐，宽度需16字节向下对齐，防止超限 */
         rect.nX1 = ALIGN_BACK(rect.nX1, 16);
         rect.nY1 = ALIGN_BACK(rect.nY1, 4);
@@ -583,10 +589,16 @@ int CFaceCaptureProcessor::encodeFaceTargetImageToFile(const Common::RectInfo_S 
     /* 当前 SDK 目标小图矩形，按原保存逻辑放大 1.5 倍并对齐 VGS 约束 */
     Common::RectInfo_S stFaceRect = stRectInfo;
     convert_region_ratio(stFaceRect, FACE_REGION_SCALE_RATIO, m_nWidth, m_nHeight);
+    /* 检测空间(640×640) → 裁剪源帧(VPSS AI 通道原始帧) 拉伸逆变换，从原始 AI 帧高清裁剪 */
+    stFaceRect.ConvertResolution(m_nWidth,
+                                 m_nHeight,
+                                 static_cast<int>(pSrcFrameInfo->video_frame.width),
+                                 static_cast<int>(pSrcFrameInfo->video_frame.height));
     stFaceRect.nX1 = ALIGN_BACK(stFaceRect.nX1, 16);
     stFaceRect.nY1 = ALIGN_BACK(stFaceRect.nY1, 4);
-    stFaceRect.nX2 = ALIGN_BACK(stFaceRect.nX2, 16);
-    stFaceRect.nY2 = ALIGN_BACK(stFaceRect.nY2, 4);
+    /* 换算放大后右下角可能越出源帧，clamp 到源帧宽高防止 VGS 越界 */
+    stFaceRect.nX2 = std::min(ALIGN_BACK(stFaceRect.nX2, 16), static_cast<int>(pSrcFrameInfo->video_frame.width));
+    stFaceRect.nY2 = std::min(ALIGN_BACK(stFaceRect.nY2, 4), static_cast<int>(pSrcFrameInfo->video_frame.height));
 
     if (stFaceRect.nX2 <= stFaceRect.nX1 || stFaceRect.nY2 <= stFaceRect.nY1)
     {

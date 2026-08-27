@@ -11,6 +11,7 @@
 #include "common_vlm.hpp"
 #include "event_vlm_manage.hpp"
 #include "event_linkage.h"
+#include "share_data.h"
 #include <fstream>
 #include <chrono>
 #include <filesystem>
@@ -135,12 +136,12 @@ int CmProcess::saveImage(const unsigned char* pSrcData, std::string& filename)
     try {
 
         if (m_cacheBgr.empty()) {
-            m_cacheBgr = cv::Mat(PIXEL_HEIGHT_720, PIXEL_WIDTH_1280, CV_8UC3);
+            m_cacheBgr = cv::Mat(PIXEL_HEIGHT_AI, PIXEL_WIDTH_AI, CV_8UC3);
         }
 
         bool rga_ok = rga_image_transform(
-            (void*)pSrcData, PIXEL_WIDTH_1280, PIXEL_HEIGHT_720,RK_FORMAT_YCbCr_420_SP, //NV12
-            m_cacheBgr.data, PIXEL_WIDTH_1280, PIXEL_HEIGHT_720,RK_FORMAT_BGR_888  
+            (void*)pSrcData, PIXEL_WIDTH_AI, PIXEL_HEIGHT_AI,RK_FORMAT_YCbCr_420_SP, //NV12
+            m_cacheBgr.data, PIXEL_WIDTH_AI, PIXEL_HEIGHT_AI,RK_FORMAT_BGR_888  
         );
 
         if (!rga_ok) {
@@ -191,7 +192,7 @@ int CmProcess::yuv_convert_rgb(const unsigned char* pSrcData, cv::Mat& Desframe)
     try 
     {
 
-        cv::Mat nv12_mat(PIXEL_HEIGHT_720 * 3 / 2, PIXEL_WIDTH_1280, CV_8UC1, (void*)pSrcData);
+        cv::Mat nv12_mat(PIXEL_HEIGHT_AI * 3 / 2, PIXEL_WIDTH_AI, CV_8UC1, (void*)pSrcData);
 
         cv::cvtColor(nv12_mat, m_cacheRgbMat, cv::COLOR_YUV2RGB_NV12); 
 

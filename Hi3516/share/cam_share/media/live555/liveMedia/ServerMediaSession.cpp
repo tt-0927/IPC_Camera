@@ -1,3 +1,11 @@
+/**
+ * @FilePath     : ServerMediaSession.cpp
+ * @Author       : 17343431340@163.com
+ * @Date         : 2026-02-27 13:40:43
+ * @LastEditors  : zhouzr@kfb.cn
+ * @LastEditTime : 2026-08-19 15:58:15
+ * @Description  : live555媒体会话及客户端准入实现
+ */
 /**********
 This library is free software; you can redistribute it and/or modify it under
 the terms of the GNU Lesser General Public License as published by the
@@ -83,8 +91,32 @@ ServerMediaSession::ServerMediaSession(UsageEnvironment& env,
   gettimeofday(&fCreationTime, NULL);
   
   /* custom add */
-  fReferenceMax = CLIENTMAX;
+  fReferenceMax = CLIENT_DEFAULT_MAX;
   faddr_len = sizeof(struct sockaddr_in);
+  fClientAdmissionCallback = NULL;
+  fClientAdmissionOpaque = NULL;
+}
+
+void ServerMediaSession::setClientAdmissionCallback(ServerMediaSessionAdmissionCallback callback,
+                                                     void* opaque)
+{
+  fClientAdmissionCallback = callback;
+  fClientAdmissionOpaque = opaque;
+}
+
+int ServerMediaSession::checkClientAdmission() const
+{
+  if (fClientAdmissionCallback != NULL)
+  {
+    const int nAdmissionResult = fClientAdmissionCallback(fClientAdmissionOpaque);
+    if (nAdmissionResult != 0)
+    {
+      return nAdmissionResult;
+    }
+  }
+
+  /* 业务回调通过后仍保留 fReferenceMax 的每会话硬上限，兼容旧接口。 */
+  return fReferenceCount < fReferenceMax ? 0 : -1;
 }
 
 ServerMediaSession::~ServerMediaSession() {

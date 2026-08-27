@@ -381,3 +381,45 @@ bool cropTargetImage(const cv::Mat &sourceImage,
                      const cv::Size &detectCoordinateSize,
                      const cv::Size &targetSize,
                      cv::Mat &targetImage);
+
+/**
+ * @brief 从原图裁剪人脸特写图（宽裕构图，自适应尺寸）
+ * @param sourceImage 原图
+ * @param detectRect 检测坐标系中的人脸框（未外扩的原始框），格式为 x、y、width、height
+ * @param detectCoordinateSize 检测框所属坐标系尺寸
+ * @param targetImage 输出特写图
+ * @param nMinSide 输出短边保底像素，小于该值时 CUBIC 等比放大（默认 96）
+ * @param nMaxSide 输出长边上限像素，大于该值时 INTER_AREA 等比缩小（默认 640）
+ * @return true 成功，false 输入无效或处理失败
+ * @note 以人脸为中心宽裕构图，左右各留 1.5 倍脸宽、头顶上方留 0.8 倍脸高、
+ *       下巴下方留 1.5 倍脸高构建裁剪区域，输出保持原图宽高比自适应；
+ *       远距离小脸借保底放大保证清晰，近距离大脸被长边上限约束控制文件尺寸。
+ */
+bool cropTargetImageFace(const cv::Mat &sourceImage,
+                         const cv::Rect2f &detectRect,
+                         const cv::Size &detectCoordinateSize,
+                         cv::Mat &targetImage,
+                         int nMinSide = 96,
+                         int nMaxSide = 640);
+
+/**
+ * @brief 从 NV12 裸数据裁剪人脸特写图（宽裕构图，自适应尺寸）
+ * @param pNv12Data NV12 数据指针 (Y 平面 + UV 平面连续)
+ * @param nSrcW 源帧宽
+ * @param nSrcH 源帧高
+ * @param detectRect 检测坐标系中的人脸框（未外扩的原始框）
+ * @param detectCoordinateSize 检测框所属坐标系尺寸
+ * @param targetImage 输出特写图 (BGR)
+ * @param nMinSide 输出短边保底像素（默认 96）
+ * @param nMaxSide 输出长边上限像素（默认 640）
+ * @return true 成功，false 输入无效或处理失败
+ * @note 构图规则与 cropTargetImageFace 一致（左右 1.5 倍脸宽、上方 0.8 倍脸高、
+ *       下方 1.5 倍脸高），NV12 裁剪区偶对齐后转 BGR 再按短边保底/长边上限缩放。
+ */
+bool cropTargetImageFaceNv12(const char *pNv12Data, int nSrcW, int nSrcH,
+                             const cv::Rect2f &detectRect,
+                             const cv::Size &detectCoordinateSize,
+                             cv::Mat &targetImage,
+                             int nMinSide = 96,
+                             int nMaxSide = 640);
+                         

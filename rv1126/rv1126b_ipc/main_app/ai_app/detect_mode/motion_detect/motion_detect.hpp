@@ -18,6 +18,7 @@
 #include "blocking_queue.hpp"
 #include "MoveDetectV2_0.hpp"
 #include "algo_control_deal.h"
+#include "share_data.h"
 
 class CMotionDetect : public CAlgorithm
 {
@@ -156,8 +157,8 @@ private:
     bool m_bIsCrop = false;
 
     /* 算法默认分辨率 */
-    int m_nWidth = PIXEL_WIDTH_1280;
-    int m_nHeight = PIXEL_HEIGHT_720;
+    int m_nWidth = PIXEL_WIDTH_AI;
+    int m_nHeight = PIXEL_HEIGHT_AI;
     /* 是否绘制了区域 */
     bool m_bIsDraw = false;
 };

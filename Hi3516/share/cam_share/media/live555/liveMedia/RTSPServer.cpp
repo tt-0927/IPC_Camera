@@ -1,3 +1,11 @@
+/**
+ * @FilePath     : RTSPServer.cpp
+ * @Author       : 17343431340@163.com
+ * @Date         : 2026-02-27 13:40:43
+ * @LastEditors  : zhouzr@kfb.cn
+ * @LastEditTime : 2026-08-19 15:58:15
+ * @Description  : live555 RTSP服务端会话处理实现
+ */
 /**********
 This library is free software; you can redistribute it and/or modify it under
 the terms of the GNU Lesser General Public License as published by the
@@ -1976,6 +1984,33 @@ void RTSPServer::RTSPClientSession ::SETUPLookupCompletionFunction2(void* client
 
 void RTSPServer::RTSPClientSession ::handleCmd_SETUP_afterLookup2(ServerMediaSession* sms)
 {
+    const Boolean isFirstSetup = fOurServerMediaSession == NULL;
+    /*
+     * 首个 SETUP 已取得名额但后续轨道/Transport 校验失败时，必须撤销绑定和引用；
+     * 否则客户端虽然收到错误响应，下一次准入仍会把这条半成品会话算作存量。
+     */
+    auto rollbackFirstSetup = [this, isFirstSetup]() {
+        if (!isFirstSetup || fOurServerMediaSession == NULL)
+        {
+            return;
+        }
+
+        for (unsigned i = 0; i < fNumStreamStates; ++i)
+        {
+            if (fStreamStates[i].subsession != NULL && fStreamStates[i].streamToken != NULL)
+            {
+                fOurRTSPServer.unnoteTCPStreamingOnSocket(fStreamStates[i].tcpSocketNum, this, i);
+                fStreamStates[i].subsession->deleteStream(fOurSessionId, fStreamStates[i].streamToken);
+            }
+        }
+        delete[] fStreamStates;
+        fStreamStates = NULL;
+        fNumStreamStates = 0;
+
+        fOurServerMediaSession->decrementReferenceCount();
+        fOurServerMediaSession = NULL;
+    };
+
     do
     {
         if (sms == NULL)
@@ -1998,6 +2033,17 @@ void RTSPServer::RTSPClientSession ::handleCmd_SETUP_afterLookup2(ServerMediaSes
         {
             if (fOurServerMediaSession == NULL)
             {
+                /*
+                 * 首个 SETUP 必须在绑定媒体会话和增加引用计数前完成准入检查。
+                 * 业务回调可以同时检查主/子码流共享的全局上限；拒绝时不改变
+                 * 已有会话状态，并返回标准 RTSP 453。
+                 */
+                if (sms->checkClientAdmission() != 0)
+                {
+                    setRTSPResponse(fOurClientConnection, "453 Not Enough Bandwidth");
+                    break;
+                }
+
                 // We're accessing the "ServerMediaSession" for the first time.
                 fOurServerMediaSession = sms;
                 fOurServerMediaSession->incrementReferenceCount();
@@ -2057,6 +2103,7 @@ void RTSPServer::RTSPClientSession ::handleCmd_SETUP_afterLookup2(ServerMediaSes
             {
                 // The specified track id doesn't exist, so this request fails:
                 fOurClientConnection->handleCmd_notFound();
+                rollbackFirstSetup();
                 break;
             }
         }
@@ -2067,6 +2114,7 @@ void RTSPServer::RTSPClientSession ::handleCmd_SETUP_afterLookup2(ServerMediaSes
             if (fNumStreamStates != 1 || fStreamStates[0].subsession == NULL)
             {
                 fOurClientConnection->handleCmd_bad();
+                rollbackFirstSetup();
                 break;
             }
             trackNum = 0;
@@ -2170,6 +2218,9 @@ void RTSPServer::RTSPClientSession ::handleCmd_SETUP_afterLookup2(ServerMediaSes
         Port serverRTPPort(0);
         Port serverRTCPPort(0);
 
+        /* Transport 校验失败标记；首个 SETUP 场景下用于回滚会话绑定。 */
+        Boolean setupFailed = False;
+
         // Make sure that we transmit on the same interface that's used by the client
         // (in case we're a multi-homed server):
         struct sockaddr_storage sourceAddr;
@@ -2231,6 +2282,7 @@ void RTSPServer::RTSPClientSession ::handleCmd_SETUP_afterLookup2(ServerMediaSes
             {
                 // multicast streams can't be sent via TCP
                 fOurClientConnection->handleCmd_unsupportedTransport();
+                setupFailed = True;
                 break;
             }
             case RAW_UDP:
@@ -2286,6 +2338,7 @@ void RTSPServer::RTSPClientSession ::handleCmd_SETUP_afterLookup2(ServerMediaSes
                 if (!fOurRTSPServer.fAllowStreamingRTPOverTCP)
                 {
                     fOurClientConnection->handleCmd_unsupportedTransport();
+                    setupFailed = True;
                 }
                 else
                 {
@@ -2330,6 +2383,10 @@ void RTSPServer::RTSPClientSession ::handleCmd_SETUP_afterLookup2(ServerMediaSes
             }
         }
         delete[] streamingModeString;
+        if (setupFailed)
+        {
+            rollbackFirstSetup();
+        }
     }
     while (0);
 }
