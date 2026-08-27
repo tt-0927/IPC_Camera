@@ -38,4 +38,3 @@ SDK/af_sdk/af_sdk/build/environment/**/aarch64-linux-gnu/** filter=lfs diff=lfs 
 SDK/af_sdk/af_sdk/build/environment/**/arm-linux-gnueabihf/** filter=lfs diff=lfs merge=lfs -text
 SDK/af_sdk/af_sdk/build/environment/third-party/**/*.3 filter=lfs diff=lfs merge=lfs -text
 SDK/af_sdk/af_sdk/build/environment/third-party/**/*.lib filter=lfs diff=lfs merge=lfs -text
-SDK/af_sdk/af_sdk/build/environment/** filter=lfs diff=lfs merge=lfs -text
