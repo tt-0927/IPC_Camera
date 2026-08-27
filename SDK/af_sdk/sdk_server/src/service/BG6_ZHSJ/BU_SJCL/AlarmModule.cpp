@@ -97,7 +97,8 @@ BOOL CAlarmModule::PushAlarmInfo(NET_Alarmer_S* pAlarmer,
     // 添加AlarmInfo（按命令码选择结构体）
     {
         Json::Object* pInfoJson = Json::init();
-        INT32 alarmBase = lCommand & 0xF000;
+        /* 抓拍基类为 0x6100，必须按高字节分流，不能用 0xF000 与统计类 0x6000 混淆。 */
+        INT32 alarmBase = lCommand & 0xFF00;
 
         if (lCommand == NET_ALARM_FACE_COMPARE)
         {
@@ -225,6 +226,39 @@ BOOL CAlarmModule::PushAlarmInfo(NET_Alarmer_S* pAlarmer,
                 SDKConvert::deal(pInfoJson, info, false);
             }
         }
+        else if (alarmBase == NET_ALARM_BASE_CAPTURE)
+        {
+            if (dwBufLen < (INT32)sizeof(NET_AlarmCaptureInfo_S))
+            {
+                Json::add(pInfoJson, "AlarmType", (long long)lCommand);
+            }
+            else
+            {
+                /* 图片由调用方持有，转换过程在 PushAlarmInfo 返回前完成。 */
+                NET_AlarmCaptureInfo_S& info = *(NET_AlarmCaptureInfo_S*)pAlarmInfo;
+                NETSDK_LOG_MESSAGE_INFO("[DIAG-ALARM] Capture input: cmd=0x%x, alarmType=0x%x, channel=%u, "
+                              "captureType=%u, timestamp=%lld, panorama=%ux%u/%u, cropCount=%u, "
+                              "faceAttrs={male=%d,age=%d,glasses=%d,beard=%d,mask=%d,emotion=%d}, bufLen=%d, structSize=%zu",
+                              lCommand,
+                              info.uAlarmType,
+                              info.uChannel,
+                              info.uCaptureType,
+                              (long long)info.llTimestampMs,
+                              info.uPanoramaWidth,
+                              info.uPanoramaHeight,
+                              info.stPanoramaImg.uDataLen,
+                              info.uCropCount,
+                              info.stExtraInfo.bMale,
+                              info.stExtraInfo.nAgeLabel,
+                              info.stExtraInfo.bGlasses,
+                              info.stExtraInfo.bBeard,
+                              info.stExtraInfo.bMask,
+                              info.stExtraInfo.nEmotionLabel,
+                              dwBufLen,
+                              sizeof(NET_AlarmCaptureInfo_S));
+                SDKConvert::deal(pInfoJson, info, false);
+            }
+        }
         else if (lCommand == NET_NOTICE_DOWNLOAD_RECORD_PROGRESS)
         {
             if (dwBufLen < (INT32)sizeof(NET_RecordDownloadProgress_S))
@@ -247,15 +281,18 @@ BOOL CAlarmModule::PushAlarmInfo(NET_Alarmer_S* pAlarmer,
     // 转换为JSON字符串
     std::string jsonStr = Json::to_string(pRoot);
     Json::deinit(pRoot);
-    if ((lCommand & 0xF000) == NET_ALARM_BASE_RULE ||
-        (lCommand & 0xF000) == NET_ALARM_BASE_AI)
+    if ((lCommand & 0xFF00) == NET_ALARM_BASE_RULE ||
+        (lCommand & 0xFF00) == NET_ALARM_BASE_AI ||
+        (lCommand & 0xFF00) == NET_ALARM_BASE_CAPTURE)
     {
-        NETSDK_LOG_MESSAGE_INFO("[DIAG-ALARM] JSON output: cmd=0x%x, jsonLen=%zu, hasPanoramaB64=%d, hasTargetB64=%d, hasImgDataB64=%d",
+        NETSDK_LOG_MESSAGE_INFO("[DIAG-ALARM] JSON output: cmd=0x%x, jsonLen=%zu, hasPanoramaB64=%d, hasTargetB64=%d, hasImgDataB64=%d, hasCaptureImgB64=%d, hasExtraInfo=%d",
                       lCommand,
                       jsonStr.size(),
                       jsonStr.find("PanoramaImgBase64") != std::string::npos ? 1 : 0,
                       jsonStr.find("TargetImgBase64") != std::string::npos ? 1 : 0,
-                      jsonStr.find("ImgDataBase64") != std::string::npos ? 1 : 0);
+                      jsonStr.find("ImgDataBase64") != std::string::npos ? 1 : 0,
+                      jsonStr.find("\"ImgBase64\"") != std::string::npos ? 1 : 0,
+                      jsonStr.find("ExtraInfo") != std::string::npos ? 1 : 0);
     }
 
     // [诊断] 记录 PushToAll 前的时间戳，用于定位报警转发延迟

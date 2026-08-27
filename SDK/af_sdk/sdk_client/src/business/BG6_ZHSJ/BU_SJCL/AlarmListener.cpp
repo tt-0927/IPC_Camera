@@ -153,6 +153,23 @@ bool IsCompleteJsonBody(const std::string& body)
     Json::deinit(root);
     return true;
 }
+
+/* NET_ImageBuffer_S 不拥有内存；输入转换器为抓拍图片分配的缓冲区在回调后释放。 */
+void ReleaseCaptureImages(NET_AlarmCaptureInfo_S& info)
+{
+    delete[] info.stPanoramaImg.pData;
+    info.stPanoramaImg.pData = nullptr;
+    info.stPanoramaImg.uDataLen = 0;
+
+    const UINT32 cropCount = std::min(info.uCropCount,
+                                      static_cast<UINT32>(NET_CAPTURE_CROP_MAX_NUM));
+    for (UINT32 i = 0; i < cropCount; ++i)
+    {
+        delete[] info.stCropImages[i].stImage.pData;
+        info.stCropImages[i].stImage.pData = nullptr;
+        info.stCropImages[i].stImage.uDataLen = 0;
+    }
+}
 }
 
 /**
@@ -353,7 +370,8 @@ void CAlarmListener::AlarmLoop()
             return true;
         }
 
-        INT32 alarmBase = ((INT32)lCommand) & 0xF000;
+        /* 与服务端一致按高字节识别基类，避免 0x6100 抓拍被识别为 0x6000 统计。 */
+        INT32 alarmBase = ((INT32)lCommand) & 0xFF00;
 
         NET_Alarmer_S alarmer = {0};
         if (auto* alarmerObj = Json::get(root, "Alarmer"))
@@ -441,6 +459,37 @@ void CAlarmListener::AlarmLoop()
                           jsonBody.find("ImgDataBase64") != std::string::npos ? 1 : 0);
             INT32 len = (INT32)sizeof(*info);
             m_fnAlarmCallback(lCommand, &alarmer, (CHAR*)info.get(), &len, m_pAlarmUserData);
+        }
+        else if (alarmBase == NET_ALARM_BASE_CAPTURE)
+        {
+            auto info = std::make_unique<NET_AlarmCaptureInfo_S>();
+            SDKConvert::deal(alarmInfoObj, *info, true);
+            NETSDK_LOG_MESSAGE_INFO("[DIAG-ALARM] User-%p capture parsed: cmd=0x%llX, alarmType=0x%X, "
+                          "channel=%u, captureType=%u, timestamp=%lld, panorama=%ux%u/%u, cropCount=%u, "
+                          "faceAttrs={male=%d,age=%d,glasses=%d,beard=%d,mask=%d,emotion=%d}, "
+                          "jsonHasPanoramaB64=%d, jsonHasCropB64=%d",
+                          m_hUser,
+                          lCommand,
+                          info->uAlarmType,
+                          info->uChannel,
+                          info->uCaptureType,
+                          (long long)info->llTimestampMs,
+                          info->uPanoramaWidth,
+                          info->uPanoramaHeight,
+                          info->stPanoramaImg.uDataLen,
+                          info->uCropCount,
+                          info->stExtraInfo.bMale,
+                          info->stExtraInfo.nAgeLabel,
+                          info->stExtraInfo.bGlasses,
+                          info->stExtraInfo.bBeard,
+                          info->stExtraInfo.bMask,
+                          info->stExtraInfo.nEmotionLabel,
+                          jsonBody.find("PanoramaImgBase64") != std::string::npos ? 1 : 0,
+                          jsonBody.find("\"ImgBase64\"") != std::string::npos ? 1 : 0);
+            INT32 len = (INT32)sizeof(*info);
+            /* 图片指针仅保证在本次回调执行期间有效，避免回调方保存悬空指针。 */
+            m_fnAlarmCallback(lCommand, &alarmer, (CHAR*)info.get(), &len, m_pAlarmUserData);
+            ReleaseCaptureImages(*info);
         }
         else if (alarmBase == NET_ALARM_BASE_TRAFFIC)
         {

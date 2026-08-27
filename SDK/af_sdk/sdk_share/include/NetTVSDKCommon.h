@@ -3491,6 +3491,12 @@ typedef NET_AlarmStatisticsInfo_S* pNET_AlarmStatisticsInfo_S;
 
 #define NET_CAPTURE_CROP_MAX_NUM 8 /* 单次抓拍最多裁剪小图数量 */
 
+/* 通用抓拍扩展字段长度，必须与 IPC 侧 TVSDK 定义保持一致。 */
+#define NET_CAPTURE_REGION_POINT_MAX_NUM    10
+#define NET_CAPTURE_TIMESTAMP_MAX_LEN       64
+#define NET_CAPTURE_VEHICLE_BRAND_MAX_LEN   128
+#define NET_CAPTURE_LICENSE_PLATE_MAX_LEN   64
+
 /**
  * @struct tagNET_ImageBuffer
  * @brief 图片二进制数据缓冲区，指针 + 长度组合，用于存储图片数据。
@@ -3520,6 +3526,47 @@ typedef struct tagNET_CropImage
 } NET_CropImage_S;
 
 /**
+ * @struct tagNET_CapturePolygon
+ * @brief 通用抓拍目标区域多边形。
+ * @note 坐标语义由抓拍源定义，当前人脸发送端使用全景图像素坐标归一化到 0-100。
+ */
+typedef struct tagNET_CapturePolygon
+{
+    UINT32 uPointCount;
+    FLOAT afPointX[NET_CAPTURE_REGION_POINT_MAX_NUM];
+    FLOAT afPointY[NET_CAPTURE_REGION_POINT_MAX_NUM];
+    BYTE abyReserved[32];
+} NET_CapturePolygon_S;
+
+typedef NET_CapturePolygon_S* pNET_CapturePolygon_S;
+
+/**
+ * @struct tagNET_CaptureExtraInfo
+ * @brief 通用抓拍扩展属性，承载人脸、行人和车辆的附加信息。
+ */
+typedef struct tagNET_CaptureExtraInfo
+{
+    BOOL bMale;
+    INT32 nAgeLabel;
+    BOOL bGlasses;
+    BOOL bBeard;
+    BOOL bMask;
+    INT32 nEmotionLabel;
+    BOOL bBag;
+    INT32 nTopColorLabel;
+    INT32 nBottomColorLabel;
+    INT32 nVehicleType;
+    INT32 nVehicleColor;
+    CHAR strVehicleBrand[NET_CAPTURE_VEHICLE_BRAND_MAX_LEN];
+    CHAR strLicensePlateNumber[NET_CAPTURE_LICENSE_PLATE_MAX_LEN];
+    CHAR strTimestamp[NET_CAPTURE_TIMESTAMP_MAX_LEN];
+    NET_CapturePolygon_S stTargetRegion;
+    BYTE byRes[64];
+} NET_CaptureExtraInfo_S;
+
+typedef NET_CaptureExtraInfo_S* pNET_CaptureExtraInfo_S;
+
+/**
  * @struct tagNET_AlarmCaptureInfo
  * @brief 通用抓拍告警信息，包含一张全景图及其裁剪出的小图列表
  */
@@ -3534,6 +3581,7 @@ typedef struct tagNET_AlarmCaptureInfo
     NET_ImageBuffer_S stPanoramaImg;                        /* 全景 JPEG 二进制图片数据 */
     UINT32 uCropCount;                                      /* 裁剪小图数量 */
     NET_CropImage_S stCropImages[NET_CAPTURE_CROP_MAX_NUM]; /* 裁剪小图数组 */
+    NET_CaptureExtraInfo_S stExtraInfo;                      /* 人脸/行人/车辆专用属性 */
     BYTE byRes[128];                                        /* 保留字段 */
 } NET_AlarmCaptureInfo_S;
 

@@ -18,9 +18,12 @@
 #ifdef ENABLE_GAT1400_SRC
 #include "gat1400.h"
 #endif
+#include <algorithm>
+#include <chrono>
+#include <cmath>
 #include <cstring>
+#include <utility>
 #ifdef ENABLE_TVSDK_SRC
-#include "convert/tvsdk_convert.h"
 #include "control_manage.h"
 #endif
 
@@ -1398,23 +1401,18 @@ void CFaceDetect::pushFaceCaptureInfo(FaceAttribute_NS::Result_S stFAResult,std:
 }
 
 #ifdef ENABLE_TVSDK_SRC
-static bool encode_capture_image(const cv::Mat &mat, BYTE *pDst, UINT32 &uDstLen, size_t nMaxLen)
+static bool encode_capture_image(const cv::Mat &mat, std::vector<unsigned char> &vecJpeg)
 {
     EventTvSdkImage_S stImage;
     if (mat.empty() || !encode_mat_to_tvsdk_image(mat, stImage, 85, false))
     {
         return false;
     }
-    if (stImage.vecJpeg.empty())
-    {
-        return true;
-    }
-    if (stImage.vecJpeg.size() > nMaxLen)
+    if (stImage.vecJpeg.empty() || stImage.vecJpeg.size() > NET_PIC_DATA_MAX_LEN)
     {
         return false;
     }
-    std::memcpy(pDst, stImage.vecJpeg.data(), stImage.vecJpeg.size());
-    uDstLen = static_cast<UINT32>(stImage.vecJpeg.size());
+    vecJpeg = std::move(stImage.vecJpeg);
     return true;
 }
 
@@ -1428,38 +1426,54 @@ static void fillFaceCaptureRegion(const cv::Rect2f &faceRect, const cv::Size &de
     }
     float fScaleX = static_cast<float>(imageSize.width) / static_cast<float>(detectSize.width);
     float fScaleY = static_cast<float>(imageSize.height) / static_cast<float>(detectSize.height);
-    float fX = faceRect.x * fScaleX;
-    float fY = faceRect.y * fScaleY;
-    float fW = faceRect.width * fScaleX;
-    float fH = faceRect.height * fScaleY;
+    float fX = std::max(0.0f, std::min(faceRect.x * fScaleX, static_cast<float>(imageSize.width)));
+    float fY = std::max(0.0f, std::min(faceRect.y * fScaleY, static_cast<float>(imageSize.height)));
+    float fRight = std::max(fX, std::min((faceRect.x + faceRect.width) * fScaleX,
+                                         static_cast<float>(imageSize.width)));
+    float fBottom = std::max(fY, std::min((faceRect.y + faceRect.height) * fScaleY,
+                                          static_cast<float>(imageSize.height)));
     float fNormX = 100.0f / static_cast<float>(imageSize.width);
     float fNormY = 100.0f / static_cast<float>(imageSize.height);
     stRegion.nPointNum = 4;
     stRegion.aPoint = {
         Common::PosF_S{ fX * fNormX, fY * fNormY },
-        Common::PosF_S{ (fX + fW) * fNormX, fY * fNormY },
-        Common::PosF_S{ (fX + fW) * fNormX, (fY + fH) * fNormY },
-        Common::PosF_S{ fX * fNormX, (fY + fH) * fNormY }
+        Common::PosF_S{ fRight * fNormX, fY * fNormY },
+        Common::PosF_S{ fRight * fNormX, fBottom * fNormY },
+        Common::PosF_S{ fX * fNormX, fBottom * fNormY }
     };
+}
+
+static cv::Rect mapFaceCaptureRect(const cv::Rect2f &faceRect,
+                                   const cv::Size &detectSize,
+                                   const cv::Size &imageSize)
+{
+    if (faceRect.empty() || detectSize.width <= 0 || detectSize.height <= 0 ||
+        imageSize.width <= 0 || imageSize.height <= 0)
+    {
+        return cv::Rect();
+    }
+
+    const float fScaleX = static_cast<float>(imageSize.width) / static_cast<float>(detectSize.width);
+    const float fScaleY = static_cast<float>(imageSize.height) / static_cast<float>(detectSize.height);
+    const int nLeft = std::max(0, std::min(static_cast<int>(std::lround(faceRect.x * fScaleX)), imageSize.width));
+    const int nTop = std::max(0, std::min(static_cast<int>(std::lround(faceRect.y * fScaleY)), imageSize.height));
+    const int nRight = std::max(nLeft, std::min(static_cast<int>(std::lround((faceRect.x + faceRect.width) * fScaleX)), imageSize.width));
+    const int nBottom = std::max(nTop, std::min(static_cast<int>(std::lround((faceRect.y + faceRect.height) * fScaleY)), imageSize.height));
+    return cv::Rect(nLeft, nTop, nRight - nLeft, nBottom - nTop);
+}
+
+static INT64 get_tvsdk_capture_timestamp_ms()
+{
+    return std::chrono::duration_cast<std::chrono::milliseconds>(
+               std::chrono::system_clock::now().time_since_epoch())
+        .count();
 }
 
 void CFaceDetect::pushFaceCaptureInfoToTvSdk(const cv::Mat &panoramaBgr, const cv::Rect2f &faceRect, const cv::Rect2f &rawFaceRect, const cv::Size &detectCoordinateSize, const FaceAttribute_NS::Result_S &stFAResult)
 {
-    NET_FaceCapturePushInfo_S stInfo;
-    std::memset(&stInfo, 0, sizeof(stInfo));
-
-    Alarm::FaceAlarmInfo_S stFaceAlarmInfo;
-    stFaceAlarmInfo.stFaceAlarmAttribute.bIsMale        = stFAResult.bIsMale;
-    stFaceAlarmInfo.stFaceAlarmAttribute.nAgeLabel      = stFAResult.nAgeLabel;
-    stFaceAlarmInfo.stFaceAlarmAttribute.bIsGlasses     = stFAResult.bIsGlasses;
-    stFaceAlarmInfo.stFaceAlarmAttribute.bIsBeard       = stFAResult.bIsBeard;
-    stFaceAlarmInfo.stFaceAlarmAttribute.bIsMask        = stFAResult.bIsMask;
-    stFaceAlarmInfo.stFaceAlarmAttribute.nEmotionLabel  = stFAResult.nEmotionLabel;
-    stFaceAlarmInfo.strTimeStamp = TimeUtils_NS::get_currentDateAndTimeNoT();
-    fillFaceCaptureRegion(faceRect, detectCoordinateSize, panoramaBgr.size(), stFaceAlarmInfo.stFaceRegion);
-    TvSdkConvert::FillFaceCapturePushInfo(stFaceAlarmInfo, stInfo);
-
-    if (!encode_capture_image(panoramaBgr, stInfo.byPanoramaImg, stInfo.uPanoramaImgLen, sizeof(stInfo.byPanoramaImg)))
+    NET_AlarmCaptureInfo_S stInfo{};
+    std::vector<unsigned char> vecPanoramaJpeg;
+    if (!encode_capture_image(panoramaBgr, vecPanoramaJpeg))
     {
         dlog_warn("TVSDK人脸抓拍全景图编码失败或超上限");
         return;
@@ -1471,20 +1485,80 @@ void CFaceDetect::pushFaceCaptureInfoToTvSdk(const cv::Mat &panoramaBgr, const c
         dlog_warn("TVSDK人脸抓拍特写图裁剪失败");
         return;
     }
-    if (!encode_capture_image(faceMat, stInfo.byFaceImg, stInfo.uFaceImgLen, sizeof(stInfo.byFaceImg)))
+
+    std::vector<unsigned char> vecFaceJpeg;
+    if (!encode_capture_image(faceMat, vecFaceJpeg))
     {
         dlog_warn("TVSDK人脸抓拍特写图编码失败或超上限");
         return;
     }
 
-    int nRet = ControlManage::instance()->tvsdk_push_alarm(NET_PUSH_FACE_CAPTURE_INFO, &stInfo, sizeof(stInfo));
+    const cv::Rect stCropRect = mapFaceCaptureRect(faceRect, detectCoordinateSize, panoramaBgr.size());
+    if (stCropRect.width <= 0 || stCropRect.height <= 0)
+    {
+        dlog_warn("TVSDK人脸抓拍目标框无效，无法填充通用抓拍坐标");
+        return;
+    }
+
+    stInfo.uAlarmType = NET_ALARM_CAPTURE_FACE;
+    stInfo.uChannel = static_cast<UINT32>(std::max(0, m_nChannelId));
+    stInfo.uCaptureType = NET_CAPTURE_TYPE_FACE;
+    stInfo.llTimestampMs = get_tvsdk_capture_timestamp_ms();
+    stInfo.uPanoramaWidth = static_cast<UINT32>(panoramaBgr.cols);
+    stInfo.uPanoramaHeight = static_cast<UINT32>(panoramaBgr.rows);
+    stInfo.stPanoramaImg.pData = const_cast<BYTE*>(reinterpret_cast<const BYTE*>(vecPanoramaJpeg.data()));
+    stInfo.stPanoramaImg.uDataLen = static_cast<UINT32>(vecPanoramaJpeg.size());
+
+    stInfo.uCropCount = 1;
+    NET_CropImage_S &stCrop = stInfo.stCropImages[0];
+    stCrop.uCropX = static_cast<UINT32>(stCropRect.x);
+    stCrop.uCropY = static_cast<UINT32>(stCropRect.y);
+    stCrop.uCropWidth = static_cast<UINT32>(stCropRect.width);
+    stCrop.uCropHeight = static_cast<UINT32>(stCropRect.height);
+    stCrop.uTargetType = NET_CAPTURE_TYPE_FACE;
+    stCrop.fConfidence = 0.0f;
+    stCrop.nTrackID = -1;
+    stCrop.stImage.pData = const_cast<BYTE*>(reinterpret_cast<const BYTE*>(vecFaceJpeg.data()));
+    stCrop.stImage.uDataLen = static_cast<UINT32>(vecFaceJpeg.size());
+
+    stInfo.stExtraInfo.bMale = stFAResult.bIsMale ? TRUE : FALSE;
+    stInfo.stExtraInfo.nAgeLabel = stFAResult.nAgeLabel;
+    stInfo.stExtraInfo.bGlasses = stFAResult.bIsGlasses ? TRUE : FALSE;
+    stInfo.stExtraInfo.bBeard = stFAResult.bIsBeard ? TRUE : FALSE;
+    stInfo.stExtraInfo.bMask = stFAResult.bIsMask ? TRUE : FALSE;
+    stInfo.stExtraInfo.nEmotionLabel = stFAResult.nEmotionLabel;
+
+    Alarm::Region_S stFaceRegion;
+    fillFaceCaptureRegion(faceRect, detectCoordinateSize, panoramaBgr.size(), stFaceRegion);
+    stInfo.stExtraInfo.stTargetRegion.uPointCount = static_cast<UINT32>(std::min(
+        stFaceRegion.nPointNum, NET_CAPTURE_REGION_POINT_MAX_NUM));
+    for (UINT32 i = 0; i < stInfo.stExtraInfo.stTargetRegion.uPointCount; ++i)
+    {
+        stInfo.stExtraInfo.stTargetRegion.afPointX[i] = stFaceRegion.aPoint[i].fX;
+        stInfo.stExtraInfo.stTargetRegion.afPointY[i] = stFaceRegion.aPoint[i].fY;
+    }
+    const std::string strTimestamp = TimeUtils_NS::get_currentDateAndTimeNoT();
+    std::strncpy(stInfo.stExtraInfo.strTimestamp,
+                 strTimestamp.c_str(),
+                 sizeof(stInfo.stExtraInfo.strTimestamp) - 1);
+
+    int nRet = ControlManage::instance()->tvsdk_push_alarm(NET_ALARM_CAPTURE_FACE, &stInfo, sizeof(stInfo));
     if (nRet < 0)
     {
         dlog_warn("TVSDK推送人脸抓拍失败: ret[%d]", nRet);
     }
     else
     {
-        dlog_info("TVSDK推送人脸抓拍成功: cmd[%d] face[%u] panorama[%u]", NET_PUSH_FACE_CAPTURE_INFO, stInfo.uFaceImgLen, stInfo.uPanoramaImgLen);
+        dlog_info("TVSDK推送人脸抓拍成功: cmd[0x%x] face[%u] panorama[%u] attrs[male=%d age=%d glasses=%d beard=%d mask=%d emotion=%d]",
+                  NET_ALARM_CAPTURE_FACE,
+                  stCrop.stImage.uDataLen,
+                  stInfo.stPanoramaImg.uDataLen,
+                  stInfo.stExtraInfo.bMale,
+                  stInfo.stExtraInfo.nAgeLabel,
+                  stInfo.stExtraInfo.bGlasses,
+                  stInfo.stExtraInfo.bBeard,
+                  stInfo.stExtraInfo.bMask,
+                  stInfo.stExtraInfo.nEmotionLabel);
     }
 }
 #endif
