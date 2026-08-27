@@ -78,6 +78,10 @@
 #define VPSS_CHANNEL_SUB        (1)
 #define VPSS_CHANNEL_AI         (2)
 #define VPSS_CHANNEL_SUM        (3)
+
+/* AI 通道分辨率  */
+#define PIXEL_WIDTH_AI          (1920)
+#define PIXEL_HEIGHT_AI         (1080)
 /**********************VPSS*******************/
 
 /**********************VO*******************/

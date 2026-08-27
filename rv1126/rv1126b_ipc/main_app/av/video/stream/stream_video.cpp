@@ -1279,10 +1279,6 @@ void CStreamVideo::get_vpssStream()
         StreamVpssFrame_t stVpssFrame;
         int nChannel = VPSS_CHANNEL_AI;
         RkVpss_S *pHandle = m_pVpssHandle[VPSS_MAIN_SUB];
-        /* 帧计数器 */
-        int nFrameCount = 0; 
-        /* 每几帧处理一次 */
-        const int process_every_n_frames = 3;
 
         while (true == m_bVpssFlag[nChannel].load(std::memory_order_acquire))
         {
@@ -1298,12 +1294,8 @@ void CStreamVideo::get_vpssStream()
 
             std::lock_guard<std::mutex> lock(m_mutexSendData);
 
-            /* 控制帧数 */
-            if (nFrameCount++ % process_every_n_frames == 0)
-            {
-                /* 发送数据到 AI_APP */
-                algo_send_streamData(stVpssFrame.framedata, stVpssFrame.framesize, stVpssFrame.pstVideoFrame.stVFrame.u32Height, stVpssFrame.pstVideoFrame.stVFrame.u32Width);
-            }
+            /* 发送数据到 AI_APP */
+            algo_send_streamData(stVpssFrame.framedata, stVpssFrame.framesize, stVpssFrame.pstVideoFrame.stVFrame.u32Height, stVpssFrame.pstVideoFrame.stVFrame.u32Width);
 
             /*释放码流缓存*/
             streamVpss_release_chnFrame(pHandle, &stVpssFrame);

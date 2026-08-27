@@ -74,6 +74,11 @@ typedef struct _MediaData_
 
     std::shared_ptr<char[]> pData; /* 媒体数据智能指针 */
 
+    /* 全分辨率帧*/
+    std::shared_ptr<char[]> pFullData;
+    int nFullWidth  = 0;
+    int nFullHeight = 0;
+
     // std::string strFileName;       /* 文件名 */
     MediaParam_S stMediaParam;   /* 媒体编码信息 */
 
@@ -83,6 +88,10 @@ typedef struct _MediaData_
         nSize   = 0;
         bIFrame = false;
         
+        pFullData.reset();
+        nFullWidth  = 0;
+        nFullHeight = 0;
+
         // strFileName.clear();
         stMediaParam.clear();
     }

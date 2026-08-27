@@ -3,7 +3,7 @@
  * @Author       : zhouzirui
  * @Date         : 2024-09-26 11:23:29
  * @LastEditors: leiyy leiyy@kfb.cn
- * @LastEditTime: 2025-11-17 20:39:37
+ * @LastEditTime: 2026-08-26 16:24:19
  * @Description  : VPSS 视频处理
  */
 
@@ -67,12 +67,12 @@ RkVpss_S **streamVpss_init(RkVpss_S ***pHandle, const std::vector<Video_NS::Vide
             }
             else if (nVpssChn == VPSS_CHANNEL_AI) // AI 检测
             {
-                    pVpssChnAttr->nWidth = PIXEL_WIDTH_1280;
-                    pVpssChnAttr->nHeight = PIXEL_HEIGHT_720;
+                    pVpssChnAttr->nWidth = PIXEL_WIDTH_4K;
+                    pVpssChnAttr->nHeight = PIXEL_HEIGHT_4K;
                     pVpssChnAttr->nDepth = 3;
                     pVpssChnAttr->nFrameBufCnt = 5;   //buf cnt 至少要比depth 大2
                     pVpssChnAttr->nSrcFrameRate = -1;
-                    pVpssChnAttr->nDstFrameRate = -1;
+                    pVpssChnAttr->nDstFrameRate = 5;
             }
         }
         nVpssGrp = stVpssNeedParam.nVpssGrp;
@@ -179,7 +179,7 @@ int streamVpss_set_chnAttr(RkVpss_S *pHandle, const Video_NS::VideoConfig_S &stV
 int streamVpss_get_chnFrame(RkVpss_S *pHandle,StreamVpssFrame_t* stVpssFrame)
 {
 
-    if (pHandle->rockitVpss_get_chnFrame(pHandle,&stVpssFrame->pstVideoFrame,stVpssFrame->channel,1000))
+    if (pHandle->rockitVpss_get_chnFrame(pHandle,&stVpssFrame->pstVideoFrame,stVpssFrame->channel,100))
     {
         dlog_error("channel:%d 获取通道帧失败", stVpssFrame->channel);
         return ERR;

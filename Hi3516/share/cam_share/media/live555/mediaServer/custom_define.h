@@ -1,3 +1,11 @@
+/**
+ * @FilePath     : custom_define.h
+ * @Author       : 17343431340@163.com
+ * @Date         : 2026-02-27 13:40:43
+ * @LastEditors  : zhouzr@kfb.cn
+ * @LastEditTime : 2026-08-19 15:58:15
+ * @Description  : RTSP媒体服务通用数据类型和默认配置
+ */
 #ifndef __CUSTOM_DEFINE_H
 #define __CUSTOM_DEFINE_H
 
@@ -10,7 +18,22 @@ extern "C" {
 #define RTSP_CLIENT_MAX 32
 #define STREAM_NAME_MAX 64
 #define RTSP_IP_MAX 16
-
+/* RTSP 连接策略默认值：业务编译时可通过能力宏覆盖。 */
+#ifndef CAP_RTSP_HIGH_CONCURRENCY
+#define CAP_RTSP_HIGH_CONCURRENCY 0               /* 高并发能力开关：1 表示总连接数翻倍 */
+#endif
+#ifndef RTSP_DEFAULT_GLOBAL_MAX_CLIENT
+#define RTSP_DEFAULT_GLOBAL_MAX_CLIENT 4          /* 全局 RTSP 总连接数默认值 */
+#endif
+#ifndef RTSP_DEFAULT_STREAM_MAX_CLIENT
+#define RTSP_DEFAULT_STREAM_MAX_CLIENT 4          /* 单路媒体会话默认连接数 */
+#endif
+#ifndef RTSP_MAIN_CLIENT_LIMIT_8M
+#define RTSP_MAIN_CLIENT_LIMIT_8M 2               /* 主码流达到 8 Mbps 档时的连接数 */
+#endif
+#ifndef RTSP_MAIN_CLIENT_LIMIT_16M
+#define RTSP_MAIN_CLIENT_LIMIT_16M 1              /* 主码流达到 16 Mbps 档时的连接数 */
+#endif
 /* 默认帧率 */
 #define DEFAULT_VIDEO_FPS 25.0f
 
@@ -18,12 +41,14 @@ extern "C" {
 #define MAX_FRAME_SIZE (1572864)  // 1.5 MB
 /* OutPacketBuffer缓存大小 2.5MB */
 #define REV_BUF_SIZE  (2621440)
-/* 主码流先保留2MiB安全余量，待VENC基线确认最大I帧后再继续下调。 */
-#define RTSP_MAIN_OUT_PACKET_BUFFER_SIZE (2U * 1024U * 1024U)
-/* 子码流通常码率和I帧显著较小，单独限制每个RTPSink的缓存。 */
-#define RTSP_SUB_OUT_PACKET_BUFFER_SIZE  (1U * 1024U * 1024U)
-/* 音频帧远小于视频，避免沿用视频级2.5MiB缓存。 */
-#define RTSP_AUDIO_OUT_PACKET_BUFFER_SIZE (64U * 1024U)
+/*
+ * RTSP OutPacketBuffer 默认缓存大小
+ * 注意：这些是库层默认值，应用层可通过 rtsp_server.h 覆盖
+ * 实际使用的值由应用层根据设备能力动态计算
+ */
+#define RTSP_MAIN_OUT_PACKET_BUFFER_SIZE  (2U * 1024U * 1024U)   /* 2 MiB 默认值 */
+#define RTSP_SUB_OUT_PACKET_BUFFER_SIZE   (1U * 1024U * 1024U)   /* 1 MiB 默认值 */
+#define RTSP_AUDIO_OUT_PACKET_BUFFER_SIZE (64U * 1024U)          /* 64 KiB 默认值 */
 
 /*封装printf*/
 #define live_log(fmt...) \
@@ -40,6 +65,8 @@ typedef enum
 	RTSPCLIENT_PAUSE,
 	RTSPCLIENT_STOP,
 	RTSPCLIENT_FINISH,
+	/* 首个 SETUP 绑定媒体会话前的准入检查，不改变既有状态值。 */
+	RTSPCLIENT_ADMISSION,
 }Rtsp_Status_t;
 typedef enum
 {

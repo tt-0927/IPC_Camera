@@ -320,4 +320,6 @@ private:
     /* 文字预设任务时间控制 */
     std::chrono::steady_clock::time_point m_lastTextPresetTime;  /* 上次执行文字预设任务的时间 */
     std::atomic<long long> m_textPresetIntervalMs = 30000;       /* 文字预设任务执行间隔（毫秒），默认30秒 */
+
+    int m_nChannelId = 0;
 };

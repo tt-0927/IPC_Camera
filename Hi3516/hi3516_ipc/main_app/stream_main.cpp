@@ -31,8 +31,6 @@
 // #include "stream_performance_service.h"
 // #include "event_manage.h"
 
-
-
 /* 日志记录单个日志文件的最大大小 */
 #define MAX_LOG_SIZE  (1 * 1024 * 1024) // 1MB
 /* 日志记录最大保留的日志文件数量 */

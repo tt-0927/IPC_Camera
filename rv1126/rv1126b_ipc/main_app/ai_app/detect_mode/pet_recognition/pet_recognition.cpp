@@ -1,8 +1,8 @@
 /*
  * @Author: 梁浩尧 lianghaoyao@kfb.cn
  * @Date: 2025-11-24 14:39:18
- * @LastEditors: 梁浩尧 lianghaoyao@kfb.cn
- * @LastEditTime: 2025-12-09 14:22:44
+ * @LastEditors: leiyy leiyy@kfb.cn
+ * @LastEditTime: 2026-08-26 17:42:22
  * @FilePath:/1126/rv1126b_ipc/main_app/ai_app/detect_mode/pet_recognition/pet_recognition.cpp
  * @Description: 宠物识别
  */
@@ -275,10 +275,12 @@ void CPetRecognition::processPetRecognition(std::vector<PetRecognition_NS::Resul
                 {
                     stContext.pTvSdkPayload = pPayload;
                 }
-                int nX1 = static_cast<int>(stResults.at(i).fX1);
-                int nY1 = static_cast<int>(stResults.at(i).fY1);
-                int nX2 = static_cast<int>(stResults.at(i).fX2);
-                int nY2 = static_cast<int>(stResults.at(i).fY2);
+                const float fScaleX = m_nWidth > 0 ? static_cast<float>(m_fullRgbMat.cols) / static_cast<float>(m_nWidth) : 1.0f;
+                const float fScaleY = m_nHeight > 0 ? static_cast<float>(m_fullRgbMat.rows) / static_cast<float>(m_nHeight) : 1.0f;
+                int nX1 = std::max(0, static_cast<int>(stResults.at(i).fX1 * fScaleX));
+                int nY1 = std::max(0, static_cast<int>(stResults.at(i).fY1 * fScaleY));
+                int nX2 = std::min(m_fullRgbMat.cols, static_cast<int>(stResults.at(i).fX2 * fScaleX));
+                int nY2 = std::min(m_fullRgbMat.rows, static_cast<int>(stResults.at(i).fY2 * fScaleY));
                 stContext.nLeft = nX1;
                 stContext.nTop = nY1;
                 stContext.nRight = nX2;

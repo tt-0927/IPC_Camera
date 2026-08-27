@@ -210,7 +210,7 @@ generate_lens_info_file() {
 
 # ==============================
 # 函数：拷贝AI模型
-# 说明：拷贝固件所需AI模型，仅垃圾站型号拷贝垃圾检测模型
+# 说明：拷贝固件所需AI模型，仅垃圾站型号拷贝垃圾检测模型，仅HZT型号拷贝展会检测模型
 # ==============================
 copy_model_files() {
     info "拷贝AI模型"
@@ -232,6 +232,11 @@ copy_model_files() {
             fi
             if [[ "$filename" =~ mobileface ]]; then
                 info "跳过特征点提取模型: $filename"
+                continue
+            fi
+            # 排除展会检测模型（非HZT型号不需要）
+            if [[ "$filename" =~ exhibition ]]; then
+                info "跳过展会检测模型: $filename"
                 continue
             fi
             cp -a "$model_file" "${UPGRADE_PATH}${RUN_PATH}/model/"
@@ -258,6 +263,22 @@ copy_model_files() {
         done
     else
         info "当前型号 $DEVICE_TYPE 非垃圾站型号，跳过垃圾检测模型"
+    fi
+
+    # 仅HZT型号拷贝展会检测模型
+    if [[ "$DEVICE_TYPE" == "TV-3852HZT" ]]; then
+        info "当前型号 $DEVICE_TYPE 为HZT型号，拷贝展会检测模型..."
+        for model_file in "${MODEL_PATH}"/*; do
+            if [[ -f "$model_file" ]]; then
+                filename=$(basename "$model_file")
+                if [[ "$filename" =~ exhibition ]]; then
+                    info "拷贝展会检测模型: $filename"
+                    cp -a "$model_file" "${UPGRADE_PATH}${RUN_PATH}/model/"
+                fi
+            fi
+        done
+    else
+        info "当前型号 $DEVICE_TYPE 非HZT型号，跳过展会检测模型"
     fi
 }
 

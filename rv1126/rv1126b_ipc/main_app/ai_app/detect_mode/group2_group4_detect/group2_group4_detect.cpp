@@ -4149,142 +4149,235 @@ void CGroup2_Group4Detect::pushNonMotorvehicleCaptureInfo(const std::string &str
 }
 
 #ifdef ENABLE_TVSDK_SRC
-static cv::Mat cropRectSafe(const cv::Mat &src, const Common::Rect_S &stRect)
-{
-    if (src.empty())
-    {
-        return cv::Mat();
-    }
-    cv::Rect roi(stRect.nX, stRect.nY, stRect.nWidth, stRect.nHeight);
-    roi &= cv::Rect(0, 0, src.cols, src.rows);
-    if (roi.width <= 0 || roi.height <= 0)
-    {
-        return cv::Mat();
-    }
-    return src(roi).clone();
-}
-
-static bool copy_tvsdk_image_data(const EventTvSdkImage_S &stImage, BYTE *pDst, UINT32 &uDstLen, size_t nMaxLen)
-{
-    uDstLen = 0;
-    if (stImage.vecJpeg.empty())
-    {
-        return true;
-    }
-    if (stImage.vecJpeg.size() > nMaxLen)
-    {
-        return false;
-    }
-    std::memcpy(pDst, stImage.vecJpeg.data(), stImage.vecJpeg.size());
-    uDstLen = static_cast<UINT32>(stImage.vecJpeg.size());
-    return true;
-}
-
-static bool encode_capture_image(const cv::Mat &mat, bool bInputRgb, BYTE *pDst, UINT32 &uDstLen, size_t nMaxLen)
+/*
+ * 新版 TVSDK 的图片字段是“指针 + 长度”，不能再把图片拷贝到旧版固定数组。
+ * vector 由当前推送函数持有，SDK 在同步序列化完成前始终可以访问其数据。
+ */
+static bool encode_capture_image(const cv::Mat &mat,
+                                 bool bInputRgb,
+                                 std::vector<unsigned char> &vecJpeg)
 {
     EventTvSdkImage_S stImage;
     if (mat.empty() || !encode_mat_to_tvsdk_image(mat, stImage, 85, bInputRgb))
     {
         return false;
     }
-    return copy_tvsdk_image_data(stImage, pDst, uDstLen, nMaxLen);
+
+    if (stImage.vecJpeg.empty() || stImage.vecJpeg.size() > NET_PIC_DATA_MAX_LEN)
+    {
+        return false;
+    }
+
+    vecJpeg = std::move(stImage.vecJpeg);
+    return true;
+}
+
+static void set_tvsdk_image(NET_ImageBuffer_S &stImage,
+                            const std::vector<unsigned char> &vecJpeg)
+{
+    stImage.pData = const_cast<BYTE *>(reinterpret_cast<const BYTE *>(vecJpeg.data()));
+    stImage.uDataLen = static_cast<UINT32>(vecJpeg.size());
+}
+
+static long long current_tvsdk_timestamp_ms()
+{
+    return std::chrono::duration_cast<std::chrono::milliseconds>(
+               std::chrono::system_clock::now().time_since_epoch())
+        .count();
+}
+
+static void fill_tvsdk_capture_base(NET_AlarmCaptureInfo_S &stInfo,
+                                    UINT32 uAlarmType,
+                                    UINT32 uCaptureType,
+                                    int nChannel,
+                                    const cv::Mat &srcData,
+                                    const std::vector<unsigned char> &vecPanoramaJpeg,
+                                    const cv::Rect &stTargetRect,
+                                    UINT32 uTargetType,
+                                    const std::vector<unsigned char> &vecTargetJpeg)
+{
+    stInfo.uAlarmType = uAlarmType;
+    stInfo.uChannel = static_cast<UINT32>(std::max(0, nChannel));
+    stInfo.uCaptureType = uCaptureType;
+    stInfo.llTimestampMs = current_tvsdk_timestamp_ms();
+    stInfo.uPanoramaWidth = static_cast<UINT32>(std::max(0, srcData.cols));
+    stInfo.uPanoramaHeight = static_cast<UINT32>(std::max(0, srcData.rows));
+    set_tvsdk_image(stInfo.stPanoramaImg, vecPanoramaJpeg);
+
+    stInfo.uCropCount = 1;
+    NET_CropImage_S &stCrop = stInfo.stCropImages[0];
+    stCrop.uCropX = static_cast<UINT32>(std::max(0, stTargetRect.x));
+    stCrop.uCropY = static_cast<UINT32>(std::max(0, stTargetRect.y));
+    stCrop.uCropWidth = static_cast<UINT32>(std::max(0, stTargetRect.width));
+    stCrop.uCropHeight = static_cast<UINT32>(std::max(0, stTargetRect.height));
+    stCrop.uTargetType = uTargetType;
+    stCrop.nTrackID = -1;
+    set_tvsdk_image(stCrop.stImage, vecTargetJpeg);
+}
+
+static void copy_tvsdk_timestamp(const std::string &strTimestamp,
+                                 CHAR (&strDst)[NET_CAPTURE_TIMESTAMP_MAX_LEN])
+{
+    std::strncpy(strDst, strTimestamp.c_str(), sizeof(strDst) - 1);
+    strDst[sizeof(strDst) - 1] = '\0';
 }
 
 void CGroup2_Group4Detect::pushPersonCaptureInfoToTvSdk(const cv::Mat &srcData, const Common::Rect_S &stRect, const PresonAttribute_NS::Result_S &stResult)
 {
-    NET_PersonCapturePushInfo_S stInfo;
-    std::memset(&stInfo, 0, sizeof(stInfo));
+    NET_AlarmCaptureInfo_S stInfo{};
 
-    Alarm::PersonAlarmInfo_S stAlarmInfo = buildPersonAlarmInfo(stResult);
-    stAlarmInfo.strTimeStamp = TimeUtils_NS::get_currentDateAndTimeNoT();
-    TvSdkConvert::FillPersonCapturePushInfo(stAlarmInfo, stInfo);
-
-    if (!encode_capture_image(srcData, true, stInfo.byPanoramaImg, stInfo.uPanoramaImgLen, sizeof(stInfo.byPanoramaImg)))
+    std::vector<unsigned char> vecPanoramaJpeg;
+    std::vector<unsigned char> vecTargetJpeg;
+    cv::Rect targetRect(stRect.nX, stRect.nY, stRect.nWidth, stRect.nHeight);
+    targetRect &= cv::Rect(0, 0, srcData.cols, srcData.rows);
+    cv::Mat targetMat = targetRect.width > 0 && targetRect.height > 0 ? srcData(targetRect).clone() : cv::Mat();
+    if (!encode_capture_image(srcData, true, vecPanoramaJpeg))
     {
         dlog_warn("TVSDK行人抓拍全景图编码失败或超上限");
         return;
     }
-    cv::Mat targetMat = cropRectSafe(srcData, stRect);
-    if (!encode_capture_image(targetMat, true, stInfo.byPersonImg, stInfo.uPersonImgLen, sizeof(stInfo.byPersonImg)))
+    if (!encode_capture_image(targetMat, true, vecTargetJpeg))
     {
         dlog_warn("TVSDK行人抓拍特写图编码失败或超上限");
         return;
     }
 
-    int nRet = ControlManage::instance()->tvsdk_push_alarm(NET_PUSH_PERSON_CAPTURE_INFO, &stInfo, sizeof(stInfo));
+    fill_tvsdk_capture_base(stInfo,
+                            NET_ALARM_CAPTURE_PEOPLE,
+                            NET_CAPTURE_TYPE_PEOPLE,
+                            m_nChannelId,
+                            srcData,
+                            vecPanoramaJpeg,
+                            targetRect,
+                            NET_CAPTURE_TYPE_PEOPLE,
+                            vecTargetJpeg);
+
+    Alarm::PersonAlarmInfo_S stAlarmInfo = buildPersonAlarmInfo(stResult);
+    stInfo.stExtraInfo.bMale = stAlarmInfo.stPersonAlarmAttribute.bIsMale ? TRUE : FALSE;
+    stInfo.stExtraInfo.nAgeLabel = stAlarmInfo.stPersonAlarmAttribute.nAgeLabel;
+    stInfo.stExtraInfo.bBag = stAlarmInfo.stPersonAlarmAttribute.bBag ? TRUE : FALSE;
+    stInfo.stExtraInfo.nTopColorLabel = static_cast<INT32>(stAlarmInfo.stPersonAlarmAttribute.eTopColorLabel);
+    stInfo.stExtraInfo.nBottomColorLabel = static_cast<INT32>(stAlarmInfo.stPersonAlarmAttribute.eBottomColorLabel);
+    copy_tvsdk_timestamp(TimeUtils_NS::get_currentDateAndTimeNoT(), stInfo.stExtraInfo.strTimestamp);
+
+    int nRet = ControlManage::instance()->tvsdk_push_alarm(NET_ALARM_CAPTURE_PEOPLE, &stInfo, sizeof(stInfo));
     if (nRet < 0)
     {
         dlog_warn("TVSDK推送行人抓拍失败: ret[%d]", nRet);
     }
     else
     {
-        dlog_info("TVSDK推送行人抓拍成功: cmd[%d] person[%u] panorama[%u]", NET_PUSH_PERSON_CAPTURE_INFO, stInfo.uPersonImgLen, stInfo.uPanoramaImgLen);
+        dlog_info("TVSDK推送行人抓拍成功: cmd[%d] person[%u] panorama[%u]",
+                  NET_ALARM_CAPTURE_PEOPLE,
+                  stInfo.stCropImages[0].stImage.uDataLen,
+                  stInfo.stPanoramaImg.uDataLen);
     }
 }
 
 void CGroup2_Group4Detect::pushMotorvehicleCaptureInfoToTvSdk(const cv::Mat &srcData, const Common::Rect_S &stRect, const std::string &strLicensePlateNumber, const VehicleAttribute_NS::Result_S &stResult)
 {
-    NET_MotorvehicleCapturePushInfo_S stInfo;
-    std::memset(&stInfo, 0, sizeof(stInfo));
+    NET_AlarmCaptureInfo_S stInfo{};
 
-    Alarm::MotorvehicleAlarmInfo_S stAlarmInfo = buildMotorvehicleAlarmInfo(stResult, strLicensePlateNumber);
-    stAlarmInfo.strTimeStamp = TimeUtils_NS::get_currentDateAndTimeNoT();
-    TvSdkConvert::FillMotorvehicleCapturePushInfo(stAlarmInfo, stInfo);
-
-    if (!encode_capture_image(srcData, true, stInfo.byPanoramaImg, stInfo.uPanoramaImgLen, sizeof(stInfo.byPanoramaImg)))
+    std::vector<unsigned char> vecPanoramaJpeg;
+    std::vector<unsigned char> vecTargetJpeg;
+    cv::Rect targetRect(stRect.nX, stRect.nY, stRect.nWidth, stRect.nHeight);
+    targetRect &= cv::Rect(0, 0, srcData.cols, srcData.rows);
+    cv::Mat targetMat = targetRect.width > 0 && targetRect.height > 0 ? srcData(targetRect).clone() : cv::Mat();
+    if (!encode_capture_image(srcData, true, vecPanoramaJpeg))
     {
         dlog_warn("TVSDK机动车抓拍全景图编码失败或超上限");
         return;
     }
-    cv::Mat targetMat = cropRectSafe(srcData, stRect);
-    if (!encode_capture_image(targetMat, true, stInfo.byTargetImg, stInfo.uTargetImgLen, sizeof(stInfo.byTargetImg)))
+    if (!encode_capture_image(targetMat, true, vecTargetJpeg))
     {
         dlog_warn("TVSDK机动车抓拍特写图编码失败或超上限");
         return;
     }
 
-    int nRet = ControlManage::instance()->tvsdk_push_alarm(NET_PUSH_MOTORVEHICLE_CAPTURE_INFO, &stInfo, sizeof(stInfo));
+    fill_tvsdk_capture_base(stInfo,
+                            NET_ALARM_CAPTURE_VEHICLE,
+                            NET_CAPTURE_TYPE_VEHICLE,
+                            m_nChannelId,
+                            srcData,
+                            vecPanoramaJpeg,
+                            targetRect,
+                            NET_CAPTURE_TYPE_VEHICLE,
+                            vecTargetJpeg);
+
+    Alarm::MotorvehicleAlarmInfo_S stAlarmInfo = buildMotorvehicleAlarmInfo(stResult, strLicensePlateNumber);
+    stInfo.stExtraInfo.nVehicleType = static_cast<INT32>(stAlarmInfo.stMotorvehicleAlarmAttribute.eVehicleType);
+    stInfo.stExtraInfo.nVehicleColor = static_cast<INT32>(stAlarmInfo.stMotorvehicleAlarmAttribute.eVehicleColor);
+    std::strncpy(stInfo.stExtraInfo.strVehicleBrand,
+                 stAlarmInfo.stMotorvehicleAlarmAttribute.strVehicleBrand.c_str(),
+                 sizeof(stInfo.stExtraInfo.strVehicleBrand) - 1);
+    std::strncpy(stInfo.stExtraInfo.strLicensePlateNumber,
+                 stAlarmInfo.strLicensePlateNumber.c_str(),
+                 sizeof(stInfo.stExtraInfo.strLicensePlateNumber) - 1);
+    copy_tvsdk_timestamp(TimeUtils_NS::get_currentDateAndTimeNoT(), stInfo.stExtraInfo.strTimestamp);
+
+    int nRet = ControlManage::instance()->tvsdk_push_alarm(NET_ALARM_CAPTURE_VEHICLE, &stInfo, sizeof(stInfo));
     if (nRet < 0)
     {
         dlog_warn("TVSDK推送机动车抓拍失败: ret[%d]", nRet);
     }
     else
     {
-        dlog_info("TVSDK推送机动车抓拍成功: cmd[%d] target[%u] panorama[%u]", NET_PUSH_MOTORVEHICLE_CAPTURE_INFO, stInfo.uTargetImgLen, stInfo.uPanoramaImgLen);
+        dlog_info("TVSDK推送机动车抓拍成功: cmd[%d] target[%u] panorama[%u]",
+                  NET_ALARM_CAPTURE_VEHICLE,
+                  stInfo.stCropImages[0].stImage.uDataLen,
+                  stInfo.stPanoramaImg.uDataLen);
     }
 }
 
 void CGroup2_Group4Detect::pushNonMotorvehicleCaptureInfoToTvSdk(const cv::Mat &srcData, const Common::Rect_S &stRect, const NonMotorizedAttribute_NS::Result_S &stResult)
 {
-    NET_NonMotorvehicleCapturePushInfo_S stInfo;
-    std::memset(&stInfo, 0, sizeof(stInfo));
+    NET_AlarmCaptureInfo_S stInfo{};
 
-    Alarm::NonMotorvehicleAlarmInfo_S stAlarmInfo = buildNonMotorvehicleAlarmInfo(stResult);
-    stAlarmInfo.strTimeStamp = TimeUtils_NS::get_currentDateAndTimeNoT();
-    TvSdkConvert::FillNonMotorvehicleCapturePushInfo(stAlarmInfo, stInfo);
-
-    if (!encode_capture_image(srcData, true, stInfo.byPanoramaImg, stInfo.uPanoramaImgLen, sizeof(stInfo.byPanoramaImg)))
+    std::vector<unsigned char> vecPanoramaJpeg;
+    std::vector<unsigned char> vecTargetJpeg;
+    cv::Rect targetRect(stRect.nX, stRect.nY, stRect.nWidth, stRect.nHeight);
+    targetRect &= cv::Rect(0, 0, srcData.cols, srcData.rows);
+    cv::Mat targetMat = targetRect.width > 0 && targetRect.height > 0 ? srcData(targetRect).clone() : cv::Mat();
+    if (!encode_capture_image(srcData, true, vecPanoramaJpeg))
     {
         dlog_warn("TVSDK非机动车抓拍全景图编码失败或超上限");
         return;
     }
-    cv::Mat targetMat = cropRectSafe(srcData, stRect);
-    if (!encode_capture_image(targetMat, true, stInfo.byTargetImg, stInfo.uTargetImgLen, sizeof(stInfo.byTargetImg)))
+    if (!encode_capture_image(targetMat, true, vecTargetJpeg))
     {
         dlog_warn("TVSDK非机动车抓拍特写图编码失败或超上限");
         return;
     }
 
-    int nRet = ControlManage::instance()->tvsdk_push_alarm(NET_PUSH_NONMOTORVEHICLE_CAPTURE_INFO, &stInfo, sizeof(stInfo));
+    fill_tvsdk_capture_base(stInfo,
+                            NET_ALARM_CAPTURE_NON_MOTOR,
+                            NET_CAPTURE_TYPE_NON_MOTOR,
+                            m_nChannelId,
+                            srcData,
+                            vecPanoramaJpeg,
+                            targetRect,
+                            NET_CAPTURE_TYPE_NON_MOTOR,
+                            vecTargetJpeg);
+
+    Alarm::NonMotorvehicleAlarmInfo_S stAlarmInfo = buildNonMotorvehicleAlarmInfo(stResult);
+    stInfo.stExtraInfo.nVehicleType = static_cast<INT32>(stAlarmInfo.stNonMotorvehicleAlarmAttribute.eNonMotorizedVehicleType);
+    stInfo.stExtraInfo.nVehicleColor = static_cast<INT32>(stAlarmInfo.stNonMotorvehicleAlarmAttribute.eNonMotorizedVehicleColor);
+    copy_tvsdk_timestamp(TimeUtils_NS::get_currentDateAndTimeNoT(), stInfo.stExtraInfo.strTimestamp);
+
+    int nRet = ControlManage::instance()->tvsdk_push_alarm(NET_ALARM_CAPTURE_NON_MOTOR, &stInfo, sizeof(stInfo));
     if (nRet < 0)
     {
         dlog_warn("TVSDK推送非机动车抓拍失败: ret[%d]", nRet);
     }
     else
     {
-        dlog_info("TVSDK推送非机动车抓拍成功: cmd[%d] target[%u] panorama[%u]", NET_PUSH_NONMOTORVEHICLE_CAPTURE_INFO, stInfo.uTargetImgLen, stInfo.uPanoramaImgLen);
+        dlog_info("TVSDK推送非机动车抓拍成功: cmd[%d] target[%u] panorama[%u]",
+                  NET_ALARM_CAPTURE_NON_MOTOR,
+                  stInfo.stCropImages[0].stImage.uDataLen,
+                  stInfo.stPanoramaImg.uDataLen);
     }
 }
+
 #endif
 
 void CGroup2_Group4Detect::convertBoundaryAndEnable(Alarm::BoundaryDetection_S &stConfig)
