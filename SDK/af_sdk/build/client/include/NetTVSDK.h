@@ -493,11 +493,6 @@ extern "C" {
 #define NET_VEHICLE_COMP_IMAGE_MAX_LEN              2097152         /* 车辆布控比对图片的最大长度 2M*/
 #define NET_VEHICLE_IMAGE_MAX_LEN                   4194304         /* 车辆图片数据最大字节数 4M */
 #define NET_PIC_DATA_MAX_LEN                        (1024*1024)     /* 图片数据信息加密后最大大小 */
-#define NET_CAPTURE_REGION_POINT_MAX_NUM            10              /* 抓拍事件区域最大顶点数 */
-#define NET_CAPTURE_PICTURE_REFERENCE_MAX_LEN        1024            /* 抓拍图片引用最大长度 */
-#define NET_CAPTURE_TIMESTAMP_MAX_LEN                64              /* 抓拍时间戳字符串最大长度 */
-#define NET_CAPTURE_VEHICLE_BRAND_MAX_LEN            128             /* 机动车品牌最大长度 */
-#define NET_CAPTURE_LICENSE_PLATE_MAX_LEN            64              /* 机动车号牌最大长度 */
 
 #define NET_RES_CHANGE_INFO_LIST_NUM                64              /* 定义LAPI事件上报信息结构体 */
 
@@ -703,6 +698,16 @@ extern "C" {
 #define NET_ALARM_PEOPLE_FLOW_STATISTICS      (NET_ALARM_BASE_STATISTICS + 0x01) // 人流统计
 #define NET_ALARM_PEOPLE_DENSITY_STATISTICS   (NET_ALARM_BASE_STATISTICS + 0x02) // 人员密度统计
 #define NET_ALARM_STATISTICS_TARGET_MAX_NUM   2
+
+/**
+ * 抓拍类告警 (0x6100 - 0x61FF)
+ * @struct NET_AlarmCaptureInfo_S
+ */
+#define NET_ALARM_BASE_CAPTURE                0x6100
+#define NET_ALARM_CAPTURE_PEOPLE              (NET_ALARM_BASE_CAPTURE + 0x01)    // 行人抓拍
+#define NET_ALARM_CAPTURE_FACE                (NET_ALARM_BASE_CAPTURE + 0x02)    // 人脸抓拍
+#define NET_ALARM_CAPTURE_VEHICLE             (NET_ALARM_BASE_CAPTURE + 0x03)    // 机动车抓拍
+#define NET_ALARM_CAPTURE_NON_MOTOR           (NET_ALARM_BASE_CAPTURE + 0x04)    // 非机动车抓拍
 
 /**
  * SDK事件通知 (0x7000 - 0x70FF)
@@ -1145,11 +1150,8 @@ typedef enum tagNETTVCfgCmd
     NET_GET_FACECAPTUREINFO          = 246,              /* 获取人脸抓拍配置信息 参见NET_FACE_CAPTURE_INFO_S */
     NET_SET_FACECAPTUREINFO          = 247,              /* 设置人脸抓拍配置信息 参见NET_FACE_CAPTURE_INFO_S */
     NET_GET_HOTSPOT_CONN             = 248,              /* 获取热点连接设备 参见 NET_HotspotConnInfo_S */
-    NET_GET_FACECAPTUREOVERLAYINFO   = 249,              /* 获取人脸抓拍叠加信息 参见 NET_FaceCaptureOverlayInfo_S */
-    NET_SET_FACECAPTUREOVERLAYINFO   = 250,              /* 设置人脸抓拍叠加信息 参见 NET_FaceCaptureOverlayInfo_S */
 
-    NET_GET_CHANNEL_INFO             = 300,              /* 获取通道信息 参见NET_CHANNEL_INFO_S */
-    NET_GET_CHANNEL_LIST             = 301,              /* 获取全部通道信息 参见NET_CHANNEL_LIST_S */
+    NET_GET_CHANNEL_INFO             = 300,              /* 获取通道信息 参见NET_ChannelList_S（传channel=单通道；不传channel=全通道列表） */
 
     NET_STATE_TALKBACK               = 400,              /* 设置对讲状态信息 参见NET_INTERCOM_INFO_S */
     NET_TO_STREAM_TALKBACK           = 401,              /* 流媒体对讲：发送对讲数据 参见NET_REPLAY_TALKBACK_INFO_S */
@@ -1171,8 +1173,8 @@ typedef enum tagNETTVCfgCmd
     NET_SET_MANHOLE_COVER_ABNORMAL_CFG = 414,           /* 设置井盖异常检测配置 参见NET_MANHOLE_COVER_ABNORMAL_CFG_S */
     NET_GET_SLEEP_ON_DUTY_CFG          = 415,           /* 获取睡岗识别配置 参见NET_SLEEP_ON_DUTY_CFG_S */
     NET_SET_SLEEP_ON_DUTY_CFG          = 416,           /* 设置睡岗识别配置 参见NET_SLEEP_ON_DUTY_CFG_S */
-    NET_GET_ELECTRIC_VEHICLE_IN_ELEVATOR_CFG = 417,    /* 获取电瓶车进电梯识别配置 参见NET_ELECTRIC_VEHICLE_IN_ELEVATOR_CFG_S */
-    NET_SET_ELECTRIC_VEHICLE_IN_ELEVATOR_CFG = 418,    /* 设置电瓶车进电梯识别配置 参见NET_ELECTRIC_VEHICLE_IN_ELEVATOR_CFG_S */
+    NET_GET_ELECTRIC_VEHICLE_IN_ELEVATOR_CFG = 417,     /* 获取电瓶车进电梯识别配置 参见NET_ELECTRIC_VEHICLE_IN_ELEVATOR_CFG_S */
+    NET_SET_ELECTRIC_VEHICLE_IN_ELEVATOR_CFG = 418,     /* 设置电瓶车进电梯识别配置 参见NET_ELECTRIC_VEHICLE_IN_ELEVATOR_CFG_S */
     NET_GET_PERSON_FALL_DOWN_CFG       = 419,           /* 获取人员倒地识别配置 参见NET_PERSON_FALL_DOWN_CFG_S */
     NET_SET_PERSON_FALL_DOWN_CFG       = 420,           /* 设置人员倒地识别配置 参见NET_PERSON_FALL_DOWN_CFG_S */
     NET_GET_CONSTRUCTION_OCCUPY_ROAD_CFG = 421,         /* 获取施工占道识别配置 参见NET_CONSTRUCTION_OCCUPY_ROAD_CFG_S */
@@ -1210,8 +1212,8 @@ typedef enum tagNETTVCfgCmd
     NET_SET_ILLEGAL_LANE_INFO          = 452,           /* 设置违规变道配置 参见NET_ILLEGAL_LANE_INFO_S */
     NET_GET_RETROGRADE_INFO            = 453,           /* 获取逆行配置 参见NET_RETROGRADE_INFO_S */
     NET_SET_RETROGRADE_INFO            = 454,           /* 设置逆行配置 参见NET_RETROGRADE_INFO_S */
-    NET_GET_NONMOTOR_VEHICLE_INTRUSION_INFO = 455,     /* 获取非机动车闯入配置 参见NET_NONMOTOR_VEHICLE_INTRUSION_INFO_S */
-    NET_SET_NONMOTOR_VEHICLE_INTRUSION_INFO = 456,     /* 设置非机动车闯入配置 参见NET_NONMOTOR_VEHICLE_INTRUSION_INFO_S */
+    NET_GET_NONMOTOR_VEHICLE_INTRUSION_INFO = 455,      /* 获取非机动车闯入配置 参见NET_NONMOTOR_VEHICLE_INTRUSION_INFO_S */
+    NET_SET_NONMOTOR_VEHICLE_INTRUSION_INFO = 456,      /* 设置非机动车闯入配置 参见NET_NONMOTOR_VEHICLE_INTRUSION_INFO_S */
     NET_GET_OCCUPATION_EMERGENCY_INFO  = 457,           /* 获取应急车道占用识别配置 参见NET_OCCUPATION_EMERGENCY_INFO_S */
     NET_SET_OCCUPATION_EMERGENCY_INFO  = 458,           /* 设置应急车道占用识别配置 参见NET_OCCUPATION_EMERGENCY_INFO_S */
     NET_GET_PEDESTRIAN_INTRUSION_INFO  = 459,           /* 获取行人闯入配置 参见NET_PEDESTRIAN_INTRUSION_INFO_S */
@@ -1260,11 +1262,10 @@ typedef enum tagNETTVCfgCmd
     NET_SET_FLASHING_LIGHT_ALARM_INFO     = 501,           /* 设置闪光报警配置 参见NET_FlashingLightAlarmInfo_S */
     NET_GET_PIR_ALARM_INFO                = 502,           /* 获取 PIR 报警配置 参见NET_PirAlarmInfo_S */
     NET_SET_PIR_ALARM_INFO                = 503,           /* 设置 PIR 报警配置 参见NET_PirAlarmInfo_S */
-    NET_PUSH_FACE_CAPTURE_INFO            = 504,           /* 推送人脸抓拍信息 参见 NET_FaceCapturePushInfo_S */
-    NET_PUSH_PERSON_CAPTURE_INFO          = 505,           /* 推送行人抓拍信息 参见 NET_PersonCapturePushInfo_S */
-    NET_PUSH_MOTORVEHICLE_CAPTURE_INFO    = 506,           /* 推送机动车抓拍信息 参见 NET_MotorvehicleCapturePushInfo_S */
-    NET_PUSH_NONMOTORVEHICLE_CAPTURE_INFO = 507,           /* 推送非机动车抓拍信息 参见 NET_NonMotorvehicleCapturePushInfo_S */
-    NET_TRIGGER_SOUND_LIGHT_ALARM         = 508,           /* 触发声光报警联动 参见 NET_SoundLightAlarmTrigger_S */
+    NET_GET_STORAGE_INFO                  = 504,           /* 获取设备存储信息 参见NET_DeviceStorageInfo_S */
+
+    NET_GET_REGISTERINFO                  = 520,           /* 获取注册信息 参见NET_RegisterInfo_S */
+    NET_SET_REGISTERINFO                  = 521,           /* 设置注册信息 参见NET_RegisterInfo_S */
 
     NET_CFG_INVALID                  = 0xFFFF            /* 无效值  Invalid value */
 
@@ -1952,6 +1953,19 @@ typedef enum tagNET_StatisticsType
 } NET_StatisticsType_E;
 
 /**
+ * @enum tagNET_CaptureType
+ * @brief 抓拍类型枚举，用于通用抓拍结构体 NET_CaptureInfo_S 的 uCaptureType 字段
+ */
+typedef enum tagNET_CaptureType
+{
+    NET_CAPTURE_TYPE_PEOPLE    = 1,                /* 行人抓拍 */
+    NET_CAPTURE_TYPE_FACE      = 2,                /* 人脸抓拍 */
+    NET_CAPTURE_TYPE_VEHICLE   = 3,                /* 机动车抓拍 */
+    NET_CAPTURE_TYPE_NON_MOTOR = 4,                /* 非机动车抓拍 */
+    NET_CAPTURE_TYPE_INVALID   = 0xFF              /* 无效值 */
+} NET_CaptureType_E;
+
+/**
  * @enum tagNETTVRecordStatus
  * @brief 录制状态
  */
@@ -2322,37 +2336,49 @@ typedef struct tagNET_DeviceLoginInfo
 typedef NET_DeviceLoginInfo_S* pNET_DeviceLoginInfo_S;
 
 /**
- * @brief 设备信息结构体
- * @note  用于获取设备基本能力信息，包含设备类型、报警端口数、通道数等
+ * @brief 设备规模信息结构体（NVR侧专用）
+ * @note  NVR规模/能力数量信息：设备类型、报警输入/输出端口数、通道数。
+ *        此为NVR偏向的硬件资源计量，非全设备通用，归 BU_SJCL/NVR 侧
+ *        （回调见 NetTVNvrDeviceCb.c）。区别于通用设备基本信息 NET_DeviceBasicInfo_S。
  */
 typedef struct tagNET_DeviceInfo
 {
     INT32   uDevType;                           /* 设备类型,参见枚举#NET_DEVICE_TYPE_E */
-    INT16   uAlarmInPortNum;                    /* 报警输入个数 */
-    INT16   uAlarmOutPortNum;                   /* 报警输出个数 */
+    INT32   uAlarmInPortNum;                    /* 报警输入个数 */
+    INT32   uAlarmOutPortNum;                   /* 报警输出个数 */
     INT32   uChannelNum;                        /* 通道个数 */
     BYTE    byReserved[48];                     /* 预留字段 */
 } NET_DeviceInfo_S;
 
 /**
- * @brief 设备信息结构体指针类型
+ * @brief 设备规模信息结构体指针类型
  */
 typedef NET_DeviceInfo_S* pNET_DeviceInfo_S;
 
 /**
- * @brief 设备基本信息结构体
- * @note  用于获取设备详细信息，包含型号、序列号、固件版本、MAC地址等
+ * @brief 设备基本信息结构体（通用身份信息 + 通用运行状态）
+ * @note  全设备通用，通用设备身份属性：型号、序列号、固件版本、MAC地址、设备名称、厂商等
+ *        全设备通用，收口于 Common 设备回调（NetTVDeviceCb.c），
+ *        对应 NET_GET/SET_DEVICECFG。身份字段只读，仅 strDeviceName 可写。
  */
 typedef struct tagNET_DeviceBasicInfo
 {
-    CHAR    strDevModel[NET_LEN_64];                /* 设备型号 */
-    CHAR    strSerialNum[NET_LEN_64];               /* 硬件序列号 */
-    CHAR    strFirmwareVersion[NET_LEN_64];         /* 软件版本号 */
-    CHAR    strMacAddress[NET_LEN_64];              /* IPv4的Mac地址 */
-    CHAR    strDeviceName[NET_LEN_64];              /* 设备名称 */
-    CHAR    strManufacturer[NET_LEN_64];            /* 厂商信息 */
-    CHAR    strDeviceTypeV2[NET_LEN_128];           /* 设备类型 */
-    BYTE    byReserved[256];                           /* 预留字段 */
+    /* ========== 身份信息（只读，strDeviceName 可写） ========== */
+    CHAR    strDevModel[NET_LEN_64];                /* 设备型号(只读) */
+    CHAR    strSerialNum[NET_LEN_64];               /* 硬件序列号(只读) */
+    CHAR    strFirmwareVersion[NET_LEN_64];         /* 软件版本号(只读) */
+    CHAR    strWebVersion[NET_LEN_64];              /* Web版本/版本号(只读) */
+    CHAR    strMacAddress[NET_LEN_64];              /* IPv4的Mac地址(只读) */
+    CHAR    strDeviceName[NET_LEN_64];              /* 设备名称(可写) */
+    CHAR    strManufacturer[NET_LEN_64];            /* 厂商信息(只读) */
+    CHAR    strDeviceTypeV2[NET_LEN_128];           /* 设备类型(只读) */
+
+    /* ========== 通用运行状态（只读） ========== */
+    FLOAT   fCPULoadRatio;                          /* CPU负载率(只读) */
+    FLOAT   fMemoryUsage;                           /* 内存使用率(只读) */
+    INT32   nBootTime;                              /* 启动时间/运行时长-秒(只读) */
+
+    BYTE    byReserved[220];                        /* 预留字段 */
 } NET_DeviceBasicInfo_S;
 
 /**
@@ -2360,6 +2386,60 @@ typedef struct tagNET_DeviceBasicInfo
  */
 typedef NET_DeviceBasicInfo_S* pNET_DeviceBasicInfo_S;
 
+/**
+ * @brief 设备存储信息结构体（NVR/录播等有硬盘的设备专用）
+ * @note  只有具备存储能力的设备才需要实现此结构体回调。
+ *        编码器、矩阵等无存储设备返回不支持即可。
+ */
+typedef struct tagNET_DeviceStorageInfo
+{
+    INT32   nHardDiskCount;                         /* 硬盘个数 */
+    INT32   nHardDiskStatus;                        /* 硬盘状态 */
+    CHAR    strDiskTotal[NET_LEN_32];               /* 硬盘总容量 */
+    CHAR    strDiskAvailable[NET_LEN_32];           /* 硬盘可用空间 */
+    CHAR    strDiskUsedSpace[NET_LEN_32];           /* 硬盘已用空间 */
+    CHAR    strDiskFileType[NET_LEN_32];            /* 硬盘文件系统类型 */
+    BYTE    byReserved[128];                        /* 预留字段 */
+} NET_DeviceStorageInfo_S;
+
+/**
+ * @brief 设备存储信息结构体指针类型
+ */
+typedef NET_DeviceStorageInfo_S* pNET_DeviceStorageInfo_S;
+
+/**
+ * @brief 激活时长类型
+ */
+typedef enum tagNET_ActivationTime
+{
+    NET_AT_ONE_WEEK    = 0,   /* 一周   */
+    NET_AT_ONE_MONTH   = 1,   /* 一月   */
+    NET_AT_TWO_MONTH   = 2,   /* 两月   */
+    NET_AT_THREE_MONTH = 3,   /* 三月   */
+    NET_AT_HALF_YEAR   = 4,   /* 半年   */
+    NET_AT_FOREVER     = 5,   /* 永久   */
+    NET_AT_NULL        = -1,  /* 未注册/激活 */
+} NET_ActivationTime_E;
+
+/**
+ * @brief 注册信息结构体
+ * @note  包含机器码、注册码、注册时间、可用时长及激活类型。
+ *        对应 NET_GET_REGISTERINFO / NET_SET_REGISTERINFO。
+ */
+typedef struct tagNET_RegisterInfo
+{
+    CHAR   strMachinSn[NET_LEN_64];      /* 机器码     */
+    CHAR   strRegisterEg[NET_LEN_64];    /* 注册码     */
+    CHAR   strStartTime[NET_LEN_64];     /* 注册时间   */
+    INT64  nUsableTimer;                  /* 可用时长（分钟） */
+    NET_ActivationTime_E enActionTime;   /* 激活类型   */
+    BYTE   byReserved[32];               /* 保留字段   */
+} NET_RegisterInfo_S;
+
+/**
+ * @brief 注册信息结构体指针类型
+ */
+typedef NET_RegisterInfo_S* pNET_RegisterInfo_S;
 /**
  * @brief 系统时间/NTP校时配置结构体
  * @note  对应IPC侧System::TimeInfo_S，用于NET_GET_NTPCFG/NET_SET_NTPCFG
@@ -2813,6 +2893,24 @@ typedef struct tagNET_NetworkCfg
 
 typedef NET_NetworkCfg_S* pNET_NetworkCfg_S;
 
+#ifndef NET_MAX_NET_NUM
+#define NET_MAX_NET_NUM 8
+#endif
+
+/**
+ * @struct tagNET_NetworkCfgList
+ * @brief 多网口配置列表  Multiple network interface configuration list
+ * @note 支持最多 NET_MAX_NET_NUM 个网口，每个网口独立配置 MTU/DHCP/IP/Gateway/SubnetMask
+ */
+typedef struct tagNET_NetworkCfgList
+{
+    UINT32          uNetworkCount;                                /* 实际网口数量  Actual network interface count */
+    NET_NetworkCfg_S stNets[NET_MAX_NET_NUM];                    /* 网口数组  Network interface array */
+    BYTE            byRes[256];                                   /* 保留字段  Reserved */
+}NET_NetworkCfgList_S;
+
+typedef NET_NetworkCfgList_S* pNET_NetworkCfgList_S;
+
 /**
  * @struct tagNETTVRtspUrlInfo
  * @brief RTSP流地址信息  RTSP URL information
@@ -3110,8 +3208,6 @@ typedef NET_PreviewInfo_S* pNET_PreviewInfo_S;
  */
 typedef struct tagNET_ChannelInfo
 {
-    UINT32  uSize;                              /* 结构体大小 */
-
     UINT32  uChannel;                           /* 通道号 */
     BYTE    byEnable;                            /* 是否启用 */
     BYTE    byOnline;                            /* 是否在线 */
@@ -3158,7 +3254,6 @@ typedef NET_ChannelInfo_S* pNET_ChannelInfo_S;
 
 typedef struct tagNET_ChannelList
 {
-    UINT32  uSize;
     UINT32  uChannelCount;                      /* 实际通道数量 */
     NET_ChannelInfo_S stChannels[NET_MAX_CHANNEL_NUM];
     BYTE    byRes[512];
@@ -3396,142 +3491,108 @@ typedef struct tagNET_AlarmStatisticsInfo
  */
 typedef NET_AlarmStatisticsInfo_S* pNET_AlarmStatisticsInfo_S;
 
+/* ==================== 通用抓拍结构体 ==================== */
+
+#define NET_CAPTURE_CROP_MAX_NUM 8 /* 单次抓拍最多裁剪小图数量 */
+
+/* 通用抓拍扩展字段长度，必须与 IPC 侧 TVSDK 定义保持一致。 */
+#define NET_CAPTURE_REGION_POINT_MAX_NUM    10
+#define NET_CAPTURE_TIMESTAMP_MAX_LEN       64
+#define NET_CAPTURE_VEHICLE_BRAND_MAX_LEN   128
+#define NET_CAPTURE_LICENSE_PLATE_MAX_LEN   64
+
 /**
- * @brief 动态图片视图。
- * @details 图片内存归调用者所有。服务端仅在 NET_SERVER_PushAlarmInfoV2 调用期间读取，
- *          客户端仅在 NET_AlarmCallBackV2 回调期间读取。
+ * @struct tagNET_ImageBuffer
+ * @brief 图片二进制数据缓冲区，指针 + 长度组合，用于存储图片数据。
+ * @note  调用方负责 pData 指向内存的分配与释放，结构体本身不持有所有权。
  */
-typedef struct tagNET_ImageData
+typedef struct tagNET_ImageBuffer
 {
-    const BYTE* pData;      /* JPEG 二进制数据，空图片为 NULL */
-    UINT32 uLen;            /* JPEG 实际字节数 */
-    UINT32 uWidth;          /* 图片宽度，未知时为 0 */
-    UINT32 uHeight;         /* 图片高度，未知时为 0 */
-} NET_ImageData_S;
+    BYTE *pData;     /* 图片二进制数据指针 */
+    UINT32 uDataLen; /* 图片数据长度，单位字节 */
+} NET_ImageBuffer_S;
 
-/** @brief 基础告警 V2 结构，使用动态图片视图代替固定大数组。 */
-typedef struct tagNET_AlarmBasicInfoV2
+/**
+ * @struct tagNET_CropImage
+ * @brief 从全景图中裁剪出的小图及其坐标信息
+ */
+typedef struct tagNET_CropImage
 {
-    UINT32 uAlarmType;
-    UINT32 uAlarmInputNumber;
-    BYTE byAlarmOutputNumber[NET_MAX_ALARM_OUT_NUM];
-    BYTE byAlarmRelateChannel[NET_MAX_ALARM_IN_NUM];
-    BYTE byChannel[NET_MAX_ALARM_IN_NUM];
-    BYTE byDiskNumber[NET_LOCAL_DISK_MAX_NUM];
-    NET_ImageData_S stPanoramaImg;
-    INT64 llTimestampMs;
-    BYTE byRes[128];
-} NET_AlarmBasicInfoV2_S;
+    UINT32 uCropX;             /* 小图在大图上的起始 X 坐标 */
+    UINT32 uCropY;             /* 小图在大图上的起始 Y 坐标 */
+    UINT32 uCropWidth;         /* 小图宽度 */
+    UINT32 uCropHeight;        /* 小图高度 */
+    UINT32 uTargetType;        /* 目标类型（人/车/非机动车等） */
+    FLOAT fConfidence;         /* 检测置信度 [0.0, 1.0] */
+    INT32 nTrackID;            /* 目标跟踪 ID，无则填 -1 */
+    NET_ImageBuffer_S stImage; /* 裁剪小图二进制数据 */
+    BYTE byRes[32];            /* 保留字段 */
+} NET_CropImage_S;
 
-/** @brief 规则告警 V2 结构，使用动态图片视图代替固定大数组。 */
-typedef struct tagNET_AlarmRuleInfoV2
+/**
+ * @struct tagNET_CapturePolygon
+ * @brief 通用抓拍目标区域多边形。
+ * @note 坐标语义由抓拍源定义，当前人脸发送端使用全景图像素坐标归一化到 0-100。
+ */
+typedef struct tagNET_CapturePolygon
 {
-    UINT32 uAlarmType;
-    UINT32 uChannel;
-    UINT32 uRuleID;
-    UINT32 uRuleType;
-    CHAR strRuleName[NET_LEN_64];
-    UINT32 uTargetID;
-    UINT32 uObjectType;
-    FLOAT fConfidence;
-    INT32 nLeft;
-    INT32 nTop;
-    INT32 nRight;
-    INT32 nBottom;
-    NET_ImageData_S stPanoramaImg;
-    NET_ImageData_S stTargetImg;
-    INT64 llTimestampMs;
-    BYTE byRes[128];
-} NET_AlarmRuleInfoV2_S;
+    UINT32 uPointCount;
+    FLOAT afPointX[NET_CAPTURE_REGION_POINT_MAX_NUM];
+    FLOAT afPointY[NET_CAPTURE_REGION_POINT_MAX_NUM];
+    BYTE abyReserved[32];
+} NET_CapturePolygon_S;
 
-/** @brief AI 对象告警 V2 结构，使用动态图片视图代替固定大数组。 */
-typedef struct tagNET_AlarmAiObjectInfoV2
-{
-    UINT32 uAlarmType;
-    UINT32 uChannel;
-    UINT32 uObjectType;
-    FLOAT fConfidence;
-    INT32 nLeft;
-    INT32 nTop;
-    INT32 nRight;
-    INT32 nBottom;
-    CHAR strObjectID[NET_LEN_64];
-    NET_ImageData_S stPanoramaImg;
-    NET_ImageData_S stImgData;
-    INT64 llTimestampMs;
-    BYTE byRes[32];
-} NET_AlarmAiObjectInfoV2_S;
+typedef NET_CapturePolygon_S* pNET_CapturePolygon_S;
 
-/** @brief 人脸比对告警 V2 结构，使用动态图片视图代替固定大数组。 */
-typedef struct tagNET_AlarmFaceCompareInfoV2
+/**
+ * @struct tagNET_CaptureExtraInfo
+ * @brief 通用抓拍扩展属性，承载人脸、行人和车辆的附加信息。
+ */
+typedef struct tagNET_CaptureExtraInfo
 {
-    UINT32 uAlarmType;
-    UINT32 uChannel;
-    INT64 llTimestampMs;
-    INT32 nEventId;
-    INT32 nCompResult;
-    INT32 nSimilarity;
-    INT32 nFaceId;
-    CHAR strFaceLibName[NET_FACE_DB_NAME_LEN];
-    CHAR strFaceName[NET_FACE_MEMBER_NAME_LEN];
-    CHAR strLibFacePath[NET_LEN_260];
-    CHAR strCapFacePath[NET_LEN_260];
-    CHAR strCapImagePath[NET_LEN_260];
-    NET_ImageData_S stLibFaceImg;
-    NET_ImageData_S stCapFaceImg;
-    BYTE byRes[256];
-} NET_AlarmFaceCompareInfoV2_S;
-
-/** @brief 车牌告警 V2 结构，使用动态图片视图代替固定大数组。 */
-typedef struct tagNET_AlarmPlateInfoV2
-{
-    UINT32 uAlarmType;
-    UINT32 uChannel;
-    CHAR strPlateNumber[NET_LEN_32];
-    UINT32 uPlateColor;
-    UINT32 uVehicleType;
-    FLOAT fConfidence;
-    UINT32 uSpeed;
-    UINT32 uLaneNo;
-    NET_ImageData_S stPlateImg;
+    BOOL bMale;
+    INT32 nAgeLabel;
+    BOOL bGlasses;
+    BOOL bBeard;
+    BOOL bMask;
+    INT32 nEmotionLabel;
+    BOOL bBag;
+    INT32 nTopColorLabel;
+    INT32 nBottomColorLabel;
+    INT32 nVehicleType;
+    INT32 nVehicleColor;
+    CHAR strVehicleBrand[NET_CAPTURE_VEHICLE_BRAND_MAX_LEN];
+    CHAR strLicensePlateNumber[NET_CAPTURE_LICENSE_PLATE_MAX_LEN];
+    CHAR strTimestamp[NET_CAPTURE_TIMESTAMP_MAX_LEN];
+    NET_CapturePolygon_S stTargetRegion;
     BYTE byRes[64];
-} NET_AlarmPlateInfoV2_S;
+} NET_CaptureExtraInfo_S;
 
-/** @brief 统计告警单目标 V2 结构。 */
-typedef struct tagNET_AlarmStatisticsTargetV2
-{
-    INT32 nTrackID;
-    UINT32 uRuleID;
-    UINT32 uSnapshotType;
-    INT32 nLeft;
-    INT32 nTop;
-    INT32 nRight;
-    INT32 nBottom;
-    INT64 llTimestampMs;
-    INT32 nDirection;
-    NET_ImageData_S stImgData;
-    BYTE byRes[64];
-} NET_AlarmStatisticsTargetV2_S;
+typedef NET_CaptureExtraInfo_S* pNET_CaptureExtraInfo_S;
 
-/** @brief 统计告警 V2 结构，使用动态图片视图代替固定大数组。 */
-typedef struct tagNET_AlarmStatisticsInfoV2
+/**
+ * @struct tagNET_AlarmCaptureInfo
+ * @brief 通用抓拍告警信息，包含一张全景图及其裁剪出的小图列表
+ */
+typedef struct tagNET_AlarmCaptureInfo
 {
-    UINT32 uAlarmType;
-    UINT32 uChannel;
-    UINT32 uStatisticsType;
-    UINT32 uRuleID;
-    INT64 llTimestampMs;
-    UINT32 uReportSeq;
-    UINT32 uEnterCount;
-    UINT32 uLeaveCount;
-    UINT32 uTotalCount;
-    UINT32 uCurrentPeopleCount;
-    UINT32 uAverageStayTimeSec;
-    UINT32 uTargetCount;
-    NET_AlarmStatisticsTargetV2_S stTargets[NET_ALARM_STATISTICS_TARGET_MAX_NUM];
-    NET_ImageData_S stPanoramaImg;
-    BYTE byRes[256];
-} NET_AlarmStatisticsInfoV2_S;
+    UINT32 uAlarmType;                                      /* 报警类型/命令码 */
+    UINT32 uChannel;                                        /* 通道号 */
+    UINT32 uCaptureType;                                    /* 抓拍类型 NET_CaptureType_E */
+    INT64 llTimestampMs;                                    /* 抓拍时间戳，单位毫秒 */
+    UINT32 uPanoramaWidth;                                  /* 全景图宽度 */
+    UINT32 uPanoramaHeight;                                 /* 全景图高度 */
+    NET_ImageBuffer_S stPanoramaImg;                        /* 全景 JPEG 二进制图片数据 */
+    UINT32 uCropCount;                                      /* 裁剪小图数量 */
+    NET_CropImage_S stCropImages[NET_CAPTURE_CROP_MAX_NUM]; /* 裁剪小图数组 */
+    NET_CaptureExtraInfo_S stExtraInfo;                      /* 人脸/行人/车辆专用属性 */
+    BYTE byRes[128];                                        /* 保留字段 */
+} NET_AlarmCaptureInfo_S;
+
+/**
+ * @brief 通用抓拍告警结构体指针类型
+ */
+typedef NET_AlarmCaptureInfo_S* pNET_AlarmCaptureInfo_S;
 
 /* ==================== 布防时间和联动相关结构体 ==================== */
 
@@ -3568,20 +3629,6 @@ typedef struct tagNET_AlarmSchedule
  */
 typedef NET_AlarmSchedule_S* pNET_AlarmSchedule_S;
 
-#define NET_TRADITIONAL_LINKAGE_MAX_NUM 7
-
-/** @brief 常规联动类型，取值与 IPC Alarm::LinkageType_E 一致。 */
-typedef enum tagNET_TraditionalLinkageType
-{
-    NET_TRADITIONAL_LINKAGE_SEND_EMAIL = 1,
-    NET_TRADITIONAL_LINKAGE_UPLOAD_TO_CENTER = 2,
-    NET_TRADITIONAL_LINKAGE_UPLOAD_SD_CARD = 3,
-    NET_TRADITIONAL_LINKAGE_SOUND = 4,
-    NET_TRADITIONAL_LINKAGE_FLASHING_LIGHT_ALARM = 5,
-    NET_TRADITIONAL_LINKAGE_UPLOAD_PANORAMIC_IMAGE = 6,
-    NET_TRADITIONAL_LINKAGE_UPLOAD_TARGET_IMAGE = 7
-} NET_TraditionalLinkageType_EN;
-
 /**
  * @struct tagNET_LinkageList
  * @brief 联动配置列表 Linkage configuration list
@@ -3594,8 +3641,6 @@ typedef struct tagNET_LinkageList
     INT32       auRecordChannel[NET_CHANNEL_MAX]; /* 录像通道号数组 */
     INT32       uSnapshotChannelCount;               /* 抓拍通道数量 */
     INT32       auSnapshotChannel[NET_CHANNEL_MAX]; /* 抓拍通道号数组 */
-    INT32       uTraditionalLinkageCount;            /* 常规联动类型数量 */
-    INT32       auTraditionalLinkage[NET_TRADITIONAL_LINKAGE_MAX_NUM]; /* 常规联动类型数组 */
     BYTE        byRes[256];                         /* 保留字段 */
 } NET_LinkageList_S;
 
@@ -3803,18 +3848,6 @@ typedef struct tagNETFlashingLightAlarmInfo
     /* 保留字段，调用方应置零。 */
     BYTE abyReserved[NET_ALARM_CONFIG_RESERVED_LEN];
 } NET_FlashingLightAlarmInfo_S, *pNET_FlashingLightAlarmInfo_S;
-
-/**
- * @brief 手动声光报警联动触发请求。
- * @details 调用 NET_SetDevConfig 并使用 NET_TRIGGER_SOUND_LIGHT_ALARM 时传入。
- */
-typedef struct tagNET_SoundLightAlarmTrigger
-{
-    NET_LinkageList_S stLinkageList;                 /* 本次触发使用的联动配置 */
-    BYTE byRes[NET_ALARM_CONFIG_RESERVED_LEN];       /* 保留字段 */
-} NET_SoundLightAlarmTrigger_S;
-
-typedef NET_SoundLightAlarmTrigger_S* pNET_SoundLightAlarmTrigger_S;
 
 /*
  * 描述：人体红外（PIR）报警配置。
@@ -5011,91 +5044,6 @@ typedef struct tagNET_FaceCaptureInfo
 typedef NET_FaceCaptureInfo_S* pNET_FaceCaptureInfo_S;
 
 /**
- * @brief 人脸抓拍图片叠加配置。
- * @note 用于 NET_GET_FACECAPTUREOVERLAYINFO 和 NET_SET_FACECAPTUREOVERLAYINFO。
- */
-typedef struct tagNET_FaceCaptureOverlayInfo
-{
-    INT32 nDeviceID;                                  /* 设备编号 */
-    CHAR strMonitoryPointInfo[NET_LEN_256];           /* 监控点信息 */
-    BOOL bOverlayDeviceID;                            /* 是否叠加设备编号 */
-    BOOL bOverlayCaptureTime;                         /* 是否叠加抓拍时间 */
-    BOOL bOverlayMonitoryPointInfo;                   /* 是否叠加监控点信息 */
-    NET_OSD_COLOR_E enFontColor;                      /* 字体颜色 */
-    CHAR strFontColor[NET_LEN_16];                    /* 自定义 RGB 字体颜色 */
-    BYTE byRes[128];                                  /* 保留字段 */
-} NET_FaceCaptureOverlayInfo_S;
-
-typedef NET_FaceCaptureOverlayInfo_S* pNET_FaceCaptureOverlayInfo_S;
-
-/** @brief 抓拍事件区域多边形。 */
-typedef struct tagNET_CapturePolygon
-{
-    UINT32 uPointCount;                               /* 有效顶点数 */
-    FLOAT afPointX[NET_CAPTURE_REGION_POINT_MAX_NUM]; /* 顶点 X 坐标 */
-    FLOAT afPointY[NET_CAPTURE_REGION_POINT_MAX_NUM]; /* 顶点 Y 坐标 */
-    BYTE byRes[32];                                   /* 保留字段 */
-} NET_CapturePolygon_S;
-
-/** @brief 人脸抓拍推送信息，图片字段为 IPC 可访问的路径或引用。 */
-typedef struct tagNET_FaceCapturePushInfo
-{
-    BOOL bMale;
-    INT32 nAgeLabel;
-    BOOL bGlasses;
-    BOOL bBeard;
-    BOOL bMask;
-    INT32 nEmotionLabel;
-    NET_CapturePolygon_S stFaceRegion;
-    CHAR strFacePicture[NET_CAPTURE_PICTURE_REFERENCE_MAX_LEN];
-    CHAR strCurrentPicture[NET_CAPTURE_PICTURE_REFERENCE_MAX_LEN];
-    CHAR strTimestamp[NET_CAPTURE_TIMESTAMP_MAX_LEN];
-    BOOL bDownloadable;
-    BYTE byRes[64];
-} NET_FaceCapturePushInfo_S;
-
-/** @brief 行人抓拍推送信息，图片字段为 IPC 可访问的路径或引用。 */
-typedef struct tagNET_PersonCapturePushInfo
-{
-    BOOL bMale;
-    INT32 nAgeLabel;
-    BOOL bBag;
-    INT32 nTopColorLabel;
-    INT32 nBottomColorLabel;
-    CHAR strPersonPicture[NET_CAPTURE_PICTURE_REFERENCE_MAX_LEN];
-    CHAR strCurrentPicture[NET_CAPTURE_PICTURE_REFERENCE_MAX_LEN];
-    CHAR strTimestamp[NET_CAPTURE_TIMESTAMP_MAX_LEN];
-    BOOL bDownloadable;
-    BYTE byRes[64];
-} NET_PersonCapturePushInfo_S;
-
-/** @brief 机动车抓拍推送信息，图片字段为 IPC 可访问的路径或引用。 */
-typedef struct tagNET_MotorvehicleCapturePushInfo
-{
-    CHAR strVehicleBrand[NET_CAPTURE_VEHICLE_BRAND_MAX_LEN];
-    INT32 nVehicleType;
-    INT32 nVehicleColor;
-    CHAR strLicensePlateNumber[NET_CAPTURE_LICENSE_PLATE_MAX_LEN];
-    CHAR strTargetPicture[NET_CAPTURE_PICTURE_REFERENCE_MAX_LEN];
-    CHAR strCurrentPicture[NET_CAPTURE_PICTURE_REFERENCE_MAX_LEN];
-    CHAR strTimestamp[NET_CAPTURE_TIMESTAMP_MAX_LEN];
-    BOOL bDownloadable;
-    BYTE byRes[64];
-} NET_MotorvehicleCapturePushInfo_S;
-
-/** @brief 非机动车抓拍推送信息，图片字段为 IPC 可访问的路径或引用。 */
-typedef struct tagNET_NonMotorvehicleCapturePushInfo
-{
-    INT32 nVehicleType;
-    INT32 nVehicleColor;
-    CHAR strTargetPicture[NET_CAPTURE_PICTURE_REFERENCE_MAX_LEN];
-    CHAR strCurrentPicture[NET_CAPTURE_PICTURE_REFERENCE_MAX_LEN];
-    CHAR strTimestamp[NET_CAPTURE_TIMESTAMP_MAX_LEN];
-    BOOL bDownloadable;
-    BYTE byRes[64];
-} NET_NonMotorvehicleCapturePushInfo_S;
-
-/**
  * @struct tagNET_FaceCompareInfo
  * @brief 人脸比对配置信息 Face compare configuration
  * @note 用于NET_SET_FACE_COMPARE_INFO
@@ -6146,13 +6094,6 @@ typedef NET_DiscoveryDeviceInfo_S* pNET_DiscoveryDeviceInfo_S;
  * 2. 定义模块依赖的常量、回调或辅助类型
  * 3. 为调用方提供明确且稳定的编译期契约
  */
-#ifndef NETSDK_CLIENT_INTERFACE_H
-#define NETSDK_CLIENT_INTERFACE_H
-
-
-
-#include "NetTVSDKCommon.h"
-
 
 /************************************************************************/
 /*                          函数                                  */
@@ -6163,14 +6104,14 @@ typedef NET_DiscoveryDeviceInfo_S* pNET_DiscoveryDeviceInfo_S;
  * @return TRUE表示成功,其他表示失败 NET_TRUE means success, and any other value means failure.
  * @note
  */
-NET_API BOOL NET_STDCALL NET_Init(void);
+NET_API BOOL NET_STDCALL NET_clientInit(void);
 
 /**
 * SDK 清理  SDK cleaning
 * @return TRUE表示成功,其他表示失败 NET_TRUE means success, and any other value means failure.
 * @note
 */
-NET_API BOOL NET_STDCALL NET_Cleanup(void);
+NET_API BOOL NET_STDCALL NET_clientCleanup(void);
 
 /**
  * @author tianl (tianl@kfb.cn)
@@ -6181,7 +6122,7 @@ NET_API BOOL NET_STDCALL NET_Cleanup(void);
  * @param [in] dwLogFileNum 日志文件个数
  * @return TRUE表示成功,其他表示失败 NET_TRUE means success, and any other value means failure.
  */
-NET_API BOOL NET_STDCALL NET_SetLogToFile(NET_IN INT32 dwLogLevel,NET_IN CHAR  *strLogDir,NET_IN INT32 dwLogFileSize,NET_IN INT32 dwLogFileNum);
+NET_API BOOL NET_STDCALL NET_clientSetLogToFile(NET_IN INT32 dwLogLevel,NET_IN CHAR  *strLogDir,NET_IN INT32 dwLogFileSize,NET_IN INT32 dwLogFileNum);
 
 /**
 * 获取SDK的版本信息 Get SDK version information
@@ -6190,13 +6131,13 @@ NET_API BOOL NET_STDCALL NET_SetLogToFile(NET_IN INT32 dwLogLevel,NET_IN CHAR  *
 * - 在两个高字节中高8位表示主版本,低八位表示次版本.两个低字节表示附加版本号如0x01080000：表示版本为1.8.0.0.
 * - The two high bytes,The high-8-bit indicate the major version, and the low-8-bytes indicate the minor version.Two low bytes for additional version numbers For example, 0x01080000 means version 1.8.0.0
 */
-NET_API INT32 NET_STDCALL NET_GetSDKVersion(void);
+NET_API INT32 NET_STDCALL NET_clientGetSdkVersion(void);
 
 /**
 * 获取错误码  Get error codes
 * @return 错误码 Error codes
 */
-NET_API INT32 NET_STDCALL NET_GetLastError();
+NET_API INT32 NET_STDCALL NET_clientGetLastError();
 
 /**
 * 接收异常.重连等消息的回调函数  Callback function to receive exception and reconnection messages
@@ -6219,7 +6160,7 @@ typedef void(NET_STDCALL *NET_ExceptionCallBack_PF)(NET_IN LPVOID lpUserID,
 * @return TRUE表示成功,其他表示失败 NET_TRUE means success, and any other value means failure.
 * @note
 */
-NET_API BOOL NET_STDCALL NET_SetExceptionCallBack(NET_IN NET_ExceptionCallBack_PF cbExceptionCallBack,
+NET_API BOOL NET_STDCALL NET_clientSetExceptionCallBack(NET_IN NET_ExceptionCallBack_PF cbExceptionCallBack,
                                                                  NET_IN LPVOID lpUserData);
 
 /**
@@ -6228,7 +6169,7 @@ NET_API BOOL NET_STDCALL NET_SetExceptionCallBack(NET_IN NET_ExceptionCallBack_P
 * @return TRUE表示成功,其他表示失败    NET_TRUE means success, and any other value means failure.
 * @note
 */
-NET_API BOOL NET_STDCALL NET_SetRevTimeOut(NET_IN pNET_RevTimeout_S pstRevTimeout);
+NET_API BOOL NET_STDCALL NET_clientSetRevTimeOut(NET_IN pNET_RevTimeout_S pstRevTimeout);
 
 /**
 * 设置保活参数 Set keep-alive parameters
@@ -6237,7 +6178,7 @@ NET_API BOOL NET_STDCALL NET_SetRevTimeOut(NET_IN pNET_RevTimeout_S pstRevTimeou
 * @return TRUE表示成功,其他表示失败 NET_TRUE means success, and any other value means failure.
 * @note
 */
-NET_API BOOL NET_STDCALL NET_SetConnectTime(NET_IN INT32 dwWaitTime,
+NET_API BOOL NET_STDCALL NET_clientSetConnectTime(NET_IN INT32 dwWaitTime,
                                                            NET_IN INT32 dwTrytimes);
 /**
 * 设备登录
@@ -6247,7 +6188,7 @@ NET_API BOOL NET_STDCALL NET_SetConnectTime(NET_IN INT32 dwWaitTime,
 * @note
 * -
 */
-NET_API LPVOID NET_STDCALL NET_Login(NET_IN pNET_DeviceLoginInfo_S pstDevLoginInfo,
+NET_API LPVOID NET_STDCALL NET_clientLogin(NET_IN pNET_DeviceLoginInfo_S pstDevLoginInfo,
                                                         NET_OUT pNET_DeviceInfo_S pstDevInfo);
 
 /**
@@ -6256,7 +6197,7 @@ NET_API LPVOID NET_STDCALL NET_Login(NET_IN pNET_DeviceLoginInfo_S pstDevLoginIn
 * @return TRUE表示成功,其他表示失败 NET_TRUE means success, and any other value means failure.
 * @note
 */
-NET_API BOOL NET_STDCALL NET_Logout(NET_IN LPVOID lpUserID);
+NET_API BOOL NET_STDCALL NET_clientLogout(NET_IN LPVOID lpUserID);
 
 /**
  * @author tianl (tianl@kfb.cn)
@@ -6269,17 +6210,6 @@ typedef void(NET_STDCALL *NET_AlarmCallBack)(NET_OUT INT64 lCommand,
                                                    NET_OUT LPVOID lpUserData);
 
 /**
- * @brief V2 告警回调函数。
- * @details 对基础、规则、AI、人脸比对、车牌和统计告警，pAlarmInfo 指向对应的 NET_Alarm*V2_S。
- *          其中 NET_ImageData_S::pData 只在本次回调执行期间有效，异步使用前调用方必须自行复制。
- */
-typedef void(NET_STDCALL *NET_AlarmCallBackV2)(NET_OUT INT64 lCommand,
-                                               NET_OUT NET_Alarmer_S* pAlarmer,
-                                               NET_OUT CHAR* pAlarmInfo,
-                                               NET_OUT INT32* dwBufLen,
-                                               NET_OUT LPVOID lpUserData);
-
-/**
  * @author tianl (tianl@kfb.cn)
 * @brief 设置报警回调函数
 * @param [in] lpUserID              用户登录ID
@@ -6287,21 +6217,9 @@ typedef void(NET_STDCALL *NET_AlarmCallBackV2)(NET_OUT INT64 lCommand,
 * @param [in] lpUserData            用户数据
 * @return TRUE表示成功,其他表示失败
 */
-NET_API BOOL NET_STDCALL NET_SetAlarmCallBack(NET_IN LPVOID lpUserID,
+NET_API BOOL NET_STDCALL NET_clientSetAlarmCallBack(NET_IN LPVOID lpUserID,
                                             NET_IN NET_AlarmCallBack cbAlarmMessCallBack,
                                             NET_IN LPVOID lpUserData);
-
-/**
- * @brief 设置动态图片 V2 告警回调函数。
- * @details V2 支持的告警优先由该回调处理；不支持 V2 的历史告警仍由 NET_AlarmCallBack 处理。
- * @param [in] lpUserID 用户登录句柄。
- * @param [in] cbAlarmMessCallBack V2 告警回调函数。
- * @param [in] lpUserData 回调用户数据。
- * @return 设置成功返回 TRUE，失败返回 FALSE。
- */
-NET_API BOOL NET_STDCALL NET_SetAlarmCallBackV2(NET_IN LPVOID lpUserID,
-                                                NET_IN NET_AlarmCallBackV2 cbAlarmMessCallBack,
-                                                NET_IN LPVOID lpUserData);
 
 /**
  * @author tianl (tianl@kfb.cn)
@@ -6318,7 +6236,7 @@ typedef void(NET_STDCALL *NET_ChannelStatusCallBack)(NET_OUT NET_ChannelInfo_S *
 * @param [in] lpUserData                  用户数据
 * @return TRUE表示成功,其他表示失败
 */
-NET_API BOOL NET_STDCALL NET_SetChannelStatusCallBack(NET_IN LPVOID lpUserID,
+NET_API BOOL NET_STDCALL NET_clientSetChannelStatusCallBack(NET_IN LPVOID lpUserID,
                                                         NET_IN NET_ChannelStatusCallBack cbChannelStatusCallBack,
                                                         NET_IN LPVOID lpUserData);
 
@@ -6328,7 +6246,7 @@ NET_API BOOL NET_STDCALL NET_SetChannelStatusCallBack(NET_IN LPVOID lpUserID,
 * @param [in] lpUserID              用户登录ID
 * @return TRUE表示成功,其他表示失败
 */
-NET_API BOOL NET_STDCALL NET_StartListen(NET_IN LPVOID lpUserID);
+NET_API BOOL NET_STDCALL NET_clientStartListen(NET_IN LPVOID lpUserID);
 
 /**
  * @author tianl (tianl@kfb.cn)
@@ -6336,7 +6254,7 @@ NET_API BOOL NET_STDCALL NET_StartListen(NET_IN LPVOID lpUserID);
 * @param [in] lpUserID              用户登录ID
 * @return TRUE表示成功,其他表示失败
 */
-NET_API BOOL NET_STDCALL NET_StopListen(NET_IN LPVOID lpUserID);
+NET_API BOOL NET_STDCALL NET_clientStopListen(NET_IN LPVOID lpUserID);
 
 /**
  * @author tianl (tianl@kfb.cn)
@@ -6345,7 +6263,7 @@ NET_API BOOL NET_STDCALL NET_StopListen(NET_IN LPVOID lpUserID);
 * @param [in] pstCtrlInfo    设备控制参数，参见 NET_DeviceControlInfo_S
 * @return TRUE表示成功,其他表示失败
 */
-NET_API BOOL NET_STDCALL NET_DeviceControl(NET_IN LPVOID lpUserID,
+NET_API BOOL NET_STDCALL NET_clientDeviceControl(NET_IN LPVOID lpUserID,
                                              NET_IN pNET_DeviceControlInfo_S pstCtrlInfo);
 
 /**
@@ -6356,7 +6274,7 @@ NET_API BOOL NET_STDCALL NET_DeviceControl(NET_IN LPVOID lpUserID,
 * @param [out]    pdwBytesReturned  实际返回的数据长度指针，可为NULL
 * @return TRUE表示成功,其他表示失败
 */
-NET_API BOOL NET_STDCALL NET_GetReplayUrl(NET_IN    LPVOID lpUserID,
+NET_API BOOL NET_STDCALL NET_clientGetReplayUrl(NET_IN    LPVOID lpUserID,
                                             NET_INOUT pNET_ReplayUrlInfo_S pstInfo,
                                             NET_OUT   INT32 *pdwBytesReturned);
 
@@ -6368,7 +6286,7 @@ NET_API BOOL NET_STDCALL NET_GetReplayUrl(NET_IN    LPVOID lpUserID,
 * @param [out]    pdwBytesReturned  实际返回的数据长度指针，可为NULL
 * @return TRUE表示成功,其他表示失败
 */
-NET_API BOOL NET_STDCALL NET_ControlReplay(NET_IN    LPVOID lpUserID,
+NET_API BOOL NET_STDCALL NET_clientControlReplay(NET_IN    LPVOID lpUserID,
                                              NET_INOUT pNET_ReplayCtrlInfo_S pstInfo,
                                              NET_OUT   INT32 *pdwBytesReturned);
 
@@ -6380,7 +6298,7 @@ NET_API BOOL NET_STDCALL NET_ControlReplay(NET_IN    LPVOID lpUserID,
 * @param [out]    pdwBytesReturned  实际返回的数据长度指针，可为NULL
 * @return TRUE表示成功,其他表示失败
 */
-NET_API BOOL NET_STDCALL NET_GetReplayRecordList(NET_IN    LPVOID lpUserID,
+NET_API BOOL NET_STDCALL NET_clientGetReplayRecordList(NET_IN    LPVOID lpUserID,
                                                    NET_INOUT pNET_ReplayRecordList_S pstInfo,
                                                    NET_OUT   INT32 *pdwBytesReturned);
 
@@ -6395,7 +6313,7 @@ NET_API BOOL NET_STDCALL NET_GetReplayRecordList(NET_IN    LPVOID lpUserID,
 * @return TRUE表示成功，其他表示失败      NET_TRUE means success, and any other value means failure.
 * @note
 */
-NET_API BOOL NET_STDCALL NET_GetDeviceCapability(NET_IN LPVOID lpUserID,
+NET_API BOOL NET_STDCALL NET_clientGetDeviceCapability(NET_IN LPVOID lpUserID,
                                                                 NET_IN INT32 dwChannelID,
                                                                 NET_IN INT32 dwCommand,
                                                                 NET_OUT LPVOID lpOutBuffer,
@@ -6412,7 +6330,7 @@ NET_API BOOL NET_STDCALL NET_GetDeviceCapability(NET_IN LPVOID lpUserID,
 * @return TRUE表示成功,其他表示失败 NET_TRUE means success, and any other value means failure.
 * @note
 */
-NET_API BOOL NET_STDCALL NET_GetDevConfig(NET_IN  LPVOID  lpUserID,
+NET_API BOOL NET_STDCALL NET_clientGetDevConfig(NET_IN  LPVOID  lpUserID,
                                                                 NET_IN    INT32   dwChannelID,
                                                                 NET_IN    INT32   dwCommand,
                                                                 NET_INOUT LPVOID  lpOutBuffer,
@@ -6428,7 +6346,7 @@ NET_API BOOL NET_STDCALL NET_GetDevConfig(NET_IN  LPVOID  lpUserID,
 * @return TRUE表示成功,其他表示失败 NET_TRUE means success, and any other value means failure.
 * @note
 */
-NET_API BOOL NET_STDCALL NET_SetDevConfig(NET_IN  LPVOID  lpUserID,
+NET_API BOOL NET_STDCALL NET_clientSetDevConfig(NET_IN  LPVOID  lpUserID,
                                                                 NET_IN    INT32   dwChannelID,
                                                                 NET_IN    INT32   dwCommand,
                                                                 NET_INOUT LPVOID  lpOutBuffer,
@@ -6447,10 +6365,10 @@ NET_API BOOL NET_STDCALL NET_SetDevConfig(NET_IN  LPVOID  lpUserID,
  * @param [in]  lpUserID     用户登录句柄
  * @param [in]  szFilePath   本地固件文件路径
  * @param [in]  szRemoteName 上传到设备的文件名
- * @return NET_TRUE 成功，NET_FALSE 失败（调用 NET_GetLastError() 获取错误码）
+ * @return NET_TRUE 成功，NET_FALSE 失败（调用 NET_clientGetLastError() 获取错误码）
  */
 NET_API BOOL NET_STDCALL
-NET_UploadFile(NET_IN LPVOID   lpUserID,
+NET_clientUploadFile(NET_IN LPVOID   lpUserID,
                   NET_IN const CHAR* szFilePath,
                   NET_IN const CHAR* szRemoteName);
 
@@ -6462,11 +6380,11 @@ NET_UploadFile(NET_IN LPVOID   lpUserID,
  * @param [out] pDeviceList   输出设备列表缓冲区
  * @param [in]  nMaxCount     设备列表最大容量
  * @param [out] pnOutCount    实际发现的设备数量
- * @return NET_TRUE 成功，NET_FALSE 失败（调用 NET_GetLastError() 获取错误码）
- * @note 重复调用 NET_Discovery_Search 前无需调用 NET_Init()
+ * @return NET_TRUE 成功，NET_FALSE 失败（调用 NET_clientGetLastError() 获取错误码）
+ * @note 重复调用 NET_clientSearchDiscovery 前无需调用 NET_clientInit()
  */
 NET_API BOOL NET_STDCALL
-NET_Discovery_Search(NET_IN  const CHAR*                      szInterfaceIP,
+NET_clientSearchDiscovery(NET_IN  const CHAR*                      szInterfaceIP,
                         NET_IN  UINT32                           dwTimeoutMs,
                         NET_OUT NET_DiscoveryDeviceInfo_S*       pDeviceList,
                         NET_IN  int                              nMaxCount,
@@ -6497,10 +6415,10 @@ typedef void (NET_STDCALL *NET_RecordFrameCallBack)(NET_IN const NET_RecordFrame
  * @param [out] pstStreamInfo 服务端返回的流信息，包含流ID、TCP端口、编码信息等
  * @param [in]  cbRecordFrame 录像帧回调
  * @param [in]  lpUserData    回调用户数据
- * @return NET_TRUE 成功，NET_FALSE 失败；失败原因通过 NET_GetLastError 获取
+ * @return NET_TRUE 成功，NET_FALSE 失败；失败原因通过 NET_clientGetLastError 获取
  */
 NET_API BOOL NET_STDCALL
-NET_StartRecordFrameStream(NET_IN LPVOID lpUserID,
+NET_clientStartRecordFrameStream(NET_IN LPVOID lpUserID,
                               NET_IN pNET_RecordFrameStreamCond_S pstCond,
                               NET_OUT pNET_RecordFrameStreamInfo_S pstStreamInfo,
                               NET_IN NET_RecordFrameCallBack cbRecordFrame,
@@ -6514,7 +6432,7 @@ NET_StartRecordFrameStream(NET_IN LPVOID lpUserID,
  * @return NET_TRUE 成功，NET_FALSE 失败
  */
 NET_API BOOL NET_STDCALL
-NET_StopRecordFrameStream(NET_IN LPVOID lpUserID,
+NET_clientStopRecordFrameStream(NET_IN LPVOID lpUserID,
                              NET_IN const CHAR* szStreamId);
 
 typedef void (NET_STDCALL *NET_VoiceComCallBack)(const char* data, unsigned int size, LPVOID lpUserData);
@@ -6529,7 +6447,7 @@ typedef void (NET_STDCALL *NET_VoiceComCallBack)(const char* data, unsigned int 
  * @return NET_TRUE 成功，NET_FALSE 失败
  */
 NET_API BOOL NET_STDCALL
-NET_StartVoiceCom(NET_IN LPVOID              lpUserID,
+NET_clientStartVoiceCom(NET_IN LPVOID              lpUserID,
                      NET_IN pNET_VoiceComStartInfo_S pstStartInfo,
                      NET_IN NET_VoiceComCallBack cbVoiceCom,
                      NET_IN LPVOID              lpUserData);
@@ -6538,12 +6456,12 @@ NET_StartVoiceCom(NET_IN LPVOID              lpUserID,
  * @author tianl (tianl@kfb.cn)
  * @brief 发送音频数据到设备
  * @param [in]  lpUserID  用户登录句柄
- * @param [in]  pData     音频帧数据，格式需与 NET_StartVoiceCom 协商参数一致
+ * @param [in]  pData     音频帧数据，格式需与 NET_clientStartVoiceCom 协商参数一致
  * @param [in]  dwSize    数据长度(字节)
  * @return NET_TRUE 成功，NET_FALSE 失败
  */
 NET_API BOOL NET_STDCALL
-NET_VoiceComSendData(NET_IN LPVOID       lpUserID,
+NET_clientVoiceComSendData(NET_IN LPVOID       lpUserID,
                         NET_IN const CHAR*  pData,
                         NET_IN UINT32       dwSize);
 
@@ -6554,7 +6472,7 @@ NET_VoiceComSendData(NET_IN LPVOID       lpUserID,
  * @return NET_TRUE 成功，NET_FALSE 失败
  */
 NET_API BOOL NET_STDCALL
-NET_StopVoiceCom(NET_IN LPVOID lpUserID);
+NET_clientStopVoiceCom(NET_IN LPVOID lpUserID);
 
 
 
