@@ -1530,8 +1530,9 @@ void CFaceDetect::pushFaceCaptureInfoToTvSdk(const cv::Mat &panoramaBgr, const c
 
     Alarm::Region_S stFaceRegion;
     fillFaceCaptureRegion(faceRect, detectCoordinateSize, panoramaBgr.size(), stFaceRegion);
-    stInfo.stExtraInfo.stTargetRegion.uPointCount = static_cast<UINT32>(std::min(
-        stFaceRegion.nPointNum, NET_CAPTURE_REGION_POINT_MAX_NUM));
+    const INT32 nPointCount = std::min<INT32>(
+        stFaceRegion.nPointNum, static_cast<INT32>(NET_CAPTURE_REGION_POINT_MAX_NUM));
+    stInfo.stExtraInfo.stTargetRegion.uPointCount = static_cast<UINT32>(nPointCount);
     for (UINT32 i = 0; i < stInfo.stExtraInfo.stTargetRegion.uPointCount; ++i)
     {
         stInfo.stExtraInfo.stTargetRegion.afPointX[i] = stFaceRegion.aPoint[i].fX;
