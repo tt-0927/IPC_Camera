@@ -52,7 +52,19 @@ public:
                              const std::string& req_data,
                              const std::string& url_param,
                              std::string& outResp) = 0;
+
+    /**
+     * 判断命令码是否为本域的设备级命令（不需要通道号）
+     * @details 公用命令由 DeviceConfigBusiness 统一判断；
+     *          各域独有的命令由域自行覆写维护，不放入公共列表。
+     */
+    virtual bool IsDeviceLevelCommand(INT32 nCommand) const
+    {
+        (void)nCommand;
+        return false;
+    }
 };
+
 
 /**
  * 配置域基类：提供模板工具函数和查表机制

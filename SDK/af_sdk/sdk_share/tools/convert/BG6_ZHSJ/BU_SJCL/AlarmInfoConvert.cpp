@@ -18,9 +18,9 @@
 #include <sstream>
 #include <iomanip>
 #include <cstring>
+#include <string>
 #include <limits>
 #include <new>
-#include <string>
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_Alarmer_S& stAlarmInfo, bool bOutStruct)
 {
@@ -340,7 +340,6 @@ void CaptureExtraInfoField(Json::Object* pRootJson,
     CharArrayField(pRootJson, "Timestamp", extra.strTimestamp, bOutStruct);
     CapturePolygonField(pRootJson, "TargetRegion", extra.stTargetRegion, bOutStruct);
 }
-
 } // namespace
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_AlarmBasicInfo_S& stInfo, bool bOutStruct)

@@ -15,6 +15,10 @@
 #include "BG6_ZHSJ/BU_SJCL/SjclDomain.h"
 #endif
 
+#ifndef BU_SJLB_EXCLUDE
+#include "BG6_ZHSJ/BU_SJLB/SjlbDomain.h"
+#endif
+
 #include "UrlParamUtils.h"
 
 #include <cctype>
@@ -35,6 +39,9 @@ static bool IsDeviceLevelCommand(INT32 nCommand)
         case NET_SET_DEVICECFG:
         case NET_GET_REGISTERINFO:
         case NET_SET_REGISTERINFO:
+        case NET_CONTROL_REBOOT:
+        case NET_GET_OUT_VOLUME:
+        case NET_SET_OUT_VOLUME:
         case NET_GET_STORAGE_INFO:
         case NET_GET_NTPCFG:
         case NET_SET_NTPCFG:
@@ -77,10 +84,30 @@ static bool IsDeviceLevelCommand(INT32 nCommand)
 }
 
 /**
+ * 判断命令码是否为各业务域独有的设备级命令
+ * @details 依次询问各业务域，命令码→设备级判断由域自行维护，
+ *          公用命令不在此处，见 IsDeviceLevelCommand。
+ * @param nCommand 命令码
+ * @return true 表示设备级命令，false 表示通道级命令
+ */
+static bool IsAnyDomainDeviceLevelCommand(INT32 nCommand)
+{
+#ifndef BU_SJLB_EXCLUDE
+    /* BU_SJLB 域（录播独有命令：录制/直播/文件列表/导播/云台/预置位/中控/布局/PVW2PGM/预约录制） */
+    if (CBujlbDomain::instance()->IsDeviceLevelCommand(nCommand))
+    {
+        return true;
+    }
+#endif
+
+    return false;
+}
+
+/**
  * 获取设备配置（一级路由）
  * @details 解析URL参数中的通道号和命令码，依次询问各域处理，
  *          第一个命中的域返回结果。所有域都不认识则返回 NET_E_CMD_NOT_SUPPORT。
- *          询问顺序：Common（通用） → SJGZ（视频/报警/AI） → SJCL（NVR/录播）
+ *          询问顺序：Common（通用） → SJGZ（视频/报警/AI） → SJCL（NVR/录播） → SJLB（设备基础）
  * @param req_data 请求数据（未使用）
  * @param url_param URL参数（包含channel和nCommand）
  * @return JSON格式的响应数据
@@ -93,7 +120,7 @@ std::string CDeviceConfigBusiness::GetDevConfig(const std::string& req_data, con
                   url_param.c_str(), nChannelId, nCommand);
 
     /* 通道级命令必须传入有效通道号 */
-    if (nChannelId < 0 && !IsDeviceLevelCommand(nCommand))
+    if (nChannelId < 0 && !IsDeviceLevelCommand(nCommand) && !IsAnyDomainDeviceLevelCommand(nCommand))
     {
         NETSDK_LOG_MESSAGE_WARN("GetDevConfig: channel required but nChannelId=%d, nCommand=%d", nChannelId, nCommand);
         return SDKConvert::to_respString(NET_E_INVALID_PARAM, nCommand);
@@ -124,6 +151,14 @@ std::string CDeviceConfigBusiness::GetDevConfig(const std::string& req_data, con
     }
 #endif
 
+    /* 4. SJLB 域（设备基础，条件编译） */
+#ifndef BU_SJLB_EXCLUDE
+    if (CBujlbDomain::instance()->TryHandleGet(nChannelId, nCommand, req_data, url_param, strResp))
+    {
+        return strResp;
+    }
+#endif
+
     /* 所有域都不认识 → 命令不支持 */
     NETSDK_LOG_MESSAGE_WARN("Unsupported GetDevConfig nCommand: %d", nCommand);
     return SDKConvert::to_respString(NET_E_CMD_NOT_SUPPORT, nCommand);
@@ -145,7 +180,7 @@ std::string CDeviceConfigBusiness::SetDevConfig(const std::string& req_data, con
                   url_param.c_str(), nChannelId, nCommand);
 
     /* 通道级命令必须传入有效通道号 */
-    if (nChannelId < 0 && !IsDeviceLevelCommand(nCommand))
+    if (nChannelId < 0 && !IsDeviceLevelCommand(nCommand) && !IsAnyDomainDeviceLevelCommand(nCommand))
     {
         NETSDK_LOG_MESSAGE_WARN("SetDevConfig: channel required but nChannelId=%d, nCommand=%d", nChannelId, nCommand);
         return SDKConvert::to_respString(NET_E_INVALID_PARAM, nCommand);
@@ -176,6 +211,13 @@ std::string CDeviceConfigBusiness::SetDevConfig(const std::string& req_data, con
     }
 #endif
 
+     /* 4. SJLB 域（设备基础，条件编译） */
+#ifndef BU_SJLB_EXCLUDE
+    if (CBujlbDomain::instance()->TryHandleSet(nChannelId, nCommand, req_data, url_param, strResp))
+    {
+        return strResp;
+    }
+#endif
 
 
     /* 所有域都不认识 → 命令不支持 */
