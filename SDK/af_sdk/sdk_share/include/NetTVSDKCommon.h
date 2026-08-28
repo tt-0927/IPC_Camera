@@ -1262,6 +1262,24 @@ typedef enum tagNETTVCfgCmd
 
     NET_GET_REGISTERINFO                  = 520,           /* 获取注册信息 参见NET_RegisterInfo_S */
     NET_SET_REGISTERINFO                  = 521,           /* 设置注册信息 参见NET_RegisterInfo_S */
+    NET_CONTROL_RECORD                    = 522,           /* 控制录制 参见NET_RecordControlInfo_S */
+    NET_GET_RECORD_INFO                   = 523,           /* 获取录制状态 参见NET_RecordControlInfo_S */
+    NET_CONTROL_LIVE                      = 524,           /* 控制直播 参见NET_LiveStatusInfo_S */
+    NET_GET_LIVE_STATUS                   = 525,           /* 获取直播状态 参见NET_LiveStatusInfo_S */
+    NET_GET_RECORD_FILE_LIST              = 526,           /* 获取录制文件列表 参见NET_RecordFileInfo_S */
+    NET_SET_DIRECTOR_MODE                 = 527,           /* 设置导播模式 参见NET_DirectorModeInfo_S */
+    NET_CONTROL_CAMERA                    = 528,           /* 云台控制 参见NET_CameraControlInfo_S */
+    NET_CONTROL_PRESET_BIT                = 529,           /* 预置位控制 参见NET_PresetBitInfo_S */
+    NET_CONTROL_EXTERNAL                  = 530,           /* 调用中控 参见NET_ExternalControlInfo_S */
+    NET_CONTROL_LAYOUT                    = 531,           /* 布局控制 参见NET_LayoutSelfInfo_S */
+    NET_SET_PVW2PGM                       = 532,           /* PVW切到PGM 参见NET_PVW2PGMInfo_S */
+    NET_GET_APPOINTMENT_INFO              = 533,           /* 获取预约录制列表 参见NET_AppointmentInfo_S */
+    NET_ADD_APPOINTMENT                   = 534,           /* 添加预约录制 参见NET_AppointmentItem_S */
+    NET_CONTROL_REBOOT                    = 535,           /* 控制设备重启 参见NET_RebootInfo_S */
+    NET_GET_OUT_VOLUME                    = 536,           /* 获取输出音量 参见NET_OutVolume_S */
+    NET_SET_OUT_VOLUME                    = 537,           /* 设置输出音量 参见NET_OutVolume_S */
+    NET_GET_SSH_SAFE_INFO                 = 538,           /* 获取SSH安全信息 参见NET_SshSafeInfo_S */
+    NET_SET_SSH_SAFE_INFO                 = 539,           /* 设置SSH安全信息 参见NET_SshSafeInfo_S */
 
     NET_CFG_INVALID                  = 0xFFFF            /* 无效值  Invalid value */
 
@@ -2403,6 +2421,8 @@ typedef struct tagNET_DeviceStorageInfo
  */
 typedef NET_DeviceStorageInfo_S* pNET_DeviceStorageInfo_S;
 
+/* ==================================录播=================================== */
+
 /**
  * @brief 激活时长类型
  */
@@ -2436,6 +2456,299 @@ typedef struct tagNET_RegisterInfo
  * @brief 注册信息结构体指针类型
  */
 typedef NET_RegisterInfo_S* pNET_RegisterInfo_S;
+
+/**
+ * @brief 录制控制/状态结构体-（录播）
+ * @note  对应设备 web 命令 30010/30132，
+ *        用于 NET_CONTROL_RECORD / NET_GET_RECORD_STATUS。
+ */
+typedef struct tagNET_RecordControlInfo
+{
+    INT32 nStatus;                          /* 录制状态，0-停止 1-录制中 */
+    INT32 nRecordMode;                      /* 录制模式 */
+    CHAR  szName[NET_LEN_260];              /* 课程名称 */
+    CHAR  szFileName[NET_LEN_256];          /* 录制文件名 */
+    CHAR  szMainTeacher[NET_LEN_132];       /* 主讲人 */
+    CHAR  szRoomName[NET_LEN_128];          /* 场地 */
+    CHAR  szNotes[NET_LEN_128];             /* 备注 */
+    INT32 nRecordTime;                      /* 已录制时长（秒），GET时有效 */
+    BYTE  byReserved[32];                   /* 保留字段 */
+} NET_RecordControlInfo_S;
+
+typedef NET_RecordControlInfo_S* pNET_RecordControlInfo_S;
+
+/**
+ * @brief 直播控制/状态结构体-（录播）
+ * @note  对应设备 web 命令 50070/30132 的 RtmpStatusInfo，
+ *        用于 NET_CONTROL_LIVE / NET_GET_LIVE_STATUS。
+ */
+typedef struct tagNET_LiveStatusInfo
+{
+    INT32 nStatus;                          /* 直播状态，0-停止 1-直播中 */
+    CHAR  szRtmpName[NET_LEN_256];          /* 直播名称/地址 */
+    INT32 nRtmpTime;                        /* 直播时长（秒） */
+    BYTE  byReserved[32];                   /* 保留字段 */
+} NET_LiveStatusInfo_S;
+
+typedef NET_LiveStatusInfo_S* pNET_LiveStatusInfo_S;
+
+/** @brief 录制文件列表最大条目数 */
+#define NET_RECORD_FILE_ITEM_MAX    256
+
+/**
+ * @brief 录制文件Item信息结构体-（录播）
+ * @note  对应设备侧 RecordFileItem_S，
+ *        用于 NET_GET_RECORD_FILE_LIST。
+ */
+typedef struct tagNET_RecordFileItem
+{
+    CHAR  szFileName[NET_LEN_512];      /* 文件名 */
+    INT32 nGroupId;                     /* 分组ID */
+    CHAR  szGroupName[NET_LEN_512];     /* 分组名称 */
+    CHAR  szStartTime[NET_LEN_128];     /* 开始录制时间 */
+    CHAR  szDurationTime[NET_LEN_128];  /* 录制时长 */
+    INT32 nFileSize;                    /* 文件大小 */
+    INT32 nFileFormat;                  /* 录制格式 */
+    INT32 nDamaged;                     /* 是否损坏 0-正常 1-损坏 */
+    CHAR  szCourseName[NET_LEN_128];    /* 课程名称(主题) */
+    CHAR  szKeySpeaker[NET_LEN_128];    /* 主讲人 */
+    CHAR  szLocation[NET_LEN_256];      /* 场地 */
+    CHAR  szNotes[NET_LEN_128];         /* 备注 */
+    INT32 nFtpUpload;                   /* FTP上传状态 */
+    INT32 nPlatformUpload;             /* 云平台上传状态 */
+    INT32 nDownloadCnt;                 /* 下载次数 */
+    BYTE  byReserved[32];              /* 保留字段 */
+} NET_RecordFileItem_S;
+
+typedef NET_RecordFileItem_S* pNET_RecordFileItem_S;
+
+/**
+ * @brief 录制文件列表信息结构体-（录播）
+ * @note  对应设备侧 RecordFileInfo_S，
+ *        用于 NET_GET_RECORD_FILE_LIST。
+ *        请求时填写 nCurPage/nPageSize，回调填充其余字段。
+ */
+typedef struct tagNET_RecordFileInfo
+{
+    INT32 nCurPage;                                     /* 当前页数（请求时填入） */
+    INT32 nCurPageSize;                                 /* 当前页Item数量（回调填充） */
+    INT32 nPageSize;                                    /* 每页文件数量（请求时填入） */
+    INT32 nTotal;                                       /* 文件总数（回调填充） */
+    CHAR  szCoverPath[NET_LEN_256];                     /* 封面路径（回调填充） */
+    INT32 nFileCount;                                   /* astFileItems有效条目数（回调填充） */
+    NET_RecordFileItem_S astFileItems[NET_RECORD_FILE_ITEM_MAX]; /* 文件信息数组 */
+    BYTE  byReserved[32];                               /* 保留字段 */
+} NET_RecordFileInfo_S;
+
+typedef NET_RecordFileInfo_S* pNET_RecordFileInfo_S;
+
+/**
+ * @brief 导播模式结构体-（录播）
+ * @note  用于 NET_SET_DIRECTOR_MODE (527)
+ *        enMode: 0-半自动 1-自动 2-手动
+ */
+typedef struct tagNET_DirectorModeInfo
+{
+    INT32 nMode;                           /* 导播模式: 0-半自动 1-自动 2-手动 */
+    BYTE  byReserved[32];                  /* 保留字段 */
+} NET_DirectorModeInfo_S;
+
+typedef NET_DirectorModeInfo_S* pNET_DirectorModeInfo_S;
+
+/**
+ * @brief 云台控制结构体-（录播）
+ * @note  用于 NET_CONTROL_CAMERA (528)
+ *        nType: 1-上 2-下 3-左 4-右 5-放大 6-缩小 7-设置预置位 8-调用预置位 9-停止转动 10-停止拉伸聚焦
+ */
+typedef struct tagNET_CameraControlInfo
+{
+    INT32 nId;                             /* 摄像机ID号 (0~7) */
+    INT32 nType;                           /* 控制类型 */
+    INT32 nSpeed;                          /* 速度 (0-100) */
+    INT32 nNum;                            /* 预置位号 */
+    BYTE  byReserved[32];                  /* 保留字段 */
+} NET_CameraControlInfo_S;
+
+typedef NET_CameraControlInfo_S* pNET_CameraControlInfo_S;
+
+/**
+ * @brief 预置位条目结构体-（录播）
+ */
+#define NET_PRESET_BIT_MAX   72    /* CAM_SDI_MAX(6) * PRESET_BIT_NUM(12) */
+
+typedef struct tagNET_PresetBitItem
+{
+    INT32 nCameraId;                       /* 摄像头ID号 */
+    INT32 nPresetNum;                      /* 预置位ID */
+    CHAR  szName[48];                      /* 预置位名称 */
+} NET_PresetBitItem_S;
+
+/**
+ * @brief 预置位信息结构体（用于获取预置位列表）-（录播）
+ * @note  用于 NET_CONTROL_PRESET_BIT (529) GET操作
+ */
+typedef struct tagNET_PresetBitInfo
+{
+    INT32 nTotal;                          /* 预置位总数 */
+    NET_PresetBitItem_S astItems[NET_PRESET_BIT_MAX]; /* 预置位列表 */
+    BYTE  byReserved[32];                  /* 保留字段 */
+} NET_PresetBitInfo_S;
+
+typedef NET_PresetBitInfo_S* pNET_PresetBitInfo_S;
+
+/**
+ * @brief 预置位操作结构体（用于设置/调用/删除预置位）-（录播）
+ * @note  用于 NET_CONTROL_PRESET_BIT (529) SET操作
+ *        nOptType: 0-设置 1-调用 2-删除 3-改名
+ */
+typedef struct tagNET_PresetBitCtrl
+{
+    INT32 nOptType;                        /* 操作类型: 0-设置 1-调用 2-删除 3-改名 */
+    INT32 nCameraId;                       /* 摄像头ID号 */
+    INT32 nPresetNum;                      /* 预置位ID */
+    CHAR  szName[48];                      /* 预置位名称 */
+    BYTE  byReserved[32];                  /* 保留字段 */
+} NET_PresetBitCtrl_S;
+
+typedef NET_PresetBitCtrl_S* pNET_PresetBitCtrl_S;
+
+/**
+ * @brief 中控调用结构体-（录播）
+ * @note  用于 NET_CONTROL_EXTERNAL (530) SET操作
+ *        nCmdCode: 中控命令码
+ */
+typedef struct tagNET_ExternalControlInfo
+{
+    INT32 nCmdCode;                        /* 中控命令码 */
+    BYTE  byReserved[32];                  /* 保留字段 */
+} NET_ExternalControlInfo_S;
+
+typedef NET_ExternalControlInfo_S* pNET_ExternalControlInfo_S;
+
+/**
+ * @brief 布局画面信息结构体-（录播）
+ */
+#define NET_LAYOUT_RECT_MAX   64    /* 最多 64 个画面 */
+
+typedef struct tagNET_LayoutRect
+{
+    INT32  nX;                             /* X坐标 */
+    INT32  nY;                             /* Y坐标 */
+    INT32  nW;                             /* 宽度 */
+    INT32  nH;                             /* 高度 */
+    INT32  nChannel;                       /* 通道号 */
+    INT64 nUserID;                        /* 用户ID（互动模式） */
+    INT32  nMyself;                        /* 是否显示自己画面 */
+} NET_LayoutRect_S;
+
+/**
+ * @brief 布局信息结构体-（录播）
+ * @note  用于 NET_CONTROL_LAYOUT (531)
+ *        nMovieMode: 0-PGM 1-PVW
+ *        enCtrlType: 0-使用布局 1-设置布局 2-自定义布局
+ */
+typedef struct tagNET_LayoutSelfInfo
+{
+    INT32 nNum;                            /* 画面个数 */
+    INT32 nMovieMode;                      /* 布局模式: 0-PGM 1-PVW */
+    INT32 nMplayout;                       /* 布局枚举值 */
+    INT32 nChannelPip;                     /* 画中画通道 */
+    INT32 enCtrlType;                      /* 布局操作类型 */
+    NET_LayoutRect_S astRect[NET_LAYOUT_RECT_MAX]; /* 画面布局数组 */
+    BYTE  byReserved[32];                  /* 保留字段 */
+} NET_LayoutSelfInfo_S;
+
+typedef NET_LayoutSelfInfo_S* pNET_LayoutSelfInfo_S;
+
+/**
+ * @brief PVW输出到PGM模式结构体-（录播）
+ * @note  用于 NET_SET_PVW2PGM (532)
+ *        nMode: 0-正常输出 1-会议跟踪模式
+ */
+typedef struct tagNET_PVW2PGMInfo
+{
+    INT32 nMode;                           /* PVW输出到PGM模式 */
+    BYTE  byReserved[32];                  /* 保留字段 */
+} NET_PVW2PGMInfo_S;
+
+typedef NET_PVW2PGMInfo_S* pNET_PVW2PGMInfo_S;
+
+/**
+ * @brief 预约录制条目结构体-（录播）
+ */
+#define NET_APPOINTMENT_NAME_LEN        128
+#define NET_APPOINTMENT_TIME_LEN        32
+#define NET_APPOINTMENT_TEACHER_LEN     64
+#define NET_APPOINTMENT_ROOM_LEN        64
+#define NET_APPOINTMENT_NOTE_LEN        128
+#define NET_APPOINTMENT_MAX             256
+
+typedef struct tagNET_AppointmentItem
+{
+    INT32 nID;                                             /* 数据库ID */
+    INT32 nWeekDay;                                        /* 星期几 1-7 */
+    CHAR  szName[NET_APPOINTMENT_NAME_LEN];                /* 课程/事件名称 */
+    CHAR  szStartTime[NET_APPOINTMENT_TIME_LEN];           /* 开始时间 */
+    CHAR  szStopTime[NET_APPOINTMENT_TIME_LEN];            /* 结束时间 */
+    INT32 nIsCir;                                          /* 0-循环 1-单次 */
+    CHAR  szTeacherName[NET_APPOINTMENT_TEACHER_LEN];      /* 主讲人 */
+    CHAR  szRoomName[NET_APPOINTMENT_ROOM_LEN];            /* 场地 */
+    CHAR  szNotes[NET_APPOINTMENT_NOTE_LEN];               /* 备注 */
+    BYTE  byReserved[32];                                  /* 保留字段 */
+} NET_AppointmentItem_S;
+
+/**
+ * @brief 预约录制列表结构体-（录播）
+ * @note  用于 NET_GET_APPOINTMENT_INFO (533)
+ */
+typedef struct tagNET_AppointmentInfo
+{
+    INT32 nTotal;                                          /* 条目总数 */
+    NET_AppointmentItem_S astItems[NET_APPOINTMENT_MAX];   /* 预约条目数组 */
+    BYTE  byReserved[32];                                  /* 保留字段 */
+} NET_AppointmentInfo_S;
+
+typedef NET_AppointmentInfo_S*  pNET_AppointmentInfo_S;
+typedef NET_AppointmentItem_S*  pNET_AppointmentItem_S;
+
+/**
+ * @brief 设备重启控制结构体
+ * @note  用于 NET_CONTROL_REBOOT (535)，当前无需额外字段
+ */
+typedef struct tagNET_RebootInfo
+{
+    BYTE byReserved[32];                                   /* 保留字段 */
+} NET_RebootInfo_S;
+
+typedef NET_RebootInfo_S* pNET_RebootInfo_S;
+
+/**
+ * @brief 输出音量结构体-（录播）
+ * @note  用于 NET_GET_OUT_VOLUME (536) / NET_SET_OUT_VOLUME (537)
+ */
+typedef struct tagNET_OutVolume
+{
+    INT32 nVolume;                                         /* 输出音量值 */
+    BYTE  byReserved[32];                                  /* 保留字段 */
+} NET_OutVolume_S;
+
+typedef NET_OutVolume_S* pNET_OutVolume_S;
+
+/**
+ * @brief SSH安全信息结构体-（录播）
+ * @note  用于 NET_GET_SSH_SAFE_INFO (538) / NET_SET_SSH_SAFE_INFO (539)
+ */
+typedef struct tagNET_SshSafeInfo
+{
+    INT32 nStatus;                                         /* SSH开关状态 */
+    INT32 nStartTime;                                      /* SSH开始时间 */
+    INT32 nTimeRemain;                                     /* SSH剩余时间 */
+    BYTE  byReserved[32];                                  /* 保留字段 */
+} NET_SshSafeInfo_S;
+
+typedef NET_SshSafeInfo_S* pNET_SshSafeInfo_S;
+
+/* ==================================录播 end=================================== */
 /**
  * @brief 系统时间/NTP校时配置结构体
  * @note  对应IPC侧System::TimeInfo_S，用于NET_GET_NTPCFG/NET_SET_NTPCFG
@@ -3490,13 +3803,11 @@ typedef NET_AlarmStatisticsInfo_S* pNET_AlarmStatisticsInfo_S;
 /* ==================== 通用抓拍结构体 ==================== */
 
 #define NET_CAPTURE_CROP_MAX_NUM 8 /* 单次抓拍最多裁剪小图数量 */
-
 /* 通用抓拍扩展字段长度，必须与 IPC 侧 TVSDK 定义保持一致。 */
 #define NET_CAPTURE_REGION_POINT_MAX_NUM    10
 #define NET_CAPTURE_TIMESTAMP_MAX_LEN       64
 #define NET_CAPTURE_VEHICLE_BRAND_MAX_LEN   128
 #define NET_CAPTURE_LICENSE_PLATE_MAX_LEN   64
-
 /**
  * @struct tagNET_ImageBuffer
  * @brief 图片二进制数据缓冲区，指针 + 长度组合，用于存储图片数据。
