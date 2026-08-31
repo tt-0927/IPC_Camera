@@ -1,25 +1,6 @@
-/**
- * @file AlarmInfoConvert.cpp
- * @author tianl (tianl@kfb.cn)
- * @date 2026-07-28
- * @LastEditors  : qinjt@kfb.cn
- * @LastEditTime : 2026-08-31
- *
- * @brief 实现告警结构体与 JSON 数据之间的双向转换。
- * 功能说明：
- * 1. 转换基础告警、规则告警和抓拍告警数据。
- * 2. 处理固定数组、Base64 图片和抓拍扩展属性。
- * 3. 保证 JSON 输入数据经过长度和数量限制后再写入 SDK 结构体。
- *
- * @par 修改记录
- * 2026-08-28 qinjt：统一抓拍属性转换辅助函数的命名、注释和内部链接属性。
- * 2026-08-31 qinjt：补充抓拍转换接口的边界和图片生命周期说明。
- */
-
-/* 禁用 Windows 的 min/max 宏。 */
+// 禁用 Windows 的 min/max 宏
 #define NOMINMAX
-
-/* 启用项目兼容性定义。 */
+// 然后才是您的兼容性代码
 #ifdef _MSC_VER
     #ifndef __func__
         #define __func__ __FUNCTION__
@@ -50,226 +31,166 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_Alarmer_S& stAlarmInfo, bool 
 
     SDKConvert::CSDKConvert convert(bOutStruct);
 
-    /* 处理序列号，将 BYTE 数组转换为字符串或将字符串写入 BYTE 数组。 */
+    // 处理序列号 (BYTE数组转字符串)
     if (bOutStruct)
     {
-        std::string strSerialNumber;
-        convert.field(pRootJson, "SerialNumber", strSerialNumber);
-        const std::size_t uCopyLength = std::min(
-            strSerialNumber.size(), static_cast<std::size_t>(NET_LEN_64));
-        memcpy(stAlarmInfo.strSerialNumber, strSerialNumber.c_str(), uCopyLength);
-        if (uCopyLength < NET_LEN_64)
+        // JSON转结构体：字符串转BYTE数组
+        std::string serialNumberStr;
+        convert.field(pRootJson, "SerialNumber", serialNumberStr);
+        size_t copy_len = std::min(serialNumberStr.size(), static_cast<size_t>(NET_LEN_64));
+        memcpy(stAlarmInfo.strSerialNumber, serialNumberStr.c_str(), copy_len);
+        if (copy_len < NET_LEN_64)
         {
-            stAlarmInfo.strSerialNumber[uCopyLength] = '\0';
+            stAlarmInfo.strSerialNumber[copy_len] = '\0';
         }
     }
     else
     {
-        std::string strSerialNumber(
-            reinterpret_cast<const char*>(stAlarmInfo.strSerialNumber), NET_LEN_64);
-        const std::size_t uLength =
-            strnlen(strSerialNumber.c_str(), NET_LEN_64);
-        strSerialNumber.resize(uLength);
-        Json::add(pRootJson, "SerialNumber", strSerialNumber);
+        // 结构体转JSON：BYTE数组转字符串
+        std::string serialNumberStr(reinterpret_cast<const char*>(stAlarmInfo.strSerialNumber), NET_LEN_64);
+        // 去除末尾的空字符
+        size_t len = strnlen(serialNumberStr.c_str(), NET_LEN_64);
+        serialNumberStr.resize(len);
+        Json::add(pRootJson, "SerialNumber", serialNumberStr);
     }
 
-    /* 处理设备名称字符数组。 */
+    // 处理设备名称 (CHAR数组)
     convert.field(pRootJson, "DeviceName", stAlarmInfo.strDeviceName);
 
-    /* 处理 MAC 地址，支持冒号和短横线两种分隔格式。 */
+    // 处理MAC地址 (BYTE数组转字符串，格式: XX:XX:XX:XX:XX:XX)
     if (bOutStruct)
     {
-        std::string strMacAddress;
-        convert.field(pRootJson, "MacAddress", strMacAddress);
-        std::string strDelimiter = ":";
-        if (strMacAddress.find('-') != std::string::npos)
+        // JSON转结构体：字符串转BYTE数组
+        std::string macAddrStr;
+        convert.field(pRootJson, "MacAddress", macAddrStr);
+        // 解析MAC地址字符串 "XX:XX:XX:XX:XX:XX" 或 "XX-XX-XX-XX-XX-XX"
+        std::string delimiter = ":";
+        if (macAddrStr.find('-') != std::string::npos)
         {
-            strDelimiter = "-";
+            delimiter = "-";
         }
 
-        std::stringstream stStream(strMacAddress);
-        std::string strByte;
-        int nIndex = 0;
-        while (std::getline(stStream, strByte, strDelimiter[0]) &&
-               nIndex < NET_LEN_6)
+        std::stringstream ss(macAddrStr);
+        std::string byteStr;
+        int idx = 0;
+        while (std::getline(ss, byteStr, delimiter[0]) && idx < NET_LEN_6)
         {
-            unsigned int uByteValue = 0;
-            std::stringstream stHexStream(strByte);
-            stHexStream >> std::hex >> uByteValue;
-            stAlarmInfo.byMacAddr[nIndex++] =
-                static_cast<BYTE>(uByteValue & 0xFF);
+            unsigned int byteVal = 0;
+            std::stringstream hexStream(byteStr);
+            hexStream >> std::hex >> byteVal;
+            stAlarmInfo.byMacAddr[idx++] = static_cast<BYTE>(byteVal & 0xFF);
         }
-        while (nIndex < NET_LEN_6)
+        // 填充剩余的字节为0
+        while (idx < NET_LEN_6)
         {
-            stAlarmInfo.byMacAddr[nIndex++] = 0;
+            stAlarmInfo.byMacAddr[idx++] = 0;
         }
     }
     else
     {
-        std::ostringstream stOutputStream;
+        // 结构体转JSON：BYTE数组转MAC地址字符串
+        std::ostringstream oss;
         for (int i = 0; i < NET_LEN_6; ++i)
         {
-            if (i > 0)
-            {
-                stOutputStream << ":";
-            }
-            stOutputStream << std::hex << std::setfill('0') << std::setw(2)
-                           << static_cast<unsigned int>(stAlarmInfo.byMacAddr[i]);
+            if (i > 0) oss << ":";
+            oss << std::hex << std::setfill('0') << std::setw(2)
+                << static_cast<unsigned int>(stAlarmInfo.byMacAddr[i]);
         }
-        Json::add(pRootJson, "MacAddress", stOutputStream.str());
+        Json::add(pRootJson, "MacAddress", oss.str());
     }
 
-    /* 处理设备 IP 地址字符数组。 */
+    // 处理IP地址 (CHAR数组)
     convert.field(pRootJson, "DeviceIP", stAlarmInfo.strDeviceIP);
 }
 
 namespace
 {
-/**
- * @brief 在 JSON 数组和固定长度字节数组之间转换。
- * @param [in,out] pRootJson JSON 根对象。
- * @param [in] strKey JSON 字段名称。
- * @param [in,out] aByteArray 待转换的字节数组。
- * @param [in] bOutStruct true 表示 JSON 转结构体，false 表示结构体转 JSON。
- * @return 无返回值。
- */
-template <std::size_t uArrayCapacity>
-static void alarm_info_convert_byte_array(
-    Json::Object* pRootJson,
-    const std::string& strKey,
-    BYTE (&aByteArray)[uArrayCapacity],
-    bool bOutStruct)
+template <size_t N>
+void ByteArrayField(Json::Object* pRootJson, const std::string& key, BYTE (&arr)[N], bool bOutStruct)
 {
-    if (!pRootJson)
-    {
-        return;
-    }
+    if (!pRootJson) return;
 
     if (bOutStruct)
     {
-        std::vector<int> aValues;
-        Json::Object* pJsonArray = Json::get(pRootJson, strKey);
-        if (pJsonArray)
+        std::vector<int> vec;
+        Json::Object* pArr = Json::get(pRootJson, key);
+        if (pArr)
         {
-            Json::Array::get(pJsonArray, aValues);
+            Json::Array::get(pArr, vec);
         }
-        for (std::size_t i = 0; i < uArrayCapacity; ++i)
+        for (size_t i = 0; i < N; ++i)
         {
-            int nValue = (i < aValues.size()) ? aValues[i] : 0;
-            if (nValue < 0)
-            {
-                nValue = 0;
-            }
-            if (nValue > 255)
-            {
-                nValue = 255;
-            }
-            aByteArray[i] = static_cast<BYTE>(nValue);
+            int v = (i < vec.size()) ? vec[i] : 0;
+            if (v < 0) v = 0;
+            if (v > 255) v = 255;
+            arr[i] = static_cast<BYTE>(v);
         }
     }
     else
     {
-        Json::Object* pJsonArray = Json::Array::init();
-        for (std::size_t i = 0; i < uArrayCapacity; ++i)
+        Json::Object* pArr = Json::Array::init();
+        for (size_t i = 0; i < N; ++i)
         {
-            Json::Array::add(pJsonArray, static_cast<int>(aByteArray[i]));
+            Json::Array::add(pArr, static_cast<int>(arr[i]));
         }
-        Json::add(pRootJson, strKey, pJsonArray);
+        Json::add(pRootJson, key, pArr);
     }
 }
 
-/**
- * @brief 在 JSON 字符串和固定长度字符数组之间转换。
- * @param [in,out] pRootJson JSON 根对象。
- * @param [in] strKey JSON 字段名称。
- * @param [in,out] aCharArray 待转换的字符数组。
- * @param [in] bOutStruct true 表示 JSON 转结构体，false 表示结构体转 JSON。
- * @return 无返回值。
- */
-template <std::size_t uArrayCapacity>
-static void alarm_info_convert_char_array(
-    Json::Object* pRootJson,
-    const std::string& strKey,
-    char (&aCharArray)[uArrayCapacity],
-    bool bOutStruct)
+template <size_t N>
+void CharArrayField(Json::Object* pRootJson, const std::string& key, char (&arr)[N], bool bOutStruct)
 {
-    if (!pRootJson)
-    {
-        return;
-    }
-    SDKConvert::CSDKConvert stConverter(bOutStruct);
-    stConverter.field(pRootJson, strKey, aCharArray);
+    if (!pRootJson) return;
+    SDKConvert::CSDKConvert convert(bOutStruct);
+    convert.field(pRootJson, key, arr);
 }
 
-/**
- * @brief 在 JSON Base64 字符串和固定长度图片数组之间转换。
- * @param [in,out] pRootJson JSON 根对象。
- * @param [in] strKey JSON 字段名称。
- * @param [in,out] aImageData 图片字节数组。
- * @param [in,out] uImageLength 图片有效长度。
- * @param [in] bOutStruct true 表示 JSON 转结构体，false 表示结构体转 JSON。
- * @return 无返回值。
- */
-template <std::size_t uArrayCapacity>
-static void alarm_info_convert_image_base64(
-    Json::Object* pRootJson,
-    const std::string& strKey,
-    BYTE (&aImageData)[uArrayCapacity],
-    UINT32& uImageLength,
-    bool bOutStruct)
+template <size_t N>
+void ImageBase64Field(Json::Object* pRootJson,
+                      const std::string& key,
+                      BYTE (&arr)[N],
+                      UINT32& len,
+                      bool bOutStruct)
 {
-    if (!pRootJson)
-    {
-        return;
-    }
+    if (!pRootJson) return;
 
     if (bOutStruct)
     {
-        std::string strBase64;
-        if (Json::get(pRootJson, strKey, strBase64) && !strBase64.empty())
+        std::string b64;
+        if (Json::get(pRootJson, key, b64) && !b64.empty())
         {
-            std::vector<unsigned char> aDecodedData;
-            if (SDKConvert::Base64Decode(strBase64, aDecodedData))
+            std::vector<unsigned char> decoded;
+            if (SDKConvert::Base64Decode(b64, decoded))
             {
-                const std::size_t uCopyLength = std::min(
-                    aDecodedData.size(), uArrayCapacity);
-                if (uCopyLength > 0)
+                size_t copyLen = std::min(decoded.size(), static_cast<size_t>(N));
+                if (copyLen > 0)
                 {
-                    std::memcpy(aImageData, aDecodedData.data(), uCopyLength);
+                    std::memcpy(arr, decoded.data(), copyLen);
                 }
-                uImageLength = static_cast<UINT32>(uCopyLength);
+                len = static_cast<UINT32>(copyLen);
             }
         }
         return;
     }
 
-    UINT32 uValidImageLength = uImageLength;
-    if (uValidImageLength > static_cast<UINT32>(uArrayCapacity))
+    UINT32 imageLen = len;
+    if (imageLen > static_cast<UINT32>(N))
     {
-        uValidImageLength = static_cast<UINT32>(uArrayCapacity);
+        imageLen = static_cast<UINT32>(N);
     }
-    if (uValidImageLength > 0)
+    if (imageLen > 0)
     {
-        const std::string strBase64 = SDKConvert::Base64Encode(
-            reinterpret_cast<const unsigned char*>(aImageData),
-            static_cast<std::size_t>(uValidImageLength));
-        Json::add(pRootJson, strKey, strBase64);
+        std::string b64 = SDKConvert::Base64Encode(reinterpret_cast<const unsigned char*>(arr),
+                                                   static_cast<size_t>(imageLen));
+        Json::add(pRootJson, key, b64);
     }
 }
 
-/**
- * @brief 在 JSON Base64 字符串和指针图片缓冲区之间转换。
- * @param [in,out] pRootJson JSON 根对象。
- * @param [in] strKey JSON 字段名称。
- * @param [in,out] stImage 图片缓冲区描述。
- * @param [in] bOutStruct true 表示 JSON 转结构体并分配内存，false 表示结构体转 JSON。
- * @return 无返回值。
- */
-static void alarm_info_convert_image_buffer_base64(
-    Json::Object* pRootJson,
-    const std::string& strKey,
-    NET_ImageBuffer_S& stImage,
-    bool bOutStruct)
+/* 指针图片不能使用固定数组转换，输入方向由转换器分配，客户端回调结束后释放。 */
+void ImageBufferBase64Field(Json::Object* pRootJson,
+                            const std::string& key,
+                            NET_ImageBuffer_S& image,
+                            bool bOutStruct)
 {
     if (!pRootJson)
     {
@@ -278,58 +199,46 @@ static void alarm_info_convert_image_buffer_base64(
 
     if (bOutStruct)
     {
-        stImage.pData = nullptr;
-        stImage.uDataLen = 0;
+        image.pData = nullptr;
+        image.uDataLen = 0;
 
-        std::string strBase64;
-        if (!Json::get(pRootJson, strKey, strBase64) || strBase64.empty())
+        std::string b64;
+        if (!Json::get(pRootJson, key, b64) || b64.empty())
         {
             return;
         }
 
-        std::vector<unsigned char> aDecodedData;
-        if (!SDKConvert::Base64Decode(strBase64, aDecodedData) ||
-            aDecodedData.empty() ||
-            aDecodedData.size() >
-                static_cast<std::size_t>(std::numeric_limits<UINT32>::max()))
+        std::vector<unsigned char> decoded;
+        if (!SDKConvert::Base64Decode(b64, decoded) || decoded.empty() ||
+            decoded.size() > static_cast<size_t>(std::numeric_limits<UINT32>::max()))
         {
             return;
         }
 
-        BYTE* pImageData = new (std::nothrow) BYTE[aDecodedData.size()];
-        if (!pImageData)
+        BYTE* pData = new (std::nothrow) BYTE[decoded.size()];
+        if (!pData)
         {
             return;
         }
 
-        std::memcpy(pImageData, aDecodedData.data(), aDecodedData.size());
-        stImage.pData = pImageData;
-        stImage.uDataLen = static_cast<UINT32>(aDecodedData.size());
+        std::memcpy(pData, decoded.data(), decoded.size());
+        image.pData = pData;
+        image.uDataLen = static_cast<UINT32>(decoded.size());
         return;
     }
 
-    if (stImage.pData && stImage.uDataLen > 0)
+    if (image.pData && image.uDataLen > 0)
     {
-        const std::string strBase64 = SDKConvert::Base64Encode(
-            reinterpret_cast<const unsigned char*>(stImage.pData),
-            stImage.uDataLen);
-        Json::add(pRootJson, strKey, strBase64);
+        const std::string b64 = SDKConvert::Base64Encode(
+            reinterpret_cast<const unsigned char*>(image.pData), image.uDataLen);
+        Json::add(pRootJson, key, b64);
     }
 }
 
-/**
- * @brief 在 JSON 对象和抓拍多边形区域之间转换。
- * @param [in,out] pRootJson JSON 根对象。
- * @param [in] strKey 多边形区域字段名称。
- * @param [in,out] stPolygon 抓拍多边形区域。
- * @param [in] bOutStruct true 表示 JSON 转结构体，false 表示结构体转 JSON。
- * @return 无返回值。
- */
-static void alarm_info_convert_capture_polygon(
-    Json::Object* pRootJson,
-    const std::string& strKey,
-    NET_CapturePolygon_S& stPolygon,
-    bool bOutStruct)
+void CapturePolygonField(Json::Object* pRootJson,
+                         const std::string& key,
+                         NET_CapturePolygon_S& polygon,
+                         bool bOutStruct)
 {
     if (!pRootJson)
     {
@@ -338,118 +247,100 @@ static void alarm_info_convert_capture_polygon(
 
     if (bOutStruct)
     {
-        Json::Object* pJsonPolygon = Json::get(pRootJson, strKey);
-        if (!pJsonPolygon)
+        Json::Object* pPolygon = Json::get(pRootJson, key);
+        if (!pPolygon)
         {
             return;
         }
 
-        UINT32 uPointCount = 0;
-        Json::get(pJsonPolygon, "PointCount", uPointCount);
-        const UINT32 uMaxPointCount = NET_CAPTURE_REGION_POINT_MAX_NUM;
-        const UINT32 uXCount = static_cast<UINT32>(Json::Array::size(
-            Json::get(pJsonPolygon, "PointX")));
-        const UINT32 uYCount = static_cast<UINT32>(Json::Array::size(
-            Json::get(pJsonPolygon, "PointY")));
-        uPointCount = std::min(uPointCount, uMaxPointCount);
-        uPointCount = std::min(uPointCount, std::min(uXCount, uYCount));
+        UINT32 pointCount = 0;
+        Json::get(pPolygon, "PointCount", pointCount);
+        const UINT32 maxPointCount = NET_CAPTURE_REGION_POINT_MAX_NUM;
+        const UINT32 xCount = static_cast<UINT32>(Json::Array::size(Json::get(pPolygon, "PointX")));
+        const UINT32 yCount = static_cast<UINT32>(Json::Array::size(Json::get(pPolygon, "PointY")));
+        pointCount = std::min(pointCount, maxPointCount);
+        pointCount = std::min(pointCount, std::min(xCount, yCount));
 
-        Json::Object* pJsonXValues = Json::get(pJsonPolygon, "PointX");
-        Json::Object* pJsonYValues = Json::get(pJsonPolygon, "PointY");
-        for (UINT32 i = 0; i < uPointCount; ++i)
+        Json::Object* pXs = Json::get(pPolygon, "PointX");
+        Json::Object* pYs = Json::get(pPolygon, "PointY");
+        for (UINT32 i = 0; i < pointCount; ++i)
         {
-            Json::Object* pJsonX = Json::Array::get(
-                pJsonXValues, static_cast<int>(i));
-            Json::Object* pJsonY = Json::Array::get(
-                pJsonYValues, static_cast<int>(i));
-            if (pJsonX && pJsonY)
+            Json::Object* pX = Json::Array::get(pXs, static_cast<int>(i));
+            Json::Object* pY = Json::Array::get(pYs, static_cast<int>(i));
+            if (pX && pY)
             {
-                double dPointX = 0.0;
-                double dPointY = 0.0;
-                Json::Value::get(pJsonX, dPointX);
-                Json::Value::get(pJsonY, dPointY);
-                stPolygon.afPointX[i] = static_cast<FLOAT>(dPointX);
-                stPolygon.afPointY[i] = static_cast<FLOAT>(dPointY);
+                double x = 0.0;
+                double y = 0.0;
+                Json::Value::get(pX, x);
+                Json::Value::get(pY, y);
+                polygon.afPointX[i] = static_cast<FLOAT>(x);
+                polygon.afPointY[i] = static_cast<FLOAT>(y);
             }
         }
-        stPolygon.uPointCount = uPointCount;
+        polygon.uPointCount = pointCount;
         return;
     }
 
-    const UINT32 uPointCount = std::min(
-        stPolygon.uPointCount,
-        static_cast<UINT32>(NET_CAPTURE_REGION_POINT_MAX_NUM));
-    Json::Object* pJsonPolygon = Json::init();
-    Json::Object* pJsonXValues = Json::Array::init();
-    Json::Object* pJsonYValues = Json::Array::init();
-    if (!pJsonPolygon || !pJsonXValues || !pJsonYValues)
+    const UINT32 pointCount = std::min(polygon.uPointCount,
+                                       static_cast<UINT32>(NET_CAPTURE_REGION_POINT_MAX_NUM));
+    Json::Object* pPolygon = Json::init();
+    Json::Object* pXs = Json::Array::init();
+    Json::Object* pYs = Json::Array::init();
+    if (!pPolygon || !pXs || !pYs)
     {
-        if (pJsonPolygon)
+        if (pPolygon)
         {
-            Json::deinit(pJsonPolygon);
+            Json::deinit(pPolygon);
         }
-        if (pJsonXValues)
+        if (pXs)
         {
-            Json::deinit(pJsonXValues);
+            Json::deinit(pXs);
         }
-        if (pJsonYValues)
+        if (pYs)
         {
-            Json::deinit(pJsonYValues);
+            Json::deinit(pYs);
         }
         return;
     }
 
-    Json::add(pJsonPolygon, "PointCount", uPointCount);
-    for (UINT32 i = 0; i < uPointCount; ++i)
+    Json::add(pPolygon, "PointCount", pointCount);
+    for (UINT32 i = 0; i < pointCount; ++i)
     {
-        Json::Array::add(pJsonXValues, stPolygon.afPointX[i]);
-        Json::Array::add(pJsonYValues, stPolygon.afPointY[i]);
+        Json::Array::add(pXs, polygon.afPointX[i]);
+        Json::Array::add(pYs, polygon.afPointY[i]);
     }
-    Json::add(pJsonPolygon, "PointX", pJsonXValues);
-    Json::add(pJsonPolygon, "PointY", pJsonYValues);
-    Json::add(pRootJson, strKey, pJsonPolygon);
+    Json::add(pPolygon, "PointX", pXs);
+    Json::add(pPolygon, "PointY", pYs);
+    Json::add(pRootJson, key, pPolygon);
 }
 
-/**
- * @brief 在 JSON 对象和抓拍扩展属性之间转换。
- * @param [in,out] pRootJson JSON 根对象。
- * @param [in,out] stExtraInfo 抓拍扩展属性结构体。
- * @param [in] bOutStruct true 表示 JSON 转结构体，false 表示结构体转 JSON。
- * @return 无返回值。
- */
-static void alarm_info_convert_capture_extra_info(
-    Json::Object* pRootJson,
-    NET_CaptureExtraInfo_S& stExtraInfo,
-    bool bOutStruct)
+void CaptureExtraInfoField(Json::Object* pRootJson,
+                           NET_CaptureExtraInfo_S& extra,
+                           bool bOutStruct)
 {
     if (!pRootJson)
     {
         return;
     }
 
-    SDKConvert::CSDKConvert stConverter(bOutStruct);
-    stConverter.field(pRootJson, "Male", stExtraInfo.bMale);
-    stConverter.field(pRootJson, "AgeLabel", stExtraInfo.nAgeLabel);
-    stConverter.field(pRootJson, "Glasses", stExtraInfo.bGlasses);
-    stConverter.field(pRootJson, "Beard", stExtraInfo.bBeard);
-    stConverter.field(pRootJson, "Mask", stExtraInfo.bMask);
-    stConverter.field(pRootJson, "EmotionLabel", stExtraInfo.nEmotionLabel);
-    stConverter.field(pRootJson, "Bag", stExtraInfo.bBag);
-    stConverter.field(pRootJson, "TopColorLabel", stExtraInfo.nTopColorLabel);
-    stConverter.field(
-        pRootJson, "BottomColorLabel", stExtraInfo.nBottomColorLabel);
-    stConverter.field(pRootJson, "VehicleType", stExtraInfo.nVehicleType);
-    stConverter.field(pRootJson, "VehicleColor", stExtraInfo.nVehicleColor);
-    alarm_info_convert_char_array(
-        pRootJson, "VehicleBrand", stExtraInfo.strVehicleBrand, bOutStruct);
-    alarm_info_convert_char_array(pRootJson, "LicensePlateNumber",
-                   stExtraInfo.strLicensePlateNumber, bOutStruct);
-    alarm_info_convert_char_array(
-        pRootJson, "Timestamp", stExtraInfo.strTimestamp, bOutStruct);
-    alarm_info_convert_capture_polygon(
-        pRootJson, "TargetRegion", stExtraInfo.stTargetRegion, bOutStruct);
+    SDKConvert::CSDKConvert convert(bOutStruct);
+    convert.field(pRootJson, "Male", extra.bMale);
+    convert.field(pRootJson, "AgeLabel", extra.nAgeLabel);
+    convert.field(pRootJson, "Glasses", extra.bGlasses);
+    convert.field(pRootJson, "Beard", extra.bBeard);
+    convert.field(pRootJson, "Mask", extra.bMask);
+    convert.field(pRootJson, "EmotionLabel", extra.nEmotionLabel);
+    convert.field(pRootJson, "Bag", extra.bBag);
+    convert.field(pRootJson, "TopColorLabel", extra.nTopColorLabel);
+    convert.field(pRootJson, "BottomColorLabel", extra.nBottomColorLabel);
+    convert.field(pRootJson, "VehicleType", extra.nVehicleType);
+    convert.field(pRootJson, "VehicleColor", extra.nVehicleColor);
+    CharArrayField(pRootJson, "VehicleBrand", extra.strVehicleBrand, bOutStruct);
+    CharArrayField(pRootJson, "LicensePlateNumber", extra.strLicensePlateNumber, bOutStruct);
+    CharArrayField(pRootJson, "Timestamp", extra.strTimestamp, bOutStruct);
+    CapturePolygonField(pRootJson, "TargetRegion", extra.stTargetRegion, bOutStruct);
 }
-}
+} // namespace
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_AlarmBasicInfo_S& stInfo, bool bOutStruct)
 {
@@ -459,12 +350,12 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_AlarmBasicInfo_S& stInfo, boo
     convert.field(pRootJson, "AlarmType", (int&)stInfo.uAlarmType);
     convert.field(pRootJson, "AlarmInputNumber", (int&)stInfo.uAlarmInputNumber);
 
-    alarm_info_convert_byte_array(pRootJson, "AlarmOutputNumber", stInfo.byAlarmOutputNumber, bOutStruct);
-    alarm_info_convert_byte_array(pRootJson, "AlarmRelateChannel", stInfo.byAlarmRelateChannel, bOutStruct);
-    alarm_info_convert_byte_array(pRootJson, "Channel", stInfo.byChannel, bOutStruct);
-    alarm_info_convert_byte_array(pRootJson, "DiskNumber", stInfo.byDiskNumber, bOutStruct);
+    ByteArrayField(pRootJson, "AlarmOutputNumber", stInfo.byAlarmOutputNumber, bOutStruct);
+    ByteArrayField(pRootJson, "AlarmRelateChannel", stInfo.byAlarmRelateChannel, bOutStruct);
+    ByteArrayField(pRootJson, "Channel", stInfo.byChannel, bOutStruct);
+    ByteArrayField(pRootJson, "DiskNumber", stInfo.byDiskNumber, bOutStruct);
     convert.field(pRootJson, "PanoramaImgLen", (int&)stInfo.uPanoramaImgLen);
-    alarm_info_convert_image_base64(pRootJson, "PanoramaImgBase64", stInfo.byPanoramaImg, stInfo.uPanoramaImgLen, bOutStruct);
+    ImageBase64Field(pRootJson, "PanoramaImgBase64", stInfo.byPanoramaImg, stInfo.uPanoramaImgLen, bOutStruct);
     convert.field(pRootJson, "TimestampMs", stInfo.llTimestampMs);
 }
 
@@ -477,7 +368,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_AlarmRuleInfo_S& stInfo, bool
     convert.field(pRootJson, "Channel", (int&)stInfo.uChannel);
     convert.field(pRootJson, "RuleID", (int&)stInfo.uRuleID);
     convert.field(pRootJson, "RuleType", (int&)stInfo.uRuleType);
-    alarm_info_convert_char_array(pRootJson, "RuleName", stInfo.strRuleName, bOutStruct);
+    CharArrayField(pRootJson, "RuleName", stInfo.strRuleName, bOutStruct);
     convert.field(pRootJson, "TargetID", (int&)stInfo.uTargetID);
     convert.field(pRootJson, "ObjectType", (int&)stInfo.uObjectType);
     convert.field(pRootJson, "Confidence", stInfo.fConfidence);
@@ -486,9 +377,9 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_AlarmRuleInfo_S& stInfo, bool
     convert.field(pRootJson, "Right", (int&)stInfo.nRight);
     convert.field(pRootJson, "Bottom", (int&)stInfo.nBottom);
     convert.field(pRootJson, "PanoramaImgLen", (int&)stInfo.uPanoramaImgLen);
-    alarm_info_convert_image_base64(pRootJson, "PanoramaImgBase64", stInfo.byPanoramaImg, stInfo.uPanoramaImgLen, bOutStruct);
+    ImageBase64Field(pRootJson, "PanoramaImgBase64", stInfo.byPanoramaImg, stInfo.uPanoramaImgLen, bOutStruct);
     convert.field(pRootJson, "TargetImgLen", (int&)stInfo.uTargetImgLen);
-    alarm_info_convert_image_base64(pRootJson, "TargetImgBase64", stInfo.byTargetImg, stInfo.uTargetImgLen, bOutStruct);
+    ImageBase64Field(pRootJson, "TargetImgBase64", stInfo.byTargetImg, stInfo.uTargetImgLen, bOutStruct);
     convert.field(pRootJson, "TimestampMs", stInfo.llTimestampMs);
 }
 
@@ -505,13 +396,13 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_AlarmAiObjectInfo_S& stInfo, 
     convert.field(pRootJson, "Top", (int&)stInfo.nTop);
     convert.field(pRootJson, "Right", (int&)stInfo.nRight);
     convert.field(pRootJson, "Bottom", (int&)stInfo.nBottom);
-    alarm_info_convert_char_array(pRootJson, "ObjectID", stInfo.strObjectID, bOutStruct);
+    CharArrayField(pRootJson, "ObjectID", stInfo.strObjectID, bOutStruct);
     convert.field(pRootJson, "PanoramaImgLen", (int&)stInfo.uPanoramaImgLen);
-    alarm_info_convert_image_base64(pRootJson, "PanoramaImgBase64", stInfo.byPanoramaImg, stInfo.uPanoramaImgLen, bOutStruct);
+    ImageBase64Field(pRootJson, "PanoramaImgBase64", stInfo.byPanoramaImg, stInfo.uPanoramaImgLen, bOutStruct);
     convert.field(pRootJson, "ImgLen", (int&)stInfo.uImgLen);
     convert.field(pRootJson, "TimestampMs", stInfo.llTimestampMs);
 
-    alarm_info_convert_image_base64(pRootJson, "ImgDataBase64", stInfo.byImgData, stInfo.uImgLen, bOutStruct);
+    ImageBase64Field(pRootJson, "ImgDataBase64", stInfo.byImgData, stInfo.uImgLen, bOutStruct);
 }
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_AlarmFaceCompareInfo_S& stInfo, bool bOutStruct)
@@ -526,15 +417,15 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_AlarmFaceCompareInfo_S& stInf
     convert.field(pRootJson, "CompareResult", stInfo.nCompResult);
     convert.field(pRootJson, "Similarity", stInfo.nSimilarity);
     convert.field(pRootJson, "FaceID", stInfo.nFaceId);
-    alarm_info_convert_char_array(pRootJson, "FaceName", stInfo.strFaceName, bOutStruct);
-    alarm_info_convert_char_array(pRootJson, "FaceLibName", stInfo.strFaceLibName, bOutStruct);
-    alarm_info_convert_char_array(pRootJson, "LibFacePath", stInfo.strLibFacePath, bOutStruct);
-    alarm_info_convert_char_array(pRootJson, "CapFacePath", stInfo.strCapFacePath, bOutStruct);
-    alarm_info_convert_char_array(pRootJson, "CapImagePath", stInfo.strCapImagePath, bOutStruct);
+    CharArrayField(pRootJson, "FaceName", stInfo.strFaceName, bOutStruct);
+    CharArrayField(pRootJson, "FaceLibName", stInfo.strFaceLibName, bOutStruct);
+    CharArrayField(pRootJson, "LibFacePath", stInfo.strLibFacePath, bOutStruct);
+    CharArrayField(pRootJson, "CapFacePath", stInfo.strCapFacePath, bOutStruct);
+    CharArrayField(pRootJson, "CapImagePath", stInfo.strCapImagePath, bOutStruct);
     convert.field(pRootJson, "LibFaceImgLen", (int&)stInfo.uLibFaceImgLen);
     convert.field(pRootJson, "CapFaceImgLen", (int&)stInfo.uCapFaceImgLen);
-    alarm_info_convert_image_base64(pRootJson, "LibFaceImgBase64", stInfo.byLibFaceImg, stInfo.uLibFaceImgLen, bOutStruct);
-    alarm_info_convert_image_base64(pRootJson, "CapFaceImgBase64", stInfo.byCapFaceImg, stInfo.uCapFaceImgLen, bOutStruct);
+    ImageBase64Field(pRootJson, "LibFaceImgBase64", stInfo.byLibFaceImg, stInfo.uLibFaceImgLen, bOutStruct);
+    ImageBase64Field(pRootJson, "CapFaceImgBase64", stInfo.byCapFaceImg, stInfo.uCapFaceImgLen, bOutStruct);
 }
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_AlarmPlateInfo_S& stInfo, bool bOutStruct)
@@ -544,7 +435,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_AlarmPlateInfo_S& stInfo, boo
     SDKConvert::CSDKConvert convert(bOutStruct);
     convert.field(pRootJson, "AlarmType", (int&)stInfo.uAlarmType);
     convert.field(pRootJson, "Channel", (int&)stInfo.uChannel);
-    alarm_info_convert_char_array(pRootJson, "PlateNumber", stInfo.strPlateNumber, bOutStruct);
+    CharArrayField(pRootJson, "PlateNumber", stInfo.strPlateNumber, bOutStruct);
     convert.field(pRootJson, "PlateColor", (int&)stInfo.uPlateColor);
     convert.field(pRootJson, "VehicleType", (int&)stInfo.uVehicleType);
     convert.field(pRootJson, "Confidence", stInfo.fConfidence);
@@ -607,7 +498,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_AlarmStatisticsTarget_S& stIn
     convert.field(pRootJson, "TimestampMs", stInfo.llTimestampMs);
     convert.field(pRootJson, "Direction", stInfo.nDirection);
 
-    alarm_info_convert_image_base64(pRootJson, "ImgDataBase64", stInfo.byImgData, stInfo.uImgLen, bOutStruct);
+    ImageBase64Field(pRootJson, "ImgDataBase64", stInfo.byImgData, stInfo.uImgLen, bOutStruct);
 }
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_AlarmStatisticsInfo_S& stInfo, bool bOutStruct)
@@ -698,11 +589,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_AlarmStatisticsInfo_S& stInfo
 
 /**
  * @brief 在 JSON 与通用抓拍告警结构之间转换。
- * @param [in,out] pRootJson JSON 根对象；根据 bOutStruct 作为输入或输出。
- * @param [in,out] stInfo 通用抓拍告警结构体；根据 bOutStruct 作为输入或输出。
- * @param [in] bOutStruct true 表示 JSON 转结构体，false 表示结构体转 JSON。
- * @return 无返回值。
- * @details 图片通过 Base64 传输。JSON 转结构体时由转换器分配图片内存，调用方必须在
+ * @details 图片通过 Base64 传输，客户端输入方向会分配图片内存，调用方必须在
  *          回调结束后释放 stPanoramaImg 和各裁剪图中的 pData。
  */
 void SDKConvert::deal(Json::Object* pRootJson, NET_AlarmCaptureInfo_S& stInfo, bool bOutStruct)
@@ -720,24 +607,22 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_AlarmCaptureInfo_S& stInfo, b
     convert.field(pRootJson, "PanoramaWidth", stInfo.uPanoramaWidth);
     convert.field(pRootJson, "PanoramaHeight", stInfo.uPanoramaHeight);
     convert.field(pRootJson, "PanoramaImgLen", stInfo.stPanoramaImg.uDataLen);
-    alarm_info_convert_image_buffer_base64(
-        pRootJson, "PanoramaImgBase64", stInfo.stPanoramaImg, bOutStruct);
+    ImageBufferBase64Field(pRootJson, "PanoramaImgBase64", stInfo.stPanoramaImg, bOutStruct);
 
     if (bOutStruct)
     {
         Json::Object* pCrops = Json::get(pRootJson, "Crops");
-        const UINT32 uJsonCropCount = pCrops
+        const UINT32 jsonCropCount = pCrops
             ? static_cast<UINT32>(Json::Array::size(pCrops))
             : 0;
-        UINT32 uCropCount = stInfo.uCropCount;
-        if (uCropCount == 0 || uCropCount > uJsonCropCount)
+        UINT32 cropCount = stInfo.uCropCount;
+        if (cropCount == 0 || cropCount > jsonCropCount)
         {
-            uCropCount = uJsonCropCount;
+            cropCount = jsonCropCount;
         }
-        uCropCount = std::min(
-            uCropCount, static_cast<UINT32>(NET_CAPTURE_CROP_MAX_NUM));
+        cropCount = std::min(cropCount, static_cast<UINT32>(NET_CAPTURE_CROP_MAX_NUM));
 
-        for (UINT32 i = 0; i < uCropCount; ++i)
+        for (UINT32 i = 0; i < cropCount; ++i)
         {
             Json::Object* pCrop = Json::Array::get(pCrops, static_cast<int>(i));
             if (!pCrop)
@@ -745,47 +630,44 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_AlarmCaptureInfo_S& stInfo, b
                 continue;
             }
 
-            NET_CropImage_S& stCrop = stInfo.stCropImages[i];
-            convert.field(pCrop, "CropX", stCrop.uCropX);
-            convert.field(pCrop, "CropY", stCrop.uCropY);
-            convert.field(pCrop, "CropWidth", stCrop.uCropWidth);
-            convert.field(pCrop, "CropHeight", stCrop.uCropHeight);
-            convert.field(pCrop, "TargetType", stCrop.uTargetType);
-            convert.field(pCrop, "Confidence", stCrop.fConfidence);
-            convert.field(pCrop, "TrackID", stCrop.nTrackID);
-            convert.field(pCrop, "ImgLen", stCrop.stImage.uDataLen);
-            alarm_info_convert_image_buffer_base64(
-                pCrop, "ImgBase64", stCrop.stImage, true);
+            NET_CropImage_S& crop = stInfo.stCropImages[i];
+            convert.field(pCrop, "CropX", crop.uCropX);
+            convert.field(pCrop, "CropY", crop.uCropY);
+            convert.field(pCrop, "CropWidth", crop.uCropWidth);
+            convert.field(pCrop, "CropHeight", crop.uCropHeight);
+            convert.field(pCrop, "TargetType", crop.uTargetType);
+            convert.field(pCrop, "Confidence", crop.fConfidence);
+            convert.field(pCrop, "TrackID", crop.nTrackID);
+            convert.field(pCrop, "ImgLen", crop.stImage.uDataLen);
+            ImageBufferBase64Field(pCrop, "ImgBase64", crop.stImage, true);
         }
-        stInfo.uCropCount = uCropCount;
+        stInfo.uCropCount = cropCount;
     }
     else
     {
-        stInfo.uCropCount = std::min(
-            stInfo.uCropCount,
-            static_cast<UINT32>(NET_CAPTURE_CROP_MAX_NUM));
+        stInfo.uCropCount = std::min(stInfo.uCropCount,
+                                     static_cast<UINT32>(NET_CAPTURE_CROP_MAX_NUM));
         convert.field(pRootJson, "CropCount", stInfo.uCropCount);
         Json::Object* pCrops = Json::Array::init();
         if (pCrops)
         {
             for (UINT32 i = 0; i < stInfo.uCropCount; ++i)
             {
-                NET_CropImage_S& stCrop = stInfo.stCropImages[i];
+                NET_CropImage_S& crop = stInfo.stCropImages[i];
                 Json::Object* pCrop = Json::init();
                 if (!pCrop)
                 {
                     continue;
                 }
-                convert.field(pCrop, "CropX", stCrop.uCropX);
-                convert.field(pCrop, "CropY", stCrop.uCropY);
-                convert.field(pCrop, "CropWidth", stCrop.uCropWidth);
-                convert.field(pCrop, "CropHeight", stCrop.uCropHeight);
-                convert.field(pCrop, "TargetType", stCrop.uTargetType);
-                convert.field(pCrop, "Confidence", stCrop.fConfidence);
-                convert.field(pCrop, "TrackID", stCrop.nTrackID);
-                convert.field(pCrop, "ImgLen", stCrop.stImage.uDataLen);
-                alarm_info_convert_image_buffer_base64(
-                    pCrop, "ImgBase64", stCrop.stImage, false);
+                convert.field(pCrop, "CropX", crop.uCropX);
+                convert.field(pCrop, "CropY", crop.uCropY);
+                convert.field(pCrop, "CropWidth", crop.uCropWidth);
+                convert.field(pCrop, "CropHeight", crop.uCropHeight);
+                convert.field(pCrop, "TargetType", crop.uTargetType);
+                convert.field(pCrop, "Confidence", crop.fConfidence);
+                convert.field(pCrop, "TrackID", crop.nTrackID);
+                convert.field(pCrop, "ImgLen", crop.stImage.uDataLen);
+                ImageBufferBase64Field(pCrop, "ImgBase64", crop.stImage, false);
                 Json::Array::add(pCrops, pCrop);
             }
             Json::add(pRootJson, "Crops", pCrops);
@@ -797,8 +679,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_AlarmCaptureInfo_S& stInfo, b
     {
         if (pExtra)
         {
-            alarm_info_convert_capture_extra_info(
-                pExtra, stInfo.stExtraInfo, true);
+            CaptureExtraInfoField(pExtra, stInfo.stExtraInfo, true);
         }
     }
     else
@@ -806,8 +687,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_AlarmCaptureInfo_S& stInfo, b
         pExtra = Json::init();
         if (pExtra)
         {
-            alarm_info_convert_capture_extra_info(
-                pExtra, stInfo.stExtraInfo, false);
+            CaptureExtraInfoField(pExtra, stInfo.stExtraInfo, false);
             Json::add(pRootJson, "ExtraInfo", pExtra);
         }
     }
@@ -815,65 +695,39 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_AlarmCaptureInfo_S& stInfo, b
 
 /* ==================== 从 DeviceInfoConvert 搬运: 录像/报警/AI/NVR ==================== */
 
-/**
- * @brief 将 JSON 浮点数组转换为固定容量的浮点数组。
- * @param [in] pRootJson JSON 根对象。
- * @param [in] pstrKey JSON 数组字段名称。
- * @param [out] pValues 输出浮点数组。
- * @param [in] nMaxCount 输出数组最大元素数量。
- * @return 无返回值。
- */
-static void alarm_info_json_to_float_array(
-    Json::Object* pRootJson,
-    const char* pstrKey,
-    FLOAT* pValues,
-    int nMaxCount)
+static void JsonToFloatArray(Json::Object* pRootJson, const char* key, FLOAT* values, int maxCount)
 {
-    Json::Object* pArray = Json::get(pRootJson, pstrKey);
+    Json::Object* pArray = Json::get(pRootJson, key);
     if (!pArray)
     {
         return;
     }
 
-    const int nSize = Json::Array::size(pArray);
-    for (int i = 0; i < nSize && i < nMaxCount; ++i)
+    int nSize = Json::Array::size(pArray);
+    for (int i = 0; i < nSize && i < maxCount; i++)
     {
         Json::Object* pItem = Json::Array::get(pArray, i);
         if (pItem)
         {
-            double dValue = 0.0;
-            Json::Value::get(pItem, dValue);
-            pValues[i] = static_cast<FLOAT>(dValue);
+            double dVal = 0.0;
+            Json::Value::get(pItem, dVal);
+            values[i] = (FLOAT)dVal;
         }
     }
 }
 
-/**
- * @brief 将固定容量的浮点数组转换为 JSON 数组。
- * @param [in,out] pRootJson JSON 根对象。
- * @param [in] pstrKey JSON 数组字段名称。
- * @param [in] pValues 待转换的浮点数组。
- * @param [in] nCount 有效元素数量。
- * @param [in] nMaxCount 数组最大元素数量。
- * @return 无返回值。
- */
-static void alarm_info_float_array_to_json(
-    Json::Object* pRootJson,
-    const char* pstrKey,
-    const FLOAT* pValues,
-    int nCount,
-    int nMaxCount)
+static void FloatArrayToJson(Json::Object* pRootJson, const char* key, const FLOAT* values, int count, int maxCount)
 {
     Json::Object* pArray = Json::Array::init();
-    if (nCount > nMaxCount)
+    if (count > maxCount)
     {
-        nCount = nMaxCount;
+        count = maxCount;
     }
-    for (int i = 0; i < nCount; ++i)
+    for (int i = 0; i < count; i++)
     {
-        Json::Array::add(pArray, static_cast<float>(pValues[i]));
+        Json::Array::add(pArray, static_cast<float>(values[i]));
     }
-    Json::add(pRootJson, pstrKey, pArray);
+    Json::add(pRootJson, key, pArray);
 }
 
 
@@ -1835,13 +1689,13 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_CrowdGatheringRule_S& stInfo,
 
     if (bOutStruct)
     {
-        alarm_info_json_to_float_array(pRootJson, "PointX", stInfo.afPointX, 32);
-        alarm_info_json_to_float_array(pRootJson, "PointY", stInfo.afPointY, 32);
+        JsonToFloatArray(pRootJson, "PointX", stInfo.afPointX, 32);
+        JsonToFloatArray(pRootJson, "PointY", stInfo.afPointY, 32);
     }
     else
     {
-        alarm_info_float_array_to_json(pRootJson, "PointX", stInfo.afPointX, stInfo.uPointCount, 32);
-        alarm_info_float_array_to_json(pRootJson, "PointY", stInfo.afPointY, stInfo.uPointCount, 32);
+        FloatArrayToJson(pRootJson, "PointX", stInfo.afPointX, stInfo.uPointCount, 32);
+        FloatArrayToJson(pRootJson, "PointY", stInfo.afPointY, stInfo.uPointCount, 32);
     }
 
     convert.field(pRootJson, "ObjectOccup", stInfo.nObjectOccup);
@@ -1908,13 +1762,13 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_ParkingRule_S& stInfo, bool b
 
     if (bOutStruct)
     {
-        alarm_info_json_to_float_array(pRootJson, "PointX", stInfo.afPointX, 32);
-        alarm_info_json_to_float_array(pRootJson, "PointY", stInfo.afPointY, 32);
+        JsonToFloatArray(pRootJson, "PointX", stInfo.afPointX, 32);
+        JsonToFloatArray(pRootJson, "PointY", stInfo.afPointY, 32);
     }
     else
     {
-        alarm_info_float_array_to_json(pRootJson, "PointX", stInfo.afPointX, stInfo.uPointCount, 32);
-        alarm_info_float_array_to_json(pRootJson, "PointY", stInfo.afPointY, stInfo.uPointCount, 32);
+        FloatArrayToJson(pRootJson, "PointX", stInfo.afPointX, stInfo.uPointCount, 32);
+        FloatArrayToJson(pRootJson, "PointY", stInfo.afPointY, stInfo.uPointCount, 32);
     }
 
     convert.field(pRootJson, "Sensitivity", stInfo.nSensitivity);
@@ -1982,13 +1836,13 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_UnattendedObjectRule_S& stInf
 
     if (bOutStruct)
     {
-        alarm_info_json_to_float_array(pRootJson, "PointX", stInfo.afPointX, 32);
-        alarm_info_json_to_float_array(pRootJson, "PointY", stInfo.afPointY, 32);
+        JsonToFloatArray(pRootJson, "PointX", stInfo.afPointX, 32);
+        JsonToFloatArray(pRootJson, "PointY", stInfo.afPointY, 32);
     }
     else
     {
-        alarm_info_float_array_to_json(pRootJson, "PointX", stInfo.afPointX, stInfo.uPointCount, 32);
-        alarm_info_float_array_to_json(pRootJson, "PointY", stInfo.afPointY, stInfo.uPointCount, 32);
+        FloatArrayToJson(pRootJson, "PointX", stInfo.afPointX, stInfo.uPointCount, 32);
+        FloatArrayToJson(pRootJson, "PointY", stInfo.afPointY, stInfo.uPointCount, 32);
     }
 
     convert.field(pRootJson, "Sensitivity", stInfo.nSensitivity);
@@ -2056,13 +1910,13 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_ObjectRemovalRule_S& stInfo, 
 
     if (bOutStruct)
     {
-        alarm_info_json_to_float_array(pRootJson, "PointX", stInfo.afPointX, 32);
-        alarm_info_json_to_float_array(pRootJson, "PointY", stInfo.afPointY, 32);
+        JsonToFloatArray(pRootJson, "PointX", stInfo.afPointX, 32);
+        JsonToFloatArray(pRootJson, "PointY", stInfo.afPointY, 32);
     }
     else
     {
-        alarm_info_float_array_to_json(pRootJson, "PointX", stInfo.afPointX, stInfo.uPointCount, 32);
-        alarm_info_float_array_to_json(pRootJson, "PointY", stInfo.afPointY, stInfo.uPointCount, 32);
+        FloatArrayToJson(pRootJson, "PointX", stInfo.afPointX, stInfo.uPointCount, 32);
+        FloatArrayToJson(pRootJson, "PointY", stInfo.afPointY, stInfo.uPointCount, 32);
     }
 
     convert.field(pRootJson, "Sensitivity", stInfo.nSensitivity);
@@ -2132,13 +1986,13 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_GarbageExposureRule_S& stInfo
 
     if (bOutStruct)
     {
-        alarm_info_json_to_float_array(pRootJson, "PointX", stInfo.afPointX, 32);
-        alarm_info_json_to_float_array(pRootJson, "PointY", stInfo.afPointY, 32);
+        JsonToFloatArray(pRootJson, "PointX", stInfo.afPointX, 32);
+        JsonToFloatArray(pRootJson, "PointY", stInfo.afPointY, 32);
     }
     else
     {
-        alarm_info_float_array_to_json(pRootJson, "PointX", stInfo.afPointX, stInfo.uPointCount, 32);
-        alarm_info_float_array_to_json(pRootJson, "PointY", stInfo.afPointY, stInfo.uPointCount, 32);
+        FloatArrayToJson(pRootJson, "PointX", stInfo.afPointX, stInfo.uPointCount, 32);
+        FloatArrayToJson(pRootJson, "PointY", stInfo.afPointY, stInfo.uPointCount, 32);
     }
 }
 
@@ -2172,13 +2026,13 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_GarbageOverflowRule_S& stInfo
 
     if (bOutStruct)
     {
-        alarm_info_json_to_float_array(pRootJson, "PointX", stInfo.afPointX, 32);
-        alarm_info_json_to_float_array(pRootJson, "PointY", stInfo.afPointY, 32);
+        JsonToFloatArray(pRootJson, "PointX", stInfo.afPointX, 32);
+        JsonToFloatArray(pRootJson, "PointY", stInfo.afPointY, 32);
     }
     else
     {
-        alarm_info_float_array_to_json(pRootJson, "PointX", stInfo.afPointX, stInfo.uPointCount, 32);
-        alarm_info_float_array_to_json(pRootJson, "PointY", stInfo.afPointY, stInfo.uPointCount, 32);
+        FloatArrayToJson(pRootJson, "PointX", stInfo.afPointX, stInfo.uPointCount, 32);
+        FloatArrayToJson(pRootJson, "PointY", stInfo.afPointY, stInfo.uPointCount, 32);
     }
 }
 
@@ -2224,13 +2078,13 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_SmartRegion_S& stInfo, bool b
     convert.field(pRootJson, "PointCount", stInfo.uPointCount);
     if (bOutStruct)
     {
-        alarm_info_json_to_float_array(pRootJson, "PointX", stInfo.afPointX, 32);
-        alarm_info_json_to_float_array(pRootJson, "PointY", stInfo.afPointY, 32);
+        JsonToFloatArray(pRootJson, "PointX", stInfo.afPointX, 32);
+        JsonToFloatArray(pRootJson, "PointY", stInfo.afPointY, 32);
     }
     else
     {
-        alarm_info_float_array_to_json(pRootJson, "PointX", stInfo.afPointX, stInfo.uPointCount, 32);
-        alarm_info_float_array_to_json(pRootJson, "PointY", stInfo.afPointY, stInfo.uPointCount, 32);
+        FloatArrayToJson(pRootJson, "PointX", stInfo.afPointX, stInfo.uPointCount, 32);
+        FloatArrayToJson(pRootJson, "PointY", stInfo.afPointY, stInfo.uPointCount, 32);
     }
 }
 
@@ -2247,13 +2101,13 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_SmartRegionRule_S& stInfo, bo
     convert.field(pRootJson, "PointCount", stInfo.uPointCount);
     if (bOutStruct)
     {
-        alarm_info_json_to_float_array(pRootJson, "PointX", stInfo.afPointX, 32);
-        alarm_info_json_to_float_array(pRootJson, "PointY", stInfo.afPointY, 32);
+        JsonToFloatArray(pRootJson, "PointX", stInfo.afPointX, 32);
+        JsonToFloatArray(pRootJson, "PointY", stInfo.afPointY, 32);
     }
     else
     {
-        alarm_info_float_array_to_json(pRootJson, "PointX", stInfo.afPointX, stInfo.uPointCount, 32);
-        alarm_info_float_array_to_json(pRootJson, "PointY", stInfo.afPointY, stInfo.uPointCount, 32);
+        FloatArrayToJson(pRootJson, "PointX", stInfo.afPointX, stInfo.uPointCount, 32);
+        FloatArrayToJson(pRootJson, "PointY", stInfo.afPointY, stInfo.uPointCount, 32);
     }
     convert.field(pRootJson, "TimeThreshold", stInfo.nTimeThreshold);
     convert.field(pRootJson, "Sensitivity", stInfo.nSensitivity);
@@ -2445,10 +2299,10 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_AlarmSchedule_S& stInfo, bool
 
     SDKConvert::CSDKConvert convert(bOutStruct);
 
-    /* 处理每天的时间段数量。 */
+    // 处理每天的时间段数量
     if (bOutStruct)
     {
-        /* 将 JSON 转换为结构体。 */
+        // JSON -> 结构体
         Json::Object* pTimeSectionCount = Json::get(pRootJson, "TimeSectionCount");
         if (pTimeSectionCount)
         {
@@ -2461,7 +2315,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_AlarmSchedule_S& stInfo, bool
             }
         }
 
-        /* 处理每天的时间段数组。 */
+        // 处理每天的时间段数组
         Json::Object* pTimeSections = Json::get(pRootJson, "TimeSections");
         if (pTimeSections)
         {
@@ -2489,7 +2343,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_AlarmSchedule_S& stInfo, bool
     }
     else
     {
-        /* 将结构体转换为 JSON。 */
+        // 结构体 -> JSON
         Json::Object* pTimeSectionCount = Json::init();
         for (int day = 0; day < 7; day++)
         {

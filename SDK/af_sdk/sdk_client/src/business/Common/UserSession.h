@@ -136,6 +136,20 @@ public:
     bool IsOnline() const { return m_bOnline; }
 
     /**
+     * @brief 设置自动重连开关
+     * @param [in] bEnable TRUE启用自动重连，FALSE禁用
+     * @note 禁用后，心跳失败达上限时仅通知上层会话断开，不再启动ReconnectLoop
+     *       与海康 NET_DVR_SetReconnectCallBack、大华 CLIENT_SetAutoReconnect 对齐
+     */
+    void SetAutoReconnect(bool bEnable) { m_bAutoReconnect = bEnable; }
+
+    /**
+     * @brief 获取自动重连开关状态
+     * @return TRUE表示启用，FALSE表示禁用
+     */
+    bool IsAutoReconnect() const { return m_bAutoReconnect; }
+
+    /**
  * @author tianl (tianl@kfb.cn)
      * @brief 获取用户句柄
      * @return 用户句柄
@@ -189,6 +203,7 @@ private:
 
     std::atomic<bool> m_bRunning{false};
     std::atomic<bool> m_bOnline{false};
+    std::atomic<bool> m_bAutoReconnect{true}; /* 自动重连开关，默认启用（向后兼容） */
 
     /* 命令发送锁 (保护 CmdClient 串行发送) */
     std::mutex m_stCommandMutex;

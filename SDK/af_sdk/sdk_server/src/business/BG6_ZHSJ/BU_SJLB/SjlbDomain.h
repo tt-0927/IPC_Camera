@@ -43,6 +43,7 @@ public:
     */
     virtual bool IsDeviceLevelCommand(INT32 nCommand) const override;
 
+
     /**
      * @brief 获取布局信息（自定义处理）
      * @details 从请求 JSON 解析 MovieMode/MPlayout，调用设备回调填充布局数据

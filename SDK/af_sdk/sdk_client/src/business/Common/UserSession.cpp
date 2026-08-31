@@ -63,8 +63,13 @@ CUserSession::CUserSession(LPUSER_HANDLE userHand, const std::string& host, int 
 
     /* 设置 session 过期回调：当报警监听连接收到 401 时，触发重新登录流程 */
     m_pAlarmManager->SetSessionExpiredCallback([this]() {
-        NETSDK_LOG_MESSAGE_ERROR("[DIAG-SESSION] User-%p AlarmManager reported session EXPIRED, starting ReconnectLoop", m_hUser);
+        NETSDK_LOG_MESSAGE_ERROR("[DIAG-SESSION] User-%p AlarmManager reported session EXPIRED", m_hUser);
         m_bOnline = false;
+        if (!m_bAutoReconnect) {
+            NETSDK_LOG_MESSAGE_WARN("[DIAG-SESSION] User-%p AutoReconnect disabled, notifying session lost", m_hUser);
+            if (m_fnSessionLostCallback) m_fnSessionLostCallback(m_hUser);
+            return;
+        }
         std::lock_guard<std::mutex> lock(m_stReconnectMutex);
         if (!m_bReconnecting) {
             m_bReconnecting = true;
@@ -283,6 +288,12 @@ void CUserSession::SseLoop()
         {
             NETSDK_LOG_MESSAGE_ERROR("[User-%p] Max retries reached. Starting reconnect thread and exiting SSE loop.", m_hUser);
 
+            if (!m_bAutoReconnect) {
+                NETSDK_LOG_MESSAGE_WARN("[DIAG-SESSION] User-%p AutoReconnect disabled, notifying session lost", m_hUser);
+                if (m_fnSessionLostCallback) m_fnSessionLostCallback(m_hUser);
+                break;  /* 禁用重连时直接退出 SSE 循环，由上层决定后续处理 */
+            }
+
             /* 启动异步重连线程（只启动一次） */
             std::lock_guard<std::mutex> lock(m_stReconnectMutex);
             if (!m_bReconnecting)
@@ -354,9 +365,15 @@ void CUserSession::HeartbeatLoop()
             /* 判断是否达到最大重试次数 */
             if (failCount >= m_nMaxRetry)
             {
-                NETSDK_LOG_MESSAGE_ERROR("[DIAG-SESSION] User-%p Heartbeat DEAD (fail=%d, maxRetry=%d), starting ReconnectLoop, session=%s",
+                NETSDK_LOG_MESSAGE_ERROR("[DIAG-SESSION] User-%p Heartbeat DEAD (fail=%d, maxRetry=%d), session=%s",
                               m_hUser, failCount, m_nMaxRetry, m_strSessionId.c_str());
                 m_bOnline = false;
+
+                if (!m_bAutoReconnect) {
+                    NETSDK_LOG_MESSAGE_WARN("[DIAG-SESSION] User-%p AutoReconnect disabled, notifying session lost", m_hUser);
+                    if (m_fnSessionLostCallback) m_fnSessionLostCallback(m_hUser);
+                    break;  /* 禁用重连时直接退出心跳循环，由上层决定后续处理 */
+                }
 
                 /* 启动异步重连线程（只启动一次） */
                 std::lock_guard<std::mutex> lock(m_stReconnectMutex);
@@ -620,6 +637,13 @@ bool CUserSession::SendRequest(const CommandRequest_S& req, std::string& outResp
         /* 命令收到 401，可能是 session 刚过期，触发重连并重试一次 */
         if (res && (res->status == NET_HTTP_RESP_CODE_UNAUTHORIZED || res->status == 401))
         {
+            if (!m_bAutoReconnect) {
+                NETSDK_LOG_MESSAGE_WARN("[DIAG-SESSION] User-%p Got 401 but AutoReconnect disabled, returning false", m_hUser);
+                m_bOnline = false;
+                if (m_fnSessionLostCallback) m_fnSessionLostCallback(m_hUser);
+                return false;  /* 禁用重连时直接返回失败，由上层决定是否重新 Login */
+            }
+
             NETSDK_LOG_MESSAGE_WARN("[DIAG-SESSION] User-%p SendRequest got 401, triggering reconnect and retry once", m_hUser);
             /* 触发重连（如果还没有在重连） */
             {

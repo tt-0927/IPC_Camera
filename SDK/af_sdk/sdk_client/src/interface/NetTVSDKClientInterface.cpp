@@ -712,3 +712,52 @@ NET_clientSearchDiscovery(IN  const CHAR*                      szInterfaceIP,
     }
     return TRUE;
 }
+
+/* ==================== 错误码描述 / 重连开关 ==================== */
+
+/**
+ * @brief 获取最近一次错误码的描述信息
+ * @return 错误描述字符串（UTF-8），无需调用方释放内存
+ * @note  与海康 NET_DVR_GetErrorMsg、大华 CLIENT_GetLastError 对齐
+ */
+NET_API const char* STDCALL NET_clientGetErrorMsg(void)
+{
+    return CErrorManage::instance()->GetErrorMsg();
+}
+
+/**
+ * @brief 设置自动重连开关
+ * @param [in] lpUserID  用户登录句柄，不能为空
+ * @param [in] bEnable   TRUE 启用自动重连，FALSE 禁用
+ * @return 成功返回 TRUE，失败返回 FALSE
+ * @note
+ * - 启用后，心跳失败达上限时 SDK 自动启动 ReconnectLoop（指数退避重连）
+ * - 禁用后，心跳失败达上限时仅通过会话断开通知上层，SDK 不发起重连
+ * - 与海康 NET_DVR_SetReconnectCallBack、大华 CLIENT_SetAutoReconnect 对齐
+ */
+NET_API BOOL STDCALL NET_clientSetAutoReconnect(IN LPVOID lpUserID,
+                                                 IN BOOL   bEnable)
+{
+    CHECK_SDK_INIT(FALSE);
+
+    if (!lpUserID) {
+        CErrorManage::instance()->SetLastError(NET_E_INVALID_HANDLE);
+        return FALSE;
+    }
+
+    auto pDevMgr = CSessionManager::instance();
+    if (!pDevMgr) {
+        CErrorManage::instance()->SetLastError(NET_E_ALLOC_RESOURCE_ERROR);
+        return FALSE;
+    }
+
+    auto pSession = pDevMgr->GetSession(lpUserID);
+    if (!pSession) {
+        CErrorManage::instance()->SetLastError(NET_E_INVALID_HANDLE);
+        return FALSE;
+    }
+
+    pSession->SetAutoReconnect(bEnable);
+    CErrorManage::instance()->SetLastError(NET_E_SUCCEED);
+    return TRUE;
+}
