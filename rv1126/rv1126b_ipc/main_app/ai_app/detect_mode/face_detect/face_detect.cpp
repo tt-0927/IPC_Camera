@@ -2,8 +2,14 @@
  * @file face_detect.cpp
  * @author tianl (tianl@kfb.cn)
  * @date 2025-11-19
- * 
- * @brief 人脸检测相关
+ * @LastEditors  : qinjt@kfb.cn
+ * @LastEditTime : 2026-08-31
+ *
+ * @brief 人脸检测、属性提取和抓拍事件处理。
+ *
+ * @par 修改记录
+ * 2026-08-28 qinjt：统一 TVSDK 抓拍属性推送代码的命名和函数注释。
+ * 2026-08-31 qinjt：补充本次命名和注释规范适配记录。
  */
 
 #include "face_detect.hpp"
@@ -28,35 +34,37 @@
 #endif
 
 /* 数据队列 */
-#define QUEUE_MAX (2)
-#define DELETE_QUEUE_MAX (150)
-// 检测帧数阈值
-#define DETECT_FRAME_THRESHOLD (5) 
+#define FACE_DETECT_QUEUE_MAX (2)
+#define FACE_DETECT_DELETE_QUEUE_MAX (150)
+/* 检测帧数阈值。 */
+#define FACE_DETECT_FRAME_THRESHOLD (5)
 
 /* 人脸检测框置信度 */
-#define FACE_DETECT_THRESHOLD 0.5
+#define FACE_DETECT_DETECTION_THRESHOLD 0.5
 
 /* 人脸质量评分阈值 */
-#define FACE_FQASOUCE_THRESHOLD 0.4
+#define FACE_DETECT_FQA_SOURCE_THRESHOLD 0.4
 
 /**
- * @brief 根据灵敏度计算质量阈值
- * @param nSensitivity 
- * @return float 
+ * @brief 根据灵敏度计算人脸质量评估阈值。
+ * @param [in] nSensitivity 算法灵敏度，取值范围为零至一百。
+ * @return 对应的质量评估阈值。
  */
-float mapSensitToThrld(int nSensitivity)
+static float face_map_sensitivity_to_threshold(int nSensitivity)
 {
     if (nSensitivity == 0)
     {
-        return FACE_FQASOUCE_THRESHOLD;
+        return FACE_DETECT_FQA_SOURCE_THRESHOLD;
     }
     else if (nSensitivity > 20 && nSensitivity < 80)
     {
-        return 0.8f - ((nSensitivity - 20) / 60.0f) * FACE_FQASOUCE_THRESHOLD;
+        return 0.8f - ((nSensitivity - 20) / 60.0f) *
+               FACE_DETECT_FQA_SOURCE_THRESHOLD;
     }
     else if (nSensitivity >= 80 && nSensitivity <= 100)
     {
-        return FACE_FQASOUCE_THRESHOLD - ((nSensitivity - 80) / 20.0f) * 0.25f;
+        return FACE_DETECT_FQA_SOURCE_THRESHOLD -
+               ((nSensitivity - 80) / 20.0f) * 0.25f;
     }
     else if (nSensitivity <= 20)
     {
@@ -64,60 +72,75 @@ float mapSensitToThrld(int nSensitivity)
     }
     else
     {
-        return FACE_FQASOUCE_THRESHOLD;
+        return FACE_DETECT_FQA_SOURCE_THRESHOLD;
     }
 }
 
-cv::Scalar hexToScalar(const std::string& hexStr) 
+/**
+ * @brief 将十六进制颜色字符串转换为 OpenCV BGR 颜色值。
+ * @param [in] strHexColor 十六进制颜色字符串，支持 RRGGBB、RGB 以及带井号形式。
+ * @return 转换后的 BGR 颜色值；输入格式非法时返回黑色。
+ */
+static cv::Scalar face_hex_to_scalar(const std::string& strHexColor)
 {
-    std::string hex = hexStr;
-    
-    // 移除开头的'#'（如果存在）
-    if (!hex.empty() && hex[0] == '#') {
-        hex = hex.substr(1);
+    std::string strHex = strHexColor;
+
+    /* 移除十六进制颜色字符串开头的井号。 */
+    if (!strHex.empty() && strHex[0] == '#')
+    {
+        strHex = strHex.substr(1);
     }
-    
-    // 检查长度
-    if (hex.length() != 6 && hex.length() != 3) {
-        std::cerr << "Error: Invalid hex color format. Expected #RRGGBB or #RGB" << std::endl;
-        return cv::Scalar(0, 0, 0);  // 返回黑色作为默认值
+
+    /* 检查十六进制颜色字符串长度。 */
+    if (strHex.length() != 6 && strHex.length() != 3)
+    {
+        std::cerr << "Error: Invalid hex color format. Expected #RRGGBB or #RGB"
+                  << std::endl;
+        /* 输入格式非法时返回黑色作为默认值。 */
+        return cv::Scalar(0, 0, 0);
     }
-    
-    unsigned int r, g, b;
-    
-    if (hex.length() == 6) {
-        // 格式: RRGGBB
-        std::stringstream ss;
-        ss << std::hex << hex;
-        
-        unsigned int rgb;
-        ss >> rgb;
-        
-        r = (rgb >> 16) & 0xFF;
-        g = (rgb >> 8) & 0xFF;
-        b = rgb & 0xFF;
-    } else {
-        // 格式: RGB (简写形式，每个字符重复一次)
-        std::stringstream ss;
-        ss << std::hex 
-           << hex[0] << hex[0] 
-           << hex[1] << hex[1] 
-           << hex[2] << hex[2];
-        
-        unsigned int rgb;
-        ss >> rgb;
-        
-        r = (rgb >> 16) & 0xFF;
-        g = (rgb >> 8) & 0xFF;
-        b = rgb & 0xFF;
+
+    unsigned int uRed = 0;
+    unsigned int uGreen = 0;
+    unsigned int uBlue = 0;
+
+    if (strHex.length() == 6)
+    {
+        /* 解析完整的 RRGGBB 形式。 */
+        std::stringstream stStream;
+        stStream << std::hex << strHex;
+
+        unsigned int uRgb = 0;
+        stStream >> uRgb;
+
+        uRed = (uRgb >> 16) & 0xFF;
+        uGreen = (uRgb >> 8) & 0xFF;
+        uBlue = uRgb & 0xFF;
     }
-    
-    // OpenCV使用BGR顺序，所以需要交换R和B
-    return cv::Scalar(b, g, r);
+    else
+    {
+        /* 解析每个字符重复一次的 RGB 简写形式。 */
+        std::stringstream stStream;
+        stStream << std::hex
+                 << strHex[0] << strHex[0]
+                 << strHex[1] << strHex[1]
+                 << strHex[2] << strHex[2];
+
+        unsigned int uRgb = 0;
+        stStream >> uRgb;
+
+        uRed = (uRgb >> 16) & 0xFF;
+        uGreen = (uRgb >> 8) & 0xFF;
+        uBlue = uRgb & 0xFF;
+    }
+
+    /* OpenCV 使用 BGR 顺序，因此将红色和蓝色分量按 BGR 顺序返回。 */
+    return cv::Scalar(uBlue, uGreen, uRed);
 }
 
 CFaceDetect::CFaceDetect()
-    : m_dateQueue(QUEUE_MAX),m_deleteQueue(DELETE_QUEUE_MAX)
+    : m_dateQueue(FACE_DETECT_QUEUE_MAX),
+      m_deleteQueue(FACE_DETECT_DELETE_QUEUE_MAX)
 {
     m_bRunning.store(true);
     m_thread = std::thread(&CFaceDetect::run, this);
@@ -153,7 +176,8 @@ CFaceDetect::~CFaceDetect()
 /* 接受媒体数据 */
 void CFaceDetect::recvMediaData(MediaData_S stMediaData)
 {
-    if (!m_stAlgoFaceDetectCfg.bEnable && !m_stAlgoFaceCapCfg.bEnable && !m_bFaceAttribute.load())
+    if (!m_stAlgoFaceDetectCfg.bEnable &&
+        !m_stAlgoFaceCapCfg.bEnable && !m_bFaceAttribute.load())
     {
         dlog_debug("ai_app:  人脸侦测-开关未启用");
         return;
@@ -163,7 +187,7 @@ void CFaceDetect::recvMediaData(MediaData_S stMediaData)
 	 
     if (m_RecvManager.handleEvent(stMediaData.stMediaParam.nChannel))
     {
-        if (m_dateQueue.size() >= QUEUE_MAX)
+        if (m_dateQueue.size() >= FACE_DETECT_QUEUE_MAX)
         {
             dlog_error(" 人脸侦测-数据队列满了 [%d]" ,m_dateQueue.size());
         }
@@ -179,7 +203,8 @@ bool CFaceDetect::is_in_region(const Alarm::Region_S &stRegion, const FaceDetect
     stResultPoint.fY = (stResult.fY1 + stResult.fY2) / 2.0f;
 
     int nCount = 0;
-    const float EPSILON = 1e-6f; /* 浮点数比较精度阈值 */
+    /* 定义浮点数比较精度阈值。 */
+    const float EPSILON = 1e-6f;
 
     for (size_t i = 0; i < stRegion.aPoint.size(); ++i)
     {
@@ -357,7 +382,8 @@ void CFaceDetect::setAlgoParamCfg(const Alarm::FaceCapture_S &stAlgoCfg,Event::T
     m_stAlgoFaceCapCfg = stAlgoCfg;
 
     /* 设置检测间隔 */
-    m_RecvManager.setTimeWindow(stAlgoCfg.stRule.nInterval * 1000); /* 转换为毫秒 */
+    /* 将配置中的检测间隔转换为毫秒。 */
+    m_RecvManager.setTimeWindow(stAlgoCfg.stRule.nInterval * 1000);
     /* 转换规则区域坐标 */
     auto &region = m_stAlgoFaceCapCfg.stRule.stRegion;
     region.ConvertResolution(PIXEL_WIDTH_1920, PIXEL_HEIGHT_1080, m_nWidth, m_nHeight);
@@ -525,7 +551,8 @@ void CFaceDetect::run()
             FaceDetect_NS::InData_S stFDInData;
             FaceDetect_NS::OutData_S stFDOutData;
             
-            stFDInData.stParam.fBoxThreshold = FACE_DETECT_THRESHOLD;
+            stFDInData.stParam.fBoxThreshold =
+                FACE_DETECT_DETECTION_THRESHOLD;
             stFDOutData.validResult = false;
             
             cv::Mat i420Mat(
@@ -559,8 +586,10 @@ void CFaceDetect::run()
             cv::resize(m_fullRgbMat, stFDInData.inMat,
                        cv::Size(m_nWidth, m_nHeight), 0, 0, cv::INTER_LINEAR);
 
-            // cv::rotate(stFDInData.inMat, stFDInData.inMat, cv::ROTATE_180);
-            // cv::rotate(bgrMat, bgrMat, cv::ROTATE_180);
+                            /* 暂不启用检测图像旋转。
+                             * cv::rotate(stFDInData.inMat, stFDInData.inMat, cv::ROTATE_180);
+                             * cv::rotate(bgrMat, bgrMat, cv::ROTATE_180);
+                             */
 
             if (!stFDInData.inMat.empty())
             {
@@ -598,11 +627,13 @@ void CFaceDetect::run()
 
                             pointScaleUp(x1, y1, x2, y2, stFDInData.inMat.cols, stFDInData.inMat.rows, scaleFactor);
 
-                            // if ((x2 - x1) < 64 || (y2 - y1) < 64)
-                            // {
-                            //     /* 过滤掉低分辨率的人脸结果 */
-                            //     continue;
-                            // }
+                            /* 暂不启用低分辨率人脸过滤。
+                             * if ((x2 - x1) < 64 || (y2 - y1) < 64)
+                             * {
+                             *     过滤掉低分辨率的人脸结果。
+                             *     continue;
+                             * }
+                             */
                             
                             cv::Rect roi(x1, y1, x2 - x1, y2 - y1);
                             if (roi.x < 0 || roi.y < 0 || 
@@ -639,7 +670,9 @@ void CFaceDetect::run()
                                 }
                             }
 
-                            //printf("\033[34m %s:%d ] x=%d,y=%d,w=%d,h=%d \033[m\n",__func__,__LINE__,roi.x,roi.y,roi.width,roi.height);
+                            /* 调试时可输出当前人脸框坐标。
+                             * printf("\033[34m %s:%d ] x=%d,y=%d,w=%d,h=%d \033[m\n",__func__,__LINE__,roi.x,roi.y,roi.width,roi.height);
+                             */
                             
                             /* 将ROI等比填充到stFQInData.inMat (112x112 黑底) */
                             stFQInData.inMat = cv::Mat(112, 112, CV_8UC3, cv::Scalar(0, 0, 0));
@@ -677,18 +710,18 @@ void CFaceDetect::run()
                             /* 质量评估 */
                             m_pFaceQuaHandle->process(stFQInData, stFQOneRes.fFqaSouce);
                             dlog_debug("ai_app:  当前人脸质量评估得分 [%.2f] 置信度[%.2f]", stFQOneRes.fFqaSouce,stFQOneRes.fBoxConfidence);
-                            const cv::Rect2f faceRect(
+                            const cv::Rect2f stFaceRect(
                                 static_cast<float>(roi.x),
                                 static_cast<float>(roi.y),
                                 static_cast<float>(roi.width),
                                 static_cast<float>(roi.height)
                             );
-                            Common::RectInfo_S rectInfo;
-                            rectInfo.nX1 = result.fX1;
-                            rectInfo.nY1 = result.fY1;
-                            rectInfo.nX2 = result.fX2;
-                            rectInfo.nY2 = result.fY2;
-                            vstRectInfo.emplace_back(rectInfo);
+                            Common::RectInfo_S stRectInfo;
+                            stRectInfo.nX1 = result.fX1;
+                            stRectInfo.nY1 = result.fY1;
+                            stRectInfo.nX2 = result.fX2;
+                            stRectInfo.nY2 = result.fY2;
+                            vstRectInfo.emplace_back(stRectInfo);
                             /*  人脸侦测 */
                             if(m_stAlgoFaceDetectCfg.bEnable)
                             {
@@ -705,7 +738,9 @@ void CFaceDetect::run()
                                     dlog_debug("ai_app:  人脸侦测报警触发 " );
                                     stFcaeEventStatus.bFaceDetect = true;
                                     pDetectResult = &result;
-                                    // CEventLinkage::instance()->handleEvent(Event::Type_E::FACE_DETECT, false);
+                                    /* 事件联动由统一事件流程处理，暂不在此处直接调用。
+                                     * CEventLinkage::instance()->handleEvent(Event::Type_E::FACE_DETECT, false);
+                                     */
 #ifdef ENABLE_GAT1400_SRC
                                     dlog_debug("人脸上传GAT1400处理");
                                     Network::Gat1400Client_S config;
@@ -740,10 +775,10 @@ void CFaceDetect::run()
                                         }
 
                                         cv::Mat imageMat, faceMat;
-                                        // 人脸全景图片
+                                        /* 转换人脸全景图片。 */
                                         cv::cvtColor(i420Mat, imageMat, cv::COLOR_YUV2BGR_NV12);
 
-                                        // 人脸图片
+                                        /* 使用原始人脸框裁剪人脸图片。 */
                                         const cv::Rect2f faceRawRect(
                                             result.fX1, result.fY1,
                                             result.fX2 - result.fX1,
@@ -766,7 +801,8 @@ void CFaceDetect::run()
                             if(m_stAlgoFaceCapCfg.bEnable || m_bFaceAttribute.load())
                             {
                                 /* m_nFrameCount 降低人脸属性检测频率 */
-                                if(!m_stAlgoFaceCapCfg.bEnable && m_nFrameCount < DETECT_FRAME_THRESHOLD)
+                                if(!m_stAlgoFaceCapCfg.bEnable &&
+                                   m_nFrameCount < FACE_DETECT_FRAME_THRESHOLD)
                                 {
                                     continue;
                                 }
@@ -815,7 +851,9 @@ void CFaceDetect::run()
                                     {
                                         dlog_info("人脸抓拍事件开始");
                                         /* 触发对应的报警事件 */
-                                        // CEventLinkage::instance()->handleEvent(Event::Type_E::FACE_CAPTURE, false);
+                                        /* 事件联动由统一事件流程处理，暂不在此处直接调用。
+                                         * CEventLinkage::instance()->handleEvent(Event::Type_E::FACE_CAPTURE, false);
+                                         */
                                         stFcaeEventStatus.bFaceCapture = true;
                                         pCaptureResult = &result;
                                     }
@@ -836,7 +874,9 @@ void CFaceDetect::run()
                                     {
                                         cv::Mat faceMat;
                                         cv::cvtColor(i420Mat, faceMat, cv::COLOR_YUV2BGR_NV12);
-                                        // cv::rotate(faceMat, faceMat, cv::ROTATE_180);
+                                        /* 暂不启用人脸图像旋转。
+                                         * cv::rotate(faceMat, faceMat, cv::ROTATE_180);
+                                         */
 
                                         /* 保存人脸全景图片 */
                                         strCurrentPicture = saveFacePanoramicImage(faceMat,"");
@@ -880,13 +920,18 @@ void CFaceDetect::run()
                                     if(m_bFaceAttribute.load() && !vecFARes.empty())
                                     {
                                         /* 人脸抓拍信息 TVSDK 二进制直推 */
-                                        cv::Mat panoramaMat;
-                                        cv::cvtColor(i420Mat, panoramaMat, cv::COLOR_YUV2BGR_NV12);
-                                        const cv::Rect2f faceRawRect(
+                                        cv::Mat stPanoramaBgr;
+                                        cv::cvtColor(i420Mat, stPanoramaBgr, cv::COLOR_YUV2BGR_NV12);
+                                        const cv::Rect2f stRawFaceRect(
                                             result.fX1, result.fY1,
                                             result.fX2 - result.fX1,
                                             result.fY2 - result.fY1);
-                                        pushFaceCaptureInfoToTvSdk(panoramaMat, faceRect, faceRawRect, stFDInData.inMat.size(), vecFARes[0]);
+                                        push_face_capture_info_to_tvsdk(
+                                            stPanoramaBgr,
+                                            stFaceRect,
+                                            stRawFaceRect,
+                                            stFDInData.inMat.size(),
+                                            vecFARes[0]);
                                     }
 #endif
                                     if((m_bUploadSdCard && SD_CARD_STATUS_E::NORMAL == CStorageManage::instance()->get_SdCardStatus()) || (m_bFaceAttribute.load() && SD_CARD_STATUS_E::NORMAL == CStorageManage::instance()->get_SdCardStatus()))
@@ -906,7 +951,8 @@ void CFaceDetect::run()
                                     }
                                     else
                                     {
-                                        if (m_deleteQueue.size() >= DELETE_QUEUE_MAX)
+                                        if (m_deleteQueue.size() >=
+                                            FACE_DETECT_DELETE_QUEUE_MAX)
                                         {
                                             dlog_error(" 删除人脸抓拍图片-数据队列满了 [%d]" ,m_deleteQueue.size());
                                         }
@@ -931,10 +977,10 @@ void CFaceDetect::run()
                                         if (config.enableGat1400 && config.enableFace)
                                         {
                                             cv::Mat imageMat, faceMat;
-                                            // 人脸全景图片
+                                            /* 转换人脸全景图片。 */
                                             cv::cvtColor(i420Mat, imageMat, cv::COLOR_YUV2BGR_NV12);
     
-                                            // 人脸图片
+                                            /* 使用原始人脸框裁剪人脸图片。 */
                                             const cv::Rect2f faceRawRect(
                                                 result.fX1, result.fY1,
                                                 result.fX2 - result.fX1,
@@ -951,7 +997,9 @@ void CFaceDetect::run()
 #endif
 
                                         /* 触发对应的报警事件 */
-                                        // CEventLinkage::instance()->handleEvent(Event::Type_E::FACE_CAPTURE, true);
+                                        /* 事件联动由统一事件流程处理，暂不在此处直接调用。
+                                         * CEventLinkage::instance()->handleEvent(Event::Type_E::FACE_CAPTURE, true);
+                                         */
                                         dlog_info("人脸抓拍事件结束");
                                     }
                                 }
@@ -990,7 +1038,7 @@ void CFaceDetect::run()
                     }
 
                     processFaceEvent(stFcaeEventStatus, pDetectResult, pCaptureResult); 
-                    if(m_nFrameCount >= DETECT_FRAME_THRESHOLD)
+                    if(m_nFrameCount >= FACE_DETECT_FRAME_THRESHOLD)
                     {
                         m_nFrameCount = 0;
                         m_vstLastFrameResult = vecResult; 
@@ -1187,11 +1235,14 @@ bool CFaceDetect::processFaceCapture(const FaceDetect_NS::Result_S &stResult)
     
     /* 瞳距判断 */
     unsigned int nIpd = stResult.vPoint[2] - stResult.vPoint[0];
-    // dlog_info("[人脸抓拍 瞳距 [%d]  阈值[%d]",  nIpd, nMinIpd);
-    // if (nIpd < nMinIpd)
-    // {
-    //     return false; // 瞳距过小，跳过这个目标在当前区域的检测
-    // }
+    /* 暂不启用瞳距调试输出和最小瞳距过滤。
+     * dlog_info("[人脸抓拍 瞳距 [%d]  阈值[%d]", nIpd, nMinIpd);
+     * if (nIpd < nMinIpd)
+     * {
+     *     瞳距过小，跳过这个目标在当前区域的检测。
+     *     return false;
+     * }
+     */
 
     bIsAlarm = true;
     dlog_info("[人脸抓拍] 置信度度[%.3f]  瞳距 [%d] > [%d]", stResult.fBoxConfidence, nIpd, nMinIpd);
@@ -1340,7 +1391,8 @@ int CFaceDetect::saveToDatebase(const std::string &strFilename,
     {
         stInfo.nImageSize = std::filesystem::file_size(strFilename);
     } 
-    catch (...)  // 文件不存在或错误
+    /* 文件不存在或读取文件信息失败时使用默认值。 */
+    catch (...)
     {
         dlog_warn("文件不存在");
         stInfo.nImageSize = 0;
@@ -1401,116 +1453,197 @@ void CFaceDetect::pushFaceCaptureInfo(FaceAttribute_NS::Result_S stFAResult,std:
 }
 
 #ifdef ENABLE_TVSDK_SRC
-static bool encode_capture_image(const cv::Mat &mat, std::vector<unsigned char> &vecJpeg)
+/**
+ * @brief 将 OpenCV 图像编码为 TVSDK 使用的 JPEG 数据。
+ * @param [in] stImage 待编码的 BGR 图像。
+ * @param [out] aJpegData 输出的 JPEG 字节数组。
+ * @return true 表示编码成功，false 表示输入无效、编码失败或数据超出上限。
+ */
+static bool face_encode_capture_image(
+    const cv::Mat& stImage,
+    std::vector<unsigned char>& aJpegData)
 {
-    EventTvSdkImage_S stImage;
-    if (mat.empty() || !encode_mat_to_tvsdk_image(mat, stImage, 85, false))
+    EventTvSdkImage_S stEncodedImage;
+    if (stImage.empty() ||
+        !encode_mat_to_tvsdk_image(stImage, stEncodedImage, 85, false))
     {
         return false;
     }
-    if (stImage.vecJpeg.empty() || stImage.vecJpeg.size() > NET_PIC_DATA_MAX_LEN)
+    if (stEncodedImage.vecJpeg.empty() ||
+        stEncodedImage.vecJpeg.size() > NET_PIC_DATA_MAX_LEN)
     {
         return false;
     }
-    vecJpeg = std::move(stImage.vecJpeg);
+    aJpegData = std::move(stEncodedImage.vecJpeg);
     return true;
 }
 
-static void fillFaceCaptureRegion(const cv::Rect2f &faceRect, const cv::Size &detectSize, const cv::Size &imageSize, Alarm::Region_S &stRegion)
+/**
+ * @brief 将检测坐标系中的人脸框转换为归一化四边形区域。
+ * @param [in] stFaceRect 检测坐标系中的人脸框。
+ * @param [in] stDetectSize 检测坐标系尺寸。
+ * @param [in] stImageSize 全景图尺寸。
+ * @param [out] stRegion 输出的归一化区域。
+ * @return 无返回值。
+ */
+static void face_fill_capture_region(
+    const cv::Rect2f& stFaceRect,
+    const cv::Size& stDetectSize,
+    const cv::Size& stImageSize,
+    Alarm::Region_S& stRegion)
 {
     stRegion.nPointNum = 0;
     stRegion.aPoint.clear();
-    if (faceRect.empty() || imageSize.width <= 0 || imageSize.height <= 0 || detectSize.width <= 0 || detectSize.height <= 0)
+    if (stFaceRect.empty() || stImageSize.width <= 0 ||
+        stImageSize.height <= 0 || stDetectSize.width <= 0 ||
+        stDetectSize.height <= 0)
     {
         return;
     }
-    float fScaleX = static_cast<float>(imageSize.width) / static_cast<float>(detectSize.width);
-    float fScaleY = static_cast<float>(imageSize.height) / static_cast<float>(detectSize.height);
-    float fX = std::max(0.0f, std::min(faceRect.x * fScaleX, static_cast<float>(imageSize.width)));
-    float fY = std::max(0.0f, std::min(faceRect.y * fScaleY, static_cast<float>(imageSize.height)));
-    float fRight = std::max(fX, std::min((faceRect.x + faceRect.width) * fScaleX,
-                                         static_cast<float>(imageSize.width)));
-    float fBottom = std::max(fY, std::min((faceRect.y + faceRect.height) * fScaleY,
-                                          static_cast<float>(imageSize.height)));
-    float fNormX = 100.0f / static_cast<float>(imageSize.width);
-    float fNormY = 100.0f / static_cast<float>(imageSize.height);
+    const float fScaleX = static_cast<float>(stImageSize.width) /
+                          static_cast<float>(stDetectSize.width);
+    const float fScaleY = static_cast<float>(stImageSize.height) /
+                          static_cast<float>(stDetectSize.height);
+    const float fLeft = std::max(
+        0.0f,
+        std::min(stFaceRect.x * fScaleX, static_cast<float>(stImageSize.width)));
+    const float fTop = std::max(
+        0.0f,
+        std::min(stFaceRect.y * fScaleY, static_cast<float>(stImageSize.height)));
+    const float fRight = std::max(
+        fLeft,
+        std::min((stFaceRect.x + stFaceRect.width) * fScaleX,
+                 static_cast<float>(stImageSize.width)));
+    const float fBottom = std::max(
+        fTop,
+        std::min((stFaceRect.y + stFaceRect.height) * fScaleY,
+                 static_cast<float>(stImageSize.height)));
+    const float fNormalizedX = 100.0f / static_cast<float>(stImageSize.width);
+    const float fNormalizedY = 100.0f / static_cast<float>(stImageSize.height);
     stRegion.nPointNum = 4;
     stRegion.aPoint = {
-        Common::PosF_S{ fX * fNormX, fY * fNormY },
-        Common::PosF_S{ fRight * fNormX, fY * fNormY },
-        Common::PosF_S{ fRight * fNormX, fBottom * fNormY },
-        Common::PosF_S{ fX * fNormX, fBottom * fNormY }
+        Common::PosF_S{ fLeft * fNormalizedX, fTop * fNormalizedY },
+        Common::PosF_S{ fRight * fNormalizedX, fTop * fNormalizedY },
+        Common::PosF_S{ fRight * fNormalizedX, fBottom * fNormalizedY },
+        Common::PosF_S{ fLeft * fNormalizedX, fBottom * fNormalizedY }
     };
 }
 
-static cv::Rect mapFaceCaptureRect(const cv::Rect2f &faceRect,
-                                   const cv::Size &detectSize,
-                                   const cv::Size &imageSize)
+/**
+ * @brief 将检测坐标系中的人脸框映射到全景图像素坐标。
+ * @param [in] stFaceRect 检测坐标系中的人脸框。
+ * @param [in] stDetectSize 检测坐标系尺寸。
+ * @param [in] stImageSize 全景图尺寸。
+ * @return 映射后的像素矩形；输入无效时返回空矩形。
+ */
+static cv::Rect face_map_capture_rect(
+    const cv::Rect2f& stFaceRect,
+    const cv::Size& stDetectSize,
+    const cv::Size& stImageSize)
 {
-    if (faceRect.empty() || detectSize.width <= 0 || detectSize.height <= 0 ||
-        imageSize.width <= 0 || imageSize.height <= 0)
+    if (stFaceRect.empty() || stDetectSize.width <= 0 ||
+        stDetectSize.height <= 0 || stImageSize.width <= 0 ||
+        stImageSize.height <= 0)
     {
         return cv::Rect();
     }
 
-    const float fScaleX = static_cast<float>(imageSize.width) / static_cast<float>(detectSize.width);
-    const float fScaleY = static_cast<float>(imageSize.height) / static_cast<float>(detectSize.height);
-    const int nLeft = std::max(0, std::min(static_cast<int>(std::lround(faceRect.x * fScaleX)), imageSize.width));
-    const int nTop = std::max(0, std::min(static_cast<int>(std::lround(faceRect.y * fScaleY)), imageSize.height));
-    const int nRight = std::max(nLeft, std::min(static_cast<int>(std::lround((faceRect.x + faceRect.width) * fScaleX)), imageSize.width));
-    const int nBottom = std::max(nTop, std::min(static_cast<int>(std::lround((faceRect.y + faceRect.height) * fScaleY)), imageSize.height));
+    const float fScaleX = static_cast<float>(stImageSize.width) /
+                          static_cast<float>(stDetectSize.width);
+    const float fScaleY = static_cast<float>(stImageSize.height) /
+                          static_cast<float>(stDetectSize.height);
+    const int nLeft = std::max(
+        0,
+        std::min(static_cast<int>(std::lround(stFaceRect.x * fScaleX)),
+                 stImageSize.width));
+    const int nTop = std::max(
+        0,
+        std::min(static_cast<int>(std::lround(stFaceRect.y * fScaleY)),
+                 stImageSize.height));
+    const int nRight = std::max(
+        nLeft,
+        std::min(static_cast<int>(std::lround(
+                      (stFaceRect.x + stFaceRect.width) * fScaleX)),
+                 stImageSize.width));
+    const int nBottom = std::max(
+        nTop,
+        std::min(static_cast<int>(std::lround(
+                      (stFaceRect.y + stFaceRect.height) * fScaleY)),
+                 stImageSize.height));
     return cv::Rect(nLeft, nTop, nRight - nLeft, nBottom - nTop);
 }
 
-static INT64 get_tvsdk_capture_timestamp_ms()
+/**
+ * @brief 获取当前系统时间的毫秒时间戳。
+ * @param 无。
+ * @return Unix epoch 起算的毫秒时间戳。
+ */
+static INT64 face_get_capture_timestamp_ms()
 {
     return std::chrono::duration_cast<std::chrono::milliseconds>(
                std::chrono::system_clock::now().time_since_epoch())
         .count();
 }
 
-void CFaceDetect::pushFaceCaptureInfoToTvSdk(const cv::Mat &panoramaBgr, const cv::Rect2f &faceRect, const cv::Rect2f &rawFaceRect, const cv::Size &detectCoordinateSize, const FaceAttribute_NS::Result_S &stFAResult)
+/**
+ * @brief 将人脸抓拍图片和属性推送到 TVSDK。
+ * @param [in] stPanoramaBgr 人脸全景 BGR 图像。
+ * @param [in] stFaceRect 已外扩的人脸检测框。
+ * @param [in] stRawFaceRect 未外扩的原始人脸框。
+ * @param [in] stDetectCoordinateSize 人脸框所属检测坐标系尺寸。
+ * @param [in] stFaceAttributeResult 人脸属性识别结果。
+ * @return 无返回值。
+ */
+void CFaceDetect::push_face_capture_info_to_tvsdk(
+    const cv::Mat& stPanoramaBgr,
+    const cv::Rect2f& stFaceRect,
+    const cv::Rect2f& stRawFaceRect,
+    const cv::Size& stDetectCoordinateSize,
+    const FaceAttribute_NS::Result_S& stFaceAttributeResult)
 {
-    NET_AlarmCaptureInfo_S stInfo{};
-    std::vector<unsigned char> vecPanoramaJpeg;
-    if (!encode_capture_image(panoramaBgr, vecPanoramaJpeg))
+    NET_AlarmCaptureInfo_S stCaptureInfo{};
+    std::vector<unsigned char> aPanoramaJpeg;
+    if (!face_encode_capture_image(stPanoramaBgr, aPanoramaJpeg))
     {
         dlog_warn("TVSDK人脸抓拍全景图编码失败或超上限");
         return;
     }
 
-    cv::Mat faceMat;
-    if (!cropFaceCloseup(rawFaceRect, detectCoordinateSize, faceMat))
+    cv::Mat stFaceImage;
+    if (!cropFaceCloseup(stRawFaceRect, stDetectCoordinateSize, stFaceImage))
     {
         dlog_warn("TVSDK人脸抓拍特写图裁剪失败");
         return;
     }
 
-    std::vector<unsigned char> vecFaceJpeg;
-    if (!encode_capture_image(faceMat, vecFaceJpeg))
+    std::vector<unsigned char> aFaceJpeg;
+    if (!face_encode_capture_image(stFaceImage, aFaceJpeg))
     {
         dlog_warn("TVSDK人脸抓拍特写图编码失败或超上限");
         return;
     }
 
-    const cv::Rect stCropRect = mapFaceCaptureRect(faceRect, detectCoordinateSize, panoramaBgr.size());
+    const cv::Rect stCropRect = face_map_capture_rect(
+        stFaceRect, stDetectCoordinateSize, stPanoramaBgr.size());
     if (stCropRect.width <= 0 || stCropRect.height <= 0)
     {
         dlog_warn("TVSDK人脸抓拍目标框无效，无法填充通用抓拍坐标");
         return;
     }
 
-    stInfo.uAlarmType = NET_ALARM_CAPTURE_FACE;
-    stInfo.uChannel = static_cast<UINT32>(std::max(0, m_nChannelId));
-    stInfo.uCaptureType = NET_CAPTURE_TYPE_FACE;
-    stInfo.llTimestampMs = get_tvsdk_capture_timestamp_ms();
-    stInfo.uPanoramaWidth = static_cast<UINT32>(panoramaBgr.cols);
-    stInfo.uPanoramaHeight = static_cast<UINT32>(panoramaBgr.rows);
-    stInfo.stPanoramaImg.pData = const_cast<BYTE*>(reinterpret_cast<const BYTE*>(vecPanoramaJpeg.data()));
-    stInfo.stPanoramaImg.uDataLen = static_cast<UINT32>(vecPanoramaJpeg.size());
+    stCaptureInfo.uAlarmType = NET_ALARM_CAPTURE_FACE;
+    stCaptureInfo.uChannel = static_cast<UINT32>(std::max(0, m_nChannelId));
+    stCaptureInfo.uCaptureType = NET_CAPTURE_TYPE_FACE;
+    stCaptureInfo.llTimestampMs = face_get_capture_timestamp_ms();
+    stCaptureInfo.uPanoramaWidth = static_cast<UINT32>(stPanoramaBgr.cols);
+    stCaptureInfo.uPanoramaHeight = static_cast<UINT32>(stPanoramaBgr.rows);
+    stCaptureInfo.stPanoramaImg.pData = const_cast<BYTE*>(
+        reinterpret_cast<const BYTE*>(aPanoramaJpeg.data()));
+    stCaptureInfo.stPanoramaImg.uDataLen =
+        static_cast<UINT32>(aPanoramaJpeg.size());
 
-    stInfo.uCropCount = 1;
-    NET_CropImage_S &stCrop = stInfo.stCropImages[0];
+    stCaptureInfo.uCropCount = 1;
+    NET_CropImage_S& stCrop = stCaptureInfo.stCropImages[0];
     stCrop.uCropX = static_cast<UINT32>(stCropRect.x);
     stCrop.uCropY = static_cast<UINT32>(stCropRect.y);
     stCrop.uCropWidth = static_cast<UINT32>(stCropRect.width);
@@ -1518,48 +1651,61 @@ void CFaceDetect::pushFaceCaptureInfoToTvSdk(const cv::Mat &panoramaBgr, const c
     stCrop.uTargetType = NET_CAPTURE_TYPE_FACE;
     stCrop.fConfidence = 0.0f;
     stCrop.nTrackID = -1;
-    stCrop.stImage.pData = const_cast<BYTE*>(reinterpret_cast<const BYTE*>(vecFaceJpeg.data()));
-    stCrop.stImage.uDataLen = static_cast<UINT32>(vecFaceJpeg.size());
+    stCrop.stImage.pData = const_cast<BYTE*>(
+        reinterpret_cast<const BYTE*>(aFaceJpeg.data()));
+    stCrop.stImage.uDataLen = static_cast<UINT32>(aFaceJpeg.size());
 
-    stInfo.stExtraInfo.bMale = stFAResult.bIsMale ? TRUE : FALSE;
-    stInfo.stExtraInfo.nAgeLabel = stFAResult.nAgeLabel;
-    stInfo.stExtraInfo.bGlasses = stFAResult.bIsGlasses ? TRUE : FALSE;
-    stInfo.stExtraInfo.bBeard = stFAResult.bIsBeard ? TRUE : FALSE;
-    stInfo.stExtraInfo.bMask = stFAResult.bIsMask ? TRUE : FALSE;
-    stInfo.stExtraInfo.nEmotionLabel = stFAResult.nEmotionLabel;
+    stCaptureInfo.stExtraInfo.bMale =
+        stFaceAttributeResult.bIsMale ? TRUE : FALSE;
+    stCaptureInfo.stExtraInfo.nAgeLabel = stFaceAttributeResult.nAgeLabel;
+    stCaptureInfo.stExtraInfo.bGlasses =
+        stFaceAttributeResult.bIsGlasses ? TRUE : FALSE;
+    stCaptureInfo.stExtraInfo.bBeard =
+        stFaceAttributeResult.bIsBeard ? TRUE : FALSE;
+    stCaptureInfo.stExtraInfo.bMask =
+        stFaceAttributeResult.bIsMask ? TRUE : FALSE;
+    stCaptureInfo.stExtraInfo.nEmotionLabel =
+        stFaceAttributeResult.nEmotionLabel;
 
     Alarm::Region_S stFaceRegion;
-    fillFaceCaptureRegion(faceRect, detectCoordinateSize, panoramaBgr.size(), stFaceRegion);
+    face_fill_capture_region(
+        stFaceRect, stDetectCoordinateSize, stPanoramaBgr.size(), stFaceRegion);
     const INT32 nPointCount = std::min<INT32>(
         stFaceRegion.nPointNum, static_cast<INT32>(NET_CAPTURE_REGION_POINT_MAX_NUM));
-    stInfo.stExtraInfo.stTargetRegion.uPointCount = static_cast<UINT32>(nPointCount);
-    for (UINT32 i = 0; i < stInfo.stExtraInfo.stTargetRegion.uPointCount; ++i)
+    stCaptureInfo.stExtraInfo.stTargetRegion.uPointCount =
+        static_cast<UINT32>(nPointCount);
+    for (UINT32 i = 0;
+         i < stCaptureInfo.stExtraInfo.stTargetRegion.uPointCount;
+         ++i)
     {
-        stInfo.stExtraInfo.stTargetRegion.afPointX[i] = stFaceRegion.aPoint[i].fX;
-        stInfo.stExtraInfo.stTargetRegion.afPointY[i] = stFaceRegion.aPoint[i].fY;
+        stCaptureInfo.stExtraInfo.stTargetRegion.afPointX[i] =
+            stFaceRegion.aPoint[i].fX;
+        stCaptureInfo.stExtraInfo.stTargetRegion.afPointY[i] =
+            stFaceRegion.aPoint[i].fY;
     }
     const std::string strTimestamp = TimeUtils_NS::get_currentDateAndTimeNoT();
-    std::strncpy(stInfo.stExtraInfo.strTimestamp,
+    std::strncpy(stCaptureInfo.stExtraInfo.strTimestamp,
                  strTimestamp.c_str(),
-                 sizeof(stInfo.stExtraInfo.strTimestamp) - 1);
+                 sizeof(stCaptureInfo.stExtraInfo.strTimestamp) - 1);
 
-    int nRet = ControlManage::instance()->tvsdk_push_alarm(NET_ALARM_CAPTURE_FACE, &stInfo, sizeof(stInfo));
-    if (nRet < 0)
+    const int nReturnCode = ControlManage::instance()->tvsdk_push_alarm(
+        NET_ALARM_CAPTURE_FACE, &stCaptureInfo, sizeof(stCaptureInfo));
+    if (nReturnCode < 0)
     {
-        dlog_warn("TVSDK推送人脸抓拍失败: ret[%d]", nRet);
+        dlog_warn("TVSDK推送人脸抓拍失败: ret[%d]", nReturnCode);
     }
     else
     {
         dlog_info("TVSDK推送人脸抓拍成功: cmd[0x%x] face[%u] panorama[%u] attrs[male=%d age=%d glasses=%d beard=%d mask=%d emotion=%d]",
                   NET_ALARM_CAPTURE_FACE,
                   stCrop.stImage.uDataLen,
-                  stInfo.stPanoramaImg.uDataLen,
-                  stInfo.stExtraInfo.bMale,
-                  stInfo.stExtraInfo.nAgeLabel,
-                  stInfo.stExtraInfo.bGlasses,
-                  stInfo.stExtraInfo.bBeard,
-                  stInfo.stExtraInfo.bMask,
-                  stInfo.stExtraInfo.nEmotionLabel);
+                  stCaptureInfo.stPanoramaImg.uDataLen,
+                  stCaptureInfo.stExtraInfo.bMale,
+                  stCaptureInfo.stExtraInfo.nAgeLabel,
+                  stCaptureInfo.stExtraInfo.bGlasses,
+                  stCaptureInfo.stExtraInfo.bBeard,
+                  stCaptureInfo.stExtraInfo.bMask,
+                  stCaptureInfo.stExtraInfo.nEmotionLabel);
     }
 }
 #endif
@@ -1610,26 +1756,26 @@ void CFaceDetect::addFaceOverlayInfo(const cv::Mat &image)
     /* 自定义 */
     else
     {
-        color = hexToScalar(stInfo.strFontColor);
+        color = face_hex_to_scalar(stInfo.strFontColor);
     }
     
-    /* 设备编号 */
+    /* 设备编号。 */
     if(stInfo.bOverlayDeviceID)
     {
-        vecUpLeftOverlay.push_back(/*"DeviceID:" + */std::to_string(stInfo.nDeviceID));
+        vecUpLeftOverlay.push_back(std::to_string(stInfo.nDeviceID));
     }
-    /* 监控点编号 */
+    /* 监控点编号。 */
     if(stInfo.bOverlayMonitoryPointInfo)
     {
         if(!stInfo.strMonitoryPointInfo.empty())
         {
-            vecUpLeftOverlay.push_back(/* "MonitoryPoint:" + */stInfo.strMonitoryPointInfo);
+            vecUpLeftOverlay.push_back(stInfo.strMonitoryPointInfo);
         }
     }
-    /* 抓拍时间 */
+    /* 抓拍时间。 */
     if(stInfo.bOverlayCaptureTime)
     {
-        std::string strTime = /*"CaptureTime:" + */TimeUtils_NS::get_currentDateAndTimeNoT();
+        std::string strTime = TimeUtils_NS::get_currentDateAndTimeNoT();
         vecBottomLeftOverlay.push_back(strTime);
     }
 
@@ -1682,7 +1828,7 @@ void CFaceDetect::pushFaceImageToGat1400(const cv::Mat &image, const cv::Mat &sm
         face.RespiratorColor = stFAResult[0].bIsMask ? "99" : "";
     }
     
-    // 坐标点转换
+    /* 转换 GAT1400 所需的坐标点。 */
     Common::PosF_S stPosition1 {stFADetectResul.fX1, stFADetectResul.fY1};
     Common::PosF_S stPosition2 {stFADetectResul.fX2, stFADetectResul.fY2};
     bool bConvert1 = stPosition1.ConvertResolution(m_nWidth, m_nHeight, image.cols, image.rows);

@@ -3,13 +3,17 @@
  * @author tianl (tianl@kfb.cn)
  * @date 2026-07-28
  * @LastEditors  : qinjt@kfb.cn
- * @LastEditTime : 2026-07-28
+ * @LastEditTime : 2026-08-31
  *
- * @brief AlarmListener 模块接口与类型定义
+ * @brief AlarmListener 模块接口与类型定义。
  * 功能说明：
  * 1. 声明 AlarmListener 模块对外接口和数据类型
  * 2. 定义模块依赖的常量、回调或辅助类型
  * 3. 为调用方提供明确且稳定的编译期契约
+ *
+ * @par 修改记录
+ * 2026-08-28 qinjt：补充抓拍图片生命周期说明并统一接口注释格式。
+ * 2026-08-31 qinjt：补充监听线程和健康监控线程的安全停止约束。
  */
 #pragma once
 
@@ -25,115 +29,241 @@
 
 using namespace tvsdk;
 
+/**
+ * @brief 管理客户端 AlarmListen 长连接、告警解析和抓拍图片生命周期。
+ */
 class CAlarmListener
 {
 public:
-    CAlarmListener(const std::string& host, int port, const std::string& user, const std::string& pass);
-    ~CAlarmListener();
-
-    bool StartListen(void* userHandle, const std::string& sessionId);
-
     /**
-     * @author tianl (tianl@kfb.cn)
-     * @brief 更新报警监听会话标识。
-     * @param [in] newSessionId 重连后获得的新会话标识。
+     * @brief 创建客户端告警监听器。
+     * @param [in] strHost 设备主机地址。
+     * @param [in] nPort 设备 HTTP 端口。
+     * @param [in] strUser 用户名。
+     * @param [in] strPass 密码。
      * @return 无返回值。
      */
-    void UpdateSessionId(const std::string& newSessionId)
+    CAlarmListener(
+        const std::string& strHost,
+        int nPort,
+        const std::string& strUser,
+        const std::string& strPass);
+
+    /**
+     * @brief 销毁告警监听器并停止监听线程。
+     * @param 无。
+     * @return 无返回值。
+     */
+    ~CAlarmListener();
+
+    /**
+     * @brief 启动 AlarmListen 长连接。
+     * @param [in] pUserHandle 用户句柄。
+     * @param [in] strSessionId 当前登录会话标识。
+     * @return true 表示线程启动成功，false 表示启动失败。
+     */
+    bool StartListen(void* pUserHandle, const std::string& strSessionId);
+
+    /**
+     * @brief 更新告警监听会话标识。
+     * @param [in] strNewSessionId 重连后获得的新会话标识。
+     * @return 无返回值。
+     */
+    void UpdateSessionId(const std::string& strNewSessionId)
     {
-        std::lock_guard<std::mutex> lk(m_stSessionIdMutex);
-        m_strSessionId = newSessionId;
+        std::lock_guard<std::mutex> stLock(m_stSessionIdMutex);
+        m_strSessionId = strNewSessionId;
     }
 
     /**
-     * @author tianl (tianl@kfb.cn)
      * @brief 主动中断当前报警连接，以便监听线程使用新会话重新建立连接。
+     * @param 无。
      * @return 无返回值。
      */
     void ForceReconnect()
     {
-        std::lock_guard<std::mutex> lk(m_stClientMutex);
-        if (m_pClient) m_pClient->stop();
+        std::lock_guard<std::mutex> stLock(m_stClientMutex);
+        if (m_pClient)
+        {
+            m_pClient->stop();
+        }
     }
 
+    /**
+     * @brief 停止 AlarmListen 长连接和相关线程。
+     * @param 无。
+     * @return 无返回值。
+     */
     void Stop();
 
-    bool IsRunning() const { return m_bRunning; }
+    /**
+     * @brief 查询告警监听线程是否正在运行。
+     * @param 无。
+     * @return true 表示正在运行，false 表示已停止。
+     */
+    bool IsRunning() const
+    {
+        return m_bRunning;
+    }
 
-    /* session 过期回调：当服务端返回 401 时通知上层触发重新登录 */
+    /**
+     * @brief 会话过期回调类型。
+     * @details 服务端返回 401 时通知上层重新登录。
+     */
     using SessionExpiredCallback = std::function<void()>;
-    void SetSessionExpiredCallback(SessionExpiredCallback cb) { m_fnSessionExpiredCallback = cb; }
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 SetCallback 定义的内联处理。
- * @param [in] cb 函数处理参数。
- * @param [in,out] userData 函数处理参数。
- * @return 无返回值。
- */
-
-    void SetCallback(NET_AlarmCallBack cb, void* userData)
+    /**
+     * @brief 设置会话过期回调。
+     * @param [in] fnCallback 会话过期时调用的回调函数。
+     * @return 无返回值。
+     */
+    void SetSessionExpiredCallback(SessionExpiredCallback fnCallback)
     {
-        m_fnAlarmCallback = cb;
-        m_pAlarmUserData = userData;
+        m_fnSessionExpiredCallback = fnCallback;
     }
-/**
- * @author tianl (tianl@kfb.cn)
- * @brief 执行 SetChannelStatusCallback 定义的内联处理。
- * @param [in] cb 函数处理参数。
- * @param [in,out] userData 函数处理参数。
- * @return 无返回值。
- */
-
-    void SetChannelStatusCallback(NET_ChannelStatusCallBack cb, void* userData)
+    /**
+     * @brief 设置告警回调和回调用户数据。
+     * @param [in] fnCallback 告警回调函数。
+     * @param [in,out] pUserData 回调用户数据。
+     * @return 无返回值。
+     */
+    void SetCallback(NET_AlarmCallBack fnCallback, void* pUserData)
     {
-        m_fnChannelStatusCallback = cb;
-        m_pChannelStatusUserData = userData;
+        m_fnAlarmCallback = fnCallback;
+        m_pAlarmUserData = pUserData;
+    }
+    /**
+     * @brief 设置通道状态回调和回调用户数据。
+     * @param [in] fnCallback 通道状态回调函数。
+     * @param [in,out] pUserData 回调用户数据。
+     * @return 无返回值。
+     */
+    void SetChannelStatusCallback(
+        NET_ChannelStatusCallBack fnCallback,
+        void* pUserData)
+    {
+        m_fnChannelStatusCallback = fnCallback;
+        m_pChannelStatusUserData = pUserData;
     }
 
 private:
+    /**
+     * @brief 执行告警监听循环。
+     * @param 无。
+     * @return 无返回值。
+     */
     void AlarmLoop();
-    void HealthMonitorLoop();  /* 独立线程检测连接假死（read_timeout 可能失效） */
+
+    /**
+     * @brief 监控告警连接健康状态并在必要时触发恢复。
+     * @param 无。
+     * @return 无返回值。
+     */
+    void HealthMonitorLoop();
 
 private:
+    /**
+     * @brief 设备主机地址。
+     */
     std::string m_strHost;
-    int m_nPort;
-    std::string m_strUsername;
-    std::string m_strPassword;
-    std::string m_strSessionId;
-    std::mutex m_stSessionIdMutex;  /* 保护 m_strSessionId 的跨线程读写 */
-    void* m_hUser = nullptr; /* For callback identification */
 
+    /**
+     * @brief 设备 HTTP 服务端口。
+     */
+    int m_nPort;
+
+    /**
+     * @brief 设备登录用户名。
+     */
+    std::string m_strUsername;
+
+    /**
+     * @brief 设备登录密码。
+     */
+    std::string m_strPassword;
+
+    /**
+     * @brief 当前告警监听使用的会话标识。
+     */
+    std::string m_strSessionId;
+    /**
+     * @brief 保护 m_strSessionId 的跨线程读写。
+     */
+    std::mutex m_stSessionIdMutex;
+
+    /**
+     * @brief 回调用户句柄，用于上层识别当前监听器。
+     */
+    void* m_hUser = nullptr;
+
+    /**
+     * @brief 保护 m_pClient 的跨线程访问。
+     */
+    std::mutex m_stClientMutex;
+
+    /**
+     * @brief 当前告警监听使用的 HTTP 客户端。
+     */
     std::shared_ptr<httplib::Client> m_pClient;
-    std::mutex m_stClientMutex;          /* 保护 m_pClient 的跨线程访问 */
+
+    /**
+     * @brief 告警监听线程对象。
+     */
     std::thread m_stThread;
+
+    /**
+     * @brief 告警监听线程运行状态。
+     */
     std::atomic<bool> m_bRunning{false};
 
+    /**
+     * @brief 告警回调函数。
+     */
     NET_AlarmCallBack m_fnAlarmCallback = nullptr;
+
+    /**
+     * @brief 告警回调用户数据。
+     */
     void* m_pAlarmUserData = nullptr;
 
+    /**
+     * @brief 通道状态回调函数。
+     */
     NET_ChannelStatusCallBack m_fnChannelStatusCallback = nullptr;
+
+    /**
+     * @brief 通道状态回调用户数据。
+     */
     void* m_pChannelStatusUserData = nullptr;
 
+    /**
+     * @brief 会话过期回调函数。
+     */
     SessionExpiredCallback m_fnSessionExpiredCallback = nullptr;
 
-    /* 连接健康监控计数器 */
-    std::atomic<int> m_nReceivedHeartbeatCount{0};  /* 收到的心跳包数 */
-    std::atomic<int> m_nReceivedAlarmCount{0};      /* 收到的报警数 */
-    std::atomic<int64_t> m_lLastDataTimeMilliseconds{0}; /* 最后一次收到数据的时间(ms)，原子变量，跨线程安全 */
-    std::atomic<bool> m_bFirstDataReceived{false}; /* 当前连接是否已收到过数据（区分"连接建立中"和"数据中断"） */
-    std::chrono::steady_clock::time_point m_stConnectionStartTime{}; /* 当前连接建立时间 */
-    std::chrono::steady_clock::time_point m_stLastAlarmTime{}; /* 最后一次收到报警的时间 */
-    std::chrono::steady_clock::time_point m_stLastStatisticTime{};  /* 数据统计时间（替代 static，每个实例独立） */
+    /**
+     * @brief 连接健康监控统计信息。
+     */
+    std::atomic<int> m_nReceivedHeartbeatCount{0};
+    std::atomic<int> m_nReceivedAlarmCount{0};
+    std::atomic<int64_t> m_lLastDataTimeMilliseconds{0};
+    std::atomic<bool> m_bFirstDataReceived{false};
+    std::chrono::steady_clock::time_point m_stConnectionStartTime{};
+    std::chrono::steady_clock::time_point m_stLastAlarmTime{};
+    std::chrono::steady_clock::time_point m_stLastStatisticTime{};
 
-    /* 健康监控线程：当 read_timeout 失效导致 Get() 永久阻塞时，强制中断恢复 */
+    /**
+     * @brief 健康监控线程及其运行状态。
+     * @details 当 read_timeout 无法解除读取阻塞时，由该线程主动中断连接。
+     */
     std::thread m_stHealthMonitorThread;
     std::atomic<bool> m_bHealthMonitorRunning{false};
-    std::atomic<int> m_nReconnectCount{0};     /* 连接尝试次数（用于诊断） */
-    std::atomic<bool> m_bAlarmLoopExited{false}; /* AlarmLoop 退出标记：用于 Stop() 判断是否可以安全 join */
+    std::atomic<int> m_nReconnectCount{0};
 
-    /* 健康监控恢复限流：防止无限循环恢复导致线程泄露 */
-    static constexpr int kMaxRecoveriesPerWindow = 5;  /* 5分钟内最多恢复5次 */
-    static constexpr int kRecoveryWindowSec = 300;     /* 恢复计数窗口(5分钟) */
-    int m_nRecoveryCountInWindow = 0;                   /* 当前窗口内的恢复次数 */
-    std::chrono::steady_clock::time_point m_stRecoveryWindowStart{}; /* 恢复窗口起始时间 */
+    /**
+     * @brief 健康监控恢复限流参数。
+     */
+    static constexpr int NETSDK_ALARM_MAX_RECOVERIES_PER_WINDOW = 5;
+    static constexpr int NETSDK_ALARM_RECOVERY_WINDOW_SEC = 300;
+    int m_nRecoveryCountInWindow = 0;
+    std::chrono::steady_clock::time_point m_stRecoveryWindowStart{};
 };
