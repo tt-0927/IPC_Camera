@@ -2,26 +2,32 @@
  * @file face_detect.hpp
  * @author tianl (tianl@kfb.cn)
  * @date 2025-11-19
- * 
- * @brief 人脸检测相关
+ * @LastEditors  : qinjt@kfb.cn
+ * @LastEditTime : 2026-08-31
+ *
+ * @brief 人脸检测相关接口及抓拍属性推送声明。
+ *
+ * @par 修改记录
+ * 2026-08-28 qinjt：统一 TVSDK 抓拍属性接口的参数命名和函数注释。
+ * 2026-08-31 qinjt：补充本次命名和注释规范适配记录。
  */
 
- #pragma once
+#pragma once
 
- #include <atomic>
- #include <chrono>
- #include <condition_variable>
- #include <mutex>
- #include <thread>
- #include <algorithm>
- #include <sys/time.h>
- #include "common_process.h"
- #include "blocking_queue.hpp"
- #include "stream_video.h"
- #include "stream_vpss.h"
- #include <opencv2/opencv.hpp>
- #include "event_manager.hpp"
- #include "stream_process_ext.hpp"
+#include <atomic>
+#include <chrono>
+#include <condition_variable>
+#include <mutex>
+#include <thread>
+#include <algorithm>
+#include <sys/time.h>
+#include "common_process.h"
+#include "blocking_queue.hpp"
+#include "stream_video.h"
+#include "stream_vpss.h"
+#include <opencv2/opencv.hpp>
+#include "event_manager.hpp"
+#include "stream_process_ext.hpp"
 #include "algorithm.hpp"
 #include "task_publish.h"
 #include "event_define.h"
@@ -142,14 +148,20 @@ private:
 
 #ifdef ENABLE_TVSDK_SRC
     /**
-     * @brief 人脸抓拍信息 TVSDK 二进制直推
-     * @param panoramaBgr 人脸全景图（BGR）
-     * @param faceRect 人脸检测框（检测坐标系，已外扩留边）
-     * @param rawFaceRect 未外扩的原始人脸框（检测坐标系）
-     * @param detectCoordinateSize 检测框所属坐标系尺寸
-     * @param stFAResult 人脸属性结果
+     * @brief 将人脸抓拍图片和属性推送到 TVSDK。
+     * @param [in] stPanoramaBgr 人脸全景 BGR 图像。
+     * @param [in] stFaceRect 已外扩的人脸检测框。
+     * @param [in] stRawFaceRect 未外扩的原始人脸框。
+     * @param [in] stDetectCoordinateSize 人脸框所属检测坐标系尺寸。
+     * @param [in] stFaceAttributeResult 人脸属性识别结果。
+     * @return 无返回值。
      */
-    void pushFaceCaptureInfoToTvSdk(const cv::Mat &panoramaBgr, const cv::Rect2f &faceRect, const cv::Rect2f &rawFaceRect, const cv::Size &detectCoordinateSize, const FaceAttribute_NS::Result_S &stFAResult);
+    void push_face_capture_info_to_tvsdk(
+        const cv::Mat& stPanoramaBgr,
+        const cv::Rect2f& stFaceRect,
+        const cv::Rect2f& stRawFaceRect,
+        const cv::Size& stDetectCoordinateSize,
+        const FaceAttribute_NS::Result_S& stFaceAttributeResult);
 #endif
 
     /**
@@ -264,5 +276,5 @@ private:
     std::vector<FaceDetect_NS::Result_S> m_vstLastFrameResult;
     
     int m_nFrameCount = 0;
-    // CAlarmStateMachine m_FaceDetectStateMachine;         /* 人脸侦测 */
+    /* CAlarmStateMachine m_FaceDetectStateMachine; 人脸侦测状态机暂未启用。 */
 };
