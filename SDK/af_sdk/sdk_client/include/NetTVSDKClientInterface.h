@@ -67,6 +67,13 @@ NET_API INT32 NET_STDCALL NET_clientGetSdkVersion(void);
 NET_API INT32 NET_STDCALL NET_clientGetLastError();
 
 /**
+* 获取最近一次错误码的描述信息  Get description of last error code
+* @return 错误描述字符串（UTF-8），无需调用方释放内存  Error description string (UTF-8), caller does not need to free memory
+* @note 与海康 NET_DVR_GetErrorMsg、大华 CLIENT_GetLastError 对齐
+*/
+NET_API const char* NET_STDCALL NET_clientGetErrorMsg(void);
+
+/**
 * 接收异常.重连等消息的回调函数  Callback function to receive exception and reconnection messages
 * @param [in] lpUserID     用户登录句柄 User login ID
 * @param [in] dwType       异常或重连等消息的类型:NET_EXCEPTION_TYPE_E Type of exception or reconnection message: NET_EXCEPTION_TYPE_E
@@ -107,6 +114,20 @@ NET_API BOOL NET_STDCALL NET_clientSetRevTimeOut(NET_IN pNET_RevTimeout_S pstRev
 */
 NET_API BOOL NET_STDCALL NET_clientSetConnectTime(NET_IN INT32 dwWaitTime,
                                                            NET_IN INT32 dwTrytimes);
+
+/**
+* 设置自动重连开关  Set auto-reconnect switch
+* @param [in] lpUserID  用户登录句柄，不能为空  User login ID, cannot be NULL
+* @param [in] bEnable   TRUE启用自动重连，FALSE禁用  TRUE to enable, FALSE to disable
+* @return TRUE表示成功,其他表示失败  NET_TRUE means success, and any other value means failure.
+* @note
+* - 启用后，心跳失败达上限时 SDK 自动启动 ReconnectLoop（指数退避重连）
+* - 禁用后，心跳失败达上限时仅通过会话断开通知上层，SDK 不发起重连
+* - 与海康 NET_DVR_SetReconnectCallBack、大华 CLIENT_SetAutoReconnect 对齐
+*/
+NET_API BOOL NET_STDCALL NET_clientSetAutoReconnect(NET_IN LPVOID lpUserID,
+                                                    NET_IN BOOL   bEnable);
+
 /**
 * 设备登录
 * @param [in]  pstDevLoginInfo  设备登录信息

@@ -3,17 +3,13 @@
  * @author tianl (tianl@kfb.cn)
  * @date 2026-07-28
  * @LastEditors  : qinjt@kfb.cn
- * @LastEditTime : 2026-08-31
+ * @LastEditTime : 2026-07-28
  *
  * @brief AlarmInfoConvert 模块接口与类型定义
  * 功能说明：
  * 1. 声明 AlarmInfoConvert 模块对外接口和数据类型
  * 2. 定义模块依赖的常量、回调或辅助类型
  * 3. 为调用方提供明确且稳定的编译期契约
- *
- * @par 修改记录
- * 2026-08-28 qinjt：补充通用抓拍告警及人脸属性转换接口说明。
- * 2026-08-31 qinjt：补充抓拍转换接口的边界和图片生命周期说明。
  */
 #ifndef NETSDK_ALARM_INFO_CONVERT_H
 #define NETSDK_ALARM_INFO_CONVERT_H
@@ -41,14 +37,7 @@ namespace SDKConvert
     void deal(Json::Object* pRootJson, NET_AlarmExceptionInfo_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_AlarmStatisticsTarget_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_AlarmStatisticsInfo_S& stInfo, bool bOutStruct);
-    /**
-     * @brief 在 JSON 与通用抓拍告警结构体之间进行双向转换。
-     * @author qinjt
-     * @param [in,out] pRootJson 根据 bOutStruct 作为输入或输出 JSON 对象。
-     * @param [in,out] stInfo 根据 bOutStruct 作为输入或输出的抓拍告警结构体。
-     * @param [in] bOutStruct 为 true 时将 JSON 转换为结构体，为 false 时将结构体转换为 JSON。
-     * @return 无返回值。
-     */
+    /** 通用抓拍告警及人脸/行人/车辆扩展属性转换。 */
     void deal(Json::Object* pRootJson, NET_AlarmCaptureInfo_S& stInfo, bool bOutStruct);
 
     /* 区域入侵报警相关 */

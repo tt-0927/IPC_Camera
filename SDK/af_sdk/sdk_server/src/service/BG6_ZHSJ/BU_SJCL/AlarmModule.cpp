@@ -78,14 +78,6 @@ BOOL CAlarmModule::PushAlarmInfo(NET_Alarmer_S* pAlarmer,
 
     Json::add(pRoot, "Command", (long long)lCommand);
 
-    // [诊断] 注入入队时间戳，方便下游测量队列延迟
-    {
-        auto tp_now = std::chrono::steady_clock::now();
-        long long ts_now = std::chrono::duration_cast<std::chrono::milliseconds>(
-            tp_now.time_since_epoch()).count();
-        Json::add(pRoot, "enqueue_ts", ts_now);
-    }
-
     // 添加Alarmer信息
     {
         Json::Object* pAlarmerJson = Json::init();
