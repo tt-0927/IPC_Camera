@@ -21,6 +21,7 @@
 #include <queue>
 #include <memory>
 #include <condition_variable>
+#include <vector>
 #include <tvsdkhttplib.h>
 
 using namespace tvsdk;
@@ -99,11 +100,26 @@ public:
     {
         std::string json;
         std::vector<Attachment_S> attachments;
+        std::chrono::steady_clock::time_point enqueueTime;
+
+        size_t GetPayloadSize() const
+        {
+            size_t total = json.size();
+            for (const auto& attachment : attachments)
+            {
+                total += attachment.contentType.size();
+                total += attachment.data.size();
+                total += attachment.name.size();
+                total += attachment.filename.size();
+            }
+            return total;
+        }
     };
 
-    /* 将消息加入发送队列 (线程安全)，入队后自动唤醒等待中的 content_provider */
+    /* 将消息加入发送队列 (线程安全)，成功入队后自动唤醒等待中的 content_provider */
     /* 队列元素为共享只读消息，多个客户端共享同一份告警数据，避免多客户端场景下重复深拷贝 */
-    void EnqueueMessage(std::shared_ptr<const AlarmData_S> data);
+    /* 返回 true 表示消息已入队；超过队列预算或消息为空时返回 false。 */
+    bool EnqueueMessage(std::shared_ptr<const AlarmData_S> data);
     /* 尝试从队列获取一条消息 (线程安全，返回 false 表示队列为空) */
     bool DequeueMessage(std::shared_ptr<const AlarmData_S>& outMsg);
     /* 队列是否为空 */
@@ -132,7 +148,16 @@ private:
 
     /* 消息队列 (用于 SSE 推送)，元素为共享只读消息，多客户端共享同一份告警数据 */
     std::queue<std::shared_ptr<const AlarmData_S>> m_stMessageQueue;
+    size_t m_uQueuedMessageBytes{0};
+    uint64_t m_uDroppedMessageCount{0};
+    uint64_t m_uDroppedMessageBytes{0};
     std::condition_variable m_stCondition; /* 有数据入队时唤醒 content_provider */
 
     mutable std::mutex m_stMutex; /* 保护 m_stLastActive、m_stMessageQueue 和 m_stCondition */
+
+    static constexpr size_t kMaxQueuedAlarmCount = 4U;
+    static constexpr size_t kMaxQueuedAlarmBytes = 8U * 1024U * 1024U;
+    static constexpr int kMaxQueuedAlarmAgeSeconds = 5;
+
+    void RemoveFrontMessageLocked(size_t& droppedCount, size_t& droppedBytes);
 };
