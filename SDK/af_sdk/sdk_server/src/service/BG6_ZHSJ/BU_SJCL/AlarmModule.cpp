@@ -16,6 +16,7 @@
 #include "SDKConvert.h"
 #include "Json.h"
 #include "NetSdkLog.h"
+#include <utility>
 
 /**
  * 构造函数
@@ -293,7 +294,7 @@ BOOL CAlarmModule::PushAlarmInfo(NET_Alarmer_S* pAlarmer,
         tp_before_push.time_since_epoch()).count();
 
     // 推送到所有会话
-    size_t pushCount = CSessionManager::instance()->PushToAll(jsonStr);
+    size_t pushCount = CSessionManager::instance()->PushToAll(std::move(jsonStr));
 
     auto tp_after_push = std::chrono::steady_clock::now();
     long long ts_after_push = std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -377,7 +378,7 @@ BOOL CAlarmModule::PushChannelStatusInfo(NET_ChannelInfo_S* pChannelInfo)
 
     // 执行推送
     NETSDK_LOG_MESSAGE_WARN("[CAlarmModule] Calling PushToAll...");
-    size_t pushCount = CSessionManager::instance()->PushToAll(jsonStr);
+    size_t pushCount = CSessionManager::instance()->PushToAll(std::move(jsonStr));
 
     if (pushCount == 0)
     {

@@ -20,6 +20,7 @@
 #include "SDKConvert.h"
 #include "HttpAuthHandler.h"
 #include <sstream>
+#include <utility>
 
 namespace
 {
@@ -234,7 +235,7 @@ std::shared_ptr<CServerSession> CSessionManager::GetSession(const std::string& S
  * @return 返回该处理的状态或结果。
  */
 
-size_t CSessionManager::PushToAll(const std::string& json, const std::vector<CServerSession::Attachment_S>& attachments)
+size_t CSessionManager::PushToAll(std::string json, const std::vector<CServerSession::Attachment_S>& attachments)
 {
 	std::lock_guard<std::mutex> Lock(m_stMutex);
     size_t count = 0;
@@ -243,10 +244,7 @@ size_t CSessionManager::PushToAll(const std::string& json, const std::vector<CSe
     size_t notConnected = 0;
     size_t pushDisabled = 0;
 
-    /* 只构造一份共享只读消息，所有符合条件客户端入队共享同一份数据，避免多客户端下重复深拷贝 */
-    auto spData = std::make_shared<CServerSession::AlarmData_S>();
-    spData->json = json;
-    spData->attachments = attachments;
+    std::shared_ptr<CServerSession::AlarmData_S> spData;
 
     std::string forwardedClients;
 
@@ -265,10 +263,20 @@ size_t CSessionManager::PushToAll(const std::string& json, const std::vector<CSe
         /* 断线时不入队（MarkDisconnected 已清空队列），重连后再活跃入队 */
         if (session->IsLogined() && session->IsConnected() && session->IsPushEnabled())
         {
-            session->EnqueueMessage(spData);
-            count++;
-            if (!forwardedClients.empty()) forwardedClients += ", ";
-            forwardedClients += clientIP;
+            if (!spData)
+            {
+                /* 接管调用方的序列化结果，避免入队前再次复制完整 JSON。 */
+                spData = std::make_shared<CServerSession::AlarmData_S>();
+                spData->json = std::move(json);
+                spData->attachments = attachments;
+                spData->enqueueTime = std::chrono::steady_clock::now();
+            }
+            if (session->EnqueueMessage(spData))
+            {
+                count++;
+                if (!forwardedClients.empty()) forwardedClients += ", ";
+                forwardedClients += clientIP;
+            }
         }
         else
         {

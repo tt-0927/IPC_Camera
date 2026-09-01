@@ -40,7 +40,7 @@ public:
 	bool EnablePush(const std::string& SessionId);
 	void CleanTimeoutSessions();
 	void MarkDisconnected(const std::string& SessionId);
-	size_t PushToAll(const std::string& json, const std::vector<CServerSession::Attachment_S>& attachments = {});
+	size_t PushToAll(std::string json, const std::vector<CServerSession::Attachment_S>& attachments = {});
 	size_t GetSessionCount();
 
 	/**
