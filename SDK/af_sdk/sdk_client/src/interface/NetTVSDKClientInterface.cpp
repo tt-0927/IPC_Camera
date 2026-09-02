@@ -713,6 +713,32 @@ NET_clientSearchDiscovery(IN  const CHAR*                      szInterfaceIP,
     return TRUE;
 }
 
+/**
+ * @brief 未登录通过设备发现组播协议按 MAC 设置摄像机网络参数。
+ */
+NET_API BOOL STDCALL
+NET_clientSetPoeNetwork(IN const NET_PoeNetworkConfig_S* pstConfig)
+{
+    CHECK_SDK_INIT(FALSE);
+    if (!pstConfig)
+    {
+        CErrorManage::instance()->SetLastError(NET_E_INVALID_PARAM);
+        return FALSE;
+    }
+
+    CDiscoveryProber prober;
+    const int ret = prober.set_network(*pstConfig);
+    if (ret != 0)
+    {
+        CErrorManage::instance()->SetLastError(
+            ret == -2 ? NET_E_INVALID_PARAM : NET_E_SYSCALL_FALIED);
+        return FALSE;
+    }
+
+    CErrorManage::instance()->SetLastError(NET_E_SUCCEED);
+    return TRUE;
+}
+
 /* ==================== 错误码描述 / 重连开关 ==================== */
 
 /**
@@ -720,6 +746,7 @@ NET_clientSearchDiscovery(IN  const CHAR*                      szInterfaceIP,
  * @return 错误描述字符串（UTF-8），无需调用方释放内存
  * @note  与海康 NET_DVR_GetErrorMsg、大华 CLIENT_GetLastError 对齐
  */
+
 NET_API const char* STDCALL NET_clientGetErrorMsg(void)
 {
     return CErrorManage::instance()->GetErrorMsg();

@@ -108,6 +108,15 @@ NET_serverRegisterGetDiscoveryDeviceInfoCb(
 }
 
 NET_API BOOL STDCALL
+NET_serverRegisterSetNetworkCb(IN NET_CB_SetNetwork cbFunc)
+{
+    if (!g_pServerImpl) {
+        g_pServerImpl = std::make_unique<CNetTVSDKServerImpl>();
+    }
+    return g_pServerImpl->DoRegisterCb_SetNetwork(cbFunc);
+}
+
+NET_API BOOL STDCALL
 NET_serverStartDiscovery(IN const CHAR* szInterfaceName)
 {
 	if (!g_pServerImpl) {

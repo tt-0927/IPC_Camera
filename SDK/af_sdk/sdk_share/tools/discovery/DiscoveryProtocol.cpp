@@ -15,6 +15,7 @@
 #include "DiscoveryProtocol.h"
 
 #include "Json.h"
+#include "PlatformCompat.h"
 #include <cstdio>
 #include <cstring>
 
@@ -24,6 +25,12 @@ namespace discovery {
 static const char* kKeyProbe  = "Probe";
 static const char* kKeyType   = "Type";
 static const char* kValDiscovery = "discovery";
+static const char* kValSetNetwork = "set_network";
+static const char* kKeyTargetIP = "TargetIP";
+static const char* kKeySubnetMask = "SubnetMask";
+static const char* kKeyGateway = "Gateway";
+static const char* kKeySetGateway = "SetGateway";
+static const char* kKeyIPv4DHCP = "IPv4DHCP";
 static const char* kKeyDeviceName    = "DeviceName";
 static const char* kKeyDeviceID      = "DeviceID";
 static const char* kKeyDeviceType    = "DeviceType";
@@ -98,6 +105,111 @@ std::string build_response_json(const NET_DiscoveryDeviceInfo_S& info)
     std::string result = Json::to_string(root);
     Json::deinit(root);
     return result;
+}
+
+namespace {
+
+bool valid_ipv4(const std::string& value)
+{
+    struct in_addr address{};
+    return !value.empty() && inet_pton(AF_INET, value.c_str(), &address) == 1;
+}
+
+bool valid_mac(const std::string& value)
+{
+    unsigned int bytes[6]{};
+    char tail = '\0';
+    int count = std::sscanf(value.c_str(), "%2x:%2x:%2x:%2x:%2x:%2x%c",
+                            &bytes[0], &bytes[1], &bytes[2], &bytes[3],
+                            &bytes[4], &bytes[5], &tail);
+    if (count != 6) {
+        count = std::sscanf(value.c_str(), "%2x-%2x-%2x-%2x-%2x-%2x%c",
+                            &bytes[0], &bytes[1], &bytes[2], &bytes[3],
+                            &bytes[4], &bytes[5], &tail);
+    }
+    if (count != 6) return false;
+    for (unsigned int byte : bytes) {
+        if (byte > 0xff) return false;
+    }
+    return true;
+}
+
+bool fits_field(const std::string& value, size_t capacity)
+{
+    return value.size() < capacity;
+}
+
+}  // namespace
+
+std::string build_set_network_json(const NET_PoeNetworkConfig_S& config)
+{
+    Json::Object* root = Json::init();
+    Json::Object* request = Json::init();
+    Json::add(request, kKeyType, kValSetNetwork);
+    Json::add(request, kKeyMACAddress, config.szMACAddress);
+    Json::add(request, kKeyTargetIP, config.szTargetIP);
+    Json::add(request, kKeySubnetMask, config.szSubnetMask);
+    Json::add(request, kKeyGateway, config.szGateway);
+    Json::add(request, kKeySetGateway, config.bSetGateway != 0);
+    Json::add(request, kKeyIPv4DHCP, config.bIPv4DHCP != 0);
+    Json::add(root, kKeyProbe, request);
+    std::string result = Json::to_string(root);
+    Json::deinit(root);
+    return result;
+}
+
+bool parse_set_network_json(const std::string& json_str,
+                            NET_PoeNetworkConfig_S& config)
+{
+    if (json_str.empty()) return false;
+
+    Json::Object* root = Json::init(json_str.c_str());
+    if (!root) return false;
+    Json::Object* request = Json::get(root, kKeyProbe);
+    std::string type;
+    std::string mac;
+    std::string target_ip;
+    std::string subnet_mask;
+    std::string gateway;
+    bool set_gateway = false;
+    bool dhcp = false;
+
+    bool valid = request &&
+        Json::get(request, kKeyType, type) && type == kValSetNetwork &&
+        Json::get(request, kKeyMACAddress, mac) &&
+        Json::get(request, kKeyTargetIP, target_ip) &&
+        Json::get(request, kKeySubnetMask, subnet_mask) &&
+        Json::get(request, kKeySetGateway, set_gateway) &&
+        Json::get(request, kKeyIPv4DHCP, dhcp);
+
+    if (valid) {
+        valid = valid_mac(mac) && valid_ipv4(target_ip) &&
+                valid_ipv4(subnet_mask) &&
+                fits_field(mac, sizeof(config.szMACAddress)) &&
+                fits_field(target_ip, sizeof(config.szTargetIP)) &&
+                fits_field(subnet_mask, sizeof(config.szSubnetMask));
+    }
+
+    if (valid && Json::get(request, kKeyGateway, gateway)) {
+        valid = (!set_gateway || valid_ipv4(gateway)) &&
+                fits_field(gateway, sizeof(config.szGateway));
+    } else if (valid && set_gateway) {
+        valid = false;
+    }
+
+    if (valid) {
+        std::memset(&config, 0, sizeof(config));
+        std::snprintf(config.szMACAddress, sizeof(config.szMACAddress), "%s", mac.c_str());
+        std::snprintf(config.szTargetIP, sizeof(config.szTargetIP), "%s", target_ip.c_str());
+        std::snprintf(config.szSubnetMask, sizeof(config.szSubnetMask), "%s", subnet_mask.c_str());
+        if (!gateway.empty()) {
+            std::snprintf(config.szGateway, sizeof(config.szGateway), "%s", gateway.c_str());
+        }
+        config.bSetGateway = set_gateway ? TRUE : FALSE;
+        config.bIPv4DHCP = dhcp ? TRUE : FALSE;
+    }
+    Json::deinit(root);
+    return valid;
 }
 /**
  * @author tianl (tianl@kfb.cn)

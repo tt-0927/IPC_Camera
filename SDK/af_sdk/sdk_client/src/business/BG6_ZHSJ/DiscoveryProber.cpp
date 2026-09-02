@@ -23,6 +23,36 @@
 #define NETSDK_DISCOVERY_PROBE_COUNT  3
 #define NETSDK_DISCOVERY_PROBE_DELAY_US  (100 * 1000)  /* 100ms */
 
+namespace {
+
+bool is_terminated(const char* text, size_t capacity)
+{
+    return text && std::memchr(text, '\0', capacity) != nullptr;
+}
+
+bool valid_mac(const char* text)
+{
+    if (!text) return false;
+
+    unsigned int bytes[6]{};
+    char tail = '\0';
+    int count = std::sscanf(text, "%2x:%2x:%2x:%2x:%2x:%2x%c",
+                            &bytes[0], &bytes[1], &bytes[2], &bytes[3],
+                            &bytes[4], &bytes[5], &tail);
+    if (count != 6) {
+        count = std::sscanf(text, "%2x-%2x-%2x-%2x-%2x-%2x%c",
+                            &bytes[0], &bytes[1], &bytes[2], &bytes[3],
+                            &bytes[4], &bytes[5], &tail);
+    }
+    if (count != 6) return false;
+    for (unsigned int byte : bytes) {
+        if (byte > 0xff) return false;
+    }
+    return true;
+}
+
+}  // namespace
+
 /**
  * @author tianl (tianl@kfb.cn)
  * @brief 在指定网络接口上发送发现报文并收集设备响应。
@@ -48,6 +78,90 @@ int CDiscoveryProber::search(const char* szInterfaceIP,
     send_probes();
     ret = recv_responses(dwTimeoutMs, pDeviceList, nMaxCount, pnOutCount);
     close_socket();
+    return ret;
+}
+
+int CDiscoveryProber::set_network(const NET_PoeNetworkConfig_S& config) const
+{
+    if (!is_terminated(config.szInterfaceIP, sizeof(config.szInterfaceIP)) ||
+        !is_terminated(config.szMACAddress, sizeof(config.szMACAddress)) ||
+        !is_terminated(config.szTargetIP, sizeof(config.szTargetIP)) ||
+        !is_terminated(config.szSubnetMask, sizeof(config.szSubnetMask)) ||
+        !is_terminated(config.szGateway, sizeof(config.szGateway)) ||
+        !valid_mac(config.szMACAddress) || config.szTargetIP[0] == '\0' ||
+        config.szSubnetMask[0] == '\0' ||
+        (config.bSetGateway && config.szGateway[0] == '\0')) {
+        return -2;
+    }
+
+    struct in_addr address{};
+    if (inet_pton(AF_INET, config.szTargetIP, &address) != 1 ||
+        inet_pton(AF_INET, config.szSubnetMask, &address) != 1 ||
+        (config.bSetGateway && inet_pton(AF_INET, config.szGateway, &address) != 1) ||
+        (config.szInterfaceIP[0] != '\0' &&
+         inet_pton(AF_INET, config.szInterfaceIP, &address) != 1)) {
+        return -2;
+    }
+
+    socket_fd_t socket_fd = socket(AF_INET, SOCK_DGRAM, 0);
+    if (socket_fd == INVALID_SOCKET_FD) {
+        std::fprintf(stderr, "discovery: network-config socket failed, error=%d\n",
+                     NETSDK_SOCKET_GET_ERROR());
+        return -3;
+    }
+
+    if (config.szInterfaceIP[0] != '\0') {
+        struct in_addr interface_address{};
+        inet_pton(AF_INET, config.szInterfaceIP, &interface_address);
+        if (setsockopt(socket_fd, IPPROTO_IP, IP_MULTICAST_IF,
+                       reinterpret_cast<const char*>(&interface_address),
+                       sizeof(interface_address)) != 0) {
+            NETSDK_SOCKET_CLOSE(socket_fd);
+            return -3;
+        }
+    }
+
+    int ttl = NET_DISCOVERY_TTL;
+    setsockopt(socket_fd, IPPROTO_IP, IP_MULTICAST_TTL,
+               reinterpret_cast<const char*>(&ttl), sizeof(ttl));
+
+    struct sockaddr_in destination{};
+    destination.sin_family = AF_INET;
+    destination.sin_port = htons(NET_DISCOVERY_MCAST_PORT);
+    if (inet_pton(AF_INET, NET_DISCOVERY_MCAST_ADDR, &destination.sin_addr) != 1) {
+        NETSDK_SOCKET_CLOSE(socket_fd);
+        return -3;
+    }
+
+    const std::string request = discovery::build_set_network_json(config);
+    constexpr UINT32 kMaxSendCount = 32;
+    const UINT32 requested_send_count = config.dwSendCount > 0
+        ? config.dwSendCount
+        : NETSDK_DISCOVERY_PROBE_COUNT;
+    const UINT32 send_count = requested_send_count > kMaxSendCount
+        ? kMaxSendCount
+        : requested_send_count;
+    const UINT32 delay_us = config.dwTimeoutMs > 0
+        ? (config.dwTimeoutMs > 4000000U
+               ? 4000000U
+               : config.dwTimeoutMs * 1000U) / send_count
+        : NETSDK_DISCOVERY_PROBE_DELAY_US;
+    int ret = 0;
+    for (UINT32 index = 0; index < send_count; ++index) {
+        const ssize_t sent = sendto(
+            socket_fd, request.data(), static_cast<int>(request.size()), 0,
+            reinterpret_cast<struct sockaddr*>(&destination), sizeof(destination));
+        if (sent < 0 || static_cast<size_t>(sent) != request.size()) {
+            std::fprintf(stderr, "discovery: network-config sendto failed, error=%d\n",
+                         NETSDK_SOCKET_GET_ERROR());
+            ret = -3;
+        }
+        if (index + 1 < send_count) {
+            NETSDK_MICRO_SLEEP(delay_us);
+        }
+    }
+
+    NETSDK_SOCKET_CLOSE(socket_fd);
     return ret;
 }
 

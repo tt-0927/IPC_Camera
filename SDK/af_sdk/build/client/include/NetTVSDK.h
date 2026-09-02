@@ -2893,6 +2893,27 @@ typedef struct tagNET_NetworkCfg
 
 typedef NET_NetworkCfg_S* pNET_NetworkCfg_S;
 
+/**
+ * @struct tagNET_PoeNetworkConfig
+ * @brief 未登录场景下通过 SDK 设备发现组播协议设置摄像机网络参数
+ * @note 设备通过 MAC 地址匹配；接口仅发送组播配置报文，不建立 HTTP 登录会话。
+ */
+typedef struct tagNET_PoeNetworkConfig
+{
+    CHAR    szInterfaceIP[NET_IPADDR_STR_MAX_LEN]; /* 发送组播的本地网卡 IPv4，空串使用默认网卡 */
+    CHAR    szMACAddress[NET_LEN_32];              /* 目标设备 MAC，如 AA:BB:CC:DD:EE:FF */
+    CHAR    szTargetIP[NET_IPADDR_STR_MAX_LEN];    /* 目标 IPv4 地址 */
+    CHAR    szSubnetMask[NET_IPADDR_STR_MAX_LEN];  /* IPv4 子网掩码 */
+    CHAR    szGateway[NET_IPADDR_STR_MAX_LEN];     /* IPv4 网关，bSetGateway 为 FALSE 时可为空 */
+    BOOL    bSetGateway;                           /* 是否设置网关 */
+    BOOL    bIPv4DHCP;                             /* 是否启用 DHCP */
+    UINT32  dwTimeoutMs;                           /* 发送总时长，0 使用 SDK 默认发送间隔 */
+    UINT32  dwSendCount;                           /* 发送次数，0 使用 SDK 默认值 */
+    BYTE    byRes[128];                            /* 保留字段 */
+} NET_PoeNetworkConfig_S;
+
+typedef NET_PoeNetworkConfig_S* pNET_PoeNetworkConfig_S;
+
 #ifndef NET_MAX_NET_NUM
 #define NET_MAX_NET_NUM 8
 #endif
@@ -6389,6 +6410,15 @@ NET_clientSearchDiscovery(NET_IN  const CHAR*                      szInterfaceIP
                         NET_OUT NET_DiscoveryDeviceInfo_S*       pDeviceList,
                         NET_IN  int                              nMaxCount,
                         NET_OUT int*                             pnOutCount);
+
+/**
+ * @brief 未登录通过设备发现组播协议按 MAC 设置摄像机网络参数。
+ * @param [in] pstConfig 发送网卡、目标 MAC 及目标网络参数。
+ * @return TRUE 表示组播报文发送成功；FALSE 表示参数或发送失败。
+ * @note 必须先调用 NET_clientInit，但不需要调用 NET_clientLogin。发送成功不代表设备已完成修改，调用方应重新搜索确认。
+ */
+NET_API BOOL NET_STDCALL
+NET_clientSetPoeNetwork(NET_IN const NET_PoeNetworkConfig_S* pstConfig);
 
 /************************************************************************/
 /*                       语音对讲 VoiceCom                                */

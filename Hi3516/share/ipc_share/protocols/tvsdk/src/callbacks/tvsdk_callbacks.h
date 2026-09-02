@@ -3,6 +3,7 @@
 #include <memory>
 
 class CTaskManage;
+struct tagNET_PoeNetworkConfig;
 
 /**
  * @brief TVSDK 回调注册/实现（从 tvsdk_server.cpp 拆分出来）
@@ -23,4 +24,11 @@ namespace TvSdkCallbacks
      * @note 需要在 NET_serverInit 成功后调用
      */
     void register_all();
+
+    /**
+     * @brief 将组播网络配置转发到 IPC 网络配置任务。
+     * @param [in] pConfig SDK 解析后的目标网络参数。
+     * @return NET_E_SUCCEED 表示 IPC 已接受配置，其他值表示失败。
+     */
+    int apply_discovery_network(const tagNET_PoeNetworkConfig *pConfig);
 } // namespace TvSdkCallbacks

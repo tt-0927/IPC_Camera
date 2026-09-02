@@ -227,6 +227,12 @@ BOOL CNetTVSDKServerImpl::DoRegisterCb_GetDiscoveryDeviceInfo(
     return (cbFunc != nullptr) ? TRUE : FALSE;
 }
 
+BOOL CNetTVSDKServerImpl::DoRegisterCb_SetNetwork(NET_CB_SetNetwork cbFunc)
+{
+    m_cbSetNetwork = cbFunc;
+    return (cbFunc != nullptr) ? TRUE : FALSE;
+}
+
 BOOL CNetTVSDKServerImpl::DoDiscoveryStart(const CHAR* szInterfaceName)
 {
     if (!m_cbDiscoveryDeviceInfo) {
@@ -244,6 +250,12 @@ BOOL CNetTVSDKServerImpl::DoDiscoveryStart(const CHAR* szInterfaceName)
     m_pDiscoveryResponder->set_device_info_callback(
         [cb](NET_DiscoveryDeviceInfo_S* pInfo) {
             if (cb) cb(pInfo);
+        });
+
+    NET_CB_SetNetwork network_cb = m_cbSetNetwork;
+    m_pDiscoveryResponder->set_network_callback(
+        [network_cb](const NET_PoeNetworkConfig_S& config) {
+            return network_cb && network_cb(&config) == NET_E_SUCCEED;
         });
 
     if (m_pDiscoveryResponder->init(szInterfaceName) < 0) {

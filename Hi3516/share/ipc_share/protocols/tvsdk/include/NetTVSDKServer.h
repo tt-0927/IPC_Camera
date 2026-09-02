@@ -2916,6 +2916,25 @@ typedef struct tagNET_NetworkCfg
 
 typedef NET_NetworkCfg_S* pNET_NetworkCfg_S;
 
+/**
+ * @brief 未登录场景下通过 SDK 设备发现组播协议设置摄像机网络参数。
+ */
+typedef struct tagNET_PoeNetworkConfig
+{
+    CHAR    szInterfaceIP[NET_IPADDR_STR_MAX_LEN];
+    CHAR    szMACAddress[NET_LEN_32];
+    CHAR    szTargetIP[NET_IPADDR_STR_MAX_LEN];
+    CHAR    szSubnetMask[NET_IPADDR_STR_MAX_LEN];
+    CHAR    szGateway[NET_IPADDR_STR_MAX_LEN];
+    BOOL    bSetGateway;
+    BOOL    bIPv4DHCP;
+    UINT32  dwTimeoutMs;
+    UINT32  dwSendCount;
+    BYTE    byRes[128];
+} NET_PoeNetworkConfig_S;
+
+typedef NET_PoeNetworkConfig_S* pNET_PoeNetworkConfig_S;
+
 #ifndef NET_MAX_NET_NUM
 #define NET_MAX_NET_NUM 8
 #endif
@@ -6771,6 +6790,9 @@ NET_API BOOL STDCALL NET_serverRegisterSetRoadPondingConfigCb(NET_CB_SetDevConfi
 typedef void(STDCALL *NET_CB_GetDiscoveryDeviceInfo)(
     OUT NET_DiscoveryDeviceInfo_S* pDeviceInfo);
 
+typedef NET_COMMON_ECODE_E (STDCALL *NET_CB_SetNetwork)(
+    IN const NET_PoeNetworkConfig_S* pConfig);
+
 /**
  * @brief 注册设备发现信息回调（启动前必须调用）
  * @param [IN] cbFunc 回调函数指针
@@ -6779,6 +6801,9 @@ typedef void(STDCALL *NET_CB_GetDiscoveryDeviceInfo)(
 NET_API BOOL STDCALL
 NET_serverRegisterGetDiscoveryDeviceInfoCb(
     IN NET_CB_GetDiscoveryDeviceInfo cbFunc);
+
+NET_API BOOL STDCALL
+NET_serverRegisterSetNetworkCb(IN NET_CB_SetNetwork cbFunc);
 
 /**
  * @brief 启动设备发现响应服务（阻塞线程中运行 AF_PACKET 接收循环）

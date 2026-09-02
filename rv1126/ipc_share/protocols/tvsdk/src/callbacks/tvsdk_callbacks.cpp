@@ -31,6 +31,7 @@
 #include "convert_interface.h"
 #include "video_define.h"
 #include "path_define.h"
+#include "IpcRet.h"
 
 #include "convert/tvsdk_convert.h"
 #include "rtsp_server.h"
@@ -1116,6 +1117,42 @@ static NET_COMMON_ECODE_E cb_set_network_cfg(INT32 dwChannelID, LPVOID lpInBuffe
     stInfo.data = inJson;
     int nExec = s_taskManage ? s_taskManage->execute(AC_SET_NETWORK_INFO, stInfo) : -1;
     return (nExec == 0) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
+}
+
+int apply_discovery_network(const tagNET_PoeNetworkConfig *pConfig)
+{
+    if (!pConfig || !s_taskManage)
+        return NET_E_INVALID_PARAM;
+
+    std::string outJson;
+    if (execute_get_result(AC_GET_NETWORK_INFO, "{}", outJson) != 0 || outJson.empty())
+        return NET_E_GET_CFG_FAILED;
+
+    int nRet = -1;
+    Json::get(outJson.c_str(), "Return", nRet);
+    if (nRet != 0)
+        return NET_E_GET_CFG_FAILED;
+
+    Network::Info_S stNetworkInfo;
+    Convert::to_struct(outJson, stNetworkInfo);
+    stNetworkInfo.stIp.bEnableDhcp = (pConfig->bIPv4DHCP == TRUE);
+    stNetworkInfo.stIp.ipv4Ip = pConfig->szTargetIP;
+    stNetworkInfo.stIp.ipv4Mask = pConfig->szSubnetMask;
+    if (pConfig->bSetGateway == TRUE)
+        stNetworkInfo.stIp.ipv4Gateway = pConfig->szGateway;
+
+    Task::Info_S stInfo;
+    stInfo.data = Convert::to_string(stNetworkInfo);
+    std::string setResult;
+    if (execute_get_result(AC_SET_NETWORK_INFO, stInfo.data, setResult) != 0 || setResult.empty())
+        return NET_E_SET_CFG_FAILED;
+
+    nRet = -1;
+    Json::get(setResult.c_str(), "Return", nRet);
+    if (nRet != 0 && nRet != IpcRet_E::OK_SETNETWORK_AND_REBOOT)
+        return NET_E_SET_CFG_FAILED;
+
+    return NET_E_SUCCEED;
 }
 
 static NET_COMMON_ECODE_E cb_set_config_wifi_sta(INT32 dwChannelID, LPVOID lpInBuffer)
