@@ -383,6 +383,10 @@ void Task::System::GetTimeInfo::handle()
 {
     ::System::TimeInfo_S stTimeInfo;
     CTimeManage::instance()->get_time_info(stTimeInfo);
+    /* 查询时间配置时返回设备当前时间，避免返回配置文件中的历史时间快照。 */
+    stTimeInfo.strDateTime = CTimeManage::instance()->get_current_time(
+        ::System::Language_E::ENGLISH,
+        stTimeInfo.enDateFormat);
     result(Convert::to_string(stTimeInfo));
 }
 
