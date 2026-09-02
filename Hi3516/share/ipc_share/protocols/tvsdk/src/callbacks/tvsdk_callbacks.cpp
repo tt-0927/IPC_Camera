@@ -1152,6 +1152,14 @@ int apply_discovery_network(const tagNET_PoeNetworkConfig *pConfig)
     if (nRet != 0 && nRet != IpcRet_E::OK_SETNETWORK_AND_REBOOT)
         return NET_E_SET_CFG_FAILED;
 
+    /* 网络配置已保存且需要重启时，启动设备延时重启流程。 */
+    if (nRet == IpcRet_E::OK_SETNETWORK_AND_REBOOT)
+    {
+        const int nRebootRet = SystemManage::instance()->system_reboot([](int) {});
+        if (nRebootRet != 0)
+            return NET_E_SET_CFG_FAILED;
+    }
+
     return NET_E_SUCCEED;
 }
 
