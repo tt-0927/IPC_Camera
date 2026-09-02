@@ -39,6 +39,41 @@
 
 /* ---- helpers ---- */
 
+static bool same_mac(const char* lhs, const char* rhs)
+{
+    if (!lhs || !rhs || lhs[0] == '\0' || rhs[0] == '\0') return false;
+
+    unsigned int left[6]{};
+    unsigned int right[6]{};
+    char tail = '\0';
+    int left_count = std::sscanf(lhs, "%2x:%2x:%2x:%2x:%2x:%2x%c",
+                                 &left[0], &left[1], &left[2], &left[3],
+                                 &left[4], &left[5], &tail);
+    if (left_count != 6) {
+        left_count = std::sscanf(lhs, "%2x-%2x-%2x-%2x-%2x-%2x%c",
+                                 &left[0], &left[1], &left[2], &left[3],
+                                 &left[4], &left[5], &tail);
+    }
+
+    tail = '\0';
+    int right_count = std::sscanf(rhs, "%2x:%2x:%2x:%2x:%2x:%2x%c",
+                                  &right[0], &right[1], &right[2], &right[3],
+                                  &right[4], &right[5], &tail);
+    if (right_count != 6) {
+        right_count = std::sscanf(rhs, "%2x-%2x-%2x-%2x-%2x-%2x%c",
+                                  &right[0], &right[1], &right[2], &right[3],
+                                  &right[4], &right[5], &tail);
+    }
+
+    if (left_count != 6 || right_count != 6) return false;
+    for (int index = 0; index < 6; ++index) {
+        if (left[index] > 0xff || right[index] > 0xff || left[index] != right[index]) {
+            return false;
+        }
+    }
+    return true;
+}
+
 #ifndef _WIN32
 /**
  * @author tianl (tianl@kfb.cn)
@@ -151,7 +186,7 @@ int CDiscoveryResponder::init(const char* szInterfaceName)
 
     /* 创建 UDP 组播接收套接字 */
     m_nUdpSocket = socket(AF_INET, SOCK_DGRAM, 0);
-    if (m_nUdpSocket == NETSDK_DEMO_INVALID_SOCKET) {
+    if (m_nUdpSocket == INVALID_SOCKET_FD) {
         fprintf(stderr, "discovery-responder: socket failed, error=%d\n", WSAGetLastError());
         return -6;
     }
@@ -169,7 +204,7 @@ int CDiscoveryResponder::init(const char* szInterfaceName)
     if (bind(m_nUdpSocket, reinterpret_cast<struct sockaddr*>(&bind_addr), sizeof(bind_addr)) < 0) {
         fprintf(stderr, "discovery-responder: bind failed, error=%d\n", WSAGetLastError());
         NETSDK_SOCKET_CLOSE(m_nUdpSocket);
-        m_nUdpSocket = NETSDK_DEMO_INVALID_SOCKET;
+        m_nUdpSocket = INVALID_SOCKET_FD;
         return -6;
     }
 
@@ -447,6 +482,10 @@ int CDiscoveryResponder::send_udp_response(uint32_t client_ip, uint16_t client_p
 
 void CDiscoveryResponder::receive_thread()
 {
+    constexpr auto kNetworkRequestDedupInterval = std::chrono::seconds(2);
+    std::string last_applied_network_request;
+    auto last_applied_network_time = std::chrono::steady_clock::time_point{};
+
 #ifdef _WIN32
     /* Windows: 使用 UDP 组播接收，不支持 AF_PACKET raw socket */
     constexpr auto kProbeLogInterval = std::chrono::seconds(60);
@@ -476,8 +515,37 @@ void CDiscoveryResponder::receive_thread()
         uint32_t client_ip = from_addr.sin_addr.s_addr;
         uint16_t client_port = ntohs(from_addr.sin_port);
 
-        /* 校验探测包 */
         std::string probe_str(buf, n);
+        NET_PoeNetworkConfig_S network_config{};
+        if (discovery::parse_set_network_json(probe_str, network_config)) {
+            const auto network_request_time = std::chrono::steady_clock::now();
+            if (probe_str == last_applied_network_request &&
+                network_request_time - last_applied_network_time < kNetworkRequestDedupInterval) {
+                continue;
+            }
+
+            NET_DiscoveryDeviceInfo_S device_info{};
+            m_fnDeviceInfoCallback(&device_info);
+            if (!same_mac(network_config.szMACAddress, device_info.strMACAddress)) {
+                invalid_probe_count++;
+                continue;
+            }
+
+            const bool has_callback = static_cast<bool>(m_fnSetNetworkCallback);
+            const bool applied = has_callback && m_fnSetNetworkCallback(network_config);
+            if (applied) {
+                last_applied_network_request = probe_str;
+                last_applied_network_time = std::chrono::steady_clock::now();
+            }
+            std::printf("[discovery-responder] set network mac=%s result=%s\n",
+                        network_config.szMACAddress,
+                        !has_callback ? "callback-not-registered" :
+                        (applied ? "success" : "failed"));
+            std::fflush(stdout);
+            continue;
+        }
+
+        /* 校验探测包 */
         if (!discovery::parse_probe_json(probe_str)) {
             invalid_probe_count++;
             continue;
@@ -564,8 +632,37 @@ void CDiscoveryResponder::receive_thread()
         inet_ntop(AF_INET, &client_ip, ip_str, sizeof(ip_str));
         probe_count++;
 
-        /* 校验探测包 */
         std::string probe_str(reinterpret_cast<const char*>(payload.data()), payload.size());
+        NET_PoeNetworkConfig_S network_config{};
+        if (discovery::parse_set_network_json(probe_str, network_config)) {
+            const auto network_request_time = std::chrono::steady_clock::now();
+            if (probe_str == last_applied_network_request &&
+                network_request_time - last_applied_network_time < kNetworkRequestDedupInterval) {
+                continue;
+            }
+
+            NET_DiscoveryDeviceInfo_S device_info{};
+            m_fnDeviceInfoCallback(&device_info);
+            if (!same_mac(network_config.szMACAddress, device_info.strMACAddress)) {
+                invalid_probe_count++;
+                continue;
+            }
+
+            const bool has_callback = static_cast<bool>(m_fnSetNetworkCallback);
+            const bool applied = has_callback && m_fnSetNetworkCallback(network_config);
+            if (applied) {
+                last_applied_network_request = probe_str;
+                last_applied_network_time = std::chrono::steady_clock::now();
+            }
+            std::printf("[discovery-responder] set network mac=%s result=%s\n",
+                        network_config.szMACAddress,
+                        !has_callback ? "callback-not-registered" :
+                        (applied ? "success" : "failed"));
+            std::fflush(stdout);
+            continue;
+        }
+
+        /* 校验探测包 */
         if (!discovery::parse_probe_json(probe_str)) {
             invalid_probe_count++;
             continue;

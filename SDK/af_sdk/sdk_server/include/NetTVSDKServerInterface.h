@@ -607,6 +607,14 @@ typedef void(STDCALL *NET_CB_GetDiscoveryDeviceInfo)(
     OUT NET_DiscoveryDeviceInfo_S* pDeviceInfo);
 
 /**
+ * @brief 免登录网络配置回调。
+ * @param [in] pConfig 宿主程序需要实际应用的网络配置。
+ * @return NET_E_SUCCEED 表示成功，其他值表示失败。
+ */
+typedef NET_COMMON_ECODE_E (STDCALL *NET_CB_SetNetwork)(
+    IN const NET_PoeNetworkConfig_S* pConfig);
+
+/**
  * @brief 注册设备发现信息回调（启动前必须调用）
  * @param [IN] cbFunc 回调函数指针
  * @return TRUE 成功，FALSE 失败
@@ -614,6 +622,14 @@ typedef void(STDCALL *NET_CB_GetDiscoveryDeviceInfo)(
 NET_API BOOL STDCALL
 NET_serverRegisterGetDiscoveryDeviceInfoCb(
     IN NET_CB_GetDiscoveryDeviceInfo cbFunc);
+
+/**
+ * @brief 注册免登录网络配置回调。
+ * @param [in] cbFunc 回调函数指针。
+ * @return TRUE 表示成功，FALSE 表示失败。
+ */
+NET_API BOOL STDCALL
+NET_serverRegisterSetNetworkCb(IN NET_CB_SetNetwork cbFunc);
 
 /**
  * @brief 启动设备发现响应服务（阻塞线程中运行 AF_PACKET 接收循环）

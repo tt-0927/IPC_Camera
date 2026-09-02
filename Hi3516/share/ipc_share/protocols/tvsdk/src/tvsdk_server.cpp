@@ -318,6 +318,14 @@ void STDCALL cb_get_discovery_device_info(NET_DiscoveryDeviceInfo_S *pInfo)
     g_hasCachedDiscoveryInfo = true;
 }
 
+NET_COMMON_ECODE_E STDCALL cb_set_discovery_network(const NET_PoeNetworkConfig_S *pConfig)
+{
+    const int nRet = TvSdkCallbacks::apply_discovery_network(pConfig);
+    if (nRet == NET_E_SUCCEED)
+        g_hasCachedDiscoveryInfo = false;
+    return static_cast<NET_COMMON_ECODE_E>(nRet);
+}
+
 }
 
 /* ---------- CTvSdkServer 实现 ---------- */
@@ -373,6 +381,10 @@ int CTvSdkServer::init()
     if (!NET_serverRegisterGetDiscoveryDeviceInfoCb(cb_get_discovery_device_info))
     {
         dlog_warn("TVSDK discovery register callback failed");
+    }
+    else if (!NET_serverRegisterSetNetworkCb(cb_set_discovery_network))
+    {
+        dlog_warn("TVSDK discovery register set network callback failed");
     }
     else if (!NET_serverStartDiscovery(g_discoveryInterface.c_str()))
     {

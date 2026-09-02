@@ -35,6 +35,9 @@
 using DiscoveryDeviceInfoCallback =
     std::function<void(NET_DiscoveryDeviceInfo_S* pInfo)>;
 
+using DiscoverySetNetworkCallback =
+    std::function<bool(const NET_PoeNetworkConfig_S& config)>;
+
 class CDiscoveryResponder {
 public:
     CDiscoveryResponder() = default;
@@ -54,6 +57,10 @@ public:
      */
     void set_device_info_callback(DiscoveryDeviceInfoCallback cb) {
         m_fnDeviceInfoCallback = std::move(cb);
+    }
+
+    void set_network_callback(DiscoverySetNetworkCallback cb) {
+        m_fnSetNetworkCallback = std::move(cb);
     }
 
     /**
@@ -100,10 +107,11 @@ private:
     std::string m_strInterfaceName;
     uint32_t m_uLocalIp{0};
 
-    int m_nUdpSocket{-1};   /* UDP 回包套接字 */
-    int m_nIgmpSocket{-1};   /* IGMP 组播加入套接字，触发交换机 IGMP Snooping 转发 */
+    socket_fd_t m_nUdpSocket{INVALID_SOCKET_FD}; /* UDP 回包套接字 */
+    socket_fd_t m_nIgmpSocket{INVALID_SOCKET_FD}; /* IGMP 组播加入套接字，触发交换机 IGMP Snooping 转发 */
 
     DiscoveryDeviceInfoCallback m_fnDeviceInfoCallback;
+    DiscoverySetNetworkCallback m_fnSetNetworkCallback;
     std::thread m_stThread;
     std::atomic<bool> m_bRunning{false};
 };

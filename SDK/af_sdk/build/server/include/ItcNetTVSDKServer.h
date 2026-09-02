@@ -2893,6 +2893,27 @@ typedef struct tagNET_NetworkCfg
 
 typedef NET_NetworkCfg_S* pNET_NetworkCfg_S;
 
+/**
+ * @struct tagNET_PoeNetworkConfig
+ * @brief 未登录场景下通过 SDK 设备发现组播协议设置摄像机网络参数
+ * @note 设备通过 MAC 地址匹配；接口仅发送组播配置报文，不建立 HTTP 登录会话。
+ */
+typedef struct tagNET_PoeNetworkConfig
+{
+    CHAR    szInterfaceIP[NET_IPADDR_STR_MAX_LEN]; /* 发送组播的本地网卡 IPv4，空串使用默认网卡 */
+    CHAR    szMACAddress[NET_LEN_32];              /* 目标设备 MAC，如 AA:BB:CC:DD:EE:FF */
+    CHAR    szTargetIP[NET_IPADDR_STR_MAX_LEN];    /* 目标 IPv4 地址 */
+    CHAR    szSubnetMask[NET_IPADDR_STR_MAX_LEN];  /* IPv4 子网掩码 */
+    CHAR    szGateway[NET_IPADDR_STR_MAX_LEN];     /* IPv4 网关，bSetGateway 为 FALSE 时可为空 */
+    BOOL    bSetGateway;                           /* 是否设置网关 */
+    BOOL    bIPv4DHCP;                             /* 是否启用 DHCP */
+    UINT32  dwTimeoutMs;                           /* 发送总时长，0 使用 SDK 默认发送间隔 */
+    UINT32  dwSendCount;                           /* 发送次数，0 使用 SDK 默认值 */
+    BYTE    byRes[128];                            /* 保留字段 */
+} NET_PoeNetworkConfig_S;
+
+typedef NET_PoeNetworkConfig_S* pNET_PoeNetworkConfig_S;
+
 #ifndef NET_MAX_NET_NUM
 #define NET_MAX_NET_NUM 8
 #endif
@@ -6659,6 +6680,14 @@ typedef void(STDCALL *NET_CB_GetDiscoveryDeviceInfo)(
     OUT NET_DiscoveryDeviceInfo_S* pDeviceInfo);
 
 /**
+ * @brief 免登录网络配置回调。
+ * @param [in] pConfig 宿主程序需要实际应用的网络配置。
+ * @return NET_E_SUCCEED 表示成功，其他值表示失败。
+ */
+typedef NET_COMMON_ECODE_E (STDCALL *NET_CB_SetNetwork)(
+    IN const NET_PoeNetworkConfig_S* pConfig);
+
+/**
  * @brief 注册设备发现信息回调（启动前必须调用）
  * @param [IN] cbFunc 回调函数指针
  * @return TRUE 成功，FALSE 失败
@@ -6666,6 +6695,14 @@ typedef void(STDCALL *NET_CB_GetDiscoveryDeviceInfo)(
 NET_API BOOL STDCALL
 NET_serverRegisterGetDiscoveryDeviceInfoCb(
     IN NET_CB_GetDiscoveryDeviceInfo cbFunc);
+
+/**
+ * @brief 注册免登录网络配置回调。
+ * @param [in] cbFunc 回调函数指针。
+ * @return TRUE 表示成功，FALSE 表示失败。
+ */
+NET_API BOOL STDCALL
+NET_serverRegisterSetNetworkCb(IN NET_CB_SetNetwork cbFunc);
 
 /**
  * @brief 启动设备发现响应服务（阻塞线程中运行 AF_PACKET 接收循环）

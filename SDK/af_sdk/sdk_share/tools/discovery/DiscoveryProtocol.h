@@ -48,6 +48,22 @@ bool parse_probe_json(const std::string& json_str);
 std::string build_response_json(const NET_DiscoveryDeviceInfo_S& info);
 
 /**
+ * @brief 构建免登录网络配置组播 JSON。
+ * @param [in] config 目标设备及网络配置。
+ * @return 可直接作为组播负载发送的 JSON 字符串。
+ */
+std::string build_set_network_json(const NET_PoeNetworkConfig_S& config);
+
+/**
+ * @brief 解析并校验免登录网络配置组播 JSON。
+ * @param [in] json_str 原始 JSON 字符串。
+ * @param [out] config 解析后的目标设备及网络配置。
+ * @return true 表示解析和参数校验成功，false 表示报文非法。
+ */
+bool parse_set_network_json(const std::string& json_str,
+                            NET_PoeNetworkConfig_S& config);
+
+/**
  * @author tianl (tianl@kfb.cn)
  * @brief 解析响应包 JSON 字符串
  * @param json_str 原始 JSON 字符串

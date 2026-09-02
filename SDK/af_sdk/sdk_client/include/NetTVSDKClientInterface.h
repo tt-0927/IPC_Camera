@@ -338,6 +338,15 @@ NET_clientSearchDiscovery(NET_IN  const CHAR*                      szInterfaceIP
                         NET_IN  int                              nMaxCount,
                         NET_OUT int*                             pnOutCount);
 
+/**
+ * @brief 未登录通过设备发现组播协议按 MAC 设置摄像机网络参数。
+ * @param [in] pstConfig 发送网卡、目标 MAC 及目标网络参数。
+ * @return TRUE 表示组播报文发送成功；FALSE 表示参数或发送失败。
+ * @note 必须先调用 NET_clientInit，但不需要调用 NET_clientLogin。发送成功不代表设备已完成修改，调用方应重新搜索确认。
+ */
+NET_API BOOL NET_STDCALL
+NET_clientSetPoeNetwork(NET_IN const NET_PoeNetworkConfig_S* pstConfig);
+
 /************************************************************************/
 /*                       语音对讲 VoiceCom                                */
 /************************************************************************/
@@ -427,4 +436,3 @@ NET_clientStopVoiceCom(NET_IN LPVOID lpUserID);
 #endif
 
 #endif
-

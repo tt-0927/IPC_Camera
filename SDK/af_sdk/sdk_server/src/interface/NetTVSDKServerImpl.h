@@ -92,6 +92,11 @@ public:
     BOOL DoRegisterCb_GetDiscoveryDeviceInfo(NET_CB_GetDiscoveryDeviceInfo cbFunc);
 
     /**
+     * @brief 注册免登录网络配置回调。
+     */
+    BOOL DoRegisterCb_SetNetwork(NET_CB_SetNetwork cbFunc);
+
+    /**
      * @brief 启动设备发现响应服务
      */
     BOOL DoDiscoveryStart(const CHAR* szInterfaceName);
@@ -113,4 +118,5 @@ private:
     // 设备发现
     std::unique_ptr<CDiscoveryResponder> m_pDiscoveryResponder;
     NET_CB_GetDiscoveryDeviceInfo m_cbDiscoveryDeviceInfo{nullptr};
+    NET_CB_SetNetwork m_cbSetNetwork{nullptr};
 };

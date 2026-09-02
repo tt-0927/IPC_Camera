@@ -23,9 +23,9 @@
     #include <windows.h>
     #include <io.h>
 
-    /* Windows 下 socket 类型为 SOCKET (unsigned int)，错误值为 NETSDK_DEMO_INVALID_SOCKET */
+    /* Windows 下 socket 类型为 SOCKET (unsigned int)，错误值为 INVALID_SOCKET */
     using socket_fd_t = SOCKET;
-    constexpr socket_fd_t INVALID_SOCKET_FD = NETSDK_DEMO_INVALID_SOCKET;
+    constexpr socket_fd_t INVALID_SOCKET_FD = INVALID_SOCKET;
 
     /* Windows 没有 ssize_t */
     #ifndef NETSDK_SSIZE_T_DEFINED
