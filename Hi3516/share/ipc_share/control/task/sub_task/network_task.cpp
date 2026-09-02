@@ -1341,68 +1341,48 @@ void Task::Network::ConnPlatform::handle()
         {
             dlog_warn("平台登陆成功，但 MQTT 初始化失败");
         }
-        cJSON *root = cJSON_CreateObject();
-        
-        cJSON_AddNumberToObject(root, "status_code", out_response.status_code);
-        cJSON_AddStringToObject(root, "status", out_response.status.c_str());
-        cJSON_AddStringToObject(root, "message", out_response.message.c_str());
-
-        cJSON *data_obj = cJSON_CreateObject();
-        cJSON_AddItemToObject(root, "data", data_obj); // 将 data 对象挂载到 root 下
-        cJSON_AddStringToObject(data_obj, "access_token", out_response.data.access_token.c_str());
-        cJSON_AddStringToObject(data_obj, "token_type", out_response.data.token_type.c_str());
-        cJSON_AddNumberToObject(data_obj, "expires_in", out_response.data.expires_in);
-        cJSON_AddStringToObject(data_obj, "phone", out_response.data.phone.c_str());
-        cJSON_AddBoolToObject(data_obj, "need_modify_password", out_response.data.need_modify_password);
-        char *json_string = cJSON_PrintUnformatted(root);
-
-        if (json_string) {
-            result(json_string);
-            cJSON_free(json_string);
-        }
-
-        // 6. 清理资源
-        cJSON_Delete(root); // 删除整个 JSON 树
-
-        ::System::DeviceInfo_S stDeviceInfo;
-        CPlatformManager::StoreDevice req;
-        CPlatformManager::StoreResponse resp;
-        ::Network::Info_S NetstInfo;
-        Video_NS::VideoConfig_S stVideoConfig;
-        StorageManage_NS::StorageManage_S stStorageManageParam;
-
-        SystemManage::instance()->get_device_info(stDeviceInfo);
-        
-        CNetworkManage::instance()->get_system_networkInfo(NetstInfo);
-        
-        /* 仅判断第一码流 */
-        stVideoConfig.nId = 0;
-        CAVConfigure::instance()->get_configure(stVideoConfig);
-        
-        CStorageManage::instance()->get_storageManage_param(stStorageManageParam);
-        
-        // req.sn =  std::to_string(stDeviceInfo.deviceID);
-        req.sn =  stDeviceInfo.serialNumber;
-        req.name = stDeviceInfo.deviceName;
-        req.version = stDeviceInfo.systemVersion;
-        req.account = stInfo.user;
-        req.password = stInfo.password;
-        req.ip = NetstInfo.stIp.ipv4Ip;
-        req.port=554;
-        req.mac_address =NetstInfo.stIp.physicalAddress;
-        req.resolution =  std::to_string(stVideoConfig.stVideoResolution.nWidth) +"x" +  std::to_string(stVideoConfig.stVideoResolution.nHeight);
-        req.storage = stStorageManageParam.strAvailableSpace;
-        if (!stStorageManageParam.strAvailableSpace.empty() && !stStorageManageParam.strRecordRemainingSpace.empty()) {
-            req.use_storage = std::to_string(std::stof(stStorageManageParam.strAvailableSpace)-std::stof(stStorageManageParam.strRecordRemainingSpace));
-        }
-        else {
-            req.use_storage ="";
-        }
-        
-        pPlatformManager->storeDevice(req, out_response.data.access_token,resp);
+        const bool bRegistered = pPlatformManager->register_current_device(
+            out_response.data.access_token,
+            stInfo.user,
+            stInfo.password);
 
         /* 登录成功，触发 RTMP 推流地址热更新 */
         pPlatformManager->relogin_and_update_stream();
+
+        cJSON *pRoot = cJSON_CreateObject();
+        cJSON *pData = cJSON_CreateObject();
+        if (pRoot == nullptr || pData == nullptr)
+        {
+            cJSON_Delete(pData);
+            cJSON_Delete(pRoot);
+            dlog_error("创建平台登录响应失败");
+            result(-1);
+            return;
+        }
+
+        cJSON_AddNumberToObject(pRoot, "status_code", out_response.status_code);
+        cJSON_AddStringToObject(pRoot, "status", out_response.status.c_str());
+        cJSON_AddStringToObject(pRoot, "message", out_response.message.c_str());
+        cJSON_AddBoolToObject(pRoot, "connection_status", bRegistered);
+        cJSON_AddItemToObject(pRoot, "data", pData);
+        cJSON_AddStringToObject(pData, "access_token", out_response.data.access_token.c_str());
+        cJSON_AddStringToObject(pData, "token_type", out_response.data.token_type.c_str());
+        cJSON_AddNumberToObject(pData, "expires_in", out_response.data.expires_in);
+        cJSON_AddStringToObject(pData, "phone", out_response.data.phone.c_str());
+        cJSON_AddBoolToObject(pData, "need_modify_password", out_response.data.need_modify_password);
+
+        char *pJson = cJSON_PrintUnformatted(pRoot);
+        if (pJson == nullptr)
+        {
+            cJSON_Delete(pRoot);
+            dlog_error("序列化平台登录响应失败");
+            result(-1);
+            return;
+        }
+
+        result(pJson);
+        cJSON_free(pJson);
+        cJSON_Delete(pRoot);
     }
     else {
         /* HTTP 登录未成功时恢复原平台参数，继续保持原有连接状态。 */
@@ -1473,34 +1453,39 @@ void Task::Network::storePlatformDevices::handle()
 
 void Task::Network::GetConnPlatformInfo::handle()
 {
-    ::Network::Platform_Info_t info;
-    
-    CPlatformManager::instance()->getplatforminfo(info);
-    result(Convert::to_string(info));
-    // cJSON *root = cJSON_CreateObject();
-    // if (root == NULL) {
-    //     std::cerr << "Failed to create JSON object " << std::endl;
-    //     return;
-    // }
+    CPlatformManager *pPlatformManager = CPlatformManager::instance();
+    auto platformOperationLock = pPlatformManager->lock_platform_operation();
+    ::Network::Platform_Info_t stInfo;
+    pPlatformManager->getplatforminfo(stInfo);
 
-    // cJSON_AddStringToObject(root, "host", info.host.c_str());
-    // cJSON_AddNumberToObject(root, "port", info.port);
-    // cJSON_AddStringToObject(root, "login_user", info.login_user.c_str());
-    // cJSON_AddStringToObject(root, "login_password", info.login_password.c_str());
-    // cJSON_AddBoolToObject(root, "enable", info.enable);
-    // cJSON_AddBoolToObject(root, "Custom", info.Custom);
+    /* 页面查询不受启用配置限制，每次都提交一次 MQTT 在线心跳。 */
+    const int nHeartbeatRet = pPlatformManager->publish_device_status(true, "web_query");
+    const bool bConnected = (nHeartbeatRet == OK);
+    const std::string strConfigJson = Convert::to_string(stInfo);
+    cJSON *pRoot = cJSON_Parse(strConfigJson.c_str());
+    if (pRoot == nullptr)
+    {
+        dlog_error("解析业务平台接入配置失败");
+        result(-1);
+        return;
+    }
 
-    // char *json_string = cJSON_PrintUnformatted(root);
-    // if (json_string != NULL) {
-    //     std::string json_str = json_string;
-    //     std::cout << "Generated JSON: " << json_str << std::endl;
-    //     result(json_str);
-    //     cJSON_free(json_string);
-    // } else {
-    //     std::cerr << "Failed to print JSON object" << std::endl;
-    //     result(-1);
-    // }
-    // cJSON_Delete(root);
+    cJSON_AddStringToObject(pRoot, "status", bConnected ? "success" : "failed");
+    cJSON_AddBoolToObject(pRoot, "connection_status", bConnected);
+    cJSON_AddStringToObject(pRoot, "access_token", pPlatformManager->get_access_token().c_str());
+
+    char *pJson = cJSON_PrintUnformatted(pRoot);
+    if (pJson == nullptr)
+    {
+        cJSON_Delete(pRoot);
+        dlog_error("序列化业务平台接入信息失败");
+        result(-1);
+        return;
+    }
+
+    result(pJson);
+    cJSON_free(pJson);
+    cJSON_Delete(pRoot);
 }
 #endif
 
