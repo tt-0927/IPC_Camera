@@ -9,6 +9,8 @@
 
 #include "event_task.h"
 #include <algorithm>
+#include <cmath>
+#include <limits>
 #include "convert_interface.h"
 #include "path_define.h"
 #include "event_define.h"
@@ -987,21 +989,35 @@ void Task::Event::SetAudioAnomalyInfo::handle()
     result(nRet);
 }
 
-/* 获取音频异常侦测实时音量 */
+/**
+ * @brief 获取音频异常侦测实时音量并生成任务响应。
+ * @author ITC
+ * @return 无。处理结果通过任务响应返回。
+ */
 void Task::Event::GetAudioAnomalyCurrentDb::handle()
 {
-    float fCurrentDb = 0.0f;
-    CEventManage::instance()->send_algo_controlData(AC_GET_AUDIO_ANOMALY_DETECT_CURRENT_DB,
-                                                    m_taskData.c_str(),
-                                                    &fCurrentDb);
-    Json::Object *pJsonData = Json::init();
-    if (pJsonData)
+    float fCurrentDb = std::numeric_limits<float>::quiet_NaN();
+    const int nResult = CEventManage::instance()->send_algo_controlData(
+        AC_GET_AUDIO_ANOMALY_DETECT_CURRENT_DB,
+        m_taskData.c_str(),
+        &fCurrentDb);
+    if ((nResult != OK) || !std::isfinite(fCurrentDb))
     {
-        Json::add(pJsonData, "CurrentDb", fCurrentDb);
+        result(ERR);
+        return;
     }
-    auto data = Json::to_string(pJsonData);
+
+    Json::Object *pJsonData = Json::init();
+    if (!pJsonData)
+    {
+        result(ERR);
+        return;
+    }
+
+    Json::add(pJsonData, "CurrentDb", fCurrentDb);
+    const std::string strData = Json::to_string(pJsonData);
     Json::deinit(pJsonData);
-    result(data);
+    result(strData);
 }
 
 /* 获取场景变更侦测信息 */

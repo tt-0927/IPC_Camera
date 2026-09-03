@@ -471,6 +471,14 @@ NET_API BOOL STDCALL NET_serverRegisterGetLoiteringAlarmCb(NET_CB_GetDevConfigBy
 NET_API BOOL STDCALL NET_serverRegisterSetLoiteringAlarmCb(NET_CB_SetDevConfigByCommand pCb);
 NET_API BOOL STDCALL NET_serverRegisterGetAudioAnomalyAlarmCb(NET_CB_GetDevConfigByCommand pCb);
 NET_API BOOL STDCALL NET_serverRegisterSetAudioAnomalyAlarmCb(NET_CB_SetDevConfigByCommand pCb);
+/**
+ * @brief 注册获取音频异常侦测实时音量的回调函数。
+ * @author ITC
+ * @param [in] pCb 用于填充 NET_AudioAnomalyCurrentDb_S 输出缓冲区的回调函数。
+ * @param [out] 无。SDK 将回调函数保存到配置回调表。
+ * @return 注册成功返回 TRUE；回调函数非法或已注册时返回 FALSE。
+ */
+NET_API BOOL STDCALL NET_serverRegisterGetAudioAnomalyCurrentDbCb(NET_CB_GetDevConfigByCommand pCb);
 NET_API BOOL STDCALL NET_serverRegisterGetPreviewInfoCb(NET_CB_GetDevConfigByCommand pCb);
 NET_API BOOL STDCALL NET_serverRegisterSetPreviewInfoCb(NET_CB_SetDevConfigByCommand pCb);
 NET_API BOOL STDCALL NET_serverRegisterGetChannelInfoCb(NET_CB_GetDevConfigByCommand pCb);

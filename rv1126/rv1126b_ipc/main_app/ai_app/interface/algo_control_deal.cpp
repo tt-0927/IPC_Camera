@@ -47,9 +47,11 @@ void AlgoControlDeal::deal_message(int nCode, std::string strData, void *pData)
     {
         if(pData != nullptr)
         {
-            float fDb = CAlgoStreamDeal::instance()->getCurrentDb();
-            // memcpy_s(pData, sizeof(float), &fDb, sizeof(float));
-            memcpy(pData, &fDb, sizeof(float));
+            float fCurrentDb = 0.0f;
+            if (CAlgoStreamDeal::instance()->getCurrentDb(fCurrentDb))
+            {
+                memcpy(pData, &fCurrentDb, sizeof(float));
+            }
         }
         break;
     }

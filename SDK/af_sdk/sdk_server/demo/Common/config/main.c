@@ -37,6 +37,7 @@
 #define SDKSERVER_USERNAME "admin"
 #define SDKSERVER_PASSWORD "itc20232024"
 #define DEMO_VOICECOM_PORT 9006
+#define DEMO_AUDIO_ANOMALY_CURRENT_DB 44.0f
 #define DEMO_VOICECOM_SERVER_RECV_DUMP "/tmp/VoiceComServerRecv.audio"
 /* 当前IPC能力只开放前4个自定义OSD槽位，结构体数组长度仍按SDK ABI保留。 */
 #define DEMO_OSD_CUSTOM_MAX_NUM NET_OSD_CUSTOM_MAX_NUM
@@ -154,6 +155,7 @@ static NET_ParkingAlarmInfo_S g_stParkingAlarmInfo;
 static NET_UnattendedObjectAlarmInfo_S g_stUnattendedObjectAlarmInfo;
 static NET_ObjectRemovalAlarmInfo_S g_stObjectRemovalAlarmInfo;
 static NET_AudioAnomalyAlarmInfo_S g_stAudioAnomalyAlarmInfo;
+static NET_AudioAnomalyCurrentDb_S gs_stAudioAnomalyCurrentDb;
 static NET_AudibleAlarmInfo_S gs_stAudibleAlarmInfo;
 static NET_AlarmInputInfoList_S gs_stAlarmInputInfoList;
 static NET_AlarmOutputInfoList_S gs_stAlarmOutputInfoList;
@@ -539,6 +541,7 @@ static void InitDefaultConfig(void)
     memset(&g_stUnattendedObjectAlarmInfo, 0, sizeof(g_stUnattendedObjectAlarmInfo));
     memset(&g_stObjectRemovalAlarmInfo, 0, sizeof(g_stObjectRemovalAlarmInfo));
     memset(&g_stAudioAnomalyAlarmInfo, 0, sizeof(g_stAudioAnomalyAlarmInfo));
+    memset(&gs_stAudioAnomalyCurrentDb, 0, sizeof(gs_stAudioAnomalyCurrentDb));
     memset(&gs_stAudibleAlarmInfo, 0, sizeof(gs_stAudibleAlarmInfo));
     memset(&gs_stAlarmInputInfoList, 0, sizeof(gs_stAlarmInputInfoList));
     memset(&gs_stAlarmOutputInfoList, 0, sizeof(gs_stAlarmOutputInfoList));
@@ -1090,6 +1093,10 @@ static void InitDefaultConfig(void)
         g_stAudioAnomalyAlarmInfo.stAlarmSchedule.astTimeSection[day][0].nEndHour = 23;
         g_stAudioAnomalyAlarmInfo.stAlarmSchedule.astTimeSection[day][0].nEndMinute = 59;
     }
+
+    /* 音频异常侦测实时音量示例值。 */
+    gs_stAudioAnomalyCurrentDb.bValid = TRUE;
+    gs_stAudioAnomalyCurrentDb.fCurrentDb = DEMO_AUDIO_ANOMALY_CURRENT_DB;
 
     /* 声音报警配置默认值。 */
     gs_stAudibleAlarmInfo.enSoundType = NET_AUDIBLE_ALARM_SOUND_TYPE_ALERT;
@@ -4171,6 +4178,31 @@ static NET_COMMON_ECODE_E MySetAudioAnomalyAlarmCb(INT32 dwChannelID, LPVOID lpI
 }
 
 /**
+ * @brief 获取内存中的音频异常侦测实时音量示例值。
+ * @author ITC
+ * @param [in] nChannelId 请求通道标识，本示例不区分通道。
+ * @param [out] pOutBuffer 指向 NET_AudioAnomalyCurrentDb_S 的输出缓冲区。
+ * @return 成功返回 NET_E_SUCCEED；参数为空返回 NET_E_INVALID_PARAM。
+ */
+static NET_COMMON_ECODE_E ConfigDemoGetAudioAnomalyCurrentDb(INT32 nChannelId,
+                                                              LPVOID pOutBuffer)
+{
+    pNET_AudioAnomalyCurrentDb_S pCurrentDbInfo = NULL;
+
+    if (!pOutBuffer)
+    {
+        return NET_E_INVALID_PARAM;
+    }
+
+    pCurrentDbInfo = (pNET_AudioAnomalyCurrentDb_S)pOutBuffer;
+    *pCurrentDbInfo = gs_stAudioAnomalyCurrentDb;
+    printf("[ConfigServerDemo] GetAudioAnomalyCurrentDb callback, Channel=%d, CurrentDb=%.2f dB\n",
+           nChannelId,
+           gs_stAudioAnomalyCurrentDb.fCurrentDb);
+    return NET_E_SUCCEED;
+}
+
+/**
  * @brief 获取内存中的声音报警配置。
  * @author ITC
  * @param [in] nChannelId 请求通道标识，本示例不区分通道。
@@ -6969,6 +7001,14 @@ static void RegisterCallbacks(void)
     else
     {
         printf("[ConfigServerDemo] RegisterCb_SetAudioAnomalyAlarm FAILED\n");
+    }
+    if (NET_serverRegisterGetAudioAnomalyCurrentDbCb(ConfigDemoGetAudioAnomalyCurrentDb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetAudioAnomalyCurrentDb SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_GetAudioAnomalyCurrentDb FAILED\n");
     }
 
     /* 声音报警、报警输入输出、闪光报警灯和 PIR 报警配置回调。 */
