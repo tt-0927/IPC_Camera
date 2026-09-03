@@ -2177,6 +2177,26 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_AudioAnomalyAlarmInfo_S& stIn
     convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
 }
 
+/**
+ * @brief 转换音频异常侦测实时音量信息。
+ * @author ITC
+ * @param [in,out] pRootJson JSON 数据对象。
+ * @param [in,out] stInfo 音频异常侦测实时音量结构体。
+ * @param [in] bOutStruct 为 true 时将 JSON 转换为结构体，否则将结构体转换为 JSON。
+ * @return 无。
+ */
+void SDKConvert::deal(Json::Object* pRootJson, NET_AudioAnomalyCurrentDb_S& stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+
+    SDKConvert::CSDKConvert convert(bOutStruct);
+    convert.field(pRootJson, "Valid", stInfo.bValid);
+    convert.field(pRootJson, "CurrentDb", stInfo.fCurrentDb);
+}
+
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_EnterRegionAlarmInfo_S& stInfo, bool bOutStruct)
 {

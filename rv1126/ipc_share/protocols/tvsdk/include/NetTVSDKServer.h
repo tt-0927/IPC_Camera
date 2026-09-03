@@ -1286,6 +1286,7 @@ typedef enum tagNETTVCfgCmd
     NET_GET_PIR_ALARM_INFO                = 502,           /* 获取 PIR 报警配置 参见NET_PirAlarmInfo_S */
     NET_SET_PIR_ALARM_INFO                = 503,           /* 设置 PIR 报警配置 参见NET_PirAlarmInfo_S */
     NET_GET_STORAGE_INFO                  = 504,           /* 获取设备存储信息 参见NET_DeviceStorageInfo_S */
+    NET_GET_AUDIO_ANOMALY_CURRENT_DB      = 505,           /* 获取音频异常侦测实时音量 参见NET_AudioAnomalyCurrentDb_S */
 
     NET_GET_REGISTERINFO                  = 520,           /* 获取注册信息 参见NET_RegisterInfo_S */
     NET_SET_REGISTERINFO                  = 521,           /* 设置注册信息 参见NET_RegisterInfo_S */
@@ -5092,6 +5093,23 @@ typedef struct tagNET_AudioAnomalyAlarmInfo
 
 typedef NET_AudioAnomalyAlarmInfo_S* pNET_AudioAnomalyAlarmInfo_S;
 
+/* 音频异常侦测实时音量结构体预留字段长度。 */
+#define NET_AUDIO_ANOMALY_CURRENT_DB_RESERVED_LEN (120)
+
+/**
+ * @brief 音频异常侦测实时音量信息
+ * @author ITC
+ * @note 用于 NET_GET_AUDIO_ANOMALY_CURRENT_DB，仅表示本次查询时的音量快照
+ */
+typedef struct tagNET_AudioAnomalyCurrentDb
+{
+    BOOL        bValid;                              /* 实时音量是否有效 */
+    FLOAT       fCurrentDb;                          /* 当前实时音量，单位：dB */
+    BYTE        abyReserved[NET_AUDIO_ANOMALY_CURRENT_DB_RESERVED_LEN]; /* 预留字段 */
+} NET_AudioAnomalyCurrentDb_S;
+
+typedef NET_AudioAnomalyCurrentDb_S* pNET_AudioAnomalyCurrentDb_S;
+
 /* ==================== FaceCapture人脸抓拍相关结构体 =================== */
 
 /**
@@ -6653,6 +6671,14 @@ NET_API BOOL STDCALL NET_serverRegisterGetLoiteringAlarmCb(NET_CB_GetDevConfigBy
 NET_API BOOL STDCALL NET_serverRegisterSetLoiteringAlarmCb(NET_CB_SetDevConfigByCommand pCb);
 NET_API BOOL STDCALL NET_serverRegisterGetAudioAnomalyAlarmCb(NET_CB_GetDevConfigByCommand pCb);
 NET_API BOOL STDCALL NET_serverRegisterSetAudioAnomalyAlarmCb(NET_CB_SetDevConfigByCommand pCb);
+/**
+ * @brief 注册获取音频异常侦测实时音量的回调函数。
+ * @author ITC
+ * @param [in] pCb 用于填充 NET_AudioAnomalyCurrentDb_S 输出缓冲区的回调函数。
+ * @param [out] 无。SDK 将回调函数保存到配置回调表。
+ * @return 注册成功返回 TRUE；回调函数非法或已注册时返回 FALSE。
+ */
+NET_API BOOL STDCALL NET_serverRegisterGetAudioAnomalyCurrentDbCb(NET_CB_GetDevConfigByCommand pCb);
 NET_API BOOL STDCALL NET_serverRegisterGetPreviewInfoCb(NET_CB_GetDevConfigByCommand pCb);
 NET_API BOOL STDCALL NET_serverRegisterSetPreviewInfoCb(NET_CB_SetDevConfigByCommand pCb);
 NET_API BOOL STDCALL NET_serverRegisterGetChannelInfoCb(NET_CB_GetDevConfigByCommand pCb);

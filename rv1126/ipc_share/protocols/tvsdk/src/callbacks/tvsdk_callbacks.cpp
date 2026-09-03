@@ -3023,6 +3023,57 @@ static NET_COMMON_ECODE_E cb_get_audio_anomaly_alarm(INT32 dwChannelID, LPVOID l
     return NET_E_SUCCEED;
 }
 
+/**
+ * @brief 获取音频异常侦测实时音量。
+ * @author ITC
+ * @param [in] nChannelId 请求通道标识，当前 IPC 仅使用单通道。
+ * @param [out] pOutBuffer 指向 NET_AudioAnomalyCurrentDb_S 的输出缓冲区。
+ * @return 获取成功返回 NET_E_SUCCEED；参数非法或获取失败时返回对应错误码。
+ */
+static NET_COMMON_ECODE_E cb_get_audio_anomaly_current_db(INT32 nChannelId, LPVOID pOutBuffer)
+{
+    (void)nChannelId;
+    if (!pOutBuffer)
+    {
+        return NET_E_INVALID_PARAM;
+    }
+
+    pNET_AudioAnomalyCurrentDb_S pCurrentDbInfo =
+        static_cast<pNET_AudioAnomalyCurrentDb_S>(pOutBuffer);
+    std::memset(pCurrentDbInfo, 0, sizeof(*pCurrentDbInfo));
+
+    std::string strResultJson;
+    if ((execute_get_result(AC_GET_AUDIO_ANOMALY_DETECT_CURRENT_DB, "{}", strResultJson) != 0) ||
+        strResultJson.empty())
+    {
+        return NET_E_GET_CFG_FAILED;
+    }
+
+    int nResult = -1;
+    Json::get(strResultJson.c_str(), "Return", nResult);
+    if (nResult != 0)
+    {
+        return NET_E_GET_CFG_FAILED;
+    }
+
+    const std::string strCurrentDbJson = normalize_data_json(strResultJson);
+    Json::Object *pCurrentDbJson = Json::init(strCurrentDbJson.c_str());
+    if (!pCurrentDbJson)
+    {
+        return NET_E_GET_CFG_FAILED;
+    }
+
+    const bool bParsed = Json::get(pCurrentDbJson, "CurrentDb", pCurrentDbInfo->fCurrentDb);
+    Json::deinit(pCurrentDbJson);
+    if (!bParsed)
+    {
+        return NET_E_GET_CFG_FAILED;
+    }
+
+    pCurrentDbInfo->bValid = TRUE;
+    return NET_E_SUCCEED;
+}
+
 static NET_COMMON_ECODE_E cb_set_audio_anomaly_alarm(INT32 dwChannelID, LPVOID lpInBuffer)
 {
     (void)dwChannelID;
@@ -4689,6 +4740,7 @@ void register_all()
     NET_serverRegisterSetLoiteringAlarmCb(cb_set_loitering_alarm);
     NET_serverRegisterGetAudioAnomalyAlarmCb(cb_get_audio_anomaly_alarm);
     NET_serverRegisterSetAudioAnomalyAlarmCb(cb_set_audio_anomaly_alarm);
+    NET_serverRegisterGetAudioAnomalyCurrentDbCb(cb_get_audio_anomaly_current_db);
 
     NET_serverRegisterGetAudibleAlarmInfoCb(cb_get_audible_alarm_info);
     NET_serverRegisterSetAudibleAlarmInfoCb(cb_set_audible_alarm_info);

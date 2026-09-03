@@ -313,6 +313,7 @@ static void PrintMenu()
     printf("181 - 设置闪光报警灯配置 (NET_SET_FLASHING_LIGHT_ALARM_INFO)\n");
     printf("182 - 获取 PIR 报警配置 (NET_GET_PIR_ALARM_INFO)\n");
     printf("183 - 设置 PIR 报警配置 (NET_SET_PIR_ALARM_INFO)\n");
+    printf("184 - 获取音频异常侦测实时音量 (NET_GET_AUDIO_ANOMALY_CURRENT_DB)\n");
     printf("3213 - 平台点播回放控制类型 (自定义选择 1~8)\n");
     printf("3214 - 平台点播暂停播放 (NET_SET_REPLAY_CTRL/PAUSE)\n");
     printf("3215 - 平台点播恢复播放 (NET_SET_REPLAY_CTRL/RESUME)\n");
@@ -5851,6 +5852,44 @@ static void DoGetAudioAnomalyAlarm()
     }
 }
 
+/**
+ * @brief 获取并打印音频异常侦测实时音量。
+ * @author ITC
+ * @return 无。
+ */
+static void ConfigDemoGetAudioAnomalyCurrentDb()
+{
+    NET_AudioAnomalyCurrentDb_S stCurrentDbInfo = {};
+    INT32 nBytesReturned = 0;
+
+    printf("[Client] 调用 NET_clientGetDevConfig 获取音频异常侦测实时音量...\n");
+    const BOOL bResult = NET_clientGetDevConfig(
+        g_lpUserID,
+        DEMO_CONFIG_CHANNEL_ID,
+        NET_GET_AUDIO_ANOMALY_CURRENT_DB,
+        &stCurrentDbInfo,
+        (INT32)sizeof(stCurrentDbInfo),
+        &nBytesReturned);
+    if (!bResult)
+    {
+        printf("[Client] 获取音频异常侦测实时音量失败! Error=%d\n",
+               NET_clientGetLastError());
+        return;
+    }
+
+    printf("[Client] 获取音频异常侦测实时音量成功! BytesReturned=%d, Valid=%d",
+           nBytesReturned,
+           stCurrentDbInfo.bValid);
+    if (stCurrentDbInfo.bValid)
+    {
+        printf(", CurrentDb=%.2f dB\n", stCurrentDbInfo.fCurrentDb);
+    }
+    else
+    {
+        printf(", CurrentDb=无效\n");
+    }
+}
+
 /* 设置音频异常侦测配置 */
 static void DoSetAudioAnomalyAlarm()
 {
@@ -9457,6 +9496,9 @@ static void ProcessCommand(int cmd)
             break;
         case 183:
             DoSetPirAlarmInfo();
+            break;
+        case 184:
+            ConfigDemoGetAudioAnomalyCurrentDb();
             break;
         case DEMO_REPLAY_PAUSE_CMD:
             DoControlReplayPause();

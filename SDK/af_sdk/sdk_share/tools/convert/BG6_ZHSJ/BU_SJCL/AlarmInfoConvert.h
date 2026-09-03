@@ -68,6 +68,15 @@ namespace SDKConvert
     void deal(Json::Object* pRootJson, NET_LoiteringAlarmInfo_S& stInfo, bool bOutStruct);
 
     void deal(Json::Object* pRootJson, NET_AudioAnomalyAlarmInfo_S& stInfo, bool bOutStruct);
+    /**
+     * @brief 转换音频异常侦测实时音量信息。
+     * @author ITC
+     * @param [in,out] pRootJson JSON 数据对象。
+     * @param [in,out] stInfo 音频异常侦测实时音量结构体。
+     * @param [in] bOutStruct 为 true 时将 JSON 转换为结构体，否则将结构体转换为 JSON。
+     * @return 无。
+     */
+    void deal(Json::Object* pRootJson, NET_AudioAnomalyCurrentDb_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_SceneChangeAlarmInfo_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_CrowdGatheringRule_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_CrowdGatheringAlarmInfo_S& stInfo, bool bOutStruct);

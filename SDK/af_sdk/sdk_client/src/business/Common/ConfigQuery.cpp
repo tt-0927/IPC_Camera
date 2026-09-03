@@ -89,6 +89,7 @@ BOOL CConfigQuery::GetDevConfig(LPVOID lpUserID, INT32 dwChannelID, INT32 dwComm
         case NET_GET_LOG_SERVER:         return GetDevConfig_Impl<NET_LogServerInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
         case NET_GET_RECORD_STATUS:      return GetDevConfig_Impl<NET_RecordStatusInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
         case NET_GET_SD_CARD_STATUS:     return GetDevConfig_Impl<NET_SdCardStatus_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_GET_AUDIO_ANOMALY_CURRENT_DB: return GetDevConfig_Impl<NET_AudioAnomalyCurrentDb_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
         case NET_GET_AUDIBLE_ALARM_INFO: return GetDevConfig_Impl<NET_AudibleAlarmInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
         case NET_GET_ALARM_INPUT_INFO:   return GetDevConfig_Impl<NET_AlarmInputInfoList_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
         case NET_GET_ALARM_OUTPUT_INFO:  return GetDevConfig_Impl<NET_AlarmOutputInfoList_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);

@@ -406,6 +406,18 @@ NET_API BOOL STDCALL NET_serverRegisterSetAudioAnomalyAlarmCb(NET_CB_SetDevConfi
     return registerSetCmdCb(NET_SET_AUDIOANOMALYALARM, pCb);
 }
 
+/**
+ * @brief 注册获取音频异常侦测实时音量的回调函数。
+ * @author ITC
+ * @param [in] pCb 用于填充 NET_AudioAnomalyCurrentDb_S 输出缓冲区的回调函数。
+ * @param [out] 无。SDK 将回调函数保存到配置回调表。
+ * @return 注册成功返回 TRUE；回调函数非法或已注册时返回 FALSE。
+ */
+NET_API BOOL STDCALL NET_serverRegisterGetAudioAnomalyCurrentDbCb(NET_CB_GetDevConfigByCommand pCb)
+{
+    return registerGetCmdCb(NET_GET_AUDIO_ANOMALY_CURRENT_DB, pCb);
+}
+
 /* ===================== 人脸识别相关回调 ===================== */
 
 /**

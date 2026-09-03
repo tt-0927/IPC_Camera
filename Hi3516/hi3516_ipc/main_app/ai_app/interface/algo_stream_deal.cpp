@@ -347,13 +347,20 @@ void CAlgoStreamDeal::initEventStatisticsReporter()
 //     }
 // }
 
-float CAlgoStreamDeal::getCurrentDb() const
+/**
+ * @brief 获取音频异常侦测算法的当前实时音量。
+ * @author ITC
+ * @param [out] fCurrentDb 当前实时音量，单位为 dB。
+ * @return 获取成功返回 true；音频异常侦测算法未运行时返回 false。
+ */
+bool CAlgoStreamDeal::getCurrentDb(float &fCurrentDb) const
 {
     if (!m_pAudioAlgo)
     {
-        return 0.0f;
+        return false;
     }
-    return m_pAudioAlgo.get()->getCurrentDb();
+    fCurrentDb = m_pAudioAlgo->getCurrentDb();
+    return true;
 }
 
 void CAlgoStreamDeal::runOnce()

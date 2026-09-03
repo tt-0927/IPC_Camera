@@ -43,6 +43,7 @@ CSjclDomain::CSjclDomain()
     m_getTable[NET_GET_UNATTENDEDOBJECTALARM]    = &CSjclDomain::TemplatedGet<NET_UnattendedObjectAlarmInfo_S>;
     m_getTable[NET_GET_OBJECTREMOVALALARM]       = &CSjclDomain::TemplatedGet<NET_ObjectRemovalAlarmInfo_S>;
     m_getTable[NET_GET_AUDIOANOMALYALARM]        = &CSjclDomain::TemplatedGet<NET_AudioAnomalyAlarmInfo_S>;
+    m_getTable[NET_GET_AUDIO_ANOMALY_CURRENT_DB] = &CSjclDomain::TemplatedGet<NET_AudioAnomalyCurrentDb_S>;
     m_getTable[NET_GET_AUDIBLE_ALARM_INFO]      = &CSjclDomain::TemplatedGet<NET_AudibleAlarmInfo_S>;
     m_getTable[NET_GET_ALARM_INPUT_INFO]         = &CSjclDomain::TemplatedGet<NET_AlarmInputInfoList_S>;
     m_getTable[NET_GET_ALARM_OUTPUT_INFO]        = &CSjclDomain::TemplatedGet<NET_AlarmOutputInfoList_S>;
