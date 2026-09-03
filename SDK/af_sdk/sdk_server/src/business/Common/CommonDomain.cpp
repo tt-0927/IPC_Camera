@@ -56,6 +56,7 @@ CCommonDomain::CCommonDomain()
 
     /* NTP/网络/安全服务/音频 */
     m_setTable[NET_SET_NTPCFG]                 = &CCommonDomain::TemplatedSet<NET_SystemNtpInfo_S>;
+    m_setTable[NET_SET_SYSTEM_TIME]            = &CCommonDomain::TemplatedSet<NET_SystemTime_S>;
     m_setTable[NET_SET_AUDIOCFG]               = &CCommonDomain::TemplatedSet<NET_AudioCfg_S>;
     m_setTable[NET_SET_NETWORKCFG]             = &CCommonDomain::TemplatedSet<NET_NetworkCfgList_S>;
     m_setTable[NET_SET_SECURITY_SERVICES_INFO] = &CCommonDomain::TemplatedSet<NET_SecurityServicesInfo_S>;

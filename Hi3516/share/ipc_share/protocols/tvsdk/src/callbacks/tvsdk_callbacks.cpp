@@ -22,6 +22,7 @@
 #include "action_code.h"
 #include "system_manage.h"
 #include "system_define.h"
+#include "time_manage.h"
 #include "network_define.h"
 #include "alarm_define.h"
 #include "preview_define.h"
@@ -944,6 +945,44 @@ static NET_COMMON_ECODE_E cb_set_ntp_cfg(INT32 dwChannelID, LPVOID lpInBuffer)
     int nRet = s_taskManage->execute(AC_SET_TIME_INFO, stInfo);
     return (nRet == 0) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
 }
+
+/**
+ * @brief 处理 NVR 直接下发的系统时间设置请求。
+ * @param [in] dwChannelID SDK 通道号，单通道 IPC 当前不使用该参数。
+ * @param [in] lpInBuffer 指向 NET_SystemTime_S 的输入缓冲区。
+ * @return 设置成功返回 NET_E_SUCCEED，否则返回对应错误码。
+ */
+static NET_COMMON_ECODE_E cb_set_system_time(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    (void)dwChannelID;
+    if (!lpInBuffer)
+    {
+        return NET_E_NULL_POINT;
+    }
+    if (!s_taskManage)
+    {
+        return NET_E_SET_CFG_FAILED;
+    }
+
+    const NET_SystemTime_S *pIn = static_cast<const NET_SystemTime_S *>(lpInBuffer);
+    if (pIn->strDateTime[0] == '\0')
+    {
+        return NET_E_INVALID_PARAM;
+    }
+
+    ::System::TimeInfo_S stTimeInfo;
+    CTimeManage::instance()->get_time_info(stTimeInfo);
+    stTimeInfo.enDateFormat = ::System::DateFormat_E::YYYY_MM_DD;
+    stTimeInfo.bManualSync = true;
+    stTimeInfo.strDateTime.assign(pIn->strDateTime,
+                                  strnlen(pIn->strDateTime, sizeof(pIn->strDateTime)));
+
+    Task::Info_S stInfo;
+    stInfo.data = wrap_data_json(Convert::to_string(stTimeInfo));
+    const int nRet = s_taskManage->execute(AC_SET_TIME_INFO, stInfo);
+    return (nRet == 0) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
+}
+
 static NET_COMMON_ECODE_E cb_get_stream_cfg(INT32 dwChannelID, LPVOID lpOutBuffer)
 {
     (void)dwChannelID;
@@ -4670,6 +4709,7 @@ void register_all()
     NET_serverRegisterSetDeviceConfigCb(cb_set_device_cfg);
     NET_serverRegisterGetNtpConfigCb(cb_get_ntp_cfg);
     NET_serverRegisterSetNtpConfigCb(cb_set_ntp_cfg);
+    NET_serverRegisterSetSystemTimeCb(cb_set_system_time);
     NET_serverRegisterGetSdCardStatusCb(cb_get_sd_card_status);
     NET_serverRegisterGetStreamConfigCb(cb_get_stream_cfg);
     NET_serverRegisterSetStreamConfigCb(cb_set_stream_cfg);

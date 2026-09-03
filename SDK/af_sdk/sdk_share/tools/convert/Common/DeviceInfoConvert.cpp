@@ -77,6 +77,17 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_SystemNtpInfo_S& stInfo, bool
     convert.field(pRootJson, "SyncInterval", stInfo.nSyncInterval);
 }
 
+void SDKConvert::deal(Json::Object* pRootJson, NET_SystemTime_S& stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+
+    SDKConvert::CSDKConvert convert(bOutStruct);
+    convert.field(pRootJson, "DateTime", stInfo.strDateTime);
+}
+
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_NetworkCfg_S& stInfo, bool bOutStruct)
 {
