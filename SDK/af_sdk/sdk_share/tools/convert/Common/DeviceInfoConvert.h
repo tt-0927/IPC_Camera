@@ -37,6 +37,7 @@ namespace SDKConvert
     void deal(Json::Object* pRootJson, NET_DeviceBasicInfo_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_DeviceStorageInfo_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_SystemNtpInfo_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_SystemTime_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_UserPasswordInfo_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_NetworkCfg_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_NetworkCfgList_S& stInfo, bool bOutStruct);

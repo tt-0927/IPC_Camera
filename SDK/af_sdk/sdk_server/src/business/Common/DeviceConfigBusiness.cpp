@@ -45,6 +45,7 @@ static bool IsDeviceLevelCommand(INT32 nCommand)
         case NET_GET_STORAGE_INFO:
         case NET_GET_NTPCFG:
         case NET_SET_NTPCFG:
+        case NET_SET_SYSTEM_TIME:
         case NET_GET_UPGRADESTATUS:
         case NET_GET_UPGRADEVERSION:
         case NET_SET_UPGRADE:

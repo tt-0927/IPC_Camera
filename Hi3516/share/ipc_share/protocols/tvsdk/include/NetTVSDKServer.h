@@ -1089,6 +1089,7 @@ typedef enum tagNETTVCfgCmd
 
     NET_GET_NTPCFG                   = 110,              /* 获取NTP参数,参见#NET_SystemNtpInfo_S  Get NTP parameter, see #NET_SystemNtpInfo_S */
     NET_SET_NTPCFG                   = 111,              /* 设置NTP参数,参见#NET_SystemNtpInfo_S  Set NTP parameter, see #NET_SystemNtpInfo_S */
+    NET_SET_SYSTEM_TIME              = 112,              /* 设置系统时间，输入 NET_SystemTime_S */
 
     NET_GET_STREAMCFG                = 120,              /* 获取视频编码参数,参见#NET_VideoEncodeOption_S  Get video encoding parameter, see #NET_VideoEncodeOption_S */
     NET_SET_STREAMCFG                = 121,              /* 设置视频编码参数,参见#NET_VideoEncodeOption_S  Set video encoding parameter, see #NET_VideoEncodeOption_S */
@@ -2486,6 +2487,20 @@ typedef struct tagNET_SystemNtpInfo
  * @brief 系统时间/NTP校时配置结构体指针类型
  */
 typedef NET_SystemNtpInfo_S* pNET_SystemNtpInfo_S;
+
+/**
+ * @brief 设置系统时间参数结构体。
+ * @note strDateTime 格式为“YYYY-MM-DD HH:MM:SS”。
+ */
+typedef struct tagNET_SystemTime
+{
+    CHAR    strDateTime[NET_MAX_DATE_STRING_LEN];
+} NET_SystemTime_S;
+
+/**
+ * @brief 设置系统时间参数结构体指针类型。
+ */
+typedef NET_SystemTime_S* pNET_SystemTime_S;
 
 /**
  * @brief 修改用户密码参数结构体
@@ -6533,6 +6548,12 @@ NET_API BOOL STDCALL NET_serverRegisterGetDeviceConfigCb(NET_CB_GetDevConfigByCo
 NET_API BOOL STDCALL NET_serverRegisterSetDeviceConfigCb(NET_CB_SetDevConfigByCommand pCb);
 NET_API BOOL STDCALL NET_serverRegisterGetNtpConfigCb(NET_CB_GetDevConfigByCommand pCb);
 NET_API BOOL STDCALL NET_serverRegisterSetNtpConfigCb(NET_CB_SetDevConfigByCommand pCb);
+/**
+ * @brief 注册设置系统时间的回调函数。
+ * @param [in] pCb 接收 NET_SystemTime_S 的设置回调函数。
+ * @return 注册成功返回 TRUE，否则返回 FALSE。
+ */
+NET_API BOOL STDCALL NET_serverRegisterSetSystemTimeCb(NET_CB_SetDevConfigByCommand pCb);
 NET_API BOOL STDCALL NET_serverRegisterGetStreamConfigCb(NET_CB_GetDevConfigByCommand pCb);
 NET_API BOOL STDCALL NET_serverRegisterSetStreamConfigCb(NET_CB_SetDevConfigByCommand pCb);
 NET_API BOOL STDCALL NET_serverRegisterGetRtspUrlCb(NET_CB_GetRtspUrl pCb);

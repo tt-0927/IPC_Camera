@@ -276,6 +276,16 @@ NET_API BOOL STDCALL NET_serverRegisterSetNtpConfigCb(NET_CB_SetDevConfigByComma
 }
 
 /**
+ * @brief 注册设置系统时间的回调函数。
+ * @param [in] pCb 接收 NET_SystemTime_S 的设置回调函数。
+ * @return 注册成功返回 TRUE，否则返回 FALSE。
+ */
+NET_API BOOL STDCALL NET_serverRegisterSetSystemTimeCb(NET_CB_SetDevConfigByCommand pCb)
+{
+    return registerSetCmdCb(NET_SET_SYSTEM_TIME, pCb);
+}
+
+/**
  * @brief 注册获取码流配置的回调函数
  * @param [in] pCb 用于填充 NET_StreamCfg_S 的回调函数
  * @return 注册成功返回 TRUE；回调函数非法或已注册时返回 FALSE
