@@ -23,16 +23,22 @@ static bool shouldSkipResultLog(int code)
 
 std::string CTask::get_data(std::string jsonData)
 {
-    Json::Object *pJsonRoot = Json::init(jsonData);
-    if (!pJsonRoot)
-    {
-        return std::string();
-    }
+	/* 输入为空时不创建 JSON 对象，避免后续任务收到空参数。 */
+	if (jsonData.empty())
+	{
+		return std::string();
+	}
 
-    Json::Object *pJsonData = Json::get(pJsonRoot, "Data");
-    std::string data = Json::to_string(pJsonData);
-    Json::deinit(pJsonRoot);
-    return data;
+	Json::Object *pJsonRoot = Json::init(jsonData);
+	if (!pJsonRoot)
+	{
+		return jsonData;
+	}
+
+	Json::Object *pJsonData = Json::get(pJsonRoot, "Data");
+	std::string data = pJsonData ? Json::to_string(pJsonData) : Json::to_string(pJsonRoot);
+	Json::deinit(pJsonRoot);
+	return data.empty() ? jsonData : data;
 }
 
 void CTask::deal_result(std::function<void(std::string)> fnDealFunc)

@@ -1678,6 +1678,14 @@ bool CNetworkManage::check_cmd_exists(const char* pCmd)
 /* 判断ip是否被使用 */
 int CNetworkManage::check_ip_usage(const std::string &strIp, const std::string &strInterfaceName)
 {
+	/* 校验目标地址，避免将非法内容拼接到系统命令中。 */
+	struct in_addr stAddress{};
+	if (strIp.empty() || inet_pton(AF_INET, strIp.c_str(), &stAddress) != 1)
+	{
+		dlog_error("检查 IP 地址格式失败：IP[%s]", strIp.c_str());
+		return -1;
+	}
+
 	std::string stIp;
 	std::string strIpListCommand = "ip addr show " + strInterfaceName + " | grep 'inet ' | awk '{print $2}' | cut -d/ -f1";
 	std::unique_ptr<FILE, decltype(&pclose)> ipPipe(popen(strIpListCommand.c_str(), "r"), pclose);
@@ -1696,7 +1704,13 @@ int CNetworkManage::check_ip_usage(const std::string &strIp, const std::string &
 	}
 
 	/* 构建 arping 命令 */
-	std::string strCommand = "ping -c 1 -W 1 " + stIp;
+	/* 改网时应检测目标地址，目标地址与当前地址相同时不判定为冲突。 */
+	if (!stIp.empty() && stIp == strIp)
+	{
+		return 0;
+	}
+
+	std::string strCommand = "ping -c 1 -W 1 " + strIp;
 
 	/* 打开管道以读取命令输出 */
 	std::unique_ptr<FILE, decltype(&pclose)> pipe(popen(strCommand.c_str(), "r"), pclose);

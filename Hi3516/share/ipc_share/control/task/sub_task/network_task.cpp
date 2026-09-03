@@ -33,6 +33,50 @@
 #include "network_define.h"
 #include "burn_mac_udp_server.h"
 #include "ipc_multicast_server.h"
+
+namespace
+{
+/*
+ * 统一处理网络任务输入 JSON。
+ * param [in] strSourceJson 输入的网络配置对象或包含 Data 节点的统一响应对象。
+ * param [out] strNetworkJson 提取后的网络配置对象 JSON。
+ * return 输入格式正确且包含网络关键字段时返回 true，否则返回 false。
+ */
+static bool normalize_network_task_json(const std::string &strSourceJson,
+                                        std::string &strNetworkJson)
+{
+    strNetworkJson.clear();
+    if (strSourceJson.empty())
+    {
+        return false;
+    }
+
+    Json::Object *pRootJson = Json::init(strSourceJson.c_str());
+    if (!pRootJson)
+    {
+        return false;
+    }
+
+    Json::Object *pDataJson = Json::get(pRootJson, "Data");
+    Json::Object *pNetworkJson = pDataJson ? pDataJson : pRootJson;
+    Json::Object *pIpJson = Json::get(pNetworkJson, "NetInfos");
+    std::string strIpValue;
+    bool bEnableDhcp = false;
+    const bool bHasNetName = pIpJson && Json::get(pIpJson, "NetName", strIpValue);
+    const bool bHasIpv4Ip = pIpJson && Json::get(pIpJson, "Ipv4Ip", strIpValue);
+    const bool bHasIpv4Mask = pIpJson && Json::get(pIpJson, "Ipv4Mask", strIpValue);
+    const bool bHasDhcp = pIpJson && Json::get(pIpJson, "EnableDhcp", bEnableDhcp);
+    const bool bValid = pIpJson && bHasNetName && bHasIpv4Ip && bHasIpv4Mask && bHasDhcp;
+
+    if (bValid)
+    {
+        strNetworkJson = Json::to_string(pNetworkJson);
+    }
+
+    Json::deinit(pRootJson);
+    return bValid && !strNetworkJson.empty();
+}
+}
 #include "gb28181.hpp"
 #include "rtsp_server.h"
 #include "web_server.h"
@@ -267,8 +311,35 @@ void Task::Network::GetNetworkInfo::handle()
 }
 void Task::Network::SetNetworkInfo::handle()
 {
-    ::Network::Info_S stInfo;
-    Convert::to_struct(m_taskData, stInfo);
+    std::string strNetworkJson;
+    if (!normalize_network_task_json(m_taskData, strNetworkJson))
+    {
+        dlog_error("设置网络任务输入 JSON 无效，拒绝使用默认网络配置");
+        result(ERR_PARAM);
+        return;
+    }
+
+    ::Network::Info_S stInfo{};
+    Convert::to_struct(strNetworkJson, stInfo);
+
+    if (stInfo.stIp.netName.empty() || stInfo.stIp.ipv4Mask.empty() ||
+        (!stInfo.stIp.bEnableDhcp && stInfo.stIp.ipv4Ip.empty()))
+    {
+        dlog_error("设置网络任务关键参数为空：网卡[%s] IP[%s] 掩码[%s] DHCP[%d]",
+                   stInfo.stIp.netName.c_str(),
+                   stInfo.stIp.ipv4Ip.c_str(),
+                   stInfo.stIp.ipv4Mask.c_str(),
+                   stInfo.stIp.bEnableDhcp ? 1 : 0);
+        result(ERR_PARAM);
+        return;
+    }
+
+    dlog_info("设置网络任务解析结果：网卡[%s] IP[%s] 掩码[%s] 网关[%s] DHCP[%d]",
+              stInfo.stIp.netName.c_str(),
+              stInfo.stIp.ipv4Ip.c_str(),
+              stInfo.stIp.ipv4Mask.c_str(),
+              stInfo.stIp.ipv4Gateway.c_str(),
+              stInfo.stIp.bEnableDhcp ? 1 : 0);
 
     /* 通知多播服务器 */
     if (stInfo.stIp.bEnableMulticast && 0 != stInfo.stIp.multicastAddress.length())

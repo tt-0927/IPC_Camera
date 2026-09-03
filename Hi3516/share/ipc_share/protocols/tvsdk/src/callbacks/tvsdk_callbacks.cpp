@@ -1096,8 +1096,16 @@ static NET_COMMON_ECODE_E cb_get_network_cfg(INT32 dwChannelID, LPVOID lpOutBuff
     if (nRet != 0)
         return NET_E_GET_CFG_FAILED;
 
-    Network::Info_S stNetInfo;
-    Convert::to_struct(outJson, stNetInfo);
+    /* 获取网络配置时先提取统一响应中的 Data 节点，避免结构体保留默认地址。 */
+    const std::string strNetworkJson = normalize_data_json(outJson);
+    if (strNetworkJson.empty())
+    {
+        dlog_error("获取网络配置响应缺少 Data 节点：%s", outJson.c_str());
+        return NET_E_GET_CFG_FAILED;
+    }
+
+    Network::Info_S stNetInfo{};
+    Convert::to_struct(strNetworkJson, stNetInfo);
     TvSdkConvert::FillNetworkCfg(stNetInfo, *pOut);
     return NET_E_SUCCEED;
 }
@@ -1124,6 +1132,16 @@ int apply_discovery_network(const tagNET_PoeNetworkConfig *pConfig)
     if (!pConfig || !s_taskManage)
         return NET_E_INVALID_PARAM;
 
+    if (pConfig->szTargetIP[0] == '\0' || pConfig->szSubnetMask[0] == '\0' ||
+        (pConfig->bSetGateway == TRUE && pConfig->szGateway[0] == '\0'))
+    {
+        dlog_error("组播改网参数无效：目标IP[%s] 子网掩码[%s] 网关[%s]",
+                   pConfig->szTargetIP,
+                   pConfig->szSubnetMask,
+                   pConfig->szGateway);
+        return NET_E_INVALID_PARAM;
+    }
+
     std::string outJson;
     if (execute_get_result(AC_GET_NETWORK_INFO, "{}", outJson) != 0 || outJson.empty())
         return NET_E_GET_CFG_FAILED;
@@ -1133,16 +1151,32 @@ int apply_discovery_network(const tagNET_PoeNetworkConfig *pConfig)
     if (nRet != 0)
         return NET_E_GET_CFG_FAILED;
 
-    Network::Info_S stNetworkInfo;
-    Convert::to_struct(outJson, stNetworkInfo);
+    /* GET 网络配置返回的是统一响应，必须先提取 Data 节点再转换网络结构体。 */
+    const std::string strNetworkJson = normalize_data_json(outJson);
+    if (strNetworkJson.empty())
+    {
+        dlog_error("组播改网获取网络配置缺少 Data 节点：%s", outJson.c_str());
+        return NET_E_GET_CFG_FAILED;
+    }
+
+    Network::Info_S stNetworkInfo{};
+    Convert::to_struct(strNetworkJson, stNetworkInfo);
     stNetworkInfo.stIp.bEnableDhcp = (pConfig->bIPv4DHCP == TRUE);
     stNetworkInfo.stIp.ipv4Ip = pConfig->szTargetIP;
     stNetworkInfo.stIp.ipv4Mask = pConfig->szSubnetMask;
     if (pConfig->bSetGateway == TRUE)
         stNetworkInfo.stIp.ipv4Gateway = pConfig->szGateway;
 
+    dlog_info("组播改网准备设置：网卡[%s] IP[%s] 掩码[%s] 网关[%s] DHCP[%d]",
+              stNetworkInfo.stIp.netName.c_str(),
+              stNetworkInfo.stIp.ipv4Ip.c_str(),
+              stNetworkInfo.stIp.ipv4Mask.c_str(),
+              stNetworkInfo.stIp.ipv4Gateway.c_str(),
+              stNetworkInfo.stIp.bEnableDhcp ? 1 : 0);
+
     Task::Info_S stInfo;
-    stInfo.data = Convert::to_string(stNetworkInfo);
+    /* 任务框架会从 Data 节点提取任务参数，设置网络时必须使用统一包装格式。 */
+    stInfo.data = wrap_data_json(Convert::to_string(stNetworkInfo));
     std::string setResult;
     if (execute_get_result(AC_SET_NETWORK_INFO, stInfo.data, setResult) != 0 || setResult.empty())
         return NET_E_SET_CFG_FAILED;
