@@ -3471,12 +3471,25 @@ static NET_COMMON_ECODE_E cb_get_rtsp_url(INT32 dwChannelID, pNET_RtspUrlInfo_S 
     {
     case NET_LIVE_STREAM_INDEX_MAIN: rtspChn = RTSP_CHN_MAIN; break;
     case NET_LIVE_STREAM_INDEX_AUX:  rtspChn = RTSP_CHN_SUB;  break;
-    default: return NET_E_INVALID_PARAM;
+    default:
+        dlog_error("GetRtspUrl不支持的码流索引 channel:%d stream:%d", dwChannelID, streamIndex);
+        return NET_E_INVALID_PARAM;
     }
+
+    dlog_info("GetRtspUrl请求 channel:%d stream:%d 映射rtspChn:%d",
+              dwChannelID,
+              streamIndex,
+              rtspChn);
 
     const char *pUrl = CRtspServer::instance()->getRtspUrl(rtspChn, false);
     if (!pUrl || pUrl[0] == '\0')
+    {
+        dlog_error("GetRtspUrl获取失败 channel:%d stream:%d rtspChn:%d",
+                   dwChannelID,
+                   streamIndex,
+                   rtspChn);
         return NET_E_GET_CFG_FAILED;
+    }
 
     std::strncpy(pInfo->szRtspUrl, pUrl, sizeof(pInfo->szRtspUrl) - 1);
     pInfo->szRtspUrl[sizeof(pInfo->szRtspUrl) - 1] = '\0';
@@ -4660,7 +4673,10 @@ void register_all()
     NET_serverRegisterGetSdCardStatusCb(cb_get_sd_card_status);
     NET_serverRegisterGetStreamConfigCb(cb_get_stream_cfg);
     NET_serverRegisterSetStreamConfigCb(cb_set_stream_cfg);
-    NET_serverRegisterGetRtspUrlCb(cb_get_rtsp_url);
+    if (!NET_serverRegisterGetRtspUrlCb(cb_get_rtsp_url))
+    {
+        dlog_error("TVSDK RTSP URL回调注册失败");
+    }
     NET_serverRegisterGetOsdCapConfigCb(cb_get_osd_cap_cfg);
     NET_serverRegisterSetOsdCapConfigCb(cb_set_osd_cap_cfg);
 

@@ -45,15 +45,21 @@ NET_API BOOL STDCALL NET_serverRegisterGetRtspUrlCb(NET_CB_GetRtspUrl pCb)
 {
     if (pCb == NULL)
     {
+        fprintf(stderr, "[DIAG-RTSP-SDK] register callback rejected: null\n");
+        fflush(stderr);
         return FALSE;
     }
 
     if (g_stNvrCbTable.cbGetRtspUrl != NULL)
     {
+        fprintf(stderr, "[DIAG-RTSP-SDK] register callback rejected: already registered\n");
+        fflush(stderr);
         return FALSE;
     }
 
     g_stNvrCbTable.cbGetRtspUrl = pCb;
+    fprintf(stderr, "[DIAG-RTSP-SDK] register callback succeeded\n");
+    fflush(stderr);
     return TRUE;
 }
 
@@ -66,17 +72,30 @@ NET_API BOOL STDCALL NET_serverRegisterGetRtspUrlCb(NET_CB_GetRtspUrl pCb)
  */
 int executeGetRtspUrlCb(INT32 dwChannelID, pNET_RtspUrlInfo_S pInfo)
 {
+    fprintf(stderr, "[DIAG-RTSP-SDK] executeGetRtspUrlCb enter: channel=%d info=%p\n",
+            dwChannelID, (void *)pInfo);
+    fflush(stderr);
     if (pInfo == NULL)
     {
+        fprintf(stderr, "[DIAG-RTSP-SDK] executeGetRtspUrlCb invalid info\n");
+        fflush(stderr);
         return NET_E_INVALID_PARAM;
     }
 
     /* 优先使用专用RTSP回调 */
     if (g_stNvrCbTable.cbGetRtspUrl != NULL)
     {
-        return g_stNvrCbTable.cbGetRtspUrl(dwChannelID, pInfo);
+        fprintf(stderr, "[DIAG-RTSP-SDK] invoking registered callback\n");
+        fflush(stderr);
+        int nRet = g_stNvrCbTable.cbGetRtspUrl(dwChannelID, pInfo);
+        fprintf(stderr, "[DIAG-RTSP-SDK] registered callback returned: ret=%d\n", nRet);
+        fflush(stderr);
+        return nRet;
     }
 
+    fprintf(stderr, "[DIAG-RTSP-SDK] callback not registered, fallback command=%d\n",
+            NET_GET_RTSPURLCFG);
+    fflush(stderr);
     /* 降级到通用配置回调（走Common的命令码分发） */
     return executeGetDevConfigCb(dwChannelID, NET_GET_RTSPURLCFG, pInfo);
 }

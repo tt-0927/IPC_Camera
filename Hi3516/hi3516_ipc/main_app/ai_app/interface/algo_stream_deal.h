@@ -111,12 +111,11 @@ public:
     // void set_Algo_ParamConfig(Alarm::TargetDetection_S &stAlgoCfg);
 
     /**
-     * @brief 获取音频异常侦测算法的当前实时音量。
-     * @author ITC
-     * @param [out] fCurrentDb 当前实时音量，单位为 dB。
-     * @return 获取成功返回 true；音频异常侦测算法未运行时返回 false。
+     * @brief   : 获取当前实时音量
+     * @note    : 音频异常侦测
+     * @return   {float} 当前音量(dB)
      */
-    bool getCurrentDb(float &fCurrentDb) const;
+    float getCurrentDb() const;
 
     /**
      * @brief   : 分发运行时命令至当前算法实例
