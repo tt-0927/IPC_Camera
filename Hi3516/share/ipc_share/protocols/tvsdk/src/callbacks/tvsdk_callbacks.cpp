@@ -3077,7 +3077,7 @@ static NET_COMMON_ECODE_E cb_get_audio_anomaly_current_db(INT32 nChannelId, LPVO
     std::memset(pCurrentDbInfo, 0, sizeof(*pCurrentDbInfo));
 
     std::string strResultJson;
-    if ((execute_get_result(AC_GET_AUDIO_ANOMALY_DETECT_CURRENT_DB, "{}", strResultJson) != 0) ||
+    if ((execute_get_result(AC_GET_AUDIO_ANOMALY_DETECT_CURRENT_DB, wrap_data_json("{}"), strResultJson) != 0) ||
         strResultJson.empty())
     {
         return NET_E_GET_CFG_FAILED;
