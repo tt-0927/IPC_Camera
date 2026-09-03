@@ -1155,15 +1155,34 @@ int CRtspServer::setQosDscp(const int& nDscp)
 
 char* CRtspServer::getRtspUrl(int nChn, bool bAuth)
 {
+    /* 返回副本而不是内部对象地址，避免解锁后 reboot() 释放/改写内部缓冲区。 */
+    thread_local std::string strRtspUrl;
+
     if (nChn < RTSP_CHN_MAIN || nChn >= RTSP_CHN_MAX)
     {
+        strRtspUrl.clear();
         dlog_error("Rtsp通道号错误");
         return nullptr;
     }
 
+    /* 与 reboot()/deinit() 共用控制锁，避免检查完成后流对象被并发释放。 */
+    std::lock_guard<std::mutex> lock(m_mutexCtrl);
+
     if (!m_bInitFlag.load())
     {
+        strRtspUrl.clear();
         dlog_error("Rtsp未初始化");
+        return nullptr;
+    }
+
+    /* 初始化标志与运行时对象必须同时有效，避免网络切换/异常初始化时解引用空指针。 */
+    if (m_pLiveInfo == nullptr || m_pLiveInfo->listLive[nChn] == nullptr)
+    {
+        strRtspUrl.clear();
+        dlog_error("Rtsp运行时对象为空 chn:%d liveInfo:%p streamInfo:%p",
+                   nChn,
+                   static_cast<void*>(m_pLiveInfo),
+                   m_pLiveInfo == nullptr ? nullptr : static_cast<void*>(m_pLiveInfo->listLive[nChn]));
         return nullptr;
     }
 
@@ -1181,7 +1200,13 @@ char* CRtspServer::getRtspUrl(int nChn, bool bAuth)
 
     if (bAuth)
     {
-        return m_rtspUrlMap[nChn].data();
+        if (m_rtspUrlMap.find(nChn) == m_rtspUrlMap.end() || m_rtspUrlMap[nChn].empty())
+        {
+            strRtspUrl.clear();
+            dlog_error("Rtsp鉴权URL为空 chn:%d", nChn);
+            return nullptr;
+        }
+        strRtspUrl = m_rtspUrlMap[nChn];
     }
     else
     {
@@ -1189,11 +1214,15 @@ char* CRtspServer::getRtspUrl(int nChn, bool bAuth)
         {
         default:
         case RTSP_CHN_MAIN:
-            return m_pLiveInfo->listLive[RTSP_CHN_MAIN]->achUrl;
+            strRtspUrl = m_pLiveInfo->listLive[RTSP_CHN_MAIN]->achUrl;
+            break;
         case RTSP_CHN_SUB:
-            return m_pLiveInfo->listLive[RTSP_CHN_SUB]->achUrl;
+            strRtspUrl = m_pLiveInfo->listLive[RTSP_CHN_SUB]->achUrl;
+            break;
         }
     }
+
+    return strRtspUrl.empty() ? nullptr : strRtspUrl.data();
 }
 
 int CRtspServer::setRequestIdrCallback(const RequestIdrCallback& callback, void* pUserData)
