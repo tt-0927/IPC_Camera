@@ -194,26 +194,7 @@ void CCaptureCtrl::get_captureParam(Capture_NS::CaptureParam_S &stCaptureParams)
 {
     dlog_info("获取抓图参数");
     std::lock_guard<std::mutex> lock(m_mutex);
-    unsigned int unWidth;
-    unsigned int unHeight;
-    unsigned int nUqFactor;
-
     CCaptureConfigure::instance()->get_configure(stCaptureParams);
-
-    m_GetJpegVencParamCallback(unWidth, unHeight, nUqFactor);
-
-    stCaptureParams.stCaptureEventConfig.stVideoResolution.nWidth = unWidth;
-    stCaptureParams.stCaptureEventConfig.stVideoResolution.nHeight = unHeight;
-    stCaptureParams.stCaptureEventConfig.enImageQuality = (nUqFactor >= 0 && nUqFactor < 33) ? Capture_NS::LOW
-                                                          : (nUqFactor < 66)                 ? Capture_NS::MEDIUM
-                                                                                             : Capture_NS::HIGH;
-
-    stCaptureParams.stCaptureTimingConfig.stVideoResolution.nWidth = unWidth;
-    stCaptureParams.stCaptureTimingConfig.stVideoResolution.nHeight = unHeight;
-    stCaptureParams.stCaptureTimingConfig.enImageQuality = (nUqFactor >= 0 && nUqFactor < 33) ? Capture_NS::LOW
-                                                           : (nUqFactor < 66)                 ? Capture_NS::MEDIUM
-                                                                                              : Capture_NS::HIGH;
-
     return;
 }
 

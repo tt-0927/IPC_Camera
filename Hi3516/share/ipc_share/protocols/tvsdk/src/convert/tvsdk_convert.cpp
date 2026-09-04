@@ -17,6 +17,84 @@ namespace TvSdkConvert
 {
 static constexpr size_t kOsdCustomSlotCount = 4;
 
+/* 将 IPC 的人体、车辆、其他目标集合折叠为 SDK 定义的目标枚举。 */
+static void FillDetectionTargets(const std::vector<int> &src, INT32 &nCount, INT32 *pTargets)
+{
+    bool bHuman = false;
+    bool bVehicle = false;
+    bool bOther = false;
+    for (const int nTarget : src)
+    {
+        bHuman = bHuman || nTarget == static_cast<int>(Alarm::HUMAN_DETECTION);
+        bVehicle = bVehicle || nTarget == static_cast<int>(Alarm::CAR_DETECTION);
+        bOther = bOther || nTarget == static_cast<int>(Alarm::OTHER_DETECTION);
+    }
+
+    nCount = 0;
+    if (!pTargets || (!bHuman && !bVehicle && !bOther))
+    {
+        return;
+    }
+
+    if (bOther)
+    {
+        pTargets[nCount++] = NET_TARGET_ALL;
+    }
+    else if (bHuman && bVehicle)
+    {
+        pTargets[nCount++] = NET_TARGET_HUMAN_AND_VEHICLE;
+    }
+    else if (bHuman)
+    {
+        pTargets[nCount++] = NET_TARGET_HUMAN;
+    }
+    else
+    {
+        pTargets[nCount++] = NET_TARGET_VEHICLE;
+    }
+}
+
+/* 将 SDK 目标枚举展开为 IPC 使用的检测目标集合。 */
+static void ToDetectionTargets(const INT32 *pTargets, INT32 nCount, std::vector<int> &dst)
+{
+    dst.clear();
+    if (!pTargets || nCount <= 0)
+    {
+        return;
+    }
+
+    const auto addTarget = [&dst](int nTarget)
+    {
+        if (std::find(dst.begin(), dst.end(), nTarget) == dst.end())
+        {
+            dst.push_back(nTarget);
+        }
+    };
+    for (INT32 nIndex = 0; nIndex < std::min(nCount, 8); ++nIndex)
+    {
+        switch (pTargets[nIndex])
+        {
+        case NET_TARGET_ALL:
+            addTarget(static_cast<int>(Alarm::HUMAN_DETECTION));
+            addTarget(static_cast<int>(Alarm::CAR_DETECTION));
+            addTarget(static_cast<int>(Alarm::OTHER_DETECTION));
+            break;
+        case NET_TARGET_HUMAN:
+            addTarget(static_cast<int>(Alarm::HUMAN_DETECTION));
+            break;
+        case NET_TARGET_VEHICLE:
+            addTarget(static_cast<int>(Alarm::CAR_DETECTION));
+            break;
+        case NET_TARGET_HUMAN_AND_VEHICLE:
+            addTarget(static_cast<int>(Alarm::HUMAN_DETECTION));
+            addTarget(static_cast<int>(Alarm::CAR_DETECTION));
+            break;
+        default:
+            break;
+        }
+    }
+}
+
 static bool HasCustomOsdPayload(const Osd::OsdInfo_S &info)
 {
     return info.bEnable ||
@@ -1858,9 +1936,9 @@ void FillCrossLineAlarmInfo(const Alarm::BoundaryDetection_S &src, NET_CrossLine
         out.fEndPosY   = r.stEndPos.fY;
         out.enCrossDirection = (INT32)r.enCrossDirection;
         out.nSensitivity = (INT32)r.nSensitivity;
-        out.uDetectionTargetCount = (INT32)std::min<size_t>(r.aDetectionTarget.size(), 8);
-        for (int j = 0; j < out.uDetectionTargetCount; ++j)
-            out.auDetectionTarget[j] = r.aDetectionTarget[j];
+        FillDetectionTargets(r.aDetectionTarget,
+                             out.uDetectionTargetCount,
+                             out.auDetectionTarget);
         dst.uRuleCount++;
     }
 
@@ -1886,7 +1964,8 @@ void ToBoundaryDetection(const NET_CrossLineAlarmInfo_S &src, Alarm::BoundaryDet
 {
     dst.bEnable = (src.bEnable == TRUE);
     dst.aRule.clear();
-    for (int i = 0; i < src.uRuleCount && i < 4; ++i)
+    const int nRuleCount = std::max(0, std::min(src.uRuleCount, 4));
+    for (int i = 0; i < nRuleCount; ++i)
     {
         const auto &r = src.stRule[i];
         Alarm::BoundaryPlane_S out;
@@ -1894,7 +1973,7 @@ void ToBoundaryDetection(const NET_CrossLineAlarmInfo_S &src, Alarm::BoundaryDet
         out.stEndPos   = { r.fEndPosX, r.fEndPosY };
         out.enCrossDirection = (Alarm::CrossDirection_E)r.enCrossDirection;
         out.nSensitivity = (unsigned int)r.nSensitivity;
-        out.aDetectionTarget.assign(r.auDetectionTarget, r.auDetectionTarget + std::min(r.uDetectionTargetCount, 8));
+        ToDetectionTargets(r.auDetectionTarget, r.uDetectionTargetCount, out.aDetectionTarget);
         dst.aRule.push_back(out);
     }
 
@@ -1935,9 +2014,9 @@ void FillIntrusionAlarmInfo(const Alarm::FieldDetection_S &src, NET_IntrusionAla
         }
         out.nTimeThreshold = (INT32)r.nTimeThreshold;
         out.nSensitivity   = (INT32)r.nSensitivity;
-        out.uDetectionTargetCount = (INT32)std::min<size_t>(r.aDetectionTarget.size(), 8);
-        for (int j = 0; j < out.uDetectionTargetCount; ++j)
-            out.auDetectionTarget[j] = r.aDetectionTarget[j];
+        FillDetectionTargets(r.aDetectionTarget,
+                             out.uDetectionTargetCount,
+                             out.auDetectionTarget);
         dst.uRuleCount++;
     }
 
@@ -1963,7 +2042,8 @@ void ToFieldDetection(const NET_IntrusionAlarmInfo_S &src, Alarm::FieldDetection
 {
     dst.bEnable = (src.bEnable == TRUE);
     dst.aRule.clear();
-    for (int i = 0; i < src.uRuleCount && i < 4; ++i)
+    const int nRuleCount = std::max(0, std::min(src.uRuleCount, 4));
+    for (int i = 0; i < nRuleCount; ++i)
     {
         const auto &r = src.stRule[i];
         Alarm::Intrusion_S out;
@@ -1971,11 +2051,13 @@ void ToFieldDetection(const NET_IntrusionAlarmInfo_S &src, Alarm::FieldDetection
         out.nSensitivity = (unsigned int)r.nSensitivity;
         out.stRegion.aPoint.clear();
         out.stRegion.nPointNum = r.uPointCount;
-        for (int p = 0; p < r.uPointCount && p < 32; ++p)
+        const int nPointCount = std::max(0, std::min(r.uPointCount, 32));
+        out.stRegion.nPointNum = nPointCount;
+        for (int p = 0; p < nPointCount; ++p)
         {
             out.stRegion.aPoint.push_back({ r.afPointX[p], r.afPointY[p] });
         }
-        out.aDetectionTarget.assign(r.auDetectionTarget, r.auDetectionTarget + std::min(r.uDetectionTargetCount, 8));
+        ToDetectionTargets(r.auDetectionTarget, r.uDetectionTargetCount, out.aDetectionTarget);
         dst.aRule.push_back(out);
     }
 

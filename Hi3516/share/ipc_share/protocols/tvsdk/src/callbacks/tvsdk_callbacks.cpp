@@ -13,6 +13,9 @@
 #include <fstream>
 #include <chrono>
 #include <condition_variable>
+#include <ctime>
+#include <cstdio>
+#include <cmath>
 #include <memory>
 #include <mutex>
 
@@ -48,8 +51,14 @@ static NET_TamperAlarmInfo_S g_tvTamperAlarmInfo;
 static NET_AudioAnomalyAlarmInfo_S g_tvAudioAnomalyAlarmInfo;
 
 static int execute_get_result(int actionCode, const std::string &inJson, std::string &outJson);
+static NET_COMMON_ECODE_E validate_video_resolution(const NET_VideoEncodeOption_S &stConfig);
 
 static const char *kDefaultUpgradeDir = "/opt/course/";
+static constexpr UINT32 TVSDK_CAPTURE_INTERVAL_MAX_MILLISECONDS = 86400000U;
+static constexpr UINT32 TVSDK_CAPTURE_INTERVAL_MAX_SECONDS = 86400U;
+static constexpr UINT32 TVSDK_CAPTURE_INTERVAL_MAX_MINUTES = 1440U;
+static constexpr UINT32 TVSDK_CAPTURE_INTERVAL_MAX_HOURS = 24U;
+static constexpr UINT32 TVSDK_CAPTURE_INTERVAL_MAX_DAYS = 365U;
 
 static bool is_absolute_path(const std::string &path)
 {
@@ -111,6 +120,259 @@ static std::string normalize_data_json(const std::string &srcJson)
     return out;
 }
 
+/* 严格校验日期时间，避免 strptime 或 mktime 自动归一化非法日期。 */
+static bool is_valid_date_time(const char *pDateTime, INT32 nDateFormat)
+{
+    if (pDateTime == nullptr || nDateFormat < 0 || nDateFormat > 5)
+    {
+        return false;
+    }
+
+    const size_t nDateTimeLength = strnlen(pDateTime, NET_MAX_DATE_STRING_LEN);
+    if (nDateTimeLength == 0 || nDateTimeLength >= NET_MAX_DATE_STRING_LEN)
+    {
+        return false;
+    }
+    const std::string strDateTime(pDateTime, nDateTimeLength);
+
+    /* strptime 允许部分字段省略，这里先校验 SDK 约定的固定长度和分隔符。 */
+    const char chDateSeparator = (nDateFormat == static_cast<INT32>(::System::DateFormat_E::YYYYMMDD) ||
+                                  nDateFormat == static_cast<INT32>(::System::DateFormat_E::MMDDYYYY) ||
+                                  nDateFormat == static_cast<INT32>(::System::DateFormat_E::DDMMYYYY))
+                                     ? '/'
+                                     : '-';
+    if (strDateTime.size() != 19 || strDateTime[4] != chDateSeparator ||
+        strDateTime[7] != chDateSeparator || strDateTime[10] != ' ' ||
+        strDateTime[13] != ':' || strDateTime[16] != ':')
+    {
+        return false;
+    }
+
+    const char *pFormat = ::System::to_string(::System::Language::ENGLISH,
+                                               static_cast<::System::DateFormat_E>(nDateFormat));
+    if (pFormat == nullptr || std::strcmp(pFormat, "Unknown time") == 0)
+    {
+        return false;
+    }
+
+    std::tm stParsedTime = {};
+    char *pEnd = strptime(strDateTime.c_str(), pFormat, &stParsedTime);
+    if (pEnd == nullptr || *pEnd != '\0' || stParsedTime.tm_year < 70 ||
+        stParsedTime.tm_hour < 0 || stParsedTime.tm_hour > 23 ||
+        stParsedTime.tm_min < 0 || stParsedTime.tm_min > 59 ||
+        stParsedTime.tm_sec < 0 || stParsedTime.tm_sec > 59)
+    {
+        return false;
+    }
+
+    const int nYear = stParsedTime.tm_year;
+    const int nMonth = stParsedTime.tm_mon;
+    const int nDay = stParsedTime.tm_mday;
+    const int nHour = stParsedTime.tm_hour;
+    const int nMinute = stParsedTime.tm_min;
+    const int nSecond = stParsedTime.tm_sec;
+    if (mktime(&stParsedTime) == static_cast<time_t>(-1))
+    {
+        return false;
+    }
+
+    return nYear == stParsedTime.tm_year && nMonth == stParsedTime.tm_mon &&
+           nDay == stParsedTime.tm_mday && nHour == stParsedTime.tm_hour &&
+           nMinute == stParsedTime.tm_min && nSecond == stParsedTime.tm_sec;
+}
+
+/* 校验视频分辨率必须存在于 IPC 当前上报的编码能力列表中。 */
+static NET_COMMON_ECODE_E validate_video_resolution(const NET_VideoEncodeOption_S &stConfig)
+{
+    std::string strResult;
+    if (execute_get_result(AC_GET_VIDEO_CAPABILITY_SET, "{}", strResult) != 0 || strResult.empty())
+    {
+        return NET_E_GET_CFG_FAILED;
+    }
+
+    int nReturn = -1;
+    if (!Json::get(strResult.c_str(), "Return", nReturn) || nReturn != 0)
+    {
+        return NET_E_GET_CFG_FAILED;
+    }
+
+    const std::string strData = normalize_data_json(strResult);
+    if (strData.empty())
+    {
+        return NET_E_GET_CFG_FAILED;
+    }
+
+    Video_NS::VideoCapabilitySet_S stCapabilitySet;
+    Convert::to_struct(strData, stCapabilitySet);
+    const Video_NS::VideoCapability_S *pCapability =
+        (stConfig.nId == NET_LIVE_STREAM_INDEX_MAIN) ? &stCapabilitySet.stMain : &stCapabilitySet.stSub;
+    if (pCapability == nullptr || pCapability->aResolution.empty())
+    {
+        return NET_E_GET_CFG_FAILED;
+    }
+
+    const size_t nResolutionCount = pCapability->nResolutionNum > 0
+                                        ? std::min<size_t>(static_cast<size_t>(pCapability->nResolutionNum),
+                                                           pCapability->aResolution.size())
+                                        : pCapability->aResolution.size();
+    for (size_t nIndex = 0; nIndex < nResolutionCount; ++nIndex)
+    {
+        int nWidth = 0;
+        int nHeight = 0;
+        if (std::sscanf(pCapability->aResolution[nIndex].strName.c_str(),
+                        "%d*%d", &nWidth, &nHeight) != 2 &&
+            std::sscanf(pCapability->aResolution[nIndex].strName.c_str(),
+                        "%dx%d", &nWidth, &nHeight) != 2)
+        {
+            continue;
+        }
+        if (nWidth == stConfig.stVideoResolution.uWidth &&
+            nHeight == stConfig.stVideoResolution.uHeight)
+        {
+            return NET_E_SUCCEED;
+        }
+    }
+
+    return NET_E_INVALID_PARAM;
+}
+
+/* 校验抓图参数的枚举值、分辨率和业务允许范围。 */
+static bool is_valid_capture_config(const NET_CaptureConfig_S &stConfig)
+{
+    UINT32 unMaxInterval = 0;
+    switch (stConfig.enTimeUnit)
+    {
+    case NET_CAPTURE_TIME_UNIT_MILLISECONDS:
+        unMaxInterval = TVSDK_CAPTURE_INTERVAL_MAX_MILLISECONDS;
+        break;
+    case NET_CAPTURE_TIME_UNIT_SECONDS:
+        unMaxInterval = TVSDK_CAPTURE_INTERVAL_MAX_SECONDS;
+        break;
+    case NET_CAPTURE_TIME_UNIT_MINUTES:
+        unMaxInterval = TVSDK_CAPTURE_INTERVAL_MAX_MINUTES;
+        break;
+    case NET_CAPTURE_TIME_UNIT_HOURS:
+        unMaxInterval = TVSDK_CAPTURE_INTERVAL_MAX_HOURS;
+        break;
+    case NET_CAPTURE_TIME_UNIT_DAYS:
+        unMaxInterval = TVSDK_CAPTURE_INTERVAL_MAX_DAYS;
+        break;
+    default:
+        return false;
+    }
+
+    return stConfig.enPictureFormat >= NET_CAPTURE_PICTURE_FORMAT_JPEG &&
+           stConfig.enPictureFormat <= NET_CAPTURE_PICTURE_FORMAT_BMP &&
+           stConfig.nWidth > 0 && stConfig.nWidth <= 8192 &&
+           stConfig.nHeight > 0 && stConfig.nHeight <= 8192 &&
+           stConfig.enImageQuality >= NET_CAPTURE_IMAGE_QUALITY_LOW &&
+           stConfig.enImageQuality <= NET_CAPTURE_IMAGE_QUALITY_HIGH &&
+           stConfig.unInterval > 0 && stConfig.unInterval <= unMaxInterval &&
+           stConfig.unNumber >= 1 && stConfig.unNumber <= 120;
+}
+
+/* 校验越界和入侵规则数量及检测目标数量，保证 SDK 与 IPC 使用同一上限。 */
+static bool is_valid_region_alarm_rule_count(const NET_CrossLineAlarmInfo_S &stConfig)
+{
+    if (stConfig.uRuleCount < 0 || stConfig.uRuleCount > 4)
+    {
+        return false;
+    }
+    for (INT32 nIndex = 0; nIndex < stConfig.uRuleCount; ++nIndex)
+    {
+        const NET_BoundaryPlane_S &stRule = stConfig.stRule[nIndex];
+        if (!std::isfinite(stRule.fStartPosX) || !std::isfinite(stRule.fStartPosY) ||
+            !std::isfinite(stRule.fEndPosX) || !std::isfinite(stRule.fEndPosY) ||
+            stRule.fStartPosX < 0.0F || stRule.fStartPosX > 1.0F ||
+            stRule.fStartPosY < 0.0F || stRule.fStartPosY > 1.0F ||
+            stRule.fEndPosX < 0.0F || stRule.fEndPosX > 1.0F ||
+            stRule.fEndPosY < 0.0F || stRule.fEndPosY > 1.0F ||
+            stRule.enCrossDirection < 0 || stRule.enCrossDirection > 2 ||
+            stRule.uDetectionTargetCount < 0 ||
+            stRule.uDetectionTargetCount > 8 ||
+            stRule.nSensitivity < 1 || stRule.nSensitivity > 100)
+        {
+            return false;
+        }
+        for (INT32 nTargetIndex = 0; nTargetIndex < stRule.uDetectionTargetCount; ++nTargetIndex)
+        {
+            if (stRule.auDetectionTarget[nTargetIndex] < NET_TARGET_ALL ||
+                stRule.auDetectionTarget[nTargetIndex] > NET_TARGET_HUMAN_AND_VEHICLE)
+            {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+static bool is_valid_region_alarm_rule_count(const NET_IntrusionAlarmInfo_S &stConfig)
+{
+    if (stConfig.uRuleCount < 0 || stConfig.uRuleCount > 4)
+    {
+        return false;
+    }
+    for (INT32 nIndex = 0; nIndex < stConfig.uRuleCount; ++nIndex)
+    {
+        const NET_IntrusionRule_S &stRule = stConfig.stRule[nIndex];
+        if (stRule.uPointCount < 0 || stRule.uPointCount > 32 ||
+            stRule.uDetectionTargetCount < 0 || stRule.uDetectionTargetCount > 8 ||
+            stRule.nTimeThreshold < 0 || stRule.nTimeThreshold > 100 ||
+            stRule.nSensitivity < 1 || stRule.nSensitivity > 100)
+        {
+            return false;
+        }
+        for (INT32 nPointIndex = 0; nPointIndex < stRule.uPointCount; ++nPointIndex)
+        {
+            if (!std::isfinite(stRule.afPointX[nPointIndex]) ||
+                !std::isfinite(stRule.afPointY[nPointIndex]) ||
+                stRule.afPointX[nPointIndex] < 0.0F || stRule.afPointX[nPointIndex] > 1.0F ||
+                stRule.afPointY[nPointIndex] < 0.0F || stRule.afPointY[nPointIndex] > 1.0F)
+            {
+                return false;
+            }
+        }
+        for (INT32 nTargetIndex = 0; nTargetIndex < stRule.uDetectionTargetCount; ++nTargetIndex)
+        {
+            if (stRule.auDetectionTarget[nTargetIndex] < NET_TARGET_ALL ||
+                stRule.auDetectionTarget[nTargetIndex] > NET_TARGET_HUMAN_AND_VEHICLE)
+            {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+/* 校验日夜切换参数的枚举值、时间字段和亮度范围。 */
+static bool is_valid_daynight_config(const NET_DayNightInfo_S &stConfig)
+{
+    const auto bValidTime = [](INT32 nHour, INT32 nMinute, INT32 nSecond, INT32 nMilliSecond)
+    {
+        return nHour >= 0 && nHour <= 23 && nMinute >= 0 && nMinute <= 59 &&
+               nSecond >= 0 && nSecond <= 59 && nMilliSecond >= 0 && nMilliSecond <= 999;
+    };
+    const bool bTimingMode = (stConfig.enDayNightMode == NET_DAYNIGHT_MODE_TIMING);
+    return stConfig.enDayNightMode >= NET_DAYNIGHT_MODE_DAY && stConfig.enDayNightMode <= NET_DAYNIGHT_MODE_TIMING &&
+           (!bTimingMode || (bValidTime(stConfig.nBeginHour, stConfig.nBeginMinute, stConfig.nBeginSecond, stConfig.nBeginMilliSec) &&
+                             bValidTime(stConfig.nEndHour, stConfig.nEndMinute, stConfig.nEndSecond, stConfig.nEndMilliSec))) &&
+           stConfig.nSensitivityLevel >= 1 && stConfig.nSensitivityLevel <= 7 &&
+           stConfig.nFilterTime >= 5 && stConfig.nFilterTime <= 120 &&
+           stConfig.enLightMode >= NET_LIGHT_BRIGHT_MANUAL && stConfig.enLightMode <= NET_LIGHT_BRIGHT_AUTO &&
+           stConfig.enLightType >= NET_LIGHT_TYPE_WHITE && stConfig.enLightType <= NET_LIGHT_TYPE_WHITE_ON_RED_OFF &&
+           stConfig.nWhiteLightLevel >= 0 && stConfig.nWhiteLightLevel <= 100 &&
+           stConfig.nRedLightLevel >= 0 && stConfig.nRedLightLevel <= 100;
+}
+
+/* 校验背光区域、宽动态和强光抑制参数范围。 */
+static bool is_valid_backlight_config(const NET_BackLightInfo_S &stConfig)
+{
+    return stConfig.enBackLightArea >= NET_BACKLIGHT_AREA_CLOSE &&
+           stConfig.enBackLightArea <= NET_BACKLIGHT_AREA_CENTER &&
+           stConfig.nWdrLevel >= 0 && stConfig.nWdrLevel <= 100 &&
+           stConfig.nHlsLevel >= 0 && stConfig.nHlsLevel <= 100;
+}
+
 static const Video_NS::VideoConfig_S *FindVideoConfigById(const std::vector<Video_NS::VideoConfig_S> &vecCfg, int nId)
 {
     for (const auto &stCfg : vecCfg)
@@ -158,6 +420,15 @@ static NET_COMMON_ECODE_E validate_set_stream_cfg(const NET_VideoEncodeOption_S 
     {
         dlog_warn("TVSDK设置视频编码参数失败: 非法视频编码[%d]", cfg.enVideoCodec);
         return NET_E_INVALID_PARAM;
+    }
+
+    const NET_COMMON_ECODE_E nResolutionRet = validate_video_resolution(cfg);
+    if (nResolutionRet != NET_E_SUCCEED)
+    {
+        dlog_warn("TVSDK设置视频编码参数失败: 不支持的分辨率[%d x %d]",
+                  cfg.stVideoResolution.uWidth,
+                  cfg.stVideoResolution.uHeight);
+        return nResolutionRet;
     }
 
     return NET_E_SUCCEED;
@@ -937,8 +1208,20 @@ static NET_COMMON_ECODE_E cb_set_ntp_cfg(INT32 dwChannelID, LPVOID lpInBuffer)
         return NET_E_SET_CFG_FAILED;
 
     const NET_SystemNtpInfo_S *pIn = (const NET_SystemNtpInfo_S *)lpInBuffer;
+    const size_t nDateTimeLength = strnlen(pIn->strDateTime, sizeof(pIn->strDateTime));
+    if (nDateTimeLength > 0 &&
+        !is_valid_date_time(pIn->strDateTime, pIn->enDateFormat))
+    {
+        dlog_warn("TVSDK设置NTP参数失败: 手动同步日期时间格式无效");
+        return NET_E_INVALID_PARAM;
+    }
     ::System::TimeInfo_S stTimeInfo;
     TvSdkConvert::ToTimeInfo(*pIn, stTimeInfo);
+    if (stTimeInfo.bManualSync)
+    {
+        /* 手动校时时关闭 NTP，避免校准后的时间立即被自动校时覆盖。 */
+        stTimeInfo.bEnableNTPSync = false;
+    }
 
     Task::Info_S stInfo;
     stInfo.data = wrap_data_json(Convert::to_string(stTimeInfo));
@@ -965,7 +1248,8 @@ static NET_COMMON_ECODE_E cb_set_system_time(INT32 dwChannelID, LPVOID lpInBuffe
     }
 
     const NET_SystemTime_S *pIn = static_cast<const NET_SystemTime_S *>(lpInBuffer);
-    if (pIn->strDateTime[0] == '\0')
+    if (!is_valid_date_time(pIn->strDateTime,
+                            static_cast<INT32>(::System::DateFormat_E::YYYY_MM_DD)))
     {
         return NET_E_INVALID_PARAM;
     }
@@ -974,6 +1258,7 @@ static NET_COMMON_ECODE_E cb_set_system_time(INT32 dwChannelID, LPVOID lpInBuffe
     CTimeManage::instance()->get_time_info(stTimeInfo);
     stTimeInfo.enDateFormat = ::System::DateFormat_E::YYYY_MM_DD;
     stTimeInfo.bManualSync = true;
+    stTimeInfo.bEnableNTPSync = false;
     stTimeInfo.strDateTime.assign(pIn->strDateTime,
                                   strnlen(pIn->strDateTime, sizeof(pIn->strDateTime)));
 
@@ -1453,6 +1738,10 @@ static NET_COMMON_ECODE_E cb_set_tamper_alarm(INT32 dwChannelID, LPVOID lpInBuff
     if (!lpInBuffer)
         return NET_E_INVALID_PARAM;
     const NET_TamperAlarmInfo_S *pIn = (const NET_TamperAlarmInfo_S *)lpInBuffer;
+    if (pIn->uSensitivity < 0 || pIn->uSensitivity > 3)
+    {
+        return NET_E_INVALID_PARAM;
+    }
     Alarm::HideAlarm_S stCfg;
     TvSdkConvert::ToHideAlarm(*pIn, stCfg);
     std::string inJson = Convert::to_string(stCfg);
@@ -1532,6 +1821,10 @@ static NET_COMMON_ECODE_E cb_set_cross_line_alarm(INT32 dwChannelID, LPVOID lpIn
     if (!lpInBuffer)
         return NET_E_INVALID_PARAM;
     const NET_CrossLineAlarmInfo_S *pIn = (const NET_CrossLineAlarmInfo_S *)lpInBuffer;
+    if (!is_valid_region_alarm_rule_count(*pIn))
+    {
+        return NET_E_INVALID_PARAM;
+    }
     Alarm::BoundaryDetection_S stCfg;
     TvSdkConvert::ToBoundaryDetection(*pIn, stCfg);
     std::string inJson = Convert::to_string(stCfg);
@@ -1568,6 +1861,10 @@ static NET_COMMON_ECODE_E cb_set_intrusion_alarm(INT32 dwChannelID, LPVOID lpInB
     if (!lpInBuffer)
         return NET_E_INVALID_PARAM;
     const NET_IntrusionAlarmInfo_S *pIn = (const NET_IntrusionAlarmInfo_S *)lpInBuffer;
+    if (!is_valid_region_alarm_rule_count(*pIn))
+    {
+        return NET_E_INVALID_PARAM;
+    }
     Alarm::FieldDetection_S stCfg;
     TvSdkConvert::ToFieldDetection(*pIn, stCfg);
     std::string inJson = Convert::to_string(stCfg);
@@ -3711,6 +4008,11 @@ static NET_COMMON_ECODE_E cb_set_capture_param_info(INT32 dwChannelID, LPVOID lp
         return NET_E_INVALID_PARAM;
 
     const NET_CaptureParamInfo_S *pIn = (const NET_CaptureParamInfo_S *)lpInBuffer;
+    if (!is_valid_capture_config(pIn->stCaptureTimingConfig) ||
+        !is_valid_capture_config(pIn->stCaptureEventConfig))
+    {
+        return NET_E_INVALID_PARAM;
+    }
     Capture_NS::CaptureParam_S stCfg;
     TvSdkConvert::ToCaptureParam(*pIn, stCfg);
 
@@ -3801,6 +4103,10 @@ static NET_COMMON_ECODE_E cb_set_daynight_info(INT32 dwChannelID, LPVOID lpInBuf
         return NET_E_INVALID_PARAM;
     
     const NET_DayNightInfo_S *pIn = (const NET_DayNightInfo_S *)lpInBuffer;
+    if (!is_valid_daynight_config(*pIn))
+    {
+        return NET_E_INVALID_PARAM;
+    }
     ISP::DayNightAttr_S stCfg;
     TvSdkConvert::ToDayNightAttr(*pIn, stCfg);
     std::string inJson = Convert::to_string(stCfg);
@@ -3840,6 +4146,10 @@ static NET_COMMON_ECODE_E cb_set_backlight_info(INT32 dwChannelID, LPVOID lpInBu
         return NET_E_INVALID_PARAM;
     
     const NET_BackLightInfo_S *pIn = (const NET_BackLightInfo_S *)lpInBuffer;
+    if (!is_valid_backlight_config(*pIn))
+    {
+        return NET_E_INVALID_PARAM;
+    }
     ISP::BackLightArrt_S stCfg;
     TvSdkConvert::ToBackLightAttr(*pIn, stCfg);
     std::string inJson = Convert::to_string(stCfg);
