@@ -272,6 +272,24 @@ static bool is_valid_capture_config(const NET_CaptureConfig_S &stConfig)
 }
 
 /* 校验越界和入侵规则数量及检测目标数量，保证 SDK 与 IPC 使用同一上限。 */
+/*
+ * 判断越界检测规则是否为空规则。
+ * 禁用规则直接视为空规则；启用规则只有在坐标、灵敏度和检测目标数量均为零时，
+ * 才视为 NVR 为补齐固定规则数组而携带的未配置项。字段部分填写但不完整的规则
+ * 不属于空规则，后续仍由严格参数校验返回错误。
+ */
+static bool is_empty_cross_line_rule(const NET_BoundaryPlane_S &stRule)
+{
+    if (stRule.bEnable == FALSE)
+    {
+        return true;
+    }
+
+    return stRule.fStartPosX == 0.0F && stRule.fStartPosY == 0.0F &&
+           stRule.fEndPosX == 0.0F && stRule.fEndPosY == 0.0F &&
+           stRule.nSensitivity == 0 && stRule.uDetectionTargetCount == 0;
+}
+
 static bool is_valid_region_alarm_rule_count(const NET_CrossLineAlarmInfo_S &stConfig)
 {
     if (stConfig.uRuleCount < 0 || stConfig.uRuleCount > 4)
@@ -1821,12 +1839,44 @@ static NET_COMMON_ECODE_E cb_set_cross_line_alarm(INT32 dwChannelID, LPVOID lpIn
     if (!lpInBuffer)
         return NET_E_INVALID_PARAM;
     const NET_CrossLineAlarmInfo_S *pIn = (const NET_CrossLineAlarmInfo_S *)lpInBuffer;
-    if (!is_valid_region_alarm_rule_count(*pIn))
+
+    /*
+     * NVR 可能按固定四条规则发送数据，其中未配置规则会携带启用标志但业务字段全为零。
+     * 先过滤这些空规则并压缩数组，避免空规则的灵敏度零值触发参数校验失败。
+     */
+    NET_CrossLineAlarmInfo_S stNormalized = *pIn;
+    const INT32 nInputRuleCount = pIn->uRuleCount;
+    INT32 nEffectiveRuleCount = 0;
+    if (nInputRuleCount < 0 || nInputRuleCount > 4)
+    {
+        return NET_E_INVALID_PARAM;
+    }
+
+    for (INT32 nRuleIndex = 0; nRuleIndex < nInputRuleCount; ++nRuleIndex)
+    {
+        const NET_BoundaryPlane_S &stRule = pIn->stRule[nRuleIndex];
+        if (is_empty_cross_line_rule(stRule))
+        {
+            continue;
+        }
+
+        stNormalized.stRule[nEffectiveRuleCount] = stRule;
+        ++nEffectiveRuleCount;
+    }
+    stNormalized.uRuleCount = nEffectiveRuleCount;
+
+    /* 清空压缩后未使用的规则槽位，避免后续转换误读旧数据。 */
+    for (INT32 nRuleIndex = nEffectiveRuleCount; nRuleIndex < 4; ++nRuleIndex)
+    {
+        std::memset(&stNormalized.stRule[nRuleIndex], 0, sizeof(stNormalized.stRule[nRuleIndex]));
+    }
+
+    if (!is_valid_region_alarm_rule_count(stNormalized))
     {
         return NET_E_INVALID_PARAM;
     }
     Alarm::BoundaryDetection_S stCfg;
-    TvSdkConvert::ToBoundaryDetection(*pIn, stCfg);
+    TvSdkConvert::ToBoundaryDetection(stNormalized, stCfg);
     std::string inJson = Convert::to_string(stCfg);
     Task::Info_S stInfo;
      stInfo.data = wrap_data_json(inJson);
