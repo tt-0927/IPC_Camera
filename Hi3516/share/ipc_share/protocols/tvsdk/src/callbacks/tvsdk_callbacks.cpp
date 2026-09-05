@@ -315,7 +315,7 @@ static bool is_valid_region_alarm_rule_count(const NET_CrossLineAlarmInfo_S &stC
         for (INT32 nTargetIndex = 0; nTargetIndex < stRule.uDetectionTargetCount; ++nTargetIndex)
         {
             if (stRule.auDetectionTarget[nTargetIndex] < NET_TARGET_ALL ||
-                stRule.auDetectionTarget[nTargetIndex] > NET_TARGET_HUMAN_AND_VEHICLE)
+                stRule.auDetectionTarget[nTargetIndex] > NET_TARGET_OTHER)
             {
                 return false;
             }
@@ -353,7 +353,7 @@ static bool is_valid_region_alarm_rule_count(const NET_IntrusionAlarmInfo_S &stC
         for (INT32 nTargetIndex = 0; nTargetIndex < stRule.uDetectionTargetCount; ++nTargetIndex)
         {
             if (stRule.auDetectionTarget[nTargetIndex] < NET_TARGET_ALL ||
-                stRule.auDetectionTarget[nTargetIndex] > NET_TARGET_HUMAN_AND_VEHICLE)
+                stRule.auDetectionTarget[nTargetIndex] > NET_TARGET_OTHER)
             {
                 return false;
             }

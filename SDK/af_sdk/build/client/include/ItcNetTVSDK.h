@@ -1732,7 +1732,7 @@ typedef enum tagNETTVDetectionTarget
     NET_TARGET_ALL = 0,                      /* 所有目标  All targets */
     NET_TARGET_HUMAN = 1,                    /* 人体  Human */
     NET_TARGET_VEHICLE = 2,                  /* 车辆  Vehicle */
-    NET_TARGET_HUMAN_AND_VEHICLE = 3         /* 人和车  Human and vehicle */
+    NET_TARGET_OTHER = 3                    /* 其他  Other (非机动车等) */
 } NET_DETECTION_TARGET_E;
 
 /**

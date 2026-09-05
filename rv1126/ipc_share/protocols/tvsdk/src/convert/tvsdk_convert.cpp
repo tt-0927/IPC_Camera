@@ -17,6 +17,97 @@ namespace TvSdkConvert
 {
 static constexpr size_t kOsdCustomSlotCount = 4;
 
+/* 将 IPC 内部目标集合转换为 SDK 目标数组。
+ * 全选使用单个 NET_TARGET_ALL 表示，部分选择逐项返回，便于后续扩展新的目标类型。
+ */
+static void FillDetectionTargets(const std::vector<int> &src, INT32 &nCount, INT32 *pTargets)
+{
+    nCount = 0;
+    if (!pTargets)
+    {
+        return;
+    }
+
+    bool bHuman = false;
+    bool bVehicle = false;
+    bool bOther = false;
+    for (const int nTarget : src)
+    {
+        bHuman = bHuman || nTarget == static_cast<int>(Alarm::HUMAN_DETECTION);
+        bVehicle = bVehicle || nTarget == static_cast<int>(Alarm::CAR_DETECTION);
+        bOther = bOther || nTarget == static_cast<int>(Alarm::OTHER_DETECTION);
+    }
+
+    if (bHuman && bVehicle && bOther)
+    {
+        pTargets[nCount++] = NET_TARGET_ALL;
+    }
+    else
+    {
+        if (bHuman)
+        {
+            pTargets[nCount++] = NET_TARGET_HUMAN;
+        }
+        if (bVehicle)
+        {
+            pTargets[nCount++] = NET_TARGET_VEHICLE;
+        }
+        if (bOther)
+        {
+            pTargets[nCount++] = NET_TARGET_OTHER;
+        }
+    }
+
+    if (nCount == 0)
+    {
+        pTargets[nCount++] = NET_TARGET_ALL;
+    }
+}
+
+/* 将 SDK 目标数组展开为 IPC 算法使用的目标集合。 */
+static void ToDetectionTargets(const INT32 *pTargets, INT32 nCount, std::vector<int> &dst)
+{
+    dst.clear();
+    if (!pTargets || nCount <= 0)
+    {
+        dst.push_back(static_cast<int>(Alarm::HUMAN_DETECTION));
+        dst.push_back(static_cast<int>(Alarm::CAR_DETECTION));
+        dst.push_back(static_cast<int>(Alarm::OTHER_DETECTION));
+        return;
+    }
+
+    const auto addTarget = [&dst](int nTarget)
+    {
+        if (std::find(dst.begin(), dst.end(), nTarget) == dst.end())
+        {
+            dst.push_back(nTarget);
+        }
+    };
+
+    for (INT32 nIndex = 0; nIndex < std::min(nCount, 8); ++nIndex)
+    {
+        switch (pTargets[nIndex])
+        {
+        case NET_TARGET_ALL:
+            addTarget(static_cast<int>(Alarm::HUMAN_DETECTION));
+            addTarget(static_cast<int>(Alarm::CAR_DETECTION));
+            addTarget(static_cast<int>(Alarm::OTHER_DETECTION));
+            break;
+        case NET_TARGET_HUMAN:
+            addTarget(static_cast<int>(Alarm::HUMAN_DETECTION));
+            break;
+        case NET_TARGET_VEHICLE:
+            addTarget(static_cast<int>(Alarm::CAR_DETECTION));
+            break;
+        case NET_TARGET_OTHER:
+            addTarget(static_cast<int>(Alarm::OTHER_DETECTION));
+            break;
+        default:
+            break;
+        }
+    }
+}
+
 static bool HasCustomOsdPayload(const Osd::OsdInfo_S &info)
 {
     return info.bEnable ||
@@ -1858,9 +1949,7 @@ void FillCrossLineAlarmInfo(const Alarm::BoundaryDetection_S &src, NET_CrossLine
         out.fEndPosY   = r.stEndPos.fY;
         out.enCrossDirection = (INT32)r.enCrossDirection;
         out.nSensitivity = (INT32)r.nSensitivity;
-        out.uDetectionTargetCount = (INT32)std::min<size_t>(r.aDetectionTarget.size(), 8);
-        for (int j = 0; j < out.uDetectionTargetCount; ++j)
-            out.auDetectionTarget[j] = r.aDetectionTarget[j];
+        FillDetectionTargets(r.aDetectionTarget, out.uDetectionTargetCount, out.auDetectionTarget);
         dst.uRuleCount++;
     }
 
@@ -1894,7 +1983,7 @@ void ToBoundaryDetection(const NET_CrossLineAlarmInfo_S &src, Alarm::BoundaryDet
         out.stEndPos   = { r.fEndPosX, r.fEndPosY };
         out.enCrossDirection = (Alarm::CrossDirection_E)r.enCrossDirection;
         out.nSensitivity = (unsigned int)r.nSensitivity;
-        out.aDetectionTarget.assign(r.auDetectionTarget, r.auDetectionTarget + std::min(r.uDetectionTargetCount, 8));
+        ToDetectionTargets(r.auDetectionTarget, r.uDetectionTargetCount, out.aDetectionTarget);
         dst.aRule.push_back(out);
     }
 
@@ -1935,9 +2024,7 @@ void FillIntrusionAlarmInfo(const Alarm::FieldDetection_S &src, NET_IntrusionAla
         }
         out.nTimeThreshold = (INT32)r.nTimeThreshold;
         out.nSensitivity   = (INT32)r.nSensitivity;
-        out.uDetectionTargetCount = (INT32)std::min<size_t>(r.aDetectionTarget.size(), 8);
-        for (int j = 0; j < out.uDetectionTargetCount; ++j)
-            out.auDetectionTarget[j] = r.aDetectionTarget[j];
+        FillDetectionTargets(r.aDetectionTarget, out.uDetectionTargetCount, out.auDetectionTarget);
         dst.uRuleCount++;
     }
 
@@ -1975,7 +2062,7 @@ void ToFieldDetection(const NET_IntrusionAlarmInfo_S &src, Alarm::FieldDetection
         {
             out.stRegion.aPoint.push_back({ r.afPointX[p], r.afPointY[p] });
         }
-        out.aDetectionTarget.assign(r.auDetectionTarget, r.auDetectionTarget + std::min(r.uDetectionTargetCount, 8));
+        ToDetectionTargets(r.auDetectionTarget, r.uDetectionTargetCount, out.aDetectionTarget);
         dst.aRule.push_back(out);
     }
 
@@ -2016,9 +2103,7 @@ void FillLoiteringAlarmInfo(const Alarm::LoiteringDetection_S &src, NET_Loiterin
         }
         out.nTimeThreshold = (INT32)r.nTimeThreshold;
         out.nSensitivity   = (INT32)r.nSensitivity;
-        out.uDetectionTargetCount = (INT32)std::min<size_t>(r.aDetectionTarget.size(), 8);
-        for (int j = 0; j < out.uDetectionTargetCount; ++j)
-            out.auDetectionTarget[j] = r.aDetectionTarget[j];
+        FillDetectionTargets(r.aDetectionTarget, out.uDetectionTargetCount, out.auDetectionTarget);
         dst.uRuleCount++;
     }
 
@@ -2056,7 +2141,7 @@ void ToLoiteringDetection(const NET_LoiteringAlarmInfo_S &src, Alarm::LoiteringD
         {
             out.stRegion.aPoint.push_back({ r.afPointX[p], r.afPointY[p] });
         }
-        out.aDetectionTarget.assign(r.auDetectionTarget, r.auDetectionTarget + std::min(r.uDetectionTargetCount, 8));
+        ToDetectionTargets(r.auDetectionTarget, r.uDetectionTargetCount, out.aDetectionTarget);
         dst.aRule.push_back(out);
     }
 
@@ -2671,11 +2756,7 @@ void FillClimbFenceInfo(const Alarm::FenceClimbingDetection_S &src, NET_ClimbFen
         FillPolygonPoints(r.stRegion, out.uPointCount, out.afPointX, out.afPointY);
         out.nSensitivity = (INT32)r.nSensitivity;
         out.nTimeThreshold = (INT32)r.nTimeThreshold;
-        out.uDetectionTargetCount = (INT32)std::min<size_t>(r.aDetectionTarget.size(), 8);
-        for (int j = 0; j < out.uDetectionTargetCount; ++j)
-        {
-            out.auDetectionTarget[j] = (INT32)r.aDetectionTarget[j];
-        }
+        FillDetectionTargets(r.aDetectionTarget, out.uDetectionTargetCount, out.auDetectionTarget);
         dst.uRuleCount++;
     }
     FillSingleRuleAlarmSchedule(src.aAlarmTime, dst.stAlarmSchedule);
@@ -2693,7 +2774,7 @@ void ToClimbFence(const NET_ClimbFenceInfo_S &src, Alarm::FenceClimbingDetection
         ToRegionFromPolygon(r.uPointCount, r.afPointX, r.afPointY, out.stRegion);
         out.nSensitivity = (unsigned int)r.nSensitivity;
         out.nTimeThreshold = (unsigned int)r.nTimeThreshold;
-        out.aDetectionTarget.assign(r.auDetectionTarget, r.auDetectionTarget + std::min(r.uDetectionTargetCount, 8));
+        ToDetectionTargets(r.auDetectionTarget, r.uDetectionTargetCount, out.aDetectionTarget);
         dst.aRule.push_back(out);
     }
     ToSingleRuleAlarmSchedule(src.stAlarmSchedule, dst.aAlarmTime);
@@ -2714,11 +2795,7 @@ void FillDimissionInfo(const Alarm::LeavePostDetection_S &src, NET_DimissionInfo
         FillPolygonPoints(r.stRegion, out.uPointCount, out.afPointX, out.afPointY);
         out.nSensitivity = (INT32)r.nSensitivity;
         out.nTimeThreshold = (INT32)r.nTimeThreshold;
-        out.uDetectionTargetCount = (INT32)std::min<size_t>(r.aDetectionTarget.size(), 8);
-        for (int j = 0; j < out.uDetectionTargetCount; ++j)
-        {
-            out.auDetectionTarget[j] = (INT32)r.aDetectionTarget[j];
-        }
+        FillDetectionTargets(r.aDetectionTarget, out.uDetectionTargetCount, out.auDetectionTarget);
         dst.uRuleCount++;
     }
     FillSingleRuleAlarmSchedule(src.aAlarmTime, dst.stAlarmSchedule);
@@ -2736,7 +2813,7 @@ void ToDimission(const NET_DimissionInfo_S &src, Alarm::LeavePostDetection_S &ds
         ToRegionFromPolygon(r.uPointCount, r.afPointX, r.afPointY, out.stRegion);
         out.nSensitivity = (unsigned int)r.nSensitivity;
         out.nTimeThreshold = (unsigned int)r.nTimeThreshold;
-        out.aDetectionTarget.assign(r.auDetectionTarget, r.auDetectionTarget + std::min(r.uDetectionTargetCount, 8));
+        ToDetectionTargets(r.auDetectionTarget, r.uDetectionTargetCount, out.aDetectionTarget);
         dst.aRule.push_back(out);
     }
     ToSingleRuleAlarmSchedule(src.stAlarmSchedule, dst.aAlarmTime);
@@ -2839,11 +2916,7 @@ void FillNonmotorVehicleIntrusionInfo(const Alarm::NonMotorVehicleIntrusionDetec
         FillPolygonPoints(r.stRegion, out.uPointCount, out.afPointX, out.afPointY);
         out.nSensitivity = (INT32)r.nSensitivity;
         out.nTimeThreshold = (INT32)r.nTimeThreshold;
-        out.uDetectionTargetCount = (INT32)std::min<size_t>(r.aDetectionTarget.size(), 8);
-        for (int j = 0; j < out.uDetectionTargetCount; ++j)
-        {
-            out.auDetectionTarget[j] = (INT32)r.aDetectionTarget[j];
-        }
+        FillDetectionTargets(r.aDetectionTarget, out.uDetectionTargetCount, out.auDetectionTarget);
         dst.uRuleCount++;
     }
     FillSingleRuleAlarmSchedule(src.aAlarmTime, dst.stAlarmSchedule);
@@ -2861,7 +2934,7 @@ void ToNonmotorVehicleIntrusion(const NET_NonmotorVehicleIntrusionInfo_S &src, A
         ToRegionFromPolygon(r.uPointCount, r.afPointX, r.afPointY, out.stRegion);
         out.nSensitivity = (unsigned int)r.nSensitivity;
         out.nTimeThreshold = (unsigned int)r.nTimeThreshold;
-        out.aDetectionTarget.assign(r.auDetectionTarget, r.auDetectionTarget + std::min(r.uDetectionTargetCount, 8));
+        ToDetectionTargets(r.auDetectionTarget, r.uDetectionTargetCount, out.aDetectionTarget);
         dst.aRule.push_back(out);
     }
     ToSingleRuleAlarmSchedule(src.stAlarmSchedule, dst.aAlarmTime);
@@ -2882,11 +2955,7 @@ void FillOccupationEmergencyInfo(const Alarm::EmergencyLaneOccupancyDetection_S 
         FillPolygonPoints(r.stRegion, out.uPointCount, out.afPointX, out.afPointY);
         out.nSensitivity = (INT32)r.nSensitivity;
         out.nTimeThreshold = (INT32)r.nTimeThreshold;
-        out.uDetectionTargetCount = (INT32)std::min<size_t>(r.aDetectionTarget.size(), 8);
-        for (int j = 0; j < out.uDetectionTargetCount; ++j)
-        {
-            out.auDetectionTarget[j] = (INT32)r.aDetectionTarget[j];
-        }
+        FillDetectionTargets(r.aDetectionTarget, out.uDetectionTargetCount, out.auDetectionTarget);
         dst.uRuleCount++;
     }
     FillSingleRuleAlarmSchedule(src.aAlarmTime, dst.stAlarmSchedule);
@@ -2904,7 +2973,7 @@ void ToOccupationEmergency(const NET_OccupationEmergencyInfo_S &src, Alarm::Emer
         ToRegionFromPolygon(r.uPointCount, r.afPointX, r.afPointY, out.stRegion);
         out.nSensitivity = (unsigned int)r.nSensitivity;
         out.nTimeThreshold = (unsigned int)r.nTimeThreshold;
-        out.aDetectionTarget.assign(r.auDetectionTarget, r.auDetectionTarget + std::min(r.uDetectionTargetCount, 8));
+        ToDetectionTargets(r.auDetectionTarget, r.uDetectionTargetCount, out.aDetectionTarget);
         dst.aRule.push_back(out);
     }
     ToSingleRuleAlarmSchedule(src.stAlarmSchedule, dst.aAlarmTime);
@@ -2925,11 +2994,7 @@ void FillPedestrianIntrusionInfo(const Alarm::PedestrianIntrusionDetection_S &sr
         FillPolygonPoints(r.stRegion, out.uPointCount, out.afPointX, out.afPointY);
         out.nSensitivity = (INT32)r.nSensitivity;
         out.nTimeThreshold = (INT32)r.nTimeThreshold;
-        out.uDetectionTargetCount = (INT32)std::min<size_t>(r.aDetectionTarget.size(), 8);
-        for (int j = 0; j < out.uDetectionTargetCount; ++j)
-        {
-            out.auDetectionTarget[j] = (INT32)r.aDetectionTarget[j];
-        }
+        FillDetectionTargets(r.aDetectionTarget, out.uDetectionTargetCount, out.auDetectionTarget);
         dst.uRuleCount++;
     }
     FillSingleRuleAlarmSchedule(src.aAlarmTime, dst.stAlarmSchedule);
@@ -2947,7 +3012,7 @@ void ToPedestrianIntrusion(const NET_PedestrianIntrusionInfo_S &src, Alarm::Pede
         ToRegionFromPolygon(r.uPointCount, r.afPointX, r.afPointY, out.stRegion);
         out.nSensitivity = (unsigned int)r.nSensitivity;
         out.nTimeThreshold = (unsigned int)r.nTimeThreshold;
-        out.aDetectionTarget.assign(r.auDetectionTarget, r.auDetectionTarget + std::min(r.uDetectionTargetCount, 8));
+        ToDetectionTargets(r.auDetectionTarget, r.uDetectionTargetCount, out.aDetectionTarget);
         dst.aRule.push_back(out);
     }
     ToSingleRuleAlarmSchedule(src.stAlarmSchedule, dst.aAlarmTime);
@@ -3769,9 +3834,7 @@ void TvSdkConvert::FillEnterRegionAlarmInfo(const Alarm::EntranceDetection_S &sr
         }
         out.nTimeThreshold = (INT32)r.nTimeThreshold;
         out.nSensitivity = (INT32)r.nSensitivity;
-        out.uDetectionTargetCount = (INT32)std::min<size_t>(r.aDetectionTarget.size(), 8);
-        for (int j = 0; j < out.uDetectionTargetCount; ++j)
-            out.auDetectionTarget[j] = r.aDetectionTarget[j];
+        FillDetectionTargets(r.aDetectionTarget, out.uDetectionTargetCount, out.auDetectionTarget);
         dst.uRuleCount++;
     }
 
@@ -3808,7 +3871,7 @@ void TvSdkConvert::ToEntranceDetection(const NET_EnterRegionAlarmInfo_S &src, Al
         {
             out.stRegion.aPoint.push_back({r.afPointX[p], r.afPointY[p]});
         }
-        out.aDetectionTarget.assign(r.auDetectionTarget, r.auDetectionTarget + std::min(r.uDetectionTargetCount, 8));
+        ToDetectionTargets(r.auDetectionTarget, r.uDetectionTargetCount, out.aDetectionTarget);
         dst.aRule.push_back(out);
     }
 
@@ -3848,9 +3911,7 @@ void TvSdkConvert::FillLeaveRegionAlarmInfo(const Alarm::ExitingDetection_S &src
         }
         out.nTimeThreshold = (INT32)r.nTimeThreshold;
         out.nSensitivity = (INT32)r.nSensitivity;
-        out.uDetectionTargetCount = (INT32)std::min<size_t>(r.aDetectionTarget.size(), 8);
-        for (int j = 0; j < out.uDetectionTargetCount; ++j)
-            out.auDetectionTarget[j] = r.aDetectionTarget[j];
+        FillDetectionTargets(r.aDetectionTarget, out.uDetectionTargetCount, out.auDetectionTarget);
         dst.uRuleCount++;
     }
 
@@ -3887,7 +3948,7 @@ void TvSdkConvert::ToExitingDetection(const NET_LeaveRegionAlarmInfo_S &src, Ala
         {
             out.stRegion.aPoint.push_back({r.afPointX[p], r.afPointY[p]});
         }
-        out.aDetectionTarget.assign(r.auDetectionTarget, r.auDetectionTarget + std::min(r.uDetectionTargetCount, 8));
+        ToDetectionTargets(r.auDetectionTarget, r.uDetectionTargetCount, out.aDetectionTarget);
         dst.aRule.push_back(out);
     }
 

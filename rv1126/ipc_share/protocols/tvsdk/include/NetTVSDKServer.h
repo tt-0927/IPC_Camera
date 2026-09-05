@@ -1754,7 +1754,7 @@ typedef enum tagNETTVDetectionTarget
     NET_TARGET_ALL = 0,                      /* 所有目标  All targets */
     NET_TARGET_HUMAN = 1,                    /* 人体  Human */
     NET_TARGET_VEHICLE = 2,                  /* 车辆  Vehicle */
-    NET_TARGET_HUMAN_AND_VEHICLE = 3         /* 人和车  Human and vehicle */
+    NET_TARGET_OTHER = 3                     /* 其他目标  Other targets */
 } NET_DETECTION_TARGET_E;
 
 /**
@@ -4231,7 +4231,7 @@ typedef struct tagNET_BoundaryPlane
     FLOAT       fEndPosY;                            /* 警戒线终止点Y坐标 [0.0-1.0] */
     INT32       enCrossDirection;                    /* 警戒线的穿越方向 NET_CROSS_DIRECTION_E */
     INT32       nSensitivity;                        /* 警戒线灵敏度[1,100] */
-    INT32       uDetectionTargetCount;               /* 检测目标数量 */
+    INT32       uDetectionTargetCount;               /* 检测目标数量，默认全选时为1 */
     INT32       auDetectionTarget[8];                /* 检测目标数组 NET_DETECTION_TARGET_E，最多8个 */
     BYTE        byRes[64];                           /* 保留字段 */
 }NET_BoundaryPlane_S;
@@ -4269,7 +4269,7 @@ typedef struct tagNET_IntrusionRule
     FLOAT       afPointY[32];                        /* 区域顶点Y坐标数组 [0.0-1.0] */
     INT32       nTimeThreshold;                      /* 行为事件触发时间阈值，判断有效报警的时间[0,100] 单位秒 */
     INT32       nSensitivity;                        /* 灵敏度[1,100] */
-    INT32       uDetectionTargetCount;               /* 检测目标数量 */
+    INT32       uDetectionTargetCount;               /* 检测目标数量，默认全选时为1 */
     INT32       auDetectionTarget[8];                /* 检测目标数组 NET_DETECTION_TARGET_E，最多8个 */
     BYTE        byRes[64];                           /* 保留字段 */
 }NET_IntrusionRule_S;
@@ -4341,7 +4341,7 @@ typedef struct tagNET_LoiteringRule
     FLOAT       afPointY[32];                        /* 区域顶点Y坐标数组 [0.0-1.0] */
     INT32       nTimeThreshold;                      /* 行为事件触发时间阈值，判断有效报警的时间[0,100] 单位秒 */
     INT32       nSensitivity;                        /* 灵敏度[1,100] */
-    INT32       uDetectionTargetCount;               /* 检测目标数量 */
+    INT32       uDetectionTargetCount;               /* 检测目标数量，默认全选时为1 */
     INT32       auDetectionTarget[8];                /* 检测目标数组 NET_DETECTION_TARGET_E，最多8个 */
     BYTE        byRes[64];                           /* 保留字段 */
 }NET_LoiteringRule_S;
@@ -4812,7 +4812,7 @@ typedef struct tagNET_SmartRegionRule
     FLOAT       afPointY[32];                          /* 区域顶点Y坐标数组 [0.0-1.0] */
     INT32       nTimeThreshold;                        /* 行为事件触发时间阈值，判断有效报警的时间[0,100] 单位秒 */
     INT32       nSensitivity;                          /* 灵敏度[1,100] */
-    INT32       uDetectionTargetCount;                /* 检测目标数量 */
+    INT32       uDetectionTargetCount;                /* 检测目标数量，默认全选时为1 */
     INT32       auDetectionTarget[8];                 /* 检测目标数组 NET_DETECTION_TARGET_E，最多8个 */
     BYTE        byRes[64];                             /* 保留字段 */
 }NET_SmartRegionRule_S;
