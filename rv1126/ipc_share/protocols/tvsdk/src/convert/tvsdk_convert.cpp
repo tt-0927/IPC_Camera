@@ -58,10 +58,6 @@ static void FillDetectionTargets(const std::vector<int> &src, INT32 &nCount, INT
         }
     }
 
-    if (nCount == 0)
-    {
-        pTargets[nCount++] = NET_TARGET_ALL;
-    }
 }
 
 /* 将 SDK 目标数组展开为 IPC 算法使用的目标集合。 */
@@ -70,9 +66,6 @@ static void ToDetectionTargets(const INT32 *pTargets, INT32 nCount, std::vector<
     dst.clear();
     if (!pTargets || nCount <= 0)
     {
-        dst.push_back(static_cast<int>(Alarm::HUMAN_DETECTION));
-        dst.push_back(static_cast<int>(Alarm::CAR_DETECTION));
-        dst.push_back(static_cast<int>(Alarm::OTHER_DETECTION));
         return;
     }
 
