@@ -3879,43 +3879,55 @@ static NET_COMMON_ECODE_E cb_set_pir_alarm_info(INT32 nChannelId, LPVOID pInBuff
     return set_alarm_config_data(AC_SET_PIR_ALARM_INFO, strDataJson);
 }
 
-/* ---------- GetRtspUrl：获取主/子码流 RTSP URL ---------- */
-static NET_COMMON_ECODE_E cb_get_rtsp_url(INT32 dwChannelID, pNET_RtspUrlInfo_S pInfo)
+/*
+ * 获取指定通道和码流的 RTSP 地址。
+ *
+ * @param [in,out] pInfo 输入通道号和码流索引，输出对应的 RTSP 地址。
+ * @return 成功返回 NET_E_SUCCEED，参数无效或地址获取失败时返回对应错误码。
+ */
+static NET_COMMON_ECODE_E cb_get_rtsp_url(pNET_RtspUrlInfo_S pInfo)
 {
     if (!pInfo)
-        return NET_E_INVALID_PARAM;
-
-    const int streamIndex = pInfo->uStreamIndex; // 调用方指定需要的码流
-    std::memset(pInfo, 0, sizeof(*pInfo));
-    pInfo->uChannel = dwChannelID;
-    pInfo->uStreamIndex = streamIndex;
-
-    int rtspChn = -1;
-    switch (streamIndex)
     {
-    case NET_LIVE_STREAM_INDEX_MAIN: rtspChn = RTSP_CHN_MAIN; break;
-    case NET_LIVE_STREAM_INDEX_AUX:  rtspChn = RTSP_CHN_SUB;  break;
+        return NET_E_INVALID_PARAM;
+    }
+
+    const INT32 nChannelId = pInfo->uChannel;
+    const INT32 nStreamIndex = pInfo->uStreamIndex;
+    std::memset(pInfo, 0, sizeof(*pInfo));
+    pInfo->uChannel = nChannelId;
+    pInfo->uStreamIndex = nStreamIndex;
+
+    INT32 nRtspChannel = -1;
+    switch (nStreamIndex)
+    {
+    case NET_LIVE_STREAM_INDEX_MAIN:
+        nRtspChannel = RTSP_CHN_MAIN;
+        break;
+    case NET_LIVE_STREAM_INDEX_AUX:
+        nRtspChannel = RTSP_CHN_SUB;
+        break;
     default:
-        dlog_error("GetRtspUrl不支持的码流索引 channel:%d stream:%d", dwChannelID, streamIndex);
+        dlog_error("GetRtspUrl不支持的码流索引 channel:%d stream:%d", nChannelId, nStreamIndex);
         return NET_E_INVALID_PARAM;
     }
 
     dlog_info("GetRtspUrl请求 channel:%d stream:%d 映射rtspChn:%d",
-              dwChannelID,
-              streamIndex,
-              rtspChn);
+              nChannelId,
+              nStreamIndex,
+              nRtspChannel);
 
-    const char *pUrl = CRtspServer::instance()->getRtspUrl(rtspChn, false);
-    if (!pUrl || pUrl[0] == '\0')
+    const char *pRtspUrl = CRtspServer::instance()->getRtspUrl(nRtspChannel, false);
+    if (!pRtspUrl || pRtspUrl[0] == '\0')
     {
         dlog_error("GetRtspUrl获取失败 channel:%d stream:%d rtspChn:%d",
-                   dwChannelID,
-                   streamIndex,
-                   rtspChn);
+                   nChannelId,
+                   nStreamIndex,
+                   nRtspChannel);
         return NET_E_GET_CFG_FAILED;
     }
 
-    std::strncpy(pInfo->szRtspUrl, pUrl, sizeof(pInfo->szRtspUrl) - 1);
+    std::strncpy(pInfo->szRtspUrl, pRtspUrl, sizeof(pInfo->szRtspUrl) - 1);
     pInfo->szRtspUrl[sizeof(pInfo->szRtspUrl) - 1] = '\0';
     return NET_E_SUCCEED;
 }
