@@ -773,7 +773,7 @@ void CVisionText::execute_TextPreset_Task(Alarm::TextPreset_S cfg, const std::st
             if (!Frame.empty()) {
                 auto pPayload = std::make_shared<EventTvSdkPayload_S>();
                 pPayload->enType = get_tvsdk_payload_type(stContext.enEventType);
-                if (encode_mat_to_tvsdk_image(Frame, pPayload->stPanoramaImage, 85, false)) {
+                if (encode_mat_to_tvsdk_image(Frame, pPayload->stPanoramaImage, JPEG_QUALITY_PANORAMA, false)) {
                     stContext.pTvSdkPayload = pPayload;
                 }
             }

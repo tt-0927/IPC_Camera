@@ -92,7 +92,7 @@ public:
     BOOL DoRegisterCb_GetDiscoveryDeviceInfo(NET_CB_GetDiscoveryDeviceInfo cbFunc);
 
     /**
-     * @brief 注册免登录网络配置回调。
+     * @brief 注册免登录网络配置回调
      */
     BOOL DoRegisterCb_SetNetwork(NET_CB_SetNetwork cbFunc);
 

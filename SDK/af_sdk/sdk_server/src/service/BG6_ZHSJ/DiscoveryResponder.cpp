@@ -66,8 +66,8 @@ static bool same_mac(const char* lhs, const char* rhs)
     }
 
     if (left_count != 6 || right_count != 6) return false;
-    for (int index = 0; index < 6; ++index) {
-        if (left[index] > 0xff || right[index] > 0xff || left[index] != right[index]) {
+    for (int i = 0; i < 6; ++i) {
+        if (left[i] > 0xff || right[i] > 0xff || left[i] != right[i]) {
             return false;
         }
     }
@@ -482,10 +482,6 @@ int CDiscoveryResponder::send_udp_response(uint32_t client_ip, uint16_t client_p
 
 void CDiscoveryResponder::receive_thread()
 {
-    constexpr auto kNetworkRequestDedupInterval = std::chrono::seconds(2);
-    std::string last_applied_network_request;
-    auto last_applied_network_time = std::chrono::steady_clock::time_point{};
-
 #ifdef _WIN32
     /* Windows: 使用 UDP 组播接收，不支持 AF_PACKET raw socket */
     constexpr auto kProbeLogInterval = std::chrono::seconds(60);
@@ -518,30 +514,21 @@ void CDiscoveryResponder::receive_thread()
         std::string probe_str(buf, n);
         NET_PoeNetworkConfig_S network_config{};
         if (discovery::parse_set_network_json(probe_str, network_config)) {
-            const auto network_request_time = std::chrono::steady_clock::now();
-            if (probe_str == last_applied_network_request &&
-                network_request_time - last_applied_network_time < kNetworkRequestDedupInterval) {
-                continue;
-            }
-
-            NET_DiscoveryDeviceInfo_S device_info{};
-            m_fnDeviceInfoCallback(&device_info);
-            if (!same_mac(network_config.szMACAddress, device_info.strMACAddress)) {
+            NET_DiscoveryDeviceInfo_S dev_info{};
+            m_fnDeviceInfoCallback(&dev_info);
+            if (!same_mac(network_config.szMACAddress, dev_info.strMACAddress)) {
                 invalid_probe_count++;
                 continue;
             }
 
             const bool has_callback = static_cast<bool>(m_fnSetNetworkCallback);
-            const bool applied = has_callback && m_fnSetNetworkCallback(network_config);
-            if (applied) {
-                last_applied_network_request = probe_str;
-                last_applied_network_time = std::chrono::steady_clock::now();
-            }
-            std::printf("[discovery-responder] set network mac=%s result=%s\n",
-                        network_config.szMACAddress,
-                        !has_callback ? "callback-not-registered" :
-                        (applied ? "success" : "failed"));
-            std::fflush(stdout);
+            const bool applied = has_callback &&
+                                 m_fnSetNetworkCallback(network_config);
+            printf("[discovery-responder] set network mac=%s result=%s\n",
+                   network_config.szMACAddress,
+                   !has_callback ? "callback-not-registered" :
+                   (applied ? "success" : "failed"));
+            fflush(stdout);
             continue;
         }
 
@@ -635,30 +622,21 @@ void CDiscoveryResponder::receive_thread()
         std::string probe_str(reinterpret_cast<const char*>(payload.data()), payload.size());
         NET_PoeNetworkConfig_S network_config{};
         if (discovery::parse_set_network_json(probe_str, network_config)) {
-            const auto network_request_time = std::chrono::steady_clock::now();
-            if (probe_str == last_applied_network_request &&
-                network_request_time - last_applied_network_time < kNetworkRequestDedupInterval) {
-                continue;
-            }
-
-            NET_DiscoveryDeviceInfo_S device_info{};
-            m_fnDeviceInfoCallback(&device_info);
-            if (!same_mac(network_config.szMACAddress, device_info.strMACAddress)) {
+            NET_DiscoveryDeviceInfo_S dev_info{};
+            m_fnDeviceInfoCallback(&dev_info);
+            if (!same_mac(network_config.szMACAddress, dev_info.strMACAddress)) {
                 invalid_probe_count++;
                 continue;
             }
 
             const bool has_callback = static_cast<bool>(m_fnSetNetworkCallback);
-            const bool applied = has_callback && m_fnSetNetworkCallback(network_config);
-            if (applied) {
-                last_applied_network_request = probe_str;
-                last_applied_network_time = std::chrono::steady_clock::now();
-            }
-            std::printf("[discovery-responder] set network mac=%s result=%s\n",
-                        network_config.szMACAddress,
-                        !has_callback ? "callback-not-registered" :
-                        (applied ? "success" : "failed"));
-            std::fflush(stdout);
+            const bool applied = has_callback &&
+                                 m_fnSetNetworkCallback(network_config);
+            printf("[discovery-responder] set network mac=%s result=%s\n",
+                   network_config.szMACAddress,
+                   !has_callback ? "callback-not-registered" :
+                   (applied ? "success" : "failed"));
+            fflush(stdout);
             continue;
         }
 

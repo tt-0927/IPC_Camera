@@ -101,13 +101,13 @@ void CAlgoStreamDeal::deinit()
     m_StreamHandler.reset();
 }
 
-void CAlgoStreamDeal::deal_message(const void *pData, int nLength, int nH, int nW)
+void CAlgoStreamDeal::deal_message(const void *pData, int nLength, int nH, int nW, uint64_t u64PTS)
 {
     if (pData != nullptr)
     {
         if (m_StreamHandler)
         {
-            m_StreamHandler.get()->recvDataProcess(pData, nLength, nH, nW);
+            m_StreamHandler.get()->recvDataProcess(pData, nLength, nH, nW, u64PTS);
         }
         else
         {

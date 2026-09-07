@@ -245,11 +245,10 @@ typedef NET_COMMON_ECODE_E (*NET_CB_SetDevConfigByCommand)(INT32 dwChannelID, LP
 
 /**
  * @brief 获取RTSP流地址回调类型 (NET_GET_RTSPURLCFG)
- * @param [IN]  dwChannelID  通道号
- * @param [OUT] pInfo        RTSP URL 信息结构体指针
+ * @param [INOUT] pInfo  RTSP URL 信息结构体指针，调用方填充 uChannel/uStreamIndex，回调填充 szRtspUrl
  * @return NET_E_SUCCEED 成功, 其他值失败
  */
-typedef NET_COMMON_ECODE_E (*NET_CB_GetRtspUrl)(INT32 dwChannelID, pNET_RtspUrlInfo_S pInfo);
+typedef NET_COMMON_ECODE_E (*NET_CB_GetRtspUrl)(pNET_RtspUrlInfo_S pInfo);
 
 /**
  * @brief 获取回放播放地址回调类型
@@ -330,15 +329,15 @@ NET_API BOOL STDCALL NET_serverRegisterGetDeviceConfigCb(NET_CB_GetDevConfigByCo
  * @param [IN] pCb 回调函数指针
  * @return TRUE表示成功,其他表示失败
  */
-NET_API BOOL STDCALL NET_serverRegisterSetDeviceConfigCb(NET_CB_SetDevConfigByCommand pCb);
 NET_API BOOL STDCALL NET_serverRegisterGetNtpConfigCb(NET_CB_GetDevConfigByCommand pCb);
 NET_API BOOL STDCALL NET_serverRegisterSetNtpConfigCb(NET_CB_SetDevConfigByCommand pCb);
 /**
- * @brief 注册设置系统时间的回调函数。
- * @param [in] pCb 接收 NET_SystemTime_S 的设置回调函数。
- * @return 注册成功返回 TRUE，否则返回 FALSE。
+ * @brief 注册设置系统时间回调（NET_SET_SYSTEM_TIME）
+ * @param [IN] pCb 回调函数，输入 pNET_SystemTime_S
+ * @return TRUE表示成功，其他表示失败
  */
 NET_API BOOL STDCALL NET_serverRegisterSetSystemTimeCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetStreamConfigCb(NET_CB_GetDevConfigByCommand pCb);
 NET_API BOOL STDCALL NET_serverRegisterGetStreamConfigCb(NET_CB_GetDevConfigByCommand pCb);
 NET_API BOOL STDCALL NET_serverRegisterSetStreamConfigCb(NET_CB_SetDevConfigByCommand pCb);
 NET_API BOOL STDCALL NET_serverRegisterGetRtspUrlCb(NET_CB_GetRtspUrl pCb);
@@ -621,9 +620,9 @@ typedef void(STDCALL *NET_CB_GetDiscoveryDeviceInfo)(
     OUT NET_DiscoveryDeviceInfo_S* pDeviceInfo);
 
 /**
- * @brief 免登录网络配置回调。
- * @param [in] pConfig 宿主程序需要实际应用的网络配置。
- * @return NET_E_SUCCEED 表示成功，其他值表示失败。
+ * @brief 免登录网络配置回调
+ * @param [IN] pConfig 宿主程序实际应用的网络配置
+ * @return NET_E_SUCCEED 成功，其他值失败
  */
 typedef NET_COMMON_ECODE_E (STDCALL *NET_CB_SetNetwork)(
     IN const NET_PoeNetworkConfig_S* pConfig);
@@ -638,9 +637,9 @@ NET_serverRegisterGetDiscoveryDeviceInfoCb(
     IN NET_CB_GetDiscoveryDeviceInfo cbFunc);
 
 /**
- * @brief 注册免登录网络配置回调。
- * @param [in] cbFunc 回调函数指针。
- * @return TRUE 表示成功，FALSE 表示失败。
+ * @brief 注册免登录网络配置回调
+ * @param [IN] cbFunc 回调函数指针
+ * @return TRUE 成功，FALSE 失败
  */
 NET_API BOOL STDCALL
 NET_serverRegisterSetNetworkCb(IN NET_CB_SetNetwork cbFunc);

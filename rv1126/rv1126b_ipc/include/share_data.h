@@ -171,5 +171,11 @@
 /* 插件像素高度默认值 */
 #define PLUG_IN_HEIGHT_DEFAULT PIXEL_HEIGHT_1080
 
+/**********************JPEG编码质量*******************/
+/* 全景图JPEG质量 */
+#define JPEG_QUALITY_PANORAMA     70
+/* 特写图JPEG质量 */
+#define JPEG_QUALITY_TARGET     100
+
 #endif
 

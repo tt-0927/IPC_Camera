@@ -51,9 +51,8 @@ public:
                int* pnOutCount);
 
     /**
-     * @brief 未登录通过设备发现组播协议按 MAC 设置摄像机网络。
-     * @param [in] config 发送网卡、目标 MAC 及目标网络参数。
-     * @return 0 表示发送成功；-2 表示参数非法；其他负值表示系统调用失败。
+     * @brief 未登录通过 SDK 搜索 JSON 组播协议按 MAC 设置摄像机网络
+     * @return 0 表示发送成功；-2 表示参数非法；其他负值表示系统调用失败
      */
     int set_network(const NET_PoeNetworkConfig_S& config) const;
 

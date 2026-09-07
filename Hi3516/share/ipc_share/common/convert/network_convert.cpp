@@ -583,6 +583,18 @@ void Convert::deal(Json::Object *pRootJson, Network::NetService_S &stInfo, bool 
 	convert.field(pRootJson, "NetServiceVersion", stInfo.NetServiceVersion);
 	
 }
+void  Convert::deal(Json::Object* pRootJson, Network::WifiIpv4Config_S &stInfo, bool bOutStruct)
+{
+	if (!pRootJson)
+	{
+		return;
+	}
+	Convert::CConvert convert(bOutStruct);
+	convert.field(pRootJson, "bEnableDhcp", stInfo.bEnableDhcp);
+    convert.field(pRootJson, "ipv4Ip", stInfo.ipv4Ip);
+	convert.field(pRootJson, "ipv4Mask", stInfo.ipv4Mask);
+	convert.field(pRootJson, "ipv4Gateway", stInfo.ipv4Gateway);
+}
 
 void  Convert::deal(Json::Object* pRootJson, Network::WifiStaInfo_S &stInfo, bool bOutStruct)
 {

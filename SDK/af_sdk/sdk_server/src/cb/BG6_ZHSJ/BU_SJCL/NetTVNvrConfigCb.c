@@ -45,59 +45,39 @@ NET_API BOOL STDCALL NET_serverRegisterGetRtspUrlCb(NET_CB_GetRtspUrl pCb)
 {
     if (pCb == NULL)
     {
-        fprintf(stderr, "[DIAG-RTSP-SDK] register callback rejected: null\n");
-        fflush(stderr);
         return FALSE;
     }
 
     if (g_stNvrCbTable.cbGetRtspUrl != NULL)
     {
-        fprintf(stderr, "[DIAG-RTSP-SDK] register callback rejected: already registered\n");
-        fflush(stderr);
         return FALSE;
     }
 
     g_stNvrCbTable.cbGetRtspUrl = pCb;
-    fprintf(stderr, "[DIAG-RTSP-SDK] register callback succeeded\n");
-    fflush(stderr);
     return TRUE;
 }
 
 /**
  * @brief 执行RTSP流地址获取回调
- * @param [IN] dwChannelID 通道号
- * @param [OUT] pInfo RTSP URL返回信息
+ * @param [INOUT] pInfo RTSP URL返回信息
  * @return NET_E_SUCCEED 成功，其他值失败
  * @note 回调执行优先级：专用RTSP回调 > 通用配置回调（降级走Common命令码分发）
  */
-int executeGetRtspUrlCb(INT32 dwChannelID, pNET_RtspUrlInfo_S pInfo)
+int executeGetRtspUrlCb(pNET_RtspUrlInfo_S pInfo)
 {
-    fprintf(stderr, "[DIAG-RTSP-SDK] executeGetRtspUrlCb enter: channel=%d info=%p\n",
-            dwChannelID, (void *)pInfo);
-    fflush(stderr);
     if (pInfo == NULL)
     {
-        fprintf(stderr, "[DIAG-RTSP-SDK] executeGetRtspUrlCb invalid info\n");
-        fflush(stderr);
         return NET_E_INVALID_PARAM;
     }
 
     /* 优先使用专用RTSP回调 */
     if (g_stNvrCbTable.cbGetRtspUrl != NULL)
     {
-        fprintf(stderr, "[DIAG-RTSP-SDK] invoking registered callback\n");
-        fflush(stderr);
-        int nRet = g_stNvrCbTable.cbGetRtspUrl(dwChannelID, pInfo);
-        fprintf(stderr, "[DIAG-RTSP-SDK] registered callback returned: ret=%d\n", nRet);
-        fflush(stderr);
-        return nRet;
+        return g_stNvrCbTable.cbGetRtspUrl(pInfo);
     }
 
-    fprintf(stderr, "[DIAG-RTSP-SDK] callback not registered, fallback command=%d\n",
-            NET_GET_RTSPURLCFG);
-    fflush(stderr);
     /* 降级到通用配置回调（走Common的命令码分发） */
-    return executeGetDevConfigCb(dwChannelID, NET_GET_RTSPURLCFG, pInfo);
+    return executeGetDevConfigCb(pInfo->uChannel, NET_GET_RTSPURLCFG, pInfo);
 }
 
 /* ===================== 回放URL配置 ===================== */

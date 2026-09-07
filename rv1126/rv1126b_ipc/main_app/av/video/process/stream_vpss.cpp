@@ -3,7 +3,7 @@
  * @Author       : zhouzirui
  * @Date         : 2024-09-26 11:23:29
  * @LastEditors: leiyy leiyy@kfb.cn
- * @LastEditTime: 2026-08-26 16:24:19
+ * @LastEditTime: 2026-09-01 19:47:32
  * @Description  : VPSS 视频处理
  */
 
@@ -56,6 +56,8 @@ RkVpss_S **streamVpss_init(RkVpss_S ***pHandle, const std::vector<Video_NS::Vide
                     pVpssChnAttr->nSrcFrameRate = -1;
                     pVpssChnAttr->nDstFrameRate = -1;
                     pVpssChnAttr->enChnComMode  = COMPRESSMODE;
+                    pVpssChnAttr->nDepth = 2;
+                    pVpssChnAttr->nFrameBufCnt = 6;
 
             }
             else if (nVpssChn == VPSS_CHANNEL_SUB) // 第二码流
@@ -65,10 +67,10 @@ RkVpss_S **streamVpss_init(RkVpss_S ***pHandle, const std::vector<Video_NS::Vide
                     pVpssChnAttr->nSrcFrameRate = -1;
                     pVpssChnAttr->nDstFrameRate = -1;
             }
-            else if (nVpssChn == VPSS_CHANNEL_AI) // AI 检测
+            else if (nVpssChn == VPSS_CHANNEL_AI) // 第三路: AI检测
             {
-                    pVpssChnAttr->nWidth = PIXEL_WIDTH_4K;
-                    pVpssChnAttr->nHeight = PIXEL_HEIGHT_4K;
+                    pVpssChnAttr->nWidth = PIXEL_WIDTH_AI;
+                    pVpssChnAttr->nHeight = PIXEL_HEIGHT_AI;
                     pVpssChnAttr->nDepth = 3;
                     pVpssChnAttr->nFrameBufCnt = 5;   //buf cnt 至少要比depth 大2
                     pVpssChnAttr->nSrcFrameRate = -1;

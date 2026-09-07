@@ -23,7 +23,7 @@ static bool shouldSkipResultLog(int code)
 
 std::string CTask::get_data(std::string jsonData)
 {
-	/* 输入为空时不创建 JSON 对象，避免后续任务收到空参数。 */
+    /* 输入为空时不创建 JSON 对象，避免后续任务收到空参数。 */
 	if (jsonData.empty())
 	{
 		return std::string();

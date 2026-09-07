@@ -76,4 +76,10 @@ private:
 
     /* 配置：会话超时时间(秒)，默认 5分钟 */
     const int SESSION_TIMEOUT_SEC = 300;
+
+    /* 配置：最大并发会话数 */
+    static const size_t MAX_SESSIONS = 64;
+
+    /* 配置：同一IP最大并发会话数 */
+    static const size_t MAX_SESSIONS_PER_IP = 1;
 };

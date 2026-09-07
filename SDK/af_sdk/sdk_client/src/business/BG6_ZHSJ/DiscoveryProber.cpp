@@ -19,39 +19,37 @@
 #include <chrono>
 #include <cstdio>
 #include <cstring>
+#include <string>
 
 #define NETSDK_DISCOVERY_PROBE_COUNT  3
 #define NETSDK_DISCOVERY_PROBE_DELAY_US  (100 * 1000)  /* 100ms */
 
 namespace {
 
-bool is_terminated(const char* text, size_t capacity)
+bool parse_mac(const char* text, unsigned char mac[6])
 {
-    return text && std::memchr(text, '\0', capacity) != nullptr;
-}
+    if (!text || !mac) return false;
 
-bool valid_mac(const char* text)
-{
-    if (!text) return false;
-
-    unsigned int bytes[6]{};
+    unsigned int value[6]{};
     char tail = '\0';
-    int count = std::sscanf(text, "%2x:%2x:%2x:%2x:%2x:%2x%c",
-                            &bytes[0], &bytes[1], &bytes[2], &bytes[3],
-                            &bytes[4], &bytes[5], &tail);
-    if (count != 6) {
-        count = std::sscanf(text, "%2x-%2x-%2x-%2x-%2x-%2x%c",
-                            &bytes[0], &bytes[1], &bytes[2], &bytes[3],
-                            &bytes[4], &bytes[5], &tail);
+    int parsed = std::sscanf(text, "%2x:%2x:%2x:%2x:%2x:%2x%c",
+                             &value[0], &value[1], &value[2], &value[3],
+                             &value[4], &value[5], &tail);
+    if (parsed != 6) {
+        parsed = std::sscanf(text, "%2x-%2x-%2x-%2x-%2x-%2x%c",
+                             &value[0], &value[1], &value[2], &value[3],
+                             &value[4], &value[5], &tail);
     }
-    if (count != 6) return false;
-    for (unsigned int byte : bytes) {
-        if (byte > 0xff) return false;
+    if (parsed != 6) return false;
+
+    for (int i = 0; i < 6; ++i) {
+        if (value[i] > 0xff) return false;
+        mac[i] = static_cast<unsigned char>(value[i]);
     }
     return true;
 }
 
-}  // namespace
+}
 
 /**
  * @author tianl (tianl@kfb.cn)
@@ -83,12 +81,9 @@ int CDiscoveryProber::search(const char* szInterfaceIP,
 
 int CDiscoveryProber::set_network(const NET_PoeNetworkConfig_S& config) const
 {
-    if (!is_terminated(config.szInterfaceIP, sizeof(config.szInterfaceIP)) ||
-        !is_terminated(config.szMACAddress, sizeof(config.szMACAddress)) ||
-        !is_terminated(config.szTargetIP, sizeof(config.szTargetIP)) ||
-        !is_terminated(config.szSubnetMask, sizeof(config.szSubnetMask)) ||
-        !is_terminated(config.szGateway, sizeof(config.szGateway)) ||
-        !valid_mac(config.szMACAddress) || config.szTargetIP[0] == '\0' ||
+    unsigned char mac[6]{};
+    if (!parse_mac(config.szMACAddress, mac) ||
+        config.szTargetIP[0] == '\0' ||
         config.szSubnetMask[0] == '\0' ||
         (config.bSetGateway && config.szGateway[0] == '\0')) {
         return -2;
@@ -105,17 +100,21 @@ int CDiscoveryProber::set_network(const NET_PoeNetworkConfig_S& config) const
 
     socket_fd_t socket_fd = socket(AF_INET, SOCK_DGRAM, 0);
     if (socket_fd == INVALID_SOCKET_FD) {
-        std::fprintf(stderr, "discovery: network-config socket failed, error=%d\n",
-                     NETSDK_SOCKET_GET_ERROR());
+        fprintf(stderr, "discovery: network-config socket failed, error=%d\n",
+                NETSDK_SOCKET_GET_ERROR());
         return -3;
     }
 
-    if (config.szInterfaceIP[0] != '\0') {
-        struct in_addr interface_address{};
-        inet_pton(AF_INET, config.szInterfaceIP, &interface_address);
+    const char* interface_ip = config.szInterfaceIP;
+    if (interface_ip[0] != '\0') {
+        struct in_addr iface_addr{};
+        if (inet_pton(AF_INET, interface_ip, &iface_addr) != 1) {
+            NETSDK_SOCKET_CLOSE(socket_fd);
+            return -2;
+        }
         if (setsockopt(socket_fd, IPPROTO_IP, IP_MULTICAST_IF,
-                       reinterpret_cast<const char*>(&interface_address),
-                       sizeof(interface_address)) != 0) {
+                       reinterpret_cast<const char*>(&iface_addr),
+                       sizeof(iface_addr)) != 0) {
             NETSDK_SOCKET_CLOSE(socket_fd);
             return -3;
         }
@@ -125,10 +124,10 @@ int CDiscoveryProber::set_network(const NET_PoeNetworkConfig_S& config) const
     setsockopt(socket_fd, IPPROTO_IP, IP_MULTICAST_TTL,
                reinterpret_cast<const char*>(&ttl), sizeof(ttl));
 
-    struct sockaddr_in destination{};
-    destination.sin_family = AF_INET;
-    destination.sin_port = htons(NET_DISCOVERY_MCAST_PORT);
-    if (inet_pton(AF_INET, NET_DISCOVERY_MCAST_ADDR, &destination.sin_addr) != 1) {
+    struct sockaddr_in dst_addr{};
+    dst_addr.sin_family = AF_INET;
+    dst_addr.sin_port = htons(NET_DISCOVERY_MCAST_PORT);
+    if (inet_pton(AF_INET, NET_DISCOVERY_MCAST_ADDR, &dst_addr.sin_addr) != 1) {
         NETSDK_SOCKET_CLOSE(socket_fd);
         return -3;
     }
@@ -147,16 +146,16 @@ int CDiscoveryProber::set_network(const NET_PoeNetworkConfig_S& config) const
                : config.dwTimeoutMs * 1000U) / send_count
         : NETSDK_DISCOVERY_PROBE_DELAY_US;
     int ret = 0;
-    for (UINT32 index = 0; index < send_count; ++index) {
+    for (UINT32 i = 0; i < send_count; ++i) {
         const ssize_t sent = sendto(
             socket_fd, request.data(), static_cast<int>(request.size()), 0,
-            reinterpret_cast<struct sockaddr*>(&destination), sizeof(destination));
+            reinterpret_cast<struct sockaddr*>(&dst_addr), sizeof(dst_addr));
         if (sent < 0 || static_cast<size_t>(sent) != request.size()) {
-            std::fprintf(stderr, "discovery: network-config sendto failed, error=%d\n",
-                         NETSDK_SOCKET_GET_ERROR());
+            fprintf(stderr, "discovery: network-config sendto failed, error=%d\n",
+                    NETSDK_SOCKET_GET_ERROR());
             ret = -3;
         }
-        if (index + 1 < send_count) {
+        if (i + 1 < send_count) {
             NETSDK_MICRO_SLEEP(delay_us);
         }
     }

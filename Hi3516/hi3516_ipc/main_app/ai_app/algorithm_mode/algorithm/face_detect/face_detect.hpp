@@ -106,8 +106,15 @@ private:
     BQ_NS::CBlockingQueue<MediaData_S> m_dateQueue;
     /* 用于控制线程的运行 */
     std::atomic<bool> m_bRunning;
+    /* 当前是否至少有一项实时人脸业务生效，供收帧线程无锁查询。 */
+    std::atomic<bool> m_bAlgorithmEnabled{ false };
     /* 数据获取线程 */
     std::thread m_thread;
+    /*
+     * 保护人脸业务启停以及检测帧资源的生命周期。
+     * 关闭算法时必须等待当前帧处理完成，避免释放仍被 run/worker 使用的 VB 帧。
+     */
+    mutable std::mutex m_lifecycleMutex;
     /* 检测频率控制 */
     EventManager m_RecvManager{ 3000 };
     /* 人脸抓拍 */

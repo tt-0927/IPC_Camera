@@ -90,7 +90,8 @@ public:
      * @return 成功返回true，失败返回false
      */
     template <typename T_RESP>
-    bool ExecuteGet(LPUSER_HANDLE pHandle, const std::string& url, void* pOut, int* pOutLen)
+    bool ExecuteGet(LPUSER_HANDLE pHandle, const std::string& url, void* pOut, int* pOutLen,
+                    const std::string& jsonBody = "")
 	{
         if (!pOut)
 		{
@@ -107,6 +108,7 @@ public:
 
         std::string respBody;
         CommandRequest_S req("GET", url);
+        req.jsonBody = jsonBody;
 
         if (session->SendRequest(req, respBody))
 		{

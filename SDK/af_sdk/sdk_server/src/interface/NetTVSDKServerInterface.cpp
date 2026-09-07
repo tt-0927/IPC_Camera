@@ -98,6 +98,15 @@ NET_API BOOL STDCALL NET_serverPushChannelStatusInfo(IN NET_ChannelInfo_S *pChan
 }
 
 NET_API BOOL STDCALL
+NET_serverRegisterSetNetworkCb(IN NET_CB_SetNetwork cbFunc)
+{
+    if (!g_pServerImpl) {
+        g_pServerImpl = std::make_unique<CNetTVSDKServerImpl>();
+    }
+    return g_pServerImpl->DoRegisterCb_SetNetwork(cbFunc);
+}
+
+NET_API BOOL STDCALL
 NET_serverRegisterGetDiscoveryDeviceInfoCb(
     IN NET_CB_GetDiscoveryDeviceInfo cbFunc)
 {
@@ -105,15 +114,6 @@ NET_serverRegisterGetDiscoveryDeviceInfoCb(
 		g_pServerImpl = std::make_unique<CNetTVSDKServerImpl>();
 	}
 	return g_pServerImpl->DoRegisterCb_GetDiscoveryDeviceInfo(cbFunc);
-}
-
-NET_API BOOL STDCALL
-NET_serverRegisterSetNetworkCb(IN NET_CB_SetNetwork cbFunc)
-{
-    if (!g_pServerImpl) {
-        g_pServerImpl = std::make_unique<CNetTVSDKServerImpl>();
-    }
-    return g_pServerImpl->DoRegisterCb_SetNetwork(cbFunc);
 }
 
 NET_API BOOL STDCALL

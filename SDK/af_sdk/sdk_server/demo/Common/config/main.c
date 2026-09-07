@@ -37,7 +37,6 @@
 #define SDKSERVER_USERNAME "admin"
 #define SDKSERVER_PASSWORD "itc20232024"
 #define DEMO_VOICECOM_PORT 9006
-#define DEMO_AUDIO_ANOMALY_CURRENT_DB 44.0f
 #define DEMO_VOICECOM_SERVER_RECV_DUMP "/tmp/VoiceComServerRecv.audio"
 /* 当前IPC能力只开放前4个自定义OSD槽位，结构体数组长度仍按SDK ABI保留。 */
 #define DEMO_OSD_CUSTOM_MAX_NUM NET_OSD_CUSTOM_MAX_NUM
@@ -1096,7 +1095,7 @@ static void InitDefaultConfig(void)
 
     /* 音频异常侦测实时音量示例值。 */
     gs_stAudioAnomalyCurrentDb.bValid = TRUE;
-    gs_stAudioAnomalyCurrentDb.fCurrentDb = DEMO_AUDIO_ANOMALY_CURRENT_DB;
+    gs_stAudioAnomalyCurrentDb.fCurrentDb = 44.0f;
 
     /* 声音报警配置默认值。 */
     gs_stAudibleAlarmInfo.enSoundType = NET_AUDIBLE_ALARM_SOUND_TYPE_ALERT;
@@ -1765,6 +1764,25 @@ static NET_COMMON_ECODE_E MyGetNtpCfgCb(INT32 dwChannelID, LPVOID lpOutBuffer)
            g_stSystemNtpCfg.nPort,
            g_stSystemNtpCfg.nSyncInterval);
 
+    return NET_E_SUCCEED;
+}
+
+/* 系统时间 Set 回调，对应命令 NET_SET_SYSTEM_TIME */
+static NET_COMMON_ECODE_E MySetSystemTimeCb(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    if (!lpInBuffer)
+    {
+        return NET_E_INVALID_PARAM;
+    }
+
+    pNET_SystemTime_S pIn = (pNET_SystemTime_S)lpInBuffer;
+    strncpy(g_stSystemNtpCfg.strDateTime, pIn->strDateTime,
+            sizeof(g_stSystemNtpCfg.strDateTime) - 1);
+    g_stSystemNtpCfg.strDateTime[sizeof(g_stSystemNtpCfg.strDateTime) - 1] = '\0';
+    g_stSystemNtpCfg.bManualSync = TRUE;
+
+    printf("[ConfigServerDemo] SetSystemTime callback, Channel=%d, DateTime=%s\n",
+           dwChannelID, g_stSystemNtpCfg.strDateTime);
     return NET_E_SUCCEED;
 }
 
@@ -5884,6 +5902,16 @@ static void RegisterCallbacks(void)
         printf("[ConfigServerDemo] RegisterCb_SetNetworkCfg FAILED\n");
     }
 
+    /* 系统时间设置回调 */
+    if (NET_serverRegisterSetSystemTimeCb(MySetSystemTimeCb))
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetSystemTime SUCCESS\n");
+    }
+    else
+    {
+        printf("[ConfigServerDemo] RegisterCb_SetSystemTime FAILED\n");
+    }
+
     /* 系统校时配置回调 */
     if (NET_serverRegisterGetNtpConfigCb(MyGetNtpCfgCb))
     {
@@ -7002,6 +7030,8 @@ static void RegisterCallbacks(void)
     {
         printf("[ConfigServerDemo] RegisterCb_SetAudioAnomalyAlarm FAILED\n");
     }
+
+    
     if (NET_serverRegisterGetAudioAnomalyCurrentDbCb(ConfigDemoGetAudioAnomalyCurrentDb))
     {
         printf("[ConfigServerDemo] RegisterCb_GetAudioAnomalyCurrentDb SUCCESS\n");
@@ -7010,7 +7040,7 @@ static void RegisterCallbacks(void)
     {
         printf("[ConfigServerDemo] RegisterCb_GetAudioAnomalyCurrentDb FAILED\n");
     }
-
+    
     /* 声音报警、报警输入输出、闪光报警灯和 PIR 报警配置回调。 */
     if (NET_serverRegisterGetAudibleAlarmInfoCb(ConfigDemoGetAudibleAlarmInfo))
     {

@@ -1003,7 +1003,11 @@ void Task::Event::SetAudioAnomalyInfo::handle()
     result(nRet);
 }
 
-/* 获取音频异常侦测实时音量 */
+/**
+ * @brief 获取音频异常侦测实时音量并生成任务响应。
+ * @author ITC
+ * @return 无。处理结果通过任务响应返回。
+ */
 void Task::Event::GetAudioAnomalyCurrentDb::handle()
 {
     float fCurrentDb = 0.0f;

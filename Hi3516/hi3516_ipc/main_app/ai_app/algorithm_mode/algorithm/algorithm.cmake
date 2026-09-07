@@ -45,4 +45,7 @@ include(${CMAKE_CURRENT_LIST_DIR}/people_head_detect/people_head_detect.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/hvf_detect/hvf_detect.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/face_detect/face_detect.cmake)
 
+# 统一检测层（引擎/帧准备器/模型适配器，按能力宏条件编译）
+include(${CMAKE_CURRENT_LIST_DIR}/../detection/detection.cmake)
+
 list(APPEND SRC_LIST ${SOURCE_LIST})

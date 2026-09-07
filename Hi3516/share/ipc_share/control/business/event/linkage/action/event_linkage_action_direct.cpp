@@ -12,6 +12,7 @@
 #include <algorithm>
 #include <chrono>
 #include <ctime>
+#include <set>
 #include <unistd.h>
 
 #if CAP_GARBAGE_STATION_PLATFORM
@@ -23,6 +24,7 @@
 #include "capture_ctrl.h"
 #include "capture_database.h"
 #include "event_database_manage.h"
+#include "av_configure.h"
 #include "event_linkage_dict.h"
 #include "log_handler.h"
 #include "record_ctrl.h"
@@ -435,6 +437,30 @@ void upload_event_image_async(ResolvedLinkagePlan_S stPlan, std::string strAlarm
 
 int EventLinkageDirectAction::deal_record(const ResolvedLinkagePlan_S &stPlan, const Event::EventState_S &stEventState)
 {
+    // 检查当前视频编码格式是否支持录制
+    std::set<Video_NS::VideoConfig_S> stVideoConfigSet;
+    if (CAVConfigure::instance()->get_configure(stVideoConfigSet) == OK)
+    {
+        int nRecordChnId = 0;
+#if !CAP_RECORD_USE_MAIN_STREAM
+        nRecordChnId = 1;
+#endif
+        for (const auto &stConfig : stVideoConfigSet)
+        {
+            if (stConfig.nId == nRecordChnId)
+            {
+                if (stConfig.enVideoCodec != Video_NS::VideoCodec_E::H264 &&
+                    stConfig.enVideoCodec != Video_NS::VideoCodec_E::H265)
+                {
+                    dlog_info("当前视频编码(%d)不支持录像，跳过事件录像联动",
+                              (int)stConfig.enVideoCodec);
+                    return OK;
+                }
+                break;
+            }
+        }
+    }
+
     for (const auto &nRecordChn : stPlan.stLinkageList.recordChn)
     {
         /* 当前实现只处理本通道录像，跨通道联动仍沿用原有配置行为 */

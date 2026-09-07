@@ -191,7 +191,7 @@ build_project() {
         # BIN_OUT_DIR="$BUILD_ROOT/bin/${TARGET_NAME}_64_ft"
 
         # 飞腾工具链在 /opt 目录下，不在本地 toolchain 目录
-        local FT_TOOLCHAIN_ROOT="/opt/gcc-linaro-7.5.0-2019.12-x86_64_aarch64-linux-gnu"
+        local FT_TOOLCHAIN_ROOT="/opt/ft/gcc-linaro-7.5.0-2019.12-x86_64_aarch64-linux-gnu"
         if [ ! -d "$FT_TOOLCHAIN_ROOT" ]; then
             echo_red "错误：飞腾64位工具链不存在！路径: $FT_TOOLCHAIN_ROOT"
             return 1
@@ -503,11 +503,27 @@ build_demo() {
     local DEMO_SRC_DIR=""
     local WORK_BUILD_DIR=""
     local DEMO_OUT_DIR=""
+
+    # 根据demo名称确定子目录分类（Common 或 BG6_ZHSJ）
+    local DEMO_SUBDIR=""
+    case "$DEMO_NAME" in
+        capability|config)
+            DEMO_SUBDIR="Common"
+            ;;
+        alarm|discovery|http_face)
+            DEMO_SUBDIR="BG6_ZHSJ"
+            ;;
+        *)
+            echo_red "错误：未知的Demo名称 '$DEMO_NAME'！"
+            echo_yellow "可用的Demo：capability, config, alarm, discovery, http_face"
+            return 1
+            ;;
+    esac
     
     if [ "$DEMO_TYPE" = "server" ]; then
-        DEMO_SRC_DIR="$CURRENT_ROOT/../sdk_server/demo/${DEMO_NAME}"
+        DEMO_SRC_DIR="$CURRENT_ROOT/../sdk_server/demo/${DEMO_SUBDIR}/${DEMO_NAME}"
     else
-        DEMO_SRC_DIR="$CURRENT_ROOT/../sdk_client/demo/${DEMO_NAME}"
+        DEMO_SRC_DIR="$CURRENT_ROOT/../sdk_client/demo/${DEMO_SUBDIR}/${DEMO_NAME}"
     fi
     
     # 检查demo目录是否存在

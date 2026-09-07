@@ -2197,7 +2197,6 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_AudioAnomalyCurrentDb_S& stIn
     convert.field(pRootJson, "CurrentDb", stInfo.fCurrentDb);
 }
 
-
 void SDKConvert::deal(Json::Object* pRootJson, NET_EnterRegionAlarmInfo_S& stInfo, bool bOutStruct)
 {
     if (!pRootJson)

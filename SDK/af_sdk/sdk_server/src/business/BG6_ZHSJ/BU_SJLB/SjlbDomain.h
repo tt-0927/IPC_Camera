@@ -26,7 +26,7 @@ class CBujlbDomain : public CConfigDomainBase, public CSingleton<CBujlbDomain>
     CBujlbDomain();
 public:
     ~CBujlbDomain() {}
-
+    
     /**
      * @brief 获取录制文件列表（自定义处理）
      * @details 从请求 JSON 解析分页参数，调用设备回调填充文件列表
@@ -43,7 +43,25 @@ public:
     */
     virtual bool IsDeviceLevelCommand(INT32 nCommand) const override;
 
+    /* ===================== 录播自定义 Handler（需要域专用错误码描述） ===================== */
 
+    /**
+     * @brief 录制控制（522）
+     * @details 使用 get_recordErrMessage 提供录播专用错误码描述
+     */
+    static std::string HandleSetRecordControl(INT32 nChannelId, INT32 nCommand,
+                                              const std::string& req_data,
+                                              const std::string& url_param);
+
+    /**
+     * @brief 直播控制（524）
+     * @details 使用 get_recordErrMessage 提供录播专用错误码描述
+     */
+    static std::string HandleSetLiveControl(INT32 nChannelId, INT32 nCommand,
+                                            const std::string& req_data,
+                                            const std::string& url_param);
+
+    
     /**
      * @brief 获取布局信息（自定义处理）
      * @details 从请求 JSON 解析 MovieMode/MPlayout，调用设备回调填充布局数据

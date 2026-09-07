@@ -372,7 +372,7 @@ void CGroup1Detect::processGroup1Detect(const Group1Detect_NS::OutData_S &stOutD
         if (!m_fullRgbMat.empty()) {
             auto pPayload = std::make_shared<EventTvSdkPayload_S>();
             pPayload->enType = get_tvsdk_payload_type(stContext.enEventType);
-            if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage)) {
+            if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage, JPEG_QUALITY_PANORAMA)) {
                 stContext.pTvSdkPayload = pPayload;
             }
         }
@@ -394,7 +394,7 @@ void CGroup1Detect::processGroup1Detect(const Group1Detect_NS::OutData_S &stOutD
         if (!m_fullRgbMat.empty()) {
             auto pPayload = std::make_shared<EventTvSdkPayload_S>();
             pPayload->enType = get_tvsdk_payload_type(stContext.enEventType);
-            if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage)) {
+            if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage, JPEG_QUALITY_PANORAMA)) {
                 stContext.pTvSdkPayload = pPayload;
             }
         }
@@ -416,7 +416,7 @@ void CGroup1Detect::processGroup1Detect(const Group1Detect_NS::OutData_S &stOutD
         if (!m_fullRgbMat.empty()) {
             auto pPayload = std::make_shared<EventTvSdkPayload_S>();
             pPayload->enType = get_tvsdk_payload_type(stContext.enEventType);
-            if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage)) {
+            if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage, JPEG_QUALITY_PANORAMA)) {
                 stContext.pTvSdkPayload = pPayload;
             }
         }
@@ -438,7 +438,7 @@ void CGroup1Detect::processGroup1Detect(const Group1Detect_NS::OutData_S &stOutD
         if (!m_fullRgbMat.empty()) {
             auto pPayload = std::make_shared<EventTvSdkPayload_S>();
             pPayload->enType = get_tvsdk_payload_type(stContext.enEventType);
-            if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage)) {
+            if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage, JPEG_QUALITY_PANORAMA)) {
                 stContext.pTvSdkPayload = pPayload;
             }
         }

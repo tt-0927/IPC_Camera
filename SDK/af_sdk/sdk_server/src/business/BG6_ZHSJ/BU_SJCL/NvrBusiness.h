@@ -61,9 +61,10 @@ public:
      * @details RTSP为NVR独有配置，走NVR专用回调执行函数（NetTVNvrConfigCb）
      * @param nChannelId 通道号
      * @param nCommand 命令码
+     * @param req_data 请求体 JSON
      * @return JSON格式的响应数据
      */
-    std::string HandleGetRtspUrl(INT32 nChannelId, INT32 nCommand);
+    std::string HandleGetRtspUrl(INT32 nChannelId, INT32 nCommand, const std::string& req_data);
 
     /**
      * 获取通道信息（含通道列表）

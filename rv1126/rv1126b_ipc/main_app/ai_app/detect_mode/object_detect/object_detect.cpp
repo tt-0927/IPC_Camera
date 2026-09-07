@@ -478,7 +478,7 @@ void CObjectDetect::run()
 												if (!m_lastRgbFrame.empty()) {
 												auto pPayload = std::make_shared<EventTvSdkPayload_S>();
 												pPayload->enType = get_tvsdk_payload_type(stCtx.enEventType);
-												if (encode_mat_to_tvsdk_image(m_lastRgbFrame, pPayload->stPanoramaImage, 85, false)) {
+												if (encode_mat_to_tvsdk_image(m_lastRgbFrame, pPayload->stPanoramaImage, JPEG_QUALITY_PANORAMA, false)) {
 													stCtx.pTvSdkPayload = pPayload;
 												}
 												}
@@ -526,7 +526,7 @@ void CObjectDetect::run()
 													if (!m_lastRgbFrame.empty()) {
 														auto pPayload = std::make_shared<EventTvSdkPayload_S>();
 														pPayload->enType = get_tvsdk_payload_type(stCtx.enEventType);
-														if (encode_mat_to_tvsdk_image(m_lastRgbFrame, pPayload->stPanoramaImage, 85, false)) {
+														if (encode_mat_to_tvsdk_image(m_lastRgbFrame, pPayload->stPanoramaImage, JPEG_QUALITY_PANORAMA, false)) {
 															stCtx.pTvSdkPayload = pPayload;
 														}
 													}
@@ -687,7 +687,7 @@ void CObjectDetect::run()
 												if (!m_lastRgbFrame.empty()) {
 												auto pPayload = std::make_shared<EventTvSdkPayload_S>();
 												pPayload->enType = get_tvsdk_payload_type(stCtx.enEventType);
-												if (encode_mat_to_tvsdk_image(m_lastRgbFrame, pPayload->stPanoramaImage, 85, false)) {
+												if (encode_mat_to_tvsdk_image(m_lastRgbFrame, pPayload->stPanoramaImage, JPEG_QUALITY_PANORAMA, false)) {
 													stCtx.pTvSdkPayload = pPayload;
 												}
 												}
@@ -736,7 +736,7 @@ void CObjectDetect::run()
 											if (!m_lastRgbFrame.empty()) {
 												auto pPayload = std::make_shared<EventTvSdkPayload_S>();
 												pPayload->enType = get_tvsdk_payload_type(stCtx.enEventType);
-												if (encode_mat_to_tvsdk_image(m_lastRgbFrame, pPayload->stPanoramaImage, 85, false)) {
+												if (encode_mat_to_tvsdk_image(m_lastRgbFrame, pPayload->stPanoramaImage, JPEG_QUALITY_PANORAMA, false)) {
 													stCtx.pTvSdkPayload = pPayload;
 												}
 											}
@@ -796,7 +796,7 @@ void CObjectDetect::run()
                                     if (!m_lastRgbFrame.empty()) {
                                         auto pPayload = std::make_shared<EventTvSdkPayload_S>();
                                         pPayload->enType = get_tvsdk_payload_type(stCtx.enEventType);
-                                        if (encode_mat_to_tvsdk_image(m_lastRgbFrame, pPayload->stPanoramaImage, 85, false)) {
+                                        if (encode_mat_to_tvsdk_image(m_lastRgbFrame, pPayload->stPanoramaImage, JPEG_QUALITY_PANORAMA, false)) {
                                             stCtx.pTvSdkPayload = pPayload;
                                         }
                                     }

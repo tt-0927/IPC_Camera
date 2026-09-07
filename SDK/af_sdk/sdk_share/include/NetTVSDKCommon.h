@@ -654,17 +654,38 @@ extern "C"{
 #define NET_ALARM_HELMET_MISSING     (NET_ALARM_BASE_AI + 0x24)    // 未戴安全帽 (SAFETY_HELMET)
 #define NET_ALARM_NO_REFLECTIVE_VEST (NET_ALARM_BASE_AI + 0x25)    // 未穿反光衣 (REFLECTIVE_CLOTHING)
 #define NET_ALARM_SMOKE_FIRE         (NET_ALARM_BASE_AI + 0x26)    // 烟火检测
-#define NET_TV_ALARM_PERSON_TRIP        (NET_TV_ALARM_BASE_AI + 0x27)    // 摔倒识别
-#define NET_TV_ALARM_ELECTRIC_VEHICLE_IN_ELEVATOR \
-                                        (NET_TV_ALARM_BASE_AI + 0x28)    // 电瓶车进电梯识别
-#define NET_TV_ALARM_GARBAGE_EXPOSURE   (NET_TV_ALARM_BASE_AI + 0x29)    // 垃圾暴露识别
-#define NET_TV_ALARM_GARBAGE_OVERFLOW   (NET_TV_ALARM_BASE_AI + 0x2A)    // 垃圾满溢识别
-#define NET_TV_ALARM_MANHOLE_COVER_ABNORMAL \
-                                        (NET_TV_ALARM_BASE_AI + 0x2B)    // 井盖异常检测
+#define NET_ALARM_PERSON_TRIP        (NET_ALARM_BASE_AI + 0x27)    // 人员绊倒识别
+#define NET_ALARM_ELECTRIC_VEHICLE_IN_ELEVATOR \
+                                        (NET_ALARM_BASE_AI + 0x28)    // 电瓶车进电梯识别
+#define NET_ALARM_GARBAGE_EXPOSURE   (NET_ALARM_BASE_AI + 0x29)    // 垃圾暴露识别
+#define NET_ALARM_GARBAGE_OVERFLOW   (NET_ALARM_BASE_AI + 0x2A)    // 垃圾满溢识别
+#define NET_ALARM_MANHOLE_COVER_ABNORMAL \
+                                        (NET_ALARM_BASE_AI + 0x2B)    // 井盖异常检测
+#define NET_ALARM_FENCE_CLIMBING      (NET_ALARM_BASE_AI + 0x2C)    // 翻越围栏识别
+#define NET_ALARM_BARE_SOIL           (NET_ALARM_BASE_AI + 0x2D)    // 黄土裸露识别
+#define NET_ALARM_HOLE_PROTECTION_BAR (NET_ALARM_BASE_AI + 0x2E)    // 洞口防护栏识别
+#define NET_ALARM_PEDESTRIAN_INTRUSION \
+                                        (NET_ALARM_BASE_AI + 0x2F)    // 行人入侵识别
+#define NET_ALARM_HIGH_ALTITUDE_SEATBELT \
+                                        (NET_ALARM_BASE_AI + 0x30)    // 高空安全带识别
+#define NET_ALARM_CONSTRUCTION_OCCUPY_ROAD \
+                                        (NET_ALARM_BASE_AI + 0x31)    // 施工占道识别
+#define NET_ALARM_EMERGENCY_LANE_OCCUPANCY \
+                                        (NET_ALARM_BASE_AI + 0x32)    // 应急车道占用识别
+#define NET_ALARM_REVERSE_DIRECTION   (NET_ALARM_BASE_AI + 0x33)    // 逆行识别
+#define NET_ALARM_NON_MOTOR_VEHICLE_INTRUSION \
+                                        (NET_ALARM_BASE_AI + 0x34)    // 非机动车入侵识别
+#define NET_ALARM_ROAD_PONDING         (NET_ALARM_BASE_AI + 0x35)    // 道路积水识别
+#define NET_ALARM_CONGESTION           (NET_ALARM_BASE_AI + 0x36)    // 拥堵识别
+#define NET_ALARM_ILLEGAL_LANE_CHANGE  (NET_ALARM_BASE_AI + 0x37)    // 违法变道识别
+#define NET_ALARM_SCENE_CHANGE         (NET_ALARM_BASE_AI + 0x38)    // 场景变更识别
+#define NET_ALARM_OPEN_FLAME           (NET_ALARM_BASE_AI + 0x39)    // 明火识别
 
 
 // > 音频智能
 #define NET_ALARM_AUDIO_ANOMALY      (NET_ALARM_BASE_AI + 0x50)    // 音频异常
+#define NET_ALARM_AUDIO_SUDDEN_RISE  (NET_ALARM_BASE_AI + 0x51)    // 声强陡升检测
+#define NET_ALARM_AUDIO_SUDDEN_DROP  (NET_ALARM_BASE_AI + 0x52)    // 声强突降检测
 
 /**
  * @brief 交通/车辆相关 (0x4000 - 0x40FF)
@@ -790,6 +811,31 @@ typedef enum tagNETTVCommonErrCode
     NET_E_IMAGE_SIZE_BEYOND_THE_LIMIT    = 211,          /* 图片大小超出限制 Image size beyond the limit*/
 
 }NET_COMMON_ECODE_E;
+
+/**
+* @enum tagNETTVRecordErrCode
+* @brief 录播错误码
+* @attention 无 None
+*/
+typedef enum tagNETTVRecordErrCode
+{
+    NET_E_ADDRESS_NULL                   = -1016,        /* 地址为空 */
+    NET_E_ADDRESS_DISABILITY             = -1044,        /* 直播地址失能 */
+
+    /* 录制相关（与 BlError.h 一致） */
+    NET_E_NO_DISK                        = -1001,        /* 没有存储设备 */
+    NET_E_CMD_OPT                        = -1005,        /* 操作类型未定义处理 */
+    NET_E_RECORDING                      = -1013,        /* 操作失败-正在录制 */
+    NET_E_USER_DISK_NOSPACE              = -1014,        /* 硬盘空间不足 */
+    NET_E_INFO_ANOMALY                   = -1015,        /* 信息异常、不合法 */
+    NET_E_FIRST_PICTURE_NOT_EXIST        = -1026,        /* 片头文件不存在 */
+    NET_E_RECORD_STOPING                 = -1027,        /* 操作失败-正在停止录制 */
+    NET_E_UNABLE_RECORDING               = -1043,        /* 当前界面可以录制 */
+    NET_E_RECORD_NOT_EXIST               = -1045,        /* 无法操作-录制程序无法通讯 */
+    NET_E_STREAM_NOT_EXIST               = -1055,        /* 无法操作-stream程序无法通讯 */
+    NET_E_SD_FULL                        = -1063,        /* 内存已满，无法录制 */
+    NET_E_RESOURCE_RECORDING             = -1073,        /* 操作失败-正在录制（资源） */
+}NET_RECORD_ECODE_E;
 
 /**
 * @enum tagNETTVMediaErrCode
@@ -1001,6 +1047,7 @@ typedef enum tagNETTVDeviceType
     NET_DTYPE_UNKNOWN                        = 0,            /* Unknown type */
     NET_DTYPE_IPC                            = 1,            /* IPC range */
     NET_DTYPE_NVR                            = 2,            /* NVR range */
+    NET_DTYPE_LB                             = 3,            /* 录播设备 Live-broadcast device */
     NET_DTYPE_INVALID                        = 0xFFFF        /* 无效值  Invalid value */
 }NET_DEVICE_TYPE_E;
 
@@ -1739,6 +1786,7 @@ typedef enum tagNETTVCrossDirection
 /**
  * @enum tagNETTVDetectionTarget
  * @brief 检测目标类型  Detection target type
+ *  * @attention 单一目标类型，组合通过auDetectionTarget数组多个元素表示
  * @attention
  */
 typedef enum tagNETTVDetectionTarget
@@ -2352,18 +2400,14 @@ typedef struct tagNET_DeviceLoginInfo
 typedef NET_DeviceLoginInfo_S* pNET_DeviceLoginInfo_S;
 
 /**
- * @brief 设备规模信息结构体（NVR侧专用）
- * @note  NVR规模/能力数量信息：设备类型、报警输入/输出端口数、通道数。
- *        此为NVR偏向的硬件资源计量，非全设备通用，归 BU_SJCL/NVR 侧
- *        （回调见 NetTVNvrDeviceCb.c）。区别于通用设备基本信息 NET_DeviceBasicInfo_S。
+ * @brief 设备识别信息结构体（登录返回）
+ * @note  只承担设备识别职责（类型+型号）
+ *        对应 HTTP 路径 /TVAPI/V1.0/Device/GetInfo，登录时由 SDK 内部调用。
  */
 typedef struct tagNET_DeviceInfo
 {
     INT32   uDevType;                           /* 设备类型,参见枚举#NET_DEVICE_TYPE_E */
-    INT32   uAlarmInPortNum;                    /* 报警输入个数 */
-    INT32   uAlarmOutPortNum;                   /* 报警输出个数 */
-    INT32   uChannelNum;                        /* 通道个数 */
-    BYTE    byReserved[48];                     /* 预留字段 */
+    CHAR    strDevModel[NET_LEN_64];            /* 设备型号(只读) */
 } NET_DeviceInfo_S;
 
 /**
@@ -2389,12 +2433,13 @@ typedef struct tagNET_DeviceBasicInfo
     CHAR    strManufacturer[NET_LEN_64];            /* 厂商信息(只读) */
     CHAR    strDeviceTypeV2[NET_LEN_128];           /* 设备类型(只读) */
 
-    /* ========== 通用运行状态（只读） ========== */
-    FLOAT   fCPULoadRatio;                          /* CPU负载率(只读) */
-    FLOAT   fMemoryUsage;                           /* 内存使用率(只读) */
-    INT32   nBootTime;                              /* 启动时间/运行时长-秒(只读) */
+    /* ========== 硬件参数 ========== */
+    INT32   uAlarmInPortNum;                        /* 报警输入个数 */
+    INT32   uAlarmOutPortNum;                       /* 报警输出个数 */
+    INT32   uChannelNum;                            /* 通道个数 */
+    INT32   uPoeChannelNum;                         /* POE通道个数 */
 
-    BYTE    byReserved[220];                        /* 预留字段 */
+    BYTE    byReserved[208];                        /* 预留字段 */
 } NET_DeviceBasicInfo_S;
 
 /**
@@ -2466,7 +2511,7 @@ typedef NET_RegisterInfo_S* pNET_RegisterInfo_S;
  */
 typedef struct tagNET_RecordControlInfo
 {
-    INT32 nStatus;                          /* 录制状态，0-停止 1-录制中 */
+    INT32 nStatus;                          /* 录制状态， 1-录制中，2-暂停，3-停止 */
     INT32 nRecordMode;                      /* 录制模式 */
     CHAR  szName[NET_LEN_260];              /* 课程名称 */
     CHAR  szFileName[NET_LEN_256];          /* 录制文件名 */
@@ -2564,7 +2609,7 @@ typedef NET_DirectorModeInfo_S* pNET_DirectorModeInfo_S;
  */
 typedef struct tagNET_CameraControlInfo
 {
-    INT32 nId;                             /* 摄像机ID号 (0~7) */
+    INT32 nId;                             /* 摄像机ID号 (0~6) */
     INT32 nType;                           /* 控制类型 */
     INT32 nSpeed;                          /* 速度 (0-100) */
     INT32 nNum;                            /* 预置位号 */
@@ -2601,11 +2646,11 @@ typedef NET_PresetBitInfo_S* pNET_PresetBitInfo_S;
 /**
  * @brief 预置位操作结构体（用于设置/调用/删除预置位）-（录播）
  * @note  用于 NET_CONTROL_PRESET_BIT (529) SET操作
- *        nOptType: 0-设置 1-调用 2-删除 3-改名
+ *        nOptType: 0-设置 1-删除 2-调用 3-改名
  */
 typedef struct tagNET_PresetBitCtrl
 {
-    INT32 nOptType;                        /* 操作类型: 0-设置 1-调用 2-删除 3-改名 */
+    INT32 nOptType;                        /* 操作类型: 0-设置 1-删除 2-调用 3-改名 */
     INT32 nCameraId;                       /* 摄像头ID号 */
     INT32 nPresetNum;                      /* 预置位ID */
     CHAR  szName[48];                      /* 预置位名称 */
@@ -2770,23 +2815,20 @@ typedef struct tagNET_SystemNtpInfo
 } NET_SystemNtpInfo_S;
 
 /**
- * @brief 系统时间/NTP校时配置结构体指针类型
- */
-typedef NET_SystemNtpInfo_S* pNET_SystemNtpInfo_S;
-
-/**
- * @brief 设置系统时间参数结构体。
- * @note strDateTime 格式为“YYYY-MM-DD HH:MM:SS”。
+ * @brief 设置系统时间参数结构体
+ * @note strDateTime 格式为 "YYYY-MM-DD HH:MM:SS"，例如 "2026-09-03 10:40:30"
  */
 typedef struct tagNET_SystemTime
 {
-    CHAR    strDateTime[NET_MAX_DATE_STRING_LEN];
+    CHAR strDateTime[NET_MAX_DATE_STRING_LEN];
 } NET_SystemTime_S;
 
-/**
- * @brief 设置系统时间参数结构体指针类型。
- */
 typedef NET_SystemTime_S* pNET_SystemTime_S;
+
+/**
+ * @brief 系统时间/NTP校时配置结构体指针类型
+ */
+typedef NET_SystemNtpInfo_S* pNET_SystemNtpInfo_S;
 
 /**
  * @brief 修改用户密码参数结构体
@@ -3220,7 +3262,7 @@ typedef NET_NetworkCfg_S* pNET_NetworkCfg_S;
 
 /**
  * @struct tagNET_PoeNetworkConfig
- * @brief 未登录场景下通过 SDK 设备发现组播协议设置摄像机网络参数
+ * @brief 未登录场景下通过 SDK 搜索 JSON 组播协议设置摄像机网络参数
  * @note 设备通过 MAC 地址匹配；接口仅发送组播配置报文，不建立 HTTP 登录会话。
  */
 typedef struct tagNET_PoeNetworkConfig
@@ -3231,10 +3273,10 @@ typedef struct tagNET_PoeNetworkConfig
     CHAR    szSubnetMask[NET_IPADDR_STR_MAX_LEN];  /* IPv4 子网掩码 */
     CHAR    szGateway[NET_IPADDR_STR_MAX_LEN];     /* IPv4 网关，bSetGateway 为 FALSE 时可为空 */
     BOOL    bSetGateway;                           /* 是否设置网关 */
-    BOOL    bIPv4DHCP;                             /* 是否启用 DHCP */
-    UINT32  dwTimeoutMs;                           /* 发送总时长，0 使用 SDK 默认发送间隔 */
-    UINT32  dwSendCount;                           /* 发送次数，0 使用 SDK 默认值 */
-    BYTE    byRes[128];                            /* 保留字段 */
+    BOOL    bIPv4DHCP;                              /* 是否启用 DHCP */
+    UINT32  dwTimeoutMs;                            /* 保留字段：当前接口为无应答发送，建议填 0 */
+    UINT32  dwSendCount;                            /* 发送次数，0 使用 SDK 默认值 */
+    BYTE    byRes[128];                             /* 保留字段 */
 } NET_PoeNetworkConfig_S;
 
 typedef NET_PoeNetworkConfig_S* pNET_PoeNetworkConfig_S;
@@ -5331,19 +5373,15 @@ typedef struct tagNET_AudioAnomalyAlarmInfo
 
 typedef NET_AudioAnomalyAlarmInfo_S* pNET_AudioAnomalyAlarmInfo_S;
 
-/* 音频异常侦测实时音量结构体预留字段长度。 */
-#define NET_AUDIO_ANOMALY_CURRENT_DB_RESERVED_LEN (120)
-
 /**
  * @brief 音频异常侦测实时音量信息
- * @author ITC
  * @note 用于 NET_GET_AUDIO_ANOMALY_CURRENT_DB，仅表示本次查询时的音量快照
  */
 typedef struct tagNET_AudioAnomalyCurrentDb
 {
     BOOL        bValid;                              /* 实时音量是否有效 */
     FLOAT       fCurrentDb;                          /* 当前实时音量，单位：dB */
-    BYTE        abyReserved[NET_AUDIO_ANOMALY_CURRENT_DB_RESERVED_LEN]; /* 预留字段 */
+    BYTE        abyReserved[120];                    /* 预留字段 */
 } NET_AudioAnomalyCurrentDb_S;
 
 typedef NET_AudioAnomalyCurrentDb_S* pNET_AudioAnomalyCurrentDb_S;

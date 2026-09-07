@@ -279,6 +279,23 @@ bool CAlgoStreamDeal::manageSingleAlgorithm(std::shared_ptr<CAlgorithm> &algo, b
 
 void CAlgoStreamDeal::set_Algo_EnConfig(Event::AlgorithmConfig &stAlgoConfig)
 {
+    std::lock_guard<std::mutex> applyLock(m_algorithmApplyMutex);
+
+    /* 始终保存用户最新的期望配置，但独占期间不加载任何常驻算法。 */
+    m_stDesiredAlgoConfig = stAlgoConfig;
+    m_bDesiredAlgoConfigValid = true;
+    if (m_bFaceLibExclusive)
+    {
+        dlog_info("AI_APP: 人脸名单库正在独占AI资源，算法配置已保存，稍后恢复");
+        return;
+    }
+
+    applyAlgorithmConfig(stAlgoConfig);
+}
+
+void CAlgoStreamDeal::applyAlgorithmConfig(Event::AlgorithmConfig &stAlgoConfig)
+{
+    std::lock_guard<std::mutex> faceAlgoLock(m_faceAlgoMutex);
     printAlgoCfg(stAlgoConfig);
 
     /* 取消所有绑定 */
@@ -310,7 +327,61 @@ void CAlgoStreamDeal::set_Algo_EnConfig(Event::AlgorithmConfig &stAlgoConfig)
         }
     }
 }
+#if CAP_AI_FACE_COMPARE
 
+int CAlgoStreamDeal::beginFaceLibExclusive()
+{
+    std::lock_guard<std::mutex> applyLock(m_algorithmApplyMutex);
+    m_bFaceLibExclusive = true;
+
+    try
+    {
+        dlog_info("AI_APP: 人脸名单库开始独占AI资源，暂停当前运行算法");
+        Event::AlgorithmConfig stDisabledConfig{};
+        applyAlgorithmConfig(stDisabledConfig);
+        dlog_info("AI_APP: 当前运行算法已暂停，人脸名单库可以加载临时模型");
+        return FACE_LIB_ADD_OK;
+    }
+    catch (...)
+    {
+        m_bFaceLibExclusive = false;
+        dlog_error("AI_APP: 暂停当前运行算法时发生异常");
+        return ERR_AI_SUSPEND_FAILED;
+    }
+}
+
+int CAlgoStreamDeal::endFaceLibExclusive()
+{
+    std::lock_guard<std::mutex> applyLock(m_algorithmApplyMutex);
+    int nRet = FACE_LIB_ADD_OK;
+
+    /*
+     * 持锁恢复，避免恢复过程中另一个配置线程穿插加载模型。独占期间收到的
+     * 配置已经更新到 m_stDesiredAlgoConfig，因此这里恢复的是最新状态。
+     */
+    try
+    {
+        if (m_bDesiredAlgoConfigValid)
+        {
+            dlog_info("AI_APP: 人脸名单库释放AI资源，恢复最新算法配置");
+            applyAlgorithmConfig(m_stDesiredAlgoConfig);
+        }
+        else
+        {
+            dlog_info("AI_APP: 尚未收到算法配置，人脸名单库结束后保持算法关闭");
+        }
+    }
+    catch (...)
+    {
+        nRet = ERR_AI_RESTORE_FAILED;
+        dlog_error("AI_APP: 恢复算法配置时发生异常");
+    }
+
+    m_bFaceLibExclusive = false;
+    dlog_info("AI_APP: 人脸名单库AI资源独占结束, restoreRet[%d]", nRet);
+    return nRet;
+}
+#endif
 int CAlgoStreamDeal::dispatchRuntimeCommand(const RuntimeCommand_S &stCommand)
 {
     std::vector<std::shared_ptr<CAlgorithm>> algos = {
@@ -384,17 +455,71 @@ void CAlgoStreamDeal::runOnce()
  */
 int CAlgoStreamDeal::add_Facelib_Groups(FaceDataDB_NS::FaceLibsInfo_S &stFaceLibData)
 {
-        int nRet;
-        /* 通知 Algorithm 人脸检测 */
+        // int nRet;
+        // /* 通知 Algorithm 人脸检测 */
 
-        sleep(1);
-        if (m_pFaceAlgo)
+        // sleep(1);
+        // if (m_pFaceAlgo)
+        // {
+        //     nRet = m_pFaceAlgo.get()->addFaceLibGroup(stFaceLibData);
+        // }else {
+        // }
+
+        std::lock_guard<std::mutex> faceLibAddLock(m_faceLibAddMutex);
+        int nRet = ERR;
+         /*
+     * 低内存设备添加名单库时独占AI资源。这里只改变实际运行状态，不修改
+     * 用户保存的算法配置；入库结束后恢复独占期间收到的最新配置。
+     */
+     const int nSuspendRet = beginFaceLibExclusive();
+     if (nSuspendRet != FACE_LIB_ADD_OK)
+     {
+         return nSuspendRet;
+     }
+ 
+     /*
+      * 暂停常驻算法之后创建一次性人脸实例。CFaceDetect::addFaceLibGroup内部
+      * 使用YOLO/ArcFace低内存互斥模式，任务完成后先销毁临时实例再恢复算法。
+     */
+    std::shared_ptr<CAlgorithm> pFaceAlgo;
+    try
+    {
+        dlog_info("AI_APP: 为名单库入库创建临时人脸算法实例");
+        pFaceAlgo = std::static_pointer_cast<CAlgorithm>(std::make_shared<CFaceDetect>());
+        if (!pFaceAlgo)
         {
-            nRet = m_pFaceAlgo.get()->addFaceLibGroup(stFaceLibData);
-        }else {
+            dlog_error("AI_APP: 创建人脸算法实例失败，无法添加名单库成员");
+            nRet = ERR_FACE_ALGO_CREATE_FAILED;
         }
+        else
+        {
+            nRet = pFaceAlgo->addFaceLibGroup(stFaceLibData);
+        }
+    }
+    // if (!pFaceAlgo)
+    catch (...)
+    { 
+        dlog_error("AI_APP: 名单库临时人脸算法执行时发生异常");
+        nRet = ERR_FACE_ALGO_CREATE_FAILED;
+    }
 
-
+    // if (!pFaceAlgo)
+    /* 必须先析构临时模型，再恢复其他算法，避免模型同时驻留。 */
+    pFaceAlgo.reset();
+    dlog_info("AI_APP: 名单库临时人脸算法实例已释放，准备恢复原算法.");
+    const int nRestoreRet = endFaceLibExclusive();
+    if (nRet == FACE_LIB_ADD_OK && nRestoreRet != FACE_LIB_ADD_OK)
+    {
+        // dlog_error("AI_APP: 创建人脸算法实例失败，无法添加名单库成员");
+        // return ERR;
+        nRet = nRestoreRet;
+    }
+    else if (nRestoreRet != FACE_LIB_ADD_OK)
+    {
+        dlog_error("AI_APP: 人脸添加失败且原算法恢复失败, addRet[%d] restoreRet[%d]",
+                   nRet, nRestoreRet);
+    }
+    // nRet = pFaceAlgo->addFaceLibGroup(stFaceLibData);
     return nRet;
 }
 /**

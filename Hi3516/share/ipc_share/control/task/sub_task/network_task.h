@@ -86,6 +86,8 @@ namespace Task
         TaskSubClass(GetWifiStaInfo)
         TaskSubClass(ConnectWifiSta)
         TaskSubClass(DisconnectWifiSta)
+        TaskSubClass(SetConfigWifiIpv4)
+        TaskSubClass(GetConfigWifiIpv4)
 #endif
 
 #if CAP_NETWORK_4G

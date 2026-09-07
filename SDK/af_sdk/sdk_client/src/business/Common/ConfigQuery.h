@@ -64,8 +64,11 @@ public:
                       LPVOID lpInBuffer, INT32 dwInBufferSize, INT32 *pdwBytesReturned);
 
 private:
-    /* 通用模板：获取配置 */
-    template <typename T_CFG>
+    /* 通用模板：获取配置
+     * @tparam T_CFG     配置结构体类型
+     * @tparam WithBody  是否在 GET 请求中携带 JSON body（默认 false）
+     *                   少数命令（如 RTSP）需要 body 传递 Channel/StreamIndex 等参数 */
+    template <typename T_CFG, bool WithBody = false>
     static BOOL GetDevConfig_Impl(LPVOID lpUserID,
                                   INT32 dwChannelID, INT32 dwCommand,
                                   LPVOID lpOutBuffer, INT32 dwOutBufferSize,
@@ -83,7 +86,7 @@ private:
 /*  模板实现（必须在头文件中）                                                  */
 /* ========================================================================== */
 
-template <typename T_CFG>
+template <typename T_CFG, bool WithBody>
 BOOL CConfigQuery::GetDevConfig_Impl(LPVOID lpUserID,
                                            INT32 dwChannelID, INT32 dwCommand,
                                            LPVOID lpOutBuffer, INT32 dwOutBufferSize,
@@ -102,7 +105,15 @@ BOOL CConfigQuery::GetDevConfig_Impl(LPVOID lpUserID,
     }
 
     std::string url = NET_API_URL_DEVICE_GET_DEV_CONFIG(dwChannelID, dwCommand);
-    return CCommandExecutor::instance()->ExecuteGet<T_CFG>(lpUserID, url, lpOutBuffer, pdwBytesReturned) ? TRUE : FALSE;
+
+    /* WithBody: 将输入结构体序列化为 JSON body，供服务端解析请求参数 */
+    std::string body;
+    if (WithBody) {
+        body = SDKConvert::to_string(*static_cast<T_CFG*>(lpOutBuffer));
+    }
+
+    return CCommandExecutor::instance()->ExecuteGet<T_CFG>(
+        lpUserID, url, lpOutBuffer, pdwBytesReturned, body) ? TRUE : FALSE;
 }
 
 template <typename T_CFG>

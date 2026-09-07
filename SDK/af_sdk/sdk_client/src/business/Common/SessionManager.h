@@ -95,7 +95,21 @@ public:
      * @param [in] tryTimes 尝试次数
      */
     void SetGlobalConnectTime(int waitTime, int tryTimes);
-    /* void SetExceptionCallBack(NET_ExceptionCallBack_PF cb, LPVOID pUser); */
+
+    /**
+     * @brief 设置异常回调函数
+     * @param [in] cb 异常回调函数指针
+     * @param [in] pUser 用户自定义数据
+     */
+    void SetExceptionCallBack(NET_ExceptionCallBack_PF cb, LPVOID pUser);
+
+    /**
+     * @brief 触发异常回调
+     * @param [in] pHandle 用户登录句柄
+     * @param [in] dwType 异常类型
+     * @param [in] lpExpHandle 异常相关句柄
+     */
+    void FireExceptionCallback(LPUSER_HANDLE pHandle, INT32 dwType, LPVOID lpExpHandle = nullptr);
 
 private:
     /**
@@ -132,6 +146,11 @@ private:
     int m_nReceiveTimeout = 60;     /* 默认接收超时 60s */
     int m_nHeartbeatInterval = 5;          /* 默认保活间隔 5s */
     int m_nMaxRetry = 3;            /* 默认重试次数 3次 */
+
+    /* 异常回调 */
+    std::mutex m_stExceptionCbMutex;
+    NET_ExceptionCallBack_PF m_cbException = nullptr;
+    LPVOID m_pExceptionUser = nullptr;
 };
 
 

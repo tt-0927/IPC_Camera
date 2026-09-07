@@ -100,6 +100,12 @@ void CServerSession::UpdateLastActive()
     std::lock_guard<std::mutex> lock(m_stMutex);
     m_stLastActive = std::chrono::steady_clock::now();
 }
+
+std::chrono::steady_clock::time_point CServerSession::GetLastActive() const
+{
+    std::lock_guard<std::mutex> lock(m_stMutex);
+    return m_stLastActive;
+}
 /**
  * @author tianl (tianl@kfb.cn)
  * @brief 查询或校验 IsTimeout 对应的数据。
@@ -134,6 +140,7 @@ bool CServerSession::IsZombie(int timeoutSec) const
     auto duration = std::chrono::duration_cast<std::chrono::seconds>(now - m_stLastActive).count();
     return duration > timeoutSec;
 }
+
 /**
  * @author tianl (tianl@kfb.cn)
  * @brief 在持有会话锁时移除队首消息并更新队列字节计数。
@@ -141,7 +148,6 @@ bool CServerSession::IsZombie(int timeoutSec) const
  * @param [in,out] droppedBytes 本次丢弃消息字节数。
  * @return 无返回值。
  */
-
 void CServerSession::RemoveFrontMessageLocked(size_t& droppedCount, size_t& droppedBytes)
 {
     if (m_stMessageQueue.empty())
@@ -240,62 +246,22 @@ bool CServerSession::EnqueueMessage(std::shared_ptr<const AlarmData_S> data)
     }
     return enqueued;
 }
+
 /**
  * @author tianl (tianl@kfb.cn)
  * @brief 执行 DequeueMessage 定义的内部处理。
  * @param [out] outMsg 函数处理参数。
  * @return 返回该处理的状态或结果。
  */
-
 bool CServerSession::DequeueMessage(std::shared_ptr<const AlarmData_S>& outMsg)
 {
-    size_t droppedCount = 0;
-    size_t droppedBytes = 0;
-    size_t queuedCount = 0;
-    size_t queuedBytes = 0;
-    uint64_t totalDroppedCount = 0;
-    uint64_t totalDroppedBytes = 0;
-    std::string clientIp;
-    bool dequeued = false;
-
-    {
-        std::lock_guard<std::mutex> lock(m_stMutex);
-        const auto now = std::chrono::steady_clock::now();
-        while (!m_stMessageQueue.empty() &&
-               std::chrono::duration_cast<std::chrono::seconds>(
-                   now - m_stMessageQueue.front()->enqueueTime).count() >= kMaxQueuedAlarmAgeSeconds)
-        {
-            RemoveFrontMessageLocked(droppedCount, droppedBytes);
-        }
-
-        m_uDroppedMessageCount += droppedCount;
-        m_uDroppedMessageBytes += droppedBytes;
-        if (!m_stMessageQueue.empty())
-        {
-            outMsg = std::move(m_stMessageQueue.front()); /* 仅移动共享指针，无数据拷贝 */
-            const size_t payloadSize = outMsg ? outMsg->GetPayloadSize() : 0U;
-            m_uQueuedMessageBytes = payloadSize > m_uQueuedMessageBytes
-                ? 0U : m_uQueuedMessageBytes - payloadSize;
-            m_stMessageQueue.pop();
-            dequeued = true;
-        }
-
-        queuedCount = m_stMessageQueue.size();
-        queuedBytes = m_uQueuedMessageBytes;
-        totalDroppedCount = m_uDroppedMessageCount;
-        totalDroppedBytes = m_uDroppedMessageBytes;
-        clientIp = m_strClientIp;
+    std::lock_guard<std::mutex> lock(m_stMutex);
+    if (m_stMessageQueue.empty()) {
+        return false;
     }
-
-    if (droppedCount > 0)
-    {
-        NETSDK_LOG_MESSAGE_WARN(
-            "告警队列发生丢弃: session=%s, client=%s, 本次丢弃=%zu条/%zu字节, 累计丢弃=%llu条/%llu字节, 当前队列=%zu条/%zu字节, 原因=消息超过5秒有效期",
-            m_strSessionId.c_str(), clientIp.c_str(), droppedCount, droppedBytes,
-            static_cast<unsigned long long>(totalDroppedCount),
-            static_cast<unsigned long long>(totalDroppedBytes), queuedCount, queuedBytes);
-    }
-    return dequeued;
+    outMsg = std::move(m_stMessageQueue.front()); /* 仅移动共享指针，无数据拷贝 */
+    m_stMessageQueue.pop();
+    return true;
 }
 /**
  * @author tianl (tianl@kfb.cn)

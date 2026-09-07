@@ -50,7 +50,7 @@ public:
      * @brief 接受媒体数据
      * @param pData 数据结构体
      */
-    virtual void recvDataProcess(const void *pData, int nLen, int nH, int nW) = 0;
+    virtual void recvDataProcess(const void *pData, int nLen, int nH, int nW, uint64_t u64PTS = 0) = 0;
     virtual void recvDataProcess(const Video_NS::VideoFrame_S *pFrame, int nH, int nW) = 0;
 
     /**

@@ -2742,6 +2742,62 @@ void ToPetRecognition(const NET_PetRecognitionInfo_S &src, Alarm::PetRecognition
 }
 
 #ifdef SCENE_INTELLIGENCE
+static void FillCapturePolygonPoints(const Alarm::Region_S &src, NET_CapturePolygon_S &dst)
+{
+    std::memset(&dst, 0, sizeof(dst));
+    dst.uPointCount = static_cast<UINT32>(std::min<size_t>(src.aPoint.size(), NET_CAPTURE_REGION_POINT_MAX_NUM));
+    for (UINT32 p = 0; p < dst.uPointCount; ++p)
+    {
+        dst.afPointX[p] = src.aPoint[p].fX;
+        dst.afPointY[p] = src.aPoint[p].fY;
+    }
+}
+
+void FillFaceCapturePushInfo(const Alarm::FaceAlarmInfo_S& stSource, NET_FaceCapturePushInfo_S& stDestination)
+{
+    std::memset(&stDestination, 0, sizeof(stDestination));
+    stDestination.bMale = stSource.stFaceAlarmAttribute.bIsMale ? TRUE : FALSE;
+    stDestination.nAgeLabel = (INT32)stSource.stFaceAlarmAttribute.nAgeLabel;
+    stDestination.bGlasses = stSource.stFaceAlarmAttribute.bIsGlasses ? TRUE : FALSE;
+    stDestination.bBeard = stSource.stFaceAlarmAttribute.bIsBeard ? TRUE : FALSE;
+    stDestination.bMask = stSource.stFaceAlarmAttribute.bIsMask ? TRUE : FALSE;
+    stDestination.nEmotionLabel = (INT32)stSource.stFaceAlarmAttribute.nEmotionLabel;
+    FillCapturePolygonPoints(stSource.stFaceRegion, stDestination.stFaceRegion);
+    std::strncpy(stDestination.strTimestamp, stSource.strTimeStamp.c_str(), sizeof(stDestination.strTimestamp) - 1);
+}
+
+void FillPersonCapturePushInfo(const Alarm::PersonAlarmInfo_S& stSource, NET_PersonCapturePushInfo_S& stDestination)
+{
+    std::memset(&stDestination, 0, sizeof(stDestination));
+    stDestination.bMale = stSource.stPersonAlarmAttribute.bIsMale ? TRUE : FALSE;
+    stDestination.nAgeLabel = (INT32)stSource.stPersonAlarmAttribute.nAgeLabel;
+    stDestination.bBag = stSource.stPersonAlarmAttribute.bBag ? TRUE : FALSE;
+    stDestination.nTopColorLabel = (INT32)stSource.stPersonAlarmAttribute.eTopColorLabel;
+    stDestination.nBottomColorLabel = (INT32)stSource.stPersonAlarmAttribute.eBottomColorLabel;
+    std::strncpy(stDestination.strTimestamp, stSource.strTimeStamp.c_str(), sizeof(stDestination.strTimestamp) - 1);
+}
+
+void FillMotorvehicleCapturePushInfo(const Alarm::MotorvehicleAlarmInfo_S& stSource, NET_MotorvehicleCapturePushInfo_S& stDestination)
+{
+    std::memset(&stDestination, 0, sizeof(stDestination));
+    std::strncpy(stDestination.strVehicleBrand, stSource.stMotorvehicleAlarmAttribute.strVehicleBrand.c_str(), sizeof(stDestination.strVehicleBrand) - 1);
+    stDestination.nVehicleType = (INT32)stSource.stMotorvehicleAlarmAttribute.eVehicleType;
+    stDestination.nVehicleColor = (INT32)stSource.stMotorvehicleAlarmAttribute.eVehicleColor;
+    std::strncpy(stDestination.strLicensePlateNumber, stSource.strLicensePlateNumber.c_str(), sizeof(stDestination.strLicensePlateNumber) - 1);
+    std::strncpy(stDestination.strTimestamp, stSource.strTimeStamp.c_str(), sizeof(stDestination.strTimestamp) - 1);
+}
+
+void FillNonMotorvehicleCapturePushInfo(const Alarm::NonMotorvehicleAlarmInfo_S& stSource, NET_NonMotorvehicleCapturePushInfo_S& stDestination)
+{
+    std::memset(&stDestination, 0, sizeof(stDestination));
+    stDestination.nVehicleType = (INT32)stSource.stNonMotorvehicleAlarmAttribute.eNonMotorizedVehicleType;
+    stDestination.nVehicleColor = (INT32)stSource.stNonMotorvehicleAlarmAttribute.eNonMotorizedVehicleColor;
+    std::strncpy(stDestination.strTimestamp, stSource.strTimeStamp.c_str(), sizeof(stDestination.strTimestamp) - 1);
+}
+#endif
+
+
+#ifdef SCENE_INTELLIGENCE
 void FillClimbFenceInfo(const Alarm::FenceClimbingDetection_S &src, NET_ClimbFenceInfo_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));
@@ -2750,7 +2806,7 @@ void FillClimbFenceInfo(const Alarm::FenceClimbingDetection_S &src, NET_ClimbFen
     for (size_t i = 0; i < src.aRule.size() && i < 4; ++i)
     {
         const auto &r = src.aRule[i];
-        NET_SmartRegionRule_S &out = dst.astRule[i];
+        NET_SmartRegionRule_S &out = dst.stRule[i];
         std::memset(&out, 0, sizeof(out));
         out.bEnable = TRUE;
         FillPolygonPoints(r.stRegion, out.uPointCount, out.afPointX, out.afPointY);
@@ -2769,7 +2825,7 @@ void ToClimbFence(const NET_ClimbFenceInfo_S &src, Alarm::FenceClimbingDetection
     dst.aRule.clear();
     for (int i = 0; i < src.uRuleCount && i < 4; ++i)
     {
-        const NET_SmartRegionRule_S &r = src.astRule[i];
+        const NET_SmartRegionRule_S &r = src.stRule[i];
         Alarm::FenceClimbingRule_S out;
         ToRegionFromPolygon(r.uPointCount, r.afPointX, r.afPointY, out.stRegion);
         out.nSensitivity = (unsigned int)r.nSensitivity;
@@ -2789,7 +2845,7 @@ void FillDimissionInfo(const Alarm::LeavePostDetection_S &src, NET_DimissionInfo
     for (size_t i = 0; i < src.aRule.size() && i < 4; ++i)
     {
         const auto &r = src.aRule[i];
-        NET_SmartRegionRule_S &out = dst.astRule[i];
+        NET_SmartRegionRule_S &out = dst.stRule[i];
         std::memset(&out, 0, sizeof(out));
         out.bEnable = TRUE;
         FillPolygonPoints(r.stRegion, out.uPointCount, out.afPointX, out.afPointY);
@@ -2808,7 +2864,7 @@ void ToDimission(const NET_DimissionInfo_S &src, Alarm::LeavePostDetection_S &ds
     dst.aRule.clear();
     for (int i = 0; i < src.uRuleCount && i < 4; ++i)
     {
-        const NET_SmartRegionRule_S &r = src.astRule[i];
+        const NET_SmartRegionRule_S &r = src.stRule[i];
         Alarm::LeavePostRule_S out;
         ToRegionFromPolygon(r.uPointCount, r.afPointX, r.afPointY, out.stRegion);
         out.nSensitivity = (unsigned int)r.nSensitivity;
@@ -2828,7 +2884,7 @@ void FillIllegalLaneInfo(const Alarm::IllegalLaneChangeDetection_S &src, NET_Ill
     for (size_t i = 0; i < src.aRule.size() && i < 4; ++i)
     {
         const auto &r = src.aRule[i];
-        NET_SmartLineRule_S &out = dst.astRule[i];
+        NET_SmartLineRule_S &out = dst.stRule[i];
         std::memset(&out, 0, sizeof(out));
         out.bEnable = TRUE;
         out.fStartPosX = r.stStartPos.fX;
@@ -2849,7 +2905,7 @@ void ToIllegalLane(const NET_IllegalLaneInfo_S &src, Alarm::IllegalLaneChangeDet
     dst.aRule.clear();
     for (int i = 0; i < src.uRuleCount && i < 4; ++i)
     {
-        const NET_SmartLineRule_S &r = src.astRule[i];
+        const NET_SmartLineRule_S &r = src.stRule[i];
         Alarm::IllegalLaneChangeRule_S out;
         out.stStartPos = {r.fStartPosX, r.fStartPosY};
         out.stEndPos = {r.fEndPosX, r.fEndPosY};
@@ -2869,7 +2925,7 @@ void FillRetrogradeInfo(const Alarm::DrivingAgainstTrafficDetection_S &src, NET_
     for (size_t i = 0; i < src.aRule.size() && i < 4; ++i)
     {
         const auto &r = src.aRule[i];
-        NET_SmartLineRule_S &out = dst.astRule[i];
+        NET_SmartLineRule_S &out = dst.stRule[i];
         std::memset(&out, 0, sizeof(out));
         out.bEnable = TRUE;
         out.fStartPosX = r.stStartPos.fX;
@@ -2890,7 +2946,7 @@ void ToRetrograde(const NET_RetrogradeInfo_S &src, Alarm::DrivingAgainstTrafficD
     dst.aRule.clear();
     for (int i = 0; i < src.uRuleCount && i < 4; ++i)
     {
-        const NET_SmartLineRule_S &r = src.astRule[i];
+        const NET_SmartLineRule_S &r = src.stRule[i];
         Alarm::DrivingAgainstTrafficRule_S out;
         out.stStartPos = {r.fStartPosX, r.fStartPosY};
         out.stEndPos = {r.fEndPosX, r.fEndPosY};
@@ -2910,7 +2966,7 @@ void FillNonmotorVehicleIntrusionInfo(const Alarm::NonMotorVehicleIntrusionDetec
     for (size_t i = 0; i < src.aRule.size() && i < 4; ++i)
     {
         const auto &r = src.aRule[i];
-        NET_SmartRegionRule_S &out = dst.astRule[i];
+        NET_SmartRegionRule_S &out = dst.stRule[i];
         std::memset(&out, 0, sizeof(out));
         out.bEnable = TRUE;
         FillPolygonPoints(r.stRegion, out.uPointCount, out.afPointX, out.afPointY);
@@ -2929,7 +2985,7 @@ void ToNonmotorVehicleIntrusion(const NET_NonmotorVehicleIntrusionInfo_S &src, A
     dst.aRule.clear();
     for (int i = 0; i < src.uRuleCount && i < 4; ++i)
     {
-        const NET_SmartRegionRule_S &r = src.astRule[i];
+        const NET_SmartRegionRule_S &r = src.stRule[i];
         Alarm::NonMotorVehicleIntrusionRule_S out;
         ToRegionFromPolygon(r.uPointCount, r.afPointX, r.afPointY, out.stRegion);
         out.nSensitivity = (unsigned int)r.nSensitivity;
@@ -2949,7 +3005,7 @@ void FillOccupationEmergencyInfo(const Alarm::EmergencyLaneOccupancyDetection_S 
     for (size_t i = 0; i < src.aRule.size() && i < 4; ++i)
     {
         const auto &r = src.aRule[i];
-        NET_SmartRegionRule_S &out = dst.astRule[i];
+        NET_SmartRegionRule_S &out = dst.stRule[i];
         std::memset(&out, 0, sizeof(out));
         out.bEnable = TRUE;
         FillPolygonPoints(r.stRegion, out.uPointCount, out.afPointX, out.afPointY);
@@ -2968,7 +3024,7 @@ void ToOccupationEmergency(const NET_OccupationEmergencyInfo_S &src, Alarm::Emer
     dst.aRule.clear();
     for (int i = 0; i < src.uRuleCount && i < 4; ++i)
     {
-        const NET_SmartRegionRule_S &r = src.astRule[i];
+        const NET_SmartRegionRule_S &r = src.stRule[i];
         Alarm::EmergencyLaneOccupancyRule_S out;
         ToRegionFromPolygon(r.uPointCount, r.afPointX, r.afPointY, out.stRegion);
         out.nSensitivity = (unsigned int)r.nSensitivity;
@@ -2988,7 +3044,7 @@ void FillPedestrianIntrusionInfo(const Alarm::PedestrianIntrusionDetection_S &sr
     for (size_t i = 0; i < src.aRule.size() && i < 4; ++i)
     {
         const auto &r = src.aRule[i];
-        NET_SmartRegionRule_S &out = dst.astRule[i];
+        NET_SmartRegionRule_S &out = dst.stRule[i];
         std::memset(&out, 0, sizeof(out));
         out.bEnable = TRUE;
         FillPolygonPoints(r.stRegion, out.uPointCount, out.afPointX, out.afPointY);
@@ -3007,7 +3063,7 @@ void ToPedestrianIntrusion(const NET_PedestrianIntrusionInfo_S &src, Alarm::Pede
     dst.aRule.clear();
     for (int i = 0; i < src.uRuleCount && i < 4; ++i)
     {
-        const NET_SmartRegionRule_S &r = src.astRule[i];
+        const NET_SmartRegionRule_S &r = src.stRule[i];
         Alarm::PedestrianIntrusionRule_S out;
         ToRegionFromPolygon(r.uPointCount, r.afPointX, r.afPointY, out.stRegion);
         out.nSensitivity = (unsigned int)r.nSensitivity;

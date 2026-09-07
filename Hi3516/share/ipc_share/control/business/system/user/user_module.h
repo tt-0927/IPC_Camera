@@ -208,7 +208,19 @@ const char *auxContainsWeakPasswordWordsToStr(const char *password);
         IpcRet_E::PASS_ERR_USER_INFO            =  - 53,   密码出现用户信息强关联 
         IpcRet_E::PASS_ERR_WEAK_WORD            =  - 54,   密码出现弱口令 
         IpcRet_E::PASS_ERR_STRENGTH_LOW         =  - 55,   密码强度较弱 
+        IpcRet_E::PASS_ERR_SPECIAL_CHAR         =  - 61,   密码包含不允许的特殊字符（如 #）
 */
 int check_password(const char *password,const char *username,const char *phone);
+
+/*
+*@description 检查password是否包含不允许的特殊字符（如 #，会导致 RTSP 等 URL 解析异常）
+*            该校验不受密码安全级别开关影响，设置/修改密码时必须无条件生效
+*@param  [const char *] password  ：检测的密码
+*@return [int]
+        IpcRet_E::OK                  : 允许
+        IpcRet_E::ERR_PARAM           = -2,  参数错误
+        IpcRet_E::PASS_ERR_SPECIAL_CHAR = -61, 密码包含不允许的特殊字符（如 #）
+*/
+int check_password_special(const char *password);
 
 #endif

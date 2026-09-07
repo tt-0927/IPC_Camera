@@ -21,9 +21,28 @@
 #include "face_capture_processor.hpp"
 #include "./face_detect_worker/face_detect_worker.hpp"
 
-#define  ERR_DETECT_NO_FACES -1   //未检测到人脸
-#define  ERR_DETECT_MULTIPLE_FACES -2   //检测到多张人脸
-#define  ERR_ADD_DUPLICATE_FACE    -3   //重复人脸
+
+enum FaceLibAddErrorCode
+{
+    FACE_LIB_ADD_OK                    = 0,
+    ERR_DETECT_NO_FACES                = -4,  // 未检测到人脸
+    ERR_DETECT_MULTIPLE_FACES          = -2,  // 检测到多张人脸
+    ERR_ADD_DUPLICATE_FACE             = -3,  // 重复人脸
+    ERR_FACE_FEATURE_INIT_FAILED       = -5,  // 特征处理器初始化失败
+    ERR_FACE_SOURCE_FRAME_ALLOC_FAILED = -6,  // 原图视频帧分配失败（通常为内存不足）
+    ERR_FACE_NV21_OPEN_FAILED          = -7,  // NV21 文件打开失败
+    ERR_FACE_NV21_SIZE_MISMATCH        = -8,  // NV21 文件大小与宽高不匹配
+    ERR_FACE_RESIZE_FRAME_ALLOC_FAILED = -9,  // 640x640 检测帧分配失败
+    ERR_FACE_RESIZE_FAILED             = -10, // 图片缩放失败
+    ERR_FACE_DETECT_TASK_FAILED        = -11, // YOLO 检测任务执行失败
+    ERR_FACE_DETECT_TIMEOUT            = -12, // YOLO 检测任务超时
+    ERR_FACE_FEATURE_EXTRACT_FAILED    = -13, // ArcFace 特征提取失败
+    ERR_FACE_DATABASE_WRITE_FAILED     = -14, // 名单库数据库写入失败
+    ERR_FACE_MODEL_START_FAILED        = -15, // YOLO/ArcFace 工作线程或模型启动失败
+    ERR_FACE_ALGO_CREATE_FAILED        = -16, // 人脸算法实例不可用
+    ERR_AI_SUSPEND_FAILED              = -17, // 暂停其他算法失败
+    ERR_AI_RESTORE_FAILED              = -18  // 人脸入库后恢复原算法失败
+};
 namespace FaceDetectInternal
 {
 class CFaceCaptureProcessor;

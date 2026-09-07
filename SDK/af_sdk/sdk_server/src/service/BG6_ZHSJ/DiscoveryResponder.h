@@ -107,8 +107,8 @@ private:
     std::string m_strInterfaceName;
     uint32_t m_uLocalIp{0};
 
-    socket_fd_t m_nUdpSocket{INVALID_SOCKET_FD}; /* UDP 回包套接字 */
-    socket_fd_t m_nIgmpSocket{INVALID_SOCKET_FD}; /* IGMP 组播加入套接字，触发交换机 IGMP Snooping 转发 */
+    int m_nUdpSocket{-1};   /* UDP 回包套接字 */
+    int m_nIgmpSocket{-1};   /* IGMP 组播加入套接字，触发交换机 IGMP Snooping 转发 */
 
     DiscoveryDeviceInfoCallback m_fnDeviceInfoCallback;
     DiscoverySetNetworkCallback m_fnSetNetworkCallback;

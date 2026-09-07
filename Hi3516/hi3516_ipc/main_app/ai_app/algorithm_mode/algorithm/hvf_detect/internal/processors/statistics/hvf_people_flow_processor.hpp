@@ -20,6 +20,7 @@
 namespace HVFDetectInternal
 {
 #if CAP_AI_PEOPLE_STATISTICS
+
 class CHVFPeopleFlowProcessor
 {
 public:
@@ -94,9 +95,7 @@ private:
      * @return   {bool} true：构建成功 false：构建失败
      * @note    : 以较长边为基准扩大 1.5 倍，以中心点裁剪正方形
      */
-    bool buildTargetImage(const Common::RectInfo_S &stRectInfo,
-                          ot_video_frame_info *pFrameInfo,
-                          std::vector<unsigned char> &vecJpeg);
+    bool buildTargetImage(const Common::RectInfo_S &stRectInfo, ot_video_frame_info *pFrameInfo, std::vector<unsigned char> &vecJpeg);
 
     /* 人流统计配置 */
     Alarm::PeopleFlowStatistics_S m_stAlgoCfg;

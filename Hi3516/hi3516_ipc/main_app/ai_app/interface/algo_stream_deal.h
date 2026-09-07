@@ -18,7 +18,7 @@
 #include "action_code.h"
 #include "common_define.h"
 #include "stream_handler.hpp"
-
+#include <mutex>
 #include "algorithm.hpp"
 #include "audio_detect.hpp"
 #include "people_head_detect.hpp"
@@ -207,7 +207,20 @@ private:
      * @param creator 算法创建函数
      */
     bool manageSingleAlgorithm(std::shared_ptr<CAlgorithm> &algoMap, bool bEnabled, std::function<std::shared_ptr<CAlgorithm>()> creator);
+    /**
+     * @brief 将配置应用到实际运行的算法实例，不修改用户期望配置
+     */
+     void applyAlgorithmConfig(Event::AlgorithmConfig &stAlgoConfig);
 
+     /**
+      * @brief 为名单库入库临时独占AI资源并暂停其他算法
+      */
+     int beginFaceLibExclusive();
+ 
+     /**
+      * @brief 结束名单库资源独占，恢复最新的用户期望配置
+      */
+     int endFaceLibExclusive();
     /**
      * @brief   : 初始化事件统计上报器
      * @return   {void}
@@ -253,6 +266,18 @@ private:
     std::shared_ptr<CAlgorithm> m_pPetAlgo;
     /* 人脸侦测算法句柄 人脸抓拍*/
     std::shared_ptr<CAlgorithm> m_pFaceAlgo;
+    /* 保护算法配置更新与名单库入库对 m_pFaceAlgo 的并发访问。 */
+    std::mutex m_faceAlgoMutex;
+    /* 低内存设备一次只允许执行一个名单库入库任务。 */
+    std::mutex m_faceLibAddMutex;
+
+    /* 串行化算法配置应用与名单库资源切换。 */
+    std::mutex m_algorithmApplyMutex;
+    /* 用户/平台最后一次下发的期望配置，临时资源切换不会改写它。 */
+    Event::AlgorithmConfig m_stDesiredAlgoConfig{};
+    bool m_bDesiredAlgoConfigValid = false;
+    /* true时配置更新只记录期望状态，不立即加载算法。 */
+    bool m_bFaceLibExclusive = false;
 #if CAP_AI_GARBAGE_DETECT
     /* 垃圾检测算法句柄 垃圾暴露、垃圾满溢*/
     std::shared_ptr<CAlgorithm> m_pGarbageAlgo;

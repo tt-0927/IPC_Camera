@@ -133,4 +133,8 @@ private:
     /* 算法默认分辨率 */
     int m_nWidth = PIXEL_WIDTH_1024;
     int m_nHeight = PIXEL_HEIGHT_576;
+    /* 源视频分辨率与算法分辨率不一致时使用的缩放帧 */
+    ot_video_frame_info m_stScaleFrameInfo;
+    /* 缩放帧是否已创建 */
+    bool m_bScaleFrameCreated = false;
 };

@@ -77,7 +77,7 @@ namespace SDKConvert
      * @return 无。
      */
     void deal(Json::Object* pRootJson, NET_AudioAnomalyCurrentDb_S& stInfo, bool bOutStruct);
-    void deal(Json::Object* pRootJson, NET_SceneChangeAlarmInfo_S& stInfo, bool bOutStruct);
+   void deal(Json::Object* pRootJson, NET_SceneChangeAlarmInfo_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_CrowdGatheringRule_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_CrowdGatheringAlarmInfo_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_ParkingRule_S& stInfo, bool bOutStruct);

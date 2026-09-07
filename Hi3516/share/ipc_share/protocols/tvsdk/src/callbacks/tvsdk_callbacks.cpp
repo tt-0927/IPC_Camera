@@ -271,25 +271,67 @@ static bool is_valid_capture_config(const NET_CaptureConfig_S &stConfig)
            stConfig.unNumber >= 1 && stConfig.unNumber <= 120;
 }
 
-/* 校验越界和入侵规则数量及检测目标数量，保证 SDK 与 IPC 使用同一上限。 */
-/*
- * 判断越界检测规则是否为空规则。
- * 禁用规则直接视为空规则；启用规则只有在坐标、灵敏度和检测目标数量均为零时，
- * 才视为 NVR 为补齐固定规则数组而携带的未配置项。字段部分填写但不完整的规则
- * 不属于空规则，后续仍由严格参数校验返回错误。
- */
-static bool is_empty_cross_line_rule(const NET_BoundaryPlane_S &stRule)
-{
-    if (stRule.bEnable == FALSE)
-    {
-        return true;
-    }
+static constexpr FLOAT TVSDK_RULE_COORDINATE_MAX = 8192.0F;
 
-    return stRule.fStartPosX == 0.0F && stRule.fStartPosY == 0.0F &&
-           stRule.fEndPosX == 0.0F && stRule.fEndPosY == 0.0F &&
-           stRule.nSensitivity == 0 && stRule.uDetectionTargetCount == 0;
+/* 判断规则是否为 NVR 固定规则数组中的空槽位。 */
+static bool is_empty_region_rule(const NET_BoundaryPlane_S &stRule)
+{
+    return stRule.bEnable == FALSE ||
+           (stRule.fStartPosX == 0.0F && stRule.fStartPosY == 0.0F &&
+            stRule.fEndPosX == 0.0F && stRule.fEndPosY == 0.0F &&
+            stRule.nSensitivity == 0);
 }
 
+static bool is_empty_region_rule(const NET_IntrusionRule_S &stRule)
+{
+    return stRule.bEnable == FALSE ||
+           (stRule.uPointCount == 0 && stRule.nSensitivity == 0);
+}
+
+static bool is_empty_region_rule(const NET_LoiteringRule_S &stRule)
+{
+    return stRule.bEnable == FALSE ||
+           (stRule.uPointCount == 0 && stRule.nSensitivity == 0);
+}
+
+static bool is_empty_region_rule(const NET_CrowdGatheringRule_S &stRule)
+{
+    return stRule.bEnable == FALSE ||
+           (stRule.uPointCount == 0 && stRule.nObjectOccup == 0);
+}
+
+template <typename TRule, typename TIsEmpty>
+static bool compact_region_rules(INT32 &nRuleCount, TRule *pRules, INT32 nMaxRuleCount,
+                                 TIsEmpty isEmpty)
+{
+    if (pRules == nullptr || nRuleCount < 0 || nRuleCount > nMaxRuleCount)
+    {
+        return false;
+    }
+
+    INT32 nEffectiveRuleCount = 0;
+    for (INT32 nRuleIndex = 0; nRuleIndex < nRuleCount; ++nRuleIndex)
+    {
+        if (isEmpty(pRules[nRuleIndex]))
+        {
+            continue;
+        }
+        if (nEffectiveRuleCount != nRuleIndex)
+        {
+            pRules[nEffectiveRuleCount] = pRules[nRuleIndex];
+        }
+        ++nEffectiveRuleCount;
+    }
+
+    for (INT32 nRuleIndex = nEffectiveRuleCount; nRuleIndex < nMaxRuleCount; ++nRuleIndex)
+    {
+        std::memset(&pRules[nRuleIndex], 0, sizeof(TRule));
+    }
+    nRuleCount = nEffectiveRuleCount;
+    return true;
+}
+
+/* 校验越界和入侵规则数量、坐标及检测目标范围。 */
 static bool is_valid_region_alarm_rule_count(const NET_CrossLineAlarmInfo_S &stConfig)
 {
     if (stConfig.uRuleCount < 0 || stConfig.uRuleCount > 4)
@@ -301,10 +343,10 @@ static bool is_valid_region_alarm_rule_count(const NET_CrossLineAlarmInfo_S &stC
         const NET_BoundaryPlane_S &stRule = stConfig.stRule[nIndex];
         if (!std::isfinite(stRule.fStartPosX) || !std::isfinite(stRule.fStartPosY) ||
             !std::isfinite(stRule.fEndPosX) || !std::isfinite(stRule.fEndPosY) ||
-            stRule.fStartPosX < 0.0F || stRule.fStartPosX > 1.0F ||
-            stRule.fStartPosY < 0.0F || stRule.fStartPosY > 1.0F ||
-            stRule.fEndPosX < 0.0F || stRule.fEndPosX > 1.0F ||
-            stRule.fEndPosY < 0.0F || stRule.fEndPosY > 1.0F ||
+            stRule.fStartPosX < 0.0F || stRule.fStartPosX > TVSDK_RULE_COORDINATE_MAX ||
+            stRule.fStartPosY < 0.0F || stRule.fStartPosY > TVSDK_RULE_COORDINATE_MAX ||
+            stRule.fEndPosX < 0.0F || stRule.fEndPosX > TVSDK_RULE_COORDINATE_MAX ||
+            stRule.fEndPosY < 0.0F || stRule.fEndPosY > TVSDK_RULE_COORDINATE_MAX ||
             stRule.enCrossDirection < 0 || stRule.enCrossDirection > 2 ||
             stRule.uDetectionTargetCount < 0 ||
             stRule.uDetectionTargetCount > 8 ||
@@ -344,8 +386,8 @@ static bool is_valid_region_alarm_rule_count(const NET_IntrusionAlarmInfo_S &stC
         {
             if (!std::isfinite(stRule.afPointX[nPointIndex]) ||
                 !std::isfinite(stRule.afPointY[nPointIndex]) ||
-                stRule.afPointX[nPointIndex] < 0.0F || stRule.afPointX[nPointIndex] > 1.0F ||
-                stRule.afPointY[nPointIndex] < 0.0F || stRule.afPointY[nPointIndex] > 1.0F)
+                stRule.afPointX[nPointIndex] < 0.0F || stRule.afPointX[nPointIndex] > TVSDK_RULE_COORDINATE_MAX ||
+                stRule.afPointY[nPointIndex] < 0.0F || stRule.afPointY[nPointIndex] > TVSDK_RULE_COORDINATE_MAX)
             {
                 return false;
             }
@@ -1845,30 +1887,10 @@ static NET_COMMON_ECODE_E cb_set_cross_line_alarm(INT32 dwChannelID, LPVOID lpIn
      * 先过滤这些空规则并压缩数组，避免空规则的灵敏度零值触发参数校验失败。
      */
     NET_CrossLineAlarmInfo_S stNormalized = *pIn;
-    const INT32 nInputRuleCount = pIn->uRuleCount;
-    INT32 nEffectiveRuleCount = 0;
-    if (nInputRuleCount < 0 || nInputRuleCount > 4)
+    if (!compact_region_rules(stNormalized.uRuleCount, stNormalized.stRule, 4,
+                              static_cast<bool (*)(const NET_BoundaryPlane_S &)>(is_empty_region_rule)))
     {
         return NET_E_INVALID_PARAM;
-    }
-
-    for (INT32 nRuleIndex = 0; nRuleIndex < nInputRuleCount; ++nRuleIndex)
-    {
-        const NET_BoundaryPlane_S &stRule = pIn->stRule[nRuleIndex];
-        if (is_empty_cross_line_rule(stRule))
-        {
-            continue;
-        }
-
-        stNormalized.stRule[nEffectiveRuleCount] = stRule;
-        ++nEffectiveRuleCount;
-    }
-    stNormalized.uRuleCount = nEffectiveRuleCount;
-
-    /* 清空压缩后未使用的规则槽位，避免后续转换误读旧数据。 */
-    for (INT32 nRuleIndex = nEffectiveRuleCount; nRuleIndex < 4; ++nRuleIndex)
-    {
-        std::memset(&stNormalized.stRule[nRuleIndex], 0, sizeof(stNormalized.stRule[nRuleIndex]));
     }
 
     if (!is_valid_region_alarm_rule_count(stNormalized))
@@ -1910,13 +1932,18 @@ static NET_COMMON_ECODE_E cb_set_intrusion_alarm(INT32 dwChannelID, LPVOID lpInB
     (void)dwChannelID;
     if (!lpInBuffer)
         return NET_E_INVALID_PARAM;
-    const NET_IntrusionAlarmInfo_S *pIn = (const NET_IntrusionAlarmInfo_S *)lpInBuffer;
-    if (!is_valid_region_alarm_rule_count(*pIn))
+    NET_IntrusionAlarmInfo_S stNormalized = *(const NET_IntrusionAlarmInfo_S *)lpInBuffer;
+    if (!compact_region_rules(stNormalized.uRuleCount, stNormalized.stRule, 4,
+                              static_cast<bool (*)(const NET_IntrusionRule_S &)>(is_empty_region_rule)))
+    {
+        return NET_E_INVALID_PARAM;
+    }
+    if (!is_valid_region_alarm_rule_count(stNormalized))
     {
         return NET_E_INVALID_PARAM;
     }
     Alarm::FieldDetection_S stCfg;
-    TvSdkConvert::ToFieldDetection(*pIn, stCfg);
+    TvSdkConvert::ToFieldDetection(stNormalized, stCfg);
     std::string inJson = Convert::to_string(stCfg);
     Task::Info_S stInfo;
      stInfo.data = wrap_data_json(inJson);
@@ -1952,8 +1979,14 @@ static NET_COMMON_ECODE_E cb_set_loitering_alarm(INT32 dwChannelID, LPVOID lpInB
     if (!lpInBuffer)
         return NET_E_INVALID_PARAM;
     const NET_LoiteringAlarmInfo_S *pIn = (const NET_LoiteringAlarmInfo_S *)lpInBuffer;
+    NET_LoiteringAlarmInfo_S stNormalized = *pIn;
+    if (!compact_region_rules(stNormalized.uRuleCount, stNormalized.stRule, 4,
+                              static_cast<bool (*)(const NET_LoiteringRule_S &)>(is_empty_region_rule)))
+    {
+        return NET_E_INVALID_PARAM;
+    }
     Alarm::LoiteringDetection_S stCfg;
-    TvSdkConvert::ToLoiteringDetection(*pIn, stCfg);
+    TvSdkConvert::ToLoiteringDetection(stNormalized, stCfg);
     std::string inJson = Convert::to_string(stCfg);
     Task::Info_S stInfo;
      stInfo.data = wrap_data_json(inJson);
@@ -2058,9 +2091,14 @@ static NET_COMMON_ECODE_E cb_set_crowd_gathering_alarm(INT32 dwChannelID, LPVOID
     if (!lpInBuffer)
         return NET_E_INVALID_PARAM;
     const NET_CrowdGatheringAlarmInfo_S *pIn = (const NET_CrowdGatheringAlarmInfo_S *)lpInBuffer;
-
+    NET_CrowdGatheringAlarmInfo_S stNormalized = *pIn;
+    if (!compact_region_rules(stNormalized.uRuleCount, stNormalized.astRule, 4,
+                              static_cast<bool (*)(const NET_CrowdGatheringRule_S &)>(is_empty_region_rule)))
+    {
+        return NET_E_INVALID_PARAM;
+    }
     Alarm::CrowdGathering_S stCfg;
-    TvSdkConvert::ToCrowdGathering(*pIn, stCfg);
+    TvSdkConvert::ToCrowdGathering(stNormalized, stCfg);
     std::string inJson = Convert::to_string(stCfg);
     Task::Info_S stInfo;
     stInfo.data = wrap_data_json(inJson);
@@ -4441,8 +4479,14 @@ static NET_COMMON_ECODE_E cb_set_enter_region_alarm(INT32 dwChannelID, LPVOID lp
     if (!lpInBuffer)
         return NET_E_INVALID_PARAM;
     const NET_EnterRegionAlarmInfo_S *pIn = (const NET_EnterRegionAlarmInfo_S *)lpInBuffer;
+    NET_EnterRegionAlarmInfo_S stNormalized = *pIn;
+    if (!compact_region_rules(stNormalized.uRuleCount, stNormalized.stRule, 4,
+                              static_cast<bool (*)(const NET_IntrusionRule_S &)>(is_empty_region_rule)))
+    {
+        return NET_E_INVALID_PARAM;
+    }
     Alarm::EntranceDetection_S stCfg;
-    TvSdkConvert::ToEntranceDetection(*pIn, stCfg);
+    TvSdkConvert::ToEntranceDetection(stNormalized, stCfg);
     std::string inJson = Convert::to_string(stCfg);
     Task::Info_S stInfo;
     stInfo.data = wrap_data_json(inJson);
@@ -4478,8 +4522,14 @@ static NET_COMMON_ECODE_E cb_set_leave_region_alarm(INT32 dwChannelID, LPVOID lp
     if (!lpInBuffer)
         return NET_E_INVALID_PARAM;
     const NET_LeaveRegionAlarmInfo_S *pIn = (const NET_LeaveRegionAlarmInfo_S *)lpInBuffer;
+    NET_LeaveRegionAlarmInfo_S stNormalized = *pIn;
+    if (!compact_region_rules(stNormalized.uRuleCount, stNormalized.stRule, 4,
+                              static_cast<bool (*)(const NET_IntrusionRule_S &)>(is_empty_region_rule)))
+    {
+        return NET_E_INVALID_PARAM;
+    }
     Alarm::ExitingDetection_S stCfg;
-    TvSdkConvert::ToExitingDetection(*pIn, stCfg);
+    TvSdkConvert::ToExitingDetection(stNormalized, stCfg);
     std::string inJson = Convert::to_string(stCfg);
     Task::Info_S stInfo;
     stInfo.data = wrap_data_json(inJson);

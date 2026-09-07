@@ -359,21 +359,27 @@ int CFillLightDriver::apply_flashing_target_locked(const Peripheral_NS::FillLigh
         return nRet;
     }
 
-    if (stTarget.enFlashFrequency == Peripheral_NS::FillLightFlashFrequency_E::STEADY_ON)
+    nRet = turn_on_channel_locked(stTarget.enChannel, stTarget.nOutputLevel);
+    if (nRet != OK)
     {
-        nRet = turn_on_channel_locked(stTarget.enChannel, stTarget.nOutputLevel);
-        if (nRet != OK)
-        {
-            return nRet;
-        }
+        return nRet;
     }
 
     m_stAppliedTarget = stTarget;
     /* 使用steady_clock避免系统校时改变告警闪烁的持续时长。 */
-    m_stFlashDeadline = std::chrono::steady_clock::now() + std::chrono::seconds(stTarget.nFlashTimeSec);
-    m_stNextToggleTime = std::chrono::steady_clock::now();
-    m_bLightOn = stTarget.enFlashFrequency == Peripheral_NS::FillLightFlashFrequency_E::STEADY_ON;
+    const auto stNow = std::chrono::steady_clock::now();
+    m_stFlashDeadline = stNow + std::chrono::seconds(stTarget.nFlashTimeSec);
+    m_stNextToggleTime = stTarget.enFlashFrequency == Peripheral_NS::FillLightFlashFrequency_E::STEADY_ON
+                             ? m_stFlashDeadline
+                             : stNow + get_flash_interval(stTarget.enFlashFrequency);
+    m_bLightOn = true;
     m_bFlashExpired = false;
+    dlog_info("补光闪烁任务已启动, channel:%d, level:%u, time:%ds, frequency:%d, version:%llu",
+              static_cast<int>(stTarget.enChannel),
+              stTarget.nOutputLevel,
+              stTarget.nFlashTimeSec,
+              static_cast<int>(stTarget.enFlashFrequency),
+              static_cast<unsigned long long>(m_u64TargetVersion + 1U));
     return OK;
 }
 
@@ -446,22 +452,31 @@ void CFillLightDriver::flash_worker_loop()
 {
     /* trace: 独立线程只操作已加锁的driver状态，名称用于现场线程诊断。 */
     pthread_setname_np(pthread_self(), "FillLightFlash");
+    dlog_info("补光闪烁线程已启动");
     std::unique_lock<std::mutex> stLock(m_mtxDevice);
+    uint64_t u64LoggedVersion = 0U;
+    unsigned int nLoggedToggleCount = 0U;
     while (m_bRunning)
     {
-        /* 无告警目标时无限等待版本/目标变更，避免轮询占用CPU。 */
+        /* 无告警目标时优先等待通知，并以低频超时兜底，避免通知异常导致任务永久休眠。 */
         if (!m_stAppliedTarget.bFlashing)
         {
-            m_stCv.wait(stLock,
-                        [this]()
-                        {
-                            return !m_bRunning || m_stAppliedTarget.bFlashing;
-                        });
+            m_stCv.wait_for(stLock,
+                            std::chrono::seconds(1),
+                            [this]()
+                            {
+                                return !m_bRunning || m_stAppliedTarget.bFlashing;
+                            });
             continue;
         }
 
         /* 特殊局部变量记录目标版本；所有等待谓词以它判断旧任务是否已失效。 */
         const uint64_t u64Version = m_u64TargetVersion;
+        if (u64LoggedVersion != u64Version)
+        {
+            u64LoggedVersion = u64Version;
+            nLoggedToggleCount = 0U;
+        }
         if (m_bFlashExpired)
         {
             m_stCv.wait(stLock,
@@ -500,12 +515,11 @@ void CFillLightDriver::flash_worker_loop()
                                     : m_stNextToggleTime;
         if (stWakeTime > stNow)
         {
-            m_stCv.wait_until(stLock,
-                              stWakeTime,
-                              [this, u64Version]()
-                              {
-                                  return !m_bRunning || m_u64TargetVersion != u64Version;
-                              });
+            const auto stRemainDuration = std::chrono::duration_cast<std::chrono::milliseconds>(stWakeTime - stNow);
+            const auto stSleepDuration = std::min(stRemainDuration, std::chrono::milliseconds(200));
+            stLock.unlock();
+            std::this_thread::sleep_for(stSleepDuration);
+            stLock.lock();
             continue;
         }
 
@@ -526,10 +540,20 @@ void CFillLightDriver::flash_worker_loop()
         else
         {
             m_bLightOn = !m_bLightOn;
+            if (nLoggedToggleCount < 4U)
+            {
+                ++nLoggedToggleCount;
+                dlog_info("补光闪烁PWM已翻转, channel:%d, enable:%d, count:%u, version:%llu",
+                          static_cast<int>(m_stAppliedTarget.enChannel),
+                          m_bLightOn ? 1 : 0,
+                          nLoggedToggleCount,
+                          static_cast<unsigned long long>(u64Version));
+            }
         }
         /* 无论本轮PWM是否失败都推进节拍，避免错误时形成忙循环。 */
         m_stNextToggleTime = std::chrono::steady_clock::now() + get_flash_interval(m_stAppliedTarget.enFlashFrequency);
     }
+    dlog_info("补光闪烁线程已退出");
 }
 
 std::chrono::milliseconds CFillLightDriver::get_flash_interval(Peripheral_NS::FillLightFlashFrequency_E enFrequency)

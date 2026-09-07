@@ -50,22 +50,37 @@ std::string CNvrBusiness::GetDeviceInfo(const std::string& req_data, const std::
  * @details RTSP为NVR独有配置，走NVR专用回调执行函数（NetTVNvrConfigCb）
  * @param nChannelId 通道号
  * @param nCommand 命令码
+ * @param req_data 请求体 JSON
  * @return JSON格式的响应数据
  */
-std::string CNvrBusiness::HandleGetRtspUrl(INT32 nChannelId, INT32 nCommand)
+std::string CNvrBusiness::HandleGetRtspUrl(INT32 nChannelId, INT32 nCommand, const std::string& req_data)
 {
+    NETSDK_LOG_MESSAGE_ERROR("[DIAG-RTSP] HandleGetRtspUrl: req_data.size=%zu, req_data=%.200s",
+                  req_data.size(), req_data.empty() ? "(empty)" : req_data.c_str());
     NET_RtspUrlInfo_S stCfg;
     memset(&stCfg, 0, sizeof(stCfg));
 
-    NETSDK_LOG_MESSAGE_INFO("GetRtspUrl callback START");
-    int nRespCode = executeGetRtspUrlCb(nChannelId, &stCfg);
+    /* 解析请求体 */
+    if (!req_data.empty())
+    {
+        Json::Object* pRootJson = Json::init(req_data);
+        if (pRootJson)
+        {
+            SDKConvert::deal(pRootJson, stCfg, true);
+            Json::deinit(pRootJson);
+        }
+    }
+
+    /* 通道号以请求 JSON 为准 */
+    NETSDK_LOG_MESSAGE_INFO("GetRtspUrl callback START, ch=%d, stream=%d", stCfg.uChannel, stCfg.uStreamIndex);
+    int nRespCode = executeGetRtspUrlCb(&stCfg);
     if (nRespCode != NET_E_SUCCEED)
     {
         NETSDK_LOG_MESSAGE_WARN("GetRtspUrl callback failed, cmd=%d, ret=%d", nCommand, nRespCode);
     }
     NETSDK_LOG_MESSAGE_INFO("GetRtspUrl callback cmd=%d, ret=%d", nCommand, nRespCode);
     NETSDK_LOG_MESSAGE_INFO("GetRtspUrl callback END");
-    return SDKConvert::to_respString(nRespCode, nCommand, nChannelId, stCfg);
+    return SDKConvert::to_respString(nRespCode, nCommand, stCfg.uChannel, stCfg);
 }
 
 /* ===================== 通道信息（含通道列表） ===================== */

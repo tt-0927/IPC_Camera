@@ -71,13 +71,9 @@ typedef struct _MediaData_
     MediaDataType_E enType;        /* 数据类型 */
     int64_t         nSize;         /* 数据大小 */
     bool            bIFrame;       /* 是否为I帧 */
+    uint64_t        u64PTS;        /* 帧时间戳(us) */
 
     std::shared_ptr<char[]> pData; /* 媒体数据智能指针 */
-
-    /* 全分辨率帧*/
-    std::shared_ptr<char[]> pFullData;
-    int nFullWidth  = 0;
-    int nFullHeight = 0;
 
     // std::string strFileName;       /* 文件名 */
     MediaParam_S stMediaParam;   /* 媒体编码信息 */
@@ -87,11 +83,8 @@ typedef struct _MediaData_
         enType  = VIDEO_DATA;
         nSize   = 0;
         bIFrame = false;
+        u64PTS  = 0;
         
-        pFullData.reset();
-        nFullWidth  = 0;
-        nFullHeight = 0;
-
         // strFileName.clear();
         stMediaParam.clear();
     }

@@ -51,8 +51,9 @@ public:
      * @param    {int} nLength
      * @param    {int} nH
      * @param    {int} nW
+     * @param    {uint64_t} u64PTS 帧时间戳(us)
      */
-    void deal_message(const void* pData, int nLength, int nH, int nW);
+    void deal_message(const void* pData, int nLength, int nH, int nW, uint64_t u64PTS = 0);
     
     /**
      * @brief   :处理stream传过来的音频数据
