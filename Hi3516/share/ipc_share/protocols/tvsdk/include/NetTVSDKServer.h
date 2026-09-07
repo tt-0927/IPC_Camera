@@ -6482,7 +6482,7 @@ typedef NET_COMMON_ECODE_E (*NET_CB_SetDevConfigByCommand)(INT32 dwChannelID, LP
  * @param [OUT] pInfo        RTSP URL 信息结构体指针
  * @return NET_E_SUCCEED 成功, 其他值失败
  */
-typedef NET_COMMON_ECODE_E (*NET_CB_GetRtspUrl)(INT32 dwChannelID, pNET_RtspUrlInfo_S pInfo);
+typedef NET_COMMON_ECODE_E (*NET_CB_GetRtspUrl)(pNET_RtspUrlInfo_S pInfo);
 
 /**
  * @brief 获取回放播放地址回调类型
