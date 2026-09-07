@@ -17,6 +17,44 @@
 #include <cstdio>
 #include <cstdlib>
 
+std::string SDKConvert::check_requiredFields(Json::Object* pRootJson, const std::vector<std::string>& vecKeys)
+{
+    if (!pRootJson)
+    {
+        return "json_body";
+    }
+    for (size_t i = 0; i < vecKeys.size(); ++i)
+    {
+        if (Json::get(pRootJson, vecKeys[i]) == NULL)
+        {
+            return vecKeys[i];
+        }
+    }
+    return "";
+}
+
+std::string SDKConvert::get_recordErrMessage(int nCode)
+{
+    switch (nCode)
+    {
+    case NET_E_ADDRESS_NULL:            return "Live address is empty";
+    case NET_E_ADDRESS_DISABILITY:      return "Live address is disabled";
+    case NET_E_NO_DISK:                 return "No storage device";
+    case NET_E_CMD_OPT:                 return "Operation type not supported";
+    case NET_E_RECORDING:               return "Recording in progress";
+    case NET_E_USER_DISK_NOSPACE:       return "Disk space insufficient";
+    case NET_E_INFO_ANOMALY:            return "Record info invalid";
+    case NET_E_FIRST_PICTURE_NOT_EXIST: return "Opening/closing file does not exist";
+    case NET_E_RECORD_STOPING:          return "Recording is stopping";
+    case NET_E_UNABLE_RECORDING:        return "Unable to record in current mode";
+    case NET_E_RECORD_NOT_EXIST:        return "Record service not connected";
+    case NET_E_STREAM_NOT_EXIST:        return "Stream service not connected";
+    case NET_E_SD_FULL:                 return "SD card full";
+    case NET_E_RESOURCE_RECORDING:      return "Resource is recording";
+    default:                            return "";
+    }
+}
+
 void SDKConvert::deal(Json::Object* pRootJson, NET_RegisterInfo_S& stInfo, bool bOutStruct)
 {
     if (!pRootJson) return;

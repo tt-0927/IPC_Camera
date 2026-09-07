@@ -11,6 +11,7 @@
 
 #include "SjlbDomain.h"
 #include "SDKConvert.h"
+#include "RecordInfoConvert.h"
 #include "Json.h"
 #include "NetSdkLog.h"
 
@@ -37,8 +38,9 @@ CBujlbDomain::CBujlbDomain()
      * ================================================================== */
 
     /* ===== 录制/直播控制 ===== */
-    m_setTable[NET_CONTROL_RECORD]    = &CBujlbDomain::TemplatedSet<NET_RecordControlInfo_S>;
-    m_setTable[NET_CONTROL_LIVE]      = &CBujlbDomain::TemplatedSet<NET_LiveStatusInfo_S>;
+    m_setTable[NET_CONTROL_RECORD]    = &CBujlbDomain::HandleSetRecordControl;
+    m_setTable[NET_CONTROL_LIVE]      = &CBujlbDomain::HandleSetLiveControl;
+
     m_setTable[NET_SET_DIRECTOR_MODE] = &CBujlbDomain::TemplatedSet<NET_DirectorModeInfo_S>;
     m_setTable[NET_CONTROL_CAMERA]    = &CBujlbDomain::TemplatedSet<NET_CameraControlInfo_S>;
     m_setTable[NET_CONTROL_PRESET_BIT] = &CBujlbDomain::TemplatedSet<NET_PresetBitCtrl_S>;
@@ -49,6 +51,119 @@ CBujlbDomain::CBujlbDomain()
     m_setTable[NET_CONTROL_REBOOT]    = &CBujlbDomain::TemplatedSet<NET_RebootInfo_S>;
     m_setTable[NET_SET_OUT_VOLUME]    = &CBujlbDomain::TemplatedSet<NET_OutVolume_S>;
     m_setTable[NET_SET_SSH_SAFE_INFO] = &CBujlbDomain::TemplatedSet<NET_SshSafeInfo_S>;
+}
+
+/* ===================== 录播自定义 Handler（1.可以使用域专用错误码描述 2.可以检查字段的缺少） ===================== */
+
+/**
+ * @brief 录制控制（522）
+ * @details 手动实现（不复用 TemplatedSet），使用 get_recordErrMessage 提供录播专用错误码描述
+ */
+std::string CBujlbDomain::HandleSetRecordControl(INT32 nChannelId, INT32 nCommand,
+                                                  const std::string& req_data,
+                                                  const std::string& url_param)
+{
+    (void)url_param;
+
+    if (req_data.empty())
+    {
+        return SDKConvert::to_respString(NET_E_INVALID_PARAM, nCommand);
+    }
+
+    NET_RecordControlInfo_S stCfg;
+    memset(&stCfg, 0, sizeof(stCfg));
+
+    Json::Object* pRoot = Json::init(req_data);
+    if (!pRoot)
+    {
+        return SDKConvert::to_respString(NET_E_INVALID_PARAM, nCommand);
+    }
+
+    /* 前置校验：必填字段存在性（Status 拼错/缺失直接拒绝） */
+    std::string strMissing = SDKConvert::check_requiredFields(pRoot, {"Status"});
+    if (!strMissing.empty())
+    {
+        NETSDK_LOG_MESSAGE_WARN("SetRecordControl missing field [%s], cmd=%d",
+                                strMissing.c_str(), nCommand);
+        Json::deinit(pRoot);
+        return SDKConvert::to_respString(NET_E_INVALID_PARAM, nCommand);
+    }
+    SDKConvert::deal(pRoot, stCfg, true);
+    Json::deinit(pRoot);
+
+    int nRespCode = executeSetDevConfigCb(nChannelId, nCommand, &stCfg);
+    if (nRespCode != NET_E_SUCCEED)
+    {
+        NETSDK_LOG_MESSAGE_WARN("SetRecordControl callback failed, cmd=%d, ret=%d", nCommand, nRespCode);
+    }
+
+    /* 使用录播专用错误码描述 */
+    std::string strMsg = SDKConvert::get_recordErrMessage(nRespCode);
+    if (!strMsg.empty())
+    {
+        /* 录播业务错误码，内联构建响应JSON */
+        Json::Object *pRoot = Json::init();
+        Json::add(pRoot, NETSDK_JSON_DEVICE_NAME_KEY, g_sdkDeviceName);
+        if (nCommand != 0) Json::add(pRoot, NETSDK_JSON_ACTIONCODE_KEY, nCommand);
+        Json::add(pRoot, NETSDK_JSON_INNER_DATA_KEY, Json::init());
+        Json::add(pRoot, NETSDK_JSON_RETURN_KEY, nRespCode);
+        Json::add(pRoot, NETSDK_JSON_MESSAGE_KEY, strMsg);
+        std::string data = Json::to_string(pRoot);
+        Json::deinit(pRoot);
+        return data;
+    }
+    return SDKConvert::to_respString((NET_COMMON_ECODE_E)nRespCode, nCommand);
+}
+
+/**
+ * @brief 直播控制（524）
+ * @details 手动实现（不复用 TemplatedSet），使用 get_recordErrMessage 提供录播专用错误码描述
+ */
+std::string CBujlbDomain::HandleSetLiveControl(INT32 nChannelId, INT32 nCommand,
+                                                const std::string& req_data,
+                                                const std::string& url_param)
+{
+    (void)url_param;
+
+    if (req_data.empty())
+    {
+        return SDKConvert::to_respString(NET_E_INVALID_PARAM, nCommand);
+    }
+
+    NET_LiveStatusInfo_S stCfg;
+    memset(&stCfg, 0, sizeof(stCfg));
+
+    Json::Object* pRoot = Json::init(req_data);
+    if (!pRoot)
+    {
+        return SDKConvert::to_respString(NET_E_INVALID_PARAM, nCommand);
+    }
+
+    SDKConvert::deal(pRoot, stCfg, true);
+    Json::deinit(pRoot);
+
+    int nRespCode = executeSetDevConfigCb(nChannelId, nCommand, &stCfg);
+    if (nRespCode != NET_E_SUCCEED)
+    {
+        NETSDK_LOG_MESSAGE_WARN("SetLiveControl callback failed, cmd=%d, ret=%d", nCommand, nRespCode);
+    }
+
+    /* 使用录播专用错误码描述 */
+    std::string strMsg = SDKConvert::get_recordErrMessage(nRespCode);
+    if (!strMsg.empty())
+    {
+        /* 录播业务错误码，内联构建响应JSON */
+        Json::Object *pRoot = Json::init();
+        Json::add(pRoot, NETSDK_JSON_DEVICE_NAME_KEY, g_sdkDeviceName);
+        if (nCommand != 0) Json::add(pRoot, NETSDK_JSON_ACTIONCODE_KEY, nCommand);
+        Json::add(pRoot, NETSDK_JSON_INNER_DATA_KEY, Json::init());
+        Json::add(pRoot, NETSDK_JSON_RETURN_KEY, nRespCode);
+        Json::add(pRoot, NETSDK_JSON_MESSAGE_KEY, strMsg);
+        std::string data = Json::to_string(pRoot);
+        Json::deinit(pRoot);
+        return data;
+    }
+    return SDKConvert::to_respString((NET_COMMON_ECODE_E)nRespCode, nCommand);
 }
 
 /**

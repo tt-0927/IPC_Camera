@@ -2,32 +2,26 @@
  * @file face_detect.hpp
  * @author tianl (tianl@kfb.cn)
  * @date 2025-11-19
- * @LastEditors  : qinjt@kfb.cn
- * @LastEditTime : 2026-08-31
- *
- * @brief 人脸检测相关接口及抓拍属性推送声明。
- *
- * @par 修改记录
- * 2026-08-28 qinjt：统一 TVSDK 抓拍属性接口的参数命名和函数注释。
- * 2026-08-31 qinjt：补充本次命名和注释规范适配记录。
+ * 
+ * @brief 人脸检测相关
  */
 
-#pragma once
+ #pragma once
 
-#include <atomic>
-#include <chrono>
-#include <condition_variable>
-#include <mutex>
-#include <thread>
-#include <algorithm>
-#include <sys/time.h>
-#include "common_process.h"
-#include "blocking_queue.hpp"
-#include "stream_video.h"
-#include "stream_vpss.h"
-#include <opencv2/opencv.hpp>
-#include "event_manager.hpp"
-#include "stream_process_ext.hpp"
+ #include <atomic>
+ #include <chrono>
+ #include <condition_variable>
+ #include <mutex>
+ #include <thread>
+ #include <algorithm>
+ #include <sys/time.h>
+ #include "common_process.h"
+ #include "blocking_queue.hpp"
+ #include "stream_video.h"
+ #include "stream_vpss.h"
+ #include <opencv2/opencv.hpp>
+ #include "event_manager.hpp"
+ #include "stream_process_ext.hpp"
 #include "algorithm.hpp"
 #include "task_publish.h"
 #include "event_define.h"
@@ -104,7 +98,7 @@ private:
     bool processFaceCapture(const FaceDetect_NS::Result_S &stResult);
 
     /**
-     * @brief 从 4K 全分辨率帧裁剪人脸特写图 (无 4K 源时回退 1080p 全景图裁剪)
+     * @brief 从特写源高分辨率帧裁剪人脸特写图 (特写源<=1080p或取帧失败时回退 1080p 全景图裁剪)
      * @param detectRect 检测坐标系中未外扩的原始人脸框
      * @param detectCoordinateSize 检测框所属坐标系尺寸
      * @param outBgr 输出特写图 (BGR)
@@ -148,20 +142,14 @@ private:
 
 #ifdef ENABLE_TVSDK_SRC
     /**
-     * @brief 将人脸抓拍图片和属性推送到 TVSDK。
-     * @param [in] stPanoramaBgr 人脸全景 BGR 图像。
-     * @param [in] stFaceRect 已外扩的人脸检测框。
-     * @param [in] stRawFaceRect 未外扩的原始人脸框。
-     * @param [in] stDetectCoordinateSize 人脸框所属检测坐标系尺寸。
-     * @param [in] stFaceAttributeResult 人脸属性识别结果。
-     * @return 无返回值。
+     * @brief 人脸抓拍信息 TVSDK 二进制直推
+     * @param panoramaBgr 人脸全景图（BGR）
+     * @param faceRect 人脸检测框（检测坐标系，已外扩留边）
+     * @param rawFaceRect 未外扩的原始人脸框（检测坐标系）
+     * @param detectCoordinateSize 检测框所属坐标系尺寸
+     * @param stFAResult 人脸属性结果
      */
-    void push_face_capture_info_to_tvsdk(
-        const cv::Mat& stPanoramaBgr,
-        const cv::Rect2f& stFaceRect,
-        const cv::Rect2f& stRawFaceRect,
-        const cv::Size& stDetectCoordinateSize,
-        const FaceAttribute_NS::Result_S& stFaceAttributeResult);
+    void pushFaceCaptureInfoToTvSdk(const cv::Mat &panoramaBgr, const cv::Rect2f &faceRect, const cv::Rect2f &rawFaceRect, const cv::Size &detectCoordinateSize, const FaceAttribute_NS::Result_S &stFAResult);
 #endif
 
     /**
@@ -267,14 +255,16 @@ private:
     int m_nChannelId = 0;
     /* 缓存RGB帧 */
     cv::Mat m_fullRgbMat;
-    /* 4K 全分辨率帧缓存 (人脸特写裁剪源, 与主帧同 PTS) */
+    /* 特写源高分辨率帧缓存 (人脸特写裁剪源, 检测到目标时抓取, 与检测帧同步) */
     std::shared_ptr<char[]> m_pFullNv12;
     int m_nFullWidth  = 0;
     int m_nFullHeight = 0;
+    /* 特写源取帧失败计数 (告警节流) */
+    int m_nFaceGrabFailCnt = 0;
 
     /* 上一帧人脸检测结果 */
     std::vector<FaceDetect_NS::Result_S> m_vstLastFrameResult;
     
     int m_nFrameCount = 0;
-    /* CAlarmStateMachine m_FaceDetectStateMachine; 人脸侦测状态机暂未启用。 */
+    // CAlarmStateMachine m_FaceDetectStateMachine;         /* 人脸侦测 */
 };

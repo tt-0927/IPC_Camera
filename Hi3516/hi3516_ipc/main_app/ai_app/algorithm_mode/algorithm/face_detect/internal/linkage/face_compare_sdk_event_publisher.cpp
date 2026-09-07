@@ -7,7 +7,6 @@
 
 #include <algorithm>
 #include <cstring>
-#include <memory>
 
 #include "control_manage.h"
 #include "dlog.h"
@@ -72,9 +71,8 @@ bool CFaceCompareSdkEventPublisher::publish(const FaceCompareSdkResult_S &stResu
         return false;
     }
 
-    /* 新 SDK 将两张 JPEG 内嵌在结构体中，避免事件线程栈承载大块图片数据。 */
-    std::unique_ptr<NET_AlarmFaceCompareInfo_S> pInfo(new NET_AlarmFaceCompareInfo_S());
-    NET_AlarmFaceCompareInfo_S &stInfo = *pInfo;
+    NET_AlarmFaceCompareInfo_S stInfo;
+    std::memset(&stInfo, 0, sizeof(stInfo));
     stInfo.uAlarmType = get_face_compare_alarm_type();
     stInfo.uChannel = static_cast<UINT32>(normalizeChannel(stResult.nChnId));
     stInfo.llTimestampMs = TimeUtils_NS::get_currentTimestampMs();
@@ -91,7 +89,7 @@ bool CFaceCompareSdkEventPublisher::publish(const FaceCompareSdkResult_S &stResu
     stInfo.uCapFaceImgLen = copy_image(stInfo.byCapFaceImg, stResult.pvecCaptureJpeg);
 
     const int nRet = ControlManage::instance()->tvsdk_push_alarm(static_cast<int>(stInfo.uAlarmType),
-                                                                 pInfo.get(),
+                                                                 &stInfo,
                                                                  sizeof(stInfo));
     if (nRet != 0)
     {

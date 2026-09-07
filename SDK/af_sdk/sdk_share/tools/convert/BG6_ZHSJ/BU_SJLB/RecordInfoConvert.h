@@ -15,6 +15,7 @@
 #define _RECORDINFOCONVERT_H
 
 #include <string>
+#include <vector>
 
 #include "Json.h"
 
@@ -29,6 +30,21 @@
 
 namespace SDKConvert
 {
+
+    /**
+     * @brief 必填字段存在性检查（请求进来时的前置校验）
+     * @param pRootJson 请求JSON根节点
+     * @param vecKeys 必填字段名列表
+     * @return 全部存在返回空串；否则返回第一个缺失的字段名
+     */
+    std::string check_requiredFields(Json::Object* pRootJson, const std::vector<std::string>& vecKeys);
+    /**
+     * @brief 录播业务错误码描述
+     * @param nCode 错误码，参见 NET_RECORD_ECODE_E
+     * @return 错误码对应描述字符串；不识别的错误码返回空字符串
+     */
+    std::string get_recordErrMessage(int nCode);
+
     void deal(Json::Object* pRootJson, NET_RegisterInfo_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_RecordControlInfo_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_LiveStatusInfo_S& stInfo, bool bOutStruct);

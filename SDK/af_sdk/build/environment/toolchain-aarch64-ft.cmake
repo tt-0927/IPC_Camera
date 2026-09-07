@@ -1,10 +1,10 @@
 #64位系统编译环境（飞腾平台）
-#工具链路径：/opt/gcc-linaro-7.5.0-2019.12-x86_64_aarch64-linux-gnu
+#工具链路径：/opt/ft/gcc-linaro-7.5.0-2019.12-x86_64_aarch64-linux-gnu
 #与RK3588的区别：glibc版本不同，需要独立的OpenSSL库（lib64_ft）
 set(CMAKE_SYSTEM_NAME Linux)
 set(CMAKE_SYSTEM_PROCESSOR aarch64)
 
-set(TOOLCHAIN_ROOT "/opt/gcc-linaro-7.5.0-2019.12-x86_64_aarch64-linux-gnu")
+set(TOOLCHAIN_ROOT "/opt/ft/gcc-linaro-7.5.0-2019.12-x86_64_aarch64-linux-gnu")
 set(CMAKE_C_COMPILER "${TOOLCHAIN_ROOT}/bin/aarch64-linux-gnu-gcc")
 set(CMAKE_CXX_COMPILER "${TOOLCHAIN_ROOT}/bin/aarch64-linux-gnu-g++")
 set(CMAKE_C_COMPILER_FORCED ON)

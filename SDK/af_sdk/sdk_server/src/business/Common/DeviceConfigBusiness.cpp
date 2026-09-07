@@ -67,6 +67,9 @@ static bool IsDeviceLevelCommand(INT32 nCommand)
         /* ===== 通道信息 ===== */
         case NET_GET_CHANNEL_INFO:
 
+        /* ===== RTSP流地址（通道号由请求JSON携带） ===== */
+        case NET_GET_RTSPURLCFG:
+
         /* ===== 录像高级参数/下载 ===== */
         case NET_GET_RECORD_ADVANCED_PARAM:
         case NET_SET_RECORD_ADVANCED_PARAM:

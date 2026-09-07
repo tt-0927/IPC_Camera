@@ -87,10 +87,27 @@ bool CSceneChangeDetect::init()
             if (TD_SUCCESS == m_pSceneChangeDetHandle->svpMd_init(m_pSceneChangeDetHandle))
             {
                 dlog_info("场景变更侦测初始化成功");
+
+                /*
+                 * 输入码流分辨率可能不是算法固定的 1024x576。
+                 * 预先创建全尺寸缩放帧，运行时按实际输入尺寸决定是否使用。
+                 */
+                memset_s(&m_stScaleFrameInfo, sizeof(ot_video_frame_info), 0, sizeof(ot_video_frame_info));
+                if (TD_SUCCESS !=
+                    mppVgs_create_video_frame_info(m_nWidth, m_nHeight, OT_PIXEL_FORMAT_YVU_SEMIPLANAR_420, &m_stScaleFrameInfo))
+                {
+                    svpMd_release(m_pSceneChangeDetHandle);
+                    m_pSceneChangeDetHandle = nullptr;
+                    dlog_error("场景变更侦测初始化失败-创建缩放视频帧失败");
+                    return false;
+                }
+                m_bScaleFrameCreated = true;
                 return true;
             }
             else
             {
+                mppVgs_destroy_video_frame_info(&m_stScaleFrameInfo);
+                m_bScaleFrameCreated = false;
                 svpMd_release(m_pSceneChangeDetHandle);
                 m_pSceneChangeDetHandle = nullptr;
                 dlog_error("场景变更侦测初始化失败");
@@ -103,6 +120,12 @@ bool CSceneChangeDetect::init()
 /* 反初始化 */
 bool CSceneChangeDetect::unInit()
 {
+    if (m_bScaleFrameCreated)
+    {
+        mppVgs_destroy_video_frame_info(&m_stScaleFrameInfo);
+        m_bScaleFrameCreated = false;
+    }
+
     if (m_pSceneChangeDetHandle)
     {
         svpMd_release(m_pSceneChangeDetHandle);
@@ -114,6 +137,8 @@ bool CSceneChangeDetect::unInit()
 
 bool CSceneChangeDetect::reboot()
 {
+    std::lock_guard<std::mutex> lock(m_mutex);
+
     if(!unInit())
     {
         return false;
@@ -157,11 +182,33 @@ void CSceneChangeDetect::run()
         }
 
         /* 直接使用 stMediaData.pVideoFrameInfo，避免内存拷贝 */
-        ot_video_frame_info *pFrameInfo = stMediaData.pVideoFrameInfo.get();
-        if (!pFrameInfo)
+        ot_video_frame_info *pSrcFrameInfo = stMediaData.pVideoFrameInfo.get();
+        if (!pSrcFrameInfo)
         {
             dlog_error("原始数据帧为空");
             continue;
+        }
+
+        std::lock_guard<std::mutex> lock(m_mutex);
+
+        /*
+         * 按实际输入帧尺寸缩放到算法坐标系。
+         * 旧逻辑直接将原始帧送入只接受 1024x576 的 SCD 句柄，
+         * 分辨率不匹配时事件无法正常工作。
+         */
+        ot_video_frame_info *pFrameInfo = pSrcFrameInfo;
+        const int nSrcWidth = pSrcFrameInfo->video_frame.width;
+        const int nSrcHeight = pSrcFrameInfo->video_frame.height;
+        if (nSrcWidth != m_nWidth || nSrcHeight != m_nHeight)
+        {
+            if (!m_bScaleFrameCreated ||
+                TD_SUCCESS != mppVgs_scale(pSrcFrameInfo, &m_stScaleFrameInfo))
+            {
+                dlog_error("场景变更侦测缩放失败: [%d,%d] -> [%d,%d]",
+                           nSrcWidth, nSrcHeight, m_nWidth, m_nHeight);
+                continue;
+            }
+            pFrameInfo = &m_stScaleFrameInfo;
         }
 
         ot_svp_dst_mem_info *pResult = NULL;

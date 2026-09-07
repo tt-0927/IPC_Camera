@@ -271,7 +271,7 @@ void CPetRecognition::processPetRecognition(std::vector<PetRecognition_NS::Resul
             {
                 auto pPayload = std::make_shared<EventTvSdkPayload_S>();
                 pPayload->enType = get_tvsdk_payload_type(stContext.enEventType);
-                if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage))
+                if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage, JPEG_QUALITY_PANORAMA))
                 {
                     stContext.pTvSdkPayload = pPayload;
                 }
@@ -291,7 +291,7 @@ void CPetRecognition::processPetRecognition(std::vector<PetRecognition_NS::Resul
                     cv::Rect roi(nX1, nY1, nX2 - nX1, nY2 - nY1);
                     cv::Mat targetMat = m_fullRgbMat(roi).clone();
                     EventTvSdkImage_S stTarget;
-                    if (encode_mat_to_tvsdk_image(targetMat, stTarget)) {
+                    if (encode_mat_to_tvsdk_image(targetMat, stTarget, JPEG_QUALITY_TARGET)) {
                         stContext.stTargetImage = std::move(stTarget);
                     }
                 }

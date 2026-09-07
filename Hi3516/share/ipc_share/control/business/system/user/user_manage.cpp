@@ -450,6 +450,14 @@ int CUserManage::add(User::UserInfo_S stUserInfo,::System::SecurityServices_S st
     }
 
 
+    /* 特殊字符校验（# 等）：无论密码安全级别开关如何都必须生效 */
+    int specialRet = check_password_special(stUserInfo.stAccountInfo.password.c_str());
+    if (specialRet != IpcRet_E::OK)
+    {
+        dlog_info("密码包含不允许的特殊字符!");
+        return specialRet;
+    }
+
     /* 判断密码是否符合规范 */
     if(!stSecurityServicesInfo.stPwdPolicy.bPwdSecurityLevelEnable)
     {
@@ -592,6 +600,14 @@ int CUserManage::update(User::UpdateInfo_S stUserUpdateInfo, ::System::SecurityS
             dlog_info("用户已存在");
             return IpcRet_E::ERR_USER_EXIST;
         }
+    }
+
+    /* 特殊字符校验（# 等）：无论密码安全级别开关如何都必须生效 */
+    int specialRet = check_password_special(stUserUpdateInfo.stNewUserInfo.stAccountInfo.password.c_str());
+    if (specialRet != IpcRet_E::OK)
+    {
+        dlog_info("密码包含不允许的特殊字符!");
+        return specialRet;
     }
 
     /* 判断密码是否符合规范 */
@@ -741,6 +757,14 @@ int CUserManage::reset_password(User::UpdateInfo_S stUserUpdateInfo,::System::Se
         return IpcRet_E::ERR_USER_NOT_EXIST;
     }
     stUserInfo = userInfos[0];
+
+    /* 特殊字符校验（# 等）：无论密码安全级别开关如何都必须生效 */
+    int specialRet = check_password_special(stUserUpdateInfo.stAccountInfo.password.c_str());
+    if (specialRet != IpcRet_E::OK)
+    {
+        dlog_info("密码包含不允许的特殊字符!");
+        return specialRet;
+    }
 
     //用户重置密码后，第一次登陆需要强制修改密码，清除strFirstLoginTime信息
     stUserInfo.stAccountInfo.strFirstLoginTime.clear();

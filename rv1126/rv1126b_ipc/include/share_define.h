@@ -87,13 +87,13 @@ extern "C"{
 /* 软著版本号的前缀v1.0.0 */
 #define PREFIX_VERSION       "V3.357"
 /* 固件版本 */
-#define FIRMWARE_VERSION     "V1.0.8"
+#define FIRMWARE_VERSION     "V1.0.9"
 /* 硬件版本 */
 #define HARDWARE_VERSION     "V1.0.0"
 /* 系统版本 */
-#define SYSTEM_VERSION       "V1.0.8"
+#define SYSTEM_VERSION       "V1.0.9"
 /* 插件版本 */
-#define PLUG_VERSION         "V2.0.24"
+#define PLUG_VERSION         "V2.0.25"
 /* web版本 */
 #define WEB_VERSION          "V1.0.1"
 /* 报警输入GPIO个数 */

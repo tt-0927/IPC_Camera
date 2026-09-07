@@ -537,7 +537,7 @@ void CMotionDetect::processNormalMode(std::vector<Common::RectInfo_S> &vstRectsI
     {
         auto pPayload = std::make_shared<EventTvSdkPayload_S>();
         pPayload->enType = get_tvsdk_payload_type(stContext.enEventType);
-        if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage))
+        if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage, JPEG_QUALITY_PANORAMA))
         {
             stContext.pTvSdkPayload = pPayload;
         }
@@ -706,7 +706,7 @@ void CMotionDetect::processExpertMode(std::vector<Common::RectInfo_S> &stRectInf
     {
         auto pPayload = std::make_shared<EventTvSdkPayload_S>();
         pPayload->enType = get_tvsdk_payload_type(stContext.enEventType);
-        if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage))
+        if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage, JPEG_QUALITY_PANORAMA))
         {
             stContext.pTvSdkPayload = pPayload;
         }

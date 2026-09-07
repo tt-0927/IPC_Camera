@@ -381,7 +381,7 @@ bool CHideDetect::processHideDetect(bool bIsAlarm, const MediaData_S &stMediaDat
     {
         auto pPayload = std::make_shared<EventTvSdkPayload_S>();
         pPayload->enType = get_tvsdk_payload_type(stContext.enEventType);
-        if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage))
+        if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage, JPEG_QUALITY_PANORAMA))
         {
             stContext.pTvSdkPayload = pPayload;
         }

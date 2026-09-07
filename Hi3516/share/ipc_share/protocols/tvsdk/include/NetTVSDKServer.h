@@ -1755,7 +1755,7 @@ typedef enum tagNETTVDetectionTarget
     NET_TARGET_ALL = 0,                      /* 所有目标  All targets */
     NET_TARGET_HUMAN = 1,                    /* 人体  Human */
     NET_TARGET_VEHICLE = 2,                  /* 车辆  Vehicle */
-    NET_TARGET_OTHER = 3                     /* 其他目标  Other targets */
+    NET_TARGET_OTHER = 3                    /* 其他  Other (非机动车等) */
 } NET_DETECTION_TARGET_E;
 
 /**
@@ -2950,7 +2950,6 @@ typedef struct tagNET_PoeNetworkConfig
 } NET_PoeNetworkConfig_S;
 
 typedef NET_PoeNetworkConfig_S* pNET_PoeNetworkConfig_S;
-
 #ifndef NET_MAX_NET_NUM
 #define NET_MAX_NET_NUM 8
 #endif
@@ -5108,14 +5107,12 @@ typedef struct tagNET_AudioAnomalyAlarmInfo
 
 typedef NET_AudioAnomalyAlarmInfo_S* pNET_AudioAnomalyAlarmInfo_S;
 
-/* 音频异常侦测实时音量结构体预留字段长度。 */
-#define NET_AUDIO_ANOMALY_CURRENT_DB_RESERVED_LEN (120)
-
 /**
  * @brief 音频异常侦测实时音量信息
  * @author ITC
  * @note 用于 NET_GET_AUDIO_ANOMALY_CURRENT_DB，仅表示本次查询时的音量快照
  */
+#define NET_AUDIO_ANOMALY_CURRENT_DB_RESERVED_LEN (120)
 typedef struct tagNET_AudioAnomalyCurrentDb
 {
     BOOL        bValid;                              /* 实时音量是否有效 */
@@ -6839,6 +6836,7 @@ typedef void(STDCALL *NET_CB_GetDiscoveryDeviceInfo)(
 
 typedef NET_COMMON_ECODE_E (STDCALL *NET_CB_SetNetwork)(
     IN const NET_PoeNetworkConfig_S* pConfig);
+
 
 /**
  * @brief 注册设备发现信息回调（启动前必须调用）

@@ -20,12 +20,23 @@
 #include "isp_manage.h"
 #include "algo_detect.h"
 
+#include <vector>
+#include <chrono>
+#include <unistd.h>
+
 #ifdef DEVICE_TV_3882TI
 #include "event_configure.h"
 #endif
 
 CStreamVideo* CStreamVideo::m_self = NULL;
 std::mutex CStreamVideo::m_mutex;
+
+/* 特写取帧最短间隔(ms)：对齐AI通道5fps帧率，事件风暴时限制特写源取帧频率 */
+static const unsigned int FACE_GRAB_MIN_INTERVAL_MS = 200;
+
+/* 特写抓取特写源的最低帧率(fps)：特写源帧率低于AI通道(5fps)时画面不比检测帧新,
+ * 抓取反而引入全景/特写时间差, 直接回退1080p同帧裁剪保证同步 */
+static const float FACE_GRAB_MIN_MAIN_FPS = 5.0f;
 
 /*NALU的起始码长度偏移*/
 static int find_nalu_offset(const uint8_t *p, int len)
@@ -1294,8 +1305,11 @@ void CStreamVideo::get_vpssStream()
 
             std::lock_guard<std::mutex> lock(m_mutexSendData);
 
-            /* 发送数据到 AI_APP */
-            algo_send_streamData(stVpssFrame.framedata, stVpssFrame.framesize, stVpssFrame.pstVideoFrame.stVFrame.u32Height, stVpssFrame.pstVideoFrame.stVFrame.u32Width);
+            /* 发送数据到 AI_APP  */
+            algo_send_streamData(stVpssFrame.framedata, stVpssFrame.framesize,
+                                 stVpssFrame.pstVideoFrame.stVFrame.u32Height,
+                                 stVpssFrame.pstVideoFrame.stVFrame.u32Width,
+                                 stVpssFrame.pstVideoFrame.stVFrame.u64PTS);
 
             /*释放码流缓存*/
             streamVpss_release_chnFrame(pHandle, &stVpssFrame);
@@ -1308,4 +1322,110 @@ void CStreamVideo::get_vpssStream()
     {
         dlog_error("%s",e.what());
     }
+}
+
+int CStreamVideo::grabFaceCloseupSource(FaceCloseupFrame_S &stFrame, uint64_t u64Pts)
+{
+    if (!m_bInitFlag.load(std::memory_order_acquire) ||
+        m_pVpssHandle == nullptr || m_pVpssHandle[VPSS_MAIN_SUB] == nullptr)
+    {
+        dlog_error("取帧失败: 视频模块未初始化");
+        return ERR_UNINIT;
+    }
+
+    /* 同一时刻只允许一个取帧请求, 防止人脸事件并发取帧压垮特写源 */
+    std::lock_guard<std::mutex> lock(m_mutexFaceGrab);
+
+    /* 事件风暴限流: 最短取帧间隔对齐AI通道帧率(5fps) */
+    const auto tStart = std::chrono::steady_clock::now();
+    if (tStart - m_tLastFaceGrab < std::chrono::milliseconds(FACE_GRAB_MIN_INTERVAL_MS))
+    {
+        return ERR;
+    }
+
+    /* 特写源分辨率<=1080p时特写图直接取第三路(固定1080p), 无需抓取特写源;
+     * 特写源帧率低于AI通道(5fps)时画面不比检测帧新, 同样回退1080p同帧裁剪,
+     * 保证全景图和特写图画面同步。 */
+    auto videoConfig = m_configManager.getVideoConfigs();
+    if (videoConfig.empty())
+    {
+        return ERR_NOT_ENABLED;
+    }
+    const auto &stMainConfig = videoConfig[VENC_CHN_MAIN];
+    if ((stMainConfig.stVideoResolution.nWidth <= PIXEL_WIDTH_AI &&
+         stMainConfig.stVideoResolution.nHeight <= PIXEL_HEIGHT_AI) ||
+        stMainConfig.getFrameRateAsFloat() < FACE_GRAB_MIN_MAIN_FPS)
+    {
+        return ERR_NOT_ENABLED;
+    }
+
+    RkVpss_S *pHandle = m_pVpssHandle[VPSS_MAIN_SUB];
+
+    StreamVpssFrame_t stVpssFrame;
+    memset(&stVpssFrame, 0, sizeof(StreamVpssFrame_t));
+    stVpssFrame.channel = VPSS_CHANNEL_MAIN;
+
+    /* 500ms超时: 覆盖用户配置的低帧率特写源(默认高帧率), 取帧失败不影响调用方(回退1080p) */
+    if (pHandle->rockitVpss_get_chnFrame(pHandle, &stVpssFrame.pstVideoFrame, VPSS_CHANNEL_MAIN, 500) != RK_SUCCESS)
+    {
+        dlog_warn("取特写源帧失败(超时500ms), 回退1080p裁剪");
+        return ERR;
+    }
+
+    /* PTS 同帧校验: 特写源帧须与检测帧足够接近(容差=1个特写源帧间隔, 封顶100ms), 否则丢弃并回退1080p同帧裁剪 */
+    if (u64Pts != 0)
+    {
+        const int64_t nMainIntervalUs = 1000000LL /
+            std::max(1, static_cast<int>(stMainConfig.getFrameRateAsFloat()));
+        const int64_t nPtsToleranceUs = std::min(1 * nMainIntervalUs, static_cast<int64_t>(100000));
+        const int64_t nPtsDiffUs = static_cast<int64_t>(stVpssFrame.pstVideoFrame.stVFrame.u64PTS)
+                                 - static_cast<int64_t>(u64Pts);
+        if (nPtsDiffUs < -nPtsToleranceUs || nPtsDiffUs > nPtsToleranceUs)
+        {
+            // dlog_debug("PTS不匹配: 特写源[%lldus] 检测帧[%lldus] 差[%lldus] 容差[%lldus], 回退1080p同帧裁剪",
+            //            static_cast<long long>(stVpssFrame.pstVideoFrame.stVFrame.u64PTS),
+            //            static_cast<long long>(u64Pts),
+            //            static_cast<long long>(nPtsDiffUs),
+            //            static_cast<long long>(nPtsToleranceUs));
+            pHandle->rockitVpss_release_chnFrame(pHandle, &stVpssFrame.pstVideoFrame, VPSS_CHANNEL_MAIN);
+            return ERR;
+        }
+    }
+
+    unsigned char *pFrameData = nullptr;
+    int nFrameSize = 0;
+    if (pHandle->rockitVpss_get_chnFrameData(pHandle, &stVpssFrame.pstVideoFrame, &pFrameData, &nFrameSize) != RK_SUCCESS ||
+        pFrameData == nullptr || nFrameSize <= 0)
+    {
+        dlog_warn("获取特写源帧数据失败, 回退1080p裁剪");
+        pHandle->rockitVpss_release_chnFrame(pHandle, &stVpssFrame.pstVideoFrame, VPSS_CHANNEL_MAIN);
+        return ERR;
+    }
+
+    /* 立即拷贝到应用内存并释放VPSS缓冲, 最小化持帧时间, 防止特写源缓冲耗尽掉帧 */
+    auto pCopy = std::shared_ptr<char[]>(new char[nFrameSize]);
+    memcpy(pCopy.get(), pFrameData, static_cast<size_t>(nFrameSize));
+
+    stFrame.pData      = pCopy;
+    stFrame.nWidth     = static_cast<int>(stVpssFrame.pstVideoFrame.stVFrame.u32Width);
+    stFrame.nHeight    = static_cast<int>(stVpssFrame.pstVideoFrame.stVFrame.u32Height);
+    stFrame.nVirWidth  = static_cast<int>(stVpssFrame.pstVideoFrame.stVFrame.u32VirWidth);
+    stFrame.nVirHeight = static_cast<int>(stVpssFrame.pstVideoFrame.stVFrame.u32VirHeight);
+    stFrame.u32TimeRef = stVpssFrame.pstVideoFrame.stVFrame.u32TimeRef;
+    stFrame.u64PTS     = stVpssFrame.pstVideoFrame.stVFrame.u64PTS;
+
+    pHandle->rockitVpss_release_chnFrame(pHandle, &stVpssFrame.pstVideoFrame, VPSS_CHANNEL_MAIN);
+
+    m_tLastFaceGrab = tStart;
+
+    /* 取帧耗时观测: 超过100ms说明特写源负载高 */
+    const auto nCostUs = std::chrono::duration_cast<std::chrono::microseconds>(
+        std::chrono::steady_clock::now() - tStart).count();
+    if (nCostUs > 100000)
+    {
+        dlog_info("取特写源帧耗时: %ld us, 尺寸[%dx%d], TimeRef:%u",
+                  static_cast<long>(nCostUs), stFrame.nWidth, stFrame.nHeight, stFrame.u32TimeRef);
+    }
+
+    return OK;
 }

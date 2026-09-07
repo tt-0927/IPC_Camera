@@ -463,6 +463,34 @@ std::vector<std::string> SQLite3::get_column_data(const std::string &sql)
     return result;
 }
 
+// 获取指定表的所有列名，用于 schema 升级时检测缺失列
+std::vector<std::string> SQLite3::get_table_columns(const std::string &tableName)
+{
+    std::vector<std::string> columns;
+    if (tableName.empty())
+    {
+        return columns;
+    }
+
+    std::lock_guard<std::mutex> lock(m_mutex);
+    sqlite3_stmt *stmt = nullptr;
+    std::string sql = "PRAGMA table_info(\"" + tableName + "\");";
+    if (sqlite3_prepare_v2(m_handle, sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK)
+    {
+        dlog_error("获取表列信息失败: %s", sqlite3_errmsg(m_handle));
+        return columns;
+    }
+    while (sqlite3_step(stmt) == SQLITE_ROW)
+    {
+        /* PRAGMA table_info 列: cid=0, name=1, type=2, notnull=3, dflt_value=4, pk=5 */
+        const unsigned char *textPtr = sqlite3_column_text(stmt, 1);
+        std::string name = (textPtr) ? reinterpret_cast<const char *>(textPtr) : "";
+        columns.push_back(name);
+    }
+    sqlite3_finalize(stmt);
+    return columns;
+}
+
 bool SQLite3::delete_record_by_field(const std::string &sql, const std::string &targetFile)
 {
     sqlite3_stmt *stmt = nullptr;

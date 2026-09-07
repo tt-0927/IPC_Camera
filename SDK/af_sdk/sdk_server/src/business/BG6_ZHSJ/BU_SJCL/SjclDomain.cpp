@@ -97,8 +97,8 @@ CSjclDomain::CSjclDomain()
     m_getTable[NET_GET_CHANNEL_INFO] = [](INT32 ch, INT32 cmd, const std::string&, const std::string&) -> std::string {
         return CNvrBusiness::instance()->HandleGetChannelInfo(ch, cmd);
     };
-    m_getTable[NET_GET_RTSPURLCFG] = [](INT32 ch, INT32 cmd, const std::string&, const std::string&) -> std::string {
-        return CNvrBusiness::instance()->HandleGetRtspUrl(ch, cmd);
+    m_getTable[NET_GET_RTSPURLCFG] = [](INT32 ch, INT32 cmd, const std::string& req_data, const std::string&) -> std::string {
+        return CNvrBusiness::instance()->HandleGetRtspUrl(ch, cmd, req_data);
     };
 
     /* ==================================================================

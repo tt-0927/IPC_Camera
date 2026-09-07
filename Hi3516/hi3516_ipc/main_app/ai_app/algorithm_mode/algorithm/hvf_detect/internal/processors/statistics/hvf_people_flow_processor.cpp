@@ -26,8 +26,7 @@ namespace
  */
 bool is_valid_rule_line(const Alarm::PeopleFlowRuleLine_S &stRuleLine)
 {
-    return (stRuleLine.stStartPos.fX != stRuleLine.stEndPos.fX) ||
-           (stRuleLine.stStartPos.fY != stRuleLine.stEndPos.fY);
+    return (stRuleLine.stStartPos.fX != stRuleLine.stEndPos.fX) || (stRuleLine.stStartPos.fY != stRuleLine.stEndPos.fY);
 }
 
 /**
@@ -119,9 +118,9 @@ std::string get_people_flow_alarm_level_text(Event::Type_E enEventType)
  * @return   {EventTriggerContext_S} 联动上下文
  */
 EventTriggerContext_S build_people_flow_context(int nChnId,
-                                                 long long llNowMs,
-                                                 Event::Type_E enEventType,
-                                                 const HVFDetectInternal::CHVFPeopleFlowStateStore &stStateStore)
+                                                long long llNowMs,
+                                                Event::Type_E enEventType,
+                                                const HVFDetectInternal::CHVFPeopleFlowStateStore &stStateStore)
 {
     /* 人流统计联动上下文，承载规则匹配所需的摘要属性 */
     EventTriggerContext_S stContext;
@@ -155,9 +154,7 @@ void CHVFPeopleFlowProcessor::setEnabled(bool bEnable)
     }
 }
 
-void CHVFPeopleFlowProcessor::setAlgoParamCfg(const Alarm::PeopleFlowStatistics_S &stAlgoCfg,
-                                              int nWidth,
-                                              int nHeight)
+void CHVFPeopleFlowProcessor::setAlgoParamCfg(const Alarm::PeopleFlowStatistics_S &stAlgoCfg, int nWidth, int nHeight)
 {
     dlog_debug("ai_app: 设置人流统计参数");
     m_stAlgoCfg = stAlgoCfg;
@@ -234,8 +231,7 @@ void CHVFPeopleFlowProcessor::process(SHVFProcessContext &stContext)
                 continue;
             }
 
-            if ((stObject.track_status == OT_AIDETECT_TRACK_STATUS_NEW ||
-                 stObject.track_status == OT_AIDETECT_TRACK_STATUS_UPDATE) &&
+            if ((stObject.track_status == OT_AIDETECT_TRACK_STATUS_NEW || stObject.track_status == OT_AIDETECT_TRACK_STATUS_UPDATE) &&
                 stObject.detect_confidence < (1.0f - m_stAlgoCfg.nSensitivity / 100.0f))
             {
                 // dlog_debug("[people_flow] 目标 track_id[%u] 置信度[%.3f]低于阈值[%.3f]，跳过",
@@ -304,8 +300,7 @@ void CHVFPeopleFlowProcessor::process(SHVFProcessContext &stContext)
             //            m_stAlgoCfg.stRuleLine.stEndPos.fX,
             //            m_stAlgoCfg.stRuleLine.stEndPos.fY,
             //            static_cast<int>(m_stAlgoCfg.stRuleLine.enDirection));
-            if (enCrossResult == Alarm::CrossDirection_E::CROSS_DIRECTION_INVALID ||
-                enCrossResult == Alarm::CrossDirection_E::BOTH_WAYS)
+            if (enCrossResult == Alarm::CrossDirection_E::CROSS_DIRECTION_INVALID || enCrossResult == Alarm::CrossDirection_E::BOTH_WAYS)
             {
                 continue;
             }
@@ -316,10 +311,7 @@ void CHVFPeopleFlowProcessor::process(SHVFProcessContext &stContext)
             const Alarm::CrossDirection_E enLeaveDirection = get_reverse_direction(enEnterDirection);
             if (enCrossResult == enEnterDirection)
             {
-                m_stateStore.onEnter(build_snapshot(stObject,
-                                                    EventStatistics_NS::SnapshotType_E::ENTER,
-                                                    enCrossResult,
-                                                    llNowMs));
+                m_stateStore.onEnter(build_snapshot(stObject, EventStatistics_NS::SnapshotType_E::ENTER, enCrossResult, llNowMs));
                 bStatisticsChanged = true;
                 bForceReport = true;
                 if (pReportFrameInfo == nullptr)
@@ -337,10 +329,7 @@ void CHVFPeopleFlowProcessor::process(SHVFProcessContext &stContext)
             }
             else if (enCrossResult == enLeaveDirection)
             {
-                m_stateStore.onLeave(build_snapshot(stObject,
-                                                    EventStatistics_NS::SnapshotType_E::LEAVE,
-                                                    enCrossResult,
-                                                    llNowMs));
+                m_stateStore.onLeave(build_snapshot(stObject, EventStatistics_NS::SnapshotType_E::LEAVE, enCrossResult, llNowMs));
                 bStatisticsChanged = true;
                 bForceReport = true;
                 if (pReportFrameInfo == nullptr)
@@ -398,12 +387,9 @@ void CHVFPeopleFlowProcessor::process(SHVFProcessContext &stContext)
                                                                       llNowMs,
                                                                       Event::Type_E::PEOPLE_FLOW_STAY_SEVERE,
                                                                       m_stateStore);
-    m_normalAlarmStateMachine.handleAlarmState(enStayEventType == Event::Type_E::PEOPLE_FLOW_STAY_NORMAL,
-                                               stNormalContext);
-    m_mediumAlarmStateMachine.handleAlarmState(enStayEventType == Event::Type_E::PEOPLE_FLOW_STAY_MEDIUM,
-                                               stMediumContext);
-    m_severeAlarmStateMachine.handleAlarmState(enStayEventType == Event::Type_E::PEOPLE_FLOW_STAY_SEVERE,
-                                               stSevereContext);
+    m_normalAlarmStateMachine.handleAlarmState(enStayEventType == Event::Type_E::PEOPLE_FLOW_STAY_NORMAL, stNormalContext);
+    m_mediumAlarmStateMachine.handleAlarmState(enStayEventType == Event::Type_E::PEOPLE_FLOW_STAY_MEDIUM, stMediumContext);
+    m_severeAlarmStateMachine.handleAlarmState(enStayEventType == Event::Type_E::PEOPLE_FLOW_STAY_SEVERE, stSevereContext);
 
     // dlog_debug("[people_flow] 帧处理结束 通道[%d] 统计变化[%d] 进入[%u] 离开[%u] 滞留[%u]",
     //            stContext.nChnId,
@@ -440,7 +426,7 @@ void CHVFPeopleFlowProcessor::process(SHVFProcessContext &stContext)
                     stImage.strTag = "target";
                     stReport.vecTargetImages.push_back(std::move(stImage));
                     // dlog_info("人流统计目标图[%zu] 编码成功 大小[%zu字节]", i, stReport.vecTargetImages.back().vecJpeg.size());
-                }       
+                }
                 else
                 {
                     dlog_warn("人流统计目标图[%zu] 编码失败", i);
@@ -505,8 +491,7 @@ bool CHVFPeopleFlowProcessor::isEnabled() const
     return m_stAlgoCfg.bEnable;
 }
 
-bool CHVFPeopleFlowProcessor::buildPanoramaImage(ot_video_frame_info *pFrameInfo,
-                                                  std::vector<unsigned char> &vecJpeg)
+bool CHVFPeopleFlowProcessor::buildPanoramaImage(ot_video_frame_info *pFrameInfo, std::vector<unsigned char> &vecJpeg)
 {
     vecJpeg.clear();
     if (pFrameInfo == nullptr)
@@ -526,8 +511,8 @@ bool CHVFPeopleFlowProcessor::buildPanoramaImage(ot_video_frame_info *pFrameInfo
 }
 
 bool CHVFPeopleFlowProcessor::buildTargetImage(const Common::RectInfo_S &stRectInfo,
-                                                ot_video_frame_info *pFrameInfo,
-                                                std::vector<unsigned char> &vecJpeg)
+                                               ot_video_frame_info *pFrameInfo,
+                                               std::vector<unsigned char> &vecJpeg)
 {
     vecJpeg.clear();
     if (pFrameInfo == nullptr)
@@ -540,8 +525,7 @@ bool CHVFPeopleFlowProcessor::buildTargetImage(const Common::RectInfo_S &stRectI
     const int nOrigH = stRectInfo.nY2 - stRectInfo.nY1;
     if (nOrigW <= 0 || nOrigH <= 0)
     {
-        dlog_warn("人流统计目标图跳过，原始目标框无效 [%d,%d,%d,%d]",
-                  stRectInfo.nX1, stRectInfo.nY1, stRectInfo.nX2, stRectInfo.nY2);
+        dlog_warn("人流统计目标图跳过，原始目标框无效 [%d,%d,%d,%d]", stRectInfo.nX1, stRectInfo.nY1, stRectInfo.nX2, stRectInfo.nY2);
         return false;
     }
 
@@ -581,8 +565,7 @@ bool CHVFPeopleFlowProcessor::buildTargetImage(const Common::RectInfo_S &stRectI
 
     if (stCropRect.nX2 <= stCropRect.nX1 || stCropRect.nY2 <= stCropRect.nY1)
     {
-        dlog_warn("人流统计目标图裁剪框对齐后无效 [%d,%d,%d,%d]",
-                  stCropRect.nX1, stCropRect.nY1, stCropRect.nX2, stCropRect.nY2);
+        dlog_warn("人流统计目标图裁剪框对齐后无效 [%d,%d,%d,%d]", stCropRect.nX1, stCropRect.nY1, stCropRect.nX2, stCropRect.nY2);
         return false;
     }
 
@@ -592,8 +575,7 @@ bool CHVFPeopleFlowProcessor::buildTargetImage(const Common::RectInfo_S &stRectI
 
     /* 创建裁剪目标帧 */
     ot_video_frame_info stDstFrameInfo;
-    if (TD_SUCCESS != mppVgs_create_video_frame_info(
-                          unDstWidth, unDstHeight, OT_PIXEL_FORMAT_YVU_SEMIPLANAR_420, &stDstFrameInfo))
+    if (TD_SUCCESS != mppVgs_create_video_frame_info(unDstWidth, unDstHeight, OT_PIXEL_FORMAT_YVU_SEMIPLANAR_420, &stDstFrameInfo))
     {
         dlog_warn("人流统计目标图创建 VGS 帧失败 [%u x %u]", unDstWidth, unDstHeight);
         return false;
@@ -615,8 +597,7 @@ bool CHVFPeopleFlowProcessor::buildTargetImage(const Common::RectInfo_S &stRectI
 
     /* 编码为 JPEG 内存数据 */
     EventTvSdkImage_S stImage;
-    const int nEncodeRet = AiAppCommon::encode_video_frame_to_jpeg_memory(
-        &stDstFrameInfo, stImage);
+    const int nEncodeRet = AiAppCommon::encode_video_frame_to_jpeg_memory(&stDstFrameInfo, stImage);
     mppVgs_destroy_video_frame_info(&stDstFrameInfo);
 
     if (nEncodeRet != OK)

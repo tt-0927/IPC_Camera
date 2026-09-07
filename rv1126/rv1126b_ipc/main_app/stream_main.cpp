@@ -59,9 +59,8 @@ static void exitHandler(int nSigno)
     {
         emergencyMute();
 
-        /* 恢复默认信号处理并重新触发，让默认行为终止进程并生成 core dump */
-        signal(nSigno, SIG_DFL);
-        raise(nSigno);
+        // 必须立即调用 _exit，防止进入无限死循环或二次崩溃
+        _exit(nSigno); 
     }
 }
 

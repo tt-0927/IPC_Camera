@@ -9,6 +9,8 @@
 
 #pragma once
 
+#include <stdint.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -37,8 +39,9 @@ int algo_detect_deinit();
  * @param    {int} nLength
  * @param    {int} nH
  * @param    {int} nW
+ * @param    {uint64_t} u64PTS 帧时间戳(us)
  */
-void algo_send_streamData(const void* pData, int nLength, int nH, int nW);
+void algo_send_streamData(const void* pData, int nLength, int nH, int nW, uint64_t u64PTS = 0);
 
 // /**
 //  * @brief   : 发送音频数据到 AI_APP

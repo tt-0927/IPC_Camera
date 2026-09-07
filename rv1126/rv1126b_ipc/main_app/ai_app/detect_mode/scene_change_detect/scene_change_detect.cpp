@@ -291,7 +291,7 @@ bool SceneChangeDetect::sceneChangeDetectProcess(std::vector<std::vector<int>> &
     {
         auto pPayload = std::make_shared<EventTvSdkPayload_S>();
         pPayload->enType = get_tvsdk_payload_type(stContext.enEventType);
-        if (encode_mat_to_tvsdk_image(m_stInDataMat, pPayload->stPanoramaImage))
+        if (encode_mat_to_tvsdk_image(m_stInDataMat, pPayload->stPanoramaImage, JPEG_QUALITY_PANORAMA))
         {
             stContext.pTvSdkPayload = pPayload;
         }

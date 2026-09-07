@@ -303,6 +303,7 @@ static void PrintMenu()
     printf("171 - 设置对讲音频参数 (NET_SET_VOICECOM_AUDIO_CFG)\n");
     printf("172 - 获取系统校时配置 (NET_GET_NTPCFG)\n");
     printf("173 - 设置系统校时配置 (NET_SET_NTPCFG)\n");
+    printf("200 - 设置系统时间 (NET_SET_SYSTEM_TIME)\n");
     printf("174 - 获取声音报警配置 (NET_GET_AUDIBLE_ALARM_INFO)\n");
     printf("175 - 设置声音报警配置 (NET_SET_AUDIBLE_ALARM_INFO)\n");
     printf("176 - 获取报警输入配置 (NET_GET_ALARM_INPUT_INFO)\n");
@@ -9467,6 +9468,18 @@ static void ProcessCommand(int cmd)
         case 173:
             DoSetSystemNtpCfg();
             break;
+        case 200:
+        {
+            NET_SystemTime_S stTime;
+            memset(&stTime, 0, sizeof(stTime));
+            strncpy(stTime.strDateTime, "2026-09-03 10:40:30", sizeof(stTime.strDateTime) - 1);
+            INT32 dwBytesReturned = 0;
+            BOOL bRet = NET_clientSetDevConfig(g_lpUserID, 1, NET_SET_SYSTEM_TIME,
+                                               &stTime, (INT32)sizeof(stTime), &dwBytesReturned);
+            printf("[Client] 设置系统时间 %s: %s, Error=%d\n",
+                   stTime.strDateTime, bRet ? "成功" : "失败", NET_clientGetLastError());
+            break;
+        }
         case 174:
             DoGetAudibleAlarmInfo();
             break;

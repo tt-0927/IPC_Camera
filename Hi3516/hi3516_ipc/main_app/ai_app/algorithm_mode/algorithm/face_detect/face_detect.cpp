@@ -64,6 +64,8 @@ void CFaceDetect::recvMediaData(MediaData_S stMediaData)
 
 void CFaceDetect::setAlgoEnCfg(const Event::AlgorithmConfig &stAlgoConfig)
 {
+    std::lock_guard<std::mutex> lifecycleLock(m_lifecycleMutex);
+
     /* 当前顶层开关是否使能人脸抓拍 */
     const bool bEnableFaceCapture = stAlgoConfig.nEnFaceCapture;
     /* 当前顶层开关是否使能人脸比对 */
@@ -102,6 +104,12 @@ void CFaceDetect::setAlgoEnCfg(const Event::AlgorithmConfig &stAlgoConfig)
     m_stAlgoFaceCompCfg.bEnable = m_stAlgoFaceCompCfg.bEnable && bEnableFaceCompare;
     m_featureProcessor.setEnabled(m_stAlgoFaceCompCfg.bEnable);
     #endif
+    m_bAlgorithmEnabled.store(
+        m_captureProcessor.isEnabled()
+#if CAP_AI_FACE_COMPARE
+        || m_featureProcessor.isEnabled()
+#endif
+    );
     bool bNeedAlgo = bEnableFaceCapture || bEnableFaceCompare;
     if (bNeedAlgo)
     {
@@ -119,7 +127,14 @@ void CFaceDetect::setAlgoEnCfg(const Event::AlgorithmConfig &stAlgoConfig)
          */
         dlog_info("关闭FaceDetectWorker");
 
+        /*
+         * worker 可能仍持有异步帧池中的帧。先停止并等待 worker 归还全部帧，
+         * 再清空输入队列和释放缩放帧/VB 帧池。
+         */
         m_detectWorker.deinit();
+        m_dateQueue.clear();
+        unInit();
+        dlog_info("FaceDetect资源已释放（模型、输入队列和VB帧池）");
     }
 }
 
@@ -138,6 +153,7 @@ void CFaceDetect::setFaceCmpCfg(const Alarm::FaceCompare_S &stAlgoCfg)
 
 int CFaceDetect::addFaceLibGroup(FaceDataDB_NS::FaceLibsInfo_S &stFaceLibData)
 {
+    std::lock_guard<std::mutex> lifecycleLock(m_lifecycleMutex);
     dlog_info("=== [FaceLib] 开始添加人脸库===");
     bool bTempStart = false;
 
@@ -188,6 +204,9 @@ bool CFaceDetect::init()
     }
     if (!initAsyncFramePool())
     {
+        /* 帧池申请失败时回滚已经创建的目标帧，避免低内存重试期间持续占用VB。 */
+        mppVgs_destroy_video_frame_info(&m_stDstFrameInfo);
+        memset_s(&m_stDstFrameInfo, sizeof(ot_video_frame_info), 0, sizeof(ot_video_frame_info));
         return false;
     }
 #if CAP_AI_FACE_COMPARE
@@ -268,6 +287,8 @@ void CFaceDetect::deinitAsyncFramePool()
         memset_s(&stFrame, sizeof(stFrame), 0, sizeof(stFrame));
     }
     m_bAsyncFramePoolInitialized = false;
+    dlog_info("人脸异步VB帧池已释放，帧数[%zu]，分辨率[%dx%d]",
+              m_astAsyncFrames.size(), m_nWidth, m_nHeight);
 }
 
 ot_video_frame_info *CFaceDetect::acquireAsyncFrame()
@@ -306,8 +327,15 @@ void CFaceDetect::run()
 
     while (m_bRunning.load())
     {
+        /*
+         * 从业务状态检查、初始化到任务提交期间保持资源生命周期稳定。
+         * 关闭线程取得该锁后，再停止 worker 并销毁帧池。
+         */
+        std::unique_lock<std::mutex> lifecycleLock(m_lifecycleMutex);
         if (!hasEnabledAlgorithm())
         {
+            /* 不持锁休眠，使配置线程能够随时开启业务。 */
+            lifecycleLock.unlock();
             sleep(1);
 
             continue;
@@ -508,9 +536,5 @@ void CFaceDetect::run()
 
 bool CFaceDetect::hasEnabledAlgorithm() const
 {
-    return m_captureProcessor.isEnabled() 
-    #if CAP_AI_FACE_COMPARE
-    || m_featureProcessor.isEnabled()
-    #endif
-    ;
+    return m_bAlgorithmEnabled.load();
 }

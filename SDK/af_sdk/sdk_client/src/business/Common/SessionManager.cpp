@@ -141,7 +141,7 @@ LPUSER_HANDLE CSessionManager::GenerateHandle()
  */
 std::shared_ptr<CUserSession> CSessionManager::GetSession(LPUSER_HANDLE pHandle)
 {
-    NETSDK_LOG_MESSAGE_INFO("[SessionManager] GetSession called, handle=%p (as int=%d)", pHandle, (int)(intptr_t)pHandle);
+    // NETSDK_LOG_MESSAGE_INFO("[SessionManager] GetSession called, handle=%p (as int=%d)", pHandle, (int)(intptr_t)pHandle);
 	std::lock_guard<std::mutex> lock(m_stDeviceMapMutex);
 	auto it = m_stSessions.find(pHandle);
     if (it != m_stSessions.end()) {
@@ -178,6 +178,35 @@ void CSessionManager::SetGlobalConnectTime(int waitTime, int tryTimes)
 }
 
 /**
+ * @brief 设置异常回调函数
+ * @param [in] cb 异常回调函数指针
+ * @param [in] pUser 用户自定义数据
+ */
+void CSessionManager::SetExceptionCallBack(NET_ExceptionCallBack_PF cb, LPVOID pUser)
+{
+    std::lock_guard<std::mutex> lock(m_stExceptionCbMutex);
+    m_cbException = cb;
+    m_pExceptionUser = pUser;
+    NETSDK_LOG_MESSAGE_INFO("[SessionManager] Exception callback registered: cb=%p, user=%p", (void*)cb, pUser);
+}
+
+/**
+ * @brief 触发异常回调
+ * @param [in] pHandle 用户登录句柄
+ * @param [in] dwType 异常类型
+ * @param [in] lpExpHandle 异常相关句柄
+ */
+void CSessionManager::FireExceptionCallback(LPUSER_HANDLE pHandle, INT32 dwType, LPVOID lpExpHandle)
+{
+    std::lock_guard<std::mutex> lock(m_stExceptionCbMutex);
+    if (m_cbException)
+    {
+        NETSDK_LOG_MESSAGE_DEBUG("[SessionManager] Firing exception callback: handle=%p, type=%d", pHandle, dwType);
+        m_cbException(pHandle, dwType, lpExpHandle, m_pExceptionUser);
+    }
+}
+
+/**
  * @author tianl (tianl@kfb.cn)
  * @brief 会话丢失回调处理
  * @param [in] pHandle 用户登录句柄
@@ -190,6 +219,9 @@ void CSessionManager::OnSessionLost(LPUSER_HANDLE pHandle)
     /* session 自己会通过 ReconnectLoop 重连，重连成功后仍然在 map 里 */
     /* 如果在此删除 session，重连成功后 handle 就找不到对应的 session，所有命令调用失败 */
     NETSDK_LOG_MESSAGE_WARN("[SessionManager] Session lost notification for User-%p (session remains in map for reconnect)", pHandle);
+
+    /* 触发异常回调，通知上层会话丢失 */
+    FireExceptionCallback(pHandle, NET_EXCEPTION_EXCHANGE);
 }
 
 /**

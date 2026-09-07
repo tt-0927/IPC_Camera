@@ -12,9 +12,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_DeviceInfo_S& stInfo, bool bO
     }
     SDKConvert::CSDKConvert convert(bOutStruct);
     convert.field(pRootJson, "DevType", (int &)stInfo.uDevType);
-    convert.field(pRootJson, "AlarmInPortNum", (int &)stInfo.uAlarmInPortNum);
-    convert.field(pRootJson, "AlarmOutPortNum", (int &)stInfo.uAlarmOutPortNum);
-    convert.field(pRootJson, "ChannelNum", (int &)stInfo.uChannelNum);
+    convert.field(pRootJson, "DevModel", stInfo.strDevModel);
 
 }
 
@@ -35,9 +33,10 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_DeviceBasicInfo_S& stInfo, bo
     convert.field(pRootJson, "DeviceName", stInfo.strDeviceName);
     convert.field(pRootJson, "Manufacturer", stInfo.strManufacturer);
     convert.field(pRootJson, "DeviceTypeV2", stInfo.strDeviceTypeV2);
-    convert.field(pRootJson, "CPULoadRatio", stInfo.fCPULoadRatio);
-    convert.field(pRootJson, "MemoryUsage", stInfo.fMemoryUsage);
-    convert.field(pRootJson, "BootTime", stInfo.nBootTime);
+    convert.field(pRootJson, "AlarmInPortNum", (int &)stInfo.uAlarmInPortNum);
+    convert.field(pRootJson, "AlarmOutPortNum", (int &)stInfo.uAlarmOutPortNum);
+    convert.field(pRootJson, "ChannelNum", (int &)stInfo.uChannelNum);
+    convert.field(pRootJson, "PoeChannelNum", (int &)stInfo.uPoeChannelNum);
 }
 
 
@@ -76,6 +75,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_SystemNtpInfo_S& stInfo, bool
     convert.field(pRootJson, "Port", stInfo.nPort);
     convert.field(pRootJson, "SyncInterval", stInfo.nSyncInterval);
 }
+
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_SystemTime_S& stInfo, bool bOutStruct)
 {

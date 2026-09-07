@@ -3,7 +3,7 @@
  * @Author       : zhouzirui
  * @Date         : 2025-03-21 10:29:00
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-01-05 14:07:52
+ * @LastEditTime : 2026-09-07 09:31:35
  * @Description  : VENC 视频编码
  */
 
@@ -18,6 +18,57 @@
 #define ROI_QP_DEFAULT (-8)
 /*感兴趣编码区域QP转换因子默认值*/
 #define ROI_QP_DEFAULT_FACTOR  (-2)
+
+namespace
+{
+
+/* 主码流低帧率、短GOP场景使用的VENC压缩码流buffer下限，单位为字节。 */
+constexpr unsigned int MAIN_STREAM_HIGH_FRAME_PRESSURE_BUF_SIZE = 1792U * 1024U;
+/* 当前仅对不超过2fps的低帧率场景启用额外容量。 */
+constexpr int LOW_FRAME_RATE_MAX = 2;
+
+/**
+ * @brief   : 判断编码格式是否属于帧间压缩视频
+ * @param    {Video_NS::VideoCodec_E} enVideoCodec：视频编码格式
+ * @return   {bool} true：H.264/H.265/SVAC3；false：JPEG/MJPEG等其他格式
+ * @note    : JPEG/MJPEG使用独立的码流buffer计算，不参与低帧率视频扩容策略。
+ */
+bool is_inter_frame_video_codec(const Video_NS::VideoCodec_E enVideoCodec)
+{
+    return enVideoCodec == Video_NS::VideoCodec_E::H264 || enVideoCodec == Video_NS::VideoCodec_E::H265 ||
+           enVideoCodec == Video_NS::VideoCodec_E::SVAC3;
+}
+
+/**
+ * @brief   : 判断视频配置是否属于主码流高单帧压力场景
+ * @param    {Video_NS::VideoConfig_S} stVideoConfig：视频编码配置
+ * @return   {bool} true：需要扩大VENC码流buffer；false：继续使用默认大小
+ * @note    : 短GOP定义为关键帧周期不超过1秒，即GOP不大于实际输出帧率。
+ */
+bool is_main_stream_high_frame_pressure(const Video_NS::VideoConfig_S &stVideoConfig)
+{
+    const int nFrameRate = stVideoConfig.getFrameRateAsInt();
+    return stVideoConfig.nId == VENC_CHN_MAIN && is_inter_frame_video_codec(stVideoConfig.enVideoCodec) && nFrameRate > 0 &&
+           nFrameRate <= LOW_FRAME_RATE_MAX && stVideoConfig.nIFrameInterval > 0 && stVideoConfig.nIFrameInterval <= nFrameRate;
+}
+
+/**
+ * @brief   : 获取业务要求的VENC压缩码流buffer最小值
+ * @param    {Video_NS::VideoConfig_S} stVideoConfig：视频编码配置
+ * @return   {unsigned int} 0：使用底层默认值；非0：业务要求的buffer下限
+ * @note    : 只扩大主码流低帧率、短GOP场景；普通场景不增加固定内存占用。
+ */
+unsigned int get_venc_stream_buf_size_min(const Video_NS::VideoConfig_S &stVideoConfig)
+{
+    if (!is_main_stream_high_frame_pressure(stVideoConfig))
+    {
+        return 0U;
+    }
+
+    return MAIN_STREAM_HIGH_FRAME_PRESSURE_BUF_SIZE;
+}
+
+} // namespace
 
 /**
  * @brief   : 编码器ROI属性填充
@@ -119,6 +170,12 @@ HiVenc_S *streamVenc_init(const Video_NS::VideoConfig_S &stVideoConfig, const Vi
     {
         stVencNeedParam.enCodec = OT_PT_MJPEG;
     }
+
+    /*
+     * 业务层识别主码流低帧率、短GOP场景，底层只接收通用的容量下限参数。
+     * 未命中特殊场景时保持0，继续使用分辨率对应的默认省内存策略。
+     */
+    stVencNeedParam.unStreamBufSizeMin = get_venc_stream_buf_size_min(stVideoConfig);
 
     /*智能编码*/
     if(stVideoConfig.bSmartEnable == true)
@@ -302,6 +359,8 @@ int streamVenc_reset_attr(HiVenc_S *pHandle, const Video_NS::VideoConfig_S &stVi
     pHandle->stNeedParam.nGop            = stVideoConfig.nIFrameInterval;
     pHandle->stNeedParam.nInFrameRate    = 30;
     pHandle->stNeedParam.nOutFrameRate   = stVideoConfig.getFrameRateAsInt();
+    /*同步维护容量策略，避免属性重置后后续VENC重建丢失业务下限。*/
+    pHandle->stNeedParam.unStreamBufSizeMin = get_venc_stream_buf_size_min(stVideoConfig);
 
     using namespace Video_NS;
 

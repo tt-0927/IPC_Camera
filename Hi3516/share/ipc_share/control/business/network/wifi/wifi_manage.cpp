@@ -6,11 +6,15 @@
 #include <sstream>
 #include <cstring>
 #include <cctype>
+#include <cerrno>
+#include <cstdio>
+#include <cstdint>
 #include <cstdlib>
 #include <unistd.h>
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <sys/wait.h>
+#include <ifaddrs.h>
 #include <chrono>
 #include <arpa/inet.h>
 #include <algorithm>
@@ -122,6 +126,131 @@ bool executeRouteCommand(const std::string& command) {
         dlog_error("[路由] 命令执行失败: %s, status=%d", command.c_str(), status);
         return false;
     }
+    return true;
+}
+
+bool parseIpv4Address(const std::string& value, uint32_t& hostValue) {
+    struct in_addr address;
+    if (inet_pton(AF_INET, value.c_str(), &address) != 1) {
+        return false;
+    }
+    hostValue = ntohl(address.s_addr);
+    return true;
+}
+
+bool getInterfaceIpv4Network(const char* interfaceName,
+                             uint32_t& ip,
+                             uint32_t& mask) {
+    struct ifaddrs* interfaceList = nullptr;
+    if (getifaddrs(&interfaceList) != 0) {
+        dlog_error("[WiFi IPv4] getifaddrs失败: %s", std::strerror(errno));
+        return false;
+    }
+
+    bool found = false;
+    for (struct ifaddrs* item = interfaceList; item != nullptr; item = item->ifa_next) {
+        if (!item->ifa_addr || !item->ifa_netmask ||
+            item->ifa_addr->sa_family != AF_INET ||
+            std::strcmp(item->ifa_name, interfaceName) != 0) {
+            continue;
+        }
+
+        const struct sockaddr_in* address =
+            reinterpret_cast<const struct sockaddr_in*>(item->ifa_addr);
+        const struct sockaddr_in* netmask =
+            reinterpret_cast<const struct sockaddr_in*>(item->ifa_netmask);
+        ip = ntohl(address->sin_addr.s_addr);
+        mask = ntohl(netmask->sin_addr.s_addr);
+        found = true;
+        break;
+    }
+
+    freeifaddrs(interfaceList);
+    return found;
+}
+
+bool ipv4SubnetsOverlap(uint32_t firstIp, uint32_t firstMask,
+                        uint32_t secondIp, uint32_t secondMask) {
+    const uint32_t firstStart = firstIp & firstMask;
+    const uint32_t firstEnd = firstStart | ~firstMask;
+    const uint32_t secondStart = secondIp & secondMask;
+    const uint32_t secondEnd = secondStart | ~secondMask;
+    return firstStart <= secondEnd && secondStart <= firstEnd;
+}
+
+bool isEthLinkUp() {
+    std::ifstream carrierFile("/sys/class/net/eth0/carrier");
+    int carrier = 0;
+    if (!carrierFile.is_open() || !(carrierFile >> carrier)) {
+        dlog_warn("[WiFi IPv4] 无法读取eth0 carrier，按有线未连接处理");
+        return false;
+    }
+    return carrier == 1;
+}
+
+bool wifiSubnetOverlapsEth(uint32_t wifiIp, uint32_t wifiMask) {
+    /* 拔线后eth0地址通常仍保留，只有carrier在线时才构成双接口网段冲突。 */
+    if (!isEthLinkUp()) {
+        return false;
+    }
+
+    uint32_t ethIp = 0;
+    uint32_t ethMask = 0;
+    if (!getInterfaceIpv4Network("eth0", ethIp, ethMask)) {
+        /* eth0当前没有IPv4地址时不存在可判断的冲突。 */
+        return false;
+    }
+    return ipv4SubnetsOverlap(wifiIp, wifiMask, ethIp, ethMask);
+}
+
+bool currentWifiSubnetOverlapsEth() {
+    uint32_t wifiIp = 0;
+    uint32_t wifiMask = 0;
+    if (!getInterfaceIpv4Network("wlan0", wifiIp, wifiMask)) {
+        return false;
+    }
+    return wifiSubnetOverlapsEth(wifiIp, wifiMask);
+}
+
+bool validateWifiIpv4Config(const ::Network::WifiIpv4Config_S& config,
+                            int& prefixLength) {
+    uint32_t ip = 0;
+    uint32_t mask = 0;
+    uint32_t gateway = 0;
+    if (!parseIpv4Address(config.ipv4Ip, ip) ||
+        !parseIpv4Address(config.ipv4Mask, mask) ||
+        !parseIpv4Address(config.ipv4Gateway, gateway)) {
+        return false;
+    }
+
+    /* 合法掩码取反后必须是连续低位1；默认网关场景限制为/1到/30。 */
+    const uint32_t invertedMask = ~mask;
+    if ((invertedMask & (invertedMask + 1U)) != 0U) {
+        return false;
+    }
+
+    prefixLength = 0;
+    for (uint32_t value = mask; value != 0U; value <<= 1U) {
+        prefixLength += (value & 0x80000000U) != 0U ? 1 : 0;
+    }
+    if (prefixLength < 1 || prefixLength > 30) {
+        return false;
+    }
+
+    const uint32_t network = ip & mask;
+    const uint32_t broadcast = network | invertedMask;
+    if ((gateway & mask) != network || ip == gateway ||
+        ip == network || ip == broadcast ||
+        gateway == network || gateway == broadcast) {
+        return false;
+    }
+
+    if (wifiSubnetOverlapsEth(ip, mask)) {
+        dlog_error("[WiFi IPv4] 拒绝配置：WiFi网段[%s/%s]与eth0当前网段重叠",
+                   config.ipv4Ip.c_str(), config.ipv4Mask.c_str());
+        return false;
+    }
+
     return true;
 }
 }
@@ -404,23 +533,25 @@ void CWifiManager::handleDisconnect() {
 
     }
     
+
     if (!is_running.load() || !m_hasConnectedOnce.load()) {
         return;
     }
-    const ::Network::WifiConnectResult result = connectToWifi(localConfig);
 
-    // if (reconnect_attempts < MAX_RECONNECT_ATTEMPTS) {
-    //     reconnect_attempts++;
-    //     std::cout << "[重连] 正在尝试重连 (" << reconnect_attempts << ")..." << std::endl;
-        
-    //     // 使用保存的完整配置重连
-    //     connectToWifi(localConfig);
-    // } else {
-    //     std::cout << "[重连] 达到最大重连次数。" << std::endl;
-    //     // m_hasConnectedOnce.store(false);
-    //     reconnect_attempts = 0;
-    //     m_monitorCondition.notify_all();
-    // }
+    const unsigned int attempt = reconnect_attempts.fetch_add(1) + 1;
+    std::cout << "[重连] 正在尝试第 " << attempt
+              << " 次重连，将持续重试直到连接成功..." << std::endl;
+
+    /*
+     * 使用保存的完整配置重连。失败后不清除 m_hasConnectedOnce，
+     * monitorLoop 会在下一次监控周期再次进入这里；成功时
+     * connectToWifi() 会把 reconnect_attempts 清零。
+     */
+    const ::Network::WifiConnectResult result = connectToWifi(localConfig);
+    if (!result.success && is_running.load() && m_hasConnectedOnce.load()) {
+        dlog_warn("[重连] 第 %u 次WiFi重连失败，错误码[%d]，稍后继续重试",
+                  attempt, result.error_code);
+    }
 }
 
 
@@ -1468,15 +1599,20 @@ std::string generateWpaConfContent(const ::Network::WifiStaConncet_S& config) {
             // if (status.find("ssid=" + config.ssid) != std::string::npos) 
                 {
                 std::cout << "[成功] 已连接到 WiFi: " << config.ssid << std::endl;
-                reconnect_attempts = 0;
+                reconnect_attempts.store(0);
                 is_connected.store(true);
                 m_hasConnectedOnce.store(true);
                 m_monitorCondition.notify_all();
                 this->config.current_ssid = config.ssid;
 
-                // system(("udhcpc -i " + config.interface_name + " -n -q 5").c_str());
-                system(("udhcpc -i " + config.interface_name + " -n -q").c_str());
-                std::this_thread::sleep_for(std::chrono::milliseconds(100)); 
+                ::Network::WifiIpv4Config_S ipv4Config;
+                if (!loadWifiIpv4Config(ipv4Config) || !applyWifiIpv4Config(ipv4Config))
+                {
+                    dlog_error("[连接] WiFi已关联，但IPv4配置应用失败");
+                    result.error_code = ::Network::WIFI_CONNECT_UNKNOWN_ERROR;
+                    return result;
+                }
+                std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
                 std::string ip_info = sendCommand("STATUS");
                 size_t ip_pos = ip_info.find("ip_address=");
@@ -1621,6 +1757,28 @@ void get_wifi_config(Network::WifiStaInfo_S &outWifiConfigInfo) {
     Convert::read_file(WIFI_CONFIG_FILE, outWifiConfigInfo);
 }
 
+int set_wifi_ipv4_config(Network::WifiIpv4Config_S stWifiIpv4Config)
+{
+    std::cout << "写入WiFi IPv4配置信息。" << std::endl;
+    return Convert::write_file(WIFI_IPV4_CONFIG_FILE, stWifiIpv4Config);
+}
+
+int get_wifi_ipv4_config(Network::WifiIpv4Config_S &outWifiIpv4Config)
+{
+    std::cout << "读取WiFi IPv4配置信息。" << std::endl;
+
+    std::ifstream configFile(WIFI_IPV4_CONFIG_FILE);
+    if (!configFile.is_open())
+    {
+        /* 首次启动尚无配置文件时使用结构体默认值：DHCP开启。 */
+        outWifiIpv4Config = Network::WifiIpv4Config_S();
+        return 0;
+    }
+    configFile.close();
+
+    return Convert::read_file(WIFI_IPV4_CONFIG_FILE, outWifiIpv4Config);
+}
+
 static std::string getGatewayByInterface(const std::string &iface)
 {
     char buf[128] = { 0 };
@@ -1646,6 +1804,142 @@ static std::string getGatewayByInterface(const std::string &iface)
     pclose(fp);
 
     return "";
+}
+
+bool CWifiManager::saveWifiIpv4Config(const ::Network::WifiIpv4Config_S& config)
+{
+    return set_wifi_ipv4_config(config) == 0;
+}
+
+bool CWifiManager::loadWifiIpv4Config(::Network::WifiIpv4Config_S& config)
+{
+    return get_wifi_ipv4_config(config) == 0;
+}
+
+bool CWifiManager::applyWifiIpv4Config(const ::Network::WifiIpv4Config_S& config)
+{
+    if (!is_connected.load())
+    {
+        dlog_info("[WiFi IPv4] WiFi未连接，配置将在连接成功后应用");
+        return true;
+    }
+
+    std::lock_guard<std::mutex> routeLock(m_routeMutex);
+
+    if (config.bEnableDhcp)
+    {
+        /* 清除静态地址和旧默认路由，再由DHCP完整下发IP、掩码及网关。 */
+        system("ip -4 route del default dev wlan0 2>/dev/null");
+        if (!executeRouteCommand("ip -4 addr flush dev wlan0 scope global"))
+        {
+            return false;
+        }
+        if (std::system("udhcpc -i wlan0 -n -q") != 0)
+        {
+            dlog_error("[WiFi IPv4] DHCP获取地址失败");
+            return false;
+        }
+        m_wifiGateway = getGatewayByInterface("wlan0");
+        if (m_wifiGateway.empty())
+        {
+            dlog_error("[WiFi IPv4] DHCP完成但未获取到WiFi网关");
+            return false;
+        }
+        if (currentWifiSubnetOverlapsEth())
+        {
+            system("ip -4 route del default dev wlan0 2>/dev/null");
+            m_wifiNetworkAvailable.store(false);
+            dlog_warn("[WiFi IPv4] DHCP分配网段与在线eth0重叠，保持WiFi关联并禁用其默认出口");
+        }
+    }
+    else
+    {
+        int prefixLength = 0;
+        if (!validateWifiIpv4Config(config, prefixLength))
+        {
+            dlog_error("[WiFi IPv4] 静态IP参数非法或IP与网关不在同一网段");
+            return false;
+        }
+
+        system("ip -4 route del default dev wlan0 2>/dev/null");
+        if (!executeRouteCommand("ip -4 addr flush dev wlan0 scope global") ||
+            !executeRouteCommand("ip link set wlan0 up") ||
+            !executeRouteCommand("ip -4 addr add " + config.ipv4Ip + "/" +
+                                 std::to_string(prefixLength) + " dev wlan0"))
+        {
+            return false;
+        }
+        m_wifiGateway = config.ipv4Gateway;
+    }
+
+    /* 按当前有线链路状态重新建立单默认或WiFi优先双默认路由。 */
+    int carrier = 0;
+    std::ifstream carrierFile("/sys/class/net/eth0/carrier");
+    if (!carrierFile.is_open() || !(carrierFile >> carrier))
+    {
+        dlog_error("[WiFi IPv4] 无法读取eth0链路状态，拒绝重建路由");
+        return false;
+    }
+
+    m_routeStateInitialized.store(false);
+    const bool subnetConflict = carrier == 1 && currentWifiSubnetOverlapsEth();
+    m_wifiNetworkAvailable.store(!subnetConflict);
+    const bool routeOk = subnetConflict ? switchToEth() :
+                         (carrier == 1 ? switchToWifiPreferred() : switchToWifi());
+    if (!routeOk)
+    {
+        dlog_error("[WiFi IPv4] IPv4地址已应用，但出口路由重建失败");
+        return false;
+    }
+
+    m_lastWiredDisconnected = (carrier != 1);
+    m_lastWifiConnected = true;
+    m_lastWifiNetworkAvailable = !subnetConflict;
+    m_routeStateInitialized.store(true);
+
+    if (subnetConflict)
+    {
+        dlog_warn("[WiFi IPv4] WiFi保持连接但网络出口不可用，当前继续使用eth0");
+    }
+
+    dlog_info("[WiFi IPv4] 配置应用成功: DHCP[%d] IP[%s] Mask[%s] Gateway[%s]",
+              config.bEnableDhcp,
+              config.ipv4Ip.c_str(), config.ipv4Mask.c_str(), config.ipv4Gateway.c_str());
+    return true;
+}
+
+int CWifiManager::setWifiIpv4Config(const ::Network::WifiIpv4Config_S& config)
+{
+    if (!config.bEnableDhcp)
+    {
+        int prefixLength = 0;
+        if (!validateWifiIpv4Config(config, prefixLength))
+        {
+            dlog_error("[WiFi IPv4] 拒绝保存非法静态配置: IP[%s] Mask[%s] Gateway[%s]",
+                       config.ipv4Ip.c_str(), config.ipv4Mask.c_str(),
+                       config.ipv4Gateway.c_str());
+            return -1;
+        }
+    }
+
+    if (!saveWifiIpv4Config(config))
+    {
+        return -1;
+    }
+
+    /* 正在连接时只保存；连接成功分支会读取最新配置并统一应用。 */
+    if (m_isConnecting.load())
+    {
+        dlog_info("[WiFi IPv4] WiFi正在连接，配置已保存并将在连接成功后应用");
+        return 0;
+    }
+
+    return applyWifiIpv4Config(config) ? 0 : -1;
+}
+
+int CWifiManager::getWifiIpv4Config(::Network::WifiIpv4Config_S& config)
+{
+    return get_wifi_ipv4_config(config) == 0 ? 0 : -1;
 }
 
 // --- 新增函数：强制锁定当前 IP 并持久化 ---
@@ -1745,7 +2039,11 @@ void CWifiManager::lockCurrentIp() {
 // --- 检测 WiFi 连接且有线断开 ---
 bool CWifiManager::isWifiConnectedAndWiredDisconnected(bool bWiredDisconnected)
 {
+    std::lock_guard<std::mutex> routeLock(m_routeMutex);
     const bool bWifiConnected = is_connected.load();
+    const bool bWifiNetworkAvailable =
+        bWifiConnected && (bWiredDisconnected || !currentWifiSubnetOverlapsEth());
+    m_wifiNetworkAvailable.store(bWifiNetworkAvailable);
 
     /*
      * 路由状态同时取决于有线和 WiFi。只比较网线状态会漏掉以下场景：
@@ -1754,7 +2052,8 @@ bool CWifiManager::isWifiConnectedAndWiredDisconnected(bool bWiredDisconnected)
      */
     if (m_routeStateInitialized.load() &&
         m_lastWiredDisconnected == bWiredDisconnected &&
-        m_lastWifiConnected == bWifiConnected)
+        m_lastWifiConnected == bWifiConnected &&
+        m_lastWifiNetworkAvailable == bWifiNetworkAvailable)
     {
         return true;
     }
@@ -1778,6 +2077,7 @@ bool CWifiManager::isWifiConnectedAndWiredDisconnected(bool bWiredDisconnected)
 
             m_lastWiredDisconnected = true;
             m_lastWifiConnected = false;
+            m_lastWifiNetworkAvailable = false;
             m_routeStateInitialized.store(true);
             return true;
         }
@@ -1790,6 +2090,7 @@ bool CWifiManager::isWifiConnectedAndWiredDisconnected(bool bWiredDisconnected)
 
         m_lastWiredDisconnected = true;
         m_lastWifiConnected = true;
+        m_lastWifiNetworkAvailable = true;
         m_routeStateInitialized.store(true);
         return true;
     }
@@ -1797,6 +2098,20 @@ bool CWifiManager::isWifiConnectedAndWiredDisconnected(bool bWiredDisconnected)
     /* 有线存在且 WiFi 已连接：局域网保留 eth0，公网优先 wlan0。 */
     if (bWifiConnected)
     {
+        if (!bWifiNetworkAvailable)
+        {
+            dlog_warn("[路由] WiFi已关联但与在线eth0网段重叠，禁用WiFi出口并使用有线");
+            if (!switchToEth())
+            {
+                return false;
+            }
+            m_lastWiredDisconnected = false;
+            m_lastWifiConnected = true;
+            m_lastWifiNetworkAvailable = false;
+            m_routeStateInitialized.store(true);
+            return true;
+        }
+
         std::cout << "[路由] 有线和WiFi均可用，配置WiFi优先双默认路由" << std::endl;
 
         if (!switchToWifiPreferred())
@@ -1807,6 +2122,7 @@ bool CWifiManager::isWifiConnectedAndWiredDisconnected(bool bWiredDisconnected)
 
         m_lastWiredDisconnected = false;
         m_lastWifiConnected = true;
+        m_lastWifiNetworkAvailable = true;
         m_routeStateInitialized.store(true);
         return true;
     }
@@ -1820,6 +2136,7 @@ bool CWifiManager::isWifiConnectedAndWiredDisconnected(bool bWiredDisconnected)
 
     m_lastWiredDisconnected = false;
     m_lastWifiConnected = false;
+    m_lastWifiNetworkAvailable = false;
     m_routeStateInitialized.store(true);
     return true;
 }
@@ -1987,6 +2304,15 @@ bool CWifiManager::switchToWifi()
 
 bool CWifiManager::switchToWifiPreferred()
 {
+    if (currentWifiSubnetOverlapsEth())
+    {
+        m_wifiNetworkAvailable.store(false);
+        dlog_warn("[路由] wlan0与在线eth0网段重叠，保持WiFi连接并回退到eth0出口");
+        return switchToEth();
+    }
+
+    m_wifiNetworkAvailable.store(true);
+
     if (m_wifiGateway.empty())
     {
         /* DHCP 通常已先创建 wlan0 默认路由，切换前从中补取网关。 */

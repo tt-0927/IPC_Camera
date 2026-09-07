@@ -125,8 +125,8 @@ private:
     std::atomic<bool> is_rebootrtsp_wlan0 = false;
     std::atomic<bool> is_rebootrtsp_eth0 = false;
     std::thread monitor_thread;
-    int reconnect_attempts;
-    static const int MAX_RECONNECT_ATTEMPTS = 3;
+    /* 断线后累计重连次数，仅用于日志；重连不再设置次数上限。 */
+    std::atomic<unsigned int> reconnect_attempts;
     std::chrono::steady_clock::time_point last_scan_time_; // 记录上次扫描时间
     std::vector<WifiInfo> last_scan_results_;              // 缓存上次扫描结果
     std::string m_configFile;                               /* 配置文件 */
@@ -143,6 +143,10 @@ private:
     bool m_lastWiredDisconnected = false;
     bool m_lastWifiConnected = false;
     std::atomic<bool> m_routeStateInitialized{false};
+    /* 无线关联成功不代表可以作为网络出口；网段冲突时保持关联但置为false。 */
+    std::atomic<bool> m_wifiNetworkAvailable{false};
+    bool m_lastWifiNetworkAvailable = false;
+    std::mutex m_routeMutex; /* 串行化地址设置与路由状态切换 */
 
 
     // 私有辅助函数
@@ -160,6 +164,9 @@ private:
     void restoreConnection(); // 尝试从文件恢复并连接
     bool saveConfigToFile(const ::Network::WifiStaConncet_S& config); // 保存配置
     bool loadConfigFromFile(::Network::WifiStaConncet_S& config);     // 读取配置
+    bool saveWifiIpv4Config(const ::Network::WifiIpv4Config_S& config);
+    bool loadWifiIpv4Config(::Network::WifiIpv4Config_S& config);
+    bool applyWifiIpv4Config(const ::Network::WifiIpv4Config_S& config);
 
     // 异步执行，防止 init 阻塞 ---
     void asyncRestoreConnection(); 
@@ -188,6 +195,20 @@ public:
     // bool connectToWifi(const std::string& ssid, const std::string& psk);
     ::Network::WifiConnectResult connectToWifi(::Network::WifiStaConncet_S& config);
 
+    /**
+     * @brief 设置WiFi IPv4参数（DHCP或静态）
+     * @note  WiFi已连接时立即生效；未连接时保存，连接成功后自动应用。
+     * @return 0成功，-1参数非法、保存失败或应用失败
+     */
+    int setWifiIpv4Config(const ::Network::WifiIpv4Config_S& config);
+
+    /**
+     * @brief 获取用户保存的WiFi IPv4配置
+     * @note  尚未保存配置时返回默认配置（DHCP开启）。
+     * @return 0成功，-1读取或解析配置文件失败
+     */
+    int getWifiIpv4Config(::Network::WifiIpv4Config_S& config);
+
     bool disconnectWifi();// 断开当前 WiFi 连接
 
     // 4. 开启增强模式
@@ -206,6 +227,10 @@ public:
 void set_wifi_config(Network::WifiStaInfo_S stWifiConfigInfo);
 
 void get_wifi_config(Network::WifiStaInfo_S &outWifiConfigInfo);
+
+int set_wifi_ipv4_config(Network::WifiIpv4Config_S stWifiIpv4Config);
+
+int get_wifi_ipv4_config(Network::WifiIpv4Config_S &outWifiIpv4Config);
 
 #endif // WIFI_MANAGER_H
 #endif

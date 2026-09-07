@@ -3,7 +3,7 @@
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2025-07-29 20:10:37
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-03-28 10:43:44
+ * @LastEditTime : 2026-08-26 15:00:00
  * @Description  : 脸人车侦测
  */
 
@@ -16,18 +16,26 @@
 #include "blocking_queue.hpp"
 #include "common_process.h"
 #include "algorithm.hpp"
+#include "detection_types.hpp"
 #include "share_data.h"
 #include "stream_ai_detect.h"
 #include "internal/processors/face/hvf_face_processor.hpp"
+#if !CAP_UNIFIED_EVENT_PIPELINE
 #include "internal/processors/boundary/hvf_boundary_processor.hpp"
 #include "internal/processors/region/hvf_intrusion_processor.hpp"
+#include "internal/processors/region/hvf_enter_exit_processor.hpp"
 #include "internal/processors/region/hvf_loitering_processor.hpp"
 #include "internal/processors/region/hvf_parking_processor.hpp"
-#include "internal/processors/region/hvf_enter_exit_processor.hpp"
-#if CAP_AI_PEOPLE_STATISTICS
-#include "internal/processors/statistics/hvf_people_flow_processor.hpp"
+#else
+#include "internal/pipeline/migration/hvf_event_migration_controller.hpp"
 #endif
-#if CAP_AI_PEOPLE_DENSITY_V2
+#if CAP_AI_PEOPLE_STATISTICS && !CAP_AI_EXHIBITION_PEOPLE_FLOW
+#include "internal/processors/statistics/hvf_people_flow_processor.hpp"
+#if CAP_AI_PEOPLE_FLOW_PIPELINE
+#include "internal/pipeline/migration/hvf_people_flow_migration_controller.hpp"
+#endif
+#endif
+#if CAP_AI_PEOPLE_DENSITY_V2 && !CAP_AI_PEOPLE_DENSITY_PIPELINE
 #include "internal/processors/statistics/hvf_people_density_processor.hpp"
 #endif
 
@@ -107,7 +115,7 @@ public:
      */
     void setAlgoParamCfg(const Alarm::ExitingDetection_S &stAlgoCfg);
 
-#if CAP_AI_PEOPLE_STATISTICS
+#if CAP_AI_PEOPLE_STATISTICS && !CAP_AI_EXHIBITION_PEOPLE_FLOW
     /**
      * @brief   : 更新人流统计参数
      * @param    {PeopleFlowStatistics_S} &stAlgoCfg：人流统计配置
@@ -116,7 +124,7 @@ public:
     void setAlgoParamCfg(const Alarm::PeopleFlowStatistics_S &stAlgoCfg);
 #endif
 
-#if CAP_AI_PEOPLE_DENSITY_V2
+#if CAP_AI_PEOPLE_DENSITY_V2 && !CAP_AI_PEOPLE_DENSITY_PIPELINE
     /**
      * @brief   : 更新人员密度检测参数
      * @param    {PeopleDensityDetection_S} &stAlgoCfg：人员密度检测配置
@@ -125,17 +133,16 @@ public:
     void setAlgoParamCfg(const Alarm::PeopleDensityDetection_S &stAlgoCfg);
 #endif
 
-#if CAP_AI_PEOPLE_STATISTICS || CAP_AI_PEOPLE_DENSITY_V2
+#if (CAP_AI_PEOPLE_STATISTICS && !CAP_AI_EXHIBITION_PEOPLE_FLOW) || (CAP_AI_PEOPLE_DENSITY_V2 && !CAP_AI_PEOPLE_DENSITY_PIPELINE)
     /**
      * @brief   : 设置事件统计上报器
      * @param    {IEventStatisticsReporter} &pReporter：统计上报器
      * @return   {void}
      */
-    void setEventStatisticsReporter(
-        const std::shared_ptr<EventStatistics_NS::IEventStatisticsReporter> &pReporter) override;
+    void setEventStatisticsReporter(const std::shared_ptr<EventStatistics_NS::IEventStatisticsReporter> &pReporter) override;
 #endif
 
-#if CAP_AI_PEOPLE_STATISTICS
+#if CAP_AI_PEOPLE_STATISTICS && !CAP_AI_EXHIBITION_PEOPLE_FLOW
     /**
      * @brief   : 处理 HVF 运行时命令
      * @param    {RuntimeCommand_S} &stCommand：运行时命令
@@ -185,26 +192,38 @@ private:
     std::thread m_thread;
     /* 检测频率控制 */
     EventManager m_RecvManager{ 200 };
+#if !CAP_UNIFIED_EVENT_PIPELINE
     /* 人脸侦测处理器 */
     HVFDetectInternal::CHVFFaceProcessor m_faceProcessor;
     /* 越界侦测处理器 */
     HVFDetectInternal::CHVFBoundaryProcessor m_boundaryProcessor;
     /* 区域入侵处理器 */
     HVFDetectInternal::CHVFIntrusionProcessor m_intrusionProcessor;
+    /* 进入/离开区域处理器 */
+    HVFDetectInternal::CHVFEnterExitProcessor m_enterExitProcessor;
     /* 徘徊侦测处理器 */
     HVFDetectInternal::CHVFLoiteringProcessor m_loiteringProcessor;
     /* 停车侦测处理器 */
     HVFDetectInternal::CHVFParkingProcessor m_parkingProcessor;
-    /* 进入/离开区域处理器 */
-    HVFDetectInternal::CHVFEnterExitProcessor m_enterExitProcessor;
+#else
+    /* HVF 事件族统一迁移控制器（侵入/进入/离开/越界/徘徊/停车） */
+    HVFDetectInternal::CHVFEventMigrationController m_eventMigrationController;
+#endif
     /* 目标视频帧 */
     ot_video_frame_info m_stDstFrameInfo;
-#if CAP_AI_PEOPLE_STATISTICS
+    /* 模型输入分辨率，检测帧缩放目标 */
+    AiPipeline_NS::FrameSize_S m_stModelFrameSize;
+#if CAP_AI_PEOPLE_STATISTICS && !CAP_AI_EXHIBITION_PEOPLE_FLOW
+#if CAP_AI_PEOPLE_FLOW_PIPELINE
+    /* 人流统计迁移控制器 */
+    HVFDetectInternal::CHVFPeopleFlowMigrationController m_peopleFlowMigrationController;
+#else
     /* 人流统计处理器 */
     HVFDetectInternal::CHVFPeopleFlowProcessor m_peopleFlowProcessor;
 #endif
-#if CAP_AI_PEOPLE_DENSITY_V2
-    /* 人员密度 V2 处理器 */
+#endif
+#if CAP_AI_PEOPLE_DENSITY_V2 && !CAP_AI_PEOPLE_DENSITY_PIPELINE
+    /* 人员密度 V2 处理器（迁移宏开启时由展馆模型 head 链路承接） */
     HVFDetectInternal::CHVFPeopleDensityProcessor m_peopleDensityProcessor;
 #endif
     /* 算法默认分辨率 */

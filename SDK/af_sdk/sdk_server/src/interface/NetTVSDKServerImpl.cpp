@@ -255,7 +255,8 @@ BOOL CNetTVSDKServerImpl::DoDiscoveryStart(const CHAR* szInterfaceName)
     NET_CB_SetNetwork network_cb = m_cbSetNetwork;
     m_pDiscoveryResponder->set_network_callback(
         [network_cb](const NET_PoeNetworkConfig_S& config) {
-            return network_cb && network_cb(&config) == NET_E_SUCCEED;
+            return network_cb &&
+                   network_cb(&config) == NET_E_SUCCEED;
         });
 
     if (m_pDiscoveryResponder->init(szInterfaceName) < 0) {

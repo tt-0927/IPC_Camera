@@ -18,6 +18,7 @@
 #include "PlatformCompat.h"
 #include <cstdio>
 #include <cstring>
+#include <cctype>
 
 namespace discovery {
 
@@ -191,7 +192,7 @@ bool parse_set_network_json(const std::string& json_str,
     }
 
     if (valid && Json::get(request, kKeyGateway, gateway)) {
-        valid = (!set_gateway || valid_ipv4(gateway)) &&
+        valid = valid_ipv4(gateway) &&
                 fits_field(gateway, sizeof(config.szGateway));
     } else if (valid && set_gateway) {
         valid = false;
@@ -205,8 +206,8 @@ bool parse_set_network_json(const std::string& json_str,
         if (!gateway.empty()) {
             std::snprintf(config.szGateway, sizeof(config.szGateway), "%s", gateway.c_str());
         }
-        config.bSetGateway = set_gateway ? TRUE : FALSE;
-        config.bIPv4DHCP = dhcp ? TRUE : FALSE;
+        config.bSetGateway = set_gateway ? 1 : 0;
+        config.bIPv4DHCP = dhcp ? 1 : 0;
     }
     Json::deinit(root);
     return valid;

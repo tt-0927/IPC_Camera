@@ -1282,8 +1282,14 @@ std::string CNetworkManage::get_dev_mask(std::string strNetName)
 /*获取设备网关*/
 std::string CNetworkManage::get_dev_gateway(std::string strNetName)
 {
+	
+#if CAP_IO_EXTERNAL_DDR_00S
+    /* 双默认路由场景必须按网卡过滤，否则会取到metric更小的WiFi网关。 */
+    std::string strCommand = "ip -4 route show default dev " + strNetName + " | awk '/default/ {print $3; exit}'";
+#else
 	std::string strCommand = GET_DEFAULT_GATEWAY_COMMAND;
-	FILE *pipe = popen(strCommand.c_str(), "r");
+#endif
+    FILE *pipe = popen(strCommand.c_str(), "r");
 	if (pipe == nullptr)
 	{
 		dlog_error("打开管道错误");

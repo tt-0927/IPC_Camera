@@ -4,7 +4,7 @@
  * @Date         : 2026-01-16 17:30:24
  *
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-01-29 16:05:56
+ * @LastEditTime : 2026-09-03 18:43:30
  * @Description  : h265 视频流源
  */
 
@@ -60,9 +60,16 @@ void H265_Video_Source::doGetNextFrame()
 
 unsigned int H265_Video_Source::maxFrameSize() const
 {
-    return m_stSourceInfo.outPacketBufferSize == 0
-               ? REV_BUF_SIZE
-               : m_stSourceInfo.outPacketBufferSize;
+    unsigned int nSize = m_stSourceInfo.outPacketBufferSize == 0
+                             ? REV_BUF_SIZE
+                             : m_stSourceInfo.outPacketBufferSize;
+    /* StreamParser::BANK_SIZE 固定为 3000000，maxFrameSize 必须小于该值，
+       否则 ensureValidBytes1 会触发 internalError 崩溃 */
+    if (nSize > REV_BUF_SIZE)
+    {
+        nSize = REV_BUF_SIZE;
+    }
+    return nSize;
 }
 
 void H265_Video_Source::getNextFrame(void* ptr)
@@ -115,7 +122,11 @@ void H265_Video_Source::getNextFrame1()
 
     fDurationInMicroseconds = (unsigned) m_fUsecPerFrame;
 
-    if (m_stFrame.videolistsize >= 2)
+    /*
+     * 追帧：当前pack出队后仍有积压时，不再额外叠加一帧duration，尽快把发送端
+     * 拉回实时位置。这里只改变发送节奏，不改RTP时间戳来源。
+     */
+    if (m_stFrame.videolistsize >= 1)
     {
         fDurationInMicroseconds = 0;
     }

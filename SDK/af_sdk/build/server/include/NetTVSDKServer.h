@@ -796,6 +796,31 @@ typedef enum tagNETTVCommonErrCode
 }NET_COMMON_ECODE_E;
 
 /**
+* @enum tagNETTVRecordErrCode
+* @brief 录播错误码
+* @attention 无 None
+*/
+typedef enum tagNETTVRecordErrCode
+{
+    NET_E_ADDRESS_NULL                   = -1016,        /* 地址为空 */
+    NET_E_ADDRESS_DISABILITY             = -1044,        /* 直播地址失能 */
+
+    /* 录制相关（与 BlError.h 一致） */
+    NET_E_NO_DISK                        = -1001,        /* 没有存储设备 */
+    NET_E_CMD_OPT                        = -1005,        /* 操作类型未定义处理 */
+    NET_E_RECORDING                      = -1013,        /* 操作失败-正在录制 */
+    NET_E_USER_DISK_NOSPACE              = -1014,        /* 硬盘空间不足 */
+    NET_E_INFO_ANOMALY                   = -1015,        /* 信息异常、不合法 */
+    NET_E_FIRST_PICTURE_NOT_EXIST        = -1026,        /* 片头文件不存在 */
+    NET_E_RECORD_STOPING                 = -1027,        /* 操作失败-正在停止录制 */
+    NET_E_UNABLE_RECORDING               = -1043,        /* 当前界面可以录制 */
+    NET_E_RECORD_NOT_EXIST               = -1045,        /* 无法操作-录制程序无法通讯 */
+    NET_E_STREAM_NOT_EXIST               = -1055,        /* 无法操作-stream程序无法通讯 */
+    NET_E_SD_FULL                        = -1063,        /* 内存已满，无法录制 */
+    NET_E_RESOURCE_RECORDING             = -1073,        /* 操作失败-正在录制（资源） */
+}NET_RECORD_ECODE_E;
+
+/**
 * @enum tagNETTVMediaErrCode
 * @brief 媒体相关错误码
 * @attention 无 None
@@ -1005,6 +1030,7 @@ typedef enum tagNETTVDeviceType
     NET_DTYPE_UNKNOWN                        = 0,            /* Unknown type */
     NET_DTYPE_IPC                            = 1,            /* IPC range */
     NET_DTYPE_NVR                            = 2,            /* NVR range */
+    NET_DTYPE_LB                             = 3,            /* 录播设备 Live-broadcast device */
     NET_DTYPE_INVALID                        = 0xFFFF        /* 无效值  Invalid value */
 }NET_DEVICE_TYPE_E;
 
@@ -1268,6 +1294,24 @@ typedef enum tagNETTVCfgCmd
 
     NET_GET_REGISTERINFO                  = 520,           /* 获取注册信息 参见NET_RegisterInfo_S */
     NET_SET_REGISTERINFO                  = 521,           /* 设置注册信息 参见NET_RegisterInfo_S */
+    NET_CONTROL_RECORD                    = 522,           /* 控制录制 参见NET_RecordControlInfo_S */
+    NET_GET_RECORD_INFO                   = 523,           /* 获取录制状态 参见NET_RecordControlInfo_S */
+    NET_CONTROL_LIVE                      = 524,           /* 控制直播 参见NET_LiveStatusInfo_S */
+    NET_GET_LIVE_STATUS                   = 525,           /* 获取直播状态 参见NET_LiveStatusInfo_S */
+    NET_GET_RECORD_FILE_LIST              = 526,           /* 获取录制文件列表 参见NET_RecordFileInfo_S */
+    NET_SET_DIRECTOR_MODE                 = 527,           /* 设置导播模式 参见NET_DirectorModeInfo_S */
+    NET_CONTROL_CAMERA                    = 528,           /* 云台控制 参见NET_CameraControlInfo_S */
+    NET_CONTROL_PRESET_BIT                = 529,           /* 预置位控制 参见NET_PresetBitInfo_S */
+    NET_CONTROL_EXTERNAL                  = 530,           /* 调用中控 参见NET_ExternalControlInfo_S */
+    NET_CONTROL_LAYOUT                    = 531,           /* 布局控制 参见NET_LayoutSelfInfo_S */
+    NET_SET_PVW2PGM                       = 532,           /* PVW切到PGM 参见NET_PVW2PGMInfo_S */
+    NET_GET_APPOINTMENT_INFO              = 533,           /* 获取预约录制列表 参见NET_AppointmentInfo_S */
+    NET_ADD_APPOINTMENT                   = 534,           /* 添加预约录制 参见NET_AppointmentItem_S */
+    NET_CONTROL_REBOOT                    = 535,           /* 控制设备重启 参见NET_RebootInfo_S */
+    NET_GET_OUT_VOLUME                    = 536,           /* 获取输出音量 参见NET_OutVolume_S */
+    NET_SET_OUT_VOLUME                    = 537,           /* 设置输出音量 参见NET_OutVolume_S */
+    NET_GET_SSH_SAFE_INFO                 = 538,           /* 获取SSH安全信息 参见NET_SshSafeInfo_S */
+    NET_SET_SSH_SAFE_INFO                 = 539,           /* 设置SSH安全信息 参见NET_SshSafeInfo_S */
 
     NET_CFG_INVALID                  = 0xFFFF            /* 无效值  Invalid value */
 
@@ -1725,6 +1769,7 @@ typedef enum tagNETTVCrossDirection
 /**
  * @enum tagNETTVDetectionTarget
  * @brief 检测目标类型  Detection target type
+ *  * @attention 单一目标类型，组合通过auDetectionTarget数组多个元素表示
  * @attention
  */
 typedef enum tagNETTVDetectionTarget
@@ -1732,7 +1777,7 @@ typedef enum tagNETTVDetectionTarget
     NET_TARGET_ALL = 0,                      /* 所有目标  All targets */
     NET_TARGET_HUMAN = 1,                    /* 人体  Human */
     NET_TARGET_VEHICLE = 2,                  /* 车辆  Vehicle */
-    NET_TARGET_OTHER = 3                    /* 其他  Other (非机动车等) */
+    NET_TARGET_OTHER = 3                     /* 其他  Other (非机动车等) */
 } NET_DETECTION_TARGET_E;
 
 /**
@@ -2338,18 +2383,14 @@ typedef struct tagNET_DeviceLoginInfo
 typedef NET_DeviceLoginInfo_S* pNET_DeviceLoginInfo_S;
 
 /**
- * @brief 设备规模信息结构体（NVR侧专用）
- * @note  NVR规模/能力数量信息：设备类型、报警输入/输出端口数、通道数。
- *        此为NVR偏向的硬件资源计量，非全设备通用，归 BU_SJCL/NVR 侧
- *        （回调见 NetTVNvrDeviceCb.c）。区别于通用设备基本信息 NET_DeviceBasicInfo_S。
+ * @brief 设备识别信息结构体（登录返回）
+ * @note  只承担设备识别职责（类型+型号）
+ *        对应 HTTP 路径 /TVAPI/V1.0/Device/GetInfo，登录时由 SDK 内部调用。
  */
 typedef struct tagNET_DeviceInfo
 {
     INT32   uDevType;                           /* 设备类型,参见枚举#NET_DEVICE_TYPE_E */
-    INT32   uAlarmInPortNum;                    /* 报警输入个数 */
-    INT32   uAlarmOutPortNum;                   /* 报警输出个数 */
-    INT32   uChannelNum;                        /* 通道个数 */
-    BYTE    byReserved[48];                     /* 预留字段 */
+    CHAR    strDevModel[NET_LEN_64];            /* 设备型号(只读) */
 } NET_DeviceInfo_S;
 
 /**
@@ -2375,12 +2416,13 @@ typedef struct tagNET_DeviceBasicInfo
     CHAR    strManufacturer[NET_LEN_64];            /* 厂商信息(只读) */
     CHAR    strDeviceTypeV2[NET_LEN_128];           /* 设备类型(只读) */
 
-    /* ========== 通用运行状态（只读） ========== */
-    FLOAT   fCPULoadRatio;                          /* CPU负载率(只读) */
-    FLOAT   fMemoryUsage;                           /* 内存使用率(只读) */
-    INT32   nBootTime;                              /* 启动时间/运行时长-秒(只读) */
+    /* ========== 硬件参数 ========== */
+    INT32   uAlarmInPortNum;                        /* 报警输入个数 */
+    INT32   uAlarmOutPortNum;                       /* 报警输出个数 */
+    INT32   uChannelNum;                            /* 通道个数 */
+    INT32   uPoeChannelNum;                         /* POE通道个数 */
 
-    BYTE    byReserved[220];                        /* 预留字段 */
+    BYTE    byReserved[208];                        /* 预留字段 */
 } NET_DeviceBasicInfo_S;
 
 /**
@@ -2408,6 +2450,8 @@ typedef struct tagNET_DeviceStorageInfo
  * @brief 设备存储信息结构体指针类型
  */
 typedef NET_DeviceStorageInfo_S* pNET_DeviceStorageInfo_S;
+
+/* ==================================录播=================================== */
 
 /**
  * @brief 激活时长类型
@@ -2442,6 +2486,299 @@ typedef struct tagNET_RegisterInfo
  * @brief 注册信息结构体指针类型
  */
 typedef NET_RegisterInfo_S* pNET_RegisterInfo_S;
+
+/**
+ * @brief 录制控制/状态结构体-（录播）
+ * @note  对应设备 web 命令 30010/30132，
+ *        用于 NET_CONTROL_RECORD / NET_GET_RECORD_STATUS。
+ */
+typedef struct tagNET_RecordControlInfo
+{
+    INT32 nStatus;                          /* 录制状态， 1-录制中，2-暂停，3-停止 */
+    INT32 nRecordMode;                      /* 录制模式 */
+    CHAR  szName[NET_LEN_260];              /* 课程名称 */
+    CHAR  szFileName[NET_LEN_256];          /* 录制文件名 */
+    CHAR  szMainTeacher[NET_LEN_132];       /* 主讲人 */
+    CHAR  szRoomName[NET_LEN_128];          /* 场地 */
+    CHAR  szNotes[NET_LEN_128];             /* 备注 */
+    INT32 nRecordTime;                      /* 已录制时长（秒），GET时有效 */
+    BYTE  byReserved[32];                   /* 保留字段 */
+} NET_RecordControlInfo_S;
+
+typedef NET_RecordControlInfo_S* pNET_RecordControlInfo_S;
+
+/**
+ * @brief 直播控制/状态结构体-（录播）
+ * @note  对应设备 web 命令 50070/30132 的 RtmpStatusInfo，
+ *        用于 NET_CONTROL_LIVE / NET_GET_LIVE_STATUS。
+ */
+typedef struct tagNET_LiveStatusInfo
+{
+    INT32 nStatus;                          /* 直播状态，0-停止 1-直播中 */
+    CHAR  szRtmpName[NET_LEN_256];          /* 直播名称/地址 */
+    INT32 nRtmpTime;                        /* 直播时长（秒） */
+    BYTE  byReserved[32];                   /* 保留字段 */
+} NET_LiveStatusInfo_S;
+
+typedef NET_LiveStatusInfo_S* pNET_LiveStatusInfo_S;
+
+/** @brief 录制文件列表最大条目数 */
+#define NET_RECORD_FILE_ITEM_MAX    256
+
+/**
+ * @brief 录制文件Item信息结构体-（录播）
+ * @note  对应设备侧 RecordFileItem_S，
+ *        用于 NET_GET_RECORD_FILE_LIST。
+ */
+typedef struct tagNET_RecordFileItem
+{
+    CHAR  szFileName[NET_LEN_512];      /* 文件名 */
+    INT32 nGroupId;                     /* 分组ID */
+    CHAR  szGroupName[NET_LEN_512];     /* 分组名称 */
+    CHAR  szStartTime[NET_LEN_128];     /* 开始录制时间 */
+    CHAR  szDurationTime[NET_LEN_128];  /* 录制时长 */
+    INT32 nFileSize;                    /* 文件大小 */
+    INT32 nFileFormat;                  /* 录制格式 */
+    INT32 nDamaged;                     /* 是否损坏 0-正常 1-损坏 */
+    CHAR  szCourseName[NET_LEN_128];    /* 课程名称(主题) */
+    CHAR  szKeySpeaker[NET_LEN_128];    /* 主讲人 */
+    CHAR  szLocation[NET_LEN_256];      /* 场地 */
+    CHAR  szNotes[NET_LEN_128];         /* 备注 */
+    INT32 nFtpUpload;                   /* FTP上传状态 */
+    INT32 nPlatformUpload;             /* 云平台上传状态 */
+    INT32 nDownloadCnt;                 /* 下载次数 */
+    BYTE  byReserved[32];              /* 保留字段 */
+} NET_RecordFileItem_S;
+
+typedef NET_RecordFileItem_S* pNET_RecordFileItem_S;
+
+/**
+ * @brief 录制文件列表信息结构体-（录播）
+ * @note  对应设备侧 RecordFileInfo_S，
+ *        用于 NET_GET_RECORD_FILE_LIST。
+ *        请求时填写 nCurPage/nPageSize，回调填充其余字段。
+ */
+typedef struct tagNET_RecordFileInfo
+{
+    INT32 nCurPage;                                     /* 当前页数（请求时填入） */
+    INT32 nCurPageSize;                                 /* 当前页Item数量（回调填充） */
+    INT32 nPageSize;                                    /* 每页文件数量（请求时填入） */
+    INT32 nTotal;                                       /* 文件总数（回调填充） */
+    CHAR  szCoverPath[NET_LEN_256];                     /* 封面路径（回调填充） */
+    INT32 nFileCount;                                   /* astFileItems有效条目数（回调填充） */
+    NET_RecordFileItem_S astFileItems[NET_RECORD_FILE_ITEM_MAX]; /* 文件信息数组 */
+    BYTE  byReserved[32];                               /* 保留字段 */
+} NET_RecordFileInfo_S;
+
+typedef NET_RecordFileInfo_S* pNET_RecordFileInfo_S;
+
+/**
+ * @brief 导播模式结构体-（录播）
+ * @note  用于 NET_SET_DIRECTOR_MODE (527)
+ *        enMode: 0-半自动 1-自动 2-手动
+ */
+typedef struct tagNET_DirectorModeInfo
+{
+    INT32 nMode;                           /* 导播模式: 0-半自动 1-自动 2-手动 */
+    BYTE  byReserved[32];                  /* 保留字段 */
+} NET_DirectorModeInfo_S;
+
+typedef NET_DirectorModeInfo_S* pNET_DirectorModeInfo_S;
+
+/**
+ * @brief 云台控制结构体-（录播）
+ * @note  用于 NET_CONTROL_CAMERA (528)
+ *        nType: 1-上 2-下 3-左 4-右 5-放大 6-缩小 7-设置预置位 8-调用预置位 9-停止转动 10-停止拉伸聚焦
+ */
+typedef struct tagNET_CameraControlInfo
+{
+    INT32 nId;                             /* 摄像机ID号 (0~6) */
+    INT32 nType;                           /* 控制类型 */
+    INT32 nSpeed;                          /* 速度 (0-100) */
+    INT32 nNum;                            /* 预置位号 */
+    BYTE  byReserved[32];                  /* 保留字段 */
+} NET_CameraControlInfo_S;
+
+typedef NET_CameraControlInfo_S* pNET_CameraControlInfo_S;
+
+/**
+ * @brief 预置位条目结构体-（录播）
+ */
+#define NET_PRESET_BIT_MAX   72    /* CAM_SDI_MAX(6) * PRESET_BIT_NUM(12) */
+
+typedef struct tagNET_PresetBitItem
+{
+    INT32 nCameraId;                       /* 摄像头ID号 */
+    INT32 nPresetNum;                      /* 预置位ID */
+    CHAR  szName[48];                      /* 预置位名称 */
+} NET_PresetBitItem_S;
+
+/**
+ * @brief 预置位信息结构体（用于获取预置位列表）-（录播）
+ * @note  用于 NET_CONTROL_PRESET_BIT (529) GET操作
+ */
+typedef struct tagNET_PresetBitInfo
+{
+    INT32 nTotal;                          /* 预置位总数 */
+    NET_PresetBitItem_S astItems[NET_PRESET_BIT_MAX]; /* 预置位列表 */
+    BYTE  byReserved[32];                  /* 保留字段 */
+} NET_PresetBitInfo_S;
+
+typedef NET_PresetBitInfo_S* pNET_PresetBitInfo_S;
+
+/**
+ * @brief 预置位操作结构体（用于设置/调用/删除预置位）-（录播）
+ * @note  用于 NET_CONTROL_PRESET_BIT (529) SET操作
+ *        nOptType: 0-设置 1-删除 2-调用 3-改名
+ */
+typedef struct tagNET_PresetBitCtrl
+{
+    INT32 nOptType;                        /* 操作类型: 0-设置 1-删除 2-调用 3-改名 */
+    INT32 nCameraId;                       /* 摄像头ID号 */
+    INT32 nPresetNum;                      /* 预置位ID */
+    CHAR  szName[48];                      /* 预置位名称 */
+    BYTE  byReserved[32];                  /* 保留字段 */
+} NET_PresetBitCtrl_S;
+
+typedef NET_PresetBitCtrl_S* pNET_PresetBitCtrl_S;
+
+/**
+ * @brief 中控调用结构体-（录播）
+ * @note  用于 NET_CONTROL_EXTERNAL (530) SET操作
+ *        nCmdCode: 中控命令码
+ */
+typedef struct tagNET_ExternalControlInfo
+{
+    INT32 nCmdCode;                        /* 中控命令码 */
+    BYTE  byReserved[32];                  /* 保留字段 */
+} NET_ExternalControlInfo_S;
+
+typedef NET_ExternalControlInfo_S* pNET_ExternalControlInfo_S;
+
+/**
+ * @brief 布局画面信息结构体-（录播）
+ */
+#define NET_LAYOUT_RECT_MAX   64    /* 最多 64 个画面 */
+
+typedef struct tagNET_LayoutRect
+{
+    INT32  nX;                             /* X坐标 */
+    INT32  nY;                             /* Y坐标 */
+    INT32  nW;                             /* 宽度 */
+    INT32  nH;                             /* 高度 */
+    INT32  nChannel;                       /* 通道号 */
+    INT64 nUserID;                        /* 用户ID（互动模式） */
+    INT32  nMyself;                        /* 是否显示自己画面 */
+} NET_LayoutRect_S;
+
+/**
+ * @brief 布局信息结构体-（录播）
+ * @note  用于 NET_CONTROL_LAYOUT (531)
+ *        nMovieMode: 0-PGM 1-PVW
+ *        enCtrlType: 0-使用布局 1-设置布局 2-自定义布局
+ */
+typedef struct tagNET_LayoutSelfInfo
+{
+    INT32 nNum;                            /* 画面个数 */
+    INT32 nMovieMode;                      /* 布局模式: 0-PGM 1-PVW */
+    INT32 nMplayout;                       /* 布局枚举值 */
+    INT32 nChannelPip;                     /* 画中画通道 */
+    INT32 enCtrlType;                      /* 布局操作类型 */
+    NET_LayoutRect_S astRect[NET_LAYOUT_RECT_MAX]; /* 画面布局数组 */
+    BYTE  byReserved[32];                  /* 保留字段 */
+} NET_LayoutSelfInfo_S;
+
+typedef NET_LayoutSelfInfo_S* pNET_LayoutSelfInfo_S;
+
+/**
+ * @brief PVW输出到PGM模式结构体-（录播）
+ * @note  用于 NET_SET_PVW2PGM (532)
+ *        nMode: 0-正常输出 1-会议跟踪模式
+ */
+typedef struct tagNET_PVW2PGMInfo
+{
+    INT32 nMode;                           /* PVW输出到PGM模式 */
+    BYTE  byReserved[32];                  /* 保留字段 */
+} NET_PVW2PGMInfo_S;
+
+typedef NET_PVW2PGMInfo_S* pNET_PVW2PGMInfo_S;
+
+/**
+ * @brief 预约录制条目结构体-（录播）
+ */
+#define NET_APPOINTMENT_NAME_LEN        128
+#define NET_APPOINTMENT_TIME_LEN        32
+#define NET_APPOINTMENT_TEACHER_LEN     64
+#define NET_APPOINTMENT_ROOM_LEN        64
+#define NET_APPOINTMENT_NOTE_LEN        128
+#define NET_APPOINTMENT_MAX             256
+
+typedef struct tagNET_AppointmentItem
+{
+    INT32 nID;                                             /* 数据库ID */
+    INT32 nWeekDay;                                        /* 星期几 1-7 */
+    CHAR  szName[NET_APPOINTMENT_NAME_LEN];                /* 课程/事件名称 */
+    CHAR  szStartTime[NET_APPOINTMENT_TIME_LEN];           /* 开始时间 */
+    CHAR  szStopTime[NET_APPOINTMENT_TIME_LEN];            /* 结束时间 */
+    INT32 nIsCir;                                          /* 0-循环 1-单次 */
+    CHAR  szTeacherName[NET_APPOINTMENT_TEACHER_LEN];      /* 主讲人 */
+    CHAR  szRoomName[NET_APPOINTMENT_ROOM_LEN];            /* 场地 */
+    CHAR  szNotes[NET_APPOINTMENT_NOTE_LEN];               /* 备注 */
+    BYTE  byReserved[32];                                  /* 保留字段 */
+} NET_AppointmentItem_S;
+
+/**
+ * @brief 预约录制列表结构体-（录播）
+ * @note  用于 NET_GET_APPOINTMENT_INFO (533)
+ */
+typedef struct tagNET_AppointmentInfo
+{
+    INT32 nTotal;                                          /* 条目总数 */
+    NET_AppointmentItem_S astItems[NET_APPOINTMENT_MAX];   /* 预约条目数组 */
+    BYTE  byReserved[32];                                  /* 保留字段 */
+} NET_AppointmentInfo_S;
+
+typedef NET_AppointmentInfo_S*  pNET_AppointmentInfo_S;
+typedef NET_AppointmentItem_S*  pNET_AppointmentItem_S;
+
+/**
+ * @brief 设备重启控制结构体
+ * @note  用于 NET_CONTROL_REBOOT (535)，当前无需额外字段
+ */
+typedef struct tagNET_RebootInfo
+{
+    BYTE byReserved[32];                                   /* 保留字段 */
+} NET_RebootInfo_S;
+
+typedef NET_RebootInfo_S* pNET_RebootInfo_S;
+
+/**
+ * @brief 输出音量结构体-（录播）
+ * @note  用于 NET_GET_OUT_VOLUME (536) / NET_SET_OUT_VOLUME (537)
+ */
+typedef struct tagNET_OutVolume
+{
+    INT32 nVolume;                                         /* 输出音量值 */
+    BYTE  byReserved[32];                                  /* 保留字段 */
+} NET_OutVolume_S;
+
+typedef NET_OutVolume_S* pNET_OutVolume_S;
+
+/**
+ * @brief SSH安全信息结构体-（录播）
+ * @note  用于 NET_GET_SSH_SAFE_INFO (538) / NET_SET_SSH_SAFE_INFO (539)
+ */
+typedef struct tagNET_SshSafeInfo
+{
+    INT32 nStatus;                                         /* SSH开关状态 */
+    INT32 nStartTime;                                      /* SSH开始时间 */
+    INT32 nTimeRemain;                                     /* SSH剩余时间 */
+    BYTE  byReserved[32];                                  /* 保留字段 */
+} NET_SshSafeInfo_S;
+
+typedef NET_SshSafeInfo_S* pNET_SshSafeInfo_S;
+
+/* ==================================录播 end=================================== */
 /**
  * @brief 系统时间/NTP校时配置结构体
  * @note  对应IPC侧System::TimeInfo_S，用于NET_GET_NTPCFG/NET_SET_NTPCFG
@@ -2461,23 +2798,20 @@ typedef struct tagNET_SystemNtpInfo
 } NET_SystemNtpInfo_S;
 
 /**
- * @brief 系统时间/NTP校时配置结构体指针类型
- */
-typedef NET_SystemNtpInfo_S* pNET_SystemNtpInfo_S;
-
-/**
- * @brief 设置系统时间参数结构体。
- * @note strDateTime 格式为“YYYY-MM-DD HH:MM:SS”。
+ * @brief 设置系统时间参数结构体
+ * @note strDateTime 格式为 "YYYY-MM-DD HH:MM:SS"，例如 "2026-09-03 10:40:30"
  */
 typedef struct tagNET_SystemTime
 {
-    CHAR    strDateTime[NET_MAX_DATE_STRING_LEN];
+    CHAR strDateTime[NET_MAX_DATE_STRING_LEN];
 } NET_SystemTime_S;
 
-/**
- * @brief 设置系统时间参数结构体指针类型。
- */
 typedef NET_SystemTime_S* pNET_SystemTime_S;
+
+/**
+ * @brief 系统时间/NTP校时配置结构体指针类型
+ */
+typedef NET_SystemNtpInfo_S* pNET_SystemNtpInfo_S;
 
 /**
  * @brief 修改用户密码参数结构体
@@ -2911,7 +3245,7 @@ typedef NET_NetworkCfg_S* pNET_NetworkCfg_S;
 
 /**
  * @struct tagNET_PoeNetworkConfig
- * @brief 未登录场景下通过 SDK 设备发现组播协议设置摄像机网络参数
+ * @brief 未登录场景下通过 SDK 搜索 JSON 组播协议设置摄像机网络参数
  * @note 设备通过 MAC 地址匹配；接口仅发送组播配置报文，不建立 HTTP 登录会话。
  */
 typedef struct tagNET_PoeNetworkConfig
@@ -2922,10 +3256,10 @@ typedef struct tagNET_PoeNetworkConfig
     CHAR    szSubnetMask[NET_IPADDR_STR_MAX_LEN];  /* IPv4 子网掩码 */
     CHAR    szGateway[NET_IPADDR_STR_MAX_LEN];     /* IPv4 网关，bSetGateway 为 FALSE 时可为空 */
     BOOL    bSetGateway;                           /* 是否设置网关 */
-    BOOL    bIPv4DHCP;                             /* 是否启用 DHCP */
-    UINT32  dwTimeoutMs;                           /* 发送总时长，0 使用 SDK 默认发送间隔 */
-    UINT32  dwSendCount;                           /* 发送次数，0 使用 SDK 默认值 */
-    BYTE    byRes[128];                            /* 保留字段 */
+    BOOL    bIPv4DHCP;                              /* 是否启用 DHCP */
+    UINT32  dwTimeoutMs;                            /* 保留字段：当前接口为无应答发送，建议填 0 */
+    UINT32  dwSendCount;                            /* 发送次数，0 使用 SDK 默认值 */
+    BYTE    byRes[128];                             /* 保留字段 */
 } NET_PoeNetworkConfig_S;
 
 typedef NET_PoeNetworkConfig_S* pNET_PoeNetworkConfig_S;
@@ -3531,13 +3865,11 @@ typedef NET_AlarmStatisticsInfo_S* pNET_AlarmStatisticsInfo_S;
 /* ==================== 通用抓拍结构体 ==================== */
 
 #define NET_CAPTURE_CROP_MAX_NUM 8 /* 单次抓拍最多裁剪小图数量 */
-
 /* 通用抓拍扩展字段长度，必须与 IPC 侧 TVSDK 定义保持一致。 */
 #define NET_CAPTURE_REGION_POINT_MAX_NUM    10
 #define NET_CAPTURE_TIMESTAMP_MAX_LEN       64
 #define NET_CAPTURE_VEHICLE_BRAND_MAX_LEN   128
 #define NET_CAPTURE_LICENSE_PLATE_MAX_LEN   64
-
 /**
  * @struct tagNET_ImageBuffer
  * @brief 图片二进制数据缓冲区，指针 + 长度组合，用于存储图片数据。
@@ -5024,19 +5356,15 @@ typedef struct tagNET_AudioAnomalyAlarmInfo
 
 typedef NET_AudioAnomalyAlarmInfo_S* pNET_AudioAnomalyAlarmInfo_S;
 
-/* 音频异常侦测实时音量结构体预留字段长度。 */
-#define NET_AUDIO_ANOMALY_CURRENT_DB_RESERVED_LEN (120)
-
 /**
  * @brief 音频异常侦测实时音量信息
- * @author ITC
  * @note 用于 NET_GET_AUDIO_ANOMALY_CURRENT_DB，仅表示本次查询时的音量快照
  */
 typedef struct tagNET_AudioAnomalyCurrentDb
 {
     BOOL        bValid;                              /* 实时音量是否有效 */
     FLOAT       fCurrentDb;                          /* 当前实时音量，单位：dB */
-    BYTE        abyReserved[NET_AUDIO_ANOMALY_CURRENT_DB_RESERVED_LEN]; /* 预留字段 */
+    BYTE        abyReserved[120];                    /* 预留字段 */
 } NET_AudioAnomalyCurrentDb_S;
 
 typedef NET_AudioAnomalyCurrentDb_S* pNET_AudioAnomalyCurrentDb_S;
@@ -6372,11 +6700,10 @@ typedef NET_COMMON_ECODE_E (*NET_CB_SetDevConfigByCommand)(INT32 dwChannelID, LP
 
 /**
  * @brief 获取RTSP流地址回调类型 (NET_GET_RTSPURLCFG)
- * @param [IN]  dwChannelID  通道号
- * @param [OUT] pInfo        RTSP URL 信息结构体指针
+ * @param [INOUT] pInfo  RTSP URL 信息结构体指针，调用方填充 uChannel/uStreamIndex，回调填充 szRtspUrl
  * @return NET_E_SUCCEED 成功, 其他值失败
  */
-typedef NET_COMMON_ECODE_E (*NET_CB_GetRtspUrl)(INT32 dwChannelID, pNET_RtspUrlInfo_S pInfo);
+typedef NET_COMMON_ECODE_E (*NET_CB_GetRtspUrl)(pNET_RtspUrlInfo_S pInfo);
 
 /**
  * @brief 获取回放播放地址回调类型
@@ -6420,6 +6747,27 @@ NET_API BOOL STDCALL NET_serverRegisterSetDevConfigCb(NET_CB_SetDevConfig pCb);
 
 NET_API BOOL STDCALL NET_serverRegisterGetRegisterInfoCb(NET_CB_GetDevConfigByCommand pCb);
 NET_API BOOL STDCALL NET_serverRegisterSetRegisterInfoCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterControlRecordInfoExCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetRecordStatusExCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterControlLiveInfoCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetLiveStatusCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetRecordFileListCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetDirectorModeCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterControlCameraCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetPresetBitCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterControlPresetBitCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterControlExternalCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetLayoutCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterControlLayoutCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetPVW2PGMCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetAppointmentInfoCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterAddAppointmentCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterControlRebootCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetOutVolumeCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetOutVolumeCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetSshSafeInfoCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetSshSafeInfoCb(NET_CB_SetDevConfigByCommand pCb);
+
 
 /************************************************************************/
 /*                          按命令码注册的配置回调接口                     */
@@ -6436,15 +6784,15 @@ NET_API BOOL STDCALL NET_serverRegisterGetDeviceConfigCb(NET_CB_GetDevConfigByCo
  * @param [IN] pCb 回调函数指针
  * @return TRUE表示成功,其他表示失败
  */
-NET_API BOOL STDCALL NET_serverRegisterSetDeviceConfigCb(NET_CB_SetDevConfigByCommand pCb);
 NET_API BOOL STDCALL NET_serverRegisterGetNtpConfigCb(NET_CB_GetDevConfigByCommand pCb);
 NET_API BOOL STDCALL NET_serverRegisterSetNtpConfigCb(NET_CB_SetDevConfigByCommand pCb);
 /**
- * @brief 注册设置系统时间的回调函数。
- * @param [in] pCb 接收 NET_SystemTime_S 的设置回调函数。
- * @return 注册成功返回 TRUE，否则返回 FALSE。
+ * @brief 注册设置系统时间回调（NET_SET_SYSTEM_TIME）
+ * @param [IN] pCb 回调函数，输入 pNET_SystemTime_S
+ * @return TRUE表示成功，其他表示失败
  */
 NET_API BOOL STDCALL NET_serverRegisterSetSystemTimeCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetStreamConfigCb(NET_CB_GetDevConfigByCommand pCb);
 NET_API BOOL STDCALL NET_serverRegisterGetStreamConfigCb(NET_CB_GetDevConfigByCommand pCb);
 NET_API BOOL STDCALL NET_serverRegisterSetStreamConfigCb(NET_CB_SetDevConfigByCommand pCb);
 NET_API BOOL STDCALL NET_serverRegisterGetRtspUrlCb(NET_CB_GetRtspUrl pCb);
@@ -6727,9 +7075,9 @@ typedef void(STDCALL *NET_CB_GetDiscoveryDeviceInfo)(
     OUT NET_DiscoveryDeviceInfo_S* pDeviceInfo);
 
 /**
- * @brief 免登录网络配置回调。
- * @param [in] pConfig 宿主程序需要实际应用的网络配置。
- * @return NET_E_SUCCEED 表示成功，其他值表示失败。
+ * @brief 免登录网络配置回调
+ * @param [IN] pConfig 宿主程序实际应用的网络配置
+ * @return NET_E_SUCCEED 成功，其他值失败
  */
 typedef NET_COMMON_ECODE_E (STDCALL *NET_CB_SetNetwork)(
     IN const NET_PoeNetworkConfig_S* pConfig);
@@ -6744,9 +7092,9 @@ NET_serverRegisterGetDiscoveryDeviceInfoCb(
     IN NET_CB_GetDiscoveryDeviceInfo cbFunc);
 
 /**
- * @brief 注册免登录网络配置回调。
- * @param [in] cbFunc 回调函数指针。
- * @return TRUE 表示成功，FALSE 表示失败。
+ * @brief 注册免登录网络配置回调
+ * @param [IN] cbFunc 回调函数指针
+ * @return TRUE 成功，FALSE 失败
  */
 NET_API BOOL STDCALL
 NET_serverRegisterSetNetworkCb(IN NET_CB_SetNetwork cbFunc);

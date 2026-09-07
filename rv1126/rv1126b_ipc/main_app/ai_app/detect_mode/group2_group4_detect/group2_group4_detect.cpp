@@ -2282,7 +2282,7 @@ int CGroup2_Group4Detect::licensePlateDetectProcess(cv::Mat &srcData, const std:
         {
             auto pPayload = std::make_shared<EventTvSdkPayload_S>();
             pPayload->enType = EventTvSdkPayloadType_E::PLATE;
-            if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage))
+            if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage, JPEG_QUALITY_PANORAMA))
             {
                 stContext.pTvSdkPayload = pPayload;
             }
@@ -2310,7 +2310,7 @@ int CGroup2_Group4Detect::licensePlateDetectProcess(cv::Mat &srcData, const std:
                     cv::Rect roi(nX, nY, nW, nH);
                     cv::Mat targetMat = m_fullRgbMat(roi).clone();
                     EventTvSdkImage_S stTarget;
-                    if (encode_mat_to_tvsdk_image(targetMat, stTarget)) {
+                    if (encode_mat_to_tvsdk_image(targetMat, stTarget, JPEG_QUALITY_TARGET)) {
                         stContext.stTargetImage = std::move(stTarget);
                     }
                 }
@@ -2595,7 +2595,7 @@ void CGroup2_Group4Detect::processGroup4Detect(const Group4Detect_NS::OutData_S 
         {
             auto pPayload = std::make_shared<EventTvSdkPayload_S>();
             pPayload->enType = get_tvsdk_payload_type(stContext.enEventType);
-            if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage))
+            if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage, JPEG_QUALITY_PANORAMA))
             {
                 stContext.pTvSdkPayload = pPayload;
             }
@@ -2617,7 +2617,7 @@ void CGroup2_Group4Detect::processGroup4Detect(const Group4Detect_NS::OutData_S 
                     cv::Rect roi(nX1, nY1, nX2 - nX1, nY2 - nY1);
                     cv::Mat targetMat = m_fullRgbMat(roi).clone();
                     EventTvSdkImage_S stTarget;
-                    if (encode_mat_to_tvsdk_image(targetMat, stTarget)) {
+                    if (encode_mat_to_tvsdk_image(targetMat, stTarget, JPEG_QUALITY_TARGET)) {
                         stContext.stTargetImage = std::move(stTarget);
                     }
                 }
@@ -2643,7 +2643,7 @@ void CGroup2_Group4Detect::processGroup4Detect(const Group4Detect_NS::OutData_S 
         {
             auto pPayload = std::make_shared<EventTvSdkPayload_S>();
             pPayload->enType = get_tvsdk_payload_type(stContext.enEventType);
-            if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage))
+            if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage, JPEG_QUALITY_PANORAMA))
             {
                 stContext.pTvSdkPayload = pPayload;
             }
@@ -2665,7 +2665,7 @@ void CGroup2_Group4Detect::processGroup4Detect(const Group4Detect_NS::OutData_S 
                     cv::Rect roi(nX1, nY1, nX2 - nX1, nY2 - nY1);
                     cv::Mat targetMat = m_fullRgbMat(roi).clone();
                     EventTvSdkImage_S stTarget;
-                    if (encode_mat_to_tvsdk_image(targetMat, stTarget)) {
+                    if (encode_mat_to_tvsdk_image(targetMat, stTarget, JPEG_QUALITY_TARGET)) {
                         stContext.stTargetImage = std::move(stTarget);
                     }
                 }
@@ -2691,7 +2691,7 @@ void CGroup2_Group4Detect::processGroup4Detect(const Group4Detect_NS::OutData_S 
         {
             auto pPayload = std::make_shared<EventTvSdkPayload_S>();
             pPayload->enType = get_tvsdk_payload_type(stContext.enEventType);
-            if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage))
+            if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage, JPEG_QUALITY_PANORAMA))
             {
                 stContext.pTvSdkPayload = pPayload;
             }
@@ -2713,7 +2713,7 @@ void CGroup2_Group4Detect::processGroup4Detect(const Group4Detect_NS::OutData_S 
                     cv::Rect roi(nX1, nY1, nX2 - nX1, nY2 - nY1);
                     cv::Mat targetMat = m_fullRgbMat(roi).clone();
                     EventTvSdkImage_S stTarget;
-                    if (encode_mat_to_tvsdk_image(targetMat, stTarget)) {
+                    if (encode_mat_to_tvsdk_image(targetMat, stTarget, JPEG_QUALITY_TARGET)) {
                         stContext.stTargetImage = std::move(stTarget);
                     }
                 }
@@ -2739,7 +2739,7 @@ void CGroup2_Group4Detect::processGroup4Detect(const Group4Detect_NS::OutData_S 
         {
             auto pPayload = std::make_shared<EventTvSdkPayload_S>();
             pPayload->enType = get_tvsdk_payload_type(stContext.enEventType);
-            if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage))
+            if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage, JPEG_QUALITY_PANORAMA))
             {
                 stContext.pTvSdkPayload = pPayload;
             }
@@ -2761,7 +2761,7 @@ void CGroup2_Group4Detect::processGroup4Detect(const Group4Detect_NS::OutData_S 
                     cv::Rect roi(nX1, nY1, nX2 - nX1, nY2 - nY1);
                     cv::Mat targetMat = m_fullRgbMat(roi).clone();
                     EventTvSdkImage_S stTarget;
-                    if (encode_mat_to_tvsdk_image(targetMat, stTarget)) {
+                    if (encode_mat_to_tvsdk_image(targetMat, stTarget, JPEG_QUALITY_TARGET)) {
                         stContext.stTargetImage = std::move(stTarget);
                     }
                 }
@@ -2807,7 +2807,7 @@ void CGroup2_Group4Detect::processGroup2Detect(const Group2Detect_NS::OutData_S 
         {
             auto pPayload = std::make_shared<EventTvSdkPayload_S>();
             pPayload->enType = get_tvsdk_payload_type(stContext.enEventType);
-            if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage))
+            if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage, JPEG_QUALITY_PANORAMA))
             {
                 stContext.pTvSdkPayload = pPayload;
             }
@@ -2829,7 +2829,7 @@ void CGroup2_Group4Detect::processGroup2Detect(const Group2Detect_NS::OutData_S 
                     cv::Rect roi(nX1, nY1, nX2 - nX1, nY2 - nY1);
                     cv::Mat targetMat = m_fullRgbMat(roi).clone();
                     EventTvSdkImage_S stTarget;
-                    if (encode_mat_to_tvsdk_image(targetMat, stTarget)) {
+                    if (encode_mat_to_tvsdk_image(targetMat, stTarget, JPEG_QUALITY_TARGET)) {
                         stContext.stTargetImage = std::move(stTarget);
                     }
                 }
@@ -2854,7 +2854,7 @@ void CGroup2_Group4Detect::processGroup2Detect(const Group2Detect_NS::OutData_S 
         {
             auto pPayload = std::make_shared<EventTvSdkPayload_S>();
             pPayload->enType = get_tvsdk_payload_type(stContext.enEventType);
-            if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage))
+            if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage, JPEG_QUALITY_PANORAMA))
             {
                 stContext.pTvSdkPayload = pPayload;
             }
@@ -2876,7 +2876,7 @@ void CGroup2_Group4Detect::processGroup2Detect(const Group2Detect_NS::OutData_S 
                     cv::Rect roi(nX1, nY1, nX2 - nX1, nY2 - nY1);
                     cv::Mat targetMat = m_fullRgbMat(roi).clone();
                     EventTvSdkImage_S stTarget;
-                    if (encode_mat_to_tvsdk_image(targetMat, stTarget)) {
+                    if (encode_mat_to_tvsdk_image(targetMat, stTarget, JPEG_QUALITY_TARGET)) {
                         stContext.stTargetImage = std::move(stTarget);
                     }
                 }
@@ -2901,7 +2901,7 @@ void CGroup2_Group4Detect::processGroup2Detect(const Group2Detect_NS::OutData_S 
         {
             auto pPayload = std::make_shared<EventTvSdkPayload_S>();
             pPayload->enType = get_tvsdk_payload_type(stContext.enEventType);
-            if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage))
+            if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage, JPEG_QUALITY_PANORAMA))
             {
                 stContext.pTvSdkPayload = pPayload;
             }
@@ -2923,7 +2923,7 @@ void CGroup2_Group4Detect::processGroup2Detect(const Group2Detect_NS::OutData_S 
                     cv::Rect roi(nX1, nY1, nX2 - nX1, nY2 - nY1);
                     cv::Mat targetMat = m_fullRgbMat(roi).clone();
                     EventTvSdkImage_S stTarget;
-                    if (encode_mat_to_tvsdk_image(targetMat, stTarget)) {
+                    if (encode_mat_to_tvsdk_image(targetMat, stTarget, JPEG_QUALITY_TARGET)) {
                         stContext.stTargetImage = std::move(stTarget);
                     }
                 }
@@ -2948,7 +2948,7 @@ void CGroup2_Group4Detect::processGroup2Detect(const Group2Detect_NS::OutData_S 
         {
             auto pPayload = std::make_shared<EventTvSdkPayload_S>();
             pPayload->enType = get_tvsdk_payload_type(stContext.enEventType);
-            if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage))
+            if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage, JPEG_QUALITY_PANORAMA))
             {
                 stContext.pTvSdkPayload = pPayload;
             }
@@ -2970,7 +2970,7 @@ void CGroup2_Group4Detect::processGroup2Detect(const Group2Detect_NS::OutData_S 
                     cv::Rect roi(nX1, nY1, nX2 - nX1, nY2 - nY1);
                     cv::Mat targetMat = m_fullRgbMat(roi).clone();
                     EventTvSdkImage_S stTarget;
-                    if (encode_mat_to_tvsdk_image(targetMat, stTarget)) {
+                    if (encode_mat_to_tvsdk_image(targetMat, stTarget, JPEG_QUALITY_TARGET)) {
                         stContext.stTargetImage = std::move(stTarget);
                     }
                 }
@@ -2995,7 +2995,7 @@ void CGroup2_Group4Detect::processGroup2Detect(const Group2Detect_NS::OutData_S 
         {
             auto pPayload = std::make_shared<EventTvSdkPayload_S>();
             pPayload->enType = get_tvsdk_payload_type(stContext.enEventType);
-            if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage))
+            if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage, JPEG_QUALITY_PANORAMA))
             {
                 stContext.pTvSdkPayload = pPayload;
             }
@@ -3017,7 +3017,7 @@ void CGroup2_Group4Detect::processGroup2Detect(const Group2Detect_NS::OutData_S 
                     cv::Rect roi(nX1, nY1, nX2 - nX1, nY2 - nY1);
                     cv::Mat targetMat = m_fullRgbMat(roi).clone();
                     EventTvSdkImage_S stTarget;
-                    if (encode_mat_to_tvsdk_image(targetMat, stTarget)) {
+                    if (encode_mat_to_tvsdk_image(targetMat, stTarget, JPEG_QUALITY_TARGET)) {
                         stContext.stTargetImage = std::move(stTarget);
                     }
                 }
@@ -3042,7 +3042,7 @@ void CGroup2_Group4Detect::processGroup2Detect(const Group2Detect_NS::OutData_S 
         {
             auto pPayload = std::make_shared<EventTvSdkPayload_S>();
             pPayload->enType = get_tvsdk_payload_type(stContext.enEventType);
-            if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage))
+            if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage, JPEG_QUALITY_PANORAMA))
             {
                 stContext.pTvSdkPayload = pPayload;
             }
@@ -3064,7 +3064,7 @@ void CGroup2_Group4Detect::processGroup2Detect(const Group2Detect_NS::OutData_S 
                     cv::Rect roi(nX1, nY1, nX2 - nX1, nY2 - nY1);
                     cv::Mat targetMat = m_fullRgbMat(roi).clone();
                     EventTvSdkImage_S stTarget;
-                    if (encode_mat_to_tvsdk_image(targetMat, stTarget)) {
+                    if (encode_mat_to_tvsdk_image(targetMat, stTarget, JPEG_QUALITY_TARGET)) {
                         stContext.stTargetImage = std::move(stTarget);
                     }
                 }
@@ -3089,7 +3089,7 @@ void CGroup2_Group4Detect::processGroup2Detect(const Group2Detect_NS::OutData_S 
         {
             auto pPayload = std::make_shared<EventTvSdkPayload_S>();
             pPayload->enType = get_tvsdk_payload_type(stContext.enEventType);
-            if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage))
+            if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage, JPEG_QUALITY_PANORAMA))
             {
                 stContext.pTvSdkPayload = pPayload;
             }
@@ -3111,7 +3111,7 @@ void CGroup2_Group4Detect::processGroup2Detect(const Group2Detect_NS::OutData_S 
                     cv::Rect roi(nX1, nY1, nX2 - nX1, nY2 - nY1);
                     cv::Mat targetMat = m_fullRgbMat(roi).clone();
                     EventTvSdkImage_S stTarget;
-                    if (encode_mat_to_tvsdk_image(targetMat, stTarget)) {
+                    if (encode_mat_to_tvsdk_image(targetMat, stTarget, JPEG_QUALITY_TARGET)) {
                         stContext.stTargetImage = std::move(stTarget);
                     }
                 }
@@ -3137,7 +3137,7 @@ void CGroup2_Group4Detect::processGroup2Detect(const Group2Detect_NS::OutData_S 
         {
             auto pPayload = std::make_shared<EventTvSdkPayload_S>();
             pPayload->enType = get_tvsdk_payload_type(stContext.enEventType);
-            if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage))
+            if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage, JPEG_QUALITY_PANORAMA))
             {
                 stContext.pTvSdkPayload = pPayload;
             }
@@ -3159,7 +3159,7 @@ void CGroup2_Group4Detect::processGroup2Detect(const Group2Detect_NS::OutData_S 
                     cv::Rect roi(nX1, nY1, nX2 - nX1, nY2 - nY1);
                     cv::Mat targetMat = m_fullRgbMat(roi).clone();
                     EventTvSdkImage_S stTarget;
-                    if (encode_mat_to_tvsdk_image(targetMat, stTarget)) {
+                    if (encode_mat_to_tvsdk_image(targetMat, stTarget, JPEG_QUALITY_TARGET)) {
                         stContext.stTargetImage = std::move(stTarget);
                     }
                 }
@@ -3184,7 +3184,7 @@ void CGroup2_Group4Detect::processGroup2Detect(const Group2Detect_NS::OutData_S 
         {
             auto pPayload = std::make_shared<EventTvSdkPayload_S>();
             pPayload->enType = get_tvsdk_payload_type(stContext.enEventType);
-            if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage))
+            if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage, JPEG_QUALITY_PANORAMA))
             {
                 stContext.pTvSdkPayload = pPayload;
             }
@@ -3206,7 +3206,7 @@ void CGroup2_Group4Detect::processGroup2Detect(const Group2Detect_NS::OutData_S 
                     cv::Rect roi(nX1, nY1, nX2 - nX1, nY2 - nY1);
                     cv::Mat targetMat = m_fullRgbMat(roi).clone();
                     EventTvSdkImage_S stTarget;
-                    if (encode_mat_to_tvsdk_image(targetMat, stTarget)) {
+                    if (encode_mat_to_tvsdk_image(targetMat, stTarget, JPEG_QUALITY_TARGET)) {
                         stContext.stTargetImage = std::move(stTarget);
                     }
                 }
@@ -3231,7 +3231,7 @@ void CGroup2_Group4Detect::processGroup2Detect(const Group2Detect_NS::OutData_S 
         {
             auto pPayload = std::make_shared<EventTvSdkPayload_S>();
             pPayload->enType = get_tvsdk_payload_type(stContext.enEventType);
-            if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage))
+            if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage, JPEG_QUALITY_PANORAMA))
             {
                 stContext.pTvSdkPayload = pPayload;
             }
@@ -3253,7 +3253,7 @@ void CGroup2_Group4Detect::processGroup2Detect(const Group2Detect_NS::OutData_S 
                     cv::Rect roi(nX1, nY1, nX2 - nX1, nY2 - nY1);
                     cv::Mat targetMat = m_fullRgbMat(roi).clone();
                     EventTvSdkImage_S stTarget;
-                    if (encode_mat_to_tvsdk_image(targetMat, stTarget)) {
+                    if (encode_mat_to_tvsdk_image(targetMat, stTarget, JPEG_QUALITY_TARGET)) {
                         stContext.stTargetImage = std::move(stTarget);
                     }
                 }
@@ -3279,7 +3279,7 @@ void CGroup2_Group4Detect::processGroup2Detect(const Group2Detect_NS::OutData_S 
         {
             auto pPayload = std::make_shared<EventTvSdkPayload_S>();
             pPayload->enType = get_tvsdk_payload_type(stContext.enEventType);
-            if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage))
+            if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage, JPEG_QUALITY_PANORAMA))
             {
                 stContext.pTvSdkPayload = pPayload;
             }
@@ -3301,7 +3301,7 @@ void CGroup2_Group4Detect::processGroup2Detect(const Group2Detect_NS::OutData_S 
                     cv::Rect roi(nX1, nY1, nX2 - nX1, nY2 - nY1);
                     cv::Mat targetMat = m_fullRgbMat(roi).clone();
                     EventTvSdkImage_S stTarget;
-                    if (encode_mat_to_tvsdk_image(targetMat, stTarget)) {
+                    if (encode_mat_to_tvsdk_image(targetMat, stTarget, JPEG_QUALITY_TARGET)) {
                         stContext.stTargetImage = std::move(stTarget);
                     }
                 }
@@ -3327,7 +3327,7 @@ void CGroup2_Group4Detect::processGroup2Detect(const Group2Detect_NS::OutData_S 
         {
             auto pPayload = std::make_shared<EventTvSdkPayload_S>();
             pPayload->enType = get_tvsdk_payload_type(stContext.enEventType);
-            if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage))
+            if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage, JPEG_QUALITY_PANORAMA))
             {
                 stContext.pTvSdkPayload = pPayload;
             }
@@ -3349,7 +3349,7 @@ void CGroup2_Group4Detect::processGroup2Detect(const Group2Detect_NS::OutData_S 
                     cv::Rect roi(nX1, nY1, nX2 - nX1, nY2 - nY1);
                     cv::Mat targetMat = m_fullRgbMat(roi).clone();
                     EventTvSdkImage_S stTarget;
-                    if (encode_mat_to_tvsdk_image(targetMat, stTarget)) {
+                    if (encode_mat_to_tvsdk_image(targetMat, stTarget, JPEG_QUALITY_TARGET)) {
                         stContext.stTargetImage = std::move(stTarget);
                     }
                 }
@@ -3374,7 +3374,7 @@ void CGroup2_Group4Detect::processGroup2Detect(const Group2Detect_NS::OutData_S 
         {
             auto pPayload = std::make_shared<EventTvSdkPayload_S>();
             pPayload->enType = get_tvsdk_payload_type(stContext.enEventType);
-            if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage))
+            if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage, JPEG_QUALITY_PANORAMA))
             {
                 stContext.pTvSdkPayload = pPayload;
             }
@@ -3396,7 +3396,7 @@ void CGroup2_Group4Detect::processGroup2Detect(const Group2Detect_NS::OutData_S 
                     cv::Rect roi(nX1, nY1, nX2 - nX1, nY2 - nY1);
                     cv::Mat targetMat = m_fullRgbMat(roi).clone();
                     EventTvSdkImage_S stTarget;
-                    if (encode_mat_to_tvsdk_image(targetMat, stTarget)) {
+                    if (encode_mat_to_tvsdk_image(targetMat, stTarget, JPEG_QUALITY_TARGET)) {
                         stContext.stTargetImage = std::move(stTarget);
                     }
                 }
@@ -3422,7 +3422,7 @@ void CGroup2_Group4Detect::processGroup2Detect(const Group2Detect_NS::OutData_S 
         {
             auto pPayload = std::make_shared<EventTvSdkPayload_S>();
             pPayload->enType = get_tvsdk_payload_type(stContext.enEventType);
-            if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage))
+            if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage, JPEG_QUALITY_PANORAMA))
             {
                 stContext.pTvSdkPayload = pPayload;
             }
@@ -3444,7 +3444,7 @@ void CGroup2_Group4Detect::processGroup2Detect(const Group2Detect_NS::OutData_S 
                     cv::Rect roi(nX1, nY1, nX2 - nX1, nY2 - nY1);
                     cv::Mat targetMat = m_fullRgbMat(roi).clone();
                     EventTvSdkImage_S stTarget;
-                    if (encode_mat_to_tvsdk_image(targetMat, stTarget)) {
+                    if (encode_mat_to_tvsdk_image(targetMat, stTarget, JPEG_QUALITY_TARGET)) {
                         stContext.stTargetImage = std::move(stTarget);
                     }
                 }
@@ -3469,7 +3469,7 @@ void CGroup2_Group4Detect::processGroup2Detect(const Group2Detect_NS::OutData_S 
         {
             auto pPayload = std::make_shared<EventTvSdkPayload_S>();
             pPayload->enType = get_tvsdk_payload_type(stContext.enEventType);
-            if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage))
+            if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage, JPEG_QUALITY_PANORAMA))
             {
                 stContext.pTvSdkPayload = pPayload;
             }
@@ -3491,7 +3491,7 @@ void CGroup2_Group4Detect::processGroup2Detect(const Group2Detect_NS::OutData_S 
                     cv::Rect roi(nX1, nY1, nX2 - nX1, nY2 - nY1);
                     cv::Mat targetMat = m_fullRgbMat(roi).clone();
                     EventTvSdkImage_S stTarget;
-                    if (encode_mat_to_tvsdk_image(targetMat, stTarget)) {
+                    if (encode_mat_to_tvsdk_image(targetMat, stTarget, JPEG_QUALITY_TARGET)) {
                         stContext.stTargetImage = std::move(stTarget);
                     }
                 }
@@ -3516,7 +3516,7 @@ void CGroup2_Group4Detect::processGroup2Detect(const Group2Detect_NS::OutData_S 
         {
             auto pPayload = std::make_shared<EventTvSdkPayload_S>();
             pPayload->enType = get_tvsdk_payload_type(stContext.enEventType);
-            if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage))
+            if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage, JPEG_QUALITY_PANORAMA))
             {
                 stContext.pTvSdkPayload = pPayload;
             }
@@ -3538,7 +3538,7 @@ void CGroup2_Group4Detect::processGroup2Detect(const Group2Detect_NS::OutData_S 
                     cv::Rect roi(nX1, nY1, nX2 - nX1, nY2 - nY1);
                     cv::Mat targetMat = m_fullRgbMat(roi).clone();
                     EventTvSdkImage_S stTarget;
-                    if (encode_mat_to_tvsdk_image(targetMat, stTarget)) {
+                    if (encode_mat_to_tvsdk_image(targetMat, stTarget, JPEG_QUALITY_TARGET)) {
                         stContext.stTargetImage = std::move(stTarget);
                     }
                 }
@@ -3563,7 +3563,7 @@ void CGroup2_Group4Detect::processGroup2Detect(const Group2Detect_NS::OutData_S 
         {
             auto pPayload = std::make_shared<EventTvSdkPayload_S>();
             pPayload->enType = get_tvsdk_payload_type(stContext.enEventType);
-            if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage))
+            if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage, JPEG_QUALITY_PANORAMA))
             {
                 stContext.pTvSdkPayload = pPayload;
             }
@@ -3585,7 +3585,7 @@ void CGroup2_Group4Detect::processGroup2Detect(const Group2Detect_NS::OutData_S 
                     cv::Rect roi(nX1, nY1, nX2 - nX1, nY2 - nY1);
                     cv::Mat targetMat = m_fullRgbMat(roi).clone();
                     EventTvSdkImage_S stTarget;
-                    if (encode_mat_to_tvsdk_image(targetMat, stTarget)) {
+                    if (encode_mat_to_tvsdk_image(targetMat, stTarget, JPEG_QUALITY_TARGET)) {
                         stContext.stTargetImage = std::move(stTarget);
                     }
                 }
@@ -3781,7 +3781,8 @@ std::string CGroup2_Group4Detect::saveFullImage(cv::Mat image, std::string strPi
                               strPicType + "_" +
                               std::to_string(int(Alarm::LinkageType::UPLOAD_PANORAMIC_IMAGE)) + ".jpg";
     dlog_debug("全景大图] 保存全景大图[%s]", strFilename.c_str());
-    if (cv::imwrite(strFilename, outImage))
+    std::vector<int> vecJpegParams = { cv::IMWRITE_JPEG_QUALITY, JPEG_QUALITY_PANORAMA };
+    if (cv::imwrite(strFilename, outImage, vecJpegParams))
     {
         return strFilename;
     }
@@ -3827,7 +3828,8 @@ std::string CGroup2_Group4Detect::saveCropImage(cv::Mat image, Common::Rect_S st
     cv::cvtColor(image, outImage, cv::COLOR_RGB2BGR);
     cv::Mat subImage = outImage(roi).clone();
 
-    if (cv::imwrite(strFilename, subImage))
+    std::vector<int> vecJpegParams = { cv::IMWRITE_JPEG_QUALITY, JPEG_QUALITY_TARGET };
+    if (cv::imwrite(strFilename, subImage, vecJpegParams))
     {
         return strFilename;
     }
@@ -4155,10 +4157,11 @@ void CGroup2_Group4Detect::pushNonMotorvehicleCaptureInfo(const std::string &str
  */
 static bool encode_capture_image(const cv::Mat &mat,
                                  bool bInputRgb,
+                                 int nQuality,
                                  std::vector<unsigned char> &vecJpeg)
 {
     EventTvSdkImage_S stImage;
-    if (mat.empty() || !encode_mat_to_tvsdk_image(mat, stImage, 85, bInputRgb))
+    if (mat.empty() || !encode_mat_to_tvsdk_image(mat, stImage, nQuality, bInputRgb))
     {
         return false;
     }
@@ -4231,12 +4234,12 @@ void CGroup2_Group4Detect::pushPersonCaptureInfoToTvSdk(const cv::Mat &srcData, 
     cv::Rect targetRect(stRect.nX, stRect.nY, stRect.nWidth, stRect.nHeight);
     targetRect &= cv::Rect(0, 0, srcData.cols, srcData.rows);
     cv::Mat targetMat = targetRect.width > 0 && targetRect.height > 0 ? srcData(targetRect).clone() : cv::Mat();
-    if (!encode_capture_image(srcData, true, vecPanoramaJpeg))
+    if (!encode_capture_image(srcData, true, JPEG_QUALITY_PANORAMA, vecPanoramaJpeg))
     {
         dlog_warn("TVSDK行人抓拍全景图编码失败或超上限");
         return;
     }
-    if (!encode_capture_image(targetMat, true, vecTargetJpeg))
+    if (!encode_capture_image(targetMat, true, JPEG_QUALITY_TARGET, vecTargetJpeg))
     {
         dlog_warn("TVSDK行人抓拍特写图编码失败或超上限");
         return;
@@ -4283,12 +4286,12 @@ void CGroup2_Group4Detect::pushMotorvehicleCaptureInfoToTvSdk(const cv::Mat &src
     cv::Rect targetRect(stRect.nX, stRect.nY, stRect.nWidth, stRect.nHeight);
     targetRect &= cv::Rect(0, 0, srcData.cols, srcData.rows);
     cv::Mat targetMat = targetRect.width > 0 && targetRect.height > 0 ? srcData(targetRect).clone() : cv::Mat();
-    if (!encode_capture_image(srcData, true, vecPanoramaJpeg))
+    if (!encode_capture_image(srcData, true, JPEG_QUALITY_PANORAMA, vecPanoramaJpeg))
     {
         dlog_warn("TVSDK机动车抓拍全景图编码失败或超上限");
         return;
     }
-    if (!encode_capture_image(targetMat, true, vecTargetJpeg))
+    if (!encode_capture_image(targetMat, true, JPEG_QUALITY_TARGET, vecTargetJpeg))
     {
         dlog_warn("TVSDK机动车抓拍特写图编码失败或超上限");
         return;
@@ -4338,12 +4341,12 @@ void CGroup2_Group4Detect::pushNonMotorvehicleCaptureInfoToTvSdk(const cv::Mat &
     cv::Rect targetRect(stRect.nX, stRect.nY, stRect.nWidth, stRect.nHeight);
     targetRect &= cv::Rect(0, 0, srcData.cols, srcData.rows);
     cv::Mat targetMat = targetRect.width > 0 && targetRect.height > 0 ? srcData(targetRect).clone() : cv::Mat();
-    if (!encode_capture_image(srcData, true, vecPanoramaJpeg))
+    if (!encode_capture_image(srcData, true, JPEG_QUALITY_PANORAMA, vecPanoramaJpeg))
     {
         dlog_warn("TVSDK非机动车抓拍全景图编码失败或超上限");
         return;
     }
-    if (!encode_capture_image(targetMat, true, vecTargetJpeg))
+    if (!encode_capture_image(targetMat, true, JPEG_QUALITY_TARGET, vecTargetJpeg))
     {
         dlog_warn("TVSDK非机动车抓拍特写图编码失败或超上限");
         return;
@@ -4846,7 +4849,7 @@ void CGroup2_Group4Detect::pushImageToGat1400(const cv::Mat &image, const std::v
         dlog_debug("image empty");
         return;
     }
-    if (!cv::imencode(".jpg", image, buffer))
+    if (!cv::imencode(".jpg", image, buffer, std::vector<int>{ cv::IMWRITE_JPEG_QUALITY, JPEG_QUALITY_PANORAMA }))
     {
         dlog_debug("jpeg 编码失败");
         return;

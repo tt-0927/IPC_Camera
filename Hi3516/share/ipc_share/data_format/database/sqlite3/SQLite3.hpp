@@ -100,6 +100,13 @@ public:
     std::vector<std::string> get_column_data(const std::string &sql);
 
     /**
+     * @brief 获取指定表的全部列名（PRAGMA table_info）
+     * @param tableName 表名
+     * @return 列名列表，失败返回空列表
+     */
+    std::vector<std::string> get_table_columns(const std::string &tableName);
+
+    /**
      * @brief 删除对应的表中指定的字段的信息
      * @param sql SQL语句
      * @param targetFile 删除的文件名字

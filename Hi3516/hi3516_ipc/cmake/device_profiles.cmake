@@ -76,6 +76,16 @@
 #   使用: hi3516_ipc/main_app/ai_app/algorithm_mode/algorithm/people_head_detect
 # - CAP_AI_PEOPLE_DENSITY_V2: 新版人员密度检测能力，使用 hvf_detect 人形模型
 #   使用: hi3516_ipc/main_app/ai_app/algorithm_mode/algorithm/hvf_detect
+# - CAP_AI_PEOPLE_DENSITY_PIPELINE: 人员密度新框架迁移能力（由 IPC_CAP_AI_PEOPLE_DENSITY_PIPELINE 转换），
+#   =1 时展馆 YOLO 模型 head 类接入共享 pipeline，编译关闭 HVF 密度链路
+#   使用: share/ipc_share/event/pipeline/process/people_density,
+#         hi3516_ipc/main_app/ai_app/algorithm_mode/detection/exhibition_detect
+# - CAP_UNIFIED_EVENT_PIPELINE: 全局事件链路（新事件结构）总开关（由 IPC_CAP_UNIFIED_EVENT_PIPELINE 转换），
+#   =0 事件走旧事件结构或 per-event 宏控制；=1 事件走新事件结构（Converter->Dispatcher->Processor->OutputExecutor）。
+#   跨算法类的迁移总开关，渐进替代 CAP_AI_PEOPLE_FLOW_PIPELINE / CAP_UNIFIED_DETECTION_MD/OD /
+#   CAP_AI_EXHIBITION_PEOPLE_FLOW / CAP_AI_PEOPLE_DENSITY_PIPELINE 等 per-event 宏，最终移除旧框架。
+#   使用: hi3516_ipc/main_app/ai_app（事件处理迁移引用点，随迁移子任务逐步接入）,
+#         share/ipc_share/event/pipeline
 # - CAP_EXHIBITION_OSD_PANEL: 展会版左上角 AI 汇总面板能力，并拦截网页 OSD 设置
 #   使用: hi3516_ipc/main_app/ai_app/common/common_process.cpp,
 #         hi3516_ipc/main_app/stream_media/video/osd/osd_manage.cpp,
@@ -177,6 +187,12 @@ set(DEVICE_PROFILE_TV_3852T_CMAKE_VARS
     IPC_CAP_RECORD_LINK_FDK_AAC=0            # record 链接 fdk-aac（ipc.cmake / record/CMakeLists.txt）
     IPC_CAP_EXHIBITION_OSD_PANEL=0           # 展会版AI左上角汇总面板能力
     IPC_CAP_RTMP_PUSH=0                      # RTMP 推流能力
+    IPC_CAP_AI_PEOPLE_FLOW_PIPELINE=0        # 人流统计新框架迁移管线（0=Legacy，1=New）
+    IPC_CAP_UNIFIED_DETECTION_MD=0           # 移动侦测统一检测层迁移（0=Legacy，1=New）
+    IPC_CAP_UNIFIED_DETECTION_OD=0           # 遮挡侦测统一检测层迁移（0=Legacy，1=New）
+    IPC_CAP_AI_EXHIBITION_PEOPLE_FLOW=0      # 展馆人流统计自研模型（0=HVF，1=展馆YOLO）
+    IPC_CAP_AI_PEOPLE_DENSITY_PIPELINE=0     # 人员密度新框架迁移（0=HVF V2，1=展馆YOLO head）
+    IPC_CAP_UNIFIED_EVENT_PIPELINE=0         # 全局事件链路（新事件结构）总开关（0=Legacy，1=New）
 )
 
 set(DEVICE_PROFILE_TV_3852H_DEVICE_TYPE "TV-3852H")
@@ -228,6 +244,12 @@ set(DEVICE_PROFILE_TV_3852H_CMAKE_VARS
     IPC_CAP_RECORD_NEEDS_CAM_SHARE_INCLUDE=0
     IPC_CAP_RECORD_LINK_FDK_AAC=0
     IPC_CAP_RTMP_PUSH=0                      # RTMP 推流能力
+    IPC_CAP_AI_PEOPLE_FLOW_PIPELINE=0        # 人流统计新框架迁移管线（0=Legacy，1=New）
+    IPC_CAP_UNIFIED_DETECTION_MD=0           # 移动侦测统一检测层迁移（0=Legacy，1=New）
+    IPC_CAP_UNIFIED_DETECTION_OD=0           # 遮挡侦测统一检测层迁移（0=Legacy，1=New）
+    IPC_CAP_AI_EXHIBITION_PEOPLE_FLOW=0      # 展馆人流统计自研模型（0=HVF，1=展馆YOLO）
+    IPC_CAP_AI_PEOPLE_DENSITY_PIPELINE=0     # 人员密度新框架迁移（0=HVF V2，1=展馆YOLO head）
+    IPC_CAP_UNIFIED_EVENT_PIPELINE=0         # 全局事件链路（新事件结构）总开关（0=Legacy，1=New）
 )
 
 # ========== 智能垃圾站系列型号 ==========
@@ -289,6 +311,12 @@ set(DEVICE_PROFILE_TV_3852TL_CMAKE_VARS
     IPC_CAP_RECORD_LINK_FDK_AAC=0
     IPC_CAP_EXHIBITION_OSD_PANEL=0           # 展会版AI左上角汇总面板能力
     IPC_CAP_RTMP_PUSH=0                      # RTMP 推流能力
+    IPC_CAP_AI_PEOPLE_FLOW_PIPELINE=0        # 人流统计新框架迁移管线（0=Legacy，1=New）
+    IPC_CAP_UNIFIED_DETECTION_MD=0           # 移动侦测统一检测层迁移（0=Legacy，1=New）
+    IPC_CAP_UNIFIED_DETECTION_OD=0           # 遮挡侦测统一检测层迁移（0=Legacy，1=New）
+    IPC_CAP_AI_EXHIBITION_PEOPLE_FLOW=0      # 展馆人流统计自研模型（0=HVF，1=展馆YOLO）
+    IPC_CAP_AI_PEOPLE_DENSITY_PIPELINE=0     # 人员密度新框架迁移（0=HVF V2，1=展馆YOLO head）
+    IPC_CAP_UNIFIED_EVENT_PIPELINE=0         # 全局事件链路（新事件结构）总开关（0=Legacy，1=New）
 )
 
 set(DEVICE_PROFILE_TV_3852HL_DEVICE_TYPE "TV-3852HL")
@@ -342,6 +370,12 @@ set(DEVICE_PROFILE_TV_3852HL_CMAKE_VARS
     IPC_CAP_RECORD_NEEDS_CAM_SHARE_INCLUDE=0
     IPC_CAP_RECORD_LINK_FDK_AAC=0
     IPC_CAP_RTMP_PUSH=0                      # RTMP 推流能力
+    IPC_CAP_AI_PEOPLE_FLOW_PIPELINE=0        # 人流统计新框架迁移管线（0=Legacy，1=New）
+    IPC_CAP_UNIFIED_DETECTION_MD=0           # 移动侦测统一检测层迁移（0=Legacy，1=New）
+    IPC_CAP_UNIFIED_DETECTION_OD=0           # 遮挡侦测统一检测层迁移（0=Legacy，1=New）
+    IPC_CAP_AI_EXHIBITION_PEOPLE_FLOW=0      # 展馆人流统计自研模型（0=HVF，1=展馆YOLO）
+    IPC_CAP_AI_PEOPLE_DENSITY_PIPELINE=0     # 人员密度新框架迁移（0=HVF V2，1=展馆YOLO head）
+    IPC_CAP_UNIFIED_EVENT_PIPELINE=0         # 全局事件链路（新事件结构）总开关（0=Legacy，1=New）
 )
 
 set(DEVICE_PROFILE_TV_3852TL4G_DEVICE_TYPE "TV-3852TL4G")
@@ -399,6 +433,12 @@ set(DEVICE_PROFILE_TV_3852TL4G_CMAKE_VARS
     IPC_CAP_RECORD_LINK_FDK_AAC=0
     IPC_CAP_EXHIBITION_OSD_PANEL=0           # 展会版AI左上角汇总面板能力
     IPC_CAP_RTMP_PUSH=1                      # RTMP 推流能力
+    IPC_CAP_AI_PEOPLE_FLOW_PIPELINE=0        # 人流统计新框架迁移管线（0=Legacy，1=New）
+    IPC_CAP_UNIFIED_DETECTION_MD=0           # 移动侦测统一检测层迁移（0=Legacy，1=New）
+    IPC_CAP_UNIFIED_DETECTION_OD=0           # 遮挡侦测统一检测层迁移（0=Legacy，1=New）
+    IPC_CAP_AI_EXHIBITION_PEOPLE_FLOW=0      # 展馆人流统计自研模型（0=HVF，1=展馆YOLO）
+    IPC_CAP_AI_PEOPLE_DENSITY_PIPELINE=0     # 人员密度新框架迁移（0=HVF V2，1=展馆YOLO head）
+    IPC_CAP_UNIFIED_EVENT_PIPELINE=0         # 全局事件链路（新事件结构）总开关（0=Legacy，1=New）
 )
 
 set(DEVICE_PROFILE_TV_3852TLW_DEVICE_TYPE "TV-3852TLW")
@@ -456,6 +496,12 @@ set(DEVICE_PROFILE_TV_3852TLW_CMAKE_VARS
     IPC_CAP_RECORD_LINK_FDK_AAC=0
     IPC_CAP_EXHIBITION_OSD_PANEL=0           # 展会版AI左上角汇总面板能力
     IPC_CAP_RTMP_PUSH=1                      # RTMP 推流能力
+    IPC_CAP_AI_PEOPLE_FLOW_PIPELINE=0        # 人流统计新框架迁移管线（0=Legacy，1=New）
+    IPC_CAP_UNIFIED_DETECTION_MD=0           # 移动侦测统一检测层迁移（0=Legacy，1=New）
+    IPC_CAP_UNIFIED_DETECTION_OD=0           # 遮挡侦测统一检测层迁移（0=Legacy，1=New）
+    IPC_CAP_AI_EXHIBITION_PEOPLE_FLOW=0      # 展馆人流统计自研模型（0=HVF，1=展馆YOLO）
+    IPC_CAP_AI_PEOPLE_DENSITY_PIPELINE=0     # 人员密度新框架迁移（0=HVF V2，1=展馆YOLO head）
+    IPC_CAP_UNIFIED_EVENT_PIPELINE=0         # 全局事件链路（新事件结构）总开关（0=Legacy，1=New）
 )
 
 # 展厅特殊版本
@@ -510,6 +556,12 @@ set(DEVICE_PROFILE_TV_3852HZT_CMAKE_VARS
     IPC_CAP_RECORD_LINK_FDK_AAC=0
     IPC_CAP_EXHIBITION_OSD_PANEL=0           # 展会版AI左上角汇总面板能力
     IPC_CAP_RTMP_PUSH=0                      # RTMP 推流能力
+    IPC_CAP_AI_PEOPLE_FLOW_PIPELINE=1        # 人流统计新框架迁移管线（0=Legacy，1=New）
+    IPC_CAP_UNIFIED_DETECTION_MD=1           # 移动侦测统一检测层迁移（0=Legacy，1=New）
+    IPC_CAP_UNIFIED_DETECTION_OD=1           # 遮挡侦测统一检测层迁移（0=Legacy，1=New）
+    IPC_CAP_AI_EXHIBITION_PEOPLE_FLOW=1      # 展馆人流统计自研模型（0=HVF，1=展馆YOLO）
+    IPC_CAP_AI_PEOPLE_DENSITY_PIPELINE=1     # 人员密度新框架迁移（0=HVF V2，1=展馆YOLO head）
+    IPC_CAP_UNIFIED_EVENT_PIPELINE=1         # 全局事件链路（新事件结构）总开关（0=Legacy，1=New）
 )
 
 function(apply_device_profile device_type)

@@ -600,13 +600,50 @@ bool CUserSession::SendRequest(const CommandRequest_S& req, std::string& outResp
             finalUrl += "?";
             for (const auto& p : req.queryParams) finalUrl += p.first + "=" + p.second + "&";
         }
+        /* 自动附加 session_id（登录请求无 m_strSessionId，不受影响） */
+        if (!m_strSessionId.empty())
+        {
+            /* 用 find('?') 判断 URL 中是否已有查询参数，兼容调用方直接拼接 URL 的情况 */
+            finalUrl += (finalUrl.find('?') != std::string::npos ? "&" : "?");
+            finalUrl += "session_id=" + m_strSessionId;
+        }
 
         httplib::Result res;
+
+        /* 统一请求日志: 覆盖 GET/POST/PUT 全部方法, 每次请求的数据都打印 */
+        if (req.binData != nullptr && req.binSize > 0)
+        {
+            NETSDK_LOG_MESSAGE_DEBUG("[DIAG-REQ] User-%p %s URL=%s, binLen=%zu",
+                          m_hUser, req.method.c_str(), finalUrl.c_str(), req.binSize);
+        }
+        else
+        {
+            NETSDK_LOG_MESSAGE_DEBUG("[DIAG-REQ] User-%p %s URL=%s, bodyLen=%zu, body=%s",
+                          m_hUser, req.method.c_str(), finalUrl.c_str(),
+                          req.jsonBody.size(), req.jsonBody.empty() ? "(empty)" : req.jsonBody.c_str());
+        }
 
         /* 根据 Method 分发 */
         if (req.method == "GET")
         {
-            res = m_pCommandClient->Get(finalUrl.c_str());
+            if (!req.jsonBody.empty()) {
+                /* GET with body: 用 send(Request) 发送，httplib::Get 不支持 body */
+                httplib::Request rawReq;
+                rawReq.method = "GET";
+                rawReq.path = finalUrl;
+                rawReq.body = req.jsonBody;
+                rawReq.set_header("Content-Type", "application/json");
+                res = m_pCommandClient->send(rawReq);
+                if (res) {
+                    NETSDK_LOG_MESSAGE_DEBUG("[DIAG-GETBODY] User-%p send() result: status=%d",
+                                  m_hUser, res->status);
+                } else {
+                    NETSDK_LOG_MESSAGE_WARN("[DIAG-GETBODY] User-%p send() FAILED (no response), err=%d",
+                                  m_hUser, (int)res.error());
+                }
+            } else {
+                res = m_pCommandClient->Get(finalUrl.c_str());
+            }
         } else if (req.method == "POST") {
             if (req.binData != nullptr && req.binSize > 0) {
                 res = m_pCommandClient->Post(finalUrl.c_str(), req.binData, req.binSize, "application/octet-stream");
@@ -631,7 +668,21 @@ bool CUserSession::SendRequest(const CommandRequest_S& req, std::string& outResp
                 outRespBody = res->body;
                 return true;
             }
+            NETSDK_LOG_MESSAGE_ERROR("[DIAG-SESSION] User-%p SendRequest HTTP 200 but bizCode=%d, URL=%s, body=%.200s",
+                          m_hUser, bizCode, finalUrl.c_str(), res->body.c_str());
             return false;
+        }
+
+        /* 非200/401的HTTP状态码 */
+        if (res)
+        {
+            NETSDK_LOG_MESSAGE_ERROR("[DIAG-SESSION] User-%p SendRequest HTTP status=%d, URL=%s",
+                          m_hUser, res->status, finalUrl.c_str());
+        }
+        else
+        {
+            NETSDK_LOG_MESSAGE_ERROR("[DIAG-SESSION] User-%p SendRequest no HTTP response (network error), URL=%s",
+                          m_hUser, finalUrl.c_str());
         }
 
         /* 命令收到 401，可能是 session 刚过期，触发重连并重试一次 */
@@ -666,9 +717,18 @@ bool CUserSession::SendRequest(const CommandRequest_S& req, std::string& outResp
             {
                 /* 重连成功，用新 m_pCommandClient 重试一次 */
                 httplib::Result retryRes;
-                if (req.method == "GET")
-                    retryRes = m_pCommandClient->Get(finalUrl.c_str());
-                else if (req.method == "POST") {
+                if (req.method == "GET") {
+                    if (!req.jsonBody.empty()) {
+                        httplib::Request rawReq;
+                        rawReq.method = "GET";
+                        rawReq.path = finalUrl;
+                        rawReq.body = req.jsonBody;
+                        rawReq.set_header("Content-Type", "application/json");
+                        retryRes = m_pCommandClient->send(rawReq);
+                    } else {
+                        retryRes = m_pCommandClient->Get(finalUrl.c_str());
+                    }
+                } else if (req.method == "POST") {
                     if (req.binData != nullptr && req.binSize > 0) {
                         retryRes = m_pCommandClient->Post(finalUrl.c_str(), req.binData, req.binSize, "application/octet-stream");
                     } else {

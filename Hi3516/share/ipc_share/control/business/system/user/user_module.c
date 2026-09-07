@@ -42,6 +42,7 @@ const char *pass_check_msg(int code)
     case PASS_ERR_USER_INFO:            return "密码包含用户名";
     case PASS_ERR_WEAK_WORD:            return "密码出现弱口令";
     case PASS_ERR_STRENGTH_LOW:         return "密码强度较弱";
+    case PASS_ERR_SPECIAL_CHAR:         return "密码不能包含特殊字符 #";
     case ERR_REPEAT_LOGIN_IP:           return "同一IP已登录，禁止重复登录";
     default:                            return "未知错误";
     }
@@ -895,10 +896,27 @@ WeakPasswordResult isWeakPasswordToStr(const char* password, const char* usernam
 }
 
 
+int check_password_special(const char *password) {
+
+    if (password == NULL)         
+        return ERR_PARAM;
+
+    /* # 会导致 RTSP 等 URL 解析异常，无论密码安全级别开关如何，一律拒绝 */
+    if (strchr(password, '#') != NULL)
+        return PASS_ERR_SPECIAL_CHAR;
+
+    return OK;
+}
+
 int check_password(const char *password,const char *username,const char *phone) {
 
     if (password == NULL)         
         return ERR_PARAM;
+
+    /* 0. 特殊字符检测（# 会导致 RTSP 等 URL 解析异常） */
+    int special = check_password_special(password);
+    if (special != OK)
+        return special;
 
     /* 1. 弱密码类型检测 */
      int weak = isWeakPassword(password, username, phone,NULL);

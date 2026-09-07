@@ -21,7 +21,6 @@
 #include "HttpAuthHandler.h"
 #include <sstream>
 #include <utility>
-
 namespace
 {
 /**
@@ -90,7 +89,76 @@ bool CSessionManager::Login(std::string& OutSessionId, const std::string& client
 {
 	std::lock_guard<std::mutex> Lock(m_stMutex);
 
-	OutSessionId = GenerateSessionId();
+	/* 辅助 lambda：统计指定 IP 的活跃会话数 */
+	auto countByIP = [&](const std::string& ip) -> size_t {
+		size_t count = 0;
+		for (const auto& pair : m_stSessions)
+		{
+			if (pair.second->GetClientIP() == ip) ++count;
+		}
+		return count;
+	};
+
+	/* 辅助 lambda：淘汰指定 IP 最旧的会话 */
+	auto evictOldestByIP = [&](const std::string& ip) -> bool {
+		std::string oldestKey;
+		std::chrono::steady_clock::time_point oldestTime = std::chrono::steady_clock::time_point::max();
+		for (const auto& pair : m_stSessions)
+		{
+			if (pair.second->GetClientIP() == ip && pair.second->GetLastActive() < oldestTime)
+			{
+				oldestTime = pair.second->GetLastActive();
+				oldestKey = pair.first;
+			}
+		}
+		if (!oldestKey.empty())
+		{
+			NETSDK_LOG_MESSAGE_INFO("[SessionManager] Evicting oldest session for IP: SessionId=%s, ClientIP=%s",
+						  oldestKey.c_str(), ip.c_str());
+			m_stSessions.erase(oldestKey);
+			return true;
+		}
+		return false;
+	};
+
+	/* 全局会话数接近上限时，优先淘汰同IP最旧会话腾出空间 */
+	if (m_stSessions.size() >= MAX_SESSIONS)
+	{
+		if (!evictOldestByIP(clientIP))
+		{
+			NETSDK_LOG_MESSAGE_WARN("[SessionManager] Login rejected: max sessions reached (%zu), ClientIP=%s",
+						  m_stSessions.size(), clientIP.c_str());
+			return false;
+		}
+	}
+
+	/* 同一IP会话数上限：防止单个客户端耗尽全部会话槽位 */
+	if (countByIP(clientIP) >= MAX_SESSIONS_PER_IP)
+	{
+		NETSDK_LOG_MESSAGE_INFO("[SessionManager] IP session limit reached (%zu), evicting oldest: ClientIP=%s",
+					  MAX_SESSIONS_PER_IP, clientIP.c_str());
+		evictOldestByIP(clientIP);
+	}
+
+	/* 生成唯一 SessionId（避免碰撞覆盖） */
+	static const int MAX_RETRY = 3;
+	for (int i = 0; i < MAX_RETRY; ++i)
+	{
+		OutSessionId = GenerateSessionId();
+		if (m_stSessions.find(OutSessionId) == m_stSessions.end())
+		{
+			break;
+		}
+		NETSDK_LOG_MESSAGE_WARN("[SessionManager] SessionId collision: %s, retry %d/%d", OutSessionId.c_str(), i + 1, MAX_RETRY);
+	}
+
+	/* 碰撞重试耗尽 */
+	if (m_stSessions.find(OutSessionId) != m_stSessions.end())
+	{
+		NETSDK_LOG_MESSAGE_ERROR("[SessionManager] Login failed: SessionId collision after %d retries", MAX_RETRY);
+		return false;
+	}
+
 	auto newSession = std::make_shared<CServerSession>(OutSessionId);
     newSession->SetLogined(true);
     newSession->SetConnected(true);
@@ -140,7 +208,7 @@ bool CSessionManager::EnablePush(const std::string& SessionId)
 {
 	std::lock_guard<std::mutex> Lock(m_stMutex);
 	auto It = m_stSessions.find(SessionId);
-    if (It != m_stSessions.end() && It->second->IsLogined())
+    if (It != m_stSessions.end() && It->second->IsLogined()) 
 	{
         It->second->SetPushEnabled(true);
         std::string clientIP = It->second->GetClientIP();
@@ -201,7 +269,7 @@ void CSessionManager::MarkDisconnected(const std::string& SessionId)
 {
 	std::lock_guard<std::mutex> Lock(m_stMutex);
 	auto It = m_stSessions.find(SessionId);
-    if (It != m_stSessions.end())
+    if (It != m_stSessions.end()) 
 	{
         It->second->SetConnected(false);
         /* 断线时清空队列，避免客户端重连后收到大量已过期的历史报警 */
@@ -367,12 +435,9 @@ std::string CSessionManager::GetSessionDiagnosticInfo()
 
 void CSessionManager::HttpCommandLogin(const httplib::Request& req, httplib::Response& res)
 {
-	/* 鉴权 */
+	/* 鉴权：认证失败时直接返回，401 质询头已由 handle_authentication 设置 */
 	if(!CHttpAuthHandler::instance()->handle_authentication(req, res))
 	{
-		SessionMessage_S stAuthErr;
-		res.status = NET_HTTP_RESP_CODE_SUCCESS;
-		res.set_content(SDKConvert::to_respString(NET_E_NOT_AUTHORIZED, 0, stAuthErr), NET_JSON_CONTENT_TYPE);
 		return;
 	}
 
@@ -403,12 +468,9 @@ void CSessionManager::HttpCommandLogin(const httplib::Request& req, httplib::Res
 
 void CSessionManager::HttpCommandLout(const httplib::Request& req, httplib::Response& res)
 {
-	/* 鉴权 */
+	/* 鉴权：认证失败时直接返回，401 质询头已由 handle_authentication 设置 */
 	if(!CHttpAuthHandler::instance()->handle_authentication(req, res))
 	{
-		SessionMessage_S stAuthErr;
-		res.status = NET_HTTP_RESP_CODE_SUCCESS;
-		res.set_content(SDKConvert::to_respString(NET_E_NOT_AUTHORIZED, 0, stAuthErr), NET_JSON_CONTENT_TYPE);
 		return;
 	}
 
@@ -416,21 +478,15 @@ void CSessionManager::HttpCommandLout(const httplib::Request& req, httplib::Resp
 
 	if (SessionId.empty())
 	{
-		res.set_content(R"({"return":-1,"message":"Session ID required"})", NET_JSON_CONTENT_TYPE);
 		res.status = NET_HTTP_RESP_CODE_SUCCESS;
+		res.set_content(SDKConvert::to_respString(NET_E_INVALID_PARAM, 0), NET_JSON_CONTENT_TYPE);
 		return;
 	}
 
 	bool LogoutOk = Logout(SessionId);
 
-	if (LogoutOk)
-	{
-		res.set_content(R"({"return":0,"message":"Logout successful"})", NET_JSON_CONTENT_TYPE);
-		res.status = NET_HTTP_RESP_CODE_SUCCESS;
-	} else {
-		res.set_content(R"({"return":-1,"message":"Invalid session or not logged in"})", NET_JSON_CONTENT_TYPE);
-		res.status = NET_HTTP_RESP_CODE_SUCCESS;
-	}
+	res.status = NET_HTTP_RESP_CODE_SUCCESS;
+	res.set_content(SDKConvert::to_respString(LogoutOk ? NET_E_SUCCEED : NET_E_INVALID_HANDLE, 0), NET_JSON_CONTENT_TYPE);
 }
 /**
  * @author tianl (tianl@kfb.cn)
@@ -451,12 +507,12 @@ void CSessionManager::HttpCommandKeepAlive(const httplib::Request& req, httplib:
         session->UpdateLastActive();
 
         res.status = NET_HTTP_RESP_CODE_SUCCESS;
-        res.set_content(R"({"return":0, "message":"KeepAlive OK"})", "application/json");
+        res.set_content(SDKConvert::to_respString(NET_E_SUCCEED, 0), NET_JSON_CONTENT_TYPE);
     }
 	else
 	{
-        res.status = NET_HTTP_RESP_CODE_UNAUTHORIZED;
-        res.set_content(R"({"return":401, "message":"Session Expired"})", "application/json");
+        res.status = NET_HTTP_RESP_CODE_SUCCESS;
+        res.set_content(SDKConvert::to_respString(NET_E_NOT_AUTHORIZED, 0), NET_JSON_CONTENT_TYPE);
     }
 }
 /**

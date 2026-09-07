@@ -65,6 +65,7 @@ public:
 
     /* --- 活跃度管理 --- */
     void UpdateLastActive();
+    std::chrono::steady_clock::time_point GetLastActive() const;
     /* 检查是否超时（单位：秒） */
     bool IsTimeout(int timeoutSec) const;
     /* 检查是否长时间无心跳（僵尸连接） */

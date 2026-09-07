@@ -2,7 +2,7 @@
  * @FilePath     : http_sdk_gateway.hpp
  * @Description  : HTTP-SDK 命令转发适配层声明
  *
- * @note 外部平台通过 HTTP 传入 NET_* 命令名或命令码，本模块负责转换为设备内部
+ * @note 外部平台通过 HTTP 传入 NET_TV_* 命令名或命令码，本模块负责转换为设备内部
  *       ActionCode 报文，业务处理仍复用现有 shortLink/Task/Business 链路。
  */
 #pragma once

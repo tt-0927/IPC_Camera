@@ -61,9 +61,16 @@ void MJPEG_FRAME_SOURCE::doGetNextFrame()
 
 unsigned int MJPEG_FRAME_SOURCE::maxFrameSize() const
 {
-  return m_stSourceInfo.outPacketBufferSize == 0
-             ? REV_BUF_SIZE
-             : m_stSourceInfo.outPacketBufferSize;
+  unsigned int nSize = m_stSourceInfo.outPacketBufferSize == 0
+                           ? REV_BUF_SIZE
+                           : m_stSourceInfo.outPacketBufferSize;
+  /* StreamParser::BANK_SIZE 固定为 3000000，maxFrameSize 必须小于该值，
+     否则 ensureValidBytes1 会触发 internalError 崩溃 */
+  if (nSize > REV_BUF_SIZE)
+  {
+    nSize = REV_BUF_SIZE;
+  }
+  return nSize;
 }
 
 void MJPEG_FRAME_SOURCE::getNextFrame(void * ptr)

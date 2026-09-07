@@ -173,12 +173,21 @@ NET_API INT32 STDCALL NET_clientGetLastError()
  * @brief 设置异常回调函数
  * @param cbExceptionCallBack 异常回调函数指针
  * @param lpUserData 用户自定义数据
- * @return 暂未实现，返回FALSE
+ * @return 成功返回TRUE，失败返回FALSE
  */
 NET_API BOOL STDCALL NET_clientSetExceptionCallBack(IN NET_ExceptionCallBack_PF cbExceptionCallBack,
                                                                  IN LPVOID lpUserData)
 {
-	return FALSE;
+	CHECK_SDK_INIT(FALSE);
+
+	auto pDevMgr = CSessionManager::instance();
+	if (!pDevMgr)
+	{
+		return FALSE;
+	}
+
+	pDevMgr->SetExceptionCallBack(cbExceptionCallBack, lpUserData);
+	return TRUE;
 }
 
 /**
@@ -267,6 +276,15 @@ NET_API LPVOID STDCALL NET_clientLogin(IN pNET_DeviceLoginInfo_S pstDevLoginInfo
             NETSDK_LOG_MESSAGE_ERROR("[NetTVSDK] NET_clientLogin failed to get device info");
             pDevMgr->Logout(lpUserID);
 			return NULL;
+		}
+
+		/* 将设备类型写入 Session，供后续 ConfigQuery 做命令支持性校验与专属结构体分发 */
+		std::shared_ptr<CUserSession> pSession = pDevMgr->GetSession(static_cast<LPUSER_HANDLE>(lpUserID));
+		if (pSession && pstDevInfo)
+		{
+			pSession->SetDeviceType(pstDevInfo->uDevType);
+			NETSDK_LOG_MESSAGE_INFO("[NetTVSDK] NET_clientLogin device type=%d, model=%s",
+							pstDevInfo->uDevType, pstDevInfo->strDevModel);
 		}
 	}
 
@@ -714,7 +732,7 @@ NET_clientSearchDiscovery(IN  const CHAR*                      szInterfaceIP,
 }
 
 /**
- * @brief 未登录通过设备发现组播协议按 MAC 设置摄像机网络参数。
+ * @brief 未登录通过 SDK 搜索 JSON 组播协议按 MAC 设置摄像机网络参数
  */
 NET_API BOOL STDCALL
 NET_clientSetPoeNetwork(IN const NET_PoeNetworkConfig_S* pstConfig)
@@ -746,7 +764,6 @@ NET_clientSetPoeNetwork(IN const NET_PoeNetworkConfig_S* pstConfig)
  * @return 错误描述字符串（UTF-8），无需调用方释放内存
  * @note  与海康 NET_DVR_GetErrorMsg、大华 CLIENT_GetLastError 对齐
  */
-
 NET_API const char* STDCALL NET_clientGetErrorMsg(void)
 {
     return CErrorManage::instance()->GetErrorMsg();

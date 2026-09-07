@@ -675,7 +675,7 @@ void CVehicleDetect::pushVehiclesToGat1400(const cv::Mat &image, const std::vect
         dlog_debug("iamge empty");
         return;
     }
-    if (!cv::imencode(".jpg", image, buffer)) {
+    if (!cv::imencode(".jpg", image, buffer, std::vector<int>{ cv::IMWRITE_JPEG_QUALITY, JPEG_QUALITY_PANORAMA })) {
         dlog_debug("jpeg 编码失败");
         return;
     }

@@ -170,6 +170,20 @@ public:
      */
     std::string GetHost() const { return m_strHost; }
 
+    /**
+     * @brief 获取本会话对端的设备类型
+     * @return 设备类型，参见枚举 NET_DEVICE_TYPE_E；未登录/未识别时为 NET_DTYPE_UNKNOWN
+     * @details 由 NET_clientLogin 拉取 /TVAPI/V1.0/Device/GetInfo 后写入，
+     *          供 ConfigQuery 做命令支持性校验与专属结构体分发。
+     */
+    INT32 GetDeviceType() const { return m_nDeviceType; }
+
+    /**
+     * @brief 设置本会话对端的设备类型
+     * @param [in] nType 设备类型，参见枚举 NET_DEVICE_TYPE_E
+     */
+    void SetDeviceType(INT32 nType) { m_nDeviceType = nType; }
+
 private:
     /**
  * @author tianl (tianl@kfb.cn)
@@ -204,6 +218,9 @@ private:
     std::atomic<bool> m_bRunning{false};
     std::atomic<bool> m_bOnline{false};
     std::atomic<bool> m_bAutoReconnect{true}; /* 自动重连开关，默认启用（向后兼容） */
+
+    /* 对端设备类型（NET_DEVICE_TYPE_E）。用 atomic 是因为心跳/重连线程与业务线程可能并发读写 */
+    std::atomic<INT32> m_nDeviceType{NET_DTYPE_UNKNOWN};
 
     /* 命令发送锁 (保护 CmdClient 串行发送) */
     std::mutex m_stCommandMutex;

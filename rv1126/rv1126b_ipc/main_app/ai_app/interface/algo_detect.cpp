@@ -42,9 +42,9 @@ int algo_detect_deinit()
     return OK;
 }
 
-void algo_send_streamData(const void *pData, int nLength, int nH, int nW)
+void algo_send_streamData(const void *pData, int nLength, int nH, int nW, uint64_t u64PTS)
 {
-    CAlgoStreamDeal::instance()->deal_message(pData, nLength, nH, nW);
+    CAlgoStreamDeal::instance()->deal_message(pData, nLength, nH, nW, u64PTS);
 }
 
 // void algo_send_audioStreamData(const ot_audio_frame *pFrame)

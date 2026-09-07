@@ -23,7 +23,7 @@ extern "C" {
 #endif
 
 /* NVR独有：执行获取RTSP流地址回调（NET_GET_RTSPURLCFG；供NvrBusiness等业务层调用） */
-int executeGetRtspUrlCb(INT32 dwChannelID, pNET_RtspUrlInfo_S pInfo);
+int executeGetRtspUrlCb(pNET_RtspUrlInfo_S pInfo);
 
 /* NVR独有：执行获取回放播放URL回调（按起止时间+通道查询录像；供PlaybackBusiness等调用） */
 int executeGetReplayUrlCb(pNET_ReplayUrlInfo_S pInfo);

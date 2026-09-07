@@ -1179,6 +1179,23 @@ void Task::Network::DisconnectWifiSta::handle()
         result(-1);
     }
 }
+
+void Task::Network::SetConfigWifiIpv4::handle()
+{
+    // ::Network::WifiIpv4Config_S stInfo;
+    // Convert::to_struct(m_taskData, stInfo);
+    // int nRet = CWifiManager::instance()-> setWifiIpv4Config(stInfo);
+    
+    result(0);
+    
+}
+void Task::Network::GetConfigWifiIpv4::handle()
+{
+    ::Network::WifiIpv4Config_S stInfo;
+    bool nRet = CWifiManager::instance()-> getWifiIpv4Config(stInfo);
+    result(Convert::to_string(stInfo));
+}
+
 #endif
 
 #if CAP_NETWORK_4G
@@ -1430,7 +1447,7 @@ void Task::Network::ConnPlatform::handle()
             result(-1);
             return;
         }
-
+        
         cJSON_AddNumberToObject(pRoot, "status_code", out_response.status_code);
         cJSON_AddStringToObject(pRoot, "status", out_response.status.c_str());
         cJSON_AddStringToObject(pRoot, "message", out_response.message.c_str());
