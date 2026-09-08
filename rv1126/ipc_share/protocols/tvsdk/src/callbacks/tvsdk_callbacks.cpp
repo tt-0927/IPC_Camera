@@ -1,5 +1,8 @@
 /**
  * @FilePath     : tvsdk_callbacks.cpp
+ * @Date         : 原始创建日期未记录
+ * @Author       : 原作者未记录；本次修改：Codex
+ * @修改记录     : 2026-09-08，四类智能事件设置回调返回实际业务处理结果。
  * @Description  : TVSDK 回调实现与注册（使用 action_code.h 命令码对接 control_manage）
  */
 
@@ -767,6 +770,31 @@ static int execute_get_result(int actionCode, const std::string &inJson, std::st
 
     outJson = state->outJson;
     return 0;
+}
+
+/*
+ * 功能：执行智能事件配置任务，并将业务结果转换为 SDK 错误码。
+ * 作者：Codex
+ * param [in] nActionCode：设置事件配置的任务命令号。
+ * param [in] strConfigJson：未包装的事件配置 JSON 字符串。
+ * param [out] 无。
+ * return：配置成功返回 NET_E_SUCCEED，参数错误返回 NET_E_INVALID_PARAM，其他失败返回 NET_E_SET_CFG_FAILED。
+ */
+static NET_COMMON_ECODE_E tvsdk_set_event_config(int nActionCode, const std::string &strConfigJson)
+{
+    std::string strResultJson = {};
+    if ((execute_get_result(nActionCode, wrap_data_json(strConfigJson), strResultJson) != 0) || strResultJson.empty())
+    {
+        return NET_E_SET_CFG_FAILED;
+    }
+
+    int nResult = -1;
+    Json::get(strResultJson.c_str(), "Return", nResult);
+    if (nResult == ERR_WEB_PARAM)
+    {
+        return NET_E_INVALID_PARAM;
+    }
+    return (nResult == 0) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
 }
 
 /* ---------- GetDeviceInfo：由 SystemManage 填充 ---------- */
@@ -3061,20 +3089,25 @@ static NET_COMMON_ECODE_E cb_get_retrograde_info(INT32 dwChannelID, LPVOID lpOut
     return NET_E_SUCCEED;
 }
 
-static NET_COMMON_ECODE_E cb_set_retrograde_info(INT32 dwChannelID, LPVOID lpInBuffer)
+/*
+ * 功能：设置逆行识别配置，返回 IPC 参数校验与保存结果。
+ * 作者：Codex
+ * param [in] nChannelID：通道号，IPC 单通道设备忽略此参数。
+ * param [in] pInBuffer：指向 NET_RetrogradeInfo_S 配置结构体的指针。
+ * param [out] 无。
+ * return：配置成功返回 NET_E_SUCCEED，无效参数返回 NET_E_INVALID_PARAM，其他失败返回 NET_E_SET_CFG_FAILED。
+ */
+static NET_COMMON_ECODE_E cb_set_retrograde_info(INT32 nChannelID, LPVOID pInBuffer)
 {
-    (void)dwChannelID;
-    if (!lpInBuffer)
+    (void)nChannelID;
+    if (pInBuffer == nullptr)
+    {
         return NET_E_INVALID_PARAM;
-    const NET_RetrogradeInfo_S *pIn = (const NET_RetrogradeInfo_S *)lpInBuffer;
-
-    Alarm::DrivingAgainstTrafficDetection_S stCfg;
-    TvSdkConvert::ToRetrograde(*pIn, stCfg);
-    std::string inJson = Convert::to_string(stCfg);
-    Task::Info_S stInfo;
-    stInfo.data = wrap_data_json(inJson);
-    int nExec = s_taskManage ? s_taskManage->execute(AC_SET_RETROGRADE_INFO, stInfo) : -1;
-    return (nExec == 0) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
+    }
+    const NET_RetrogradeInfo_S *pConfig = static_cast<const NET_RetrogradeInfo_S *>(pInBuffer);
+    Alarm::DrivingAgainstTrafficDetection_S stConfig = {};
+    TvSdkConvert::ToRetrograde(*pConfig, stConfig);
+    return tvsdk_set_event_config(AC_SET_RETROGRADE_INFO, Convert::to_string(stConfig));
 }
 
 static NET_COMMON_ECODE_E cb_get_nonmotor_vehicle_intrusion_info(INT32 dwChannelID, LPVOID lpOutBuffer)
@@ -3406,20 +3439,25 @@ static NET_COMMON_ECODE_E cb_get_parking_detect_alarm(INT32 dwChannelID, LPVOID 
     return NET_E_SUCCEED;
 }
 
-static NET_COMMON_ECODE_E cb_set_parking_detect_alarm(INT32 dwChannelID, LPVOID lpInBuffer)
+/*
+ * 功能：设置停车侦测配置，返回 IPC 参数校验与保存结果。
+ * 作者：Codex
+ * param [in] nChannelID：通道号，IPC 单通道设备忽略此参数。
+ * param [in] pInBuffer：指向 NET_ParkingAlarmInfo_S 配置结构体的指针。
+ * param [out] 无。
+ * return：配置成功返回 NET_E_SUCCEED，无效参数返回 NET_E_INVALID_PARAM，其他失败返回 NET_E_SET_CFG_FAILED。
+ */
+static NET_COMMON_ECODE_E cb_set_parking_detect_alarm(INT32 nChannelID, LPVOID pInBuffer)
 {
-    (void)dwChannelID;
-    if (!lpInBuffer)
+    (void)nChannelID;
+    if (pInBuffer == nullptr)
+    {
         return NET_E_INVALID_PARAM;
-    const NET_ParkingAlarmInfo_S *pIn = (const NET_ParkingAlarmInfo_S *)lpInBuffer;
-
-    Alarm::ParkingDetection_S stCfg;
-    TvSdkConvert::ToParkingDetection(*pIn, stCfg);
-    std::string inJson = Convert::to_string(stCfg);
-    Task::Info_S stInfo;
-    stInfo.data = wrap_data_json(inJson);
-    int nExec = s_taskManage ? s_taskManage->execute(AC_SET_PARKING_DETECT_INFO, stInfo) : -1;
-    return (nExec == 0) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
+    }
+    const NET_ParkingAlarmInfo_S *pConfig = static_cast<const NET_ParkingAlarmInfo_S *>(pInBuffer);
+    Alarm::ParkingDetection_S stConfig = {};
+    TvSdkConvert::ToParkingDetection(*pConfig, stConfig);
+    return tvsdk_set_event_config(AC_SET_PARKING_DETECT_INFO, Convert::to_string(stConfig));
 }
 
 /* ---------- Get/SetUnattendedObjectAlarm：AC_GET/SET_UNATTENDED_OBJECT_DETECT_INFO ---------- */
@@ -3448,20 +3486,25 @@ static NET_COMMON_ECODE_E cb_get_unattended_object_alarm(INT32 dwChannelID, LPVO
     return NET_E_SUCCEED;
 }
 
-static NET_COMMON_ECODE_E cb_set_unattended_object_alarm(INT32 dwChannelID, LPVOID lpInBuffer)
+/*
+ * 功能：设置物品遗留侦测配置，返回 IPC 参数校验与保存结果。
+ * 作者：Codex
+ * param [in] nChannelID：通道号，IPC 单通道设备忽略此参数。
+ * param [in] pInBuffer：指向 NET_UnattendedObjectAlarmInfo_S 配置结构体的指针。
+ * param [out] 无。
+ * return：配置成功返回 NET_E_SUCCEED，无效参数返回 NET_E_INVALID_PARAM，其他失败返回 NET_E_SET_CFG_FAILED。
+ */
+static NET_COMMON_ECODE_E cb_set_unattended_object_alarm(INT32 nChannelID, LPVOID pInBuffer)
 {
-    (void)dwChannelID;
-    if (!lpInBuffer)
+    (void)nChannelID;
+    if (pInBuffer == nullptr)
+    {
         return NET_E_INVALID_PARAM;
-    const NET_UnattendedObjectAlarmInfo_S *pIn = (const NET_UnattendedObjectAlarmInfo_S *)lpInBuffer;
-
-    Alarm::UnattendedObject_S stCfg;
-    TvSdkConvert::ToUnattendedObject(*pIn, stCfg);
-    std::string inJson = Convert::to_string(stCfg);
-    Task::Info_S stInfo;
-    stInfo.data = wrap_data_json(inJson);
-    int nExec = s_taskManage ? s_taskManage->execute(AC_SET_UNATTENDED_OBJECT_DETECT_INFO, stInfo) : -1;
-    return (nExec == 0) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
+    }
+    const NET_UnattendedObjectAlarmInfo_S *pConfig = static_cast<const NET_UnattendedObjectAlarmInfo_S *>(pInBuffer);
+    Alarm::UnattendedObject_S stConfig = {};
+    TvSdkConvert::ToUnattendedObject(*pConfig, stConfig);
+    return tvsdk_set_event_config(AC_SET_UNATTENDED_OBJECT_DETECT_INFO, Convert::to_string(stConfig));
 }
 
 /* ---------- Get/SetObjectRemovalAlarm：AC_GET/SET_OBJECT_REMOVAL_DETECT_INFO ---------- */
@@ -3490,20 +3533,25 @@ static NET_COMMON_ECODE_E cb_get_object_removal_alarm(INT32 dwChannelID, LPVOID 
     return NET_E_SUCCEED;
 }
 
-static NET_COMMON_ECODE_E cb_set_object_removal_alarm(INT32 dwChannelID, LPVOID lpInBuffer)
+/*
+ * 功能：设置物品拿取侦测配置，返回 IPC 参数校验与保存结果。
+ * 作者：Codex
+ * param [in] nChannelID：通道号，IPC 单通道设备忽略此参数。
+ * param [in] pInBuffer：指向 NET_ObjectRemovalAlarmInfo_S 配置结构体的指针。
+ * param [out] 无。
+ * return：配置成功返回 NET_E_SUCCEED，无效参数返回 NET_E_INVALID_PARAM，其他失败返回 NET_E_SET_CFG_FAILED。
+ */
+static NET_COMMON_ECODE_E cb_set_object_removal_alarm(INT32 nChannelID, LPVOID pInBuffer)
 {
-    (void)dwChannelID;
-    if (!lpInBuffer)
+    (void)nChannelID;
+    if (pInBuffer == nullptr)
+    {
         return NET_E_INVALID_PARAM;
-    const NET_ObjectRemovalAlarmInfo_S *pIn = (const NET_ObjectRemovalAlarmInfo_S *)lpInBuffer;
-
-    Alarm::ObjectRemoval_S stCfg;
-    TvSdkConvert::ToObjectRemoval(*pIn, stCfg);
-    std::string inJson = Convert::to_string(stCfg);
-    Task::Info_S stInfo;
-    stInfo.data = wrap_data_json(inJson);
-    int nExec = s_taskManage ? s_taskManage->execute(AC_SET_OBJECT_REMOVAL_DETECT_INFO, stInfo) : -1;
-    return (nExec == 0) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
+    }
+    const NET_ObjectRemovalAlarmInfo_S *pConfig = static_cast<const NET_ObjectRemovalAlarmInfo_S *>(pInBuffer);
+    Alarm::ObjectRemoval_S stConfig = {};
+    TvSdkConvert::ToObjectRemoval(*pConfig, stConfig);
+    return tvsdk_set_event_config(AC_SET_OBJECT_REMOVAL_DETECT_INFO, Convert::to_string(stConfig));
 }
 
 /* ---------- Get/SetAudioAnomalyAlarm：AC_GET/SET_AUDIO_ANOMALY_DETECT_INFO ---------- */
