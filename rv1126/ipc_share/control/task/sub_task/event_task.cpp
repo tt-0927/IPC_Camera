@@ -5,6 +5,7 @@
  * @LastEditors  : zhouzr@kfb.cn
  * @LastEditTime : 2026-06-04 11:40:24
  * @Description  : 事件任务
+ * @修改记录     : 2026-09-08，Codex，逆行识别仅允许两个单向方向。
  */
 
 #include "event_task.h"
@@ -2468,10 +2469,27 @@ void Task::Event::GetReverseDirectionInfo::handle()
     result(Convert::to_string(stInfo));
 }
 
+/*
+ * 功能：校验并保存逆行识别配置，仅允许 A 到 B 或 B 到 A 的单向检测。
+ * 作者：Codex
+ * param [in] 无显式参数，配置数据由成员 m_taskData 提供。
+ * param [out] 无显式参数，通过 result 回传处理结果。
+ * return：无返回值，非法方向通过 result 返回 ERR_WEB_PARAM。
+ */
 void Task::Event::SetReverseDirectionInfo::handle()
 {
-    Alarm::DrivingAgainstTrafficDetection_S stInfo;
+    Alarm::DrivingAgainstTrafficDetection_S stInfo = {};
     Convert::to_struct(m_taskData, stInfo);
+    /* 仅限制逆行识别，不改变其他事件使用的公共双向枚举。 */
+    for (const auto &stRule : stInfo.aRule)
+    {
+        if ((stRule.enCrossDirection != Alarm::A_TO_B) && (stRule.enCrossDirection != Alarm::B_TO_A))
+        {
+            dlog_error("设置逆行侦测方向参数错误，仅支持 A 到 B 或 B 到 A");
+            result(ERR_WEB_PARAM);
+            return;
+        }
+    }
     /* 参数有效性判断 */
     for (auto &rule : stInfo.aRule)
     {
