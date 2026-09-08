@@ -1,10 +1,12 @@
 /**
+ * @FileName     : mqtt_manager.cpp
  * @FilePath     : mqtt_manager.cpp
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2026-05-21 10:39:50
  * @LastEditors  : zhouzr@kfb.cn
  * @LastEditTime : 2026-07-29 14:24:27
  * @Description  : MQTT 管理器实现
+ * @Change       : 2026-09-08 将重连退避指数上限从6调整为2，最长退避等待缩短至20秒
  */
 
 #include "mqtt_manager.h"
@@ -386,8 +388,9 @@ void CMqttManager::reconnect_thread()
             /* 读取本轮退避快照，回调线程可并发重置计数但不影响正在执行的重连等待。 */
             const int nReconnectCount = m_nReconnectCount.load();
             const bool bFirstConnect = (nReconnectCount == 0 && m_pstMqtt == nullptr);
-            const int nMaxExponent = 6;
-            const int nExponent = std::min(nReconnectCount, nMaxExponent);
+            /* 限制退避指数为2，最长等待为5乘以2的2次方，即20秒，重试次数不受限制。 */
+            constexpr int MQTT_RECONNECT_MAX_EXPONENT = 2;
+            const int nExponent = std::min(nReconnectCount, MQTT_RECONNECT_MAX_EXPONENT);
             const int nInterval = bFirstConnect
                                       ? 0
                                       : std::min(RECONNECT_MAX_INTERVAL_SEC, RECONNECT_INITIAL_INTERVAL_SEC * (1 << nExponent));
