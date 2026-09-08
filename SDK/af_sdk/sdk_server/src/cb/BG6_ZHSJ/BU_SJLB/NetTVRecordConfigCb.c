@@ -205,17 +205,6 @@ NET_API BOOL STDCALL NET_serverRegisterAddAppointmentCb(NET_CB_SetDevConfigByCom
 }
 
 /**
- * @brief 注册设备重启控制回调函数
- * @param [in] pCb 接收 NET_RebootInfo_S 输入缓冲区的回调函数
- * @return 注册成功返回 TRUE；回调函数非法或已注册时返回 FALSE
- * @note 535：控制设备重启
- */
-NET_API BOOL STDCALL NET_serverRegisterControlRebootCb(NET_CB_SetDevConfigByCommand pCb)
-{
-    return registerSetCmdCb(NET_CONTROL_REBOOT, pCb);
-}
-
-/**
  * @brief 注册获取输出音量回调 (command=536)
  * @param [in] pCb 回调函数指针
  * @return 注册成功返回 TRUE；回调函数非法或已注册时返回 FALSE

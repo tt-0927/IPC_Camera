@@ -532,7 +532,17 @@ namespace Network
         bool bEnableWifi = false;  /* 是否开启wifi */
         bool bEnableBoost = false; /* 是否开启增强功能 */
     } WifiStaInfo_S;
-
+/**
+     * @brief WiFi静态IPv4配置
+     * @note  IP、掩码和网关必须作为一组配置，避免默认路由使用旧网关。
+     */
+     typedef struct _WifiIpv4Config_S_
+     {
+         bool bEnableDhcp = true;  /* 默认使用DHCP */
+         std::string ipv4Ip;      /* WiFi IPv4地址 */
+         std::string ipv4Mask;    /* 子网掩码，例如255.255.255.0 */
+         std::string ipv4Gateway; /* 默认网关 */
+     } WifiIpv4Config_S;
     // 安全模式枚举
     enum class WifiSecurityMode
     {

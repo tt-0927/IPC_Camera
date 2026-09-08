@@ -367,6 +367,7 @@
 #define NETWORK_INIT_SCRIPT_TMP     "/etc/init.d/S80network.tmp"
 #define NETWORK_CONFIG_FILE         USER_DATA_PATH  "network.json"
 #define NETWORK_WIFI_CONFIG_FILE    USER_DATA_PATH  "network_wifi.json"
+#define WIFI_IPV4_CONFIG_FILE       USER_DATA_PATH  "wifi_ipv4.json.conf"
 /* 垃圾站平台管理配置 */
 #define PLATFORM_CONFIG_FILE        USER_DATA_PATH  "platform_config.json"
 /* 日志服务器 */
@@ -439,6 +440,8 @@
 #define AI_FACE_FEATURE_CONFIG_FILE         DESIGN_DATA_PATH "ai_mobileface.json"
 /* 人头侦测 */
 #define AI_HEAD_DETECTION_CONFIG_FILE       DESIGN_DATA_PATH "ai_head_detection.json"
+/* 展馆人流统计侦测（YOLOV8n-exhibition，person/head 两类） */
+#define AI_EXHIBITION_DETECTION_CONFIG_FILE DESIGN_DATA_PATH "ai_exhibition.json"
 /* 停车侦测 */
 #define AI_PARKING_DETECTION_CONFIG_FILE    DESIGN_DATA_PATH "ai_parking_detection.json"
 /* 垃圾检测 */

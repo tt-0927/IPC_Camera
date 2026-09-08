@@ -318,6 +318,7 @@ void STDCALL cb_get_discovery_device_info(NET_DiscoveryDeviceInfo_S *pInfo)
     g_hasCachedDiscoveryInfo = true;
 }
 
+
 NET_COMMON_ECODE_E STDCALL cb_set_discovery_network(const NET_PoeNetworkConfig_S *pConfig)
 {
     const int nRet = TvSdkCallbacks::apply_discovery_network(pConfig);
@@ -671,6 +672,42 @@ int CTvSdkServer::push_alarm(const void *pAlarmer, int lCommand, const void *pAl
                       sizeof(NET_AlarmAiObjectInfo_S));
         }
     }
+    else if ((lCommand & 0xFF00) == NET_ALARM_BASE_CAPTURE)
+    {
+        dlog_info("[抓拍推送诊断] push_alarm 进入TVSDK层: cmd[0x%x] buf_len[%d] expect_size[%zu]",
+                  lCommand,
+                  dwBufLen,
+                  sizeof(NET_AlarmCaptureInfo_S));
+        if (dwBufLen >= static_cast<int>(sizeof(NET_AlarmCaptureInfo_S)))
+        {
+            const NET_AlarmCaptureInfo_S *pCapture =
+                static_cast<const NET_AlarmCaptureInfo_S *>(pAlarmInfo);
+            dlog_info("[抓拍推送诊断] 通用抓拍内容: alarm_type[0x%x] 通道[%u] 类型[%u] "
+                      "时间戳[%lld] 全景[%ux%u/%u] 特写数量[%u] "
+                      "属性[male=%d age=%d glasses=%d beard=%d mask=%d emotion=%d]",
+                      pCapture->uAlarmType,
+                      pCapture->uChannel,
+                      pCapture->uCaptureType,
+                      static_cast<long long>(pCapture->llTimestampMs),
+                      pCapture->uPanoramaWidth,
+                      pCapture->uPanoramaHeight,
+                      pCapture->stPanoramaImg.uDataLen,
+                      pCapture->uCropCount,
+                      pCapture->stExtraInfo.bMale,
+                      pCapture->stExtraInfo.nAgeLabel,
+                      pCapture->stExtraInfo.bGlasses,
+                      pCapture->stExtraInfo.bBeard,
+                      pCapture->stExtraInfo.bMask,
+                      pCapture->stExtraInfo.nEmotionLabel);
+        }
+        else
+        {
+            dlog_warn("[抓拍推送诊断] push_alarm 缓冲区过小: cmd[0x%x] buf_len[%d] expect_size[%zu]",
+                      lCommand,
+                      dwBufLen,
+                      sizeof(NET_AlarmCaptureInfo_S));
+        }
+    }
 
     BOOL bRet = NET_serverPushAlarmInfo(
          pUseAlarmer,
@@ -678,7 +715,7 @@ int CTvSdkServer::push_alarm(const void *pAlarmer, int lCommand, const void *pAl
         (LPVOID)pAlarmInfo,
         (INT32)dwBufLen);
 
-    if ((lCommand & 0xF000) == NET_ALARM_BASE_STATISTICS)
+    if ((lCommand & 0xFF00) == NET_ALARM_BASE_STATISTICS)
     {
         dlog_info("[统计推送诊断] push_alarm NET_serverPushAlarmInfo 返回: cmd[0x%x] bRet[%d]", lCommand, bRet);
     }

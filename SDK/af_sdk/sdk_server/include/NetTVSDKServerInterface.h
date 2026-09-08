@@ -215,6 +215,21 @@ typedef NET_COMMON_ECODE_E (*NET_CB_GetOsdCap)(INT32 dwChannelID, pNET_OsdCap_S 
 NET_API BOOL STDCALL NET_serverRegisterGetOsdCapCb(NET_CB_GetOsdCap pCb);
 
 /**
+ * @brief 系统能力总表回调类型 (NET_CAP_SYS)
+ * @param [IN]  dwChannelID  通道号
+ * @param [OUT] pCap         系统能力总表结构体指针
+ * @return NET_E_SUCCEED 成功, 其他值失败
+ */
+typedef NET_COMMON_ECODE_E (*NET_CB_GetSysCap)(INT32 dwChannelID, pNET_SysCapability_S pCap);
+
+/**
+ * @brief 注册系统能力总表回调
+ * @param [IN] pCb 回调函数指针
+ * @return TRUE表示成功,其他表示失败
+ */
+NET_API BOOL STDCALL NET_serverRegisterGetSysCapCb(NET_CB_GetSysCap pCb);
+
+/**
  * @brief 通用配置回调类型（按命令码分发）
  * @param [IN] dwChannelID 通道号
  * @param [IN] dwCommand 命令码（标识配置类型）
@@ -307,7 +322,6 @@ NET_API BOOL STDCALL NET_serverRegisterControlLayoutCb(NET_CB_SetDevConfigByComm
 NET_API BOOL STDCALL NET_serverRegisterSetPVW2PGMCb(NET_CB_SetDevConfigByCommand pCb);
 NET_API BOOL STDCALL NET_serverRegisterGetAppointmentInfoCb(NET_CB_GetDevConfigByCommand pCb);
 NET_API BOOL STDCALL NET_serverRegisterAddAppointmentCb(NET_CB_SetDevConfigByCommand pCb);
-NET_API BOOL STDCALL NET_serverRegisterControlRebootCb(NET_CB_SetDevConfigByCommand pCb);
 NET_API BOOL STDCALL NET_serverRegisterGetOutVolumeCb(NET_CB_GetDevConfigByCommand pCb);
 NET_API BOOL STDCALL NET_serverRegisterSetOutVolumeCb(NET_CB_SetDevConfigByCommand pCb);
 NET_API BOOL STDCALL NET_serverRegisterGetSshSafeInfoCb(NET_CB_GetDevConfigByCommand pCb);
@@ -511,6 +525,22 @@ NET_API BOOL STDCALL NET_serverRegisterSetReplayTalkbackCb(NET_CB_SetDevConfigBy
 NET_API BOOL STDCALL NET_serverRegisterGetUpgradeStatusCb(NET_CB_GetDevConfigByCommand pCb);
 NET_API BOOL STDCALL NET_serverRegisterSetUpgradeCb(NET_CB_SetDevConfigByCommand pCb);
 NET_API BOOL STDCALL NET_serverRegisterGetUpgradeVersionCb(NET_CB_GetDevConfigByCommand pCb);
+
+/* ===== 设备控制 (Common: 重启/关机/格式化) ===== */
+NET_API BOOL STDCALL NET_serverRegisterControlRebootCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterControlShutdownCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterControlFormatDiskCb(NET_CB_SetDevConfigByCommand pCb);
+
+/* ===== SJCL: 设备状态/通道名/透明通道/串口 ===== */
+NET_API BOOL STDCALL NET_serverRegisterGetDeviceStatusCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetChannelNameCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterOpenTransparentChannelCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterCloseTransparentChannelCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSendTransparentDataCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetSerialPortParamCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSendSerialDataCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSendRs232DataCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSendSerialDirectDataCb(NET_CB_SetDevConfigByCommand pCb);
 
 NET_API BOOL STDCALL NET_serverRegisterGetCapturePlanInfoCb(NET_CB_GetDevConfigByCommand pCb);
 NET_API BOOL STDCALL NET_serverRegisterSetCapturePlanInfoCb(NET_CB_SetDevConfigByCommand pCb);

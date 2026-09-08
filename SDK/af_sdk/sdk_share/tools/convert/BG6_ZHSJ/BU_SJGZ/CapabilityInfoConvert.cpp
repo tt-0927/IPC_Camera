@@ -607,6 +607,32 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_OsdCap_S& stInfo, bool bOutSt
     }
 }
 
+/**
+ * @brief 设备通用能力集转换 (NET_CAP_SYS)
+ */
+void SDKConvert::deal(Json::Object* pRootJson, NET_SysCapability_S& stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+    SDKConvert::CSDKConvert convert(bOutStruct);
+
+    convert.field(pRootJson, "VideoEncode",       (int&)stInfo.bVideoEncodeAbility);
+    convert.field(pRootJson, "Osd",               (int&)stInfo.bOsdAbility);
+    convert.field(pRootJson, "Smart",             (int&)stInfo.bSmartAbility);
+    convert.field(pRootJson, "ImageParam",        (int&)stInfo.bImageParamAbility);
+    convert.field(pRootJson, "Audio",             (int&)stInfo.bAudioAbility);
+    convert.field(pRootJson, "ChannelAlarm",      (int&)stInfo.bChannelAlarmAbility);
+    convert.field(pRootJson, "UserManage",        (int&)stInfo.bUserManageAbility);
+    convert.field(pRootJson, "Media",             (int&)stInfo.bMediaAbility);
+    convert.field(pRootJson, "Update",            (int&)stInfo.bUpdateAbility);
+    convert.field(pRootJson, "IOAlarm",           (int&)stInfo.bIOAlarmAbility);
+    convert.field(pRootJson, "DiskFormat",        (int&)stInfo.bDiskFormatAbility);
+    convert.field(pRootJson, "TWSearch",          (int&)stInfo.bTWSearchAbility);
+    convert.field(pRootJson, "TargetRecognition", (int&)stInfo.bTargetRecognitionAbility);
+}
+
 /* ==================== 从 DeviceInfoConvert 搬运: 视频/图像参数配置 ==================== */
 
 static constexpr int kOsdCustomSlotCount = NET_OSD_CUSTOM_MAX_NUM;

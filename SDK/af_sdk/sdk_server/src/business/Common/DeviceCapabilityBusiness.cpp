@@ -32,6 +32,8 @@ std::string CDeviceCapabilityBusiness::GetDeviceCapability(const std::string& re
         //     return HandleImage(nChannelId);
         case NET_CAP_AUDIO:
              return HandleAudioEncode(nChannelId, nCommand);
+        case NET_CAP_SYS:
+            return HandleSysCap(nChannelId, nCommand);
 
         default:
             NETSDK_LOG_MESSAGE_WARN("Unsupported capability nCommand: %d", nCommand);
@@ -76,6 +78,27 @@ std::string CDeviceCapabilityBusiness::HandleAudioEncode(int nChannelId, int nCo
     if (nRespCode != NET_E_SUCCEED)
     {
         NETSDK_LOG_MESSAGE_DEBUG("音频编码能力集回调执行失败! ret=%d", nRespCode);
+    }
+
+    return SDKConvert::to_respString(nRespCode, nCommand, nChannelId, stCap);
+}
+
+std::string CDeviceCapabilityBusiness::HandleSysCap(int nChannelId, int nCommand)
+{
+    if (nChannelId < 0)
+    {
+        NETSDK_LOG_MESSAGE_WARN("HandleSysCap: invalid channel=%d", nChannelId);
+        return SDKConvert::to_respString(NET_E_INVALID_PARAM, nCommand);
+    }
+
+    int nRespCode = NET_E_FAILED;
+    NET_SysCapability_S stCap;
+    memset(&stCap, 0, sizeof(NET_SysCapability_S));
+
+    nRespCode = executeGetSysCapCb(nChannelId, &stCap);
+    if (nRespCode != NET_E_SUCCEED)
+    {
+        NETSDK_LOG_MESSAGE_DEBUG("系统通用能力集回调执行失败! ret=%d", nRespCode);
     }
 
     return SDKConvert::to_respString(nRespCode, nCommand, nChannelId, stCap);

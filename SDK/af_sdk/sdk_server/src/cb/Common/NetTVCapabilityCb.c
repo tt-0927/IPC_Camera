@@ -37,6 +37,7 @@ typedef union
     NET_COMMON_ECODE_E (*GetVideoEncodeCap)(INT32 nChannelId, pNET_VideoEncodeCap_S pCap);
     NET_COMMON_ECODE_E (*GetOsdCap)(INT32 nChannelId, pNET_OsdCap_S pCap);
     NET_COMMON_ECODE_E (*GetAudioCap)(INT32 nChannelId, pNET_AudioCap_S pCap);
+    NET_COMMON_ECODE_E (*GetSysCap)(INT32 nChannelId, pNET_SysCapability_S pCap);
     // 后续扩展
     // NET_COMMON_ECODE_E (*GetOsdCap)(INT32 nChannelId, pNET_OsdCap_S pCap);
     // NET_COMMON_ECODE_E (*GetSmartCap)(INT32 nChannelId, pNET_SmartCap_S pCap);
@@ -309,6 +310,26 @@ NET_API BOOL STDCALL NET_serverRegisterGetOsdCapCb(NET_CB_GetOsdCap pCb)
     return TRUE;
 }
 
+NET_API BOOL STDCALL NET_serverRegisterGetSysCapCb(NET_CB_GetSysCap pCb)
+{
+    if (pCb == NULL)
+    {
+        return FALSE;
+    }
+
+    NET_Capability_CbItem* pItem = &g_capCbTable[NET_CB_TYPE_CAP_SYS];
+    if (pItem->isRegistered)
+    {
+        return FALSE; // 已注册
+    }
+
+    pItem->enType = NET_CB_TYPE_CAP_SYS;
+    pItem->unFunc.GetSysCap = pCb;
+    pItem->isRegistered = 1;
+
+    return TRUE;
+}
+
 // 后续扩展其他能力集注册接口
 // NET_API BOOL STDCALL NET_serverRegisterGetOsdCapCb(...)
 // NET_API BOOL STDCALL NET_serverRegisterGetSmartCapCb(...)
@@ -374,6 +395,23 @@ int executeGetOsdCapCb(INT32 nChannelId, pNET_OsdCap_S pCap)
         NormalizeOsdCap(pCap);
     }
     return ret;
+}
+
+int executeGetSysCapCb(INT32 nChannelId, pNET_SysCapability_S pCap)
+{
+    if (pCap == NULL)
+    {
+        return NET_E_INVALID_PARAM;
+    }
+
+    NET_Capability_CbItem* pItem = &g_capCbTable[NET_CB_TYPE_CAP_SYS];
+    if (!pItem->isRegistered)
+    {
+        return NET_E_NONSUPPORT;
+    }
+
+    // 执行对应回调（类型安全）
+    return pItem->unFunc.GetSysCap(nChannelId, pCap);
 }
 
 // 后续扩展其他能力集执行接口

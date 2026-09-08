@@ -776,6 +776,7 @@ static NET_COMMON_ECODE_E cb_get_device_info_impl(pNET_DeviceInfo_S pInfo)
     if (SystemManage::instance()->get_device_info(stDeviceInfo) != 0)
         return NET_E_GET_CFG_FAILED;
     TvSdkConvert::FillDeviceInfo(stDeviceInfo, *pInfo);
+    //pInfo->uChannel = 0;
     return NET_E_SUCCEED;
 }
 
@@ -859,6 +860,7 @@ static NET_COMMON_ECODE_E cb_get_video_encode_cap(INT32 dwChannelID, pNET_VideoE
     Video_NS::VideoCapabilitySet_S stCapSet;
     Convert::to_struct(strJson, stCapSet);
     TvSdkConvert::FillVideoEncodeCap(stCapSet, *pCap);
+    pCap->uChannel = 0;
 
     return NET_E_SUCCEED;
 }
@@ -884,6 +886,7 @@ static NET_COMMON_ECODE_E cb_get_audio_encode_cap(INT32 dwChannelID, pNET_AudioC
     Audio_NS::AudioCapabilitySet_S stCapSet;
     Convert::to_struct(outJson, stCapSet);
     TvSdkConvert::FillAudioEncodeCap(stCapSet, *pCap);
+    pCap->uChannel = 0;
 
     return NET_E_SUCCEED;
 }
@@ -931,6 +934,7 @@ static NET_COMMON_ECODE_E cb_get_osd_cap(INT32 dwChannelID, pNET_OsdCap_S pCap)
     pCap->audwSupportedAlignList[3] = NET_OSD_ALIGN_ALL_LEFT;
     pCap->audwSupportedAlignList[4] = NET_OSD_ALIGN_ALL_RIGHT;
     pCap->audwSupportedAlignList[5] = NET_OSD_ALIGN_GB_MODE;
+    pCap->uChannel = 0;
 
     return NET_E_SUCCEED;
 }
@@ -948,6 +952,7 @@ static NET_COMMON_ECODE_E cb_get_device_cfg(INT32 dwChannelID, LPVOID lpOutBuffe
         return NET_E_GET_CFG_FAILED;
 
     TvSdkConvert::FillDeviceBasicInfo(stDeviceInfo, *pOut);
+    pOut->uChannel = 0;
     return NET_E_SUCCEED;
 }
 
@@ -1219,6 +1224,7 @@ static NET_COMMON_ECODE_E cb_get_sd_card_status(INT32 nChannelId, LPVOID pOutBuf
 
     pSdCardStatus->nStatus = nStatus;
     pSdCardStatus->bReady = bReady ? TRUE : FALSE;
+    pSdCardStatus->uChannel = 0;
     return NET_E_SUCCEED;
 }
 
@@ -1257,6 +1263,7 @@ static NET_COMMON_ECODE_E cb_get_ntp_cfg(INT32 dwChannelID, LPVOID lpOutBuffer)
     ::System::TimeInfo_S stTimeInfo;
     Convert::to_struct(strJson, stTimeInfo);
     TvSdkConvert::FillSystemNtpInfo(stTimeInfo, *(pNET_SystemNtpInfo_S)lpOutBuffer);
+    ((pNET_SystemNtpInfo_S)lpOutBuffer)->uChannel = 0;
     return NET_E_SUCCEED;
 }
 static NET_COMMON_ECODE_E cb_set_ntp_cfg(INT32 dwChannelID, LPVOID lpInBuffer)
@@ -1403,6 +1410,7 @@ static NET_COMMON_ECODE_E cb_get_osd_cap_cfg(INT32 dwChannelID, LPVOID lpOutBuff
     stCfg.clear();
     Convert::to_struct(strJson, stCfg);
     TvSdkConvert::FillOsdConfig(stCfg, *pOut);
+    //pOut->uChannel = 0;
     return NET_E_SUCCEED;
 }
 
@@ -1446,6 +1454,7 @@ static NET_COMMON_ECODE_E cb_get_image_cfg(INT32 dwChannelID, LPVOID lpOutBuffer
     ISP::ImageParam_S stCfg;
     Convert::to_struct(strJson, stCfg);
     TvSdkConvert::FillImageSetting(stCfg, *pOut);
+    pOut->uChannel = 0;
     return NET_E_SUCCEED;
 }
 static NET_COMMON_ECODE_E cb_set_image_cfg(INT32 dwChannelID, LPVOID lpInBuffer)
@@ -1491,6 +1500,7 @@ static NET_COMMON_ECODE_E cb_get_network_cfg(INT32 dwChannelID, LPVOID lpOutBuff
     Network::Info_S stNetInfo{};
     Convert::to_struct(strNetworkJson, stNetInfo);
     TvSdkConvert::FillNetworkCfg(stNetInfo, *pOut);
+    pOut->uChannel = 0;
     return NET_E_SUCCEED;
 }
 static NET_COMMON_ECODE_E cb_set_network_cfg(INT32 dwChannelID, LPVOID lpInBuffer)
@@ -1647,6 +1657,7 @@ static NET_COMMON_ECODE_E cb_get_4g_info(INT32 dwChannelID, LPVOID lpOutBuffer)
     (void)parse_4g_from_json(dataJson, stCfg);
 
     TvSdkConvert::Fill4GInfo(stCfg, *pOut);
+    pOut->uChannel = 0;
     return NET_E_SUCCEED;
 }
 
@@ -1703,6 +1714,7 @@ static NET_COMMON_ECODE_E cb_get_preview_info(INT32 dwChannelID, LPVOID lpOutBuf
     strJson = normalize_data_json(outJson);
     Convert::to_struct(strJson, stCfg);
     TvSdkConvert::FillPreviewInfo(stCfg, *pOut);
+    pOut->uChannel = 0;
     return NET_E_SUCCEED;
 }
 
@@ -1748,6 +1760,7 @@ static NET_COMMON_ECODE_E cb_get_privacy_mask_cfg(INT32 dwChannelID, LPVOID lpOu
     stCfg.vecCoverAttr.clear();
     Convert::to_struct(strJson, stCfg);
     TvSdkConvert::FillPrivacyMaskCfg(stCfg, COsdManage::instance()->get_cover_max_area_count(), *pOut);
+    pOut->uChannel = 0;
     return NET_E_SUCCEED;
 }
 static NET_COMMON_ECODE_E cb_set_privacy_mask_cfg(INT32 dwChannelID, LPVOID lpInBuffer)
@@ -1790,6 +1803,7 @@ static NET_COMMON_ECODE_E cb_get_tamper_alarm(INT32 dwChannelID, LPVOID lpOutBuf
     strJson = normalize_data_json(outJson);
     Convert::to_struct(strJson, stCfg);
     TvSdkConvert::FillTamperAlarmInfo(stCfg, *pOut);
+    pOut->uChannel = 0;
     return NET_E_SUCCEED;
 }
 static NET_COMMON_ECODE_E cb_set_tamper_alarm(INT32 dwChannelID, LPVOID lpInBuffer)
@@ -1833,6 +1847,7 @@ static NET_COMMON_ECODE_E cb_get_motion_alarm(INT32 dwChannelID, LPVOID lpOutBuf
     // 使用全局中间变量填充 TVSDK 结构体，再 memcpy 到 SDK 缓冲区
     std::memset(&g_tvMotionAlarmInfo, 0, sizeof(g_tvMotionAlarmInfo));
     TvSdkConvert::FillMotionAlarmInfo(stCfg, g_tvMotionAlarmInfo);
+    g_tvMotionAlarmInfo.uChannel = 0;
     std::memcpy(pOut, &g_tvMotionAlarmInfo, sizeof(g_tvMotionAlarmInfo));
     return NET_E_SUCCEED;
 }
@@ -1873,6 +1888,7 @@ static NET_COMMON_ECODE_E cb_get_cross_line_alarm(INT32 dwChannelID, LPVOID lpOu
     strJson = normalize_data_json(outJson);
     Convert::to_struct(strJson, stCfg);
     TvSdkConvert::FillCrossLineAlarmInfo(stCfg, *pOut);
+    pOut->uChannel = 0;
     return NET_E_SUCCEED;
 }
 static NET_COMMON_ECODE_E cb_set_cross_line_alarm(INT32 dwChannelID, LPVOID lpInBuffer)
@@ -1925,6 +1941,7 @@ static NET_COMMON_ECODE_E cb_get_intrusion_alarm(INT32 dwChannelID, LPVOID lpOut
     strJson = normalize_data_json(outJson);
     Convert::to_struct(strJson, stCfg);
     TvSdkConvert::FillIntrusionAlarmInfo(stCfg, *pOut);
+    pOut->uChannel = 0;
     return NET_E_SUCCEED;
 }
 static NET_COMMON_ECODE_E cb_set_intrusion_alarm(INT32 dwChannelID, LPVOID lpInBuffer)
@@ -1932,18 +1949,13 @@ static NET_COMMON_ECODE_E cb_set_intrusion_alarm(INT32 dwChannelID, LPVOID lpInB
     (void)dwChannelID;
     if (!lpInBuffer)
         return NET_E_INVALID_PARAM;
-    NET_IntrusionAlarmInfo_S stNormalized = *(const NET_IntrusionAlarmInfo_S *)lpInBuffer;
-    if (!compact_region_rules(stNormalized.uRuleCount, stNormalized.stRule, 4,
-                              static_cast<bool (*)(const NET_IntrusionRule_S &)>(is_empty_region_rule)))
-    {
-        return NET_E_INVALID_PARAM;
-    }
-    if (!is_valid_region_alarm_rule_count(stNormalized))
+    const NET_IntrusionAlarmInfo_S *pIn = (const NET_IntrusionAlarmInfo_S *)lpInBuffer;
+    if (!is_valid_region_alarm_rule_count(*pIn))
     {
         return NET_E_INVALID_PARAM;
     }
     Alarm::FieldDetection_S stCfg;
-    TvSdkConvert::ToFieldDetection(stNormalized, stCfg);
+    TvSdkConvert::ToFieldDetection(*pIn, stCfg);
     std::string inJson = Convert::to_string(stCfg);
     Task::Info_S stInfo;
      stInfo.data = wrap_data_json(inJson);
@@ -1971,6 +1983,7 @@ static NET_COMMON_ECODE_E cb_get_loitering_alarm(INT32 dwChannelID, LPVOID lpOut
     strJson = normalize_data_json(outJson);
     Convert::to_struct(strJson, stCfg);
     TvSdkConvert::FillLoiteringAlarmInfo(stCfg, *pOut);
+    pOut->uChannel = 0;
     return NET_E_SUCCEED;
 }
 static NET_COMMON_ECODE_E cb_set_loitering_alarm(INT32 dwChannelID, LPVOID lpInBuffer)
@@ -1979,14 +1992,8 @@ static NET_COMMON_ECODE_E cb_set_loitering_alarm(INT32 dwChannelID, LPVOID lpInB
     if (!lpInBuffer)
         return NET_E_INVALID_PARAM;
     const NET_LoiteringAlarmInfo_S *pIn = (const NET_LoiteringAlarmInfo_S *)lpInBuffer;
-    NET_LoiteringAlarmInfo_S stNormalized = *pIn;
-    if (!compact_region_rules(stNormalized.uRuleCount, stNormalized.stRule, 4,
-                              static_cast<bool (*)(const NET_LoiteringRule_S &)>(is_empty_region_rule)))
-    {
-        return NET_E_INVALID_PARAM;
-    }
     Alarm::LoiteringDetection_S stCfg;
-    TvSdkConvert::ToLoiteringDetection(stNormalized, stCfg);
+    TvSdkConvert::ToLoiteringDetection(*pIn, stCfg);
     std::string inJson = Convert::to_string(stCfg);
     Task::Info_S stInfo;
      stInfo.data = wrap_data_json(inJson);
@@ -2016,6 +2023,7 @@ static NET_COMMON_ECODE_E cb_get_scene_change_alarm(INT32 dwChannelID, LPVOID lp
     strJson = normalize_data_json(outJson);
     Convert::to_struct(strJson, stCfg);
     TvSdkConvert::FillSceneChangeAlarmInfo(stCfg, *pOut);
+    pOut->uChannel = 0;
     return NET_E_SUCCEED;
 }
 
@@ -2079,6 +2087,7 @@ static NET_COMMON_ECODE_E cb_get_crowd_gathering_alarm(INT32 dwChannelID, LPVOID
     }
 
     TvSdkConvert::FillCrowdGatheringAlarmInfo(stCfg, *pOut);
+    pOut->uChannel = 0;
     dlog_info("DEBUG: pOut address=%p, dwRuleCount=%u", (void*)pOut, pOut->uRuleCount);
     dlog_info("DEBUG: pOut->uRuleCount={%d}", pOut->uRuleCount);
 
@@ -2091,14 +2100,9 @@ static NET_COMMON_ECODE_E cb_set_crowd_gathering_alarm(INT32 dwChannelID, LPVOID
     if (!lpInBuffer)
         return NET_E_INVALID_PARAM;
     const NET_CrowdGatheringAlarmInfo_S *pIn = (const NET_CrowdGatheringAlarmInfo_S *)lpInBuffer;
-    NET_CrowdGatheringAlarmInfo_S stNormalized = *pIn;
-    if (!compact_region_rules(stNormalized.uRuleCount, stNormalized.astRule, 4,
-                              static_cast<bool (*)(const NET_CrowdGatheringRule_S &)>(is_empty_region_rule)))
-    {
-        return NET_E_INVALID_PARAM;
-    }
+
     Alarm::CrowdGathering_S stCfg;
-    TvSdkConvert::ToCrowdGathering(stNormalized, stCfg);
+    TvSdkConvert::ToCrowdGathering(*pIn, stCfg);
     std::string inJson = Convert::to_string(stCfg);
     Task::Info_S stInfo;
     stInfo.data = wrap_data_json(inJson);
@@ -2131,6 +2135,7 @@ static NET_COMMON_ECODE_E cb_get_garbage_exposure_cfg(INT32 dwChannelID, LPVOID 
     strJson = normalize_data_json(outJson);
     Convert::to_struct(strJson, stCfg);
     TvSdkConvert::FillGarbageExposureCfg(stCfg, *pOut);
+    pOut->uChannel = 0;
     return NET_E_SUCCEED;
 }
 
@@ -2171,6 +2176,7 @@ static NET_COMMON_ECODE_E cb_get_garbage_overflow_cfg(INT32 dwChannelID, LPVOID 
     strJson = normalize_data_json(outJson);
     Convert::to_struct(strJson, stCfg);
     TvSdkConvert::FillGarbageOverflowCfg(stCfg, *pOut);
+    pOut->uChannel = 0;
     return NET_E_SUCCEED;
 }
 
@@ -2213,6 +2219,7 @@ static NET_COMMON_ECODE_E cb_get_manhole_cover_abnormal_cfg(INT32 dwChannelID, L
     strJson = normalize_data_json(outJson);
     Convert::to_struct(strJson, stCfg);
     TvSdkConvert::FillManholeCoverAbnormalCfg(stCfg, *pOut);
+    pOut->uChannel = 0;
     return NET_E_SUCCEED;
 }
 
@@ -2253,6 +2260,7 @@ static NET_COMMON_ECODE_E cb_get_sleep_on_duty_cfg(INT32 dwChannelID, LPVOID lpO
     strJson = normalize_data_json(outJson);
     Convert::to_struct(strJson, stCfg);
     TvSdkConvert::FillSleepOnDutyCfg(stCfg, *pOut);
+    pOut->uChannel = 0;
     return NET_E_SUCCEED;
 }
 
@@ -2293,6 +2301,7 @@ static NET_COMMON_ECODE_E cb_get_electric_vehicle_in_elevator_cfg(INT32 dwChanne
     strJson = normalize_data_json(outJson);
     Convert::to_struct(strJson, stCfg);
     TvSdkConvert::FillElectricVehicleInElevatorCfg(stCfg, *pOut);
+    pOut->uChannel = 0;
     return NET_E_SUCCEED;
 }
 
@@ -2333,6 +2342,7 @@ static NET_COMMON_ECODE_E cb_get_person_fall_down_cfg(INT32 dwChannelID, LPVOID 
     strJson = normalize_data_json(outJson);
     Convert::to_struct(strJson, stCfg);
     TvSdkConvert::FillPersonFallDownCfg(stCfg, *pOut);
+    pOut->uChannel = 0;
     return NET_E_SUCCEED;
 }
 
@@ -2373,6 +2383,7 @@ static NET_COMMON_ECODE_E cb_get_construction_occupy_road_cfg(INT32 dwChannelID,
     strJson = normalize_data_json(outJson);
     Convert::to_struct(strJson, stCfg);
     TvSdkConvert::FillConstructionOccupyRoadCfg(stCfg, *pOut);
+    pOut->uChannel = 0;
     return NET_E_SUCCEED;
 }
 
@@ -2413,6 +2424,7 @@ static NET_COMMON_ECODE_E cb_get_congestion_cfg(INT32 dwChannelID, LPVOID lpOutB
     strJson = normalize_data_json(outJson);
     Convert::to_struct(strJson, stCfg);
     TvSdkConvert::FillCongestionCfg(stCfg, *pOut);
+    pOut->uChannel = 0;
     return NET_E_SUCCEED;
 }
 
@@ -2453,6 +2465,7 @@ static NET_COMMON_ECODE_E cb_get_license_plate_recognition_cfg(INT32 dwChannelID
     strJson = normalize_data_json(outJson);
     Convert::to_struct(strJson, stCfg);
     TvSdkConvert::FillLicensePlateRecognitionCfg(stCfg, *pOut);
+    pOut->uChannel = 0;
     return NET_E_SUCCEED;
 }
 
@@ -2493,6 +2506,7 @@ static NET_COMMON_ECODE_E cb_get_high_altitude_seatbelt_cfg(INT32 dwChannelID, L
     strJson = normalize_data_json(outJson);
     Convert::to_struct(strJson, stCfg);
     TvSdkConvert::FillHighAltitudeSeatbeltCfg(stCfg, *pOut);
+    pOut->uChannel = 0;
     return NET_E_SUCCEED;
 }
 
@@ -2533,6 +2547,7 @@ static NET_COMMON_ECODE_E cb_get_safety_helmet_cfg(INT32 dwChannelID, LPVOID lpO
     strJson = normalize_data_json(outJson);
     Convert::to_struct(strJson, stCfg);
     TvSdkConvert::FillSafetyHelmetCfg(stCfg, *pOut);
+    pOut->uChannel = 0;
     return NET_E_SUCCEED;
 }
 
@@ -2573,6 +2588,7 @@ static NET_COMMON_ECODE_E cb_get_person_fall_cfg(INT32 dwChannelID, LPVOID lpOut
     strJson = normalize_data_json(outJson);
     Convert::to_struct(strJson, stCfg);
     TvSdkConvert::FillPersonFallCfg(stCfg, *pOut);
+    pOut->uChannel = 0;
     return NET_E_SUCCEED;
 }
 
@@ -2613,6 +2629,7 @@ static NET_COMMON_ECODE_E cb_get_phone_usage_cfg(INT32 dwChannelID, LPVOID lpOut
     strJson = normalize_data_json(outJson);
     Convert::to_struct(strJson, stCfg);
     TvSdkConvert::FillPhoneUsageCfg(stCfg, *pOut);
+    pOut->uChannel = 0;
     return NET_E_SUCCEED;
 }
 
@@ -2653,6 +2670,7 @@ static NET_COMMON_ECODE_E cb_get_smoking_cfg(INT32 dwChannelID, LPVOID lpOutBuff
     strJson = normalize_data_json(outJson);
     Convert::to_struct(strJson, stCfg);
     TvSdkConvert::FillSmokingCfg(stCfg, *pOut);
+    pOut->uChannel = 0;
     return NET_E_SUCCEED;
 }
 
@@ -2693,6 +2711,7 @@ static NET_COMMON_ECODE_E cb_get_open_flame_cfg(INT32 dwChannelID, LPVOID lpOutB
     strJson = normalize_data_json(outJson);
     Convert::to_struct(strJson, stCfg);
     TvSdkConvert::FillOpenFlameCfg(stCfg, *pOut);
+    pOut->uChannel = 0;
     return NET_E_SUCCEED;
 }
 
@@ -2733,6 +2752,7 @@ static NET_COMMON_ECODE_E cb_get_bare_soil_cfg(INT32 dwChannelID, LPVOID lpOutBu
     strJson = normalize_data_json(outJson);
     Convert::to_struct(strJson, stCfg);
     TvSdkConvert::FillBareSoilCfg(stCfg, *pOut);
+    pOut->uChannel = 0;
     return NET_E_SUCCEED;
 }
 
@@ -2773,6 +2793,7 @@ static NET_COMMON_ECODE_E cb_get_hole_protection_bar_cfg(INT32 dwChannelID, LPVO
     strJson = normalize_data_json(outJson);
     Convert::to_struct(strJson, stCfg);
     TvSdkConvert::FillHoleProtectionBarCfg(stCfg, *pOut);
+    pOut->uChannel = 0;
     return NET_E_SUCCEED;
 }
 
@@ -2813,6 +2834,7 @@ static NET_COMMON_ECODE_E cb_get_reflective_clothing_cfg(INT32 dwChannelID, LPVO
     strJson = normalize_data_json(outJson);
     Convert::to_struct(strJson, stCfg);
     TvSdkConvert::FillReflectiveClothingCfg(stCfg, *pOut);
+    pOut->uChannel = 0;
     return NET_E_SUCCEED;
 }
 
@@ -2854,6 +2876,7 @@ static NET_COMMON_ECODE_E cb_get_pet_recognition_info(INT32 dwChannelID, LPVOID 
     strJson = normalize_data_json(outJson);
     Convert::to_struct(strJson, stCfg);
     TvSdkConvert::FillPetRecognitionInfo(stCfg, *pOut);
+    pOut->uChannel = 0;
     return NET_E_SUCCEED;
 }
 
@@ -2895,6 +2918,7 @@ static NET_COMMON_ECODE_E cb_get_climb_fence_info(INT32 dwChannelID, LPVOID lpOu
     strJson = normalize_data_json(outJson);
     Convert::to_struct(strJson, stCfg);
     TvSdkConvert::FillClimbFenceInfo(stCfg, *pOut);
+    pOut->uChannel = 0;
     return NET_E_SUCCEED;
 }
 
@@ -2935,6 +2959,7 @@ static NET_COMMON_ECODE_E cb_get_dimission_info(INT32 dwChannelID, LPVOID lpOutB
     strJson = normalize_data_json(outJson);
     Convert::to_struct(strJson, stCfg);
     TvSdkConvert::FillDimissionInfo(stCfg, *pOut);
+    pOut->uChannel = 0;
     return NET_E_SUCCEED;
 }
 
@@ -2975,6 +3000,7 @@ static NET_COMMON_ECODE_E cb_get_illegal_lane_info(INT32 dwChannelID, LPVOID lpO
     strJson = normalize_data_json(outJson);
     Convert::to_struct(strJson, stCfg);
     TvSdkConvert::FillIllegalLaneInfo(stCfg, *pOut);
+    pOut->uChannel = 0;
     return NET_E_SUCCEED;
 }
 
@@ -3015,6 +3041,7 @@ static NET_COMMON_ECODE_E cb_get_retrograde_info(INT32 dwChannelID, LPVOID lpOut
     strJson = normalize_data_json(outJson);
     Convert::to_struct(strJson, stCfg);
     TvSdkConvert::FillRetrogradeInfo(stCfg, *pOut);
+    pOut->uChannel = 0;
     return NET_E_SUCCEED;
 }
 
@@ -3055,6 +3082,7 @@ static NET_COMMON_ECODE_E cb_get_nonmotor_vehicle_intrusion_info(INT32 dwChannel
     strJson = normalize_data_json(outJson);
     Convert::to_struct(strJson, stCfg);
     TvSdkConvert::FillNonmotorVehicleIntrusionInfo(stCfg, *pOut);
+    pOut->uChannel = 0;
     return NET_E_SUCCEED;
 }
 
@@ -3095,6 +3123,7 @@ static NET_COMMON_ECODE_E cb_get_occupation_emergency_info(INT32 dwChannelID, LP
     strJson = normalize_data_json(outJson);
     Convert::to_struct(strJson, stCfg);
     TvSdkConvert::FillOccupationEmergencyInfo(stCfg, *pOut);
+    pOut->uChannel = 0;
     return NET_E_SUCCEED;
 }
 
@@ -3135,6 +3164,7 @@ static NET_COMMON_ECODE_E cb_get_pedestrian_intrusion_info(INT32 dwChannelID, LP
     strJson = normalize_data_json(outJson);
     Convert::to_struct(strJson, stCfg);
     TvSdkConvert::FillPedestrianIntrusionInfo(stCfg, *pOut);
+    pOut->uChannel = 0;
     return NET_E_SUCCEED;
 }
 
@@ -3175,6 +3205,7 @@ static NET_COMMON_ECODE_E cb_get_smoke_fire_cfg(INT32 dwChannelID, LPVOID lpOutB
     strJson = normalize_data_json(outJson);
     Convert::to_struct(strJson, stCfg);
     TvSdkConvert::FillSmokeFireCfg(stCfg, *pOut);
+    pOut->uChannel = 0;
     return NET_E_SUCCEED;
 }
 
@@ -3215,6 +3246,7 @@ static NET_COMMON_ECODE_E cb_get_road_ponding_cfg(INT32 dwChannelID, LPVOID lpOu
     strJson = normalize_data_json(outJson);
     Convert::to_struct(strJson, stCfg);
     TvSdkConvert::FillRoadPondingCfg(stCfg, *pOut);
+    pOut->uChannel = 0;
     return NET_E_SUCCEED;
 }
 
@@ -3258,6 +3290,7 @@ static NET_COMMON_ECODE_E cb_get_people_flow_statistics_cfg(INT32 dwChannelID, L
     strJson = normalize_data_json(outJson);
     Convert::to_struct(strJson, stCfg);
     TvSdkConvert::FillPeopleFlowStatisticsCfg(stCfg, *pOut);
+    pOut->uChannel = 0;
     return NET_E_SUCCEED;
 }
 
@@ -3309,6 +3342,7 @@ static NET_COMMON_ECODE_E cb_get_people_density_detection_cfg(INT32 dwChannelID,
     strJson = normalize_data_json(outJson);
     Convert::to_struct(strJson, stCfg);
     TvSdkConvert::FillPeopleDensityDetectionCfg(stCfg, *pOut);
+    pOut->uChannel = 0;
     return NET_E_SUCCEED;
 }
 
@@ -3352,6 +3386,7 @@ static NET_COMMON_ECODE_E cb_get_parking_detect_alarm(INT32 dwChannelID, LPVOID 
     strJson = normalize_data_json(outJson);
     Convert::to_struct(strJson, stCfg);
     TvSdkConvert::FillParkingDetectAlarmInfo(stCfg, *pOut);
+    pOut->uChannel = 0;
     return NET_E_SUCCEED;
 }
 
@@ -3393,6 +3428,7 @@ static NET_COMMON_ECODE_E cb_get_unattended_object_alarm(INT32 dwChannelID, LPVO
     strJson = normalize_data_json(outJson);
     Convert::to_struct(strJson, stCfg);
     TvSdkConvert::FillUnattendedObjectAlarmInfo(stCfg, *pOut);
+    pOut->uChannel = 0;
     return NET_E_SUCCEED;
 }
 
@@ -3434,6 +3470,7 @@ static NET_COMMON_ECODE_E cb_get_object_removal_alarm(INT32 dwChannelID, LPVOID 
     strJson = normalize_data_json(outJson);
     Convert::to_struct(strJson, stCfg);
     TvSdkConvert::FillObjectRemovalAlarmInfo(stCfg, *pOut);
+    pOut->uChannel = 0;
     return NET_E_SUCCEED;
 }
 
@@ -3477,6 +3514,7 @@ static NET_COMMON_ECODE_E cb_get_audio_anomaly_alarm(INT32 dwChannelID, LPVOID l
 
     std::memset(&g_tvAudioAnomalyAlarmInfo, 0, sizeof(g_tvAudioAnomalyAlarmInfo));
     TvSdkConvert::FillAudioAnomalyAlarmInfo(stCfg, g_tvAudioAnomalyAlarmInfo);
+    g_tvAudioAnomalyAlarmInfo.uChannel = 0;
     std::memcpy(pOut, &g_tvAudioAnomalyAlarmInfo, sizeof(g_tvAudioAnomalyAlarmInfo));
     return NET_E_SUCCEED;
 }
@@ -3529,6 +3567,7 @@ static NET_COMMON_ECODE_E cb_get_audio_anomaly_current_db(INT32 nChannelId, LPVO
     }
 
     pCurrentDbInfo->bValid = TRUE;
+    pCurrentDbInfo->uChannel = 0;
     return NET_E_SUCCEED;
 }
 
@@ -3621,6 +3660,7 @@ static NET_COMMON_ECODE_E cb_get_audible_alarm_info(INT32 nChannelId, LPVOID pOu
     Alarm::SoundOutputAlarm_S stAlarmInfo;
     Convert::to_struct(strDataJson, stAlarmInfo);
     TvSdkConvert::FillAudibleAlarmInfo(stAlarmInfo, *pOutput);
+    //pOutput->uChannel = 0;
     return NET_E_SUCCEED;
 }
 
@@ -3678,6 +3718,7 @@ static NET_COMMON_ECODE_E cb_get_alarm_input_info(INT32 nChannelId, LPVOID pOutB
     std::set<Alarm::IoInputInfo_S> stAlarmInputs;
     Convert::to_struct(strDataJson, stAlarmInputs);
     TvSdkConvert::FillAlarmInputInfoList(stAlarmInputs, *pOutput);
+    //pOutput->uChannel = 0;
     return NET_E_SUCCEED;
 }
 
@@ -3735,6 +3776,7 @@ static NET_COMMON_ECODE_E cb_get_alarm_output_info(INT32 nChannelId, LPVOID pOut
     std::set<Alarm::IoOutputInfo_S> stAlarmOutputs;
     Convert::to_struct(strDataJson, stAlarmOutputs);
     TvSdkConvert::FillAlarmOutputInfoList(stAlarmOutputs, *pOutput);
+    //pOutput->uChannel = 0;
     return NET_E_SUCCEED;
 }
 
@@ -3792,6 +3834,7 @@ static NET_COMMON_ECODE_E cb_get_flashing_light_alarm_info(INT32 nChannelId, LPV
     Alarm::FlashInfo_S stAlarmInfo;
     Convert::to_struct(strDataJson, stAlarmInfo);
     TvSdkConvert::FillFlashingLightAlarmInfo(stAlarmInfo, *pOutput);
+    //pOutput->uChannel = 0;
     return NET_E_SUCCEED;
 }
 
@@ -3849,6 +3892,7 @@ static NET_COMMON_ECODE_E cb_get_pir_alarm_info(INT32 nChannelId, LPVOID pOutBuf
     Alarm::PirAlarmInfo_S stAlarmInfo;
     Convert::to_struct(strDataJson, stAlarmInfo);
     TvSdkConvert::FillPirAlarmInfo(stAlarmInfo, *pOutput);
+    //pOutput->uChannel = 0;
     return NET_E_SUCCEED;
 }
 
@@ -3956,6 +4000,7 @@ static NET_COMMON_ECODE_E cb_get_upgrade_status(INT32 dwChannelID, LPVOID lpOutB
         return NET_E_GET_CFG_FAILED;
     Convert::to_struct(strJson, stCfg);
     TvSdkConvert::FillUpgradeStatus(stCfg, *pOut);
+    pOut->uChannel = 0;
     return NET_E_SUCCEED;
 }
 
@@ -4023,6 +4068,7 @@ static NET_COMMON_ECODE_E cb_get_upgrade_version(INT32 dwChannelID, LPVOID lpOut
         return NET_E_GET_CFG_FAILED;
     Convert::to_struct(strJson, stCfg);
     TvSdkConvert::FillUpgradeVersion(stCfg, *pOut);
+    pOut->uChannel = 0;
     return NET_E_SUCCEED;
 }
 
@@ -4050,6 +4096,7 @@ static NET_COMMON_ECODE_E cb_get_capture_plan_info(INT32 dwChannelID, LPVOID lpO
         return NET_E_GET_CFG_FAILED;
     Convert::to_struct(strJson, stCfg);
     TvSdkConvert::FillCapturePlan(stCfg, *pOut);
+    pOut->uChannel = 0;
     return NET_E_SUCCEED;
 }
 
@@ -4096,6 +4143,7 @@ static NET_COMMON_ECODE_E cb_get_capture_param_info(INT32 dwChannelID, LPVOID lp
         return NET_E_GET_CFG_FAILED;
     Convert::to_struct(strJson, stCfg);
     TvSdkConvert::FillCaptureParam(stCfg, *pOut);
+    pOut->uChannel = 0;
     return NET_E_SUCCEED;
 }
 
@@ -4154,6 +4202,7 @@ static NET_COMMON_ECODE_E cb_get_exposure_info(INT32 dwChannelID, LPVOID lpOutBu
     strJson = normalize_data_json(outJson);
     Convert::to_struct(strJson, stCfg);
     TvSdkConvert::FillExposureInfo(stCfg, *pOut);
+    pOut->uChannel = 0;
     return NET_E_SUCCEED;
 }
 
@@ -4193,6 +4242,7 @@ static NET_COMMON_ECODE_E cb_get_daynight_info(INT32 dwChannelID, LPVOID lpOutBu
     strJson = normalize_data_json(outJson);
     Convert::to_struct(strJson, stCfg);
     TvSdkConvert::FillDayNightInfo(stCfg, *pOut);
+    pOut->uChannel = 0;
     return NET_E_SUCCEED;
 }
 
@@ -4236,6 +4286,7 @@ static NET_COMMON_ECODE_E cb_get_backlight_info(INT32 dwChannelID, LPVOID lpOutB
     strJson = normalize_data_json(outJson);
     Convert::to_struct(strJson, stCfg);
     TvSdkConvert::FillBackLightInfo(stCfg, *pOut);
+    pOut->uChannel = 0;
     return NET_E_SUCCEED;
 }
 
@@ -4279,6 +4330,7 @@ static NET_COMMON_ECODE_E cb_get_denoise_info(INT32 dwChannelID, LPVOID lpOutBuf
     strJson = normalize_data_json(outJson);
     Convert::to_struct(strJson, stCfg);
     TvSdkConvert::FillDenoiseInfo(stCfg, *pOut);
+    pOut->uChannel = 0;
     return NET_E_SUCCEED;
 }
 
@@ -4318,6 +4370,7 @@ static NET_COMMON_ECODE_E cb_get_whitebalance_info(INT32 dwChannelID, LPVOID lpO
     strJson = normalize_data_json(outJson);
     Convert::to_struct(strJson, stCfg);
     TvSdkConvert::FillWhiteBalanceInfo(stCfg, *pOut);
+    pOut->uChannel = 0;
     return NET_E_SUCCEED;
 }
 
@@ -4401,6 +4454,7 @@ static NET_COMMON_ECODE_E cb_get_talkback_from_stream(INT32 dwChannelID, LPVOID 
         return NET_E_GET_CFG_FAILED;
     Convert::to_struct(strJson, stCfg);
     TvSdkConvert::FillTalkbackStreamInfo(stCfg, *pOut);
+    //pOut->uChannel = 0;
     return NET_E_SUCCEED;
 }
 
@@ -4443,6 +4497,7 @@ static NET_COMMON_ECODE_E cb_get_audio_cfg(INT32 dwChannelID, LPVOID lpOutBuffer
     strJson = normalize_data_json(outJson);
     Convert::to_struct(strJson, stCfg);
     TvSdkConvert::FillAudioCfg(stCfg, *pOut);
+    pOut->uChannel = 0;
     return NET_E_SUCCEED;
 }
 static NET_COMMON_ECODE_E cb_set_audio_cfg(INT32 dwChannelID, LPVOID lpInBuffer)
@@ -4452,6 +4507,37 @@ static NET_COMMON_ECODE_E cb_set_audio_cfg(INT32 dwChannelID, LPVOID lpInBuffer)
         return NET_E_INVALID_PARAM;
 
     const NET_AudioCfg_S *pIn = (const NET_AudioCfg_S *)lpInBuffer;
+
+    /* 校验枚举值范围，防止非法值被 toString 的 default 分支静默映射为合法值 */
+    if (pIn->enInputType < (INT32)Audio_NS::AudioInputType_E::MICIN ||
+        pIn->enInputType > (INT32)Audio_NS::AudioInputType_E::LINEIN)
+    {
+        dlog_error("音频输入类型[%d]超出范围[0,%d]", pIn->enInputType, (INT32)Audio_NS::AudioInputType_E::LINEIN);
+        return NET_E_INVALID_PARAM;
+    }
+    if (pIn->enOutputType < (INT32)Audio_NS::AudioOutputType_E::SPEAKER ||
+        pIn->enOutputType > (INT32)Audio_NS::AudioOutputType_E::MUTE)
+    {
+        dlog_error("音频输出类型[%d]超出范围[0,%d]", pIn->enOutputType, (INT32)Audio_NS::AudioOutputType_E::MUTE);
+        return NET_E_INVALID_PARAM;
+    }
+    if (pIn->enFormat < (INT32)Audio_NS::AudioFormat_E::G722_1 ||
+        pIn->enFormat > (INT32)Audio_NS::AudioFormat_E::MP3)
+    {
+        dlog_error("音频格式[%d]超出范围[0,%d]", pIn->enFormat, (INT32)Audio_NS::AudioFormat_E::MP3);
+        return NET_E_INVALID_PARAM;
+    }
+    if (pIn->u32InputVolume > 100)
+    {
+        dlog_error("输入音量[%u]超出范围[0,100]", pIn->u32InputVolume);
+        return NET_E_INVALID_PARAM;
+    }
+    if (pIn->u32OutputVolume > 100)
+    {
+        dlog_error("输出音量[%u]超出范围[0,100]", pIn->u32OutputVolume);
+        return NET_E_INVALID_PARAM;
+    }
+
     Audio_NS::AudioConfig_S stCfg;
     TvSdkConvert::ToAudioConfig(*pIn, stCfg);
 
@@ -4483,6 +4569,7 @@ static NET_COMMON_ECODE_E cb_get_enter_region_alarm(INT32 dwChannelID, LPVOID lp
     strJson = normalize_data_json(outJson);
     Convert::to_struct(strJson, stCfg);
     TvSdkConvert::FillEnterRegionAlarmInfo(stCfg, *pOut);
+    pOut->uChannel = 0;
     return NET_E_SUCCEED;
 }
 static NET_COMMON_ECODE_E cb_set_enter_region_alarm(INT32 dwChannelID, LPVOID lpInBuffer)
@@ -4491,14 +4578,8 @@ static NET_COMMON_ECODE_E cb_set_enter_region_alarm(INT32 dwChannelID, LPVOID lp
     if (!lpInBuffer)
         return NET_E_INVALID_PARAM;
     const NET_EnterRegionAlarmInfo_S *pIn = (const NET_EnterRegionAlarmInfo_S *)lpInBuffer;
-    NET_EnterRegionAlarmInfo_S stNormalized = *pIn;
-    if (!compact_region_rules(stNormalized.uRuleCount, stNormalized.stRule, 4,
-                              static_cast<bool (*)(const NET_IntrusionRule_S &)>(is_empty_region_rule)))
-    {
-        return NET_E_INVALID_PARAM;
-    }
     Alarm::EntranceDetection_S stCfg;
-    TvSdkConvert::ToEntranceDetection(stNormalized, stCfg);
+    TvSdkConvert::ToEntranceDetection(*pIn, stCfg);
     std::string inJson = Convert::to_string(stCfg);
     Task::Info_S stInfo;
     stInfo.data = wrap_data_json(inJson);
@@ -4525,6 +4606,7 @@ static NET_COMMON_ECODE_E cb_get_leave_region_alarm(INT32 dwChannelID, LPVOID lp
     strJson = normalize_data_json(outJson);
     Convert::to_struct(strJson, stCfg);
     TvSdkConvert::FillLeaveRegionAlarmInfo(stCfg, *pOut);
+    pOut->uChannel = 0;
     return NET_E_SUCCEED;
 }
 /*-----------------------------------获取/设置离开区域侦测-------------------------------------*/
@@ -4534,14 +4616,8 @@ static NET_COMMON_ECODE_E cb_set_leave_region_alarm(INT32 dwChannelID, LPVOID lp
     if (!lpInBuffer)
         return NET_E_INVALID_PARAM;
     const NET_LeaveRegionAlarmInfo_S *pIn = (const NET_LeaveRegionAlarmInfo_S *)lpInBuffer;
-    NET_LeaveRegionAlarmInfo_S stNormalized = *pIn;
-    if (!compact_region_rules(stNormalized.uRuleCount, stNormalized.stRule, 4,
-                              static_cast<bool (*)(const NET_IntrusionRule_S &)>(is_empty_region_rule)))
-    {
-        return NET_E_INVALID_PARAM;
-    }
     Alarm::ExitingDetection_S stCfg;
-    TvSdkConvert::ToExitingDetection(stNormalized, stCfg);
+    TvSdkConvert::ToExitingDetection(*pIn, stCfg);
     std::string inJson = Convert::to_string(stCfg);
     Task::Info_S stInfo;
     stInfo.data = wrap_data_json(inJson);
@@ -4569,6 +4645,7 @@ static NET_COMMON_ECODE_E cb_get_face_capture_info(INT32 dwChannelID, LPVOID lpO
     strJson = normalize_data_json(outJson);
     Convert::to_struct(strJson, stCfg);
     TvSdkConvert::FillFaceCaptureInfo(stCfg, *pOut);
+    pOut->uChannel = 0;
     return NET_E_SUCCEED;
 }
 static NET_COMMON_ECODE_E cb_set_face_capture_info(INT32 dwChannelID, LPVOID lpInBuffer)
@@ -4612,6 +4689,7 @@ static NET_COMMON_ECODE_E cb_get_face_capture_overlay_info(INT32 dwChannelID, LP
     Convert::to_struct(normalize_data_json(outJson), stCfg);
     TvSdkConvert::FillFaceCaptureOverlayInfo(stCfg,
         *static_cast<pNET_FaceCaptureOverlayInfo_S>(lpOutBuffer));
+    //static_cast<pNET_FaceCaptureOverlayInfo_S>(lpOutBuffer)->uChannel = 0;
     return NET_E_SUCCEED;
 }
 
@@ -4649,6 +4727,7 @@ static NET_COMMON_ECODE_E cb_get_security_services_info(INT32 dwChannelID, LPVOI
     Convert::to_struct(dataJson, stConfig);
     TvSdkConvert::FillSecurityServicesInfo(stConfig,
                                            *static_cast<pNET_SecurityServicesInfo_S>(lpOutBuffer));
+    static_cast<pNET_SecurityServicesInfo_S>(lpOutBuffer)->uChannel = 0;
     return NET_E_SUCCEED;
 }
 
@@ -4681,6 +4760,7 @@ static NET_COMMON_ECODE_E cb_get_ssh_countdown(INT32 dwChannelID, LPVOID lpOutBu
     Convert::to_struct(dataJson, stCountdown);
     TvSdkConvert::FillSshCountdownInfo(stCountdown,
                                        *static_cast<pNET_SshCountdownInfo_S>(lpOutBuffer));
+    static_cast<pNET_SshCountdownInfo_S>(lpOutBuffer)->uChannel = 0;
     return NET_E_SUCCEED;
 }
 
@@ -4733,6 +4813,7 @@ static NET_COMMON_ECODE_E cb_get_log_server(INT32 dwChannelID, LPVOID lpOutBuffe
     Convert::to_struct(dataJson, stConfig);
     TvSdkConvert::FillLogServerInfo(stConfig,
                                     *static_cast<pNET_LogServerInfo_S>(lpOutBuffer));
+    static_cast<pNET_LogServerInfo_S>(lpOutBuffer)->uChannel = 0;
     return NET_E_SUCCEED;
 }
 
@@ -4799,6 +4880,7 @@ static NET_COMMON_ECODE_E cb_get_record_status(INT32 dwChannelID, LPVOID lpOutBu
     Convert::to_struct(dataJson, stStatus);
     TvSdkConvert::FillRecordStatusInfo(stStatus,
                                        *static_cast<pNET_RecordStatusInfo_S>(lpOutBuffer));
+    static_cast<pNET_RecordStatusInfo_S>(lpOutBuffer)->uChannel = 0;
     return NET_E_SUCCEED;
 }
 
@@ -4816,6 +4898,7 @@ static NET_COMMON_ECODE_E cb_get_record_schedule(INT32 dwChannelID, LPVOID lpOut
     Convert::to_struct(dataJson, stSchedule);
     TvSdkConvert::FillRecordSchedule(stSchedule,
                                      *static_cast<pNET_RecordSchedule_S>(lpOutBuffer));
+    static_cast<pNET_RecordSchedule_S>(lpOutBuffer)->uChannel = 0;
     return NET_E_SUCCEED;
 }
 
@@ -4847,6 +4930,7 @@ static NET_COMMON_ECODE_E cb_get_record_advanced_param(INT32 dwChannelID, LPVOID
     Convert::to_struct(dataJson, stParam);
     TvSdkConvert::FillRecordAdvancedParam(stParam,
                                           *static_cast<pNET_RecordAdvancedParam_S>(lpOutBuffer));
+    static_cast<pNET_RecordAdvancedParam_S>(lpOutBuffer)->uChannel = 0;
     return NET_E_SUCCEED;
 }
 
@@ -5023,6 +5107,7 @@ static NET_COMMON_ECODE_E cb_get_target_lib(INT32 dwChannelID, LPVOID lpOutBuffe
     std::vector<Event::FaceLibInfo_S> targetLibs;
     Convert::to_struct(dataJson, targetLibs);
     TvSdkConvert::FillFaceLibList(targetLibs, *static_cast<pNET_FaceLibList_S>(lpOutBuffer));
+    static_cast<pNET_FaceLibList_S>(lpOutBuffer)->uChannel = 0;
     return NET_E_SUCCEED;
 #endif
 }
@@ -5116,6 +5201,7 @@ static NET_COMMON_ECODE_E cb_get_face_info(INT32 dwChannelID, LPVOID lpOutBuffer
     std::vector<Event::FaceInfo_S> faceInfos;
     Convert::to_struct(dataJson, faceInfos);
     TvSdkConvert::FillFaceInfoList(faceInfos, *static_cast<pNET_FaceInfoList_S>(lpOutBuffer));
+    static_cast<pNET_FaceInfoList_S>(lpOutBuffer)->uChannel = 0;
     return NET_E_SUCCEED;
 #endif
 }
@@ -5135,10 +5221,7 @@ void register_all()
     NET_serverRegisterGetSdCardStatusCb(cb_get_sd_card_status);
     NET_serverRegisterGetStreamConfigCb(cb_get_stream_cfg);
     NET_serverRegisterSetStreamConfigCb(cb_set_stream_cfg);
-    if (!NET_serverRegisterGetRtspUrlCb(cb_get_rtsp_url))
-    {
-        dlog_error("TVSDK RTSP URL回调注册失败");
-    }
+    NET_serverRegisterGetRtspUrlCb(cb_get_rtsp_url);
     NET_serverRegisterGetOsdCapConfigCb(cb_get_osd_cap_cfg);
     NET_serverRegisterSetOsdCapConfigCb(cb_set_osd_cap_cfg);
 

@@ -59,6 +59,10 @@ namespace SDKConvert
     void deal(Json::Object* pRootJson, NET_UpgradeStatus_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_UpgradeVersion_S& stInfo, bool bOutStruct);
 
+    void deal(Json::Object* pRootJson, NET_RebootInfo_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_ShutdownInfo_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_FormatDiskInfo_S& stInfo, bool bOutStruct);
+
 };
 
 #endif

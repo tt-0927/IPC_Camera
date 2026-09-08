@@ -713,6 +713,19 @@ void deal(Json::Object* pRootJson, NET_ManholeCoverAbnormalCfg_S& stInfo, bool b
     convert.structure(pRootJson, "Rule", stInfo.stRule);
     convert.structure(pRootJson, "AlarmSchedule", stInfo.stAlarmSchedule);
     convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
+    
+    if (bOutStruct)
+    {
+        convert.field(pRootJson, "PointCount", stInfo.uPointCount);
+        JsonToFloatArray(pRootJson, "PointX", stInfo.afPointX, NET_AI_SIMPLE_REGION_POINT_MAX_NUM);
+        JsonToFloatArray(pRootJson, "PointY", stInfo.afPointY, NET_AI_SIMPLE_REGION_POINT_MAX_NUM);
+    }
+    else
+    {
+        convert.field(pRootJson, "PointCount", stInfo.uPointCount);
+        FloatArrayToJson(pRootJson, "PointX", stInfo.afPointX, stInfo.uPointCount, NET_AI_SIMPLE_REGION_POINT_MAX_NUM);
+        FloatArrayToJson(pRootJson, "PointY", stInfo.afPointY, stInfo.uPointCount, NET_AI_SIMPLE_REGION_POINT_MAX_NUM);
+    }
 }
 
 
@@ -728,6 +741,19 @@ void deal(Json::Object* pRootJson, NET_SleepOnDutyCfg_S& stInfo, bool bOutStruct
     convert.structure(pRootJson, "Rule", stInfo.stRule);
     convert.structure(pRootJson, "AlarmSchedule", stInfo.stAlarmSchedule);
     convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
+    
+    if (bOutStruct)
+    {
+        convert.field(pRootJson, "PointCount", stInfo.uPointCount);
+        JsonToFloatArray(pRootJson, "PointX", stInfo.afPointX, NET_AI_SIMPLE_REGION_POINT_MAX_NUM);
+        JsonToFloatArray(pRootJson, "PointY", stInfo.afPointY, NET_AI_SIMPLE_REGION_POINT_MAX_NUM);
+    }
+    else
+    {
+        convert.field(pRootJson, "PointCount", stInfo.uPointCount);
+        FloatArrayToJson(pRootJson, "PointX", stInfo.afPointX, stInfo.uPointCount, NET_AI_SIMPLE_REGION_POINT_MAX_NUM);
+        FloatArrayToJson(pRootJson, "PointY", stInfo.afPointY, stInfo.uPointCount, NET_AI_SIMPLE_REGION_POINT_MAX_NUM);
+    }
 }
 
 
@@ -743,6 +769,19 @@ void deal(Json::Object* pRootJson, NET_ElectricVehicleInElevatorCfg_S& stInfo, b
     convert.structure(pRootJson, "Rule", stInfo.stRule);
     convert.structure(pRootJson, "AlarmSchedule", stInfo.stAlarmSchedule);
     convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
+    
+    if (bOutStruct)
+    {
+        convert.field(pRootJson, "PointCount", stInfo.uPointCount);
+        JsonToFloatArray(pRootJson, "PointX", stInfo.afPointX, NET_AI_SIMPLE_REGION_POINT_MAX_NUM);
+        JsonToFloatArray(pRootJson, "PointY", stInfo.afPointY, NET_AI_SIMPLE_REGION_POINT_MAX_NUM);
+    }
+    else
+    {
+        convert.field(pRootJson, "PointCount", stInfo.uPointCount);
+        FloatArrayToJson(pRootJson, "PointX", stInfo.afPointX, stInfo.uPointCount, NET_AI_SIMPLE_REGION_POINT_MAX_NUM);
+        FloatArrayToJson(pRootJson, "PointY", stInfo.afPointY, stInfo.uPointCount, NET_AI_SIMPLE_REGION_POINT_MAX_NUM);
+    }
 }
 
 
@@ -758,6 +797,19 @@ void deal(Json::Object* pRootJson, NET_PersonFallDownCfg_S& stInfo, bool bOutStr
     convert.structure(pRootJson, "Rule", stInfo.stRule);
     convert.structure(pRootJson, "AlarmSchedule", stInfo.stAlarmSchedule);
     convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
+    
+    if (bOutStruct)
+    {
+        convert.field(pRootJson, "PointCount", stInfo.uPointCount);
+        JsonToFloatArray(pRootJson, "PointX", stInfo.afPointX, NET_AI_SIMPLE_REGION_POINT_MAX_NUM);
+        JsonToFloatArray(pRootJson, "PointY", stInfo.afPointY, NET_AI_SIMPLE_REGION_POINT_MAX_NUM);
+    }
+    else
+    {
+        convert.field(pRootJson, "PointCount", stInfo.uPointCount);
+        FloatArrayToJson(pRootJson, "PointX", stInfo.afPointX, stInfo.uPointCount, NET_AI_SIMPLE_REGION_POINT_MAX_NUM);
+        FloatArrayToJson(pRootJson, "PointY", stInfo.afPointY, stInfo.uPointCount, NET_AI_SIMPLE_REGION_POINT_MAX_NUM);
+    }
 }
 
 
@@ -773,6 +825,19 @@ void deal(Json::Object* pRootJson, NET_ConstructionOccupyRoadCfg_S& stInfo, bool
     convert.structure(pRootJson, "Rule", stInfo.stRule);
     convert.structure(pRootJson, "AlarmSchedule", stInfo.stAlarmSchedule);
     convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
+    
+    if (bOutStruct)
+    {
+        convert.field(pRootJson, "PointCount", stInfo.uPointCount);
+        JsonToFloatArray(pRootJson, "PointX", stInfo.afPointX, NET_AI_SIMPLE_REGION_POINT_MAX_NUM);
+        JsonToFloatArray(pRootJson, "PointY", stInfo.afPointY, NET_AI_SIMPLE_REGION_POINT_MAX_NUM);
+    }
+    else
+    {
+        convert.field(pRootJson, "PointCount", stInfo.uPointCount);
+        FloatArrayToJson(pRootJson, "PointX", stInfo.afPointX, stInfo.uPointCount, NET_AI_SIMPLE_REGION_POINT_MAX_NUM);
+        FloatArrayToJson(pRootJson, "PointY", stInfo.afPointY, stInfo.uPointCount, NET_AI_SIMPLE_REGION_POINT_MAX_NUM);
+    }
 }
 
 
@@ -788,6 +853,19 @@ void deal(Json::Object* pRootJson, NET_CongestionCfg_S& stInfo, bool bOutStruct)
     convert.structure(pRootJson, "Rule", stInfo.stRule);
     convert.structure(pRootJson, "AlarmSchedule", stInfo.stAlarmSchedule);
     convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
+    
+    if (bOutStruct)
+    {
+        convert.field(pRootJson, "PointCount", stInfo.uPointCount);
+        JsonToFloatArray(pRootJson, "PointX", stInfo.afPointX, NET_AI_SIMPLE_REGION_POINT_MAX_NUM);
+        JsonToFloatArray(pRootJson, "PointY", stInfo.afPointY, NET_AI_SIMPLE_REGION_POINT_MAX_NUM);
+    }
+    else
+    {
+        convert.field(pRootJson, "PointCount", stInfo.uPointCount);
+        FloatArrayToJson(pRootJson, "PointX", stInfo.afPointX, stInfo.uPointCount, NET_AI_SIMPLE_REGION_POINT_MAX_NUM);
+        FloatArrayToJson(pRootJson, "PointY", stInfo.afPointY, stInfo.uPointCount, NET_AI_SIMPLE_REGION_POINT_MAX_NUM);
+    }
 }
 
 
@@ -803,6 +881,19 @@ void deal(Json::Object* pRootJson, NET_LicensePlateRecognitionCfg_S& stInfo, boo
     convert.structure(pRootJson, "Rule", stInfo.stRule);
     convert.structure(pRootJson, "AlarmSchedule", stInfo.stAlarmSchedule);
     convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
+    
+    if (bOutStruct)
+    {
+        convert.field(pRootJson, "PointCount", stInfo.uPointCount);
+        JsonToFloatArray(pRootJson, "PointX", stInfo.afPointX, NET_AI_SIMPLE_REGION_POINT_MAX_NUM);
+        JsonToFloatArray(pRootJson, "PointY", stInfo.afPointY, NET_AI_SIMPLE_REGION_POINT_MAX_NUM);
+    }
+    else
+    {
+        convert.field(pRootJson, "PointCount", stInfo.uPointCount);
+        FloatArrayToJson(pRootJson, "PointX", stInfo.afPointX, stInfo.uPointCount, NET_AI_SIMPLE_REGION_POINT_MAX_NUM);
+        FloatArrayToJson(pRootJson, "PointY", stInfo.afPointY, stInfo.uPointCount, NET_AI_SIMPLE_REGION_POINT_MAX_NUM);
+    }
 }
 
 
@@ -818,6 +909,19 @@ void deal(Json::Object* pRootJson, NET_HighAltitudeSeatbeltCfg_S& stInfo, bool b
     convert.structure(pRootJson, "Rule", stInfo.stRule);
     convert.structure(pRootJson, "AlarmSchedule", stInfo.stAlarmSchedule);
     convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
+    
+    if (bOutStruct)
+    {
+        convert.field(pRootJson, "PointCount", stInfo.uPointCount);
+        JsonToFloatArray(pRootJson, "PointX", stInfo.afPointX, NET_AI_SIMPLE_REGION_POINT_MAX_NUM);
+        JsonToFloatArray(pRootJson, "PointY", stInfo.afPointY, NET_AI_SIMPLE_REGION_POINT_MAX_NUM);
+    }
+    else
+    {
+        convert.field(pRootJson, "PointCount", stInfo.uPointCount);
+        FloatArrayToJson(pRootJson, "PointX", stInfo.afPointX, stInfo.uPointCount, NET_AI_SIMPLE_REGION_POINT_MAX_NUM);
+        FloatArrayToJson(pRootJson, "PointY", stInfo.afPointY, stInfo.uPointCount, NET_AI_SIMPLE_REGION_POINT_MAX_NUM);
+    }
 }
 
 
@@ -833,6 +937,19 @@ void deal(Json::Object* pRootJson, NET_SafetyHelmetCfg_S& stInfo, bool bOutStruc
     convert.structure(pRootJson, "Rule", stInfo.stRule);
     convert.structure(pRootJson, "AlarmSchedule", stInfo.stAlarmSchedule);
     convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
+    
+    if (bOutStruct)
+    {
+        convert.field(pRootJson, "PointCount", stInfo.uPointCount);
+        JsonToFloatArray(pRootJson, "PointX", stInfo.afPointX, NET_AI_SIMPLE_REGION_POINT_MAX_NUM);
+        JsonToFloatArray(pRootJson, "PointY", stInfo.afPointY, NET_AI_SIMPLE_REGION_POINT_MAX_NUM);
+    }
+    else
+    {
+        convert.field(pRootJson, "PointCount", stInfo.uPointCount);
+        FloatArrayToJson(pRootJson, "PointX", stInfo.afPointX, stInfo.uPointCount, NET_AI_SIMPLE_REGION_POINT_MAX_NUM);
+        FloatArrayToJson(pRootJson, "PointY", stInfo.afPointY, stInfo.uPointCount, NET_AI_SIMPLE_REGION_POINT_MAX_NUM);
+    }
 }
 
 
@@ -848,6 +965,19 @@ void deal(Json::Object* pRootJson, NET_PersonFallCfg_S& stInfo, bool bOutStruct)
     convert.structure(pRootJson, "Rule", stInfo.stRule);
     convert.structure(pRootJson, "AlarmSchedule", stInfo.stAlarmSchedule);
     convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
+    
+    if (bOutStruct)
+    {
+        convert.field(pRootJson, "PointCount", stInfo.uPointCount);
+        JsonToFloatArray(pRootJson, "PointX", stInfo.afPointX, NET_AI_SIMPLE_REGION_POINT_MAX_NUM);
+        JsonToFloatArray(pRootJson, "PointY", stInfo.afPointY, NET_AI_SIMPLE_REGION_POINT_MAX_NUM);
+    }
+    else
+    {
+        convert.field(pRootJson, "PointCount", stInfo.uPointCount);
+        FloatArrayToJson(pRootJson, "PointX", stInfo.afPointX, stInfo.uPointCount, NET_AI_SIMPLE_REGION_POINT_MAX_NUM);
+        FloatArrayToJson(pRootJson, "PointY", stInfo.afPointY, stInfo.uPointCount, NET_AI_SIMPLE_REGION_POINT_MAX_NUM);
+    }
 }
 
 
@@ -863,6 +993,19 @@ void deal(Json::Object* pRootJson, NET_PhoneUsageCfg_S& stInfo, bool bOutStruct)
     convert.structure(pRootJson, "Rule", stInfo.stRule);
     convert.structure(pRootJson, "AlarmSchedule", stInfo.stAlarmSchedule);
     convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
+    
+    if (bOutStruct)
+    {
+        convert.field(pRootJson, "PointCount", stInfo.uPointCount);
+        JsonToFloatArray(pRootJson, "PointX", stInfo.afPointX, NET_AI_SIMPLE_REGION_POINT_MAX_NUM);
+        JsonToFloatArray(pRootJson, "PointY", stInfo.afPointY, NET_AI_SIMPLE_REGION_POINT_MAX_NUM);
+    }
+    else
+    {
+        convert.field(pRootJson, "PointCount", stInfo.uPointCount);
+        FloatArrayToJson(pRootJson, "PointX", stInfo.afPointX, stInfo.uPointCount, NET_AI_SIMPLE_REGION_POINT_MAX_NUM);
+        FloatArrayToJson(pRootJson, "PointY", stInfo.afPointY, stInfo.uPointCount, NET_AI_SIMPLE_REGION_POINT_MAX_NUM);
+    }
 }
 
 
@@ -878,6 +1021,19 @@ void deal(Json::Object* pRootJson, NET_SmokingCfg_S& stInfo, bool bOutStruct)
     convert.structure(pRootJson, "Rule", stInfo.stRule);
     convert.structure(pRootJson, "AlarmSchedule", stInfo.stAlarmSchedule);
     convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
+    
+    if (bOutStruct)
+    {
+        convert.field(pRootJson, "PointCount", stInfo.uPointCount);
+        JsonToFloatArray(pRootJson, "PointX", stInfo.afPointX, NET_AI_SIMPLE_REGION_POINT_MAX_NUM);
+        JsonToFloatArray(pRootJson, "PointY", stInfo.afPointY, NET_AI_SIMPLE_REGION_POINT_MAX_NUM);
+    }
+    else
+    {
+        convert.field(pRootJson, "PointCount", stInfo.uPointCount);
+        FloatArrayToJson(pRootJson, "PointX", stInfo.afPointX, stInfo.uPointCount, NET_AI_SIMPLE_REGION_POINT_MAX_NUM);
+        FloatArrayToJson(pRootJson, "PointY", stInfo.afPointY, stInfo.uPointCount, NET_AI_SIMPLE_REGION_POINT_MAX_NUM);
+    }
 }
 
 
@@ -893,6 +1049,19 @@ void deal(Json::Object* pRootJson, NET_OpenFlameCfg_S& stInfo, bool bOutStruct)
     convert.structure(pRootJson, "Rule", stInfo.stRule);
     convert.structure(pRootJson, "AlarmSchedule", stInfo.stAlarmSchedule);
     convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
+    
+    if (bOutStruct)
+    {
+        convert.field(pRootJson, "PointCount", stInfo.uPointCount);
+        JsonToFloatArray(pRootJson, "PointX", stInfo.afPointX, NET_AI_SIMPLE_REGION_POINT_MAX_NUM);
+        JsonToFloatArray(pRootJson, "PointY", stInfo.afPointY, NET_AI_SIMPLE_REGION_POINT_MAX_NUM);
+    }
+    else
+    {
+        convert.field(pRootJson, "PointCount", stInfo.uPointCount);
+        FloatArrayToJson(pRootJson, "PointX", stInfo.afPointX, stInfo.uPointCount, NET_AI_SIMPLE_REGION_POINT_MAX_NUM);
+        FloatArrayToJson(pRootJson, "PointY", stInfo.afPointY, stInfo.uPointCount, NET_AI_SIMPLE_REGION_POINT_MAX_NUM);
+    }
 }
 
 
@@ -908,6 +1077,19 @@ void deal(Json::Object* pRootJson, NET_BareSoilCfg_S& stInfo, bool bOutStruct)
     convert.structure(pRootJson, "Rule", stInfo.stRule);
     convert.structure(pRootJson, "AlarmSchedule", stInfo.stAlarmSchedule);
     convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
+    
+    if (bOutStruct)
+    {
+        convert.field(pRootJson, "PointCount", stInfo.uPointCount);
+        JsonToFloatArray(pRootJson, "PointX", stInfo.afPointX, NET_AI_SIMPLE_REGION_POINT_MAX_NUM);
+        JsonToFloatArray(pRootJson, "PointY", stInfo.afPointY, NET_AI_SIMPLE_REGION_POINT_MAX_NUM);
+    }
+    else
+    {
+        convert.field(pRootJson, "PointCount", stInfo.uPointCount);
+        FloatArrayToJson(pRootJson, "PointX", stInfo.afPointX, stInfo.uPointCount, NET_AI_SIMPLE_REGION_POINT_MAX_NUM);
+        FloatArrayToJson(pRootJson, "PointY", stInfo.afPointY, stInfo.uPointCount, NET_AI_SIMPLE_REGION_POINT_MAX_NUM);
+    }
 }
 
 
@@ -923,6 +1105,19 @@ void deal(Json::Object* pRootJson, NET_HoleProtectionBarCfg_S& stInfo, bool bOut
     convert.structure(pRootJson, "Rule", stInfo.stRule);
     convert.structure(pRootJson, "AlarmSchedule", stInfo.stAlarmSchedule);
     convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
+    
+    if (bOutStruct)
+    {
+        convert.field(pRootJson, "PointCount", stInfo.uPointCount);
+        JsonToFloatArray(pRootJson, "PointX", stInfo.afPointX, NET_AI_SIMPLE_REGION_POINT_MAX_NUM);
+        JsonToFloatArray(pRootJson, "PointY", stInfo.afPointY, NET_AI_SIMPLE_REGION_POINT_MAX_NUM);
+    }
+    else
+    {
+        convert.field(pRootJson, "PointCount", stInfo.uPointCount);
+        FloatArrayToJson(pRootJson, "PointX", stInfo.afPointX, stInfo.uPointCount, NET_AI_SIMPLE_REGION_POINT_MAX_NUM);
+        FloatArrayToJson(pRootJson, "PointY", stInfo.afPointY, stInfo.uPointCount, NET_AI_SIMPLE_REGION_POINT_MAX_NUM);
+    }
 }
 
 
@@ -938,6 +1133,19 @@ void deal(Json::Object* pRootJson, NET_ReflectiveClothingCfg_S& stInfo, bool bOu
     convert.structure(pRootJson, "Rule", stInfo.stRule);
     convert.structure(pRootJson, "AlarmSchedule", stInfo.stAlarmSchedule);
     convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
+    
+    if (bOutStruct)
+    {
+        convert.field(pRootJson, "PointCount", stInfo.uPointCount);
+        JsonToFloatArray(pRootJson, "PointX", stInfo.afPointX, NET_AI_SIMPLE_REGION_POINT_MAX_NUM);
+        JsonToFloatArray(pRootJson, "PointY", stInfo.afPointY, NET_AI_SIMPLE_REGION_POINT_MAX_NUM);
+    }
+    else
+    {
+        convert.field(pRootJson, "PointCount", stInfo.uPointCount);
+        FloatArrayToJson(pRootJson, "PointX", stInfo.afPointX, stInfo.uPointCount, NET_AI_SIMPLE_REGION_POINT_MAX_NUM);
+        FloatArrayToJson(pRootJson, "PointY", stInfo.afPointY, stInfo.uPointCount, NET_AI_SIMPLE_REGION_POINT_MAX_NUM);
+    }
 }
 
 
@@ -1307,6 +1515,83 @@ void deal(Json::Object* pRootJson, NET_RoadPondingCfg_S& stInfo, bool bOutStruct
     convert.structure(pRootJson, "Rule", stInfo.stRule);
     convert.structure(pRootJson, "AlarmSchedule", stInfo.stAlarmSchedule);
     convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
+}
+
+
+/* ===== 设备状态/通道名/透明通道/串口 ===== */
+
+void deal(Json::Object* pRootJson, NET_DeviceStatusInfo_S& stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+    SDKConvert::CSDKConvert convert(bOutStruct);
+    convert.field(pRootJson, "nCpuUsage", stInfo.nCpuUsage);
+    convert.field(pRootJson, "nMemoryUsage", stInfo.nMemoryUsage);
+    convert.field(pRootJson, "nUptime", stInfo.nUptime);
+    convert.field(pRootJson, "nTemperature", stInfo.nTemperature);
+    convert.field(pRootJson, "nDiskCount", stInfo.nDiskCount);
+}
+
+void deal(Json::Object* pRootJson, NET_ChannelNameInfo_S& stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+    SDKConvert::CSDKConvert convert(bOutStruct);
+    convert.field(pRootJson, "uChannel", stInfo.uChannel);
+    convert.field(pRootJson, "szChannelName", stInfo.szChannelName);
+}
+
+void deal(Json::Object* pRootJson, NET_TransparentChannel_S& stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+    SDKConvert::CSDKConvert convert(bOutStruct);
+    convert.field(pRootJson, "nChannelIndex", stInfo.nChannelIndex);
+    convert.field(pRootJson, "nSerialPortIndex", stInfo.nSerialPortIndex);
+    convert.field(pRootJson, "nBaudRate", stInfo.nBaudRate);
+}
+
+void deal(Json::Object* pRootJson, NET_TransparentData_S& stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+    SDKConvert::CSDKConvert convert(bOutStruct);
+    convert.field(pRootJson, "nChannelIndex", stInfo.nChannelIndex);
+    convert.field(pRootJson, "uDataLen", stInfo.uDataLen);
+}
+
+void deal(Json::Object* pRootJson, NET_SerialPortParam_S& stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+    SDKConvert::CSDKConvert convert(bOutStruct);
+    convert.field(pRootJson, "nPortIndex", stInfo.nPortIndex);
+    convert.field(pRootJson, "nBaudRate", stInfo.nBaudRate);
+    convert.field(pRootJson, "nDataBits", stInfo.nDataBits);
+    convert.field(pRootJson, "nStopBits", stInfo.nStopBits);
+    convert.field(pRootJson, "nParity", stInfo.nParity);
+    convert.field(pRootJson, "nFlowControl", stInfo.nFlowControl);
+}
+
+void deal(Json::Object* pRootJson, NET_SerialData_S& stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+    SDKConvert::CSDKConvert convert(bOutStruct);
+    convert.field(pRootJson, "nPortIndex", stInfo.nPortIndex);
+    convert.field(pRootJson, "uDataLen", stInfo.uDataLen);
 }
 
 }

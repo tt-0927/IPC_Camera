@@ -3,12 +3,14 @@
  * @Author       : zhouzirui
  * @Date         : 2025-03-29 10:05:15
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-08-20 15:59:01
+ * @LastEditTime : 2026-09-07 10:29:17
  * @Description  : RTSP服务器
  */
 
 #include "rtsp_server.h"
 
+#include <atomic>
+#include <cstddef>
 #include <cstdio>
 #include <cstring>
 
@@ -20,6 +22,101 @@
 
 namespace
 {
+#ifndef RTSP_FRAME_SIZE_STAT_ENABLE
+#define RTSP_FRAME_SIZE_STAT_ENABLE 0
+#endif
+
+#if RTSP_FRAME_SIZE_STAT_ENABLE
+/*
+ * perf: 逐帧统计只用于短时间板端诊断，默认关闭以避免日志格式化和I/O扰动送帧线程。
+ * lock: 使用 relaxed 原子值更新历史最大值，不引入送帧路径互斥锁竞争。
+ * memory: 只保存固定数量的计数状态，不读取、复制或持有音视频 buffer。
+ */
+std::atomic<std::size_t> g_rtsp_video_max_frame_size[RTSP_CHN_MAX]{};
+std::atomic<std::size_t> g_rtsp_audio_max_frame_size[RTSP_CHN_MAX]{};
+
+/* 统计媒体类型仅在诊断模块内部使用，避免调用方传入任意字符串导致类型混淆。 */
+enum class RtspFrameSizeStatMedia_E
+{
+    VIDEO,
+    AUDIO,
+};
+
+/**
+ * @brief   : 更新指定媒体通道的历史最大帧大小
+ * @param   {std::atomic<std::size_t>&} max_frame_size：该媒体通道的历史最大值
+ * @param   {std::size_t} current_frame_size：本次有效输入的字节数
+ * @return  {std::size_t} 更新后的历史最大字节数
+ * @note    : compare-exchange 仅保证最大值单调递增，不建立跨帧同步语义。
+ */
+std::size_t update_rtsp_max_frame_size(std::atomic<std::size_t> &max_frame_size, const std::size_t current_frame_size)
+{
+    std::size_t observed_max = max_frame_size.load(std::memory_order_relaxed);
+    while (observed_max < current_frame_size &&
+           !max_frame_size.compare_exchange_weak(observed_max, current_frame_size, std::memory_order_relaxed, std::memory_order_relaxed))
+    {
+        /* compare_exchange_weak 失败时会刷新 observed_max，继续竞争最新最大值。 */
+    }
+
+    return max_frame_size.load(std::memory_order_relaxed);
+}
+
+/**
+ * @brief   : 记录 RTSP 入口收到的当前帧大小和历史最大帧大小
+ * @param   {RtspFrameSizeStatMedia_E} media_type：媒体类型
+ * @param   {int} channel：RTSP 通道号
+ * @param   {std::size_t} current_frame_size：当前有效输入的字节数
+ * @return  无
+ * @note    : 调用方必须先完成原有参数校验，避免无效输入污染诊断数据。
+ */
+void record_rtsp_frame_size(const RtspFrameSizeStatMedia_E media_type, const int channel, const std::size_t current_frame_size)
+{
+    /* ! 先校验通道再索引数组，避免未来新增调用点引入越界访问。 */
+    if (channel < RTSP_CHN_MAIN || channel >= RTSP_CHN_MAX || current_frame_size == 0U)
+    {
+        return;
+    }
+
+    std::size_t max_frame_size_value = 0U;
+    if (media_type == RtspFrameSizeStatMedia_E::VIDEO)
+    {
+        max_frame_size_value = update_rtsp_max_frame_size(g_rtsp_video_max_frame_size[channel], current_frame_size);
+    }
+    else if (media_type == RtspFrameSizeStatMedia_E::AUDIO)
+    {
+        max_frame_size_value = update_rtsp_max_frame_size(g_rtsp_audio_max_frame_size[channel], current_frame_size);
+    }
+    else
+    {
+        return;
+    }
+
+    /*
+     * perf: dlog 按文件指针和行号限频；四个调用点分别对应视频/音频及主/子通道，
+     * 避免高频通道占用其他通道的日志槽，导致低帧率通道没有可见统计日志。
+     */
+    if (media_type == RtspFrameSizeStatMedia_E::VIDEO)
+    {
+        if (channel == RTSP_CHN_MAIN)
+        {
+            dlog_info("RTSP帧大小统计 type:video chn:%d current:%zu max:%zu", channel, current_frame_size, max_frame_size_value);
+        }
+        else
+        {
+            dlog_info("RTSP帧大小统计 type:video chn:%d current:%zu max:%zu", channel, current_frame_size, max_frame_size_value);
+        }
+    }
+    else if (channel == RTSP_CHN_MAIN)
+    {
+        dlog_info("RTSP帧大小统计 type:audio chn:%d current:%zu max:%zu", channel, current_frame_size, max_frame_size_value);
+    }
+    else
+    {
+        dlog_info("RTSP帧大小统计 type:audio chn:%d current:%zu max:%zu", channel, current_frame_size, max_frame_size_value);
+    }
+}
+#endif
+
 /**
  * @brief   : 取得主码流用于限流判断的码率
  * @param   {const std::vector<Video_NS::VideoConfig_S>&} configs：当前视频配置
@@ -78,6 +175,271 @@ bool read_rtsp_client_count(RtSpServerHandle_t pServerHandle, const char* pStrea
 
     nClientCount = stClientInfo.nNumClient < 0 ? 0 : stClientInfo.nNumClient;
     return true;
+}
+
+/**
+ * @brief 查找 Annex-B 码流中的下一个 NAL 起始码
+ * @param pData 码流数据
+ * @param nDataLen 码流长度
+ * @param nSearchOffset 起始搜索偏移
+ * @param nStartOffset 输出起始码偏移
+ * @param nStartCodeLen 输出起始码长度
+ * @return true：找到起始码；false：未找到
+ * @note 同时支持 00 00 01 和 00 00 00 01；跳过四字节起始码尾部的重复匹配。
+ */
+bool find_annexb_start_code(const uint8_t* pData,
+                            const int nDataLen,
+                            const std::size_t nSearchOffset,
+                            std::size_t& nStartOffset,
+                            std::size_t& nStartCodeLen)
+{
+    if (pData == nullptr || nDataLen <= 0)
+    {
+        return false;
+    }
+
+    const std::size_t nLength = static_cast<std::size_t>(nDataLen);
+    for (std::size_t i = nSearchOffset; i < nLength; ++i)
+    {
+        if (pData[i] != 0 || i + 2U >= nLength)
+        {
+            continue;
+        }
+
+        if (i + 3U < nLength && pData[i + 1U] == 0 && pData[i + 2U] == 0 && pData[i + 3U] == 1)
+        {
+            nStartOffset = i;
+            nStartCodeLen = 4U;
+            return true;
+        }
+
+        /* 00 00 01 前若仍是0，则该匹配属于四字节起始码的后缀。 */
+        if (pData[i + 1U] == 0 && pData[i + 2U] == 1 && (i == 0U || pData[i - 1U] != 0))
+        {
+            nStartOffset = i;
+            nStartCodeLen = 3U;
+            return true;
+        }
+    }
+    return false;
+}
+
+/**
+ * @brief 判断原始 NAL 头是否为可作为解码起点的关键 NAL
+ * @param enVideoCodec 视频编码格式
+ * @param nNalHeader NAL 头字节
+ * @return true：H.264 IDR 或 H.265 IDR/CRA；false：其他类型
+ */
+bool is_key_nal_header(const Video_NS::VideoCodec_E enVideoCodec, const uint8_t nNalHeader)
+{
+    if (enVideoCodec == Video_NS::VideoCodec_E::H264)
+    {
+        return (nNalHeader & 0x1FU) == 5U;
+    }
+
+    if (enVideoCodec == Video_NS::VideoCodec_E::H265)
+    {
+        const uint8_t nNalType = (nNalHeader >> 1U) & 0x3FU;
+        return nNalType == 19U || nNalType == 20U || nNalType == 21U;
+    }
+
+    return false;
+}
+
+/**
+ * @brief 判断原始 NAL 头是否为非关键 VCL NAL
+ * @param enVideoCodec 视频编码格式
+ * @param nNalHeader NAL 头字节
+ * @return true：H.264 非IDR或H.265非IDR/非CRA图像 NAL；false：参数集、SEI等其他 NAL
+ */
+bool is_non_key_vcl_nal_header(const Video_NS::VideoCodec_E enVideoCodec, const uint8_t nNalHeader)
+{
+    if (enVideoCodec == Video_NS::VideoCodec_E::H264)
+    {
+        const uint8_t nNalType = nNalHeader & 0x1FU;
+        return nNalType >= 1U && nNalType <= 4U;
+    }
+
+    if (enVideoCodec == Video_NS::VideoCodec_E::H265)
+    {
+        const uint8_t nNalType = (nNalHeader >> 1U) & 0x3FU;
+        return nNalType <= 31U && nNalType != 19U && nNalType != 20U && nNalType != 21U;
+    }
+
+    return false;
+}
+
+/**
+ * @brief 扫描一个完整 buffer 中的 Annex-B NAL 数量和关键 NAL
+ * @param enVideoCodec 视频编码格式
+ * @param pData 码流数据
+ * @param nDataLen 码流长度
+ * @param nNalCount 输出扫描到的 NAL 数量
+ * @param bHasKeyNal 输出是否包含关键 NAL
+ * @param bHasNonKeyVclNal 输出是否包含非关键 VCL NAL
+ * @return 无
+ * @note 扫描只用于判定整包语义，不生成新的数据 buffer，也不拆分原始 pack。
+ */
+void scan_annexb_nals(const Video_NS::VideoCodec_E enVideoCodec,
+                      const uint8_t* pData,
+                      const int nDataLen,
+                      std::size_t& nNalCount,
+                      bool& bHasKeyNal,
+                      bool& bHasNonKeyVclNal)
+{
+    nNalCount = 0U;
+    bHasKeyNal = false;
+    bHasNonKeyVclNal = false;
+
+    std::size_t nSearchOffset = 0U;
+    std::size_t nStartOffset = 0U;
+    std::size_t nStartCodeLen = 0U;
+    while (find_annexb_start_code(pData, nDataLen, nSearchOffset, nStartOffset, nStartCodeLen))
+    {
+        const std::size_t nHeaderOffset = nStartOffset + nStartCodeLen;
+        if (nHeaderOffset >= static_cast<std::size_t>(nDataLen))
+        {
+            break;
+        }
+
+        ++nNalCount;
+        if (is_key_nal_header(enVideoCodec, pData[nHeaderOffset]))
+        {
+            /* 找到关键 NAL 后无需继续扫描；调用方只关心整包是否可作为解码起点。 */
+            bHasKeyNal = true;
+            return;
+        }
+        bHasNonKeyVclNal = bHasNonKeyVclNal || is_non_key_vcl_nal_header(enVideoCodec, pData[nHeaderOffset]);
+        nSearchOffset = nHeaderOffset + 1U;
+    }
+}
+
+/**
+ * @brief 判断 eType 是否表示独立参数集 NAL
+ * @param enVideoCodec 视频编码格式
+ * @param eType VENC 解析出的首个 NAL 类型
+ * @return true：H.264 SPS/PPS 或 H.265 VPS/SPS/PPS；false：其他类型
+ */
+bool is_parameter_set_type(const Video_NS::VideoCodec_E enVideoCodec, const Video_NS::NalType_E eType)
+{
+    if (enVideoCodec == Video_NS::VideoCodec_E::H264)
+    {
+        return eType == Video_NS::H264_TYPE_SPS || eType == Video_NS::H264_TYPE_PPS;
+    }
+
+    if (enVideoCodec == Video_NS::VideoCodec_E::H265)
+    {
+        return eType == Video_NS::H265_TYPE_VPS || eType == Video_NS::H265_TYPE_SPS ||
+               eType == Video_NS::H265_TYPE_PPS;
+    }
+
+    return false;
+}
+
+/**
+ * @brief 判断首个 NAL 是否可能是复合关键 pack 的前缀
+ * @param enVideoCodec 视频编码格式
+ * @param eType VENC 解析出的首个 NAL 类型
+ * @return true：需要扫描后续 NAL；false：可直接按普通 pack处理
+ * @note 普通 P/B 帧不扫描整包，避免高码率路径为每个视频帧增加一次线性遍历。
+ */
+bool may_be_composite_prefix_type(const Video_NS::VideoCodec_E enVideoCodec,
+                                  const Video_NS::NalType_E eType)
+{
+    if (is_parameter_set_type(enVideoCodec, eType))
+    {
+        return true;
+    }
+
+    if (enVideoCodec == Video_NS::VideoCodec_E::H264)
+    {
+        return eType == Video_NS::H264_TYPE_SEI || eType == Video_NS::H264_TYPE_AUD;
+    }
+
+    if (enVideoCodec == Video_NS::VideoCodec_E::H265)
+    {
+        return eType == Video_NS::H265_TYPE_AUD || eType == Video_NS::H265_TYPE_SEI ||
+               eType == Video_NS::H265_TYPE_SEI_SUFFIX;
+    }
+
+    return false;
+}
+
+/**
+ * @brief 将 VENC buffer 的 NAL 类型转换为 RTSP 队列帧标记
+ * @param enVideoCodec 视频编码格式
+ * @param eType VENC 解析出的首个 NAL 类型
+ * @param pData VENC pack 数据
+ * @param nDataLen VENC pack 长度
+ * @return FRAME_MARKER_KEYFRAME：完整关键 pack；FRAME_MARKER_PARAMETER_SET：独立参数集 pack；
+ *         FRAME_MARKER_INDEPENDENT_FRAME：可独立解码的完整帧；其他返回普通帧或未知标记
+ * @note 海思单包模式下，SPS/VPS 开头的一个 buffer 可能继续携带 PPS/SEI/IDR，必须按一个
+ *       完整关键 pack 入队和发送。扫描到同一 buffer 含关键 NAL 时优先按关键 pack处理；
+ *       只有未含 VCL 的参数集 buffer才标为独立参数集，以兼容多包模式。普通 P/B pack
+ *       不做整包扫描，避免高码率下增加无效遍历。
+ */
+int get_rtsp_frame_marker(const Video_NS::VideoCodec_E enVideoCodec,
+                          const Video_NS::NalType_E eType,
+                          const uint8_t* pData,
+                          const int nDataLen)
+{
+    if (enVideoCodec == Video_NS::VideoCodec_E::H264 && eType == Video_NS::H264_TYPE_IDR)
+    {
+        return FRAME_MARKER_KEYFRAME;
+    }
+
+    if (enVideoCodec == Video_NS::VideoCodec_E::H265 &&
+        (eType == Video_NS::H265_TYPE_IDR_W_RADL || eType == Video_NS::H265_TYPE_IDR_N_LP ||
+         eType == Video_NS::H265_TYPE_CRA))
+    {
+        return FRAME_MARKER_KEYFRAME;
+    }
+
+    if (enVideoCodec == Video_NS::VideoCodec_E::MJPEG)
+    {
+        /* MJPEG每帧都能独立解码，但弱网时应淘汰旧帧，不能按GOP关键帧长期保护。 */
+        return FRAME_MARKER_INDEPENDENT_FRAME;
+    }
+
+    if (enVideoCodec != Video_NS::VideoCodec_E::H264 && enVideoCodec != Video_NS::VideoCodec_E::H265)
+    {
+        return FRAME_MARKER_UNKNOWN;
+    }
+
+    /* IDR/CRA已由首个 NAL直接识别；普通 P/B pack不可能是当前约定的复合关键 pack。 */
+    if (!may_be_composite_prefix_type(enVideoCodec, eType))
+    {
+        return FRAME_MARKER_NON_KEY;
+    }
+
+    std::size_t nNalCount = 0U;
+    bool bHasKeyNal = false;
+    bool bHasNonKeyVclNal = false;
+    scan_annexb_nals(enVideoCodec, pData, nDataLen, nNalCount, bHasKeyNal, bHasNonKeyVclNal);
+    if (bHasKeyNal)
+    {
+        return FRAME_MARKER_KEYFRAME;
+    }
+
+    if (bHasNonKeyVclNal)
+    {
+        /* 参数集前缀后混入普通图像 NAL时，整个 pack仍不可作为解码起点。 */
+        return FRAME_MARKER_NON_KEY;
+    }
+
+    if (is_parameter_set_type(enVideoCodec, eType))
+    {
+        /* 起始码无法扫描时沿用旧版 SPS/VPS 关键 pack 约定，避免兼容历史裸 pack。 */
+        if (nNalCount == 0U &&
+            ((enVideoCodec == Video_NS::VideoCodec_E::H264 && eType == Video_NS::H264_TYPE_SPS) ||
+             (enVideoCodec == Video_NS::VideoCodec_E::H265 && eType == Video_NS::H265_TYPE_VPS)))
+        {
+            return FRAME_MARKER_KEYFRAME;
+        }
+        return FRAME_MARKER_PARAMETER_SET;
+    }
+
+    return FRAME_MARKER_NON_KEY;
 }
 }
 
@@ -139,7 +501,11 @@ void CRtspServer::report_queue_recover(QueueDiag_S &stDiag, const char *strType,
 
 /**
  * @brief RTSP帧回调函数（重构版本，使用C++容器）
- * @note 保持I帧优先处理逻辑
+ * @param frame live555提供的帧输出缓冲和流上下文
+ * @return OK：处理完成；ERR_PARAM_NULL：回调参数为空
+ * @note FrameData 始终按完整 VENC pack 处理；多包模式的独立参数集逐个发送，单包模式
+ *       的 SPS/PPS/SEI/IDR 复合 buffer不拆分。H.264/H.265发送完整关键 pack、MJPEG发送
+ *       一个完整独立帧后，才结束首帧等待。
  */
 int rtspFrameCall(Fream_Info_t* frame)
 {
@@ -171,36 +537,51 @@ int rtspFrameCall(Fream_Info_t* frame)
         /* 视频帧处理 */
         if (pStreamInfo->requestIFrame == 1)
         {
-            /* 当前处于"必须发送I帧"的模式 */
+            /* 当前处于“必须发送可启动解码的完整帧”的模式。 */
             frame->frameSize = 0;
-            frame->iFrame = 0;
+            frame->iFrame = FRAME_MARKER_NON_KEY;
 
-            /* 循环查找I帧 */
+            /*
+             * 丢弃旧普通 pack，保留多包模式中独立参数集的顺序输出；参数集本身不能
+             * 清除 requestIFrame，否则后续 IDR 可能缺少解码参数。单包复合 buffer 已在
+             * 入队时标成关键 pack，此处会一次复制完整 buffer，不会拆出其中的参数集。
+             */
             while (!pStreamInfo->videoQueue->empty())
             {
                 auto videoFrame = pStreamInfo->videoQueue->pop();
                 if (videoFrame)
                 {
-                    if (videoFrame->iFrame == 1)
+                    if (videoFrame->iFrame == FRAME_MARKER_KEYFRAME ||
+                        videoFrame->iFrame == FRAME_MARKER_INDEPENDENT_FRAME)
                     {
-                        /* 找到了I帧，发送它并退出特殊模式 */
+                        /* 关键 pack或MJPEG独立帧都能启动新客户端，整体发送并退出特殊模式。 */
                         memcpy(frame->data, videoFrame->data.get(), videoFrame->frameSize);
                         frame->frameSize = videoFrame->frameSize;
-                        frame->iFrame = videoFrame->iFrame;
+                        /* 对外保持原有0/1兼容语义，MJPEG独立帧仍报告为1。 */
+                        frame->iFrame = FRAME_MARKER_KEYFRAME;
 
-                        /* 重置I帧请求标志，恢复正常发送模式 */
+                        /* 只有完整关键 pack或MJPEG独立帧已交给live555后才重置请求标志。 */
                         pStreamInfo->requestIFrame = 0;
-                        dlog_debug("I帧已找到并发送给新客户端.");
+                        break;
+                    }
+                    else if (videoFrame->iFrame == FRAME_MARKER_PARAMETER_SET)
+                    {
+                        /*
+                         * 仅多包模式下，输入本身是独立参数集 pack时才走这里；作为一个
+                         * 完整 pack交给 framer，保持其与后续 IDR 的顺序关系。
+                         */
+                        memcpy(frame->data, videoFrame->data.get(), videoFrame->frameSize);
+                        frame->frameSize = videoFrame->frameSize;
+                        frame->iFrame = FRAME_MARKER_NON_KEY;
                         break;
                     }
                     else
                     {
-                        /* 这不是I帧，丢弃它（自动释放） */
-                        dlog_debug("在等待I帧期间丢弃非I帧");
+                        /* 普通 pack 在等待关键 pack期间丢弃，自动释放其完整 buffer。 */
                     }
                 }
             }
-            /* 如果循环结束时仍未找到I帧，本次调用返回空帧，等待下一次被调用 */
+            /* 如果循环结束时仍未找到可启动解码的完整帧，本次调用返回空帧，等待下一次被调用。 */
         }
         else
         {
@@ -210,7 +591,11 @@ int rtspFrameCall(Fream_Info_t* frame)
             {
                 memcpy(frame->data, videoFrame->data.get(), videoFrame->frameSize);
                 frame->frameSize = videoFrame->frameSize;
-                frame->iFrame = videoFrame->iFrame;
+                /* Fream_Info_t只保留0/1兼容语义，独立参数集为0，MJPEG独立帧保持旧版1。 */
+                frame->iFrame = (videoFrame->iFrame == FRAME_MARKER_KEYFRAME ||
+                                 videoFrame->iFrame == FRAME_MARKER_INDEPENDENT_FRAME)
+                                    ? FRAME_MARKER_KEYFRAME
+                                    : FRAME_MARKER_NON_KEY;
                 /* videoFrame 在作用域结束时自动释放 */
             }
             else
@@ -622,7 +1007,8 @@ IpcRet_E CRtspServer::init()
         strcpy(m_pLiveInfo->listLive[i]->ip, "127.0.0.1");
         /* 创建线程安全的帧队列 */
         m_pLiveInfo->listLive[i]->videoQueue = std::make_unique<CThreadSafeFrameQueue>(RTSP_VIDEO_QUEUE_DEPTH,
-                                                                                       m_unVideoQueueMaxBytes[i]);
+                                                                                       m_unVideoQueueMaxBytes[i],
+                                                                                       true);
         m_pLiveInfo->listLive[i]->audioQueue = std::make_unique<CThreadSafeFrameQueue>(RTSP_AUDIO_QUEUE_DEPTH,
                                                                                        RTSP_AUDIO_QUEUE_MAX_BYTES);
 
@@ -807,24 +1193,12 @@ int CRtspServer::sendVideoData(int nChannel,
         return ERR;
     }
 
+#if RTSP_FRAME_SIZE_STAT_ENABLE
+    record_rtsp_frame_size(RtspFrameSizeStatMedia_E::VIDEO, nChannel, static_cast<std::size_t>(nDataLen));
+#endif
+
     int nRet = OK;
     Live_Stream_Info_t* pStreamInfo = m_pLiveInfo->listLive[nChannel];
-
-    if (pStreamInfo->requestIFrame == 1 && nDataLen >= 6)
-    {
-        dlog_warn("RTSP等待关键帧 chn:%d codec:%d nal:%d len:%d "
-                  "head:%02x %02x %02x %02x %02x %02x",
-                  nChannel,
-                  static_cast<int>(enVideoCodec),
-                  static_cast<int>(eType),
-                  nDataLen,
-                  pData[0],
-                  pData[1],
-                  pData[2],
-                  pData[3],
-                  pData[4],
-                  pData[5]);
-    }
 
     if (pStreamInfo->request == 1)
     {
@@ -848,19 +1222,8 @@ int CRtspServer::sendVideoData(int nChannel,
         /* memory: 只在RTSP有界队列入队前复制一次，不保存VENC原始指针。 */
         memcpy(frameData->data.get(), pData, nDataLen);
 
-        /* 判断是否为I帧 */
-        if (enVideoCodec == Video_NS::VideoCodec_E::H264)
-        {
-            frameData->iFrame = (eType == Video_NS::H264_TYPE_SPS) ? 1 : 0;
-        }
-        else if (enVideoCodec == Video_NS::VideoCodec_E::H265)
-        {
-            frameData->iFrame = (eType == Video_NS::H265_TYPE_VPS) ? 1 : 0;
-        }
-        else if (enVideoCodec == Video_NS::VideoCodec_E::MJPEG)
-        {
-            frameData->iFrame = 1;
-        }
+        /* 按完整 VENC pack 判定关键性；单包复合 buffer 不拆分，多包独立参数集单独标记。 */
+        frameData->iFrame = get_rtsp_frame_marker(enVideoCodec, eType, pData, nDataLen);
 
         /* 入队（队列满时丢帧，智能指针自动释放） */
         if (!pStreamInfo->videoQueue->push(std::move(frameData)))
@@ -896,24 +1259,12 @@ int CRtspServer::sendVideoData(int nChannel,
     const uint8_t *pData = stSharedFrame.pData.get();
     const int nDataLen = stSharedFrame.nLen;
 
+#if RTSP_FRAME_SIZE_STAT_ENABLE
+    record_rtsp_frame_size(RtspFrameSizeStatMedia_E::VIDEO, nChannel, static_cast<std::size_t>(nDataLen));
+#endif
+
     int nRet = OK;
     Live_Stream_Info_t *pStreamInfo = m_pLiveInfo->listLive[nChannel];
-
-    if (pStreamInfo->requestIFrame == 1 && nDataLen >= 6)
-    {
-        dlog_warn("RTSP等待关键帧 chn:%d codec:%d nal:%d len:%d "
-                  "head:%02x %02x %02x %02x %02x %02x",
-                  nChannel,
-                  static_cast<int>(enVideoCodec),
-                  static_cast<int>(eType),
-                  nDataLen,
-                  pData[0],
-                  pData[1],
-                  pData[2],
-                  pData[3],
-                  pData[4],
-                  pData[5]);
-    }
 
     if (pStreamInfo->request == 1)
     {
@@ -930,19 +1281,8 @@ int CRtspServer::sendVideoData(int nChannel,
         frameData->type = VIDEO_TYPE;
         frameData->frameSize = nDataLen;
 
-        /* 判断是否为I帧 */
-        if (enVideoCodec == Video_NS::VideoCodec_E::H264)
-        {
-            frameData->iFrame = (eType == Video_NS::H264_TYPE_SPS) ? 1 : 0;
-        }
-        else if (enVideoCodec == Video_NS::VideoCodec_E::H265)
-        {
-            frameData->iFrame = (eType == Video_NS::H265_TYPE_VPS) ? 1 : 0;
-        }
-        else if (enVideoCodec == Video_NS::VideoCodec_E::MJPEG)
-        {
-            frameData->iFrame = 1;
-        }
+        /* 与独立 buffer 路径保持相同的完整 pack 判定和所有权契约。 */
+        frameData->iFrame = get_rtsp_frame_marker(enVideoCodec, eType, pData, nDataLen);
 
         /* 入队（队列满时丢帧，智能指针自动释放） */
         if (!pStreamInfo->videoQueue->push(std::move(frameData)))
@@ -972,6 +1312,10 @@ int CRtspServer::sendAudioData(int nChannel, Audio_NS::AudioFrame_S* pAudioFrame
     {
         return ERR;
     }
+
+#if RTSP_FRAME_SIZE_STAT_ENABLE
+    record_rtsp_frame_size(RtspFrameSizeStatMedia_E::AUDIO, nChannel, static_cast<std::size_t>(pAudioFrame->nLen));
+#endif
 
     int nRet = OK;
     Live_Stream_Info_t* pStreamInfo = m_pLiveInfo->listLive[nChannel];
@@ -1155,15 +1499,34 @@ int CRtspServer::setQosDscp(const int& nDscp)
 
 char* CRtspServer::getRtspUrl(int nChn, bool bAuth)
 {
+    /* 返回副本而不是内部对象地址，避免解锁后 reboot() 释放/改写内部缓冲区。 */
+    thread_local std::string strRtspUrl;
+
     if (nChn < RTSP_CHN_MAIN || nChn >= RTSP_CHN_MAX)
     {
+        strRtspUrl.clear();
         dlog_error("Rtsp通道号错误");
         return nullptr;
     }
 
+    /* 与 reboot()/deinit() 共用控制锁，避免检查完成后流对象被并发释放。 */
+    std::lock_guard<std::mutex> lock(m_mutexCtrl);
+
     if (!m_bInitFlag.load())
     {
+        strRtspUrl.clear();
         dlog_error("Rtsp未初始化");
+        return nullptr;
+    }
+
+    /* 初始化标志与运行时对象必须同时有效，避免网络切换/异常初始化时解引用空指针。 */
+    if (m_pLiveInfo == nullptr || m_pLiveInfo->listLive[nChn] == nullptr)
+    {
+        strRtspUrl.clear();
+        dlog_error("Rtsp运行时对象为空 chn:%d liveInfo:%p streamInfo:%p",
+                   nChn,
+                   static_cast<void*>(m_pLiveInfo),
+                   m_pLiveInfo == nullptr ? nullptr : static_cast<void*>(m_pLiveInfo->listLive[nChn]));
         return nullptr;
     }
 
@@ -1181,7 +1544,13 @@ char* CRtspServer::getRtspUrl(int nChn, bool bAuth)
 
     if (bAuth)
     {
-        return m_rtspUrlMap[nChn].data();
+        if (m_rtspUrlMap.find(nChn) == m_rtspUrlMap.end() || m_rtspUrlMap[nChn].empty())
+        {
+            strRtspUrl.clear();
+            dlog_error("Rtsp鉴权URL为空 chn:%d", nChn);
+            return nullptr;
+        }
+        strRtspUrl = m_rtspUrlMap[nChn];
     }
     else
     {
@@ -1189,11 +1558,15 @@ char* CRtspServer::getRtspUrl(int nChn, bool bAuth)
         {
         default:
         case RTSP_CHN_MAIN:
-            return m_pLiveInfo->listLive[RTSP_CHN_MAIN]->achUrl;
+            strRtspUrl = m_pLiveInfo->listLive[RTSP_CHN_MAIN]->achUrl;
+            break;
         case RTSP_CHN_SUB:
-            return m_pLiveInfo->listLive[RTSP_CHN_SUB]->achUrl;
+            strRtspUrl = m_pLiveInfo->listLive[RTSP_CHN_SUB]->achUrl;
+            break;
         }
     }
+
+    return strRtspUrl.empty() ? nullptr : strRtspUrl.data();
 }
 
 int CRtspServer::setRequestIdrCallback(const RequestIdrCallback& callback, void* pUserData)

@@ -38,6 +38,14 @@ int executeGetAudioCapCb(INT32 nChannelId, pNET_AudioCap_S pCap);
  */
 int executeGetOsdCapCb(INT32 nChannelId, pNET_OsdCap_S pCap);
 
+/**
+ * @brief 执行系统能力总表回调 (NET_CAP_SYS)
+ * @param [IN]  nChannelId  通道号
+ * @param [OUT] pCap         系统能力总表结构体指针
+ * @return NET_E_SUCCEED 成功, 其他值失败
+ */
+int executeGetSysCapCb(INT32 nChannelId, pNET_SysCapability_S pCap);
+
 // ==================== 后续扩展能力集执行接口 ====================
 // int executeGetOsdCapCb(...);
 // int executeGetSmartCapCb(...);

@@ -40,6 +40,9 @@ static bool IsDeviceLevelCommand(INT32 nCommand)
         case NET_GET_REGISTERINFO:
         case NET_SET_REGISTERINFO:
         case NET_CONTROL_REBOOT:
+        case NET_CONTROL_SHUTDOWN:
+        case NET_CONTROL_FORMAT_DISK:
+        case NET_GET_DEVICE_STATUS:
         case NET_GET_OUT_VOLUME:
         case NET_SET_OUT_VOLUME:
         case NET_GET_STORAGE_INFO:

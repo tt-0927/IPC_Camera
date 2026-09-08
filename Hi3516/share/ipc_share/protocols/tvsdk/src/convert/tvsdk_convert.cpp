@@ -2454,6 +2454,11 @@ void FillManholeCoverAbnormalCfg(const Alarm::ManholeCoverAbnormalDetection_S &s
     dst.stRule.nSensitivity = (INT32)src.stRule.nSensitivity;
     FillSingleRuleAlarmSchedule(src.aAlarmTime, dst.stAlarmSchedule);
     FillLinkageList(src.stLinkageList, dst.stLinkageList);
+    
+    /* 返回默认全屏区域 */
+    dst.uPointCount = 4;
+    dst.afPointX[0] = 0.0f; dst.afPointX[1] = 1920.0f; dst.afPointX[2] = 1920.0f; dst.afPointX[3] = 0.0f;
+    dst.afPointY[0] = 0.0f; dst.afPointY[1] = 0.0f; dst.afPointY[2] = 1080.0f; dst.afPointY[3] = 1080.0f;
 }
 
 void ToManholeCoverAbnormal(const NET_ManholeCoverAbnormalCfg_S &src, Alarm::ManholeCoverAbnormalDetection_S &dst)
@@ -2462,6 +2467,7 @@ void ToManholeCoverAbnormal(const NET_ManholeCoverAbnormalCfg_S &src, Alarm::Man
     dst.stRule.nSensitivity = (unsigned int)src.stRule.nSensitivity;
     ToSingleRuleAlarmSchedule(src.stAlarmSchedule, dst.aAlarmTime);
     ToLinkageList(src.stLinkageList, dst.stLinkageList);
+    /* 接收区域字段但不使用（IPC业务不处理区域） */
 }
 
 void FillSleepOnDutyCfg(const Alarm::SleepOnDutyDetection_S &src, NET_SleepOnDutyCfg_S &dst)
@@ -2471,6 +2477,11 @@ void FillSleepOnDutyCfg(const Alarm::SleepOnDutyDetection_S &src, NET_SleepOnDut
     dst.stRule.nSensitivity = (INT32)src.stRule.nSensitivity;
     FillSingleRuleAlarmSchedule(src.aAlarmTime, dst.stAlarmSchedule);
     FillLinkageList(src.stLinkageList, dst.stLinkageList);
+
+    /* 返回默认全屏区域 */
+    dst.uPointCount = 4;
+    dst.afPointX[0] = 0.0f; dst.afPointX[1] = 1920.0f; dst.afPointX[2] = 1920.0f; dst.afPointX[3] = 0.0f;
+    dst.afPointY[0] = 0.0f; dst.afPointY[1] = 0.0f; dst.afPointY[2] = 1080.0f; dst.afPointY[3] = 1080.0f;
 }
 
 void ToSleepOnDuty(const NET_SleepOnDutyCfg_S &src, Alarm::SleepOnDutyDetection_S &dst)
@@ -2479,6 +2490,8 @@ void ToSleepOnDuty(const NET_SleepOnDutyCfg_S &src, Alarm::SleepOnDutyDetection_
     dst.stRule.nSensitivity = (unsigned int)src.stRule.nSensitivity;
     ToSingleRuleAlarmSchedule(src.stAlarmSchedule, dst.aAlarmTime);
     ToLinkageList(src.stLinkageList, dst.stLinkageList);
+
+    /* 接收区域字段但不使用（IPC业务不处理区域） */
 }
 
 void FillElectricVehicleInElevatorCfg(const Alarm::ElectricScooterDetection_S &src, NET_ElectricVehicleInElevatorCfg_S &dst)
@@ -2488,6 +2501,11 @@ void FillElectricVehicleInElevatorCfg(const Alarm::ElectricScooterDetection_S &s
     dst.stRule.nSensitivity = (INT32)src.stRule.nSensitivity;
     FillSingleRuleAlarmSchedule(src.aAlarmTime, dst.stAlarmSchedule);
     FillLinkageList(src.stLinkageList, dst.stLinkageList);
+
+    /* 返回默认全屏区域 */
+    dst.uPointCount = 4;
+    dst.afPointX[0] = 0.0f; dst.afPointX[1] = 1920.0f; dst.afPointX[2] = 1920.0f; dst.afPointX[3] = 0.0f;
+    dst.afPointY[0] = 0.0f; dst.afPointY[1] = 0.0f; dst.afPointY[2] = 1080.0f; dst.afPointY[3] = 1080.0f;
 }
 
 void ToElectricVehicleInElevator(const NET_ElectricVehicleInElevatorCfg_S &src, Alarm::ElectricScooterDetection_S &dst)
@@ -2496,6 +2514,8 @@ void ToElectricVehicleInElevator(const NET_ElectricVehicleInElevatorCfg_S &src, 
     dst.stRule.nSensitivity = (unsigned int)src.stRule.nSensitivity;
     ToSingleRuleAlarmSchedule(src.stAlarmSchedule, dst.aAlarmTime);
     ToLinkageList(src.stLinkageList, dst.stLinkageList);
+
+    /* 接收区域字段但不使用（IPC业务不处理区域） */
 }
 
 void FillPersonFallDownCfg(const Alarm::PersonFallDownDetection_S &src, NET_PersonFallDownCfg_S &dst)
@@ -2505,6 +2525,11 @@ void FillPersonFallDownCfg(const Alarm::PersonFallDownDetection_S &src, NET_Pers
     dst.stRule.nSensitivity = (INT32)src.stRule.nSensitivity;
     FillSingleRuleAlarmSchedule(src.aAlarmTime, dst.stAlarmSchedule);
     FillLinkageList(src.stLinkageList, dst.stLinkageList);
+
+    /* 返回默认全屏区域 */
+    dst.uPointCount = 4;
+    dst.afPointX[0] = 0.0f; dst.afPointX[1] = 1920.0f; dst.afPointX[2] = 1920.0f; dst.afPointX[3] = 0.0f;
+    dst.afPointY[0] = 0.0f; dst.afPointY[1] = 0.0f; dst.afPointY[2] = 1080.0f; dst.afPointY[3] = 1080.0f;
 }
 
 void ToPersonFallDown(const NET_PersonFallDownCfg_S &src, Alarm::PersonFallDownDetection_S &dst)
@@ -2513,6 +2538,8 @@ void ToPersonFallDown(const NET_PersonFallDownCfg_S &src, Alarm::PersonFallDownD
     dst.stRule.nSensitivity = (unsigned int)src.stRule.nSensitivity;
     ToSingleRuleAlarmSchedule(src.stAlarmSchedule, dst.aAlarmTime);
     ToLinkageList(src.stLinkageList, dst.stLinkageList);
+
+    /* 接收区域字段但不使用（IPC业务不处理区域） */
 }
 
 void FillConstructionOccupyRoadCfg(const Alarm::ConstructionEncroachmentRoadDetection_S &src, NET_ConstructionOccupyRoadCfg_S &dst)
@@ -2522,6 +2549,11 @@ void FillConstructionOccupyRoadCfg(const Alarm::ConstructionEncroachmentRoadDete
     dst.stRule.nSensitivity = (INT32)src.stRule.nSensitivity;
     FillSingleRuleAlarmSchedule(src.aAlarmTime, dst.stAlarmSchedule);
     FillLinkageList(src.stLinkageList, dst.stLinkageList);
+
+    /* 返回默认全屏区域 */
+    dst.uPointCount = 4;
+    dst.afPointX[0] = 0.0f; dst.afPointX[1] = 1920.0f; dst.afPointX[2] = 1920.0f; dst.afPointX[3] = 0.0f;
+    dst.afPointY[0] = 0.0f; dst.afPointY[1] = 0.0f; dst.afPointY[2] = 1080.0f; dst.afPointY[3] = 1080.0f;
 }
 
 void ToConstructionOccupyRoad(const NET_ConstructionOccupyRoadCfg_S &src, Alarm::ConstructionEncroachmentRoadDetection_S &dst)
@@ -2530,6 +2562,8 @@ void ToConstructionOccupyRoad(const NET_ConstructionOccupyRoadCfg_S &src, Alarm:
     dst.stRule.nSensitivity = (unsigned int)src.stRule.nSensitivity;
     ToSingleRuleAlarmSchedule(src.stAlarmSchedule, dst.aAlarmTime);
     ToLinkageList(src.stLinkageList, dst.stLinkageList);
+
+    /* 接收区域字段但不使用（IPC业务不处理区域） */
 }
 
 void FillCongestionCfg(const Alarm::CongestionDetection_S &src, NET_CongestionCfg_S &dst)
@@ -2539,6 +2573,11 @@ void FillCongestionCfg(const Alarm::CongestionDetection_S &src, NET_CongestionCf
     dst.stRule.nSensitivity = (INT32)src.stRule.nSensitivity;
     FillSingleRuleAlarmSchedule(src.aAlarmTime, dst.stAlarmSchedule);
     FillLinkageList(src.stLinkageList, dst.stLinkageList);
+
+    /* 返回默认全屏区域 */
+    dst.uPointCount = 4;
+    dst.afPointX[0] = 0.0f; dst.afPointX[1] = 1920.0f; dst.afPointX[2] = 1920.0f; dst.afPointX[3] = 0.0f;
+    dst.afPointY[0] = 0.0f; dst.afPointY[1] = 0.0f; dst.afPointY[2] = 1080.0f; dst.afPointY[3] = 1080.0f;
 }
 
 void ToCongestion(const NET_CongestionCfg_S &src, Alarm::CongestionDetection_S &dst)
@@ -2547,6 +2586,8 @@ void ToCongestion(const NET_CongestionCfg_S &src, Alarm::CongestionDetection_S &
     dst.stRule.nSensitivity = (unsigned int)src.stRule.nSensitivity;
     ToSingleRuleAlarmSchedule(src.stAlarmSchedule, dst.aAlarmTime);
     ToLinkageList(src.stLinkageList, dst.stLinkageList);
+
+    /* 接收区域字段但不使用（IPC业务不处理区域） */
 }
 
 void FillLicensePlateRecognitionCfg(const Alarm::LicensePlateCognitionDetection_S &src, NET_LicensePlateRecognitionCfg_S &dst)
@@ -2556,6 +2597,11 @@ void FillLicensePlateRecognitionCfg(const Alarm::LicensePlateCognitionDetection_
     dst.stRule.nSensitivity = (INT32)src.stRule.nSensitivity;
     FillSingleRuleAlarmSchedule(src.aAlarmTime, dst.stAlarmSchedule);
     FillLinkageList(src.stLinkageList, dst.stLinkageList);
+
+    /* 返回默认全屏区域 */
+    dst.uPointCount = 4;
+    dst.afPointX[0] = 0.0f; dst.afPointX[1] = 1920.0f; dst.afPointX[2] = 1920.0f; dst.afPointX[3] = 0.0f;
+    dst.afPointY[0] = 0.0f; dst.afPointY[1] = 0.0f; dst.afPointY[2] = 1080.0f; dst.afPointY[3] = 1080.0f;
 }
 
 void ToLicensePlateRecognition(const NET_LicensePlateRecognitionCfg_S &src, Alarm::LicensePlateCognitionDetection_S &dst)
@@ -2564,6 +2610,8 @@ void ToLicensePlateRecognition(const NET_LicensePlateRecognitionCfg_S &src, Alar
     dst.stRule.nSensitivity = (unsigned int)src.stRule.nSensitivity;
     ToSingleRuleAlarmSchedule(src.stAlarmSchedule, dst.aAlarmTime);
     ToLinkageList(src.stLinkageList, dst.stLinkageList);
+
+    /* 接收区域字段但不使用（IPC业务不处理区域） */
 }
 
 void FillHighAltitudeSeatbeltCfg(const Alarm::HighAltitudeSeatbeltDetection_S &src, NET_HighAltitudeSeatbeltCfg_S &dst)
@@ -2573,6 +2621,11 @@ void FillHighAltitudeSeatbeltCfg(const Alarm::HighAltitudeSeatbeltDetection_S &s
     dst.stRule.nSensitivity = (INT32)src.stRule.nSensitivity;
     FillSingleRuleAlarmSchedule(src.aAlarmTime, dst.stAlarmSchedule);
     FillLinkageList(src.stLinkageList, dst.stLinkageList);
+
+    /* 返回默认全屏区域 */
+    dst.uPointCount = 4;
+    dst.afPointX[0] = 0.0f; dst.afPointX[1] = 1920.0f; dst.afPointX[2] = 1920.0f; dst.afPointX[3] = 0.0f;
+    dst.afPointY[0] = 0.0f; dst.afPointY[1] = 0.0f; dst.afPointY[2] = 1080.0f; dst.afPointY[3] = 1080.0f;
 }
 
 void ToHighAltitudeSeatbelt(const NET_HighAltitudeSeatbeltCfg_S &src, Alarm::HighAltitudeSeatbeltDetection_S &dst)
@@ -2581,6 +2634,8 @@ void ToHighAltitudeSeatbelt(const NET_HighAltitudeSeatbeltCfg_S &src, Alarm::Hig
     dst.stRule.nSensitivity = (unsigned int)src.stRule.nSensitivity;
     ToSingleRuleAlarmSchedule(src.stAlarmSchedule, dst.aAlarmTime);
     ToLinkageList(src.stLinkageList, dst.stLinkageList);
+
+    /* 接收区域字段但不使用（IPC业务不处理区域） */
 }
 
 void FillSafetyHelmetCfg(const Alarm::SafetyHelmetDection_S &src, NET_SafetyHelmetCfg_S &dst)
@@ -2590,6 +2645,11 @@ void FillSafetyHelmetCfg(const Alarm::SafetyHelmetDection_S &src, NET_SafetyHelm
     dst.stRule.nSensitivity = (INT32)src.stRule.nSensitivity;
     FillSingleRuleAlarmSchedule(src.aAlarmTime, dst.stAlarmSchedule);
     FillLinkageList(src.stLinkageList, dst.stLinkageList);
+
+    /* 返回默认全屏区域 */
+    dst.uPointCount = 4;
+    dst.afPointX[0] = 0.0f; dst.afPointX[1] = 1920.0f; dst.afPointX[2] = 1920.0f; dst.afPointX[3] = 0.0f;
+    dst.afPointY[0] = 0.0f; dst.afPointY[1] = 0.0f; dst.afPointY[2] = 1080.0f; dst.afPointY[3] = 1080.0f;
 }
 
 void ToSafetyHelmet(const NET_SafetyHelmetCfg_S &src, Alarm::SafetyHelmetDection_S &dst)
@@ -2598,6 +2658,8 @@ void ToSafetyHelmet(const NET_SafetyHelmetCfg_S &src, Alarm::SafetyHelmetDection
     dst.stRule.nSensitivity = (unsigned int)src.stRule.nSensitivity;
     ToSingleRuleAlarmSchedule(src.stAlarmSchedule, dst.aAlarmTime);
     ToLinkageList(src.stLinkageList, dst.stLinkageList);
+
+    /* 接收区域字段但不使用（IPC业务不处理区域） */
 }
 
 void FillPersonFallCfg(const Alarm::TripDetection_S &src, NET_PersonFallCfg_S &dst)
@@ -2607,6 +2669,11 @@ void FillPersonFallCfg(const Alarm::TripDetection_S &src, NET_PersonFallCfg_S &d
     dst.stRule.nSensitivity = (INT32)src.stRule.nSensitivity;
     FillSingleRuleAlarmSchedule(src.aAlarmTime, dst.stAlarmSchedule);
     FillLinkageList(src.stLinkageList, dst.stLinkageList);
+
+    /* 返回默认全屏区域 */
+    dst.uPointCount = 4;
+    dst.afPointX[0] = 0.0f; dst.afPointX[1] = 1920.0f; dst.afPointX[2] = 1920.0f; dst.afPointX[3] = 0.0f;
+    dst.afPointY[0] = 0.0f; dst.afPointY[1] = 0.0f; dst.afPointY[2] = 1080.0f; dst.afPointY[3] = 1080.0f;
 }
 
 void ToPersonFall(const NET_PersonFallCfg_S &src, Alarm::TripDetection_S &dst)
@@ -2615,6 +2682,8 @@ void ToPersonFall(const NET_PersonFallCfg_S &src, Alarm::TripDetection_S &dst)
     dst.stRule.nSensitivity = (unsigned int)src.stRule.nSensitivity;
     ToSingleRuleAlarmSchedule(src.stAlarmSchedule, dst.aAlarmTime);
     ToLinkageList(src.stLinkageList, dst.stLinkageList);
+
+    /* 接收区域字段但不使用（IPC业务不处理区域） */
 }
 
 void FillPhoneUsageCfg(const Alarm::PhoneUsageDetection_S &src, NET_PhoneUsageCfg_S &dst)
@@ -2624,6 +2693,11 @@ void FillPhoneUsageCfg(const Alarm::PhoneUsageDetection_S &src, NET_PhoneUsageCf
     dst.stRule.nSensitivity = (INT32)src.stRule.nSensitivity;
     FillSingleRuleAlarmSchedule(src.aAlarmTime, dst.stAlarmSchedule);
     FillLinkageList(src.stLinkageList, dst.stLinkageList);
+
+    /* 返回默认全屏区域 */
+    dst.uPointCount = 4;
+    dst.afPointX[0] = 0.0f; dst.afPointX[1] = 1920.0f; dst.afPointX[2] = 1920.0f; dst.afPointX[3] = 0.0f;
+    dst.afPointY[0] = 0.0f; dst.afPointY[1] = 0.0f; dst.afPointY[2] = 1080.0f; dst.afPointY[3] = 1080.0f;
 }
 
 void ToPhoneUsage(const NET_PhoneUsageCfg_S &src, Alarm::PhoneUsageDetection_S &dst)
@@ -2632,6 +2706,8 @@ void ToPhoneUsage(const NET_PhoneUsageCfg_S &src, Alarm::PhoneUsageDetection_S &
     dst.stRule.nSensitivity = (unsigned int)src.stRule.nSensitivity;
     ToSingleRuleAlarmSchedule(src.stAlarmSchedule, dst.aAlarmTime);
     ToLinkageList(src.stLinkageList, dst.stLinkageList);
+
+    /* 接收区域字段但不使用（IPC业务不处理区域） */
 }
 
 void FillSmokingCfg(const Alarm::SmokingDection_S &src, NET_SmokingCfg_S &dst)
@@ -2641,6 +2717,11 @@ void FillSmokingCfg(const Alarm::SmokingDection_S &src, NET_SmokingCfg_S &dst)
     dst.stRule.nSensitivity = (INT32)src.stRule.nSensitivity;
     FillSingleRuleAlarmSchedule(src.aAlarmTime, dst.stAlarmSchedule);
     FillLinkageList(src.stLinkageList, dst.stLinkageList);
+
+    /* 返回默认全屏区域 */
+    dst.uPointCount = 4;
+    dst.afPointX[0] = 0.0f; dst.afPointX[1] = 1920.0f; dst.afPointX[2] = 1920.0f; dst.afPointX[3] = 0.0f;
+    dst.afPointY[0] = 0.0f; dst.afPointY[1] = 0.0f; dst.afPointY[2] = 1080.0f; dst.afPointY[3] = 1080.0f;
 }
 
 void ToSmoking(const NET_SmokingCfg_S &src, Alarm::SmokingDection_S &dst)
@@ -2649,6 +2730,8 @@ void ToSmoking(const NET_SmokingCfg_S &src, Alarm::SmokingDection_S &dst)
     dst.stRule.nSensitivity = (unsigned int)src.stRule.nSensitivity;
     ToSingleRuleAlarmSchedule(src.stAlarmSchedule, dst.aAlarmTime);
     ToLinkageList(src.stLinkageList, dst.stLinkageList);
+
+    /* 接收区域字段但不使用（IPC业务不处理区域） */
 }
 
 void FillOpenFlameCfg(const Alarm::OpenFlameDetection_S &src, NET_OpenFlameCfg_S &dst)
@@ -2658,6 +2741,11 @@ void FillOpenFlameCfg(const Alarm::OpenFlameDetection_S &src, NET_OpenFlameCfg_S
     dst.stRule.nSensitivity = (INT32)src.stRule.nSensitivity;
     FillSingleRuleAlarmSchedule(src.aAlarmTime, dst.stAlarmSchedule);
     FillLinkageList(src.stLinkageList, dst.stLinkageList);
+
+    /* 返回默认全屏区域 */
+    dst.uPointCount = 4;
+    dst.afPointX[0] = 0.0f; dst.afPointX[1] = 1920.0f; dst.afPointX[2] = 1920.0f; dst.afPointX[3] = 0.0f;
+    dst.afPointY[0] = 0.0f; dst.afPointY[1] = 0.0f; dst.afPointY[2] = 1080.0f; dst.afPointY[3] = 1080.0f;
 }
 
 void ToOpenFlame(const NET_OpenFlameCfg_S &src, Alarm::OpenFlameDetection_S &dst)
@@ -2666,6 +2754,8 @@ void ToOpenFlame(const NET_OpenFlameCfg_S &src, Alarm::OpenFlameDetection_S &dst
     dst.stRule.nSensitivity = (unsigned int)src.stRule.nSensitivity;
     ToSingleRuleAlarmSchedule(src.stAlarmSchedule, dst.aAlarmTime);
     ToLinkageList(src.stLinkageList, dst.stLinkageList);
+
+    /* 接收区域字段但不使用（IPC业务不处理区域） */
 }
 
 void FillBareSoilCfg(const Alarm::BareSoiletDection_S &src, NET_BareSoilCfg_S &dst)
@@ -2675,6 +2765,11 @@ void FillBareSoilCfg(const Alarm::BareSoiletDection_S &src, NET_BareSoilCfg_S &d
     dst.stRule.nSensitivity = (INT32)src.stRule.nSensitivity;
     FillSingleRuleAlarmSchedule(src.aAlarmTime, dst.stAlarmSchedule);
     FillLinkageList(src.stLinkageList, dst.stLinkageList);
+
+    /* 返回默认全屏区域 */
+    dst.uPointCount = 4;
+    dst.afPointX[0] = 0.0f; dst.afPointX[1] = 1920.0f; dst.afPointX[2] = 1920.0f; dst.afPointX[3] = 0.0f;
+    dst.afPointY[0] = 0.0f; dst.afPointY[1] = 0.0f; dst.afPointY[2] = 1080.0f; dst.afPointY[3] = 1080.0f;
 }
 
 void ToBareSoil(const NET_BareSoilCfg_S &src, Alarm::BareSoiletDection_S &dst)
@@ -2683,6 +2778,8 @@ void ToBareSoil(const NET_BareSoilCfg_S &src, Alarm::BareSoiletDection_S &dst)
     dst.stRule.nSensitivity = (unsigned int)src.stRule.nSensitivity;
     ToSingleRuleAlarmSchedule(src.stAlarmSchedule, dst.aAlarmTime);
     ToLinkageList(src.stLinkageList, dst.stLinkageList);
+
+    /* 接收区域字段但不使用（IPC业务不处理区域） */
 }
 
 void FillHoleProtectionBarCfg(const Alarm::HoleProtectionBarDection_S &src, NET_HoleProtectionBarCfg_S &dst)
@@ -2692,6 +2789,11 @@ void FillHoleProtectionBarCfg(const Alarm::HoleProtectionBarDection_S &src, NET_
     dst.stRule.nSensitivity = (INT32)src.stRule.nSensitivity;
     FillSingleRuleAlarmSchedule(src.aAlarmTime, dst.stAlarmSchedule);
     FillLinkageList(src.stLinkageList, dst.stLinkageList);
+
+    /* 返回默认全屏区域 */
+    dst.uPointCount = 4;
+    dst.afPointX[0] = 0.0f; dst.afPointX[1] = 1920.0f; dst.afPointX[2] = 1920.0f; dst.afPointX[3] = 0.0f;
+    dst.afPointY[0] = 0.0f; dst.afPointY[1] = 0.0f; dst.afPointY[2] = 1080.0f; dst.afPointY[3] = 1080.0f;
 }
 
 void ToHoleProtectionBar(const NET_HoleProtectionBarCfg_S &src, Alarm::HoleProtectionBarDection_S &dst)
@@ -2700,6 +2802,8 @@ void ToHoleProtectionBar(const NET_HoleProtectionBarCfg_S &src, Alarm::HoleProte
     dst.stRule.nSensitivity = (unsigned int)src.stRule.nSensitivity;
     ToSingleRuleAlarmSchedule(src.stAlarmSchedule, dst.aAlarmTime);
     ToLinkageList(src.stLinkageList, dst.stLinkageList);
+
+    /* 接收区域字段但不使用（IPC业务不处理区域） */
 }
 
 void FillReflectiveClothingCfg(const Alarm::ReflectiveClothingDection_S &src, NET_ReflectiveClothingCfg_S &dst)
@@ -2709,6 +2813,11 @@ void FillReflectiveClothingCfg(const Alarm::ReflectiveClothingDection_S &src, NE
     dst.stRule.nSensitivity = (INT32)src.stRule.nSensitivity;
     FillSingleRuleAlarmSchedule(src.aAlarmTime, dst.stAlarmSchedule);
     FillLinkageList(src.stLinkageList, dst.stLinkageList);
+
+    /* 返回默认全屏区域 */
+    dst.uPointCount = 4;
+    dst.afPointX[0] = 0.0f; dst.afPointX[1] = 1920.0f; dst.afPointX[2] = 1920.0f; dst.afPointX[3] = 0.0f;
+    dst.afPointY[0] = 0.0f; dst.afPointY[1] = 0.0f; dst.afPointY[2] = 1080.0f; dst.afPointY[3] = 1080.0f;
 }
 
 void ToReflectiveClothing(const NET_ReflectiveClothingCfg_S &src, Alarm::ReflectiveClothingDection_S &dst)
@@ -2717,6 +2826,8 @@ void ToReflectiveClothing(const NET_ReflectiveClothingCfg_S &src, Alarm::Reflect
     dst.stRule.nSensitivity = (unsigned int)src.stRule.nSensitivity;
     ToSingleRuleAlarmSchedule(src.stAlarmSchedule, dst.aAlarmTime);
     ToLinkageList(src.stLinkageList, dst.stLinkageList);
+
+    /* 接收区域字段但不使用（IPC业务不处理区域） */
 }
 #endif
 
@@ -2874,6 +2985,8 @@ void ToDimission(const NET_DimissionInfo_S &src, Alarm::LeavePostDetection_S &ds
     }
     ToSingleRuleAlarmSchedule(src.stAlarmSchedule, dst.aAlarmTime);
     ToLinkageList(src.stLinkageList, dst.stLinkageList);
+
+    /* 接收区域字段但不使用（IPC业务不处理区域） */
 }
 
 void FillIllegalLaneInfo(const Alarm::IllegalLaneChangeDetection_S &src, NET_IllegalLaneInfo_S &dst)
@@ -2891,7 +3004,7 @@ void FillIllegalLaneInfo(const Alarm::IllegalLaneChangeDetection_S &src, NET_Ill
         out.fStartPosY = r.stStartPos.fY;
         out.fEndPosX = r.stEndPos.fX;
         out.fEndPosY = r.stEndPos.fY;
-        out.enCrossDirection = (INT32)r.enCrossDirection;
+        //out.enCrossDirection = (INT32)r.enCrossDirection;
         out.nSensitivity = (INT32)r.nSensitivity;
         dst.uRuleCount++;
     }
@@ -2909,7 +3022,7 @@ void ToIllegalLane(const NET_IllegalLaneInfo_S &src, Alarm::IllegalLaneChangeDet
         Alarm::IllegalLaneChangeRule_S out;
         out.stStartPos = {r.fStartPosX, r.fStartPosY};
         out.stEndPos = {r.fEndPosX, r.fEndPosY};
-        out.enCrossDirection = (Alarm::CrossDirection_E)r.enCrossDirection;
+        //out.enCrossDirection = (Alarm::CrossDirection_E)r.enCrossDirection;
         out.nSensitivity = (unsigned int)r.nSensitivity;
         dst.aRule.push_back(out);
     }
@@ -2938,6 +3051,7 @@ void FillRetrogradeInfo(const Alarm::DrivingAgainstTrafficDetection_S &src, NET_
     }
     FillSingleRuleAlarmSchedule(src.aAlarmTime, dst.stAlarmSchedule);
     FillLinkageList(src.stLinkageList, dst.stLinkageList);
+
 }
 
 void ToRetrograde(const NET_RetrogradeInfo_S &src, Alarm::DrivingAgainstTrafficDetection_S &dst)
@@ -2956,6 +3070,8 @@ void ToRetrograde(const NET_RetrogradeInfo_S &src, Alarm::DrivingAgainstTrafficD
     }
     ToSingleRuleAlarmSchedule(src.stAlarmSchedule, dst.aAlarmTime);
     ToLinkageList(src.stLinkageList, dst.stLinkageList);
+
+    /* 接收区域字段但不使用（IPC业务不处理区域） */
 }
 
 void FillNonmotorVehicleIntrusionInfo(const Alarm::NonMotorVehicleIntrusionDetection_S &src, NET_NonmotorVehicleIntrusionInfo_S &dst)
@@ -2995,6 +3111,8 @@ void ToNonmotorVehicleIntrusion(const NET_NonmotorVehicleIntrusionInfo_S &src, A
     }
     ToSingleRuleAlarmSchedule(src.stAlarmSchedule, dst.aAlarmTime);
     ToLinkageList(src.stLinkageList, dst.stLinkageList);
+
+    /* 接收区域字段但不使用（IPC业务不处理区域） */
 }
 
 void FillOccupationEmergencyInfo(const Alarm::EmergencyLaneOccupancyDetection_S &src, NET_OccupationEmergencyInfo_S &dst)
@@ -3016,6 +3134,7 @@ void FillOccupationEmergencyInfo(const Alarm::EmergencyLaneOccupancyDetection_S 
     }
     FillSingleRuleAlarmSchedule(src.aAlarmTime, dst.stAlarmSchedule);
     FillLinkageList(src.stLinkageList, dst.stLinkageList);
+
 }
 
 void ToOccupationEmergency(const NET_OccupationEmergencyInfo_S &src, Alarm::EmergencyLaneOccupancyDetection_S &dst)
@@ -3034,6 +3153,8 @@ void ToOccupationEmergency(const NET_OccupationEmergencyInfo_S &src, Alarm::Emer
     }
     ToSingleRuleAlarmSchedule(src.stAlarmSchedule, dst.aAlarmTime);
     ToLinkageList(src.stLinkageList, dst.stLinkageList);
+
+    /* 接收区域字段但不使用（IPC业务不处理区域） */
 }
 
 void FillPedestrianIntrusionInfo(const Alarm::PedestrianIntrusionDetection_S &src, NET_PedestrianIntrusionInfo_S &dst)
@@ -3055,6 +3176,7 @@ void FillPedestrianIntrusionInfo(const Alarm::PedestrianIntrusionDetection_S &sr
     }
     FillSingleRuleAlarmSchedule(src.aAlarmTime, dst.stAlarmSchedule);
     FillLinkageList(src.stLinkageList, dst.stLinkageList);
+
 }
 
 void ToPedestrianIntrusion(const NET_PedestrianIntrusionInfo_S &src, Alarm::PedestrianIntrusionDetection_S &dst)
@@ -3073,6 +3195,8 @@ void ToPedestrianIntrusion(const NET_PedestrianIntrusionInfo_S &src, Alarm::Pede
     }
     ToSingleRuleAlarmSchedule(src.stAlarmSchedule, dst.aAlarmTime);
     ToLinkageList(src.stLinkageList, dst.stLinkageList);
+
+    /* 接收区域字段但不使用（IPC业务不处理区域） */
 }
 
 void FillSmokeFireCfg(const Alarm::SmokeFireDetection_S &src, NET_SmokeFireCfg_S &dst)
@@ -3090,6 +3214,8 @@ void ToSmokeFire(const NET_SmokeFireCfg_S &src, Alarm::SmokeFireDetection_S &dst
     dst.stRule.nSensitivity = (unsigned int)src.stRule.nSensitivity;
     ToSingleRuleAlarmSchedule(src.stAlarmSchedule, dst.aAlarmTime);
     ToLinkageList(src.stLinkageList, dst.stLinkageList);
+
+    /* 接收区域字段但不使用（IPC业务不处理区域） */
 }
 
 void FillRoadPondingCfg(const Alarm::RoadPondingDetection_S &src, NET_RoadPondingCfg_S &dst)
@@ -3107,7 +3233,10 @@ void ToRoadPonding(const NET_RoadPondingCfg_S &src, Alarm::RoadPondingDetection_
     dst.stRule.nSensitivity = (unsigned int)src.stRule.nSensitivity;
     ToSingleRuleAlarmSchedule(src.stAlarmSchedule, dst.aAlarmTime);
     ToLinkageList(src.stLinkageList, dst.stLinkageList);
+
+    /* 接收区域字段但不使用（IPC业务不处理区域） */
 }
+
 
 #endif
 

@@ -4247,7 +4247,7 @@ typedef struct _FaceCompare_S_
     {
         Common::PosF_S stStartPos;     /* 警戒线的起始点 */
         Common::PosF_S stEndPos;       /* 警戒线的终止点 */
-        CrossDirection_E enCrossDirection; /* 警戒线的穿越方向[0-双向,1-由左至右,2-由右至左] */
+        //CrossDirection_E enCrossDirection; /* 警戒线的穿越方向[0-双向,1-由左至右,2-由右至左] */
         unsigned int nSensitivity;     /* 警戒线灵敏度[1,100] */
         // std::vector<int> aDetectionTarget;  /* 检测目标,DetectionTarget_E */
 
@@ -4255,7 +4255,7 @@ typedef struct _FaceCompare_S_
         IllegalLaneChangeRule()
             : stStartPos(),
             stEndPos(),
-            enCrossDirection(A_TO_B),
+            //enCrossDirection(A_TO_B),
             nSensitivity(50)
         {
             // aDetectionTarget.clear();
@@ -4267,7 +4267,7 @@ typedef struct _FaceCompare_S_
             {
                 stStartPos = x.stStartPos;
                 stEndPos = x.stEndPos;
-                enCrossDirection = x.enCrossDirection;
+                //enCrossDirection = x.enCrossDirection;
                 nSensitivity = x.nSensitivity;
                 // aDetectionTarget = x.aDetectionTarget;
             }
@@ -4322,7 +4322,7 @@ typedef struct _FaceCompare_S_
                 defRegion.stEndPos = {0.0f, 0.0f};
                 defRegion.nSensitivity = 50;
                 // defRegion.aDetectionTarget.clear();  /* 空数组但需要显示结构 */
-                defRegion.enCrossDirection = A_TO_B;
+                //defRegion.enCrossDirection = A_TO_B;
                 obj.aRule.push_back(defRegion);
             }
             return obj;

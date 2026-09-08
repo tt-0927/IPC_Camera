@@ -841,6 +841,8 @@ void ControlManage::bind_task(std::shared_ptr<CTaskManage> &pTaskManage)
     pTaskManage->bind<Task::Network::GetWifiStaInfo>(AC_GET_CONFIG_WIFI_STA);
     pTaskManage->bind<Task::Network::ConnectWifiSta>(AC_CONNECT_WIFI_STA);
     pTaskManage->bind<Task::Network::DisconnectWifiSta>(AC_DISCONNECT_WIFI_STA);
+    pTaskManage->bind<Task::Network::SetConfigWifiIpv4>(AC_SET_CONFIG_WIFI_IPV4);
+    pTaskManage->bind<Task::Network::GetConfigWifiIpv4>(AC_GET_CONFIG_WIFI_IPV4);
     #endif
 
     #if CAP_NETWORK_4G

@@ -61,7 +61,6 @@ namespace SDKConvert
     void deal(Json::Object* pRootJson, NET_PVW2PGMInfo_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_AppointmentItem_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_AppointmentInfo_S& stInfo, bool bOutStruct);
-    void deal(Json::Object* pRootJson, NET_RebootInfo_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_OutVolume_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_SshSafeInfo_S& stInfo, bool bOutStruct);
 };

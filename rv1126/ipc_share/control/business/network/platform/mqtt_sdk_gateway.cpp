@@ -64,6 +64,7 @@ static const SdkCommandMap_S g_astCommandMap[] = {
     {"NET_GET_NTP_CONFIG",             110, AC_GET_TIME_INFO,              true,  "获取NTP配置"},
     {"NET_SET_NTPCFG",                 111, AC_SET_TIME_INFO,              false, "设置NTP配置"},
     {"NET_SET_NTP_CONFIG",             111, AC_SET_TIME_INFO,              false, "设置NTP配置"},
+    {"NET_SET_SYSTEM_TIME",             112, AC_SET_TIME_INFO,              false, "设置系统时间"},
 
     /* ==================== 视频编码 (120-129) ==================== */
     {"NET_GET_STREAMCFG",              120, AC_GET_VIDEO_CONFIG,           true,  "获取视频编码配置"},
