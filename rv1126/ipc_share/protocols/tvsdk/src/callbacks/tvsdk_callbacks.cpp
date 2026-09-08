@@ -261,7 +261,9 @@ static bool is_valid_capture_config(const NET_CaptureConfig_S &stConfig)
         return false;
     }
 
-    return stConfig.enPictureFormat >= NET_CAPTURE_PICTURE_FORMAT_JPEG &&
+    /* 启用字段必须在转换为 IPC bool 前校验，避免非法整数被归一化为 false。 */
+    return ((stConfig.bEnable == FALSE) || (stConfig.bEnable == TRUE)) &&
+           stConfig.enPictureFormat >= NET_CAPTURE_PICTURE_FORMAT_JPEG &&
            stConfig.enPictureFormat <= NET_CAPTURE_PICTURE_FORMAT_BMP &&
            stConfig.nWidth > 0 && stConfig.nWidth <= 8192 &&
            stConfig.nHeight > 0 && stConfig.nHeight <= 8192 &&
@@ -4163,26 +4165,48 @@ static NET_COMMON_ECODE_E cb_get_capture_param_info(INT32 dwChannelID, LPVOID lp
 
 /* --------------------------- 设置抓图参数信息 --------------------------- */
 
+/*
+ * @brief 校验抓图参数并等待任务的真实设置结果。
+ * @author Codex
+ * @param [in] dwChannelID 请求通道号，IPC 不使用该字段。
+ * @param [in] lpInBuffer SDK 抓图参数结构体，只读借用。
+ * @param [out] 无。
+ * @return 参数错误返回 NET_E_INVALID_PARAM，成功返回 NET_E_SUCCEED，其他失败返回 NET_E_SET_CFG_FAILED。
+ */
 static NET_COMMON_ECODE_E cb_set_capture_param_info(INT32 dwChannelID, LPVOID lpInBuffer)
 {
     (void)dwChannelID;
     if (!lpInBuffer)
+    {
         return NET_E_INVALID_PARAM;
+    }
 
-    const NET_CaptureParamInfo_S *pIn = (const NET_CaptureParamInfo_S *)lpInBuffer;
+    const NET_CaptureParamInfo_S *pIn = static_cast<const NET_CaptureParamInfo_S *>(lpInBuffer);
     if (!is_valid_capture_config(pIn->stCaptureTimingConfig) ||
         !is_valid_capture_config(pIn->stCaptureEventConfig))
     {
         return NET_E_INVALID_PARAM;
     }
-    Capture_NS::CaptureParam_S stCfg;
+    Capture_NS::CaptureParam_S stCfg = {};
     TvSdkConvert::ToCaptureParam(*pIn, stCfg);
 
-    std::string inJson = Convert::to_string(stCfg);
-    Task::Info_S stInfo;
-    stInfo.data = wrap_data_json(inJson);
-    int nExec = s_taskManage ? s_taskManage->execute(AC_SET_CAPTURE_PARAM_INFO, stInfo) : -1;
-    return (nExec == 0) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
+    /* 读取任务的业务结果，避免把任务执行完成误报为配置设置成功。 */
+    std::string strResult = {};
+    const std::string strRequest = wrap_data_json(Convert::to_string(stCfg));
+    if ((execute_get_result(AC_SET_CAPTURE_PARAM_INFO, strRequest, strResult) != 0) || strResult.empty())
+    {
+        return NET_E_SET_CFG_FAILED;
+    }
+    int nResult = ERR;
+    if (!Json::get(strResult.c_str(), "Return", nResult))
+    {
+        return NET_E_SET_CFG_FAILED;
+    }
+    if (nResult == ERR_WEB_PARAM)
+    {
+        return NET_E_INVALID_PARAM;
+    }
+    return (nResult == 0) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
 }
 
 /* --------------------------- 设置抓图参数信息 --------------------------- */
