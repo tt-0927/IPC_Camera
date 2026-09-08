@@ -507,3 +507,90 @@ int executeSetDevConfigCb(INT32 nChannelId, INT32 dwCommand, LPVOID lpInBuffer)
     return NET_E_NONSUPPORT;
 }
 
+/**
+ * @brief 注册设备重启控制回调函数
+ * @param [in] pCb 接收 NET_RebootInfo_S 输入缓冲区的回调函数
+ * @return 注册成功返回 TRUE；回调函数非法或已注册时返回 FALSE
+ * @note 535：控制设备重启
+ */
+NET_API BOOL STDCALL NET_serverRegisterControlRebootCb(NET_CB_SetDevConfigByCommand pCb)
+{
+    return registerSetCmdCb(NET_CONTROL_REBOOT, pCb);
+}
+
+/**
+ * @brief 注册设备关机控制回调函数
+ * @param [in] pCb 接收 NET_ShutdownInfo_S 输入缓冲区的回调函数
+ * @return 注册成功返回 TRUE；回调函数非法或已注册时返回 FALSE
+ * @note 540：控制设备关机
+ */
+NET_API BOOL STDCALL NET_serverRegisterControlShutdownCb(NET_CB_SetDevConfigByCommand pCb)
+{
+    return registerSetCmdCb(NET_CONTROL_SHUTDOWN, pCb);
+}
+
+/**
+ * @brief 注册格式化磁盘控制回调函数
+ * @param [in] pCb 接收 NET_FormatDiskInfo_S 输入缓冲区的回调函数
+ * @return 注册成功返回 TRUE；回调函数非法或已注册时返回 FALSE
+ * @note 541：格式化磁盘
+ */
+NET_API BOOL STDCALL NET_serverRegisterControlFormatDiskCb(NET_CB_SetDevConfigByCommand pCb)
+{
+    return registerSetCmdCb(NET_CONTROL_FORMAT_DISK, pCb);
+}
+
+/**
+ * @brief 注册获取设备状态回调 (command=542)
+ */
+NET_API BOOL STDCALL NET_serverRegisterGetDeviceStatusCb(NET_CB_GetDevConfigByCommand pCb)
+{ return registerGetCmdCb(NET_GET_DEVICE_STATUS, pCb); }
+
+/**
+ * @brief 注册设置通道名称回调 (command=543)
+ */
+NET_API BOOL STDCALL NET_serverRegisterSetChannelNameCb(NET_CB_SetDevConfigByCommand pCb)
+{ return registerSetCmdCb(NET_SET_CHANNEL_NAME, pCb); }
+
+/**
+ * @brief 注册打开透明通道回调 (command=550)
+ */
+NET_API BOOL STDCALL NET_serverRegisterOpenTransparentChannelCb(NET_CB_SetDevConfigByCommand pCb)
+{ return registerSetCmdCb(NET_OPEN_TRANSPARENT_CHANNEL, pCb); }
+
+/**
+ * @brief 注册关闭透明通道回调 (command=551)
+ */
+NET_API BOOL STDCALL NET_serverRegisterCloseTransparentChannelCb(NET_CB_SetDevConfigByCommand pCb)
+{ return registerSetCmdCb(NET_CLOSE_TRANSPARENT_CHANNEL, pCb); }
+
+/**
+ * @brief 注册发送透明数据回调 (command=552)
+ */
+NET_API BOOL STDCALL NET_serverRegisterSendTransparentDataCb(NET_CB_SetDevConfigByCommand pCb)
+{ return registerSetCmdCb(NET_SEND_TRANSPARENT_DATA, pCb); }
+
+/**
+ * @brief 注册获取串口参数回调 (command=560)
+ */
+NET_API BOOL STDCALL NET_serverRegisterGetSerialPortParamCb(NET_CB_GetDevConfigByCommand pCb)
+{ return registerGetCmdCb(NET_GET_SERIAL_PORT_PARAM, pCb); }
+
+/**
+ * @brief 注册发送串口数据回调 (command=561)
+ */
+NET_API BOOL STDCALL NET_serverRegisterSendSerialDataCb(NET_CB_SetDevConfigByCommand pCb)
+{ return registerSetCmdCb(NET_SEND_SERIAL_DATA, pCb); }
+
+/**
+ * @brief 注册发送RS232数据回调 (command=562)
+ */
+NET_API BOOL STDCALL NET_serverRegisterSendRs232DataCb(NET_CB_SetDevConfigByCommand pCb)
+{ return registerSetCmdCb(NET_SEND_RS232_DATA, pCb); }
+
+/**
+ * @brief 注册直接发送串口数据回调 (command=563)
+ */
+NET_API BOOL STDCALL NET_serverRegisterSendSerialDirectDataCb(NET_CB_SetDevConfigByCommand pCb)
+{ return registerSetCmdCb(NET_SEND_SERIAL_DIRECT_DATA, pCb); }
+

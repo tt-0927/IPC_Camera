@@ -39,3 +39,6 @@ foreach(item ${SOURCE_PATH})
 endforeach()
 
 list(APPEND SRC_LIST ${SOURCE_LIST})
+
+# AI 检测结果标准化与事件分发 Pipeline（通过 event 模块引入）
+include(${CMAKE_CURRENT_LIST_DIR}/../../../event/event.cmake)

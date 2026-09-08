@@ -3,7 +3,7 @@
  * @Author       : zhouzirui
  * @Date         : 2025-03-29 10:05:19
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-08-20 15:59:44
+ * @LastEditTime : 2026-09-04 09:17:19
  * @Description  : RTSP服务器
  */
 #pragma once
@@ -75,8 +75,8 @@ constexpr int RTSP_MAIN_CLIENT_LIMIT_DEFAULT = RTSP_DEFAULT_STREAM_MAX_CLIENT;
 
 /* RTSP OutPacketBuffer 缓存大小（应用层定义，覆盖 custom_define.h 的默认值） */
 #if defined(DEVICE_TV_3882TI) || defined(DEVICE_TV_3881T)
-    /* memory: 高配设备主码流4MiB，支持更多连接和更大I帧余量 */
-    constexpr std::size_t RTSP_APP_MAIN_OUT_PACKET_BUFFER_SIZE  = 4U * 1024U * 1024U;
+    /* memory: 高配设备与live555 2.5MiB上限一致，避免4MiB配置形成无效常驻缓存。 */
+    constexpr std::size_t RTSP_APP_MAIN_OUT_PACKET_BUFFER_SIZE  = 5U * 512U * 1024U;
     constexpr std::size_t RTSP_APP_SUB_OUT_PACKET_BUFFER_SIZE   = 1U * 1024U * 1024U;
     constexpr std::size_t RTSP_APP_AUDIO_OUT_PACKET_BUFFER_SIZE = 64U * 1024U;
 #else
@@ -234,7 +234,8 @@ public:
      * @param   {VideoCodec_E} enVideoCodec：视频编码格式
      * @param   {NalType_E} eType：NAL 类型
      * @return  {int} 0：成功，非0：失败
-     * @note    : 该接口在队列入队时复制数据，不保存 VENC 原始指针。
+     * @note    : eType表示当前 buffer 的首个 NAL；接口在队列入队时复制数据，不保存
+     *             VENC 原始指针，并按完整 buffer兼容单包复合帧和多包独立参数集。
      */
     int sendVideoData(int nChannel,
                       const uint8_t* pData,
@@ -249,8 +250,8 @@ public:
      * @param   {VideoCodec_E} enVideoCodec：视频编码格式
      * @param   {NalType_E} eType：NAL 类型
      * @return  {int} 0：成功，非0：失败
-     * @note    : 入队不复制数据，仅增加 shared_ptr 引用计数；
-     *            与 RTMP/录制共享同一份 buffer，降低多消费者总内存。
+     * @note    : eType表示当前 buffer 的首个 NAL；入队不复制数据，仅增加 shared_ptr
+     *            引用计数，与 RTMP/录制共享同一份完整 buffer，降低多消费者总内存。
      */
     int sendVideoData(int nChannel,
                       const Video_NS::SharedMediaFrame_S &stSharedFrame,

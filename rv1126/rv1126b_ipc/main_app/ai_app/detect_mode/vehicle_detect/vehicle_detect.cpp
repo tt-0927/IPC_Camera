@@ -499,6 +499,18 @@ void CVehicleDetect::run()
     }
 }
 
+/* 警戒线穿越方向取值:逆行规则携带配置方向(供算法eTripLineType使用);违规变道规则不采集方向 */
+static Alarm::CrossDirection_E getLineRuleCrossDirection(const Alarm::DrivingAgainstTrafficRule_S &rule)
+{
+    return rule.enCrossDirection;
+}
+
+static Alarm::CrossDirection_E getLineRuleCrossDirection(const Alarm::IllegalLaneChangeRule_S &rule)
+{
+    (void)rule;
+    return Alarm::CrossDirection_E::CROSS_DIRECTION_INVALID;
+}
+
 template<typename T>
 void CVehicleDetect::convertAlertLineToZoneAndIsEnable(T &stConfig, Event::Type_E enType)
 {
@@ -553,15 +565,13 @@ void CVehicleDetect::convertAlertLineToZoneAndIsEnable(T &stConfig, Event::Type_
             {
                 if(enType == Event::Type_E::REVERSE_DIRECTION)
                 {
-                    stRule.enCrossDirection = rule.enCrossDirection;
+                    stRule.enCrossDirection = getLineRuleCrossDirection(rule);
                     m_vstDrivingAgainstTrafficRule.push_back(stRule);
                 }
-                else 
+                else
                 {
-                    stRule.enCrossDirection = Alarm::CrossDirection_E::CROSS_DIRECTION_INVALID;
                     m_vstIllegalLaneChangeRule.push_back(stRule);
                 }
-                
             }
         }
     }

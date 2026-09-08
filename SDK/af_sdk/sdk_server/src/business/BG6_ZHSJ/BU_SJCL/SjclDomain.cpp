@@ -90,6 +90,10 @@ CSjclDomain::CSjclDomain()
     m_getTable[NET_GET_SMOKE_FIRE_CFG]                    = &CSjclDomain::TemplatedGet<NET_SmokeFireCfg_S>;
     m_getTable[NET_GET_ROAD_PONDING_CFG]                  = &CSjclDomain::TemplatedGet<NET_RoadPondingCfg_S>;
 
+    /* ===== 设备状态/串口参数 ===== */
+    m_getTable[NET_GET_DEVICE_STATUS]     = &CSjclDomain::TemplatedGet<NET_DeviceStatusInfo_S>;
+    m_getTable[NET_GET_SERIAL_PORT_PARAM] = &CSjclDomain::TemplatedGet<NET_SerialPortParam_S>;
+
     /* ===== NVR 专属（委托 CNvrBusiness） ===== */
     m_getTable[NET_FIND_RECORD_FILE_INFO] = [](INT32 ch, INT32 cmd, const std::string&, const std::string& url) -> std::string {
         return CNvrBusiness::instance()->HandleGetRecordFileList(ch, cmd, url);
@@ -186,6 +190,19 @@ CSjclDomain::CSjclDomain()
     m_setTable[NET_SET_PEDESTRIAN_INTRUSION_INFO]         = &CSjclDomain::TemplatedSet<NET_PedestrianIntrusionInfo_S>;
     m_setTable[NET_SET_SMOKE_FIRE_CFG]                    = &CSjclDomain::TemplatedSet<NET_SmokeFireCfg_S>;
     m_setTable[NET_SET_ROAD_PONDING_CFG]                  = &CSjclDomain::TemplatedSet<NET_RoadPondingCfg_S>;
+
+    /* ===== 通道名称 ===== */
+    m_setTable[NET_SET_CHANNEL_NAME] = &CSjclDomain::TemplatedSet<NET_ChannelNameInfo_S>;
+
+    /* ===== 透明通道 ===== */
+    m_setTable[NET_OPEN_TRANSPARENT_CHANNEL]  = &CSjclDomain::TemplatedSet<NET_TransparentChannel_S>;
+    m_setTable[NET_CLOSE_TRANSPARENT_CHANNEL] = &CSjclDomain::TemplatedSet<NET_TransparentChannel_S>;
+    m_setTable[NET_SEND_TRANSPARENT_DATA]     = &CSjclDomain::TemplatedSet<NET_TransparentData_S>;
+
+    /* ===== 串口通信 ===== */
+    m_setTable[NET_SEND_SERIAL_DATA]        = &CSjclDomain::TemplatedSet<NET_SerialData_S>;
+    m_setTable[NET_SEND_RS232_DATA]         = &CSjclDomain::TemplatedSet<NET_SerialData_S>;
+    m_setTable[NET_SEND_SERIAL_DIRECT_DATA] = &CSjclDomain::TemplatedSet<NET_SerialData_S>;
 }
 
 #endif /* BU_SJCL_EXCLUDE */

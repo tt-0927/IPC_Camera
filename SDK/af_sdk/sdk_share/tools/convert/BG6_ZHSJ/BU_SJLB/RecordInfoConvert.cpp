@@ -384,14 +384,6 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_AppointmentInfo_S& stInfo, bo
     }
 }
 
-void SDKConvert::deal(Json::Object* pRootJson, NET_RebootInfo_S& stInfo, bool bOutStruct)
-{
-    (void)pRootJson;
-    (void)stInfo;
-    (void)bOutStruct;
-    /* NET_CONTROL_REBOOT (535) 无需序列化字段 */
-}
-
 void SDKConvert::deal(Json::Object* pRootJson, NET_OutVolume_S& stInfo, bool bOutStruct)
 {
     if (!pRootJson) return;

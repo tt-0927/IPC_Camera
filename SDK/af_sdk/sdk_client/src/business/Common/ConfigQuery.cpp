@@ -56,6 +56,15 @@ BOOL CConfigQuery::GetDeviceCapability(LPVOID lpUserID,
             }
             return CCommandExecutor::instance()->ExecuteGet<NET_OsdCap_S>(lpUserID, url, lpOutBuffer, pdwBytesReturned) ? TRUE : FALSE;
         }
+        case NET_CAP_SYS:
+        {
+            if (dwOutBufferSize < (INT32)sizeof(NET_SysCapability_S))
+            {
+                CErrorManage::instance()->SetLastError(NET_E_NOENOUGH_BUF);
+                return FALSE;
+            }
+            return CCommandExecutor::instance()->ExecuteGet<NET_SysCapability_S>(lpUserID, url, lpOutBuffer, pdwBytesReturned) ? TRUE : FALSE;
+        }
         default:
             CErrorManage::instance()->SetLastError(NET_E_CMD_NOT_SUPPORT);
             return FALSE;
@@ -161,6 +170,8 @@ BOOL CConfigQuery::GetDevConfig(LPVOID lpUserID, INT32 dwChannelID, INT32 dwComm
         case NET_GET_FACECAPTUREINFO:    return GetDevConfig_Impl<NET_FaceCaptureInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
         case NET_GET_TARGET_LIB:         return GetDevConfig_Impl<NET_FaceLibList_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
         case NET_GET_FACE_INFO:          return GetDevConfig_Impl<NET_FaceInfoList_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_GET_DEVICE_STATUS:      return GetDevConfig_Impl<NET_DeviceStatusInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_GET_SERIAL_PORT_PARAM:  return GetDevConfig_Impl<NET_SerialPortParam_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
         default:
             CErrorManage::instance()->SetLastError(NET_E_CMD_NOT_SUPPORT);
             return FALSE;
@@ -270,6 +281,19 @@ BOOL CConfigQuery::SetDevConfig(LPVOID lpUserID, INT32 dwChannelID, INT32 dwComm
         case NET_ADD_FACE_INFO:
         case NET_SET_FACE_INFO:          return SetDevConfig_Impl<NET_FaceInfo_S>(lpUserID, dwChannelID, dwCommand, lpInBuffer, dwInBufferSize, pdwBytesReturned);
         case NET_DEL_FACE_INFO:          return SetDevConfig_Impl<NET_FaceIdInfo_S>(lpUserID, dwChannelID, dwCommand, lpInBuffer, dwInBufferSize, pdwBytesReturned);
+        /* -- 设备管理 -- */
+        case NET_CONTROL_REBOOT:         return SetDevConfig_Impl<NET_RebootInfo_S>(lpUserID, dwChannelID, dwCommand, lpInBuffer, dwInBufferSize, pdwBytesReturned);
+        case NET_CONTROL_SHUTDOWN:       return SetDevConfig_Impl<NET_ShutdownInfo_S>(lpUserID, dwChannelID, dwCommand, lpInBuffer, dwInBufferSize, pdwBytesReturned);
+        case NET_CONTROL_FORMAT_DISK:    return SetDevConfig_Impl<NET_FormatDiskInfo_S>(lpUserID, dwChannelID, dwCommand, lpInBuffer, dwInBufferSize, pdwBytesReturned);
+        case NET_SET_CHANNEL_NAME:       return SetDevConfig_Impl<NET_ChannelNameInfo_S>(lpUserID, dwChannelID, dwCommand, lpInBuffer, dwInBufferSize, pdwBytesReturned);
+        /* -- 透明通道 -- */
+        case NET_OPEN_TRANSPARENT_CHANNEL:  return SetDevConfig_Impl<NET_TransparentChannel_S>(lpUserID, dwChannelID, dwCommand, lpInBuffer, dwInBufferSize, pdwBytesReturned);
+        case NET_CLOSE_TRANSPARENT_CHANNEL: return SetDevConfig_Impl<NET_TransparentChannel_S>(lpUserID, dwChannelID, dwCommand, lpInBuffer, dwInBufferSize, pdwBytesReturned);
+        case NET_SEND_TRANSPARENT_DATA:     return SetDevConfig_Impl<NET_TransparentData_S>(lpUserID, dwChannelID, dwCommand, lpInBuffer, dwInBufferSize, pdwBytesReturned);
+        /* -- 串口通信 -- */
+        case NET_SEND_SERIAL_DATA:          return SetDevConfig_Impl<NET_SerialData_S>(lpUserID, dwChannelID, dwCommand, lpInBuffer, dwInBufferSize, pdwBytesReturned);
+        case NET_SEND_RS232_DATA:           return SetDevConfig_Impl<NET_SerialData_S>(lpUserID, dwChannelID, dwCommand, lpInBuffer, dwInBufferSize, pdwBytesReturned);
+        case NET_SEND_SERIAL_DIRECT_DATA:   return SetDevConfig_Impl<NET_SerialData_S>(lpUserID, dwChannelID, dwCommand, lpInBuffer, dwInBufferSize, pdwBytesReturned);
         default:
             CErrorManage::instance()->SetLastError(NET_E_CMD_NOT_SUPPORT);
             return FALSE;

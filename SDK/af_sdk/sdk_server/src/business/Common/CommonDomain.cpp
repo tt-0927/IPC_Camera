@@ -73,6 +73,11 @@ CCommonDomain::CCommonDomain()
     m_setTable[NET_SET_UPGRADE] = [](INT32 ch, INT32 cmd, const std::string& req, const std::string&) -> std::string {
         return CDeviceBusiness::instance()->HandleSetUpgrade(ch, cmd, req);
     };
+
+    /* 设备控制 (重启/关机/格式化) */
+    m_setTable[NET_CONTROL_REBOOT]       = &CCommonDomain::TemplatedSet<NET_RebootInfo_S>;
+    m_setTable[NET_CONTROL_SHUTDOWN]     = &CCommonDomain::TemplatedSet<NET_ShutdownInfo_S>;
+    m_setTable[NET_CONTROL_FORMAT_DISK]  = &CCommonDomain::TemplatedSet<NET_FormatDiskInfo_S>;
 }
 
 /* ===== 特殊处理函数实现 ===== */

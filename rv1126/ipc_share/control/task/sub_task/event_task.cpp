@@ -421,6 +421,7 @@ void Task::Event::SetHideAlarmInfo::handle()
     {
         dlog_error("设置遮挡报警参数错误");
         result(ERR_WEB_PARAM);
+        return;
     }
     /* 坐标有效性判断 */
     if (!stInfo.stRect.IsValid())
@@ -430,7 +431,12 @@ void Task::Event::SetHideAlarmInfo::handle()
         return;
     }
 
-    CEventConfigure::instance()->set_configure(stInfo);
+    const int nConfigRet = CEventConfigure::instance()->set_configure(stInfo);
+    if (nConfigRet != OK)
+    {
+        result(nConfigRet);
+        return;
+    }
 
     /* 更新事件布防时间 */
     Alarm::EventSchedule_S stEventSchedule;
@@ -784,7 +790,12 @@ void Task::Event::SetBoundaryDetectionInfo::handle()
             rule.stEndPos = stTmpPos;
         }
     }
-    CEventConfigure::instance()->set_configure(stInfo);
+    const int nConfigRet = CEventConfigure::instance()->set_configure(stInfo);
+    if (nConfigRet != OK)
+    {
+        result(nConfigRet);
+        return;
+    }
 
     /* 更新事件布防时间 */
     Alarm::EventSchedule_S stEventSchedule;
@@ -834,7 +845,12 @@ void Task::Event::SetFieldDetectionInfo::handle()
             return;
         }
     }
-    CEventConfigure::instance()->set_configure(stInfo);
+    const int nConfigRet = CEventConfigure::instance()->set_configure(stInfo);
+    if (nConfigRet != OK)
+    {
+        result(nConfigRet);
+        return;
+    }
 
     /* 更新事件布防时间 */
     Alarm::EventSchedule_S stEventSchedule;
@@ -987,7 +1003,11 @@ void Task::Event::SetAudioAnomalyInfo::handle()
     result(nRet);
 }
 
-/* 获取音频异常侦测实时音量 */
+/**
+ * @brief 获取音频异常侦测实时音量并生成任务响应。
+ * @author ITC
+ * @return 无。处理结果通过任务响应返回。
+ */
 void Task::Event::GetAudioAnomalyCurrentDb::handle()
 {
     float fCurrentDb = 0.0f;

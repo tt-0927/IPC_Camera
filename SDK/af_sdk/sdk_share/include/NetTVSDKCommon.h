@@ -98,6 +98,15 @@ extern "C"{
     #define NET_STDCALL            STDCALL
 #endif
 
+/* AI简单检测区域点位最大数量 */
+#ifndef NET_AI_SIMPLE_REGION_POINT_MAX_NUM
+    #define NET_AI_SIMPLE_REGION_POINT_MAX_NUM  32
+#endif
+
+/* AI简单检测区域坐标最大值（像素坐标） */
+#ifndef NET_AI_SIMPLE_REGION_COORDINATE_MAX
+    #define NET_AI_SIMPLE_REGION_COORDINATE_MAX 8192
+#endif
 
 #ifndef UCHAR_DEF
 #define UCHAR_DEF
@@ -687,6 +696,7 @@ extern "C"{
 #define NET_ALARM_AUDIO_SUDDEN_RISE  (NET_ALARM_BASE_AI + 0x51)    // 声强陡升检测
 #define NET_ALARM_AUDIO_SUDDEN_DROP  (NET_ALARM_BASE_AI + 0x52)    // 声强突降检测
 
+
 /**
  * @brief 交通/车辆相关 (0x4000 - 0x40FF)
  * @struct NET_AlarmPlateInfo_S
@@ -1094,9 +1104,9 @@ typedef enum tagNET_CapabilityCommand
     NET_CAP_IMAGE                    = 5,            /* 图像参数能力集 参见#NET_ImageCap_S。 Image capability See # NET_ImageCap_S for reference*/
     NET_CAP_AUDIO                    = 6,            /* 音频能力集 参见 NET_AudioCap_S */
     NET_CAP_CHANNELS_ALARM           = 13,           /* 通道告警能力集, 参见 NET_ChnAlarmCapInfo_S （单通道IPC对应SDK通道号传入参数1；多通道IPC对应SDK通道号传入参数1+IPC实际通道号；NVR下对应通道号传入实际通道号） */
-    NET_CAP_SYS                      = 14,           /* 系统能力集 参见 NET_SysCapability_S  */
     NET_CAP_USER_MANAGE              = 23,           /* 用户管理能力集, 参见 NET_UserManageCapInfo_S */
     NET_CAP_MEDIA                    = 28,           /* 视频通道媒体能力集，详见 NET_MediaCapInfo_S */
+    NET_CAP_SYS                      = 100,          /* 设备通用能力总表 参见 NET_SysCapability_S */
     NET_CAP_INVALID                  = 0Xff
 }NET_CapabilityCommand_E;
 
@@ -1324,11 +1334,28 @@ typedef enum tagNETTVCfgCmd
     NET_SET_PVW2PGM                       = 532,           /* PVW切到PGM 参见NET_PVW2PGMInfo_S */
     NET_GET_APPOINTMENT_INFO              = 533,           /* 获取预约录制列表 参见NET_AppointmentInfo_S */
     NET_ADD_APPOINTMENT                   = 534,           /* 添加预约录制 参见NET_AppointmentItem_S */
-    NET_CONTROL_REBOOT                    = 535,           /* 控制设备重启 参见NET_RebootInfo_S */
     NET_GET_OUT_VOLUME                    = 536,           /* 获取输出音量 参见NET_OutVolume_S */
     NET_SET_OUT_VOLUME                    = 537,           /* 设置输出音量 参见NET_OutVolume_S */
     NET_GET_SSH_SAFE_INFO                 = 538,           /* 获取SSH安全信息 参见NET_SshSafeInfo_S */
     NET_SET_SSH_SAFE_INFO                 = 539,           /* 设置SSH安全信息 参见NET_SshSafeInfo_S */
+
+    /* -- 设备管理 -- */
+    NET_CONTROL_REBOOT                    = 535,           /* 控制设备重启 参见NET_RebootInfo_S */
+    NET_CONTROL_SHUTDOWN                  = 540,           /* 远程关机 参见NET_ShutdownInfo_S */
+    NET_CONTROL_FORMAT_DISK               = 541,           /* 格式化硬盘 参见NET_FormatDiskInfo_S */
+    NET_GET_DEVICE_STATUS                 = 542,           /* 获取设备状态 参见NET_DeviceStatusInfo_S */
+    NET_SET_CHANNEL_NAME                  = 543,           /* 设置通道名称 参见NET_ChannelNameInfo_S */
+
+    /* -- 透明通道 -- */
+    NET_OPEN_TRANSPARENT_CHANNEL          = 550,           /* 建立透明通道 参见NET_TransparentChannel_S */
+    NET_CLOSE_TRANSPARENT_CHANNEL         = 551,           /* 断开透明通道 参见NET_TransparentChannel_S */
+    NET_SEND_TRANSPARENT_DATA             = 552,           /* 透明通道发送数据 参见NET_TransparentData_S */
+
+    /* -- 串口通信 -- */
+    NET_GET_SERIAL_PORT_PARAM             = 560,           /* 查询串口参数 参见NET_SerialPortParam_S */
+    NET_SEND_SERIAL_DATA                  = 561,           /* 发送串口数据 参见NET_SerialData_S */
+    NET_SEND_RS232_DATA                   = 562,           /* 直接发送232数据 参见NET_SerialData_S */
+    NET_SEND_SERIAL_DIRECT_DATA           = 563,           /* 直接发送串口数据 参见NET_SerialData_S */
 
     NET_CFG_INVALID                  = 0xFFFF            /* 无效值  Invalid value */
 
@@ -1786,7 +1813,6 @@ typedef enum tagNETTVCrossDirection
 /**
  * @enum tagNETTVDetectionTarget
  * @brief 检测目标类型  Detection target type
- *  * @attention 单一目标类型，组合通过auDetectionTarget数组多个元素表示
  * @attention
  */
 typedef enum tagNETTVDetectionTarget
@@ -2114,6 +2140,7 @@ typedef NET_VoiceComStartInfo_S* pNET_VoiceComStartInfo_S;
  */
 typedef struct tagNET_VoiceComAudioCfg
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     INT32   enFormat;             /* 音频格式, 参见 NET_AudioFormat_E, 当前支持 PCM/AAC/G711A/G711U */
     INT32   uSampleRate;          /* 采样率, Hz, 参见 NET_AudioSampRate_E */
     INT32   uBitDepth;            /* 位深, PCM=16, G711=8 */
@@ -2170,6 +2197,7 @@ typedef NET_ReplayTalkbackInfo_S* pNET_ReplayTalkbackInfo_S;
  */
 typedef struct tagNET_ExposureInfo
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     INT32               enExpTime;          /* ISP::ExpTimeMode_E */
     BOOL                bAntiBanding;       /* TRUE/FALSE */
     BYTE                byRes[64];
@@ -2184,6 +2212,7 @@ typedef NET_ExposureInfo_S* pNET_ExposureInfo_S;
  */
 typedef struct tagNET_DayNightInfo
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     INT32               enDayNightMode;     /* ISP::DayNightMode_E */
     INT32               nBeginHour;
     INT32               nBeginMinute;
@@ -2214,6 +2243,7 @@ typedef NET_DayNightInfo_S* pNET_DayNightInfo_S;
  */
 typedef struct tagNET_BackLightInfo
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     INT32               enBackLightArea;    /* ISP::BackLightArea_E */
     BOOL                bWdrEnable;
     INT32               nWdrLevel;
@@ -2231,6 +2261,7 @@ typedef NET_BackLightInfo_S* pNET_BackLightInfo_S;
  */
 typedef struct tagNET_DenoiseInfo
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     INT32               enDnrMode;          /* ISP::DnrMode_E */
     UINT32              nDnrLevel;
     UINT32              nSnrLevel;
@@ -2247,6 +2278,7 @@ typedef NET_DenoiseInfo_S* pNET_DenoiseInfo_S;
  */
 typedef struct tagNET_WhiteBalanceInfo
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     INT32               enAwbMode;          /* ISP::AwbMode_E */
     UINT32              nRGain;
     UINT32              nBGain;
@@ -2262,6 +2294,7 @@ typedef NET_WhiteBalanceInfo_S* pNET_WhiteBalanceInfo_S;
  */
 typedef struct tagNET_UpgradeInfo
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     CHAR                szUpgradePath[NET_FILE_NAME_LEN];
     BYTE                byRes[64];
 } NET_UpgradeInfo_S;
@@ -2275,6 +2308,7 @@ typedef NET_UpgradeInfo_S* pNET_UpgradeInfo_S;
  */
 typedef struct tagNET_UpgradeStatus
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     INT32               nUpgradeStatus;
     BYTE                byRes[64];
 } NET_UpgradeStatus_S;
@@ -2288,6 +2322,7 @@ typedef NET_UpgradeStatus_S* pNET_UpgradeStatus_S;
  */
 typedef struct tagNET_UpgradeVersion
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     CHAR                szVersion[NET_LEN_64];
     BYTE                byRes[64];
 } NET_UpgradeVersion_S;
@@ -2330,6 +2365,7 @@ typedef NET_CaptureDaySchedule_S* pNET_CaptureDaySchedule_S;
  */
 typedef struct tagNET_CapturePlanInfo
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     NET_CaptureDaySchedule_S astDaySchedules[NET_PLAN_DAY_NUM_AWEEK];
     BYTE                byRes[256];
 } NET_CapturePlanInfo_S;
@@ -2363,6 +2399,7 @@ typedef NET_CaptureConfig_S* pNET_CaptureConfig_S;
  */
 typedef struct tagNET_CaptureParamInfo
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     NET_CaptureConfig_S stCaptureTimingConfig;
     NET_CaptureConfig_S stCaptureEventConfig;
     BYTE                byRes[128];
@@ -2400,14 +2437,18 @@ typedef struct tagNET_DeviceLoginInfo
 typedef NET_DeviceLoginInfo_S* pNET_DeviceLoginInfo_S;
 
 /**
- * @brief 设备识别信息结构体（登录返回）
- * @note  只承担设备识别职责（类型+型号）
- *        对应 HTTP 路径 /TVAPI/V1.0/Device/GetInfo，登录时由 SDK 内部调用。
+ * @brief 设备规模信息结构体（NVR侧专用）
+ * @note  NVR规模/能力数量信息：设备类型、报警输入/输出端口数、通道数。
+ *        此为NVR偏向的硬件资源计量，非全设备通用，归 BU_SJCL/NVR 侧
+ *        （回调见 NetTVNvrDeviceCb.c）。区别于通用设备基本信息 NET_DeviceBasicInfo_S。
  */
 typedef struct tagNET_DeviceInfo
 {
     INT32   uDevType;                           /* 设备类型,参见枚举#NET_DEVICE_TYPE_E */
-    CHAR    strDevModel[NET_LEN_64];            /* 设备型号(只读) */
+    INT32   uAlarmInPortNum;                    /* 报警输入个数 */
+    INT32   uAlarmOutPortNum;                   /* 报警输出个数 */
+    INT32   uChannelNum;                        /* 通道个数 */
+    BYTE    byReserved[48];                     /* 预留字段 */
 } NET_DeviceInfo_S;
 
 /**
@@ -2423,6 +2464,7 @@ typedef NET_DeviceInfo_S* pNET_DeviceInfo_S;
  */
 typedef struct tagNET_DeviceBasicInfo
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     /* ========== 身份信息（只读，strDeviceName 可写） ========== */
     CHAR    strDevModel[NET_LEN_64];                /* 设备型号(只读) */
     CHAR    strSerialNum[NET_LEN_64];               /* 硬件序列号(只读) */
@@ -2439,7 +2481,12 @@ typedef struct tagNET_DeviceBasicInfo
     INT32   uChannelNum;                            /* 通道个数 */
     INT32   uPoeChannelNum;                         /* POE通道个数 */
 
-    BYTE    byReserved[208];                        /* 预留字段 */
+    /* ========== 通用运行状态（只读） ========== */
+    FLOAT   fCPULoadRatio;                          /* CPU负载率(只读) */
+    FLOAT   fMemoryUsage;                           /* 内存使用率(只读) */
+    INT32   nBootTime;                              /* 启动时间/运行时长-秒(只读) */
+
+    BYTE    byReserved[220];                        /* 预留字段 */
 } NET_DeviceBasicInfo_S;
 
 /**
@@ -2454,6 +2501,7 @@ typedef NET_DeviceBasicInfo_S* pNET_DeviceBasicInfo_S;
  */
 typedef struct tagNET_DeviceStorageInfo
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     INT32   nHardDiskCount;                         /* 硬盘个数 */
     INT32   nHardDiskStatus;                        /* 硬盘状态 */
     CHAR    strDiskTotal[NET_LEN_32];               /* 硬盘总容量 */
@@ -2491,6 +2539,7 @@ typedef enum tagNET_ActivationTime
  */
 typedef struct tagNET_RegisterInfo
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     CHAR   strMachinSn[NET_LEN_64];      /* 机器码     */
     CHAR   strRegisterEg[NET_LEN_64];    /* 注册码     */
     CHAR   strStartTime[NET_LEN_64];     /* 注册时间   */
@@ -2770,6 +2819,119 @@ typedef struct tagNET_RebootInfo
 typedef NET_RebootInfo_S* pNET_RebootInfo_S;
 
 /**
+ * @brief 远程关机控制结构体
+ * @note  用于 NET_CONTROL_SHUTDOWN (540)
+ */
+typedef struct tagNET_ShutdownInfo
+{
+    INT32 nDelaySeconds;                                 /* 延迟关机秒数, 0=立即 */
+    BYTE  byReserved[28];                                 /* 保留字段 */
+} NET_ShutdownInfo_S;
+
+typedef NET_ShutdownInfo_S* pNET_ShutdownInfo_S;
+
+/**
+ * @brief 格式化硬盘控制结构体
+ * @note  用于 NET_CONTROL_FORMAT_DISK (541)
+ */
+typedef struct tagNET_FormatDiskInfo
+{
+    INT32 nDiskIndex;                                     /* 硬盘索引, -1=全部 */
+    INT32 nFormatType;                                    /* 0=快速格式化, 1=完全格式化 */
+    BYTE  byReserved[24];                                 /* 保留字段 */
+} NET_FormatDiskInfo_S;
+
+typedef NET_FormatDiskInfo_S* pNET_FormatDiskInfo_S;
+
+/**
+ * @brief 设备运行状态结构体
+ * @note  用于 NET_GET_DEVICE_STATUS (542)
+ */
+typedef struct tagNET_DeviceStatusInfo
+{
+    INT32 nCpuUsage;                                      /* CPU使用率 0-100 */
+    INT32 nMemoryUsage;                                   /* 内存使用率 0-100 */
+    INT32 nUptime;                                        /* 运行时长(秒) */
+    INT32 nTemperature;                                   /* 主板温度 x10 (如450=45.0度) */
+    INT32 nDiskCount;                                     /* 硬盘数量 */
+    INT32 nDiskStatus[8];                                 /* 各盘状态: 0=正常,1=异常,2=未格式化 */
+    BYTE  byReserved[64];                                 /* 保留字段 */
+} NET_DeviceStatusInfo_S;
+
+typedef NET_DeviceStatusInfo_S* pNET_DeviceStatusInfo_S;
+
+/**
+ * @brief 通道名称设置结构体
+ * @note  用于 NET_SET_CHANNEL_NAME (543)
+ *        查询通道名称复用 NET_GET_CHANNEL_INFO(300) 的 szChannelName 字段
+ */
+typedef struct tagNET_ChannelNameInfo
+{
+    UINT32 uChannel;                                      /* 通道号 */
+    CHAR   szChannelName[NET_LEN_64];                     /* 通道名称 */
+    BYTE   byReserved[32];                                /* 保留字段 */
+} NET_ChannelNameInfo_S;
+
+typedef NET_ChannelNameInfo_S* pNET_ChannelNameInfo_S;
+
+/**
+ * @brief 透明通道参数结构体
+ * @note  用于 NET_OPEN_TRANSPARENT_CHANNEL (550) / NET_CLOSE_TRANSPARENT_CHANNEL (551)
+ */
+typedef struct tagNET_TransparentChannel
+{
+    INT32  nChannelIndex;                                 /* 透明通道索引 */
+    INT32  nSerialPortIndex;                              /* 关联串口索引 */
+    INT32  nBaudRate;                                     /* 波特率 */
+    BYTE   byReserved[24];                                /* 保留字段 */
+} NET_TransparentChannel_S;
+
+typedef NET_TransparentChannel_S* pNET_TransparentChannel_S;
+
+/**
+ * @brief 透明通道数据传输结构体
+ * @note  用于 NET_SEND_TRANSPARENT_DATA (552)
+ */
+typedef struct tagNET_TransparentData
+{
+    INT32  nChannelIndex;                                 /* 透明通道索引 */
+    UINT32 uDataLen;                                      /* 数据长度(字节) */
+    BYTE   byData[1024];                                  /* 数据内容 */
+} NET_TransparentData_S;
+
+typedef NET_TransparentData_S* pNET_TransparentData_S;
+
+/**
+ * @brief 串口参数配置结构体
+ * @note  用于 NET_GET_SERIAL_PORT_PARAM (560)
+ */
+typedef struct tagNET_SerialPortParam
+{
+    INT32  nPortIndex;                                    /* 串口号 (0=COM1, 1=COM2, ...) */
+    INT32  nBaudRate;                                     /* 波特率 */
+    INT32  nDataBits;                                     /* 数据位 5/6/7/8 */
+    INT32  nStopBits;                                     /* 停止位 1/2 */
+    INT32  nParity;                                       /* 校验 0=无 1=奇 2=偶 */
+    INT32  nFlowControl;                                  /* 流控 0=无 1=硬件 2=软件 */
+    BYTE   byReserved[32];                                /* 保留字段 */
+} NET_SerialPortParam_S;
+
+typedef NET_SerialPortParam_S* pNET_SerialPortParam_S;
+
+/**
+ * @brief 串口数据传输结构体
+ * @note  用于 NET_SEND_SERIAL_DATA (561) / NET_SEND_RS232_DATA (562) / NET_SEND_SERIAL_DIRECT_DATA (563)
+ */
+typedef struct tagNET_SerialData
+{
+    INT32  nPortIndex;                                    /* 串口号 */
+    UINT32 uDataLen;                                      /* 数据长度(字节) */
+    BYTE   byData[1024];                                  /* 数据内容 */
+} NET_SerialData_S;
+
+typedef NET_SerialData_S* pNET_SerialData_S;
+
+/**
  * @brief 输出音量结构体-（录播）
  * @note  用于 NET_GET_OUT_VOLUME (536) / NET_SET_OUT_VOLUME (537)
  */
@@ -2802,6 +2964,7 @@ typedef NET_SshSafeInfo_S* pNET_SshSafeInfo_S;
  */
 typedef struct tagNET_SystemNtpInfo
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     INT32   enTimeZone;                                 /* 时区，取值对应IPC侧System::TimeZone_E */
     INT32   enDateFormat;                               /* 日期格式，取值对应IPC侧System::DateFormat_E */
     BOOL    bEnableNTPSync;                             /* 是否开启NTP校时 */
@@ -2815,20 +2978,23 @@ typedef struct tagNET_SystemNtpInfo
 } NET_SystemNtpInfo_S;
 
 /**
- * @brief 设置系统时间参数结构体
- * @note strDateTime 格式为 "YYYY-MM-DD HH:MM:SS"，例如 "2026-09-03 10:40:30"
- */
-typedef struct tagNET_SystemTime
-{
-    CHAR strDateTime[NET_MAX_DATE_STRING_LEN];
-} NET_SystemTime_S;
-
-typedef NET_SystemTime_S* pNET_SystemTime_S;
-
-/**
  * @brief 系统时间/NTP校时配置结构体指针类型
  */
 typedef NET_SystemNtpInfo_S* pNET_SystemNtpInfo_S;
+
+/**
+ * @brief 设置系统时间参数结构体。
+ * @note strDateTime 格式为“YYYY-MM-DD HH:MM:SS”。
+ */
+typedef struct tagNET_SystemTime
+{
+    CHAR    strDateTime[NET_MAX_DATE_STRING_LEN];
+} NET_SystemTime_S;
+
+/**
+ * @brief 设置系统时间参数结构体指针类型。
+ */
+typedef NET_SystemTime_S* pNET_SystemTime_S;
 
 /**
  * @brief 修改用户密码参数结构体
@@ -2911,6 +3077,7 @@ typedef NET_SshAdminInfo_S* pNET_SshAdminInfo_S;
  */
 typedef struct tagNET_SecurityServicesInfo
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     NET_LoginLockInfo_S stLoginLock;
     NET_PwdPolicyInfo_S stPwdPolicy;
     NET_SshAdminInfo_S stSshAdmin;
@@ -2925,6 +3092,7 @@ typedef NET_SecurityServicesInfo_S* pNET_SecurityServicesInfo_S;
  */
 typedef struct tagNET_SshCountdownInfo
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     CHAR    szCountdown[NET_LEN_64];
     BYTE    byRes[64];
 } NET_SshCountdownInfo_S;
@@ -2937,6 +3105,7 @@ typedef NET_SshCountdownInfo_S* pNET_SshCountdownInfo_S;
  */
 typedef struct tagNET_LogServerInfo
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     BOOL    bEnable;
     BOOL    bEnSsl;
     CHAR    szServerAddr[NET_LEN_256];
@@ -3022,6 +3191,7 @@ typedef NET_RecordInfo_S* pNET_RecordInfo_S;
  */
 typedef struct tagNET_RecordStatusInfo
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     INT32   nStatus;                            /* NET_RECORD_STATUS_E */
     BYTE    byRes[64];
 } NET_RecordStatusInfo_S;
@@ -3049,6 +3219,7 @@ typedef enum tagNETSdCardStatusCode
  */
 typedef struct tagNETSdCardStatusInfo
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     /* NET_SdCardStatus_EN 枚举值。 */
     INT32 nStatus;
     /* 可读的状态文本。 */
@@ -3093,6 +3264,7 @@ typedef NET_RecordDaySchedule_S* pNET_RecordDaySchedule_S;
  */
 typedef struct tagNET_RecordSchedule
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     BOOL    bEnable;
     INT32   nDayScheduleCount;
     NET_RecordDaySchedule_S astDaySchedules[NET_PLAN_DAY_NUM_AWEEK];
@@ -3107,6 +3279,7 @@ typedef NET_RecordSchedule_S* pNET_RecordSchedule_S;
  */
 typedef struct tagNET_RecordAdvancedParam
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     BOOL    bLoopWrite;
     INT32   nPreTime;
     INT32   nDelayTime;
@@ -3229,6 +3402,7 @@ typedef NET_RecordDownloadList_S* pNET_RecordDownloadList_S;
  */
 typedef struct tagNET_AudioCfg
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     BOOL    bAudioSwitch;                        /* 音频开关 */
     INT32   enInputType;                         /* 输入类型 Audio_NS::AudioInputType_E */
     INT32   enFormat;                            /* 音频格式 Audio_NS::AudioFormat_E */
@@ -3250,6 +3424,7 @@ typedef NET_AudioCfg_S* pNET_AudioCfg_S;
  */
 typedef struct tagNET_NetworkCfg
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     INT32   uMTU;                              /* MTU值  MTU value */
     BOOL    bIPv4DHCP;                          /* IPv4的DHCP  DHCP of IPv4 */
     CHAR    szIpv4Address[NET_LEN_32];       /* IPv4的IP地址  IP address of IPv4 */
@@ -3262,7 +3437,7 @@ typedef NET_NetworkCfg_S* pNET_NetworkCfg_S;
 
 /**
  * @struct tagNET_PoeNetworkConfig
- * @brief 未登录场景下通过 SDK 搜索 JSON 组播协议设置摄像机网络参数
+ * @brief 未登录场景下通过 SDK 设备发现组播协议设置摄像机网络参数
  * @note 设备通过 MAC 地址匹配；接口仅发送组播配置报文，不建立 HTTP 登录会话。
  */
 typedef struct tagNET_PoeNetworkConfig
@@ -3273,10 +3448,10 @@ typedef struct tagNET_PoeNetworkConfig
     CHAR    szSubnetMask[NET_IPADDR_STR_MAX_LEN];  /* IPv4 子网掩码 */
     CHAR    szGateway[NET_IPADDR_STR_MAX_LEN];     /* IPv4 网关，bSetGateway 为 FALSE 时可为空 */
     BOOL    bSetGateway;                           /* 是否设置网关 */
-    BOOL    bIPv4DHCP;                              /* 是否启用 DHCP */
-    UINT32  dwTimeoutMs;                            /* 保留字段：当前接口为无应答发送，建议填 0 */
-    UINT32  dwSendCount;                            /* 发送次数，0 使用 SDK 默认值 */
-    BYTE    byRes[128];                             /* 保留字段 */
+    BOOL    bIPv4DHCP;                             /* 是否启用 DHCP */
+    UINT32  dwTimeoutMs;                           /* 发送总时长，0 使用 SDK 默认发送间隔 */
+    UINT32  dwSendCount;                           /* 发送次数，0 使用 SDK 默认值 */
+    BYTE    byRes[128];                            /* 保留字段 */
 } NET_PoeNetworkConfig_S;
 
 typedef NET_PoeNetworkConfig_S* pNET_PoeNetworkConfig_S;
@@ -3422,6 +3597,7 @@ typedef NET_PreviewRtspUrl_S* pNET_PreviewRtspUrl_S;
  */
 typedef struct tagNET_WifiStaCfg
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     BOOL    bEnableWifi;                        /* 是否开启WiFi */
     BOOL    bEnableBoost;                       /* 是否开启增强功能 */
     BYTE    byRes[64];                          /* 保留字段 */
@@ -3449,6 +3625,7 @@ typedef NET_WifiWepKey_S* pNET_WifiWepKey_S;
  */
 typedef struct tagNET_WifiStaConnect
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     CHAR    szSsid[NET_NAME_MAX_LEN];        /* SSID */
     INT32   nSecurityMode;                      /* NET_WIFI_SECURITY_MODE_E */
     CHAR    szIpAddress[NET_IPADDR_STR_MAX_LEN];
@@ -3486,6 +3663,7 @@ typedef NET_WifiStaConnect_S* pNET_WifiStaConnect_S;
  */
 typedef struct tagNET_4GInfo
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     CHAR    szApn[NET_LEN_64];
     CHAR    szUserName[NET_LEN_132];
     CHAR    szPassword[NET_LEN_132];
@@ -3505,6 +3683,7 @@ typedef NET_4GInfo_S* pNET_4GInfo_S;
  */
 typedef struct tagNET_HotspotInfo
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     BOOL    bEnabled;
     CHAR    szSsid[NET_NAME_MAX_LEN];
     CHAR    szSecurityMode[NET_LEN_64];
@@ -3536,6 +3715,7 @@ typedef NET_HotspotConnDevice_S* pNET_HotspotConnDevice_S;
  */
 typedef struct tagNET_HotspotConnInfo
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     CHAR    szStatus[NET_LEN_32];
     INT32   nTotal;
     INT32   nDeviceCount;
@@ -3566,6 +3746,7 @@ typedef NET_PreviewImageParam_S* pNET_PreviewImageParam_S;
  */
 typedef struct tagNET_ImageSetting
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     UINT32  nBrightness;                         /* 亮度 [0,100] */
     UINT32  nContrast;                           /* 对比度 [0,100] */
     UINT32  nSaturation;                         /* 饱和度 [0,100] */
@@ -3582,6 +3763,7 @@ typedef NET_ImageSetting_S* pNET_ImageSetting_S;
  */
 typedef struct tagNET_PreviewInfo
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     NET_PreviewRtspUrl_S stRtspUrl;         /* 预览流地址 */
     NET_PreviewImageParam_S stImageParam;   /* 图像参数 */
     BYTE    byRes[256];                          /* 保留字段 */
@@ -3658,6 +3840,7 @@ typedef NET_ChannelInfo_S NET_DirectConnectChanInfo_S, *pNET_DirectConnectChanIn
 */
 typedef struct tagNET_RevTimeout
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     INT32   uRevTimeOut;                 /* 设置接收超时时间 Set timeout for receiving */
     INT32   uFileReportTimeOut;          /* 设置文件操作超时时间 Set timeout for file operation */
     BYTE    byRes[128];                   /* 保留字段  Reserved */
@@ -4327,6 +4510,7 @@ typedef NET_StatisticsResetConfig_S* pNET_StatisticsResetConfig_S;
  */
 typedef struct tagNET_PeopleFlowStatisticsCfg
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     BOOL        bEnable;                               /* 是否启用人流统计 */
     INT32       nSensitivity;                           /* 灵敏度[1-100] */
     NET_PeopleFlowRuleLine_S stRuleLine;        /* 规则线 */
@@ -4350,6 +4534,7 @@ typedef NET_PeopleFlowStatisticsCfg_S* pNET_PeopleFlowStatisticsCfg_S;
  */
 typedef struct tagNET_PeopleDensityDetectionCfg
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     BOOL        bEnable;                               /* 是否启用人员密度检测 */
     INT32       nSensitivity;                           /* 灵敏度[1-100] */
     INT32       uPointCount;                         /* 检测区域顶点数，最多32个 */
@@ -4427,6 +4612,7 @@ typedef NET_MotionNormalMode_S* pNET_MotionNormalMode_S;
  */
 typedef struct tagNET_MotionAlarmInfo
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     BOOL        bEnable;                             /* 是否启用 0-不启用 1-启用 */
     BOOL        bDynamicAnalysisEnable;              /* 是否启用动态分析 */
     INT32       uMode;                               /* 模式 0-普通模式 1-专家模式 NET_MOTION_MODE_E */
@@ -4466,6 +4652,7 @@ typedef NET_PrivacyMaskArea_S* pNET_PrivacyMaskArea_S;
  */
 typedef struct tagNET_PrivacyMaskCfg
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     BOOL        bEnable;                              /* 是否启用隐私遮盖 0-不启用 1-启用 */
     INT32       uAreaCount;                          /* 遮盖区域数量 [0, NET_MAX_PRIVACY_MASK_AREA_NUM] */
     NET_PrivacyMaskArea_S astArea[NET_MAX_PRIVACY_MASK_AREA_NUM]; /* 遮盖区域数组 */
@@ -4483,6 +4670,7 @@ typedef NET_PrivacyMaskCfg_S* pNET_PrivacyMaskCfg_S;
  */
 typedef struct tagNET_TamperAlarmInfo
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     BOOL        bEnable;                             /* 是否启用 0-不启用 1-启用 */
     INT32       uSensitivity;                        /* 遮挡报警灵敏度[0,3]，值越大越灵敏 */
     INT32       nRectLeft;                           /* 遮挡区域左坐标 */
@@ -4525,6 +4713,7 @@ typedef NET_BoundaryPlane_S* pNET_BoundaryPlane_S;
  */
 typedef struct tagNET_CrossLineAlarmInfo
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     BOOL        bEnable;                             /* 是否启用 0-不启用 1-启用 */
     INT32       uRuleCount;                          /* 规则数量，最多4个 */
     NET_BoundaryPlane_S stRule[4];                   /* 越界检测区域规则，最多4个 */
@@ -4563,6 +4752,7 @@ typedef NET_IntrusionRule_S* pNET_IntrusionRule_S;
  */
 typedef struct tagNET_IntrusionAlarmInfo
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     BOOL        bEnable;                             /* 是否启用 0-不启用 1-启用 */
     INT32       uRuleCount;                          /* 规则数量，最多4个 */
     NET_IntrusionRule_S stRule[4];                   /* 区域入侵检测规则，最多4个 */
@@ -4580,6 +4770,7 @@ typedef NET_IntrusionAlarmInfo_S* pNET_IntrusionAlarmInfo_S;
  */
 typedef struct tagNET_EnterRegionAlarmInfo
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     BOOL        bEnable;                             /* 是否启用 0-不启用 1-启用 */
     INT32       uRuleCount;                          /* 规则数量，最多4个 */
     NET_IntrusionRule_S stRule[4];                   /* 进入区域检测规则，最多4个 */
@@ -4597,6 +4788,7 @@ typedef NET_EnterRegionAlarmInfo_S* pNET_EnterRegionAlarmInfo_S;
  */
 typedef struct tagNET_LeaveRegionAlarmInfo
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     BOOL        bEnable;                             /* 是否启用 0-不启用 1-启用 */
     INT32       uRuleCount;                          /* 规则数量，最多4个 */
     NET_IntrusionRule_S stRule[4];                   /* 离开区域检测规则，最多4个 */
@@ -4635,6 +4827,7 @@ typedef NET_LoiteringRule_S* pNET_LoiteringRule_S;
  */
 typedef struct tagNET_LoiteringAlarmInfo
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     BOOL        bEnable;                             /* 是否启用 0-不启用 1-启用 */
     INT32       uRuleCount;                          /* 规则数量，最多4个 */
     NET_LoiteringRule_S stRule[4];                   /* 区域入侵检测规则，最多4个 */
@@ -4652,6 +4845,7 @@ typedef NET_LoiteringAlarmInfo_S* pNET_LoiteringAlarmInfo_S;
  */
 typedef struct tagNET_SceneChangeAlarmInfo
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     BOOL        bEnable;                             /* 是否启用 0-不启用 1-启用 */
     INT32       nSensitivity;                        /* 灵敏度 [1,100] */
     NET_AlarmSchedule_S stAlarmSchedule;            /* 布防时间 */
@@ -4684,6 +4878,7 @@ typedef NET_CrowdGatheringRule_S* pNET_CrowdGatheringRule_S;
  */
 typedef struct tagNET_CrowdGatheringAlarmInfo
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     BOOL        bEnable;                             /* 是否启用 0-不启用 1-启用 */
     INT32       uRuleCount;                          /* 规则数量，最多4个 */
     NET_CrowdGatheringRule_S astRule[4];             /* 人员聚集侦测规则，最多4个 */
@@ -4717,6 +4912,7 @@ typedef NET_ParkingRule_S* pNET_ParkingRule_S;
  */
 typedef struct tagNET_ParkingAlarmInfo
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     BOOL        bEnable;                             /* 是否启用 0-不启用 1-启用 */
     INT32       uRuleCount;                          /* 规则数量，最多8个 */
     NET_ParkingRule_S astRule[8];                   /* 停车侦测规则，最多8个 */
@@ -4751,6 +4947,7 @@ typedef NET_GarbageExposureRule_S* pNET_GarbageExposureRule_S;
  */
 typedef struct tagNET_GarbageExposureCfg
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     BOOL        bEnable;                               /* 是否启用 0-不启用 1-启用 */
     NET_GarbageExposureRule_S stRule;             /* 垃圾暴露检测规则 */
     NET_AlarmSchedule_S stAlarmSchedule;           /* 布防时间 */
@@ -4784,6 +4981,7 @@ typedef NET_GarbageOverflowRule_S* pNET_GarbageOverflowRule_S;
  */
 typedef struct tagNET_GarbageOverflowCfg
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     BOOL        bEnable;                               /* 是否启用 0-不启用 1-启用 */
     NET_GarbageOverflowRule_S stRule;             /* 垃圾满溢检测规则 */
     INT32       nTimeThreshold;                        /* 时间阈值(秒) */
@@ -4815,10 +5013,14 @@ typedef NET_AiSimpleRule_S* pNET_AiSimpleRule_S;
  */
 typedef struct tagNET_ManholeCoverAbnormalCfg
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     BOOL        bEnable;                               /* 是否启用 0-不启用 1-启用 */
     NET_AiSimpleRule_S stRule;                    /* 井盖异常检测规则 */
     NET_AlarmSchedule_S stAlarmSchedule;           /* 布防时间 */
     NET_LinkageList_S stLinkageList;               /* 联动配置 */
+    UINT32      uPointCount;                           /* 区域顶点数量 */
+    FLOAT       afPointX[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 区域顶点X坐标数组 [0-8192] */
+    FLOAT       afPointY[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 区域顶点Y坐标数组 [0-8192] */
     BYTE        byRes[256];                            /* 保留字段 */
 }NET_ManholeCoverAbnormalCfg_S;
 
@@ -4831,10 +5033,14 @@ typedef NET_ManholeCoverAbnormalCfg_S* pNET_ManholeCoverAbnormalCfg_S;
  */
 typedef struct tagNET_SleepOnDutyCfg
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     BOOL        bEnable;                               /* 是否启用 0-不启用 1-启用 */
     NET_AiSimpleRule_S stRule;                    /* 睡岗识别规则 */
     NET_AlarmSchedule_S stAlarmSchedule;           /* 布防时间 */
     NET_LinkageList_S stLinkageList;               /* 联动配置 */
+    UINT32      uPointCount;                           /* 区域顶点数量 */
+    FLOAT       afPointX[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 区域顶点X坐标数组 [0-8192] */
+    FLOAT       afPointY[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 区域顶点Y坐标数组 [0-8192] */
     BYTE        byRes[256];                            /* 保留字段 */
 }NET_SleepOnDutyCfg_S;
 
@@ -4847,10 +5053,14 @@ typedef NET_SleepOnDutyCfg_S* pNET_SleepOnDutyCfg_S;
  */
 typedef struct tagNET_ElectricVehicleInElevatorCfg
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     BOOL        bEnable;                               /* 是否启用 0-不启用 1-启用 */
     NET_AiSimpleRule_S stRule;                    /* 电瓶车进电梯识别规则 */
     NET_AlarmSchedule_S stAlarmSchedule;           /* 布防时间 */
     NET_LinkageList_S stLinkageList;               /* 联动配置 */
+    UINT32      uPointCount;                           /* 区域顶点数量 */
+    FLOAT       afPointX[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 区域顶点X坐标数组 [0-8192] */
+    FLOAT       afPointY[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 区域顶点Y坐标数组 [0-8192] */
     BYTE        byRes[256];                            /* 保留字段 */
 }NET_ElectricVehicleInElevatorCfg_S;
 
@@ -4863,10 +5073,14 @@ typedef NET_ElectricVehicleInElevatorCfg_S* pNET_ElectricVehicleInElevatorCfg_S;
  */
 typedef struct tagNET_PersonFallDownCfg
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     BOOL        bEnable;                               /* 是否启用 0-不启用 1-启用 */
     NET_AiSimpleRule_S stRule;                    /* 人员倒地识别规则 */
     NET_AlarmSchedule_S stAlarmSchedule;           /* 布防时间 */
     NET_LinkageList_S stLinkageList;               /* 联动配置 */
+    UINT32      uPointCount;                           /* 区域顶点数量 */
+    FLOAT       afPointX[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 区域顶点X坐标数组 [0-8192] */
+    FLOAT       afPointY[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 区域顶点Y坐标数组 [0-8192] */
     BYTE        byRes[256];                            /* 保留字段 */
 }NET_PersonFallDownCfg_S;
 
@@ -4879,10 +5093,14 @@ typedef NET_PersonFallDownCfg_S* pNET_PersonFallDownCfg_S;
  */
 typedef struct tagNET_ConstructionOccupyRoadCfg
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     BOOL        bEnable;                               /* 是否启用 0-不启用 1-启用 */
     NET_AiSimpleRule_S stRule;                    /* 施工占道识别规则 */
     NET_AlarmSchedule_S stAlarmSchedule;           /* 布防时间 */
     NET_LinkageList_S stLinkageList;               /* 联动配置 */
+    UINT32      uPointCount;                           /* 区域顶点数量 */
+    FLOAT       afPointX[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 区域顶点X坐标数组 [0-8192] */
+    FLOAT       afPointY[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 区域顶点Y坐标数组 [0-8192] */
     BYTE        byRes[256];                            /* 保留字段 */
 }NET_ConstructionOccupyRoadCfg_S;
 
@@ -4895,10 +5113,14 @@ typedef NET_ConstructionOccupyRoadCfg_S* pNET_ConstructionOccupyRoadCfg_S;
  */
 typedef struct tagNET_CongestionCfg
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     BOOL        bEnable;                               /* 是否启用 0-不启用 1-启用 */
     NET_AiSimpleRule_S stRule;                    /* 拥堵识别规则 */
     NET_AlarmSchedule_S stAlarmSchedule;           /* 布防时间 */
     NET_LinkageList_S stLinkageList;               /* 联动配置 */
+    UINT32      uPointCount;                           /* 区域顶点数量 */
+    FLOAT       afPointX[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 区域顶点X坐标数组 [0-8192] */
+    FLOAT       afPointY[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 区域顶点Y坐标数组 [0-8192] */
     BYTE        byRes[256];                            /* 保留字段 */
 }NET_CongestionCfg_S;
 
@@ -4911,10 +5133,14 @@ typedef NET_CongestionCfg_S* pNET_CongestionCfg_S;
  */
 typedef struct tagNET_LicensePlateRecognitionCfg
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     BOOL        bEnable;                               /* 是否启用 0-不启用 1-启用 */
     NET_AiSimpleRule_S stRule;                    /* 车牌识别规则 */
     NET_AlarmSchedule_S stAlarmSchedule;           /* 布防时间 */
     NET_LinkageList_S stLinkageList;               /* 联动配置 */
+    UINT32      uPointCount;                           /* 区域顶点数量 */
+    FLOAT       afPointX[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 区域顶点X坐标数组 [0-8192] */
+    FLOAT       afPointY[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 区域顶点Y坐标数组 [0-8192] */
     BYTE        byRes[256];                            /* 保留字段 */
 }NET_LicensePlateRecognitionCfg_S;
 
@@ -4927,10 +5153,14 @@ typedef NET_LicensePlateRecognitionCfg_S* pNET_LicensePlateRecognitionCfg_S;
  */
 typedef struct tagNET_HighAltitudeSeatbeltCfg
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     BOOL        bEnable;                               /* 是否启用 0-不启用 1-启用 */
     NET_AiSimpleRule_S stRule;                    /* 高空安全带识别规则 */
     NET_AlarmSchedule_S stAlarmSchedule;           /* 布防时间 */
     NET_LinkageList_S stLinkageList;               /* 联动配置 */
+    UINT32      uPointCount;                           /* 区域顶点数量 */
+    FLOAT       afPointX[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 区域顶点X坐标数组 [0-8192] */
+    FLOAT       afPointY[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 区域顶点Y坐标数组 [0-8192] */
     BYTE        byRes[256];                            /* 保留字段 */
 }NET_HighAltitudeSeatbeltCfg_S;
 
@@ -4943,10 +5173,14 @@ typedef NET_HighAltitudeSeatbeltCfg_S* pNET_HighAltitudeSeatbeltCfg_S;
  */
 typedef struct tagNET_SafetyHelmetCfg
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     BOOL        bEnable;                               /* 是否启用 0-不启用 1-启用 */
     NET_AiSimpleRule_S stRule;                    /* 安全帽识别规则 */
     NET_AlarmSchedule_S stAlarmSchedule;           /* 布防时间 */
     NET_LinkageList_S stLinkageList;               /* 联动配置 */
+    UINT32      uPointCount;                           /* 区域顶点数量 */
+    FLOAT       afPointX[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 区域顶点X坐标数组 [0-8192] */
+    FLOAT       afPointY[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 区域顶点Y坐标数组 [0-8192] */
     BYTE        byRes[256];                            /* 保留字段 */
 }NET_SafetyHelmetCfg_S;
 
@@ -4959,10 +5193,14 @@ typedef NET_SafetyHelmetCfg_S* pNET_SafetyHelmetCfg_S;
  */
 typedef struct tagNET_PersonFallCfg
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     BOOL        bEnable;                               /* 是否启用 0-不启用 1-启用 */
     NET_AiSimpleRule_S stRule;                    /* 摔倒识别规则 */
     NET_AlarmSchedule_S stAlarmSchedule;           /* 布防时间 */
     NET_LinkageList_S stLinkageList;               /* 联动配置 */
+    UINT32      uPointCount;                           /* 区域顶点数量 */
+    FLOAT       afPointX[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 区域顶点X坐标数组 [0-8192] */
+    FLOAT       afPointY[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 区域顶点Y坐标数组 [0-8192] */
     BYTE        byRes[256];                            /* 保留字段 */
 }NET_PersonFallCfg_S;
 
@@ -4975,10 +5213,14 @@ typedef NET_PersonFallCfg_S* pNET_PersonFallCfg_S;
  */
 typedef struct tagNET_PhoneUsageCfg
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     BOOL        bEnable;                               /* 是否启用 0-不启用 1-启用 */
     NET_AiSimpleRule_S stRule;                    /* 玩手机识别规则 */
     NET_AlarmSchedule_S stAlarmSchedule;           /* 布防时间 */
     NET_LinkageList_S stLinkageList;               /* 联动配置 */
+    UINT32      uPointCount;                           /* 区域顶点数量 */
+    FLOAT       afPointX[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 区域顶点X坐标数组 [0-8192] */
+    FLOAT       afPointY[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 区域顶点Y坐标数组 [0-8192] */
     BYTE        byRes[256];                            /* 保留字段 */
 }NET_PhoneUsageCfg_S;
 
@@ -4991,10 +5233,14 @@ typedef NET_PhoneUsageCfg_S* pNET_PhoneUsageCfg_S;
  */
 typedef struct tagNET_SmokingCfg
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     BOOL        bEnable;                               /* 是否启用 0-不启用 1-启用 */
     NET_AiSimpleRule_S stRule;                    /* 抽烟识别规则 */
     NET_AlarmSchedule_S stAlarmSchedule;           /* 布防时间 */
     NET_LinkageList_S stLinkageList;               /* 联动配置 */
+    UINT32      uPointCount;                           /* 区域顶点数量 */
+    FLOAT       afPointX[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 区域顶点X坐标数组 [0-8192] */
+    FLOAT       afPointY[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 区域顶点Y坐标数组 [0-8192] */
     BYTE        byRes[256];                            /* 保留字段 */
 }NET_SmokingCfg_S;
 
@@ -5007,10 +5253,14 @@ typedef NET_SmokingCfg_S* pNET_SmokingCfg_S;
  */
 typedef struct tagNET_OpenFlameCfg
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     BOOL        bEnable;                               /* 是否启用 0-不启用 1-启用 */
     NET_AiSimpleRule_S stRule;                    /* 明火识别规则 */
     NET_AlarmSchedule_S stAlarmSchedule;           /* 布防时间 */
     NET_LinkageList_S stLinkageList;               /* 联动配置 */
+    UINT32      uPointCount;                           /* 区域顶点数量 */
+    FLOAT       afPointX[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 区域顶点X坐标数组 [0-8192] */
+    FLOAT       afPointY[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 区域顶点Y坐标数组 [0-8192] */
     BYTE        byRes[256];                            /* 保留字段 */
 }NET_OpenFlameCfg_S;
 
@@ -5023,10 +5273,14 @@ typedef NET_OpenFlameCfg_S* pNET_OpenFlameCfg_S;
  */
 typedef struct tagNET_BareSoilCfg
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     BOOL        bEnable;                               /* 是否启用 0-不启用 1-启用 */
     NET_AiSimpleRule_S stRule;                    /* 黄土裸露识别规则 */
     NET_AlarmSchedule_S stAlarmSchedule;           /* 布防时间 */
     NET_LinkageList_S stLinkageList;               /* 联动配置 */
+    UINT32      uPointCount;                           /* 区域顶点数量 */
+    FLOAT       afPointX[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 区域顶点X坐标数组 [0-8192] */
+    FLOAT       afPointY[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 区域顶点Y坐标数组 [0-8192] */
     BYTE        byRes[256];                            /* 保留字段 */
 }NET_BareSoilCfg_S;
 
@@ -5039,10 +5293,14 @@ typedef NET_BareSoilCfg_S* pNET_BareSoilCfg_S;
  */
 typedef struct tagNET_HoleProtectionBarCfg
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     BOOL        bEnable;                               /* 是否启用 0-不启用 1-启用 */
     NET_AiSimpleRule_S stRule;                    /* 洞口防护栏识别规则 */
     NET_AlarmSchedule_S stAlarmSchedule;           /* 布防时间 */
     NET_LinkageList_S stLinkageList;               /* 联动配置 */
+    UINT32      uPointCount;                           /* 区域顶点数量 */
+    FLOAT       afPointX[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 区域顶点X坐标数组 [0-8192] */
+    FLOAT       afPointY[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 区域顶点Y坐标数组 [0-8192] */
     BYTE        byRes[256];                            /* 保留字段 */
 }NET_HoleProtectionBarCfg_S;
 
@@ -5055,10 +5313,14 @@ typedef NET_HoleProtectionBarCfg_S* pNET_HoleProtectionBarCfg_S;
  */
 typedef struct tagNET_ReflectiveClothingCfg
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     BOOL        bEnable;                               /* 是否启用 0-不启用 1-启用 */
     NET_AiSimpleRule_S stRule;                    /* 反光衣识别规则 */
     NET_AlarmSchedule_S stAlarmSchedule;           /* 布防时间 */
     NET_LinkageList_S stLinkageList;               /* 联动配置 */
+    UINT32      uPointCount;                           /* 区域顶点数量 */
+    FLOAT       afPointX[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 区域顶点X坐标数组 [0-8192] */
+    FLOAT       afPointY[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 区域顶点Y坐标数组 [0-8192] */
     BYTE        byRes[256];                            /* 保留字段 */
 }NET_ReflectiveClothingCfg_S;
 
@@ -5124,6 +5386,7 @@ typedef NET_SmartLineRule_S* pNET_SmartLineRule_S;
  */
 typedef struct tagNET_PetRecognitionInfo
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     BOOL        bEnable;                               /* 是否启用 0-不启用 1-启用 */
     BOOL        bDynamicAnalysisEnable;                /* 是否启用动态分析 */
     INT32       nSensitivity;                          /* 灵敏度[1,100] */
@@ -5142,6 +5405,7 @@ typedef NET_PetRecognitionInfo_S* pNET_PetRecognitionInfo_S;
  */
 typedef struct tagNET_ClimbFenceInfo
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     BOOL        bEnable;                               /* 是否启用 0-不启用 1-启用 */
     INT32       uRuleCount;                           /* 规则数量，最多4个 */
     NET_SmartRegionRule_S stRule[4];             /* 翻越围栏检测规则，最多4个 */
@@ -5159,6 +5423,7 @@ typedef NET_ClimbFenceInfo_S* pNET_ClimbFenceInfo_S;
  */
 typedef struct tagNET_DimissionInfo
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     BOOL        bEnable;                               /* 是否启用 0-不启用 1-启用 */
     INT32       uRuleCount;                           /* 规则数量，最多4个 */
     NET_SmartRegionRule_S stRule[4];             /* 离岗检测规则，最多4个 */
@@ -5176,6 +5441,7 @@ typedef NET_DimissionInfo_S* pNET_DimissionInfo_S;
  */
 typedef struct tagNET_IllegalLaneInfo
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     BOOL        bEnable;                               /* 是否启用 0-不启用 1-启用 */
     INT32       uRuleCount;                           /* 规则数量，最多4个 */
     NET_SmartLineRule_S stRule[4];               /* 违规变道检测规则，最多4个 */
@@ -5193,6 +5459,7 @@ typedef NET_IllegalLaneInfo_S* pNET_IllegalLaneInfo_S;
  */
 typedef struct tagNET_RetrogradeInfo
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     BOOL        bEnable;                               /* 是否启用 0-不启用 1-启用 */
     INT32       uRuleCount;                           /* 规则数量，最多4个 */
     NET_SmartLineRule_S stRule[4];               /* 逆行检测规则，最多4个 */
@@ -5210,6 +5477,7 @@ typedef NET_RetrogradeInfo_S* pNET_RetrogradeInfo_S;
  */
 typedef struct tagNET_NonmotorVehicleIntrusionInfo
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     BOOL        bEnable;                               /* 是否启用 0-不启用 1-启用 */
     INT32       uRuleCount;                           /* 规则数量，最多4个 */
     NET_SmartRegionRule_S stRule[4];             /* 非机动车闯入检测规则，最多4个 */
@@ -5227,6 +5495,7 @@ typedef NET_NonmotorVehicleIntrusionInfo_S* pNET_NonmotorVehicleIntrusionInfo_S;
  */
 typedef struct tagNET_OccupationEmergencyInfo
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     BOOL        bEnable;                               /* 是否启用 0-不启用 1-启用 */
     INT32       uRuleCount;                           /* 规则数量，最多4个 */
     NET_SmartRegionRule_S stRule[4];             /* 应急车道占用检测规则，最多4个 */
@@ -5244,6 +5513,7 @@ typedef NET_OccupationEmergencyInfo_S* pNET_OccupationEmergencyInfo_S;
  */
 typedef struct tagNET_PedestrianIntrusionInfo
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     BOOL        bEnable;                               /* 是否启用 0-不启用 1-启用 */
     INT32       uRuleCount;                           /* 规则数量，最多4个 */
     NET_SmartRegionRule_S stRule[4];             /* 行人闯入检测规则，最多4个 */
@@ -5261,10 +5531,14 @@ typedef NET_PedestrianIntrusionInfo_S* pNET_PedestrianIntrusionInfo_S;
  */
 typedef struct tagNET_SmokeFireCfg
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     BOOL        bEnable;                               /* 是否启用 0-不启用 1-启用 */
     NET_AiSimpleRule_S stRule;                    /* 烟火识别规则 */
     NET_AlarmSchedule_S stAlarmSchedule;           /* 布防时间 */
     NET_LinkageList_S stLinkageList;               /* 联动配置 */
+    UINT32      uPointCount;                           /* 区域顶点数量 */
+    FLOAT       afPointX[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 区域顶点X坐标数组 [0-8192] */
+    FLOAT       afPointY[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 区域顶点Y坐标数组 [0-8192] */
     BYTE        byRes[256];                            /* 保留字段 */
 }NET_SmokeFireCfg_S;
 
@@ -5277,6 +5551,7 @@ typedef NET_SmokeFireCfg_S* pNET_SmokeFireCfg_S;
  */
 typedef struct tagNET_RoadPondingCfg
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     BOOL        bEnable;                               /* 是否启用 0-不启用 1-启用 */
     NET_AiSimpleRule_S stRule;                    /* 道路积水检测规则 */
     NET_AlarmSchedule_S stAlarmSchedule;           /* 布防时间 */
@@ -5309,6 +5584,7 @@ typedef NET_UnattendedObjectRule_S* pNET_UnattendedObjectRule_S;
  */
 typedef struct tagNET_UnattendedObjectAlarmInfo
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     BOOL        bEnable;                             /* 是否启用 0-不启用 1-启用 */
     INT32       uRuleCount;                          /* 规则数量，最多4个 */
     NET_UnattendedObjectRule_S stRule[4];            /* 物品遗留侦测规则，最多4个 */
@@ -5342,6 +5618,7 @@ typedef NET_ObjectRemovalRule_S* pNET_ObjectRemovalRule_S;
  */
 typedef struct tagNET_ObjectRemovalAlarmInfo
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     BOOL        bEnable;                             /* 是否启用 0-不启用 1-启用 */
     INT32       uRuleCount;                          /* 规则数量，最多4个 */
     NET_ObjectRemovalRule_S stRule[4];               /* 物品拿取侦测规则，最多4个 */
@@ -5359,6 +5636,7 @@ typedef NET_ObjectRemovalAlarmInfo_S* pNET_ObjectRemovalAlarmInfo_S;
  */
 typedef struct tagNET_AudioAnomalyAlarmInfo
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     BOOL        bEnable;                             /* 是否启用 0-不启用 1-启用 */
     BOOL        bAudioInputAnomaly;                  /* 音频输入异常检测是否启用 */
     BOOL        bUpEnable;                           /* 音量突升检测是否启用 */
@@ -5373,15 +5651,20 @@ typedef struct tagNET_AudioAnomalyAlarmInfo
 
 typedef NET_AudioAnomalyAlarmInfo_S* pNET_AudioAnomalyAlarmInfo_S;
 
+/* 音频异常侦测实时音量结构体预留字段长度。 */
+#define NET_AUDIO_ANOMALY_CURRENT_DB_RESERVED_LEN (120)
+
 /**
  * @brief 音频异常侦测实时音量信息
+ * @author ITC
  * @note 用于 NET_GET_AUDIO_ANOMALY_CURRENT_DB，仅表示本次查询时的音量快照
  */
 typedef struct tagNET_AudioAnomalyCurrentDb
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     BOOL        bValid;                              /* 实时音量是否有效 */
     FLOAT       fCurrentDb;                          /* 当前实时音量，单位：dB */
-    BYTE        abyReserved[120];                    /* 预留字段 */
+    BYTE        abyReserved[NET_AUDIO_ANOMALY_CURRENT_DB_RESERVED_LEN]; /* 预留字段 */
 } NET_AudioAnomalyCurrentDb_S;
 
 typedef NET_AudioAnomalyCurrentDb_S* pNET_AudioAnomalyCurrentDb_S;
@@ -5433,6 +5716,7 @@ typedef NET_FaceCaptureRule_S* pNET_FaceCaptureRule_S;
  */
 typedef struct tagNET_FaceCaptureInfo
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     BOOL                        bEnable;                             /* 是否启用 0-不启用 1-启用 */
     NET_FaceCaptureRule_S  stRule;                             /* 人脸抓拍规则 */
     NET_AlarmSchedule_S     stAlarmSchedule;                    /* 布防时间 */
@@ -5449,6 +5733,7 @@ typedef NET_FaceCaptureInfo_S* pNET_FaceCaptureInfo_S;
  */
 typedef struct tagNET_FaceCompareInfo
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     BOOL                    bEnable;                    /* 是否启用 0-不启用 1-启用 */
     NET_AlarmSchedule_S stAlarmSchedule;            /* 布防时间 */
     NET_LinkageList_S   stLinkageListSuccess;       /* 比对成功联动配置 */
@@ -5670,6 +5955,7 @@ typedef NET_VideoStreamCap_S* pNET_VideoStreamCap_S;
 */
 typedef struct tagNET_VideoEncodeCap
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     INT32                       uStreamCount;                                  /* 码流数量 Stream count */
     NET_VideoStreamCap_S   astStreamCap[NET_VIDEO_STREAM_MAX];          /* 各码流能力 Stream capabilities */
 }NET_VideoEncodeCap_S;
@@ -5720,6 +6006,7 @@ typedef NET_AudioFormatCap_S* pNET_AudioFormatCap_S;
  */
 typedef struct tagNET_AudioCap
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     INT32                       uInputTypeSize;                           /* 输入类型数量 */
     INT32                       auInputType[NET_AUDIO_INPUT_TYPE_MAX];   /* 输入类型 参见 NET_AudioInputType_E */
 
@@ -5849,6 +6136,7 @@ typedef NET_VideoOsdCfg_S* pNET_VideoOsdCfg_S;
  */
 typedef struct tagNET_OsdCap
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     /* 基础能力 */
     BOOL     bSupportOsd;                                                       /* 是否支持OSD配置 */
     BOOL     bSupportName;                                                      /* 是否支持名称OSD */
@@ -5880,6 +6168,31 @@ typedef struct tagNET_OsdCap
 
 typedef NET_OsdCap_S* pNET_OsdCap_S;
 
+/**
+ * @struct tagNET_SysCapability
+ * @brief 设备通用能力集 (NET_CAP_SYS) Device common capability
+ * @attention 能力开关总表：客户端先查询本结构体，再按开关值单独查询具体能力集
+ */
+typedef struct tagNET_SysCapability
+{
+    BOOL     bVideoEncodeAbility;        /* 视频编码能力 Video encode capability */
+    BOOL     bOsdAbility;                /* OSD能力 OSD capability */
+    BOOL     bSmartAbility;              /* 智能检测能力 Smart detection capability */
+    BOOL     bImageParamAbility;         /* 图像参数能力 Image parameter capability */
+    BOOL     bAudioAbility;              /* 音频能力 Audio capability */
+    BOOL     bChannelAlarmAbility;       /* 通道告警能力 Channel alarm capability */
+    BOOL     bUserManageAbility;         /* 用户管理能力 User management capability */
+    BOOL     bMediaAbility;              /* 视频通道媒体能力 Video channel media capability */
+    BOOL     bUpdateAbility;             /* 升级能力 Upgrade capability */
+    BOOL     bIOAlarmAbility;            /* IO报警能力 IO alarm capability */
+    BOOL     bDiskFormatAbility;         /* 硬盘格式化能力 Disk format capability */
+    BOOL     bTWSearchAbility;           /* 图文检索能力 Text-image search capability */
+    BOOL     bTargetRecognitionAbility;  /* 目标识别能力 Target recognition capability */
+    BYTE     byRes[64];                  /* 预留字段  Reserved */
+} NET_SysCapability_S;
+
+typedef NET_SysCapability_S* pNET_SysCapability_S;
+
 /******************** 智能能力集结构体定义 Smart Capability Structures ********************/
 
 /**
@@ -5889,6 +6202,7 @@ typedef NET_OsdCap_S* pNET_OsdCap_S;
  */
 typedef struct tagNET_MotionDetectCap
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     BOOL    bSupport;                           /* 是否支持移动侦测  Support motion detection */
     BOOL    bSupportExpertMode;                 /* 是否支持专家模式  Support expert mode */
     BOOL    bSupportDynamicAnalysis;            /* 是否支持动态分析  Support dynamic analysis */
@@ -5913,6 +6227,7 @@ typedef NET_MotionDetectCap_S* pNET_MotionDetectCap_S;
  */
 typedef struct tagNET_TamperDetectCap
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     BOOL    bSupport;                           /* 是否支持遮挡检测  Support tamper detection */
     NET_Range_S stSensitivity;               /* 灵敏度范围  Sensitivity range */
     BOOL    bSupportCustomRegion;               /* 是否支持自定义区域  Support custom region */
@@ -5928,6 +6243,7 @@ typedef NET_TamperDetectCap_S* pNET_TamperDetectCap_S;
  */
 typedef struct tagNET_BoundaryDetectCap
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     BOOL    bSupport;                           /* 是否支持越界检测  Support boundary detection */
     UINT32  udwMaxLines;                        /* 最大警戒线数  Max lines */
     UINT32  udwMaxPointsPerLine;                /* 每条线最大顶点数  Max points per line */
@@ -5946,6 +6262,7 @@ typedef NET_BoundaryDetectCap_S* pNET_BoundaryDetectCap_S;
  */
 typedef struct tagNET_IntrusionDetectCap
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     BOOL    bSupport;                           /* 是否支持区域入侵检测  Support intrusion detection */
     UINT32  udwMaxRegions;                      /* 最大区域数  Max regions */
     UINT32  udwMaxPointsPerRegion;              /* 每个区域最大顶点数  Max points per region */
@@ -5965,6 +6282,7 @@ typedef NET_IntrusionDetectCap_S* pNET_IntrusionDetectCap_S;
  */
 typedef struct tagNET_EnterExitDetectCap
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     BOOL    bSupportEnter;                      /* 是否支持进入区域检测  Support enter detection */
     BOOL    bSupportExit;                       /* 是否支持离开区域检测  Support exit detection */
     UINT32  udwMaxRegions;                      /* 最大区域数  Max regions */
@@ -5986,6 +6304,7 @@ typedef NET_EnterExitDetectCap_S* pNET_EnterExitDetectCap_S;
  */
 typedef struct tagNET_LoiteringDetectCap
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     BOOL    bSupport;                           /* 是否支持徘徊检测  Support loitering detection */
     UINT32  udwMaxRegions;                      /* 最大区域数  Max regions */
     UINT32  udwMaxPointsPerRegion;              /* 每个区域最大顶点数  Max points per region */
@@ -6004,6 +6323,7 @@ typedef NET_LoiteringDetectCap_S* pNET_LoiteringDetectCap_S;
  */
 typedef struct tagNET_CrowdGatheringCap
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     BOOL    bSupport;                           /* 是否支持人群聚集检测  Support crowd gathering detection */
     UINT32  udwMaxRegions;                      /* 最大区域数  Max regions */
     UINT32  udwMaxPointsPerRegion;              /* 每个区域最大顶点数  Max points per region */
@@ -6020,6 +6340,7 @@ typedef NET_CrowdGatheringCap_S* pNET_CrowdGatheringCap_S;
  */
 typedef struct tagNET_ParkingDetectCap
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     BOOL    bSupport;                           /* 是否支持停车检测  Support parking detection */
     UINT32  udwMaxRegions;                      /* 最大区域数  Max regions */
     UINT32  udwMaxPointsPerRegion;              /* 每个区域最大顶点数  Max points per region */
@@ -6037,6 +6358,7 @@ typedef NET_ParkingDetectCap_S* pNET_ParkingDetectCap_S;
  */
 typedef struct tagNET_ObjectChangeDetectCap
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     BOOL    bSupportUnattendedObject;           /* 是否支持物品遗留检测  Support unattended object detection */
     BOOL    bSupportObjectRemoval;              /* 是否支持物品移走检测  Support object removal detection */
     UINT32  udwMaxRegions;                      /* 最大区域数  Max regions */
@@ -6055,6 +6377,7 @@ typedef NET_ObjectChangeDetectCap_S* pNET_ObjectChangeDetectCap_S;
  */
 typedef struct tagNET_FaceDetectCap
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     BOOL    bSupport;                           /* 是否支持人脸检测  Support face detection */
     BOOL    bSupportDynamicAnalysis;            /* 是否支持动态分析  Support dynamic analysis */
     NET_Range_S stSensitivity;               /* 灵敏度范围  Sensitivity range */
@@ -6072,6 +6395,7 @@ typedef NET_FaceDetectCap_S* pNET_FaceDetectCap_S;
  */
 typedef struct tagNET_FaceCaptureCap
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     BOOL    bSupport;                           /* 是否支持人脸抓拍  Support face capture */
     NET_Range_S stSensitivity;               /* 灵敏度范围  Sensitivity range */
     BOOL    bSupportDetectionRegion;            /* 是否支持检测区域  Support detection region */
@@ -6095,6 +6419,7 @@ typedef NET_FaceCaptureCap_S* pNET_FaceCaptureCap_S;
  */
 typedef struct tagNET_PetRecognitionCap
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     BOOL    bSupport;                           /* 是否支持宠物识别  Support pet recognition */
     BOOL    bSupportDynamicAnalysis;            /* 是否支持动态分析  Support dynamic analysis */
     NET_Range_S stSensitivity;               /* 灵敏度范围  Sensitivity range */
@@ -6112,6 +6437,7 @@ typedef NET_PetRecognitionCap_S* pNET_PetRecognitionCap_S;
  */
 typedef struct tagNET_AudioAnomalyCap
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     BOOL    bSupport;                           /* 是否支持音频异常检测  Support audio anomaly detection */
     BOOL    bSupportInputAnomaly;               /* 是否支持输入异常检测  Support input anomaly */
     BOOL    bSupportRise;                       /* 是否支持音量突升检测  Support rise detection */
@@ -6131,6 +6457,7 @@ typedef NET_AudioAnomalyCap_S* pNET_AudioAnomalyCap_S;
  */
 typedef struct tagNET_SceneChangeCap
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     BOOL    bSupport;                           /* 是否支持场景变更检测  Support scene change detection */
     NET_Range_S stSensitivity;               /* 灵敏度范围  Sensitivity range */
     BYTE    byRes[64];                          /* 保留字段  Reserved */
@@ -6145,6 +6472,7 @@ typedef NET_SceneChangeCap_S* pNET_SceneChangeCap_S;
  */
 typedef struct tagNET_FireDetectCap
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     BOOL    bSupport;                           /* 是否支持火灾检测  Support fire detection */
     BOOL    bSupportRegion;                     /* 是否支持区域设置  Support region setting */
     UINT32  udwMaxRegions;                      /* 最大区域数  Max regions */
@@ -6162,6 +6490,7 @@ typedef NET_FireDetectCap_S* pNET_FireDetectCap_S;
  */
 typedef struct tagNET_SmokeDetectCap
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     BOOL    bSupport;                           /* 是否支持烟雾检测  Support smoke detection */
     BOOL    bSupportRegion;                     /* 是否支持区域设置  Support region setting */
     UINT32  udwMaxRegions;                      /* 最大区域数  Max regions */
@@ -6179,6 +6508,7 @@ typedef NET_SmokeDetectCap_S* pNET_SmokeDetectCap_S;
  */
 typedef struct tagNET_WaterAccumulationCap
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     BOOL    bSupport;                           /* 是否支持积水检测  Support water accumulation detection */
     BOOL    bSupportRegion;                     /* 是否支持区域设置  Support region setting */
     UINT32  udwMaxRegions;                      /* 最大区域数  Max regions */
@@ -6196,6 +6526,7 @@ typedef NET_WaterAccumulationCap_S* pNET_WaterAccumulationCap_S;
  */
 typedef struct tagNET_TrashOverflowCap
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     BOOL    bSupport;                           /* 是否支持垃圾满溢检测  Support trash overflow detection */
     BOOL    bSupportRegion;                     /* 是否支持区域设置  Support region setting */
     UINT32  udwMaxRegions;                      /* 最大区域数  Max regions */
@@ -6213,6 +6544,7 @@ typedef NET_TrashOverflowCap_S* pNET_TrashOverflowCap_S;
  */
 typedef struct tagNET_BehaviorDetectCap
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     BOOL    bSupport;                           /* 是否支持人员行为检测  Support behavior detection */
     BOOL    bSupportSleepOnDuty;                /* 是否支持睡岗检测  Support sleep on duty detection */
     BOOL    bSupportLeavePost;                  /* 是否支持离岗检测  Support leave post detection */
@@ -6238,6 +6570,7 @@ typedef NET_BehaviorDetectCap_S* pNET_BehaviorDetectCap_S;
  */
 typedef struct tagNET_EnvironmentAnomalyCap
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     BOOL    bSupport;                           /* 是否支持环境异常检测  Support environment anomaly detection */
     BOOL    bSupportElectricVehicleInElevator;  /* 是否支持电动车入梯检测  Support electric vehicle in elevator */
     BOOL    bSupportGarbageExposure;            /* 是否支持垃圾暴露检测  Support garbage exposure */
@@ -6262,6 +6595,7 @@ typedef NET_EnvironmentAnomalyCap_S* pNET_EnvironmentAnomalyCap_S;
  */
 typedef struct tagNET_SafetyEquipmentCap
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     BOOL    bSupport;                           /* 是否支持穿戴规范检测  Support safety equipment detection */
     BOOL    bSupportHelmet;                     /* 是否支持安全帽检测  Support helmet detection */
     BOOL    bSupportReflectiveClothing;         /* 是否支持反光衣检测  Support reflective clothing detection */
@@ -6283,6 +6617,7 @@ typedef NET_SafetyEquipmentCap_S* pNET_SafetyEquipmentCap_S;
  */
 typedef struct tagNET_LicensePlateCap
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     BOOL    bSupport;                           /* 是否支持车牌识别  Support license plate recognition */
     BOOL    bSupportRegion;                     /* 是否支持区域设置  Support region setting */
     UINT32  udwMaxRegions;                      /* 最大区域数  Max regions */
@@ -6304,6 +6639,7 @@ typedef NET_LicensePlateCap_S* pNET_LicensePlateCap_S;
  */
 typedef struct tagNET_WrongWayDrivingCap
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     BOOL    bSupport;                           /* 是否支持逆行检测  Support wrong way driving detection */
     UINT32  udwMaxRegions;                      /* 最大区域数  Max regions */
     UINT32  udwMaxPointsPerRegion;              /* 每个区域最大顶点数  Max points per region */
@@ -6319,6 +6655,7 @@ typedef NET_WrongWayDrivingCap_S* pNET_WrongWayDrivingCap_S;
  */
 typedef struct tagNET_IllegalLaneChangeCap
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     BOOL    bSupport;                           /* 是否支持违规变道检测  Support illegal lane change detection */
     UINT32  udwMaxRegions;                      /* 最大区域数  Max regions */
     UINT32  udwMaxPointsPerRegion;              /* 每个区域最大顶点数  Max points per region */
@@ -6334,6 +6671,7 @@ typedef NET_IllegalLaneChangeCap_S* pNET_IllegalLaneChangeCap_S;
  */
 typedef struct tagNET_EmergencyLaneOccupancyCap
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     BOOL    bSupport;                           /* 是否支持应急车道占用检测  Support emergency lane occupancy detection */
     UINT32  udwMaxRegions;                      /* 最大区域数  Max regions */
     UINT32  udwMaxPointsPerRegion;              /* 每个区域最大顶点数  Max points per region */
@@ -6349,6 +6687,7 @@ typedef NET_EmergencyLaneOccupancyCap_S* pNET_EmergencyLaneOccupancyCap_S;
  */
 typedef struct tagNET_NonMotorVehicleIntrusionCap
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     BOOL    bSupport;                           /* 是否支持非机动车入侵检测  Support non-motor vehicle intrusion detection */
     UINT32  udwMaxRegions;                      /* 最大区域数  Max regions */
     UINT32  udwMaxPointsPerRegion;              /* 每个区域最大顶点数  Max points per region */
@@ -6364,6 +6703,7 @@ typedef NET_NonMotorVehicleIntrusionCap_S* pNET_NonMotorVehicleIntrusionCap_S;
  */
 typedef struct tagNET_ConstructionOccupancyCap
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     BOOL    bSupport;                           /* 是否支持施工占道检测  Support construction occupancy detection */
     UINT32  udwMaxRegions;                      /* 最大区域数  Max regions */
     UINT32  udwMaxPointsPerRegion;              /* 每个区域最大顶点数  Max points per region */
@@ -6380,6 +6720,7 @@ typedef NET_ConstructionOccupancyCap_S* pNET_ConstructionOccupancyCap_S;
  */
 typedef struct tagNET_CongestionCap
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     BOOL    bSupport;                           /* 是否支持拥堵检测  Support congestion detection */
     UINT32  udwMaxRegions;                      /* 最大区域数  Max regions */
     UINT32  udwMaxPointsPerRegion;              /* 每个区域最大顶点数  Max points per region */
@@ -6398,6 +6739,7 @@ typedef NET_CongestionCap_S* pNET_CongestionCap_S;
  */
 typedef struct tagNET_IllegalParkingCap
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     BOOL    bSupport;                           /* 是否支持违规停车检测  Support illegal parking detection */
     UINT32  udwMaxRegions;                      /* 最大区域数  Max regions */
     UINT32  udwMaxPointsPerRegion;              /* 每个区域最大顶点数  Max points per region */

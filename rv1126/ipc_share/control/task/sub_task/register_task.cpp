@@ -71,8 +71,12 @@ void Task::Register::SetActivationPasswd::handle()
     stUserInfo.stPermissions.stMenuPermission.bVideoAndAudio = true;
     stUserInfo.stPermissions.stMenuPermission.bEventConfig = true;
     stUserInfo.stPermissions.stMenuPermission.bVideoManage = true;
-    stUserInfo.stPermissions.stMenuPermission.bObjectLib = true;
     stUserInfo.stPermissions.stMenuPermission.bFaceConfig = true;
+    #if CAP_AI_FACE_COMPARE
+    stUserInfo.stPermissions.stMenuPermission.bObjectLib = true;
+    #else
+    stUserInfo.stPermissions.stMenuPermission.bObjectLib = false;
+    #endif
     stUserInfo.stPermissions.stMenuPermission.bVehicleDetecConfig = true;
     stUserInfo.stPermissions.stMenuPermission.bLocalShutdown = true;
 

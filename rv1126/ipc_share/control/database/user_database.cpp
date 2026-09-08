@@ -87,8 +87,12 @@ int CUserDatabase::create()
         stUserInfo.stPermissions.stMenuPermission.bVideoAndAudio = true;          /* 视音频 */
         stUserInfo.stPermissions.stMenuPermission.bEventConfig = true;            /* 事件配置 */
         stUserInfo.stPermissions.stMenuPermission.bVideoManage = true;            /* 录像管理 */
-        stUserInfo.stPermissions.stMenuPermission.bObjectLib = true;              /* 目标库 */
         stUserInfo.stPermissions.stMenuPermission.bFaceConfig = true;             /* 人脸功能 */
+        #if CAP_AI_FACE_COMPARE
+        stUserInfo.stPermissions.stMenuPermission.bObjectLib = true;              /* 目标库 */
+        #else
+        stUserInfo.stPermissions.stMenuPermission.bObjectLib = false;              /* 目标库 */
+        #endif
         stUserInfo.stPermissions.stMenuPermission.bVehicleDetecConfig = true;     /* 车辆检测配置 */
         stUserInfo.stPermissions.stMenuPermission.bLocalShutdown = true;          /* 本地关机 */
         stUserInfo.stPermissions.stOperatePermission.bPTZControl = true;          /* 云台控制 */

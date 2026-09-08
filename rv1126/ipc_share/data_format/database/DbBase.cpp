@@ -11,6 +11,7 @@
 #include <iostream>
 #include <ostream>
 #include <filesystem>
+#include <algorithm>
 #include "SQLite3.hpp"
 using namespace Db;
 
@@ -91,6 +92,31 @@ int CDbBase::init(bool bAddDefault)
     {
         dlog_error("创建数据表失败，%s", const_cast<char *>(m_path.c_str()));
         return -1;
+    }
+
+    /* schema 升级：旧库可能缺少代码后加的列，CREATE TABLE IF NOT EXISTS 不会补列，
+       逐列检测，缺失的用 ALTER TABLE ADD COLUMN 补齐（不丢已有数据） */
+    std::vector<std::string> existColumns = m_sqlite3.get_table_columns(m_tableName);
+    for (auto &items : m_tableKey)
+    {
+        if (std::find(existColumns.begin(), existColumns.end(), items.first) != existColumns.end())
+        {
+            continue;
+        }
+        /* int 列默认 0（权限列默认关闭），字符串列默认 NULL */
+        std::string strDefault;
+        if (to_type(items.second) == VALUE_TYPE_INT)
+        {
+            strDefault = " DEFAULT 0";
+        }
+        std::string alterSql = "ALTER TABLE \"" + m_tableName + "\" ADD COLUMN " + items.first + " " + items.second + strDefault + ";";
+        nRet = m_sqlite3.deal_sql(alterSql);
+        if (nRet < 0)
+        {
+            dlog_error("数据库补列失败，%s", const_cast<char *>(alterSql.c_str()));
+            return -1;
+        }
+        dlog_info("数据库补列: %s.%s %s%s", m_tableName.c_str(), items.first.c_str(), items.second.c_str(), strDefault.c_str());
     }
 
     return 0;

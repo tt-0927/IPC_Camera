@@ -48,7 +48,6 @@ CBujlbDomain::CBujlbDomain()
     m_setTable[NET_CONTROL_LAYOUT]    = &CBujlbDomain::TemplatedSet<NET_LayoutSelfInfo_S>;
     m_setTable[NET_SET_PVW2PGM]       = &CBujlbDomain::TemplatedSet<NET_PVW2PGMInfo_S>;
     m_setTable[NET_ADD_APPOINTMENT]   = &CBujlbDomain::TemplatedSet<NET_AppointmentItem_S>;
-    m_setTable[NET_CONTROL_REBOOT]    = &CBujlbDomain::TemplatedSet<NET_RebootInfo_S>;
     m_setTable[NET_SET_OUT_VOLUME]    = &CBujlbDomain::TemplatedSet<NET_OutVolume_S>;
     m_setTable[NET_SET_SSH_SAFE_INFO] = &CBujlbDomain::TemplatedSet<NET_SshSafeInfo_S>;
 }

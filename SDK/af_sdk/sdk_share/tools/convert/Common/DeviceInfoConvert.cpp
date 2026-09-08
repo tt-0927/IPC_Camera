@@ -12,7 +12,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_DeviceInfo_S& stInfo, bool bO
     }
     SDKConvert::CSDKConvert convert(bOutStruct);
     convert.field(pRootJson, "DevType", (int &)stInfo.uDevType);
-    convert.field(pRootJson, "DevModel", stInfo.strDevModel);
+    //convert.field(pRootJson, "DevModel", stInfo.strDevModel);
 
 }
 
@@ -33,10 +33,10 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_DeviceBasicInfo_S& stInfo, bo
     convert.field(pRootJson, "DeviceName", stInfo.strDeviceName);
     convert.field(pRootJson, "Manufacturer", stInfo.strManufacturer);
     convert.field(pRootJson, "DeviceTypeV2", stInfo.strDeviceTypeV2);
-    convert.field(pRootJson, "AlarmInPortNum", (int &)stInfo.uAlarmInPortNum);
-    convert.field(pRootJson, "AlarmOutPortNum", (int &)stInfo.uAlarmOutPortNum);
-    convert.field(pRootJson, "ChannelNum", (int &)stInfo.uChannelNum);
-    convert.field(pRootJson, "PoeChannelNum", (int &)stInfo.uPoeChannelNum);
+    // convert.field(pRootJson, "AlarmInPortNum", (int &)stInfo.uAlarmInPortNum);
+    // convert.field(pRootJson, "AlarmOutPortNum", (int &)stInfo.uAlarmOutPortNum);
+    // convert.field(pRootJson, "ChannelNum", (int &)stInfo.uChannelNum);
+    // convert.field(pRootJson, "PoeChannelNum", (int &)stInfo.uPoeChannelNum);
 }
 
 
@@ -450,4 +450,33 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_UserPasswordInfo_S& stInfo, b
     convert.field(pRootJson, "UserName", stInfo.strUserName);
     convert.field(pRootJson, "OldPassword", stInfo.strOldPassword);
     convert.field(pRootJson, "NewPassword", stInfo.strNewPassword);
+}
+
+/* ===================== 设备控制 (重启/关机/格式化) ============================== */
+void SDKConvert::deal(Json::Object* pRootJson, NET_RebootInfo_S& stInfo, bool bOutStruct)
+{
+    (void)pRootJson;
+    (void)stInfo;
+    (void)bOutStruct;
+}
+
+void SDKConvert::deal(Json::Object* pRootJson, NET_ShutdownInfo_S& stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+    SDKConvert::CSDKConvert convert(bOutStruct);
+    convert.field(pRootJson, "nDelaySeconds", stInfo.nDelaySeconds);
+}
+
+void SDKConvert::deal(Json::Object* pRootJson, NET_FormatDiskInfo_S& stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+    SDKConvert::CSDKConvert convert(bOutStruct);
+    convert.field(pRootJson, "nDiskIndex", stInfo.nDiskIndex);
+    convert.field(pRootJson, "nFormatType", stInfo.nFormatType);
 }

@@ -69,6 +69,11 @@ namespace SDKConvert
      */
     void deal(Json::Object* pRootJson, NET_OsdCap_S& stInfo, bool bOutStruct);
 
+    /**
+     * @brief 设备通用能力集转换 (NET_CAP_SYS)
+     */
+    void deal(Json::Object* pRootJson, NET_SysCapability_S& stInfo, bool bOutStruct);
+
     // ==================== 后续扩展能力集 ====================
     // NET_CAP_OSD: void deal(Json::Object*, NET_OsdCap_S&, bool);
     // NET_CAP_SMART: void deal(Json::Object*, NET_SmartCap_S&, bool);

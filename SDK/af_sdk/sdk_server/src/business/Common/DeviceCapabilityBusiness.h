@@ -52,4 +52,9 @@ private:
      */
     std::string HandleAudioEncode(int nChannelId, int nCommand);
 
+    /**
+     * @brief 处理系统通用能力集 (NET_CAP_SYS)
+     */
+    std::string HandleSysCap(int nChannelId, int nCommand);
+
 };

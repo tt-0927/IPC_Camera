@@ -80,4 +80,11 @@ namespace SDKConvert
     void deal(Json::Object* pRootJson, NET_PedestrianIntrusionInfo_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_SmokeFireCfg_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_RoadPondingCfg_S& stInfo, bool bOutStruct);
+
+    void deal(Json::Object* pRootJson, NET_DeviceStatusInfo_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_ChannelNameInfo_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_TransparentChannel_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_TransparentData_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_SerialPortParam_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_SerialData_S& stInfo, bool bOutStruct);
 }

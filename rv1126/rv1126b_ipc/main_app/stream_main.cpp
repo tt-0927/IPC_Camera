@@ -25,7 +25,6 @@
 #include "crypto_init.h"
 // #include "event_manage.h"
 
-
 /* 日志记录单个日志文件的最大大小 */
 #define MAX_LOG_SIZE  (2 * 1024 * 1024) // 2MB
 /* 日志记录最大保留的日志文件数量 */
