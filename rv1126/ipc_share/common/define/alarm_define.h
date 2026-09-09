@@ -5,6 +5,8 @@
  * @LastEditors  : zhouzr@kfb.cn
  * @LastEditTime : 2026-06-04 10:50:38
  * @Description  : 报警配置参数数据结构
+ * @FileName     : alarm_define.h
+ * @Change       : 2026-09-08 初始化并复制已有规则的时间阈值，补齐徘徊检测目标复制，不新增字段
  */
 
 #pragma once
@@ -1187,21 +1189,33 @@ namespace Alarm
         unsigned int nTimeThreshold; /* 行为事件触发时间阈值，判断有效报警的时间[0,100]单位（秒） */
         std::vector<int> aDetectionTarget; /* 检测目标,DetectionTarget_E */
 
-        /* 默认构造函数 */
+        /**
+         * @brief 初始化进入和离开区域的规则参数，旧配置缺少时间阈值时使用十秒默认值。
+         * @param [in] 无。
+         * @param [out] 无。初始化当前对象。
+         * @return 无。
+         */
         _EnterExitIntrusion_S_() :
             stRegion(),
-            nSensitivity(50)
+            nSensitivity(50),
+            nTimeThreshold(10)
         {
             aDetectionTarget.clear();
         }
-        /* 重载赋值运算符 */
-        _EnterExitIntrusion_S_ &operator=(const _EnterExitIntrusion_S_ &x)
+        /**
+         * @brief 完整复制进入和离开区域的已有规则字段。
+         * @param [in] stSource 源规则。
+         * @param [out] 无。更新当前对象。
+         * @return 当前对象引用。
+         */
+        _EnterExitIntrusion_S_ &operator=(const _EnterExitIntrusion_S_ &stSource)
         {
-            if (this != &x)
+            if (this != &stSource)
             {
-                stRegion = x.stRegion;
-                nSensitivity = x.nSensitivity;
-                aDetectionTarget = x.aDetectionTarget;
+                stRegion = stSource.stRegion;
+                nSensitivity = stSource.nSensitivity;
+                nTimeThreshold = stSource.nTimeThreshold;
+                aDetectionTarget = stSource.aDetectionTarget;
             }
             return *this;
         }
@@ -1475,14 +1489,20 @@ namespace Alarm
         LoiteringRule() : stRegion(), nTimeThreshold(10), nSensitivity(50)
         {
         }
-        /* 重载赋值运算符 */
-        LoiteringRule &operator=(const LoiteringRule &x)
+        /**
+         * @brief 复制徘徊区域、阈值及检测目标，避免配置对象赋值丢失目标选择。
+         * @param [in] stSource 源规则。
+         * @param [out] 无。更新当前对象。
+         * @return 当前对象引用。
+         */
+        LoiteringRule &operator=(const LoiteringRule &stSource)
         {
-            if (this != &x)
+            if (this != &stSource)
             {
-                stRegion = x.stRegion;
-                nSensitivity = x.nSensitivity;
-                nTimeThreshold = x.nTimeThreshold;
+                stRegion = stSource.stRegion;
+                nSensitivity = stSource.nSensitivity;
+                nTimeThreshold = stSource.nTimeThreshold;
+                aDetectionTarget = stSource.aDetectionTarget;
             }
             return *this;
         }
@@ -2843,19 +2863,30 @@ typedef struct _FaceCompare_S_
         unsigned int nSensitivity;
         unsigned int nTimeThreshold; /* 行为事件触发时间阈值，判断有效报警的时间[0,100]单位（秒） */
         std::vector<int> aDetectionTarget;  /* 检测目标,DetectionTarget_E */
-        /* 默认构造函数 */
-        FenceClimbingRule() : stRegion(), nSensitivity(50)
+        /**
+         * @brief 初始化翻越围栏规则，时间阈值采用十秒默认值。
+         * @param [in] 无。
+         * @param [out] 无。初始化当前对象。
+         * @return 无。
+         */
+        FenceClimbingRule() : stRegion(), nSensitivity(50), nTimeThreshold(10)
         {
             aDetectionTarget.clear();
         }
-        /* 重载赋值运算符 */
-        FenceClimbingRule &operator=(const FenceClimbingRule &x)
+        /**
+         * @brief 完整复制翻越围栏规则的区域、阈值及检测目标。
+         * @param [in] stSource 源规则。
+         * @param [out] 无。更新当前对象。
+         * @return 当前对象引用。
+         */
+        FenceClimbingRule &operator=(const FenceClimbingRule &stSource)
         {
-            if (this != &x)
+            if (this != &stSource)
             {
-                stRegion = x.stRegion;
-                nSensitivity = x.nSensitivity;
-                aDetectionTarget = x.aDetectionTarget;
+                stRegion = stSource.stRegion;
+                nSensitivity = stSource.nSensitivity;
+                nTimeThreshold = stSource.nTimeThreshold;
+                aDetectionTarget = stSource.aDetectionTarget;
             }
             return *this;
         }
