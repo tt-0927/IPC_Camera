@@ -303,7 +303,7 @@ const retrograde = func(callbacks, 'cb_set_retrograde_info');
 verify(retrograde.includes('stRule.enCrossDirection != Alarm::A_TO_B') &&
     retrograde.includes('stRule.enCrossDirection != Alarm::B_TO_A') &&
     retrograde.includes('return NET_E_INVALID_PARAM'), 'Nonempty reverse-direction rule rejects two-way mode');
-for (const type of ['EnterExitIntrusion_S', 'FenceClimbingRule_S']) {
+for (const type of ['EnterExitIntrusion_S']) {
     verify(/nTimeThreshold\(10\)/.test(structure(definitions, type)),
         type + ': initialize existing time field for legacy configurations');
 }

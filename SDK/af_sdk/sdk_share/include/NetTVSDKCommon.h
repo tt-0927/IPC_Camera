@@ -2140,7 +2140,6 @@ typedef NET_VoiceComStartInfo_S* pNET_VoiceComStartInfo_S;
  */
 typedef struct tagNET_VoiceComAudioCfg
 {
-    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     INT32   enFormat;             /* 音频格式, 参见 NET_AudioFormat_E, 当前支持 PCM/AAC/G711A/G711U */
     INT32   uSampleRate;          /* 采样率, Hz, 参见 NET_AudioSampRate_E */
     INT32   uBitDepth;            /* 位深, PCM=16, G711=8 */
@@ -5018,10 +5017,11 @@ typedef struct tagNET_ManholeCoverAbnormalCfg
     NET_AiSimpleRule_S stRule;                    /* 井盖异常检测规则 */
     NET_AlarmSchedule_S stAlarmSchedule;           /* 布防时间 */
     NET_LinkageList_S stLinkageList;               /* 联动配置 */
+    BYTE        byRes[256];                            /* 保留字段 */
+    INT32       nChannelID;                            /* 配置所属通道号，IPC无通道概念时固定为0 */
     UINT32      uPointCount;                           /* 区域顶点数量 */
     FLOAT       afPointX[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 区域顶点X坐标数组 [0-8192] */
     FLOAT       afPointY[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 区域顶点Y坐标数组 [0-8192] */
-    BYTE        byRes[256];                            /* 保留字段 */
 }NET_ManholeCoverAbnormalCfg_S;
 
 typedef NET_ManholeCoverAbnormalCfg_S* pNET_ManholeCoverAbnormalCfg_S;
@@ -5033,15 +5033,15 @@ typedef NET_ManholeCoverAbnormalCfg_S* pNET_ManholeCoverAbnormalCfg_S;
  */
 typedef struct tagNET_SleepOnDutyCfg
 {
-    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     BOOL        bEnable;                               /* 是否启用 0-不启用 1-启用 */
     NET_AiSimpleRule_S stRule;                    /* 睡岗识别规则 */
     NET_AlarmSchedule_S stAlarmSchedule;           /* 布防时间 */
     NET_LinkageList_S stLinkageList;               /* 联动配置 */
+    BYTE        byRes[256];                            /* 保留字段 */
+    INT32       nChannelID;                            /* 配置所属通道号，IPC无通道概念时固定为0 */
     UINT32      uPointCount;                           /* 区域顶点数量 */
     FLOAT       afPointX[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 区域顶点X坐标数组 [0-8192] */
     FLOAT       afPointY[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 区域顶点Y坐标数组 [0-8192] */
-    BYTE        byRes[256];                            /* 保留字段 */
 }NET_SleepOnDutyCfg_S;
 
 typedef NET_SleepOnDutyCfg_S* pNET_SleepOnDutyCfg_S;
@@ -5093,15 +5093,15 @@ typedef NET_PersonFallDownCfg_S* pNET_PersonFallDownCfg_S;
  */
 typedef struct tagNET_ConstructionOccupyRoadCfg
 {
-    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     BOOL        bEnable;                               /* 是否启用 0-不启用 1-启用 */
     NET_AiSimpleRule_S stRule;                    /* 施工占道识别规则 */
     NET_AlarmSchedule_S stAlarmSchedule;           /* 布防时间 */
     NET_LinkageList_S stLinkageList;               /* 联动配置 */
+    BYTE        byRes[256];                            /* 保留字段 */
+    INT32       nChannelID;                            /* 配置所属通道号，IPC无通道概念时固定为0 */
     UINT32      uPointCount;                           /* 区域顶点数量 */
     FLOAT       afPointX[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 区域顶点X坐标数组 [0-8192] */
     FLOAT       afPointY[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 区域顶点Y坐标数组 [0-8192] */
-    BYTE        byRes[256];                            /* 保留字段 */
 }NET_ConstructionOccupyRoadCfg_S;
 
 typedef NET_ConstructionOccupyRoadCfg_S* pNET_ConstructionOccupyRoadCfg_S;
@@ -5113,15 +5113,15 @@ typedef NET_ConstructionOccupyRoadCfg_S* pNET_ConstructionOccupyRoadCfg_S;
  */
 typedef struct tagNET_CongestionCfg
 {
-    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     BOOL        bEnable;                               /* 是否启用 0-不启用 1-启用 */
     NET_AiSimpleRule_S stRule;                    /* 拥堵识别规则 */
     NET_AlarmSchedule_S stAlarmSchedule;           /* 布防时间 */
     NET_LinkageList_S stLinkageList;               /* 联动配置 */
+    BYTE        byRes[256];                            /* 保留字段 */
+    INT32       nChannelID;                            /* 配置所属通道号，IPC无通道概念时固定为0 */
     UINT32      uPointCount;                           /* 区域顶点数量 */
     FLOAT       afPointX[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 区域顶点X坐标数组 [0-8192] */
     FLOAT       afPointY[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 区域顶点Y坐标数组 [0-8192] */
-    BYTE        byRes[256];                            /* 保留字段 */
 }NET_CongestionCfg_S;
 
 typedef NET_CongestionCfg_S* pNET_CongestionCfg_S;
@@ -5551,12 +5551,15 @@ typedef NET_SmokeFireCfg_S* pNET_SmokeFireCfg_S;
  */
 typedef struct tagNET_RoadPondingCfg
 {
-    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     BOOL        bEnable;                               /* 是否启用 0-不启用 1-启用 */
     NET_AiSimpleRule_S stRule;                    /* 道路积水检测规则 */
     NET_AlarmSchedule_S stAlarmSchedule;           /* 布防时间 */
     NET_LinkageList_S stLinkageList;               /* 联动配置 */
     BYTE        byRes[256];                            /* 保留字段 */
+    INT32       nChannelID;                       /* 配置所属通道号，IPC无通道概念时固定为0 */
+    INT32       uPointCount;                      /* 检测区域顶点数量，最多 NET_AI_SIMPLE_REGION_POINT_MAX_NUM 个 */
+    FLOAT       afPointX[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 检测区域顶点 X 坐标，采用 NVR 非归一化坐标 */
+    FLOAT       afPointY[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 检测区域顶点 Y 坐标，采用 NVR 非归一化坐标 */
 }NET_RoadPondingCfg_S;
 
 typedef NET_RoadPondingCfg_S* pNET_RoadPondingCfg_S;

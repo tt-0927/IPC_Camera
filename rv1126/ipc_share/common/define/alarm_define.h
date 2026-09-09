@@ -1502,7 +1502,6 @@ namespace Alarm
                 stRegion = stSource.stRegion;
                 nSensitivity = stSource.nSensitivity;
                 nTimeThreshold = stSource.nTimeThreshold;
-                aDetectionTarget = stSource.aDetectionTarget;
             }
             return *this;
         }
@@ -2869,7 +2868,7 @@ typedef struct _FaceCompare_S_
          * @param [out] 无。初始化当前对象。
          * @return 无。
          */
-        FenceClimbingRule() : stRegion(), nSensitivity(50), nTimeThreshold(10)
+        FenceClimbingRule() : stRegion(), nSensitivity(50)
         {
             aDetectionTarget.clear();
         }
@@ -2885,8 +2884,6 @@ typedef struct _FaceCompare_S_
             {
                 stRegion = stSource.stRegion;
                 nSensitivity = stSource.nSensitivity;
-                nTimeThreshold = stSource.nTimeThreshold;
-                aDetectionTarget = stSource.aDetectionTarget;
             }
             return *this;
         }

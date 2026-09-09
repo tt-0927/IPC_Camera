@@ -2148,7 +2148,6 @@ void FillLoiteringAlarmInfo(const Alarm::LoiteringDetection_S &src, NET_Loiterin
         }
         out.nTimeThreshold = (INT32)r.nTimeThreshold;
         out.nSensitivity   = (INT32)r.nSensitivity;
-        FillDetectionTargets(r.aDetectionTarget, out.uDetectionTargetCount, out.auDetectionTarget);
         dst.uRuleCount++;
     }
 
@@ -2194,7 +2193,6 @@ void ToLoiteringDetection(const NET_LoiteringAlarmInfo_S &src, Alarm::LoiteringD
         {
             out.stRegion.aPoint.push_back({ r.afPointX[p], r.afPointY[p] });
         }
-        ToDetectionTargets(r.auDetectionTarget, r.uDetectionTargetCount, out.aDetectionTarget);
         dst.aRule.push_back(out);
     }
 
@@ -2992,8 +2990,6 @@ void FillClimbFenceInfo(const Alarm::FenceClimbingDetection_S &src, NET_ClimbFen
         out.bEnable = TRUE;
         FillPolygonPoints(r.stRegion, out.uPointCount, out.afPointX, out.afPointY);
         out.nSensitivity = (INT32)r.nSensitivity;
-        out.nTimeThreshold = (INT32)r.nTimeThreshold;
-        FillDetectionTargets(r.aDetectionTarget, out.uDetectionTargetCount, out.auDetectionTarget);
         dst.uRuleCount++;
     }
     FillSingleRuleAlarmSchedule(src.aAlarmTime, dst.stAlarmSchedule);
@@ -3010,8 +3006,6 @@ void ToClimbFence(const NET_ClimbFenceInfo_S &src, Alarm::FenceClimbingDetection
         Alarm::FenceClimbingRule_S out;
         ToRegionFromPolygon(r.uPointCount, r.afPointX, r.afPointY, out.stRegion);
         out.nSensitivity = (unsigned int)r.nSensitivity;
-        out.nTimeThreshold = (unsigned int)r.nTimeThreshold;
-        ToDetectionTargets(r.auDetectionTarget, r.uDetectionTargetCount, out.aDetectionTarget);
         dst.aRule.push_back(out);
     }
     ToSingleRuleAlarmSchedule(src.stAlarmSchedule, dst.aAlarmTime);
@@ -3032,7 +3026,6 @@ void FillDimissionInfo(const Alarm::LeavePostDetection_S &src, NET_DimissionInfo
         FillPolygonPoints(r.stRegion, out.uPointCount, out.afPointX, out.afPointY);
         out.nSensitivity = (INT32)r.nSensitivity;
         out.nTimeThreshold = (INT32)r.nTimeThreshold;
-        FillDetectionTargets(r.aDetectionTarget, out.uDetectionTargetCount, out.auDetectionTarget);
         dst.uRuleCount++;
     }
     FillSingleRuleAlarmSchedule(src.aAlarmTime, dst.stAlarmSchedule);
@@ -3050,7 +3043,6 @@ void ToDimission(const NET_DimissionInfo_S &src, Alarm::LeavePostDetection_S &ds
         ToRegionFromPolygon(r.uPointCount, r.afPointX, r.afPointY, out.stRegion);
         out.nSensitivity = (unsigned int)r.nSensitivity;
         out.nTimeThreshold = (unsigned int)r.nTimeThreshold;
-        ToDetectionTargets(r.auDetectionTarget, r.uDetectionTargetCount, out.aDetectionTarget);
         dst.aRule.push_back(out);
     }
     ToSingleRuleAlarmSchedule(src.stAlarmSchedule, dst.aAlarmTime);
@@ -3158,7 +3150,6 @@ void FillNonmotorVehicleIntrusionInfo(const Alarm::NonMotorVehicleIntrusionDetec
         FillPolygonPoints(r.stRegion, out.uPointCount, out.afPointX, out.afPointY);
         out.nSensitivity = (INT32)r.nSensitivity;
         out.nTimeThreshold = (INT32)r.nTimeThreshold;
-        FillDetectionTargets(r.aDetectionTarget, out.uDetectionTargetCount, out.auDetectionTarget);
         dst.uRuleCount++;
     }
     FillSingleRuleAlarmSchedule(src.aAlarmTime, dst.stAlarmSchedule);
@@ -3176,7 +3167,6 @@ void ToNonmotorVehicleIntrusion(const NET_NonmotorVehicleIntrusionInfo_S &src, A
         ToRegionFromPolygon(r.uPointCount, r.afPointX, r.afPointY, out.stRegion);
         out.nSensitivity = (unsigned int)r.nSensitivity;
         out.nTimeThreshold = (unsigned int)r.nTimeThreshold;
-        ToDetectionTargets(r.auDetectionTarget, r.uDetectionTargetCount, out.aDetectionTarget);
         dst.aRule.push_back(out);
     }
     ToSingleRuleAlarmSchedule(src.stAlarmSchedule, dst.aAlarmTime);
@@ -3241,7 +3231,6 @@ void FillPedestrianIntrusionInfo(const Alarm::PedestrianIntrusionDetection_S &sr
         FillPolygonPoints(r.stRegion, out.uPointCount, out.afPointX, out.afPointY);
         out.nSensitivity = (INT32)r.nSensitivity;
         out.nTimeThreshold = (INT32)r.nTimeThreshold;
-        FillDetectionTargets(r.aDetectionTarget, out.uDetectionTargetCount, out.auDetectionTarget);
         dst.uRuleCount++;
     }
     FillSingleRuleAlarmSchedule(src.aAlarmTime, dst.stAlarmSchedule);
@@ -3260,7 +3249,6 @@ void ToPedestrianIntrusion(const NET_PedestrianIntrusionInfo_S &src, Alarm::Pede
         ToRegionFromPolygon(r.uPointCount, r.afPointX, r.afPointY, out.stRegion);
         out.nSensitivity = (unsigned int)r.nSensitivity;
         out.nTimeThreshold = (unsigned int)r.nTimeThreshold;
-        ToDetectionTargets(r.auDetectionTarget, r.uDetectionTargetCount, out.aDetectionTarget);
         dst.aRule.push_back(out);
     }
     ToSingleRuleAlarmSchedule(src.stAlarmSchedule, dst.aAlarmTime);
@@ -3295,6 +3283,18 @@ void FillRoadPondingCfg(const Alarm::RoadPondingDetection_S &src, NET_RoadPondin
     dst.stRule.nSensitivity = (INT32)src.stRule.nSensitivity;
     FillSingleRuleAlarmSchedule(src.aAlarmTime, dst.stAlarmSchedule);
     FillLinkageList(src.stLinkageList, dst.stLinkageList);
+
+    dst.nChannelID = 0;
+    /* IPC 不处理道路积水区域，向 NVR 返回默认全屏区域。 */
+    dst.uPointCount = 4;
+    dst.afPointX[0] = 0.0f;
+    dst.afPointX[1] = 1920.0f;
+    dst.afPointX[2] = 1920.0f;
+    dst.afPointX[3] = 0.0f;
+    dst.afPointY[0] = 0.0f;
+    dst.afPointY[1] = 0.0f;
+    dst.afPointY[2] = 1080.0f;
+    dst.afPointY[3] = 1080.0f;
 }
 
 void ToRoadPonding(const NET_RoadPondingCfg_S &src, Alarm::RoadPondingDetection_S &dst)

@@ -330,6 +330,16 @@ static INT32 tvsdk_rule_min_time(int nActionCode)
 }
 
 /**
+ * @brief 根据事件命令取得时间阈值上限。
+ * @param [in] nActionCode 设置配置的 IPC 命令号。
+ * @return 允许的最大时间阈值，单位秒。
+ */
+static INT32 tvsdk_rule_max_time(int nActionCode)
+{
+    return nActionCode == AC_SET_LOITERING_DETECT_INFO ? 10 : 100;
+}
+
+/**
  * @brief 校验多边形点数和像素坐标，识别全部为零的未配置区域。
  * @param [in] stRule SDK 多边形规则。
  * @return 点数、坐标合法且存在非零点时返回 true，否则返回 false。
@@ -391,7 +401,8 @@ static bool tvsdk_valid_region_parameters(const TRule &stRule, int nActionCode)
 {
     return tvsdk_valid_polygon(stRule) &&
            stRule.nSensitivity >= 1 && stRule.nSensitivity <= 100 &&
-           stRule.nTimeThreshold >= tvsdk_rule_min_time(nActionCode) && stRule.nTimeThreshold <= 100;
+           stRule.nTimeThreshold >= tvsdk_rule_min_time(nActionCode) &&
+           stRule.nTimeThreshold <= tvsdk_rule_max_time(nActionCode);
 }
 
 /**
@@ -425,7 +436,7 @@ static bool tvsdk_valid_event_rule(const NET_IntrusionRule_S &stRule, int nActio
  */
 static bool tvsdk_valid_event_rule(const NET_LoiteringRule_S &stRule, int nActionCode)
 {
-    return tvsdk_valid_region_parameters(stRule, nActionCode) && tvsdk_valid_rule_targets(stRule);
+    return tvsdk_valid_region_parameters(stRule, nActionCode);
 }
 
 /**
@@ -436,7 +447,10 @@ static bool tvsdk_valid_event_rule(const NET_LoiteringRule_S &stRule, int nActio
  */
 static bool tvsdk_valid_event_rule(const NET_SmartRegionRule_S &stRule, int nActionCode)
 {
-    return tvsdk_valid_region_parameters(stRule, nActionCode) && tvsdk_valid_rule_targets(stRule);
+    const bool bIsClimbFence = nActionCode == AC_SET_CLIMB_FENCE_INFO;
+    return tvsdk_valid_polygon(stRule) && stRule.nSensitivity >= 1 && stRule.nSensitivity <= 100 &&
+           (bIsClimbFence || (stRule.nTimeThreshold >= tvsdk_rule_min_time(nActionCode) &&
+                              stRule.nTimeThreshold <= tvsdk_rule_max_time(nActionCode)));
 }
 
 /**
@@ -1893,7 +1907,7 @@ static NET_COMMON_ECODE_E cb_get_4g_info(INT32 dwChannelID, LPVOID lpOutBuffer)
     (void)parse_4g_from_json(dataJson, stCfg);
 
     TvSdkConvert::Fill4GInfo(stCfg, *pOut);
-    pOut->uChannel = 0;
+    pOut->nChannelID = 0;
     return NET_E_SUCCEED;
 }
 
@@ -1950,7 +1964,7 @@ static NET_COMMON_ECODE_E cb_get_preview_info(INT32 dwChannelID, LPVOID lpOutBuf
     strJson = normalize_data_json(outJson);
     Convert::to_struct(strJson, stCfg);
     TvSdkConvert::FillPreviewInfo(stCfg, *pOut);
-    pOut->uChannel = 0;
+    pOut->nChannelID = 0;
     return NET_E_SUCCEED;
 }
 
@@ -1996,7 +2010,7 @@ static NET_COMMON_ECODE_E cb_get_privacy_mask_cfg(INT32 dwChannelID, LPVOID lpOu
     stCfg.vecCoverAttr.clear();
     Convert::to_struct(strJson, stCfg);
     TvSdkConvert::FillPrivacyMaskCfg(stCfg, COsdManage::instance()->get_cover_max_area_count(), *pOut);
-    pOut->uChannel = 0;
+    pOut->nChannelID = 0;
     return NET_E_SUCCEED;
 }
 static NET_COMMON_ECODE_E cb_set_privacy_mask_cfg(INT32 dwChannelID, LPVOID lpInBuffer)
@@ -2646,7 +2660,7 @@ static NET_COMMON_ECODE_E cb_get_construction_occupy_road_cfg(INT32 dwChannelID,
     strJson = normalize_data_json(outJson);
     Convert::to_struct(strJson, stCfg);
     TvSdkConvert::FillConstructionOccupyRoadCfg(stCfg, *pOut);
-    pOut->uChannel = 0;
+    pOut->nChannelID = 0;
     return NET_E_SUCCEED;
 }
 
@@ -2687,7 +2701,7 @@ static NET_COMMON_ECODE_E cb_get_congestion_cfg(INT32 dwChannelID, LPVOID lpOutB
     strJson = normalize_data_json(outJson);
     Convert::to_struct(strJson, stCfg);
     TvSdkConvert::FillCongestionCfg(stCfg, *pOut);
-    pOut->uChannel = 0;
+    pOut->nChannelID = 0;
     return NET_E_SUCCEED;
 }
 
@@ -3150,6 +3164,11 @@ static NET_COMMON_ECODE_E cb_set_pet_recognition_info(INT32 dwChannelID, LPVOID 
         return NET_E_INVALID_PARAM;
     const NET_PetRecognitionInfo_S *pIn = (const NET_PetRecognitionInfo_S *)lpInBuffer;
 
+    if (pIn->nSensitivity < 1 || pIn->nSensitivity > 100)
+    {
+        return NET_E_INVALID_PARAM;
+    }
+
     Alarm::PetRecognition_S stCfg;
     TvSdkConvert::ToPetRecognition(*pIn, stCfg);
     std::string inJson = Convert::to_string(stCfg);
@@ -3206,6 +3225,10 @@ static NET_COMMON_ECODE_E cb_set_climb_fence_info(INT32 nChannelId, LPVOID pInBu
     if (enResult != NET_E_SUCCEED)
     {
         return enResult;
+    }
+    for (INT32 nIndex = 0; nIndex < stNormalized.uRuleCount; ++nIndex)
+    {
+        stNormalized.stRule[nIndex].nTimeThreshold = 0;
     }
     Alarm::FenceClimbingDetection_S stConfig = {};
     TvSdkConvert::ToClimbFence(stNormalized, stConfig);
@@ -3599,7 +3622,7 @@ static NET_COMMON_ECODE_E cb_get_road_ponding_cfg(INT32 dwChannelID, LPVOID lpOu
     strJson = normalize_data_json(outJson);
     Convert::to_struct(strJson, stCfg);
     TvSdkConvert::FillRoadPondingCfg(stCfg, *pOut);
-    pOut->uChannel = 0;
+    pOut->nChannelID = 0;
     return NET_E_SUCCEED;
 }
 
