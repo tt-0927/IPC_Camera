@@ -425,6 +425,12 @@ static bool tvsdk_valid_event_rule(const TRule &stRule, int nActionCode)
  */
 static bool tvsdk_valid_event_rule(const NET_IntrusionRule_S &stRule, int nActionCode)
 {
+    /* 关闭规则时允许区域为空，以支持清空并停用指定区域。 */
+    if (stRule.bEnable == FALSE)
+    {
+        return true;
+    }
+
     return tvsdk_valid_region_parameters(stRule, nActionCode) && tvsdk_valid_rule_targets(stRule);
 }
 
@@ -436,6 +442,12 @@ static bool tvsdk_valid_event_rule(const NET_IntrusionRule_S &stRule, int nActio
  */
 static bool tvsdk_valid_event_rule(const NET_LoiteringRule_S &stRule, int nActionCode)
 {
+    /* 关闭规则时允许区域为空，以支持清空并停用指定区域。 */
+    if (stRule.bEnable == FALSE)
+    {
+        return true;
+    }
+
     return tvsdk_valid_region_parameters(stRule, nActionCode);
 }
 
@@ -447,6 +459,12 @@ static bool tvsdk_valid_event_rule(const NET_LoiteringRule_S &stRule, int nActio
  */
 static bool tvsdk_valid_event_rule(const NET_SmartRegionRule_S &stRule, int nActionCode)
 {
+    /* 关闭规则时允许区域为空，以支持清空并停用指定区域。 */
+    if (stRule.bEnable == FALSE)
+    {
+        return true;
+    }
+
     const bool bIsClimbFence = nActionCode == AC_SET_CLIMB_FENCE_INFO;
     return tvsdk_valid_polygon(stRule) && stRule.nSensitivity >= 1 && stRule.nSensitivity <= 100 &&
            (bIsClimbFence || (stRule.nTimeThreshold >= tvsdk_rule_min_time(nActionCode) &&
@@ -462,6 +480,12 @@ static bool tvsdk_valid_event_rule(const NET_SmartRegionRule_S &stRule, int nAct
 static bool tvsdk_valid_event_rule(const NET_CrowdGatheringRule_S &stRule, int nActionCode)
 {
     (void)nActionCode;
+    /* 关闭规则时允许区域为空，以支持清空并停用指定区域。 */
+    if (stRule.bEnable == FALSE)
+    {
+        return true;
+    }
+
     return tvsdk_valid_polygon(stRule) && stRule.nObjectOccup >= 1 && stRule.nObjectOccup <= 100;
 }
 
@@ -491,6 +515,12 @@ static bool tvsdk_valid_line_parameters(const TRule &stRule)
 static bool tvsdk_valid_event_rule(const NET_BoundaryPlane_S &stRule, int nActionCode)
 {
     (void)nActionCode;
+    /* 关闭规则时允许警戒线端点为空，以支持清空并停用指定警戒线。 */
+    if (stRule.bEnable == FALSE)
+    {
+        return true;
+    }
+
     return tvsdk_valid_line_parameters(stRule) && tvsdk_valid_rule_targets(stRule) &&
            stRule.enCrossDirection >= 0 && stRule.enCrossDirection <= 2;
 }
@@ -503,6 +533,12 @@ static bool tvsdk_valid_event_rule(const NET_BoundaryPlane_S &stRule, int nActio
  */
 static bool tvsdk_valid_event_rule(const NET_SmartLineRule_S &stRule, int nActionCode)
 {
+    /* 关闭规则时允许警戒线端点为空，以支持清空并停用指定警戒线。 */
+    if (stRule.bEnable == FALSE)
+    {
+        return true;
+    }
+
     return tvsdk_valid_line_parameters(stRule) &&
            (nActionCode != AC_SET_RETROGRADE_INFO ||
             stRule.enCrossDirection == Alarm::A_TO_B || stRule.enCrossDirection == Alarm::B_TO_A);
