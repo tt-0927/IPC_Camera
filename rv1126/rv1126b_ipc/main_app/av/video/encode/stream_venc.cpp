@@ -264,7 +264,7 @@ int streamVenc_uninit(RkVenc_S *pHandle)
     return OK;
 }
 
-int streamVenc_reset(RkVenc_S *pHandle, const Video_NS::VideoConfig_S &stVideoConfig, const Video_NS::VideoRoiConfig_S &stVideoRoiConfig)
+int streamVenc_reset(RkVenc_S *&pHandle, const Video_NS::VideoConfig_S &stVideoConfig, const Video_NS::VideoRoiConfig_S &stVideoRoiConfig)
 {
     if (pHandle == NULL)
     {
@@ -274,6 +274,7 @@ int streamVenc_reset(RkVenc_S *pHandle, const Video_NS::VideoConfig_S &stVideoCo
 
     int nRet = OK;
     nRet = streamVenc_uninit(pHandle);
+    pHandle = nullptr;
     if (nRet != OK)
     {
         dlog_error("Venc模块去初始化失败");

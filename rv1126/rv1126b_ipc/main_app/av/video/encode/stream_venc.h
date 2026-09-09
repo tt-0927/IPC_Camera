@@ -60,7 +60,7 @@ int streamVenc_uninit(RkVenc_S *pHandle);
  * @param    {vector<Video_NS::VideoRoiConfig_S>} &vstVideoRoiConfig：视频感兴趣区域配置容器
  * @return   {int} 0：成功 非零：失败
  */
-int streamVenc_reset(RkVenc_S *pHandle, const Video_NS::VideoConfig_S &stVideoConfig, const Video_NS::VideoRoiConfig_S &stVideoRoiConfig);
+int streamVenc_reset(RkVenc_S *&pHandle, const Video_NS::VideoConfig_S &stVideoConfig, const Video_NS::VideoRoiConfig_S &stVideoRoiConfig);
 
 /**
  * @brief   : 编码属性重置
