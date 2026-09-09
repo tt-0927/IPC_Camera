@@ -4,6 +4,10 @@
  * @Author       : 原作者未记录；本次修改：Codex
  * @修改记录     : 2026-09-08，四类智能事件设置回调返回实际业务处理结果。
  * @Description  : TVSDK 回调实现与注册（使用 action_code.h 命令码对接 control_manage）
+ * @FileName     : tvsdk_callbacks.cpp
+ * @Change       : 2026-09-08 越界设置保留规则数量和索引，无效参数保留旧值，由事件总开关控制
+ * @Change       : 2026-09-08 人员聚集保留规则数量及位置，无效规则回退旧值并返回实际任务结果
+ * @Change       : 2026-09-08 统一十六类智能事件的规则回退和业务结果返回，校验 IPC 数量上限
  */
 
 #include "tvsdk_callbacks.h"
@@ -276,137 +280,325 @@ static bool is_valid_capture_config(const NET_CaptureConfig_S &stConfig)
            stConfig.unNumber >= 1 && stConfig.unNumber <= 120;
 }
 
-static constexpr FLOAT TVSDK_RULE_COORDINATE_MAX = 8192.0F;
+/* IPC 当前有规则数组的智能事件最多保存四条规则，SDK 较大容量不代表 IPC 支持更多。 */
+static constexpr INT32 TVSDK_IPC_RULE_MAX = 4;
+static constexpr INT32 TVSDK_EMPTY_REGION_POINTS = 4;
+static constexpr INT32 TVSDK_RULE_DEFAULT_SENSITIVITY = 50;
+static constexpr INT32 TVSDK_RULE_DEFAULT_TIME = 10;
 
-/* 判断规则是否为 NVR 固定规则数组中的空槽位。 */
-static bool is_empty_region_rule(const NET_BoundaryPlane_S &stRule)
+/**
+ * @brief 取得使用 stRule 字段的 SDK 规则数组。
+ * @param [in,out] stConfig SDK 智能事件配置。
+ * @return 规则数组引用，不复制或压缩数组。
+ */
+template <typename TConfig>
+static auto tvsdk_rule_array(TConfig &stConfig) -> decltype((stConfig.stRule))
 {
-    return stRule.bEnable == FALSE ||
-           (stRule.fStartPosX == 0.0F && stRule.fStartPosY == 0.0F &&
-            stRule.fEndPosX == 0.0F && stRule.fEndPosY == 0.0F &&
-            stRule.nSensitivity == 0);
+    return stConfig.stRule;
 }
 
-static bool is_empty_region_rule(const NET_IntrusionRule_S &stRule)
+/**
+ * @brief 取得人员聚集使用的 SDK 规则数组。
+ * @param [in,out] stConfig SDK 人员聚集配置。
+ * @return 规则数组引用。
+ */
+static auto tvsdk_rule_array(NET_CrowdGatheringAlarmInfo_S &stConfig) -> decltype((stConfig.astRule))
 {
-    return stRule.bEnable == FALSE ||
-           (stRule.uPointCount == 0 && stRule.nSensitivity == 0);
+    return stConfig.astRule;
 }
 
-static bool is_empty_region_rule(const NET_LoiteringRule_S &stRule)
+/**
+ * @brief 取得停车侦测使用的 SDK 规则数组。
+ * @param [in,out] stConfig SDK 停车配置。
+ * @return 规则数组引用，实际允许数量另按 IPC 上限校验。
+ */
+static auto tvsdk_rule_array(NET_ParkingAlarmInfo_S &stConfig) -> decltype((stConfig.astRule))
 {
-    return stRule.bEnable == FALSE ||
-           (stRule.uPointCount == 0 && stRule.nSensitivity == 0);
+    return stConfig.astRule;
 }
 
-static bool is_empty_region_rule(const NET_CrowdGatheringRule_S &stRule)
+/**
+ * @brief 根据事件选择时间阈值下限，保留物品遗留和拿取的既有十二秒限制。
+ * @param [in] nActionCode 设置配置的 IPC 命令号。
+ * @return 该事件允许的最小时间阈值，单位秒。
+ */
+static INT32 tvsdk_rule_min_time(int nActionCode)
 {
-    return stRule.bEnable == FALSE ||
-           (stRule.uPointCount == 0 && stRule.nObjectOccup == 0);
+    constexpr INT32 TVSDK_OBJECT_MIN_TIME = 12;
+    return (nActionCode == AC_SET_UNATTENDED_OBJECT_DETECT_INFO ||
+            nActionCode == AC_SET_OBJECT_REMOVAL_DETECT_INFO) ? TVSDK_OBJECT_MIN_TIME : 0;
 }
 
-template <typename TRule, typename TIsEmpty>
-static bool compact_region_rules(INT32 &nRuleCount, TRule *pRules, INT32 nMaxRuleCount,
-                                 TIsEmpty isEmpty)
+/**
+ * @brief 校验多边形点数和像素坐标，识别全部为零的未配置区域。
+ * @param [in] stRule SDK 多边形规则。
+ * @return 点数、坐标合法且存在非零点时返回 true，否则返回 false。
+ */
+template <typename TRule>
+static bool tvsdk_valid_polygon(const TRule &stRule)
 {
-    if (pRules == nullptr || nRuleCount < 0 || nRuleCount > nMaxRuleCount)
+    constexpr INT32 TVSDK_POLYGON_MIN_POINTS = 3;
+    const INT32 nCapacity = static_cast<INT32>(sizeof(stRule.afPointX) / sizeof(stRule.afPointX[0]));
+    if (stRule.uPointCount < TVSDK_POLYGON_MIN_POINTS || stRule.uPointCount > nCapacity)
     {
         return false;
     }
-
-    INT32 nEffectiveRuleCount = 0;
-    for (INT32 nRuleIndex = 0; nRuleIndex < nRuleCount; ++nRuleIndex)
+    bool bHasPoint = false;
+    for (INT32 nIndex = 0; nIndex < stRule.uPointCount; ++nIndex)
     {
-        if (isEmpty(pRules[nRuleIndex]))
+        const Common::PosF_S stPoint(stRule.afPointX[nIndex], stRule.afPointY[nIndex]);
+        if (!std::isfinite(stPoint.fX) || !std::isfinite(stPoint.fY) || !stPoint.IsValid())
+        {
+            return false;
+        }
+        bHasPoint = bHasPoint || (stPoint.fX != 0.0F) || (stPoint.fY != 0.0F);
+    }
+    return bHasPoint;
+}
+
+/**
+ * @brief 校验检测目标数量和枚举，不因单条启用字段关闭而忽略参数。
+ * @param [in] stRule 含检测目标数组的 SDK 规则。
+ * @return 所有检测目标合法时返回 true，否则返回 false。
+ */
+template <typename TRule>
+static bool tvsdk_valid_rule_targets(const TRule &stRule)
+{
+    const INT32 nCapacity = static_cast<INT32>(sizeof(stRule.auDetectionTarget) / sizeof(stRule.auDetectionTarget[0]));
+    if (stRule.uDetectionTargetCount < 0 || stRule.uDetectionTargetCount > nCapacity)
+    {
+        return false;
+    }
+    for (INT32 nIndex = 0; nIndex < stRule.uDetectionTargetCount; ++nIndex)
+    {
+        if (stRule.auDetectionTarget[nIndex] < NET_TARGET_ALL ||
+            stRule.auDetectionTarget[nIndex] > NET_TARGET_OTHER)
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+/**
+ * @brief 校验通用多边形规则的区域、灵敏度和时间阈值。
+ * @param [in] stRule SDK 区域规则。
+ * @param [in] nActionCode 设置配置的 IPC 命令号。
+ * @return 参数合法返回 true，否则返回 false。
+ */
+template <typename TRule>
+static bool tvsdk_valid_region_parameters(const TRule &stRule, int nActionCode)
+{
+    return tvsdk_valid_polygon(stRule) &&
+           stRule.nSensitivity >= 1 && stRule.nSensitivity <= 100 &&
+           stRule.nTimeThreshold >= tvsdk_rule_min_time(nActionCode) && stRule.nTimeThreshold <= 100;
+}
+
+/**
+ * @brief 校验不含检测目标的多边形事件规则。
+ * @param [in] stRule SDK 区域规则。
+ * @param [in] nActionCode 设置配置的 IPC 命令号。
+ * @return 参数合法返回 true，否则返回 false。
+ */
+template <typename TRule>
+static bool tvsdk_valid_event_rule(const TRule &stRule, int nActionCode)
+{
+    return tvsdk_valid_region_parameters(stRule, nActionCode);
+}
+
+/**
+ * @brief 校验区域规则及其检测目标数组。
+ * @param [in] stRule SDK 区域规则。
+ * @param [in] nActionCode 设置配置的 IPC 命令号。
+ * @return 参数和检测目标均合法返回 true，否则返回 false。
+ */
+static bool tvsdk_valid_event_rule(const NET_IntrusionRule_S &stRule, int nActionCode)
+{
+    return tvsdk_valid_region_parameters(stRule, nActionCode) && tvsdk_valid_rule_targets(stRule);
+}
+
+/**
+ * @brief 校验区域规则及其检测目标数组。
+ * @param [in] stRule SDK 区域规则。
+ * @param [in] nActionCode 设置配置的 IPC 命令号。
+ * @return 参数和检测目标均合法返回 true，否则返回 false。
+ */
+static bool tvsdk_valid_event_rule(const NET_LoiteringRule_S &stRule, int nActionCode)
+{
+    return tvsdk_valid_region_parameters(stRule, nActionCode) && tvsdk_valid_rule_targets(stRule);
+}
+
+/**
+ * @brief 校验区域规则及其检测目标数组。
+ * @param [in] stRule SDK 区域规则。
+ * @param [in] nActionCode 设置配置的 IPC 命令号。
+ * @return 参数和检测目标均合法返回 true，否则返回 false。
+ */
+static bool tvsdk_valid_event_rule(const NET_SmartRegionRule_S &stRule, int nActionCode)
+{
+    return tvsdk_valid_region_parameters(stRule, nActionCode) && tvsdk_valid_rule_targets(stRule);
+}
+
+/**
+ * @brief 校验人员聚集区域及面积占比。
+ * @param [in] stRule SDK 人员聚集规则。
+ * @param [in] nActionCode 设置命令号，此规则不使用该参数。
+ * @return 区域和占比合法返回 true，否则返回 false。
+ */
+static bool tvsdk_valid_event_rule(const NET_CrowdGatheringRule_S &stRule, int nActionCode)
+{
+    (void)nActionCode;
+    return tvsdk_valid_polygon(stRule) && stRule.nObjectOccup >= 1 && stRule.nObjectOccup <= 100;
+}
+
+/**
+ * @brief 校验警戒线端点及灵敏度，坐标保持 IPC 原始像素格式。
+ * @param [in] stRule SDK 警戒线规则。
+ * @return 端点合法且不重合、灵敏度合法时返回 true，否则返回 false。
+ */
+template <typename TRule>
+static bool tvsdk_valid_line_parameters(const TRule &stRule)
+{
+    const Common::PosF_S stStart(stRule.fStartPosX, stRule.fStartPosY);
+    const Common::PosF_S stEnd(stRule.fEndPosX, stRule.fEndPosY);
+    return std::isfinite(stStart.fX) && std::isfinite(stStart.fY) &&
+           std::isfinite(stEnd.fX) && std::isfinite(stEnd.fY) &&
+           stStart.IsValid() && stEnd.IsValid() &&
+           (stStart.fX != stEnd.fX || stStart.fY != stEnd.fY) &&
+           stRule.nSensitivity >= 1 && stRule.nSensitivity <= 100;
+}
+
+/**
+ * @brief 校验越界警戒线、方向和检测目标。
+ * @param [in] stRule SDK 越界规则。
+ * @param [in] nActionCode 设置命令号，此规则不使用该参数。
+ * @return 参数合法返回 true，否则返回 false。
+ */
+static bool tvsdk_valid_event_rule(const NET_BoundaryPlane_S &stRule, int nActionCode)
+{
+    (void)nActionCode;
+    return tvsdk_valid_line_parameters(stRule) && tvsdk_valid_rule_targets(stRule) &&
+           stRule.enCrossDirection >= 0 && stRule.enCrossDirection <= 2;
+}
+
+/**
+ * @brief 校验逆行或违规变道警戒线，逆行仅允许已有单向枚举。
+ * @param [in] stRule SDK 智能警戒线规则。
+ * @param [in] nActionCode 设置配置的 IPC 命令号。
+ * @return 参数合法返回 true，否则返回 false。
+ */
+static bool tvsdk_valid_event_rule(const NET_SmartLineRule_S &stRule, int nActionCode)
+{
+    return tvsdk_valid_line_parameters(stRule) &&
+           (nActionCode != AC_SET_RETROGRADE_INFO ||
+            stRule.enCrossDirection == Alarm::A_TO_B || stRule.enCrossDirection == Alarm::B_TO_A);
+}
+
+/**
+ * @brief 初始化未配置的多边形位置，不制造全屏检测区域。
+ * @param [out] stRule 四个零坐标点及合法默认阈值组成的空规则。
+ * @param [in] nActionCode 设置配置的 IPC 命令号。
+ * @return 无。
+ */
+template <typename TRule>
+static void tvsdk_default_event_rule(TRule &stRule, int nActionCode)
+{
+    stRule = {};
+    stRule.uPointCount = TVSDK_EMPTY_REGION_POINTS;
+    stRule.nSensitivity = TVSDK_RULE_DEFAULT_SENSITIVITY;
+    stRule.nTimeThreshold = std::max(TVSDK_RULE_DEFAULT_TIME, tvsdk_rule_min_time(nActionCode));
+}
+
+/**
+ * @brief 初始化人员聚集空规则，使用 IPC 默认占比。
+ * @param [out] stRule 四个零坐标点及默认占比组成的规则。
+ * @param [in] nActionCode 设置命令号，此规则不使用该参数。
+ * @return 无。
+ */
+static void tvsdk_default_event_rule(NET_CrowdGatheringRule_S &stRule, int nActionCode)
+{
+    (void)nActionCode;
+    stRule = {};
+    stRule.uPointCount = TVSDK_EMPTY_REGION_POINTS;
+    stRule.nObjectOccup = TVSDK_RULE_DEFAULT_SENSITIVITY;
+}
+
+/**
+ * @brief 初始化空警戒线，保留原规则位置并设置合法默认方向。
+ * @param [out] stRule 零坐标警戒线及默认参数。
+ * @param [in] nActionCode 设置命令号，此规则不使用该参数。
+ * @return 无。
+ */
+static void tvsdk_default_event_rule(NET_BoundaryPlane_S &stRule, int nActionCode)
+{
+    (void)nActionCode;
+    stRule = {};
+    stRule.nSensitivity = TVSDK_RULE_DEFAULT_SENSITIVITY;
+    stRule.enCrossDirection = Alarm::A_TO_B;
+}
+
+/**
+ * @brief 初始化空警戒线，保留原规则位置并设置合法默认方向。
+ * @param [out] stRule 零坐标警戒线及默认参数。
+ * @param [in] nActionCode 设置命令号，此规则不使用该参数。
+ * @return 无。
+ */
+static void tvsdk_default_event_rule(NET_SmartLineRule_S &stRule, int nActionCode)
+{
+    (void)nActionCode;
+    stRule = {};
+    stRule.nSensitivity = TVSDK_RULE_DEFAULT_SENSITIVITY;
+    stRule.enCrossDirection = Alarm::A_TO_B;
+}
+
+/**
+ * @brief 保留请求规则数量和原索引，仅将无效规则回退为旧规则或默认空规则。
+ * @param [in] nChannelId SDK 通道编号。
+ * @param [in,out] stConfig 请求配置副本，总开关、布防时间和联动配置不变。
+ * @param [in] nActionCode 设置配置的 IPC 命令号。
+ * @param [in] fnGetConfig 对应事件的获取回调，仅在首次遇到无效规则时调用。
+ * @return 处理成功返回 NET_E_SUCCEED，数量非法或读取失败返回对应错误码。
+ */
+template <typename TConfig, typename TGetConfig>
+static NET_COMMON_ECODE_E tvsdk_preserve_event_rules(INT32 nChannelId, TConfig &stConfig,
+                                                    int nActionCode, TGetConfig fnGetConfig)
+{
+    auto &aRules = tvsdk_rule_array(stConfig);
+    const INT32 nCapacity = static_cast<INT32>(sizeof(aRules) / sizeof(aRules[0]));
+    const INT32 nMaxRules = std::min(TVSDK_IPC_RULE_MAX, nCapacity);
+    if (stConfig.uRuleCount < 0 || stConfig.uRuleCount > nMaxRules)
+    {
+        return NET_E_INVALID_PARAM;
+    }
+    TConfig stPrevious = {};
+    bool bPreviousLoaded = false;
+    for (INT32 nIndex = 0; nIndex < stConfig.uRuleCount; ++nIndex)
+    {
+        if (tvsdk_valid_event_rule(aRules[nIndex], nActionCode))
         {
             continue;
         }
-        if (nEffectiveRuleCount != nRuleIndex)
+        if (!bPreviousLoaded)
         {
-            pRules[nEffectiveRuleCount] = pRules[nRuleIndex];
-        }
-        ++nEffectiveRuleCount;
-    }
-
-    for (INT32 nRuleIndex = nEffectiveRuleCount; nRuleIndex < nMaxRuleCount; ++nRuleIndex)
-    {
-        std::memset(&pRules[nRuleIndex], 0, sizeof(TRule));
-    }
-    nRuleCount = nEffectiveRuleCount;
-    return true;
-}
-
-/* 校验越界和入侵规则数量、坐标及检测目标范围。 */
-static bool is_valid_region_alarm_rule_count(const NET_CrossLineAlarmInfo_S &stConfig)
-{
-    if (stConfig.uRuleCount < 0 || stConfig.uRuleCount > 4)
-    {
-        return false;
-    }
-    for (INT32 nIndex = 0; nIndex < stConfig.uRuleCount; ++nIndex)
-    {
-        const NET_BoundaryPlane_S &stRule = stConfig.stRule[nIndex];
-        if (!std::isfinite(stRule.fStartPosX) || !std::isfinite(stRule.fStartPosY) ||
-            !std::isfinite(stRule.fEndPosX) || !std::isfinite(stRule.fEndPosY) ||
-            stRule.fStartPosX < 0.0F || stRule.fStartPosX > TVSDK_RULE_COORDINATE_MAX ||
-            stRule.fStartPosY < 0.0F || stRule.fStartPosY > TVSDK_RULE_COORDINATE_MAX ||
-            stRule.fEndPosX < 0.0F || stRule.fEndPosX > TVSDK_RULE_COORDINATE_MAX ||
-            stRule.fEndPosY < 0.0F || stRule.fEndPosY > TVSDK_RULE_COORDINATE_MAX ||
-            stRule.enCrossDirection < 0 || stRule.enCrossDirection > 2 ||
-            stRule.uDetectionTargetCount < 0 ||
-            stRule.uDetectionTargetCount > 8 ||
-            stRule.nSensitivity < 1 || stRule.nSensitivity > 100)
-        {
-            return false;
-        }
-        for (INT32 nTargetIndex = 0; nTargetIndex < stRule.uDetectionTargetCount; ++nTargetIndex)
-        {
-            if (stRule.auDetectionTarget[nTargetIndex] < NET_TARGET_ALL ||
-                stRule.auDetectionTarget[nTargetIndex] > NET_TARGET_OTHER)
+            if (fnGetConfig(nChannelId, &stPrevious) != NET_E_SUCCEED ||
+                stPrevious.uRuleCount < 0 || stPrevious.uRuleCount > nMaxRules)
             {
-                return false;
+                return NET_E_GET_CFG_FAILED;
             }
+            bPreviousLoaded = true;
         }
-    }
-    return true;
-}
-
-static bool is_valid_region_alarm_rule_count(const NET_IntrusionAlarmInfo_S &stConfig)
-{
-    if (stConfig.uRuleCount < 0 || stConfig.uRuleCount > 4)
-    {
-        return false;
-    }
-    for (INT32 nIndex = 0; nIndex < stConfig.uRuleCount; ++nIndex)
-    {
-        const NET_IntrusionRule_S &stRule = stConfig.stRule[nIndex];
-        if (stRule.uPointCount < 0 || stRule.uPointCount > 32 ||
-            stRule.uDetectionTargetCount < 0 || stRule.uDetectionTargetCount > 8 ||
-            stRule.nTimeThreshold < 0 || stRule.nTimeThreshold > 100 ||
-            stRule.nSensitivity < 1 || stRule.nSensitivity > 100)
+        const auto &aPreviousRules = tvsdk_rule_array(stPrevious);
+        if (nIndex < stPrevious.uRuleCount && tvsdk_valid_event_rule(aPreviousRules[nIndex], nActionCode))
         {
-            return false;
+            aRules[nIndex] = aPreviousRules[nIndex];
         }
-        for (INT32 nPointIndex = 0; nPointIndex < stRule.uPointCount; ++nPointIndex)
+        else
         {
-            if (!std::isfinite(stRule.afPointX[nPointIndex]) ||
-                !std::isfinite(stRule.afPointY[nPointIndex]) ||
-                stRule.afPointX[nPointIndex] < 0.0F || stRule.afPointX[nPointIndex] > TVSDK_RULE_COORDINATE_MAX ||
-                stRule.afPointY[nPointIndex] < 0.0F || stRule.afPointY[nPointIndex] > TVSDK_RULE_COORDINATE_MAX)
-            {
-                return false;
-            }
+            tvsdk_default_event_rule(aRules[nIndex], nActionCode);
         }
-        for (INT32 nTargetIndex = 0; nTargetIndex < stRule.uDetectionTargetCount; ++nTargetIndex)
-        {
-            if (stRule.auDetectionTarget[nTargetIndex] < NET_TARGET_ALL ||
-                stRule.auDetectionTarget[nTargetIndex] > NET_TARGET_OTHER)
-            {
-                return false;
-            }
-        }
+        dlog_warn("TVSDK 事件[%d]规则[%d]参数无效，保留原位置并回退旧值或默认空规则", nActionCode, nIndex);
     }
-    return true;
+    return NET_E_SUCCEED;
 }
 
 /* 校验日夜切换参数的枚举值、时间字段和亮度范围。 */
@@ -1935,35 +2127,31 @@ static NET_COMMON_ECODE_E cb_get_cross_line_alarm(INT32 dwChannelID, LPVOID lpOu
     pOut->uChannel = 0;
     return NET_E_SUCCEED;
 }
-static NET_COMMON_ECODE_E cb_set_cross_line_alarm(INT32 dwChannelID, LPVOID lpInBuffer)
+/**
+ * @brief 保存越界侦测配置，保留规则数量及位置，无效规则回退旧值或默认空规则。
+ * @author ITC
+ * @param [in] nChannelId SDK 通道编号。
+ * @param [in] pInBuffer 指向 NET_CrossLineAlarmInfo_S 的配置缓冲区。
+ * @param [out] 无。
+ * @return 成功返回 NET_E_SUCCEED，数量、读取或业务处理失败返回对应错误码。
+ */
+static NET_COMMON_ECODE_E cb_set_cross_line_alarm(INT32 nChannelId, LPVOID pInBuffer)
 {
-    (void)dwChannelID;
-    if (!lpInBuffer)
-        return NET_E_INVALID_PARAM;
-    const NET_CrossLineAlarmInfo_S *pIn = (const NET_CrossLineAlarmInfo_S *)lpInBuffer;
-
-    /*
-     * NVR 可能按固定四条规则发送数据，其中未配置规则会携带启用标志但业务字段全为零。
-     * 先过滤这些空规则并压缩数组，避免空规则的灵敏度零值触发参数校验失败。
-     */
-    NET_CrossLineAlarmInfo_S stNormalized = *pIn;
-    if (!compact_region_rules(stNormalized.uRuleCount, stNormalized.stRule, 4,
-                              static_cast<bool (*)(const NET_BoundaryPlane_S &)>(is_empty_region_rule)))
+    if (pInBuffer == nullptr)
     {
         return NET_E_INVALID_PARAM;
     }
-
-    if (!is_valid_region_alarm_rule_count(stNormalized))
+    const NET_CrossLineAlarmInfo_S *pConfig = static_cast<const NET_CrossLineAlarmInfo_S *>(pInBuffer);
+    NET_CrossLineAlarmInfo_S stNormalized = *pConfig;
+    const NET_COMMON_ECODE_E enResult = tvsdk_preserve_event_rules(
+        nChannelId, stNormalized, AC_SET_LINE_CROSSING_DETECT_INFO, cb_get_cross_line_alarm);
+    if (enResult != NET_E_SUCCEED)
     {
-        return NET_E_INVALID_PARAM;
+        return enResult;
     }
-    Alarm::BoundaryDetection_S stCfg;
-    TvSdkConvert::ToBoundaryDetection(stNormalized, stCfg);
-    std::string inJson = Convert::to_string(stCfg);
-    Task::Info_S stInfo;
-     stInfo.data = wrap_data_json(inJson);
-    int nExec = s_taskManage ? s_taskManage->execute(AC_SET_LINE_CROSSING_DETECT_INFO, stInfo) : -1;
-    return (nExec == 0) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
+    Alarm::BoundaryDetection_S stConfig = {};
+    TvSdkConvert::ToBoundaryDetection(stNormalized, stConfig);
+    return tvsdk_set_event_config(AC_SET_LINE_CROSSING_DETECT_INFO, Convert::to_string(stConfig));
 }
 static NET_COMMON_ECODE_E cb_get_intrusion_alarm(INT32 dwChannelID, LPVOID lpOutBuffer)
 {
@@ -1988,23 +2176,31 @@ static NET_COMMON_ECODE_E cb_get_intrusion_alarm(INT32 dwChannelID, LPVOID lpOut
     pOut->uChannel = 0;
     return NET_E_SUCCEED;
 }
-static NET_COMMON_ECODE_E cb_set_intrusion_alarm(INT32 dwChannelID, LPVOID lpInBuffer)
+/**
+ * @brief 保存区域入侵配置，保留规则数量及位置，无效规则回退旧值或默认空规则。
+ * @author ITC
+ * @param [in] nChannelId SDK 通道编号。
+ * @param [in] pInBuffer 指向 NET_IntrusionAlarmInfo_S 的配置缓冲区。
+ * @param [out] 无。
+ * @return 成功返回 NET_E_SUCCEED，数量、读取或业务处理失败返回对应错误码。
+ */
+static NET_COMMON_ECODE_E cb_set_intrusion_alarm(INT32 nChannelId, LPVOID pInBuffer)
 {
-    (void)dwChannelID;
-    if (!lpInBuffer)
-        return NET_E_INVALID_PARAM;
-    const NET_IntrusionAlarmInfo_S *pIn = (const NET_IntrusionAlarmInfo_S *)lpInBuffer;
-    if (!is_valid_region_alarm_rule_count(*pIn))
+    if (pInBuffer == nullptr)
     {
         return NET_E_INVALID_PARAM;
     }
-    Alarm::FieldDetection_S stCfg;
-    TvSdkConvert::ToFieldDetection(*pIn, stCfg);
-    std::string inJson = Convert::to_string(stCfg);
-    Task::Info_S stInfo;
-     stInfo.data = wrap_data_json(inJson);
-    int nExec = s_taskManage ? s_taskManage->execute(AC_SET_REGIONAL_INTRUSION_DETECT_INFO, stInfo) : -1;
-    return (nExec == 0) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
+    const NET_IntrusionAlarmInfo_S *pConfig = static_cast<const NET_IntrusionAlarmInfo_S *>(pInBuffer);
+    NET_IntrusionAlarmInfo_S stNormalized = *pConfig;
+    const NET_COMMON_ECODE_E enResult = tvsdk_preserve_event_rules(
+        nChannelId, stNormalized, AC_SET_REGIONAL_INTRUSION_DETECT_INFO, cb_get_intrusion_alarm);
+    if (enResult != NET_E_SUCCEED)
+    {
+        return enResult;
+    }
+    Alarm::FieldDetection_S stConfig = {};
+    TvSdkConvert::ToFieldDetection(stNormalized, stConfig);
+    return tvsdk_set_event_config(AC_SET_REGIONAL_INTRUSION_DETECT_INFO, Convert::to_string(stConfig));
 }
 /*-----------------------------------获取/设置徘徊侦测-------------------------------------*/
 static NET_COMMON_ECODE_E cb_get_loitering_alarm(INT32 dwChannelID, LPVOID lpOutBuffer)
@@ -2030,19 +2226,31 @@ static NET_COMMON_ECODE_E cb_get_loitering_alarm(INT32 dwChannelID, LPVOID lpOut
     pOut->uChannel = 0;
     return NET_E_SUCCEED;
 }
-static NET_COMMON_ECODE_E cb_set_loitering_alarm(INT32 dwChannelID, LPVOID lpInBuffer)
+/**
+ * @brief 保存徘徊侦测配置，保留规则数量及位置，无效规则回退旧值或默认空规则。
+ * @author ITC
+ * @param [in] nChannelId SDK 通道编号。
+ * @param [in] pInBuffer 指向 NET_LoiteringAlarmInfo_S 的配置缓冲区。
+ * @param [out] 无。
+ * @return 成功返回 NET_E_SUCCEED，数量、读取或业务处理失败返回对应错误码。
+ */
+static NET_COMMON_ECODE_E cb_set_loitering_alarm(INT32 nChannelId, LPVOID pInBuffer)
 {
-    (void)dwChannelID;
-    if (!lpInBuffer)
+    if (pInBuffer == nullptr)
+    {
         return NET_E_INVALID_PARAM;
-    const NET_LoiteringAlarmInfo_S *pIn = (const NET_LoiteringAlarmInfo_S *)lpInBuffer;
-    Alarm::LoiteringDetection_S stCfg;
-    TvSdkConvert::ToLoiteringDetection(*pIn, stCfg);
-    std::string inJson = Convert::to_string(stCfg);
-    Task::Info_S stInfo;
-     stInfo.data = wrap_data_json(inJson);
-    int nExec = s_taskManage ? s_taskManage->execute(AC_SET_LOITERING_DETECT_INFO, stInfo) : -1;
-    return (nExec == 0) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
+    }
+    const NET_LoiteringAlarmInfo_S *pConfig = static_cast<const NET_LoiteringAlarmInfo_S *>(pInBuffer);
+    NET_LoiteringAlarmInfo_S stNormalized = *pConfig;
+    const NET_COMMON_ECODE_E enResult = tvsdk_preserve_event_rules(
+        nChannelId, stNormalized, AC_SET_LOITERING_DETECT_INFO, cb_get_loitering_alarm);
+    if (enResult != NET_E_SUCCEED)
+    {
+        return enResult;
+    }
+    Alarm::LoiteringDetection_S stConfig = {};
+    TvSdkConvert::ToLoiteringDetection(stNormalized, stConfig);
+    return tvsdk_set_event_config(AC_SET_LOITERING_DETECT_INFO, Convert::to_string(stConfig));
 }
 
 /* ---------- Get/SetSceneChangeAlarm：AC_GET/SET_SCENE_CHANGE_DETECT_INFO ---------- */
@@ -2138,20 +2346,31 @@ static NET_COMMON_ECODE_E cb_get_crowd_gathering_alarm(INT32 dwChannelID, LPVOID
     return NET_E_SUCCEED;
 }
 
-static NET_COMMON_ECODE_E cb_set_crowd_gathering_alarm(INT32 dwChannelID, LPVOID lpInBuffer)
+/**
+ * @brief 保存人员聚集配置，保留规则数量及位置，无效规则回退旧值或默认空规则。
+ * @author ITC
+ * @param [in] nChannelId SDK 通道编号。
+ * @param [in] pInBuffer 指向 NET_CrowdGatheringAlarmInfo_S 的配置缓冲区。
+ * @param [out] 无。
+ * @return 成功返回 NET_E_SUCCEED，数量、读取或业务处理失败返回对应错误码。
+ */
+static NET_COMMON_ECODE_E cb_set_crowd_gathering_alarm(INT32 nChannelId, LPVOID pInBuffer)
 {
-    (void)dwChannelID;
-    if (!lpInBuffer)
+    if (pInBuffer == nullptr)
+    {
         return NET_E_INVALID_PARAM;
-    const NET_CrowdGatheringAlarmInfo_S *pIn = (const NET_CrowdGatheringAlarmInfo_S *)lpInBuffer;
-
-    Alarm::CrowdGathering_S stCfg;
-    TvSdkConvert::ToCrowdGathering(*pIn, stCfg);
-    std::string inJson = Convert::to_string(stCfg);
-    Task::Info_S stInfo;
-    stInfo.data = wrap_data_json(inJson);
-    int nExec = s_taskManage ? s_taskManage->execute(AC_SET_CROWD_GATHERING_DETECT_INFO, stInfo) : -1;
-    return (nExec == 0) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
+    }
+    const NET_CrowdGatheringAlarmInfo_S *pConfig = static_cast<const NET_CrowdGatheringAlarmInfo_S *>(pInBuffer);
+    NET_CrowdGatheringAlarmInfo_S stNormalized = *pConfig;
+    const NET_COMMON_ECODE_E enResult = tvsdk_preserve_event_rules(
+        nChannelId, stNormalized, AC_SET_CROWD_GATHERING_DETECT_INFO, cb_get_crowd_gathering_alarm);
+    if (enResult != NET_E_SUCCEED)
+    {
+        return enResult;
+    }
+    Alarm::CrowdGathering_S stConfig = {};
+    TvSdkConvert::ToCrowdGathering(stNormalized, stConfig);
+    return tvsdk_set_event_config(AC_SET_CROWD_GATHERING_DETECT_INFO, Convert::to_string(stConfig));
 }
 
 
@@ -2966,20 +3185,31 @@ static NET_COMMON_ECODE_E cb_get_climb_fence_info(INT32 dwChannelID, LPVOID lpOu
     return NET_E_SUCCEED;
 }
 
-static NET_COMMON_ECODE_E cb_set_climb_fence_info(INT32 dwChannelID, LPVOID lpInBuffer)
+/**
+ * @brief 保存翻越围栏配置，保留规则数量及位置，无效规则回退旧值或默认空规则。
+ * @author ITC
+ * @param [in] nChannelId SDK 通道编号。
+ * @param [in] pInBuffer 指向 NET_ClimbFenceInfo_S 的配置缓冲区。
+ * @param [out] 无。
+ * @return 成功返回 NET_E_SUCCEED，数量、读取或业务处理失败返回对应错误码。
+ */
+static NET_COMMON_ECODE_E cb_set_climb_fence_info(INT32 nChannelId, LPVOID pInBuffer)
 {
-    (void)dwChannelID;
-    if (!lpInBuffer)
+    if (pInBuffer == nullptr)
+    {
         return NET_E_INVALID_PARAM;
-    const NET_ClimbFenceInfo_S *pIn = (const NET_ClimbFenceInfo_S *)lpInBuffer;
-
-    Alarm::FenceClimbingDetection_S stCfg;
-    TvSdkConvert::ToClimbFence(*pIn, stCfg);
-    std::string inJson = Convert::to_string(stCfg);
-    Task::Info_S stInfo;
-    stInfo.data = wrap_data_json(inJson);
-    int nExec = s_taskManage ? s_taskManage->execute(AC_SET_CLIMB_FENCE_INFO, stInfo) : -1;
-    return (nExec == 0) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
+    }
+    const NET_ClimbFenceInfo_S *pConfig = static_cast<const NET_ClimbFenceInfo_S *>(pInBuffer);
+    NET_ClimbFenceInfo_S stNormalized = *pConfig;
+    const NET_COMMON_ECODE_E enResult = tvsdk_preserve_event_rules(
+        nChannelId, stNormalized, AC_SET_CLIMB_FENCE_INFO, cb_get_climb_fence_info);
+    if (enResult != NET_E_SUCCEED)
+    {
+        return enResult;
+    }
+    Alarm::FenceClimbingDetection_S stConfig = {};
+    TvSdkConvert::ToClimbFence(stNormalized, stConfig);
+    return tvsdk_set_event_config(AC_SET_CLIMB_FENCE_INFO, Convert::to_string(stConfig));
 }
 
 static NET_COMMON_ECODE_E cb_get_dimission_info(INT32 dwChannelID, LPVOID lpOutBuffer)
@@ -3007,20 +3237,31 @@ static NET_COMMON_ECODE_E cb_get_dimission_info(INT32 dwChannelID, LPVOID lpOutB
     return NET_E_SUCCEED;
 }
 
-static NET_COMMON_ECODE_E cb_set_dimission_info(INT32 dwChannelID, LPVOID lpInBuffer)
+/**
+ * @brief 保存离岗识别配置，保留规则数量及位置，无效规则回退旧值或默认空规则。
+ * @author ITC
+ * @param [in] nChannelId SDK 通道编号。
+ * @param [in] pInBuffer 指向 NET_DimissionInfo_S 的配置缓冲区。
+ * @param [out] 无。
+ * @return 成功返回 NET_E_SUCCEED，数量、读取或业务处理失败返回对应错误码。
+ */
+static NET_COMMON_ECODE_E cb_set_dimission_info(INT32 nChannelId, LPVOID pInBuffer)
 {
-    (void)dwChannelID;
-    if (!lpInBuffer)
+    if (pInBuffer == nullptr)
+    {
         return NET_E_INVALID_PARAM;
-    const NET_DimissionInfo_S *pIn = (const NET_DimissionInfo_S *)lpInBuffer;
-
-    Alarm::LeavePostDetection_S stCfg;
-    TvSdkConvert::ToDimission(*pIn, stCfg);
-    std::string inJson = Convert::to_string(stCfg);
-    Task::Info_S stInfo;
-    stInfo.data = wrap_data_json(inJson);
-    int nExec = s_taskManage ? s_taskManage->execute(AC_SET_DIMISSION_INFO, stInfo) : -1;
-    return (nExec == 0) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
+    }
+    const NET_DimissionInfo_S *pConfig = static_cast<const NET_DimissionInfo_S *>(pInBuffer);
+    NET_DimissionInfo_S stNormalized = *pConfig;
+    const NET_COMMON_ECODE_E enResult = tvsdk_preserve_event_rules(
+        nChannelId, stNormalized, AC_SET_DIMISSION_INFO, cb_get_dimission_info);
+    if (enResult != NET_E_SUCCEED)
+    {
+        return enResult;
+    }
+    Alarm::LeavePostDetection_S stConfig = {};
+    TvSdkConvert::ToDimission(stNormalized, stConfig);
+    return tvsdk_set_event_config(AC_SET_DIMISSION_INFO, Convert::to_string(stConfig));
 }
 
 static NET_COMMON_ECODE_E cb_get_illegal_lane_info(INT32 dwChannelID, LPVOID lpOutBuffer)
@@ -3048,20 +3289,31 @@ static NET_COMMON_ECODE_E cb_get_illegal_lane_info(INT32 dwChannelID, LPVOID lpO
     return NET_E_SUCCEED;
 }
 
-static NET_COMMON_ECODE_E cb_set_illegal_lane_info(INT32 dwChannelID, LPVOID lpInBuffer)
+/**
+ * @brief 保存违规变道配置，保留规则数量及位置，无效规则回退旧值或默认空规则。
+ * @author ITC
+ * @param [in] nChannelId SDK 通道编号。
+ * @param [in] pInBuffer 指向 NET_IllegalLaneInfo_S 的配置缓冲区。
+ * @param [out] 无。
+ * @return 成功返回 NET_E_SUCCEED，数量、读取或业务处理失败返回对应错误码。
+ */
+static NET_COMMON_ECODE_E cb_set_illegal_lane_info(INT32 nChannelId, LPVOID pInBuffer)
 {
-    (void)dwChannelID;
-    if (!lpInBuffer)
+    if (pInBuffer == nullptr)
+    {
         return NET_E_INVALID_PARAM;
-    const NET_IllegalLaneInfo_S *pIn = (const NET_IllegalLaneInfo_S *)lpInBuffer;
-
-    Alarm::IllegalLaneChangeDetection_S stCfg;
-    TvSdkConvert::ToIllegalLane(*pIn, stCfg);
-    std::string inJson = Convert::to_string(stCfg);
-    Task::Info_S stInfo;
-    stInfo.data = wrap_data_json(inJson);
-    int nExec = s_taskManage ? s_taskManage->execute(AC_SET_ILLEGAL_LANE_INFO, stInfo) : -1;
-    return (nExec == 0) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
+    }
+    const NET_IllegalLaneInfo_S *pConfig = static_cast<const NET_IllegalLaneInfo_S *>(pInBuffer);
+    NET_IllegalLaneInfo_S stNormalized = *pConfig;
+    const NET_COMMON_ECODE_E enResult = tvsdk_preserve_event_rules(
+        nChannelId, stNormalized, AC_SET_ILLEGAL_LANE_INFO, cb_get_illegal_lane_info);
+    if (enResult != NET_E_SUCCEED)
+    {
+        return enResult;
+    }
+    Alarm::IllegalLaneChangeDetection_S stConfig = {};
+    TvSdkConvert::ToIllegalLane(stNormalized, stConfig);
+    return tvsdk_set_event_config(AC_SET_ILLEGAL_LANE_INFO, Convert::to_string(stConfig));
 }
 
 static NET_COMMON_ECODE_E cb_get_retrograde_info(INT32 dwChannelID, LPVOID lpOutBuffer)
@@ -3089,24 +3341,43 @@ static NET_COMMON_ECODE_E cb_get_retrograde_info(INT32 dwChannelID, LPVOID lpOut
     return NET_E_SUCCEED;
 }
 
-/*
- * 功能：设置逆行识别配置，返回 IPC 参数校验与保存结果。
- * 作者：Codex
- * param [in] nChannelID：通道号，IPC 单通道设备忽略此参数。
- * param [in] pInBuffer：指向 NET_RetrogradeInfo_S 配置结构体的指针。
- * param [out] 无。
- * return：配置成功返回 NET_E_SUCCEED，无效参数返回 NET_E_INVALID_PARAM，其他失败返回 NET_E_SET_CFG_FAILED。
+/**
+ * @brief 保存逆行识别配置，保留规则数量及位置，无效规则回退旧值或默认空规则。
+ * @author ITC
+ * @param [in] nChannelId SDK 通道编号。
+ * @param [in] pInBuffer 指向 NET_RetrogradeInfo_S 的配置缓冲区。
+ * @param [out] 无。
+ * @return 成功返回 NET_E_SUCCEED，数量、读取或业务处理失败返回对应错误码。
  */
-static NET_COMMON_ECODE_E cb_set_retrograde_info(INT32 nChannelID, LPVOID pInBuffer)
+static NET_COMMON_ECODE_E cb_set_retrograde_info(INT32 nChannelId, LPVOID pInBuffer)
 {
-    (void)nChannelID;
     if (pInBuffer == nullptr)
     {
         return NET_E_INVALID_PARAM;
     }
     const NET_RetrogradeInfo_S *pConfig = static_cast<const NET_RetrogradeInfo_S *>(pInBuffer);
+    NET_RetrogradeInfo_S stNormalized = *pConfig;
+    /* 保留逆行的专用方向校验：有效警戒线不能请求双向，空位置仍允许回退。 */
+    if (stNormalized.uRuleCount >= 0 && stNormalized.uRuleCount <= TVSDK_IPC_RULE_MAX)
+    {
+        for (INT32 nIndex = 0; nIndex < stNormalized.uRuleCount; ++nIndex)
+        {
+            const NET_SmartLineRule_S &stRule = stNormalized.stRule[nIndex];
+            if (tvsdk_valid_line_parameters(stRule) &&
+                stRule.enCrossDirection != Alarm::A_TO_B && stRule.enCrossDirection != Alarm::B_TO_A)
+            {
+                return NET_E_INVALID_PARAM;
+            }
+        }
+    }
+    const NET_COMMON_ECODE_E enResult = tvsdk_preserve_event_rules(
+        nChannelId, stNormalized, AC_SET_RETROGRADE_INFO, cb_get_retrograde_info);
+    if (enResult != NET_E_SUCCEED)
+    {
+        return enResult;
+    }
     Alarm::DrivingAgainstTrafficDetection_S stConfig = {};
-    TvSdkConvert::ToRetrograde(*pConfig, stConfig);
+    TvSdkConvert::ToRetrograde(stNormalized, stConfig);
     return tvsdk_set_event_config(AC_SET_RETROGRADE_INFO, Convert::to_string(stConfig));
 }
 
@@ -3135,20 +3406,31 @@ static NET_COMMON_ECODE_E cb_get_nonmotor_vehicle_intrusion_info(INT32 dwChannel
     return NET_E_SUCCEED;
 }
 
-static NET_COMMON_ECODE_E cb_set_nonmotor_vehicle_intrusion_info(INT32 dwChannelID, LPVOID lpInBuffer)
+/**
+ * @brief 保存非机动车闯入配置，保留规则数量及位置，无效规则回退旧值或默认空规则。
+ * @author ITC
+ * @param [in] nChannelId SDK 通道编号。
+ * @param [in] pInBuffer 指向 NET_NonmotorVehicleIntrusionInfo_S 的配置缓冲区。
+ * @param [out] 无。
+ * @return 成功返回 NET_E_SUCCEED，数量、读取或业务处理失败返回对应错误码。
+ */
+static NET_COMMON_ECODE_E cb_set_nonmotor_vehicle_intrusion_info(INT32 nChannelId, LPVOID pInBuffer)
 {
-    (void)dwChannelID;
-    if (!lpInBuffer)
+    if (pInBuffer == nullptr)
+    {
         return NET_E_INVALID_PARAM;
-    const NET_NonmotorVehicleIntrusionInfo_S *pIn = (const NET_NonmotorVehicleIntrusionInfo_S *)lpInBuffer;
-
-    Alarm::NonMotorVehicleIntrusionDetection_S stCfg;
-    TvSdkConvert::ToNonmotorVehicleIntrusion(*pIn, stCfg);
-    std::string inJson = Convert::to_string(stCfg);
-    Task::Info_S stInfo;
-    stInfo.data = wrap_data_json(inJson);
-    int nExec = s_taskManage ? s_taskManage->execute(AC_SET_NONMOROT_VEHIINTRU_INFO, stInfo) : -1;
-    return (nExec == 0) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
+    }
+    const NET_NonmotorVehicleIntrusionInfo_S *pConfig = static_cast<const NET_NonmotorVehicleIntrusionInfo_S *>(pInBuffer);
+    NET_NonmotorVehicleIntrusionInfo_S stNormalized = *pConfig;
+    const NET_COMMON_ECODE_E enResult = tvsdk_preserve_event_rules(
+        nChannelId, stNormalized, AC_SET_NONMOROT_VEHIINTRU_INFO, cb_get_nonmotor_vehicle_intrusion_info);
+    if (enResult != NET_E_SUCCEED)
+    {
+        return enResult;
+    }
+    Alarm::NonMotorVehicleIntrusionDetection_S stConfig = {};
+    TvSdkConvert::ToNonmotorVehicleIntrusion(stNormalized, stConfig);
+    return tvsdk_set_event_config(AC_SET_NONMOROT_VEHIINTRU_INFO, Convert::to_string(stConfig));
 }
 
 static NET_COMMON_ECODE_E cb_get_occupation_emergency_info(INT32 dwChannelID, LPVOID lpOutBuffer)
@@ -3176,20 +3458,31 @@ static NET_COMMON_ECODE_E cb_get_occupation_emergency_info(INT32 dwChannelID, LP
     return NET_E_SUCCEED;
 }
 
-static NET_COMMON_ECODE_E cb_set_occupation_emergency_info(INT32 dwChannelID, LPVOID lpInBuffer)
+/**
+ * @brief 保存应急车道占用配置，保留规则数量及位置，无效规则回退旧值或默认空规则。
+ * @author ITC
+ * @param [in] nChannelId SDK 通道编号。
+ * @param [in] pInBuffer 指向 NET_OccupationEmergencyInfo_S 的配置缓冲区。
+ * @param [out] 无。
+ * @return 成功返回 NET_E_SUCCEED，数量、读取或业务处理失败返回对应错误码。
+ */
+static NET_COMMON_ECODE_E cb_set_occupation_emergency_info(INT32 nChannelId, LPVOID pInBuffer)
 {
-    (void)dwChannelID;
-    if (!lpInBuffer)
+    if (pInBuffer == nullptr)
+    {
         return NET_E_INVALID_PARAM;
-    const NET_OccupationEmergencyInfo_S *pIn = (const NET_OccupationEmergencyInfo_S *)lpInBuffer;
-
-    Alarm::EmergencyLaneOccupancyDetection_S stCfg;
-    TvSdkConvert::ToOccupationEmergency(*pIn, stCfg);
-    std::string inJson = Convert::to_string(stCfg);
-    Task::Info_S stInfo;
-    stInfo.data = wrap_data_json(inJson);
-    int nExec = s_taskManage ? s_taskManage->execute(AC_SET_OCCUPATION_EMERGENCY_INFO, stInfo) : -1;
-    return (nExec == 0) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
+    }
+    const NET_OccupationEmergencyInfo_S *pConfig = static_cast<const NET_OccupationEmergencyInfo_S *>(pInBuffer);
+    NET_OccupationEmergencyInfo_S stNormalized = *pConfig;
+    const NET_COMMON_ECODE_E enResult = tvsdk_preserve_event_rules(
+        nChannelId, stNormalized, AC_SET_OCCUPATION_EMERGENCY_INFO, cb_get_occupation_emergency_info);
+    if (enResult != NET_E_SUCCEED)
+    {
+        return enResult;
+    }
+    Alarm::EmergencyLaneOccupancyDetection_S stConfig = {};
+    TvSdkConvert::ToOccupationEmergency(stNormalized, stConfig);
+    return tvsdk_set_event_config(AC_SET_OCCUPATION_EMERGENCY_INFO, Convert::to_string(stConfig));
 }
 
 static NET_COMMON_ECODE_E cb_get_pedestrian_intrusion_info(INT32 dwChannelID, LPVOID lpOutBuffer)
@@ -3217,20 +3510,31 @@ static NET_COMMON_ECODE_E cb_get_pedestrian_intrusion_info(INT32 dwChannelID, LP
     return NET_E_SUCCEED;
 }
 
-static NET_COMMON_ECODE_E cb_set_pedestrian_intrusion_info(INT32 dwChannelID, LPVOID lpInBuffer)
+/**
+ * @brief 保存行人闯入配置，保留规则数量及位置，无效规则回退旧值或默认空规则。
+ * @author ITC
+ * @param [in] nChannelId SDK 通道编号。
+ * @param [in] pInBuffer 指向 NET_PedestrianIntrusionInfo_S 的配置缓冲区。
+ * @param [out] 无。
+ * @return 成功返回 NET_E_SUCCEED，数量、读取或业务处理失败返回对应错误码。
+ */
+static NET_COMMON_ECODE_E cb_set_pedestrian_intrusion_info(INT32 nChannelId, LPVOID pInBuffer)
 {
-    (void)dwChannelID;
-    if (!lpInBuffer)
+    if (pInBuffer == nullptr)
+    {
         return NET_E_INVALID_PARAM;
-    const NET_PedestrianIntrusionInfo_S *pIn = (const NET_PedestrianIntrusionInfo_S *)lpInBuffer;
-
-    Alarm::PedestrianIntrusionDetection_S stCfg;
-    TvSdkConvert::ToPedestrianIntrusion(*pIn, stCfg);
-    std::string inJson = Convert::to_string(stCfg);
-    Task::Info_S stInfo;
-    stInfo.data = wrap_data_json(inJson);
-    int nExec = s_taskManage ? s_taskManage->execute(AC_SET_PEDESTRAN_INTRUSION_INFO, stInfo) : -1;
-    return (nExec == 0) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
+    }
+    const NET_PedestrianIntrusionInfo_S *pConfig = static_cast<const NET_PedestrianIntrusionInfo_S *>(pInBuffer);
+    NET_PedestrianIntrusionInfo_S stNormalized = *pConfig;
+    const NET_COMMON_ECODE_E enResult = tvsdk_preserve_event_rules(
+        nChannelId, stNormalized, AC_SET_PEDESTRAN_INTRUSION_INFO, cb_get_pedestrian_intrusion_info);
+    if (enResult != NET_E_SUCCEED)
+    {
+        return enResult;
+    }
+    Alarm::PedestrianIntrusionDetection_S stConfig = {};
+    TvSdkConvert::ToPedestrianIntrusion(stNormalized, stConfig);
+    return tvsdk_set_event_config(AC_SET_PEDESTRAN_INTRUSION_INFO, Convert::to_string(stConfig));
 }
 
 static NET_COMMON_ECODE_E cb_get_smoke_fire_cfg(INT32 dwChannelID, LPVOID lpOutBuffer)
@@ -3439,24 +3743,30 @@ static NET_COMMON_ECODE_E cb_get_parking_detect_alarm(INT32 dwChannelID, LPVOID 
     return NET_E_SUCCEED;
 }
 
-/*
- * 功能：设置停车侦测配置，返回 IPC 参数校验与保存结果。
- * 作者：Codex
- * param [in] nChannelID：通道号，IPC 单通道设备忽略此参数。
- * param [in] pInBuffer：指向 NET_ParkingAlarmInfo_S 配置结构体的指针。
- * param [out] 无。
- * return：配置成功返回 NET_E_SUCCEED，无效参数返回 NET_E_INVALID_PARAM，其他失败返回 NET_E_SET_CFG_FAILED。
+/**
+ * @brief 保存停车侦测配置，保留规则数量及位置，无效规则回退旧值或默认空规则。
+ * @author ITC
+ * @param [in] nChannelId SDK 通道编号。
+ * @param [in] pInBuffer 指向 NET_ParkingAlarmInfo_S 的配置缓冲区。
+ * @param [out] 无。
+ * @return 成功返回 NET_E_SUCCEED，数量、读取或业务处理失败返回对应错误码。
  */
-static NET_COMMON_ECODE_E cb_set_parking_detect_alarm(INT32 nChannelID, LPVOID pInBuffer)
+static NET_COMMON_ECODE_E cb_set_parking_detect_alarm(INT32 nChannelId, LPVOID pInBuffer)
 {
-    (void)nChannelID;
     if (pInBuffer == nullptr)
     {
         return NET_E_INVALID_PARAM;
     }
     const NET_ParkingAlarmInfo_S *pConfig = static_cast<const NET_ParkingAlarmInfo_S *>(pInBuffer);
+    NET_ParkingAlarmInfo_S stNormalized = *pConfig;
+    const NET_COMMON_ECODE_E enResult = tvsdk_preserve_event_rules(
+        nChannelId, stNormalized, AC_SET_PARKING_DETECT_INFO, cb_get_parking_detect_alarm);
+    if (enResult != NET_E_SUCCEED)
+    {
+        return enResult;
+    }
     Alarm::ParkingDetection_S stConfig = {};
-    TvSdkConvert::ToParkingDetection(*pConfig, stConfig);
+    TvSdkConvert::ToParkingDetection(stNormalized, stConfig);
     return tvsdk_set_event_config(AC_SET_PARKING_DETECT_INFO, Convert::to_string(stConfig));
 }
 
@@ -3486,24 +3796,30 @@ static NET_COMMON_ECODE_E cb_get_unattended_object_alarm(INT32 dwChannelID, LPVO
     return NET_E_SUCCEED;
 }
 
-/*
- * 功能：设置物品遗留侦测配置，返回 IPC 参数校验与保存结果。
- * 作者：Codex
- * param [in] nChannelID：通道号，IPC 单通道设备忽略此参数。
- * param [in] pInBuffer：指向 NET_UnattendedObjectAlarmInfo_S 配置结构体的指针。
- * param [out] 无。
- * return：配置成功返回 NET_E_SUCCEED，无效参数返回 NET_E_INVALID_PARAM，其他失败返回 NET_E_SET_CFG_FAILED。
+/**
+ * @brief 保存物品遗留配置，保留规则数量及位置，无效规则回退旧值或默认空规则。
+ * @author ITC
+ * @param [in] nChannelId SDK 通道编号。
+ * @param [in] pInBuffer 指向 NET_UnattendedObjectAlarmInfo_S 的配置缓冲区。
+ * @param [out] 无。
+ * @return 成功返回 NET_E_SUCCEED，数量、读取或业务处理失败返回对应错误码。
  */
-static NET_COMMON_ECODE_E cb_set_unattended_object_alarm(INT32 nChannelID, LPVOID pInBuffer)
+static NET_COMMON_ECODE_E cb_set_unattended_object_alarm(INT32 nChannelId, LPVOID pInBuffer)
 {
-    (void)nChannelID;
     if (pInBuffer == nullptr)
     {
         return NET_E_INVALID_PARAM;
     }
     const NET_UnattendedObjectAlarmInfo_S *pConfig = static_cast<const NET_UnattendedObjectAlarmInfo_S *>(pInBuffer);
+    NET_UnattendedObjectAlarmInfo_S stNormalized = *pConfig;
+    const NET_COMMON_ECODE_E enResult = tvsdk_preserve_event_rules(
+        nChannelId, stNormalized, AC_SET_UNATTENDED_OBJECT_DETECT_INFO, cb_get_unattended_object_alarm);
+    if (enResult != NET_E_SUCCEED)
+    {
+        return enResult;
+    }
     Alarm::UnattendedObject_S stConfig = {};
-    TvSdkConvert::ToUnattendedObject(*pConfig, stConfig);
+    TvSdkConvert::ToUnattendedObject(stNormalized, stConfig);
     return tvsdk_set_event_config(AC_SET_UNATTENDED_OBJECT_DETECT_INFO, Convert::to_string(stConfig));
 }
 
@@ -3533,24 +3849,30 @@ static NET_COMMON_ECODE_E cb_get_object_removal_alarm(INT32 dwChannelID, LPVOID 
     return NET_E_SUCCEED;
 }
 
-/*
- * 功能：设置物品拿取侦测配置，返回 IPC 参数校验与保存结果。
- * 作者：Codex
- * param [in] nChannelID：通道号，IPC 单通道设备忽略此参数。
- * param [in] pInBuffer：指向 NET_ObjectRemovalAlarmInfo_S 配置结构体的指针。
- * param [out] 无。
- * return：配置成功返回 NET_E_SUCCEED，无效参数返回 NET_E_INVALID_PARAM，其他失败返回 NET_E_SET_CFG_FAILED。
+/**
+ * @brief 保存物品拿取配置，保留规则数量及位置，无效规则回退旧值或默认空规则。
+ * @author ITC
+ * @param [in] nChannelId SDK 通道编号。
+ * @param [in] pInBuffer 指向 NET_ObjectRemovalAlarmInfo_S 的配置缓冲区。
+ * @param [out] 无。
+ * @return 成功返回 NET_E_SUCCEED，数量、读取或业务处理失败返回对应错误码。
  */
-static NET_COMMON_ECODE_E cb_set_object_removal_alarm(INT32 nChannelID, LPVOID pInBuffer)
+static NET_COMMON_ECODE_E cb_set_object_removal_alarm(INT32 nChannelId, LPVOID pInBuffer)
 {
-    (void)nChannelID;
     if (pInBuffer == nullptr)
     {
         return NET_E_INVALID_PARAM;
     }
     const NET_ObjectRemovalAlarmInfo_S *pConfig = static_cast<const NET_ObjectRemovalAlarmInfo_S *>(pInBuffer);
+    NET_ObjectRemovalAlarmInfo_S stNormalized = *pConfig;
+    const NET_COMMON_ECODE_E enResult = tvsdk_preserve_event_rules(
+        nChannelId, stNormalized, AC_SET_OBJECT_REMOVAL_DETECT_INFO, cb_get_object_removal_alarm);
+    if (enResult != NET_E_SUCCEED)
+    {
+        return enResult;
+    }
     Alarm::ObjectRemoval_S stConfig = {};
-    TvSdkConvert::ToObjectRemoval(*pConfig, stConfig);
+    TvSdkConvert::ToObjectRemoval(stNormalized, stConfig);
     return tvsdk_set_event_config(AC_SET_OBJECT_REMOVAL_DETECT_INFO, Convert::to_string(stConfig));
 }
 
@@ -4658,19 +4980,31 @@ static NET_COMMON_ECODE_E cb_get_enter_region_alarm(INT32 dwChannelID, LPVOID lp
     pOut->uChannel = 0;
     return NET_E_SUCCEED;
 }
-static NET_COMMON_ECODE_E cb_set_enter_region_alarm(INT32 dwChannelID, LPVOID lpInBuffer)
+/**
+ * @brief 保存进入区域配置，保留规则数量及位置，无效规则回退旧值或默认空规则。
+ * @author ITC
+ * @param [in] nChannelId SDK 通道编号。
+ * @param [in] pInBuffer 指向 NET_EnterRegionAlarmInfo_S 的配置缓冲区。
+ * @param [out] 无。
+ * @return 成功返回 NET_E_SUCCEED，数量、读取或业务处理失败返回对应错误码。
+ */
+static NET_COMMON_ECODE_E cb_set_enter_region_alarm(INT32 nChannelId, LPVOID pInBuffer)
 {
-    (void)dwChannelID;
-    if (!lpInBuffer)
+    if (pInBuffer == nullptr)
+    {
         return NET_E_INVALID_PARAM;
-    const NET_EnterRegionAlarmInfo_S *pIn = (const NET_EnterRegionAlarmInfo_S *)lpInBuffer;
-    Alarm::EntranceDetection_S stCfg;
-    TvSdkConvert::ToEntranceDetection(*pIn, stCfg);
-    std::string inJson = Convert::to_string(stCfg);
-    Task::Info_S stInfo;
-    stInfo.data = wrap_data_json(inJson);
-    int nExec = s_taskManage ? s_taskManage->execute(AC_SET_ENTER_REGION_DETECT_INFO, stInfo) : -1;
-    return (nExec == 0) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
+    }
+    const NET_EnterRegionAlarmInfo_S *pConfig = static_cast<const NET_EnterRegionAlarmInfo_S *>(pInBuffer);
+    NET_EnterRegionAlarmInfo_S stNormalized = *pConfig;
+    const NET_COMMON_ECODE_E enResult = tvsdk_preserve_event_rules(
+        nChannelId, stNormalized, AC_SET_ENTER_REGION_DETECT_INFO, cb_get_enter_region_alarm);
+    if (enResult != NET_E_SUCCEED)
+    {
+        return enResult;
+    }
+    Alarm::EntranceDetection_S stConfig = {};
+    TvSdkConvert::ToEntranceDetection(stNormalized, stConfig);
+    return tvsdk_set_event_config(AC_SET_ENTER_REGION_DETECT_INFO, Convert::to_string(stConfig));
 }
 static NET_COMMON_ECODE_E cb_get_leave_region_alarm(INT32 dwChannelID, LPVOID lpOutBuffer)
 {
@@ -4696,19 +5030,31 @@ static NET_COMMON_ECODE_E cb_get_leave_region_alarm(INT32 dwChannelID, LPVOID lp
     return NET_E_SUCCEED;
 }
 /*-----------------------------------获取/设置离开区域侦测-------------------------------------*/
-static NET_COMMON_ECODE_E cb_set_leave_region_alarm(INT32 dwChannelID, LPVOID lpInBuffer)
+/**
+ * @brief 保存离开区域配置，保留规则数量及位置，无效规则回退旧值或默认空规则。
+ * @author ITC
+ * @param [in] nChannelId SDK 通道编号。
+ * @param [in] pInBuffer 指向 NET_LeaveRegionAlarmInfo_S 的配置缓冲区。
+ * @param [out] 无。
+ * @return 成功返回 NET_E_SUCCEED，数量、读取或业务处理失败返回对应错误码。
+ */
+static NET_COMMON_ECODE_E cb_set_leave_region_alarm(INT32 nChannelId, LPVOID pInBuffer)
 {
-    (void)dwChannelID;
-    if (!lpInBuffer)
+    if (pInBuffer == nullptr)
+    {
         return NET_E_INVALID_PARAM;
-    const NET_LeaveRegionAlarmInfo_S *pIn = (const NET_LeaveRegionAlarmInfo_S *)lpInBuffer;
-    Alarm::ExitingDetection_S stCfg;
-    TvSdkConvert::ToExitingDetection(*pIn, stCfg);
-    std::string inJson = Convert::to_string(stCfg);
-    Task::Info_S stInfo;
-    stInfo.data = wrap_data_json(inJson);
-    int nExec = s_taskManage ? s_taskManage->execute(AC_SET_LEAVE_REGION_DETECT_INFO, stInfo) : -1;
-    return (nExec == 0) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
+    }
+    const NET_LeaveRegionAlarmInfo_S *pConfig = static_cast<const NET_LeaveRegionAlarmInfo_S *>(pInBuffer);
+    NET_LeaveRegionAlarmInfo_S stNormalized = *pConfig;
+    const NET_COMMON_ECODE_E enResult = tvsdk_preserve_event_rules(
+        nChannelId, stNormalized, AC_SET_LEAVE_REGION_DETECT_INFO, cb_get_leave_region_alarm);
+    if (enResult != NET_E_SUCCEED)
+    {
+        return enResult;
+    }
+    Alarm::ExitingDetection_S stConfig = {};
+    TvSdkConvert::ToExitingDetection(stNormalized, stConfig);
+    return tvsdk_set_event_config(AC_SET_LEAVE_REGION_DETECT_INFO, Convert::to_string(stConfig));
 }
 
 static NET_COMMON_ECODE_E cb_get_face_capture_info(INT32 dwChannelID, LPVOID lpOutBuffer)

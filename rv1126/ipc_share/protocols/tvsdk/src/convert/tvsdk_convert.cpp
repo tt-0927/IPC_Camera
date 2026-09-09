@@ -1,6 +1,12 @@
 /**
  * @FilePath     : tvsdk_convert.cpp
  * @Description  : IPC <-> TVSDK 结构体转换实现
+ * @FileName     : tvsdk_convert.cpp
+ * @Author       : ITC
+ * @Date         : 2026-09-08
+ * @Change       : 2026-09-08 越界保留全部规则参数，使用事件总开关并同步联动配置
+ * @Change       : 2026-09-08 补齐人员聚集联动配置的设置和获取转换
+ * @Change       : 2026-09-08 补齐入侵、徘徊、停车、物品遗留和拿取、进入和离开区域的联动转换
  */
 
 #include "tvsdk_convert.h"
@@ -1924,6 +1930,13 @@ void ToHideAlarm(const NET_TamperAlarmInfo_S &src, Alarm::HideAlarm_S &dst)
 }
 
 // --------- CrossLine (IPC BoundaryDetection_S <-> SDK NET_CrossLineAlarmInfo_S) ---------
+/**
+ * @brief 返回全部越界规则参数，单条启用字段与区域入侵保持一致。
+ * @author ITC
+ * @param [in] src IPC 越界配置。
+ * @param [out] dst SDK 越界配置。
+ * @return 无。
+ */
 void FillCrossLineAlarmInfo(const Alarm::BoundaryDetection_S &src, NET_CrossLineAlarmInfo_S &dst)
 {
     memset(&dst, 0, sizeof(dst));
@@ -1947,7 +1960,8 @@ void FillCrossLineAlarmInfo(const Alarm::BoundaryDetection_S &src, NET_CrossLine
         dst.uRuleCount++;
     }
 
-     // 布防时间
+    FillLinkageList(src.stLinkageList, dst.stLinkageList);
+    /* 布防时间。 */
     if (!src.aAlarmTime.empty())
     {
         for (int day = 0; day < 7; ++day)
@@ -1965,6 +1979,13 @@ void FillCrossLineAlarmInfo(const Alarm::BoundaryDetection_S &src, NET_CrossLine
     }
 }
 
+/**
+ * @brief 保存全部越界规则参数及联动配置，单条启用字段不映射到 IPC 业务。
+ * @author ITC
+ * @param [in] src SDK 越界配置。
+ * @param [out] dst IPC 越界配置。
+ * @return 无。
+ */
 void ToBoundaryDetection(const NET_CrossLineAlarmInfo_S &src, Alarm::BoundaryDetection_S &dst)
 {
     dst.bEnable = (src.bEnable == TRUE);
@@ -1982,7 +2003,8 @@ void ToBoundaryDetection(const NET_CrossLineAlarmInfo_S &src, Alarm::BoundaryDet
         dst.aRule.push_back(out);
     }
 
-    // 布防时间
+    ToLinkageList(src.stLinkageList, dst.stLinkageList);
+    /* 布防时间。 */
     dst.aAlarmTime.clear();
     dst.aAlarmTime.resize(7);
     for (int day = 0; day < 7; ++day)
@@ -2000,6 +2022,13 @@ void ToBoundaryDetection(const NET_CrossLineAlarmInfo_S &src, Alarm::BoundaryDet
 }
 
 // --------- Intrusion (IPC FieldDetection_S <-> SDK NET_IntrusionAlarmInfo_S) ---------
+/**
+ * @brief 返回区域入侵全部规则、布防时间及联动配置，保持事件总开关语义。
+ * @author ITC
+ * @param [in] src IPC 区域入侵配置。
+ * @param [out] dst SDK 区域入侵配置。
+ * @return 无。
+ */
 void FillIntrusionAlarmInfo(const Alarm::FieldDetection_S &src, NET_IntrusionAlarmInfo_S &dst)
 {
     memset(&dst, 0, sizeof(dst));
@@ -2026,6 +2055,7 @@ void FillIntrusionAlarmInfo(const Alarm::FieldDetection_S &src, NET_IntrusionAla
     }
 
     // 布防时间
+    FillLinkageList(src.stLinkageList, dst.stLinkageList);
     if (!src.aAlarmTime.empty())
     {
         for (int day = 0; day < 7; ++day)
@@ -2043,6 +2073,13 @@ void FillIntrusionAlarmInfo(const Alarm::FieldDetection_S &src, NET_IntrusionAla
     }
 }
 
+/**
+ * @brief 保存区域入侵全部规则、布防时间及联动配置，保持事件总开关语义。
+ * @author ITC
+ * @param [in] src SDK 区域入侵配置。
+ * @param [out] dst IPC 区域入侵配置。
+ * @return 无。
+ */
 void ToFieldDetection(const NET_IntrusionAlarmInfo_S &src, Alarm::FieldDetection_S &dst)
 {
     dst.bEnable = (src.bEnable == TRUE);
@@ -2067,6 +2104,7 @@ void ToFieldDetection(const NET_IntrusionAlarmInfo_S &src, Alarm::FieldDetection
     }
 
     // 布防时间
+    ToLinkageList(src.stLinkageList, dst.stLinkageList);
     dst.aAlarmTime.clear();
     dst.aAlarmTime.resize(7);
     for (int day = 0; day < 7; ++day)
@@ -2084,6 +2122,13 @@ void ToFieldDetection(const NET_IntrusionAlarmInfo_S &src, Alarm::FieldDetection
 }
 
 // --------- Loitering (IPC LoiteringDetection_S <-> SDK NET_LoiteringAlarmInfo_S) ---------
+/**
+ * @brief 返回徘徊侦测全部规则、布防时间及联动配置，保持事件总开关语义。
+ * @author ITC
+ * @param [in] src IPC 徘徊侦测配置。
+ * @param [out] dst SDK 徘徊侦测配置。
+ * @return 无。
+ */
 void FillLoiteringAlarmInfo(const Alarm::LoiteringDetection_S &src, NET_LoiteringAlarmInfo_S &dst)
 {
     memset(&dst, 0, sizeof(dst));
@@ -2108,6 +2153,7 @@ void FillLoiteringAlarmInfo(const Alarm::LoiteringDetection_S &src, NET_Loiterin
     }
 
     // 布防时间
+    FillLinkageList(src.stLinkageList, dst.stLinkageList);
     if (!src.aAlarmTime.empty())
     {
         for (int day = 0; day < 7; ++day)
@@ -2125,6 +2171,13 @@ void FillLoiteringAlarmInfo(const Alarm::LoiteringDetection_S &src, NET_Loiterin
     }
 }
 
+/**
+ * @brief 保存徘徊侦测全部规则、布防时间及联动配置，保持事件总开关语义。
+ * @author ITC
+ * @param [in] src SDK 徘徊侦测配置。
+ * @param [out] dst IPC 徘徊侦测配置。
+ * @return 无。
+ */
 void ToLoiteringDetection(const NET_LoiteringAlarmInfo_S &src, Alarm::LoiteringDetection_S &dst)
 {
     dst.bEnable = (src.bEnable == TRUE);
@@ -2146,6 +2199,7 @@ void ToLoiteringDetection(const NET_LoiteringAlarmInfo_S &src, Alarm::LoiteringD
     }
 
     // 布防时间
+    ToLinkageList(src.stLinkageList, dst.stLinkageList);
     dst.aAlarmTime.clear();
     dst.aAlarmTime.resize(7);
     for (int day = 0; day < 7; ++day)
@@ -2237,6 +2291,13 @@ void ToSceneChange(const NET_SceneChangeAlarmInfo_S &src, Alarm::SceneChange_S &
 }
 
 // --------- CrowdGathering (IPC CrowdGathering_S <-> SDK NET_CrowdGatheringAlarmInfo_S) ---------
+/**
+ * @brief 返回人员聚集全部规则、布防时间及联动配置，单条启用字段使用兼容值。
+ * @author ITC
+ * @param [in] src IPC 人员聚集配置。
+ * @param [out] dst SDK 人员聚集配置。
+ * @return 无。
+ */
 void FillCrowdGatheringAlarmInfo(const Alarm::CrowdGathering_S &src, NET_CrowdGatheringAlarmInfo_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));
@@ -2253,6 +2314,7 @@ void FillCrowdGatheringAlarmInfo(const Alarm::CrowdGathering_S &src, NET_CrowdGa
         dst.uRuleCount++;
     }
 
+    FillLinkageList(src.stLinkageList, dst.stLinkageList);
     if (!src.aAlarmTime.empty())
     {
         for (int day = 0; day < 7; ++day)
@@ -2270,6 +2332,13 @@ void FillCrowdGatheringAlarmInfo(const Alarm::CrowdGathering_S &src, NET_CrowdGa
     }
 }
 
+/**
+ * @brief 保存人员聚集全部规则、布防时间及联动配置，仅映射事件总开关。
+ * @author ITC
+ * @param [in] src SDK 人员聚集配置，规则数量已由设置回调校验。
+ * @param [out] dst IPC 人员聚集配置。
+ * @return 无。
+ */
 void ToCrowdGathering(const NET_CrowdGatheringAlarmInfo_S &src, Alarm::CrowdGathering_S &dst)
 {
     dst.bEnable = (src.bEnable == TRUE);
@@ -2283,6 +2352,7 @@ void ToCrowdGathering(const NET_CrowdGatheringAlarmInfo_S &src, Alarm::CrowdGath
         dst.aRule.push_back(out);
     }
 
+    ToLinkageList(src.stLinkageList, dst.stLinkageList);
     dst.aAlarmTime.clear();
     dst.aAlarmTime.resize(7);
     for (int day = 0; day < 7; ++day)
@@ -3781,6 +3851,13 @@ static void FillPolygonPoints(const Alarm::Region_S &src, INT32 &pointCount, FLO
 
 // --------- ParkingDetect (IPC ParkingDetection_S <-> SDK NET_ParkingAlarmInfo_S) ---------
 
+/**
+ * @brief 返回停车侦测全部规则、布防时间及联动配置，保持事件总开关语义。
+ * @author ITC
+ * @param [in] src IPC 停车侦测配置。
+ * @param [out] dst SDK 停车侦测配置。
+ * @return 无。
+ */
 void TvSdkConvert::FillParkingDetectAlarmInfo(const Alarm::ParkingDetection_S &src, NET_ParkingAlarmInfo_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));
@@ -3797,6 +3874,7 @@ void TvSdkConvert::FillParkingDetectAlarmInfo(const Alarm::ParkingDetection_S &s
         dst.uRuleCount++;
     }
 
+    FillLinkageList(src.stLinkageList, dst.stLinkageList);
     if (!src.aAlarmTime.empty())
     {
         for (int day = 0; day < 7; ++day)
@@ -3814,6 +3892,13 @@ void TvSdkConvert::FillParkingDetectAlarmInfo(const Alarm::ParkingDetection_S &s
     }
 }
 
+/**
+ * @brief 保存停车侦测全部规则、布防时间及联动配置，保持事件总开关语义。
+ * @author ITC
+ * @param [in] src SDK 停车侦测配置。
+ * @param [out] dst IPC 停车侦测配置。
+ * @return 无。
+ */
 void TvSdkConvert::ToParkingDetection(const NET_ParkingAlarmInfo_S &src, Alarm::ParkingDetection_S &dst)
 {
     dst.bEnable = (src.bEnable == TRUE);
@@ -3828,6 +3913,7 @@ void TvSdkConvert::ToParkingDetection(const NET_ParkingAlarmInfo_S &src, Alarm::
         dst.aRule.push_back(out);
     }
 
+    ToLinkageList(src.stLinkageList, dst.stLinkageList);
     dst.aAlarmTime.clear();
     dst.aAlarmTime.resize(7);
     for (int day = 0; day < 7; ++day)
@@ -3845,6 +3931,13 @@ void TvSdkConvert::ToParkingDetection(const NET_ParkingAlarmInfo_S &src, Alarm::
 }
 
 // --------- UnattendedObject (IPC UnattendedObject_S <-> SDK NET_UnattendedObjectAlarmInfo_S) ---------
+/**
+ * @brief 返回物品遗留全部规则、布防时间及联动配置，保持事件总开关语义。
+ * @author ITC
+ * @param [in] src IPC 物品遗留配置。
+ * @param [out] dst SDK 物品遗留配置。
+ * @return 无。
+ */
 void TvSdkConvert::FillUnattendedObjectAlarmInfo(const Alarm::UnattendedObject_S &src, NET_UnattendedObjectAlarmInfo_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));
@@ -3861,6 +3954,7 @@ void TvSdkConvert::FillUnattendedObjectAlarmInfo(const Alarm::UnattendedObject_S
         dst.uRuleCount++;
     }
 
+    FillLinkageList(src.stLinkageList, dst.stLinkageList);
     if (!src.aAlarmTime.empty())
     {
         for (int day = 0; day < 7; ++day)
@@ -3878,6 +3972,13 @@ void TvSdkConvert::FillUnattendedObjectAlarmInfo(const Alarm::UnattendedObject_S
     }
 }
 
+/**
+ * @brief 保存物品遗留全部规则、布防时间及联动配置，保持事件总开关语义。
+ * @author ITC
+ * @param [in] src SDK 物品遗留配置。
+ * @param [out] dst IPC 物品遗留配置。
+ * @return 无。
+ */
 void TvSdkConvert::ToUnattendedObject(const NET_UnattendedObjectAlarmInfo_S &src, Alarm::UnattendedObject_S &dst)
 {
     dst.bEnable = (src.bEnable == TRUE);
@@ -3892,6 +3993,7 @@ void TvSdkConvert::ToUnattendedObject(const NET_UnattendedObjectAlarmInfo_S &src
         dst.aRule.push_back(out);
     }
 
+    ToLinkageList(src.stLinkageList, dst.stLinkageList);
     dst.aAlarmTime.clear();
     dst.aAlarmTime.resize(7);
     for (int day = 0; day < 7; ++day)
@@ -3909,6 +4011,13 @@ void TvSdkConvert::ToUnattendedObject(const NET_UnattendedObjectAlarmInfo_S &src
 }
 
 // --------- ObjectRemoval (IPC ObjectRemoval_S <-> SDK NET_ObjectRemovalAlarmInfo_S) ---------
+/**
+ * @brief 返回物品拿取全部规则、布防时间及联动配置，保持事件总开关语义。
+ * @author ITC
+ * @param [in] src IPC 物品拿取配置。
+ * @param [out] dst SDK 物品拿取配置。
+ * @return 无。
+ */
 void TvSdkConvert::FillObjectRemovalAlarmInfo(const Alarm::ObjectRemoval_S &src, NET_ObjectRemovalAlarmInfo_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));
@@ -3925,6 +4034,7 @@ void TvSdkConvert::FillObjectRemovalAlarmInfo(const Alarm::ObjectRemoval_S &src,
         dst.uRuleCount++;
     }
 
+    FillLinkageList(src.stLinkageList, dst.stLinkageList);
     if (!src.aAlarmTime.empty())
     {
         for (int day = 0; day < 7; ++day)
@@ -3942,6 +4052,13 @@ void TvSdkConvert::FillObjectRemovalAlarmInfo(const Alarm::ObjectRemoval_S &src,
     }
 }
 
+/**
+ * @brief 保存物品拿取全部规则、布防时间及联动配置，保持事件总开关语义。
+ * @author ITC
+ * @param [in] src SDK 物品拿取配置。
+ * @param [out] dst IPC 物品拿取配置。
+ * @return 无。
+ */
 void TvSdkConvert::ToObjectRemoval(const NET_ObjectRemovalAlarmInfo_S &src, Alarm::ObjectRemoval_S &dst)
 {
     dst.bEnable = (src.bEnable == TRUE);
@@ -3956,6 +4073,7 @@ void TvSdkConvert::ToObjectRemoval(const NET_ObjectRemovalAlarmInfo_S &src, Alar
         dst.aRule.push_back(out);
     }
 
+    ToLinkageList(src.stLinkageList, dst.stLinkageList);
     dst.aAlarmTime.clear();
     dst.aAlarmTime.resize(7);
     for (int day = 0; day < 7; ++day)
@@ -4000,6 +4118,13 @@ void TvSdkConvert::ToAudioConfig(const NET_AudioCfg_S &src, Audio_NS::AudioConfi
 }
 
 // --------- EnterRegion (IPC EntranceDetection_S <-> SDK NET_EnterRegionAlarmInfo_S) ---------
+/**
+ * @brief 返回进入区域全部规则、布防时间及联动配置，保持事件总开关语义。
+ * @author ITC
+ * @param [in] src IPC 进入区域配置。
+ * @param [out] dst SDK 进入区域配置。
+ * @return 无。
+ */
 void TvSdkConvert::FillEnterRegionAlarmInfo(const Alarm::EntranceDetection_S &src, NET_EnterRegionAlarmInfo_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));
@@ -4023,6 +4148,7 @@ void TvSdkConvert::FillEnterRegionAlarmInfo(const Alarm::EntranceDetection_S &sr
         dst.uRuleCount++;
     }
 
+    FillLinkageList(src.stLinkageList, dst.stLinkageList);
     if (!src.aAlarmTime.empty())
     {
         for (int day = 0; day < 7; ++day)
@@ -4040,6 +4166,13 @@ void TvSdkConvert::FillEnterRegionAlarmInfo(const Alarm::EntranceDetection_S &sr
     }
 }
 
+/**
+ * @brief 保存进入区域全部规则、布防时间及联动配置，保持事件总开关语义。
+ * @author ITC
+ * @param [in] src SDK 进入区域配置。
+ * @param [out] dst IPC 进入区域配置。
+ * @return 无。
+ */
 void TvSdkConvert::ToEntranceDetection(const NET_EnterRegionAlarmInfo_S &src, Alarm::EntranceDetection_S &dst)
 {
     dst.bEnable = (src.bEnable == TRUE);
@@ -4060,6 +4193,7 @@ void TvSdkConvert::ToEntranceDetection(const NET_EnterRegionAlarmInfo_S &src, Al
         dst.aRule.push_back(out);
     }
 
+    ToLinkageList(src.stLinkageList, dst.stLinkageList);
     dst.aAlarmTime.clear();
     dst.aAlarmTime.resize(7);
     for (int day = 0; day < 7; ++day)
@@ -4077,6 +4211,13 @@ void TvSdkConvert::ToEntranceDetection(const NET_EnterRegionAlarmInfo_S &src, Al
 }
 
 // --------- LeaveRegion (IPC ExitingDetection_S <-> SDK NET_LeaveRegionAlarmInfo_S) ---------
+/**
+ * @brief 返回离开区域全部规则、布防时间及联动配置，保持事件总开关语义。
+ * @author ITC
+ * @param [in] src IPC 离开区域配置。
+ * @param [out] dst SDK 离开区域配置。
+ * @return 无。
+ */
 void TvSdkConvert::FillLeaveRegionAlarmInfo(const Alarm::ExitingDetection_S &src, NET_LeaveRegionAlarmInfo_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));
@@ -4100,6 +4241,7 @@ void TvSdkConvert::FillLeaveRegionAlarmInfo(const Alarm::ExitingDetection_S &src
         dst.uRuleCount++;
     }
 
+    FillLinkageList(src.stLinkageList, dst.stLinkageList);
     if (!src.aAlarmTime.empty())
     {
         for (int day = 0; day < 7; ++day)
@@ -4117,6 +4259,13 @@ void TvSdkConvert::FillLeaveRegionAlarmInfo(const Alarm::ExitingDetection_S &src
     }
 }
 
+/**
+ * @brief 保存离开区域全部规则、布防时间及联动配置，保持事件总开关语义。
+ * @author ITC
+ * @param [in] src SDK 离开区域配置。
+ * @param [out] dst IPC 离开区域配置。
+ * @return 无。
+ */
 void TvSdkConvert::ToExitingDetection(const NET_LeaveRegionAlarmInfo_S &src, Alarm::ExitingDetection_S &dst)
 {
     dst.bEnable = (src.bEnable == TRUE);
@@ -4137,6 +4286,7 @@ void TvSdkConvert::ToExitingDetection(const NET_LeaveRegionAlarmInfo_S &src, Ala
         dst.aRule.push_back(out);
     }
 
+    ToLinkageList(src.stLinkageList, dst.stLinkageList);
     dst.aAlarmTime.clear();
     dst.aAlarmTime.resize(7);
     for (int day = 0; day < 7; ++day)
