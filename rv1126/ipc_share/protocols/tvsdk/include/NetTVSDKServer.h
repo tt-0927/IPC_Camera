@@ -5469,7 +5469,6 @@ typedef NET_Range_S* pNET_Range_S;
 */
 typedef struct tagNET_VideoEncodeOption
 {
-    INT32                       nStreamID;                                           /* 查询的码流ID，0主码流、1子码流、2第三码流 */
     INT32                       nId;                                                /* 视频码流ID 0-主码流 1-子码流 2-JPEG */
     INT32                       enVideoType;                                       /* 视频类型 0-复合流 1-视频流 */
     NET_VideoResolution_S   stVideoResolution;                                 /* 视频分辨率 */
