@@ -690,7 +690,7 @@ static const Video_NS::VideoConfig_S *FindVideoConfigById(const std::vector<Vide
         }
     }
 
-    return nullptr;
+    return vecCfg.empty() ? nullptr : &vecCfg.front();
 }
 
 static bool is_valid_live_stream_id(INT32 nId)
@@ -1623,15 +1623,11 @@ static NET_COMMON_ECODE_E cb_set_system_time(INT32 dwChannelID, LPVOID lpInBuffe
 
 static NET_COMMON_ECODE_E cb_get_stream_cfg(INT32 dwChannelID, LPVOID lpOutBuffer)
 {
+    (void)dwChannelID;
     if (!lpOutBuffer)
         return NET_E_INVALID_PARAM;
 
     pNET_VideoEncodeOption_S pOut = (pNET_VideoEncodeOption_S)lpOutBuffer;
-    const INT32 nStreamID = pOut->nStreamID;
-    if (nStreamID < NET_LIVE_STREAM_INDEX_MAIN || nStreamID > NET_LIVE_STREAM_INDEX_JPEG)
-    {
-        return NET_E_INVALID_PARAM;
-    }
 
     std::string outJson;
     if (execute_get_result(AC_GET_VIDEO_CONFIG, "{}", outJson) != 0 || outJson.empty())
@@ -1649,12 +1645,11 @@ static NET_COMMON_ECODE_E cb_get_stream_cfg(INT32 dwChannelID, LPVOID lpOutBuffe
     std::vector<Video_NS::VideoConfig_S> vecCfg;
     Convert::to_struct(strJson, vecCfg);
 
-    const Video_NS::VideoConfig_S *pSelectedCfg = FindVideoConfigById(vecCfg, nStreamID);
+    const Video_NS::VideoConfig_S *pSelectedCfg = FindVideoConfigById(vecCfg, NET_LIVE_STREAM_INDEX_MAIN);
     if (!pSelectedCfg)
         return NET_E_GET_CFG_FAILED;
 
     TvSdkConvert::FillVideoEncodeOption(*pSelectedCfg, *pOut);
-    pOut->nStreamID = nStreamID;
     return NET_E_SUCCEED;
 }
 static NET_COMMON_ECODE_E cb_set_stream_cfg(INT32 dwChannelID, LPVOID lpInBuffer)

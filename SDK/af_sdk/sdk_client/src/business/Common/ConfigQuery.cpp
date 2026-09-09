@@ -85,7 +85,7 @@ BOOL CConfigQuery::GetDevConfig(LPVOID lpUserID, INT32 dwChannelID, INT32 dwComm
         case NET_GET_STORAGE_INFO:        return GetDevConfig_Impl<NET_DeviceStorageInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
         case NET_GET_NTPCFG:             return GetDevConfig_Impl<NET_SystemNtpInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
         case NET_GET_AUDIOCFG:           return GetDevConfig_Impl<NET_AudioCfg_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_GET_STREAMCFG:          return GetDevConfig_Impl<NET_VideoEncodeOption_S, true>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_GET_STREAMCFG:          return GetDevConfig_Impl<NET_VideoEncodeOption_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
         case NET_GET_OSDCAPCFG:          return GetDevConfig_Impl<NET_VideoOsdCfg_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
         case NET_GET_IMAGECFG:           return GetDevConfig_Impl<NET_ImageSetting_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
         case NET_GET_RTSPURLCFG:         return GetDevConfig_Impl<NET_RtspUrlInfo_S, true>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
