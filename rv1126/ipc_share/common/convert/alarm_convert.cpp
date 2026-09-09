@@ -687,7 +687,6 @@ void Convert::deal(Json::Object *pRootJson, Alarm::LoiteringRule_S &stInfo, bool
     convert.structure(pRootJson, "Region", stInfo.stRegion);
     convert.field(pRootJson, "Sensitivity", stInfo.nSensitivity);
     convert.field(pRootJson, "TimeThreshold", stInfo.nTimeThreshold);
-    convert.field(pRootJson, "DetectionTarget", stInfo.aDetectionTarget);
 }
 
 void Convert::deal(Json::Object *pRootJson, Alarm::LoiteringDetection_S &stInfo, bool bOutStruct)
@@ -1255,8 +1254,6 @@ void Convert::deal(Json::Object *pRootJson, Alarm::FenceClimbingRule_S &stInfo, 
     Convert::CConvert convert(bOutStruct);
     convert.field(pRootJson, "Sensitivity", stInfo.nSensitivity);
     convert.structure(pRootJson, "Region", stInfo.stRegion);
-    convert.field(pRootJson, "TimeThreshold", stInfo.nTimeThreshold);
-    convert.field(pRootJson, "DetectionTarget", stInfo.aDetectionTarget);
 }
 
 void Convert::deal(Json::Object *pRootJson, Alarm::FenceClimbingDetection_S &stInfo, bool bOutStruct)
@@ -1291,7 +1288,6 @@ void Convert::deal(Json::Object *pRootJson, Alarm::LeavePostRule_S &stInfo, bool
     convert.field(pRootJson, "Sensitivity", stInfo.nSensitivity);
     convert.field(pRootJson, "TimeThreshold", stInfo.nTimeThreshold);
     convert.structure(pRootJson, "Region", stInfo.stRegion);
-    convert.field(pRootJson, "DetectionTarget", stInfo.aDetectionTarget);
 }
 
 void Convert::deal(Json::Object *pRootJson, Alarm::LeavePostDetection_S &stInfo, bool bOutStruct)
@@ -1326,7 +1322,6 @@ void Convert::deal(Json::Object *pRootJson, Alarm::PedestrianIntrusionRule_S &st
     convert.field(pRootJson, "Sensitivity", stInfo.nSensitivity);
     convert.field(pRootJson, "TimeThreshold", stInfo.nTimeThreshold);
     convert.structure(pRootJson, "Region", stInfo.stRegion);
-    convert.field(pRootJson, "DetectionTarget", stInfo.aDetectionTarget);
 }
 
 void Convert::deal(Json::Object *pRootJson, Alarm::PedestrianIntrusionDetection_S &stInfo, bool bOutStruct)
@@ -1907,7 +1902,6 @@ void Convert::deal(Json::Object *pRootJson, Alarm::NonMotorVehicleIntrusionRule_
     convert.field(pRootJson, "Sensitivity", stInfo.nSensitivity);
     convert.field(pRootJson, "TimeThreshold", stInfo.nTimeThreshold);
     convert.structure(pRootJson, "Region", stInfo.stRegion);
-    convert.field(pRootJson, "DetectionTarget", stInfo.aDetectionTarget);
 }
 
 void Convert::deal(Json::Object *pRootJson, Alarm::NonMotorVehicleIntrusionDetection_S &stInfo, bool bOutStruct)

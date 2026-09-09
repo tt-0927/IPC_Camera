@@ -174,6 +174,7 @@ void deal(Json::Object *pRootJson, NET_CaptureConfig_S &stInfo, bool bOutStruct)
     SDKConvert::CSDKConvert convert(bOutStruct);
     if (bOutStruct)
     std::memset(&stInfo, 0, sizeof(stInfo));
+    convert.field(pRootJson, "ChannelID", stInfo.nChannelID);
     convert.field(pRootJson, "Enable", stInfo.bEnable);
     convert.field(pRootJson, "PictureFormat", stInfo.enPictureFormat);
     convert.field(pRootJson, "Width", stInfo.nWidth);
@@ -228,6 +229,7 @@ void deal(Json::Object* pRootJson, NET_TalkbackStateInfo_S& stInfo, bool bOutStr
     }
 
     SDKConvert::CSDKConvert convert(bOutStruct);
+    convert.field(pRootJson, "ChannelID", stInfo.nChannelID);
     convert.field(pRootJson, "Enable", stInfo.bEnable);
     convert.field(pRootJson, "Sdp", stInfo.szSdp);
     convert.field(pRootJson, "Url", stInfo.szUrl);
@@ -821,6 +823,7 @@ void deal(Json::Object* pRootJson, NET_ConstructionOccupyRoadCfg_S& stInfo, bool
     }
 
     SDKConvert::CSDKConvert convert(bOutStruct);
+    convert.field(pRootJson, "nChannelID", stInfo.nChannelID);
     convert.field(pRootJson, "Enable", stInfo.bEnable);
     convert.structure(pRootJson, "Rule", stInfo.stRule);
     convert.structure(pRootJson, "AlarmSchedule", stInfo.stAlarmSchedule);
@@ -849,6 +852,7 @@ void deal(Json::Object* pRootJson, NET_CongestionCfg_S& stInfo, bool bOutStruct)
     }
 
     SDKConvert::CSDKConvert convert(bOutStruct);
+    convert.field(pRootJson, "nChannelID", stInfo.nChannelID);
     convert.field(pRootJson, "Enable", stInfo.bEnable);
     convert.structure(pRootJson, "Rule", stInfo.stRule);
     convert.structure(pRootJson, "AlarmSchedule", stInfo.stAlarmSchedule);
@@ -1515,6 +1519,22 @@ void deal(Json::Object* pRootJson, NET_RoadPondingCfg_S& stInfo, bool bOutStruct
     convert.structure(pRootJson, "Rule", stInfo.stRule);
     convert.structure(pRootJson, "AlarmSchedule", stInfo.stAlarmSchedule);
     convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
+
+    /* 转换 NVR 通道和道路积水检测区域字段，兼容 IPC 返回的默认全屏区域。 */
+    if (bOutStruct)
+    {
+        convert.field(pRootJson, "nChannelID", stInfo.nChannelID);
+        convert.field(pRootJson, "PointCount", stInfo.uPointCount);
+        JsonToFloatArray(pRootJson, "PointX", stInfo.afPointX, NET_AI_SIMPLE_REGION_POINT_MAX_NUM);
+        JsonToFloatArray(pRootJson, "PointY", stInfo.afPointY, NET_AI_SIMPLE_REGION_POINT_MAX_NUM);
+    }
+    else
+    {
+        convert.field(pRootJson, "nChannelID", stInfo.nChannelID);
+        convert.field(pRootJson, "PointCount", stInfo.uPointCount);
+        FloatArrayToJson(pRootJson, "PointX", stInfo.afPointX, stInfo.uPointCount, NET_AI_SIMPLE_REGION_POINT_MAX_NUM);
+        FloatArrayToJson(pRootJson, "PointY", stInfo.afPointY, stInfo.uPointCount, NET_AI_SIMPLE_REGION_POINT_MAX_NUM);
+    }
 }
 
 
