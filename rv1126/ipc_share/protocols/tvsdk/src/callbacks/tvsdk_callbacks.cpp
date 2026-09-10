@@ -3436,8 +3436,38 @@ static NET_COMMON_ECODE_E cb_set_retrograde_info(INT32 nChannelId, LPVOID pInBuf
     {
         return enResult;
     }
+    dlog_info("逆行配置SDK输入: enable=%d, rule_count=%d, schedule_count=[%d,%d,%d,%d,%d,%d,%d]",
+              stNormalized.bEnable,
+              stNormalized.uRuleCount,
+              stNormalized.stAlarmSchedule.uTimeSectionCount[0],
+              stNormalized.stAlarmSchedule.uTimeSectionCount[1],
+              stNormalized.stAlarmSchedule.uTimeSectionCount[2],
+              stNormalized.stAlarmSchedule.uTimeSectionCount[3],
+              stNormalized.stAlarmSchedule.uTimeSectionCount[4],
+              stNormalized.stAlarmSchedule.uTimeSectionCount[5],
+              stNormalized.stAlarmSchedule.uTimeSectionCount[6]);
+    for (INT32 nIndex = 0; nIndex < stNormalized.uRuleCount && nIndex < TVSDK_IPC_RULE_MAX; ++nIndex)
+    {
+        const NET_SmartLineRule_S &stRule = stNormalized.stRule[nIndex];
+        dlog_info("逆行SDK规则: index=%d, enable=%d, start=(%f,%f), end=(%f,%f), direction=%d, sensitivity=%d",
+                  nIndex, stRule.bEnable, stRule.fStartPosX, stRule.fStartPosY,
+                  stRule.fEndPosX, stRule.fEndPosY, stRule.enCrossDirection, stRule.nSensitivity);
+    }
     Alarm::DrivingAgainstTrafficDetection_S stConfig = {};
     TvSdkConvert::ToRetrograde(stNormalized, stConfig);
+    dlog_info("逆行配置IPC转换结果: enable=%d, rule_count=%zu, alarm_time_days=%zu",
+              stConfig.bEnable, stConfig.aRule.size(), stConfig.aAlarmTime.size());
+    for (size_t nDay = 0; nDay < stConfig.aAlarmTime.size(); ++nDay)
+    {
+        dlog_info("逆行IPC布防时间: day=%zu, section_count=%zu", nDay, stConfig.aAlarmTime[nDay].size());
+        for (size_t nSection = 0; nSection < stConfig.aAlarmTime[nDay].size(); ++nSection)
+        {
+            const auto &stTime = stConfig.aAlarmTime[nDay][nSection];
+            dlog_info("逆行IPC时间段: day=%zu, section=%zu, start=%d:%d, end=%d:%d",
+                      nDay, nSection, stTime.stStart.nHour, stTime.stStart.nMinute,
+                      stTime.stStop.nHour, stTime.stStop.nMinute);
+        }
+    }
     return tvsdk_set_event_config(AC_SET_RETROGRADE_INFO, Convert::to_string(stConfig));
 }
 
