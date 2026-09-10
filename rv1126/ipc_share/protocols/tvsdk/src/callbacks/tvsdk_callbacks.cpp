@@ -690,7 +690,7 @@ static const Video_NS::VideoConfig_S *FindVideoConfigById(const std::vector<Vide
         }
     }
 
-    return vecCfg.empty() ? nullptr : &vecCfg.front();
+    return nullptr;
 }
 
 static bool is_valid_live_stream_id(INT32 nId)
@@ -1645,7 +1645,8 @@ static NET_COMMON_ECODE_E cb_get_stream_cfg(INT32 dwChannelID, LPVOID lpOutBuffe
     std::vector<Video_NS::VideoConfig_S> vecCfg;
     Convert::to_struct(strJson, vecCfg);
 
-    const Video_NS::VideoConfig_S *pSelectedCfg = FindVideoConfigById(vecCfg, NET_LIVE_STREAM_INDEX_MAIN);
+    /* 根据调用方传入的码流ID选择主码流或子码流，避免始终返回主码流。 */
+    const Video_NS::VideoConfig_S *pSelectedCfg = FindVideoConfigById(vecCfg, pOut->nId);
     if (!pSelectedCfg)
         return NET_E_GET_CFG_FAILED;
 
