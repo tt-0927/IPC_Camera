@@ -1774,6 +1774,12 @@ void Convert::deal(Json::Object *pRootJson, std::vector<Alarm::DrivingAgainstTra
     convert.structure(pRootJson, stInfo);
 }
 
+/*
+ * 功能：转换逆行配置，读取布防时间时替换默认周计划，避免重复追加。
+ * param [in] pRootJson：逆行配置 JSON 对象；bOutStruct：是否读取到结构体。
+ * param [in,out] stInfo：待读取或输出的逆行配置。
+ * return：无。
+ */
 void Convert::deal(Json::Object *pRootJson, Alarm::DrivingAgainstTrafficDetection_S &stInfo, bool bOutStruct)
 {
     if (!pRootJson)
@@ -1784,6 +1790,11 @@ void Convert::deal(Json::Object *pRootJson, Alarm::DrivingAgainstTrafficDetectio
     Convert::CConvert convert(bOutStruct);
     convert.field(pRootJson, "Enable", stInfo.bEnable);
     convert.structure(pRootJson, "Rule", stInfo.aRule);
+    /* 公共解析器采用追加方式；仅在传入周计划时清空，缺省字段保持原值。 */
+    if (bOutStruct && Json::get(pRootJson, "AlarmTime1") != nullptr)
+    {
+        stInfo.aAlarmTime.clear();
+    }
     convert.structure(pRootJson, stInfo.aAlarmTime);
     convert.structure(pRootJson, "LinkageMode", stInfo.stLinkageList);
 }
