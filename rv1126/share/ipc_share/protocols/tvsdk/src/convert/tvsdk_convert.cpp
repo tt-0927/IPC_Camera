@@ -1202,10 +1202,17 @@ static void FillOneEncodeAbility(const Video_NS::EncodeAbility_S &src, NET_Video
     std::strncpy(dst.szVideoCodec, src.strVideoCodec.c_str(), sizeof(dst.szVideoCodec) - 1);
     dst.enVideoCodec = ToSdkVideoCodec(Video_NS::string_toVideoCodec(src.strVideoCodec));
     dst.nSupportAdjustComplexity = (INT32)src.nSupportAdjustComplexity;
-    dst.nEncodeComplexityNum = (INT32)std::min(src.vEncodeComplexity.size(), (size_t)NET_VIDEO_ENCODE_COMPLEXITY_MAX_NUM);
-    for (INT32 i = 0; i < dst.nEncodeComplexityNum; ++i)
+    if (dst.enVideoCodec == NET_VIDEO_CODE_H264)
     {
-        dst.anEncodeComplexity[i] = (INT32)src.vEncodeComplexity[(size_t)i];
+        dst.nEncodeComplexityNum = 3;
+        dst.anEncodeComplexity[0] = 0;
+        dst.anEncodeComplexity[1] = 1;
+        dst.anEncodeComplexity[2] = 2;
+    }
+    else
+    {
+        dst.nEncodeComplexityNum = 1;
+        dst.anEncodeComplexity[0] = 1;
     }
     dst.nDefaultComplexity = (UINT32)src.nDefaultComplexity;
     dst.bSupportSVC = (INT32)src.bSupportSVC;

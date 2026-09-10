@@ -1,7 +1,7 @@
 /*
  * @file capture_param_validation.h
  * @date 2026-09-08
- * @author qinjt
+ * @author Codex
  * @brief IPC 抓图任务参数的 JSON 类型和数值范围校验。
  * @修改记录 2026-09-08：仅在 IPC 校验两组抓图参数，不修改 SDK 解析流程。
  */
