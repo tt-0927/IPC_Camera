@@ -425,12 +425,6 @@ static bool tvsdk_valid_event_rule(const TRule &stRule, int nActionCode)
  */
 static bool tvsdk_valid_event_rule(const NET_IntrusionRule_S &stRule, int nActionCode)
 {
-    /* 关闭规则时允许区域为空，以支持清空并停用指定区域。 */
-    if (stRule.bEnable == FALSE)
-    {
-        return true;
-    }
-
     return tvsdk_valid_region_parameters(stRule, nActionCode) && tvsdk_valid_rule_targets(stRule);
 }
 
@@ -442,12 +436,6 @@ static bool tvsdk_valid_event_rule(const NET_IntrusionRule_S &stRule, int nActio
  */
 static bool tvsdk_valid_event_rule(const NET_LoiteringRule_S &stRule, int nActionCode)
 {
-    /* 关闭规则时允许区域为空，以支持清空并停用指定区域。 */
-    if (stRule.bEnable == FALSE)
-    {
-        return true;
-    }
-
     return tvsdk_valid_region_parameters(stRule, nActionCode);
 }
 
@@ -459,12 +447,6 @@ static bool tvsdk_valid_event_rule(const NET_LoiteringRule_S &stRule, int nActio
  */
 static bool tvsdk_valid_event_rule(const NET_SmartRegionRule_S &stRule, int nActionCode)
 {
-    /* 关闭规则时允许区域为空，以支持清空并停用指定区域。 */
-    if (stRule.bEnable == FALSE)
-    {
-        return true;
-    }
-
     const bool bIsClimbFence = nActionCode == AC_SET_CLIMB_FENCE_INFO;
     return tvsdk_valid_polygon(stRule) && stRule.nSensitivity >= 1 && stRule.nSensitivity <= 100 &&
            (bIsClimbFence || (stRule.nTimeThreshold >= tvsdk_rule_min_time(nActionCode) &&
@@ -480,12 +462,6 @@ static bool tvsdk_valid_event_rule(const NET_SmartRegionRule_S &stRule, int nAct
 static bool tvsdk_valid_event_rule(const NET_CrowdGatheringRule_S &stRule, int nActionCode)
 {
     (void)nActionCode;
-    /* 关闭规则时允许区域为空，以支持清空并停用指定区域。 */
-    if (stRule.bEnable == FALSE)
-    {
-        return true;
-    }
-
     return tvsdk_valid_polygon(stRule) && stRule.nObjectOccup >= 1 && stRule.nObjectOccup <= 100;
 }
 
@@ -515,12 +491,6 @@ static bool tvsdk_valid_line_parameters(const TRule &stRule)
 static bool tvsdk_valid_event_rule(const NET_BoundaryPlane_S &stRule, int nActionCode)
 {
     (void)nActionCode;
-    /* 关闭规则时允许警戒线端点为空，以支持清空并停用指定警戒线。 */
-    if (stRule.bEnable == FALSE)
-    {
-        return true;
-    }
-
     return tvsdk_valid_line_parameters(stRule) && tvsdk_valid_rule_targets(stRule) &&
            stRule.enCrossDirection >= 0 && stRule.enCrossDirection <= 2;
 }
@@ -533,12 +503,6 @@ static bool tvsdk_valid_event_rule(const NET_BoundaryPlane_S &stRule, int nActio
  */
 static bool tvsdk_valid_event_rule(const NET_SmartLineRule_S &stRule, int nActionCode)
 {
-    /* 关闭规则时允许警戒线端点为空，以支持清空并停用指定警戒线。 */
-    if (stRule.bEnable == FALSE)
-    {
-        return true;
-    }
-
     return tvsdk_valid_line_parameters(stRule) &&
            (nActionCode != AC_SET_RETROGRADE_INFO ||
             stRule.enCrossDirection == Alarm::A_TO_B || stRule.enCrossDirection == Alarm::B_TO_A);
@@ -1944,7 +1908,7 @@ static NET_COMMON_ECODE_E cb_get_4g_info(INT32 dwChannelID, LPVOID lpOutBuffer)
     (void)parse_4g_from_json(dataJson, stCfg);
 
     TvSdkConvert::Fill4GInfo(stCfg, *pOut);
-    pOut->nChannelID = 0;
+    pOut->uChannel = 0;
     return NET_E_SUCCEED;
 }
 
@@ -2001,7 +1965,7 @@ static NET_COMMON_ECODE_E cb_get_preview_info(INT32 dwChannelID, LPVOID lpOutBuf
     strJson = normalize_data_json(outJson);
     Convert::to_struct(strJson, stCfg);
     TvSdkConvert::FillPreviewInfo(stCfg, *pOut);
-    pOut->nChannelID = 0;
+    pOut->uChannel = 0;
     return NET_E_SUCCEED;
 }
 
@@ -2047,7 +2011,7 @@ static NET_COMMON_ECODE_E cb_get_privacy_mask_cfg(INT32 dwChannelID, LPVOID lpOu
     stCfg.vecCoverAttr.clear();
     Convert::to_struct(strJson, stCfg);
     TvSdkConvert::FillPrivacyMaskCfg(stCfg, COsdManage::instance()->get_cover_max_area_count(), *pOut);
-    pOut->nChannelID = 0;
+    pOut->uChannel = 0;
     return NET_E_SUCCEED;
 }
 static NET_COMMON_ECODE_E cb_set_privacy_mask_cfg(INT32 dwChannelID, LPVOID lpInBuffer)
@@ -2697,7 +2661,7 @@ static NET_COMMON_ECODE_E cb_get_construction_occupy_road_cfg(INT32 dwChannelID,
     strJson = normalize_data_json(outJson);
     Convert::to_struct(strJson, stCfg);
     TvSdkConvert::FillConstructionOccupyRoadCfg(stCfg, *pOut);
-    pOut->nChannelID = 0;
+    pOut->uChannel = 0;
     return NET_E_SUCCEED;
 }
 
@@ -2738,7 +2702,7 @@ static NET_COMMON_ECODE_E cb_get_congestion_cfg(INT32 dwChannelID, LPVOID lpOutB
     strJson = normalize_data_json(outJson);
     Convert::to_struct(strJson, stCfg);
     TvSdkConvert::FillCongestionCfg(stCfg, *pOut);
-    pOut->nChannelID = 0;
+    pOut->uChannel = 0;
     return NET_E_SUCCEED;
 }
 
@@ -3416,6 +3380,26 @@ static NET_COMMON_ECODE_E cb_set_retrograde_info(INT32 nChannelId, LPVOID pInBuf
         return NET_E_INVALID_PARAM;
     }
     const NET_RetrogradeInfo_S *pConfig = static_cast<const NET_RetrogradeInfo_S *>(pInBuffer);
+    /* 在规则回退处理前记录原始输入，避免将回退后的值误判为客户端参数。 */
+    dlog_info("[DIAG-RETROGRADE] SDK输入: channel=%d, enable=%d, rules=%d",
+              nChannelId, pConfig->bEnable, pConfig->uRuleCount);
+    for (INT32 nIndex = 0; nIndex < pConfig->uRuleCount && nIndex < TVSDK_IPC_RULE_MAX; ++nIndex)
+    {
+        dlog_info("[DIAG-RETROGRADE] SDK规则: index=%d, enable=%d",
+                  nIndex, pConfig->stRule[nIndex].bEnable);
+    }
+    for (INT32 nDay = 0; nDay < NET_ALARM_SCHEDULE_DAY_COUNT; ++nDay)
+    {
+        const INT32 nCount = pConfig->stAlarmSchedule.uTimeSectionCount[nDay];
+        dlog_info("[DIAG-RETROGRADE] SDK布防: day=%d, count=%d", nDay, nCount);
+        for (INT32 nSection = 0; nSection < nCount && nSection < NET_PLAN_SECTION_NUM; ++nSection)
+        {
+            const NET_SchedTime_S &stTime = pConfig->stAlarmSchedule.astTimeSection[nDay][nSection];
+            dlog_info("[DIAG-RETROGRADE] SDK时间: day=%d, section=%d, start=%d:%d, end=%d:%d",
+                      nDay, nSection, stTime.nStartHour, stTime.nStartMinute,
+                      stTime.nEndHour, stTime.nEndMinute);
+        }
+    }
     NET_RetrogradeInfo_S stNormalized = *pConfig;
     /* 保留逆行的专用方向校验：有效警戒线不能请求双向，空位置仍允许回退。 */
     if (stNormalized.uRuleCount >= 0 && stNormalized.uRuleCount <= TVSDK_IPC_RULE_MAX)
@@ -3436,38 +3420,9 @@ static NET_COMMON_ECODE_E cb_set_retrograde_info(INT32 nChannelId, LPVOID pInBuf
     {
         return enResult;
     }
-    dlog_info("逆行配置SDK输入: enable=%d, rule_count=%d, schedule_count=[%d,%d,%d,%d,%d,%d,%d]",
-              stNormalized.bEnable,
-              stNormalized.uRuleCount,
-              stNormalized.stAlarmSchedule.uTimeSectionCount[0],
-              stNormalized.stAlarmSchedule.uTimeSectionCount[1],
-              stNormalized.stAlarmSchedule.uTimeSectionCount[2],
-              stNormalized.stAlarmSchedule.uTimeSectionCount[3],
-              stNormalized.stAlarmSchedule.uTimeSectionCount[4],
-              stNormalized.stAlarmSchedule.uTimeSectionCount[5],
-              stNormalized.stAlarmSchedule.uTimeSectionCount[6]);
-    for (INT32 nIndex = 0; nIndex < stNormalized.uRuleCount && nIndex < TVSDK_IPC_RULE_MAX; ++nIndex)
-    {
-        const NET_SmartLineRule_S &stRule = stNormalized.stRule[nIndex];
-        dlog_info("逆行SDK规则: index=%d, enable=%d, start=(%f,%f), end=(%f,%f), direction=%d, sensitivity=%d",
-                  nIndex, stRule.bEnable, stRule.fStartPosX, stRule.fStartPosY,
-                  stRule.fEndPosX, stRule.fEndPosY, stRule.enCrossDirection, stRule.nSensitivity);
-    }
     Alarm::DrivingAgainstTrafficDetection_S stConfig = {};
     TvSdkConvert::ToRetrograde(stNormalized, stConfig);
-    dlog_info("逆行配置IPC转换结果: enable=%d, rule_count=%zu, alarm_time_days=%zu",
-              stConfig.bEnable, stConfig.aRule.size(), stConfig.aAlarmTime.size());
-    for (size_t nDay = 0; nDay < stConfig.aAlarmTime.size(); ++nDay)
-    {
-        dlog_info("逆行IPC布防时间: day=%zu, section_count=%zu", nDay, stConfig.aAlarmTime[nDay].size());
-        for (size_t nSection = 0; nSection < stConfig.aAlarmTime[nDay].size(); ++nSection)
-        {
-            const auto &stTime = stConfig.aAlarmTime[nDay][nSection];
-            dlog_info("逆行IPC时间段: day=%zu, section=%zu, start=%d:%d, end=%d:%d",
-                      nDay, nSection, stTime.stStart.nHour, stTime.stStart.nMinute,
-                      stTime.stStop.nHour, stTime.stStop.nMinute);
-        }
-    }
+    dlog_info("[DIAG-RETROGRADE] 转换后IPC配置=%s", Convert::to_string(stConfig).c_str());
     return tvsdk_set_event_config(AC_SET_RETROGRADE_INFO, Convert::to_string(stConfig));
 }
 
