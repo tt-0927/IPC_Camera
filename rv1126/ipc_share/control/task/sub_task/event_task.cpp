@@ -2480,6 +2480,8 @@ void Task::Event::SetReverseDirectionInfo::handle()
 {
     Alarm::DrivingAgainstTrafficDetection_S stInfo = {};
     Convert::to_struct(m_taskData, stInfo);
+    dlog_info("逆行任务解析结果: enable=%d, rule_count=%zu, alarm_time_days=%zu",
+              stInfo.bEnable, stInfo.aRule.size(), stInfo.aAlarmTime.size());
     /* 仅限制逆行识别，不改变其他事件使用的公共双向枚举。 */
     for (const auto &stRule : stInfo.aRule)
     {
@@ -2528,6 +2530,18 @@ void Task::Event::SetReverseDirectionInfo::handle()
     stEventSchedule.enEventType = ::Event::Type_E::REVERSE_DIRECTION;
     stEventSchedule.bStatus = stInfo.bEnable;
     stEventSchedule.defenseTime = stInfo.aAlarmTime;
+    for (size_t nDay = 0; nDay < stEventSchedule.defenseTime.size(); ++nDay)
+    {
+        dlog_info("逆行任务布防时间: day=%zu, section_count=%zu",
+                  nDay, stEventSchedule.defenseTime[nDay].size());
+        for (size_t nSection = 0; nSection < stEventSchedule.defenseTime[nDay].size(); ++nSection)
+        {
+            const auto &stTime = stEventSchedule.defenseTime[nDay][nSection];
+            dlog_info("逆行任务时间段: day=%zu, section=%zu, start=%d:%d, end=%d:%d",
+                      nDay, nSection, stTime.stStart.nHour, stTime.stStart.nMinute,
+                      stTime.stStop.nHour, stTime.stStop.nMinute);
+        }
+    }
     int nRet = CEventConfigure::instance()->set_configure(stEventSchedule);
     CEventManage::instance()->update_event_schedule();
     result(nRet);
