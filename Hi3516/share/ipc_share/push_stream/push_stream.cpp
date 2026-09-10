@@ -5,6 +5,7 @@
  * @LastEditors  : zhouzr@kfb.cn
  * @LastEditTime : 2026-08-20 16:00:01
  * @Description  : 推流模块
+ * @修改记录     : 2026-09-10 限制 TV-3852TL4G 和 TV-3852TLW 仅推送 RTMP 主码流。
  */
 
 #include "push_stream.h"
@@ -21,19 +22,25 @@ namespace
 #if CAP_RTMP_PUSH
 /**
  * @brief 判断视频配置是否可用于RTMP推流
- * @param stVideoConfig 视频配置
+ * @param [in] stVideoConfig 视频配置，包含码流编号和视频编码类型。
+ * @param [out] 无。
  * @return true：支持，false：不支持
  */
-bool is_rtmp_video_config_supported(const Video_NS::VideoConfig_S &stVideoConfig)
+static bool is_rtmp_video_config_supported(const Video_NS::VideoConfig_S &stVideoConfig)
 {
-    /* 只允许 nId 为 0/1 且编码为 H264/H265，直接排除 2 的 JPEG 抓图通道 */
-    if (stVideoConfig.nId < 0 || stVideoConfig.nId >= 2)
+#if defined(DEVICE_TV_3852TL4G) || defined(DEVICE_TV_3852TLW)
+    /* 这两个型号仅建立主码流 RTMP 会话，不影响子码流编码及其他协议。 */
+    if (stVideoConfig.nId != RTSP_CHN_MAIN)
+#else
+    /* 其他型号保留主、子码流支持，排除 JPEG 抓图及无效码流编号。 */
+    if ((stVideoConfig.nId != RTSP_CHN_MAIN) && (stVideoConfig.nId != RTSP_CHN_SUB))
+#endif
     {
         return false;
     }
 
-    return stVideoConfig.enVideoCodec == Video_NS::VideoCodec_E::H264 ||
-           stVideoConfig.enVideoCodec == Video_NS::VideoCodec_E::H265;
+    return (stVideoConfig.enVideoCodec == Video_NS::VideoCodec_E::H264) ||
+           (stVideoConfig.enVideoCodec == Video_NS::VideoCodec_E::H265);
 }
 
 /**
