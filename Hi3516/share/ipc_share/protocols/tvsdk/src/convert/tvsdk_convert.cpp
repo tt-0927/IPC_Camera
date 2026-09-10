@@ -1196,10 +1196,17 @@ static void FillOneEncodeAbility(const Video_NS::EncodeAbility_S &src, NET_Video
     std::strncpy(dst.szVideoCodec, src.strVideoCodec.c_str(), sizeof(dst.szVideoCodec) - 1);
     dst.enVideoCodec = ToSdkVideoCodec(Video_NS::string_toVideoCodec(src.strVideoCodec));
     dst.nSupportAdjustComplexity = (INT32)src.nSupportAdjustComplexity;
-    dst.nEncodeComplexityNum = (INT32)std::min(src.vEncodeComplexity.size(), (size_t)NET_VIDEO_ENCODE_COMPLEXITY_MAX_NUM);
-    for (INT32 i = 0; i < dst.nEncodeComplexityNum; ++i)
+    const size_t unComplexityCount = std::min(src.vEncodeComplexity.size(), (size_t)NET_VIDEO_ENCODE_COMPLEXITY_MAX_NUM);
+    dst.nEncodeComplexityNum = (INT32)unComplexityCount;
+    for (size_t unIndex = 0; unIndex < unComplexityCount; ++unIndex)
     {
-        dst.anEncodeComplexity[i] = (INT32)src.vEncodeComplexity[(size_t)i];
+        const int nComplexity = src.vEncodeComplexity[unIndex];
+        if (nComplexity < 0 || nComplexity > 2)
+        {
+            dst.nEncodeComplexityNum = 0;
+            break;
+        }
+        dst.anEncodeComplexity[unIndex] = (INT32)nComplexity;
     }
     dst.nDefaultComplexity = (UINT32)src.nDefaultComplexity;
     dst.bSupportSVC = (INT32)src.bSupportSVC;

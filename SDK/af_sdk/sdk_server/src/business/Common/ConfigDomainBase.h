@@ -123,11 +123,21 @@ protected:
                                     const std::string& req_data,
                                     const std::string& url_param)
     {
-        (void)req_data;
         (void)url_param;
 
         T_CFG stCfg;
         memset(&stCfg, 0, sizeof(T_CFG));
+
+        /* 仅视频码流配置需要从请求体读取 nId，其他配置保持原有获取流程。 */
+        if (nCommand == NET_GET_STREAMCFG && !req_data.empty())
+        {
+            Json::Object* pRoot = Json::init(req_data);
+            if (pRoot)
+            {
+                SDKConvert::deal(pRoot, stCfg, true);
+                Json::deinit(pRoot);
+            }
+        }
 
         NETSDK_LOG_MESSAGE_INFO("GetDevConfig callback START");
         int nRespCode = executeGetDevConfigCb(nChannelId, nCommand, &stCfg);

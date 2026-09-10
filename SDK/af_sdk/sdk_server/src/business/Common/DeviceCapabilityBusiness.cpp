@@ -54,6 +54,37 @@ std::string CDeviceCapabilityBusiness::HandleVideoEncode(int nChannelId, int nCo
     memset(&stCap, 0, sizeof(NET_VideoEncodeCap_S));
 
     nRespCode = executeGetVideoEncodeCapCb(nChannelId, &stCap);
+    NETSDK_LOG_MESSAGE_INFO("视频编码能力回调结果: channel=%d, ret=%d, streamCount=%d",
+                           nChannelId,
+                           nRespCode,
+                           stCap.uStreamNum);
+    for (INT32 nStreamIndex = 0;
+         nStreamIndex < stCap.uStreamNum && nStreamIndex < NET_VIDEO_STREAM_MAX;
+         ++nStreamIndex)
+    {
+        const NET_VideoStreamCap_S &stStreamCap = stCap.astStreamCap[nStreamIndex];
+        NETSDK_LOG_MESSAGE_INFO("视频码流能力: index=%d, streamType=%d, encodeAbilityNum=%d, encodeTypeNum=%d",
+                               nStreamIndex,
+                               stStreamCap.uStreamType,
+                               stStreamCap.uEncodeAbilityNum,
+                               stStreamCap.uEncodeTypeNum);
+        for (INT32 nAbilityIndex = 0;
+             nAbilityIndex < stStreamCap.uEncodeAbilityNum && nAbilityIndex < NET_VIDEO_ENCODE_TYPE_MAX;
+             ++nAbilityIndex)
+        {
+            const NET_VideoEncodeAbility_S &stAbility = stStreamCap.astEncodeAbility[nAbilityIndex];
+            NETSDK_LOG_MESSAGE_INFO("编码复杂度能力: stream=%d, index=%d, codec=%s, codecType=%d, count=%d, values=[%d,%d,%d], default=%u",
+                                   nStreamIndex,
+                                   nAbilityIndex,
+                                   stAbility.szVideoCodec,
+                                   stAbility.enVideoCodec,
+                                   stAbility.nEncodeComplexityNum,
+                                   stAbility.anEncodeComplexity[0],
+                                   stAbility.anEncodeComplexity[1],
+                                   stAbility.anEncodeComplexity[2],
+                                   stAbility.nDefaultComplexity);
+        }
+    }
     if (nRespCode != NET_E_SUCCEED)
     {
         NETSDK_LOG_MESSAGE_DEBUG("视频编码能力集回调执行失败! ret=%d", nRespCode);
