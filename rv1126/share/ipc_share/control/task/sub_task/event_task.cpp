@@ -147,13 +147,18 @@ static bool check_population_alarm_thresholds(const Alarm::PopulationAlarmConfig
  * @param    {bool} bEnable 是否启用
  * @return   {int} 0：成功 非0：失败（资源冲突）
  */
-static int check_analytics_resource(const Event::Type_E enable_type, const bool bEnable) {
+/* bCheckOnly 只校验资源；bSyncOnly 跳过重复禁用详细配置，旧调用保持原行为。 */
+static int check_analytics_resource(const Event::Type_E enable_type, const bool bEnable, const bool bCheckOnly = false, const bool bSyncOnly = false) {
     dlog_debug("[check_analytics_resource] 开始检查事件类型: %s (%d), 启用状态: %s", 
                get_event_type_name(enable_type), (int)enable_type, bEnable ? "启用" : "禁用");
 
     // 使用与 GetSmartEventEnableStatus 相同的方式获取智能事件启用状态
     Event::SmartEventEnableStatus_S oldStatus;
-    CEventConfigure::instance()->get_configure(oldStatus);
+    const int nReadResult = CEventConfigure::instance()->get_configure(oldStatus);
+    if ((bCheckOnly || bSyncOnly || enable_type == Event::Type::LEAVE_POST) && nReadResult != 0)
+    {
+        return nReadResult;
+    }
     
     dlog_debug("[check_analytics_resource] 当前智能事件启用状态 - 越界侦测:%d, 区域入侵:%d, 进入区域:%d, 离开区域:%d, "
                "徘徊侦测:%d, 人员聚集:%d, 停车侦测:%d, 音频异常:%d, 场景变更:%d, "
@@ -167,6 +172,37 @@ static int check_analytics_resource(const Event::Type_E enable_type, const bool 
     // 检查是否已经处于目标状态
     bool already_in_target_state = false;
     switch (enable_type) {
+#ifdef SCENE_INTELLIGENCE
+        case Event::Type::LEAVE_POST: already_in_target_state = (oldStatus.bLeavePost == bEnable); break;
+        case Event::Type::FENCE_CLIMBING: already_in_target_state = (oldStatus.bFenceClimbing == bEnable); break;
+        case Event::Type::ILLEGAL_LANE_CHANGE: already_in_target_state = (oldStatus.bIllegalLaneChange == bEnable); break;
+        case Event::Type::REVERSE_DIRECTION: already_in_target_state = (oldStatus.bReverseDirection == bEnable); break;
+        case Event::Type::NON_MOTOR_VEHICLE_INTRUSION: already_in_target_state = (oldStatus.bNonMotorVehicleIntrusion == bEnable); break;
+        case Event::Type::EMERGENCY_LANE_OCCUPANCY: already_in_target_state = (oldStatus.bEmergencyLaneOccupancy == bEnable); break;
+        case Event::Type::PEDESTRIAN_INTRUSION: already_in_target_state = (oldStatus.bPedestrianIntrusion == bEnable); break;
+        case Event::Type::SMOKE_FIRE: already_in_target_state = (oldStatus.bSmokeFire == bEnable); break;
+        case Event::Type::ROAD_PONDING: already_in_target_state = (oldStatus.bRoadPonding == bEnable); break;
+        case Event::Type::MANHOLE_COVER_ABNORMAL: already_in_target_state = (oldStatus.bManholeCoverAbnormal == bEnable); break;
+        case Event::Type::SLEEP_ON_DUTY: already_in_target_state = (oldStatus.bSleepOnDuty == bEnable); break;
+        case Event::Type::ELECTRIC_VEHICLE_IN_ELEVATOR: already_in_target_state = (oldStatus.bElectricVehicleInElevator == bEnable); break;
+        case Event::Type::PERSON_FALL_DOWN: already_in_target_state = (oldStatus.bPersonFallDown == bEnable); break;
+        case Event::Type::CONSTRUCTION_OCCUPY_ROAD: already_in_target_state = (oldStatus.bConstructionOccupyRoad == bEnable); break;
+        case Event::Type::CONGESTION: already_in_target_state = (oldStatus.bCongestion == bEnable); break;
+        case Event::Type::PLATE_NUMBER: already_in_target_state = (oldStatus.bPlateNumber == bEnable); break;
+        case Event::Type::HIGH_ALTITUDE_SEATBELT: already_in_target_state = (oldStatus.bHighAltitudeSeatbelt == bEnable); break;
+        case Event::Type::SAFETY_HELMET: already_in_target_state = (oldStatus.bSafetyHelmet == bEnable); break;
+        case Event::Type::PERSON_TRIP: already_in_target_state = (oldStatus.bTrip == bEnable); break;
+        case Event::Type::PHONE_USAGE: already_in_target_state = (oldStatus.bPhoneUsage == bEnable); break;
+        case Event::Type::SMOKING: already_in_target_state = (oldStatus.bSmoking == bEnable); break;
+        case Event::Type::OPEN_FLAME: already_in_target_state = (oldStatus.bOpenFlame == bEnable); break;
+        case Event::Type::BARE_SOIL: already_in_target_state = (oldStatus.bBareSoil == bEnable); break;
+        case Event::Type::HOLE_PROTECTION_BAR: already_in_target_state = (oldStatus.bHoleProtectionBar == bEnable); break;
+        case Event::Type::REFLECTIVE_CLOTHING: already_in_target_state = (oldStatus.bReflectiveClothing == bEnable); break;
+#endif
+#if defined(SCENE_INTELLIGENCE) || CAP_AI_GARBAGE_DETECT
+        case Event::Type::GARBAGE_EXPOSURE: already_in_target_state = (oldStatus.bGarbageExposure == bEnable); break;
+        case Event::Type::GARBAGE_OVERFLOW: already_in_target_state = (oldStatus.bGarbageOverflow == bEnable); break;
+#endif
         case Event::Type::LINE_CROSSING: already_in_target_state = (oldStatus.bLineCrossing == bEnable); break;
         case Event::Type::INTRUSION: already_in_target_state = (oldStatus.bIntrusion == bEnable); break;
         case Event::Type::ENTER_REGION: already_in_target_state = (oldStatus.bEnterRegion == bEnable); break;
@@ -203,6 +239,10 @@ static int check_analytics_resource(const Event::Type_E enable_type, const bool 
         // 使用与 GetSmartEventEnableStatus 相同的方式获取可启用事件列表
         std::vector<Event::Type_E> aCanEnableEvent;
         int ret = CEventResource::instance()->get_canEventResource_rules(oldStatus, aCanEnableEvent);
+        if ((bCheckOnly || bSyncOnly || enable_type == Event::Type::LEAVE_POST) && ret != 0)
+        {
+            return ret;
+        }
         
         dlog_debug("[check_analytics_resource] 资源规则查询返回: %d, 可启用事件数量: %zu", ret, aCanEnableEvent.size());
         if (aCanEnableEvent.size() > 0) {
@@ -231,9 +271,45 @@ static int check_analytics_resource(const Event::Type_E enable_type, const bool 
         dlog_debug("[check_analytics_resource] 禁用事件，直接允许");
     }
 
+    if (bCheckOnly)
+    {
+        return 0;
+    }
+
     // 创建新状态并更新对应事件的状态
     Event::SmartEventEnableStatus_S newStatus = oldStatus;
     switch (enable_type) {
+#ifdef SCENE_INTELLIGENCE
+        case Event::Type::LEAVE_POST: newStatus.bLeavePost = bEnable; break;
+        case Event::Type::FENCE_CLIMBING: newStatus.bFenceClimbing = bEnable; break;
+        case Event::Type::ILLEGAL_LANE_CHANGE: newStatus.bIllegalLaneChange = bEnable; break;
+        case Event::Type::REVERSE_DIRECTION: newStatus.bReverseDirection = bEnable; break;
+        case Event::Type::NON_MOTOR_VEHICLE_INTRUSION: newStatus.bNonMotorVehicleIntrusion = bEnable; break;
+        case Event::Type::EMERGENCY_LANE_OCCUPANCY: newStatus.bEmergencyLaneOccupancy = bEnable; break;
+        case Event::Type::PEDESTRIAN_INTRUSION: newStatus.bPedestrianIntrusion = bEnable; break;
+        case Event::Type::SMOKE_FIRE: newStatus.bSmokeFire = bEnable; break;
+        case Event::Type::ROAD_PONDING: newStatus.bRoadPonding = bEnable; break;
+        case Event::Type::MANHOLE_COVER_ABNORMAL: newStatus.bManholeCoverAbnormal = bEnable; break;
+        case Event::Type::SLEEP_ON_DUTY: newStatus.bSleepOnDuty = bEnable; break;
+        case Event::Type::ELECTRIC_VEHICLE_IN_ELEVATOR: newStatus.bElectricVehicleInElevator = bEnable; break;
+        case Event::Type::PERSON_FALL_DOWN: newStatus.bPersonFallDown = bEnable; break;
+        case Event::Type::CONSTRUCTION_OCCUPY_ROAD: newStatus.bConstructionOccupyRoad = bEnable; break;
+        case Event::Type::CONGESTION: newStatus.bCongestion = bEnable; break;
+        case Event::Type::PLATE_NUMBER: newStatus.bPlateNumber = bEnable; break;
+        case Event::Type::HIGH_ALTITUDE_SEATBELT: newStatus.bHighAltitudeSeatbelt = bEnable; break;
+        case Event::Type::SAFETY_HELMET: newStatus.bSafetyHelmet = bEnable; break;
+        case Event::Type::PERSON_TRIP: newStatus.bTrip = bEnable; break;
+        case Event::Type::PHONE_USAGE: newStatus.bPhoneUsage = bEnable; break;
+        case Event::Type::SMOKING: newStatus.bSmoking = bEnable; break;
+        case Event::Type::OPEN_FLAME: newStatus.bOpenFlame = bEnable; break;
+        case Event::Type::BARE_SOIL: newStatus.bBareSoil = bEnable; break;
+        case Event::Type::HOLE_PROTECTION_BAR: newStatus.bHoleProtectionBar = bEnable; break;
+        case Event::Type::REFLECTIVE_CLOTHING: newStatus.bReflectiveClothing = bEnable; break;
+#endif
+#if defined(SCENE_INTELLIGENCE) || CAP_AI_GARBAGE_DETECT
+        case Event::Type::GARBAGE_EXPOSURE: newStatus.bGarbageExposure = bEnable; break;
+        case Event::Type::GARBAGE_OVERFLOW: newStatus.bGarbageOverflow = bEnable; break;
+#endif
         case Event::Type::LINE_CROSSING: newStatus.bLineCrossing = bEnable; break;
         case Event::Type::INTRUSION: newStatus.bIntrusion = bEnable; break;
         case Event::Type::ENTER_REGION: newStatus.bEnterRegion = bEnable; break;
@@ -270,13 +346,73 @@ static int check_analytics_resource(const Event::Type_E enable_type, const bool 
                get_event_type_name(enable_type), bEnable ? "启用" : "禁用");
 
     // 检查是否有事件被禁用，并更新其具体配置（参考 SetSmartEventEnableStatus 的逻辑）
-    if (!bEnable) {
+    if (!bEnable && !bSyncOnly) {
         CEventResource::instance()->update_event_configurations_on_disable(oldStatus, newStatus);
         dlog_debug("[check_analytics_resource] 已调用 update_event_configurations_on_disable 更新禁用事件的配置");
     }
 
     return 0;
 }
+
+#if defined(SCENE_INTELLIGENCE) || CAP_AI_GARBAGE_DETECT
+/*
+ * 功能：参数校验后保存场景事件并同步网页总览状态，失败时尝试恢复。
+ * param [in] enEventType：事件类型；stInfo：已校验的详细配置。
+ * param [out] 无。
+ * return：成功为零，失败为资源或配置接口错误码。
+ * 说明：沿用配置管理器并发模型，不提供跨配置原子事务或写盘成功保证。
+ */
+template <typename TConfig>
+static int save_scene_event_config(const Event::Type_E enEventType, const TConfig &stInfo)
+{
+    /* 先校验，再保存；不能在非法参数或资源冲突时提前勾选总览开关。 */
+    int nRet = check_analytics_resource(enEventType, stInfo.bEnable, true);
+    if (nRet != 0)
+    {
+        return nRet;
+    }
+    TConfig stPrevious;
+    nRet = CEventConfigure::instance()->get_configure(stPrevious);
+    if (nRet != 0)
+    {
+        return nRet;
+    }
+    Alarm::EventSchedule_S stPreviousSchedule;
+    stPreviousSchedule.enEventType = enEventType;
+    nRet = CEventConfigure::instance()->get_configure(stPreviousSchedule);
+    if (nRet != 0)
+    {
+        /* 没有独立计划时，以旧详细配置恢复对应计划。 */
+        stPreviousSchedule.bStatus = stPrevious.bEnable;
+        stPreviousSchedule.defenseTime = stPrevious.aAlarmTime;
+    }
+    nRet = CEventConfigure::instance()->set_configure(stInfo);
+    if (nRet != 0)
+    {
+        return nRet;
+    }
+
+    Alarm::EventSchedule_S stEventSchedule;
+    stEventSchedule.enEventType = enEventType;
+    stEventSchedule.bStatus = stInfo.bEnable;
+    stEventSchedule.defenseTime = stInfo.aAlarmTime;
+    nRet = CEventConfigure::instance()->set_configure(stEventSchedule);
+    if (nRet == 0)
+    {
+        /* 重新读取总览状态，只更新当前事件字段，并再次检查资源。 */
+        nRet = check_analytics_resource(enEventType, stInfo.bEnable, false, true);
+    }
+    if (nRet != 0)
+    {
+        const int nConfigRestore = CEventConfigure::instance()->set_configure(stPrevious);
+        const int nScheduleRestore = CEventConfigure::instance()->set_configure(stPreviousSchedule);
+        dlog_error("智能事件配置同步失败: event=%d, ret=%d, restore_config=%d, restore_schedule=%d",
+                   static_cast<int>(enEventType), nRet, nConfigRestore, nScheduleRestore);
+    }
+    CEventManage::instance()->update_event_schedule();
+    return nRet;
+}
+#endif
 
 /* 获取普通事件启用状态 */
 void Task::Event::GetOrdinaryEventEnableStatus::handle()
@@ -2374,16 +2510,8 @@ void Task::Event::SetFenceClimbingInfo::handle()
             return;
         }
     }
-    CEventConfigure::instance()->set_configure(stInfo);
-
-    /* 更新事件布防时间 */
-    Alarm::EventSchedule_S stEventSchedule;
-    stEventSchedule.enEventType = ::Event::Type_E::FENCE_CLIMBING;
-    stEventSchedule.bStatus = stInfo.bEnable;
-    stEventSchedule.defenseTime = stInfo.aAlarmTime;
-    int nRet = CEventConfigure::instance()->set_configure(stEventSchedule);
-    CEventManage::instance()->update_event_schedule();
-    result(nRet);
+    /* 参数校验完成后，统一保存并同步智能事件总览状态。 */
+    result(save_scene_event_config(::Event::Type_E::FENCE_CLIMBING, stInfo));
 }
 
 void Task::Event::GetLeavePostInfo::handle()
@@ -2393,6 +2521,12 @@ void Task::Event::GetLeavePostInfo::handle()
     result(Convert::to_string(stInfo));
 }
 
+/*
+ * 功能：校验离岗配置并同步详细配置、布防计划和智能事件启用状态。
+ * param [in] 无显式参数，配置来自 m_taskData。
+ * param [out] 通过 result 返回结果。
+ * return：无；接口报告失败时尝试恢复详细配置和计划。
+ */
 void Task::Event::SetLeavePostInfo::handle()
 {
     Alarm::LeavePostDetection_S stInfo;
@@ -2414,14 +2548,53 @@ void Task::Event::SetLeavePostInfo::handle()
             return;
         }
     }
-    CEventConfigure::instance()->set_configure(stInfo);
+    /* 先校验，再保存；不能在非法参数或资源冲突时提前勾选总览开关。 */
+    int nRet = check_analytics_resource(::Event::Type_E::LEAVE_POST, stInfo.bEnable, true);
+    if (nRet != 0)
+    {
+        result(nRet);
+        return;
+    }
+    Alarm::LeavePostDetection_S stPrevious;
+    nRet = CEventConfigure::instance()->get_configure(stPrevious);
+    if (nRet != 0)
+    {
+        result(nRet);
+        return;
+    }
+    Alarm::EventSchedule_S stPreviousSchedule;
+    stPreviousSchedule.enEventType = ::Event::Type_E::LEAVE_POST;
+    nRet = CEventConfigure::instance()->get_configure(stPreviousSchedule);
+    if (nRet != 0)
+    {
+        /* 没有独立计划时，以旧详细配置恢复对应计划。 */
+        stPreviousSchedule.bStatus = stPrevious.bEnable;
+        stPreviousSchedule.defenseTime = stPrevious.aAlarmTime;
+    }
+    nRet = CEventConfigure::instance()->set_configure(stInfo);
+    if (nRet != 0)
+    {
+        result(nRet);
+        return;
+    }
 
-    /* 更新事件布防时间 */
     Alarm::EventSchedule_S stEventSchedule;
     stEventSchedule.enEventType = ::Event::Type_E::LEAVE_POST;
     stEventSchedule.bStatus = stInfo.bEnable;
     stEventSchedule.defenseTime = stInfo.aAlarmTime;
-    int nRet = CEventConfigure::instance()->set_configure(stEventSchedule);
+    nRet = CEventConfigure::instance()->set_configure(stEventSchedule);
+    if (nRet == 0)
+    {
+        /* 重新读取总览状态，只更新离岗字段，并再次检查资源。 */
+        nRet = check_analytics_resource(::Event::Type_E::LEAVE_POST, stInfo.bEnable);
+    }
+    if (nRet != 0)
+    {
+        const int nConfigRestore = CEventConfigure::instance()->set_configure(stPrevious);
+        const int nScheduleRestore = CEventConfigure::instance()->set_configure(stPreviousSchedule);
+        dlog_error("离岗配置同步失败: ret=%d, restore_config=%d, restore_schedule=%d",
+                   nRet, nConfigRestore, nScheduleRestore);
+    }
     CEventManage::instance()->update_event_schedule();
     result(nRet);
 }
@@ -2449,16 +2622,8 @@ void Task::Event::SetIllegalLaneChangeInfo::handle()
         }
 
     }
-    CEventConfigure::instance()->set_configure(stInfo);
-
-    /* 更新事件布防时间 */
-    Alarm::EventSchedule_S stEventSchedule;
-    stEventSchedule.enEventType = ::Event::Type_E::ILLEGAL_LANE_CHANGE;
-    stEventSchedule.bStatus = stInfo.bEnable;
-    stEventSchedule.defenseTime = stInfo.aAlarmTime;
-    int nRet = CEventConfigure::instance()->set_configure(stEventSchedule);
-    CEventManage::instance()->update_event_schedule();
-    result(nRet);
+    /* 参数校验完成后，统一保存并同步智能事件总览状态。 */
+    result(save_scene_event_config(::Event::Type_E::ILLEGAL_LANE_CHANGE, stInfo));
 
 }
 
@@ -2522,30 +2687,8 @@ void Task::Event::SetReverseDirectionInfo::handle()
             rule.stEndPos = stTmpPos;
         }
     }
-    CEventConfigure::instance()->set_configure(stInfo);
-
-    /* 更新事件布防时间 */
-    Alarm::EventSchedule_S stEventSchedule;
-    stEventSchedule.enEventType = ::Event::Type_E::REVERSE_DIRECTION;
-    stEventSchedule.bStatus = stInfo.bEnable;
-    stEventSchedule.defenseTime = stInfo.aAlarmTime;
-    /* 逐段记录实际交给事件调度的时间，不改变保存及调度逻辑。 */
-    for (size_t nDay = 0; nDay < stEventSchedule.defenseTime.size(); ++nDay)
-    {
-        dlog_info("[DIAG-RETROGRADE] 任务布防: day=%zu, count=%zu",
-                  nDay, stEventSchedule.defenseTime[nDay].size());
-        for (size_t nSection = 0; nSection < stEventSchedule.defenseTime[nDay].size(); ++nSection)
-        {
-            const auto &stTime = stEventSchedule.defenseTime[nDay][nSection];
-            dlog_info("[DIAG-RETROGRADE] 任务时间: day=%zu, section=%zu, start=%d:%d, end=%d:%d",
-                      nDay, nSection, stTime.stStart.nHour, stTime.stStart.nMinute,
-                      stTime.stStop.nHour, stTime.stStop.nMinute);
-        }
-    }
-    int nRet = CEventConfigure::instance()->set_configure(stEventSchedule);
-    dlog_info("[DIAG-RETROGRADE] 布防保存结果=%d", nRet);
-    CEventManage::instance()->update_event_schedule();
-    result(nRet);
+    /* 参数校验完成后，统一保存并同步智能事件总览状态。 */
+    result(save_scene_event_config(::Event::Type_E::REVERSE_DIRECTION, stInfo));
 }
 
 void Task::Event::GetNonMotorVehicleIntrusionInfo::handle()
@@ -2576,16 +2719,8 @@ void Task::Event::SetNonMotorVehicleIntrusionInfo::handle()
             return;
         }
     }
-    CEventConfigure::instance()->set_configure(stInfo);
-
-    /* 更新事件布防时间 */
-    Alarm::EventSchedule_S stEventSchedule;
-    stEventSchedule.enEventType = ::Event::Type_E::NON_MOTOR_VEHICLE_INTRUSION;
-    stEventSchedule.bStatus = stInfo.bEnable;
-    stEventSchedule.defenseTime = stInfo.aAlarmTime;
-    int nRet = CEventConfigure::instance()->set_configure(stEventSchedule);
-    CEventManage::instance()->update_event_schedule();
-    result(nRet);
+    /* 参数校验完成后，统一保存并同步智能事件总览状态。 */
+    result(save_scene_event_config(::Event::Type_E::NON_MOTOR_VEHICLE_INTRUSION, stInfo));
 }
 
 void Task::Event::GetEmergencyLaneOccupancyInfo::handle()
@@ -2616,16 +2751,8 @@ void Task::Event::SetEmergencyLaneOccupancyInfo::handle()
             return;
         }
     }
-    CEventConfigure::instance()->set_configure(stInfo);
-
-    /* 更新事件布防时间 */
-    Alarm::EventSchedule_S stEventSchedule;
-    stEventSchedule.enEventType = ::Event::Type_E::EMERGENCY_LANE_OCCUPANCY;
-    stEventSchedule.bStatus = stInfo.bEnable;
-    stEventSchedule.defenseTime = stInfo.aAlarmTime;
-    int nRet = CEventConfigure::instance()->set_configure(stEventSchedule);
-    CEventManage::instance()->update_event_schedule();
-    result(nRet);
+    /* 参数校验完成后，统一保存并同步智能事件总览状态。 */
+    result(save_scene_event_config(::Event::Type_E::EMERGENCY_LANE_OCCUPANCY, stInfo));
 }
 
 void Task::Event::GetPedestrianIntrusionInfo::handle()
@@ -2656,16 +2783,8 @@ void Task::Event::SetPedestrianIntrusionInfo::handle()
             return;
         }
     }
-    CEventConfigure::instance()->set_configure(stInfo);
-
-    /* 更新事件布防时间 */
-    Alarm::EventSchedule_S stEventSchedule;
-    stEventSchedule.enEventType = ::Event::Type_E::PEDESTRIAN_INTRUSION;
-    stEventSchedule.bStatus = stInfo.bEnable;
-    stEventSchedule.defenseTime = stInfo.aAlarmTime;
-    int nRet = CEventConfigure::instance()->set_configure(stEventSchedule);
-    CEventManage::instance()->update_event_schedule();
-    result(nRet);
+    /* 参数校验完成后，统一保存并同步智能事件总览状态。 */
+    result(save_scene_event_config(::Event::Type_E::PEDESTRIAN_INTRUSION, stInfo));
 }
 
 void Task::Event::GetSmokeFireInfo::handle()
@@ -2688,16 +2807,8 @@ void Task::Event::SetSmokeFireInfo::handle()
         return;
     }
 
-    CEventConfigure::instance()->set_configure(stInfo);
-
-    /* 更新事件布防时间 */
-    Alarm::EventSchedule_S stEventSchedule;
-    stEventSchedule.enEventType = ::Event::Type_E::SMOKE_FIRE;
-    stEventSchedule.bStatus = stInfo.bEnable;
-    stEventSchedule.defenseTime = stInfo.aAlarmTime;
-    int nRet = CEventConfigure::instance()->set_configure(stEventSchedule);
-    CEventManage::instance()->update_event_schedule();
-    result(nRet);
+    /* 参数校验完成后，统一保存并同步智能事件总览状态。 */
+    result(save_scene_event_config(::Event::Type_E::SMOKE_FIRE, stInfo));
 }
 
 void Task::Event::GetRoadPondingInfo::handle()
@@ -2720,16 +2831,8 @@ void Task::Event::SetRoadPondingInfo::handle()
         return;
     }
 
-    CEventConfigure::instance()->set_configure(stInfo);
-
-    /* 更新事件布防时间 */
-    Alarm::EventSchedule_S stEventSchedule;
-    stEventSchedule.enEventType = ::Event::Type_E::ROAD_PONDING;
-    stEventSchedule.bStatus = stInfo.bEnable;
-    stEventSchedule.defenseTime = stInfo.aAlarmTime;
-    int nRet = CEventConfigure::instance()->set_configure(stEventSchedule);
-    CEventManage::instance()->update_event_schedule();
-    result(nRet);
+    /* 参数校验完成后，统一保存并同步智能事件总览状态。 */
+    result(save_scene_event_config(::Event::Type_E::ROAD_PONDING, stInfo));
 }
 
 void Task::Event::GetManholeCoverAbnormalInfo::handle()
@@ -2752,16 +2855,8 @@ void Task::Event::SetManholeCoverAbnormalInfo::handle()
         return;
     }
         
-    CEventConfigure::instance()->set_configure(stInfo);
-
-    /* 更新事件布防时间 */
-    Alarm::EventSchedule_S stEventSchedule;
-    stEventSchedule.enEventType = ::Event::Type_E::MANHOLE_COVER_ABNORMAL;
-    stEventSchedule.bStatus = stInfo.bEnable;
-    stEventSchedule.defenseTime = stInfo.aAlarmTime;
-    int nRet = CEventConfigure::instance()->set_configure(stEventSchedule);
-    CEventManage::instance()->update_event_schedule();
-    result(nRet);
+    /* 参数校验完成后，统一保存并同步智能事件总览状态。 */
+    result(save_scene_event_config(::Event::Type_E::MANHOLE_COVER_ABNORMAL, stInfo));
 }
 
 void Task::Event::GetSleepOnDutyInfo::handle()
@@ -2784,16 +2879,8 @@ void Task::Event::SetSleepOnDutyInfo::handle()
         return;
     }
         
-    CEventConfigure::instance()->set_configure(stInfo);
-
-    /* 更新事件布防时间 */
-    Alarm::EventSchedule_S stEventSchedule;
-    stEventSchedule.enEventType = ::Event::Type_E::SLEEP_ON_DUTY;
-    stEventSchedule.bStatus = stInfo.bEnable;
-    stEventSchedule.defenseTime = stInfo.aAlarmTime;
-    int nRet = CEventConfigure::instance()->set_configure(stEventSchedule);
-    CEventManage::instance()->update_event_schedule();
-    result(nRet);
+    /* 参数校验完成后，统一保存并同步智能事件总览状态。 */
+    result(save_scene_event_config(::Event::Type_E::SLEEP_ON_DUTY, stInfo));
 }
 
 void Task::Event::GetElectricVehicleInElevatorInfo::handle()
@@ -2816,16 +2903,8 @@ void Task::Event::SetElectricVehicleInElevatorInfo::handle()
         return;
     }
         
-    CEventConfigure::instance()->set_configure(stInfo);
-
-    /* 更新事件布防时间 */
-    Alarm::EventSchedule_S stEventSchedule;
-    stEventSchedule.enEventType = ::Event::Type_E::ELECTRIC_VEHICLE_IN_ELEVATOR;
-    stEventSchedule.bStatus = stInfo.bEnable;
-    stEventSchedule.defenseTime = stInfo.aAlarmTime;
-    int nRet = CEventConfigure::instance()->set_configure(stEventSchedule);
-    CEventManage::instance()->update_event_schedule();
-    result(nRet);
+    /* 参数校验完成后，统一保存并同步智能事件总览状态。 */
+    result(save_scene_event_config(::Event::Type_E::ELECTRIC_VEHICLE_IN_ELEVATOR, stInfo));
 }
 
 void Task::Event::GetPersonFallDownInfo::handle()
@@ -2847,16 +2926,8 @@ void Task::Event::SetPersonFallDownInfo::handle()
         return;
     }
         
-    CEventConfigure::instance()->set_configure(stInfo);
-
-    /* 更新事件布防时间 */
-    Alarm::EventSchedule_S stEventSchedule;
-    stEventSchedule.enEventType = ::Event::Type_E::PERSON_FALL_DOWN;
-    stEventSchedule.bStatus = stInfo.bEnable;
-    stEventSchedule.defenseTime = stInfo.aAlarmTime;
-    int nRet = CEventConfigure::instance()->set_configure(stEventSchedule);
-    CEventManage::instance()->update_event_schedule();
-    result(nRet);
+    /* 参数校验完成后，统一保存并同步智能事件总览状态。 */
+    result(save_scene_event_config(::Event::Type_E::PERSON_FALL_DOWN, stInfo));
 }
 
 void Task::Event::GetConstructionOccupyRoadInfo::handle()
@@ -2878,16 +2949,8 @@ void Task::Event::SetConstructionOccupyRoadInfo::handle()
         return;
     }
         
-    CEventConfigure::instance()->set_configure(stInfo);
-
-    /* 更新事件布防时间 */
-    Alarm::EventSchedule_S stEventSchedule;
-    stEventSchedule.enEventType = ::Event::Type_E::CONSTRUCTION_OCCUPY_ROAD;
-    stEventSchedule.bStatus = stInfo.bEnable;
-    stEventSchedule.defenseTime = stInfo.aAlarmTime;
-    int nRet = CEventConfigure::instance()->set_configure(stEventSchedule);
-    CEventManage::instance()->update_event_schedule();
-    result(nRet);
+    /* 参数校验完成后，统一保存并同步智能事件总览状态。 */
+    result(save_scene_event_config(::Event::Type_E::CONSTRUCTION_OCCUPY_ROAD, stInfo));
 }
 
 void Task::Event::GetCongestionInfo::handle()
@@ -2909,16 +2972,8 @@ void Task::Event::SetCongestionInfo::handle()
         return;
     }
 
-    CEventConfigure::instance()->set_configure(stInfo);
-
-    /* 更新事件布防时间 */
-    Alarm::EventSchedule_S stEventSchedule;
-    stEventSchedule.enEventType = ::Event::Type_E::CONGESTION;
-    stEventSchedule.bStatus = stInfo.bEnable;
-    stEventSchedule.defenseTime = stInfo.aAlarmTime;
-    int nRet = CEventConfigure::instance()->set_configure(stEventSchedule);
-    CEventManage::instance()->update_event_schedule();
-    result(nRet);
+    /* 参数校验完成后，统一保存并同步智能事件总览状态。 */
+    result(save_scene_event_config(::Event::Type_E::CONGESTION, stInfo));
 }
 
 void Task::Event::GetLicensePlateRecognitionInfo::handle()
@@ -2940,16 +2995,8 @@ void Task::Event::SetLicensePlateRecognitionInfo::handle()
         return;
     }
 
-    CEventConfigure::instance()->set_configure(stInfo);
-
-    /* 更新事件布防时间 */
-    Alarm::EventSchedule_S stEventSchedule;
-    stEventSchedule.enEventType = ::Event::Type_E::PLATE_NUMBER;
-    stEventSchedule.bStatus = stInfo.bEnable;
-    stEventSchedule.defenseTime = stInfo.aAlarmTime;
-    int nRet = CEventConfigure::instance()->set_configure(stEventSchedule);
-    CEventManage::instance()->update_event_schedule();
-    result(nRet);
+    /* 参数校验完成后，统一保存并同步智能事件总览状态。 */
+    result(save_scene_event_config(::Event::Type_E::PLATE_NUMBER, stInfo));
 }
 
 void Task::Event::GetHighAltitudeSeatbeltInfo::handle()
@@ -2971,16 +3018,8 @@ void Task::Event::SetHighAltitudeSeatbeltInfo::handle()
         return;
     }
         
-    CEventConfigure::instance()->set_configure(stInfo);
-
-    /* 更新事件布防时间 */
-    Alarm::EventSchedule_S stEventSchedule;
-    stEventSchedule.enEventType = ::Event::Type_E::HIGH_ALTITUDE_SEATBELT;
-    stEventSchedule.bStatus = stInfo.bEnable;
-    stEventSchedule.defenseTime = stInfo.aAlarmTime;
-    int nRet = CEventConfigure::instance()->set_configure(stEventSchedule);
-    CEventManage::instance()->update_event_schedule();
-    result(nRet);
+    /* 参数校验完成后，统一保存并同步智能事件总览状态。 */
+    result(save_scene_event_config(::Event::Type_E::HIGH_ALTITUDE_SEATBELT, stInfo));
 }
 
 void Task::Event::GetSafetyHelmetInfo::handle()
@@ -3002,16 +3041,8 @@ void Task::Event::SetSafetyHelmetInfo::handle()
         return;
     }
         
-    CEventConfigure::instance()->set_configure(stInfo);
-
-    /* 更新事件布防时间 */
-    Alarm::EventSchedule_S stEventSchedule;
-    stEventSchedule.enEventType = ::Event::Type_E::SAFETY_HELMET;
-    stEventSchedule.bStatus = stInfo.bEnable;
-    stEventSchedule.defenseTime = stInfo.aAlarmTime;
-    int nRet = CEventConfigure::instance()->set_configure(stEventSchedule);
-    CEventManage::instance()->update_event_schedule();
-    result(nRet);
+    /* 参数校验完成后，统一保存并同步智能事件总览状态。 */
+    result(save_scene_event_config(::Event::Type_E::SAFETY_HELMET, stInfo));
 }
 
 void Task::Event::GetPersonFallInfo::handle()
@@ -3033,16 +3064,8 @@ void Task::Event::SetPersonFallInfo::handle()
         return;
     }
         
-    CEventConfigure::instance()->set_configure(stInfo);
-
-    /* 更新事件布防时间 */
-    Alarm::EventSchedule_S stEventSchedule;
-    stEventSchedule.enEventType = ::Event::Type_E::PERSON_TRIP;
-    stEventSchedule.bStatus = stInfo.bEnable;
-    stEventSchedule.defenseTime = stInfo.aAlarmTime;
-    int nRet = CEventConfigure::instance()->set_configure(stEventSchedule);
-    CEventManage::instance()->update_event_schedule();
-    result(nRet);
+    /* 参数校验完成后，统一保存并同步智能事件总览状态。 */
+    result(save_scene_event_config(::Event::Type_E::PERSON_TRIP, stInfo));
 }
 
 void Task::Event::GetPhoneUsageInfo::handle()
@@ -3064,16 +3087,8 @@ void Task::Event::SetPhoneUsageInfo::handle()
         return;
     }
         
-    CEventConfigure::instance()->set_configure(stInfo);
-
-    /* 更新事件布防时间 */
-    Alarm::EventSchedule_S stEventSchedule;
-    stEventSchedule.enEventType = ::Event::Type_E::PHONE_USAGE;
-    stEventSchedule.bStatus = stInfo.bEnable;
-    stEventSchedule.defenseTime = stInfo.aAlarmTime;
-    int nRet = CEventConfigure::instance()->set_configure(stEventSchedule);
-    CEventManage::instance()->update_event_schedule();
-    result(nRet);
+    /* 参数校验完成后，统一保存并同步智能事件总览状态。 */
+    result(save_scene_event_config(::Event::Type_E::PHONE_USAGE, stInfo));
 }
 
 void Task::Event::GetSmokingInfo::handle()
@@ -3096,16 +3111,8 @@ void Task::Event::SetSmokingInfo::handle()
         return;
     }
         
-    CEventConfigure::instance()->set_configure(stInfo);
-
-    /* 更新事件布防时间 */
-    Alarm::EventSchedule_S stEventSchedule;
-    stEventSchedule.enEventType = ::Event::Type_E::SMOKING;
-    stEventSchedule.bStatus = stInfo.bEnable;
-    stEventSchedule.defenseTime = stInfo.aAlarmTime;
-    int nRet = CEventConfigure::instance()->set_configure(stEventSchedule);
-    CEventManage::instance()->update_event_schedule();
-    result(nRet);
+    /* 参数校验完成后，统一保存并同步智能事件总览状态。 */
+    result(save_scene_event_config(::Event::Type_E::SMOKING, stInfo));
 }
 
 void Task::Event::GetOpenFlameInfo::handle()
@@ -3128,16 +3135,8 @@ void Task::Event::SetOpenFlameInfo::handle()
         return;
     }
         
-    CEventConfigure::instance()->set_configure(stInfo);
-
-    /* 更新事件布防时间 */
-    Alarm::EventSchedule_S stEventSchedule;
-    stEventSchedule.enEventType = ::Event::Type_E::OPEN_FLAME;
-    stEventSchedule.bStatus = stInfo.bEnable;
-    stEventSchedule.defenseTime = stInfo.aAlarmTime;
-    int nRet = CEventConfigure::instance()->set_configure(stEventSchedule);
-    CEventManage::instance()->update_event_schedule();
-    result(nRet);
+    /* 参数校验完成后，统一保存并同步智能事件总览状态。 */
+    result(save_scene_event_config(::Event::Type_E::OPEN_FLAME, stInfo));
 }
 
 void Task::Event::GetBareSoilInfo::handle()
@@ -3160,16 +3159,8 @@ void Task::Event::SetBareSoilInfo::handle()
         return;
     }
         
-    CEventConfigure::instance()->set_configure(stInfo);
-
-    /* 更新事件布防时间 */
-    Alarm::EventSchedule_S stEventSchedule;
-    stEventSchedule.enEventType = ::Event::Type_E::BARE_SOIL;
-    stEventSchedule.bStatus = stInfo.bEnable;
-    stEventSchedule.defenseTime = stInfo.aAlarmTime;
-    int nRet = CEventConfigure::instance()->set_configure(stEventSchedule);
-    CEventManage::instance()->update_event_schedule();
-    result(nRet);
+    /* 参数校验完成后，统一保存并同步智能事件总览状态。 */
+    result(save_scene_event_config(::Event::Type_E::BARE_SOIL, stInfo));
 }
 
 void Task::Event::GetHoleProtectionBarInfo::handle()
@@ -3192,16 +3183,8 @@ void Task::Event::SetHoleProtectionBarInfo::handle()
         return;
     }
         
-    CEventConfigure::instance()->set_configure(stInfo);
-
-    /* 更新事件布防时间 */
-    Alarm::EventSchedule_S stEventSchedule;
-    stEventSchedule.enEventType = ::Event::Type_E::HOLE_PROTECTION_BAR;
-    stEventSchedule.bStatus = stInfo.bEnable;
-    stEventSchedule.defenseTime = stInfo.aAlarmTime;
-    int nRet = CEventConfigure::instance()->set_configure(stEventSchedule);
-    CEventManage::instance()->update_event_schedule();
-    result(nRet);
+    /* 参数校验完成后，统一保存并同步智能事件总览状态。 */
+    result(save_scene_event_config(::Event::Type_E::HOLE_PROTECTION_BAR, stInfo));
 }
 
 void Task::Event::GetReflectiveClothingInfo::handle()
@@ -3224,16 +3207,8 @@ void Task::Event::SetReflectiveClothingInfo::handle()
         return;
     }
         
-    CEventConfigure::instance()->set_configure(stInfo);
-
-    /* 更新事件布防时间 */
-    Alarm::EventSchedule_S stEventSchedule;
-    stEventSchedule.enEventType = ::Event::Type_E::REFLECTIVE_CLOTHING;
-    stEventSchedule.bStatus = stInfo.bEnable;
-    stEventSchedule.defenseTime = stInfo.aAlarmTime;
-    int nRet = CEventConfigure::instance()->set_configure(stEventSchedule);
-    CEventManage::instance()->update_event_schedule();
-    result(nRet);
+    /* 参数校验完成后，统一保存并同步智能事件总览状态。 */
+    result(save_scene_event_config(::Event::Type_E::REFLECTIVE_CLOTHING, stInfo));
 }
 
 #endif
@@ -3259,16 +3234,8 @@ void Task::Event::SetGarbageExposureInfo::handle()
         return;
     }
         
-    CEventConfigure::instance()->set_configure(stInfo);
-
-    /* 更新事件布防时间 */
-    Alarm::EventSchedule_S stEventSchedule;
-    stEventSchedule.enEventType = ::Event::Type_E::GARBAGE_EXPOSURE;
-    stEventSchedule.bStatus = stInfo.bEnable;
-    stEventSchedule.defenseTime = stInfo.aAlarmTime;
-    int nRet = CEventConfigure::instance()->set_configure(stEventSchedule);
-    CEventManage::instance()->update_event_schedule();
-    result(nRet);
+    /* 参数校验完成后，统一保存并同步智能事件总览状态。 */
+    result(save_scene_event_config(::Event::Type_E::GARBAGE_EXPOSURE, stInfo));
 }
 
 
@@ -3292,16 +3259,8 @@ void Task::Event::SetGarbageOverflowInfo::handle()
         return;
     }
         
-    CEventConfigure::instance()->set_configure(stInfo);
-
-    /* 更新事件布防时间 */
-    Alarm::EventSchedule_S stEventSchedule;
-    stEventSchedule.enEventType = ::Event::Type_E::GARBAGE_OVERFLOW;
-    stEventSchedule.bStatus = stInfo.bEnable;
-    stEventSchedule.defenseTime = stInfo.aAlarmTime;
-    int nRet = CEventConfigure::instance()->set_configure(stEventSchedule);
-    CEventManage::instance()->update_event_schedule();
-    result(nRet);
+    /* 参数校验完成后，统一保存并同步智能事件总览状态。 */
+    result(save_scene_event_config(::Event::Type_E::GARBAGE_OVERFLOW, stInfo));
 }
 #endif
 
