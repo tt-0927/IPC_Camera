@@ -1969,20 +1969,39 @@ static NET_COMMON_ECODE_E cb_get_preview_info(INT32 dwChannelID, LPVOID lpOutBuf
     return NET_E_SUCCEED;
 }
 
+/*
+ * 功能：设置预览图像参数，并向 SDK 返回实际业务处理结果。
+ * param [in] dwChannelID：通道号，单通道 IPC 不使用。
+ * param [in] lpInBuffer：SDK 预览配置。
+ * param [out] 无。
+ * return：成功、参数无效或配置失败的 SDK 错误码。
+ */
 static NET_COMMON_ECODE_E cb_set_preview_info(INT32 dwChannelID, LPVOID lpInBuffer)
 {
     (void)dwChannelID;
     if (!lpInBuffer)
+    {
         return NET_E_INVALID_PARAM;
+    }
     const NET_PreviewInfo_S *pIn = (const NET_PreviewInfo_S *)lpInBuffer;
 
-    Preview::PreviewInfo_S stCfg;
+    Preview::PreviewInfo_S stCfg = {};
     TvSdkConvert::ToPreviewInfo(*pIn, stCfg);
-    std::string inJson = Convert::to_string(stCfg);
-    Task::Info_S stInfo;
-    stInfo.data = wrap_data_json(inJson);
-    int nExec = s_taskManage ? s_taskManage->execute(AC_SET_PREVIEW_INFO, stInfo) : -1;
-    return (nExec == 0) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
+    const std::string strInJson = wrap_data_json(Convert::to_string(stCfg));
+    std::string strResultJson = {};
+    if ((execute_get_result(AC_SET_PREVIEW_INFO, strInJson, strResultJson) != 0) || strResultJson.empty())
+    {
+        return NET_E_SET_CFG_FAILED;
+    }
+
+    /* 任务已分发不等于配置生效，必须检查任务返回的业务错误码。 */
+    int nResult = -1;
+    Json::get(strResultJson.c_str(), "Return", nResult);
+    if (nResult == ERR_WEB_PARAM)
+    {
+        return NET_E_INVALID_PARAM;
+    }
+    return (nResult == 0) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
 }
 
 static NET_COMMON_ECODE_E cb_get_privacy_mask_cfg(INT32 dwChannelID, LPVOID lpOutBuffer)

@@ -134,11 +134,22 @@ int CPreviewManage::get_preview_info(Preview::PreviewInfo_S &stInfo)
 	return OK;
 }
 
-/* 设置预览信息 */
+/*
+ * 功能：通过 ISP 业务保存并应用预览图像参数。
+ * param [in] stInfo：预览配置，仅图像参数可写，RTSP 地址仍由设备生成。
+ * param [out] 无。
+ * return：成功返回 OK，失败返回 ISP 业务错误码。
+ */
 int CPreviewManage::set_preview_info(Preview::PreviewInfo_S stInfo)
 {
-	m_stPreviewInfo = stInfo;
-	return Convert::write_file(PREVIEW_CONFIG_FILE, m_stPreviewInfo);
+    ISP::ImageParam_S stImageParam = {};
+    stImageParam.nBrightness = stInfo.stImageParam.nBrightness;
+    stImageParam.nContrast = stInfo.stImageParam.nContrast;
+    stImageParam.nSaturation = stInfo.stImageParam.nSaturation;
+    stImageParam.nSharpness = stInfo.stImageParam.nSharpness;
+
+    /* 复用 ISP 管理器的串行保护、配置保存、硬件下发及失败回滚，不单独写预览缓存。 */
+    return CIspManage::instance()->set_image_config(stImageParam);
 }
 
 /* 获取采集音频信息 */

@@ -22,6 +22,69 @@
 #include <limits>
 #include <new>
 
+/*
+ * 功能：转换检测目标，全选在 JSON 中使用 [0]，数量表示具体目标种类数。
+ * param [in,out] pRootJson：规则 JSON 对象。
+ * param [in,out] nCount：结构体中的检测目标数量。
+ * param [in,out] aTargets：结构体中的具体检测目标数组。
+ * param [in] bOutStruct：true 表示 JSON 转结构体。
+ * return：无。
+ */
+static void convert_detection_targets(Json::Object *pRootJson, INT32 &nCount,
+                                      INT32 (&aTargets)[8], bool bOutStruct)
+{
+    SDKConvert::CSDKConvert stConvert(bOutStruct);
+    if (bOutStruct)
+    {
+        stConvert.field(pRootJson, "DetectionTargetCount", nCount);
+        stConvert.field_array(pRootJson, "DetectionTarget", aTargets, nCount, 8);
+        Json::Object *pArray = Json::get(pRootJson, "DetectionTarget");
+        const int nSize = Json::Array::size(pArray);
+        for (int i = 0; i < nSize && i < 8; ++i)
+        {
+            int nTarget = -1;
+            Json::Object *pItem = Json::Array::get(pArray, i);
+            if (pItem)
+            {
+                Json::Value::get(pItem, nTarget);
+            }
+            if (nTarget == NET_TARGET_ALL)
+            {
+                /* 全选标记展开后再交给回调，避免数量大于 JSON 数组长度时读取残留值。 */
+                std::fill(aTargets, aTargets + 8, 0);
+                aTargets[0] = NET_TARGET_HUMAN;
+                aTargets[1] = NET_TARGET_VEHICLE;
+                aTargets[2] = NET_TARGET_OTHER;
+                nCount = 3;
+                return;
+            }
+        }
+        return;
+    }
+
+    bool bAll = false;
+    bool bHuman = false;
+    bool bVehicle = false;
+    bool bOther = false;
+    for (int i = 0; i < nCount && i < 8; ++i)
+    {
+        bAll = bAll || (aTargets[i] == NET_TARGET_ALL);
+        bHuman = bHuman || (aTargets[i] == NET_TARGET_HUMAN);
+        bVehicle = bVehicle || (aTargets[i] == NET_TARGET_VEHICLE);
+        bOther = bOther || (aTargets[i] == NET_TARGET_OTHER);
+    }
+    if (bAll || (bHuman && bVehicle && bOther))
+    {
+        int nConcreteCount = 3;
+        INT32 nAllTarget = NET_TARGET_ALL;
+        stConvert.field(pRootJson, "DetectionTargetCount", nConcreteCount);
+        stConvert.field_array(pRootJson, "DetectionTarget", &nAllTarget, 1, 1);
+        return;
+    }
+    stConvert.field(pRootJson, "DetectionTargetCount", nCount);
+    stConvert.field_array(pRootJson, "DetectionTarget", aTargets, nCount, 8);
+}
+
 void SDKConvert::deal(Json::Object* pRootJson, NET_Alarmer_S& stAlarmInfo, bool bOutStruct)
 {
     if (!pRootJson)
@@ -1349,9 +1412,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_BoundaryPlane_S& stInfo, bool
 
     convert.field(pRootJson, "CrossDirection", stInfo.enCrossDirection);
     convert.field(pRootJson, "Sensitivity", stInfo.nSensitivity);
-    convert.field(pRootJson, "DetectionTargetCount", stInfo.uDetectionTargetCount);
-    convert.field_array(pRootJson, "DetectionTarget", stInfo.auDetectionTarget,
-                       stInfo.uDetectionTargetCount, 8);
+    convert_detection_targets(pRootJson, stInfo.uDetectionTargetCount, stInfo.auDetectionTarget, bOutStruct);
 }
 
 
@@ -1478,9 +1539,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_IntrusionRule_S& stInfo, bool
 
     convert.field(pRootJson, "TimeThreshold", stInfo.nTimeThreshold);
     convert.field(pRootJson, "Sensitivity", stInfo.nSensitivity);
-    convert.field(pRootJson, "DetectionTargetCount", stInfo.uDetectionTargetCount);
-    convert.field_array(pRootJson, "DetectionTarget", stInfo.auDetectionTarget,
-                       stInfo.uDetectionTargetCount, 8);
+    convert_detection_targets(pRootJson, stInfo.uDetectionTargetCount, stInfo.auDetectionTarget, bOutStruct);
 }
 
 
@@ -1607,9 +1666,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_LoiteringRule_S& stInfo, bool
 
     convert.field(pRootJson, "TimeThreshold", stInfo.nTimeThreshold);
     convert.field(pRootJson, "Sensitivity", stInfo.nSensitivity);
-    convert.field(pRootJson, "DetectionTargetCount", stInfo.uDetectionTargetCount);
-    convert.field_array(pRootJson, "DetectionTarget", stInfo.auDetectionTarget,
-                       stInfo.uDetectionTargetCount, 8);
+    convert_detection_targets(pRootJson, stInfo.uDetectionTargetCount, stInfo.auDetectionTarget, bOutStruct);
 }
 
 
@@ -2111,8 +2168,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_SmartRegionRule_S& stInfo, bo
     }
     convert.field(pRootJson, "TimeThreshold", stInfo.nTimeThreshold);
     convert.field(pRootJson, "Sensitivity", stInfo.nSensitivity);
-    convert.field(pRootJson, "DetectionTargetCount", stInfo.uDetectionTargetCount);
-    convert.field_array(pRootJson, "DetectionTarget", stInfo.auDetectionTarget, stInfo.uDetectionTargetCount, 8);
+    convert_detection_targets(pRootJson, stInfo.uDetectionTargetCount, stInfo.auDetectionTarget, bOutStruct);
 }
 
 
