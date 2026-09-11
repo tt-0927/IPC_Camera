@@ -23,8 +23,13 @@ namespace TvSdkConvert
 {
 static constexpr size_t kOsdCustomSlotCount = 4;
 
-/* 将 IPC 内部目标集合转换为 SDK 目标数组。
- * 全选使用单个 NET_TARGET_ALL 表示，部分选择逐项返回，便于后续扩展新的目标类型。
+/*
+ * 功能：将 IPC 内部目标集合转换为 SDK 目标数组。
+ * param [in] src：IPC 内部检测目标集合。
+ * param [out] nCount：输出具体检测目标数量，不包含 NET_TARGET_ALL。
+ * param [out] pTargets：输出 SDK 检测目标数组。
+ * return：无。
+ * 说明：全选不能返回 [0] 和数量 1；0 仅表示全选，返回时展开为人、车、其他三个具体目标。
  */
 static void FillDetectionTargets(const std::vector<int> &src, INT32 &nCount, INT32 *pTargets)
 {
@@ -46,7 +51,9 @@ static void FillDetectionTargets(const std::vector<int> &src, INT32 &nCount, INT
 
     if (bHuman && bVehicle && bOther)
     {
-        pTargets[nCount++] = NET_TARGET_ALL;
+        pTargets[nCount++] = NET_TARGET_HUMAN;
+        pTargets[nCount++] = NET_TARGET_VEHICLE;
+        pTargets[nCount++] = NET_TARGET_OTHER;
     }
     else
     {
