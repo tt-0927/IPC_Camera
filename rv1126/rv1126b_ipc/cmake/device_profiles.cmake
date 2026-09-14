@@ -78,6 +78,9 @@
 #   使用: rv1126b_ipc/ipc.cmake, share/ipc_share/public_app/record/CMakeLists.txt
 # - IPC_CAP_RECORD_LINK_FDK_AAC: CMake 变量版 record 链接能力
 #   使用: rv1126b_ipc/ipc.cmake, share/ipc_share/public_app/record/CMakeLists.txt
+# - CAP_MENU_PERMISSION_FORCE_OVERRIDE: admin/itc 用户菜单权限强制修正
+#   登录接口返回的 bObjectLib 固定 false、bFaceConfig 固定 true
+#   使用: share/ipc_share/control/business/system/user/user_manage.cpp
 
 set(DEVICE_PROFILE_KEYS
     TV_3881T
@@ -123,6 +126,7 @@ set(DEVICE_PROFILE_TV_3881T_DEFINES
     CAP_NETWORK_FTP_SERVICE=0            # ftp 服务能力；发布版本不启动 uftpd
     CAP_RTSP_HIGH_CONCURRENCY=1          # RTSP 高并发能力（8 路总额）
     CAP_RECORD_USE_MAIN_STREAM=1         # 录制使用主码流
+    CAP_MENU_PERMISSION_FORCE_OVERRIDE=1 # admin/itc 强制修正菜单权限默认值
 )
 set(DEVICE_PROFILE_TV_3881T_CMAKE_VARS
     IPC_CAP_RECORD_NEEDS_CAM_SHARE_INCLUDE=1 # record 额外 include（ipc.cmake / record/CMakeLists.txt）
@@ -172,6 +176,7 @@ set(DEVICE_PROFILE_TV_3882TI_DEFINES
     CAP_PROCESS_LOG_SWITCH=0   
     CAP_RTSP_HIGH_CONCURRENCY=1          # RTSP 高并发能力（8 路总额）
     CAP_RECORD_USE_MAIN_STREAM=1 # 录制使用主码流
+    CAP_MENU_PERMISSION_FORCE_OVERRIDE=1 # admin/itc 强制修正菜单权限默认值
 )
 set(DEVICE_PROFILE_TV_3882TI_CMAKE_VARS
     IPC_CAP_RECORD_NEEDS_CAM_SHARE_INCLUDE=1

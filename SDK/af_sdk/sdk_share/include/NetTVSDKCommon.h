@@ -1345,6 +1345,8 @@ typedef enum tagNETTVCfgCmd
     NET_CONTROL_FORMAT_DISK               = 541,           /* 格式化硬盘 参见NET_FormatDiskInfo_S */
     NET_GET_DEVICE_STATUS                 = 542,           /* 获取设备状态 参见NET_DeviceStatusInfo_S */
     NET_SET_CHANNEL_NAME                  = 543,           /* 设置通道名称 参见NET_ChannelNameInfo_S */
+    NET_CONTROL_RESET                     = 544,           /* 恢复默认参数 参见NET_ResetInfo_S */
+    NET_GET_CHANNEL_NAME                  = 545,           /* 获取通道名称 参见NET_ChannelNameInfo_S */
 
     /* -- 透明通道 -- */
     NET_OPEN_TRANSPARENT_CHANNEL          = 550,           /* 建立透明通道 参见NET_TransparentChannel_S */
@@ -1813,6 +1815,7 @@ typedef enum tagNETTVCrossDirection
 /**
  * @enum tagNETTVDetectionTarget
  * @brief 检测目标类型  Detection target type
+ *  * @attention 单一目标类型，组合通过auDetectionTarget数组多个元素表示
  * @attention
  */
 typedef enum tagNETTVDetectionTarget
@@ -2140,6 +2143,7 @@ typedef NET_VoiceComStartInfo_S* pNET_VoiceComStartInfo_S;
  */
 typedef struct tagNET_VoiceComAudioCfg
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     INT32   enFormat;             /* 音频格式, 参见 NET_AudioFormat_E, 当前支持 PCM/AAC/G711A/G711U */
     INT32   uSampleRate;          /* 采样率, Hz, 参见 NET_AudioSampRate_E */
     INT32   uBitDepth;            /* 位深, PCM=16, G711=8 */
@@ -2436,18 +2440,14 @@ typedef struct tagNET_DeviceLoginInfo
 typedef NET_DeviceLoginInfo_S* pNET_DeviceLoginInfo_S;
 
 /**
- * @brief 设备规模信息结构体（NVR侧专用）
- * @note  NVR规模/能力数量信息：设备类型、报警输入/输出端口数、通道数。
- *        此为NVR偏向的硬件资源计量，非全设备通用，归 BU_SJCL/NVR 侧
- *        （回调见 NetTVNvrDeviceCb.c）。区别于通用设备基本信息 NET_DeviceBasicInfo_S。
+ * @brief 设备识别信息结构体（登录返回）
+ * @note  只承担设备识别职责（类型+型号）
+ *        对应 HTTP 路径 /TVAPI/V1.0/Device/GetInfo，登录时由 SDK 内部调用。
  */
 typedef struct tagNET_DeviceInfo
 {
     INT32   uDevType;                           /* 设备类型,参见枚举#NET_DEVICE_TYPE_E */
-    INT32   uAlarmInPortNum;                    /* 报警输入个数 */
-    INT32   uAlarmOutPortNum;                   /* 报警输出个数 */
-    INT32   uChannelNum;                        /* 通道个数 */
-    BYTE    byReserved[48];                     /* 预留字段 */
+    CHAR    strDevModel[NET_LEN_64];            /* 设备型号(只读) */
 } NET_DeviceInfo_S;
 
 /**
@@ -2480,12 +2480,7 @@ typedef struct tagNET_DeviceBasicInfo
     INT32   uChannelNum;                            /* 通道个数 */
     INT32   uPoeChannelNum;                         /* POE通道个数 */
 
-    /* ========== 通用运行状态（只读） ========== */
-    FLOAT   fCPULoadRatio;                          /* CPU负载率(只读) */
-    FLOAT   fMemoryUsage;                           /* 内存使用率(只读) */
-    INT32   nBootTime;                              /* 启动时间/运行时长-秒(只读) */
-
-    BYTE    byReserved[220];                        /* 预留字段 */
+    BYTE    byReserved[208];                        /* 预留字段 */
 } NET_DeviceBasicInfo_S;
 
 /**
@@ -2861,8 +2856,7 @@ typedef NET_DeviceStatusInfo_S* pNET_DeviceStatusInfo_S;
 
 /**
  * @brief 通道名称设置结构体
- * @note  用于 NET_SET_CHANNEL_NAME (543)
- *        查询通道名称复用 NET_GET_CHANNEL_INFO(300) 的 szChannelName 字段
+ * @note  用于 NET_SET_CHANNEL_NAME (543) / NET_GET_CHANNEL_NAME (545)
  */
 typedef struct tagNET_ChannelNameInfo
 {
@@ -2872,6 +2866,18 @@ typedef struct tagNET_ChannelNameInfo
 } NET_ChannelNameInfo_S;
 
 typedef NET_ChannelNameInfo_S* pNET_ChannelNameInfo_S;
+
+/**
+ * @brief 恢复默认参数控制结构体
+ * @note  用于 NET_CONTROL_RESET (544)
+ */
+typedef struct tagNET_ResetInfo
+{
+    INT32 nResetType;                                     /* 重置类型: 1=完全恢复(含IP), 2=简单恢复(不含IP/用户名/密码) */
+    BYTE  byReserved[28];                                 /* 保留字段 */
+} NET_ResetInfo_S;
+
+typedef NET_ResetInfo_S* pNET_ResetInfo_S;
 
 /**
  * @brief 透明通道参数结构体
@@ -2977,23 +2983,20 @@ typedef struct tagNET_SystemNtpInfo
 } NET_SystemNtpInfo_S;
 
 /**
- * @brief 系统时间/NTP校时配置结构体指针类型
- */
-typedef NET_SystemNtpInfo_S* pNET_SystemNtpInfo_S;
-
-/**
- * @brief 设置系统时间参数结构体。
- * @note strDateTime 格式为“YYYY-MM-DD HH:MM:SS”。
+ * @brief 设置系统时间参数结构体
+ * @note strDateTime 格式为 "YYYY-MM-DD HH:MM:SS"，例如 "2026-09-03 10:40:30"
  */
 typedef struct tagNET_SystemTime
 {
-    CHAR    strDateTime[NET_MAX_DATE_STRING_LEN];
+    CHAR strDateTime[NET_MAX_DATE_STRING_LEN];
 } NET_SystemTime_S;
 
-/**
- * @brief 设置系统时间参数结构体指针类型。
- */
 typedef NET_SystemTime_S* pNET_SystemTime_S;
+
+/**
+ * @brief 系统时间/NTP校时配置结构体指针类型
+ */
+typedef NET_SystemNtpInfo_S* pNET_SystemNtpInfo_S;
 
 /**
  * @brief 修改用户密码参数结构体
@@ -3436,7 +3439,7 @@ typedef NET_NetworkCfg_S* pNET_NetworkCfg_S;
 
 /**
  * @struct tagNET_PoeNetworkConfig
- * @brief 未登录场景下通过 SDK 设备发现组播协议设置摄像机网络参数
+ * @brief 未登录场景下通过 SDK 搜索 JSON 组播协议设置摄像机网络参数
  * @note 设备通过 MAC 地址匹配；接口仅发送组播配置报文，不建立 HTTP 登录会话。
  */
 typedef struct tagNET_PoeNetworkConfig
@@ -3447,10 +3450,10 @@ typedef struct tagNET_PoeNetworkConfig
     CHAR    szSubnetMask[NET_IPADDR_STR_MAX_LEN];  /* IPv4 子网掩码 */
     CHAR    szGateway[NET_IPADDR_STR_MAX_LEN];     /* IPv4 网关，bSetGateway 为 FALSE 时可为空 */
     BOOL    bSetGateway;                           /* 是否设置网关 */
-    BOOL    bIPv4DHCP;                             /* 是否启用 DHCP */
-    UINT32  dwTimeoutMs;                           /* 发送总时长，0 使用 SDK 默认发送间隔 */
-    UINT32  dwSendCount;                           /* 发送次数，0 使用 SDK 默认值 */
-    BYTE    byRes[128];                            /* 保留字段 */
+    BOOL    bIPv4DHCP;                              /* 是否启用 DHCP */
+    UINT32  dwTimeoutMs;                            /* 保留字段：当前接口为无应答发送，建议填 0 */
+    UINT32  dwSendCount;                            /* 发送次数，0 使用 SDK 默认值 */
+    BYTE    byRes[128];                             /* 保留字段 */
 } NET_PoeNetworkConfig_S;
 
 typedef NET_PoeNetworkConfig_S* pNET_PoeNetworkConfig_S;
@@ -5017,11 +5020,10 @@ typedef struct tagNET_ManholeCoverAbnormalCfg
     NET_AiSimpleRule_S stRule;                    /* 井盖异常检测规则 */
     NET_AlarmSchedule_S stAlarmSchedule;           /* 布防时间 */
     NET_LinkageList_S stLinkageList;               /* 联动配置 */
-    BYTE        byRes[256];                            /* 保留字段 */
-    INT32       nChannelID;                            /* 配置所属通道号，IPC无通道概念时固定为0 */
     UINT32      uPointCount;                           /* 区域顶点数量 */
     FLOAT       afPointX[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 区域顶点X坐标数组 [0-8192] */
     FLOAT       afPointY[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 区域顶点Y坐标数组 [0-8192] */
+    BYTE        byRes[256];                            /* 保留字段 */
 }NET_ManholeCoverAbnormalCfg_S;
 
 typedef NET_ManholeCoverAbnormalCfg_S* pNET_ManholeCoverAbnormalCfg_S;
@@ -5033,15 +5035,15 @@ typedef NET_ManholeCoverAbnormalCfg_S* pNET_ManholeCoverAbnormalCfg_S;
  */
 typedef struct tagNET_SleepOnDutyCfg
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     BOOL        bEnable;                               /* 是否启用 0-不启用 1-启用 */
     NET_AiSimpleRule_S stRule;                    /* 睡岗识别规则 */
     NET_AlarmSchedule_S stAlarmSchedule;           /* 布防时间 */
     NET_LinkageList_S stLinkageList;               /* 联动配置 */
-    BYTE        byRes[256];                            /* 保留字段 */
-    INT32       nChannelID;                            /* 配置所属通道号，IPC无通道概念时固定为0 */
     UINT32      uPointCount;                           /* 区域顶点数量 */
     FLOAT       afPointX[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 区域顶点X坐标数组 [0-8192] */
     FLOAT       afPointY[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 区域顶点Y坐标数组 [0-8192] */
+    BYTE        byRes[256];                            /* 保留字段 */
 }NET_SleepOnDutyCfg_S;
 
 typedef NET_SleepOnDutyCfg_S* pNET_SleepOnDutyCfg_S;
@@ -5061,9 +5063,8 @@ typedef struct tagNET_ElectricVehicleInElevatorCfg
     UINT32      uPointCount;                           /* 区域顶点数量 */
     FLOAT       afPointX[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 区域顶点X坐标数组 [0-8192] */
     FLOAT       afPointY[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 区域顶点Y坐标数组 [0-8192] */
-    /* 时间阈值，单位秒，范围0~10；占用原保留空间，保持布局大小。 */
-    INT32       nTimeThreshold;
-    BYTE        byRes[252];                            /* 保留字段 */
+    INT32       nTimeThreshold;                     /* 时间阈值，单位秒，范围0~10；占用原保留空间，保持布局大小。 */
+    BYTE        byRes[256];                            /* 保留字段 */
 }NET_ElectricVehicleInElevatorCfg_S;
 
 typedef NET_ElectricVehicleInElevatorCfg_S* pNET_ElectricVehicleInElevatorCfg_S;
@@ -5095,15 +5096,15 @@ typedef NET_PersonFallDownCfg_S* pNET_PersonFallDownCfg_S;
  */
 typedef struct tagNET_ConstructionOccupyRoadCfg
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     BOOL        bEnable;                               /* 是否启用 0-不启用 1-启用 */
     NET_AiSimpleRule_S stRule;                    /* 施工占道识别规则 */
     NET_AlarmSchedule_S stAlarmSchedule;           /* 布防时间 */
     NET_LinkageList_S stLinkageList;               /* 联动配置 */
-    BYTE        byRes[256];                            /* 保留字段 */
-    INT32       nChannelID;                            /* 配置所属通道号，IPC无通道概念时固定为0 */
     UINT32      uPointCount;                           /* 区域顶点数量 */
     FLOAT       afPointX[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 区域顶点X坐标数组 [0-8192] */
     FLOAT       afPointY[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 区域顶点Y坐标数组 [0-8192] */
+    BYTE        byRes[256];                            /* 保留字段 */
 }NET_ConstructionOccupyRoadCfg_S;
 
 typedef NET_ConstructionOccupyRoadCfg_S* pNET_ConstructionOccupyRoadCfg_S;
@@ -5115,15 +5116,15 @@ typedef NET_ConstructionOccupyRoadCfg_S* pNET_ConstructionOccupyRoadCfg_S;
  */
 typedef struct tagNET_CongestionCfg
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     BOOL        bEnable;                               /* 是否启用 0-不启用 1-启用 */
     NET_AiSimpleRule_S stRule;                    /* 拥堵识别规则 */
     NET_AlarmSchedule_S stAlarmSchedule;           /* 布防时间 */
     NET_LinkageList_S stLinkageList;               /* 联动配置 */
-    BYTE        byRes[256];                            /* 保留字段 */
-    INT32       nChannelID;                            /* 配置所属通道号，IPC无通道概念时固定为0 */
     UINT32      uPointCount;                           /* 区域顶点数量 */
     FLOAT       afPointX[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 区域顶点X坐标数组 [0-8192] */
     FLOAT       afPointY[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 区域顶点Y坐标数组 [0-8192] */
+    BYTE        byRes[256];                            /* 保留字段 */
 }NET_CongestionCfg_S;
 
 typedef NET_CongestionCfg_S* pNET_CongestionCfg_S;
@@ -5553,15 +5554,15 @@ typedef NET_SmokeFireCfg_S* pNET_SmokeFireCfg_S;
  */
 typedef struct tagNET_RoadPondingCfg
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     BOOL        bEnable;                               /* 是否启用 0-不启用 1-启用 */
     NET_AiSimpleRule_S stRule;                    /* 道路积水检测规则 */
     NET_AlarmSchedule_S stAlarmSchedule;           /* 布防时间 */
     NET_LinkageList_S stLinkageList;               /* 联动配置 */
+    UINT32      uPointCount;                           /* 区域顶点数量 */
+    FLOAT       afPointX[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 区域顶点X坐标数组 [0-8192] */
+    FLOAT       afPointY[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 区域顶点Y坐标数组 [0-8192] */
     BYTE        byRes[256];                            /* 保留字段 */
-    INT32       nChannelID;                       /* 配置所属通道号，IPC无通道概念时固定为0 */
-    INT32       uPointCount;                      /* 检测区域顶点数量，最多 NET_AI_SIMPLE_REGION_POINT_MAX_NUM 个 */
-    FLOAT       afPointX[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 检测区域顶点 X 坐标，采用 NVR 非归一化坐标 */
-    FLOAT       afPointY[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 检测区域顶点 Y 坐标，采用 NVR 非归一化坐标 */
 }NET_RoadPondingCfg_S;
 
 typedef NET_RoadPondingCfg_S* pNET_RoadPondingCfg_S;

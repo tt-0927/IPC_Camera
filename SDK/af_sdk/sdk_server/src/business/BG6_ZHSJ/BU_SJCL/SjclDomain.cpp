@@ -92,6 +92,7 @@ CSjclDomain::CSjclDomain()
 
     /* ===== 设备状态/串口参数 ===== */
     m_getTable[NET_GET_DEVICE_STATUS]     = &CSjclDomain::TemplatedGet<NET_DeviceStatusInfo_S>;
+    m_getTable[NET_GET_CHANNEL_NAME]      = &CSjclDomain::TemplatedGet<NET_ChannelNameInfo_S>;
     m_getTable[NET_GET_SERIAL_PORT_PARAM] = &CSjclDomain::TemplatedGet<NET_SerialPortParam_S>;
 
     /* ===== NVR 专属（委托 CNvrBusiness） ===== */

@@ -93,11 +93,21 @@ void CHideDetect::setAlgoParamCfg(const Alarm::HideAlarm_S &stAlgoCfg)
     dlog_debug("[遮挡侦测] : m_stRect: [%d,%d][%d,%d]", m_stRect.nX, m_stRect.nY, m_stRect.nWidth, m_stRect.nHeight);
     dlog_debug("[遮挡侦测] :   stUser: [%d,%d][%d,%d]", stUser.nX, stUser.nY, stUser.nWidth, stUser.nHeight);
 
-    /* 宽高变化 => 重初始化 */
-    if ((m_stRect.nWidth  != stUser.nWidth) || (m_stRect.nHeight != stUser.nHeight))
+    /* 位置或宽高变化 => 更新检测区域 */
+    const bool bSizeChanged = (m_stRect.nWidth != stUser.nWidth) ||
+                              (m_stRect.nHeight != stUser.nHeight);
+    const bool bPosChanged  = (m_stRect.nX != stUser.nX) ||
+                              (m_stRect.nY != stUser.nY);
+
+    if (bSizeChanged || bPosChanged)
     {
         m_stRect = stUser;
-        m_bNeedReInit.store(true);
+        /* m_bIsCrop 只由宽高决定, 仅宽高变化才需要重建算法句柄;
+           纯位置变化下一帧读到新的 m_stRect 即可生效 */
+        if (bSizeChanged)
+        {
+            m_bNeedReInit.store(true);
+        }
     }
 
     return ;
@@ -251,9 +261,8 @@ void CHideDetect::run()
         // 处理裁剪
         if (m_bIsCrop)
         {
-            // 特定坐标转换
-            int raw_cx = sw - m_stRect.nX - m_stRect.nWidth;
-            int raw_cy = sh - m_stRect.nY - m_stRect.nHeight;
+            int raw_cx = m_stRect.nX;
+            int raw_cy = m_stRect.nY;
             int raw_cw = m_stRect.nWidth;
             int raw_ch = m_stRect.nHeight;
             // 强制对齐修正

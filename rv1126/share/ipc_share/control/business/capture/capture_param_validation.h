@@ -1,7 +1,7 @@
 /*
  * @file capture_param_validation.h
  * @date 2026-09-08
- * @author Codex
+ * @author qinjt
  * @brief IPC 抓图任务参数的 JSON 类型和数值范围校验。
  * @修改记录 2026-09-08：仅在 IPC 校验两组抓图参数，不修改 SDK 解析流程。
  */
@@ -31,7 +31,7 @@ static constexpr int CAPTURE_JSON_TYPE_MASK = 0xFF;
 
 /*
  * @brief 校验必填数值字段为有限整数，并处于闭区间内。
- * @author Codex
+ * @author qinjt
  * @param [in] pObject 当前 JSON 对象，只读借用，不转移所有权。
  * @param [in] pField 字段名。
  * @param [in] nMinimum 允许的最小值。
@@ -54,7 +54,7 @@ static inline bool capture_validateInteger(Json::Object *pObject, const char *pF
 
 /*
  * @brief 校验一组抓图配置，包括关闭状态下保留的配置参数。
- * @author Codex
+ * @author qinjt
  * @param [in] pConfig 抓图配置对象，只读借用。
  * @param [out] 无。
  * @return 全部字段合法时返回 true，否则返回 false。
@@ -97,7 +97,7 @@ static inline bool capture_validateConfig(Json::Object *pConfig)
 
 /*
  * @brief 同时校验定时抓图和事件抓图，任何一组不合法均拒绝整个请求。
- * @author Codex
+ * @author qinjt
  * @param [in] pRoot 已解析的配置根对象，只读借用。
  * @param [out] 无。
  * @return 两组配置均合法时返回 true，否则返回 false。

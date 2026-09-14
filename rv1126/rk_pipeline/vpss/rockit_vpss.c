@@ -3,7 +3,7 @@
  * @Author       : wxz
  * @Date         : 2022-05-06 09:37:27
  * @LastEditors: leiyy leiyy@kfb.cn
- * @LastEditTime: 2025-11-12 16:13:37
+ * @LastEditTime: 2026-08-19 16:30:19
  * @Description  : 
  */
 
@@ -509,6 +509,15 @@ int rockitVpss_get_chnFrameData(RkVpss_S *pRkVpssHandle, VIDEO_FRAME_INFO_S *pst
 		RK_LOGE("RK_MPI_CAL_VGS_GetPicBufferSize failed. err=0x%x", s32Ret);
 		return s32Ret;
 	}
+
+    /* note: VGS按对齐后的VIR尺寸计算(如900对齐到912)，可能大于实际buffer，
+     * 下游按此size memcpy会越界，取实际MB大小兜底 */
+    RK_U64 u64MbSize = RK_MPI_MB_GetSize(pstVideFrame->stVFrame.pMbBlk);
+    if (u64MbSize > 0 && (RK_U64)stMbPicCalResult.u32MBSize > u64MbSize)
+    {
+        //RK_LOGE("VGS size(%u) > MB size(%llu), cap to MB size", stMbPicCalResult.u32MBSize, (unsigned long long)u64MbSize);
+        stMbPicCalResult.u32MBSize = (RK_U32)u64MbSize;
+    }
 
     RK_MPI_SYS_MmzFlushCache(pstVideFrame->stVFrame.pMbBlk, RK_TRUE);
 

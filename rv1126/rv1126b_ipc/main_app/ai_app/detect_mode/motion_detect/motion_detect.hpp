@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <algorithm>
 #include <atomic>
 #include <condition_variable>
 #include <mutex>
@@ -68,6 +69,15 @@ private:
      * @return   {bool} true：成功 false：失败
      */
     bool reboot();
+
+    /**
+     * @brief   : 灵敏度转触发阈值（反向映射：灵敏度越高，阈值越低）
+     * @param    {int} nSensitivity：输入灵敏度（范围：0~100，超出会被 clamp 到该范围）
+     * @param    {float} fMinThreshold：最低触发阈值，防止灵敏度为 100 时阈值归零
+     * @param    {float} fMaxThreshold：最高触发阈值
+     * @return   {float} 触发阈值（范围：fMinThreshold ~ fMaxThreshold）
+     */
+    float sensitivityToThreshold(int nSensitivity, float fMinThreshold = 0.25f, float fMaxThreshold = 1.0f);
 
     /**
      * @brief   : 计算灵敏度

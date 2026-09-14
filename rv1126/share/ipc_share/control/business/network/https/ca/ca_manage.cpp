@@ -599,9 +599,11 @@ int CCaManage::generateCertificate(const Network::CertApplyInfo_S &stApplyInfo, 
     BN_free(pBn_serial);
     ASN1_INTEGER_free(pAsn1_serial);
 
-    /* 设置证书的有效期 */
-    X509_gmtime_adj(X509_get_notBefore(pCert), -OFFSET_EIGHT_HOUR);
-    X509_gmtime_adj(X509_get_notAfter(pCert), (long)DAYS_TO_SECONDS(stApplyInfo.nValday) - OFFSET_EIGHT_HOUR);
+    // /* 设置证书的有效期 */
+    // X509_gmtime_adj(X509_get_notBefore(pCert), -OFFSET_EIGHT_HOUR);
+    // X509_gmtime_adj(X509_get_notAfter(pCert), (long)DAYS_TO_SECONDS(stApplyInfo.nValday) - OFFSET_EIGHT_HOUR);
+    X509_gmtime_adj(X509_get_notBefore(pCert), 0);
+    X509_gmtime_adj(X509_get_notAfter(pCert), static_cast<long>(DAYS_TO_SECONDS(stApplyInfo.nValday)));
 
     /* 设置证书的签发者名称，使用中间证书的主题名称作为签发者 */
     X509_set_issuer_name(pCert, X509_get_subject_name(pInterCert)); // 设置签发者
@@ -716,7 +718,41 @@ int CCaManage::generateCertificate(const Network::CertApplyInfo_S &stApplyInfo, 
 
     return 0;
 }
+std::string CCaManage::convertASN1TimeToLocal(const ASN1_TIME *pTime)
+{
+    if (pTime == nullptr)
+    {
+        return "";
+    }
 
+    std::tm utcTm = {};
+    if (ASN1_TIME_to_tm(pTime, &utcTm) != 1)
+    {
+        dlog_error("ASN1_TIME_to_tm失败 ");
+        return "";
+    }
+
+    time_t timestamp = timegm(&utcTm);
+
+    std::tm localTm = {};
+    if (localtime_r(&timestamp, &localTm) == nullptr)
+    {
+        dlog_error("localtime_r失败.");
+        return "";
+    }
+
+    char buffer[32] = {};
+    if (std::strftime(
+            buffer,
+            sizeof(buffer),
+            "%Y-%m-%d %H:%M:%S",
+            &localTm) == 0)
+    {
+        return "";
+    }
+
+    return buffer;
+}
 std::string CCaManage::getCertificateExpirationDate(const std::string &strCertPath)
 {
     X509 *pCert = nullptr;
@@ -758,11 +794,16 @@ std::string CCaManage::getCertificateExpirationDate(const std::string &strCertPa
         return "";
     }
 
-    /* 把获取到的ASN1_TIME转换为ISO-8601时间戳 */
-    std::string strStartDate = convertASN1Time(pNotBefore);
-    std::string strEndDate = convertASN1Time(pNotAfter);
-    /* 转换为YYYY-MM-DD HH:MM:SS格式的北京时间 */
-    strExpirationDate = convertGMTToBeijingTime(strStartDate) + "-" + convertGMTToBeijingTime(strEndDate);
+    // /* 把获取到的ASN1_TIME转换为ISO-8601时间戳 */
+    // std::string strStartDate = convertASN1Time(pNotBefore);
+    // std::string strEndDate = convertASN1Time(pNotAfter);
+    // /* 转换为YYYY-MM-DD HH:MM:SS格式的北京时间 */
+    // strExpirationDate = convertGMTToBeijingTime(strStartDate) + "-" + convertGMTToBeijingTime(strEndDate);
+    std::string strStartDate = convertASN1TimeToLocal(X509_get0_notBefore(pCert));
+
+    std::string strEndDate = convertASN1TimeToLocal(X509_get0_notAfter(pCert));
+
+    strExpirationDate = strStartDate + "-" + strEndDate;
     /* 释放资源 */
     X509_free(pCert);
 

@@ -4379,7 +4379,7 @@ typedef struct tagNET_LoiteringRule
     INT32       uPointCount;                         /* 区域顶点数量，最多32个 */
     FLOAT       afPointX[32];                        /* 区域顶点X坐标数组 [0.0-1.0] */
     FLOAT       afPointY[32];                        /* 区域顶点Y坐标数组 [0.0-1.0] */
-    INT32       nTimeThreshold;                      /* 行为事件触发时间阈值，判断有效报警的时间[0,10] 单位秒 */
+    INT32       nTimeThreshold;                      /* 行为事件触发时间阈值，判断有效报警的时间[0,100] 单位秒 */
     INT32       nSensitivity;                        /* 灵敏度[1,100] */
     INT32       uDetectionTargetCount;               /* 检测目标数量 */
     INT32       auDetectionTarget[8];                /* 检测目标数组 NET_DETECTION_TARGET_E，最多8个 */
@@ -4515,6 +4515,7 @@ typedef NET_GarbageExposureRule_S* pNET_GarbageExposureRule_S;
  */
 typedef struct tagNET_GarbageExposureCfg
 {
+    UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     BOOL        bEnable;                               /* 是否启用 0-不启用 1-启用 */
     NET_GarbageExposureRule_S stRule;             /* 垃圾暴露检测规则 */
     NET_AlarmSchedule_S stAlarmSchedule;           /* 布防时间 */
@@ -4585,11 +4586,10 @@ typedef struct tagNET_ManholeCoverAbnormalCfg
     NET_AiSimpleRule_S stRule;                    /* 井盖异常检测规则 */
     NET_AlarmSchedule_S stAlarmSchedule;           /* 布防时间 */
     NET_LinkageList_S stLinkageList;               /* 联动配置 */
+    UINT32      uPointCount;                           /* 区域顶点数量 */
+    FLOAT       afPointX[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 区域顶点X坐标数组 [0-8192] */
+    FLOAT       afPointY[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 区域顶点Y坐标数组 [0-8192] */
     BYTE        byRes[256];                            /* 保留字段 */
-    INT32       nChannelID;                            /* 配置所属通道号，IPC无通道概念时固定为0 */
-    INT32       uPointCount;                           /* 检测区域顶点数量 */
-    FLOAT       afPointX[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 检测区域顶点X坐标 */
-    FLOAT       afPointY[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 检测区域顶点Y坐标 */
 }NET_ManholeCoverAbnormalCfg_S;
 
 typedef NET_ManholeCoverAbnormalCfg_S* pNET_ManholeCoverAbnormalCfg_S;
@@ -4629,9 +4629,8 @@ typedef struct tagNET_ElectricVehicleInElevatorCfg
     UINT32      uPointCount;                           /* 区域顶点数量 */
     FLOAT       afPointX[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 区域顶点X坐标数组 [0-8192] */
     FLOAT       afPointY[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 区域顶点Y坐标数组 [0-8192] */
-    /* 时间阈值，单位秒，范围0~10；占用原保留空间，保持布局大小。 */
-    INT32       nTimeThreshold;
-    BYTE        byRes[252];                            /* 保留字段 */
+    INT32       nTimeThreshold;                    /* 时间阈值，单位秒，范围0~10；占用原保留空间，保持布局大小。 */
+    BYTE        byRes[256];                            /* 保留字段 */
 }NET_ElectricVehicleInElevatorCfg_S;
 
 typedef NET_ElectricVehicleInElevatorCfg_S* pNET_ElectricVehicleInElevatorCfg_S;
@@ -5149,6 +5148,7 @@ typedef struct tagNET_UnattendedObjectRule
 }NET_UnattendedObjectRule_S;
 
 typedef NET_UnattendedObjectRule_S* pNET_UnattendedObjectRule_S;
+
 
 /**
  * @struct tagNETTVUnattendedObjectAlarmInfo

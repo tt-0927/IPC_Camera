@@ -43,7 +43,7 @@ std::string CDeviceCapabilityBusiness::GetDeviceCapability(const std::string& re
 
 std::string CDeviceCapabilityBusiness::HandleVideoEncode(int nChannelId, int nCommand)
 {
-    if (nChannelId < 0)
+     if (nChannelId < 0)
     {
         NETSDK_LOG_MESSAGE_WARN("HandleVideoEncode: invalid channel=%d", nChannelId);
         return SDKConvert::to_respString(NET_E_INVALID_PARAM, nCommand);
@@ -57,9 +57,9 @@ std::string CDeviceCapabilityBusiness::HandleVideoEncode(int nChannelId, int nCo
     NETSDK_LOG_MESSAGE_INFO("视频编码能力回调结果: channel=%d, ret=%d, streamCount=%d",
                            nChannelId,
                            nRespCode,
-                           stCap.uStreamNum);
+                           stCap.uStreamCount);
     for (INT32 nStreamIndex = 0;
-         nStreamIndex < stCap.uStreamNum && nStreamIndex < NET_VIDEO_STREAM_MAX;
+         nStreamIndex < stCap.uStreamCount && nStreamIndex < NET_VIDEO_STREAM_MAX;
          ++nStreamIndex)
     {
         const NET_VideoStreamCap_S &stStreamCap = stCap.astStreamCap[nStreamIndex];

@@ -123,6 +123,7 @@ protected:
                                     const std::string& req_data,
                                     const std::string& url_param)
     {
+        //(void)req_data;
         (void)url_param;
 
         T_CFG stCfg;

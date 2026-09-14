@@ -91,20 +91,30 @@ typedef struct tagSessionMessage
 #define NET_API_PARAM_NVRCHN				(-1)			/* 标识NVR本机通道号 */
 
 /********************************** 	带参数的URL生成宏定义 	***************************/
-/* 设备能力集URL生成宏: NET_API_URL_DEVICE_CAPABILITY(channel, command) */
+/* 设备能力集URL生成宏: NET_API_URL_DEVICE_CAPABILITY(channel, command)
+ * channel<0(如 NET_API_PARAM_NVRCHN) 表示本机/NVR, 不拼入URL */
 #define NET_API_URL_DEVICE_CAPABILITY(ch, cmd) \
-    (std::string(NET_API_PATH_DEVICE_CAPABILITY) + \
+    ((ch) < 0 ? \
+     std::string(NET_API_PATH_DEVICE_CAPABILITY) + \
+     "?" NET_API_PARAM_COMMAND "=" + std::to_string(cmd) : \
+     std::string(NET_API_PATH_DEVICE_CAPABILITY) + \
      "?" NET_API_PARAM_CHANNEL "=" + std::to_string(ch) + \
      "&" NET_API_PARAM_COMMAND "=" + std::to_string(cmd))
 
-/* 设备配置URL生成宏 */
+/* 设备配置URL生成宏: channel<0 时不拼入URL */
 #define NET_API_URL_DEVICE_GET_DEV_CONFIG(ch, cmd) \
-    (std::string(NET_API_PATH_DEVICE_GET_DEV_CONFIG) + \
+    ((ch) < 0 ? \
+     std::string(NET_API_PATH_DEVICE_GET_DEV_CONFIG) + \
+     "?" NET_API_PARAM_COMMAND "=" + std::to_string(cmd) : \
+     std::string(NET_API_PATH_DEVICE_GET_DEV_CONFIG) + \
      "?" NET_API_PARAM_CHANNEL "=" + std::to_string(ch) + \
      "&" NET_API_PARAM_COMMAND "=" + std::to_string(cmd))
 
 #define NET_API_URL_DEVICE_SET_DEV_CONFIG(ch, cmd) \
-    (std::string(NET_API_PATH_DEVICE_SET_DEV_CONFIG) + \
+    ((ch) < 0 ? \
+     std::string(NET_API_PATH_DEVICE_SET_DEV_CONFIG) + \
+     "?" NET_API_PARAM_COMMAND "=" + std::to_string(cmd) : \
+     std::string(NET_API_PATH_DEVICE_SET_DEV_CONFIG) + \
      "?" NET_API_PARAM_CHANNEL "=" + std::to_string(ch) + \
      "&" NET_API_PARAM_COMMAND "=" + std::to_string(cmd))
 

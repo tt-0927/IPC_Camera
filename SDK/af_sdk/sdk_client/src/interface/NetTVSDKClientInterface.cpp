@@ -428,9 +428,16 @@ NET_API BOOL STDCALL NET_clientDeviceControl(IN LPVOID lpUserID,
 {
     CHECK_SDK_INIT(FALSE);
 
-    if (!lpUserID || !pstCtrlInfo || pstCtrlInfo->uChannelID <= 0 ||
+    if (!lpUserID || !pstCtrlInfo ||
         pstCtrlInfo->uControlType <= 0 || pstCtrlInfo->uCommand <= 0 ||
         pstCtrlInfo->uDurationMs < 0)
+    {
+        CErrorManage::instance()->SetLastError(NET_E_INVALID_PARAM);
+        return FALSE;
+    }
+    
+    if (pstCtrlInfo->uControlType < NET_DEVICE_CTRL_TYPE_REBOOT &&
+        pstCtrlInfo->uChannelID < 0)
     {
         CErrorManage::instance()->SetLastError(NET_E_INVALID_PARAM);
         return FALSE;

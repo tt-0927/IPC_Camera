@@ -386,7 +386,7 @@ void CMqttManager::reconnect_thread()
             /* 读取本轮退避快照，回调线程可并发重置计数但不影响正在执行的重连等待。 */
             const int nReconnectCount = m_nReconnectCount.load();
             const bool bFirstConnect = (nReconnectCount == 0 && m_pstMqtt == nullptr);
-            const int nMaxExponent = 6;
+            const int nMaxExponent = 1;
             const int nExponent = std::min(nReconnectCount, nMaxExponent);
             const int nInterval = bFirstConnect
                                       ? 0

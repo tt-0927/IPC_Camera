@@ -526,14 +526,16 @@ NET_API BOOL STDCALL NET_serverRegisterGetUpgradeStatusCb(NET_CB_GetDevConfigByC
 NET_API BOOL STDCALL NET_serverRegisterSetUpgradeCb(NET_CB_SetDevConfigByCommand pCb);
 NET_API BOOL STDCALL NET_serverRegisterGetUpgradeVersionCb(NET_CB_GetDevConfigByCommand pCb);
 
-/* ===== 设备控制 (Common: 重启/关机/格式化) ===== */
+/* ===== 设备控制 (Common: 重启/关机/格式化/恢复默认) ===== */
 NET_API BOOL STDCALL NET_serverRegisterControlRebootCb(NET_CB_SetDevConfigByCommand pCb);
 NET_API BOOL STDCALL NET_serverRegisterControlShutdownCb(NET_CB_SetDevConfigByCommand pCb);
 NET_API BOOL STDCALL NET_serverRegisterControlFormatDiskCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterControlResetCb(NET_CB_SetDevConfigByCommand pCb);
 
 /* ===== SJCL: 设备状态/通道名/透明通道/串口 ===== */
 NET_API BOOL STDCALL NET_serverRegisterGetDeviceStatusCb(NET_CB_GetDevConfigByCommand pCb);
 NET_API BOOL STDCALL NET_serverRegisterSetChannelNameCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetChannelNameCb(NET_CB_GetDevConfigByCommand pCb);
 NET_API BOOL STDCALL NET_serverRegisterOpenTransparentChannelCb(NET_CB_SetDevConfigByCommand pCb);
 NET_API BOOL STDCALL NET_serverRegisterCloseTransparentChannelCb(NET_CB_SetDevConfigByCommand pCb);
 NET_API BOOL STDCALL NET_serverRegisterSendTransparentDataCb(NET_CB_SetDevConfigByCommand pCb);

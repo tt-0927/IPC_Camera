@@ -17,6 +17,7 @@
 
 /* 修改记录：2026-09-08，保存前严格校验两组抓图参数，拒绝非法类型及越界值。 */
 
+
 /*获取抓图计划*/
 void Task::Capture::GetCapturePlanInfo::handle()
 {

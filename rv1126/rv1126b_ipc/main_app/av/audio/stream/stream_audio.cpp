@@ -212,12 +212,8 @@ int CStreamAudio::reboot()
 
 int CStreamAudio::initStreamAudio(Audio_NS::AudioConfig_S stAudioConfig)
 {
-    int nBindRet = OK;
-    dlog_info("音频初始化开始: enable=%d, input_volume=%u", stAudioConfig.bAudioSwitch,
-              stAudioConfig.u32InputVolume);
     if (stAudioConfig.bAudioSwitch == false) // 音频未开启
     {
-        dlog_info("音频开关未开启，跳过音频模块初始化");
         return OK;
     }
 
@@ -225,32 +221,26 @@ int CStreamAudio::initStreamAudio(Audio_NS::AudioConfig_S stAudioConfig)
     m_atVolumR.store(stAudioConfig.u32InputVolume);
 
     /*音频采集 初始化*/
-    dlog_info("音频初始化步骤[1/7]：开始初始化 AI 采集");
     m_pAiHandle[AI_MIC_CHN] = streamAi_init(AI_MIC_CHN, stAudioConfig);
     if (m_pAiHandle[AI_MIC_CHN] == nullptr)
     {
         dlog(LOG_ERROR, "Mic Ai_init error");
         goto err;
     }
-    dlog_info("音频初始化步骤[1/7]：AI 采集初始化完成，handle=%p", m_pAiHandle[AI_MIC_CHN]);
 
     /* AO 输出设备初始化 */
-    dlog_info("音频初始化步骤[2/7]：开始初始化 AO 控制设备");
     if (m_streamAO->init(stAudioConfig))
     {
         dlog_error("AO输出设备初始化失败");
         goto err;
     }
-    dlog_info("音频初始化步骤[2/7]：AO 控制设备初始化完成");
     m_bStopThread = false;
     m_monitorThread = std::thread(&CStreamAudio::paMonitorTimer_thr, this);
 
     // note 初始使能ao静音，避免砰砰声
     m_streamAO->update_audioOutputType(Audio_NS::AudioOutputType_E::MUTE);
-    dlog_info("音频初始化步骤[3/7]：AO 初始静音完成");
 
     /*音频输出 初始化*/
-    dlog_info("音频初始化步骤[4/7]：开始初始化 AO 输出通道");
     m_pAoHandle[AO_SPEAKER_CHN] = streamAo_init(AO_SPEAKER_CHN, stAudioConfig);
     if (m_pAoHandle[AO_SPEAKER_CHN] == nullptr)
     {
@@ -261,7 +251,6 @@ int CStreamAudio::initStreamAudio(Audio_NS::AudioConfig_S stAudioConfig)
     /* 更新音频输出类型，启用喇叭功放或者线路输出 */
     //m_streamAO->update_audioOutputType(stAudioConfig.enOutputType);
     dlog_debug("音频输出成功");
-    dlog_info("音频初始化步骤[4/7]：AO 输出通道初始化完成，handle=%p", m_pAoHandle[AO_SPEAKER_CHN]);
 
     /* 音频解码初始化 */
     // m_pAdecHandle[ADEC_SPEAK_CHN] = streamAdec_init(ADEC_SPEAK_CHN, m_stAudioConfig);
@@ -272,29 +261,18 @@ int CStreamAudio::initStreamAudio(Audio_NS::AudioConfig_S stAudioConfig)
     // }
 
     /* 初始化ffmpeg音频编码 */
-    dlog_info("音频初始化步骤[5/7]：开始初始化 FFmpeg 音频编码");
     if (init_ff_encode(stAudioConfig) != OK)
     {
         dlog(LOG_ERROR, "初始化ffmpeg音频编码失败");
         goto err;
     }
-    dlog_info("音频初始化步骤[5/7]：FFmpeg 音频编码初始化完成");
 
     /*绑定模块*/
-    dlog_info("音频初始化步骤[6/7]：开始绑定音频模块");
-    nBindRet = bindModule();
-    if (nBindRet != OK)
-    {
-        dlog_error("音频初始化步骤[6/7]：绑定音频模块失败，ret=%d", nBindRet);
-        goto err;
-    }
-    dlog_info("音频初始化步骤[6/7]：绑定音频模块完成");
+    bindModule();
 
     /*获取mic、linein音频数据，进行处理*/
-    dlog_info("音频初始化步骤[7/7]：启动 AI 音频处理线程");
     m_bGetAiFlag[AI_MIC_CHN].store(true, std::memory_order_release);
     aiThread[AI_MIC_CHN] = std::thread(&CStreamAudio::deal_aiFrame_thr, this, AI_MIC_CHN);
-    dlog_info("音频初始化步骤[7/7]：AI 音频处理线程启动完成");
 
     // for (int nAencChn = AENC_MIC_CHN; nAencChn < AENC_MAX_CHN; nAencChn++)
     // {

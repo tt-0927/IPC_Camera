@@ -541,6 +541,17 @@ NET_API BOOL STDCALL NET_serverRegisterControlFormatDiskCb(NET_CB_SetDevConfigBy
 }
 
 /**
+ * @brief 注册恢复默认参数控制回调函数
+ * @param [in] pCb 接收 NET_ResetInfo_S 输入缓冲区的回调函数
+ * @return 注册成功返回 TRUE；回调函数非法或已注册时返回 FALSE
+ * @note 544：恢复默认参数
+ */
+NET_API BOOL STDCALL NET_serverRegisterControlResetCb(NET_CB_SetDevConfigByCommand pCb)
+{
+    return registerSetCmdCb(NET_CONTROL_RESET, pCb);
+}
+
+/**
  * @brief 注册获取设备状态回调 (command=542)
  */
 NET_API BOOL STDCALL NET_serverRegisterGetDeviceStatusCb(NET_CB_GetDevConfigByCommand pCb)
@@ -551,6 +562,12 @@ NET_API BOOL STDCALL NET_serverRegisterGetDeviceStatusCb(NET_CB_GetDevConfigByCo
  */
 NET_API BOOL STDCALL NET_serverRegisterSetChannelNameCb(NET_CB_SetDevConfigByCommand pCb)
 { return registerSetCmdCb(NET_SET_CHANNEL_NAME, pCb); }
+
+/**
+ * @brief 注册获取通道名称回调 (command=545)
+ */
+NET_API BOOL STDCALL NET_serverRegisterGetChannelNameCb(NET_CB_GetDevConfigByCommand pCb)
+{ return registerGetCmdCb(NET_GET_CHANNEL_NAME, pCb); }
 
 /**
  * @brief 注册打开透明通道回调 (command=550)
