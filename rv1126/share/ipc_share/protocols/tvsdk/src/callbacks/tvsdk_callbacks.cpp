@@ -8,6 +8,7 @@
  * @Change       : 2026-09-08 越界设置保留规则数量和索引，无效参数保留旧值，由事件总开关控制
  * @Change       : 2026-09-08 人员聚集保留规则数量及位置，无效规则回退旧值并返回实际任务结果
  * @Change       : 2026-09-08 统一十六类智能事件的规则回退和业务结果返回，校验 IPC 数量上限
+ * @Change       : 2026-09-12 物品遗留阈值和灵敏度越界时拒绝整次设置，保留空区域兼容处理
  */
 
 #include "tvsdk_callbacks.h"
@@ -51,6 +52,103 @@
 namespace TvSdkCallbacks
 {
 static CTaskManage *s_taskManage = nullptr;
+
+/* 从事件配置文件回填SDK独有的电瓶车参数；业务结构不承载这些字段。 */
+static void tvsdk_fill_elevator_sdk_fields(NET_ElectricVehicleInElevatorCfg_S &stConfig)
+{
+    std::ifstream stFile(EVENT_ELECTRIC_SCOOTER_INFO_FILE);
+    if (!stFile.is_open())
+    {
+        return;
+    }
+    std::ostringstream stText;
+    stText << stFile.rdbuf();
+    Json::Object *pRootJson = Json::init(stText.str());
+    if (!pRootJson)
+    {
+        return;
+    }
+    Json::Object *pRule = Json::get(pRootJson, "Rule");
+    if (!pRule)
+    {
+        Json::deinit(pRootJson);
+        return;
+    }
+    Json::get(pRule, "TimeThreshold", stConfig.nTimeThreshold);
+    Json::get(pRule, "PointCount", stConfig.uPointCount);
+    if (stConfig.uPointCount > NET_AI_SIMPLE_REGION_POINT_MAX_NUM)
+    {
+        stConfig.uPointCount = 0;
+    }
+    Json::Object *pPointX = Json::get(pRule, "PointX");
+    Json::Object *pPointY = Json::get(pRule, "PointY");
+    for (UINT32 i = 0; i < stConfig.uPointCount; ++i)
+    {
+        if (!Json::Array::get(pPointX, i) || !Json::Array::get(pPointY, i))
+        {
+            break;
+        }
+        double dPointX = 0.0;
+        double dPointY = 0.0;
+        if (Json::Value::get(Json::Array::get(pPointX, i), dPointX) &&
+            Json::Value::get(Json::Array::get(pPointY, i), dPointY))
+        {
+            stConfig.afPointX[i] = static_cast<FLOAT>(dPointX);
+            stConfig.afPointY[i] = static_cast<FLOAT>(dPointY);
+        }
+    }
+    Json::deinit(pRootJson);
+}
+
+/* 将SDK独有的电瓶车参数合并回现有事件配置文件。 */
+static bool tvsdk_save_elevator_sdk_fields(const NET_ElectricVehicleInElevatorCfg_S &stConfig)
+{
+    Json::Object *pRootJson = Json::init();
+    if (!pRootJson)
+    {
+        return false;
+    }
+    std::ifstream stExisting(EVENT_ELECTRIC_SCOOTER_INFO_FILE);
+    if (stExisting.is_open())
+    {
+        std::ostringstream stText;
+        stText << stExisting.rdbuf();
+        Json::Object *pExisting = Json::init(stText.str());
+        if (pExisting)
+        {
+            Json::deinit(pRootJson);
+            pRootJson = pExisting;
+        }
+    }
+    Json::Object *pRule = Json::get(pRootJson, "Rule");
+    if (!pRule)
+    {
+        pRule = Json::init();
+        Json::add(pRootJson, "Rule", pRule);
+    }
+    Json::add(pRule, "TimeThreshold", stConfig.nTimeThreshold);
+    Json::add(pRule, "PointCount", static_cast<int>(stConfig.uPointCount));
+    Json::Object *pPointX = Json::Array::init();
+    Json::Object *pPointY = Json::Array::init();
+    for (UINT32 i = 0; i < stConfig.uPointCount; ++i)
+    {
+        Json::Array::add(pPointX, stConfig.afPointX[i]);
+        Json::Array::add(pPointY, stConfig.afPointY[i]);
+    }
+    Json::add(pRule, "PointX", pPointX);
+    Json::add(pRule, "PointY", pPointY);
+    std::ofstream stFile(EVENT_ELECTRIC_SCOOTER_INFO_FILE, std::ios::trunc);
+    if (!stFile.is_open())
+    {
+        Json::deinit(pRootJson);
+        return false;
+    }
+    stFile << Json::to_string(pRootJson) << std::endl;
+    const bool bSuccess = static_cast<bool>(stFile);
+    stFile.close();
+    Json::deinit(pRootJson);
+    return bSuccess;
+}
 
 // 移动侦测 / 遮挡报警 使用的 TVSDK 中间缓存，避免直接在 SDK 传入缓冲区上做复杂写入
 static NET_MotionAlarmInfo_S g_tvMotionAlarmInfo;
@@ -399,10 +497,12 @@ static bool tvsdk_valid_rule_targets(const TRule &stRule)
 template <typename TRule>
 static bool tvsdk_valid_region_parameters(const TRule &stRule, int nActionCode)
 {
+    const bool bIgnoreTime = nActionCode == AC_SET_ENTER_REGION_DETECT_INFO ||
+                             nActionCode == AC_SET_LEAVE_REGION_DETECT_INFO;
     return tvsdk_valid_polygon(stRule) &&
            stRule.nSensitivity >= 1 && stRule.nSensitivity <= 100 &&
-           stRule.nTimeThreshold >= tvsdk_rule_min_time(nActionCode) &&
-           stRule.nTimeThreshold <= tvsdk_rule_max_time(nActionCode);
+           (bIgnoreTime || (stRule.nTimeThreshold >= tvsdk_rule_min_time(nActionCode) &&
+                            stRule.nTimeThreshold <= tvsdk_rule_max_time(nActionCode)));
 }
 
 /**
@@ -2598,7 +2698,8 @@ static NET_COMMON_ECODE_E cb_get_electric_vehicle_in_elevator_cfg(INT32 dwChanne
     strJson = normalize_data_json(outJson);
     Convert::to_struct(strJson, stCfg);
     TvSdkConvert::FillElectricVehicleInElevatorCfg(stCfg, *pOut);
-    pOut->uChannel = 0;
+    tvsdk_fill_elevator_sdk_fields(*pOut);
+    pOut->uChannel = dwChannelID;
     return NET_E_SUCCEED;
 }
 
@@ -2608,14 +2709,21 @@ static NET_COMMON_ECODE_E cb_set_electric_vehicle_in_elevator_cfg(INT32 dwChanne
     if (!lpInBuffer)
         return NET_E_INVALID_PARAM;
     const NET_ElectricVehicleInElevatorCfg_S *pIn = (const NET_ElectricVehicleInElevatorCfg_S *)lpInBuffer;
+    if ((dwChannelID < 0) || (pIn->nTimeThreshold < 0) || (pIn->nTimeThreshold > 10) ||
+        (pIn->uPointCount > NET_AI_SIMPLE_REGION_POINT_MAX_NUM))
+    {
+        return NET_E_INVALID_PARAM;
+    }
 
     Alarm::ElectricScooterDetection_S stCfg;
     TvSdkConvert::ToElectricVehicleInElevator(*pIn, stCfg);
     std::string inJson = Convert::to_string(stCfg);
-    Task::Info_S stInfo;
-    stInfo.data = wrap_data_json(inJson);
-    int nExec = s_taskManage ? s_taskManage->execute(AC_SET_ELECTRIC_VEHICLE_IN_ELEVATOR_CFG, stInfo) : -1;
-    return (nExec == 0) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
+    const NET_COMMON_ECODE_E enResult = tvsdk_set_event_config(AC_SET_ELECTRIC_VEHICLE_IN_ELEVATOR_CFG, inJson);
+    if (enResult != NET_E_SUCCEED)
+    {
+        return enResult;
+    }
+    return tvsdk_save_elevator_sdk_fields(*pIn) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
 }
 
 static NET_COMMON_ECODE_E cb_get_person_fall_down_cfg(INT32 dwChannelID, LPVOID lpOutBuffer)
@@ -3861,12 +3969,12 @@ static NET_COMMON_ECODE_E cb_get_unattended_object_alarm(INT32 dwChannelID, LPVO
 }
 
 /**
- * @brief 保存物品遗留配置，保留规则数量及位置，无效规则回退旧值或默认空规则。
+ * @brief 保存物品遗留配置，阈值或灵敏度越界时拒绝设置，空区域沿用原有兼容处理。
  * @author ITC
  * @param [in] nChannelId SDK 通道编号。
  * @param [in] pInBuffer 指向 NET_UnattendedObjectAlarmInfo_S 的配置缓冲区。
  * @param [out] 无。
- * @return 成功返回 NET_E_SUCCEED，数量、读取或业务处理失败返回对应错误码。
+ * @return 数量、阈值或灵敏度非法返回 NET_E_INVALID_PARAM，成功返回 NET_E_SUCCEED，其他失败返回对应错误码。
  */
 static NET_COMMON_ECODE_E cb_set_unattended_object_alarm(INT32 nChannelId, LPVOID pInBuffer)
 {
@@ -3875,6 +3983,30 @@ static NET_COMMON_ECODE_E cb_set_unattended_object_alarm(INT32 nChannelId, LPVOI
         return NET_E_INVALID_PARAM;
     }
     const NET_UnattendedObjectAlarmInfo_S *pConfig = static_cast<const NET_UnattendedObjectAlarmInfo_S *>(pInBuffer);
+    constexpr INT32 TVSDK_OBJECT_MIN_SENSITIVITY = 1;
+    constexpr INT32 TVSDK_OBJECT_MAX_SENSITIVITY = 100;
+    const INT32 nRuleCapacity = static_cast<INT32>(sizeof(pConfig->stRule) / sizeof(pConfig->stRule[0]));
+    const INT32 nMaxRules = std::min(TVSDK_IPC_RULE_MAX, nRuleCapacity);
+    if ((pConfig->uRuleCount < 0) || (pConfig->uRuleCount > nMaxRules))
+    {
+        return NET_E_INVALID_PARAM;
+    }
+    const INT32 nMinTime = tvsdk_rule_min_time(AC_SET_UNATTENDED_OBJECT_DETECT_INFO);
+    const INT32 nMaxTime = tvsdk_rule_max_time(AC_SET_UNATTENDED_OBJECT_DETECT_INFO);
+    /* 在读取旧规则和执行设置任务之前校验全部数值参数，防止非法输入被旧值覆盖后误报成功。 */
+    for (INT32 nIndex = 0; nIndex < pConfig->uRuleCount; ++nIndex)
+    {
+        const NET_UnattendedObjectRule_S &stRule = pConfig->stRule[nIndex];
+        if ((stRule.nSensitivity < TVSDK_OBJECT_MIN_SENSITIVITY) ||
+            (stRule.nSensitivity > TVSDK_OBJECT_MAX_SENSITIVITY) ||
+            (stRule.nTimeThreshold < nMinTime) || (stRule.nTimeThreshold > nMaxTime))
+        {
+            dlog_warn("TVSDK 物品遗留规则[%d]参数无效：灵敏度[%d]允许[%d,%d]，时间阈值[%d]允许[%d,%d]，拒绝设置",
+                      nIndex, stRule.nSensitivity, TVSDK_OBJECT_MIN_SENSITIVITY,
+                      TVSDK_OBJECT_MAX_SENSITIVITY, stRule.nTimeThreshold, nMinTime, nMaxTime);
+            return NET_E_INVALID_PARAM;
+        }
+    }
     NET_UnattendedObjectAlarmInfo_S stNormalized = *pConfig;
     const NET_COMMON_ECODE_E enResult = tvsdk_preserve_event_rules(
         nChannelId, stNormalized, AC_SET_UNATTENDED_OBJECT_DETECT_INFO, cb_get_unattended_object_alarm);
