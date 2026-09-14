@@ -226,6 +226,22 @@ static int rect_to_point(const std::vector<std::vector<int>> &stInRectsInfo, std
     return 0;
 }
 
+float CMotionDetect::sensitivityToThreshold(int nSensitivity, float fMinThreshold, float fMaxThreshold)
+{
+    int nClampedSens = std::clamp(nSensitivity, 0, 100);
+
+    if (nClampedSens == 0)
+    {
+        return 1.0f;
+    }
+
+    float fThreshold = fMaxThreshold - nClampedSens * (fMaxThreshold - fMinThreshold) / 100.0f;
+
+    fThreshold = std::clamp(fThreshold, fMinThreshold, fMaxThreshold);
+
+    return fThreshold;
+}
+
 float CMotionDetect::calculate_sensitivity(const std::vector<Common::RectInfo_S> &vstRectsInfo, int &nMaxAreaIndex, int nWidth, int nHeight)
 {
     // float fSensitivity = 0.0;
@@ -504,11 +520,14 @@ void CMotionDetect::processNormalMode(std::vector<Common::RectInfo_S> &vstRectsI
     bool bIsAlarm = false;
     int nMaxAreaIndex = 0;
 
-    /* 灵敏度判断：将用户配置的[0,100]转换为[0,1]进行比较 */
-    float fSensitivityThreshold = 1 - m_stMotionDetCfg.stMotionNormalMode.nSensitivity / 100.0f;
+    /* 灵敏度判断：将用户配置的灵敏度反向映射为触发阈值 */
+    float fSensitivityThreshold = sensitivityToThreshold(m_stMotionDetCfg.stMotionNormalMode.nSensitivity);
+
+    /* 当前触发的置信度：最大移动框面积占侦测区域面积的比例 */
+    float fCurrentSensitivity = calculate_sensitivity(vstRectsInfo, nMaxAreaIndex, m_stRect.nWidth, m_stRect.nHeight);
 
     /*  检查是否满足报警触发条件 */
-    if (fSensitivityThreshold < calculate_sensitivity(vstRectsInfo, nMaxAreaIndex, m_stRect.nWidth, m_stRect.nHeight))
+    if (fCurrentSensitivity > fSensitivityThreshold)
     {
         bIsAlarm = true;
         if (!access("testPrint", F_OK))
@@ -601,23 +620,26 @@ void CMotionDetect::processExpertMode(std::vector<Common::RectInfo_S> &stRectInf
         {
             const auto &configRegion = m_stMotionDetCfg.stMotionExpertMode.vstMotionRegion[configIdx];
 
-            /* 获取当前应使用的灵敏度阈值 */
-            float fSensitivityThreshold;
+            /* 获取当前应使用的灵敏度配置 */
+            int nSensitivity = 0;
             if (m_stMotionDetCfg.stMotionExpertMode.nExpertDayNightCtrl == 0)
             {
                 /* 关闭日夜切换，使用关闭时的灵敏度 */
-                fSensitivityThreshold = 1.0f - configRegion.nCloseSensitivity / 100.0f;
+                nSensitivity = configRegion.nCloseSensitivity;
             }
             else if (bIsDaytime)
             {
                 /* 白天灵敏度 */
-                fSensitivityThreshold = 1.0f - configRegion.nDaytimeSensitivity / 100.0f;
+                nSensitivity = configRegion.nDaytimeSensitivity;
             }
             else
             {
                 /* 夜晚灵敏度 */
-                fSensitivityThreshold = 1.0f - configRegion.nNightSensitivity / 100.0f;
+                nSensitivity = configRegion.nNightSensitivity;
             }
+
+            /* 灵敏度判断：将用户配置的灵敏度反向映射为触发阈值 */
+            float fSensitivityThreshold = sensitivityToThreshold(nSensitivity);
 
             /* 计算配置区域面积 */
             int nConfigAreaSize = configRegion.stRect.nWidth * configRegion.stRect.nHeight;
@@ -661,11 +683,11 @@ void CMotionDetect::processExpertMode(std::vector<Common::RectInfo_S> &stRectInf
             if (fRegionSensitivityThreshold > fSensitivityThreshold)
             {
                 vbRegionTriggered[configIdx] = true;
-                dlog_debug("[移动侦测 专家模式] 区域[%d] 触发灵敏度[%.3f] > [%.3f] 日夜模式:[%s]",
-                           configRegion.nAreaNo,
-                           fRegionSensitivityThreshold,
-                           fSensitivityThreshold,
-                           bIsDaytime ? "白天" : "夜晚");
+                dlog_debug("[移动侦测 专家模式] 区域[%u] 触发灵敏度[%.3f] > [%.3f] 日夜模式:[%s]",
+                    configRegion.nAreaNo,
+                    fRegionSensitivityThreshold,
+                    fSensitivityThreshold,
+                    bIsDaytime ? "白天" : "夜晚");
             }
         }
     }

@@ -3299,7 +3299,7 @@ void FillRoadPondingCfg(const Alarm::RoadPondingDetection_S &src, NET_RoadPondin
     FillSingleRuleAlarmSchedule(src.aAlarmTime, dst.stAlarmSchedule);
     FillLinkageList(src.stLinkageList, dst.stLinkageList);
 
-    dst.nChannelID = 0;
+    dst.uChannel = 0;
     /* IPC 不处理道路积水区域，向 NVR 返回默认全屏区域。 */
     dst.uPointCount = 4;
     dst.afPointX[0] = 0.0f;

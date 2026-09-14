@@ -21,10 +21,15 @@ namespace
 int ValidateDeviceControlInfo(const NET_DeviceControlInfo_S& stInfo)
 {
     /* 基础字段合法性校验 */
-    if (stInfo.uChannelID <= 0 ||
-        stInfo.uControlType <= 0 ||
+    if (stInfo.uControlType <= 0 ||
         stInfo.uCommand <= 0 ||
         stInfo.uDurationMs < 0)
+    {
+        return NET_E_INVALID_PARAM;
+    }
+    
+    if (stInfo.uControlType < NET_DEVICE_CTRL_TYPE_REBOOT &&
+        stInfo.uChannelID < 0)
     {
         return NET_E_INVALID_PARAM;
     }

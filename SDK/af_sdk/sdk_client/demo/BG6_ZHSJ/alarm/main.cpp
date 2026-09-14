@@ -611,7 +611,7 @@ int main() {
     NET_DeviceInfo_S struDeviceInfo = {0};
 
     struLoginInfo.uPort = 9019;
-    strcpy(struLoginInfo.szIPAddr, "172.16.25.191");
+    strcpy(struLoginInfo.szIPAddr, "172.16.25.186");
     strcpy(struLoginInfo.szUserName, "admin");
     strcpy(struLoginInfo.szPassword, "itc20232024");
 

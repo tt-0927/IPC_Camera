@@ -563,25 +563,33 @@ bool CSmtp::Send()
 		
 	//Check that any attachments specified can be opened
 	TotalSize = 0;
-	for(FileId=0;FileId<Attachments.size();FileId++)
-	{
-		// opening the file:
-		hFile = fopen(Attachments[FileId].c_str(), "rb");
-		if(hFile == NULL)
-			dlog_error("ECSmtp抛出异常");
+    for(FileId = 0; FileId < Attachments.size();)
+    {
+        // opening the file:
+        hFile = fopen(Attachments[FileId].c_str(), "rb");
+        if(hFile == NULL)
+        {
+            dlog_warn("跳过无效邮件附件: path[%s], error[%s]",
+                      Attachments[FileId].c_str(), strerror(errno));
+            Attachments.erase(Attachments.begin() + FileId);
+            continue;
+        }
 
-		// checking file size:
-		fseek(hFile, 0, SEEK_END);
-		FileSize = ftell(hFile);
-		TotalSize += FileSize;
+        // checking file size:
+        fseek(hFile, 0, SEEK_END);
+        FileSize = ftell(hFile);
+        TotalSize += FileSize;
 
-		// sending the file:
-		if(TotalSize/1024 > MSG_SIZE_IN_MB*1024)
-			dlog_error("ECSmtp抛出异常");
+        // sending the file:
+        if(TotalSize/1024 > MSG_SIZE_IN_MB*1024)
+        {
+            dlog_error("ECSmtp抛出异常");
+        }
 
-		fclose(hFile);
-		hFile=NULL;
-	}
+        fclose(hFile);
+        hFile = NULL;
+        FileId++;
+    }
 
 	// ***** SENDING E-MAIL *****
 
@@ -654,6 +662,14 @@ bool CSmtp::Send()
 	// next goes attachments (if they are)
 	for(FileId=0;FileId<Attachments.size();FileId++)
 	{
+        // opening the file before sending its MIME header
+        hFile = fopen(Attachments[FileId].c_str(), "rb");
+        if(hFile == NULL)
+        {
+            dlog_warn("跳过发送期间失效的邮件附件: path[%s], error[%s]",
+                      Attachments[FileId].c_str(), strerror(errno));
+            continue;
+        }
 
 		pos = Attachments[FileId].find_last_of("/");
 
@@ -676,11 +692,6 @@ bool CSmtp::Send()
 		strcat(SendBuf, "\r\n");
 
 		SendData(pEntry);
-
-		// opening the file:
-		hFile = fopen(Attachments[FileId].c_str(), "rb");
-		if(hFile == NULL)
-			dlog_error("ECSmtp抛出异常");
 
 		// get file size:
 		fseek(hFile, 0, SEEK_END);

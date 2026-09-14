@@ -8,6 +8,7 @@
  * @Description  : 平台管理
  * @Change       : 2026-08-25 新增人脸 JPG 下载，保持 NV21 通过 BinPath 送入 AI
  * @Change       : 2026-08-25 禁止 PicPath 回退为 NV21 下载地址，增加 MQTT 人脸数据和下载源日志
+ * @Change       : 2026-09-08 原图独立保存到人脸目录，支持 JPEG、PNG、BMP，并避免同名覆盖
  */
 
 #pragma once
@@ -470,7 +471,7 @@ private:
     void process_mqtt_command(const std::string &strTopic, const std::string &strPayload);
 
     /**
-     * @brief MQTT 人脸命令预处理，确保 NV21 和 JPG 文件已下载到设备本地。
+     * @brief MQTT 人脸命令预处理，确保 NV21 和人脸原图已下载到设备本地。
      * @author Codex
      * @param [in] strCommand MQTT 命令名称。
      * @param [in,out] strData 命令 Data，成功时回写设备本地路径。
@@ -491,13 +492,13 @@ private:
     bool ensure_face_nv21_local(cJSON *pData, std::string &strError);
 
     /**
-     * @brief 下载人脸 JPG 文件，并将 PicPath 改为设备本地展示路径。
+     * @brief 下载 JPEG、PNG 或 BMP 人脸原图到独立目录，并回写本地展示信息。
      * @author Codex
      * @param [in,out] pData 人脸命令 Data JSON 对象。
      * @param [out] strError 下载或校验失败原因。
-     * @return JPG 文件下载并校验成功返回 true，否则返回 false。
+     * @return 原图下载、文件头识别及保存成功返回 true，否则返回 false。
      */
-    bool ensure_face_jpeg_local(cJSON *pData, std::string &strError);
+    bool ensure_face_image_local(cJSON *pData, std::string &strError);
     bool download_file_to_path(const std::string &strUrl,
                                const std::string &strLocalPath,
                                std::string &strError);

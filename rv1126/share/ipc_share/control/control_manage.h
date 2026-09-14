@@ -11,6 +11,7 @@
 
 #include <signal.h>
 #include <memory>
+#include <mutex>
 
 #include "task_manage.h"
 #include "task_publish.h"
@@ -58,7 +59,16 @@ public:
      * @return >=0 在线客户端数量，<0 表示 TVSDK 服务不可用或获取失败
      */
     int tvsdk_get_client_count() const;
+
+// #if !CAP_IO_EXTERNAL_DDR_00S
+    /**
+     * @brief 平台连接前独占 TVSDK 端口
+     * @return 0 成功；负值表示仍有 TVSDK 客户端，平台连接必须拒绝
+     * @note 独占后只停止 TVSDK，不负责在平台失败或关闭时自动恢复。
+     */
+    int tvsdk_reserve_for_platform();
 #endif
+// #endif
 
 private:
     /*** 
@@ -98,5 +108,7 @@ private:
 
 #ifdef ENABLE_TVSDK_SRC
     std::unique_ptr<CTvSdkServer> m_pTvSdkServer;
+    /* 串行化“检查客户端数量”和 TVSDK 服务启停，防止平台连接流程重复切换服务。 */
+    mutable std::mutex m_mtxTvSdkPlatformExclusive;
 #endif
 };

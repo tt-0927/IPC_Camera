@@ -246,6 +246,7 @@ copy_app_files() {
 
     #拷贝NetTVSDK库
     cp -a ${LIB_PATH}/NetTVSDK/lib/*  ${UPGRADE_PATH}/${RUN_PATH}/lib
+    cp -a ${LIB_PATH}/RtspServer/lib/* ${UPGRADE_PATH}/${RUN_PATH}/lib
 
 # ******************************************************************************************************************************#
 
@@ -349,8 +350,8 @@ copy_model_files() {
         cp -a ${MODEL_PATH}/*LicensePlateRec* ${UPGRADE_PATH}/${RUN_PATH}/model/
         cp -a ${MODEL_PATH}/*group* ${UPGRADE_PATH}/${RUN_PATH}/model/
         cp -a ${MODEL_PATH}/*Attribute* ${UPGRADE_PATH}/${RUN_PATH}/model/
-        cp -a ${MODEL_PATH}/internvl3-1B-Instruct_vision_rv1126b.rknn ${UPGRADE_PATH}/${RUN_PATH}/model/
-        cp -a ${MODEL_PATH}/internvl3-1b-instruct_122_w8a8_rv1126b.rkllm ${UPGRADE_PATH}/${RUN_PATH}/model/
+        #cp -a ${MODEL_PATH}/internvl3-1B-Instruct_vision_rv1126b.rknn ${UPGRADE_PATH}/${RUN_PATH}/model/
+        #cp -a ${MODEL_PATH}/internvl3-1b-instruct_122_w8a8_rv1126b.rkllm ${UPGRADE_PATH}/${RUN_PATH}/model/
         fi
     else
         echo "不拷贝模型文件..."

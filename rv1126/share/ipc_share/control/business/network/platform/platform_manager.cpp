@@ -8,6 +8,7 @@
  * @Description  : 平台管理
  * @Change       : 2026-08-25 新增人脸 JPG 下载，保持 NV21 通过 BinPath 送入 AI
  * @Change       : 2026-08-25 禁止 PicPath 回退为 NV21 下载地址，增加 MQTT 人脸数据和下载源日志
+ * @Change       : 2026-09-08 原图独立保存到人脸目录，支持 JPEG、PNG、BMP，并避免同名覆盖
  */
 
 #if CAP_GARBAGE_STATION_PLATFORM
@@ -31,6 +32,7 @@
 #include "system_manage.h"
 
 #include <iostream>
+#include <algorithm>
 #include <cstring>
 #include <cstdlib>
 #include <cstdio>
@@ -41,6 +43,7 @@
 #include <ctime>
 #include <fstream>
 #include <iomanip>
+#include <limits>
 #include <sstream>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -258,6 +261,41 @@ static const std::string base64_chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
                                         "0123456789+/";
 
 static const char *FACE_NV21_UPLOAD_DIR = "/opt/course/upload";
+static constexpr const char *PLATFORM_FACE_IMAGE_DIR = "/opt/course/face";
+
+/**
+ * @brief 根据文件头识别人脸原图类型，不解码或修改图片内容。
+ * @author ITC
+ * @param [in] strPath 已下载的本地文件路径。
+ * @param [out] strType 识别出的图片类型，失败时为空。
+ * @return 文件头符合 JPEG、PNG 或 BMP 格式时返回 true，否则返回 false。
+ */
+static bool platform_detect_face_image_type(const std::string &strPath, std::string &strType)
+{
+    strType.clear();
+    std::ifstream stFile(strPath.c_str(), std::ios::binary);
+    const unsigned char aPngSignature[] = {0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a};
+    const unsigned char aJpegSignature[] = {0xff, 0xd8, 0xff};
+    const unsigned char aBmpSignature[] = {0x42, 0x4d};
+    unsigned char aHeader[sizeof(aPngSignature)] = {0};
+    if (!stFile.read(reinterpret_cast<char *>(aHeader), sizeof(aHeader)))
+    {
+        return false;
+    }
+    if (std::memcmp(aHeader, aJpegSignature, sizeof(aJpegSignature)) == 0)
+    {
+        strType = "jpg";
+    }
+    else if (std::memcmp(aHeader, aPngSignature, sizeof(aPngSignature)) == 0)
+    {
+        strType = "png";
+    }
+    else if (std::memcmp(aHeader, aBmpSignature, sizeof(aBmpSignature)) == 0)
+    {
+        strType = "bmp";
+    }
+    return !strType.empty();
+}
 
 /*
  * Convert::read_file() 只检查文件是否存在且非空，JSON 解析失败时仍可能保留结构体默认值。
@@ -2508,7 +2546,7 @@ bool CPlatformManager::prepare_face_image_command(const std::string &strCommand,
         bRet = ensure_face_nv21_local(pData, strError);
         if (bRet)
         {
-            bRet = ensure_face_jpeg_local(pData, strError);
+            bRet = ensure_face_image_local(pData, strError);
         }
     }
 
@@ -2621,13 +2659,13 @@ bool CPlatformManager::ensure_face_nv21_local(cJSON *pData, std::string &strErro
 }
 
 /**
- * @brief 下载人脸 JPG 文件，并将 PicPath 改为设备本地展示路径。
+ * @brief 下载 JPEG、PNG 或 BMP 人脸原图，保存到独立目录并回写展示信息。
  * @author Codex
  * @param [in,out] pData 人脸命令 Data JSON 对象。
  * @param [out] strError 下载或校验失败原因。
- * @return JPG 文件下载并校验成功返回 true，否则返回 false。
+ * @return 原图下载、文件头识别及保存成功返回 true，否则返回 false。
  */
-bool CPlatformManager::ensure_face_jpeg_local(cJSON *pData, std::string &strError)
+bool CPlatformManager::ensure_face_image_local(cJSON *pData, std::string &strError)
 {
     if (pData == nullptr || !cJSON_IsObject(pData))
     {
@@ -2635,63 +2673,98 @@ bool CPlatformManager::ensure_face_jpeg_local(cJSON *pData, std::string &strErro
         return false;
     }
 
-    std::string strBinPath;
-    std::string strPicUrl;
+    std::string strBinPath = {};
+    std::string strPicUrl = {};
     get_json_string(pData, "BinPath", strBinPath);
     get_json_string(pData, "PicPath", strPicUrl);
     if (strBinPath.empty() || strPicUrl.empty())
     {
-        strError = "BinPath or PicPath is empty for jpeg face image";
+        strError = "BinPath or PicPath is empty for face image";
         return false;
     }
 
-    std::string strJpegName = basename_of(strBinPath);
-    const size_t nExtensionPos = strJpegName.find_last_of('.');
+    std::string strImageName = basename_of(strBinPath);
+    const size_t nExtensionPos = strImageName.find_last_of('.');
     if (nExtensionPos != std::string::npos)
     {
-        strJpegName.erase(nExtensionPos);
+        strImageName.erase(nExtensionPos);
     }
-    if (strJpegName.empty())
+    if (strImageName.empty())
     {
-        strError = "BinPath file name is invalid for jpeg face image";
+        strError = "BinPath file name is invalid for face image";
         return false;
     }
 
-    const std::string strJpegPath = dirname_of(strBinPath) + "/" + strJpegName + ".jpg";
+    /* 保留文件标识并限制名称长度，目录固定由设备管理，唯一后缀避免同名人脸覆盖。 */
+    constexpr size_t PLATFORM_FACE_IMAGE_NAME_MAX = 64;
+    strImageName.resize(std::min(strImageName.size(), PLATFORM_FACE_IMAGE_NAME_MAX));
+    for (char &chName : strImageName)
+    {
+        if (!std::isalnum(static_cast<unsigned char>(chName)) && chName != '-' && chName != '_')
+        {
+            chName = '_';
+        }
+    }
+    if (!ensure_directory(PLATFORM_FACE_IMAGE_DIR))
+    {
+        strError = "create face image directory failed";
+        return false;
+    }
+    const std::string strTemplate = std::string(PLATFORM_FACE_IMAGE_DIR) + "/" + strImageName + ".XXXXXX";
+    std::vector<char> aTempPath(strTemplate.begin(), strTemplate.end());
+    aTempPath.push_back('\0');
+    /* mkstemp 原子创建本次下载专用文件，句柄立即关闭，后续复用已有下载函数。 */
+    const int nTempFd = mkstemp(aTempPath.data());
+    if (nTempFd < 0)
+    {
+        strError = "create temporary face image failed";
+        return false;
+    }
+    const std::string strTempPath(aTempPath.data());
+    if (close(nTempFd) != 0)
+    {
+        strError = "close temporary face image failed";
+        std::remove(strTempPath.c_str());
+        return false;
+    }
     const std::string strResolvedUrl = resolve_platform_file_url(strPicUrl);
-    if (!download_file_to_path(strResolvedUrl, strJpegPath, strError))
+    if (!download_file_to_path(strResolvedUrl, strTempPath, strError))
     {
-        dlog_error("人脸 JPG 下载失败：url[%s] local[%s] error[%s]",
-                   strResolvedUrl.c_str(), strJpegPath.c_str(), strError.c_str());
+        dlog_error("人脸原图下载失败：url[%s] local[%s] error[%s]",
+                   strResolvedUrl.c_str(), strTempPath.c_str(), strError.c_str());
+        std::remove((strTempPath + ".tmp").c_str());
+        std::remove(strTempPath.c_str());
         return false;
     }
 
-    const long long nJpegSize = file_size(strJpegPath);
-    if (nJpegSize < 4)
+    const long long lImageSize = file_size(strTempPath);
+    if (lImageSize <= 0 || lImageSize > std::numeric_limits<int>::max())
     {
-        strError = "jpeg file is empty or truncated: " + strJpegPath;
-        std::remove(strJpegPath.c_str());
+        strError = "face image size is invalid: " + strTempPath;
+        std::remove(strTempPath.c_str());
         return false;
     }
 
-    std::ifstream stJpegFile(strJpegPath.c_str(), std::ios::binary);
-    unsigned char aHeader[3] = {0};
-    unsigned char aTrailer[2] = {0};
-    stJpegFile.read(reinterpret_cast<char *>(aHeader), sizeof(aHeader));
-    stJpegFile.seekg(-static_cast<std::streamoff>(sizeof(aTrailer)), std::ios::end);
-    stJpegFile.read(reinterpret_cast<char *>(aTrailer), sizeof(aTrailer));
-    if (!stJpegFile.good() || aHeader[0] != 0xff || aHeader[1] != 0xd8 || aHeader[2] != 0xff ||
-        aTrailer[0] != 0xff || aTrailer[1] != 0xd9)
+    std::string strImageType = {};
+    if (!platform_detect_face_image_type(strTempPath, strImageType))
     {
-        strError = "downloaded file is not a complete jpeg: " + strJpegPath;
-        std::remove(strJpegPath.c_str());
+        strError = "unsupported face image format, expected JPEG/PNG/BMP: " + strTempPath;
+        std::remove(strTempPath.c_str());
+        return false;
+    }
+    const std::string strImagePath = strTempPath + "." + strImageType;
+    if (std::rename(strTempPath.c_str(), strImagePath.c_str()) != 0)
+    {
+        strError = "rename face image failed: " + strImagePath;
+        std::remove(strTempPath.c_str());
         return false;
     }
 
-    set_json_string(pData, "PicPath", strJpegPath);
-    set_json_string(pData, "PicType", "jpg");
-    set_json_int(pData, "PicSize", static_cast<int>(nJpegSize));
-    dlog_info("人脸 JPG 文件下载完成：%s，大小[%lld]", strJpegPath.c_str(), nJpegSize);
+    set_json_string(pData, "PicPath", strImagePath);
+    set_json_string(pData, "PicType", strImageType);
+    set_json_int(pData, "PicSize", static_cast<int>(lImageSize));
+    dlog_info("人脸原图下载完成：path[%s] type[%s] size[%lld]",
+              strImagePath.c_str(), strImageType.c_str(), lImageSize);
     return true;
 }
 
@@ -2763,7 +2836,7 @@ bool CPlatformManager::download_file_to_path(const std::string &strUrl,
     cli.set_connection_timeout(5, 0);
     cli.set_read_timeout(30, 0);
 
-    dlog_info("开始下载人脸 NV21 文件：%s -> %s", strUrl.c_str(), strLocalPath.c_str());
+    dlog_info("开始下载人脸文件：%s -> %s", strUrl.c_str(), strLocalPath.c_str());
 
     httplib::Headers headers;
     const std::string strPlatformHost = g_custom ? custom_host : host_;
@@ -2816,7 +2889,7 @@ bool CPlatformManager::download_file_to_path(const std::string &strUrl,
         return false;
     }
 
-    dlog_info("人脸 NV21 文件下载完成：%s，大小[%zu]", strLocalPath.c_str(), res->body.size());
+    dlog_info("人脸文件下载完成：%s，大小[%zu]", strLocalPath.c_str(), res->body.size());
     return true;
 }
 

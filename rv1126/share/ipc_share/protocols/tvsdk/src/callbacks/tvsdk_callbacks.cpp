@@ -8,7 +8,6 @@
  * @Change       : 2026-09-08 越界设置保留规则数量和索引，无效参数保留旧值，由事件总开关控制
  * @Change       : 2026-09-08 人员聚集保留规则数量及位置，无效规则回退旧值并返回实际任务结果
  * @Change       : 2026-09-08 统一十六类智能事件的规则回退和业务结果返回，校验 IPC 数量上限
- * @Change       : 2026-09-12 物品遗留阈值和灵敏度越界时拒绝整次设置，保留空区域兼容处理
  */
 
 #include "tvsdk_callbacks.h"
@@ -3771,7 +3770,7 @@ static NET_COMMON_ECODE_E cb_get_road_ponding_cfg(INT32 dwChannelID, LPVOID lpOu
     strJson = normalize_data_json(outJson);
     Convert::to_struct(strJson, stCfg);
     TvSdkConvert::FillRoadPondingCfg(stCfg, *pOut);
-    pOut->nChannelID = 0;
+    pOut->uChannel = 0;
     return NET_E_SUCCEED;
 }
 
@@ -3968,14 +3967,6 @@ static NET_COMMON_ECODE_E cb_get_unattended_object_alarm(INT32 dwChannelID, LPVO
     return NET_E_SUCCEED;
 }
 
-/**
- * @brief 保存物品遗留配置，阈值或灵敏度越界时拒绝设置，空区域沿用原有兼容处理。
- * @author ITC
- * @param [in] nChannelId SDK 通道编号。
- * @param [in] pInBuffer 指向 NET_UnattendedObjectAlarmInfo_S 的配置缓冲区。
- * @param [out] 无。
- * @return 数量、阈值或灵敏度非法返回 NET_E_INVALID_PARAM，成功返回 NET_E_SUCCEED，其他失败返回对应错误码。
- */
 static NET_COMMON_ECODE_E cb_set_unattended_object_alarm(INT32 nChannelId, LPVOID pInBuffer)
 {
     if (pInBuffer == nullptr)

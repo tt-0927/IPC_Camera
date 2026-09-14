@@ -42,6 +42,7 @@ static bool IsDeviceLevelCommand(INT32 nCommand)
         case NET_CONTROL_REBOOT:
         case NET_CONTROL_SHUTDOWN:
         case NET_CONTROL_FORMAT_DISK:
+        case NET_CONTROL_RESET:
         case NET_GET_DEVICE_STATUS:
         case NET_GET_OUT_VOLUME:
         case NET_SET_OUT_VOLUME:
@@ -70,19 +71,21 @@ static bool IsDeviceLevelCommand(INT32 nCommand)
         /* ===== 通道信息 ===== */
         case NET_GET_CHANNEL_INFO:
 
-        /* ===== RTSP流地址（通道号由请求JSON携带） ===== */
+        /* ===== RTSP流地址 ===== */
         case NET_GET_RTSPURLCFG:
 
-        /* ===== 录像高级参数/下载 ===== */
-        case NET_GET_RECORD_ADVANCED_PARAM:
-        case NET_SET_RECORD_ADVANCED_PARAM:
-        case NET_DOWNLOAD_RECORD_FILE:
-
-        /* ===== 人脸库（设备级） ===== */
+        /* ===== 人脸库/人脸信息 ===== */
         case NET_GET_TARGET_LIB:
         case NET_ADD_TARGET_LIB:
         case NET_DEL_TARGET_LIB:
         case NET_SET_TARGET_LIB:
+        case NET_ADD_FACE_INFO:
+        case NET_DEL_FACE_INFO:
+        case NET_SET_FACE_INFO:
+        case NET_GET_FACE_INFO:
+
+        /* ===== 串口参数 ===== */
+        case NET_GET_SERIAL_PORT_PARAM:
             return true;
 
         default:

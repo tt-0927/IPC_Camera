@@ -56,6 +56,8 @@ static const Event::Type_E TARGET_DETECTION_EVENT_MAP[] =
 {
     ::Event::Type_E::FACE_DETECT,
     ::Event::Type_E::PET_RECOGNITION,
+    ::Event::Type_E::GARBAGE_EXPOSURE,
+    ::Event::Type_E::GARBAGE_OVERFLOW,
 };
 
 /* 人脸抓拍事件 */
@@ -77,8 +79,8 @@ static const Event::Type_E BEHAVIOR_MONITORING_EVENT_MAP[] =
     ::Event::Type_E::GARBAGE_EXPOSURE,
     ::Event::Type_E::SMOKE_FIRE,
     ::Event::Type_E::OPEN_FLAME,
-    ::Event::Type_E::GARBAGE_OVERFLOW,
-    ::Event::Type_E::MANHOLE_COVER_ABNORMAL,
+    // ::Event::Type_E::GARBAGE_OVERFLOW,
+    // ::Event::Type_E::MANHOLE_COVER_ABNORMAL,
     ::Event::Type_E::BARE_SOIL,
     ::Event::Type_E::HOLE_PROTECTION_BAR,
     ::Event::Type_E::PEDESTRIAN_INTRUSION,

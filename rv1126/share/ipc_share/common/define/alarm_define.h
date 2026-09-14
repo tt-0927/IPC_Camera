@@ -5,8 +5,6 @@
  * @LastEditors  : zhouzr@kfb.cn
  * @LastEditTime : 2026-06-04 10:50:38
  * @Description  : 报警配置参数数据结构
- * @FileName     : alarm_define.h
- * @Change       : 2026-09-08 初始化并复制已有规则的时间阈值，补齐徘徊检测目标复制，不新增字段
  */
 
 #pragma once

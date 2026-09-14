@@ -89,7 +89,7 @@ BOOL CConfigQuery::GetDevConfig(LPVOID lpUserID, INT32 dwChannelID, INT32 dwComm
         case NET_GET_OSDCAPCFG:          return GetDevConfig_Impl<NET_VideoOsdCfg_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
         case NET_GET_IMAGECFG:           return GetDevConfig_Impl<NET_ImageSetting_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
         case NET_GET_RTSPURLCFG:         return GetDevConfig_Impl<NET_RtspUrlInfo_S, true>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_GET_NETWORKCFG:         return GetDevConfig_Impl<NET_NetworkCfg_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_GET_NETWORKCFG:         return GetDevConfig_Impl<NET_NetworkCfgList_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
         case NET_GET_4G_INFO:            return GetDevConfig_Impl<NET_4GInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
         case NET_GET_HOTSPOT_CONN:       return GetDevConfig_Impl<NET_HotspotConnInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
         case NET_GET_SECURITY_SERVICES_INFO: return GetDevConfig_Impl<NET_SecurityServicesInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
@@ -108,10 +108,7 @@ BOOL CConfigQuery::GetDevConfig(LPVOID lpUserID, INT32 dwChannelID, INT32 dwComm
         case NET_GET_RECORD_SCHEDULE:    return GetDevConfig_Impl<NET_RecordSchedule_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
         case NET_GET_RECORD_ADVANCED_PARAM: return GetDevConfig_Impl<NET_RecordAdvancedParam_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
         case NET_FIND_RECORD_FILE_INFO:  return GetRecordFileList(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_GET_PRIVACYMASKCFG:
-            printf("[ClientSDK] GET_PRIVACYMASKCFG cmd=%d, buf=%d, privacy_size=%zu\n",
-                   dwCommand, dwOutBufferSize, sizeof(NET_PrivacyMaskCfg_S));
-            return GetDevConfig_Impl<NET_PrivacyMaskCfg_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_GET_PRIVACYMASKCFG:     return GetDevConfig_Impl<NET_PrivacyMaskCfg_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
         case NET_GET_TAMPERALARM:        return GetDevConfig_Impl<NET_TamperAlarmInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
         case NET_GET_MOTIONALARM:        return GetDevConfig_Impl<NET_MotionAlarmInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
         case NET_GET_CROSSLINEALARM:     return GetDevConfig_Impl<NET_CrossLineAlarmInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
@@ -171,7 +168,9 @@ BOOL CConfigQuery::GetDevConfig(LPVOID lpUserID, INT32 dwChannelID, INT32 dwComm
         case NET_GET_TARGET_LIB:         return GetDevConfig_Impl<NET_FaceLibList_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
         case NET_GET_FACE_INFO:          return GetDevConfig_Impl<NET_FaceInfoList_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
         case NET_GET_DEVICE_STATUS:      return GetDevConfig_Impl<NET_DeviceStatusInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_GET_CHANNEL_NAME:       return GetDevConfig_Impl<NET_ChannelNameInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
         case NET_GET_SERIAL_PORT_PARAM:  return GetDevConfig_Impl<NET_SerialPortParam_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_GET_VOICECOM_AUDIO_CFG: return GetDevConfig_Impl<NET_VoiceComAudioCfg_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
         default:
             CErrorManage::instance()->SetLastError(NET_E_CMD_NOT_SUPPORT);
             return FALSE;
@@ -195,7 +194,7 @@ BOOL CConfigQuery::SetDevConfig(LPVOID lpUserID, INT32 dwChannelID, INT32 dwComm
         case NET_SET_STREAMCFG:          return SetDevConfig_Impl<NET_VideoEncodeOption_S>(lpUserID, dwChannelID, dwCommand, lpInBuffer, dwInBufferSize, pdwBytesReturned);
         case NET_SET_OSDCAPCFG:          return SetDevConfig_Impl<NET_VideoOsdCfg_S>(lpUserID, dwChannelID, dwCommand, lpInBuffer, dwInBufferSize, pdwBytesReturned);
         case NET_SET_IMAGECFG:           return SetDevConfig_Impl<NET_ImageSetting_S>(lpUserID, dwChannelID, dwCommand, lpInBuffer, dwInBufferSize, pdwBytesReturned);
-        case NET_SET_NETWORKCFG:         return SetDevConfig_Impl<NET_NetworkCfg_S>(lpUserID, dwChannelID, dwCommand, lpInBuffer, dwInBufferSize, pdwBytesReturned);
+        case NET_SET_NETWORKCFG:         return SetDevConfig_Impl<NET_NetworkCfgList_S>(lpUserID, dwChannelID, dwCommand, lpInBuffer, dwInBufferSize, pdwBytesReturned);
         case NET_SET_CONFIG_WIFI_STA:    return SetDevConfig_Impl<NET_WifiStaCfg_S>(lpUserID, dwChannelID, dwCommand, lpInBuffer, dwInBufferSize, pdwBytesReturned);
         case NET_CONNECT_WIFI_STA:       return SetDevConfig_Impl<NET_WifiStaConnect_S>(lpUserID, dwChannelID, dwCommand, lpInBuffer, dwInBufferSize, pdwBytesReturned);
         case NET_DISCONNECT_WIFI_STA:    return SetDevConfig_Impl<NET_WifiStaConnect_S>(lpUserID, dwChannelID, dwCommand, lpInBuffer, dwInBufferSize, pdwBytesReturned);
@@ -208,10 +207,7 @@ BOOL CConfigQuery::SetDevConfig(LPVOID lpUserID, INT32 dwChannelID, INT32 dwComm
         case NET_SET_RECORD_SCHEDULE:    return SetDevConfig_Impl<NET_RecordSchedule_S>(lpUserID, dwChannelID, dwCommand, lpInBuffer, dwInBufferSize, pdwBytesReturned);
         case NET_SET_RECORD_ADVANCED_PARAM: return SetDevConfig_Impl<NET_RecordAdvancedParam_S>(lpUserID, dwChannelID, dwCommand, lpInBuffer, dwInBufferSize, pdwBytesReturned);
         case NET_DOWNLOAD_RECORD_FILE:   return SetDevConfig_Impl<NET_RecordDownloadList_S>(lpUserID, dwChannelID, dwCommand, lpInBuffer, dwInBufferSize, pdwBytesReturned);
-        case NET_SET_PRIVACYMASKCFG:
-            printf("[ClientSDK] SET_PRIVACYMASKCFG cmd=%d, buf=%d, privacy_size=%zu\n",
-                   dwCommand, dwInBufferSize, sizeof(NET_PrivacyMaskCfg_S));
-            return SetDevConfig_Impl<NET_PrivacyMaskCfg_S>(lpUserID, dwChannelID, dwCommand, lpInBuffer, dwInBufferSize, pdwBytesReturned);
+        case NET_SET_PRIVACYMASKCFG:     return SetDevConfig_Impl<NET_PrivacyMaskCfg_S>(lpUserID, dwChannelID, dwCommand, lpInBuffer, dwInBufferSize, pdwBytesReturned);
         case NET_SET_TAMPERALARM:        return SetDevConfig_Impl<NET_TamperAlarmInfo_S>(lpUserID, dwChannelID, dwCommand, lpInBuffer, dwInBufferSize, pdwBytesReturned);
         case NET_SET_MOTIONALARM:        return SetDevConfig_Impl<NET_MotionAlarmInfo_S>(lpUserID, dwChannelID, dwCommand, lpInBuffer, dwInBufferSize, pdwBytesReturned);
         case NET_SET_CROSSLINEALARM:     return SetDevConfig_Impl<NET_CrossLineAlarmInfo_S>(lpUserID, dwChannelID, dwCommand, lpInBuffer, dwInBufferSize, pdwBytesReturned);
@@ -265,6 +261,7 @@ BOOL CConfigQuery::SetDevConfig(LPVOID lpUserID, INT32 dwChannelID, INT32 dwComm
         case NET_SET_UPGRADE:            return SetDevConfig_Impl<NET_UpgradeInfo_S>(lpUserID, dwChannelID, dwCommand, lpInBuffer, dwInBufferSize, pdwBytesReturned);
         case NET_SET_CAPTURE_PLAN_INFO:  return SetDevConfig_Impl<NET_CapturePlanInfo_S>(lpUserID, dwChannelID, dwCommand, lpInBuffer, dwInBufferSize, pdwBytesReturned);
         case NET_SET_CAPTURE_PARAM_INFO: return SetDevConfig_Impl<NET_CaptureParamInfo_S>(lpUserID, dwChannelID, dwCommand, lpInBuffer, dwInBufferSize, pdwBytesReturned);
+        case NET_SET_VOICECOM_AUDIO_CFG: return SetDevConfig_Impl<NET_VoiceComAudioCfg_S>(lpUserID, dwChannelID, dwCommand, lpInBuffer, dwInBufferSize, pdwBytesReturned);
         case NET_SET_EXPOSURE_INFO:      return SetDevConfig_Impl<NET_ExposureInfo_S>(lpUserID, dwChannelID, dwCommand, lpInBuffer, dwInBufferSize, pdwBytesReturned);
         case NET_SET_DAYNIGHT_INFO:      return SetDevConfig_Impl<NET_DayNightInfo_S>(lpUserID, dwChannelID, dwCommand, lpInBuffer, dwInBufferSize, pdwBytesReturned);
         case NET_SET_BACKLIGHT_INFO:     return SetDevConfig_Impl<NET_BackLightInfo_S>(lpUserID, dwChannelID, dwCommand, lpInBuffer, dwInBufferSize, pdwBytesReturned);
@@ -286,6 +283,7 @@ BOOL CConfigQuery::SetDevConfig(LPVOID lpUserID, INT32 dwChannelID, INT32 dwComm
         case NET_CONTROL_SHUTDOWN:       return SetDevConfig_Impl<NET_ShutdownInfo_S>(lpUserID, dwChannelID, dwCommand, lpInBuffer, dwInBufferSize, pdwBytesReturned);
         case NET_CONTROL_FORMAT_DISK:    return SetDevConfig_Impl<NET_FormatDiskInfo_S>(lpUserID, dwChannelID, dwCommand, lpInBuffer, dwInBufferSize, pdwBytesReturned);
         case NET_SET_CHANNEL_NAME:       return SetDevConfig_Impl<NET_ChannelNameInfo_S>(lpUserID, dwChannelID, dwCommand, lpInBuffer, dwInBufferSize, pdwBytesReturned);
+        case NET_CONTROL_RESET:          return SetDevConfig_Impl<NET_ResetInfo_S>(lpUserID, dwChannelID, dwCommand, lpInBuffer, dwInBufferSize, pdwBytesReturned);
         /* -- 透明通道 -- */
         case NET_OPEN_TRANSPARENT_CHANNEL:  return SetDevConfig_Impl<NET_TransparentChannel_S>(lpUserID, dwChannelID, dwCommand, lpInBuffer, dwInBufferSize, pdwBytesReturned);
         case NET_CLOSE_TRANSPARENT_CHANNEL: return SetDevConfig_Impl<NET_TransparentChannel_S>(lpUserID, dwChannelID, dwCommand, lpInBuffer, dwInBufferSize, pdwBytesReturned);

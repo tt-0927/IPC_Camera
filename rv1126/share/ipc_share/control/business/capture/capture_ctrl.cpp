@@ -683,7 +683,8 @@ bool CCaptureCtrl::ensure_directory_exists(const std::string &path)
         /* 目录不存在，创建目录 */
         if (mkdir(path.c_str(), 0755) != 0)
         {
-            dlog_error("创建目录失败: %s", path.c_str());
+            dlog_error("创建目录失败: %s, errno=%d, error=%s",
+                path.c_str(), errno, strerror(errno));
             return false;
         }
         dlog_info("创建目录成功: %s", path.c_str());
@@ -780,7 +781,7 @@ std::string CCaptureCtrl::capture_image(Capture_NS::CaptureType_E eCaptureType,
             return strFilePath;
         }
     }
-    dlog_info("循环覆盖清理完成，共执行 %d 批，当前图片大小:%d", nCleanupBatches, nDataLen);
+    // dlog_info("循环覆盖清理完成，共执行 %d 批，当前图片大小:%d", nCleanupBatches, nDataLen);
 
 
     /* 获取按日期分类的存储路径 */

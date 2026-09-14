@@ -74,10 +74,11 @@ CCommonDomain::CCommonDomain()
         return CDeviceBusiness::instance()->HandleSetUpgrade(ch, cmd, req);
     };
 
-    /* 设备控制 (重启/关机/格式化) */
+    /* 设备控制 (重启/关机/格式化/恢复默认) */
     m_setTable[NET_CONTROL_REBOOT]       = &CCommonDomain::TemplatedSet<NET_RebootInfo_S>;
     m_setTable[NET_CONTROL_SHUTDOWN]     = &CCommonDomain::TemplatedSet<NET_ShutdownInfo_S>;
     m_setTable[NET_CONTROL_FORMAT_DISK]  = &CCommonDomain::TemplatedSet<NET_FormatDiskInfo_S>;
+    m_setTable[NET_CONTROL_RESET]        = &CCommonDomain::TemplatedSet<NET_ResetInfo_S>;
 }
 
 /* ===== 特殊处理函数实现 ===== */
