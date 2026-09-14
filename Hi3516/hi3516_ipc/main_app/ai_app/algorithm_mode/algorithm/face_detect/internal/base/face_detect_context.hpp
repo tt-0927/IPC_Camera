@@ -10,6 +10,7 @@
 #pragma once
 
 #include <mutex>
+#include <string>
 #include <vector>
 
 #include "YoloUltralyticsPoint_rpn.hpp"
@@ -17,6 +18,16 @@
 #include "face_detect_worker.hpp"
 namespace FaceDetectInternal
 {
+/*
+ * 当前检测帧的图片文件缓存。抓拍与比对按需复用同一文件；缓存只随当前回调存在，
+ * 任一功能单独开启时缓存为空，由该功能自行生成图片，不依赖另一功能。
+ */
+struct FaceFrameImageCache_S
+{
+    std::string strTargetImagePath;
+    std::string strPanoramaImagePath;
+};
+
 /**
  * @brief   : 人脸检测单帧处理共享上下文
  * @return   {struct} 为抓拍与特征处理器提供统一输入输出载体
@@ -39,5 +50,7 @@ typedef struct _SFaceProcessContext_
     long long llTimestamp = 0;
     /* NPU 推理互斥锁，特征模型切换上下文时使用 */
     CFaceDetectWorker* pDetectWorker = nullptr;
+    /* 当前帧抓拍/比对共享的图片路径，避免对同一帧重复编码 */
+    FaceFrameImageCache_S stImageCache;
 } SFaceProcessContext;
 } // namespace FaceDetectInternal

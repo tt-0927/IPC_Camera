@@ -507,7 +507,7 @@ build_demo() {
     # 根据demo名称确定子目录分类（Common 或 BG6_ZHSJ）
     local DEMO_SUBDIR=""
     case "$DEMO_NAME" in
-        capability|config)
+        capability|config|client_test)
             DEMO_SUBDIR="Common"
             ;;
         alarm|discovery|http_face)
@@ -515,7 +515,7 @@ build_demo() {
             ;;
         *)
             echo_red "错误：未知的Demo名称 '$DEMO_NAME'！"
-            echo_yellow "可用的Demo：capability, config, alarm, discovery, http_face"
+            echo_yellow "可用的Demo：capability, config, client_test, alarm, discovery, http_face"
             return 1
             ;;
     esac

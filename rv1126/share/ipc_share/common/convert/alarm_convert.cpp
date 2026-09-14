@@ -540,7 +540,7 @@ void Convert::deal(
 
 /* 进入区域相关 */
 /**
- * @brief 完整转换智能事件单条规则，保留现有时间阈值和检测目标字段。
+ * @brief 转换进入和离开区域规则，不再接收或输出时间阈值。
  * @author ITC
  * @param [in,out] pRootJson 规则 JSON 对象。
  * @param [in,out] stInfo IPC 规则结构体。
@@ -560,7 +560,6 @@ void Convert::deal(
     convert.structure(pRootJson, "Region", stInfo.stRegion);
     convert.field(pRootJson, "Sensitivity", stInfo.nSensitivity);
     convert.field(pRootJson, "DetectionTarget", stInfo.aDetectionTarget);
-    convert.field(pRootJson, "TimeThreshold", stInfo.nTimeThreshold);
 }
 
 void Convert::deal(
@@ -1912,6 +1911,7 @@ void Convert::deal(Json::Object *pRootJson, Alarm::NonMotorVehicleIntrusionRule_
     Convert::CConvert convert(bOutStruct);
     convert.field(pRootJson, "Sensitivity", stInfo.nSensitivity);
     convert.field(pRootJson, "TimeThreshold", stInfo.nTimeThreshold);
+    convert.field(pRootJson, "DetectionTarget", stInfo.aDetectionTarget);
     convert.structure(pRootJson, "Region", stInfo.stRegion);
 }
 

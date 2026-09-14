@@ -252,6 +252,24 @@ bool CMotionDetectLogic::is_daytime_unlocked() const
     return false;
 }
 
+float CMotionDetectLogic::sensitivity_to_threshold_unlocked(
+    int nSensitivity,
+    float fMinThreshold,
+    float fMaxThreshold) const
+{
+    int nClampedSens = std::clamp(nSensitivity, 0, 100);
+
+    if (nClampedSens == 0)
+    {
+        return 1.0f;
+    }
+
+    float fThreshold =
+        fMaxThreshold - nClampedSens * (fMaxThreshold - fMinThreshold) / 100.0f;
+
+    return std::clamp(fThreshold, fMinThreshold, fMaxThreshold);
+}
+
 int CMotionDetectLogic::calculate_overlap_area_unlocked(const Common::Rect_S &rect1,
                                                         const Common::Rect_S &rect2) const
 {
@@ -313,8 +331,9 @@ void CMotionDetectLogic::process_normal_mode_unlocked(ot_sample_svp_rect_info &s
     /* 是否报警 */
     bool bIsAlarm = false;
 
-    /* 灵敏度判断：将用户配置的[0,100]转换为[0,1]进行比较 */
-    float fSensitivityThreshold = 1 - m_stMotionDetCfg.stMotionNormalMode.nSensitivity / 100.0f;
+    /* 灵敏度判断：将用户配置的灵敏度反向映射为触发阈值 */
+    float fSensitivityThreshold =
+        sensitivity_to_threshold_unlocked(m_stMotionDetCfg.stMotionNormalMode.nSensitivity);
     /*  检查是否满足报警触发条件 */
     if (stRectInfo.sensitivity > fSensitivityThreshold)
     {
@@ -375,23 +394,26 @@ void CMotionDetectLogic::process_expert_mode_unlocked(ot_sample_svp_rect_info &s
         {
             const auto &configRegion = m_stMotionDetCfg.stMotionExpertMode.vstMotionRegion[configIdx];
 
-            /* 获取当前应使用的灵敏度阈值 */
-            float fSensitivityThreshold;
+            /* 获取当前应使用的灵敏度配置 */
+            int nSensitivity = 0;
             if (m_stMotionDetCfg.stMotionExpertMode.nExpertDayNightCtrl == 0)
             {
                 /* 关闭日夜切换，使用关闭时的灵敏度 */
-                fSensitivityThreshold = 1.0f - configRegion.nCloseSensitivity / 100.0f;
+                nSensitivity = configRegion.nCloseSensitivity;
             }
             else if (bIsDaytime)
             {
                 /* 白天灵敏度 */
-                fSensitivityThreshold = 1.0f - configRegion.nDaytimeSensitivity / 100.0f;
+                nSensitivity = configRegion.nDaytimeSensitivity;
             }
             else
             {
                 /* 夜晚灵敏度 */
-                fSensitivityThreshold = 1.0f - configRegion.nNightSensitivity / 100.0f;
+                nSensitivity = configRegion.nNightSensitivity;
             }
+
+            /* 灵敏度判断：将用户配置的灵敏度反向映射为触发阈值 */
+            float fSensitivityThreshold = sensitivity_to_threshold_unlocked(nSensitivity);
 
             /* 计算配置区域面积 */
             int nConfigAreaSize = configRegion.stRect.nWidth * configRegion.stRect.nHeight;

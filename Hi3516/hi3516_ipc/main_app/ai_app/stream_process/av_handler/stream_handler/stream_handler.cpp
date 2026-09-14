@@ -131,24 +131,14 @@ void CStreamHandler::recvDataProcess(const void *pData, int nLength, int nWidth,
     }
 
     /* 创建自定义删除器 */
-    auto deleter = [nLength](ot_video_frame_info *frameToDelete)
+    auto deleter = [](ot_video_frame_info *frameToDelete)
     {
         if (!frameToDelete)
             return;
 
-        /* 调用海思SDK的VPSS接口释放VB Block */
+        /* mppVgs_create_video_frame_info 创建的映射、VB块和私有池统一在此释放。 */
         if (frameToDelete->pool_id != OT_VB_INVALID_POOL_ID)
         {
-            /* 如果pool_id无效,说明是我们自己创建的,需要手动释放 */
-            td_void *virtAddr = (td_void *) frameToDelete->video_frame.virt_addr[0];
-            if (virtAddr)
-            {
-                /* memory存储解映射 */
-                if (ss_mpi_sys_munmap(virtAddr, nLength) != 0)
-                    dlog_warn("memory存储解映射失败, 地址:[%p]", virtAddr);
-            }
-
-            /* 销毁video_frame_info结构 */
             mppVgs_destroy_video_frame_info(frameToDelete);
         }
 
@@ -157,7 +147,7 @@ void CStreamHandler::recvDataProcess(const void *pData, int nLength, int nWidth,
     };
 
     /* 创建video_frame_info结构 */
-    ot_video_frame_info *pFrameInfo = new (std::nothrow) ot_video_frame_info;
+    ot_video_frame_info *pFrameInfo = new (std::nothrow) ot_video_frame_info{};
     if (!pFrameInfo)
     {
         dlog_error("分配ot_video_frame_info内存失败");
@@ -172,21 +162,30 @@ void CStreamHandler::recvDataProcess(const void *pData, int nLength, int nWidth,
         return;
     }
 
-    /* 映射物理地址到虚拟地址 */
-    pFrameInfo->video_frame.virt_addr[0] = ss_mpi_sys_mmap(pFrameInfo->video_frame.phys_addr[0], nLength);
+    /* create接口已经完成整块VB的映射，避免对同一物理帧重复mmap。 */
     if (!pFrameInfo->video_frame.virt_addr[0])
     {
-        dlog_error("ss_mpi_sys_mmap失败");
+        dlog_error("video_frame_info虚拟地址无效");
+        mppVgs_destroy_video_frame_info(pFrameInfo);
+        delete pFrameInfo;
+        return;
+    }
+
+    const size_t nFrameCapacity =
+        static_cast<size_t>(pFrameInfo->video_frame.stride[0]) * nHeight +
+        static_cast<size_t>(pFrameInfo->video_frame.stride[1]) * nHeight / 2;
+    if (static_cast<size_t>(nLength) > nFrameCapacity)
+    {
+        dlog_error("视频帧数据超出VB容量: data=%d, capacity=%zu", nLength, nFrameCapacity);
         mppVgs_destroy_video_frame_info(pFrameInfo);
         delete pFrameInfo;
         return;
     }
 
     /* 拷贝数据到映射的虚拟地址 */
-    if (memcpy_s(pFrameInfo->video_frame.virt_addr[0], nLength, pData, nLength) != 0)
+    if (memcpy_s(pFrameInfo->video_frame.virt_addr[0], nFrameCapacity, pData, nLength) != 0)
     {
         dlog_error("memcpy_s失败");
-        ss_mpi_sys_munmap(pFrameInfo->video_frame.virt_addr[0], nLength);
         mppVgs_destroy_video_frame_info(pFrameInfo);
         delete pFrameInfo;
         return;

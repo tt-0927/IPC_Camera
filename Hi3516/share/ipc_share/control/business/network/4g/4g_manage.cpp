@@ -36,7 +36,7 @@ void runSystemCommand(const std::string& cmd) {
     std::cout << "[SYS] >>> " << cmd << std::endl;
     int ret = system(cmd.c_str());
     if (ret != 0) {
-        std::cerr << "[SYS] Command failed with code: " << ret << std::endl;
+        std::cerr << "[SYS] Command failed with code:  " << ret << std::endl;
     }
 }
 

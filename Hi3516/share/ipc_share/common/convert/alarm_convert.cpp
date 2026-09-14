@@ -5,6 +5,8 @@
  * @LastEditors  : zhouzr@kfb.cn
  * @LastEditTime : 2026-06-04 10:52:47
  * @Description  : 报警配置数据的转换
+ * @FileName     : alarm_convert.cpp
+ * @Change       : 2026-09-08 补齐已有智能规则的检测目标和时间阈值，避免保存及回显时丢失
  */
 
 #include "alarm_convert.h"
@@ -537,6 +539,14 @@ void Convert::deal(
 }
 
 /* 进入区域相关 */
+/**
+ * @brief 转换进入和离开区域规则，不再接收或输出时间阈值。
+ * @author ITC
+ * @param [in,out] pRootJson 规则 JSON 对象。
+ * @param [in,out] stInfo IPC 规则结构体。
+ * @param [in] bOutStruct 为 true 时读取 JSON，否则输出 JSON。
+ * @return 无。
+ */
 void Convert::deal(
     Json::Object *pRootJson,
     Alarm::EnterExitIntrusion_S &stInfo,
@@ -657,6 +667,14 @@ void Convert::deal(Json::Object *pRootJson, Alarm::FaceDetection_S &stInfo, bool
 }
 
 /* 徘徊侦测相关 */
+/**
+ * @brief 完整转换智能事件单条规则，保留现有时间阈值和检测目标字段。
+ * @author ITC
+ * @param [in,out] pRootJson 规则 JSON 对象。
+ * @param [in,out] stInfo IPC 规则结构体。
+ * @param [in] bOutStruct 为 true 时读取 JSON，否则输出 JSON。
+ * @return 无。
+ */
 void Convert::deal(Json::Object *pRootJson, Alarm::LoiteringRule_S &stInfo, bool bOutStruct)
 {
     if (!pRootJson)
@@ -1218,6 +1236,14 @@ void Convert::deal(Json::Object *pRootJson, Alarm::RealAlarmPushBatchRequest_S &
 #endif
 
 #ifdef SCENE_INTELLIGENCE
+/**
+ * @brief 完整转换智能事件单条规则，保留现有时间阈值和检测目标字段。
+ * @author ITC
+ * @param [in,out] pRootJson 规则 JSON 对象。
+ * @param [in,out] stInfo IPC 规则结构体。
+ * @param [in] bOutStruct 为 true 时读取 JSON，否则输出 JSON。
+ * @return 无。
+ */
 void Convert::deal(Json::Object *pRootJson, Alarm::FenceClimbingRule_S &stInfo, bool bOutStruct)
 {
     if (!pRootJson)
@@ -1243,6 +1269,14 @@ void Convert::deal(Json::Object *pRootJson, Alarm::FenceClimbingDetection_S &stI
     convert.structure(pRootJson, "LinkageMode", stInfo.stLinkageList);
 }
 
+/**
+ * @brief 完整转换智能事件单条规则，保留现有时间阈值和检测目标字段。
+ * @author ITC
+ * @param [in,out] pRootJson 规则 JSON 对象。
+ * @param [in,out] stInfo IPC 规则结构体。
+ * @param [in] bOutStruct 为 true 时读取 JSON，否则输出 JSON。
+ * @return 无。
+ */
 void Convert::deal(Json::Object *pRootJson, Alarm::LeavePostRule_S &stInfo, bool bOutStruct)
 {
     if (!pRootJson)
@@ -1269,6 +1303,14 @@ void Convert::deal(Json::Object *pRootJson, Alarm::LeavePostDetection_S &stInfo,
     convert.structure(pRootJson, "LinkageMode", stInfo.stLinkageList);
 }
 
+/**
+ * @brief 完整转换智能事件单条规则，保留现有时间阈值和检测目标字段。
+ * @author ITC
+ * @param [in,out] pRootJson 规则 JSON 对象。
+ * @param [in,out] stInfo IPC 规则结构体。
+ * @param [in] bOutStruct 为 true 时读取 JSON，否则输出 JSON。
+ * @return 无。
+ */
 void Convert::deal(Json::Object *pRootJson, Alarm::PedestrianIntrusionRule_S &stInfo, bool bOutStruct)
 {
     if (!pRootJson)
@@ -1731,6 +1773,12 @@ void Convert::deal(Json::Object *pRootJson, std::vector<Alarm::DrivingAgainstTra
     convert.structure(pRootJson, stInfo);
 }
 
+/*
+ * 功能：转换逆行配置，读取布防时间时替换默认周计划，避免重复追加。
+ * param [in] pRootJson：逆行配置 JSON 对象；bOutStruct：是否读取到结构体。
+ * param [in,out] stInfo：待读取或输出的逆行配置。
+ * return：无。
+ */
 void Convert::deal(Json::Object *pRootJson, Alarm::DrivingAgainstTrafficDetection_S &stInfo, bool bOutStruct)
 {
     if (!pRootJson)
@@ -1741,6 +1789,11 @@ void Convert::deal(Json::Object *pRootJson, Alarm::DrivingAgainstTrafficDetectio
     Convert::CConvert convert(bOutStruct);
     convert.field(pRootJson, "Enable", stInfo.bEnable);
     convert.structure(pRootJson, "Rule", stInfo.aRule);
+    /* 公共解析器采用追加方式；仅在传入周计划时清空，缺省字段保持原值。 */
+    if (bOutStruct && Json::get(pRootJson, "AlarmTime1") != nullptr)
+    {
+        stInfo.aAlarmTime.clear();
+    }
     convert.structure(pRootJson, stInfo.aAlarmTime);
     convert.structure(pRootJson, "LinkageMode", stInfo.stLinkageList);
 }
@@ -1841,6 +1894,14 @@ void Convert::deal(Json::Object *pRootJson, Alarm::EmergencyLaneOccupancyDetecti
 }
 
 /* 非机动车闯入侦测相关 */
+/**
+ * @brief 完整转换智能事件单条规则，保留现有时间阈值和检测目标字段。
+ * @author ITC
+ * @param [in,out] pRootJson 规则 JSON 对象。
+ * @param [in,out] stInfo IPC 规则结构体。
+ * @param [in] bOutStruct 为 true 时读取 JSON，否则输出 JSON。
+ * @return 无。
+ */
 void Convert::deal(Json::Object *pRootJson, Alarm::NonMotorVehicleIntrusionRule_S &stInfo, bool bOutStruct)
 {
     if (!pRootJson)
@@ -1850,6 +1911,7 @@ void Convert::deal(Json::Object *pRootJson, Alarm::NonMotorVehicleIntrusionRule_
     Convert::CConvert convert(bOutStruct);
     convert.field(pRootJson, "Sensitivity", stInfo.nSensitivity);
     convert.field(pRootJson, "TimeThreshold", stInfo.nTimeThreshold);
+    convert.field(pRootJson, "DetectionTarget", stInfo.aDetectionTarget);
     convert.structure(pRootJson, "Region", stInfo.stRegion);
 }
 

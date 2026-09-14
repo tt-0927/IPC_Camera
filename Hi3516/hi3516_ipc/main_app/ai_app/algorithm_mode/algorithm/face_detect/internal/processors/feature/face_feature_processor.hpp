@@ -196,10 +196,11 @@ private:
                               long long llTimestamp,
                               int nFaceId,
                               float fSimilarity,
-                              float fThreshold,
-                            //   const FaceDataDB_NS::FaceLibsInfo_S &stMatchedFaceInfo,
-                              CFaceCaptureProcessor &stCaptureProcessor,
-                              std::vector<std::string> &vecImageFile);
+                               float fThreshold,
+                             //   const FaceDataDB_NS::FaceLibsInfo_S &stMatchedFaceInfo,
+                               CFaceCaptureProcessor &stCaptureProcessor,
+                               FaceFrameImageCache_S &stImageCache,
+                               std::vector<std::string> &vecImageFile);
 
     /**
      * @brief   : 将 NV21 人脸图转换为特征模型输入浮点数组

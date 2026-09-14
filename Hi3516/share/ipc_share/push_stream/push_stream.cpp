@@ -5,7 +5,6 @@
  * @LastEditors  : zhouzr@kfb.cn
  * @LastEditTime : 2026-08-20 16:00:01
  * @Description  : 推流模块
- * @修改记录     : 2026-09-10 限制 TV-3852TL4G 和 TV-3852TLW 仅推送 RTMP 主码流。
  */
 
 #include "push_stream.h"

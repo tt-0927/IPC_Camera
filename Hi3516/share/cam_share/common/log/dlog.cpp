@@ -3,7 +3,7 @@
  * @Author       : zhangjunbin
  * @Date         : 2021年3月30日
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-08-08 10:20:09
+ * @LastEditTime : 2026-09-09 15:59:02
  * @Description  : 日志的基础库，基于spdlog封装
  */
 
@@ -142,7 +142,7 @@ int initLogBySize(char *logname, char *logfile, int max_file_size, int max_files
 	handle->bSynPrintf = false;
 
 	/* 异步模式：I/O 在后台线程执行，不阻塞业务线程 */
-	auto tp = std::make_shared<spdlog::details::thread_pool>(8192, 1);
+	auto tp = std::make_shared<spdlog::details::thread_pool>(1024, 1);
 	/* 将 thread_pool 注册到全局 registry，确保其生命周期覆盖所有 async_logger */
 	spdlog::details::registry::instance().set_tp(tp);
 	auto sink = std::make_shared<spdlog::sinks::rotating_file_sink_mt>(logFile, max_file_size, max_files);

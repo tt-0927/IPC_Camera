@@ -10,6 +10,8 @@
 #pragma once
 
 #include <set>
+#include <utility>
+#include <type_traits>
 #include "convert_interface.h"
 
 /*存储类型枚举*/
@@ -94,6 +96,11 @@ public:
             initializeDefault();
             Convert::write_file(m_filePath, m_data);
         }
+        else
+        {
+            /* 即使文件读取成功，也要校验数据完整性 */
+            validateAfterRead();
+        }
     }
 
     ~ConfigStorage()
@@ -104,6 +111,8 @@ public:
     int set(const T &config)
     {
         m_data = config;
+        /* 校验并修复 */
+        validateAfterReadImpl(has_rule_and_default<T>{});
         Convert::write_file(m_filePath, m_data);
         return 0;
     }
@@ -162,5 +171,45 @@ private:
     {
         /*  没有 CreateWithDefaultRule 方法，使用默认构造 */
         m_data = T{};
+    }
+
+    /* 检测类型是否同时有 aRule 和 CreateWithDefaultRule */
+    template <typename, typename = std::void_t<>>
+    struct has_rule_and_default : std::false_type
+    {
+    };
+
+    template <typename U>
+    struct has_rule_and_default<U, std::void_t<
+        decltype(U::CreateWithDefaultRule()),
+        decltype(std::declval<U>().aRule.empty())
+    >> : std::true_type
+    {
+    };
+
+    void validateAfterRead()
+    {
+        if (validateAfterReadImpl(has_rule_and_default<T>{}))
+        {
+            Convert::write_file(m_filePath, m_data);
+        }
+    }
+
+    bool validateAfterReadImpl(std::true_type)
+    {
+        if (m_data.aRule.empty())
+        {
+            /* 仅恢复缺失的规则数组，保留用户已配置的其他字段（布防时间/联动/开关） */
+            auto defaultConfig = T::CreateWithDefaultRule();
+            m_data.aRule = defaultConfig.aRule;
+            return true;
+        }
+        return false;
+    }
+
+    bool validateAfterReadImpl(std::false_type)
+    {
+        /* 无需校验 */
+        return false;
     }
 };

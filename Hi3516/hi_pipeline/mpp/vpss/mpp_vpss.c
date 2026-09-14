@@ -3,7 +3,7 @@
  * @Author       : zhouzirui
  * @Date         : 2025-03-20 10:56:57
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2025-12-30 11:00:17
+ * @LastEditTime : 2026-08-21 16:06:21
  * @Description  : 海思vpss模块封装
  */
 
@@ -178,8 +178,8 @@ static int mppVpss_attach_chn_vb_pool(HiVpss_S *pHandle, ot_vpss_chn nChn)
     stBufAttr.video_format = OT_VIDEO_FORMAT_LINEAR;
 
     vb_pool_cfg.blk_size = ot_common_get_pic_buf_size(&stBufAttr);
-    vb_pool_cfg.blk_cnt = pHandle->astVpssChnAttr[nChn].nDepth > 0 ? \
-                            pHandle->astVpssChnAttr[nChn].nDepth + 2: 2;
+    // blk cnt 最少为2，硬性要求
+    vb_pool_cfg.blk_cnt = pHandle->astVpssChnAttr[nChn].nDepth > 2 ? pHandle->astVpssChnAttr[nChn].nDepth : 2;
     // if(nChn == 0)
     // {
     //     vb_pool_cfg.blk_cnt = 3;

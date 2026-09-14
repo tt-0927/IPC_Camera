@@ -5061,7 +5061,9 @@ typedef struct tagNET_ElectricVehicleInElevatorCfg
     UINT32      uPointCount;                           /* 区域顶点数量 */
     FLOAT       afPointX[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 区域顶点X坐标数组 [0-8192] */
     FLOAT       afPointY[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 区域顶点Y坐标数组 [0-8192] */
-    BYTE        byRes[256];                            /* 保留字段 */
+    /* 时间阈值，单位秒，范围0~10；占用原保留空间，保持布局大小。 */
+    INT32       nTimeThreshold;
+    BYTE        byRes[252];                            /* 保留字段 */
 }NET_ElectricVehicleInElevatorCfg_S;
 
 typedef NET_ElectricVehicleInElevatorCfg_S* pNET_ElectricVehicleInElevatorCfg_S;

@@ -14,6 +14,18 @@
 namespace
 {
 /**
+ * @brief   : 判断目标是否可用于越界轨迹计算
+ * @param    {const ot_aidetect_object &} stObject：算法目标
+ * @return   {bool} true：有效跟踪目标 false：跟踪结束或检测框无效
+ */
+bool is_valid_boundary_track_object(const ot_aidetect_object &stObject)
+{
+    const bool bTrackAlive = stObject.track_status == OT_AIDETECT_TRACK_STATUS_NEW ||
+                             stObject.track_status == OT_AIDETECT_TRACK_STATUS_UPDATE;
+    return bTrackAlive && stObject.detect_rect.width > 0 && stObject.detect_rect.height > 0;
+}
+
+/**
  * @brief   : 处理单个类别的越界侦测结果
  * @param    {const ot_aidetect_object_of_one_class *} pstObjectClass：当前类别算法结果
  * @param    {const std::vector<Alarm::BoundaryPlane_S> &} aRules：越界规则数组
@@ -43,6 +55,12 @@ bool process_boundary_detection(
         {
             /* 当前遍历到的算法目标 */
             const ot_aidetect_object &stObject = pstObjectClass->objects[i];
+            /* DIE 状态和零尺寸检测框不包含有效位置，禁止参与穿线判断 */
+            if (!is_valid_boundary_track_object(stObject))
+            {
+                continue;
+            }
+
             /* 当前目标对应的内部状态索引 */
             const int nInternalIndex = indexManager.getOrAllocateIndex(stObject.track_id);
             if (nInternalIndex < 0 || nInternalIndex >= indexManager.getMaxTargets())
@@ -197,12 +215,29 @@ void CHVFBoundaryProcessor::setAlgoParamCfg(const Alarm::BoundaryDetection_S &st
 
 void CHVFBoundaryProcessor::process(SHVFProcessContext &stContext)
 {
+    /* 仅将存活状态且检测框有效的目标视为当前帧活跃目标 */
+    std::set<int> stActiveTrackIds;
+    for (size_t i = 0; i < stContext.stResult.class_num; ++i)
+    {
+        const ot_aidetect_object_of_one_class &stObjectClass = stContext.stResult.object_class[i];
+        for (size_t j = 0; j < stObjectClass.object_num; ++j)
+        {
+            const ot_aidetect_object &stObject = stObjectClass.objects[j];
+            if (is_valid_boundary_track_object(stObject))
+            {
+                stActiveTrackIds.insert(stObject.track_id);
+            }
+        }
+    }
+
+    /* 先清理轨迹状态再释放索引，防止新目标复用索引后继承旧轨迹 */
+    cleanupLostTargets(stActiveTrackIds);
+
     if (stContext.stResult.class_num == 0)
     {
         return;
     }
 
-    m_indexManager.cleanupLostTargets(collect_all_track_ids(stContext.stResult));
     for (size_t i = 0; i < stContext.stResult.class_num; ++i)
     {
         process_boundary_detection(&stContext.stResult.object_class[i],
@@ -217,5 +252,27 @@ void CHVFBoundaryProcessor::process(SHVFProcessContext &stContext)
 bool CHVFBoundaryProcessor::isEnabled() const
 {
     return m_stAlgoCfg.bEnable;
+}
+
+void CHVFBoundaryProcessor::cleanupLostTargets(const std::set<int> &stActiveTrackIds)
+{
+    const std::set<int> stTrackedIds = m_indexManager.getCurrentTrackIds();
+    for (int nTrackId : stTrackedIds)
+    {
+        if (stActiveTrackIds.find(nTrackId) != stActiveTrackIds.end())
+        {
+            continue;
+        }
+
+        const int nInternalIndex = m_indexManager.getIndexByTrackId(nTrackId);
+        if (nInternalIndex >= 0 && nInternalIndex < m_indexManager.getMaxTargets())
+        {
+            for (size_t i = 0; i < BOUND_DETECT_REGION_DEFAULT; ++i)
+            {
+                m_stBoundaryStatus[i][nInternalIndex].reset();
+            }
+        }
+        m_indexManager.releaseIndex(nTrackId);
+    }
 }
 } // namespace HVFDetectInternal

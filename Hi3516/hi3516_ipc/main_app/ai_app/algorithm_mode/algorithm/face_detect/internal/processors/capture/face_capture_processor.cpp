@@ -179,12 +179,43 @@ void CFaceCaptureProcessor::process(SFaceProcessContext &stContext, std::vector<
     /* 当前帧满足抓拍规则的人脸目标，联动层优先使用第一个目标生成 SDK 图片 */
     std::vector<FaceCaptureTarget_S> vecFaceCaptureTargets;
     const bool bFaceCaptureAlarm = collectTargets(stContext.vPointDatas, stContext.vstRectInfo, &vecFaceCaptureTargets);
+
+    /*
+     * OSD 保留全部检测框，但图片联动只处理一个最佳目标，避免多人场景逐个裁剪和编码。
+     * 优先置信度，置信度相同时选择面积更大的目标。
+     */
+    if (vecFaceCaptureTargets.size() > 1)
+    {
+        const auto stBestIt = std::max_element(
+            vecFaceCaptureTargets.begin(),
+            vecFaceCaptureTargets.end(),
+            [](const FaceCaptureTarget_S &lhs, const FaceCaptureTarget_S &rhs)
+            {
+                if (lhs.fConfidence != rhs.fConfidence)
+                {
+                    return lhs.fConfidence < rhs.fConfidence;
+                }
+                const long long llLeftArea =
+                    static_cast<long long>(std::max(0, lhs.stRect.nX2 - lhs.stRect.nX1)) *
+                    static_cast<long long>(std::max(0, lhs.stRect.nY2 - lhs.stRect.nY1));
+                const long long llRightArea =
+                    static_cast<long long>(std::max(0, rhs.stRect.nX2 - rhs.stRect.nX1)) *
+                    static_cast<long long>(std::max(0, rhs.stRect.nY2 - rhs.stRect.nY1));
+                return llLeftArea < llRightArea;
+            });
+        const FaceCaptureTarget_S stBestTarget = *stBestIt;
+        vecFaceCaptureTargets.assign(1, stBestTarget);
+    }
+
+    std::vector<Common::RectInfo_S> vecBestRectInfo;
+    if (!vecFaceCaptureTargets.empty())
+    {
+        vecBestRectInfo.emplace_back(vecFaceCaptureTargets.front().stRect);
+    }
     handleLinkage(bFaceCaptureAlarm,
                   vecFaceCaptureTargets,
-                  stContext.vstRectInfo,
-                  stContext.pFrameInfo,
-                  stContext.nChnId,
-                  stContext.llTimestamp,
+                  vecBestRectInfo,
+                  stContext,
                   vecImageFile);
 }
 
@@ -424,13 +455,14 @@ FaceCaptureLinkageOptions_S CFaceCaptureProcessor::buildLinkageOptions() const
 void CFaceCaptureProcessor::handleLinkage(bool bAlarm,
                                           const std::vector<FaceCaptureTarget_S> &vecTargets,
                                           const std::vector<Common::RectInfo_S> &vstRectInfo,
-                                          ot_video_frame_info *pFrameInfo,
-                                          int nChnId,
-                                          long long llTimestamp,
+                                          SFaceProcessContext &stContext,
                                           std::vector<std::string> &vecImageFile)
 {
     const FaceCaptureLinkageOptions_S stOptions = buildLinkageOptions();
     const bool bSdCardNormal = SD_CARD_STATUS_E::NORMAL == CStorageManage::instance()->get_SdCardStatus();
+    const int nChnId = stContext.nChnId;
+    const long long llTimestamp = stContext.llTimestamp;
+    ot_video_frame_info *pFrameInfo = stContext.pFrameInfo;
     if (!bAlarm)
     {
         m_sdkEventPublisher.resetEvent(nChnId);
@@ -438,96 +470,115 @@ void CFaceCaptureProcessor::handleLinkage(bool bAlarm,
         return;
     }
 
+    /* 持续事件或冷却期不再执行 SDK 编码、抓图、邮件及平台图片联动。 */
+    if (!m_alarmStateMachine.canStartAlarm())
+    {
+        return;
+    }
+
     const long long llEventTimestamp = llTimestamp > 0 ? llTimestamp : TimeUtils_NS::get_currentTimestampMs();
     std::string strUploadImagePath;
     Event::Info_S stEventInfo = build_face_capture_event_info(nChnId, llEventTimestamp);
 
-    /* SDK 推送独立于传统联动：事件首帧先推全景图，随后每帧逐个推送当前人脸小图 */
-    m_sdkEventPublisher.publish(
-        vecTargets,
-        pFrameInfo,
-        nChnId,
-        [this](ot_video_frame_info *pFrame, std::vector<unsigned char> &vecJpeg)
-        {
-            return buildSdkPanoramaImage(pFrame, vecJpeg);
-        },
-        [this](const Common::RectInfo_S &stRectInfo,
-               ot_video_frame_info *pFrame,
-               size_t nIndex,
-               std::vector<unsigned char> &vecJpeg)
-        {
-            return buildSdkTargetImage(stRectInfo, pFrame, nIndex, vecJpeg);
-        });
-
-    if (stOptions.bUploadSdCard)
+    /* 只有真正配置全景图时才启动通用 JPEG 抓拍；已有同帧缓存时直接复用。 */
+    if (stOptions.bPanoramaImage)
     {
-        if (!access("testPrint", F_OK))
-        {
-            dlog_trace("人脸抓拍联动保存人脸图片开始");
-        }
-
-        if (bSdCardNormal)
+        if (stContext.stImageCache.strPanoramaImagePath.empty() && bSdCardNormal)
         {
             const int nRet = CCaptureCtrl::instance()->set_event_capture(false, stEventInfo);
             if (nRet == OK)
             {
-                if (stOptions.bPanoramaImage)
+                stContext.stImageCache.strPanoramaImagePath = CCaptureCtrl::instance()->get_face_capture_file();
+                CCaptureCtrl::instance()->set_event_capture(true, stEventInfo);
+                if (stContext.stImageCache.strPanoramaImagePath.empty())
                 {
-                    /* 全景图沿用抓图模块生成的文件，避免重复编码同一帧 */
-                    auto strFaceImage = CCaptureCtrl::instance()->get_face_capture_file();
-                    if (!strFaceImage.empty())
-                    {
-                        vecImageFile.emplace_back(strFaceImage);
-                        strUploadImagePath = strFaceImage;
-                    }
+                    dlog_warn("人脸抓拍全景图未生成");
                 }
             }
         }
-        else
+        if (!stContext.stImageCache.strPanoramaImagePath.empty())
         {
-            dlog_warn("人脸抓拍SD卡状态异常，跳过全景图/数据库记录，仅保存目标小图用于平台上传");
-        }
-
-        if (stOptions.bTargetImage)
-        {
-            const size_t nBeforeSaveCount = vecImageFile.size();
-            saveFaceImage(vstRectInfo, pFrameInfo, nChnId, vecImageFile, llEventTimestamp, bSdCardNormal);
-            if (vecImageFile.size() > nBeforeSaveCount)
-            {
-                strUploadImagePath = vecImageFile[nBeforeSaveCount];
-            }
-            else
-            {
-                dlog_warn("人脸抓拍目标图未生成，无法携带图片路径上传平台");
-            }
-        }
-
-        if (stOptions.bEmail)
-        {
-            /* 邮件联动依赖本地附件路径，仅在 SD 卡保存路径有效时发送 */
-            Network::EmailEventInfo_S stEmailInfo;
-            stEmailInfo.strSubject = "人脸抓拍";
-            const FaceCaptureTimeParts_S stTimeParts = build_face_capture_time_parts(llEventTimestamp);
-
-            std::ostringstream oss;
-            oss << "事件类型: " << stEmailInfo.strSubject << "\n"
-                << "日期: " << stTimeParts.strDateDash << "\n"
-                << "时间: " << stTimeParts.strTimeColon;
-            stEmailInfo.strMessage = oss.str();
-            stEmailInfo.vecImageFile = vecImageFile;
-            CEmailManage::instance()->HandleEmail(stEmailInfo);
-        }
-
-        vecImageFile.clear();
-        if (bSdCardNormal)
-        {
-            CCaptureCtrl::instance()->set_event_capture(true, stEventInfo);
-        }
-        if (!access("testPrint", F_OK))
-        {
-            dlog_trace("人脸抓拍联动保存人脸图片结束");
+            strUploadImagePath = stContext.stImageCache.strPanoramaImagePath;
         }
     }
+
+    /*
+     * 目标图、平台上传及无全景图时的邮件附件共用同一文件。
+     * 两项功能同时开启时复用缓存；任一功能单独开启时缓存为空并自行生成。
+     */
+    const bool bNeedTargetImage = stOptions.bTargetImage ||
+                                  (stOptions.bUploadSdCard && strUploadImagePath.empty()) ||
+                                  (stOptions.bEmail && strUploadImagePath.empty());
+    if (bNeedTargetImage)
+    {
+        if (stContext.stImageCache.strTargetImagePath.empty())
+        {
+            std::vector<std::string> vecSavedImages;
+            saveFaceImage(vstRectInfo, pFrameInfo, nChnId, vecSavedImages, llEventTimestamp, bSdCardNormal);
+            if (!vecSavedImages.empty())
+            {
+                stContext.stImageCache.strTargetImagePath = vecSavedImages.front();
+            }
+        }
+        if (!stContext.stImageCache.strTargetImagePath.empty())
+        {
+            /* 目标图比全景图更适合作为平台人脸事件图片。 */
+            strUploadImagePath = stContext.stImageCache.strTargetImagePath;
+        }
+    }
+
+    /*
+     * SDK 只在通过事件准入的首帧推送一个最佳目标。传统联动已经生成文件时直接读取复用；
+     * 没有配置传统图片联动时再回退到 SDK 自己编码，保证单独开启 SDK 推送仍然有图片。
+     */
+    m_sdkEventPublisher.publish(
+        vecTargets,
+        pFrameInfo,
+        nChnId,
+        [this, &stContext](ot_video_frame_info *pFrame, std::vector<unsigned char> &vecJpeg)
+        {
+            if (!stContext.stImageCache.strPanoramaImagePath.empty())
+            {
+                return loadJpegFile(stContext.stImageCache.strPanoramaImagePath, vecJpeg);
+            }
+            return buildSdkPanoramaImage(pFrame, vecJpeg);
+        },
+        [this, &stContext](const Common::RectInfo_S &stRectInfo,
+                           ot_video_frame_info *pFrame,
+                           size_t nIndex,
+                           std::vector<unsigned char> &vecJpeg)
+        {
+            if (!stContext.stImageCache.strTargetImagePath.empty())
+            {
+                return loadJpegFile(stContext.stImageCache.strTargetImagePath, vecJpeg);
+            }
+            return buildSdkTargetImage(stRectInfo, pFrame, nIndex, vecJpeg);
+        });
+
+    if (stOptions.bEmail)
+    {
+        /* 邮件只携带一张图片，优先全景图，否则复用目标图。 */
+        vecImageFile.clear();
+        const std::string &strEmailImagePath =
+            !stContext.stImageCache.strPanoramaImagePath.empty()
+                ? stContext.stImageCache.strPanoramaImagePath
+                : stContext.stImageCache.strTargetImagePath;
+        if (!strEmailImagePath.empty())
+        {
+            vecImageFile.emplace_back(strEmailImagePath);
+        }
+        Network::EmailEventInfo_S stEmailInfo;
+        stEmailInfo.strSubject = "人脸抓拍";
+        const FaceCaptureTimeParts_S stTimeParts = build_face_capture_time_parts(llEventTimestamp);
+        std::ostringstream oss;
+        oss << "事件类型: " << stEmailInfo.strSubject << "\n"
+            << "日期: " << stTimeParts.strDateDash << "\n"
+            << "时间: " << stTimeParts.strTimeColon;
+        stEmailInfo.strMessage = oss.str();
+        stEmailInfo.vecImageFile = vecImageFile;
+        CEmailManage::instance()->HandleEmail(stEmailInfo);
+    }
+    vecImageFile.clear();
 
     /* 传统报警状态机负责触发MQTT事件；上下文携带首张抓拍图路径，上传线程无需再等待数据库 */
     // dlog_info("人脸抓拍事件上下文准备完成: timestamp[%lld], upload_image[%s]",
@@ -673,6 +724,18 @@ int CFaceCaptureProcessor::saveToDatabase(const std::string &strFilename,
                                           const std::string &strCurrentTime,
                                           int nChnId)
 {
+    /* 使用不抛异常的filesystem接口，拔卡或文件消失时只结束本次保存。 */
+    std::error_code stFileError;
+    const auto nImageSize = std::filesystem::file_size(strFilename, stFileError);
+    if (stFileError || nImageSize == 0)
+    {
+        dlog_error("人脸图片无效: %s, size=%llu, error=%s",
+                   strFilename.c_str(),
+                   static_cast<unsigned long long>(nImageSize),
+                   stFileError ? stFileError.message().c_str() : "empty file");
+        return ERR;
+    }
+
     Event::Type_E nEventType = Event::Type_E::FACE_CAPTURE;
     if (strFilename.find("compare") != std::string::npos)
     {
@@ -690,12 +753,16 @@ int CFaceCaptureProcessor::saveToDatabase(const std::string &strFilename,
     Capture_NS::CaptureInfo_S stInfo;
     stInfo.nChnId = nChnId < 0 ? 0 : nChnId;
     stInfo.strImagePath = strFilename;
-    stInfo.nImageSize = std::filesystem::file_size(strFilename);
+    stInfo.nImageSize = nImageSize;
     stInfo.strStartTime = strCurrentDate + " " + strCurrentTime;
     stInfo.strEndTime = stInfo.strStartTime;
     // stInfo.enType = Event::Type_E::FACE_CAPTURE;
     stInfo.enType = nEventType;
-    CCaptureDatabase::instance()->add(stInfo);
+    if (CCaptureDatabase::instance()->add(stInfo) < 0)
+    {
+        dlog_error("写入人脸图片记录失败: %s", strFilename.c_str());
+        return ERR;
+    }
 
     /* 更新图片数量、总大小至数据库表 */
     Capture_NS::CaptureDirInfo_S stDirInfo;
@@ -706,11 +773,19 @@ int CFaceCaptureProcessor::saveToDatabase(const std::string &strFilename,
 
     if (nRet < 0)
     {
-        CCaptureDatabase::instance()->add(stDirInfo);
+        if (CCaptureDatabase::instance()->add(stDirInfo) < 0)
+        {
+            dlog_error("新增人脸图片目录统计失败: channel=%d", stDirInfo.nChnId);
+            return ERR;
+        }
     }
     else
     {
-        CCaptureDatabase::instance()->update(stDirInfo);
+        if (CCaptureDatabase::instance()->update(stDirInfo) < 0)
+        {
+            dlog_error("更新人脸图片目录统计失败: channel=%d", stDirInfo.nChnId);
+            return ERR;
+        }
     }
     return OK;
 }

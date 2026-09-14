@@ -84,7 +84,11 @@ IpcRet_E CUserManage::init()
         stItcUser.stPermissions.stMenuPermission.bVideoAndAudio = true;
         stItcUser.stPermissions.stMenuPermission.bEventConfig = true;
         stItcUser.stPermissions.stMenuPermission.bVideoManage = true;
-        stItcUser.stPermissions.stMenuPermission.bObjectLib = true;
+        #if CAP_AI_FACE_COMPARE
+        stItcUser.stPermissions.stMenuPermission.bObjectLib = true;              /* 目标库 */
+        #else
+        stItcUser.stPermissions.stMenuPermission.bObjectLib = false;              /* 目标库 */
+        #endif
         stItcUser.stPermissions.stMenuPermission.bFaceConfig = true;
         stItcUser.stPermissions.stMenuPermission.bVehicleDetecConfig = true;
         stItcUser.stPermissions.stMenuPermission.bLocalShutdown = true;
@@ -329,6 +333,16 @@ int CUserManage::login(User::AccountInfo_S stAccountInfo, User::UserInfo_S &stUs
     // mErrorInfo.erase(strIpKey);
 
     stUserInfo = userInfos[0];
+
+#if CAP_MENU_PERMISSION_FORCE_OVERRIDE
+    /* admin 和 itc 用户固定ObjectLib和FaceConfig权限 */
+    if (stUserInfo.stAccountInfo.nAccountType == User::ACCOUNT_TYPE_ADMIN
+        || stUserInfo.stAccountInfo.account == "itc" )
+    {
+        stUserInfo.stPermissions.stMenuPermission.bObjectLib = false;
+        stUserInfo.stPermissions.stMenuPermission.bFaceConfig = true;
+    }
+#endif
 
     /* itc隐藏用户跳过首次强制改密和密码过期校验 */
     if (stUserInfo.stAccountInfo.account != "itc")

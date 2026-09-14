@@ -3,11 +3,16 @@
  * @Author       : zhouzirui
  * @Date         : 2025-04-29 11:07:09
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2025-06-25 19:30:51
+ * @LastEditTime : 2026-09-08 16:34:40
  * @Description  : 性能监控功能函数 用于监控程序运行时的CPU使用率、内存占用和NPU状态
  */
 
 #include "performance_monitor.h"
+
+#include <cstddef>
+#include <cstdio>
+#include <cstdlib>
+#include <dirent.h>
 
 #include "IpcRet.h"
 
@@ -23,6 +28,8 @@
 #define MONITOR_NPU_DEVICE_ID 0
 /* NPU信息文件路径 */
 #define MONITOR_NPU_INFO_PATH "/proc/umap/svp_npu"
+/* Linux 线程名上限为 16 字节，额外预留结束符和未知状态文本。 */
+#define MONITOR_THREAD_NAME_LEN 32
 
 /**
  * CPU信息结构体
@@ -48,6 +55,30 @@ static bool gs_bMonitorIsRunning = false;        /* 监控线程运行状态标�
 static unsigned int gs_uMonitorMmzInitValue = 0; /* MMZ内存初始使用值 */
 static bool gs_bMonitorNpuAvailable = false;     /* NPU是否可用标志 */
 static MonitorNpuInfo_S gs_stMonitorNpuInfoPrev; /* 上一次NPU信息，用于计算差值 */
+/* memory: 检查点只保存上一份固定大小快照，不在业务线程中分配内存。 */
+static pthread_mutex_t gs_memoryCheckpointLock = PTHREAD_MUTEX_INITIALIZER;
+/* 上一次已经输出的进程内存快照。 */
+static MonitorMemoryInfo_S gs_stMemoryCheckpointPrev;
+/* 是否已经存在上一份快照，用于计算阶段增量。 */
+static bool gs_bMemoryCheckpointHasPrev = false;
+/* lock: 防止多个业务线程同时输出 smaps 明细导致串口行交错。 */
+static pthread_mutex_t gs_threadStackLogLock = PTHREAD_MUTEX_INITIALIZER;
+
+/**
+ * @brief   : 单个线程栈映射的临时统计数据
+ * @note    : 该结构只在测试检查点中使用，不作为业务状态保存。
+ */
+typedef struct MonitorThreadStackInfo
+{
+    unsigned long nTid;
+    bool bMainStack;
+    unsigned long nSizeKb;
+    unsigned long nRssKb;
+    unsigned long nPssKb;
+    unsigned long nPrivateCleanKb;
+    unsigned long nPrivateDirtyKb;
+    unsigned long nSwapKb;
+} MonitorThreadStackInfo_S;
 
 /**
  * 内部函数前置声明
@@ -62,6 +93,34 @@ static double monitor_getPidUsedCpu(unsigned int nPid);
 static int monitor_getProcMeminfoOsMem(void);
 /* 获取系统MMZ内存使用情况 */
 static unsigned int monitor_mmzMem(void);
+/* 计算两个无符号 KB 计数的有符号差值，避免回收后发生下溢。 */
+static long long monitor_memory_delta(unsigned long nCurrent, unsigned long nPrevious);
+/* 判断 smaps 当前行是否为一条映射头。 */
+static bool monitor_is_smaps_mapping_line(const char *pcLine);
+/* 从 smaps 映射头解析 [stack] 或 [stack:<tid>]。 */
+static bool monitor_parse_stack_mapping(const char *pcLine,
+                                        unsigned long nDefaultTid,
+                                        unsigned long *pnTid,
+                                        bool *pbMainStack);
+/* 读取线程 comm 名称，读取失败时使用 tid 作为回退名称。 */
+static void monitor_read_thread_name(unsigned long nTid, char *pszName, std::size_t nNameSize);
+/* 从单个线程的 task/smaps 中读取该线程栈映射。 */
+static bool monitor_read_thread_stack_mapping(FILE *pSmapsFile,
+                                              unsigned long nDefaultTid,
+                                              MonitorThreadStackInfo_S *pstInfo);
+/* 输出单个线程栈映射，并累加汇总数据。 */
+static void monitor_emit_thread_stack(const char *pcStage,
+                                      const MonitorThreadStackInfo_S *pstInfo,
+                                      unsigned long *pnStackMaps,
+                                      MonitorThreadStackInfo_S *pstTotal);
+/* 输出无法从 task/smaps 定位栈映射的线程，避免把“未找到”误报成“栈为0”。 */
+static void monitor_emit_missing_thread_stack(const char *pcStage, unsigned long nTid, const char *pcReason);
+/* 输出所有线程的 smaps 栈映射。 */
+static int monitor_log_thread_stack_checkpoint(const char *pcStage);
+/* 输出进程内存快照，可选择是否更新相邻检查点的增量基线。 */
+static int monitor_log_memory_snapshot_internal(const char *pcStage, bool bUpdateDeltaBase);
+/* 测试版本的毫秒等待；正式版本不引入等待。 */
+static void monitor_sleep_for_checkpoint(unsigned int nDelayMs);
 /* 初始化NPU监控 */
 static int monitor_npuInit(void);
 /* 获取NPU使用信息 */
@@ -324,6 +383,630 @@ static unsigned int monitor_mmzMem(void)
 
     fclose(pFd);
     return nMem;
+}
+
+/**
+ * @brief   : 获取当前进程及系统的内存快照
+ * @param   {MonitorMemoryInfo_S*} pInfo：输出内存快照，不能为 nullptr
+ * @return  {int} OK：成功；ERR_PARAM_NULL：参数为空；ERR_OPEN：无法读取进程状态
+ */
+int perfMonitor_getMemoryInfo(MonitorMemoryInfo_S *pInfo)
+{
+    FILE *pStatusFile = NULL;
+    FILE *pSmapsFile = NULL;
+    FILE *pMeminfoFile = NULL;
+    char szLine[MONITOR_MAX_PATH_LEN + 1] = {0};
+
+    if (pInfo == NULL)
+    {
+        return ERR_PARAM_NULL;
+    }
+
+    memset(pInfo, 0, sizeof(MonitorMemoryInfo_S));
+
+    /* /proc/self/status 能同时提供 RSS、峰值、匿名页和线程数，避免读取命令行工具。 */
+    pStatusFile = fopen("/proc/self/status", "r");
+    if (pStatusFile == NULL)
+    {
+        return ERR_OPEN;
+    }
+
+    while (fgets(szLine, sizeof(szLine), pStatusFile) != NULL)
+    {
+        (void)sscanf(szLine, "VmSize: %lu kB", &pInfo->nVmSizeKb);
+        (void)sscanf(szLine, "VmPeak: %lu kB", &pInfo->nVmPeakKb);
+        (void)sscanf(szLine, "VmRSS: %lu kB", &pInfo->nVmRssKb);
+        (void)sscanf(szLine, "VmHWM: %lu kB", &pInfo->nVmHwmKb);
+        (void)sscanf(szLine, "VmData: %lu kB", &pInfo->nVmDataKb);
+        (void)sscanf(szLine, "VmStk: %lu kB", &pInfo->nVmStkKb);
+        (void)sscanf(szLine, "RssAnon: %lu kB", &pInfo->nRssAnonKb);
+        (void)sscanf(szLine, "RssFile: %lu kB", &pInfo->nRssFileKb);
+        (void)sscanf(szLine, "RssShmem: %lu kB", &pInfo->nRssShmemKb);
+        (void)sscanf(szLine, "VmSwap: %lu kB", &pInfo->nVmSwapKb);
+        (void)sscanf(szLine, "Threads: %lu", &pInfo->nThreads);
+    }
+    fclose(pStatusFile);
+
+    /* PSS 将共享库页按进程分摊，适合和 VmRSS 一起判断真实物理内存压力。 */
+    pSmapsFile = fopen("/proc/self/smaps_rollup", "r");
+    if (pSmapsFile != NULL)
+    {
+        while (fgets(szLine, sizeof(szLine), pSmapsFile) != NULL)
+        {
+            if (sscanf(szLine, "Pss: %lu kB", &pInfo->nPssKb) == 1)
+            {
+                break;
+            }
+        }
+        fclose(pSmapsFile);
+    }
+
+    /* MemAvailable 是整机剩余可用内存，用于判断模块增量是否逼近 OOM 水位。 */
+    pMeminfoFile = fopen("/proc/meminfo", "r");
+    if (pMeminfoFile != NULL)
+    {
+        while (fgets(szLine, sizeof(szLine), pMeminfoFile) != NULL)
+        {
+            if (sscanf(szLine, "MemAvailable: %lu kB", &pInfo->nSystemAvailableKb) == 1)
+            {
+                break;
+            }
+        }
+        fclose(pMeminfoFile);
+    }
+
+    /* MMZ/VB 等媒体内存通常不完整计入 VmRSS，单独保存平台统计值。 */
+    pInfo->nMmzUsedKb = static_cast<unsigned long>(monitor_mmzMem());
+    return OK;
+}
+
+/**
+ * @brief   : 计算两个无符号内存计数的有符号差值
+ * @param   {unsigned long} nCurrent：当前计数
+ * @param   {unsigned long} nPrevious：上一次计数
+ * @return  {long long} 当前计数减去上一次计数
+ */
+static long long monitor_memory_delta(unsigned long nCurrent, unsigned long nPrevious)
+{
+    return static_cast<long long>(nCurrent) - static_cast<long long>(nPrevious);
+}
+
+/**
+ * @brief   : 判断 smaps 当前行是否为映射头
+ * @param   {const char*} pcLine：smaps 文本行
+ * @return  {bool} true：映射头；false：属性行或空行
+ */
+static bool monitor_is_smaps_mapping_line(const char *pcLine)
+{
+    if (pcLine == NULL)
+    {
+        return false;
+    }
+
+    unsigned long nStart = 0UL;
+    unsigned long nEnd = 0UL;
+    char szPermissions[8] = {0};
+    return sscanf(pcLine, "%lx-%lx %7s", &nStart, &nEnd, szPermissions) == 3;
+}
+
+/**
+ * @brief   : 从 smaps 映射头解析线程栈 tid
+ * @param   {const char*} pcLine：smaps 映射头
+ * @param   {unsigned long} nDefaultTid：task/smaps 对应的 tid，进程级 smaps 传 0
+ * @param   {unsigned long*} pnTid：线程 tid 输出
+ * @param   {bool*} pbMainStack：是否为主线程 [stack]
+ * @return  {bool} true：当前映射是线程栈；false：其他映射
+ */
+static bool monitor_parse_stack_mapping(const char *pcLine,
+                                       unsigned long nDefaultTid,
+                                       unsigned long *pnTid,
+                                       bool *pbMainStack)
+{
+    if (pcLine == NULL || pnTid == NULL || pbMainStack == NULL)
+    {
+        return false;
+    }
+
+    const char *pcStack = strstr(pcLine, "[stack");
+    if (pcStack == NULL)
+    {
+        return false;
+    }
+
+    if (strncmp(pcStack, "[stack]", 7U) == 0)
+    {
+        *pnTid = nDefaultTid == 0UL ? static_cast<unsigned long>(getpid()) : nDefaultTid;
+        *pbMainStack = *pnTid == static_cast<unsigned long>(getpid());
+        return true;
+    }
+
+    if (strncmp(pcStack, "[stack:", 7U) != 0)
+    {
+        return false;
+    }
+
+    unsigned long nTid = 0UL;
+    char cEnd = '\0';
+    if (sscanf(pcStack + 7, "%lu%c", &nTid, &cEnd) != 2 || cEnd != ']' || nTid == 0UL)
+    {
+        return false;
+    }
+
+    *pnTid = nTid;
+    *pbMainStack = false;
+    return true;
+}
+
+/**
+ * @brief   : 读取线程 comm 名称
+ * @param   {unsigned long} nTid：线程 tid
+ * @param   {char*} pszName：名称输出缓冲区
+ * @param   {std::size_t} nNameSize：缓冲区长度
+ * @return  {void}
+ */
+static void monitor_read_thread_name(unsigned long nTid, char *pszName, std::size_t nNameSize)
+{
+    if (pszName == NULL || nNameSize == 0U)
+    {
+        return;
+    }
+
+    pszName[0] = '\0';
+    char szPath[MONITOR_MAX_PATH_LEN + 1] = {0};
+    const int nPathLen = snprintf(szPath,
+                                  sizeof(szPath),
+                                  "/proc/self/task/%lu/comm",
+                                  nTid);
+    if (nPathLen > 0 && static_cast<std::size_t>(nPathLen) < sizeof(szPath))
+    {
+        FILE *pCommFile = fopen(szPath, "r");
+        if (pCommFile != NULL)
+        {
+            (void)fgets(pszName, static_cast<int>(nNameSize), pCommFile);
+            fclose(pCommFile);
+        }
+    }
+
+    if (pszName[0] == '\0')
+    {
+        (void)snprintf(pszName, nNameSize, "tid-%lu", nTid);
+        return;
+    }
+
+    for (std::size_t i = 0U; i < nNameSize && pszName[i] != '\0'; ++i)
+    {
+        if (pszName[i] == '\r' || pszName[i] == '\n' || pszName[i] == '\t' || pszName[i] == ' ')
+        {
+            pszName[i] = '_';
+        }
+    }
+}
+
+/**
+ * @brief   : 从单个线程的 task/smaps 中读取线程栈统计
+ * @param   {FILE*} pSmapsFile：已打开的 /proc/self/task/<tid>/smaps 文件
+ * @param   {unsigned long} nDefaultTid：当前 task 目录对应的 tid
+ * @param   {MonitorThreadStackInfo_S*} pstInfo：线程栈统计输出
+ * @return  {bool} true：成功找到栈映射；false：未找到或读取失败
+ * @note    : 不同 Linux 内核对进程级 smaps 的工作线程栈命名不一致，
+ *            以 task/<tid>/smaps 中的 [stack] 作为主路径，避免依赖 [stack:<tid>]。
+ */
+static bool monitor_read_thread_stack_mapping(FILE *pSmapsFile,
+                                              unsigned long nDefaultTid,
+                                              MonitorThreadStackInfo_S *pstInfo)
+{
+    if (pSmapsFile == NULL || pstInfo == NULL || nDefaultTid == 0UL)
+    {
+        return false;
+    }
+
+    char szLine[MONITOR_MAX_BUF_LEN + 1] = {0};
+    MonitorThreadStackInfo_S stCurrent = {0};
+    bool bInStackMapping = false;
+
+    while (fgets(szLine, sizeof(szLine), pSmapsFile) != NULL)
+    {
+        if (monitor_is_smaps_mapping_line(szLine))
+        {
+            if (bInStackMapping)
+            {
+                *pstInfo = stCurrent;
+                return true;
+            }
+
+            memset(&stCurrent, 0, sizeof(stCurrent));
+            unsigned long nTid = 0UL;
+            bool bMainStack = false;
+            bInStackMapping = monitor_parse_stack_mapping(szLine, nDefaultTid, &nTid, &bMainStack);
+            if (bInStackMapping && nTid != nDefaultTid)
+            {
+                /* review: task/smaps 若仍带有其它线程标签，只接受当前 task 对应的映射。 */
+                bInStackMapping = false;
+            }
+            if (bInStackMapping)
+            {
+                stCurrent.nTid = nDefaultTid;
+                stCurrent.bMainStack = bMainStack;
+            }
+            continue;
+        }
+
+        if (!bInStackMapping)
+        {
+            continue;
+        }
+
+        (void)sscanf(szLine, "Size: %lu kB", &stCurrent.nSizeKb);
+        (void)sscanf(szLine, "Rss: %lu kB", &stCurrent.nRssKb);
+        (void)sscanf(szLine, "Pss: %lu kB", &stCurrent.nPssKb);
+        (void)sscanf(szLine, "Private_Clean: %lu kB", &stCurrent.nPrivateCleanKb);
+        (void)sscanf(szLine, "Private_Dirty: %lu kB", &stCurrent.nPrivateDirtyKb);
+        (void)sscanf(szLine, "Swap: %lu kB", &stCurrent.nSwapKb);
+    }
+
+    if (bInStackMapping)
+    {
+        *pstInfo = stCurrent;
+        return true;
+    }
+    return false;
+}
+
+/**
+ * @brief   : 输出单个线程栈映射并累加汇总值
+ * @param   {const char*} pcStage：统计阶段名称
+ * @param   {const MonitorThreadStackInfo_S*} pstInfo：单个线程栈数据
+ * @param   {unsigned long*} pnStackMaps：栈映射数量输出
+ * @param   {MonitorThreadStackInfo_S*} pstTotal：汇总数据输出
+ * @return  {void}
+ */
+static void monitor_emit_thread_stack(const char *pcStage,
+                                      const MonitorThreadStackInfo_S *pstInfo,
+                                      unsigned long *pnStackMaps,
+                                      MonitorThreadStackInfo_S *pstTotal)
+{
+    if (pcStage == NULL || pstInfo == NULL || pnStackMaps == NULL || pstTotal == NULL)
+    {
+        return;
+    }
+
+    char szThreadName[MONITOR_THREAD_NAME_LEN] = {0};
+    monitor_read_thread_name(pstInfo->nTid, szThreadName, sizeof(szThreadName));
+    printf("[THREADSTACK] stage=%s source=task_smaps tid=%lu name=%s main=%d found=1 Size=%lu Rss=%lu Pss=%lu "
+           "PrivateClean=%lu PrivateDirty=%lu Swap=%lu\n",
+           pcStage,
+           pstInfo->nTid,
+           szThreadName,
+           pstInfo->bMainStack ? 1 : 0,
+           pstInfo->nSizeKb,
+           pstInfo->nRssKb,
+           pstInfo->nPssKb,
+           pstInfo->nPrivateCleanKb,
+           pstInfo->nPrivateDirtyKb,
+           pstInfo->nSwapKb);
+
+    ++(*pnStackMaps);
+    pstTotal->nSizeKb += pstInfo->nSizeKb;
+    pstTotal->nRssKb += pstInfo->nRssKb;
+    pstTotal->nPssKb += pstInfo->nPssKb;
+    pstTotal->nPrivateCleanKb += pstInfo->nPrivateCleanKb;
+    pstTotal->nPrivateDirtyKb += pstInfo->nPrivateDirtyKb;
+    pstTotal->nSwapKb += pstInfo->nSwapKb;
+}
+
+/**
+ * @brief   : 输出未找到线程栈映射的状态
+ * @param   {const char*} pcStage：统计阶段名称
+ * @param   {unsigned long} nTid：线程 tid
+ * @param   {const char*} pcReason：未找到原因
+ * @return  {void}
+ */
+static void monitor_emit_missing_thread_stack(const char *pcStage, unsigned long nTid, const char *pcReason)
+{
+    if (pcStage == NULL || pcReason == NULL)
+    {
+        return;
+    }
+
+    char szThreadName[MONITOR_THREAD_NAME_LEN] = {0};
+    monitor_read_thread_name(nTid, szThreadName, sizeof(szThreadName));
+    printf("[THREADSTACK] stage=%s source=task_smaps tid=%lu name=%s main=%d found=0 "
+           "reason=%s Size=0 Rss=0 Pss=0 PrivateClean=0 PrivateDirty=0 Swap=0\n",
+           pcStage,
+           nTid,
+           szThreadName,
+           nTid == static_cast<unsigned long>(getpid()) ? 1 : 0,
+           pcReason);
+}
+
+/**
+ * @brief   : 读取并输出所有线程的 smaps 栈映射
+ * @param   {const char*} pcStage：统计阶段名称
+ * @return  {int} OK：成功；非OK：读取失败
+ */
+static int monitor_log_thread_stack_checkpoint(const char *pcStage)
+{
+    DIR *pTaskDir = NULL;
+    struct dirent *pstEntry = NULL;
+    MonitorThreadStackInfo_S stTotal = {0};
+    const unsigned long nPid = static_cast<unsigned long>(getpid());
+    unsigned long nThreadCount = 0UL;
+    unsigned long nStackMaps = 0UL;
+    unsigned long nMissingStacks = 0UL;
+
+    if (pcStage == NULL)
+    {
+        return ERR_PARAM_NULL;
+    }
+
+    if (pthread_mutex_lock(&gs_threadStackLogLock) != 0)
+    {
+        return ERR;
+    }
+
+    pTaskDir = opendir("/proc/self/task");
+    if (pTaskDir == NULL)
+    {
+        (void)pthread_mutex_unlock(&gs_threadStackLogLock);
+        return ERR_OPEN;
+    }
+
+    while ((pstEntry = readdir(pTaskDir)) != NULL)
+    {
+        unsigned long nTid = 0UL;
+        char cEnd = '\0';
+        if (sscanf(pstEntry->d_name, "%lu%c", &nTid, &cEnd) != 1 || nTid == 0UL)
+        {
+            continue;
+        }
+
+        ++nThreadCount;
+        char szSmapsPath[MONITOR_MAX_PATH_LEN + 1] = {0};
+        const int nPathLen = snprintf(szSmapsPath,
+                                      sizeof(szSmapsPath),
+                                      "/proc/self/task/%lu/smaps",
+                                      nTid);
+        if (nPathLen <= 0 || static_cast<std::size_t>(nPathLen) >= sizeof(szSmapsPath))
+        {
+            ++nMissingStacks;
+            monitor_emit_missing_thread_stack(pcStage, nTid, "path_too_long");
+            continue;
+        }
+
+        FILE *pSmapsFile = fopen(szSmapsPath, "r");
+        if (pSmapsFile == NULL)
+        {
+            ++nMissingStacks;
+            monitor_emit_missing_thread_stack(pcStage, nTid, "open_failed");
+            continue;
+        }
+
+        MonitorThreadStackInfo_S stCurrent = {0};
+        const bool bFound = monitor_read_thread_stack_mapping(pSmapsFile, nTid, &stCurrent);
+        fclose(pSmapsFile);
+        if (!bFound)
+        {
+            ++nMissingStacks;
+            monitor_emit_missing_thread_stack(pcStage, nTid, "stack_mapping_not_found");
+            continue;
+        }
+
+        stCurrent.nTid = nTid;
+        stCurrent.bMainStack = nTid == nPid;
+        monitor_emit_thread_stack(pcStage, &stCurrent, &nStackMaps, &stTotal);
+    }
+    closedir(pTaskDir);
+
+    printf("[THREADSTACK_SUMMARY] stage=%s source=task_smaps pid=%d threads=%lu maps=%lu missing=%lu "
+           "Size=%lu Rss=%lu Pss=%lu PrivateClean=%lu PrivateDirty=%lu Swap=%lu\n",
+           pcStage,
+           static_cast<int>(getpid()),
+           nThreadCount,
+           nStackMaps,
+           nMissingStacks,
+           stTotal.nSizeKb,
+           stTotal.nRssKb,
+           stTotal.nPssKb,
+           stTotal.nPrivateCleanKb,
+           stTotal.nPrivateDirtyKb,
+           stTotal.nSwapKb);
+    (void)fflush(stdout);
+    (void)pthread_mutex_unlock(&gs_threadStackLogLock);
+    return OK;
+}
+
+/**
+ * @brief   : 输出进程内存快照
+ * @param   {const char*} pcStage：统计阶段名称
+ * @param   {bool} bUpdateDeltaBase：是否更新相邻检查点基线
+ * @return  {int} OK：成功；非OK：读取或加锁失败
+ */
+static int monitor_log_memory_snapshot_internal(const char *pcStage, bool bUpdateDeltaBase)
+{
+    if (pcStage == NULL)
+    {
+        return ERR_PARAM_NULL;
+    }
+
+#if ENABLE_MEMORY_CHECKPOINT
+    MonitorMemoryInfo_S stCurrent;
+    const int nRet = perfMonitor_getMemoryInfo(&stCurrent);
+    if (nRet < OK)
+    {
+        return nRet;
+    }
+
+    if (pthread_mutex_lock(&gs_memoryCheckpointLock) != 0)
+    {
+        return ERR;
+    }
+
+    long long nDeltaVmRss = 0;
+    long long nDeltaPss = 0;
+    long long nDeltaVmData = 0;
+    long long nDeltaMmz = 0;
+    if (bUpdateDeltaBase && gs_bMemoryCheckpointHasPrev)
+    {
+        nDeltaVmRss = monitor_memory_delta(stCurrent.nVmRssKb, gs_stMemoryCheckpointPrev.nVmRssKb);
+        nDeltaPss = monitor_memory_delta(stCurrent.nPssKb, gs_stMemoryCheckpointPrev.nPssKb);
+        nDeltaVmData = monitor_memory_delta(stCurrent.nVmDataKb, gs_stMemoryCheckpointPrev.nVmDataKb);
+        nDeltaMmz = monitor_memory_delta(stCurrent.nMmzUsedKb, gs_stMemoryCheckpointPrev.nMmzUsedKb);
+    }
+
+    /* grep 友好的一行格式，字段名固定，便于串口日志或脚本直接导入表格。 */
+    printf("%s stage=%s pid=%d VmRSS=%lu Pss=%lu VmHWM=%lu VmSize=%lu VmData=%lu "
+           "VmStk=%lu RssAnon=%lu RssFile=%lu RssShmem=%lu VmSwap=%lu Threads=%lu "
+           "MemAvailable=%lu MMZUsed=%lu dVmRSS=%lld dPss=%lld dVmData=%lld dMMZ=%lld\n",
+           bUpdateDeltaBase ? "[MEMCHECK]" : "[MEMSNAP]",
+           pcStage,
+           static_cast<int>(getpid()),
+           stCurrent.nVmRssKb,
+           stCurrent.nPssKb,
+           stCurrent.nVmHwmKb,
+           stCurrent.nVmSizeKb,
+           stCurrent.nVmDataKb,
+           stCurrent.nVmStkKb,
+           stCurrent.nRssAnonKb,
+           stCurrent.nRssFileKb,
+           stCurrent.nRssShmemKb,
+           stCurrent.nVmSwapKb,
+           stCurrent.nThreads,
+           stCurrent.nSystemAvailableKb,
+           stCurrent.nMmzUsedKb,
+           nDeltaVmRss,
+           nDeltaPss,
+           nDeltaVmData,
+           nDeltaMmz);
+    (void)fflush(stdout);
+
+    if (bUpdateDeltaBase)
+    {
+        gs_stMemoryCheckpointPrev = stCurrent;
+        gs_bMemoryCheckpointHasPrev = true;
+    }
+    (void)pthread_mutex_unlock(&gs_memoryCheckpointLock);
+#else
+    (void)bUpdateDeltaBase;
+#endif
+
+#if ENABLE_THREAD_STACK_CHECKPOINT
+    const int nStackRet = monitor_log_thread_stack_checkpoint(pcStage);
+    if (nStackRet != OK)
+    {
+        printf("[THREADSTACK] stage=%s error=%d\n", pcStage, nStackRet);
+#if !ENABLE_MEMORY_CHECKPOINT
+        return nStackRet;
+#endif
+    }
+#endif
+    return OK;
+}
+
+/**
+ * @brief   : 测试版本延迟等待
+ * @param   {unsigned int} nDelayMs：等待时间，单位为毫秒
+ * @return  {void}
+ */
+static void monitor_sleep_for_checkpoint(unsigned int nDelayMs)
+{
+#if ENABLE_MEMORY_CHECKPOINT || ENABLE_THREAD_STACK_CHECKPOINT
+    /* 分段等待避免把毫秒数直接转换为 useconds_t 后在 32 位平台溢出。 */
+    while (nDelayMs >= 1000U)
+    {
+        (void)sleep(1);
+        nDelayMs -= 1000U;
+    }
+    if (nDelayMs > 0U)
+    {
+        (void)usleep(static_cast<useconds_t>(nDelayMs) * 1000U);
+    }
+#else
+    (void)nDelayMs;
+#endif
+}
+
+/**
+ * @brief   : 输出带阶段名称的内存检查点
+ * @param   {const char*} pcStage：检查点名称
+ * @return  {int} OK：成功；ERR_PARAM_NULL：阶段名称为空；其他值表示快照读取失败
+ */
+int perfMonitor_logMemoryCheckpoint(const char *pcStage)
+{
+    if (pcStage == NULL)
+    {
+        return ERR_PARAM_NULL;
+    }
+
+    return monitor_log_memory_snapshot_internal(pcStage, true);
+}
+
+/**
+ * @brief   : 输出不改变增量基线的进程内存快照
+ * @param   {const char*} pcStage：快照阶段名称
+ * @return  {int} OK：成功；ERR_PARAM_NULL：阶段名称为空；其他值表示快照读取失败
+ */
+int perfMonitor_logMemorySnapshot(const char *pcStage)
+{
+    if (pcStage == NULL)
+    {
+        return ERR_PARAM_NULL;
+    }
+
+    return monitor_log_memory_snapshot_internal(pcStage, false);
+}
+
+/**
+ * @brief   : 延迟指定时间后输出内存检查点
+ * @param   {const char*} pcStage：检查点名称
+ * @param   {unsigned int} nDelayMs：等待时间，单位为毫秒
+ * @return  {int} OK：成功；ERR_PARAM_NULL：阶段名称为空；其他值表示快照读取失败
+ */
+int perfMonitor_logMemoryCheckpointDelayed(const char *pcStage, unsigned int nDelayMs)
+{
+    if (pcStage == NULL)
+    {
+        return ERR_PARAM_NULL;
+    }
+
+    monitor_sleep_for_checkpoint(nDelayMs);
+    return perfMonitor_logMemoryCheckpoint(pcStage);
+}
+
+/**
+ * @brief   : 延迟指定时间后输出不改变增量基线的进程内存快照
+ * @param   {const char*} pcStage：快照阶段名称
+ * @param   {unsigned int} nDelayMs：等待时间，单位为毫秒
+ * @return  {int} OK：成功；ERR_PARAM_NULL：阶段名称为空；其他值表示快照读取失败
+ */
+int perfMonitor_logMemorySnapshotDelayed(const char *pcStage, unsigned int nDelayMs)
+{
+    if (pcStage == NULL)
+    {
+        return ERR_PARAM_NULL;
+    }
+
+    monitor_sleep_for_checkpoint(nDelayMs);
+    return perfMonitor_logMemorySnapshot(pcStage);
+}
+
+/**
+ * @brief   : 输出当前进程全部线程的 smaps 栈映射明细
+ * @param   {const char*} pcStage：统计阶段名称
+ * @return  {int} OK：成功；ERR_PARAM_NULL：阶段名称为空；其他值表示 smaps 读取失败
+ */
+int perfMonitor_logThreadStackCheckpoint(const char *pcStage)
+{
+    if (pcStage == NULL)
+    {
+        return ERR_PARAM_NULL;
+    }
+
+#if ENABLE_THREAD_STACK_CHECKPOINT
+    return monitor_log_thread_stack_checkpoint(pcStage);
+#else
+    (void)pcStage;
+    return OK;
+#endif
 }
 
 /**

@@ -3,7 +3,7 @@
  * @Author       : zhouzirui
  * @Date         : 2025-03-20 15:50:55
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2025-10-15 16:41:01
+ * @LastEditTime : 2026-09-04 17:04:37
  * @Description  : 海思venc模块封装
  */
 
@@ -54,6 +54,11 @@ typedef struct _HiVencNeedParam
     int nInFrameRate;
     /*输出帧率*/
     int nOutFrameRate;
+    /*
+     * 业务要求的压缩码流buffer最小值，单位为字节。
+     * 传入0表示沿用底层按分辨率计算的默认值；非0时最终取默认值与该值的较大值。
+     */
+    unsigned int unStreamBufSizeMin;
 
     /*压缩模式 默认不压缩*/
     // ot_compress_mode enCompressMode;

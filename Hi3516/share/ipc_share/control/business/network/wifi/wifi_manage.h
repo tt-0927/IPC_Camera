@@ -120,11 +120,15 @@ private:
     std::atomic<bool> is_connected;
     std::atomic<bool> m_hasConnectedOnce;
     std::atomic<bool> m_isConnecting;
+    /* 存在有效历史配置且允许后台自动重连，不依赖本次开机是否曾连接成功。 */
+    std::atomic<bool> m_autoReconnectEnabled{false};
+    std::atomic<bool> m_cancelConnectRequested{false};
     std::condition_variable m_monitorCondition;
     std::mutex m_monitorMutex;
     std::atomic<bool> is_rebootrtsp_wlan0 = false;
     std::atomic<bool> is_rebootrtsp_eth0 = false;
     std::thread monitor_thread;
+    std::thread m_restoreThread;
     /* 断线后累计重连次数，仅用于日志；重连不再设置次数上限。 */
     std::atomic<unsigned int> reconnect_attempts;
     std::chrono::steady_clock::time_point last_scan_time_; // 记录上次扫描时间
