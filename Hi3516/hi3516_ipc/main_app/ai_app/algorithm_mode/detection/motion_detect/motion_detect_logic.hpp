@@ -101,6 +101,18 @@ private:
     bool is_daytime_unlocked() const;
 
     /**
+     * @brief   : 灵敏度转触发阈值（反向映射：灵敏度越高，阈值越低）
+     * @param    {int} nSensitivity：输入灵敏度（范围：0~100，0 表示不触发）
+     * @param    {float} fMinThreshold：最低触发阈值，防止灵敏度为 100 时阈值归零
+     * @param    {float} fMaxThreshold：最高触发阈值
+     * @return   {float} 触发阈值（范围：fMinThreshold ~ fMaxThreshold）
+     */
+    float sensitivity_to_threshold_unlocked(
+        int nSensitivity,
+        float fMinThreshold = 0.25f,
+        float fMaxThreshold = 1.0f) const;
+
+    /**
      * @brief   : 计算两个矩形的重叠面积
      * @param    {const Common::Rect_S} &rect1：矩形1
      * @param    {const Common::Rect_S} &rect2：矩形2

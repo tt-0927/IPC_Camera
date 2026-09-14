@@ -3,7 +3,7 @@
  * @Author       : zhouzirui
  * @Date         : 2025-03-20 15:50:55
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-01-21 08:51:59
+ * @LastEditTime : 2026-09-07 09:30:56
  * @Description  : 海思venc模块封装
  */
 
@@ -19,6 +19,40 @@
 
 /* 全局静态变量-是否设置了单包模式 */
 static td_bool gs_bIsSetOneStreamBuf = TD_FALSE;
+/* 全局静态变量-是否设置了省内存模式 */
+static td_bool gs_bIsSetMiniBufMode = TD_FALSE;
+
+/* H.264/H.265/SVAC3默认码流buffer按照像素数的四分之一计算。 */
+#define MPP_VENC_VIDEO_BUF_RATIO_DIVISOR (4U)
+/* VENC码流buffer按64字节对齐，保持与原有计算规则一致。 */
+#define MPP_VENC_STREAM_BUF_ALIGN        (64U)
+
+/**
+ * @brief   : 计算视频编码通道的压缩码流buffer大小
+ * @param    {HiVenc_S} *pHandle：VENC编码句柄
+ * @param    {td_u32} *pu32DefaultBufSize：输出按分辨率计算的默认buffer大小，可为空
+ * @return   {td_u32} 最终使用的压缩码流buffer大小，单位为字节
+ * @note    : 业务层只提供容量下限，不能覆盖底层默认值将容量缩小；JPEG/MJPEG不使用本函数。
+ */
+static td_u32 mppVenc_get_video_buf_size(const HiVenc_S *pHandle, td_u32 *pu32DefaultBufSize)
+{
+    /*
+     * perf: 先提升到64位再计算像素总量，避免在32位平台上因中间乘法类型过窄
+     *       而产生不必要的截断。
+     */
+    const td_u64 u64PixelCount = (td_u64) pHandle->stNeedParam.unWidth * (td_u64) pHandle->stNeedParam.unHeight;
+    const td_u64 u64DefaultBufSize = MPI_ALIGN_UP(u64PixelCount / MPP_VENC_VIDEO_BUF_RATIO_DIVISOR, MPP_VENC_STREAM_BUF_ALIGN);
+    const td_u32 u32DefaultBufSize = (td_u32) u64DefaultBufSize;
+    const td_u32 u32RequestedBufSize = MPI_ALIGN_UP(pHandle->stNeedParam.unStreamBufSizeMin, MPP_VENC_STREAM_BUF_ALIGN);
+
+    if (pu32DefaultBufSize != NULL)
+    {
+        *pu32DefaultBufSize = u32DefaultBufSize;
+    }
+
+    /* memory: 业务参数只允许扩大容量，保证默认分辨率策略始终是安全下限。 */
+    return u32RequestedBufSize > u32DefaultBufSize ? u32RequestedBufSize : u32DefaultBufSize;
+}
 
 /**
  * @brief       : H.264编码通道码率控制器属性填充
@@ -374,22 +408,61 @@ static int mppVenc_rc_param_fill(HiVenc_S *pHandle, ot_venc_rc_param *pRcParam)
         return TD_FAILURE;
     }
 
-    /* 关闭重编功能，以优化通路延时，如影响编码效果，则进行回退 */
-    if(pHandle->stExParam.enRcMode == OT_VENC_RC_MODE_H264_CVBR)
+    /*
+     * 关闭重编功能：减少 RCN 重构帧 buffer 内存占用并优化通路延时。
+     * 对齐官方 sample_comm_venc_close_reencode（覆盖 CBR/VBR/ABR/CVBR/AVBR）。
+     * 如影响编码效果，可回退 max_reencode_times 为默认值。
+     */
+    switch (pHandle->stExParam.enRcMode)
     {
-        pRcParam->h264_cvbr_param.max_reencode_times = 0;
-    }
-    else if(pHandle->stExParam.enRcMode == OT_VENC_RC_MODE_H264_AVBR)
-    {
-        pRcParam->h264_avbr_param.max_reencode_times = 0;
-    }
-    else if(pHandle->stExParam.enRcMode == OT_VENC_RC_MODE_H265_CVBR)
-    {
-        pRcParam->h265_cvbr_param.max_reencode_times = 0;
-    }
-    else if(pHandle->stExParam.enRcMode == OT_VENC_RC_MODE_H265_AVBR)
-    {
-        pRcParam->h265_avbr_param.max_reencode_times = 0;
+        case OT_VENC_RC_MODE_H264_CBR:
+            pRcParam->h264_cbr_param.max_reencode_times = 0;
+            break;
+        case OT_VENC_RC_MODE_H264_VBR:
+            pRcParam->h264_vbr_param.max_reencode_times = 0;
+            break;
+        case OT_VENC_RC_MODE_H264_ABR:
+            pRcParam->h264_abr_param.max_reencode_times = 0;
+            break;
+        case OT_VENC_RC_MODE_H264_CVBR:
+            pRcParam->h264_cvbr_param.max_reencode_times = 0;
+            break;
+        case OT_VENC_RC_MODE_H264_AVBR:
+            pRcParam->h264_avbr_param.max_reencode_times = 0;
+            break;
+        case OT_VENC_RC_MODE_H265_CBR:
+            pRcParam->h265_cbr_param.max_reencode_times = 0;
+            break;
+        case OT_VENC_RC_MODE_H265_VBR:
+            pRcParam->h265_vbr_param.max_reencode_times = 0;
+            break;
+        case OT_VENC_RC_MODE_H265_ABR:
+            pRcParam->h265_abr_param.max_reencode_times = 0;
+            break;
+        case OT_VENC_RC_MODE_H265_CVBR:
+            pRcParam->h265_cvbr_param.max_reencode_times = 0;
+            break;
+        case OT_VENC_RC_MODE_H265_AVBR:
+            pRcParam->h265_avbr_param.max_reencode_times = 0;
+            break;
+        case OT_VENC_RC_MODE_SVAC3_CBR:
+            pRcParam->svac3_cbr_param.max_reencode_times = 0;
+            break;
+        case OT_VENC_RC_MODE_SVAC3_VBR:
+            pRcParam->svac3_vbr_param.max_reencode_times = 0;
+            break;
+        case OT_VENC_RC_MODE_SVAC3_ABR:
+            pRcParam->svac3_abr_param.max_reencode_times = 0;
+            break;
+        case OT_VENC_RC_MODE_SVAC3_CVBR:
+            pRcParam->svac3_cvbr_param.max_reencode_times = 0;
+            break;
+        case OT_VENC_RC_MODE_SVAC3_AVBR:
+            pRcParam->svac3_avbr_param.max_reencode_times = 0;
+            break;
+        default:
+            /* QVBR/FIXQP/QPMAP/MJPEG 不涉及重编或项目未使用，保持默认 */
+            break;
     }
 
     /*根据码率大小设置 row_qp_delta（0~5）控制宏块行QP变化范围*/
@@ -717,7 +790,64 @@ static int mppVenc_set_one_stream_buf(HiVenc_S *pHandle, ot_payload_type enType,
 
     return TD_SUCCESS;
 }
- 
+
+/**
+ * @brief   : 根据编码格式设置省内存模式（mini_buf_mode）
+ * @param    {HiVenc_S} *pHandle：句柄
+ * @param    {ot_payload_type} enType：编码格式
+ * @param    {td_u32} u32MiniBufMode：0 一般模式，1 省内存模式
+ * @return   {int} 成功返回0,失败返回-1
+ * @note    : 省内存模式下码流 Buffer 下限从 w×h×3/4（JPEG 为 w×h）降为 32KB，
+ *            可显著缩小 VENC 码流 buffer（stm）MMZ 占用；但需保证 buf_size
+ *            能容纳最大单帧码流，否则会重编或丢帧。此参数为模块级，需在
+ *            创建编码通道之前设置。
+ */
+static int mppVenc_set_mini_buf_mode(HiVenc_S *pHandle, ot_payload_type enType, td_u32 u32MiniBufMode)
+{
+    ot_venc_mod_param stModParam;
+    switch (enType)
+    {
+    case OT_PT_H264:
+        stModParam.mod_type = OT_VENC_MOD_H264;
+        break;
+    case OT_PT_H265:
+        stModParam.mod_type = OT_VENC_MOD_H265;
+        break;
+    case OT_PT_SVAC3:
+        stModParam.mod_type = OT_VENC_MOD_SVAC3;
+        break;
+    case OT_PT_MJPEG:
+    case OT_PT_JPEG:
+        stModParam.mod_type = OT_VENC_MOD_JPEG;
+        break;
+    default:
+        return TD_FAILURE;
+    }
+    /* 获取编码相关的模块参数，保留其他字段默认值 */
+    CHECK_API_RETURN(ss_mpi_venc_get_mod_param(&stModParam));
+    switch (enType)
+    {
+    case OT_PT_H264:
+        stModParam.h264_mod_param.mini_buf_mode = u32MiniBufMode;
+        break;
+    case OT_PT_H265:
+        stModParam.h265_mod_param.mini_buf_mode = u32MiniBufMode;
+        break;
+    case OT_PT_SVAC3:
+        stModParam.svac3_mod_param.mini_buf_mode = u32MiniBufMode;
+        break;
+    case OT_PT_MJPEG:
+    case OT_PT_JPEG:
+        stModParam.jpeg_mod_param.mini_buf_mode = u32MiniBufMode;
+        break;
+    default:
+        return TD_FAILURE;
+    }
+    /* 设置编码相关的模块参数 */
+    CHECK_API_RETURN(ss_mpi_venc_set_mod_param(&stModParam));
+
+    return TD_SUCCESS;
+}
 /**
  * @brief       : 请求IDR帧
  * @author      : zhouzirui
@@ -1205,6 +1335,8 @@ static int mppVenc_init(HiVenc_S *pHandle)
     ot_venc_chn nChn = pHandle->stNeedParam.nChn;
     /*编码通道属性*/
     ot_venc_chn_attr stChnAttr;
+    /*按分辨率计算的默认码流buffer大小，仅用于扩容日志。*/
+    td_u32 u32DefaultVideoBufSize = 0;
     /*编码通道连续接收并编码的帧数*/
     ot_venc_start_param stRecvParam;
     memset(&stChnAttr, 0, sizeof(ot_venc_chn_attr));
@@ -1213,11 +1345,30 @@ static int mppVenc_init(HiVenc_S *pHandle)
     stChnAttr.venc_attr.max_pic_width = pHandle->stNeedParam.unWidth;
     stChnAttr.venc_attr.max_pic_height = pHandle->stNeedParam.unHeight;
     if (stChnAttr.venc_attr.type == OT_PT_MJPEG || stChnAttr.venc_attr.type == OT_PT_JPEG) {
+        /*
+         * JPEG/MJPEG 码流 buffer：mini_buf_mode=1（省内存模式）下由 w×h×4 下调为 w×h×2。
+         * 1024×576 实测约 2.31MB → ~1.18MB。单帧 JPEG 1024×576 上限约 600KB，余量充足。
+         */
         stChnAttr.venc_attr.buf_size =
-            MPI_ALIGN_UP(pHandle->stNeedParam.unWidth, 16) * MPI_ALIGN_UP(pHandle->stNeedParam.unHeight, 16) * 4; /* 16 4 is a number */
+            MPI_ALIGN_UP(pHandle->stNeedParam.unWidth, 16) * MPI_ALIGN_UP(pHandle->stNeedParam.unHeight, 16) * 2; /* 16 2 is a number */
     } else {
-        stChnAttr.venc_attr.buf_size =
-            MPI_ALIGN_UP(pHandle->stNeedParam.unWidth * pHandle->stNeedParam.unHeight * 3 / 4, 64); /*  3  4 64 is a number */
+        /*
+         * H264/H265/SVAC3在mini_buf_mode=1下继续使用w×h/4的默认省内存策略。
+         * 低帧率、短GOP场景由业务层通过unStreamBufSizeMin提供额外容量下限，
+         * 最终取默认容量与业务下限中的较大值。
+         */
+        stChnAttr.venc_attr.buf_size = mppVenc_get_video_buf_size(pHandle, &u32DefaultVideoBufSize);
+        if (stChnAttr.venc_attr.buf_size > u32DefaultVideoBufSize)
+        {
+            /* info: 该日志只发生在创建/重建阶段，不进入逐帧编码路径。 */
+            mpi_venc_log("码流buffer扩容 chn:%d type:%d fps:%d gop:%d default:%u final:%u",
+                         pHandle->stNeedParam.nChn,
+                         pHandle->stNeedParam.enCodec,
+                         pHandle->stNeedParam.nOutFrameRate,
+                         pHandle->stNeedParam.nGop,
+                         u32DefaultVideoBufSize,
+                         stChnAttr.venc_attr.buf_size);
+        }
     }
     stChnAttr.venc_attr.profile = pHandle->stExParam.nProfile;
     stChnAttr.venc_attr.is_by_frame = TD_TRUE;
@@ -1264,6 +1415,21 @@ static int mppVenc_init(HiVenc_S *pHandle)
         CHECK_API_RETURN(mppVenc_set_one_stream_buf(pHandle, OT_PT_SVAC3, 1));
         CHECK_API_RETURN(mppVenc_set_one_stream_buf(pHandle, OT_PT_MJPEG, 1)); // MJPEG和JPEG设置一个即可
         gs_bIsSetOneStreamBuf = TD_TRUE;
+    }
+
+    /*
+     * 开启省内存模式（mini_buf_mode=1）：码流 buffer 下限从 w×h×3/4（JPEG 为 w×h）
+     * 降为 32KB，用于缩小 VENC 码流 buffer（stm）MMZ 占用。
+     * H.264/H.265/SVAC3 的 buf_size 由上方默认分辨率计算与业务容量下限共同决定；
+     * one_stream_buf 仍保持单包输出配置，避免低帧率大 I 帧被拆成多个逻辑包。
+     */
+    if(!gs_bIsSetMiniBufMode)
+    {
+        CHECK_API_RETURN(mppVenc_set_mini_buf_mode(pHandle, OT_PT_H264, 1));
+        CHECK_API_RETURN(mppVenc_set_mini_buf_mode(pHandle, OT_PT_H265, 1));
+        CHECK_API_RETURN(mppVenc_set_mini_buf_mode(pHandle, OT_PT_SVAC3, 1));
+        CHECK_API_RETURN(mppVenc_set_mini_buf_mode(pHandle, OT_PT_JPEG, 1));
+        gs_bIsSetMiniBufMode = TD_TRUE;
     }
 
     /*创建编码通道*/
@@ -1383,6 +1549,8 @@ HiVenc_S *mppVenc_alloc(HiVencNeedParam_S stParam)
     pHandle->stNeedParam.nInFrameRate = stParam.nInFrameRate;
     /*输出的帧率*/
     pHandle->stNeedParam.nOutFrameRate = stParam.nOutFrameRate;
+    /*业务要求的压缩码流buffer最小值*/
+    pHandle->stNeedParam.unStreamBufSizeMin = stParam.unStreamBufSizeMin;
     /*压缩模式*/
     // pHandle->stNeedParam.enCompressMode = stParam.enCompressMode;
     /* 是否开启卷绕 */

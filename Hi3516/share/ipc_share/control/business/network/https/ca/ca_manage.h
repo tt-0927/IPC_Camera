@@ -214,6 +214,8 @@ private:
      */
     EVP_PKEY *generateKey(int nBits);
 
+    std::string convertASN1TimeToLocal(const ASN1_TIME *pTime);
+
     /**
      * @brief: 获取证书的有效期，并将其格式化为 YYYY-MM-DD HH:MM:SS。
      * @param {string&} strCertPath: 证书文件的路径。

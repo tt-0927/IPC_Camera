@@ -62,9 +62,15 @@ int mppVgs_create_video_frame_info(td_u32 u32Width, td_u32 u32Height, ot_pixel_f
         return TD_FAILURE;
     }
 
+    /* 调用方通常在失败后直接释放结构体，因此先建立可安全清理的初始状态。 */
+    memset(pFrameInfo, 0, sizeof(*pFrameInfo));
+    pFrameInfo->pool_id = OT_VB_INVALID_POOL_ID;
+
     /* 计算VB配置 */
     ot_vb_pool_cfg vb_pool_cfg;
     ot_pic_buf_attr stBufAttr;
+    memset(&vb_pool_cfg, 0, sizeof(vb_pool_cfg));
+    memset(&stBufAttr, 0, sizeof(stBufAttr));
     stBufAttr.width = u32Width;
     stBufAttr.height = u32Height;
     stBufAttr.align = OT_DEFAULT_ALIGN;
@@ -82,12 +88,19 @@ int mppVgs_create_video_frame_info(td_u32 u32Width, td_u32 u32Height, ot_pixel_f
     vb_pool_cfg.remap_mode = OT_VB_REMAP_MODE_NONE;
 
     pFrameInfo->pool_id = ss_mpi_vb_create_pool(&vb_pool_cfg);
+    if (pFrameInfo->pool_id == OT_VB_INVALID_POOL_ID)
+    {
+        mpi_vgs_log("创建VB池失败");
+        return TD_FAILURE;
+    }
 
     /* 获取VB块 */
     vb_blk = ss_mpi_vb_get_blk(pFrameInfo->pool_id, calc_cfg.vb_size, TD_NULL);
     if (vb_blk == OT_VB_INVALID_HANDLE)
     {
         mpi_vgs_log("获取VB块失败");
+        ss_mpi_vb_destroy_pool(pFrameInfo->pool_id);
+        pFrameInfo->pool_id = OT_VB_INVALID_POOL_ID;
         return TD_FAILURE;
     }
 
@@ -97,6 +110,8 @@ int mppVgs_create_video_frame_info(td_u32 u32Width, td_u32 u32Height, ot_pixel_f
     {
         mpi_vgs_log("获取物理地址失败");
         ss_mpi_vb_release_blk(vb_blk);
+        ss_mpi_vb_destroy_pool(pFrameInfo->pool_id);
+        pFrameInfo->pool_id = OT_VB_INVALID_POOL_ID;
         return TD_FAILURE;
     }
 
@@ -106,6 +121,8 @@ int mppVgs_create_video_frame_info(td_u32 u32Width, td_u32 u32Height, ot_pixel_f
     {
         mpi_vgs_log("映射虚拟地址失败");
         ss_mpi_vb_release_blk(vb_blk);
+        ss_mpi_vb_destroy_pool(pFrameInfo->pool_id);
+        pFrameInfo->pool_id = OT_VB_INVALID_POOL_ID;
         return TD_FAILURE;
     }
 
@@ -118,6 +135,8 @@ int mppVgs_destroy_video_frame_info(ot_video_frame_info *pFrameInfo)
 {
     ot_vb_blk vb_blk;
     ot_vb_calc_cfg calc_cfg;
+    td_s32 nRet = TD_SUCCESS;
+    td_s32 nStepRet;
 
     if (pFrameInfo == NULL)
     {
@@ -126,6 +145,7 @@ int mppVgs_destroy_video_frame_info(ot_video_frame_info *pFrameInfo)
 
     /* 获取VB相关信息用于释放 */
     ot_pic_buf_attr buf_attr;
+    memset(&buf_attr, 0, sizeof(buf_attr));
     buf_attr.width = pFrameInfo->video_frame.width;
     buf_attr.height = pFrameInfo->video_frame.height;
     buf_attr.pixel_format = pFrameInfo->video_frame.pixel_format;
@@ -138,20 +158,46 @@ int mppVgs_destroy_video_frame_info(ot_video_frame_info *pFrameInfo)
     /* 取消虚拟地址映射 */
     if (pFrameInfo->video_frame.header_virt_addr[0] != 0)
     {
-        CHECK_API_RETURN_PRINT(ss_mpi_sys_munmap(pFrameInfo->video_frame.header_virt_addr[0], calc_cfg.vb_size), "取消虚拟地址映射失败");
+        nStepRet = ss_mpi_sys_munmap(pFrameInfo->video_frame.header_virt_addr[0], calc_cfg.vb_size);
+        if (nStepRet != TD_SUCCESS)
+        {
+            mpi_vgs_log("取消虚拟地址映射失败: 0x%08X", (unsigned int)nStepRet);
+            nRet = nStepRet;
+        }
+        pFrameInfo->video_frame.header_virt_addr[0] = TD_NULL;
+        pFrameInfo->video_frame.header_virt_addr[1] = TD_NULL;
+        pFrameInfo->video_frame.virt_addr[0] = TD_NULL;
+        pFrameInfo->video_frame.virt_addr[1] = TD_NULL;
     }
 
     /* 释放VB块 */
     vb_blk = ss_mpi_vb_phys_addr_to_handle(pFrameInfo->video_frame.header_phys_addr[0]);
     if (vb_blk != OT_VB_INVALID_HANDLE)
     {
-        CHECK_API_RETURN_PRINT(ss_mpi_vb_release_blk(vb_blk), "释放VB块失败");
+        nStepRet = ss_mpi_vb_release_blk(vb_blk);
+        if (nStepRet != TD_SUCCESS)
+        {
+            mpi_vgs_log("释放VB块失败: 0x%08X", (unsigned int)nStepRet);
+            nRet = nStepRet;
+        }
     }
 
     /*销毁一个视频缓存池*/
-    CHECK_API_RETURN(ss_mpi_vb_destroy_pool(pFrameInfo->pool_id));
+    if (pFrameInfo->pool_id != OT_VB_INVALID_POOL_ID)
+    {
+        nStepRet = ss_mpi_vb_destroy_pool(pFrameInfo->pool_id);
+        if (nStepRet != TD_SUCCESS)
+        {
+            mpi_vgs_log("销毁VB池失败: 0x%08X", (unsigned int)nStepRet);
+            nRet = nStepRet;
+        }
+        else
+        {
+            pFrameInfo->pool_id = OT_VB_INVALID_POOL_ID;
+        }
+    }
 
-    return TD_SUCCESS;
+    return nRet;
 }
 
 int mppVgs_crop(ot_video_frame_info *pSrcFrame, ot_video_frame_info *pDstFrame, ot_rect *pstCropRect)
@@ -237,7 +283,18 @@ int mppVgs_scale(ot_video_frame_info *pSrcFrame, ot_video_frame_info *pDstFrame)
     memcpy(&task_attr.img_out, pDstFrame, sizeof(ot_video_frame_info));
 
     /* 添加VGS任务 往一个已经启动的job里添加缩放task */
-    CHECK_API_RETURN(ss_mpi_vgs_add_scale_task(handle, &task_attr, OT_VGS_SCALE_COEF_NORM));
+    td_s32 nRet = ss_mpi_vgs_add_scale_task(handle, &task_attr, OT_VGS_SCALE_COEF_NORM);
+    if (nRet != TD_SUCCESS)
+    {
+        mpi_vgs_log("mpi_vgs_add_scale_task failed, ret:0x%x, in_phys:0x%llx out_phys:0x%llx out_wh:%ux%u",
+                    nRet,
+                    (unsigned long long)pSrcFrame->video_frame.phys_addr[0],
+                    (unsigned long long)pDstFrame->video_frame.phys_addr[0],
+                    pDstFrame->video_frame.width,
+                    pDstFrame->video_frame.height);
+        CHECK_API_RETURN(ss_mpi_vgs_cancel_job(handle));
+        return nRet;
+    }
 
     /* 提交并执行VGS任务 */
     if (ss_mpi_vgs_end_job(handle) != TD_SUCCESS)

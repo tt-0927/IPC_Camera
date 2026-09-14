@@ -33,7 +33,8 @@
 #include "network_define.h"
 #include "burn_mac_udp_server.h"
 #include "ipc_multicast_server.h"
-
+#include "platform_manager.h"
+#include "control_manage.h"
 namespace
 {
 /*
@@ -1391,6 +1392,18 @@ void Task::Network::ConnPlatform::handle()
      * 锁覆盖本次保存的完整业务序列，包含失败回滚、设备注册和 RTMP 更新。
      */
     auto platformOperationLock = pPlatformManager->lock_platform_operation();
+
+//     #if defined(ENABLE_TVSDK_SRC) && !CAP_IO_EXTERNAL_DDR_00S
+//     /* 无外置 DDR 的资源受限机型才限制平台与 TVSDK 同时运行。 */
+//     if (stInfo.enable &&
+//         ControlManage::instance()->tvsdk_reserve_for_platform() < OK)
+//     {
+//         /* TVSDK 已连接时不修改平台配置，也不发起 HTTP/MQTT/RTMP 连接。 */
+//         dlog_warn("平台连接请求失败：TVSDK 当前已连接");
+//         result(-1);
+//         return;
+//     }
+// #endif
    
     /* 登录失败时恢复旧运行时配置，避免旧 MQTT/RTMP 会话与新参数混用。 */
     ::Network::Platform_Info_t stPreviousInfo;

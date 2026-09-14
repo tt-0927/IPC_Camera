@@ -2584,7 +2584,6 @@ void FillElectricVehicleInElevatorCfg(const Alarm::ElectricScooterDetection_S &s
     FillSingleRuleAlarmSchedule(src.aAlarmTime, dst.stAlarmSchedule);
     FillLinkageList(src.stLinkageList, dst.stLinkageList);
 
-    /* 返回默认全屏区域 */
     dst.uPointCount = 4;
     dst.afPointX[0] = 0.0f; dst.afPointX[1] = 1920.0f; dst.afPointX[2] = 1920.0f; dst.afPointX[3] = 0.0f;
     dst.afPointY[0] = 0.0f; dst.afPointY[1] = 0.0f; dst.afPointY[2] = 1080.0f; dst.afPointY[3] = 1080.0f;
@@ -2597,7 +2596,7 @@ void ToElectricVehicleInElevator(const NET_ElectricVehicleInElevatorCfg_S &src, 
     ToSingleRuleAlarmSchedule(src.stAlarmSchedule, dst.aAlarmTime);
     ToLinkageList(src.stLinkageList, dst.stLinkageList);
 
-    /* 接收区域字段但不使用（IPC业务不处理区域） */
+    /* SDK区域字段不属于IPC算法业务结构。 */
 }
 
 void FillPersonFallDownCfg(const Alarm::PersonFallDownDetection_S &src, NET_PersonFallDownCfg_S &dst)
@@ -3164,6 +3163,7 @@ void FillNonmotorVehicleIntrusionInfo(const Alarm::NonMotorVehicleIntrusionDetec
         FillPolygonPoints(r.stRegion, out.uPointCount, out.afPointX, out.afPointY);
         out.nSensitivity = (INT32)r.nSensitivity;
         out.nTimeThreshold = (INT32)r.nTimeThreshold;
+        FillDetectionTargets(r.aDetectionTarget, out.uDetectionTargetCount, out.auDetectionTarget);
         dst.uRuleCount++;
     }
     FillSingleRuleAlarmSchedule(src.aAlarmTime, dst.stAlarmSchedule);
@@ -3181,6 +3181,7 @@ void ToNonmotorVehicleIntrusion(const NET_NonmotorVehicleIntrusionInfo_S &src, A
         ToRegionFromPolygon(r.uPointCount, r.afPointX, r.afPointY, out.stRegion);
         out.nSensitivity = (unsigned int)r.nSensitivity;
         out.nTimeThreshold = (unsigned int)r.nTimeThreshold;
+        ToDetectionTargets(r.auDetectionTarget, r.uDetectionTargetCount, out.aDetectionTarget);
         dst.aRule.push_back(out);
     }
     ToSingleRuleAlarmSchedule(src.stAlarmSchedule, dst.aAlarmTime);
@@ -4156,7 +4157,8 @@ void TvSdkConvert::FillEnterRegionAlarmInfo(const Alarm::EntranceDetection_S &sr
             out.afPointX[p] = r.stRegion.aPoint[p].fX;
             out.afPointY[p] = r.stRegion.aPoint[p].fY;
         }
-        out.nTimeThreshold = (INT32)r.nTimeThreshold;
+        /* 此事件不向SDK暴露时间阈值。 */
+        out.nTimeThreshold = 0;
         out.nSensitivity = (INT32)r.nSensitivity;
         FillDetectionTargets(r.aDetectionTarget, out.uDetectionTargetCount, out.auDetectionTarget);
         dst.uRuleCount++;
@@ -4249,7 +4251,8 @@ void TvSdkConvert::FillLeaveRegionAlarmInfo(const Alarm::ExitingDetection_S &src
             out.afPointX[p] = r.stRegion.aPoint[p].fX;
             out.afPointY[p] = r.stRegion.aPoint[p].fY;
         }
-        out.nTimeThreshold = (INT32)r.nTimeThreshold;
+        /* 此事件不向SDK暴露时间阈值。 */
+        out.nTimeThreshold = 0;
         out.nSensitivity = (INT32)r.nSensitivity;
         FillDetectionTargets(r.aDetectionTarget, out.uDetectionTargetCount, out.auDetectionTarget);
         dst.uRuleCount++;

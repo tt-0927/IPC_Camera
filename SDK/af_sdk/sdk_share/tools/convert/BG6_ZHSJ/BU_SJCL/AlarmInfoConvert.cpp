@@ -2278,6 +2278,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_EnterRegionAlarmInfo_S& stInf
                 if (pRule)
                 {
                     deal(pRule, stInfo.stRule[i], bOutStruct);
+                    stInfo.stRule[i].nTimeThreshold = 0;
                 }
             }
         }
@@ -2291,6 +2292,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_EnterRegionAlarmInfo_S& stInf
         {
             Json::Object* pRule = Json::init();
             deal(pRule, stInfo.stRule[i], bOutStruct);
+            Json::remove(pRule, "TimeThreshold");
             Json::add(pRules, std::to_string(i).c_str(), pRule);
         }
         Json::add(pRootJson, "Rules", pRules);
@@ -2326,6 +2328,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_LeaveRegionAlarmInfo_S& stInf
                 if (pRule)
                 {
                     deal(pRule, stInfo.stRule[i], bOutStruct);
+                    stInfo.stRule[i].nTimeThreshold = 0;
                 }
             }
         }
@@ -2339,6 +2342,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_LeaveRegionAlarmInfo_S& stInf
         {
             Json::Object* pRule = Json::init();
             deal(pRule, stInfo.stRule[i], bOutStruct);
+            Json::remove(pRule, "TimeThreshold");
             Json::add(pRules, std::to_string(i).c_str(), pRule);
         }
         Json::add(pRootJson, "Rules", pRules);

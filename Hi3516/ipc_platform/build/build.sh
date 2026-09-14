@@ -14,7 +14,7 @@ set -e
 
 # 使用getopt来处理长选项
 # :前面的需要带参数, 没有的不需要带参数
-if ! ARGS=$(getopt -o m:b:s:d:e:v:t:cahpi -l target:,build:,device:,sensor:,project:,packet_type:,extra:,version:,clean,all,help,strip,packet,img,autofile,all-focal,all-project,daily,copyright -n "$0" -- "$@"); then
+if ! ARGS=$(getopt -o m:b:s:d:e:v:t:cahpi -l target:,build:,device:,sensor:,project:,packet_type:,extra:,version:,clean,all,help,strip,packet,img,autofile,all-focal,all-project,batch-itc-models,daily,copyright -n "$0" -- "$@"); then
     error "选项和参数解析失败"
     error "查看帮助说明：./build.sh -h/--help"
     exit 1
@@ -143,6 +143,10 @@ while true; do
         ALL_PROJECT_MODE=true
         shift
         ;;
+    --batch-itc-models)
+        BATCH_ITC_MODE=true
+        shift
+        ;;
     --daily) # 追加日期序号后缀（小迭代构建）
         DAILY_MODE=true
         shift
@@ -184,6 +188,96 @@ if [ "$CLEAN_MODE" = true ]; then
     info "成功清除所有临时文件"
     exit 0
 fi
+
+# 批量编译固定的四款 ITC 设备。
+# 每个型号复用单型号的 -i 流程：先生成升级包，再生成固件包，并按需自动摆渡。
+if [ "$BATCH_ITC_MODE" = true ]; then
+    if [ "$DEVICE_MODE" = true ] || [ "$SENSOR_MODE" = true ] || [ "$PROJECT_MODE" = true ]; then
+        error "--batch-itc-models 已内置设备、镜头和项目配置，不能同时使用 -d、-s 或 --project"
+        exit 1
+    fi
+    if [ "$PACKET_MODE" = true ] || [ "$IMAGE_MODE" = true ] || [ "$MAKE_MODE" = true ] || [ "$MAKE_ALL_MODE" = true ]; then
+        error "--batch-itc-models 已包含升级包和固件包构建，不能同时使用 -p、-i、-m 或 -a"
+        exit 1
+    fi
+    if [ "$ALL_FOCAL_MODE" = true ] || [ "$ALL_PROJECT_MODE" = true ] || [ "$STRIP_MODE" = true ]; then
+        error "--batch-itc-models 使用固定镜头和 itc 项目，不能同时使用 --all-focal、--all-project 或 --strip"
+        exit 1
+    fi
+
+    BATCH_DEVICES=("TV-3852HL" "TV-3852TL" "TV-3852TLW" "TV-3852TL4G")
+    BATCH_SENSORS=("sc533hai-f2_8mm" "sc533hai-f4mm" "sc533hai-f4mm" "sc533hai-f4mm")
+    BATCH_PROJECT="itc"
+    BATCH_OUTPUT_LINES=()
+
+    info "============> 开始批量编译四款 ITC 设备 <============"
+    for index in "${!BATCH_DEVICES[@]}"; do
+        batch_device="${BATCH_DEVICES[$index]}"
+        batch_sensor="${BATCH_SENSORS[$index]}"
+        batch_args=(-i -d "$batch_device" -s "$batch_sensor" --project "$BATCH_PROJECT" -b "$BUILD_MODE" -t "$PACKET_TYPE")
+        batch_marker=$(mktemp /tmp/build-batch-output.XXXXXX)
+
+        if [ -n "$VERSION_NUM" ]; then
+            batch_args+=(-v "$VERSION_NUM")
+        fi
+        if [ "$AUTOFILE_MODE" = true ]; then
+            batch_args+=(--autofile)
+        fi
+        if [ "$DAILY_MODE" = true ]; then
+            batch_args+=(--daily)
+        fi
+        if [ "$COPYRIGHT_MODE" = true ]; then
+            batch_args+=(--copyright)
+        fi
+
+        info "============> [$((index + 1))/${#BATCH_DEVICES[@]}] ${batch_device} / ${batch_sensor} / ${BATCH_PROJECT} <============"
+        if ! "${CUR_PATH}/build.sh" "${batch_args[@]}"; then
+            rm -f "$batch_marker"
+            error "批量编译失败: ${batch_device} / ${batch_sensor} / ${BATCH_PROJECT}"
+            exit 1
+        fi
+
+         # 只记录本型号本次构建新生成或更新的文件，避免把输出目录中的历史包带入汇总。
+        for output_file in "$PACK_BIN_PATH"/*; do
+            if [ -f "$output_file" ] && [ "$output_file" -nt "$batch_marker" ]; then
+                case "$output_file" in
+                *.bin | *.tar.gz)
+                    BATCH_OUTPUT_LINES+=("${batch_device}|升级包|$(basename "$output_file")")
+                    ;;
+                esac
+            fi
+        done
+        for output_file in "$IMAGE_BIN_PATH"/*; do
+            if [ -f "$output_file" ] && [ "$output_file" -nt "$batch_marker" ]; then
+                case "$output_file" in
+                *.zip)
+                    BATCH_OUTPUT_LINES+=("${batch_device}|固件包|$(basename "$output_file")")
+                    ;;
+                esac
+            fi
+        done
+        rm -f "$batch_marker"
+    done
+
+    info "============> 四款 ITC 设备的升级包、固件包及摆渡处理全部完成 <============"
+     info "============> 本次批量编译文件名汇总 <============"
+    if [ "${#BATCH_OUTPUT_LINES[@]}" -eq 0 ]; then
+        warn "未在输出目录中检测到本次生成的升级包或固件包"
+    else
+        current_output_device=""
+        for output_line in "${BATCH_OUTPUT_LINES[@]}"; do
+            IFS='|' read -r output_device output_type output_name <<< "$output_line"
+            if [ "$output_device" != "$current_output_device" ]; then
+                info "${output_device}:"
+                current_output_device="$output_device"
+            fi
+            echo "  [${output_type}] ${output_name}" >&2
+        done
+    fi
+    info "============> 批量编译文件名汇总结束 <============"
+    exit 0
+fi
+
 
 # 生成设备型号
 if [ "$DEVICE_MODE" = true ]; then

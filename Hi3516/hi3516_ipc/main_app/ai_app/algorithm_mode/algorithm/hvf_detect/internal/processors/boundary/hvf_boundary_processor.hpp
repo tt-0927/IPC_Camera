@@ -9,6 +9,8 @@
 
 #pragma once
 
+#include <set>
+
 #include "algorithm.hpp"
 #include "internal/base/hvf_detect_context.hpp"
 #include "target_index_manager.hpp"
@@ -61,6 +63,15 @@ public:
     bool isEnabled() const;
 
 private:
+    /**
+     * @brief   : 清理当前帧已丢失目标的越界状态和内部索引
+     * @param    {const std::set<int> &} stActiveTrackIds：当前帧有效跟踪ID集合
+     * @return   {void}
+     */
+    void cleanupLostTargets(const std::set<int> &stActiveTrackIds);
+
+private:
+
     /* 越界侦测配置 */
     Alarm::BoundaryDetection_S m_stAlgoCfg;
     /* 越界侦测状态数组 */

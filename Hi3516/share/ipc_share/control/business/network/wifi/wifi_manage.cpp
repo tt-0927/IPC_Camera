@@ -282,7 +282,10 @@ CWifiManager::CWifiManager() :  is_running(false),is_connected(false), m_hasConn
 
 CWifiManager::~CWifiManager() {
     is_running = false;
+    m_autoReconnectEnabled.store(false);
+    m_cancelConnectRequested.store(true);
     m_monitorCondition.notify_all();
+    if (m_restoreThread.joinable()) m_restoreThread.join();
     if (monitor_thread.joinable()) monitor_thread.join();
 }
 
@@ -376,10 +379,9 @@ void CWifiManager::monitorLoop() {
     const std::chrono::seconds scanningConfirmInterval(2);
 
     while (is_running.load()) {
-        // 从未成功连接过 WiFi 时一直休眠，避免无意义地轮询 STATUS。
-        // 首次连接成功或线程准备退出时，会通过 notify_all() 唤醒这里。
+        // 没有历史配置或用户已主动断开时休眠；首次开机连接失败也允许继续重试。
         m_monitorCondition.wait(monitorLock, [this] {
-            return !is_running.load() || m_hasConnectedOnce.load();
+            return !is_running.load() || m_autoReconnectEnabled.load();
         });
 
         if (!is_running.load()) {
@@ -439,7 +441,7 @@ void CWifiManager::monitorLoop() {
         if (shouldReconnect) {
             std::cout << "[后台监听] Wi-Fi连接异常，准备重连" << std::endl;
 
-            if (m_hasConnectedOnce.load() && !m_isConnecting.load()) {
+            if (m_autoReconnectEnabled.load() && !m_isConnecting.load()) {
                 handleDisconnect();
             }
 
@@ -509,7 +511,7 @@ void CWifiManager::monitorLoop() {
             monitorLock,
             monitorInterval,
             [this] {
-                return !is_running.load() || !m_hasConnectedOnce.load();
+                return !is_running.load() || !m_autoReconnectEnabled.load();
             });
     }
 }
@@ -534,7 +536,7 @@ void CWifiManager::handleDisconnect() {
     }
     
 
-    if (!is_running.load() || !m_hasConnectedOnce.load()) {
+    if (!is_running.load() || !m_autoReconnectEnabled.load()) {
         return;
     }
 
@@ -548,7 +550,7 @@ void CWifiManager::handleDisconnect() {
      * connectToWifi() 会把 reconnect_attempts 清零。
      */
     const ::Network::WifiConnectResult result = connectToWifi(localConfig);
-    if (!result.success && is_running.load() && m_hasConnectedOnce.load()) {
+    if (!result.success && is_running.load() && m_autoReconnectEnabled.load()) {
         dlog_warn("[重连] 第 %u 次WiFi重连失败，错误码[%d]，稍后继续重试",
                   attempt, result.error_code);
     }
@@ -806,12 +808,37 @@ int CWifiManager::init() {
         monitor_thread = std::thread(&CWifiManager::monitorLoop, this);
         std::cout << "[初始化] 守护进程连接成功。" << std::endl;
 
-    Network::WifiStaInfo_S cfg = load_wifi_config();
-    if(cfg.bEnableWifi)
-    {
-        std::cout << "[初始化] 重连wifi..." << std::endl;
-        std::thread(&CWifiManager::asyncRestoreConnection, this).join();
-    }
+        /* WiFi连接可能等待30秒，先保证在线eth0立即拥有默认路由。 */
+        int carrier = 0;
+        std::ifstream carrierFile("/sys/class/net/eth0/carrier");
+        if (carrierFile.is_open())
+        {
+            carrierFile >> carrier;
+        }
+        m_routeStateInitialized.store(false);
+        if (!isWifiConnectedAndWiredDisconnected(carrier != 1))
+        {
+            dlog_warn("[初始化] WiFi恢复前配置有线回退路由失败，后台状态检测将继续重试");
+        }
+
+        Network::WifiStaInfo_S cfg = load_wifi_config();
+        ::Network::WifiStaConncet_S savedConfig;
+        if (cfg.bEnableWifi && loadConfigFromFile(savedConfig))
+        {
+            {
+                std::lock_guard<std::mutex> lock(m_configMutex);
+                m_lastConnectConfig = savedConfig;
+                m_hasLastConfig = true;
+            }
+            m_autoReconnectEnabled.store(true);
+            m_monitorCondition.notify_all();
+            std::cout << "[初始化] 后台重连WiFi..." << std::endl;
+            m_restoreThread = std::thread(&CWifiManager::asyncRestoreConnection, this);
+        }
+        else
+        {
+            m_autoReconnectEnabled.store(false);
+        }
    
         
     } else {
@@ -832,8 +859,14 @@ void CWifiManager::deinit() {
 
     // 2. 停止监控线程
     is_running = false;
+    m_autoReconnectEnabled.store(false);
+    m_cancelConnectRequested.store(true);
     m_hasConnectedOnce.store(false);
     m_monitorCondition.notify_all();
+    if (m_restoreThread.joinable()) {
+        m_restoreThread.join();
+        std::cout << "[反初始化] WiFi恢复线程已停止。" << std::endl;
+    }
     if (monitor_thread.joinable()) {
         monitor_thread.join();
         std::cout << "[反初始化] 监控线程已停止。" << std::endl;
@@ -1065,6 +1098,8 @@ std::vector<WifiInfo> CWifiManager::scanWifi() {
     return results;
 }
 bool CWifiManager::disconnectWifi() {
+    m_autoReconnectEnabled.store(false);
+    m_cancelConnectRequested.store(true);
     m_hasConnectedOnce.store(false);
     m_monitorCondition.notify_all();
     std::cout << "[断开] 正在断开当前 WiFi 连接..." << std::endl;
@@ -1422,6 +1457,7 @@ std::string generateWpaConfContent(const ::Network::WifiStaConncet_S& config) {
         }
     } connectingGuard{m_isConnecting};
 
+    m_cancelConnectRequested.store(false);
     is_connected.store(false);
     printf("DEBUG: 解析到的 SSID 是: [%s]\n", config.ssid.c_str()); 
 
@@ -1568,6 +1604,12 @@ std::string generateWpaConfContent(const ::Network::WifiStaConncet_S& config) {
     bool sawFourWayHandshake = false;
     
     while (true) {
+        if (!is_running.load() || m_cancelConnectRequested.load()) {
+            sendCommand("DISCONNECT");
+            result.error_code = ::Network::WIFI_CONNECT_UNKNOWN_ERROR;
+            return result;
+        }
+
         auto now = std::chrono::steady_clock::now();
         if (now - start_time > timeout) {
             std::cout << "[连接] 超时！连接 " << config.ssid << " 失败。" << std::endl;
@@ -1602,6 +1644,7 @@ std::string generateWpaConfContent(const ::Network::WifiStaConncet_S& config) {
                 reconnect_attempts.store(0);
                 is_connected.store(true);
                 m_hasConnectedOnce.store(true);
+                m_autoReconnectEnabled.store(true);
                 m_monitorCondition.notify_all();
                 this->config.current_ssid = config.ssid;
 

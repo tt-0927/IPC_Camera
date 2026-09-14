@@ -77,6 +77,42 @@ float normalizeFaceCompareThreshold(float fThreshold)
     return FACE_COMPARE_SUCCESS_THRESHOLD;
 }
 
+#ifdef ENABLE_TVSDK_SRC
+bool loadJpegFileToEventImage(const std::string &strPath,
+                              ot_video_frame_info *pFrameInfo,
+                              EventTvSdkImage_S &stImage)
+{
+    if (strPath.empty() || pFrameInfo == nullptr)
+    {
+        return false;
+    }
+
+    std::ifstream file(strPath, std::ios::binary);
+    if (!file.is_open())
+    {
+        return false;
+    }
+    file.seekg(0, std::ios::end);
+    const std::streampos nSize = file.tellg();
+    if (nSize <= 0)
+    {
+        return false;
+    }
+    file.seekg(0, std::ios::beg);
+    stImage.vecJpeg.resize(static_cast<size_t>(nSize));
+    file.read(reinterpret_cast<char *>(stImage.vecJpeg.data()), static_cast<std::streamsize>(nSize));
+    if (file.gcount() != static_cast<std::streamsize>(nSize))
+    {
+        stImage.vecJpeg.clear();
+        return false;
+    }
+    stImage.nWidth = pFrameInfo->video_frame.width;
+    stImage.nHeight = pFrameInfo->video_frame.height;
+    stImage.strTag = "panorama";
+    return true;
+}
+#endif
+
 
 struct FaceCompareTimeParts_S
 {
@@ -230,17 +266,42 @@ void CFaceFeatureProcessor::processCompare(SFaceProcessContext &stContext,
     // for (const auto &rect : vstRectInfo)
 
     const long long llBaseTimestamp = stContext.llTimestamp > 0 ? stContext.llTimestamp : TimeUtils_NS::get_currentTimestampMs();
-    size_t nCompareIndex = 0;
-    for (const auto &faceInfo : vFaceInfos)
+
+    /*
+     * 单帧只选择一个最优目标执行特征提取和事件联动，避免多人场景同时触发多次
+     * ArcFace、JPEG 编码、抓拍和平台上传。优先置信度，置信度相同时选择面积更大的目标。
+     */
+    const auto stBestFaceIt = std::max_element(
+        vFaceInfos.begin(),
+        vFaceInfos.end(),
+        [](const FaceAlignInfo_S &lhs, const FaceAlignInfo_S &rhs)
+        {
+            if (lhs.fConfidence != rhs.fConfidence)
+            {
+                return lhs.fConfidence < rhs.fConfidence;
+            }
+
+            const long long llLeftArea =
+                static_cast<long long>(std::max(0, lhs.stRect.nX2 - lhs.stRect.nX1)) *
+                static_cast<long long>(std::max(0, lhs.stRect.nY2 - lhs.stRect.nY1));
+            const long long llRightArea =
+                static_cast<long long>(std::max(0, rhs.stRect.nX2 - rhs.stRect.nX1)) *
+                static_cast<long long>(std::max(0, rhs.stRect.nY2 - rhs.stRect.nY1));
+            return llLeftArea < llRightArea;
+        });
+
+    if (stBestFaceIt != vFaceInfos.end())
     {
-        const long long llCompareTimestamp = llBaseTimestamp + static_cast<long long>(nCompareIndex++);
+        do
+        {
+        const auto &faceInfo = *stBestFaceIt;
         /* 当前目标提取到的特征向量 */
         std::vector<float> vecFeature;
         // if (!extractFeatureDirect(rect, stContext.pFrameInfo, *stContext.pDetectWorker, vecFeature))
         if (!extractFeatureDirect(faceInfo.stRect,faceInfo.vPoints, stContext.pFrameInfo, *stContext.pDetectWorker, vecFeature))
         {
             dlog_error("特征提取失败 !");
-            continue;
+            break;
         }
 
         /* 当前目标比对结果 */
@@ -263,19 +324,21 @@ void CFaceFeatureProcessor::processCompare(SFaceProcessContext &stContext,
         // dlog_info("比对成功: id=%d 相似度=%.3f 相似度阈值 = %.3f", nFaceLibId, fSimilarity,stInfo.TargetLibInfos.Similarity);
         handleCompareLinkage(fSimilarity >= stInfo.TargetLibInfos.Similarity,
                             //  rect,
-                            faceInfo.stRect,
+                             faceInfo.stRect,
                              stContext.pFrameInfo,
                              stContext.nChnId,
-                             llCompareTimestamp,
+                             llBaseTimestamp,
                              nFaceLibId,
                              fSimilarity,
                              fThreshold,
                              stCaptureProcessor,
+                             stContext.stImageCache,
                              vecImageFile);
         if (bCompareSuccess)
         {
             bFaceCompare = true;
         }
+        } while (false);
     }
     EventTriggerContext_S stExposureContext;
 
@@ -1305,14 +1368,32 @@ int CFaceFeatureProcessor::saveCompareImage(
     std::vector<std::string> &vecImageFile,
     std::string &strImagePath)
 {
+    /* 失败时不允许把一个不存在的路径继续传给事件联动。 */
+    strImagePath.clear();
+
     if (pSrcFrameInfo == nullptr)
     {
         return ERR_PTR_NULL;
     }
+
+    /*
+     * 必须在任何目录或文件操作之前检查存储状态。该检查只能用于快速失败；
+     * 用户可能在检查后立即拔卡，因此后续每一步仍必须检查实际返回值。
+     */
+    if (CStorageManage::instance()->get_SdCardStatus() != SD_CARD_STATUS_E::NORMAL)
+    {
+        dlog_warn("SD卡不可用，跳过人脸比对图片保存");
+        return ERR;
+    }
+
     std::string strStoragePath =
         CCaptureCtrl::instance()->get_date_storage_path();
 
-    CCaptureCtrl::instance()->ensure_directory_exists(strStoragePath);
+    if (!CCaptureCtrl::instance()->ensure_directory_exists(strStoragePath))
+    {
+        dlog_error("人脸比对图片目录创建失败: %s", strStoragePath.c_str());
+        return ERR;
+    }
 
     auto stTime = buildFaceCompareTimeParts(llTimestamp);
 
@@ -1324,14 +1405,24 @@ int CFaceFeatureProcessor::saveCompareImage(
             static_cast<int>(Event::Type_E::FACE_COMPARE)) +
         "_face_compare.jpg";
 
-    int ret =
+    const int ret =
         AiAppCommon::encode_video_frame_to_jpeg_file(
             pSrcFrameInfo,
             strImagePath);
-    stCaptureProcessor.saveToDatabase(strImagePath, stTime.strDateDash, stTime.strTimeColon, nChnId);
 
     if (ret != OK)
     {
+        dlog_error("人脸比对图片编码失败: %s", strImagePath.c_str());
+        strImagePath.clear();
+        return ERR;
+    }
+
+    /* 只有文件成功生成后才能读取文件大小并写入抓图数据库。 */
+    if (stCaptureProcessor.saveToDatabase(
+            strImagePath, stTime.strDateDash, stTime.strTimeColon, nChnId) != OK)
+    {
+        dlog_error("人脸比对图片写入数据库失败: %s", strImagePath.c_str());
+        strImagePath.clear();
         return ERR;
     }
 
@@ -1345,9 +1436,11 @@ static bool shouldUploadCompareImage(const FaceCompareLinkageOptions_S &stOption
 {
     /*
      * 平台事件图片上传线程由 UPLOAD_SD_CARD(3) 触发。
-     * 人脸比对没有通用抓图兜底，因此只要需要启动图片上传线程，就先准备当前比对目标图。
+     * 目标图、平台上传和无全景图时的邮件附件共用同一个文件，避免分别编码 JPEG。
      */
-    return stOptions.bUploadSdCard;
+    return stOptions.bTargetImage ||
+           stOptions.bUploadSdCard ||
+           (stOptions.bEmail && !stOptions.bPanoramaImage);
 }
 
 static void addFaceCompareAttrIfNotEmpty(EventTriggerContext_S &stContext,
@@ -1399,12 +1492,22 @@ void CFaceFeatureProcessor::handleCompareLinkage(bool bSuccess,
                                                  float fSimilarity,
                                                  float fThreshold,
                                                  CFaceCaptureProcessor &stCaptureProcessor,
+                                                 FaceFrameImageCache_S &stImageCache,
                                                  std::vector<std::string> &vecImageFile)
 {
     const FaceCompareLinkageOptions_S stOptions = buildLinkageOptions(bSuccess);
     const long long llEventTimestamp = llTimestamp > 0 ? llTimestamp : TimeUtils_NS::get_currentTimestampMs();
     std::string strUploadImagePath;
     FaceDataDB_NS::FaceLibsInfo_S stMatchedFaceInfo;
+
+    /*
+     * 图片编码、抓拍和上传都必须服从事件状态机。持续事件或冷却期直接返回，
+     * 防止比对失败的陌生人停留在画面中时，每个检测周期都生成一张 JPEG。
+     */
+    if (!m_alarmStateMachine.canStartAlarm())
+    {
+        return;
+    }
 
     EventTriggerContext_S stExposureContext;
     if (bSuccess)
@@ -1458,14 +1561,64 @@ void CFaceFeatureProcessor::handleCompareLinkage(bool bSuccess,
 
     if (shouldUploadCompareImage(stOptions))
     {
-        saveCompareImage(stRect,
-                         pFrameInfo,
-                         nChnId,
-                         llEventTimestamp,
-                         stCaptureProcessor,
-                         vecImageFile,
-                         strUploadImagePath);
+        if (!stImageCache.strTargetImagePath.empty())
+        {
+            /* 人脸抓拍已为当前帧生成目标图时直接复用。 */
+            strUploadImagePath = stImageCache.strTargetImagePath;
+        }
+        else
+        {
+            /* 单独开启人脸比对时缓存为空，由比对模块自行生成目标图。 */
+            if (saveCompareImage(stRect,
+                                 pFrameInfo,
+                                 nChnId,
+                                 llEventTimestamp,
+                                 stCaptureProcessor,
+                                 vecImageFile,
+                                 strUploadImagePath) == OK)
+            {
+                stImageCache.strTargetImagePath = strUploadImagePath;
+            }
+            else
+            {
+                strUploadImagePath.clear();
+            }
+        }
     }
+
+    /*
+     * 通用抓拍只负责真正配置的全景图。目标图已经由 saveCompareImage() 生成，
+     * 平台上传直接复用 strUploadImagePath，不能为了上传或邮件再次无条件抓图。
+     */
+    std::string strPanoramaImagePath = stImageCache.strPanoramaImagePath;
+    Event::Info_S stEventInfo;
+    stEventInfo.enType = Event::Type_E::FACE_COMPARE;
+    stEventInfo.strDate = TimeUtils_NS::get_currentDate();
+    stEventInfo.strTime = TimeUtils_NS::get_currentTimeMs();
+    stEventInfo.nChnId = nChnId < 0 ? 0 : nChnId;
+    stEventInfo.strStartTime = TimeUtils_NS::get_currentDateWithDash() + " " + TimeUtils_NS::get_currentTimeWithColon();
+    stEventInfo.strEndTime = stEventInfo.strStartTime;
+
+    if (stOptions.bUploadSdCard && strPanoramaImagePath.empty() &&
+        CStorageManage::instance()->get_SdCardStatus() == SD_CARD_STATUS_E::NORMAL &&
+        CCaptureCtrl::instance()->set_event_capture(false, stEventInfo) == OK)
+    {
+        strPanoramaImagePath = CCaptureCtrl::instance()->get_face_capture_file();
+        CCaptureCtrl::instance()->set_event_capture(true, stEventInfo);
+        if (!strPanoramaImagePath.empty())
+        {
+            stImageCache.strPanoramaImagePath = strPanoramaImagePath;
+        }
+    }
+
+    /* 邮件优先使用全景图；未配置全景图时复用已经生成的目标图。 */
+    const std::string &strEmailImagePath =
+        !strPanoramaImagePath.empty() ? strPanoramaImagePath : strUploadImagePath;
+    if (stOptions.bEmail && !strEmailImagePath.empty())
+    {
+        vecImageFile.emplace_back(strEmailImagePath);
+    }
+
     fillFaceCompareAttrs(stExposureContext,
                          bSuccess,
                          nFaceId,
@@ -1479,7 +1632,11 @@ void CFaceFeatureProcessor::handleCompareLinkage(bool bSuccess,
     {
         auto pPayload = std::make_shared<EventTvSdkPayload_S>();
         pPayload->enType = get_tvsdk_payload_type(stExposureContext.enEventType);
-        if (AiAppCommon::encode_video_frame_to_jpeg_memory(pFrameInfo, pPayload->stPanoramaImage) == OK)
+        const bool bImageReady =
+            (!stImageCache.strPanoramaImagePath.empty() &&
+             loadJpegFileToEventImage(stImageCache.strPanoramaImagePath, pFrameInfo, pPayload->stPanoramaImage)) ||
+            (AiAppCommon::encode_video_frame_to_jpeg_memory(pFrameInfo, pPayload->stPanoramaImage) == OK);
+        if (bImageReady)
         {
             stExposureContext.pTvSdkPayload = pPayload;
         }
@@ -1487,54 +1644,6 @@ void CFaceFeatureProcessor::handleCompareLinkage(bool bSuccess,
 #endif
 
     m_alarmStateMachine.handleAlarmState(true, stExposureContext);
-
-    if (!stOptions.bUploadSdCard || SD_CARD_STATUS_E::NORMAL != CStorageManage::instance()->get_SdCardStatus())
-    {
-        return;
-    }
-
-    if (!access("testPrint", F_OK))
-    {
-        if (bSuccess)
-        {
-            dlog_trace("人脸比对大于0.7联动保存人脸图片开始");
-        }
-        else
-        {
-            dlog_trace("人脸比对小于0.7联动保存人脸图片开始 ");
-        }
-    }
-
-    Event::Info_S stEventInfo;
-    stEventInfo.enType = Event::Type_E::FACE_COMPARE;
-    stEventInfo.strDate = TimeUtils_NS::get_currentDate();
-    stEventInfo.strTime = TimeUtils_NS::get_currentTimeMs();
-    stEventInfo.nChnId = nChnId < 0 ? 0 : nChnId;
-    stEventInfo.strStartTime = TimeUtils_NS::get_currentDateWithDash() + " " + TimeUtils_NS::get_currentTimeWithColon();
-    stEventInfo.strEndTime = stEventInfo.strStartTime;
-
-    const int nRet = CCaptureCtrl::instance()->set_event_capture(false, stEventInfo);
-
-
-    if (nRet == OK)
-    {
-        // if (stOptions.bPanoramaImage)
-        if (stOptions.bEmail)
-        {
-            auto strFaceImage = CCaptureCtrl::instance()->get_face_capture_file();/*等待图片，邮件才能发送附件图片 */
-            if (!strFaceImage.empty())
-            {
-                vecImageFile.emplace_back(strFaceImage);
-            }
-        }
-
-        /* 平台上传用目标图已在事件触发前保存；这里不再重复保存 */
-        // if (stOptions.bTargetImage)
-        // {
-        //     std::vector<Common::RectInfo_S> vstSingleRectInfo{ stRect };
-        //     stCaptureProcessor.saveFaceImage(vstSingleRectInfo, pFrameInfo, nChnId, vecImageFile);
-        // }
-    }
 
     if (stOptions.bEmail)
     {
@@ -1560,19 +1669,6 @@ void CFaceFeatureProcessor::handleCompareLinkage(bool bSuccess,
     }
 
     vecImageFile.clear();
-    CCaptureCtrl::instance()->set_event_capture(true, stEventInfo);
-    if (!access("testPrint", F_OK))
-    {
-        if (bSuccess)
-        {
-            dlog_trace("人脸比对大于0.7联动保存人脸图片结束");
-        }
-        else
-        {
-            dlog_trace("人脸比对小于0.7联动保存人脸图片结束");
-        }
-    }
-        
 }
 
 bool CFaceFeatureProcessor::convertYuvToFloat160(ot_video_frame_info &stFrame, std::vector<float> &outData) const

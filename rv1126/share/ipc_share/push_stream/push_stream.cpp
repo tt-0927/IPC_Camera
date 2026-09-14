@@ -132,40 +132,59 @@ CPushStream::CPushStream() : m_strHttpsConfigFile(HTTPS_CONFIG_FILE)
 
 IpcRet_E CPushStream::init()
 {
+    /* 仅记录启动进度，不改变初始化顺序及错误处理策略。 */
+    dlog_info("[STARTUP-DIAG] 推流：开始读取服务配置");
     Network::HttpsConfigInfo_S stInfo;
     if (Convert::read_file(m_strHttpsConfigFile, stInfo))
     {
         Convert::write_file(m_strHttpsConfigFile, stInfo);
     }
+    dlog_info("[STARTUP-DIAG] 推流：服务配置读取完成，rtsp_enable=%d", static_cast<int>(stInfo.bEnRtsp));
     if (stInfo.bEnRtsp && !CRtspServer::instance()->isInit())
     {
-        CRtspServer::instance()->init();
+        dlog_info("[STARTUP-DIAG] 推流：开始初始化 RTSP");
+        const int nRtspRet = CRtspServer::instance()->init();
+        dlog_info("[STARTUP-DIAG] 推流：RTSP 初始化返回，ret=%d", nRtspRet);
     }
+    dlog_info("[STARTUP-DIAG] 推流：RTSP 阶段结束");
 
     /* 初始化RTMP推流（按平台配置开关控制） */
 #if CAP_RTMP_PUSH
     {
         Network::Platform_Info_t stPlatformInfo;
-        if (get_rtmp_platform_info(stPlatformInfo))
+        dlog_info("[STARTUP-DIAG] 推流：开始检查 RTMP 平台配置");
+        const bool bRtmpEnabled = get_rtmp_platform_info(stPlatformInfo);
+        dlog_info("[STARTUP-DIAG] 推流：RTMP 平台配置检查返回，enabled=%d", static_cast<int>(bRtmpEnabled));
+        if (bRtmpEnabled)
         {
             if (!CRtmpPusher::instance()->is_init())
             {
-                CRtmpPusher::instance()->init();
+                dlog_info("[STARTUP-DIAG] 推流：开始初始化 RTMP 管理器");
+                const int nRtmpRet = CRtmpPusher::instance()->init();
+                dlog_info("[STARTUP-DIAG] 推流：RTMP 管理器初始化返回，ret=%d", nRtmpRet);
             }
 
             /* 获取设备序列号 */
+            dlog_info("[STARTUP-DIAG] 推流：开始获取设备信息");
             System::DeviceInfo_S stDeviceInfo;
             SystemManage::instance()->get_device_info(stDeviceInfo);
+            dlog_info("[STARTUP-DIAG] 推流：获取设备信息返回");
             std::string strDeviceSN = stDeviceInfo.serialNumber;
 
             /* 获取访问 token */
+            dlog_info("[STARTUP-DIAG] 推流：开始获取平台访问令牌");
             std::string strToken = CPlatformManager::instance()->get_access_token();
+            dlog_info("[STARTUP-DIAG] 推流：获取平台访问令牌返回");
 
+            dlog_info("[STARTUP-DIAG] 推流：开始读取音频配置");
             Audio_NS::AudioConfig_S stAudioConfig;
             CAVConfigure::instance()->get_configure(stAudioConfig);
+            dlog_info("[STARTUP-DIAG] 推流：读取音频配置返回");
 
+            dlog_info("[STARTUP-DIAG] 推流：开始读取视频配置");
             std::set<Video_NS::VideoConfig_S> setVideoConfig;
             CAVConfigure::instance()->get_configure(setVideoConfig);
+            dlog_info("[STARTUP-DIAG] 推流：读取视频配置返回");
             for (const auto &stVideoConfig : setVideoConfig)
             {
                 if (!is_rtmp_video_config_supported(stVideoConfig))
@@ -174,13 +193,17 @@ IpcRet_E CPushStream::init()
                 }
                 std::string strRtmpUrl = build_rtmp_url(stPlatformInfo, stVideoConfig.nId, strDeviceSN, strToken);
                 dlog_info("RTMP推流地址生成成功，通道=%d, URL=%s", stVideoConfig.nId, strRtmpUrl.c_str());
-                CRtmpPusher::instance()->start_push(stVideoConfig.nId, strRtmpUrl, stVideoConfig, stAudioConfig);
+                dlog_info("[STARTUP-DIAG] 推流：开始启动 RTMP 通道，channel=%d", stVideoConfig.nId);
+                const int nPushRet = CRtmpPusher::instance()->start_push(stVideoConfig.nId, strRtmpUrl, stVideoConfig, stAudioConfig);
+                dlog_info("[STARTUP-DIAG] 推流：RTMP 通道启动返回，channel=%d ret=%d", stVideoConfig.nId, nPushRet);
             }
         }
     }
 #endif
+    dlog_info("[STARTUP-DIAG] 推流：协议初始化结束，即将开启送帧标志");
     m_bInitFlag = true;
 
+    dlog_info("[STARTUP-DIAG] 推流：初始化完成");
     return OK;
 }
 

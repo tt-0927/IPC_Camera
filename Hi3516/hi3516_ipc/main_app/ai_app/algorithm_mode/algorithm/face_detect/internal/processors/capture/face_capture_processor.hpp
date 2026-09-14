@@ -113,9 +113,7 @@
      void handleLinkage(bool bAlarm,
                         const std::vector<FaceCaptureTarget_S> &vecTargets,
                         const std::vector<Common::RectInfo_S> &vstRectInfo,
-                        ot_video_frame_info *pFrameInfo,
-                        int nChnId,
-                        long long llTimestamp,
+                        SFaceProcessContext &stContext,
                         std::vector<std::string> &vecImageFile);
 
      /**

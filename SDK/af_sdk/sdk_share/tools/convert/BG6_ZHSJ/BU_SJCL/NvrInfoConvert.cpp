@@ -768,22 +768,30 @@ void deal(Json::Object* pRootJson, NET_ElectricVehicleInElevatorCfg_S& stInfo, b
 
     SDKConvert::CSDKConvert convert(bOutStruct);
     convert.field(pRootJson, "Enable", stInfo.bEnable);
-    convert.structure(pRootJson, "Rule", stInfo.stRule);
-    convert.structure(pRootJson, "AlarmSchedule", stInfo.stAlarmSchedule);
-    convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
-    
+    Json::Object *pRule = Json::get(pRootJson, "Rule");
     if (bOutStruct)
     {
-        convert.field(pRootJson, "PointCount", stInfo.uPointCount);
-        JsonToFloatArray(pRootJson, "PointX", stInfo.afPointX, NET_AI_SIMPLE_REGION_POINT_MAX_NUM);
-        JsonToFloatArray(pRootJson, "PointY", stInfo.afPointY, NET_AI_SIMPLE_REGION_POINT_MAX_NUM);
+        if (pRule)
+        {
+            convert.field(pRule, "TimeThreshold", stInfo.nTimeThreshold);
+            convert.field(pRule, "PointCount", stInfo.uPointCount);
+            JsonToFloatArray(pRule, "PointX", stInfo.afPointX, NET_AI_SIMPLE_REGION_POINT_MAX_NUM);
+            JsonToFloatArray(pRule, "PointY", stInfo.afPointY, NET_AI_SIMPLE_REGION_POINT_MAX_NUM);
+            convert.structure(pRule, stInfo.stRule);
+        }
     }
     else
     {
-        convert.field(pRootJson, "PointCount", stInfo.uPointCount);
-        FloatArrayToJson(pRootJson, "PointX", stInfo.afPointX, stInfo.uPointCount, NET_AI_SIMPLE_REGION_POINT_MAX_NUM);
-        FloatArrayToJson(pRootJson, "PointY", stInfo.afPointY, stInfo.uPointCount, NET_AI_SIMPLE_REGION_POINT_MAX_NUM);
+        pRule = Json::init();
+        convert.field(pRule, "TimeThreshold", stInfo.nTimeThreshold);
+        convert.field(pRule, "PointCount", stInfo.uPointCount);
+        FloatArrayToJson(pRule, "PointX", stInfo.afPointX, stInfo.uPointCount, NET_AI_SIMPLE_REGION_POINT_MAX_NUM);
+        FloatArrayToJson(pRule, "PointY", stInfo.afPointY, stInfo.uPointCount, NET_AI_SIMPLE_REGION_POINT_MAX_NUM);
+        convert.structure(pRule, stInfo.stRule);
+        Json::add(pRootJson, "Rule", pRule);
     }
+    convert.structure(pRootJson, "AlarmSchedule", stInfo.stAlarmSchedule);
+    convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
 }
 
 

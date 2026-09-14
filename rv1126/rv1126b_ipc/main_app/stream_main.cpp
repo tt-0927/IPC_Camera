@@ -134,7 +134,9 @@ bool initModules()
     }
 
     /* 初始化推流模块 */
+    dlog_info("[STARTUP-DIAG] 开始初始化推流模块");
     nRet = CPushStream::instance()->init();
+    dlog_info("[STARTUP-DIAG] 推流模块初始化返回，ret=%d", nRet);
     if (nRet < OK)
     {
         dlog_error("推流模块初始化失败：%d", nRet);
@@ -142,7 +144,9 @@ bool initModules()
     }
 
     /* 控制管理模块初始化 */
+    dlog_info("[STARTUP-DIAG] 开始初始化控制管理模块");
     nRet = ControlManage::instance()->init();
+    dlog_info("[STARTUP-DIAG] 控制管理模块初始化返回，ret=%d", nRet);
     if (nRet < OK)
     {
         dlog_error("控制管理模块初始化失败：%d", nRet);
