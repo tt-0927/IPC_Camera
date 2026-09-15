@@ -6,6 +6,7 @@
  * @LastEditors  : zhouzr@kfb.cn
  * @LastEditTime : 2026-08-25 16:00:00
  * @Description  : 平台管理
+ * @Change       : 2026-09-14 MQTT连接后请求平台UTC时间，校时完成后上报取流注册信息
  * @Change       : 2026-08-25 新增人脸 JPG 下载，保持 NV21 通过 BinPath 送入 AI
  * @Change       : 2026-08-25 禁止 PicPath 回退为 NV21 下载地址，增加 MQTT 人脸数据和下载源日志
  * @Change       : 2026-09-08 原图独立保存到人脸目录，支持 JPEG、PNG、BMP，并避免同名覆盖
@@ -30,6 +31,8 @@
 #include "mqtt_topic_define.h"
 #include "system_define.h"
 #include "system_manage.h"
+#include "time_manage.h"
+#include <cmath>
 
 #include <iostream>
 #include <algorithm>
@@ -60,6 +63,9 @@
 namespace
 {
 constexpr const char *MQTT_DEVICE_REGISTER_COMMAND = "NET_DEVICE_REGISTER";
+constexpr const char *MQTT_PLATFORM_TIME_COMMAND = "GET_TIME_INFO";
+constexpr int MQTT_PLATFORM_TIME_TIMEOUT_SEC = 10;
+constexpr unsigned int MQTT_PLATFORM_TIME_MAX_ATTEMPTS = 3;
 constexpr const char *PLATFORM_REGISTER_CREDENTIAL_KEY_ID = "platform-rsa-2026-08";
 constexpr const char *PLATFORM_REGISTER_CREDENTIAL_PUBLIC_KEY = CA_MQTT_TRUST_KEY "platform_register_public.pem";
 
@@ -2389,6 +2395,15 @@ void CPlatformManager::process_mqtt_command(const std::string &strTopic, const s
     }
 
     std::string strCommand = pCommand->valuestring;
+    if (strCommand == MQTT_PLATFORM_TIME_COMMAND)
+    {
+        if (strTopic == MQTT_TOPIC_COMMAND(m_strMqttClientId))
+        {
+            handle_platform_time(pRoot);
+        }
+        cJSON_Delete(pRoot);
+        return;
+    }
     std::string strRequestId = cJSON_IsString(pRequestId) ? pRequestId->valuestring : "";
     std::string strData = "{}";
 
@@ -3006,13 +3021,118 @@ void CPlatformManager::on_mqtt_connection_changed(bool bConnected, const std::st
 {
     dlog_info("MQTT 连接状态变化：connected=%d, reason=%s", bConnected ? 1 : 0, strReason.c_str());
 
+    {
+        std::lock_guard<std::mutex> stLock(m_mtxPlatformTime);
+        m_bPlatformTimeConnected = bConnected;
+        m_bPlatformTimeReady = false;
+        m_bPlatformTimeApplying = false;
+        m_uPlatformTimeAttempts = 0;
+        m_strPlatformTimeRequest.clear();
+    }
+
     if (bConnected)
     {
-        /* 订阅恢复后先上报取流信息，再通知设备在线。 */
-        publish_device_register();
+        /* 校时完成后再发布携带时间戳的取流信息。在线状态仍正常上报。 */
+        request_platform_time();
         publish_device_status(true, "connect");
     }
     /* 离线状态由 LWT 自动发布（异常断开）或 deinit() 主动发布（正常关机），这里不需要额外处理 */
+}
+
+/**
+ * @brief 请求平台UTC秒时间戳，每次连接最多发送三次。
+ * @param [in] 无
+ * @param [out] 无
+ * @return 无
+ */
+void CPlatformManager::request_platform_time()
+{
+    std::string strRequestId;
+    {
+        std::lock_guard<std::mutex> stLock(m_mtxPlatformTime);
+        const auto stNow = std::chrono::steady_clock::now();
+        if (!m_bPlatformTimeConnected || m_bPlatformTimeReady || m_bPlatformTimeApplying)
+        {
+            return;
+        }
+        if (!m_strPlatformTimeRequest.empty() &&
+            stNow - m_stPlatformTimeSent < std::chrono::seconds(MQTT_PLATFORM_TIME_TIMEOUT_SEC))
+        {
+            return;
+        }
+        if (m_uPlatformTimeAttempts >= MQTT_PLATFORM_TIME_MAX_ATTEMPTS)
+        {
+            if (m_uPlatformTimeAttempts == MQTT_PLATFORM_TIME_MAX_ATTEMPTS)
+            {
+                ++m_uPlatformTimeAttempts;
+                dlog_warn("MQTT平台校时重试耗尽，本次连接暂不发布取流注册信息");
+            }
+            return;
+        }
+        ++m_uPlatformTimeAttempts;
+        m_stPlatformTimeSent = stNow;
+        strRequestId = "time-sync-" + m_strMqttClientId + "-" +
+            std::to_string(std::chrono::duration_cast<std::chrono::nanoseconds>(stNow.time_since_epoch()).count());
+        m_strPlatformTimeRequest = strRequestId;
+    }
+    /* 平台订阅设备事件主题，应答投递回设备的命令主题；禁止向自身命令主题发起请求。 */
+    const int nRet = publish_event(MQTT_PLATFORM_TIME_COMMAND, "{}", strRequestId);
+    dlog_info("MQTT平台校时请求已提交: request[%s], ret[%d]", strRequestId.c_str(), nRet);
+}
+
+/**
+ * @brief 消费平台时间响应，拒绝重复、过期及不匹配的响应。
+ * @param [in] pRoot 平台响应JSON。
+ * @param [out] 无
+ * @return 无
+ */
+void CPlatformManager::handle_platform_time(cJSON *pRoot)
+{
+    const cJSON *pRequest = cJSON_GetObjectItemCaseSensitive(pRoot, "RequestId");
+    const cJSON *pReturn = cJSON_GetObjectItemCaseSensitive(pRoot, "Return");
+    const cJSON *pData = cJSON_GetObjectItemCaseSensitive(pRoot, "Data");
+    const cJSON *pTimestamp = cJSON_IsObject(pData) ? cJSON_GetObjectItemCaseSensitive(pData, "Timestamp") : nullptr;
+    /* 仅接受UTC整数秒，范围限制为2000年起且不超过目标平台time_t上限。 */
+    if (!cJSON_IsString(pRequest) || !cJSON_IsNumber(pReturn) || pReturn->valuedouble != 0 ||
+        !cJSON_IsNumber(pTimestamp) || !std::isfinite(pTimestamp->valuedouble) ||
+        pTimestamp->valuedouble < 946684800.0 || pTimestamp->valuedouble > 2147483647.0 ||
+        pTimestamp->valuedouble > static_cast<double>(std::numeric_limits<std::time_t>::max()) ||
+        std::floor(pTimestamp->valuedouble) != pTimestamp->valuedouble)
+    {
+        dlog_warn("MQTT平台校时响应无效: 要求Return=0及Data.Timestamp为UTC整数秒");
+        return;
+    }
+    const std::string strRequestId = pRequest->valuestring;
+    {
+        std::lock_guard<std::mutex> stLock(m_mtxPlatformTime);
+        if (!m_bPlatformTimeConnected || m_bPlatformTimeReady || m_bPlatformTimeApplying ||
+            strRequestId != m_strPlatformTimeRequest ||
+            std::chrono::steady_clock::now() - m_stPlatformTimeSent > std::chrono::seconds(MQTT_PLATFORM_TIME_TIMEOUT_SEC))
+        {
+            dlog_warn("MQTT平台校时响应已过期或不匹配: request[%s]", strRequestId.c_str());
+            return;
+        }
+        m_bPlatformTimeApplying = true;
+    }
+    /* 不改变设备时区、NTP配置；统一入口负责RTC及录制、RTSP等时间变化通知。 */
+    bool bUpdated = false;
+    const int nRet = CTimeManage::instance()->set_system_utc_time(
+        static_cast<std::time_t>(pTimestamp->valuedouble), SystemTimeChangeSource_E::MANUAL, false, &bUpdated);
+    {
+        std::lock_guard<std::mutex> stLock(m_mtxPlatformTime);
+        if (!m_bPlatformTimeConnected || strRequestId != m_strPlatformTimeRequest)
+        {
+            return;
+        }
+        m_bPlatformTimeApplying = false;
+        m_bPlatformTimeReady = nRet == OK;
+    }
+    dlog_info("MQTT平台校时结果: request[%s], utc[%.0f], updated[%d], ret[%d]",
+              strRequestId.c_str(), pTimestamp->valuedouble, bUpdated ? 1 : 0, nRet);
+    if (nRet == OK)
+    {
+        publish_device_register();
+    }
 }
 
 int CPlatformManager::publish_device_register()
@@ -3222,6 +3342,7 @@ void CPlatformManager::status_heartbeat_loop()
         }
 
         const auto now = std::chrono::steady_clock::now();
+        request_platform_time();
         if (now < nextHeartbeatTime)
         {
             continue;
