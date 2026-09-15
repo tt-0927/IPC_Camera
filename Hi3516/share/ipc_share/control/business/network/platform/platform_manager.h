@@ -6,6 +6,7 @@
  * @LastEditors  : zhouzr@kfb.cn
  * @LastEditTime : 2026-08-25 16:00:00
  * @Description  : 平台管理
+ * @Change       : 2026-09-14 新增平台校时请求和响应处理，复用MQTT命令及心跳线程
  * @Change       : 2026-08-25 新增人脸 JPG 下载，保持 NV21 通过 BinPath 送入 AI
  * @Change       : 2026-08-25 禁止 PicPath 回退为 NV21 下载地址，增加 MQTT 人脸数据和下载源日志
  * @Change       : 2026-09-08 原图独立保存到人脸目录，支持 JPEG、PNG、BMP，并避免同名覆盖
@@ -23,6 +24,7 @@
 #include <functional>
 #include <unordered_map>
 #include <mutex>
+#include <chrono>
 
 #include "mqtt_manager.h"
 #include "mqtt_topic_define.h"
@@ -520,6 +522,31 @@ private:
      * @note    : 由 CMqttManager 重连线程调用，连接成功时主动发布在线状态
      */
     void on_mqtt_connection_changed(bool bConnected, const std::string &strReason);
+
+    /**
+     * @brief 请求平台UTC时间，未完成时由现有心跳线程重试。
+     * @param [in] 无
+     * @param [out] 无
+     * @return 无
+     */
+    void request_platform_time();
+
+    /**
+     * @brief 在命令工作线程校验时间响应并调用统一校时接口。
+     * @param [in] pRoot 响应JSON，调用方持有其生命周期。
+     * @param [out] 无
+     * @return 无
+     */
+    void handle_platform_time(cJSON *pRoot);
+
+    /* 保护连接代次、待处理请求及重试状态；网络发送和校时在锁外执行。 */
+    std::mutex m_mtxPlatformTime;
+    bool m_bPlatformTimeConnected = false;
+    bool m_bPlatformTimeReady = false;
+    bool m_bPlatformTimeApplying = false;
+    unsigned int m_uPlatformTimeAttempts = 0;
+    std::string m_strPlatformTimeRequest;
+    std::chrono::steady_clock::time_point m_stPlatformTimeSent{};
 
     /**
      * @brief MQTT 连接成功后向平台上报设备注册及取流信息
