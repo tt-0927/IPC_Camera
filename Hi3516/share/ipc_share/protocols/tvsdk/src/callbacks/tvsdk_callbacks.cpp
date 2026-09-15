@@ -31,6 +31,7 @@
 #include "dlog.h"
 #include "action_code.h"
 #include "system_manage.h"
+#include "user_manage.h"
 #include "system_define.h"
 #include "time_manage.h"
 #include "network_define.h"
@@ -51,6 +52,40 @@
 namespace TvSdkCallbacks
 {
 static CTaskManage *s_taskManage = nullptr;
+static int execute_get_result(int actionCode, const std::string &inJson, std::string &outJson);
+static std::string wrap_data_json(const std::string &srcJson);
+
+/* SDK修改密码复用IPC用户更新任务，保持旧密码校验、密码策略及在线会话处理一致。 */
+static NET_COMMON_ECODE_E cb_set_user_password(pNET_UserPasswordInfo_S pInfo)
+{
+    if (pInfo == nullptr || s_taskManage == nullptr)
+    {
+        return NET_E_NULL_POINT;
+    }
+    ::User::UserInfo_S stOldInfo;
+    stOldInfo.stAccountInfo.account = pInfo->strUserName;
+    if (CUserManage::instance()->get_itemInfo(stOldInfo) != OK)
+    {
+        return NET_E_NO_USER;
+    }
+    ::User::UpdateInfo_S stUpdateInfo;
+    stUpdateInfo.stAccountInfo = stOldInfo.stAccountInfo;
+    stUpdateInfo.stNewUserInfo = stOldInfo;
+    stUpdateInfo.stAccountInfo.password = pInfo->strOldPassword;
+    stUpdateInfo.stNewUserInfo.stAccountInfo.password = pInfo->strNewPassword;
+    stUpdateInfo.bCheckPassword = true;
+    std::string strResult;
+    if (execute_get_result(AC_SET_USER_INFO, wrap_data_json(Convert::to_string(stUpdateInfo)), strResult) != OK)
+    {
+        return NET_E_SET_CFG_FAILED;
+    }
+    int nReturn = -1;
+    if (!Json::get(strResult.c_str(), "Return", nReturn) || nReturn != OK)
+    {
+        return NET_E_FAILED;
+    }
+    return NET_E_SUCCEED;
+}
 
 /* 从事件配置文件回填SDK独有的电瓶车参数；业务结构不承载这些字段。 */
 static void tvsdk_fill_elevator_sdk_fields(NET_ElectricVehicleInElevatorCfg_S &stConfig)
@@ -6028,6 +6063,7 @@ void register_all()
     NET_serverRegisterDelFaceInfoCb(cb_del_face_info);
     NET_serverRegisterSetFaceInfoCb(cb_set_face_info);
     NET_serverRegisterGetFaceInfoCb(cb_get_face_info);
+    NET_serverRegisterSetUserPasswordCb(cb_set_user_password);
 }
 
 } // namespace TvSdkCallbacks
