@@ -69,6 +69,8 @@ public:
      */
     void play_audio(std::string strAudioPath, int nTimes);
 
+    int get_audio_file_path(std::string &strAudioPath, int &nTimes);
+
     /**
      * @brief   : 停止正在播放的音频
      * @return   {bool} true：已停止或原本未播放 false：worker 未初始化

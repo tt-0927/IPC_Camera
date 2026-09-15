@@ -231,6 +231,15 @@ void CEventLinkage::play_audio(std::string strAudioPath, int nTimes)
     m_asyncAction->play_audio(strAudioPath, nTimes, m_worker->getRunningFlag(LinkageType_E::SOUND));
 }
 
+int CEventLinkage::get_audio_file_path(std::string &strAudioPath, int &nTimes)
+{
+    if (!m_bInited && init() != OK)
+    {
+        return ERR;
+    }
+    return m_asyncAction->get_audio_file_path(strAudioPath, nTimes);
+}
+
 bool CEventLinkage::stop_play_audio()
 {
     if (!m_worker)
