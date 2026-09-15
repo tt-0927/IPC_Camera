@@ -80,7 +80,8 @@ void CGpioCtrl::alarm_output_on(int order)
     if (pHandle)
     {
         pHandle->gpio_init(pHandle);
-        pHandle->set_value(gpio_pin, GPIO_HIGHT); /* 拉高电平 */
+        const int nRet = pHandle->set_value(gpio_pin, GPIO_HIGHT); /* 拉高电平 */
+        dlog_info("报警输出GPIO开启: order[%d], pin[%u], level[%d], ret[%d]", order, gpio_pin, GPIO_HIGHT, nRet);
         gpio_release(pHandle);
     }
     else
@@ -105,7 +106,8 @@ void CGpioCtrl::alarm_output_off(int order)
     if (pHandle)
     {
         pHandle->gpio_init(pHandle);
-        pHandle->set_value(gpio_pin, GPIO_LOW); /* 拉低电平 */
+        const int nRet = pHandle->set_value(gpio_pin, GPIO_LOW); /* 拉低电平 */
+        dlog_info("报警输出GPIO关闭: order[%d], pin[%u], level[%d], ret[%d]", order, gpio_pin, GPIO_LOW, nRet);
         gpio_release(pHandle);
     }
     else
