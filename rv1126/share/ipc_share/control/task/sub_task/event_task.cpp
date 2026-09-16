@@ -1576,12 +1576,6 @@ void Task::Event::SetFaceCaptureInfo::handle()
 {
     Alarm::FaceCapture_S stInfo;
     Convert::to_struct(m_taskData, stInfo);
-    /* 检查智能事件资源冲突 */
-    int ret = check_analytics_resource(::Event::Type::FACE_CAPTURE, stInfo.bEnable);
-    if (ret != 0) {
-        result(ret);
-        return;
-    }
     auto &rule = stInfo.stRule;
     /* 参数有效性判断 */
     if (rule.nSensitivity < 1 || rule.nSensitivity > 100)
@@ -1607,14 +1601,27 @@ void Task::Event::SetFaceCaptureInfo::handle()
             return;
         }
     }
-    CEventConfigure::instance()->set_configure(stInfo);
+    /* 规则校验通过后才调整智能事件资源，避免非法配置改变事件启用状态。 */
+    int nRet = check_analytics_resource(::Event::Type::FACE_CAPTURE, stInfo.bEnable);
+    if (nRet != OK)
+    {
+        result(nRet);
+        return;
+    }
+    nRet = CEventConfigure::instance()->set_configure(stInfo);
+    if (nRet != OK)
+    {
+        dlog_error("保存人脸抓拍配置失败: ret[%d]", nRet);
+        result(nRet);
+        return;
+    }
 
     /* 更新事件布防时间 */
     Alarm::EventSchedule_S stEventSchedule;
     stEventSchedule.enEventType = ::Event::Type_E::FACE_CAPTURE;
     stEventSchedule.bStatus = stInfo.bEnable;
     stEventSchedule.defenseTime = stInfo.aAlarmTime;
-    int nRet = CEventConfigure::instance()->set_configure(stEventSchedule);
+    nRet = CEventConfigure::instance()->set_configure(stEventSchedule);
     CEventManage::instance()->update_event_schedule();
     result(nRet);
 }

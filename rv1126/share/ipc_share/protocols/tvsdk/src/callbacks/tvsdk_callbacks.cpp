@@ -5304,19 +5304,43 @@ static NET_COMMON_ECODE_E cb_get_face_capture_info(INT32 dwChannelID, LPVOID lpO
     pOut->uChannel = 0;
     return NET_E_SUCCEED;
 }
+/**
+ * @brief 设置人脸抓拍配置，返回实际业务处理结果。
+ * @param [in] dwChannelID SDK通道号，沿用单通道设备处理方式。
+ * @param [in] lpInBuffer 人脸抓拍配置结构体。
+ * @param [out] 无
+ * @return 设置成功返回NET_E_SUCCEED，参数错误或业务失败返回对应SDK错误。
+ */
 static NET_COMMON_ECODE_E cb_set_face_capture_info(INT32 dwChannelID, LPVOID lpInBuffer)
 {
     (void)dwChannelID;
     if (!lpInBuffer)
+    {
         return NET_E_INVALID_PARAM;
+    }
     const NET_FaceCaptureInfo_S *pIn = (const NET_FaceCaptureInfo_S *)lpInBuffer;
     Alarm::FaceCapture_S stCfg;
     TvSdkConvert::ToFaceCapture(*pIn, stCfg);
-    std::string inJson = Convert::to_string(stCfg);
-    Task::Info_S stInfo;
-    stInfo.data = wrap_data_json(inJson);
-    int nExec = s_taskManage ? s_taskManage->execute(AC_SET_FACE_CAPTURE_INFO, stInfo) : -1;
-    return (nExec == 0) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
+    std::string strResult;
+    if (execute_get_result(AC_SET_FACE_CAPTURE_INFO,
+                           wrap_data_json(Convert::to_string(stCfg)), strResult) != 0)
+    {
+        dlog_error("TVSDK人脸抓拍设置任务执行失败: action[%d]", AC_SET_FACE_CAPTURE_INFO);
+        return NET_E_SET_CFG_FAILED;
+    }
+    int nRet = ERR;
+    if (strResult.empty() || !Json::get(strResult.c_str(), "Return", nRet))
+    {
+        dlog_error("TVSDK人脸抓拍设置任务未返回有效业务结果");
+        return NET_E_SET_CFG_FAILED;
+    }
+    if (nRet != OK)
+    {
+        dlog_warn("TVSDK人脸抓拍设置失败: action[%d], ipc_ret[%d]", AC_SET_FACE_CAPTURE_INFO, nRet);
+        return (nRet == ERR_WEB_PARAM || nRet == ERR_WEB_REGION)
+                   ? NET_E_INVALID_PARAM : NET_E_SET_CFG_FAILED;
+    }
+    return NET_E_SUCCEED;
 }
 
 /* 人脸抓拍叠加配置仍使用原 IPC 任务码，仅将 SDK ABI 迁移为 NET_* 命名。 */
