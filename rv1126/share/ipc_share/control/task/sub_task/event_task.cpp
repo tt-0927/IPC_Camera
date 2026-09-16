@@ -1266,7 +1266,7 @@ void Task::Event::SetLoiteringDetectionInfo::handle()
     for (auto &rule : stInfo.aRule)
     {
         /* 参数有效性判断 */
-        if (rule.nTimeThreshold < 0 || rule.nTimeThreshold > 100 || rule.nSensitivity < 1 || rule.nSensitivity > 100)
+        if (rule.nTimeThreshold < 0 || rule.nTimeThreshold > 10 || rule.nSensitivity < 1 || rule.nSensitivity > 100)
         {
             dlog_error("设置徘徊侦测信息参数错误");
             result(ERR_WEB_PARAM);

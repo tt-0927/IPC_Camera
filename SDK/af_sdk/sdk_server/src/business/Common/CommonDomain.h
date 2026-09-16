@@ -41,6 +41,11 @@ private:
                                                 const std::string& req_data,
                                                 const std::string& url_param);
 
+    /* 修改用户密码（旧密码校验） */
+    static std::string HandleSetUserPassword(INT32 nChannelId, INT32 nCommand,
+                                         const std::string& req_data,
+                                         const std::string& url_param);
+
     /* 获取设备存储信息（NVR/录播等有硬盘的设备专用） */
     static std::string HandleGetStorageInfo(INT32 nChannelId, INT32 nCommand,
                                             const std::string& req_data,
