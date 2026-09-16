@@ -35,6 +35,7 @@
 #include "time_manage.h"
 #include "network_define.h"
 #include "alarm_define.h"
+#include "user_define.h"
 #include "preview_define.h"
 #include "osd_manage.h"
 #include "preview_manage.h"
@@ -51,6 +52,42 @@
 namespace TvSdkCallbacks
 {
 static CTaskManage *s_taskManage = nullptr;
+
+/**
+ * @brief 通过用户管理任务修改设备用户密码。
+ * @param [in] pPasswordInfo SDK 提供的用户名、旧密码和新密码。
+ * @param [out] 无。
+ * @return 密码修改成功返回 NET_E_SUCCEED，否则返回对应错误码。
+ */
+static NET_COMMON_ECODE_E cb_set_user_password(pNET_UserPasswordInfo_S pPasswordInfo)
+{
+    if (pPasswordInfo == nullptr || pPasswordInfo->strUserName[0] == '\0' ||
+        pPasswordInfo->strOldPassword[0] == '\0' || pPasswordInfo->strNewPassword[0] == '\0')
+    {
+        return NET_E_INVALID_PARAM;
+    }
+    Json::Object *pRootJson = Json::init();
+    Json::Object *pUpdateJson = Json::init();
+    if (pRootJson == nullptr || pUpdateJson == nullptr)
+    {
+        if (pRootJson != nullptr) Json::deinit(pRootJson);
+        if (pUpdateJson != nullptr) Json::deinit(pUpdateJson);
+        return NET_E_SET_CFG_FAILED;
+    }
+    Json::add(pRootJson, "Account", pPasswordInfo->strUserName);
+    Json::add(pRootJson, "Password", pPasswordInfo->strOldPassword);
+    Json::add(pUpdateJson, "Account", pPasswordInfo->strUserName);
+    Json::add(pUpdateJson, "Password", pPasswordInfo->strNewPassword);
+    Json::add(pRootJson, "Update", pUpdateJson);
+    const std::string strRequest = Json::to_string(pRootJson);
+    Json::deinit(pRootJson);
+    Task::Info_S stInfo = {};
+    stInfo.data = wrap_data_json(strRequest);
+    const int nExecuteResult = s_taskManage == nullptr ? -1 :
+        s_taskManage->execute(AC_SET_USER_INFO, stInfo);
+    return nExecuteResult == 0 ? NET_E_SUCCEED :
+        (nExecuteResult == ERR_PASSWORD_WRONG ? NET_E_INVALID_PARAM : NET_E_SET_CFG_FAILED);
+}
 
 /* 从事件配置文件回填SDK独有的电瓶车参数；业务结构不承载这些字段。 */
 static void tvsdk_fill_elevator_sdk_fields(NET_ElectricVehicleInElevatorCfg_S &stConfig)
@@ -6008,6 +6045,7 @@ void register_all()
 
     NET_serverRegisterGetAudioConfigCb(cb_get_audio_cfg);
     NET_serverRegisterSetAudioConfigCb(cb_set_audio_cfg);
+    NET_serverRegisterSetUserPasswordCb(cb_set_user_password);
     NET_serverRegisterGetEnterRegionAlarmCb(cb_get_enter_region_alarm);
     NET_serverRegisterSetEnterRegionAlarmCb(cb_set_enter_region_alarm);
     NET_serverRegisterGetLeaveRegionAlarmCb(cb_get_leave_region_alarm);

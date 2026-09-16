@@ -1122,7 +1122,7 @@ typedef enum tagNETTVCfgCmd
     NET_GET_NTPCFG                   = 110,              /* 获取NTP参数,参见#NET_SystemNtpInfo_S  Get NTP parameter, see #NET_SystemNtpInfo_S */
     NET_SET_NTPCFG                   = 111,              /* 设置NTP参数,参见#NET_SystemNtpInfo_S  Set NTP parameter, see #NET_SystemNtpInfo_S */
     NET_SET_SYSTEM_TIME              = 112,              /* 设置系统时间，输入 NET_SystemTime_S */
-
+    NET_SET_USEPASSWORD              = 113,              /* 修改用户密码（旧密码校验），输入 NET_UserPasswordInfo_S */
     NET_GET_STREAMCFG                = 120,              /* 获取视频编码参数,参见#NET_VideoEncodeOption_S  Get video encoding parameter, see #NET_VideoEncodeOption_S */
     NET_SET_STREAMCFG                = 121,              /* 设置视频编码参数,参见#NET_VideoEncodeOption_S  Set video encoding parameter, see #NET_VideoEncodeOption_S */
     NET_GET_RTSPURLCFG               = 122,              /* 获取RTSP流地址,参见#NET_RtspUrlInfo_S  Get RTSP URL, see #NET_RtspUrlInfo_S */
