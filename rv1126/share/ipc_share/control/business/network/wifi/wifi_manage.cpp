@@ -996,7 +996,7 @@ std::vector<WifiInfo> CWifiManager::scanWifi() {
         std::cerr << "[错误] 返回结果为空！请检查 sendCommand 中的 Socket 连接状态。" << std::endl;
         return results; 
     }
-    std::cout << "[调试] 原始数据预览: " << res.substr(0, 100) << "..." << std::endl;
+    // std::cout << "[调试] 原始数据预览: " << res.substr(0, 100) << "..." << std::endl;
 
     std::istringstream iss(res);
     std::string line;

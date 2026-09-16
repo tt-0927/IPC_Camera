@@ -24,7 +24,7 @@
 #include "event_manager.hpp"
 #include "stream_process_ext.hpp"
 #include "algorithm.hpp"
-#include "Group1DetectV1_0.hpp"
+#include "Group1DetectV3_0.hpp"
 
 class CGroup1Detect : public CAlgorithm {
   public:
@@ -73,6 +73,18 @@ class CGroup1Detect : public CAlgorithm {
     float sensitivityToConfidence(int sensitivity, float minConfidence = 0.2f, float maxConfidence = 0.9f);
 
     /**
+     * @brief 灵敏度转正向装备证据置信度（灵敏度越高，证据阈值越高）
+     * @param sensitivity 输入灵敏度（范围：1~100）
+     * @param minConfidence 最低证据置信度
+     * @param maxConfidence 最高证据置信度
+     * @return float 正向装备证据置信度
+     */
+    float sensitivityToEvidenceConfidence(
+        int   sensitivity,
+        float minConfidence = 0.25f,
+        float maxConfidence = 0.75f);
+
+    /**
      * @brief 将 1-100 的灵敏度转换为触发报警所需的连续帧数
      * @param sensitivity 灵敏度 (1-100)
      * @param minFrames 最高灵敏度 (100) 对应的帧数
@@ -98,13 +110,18 @@ class CGroup1Detect : public CAlgorithm {
     /**
      * @brief 动态分析函数
      * @param vecResult 模型识别结果
+     * @param nWidth 结果坐标对应的图像宽度
+     * @param nHeight 结果坐标对应的图像高度
      * @return int
      */
-    int dynamicAnalysis(const std::vector<Group1Detect_NS::Result_S> &vecResult);
+    int dynamicAnalysis(
+        const std::vector<Group1Detect_NS::Result_S> &vecResult,
+        int                                            nWidth,
+        int                                            nHeight);
 
   private:
     /* 句柄 */
-    Group1Detect_NS::CGroup1DetectV1_0 *m_pHandle = nullptr;
+    Group1Detect_NS::CGroup1DetectV3_0 *m_pHandle = nullptr;
 
     /* 队列 */
     BQ_NS::CBlockingQueue<MediaData_S> m_dateQueue;
@@ -135,10 +152,6 @@ class CGroup1Detect : public CAlgorithm {
     CAlarmStateMachine m_ReflectiveClothingStateMachine;   /* 反光衣识别 */
     CAlarmStateMachine m_HighAltitudeSeatbeltStateMachine; /* 高空安全带识别 */
     CAlarmStateMachine m_BareSoilStateMachine;             /* 泥土裸露 */
-
-    /* 算法默认分辨率 */
-    int m_nWidth  = 640;
-    int m_nHeight = 384;
 
     int m_nChannelId = 0;
     cv::Mat m_fullRgbMat;

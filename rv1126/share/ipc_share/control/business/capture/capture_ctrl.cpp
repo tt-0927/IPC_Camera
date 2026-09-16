@@ -490,15 +490,32 @@ void CCaptureCtrl::process_capture_task(unsigned char *pData, int nDataLen)
                 /* 在锁内递增计数，确保并发调用不会生成重复序号 */
                 stState.unCaptureCount++;
                 stState.ullLastCaptureTime = ullNow;
-
+                /*
+                 * 人脸比对只保留一张结果图，不继承通用事件抓图数量配置。
+                 * 其他事件仍按照用户配置的 unNumber 执行。
+                 */
+                const unsigned int unMaxCaptureNumber = (snap.enType == Event::Type_E::FACE_COMPARE)
+                                                            ? 1U
+                                                            : m_captureParams.stCaptureEventConfig.unNumber;
                 /* 达到上限则标记停止（后续 Phase 3 中会再次校验） */
-                if (stState.unCaptureCount >= m_captureParams.stCaptureEventConfig.unNumber)
+                // if (stState.unCaptureCount >= m_captureParams.stCaptureEventConfig.unNumber)
+                if (stState.unCaptureCount >= unMaxCaptureNumber)
                 {
                     stState.bCaptureFlag = false;
-                    stState.unCaptureCount = 0;
-                    dlog_info("事件[%d]抓图数量达到设定值[%u]，停止抓图",
+                    /*
+                     * 这里只停止后续抓图，不能立即把计数清零。
+                     *
+                     * Number=1 时，本帧刚预留完成就会到达上限。如果此处同时清零，
+                     * Phase 3 会把该状态误判为“事件在落盘期间被外部结束”，从而跳过
+                     * 首图路径回写和 m_faceCv 通知。人脸处理线程随后会等待超时，并在
+                     * 等待期间继续持有源帧及异步VB帧，导致低内存设备出现MMZ峰值不足。
+                     *
+                     * 已完成数量保留到真正的 set_event_capture(true) 事件结束路径清理；
+                     * bCaptureFlag=false 已足以阻止后续JPEG继续生成事件图片。
+                     */
+                    dlog_info("事件[%d]抓图数量达到设定值[%u]，停止抓图.",
                               (int) snap.enType,
-                              m_captureParams.stCaptureEventConfig.unNumber);
+                              unMaxCaptureNumber);
                 }
 
                 vecActiveEvents.push_back(snap);
@@ -563,12 +580,16 @@ void CCaptureCtrl::process_capture_task(unsigned char *pData, int nDataLen)
             auto it = m_mapEventCaptureStates.find(snap.enType);
             if (it == m_mapEventCaptureStates.end())
             {
-                continue; /* 事件已被 set_event_capture(false) 清除 */
+                continue; /* 事件状态已被移除 */
             }
 
             EventCaptureState_S &stState = it->second;
 
-            /* 事件在 I/O 期间被结束，不再更新其状态 */
+            /*
+             * 只有“外部结束”才会形成 bCaptureFlag=false 且 unCaptureCount=0。
+             * 达到配置数量自动停止时会保留已完成数量，因此 Number=1 的首张图片
+             * 仍可在这里回写路径并通知等待线程。
+             */
             if (!stState.bCaptureFlag && stState.unCaptureCount == 0)
             {
                 continue;
@@ -743,6 +764,13 @@ std::string CCaptureCtrl::capture_image(Capture_NS::CaptureType_E eCaptureType,
 
     /* 防止多个抓拍线程同时通过配额检查后一起写入。 */
     std::lock_guard<std::mutex> storageLock(m_storageMutex);
+
+    /* 等待抓图互斥锁期间SD卡可能已经被拔出，写入前必须再次确认状态。 */
+    if (CStorageManage::instance()->get_SdCardStatus() != SD_CARD_STATUS_E::NORMAL)
+    {
+        dlog_warn("SD card state changed before capture write, skip capture");
+        return strFilePath;
+    }
 
     /*
      * 写入前把当前图片大小计入配额，并为人脸图片目录保留物理空间。

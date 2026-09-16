@@ -41,7 +41,10 @@ void CGroup1Detect::recvMediaData(MediaData_S stMediaData)
 {
     m_nChannelId = stMediaData.stMediaParam.nChannel;
 
-    if (!m_stAlgoSafetyHelmetCfg.bEnable && m_stAlgoReflectiveClothingCfg.bEnable && !m_stAlgoHighAltitudeSeatbeltCfg.bEnable && m_stAlgoBareSoiletCfg.bEnable)
+    if (!m_stAlgoSafetyHelmetCfg.bEnable &&
+        !m_stAlgoReflectiveClothingCfg.bEnable &&
+        !m_stAlgoHighAltitudeSeatbeltCfg.bEnable &&
+        !m_stAlgoBareSoiletCfg.bEnable)
     {
         dlog_debug("ai_app:  模型组合1识别-开关未启用");
         return;
@@ -62,6 +65,21 @@ float CGroup1Detect::sensitivityToConfidence(int sensitivity, float minConfidenc
     int clampedSens = std::clamp(sensitivity, 1, 100);
 
     float confidence = maxConfidence - (clampedSens - 1) * (maxConfidence - minConfidence) / (100 - 1);
+
+    confidence = std::clamp(confidence, minConfidence, maxConfidence);
+
+    return confidence;
+}
+
+float CGroup1Detect::sensitivityToEvidenceConfidence(
+    int   sensitivity,
+    float minConfidence,
+    float maxConfidence)
+{
+    int clampedSens = std::clamp(sensitivity, 1, 100);
+
+    float confidence = minConfidence +
+                       (clampedSens - 1) * (maxConfidence - minConfidence) / (100 - 1);
 
     confidence = std::clamp(confidence, minConfidence, maxConfidence);
 
@@ -90,7 +108,7 @@ bool CGroup1Detect::init()
         stInParam.strModelPath = "/opt/cam/model/group1.json";
         stInParam.bDebug       = false;
 
-        m_pHandle = new Group1Detect_NS::CGroup1DetectV1_0(stInParam);
+        m_pHandle = new Group1Detect_NS::CGroup1DetectV3_0(stInParam);
         if (m_pHandle)
         {
             if (m_pHandle->init())
@@ -195,7 +213,6 @@ void CGroup1Detect::run()
 {
     MediaData_S                            stMediaData;
     std::vector<Group1Detect_NS::Result_S> vecResult;
-    cv::Mat                                Desframe(m_nHeight, m_nWidth, CV_8UC3);
 
     while (m_bRunning.load())
     {
@@ -231,20 +248,25 @@ void CGroup1Detect::run()
             Group1Detect_NS::InData_S  stInData{};
             Group1Detect_NS::OutData_S stOutData;
 
-            // 利用 RGA  YUV 转 RGB，裁剪,供模型推理
+            cv::Mat rgbMat(
+                stMediaData.stMediaParam.nVideoHeight,
+                stMediaData.stMediaParam.nVideoWidth,
+                CV_8UC3);
+
+            // 利用 RGA 将原始尺寸的 YUV 转为 RGB，缩放由算法内部完成
             bool ai_rga_ok = rga_image_transform(
                 stMediaData.pData.get(),
                 stMediaData.stMediaParam.nVideoWidth,
                 stMediaData.stMediaParam.nVideoHeight,
                 RK_FORMAT_YCbCr_420_SP,  // NV12
-                Desframe.data,
-                m_nWidth,
-                m_nHeight,
+                rgbMat.data,
+                stMediaData.stMediaParam.nVideoWidth,
+                stMediaData.stMediaParam.nVideoHeight,
                 RK_FORMAT_RGB_888);
 
             if (ai_rga_ok)
             {
-                stInData.inMat = Desframe;
+                stInData.inMat = rgbMat;
             }
             else
             {
@@ -255,24 +277,15 @@ void CGroup1Detect::run()
                     stMediaData.pData.get());
 
                 /* rgb格式转换 */
-                cv::Mat rgbMat;
-                cv::cvtColor(i420Mat, rgbMat, cv::COLOR_YUV2RGB_NV12);
-                m_fullRgbMat = rgbMat.clone();
-
-                /* 分辨率大小转换 */
-                cv::resize(
-                    rgbMat,
-                    stInData.inMat,
-                    cv::Size(m_nWidth, m_nHeight),
-                    0,
-                    0,
-                    cv::INTER_LINEAR);
+                cv::cvtColor(i420Mat, stInData.inMat, cv::COLOR_YUV2RGB_NV12);
             }
 
             // cv::rotate(stInData.inMat, stInData.inMat, cv::ROTATE_180);
 
             if (!stInData.inMat.empty())
             {
+                m_fullRgbMat = stInData.inMat.clone();
+
                 if (access("/group1Detect_debugImage", F_OK) == 0)
                 {
                     dlog_debug("============>debugImage");
@@ -292,7 +305,7 @@ void CGroup1Detect::run()
                 if (m_stAlgoReflectiveClothingCfg.bEnable)
                 {
                     stInData.stParam.stReflectiveClothingParam.bEnable      = true;
-                    stInData.stParam.stReflectiveClothingParam.fConfidence  = sensitivityToConfidence(m_stAlgoReflectiveClothingCfg.stRule.nSensitivity);
+                    stInData.stParam.stReflectiveClothingParam.fConfidence  = sensitivityToEvidenceConfidence(m_stAlgoReflectiveClothingCfg.stRule.nSensitivity);
                     stInData.stParam.stReflectiveClothingParam.nDetectFrame = sensitivityToFrames(m_stAlgoReflectiveClothingCfg.stRule.nSensitivity);
                     // printf(" [%s][%d]=== 反光衣识别 %d -> %f %d\n", __FILE__, __LINE__, m_stAlgoReflectiveClothingCfg.stRule.nSensitivity, stInData.stParam.stReflectiveClothingParam.fConfidence, stInData.stParam.stReflectiveClothingParam.nDetectFrame);
                 }
@@ -301,7 +314,7 @@ void CGroup1Detect::run()
                 if (m_stAlgoHighAltitudeSeatbeltCfg.bEnable)
                 {
                     stInData.stParam.stHighAltitudeSeatbeltParam.bEnable      = true;
-                    stInData.stParam.stHighAltitudeSeatbeltParam.fConfidence  = sensitivityToConfidence(m_stAlgoHighAltitudeSeatbeltCfg.stRule.nSensitivity);
+                    stInData.stParam.stHighAltitudeSeatbeltParam.fConfidence  = sensitivityToEvidenceConfidence(m_stAlgoHighAltitudeSeatbeltCfg.stRule.nSensitivity);
                     stInData.stParam.stHighAltitudeSeatbeltParam.nDetectFrame = sensitivityToFrames(m_stAlgoHighAltitudeSeatbeltCfg.stRule.nSensitivity);
                     // printf(" [%s][%d]=== 高空安全带识别 %d -> %f %d\n", __FILE__, __LINE__, m_stAlgoHighAltitudeSeatbeltCfg.stRule.nSensitivity, stInData.stParam.stHighAltitudeSeatbeltParam.fConfidence, stInData.stParam.stHighAltitudeSeatbeltParam.nDetectFrame);
                 }
@@ -318,11 +331,15 @@ void CGroup1Detect::run()
                 /* 分析数据 */
                 {
                     CStatisticsTimer runTime(" 模型组合1识别算法耗时");
-                    m_pHandle->process(stInData, vecResult, &stOutData);
+                    if (!m_pHandle->process(stInData, vecResult, &stOutData))
+                    {
+                        dlog_error("模型组合1识别算法分析失败");
+                        continue;
+                    }
                     /* 检测后处理 */
                     processGroup1Detect(stOutData);
                     /* 相关事件动态分析 */
-                    dynamicAnalysis(vecResult);
+                    dynamicAnalysis(vecResult, stInData.inMat.cols, stInData.inMat.rows);
                 }
             }
             else
@@ -337,7 +354,10 @@ void CGroup1Detect::run()
     }
 }
 
-int CGroup1Detect::dynamicAnalysis(const std::vector<Group1Detect_NS::Result_S> &vecResult)
+int CGroup1Detect::dynamicAnalysis(
+    const std::vector<Group1Detect_NS::Result_S> &vecResult,
+    int                                            nWidth,
+    int                                            nHeight)
 {
     std::vector<Common::RectInfo_S> vstRectInfo;
 
@@ -352,7 +372,7 @@ int CGroup1Detect::dynamicAnalysis(const std::vector<Group1Detect_NS::Result_S> 
     }
     if (vstRectInfo.size())
     {
-        send_detectionResult_to_osd(m_nWidth, m_nHeight, vstRectInfo);
+        send_detectionResult_to_osd(nWidth, nHeight, vstRectInfo);
     }
     return 0;
 }

@@ -1730,6 +1730,7 @@ void Convert::deal(Json::Object *pRootJson, Alarm::ElectricScooterRule_S &stInfo
     }
     Convert::CConvert convert(bOutStruct);
     convert.field(pRootJson, "Sensitivity", stInfo.nSensitivity);
+    convert.field(pRootJson, "TimeThreshold", stInfo.nTimeThreshold);
 }
 
 void Convert::deal(Json::Object *pRootJson, Alarm::ElectricScooterDetection_S &stInfo, bool bOutStruct)

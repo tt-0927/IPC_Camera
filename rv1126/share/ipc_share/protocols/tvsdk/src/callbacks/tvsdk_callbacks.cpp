@@ -32,10 +32,10 @@
 #include "action_code.h"
 #include "system_manage.h"
 #include "system_define.h"
+#include "user_manage.h"
 #include "time_manage.h"
 #include "network_define.h"
 #include "alarm_define.h"
-#include "user_define.h"
 #include "preview_define.h"
 #include "osd_manage.h"
 #include "preview_manage.h"
@@ -53,40 +53,39 @@ namespace TvSdkCallbacks
 {
 static CTaskManage *s_taskManage = nullptr;
 
-/**
- * @brief 通过用户管理任务修改设备用户密码。
- * @param [in] pPasswordInfo SDK 提供的用户名、旧密码和新密码。
- * @param [out] 无。
- * @return 密码修改成功返回 NET_E_SUCCEED，否则返回对应错误码。
- */
-static NET_COMMON_ECODE_E cb_set_user_password(pNET_UserPasswordInfo_S pPasswordInfo)
+static int execute_get_result(int actionCode, const std::string &inJson, std::string &outJson);
+static std::string wrap_data_json(const std::string &srcJson);
+
+/* SDK修改密码复用IPC用户更新任务，保持旧密码校验、密码策略及在线会话处理一致。 */
+static NET_COMMON_ECODE_E cb_set_user_password(pNET_UserPasswordInfo_S pInfo)
 {
-    if (pPasswordInfo == nullptr || pPasswordInfo->strUserName[0] == '\0' ||
-        pPasswordInfo->strOldPassword[0] == '\0' || pPasswordInfo->strNewPassword[0] == '\0')
+    if (pInfo == nullptr || s_taskManage == nullptr)
     {
-        return NET_E_INVALID_PARAM;
+        return NET_E_NULL_POINT;
     }
-    Json::Object *pRootJson = Json::init();
-    Json::Object *pUpdateJson = Json::init();
-    if (pRootJson == nullptr || pUpdateJson == nullptr)
+    ::User::UserInfo_S stOldInfo;
+    stOldInfo.stAccountInfo.account = pInfo->strUserName;
+    if (CUserManage::instance()->get_itemInfo(stOldInfo) != OK)
     {
-        if (pRootJson != nullptr) Json::deinit(pRootJson);
-        if (pUpdateJson != nullptr) Json::deinit(pUpdateJson);
+        return NET_E_NO_USER;
+    }
+    ::User::UpdateInfo_S stUpdateInfo;
+    stUpdateInfo.stAccountInfo = stOldInfo.stAccountInfo;
+    stUpdateInfo.stNewUserInfo = stOldInfo;
+    stUpdateInfo.stAccountInfo.password = pInfo->strOldPassword;
+    stUpdateInfo.stNewUserInfo.stAccountInfo.password = pInfo->strNewPassword;
+    stUpdateInfo.bCheckPassword = true;
+    std::string strResult;
+    if (execute_get_result(AC_SET_USER_INFO, wrap_data_json(Convert::to_string(stUpdateInfo)), strResult) != OK)
+    {
         return NET_E_SET_CFG_FAILED;
     }
-    Json::add(pRootJson, "Account", pPasswordInfo->strUserName);
-    Json::add(pRootJson, "Password", pPasswordInfo->strOldPassword);
-    Json::add(pUpdateJson, "Account", pPasswordInfo->strUserName);
-    Json::add(pUpdateJson, "Password", pPasswordInfo->strNewPassword);
-    Json::add(pRootJson, "Update", pUpdateJson);
-    const std::string strRequest = Json::to_string(pRootJson);
-    Json::deinit(pRootJson);
-    Task::Info_S stInfo = {};
-    stInfo.data = wrap_data_json(strRequest);
-    const int nExecuteResult = s_taskManage == nullptr ? -1 :
-        s_taskManage->execute(AC_SET_USER_INFO, stInfo);
-    return nExecuteResult == 0 ? NET_E_SUCCEED :
-        (nExecuteResult == ERR_PASSWORD_WRONG ? NET_E_INVALID_PARAM : NET_E_SET_CFG_FAILED);
+    int nReturn = -1;
+    if (!Json::get(strResult.c_str(), "Return", nReturn) || nReturn != OK)
+    {
+        return NET_E_FAILED;
+    }
+    return NET_E_SUCCEED;
 }
 
 /* 从事件配置文件回填SDK独有的电瓶车参数；业务结构不承载这些字段。 */
@@ -5787,7 +5786,7 @@ static NET_COMMON_ECODE_E cb_get_target_lib(INT32 dwChannelID, LPVOID lpOutBuffe
     std::vector<Event::FaceLibInfo_S> targetLibs;
     Convert::to_struct(dataJson, targetLibs);
     TvSdkConvert::FillFaceLibList(targetLibs, *static_cast<pNET_FaceLibList_S>(lpOutBuffer));
-    static_cast<pNET_FaceLibList_S>(lpOutBuffer)->uChannel = 0;
+    //static_cast<pNET_FaceLibList_S>(lpOutBuffer)->uChannel = 0;
     return NET_E_SUCCEED;
 #endif
 }
@@ -5881,7 +5880,7 @@ static NET_COMMON_ECODE_E cb_get_face_info(INT32 dwChannelID, LPVOID lpOutBuffer
     std::vector<Event::FaceInfo_S> faceInfos;
     Convert::to_struct(dataJson, faceInfos);
     TvSdkConvert::FillFaceInfoList(faceInfos, *static_cast<pNET_FaceInfoList_S>(lpOutBuffer));
-    static_cast<pNET_FaceInfoList_S>(lpOutBuffer)->uChannel = 0;
+    //static_cast<pNET_FaceInfoList_S>(lpOutBuffer)->uChannel = 0;
     return NET_E_SUCCEED;
 #endif
 }
@@ -6069,7 +6068,6 @@ void register_all()
 
     NET_serverRegisterGetAudioConfigCb(cb_get_audio_cfg);
     NET_serverRegisterSetAudioConfigCb(cb_set_audio_cfg);
-    NET_serverRegisterSetUserPasswordCb(cb_set_user_password);
     NET_serverRegisterGetEnterRegionAlarmCb(cb_get_enter_region_alarm);
     NET_serverRegisterSetEnterRegionAlarmCb(cb_set_enter_region_alarm);
     NET_serverRegisterGetLeaveRegionAlarmCb(cb_get_leave_region_alarm);

@@ -696,39 +696,39 @@ int ControlManage::tvsdk_get_client_count() const
 }
 
 #if !CAP_IO_EXTERNAL_DDR_00S
-int ControlManage::tvsdk_reserve_for_platform()
-{
-    std::lock_guard<std::mutex> lock(m_mtxTvSdkPlatformExclusive);
+// int ControlManage::tvsdk_reserve_for_platform()
+// {
+//     std::lock_guard<std::mutex> lock(m_mtxTvSdkPlatformExclusive);
 
-    if (!m_pTvSdkServer)
-    {
-        dlog_error("平台申请独占时 TVSDK 服务对象不存在");
-        return ERR;
-    }
+//     if (!m_pTvSdkServer)
+//     {
+//         dlog_error("平台申请独占时 TVSDK 服务对象不存在");
+//         return ERR;
+//     }
 
-    /* 已经停止表示平台此前已取得独占，重复保存平台配置可继续执行。 */
-    if (!m_pTvSdkServer->is_init())
-    {
-        return OK;
-    }
+//     /* 已经停止表示平台此前已取得独占，重复保存平台配置可继续执行。 */
+//     if (!m_pTvSdkServer->is_init())
+//     {
+//         return OK;
+//     }
 
-    const int nClientCount = m_pTvSdkServer->get_client_count();
-    if (nClientCount < 0)
-    {
-        dlog_error("平台连接前获取 TVSDK 客户端数量失败");
-        return ERR;
-    }
-    if (nClientCount > 0)
-    {
-        dlog_warn("拒绝连接平台：当前存在 %d 个 TVSDK 客户端", nClientCount);
-        return ERR;
-    }
+//     const int nClientCount = m_pTvSdkServer->get_client_count();
+//     if (nClientCount < 0)
+//     {
+//         dlog_error("平台连接前获取 TVSDK 客户端数量失败");
+//         return ERR;
+//     }
+//     if (nClientCount > 0)
+//     {
+//         dlog_warn("拒绝连接平台：当前存在 %d 个 TVSDK 客户端", nClientCount);
+//         return ERR;
+//     }
 
-    /* SDK 无接入鉴权回调，只能停止监听来保证平台在线期间新 TVSDK 建连直接失败。 */
-    m_pTvSdkServer->deinit();
-    dlog_info("平台连接已独占接入模式，TVSDK 监听已停止");
-    return OK;
-}
+//     /* SDK 无接入鉴权回调，只能停止监听来保证平台在线期间新 TVSDK 建连直接失败。 */
+//     m_pTvSdkServer->deinit();
+//     dlog_info("平台连接已独占接入模式，TVSDK 监听已停止");
+//     return OK;
+// }
 #endif
 #endif
 
