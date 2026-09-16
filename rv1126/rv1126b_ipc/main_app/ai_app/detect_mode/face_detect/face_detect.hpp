@@ -25,7 +25,7 @@
 #include "algorithm.hpp"
 #include "task_publish.h"
 #include "event_define.h"
-#include "FaceDetectV3_0.hpp"
+#include "FaceDetectV1_0.hpp"
 #include "FaceQualityAssessmentV1_0.hpp"
 #include "FaceAttributeV1_0.hpp"
 
@@ -177,7 +177,7 @@ private:
 
 private:
     /* 人脸检测句柄 */
-    FaceDetect_NS::CFaceDetectV3_0* m_pFaceDetectHandle = nullptr;
+    FaceDetect_NS::CFaceDetectV1_0* m_pFaceDetectHandle = nullptr;
     /* 人脸质量句柄 */
     FaceQualityAssessment_NS::CFaceQualityAssessmentV1_0* m_pFaceQuaHandle = nullptr;
     /* 人脸属性句柄 */

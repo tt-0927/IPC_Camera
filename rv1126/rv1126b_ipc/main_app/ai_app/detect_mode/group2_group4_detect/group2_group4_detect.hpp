@@ -19,7 +19,7 @@
 #include "algorithm.hpp"
 #include <opencv2/opencv.hpp>
 #include "Group2DetectV1_0.hpp"
-#include "Group4DetectV1_0.hpp"
+#include "Group4DetectV3_0.hpp"
 #include "LicensePlateCognitionV1_0.hpp"
 #include "PresonAttributeV2_0.hpp"
 #include "share_data.h"
@@ -530,7 +530,7 @@ class CGroup2_Group4Detect : public CAlgorithm {
     /* 句柄 */
     Group2Detect_NS::CGroup2DetectV1_0 *m_pGroup2Handle = nullptr;
 
-    Group4Detect_NS::CGroup4DetectV1_0 *m_pGroup4Handle = nullptr;
+    Group4Detect_NS::CGroup4DetectV3_0 *m_pGroup4Handle = nullptr;
 
     LicensePlateCognition_NS::CLicensePlateCognitionV1_0 *m_pLicensePlateHandle = nullptr;
 

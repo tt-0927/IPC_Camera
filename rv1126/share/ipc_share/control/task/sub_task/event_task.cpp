@@ -1576,6 +1576,12 @@ void Task::Event::SetFaceCaptureInfo::handle()
 {
     Alarm::FaceCapture_S stInfo;
     Convert::to_struct(m_taskData, stInfo);
+    /* 检查智能事件资源冲突 */
+    // int ret = check_analytics_resource(::Event::Type::FACE_CAPTURE, stInfo.bEnable);
+    // if (ret != 0) {
+    //     result(ret);
+    //     return;
+    // }
     auto &rule = stInfo.stRule;
     /* 参数有效性判断 */
     if (rule.nSensitivity < 1 || rule.nSensitivity > 100)

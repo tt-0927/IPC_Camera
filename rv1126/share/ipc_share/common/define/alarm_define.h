@@ -4056,8 +4056,10 @@ typedef struct _FaceCompare_S_
     {
         /* 灵敏度[1,100] */
         unsigned int nSensitivity;
+        /* 触发时间阈值(秒)[0,10]，0 表示未配置 */
+        unsigned int nTimeThreshold;
         /* 默认构造函数 */
-        ElectricScooterRule() : nSensitivity(50)
+        ElectricScooterRule() : nSensitivity(50), nTimeThreshold(0)
         {
 
         }
@@ -4067,6 +4069,7 @@ typedef struct _FaceCompare_S_
             if (this != &x)
             {
                 nSensitivity = x.nSensitivity;
+                nTimeThreshold = x.nTimeThreshold;
             }
             return *this;
         }

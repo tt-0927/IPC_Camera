@@ -814,7 +814,7 @@ bool CGroup2_Group4Detect::initGroup4()
         stInParam.strModelPath = "/opt/cam/model/group4.json";
         stInParam.bDebug       = false;
 
-        m_pGroup4Handle = new Group4Detect_NS::CGroup4DetectV1_0(stInParam);
+        m_pGroup4Handle = new Group4Detect_NS::CGroup4DetectV3_0(stInParam);
         if (m_pGroup4Handle)
         {
             if (m_pGroup4Handle->init())
@@ -1114,15 +1114,8 @@ void CGroup2_Group4Detect::run()
             cv::cvtColor(i420Mat, rgbMat, cv::COLOR_YUV2RGB_NV12);
             // cv::rotate(rgbMat, rgbMat, cv::ROTATE_180);
             m_fullRgbMat = rgbMat.clone();
-
-            /* 分辨率大小转换 */
-            cv::resize(
-                rgbMat,
-                stInData.inMat,
-                cv::Size(m_nWidth, m_nHeight),
-                0,
-                0,
-                cv::INTER_LINEAR);
+            /* 算法内部做等比缩放 + 填充 */
+            stInData.inMat = rgbMat;
 
             if (!stInData.inMat.empty())
             {
@@ -1351,7 +1344,7 @@ void CGroup2_Group4Detect::run()
                         }
 
                         stEmergencyLaneOccupancyParam.fEmergencyLaneOccupancyThreshold     = sensitivityToConfidence(EmergencyLaneOccupancy.stRuleInfo.nSensitivity);
-                        stEmergencyLaneOccupancyParam.nEmergencyLaneOccupancyTimeThreshold = EmergencyLaneOccupancy.stRuleInfo.nTimeThreshold * 1000;  // s转换为ms
+                        stEmergencyLaneOccupancyParam.nEmergencyLaneOccupancyTimeThreshold = EmergencyLaneOccupancy.stRuleInfo.nTimeThreshold;  // 时间单位：秒
                         stEmergencyLaneOccupancyParam.veDetectionTargetTypes               = EmergencyLaneOccupancy.veDetectionTargets;
                         stInData.stParam.vstEmergencyLaneOccupancyParam.push_back(stEmergencyLaneOccupancyParam);
                         if (access("/PrintstAlgoCfg", F_OK) == 0)
@@ -1401,8 +1394,8 @@ void CGroup2_Group4Detect::run()
                             stNonMotorVehicleIntrusionParam.bEnable = false;
                         }
                         stNonMotorVehicleIntrusionParam.fNonMotorVehicleIntrusionThreshold     = sensitivityToConfidence(NonMotorVehicleIntrusionRule.stRuleInfo.nSensitivity);
-                        stNonMotorVehicleIntrusionParam.nNonMotorVehicleIntrusionTimeThreshold = NonMotorVehicleIntrusionRule.stRuleInfo.nTimeThreshold * 1000;  // s转换为ms
-                        // stNonMotorVehicleIntrusionParam.veDetectionTargetTypes = NonMotorVehicleIntrusionRule.veDetectionTargets;
+                        stNonMotorVehicleIntrusionParam.nNonMotorVehicleIntrusionTimeThreshold = NonMotorVehicleIntrusionRule.stRuleInfo.nTimeThreshold;  // 时间单位：秒
+                        stNonMotorVehicleIntrusionParam.veDetectionTargetTypes.push_back(2);  // 非机动车
                         stInData.stParam.vstNonMotorVehicleIntrusionParam.push_back(stNonMotorVehicleIntrusionParam);
                     }
                 }
@@ -1502,7 +1495,7 @@ void CGroup2_Group4Detect::run()
                         {
                             bPersonDetect                                            = true;
                             stPedestrianIntrusionParam.bEnable                       = true;
-                            stPedestrianIntrusionParam.nTimeThreshold                = PedestrianIntrusionRule.nTimeThreshold * 1000;  // 转化为ms
+                            stPedestrianIntrusionParam.nTimeThreshold                = PedestrianIntrusionRule.nTimeThreshold;  // 时间单位：秒
                             stPedestrianIntrusionParam.fPedestrianIntrusionThreshold = sensitivityToConfidence(PedestrianIntrusionRule.nSensitivity);
                             for (const auto &point : PedestrianIntrusionRule.areas[0])
                             {
@@ -1557,10 +1550,11 @@ void CGroup2_Group4Detect::run()
                 /* 电瓶车进电梯规则 */
                 if (m_stAlgoElectricScooterCfg.bEnable)
                 {
-                    bNonMotorVehicle                                     = true;
-                    stInData.stParam.stElectricScooterParam.bEnable      = true;
-                    stInData.stParam.stElectricScooterParam.fConfidence  = sensitivityToConfidence(m_stAlgoElectricScooterCfg.stRule.nSensitivity);
-                    stInData.stParam.stElectricScooterParam.nDetectFrame = sensitivityToFrames(m_stAlgoElectricScooterCfg.stRule.nSensitivity);
+                    bNonMotorVehicle                                       = true;
+                    stInData.stParam.stElectricScooterParam.bEnable        = true;
+                    stInData.stParam.stElectricScooterParam.fConfidence    = sensitivityToConfidence(m_stAlgoElectricScooterCfg.stRule.nSensitivity);
+                    stInData.stParam.stElectricScooterParam.nDetectFrame   = sensitivityToFrames(m_stAlgoElectricScooterCfg.stRule.nSensitivity);
+                    stInData.stParam.stElectricScooterParam.nTimeThreshold = m_stAlgoElectricScooterCfg.stRule.nTimeThreshold;
                 }
 
                 /* 逆行规则 */
@@ -1600,6 +1594,7 @@ void CGroup2_Group4Detect::run()
                 if (m_stAlgoCongestionDetectionCfg.bEnable)
                 {
                     bMotorVehicle                                              = true;
+                    stInData.stParam.stCongestionParam.bEnable                 = true;
                     stInData.stParam.stCongestionParam.fCongestionBoxThreshold = sensitivityToConfidence(m_stAlgoCongestionDetectionCfg.stRule.nSensitivity);
                     stInData.stParam.stCongestionParam.nCongestionThreshold    = 100.0f * stInData.stParam.stCongestionParam.fCongestionBoxThreshold;
                     if (access("/PrintCongestionDetectionCfg", F_OK) == 0)
@@ -1618,7 +1613,7 @@ void CGroup2_Group4Detect::run()
                         {
                             bMotorVehicle                        = true;
                             stParkingParam.bEnable               = true;
-                            stParkingParam.nParkingTimeThreshold = IllegalParkingRule.nTimeThreshold * 1000; /* s转换为ms */
+                            stParkingParam.nParkingTimeThreshold = IllegalParkingRule.nTimeThreshold; /* 时间单位：秒 */
                             stParkingParam.fParkingBoxThreshold  = sensitivityToConfidence(IllegalParkingRule.nSensitivity);
                             for (const auto &point : IllegalParkingRule.areas[0])
                             {
@@ -1682,29 +1677,32 @@ void CGroup2_Group4Detect::run()
                     /* 人非车事件后处理 */
                     processGroup2Detect(stOutData, vecResult);
 
-                    float                                  fRoiW = (float)rgbMat.cols / m_nWidth;
-                    float                                  fRoiH = (float)rgbMat.rows / m_nHeight;
-                    std::vector<Group2Detect_NS::Result_S> vecRGBSizeResult;
+                    std::vector<Group2Detect_NS::Result_S> vecFullSizeResult;
 
-                    for (auto &stResult : vecAllResult)
+                    /* Group2算法(d8d97b0之后)不再填充vecAllResult，vecResult已经是全分辨率坐标。 */
+                    for (const auto &stResult : vecResult)
                     {
-                        Group2Detect_NS::Result_S stRGBSizeResult;
-                        stRGBSizeResult     = stResult;
-                        stRGBSizeResult.fX1 = stResult.fX1 * fRoiW;
-                        stRGBSizeResult.fY1 = stResult.fY1 * fRoiH;
-                        stRGBSizeResult.fX2 = stResult.fX2 * fRoiW;
-                        stRGBSizeResult.fY2 = stResult.fY2 * fRoiH;
+                        Group2Detect_NS::Result_S stFullSizeResult = stResult;
 
-                        vecRGBSizeResult.push_back(stRGBSizeResult);
+                        stFullSizeResult.fX1 = std::max(0.0f, std::min(stResult.fX1, static_cast<float>(rgbMat.cols)));
+                        stFullSizeResult.fY1 = std::max(0.0f, std::min(stResult.fY1, static_cast<float>(rgbMat.rows)));
+                        stFullSizeResult.fX2 = std::max(0.0f, std::min(stResult.fX2, static_cast<float>(rgbMat.cols)));
+                        stFullSizeResult.fY2 = std::max(0.0f, std::min(stResult.fY2, static_cast<float>(rgbMat.rows)));
+
+                        if (stFullSizeResult.fX2 <= stFullSizeResult.fX1 ||
+                            stFullSizeResult.fY2 <= stFullSizeResult.fY1)
+                        {
+                            continue;
+                        }
+
+                        vecFullSizeResult.push_back(stFullSizeResult);
                     }
 
                     /* 模型组合4事件检测 */
-                    // group4DetectProcess(stInData.inMat, vecAllResult);
-                    group4DetectProcess(rgbMat, vecRGBSizeResult);
+                    group4DetectProcess(rgbMat, vecFullSizeResult);
 
                     /* 人、机动车车、非机动车属性分析 */
-                    // pnmAttributeAnalysis(stInData.inMat, vecAllResult);
-                    pnmAttributeAnalysis(rgbMat, vecRGBSizeResult);
+                    pnmAttributeAnalysis(rgbMat, vecFullSizeResult);
 
                     if (m_bPedestrianAttribute.load())
                     {
@@ -1719,8 +1717,8 @@ void CGroup2_Group4Detect::run()
                         bNonMotorVehicle = true;
                     }
 
-                    /* 判断人非车动态分析 */
-                    dynamicAnalysis(vecAllResult, bPersonDetect, bMotorVehicle, bNonMotorVehicle);
+                    /* 判断人非车动态分析。 */
+                    dynamicAnalysis(vecFullSizeResult, bPersonDetect, bMotorVehicle, bNonMotorVehicle);
 
 #ifdef ENABLE_GAT1400_SRC
                     Network::Gat1400Client_S config;
@@ -2341,11 +2339,7 @@ int CGroup2_Group4Detect::group4DetectProcess(cv::Mat &srcData, const std::vecto
     Group4Detect_NS::InData_S  stInData{};
     Group4Detect_NS::OutData_S stOutData;
 
-    std::vector<Group4Detect_NS::Result_S> vecSleepAndTripResult;
-    std::vector<Group4Detect_NS::Result_S> vecSmokingAndPhoneResult;
-
-    // std::vector<std::vector<Group4Detect_NS::Result_S>> vecSmokingAndPhoneAllResult;
-    std::vector<Group4Detect_NS::Result_S> vecSmokingAndPhoneActualResult;
+    std::vector<Group4Detect_NS::Result_S> vecAllResult;
 #if CAP_EXHIBITION_OSD_PANEL
     /* 当前帧命中玩手机事件的人员列表。 */
     std::vector<Group4PersonPanel_S> vecPhonePanelMatches;
@@ -2353,191 +2347,140 @@ int CGroup2_Group4Detect::group4DetectProcess(cv::Mat &srcData, const std::vecto
     std::vector<Group4PersonPanel_S> vecSmokingPanelMatches;
 #endif
 
-    if (m_stAlgoSleepOnDutyCfg.bEnable || m_stAlgoTripCfg.bEnable)
-    {
-        stInData.inMat = srcData;
-        /* 睡觉识别 */
-        if (m_stAlgoSleepOnDutyCfg.bEnable)
-        {
-            stInData.stParam.stSleepParam.bEnable      = true;
-            stInData.stParam.stSleepParam.fConfidence  = sensitivityToConfidence(m_stAlgoSleepOnDutyCfg.stRule.nSensitivity);
-            stInData.stParam.stSleepParam.nDetectFrame = sensitivityToFrames(m_stAlgoSleepOnDutyCfg.stRule.nSensitivity);
-            if (access("/group4Debug", F_OK) == 0)
-            {
-                printf(" [%s][%d]=== 睡觉识别 %d -> %f %d\n", __FILE__, __LINE__, m_stAlgoSleepOnDutyCfg.stRule.nSensitivity, stInData.stParam.stSleepParam.fConfidence, stInData.stParam.stSleepParam.nDetectFrame);
-            }
-        }
+    /* V3 整帧送入算法：算法内部按参数开关自行裁剪人员区域推理(抽烟/玩手机)或整帧推理(睡岗/摔倒) */
+    stInData.inMat = srcData;
 
-        /* 摔倒识别 */
-        if (m_stAlgoTripCfg.bEnable)
+    /* 睡觉识别 */
+    if (m_stAlgoSleepOnDutyCfg.bEnable)
+    {
+        stInData.stParam.stSleepParam.bEnable         = true;
+        stInData.stParam.stSleepParam.fConfidence     = sensitivityToConfidence(m_stAlgoSleepOnDutyCfg.stRule.nSensitivity);
+        stInData.stParam.stSleepParam.nDetectDuration = sensitivityToDuration(m_stAlgoSleepOnDutyCfg.stRule.nSensitivity);
+        if (access("/group4Debug", F_OK) == 0)
         {
-            stInData.stParam.stFallParam.bEnable      = true;
-            stInData.stParam.stFallParam.fConfidence  = sensitivityToConfidence(m_stAlgoTripCfg.stRule.nSensitivity);
-            stInData.stParam.stFallParam.nDetectFrame = sensitivityToFrames(m_stAlgoTripCfg.stRule.nSensitivity);
-            if (access("/group4Debug", F_OK) == 0)
-            {
-                printf(" [%s][%d]=== 摔倒识别 %d -> %f %d\n", __FILE__, __LINE__, m_stAlgoTripCfg.stRule.nSensitivity, stInData.stParam.stFallParam.fConfidence, stInData.stParam.stFallParam.nDetectFrame);
-            }
-        }
-        if (m_pGroup4Handle)
-        {
-            m_pGroup4Handle->process(false, stInData, vecSleepAndTripResult, &stOutData);
+            printf(" [%s][%d]=== 睡觉识别 %d -> %f %d\n", __FILE__, __LINE__, m_stAlgoSleepOnDutyCfg.stRule.nSensitivity, stInData.stParam.stSleepParam.fConfidence, stInData.stParam.stSleepParam.nDetectDuration);
         }
     }
 
-    std::vector<Group2Detect_NS::Result_S> vecPersonResult;
+    /* 摔倒识别 */
+    if (m_stAlgoTripCfg.bEnable)
+    {
+        stInData.stParam.stFallParam.bEnable         = true;
+        stInData.stParam.stFallParam.fConfidence     = sensitivityToConfidence(m_stAlgoTripCfg.stRule.nSensitivity);
+        stInData.stParam.stFallParam.nDetectDuration = sensitivityToDuration(m_stAlgoTripCfg.stRule.nSensitivity);
+        if (access("/group4Debug", F_OK) == 0)
+        {
+            printf(" [%s][%d]=== 摔倒识别 %d -> %f %d\n", __FILE__, __LINE__, m_stAlgoTripCfg.stRule.nSensitivity, stInData.stParam.stFallParam.fConfidence, stInData.stParam.stFallParam.nDetectDuration);
+        }
+    }
 
+    /* 吸烟识别 */
+    if (m_stAlgoSmokingCfg.bEnable)
+    {
+        stInData.stParam.stCigaretteDetectParam.bEnable         = true;
+        stInData.stParam.stCigaretteDetectParam.fConfidence     = sensitivityToConfidence(m_stAlgoSmokingCfg.stRule.nSensitivity);
+        stInData.stParam.stCigaretteDetectParam.nDetectDuration = sensitivityToDuration(m_stAlgoSmokingCfg.stRule.nSensitivity);
+        if (access("/group4Debug", F_OK) == 0)
+        {
+            printf(" [%s][%d]=== 吸烟识别 %d -> %f %d\n", __FILE__, __LINE__, m_stAlgoSmokingCfg.stRule.nSensitivity, stInData.stParam.stCigaretteDetectParam.fConfidence, stInData.stParam.stCigaretteDetectParam.nDetectDuration);
+        }
+    }
+
+    /* 玩手机识别 */
+    if (m_stPhoneUsageCfg.bEnable)
+    {
+        stInData.stParam.stPhoneParam.bEnable         = true;
+        stInData.stParam.stPhoneParam.fConfidence     = sensitivityToConfidence(m_stPhoneUsageCfg.stRule.nSensitivity);
+        stInData.stParam.stPhoneParam.nDetectDuration = sensitivityToDuration(m_stPhoneUsageCfg.stRule.nSensitivity);
+        if (access("/group4Debug", F_OK) == 0)
+        {
+            printf(" [%s][%d]=== 玩手机识别 %d -> %f %d\n", __FILE__, __LINE__, m_stPhoneUsageCfg.stRule.nSensitivity, stInData.stParam.stPhoneParam.fConfidence, stInData.stParam.stPhoneParam.nDetectDuration);
+        }
+    }
+
+    /* 抽烟/玩手机依赖人员框：人员框(不扩框，算法内部自行外扩)填入 vecArea 供算法裁剪推理 */
+    std::vector<Group2Detect_NS::Result_S> vecPersonResult;
     if (m_stAlgoSmokingCfg.bEnable || m_stPhoneUsageCfg.bEnable)
     {
         for (auto &stResult : vstResult)
         {
-            if (stResult.nID == 0)
+            if (stResult.nID != 0)
             {
-                vecPersonResult.push_back(stResult);
-            }
-        }
-
-        for (unsigned int i = 0; i < vecPersonResult.size(); i++)
-        {
-#if CAP_EXHIBITION_OSD_PANEL
-            /* 当前 ROI 对应的父级人员框。 */
-            const Common::RectInfo_S stPersonRect = to_person_rect(vecPersonResult[i]);
-#endif
-            vecPersonResult[i].fX1 /= 1.25;
-            vecPersonResult[i].fY1 /= 1.25;
-
-            vecPersonResult[i].fX2 *= 1.25;
-            vecPersonResult[i].fY2 *= 1.25;
-
-            if (vecPersonResult[i].fX2 > m_nAiChnWith)
-            {
-                vecPersonResult[i].fX2 = m_nAiChnWith;
-            }
-
-            if (vecPersonResult[i].fY2 > m_nAiChnHeigh)
-            {
-                vecPersonResult[i].fY2 = m_nAiChnHeigh;
-            }
-
-            cv::Rect roi(static_cast<int>(vecPersonResult[i].fX1), static_cast<int>(vecPersonResult[i].fY1), static_cast<int>(vecPersonResult[i].fX2 - vecPersonResult[i].fX1), static_cast<int>(vecPersonResult[i].fY2 - vecPersonResult[i].fY1));
-            cv::Mat  cropped = srcData(roi).clone();
-            // if (access("/group4SaveImageDebug", F_OK) == 0)
-            // {
-            //     saveImage(cropped, "/mnt/event_image");
-            // }
-
-            cv::resize(
-                cropped,
-                stInData.inMat,
-                cv::Size(m_nWidth, m_nHeight),
-                0,
-                0,
-                cv::INTER_LINEAR);
-
-            if (m_stAlgoSmokingCfg.bEnable)
-            {
-                stInData.stParam.stCigaretteDetectParam.bEnable         = true;
-                stInData.stParam.stCigaretteDetectParam.fConfidence     = sensitivityToConfidence(m_stAlgoSmokingCfg.stRule.nSensitivity);
-                stInData.stParam.stCigaretteDetectParam.nDetectDuration = sensitivityToDuration(m_stAlgoSmokingCfg.stRule.nSensitivity);
-                if (access("/group4Debug", F_OK) == 0)
-                {
-                    printf(" [%s][%d]=== 吸烟识别 %d -> %f %d\n", __FILE__, __LINE__, m_stAlgoSmokingCfg.stRule.nSensitivity, stInData.stParam.stCigaretteDetectParam.fConfidence, stInData.stParam.stCigaretteDetectParam.nDetectDuration);
-                }
-            }
-
-            if (m_stPhoneUsageCfg.bEnable)
-            {
-                stInData.stParam.stPhoneParam.bEnable         = true;
-                stInData.stParam.stPhoneParam.fConfidence     = sensitivityToConfidence(m_stPhoneUsageCfg.stRule.nSensitivity);
-                stInData.stParam.stPhoneParam.nDetectDuration = sensitivityToDuration(m_stPhoneUsageCfg.stRule.nSensitivity);
-                if (access("/group4Debug", F_OK) == 0)
-                {
-                    printf(" [%s][%d]=== 玩手机识别 %d -> %f %d\n", __FILE__, __LINE__, m_stPhoneUsageCfg.stRule.nSensitivity, stInData.stParam.stPhoneParam.fConfidence, stInData.stParam.stPhoneParam.nDetectDuration);
-                }
-            }
-
-            if (m_pGroup4Handle)
-            {
-                m_pGroup4Handle->process(true, stInData, vecSmokingAndPhoneResult, &stOutData);
-            }
-
-#if CAP_EXHIBITION_OSD_PANEL
-            /* 当前人员是否命中过玩手机事件。 */
-            bool bPhoneDetected = false;
-            /* 当前人员是否命中过抽烟事件。 */
-            bool bSmokingDetected = false;
-            /* 当前人员玩手机事件的最高置信度。 */
-            float fPhoneConfidence = 0.0f;
-            /* 当前人员抽烟事件的最高置信度。 */
-            float fSmokingConfidence = 0.0f;
-#endif
-            float fRoiW = vecPersonResult[i].fX2 - vecPersonResult[i].fX1;
-            float fRoiH = vecPersonResult[i].fY2 - vecPersonResult[i].fY1;
-
-            if (fRoiW <= 1.0f || fRoiH <= 1.0f)
-            {
-                dlog_warn("Invalid person roi: w=%f h=%f", fRoiW, fRoiH);
                 continue;
             }
 
-            float fWRatio = static_cast<float>(m_nWidth) / fRoiW;
-            float fHRatio = static_cast<float>(m_nHeight) / fRoiH;
+            vecPersonResult.push_back(stResult);
 
-            for (auto &stResult : vecSmokingAndPhoneResult)
-            {
-                Group4Detect_NS::Result_S stActualResult;
-                stActualResult.fX1 = vecPersonResult[i].fX1 + stResult.fX1 / fWRatio;
-                stActualResult.fX2 = vecPersonResult[i].fX1 + stResult.fX2 / fWRatio;
-                stActualResult.fY1 = vecPersonResult[i].fY1 + stResult.fY1 / fHRatio;
-                stActualResult.fY2 = vecPersonResult[i].fY1 + stResult.fY2 / fHRatio;
-#if CAP_EXHIBITION_OSD_PANEL
-                stActualResult.fBoxConfidence = stResult.fBoxConfidence;
-                stActualResult.nClassId       = stResult.nClassId;
-#endif
-
-                vecSmokingAndPhoneActualResult.push_back(stActualResult);
-#if CAP_EXHIBITION_OSD_PANEL
-                if (stResult.nClassId == Group4Detect_NS::CGroup4DetectV1_0::PHONE)
-                {
-                    bPhoneDetected   = true;
-                    fPhoneConfidence = std::max(fPhoneConfidence, stResult.fBoxConfidence);
-                }
-                else if (stResult.nClassId == Group4Detect_NS::CGroup4DetectV1_0::CIGARETTE)
-                {
-                    bSmokingDetected   = true;
-                    fSmokingConfidence = std::max(fSmokingConfidence, stResult.fBoxConfidence);
-                }
-#endif
-                // dlog_debug(" (%f, %f) === {(%f, %f)(%f, %f)}   {(%f, %f)(%f, %f)}", vecPersonResult[i].fX1, vecPersonResult[i].fY1, stResult.fX1, stResult.fY1, stResult.fX2, stResult.fY2, stActualResult.fX1, stActualResult.fY1, stActualResult.fX2, stActualResult.fY2);
-            }
-#if CAP_EXHIBITION_OSD_PANEL
-            if (bPhoneDetected)
-            {
-                vecPhonePanelMatches.push_back({stPersonRect, fPhoneConfidence});
-            }
-            if (bSmokingDetected)
-            {
-                vecSmokingPanelMatches.push_back({stPersonRect, fSmokingConfidence});
-            }
-#endif
+            Group4Detect_NS::Result_S stPersonArea;
+            stPersonArea.fX1 = stResult.fX1;
+            stPersonArea.fY1 = stResult.fY1;
+            stPersonArea.fX2 = stResult.fX2;
+            stPersonArea.fY2 = stResult.fY2;
+            stInData.vecArea.push_back(stPersonArea);
         }
     }
 
-    std::vector<Group4Detect_NS::Result_S> vecAllResult;
-
-    /* 预留空间 */
-    vecAllResult.reserve(vecSleepAndTripResult.size() + vecSmokingAndPhoneActualResult.size());
-
-    vecAllResult.insert(vecAllResult.end(),
-                        std::make_move_iterator(vecSleepAndTripResult.begin()),
-                        std::make_move_iterator(vecSleepAndTripResult.end()));
-
-    vecAllResult.insert(vecAllResult.end(),
-                        std::make_move_iterator(vecSmokingAndPhoneActualResult.begin()),
-                        std::make_move_iterator(vecSmokingAndPhoneActualResult.end()));
+    if (m_pGroup4Handle)
+    {
+        m_pGroup4Handle->process(stInData, vecAllResult, &stOutData);
+    }
 
     /* 相关事件动态分析 */
     dynamicAnalysis(vecAllResult);
+
+#if CAP_EXHIBITION_OSD_PANEL
+    /* V3 抽烟/玩手机输出人员大框，按类别和大框中心点匹配回原人员框统计。 */
+    if ((stOutData.bPhone || stOutData.bCigarette) && !vecPersonResult.empty())
+    {
+        std::vector<bool> vecPhonePersonCounted(vecPersonResult.size(), false);
+        std::vector<bool> vecSmokingPersonCounted(vecPersonResult.size(), false);
+        for (auto &stResult : vecAllResult)
+        {
+            const bool bPhoneResult =
+                stOutData.bPhone &&
+                stResult.nClassId == Group4Detect_NS::CGroup4DetectV3_0::PHONE &&
+                stResult.fBoxConfidence > stInData.stParam.stPhoneParam.fConfidence;
+            const bool bSmokingResult =
+                stOutData.bCigarette &&
+                stResult.nClassId == Group4Detect_NS::CGroup4DetectV3_0::CIGARETTE &&
+                stResult.fBoxConfidence > stInData.stParam.stCigaretteDetectParam.fConfidence;
+
+            if (!bPhoneResult && !bSmokingResult)
+            {
+                continue;
+            }
+
+            /* 人员大框中心点 */
+            const float fCenterX = (stResult.fX1 + stResult.fX2) / 2.0f;
+            const float fCenterY = (stResult.fY1 + stResult.fY2) / 2.0f;
+
+            for (unsigned int i = 0; i < vecPersonResult.size(); i++)
+            {
+                if ((bPhoneResult && vecPhonePersonCounted[i]) ||
+                    (bSmokingResult && vecSmokingPersonCounted[i]))
+                {
+                    continue;
+                }
+
+                if (fCenterX >= vecPersonResult[i].fX1 && fCenterX <= vecPersonResult[i].fX2 &&
+                    fCenterY >= vecPersonResult[i].fY1 && fCenterY <= vecPersonResult[i].fY2)
+                {
+                    if (bPhoneResult)
+                    {
+                        vecPhonePersonCounted[i] = true;
+                        vecPhonePanelMatches.push_back({to_person_rect(vecPersonResult[i]), stResult.fBoxConfidence});
+                    }
+                    if (bSmokingResult)
+                    {
+                        vecSmokingPersonCounted[i] = true;
+                        vecSmokingPanelMatches.push_back({to_person_rect(vecPersonResult[i]), stResult.fBoxConfidence});
+                    }
+                    break;
+                }
+            }
+        }
+    }
+#endif
 
 #if CAP_EXHIBITION_OSD_PANEL
     /* 玩手机事件的展会面板帧。 */
@@ -2778,20 +2721,7 @@ void CGroup2_Group4Detect::processGroup4Detect(const Group4Detect_NS::OutData_S 
 
 void CGroup2_Group4Detect::processGroup2Detect(const Group2Detect_NS::OutData_S &stGroup2OutData, std::vector<Group2Detect_NS::Result_S> &vecResult)
 {
-    /* 算法检测坐标系为 m_nWidth*m_nHeight，事件矩形/特写图基于全分辨率图 m_fullRgbMat，
-       此处统一将结果坐标换算到全分辨率坐标系 */
-    if (!m_fullRgbMat.empty() && m_nWidth > 0 && m_nHeight > 0)
-    {
-        const float fScaleX = static_cast<float>(m_fullRgbMat.cols) / static_cast<float>(m_nWidth);
-        const float fScaleY = static_cast<float>(m_fullRgbMat.rows) / static_cast<float>(m_nHeight);
-        for (auto &stResult : vecResult)
-        {
-            stResult.fX1 *= fScaleX;
-            stResult.fY1 *= fScaleY;
-            stResult.fX2 *= fScaleX;
-            stResult.fY2 *= fScaleY;
-        }
-    }
+    /* Group2算法输出已恢复到输入原图坐标，直接用于事件矩形和特写图。 */
 
     if (m_stAlgoCrossCfg.bEnable)
     {
@@ -3605,13 +3535,18 @@ int CGroup2_Group4Detect::dynamicAnalysis(const std::vector<Group2Detect_NS::Res
 {
     std::vector<Common::RectInfo_S> vstRectInfo;
 
+    const int nSourceWidth  = m_fullRgbMat.empty() ? m_nAiChnWith : m_fullRgbMat.cols;
+    const int nSourceHeight = m_fullRgbMat.empty() ? m_nAiChnHeigh : m_fullRgbMat.rows;
+    const float fWRatio = static_cast<float>(m_nWidth) / nSourceWidth;
+    const float fHRatio = static_cast<float>(m_nHeight) / nSourceHeight;
+
     for (auto &stResult : vecAllResult)
     {
         Common::RectInfo_S stRectInfo;
-        stRectInfo.nX1 = (int)stResult.fX1;
-        stRectInfo.nY1 = (int)stResult.fY1;
-        stRectInfo.nX2 = (int)(stResult.fX2);
-        stRectInfo.nY2 = (int)(stResult.fY2);
+        stRectInfo.nX1 = static_cast<int>(stResult.fX1 * fWRatio);
+        stRectInfo.nY1 = static_cast<int>(stResult.fY1 * fHRatio);
+        stRectInfo.nX2 = static_cast<int>(stResult.fX2 * fWRatio);
+        stRectInfo.nY2 = static_cast<int>(stResult.fY2 * fHRatio);
 
         if(stResult.fBoxConfidence < 0.5)
         {
@@ -3657,8 +3592,10 @@ int CGroup2_Group4Detect::dynamicAnalysis(const std::vector<Group4Detect_NS::Res
 {
     std::vector<Common::RectInfo_S> vstRectInfo;
 
-    float fWRatio = static_cast<float>(m_nWidth) / m_nAiChnWith;
-    float fHRatio = static_cast<float>(m_nHeight) / m_nAiChnHeigh;
+    const int nSourceWidth  = m_fullRgbMat.empty() ? m_nAiChnWith : m_fullRgbMat.cols;
+    const int nSourceHeight = m_fullRgbMat.empty() ? m_nAiChnHeigh : m_fullRgbMat.rows;
+    const float fWRatio = static_cast<float>(m_nWidth) / nSourceWidth;
+    const float fHRatio = static_cast<float>(m_nHeight) / nSourceHeight;
 
     for (auto &stResult : vecResult)
     {
@@ -4388,24 +4325,32 @@ void CGroup2_Group4Detect::convertBoundaryAndEnable(Alarm::BoundaryDetection_S &
     if (!stConfig.aRule.empty())
     {
         m_vstCrossRule.clear();
-        /* 转换警戒线坐标分辨率至算法分辨率 */
-        for (auto &rule : stConfig.aRule)
+        /* 将配置坐标转换至AI原图分辨率，不修改原始配置 */
+        for (const auto &rule : stConfig.aRule)
         {
             bool            bIsInit = false;
             Event::RuleInfo stRule;
-            /* 转换起始点坐标 */
-            float scaleX = static_cast<float>(m_nWidth) / PIXEL_WIDTH_1920;
-            float scaleY = static_cast<float>(m_nHeight) / PIXEL_HEIGHT_1080;
+            Common::PosF_S  stStartPos = rule.stStartPos;
+            Common::PosF_S  stEndPos   = rule.stEndPos;
 
-            rule.stStartPos.fX *= scaleX;
-            rule.stStartPos.fY *= scaleY;
-            rule.stEndPos.fX *= scaleX;
-            rule.stEndPos.fY *= scaleY;
+            if (!stStartPos.ConvertResolution(
+                    PIXEL_WIDTH_1920,
+                    PIXEL_HEIGHT_1080,
+                    m_nAiChnWith,
+                    m_nAiChnHeigh) ||
+                !stEndPos.ConvertResolution(
+                    PIXEL_WIDTH_1920,
+                    PIXEL_HEIGHT_1080,
+                    m_nAiChnWith,
+                    m_nAiChnHeigh))
+            {
+                continue;
+            }
 
             /* 判断是否设置了有效的警戒线 */
-            if (((rule.stStartPos.fX != rule.stEndPos.fX) ||
-                 (rule.stStartPos.fY != rule.stEndPos.fY)) &&
-                (rule.stStartPos.fX != 0 && rule.stStartPos.fY != 0 && rule.stEndPos.fX != 0 && rule.stEndPos.fY != 0))
+            if (((stStartPos.fX != stEndPos.fX) ||
+                 (stStartPos.fY != stEndPos.fY)) &&
+                (stStartPos.fX != 0 && stStartPos.fY != 0 && stEndPos.fX != 0 && stEndPos.fY != 0))
             {
                 bIsInit = true;
             }
@@ -4421,11 +4366,11 @@ void CGroup2_Group4Detect::convertBoundaryAndEnable(Alarm::BoundaryDetection_S &
                 dlog_debug("ai_app: 边界检测-越界检测警戒线有效");
                 std::vector<::Event::Point_S> line;
                 ::Event::Point_S              stPoint;
-                stPoint.nX = rule.stStartPos.fX;
-                stPoint.nY = rule.stStartPos.fY;
+                stPoint.nX = stStartPos.fX;
+                stPoint.nY = stStartPos.fY;
                 line.push_back(stPoint);
-                stPoint.nX = rule.stEndPos.fX;
-                stPoint.nY = rule.stEndPos.fY;
+                stPoint.nX = stEndPos.fX;
+                stPoint.nY = stEndPos.fY;
                 line.push_back(stPoint);
                 stRule.nSensitivity = rule.nSensitivity;
                 // /* 判断是否开启了人体检测 */
@@ -4477,24 +4422,32 @@ void CGroup2_Group4Detect::convertAlertLineToZoneAndIsEnable(T &stConfig, Event:
 
     if (!stConfig.aRule.empty())
     {
-        /* 转换警戒线坐标分辨率至算法分辨率坐标 */
-        for (auto &rule : stConfig.aRule)
+        /* 将配置坐标转换至AI原图分辨率，不修改原始配置 */
+        for (const auto &rule : stConfig.aRule)
         {
             bool              bIsInit = false;
             TrafficRuleInfo_S stRule;
-            /* 转换起始点坐标 */
-            float scaleX = static_cast<float>(m_nWidth) / PIXEL_WIDTH_1920;
-            float scaleY = static_cast<float>(m_nHeight) / PIXEL_HEIGHT_1080;
+            Common::PosF_S    stStartPos = rule.stStartPos;
+            Common::PosF_S    stEndPos   = rule.stEndPos;
 
-            rule.stStartPos.fX *= scaleX;
-            rule.stStartPos.fY *= scaleY;
-            rule.stEndPos.fX *= scaleX;
-            rule.stEndPos.fY *= scaleY;
+            if (!stStartPos.ConvertResolution(
+                    PIXEL_WIDTH_1920,
+                    PIXEL_HEIGHT_1080,
+                    m_nAiChnWith,
+                    m_nAiChnHeigh) ||
+                !stEndPos.ConvertResolution(
+                    PIXEL_WIDTH_1920,
+                    PIXEL_HEIGHT_1080,
+                    m_nAiChnWith,
+                    m_nAiChnHeigh))
+            {
+                continue;
+            }
 
             /* 判断是否设置了有效的警戒线 */
-            if (((rule.stStartPos.fX != rule.stEndPos.fX) ||
-                 (rule.stStartPos.fY != rule.stEndPos.fY)) &&
-                (rule.stStartPos.fX != 0 && rule.stStartPos.fY != 0 && rule.stEndPos.fX != 0 && rule.stEndPos.fY != 0))
+            if (((stStartPos.fX != stEndPos.fX) ||
+                 (stStartPos.fY != stEndPos.fY)) &&
+                (stStartPos.fX != 0 && stStartPos.fY != 0 && stEndPos.fX != 0 && stEndPos.fY != 0))
             {
                 bIsInit = true;
             }
@@ -4510,11 +4463,11 @@ void CGroup2_Group4Detect::convertAlertLineToZoneAndIsEnable(T &stConfig, Event:
                 dlog_debug("ai_app: 车辆检测-逆行检测/违规变道 警戒线有效");
                 std::vector<::Event::Point_S> line;
                 ::Event::Point_S              stPoint;
-                stPoint.nX = rule.stStartPos.fX;
-                stPoint.nY = rule.stStartPos.fY;
+                stPoint.nX = stStartPos.fX;
+                stPoint.nY = stStartPos.fY;
                 line.push_back(stPoint);
-                stPoint.nX = rule.stEndPos.fX;
-                stPoint.nY = rule.stEndPos.fY;
+                stPoint.nX = stEndPos.fX;
+                stPoint.nY = stEndPos.fY;
                 line.push_back(stPoint);
                 stRule.stRuleInfo.bEnable      = true;
                 stRule.stRuleInfo.nSensitivity = rule.nSensitivity;
@@ -4544,8 +4497,8 @@ void CGroup2_Group4Detect::convertResolutionAndEnable(T &stConfig, Event::Type_E
         /* 是否有任何一个区域初始化成功 */
         // bool bIsInit = false;
 
-        /* 转换区域坐标分辨率至算法分辨率 */
-        for (auto &rule : stConfig.aRule) /* 使用引用而不是值拷贝 */
+        /* 将配置坐标转换至AI原图分辨率，不修改原始配置 */
+        for (const auto &rule : stConfig.aRule)
         {
             Event::RuleInfo               stRule;
             std::vector<::Event::Point_S> area;
@@ -4580,12 +4533,20 @@ void CGroup2_Group4Detect::convertResolutionAndEnable(T &stConfig, Event::Type_E
                 stRule.bEnable = true;
             }
 
-            rule.stRegion.ConvertResolution(PIXEL_WIDTH_1920, PIXEL_HEIGHT_1080, m_nWidth, m_nHeight);
+            auto stRegion = rule.stRegion;
+            if (!stRegion.ConvertResolution(
+                    PIXEL_WIDTH_1920,
+                    PIXEL_HEIGHT_1080,
+                    m_nAiChnWith,
+                    m_nAiChnHeigh))
+            {
+                continue;
+            }
 
             stRule.nSensitivity   = rule.nSensitivity;
             stRule.nTimeThreshold = rule.nTimeThreshold;
             dlog_debug("ai_app:  当前规则获取到 灵敏度[%d] 时间阈值[%d] ", rule.nSensitivity, rule.nTimeThreshold);
-            for (auto &pos : rule.stRegion.aPoint)
+            for (const auto &pos : stRegion.aPoint)
             {
                 ::Event::Point_S stPoint;
                 stPoint.nX = pos.fX;
@@ -4712,8 +4673,8 @@ void CGroup2_Group4Detect::convertGuardAreaAndCheckAlgoEnable(T &stAlgoCfg, Even
 
     if (!stAlgoCfg.aRule.empty())
     {
-        /* 转换区域坐标分辨率至算法分辨率 */
-        for (auto &rule : stAlgoCfg.aRule)
+        /* 将配置坐标转换至AI原图分辨率，不修改原始配置 */
+        for (const auto &rule : stAlgoCfg.aRule)
         {
             Event::RuleInfo               stRule;
             std::vector<::Event::Point_S> area;
@@ -4748,13 +4709,21 @@ void CGroup2_Group4Detect::convertGuardAreaAndCheckAlgoEnable(T &stAlgoCfg, Even
                 stRule.bEnable = true;
             }
 
-            rule.stRegion.ConvertResolution(PIXEL_WIDTH_1920, PIXEL_HEIGHT_1080, m_nWidth, m_nHeight);
+            auto stRegion = rule.stRegion;
+            if (!stRegion.ConvertResolution(
+                    PIXEL_WIDTH_1920,
+                    PIXEL_HEIGHT_1080,
+                    m_nAiChnWith,
+                    m_nAiChnHeigh))
+            {
+                continue;
+            }
 
             stRule.nSensitivity   = rule.nSensitivity;
             stRule.nTimeThreshold = rule.nTimeThreshold;
 
             dlog_debug("ai_app:  当前规则获取到 灵敏度[%d]", stRule.nSensitivity);
-            for (auto &pos : rule.stRegion.aPoint)
+            for (const auto &pos : stRegion.aPoint)
             {
                 ::Event::Point_S stPoint;
                 stPoint.nX = pos.fX;
@@ -4789,8 +4758,8 @@ void CGroup2_Group4Detect::convertCrowdGatherAndEnable(Alarm::CrowdGathering_S &
 
     if (!stAlgoCfg.aRule.empty())
     {
-        /* 转换区域坐标分辨率至算法分辨率 */
-        for (auto &rule : stAlgoCfg.aRule)
+        /* 将配置坐标转换至AI原图分辨率，不修改原始配置 */
+        for (const auto &rule : stAlgoCfg.aRule)
         {
             Event::RuleInfo               stRule;
             std::vector<::Event::Point_S> area;
@@ -4825,13 +4794,21 @@ void CGroup2_Group4Detect::convertCrowdGatherAndEnable(Alarm::CrowdGathering_S &
                 stRule.bEnable = true;
             }
 
-            rule.stRegion.ConvertResolution(PIXEL_WIDTH_1920, PIXEL_HEIGHT_1080, m_nWidth, m_nHeight);
+            auto stRegion = rule.stRegion;
+            if (!stRegion.ConvertResolution(
+                    PIXEL_WIDTH_1920,
+                    PIXEL_HEIGHT_1080,
+                    m_nAiChnWith,
+                    m_nAiChnHeigh))
+            {
+                continue;
+            }
 
             stRule.nSensitivity   = rule.nObjectOccup;
             stRule.nTimeThreshold = 0;
             stRule.enType         = enType;
             dlog_debug("ai_app:  当前规则获取到 灵敏度[%d]", stRule.nSensitivity);
-            for (auto &pos : rule.stRegion.aPoint)
+            for (const auto &pos : stRegion.aPoint)
             {
                 ::Event::Point_S stPoint;
                 stPoint.nX = pos.fX;
@@ -4874,13 +4851,20 @@ void CGroup2_Group4Detect::pushImageToGat1400(const cv::Mat &image, const std::v
         stImageInfo.Height     = image.rows;
     }
 
-    for (auto &result : vecResult)
+    for (const auto &result : vecResult)
     {
-        // 坐标点转换
-        Common::PosF_S stPosition1{result.fX1, result.fY1};
-        Common::PosF_S stPosition2{result.fX2, result.fY2};
-        bool           bConvert1 = stPosition1.ConvertResolution(m_nWidth, m_nHeight, image.cols, image.rows);
-        bool           bConvert2 = stPosition2.ConvertResolution(m_nWidth, m_nHeight, image.cols, image.rows);
+        /* 检测结果已是上传原图坐标，仅限制到图像边界。 */
+        Common::PosF_S stPosition1{
+            std::max(0.0f, std::min(result.fX1, static_cast<float>(image.cols))),
+            std::max(0.0f, std::min(result.fY1, static_cast<float>(image.rows)))};
+        Common::PosF_S stPosition2{
+            std::max(0.0f, std::min(result.fX2, static_cast<float>(image.cols))),
+            std::max(0.0f, std::min(result.fY2, static_cast<float>(image.rows)))};
+
+        if (stPosition2.fX <= stPosition1.fX || stPosition2.fY <= stPosition1.fY)
+        {
+            continue;
+        }
 
         /* 判断上传类型 */
         /* 0-人 1-机动车 2-非机动车 */
@@ -4890,13 +4874,10 @@ void CGroup2_Group4Detect::pushImageToGat1400(const cv::Mat &image, const std::v
             security_person_t  stPerson;
 
             stPerson.InfoKind = SecurityInfoType::Auto;
-            if (bConvert1 && bConvert2)
-            {
-                stPerson.LeftTopX  = stPosition1.fX;
-                stPerson.LeftTopY  = stPosition1.fY;
-                stPerson.RightBtmX = stPosition2.fX;
-                stPerson.RightBtmY = stPosition2.fY;
-            }
+            stPerson.LeftTopX  = stPosition1.fX;
+            stPerson.LeftTopY  = stPosition1.fY;
+            stPerson.RightBtmX = stPosition2.fX;
+            stPerson.RightBtmY = stPosition2.fY;
             stPerson.Behavior = BEHAVIOR_TYPE_OTHER;
             stImageInfo.Type  = IMAGE_TYPE_SCENE;
 
@@ -4914,13 +4895,10 @@ void CGroup2_Group4Detect::pushImageToGat1400(const cv::Mat &image, const std::v
             security_motorvehicle_t  stVehicle;
 
             stVehicle.InfoKind = SecurityInfoType::Auto;
-            if (bConvert1 && bConvert2)
-            {
-                stVehicle.LeftTopX  = stPosition1.fX;
-                stVehicle.LeftTopY  = stPosition1.fY;
-                stVehicle.RightBtmX = stPosition2.fX;
-                stVehicle.RightBtmY = stPosition2.fY;
-            }
+            stVehicle.LeftTopX  = stPosition1.fX;
+            stVehicle.LeftTopY  = stPosition1.fY;
+            stVehicle.RightBtmX = stPosition2.fX;
+            stVehicle.RightBtmY = stPosition2.fY;
             stImageInfo.Type = IMAGE_TYPE_MOTOR_VEHICLE;
 
             stVehicle.SubImageList.push_back(stImageInfo);
@@ -4937,13 +4915,10 @@ void CGroup2_Group4Detect::pushImageToGat1400(const cv::Mat &image, const std::v
             security_nonmotorvehicle_t  stNonmotor;
 
             stNonmotor.InfoKind = SecurityInfoType::Auto;
-            if (bConvert1 && bConvert2)
-            {
-                stNonmotor.LeftTopX  = stPosition1.fX;
-                stNonmotor.LeftTopY  = stPosition1.fY;
-                stNonmotor.RightBtmX = stPosition2.fX;
-                stNonmotor.RightBtmY = stPosition2.fY;
-            }
+            stNonmotor.LeftTopX  = stPosition1.fX;
+            stNonmotor.LeftTopY  = stPosition1.fY;
+            stNonmotor.RightBtmX = stPosition2.fX;
+            stNonmotor.RightBtmY = stPosition2.fY;
             stImageInfo.Type = IMAGE_TYPE_SCENE;
 
             stNonmotor.SubImageList.push_back(stImageInfo);

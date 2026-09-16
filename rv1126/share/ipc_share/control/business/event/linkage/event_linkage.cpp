@@ -237,7 +237,7 @@ int CEventLinkage::get_audio_file_path(std::string &strAudioPath, int &nTimes)
     {
         return ERR;
     }
-    return m_asyncAction->get_audio_file_path(strAudioPath, nTimes);
+    return m_asyncAction->get_audio_file_path(strAudioPath);
 }
 
 bool CEventLinkage::stop_play_audio()

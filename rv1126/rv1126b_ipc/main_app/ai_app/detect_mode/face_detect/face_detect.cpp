@@ -215,7 +215,7 @@ bool CFaceDetect::init()
         stInParam.strModelPath = "/opt/cam/model/FaceDetect.json";
         stInParam.bDebug = false;
 
-        m_pFaceDetectHandle = new FaceDetect_NS::CFaceDetectV3_0(stInParam);
+        m_pFaceDetectHandle = new FaceDetect_NS::CFaceDetectV1_0(stInParam);
         if (m_pFaceDetectHandle)
         {
             if (m_pFaceDetectHandle->init())
@@ -525,6 +525,7 @@ void CFaceDetect::run()
             FaceDetect_NS::InData_S stFDInData;
             FaceDetect_NS::OutData_S stFDOutData;
             
+            stFDInData.nChnId = m_nChannelId;
             stFDInData.stParam.fBoxThreshold = FACE_DETECT_THRESHOLD;
             stFDOutData.validResult = false;
             
@@ -606,7 +607,7 @@ void CFaceDetect::run()
                     const FaceDetect_NS::Result_S* pDetectResult = nullptr;
                     const FaceDetect_NS::Result_S* pCaptureResult = nullptr;
 
-                    if (stFDOutData.validResult)
+                    if (!vecResult.empty())
                     {
                         std::vector<Common::RectInfo_S> vstRectInfo;
                         for (const auto& result : vecResult)
