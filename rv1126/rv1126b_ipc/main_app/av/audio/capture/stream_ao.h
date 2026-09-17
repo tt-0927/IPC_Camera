@@ -5,6 +5,7 @@
  * @LastEditors  : zhouzr@kfb.cn
  * @LastEditTime : 2026-01-27 10:20:24
  * @Description  : AO 音频流输出
+ * @Modification : 2026-09-17 明确输出句柄释放和重建的回写语义
  */
 
 #pragma once
@@ -42,19 +43,19 @@ RkAo_S *streamAo_init(int enAoDevice, Audio_NS::AudioConfig_S stAudioConfig);
 
 /**
  * @brief   : 音频输出去初始化
- * @param    {RkAo_S} *pHandle 句柄
- * @return   {int} 0：成功 非零：失败
+ * @param [in,out] pHandle 输出句柄，成功释放后置空
+ * @return 0：成功；非零：失败，保留原句柄
  */
-int streamAo_uninit(RkAo_S *pHandle);
+int streamAo_uninit(RkAo_S *&pHandle);
 
 /**
  * @brief   : 音频输出重启
- * @param    {RkAo_S} *pHandle：句柄
- * @param    {int} nAoDevice：音频采集设备号
- * @param    {AudioConfig_S} &stAudioConfig：音频配置信息
- * @return   {int} 0：成功 非零：失败
+ * @param [in,out] pHandle 旧句柄，成功释放后置空，重建成功后返回新句柄
+ * @param [in] nAoDevice 音频输出设备号
+ * @param [in] stAudioConfig 音频配置信息
+ * @return 0：成功；非零：失败
  */
-int streamAo_reboot(RkAo_S *pHandle, int nAoDevice, const Audio_NS::AudioConfig_S &stAudioConfig);
+int streamAo_reboot(RkAo_S *&pHandle, int nAoDevice, const Audio_NS::AudioConfig_S &stAudioConfig);
 
 /**
  * @brief   : 设置音频输出音量
