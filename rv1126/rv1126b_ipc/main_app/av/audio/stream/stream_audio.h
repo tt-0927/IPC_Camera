@@ -205,9 +205,9 @@ private:
 private:
     // info /*----------------------- 模块句柄 -----------------------*/
     /* ai句柄 */
-    RkAi_S *m_pAiHandle[AI_MAX_CHN];
+    RkAi_S *m_pAiHandle[AI_MAX_CHN]{};
     /* ao句柄 */
-    RkAo_S *m_pAoHandle[AO_MAX_CHN];
+    RkAo_S *m_pAoHandle[AO_MAX_CHN]{};
     /* 音频流输出管理类 */
     CStreamAo* m_streamAO;
     /* aenc句柄 */
@@ -249,6 +249,8 @@ private:
     std::vector<uint8_t> m_bytesTalkbackData;
     /*控制操作互斥锁*/
     std::mutex m_mutexCtrl;
+    /* 串行保护音频输出句柄的创建、使用和销毁，发送使用有限超时 */
+    std::mutex m_mutexAo;
     /*送编码数据互斥锁*/
     std::mutex m_mutexSendData;
     /*音频编码是否为 AAC*/

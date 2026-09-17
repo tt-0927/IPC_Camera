@@ -5,6 +5,7 @@
  * @LastEditors  : zhouzr@kfb.cn
  * @LastEditTime : 2026-01-27 16:31:35
  * @Description  : 流媒体音频模块
+ * @Modification : 2026-09-17 修复关闭音频时设置音量崩溃及输出句柄生命周期
  */
 
 #include "stream_audio.h"
@@ -22,6 +23,8 @@
 #define VOLUME_RATION   (1.12)
 /*音频延时总和*/
 #define AUDIO_DEALY_SUM 16
+/* 持有输出生命周期锁时限制硬件发送等待时间，避免阻塞配置切换 */
+#define AUDIO_AO_SEND_TIMEOUT_MS 100
 
 uint64_t CStreamAudio::getSteadyTimeMS() 
 {
@@ -175,14 +178,13 @@ int CStreamAudio::init()
 
 int CStreamAudio::deinit()
 {
-    m_bInitFlag = false;
-
     /*去初始化音频流采集处理模块*/
     if (OK != deinitStreamAudio())
     {
         dlog_error("音频模块去初始化失败");
         return ERR;
     }
+    m_bInitFlag = false;
     return OK;
 }
 
@@ -212,6 +214,7 @@ int CStreamAudio::reboot()
 
 int CStreamAudio::initStreamAudio(Audio_NS::AudioConfig_S stAudioConfig)
 {
+    std::lock_guard<std::mutex> lock(m_mutexAo);
     if (stAudioConfig.bAudioSwitch == false) // 音频未开启
     {
         return OK;
@@ -245,6 +248,11 @@ int CStreamAudio::initStreamAudio(Audio_NS::AudioConfig_S stAudioConfig)
     if (m_pAoHandle[AO_SPEAKER_CHN] == nullptr)
     {
         dlog(LOG_ERROR, "Ao_init error");
+        goto err;
+    }
+
+    if (streamAo_setVolume(m_pAoHandle[AO_SPEAKER_CHN], stAudioConfig.u32OutputVolume) != OK)
+    {
         goto err;
     }
 
@@ -306,7 +314,10 @@ err:
     /*音频采集 去初始化*/
     if (m_pAiHandle[AI_MIC_CHN] != nullptr)
     {
-        streamAi_uninit(m_pAiHandle[AI_MIC_CHN]);
+        if (streamAi_uninit(m_pAiHandle[AI_MIC_CHN]) == OK)
+        {
+            m_pAiHandle[AI_MIC_CHN] = nullptr;
+        }
     }
 
     /* 去初始化ffmpeg音频编码 */
@@ -325,6 +336,8 @@ err:
 
 int CStreamAudio::deinitStreamAudio()
 {
+    std::lock_guard<std::mutex> lock(m_mutexAo);
+    int nRet = OK;
     /* 音频未开启 初始化未成功 */
     if (m_stAudioConfig.bAudioSwitch == 0)
     {
@@ -357,6 +370,7 @@ int CStreamAudio::deinitStreamAudio()
     if (deinit_ff_encode() != OK)
     {
         dlog_error("去初始化ffmpeg音频编码失败");
+        nRet = ERR;
     }
 
     /*音频解码 去初始化*/
@@ -375,14 +389,24 @@ int CStreamAudio::deinitStreamAudio()
     /*音频采集 去初始化*/
     if (m_pAiHandle[AI_MIC_CHN] != nullptr)
     {
-        streamAi_uninit(m_pAiHandle[AI_MIC_CHN]);
+        if (streamAi_uninit(m_pAiHandle[AI_MIC_CHN]) != OK)
+        {
+            nRet = ERR;
+        }
+        else
+        {
+            m_pAiHandle[AI_MIC_CHN] = nullptr;
+        }
     }
     /* AO输出设备 去初始化 */
     m_streamAO->uninit();
     /*音频输出 去初始化*/
     if (m_pAoHandle[AO_SPEAKER_CHN] != nullptr)
     {
-        streamAo_uninit(m_pAoHandle[AO_SPEAKER_CHN]);
+        if (streamAo_uninit(m_pAoHandle[AO_SPEAKER_CHN]) != OK)
+        {
+            nRet = ERR;
+        }
     }
 
     /*关闭监测AO对应输出模块GPIO状态线程*/
@@ -392,8 +416,7 @@ int CStreamAudio::deinitStreamAudio()
         m_monitorThread.join();
     }
 
-    dlog_info("流媒体音频去初始化成功");
-    return OK;
+    return nRet;
 }
 
 int CStreamAudio::init_ff_encode(const Audio_NS::AudioConfig_S stAudioConfig)
@@ -444,11 +467,20 @@ int CStreamAudio::deinit_ff_encode()
         return ERR;
     }
 
+    ff_audioEnc_release(m_pFfAencHandle);
+    m_pFfAencHandle = nullptr;
+
     return OK;
 }
 
 int CStreamAudio::sendAudio_to_Adec(Audio_NS::AoInfo_S stAoInfo)
 {
+    std::lock_guard<std::mutex> lock(m_mutexAo);
+    if (m_pAoHandle[AO_SPEAKER_CHN] == nullptr ||
+        m_pAoHandle[AO_SPEAKER_CHN]->rockitAo_send_pcmData == nullptr)
+    {
+        return ERR_PTR_NULL;
+    }
     if (stAoInfo.pData == NULL)
     {
         dlog_error("指针为空");
@@ -552,9 +584,9 @@ int CStreamAudio::sendAudio_to_Adec(Audio_NS::AoInfo_S stAoInfo)
     }
 
     /*组音频帧，送数据至ao功放*/
-    m_pAoHandle[AO_SPEAKER_CHN]->rockitAo_send_pcmData(m_pAoHandle[AO_SPEAKER_CHN], AO_SPEAKER_CHN, pTalkbackData, unTalkbackDataSize, -1);
-
-    return OK;
+    return m_pAoHandle[AO_SPEAKER_CHN]->rockitAo_send_pcmData(
+        m_pAoHandle[AO_SPEAKER_CHN], AO_SPEAKER_CHN, pTalkbackData,
+        unTalkbackDataSize, AUDIO_AO_SEND_TIMEOUT_MS);
 }
 
 int CStreamAudio::getAudioConfig(Audio_NS::AudioConfig_S &stAudioConfig)
@@ -565,8 +597,9 @@ int CStreamAudio::getAudioConfig(Audio_NS::AudioConfig_S &stAudioConfig)
 
 int CStreamAudio::setAudioConfig(const Audio_NS::AudioConfig_S &stAudioConfig)
 {
+    std::lock_guard<std::mutex> lock(m_mutexCtrl);
     /* 是否重启音频模块 */
-    bool bIsReboot = false;
+    bool bIsReboot = !m_bInitFlag || (m_stAudioConfig.bAudioSwitch != stAudioConfig.bAudioSwitch);
     /* 是否重新设置Rtsp */
     bool bIsResetRtsp = false;
 
@@ -582,17 +615,6 @@ int CStreamAudio::setAudioConfig(const Audio_NS::AudioConfig_S &stAudioConfig)
         //m_streamAO->update_audioOutputType(stAudioConfig.enOutputType);
     }
 
-    /* 输出音量改变 */
-    if (m_stAudioConfig.u32OutputVolume != stAudioConfig.u32OutputVolume)
-    {
-        if (OK != streamAo_setVolume(m_pAoHandle[AO_SPEAKER_CHN], stAudioConfig.u32OutputVolume))
-        {
-            dlog_error("设置音频输出音量失败");
-        }
-    }
-
-    m_bIsAac = stAudioConfig.enFormat == Audio_NS::AudioFormat_E::AAC ? true : false;
-
     /* 音频格式改变 */
     if (m_stAudioConfig.enFormat != stAudioConfig.enFormat)
     {
@@ -606,8 +628,34 @@ int CStreamAudio::setAudioConfig(const Audio_NS::AudioConfig_S &stAudioConfig)
         bIsReboot = true;
     }
 
-    /*更新音频配置*/
-    m_stAudioConfig = stAudioConfig;
+    /* 按旧配置释放资源，避免关闭开关后跳过仍在运行的线程和设备 */
+    if (bIsReboot && m_bInitFlag)
+    {
+        if (deinit() != OK)
+        {
+            return ERR;
+        }
+    }
+
+    {
+        std::lock_guard<std::mutex> aoLock(m_mutexAo);
+        /* 音频关闭时仅保存音量，重新开启后由初始化路径应用 */
+        if (!bIsReboot && stAudioConfig.bAudioSwitch &&
+            m_stAudioConfig.u32OutputVolume != stAudioConfig.u32OutputVolume)
+        {
+            if (streamAo_setVolume(m_pAoHandle[AO_SPEAKER_CHN], stAudioConfig.u32OutputVolume) != OK)
+            {
+                return ERR;
+            }
+        }
+        m_stAudioConfig = stAudioConfig;
+        m_bIsAac = (stAudioConfig.enFormat == Audio_NS::AudioFormat_E::AAC);
+    }
+
+    if (bIsReboot && init() != OK)
+    {
+        return ERR;
+    }
 
     if (bIsResetRtsp)
     {
@@ -617,17 +665,12 @@ int CStreamAudio::setAudioConfig(const Audio_NS::AudioConfig_S &stAudioConfig)
         CRtspServer::instance()->reboot();
     }
 
-    if (bIsReboot)
-    {
-        /*重新启动音频流模块*/
-        return reboot();
-    }
-
     return OK;
 }
 
 int CStreamAudio::setAoSampleRate(const Audio_NS::AudioSamprate_E enSampRate)
 {
+    std::lock_guard<std::mutex> lock(m_mutexAo);
     if (enSampRate != Audio_NS::AudioSamprate_E::AUDIO_SAMPRATE_16000 && enSampRate != Audio_NS::AudioSamprate_E::AUDIO_SAMPRATE_8000)
     {
         dlog_error("设置音频输出采样率参数错误");
@@ -635,15 +678,20 @@ int CStreamAudio::setAoSampleRate(const Audio_NS::AudioSamprate_E enSampRate)
     }
 
     int nAoDevice = AO_SPEAKER_CHN;
-    if (m_pAoHandle[nAoDevice]->stNeedParam.enSampleRate != (AUDIO_SAMPLE_RATE_E) enSampRate)
+    if (m_pAoHandle[nAoDevice] == nullptr)
     {
-        Audio_NS::AudioConfig_S stAudioConfig;
+        return ERR_PTR_NULL;
+    }
+    if (m_pAoHandle[nAoDevice]->stNeedParam.enResampleRate != (AUDIO_SAMPLE_RATE_E) enSampRate)
+    {
+        Audio_NS::AudioConfig_S stAudioConfig = m_stAudioConfig;
         stAudioConfig.enSampRate = enSampRate;
         if (streamAo_reboot(m_pAoHandle[nAoDevice], nAoDevice, stAudioConfig))
         {
             dlog_error("音频输出重启失败");
             return ERR;
         }
+        return streamAo_setVolume(m_pAoHandle[nAoDevice], stAudioConfig.u32OutputVolume);
     }
     return OK;
 }
