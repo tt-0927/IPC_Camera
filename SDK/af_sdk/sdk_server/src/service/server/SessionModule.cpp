@@ -65,6 +65,7 @@ BOOL CSessionModule::SetAuthInfo(const std::string& realm,
         return NET_FALSE;
     }
 
+    std::lock_guard<std::mutex> stLock(m_stAuthMutex);
     m_strRealm = realm;
     m_strUsername = username;
     m_strPassword = password;
@@ -93,6 +94,7 @@ BOOL CSessionModule::UpdatePassword(const std::string& username,
         return NET_FALSE;
     }
 
+    std::lock_guard<std::mutex> stLock(m_stAuthMutex);
     if (!m_bInitialized)
     {
         NETSDK_LOG_MESSAGE_ERROR("UpdatePassword: Auth not initialized");
@@ -116,6 +118,7 @@ BOOL CSessionModule::UpdatePassword(const std::string& username,
  */
 size_t CSessionModule::GetActiveSessionCount() const
 {
+    std::lock_guard<std::mutex> stLock(m_stAuthMutex);
     if (!m_bInitialized)
     {
         return 0;
@@ -136,6 +139,7 @@ size_t CSessionModule::GetActiveSessionCount() const
  */
 void CSessionModule::Cleanup()
 {
+    std::lock_guard<std::mutex> stLock(m_stAuthMutex);
     if (!m_bInitialized)
     {
         return;

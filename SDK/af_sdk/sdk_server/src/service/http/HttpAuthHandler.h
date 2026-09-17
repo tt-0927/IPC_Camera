@@ -116,6 +116,7 @@ private:
 private:
     std::string m_strRealm;
     std::map<std::string, std::string> user_passwords_; /* 用户名-密码映射 */
+    std::mutex m_stAuthMutex; /* 保护运行期更新和校验使用的鉴权信息 */
     std::map<std::string, DigestAuthSession_S> m_stSessions; /* nonce 会话存储 */
     /* std::unordered_map<std::string, DigestAuthSession_S> m_stSessions; nonce 会话存储。 */
     std::mutex m_stSessionsMutex;

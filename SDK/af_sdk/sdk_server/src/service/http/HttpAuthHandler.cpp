@@ -66,7 +66,8 @@ CHttpAuthHandler::~CHttpAuthHandler()
 
 void CHttpAuthHandler::set_auth_info(const std::string& realm,const std::string& user,const std::string& passwd)
 {
-    NETSDK_LOG_MESSAGE_DEBUG("设置HTTP鉴权信息 realm： %s user：%s passwd:%s", realm.c_str(),user.c_str(),passwd.c_str());
+    std::lock_guard<std::mutex> stLock(m_stAuthMutex);
+    NETSDK_LOG_MESSAGE_DEBUG("设置HTTP鉴权信息 realm：%s user：%s", realm.c_str(), user.c_str());
     user_passwords_.clear();
     user_passwords_[user] = passwd;
     m_strRealm = realm;
@@ -192,11 +193,20 @@ bool CHttpAuthHandler::handle_basic_auth(const httplib::Request& req, httplib::R
             return false;
         }
 
-		std::string username = decoded.substr(0, colon_pos);
+        std::string username = decoded.substr(0, colon_pos);
         std::string password = decoded.substr(colon_pos + 1);
-        /* 检查用户是否存在 */
-        auto user_it = user_passwords_.find(username);
-        if (user_it == user_passwords_.end())
+        std::string strExpectedPassword;
+        bool bUserExists = false;
+        {
+            std::lock_guard<std::mutex> stLock(m_stAuthMutex);
+            auto stUserIt = user_passwords_.find(username);
+            if (stUserIt != user_passwords_.end())
+            {
+                strExpectedPassword = stUserIt->second;
+                bUserExists = true;
+            }
+        }
+        if (!bUserExists)
         {
             NETSDK_LOG_MESSAGE_ERROR("Basic认证失败: 用户不存在=%s, 客户端 IP=%s", username.c_str(), req.remote_addr.c_str());
             send_basic_challenge(res);
@@ -204,8 +214,9 @@ bool CHttpAuthHandler::handle_basic_auth(const httplib::Request& req, httplib::R
         }
 
         /* 验证密码 */
-        bool authenticated = (password == user_it->second);
-        if (!authenticated) {
+        bool authenticated = (password == strExpectedPassword);
+        if (!authenticated)
+        {
             NETSDK_LOG_MESSAGE_ERROR("Basic认证失败: 密码错误，用户=%s, 客户端 IP=%s", username.c_str(), req.remote_addr.c_str());
             send_basic_challenge(res);
             return false;
@@ -260,9 +271,14 @@ void CHttpAuthHandler::send_challenge(httplib::Response& res, const std::string&
 {
     std::string nonce = generate_nonce();
     std::string opaque = generate_opaque();
+    std::string strRealm;
+    {
+        std::lock_guard<std::mutex> stLock(m_stAuthMutex);
+        strRealm = m_strRealm;
+    }
 
     std::string challenge =
-        "Digest realm=\"" + m_strRealm + "\", "
+        "Digest realm=\"" + strRealm + "\", "
         "qop=\"auth\", "
         "nonce=\"" + nonce + "\", "
         "opaque=\"" + opaque + "\", "
@@ -287,7 +303,12 @@ void CHttpAuthHandler::send_challenge(httplib::Response& res, const std::string&
 
 void CHttpAuthHandler::send_basic_challenge(httplib::Response& res)
 {
-    std::string challenge = "Basic realm=\"" + m_strRealm + "\"";
+    std::string strRealm;
+    {
+        std::lock_guard<std::mutex> stLock(m_stAuthMutex);
+        strRealm = m_strRealm;
+    }
+    std::string challenge = "Basic realm=\"" + strRealm + "\"";
 
     res.status = 401;
     res.set_header("WWW-Authenticate", challenge);
@@ -459,12 +480,16 @@ std::string CHttpAuthHandler::base64_decode(const std::string& encoded)
 
 bool CHttpAuthHandler::verify_digest_auth(const httplib::Request& req, const DigestParams_S& params)
 {
-    /* 1. 检查用户是否存在 */
-    auto user_it = user_passwords_.find(params.username);
-    if (user_it == user_passwords_.end())
-	{
-        NETSDK_LOG_MESSAGE_ERROR("用户不存在: %s", params.username.c_str());
-        return false;
+    std::string strPassword;
+    {
+        std::lock_guard<std::mutex> stLock(m_stAuthMutex);
+        auto stUserIt = user_passwords_.find(params.username);
+        if (stUserIt == user_passwords_.end())
+        {
+            NETSDK_LOG_MESSAGE_ERROR("用户不存在: %s", params.username.c_str());
+            return false;
+        }
+        strPassword = stUserIt->second;
     }
 
     /* 2. 验证 nonce 和会话 */
@@ -475,7 +500,7 @@ bool CHttpAuthHandler::verify_digest_auth(const httplib::Request& req, const Dig
 
     /* 3. 计算正确的 response */
     std::string expected_response = calculate_digest_response(
-        params.username, user_it->second, req.method, params);
+        params.username, strPassword, req.method, params);
 
     /* 4. 比较 response */
     if (params.response != expected_response) {
@@ -600,10 +625,16 @@ bool CHttpAuthHandler::verify_session(const std::string& nonce) {
  */
 
 void CHttpAuthHandler::save_session(const std::string& nonce, const std::string& opaque) {
+    std::string strRealm;
+    {
+        std::lock_guard<std::mutex> stLock(m_stAuthMutex);
+        strRealm = m_strRealm;
+    }
+
     std::lock_guard<std::mutex> lock(m_stSessionsMutex);
 
     DigestAuthSession_S session;
-    session.realm = m_strRealm;
+    session.realm = strRealm;
     session.last_active = std::time(nullptr);
 
     m_stSessions[nonce] = session;

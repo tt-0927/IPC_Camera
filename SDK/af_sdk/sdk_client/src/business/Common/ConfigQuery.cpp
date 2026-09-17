@@ -188,7 +188,26 @@ BOOL CConfigQuery::SetDevConfig(LPVOID lpUserID, INT32 dwChannelID, INT32 dwComm
     switch (dwCommand)
     {
         case NET_SET_DEVICECFG:          return SetDevConfig_Impl<NET_DeviceBasicInfo_S>(lpUserID, dwChannelID, dwCommand, lpInBuffer, dwInBufferSize, pdwBytesReturned);
-        case NET_SET_USEPASSWORD:        return SetDevConfig_Impl<NET_UserPasswordInfo_S>(lpUserID, dwChannelID, dwCommand, lpInBuffer, dwInBufferSize, pdwBytesReturned);
+        case NET_SET_USEPASSWORD:
+        {
+            BOOL bResult = SetDevConfig_Impl<NET_UserPasswordInfo_S>(lpUserID, dwChannelID, dwCommand,
+                                                                    lpInBuffer, dwInBufferSize,
+                                                                    pdwBytesReturned);
+            if (!bResult)
+            {
+                return FALSE;
+            }
+
+            auto pSession = CSessionManager::instance()->GetSession(lpUserID);
+            auto pPasswordInfo = static_cast<pNET_UserPasswordInfo_S>(lpInBuffer);
+            if (!pSession || !pSession->UpdateCredentials(pPasswordInfo->strUserName,
+                                                          pPasswordInfo->strNewPassword))
+            {
+                CErrorManage::instance()->SetLastError(NET_E_INVALID_HANDLE);
+                return FALSE;
+            }
+            return TRUE;
+        }
         case NET_SET_NTPCFG:             return SetDevConfig_Impl<NET_SystemNtpInfo_S>(lpUserID, dwChannelID, dwCommand, lpInBuffer, dwInBufferSize, pdwBytesReturned);
         case NET_SET_SYSTEM_TIME:        return SetDevConfig_Impl<NET_SystemTime_S>(lpUserID, dwChannelID, dwCommand, lpInBuffer, dwInBufferSize, pdwBytesReturned);
         case NET_SET_AUDIOCFG:           return SetDevConfig_Impl<NET_AudioCfg_S>(lpUserID, dwChannelID, dwCommand, lpInBuffer, dwInBufferSize, pdwBytesReturned);
