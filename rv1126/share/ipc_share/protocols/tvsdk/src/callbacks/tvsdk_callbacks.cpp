@@ -85,6 +85,13 @@ static NET_COMMON_ECODE_E cb_set_user_password(pNET_UserPasswordInfo_S pInfo)
     {
         return NET_E_FAILED;
     }
+
+    /* IPC 用户库更新成功后，同步刷新 TVSDK HTTP 鉴权缓存。 */
+    if (!NET_serverSetUserPassword(pInfo->strUserName, pInfo->strNewPassword))
+    {
+        dlog_error("同步 TVSDK HTTP 鉴权密码失败，用户[%s]", pInfo->strUserName);
+        return NET_E_SET_CFG_FAILED;
+    }
     return NET_E_SUCCEED;
 }
 

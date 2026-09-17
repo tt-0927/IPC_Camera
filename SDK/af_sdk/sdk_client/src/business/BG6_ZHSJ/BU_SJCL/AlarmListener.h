@@ -56,6 +56,14 @@ public:
         if (m_pClient) m_pClient->stop();
     }
 
+    /**
+     * @brief 更新报警监听后续连接使用的鉴权凭据
+     * @param [in] strUsername 用户名
+     * @param [in] strPassword 新密码
+     * @return 无返回值
+     */
+    void UpdateCredentials(const std::string& strUsername, const std::string& strPassword);
+
     void Stop();
 
     bool IsRunning() const { return m_bRunning; }

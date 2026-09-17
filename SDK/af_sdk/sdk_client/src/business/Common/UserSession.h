@@ -164,6 +164,14 @@ public:
     std::string GetSessionId() const { return m_strSessionId; }
 
     /**
+     * @brief 更新当前会话使用的 HTTP 鉴权凭据
+     * @param [in] strUsername 用户名
+     * @param [in] strPassword 新密码
+     * @return 成功返回 true，参数无效返回 false
+     */
+    bool UpdateCredentials(const std::string& strUsername, const std::string& strPassword);
+
+    /**
  * @author tianl (tianl@kfb.cn)
      * @brief 获取设备主机地址
      * @return 主机地址

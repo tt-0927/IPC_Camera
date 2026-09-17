@@ -196,6 +196,19 @@ CAlarmListener::~CAlarmListener()
 }
 
 /**
+ * @brief 更新报警监听后续连接使用的鉴权凭据
+ * @param [in] strUsername 用户名
+ * @param [in] strPassword 新密码
+ * @return 无返回值
+ */
+void CAlarmListener::UpdateCredentials(const std::string& strUsername, const std::string& strPassword)
+{
+    std::lock_guard<std::mutex> stLock(m_stClientMutex);
+    m_strUsername = strUsername;
+    m_strPassword = strPassword;
+}
+
+/**
  * @brief 开始监听报警消息
  * @param [IN] userHandle 用户登录句柄
  * @param [IN] sessionId 会话ID

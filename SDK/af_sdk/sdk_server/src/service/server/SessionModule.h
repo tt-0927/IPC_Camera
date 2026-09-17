@@ -22,6 +22,7 @@
 
 #pragma once
 #include "NetTVSDKServerInterface.h"
+#include <mutex>
 #include <string>
 
 /* 前向声明 */
@@ -85,6 +86,7 @@ public:
     void Cleanup();
 
 private:
+    mutable std::mutex m_stAuthMutex; /* 保护鉴权配置及初始化状态 */
     std::string m_strRealm; /* 认证域 */
     std::string m_strUsername; /* 用户名 */
     std::string m_strPassword; /* 密码 */

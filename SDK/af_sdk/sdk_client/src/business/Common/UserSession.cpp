@@ -91,6 +91,43 @@ CUserSession::~CUserSession()
 }
 
 /**
+ * @brief 更新当前会话使用的 HTTP 鉴权凭据
+ * @param [in] strUsername 用户名
+ * @param [in] strPassword 新密码
+ * @return 成功返回 true，参数无效返回 false
+ */
+bool CUserSession::UpdateCredentials(const std::string& strUsername, const std::string& strPassword)
+{
+    if (strUsername.empty() || strPassword.empty())
+    {
+        return false;
+    }
+
+    {
+        std::lock_guard<std::mutex> stLock(m_stCommandMutex);
+        m_strUsername = strUsername;
+        m_strPassword = strPassword;
+        if (m_pCommandClient)
+        {
+            m_pCommandClient->set_digest_auth(m_strUsername.c_str(), m_strPassword.c_str());
+        }
+        if (m_pSseClient)
+        {
+            m_pSseClient->set_digest_auth(m_strUsername.c_str(), m_strPassword.c_str());
+        }
+    }
+
+    if (m_pAlarmManager)
+    {
+        m_pAlarmManager->UpdateCredentials(strUsername, strPassword);
+    }
+
+    NETSDK_LOG_MESSAGE_INFO("[DIAG-SESSION] User-%p HTTP credentials updated for user=%s",
+                            m_hUser, strUsername.c_str());
+    return true;
+}
+
+/**
  * @author tianl (tianl@kfb.cn)
  * @brief 连接并登录设备
  * @return 成功返回true，失败返回false
