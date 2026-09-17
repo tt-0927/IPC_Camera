@@ -5895,6 +5895,7 @@ void register_all()
     NET_serverRegisterGetDeviceBasicInfoCb(cb_get_device_basic_info);
     NET_serverRegisterGetDeviceConfigCb(cb_get_device_cfg);
     NET_serverRegisterSetDeviceConfigCb(cb_set_device_cfg);
+    NET_serverRegisterSetUserPasswordCb(cb_set_user_password);
     NET_serverRegisterGetNtpConfigCb(cb_get_ntp_cfg);
     NET_serverRegisterSetNtpConfigCb(cb_set_ntp_cfg);
     NET_serverRegisterSetSystemTimeCb(cb_set_system_time);

@@ -188,6 +188,7 @@ BOOL CConfigQuery::SetDevConfig(LPVOID lpUserID, INT32 dwChannelID, INT32 dwComm
     switch (dwCommand)
     {
         case NET_SET_DEVICECFG:          return SetDevConfig_Impl<NET_DeviceBasicInfo_S>(lpUserID, dwChannelID, dwCommand, lpInBuffer, dwInBufferSize, pdwBytesReturned);
+        case NET_SET_USEPASSWORD:        return SetDevConfig_Impl<NET_UserPasswordInfo_S>(lpUserID, dwChannelID, dwCommand, lpInBuffer, dwInBufferSize, pdwBytesReturned);
         case NET_SET_NTPCFG:             return SetDevConfig_Impl<NET_SystemNtpInfo_S>(lpUserID, dwChannelID, dwCommand, lpInBuffer, dwInBufferSize, pdwBytesReturned);
         case NET_SET_SYSTEM_TIME:        return SetDevConfig_Impl<NET_SystemTime_S>(lpUserID, dwChannelID, dwCommand, lpInBuffer, dwInBufferSize, pdwBytesReturned);
         case NET_SET_AUDIOCFG:           return SetDevConfig_Impl<NET_AudioCfg_S>(lpUserID, dwChannelID, dwCommand, lpInBuffer, dwInBufferSize, pdwBytesReturned);

@@ -514,6 +514,37 @@ NET_API BOOL STDCALL NET_clientSetDevConfig(IN  LPVOID  lpUserID,
                                                         lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
 }
 
+/**
+ * @brief 修改用户密码
+ * @param [in] lpUserID 用户登录句柄
+ * @param [in] pstInfo 用户名、旧密码和新密码
+ * @param [out] 无
+ * @return 修改成功返回TRUE，参数无效或设备处理失败返回FALSE
+ */
+NET_API BOOL STDCALL Net_clientSetUserPassword(IN LPVOID lpUserID,
+                                               IN pNET_UserPasswordInfo_S pstInfo)
+{
+    CHECK_SDK_INIT(FALSE);
+
+    if (pstInfo == nullptr ||
+        pstInfo->strUserName[0] == '\0' ||
+        pstInfo->strOldPassword[0] == '\0' ||
+        pstInfo->strNewPassword[0] == '\0' ||
+        std::memchr(pstInfo->strUserName, '\0', sizeof(pstInfo->strUserName)) == nullptr ||
+        std::memchr(pstInfo->strOldPassword, '\0', sizeof(pstInfo->strOldPassword)) == nullptr ||
+        std::memchr(pstInfo->strNewPassword, '\0', sizeof(pstInfo->strNewPassword)) == nullptr)
+    {
+        CErrorManage::instance()->SetLastError(NET_E_INVALID_PARAM);
+        return FALSE;
+    }
+
+    return CConfigQuery::instance()->SetDevConfig(lpUserID,
+                                                  NET_API_PARAM_NVRCHN,
+                                                  NET_SET_USEPASSWORD,
+                                                  pstInfo,
+                                                  sizeof(NET_UserPasswordInfo_S),
+                                                  nullptr);
+}
 /* ==================== 回放 ==================== */
 
 /**

@@ -300,6 +300,17 @@ NET_API BOOL NET_STDCALL NET_clientSetDevConfig(NET_IN  LPVOID  lpUserID,
                                                                 NET_INOUT LPVOID  lpOutBuffer,
                                                                 NET_OUT   INT32   dwOutBufferSize,
                                                                 NET_OUT   INT32   *pdwBytesReturned);
+
+/**
+ * @brief 修改用户密码
+ * @param [in]  lpUserID     用户登录句柄
+ * @param [in]  pstInfo      用户密码信息
+ * @param [out] 无
+ * @return TRUE表示成功,其他表示失败
+ * @note 失败时可调用 NET_clientGetLastError() 获取错误码
+ */
+NET_API BOOL NET_STDCALL Net_clientSetUserPassword(NET_IN LPVOID lpUserID,
+                                                   NET_IN pNET_UserPasswordInfo_S pstInfo);
 /************************************************************************/
 /*                    设备发现 Device Discovery                           */
 /************************************************************************/
@@ -436,4 +447,3 @@ NET_clientStopVoiceCom(NET_IN LPVOID lpUserID);
 #endif
 
 #endif
-
