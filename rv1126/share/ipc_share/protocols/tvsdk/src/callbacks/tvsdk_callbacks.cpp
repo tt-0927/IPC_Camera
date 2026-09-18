@@ -8,6 +8,7 @@
  * @Change       : 2026-09-08 越界设置保留规则数量和索引，无效参数保留旧值，由事件总开关控制
  * @Change       : 2026-09-08 人员聚集保留规则数量及位置，无效规则回退旧值并返回实际任务结果
  * @Change       : 2026-09-08 统一十六类智能事件的规则回退和业务结果返回，校验 IPC 数量上限
+ * @Change       : 2026-09-17 违规变道和逆行识别兼容全零坐标的空规则占位
  */
 
 #include "tvsdk_callbacks.h"
@@ -625,6 +626,18 @@ static bool tvsdk_valid_line_parameters(const TRule &stRule)
 }
 
 /**
+ * @brief 判断智能警戒线是否为全零坐标的空规则占位。
+ * @param [in] stRule SDK 智能警戒线规则。
+ * @param [out] 无。
+ * @return 四个端点坐标均为零返回 true，否则返回 false。
+ */
+static bool tvsdk_is_empty_smart_line_rule(const NET_SmartLineRule_S &stRule)
+{
+    return stRule.fStartPosX == 0.0F && stRule.fStartPosY == 0.0F &&
+           stRule.fEndPosX == 0.0F && stRule.fEndPosY == 0.0F;
+}
+
+/**
  * @brief 校验越界警戒线、方向和检测目标。
  * @param [in] stRule SDK 越界规则。
  * @param [in] nActionCode 设置命令号，此规则不使用该参数。
@@ -638,13 +651,25 @@ static bool tvsdk_valid_event_rule(const NET_BoundaryPlane_S &stRule, int nActio
 }
 
 /**
- * @brief 校验逆行或违规变道警戒线，逆行仅允许已有单向枚举。
+ * @brief 校验逆行或违规变道警戒线，两类事件均允许全零坐标表示空规则占位。
  * @param [in] stRule SDK 智能警戒线规则。
  * @param [in] nActionCode 设置配置的 IPC 命令号。
- * @return 参数合法返回 true，否则返回 false。
+ * @param [out] 无。
+ * @return 警戒线或两类事件的空规则占位合法返回 true，否则返回 false。
  */
 static bool tvsdk_valid_event_rule(const NET_SmartLineRule_S &stRule, int nActionCode)
 {
+    const bool bSensitivityValid = stRule.nSensitivity >= 1 && stRule.nSensitivity <= 100;
+    const bool bEmptySmartLineRule =
+        (nActionCode == AC_SET_ILLEGAL_LANE_INFO || nActionCode == AC_SET_RETROGRADE_INFO) &&
+        tvsdk_is_empty_smart_line_rule(stRule);
+    if (bEmptySmartLineRule)
+    {
+        return bSensitivityValid &&
+               (nActionCode != AC_SET_RETROGRADE_INFO ||
+                stRule.enCrossDirection == Alarm::A_TO_B || stRule.enCrossDirection == Alarm::B_TO_A);
+    }
+
     return tvsdk_valid_line_parameters(stRule) &&
            (nActionCode != AC_SET_RETROGRADE_INFO ||
             stRule.enCrossDirection == Alarm::A_TO_B || stRule.enCrossDirection == Alarm::B_TO_A);
@@ -3570,14 +3595,13 @@ static NET_COMMON_ECODE_E cb_set_retrograde_info(INT32 nChannelId, LPVOID pInBuf
         }
     }
     NET_RetrogradeInfo_S stNormalized = *pConfig;
-    /* 保留逆行的专用方向校验：有效警戒线不能请求双向，空位置仍允许回退。 */
+    /* 保留逆行的专用方向校验：有效警戒线和空规则占位都不能请求双向。 */
     if (stNormalized.uRuleCount >= 0 && stNormalized.uRuleCount <= TVSDK_IPC_RULE_MAX)
     {
         for (INT32 nIndex = 0; nIndex < stNormalized.uRuleCount; ++nIndex)
         {
             const NET_SmartLineRule_S &stRule = stNormalized.stRule[nIndex];
-            if (tvsdk_valid_line_parameters(stRule) &&
-                stRule.enCrossDirection != Alarm::A_TO_B && stRule.enCrossDirection != Alarm::B_TO_A)
+            if (stRule.enCrossDirection != Alarm::A_TO_B && stRule.enCrossDirection != Alarm::B_TO_A)
             {
                 return NET_E_INVALID_PARAM;
             }
