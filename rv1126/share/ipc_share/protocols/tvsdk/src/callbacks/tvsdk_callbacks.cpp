@@ -9,6 +9,7 @@
  * @Change       : 2026-09-08 人员聚集保留规则数量及位置，无效规则回退旧值并返回实际任务结果
  * @Change       : 2026-09-08 统一十六类智能事件的规则回退和业务结果返回，校验 IPC 数量上限
  * @Change       : 2026-09-17 违规变道和逆行识别兼容全零坐标的空规则占位
+ * @Change       : 2026-09-18 网络配置命令改用网口列表结构，IPC 对外返回单网口配置
  */
 
 #include "tvsdk_callbacks.h"
@@ -1896,7 +1897,8 @@ static NET_COMMON_ECODE_E cb_get_network_cfg(INT32 dwChannelID, LPVOID lpOutBuff
     if (!lpOutBuffer)
         return NET_E_INVALID_PARAM;
 
-    pNET_NetworkCfg_S pOut = (pNET_NetworkCfg_S)lpOutBuffer;
+    pNET_NetworkCfgList_S pOut = static_cast<pNET_NetworkCfgList_S>(lpOutBuffer);
+    std::memset(pOut, 0, sizeof(*pOut));
 
     std::string outJson;
     if (execute_get_result(AC_GET_NETWORK_INFO, "{}", outJson) != 0 || outJson.empty())
@@ -1917,8 +1919,9 @@ static NET_COMMON_ECODE_E cb_get_network_cfg(INT32 dwChannelID, LPVOID lpOutBuff
 
     Network::Info_S stNetInfo{};
     Convert::to_struct(strNetworkJson, stNetInfo);
-    TvSdkConvert::FillNetworkCfg(stNetInfo, *pOut);
-    pOut->uChannel = 0;
+    pOut->uNetworkCount = 1;
+    TvSdkConvert::FillNetworkCfg(stNetInfo, pOut->stNets[0]);
+    pOut->stNets[0].uChannel = 0;
     return NET_E_SUCCEED;
 }
 static NET_COMMON_ECODE_E cb_set_network_cfg(INT32 dwChannelID, LPVOID lpInBuffer)
@@ -1927,10 +1930,16 @@ static NET_COMMON_ECODE_E cb_set_network_cfg(INT32 dwChannelID, LPVOID lpInBuffe
     if (!lpInBuffer)
         return NET_E_INVALID_PARAM;
 
-    pNET_NetworkCfg_S pIn = (pNET_NetworkCfg_S)lpInBuffer;
+    const NET_NetworkCfgList_S *pIn = static_cast<const NET_NetworkCfgList_S *>(lpInBuffer);
+    if (pIn->uNetworkCount != 1)
+    {
+        dlog_error("设置网络配置的网口数量无效：count[%u]，IPC仅支持1个网口",
+                   pIn->uNetworkCount);
+        return NET_E_INVALID_PARAM;
+    }
 
-    Network::Info_S stNetInfo;
-    TvSdkConvert::ToNetworkInfo(*pIn, stNetInfo);
+    Network::Info_S stNetInfo{};
+    TvSdkConvert::ToNetworkInfo(pIn->stNets[0], stNetInfo);
 
     std::string inJson = Convert::to_string(stNetInfo);
     Task::Info_S stInfo;
