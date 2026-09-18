@@ -1117,8 +1117,8 @@ typedef enum tagNETTVCfgCmd
     NET_GET_IMAGECFG                 = 160,              /* 获取图像配置信息,参见#NET_ImageSetting_S  Get image configuration information, see #NET_ImageSetting_S */
     NET_SET_IMAGECFG                 = 161,              /* 设置图像配置信息,参见#NET_ImageSetting_S  Set image configuration information, see #NET_ImageSetting_S */
 
-    NET_GET_NETWORKCFG               = 170,              /* 获取网络配置信息,参见#NET_NetworkCfg_S  Get network configuration information, see #NET_NetworkCfg_S */
-    NET_SET_NETWORKCFG               = 171,              /* 设置网络配置信息,参见#NET_NetworkCfg_S  Set network configuration information, see #NET_NetworkCfg_S */
+    NET_GET_NETWORKCFG               = 170,              /* 获取网络配置信息,参见#NET_NetworkCfgList_S  Get network configuration information, see #NET_NetworkCfgList_S */
+    NET_SET_NETWORKCFG               = 171,              /* 设置网络配置信息,参见#NET_NetworkCfgList_S  Set network configuration information, see #NET_NetworkCfgList_S */
 
     NET_GET_PRIVACYMASKCFG           = 180,              /* 获取隐私遮盖配置信息,参见#NET_PrivacyMaskCfg_S  Get privacy mask configuration information, see #NET_PrivacyMaskCfg_S */
     NET_SET_PRIVACYMASKCFG           = 181,              /* 设置隐私遮盖配置信息,参见#NET_PrivacyMaskCfg_S  Set privacy mask configuration information, see #NET_PrivacyMaskCfg_S */
