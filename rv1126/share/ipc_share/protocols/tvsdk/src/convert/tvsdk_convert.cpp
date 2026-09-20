@@ -221,6 +221,25 @@ void ToLinkageList(const NET_LinkageList_S &src, Alarm::LinkageList_S &dst)
     /* 新版协议没有常规联动类型字段，不能从抓拍通道反推声音、邮件等动作。 */
 }
 
+/*
+ * 仅覆盖 TVSDK 可表达的联动字段（报警输出、录像通道），保留 IPC 侧的 tradition 联动。
+ * TVSDK 的抓拍通道字段在 IPC LinkageList_S 中没有对应数组，无法无损转换，故不映射。
+ */
+static void ToLinkageListKeepTradition(const NET_LinkageList_S &src, Alarm::LinkageList_S &dst)
+{
+    dst.alarmOutput.clear();
+    for (INT32 i = 0; i < src.uAlarmOutputCount && i < NET_MAX_ALARM_OUT_NUM; ++i)
+    {
+        dst.alarmOutput.push_back((int)src.auAlarmOutput[i]);
+    }
+
+    dst.recordChn.clear();
+    for (INT32 i = 0; i < src.uRecordChannelCount && i < NET_CHANNEL_MAX; ++i)
+    {
+        dst.recordChn.push_back((int)src.auRecordChannel[i]);
+    }
+}
+
 /**
  * @brief 将内部字符串安全复制到 SDK 固定长度字符数组。
  * @author ITC
@@ -1447,9 +1466,12 @@ void FillMotionAlarmInfo(const Alarm::MotionDetection_S &src, NET_MotionAlarmInf
         }
     }
 
-    // Expert mode: map first 16 regions
+    /*
+     * 专家模式：日夜控制、定时切换时间与区域列表。
+     * 区域输出上限取 IPC 设备能力 MOTION_EXPERT_AREA_MAX，与 SET 侧校验及 ONVIF 能力声明保持一致。
+     */
     dst.stExpertMode.nExpertDayNightCtrl = (INT32)src.stMotionExpertMode.nExpertDayNightCtrl;
-    // stDayTime schedule: SDK uses NET_SchedTime_S, IPC uses Common::SchedTime_S, leave default
+    FillSchedTime(src.stMotionExpertMode.stDayTime, dst.stExpertMode.stDayTime);
     if (!src.aAlarmTime.empty())
     {
         for (int day = 0; day < 7; day++)
@@ -1466,7 +1488,7 @@ void FillMotionAlarmInfo(const Alarm::MotionDetection_S &src, NET_MotionAlarmInf
         }
     }
     dst.stExpertMode.uRegionCount = 0;
-    for (size_t i = 0; i < src.stMotionExpertMode.vstMotionRegion.size() && i < 16; ++i)
+    for (size_t i = 0; i < src.stMotionExpertMode.vstMotionRegion.size() && i < MOTION_EXPERT_AREA_MAX; ++i)
     {
         const auto &reg = src.stMotionExpertMode.vstMotionRegion[i];
         auto &out = dst.stExpertMode.astRegion[i];
@@ -1481,6 +1503,9 @@ void FillMotionAlarmInfo(const Alarm::MotionDetection_S &src, NET_MotionAlarmInf
         out.nNightSensitivity   = (INT32)reg.nNightSensitivity;
         dst.stExpertMode.uRegionCount++;
     }
+
+    /* 联动：只映射两侧语义明确的报警输出与录像通道，抓拍通道在 IPC 侧无对应数组。 */
+    FillLinkageList(src.stLinkageList, dst.stLinkageList);
 }
 
 void ToMotionDetection(const NET_MotionAlarmInfo_S &src, Alarm::MotionDetection_S &dst)
@@ -1537,6 +1562,44 @@ void ToMotionDetection(const NET_MotionAlarmInfo_S &src, Alarm::MotionDetection_
             ToSchedTime(src.stAlarmSchedule.astTimeSection[day][seg], dst.aAlarmTime[day][seg]);
         }
     }
+
+    /*
+     * 专家模式：日夜控制、定时切换时间与区域列表。
+     * 区域数量不在此处静默截断，越界由回调层与业务层校验后返回参数错误；
+     * 下面的容量判断仅用于防止越界访问 SDK 固定数组 astRegion。
+     */
+    dst.stMotionExpertMode.nExpertDayNightCtrl = (unsigned int)src.stExpertMode.nExpertDayNightCtrl;
+    ToSchedTime(src.stExpertMode.stDayTime, dst.stMotionExpertMode.stDayTime);
+
+    dst.stMotionExpertMode.vstMotionRegion.clear();
+    INT32 nRegionCount = src.stExpertMode.uRegionCount;
+    if (nRegionCount < 0)
+    {
+        nRegionCount = 0;
+    }
+    const INT32 nSdkRegionCapacity =
+        static_cast<INT32>(sizeof(src.stExpertMode.astRegion) / sizeof(src.stExpertMode.astRegion[0]));
+    if (nRegionCount > nSdkRegionCapacity)
+    {
+        nRegionCount = nSdkRegionCapacity;
+    }
+    for (INT32 nIndex = 0; nIndex < nRegionCount; ++nIndex)
+    {
+        const NET_MotionRegion_S &stSrcRegion = src.stExpertMode.astRegion[nIndex];
+        Alarm::MotionRegion_S stDstRegion;
+        stDstRegion.nAreaNo = (unsigned int)stSrcRegion.nAreaNo;
+        stDstRegion.stRect.nX = stSrcRegion.nRectLeft;
+        stDstRegion.stRect.nY = stSrcRegion.nRectTop;
+        stDstRegion.stRect.nWidth = stSrcRegion.nRectRight - stSrcRegion.nRectLeft;
+        stDstRegion.stRect.nHeight = stSrcRegion.nRectBottom - stSrcRegion.nRectTop;
+        stDstRegion.nCloseSensitivity = (unsigned int)stSrcRegion.nCloseSensitivity;
+        stDstRegion.nDaytimeSensitivity = (unsigned int)stSrcRegion.nDaytimeSensitivity;
+        stDstRegion.nNightSensitivity = (unsigned int)stSrcRegion.nNightSensitivity;
+        dst.stMotionExpertMode.vstMotionRegion.emplace_back(stDstRegion);
+    }
+
+    /* 联动：按请求覆盖报警输出与录像通道，tradition 联动由调用方读取旧配置后保留。 */
+    ToLinkageListKeepTradition(src.stLinkageList, dst.stLinkageList);
 }
 
 /* ---------- 安全服务与日志（465-472） ---------- */

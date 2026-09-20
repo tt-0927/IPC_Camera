@@ -2259,17 +2259,37 @@ static NET_COMMON_ECODE_E cb_set_motion_alarm(INT32 dwChannelID, LPVOID lpInBuff
 {
     (void)dwChannelID;
     if (!lpInBuffer)
+    {
         return NET_E_INVALID_PARAM;
-    const NET_MotionAlarmInfo_S *pIn = (const NET_MotionAlarmInfo_S *)lpInBuffer;
+    }
+    const NET_MotionAlarmInfo_S *pIn = static_cast<const NET_MotionAlarmInfo_S *>(lpInBuffer);
 
+    /* 专家模式区域数量在回调入口校验，超出 IPC 设备能力时不下发业务层。 */
+    if (pIn->stExpertMode.uRegionCount < 0 || pIn->stExpertMode.uRegionCount > MOTION_EXPERT_AREA_MAX)
+    {
+        dlog_warn("TVSDK 移动侦测专家模式区域数量非法: count[%d] max[%d]",
+                  pIn->stExpertMode.uRegionCount, MOTION_EXPERT_AREA_MAX);
+        return NET_E_INVALID_PARAM;
+    }
+
+    /*
+     * 先读取当前配置再覆盖 TVSDK 可表达字段：
+     * TVSDK 结构体无法表达 tradition 联动（声音、闪光灯、上传中心等），
+     * 直接新建配置会把这些字段重置为默认值。
+     */
     Alarm::MotionDetection_S stCfg;
+    std::string strCurrentJson;
+    if (!execute_get_success_data(AC_GET_MOTION_DETECT_INFO, "{}", strCurrentJson))
+    {
+        dlog_error("TVSDK 移动侦测设置前读取当前配置失败");
+        return NET_E_GET_CFG_FAILED;
+    }
+    Convert::to_struct(strCurrentJson, stCfg);
+
     TvSdkConvert::ToMotionDetection(*pIn, stCfg);
-    std::string inJson = Convert::to_string(stCfg);
-    Task::Info_S stInfo;
-    stInfo.data = wrap_data_json(inJson);
-    dlog_debug("\ncb_set_motion_alarm :stInfo.data result:%s\n", stInfo.data.c_str());
-    int nExec = s_taskManage ? s_taskManage->execute(AC_SET_MOTION_DETECT_INFO, stInfo) : -1;
-    return (nExec == 0) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
+
+    /* 复用事件配置设置路径，返回真实业务结果而不是任务入队结果。 */
+    return tvsdk_set_event_config(AC_SET_MOTION_DETECT_INFO, Convert::to_string(stCfg));
 }
 
 static NET_COMMON_ECODE_E cb_get_cross_line_alarm(INT32 dwChannelID, LPVOID lpOutBuffer)

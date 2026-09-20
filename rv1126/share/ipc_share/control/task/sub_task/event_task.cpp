@@ -10,6 +10,7 @@
 
 #include "event_task.h"
 #include <algorithm>
+#include <set>
 #include "convert_interface.h"
 #include "path_define.h"
 #include "event_define.h"
@@ -509,6 +510,27 @@ void Task::Event::SetMotionDetectionInfo::handle()
         }
     }
 
+    /* 专家模式区域数量上限校验，覆盖网页接口、内部 ActionCode、MQTT 与 TVSDK 全部入口。 */
+    if (stInfo.stMotionExpertMode.vstMotionRegion.size() > MOTION_EXPERT_AREA_MAX)
+    {
+        dlog_error("设置移动侦测专家模式区域数量超限: size[%zu] max[%d]",
+                   stInfo.stMotionExpertMode.vstMotionRegion.size(), MOTION_EXPERT_AREA_MAX);
+        result(ERR_WEB_PARAM);
+        return;
+    }
+
+    /* 区域编号唯一性校验，避免重复编号绕过数量限制并占用固定槽位。 */
+    std::set<unsigned int> sAreaNoSet;
+    for (const auto &region : stInfo.stMotionExpertMode.vstMotionRegion)
+    {
+        if (!sAreaNoSet.insert(region.nAreaNo).second)
+        {
+            dlog_error("设置移动侦测专家模式区域编号重复: areaNo[%u]", region.nAreaNo);
+            result(ERR_WEB_PARAM);
+            return;
+        }
+    }
+
     for (auto &region : stInfo.stMotionExpertMode.vstMotionRegion)
     {
         if (region.nAreaNo < 1 || region.nAreaNo > MOTION_EXPERT_AREA_MAX ||
@@ -520,7 +542,11 @@ void Task::Event::SetMotionDetectionInfo::handle()
             result(ERR_WEB_PARAM);
             return;
         }
-        /* 坐标有效性判断 */
+        /* 未使用的固定槽位是零尺寸矩形，允许存在；仅对实际绘制区域校验边界。 */
+        if (region.stRect.isEmpty())
+        {
+            continue;
+        }
         if (!region.stRect.IsValid())
         {
             dlog_error("设置移动侦测信息区域绘制异常");
