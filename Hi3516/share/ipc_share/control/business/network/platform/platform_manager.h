@@ -179,7 +179,7 @@ public:
         int event_type = 0;      /* 事件类型，用于平台归类和文件命名 */
         std::string event_name;  /* 事件名称，方便平台直接展示 */
         int channel = 0;         /* 事件触发通道号 */
-        long long timestamp = 0; /* 事件时间戳，毫秒；为空时文件名使用当前时间戳 */
+        long long timestamp = 0; /* 事件触发时间戳，毫秒；为0时依次使用抓拍文件时间和当前时间兜底 */
         std::string time;        /* 平台上传接口要求的时间字段，空时使用毫秒时间戳并与文件名时间保持一致 */
         std::string request_id;  /* 关联报警事件的RequestId，便于平台串联事件和图片 */
         std::string image_path;  /* 设备本地抓拍图片路径 */
