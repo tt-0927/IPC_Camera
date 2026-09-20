@@ -10,6 +10,7 @@
  * @Change       : 2026-09-08 统一十六类智能事件的规则回退和业务结果返回，校验 IPC 数量上限
  * @Change       : 2026-09-17 违规变道和逆行识别兼容全零坐标的空规则占位
  * @Change       : 2026-09-18 网络配置命令改用网口列表结构，IPC 对外返回单网口配置
+ * @Change       : 2026-09-20 网络配置设置改为同步等待业务结果，设置成功后触发设备延时重启
  */
 
 #include "tvsdk_callbacks.h"
@@ -1924,6 +1925,20 @@ static NET_COMMON_ECODE_E cb_get_network_cfg(INT32 dwChannelID, LPVOID lpOutBuff
     pOut->stNets[0].uChannel = 0;
     return NET_E_SUCCEED;
 }
+
+/**
+ * @brief 设置网络配置，同步等待 IPC 业务结果并在设置成功后触发设备延时重启。
+ * @details 原实现只把任务投递进队列就返回成功，无法确认配置是否真正保存，也不会重启。
+ *          现改为同步等待 IPC 网络设置任务返回，并按业务返回值区分处理：
+ *          OK 表示 IPC 已即时生效，OK_SETNETWORK_AND_REBOOT 表示 IPC 判定需要重启后生效，
+ *          两者都视为设置成功并启动延时重启；其他返回值一律返回设置失败且不重启。
+ *          system_reboot() 内部启动独立线程并在两秒后执行 sync;reboot，
+ *          因此 NET_SET_NETWORKCFG 有足够时间先向 NVR 返回设置成功。
+ * @param [in] dwChannelID SDK 通道号，IPC 无逻辑通道，不使用该参数。
+ * @param [in] lpInBuffer NET_NetworkCfgList_S 网络配置列表，仅支持单网口。
+ * @param [out] 无。
+ * @return 设置成功返回 NET_E_SUCCEED，参数错误返回 NET_E_INVALID_PARAM，其他失败返回 NET_E_SET_CFG_FAILED。
+ */
 static NET_COMMON_ECODE_E cb_set_network_cfg(INT32 dwChannelID, LPVOID lpInBuffer)
 {
     (void)dwChannelID;
@@ -1941,11 +1956,43 @@ static NET_COMMON_ECODE_E cb_set_network_cfg(INT32 dwChannelID, LPVOID lpInBuffe
     Network::Info_S stNetInfo{};
     TvSdkConvert::ToNetworkInfo(pIn->stNets[0], stNetInfo);
 
-    std::string inJson = Convert::to_string(stNetInfo);
-    Task::Info_S stInfo;
-    stInfo.data = inJson;
-    int nExec = s_taskManage ? s_taskManage->execute(AC_SET_NETWORK_INFO, stInfo) : -1;
-    return (nExec == 0) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
+    /* 同步等待 IPC 网络设置任务返回；任务框架从 Data 节点取业务参数。 */
+    std::string strResultJson;
+    if (execute_get_result(AC_SET_NETWORK_INFO,
+                           wrap_data_json(Convert::to_string(stNetInfo)),
+                           strResultJson) != OK || strResultJson.empty())
+    {
+        dlog_error("TVSDK网络配置设置任务执行失败：action[%d]", AC_SET_NETWORK_INFO);
+        return NET_E_SET_CFG_FAILED;
+    }
+
+    int nReturn = ERR;
+    if (!Json::get(strResultJson.c_str(), "Return", nReturn))
+    {
+        dlog_error("TVSDK网络配置设置任务未返回有效业务结果：%s", strResultJson.c_str());
+        return NET_E_SET_CFG_FAILED;
+    }
+
+    dlog_info("TVSDK网络配置业务返回值：action[%d], ipc_ret[%d]", AC_SET_NETWORK_INFO, nReturn);
+
+    /* OK 表示 IPC 已即时生效，OK_SETNETWORK_AND_REBOOT 表示 IPC 判定需要重启后生效。 */
+    if (nReturn != OK && nReturn != IpcRet_E::OK_SETNETWORK_AND_REBOOT)
+    {
+        dlog_error("TVSDK网络配置设置失败：action[%d], ipc_ret[%d]", AC_SET_NETWORK_INFO, nReturn);
+        return NET_E_SET_CFG_FAILED;
+    }
+
+    /* 配置已保存，启动延时重启；重启由独立线程执行，不影响本次 SDK 响应返回。 */
+    dlog_info("TVSDK网络配置设置成功，准备重启设备：action[%d], ipc_ret[%d]",
+              AC_SET_NETWORK_INFO, nReturn);
+    if (SystemManage::instance()->system_reboot([](int) {}) != OK)
+    {
+        dlog_error("TVSDK网络配置重启任务启动失败：action[%d], ipc_ret[%d]",
+                   AC_SET_NETWORK_INFO, nReturn);
+        return NET_E_SET_CFG_FAILED;
+    }
+
+    return NET_E_SUCCEED;
 }
 
 int apply_discovery_network(const tagNET_PoeNetworkConfig *pConfig)
