@@ -6,6 +6,7 @@
  * @LastEditors  : zhouzr@kfb.cn
  * @LastEditTime : 2026-08-25 16:00:00
  * @Description  : 平台管理
+ * @Change       : 2026-09-18 事件图片文件名和上传时间统一使用事件触发时间戳
  * @Change       : 2026-09-14 MQTT连接后请求平台UTC时间，校时完成后上报取流注册信息
  * @Change       : 2026-08-25 新增人脸 JPG 下载，保持 NV21 通过 BinPath 送入 AI
  * @Change       : 2026-08-25 禁止 PicPath 回退为 NV21 下载地址，增加 MQTT 人脸数据和下载源日志
@@ -614,7 +615,7 @@ static bool is_digits_string(const std::string &strValue)
     return true;
 }
 
-/* 本地抓拍文件名格式：yyyyMMdd_HHmmssSSS_事件类型_序号.jpg，上传平台时转成Unix毫秒时间戳 */
+/* 事件时间缺失时，从本地抓拍文件名解析时间作为兼容兜底 */
 static bool parse_capture_timestamp_ms_from_path(const std::string &strImagePath, long long &llTimestampMs)
 {
     llTimestampMs = 0;
@@ -1292,19 +1293,24 @@ bool CPlatformManager::upload_event_image(const EventImageUploadRequest &request
         strDeviceSn = stDeviceInfo.serialNumber;
     }
 
-    long long llUploadTimestamp = 0;
-    if (parse_capture_timestamp_ms_from_path(request.image_path, llUploadTimestamp))
+    long long llUploadTimestamp = request.timestamp;
+    if (llUploadTimestamp > 0)
     {
-        dlog_info("事件图片上传使用抓拍文件时间戳：path[%s], timestamp[%lld]",
+        dlog_info("事件图片上传使用事件触发时间戳：event_type[%d], timestamp[%lld], path[%s]",
+                  request.event_type,
+                  llUploadTimestamp,
+                  request.image_path.c_str());
+    }
+    else if (parse_capture_timestamp_ms_from_path(request.image_path, llUploadTimestamp))
+    {
+        dlog_warn("事件图片上传缺少事件时间戳，使用抓拍文件时间兜底：path[%s], timestamp[%lld]",
                   request.image_path.c_str(),
                   llUploadTimestamp);
     }
     else
     {
-        llUploadTimestamp = request.timestamp;
-        dlog_warn("事件图片上传解析抓拍文件名时间失败，使用事件时间戳兜底：path[%s], timestamp[%lld]",
-                  request.image_path.c_str(),
-                  llUploadTimestamp);
+        dlog_warn("事件图片上传缺少有效时间戳，将使用设备当前时间：path[%s]",
+                  request.image_path.c_str());
     }
 
     const std::string strEventTimeTag = make_timestamp_ms_tag(llUploadTimestamp);
