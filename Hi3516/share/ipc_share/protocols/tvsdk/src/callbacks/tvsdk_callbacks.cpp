@@ -3111,6 +3111,18 @@ static NET_COMMON_ECODE_E cb_set_construction_occupy_road_cfg(INT32 dwChannelID,
         return NET_E_INVALID_PARAM;
     const NET_ConstructionOccupyRoadCfg_S *pIn = (const NET_ConstructionOccupyRoadCfg_S *)lpInBuffer;
 
+    /* 开关、灵敏度、布防时间与联动在转换前校验，非法参数不写配置。 */
+    if ((pIn->bEnable != 0 && pIn->bEnable != 1) ||
+        pIn->stRule.nSensitivity < tvsdk_rule_min_sens(AC_SET_CONSTRUCTION_OCCUPY_ROAD_CFG) ||
+        pIn->stRule.nSensitivity > tvsdk_rule_max_sens(AC_SET_CONSTRUCTION_OCCUPY_ROAD_CFG) ||
+        !tvsdk_valid_alarm_schedule(pIn->stAlarmSchedule) ||
+        !tvsdk_valid_linkage_list(pIn->stLinkageList))
+    {
+        dlog_warn("TVSDK 施工占道识别参数非法: enable[%d] sensitivity[%d]",
+                  static_cast<int>(pIn->bEnable), pIn->stRule.nSensitivity);
+        return NET_E_INVALID_PARAM;
+    }
+
     Alarm::ConstructionEncroachmentRoadDetection_S stCfg;
     TvSdkConvert::ToConstructionOccupyRoad(*pIn, stCfg);
     std::string inJson = Convert::to_string(stCfg);
@@ -3151,6 +3163,18 @@ static NET_COMMON_ECODE_E cb_set_congestion_cfg(INT32 dwChannelID, LPVOID lpInBu
     if (!lpInBuffer)
         return NET_E_INVALID_PARAM;
     const NET_CongestionCfg_S *pIn = (const NET_CongestionCfg_S *)lpInBuffer;
+
+    /* 开关、灵敏度、布防时间与联动在转换前校验，非法参数不写配置。 */
+    if ((pIn->bEnable != 0 && pIn->bEnable != 1) ||
+        pIn->stRule.nSensitivity < tvsdk_rule_min_sens(AC_SET_CONGESTION_CFG) ||
+        pIn->stRule.nSensitivity > tvsdk_rule_max_sens(AC_SET_CONGESTION_CFG) ||
+        !tvsdk_valid_alarm_schedule(pIn->stAlarmSchedule) ||
+        !tvsdk_valid_linkage_list(pIn->stLinkageList))
+    {
+        dlog_warn("TVSDK 拥堵识别参数非法: enable[%d] sensitivity[%d]",
+                  static_cast<int>(pIn->bEnable), pIn->stRule.nSensitivity);
+        return NET_E_INVALID_PARAM;
+    }
 
     Alarm::CongestionDetection_S stCfg;
     TvSdkConvert::ToCongestion(*pIn, stCfg);
@@ -3193,6 +3217,18 @@ static NET_COMMON_ECODE_E cb_set_license_plate_recognition_cfg(INT32 dwChannelID
         return NET_E_INVALID_PARAM;
     const NET_LicensePlateRecognitionCfg_S *pIn = (const NET_LicensePlateRecognitionCfg_S *)lpInBuffer;
 
+    /* 开关、灵敏度、布防时间与联动在转换前校验，非法参数不写配置。 */
+    if ((pIn->bEnable != 0 && pIn->bEnable != 1) ||
+        pIn->stRule.nSensitivity < tvsdk_rule_min_sens(AC_SET_LICENSE_PLATE_RECOGNITION_CFG) ||
+        pIn->stRule.nSensitivity > tvsdk_rule_max_sens(AC_SET_LICENSE_PLATE_RECOGNITION_CFG) ||
+        !tvsdk_valid_alarm_schedule(pIn->stAlarmSchedule) ||
+        !tvsdk_valid_linkage_list(pIn->stLinkageList))
+    {
+        dlog_warn("TVSDK 车牌识别参数非法: enable[%d] sensitivity[%d]",
+                  static_cast<int>(pIn->bEnable), pIn->stRule.nSensitivity);
+        return NET_E_INVALID_PARAM;
+    }
+
     Alarm::LicensePlateCognitionDetection_S stCfg;
     TvSdkConvert::ToLicensePlateRecognition(*pIn, stCfg);
     std::string inJson = Convert::to_string(stCfg);
@@ -3233,6 +3269,18 @@ static NET_COMMON_ECODE_E cb_set_high_altitude_seatbelt_cfg(INT32 dwChannelID, L
     if (!lpInBuffer)
         return NET_E_INVALID_PARAM;
     const NET_HighAltitudeSeatbeltCfg_S *pIn = (const NET_HighAltitudeSeatbeltCfg_S *)lpInBuffer;
+
+    /* 开关、灵敏度、布防时间与联动在转换前校验，非法参数不写配置。 */
+    if ((pIn->bEnable != 0 && pIn->bEnable != 1) ||
+        pIn->stRule.nSensitivity < tvsdk_rule_min_sens(AC_SET_HIGH_ALTITUDE_SEATBELT_CFG) ||
+        pIn->stRule.nSensitivity > tvsdk_rule_max_sens(AC_SET_HIGH_ALTITUDE_SEATBELT_CFG) ||
+        !tvsdk_valid_alarm_schedule(pIn->stAlarmSchedule) ||
+        !tvsdk_valid_linkage_list(pIn->stLinkageList))
+    {
+        dlog_warn("TVSDK 高空安全带识别参数非法: enable[%d] sensitivity[%d]",
+                  static_cast<int>(pIn->bEnable), pIn->stRule.nSensitivity);
+        return NET_E_INVALID_PARAM;
+    }
 
     Alarm::HighAltitudeSeatbeltDetection_S stCfg;
     TvSdkConvert::ToHighAltitudeSeatbelt(*pIn, stCfg);
@@ -3275,6 +3323,18 @@ static NET_COMMON_ECODE_E cb_set_safety_helmet_cfg(INT32 dwChannelID, LPVOID lpI
         return NET_E_INVALID_PARAM;
     const NET_SafetyHelmetCfg_S *pIn = (const NET_SafetyHelmetCfg_S *)lpInBuffer;
 
+    /* 开关、灵敏度、布防时间与联动在转换前校验，非法参数不写配置。 */
+    if ((pIn->bEnable != 0 && pIn->bEnable != 1) ||
+        pIn->stRule.nSensitivity < tvsdk_rule_min_sens(AC_SET_SAFETY_HELMET_CFG) ||
+        pIn->stRule.nSensitivity > tvsdk_rule_max_sens(AC_SET_SAFETY_HELMET_CFG) ||
+        !tvsdk_valid_alarm_schedule(pIn->stAlarmSchedule) ||
+        !tvsdk_valid_linkage_list(pIn->stLinkageList))
+    {
+        dlog_warn("TVSDK 安全帽识别参数非法: enable[%d] sensitivity[%d]",
+                  static_cast<int>(pIn->bEnable), pIn->stRule.nSensitivity);
+        return NET_E_INVALID_PARAM;
+    }
+
     Alarm::SafetyHelmetDection_S stCfg;
     TvSdkConvert::ToSafetyHelmet(*pIn, stCfg);
     std::string inJson = Convert::to_string(stCfg);
@@ -3315,6 +3375,18 @@ static NET_COMMON_ECODE_E cb_set_person_fall_cfg(INT32 dwChannelID, LPVOID lpInB
     if (!lpInBuffer)
         return NET_E_INVALID_PARAM;
     const NET_PersonFallCfg_S *pIn = (const NET_PersonFallCfg_S *)lpInBuffer;
+
+    /* 开关、灵敏度、布防时间与联动在转换前校验，非法参数不写配置。 */
+    if ((pIn->bEnable != 0 && pIn->bEnable != 1) ||
+        pIn->stRule.nSensitivity < tvsdk_rule_min_sens(AC_SET_PERSON_FALL_CFG) ||
+        pIn->stRule.nSensitivity > tvsdk_rule_max_sens(AC_SET_PERSON_FALL_CFG) ||
+        !tvsdk_valid_alarm_schedule(pIn->stAlarmSchedule) ||
+        !tvsdk_valid_linkage_list(pIn->stLinkageList))
+    {
+        dlog_warn("TVSDK 摔倒识别参数非法: enable[%d] sensitivity[%d]",
+                  static_cast<int>(pIn->bEnable), pIn->stRule.nSensitivity);
+        return NET_E_INVALID_PARAM;
+    }
 
     Alarm::TripDetection_S stCfg;
     TvSdkConvert::ToPersonFall(*pIn, stCfg);
@@ -3357,6 +3429,18 @@ static NET_COMMON_ECODE_E cb_set_phone_usage_cfg(INT32 dwChannelID, LPVOID lpInB
         return NET_E_INVALID_PARAM;
     const NET_PhoneUsageCfg_S *pIn = (const NET_PhoneUsageCfg_S *)lpInBuffer;
 
+    /* 开关、灵敏度、布防时间与联动在转换前校验，非法参数不写配置。 */
+    if ((pIn->bEnable != 0 && pIn->bEnable != 1) ||
+        pIn->stRule.nSensitivity < tvsdk_rule_min_sens(AC_SET_PHONE_USAGE_CFG) ||
+        pIn->stRule.nSensitivity > tvsdk_rule_max_sens(AC_SET_PHONE_USAGE_CFG) ||
+        !tvsdk_valid_alarm_schedule(pIn->stAlarmSchedule) ||
+        !tvsdk_valid_linkage_list(pIn->stLinkageList))
+    {
+        dlog_warn("TVSDK 玩手机识别参数非法: enable[%d] sensitivity[%d]",
+                  static_cast<int>(pIn->bEnable), pIn->stRule.nSensitivity);
+        return NET_E_INVALID_PARAM;
+    }
+
     Alarm::PhoneUsageDetection_S stCfg;
     TvSdkConvert::ToPhoneUsage(*pIn, stCfg);
     std::string inJson = Convert::to_string(stCfg);
@@ -3397,6 +3481,18 @@ static NET_COMMON_ECODE_E cb_set_smoking_cfg(INT32 dwChannelID, LPVOID lpInBuffe
     if (!lpInBuffer)
         return NET_E_INVALID_PARAM;
     const NET_SmokingCfg_S *pIn = (const NET_SmokingCfg_S *)lpInBuffer;
+
+    /* 开关、灵敏度、布防时间与联动在转换前校验，非法参数不写配置。 */
+    if ((pIn->bEnable != 0 && pIn->bEnable != 1) ||
+        pIn->stRule.nSensitivity < tvsdk_rule_min_sens(AC_SET_SMOKING_CFG) ||
+        pIn->stRule.nSensitivity > tvsdk_rule_max_sens(AC_SET_SMOKING_CFG) ||
+        !tvsdk_valid_alarm_schedule(pIn->stAlarmSchedule) ||
+        !tvsdk_valid_linkage_list(pIn->stLinkageList))
+    {
+        dlog_warn("TVSDK 抽烟识别参数非法: enable[%d] sensitivity[%d]",
+                  static_cast<int>(pIn->bEnable), pIn->stRule.nSensitivity);
+        return NET_E_INVALID_PARAM;
+    }
 
     Alarm::SmokingDection_S stCfg;
     TvSdkConvert::ToSmoking(*pIn, stCfg);
@@ -3439,6 +3535,18 @@ static NET_COMMON_ECODE_E cb_set_open_flame_cfg(INT32 dwChannelID, LPVOID lpInBu
         return NET_E_INVALID_PARAM;
     const NET_OpenFlameCfg_S *pIn = (const NET_OpenFlameCfg_S *)lpInBuffer;
 
+    /* 开关、灵敏度、布防时间与联动在转换前校验，非法参数不写配置。 */
+    if ((pIn->bEnable != 0 && pIn->bEnable != 1) ||
+        pIn->stRule.nSensitivity < tvsdk_rule_min_sens(AC_SET_OPEN_FLAME_CFG) ||
+        pIn->stRule.nSensitivity > tvsdk_rule_max_sens(AC_SET_OPEN_FLAME_CFG) ||
+        !tvsdk_valid_alarm_schedule(pIn->stAlarmSchedule) ||
+        !tvsdk_valid_linkage_list(pIn->stLinkageList))
+    {
+        dlog_warn("TVSDK 明火识别参数非法: enable[%d] sensitivity[%d]",
+                  static_cast<int>(pIn->bEnable), pIn->stRule.nSensitivity);
+        return NET_E_INVALID_PARAM;
+    }
+
     Alarm::OpenFlameDetection_S stCfg;
     TvSdkConvert::ToOpenFlame(*pIn, stCfg);
     std::string inJson = Convert::to_string(stCfg);
@@ -3479,6 +3587,18 @@ static NET_COMMON_ECODE_E cb_set_bare_soil_cfg(INT32 dwChannelID, LPVOID lpInBuf
     if (!lpInBuffer)
         return NET_E_INVALID_PARAM;
     const NET_BareSoilCfg_S *pIn = (const NET_BareSoilCfg_S *)lpInBuffer;
+
+    /* 开关、灵敏度、布防时间与联动在转换前校验，非法参数不写配置。 */
+    if ((pIn->bEnable != 0 && pIn->bEnable != 1) ||
+        pIn->stRule.nSensitivity < tvsdk_rule_min_sens(AC_SET_BARE_SOIL_CFG) ||
+        pIn->stRule.nSensitivity > tvsdk_rule_max_sens(AC_SET_BARE_SOIL_CFG) ||
+        !tvsdk_valid_alarm_schedule(pIn->stAlarmSchedule) ||
+        !tvsdk_valid_linkage_list(pIn->stLinkageList))
+    {
+        dlog_warn("TVSDK 黄土裸露识别参数非法: enable[%d] sensitivity[%d]",
+                  static_cast<int>(pIn->bEnable), pIn->stRule.nSensitivity);
+        return NET_E_INVALID_PARAM;
+    }
 
     Alarm::BareSoiletDection_S stCfg;
     TvSdkConvert::ToBareSoil(*pIn, stCfg);
@@ -3561,6 +3681,18 @@ static NET_COMMON_ECODE_E cb_set_reflective_clothing_cfg(INT32 dwChannelID, LPVO
     if (!lpInBuffer)
         return NET_E_INVALID_PARAM;
     const NET_ReflectiveClothingCfg_S *pIn = (const NET_ReflectiveClothingCfg_S *)lpInBuffer;
+
+    /* 开关、灵敏度、布防时间与联动在转换前校验，非法参数不写配置。 */
+    if ((pIn->bEnable != 0 && pIn->bEnable != 1) ||
+        pIn->stRule.nSensitivity < tvsdk_rule_min_sens(AC_SET_REFLECTIVE_CLOTHING_CFG) ||
+        pIn->stRule.nSensitivity > tvsdk_rule_max_sens(AC_SET_REFLECTIVE_CLOTHING_CFG) ||
+        !tvsdk_valid_alarm_schedule(pIn->stAlarmSchedule) ||
+        !tvsdk_valid_linkage_list(pIn->stLinkageList))
+    {
+        dlog_warn("TVSDK 反光衣识别参数非法: enable[%d] sensitivity[%d]",
+                  static_cast<int>(pIn->bEnable), pIn->stRule.nSensitivity);
+        return NET_E_INVALID_PARAM;
+    }
 
     Alarm::ReflectiveClothingDection_S stCfg;
     TvSdkConvert::ToReflectiveClothing(*pIn, stCfg);
@@ -4093,6 +4225,18 @@ static NET_COMMON_ECODE_E cb_set_road_ponding_cfg(INT32 dwChannelID, LPVOID lpIn
     if (!lpInBuffer)
         return NET_E_INVALID_PARAM;
     const NET_RoadPondingCfg_S *pIn = (const NET_RoadPondingCfg_S *)lpInBuffer;
+
+    /* 开关、灵敏度、布防时间与联动在转换前校验，非法参数不写配置。 */
+    if ((pIn->bEnable != 0 && pIn->bEnable != 1) ||
+        pIn->stRule.nSensitivity < tvsdk_rule_min_sens(AC_SET_ROAD_PONDING_CFG) ||
+        pIn->stRule.nSensitivity > tvsdk_rule_max_sens(AC_SET_ROAD_PONDING_CFG) ||
+        !tvsdk_valid_alarm_schedule(pIn->stAlarmSchedule) ||
+        !tvsdk_valid_linkage_list(pIn->stLinkageList))
+    {
+        dlog_warn("TVSDK 道路积水识别参数非法: enable[%d] sensitivity[%d]",
+                  static_cast<int>(pIn->bEnable), pIn->stRule.nSensitivity);
+        return NET_E_INVALID_PARAM;
+    }
 
     Alarm::RoadPondingDetection_S stCfg;
     TvSdkConvert::ToRoadPonding(*pIn, stCfg);
