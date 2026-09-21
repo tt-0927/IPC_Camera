@@ -4813,7 +4813,7 @@ typedef struct tagNET_LoiteringRule
     INT32       uPointCount;                         /* 区域顶点数量，最多32个 */
     FLOAT       afPointX[32];                        /* 区域顶点X坐标数组 [0.0-1.0] */
     FLOAT       afPointY[32];                        /* 区域顶点Y坐标数组 [0.0-1.0] */
-    INT32       nTimeThreshold;                      /* 行为事件触发时间阈值，判断有效报警的时间[0,100] 单位秒 */
+    INT32       nTimeThreshold;                      /* 行为事件触发时间阈值，判断有效报警的时间[0,10] 单位秒 */
     INT32       nSensitivity;                        /* 灵敏度[1,100] */
     INT32       uDetectionTargetCount;               /* 检测目标数量 */
     INT32       auDetectionTarget[8];                /* 检测目标数组 NET_DETECTION_TARGET_E，最多8个 */

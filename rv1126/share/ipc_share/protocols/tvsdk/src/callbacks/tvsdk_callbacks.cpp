@@ -210,6 +210,10 @@ static constexpr UINT32 TVSDK_CAPTURE_INTERVAL_MAX_MINUTES = 1440U;
 static constexpr UINT32 TVSDK_CAPTURE_INTERVAL_MAX_HOURS = 24U;
 static constexpr UINT32 TVSDK_CAPTURE_INTERVAL_MAX_DAYS = 365U;
 
+/* 预览图像参数取值范围，与 NET_PreviewImageParam_S 的字段定义保持一致。 */
+static constexpr INT32 TVSDK_PREVIEW_IMAGE_PARAM_MIN = 0;
+static constexpr INT32 TVSDK_PREVIEW_IMAGE_PARAM_MAX = 100;
+
 static bool is_absolute_path(const std::string &path)
 {
     return !path.empty() && path[0] == '/';
@@ -784,6 +788,92 @@ static NET_COMMON_ECODE_E tvsdk_preserve_event_rules(INT32 nChannelId, TConfig &
     return NET_E_SUCCEED;
 }
 
+/*
+ * 校验单个布防时间段：小时 0~23、分钟 0~59，且结束时间不得早于开始时间。
+ * 参数非法返回 false。
+ */
+static bool tvsdk_valid_sched_time(const NET_SchedTime_S &stTime)
+{
+    /* 开始时间范围 [00:00, 23:59]。 */
+    if (stTime.nStartHour < 0 || stTime.nStartHour > 23 ||
+        stTime.nStartMinute < 0 || stTime.nStartMinute > 59)
+    {
+        return false;
+    }
+
+    /*
+     * 结束时间范围 [00:00, 24:00]：IPC 内部以 24:00 表示全天结束
+     * （Common::SchedTime_S 默认值即为 00:00-24:00），故 24 时仅在分钟为 0 时合法。
+     */
+    if (stTime.nEndHour < 0 || stTime.nEndHour > 24 ||
+        stTime.nEndMinute < 0 || stTime.nEndMinute > 59 ||
+        (stTime.nEndHour == 24 && stTime.nEndMinute != 0))
+    {
+        return false;
+    }
+
+    const INT32 nStartTotalMinutes = stTime.nStartHour * 60 + stTime.nStartMinute;
+    const INT32 nEndTotalMinutes = stTime.nEndHour * 60 + stTime.nEndMinute;
+    return nEndTotalMinutes >= nStartTotalMinutes;
+}
+
+/*
+ * 校验布防时间：每天时间段数量需在 0~NET_PLAN_SECTION_NUM 之间，并逐段校验时分范围与起止先后。
+ * 超限返回 false，由调用方映射为参数错误；转换层内部的容量截断仅用于防越界，不作为合法设置。
+ */
+static bool tvsdk_valid_alarm_schedule(const NET_AlarmSchedule_S &stSchedule)
+{
+    for (INT32 nDay = 0; nDay < NET_ALARM_SCHEDULE_DAY_COUNT; ++nDay)
+    {
+        const INT32 nSectionCount = stSchedule.uTimeSectionCount[nDay];
+        if (nSectionCount < 0 || nSectionCount > NET_PLAN_SECTION_NUM)
+        {
+            return false;
+        }
+        for (INT32 nSection = 0; nSection < nSectionCount; ++nSection)
+        {
+            if (!tvsdk_valid_sched_time(stSchedule.astTimeSection[nDay][nSection]))
+            {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+/*
+ * 校验联动数量不超过 SDK 固定数组容量，避免客户端按数量字段反序列化时越界。
+ * TVSDK 只表达报警输出与录像通道，抓拍通道在 IPC 侧无对应数组，不参与校验。
+ */
+static bool tvsdk_valid_linkage_list(const NET_LinkageList_S &stLinkage)
+{
+    return stLinkage.uAlarmOutputCount >= 0 && stLinkage.uAlarmOutputCount <= NET_MAX_ALARM_OUT_NUM &&
+           stLinkage.uRecordChannelCount >= 0 && stLinkage.uRecordChannelCount <= NET_CHANNEL_MAX;
+}
+
+/* 电瓶车进电梯区域配置为固定 4 点，未配置时点数为 0。 */
+static constexpr UINT32 TVSDK_ELEVATOR_REGION_POINT_NUM = 4;
+
+/*
+ * 校验电瓶车进电梯区域坐标：坐标必须为有限值且在 0~8192 之间。
+ * 参数非法返回 false。
+ */
+static bool tvsdk_valid_elevator_region_points(UINT32 uPointCount, const FLOAT afPointX[], const FLOAT afPointY[])
+{
+    constexpr FLOAT kElevatorCoordMin = 0.0F;
+    constexpr FLOAT kElevatorCoordMax = 8192.0F;
+    for (UINT32 uIndex = 0; uIndex < uPointCount; ++uIndex)
+    {
+        if (!std::isfinite(afPointX[uIndex]) || !std::isfinite(afPointY[uIndex]) ||
+            afPointX[uIndex] < kElevatorCoordMin || afPointX[uIndex] > kElevatorCoordMax ||
+            afPointY[uIndex] < kElevatorCoordMin || afPointY[uIndex] > kElevatorCoordMax)
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
 /* 校验日夜切换参数的枚举值、时间字段和亮度范围。 */
 static bool is_valid_daynight_config(const NET_DayNightInfo_S &stConfig)
 {
@@ -1165,7 +1255,8 @@ static NET_COMMON_ECODE_E tvsdk_set_event_config(int nActionCode, const std::str
 
     int nResult = -1;
     Json::get(strResultJson.c_str(), "Return", nResult);
-    if (nResult == ERR_WEB_PARAM)
+    /* 参数类与区域类错误统一映射为参数错误，其余失败映射为设置失败。 */
+    if (nResult == ERR_WEB_PARAM || nResult == ERR_WEB_REGION)
     {
         return NET_E_INVALID_PARAM;
     }
@@ -2206,7 +2297,29 @@ static NET_COMMON_ECODE_E cb_set_preview_info(INT32 dwChannelID, LPVOID lpInBuff
     {
         return NET_E_INVALID_PARAM;
     }
-    const NET_PreviewInfo_S *pIn = (const NET_PreviewInfo_S *)lpInBuffer;
+    const NET_PreviewInfo_S *pIn = static_cast<const NET_PreviewInfo_S *>(lpInBuffer);
+
+    /*
+     * 预览图像参数取值范围为 [0,100]。
+     * ISP 层对超范围值做静默裁剪，这里前置校验以保证非法参数返回明确错误。
+     */
+    const NET_PreviewImageParam_S &stImageParam = pIn->stImageParam;
+    if (stImageParam.nBrightness < TVSDK_PREVIEW_IMAGE_PARAM_MIN ||
+        stImageParam.nBrightness > TVSDK_PREVIEW_IMAGE_PARAM_MAX ||
+        stImageParam.nContrast < TVSDK_PREVIEW_IMAGE_PARAM_MIN ||
+        stImageParam.nContrast > TVSDK_PREVIEW_IMAGE_PARAM_MAX ||
+        stImageParam.nSaturation < TVSDK_PREVIEW_IMAGE_PARAM_MIN ||
+        stImageParam.nSaturation > TVSDK_PREVIEW_IMAGE_PARAM_MAX ||
+        stImageParam.nSharpness < TVSDK_PREVIEW_IMAGE_PARAM_MIN ||
+        stImageParam.nSharpness > TVSDK_PREVIEW_IMAGE_PARAM_MAX)
+    {
+        dlog_warn("TVSDK 预览图像参数超出范围: brightness[%d] contrast[%d] saturation[%d] sharpness[%d]",
+                  stImageParam.nBrightness,
+                  stImageParam.nContrast,
+                  stImageParam.nSaturation,
+                  stImageParam.nSharpness);
+        return NET_E_INVALID_PARAM;
+    }
 
     Preview::PreviewInfo_S stCfg = {};
     TvSdkConvert::ToPreviewInfo(*pIn, stCfg);
@@ -2303,19 +2416,27 @@ static NET_COMMON_ECODE_E cb_set_tamper_alarm(INT32 dwChannelID, LPVOID lpInBuff
 {
     (void)dwChannelID;
     if (!lpInBuffer)
-        return NET_E_INVALID_PARAM;
-    const NET_TamperAlarmInfo_S *pIn = (const NET_TamperAlarmInfo_S *)lpInBuffer;
-    if (pIn->uSensitivity < 0 || pIn->uSensitivity > 3)
     {
         return NET_E_INVALID_PARAM;
     }
+    const NET_TamperAlarmInfo_S *pIn = static_cast<const NET_TamperAlarmInfo_S *>(lpInBuffer);
+
+    /* 开关、灵敏度、布防时间与联动在转换前校验，非法参数不写配置也不下发算法。 */
+    if ((pIn->bEnable != 0 && pIn->bEnable != 1) ||
+        pIn->uSensitivity < 0 || pIn->uSensitivity > 3 ||
+        !tvsdk_valid_alarm_schedule(pIn->stAlarmSchedule) ||
+        !tvsdk_valid_linkage_list(pIn->stLinkageList))
+    {
+        dlog_warn("TVSDK 遮挡报警参数非法: enable[%d] sensitivity[%d]",
+                  static_cast<int>(pIn->bEnable), static_cast<int>(pIn->uSensitivity));
+        return NET_E_INVALID_PARAM;
+    }
+
     Alarm::HideAlarm_S stCfg;
     TvSdkConvert::ToHideAlarm(*pIn, stCfg);
-    std::string inJson = Convert::to_string(stCfg);
-    Task::Info_S stInfo;
-    stInfo.data = wrap_data_json(inJson);
-    int nExec = s_taskManage ? s_taskManage->execute(AG_SET_HIDE_ALARM_INFO, stInfo) : -1;
-    return (nExec == 0) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
+
+    /* 解析任务 Return：参数类错误映射为 NET_E_INVALID_PARAM，其它失败映射为设置失败。 */
+    return tvsdk_set_event_config(AG_SET_HIDE_ALARM_INFO, Convert::to_string(stCfg));
 }
 static NET_COMMON_ECODE_E cb_get_motion_alarm(INT32 dwChannelID, LPVOID lpOutBuffer)
 {
@@ -2519,6 +2640,45 @@ static NET_COMMON_ECODE_E cb_set_loitering_alarm(INT32 nChannelId, LPVOID pInBuf
     }
     const NET_LoiteringAlarmInfo_S *pConfig = static_cast<const NET_LoiteringAlarmInfo_S *>(pInBuffer);
     NET_LoiteringAlarmInfo_S stNormalized = *pConfig;
+
+    /*
+     * 数值字段在规则回退之前校验：开关、规则数量、布防时间、联动数量。
+     * 越界直接返回参数错误，避免被回退逻辑替换为旧值后仍返回成功。
+     */
+    if ((stNormalized.bEnable != 0 && stNormalized.bEnable != 1) ||
+        stNormalized.uRuleCount < 0 || stNormalized.uRuleCount > TVSDK_IPC_RULE_MAX ||
+        !tvsdk_valid_alarm_schedule(stNormalized.stAlarmSchedule) ||
+        !tvsdk_valid_linkage_list(stNormalized.stLinkageList))
+    {
+        dlog_warn("TVSDK 徘徊侦测参数非法: enable[%d] ruleCount[%d]",
+                  static_cast<int>(stNormalized.bEnable), stNormalized.uRuleCount);
+        return NET_E_INVALID_PARAM;
+    }
+
+    /* 逐条校验灵敏度、时间阈值、点数与坐标；空区域与未配置区域不在此拦截，保持既有兼容语义。 */
+    for (INT32 nIndex = 0; nIndex < stNormalized.uRuleCount; ++nIndex)
+    {
+        const NET_LoiteringRule_S &stRule = stNormalized.stRule[nIndex];
+        const INT32 nPointCapacity = static_cast<INT32>(sizeof(stRule.afPointX) / sizeof(stRule.afPointX[0]));
+        if (stRule.uPointCount < 0 || stRule.uPointCount > nPointCapacity ||
+            stRule.nSensitivity < 1 || stRule.nSensitivity > 100 ||
+            stRule.nTimeThreshold < tvsdk_rule_min_time(AC_SET_LOITERING_DETECT_INFO) ||
+            stRule.nTimeThreshold > tvsdk_rule_max_time(AC_SET_LOITERING_DETECT_INFO))
+        {
+            dlog_warn("TVSDK 徘徊侦测规则[%d]参数非法: pointCount[%d] sensitivity[%d] timeThreshold[%d]",
+                      nIndex, stRule.uPointCount, stRule.nSensitivity, stRule.nTimeThreshold);
+            return NET_E_INVALID_PARAM;
+        }
+        for (INT32 nPoint = 0; nPoint < stRule.uPointCount; ++nPoint)
+        {
+            if (!std::isfinite(stRule.afPointX[nPoint]) || !std::isfinite(stRule.afPointY[nPoint]))
+            {
+                dlog_warn("TVSDK 徘徊侦测规则[%d]坐标非有限值", nIndex);
+                return NET_E_INVALID_PARAM;
+            }
+        }
+    }
+
     const NET_COMMON_ECODE_E enResult = tvsdk_preserve_event_rules(
         nChannelId, stNormalized, AC_SET_LOITERING_DETECT_INFO, cb_get_loitering_alarm);
     if (enResult != NET_E_SUCCEED)
@@ -2560,16 +2720,27 @@ static NET_COMMON_ECODE_E cb_set_scene_change_alarm(INT32 dwChannelID, LPVOID lp
 {
     (void)dwChannelID;
     if (!lpInBuffer)
+    {
         return NET_E_INVALID_PARAM;
-    const NET_SceneChangeAlarmInfo_S *pIn = (const NET_SceneChangeAlarmInfo_S *)lpInBuffer;
+    }
+    const NET_SceneChangeAlarmInfo_S *pIn = static_cast<const NET_SceneChangeAlarmInfo_S *>(lpInBuffer);
+
+    /* 开关、灵敏度、布防时间与联动在转换前校验，非法参数不写配置也不刷新事件总览。 */
+    if ((pIn->bEnable != 0 && pIn->bEnable != 1) ||
+        pIn->nSensitivity < 1 || pIn->nSensitivity > 100 ||
+        !tvsdk_valid_alarm_schedule(pIn->stAlarmSchedule) ||
+        !tvsdk_valid_linkage_list(pIn->stLinkageList))
+    {
+        dlog_warn("TVSDK 场景变更侦测参数非法: enable[%d] sensitivity[%d]",
+                  static_cast<int>(pIn->bEnable), pIn->nSensitivity);
+        return NET_E_INVALID_PARAM;
+    }
 
     Alarm::SceneChange_S stCfg;
     TvSdkConvert::ToSceneChange(*pIn, stCfg);
-    std::string inJson = Convert::to_string(stCfg);
-    Task::Info_S stInfo;
-    stInfo.data = wrap_data_json(inJson);
-    int nExec = s_taskManage ? s_taskManage->execute(AC_SET_SCENE_CHANGE_DETECT_INFO, stInfo) : -1;
-    return (nExec == 0) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
+
+    /* 解析任务 Return：参数类错误映射为 NET_E_INVALID_PARAM，其它失败映射为设置失败。 */
+    return tvsdk_set_event_config(AC_SET_SCENE_CHANGE_DETECT_INFO, Convert::to_string(stCfg));
 }
 
 /* ---------- Get/SetCrowdGatheringAlarm：AC_GET/SET_CROWD_GATHERING_DETECT_INFO ---------- */
@@ -2639,6 +2810,43 @@ static NET_COMMON_ECODE_E cb_set_crowd_gathering_alarm(INT32 nChannelId, LPVOID 
     }
     const NET_CrowdGatheringAlarmInfo_S *pConfig = static_cast<const NET_CrowdGatheringAlarmInfo_S *>(pInBuffer);
     NET_CrowdGatheringAlarmInfo_S stNormalized = *pConfig;
+
+    /*
+     * 数值字段在规则回退之前校验：开关、规则数量、布防时间、联动数量。
+     * 越界直接返回参数错误，避免被回退逻辑替换为旧值后仍返回成功。
+     */
+    if ((stNormalized.bEnable != 0 && stNormalized.bEnable != 1) ||
+        stNormalized.uRuleCount < 0 || stNormalized.uRuleCount > TVSDK_IPC_RULE_MAX ||
+        !tvsdk_valid_alarm_schedule(stNormalized.stAlarmSchedule) ||
+        !tvsdk_valid_linkage_list(stNormalized.stLinkageList))
+    {
+        dlog_warn("TVSDK 人员聚集侦测参数非法: enable[%d] ruleCount[%d]",
+                  static_cast<int>(stNormalized.bEnable), stNormalized.uRuleCount);
+        return NET_E_INVALID_PARAM;
+    }
+
+    /* 逐条校验人体面积占比、点数与坐标；空区域与未配置区域不在此拦截，保持既有兼容语义。 */
+    for (INT32 nIndex = 0; nIndex < stNormalized.uRuleCount; ++nIndex)
+    {
+        const NET_CrowdGatheringRule_S &stRule = stNormalized.astRule[nIndex];
+        const INT32 nPointCapacity = static_cast<INT32>(sizeof(stRule.afPointX) / sizeof(stRule.afPointX[0]));
+        if (stRule.uPointCount < 0 || stRule.uPointCount > nPointCapacity ||
+            stRule.nObjectOccup < 1 || stRule.nObjectOccup > 100)
+        {
+            dlog_warn("TVSDK 人员聚集侦测规则[%d]参数非法: pointCount[%d] objectOccup[%d]",
+                      nIndex, stRule.uPointCount, stRule.nObjectOccup);
+            return NET_E_INVALID_PARAM;
+        }
+        for (INT32 nPoint = 0; nPoint < stRule.uPointCount; ++nPoint)
+        {
+            if (!std::isfinite(stRule.afPointX[nPoint]) || !std::isfinite(stRule.afPointY[nPoint]))
+            {
+                dlog_warn("TVSDK 人员聚集侦测规则[%d]坐标非有限值", nIndex);
+                return NET_E_INVALID_PARAM;
+            }
+        }
+    }
+
     const NET_COMMON_ECODE_E enResult = tvsdk_preserve_event_rules(
         nChannelId, stNormalized, AC_SET_CROWD_GATHERING_DETECT_INFO, cb_get_crowd_gathering_alarm);
     if (enResult != NET_E_SUCCEED)
@@ -2683,16 +2891,32 @@ static NET_COMMON_ECODE_E cb_set_garbage_exposure_cfg(INT32 dwChannelID, LPVOID 
 {
     (void)dwChannelID;
     if (!lpInBuffer)
+    {
         return NET_E_INVALID_PARAM;
-    const NET_GarbageExposureCfg_S *pIn = (const NET_GarbageExposureCfg_S *)lpInBuffer;
+    }
+    const NET_GarbageExposureCfg_S *pIn = static_cast<const NET_GarbageExposureCfg_S *>(lpInBuffer);
+
+    /*
+     * 开关、灵敏度、区域、布防时间与联动在转换前校验，非法参数不写配置也不刷新事件总览。
+     * 区域未配置（点数为 0）时沿用既有兼容语义，配置了区域则按多边形口径校验点数与坐标。
+     */
+    const bool bRegionValid = (pIn->stRule.uPointCount == 0) || tvsdk_valid_polygon(pIn->stRule);
+    if ((pIn->bEnable != 0 && pIn->bEnable != 1) ||
+        pIn->stRule.nSensitivity < 1 || pIn->stRule.nSensitivity > 100 ||
+        !bRegionValid ||
+        !tvsdk_valid_alarm_schedule(pIn->stAlarmSchedule) ||
+        !tvsdk_valid_linkage_list(pIn->stLinkageList))
+    {
+        dlog_warn("TVSDK 垃圾暴露检测参数非法: enable[%d] sensitivity[%d] pointCount[%d]",
+                  static_cast<int>(pIn->bEnable), pIn->stRule.nSensitivity, pIn->stRule.uPointCount);
+        return NET_E_INVALID_PARAM;
+    }
 
     Alarm::GarbageExposureDetection_S stCfg;
     TvSdkConvert::ToGarbageExposure(*pIn, stCfg);
-    std::string inJson = Convert::to_string(stCfg);
-    Task::Info_S stInfo;
-    stInfo.data = wrap_data_json(inJson);
-    int nExec = s_taskManage ? s_taskManage->execute(AC_SET_GARBAGE_EXPOSURE_CFG, stInfo) : -1;
-    return (nExec == 0) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
+
+    /* 解析任务 Return：参数类错误映射为 NET_E_INVALID_PARAM，其它失败映射为设置失败。 */
+    return tvsdk_set_event_config(AC_SET_GARBAGE_EXPOSURE_CFG, Convert::to_string(stCfg));
 }
 /* ---------- Get/SetGarbageOverflowCfg：AC_GET/SET_GARBAGE_OVERFLOW_DETECT_INFO ---------- */
 static NET_COMMON_ECODE_E cb_get_garbage_overflow_cfg(INT32 dwChannelID, LPVOID lpOutBuffer)
@@ -2767,16 +2991,30 @@ static NET_COMMON_ECODE_E cb_set_manhole_cover_abnormal_cfg(INT32 dwChannelID, L
 {
     (void)dwChannelID;
     if (!lpInBuffer)
+    {
         return NET_E_INVALID_PARAM;
-    const NET_ManholeCoverAbnormalCfg_S *pIn = (const NET_ManholeCoverAbnormalCfg_S *)lpInBuffer;
+    }
+    const NET_ManholeCoverAbnormalCfg_S *pIn = static_cast<const NET_ManholeCoverAbnormalCfg_S *>(lpInBuffer);
+
+    /*
+     * 开关、灵敏度、布防时间与联动在转换前校验，非法参数不写配置也不刷新事件总览。
+     * IPC 业务不处理该事件的区域字段，因此此处不对区域做校验。
+     */
+    if ((pIn->bEnable != 0 && pIn->bEnable != 1) ||
+        pIn->stRule.nSensitivity < 1 || pIn->stRule.nSensitivity > 100 ||
+        !tvsdk_valid_alarm_schedule(pIn->stAlarmSchedule) ||
+        !tvsdk_valid_linkage_list(pIn->stLinkageList))
+    {
+        dlog_warn("TVSDK 井盖异常检测参数非法: enable[%d] sensitivity[%d]",
+                  static_cast<int>(pIn->bEnable), pIn->stRule.nSensitivity);
+        return NET_E_INVALID_PARAM;
+    }
 
     Alarm::ManholeCoverAbnormalDetection_S stCfg;
     TvSdkConvert::ToManholeCoverAbnormal(*pIn, stCfg);
-    std::string inJson = Convert::to_string(stCfg);
-    Task::Info_S stInfo;
-    stInfo.data = wrap_data_json(inJson);
-    int nExec = s_taskManage ? s_taskManage->execute(AC_SET_MANHOLE_COVER_ABNORMAL_CFG, stInfo) : -1;
-    return (nExec == 0) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
+
+    /* 解析任务 Return：参数类错误映射为 NET_E_INVALID_PARAM，其它失败映射为设置失败。 */
+    return tvsdk_set_event_config(AC_SET_MANHOLE_COVER_ABNORMAL_CFG, Convert::to_string(stCfg));
 }
 
 static NET_COMMON_ECODE_E cb_get_sleep_on_duty_cfg(INT32 dwChannelID, LPVOID lpOutBuffer)
@@ -2842,7 +3080,8 @@ static NET_COMMON_ECODE_E cb_get_electric_vehicle_in_elevator_cfg(INT32 dwChanne
     Convert::to_struct(strJson, stCfg);
     TvSdkConvert::FillElectricVehicleInElevatorCfg(stCfg, *pOut);
     tvsdk_fill_elevator_sdk_fields(*pOut);
-    pOut->uChannel = dwChannelID;
+    /* IPC 为单通道设备，通道号固定填 0，与其它事件回调保持一致。 */
+    pOut->uChannel = 0;
     return NET_E_SUCCEED;
 }
 
@@ -2850,18 +3089,37 @@ static NET_COMMON_ECODE_E cb_set_electric_vehicle_in_elevator_cfg(INT32 dwChanne
 {
     (void)dwChannelID;
     if (!lpInBuffer)
-        return NET_E_INVALID_PARAM;
-    const NET_ElectricVehicleInElevatorCfg_S *pIn = (const NET_ElectricVehicleInElevatorCfg_S *)lpInBuffer;
-    if ((dwChannelID < 0) || (pIn->nTimeThreshold < 0) || (pIn->nTimeThreshold > 10) ||
-        (pIn->uPointCount > NET_AI_SIMPLE_REGION_POINT_MAX_NUM))
     {
+        return NET_E_INVALID_PARAM;
+    }
+    const NET_ElectricVehicleInElevatorCfg_S *pIn = static_cast<const NET_ElectricVehicleInElevatorCfg_S *>(lpInBuffer);
+
+    /*
+     * 开关、灵敏度、时间阈值、区域点数与坐标、布防时间、联动数量在转换前校验。
+     * 区域未配置时允许点数为 0；配置了区域则必须为 4 个点且坐标在 0~8192 之间。
+     */
+    const bool bRegionValid =
+        (pIn->uPointCount == 0) ||
+        (pIn->uPointCount == TVSDK_ELEVATOR_REGION_POINT_NUM &&
+         tvsdk_valid_elevator_region_points(pIn->uPointCount, pIn->afPointX, pIn->afPointY));
+    if (dwChannelID < 0 ||
+        (pIn->bEnable != 0 && pIn->bEnable != 1) ||
+        pIn->stRule.nSensitivity < 1 || pIn->stRule.nSensitivity > 100 ||
+        pIn->nTimeThreshold < 0 || pIn->nTimeThreshold > 10 ||
+        pIn->uPointCount > NET_AI_SIMPLE_REGION_POINT_MAX_NUM ||
+        !bRegionValid ||
+        !tvsdk_valid_alarm_schedule(pIn->stAlarmSchedule) ||
+        !tvsdk_valid_linkage_list(pIn->stLinkageList))
+    {
+        dlog_warn("TVSDK 电瓶车进电梯参数非法: enable[%d] sensitivity[%d] timeThreshold[%d] pointCount[%u]",
+                  static_cast<int>(pIn->bEnable), pIn->stRule.nSensitivity, pIn->nTimeThreshold, pIn->uPointCount);
         return NET_E_INVALID_PARAM;
     }
 
     Alarm::ElectricScooterDetection_S stCfg;
     TvSdkConvert::ToElectricVehicleInElevator(*pIn, stCfg);
-    std::string inJson = Convert::to_string(stCfg);
-    const NET_COMMON_ECODE_E enResult = tvsdk_set_event_config(AC_SET_ELECTRIC_VEHICLE_IN_ELEVATOR_CFG, inJson);
+    const NET_COMMON_ECODE_E enResult =
+        tvsdk_set_event_config(AC_SET_ELECTRIC_VEHICLE_IN_ELEVATOR_CFG, Convert::to_string(stCfg));
     if (enResult != NET_E_SUCCEED)
     {
         return enResult;
@@ -4073,6 +4331,45 @@ static NET_COMMON_ECODE_E cb_set_parking_detect_alarm(INT32 nChannelId, LPVOID p
     }
     const NET_ParkingAlarmInfo_S *pConfig = static_cast<const NET_ParkingAlarmInfo_S *>(pInBuffer);
     NET_ParkingAlarmInfo_S stNormalized = *pConfig;
+
+    /*
+     * 数值字段在规则回退之前校验：开关、规则数量、布防时间、联动数量。
+     * 规则数量按 IPC 实际能力 TVSDK_IPC_RULE_MAX 限制，不采用 SDK 数组容量。
+     */
+    if ((stNormalized.bEnable != 0 && stNormalized.bEnable != 1) ||
+        stNormalized.uRuleCount < 0 || stNormalized.uRuleCount > TVSDK_IPC_RULE_MAX ||
+        !tvsdk_valid_alarm_schedule(stNormalized.stAlarmSchedule) ||
+        !tvsdk_valid_linkage_list(stNormalized.stLinkageList))
+    {
+        dlog_warn("TVSDK 停车侦测参数非法: enable[%d] ruleCount[%d]",
+                  static_cast<int>(stNormalized.bEnable), stNormalized.uRuleCount);
+        return NET_E_INVALID_PARAM;
+    }
+
+    /* 逐条校验灵敏度、时间阈值、点数与坐标；空区域与未配置区域不在此拦截，保持既有兼容语义。 */
+    for (INT32 nIndex = 0; nIndex < stNormalized.uRuleCount; ++nIndex)
+    {
+        const NET_ParkingRule_S &stRule = stNormalized.astRule[nIndex];
+        const INT32 nPointCapacity = static_cast<INT32>(sizeof(stRule.afPointX) / sizeof(stRule.afPointX[0]));
+        if (stRule.uPointCount < 0 || stRule.uPointCount > nPointCapacity ||
+            stRule.nSensitivity < 1 || stRule.nSensitivity > 100 ||
+            stRule.nTimeThreshold < tvsdk_rule_min_time(AC_SET_PARKING_DETECT_INFO) ||
+            stRule.nTimeThreshold > tvsdk_rule_max_time(AC_SET_PARKING_DETECT_INFO))
+        {
+            dlog_warn("TVSDK 停车侦测规则[%d]参数非法: pointCount[%d] sensitivity[%d] timeThreshold[%d]",
+                      nIndex, stRule.uPointCount, stRule.nSensitivity, stRule.nTimeThreshold);
+            return NET_E_INVALID_PARAM;
+        }
+        for (INT32 nPoint = 0; nPoint < stRule.uPointCount; ++nPoint)
+        {
+            if (!std::isfinite(stRule.afPointX[nPoint]) || !std::isfinite(stRule.afPointY[nPoint]))
+            {
+                dlog_warn("TVSDK 停车侦测规则[%d]坐标非有限值", nIndex);
+                return NET_E_INVALID_PARAM;
+            }
+        }
+    }
+
     const NET_COMMON_ECODE_E enResult = tvsdk_preserve_event_rules(
         nChannelId, stNormalized, AC_SET_PARKING_DETECT_INFO, cb_get_parking_detect_alarm);
     if (enResult != NET_E_SUCCEED)
@@ -4291,16 +4588,32 @@ static NET_COMMON_ECODE_E cb_set_audio_anomaly_alarm(INT32 dwChannelID, LPVOID l
 {
     (void)dwChannelID;
     if (!lpInBuffer)
+    {
         return NET_E_INVALID_PARAM;
+    }
+    const NET_AudioAnomalyAlarmInfo_S *pIn = static_cast<const NET_AudioAnomalyAlarmInfo_S *>(lpInBuffer);
 
-    const NET_AudioAnomalyAlarmInfo_S *pIn = (const NET_AudioAnomalyAlarmInfo_S *)lpInBuffer;
+    /* 开关、灵敏度、阈值、布防时间与联动在转换前校验，非法参数不写配置也不刷新事件总览。 */
+    if ((pIn->bEnable != 0 && pIn->bEnable != 1) ||
+        (pIn->bAudioInputAnomaly != 0 && pIn->bAudioInputAnomaly != 1) ||
+        (pIn->bUpEnable != 0 && pIn->bUpEnable != 1) ||
+        (pIn->bDownEnable != 0 && pIn->bDownEnable != 1) ||
+        pIn->nUpSensitivity < 1 || pIn->nUpSensitivity > 100 ||
+        pIn->nUpThreshold < 1 || pIn->nUpThreshold > 100 ||
+        pIn->nDownSensitivity < 1 || pIn->nDownSensitivity > 100 ||
+        !tvsdk_valid_alarm_schedule(pIn->stAlarmSchedule) ||
+        !tvsdk_valid_linkage_list(pIn->stLinkageList))
+    {
+        dlog_warn("TVSDK 音频异常侦测参数非法: enable[%d] upSensitivity[%d] upThreshold[%d] downSensitivity[%d]",
+                  static_cast<int>(pIn->bEnable), pIn->nUpSensitivity, pIn->nUpThreshold, pIn->nDownSensitivity);
+        return NET_E_INVALID_PARAM;
+    }
+
     Alarm::AudioAnomaly_S stCfg;
     TvSdkConvert::ToAudioAnomaly(*pIn, stCfg);
-    std::string inJson = Convert::to_string(stCfg);
-    Task::Info_S stInfo;
-    stInfo.data = wrap_data_json(inJson);
-    int nExec = s_taskManage ? s_taskManage->execute(AC_SET_AUDIO_ANOMALY_DETECT_INFO, stInfo) : -1;
-    return (nExec == 0) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
+
+    /* 解析任务 Return：参数类错误映射为 NET_E_INVALID_PARAM，其它失败映射为设置失败。 */
+    return tvsdk_set_event_config(AC_SET_AUDIO_ANOMALY_DETECT_INFO, Convert::to_string(stCfg));
 }
 
 /**
@@ -5326,6 +5639,44 @@ static NET_COMMON_ECODE_E cb_set_enter_region_alarm(INT32 nChannelId, LPVOID pIn
     }
     const NET_EnterRegionAlarmInfo_S *pConfig = static_cast<const NET_EnterRegionAlarmInfo_S *>(pInBuffer);
     NET_EnterRegionAlarmInfo_S stNormalized = *pConfig;
+
+    /*
+     * 数值字段在规则回退之前校验：开关、规则数量、布防时间、联动数量。
+     * 进入区域不使用时间阈值，此处不校验该字段。
+     */
+    if ((stNormalized.bEnable != 0 && stNormalized.bEnable != 1) ||
+        stNormalized.uRuleCount < 0 || stNormalized.uRuleCount > TVSDK_IPC_RULE_MAX ||
+        !tvsdk_valid_alarm_schedule(stNormalized.stAlarmSchedule) ||
+        !tvsdk_valid_linkage_list(stNormalized.stLinkageList))
+    {
+        dlog_warn("TVSDK 进入区域侦测参数非法: enable[%d] ruleCount[%d]",
+                  static_cast<int>(stNormalized.bEnable), stNormalized.uRuleCount);
+        return NET_E_INVALID_PARAM;
+    }
+
+    /* 逐条校验灵敏度、检测目标、点数与坐标；空区域与未配置区域不在此拦截，保持既有兼容语义。 */
+    for (INT32 nIndex = 0; nIndex < stNormalized.uRuleCount; ++nIndex)
+    {
+        const NET_IntrusionRule_S &stRule = stNormalized.stRule[nIndex];
+        const INT32 nPointCapacity = static_cast<INT32>(sizeof(stRule.afPointX) / sizeof(stRule.afPointX[0]));
+        if (stRule.uPointCount < 0 || stRule.uPointCount > nPointCapacity ||
+            stRule.nSensitivity < 1 || stRule.nSensitivity > 100 ||
+            !tvsdk_valid_rule_targets(stRule))
+        {
+            dlog_warn("TVSDK 进入区域侦测规则[%d]参数非法: pointCount[%d] sensitivity[%d] targetCount[%d]",
+                      nIndex, stRule.uPointCount, stRule.nSensitivity, stRule.uDetectionTargetCount);
+            return NET_E_INVALID_PARAM;
+        }
+        for (INT32 nPoint = 0; nPoint < stRule.uPointCount; ++nPoint)
+        {
+            if (!std::isfinite(stRule.afPointX[nPoint]) || !std::isfinite(stRule.afPointY[nPoint]))
+            {
+                dlog_warn("TVSDK 进入区域侦测规则[%d]坐标非有限值", nIndex);
+                return NET_E_INVALID_PARAM;
+            }
+        }
+    }
+
     const NET_COMMON_ECODE_E enResult = tvsdk_preserve_event_rules(
         nChannelId, stNormalized, AC_SET_ENTER_REGION_DETECT_INFO, cb_get_enter_region_alarm);
     if (enResult != NET_E_SUCCEED)

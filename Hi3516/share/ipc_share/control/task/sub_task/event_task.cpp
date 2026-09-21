@@ -10,6 +10,7 @@
 
 #include "event_task.h"
 #include <algorithm>
+#include <cmath>
 #include <set>
 #include "convert_interface.h"
 #include "path_define.h"
@@ -3258,6 +3259,27 @@ void Task::Event::SetGarbageExposureInfo::handle()
         dlog_error("设置垃圾暴露检测信息参数错误");
         result(ERR_WEB_PARAM);
         return;
+    }
+
+    /* 区域校验：未配置允许空区域，配置了则点数与坐标必须合法，防止 Web/action_code 绕过 SDK。 */
+    if (stInfo.stRule.stRegion.nPointNum != 0)
+    {
+        if (stInfo.stRule.stRegion.nPointNum < 3 ||
+            static_cast<size_t>(stInfo.stRule.stRegion.nPointNum) != stInfo.stRule.stRegion.aPoint.size())
+        {
+            dlog_error("设置垃圾暴露检测区域点数非法: pointNum[%u]", stInfo.stRule.stRegion.nPointNum);
+            result(ERR_WEB_PARAM);
+            return;
+        }
+        for (const auto &stPoint : stInfo.stRule.stRegion.aPoint)
+        {
+            if (!std::isfinite(stPoint.fX) || !std::isfinite(stPoint.fY) || !stPoint.IsValid())
+            {
+                dlog_error("设置垃圾暴露检测区域坐标非法");
+                result(ERR_WEB_REGION);
+                return;
+            }
+        }
     }
         
     /* 参数校验完成后，统一保存并同步智能事件总览状态。 */
