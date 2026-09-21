@@ -2630,6 +2630,8 @@ void FillElectricVehicleInElevatorCfg(const Alarm::ElectricScooterDetection_S &s
     std::memset(&dst, 0, sizeof(dst));
     dst.bEnable = src.bEnable ? TRUE : FALSE;
     dst.stRule.nSensitivity = (INT32)src.stRule.nSensitivity;
+    /* 时间阈值位于 SDK 结构体顶层，须单独回填，否则 NVR 侧读到的恒为 0。 */
+    dst.nTimeThreshold = (INT32)src.stRule.nTimeThreshold;
     FillSingleRuleAlarmSchedule(src.aAlarmTime, dst.stAlarmSchedule);
     FillLinkageList(src.stLinkageList, dst.stLinkageList);
 
@@ -2642,6 +2644,8 @@ void ToElectricVehicleInElevator(const NET_ElectricVehicleInElevatorCfg_S &src, 
 {
     dst.bEnable = (src.bEnable == TRUE);
     dst.stRule.nSensitivity = (unsigned int)src.stRule.nSensitivity;
+    /* 时间阈值由 SDK 结构体顶层取出，供 IPC 业务与算法层使用。 */
+    dst.stRule.nTimeThreshold = (unsigned int)src.nTimeThreshold;
     ToSingleRuleAlarmSchedule(src.stAlarmSchedule, dst.aAlarmTime);
     ToLinkageList(src.stLinkageList, dst.stLinkageList);
 
