@@ -4662,9 +4662,6 @@ typedef struct tagNET_ConstructionOccupyRoadCfg
     NET_AiSimpleRule_S stRule;                    /* 施工占道识别规则 */
     NET_AlarmSchedule_S stAlarmSchedule;           /* 布防时间 */
     NET_LinkageList_S stLinkageList;               /* 联动配置 */
-    UINT32      uPointCount;                           /* 区域顶点数量 */
-    FLOAT       afPointX[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 区域顶点X坐标数组 [0-8192] */
-    FLOAT       afPointY[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 区域顶点Y坐标数组 [0-8192] */
     BYTE        byRes[256];                            /* 保留字段 */
 }NET_ConstructionOccupyRoadCfg_S;
 
@@ -4682,9 +4679,6 @@ typedef struct tagNET_CongestionCfg
     NET_AiSimpleRule_S stRule;                    /* 拥堵识别规则 */
     NET_AlarmSchedule_S stAlarmSchedule;           /* 布防时间 */
     NET_LinkageList_S stLinkageList;               /* 联动配置 */
-    UINT32      uPointCount;                           /* 区域顶点数量 */
-    FLOAT       afPointX[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 区域顶点X坐标数组 [0-8192] */
-    FLOAT       afPointY[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 区域顶点Y坐标数组 [0-8192] */
     BYTE        byRes[256];                            /* 保留字段 */
 }NET_CongestionCfg_S;
 
@@ -4702,9 +4696,6 @@ typedef struct tagNET_LicensePlateRecognitionCfg
     NET_AiSimpleRule_S stRule;                    /* 车牌识别规则 */
     NET_AlarmSchedule_S stAlarmSchedule;           /* 布防时间 */
     NET_LinkageList_S stLinkageList;               /* 联动配置 */
-    UINT32      uPointCount;                           /* 区域顶点数量 */
-    FLOAT       afPointX[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 区域顶点X坐标数组 [0-8192] */
-    FLOAT       afPointY[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 区域顶点Y坐标数组 [0-8192] */
     BYTE        byRes[256];                            /* 保留字段 */
 }NET_LicensePlateRecognitionCfg_S;
 
@@ -4722,9 +4713,6 @@ typedef struct tagNET_HighAltitudeSeatbeltCfg
     NET_AiSimpleRule_S stRule;                    /* 高空安全带识别规则 */
     NET_AlarmSchedule_S stAlarmSchedule;           /* 布防时间 */
     NET_LinkageList_S stLinkageList;               /* 联动配置 */
-    UINT32      uPointCount;                           /* 区域顶点数量 */
-    FLOAT       afPointX[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 区域顶点X坐标数组 [0-8192] */
-    FLOAT       afPointY[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 区域顶点Y坐标数组 [0-8192] */
     BYTE        byRes[256];                            /* 保留字段 */
 }NET_HighAltitudeSeatbeltCfg_S;
 
@@ -4742,9 +4730,6 @@ typedef struct tagNET_SafetyHelmetCfg
     NET_AiSimpleRule_S stRule;                    /* 安全帽识别规则 */
     NET_AlarmSchedule_S stAlarmSchedule;           /* 布防时间 */
     NET_LinkageList_S stLinkageList;               /* 联动配置 */
-    UINT32      uPointCount;                           /* 区域顶点数量 */
-    FLOAT       afPointX[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 区域顶点X坐标数组 [0-8192] */
-    FLOAT       afPointY[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 区域顶点Y坐标数组 [0-8192] */
     BYTE        byRes[256];                            /* 保留字段 */
 }NET_SafetyHelmetCfg_S;
 
@@ -4864,9 +4849,6 @@ typedef struct tagNET_ReflectiveClothingCfg
     NET_AiSimpleRule_S stRule;                    /* 反光衣识别规则 */
     NET_AlarmSchedule_S stAlarmSchedule;           /* 布防时间 */
     NET_LinkageList_S stLinkageList;               /* 联动配置 */
-    UINT32      uPointCount;                           /* 区域顶点数量 */
-    FLOAT       afPointX[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 区域顶点X坐标数组 [0-8192] */
-    FLOAT       afPointY[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 区域顶点Y坐标数组 [0-8192] */
     BYTE        byRes[256];                            /* 保留字段 */
 }NET_ReflectiveClothingCfg_S;
 
@@ -5099,9 +5081,6 @@ typedef struct tagNET_RoadPondingCfg
     NET_AiSimpleRule_S stRule;                    /* 道路积水检测规则 */
     NET_AlarmSchedule_S stAlarmSchedule;           /* 布防时间 */
     NET_LinkageList_S stLinkageList;               /* 联动配置 */
-    UINT32      uPointCount;                           /* 区域顶点数量 */
-    FLOAT       afPointX[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 区域顶点X坐标数组 [0-8192] */
-    FLOAT       afPointY[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 区域顶点Y坐标数组 [0-8192] */
     BYTE        byRes[256];                            /* 保留字段 */
 }NET_RoadPondingCfg_S;
 
