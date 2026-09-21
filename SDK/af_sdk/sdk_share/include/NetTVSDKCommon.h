@@ -5037,9 +5037,6 @@ typedef struct tagNET_SleepOnDutyCfg
     NET_AiSimpleRule_S stRule;                    /* 睡岗识别规则 */
     NET_AlarmSchedule_S stAlarmSchedule;           /* 布防时间 */
     NET_LinkageList_S stLinkageList;               /* 联动配置 */
-    UINT32      uPointCount;                           /* 区域顶点数量 */
-    FLOAT       afPointX[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 区域顶点X坐标数组 [0-8192] */
-    FLOAT       afPointY[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 区域顶点Y坐标数组 [0-8192] */
     BYTE        byRes[256];                            /* 保留字段 */
 }NET_SleepOnDutyCfg_S;
 
@@ -5198,9 +5195,6 @@ typedef struct tagNET_PersonFallCfg
     NET_AiSimpleRule_S stRule;                    /* 摔倒识别规则 */
     NET_AlarmSchedule_S stAlarmSchedule;           /* 布防时间 */
     NET_LinkageList_S stLinkageList;               /* 联动配置 */
-    UINT32      uPointCount;                           /* 区域顶点数量 */
-    FLOAT       afPointX[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 区域顶点X坐标数组 [0-8192] */
-    FLOAT       afPointY[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 区域顶点Y坐标数组 [0-8192] */
     BYTE        byRes[256];                            /* 保留字段 */
 }NET_PersonFallCfg_S;
 
@@ -5218,9 +5212,6 @@ typedef struct tagNET_PhoneUsageCfg
     NET_AiSimpleRule_S stRule;                    /* 玩手机识别规则 */
     NET_AlarmSchedule_S stAlarmSchedule;           /* 布防时间 */
     NET_LinkageList_S stLinkageList;               /* 联动配置 */
-    UINT32      uPointCount;                           /* 区域顶点数量 */
-    FLOAT       afPointX[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 区域顶点X坐标数组 [0-8192] */
-    FLOAT       afPointY[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 区域顶点Y坐标数组 [0-8192] */
     BYTE        byRes[256];                            /* 保留字段 */
 }NET_PhoneUsageCfg_S;
 
@@ -5238,9 +5229,6 @@ typedef struct tagNET_SmokingCfg
     NET_AiSimpleRule_S stRule;                    /* 抽烟识别规则 */
     NET_AlarmSchedule_S stAlarmSchedule;           /* 布防时间 */
     NET_LinkageList_S stLinkageList;               /* 联动配置 */
-    UINT32      uPointCount;                           /* 区域顶点数量 */
-    FLOAT       afPointX[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 区域顶点X坐标数组 [0-8192] */
-    FLOAT       afPointY[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 区域顶点Y坐标数组 [0-8192] */
     BYTE        byRes[256];                            /* 保留字段 */
 }NET_SmokingCfg_S;
 
@@ -5258,9 +5246,6 @@ typedef struct tagNET_OpenFlameCfg
     NET_AiSimpleRule_S stRule;                    /* 明火识别规则 */
     NET_AlarmSchedule_S stAlarmSchedule;           /* 布防时间 */
     NET_LinkageList_S stLinkageList;               /* 联动配置 */
-    UINT32      uPointCount;                           /* 区域顶点数量 */
-    FLOAT       afPointX[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 区域顶点X坐标数组 [0-8192] */
-    FLOAT       afPointY[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 区域顶点Y坐标数组 [0-8192] */
     BYTE        byRes[256];                            /* 保留字段 */
 }NET_OpenFlameCfg_S;
 
@@ -5278,9 +5263,6 @@ typedef struct tagNET_BareSoilCfg
     NET_AiSimpleRule_S stRule;                    /* 黄土裸露识别规则 */
     NET_AlarmSchedule_S stAlarmSchedule;           /* 布防时间 */
     NET_LinkageList_S stLinkageList;               /* 联动配置 */
-    UINT32      uPointCount;                           /* 区域顶点数量 */
-    FLOAT       afPointX[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 区域顶点X坐标数组 [0-8192] */
-    FLOAT       afPointY[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 区域顶点Y坐标数组 [0-8192] */
     BYTE        byRes[256];                            /* 保留字段 */
 }NET_BareSoilCfg_S;
 
@@ -5298,9 +5280,6 @@ typedef struct tagNET_HoleProtectionBarCfg
     NET_AiSimpleRule_S stRule;                    /* 洞口防护栏识别规则 */
     NET_AlarmSchedule_S stAlarmSchedule;           /* 布防时间 */
     NET_LinkageList_S stLinkageList;               /* 联动配置 */
-    UINT32      uPointCount;                           /* 区域顶点数量 */
-    FLOAT       afPointX[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 区域顶点X坐标数组 [0-8192] */
-    FLOAT       afPointY[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 区域顶点Y坐标数组 [0-8192] */
     BYTE        byRes[256];                            /* 保留字段 */
 }NET_HoleProtectionBarCfg_S;
 
@@ -5536,9 +5515,6 @@ typedef struct tagNET_SmokeFireCfg
     NET_AiSimpleRule_S stRule;                    /* 烟火识别规则 */
     NET_AlarmSchedule_S stAlarmSchedule;           /* 布防时间 */
     NET_LinkageList_S stLinkageList;               /* 联动配置 */
-    UINT32      uPointCount;                           /* 区域顶点数量 */
-    FLOAT       afPointX[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 区域顶点X坐标数组 [0-8192] */
-    FLOAT       afPointY[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 区域顶点Y坐标数组 [0-8192] */
     BYTE        byRes[256];                            /* 保留字段 */
 }NET_SmokeFireCfg_S;
 
