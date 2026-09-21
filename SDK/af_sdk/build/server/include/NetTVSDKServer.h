@@ -5021,12 +5021,9 @@ typedef struct tagNET_ManholeCoverAbnormalCfg
 {
     UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     BOOL        bEnable;                               /* 是否启用 0-不启用 1-启用 */
-    NET_AiSimpleRule_S stRule;                    /* 井盖异常检测规则 */
+    NET_AiSimpleRule_S stRule;                    /* 单规则智能检测通用规则参数 */
     NET_AlarmSchedule_S stAlarmSchedule;           /* 布防时间 */
     NET_LinkageList_S stLinkageList;               /* 联动配置 */
-    UINT32      uPointCount;                           /* 区域顶点数量 */
-    FLOAT       afPointX[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 区域顶点X坐标数组 [0-8192] */
-    FLOAT       afPointY[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 区域顶点Y坐标数组 [0-8192] */
     BYTE        byRes[256];                            /* 保留字段 */
 }NET_ManholeCoverAbnormalCfg_S;
 

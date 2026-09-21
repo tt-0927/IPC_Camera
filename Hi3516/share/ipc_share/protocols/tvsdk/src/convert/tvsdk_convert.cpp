@@ -2599,11 +2599,6 @@ void FillManholeCoverAbnormalCfg(const Alarm::ManholeCoverAbnormalDetection_S &s
     dst.stRule.nSensitivity = (INT32)src.stRule.nSensitivity;
     FillSingleRuleAlarmSchedule(src.aAlarmTime, dst.stAlarmSchedule);
     FillLinkageList(src.stLinkageList, dst.stLinkageList);
-    
-    /* 返回默认全屏区域 */
-    dst.uPointCount = 4;
-    dst.afPointX[0] = 0.0f; dst.afPointX[1] = 1920.0f; dst.afPointX[2] = 1920.0f; dst.afPointX[3] = 0.0f;
-    dst.afPointY[0] = 0.0f; dst.afPointY[1] = 0.0f; dst.afPointY[2] = 1080.0f; dst.afPointY[3] = 1080.0f;
 }
 
 void ToManholeCoverAbnormal(const NET_ManholeCoverAbnormalCfg_S &src, Alarm::ManholeCoverAbnormalDetection_S &dst)
@@ -2612,7 +2607,6 @@ void ToManholeCoverAbnormal(const NET_ManholeCoverAbnormalCfg_S &src, Alarm::Man
     dst.stRule.nSensitivity = (unsigned int)src.stRule.nSensitivity;
     ToSingleRuleAlarmSchedule(src.stAlarmSchedule, dst.aAlarmTime);
     ToLinkageList(src.stLinkageList, dst.stLinkageList);
-    /* 接收区域字段但不使用（IPC业务不处理区域） */
 }
 
 void FillSleepOnDutyCfg(const Alarm::SleepOnDutyDetection_S &src, NET_SleepOnDutyCfg_S &dst)
