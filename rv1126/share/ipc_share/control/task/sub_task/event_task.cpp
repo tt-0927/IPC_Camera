@@ -1292,8 +1292,8 @@ void Task::Event::SetLoiteringDetectionInfo::handle()
     }
     for (auto &rule : stInfo.aRule)
     {
-        /* 参数有效性判断 */
-        if (rule.nTimeThreshold < 0 || rule.nTimeThreshold > 10 || rule.nSensitivity < 1 || rule.nSensitivity > 100)
+        /* 参数有效性判断：徘徊侦测灵敏度按参数对照表要求为 0~10 */
+        if (rule.nTimeThreshold < 0 || rule.nTimeThreshold > 10 || rule.nSensitivity < 0 || rule.nSensitivity > 10)
         {
             dlog_error("设置徘徊侦测信息参数错误");
             result(ERR_WEB_PARAM);

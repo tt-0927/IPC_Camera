@@ -573,7 +573,8 @@ static bool tvsdk_valid_region_parameters(const TRule &stRule, int nActionCode)
     const bool bIgnoreTime = nActionCode == AC_SET_ENTER_REGION_DETECT_INFO ||
                              nActionCode == AC_SET_LEAVE_REGION_DETECT_INFO;
     return tvsdk_valid_polygon(stRule) &&
-           stRule.nSensitivity >= 1 && stRule.nSensitivity <= 100 &&
+           stRule.nSensitivity >= tvsdk_rule_min_sens(nActionCode) &&
+           stRule.nSensitivity <= tvsdk_rule_max_sens(nActionCode) &&
            (bIgnoreTime || (stRule.nTimeThreshold >= tvsdk_rule_min_time(nActionCode) &&
                             stRule.nTimeThreshold <= tvsdk_rule_max_time(nActionCode)));
 }
