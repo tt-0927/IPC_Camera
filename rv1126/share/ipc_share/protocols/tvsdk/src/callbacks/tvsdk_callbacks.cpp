@@ -487,6 +487,30 @@ static INT32 tvsdk_rule_max_time(int nActionCode)
 }
 
 /**
+ * @brief   : 根据事件选择灵敏度下限，徘徊侦测按参数对照表要求放宽到 0 起。
+ * @param    {int} nActionCode 设置配置的 IPC 命令号。
+ * @return   {INT32} 该事件允许的最小灵敏度。
+ */
+static INT32 tvsdk_rule_min_sens(int nActionCode)
+{
+    constexpr INT32 TVSDK_RULE_MIN_SENS = 1;
+    constexpr INT32 TVSDK_LOITERING_MIN_SENS = 0;
+    return (nActionCode == AC_SET_LOITERING_DETECT_INFO) ? TVSDK_LOITERING_MIN_SENS : TVSDK_RULE_MIN_SENS;
+}
+
+/**
+ * @brief   : 根据事件取得灵敏度上限，徘徊侦测按参数对照表要求收紧到 10。
+ * @param    {int} nActionCode 设置配置的 IPC 命令号。
+ * @return   {INT32} 允许的最大灵敏度。
+ */
+static INT32 tvsdk_rule_max_sens(int nActionCode)
+{
+    constexpr INT32 TVSDK_RULE_MAX_SENS = 100;
+    constexpr INT32 TVSDK_LOITERING_MAX_SENS = 10;
+    return (nActionCode == AC_SET_LOITERING_DETECT_INFO) ? TVSDK_LOITERING_MAX_SENS : TVSDK_RULE_MAX_SENS;
+}
+
+/**
  * @brief 校验多边形点数和像素坐标，识别全部为零的未配置区域。
  * @param [in] stRule SDK 多边形规则。
  * @return 点数、坐标合法且存在非零点时返回 true，否则返回 false。
@@ -2661,7 +2685,8 @@ static NET_COMMON_ECODE_E cb_set_loitering_alarm(INT32 nChannelId, LPVOID pInBuf
         const NET_LoiteringRule_S &stRule = stNormalized.stRule[nIndex];
         const INT32 nPointCapacity = static_cast<INT32>(sizeof(stRule.afPointX) / sizeof(stRule.afPointX[0]));
         if (stRule.uPointCount < 0 || stRule.uPointCount > nPointCapacity ||
-            stRule.nSensitivity < 1 || stRule.nSensitivity > 100 ||
+            stRule.nSensitivity < tvsdk_rule_min_sens(AC_SET_LOITERING_DETECT_INFO) ||
+            stRule.nSensitivity > tvsdk_rule_max_sens(AC_SET_LOITERING_DETECT_INFO) ||
             stRule.nTimeThreshold < tvsdk_rule_min_time(AC_SET_LOITERING_DETECT_INFO) ||
             stRule.nTimeThreshold > tvsdk_rule_max_time(AC_SET_LOITERING_DETECT_INFO))
         {
