@@ -1101,11 +1101,6 @@ void ControlManage::bind_task(std::shared_ptr<CTaskManage> &pTaskManage)
     /* 推送非机动车抓拍信息 */
     pTaskManage->bind<Task::Event::PushNonMotorVehicleCaptureInfo>(AC_PUSH_NONMOTORVEHICLE_CAPTURE_INFO);
 
-#if CAP_AI_GARBAGE_DETECT
-    /* 垃圾站手动抓图并送垃圾识别 */
-    pTaskManage->bind<Task::Event::GarbageStationSnapshotDetect>(AC_GARBAGE_STATION_SNAPSHOT_DETECT);
-#endif
-
     pTaskManage->bind<Task::Event::GetFenceClimbingInfo>(AC_GET_CLIMB_FENCE_INFO);
     pTaskManage->bind<Task::Event::SetFenceClimbingInfo>(AC_SET_CLIMB_FENCE_INFO);
 
@@ -1189,6 +1184,8 @@ void ControlManage::bind_task(std::shared_ptr<CTaskManage> &pTaskManage)
     /* 垃圾满溢识别 */
     pTaskManage->bind<Task::Event::GetGarbageOverflowInfo>(AC_GET_GARBAGE_OVERFLOW_CFG);
     pTaskManage->bind<Task::Event::SetGarbageOverflowInfo>(AC_SET_GARBAGE_OVERFLOW_CFG);
+    /* 垃圾站手动抓图并送垃圾识别 */
+    pTaskManage->bind<Task::Event::GarbageStationSnapshotDetect>(AC_GARBAGE_STATION_SNAPSHOT_DETECT);
 #endif
 
 #if CAP_AI_PEOPLE_STATISTICS
