@@ -103,6 +103,14 @@ public:
      * @param strPicPath 
      */
     void compare_Face_Retrieval(std::string strPicPath);
+
+#if CAP_AI_GARBAGE_DETECT
+    /**
+     * @brief 垃圾站手动抓图并送垃圾识别
+     * @param pData 输出：识别结果与图片路径的 JSON 字符串（std::string*）
+     */
+    void snapshot_garbage_detect(void *pData);
+#endif
  
     /**
      * @brief 配置算法参数

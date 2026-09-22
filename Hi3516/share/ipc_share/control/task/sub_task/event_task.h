@@ -172,6 +172,11 @@ namespace Task
         /* 推送非机动车抓拍信息 */
         TaskSubClass(PushNonMotorVehicleCaptureInfo)
 
+#if CAP_AI_GARBAGE_DETECT
+        /* 垃圾站手动抓图并送垃圾识别 */
+        TaskSubClass(GarbageStationSnapshotDetect)
+#endif
+
         // 翻越围栏
         TaskSubClass(GetFenceClimbingInfo)
         TaskSubClass(SetFenceClimbingInfo)

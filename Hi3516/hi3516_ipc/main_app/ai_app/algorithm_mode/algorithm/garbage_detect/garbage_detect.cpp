@@ -242,7 +242,17 @@ void CGarbageDetect::run()
         }
 
         std::vector<Inference_NS::BoxData_S> vBoxDatas;
-        if (!inferFrame(pFrameInfo, vBoxDatas) || !isEnabled())
+        const bool bInferOk = inferFrame(pFrameInfo, vBoxDatas);
+
+        /* 手动抓拍请求优先处理：不受事件使能判断影响，处理完再走正常事件流程。 */
+        if (m_bSnapshotPending.load())
+        {
+            dlog_info("垃圾站抓图识别-算法层: 流式线程收到快照请求，开始处理该帧 推理[%s]",
+                      bInferOk ? "成功" : "失败");
+            handleSnapshotRequest(bInferOk ? pFrameInfo : nullptr, vBoxDatas);
+        }
+
+        if (!bInferOk || !isEnabled())
         {
             continue;
         }
@@ -358,6 +368,116 @@ void CGarbageDetect::processGarbageDetect(std::vector<Inference_NS::BoxData_S> &
     }
 #endif
     m_garbageExposureAlarmStateMachine.handleAlarmState(bGarbageExposure, stExposureContext);
+}
+
+void CGarbageDetect::processSnapshotDetect(std::vector<Inference_NS::BoxData_S> &vBoxDatas, SnapshotResult_S &stResult)
+{
+    /* 手动抓拍仅复用区域限制：不判断事件使能，也不经过报警状态机。 */
+    for (const auto &boxData : vBoxDatas)
+    {
+        if (boxData.nLabel == GARBAGE_OVERFLOW_LABEL_ID)
+        {
+            if (is_in_region(m_stAlgoGarbageOverflowCfg.stRule.stRegion, boxData.stBoxs))
+            {
+                stResult.bGarbageOverflow = true;
+                add_result_to_vector(boxData, stResult.vstRectInfo);
+            }
+            continue;
+        }
+
+        if (boxData.nLabel == GARBAGE_EXPOSURE_LABEL_ID)
+        {
+            if (is_in_region(m_stAlgoGarbageExposureCfg.stRule.stRegion, boxData.stBoxs))
+            {
+                stResult.bGarbageExposure = true;
+                add_result_to_vector(boxData, stResult.vstRectInfo);
+            }
+            continue;
+        }
+    }
+
+    dlog_info("垃圾站抓图识别-算法层: 区域过滤完成，推理框[%d] 命中框[%d] 满溢[%d] 暴露[%d]",
+              static_cast<int>(vBoxDatas.size()), static_cast<int>(stResult.vstRectInfo.size()),
+              stResult.bGarbageOverflow ? 1 : 0, stResult.bGarbageExposure ? 1 : 0);
+}
+
+void CGarbageDetect::handleSnapshotRequest(ot_video_frame_info *pFrameInfo,
+                                           const std::vector<Inference_NS::BoxData_S> &vBoxDatas)
+{
+    SnapshotResult_S stResult;
+
+    if (pFrameInfo != nullptr)
+    {
+        /* 推理结果由调用方复用，避免重复推理。 */
+        std::vector<Inference_NS::BoxData_S> vBoxes = vBoxDatas;
+        processSnapshotDetect(vBoxes, stResult);
+
+        /* 全景图按正常事件流程同样的方式在内存中编码为 JPEG。 */
+        const auto tpJpegBegin = std::chrono::steady_clock::now();
+        EventTvSdkImage_S stImage;
+        if (AiAppCommon::encode_video_frame_to_jpeg_memory(pFrameInfo, stImage) == OK)
+        {
+            stResult.vecJpeg = stImage.vecJpeg;
+            const auto nJpegCostMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+                                         std::chrono::steady_clock::now() - tpJpegBegin)
+                                         .count();
+            dlog_info("垃圾站抓图识别-算法层: JPEG 编码完成，大小[%d]字节 耗时[%lld]ms",
+                      static_cast<int>(stResult.vecJpeg.size()), static_cast<long long>(nJpegCostMs));
+        }
+        else
+        {
+            dlog_error("垃圾站抓图识别-算法层: JPEG 编码失败");
+        }
+    }
+    else
+    {
+        dlog_warn("垃圾站抓图识别-算法层: 帧数据为空，仅返回空结果");
+    }
+
+    {
+        std::lock_guard<std::mutex> lock(m_snapshotMutex);
+        m_stSnapshotResult = std::move(stResult);
+        m_bSnapshotDone = true;
+    }
+    m_snapshotCv.notify_all();
+}
+
+bool CGarbageDetect::detectOnce(SnapshotResult_S &stResult, int nTimeoutMs)
+{
+    if (!m_pGarbageDetHandle)
+    {
+        dlog_error("垃圾站抓图识别-算法层: 算法句柄未初始化，无法执行单帧检测");
+        return false;
+    }
+
+    dlog_info("垃圾站抓图识别-算法层: 投递单帧检测请求，等待流式线程执行，超时[%d]ms", nTimeoutMs);
+    const auto tpBegin = std::chrono::steady_clock::now();
+
+    {
+        std::unique_lock<std::mutex> lock(m_snapshotMutex);
+        m_bSnapshotDone = false;
+        m_stSnapshotResult = SnapshotResult_S();
+    }
+    m_bSnapshotPending.store(true);
+
+    std::unique_lock<std::mutex> lock(m_snapshotMutex);
+    const bool bCompleted = m_snapshotCv.wait_for(lock, std::chrono::milliseconds(nTimeoutMs),
+                                                  [this]() { return m_bSnapshotDone; });
+    m_bSnapshotPending.store(false);
+    if (!bCompleted)
+    {
+        dlog_error("垃圾站抓图识别-算法层: 单帧检测超时[%d]ms，可能流式线程未收到帧", nTimeoutMs);
+        return false;
+    }
+
+    stResult = std::move(m_stSnapshotResult);
+    const auto nTotalCostMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+                                  std::chrono::steady_clock::now() - tpBegin)
+                                  .count();
+    dlog_info("垃圾站抓图识别-算法层: 单帧检测完成，总等待[%lld]ms 命中框[%d] JPEG[%d]字节",
+              static_cast<long long>(nTotalCostMs), static_cast<int>(stResult.vstRectInfo.size()),
+              static_cast<int>(stResult.vecJpeg.size()));
+    return true;
 }
 
 void CGarbageDetect::handleDetectResult(const std::vector<Inference_NS::BoxData_S> &vBoxDatas, ot_video_frame_info *pFrameInfo)

@@ -896,6 +896,50 @@ std::string CCaptureCtrl::capture_image(Capture_NS::CaptureType_E eCaptureType,
     return strFilePath;
 }
 
+int CCaptureCtrl::save_event_image(unsigned char *pData, int nDataLen, const Event::Type_E enEventType,
+                                   const std::string &strDateCompact, const std::string &strTimeCompactMs,
+                                   std::string &strFilePath)
+{
+    if (!pData || nDataLen <= 0)
+    {
+        dlog_error("垃圾站抓图识别-落盘层: 图片数据为空，长度[%d]", nDataLen);
+        return -1;
+    }
+
+    dlog_info("垃圾站抓图识别-落盘层: 开始落盘，事件类型[%d] 数据长度[%d]字节 日期[%s] 时间[%s]",
+              static_cast<int>(enEventType), nDataLen, strDateCompact.c_str(), strTimeCompactMs.c_str());
+
+    /* 时间字段由调用方按事件触发时间生成，保证图片命名与上报时间戳一致。 */
+    Event::Info_S stEventInfo;
+    stEventInfo.nChnId = 0;
+    stEventInfo.enType = enEventType;
+    stEventInfo.strDate = strDateCompact;
+    stEventInfo.strTime = strTimeCompactMs;
+    stEventInfo.strStartTime = TimeUtils_NS::get_currentDateWithDash() + " " + TimeUtils_NS::get_currentTimeWithColon();
+    stEventInfo.strEndTime = stEventInfo.strStartTime;
+
+    /* 复用事件抓图落盘流程，保证路径命名与数据库记录与正常事件一致。 */
+    strFilePath = capture_image(Capture_NS::CaptureType_E::EVENT_CAPTURE, pData, nDataLen, stEventInfo, 0, enEventType);
+    if (strFilePath.empty())
+    {
+        dlog_error("垃圾站抓图识别-落盘层: 落盘失败，capture_image 未返回路径");
+        return -1;
+    }
+
+    std::error_code stErrorCode;
+    const auto nFileSize = std::filesystem::file_size(strFilePath, stErrorCode);
+    if (stErrorCode)
+    {
+        dlog_error("垃圾站抓图识别-落盘层: 落盘后读取大小失败[%s]", strFilePath.c_str());
+        return -1;
+    }
+
+    dlog_info("垃圾站抓图识别-落盘层: 落盘成功，路径[%s] 实际大小[%lld]字节", strFilePath.c_str(),
+              static_cast<long long>(nFileSize));
+
+    return static_cast<int>(nFileSize);
+}
+
 int CCaptureCtrl::delete_old_images()
 {
     dlog_info("开始批量删除旧图片");
