@@ -483,13 +483,24 @@ static INT32 tvsdk_rule_max_time(int nActionCode)
 template <typename TRule>
 static bool tvsdk_valid_polygon(const TRule &stRule)
 {
+    /*
+     * 点数为 0 表示未配置区域，视为合法（网页端不显示该规则的时间阈值与灵敏度）。
+     * 点数为 4 时即使坐标全零也表示规则已配置、仅区域尚未绘制，
+     * 网页仍会显示其灵敏度与时间阈值，因此不要求存在非零坐标；
+     * 否则已配置的规则会被判为无效并触发回退，连带合法请求整体失败。
+     */
+    if (stRule.uPointCount == 0)
+    {
+        return true;
+    }
+
     constexpr INT32 TVSDK_POLYGON_MIN_POINTS = 3;
     const INT32 nCapacity = static_cast<INT32>(sizeof(stRule.afPointX) / sizeof(stRule.afPointX[0]));
     if (stRule.uPointCount < TVSDK_POLYGON_MIN_POINTS || stRule.uPointCount > nCapacity)
     {
         return false;
     }
-    bool bHasPoint = false;
+
     for (INT32 nIndex = 0; nIndex < stRule.uPointCount; ++nIndex)
     {
         const Common::PosF_S stPoint(stRule.afPointX[nIndex], stRule.afPointY[nIndex]);
@@ -497,9 +508,8 @@ static bool tvsdk_valid_polygon(const TRule &stRule)
         {
             return false;
         }
-        bHasPoint = bHasPoint || (stPoint.fX != 0.0F) || (stPoint.fY != 0.0F);
     }
-    return bHasPoint;
+    return true;
 }
 
 /**
@@ -535,6 +545,16 @@ static bool tvsdk_valid_rule_targets(const TRule &stRule)
 template <typename TRule>
 static bool tvsdk_valid_region_parameters(const TRule &stRule, int nActionCode)
 {
+    /*
+     * 点数为 0 表示未配置区域：网页端不显示该规则的时间阈值与灵敏度，
+     * 这两个字段此时无业务意义，跳过校验，
+     * 避免未配置的规则因携带越界旧值被误判为无效并触发回退。
+     */
+    if (stRule.uPointCount == 0)
+    {
+        return true;
+    }
+
     const bool bIgnoreTime = nActionCode == AC_SET_ENTER_REGION_DETECT_INFO ||
                              nActionCode == AC_SET_LEAVE_REGION_DETECT_INFO;
     return tvsdk_valid_polygon(stRule) &&
