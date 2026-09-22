@@ -1235,8 +1235,12 @@ void Task::Event::GarbageStationSnapshotDetect::handle()
     std::string strStartTime;
     std::string strEndTime;
     int nEventType = static_cast<int>(::Event::Type_E::GARBAGE_STATION_SNAPSHOT);
+    int nGarbageOverflow = 0;
+    int nGarbageExposure = 0;
     Json::get(pAlgoJson, "ImagePath", strImagePath);
     Json::get(pAlgoJson, "EventType", nEventType);
+    Json::get(pAlgoJson, "GarbageOverflow", nGarbageOverflow);
+    Json::get(pAlgoJson, "GarbageExposure", nGarbageExposure);
     Json::get(pAlgoJson, "Timestamp", strTimestamp);
     Json::get(pAlgoJson, "Date", strDate);
     Json::get(pAlgoJson, "Time", strTime);
@@ -1246,6 +1250,8 @@ void Task::Event::GarbageStationSnapshotDetect::handle()
 
     const ::Event::Type_E enEventType = static_cast<::Event::Type_E>(nEventType);
     const std::string strEventName = EventLinkageDict::get_event_name(enEventType);
+    /* 抓拍送垃圾侦测的结果：满溢或暴露任一命中即为 1，两者均未命中为 0。 */
+    const int nGarbageDetected = (nGarbageOverflow != 0 || nGarbageExposure != 0) ? 1 : 0;
     const int nChannel = 0;
     const int nEventStatus = 1;
     /* 报警 RequestId 规则与事件链路一致：event-<EventType>-<Channel>-<Timestamp> */
@@ -1353,6 +1359,11 @@ void Task::Event::GarbageStationSnapshotDetect::handle()
     if (pRespJson)
     {
         Json::add(pRespJson, "Result", 0);
+        /* 抓拍送垃圾侦测的结果：满溢或暴露任一识别到即为 1，均未识别到为 0 */
+        Json::add(pRespJson, "GarbageDetected", nGarbageDetected);
+        /* 垃圾侦测结果：1 表示识别到，0 表示未识别到 */
+        Json::add(pRespJson, "GarbageOverflow", nGarbageOverflow);
+        Json::add(pRespJson, "GarbageExposure", nGarbageExposure);
         Json::add(pRespJson, "EventType", nEventType);
         Json::add(pRespJson, "EventName", strEventName);
         Json::add(pRespJson, "EventStatus", nEventStatus);
