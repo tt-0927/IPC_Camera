@@ -10,6 +10,10 @@
 #include "algo_stream_deal.h"
 
 #include "algo_statistics_event_publisher.hpp"
+#if CAP_AI_GARBAGE_DETECT
+#include "capture_ctrl.h"
+#include "time_utils.h"
+#endif
 
 #if CAP_AI_PEOPLE_DENSITY_LEGACY && CAP_AI_PEOPLE_DENSITY_V2
 #error "CAP_AI_PEOPLE_DENSITY_LEGACY and CAP_AI_PEOPLE_DENSITY_V2 cannot be enabled at the same time"
@@ -536,4 +540,131 @@ int CAlgoStreamDeal::add_Facelib_Groups(FaceDataDB_NS::FaceLibsInfo_S &stFaceLib
 
      return;
  }
+#endif
+
+#if CAP_AI_GARBAGE_DETECT
+void CAlgoStreamDeal::snapshot_garbage_detect(void *pData)
+{
+    Json::Object *pRootJson = Json::init();
+    int nResult = -1;
+    std::string strImagePath;
+
+    dlog_info("垃圾站抓图识别-AI层: 收到抓图识别请求，开始处理");
+
+    do
+    {
+        if (!pRootJson)
+        {
+            dlog_error("垃圾站抓图识别-AI层: 创建 JSON 失败");
+            break;
+        }
+
+        if (!m_pGarbageAlgo)
+        {
+            dlog_error("垃圾站抓图识别-AI层: 垃圾算法实例未创建（垃圾暴露与垃圾满溢可能均未启用）");
+            break;
+        }
+
+        std::shared_ptr<CGarbageDetect> pGarbageAlgo = std::dynamic_pointer_cast<CGarbageDetect>(m_pGarbageAlgo);
+        if (!pGarbageAlgo)
+        {
+            dlog_error("垃圾站抓图识别-AI层: 算法实例类型转换失败");
+            break;
+        }
+
+        /* 单帧检测：请求由算法流式线程串行执行，避免并发调用推理句柄。 */
+        CGarbageDetect::SnapshotResult_S stSnapshot;
+        if (!pGarbageAlgo->detectOnce(stSnapshot))
+        {
+            dlog_error("垃圾站抓图识别-AI层: 单帧检测失败（超时或算法未就绪）");
+            break;
+        }
+        dlog_info("垃圾站抓图识别-AI层: 单帧检测成功，命中框[%d] 满溢[%d] 暴露[%d] JPEG[%d]字节",
+                  static_cast<int>(stSnapshot.vstRectInfo.size()),
+                  stSnapshot.bGarbageOverflow ? 1 : 0, stSnapshot.bGarbageExposure ? 1 : 0,
+                  static_cast<int>(stSnapshot.vecJpeg.size()));
+
+        /* 快照触发时刻即事件触发时间戳：图片命名、上报时间与响应字段统一使用该值。 */
+        const long long llEventTimestampMs = TimeUtils_NS::get_currentTimestampMs();
+        const std::string strTimestamp = std::to_string(llEventTimestampMs);
+        const std::string strDateDash = TimeUtils_NS::timestamp_to_date(llEventTimestampMs);
+        const std::string strTimeColon = TimeUtils_NS::timestamp_to_time(llEventTimestampMs);
+        const std::string strDateTimeDash = strDateDash + " " + strTimeColon;
+        std::string strDateCompact;
+        for (char ch : strDateDash)
+        {
+            if (ch != '-')
+            {
+                strDateCompact += ch;
+            }
+        }
+        std::string strTimeCompactMs;
+        for (char ch : strTimeColon)
+        {
+            if (ch != ':')
+            {
+                strTimeCompactMs += ch;
+            }
+        }
+        /* 补足 3 位毫秒，与事件链路的时间片段格式一致。 */
+        strTimeCompactMs += std::to_string(1000 + static_cast<int>(llEventTimestampMs % 1000)).substr(1);
+
+        /* 本功能使用独立事件类型，与垃圾暴露/满溢的自动事件区分开。 */
+        const Event::Type_E enEventType = Event::Type_E::GARBAGE_STATION_SNAPSHOT;
+
+        /* 按命中的事件类型落盘，命名与入库与正常垃圾事件抓图一致。 */
+        if (!stSnapshot.vecJpeg.empty())
+        {
+            const int nSaveRet = CCaptureCtrl::instance()->save_event_image(
+                stSnapshot.vecJpeg.data(), static_cast<int>(stSnapshot.vecJpeg.size()), enEventType,
+                strDateCompact, strTimeCompactMs, strImagePath);
+            if (nSaveRet < 0)
+            {
+                dlog_error("垃圾站抓图识别-AI层: 图片落盘失败，事件类型[%d]", static_cast<int>(enEventType));
+            }
+            else
+            {
+                dlog_info("垃圾站抓图识别-AI层: 图片落盘成功，事件类型[%d] 大小[%d]字节 路径[%s]",
+                          static_cast<int>(enEventType), nSaveRet, strImagePath.c_str());
+            }
+        }
+        else
+        {
+            dlog_warn("垃圾站抓图识别-AI层: JPEG 数据为空，跳过落盘");
+        }
+
+        Json::add(pRootJson, "GarbageOverflow", stSnapshot.bGarbageOverflow ? 1 : 0);
+        Json::add(pRootJson, "GarbageExposure", stSnapshot.bGarbageExposure ? 1 : 0);
+        Json::add(pRootJson, "ImagePath", strImagePath);
+
+        /* 以下字段与正常垃圾事件上报平台的格式保持一致（见 event_linkage_action_direct.cpp:130-152）。 */
+        Json::add(pRootJson, "EventType", static_cast<int>(enEventType));
+        Json::add(pRootJson, "EventStatus", 1);
+        Json::add(pRootJson, "Channel", 0);
+        Json::add(pRootJson, "Timestamp", strTimestamp);
+        Json::add(pRootJson, "Date", strDateCompact);
+        Json::add(pRootJson, "Time", strTimestamp);
+        Json::add(pRootJson, "StartTime", strDateTimeDash);
+        Json::add(pRootJson, "EndTime", strDateTimeDash);
+
+        nResult = 0;
+    } while (false);
+
+    if (pRootJson)
+    {
+        Json::add(pRootJson, "Result", nResult);
+        if (pData != nullptr)
+        {
+            *(static_cast<std::string *>(pData)) = Json::to_string(pRootJson);
+        }
+        Json::deinit(pRootJson);
+    }
+    else if (pData != nullptr)
+    {
+        *(static_cast<std::string *>(pData)) = "{\"Result\":-1}";
+    }
+
+    dlog_info("垃圾站抓图识别-AI层: 处理结束，结果码[%d] 图片路径[%s]", nResult,
+              strImagePath.empty() ? "无" : strImagePath.c_str());
+}
 #endif

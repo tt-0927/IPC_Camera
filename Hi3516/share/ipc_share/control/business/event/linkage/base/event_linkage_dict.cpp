@@ -861,6 +861,8 @@ std::string EventLinkageDict::get_event_name(Event::Type_E enType)
         return "垃圾暴露识别";
     case Event::Type_E::GARBAGE_OVERFLOW:
         return "垃圾满溢识别";
+    case Event::Type_E::GARBAGE_STATION_SNAPSHOT:
+        return "垃圾站抓图识别";
 #endif
 #if CAP_AI_PEOPLE_STATISTICS
     case Event::Type_E::PEOPLE_FLOW_STATISTICS:

@@ -155,6 +155,9 @@ namespace Event
         PEOPLE_DENSITY_SEVERE = 553, /* 人员密度检测-严重报警 */
 #endif
 
+        /* ========== 垃圾站 ========== */
+        GARBAGE_STATION_SNAPSHOT = 56, /* 垃圾站手动抓图识别 */
+
         /**
          * @brief   : 事件其他特殊类型
          */
@@ -249,6 +252,7 @@ namespace Event
         case Type::SMOKE_FIRE:
         case Type::OPEN_FLAME:
         case Type::GARBAGE_OVERFLOW:
+        case Type::GARBAGE_STATION_SNAPSHOT:
         case Type::MANHOLE_COVER_ABNORMAL:
         case Type::BARE_SOIL:
         case Type::HOLE_PROTECTION_BAR:

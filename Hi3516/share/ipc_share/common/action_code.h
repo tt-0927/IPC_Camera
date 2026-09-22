@@ -1114,4 +1114,9 @@ typedef enum
      */
     AC_TRIGGER_SOUND_LIGHT_ALARM = 11000,
 
+    /**
+     * @brief 垃圾站平台手动抓图并送垃圾识别
+     */
+    AC_GARBAGE_STATION_SNAPSHOT_DETECT = 11001,
+
 } ActionCode_E;
