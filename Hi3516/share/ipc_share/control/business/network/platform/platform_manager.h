@@ -300,6 +300,13 @@ public:
     std::string get_access_token() const;
 
     /**
+     * @brief   : 获取设备序列号
+     *            与图片上传时补齐 SN 的逻辑一致，优先取 MQTT 客户端标识，为空时回退设备信息
+     * @return   {std::string} 设备序列号，取不到时返回空串
+     */
+    std::string get_device_sn() const;
+
+    /**
      * @brief 上报设备信息
      * @param device 设备信息结构体
      * @param token 认证 Token (Authorization Bearer 后面的字符串)

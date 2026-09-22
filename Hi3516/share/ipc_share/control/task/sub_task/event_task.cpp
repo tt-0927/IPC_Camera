@@ -1347,8 +1347,31 @@ void Task::Event::GarbageStationSnapshotDetect::handle()
 
     dlog_info("垃圾站抓图识别-业务层: 处理结束，端到端耗时[%lld]ms 报警RequestId[%s]",
               TimeUtils_NS::get_currentTimestampMs() - llBeginMs, strAlarmRequestId.c_str());
-    /* 业务数据经 /event 主题推送，任务响应仅回执。 */
-    result("{\"Result\":0}");
+
+    /* 任务响应回填事件信息与设备序列号，便于平台直接拼接使用。 */
+    Json::Object *pRespJson = Json::init();
+    if (pRespJson)
+    {
+        Json::add(pRespJson, "Result", 0);
+        Json::add(pRespJson, "EventType", nEventType);
+        Json::add(pRespJson, "EventName", strEventName);
+        Json::add(pRespJson, "EventStatus", nEventStatus);
+        Json::add(pRespJson, "Channel", nChannel);
+        Json::add(pRespJson, "Timestamp", strTimestamp);
+        Json::add(pRespJson, "Date", strDate);
+        Json::add(pRespJson, "Time", strTime);
+        Json::add(pRespJson, "StartTime", strStartTime);
+        Json::add(pRespJson, "EndTime", strEndTime);
+        Json::add(pRespJson, "device_sn", CPlatformManager::instance()->get_device_sn());
+
+        const std::string strResp = Json::to_string(pRespJson);
+        Json::deinit(pRespJson);
+        result(strResp);
+    }
+    else
+    {
+        result("{\"Result\":0}");
+    }
 }
 #endif
 

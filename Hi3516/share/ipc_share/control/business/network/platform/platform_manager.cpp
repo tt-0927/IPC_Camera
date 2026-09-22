@@ -1038,6 +1038,19 @@ std::string CPlatformManager::get_access_token() const
     return access_token_;
 }
 
+std::string CPlatformManager::get_device_sn() const
+{
+    /* 与 upload_event_image() 补齐 SN 的取值顺序保持一致 */
+    if (!m_strMqttClientId.empty())
+    {
+        return m_strMqttClientId;
+    }
+
+    System::DeviceInfo_S stDeviceInfo;
+    SystemManage::instance()->get_device_info(stDeviceInfo);
+    return stDeviceInfo.serialNumber;
+}
+
 bool CPlatformManager::storeDevice(const StoreDevice &device, const std::string &token, StoreResponse &out_response)
 {
     // 1. 构建 JSON 请求体
