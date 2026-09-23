@@ -205,6 +205,16 @@ IpcRet_E COsdManage::init()
         Convert::write_file(m_strOverplayFile, m_vecOverplayInfo);
     }
 
+    /* 旧版本配置无 FontColorType 字段，反序列化遗留未初始化值，按颜色串回落合法枚举 */
+    for (auto &info : m_vecOverplayInfo)
+    {
+        if (info.stuOverplay.enFontColor < Osd::OSD_COLOR_BLACK || info.stuOverplay.enFontColor > Osd::OSD_COLOR_AUTO_BLACK_WHITE)
+        {
+            info.stuOverplay.enFontColor =
+                ("0xFFFFFF" == info.stuOverplay.strFontColor) ? Osd::OSD_COLOR_WHITE : Osd::OSD_COLOR_BLACK;
+        }
+    }
+
     if (Convert::read_file(m_strCoverFile, m_vecCoverInfo))
     {
         dlog_error("没有找到cover.json文件, 重新创建");
@@ -436,6 +446,8 @@ IpcRet_E COsdManage::set_osd_attr(Osd::OsdAttribute_S stOsdAttr, Osd::Overplay_S
         return ERR;
     }
 
+    /* 颜色枚举透传给渲染层（"黑白自动"按枚举判断反色），颜色串按枚举映射（渲染/回退用） */
+    stOverplay.enFontColor = stOsdAttr.enFontColor;
     switch (stOsdAttr.enFontColor)
     {
     case Osd::OSD_COLOR_E::OSD_COLOR_BLACK:
@@ -450,6 +462,10 @@ IpcRet_E COsdManage::set_osd_attr(Osd::OsdAttribute_S stOsdAttr, Osd::Overplay_S
         {
             stOverplay.strFontColor.replace(0, 1, "0x"); // 替换 '#' 为 '0x'
         }
+        break;
+    case Osd::OSD_COLOR_E::OSD_COLOR_AUTO_BLACK_WHITE:
+        /* 黑白自动：渲染层逐字符按背景亮度选黑/白，颜色串仅作反色不可用时的回退 */
+        stOverplay.strFontColor = "0xFFFFFF";
         break;
     default:
         dlog_error("Osd字体颜色设置错误");

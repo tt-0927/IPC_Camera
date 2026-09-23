@@ -198,30 +198,25 @@ bool process_region_detection(const ot_aidetect_object_of_one_class *pstObjectCl
  * @brief   : 通用进入/离开区域检测处理
  * @param    {const ot_aidetect_object_of_one_class *} pstObjectClass：当前类别算法结果
  * @param    {const std::vector<Alarm::EnterExitIntrusion_S> &} aRules：规则数组
- * @param    {AreaStatus_S (&)[MaxRegions][SVP_AIDETECT_MAX_OUTPUT_RECT_NUM]} stStatusArray：区域状态数组
+ * @param    {EnterExitTrackStatus_S (&)[MaxRegions][SVP_AIDETECT_MAX_OUTPUT_RECT_NUM]} stStatusArray：位置状态数组
  * @param    {CTargetIndexManager20 &} indexManager：目标索引管理器
  * @param    {CAlarmStateMachine &} alarmStateMachine：报警状态机
  * @param    {Event::Type_E} enEventType：事件类型
  * @param    {const char *} pszDetectTypeName：检测类型日志名称
- * @param    {std::vector<Common::RectInfo_S> &} vstRectInfo：角框输出数组
- * @param    {OsdPanel::PanelFrame_S *} pstPanelFrame：展会面板结果输出指针
+ * @param    {const SHVFProcessContext &} stCtx：单帧处理上下文
  * @return   {bool} true：本帧存在报警 false：本帧无报警
- * @note    : 展会版本下保留面板入参以兼容统一接口，当前默认传空
+ * @note    : 上次有效检测位置未知的目标只建立基线，不产生进入/离开边沿
  */
 template <size_t MaxRegions>
 bool process_region_enter_exit_detection(const ot_aidetect_object_of_one_class *pstObjectClass,
                                          const std::vector<Alarm::EnterExitIntrusion_S> &aRules,
-                                         AreaStatus_S (&stStatusArray)[MaxRegions][SVP_AIDETECT_MAX_OUTPUT_RECT_NUM],
+                                         EnterExitTrackStatus_S (&stStatusArray)[MaxRegions][SVP_AIDETECT_MAX_OUTPUT_RECT_NUM],
                                          CTargetIndexManager20 &indexManager,
                                          CAlarmStateMachine &alarmStateMachine,
                                          Event::Type_E enEventType,
                                          const char *pszDetectTypeName,
-                                         std::vector<Common::RectInfo_S> &vstRectInfo
-#if CAP_EXHIBITION_OSD_PANEL
-                                         ,
-                                         OsdPanel::PanelFrame_S *pstPanelFrame = nullptr
-#endif
-);
+                                         const SHVFProcessContext &stCtx);
+
 } // namespace HVFDetectInternal
 
 #include "hvf_detect_common_impl.hpp"

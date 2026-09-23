@@ -817,8 +817,8 @@ std::string EventLinkageDict::get_event_name(Event::Type_E enType)
         return "抽烟识别";
     case Event::Type_E::PHONE_USAGE:
         return "玩手机识别";
-    case Event::Type_E::SMOKE_FIRE:
-        return "烟火识别";
+    // case Event::Type_E::SMOKE_FIRE:
+    //     return "烟火识别";
     case Event::Type_E::OPEN_FLAME:
         return "明火识别";
     case Event::Type_E::MANHOLE_COVER_ABNORMAL:
@@ -855,6 +855,10 @@ std::string EventLinkageDict::get_event_name(Event::Type_E enType)
         return "违规变道识别";
     case Event::Type_E::PLATE_NUMBER:
         return "车牌识别";
+#endif
+#if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
+    case Event::Type_E::SMOKE_FIRE:
+        return "烟火识别";
 #endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_GARBAGE_DETECT
     case Event::Type_E::GARBAGE_EXPOSURE:

@@ -90,14 +90,27 @@ public:
     bool isExitEnabled() const;
 
 private:
+    /**
+     * @brief   : 重置进入区域运行状态
+     * @return   {void}
+     */
+    void resetEntranceRuntimeState();
+
+    /**
+     * @brief   : 重置离开区域运行状态
+     * @return   {void}
+     */
+    void resetExitRuntimeState();
+
+private:
     /* 进入区域配置 */
     Alarm::EntranceDetection_S m_stEntranceCfg;
     /* 离开区域配置 */
     Alarm::ExitingDetection_S m_stExitCfg;
     /* 进入区域状态数组 */
-    AreaStatus_S m_stEntranceStatus[ENTER_DETECT_REGION_DEFAULT][SVP_AIDETECT_MAX_OUTPUT_RECT_NUM];
+    EnterExitTrackStatus_S m_stEntranceStatus[ENTER_DETECT_REGION_DEFAULT][SVP_AIDETECT_MAX_OUTPUT_RECT_NUM];
     /* 离开区域状态数组 */
-    AreaStatus_S m_stExitStatus[EXIT_DETECT_REGION_DEFAULT][SVP_AIDETECT_MAX_OUTPUT_RECT_NUM];
+    EnterExitTrackStatus_S m_stExitStatus[EXIT_DETECT_REGION_DEFAULT][SVP_AIDETECT_MAX_OUTPUT_RECT_NUM];
     /* 进入区域目标索引管理器 */
     CTargetIndexManager20 m_enterIndexManager{ "HVFEnterIndex" };
     /* 离开区域目标索引管理器 */

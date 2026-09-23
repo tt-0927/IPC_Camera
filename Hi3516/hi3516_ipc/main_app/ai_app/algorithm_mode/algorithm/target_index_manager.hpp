@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <cstdint>
 #include <unordered_map>
 #include <bitset>
 #include <vector>
@@ -51,6 +52,26 @@ typedef struct _BoundaryTrackStatus_S_
         bAlarmed = false;
     }
 } BoundaryTrackStatus_S;
+
+/* 目标相对于区域的位置状态 */
+enum class RegionPresence_E : uint8_t
+{
+    UNKNOWN = 0, /* 位置状态未知 */
+    OUTSIDE,     /* 位于区域外 */
+    INSIDE       /* 位于区域内 */
+};
+
+/* 进入/离开区域侦测状态结构 */
+typedef struct _EnterExitTrackStatus_S_
+{
+    /* 上次有效检测的位置状态 */
+    RegionPresence_E eLastPresence = RegionPresence_E::UNKNOWN;
+
+    void reset()
+    {
+        eLastPresence = RegionPresence_E::UNKNOWN;
+    }
+} EnterExitTrackStatus_S;
 
 
 /**

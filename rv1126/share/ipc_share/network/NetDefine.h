@@ -67,6 +67,9 @@ namespace Net
         std::string strKey = std::string();
         ///  @brief 域名
         std::string strVhost = std::string();
+        ///  @brief TLS最低协议版本（消费 NetService_S.NetServiceVersion 配置：
+        ///        0=TLS1_1 1=TLS1_2 2=TLS1_3，语义为"允许的最低版本"）
+        int nTlsVersion = 0;
 
         /// @brief 队列大小
         int nQueueSize = 20;

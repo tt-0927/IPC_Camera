@@ -164,6 +164,21 @@ public:
      */
     std::string get_face_capture_file();
     int write_to_file(std::string filePath, unsigned char *pData, int nDataLen);
+
+    /**
+     * @brief   : 将外部生成的 JPEG 图片按事件抓图规则落盘并入库
+     *            供手动抓拍等非编码器来源的图片使用，命名与入库与正常事件抓图保持一致。
+     * @param    {unsigned char*} pData JPEG 图片数据
+     * @param    {int} nDataLen 数据长度
+     * @param    {Event::Type_E} enEventType 事件类型
+     * @param    {std::string} &strDateCompact 事件日期，紧凑格式 YYYYMMDD
+     * @param    {std::string} &strTimeCompactMs 事件时间，紧凑格式 HHMMSSmmm
+     * @param    {std::string} &strFilePath 输出：落盘后的图片路径
+     * @return   {int} 写入字节数，<0 表示失败
+     */
+    int save_event_image(unsigned char *pData, int nDataLen, const Event::Type_E enEventType,
+                         const std::string &strDateCompact, const std::string &strTimeCompactMs,
+                         std::string &strFilePath);
 private:
     /**
      * @brief   : 线程函数 检测定时抓图计划

@@ -20,7 +20,24 @@
 #include "dlog.h"
 #include "stream_venc.h"
 #include "alarm_define.h"
+
+/* OSD 字体后端（IPC_OSD_FONT_BACKEND，CMake 侧见 share/ipc_share/common/utils/osd_font.cmake）：
+ * dotfont 点阵字库 / sdl SDL2+TTF，两套实现能力一致，按宏二选一 */
+#if defined(IPC_OSD_FONT_BACKEND_DOTFONT)
+#include "dotfont.h"
+/**
+ * @brief   dotfont 后端的 RGN 画布缓冲（ARGB4444，行距 = 宽度，每像素 2 字节）
+ * @note    仅在本文件与 overplay_draw.cpp 内使用，替代旧后端的 SDL_Surface
+ */
+typedef struct DotCanvas
+{
+    uint16_t *pPixels; /* ARGB4444 像素缓冲（malloc 分配，free 释放） */
+    int nWidth;        /* 画布宽（像素） */
+    int nHeight;       /* 画布高（像素） */
+} DotCanvas_S;
+#else
 #include "sdl_utils.h"
+#endif
 
 #include "mpp_rgn.h"
 
@@ -38,33 +55,33 @@ public:
      * @author      : huangjunda
      * @return       {IpcRet_E} 公共返回码
      */
-     IpcRet_E init();
+    IpcRet_E init();
 
     /***
-    * @description : 去初始化
-    * @author      : huangjunda
-    * @return       {IpcRet_E} 公共返回码
-    */
+     * @description : 去初始化
+     * @author      : huangjunda
+     * @return       {IpcRet_E} 公共返回码
+     */
     IpcRet_E deinit();
 
     /**
      * @brief   : 初始化抓拍叠加信息RGN
-    * @return    {IpcRet_E} 公共返回码
+     * @return    {IpcRet_E} 公共返回码
      */
     IpcRet_E init_capture_overplay();
 
     /**
      * @brief   : 去初始化抓拍叠加信息RGN
-    * @return    {IpcRet_E} 公共返回码
+     * @return    {IpcRet_E} 公共返回码
      */
     IpcRet_E deinit_capture_overplay();
 
-    /*** 
+    /***
      * @description : 设置更新标志
      * @author      : huangjunda
      * @param        {bool} bIsUpdate
      * @return       {*}
-     */    
+     */
     void set_update_flag(bool bIsUpdate);
 
     /**
@@ -90,7 +107,10 @@ public:
      * @param    {vector<Common::RectInfo_S>} &vRectInfo：矩形检测结果框
      * @param    {OverplayInfo_S} stOverplayInfo：ID为8的overplay 配置
      */
-    void update_ai_result(int nWidth, int nHeight, const std::vector<Common::RectInfo_S> &vRectInfo, const Osd::OverplayInfo_S stOverplayInfo);
+    void update_ai_result(int nWidth,
+                          int nHeight,
+                          const std::vector<Common::RectInfo_S> &vRectInfo,
+                          const Osd::OverplayInfo_S stOverplayInfo);
 
 private:
     /***
@@ -107,21 +127,21 @@ private:
      */
     void stop();
 
-    /*** 
+    /***
      * @description : 设置rgn参数
      * @author      : huangjunda
      * @param        {OverplayInfo_S} stuOverplayInfo
      * @param        {int} nChn
      * @param        {uint32_t} unHandle
      * @return       {HiRgnNeedParam_S} rgn参数结构体
-     */     
+     */
     HiRgnNeedParam_S set_rgn(Osd::OverplayInfo_S stuOverplayInfo, int nChn, uint32_t unHandle, uint32_t unWidth = 0, uint32_t unHeight = 0);
 
-    /*** 
+    /***
      * @description : 销毁rgn
      * @author      : huangjunda
      * @return       {*}
-     */    
+     */
     void destroy_rgn();
 
     /***
@@ -139,12 +159,12 @@ private:
      * @return       {void}
      */
     void osd_show_others();
-  
-    /*** 
+
+    /***
      * @description : osd闪烁线程
      * @author      : huangjunda
      * @return       {*}
-     */    
+     */
     void osd_flicker();
 
     /**
@@ -163,8 +183,7 @@ private:
      * @param    {vector<Osd::OverplayInfo_S>} &vecOverplayCaptureInfo 抓拍叠加信息
      * @param    {ShareInfo_S} &stShareInfo 其他信息
      */
-    void process_capture_rgns(const std::vector<Osd::OverplayInfo_S> &vecOverplayCaptureInfo,
-                              const Osd::ShareInfo_S &stShareInfo);
+    void process_capture_rgns(const std::vector<Osd::OverplayInfo_S> &vecOverplayCaptureInfo, const Osd::ShareInfo_S &stShareInfo);
 
     /**
      * @brief   : 更新抓拍叠加信息
@@ -203,24 +222,24 @@ private:
     int calculate_text_size(int nFontSize, int nActualSize, int nReferenceSize);
 
     /**
-    * @brief   : 计算模板宽度
-    * @note    : 通过参考字体计算
-    * @param    {int} nWith 文本字符串长度
-    * @param    {int} nFontSize 参考字体大小
-    * @param    {int} nActualWidth 实际分辨率宽度
-    * @param    {int} nReferenceWidth 参考分辨率宽度
-    * @return   {int} 模板宽度
-    */
+     * @brief   : 计算模板宽度
+     * @note    : 通过参考字体计算
+     * @param    {int} nWith 文本字符串长度
+     * @param    {int} nFontSize 参考字体大小
+     * @param    {int} nActualWidth 实际分辨率宽度
+     * @param    {int} nReferenceWidth 参考分辨率宽度
+     * @return   {int} 模板宽度
+     */
     int calculate_template_width(int nWith, int nFontSize, int nActualWidth, int nReferenceWidth);
 
     /**
-    * @brief   : 计算模板宽度
-    * @note    : 通过参考分辨率宽度来计算
-    * @param    {int} nWith 文本字符串长度
-    * @param    {int} nActualWidth 实际分辨率宽度
-    * @param    {int} nReferenceWidth 参考分辨率宽度
-    * @return   {int} 模板宽度
-    */
+     * @brief   : 计算模板宽度
+     * @note    : 通过参考分辨率宽度来计算
+     * @param    {int} nWith 文本字符串长度
+     * @param    {int} nActualWidth 实际分辨率宽度
+     * @param    {int} nReferenceWidth 参考分辨率宽度
+     * @return   {int} 模板宽度
+     */
     int calculate_template_width(int nWith, int nActualWidth, int nReferenceWidth);
 
     /***
@@ -233,8 +252,8 @@ private:
      */
     int calculate_template_height(int nFontSize, int nActualHeight, int nReferenceHeight);
 
-    /*** 
-     * @description : 
+    /***
+     * @description :
      * @author      : huangjunda
      * @param        {OverplayInfo_S} stuOverplayInfo
      * @param        {int} &nActualHorMargin
@@ -245,7 +264,13 @@ private:
      * @param        {int} nReferenceHeight
      * @return       {*}
      */
-    void get_template_margin(Osd::OverplayInfo_S stuOverplayInfo, int &nActualHorMargin, int &nActualVerMargin, int nActualWidth, int nActualHeight, int nReferenceWidth, int nReferenceHeight);
+    void get_template_margin(Osd::OverplayInfo_S stuOverplayInfo,
+                             int &nActualHorMargin,
+                             int &nActualVerMargin,
+                             int nActualWidth,
+                             int nActualHeight,
+                             int nReferenceWidth,
+                             int nReferenceHeight);
 
     /***
      * @description : 获取模板起始坐标点
@@ -258,7 +283,15 @@ private:
      * @param        {int} nReferenceHeight 参考分辨率高度
      * @return       {void}
      */
-    void get_start_points(Osd::Align_E enAlign, int &nX, int &nY, int nActualHorMargin, int nActualVerMargin, int nTemplateWidth, int nTemplateHeight, int nActualWidth, int nActualHeight);
+    void get_start_points(Osd::Align_E enAlign,
+                          int &nX,
+                          int &nY,
+                          int nActualHorMargin,
+                          int nActualVerMargin,
+                          int nTemplateWidth,
+                          int nTemplateHeight,
+                          int nActualWidth,
+                          int nActualHeight);
 
     /***
      * @description : 透明度由百分比转换到rgb
@@ -316,6 +349,11 @@ private:
     bool m_bIsOthersUpdate;
     /* lock: 标识 VENC 正在销毁/重建，阻止后台线程向旧通道挂载 Overlay。 */
     std::array<std::atomic<bool>, VENC_CHN_MAX> m_abVencReconfiguring;
+#if defined(IPC_OSD_FONT_BACKEND_DOTFONT)
+    /* 用于绘制检测框覆盖图片的画布。键: RGN 句柄 (unHandle), 值: 该 RGN 的 DotCanvas 画布 */
+    std::map<int, DotCanvas_S *> m_mapOverlaySurfaces;
+#else
     /* 用于绘制检测框覆盖图片的Surface。键: RGN 句柄 (unHandle), 值: 指向该 RGN 的 SDL_Surface 的指针 */
-    std::map<int, SDL_Surface*> m_mapOverlaySurfaces;
+    std::map<int, SDL_Surface *> m_mapOverlaySurfaces;
+#endif
 };

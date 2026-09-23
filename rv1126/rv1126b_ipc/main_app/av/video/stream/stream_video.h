@@ -13,6 +13,7 @@
 #include <mutex>
 #include <thread>
 #include <atomic>
+#include <cstddef>
 #include <memory>
 #include <chrono>
 
@@ -26,17 +27,22 @@
 
 #define MAX_VENC_PACK_COUNT 10  // 最大的编码包数量
 
-/* 特写源帧: 特写源高分辨率帧拷贝 */
-typedef struct _FaceCloseupFrame_S
+/* 特写源帧: 主码流通道高分辨率 NV12 帧拷贝 */
+struct CloseupFrame_S
 {
-    std::shared_ptr<char[]> pData;   /* NV12 帧数据拷贝 */
-    int nWidth   = 0;                /* 实际宽 */
-    int nHeight  = 0;                /* 实际高 */
-    int nVirWidth  = 0;              /* stride 对齐宽 */
-    int nVirHeight = 0;              /* stride 对齐高 */
-    uint32_t u32TimeRef = 0;         /* 帧时间参考 */
-    uint64_t u64PTS = 0;             /* 帧时间戳(us) */
-} FaceCloseupFrame_S;
+    std::shared_ptr<char[]> pData;       /* NV12 帧数据拷贝 */
+    std::size_t nDataSize = 0;           /* 数据长度，用于裁剪前边界校验 */
+    int nWidth = 0;                      /* 可见宽，用于坐标映射 */
+    int nHeight = 0;                     /* 可见高，用于坐标映射 */
+    int nVirWidth = 0;                   /* Y/UV 平面行跨度 */
+    int nVirHeight = 0;                  /* Y 平面存储高度 */
+    uint32_t u32TimeRef = 0;             /* 主码流源帧序号 */
+    uint64_t u64PTS = 0;                 /* 实际取得的主码流源帧 PTS */
+    uint64_t u64RequestPTS = 0;          /* 请求方 AI 帧 PTS */
+};
+
+/* 兼容旧调用方；新代码统一使用 CloseupFrame_S。 */
+using FaceCloseupFrame_S = CloseupFrame_S;
 
 /*流媒体码流数枚举*/
 typedef enum StreamMediaNum
@@ -159,13 +165,16 @@ public:
      *            特写源分辨率 <=1080p 或帧率低于AI通道(5fps)时返回
      *            ERR_NOT_ENABLED, 调用方应回退第三路(固定1080p)帧裁剪,
      *            保证全景图和特写图画面同步。
-     *            取到的帧PTS与检测帧PTS相差超过2个特写源帧间隔(封顶100ms)时返回ERR, 调用方回退检测帧同帧裁剪,
+     *            取到的帧PTS与检测帧PTS相差超过1个特写源帧间隔(封顶100ms)时返回ERR, 调用方回退检测帧同帧裁剪,
      *            保证全景/特写画面同步。
-     * @param    {FaceCloseupFrame_S} &stFrame 输出帧 (NV12 拷贝)
+     * @param    {CloseupFrame_S} &stFrame 输出帧 (NV12 拷贝)
      * @param    {uint64_t} u64Pts 检测帧PTS(us), 0表示跳过PTS校验
      * @return   {int} OK 成功; ERR_NOT_ENABLED 特写源<=1080p或帧率过低(回退第三路);
      *                  ERR_UNINIT 未初始化; ERR 取帧失败/PTS不匹配/限流
      */
+    int acquireCloseupFrame(CloseupFrame_S &stFrame, uint64_t u64Pts = 0);
+
+    /* 兼容旧接口，内部转到通用特写源接口。 */
     int grabFaceCloseupSource(FaceCloseupFrame_S &stFrame, uint64_t u64Pts = 0);
 
 private:
@@ -274,9 +283,9 @@ private:
     /*控制操作互斥锁*/
     std::mutex m_mutexCtrl;
     /*特写取帧互斥锁(同一时刻只允许一个取帧请求)*/
-    std::mutex m_mutexFaceGrab;
-    /*特写上次取帧时刻(事件风暴限流)*/
-    std::chrono::steady_clock::time_point m_tLastFaceGrab;
+    std::mutex m_mutexCloseupGrab;
+    /*特写上次实际取帧时刻(事件风暴限流)*/
+    std::chrono::steady_clock::time_point m_tLastCloseupGrab;
     /*线程异常处理互斥锁*/
     std::mutex exception_mutex_;
     /*线程异常处理的线程名称*/

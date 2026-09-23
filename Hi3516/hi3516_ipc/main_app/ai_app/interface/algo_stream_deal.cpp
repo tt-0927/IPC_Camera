@@ -53,6 +53,9 @@ void CAlgoStreamDeal::deinit()
 #if CAP_AI_GARBAGE_DETECT
     algos.emplace_back(std::move(m_pGarbageAlgo));
 #endif
+#if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
+    algos.emplace_back(std::move(m_pSmokeFireAlgo));
+#endif
     m_pEventStatisticsReporter.reset();
 
     /* 释放算法实例 */
@@ -146,6 +149,9 @@ void CAlgoStreamDeal::bindRecvFunc(Event::AlgorithmConfig &stAlgoConfig)
         {stAlgoConfig.nEnFaceCapture || stAlgoConfig.nEnFaceLib ||stAlgoConfig.nEnFaceCompare, m_pFaceAlgo},
 #if CAP_AI_GARBAGE_DETECT
         {stAlgoConfig.nEnGarbageExposure || stAlgoConfig.nEnGarbageOverflow, m_pGarbageAlgo},
+#endif
+#if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
+        {stAlgoConfig.nEnSmokeFire, m_pSmokeFireAlgo},
 #endif
     };
 
@@ -251,6 +257,13 @@ void CAlgoStreamDeal::manageAlgorithmInstances(const Event::AlgorithmConfig& stA
                                         return std::static_pointer_cast<CAlgorithm>(std::make_shared<CGarbageDetect>());
                                     });
 #endif
+#if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
+    bIsNew += manageSingleAlgorithm(m_pSmokeFireAlgo, stAlgoConfig.nEnSmokeFire,
+                                    []() -> std::shared_ptr<CAlgorithm>
+                                    {
+                                        return std::make_shared<CSmokeFireDetect>();
+                                    });
+#endif
     if (bIsNew)
     {
         /* 统一获取区域配置 */
@@ -302,6 +315,17 @@ void CAlgoStreamDeal::applyAlgorithmConfig(Event::AlgorithmConfig &stAlgoConfig)
     std::lock_guard<std::mutex> faceAlgoLock(m_faceAlgoMutex);
     printAlgoCfg(stAlgoConfig);
 
+    Event::AlgorithmConfig effectiveConfig = stAlgoConfig;
+#if CAP_AI_SMOKE_FIRE_DETECT && CAP_AI_GARBAGE_DETECT
+    /* 兼容升级前已保存的冲突状态：运行时以垃圾识别为优先。 */
+    if (effectiveConfig.nEnSmokeFire &&
+        (effectiveConfig.nEnGarbageExposure || effectiveConfig.nEnGarbageOverflow))
+    {
+        dlog_error("AI_APP: 烟火识别与垃圾识别同时启用，暂停烟火识别");
+        effectiveConfig.nEnSmokeFire = 0;
+    }
+#endif
+
     /* 取消所有绑定 */
     unbindVideoSig(m_StreamHandler.get());
     unbindAudioSig(m_StreamHandler.get());
@@ -309,16 +333,27 @@ void CAlgoStreamDeal::applyAlgorithmConfig(Event::AlgorithmConfig &stAlgoConfig)
     initEventStatisticsReporter();
 
     /* 根据配置管理算法实例 */
-    manageAlgorithmInstances(stAlgoConfig);
+#if CAP_AI_SMOKE_FIRE_DETECT && CAP_AI_GARBAGE_DETECT
+    /* 从烟火切换到垃圾时，先等待烟火线程退出并释放模型。 */
+    if ((effectiveConfig.nEnGarbageExposure || effectiveConfig.nEnGarbageOverflow) &&
+        m_pSmokeFireAlgo)
+    {
+        m_pSmokeFireAlgo.reset();
+    }
+#endif
+    manageAlgorithmInstances(effectiveConfig);
 
     /* 重新绑定回调函数 */
-    bindRecvFunc(stAlgoConfig);
+    bindRecvFunc(effectiveConfig);
 
     /* 通知 Algorithm 更新参数 */
     std::vector<std::shared_ptr<CAlgorithm>> algos = {
         m_pMotionAlgo, m_pHideAlgo, m_pAudioAlgo, m_pSceneChangeAlgo, m_pHVFAlgo, m_pPeopleHeadAlgo, m_pItemAlgo, m_pPetAlgo, m_pFaceAlgo
 #if CAP_AI_GARBAGE_DETECT
         , m_pGarbageAlgo
+#endif
+#if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
+        , m_pSmokeFireAlgo
 #endif
     };
 
@@ -327,7 +362,7 @@ void CAlgoStreamDeal::applyAlgorithmConfig(Event::AlgorithmConfig &stAlgoConfig)
         if (pAlgo)
         {
             pAlgo->setEventStatisticsReporter(m_pEventStatisticsReporter);
-            pAlgo->setAlgoEnCfg(stAlgoConfig);
+            pAlgo->setAlgoEnCfg(effectiveConfig);
         }
     }
 }
@@ -392,6 +427,9 @@ int CAlgoStreamDeal::dispatchRuntimeCommand(const RuntimeCommand_S &stCommand)
         m_pMotionAlgo, m_pHideAlgo, m_pAudioAlgo, m_pSceneChangeAlgo, m_pHVFAlgo, m_pPeopleHeadAlgo, m_pItemAlgo, m_pPetAlgo, m_pFaceAlgo
 #if CAP_AI_GARBAGE_DETECT
         , m_pGarbageAlgo
+#endif
+#if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
+        , m_pSmokeFireAlgo
 #endif
     };
 

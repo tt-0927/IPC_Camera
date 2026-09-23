@@ -579,6 +579,8 @@ namespace ISP
             nBrightness = 50;
 #elif DEVICE_TV_3881T
             nBrightness = 30;
+#elif DEVICE_TV_3881TJY
+            nBrightness = 30;
 #else
             nBrightness = 50;
 #endif

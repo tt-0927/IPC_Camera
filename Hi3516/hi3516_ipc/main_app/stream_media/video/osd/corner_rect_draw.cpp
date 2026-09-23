@@ -3,7 +3,7 @@
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2025-11-17 09:18:43
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-07-30 15:14:08
+ * @LastEditTime : 2026-09-16 17:07:19
  * @Description  : 角框类型绘制：AI动态分析用
  */
 
@@ -33,8 +33,8 @@ bool convert_rect_to_stream_output(const Common::RectInfo_S &stSourceRect,
                                    const Video_NS::StreamGeometry_S &stGeometry,
                                    Common::RectInfo_S &stOutputRect)
 {
-    if (nDetectWidth <= 0 || nDetectHeight <= 0 || stGeometry.nSourceWidth <= 0 ||
-        stGeometry.nSourceHeight <= 0 || stGeometry.nOutputWidth <= 0 || stGeometry.nOutputHeight <= 0)
+    if (nDetectWidth <= 0 || nDetectHeight <= 0 || stGeometry.nSourceWidth <= 0 || stGeometry.nSourceHeight <= 0 ||
+        stGeometry.nOutputWidth <= 0 || stGeometry.nOutputHeight <= 0)
     {
         return false;
     }
@@ -76,6 +76,20 @@ bool convert_rect_to_stream_output(const Common::RectInfo_S &stSourceRect,
     stOutputRect.nX2 = (nX2 - nCropX) * stGeometry.nOutputWidth / nCropWidth;
     stOutputRect.nY2 = (nY2 - nCropY) * stGeometry.nOutputHeight / nCropHeight;
     return stOutputRect.nX2 > stOutputRect.nX1 && stOutputRect.nY2 > stOutputRect.nY1;
+}
+
+/**
+ * @brief   : 隐藏角框区域，已处于隐藏状态时不再重复设置
+ * @param    {HiRgn_S *} pHandle：区域句柄
+ * @return   无
+ */
+void hide_region(HiRgn_S *pHandle)
+{
+    if (NULL == pHandle || !pHandle->bIsShow)
+    {
+        return;
+    }
+    pHandle->mppRgn_showOrHide(pHandle, TD_FALSE);
 }
 }
 
@@ -164,8 +178,8 @@ void CCornerRectDraw::update_ai_result(int nWidth, int nHeight, const std::vecto
         }
 
         size_t nIndex = i / VPSS_CHN_MAX; /* 下标 */
-        size_t nChn = i % VPSS_CHN_MAX; /* 码流通道 */
-   
+        size_t nChn = i % VPSS_CHN_MAX;   /* 码流通道 */
+
         if (vRectInfo.size() > nIndex)
         {
             /* 将算法坐标转换到 VPSS Crop 后、RGN 实际显示的码流坐标系。 */
@@ -174,18 +188,63 @@ void CCornerRectDraw::update_ai_result(int nWidth, int nHeight, const std::vecto
             if (OK != CStreamVideo::instance()->get_stream_geometry(static_cast<int>(nChn), stGeometry) ||
                 !convert_rect_to_stream_output(vRectInfo[nIndex], nWidth, nHeight, stGeometry, stRectInfo))
             {
-                m_pVecRgns[i]->mppRgn_showOrHide(m_pVecRgns[i], TD_FALSE);
+                hide_region(m_pVecRgns[i]);
                 continue;
             }
-            /* 更新rgn */
+
+            /* 框位置与尺寸都没变且处于显示状态时跳过，避免高频AI回调反复驱动调用 */
+            if (m_pVecRgns[i]->bIsShow && m_pVecRgns[i]->unStartX == stRectInfo.nX1 && m_pVecRgns[i]->unStartY == stRectInfo.nY1 &&
+                m_pVecRgns[i]->unWidth == (uint32_t) (stRectInfo.nX2 - stRectInfo.nX1) &&
+                m_pVecRgns[i]->unHeight == (uint32_t) (stRectInfo.nY2 - stRectInfo.nY1))
+            {
+                continue;
+            }
+
+            /* update会覆盖内存中的显隐状态，先保存驱动当前真实显隐 */
+            const td_bool bWasShow = m_pVecRgns[i]->bIsShow;
+            /* 参数变更统一走 隐藏→改参数→显示：
+             * 实测卷绕通道上RGN在叠加运行中直接收缩参数（大面积改小）会让
+             * VENC数秒后停止编码且不可恢复；隐藏期间硬件不叠加该RGN，
+             * 参数就位后再按新参数从零开始叠加，规避参数突变窗口 */
+            if (bWasShow && m_pVecRgns[i]->mppRgn_showOrHide(m_pVecRgns[i], TD_FALSE))
+            {
+                dlog_error("隐藏rgn失败");
+            }
+            /* 更新rgn内存参数 */
             m_pVecRgns[i]->mppRgn_update(m_pVecRgns[i], set_rgn(m_pVecRgns[i]->unChnId, m_pVecRgns[i]->unHandle, stRectInfo));
-            m_pVecRgns[i]->mppRgn_changePos(m_pVecRgns[i], m_pVecRgns[i]->unStartX, m_pVecRgns[i]->unStartY);
-            m_pVecRgns[i]->mppRgn_changeRect(m_pVecRgns[i], m_pVecRgns[i]->unWidth, m_pVecRgns[i]->unHeight);
-            m_pVecRgns[i]->mppRgn_showOrHide(m_pVecRgns[i], TD_TRUE);
+            if (!m_pVecRgns[i]->bIsAttached)
+            {
+                /* 首次挂载：attach按句柄当前参数一次性写入通道显示属性 */
+                if (m_pVecRgns[i]->mppRgn_attachToChn(m_pVecRgns[i]))
+                {
+                    dlog_error("添加rgn到通道失败");
+                }
+            }
+            else
+            {
+                /* 已挂载时只原地更新位置与尺寸，不做摘挂：
+                 * attach/detach会增删通道RGN列表结构，卷绕在线通道行级直送VENC
+                 * 无帧边界同步点，读到增删瞬间的中间状态会导致VENC编码停摆；
+                 * 原地改属性不改变列表结构，硬件按帧读取的始终是完整配置 */
+                if (m_pVecRgns[i]->mppRgn_changeAttr(m_pVecRgns[i],
+                                                     m_pVecRgns[i]->unStartX,
+                                                     m_pVecRgns[i]->unStartY,
+                                                     m_pVecRgns[i]->unWidth,
+                                                     m_pVecRgns[i]->unHeight))
+                {
+                    dlog_error("更新rgn位置尺寸失败");
+                }
+                /* 此时驱动侧必为隐藏态：参数变更路径是刚才主动隐藏，
+                 * 隐藏恢复路径是之前AI无目标时隐藏的，统一恢复显示 */
+                if (m_pVecRgns[i]->mppRgn_showOrHide(m_pVecRgns[i], TD_TRUE))
+                {
+                    dlog_error("恢复rgn显示失败");
+                }
+            }
         }
         else
         {
-            m_pVecRgns[i]->mppRgn_showOrHide(m_pVecRgns[i], TD_FALSE);
+            hide_region(m_pVecRgns[i]);
         }
     }
 }
@@ -201,7 +260,7 @@ void CCornerRectDraw::clear_channel(int nChn)
     {
         if (pHandle && pHandle->unChnId == nChn)
         {
-            pHandle->mppRgn_showOrHide(pHandle, TD_FALSE);
+            hide_region(pHandle);
         }
     }
 }

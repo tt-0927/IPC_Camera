@@ -210,7 +210,7 @@ private:
     HVFDetectInternal::CHVFEventMigrationController m_eventMigrationController;
 #endif
     /* 目标视频帧 */
-    ot_video_frame_info m_stDstFrameInfo;
+    ot_video_frame_info m_stDstFrameInfo{};
     /* 模型输入分辨率，检测帧缩放目标 */
     AiPipeline_NS::FrameSize_S m_stModelFrameSize;
 #if CAP_AI_PEOPLE_STATISTICS && !CAP_AI_EXHIBITION_PEOPLE_FLOW

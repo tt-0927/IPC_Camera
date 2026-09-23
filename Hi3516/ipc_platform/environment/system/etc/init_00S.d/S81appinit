@@ -4,7 +4,7 @@
 # @Author       : zhouzr@kfb.cn
 # @Date         : 2026-02-27 13:40:43
 # @LastEditors  : zhouzr@kfb.cn
-# @LastEditTime : 2026-08-04 10:01:33
+# @LastEditTime : 2026-09-16 10:53:42
 # @Description  : Hi3516 IPC 00S 主程序启动脚本
 #
 
@@ -12,6 +12,33 @@
 export LD_LIBRARY_PATH=/lib
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/cam/lib
 export PATH="$PATH":/opt/cam/tools
+
+# 减小线程栈空间为 2MB：默认 8MB 时多线程进程
+ulimit -s 2048
+
+# zram swap：换出冷匿名页，为业务进程和 page cache 腾内存（需内核内建 CONFIG_ZRAM）
+if [ -e /sys/block/zram0/disksize ]; then
+    # 算法与压缩池上限必须在 disksize 之前写，设备初始化后再写返回 -EBUSY
+    echo lzo-rle > /sys/block/zram0/comp_algorithm 2>/dev/null || echo lzo > /sys/block/zram0/comp_algorithm 2>/dev/null
+    echo 8M > /sys/block/zram0/mem_limit 2>/dev/null
+    echo 20M > /sys/block/zram0/disksize
+    mkswap /dev/zram0
+    swapon /dev/zram0 || echo "[S81appinit] zram swapon 失败，请检查 dmesg" >&2
+else
+    echo "[S81appinit] /sys/block/zram0 不存在，跳过 swap 初始化（检查内核 CONFIG_ZRAM/CONFIG_SWAP）" >&2
+fi
+
+# -----------------优化内核虚拟内存（vm 参数唯一写入点）-----------------
+# ! 禁止改回 0：为 0 时内核不换出 anon，zram 形同虚设（2026-08-13 OOM 即此形态）
+echo 60 > /proc/sys/vm/swappiness
+# 单页换入，避免 readahead 批量解压
+echo 0 > /proc/sys/vm/page-cluster
+# 最小空闲水位 2MB：kswapd 提前回收，并为 GFP_ATOMIC 留储备
+echo 2048 > /proc/sys/vm/min_free_kbytes
+# 脏页阈值改绝对值：默认比例阈值过大，脏页回写完成前不可回收
+echo 2097152 > /proc/sys/vm/dirty_background_bytes
+echo 8388608 > /proc/sys/vm/dirty_bytes
+# -----------------内核虚拟内存优化结束-----------------
 
 # 初始化系统
 # /root/init.sh
@@ -61,10 +88,7 @@ sysctl -w net.core.wmem_max=786432
 sysctl -w net.core.wmem_default=524288
 # 开启地址空间随机化
 echo 2 > /proc/sys/kernel/randomize_va_space
-# 最大限度使用所有物理内存
-echo 0 > /proc/sys/vm/swappiness
-# 预留最小空闲内存
-echo 1024 > /proc/sys/vm/min_free_kbytes
+# vm 参数统一在脚本开头设置，勿在此重复写入
 
 # -----------------优化内核网络内存-----------------
 # 限制路由缓存 (ip_dst_cache)
@@ -161,3 +185,5 @@ sleep 2
 
 # 所有程序启动后启动守护进程
 /opt/cam/bin/daemon &
+# daemon 负责拉起业务进程，OOM 时保护它
+echo -500 > /proc/$!/oom_score_adj 2>/dev/null

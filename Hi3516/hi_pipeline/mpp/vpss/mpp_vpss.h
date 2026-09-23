@@ -153,6 +153,10 @@ struct _HiVpss
 
     /*释放一帧原始图像*/
     int (*mppVpss_release_grpFrame)(HiVpss_S *pHandle, ot_video_frame_info *pFrameInfo);
+
+    /*获取通道指定区域亮度统计（OSD 反色用；卷绕/低时延通道不产生统计事件，只超时）*/
+    int (*mppVpss_get_chnRgnLuma)(HiVpss_S *pHandle, int nVpssChn, ot_rect *pRects, int nRectCnt,
+                                  td_u64 *pu64LumaData, int nMilliSec);
 };
 
 /**

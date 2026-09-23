@@ -63,7 +63,7 @@ extern "C"
 /* 每通道最大客户端数量（兼容既有 Rtsp_Create_Info_t 参数语义）。 */
 #define MAX_CLIENT_NUM RTSP_DEFAULT_STREAM_MAX_CLIENT
 
-/* 设备能力等级乘数：TV-3881T/TV-3882TI 由能力宏提升到 8 路总额。 */
+/* 设备能力等级乘数：TV-3881T/TV-3882TI/TV-3881TJY 由能力宏提升到 8 路总额。 */
 constexpr int RTSP_CLIENT_CAPACITY_MULTIPLIER = CAP_RTSP_HIGH_CONCURRENCY ? 2 : 1;
 constexpr int RTSP_GLOBAL_MAX_CLIENT = RTSP_DEFAULT_GLOBAL_MAX_CLIENT * RTSP_CLIENT_CAPACITY_MULTIPLIER;
 
@@ -74,7 +74,7 @@ constexpr int RTSP_MAIN_BITRATE_THRESHOLD_16M = 16384;
 constexpr int RTSP_MAIN_CLIENT_LIMIT_DEFAULT = RTSP_DEFAULT_STREAM_MAX_CLIENT;
 
 /* RTSP OutPacketBuffer 缓存大小（应用层定义，覆盖 custom_define.h 的默认值） */
-#if defined(DEVICE_TV_3882TI) || defined(DEVICE_TV_3881T)
+#if defined(DEVICE_TV_3882TI) || defined(DEVICE_TV_3881T) || defined(DEVICE_TV_3881TJY)
     /* memory: 高配设备与live555 2.5MiB上限一致，避免4MiB配置形成无效常驻缓存。 */
     constexpr std::size_t RTSP_APP_MAIN_OUT_PACKET_BUFFER_SIZE  = 5U * 512U * 1024U;
     constexpr std::size_t RTSP_APP_SUB_OUT_PACKET_BUFFER_SIZE   = 1U * 1024U * 1024U;
@@ -89,7 +89,7 @@ constexpr int RTSP_MAIN_CLIENT_LIMIT_DEFAULT = RTSP_DEFAULT_STREAM_MAX_CLIENT;
     constexpr std::size_t RTSP_APP_AUDIO_OUT_PACKET_BUFFER_SIZE = 32U * 1024U;
 #endif
 
-#if defined(DEVICE_TV_3882TI) || defined(DEVICE_TV_3881T)
+#if defined(DEVICE_TV_3882TI) || defined(DEVICE_TV_3881T) || defined(DEVICE_TV_3881TJY)
     /* 高内存型号允许更大的RTSP缓存，兼容原有低延迟配置。 */
     constexpr std::size_t RTSP_VIDEO_QUEUE_DEPTH = 32U;
     constexpr std::size_t RTSP_AUDIO_QUEUE_DEPTH = 16U;

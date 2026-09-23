@@ -1353,22 +1353,20 @@ static int mppVenc_init(HiVenc_S *pHandle)
             MPI_ALIGN_UP(pHandle->stNeedParam.unWidth, 16) * MPI_ALIGN_UP(pHandle->stNeedParam.unHeight, 16) * 2; /* 16 2 is a number */
     } else {
         /*
-         * H264/H265/SVAC3在mini_buf_mode=1下继续使用w×h/4的默认省内存策略。
-         * 低帧率、短GOP场景由业务层通过unStreamBufSizeMin提供额外容量下限，
-         * 最终取默认容量与业务下限中的较大值。
+         * H264/H265/SVAC3 码流 buffer：mini_buf_mode=1 下由 w×h×3/4 下调为 w×h/4。
+         * 主码流 2880×1620 实测 3.42MB → ~1.17MB。I 帧峰值推算 ~600KB@12Mbps、~800KB@16Mbps
+         * （ip_ratio=15、max_i_proportion=20），余量 45%+；若出现丢帧/重编再上调。
          */
-        stChnAttr.venc_attr.buf_size = mppVenc_get_video_buf_size(pHandle, &u32DefaultVideoBufSize);
-        if (stChnAttr.venc_attr.buf_size > u32DefaultVideoBufSize)
-        {
-            /* info: 该日志只发生在创建/重建阶段，不进入逐帧编码路径。 */
-            mpi_venc_log("码流buffer扩容 chn:%d type:%d fps:%d gop:%d default:%u final:%u",
-                         pHandle->stNeedParam.nChn,
-                         pHandle->stNeedParam.enCodec,
-                         pHandle->stNeedParam.nOutFrameRate,
-                         pHandle->stNeedParam.nGop,
-                         u32DefaultVideoBufSize,
-                         stChnAttr.venc_attr.buf_size);
-        }
+        // stChnAttr.venc_attr.buf_size =
+        //     MPI_ALIGN_UP(pHandle->stNeedParam.unWidth * pHandle->stNeedParam.unHeight / 4, 64); /*  4 64 is a number */
+        #define VENC_STREAM_BUF_MIN_SIZE (32U * 1024U)
+
+        td_u32 calculatedSize = MPI_ALIGN_UP( //子码流设置太小不适合取最小值buf_size限制为32KB
+            pHandle->stNeedParam.unWidth * pHandle->stNeedParam.unHeight / 4, 64);
+
+        stChnAttr.venc_attr.buf_size = calculatedSize < VENC_STREAM_BUF_MIN_SIZE
+                                        ? VENC_STREAM_BUF_MIN_SIZE
+                                        : calculatedSize;
     }
     stChnAttr.venc_attr.profile = pHandle->stExParam.nProfile;
     stChnAttr.venc_attr.is_by_frame = TD_TRUE;

@@ -405,6 +405,25 @@ int CPreviewManage::device_control(const Preview::DeviceControl_S &stInfo)
     /* 先成功申请硬件抢占，再启动计时，避免启动失败后遗留无效的自动停止任务。 */
     arm_alarm_light_timer(nDurationSec);
     CGpioCtrl::instance()->alarm_output_on(0);
+    std::string strAudioPath;
+    int nAudioTimes = 0;
+    const int nAudioConfigRet = CEventLinkage::instance()->get_audio_file_path(strAudioPath, nAudioTimes);
+    /* 声光控制未指定有效播放次数时，至少播放一次当前配置的报警音。 */
+    if (nAudioConfigRet == OK && !strAudioPath.empty())
+    {
+        if (nAudioTimes <= 0)
+        {
+            nAudioTimes = 1;
+            dlog_warn("TVSDK声光报警次数无效，使用默认播放次数: times[%d]", nAudioTimes);
+        }
+        CEventLinkage::instance()->play_audio(strAudioPath, nAudioTimes);
+        dlog_info("TVSDK声光报警音频已启动: path[%s], times[%d]", strAudioPath.c_str(), nAudioTimes);
+    }
+    else
+    {
+        dlog_warn("TVSDK声光报警未启动音频: config_ret[%d], path[%s], times[%d]",
+                  nAudioConfigRet, strAudioPath.c_str(), nAudioTimes);
+    }
     dlog_info("TVSDK声光报警已开启: channel[%d], duration[%d]s, frequency[%d]",
               stInfo.nChannelId,
               nDurationSec,
@@ -435,6 +454,7 @@ int CPreviewManage::stop_alarm_light_output()
 #if CAP_ALARM_IO
     CGpioCtrl::instance()->alarm_output_off(0);
 #endif
+    CEventLinkage::instance()->stop_play_audio();
 
     if (m_u64AlarmLightOverrideToken == 0)
     {

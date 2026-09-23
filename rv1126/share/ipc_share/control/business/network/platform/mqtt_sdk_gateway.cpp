@@ -258,6 +258,9 @@ static const SdkCommandMap_S g_astCommandMap[] = {
     /* ==================== 存储状态 (493) ==================== */
     {"NET_GET_SD_CARD_STATUS",            493, AC_GET_SD_CARD_STATUS,         true,  "获取 SD 卡状态"},
 
+    /* ==================== 垃圾站抓图识别 (500) ==================== */
+    {"NET_GARBAGE_STATION_SNAPSHOT_DETECT", 500, AC_GARBAGE_STATION_SNAPSHOT_DETECT, false, "垃圾站抓图识别"},
+
 };
 
 static constexpr int g_nCommandMapSize = sizeof(g_astCommandMap) / sizeof(g_astCommandMap[0]);

@@ -296,7 +296,9 @@ bool process_region_detection(const ot_aidetect_object_of_one_class *pstObjectCl
     stEventContext.nChnId = stCtx.nChnId;
     stEventContext.llTimestamp = stCtx.llTimestamp;
 #ifdef ENABLE_TVSDK_SRC
-    if (bIsAlarm && pAlarmObject != nullptr)
+    /* perf: 仅在事件真正启动且有 TVSDK 客户端订阅时编码图片，避免活跃期重复编码 */
+    if (bIsAlarm && alarmStateMachine.canStartAlarm() && pAlarmObject != nullptr &&
+        AiAppCommon::tvsdk_event_image_required())
     {
         fill_hvf_tvsdk_event_context(stEventContext, stCtx, pstObjectClass, *pAlarmObject, nAlarmRuleId);
     }
@@ -305,16 +307,28 @@ bool process_region_detection(const ot_aidetect_object_of_one_class *pstObjectCl
     return bIsAlarm;
 }
 
+/**
+ * @brief   : 进入/离开区域检测处理（上一帧/本帧位置对比策略）
+ * @param    {const ot_aidetect_object_of_one_class *} pstObjectClass：当前类别算法结果
+ * @param    {const std::vector<Alarm::EnterExitIntrusion_S> &} aRules：规则数组
+ * @param    {EnterExitTrackStatus_S (&)[MaxRegions][SVP_AIDETECT_MAX_OUTPUT_RECT_NUM]} stStatusArray：帧对比状态数组
+ * @param    {CTargetIndexManager20 &} indexManager：目标索引管理器
+ * @param    {CAlarmStateMachine &} alarmStateMachine：报警状态机
+ * @param    {Event::Type_E} enEventType：事件类型
+ * @param    {const char *} pszDetectTypeName：检测类型日志名称
+ * @param    {const SHVFProcessContext &} stCtx：单帧处理上下文
+ * @return   {bool} true：本帧存在报警 false：本帧无报警
+ * @note    : 上次有效检测位置未知的目标只建立基线，不产生进入/离开边沿
+ */
 template <size_t MaxRegions>
 bool process_region_enter_exit_detection(const ot_aidetect_object_of_one_class *pstObjectClass,
                                          const std::vector<Alarm::EnterExitIntrusion_S> &aRules,
-                                         AreaStatus_S (&stStatusArray)[MaxRegions][SVP_AIDETECT_MAX_OUTPUT_RECT_NUM],
+                                         EnterExitTrackStatus_S (&stStatusArray)[MaxRegions][SVP_AIDETECT_MAX_OUTPUT_RECT_NUM],
                                          CTargetIndexManager20 &indexManager,
                                          CAlarmStateMachine &alarmStateMachine,
                                          Event::Type_E enEventType,
                                          const char *pszDetectTypeName,
-                                         const SHVFProcessContext &stCtx
-)
+                                         const SHVFProcessContext &stCtx)
 {
     /* 当前帧是否存在报警 */
     bool bIsAlarm = false;
@@ -323,13 +337,15 @@ bool process_region_enter_exit_detection(const ot_aidetect_object_of_one_class *
 
     if (pstObjectClass)
     {
-        /* 当前毫秒时间戳 */
-        const double dCurrentTime = get_time_ms();
-
         for (size_t i = 0; i < pstObjectClass->object_num; ++i)
         {
             /* 当前遍历到的算法目标 */
             const ot_aidetect_object &stObject = pstObjectClass->objects[i];
+            if (stObject.track_status == OT_AIDETECT_TRACK_STATUS_DIE)
+            {
+                continue;
+            }
+
             /* 当前 track id 对应的内部状态索引 */
             const int nInternalIndex = indexManager.getOrAllocateIndex(stObject.track_id);
             /* 当前目标本帧是否需要继续显示角框 */
@@ -345,8 +361,8 @@ bool process_region_enter_exit_detection(const ot_aidetect_object_of_one_class *
             {
                 /* 当前区域规则 */
                 const Alarm::EnterExitIntrusion_S &stRule = aRules[j];
-                /* 当前区域状态 */
-                AreaStatus_S &stAreaStatus = stStatusArray[j][nInternalIndex];
+                /* 当前区域帧对比状态 */
+                EnterExitTrackStatus_S &stTrackStatus = stStatusArray[j][nInternalIndex];
                 /* 当前目标是否位于区域内 */
                 const bool bInRegion = is_in_region(stRule.stRegion, stObject);
 
@@ -365,13 +381,15 @@ bool process_region_enter_exit_detection(const ot_aidetect_object_of_one_class *
                     bNeedDisplayRect = true;
                 }
 
+                /* 与上一帧位置对比判定边沿；上一帧未知时只建立基线 */
+                const bool bHasBaseline = stTrackStatus.eLastPresence != RegionPresence_E::UNKNOWN;
+                const bool bEnterEdge = bHasBaseline && bInRegion && stTrackStatus.eLastPresence == RegionPresence_E::OUTSIDE;
+                const bool bLeaveEdge = bHasBaseline && !bInRegion && stTrackStatus.eLastPresence == RegionPresence_E::INSIDE;
+
                 if (enEventType == Event::Type_E::ENTER_REGION)
                 {
-                    if (bInRegion && !stAreaStatus.bIsInRegion)
+                    if (bEnterEdge)
                     {
-                        stAreaStatus.bIsInRegion = true;
-                        stAreaStatus.dEnterTime = dCurrentTime;
-                        stAreaStatus.bAlarmed = false;
 #if CAP_EXHIBITION_OSD_PANEL
                         upsert_exhibition_panel_item(stCtx.pstPanelFrame,
                                                      build_hvf_region_panel_item(static_cast<int>(j),
@@ -392,14 +410,9 @@ bool process_region_enter_exit_detection(const ot_aidetect_object_of_one_class *
                                   nInternalIndex,
                                   j + 1,
                                   pszDetectTypeName);
-                        continue;
                     }
-
-                    if (!bInRegion && stAreaStatus.bIsInRegion)
+                    else if (bLeaveEdge)
                     {
-                        stAreaStatus.bIsInRegion = false;
-                        stAreaStatus.dEnterTime = 0;
-                        stAreaStatus.bAlarmed = false;
                         if (!access("testPrint", F_OK))
                         {
                             dlog_debug("目标 ID: %u (内部索引: %d) 离开区域[%zu]",
@@ -407,11 +420,9 @@ bool process_region_enter_exit_detection(const ot_aidetect_object_of_one_class *
                                        nInternalIndex,
                                        j + 1);
                         }
-                        continue;
                     }
-
 #if CAP_EXHIBITION_OSD_PANEL
-                    if (bInRegion && stAreaStatus.bIsInRegion)
+                    else if (bInRegion && stTrackStatus.eLastPresence == RegionPresence_E::INSIDE)
                     {
                         upsert_exhibition_panel_item(stCtx.pstPanelFrame,
                                                      build_hvf_region_panel_item(static_cast<int>(j),
@@ -422,74 +433,59 @@ bool process_region_enter_exit_detection(const ot_aidetect_object_of_one_class *
                                                                                  0));
                     }
 #endif
-                    continue;
                 }
-
-                if (bInRegion && !stAreaStatus.bIsInRegion)
+                else
                 {
-                    stAreaStatus.bIsInRegion = true;
-                    stAreaStatus.dEnterTime = dCurrentTime;
-                    stAreaStatus.bAlarmed = false;
-#if CAP_EXHIBITION_OSD_PANEL
-                    upsert_exhibition_panel_item(stCtx.pstPanelFrame,
-                                                 build_hvf_region_panel_item(static_cast<int>(j),
-                                                                             pstObjectClass,
-                                                                             stObject,
-                                                                             false,
-                                                                             enEventType,
-                                                                             0));
-#endif
-                    if (!access("testPrint", F_OK))
+                    if (bLeaveEdge)
                     {
-                        dlog_debug("目标 ID: %u (内部索引: %d) 进入区域[%zu]",
-                                   stObject.track_id,
-                                   nInternalIndex,
-                                   j + 1);
-                    }
-                    continue;
-                }
-
-                if (!bInRegion && stAreaStatus.bIsInRegion)
-                {
-                    stAreaStatus.bIsInRegion = false;
-                    stAreaStatus.dEnterTime = 0;
-                    stAreaStatus.bAlarmed = false;
-                    bNeedDisplayRect = true;
+                        bNeedDisplayRect = true;
 #if CAP_EXHIBITION_OSD_PANEL
-                    upsert_exhibition_panel_item(stCtx.pstPanelFrame,
-                                                 build_hvf_region_panel_item(static_cast<int>(j),
-                                                                             pstObjectClass,
-                                                                             stObject,
-                                                                             true,
-                                                                             enEventType,
-                                                                             0));
+                        upsert_exhibition_panel_item(stCtx.pstPanelFrame,
+                                                     build_hvf_region_panel_item(static_cast<int>(j),
+                                                                                 pstObjectClass,
+                                                                                 stObject,
+                                                                                 true,
+                                                                                 enEventType,
+                                                                                 0));
 #endif
-                    bIsAlarm = true;
-                    if (pAlarmObject == nullptr)
+                        bIsAlarm = true;
+                        if (pAlarmObject == nullptr)
+                        {
+                            pAlarmObject = &stObject;
+                            nAlarmRuleId = static_cast<int>(j);
+                        }
+                        dlog_info("目标 ID: %u (内部索引: %d) 离开区域[%zu]，触发%s报警",
+                                  stObject.track_id,
+                                  nInternalIndex,
+                                  j + 1,
+                                  pszDetectTypeName);
+                    }
+                    else if (bEnterEdge)
                     {
-                        pAlarmObject = &stObject;
-                        nAlarmRuleId = static_cast<int>(j);
+                        if (!access("testPrint", F_OK))
+                        {
+                            dlog_debug("目标 ID: %u (内部索引: %d) 进入区域[%zu]",
+                                       stObject.track_id,
+                                       nInternalIndex,
+                                       j + 1);
+                        }
                     }
-                    dlog_info("目标 ID: %u (内部索引: %d) 离开区域[%zu]，触发%s报警",
-                              stObject.track_id,
-                              nInternalIndex,
-                              j + 1,
-                              pszDetectTypeName);
-                    continue;
+#if CAP_EXHIBITION_OSD_PANEL
+                    else if (bInRegion && stTrackStatus.eLastPresence == RegionPresence_E::INSIDE)
+                    {
+                        upsert_exhibition_panel_item(stCtx.pstPanelFrame,
+                                                     build_hvf_region_panel_item(static_cast<int>(j),
+                                                                                 pstObjectClass,
+                                                                                 stObject,
+                                                                                 false,
+                                                                                 enEventType,
+                                                                                 0));
+                    }
+#endif
                 }
 
-#if CAP_EXHIBITION_OSD_PANEL
-                if (bInRegion && stAreaStatus.bIsInRegion)
-                {
-                    upsert_exhibition_panel_item(stCtx.pstPanelFrame,
-                                                 build_hvf_region_panel_item(static_cast<int>(j),
-                                                                             pstObjectClass,
-                                                                             stObject,
-                                                                             false,
-                                                                             enEventType,
-                                                                             0));
-                }
-#endif
+                /* 刷新本帧位置，作为下一帧对比基线 */
+                stTrackStatus.eLastPresence = bInRegion ? RegionPresence_E::INSIDE : RegionPresence_E::OUTSIDE;
             }
 
             if (bNeedDisplayRect)
@@ -504,7 +500,9 @@ bool process_region_enter_exit_detection(const ot_aidetect_object_of_one_class *
     stEventContext.nChnId = stCtx.nChnId;
     stEventContext.llTimestamp = stCtx.llTimestamp;
 #ifdef ENABLE_TVSDK_SRC
-    if (bIsAlarm && pAlarmObject != nullptr)
+    /* perf: 仅在事件真正启动且有 TVSDK 客户端订阅时编码图片，避免活跃期重复编码 */
+    if (bIsAlarm && alarmStateMachine.canStartAlarm() && pAlarmObject != nullptr &&
+        AiAppCommon::tvsdk_event_image_required())
     {
         fill_hvf_tvsdk_event_context(stEventContext, stCtx, pstObjectClass, *pAlarmObject, nAlarmRuleId);
     }

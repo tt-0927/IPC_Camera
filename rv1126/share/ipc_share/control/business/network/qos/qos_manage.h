@@ -23,7 +23,7 @@
 #include "network_define.h"
 #include "network_convert.h"
 #include "convert_interface.h"
-#include "LibWSServer.h"
+#include "WebSocketServer.h"
 #include "CSmtp.h"
 
 #define QOS_DSCP_MIN 0

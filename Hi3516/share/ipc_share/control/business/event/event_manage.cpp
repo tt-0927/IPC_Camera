@@ -237,9 +237,9 @@ void CEventManage::set_event_type(Event::AlgorithmConfig_S &change, Event::Type_
     case Event::Type::PHONE_USAGE: /* 玩手机识别 */
         change.nEnPhoneUsage = bEnable;
         break;
-    case Event::Type::SMOKE_FIRE: /* 烟火识别 */
-        change.nEnSmokeFire = bEnable;
-        break;
+    // case Event::Type::SMOKE_FIRE: /* 烟火识别 */
+    //     change.nEnSmokeFire = bEnable;
+    //     break;
     case Event::Type::OPEN_FLAME: /* 明火识别 */
         change.nEnOpenFlame = bEnable;
         break;
@@ -291,6 +291,11 @@ void CEventManage::set_event_type(Event::AlgorithmConfig_S &change, Event::Type_
     case Event::Type::PLATE_NUMBER: /* 车牌识别 */
         change.nPlateNumber = bEnable;
         break;
+#endif
+#if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
+case Event::Type::SMOKE_FIRE: /* 烟火识别 */
+change.nEnSmokeFire = bEnable;
+break;
 #endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_GARBAGE_DETECT
     case Event::Type::GARBAGE_EXPOSURE: /* 垃圾暴露识别 */
@@ -558,7 +563,7 @@ void CEventManage::print_algorithm_config_changes(const Event::AlgorithmConfig_S
         {                      &Event::AlgorithmConfig_S::nEnTrip,             "摔倒识别" },
         {                   &Event::AlgorithmConfig_S::nEnSmoking,             "抽烟识别" },
         {                &Event::AlgorithmConfig_S::nEnPhoneUsage,          "玩手机识别" },
-        {                 &Event::AlgorithmConfig_S::nEnSmokeFire,             "烟火识别" },
+        // {                 &Event::AlgorithmConfig_S::nEnSmokeFire,             "烟火识别" },
         {                 &Event::AlgorithmConfig_S::nEnOpenFlame,             "明火识别" },
         {      &Event::AlgorithmConfig_S::nEnManholeCoverAbnormal,       "井盖异常检测" },
         {                  &Event::AlgorithmConfig_S::nEnBareSoil,       "黄土裸露识别" },
@@ -576,6 +581,9 @@ void CEventManage::print_algorithm_config_changes(const Event::AlgorithmConfig_S
         {            &Event::AlgorithmConfig_S::nEnIllegalParking,             "停车识别" },
         {         &Event::AlgorithmConfig_S::nEnIllegalLaneChange,       "违规变道识别" },
         {                 &Event::AlgorithmConfig_S::nPlateNumber,             "车牌识别" },
+#endif
+#if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
+{                 &Event::AlgorithmConfig_S::nEnSmokeFire,             "烟火识别" },
 #endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_GARBAGE_DETECT
         {           &Event::AlgorithmConfig_S::nEnGarbageExposure,       "垃圾暴露识别" },

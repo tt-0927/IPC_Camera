@@ -281,6 +281,8 @@ namespace Task
         // 垃圾满溢识别
         TaskSubClass(GetGarbageOverflowInfo)
         TaskSubClass(SetGarbageOverflowInfo)
+        /* 垃圾站手动抓图并送垃圾识别 */
+        TaskSubClass(GarbageStationSnapshotDetect)
 #endif
 
 #if CAP_AI_PEOPLE_STATISTICS

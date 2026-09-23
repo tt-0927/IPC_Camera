@@ -1080,6 +1080,11 @@ void ControlManage::bind_task(std::shared_ptr<CTaskManage> &pTaskManage)
     pTaskManage->bind<Task::Event::CtrlImageAnalysisStop>(AC_SET_IMAGE_ANALYSIS_STOP);
 #endif
 
+#if CAP_AI_GARBAGE_DETECT
+    /* 垃圾站手动抓图并送垃圾识别 */
+    pTaskManage->bind<Task::Event::GarbageStationSnapshotDetect>(AC_GARBAGE_STATION_SNAPSHOT_DETECT);
+#endif
+
 #ifdef SCENE_INTELLIGENCE
     /**
      * @brief   : 场景智能

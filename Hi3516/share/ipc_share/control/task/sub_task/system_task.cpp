@@ -891,6 +891,16 @@ void Task::System::SetSmartEventEnableStatus::handle()
     ::Event::SmartEventEnableStatus_S stNewInfo;
     Convert::to_struct(m_taskData, stNewInfo);
 
+#if CAP_AI_SMOKE_FIRE_DETECT && CAP_AI_GARBAGE_DETECT
+    if (stNewInfo.bSmokeFire &&
+        (stNewInfo.bGarbageExposure || stNewInfo.bGarbageOverflow))
+    {
+        dlog_error("烟火识别与垃圾识别不能同时启用");
+        result(-305);
+        return;
+    }
+#endif
+
 #if CAP_SMART_EVENT_PERF_LIMIT // 智能事件性能限制
     // ! /* 性能限制 */
     /* 对于部分智能事件，需判断是否开启了smart编码，如果开启，不允许进行设置 */
@@ -901,6 +911,22 @@ void Task::System::SetSmartEventEnableStatus::handle()
         stVideoConfig.nId = 0;
         CAVConfigure::instance()->get_configure(stVideoConfig);
         if (stVideoConfig.bSmartEnable)
+        {
+            result(ERR_WEB_SMART_SET_EVENT);
+            return;
+        }
+    }
+#endif
+#if CAP_AI_GARBAGE_DETECT && CAP_AI_FACE_COMPARE && !CAP_IO_EXTERNAL_DDR_00S// 智能事件性能限制
+    // ! /* 性能限制 */
+    /* 对于部分智能事件，需判断是否开启了smart编码，如果开启，不允许进行设置 */
+    if (stNewInfo.bFaceCapture || stNewInfo.bFaceCompare || stNewInfo.bGarbageExposure ||stNewInfo.bGarbageOverflow)
+    {
+        Video_NS::VideoConfig_S stVideoConfig;
+        /* 仅判断第一码流 */
+        stVideoConfig.nId = 0;
+        CAVConfigure::instance()->get_configure(stVideoConfig);
+        if (stVideoConfig.bSmartEnable || stVideoConfig.enSvcEnable!=0)
         {
             result(ERR_WEB_SMART_SET_EVENT);
             return;

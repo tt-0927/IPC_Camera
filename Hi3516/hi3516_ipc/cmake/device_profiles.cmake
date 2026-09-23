@@ -288,6 +288,7 @@ set(DEVICE_PROFILE_TV_3852TL_DEFINES
     CAP_RECORD_NEEDS_CAM_SHARE_INCLUDE=0
     CAP_RECORD_LINK_FDK_AAC=0
     CAP_AI_GARBAGE_DETECT=1              # 垃圾暴露/垃圾满溢检测能力
+    CAP_AI_SMOKE_FIRE_DETECT=1           # 烟火识别功能
     CAP_AI_PEOPLE_STATISTICS=0           # 人流统计/人员密度公共协议与配置能力
     CAP_AI_PEOPLE_DENSITY_LEGACY=0       # 旧版人员密度，人头模型实现
     CAP_AI_PEOPLE_DENSITY_V2=0           # 新版人员密度，HVF 人形模型实现
@@ -353,6 +354,7 @@ set(DEVICE_PROFILE_TV_3852HL_DEFINES
     CAP_RECORD_NEEDS_CAM_SHARE_INCLUDE=0
     CAP_RECORD_LINK_FDK_AAC=0
     CAP_AI_GARBAGE_DETECT=1              # 垃圾暴露/垃圾满溢检测能力
+    CAP_AI_SMOKE_FIRE_DETECT=1           # 烟火识别功能
     CAP_AI_PEOPLE_STATISTICS=0           # 人流统计/人员密度公共协议与配置能力
     CAP_AI_PEOPLE_DENSITY_LEGACY=0       # 旧版人员密度，人头模型实现
     CAP_AI_PEOPLE_DENSITY_V2=0           # 新版人员密度，HVF 人形模型实现
@@ -412,6 +414,7 @@ set(DEVICE_PROFILE_TV_3852TL4G_DEFINES
     CAP_RECORD_NEEDS_CAM_SHARE_INCLUDE=0
     CAP_RECORD_LINK_FDK_AAC=0
     CAP_AI_GARBAGE_DETECT=1              # 垃圾暴露/垃圾满溢检测能力
+    CAP_AI_SMOKE_FIRE_DETECT=1           # 烟火识别功能
     CAP_AI_PEOPLE_STATISTICS=0           # 人流统计/人员密度公共协议与配置能力
     CAP_AI_PEOPLE_DENSITY_LEGACY=0       # 旧版人员密度，人头模型实现
     CAP_AI_PEOPLE_DENSITY_V2=0           # 新版人员密度，HVF 人形模型实现
@@ -475,6 +478,7 @@ set(DEVICE_PROFILE_TV_3852TLW_DEFINES
     CAP_RECORD_NEEDS_CAM_SHARE_INCLUDE=0
     CAP_RECORD_LINK_FDK_AAC=0
     CAP_AI_GARBAGE_DETECT=1              # 垃圾暴露/垃圾满溢检测能力
+    CAP_AI_SMOKE_FIRE_DETECT=1           # 烟火识别功能
     CAP_AI_PEOPLE_STATISTICS=0           # 人流统计/人员密度公共协议与配置能力
     CAP_AI_PEOPLE_DENSITY_LEGACY=0       # 旧版人员密度，人头模型实现
     CAP_AI_PEOPLE_DENSITY_V2=0           # 新版人员密度，HVF 人形模型实现

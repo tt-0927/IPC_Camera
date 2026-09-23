@@ -231,13 +231,13 @@ private:
     //                          int nHeight,
     //                          ot_video_frame_info &stDstFrameInfo) const;
 
-    int saveCompareImage(const Common::RectInfo_S &stRect,
-        ot_video_frame_info *pSrcFrameInfo,
-        int nChnId,
-        long long llTimestamp,
-        CFaceCaptureProcessor &stCaptureProcessor,
-        std::vector<std::string> &vecImageFile,
-        std::string &strImagePath);
+    // int saveCompareImage(const Common::RectInfo_S &stRect,
+    //     ot_video_frame_info *pSrcFrameInfo,
+    //     int nChnId,
+    //     long long llTimestamp,
+    //     CFaceCaptureProcessor &stCaptureProcessor,
+    //     std::vector<std::string> &vecImageFile,
+    //     std::string &strImagePath);
 
     bool prepareFace160Frame(
         const Common::RectInfo_S &rect, 

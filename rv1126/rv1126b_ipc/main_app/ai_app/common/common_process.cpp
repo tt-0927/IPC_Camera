@@ -12,8 +12,11 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstring>
 #include <dirent.h>
 #include <filesystem>
+#include <limits>
+#include <utility>
 
 namespace fs = std::filesystem;
 
@@ -1424,4 +1427,192 @@ bool cropTargetImageFaceNv12(const char *pNv12Data, int nSrcW, int nSrcH,
     }
 
     return !targetImage.empty();
+}
+
+static bool isValidNv12Frame(const char *pNv12Data,
+                             std::size_t nDataSize,
+                             int nSrcW,
+                             int nSrcH,
+                             int nVirW,
+                             int nVirH)
+{
+    if (pNv12Data == nullptr || nSrcW <= 0 || nSrcH <= 0 ||
+        nVirW < nSrcW || nVirH < nSrcH || nVirW % 2 != 0 || nVirH % 2 != 0)
+    {
+        return false;
+    }
+
+    const std::size_t nMaxSize = std::numeric_limits<std::size_t>::max();
+    if (static_cast<std::size_t>(nVirW) > nMaxSize / static_cast<std::size_t>(nVirH))
+    {
+        return false;
+    }
+
+    const std::size_t nYSize = static_cast<std::size_t>(nVirW) *
+                               static_cast<std::size_t>(nVirH);
+    if (nYSize > nMaxSize - nYSize / 2U)
+    {
+        return false;
+    }
+
+    return nDataSize >= nYSize + nYSize / 2U;
+}
+
+static bool mapDetectRectToNv12Source(int nSrcW,
+                                      int nSrcH,
+                                      const cv::Rect2f &detectRect,
+                                      const cv::Size &detectCoordinateSize,
+                                      cv::Rect &sourceRect)
+{
+    if (nSrcW <= 0 || nSrcH <= 0 ||
+        detectCoordinateSize.width <= 0 || detectCoordinateSize.height <= 0 ||
+        !std::isfinite(detectRect.x) || !std::isfinite(detectRect.y) ||
+        !std::isfinite(detectRect.width) || !std::isfinite(detectRect.height) ||
+        detectRect.width <= 0.0f || detectRect.height <= 0.0f)
+    {
+        return false;
+    }
+
+    const double dScaleX = static_cast<double>(nSrcW) /
+                           static_cast<double>(detectCoordinateSize.width);
+    const double dScaleY = static_cast<double>(nSrcH) /
+                           static_cast<double>(detectCoordinateSize.height);
+    const double dLeft = std::max(0.0, static_cast<double>(detectRect.x) * dScaleX);
+    const double dTop = std::max(0.0, static_cast<double>(detectRect.y) * dScaleY);
+    const double dRight = std::min(
+        static_cast<double>(nSrcW),
+        (static_cast<double>(detectRect.x) + detectRect.width) * dScaleX);
+    const double dBottom = std::min(
+        static_cast<double>(nSrcH),
+        (static_cast<double>(detectRect.y) + detectRect.height) * dScaleY);
+    if (!std::isfinite(dLeft) || !std::isfinite(dTop) ||
+        !std::isfinite(dRight) || !std::isfinite(dBottom) ||
+        dRight <= dLeft || dBottom <= dTop)
+    {
+        return false;
+    }
+
+    const int nLeft = std::max(0, std::min(nSrcW, static_cast<int>(std::floor(dLeft))));
+    const int nTop = std::max(0, std::min(nSrcH, static_cast<int>(std::floor(dTop))));
+    const int nRight = std::max(0, std::min(nSrcW, static_cast<int>(std::ceil(dRight))));
+    const int nBottom = std::max(0, std::min(nSrcH, static_cast<int>(std::ceil(dBottom))));
+    if (nRight <= nLeft || nBottom <= nTop)
+    {
+        return false;
+    }
+
+    sourceRect = cv::Rect(nLeft, nTop, nRight - nLeft, nBottom - nTop);
+    return true;
+}
+
+static bool cropNv12Rect(const char *pNv12Data,
+                         std::size_t nDataSize,
+                         int nSrcW,
+                         int nSrcH,
+                         int nVirW,
+                         int nVirH,
+                         const cv::Rect &sourceRect,
+                         cv::Mat &targetImage,
+                         int nMaxSide)
+{
+    targetImage.release();
+    if (!isValidNv12Frame(pNv12Data, nDataSize, nSrcW, nSrcH, nVirW, nVirH) ||
+        nMaxSide <= 0)
+    {
+        return false;
+    }
+
+    int nLeft = std::max(0, sourceRect.x);
+    int nTop = std::max(0, sourceRect.y);
+    const int nRight = std::min(nSrcW, sourceRect.x + sourceRect.width);
+    const int nBottom = std::min(nSrcH, sourceRect.y + sourceRect.height);
+
+    nLeft &= ~1;
+    nTop &= ~1;
+    const int nCropW = (nRight - nLeft) & ~1;
+    const int nCropH = (nBottom - nTop) & ~1;
+    if (nCropW <= 0 || nCropH <= 0)
+    {
+        return false;
+    }
+
+    const char *pY = pNv12Data;
+    const char *pUV = pNv12Data + static_cast<std::size_t>(nVirW) * nVirH;
+    cv::Mat nv12Roi(nCropH * 3 / 2, nCropW, CV_8UC1);
+    for (int nRow = 0; nRow < nCropH; ++nRow)
+    {
+        std::memcpy(nv12Roi.data + static_cast<std::size_t>(nRow) * nCropW,
+                    pY + static_cast<std::size_t>(nTop + nRow) * nVirW + nLeft,
+                    static_cast<std::size_t>(nCropW));
+    }
+    for (int nRow = 0; nRow < nCropH / 2; ++nRow)
+    {
+        std::memcpy(nv12Roi.data + static_cast<std::size_t>(nCropH) * nCropW +
+                        static_cast<std::size_t>(nRow) * nCropW,
+                    pUV + static_cast<std::size_t>(nTop / 2 + nRow) * nVirW + nLeft,
+                    static_cast<std::size_t>(nCropW));
+    }
+
+    cv::Mat bgrImage;
+    cv::cvtColor(nv12Roi, bgrImage, cv::COLOR_YUV2BGR_NV12);
+    const int nLongSide = std::max(bgrImage.cols, bgrImage.rows);
+    if (nLongSide > nMaxSide)
+    {
+        const double dScale = static_cast<double>(nMaxSide) / nLongSide;
+        cv::resize(bgrImage, targetImage, cv::Size(), dScale, dScale, cv::INTER_AREA);
+    }
+    else
+    {
+        targetImage = std::move(bgrImage);
+    }
+
+    return !targetImage.empty();
+}
+
+bool cropTargetImageNv12(const char *pNv12Data,
+                         std::size_t nDataSize,
+                         int nSrcW,
+                         int nSrcH,
+                         int nVirW,
+                         int nVirH,
+                         const cv::Rect2f &detectRect,
+                         const cv::Size &detectCoordinateSize,
+                         cv::Mat &targetImage,
+                         float fMarginX,
+                         float fMarginTop,
+                         float fMarginBottom,
+                         int nMaxSide)
+{
+    targetImage.release();
+
+    if (!std::isfinite(fMarginX) || !std::isfinite(fMarginTop) ||
+        !std::isfinite(fMarginBottom) ||
+        fMarginX < 0.0f || fMarginTop < 0.0f || fMarginBottom < 0.0f)
+    {
+        return false;
+    }
+
+    cv::Rect targetRect;
+    if (!mapDetectRectToNv12Source(
+            nSrcW, nSrcH, detectRect, detectCoordinateSize, targetRect))
+    {
+        return false;
+    }
+
+    const int nMarginX = static_cast<int>(std::lround(targetRect.width * fMarginX));
+    const int nMarginTop = static_cast<int>(std::lround(targetRect.height * fMarginTop));
+    const int nMarginBottom = static_cast<int>(std::lround(targetRect.height * fMarginBottom));
+    const int nLeft = std::max(0, targetRect.x - nMarginX);
+    const int nTop = std::max(0, targetRect.y - nMarginTop);
+    const int nRight = std::min(nSrcW, targetRect.x + targetRect.width + nMarginX);
+    const int nBottom = std::min(nSrcH, targetRect.y + targetRect.height + nMarginBottom);
+    return cropNv12Rect(pNv12Data,
+                        nDataSize,
+                        nSrcW,
+                        nSrcH,
+                        nVirW,
+                        nVirH,
+                        cv::Rect(nLeft, nTop, nRight - nLeft, nBottom - nTop),
+                        targetImage,
+                        nMaxSide);
 }

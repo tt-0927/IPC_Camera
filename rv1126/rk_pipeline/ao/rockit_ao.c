@@ -182,11 +182,10 @@ static int rockitAo_send_pcmData(RkAo_S *pHandle, int nChn, uint8_t *pData, int 
     /* 创建一个内存缓存块 */
     CHECK_API_RETURN(RK_MPI_SYS_CreateMB(&(stFrame.pMbBlk), &stExtConfig));
     /* 发送AO音频帧 */
-    int nRet = RK_MPI_AO_SendFrame(pHandle->stExParam.nDevId, nChn, &stFrame, nTimeOut);
+    CHECK_API_RETURN(RK_MPI_AO_SendFrame(pHandle->stExParam.nDevId, nChn, &stFrame, nTimeOut));
     /* 释放一个已经获取的缓存块 */
-    int nReleaseRet = RK_MPI_MB_ReleaseMB(stFrame.pMbBlk);
-    /* 发送超时或失败也必须释放缓存块，优先返回发送错误 */
-    return (nRet != RK_SUCCESS) ? nRet : nReleaseRet;
+    CHECK_API_RETURN(RK_MPI_MB_ReleaseMB(stFrame.pMbBlk));
+    return RK_SUCCESS;
 }
 
 /**

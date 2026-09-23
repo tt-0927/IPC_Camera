@@ -70,6 +70,7 @@ static void FillDetectionTargets(const std::vector<int> &src, INT32 &nCount, INT
             pTargets[nCount++] = NET_TARGET_OTHER;
         }
     }
+
 }
 
 /* 将 SDK 目标数组展开为 IPC 使用的检测目标集合。 */
@@ -2589,7 +2590,26 @@ static void ToSingleRuleAlarmSchedule(const NET_AlarmSchedule_S &src, Alarm::Def
         }
     }
 }
+#if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
+void FillSmokeFireCfg(const Alarm::SmokeFireDetection_S &src, NET_SmokeFireCfg_S &dst)
+{
+    std::memset(&dst, 0, sizeof(dst));
+    dst.bEnable = src.bEnable ? TRUE : FALSE;
+    dst.stRule.nSensitivity = (INT32)src.stRule.nSensitivity;
+    FillSingleRuleAlarmSchedule(src.aAlarmTime, dst.stAlarmSchedule);
+    FillLinkageList(src.stLinkageList, dst.stLinkageList);
+}
 
+void ToSmokeFire(const NET_SmokeFireCfg_S &src, Alarm::SmokeFireDetection_S &dst)
+{
+    dst.bEnable = (src.bEnable == TRUE);
+    dst.stRule.nSensitivity = (unsigned int)src.stRule.nSensitivity;
+    ToSingleRuleAlarmSchedule(src.stAlarmSchedule, dst.aAlarmTime);
+    ToLinkageList(src.stLinkageList, dst.stLinkageList);
+
+    /* 接收区域字段但不使用（IPC业务不处理区域） */
+}
+#endif
 #ifdef SCENE_INTELLIGENCE
 void FillManholeCoverAbnormalCfg(const Alarm::ManholeCoverAbnormalDetection_S &src, NET_ManholeCoverAbnormalCfg_S &dst)
 {
@@ -3095,6 +3115,7 @@ void FillRetrogradeInfo(const Alarm::DrivingAgainstTrafficDetection_S &src, NET_
     }
     FillSingleRuleAlarmSchedule(src.aAlarmTime, dst.stAlarmSchedule);
     FillLinkageList(src.stLinkageList, dst.stLinkageList);
+
 }
 
 void ToRetrograde(const NET_RetrogradeInfo_S &src, Alarm::DrivingAgainstTrafficDetection_S &dst)
@@ -3177,6 +3198,7 @@ void FillOccupationEmergencyInfo(const Alarm::EmergencyLaneOccupancyDetection_S 
     }
     FillSingleRuleAlarmSchedule(src.aAlarmTime, dst.stAlarmSchedule);
     FillLinkageList(src.stLinkageList, dst.stLinkageList);
+
 }
 
 void ToOccupationEmergency(const NET_OccupationEmergencyInfo_S &src, Alarm::EmergencyLaneOccupancyDetection_S &dst)
@@ -3217,6 +3239,7 @@ void FillPedestrianIntrusionInfo(const Alarm::PedestrianIntrusionDetection_S &sr
     }
     FillSingleRuleAlarmSchedule(src.aAlarmTime, dst.stAlarmSchedule);
     FillLinkageList(src.stLinkageList, dst.stLinkageList);
+
 }
 
 void ToPedestrianIntrusion(const NET_PedestrianIntrusionInfo_S &src, Alarm::PedestrianIntrusionDetection_S &dst)
@@ -3238,22 +3261,24 @@ void ToPedestrianIntrusion(const NET_PedestrianIntrusionInfo_S &src, Alarm::Pede
     /* 接收区域字段但不使用（IPC业务不处理区域） */
 }
 
-void FillSmokeFireCfg(const Alarm::SmokeFireDetection_S &src, NET_SmokeFireCfg_S &dst)
-{
-    std::memset(&dst, 0, sizeof(dst));
-    dst.bEnable = src.bEnable ? TRUE : FALSE;
-    dst.stRule.nSensitivity = (INT32)src.stRule.nSensitivity;
-    FillSingleRuleAlarmSchedule(src.aAlarmTime, dst.stAlarmSchedule);
-    FillLinkageList(src.stLinkageList, dst.stLinkageList);
-}
+// void FillSmokeFireCfg(const Alarm::SmokeFireDetection_S &src, NET_SmokeFireCfg_S &dst)
+// {
+//     std::memset(&dst, 0, sizeof(dst));
+//     dst.bEnable = src.bEnable ? TRUE : FALSE;
+//     dst.stRule.nSensitivity = (INT32)src.stRule.nSensitivity;
+//     FillSingleRuleAlarmSchedule(src.aAlarmTime, dst.stAlarmSchedule);
+//     FillLinkageList(src.stLinkageList, dst.stLinkageList);
+// }
 
-void ToSmokeFire(const NET_SmokeFireCfg_S &src, Alarm::SmokeFireDetection_S &dst)
-{
-    dst.bEnable = (src.bEnable == TRUE);
-    dst.stRule.nSensitivity = (unsigned int)src.stRule.nSensitivity;
-    ToSingleRuleAlarmSchedule(src.stAlarmSchedule, dst.aAlarmTime);
-    ToLinkageList(src.stLinkageList, dst.stLinkageList);
-}
+// void ToSmokeFire(const NET_SmokeFireCfg_S &src, Alarm::SmokeFireDetection_S &dst)
+// {
+//     dst.bEnable = (src.bEnable == TRUE);
+//     dst.stRule.nSensitivity = (unsigned int)src.stRule.nSensitivity;
+//     ToSingleRuleAlarmSchedule(src.stAlarmSchedule, dst.aAlarmTime);
+//     ToLinkageList(src.stLinkageList, dst.stLinkageList);
+
+//     /* 接收区域字段但不使用（IPC业务不处理区域） */
+// }
 
 void FillRoadPondingCfg(const Alarm::RoadPondingDetection_S &src, NET_RoadPondingCfg_S &dst)
 {

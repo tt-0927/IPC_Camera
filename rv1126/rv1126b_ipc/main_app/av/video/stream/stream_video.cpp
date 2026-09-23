@@ -32,11 +32,11 @@ CStreamVideo* CStreamVideo::m_self = NULL;
 std::mutex CStreamVideo::m_mutex;
 
 /* 特写取帧最短间隔(ms)：对齐AI通道5fps帧率，事件风暴时限制特写源取帧频率 */
-static const unsigned int FACE_GRAB_MIN_INTERVAL_MS = 200;
+static const unsigned int CLOSEUP_GRAB_MIN_INTERVAL_MS = 200;
 
 /* 特写抓取特写源的最低帧率(fps)：特写源帧率低于AI通道(5fps)时画面不比检测帧新,
  * 抓取反而引入全景/特写时间差, 直接回退1080p同帧裁剪保证同步 */
-static const float FACE_GRAB_MIN_MAIN_FPS = 5.0f;
+static const float CLOSEUP_GRAB_MIN_MAIN_FPS = 5.0f;
 
 /*NALU的起始码长度偏移*/
 static int find_nalu_offset(const uint8_t *p, int len)
@@ -352,6 +352,11 @@ int CStreamVideo::deinitStream()
 {
     int nRet = OK;
     m_bInitFlag = false;
+
+    {
+        std::lock_guard<std::mutex> lock(m_mutexCloseupGrab);
+        m_tLastCloseupGrab = std::chrono::steady_clock::time_point{};
+    }
 
     /*解绑模块*/
     nRet = unbindModule();
@@ -1324,8 +1329,10 @@ void CStreamVideo::get_vpssStream()
     }
 }
 
-int CStreamVideo::grabFaceCloseupSource(FaceCloseupFrame_S &stFrame, uint64_t u64Pts)
+int CStreamVideo::acquireCloseupFrame(CloseupFrame_S &stFrame, uint64_t u64Pts)
 {
+    stFrame = CloseupFrame_S{};
+
     if (!m_bInitFlag.load(std::memory_order_acquire) ||
         m_pVpssHandle == nullptr || m_pVpssHandle[VPSS_MAIN_SUB] == nullptr)
     {
@@ -1333,12 +1340,19 @@ int CStreamVideo::grabFaceCloseupSource(FaceCloseupFrame_S &stFrame, uint64_t u6
         return ERR_UNINIT;
     }
 
-    /* 同一时刻只允许一个取帧请求, 防止人脸事件并发取帧压垮特写源 */
-    std::lock_guard<std::mutex> lock(m_mutexFaceGrab);
+    /* 同一时刻只允许一个取帧请求，避免并发访问 VPSS 主码流通道。 */
+    std::lock_guard<std::mutex> lock(m_mutexCloseupGrab);
+
+    /* 等待互斥锁期间视频流可能已经开始反初始化，锁内必须再次确认。 */
+    if (!m_bInitFlag.load(std::memory_order_acquire) ||
+        m_pVpssHandle == nullptr || m_pVpssHandle[VPSS_MAIN_SUB] == nullptr)
+    {
+        return ERR_UNINIT;
+    }
 
     /* 事件风暴限流: 最短取帧间隔对齐AI通道帧率(5fps) */
     const auto tStart = std::chrono::steady_clock::now();
-    if (tStart - m_tLastFaceGrab < std::chrono::milliseconds(FACE_GRAB_MIN_INTERVAL_MS))
+    if (tStart - m_tLastCloseupGrab < std::chrono::milliseconds(CLOSEUP_GRAB_MIN_INTERVAL_MS))
     {
         return ERR;
     }
@@ -1354,7 +1368,7 @@ int CStreamVideo::grabFaceCloseupSource(FaceCloseupFrame_S &stFrame, uint64_t u6
     const auto &stMainConfig = videoConfig[VENC_CHN_MAIN];
     if ((stMainConfig.stVideoResolution.nWidth <= PIXEL_WIDTH_AI &&
          stMainConfig.stVideoResolution.nHeight <= PIXEL_HEIGHT_AI) ||
-        stMainConfig.getFrameRateAsFloat() < FACE_GRAB_MIN_MAIN_FPS)
+        stMainConfig.getFrameRateAsFloat() < CLOSEUP_GRAB_MIN_MAIN_FPS)
     {
         return ERR_NOT_ENABLED;
     }
@@ -1402,21 +1416,28 @@ int CStreamVideo::grabFaceCloseupSource(FaceCloseupFrame_S &stFrame, uint64_t u6
         return ERR;
     }
 
+    const int nWidth = static_cast<int>(stVpssFrame.pstVideoFrame.stVFrame.u32Width);
+    const int nHeight = static_cast<int>(stVpssFrame.pstVideoFrame.stVFrame.u32Height);
+    const int nVirWidth = static_cast<int>(stVpssFrame.pstVideoFrame.stVFrame.u32VirWidth);
+    const int nVirHeight = static_cast<int>(stVpssFrame.pstVideoFrame.stVFrame.u32VirHeight);
+
     /* 立即拷贝到应用内存并释放VPSS缓冲, 最小化持帧时间, 防止特写源缓冲耗尽掉帧 */
     auto pCopy = std::shared_ptr<char[]>(new char[nFrameSize]);
     memcpy(pCopy.get(), pFrameData, static_cast<size_t>(nFrameSize));
 
-    stFrame.pData      = pCopy;
-    stFrame.nWidth     = static_cast<int>(stVpssFrame.pstVideoFrame.stVFrame.u32Width);
-    stFrame.nHeight    = static_cast<int>(stVpssFrame.pstVideoFrame.stVFrame.u32Height);
-    stFrame.nVirWidth  = static_cast<int>(stVpssFrame.pstVideoFrame.stVFrame.u32VirWidth);
-    stFrame.nVirHeight = static_cast<int>(stVpssFrame.pstVideoFrame.stVFrame.u32VirHeight);
-    stFrame.u32TimeRef = stVpssFrame.pstVideoFrame.stVFrame.u32TimeRef;
-    stFrame.u64PTS     = stVpssFrame.pstVideoFrame.stVFrame.u64PTS;
+    stFrame.pData         = pCopy;
+    stFrame.nDataSize     = static_cast<std::size_t>(nFrameSize);
+    stFrame.nWidth        = nWidth;
+    stFrame.nHeight       = nHeight;
+    stFrame.nVirWidth     = nVirWidth;
+    stFrame.nVirHeight    = nVirHeight;
+    stFrame.u32TimeRef    = stVpssFrame.pstVideoFrame.stVFrame.u32TimeRef;
+    stFrame.u64PTS        = stVpssFrame.pstVideoFrame.stVFrame.u64PTS;
+    stFrame.u64RequestPTS = u64Pts;
 
     pHandle->rockitVpss_release_chnFrame(pHandle, &stVpssFrame.pstVideoFrame, VPSS_CHANNEL_MAIN);
 
-    m_tLastFaceGrab = tStart;
+    m_tLastCloseupGrab = tStart;
 
     /* 取帧耗时观测: 超过100ms说明特写源负载高 */
     const auto nCostUs = std::chrono::duration_cast<std::chrono::microseconds>(
@@ -1428,4 +1449,9 @@ int CStreamVideo::grabFaceCloseupSource(FaceCloseupFrame_S &stFrame, uint64_t u6
     }
 
     return OK;
+}
+
+int CStreamVideo::grabFaceCloseupSource(FaceCloseupFrame_S &stFrame, uint64_t u64Pts)
+{
+    return acquireCloseupFrame(stFrame, u64Pts);
 }

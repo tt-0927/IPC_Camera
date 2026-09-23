@@ -313,6 +313,9 @@ fi
 # 拷贝插件和字体
 cp -a "${THIRD_PARTY_PATH}/IpcComponents-V"* "${UPGRADE_PATH}${RUN_PATH}/third-party/"
 cp -a "${THIRD_PARTY_PATH}/ttf" "${UPGRADE_PATH}/${RUN_PATH}/third-party/"
+# OSD 点阵字库（IPC_OSD_FONT_BACKEND=dotfont 使用）：板端路径 /opt/cam/third-party/dotfont/，
+# 待 ttf 目录旧字体统一迁移后再放开拷贝
+# cp -a "${THIRD_PARTY_PATH}/dotfont" "${UPGRADE_PATH}/${RUN_PATH}/third-party/"
 
 # 拷贝AI模型
 copy_model_files

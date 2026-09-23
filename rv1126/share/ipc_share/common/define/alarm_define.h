@@ -1484,7 +1484,7 @@ namespace Alarm
         unsigned int nSensitivity;
         std::vector<int> aDetectionTarget;  /* 检测目标,DetectionTarget_E */
         /* 默认构造函数 */
-        LoiteringRule() : stRegion(), nTimeThreshold(10), nSensitivity(50)
+        LoiteringRule() : stRegion(), nTimeThreshold(10), nSensitivity(5)
         {
         }
         /**

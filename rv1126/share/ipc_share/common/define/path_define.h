@@ -34,6 +34,9 @@
 
 /*freetype字体库文件*/
 #define ITC_FONT_FILE       THIRD_PATRY_PATH "ttf/simhei.ttf"
+/*OSD点阵字库文件（IPC_OSD_FONT_BACKEND=dotfont 时使用，由 tools/osd_font 生成；与旧 ttf 分目录存放）*/
+#define ITC_DOTFONT_FILE       THIRD_PATRY_PATH "dotfont/font16.bin" /* 16px 基准档 */
+#define ITC_DOTFONT_LARGE_FILE THIRD_PATRY_PATH "dotfont/font32.bin" /* 32px 大字号档（可选，缺失时降级 16px 展开） */
 
 /* 录制路径 */
 #define RECORD_PATH         COURSE_PATH     "record"

@@ -3,7 +3,7 @@
  * @Author       : zhouzirui
  * @Date         : 2025-03-21 10:24:45
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-08-20 15:57:03
+ * @LastEditTime : 2026-09-16 17:08:15
  * @Description  : 流媒体视频模块
  */
 
@@ -33,70 +33,68 @@
 
 namespace
 {
+/**
+ * @brief   : VENC 码流异常路径释放保护
+ * @note    : 成功取流后必须在 release_stream 前保持码流视图有效；下游分发发生异常时，
+ *            由该对象兜底归还 VENC 环形码流资源，避免异常路径长期占用编码器缓存。
+ */
+class VencStreamReleaseGuard
+{
+public:
     /**
-     * @brief   : VENC 码流异常路径释放保护
-     * @note    : 成功取流后必须在 release_stream 前保持码流视图有效；下游分发发生异常时，
-     *            由该对象兜底归还 VENC 环形码流资源，避免异常路径长期占用编码器缓存。
+     * @brief   : 构造码流释放保护对象
+     * @param   {HiVenc_S*} pHandle：VENC 句柄
+     * @param   {ot_venc_stream*} pStream：已成功获取的码流对象
      */
-    class VencStreamReleaseGuard
+    VencStreamReleaseGuard(HiVenc_S *pHandle, ot_venc_stream *pStream) : m_pHandle(pHandle), m_pStream(pStream)
     {
-    public:
-        /**
-         * @brief   : 构造码流释放保护对象
-         * @param   {HiVenc_S*} pHandle：VENC 句柄
-         * @param   {ot_venc_stream*} pStream：已成功获取的码流对象
-         */
-        VencStreamReleaseGuard(HiVenc_S *pHandle, ot_venc_stream *pStream)
-            : m_pHandle(pHandle), m_pStream(pStream)
+    }
+
+    /**
+     * @brief   : 兜底释放 VENC 码流
+     */
+    ~VencStreamReleaseGuard() noexcept
+    {
+        if (!m_pHandle || !m_pStream)
         {
+            return;
         }
 
-        /**
-         * @brief   : 兜底释放 VENC 码流
-         */
-        ~VencStreamReleaseGuard() noexcept
+        const int nRet = m_pHandle->mppVenc_release_stream(m_pHandle, m_pStream);
+        if (nRet != OK)
         {
-            if (!m_pHandle || !m_pStream)
-            {
-                return;
-            }
+            dlog_error("VENC异常路径释放码流失败 ret:%d", nRet);
+        }
+    }
 
-            const int nRet = m_pHandle->mppVenc_release_stream(m_pHandle, m_pStream);
-            if (nRet != OK)
-            {
-                dlog_error("VENC异常路径释放码流失败 ret:%d", nRet);
-            }
+    /**
+     * @brief   : 在正常路径主动释放 VENC 码流
+     * @return   {int} MPP 释放结果
+     */
+    int release() noexcept
+    {
+        if (!m_pHandle || !m_pStream)
+        {
+            return OK;
         }
 
-        /**
-         * @brief   : 在正常路径主动释放 VENC 码流
-         * @return   {int} MPP 释放结果
-         */
-        int release() noexcept
-        {
-            if (!m_pHandle || !m_pStream)
-            {
-                return OK;
-            }
+        const int nRet = m_pHandle->mppVenc_release_stream(m_pHandle, m_pStream);
+        m_pHandle = nullptr;
+        m_pStream = nullptr;
+        return nRet;
+    }
 
-            const int nRet = m_pHandle->mppVenc_release_stream(m_pHandle, m_pStream);
-            m_pHandle = nullptr;
-            m_pStream = nullptr;
-            return nRet;
-        }
-
-    private:
-        /* memory: 释放保护只保存句柄和栈上码流结构体地址，不持有或复制码流数据。 */
-        HiVenc_S *m_pHandle;
-        ot_venc_stream *m_pStream;
-    };
+private:
+    /* memory: 释放保护只保存句柄和栈上码流结构体地址，不持有或复制码流数据。 */
+    HiVenc_S *m_pHandle;
+    ot_venc_stream *m_pStream;
+};
 }
 
-CStreamVideo* CStreamVideo::m_self = NULL;
+CStreamVideo *CStreamVideo::m_self = NULL;
 std::mutex CStreamVideo::m_mutex;
 
-CStreamVideo::CStreamVideo()
-    : m_pVpssHandle(nullptr)
+CStreamVideo::CStreamVideo() : m_pVpssHandle(nullptr)
 {
     for (int i = 0; i < VENC_CHN_MAX; i++)
     {
@@ -403,9 +401,7 @@ IpcRet_E CStreamVideo::reboot_venc(int nChn, const Video_NS::VideoConfig_S &stVi
     ot_vpss_crop_info stAppliedCrop;
     const ot_vpss_crop_info *pstAppliedCrop = nullptr;
     const auto &areaCropConfig = m_configManager.getAreaCropConfigRef(nChn);
-    if (areaCropConfig.bEnable &&
-        OK == streamVpss_get_chnCrop(m_pVpssHandle[VPSS_MAIN_SUB], nChn, stAppliedCrop) &&
-        stAppliedCrop.enable)
+    if (areaCropConfig.bEnable && OK == streamVpss_get_chnCrop(m_pVpssHandle[VPSS_MAIN_SUB], nChn, stAppliedCrop) && stAppliedCrop.enable)
     {
         pstAppliedCrop = &stAppliedCrop;
     }
@@ -422,6 +418,19 @@ IpcRet_E CStreamVideo::reboot_venc(int nChn, const Video_NS::VideoConfig_S &stVi
 
 void CStreamVideo::request_idr(int nChannel)
 {
+    /* JPEG/MJPEG 每帧独立可解码，海思 VENC 对其通道请求 IDR 返回 NOT_SUPPORT；
+     * 入口直接跳过，避免 RTSP 接入、VENC 重建、录制保片等链路周期性打印失败日志。 */
+    const auto &videoConfigs = m_configManager.getVideoConfigs();
+    if (nChannel < 0 || static_cast<size_t>(nChannel) >= videoConfigs.size())
+    {
+        return;
+    }
+    const Video_NS::VideoCodec_E enCodec = videoConfigs[static_cast<size_t>(nChannel)].enVideoCodec;
+    if (enCodec == Video_NS::VideoCodec_E::JPEG || enCodec == Video_NS::VideoCodec_E::MJPEG)
+    {
+        return;
+    }
+
     int nRet = OK;
     td_bool bInstant = TD_TRUE;
     dlog_trace("通道%d 请求I帧", nChannel);
@@ -476,8 +485,8 @@ int CStreamVideo::get_stream_geometry(int nChn, Video_NS::StreamGeometry_S &stGe
 }
 
 void CStreamVideo::update_stream_geometry(int nChn,
-                                           const Video_NS::VideoConfig_S &stEffectiveVideoConfig,
-                                           const ot_vpss_crop_info *pstAppliedCrop)
+                                          const Video_NS::VideoConfig_S &stEffectiveVideoConfig,
+                                          const ot_vpss_crop_info *pstAppliedCrop)
 {
     if (nChn < 0 || nChn >= VENC_CHN_MAX)
     {
@@ -489,8 +498,7 @@ void CStreamVideo::update_stream_geometry(int nChn,
     stGeometry.nSourceWidth = stEffectiveVideoConfig.stVideoResolution.nWidth;
     stGeometry.nSourceHeight = stEffectiveVideoConfig.stVideoResolution.nHeight;
 
-    if (m_pVpssHandle && m_pVpssHandle[VPSS_MAIN_SUB] &&
-        nChn < m_pVpssHandle[VPSS_MAIN_SUB]->nVpssChnSum)
+    if (m_pVpssHandle && m_pVpssHandle[VPSS_MAIN_SUB] && nChn < m_pVpssHandle[VPSS_MAIN_SUB]->nVpssChnSum)
     {
         stGeometry.nSourceWidth = m_pVpssHandle[VPSS_MAIN_SUB]->astVpssChnAttr[nChn].nWidth;
         stGeometry.nSourceHeight = m_pVpssHandle[VPSS_MAIN_SUB]->astVpssChnAttr[nChn].nHeight;
@@ -698,9 +706,7 @@ int CStreamVideo::setVideoConfig(const Video_NS::VideoConfig_S &stVideoConfig)
 
     ot_vpss_crop_info stAppliedCrop;
     const ot_vpss_crop_info *pstAppliedCrop = nullptr;
-    if (areaCropConfig.bEnable &&
-        OK == streamVpss_get_chnCrop(m_pVpssHandle[VPSS_MAIN_SUB], nId, stAppliedCrop) &&
-        stAppliedCrop.enable)
+    if (areaCropConfig.bEnable && OK == streamVpss_get_chnCrop(m_pVpssHandle[VPSS_MAIN_SUB], nId, stAppliedCrop) && stAppliedCrop.enable)
     {
         pstAppliedCrop = &stAppliedCrop;
     }
@@ -767,13 +773,10 @@ int CStreamVideo::setAreaCropConfig(const Video_NS::AreaCrop_S &stAreaCrop, bool
     }
 
     /* VPSS Crop 和 YUV420 VENC 输出均要求偶数尺寸，禁止底层静默向下对齐造成几何不一致。 */
-    if (stAreaCrop.bEnable &&
-        (stAreaCrop.stResolution.nWidth <= 0 || stAreaCrop.stResolution.nHeight <= 0 ||
-         (stAreaCrop.stResolution.nWidth & 1) || (stAreaCrop.stResolution.nHeight & 1)))
+    if (stAreaCrop.bEnable && (stAreaCrop.stResolution.nWidth <= 0 || stAreaCrop.stResolution.nHeight <= 0 ||
+                               (stAreaCrop.stResolution.nWidth & 1) || (stAreaCrop.stResolution.nHeight & 1)))
     {
-        dlog_error("设置区域裁剪失败，输出分辨率必须为正偶数，当前:%dx%d",
-                   stAreaCrop.stResolution.nWidth,
-                   stAreaCrop.stResolution.nHeight);
+        dlog_error("设置区域裁剪失败，输出分辨率必须为正偶数，当前:%dx%d", stAreaCrop.stResolution.nWidth, stAreaCrop.stResolution.nHeight);
         return ERR_PARAM;
     }
 
@@ -795,8 +798,8 @@ int CStreamVideo::setAreaCropConfig(const Video_NS::AreaCrop_S &stAreaCrop, bool
 
     // note: 是否需变更 VPSS 通道、VENC 属性
     if (currentCropConfig.stResolution.nWidth != stAreaCrop.stResolution.nWidth ||
-        currentCropConfig.stResolution.nHeight != stAreaCrop.stResolution.nHeight ||
-        currentCropConfig.stRect != stAreaCrop.stRect || currentCropConfig.bEnable != stAreaCrop.bEnable || bIsMandateSet)
+        currentCropConfig.stResolution.nHeight != stAreaCrop.stResolution.nHeight || currentCropConfig.stRect != stAreaCrop.stRect ||
+        currentCropConfig.bEnable != stAreaCrop.bEnable || bIsMandateSet)
     {
         if (stAreaCrop.bEnable)
         {
@@ -833,9 +836,7 @@ int CStreamVideo::setAreaCropConfig(const Video_NS::AreaCrop_S &stAreaCrop, bool
         /* 绑定VPSS Chn -> VENC */
         vpssBindVencModule(nId);
 
-        update_stream_geometry(nId,
-                               currentVideoConfig,
-                               stAppliedCrop.enable ? &stAppliedCrop : nullptr);
+        update_stream_geometry(nId, currentVideoConfig, stAppliedCrop.enable ? &stAppliedCrop : nullptr);
         COsdManage::instance()->after_venc_channel_reset(nId);
 
         /* info: 裁剪会改变 VENC 实际输出分辨率，录制端必须同步新参数后再接收新帧。 */
@@ -922,6 +923,13 @@ int CStreamVideo::vpssUnbindVencModule(int nVencChn)
 
 int CStreamVideo::apply_video_config(const Video_NS::VideoConfig_S &stConfig)
 {
+    return setVideoConfig(stConfig);
+}
+
+int CStreamVideo::restart_encode_channel(int nId)
+{
+    /* 以当前生效配置走既有重启路径，用于编码通道内部状态损坏后的重建 */
+    const Video_NS::VideoConfig_S stConfig = m_configManager.getVideoConfigs().at(nId);
     return setVideoConfig(stConfig);
 }
 
@@ -1056,21 +1064,19 @@ void CStreamVideo::get_vencStream(int param)
             memset(&stFrame, 0, sizeof(ot_venc_stream));
             /*获取编码码流*/
             const auto stGetStreamStart = std::chrono::steady_clock::now();
-            const int nGetStreamTimeoutMs =
-                (nChannel == VENC_CHN_JPEG) ? TIMEOUT_1500_MS : TIMEOUT_500_MS;
+            const int nGetStreamTimeoutMs = (nChannel == VENC_CHN_JPEG) ? TIMEOUT_1500_MS : TIMEOUT_500_MS;
             nRet = pHandle->mppVenc_get_stream(pHandle, &stFrame, nGetStreamTimeoutMs);
-            const long long llGetStreamCostMs = std::chrono::duration_cast<std::chrono::milliseconds>(
-                                                     std::chrono::steady_clock::now() - stGetStreamStart)
-                                                     .count();
+            const long long llGetStreamCostMs = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() -
+                                                                                                      stGetStreamStart)
+                                                    .count();
 
             /*
              * 区分 JPEG 按需抓拍的空闲超时与真实取流失败：JPEG 无抓图请求时编码器
              * 不产出帧，get_stream 阻塞到超时属预期空闲态；真实异常（get_fd/select
              * 失败）耗时约 20ms，与超时耗时（约等于 nGetStreamTimeoutMs）有明确边界。
              */
-            const bool bJpegIdleTimeout =
-                (nChannel == VENC_CHN_JPEG && nRet != OK &&
-                 llGetStreamCostMs >= static_cast<long long>(nGetStreamTimeoutMs) - 50);
+            const bool bJpegIdleTimeout = (nChannel == VENC_CHN_JPEG && nRet != OK &&
+                                           llGetStreamCostMs >= static_cast<long long>(nGetStreamTimeoutMs) - 50);
 
             if (nRet != OK)
             {
@@ -1162,17 +1168,14 @@ void CStreamVideo::get_vencStream(int param)
                         }
                         if (nChannel < 0 || static_cast<std::size_t>(nChannel) >= vVideoConfig.size())
                         {
-                            dlog_error("VENC帧视图无法获取视频配置，chn:%d config_size:%zu",
-                                       nChannel,
-                                       vVideoConfig.size());
+                            dlog_error("VENC帧视图无法获取视频配置，chn:%d config_size:%zu", nChannel, vVideoConfig.size());
                             continue;
                         }
                         stFrameView.enVideoCodec = vVideoConfig[nChannel].enVideoCodec;
                         const auto it = m_nalParsers.find(stFrameView.enVideoCodec);
                         if (it == m_nalParsers.end() || !it->second)
                         {
-                            dlog_error("未找到对应的NAL解析器，编码类型:%d",
-                                       static_cast<int>(stFrameView.enVideoCodec));
+                            dlog_error("未找到对应的NAL解析器，编码类型:%d", static_cast<int>(stFrameView.enVideoCodec));
                             continue;
                         }
                         stFrameView.eType = it->second->parseNalType(pData, nDataLen);
@@ -1185,22 +1188,15 @@ void CStreamVideo::get_vencStream(int param)
                     }
                     catch (const std::bad_alloc &)
                     {
-                        dlog_error("VENC下游分发内存申请失败，丢弃当前pack chn:%d len:%d",
-                                   nChannel,
-                                   nDataLen);
+                        dlog_error("VENC下游分发内存申请失败，丢弃当前pack chn:%d len:%d", nChannel, nDataLen);
                     }
                     catch (const std::exception &e)
                     {
-                        dlog_error("VENC下游分发异常，丢弃当前pack chn:%d len:%d error:%s",
-                                   nChannel,
-                                   nDataLen,
-                                   e.what());
+                        dlog_error("VENC下游分发异常，丢弃当前pack chn:%d len:%d error:%s", nChannel, nDataLen, e.what());
                     }
                     catch (...)
                     {
-                        dlog_error("VENC下游分发发生未知异常，丢弃当前pack chn:%d len:%d",
-                                   nChannel,
-                                   nDataLen);
+                        dlog_error("VENC下游分发发生未知异常，丢弃当前pack chn:%d len:%d", nChannel, nDataLen);
                     }
                 }
             }

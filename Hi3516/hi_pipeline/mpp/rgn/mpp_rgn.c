@@ -3,7 +3,7 @@
  * @Author       : zhouzirui
  * @Date         : 2025-05-08 16:35:40
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-07-30 15:14:08
+ * @LastEditTime : 2026-09-16 17:08:50
  * @Description  : 区域管理
  */
 
@@ -36,8 +36,8 @@ static int rgn_load_param(HiRgn_S *pHandle, ot_rgn_attr *pRgnAttr)
         pRgnAttr->attr.overlay.canvas_num = 1; /* 区域的画布数量, OVERLAY支持1 */
         // pRgnAttr->attr.overlay.clut = 0;
     }
-    else if (OT_RGN_COVER == pHandle->unType || OT_RGN_COVEREX == pHandle->unType
-             || OT_RGN_CORNER_RECT == pHandle->unType || OT_RGN_CORNER_RECTEX == pHandle->unType)
+    else if (OT_RGN_COVER == pHandle->unType || OT_RGN_COVEREX == pHandle->unType || OT_RGN_CORNER_RECT == pHandle->unType ||
+             OT_RGN_CORNER_RECTEX == pHandle->unType)
     {
         pRgnAttr->type = pHandle->unType;
     }
@@ -126,12 +126,12 @@ static int rgn_load_chnParam(HiRgn_S *pHandle, ot_rgn_chn_attr *pChnAttr)
         pChnAttr->attr.corner_rect_chn.corner_rect.rect.y = pHandle->unStartY;
         pChnAttr->attr.corner_rect_chn.corner_rect.rect.width = pHandle->unWidth; /* 宽高信息 */
         pChnAttr->attr.corner_rect_chn.corner_rect.rect.height = pHandle->unHeight;
-        pChnAttr->attr.corner_rect_chn.corner_rect.hor_len = pHandle->uHorLen; /* 角框水平线长 */
-        pChnAttr->attr.corner_rect_chn.corner_rect.ver_len = pHandle->uVerLen; /* 角框竖直线长 */
-        pChnAttr->attr.corner_rect_chn.corner_rect.thick = pHandle->uThick;    /* 角框线宽 */
+        pChnAttr->attr.corner_rect_chn.corner_rect.hor_len = pHandle->uHorLen;                            /* 角框水平线长 */
+        pChnAttr->attr.corner_rect_chn.corner_rect.ver_len = pHandle->uVerLen;                            /* 角框竖直线长 */
+        pChnAttr->attr.corner_rect_chn.corner_rect.thick = pHandle->uThick;                               /* 角框线宽 */
         pChnAttr->attr.corner_rect_chn.corner_rect_attr.corner_rect_type = OT_CORNER_RECT_TYPE_FULL_LINE; /* 角框形状 */
-        pChnAttr->attr.corner_rect_chn.corner_rect_attr.color = pHandle->unFgColor; /* 角框颜色 */
-        pChnAttr->attr.corner_rect_chn.layer = pHandle->unLayer;                    /* 区域层级 */
+        pChnAttr->attr.corner_rect_chn.corner_rect_attr.color = pHandle->unFgColor;                       /* 角框颜色 */
+        pChnAttr->attr.corner_rect_chn.layer = pHandle->unLayer;                                          /* 区域层级 */
     }
 
     return TD_SUCCESS;
@@ -472,7 +472,7 @@ static int mppRgn_changeRect(HiRgn_S *pHandle, int nWidth, int nHeight)
 
         /* 获取区域属性 */
         CHECK_API_RETURN(ss_mpi_rgn_get_attr(unHandle, &stRgnAttr));
-    
+
         stRgnAttr.attr.overlay.size.width = MPI_ALIGN_UP(nWidth, OT_RGN_ALIGN);
         stRgnAttr.attr.overlay.size.height = MPI_ALIGN_UP(nHeight, OT_RGN_ALIGN);
 
@@ -482,8 +482,8 @@ static int mppRgn_changeRect(HiRgn_S *pHandle, int nWidth, int nHeight)
         /*绑定区域*/
         mppRgn_attachToChn(pHandle);
     }
-    else if (OT_RGN_COVER == pHandle->unType || OT_RGN_COVEREX == pHandle->unType
-             || OT_RGN_CORNER_RECT == pHandle->unType || OT_RGN_CORNER_RECTEX == pHandle->unType)
+    else if (OT_RGN_COVER == pHandle->unType || OT_RGN_COVEREX == pHandle->unType || OT_RGN_CORNER_RECT == pHandle->unType ||
+             OT_RGN_CORNER_RECTEX == pHandle->unType)
     {
         /* 区域通道属性 */
         ot_rgn_chn_attr stRgnChnAttr;
@@ -521,24 +521,120 @@ static int mppRgn_changeRect(HiRgn_S *pHandle, int nWidth, int nHeight)
     return TD_SUCCESS;
 }
 
-/* 显示或者隐藏区域 */
-static int mppRgn_showOrHide(HiRgn_S *pHandle, td_bool bIsShow)
+/* 一次性更新区域的位置与尺寸（仅 COVER/COVEREX/CORNER_RECT/CORNER_RECTEX）
+ * 这类区域的坐标、宽高都在通道显示属性中，一次获取+设置即可完成切换，
+ * 避免先改尺寸再改位置（两次获取+设置）在运行通道上拉长属性切换窗口：
+ * 卷绕在线通道（VPSS chn0 wrap online 直送 VENC）上窗口越大越容易与
+ * 帧传递竞争，曾导致 VENC 图像队列 invalid、编码停摆。
+ */
+static int mppRgn_changeAttr(HiRgn_S *pHandle, int nStartX, int nStartY, int nWidth, int nHeight)
 {
-    if (NULL == pHandle || !pHandle->bIsFlicker)
+    if (NULL == pHandle)
     {
+        mpi_rgn_log("mppRgn_changeAttr error");
         return TD_FAILURE;
     }
+
+    if (OT_RGN_COVER != pHandle->unType && OT_RGN_COVEREX != pHandle->unType && OT_RGN_CORNER_RECT != pHandle->unType &&
+        OT_RGN_CORNER_RECTEX != pHandle->unType)
+    {
+        mpi_rgn_log("类型:%d 不支持 changeAttr, OVERLAY 请用 changeRect/changePos", pHandle->unType);
+        return TD_FAILURE;
+    }
+
     /* 区域句柄号 */
     uint32_t unHandle = mppRgn_get_minHandle(pHandle->unType) + pHandle->unHandle;
 
     /* 区域通道属性 */
     ot_rgn_chn_attr stRgnChnAttr;
-    memset(&stRgnChnAttr, 0, sizeof(ot_rgn_chn_attr));
+    memset(&stRgnChnAttr, 0, sizeof(stRgnChnAttr));
+
+    /* mpp通道属性 */
+    ot_mpp_chn stMppChn;
+    memset(&stMppChn, 0, sizeof(stMppChn));
+    mpp_load_chnParam(pHandle, &stMppChn);
+
+    /* 获取区域通道显示属性 */
+    CHECK_API_RETURN(ss_mpi_rgn_get_chn_display_attr(unHandle, &stMppChn, &stRgnChnAttr));
+
+    /* 同步内存参数并一次性修改位置与尺寸 */
+    pHandle->unStartX = nStartX;
+    pHandle->unStartY = nStartY;
+    pHandle->unWidth = (uint32_t) nWidth;
+    pHandle->unHeight = (uint32_t) nHeight;
+
+    if (OT_RGN_COVER == pHandle->unType)
+    {
+        if (OT_COVER_RECT == stRgnChnAttr.attr.cover_chn.cover.type)
+        {
+            stRgnChnAttr.attr.cover_chn.cover.rect_attr.rect.x = MPI_ALIGN_UP(nStartX, OT_RGN_ALIGN);
+            stRgnChnAttr.attr.cover_chn.cover.rect_attr.rect.y = MPI_ALIGN_UP(nStartY, OT_RGN_ALIGN);
+            stRgnChnAttr.attr.cover_chn.cover.rect_attr.rect.width = MPI_ALIGN_UP((int32_t) pHandle->unWidth, OT_RGN_ALIGN);
+            stRgnChnAttr.attr.cover_chn.cover.rect_attr.rect.height = MPI_ALIGN_UP((int32_t) pHandle->unHeight, OT_RGN_ALIGN);
+        }
+        else if (OT_COVER_QUAD == stRgnChnAttr.attr.cover_chn.cover.type)
+        {
+            for (int i = 0; i < OT_QUAD_POINT_NUM; i++)
+            {
+                stRgnChnAttr.attr.cover_chn.cover.quad_attr.point[i].x = pHandle->stuPoints[i].x;
+                stRgnChnAttr.attr.cover_chn.cover.quad_attr.point[i].y = pHandle->stuPoints[i].y;
+            }
+        }
+    }
+    else if (OT_RGN_COVEREX == pHandle->unType)
+    {
+        if (OT_COVER_RECT == stRgnChnAttr.attr.coverex_chn.coverex.type)
+        {
+            stRgnChnAttr.attr.coverex_chn.coverex.rect_attr.rect.x = MPI_ALIGN_UP(nStartX, OT_RGN_ALIGN);
+            stRgnChnAttr.attr.coverex_chn.coverex.rect_attr.rect.y = MPI_ALIGN_UP(nStartY, OT_RGN_ALIGN);
+            stRgnChnAttr.attr.coverex_chn.coverex.rect_attr.rect.width = MPI_ALIGN_UP((int32_t) pHandle->unWidth, OT_RGN_ALIGN);
+            stRgnChnAttr.attr.coverex_chn.coverex.rect_attr.rect.height = MPI_ALIGN_UP((int32_t) pHandle->unHeight, OT_RGN_ALIGN);
+        }
+        else if (OT_COVER_QUAD == stRgnChnAttr.attr.coverex_chn.coverex.type)
+        {
+            for (int i = 0; i < OT_QUAD_POINT_NUM; i++)
+            {
+                stRgnChnAttr.attr.coverex_chn.coverex.quad_attr.point[i].x = pHandle->stuPoints[i].x;
+                stRgnChnAttr.attr.coverex_chn.coverex.quad_attr.point[i].y = pHandle->stuPoints[i].y;
+            }
+        }
+    }
+    else /* OT_RGN_CORNER_RECT / OT_RGN_CORNER_RECTEX */
+    {
+        /* 两个通道属性结构的内层字段名一致，均为 corner_rect */
+        ot_corner_rect *pstRect = (OT_RGN_CORNER_RECT == pHandle->unType) ? &stRgnChnAttr.attr.corner_rect_chn.corner_rect
+                                                                          : &stRgnChnAttr.attr.corner_rectex_chn.corner_rect;
+        pstRect->rect.x = MPI_ALIGN_UP(nStartX, OT_RGN_ALIGN);
+        pstRect->rect.y = MPI_ALIGN_UP(nStartY, OT_RGN_ALIGN);
+        pstRect->rect.width = MPI_ALIGN_UP((int32_t) pHandle->unWidth, OT_RGN_ALIGN);
+        pstRect->rect.height = MPI_ALIGN_UP((int32_t) pHandle->unHeight, OT_RGN_ALIGN);
+    }
+
+    /* 设置区域通道显示属性 */
+    CHECK_API_RETURN(ss_mpi_rgn_set_chn_display_attr(unHandle, &stMppChn, &stRgnChnAttr));
+
+    return TD_SUCCESS;
+}
+
+/* 显示或者隐藏区域 */
+static int mppRgn_showOrHide(HiRgn_S *pHandle, td_bool bIsShow)
+{
+    if (NULL == pHandle)
+    {
+        return TD_FAILURE;
+    }
+
+    /* 区域句柄号 */
+    uint32_t unHandle = mppRgn_get_minHandle(pHandle->unType) + pHandle->unHandle;
+
+    /* 区域通道属性 */
+    ot_rgn_chn_attr stRgnChnAttr;
+    memset(&stRgnChnAttr, 0, sizeof(stRgnChnAttr));
     rgn_load_chnParam(pHandle, &stRgnChnAttr);
 
     /* mpp通道属性 */
     ot_mpp_chn stMppChn;
-    memset(&stMppChn, 0, sizeof(ot_mpp_chn));
+    memset(&stMppChn, 0, sizeof(stMppChn));
     mpp_load_chnParam(pHandle, &stMppChn);
 
     /* 获取区域通道显示属性 */
@@ -549,6 +645,9 @@ static int mppRgn_showOrHide(HiRgn_S *pHandle, td_bool bIsShow)
 
     /* 设置区域通道显示属性 */
     CHECK_API_RETURN(ss_mpi_rgn_set_chn_display_attr(unHandle, &stMppChn, &stRgnChnAttr));
+
+    /* 同步内存状态，供调用方判断当前显隐，避免重复设置 */
+    pHandle->bIsShow = bIsShow;
 
     return TD_SUCCESS;
 }
@@ -581,10 +680,10 @@ static int mppRgn_update(HiRgn_S *pHandle, HiRgnNeedParam_S stParam)
         pHandle->unHorMargin = stParam.unHorMargin;
         pHandle->unVerMargin = stParam.unVerMargin;
         pHandle->bIsFlicker = stParam.bIsFlicker;
-        
+
         pHandle->enFormat = OT_PIXEL_FORMAT_ARGB_4444;
     }
-    else if (OT_RGN_COVER == pHandle->unType || OT_RGN_COVEREX  == pHandle->unType)
+    else if (OT_RGN_COVER == pHandle->unType || OT_RGN_COVEREX == pHandle->unType)
     {
         pHandle->bIsRectangle = stParam.bIsRectangle;
         if (stParam.bIsRectangle)
@@ -626,7 +725,12 @@ static int mppRgn_update(HiRgn_S *pHandle, HiRgnNeedParam_S stParam)
 /* 分配区域句柄 */
 HiRgn_S *mppRgn_alloc(HiRgnNeedParam_S stParam)
 {
-    HiRgn_S *pHandle = (HiRgn_S *)malloc(sizeof(HiRgn_S));
+    HiRgn_S *pHandle = (HiRgn_S *) malloc(sizeof(HiRgn_S));
+    if (NULL == pHandle)
+    {
+        mpi_rgn_log("分配区域句柄失败");
+        return NULL;
+    }
     memset(pHandle, 0, sizeof(HiRgn_S));
 
     mppRgn_update(pHandle, stParam);
@@ -639,6 +743,7 @@ HiRgn_S *mppRgn_alloc(HiRgnNeedParam_S stParam)
     pHandle->mppRgn_clearPicture = mppRgn_clearPicture;
     pHandle->mppRgn_changePos = mppRgn_changePos;
     pHandle->mppRgn_changeRect = mppRgn_changeRect;
+    pHandle->mppRgn_changeAttr = mppRgn_changeAttr;
     pHandle->mppRgn_showOrHide = mppRgn_showOrHide;
     pHandle->mppRgn_update = mppRgn_update;
 

@@ -113,8 +113,8 @@ namespace Log
         SMOKING_STOP            = 1229, /**< 抽烟识别结束 */
         PHONE_USAGE_START       = 1230, /**< 玩手机识别开始 */
         PHONE_USAGE_STOP        = 1231, /**< 玩手机识别结束 */
-        SMOKE_FIRE_START        = 1234, /**< 烟火识别开始 */
-        SMOKE_FIRE_STOP         = 1235, /**< 烟火识别结束 */
+        // SMOKE_FIRE_START        = 1234, /**< 烟火识别开始 */
+        // SMOKE_FIRE_STOP         = 1235, /**< 烟火识别结束 */
         OPEN_FLAME_START        = 1236, /**< 明火识别开始 */
         OPEN_FLAME_STOP         = 1237, /**< 明火识别结束 */
         BARE_SOIL_START         = 1240, /**< 黄土裸露识别开始 */
@@ -158,6 +158,11 @@ namespace Log
 #ifdef SCENE_INTELLIGENT_ANALYSIS
         // ========== 大模型场景智能分析 ==========
         TEXT_PRESET_ALARM                  = 1274, /**< 场景智能分析-文字预设报警 */
+#endif
+
+#if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
+    SMOKE_FIRE_START        = 1234, /**< 烟火识别开始 */
+    SMOKE_FIRE_STOP         = 1235, /**< 烟火识别结束 */
 #endif
 
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_GARBAGE_DETECT
@@ -647,8 +652,8 @@ namespace Log
             return bStart ? SMOKING_START : SMOKING_STOP;
         case Event::Type::PHONE_USAGE:
             return bStart ? PHONE_USAGE_START : PHONE_USAGE_STOP;
-        case Event::Type::SMOKE_FIRE:
-            return bStart ? SMOKE_FIRE_START : SMOKE_FIRE_STOP;
+        // case Event::Type::SMOKE_FIRE:
+        //     return bStart ? SMOKE_FIRE_START : SMOKE_FIRE_STOP;
         case Event::Type::OPEN_FLAME:
             return bStart ? OPEN_FLAME_START : OPEN_FLAME_STOP;
         case Event::Type::BARE_SOIL:
@@ -694,7 +699,10 @@ namespace Log
         case Event::Type_E::TEXT_PRESET:
             return Log::TEXT_PRESET_ALARM;
 #endif
-
+#if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
+        case Event::Type::SMOKE_FIRE:
+            return bStart ? SMOKE_FIRE_START : SMOKE_FIRE_STOP;
+#endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_GARBAGE_DETECT
         /* 垃圾识别 */
         case Event::Type::GARBAGE_EXPOSURE:
@@ -798,8 +806,8 @@ namespace Log
         case SMOKING_STOP:            return "抽烟识别结束";
         case PHONE_USAGE_START:       return "玩手机识别开始";
         case PHONE_USAGE_STOP:        return "玩手机识别结束";
-        case SMOKE_FIRE_START:        return "烟火识别开始";
-        case SMOKE_FIRE_STOP:         return "烟火识别结束";
+        // case SMOKE_FIRE_START:        return "烟火识别开始";
+        // case SMOKE_FIRE_STOP:         return "烟火识别结束";
         case OPEN_FLAME_START:        return "明火识别开始";
         case OPEN_FLAME_STOP:         return "明火识别结束";
         case BARE_SOIL_START:         return "黄土裸露识别开始";
@@ -840,7 +848,10 @@ namespace Log
         case PLATE_NUMBER_START:                    return "车牌识别开始";
         case PLATE_NUMBER_STOP:                     return "车牌识别结束";
 #endif
-
+#if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
+        case SMOKE_FIRE_START:        return "烟火识别开始";
+        case SMOKE_FIRE_STOP:         return "烟火识别结束";
+#endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_GARBAGE_DETECT
         case GARBAGE_EXPOSURE_START: return "垃圾暴露识别开始";
         case GARBAGE_EXPOSURE_STOP: return "垃圾暴露识别结束";

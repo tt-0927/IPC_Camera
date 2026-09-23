@@ -54,9 +54,14 @@ IpcRet_E CUserManage::init()
         /* 检索admin管理员账户密码，更新至RtspServer */
         if (userInfo.stAccountInfo.account == USER_DEFAULT_NAME)
         {
-            CRtspServer::instance()->update_userInfo(userInfo.stAccountInfo.account,
-                                                     userInfo.stAccountInfo.password,
-                                                     true);
+            const int nRtspRet = CRtspServer::instance()->update_userInfo(userInfo.stAccountInfo.account,
+                                                                          userInfo.stAccountInfo.password,
+                                                                          true);
+            if (nRtspRet != OK)
+            {
+                dlog_error("同步admin凭据到RTSP服务失败 ret:%d", nRtspRet);
+                return ERR;
+            }
         }
     }
 

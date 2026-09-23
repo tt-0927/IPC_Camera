@@ -652,6 +652,37 @@ static int mppVpss_release_grpFrame(HiVpss_S *pHandle, ot_video_frame_info *pFra
     return TD_SUCCESS;
 }
 
+/**
+ * @brief       : 获取通道指定区域亮度统计（OSD 反色用）
+ * @author      : zhouzirui
+ * @param        {HiVpss_S*} pHandle 句柄
+ * @param        {int} nVpssChn VPSS物理通道号
+ * @param        {ot_rect*} pRects 统计区域数组（坐标系为该通道输出图；
+ *               坐标/宽高2像素对齐、区域不得超图，单次最多64个）
+ * @param        {int} nRectCnt 统计区域个数（1~64）
+ * @param        {td_u64*} pu64LumaData 输出各区域亮度总和（数组长度>=nRectCnt）
+ * @param        {int} nMilliSec 超时ms（-1阻塞；须覆盖通道一个输出帧间隔）
+ * @return       {*}成功返回0,失败返回错误码（卷绕/低时延通道不产生统计事件，超时返回）
+ */
+static int mppVpss_get_chnRgnLuma(HiVpss_S *pHandle, int nVpssChn, ot_rect *pRects, int nRectCnt,
+                                  td_u64 *pu64LumaData, int nMilliSec)
+{
+    ot_vpss_rgn_info stRgnInfo;
+
+    if (!pHandle || !pRects || !pu64LumaData || nVpssChn < 0 || nVpssChn >= OT_VPSS_MAX_PHYS_CHN_NUM ||
+        nRectCnt < 1 || nRectCnt > 64 || nMilliSec < -1)
+    {
+        mpi_vpss_log("mppVpss_get_chnRgnLuma 参数错误");
+        return TD_FAILURE;
+    }
+
+    stRgnInfo.rgn_num = (td_u32)nRectCnt;
+    stRgnInfo.rgn = pRects;
+    CHECK_API_RETURN(ss_mpi_vpss_get_chn_rgn_luma(pHandle->nVpssGrp, nVpssChn, &stRgnInfo, pu64LumaData, nMilliSec));
+
+    return TD_SUCCESS;
+}
+
 HiVpss_S *mppVpss_alloc(HiVpssNeedParam_S stNeedParam)
 {
     HiVpss_S *pHandle = (HiVpss_S*)malloc(sizeof(HiVpss_S));
@@ -703,6 +734,7 @@ HiVpss_S *mppVpss_alloc(HiVpssNeedParam_S stNeedParam)
     pHandle->mppVpss_release_chnFrame   = mppVpss_release_chnFrame;
     pHandle->mppVpss_get_grpFrame       = mppVpss_get_grpFrame;
     pHandle->mppVpss_release_grpFrame   = mppVpss_release_grpFrame;
+    pHandle->mppVpss_get_chnRgnLuma     = mppVpss_get_chnRgnLuma;
 
     return pHandle;
 }

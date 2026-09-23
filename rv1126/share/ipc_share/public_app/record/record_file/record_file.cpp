@@ -22,7 +22,7 @@
 
 CRecordFile::CRecordFile(int nChnId)
 	: m_nChnId(nChnId)
-#if defined(DEVICE_TV_3882TI) || defined(DEVICE_TV_3881T)
+#if defined(DEVICE_TV_3882TI) || defined(DEVICE_TV_3881T) || defined(DEVICE_TV_3881TJY)
 	, m_mediaDataQueue(1000)
 #else
 	, m_mediaDataQueue(500)

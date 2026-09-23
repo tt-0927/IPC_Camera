@@ -8,9 +8,6 @@
  * @Change       : 2026-09-08 越界设置保留规则数量和索引，无效参数保留旧值，由事件总开关控制
  * @Change       : 2026-09-08 人员聚集保留规则数量及位置，无效规则回退旧值并返回实际任务结果
  * @Change       : 2026-09-08 统一十六类智能事件的规则回退和业务结果返回，校验 IPC 数量上限
- * @Change       : 2026-09-17 违规变道和逆行识别兼容全零坐标的空规则占位
- * @Change       : 2026-09-18 网络配置命令改用网口列表结构，IPC 对外返回单网口配置
- * @Change       : 2026-09-20 网络配置设置改为同步等待业务结果，设置成功后触发设备延时重启
  */
 
 #include "tvsdk_callbacks.h"
@@ -580,16 +577,6 @@ static bool tvsdk_valid_rule_targets(const TRule &stRule)
 template <typename TRule>
 static bool tvsdk_valid_region_parameters(const TRule &stRule, int nActionCode)
 {
-    /*
-     * 点数为 0 表示未配置区域：网页端不显示该规则的时间阈值与灵敏度，
-     * 这两个字段此时无业务意义，跳过校验，
-     * 避免未配置的规则因携带越界旧值被误判为无效并触发回退。
-     */
-    if (stRule.uPointCount == 0)
-    {
-        return true;
-    }
-
     const bool bIgnoreTime = nActionCode == AC_SET_ENTER_REGION_DETECT_INFO ||
                              nActionCode == AC_SET_LEAVE_REGION_DETECT_INFO;
     return tvsdk_valid_polygon(stRule) &&
@@ -2061,20 +2048,6 @@ static NET_COMMON_ECODE_E cb_get_network_cfg(INT32 dwChannelID, LPVOID lpOutBuff
     pOut->stNets[0].uChannel = 0;
     return NET_E_SUCCEED;
 }
-
-/**
- * @brief 设置网络配置，同步等待 IPC 业务结果并在设置成功后触发设备延时重启。
- * @details 原实现只把任务投递进队列就返回成功，无法确认配置是否真正保存，也不会重启。
- *          现改为同步等待 IPC 网络设置任务返回，并按业务返回值区分处理：
- *          OK 表示 IPC 已即时生效，OK_SETNETWORK_AND_REBOOT 表示 IPC 判定需要重启后生效，
- *          两者都视为设置成功并启动延时重启；其他返回值一律返回设置失败且不重启。
- *          system_reboot() 内部启动独立线程并在两秒后执行 sync;reboot，
- *          因此 NET_SET_NETWORKCFG 有足够时间先向 NVR 返回设置成功。
- * @param [in] dwChannelID SDK 通道号，IPC 无逻辑通道，不使用该参数。
- * @param [in] lpInBuffer NET_NetworkCfgList_S 网络配置列表，仅支持单网口。
- * @param [out] 无。
- * @return 设置成功返回 NET_E_SUCCEED，参数错误返回 NET_E_INVALID_PARAM，其他失败返回 NET_E_SET_CFG_FAILED。
- */
 static NET_COMMON_ECODE_E cb_set_network_cfg(INT32 dwChannelID, LPVOID lpInBuffer)
 {
     (void)dwChannelID;
@@ -2483,6 +2456,7 @@ static NET_COMMON_ECODE_E cb_set_tamper_alarm(INT32 dwChannelID, LPVOID lpInBuff
     /* 解析任务 Return：参数类错误映射为 NET_E_INVALID_PARAM，其它失败映射为设置失败。 */
     return tvsdk_set_event_config(AG_SET_HIDE_ALARM_INFO, Convert::to_string(stCfg));
 }
+
 static NET_COMMON_ECODE_E cb_get_motion_alarm(INT32 dwChannelID, LPVOID lpOutBuffer)
 {
     (void)dwChannelID;
@@ -2545,6 +2519,7 @@ static NET_COMMON_ECODE_E cb_set_motion_alarm(INT32 dwChannelID, LPVOID lpInBuff
 
     /* 复用事件配置设置路径，返回真实业务结果而不是任务入队结果。 */
     return tvsdk_set_event_config(AC_SET_MOTION_DETECT_INFO, Convert::to_string(stCfg));
+
 }
 
 static NET_COMMON_ECODE_E cb_get_cross_line_alarm(INT32 dwChannelID, LPVOID lpOutBuffer)
@@ -2724,7 +2699,6 @@ static NET_COMMON_ECODE_E cb_set_loitering_alarm(INT32 nChannelId, LPVOID pInBuf
             }
         }
     }
-
     const NET_COMMON_ECODE_E enResult = tvsdk_preserve_event_rules(
         nChannelId, stNormalized, AC_SET_LOITERING_DETECT_INFO, cb_get_loitering_alarm);
     if (enResult != NET_E_SUCCEED)

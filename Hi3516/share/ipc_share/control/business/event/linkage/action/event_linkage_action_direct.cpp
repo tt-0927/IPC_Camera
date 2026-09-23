@@ -41,7 +41,7 @@ namespace
 constexpr const char *MQTT_EVENT_ALARM_COMMAND = "NET_TV_EVENT_ALARM";
 constexpr const char *MQTT_EVENT_IMAGE_UPLOAD_COMMAND = "NET_TV_EVENT_IMAGE_UPLOAD";
 constexpr int EVENT_IMAGE_WAIT_INTERVAL_MS = 500;
-constexpr int EVENT_IMAGE_WAIT_TIMEOUT_MS = 3000;
+constexpr int EVENT_IMAGE_WAIT_TIMEOUT_MS = 8000;
 
 /* 事件链路中可能同时有上下文时间和事件信息时间，优先使用触发上下文的毫秒时间戳 */
 long long get_event_timestamp_ms(const ResolvedLinkagePlan_S &stPlan)

@@ -10,6 +10,7 @@
 #include "algo_stream_deal.h"
 #include "StatisticsTimer.hpp"
 #include "SaveImage.hpp"
+#include "dlog.h"
 #include "storage_manage.h"
 #include "capture_database.h"
 #include "time_utils.h"
@@ -794,12 +795,6 @@ void CFaceDetect::run()
                             /*  人脸抓拍 */
                             if(m_stAlgoFaceCapCfg.bEnable || m_bFaceAttribute.load())
                             {
-                                /* m_nFrameCount 降低人脸属性检测频率 */
-                                if(!m_stAlgoFaceCapCfg.bEnable && m_nFrameCount < DETECT_FRAME_THRESHOLD)
-                                {
-                                    continue;
-                                }
-
                                 if (stFQOneRes.fFqaSouce >= 0.05 || result.fBoxConfidence >= 0.5)
                                 {
                                     /* 判断是否进行抓拍 */

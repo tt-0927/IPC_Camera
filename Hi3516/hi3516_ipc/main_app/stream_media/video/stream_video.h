@@ -3,7 +3,7 @@
  * @Author       : zhouzirui
  * @Date         : 2025-03-21 10:24:45
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-08-14 10:56:36
+ * @LastEditTime : 2026-09-16 17:08:33
  * @Description  : 流媒体视频模块头文件
  */
 
@@ -52,33 +52,34 @@ typedef enum StreamMediaNum
 
 namespace Video_NS
 {
-    /**
-     * @brief   : 码流通道的运行时有效画面几何
-     * @note    : 配置分辨率表示用户期望的基础尺寸；该结构记录 VPSS 裁剪和 VENC 重建后 RGN 实际应使用的坐标系。
-     */
-    typedef struct
-    {
-        int nSourceWidth = 0;  /* VPSS 通道裁剪前实际宽度 */
-        int nSourceHeight = 0; /* VPSS 通道裁剪前实际高度 */
-        bool bCropEnable = false; /* 是否已在 VPSS 通道启用裁剪 */
-        int nCropX = 0;       /* 底层实际生效的裁剪起点 X */
-        int nCropY = 0;       /* 底层实际生效的裁剪起点 Y */
-        int nCropWidth = 0;   /* 底层实际生效的裁剪宽度 */
-        int nCropHeight = 0;  /* 底层实际生效的裁剪高度 */
-        int nOutputWidth = 0; /* VPSS 输出及 VENC 编码实际宽度 */
-        int nOutputHeight = 0;/* VPSS 输出及 VENC 编码实际高度 */
-        uint64_t unGeneration = 0; /* 几何版本，用于识别裁剪/分辨率切换 */
-    } StreamGeometry_S;
+/**
+ * @brief   : 码流通道的运行时有效画面几何
+ * @note    : 配置分辨率表示用户期望的基础尺寸；该结构记录 VPSS 裁剪和 VENC 重建后 RGN 实际应使用的坐标系。
+ */
+typedef struct
+{
+    int nSourceWidth = 0;      /* VPSS 通道裁剪前实际宽度 */
+    int nSourceHeight = 0;     /* VPSS 通道裁剪前实际高度 */
+    bool bCropEnable = false;  /* 是否已在 VPSS 通道启用裁剪 */
+    int nCropX = 0;            /* 底层实际生效的裁剪起点 X */
+    int nCropY = 0;            /* 底层实际生效的裁剪起点 Y */
+    int nCropWidth = 0;        /* 底层实际生效的裁剪宽度 */
+    int nCropHeight = 0;       /* 底层实际生效的裁剪高度 */
+    int nOutputWidth = 0;      /* VPSS 输出及 VENC 编码实际宽度 */
+    int nOutputHeight = 0;     /* VPSS 输出及 VENC 编码实际高度 */
+    uint64_t unGeneration = 0; /* 几何版本，用于识别裁剪/分辨率切换 */
+} StreamGeometry_S;
 }
 
 class CStreamVideo : public IAVVideoConfigApplier
 {
 private:
     CStreamVideo();
-    static CStreamVideo* m_self;
+    static CStreamVideo *m_self;
     static std::mutex m_mutex;
+
 public:
-    static CStreamVideo* instance()
+    static CStreamVideo *instance()
     {
         if (m_self == nullptr) // 第一层检查
         {
@@ -144,6 +145,14 @@ public:
     int setVideoConfig(const Video_NS::VideoConfig_S &stVideoConfig);
 
     /**
+     * @brief   : 按当前生效配置重建指定编码通道
+     * @param    {int} nId：通道号
+     * @return   {int} 0：成功，非0：失败
+     * @note    : 用于编码通道内部状态损坏后的重建（如卷绕链路异常），断流约1~2秒
+     */
+    int restart_encode_channel(int nId);
+
+    /**
      * @brief   : 应用视频配置
      * @param    {Video_NS::VideoConfig_S} &stConfig：视频配置
      * @return   {int} 0：成功，非0：失败
@@ -155,7 +164,7 @@ public:
      * @param    {Video_NS::VideoRoiConfig_S} &stVideoRoiConfig：视频ROI配置
      * @return   {int} 0：成功，非0：失败
      */
-    int setVideoRoiConfig(const Video_NS::VideoRoiConfig_S  &stVideoRoiConfig);
+    int setVideoRoiConfig(const Video_NS::VideoRoiConfig_S &stVideoRoiConfig);
 
     /**
      * @brief   : 应用视频 ROI 配置
@@ -248,12 +257,10 @@ private:
      * @return   {void}
      * @note    : 仅保存运行时状态，不修改用户持久化视频配置。
      */
-    void update_stream_geometry(int nChn,
-                                const Video_NS::VideoConfig_S &stEffectiveVideoConfig,
-                                const ot_vpss_crop_info *pstAppliedCrop);
+    void update_stream_geometry(int nChn, const Video_NS::VideoConfig_S &stEffectiveVideoConfig, const ot_vpss_crop_info *pstAppliedCrop);
 
 private:
-    //info /*----------------------- 私有线程函数 -----------------------*/
+    // info /*----------------------- 私有线程函数 -----------------------*/
     /**
      * @brief       : 获取编码后的数据送推流
      * @author      : zhouzirui
@@ -278,9 +285,9 @@ private:
      */
     int getJpegVencParam(unsigned int &unWidth, unsigned int &unHeight, unsigned int &nUqFactor);
 
-
     // 异常处理
-    void HandleThreadException(const std::string& thread_name) {
+    void HandleThreadException(const std::string &thread_name)
+    {
         std::lock_guard<std::mutex> lock(exception_mutex_);
         last_error_ = thread_name + " crashed";
         // RestartThread(thread_name); // 线程重启逻辑

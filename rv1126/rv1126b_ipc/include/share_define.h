@@ -93,7 +93,7 @@ extern "C"{
 /* 系统版本 */
 #define SYSTEM_VERSION       "V1.0.9"
 /* 插件版本 */
-#define PLUG_VERSION         "V2.0.25"
+#define PLUG_VERSION         "V2.0.26"
 /* web版本 */
 #define WEB_VERSION          "V1.0.1"
 /* 报警输入GPIO个数 */

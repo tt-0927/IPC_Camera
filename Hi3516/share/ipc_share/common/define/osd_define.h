@@ -77,6 +77,15 @@ namespace Osd
         int nY;
     } CoordinateInfo_S;
 
+    /* OSD颜色 */
+    typedef enum
+    {
+        OSD_COLOR_BLACK = 0, /* 黑色 */
+        OSD_COLOR_WHITE,     /* 白色 */
+        OSD_COLOR_CUSTOMIZE, /* 自定义 */
+        OSD_COLOR_AUTO_BLACK_WHITE /* 黑白自动：按字符覆盖区背景亮度逐字符黑/白自适应（仅 OSD 文本，Cover 不支持） */
+    } OSD_COLOR_E;
+
     /* Overplay配置信息 */
     typedef struct
     {
@@ -93,6 +102,7 @@ namespace Osd
         std::string strBackColor;    /* 背景颜色（rgb888格式0x000000~0xFFFFFF） */
         int nFontAlpha;              /* 字体透明度（百分比） */
         int nBackAlpha;              /* 背景透明度（百分比） */
+        OSD_COLOR_E enFontColor;     /* 字体颜色枚举（渲染层据此判断黑白自动反色） */
         ElementType_E enElementType; /* 元素种类 */
         bool bEnableTimeZone;        /* 时区使能 */
         bool bEnableWeek;            /* 星期使能 */
@@ -144,6 +154,7 @@ namespace Osd
             stuOverplay.strBackColor = "0xFFFFFF"; /* 白色 */
             stuOverplay.nFontAlpha = 0;            /* 不透明 */
             stuOverplay.nBackAlpha = 100;          /* 全透明 */
+            stuOverplay.enFontColor = OSD_COLOR_BLACK; /* 默认黑色 */
             stuOverplay.enElementType = ELEMENT_TYPE_CUSTOMIZE;
             stuOverplay.bEnableTimeZone = false;
             stuOverplay.bEnableWeek = false;
@@ -215,14 +226,6 @@ namespace Osd
         OSD_FONT_SIZE_48,           /* 48 * 48 */
         OSD_FONT_SIZE_64            /* 64 * 64 */
     } OSD_FONT_SIZE_E;
-
-    /* OSD颜色 */
-    typedef enum
-    {
-        OSD_COLOR_BLACK = 0, /* 黑色 */
-        OSD_COLOR_WHITE,     /* 白色 */
-        OSD_COLOR_CUSTOMIZE  /* 自定义 */
-    } OSD_COLOR_E;
 
     /* OSD对齐方式 */
     typedef enum

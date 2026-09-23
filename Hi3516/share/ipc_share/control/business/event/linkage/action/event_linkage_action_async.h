@@ -35,9 +35,17 @@ public:
     void play_audio(const std::string &strAudioPath, int nTimes, std::atomic<bool> &bRunningFlag);
 
     /**
-     * @brief   : 根据当前配置获取音频文件路径
-     * @param    {std::string} &strAudioPath 输出音频路径
-     * @return   {int} 0：成功 非0：失败
+     * @brief 根据当前声音报警配置获取报警音频路径和播放次数。
+     * @param [out] strAudioPath 报警音频文件路径。
+     * @param [out] nTimes 报警音频播放次数。
+     * @return 0 表示成功，非 0 表示获取失败。
+     */
+    int get_audio_file_path(std::string &strAudioPath, int &nTimes);
+
+    /**
+     * @brief 根据当前声音报警配置获取报警音频路径。
+     * @param [out] strAudioPath 报警音频文件路径。
+     * @return 0 表示成功，非 0 表示获取失败。
      */
     int get_audio_file_path(std::string &strAudioPath);
 

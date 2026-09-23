@@ -1337,29 +1337,6 @@ void Convert::deal(Json::Object *pRootJson, Alarm::PedestrianIntrusionDetection_
     convert.structure(pRootJson, "LinkageMode", stInfo.stLinkageList);
 }
 
-void Convert::deal(Json::Object *pRootJson, Alarm::SmokeFireRule_S &stInfo, bool bOutStruct)
-{
-    if (!pRootJson)
-    {
-        return;
-    }
-    Convert::CConvert convert(bOutStruct);
-    convert.field(pRootJson, "Sensitivity", stInfo.nSensitivity);
-}
-
-void Convert::deal(Json::Object *pRootJson, Alarm::SmokeFireDetection_S &stInfo, bool bOutStruct)
-{
-    if (!pRootJson)
-    {
-        return;
-    }
-
-    Convert::CConvert convert(bOutStruct);
-    convert.field(pRootJson, "Enable", stInfo.bEnable);
-    convert.structure(pRootJson, "Rule", stInfo.stRule);
-    convert.structure(pRootJson, stInfo.aAlarmTime);
-    convert.structure(pRootJson, "LinkageMode", stInfo.stLinkageList);
-}
 
 void Convert::deal(Json::Object *pRootJson, Alarm::OpenFlameRule_S &stInfo, bool bOutStruct)
 {
@@ -1730,6 +1707,7 @@ void Convert::deal(Json::Object *pRootJson, Alarm::ElectricScooterRule_S &stInfo
     }
     Convert::CConvert convert(bOutStruct);
     convert.field(pRootJson, "Sensitivity", stInfo.nSensitivity);
+    convert.field(pRootJson, "TimeThreshold", stInfo.nTimeThreshold);
 }
 
 void Convert::deal(Json::Object *pRootJson, Alarm::ElectricScooterDetection_S &stInfo, bool bOutStruct)
@@ -2032,6 +2010,31 @@ void Convert::deal(Json::Object *pRootJson, Alarm::AttributeDetectSwitch_S &stIn
 
 #endif
 
+#if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
+void Convert::deal(Json::Object *pRootJson, Alarm::SmokeFireRule_S &stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+    Convert::CConvert convert(bOutStruct);
+    convert.field(pRootJson, "Sensitivity", stInfo.nSensitivity);
+}
+
+void Convert::deal(Json::Object *pRootJson, Alarm::SmokeFireDetection_S &stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+
+    Convert::CConvert convert(bOutStruct);
+    convert.field(pRootJson, "Enable", stInfo.bEnable);
+    convert.structure(pRootJson, "Rule", stInfo.stRule);
+    convert.structure(pRootJson, stInfo.aAlarmTime);
+    convert.structure(pRootJson, "LinkageMode", stInfo.stLinkageList);
+}
+#endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_GARBAGE_DETECT
 void Convert::deal(Json::Object *pRootJson, Alarm::GarbageExposureRule_S &stInfo, bool bOutStruct)
 {

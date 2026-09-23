@@ -29,6 +29,9 @@
 #ifdef ENABLE_GAT1400_SRC
 #include "gat1400_utils.h"
 #endif
+
+struct CloseupFrame_S;
+
 class CGroup2_Group4Detect : public CAlgorithm {
   public:
     CGroup2_Group4Detect();
@@ -328,7 +331,9 @@ class CGroup2_Group4Detect : public CAlgorithm {
      * @return [*] 成功：0 失败：其他
      * @note
      */
-    int pnmAttributeAnalysis(cv::Mat &srcData, const std::vector<Group2Detect_NS::Result_S> &vecAllResult);
+    int pnmAttributeAnalysis(cv::Mat &srcData,
+                             const std::vector<Group2Detect_NS::Result_S> &vecAllResult,
+                             const CloseupFrame_S *pCloseupFrame);
 
     /**
      * @brief 行人属性分析
@@ -337,17 +342,24 @@ class CGroup2_Group4Detect : public CAlgorithm {
      * @return [*] 成功：0 失败：其他
      * @note
      */
-    int personAttributeAnalysis(cv::Mat &srcData, std::vector<Group2Detect_NS::Result_S> vstResult);
+    int personAttributeAnalysis(cv::Mat &srcData,
+                                std::vector<Group2Detect_NS::Result_S> vstResult,
+                                const CloseupFrame_S *pCloseupFrame);
 
     /**
      * @brief 机动车属性分析
      * @param srcData 原图片数据
      * @param cropped 车辆图片数据
-     * @param stActualResult 车辆车牌信息
+     * @param stTargetRect 抓拍目标区域，有车牌时为车牌区域，否则为车辆区域
+     * @param strLicensePlateNumber 车牌号，未识别到车牌时为空
      * @return [*] 成功：0 失败：其他
      * @note
      */
-    int motorvehicleAttributeAnalysis(cv::Mat &srcData, cv::Mat &cropped, LicensePlateCognition_NS::Result_S stActualResult);
+    int motorvehicleAttributeAnalysis(
+        cv::Mat              &srcData,
+        cv::Mat              &cropped,
+        const Common::Rect_S &stTargetRect,
+        const std::string    &strLicensePlateNumber);
 
     /**
      * @brief 非机动车属性分析
@@ -445,6 +457,11 @@ class CGroup2_Group4Detect : public CAlgorithm {
     std::string saveCropImage(cv::Mat image, Common::Rect_S stRect, std::string strPicType);
 
     /**
+     * @brief 保存已经裁剪并转换为 BGR 的目标小图
+     */
+    std::string saveTargetImage(const cv::Mat &targetBgr, const std::string &strPicType);
+
+    /**
      * @brief 行人抓拍信息推送
      * @param strCurrentPicture 全景大图路径
      * @param strPersonPicture 目标小图路径
@@ -476,7 +493,10 @@ class CGroup2_Group4Detect : public CAlgorithm {
     /**
      * @brief 行人抓拍信息 TVSDK 二进制直推
      */
-    void pushPersonCaptureInfoToTvSdk(const cv::Mat &srcData, const Common::Rect_S &stRect, const PresonAttribute_NS::Result_S &stResult);
+    void pushPersonCaptureInfoToTvSdk(const cv::Mat &srcData,
+                                      const Common::Rect_S &stRect,
+                                      const cv::Mat &targetBgr,
+                                      const PresonAttribute_NS::Result_S &stResult);
 
     /**
      * @brief 机动车抓拍信息 TVSDK 二进制直推
@@ -715,7 +735,7 @@ class CGroup2_Group4Detect : public CAlgorithm {
     int m_nFrameCount = 0;
     /* 记录上一帧的行人目标框信息 */
     std::vector<Group2Detect_NS::Result_S> m_vecLastFramePersonResult;
-    /* 记录上一帧的机动车目标框车牌号信息 */
+    /* 记录上一属性分析周期识别到的机动车车牌号 */
     std::vector<std::string> m_vecLastFrameMotorvehicleResult;
     /* 记录上一帧的非机动车目标框信息 */
     std::vector<Group2Detect_NS::Result_S> m_vecLastFrameNonMotorvehicleResult;

@@ -297,7 +297,8 @@ public:
                 if ((stContext.enEventType == Event::Type_E::MOTION_DETECT || 
                     stContext.enEventType == Event::Type_E::OCCLUSION_DETECT ||
                     stContext.enEventType == Event::Type_E:: GARBAGE_OVERFLOW ||
-                    stContext.enEventType == Event::Type_E:: GARBAGE_EXPOSURE) &&
+                    stContext.enEventType == Event::Type_E:: GARBAGE_EXPOSURE ||
+                    stContext.enEventType == Event::Type_E::SMOKE_FIRE) &&
                     activeElapsed.count() >= MOTION_EVENT_MAX_DURATION_SECONDS)
                 {
                     dlog_info("移动侦测事件持续[%lld]秒，达到单次事件上限，强制结束",

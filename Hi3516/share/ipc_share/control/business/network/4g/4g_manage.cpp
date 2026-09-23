@@ -809,14 +809,35 @@ RetCode FourGManager::getSimInfo(::Network::SIM_Info_t &info) {
         sim_ready = resp.find("+CPIN: READY") != std::string::npos;
     }
 
-    int rssi = 99;
-    if (sendCommand("AT+CSQ", resp, 1500) == RET_OK) {
-        size_t pos = resp.find("+CSQ:");
+    int signal_rsrp_dbm = 0;
+    bool signal_detected = false;
+    if (sendCommand("AT^HCSQ?", resp, 1500) == RET_OK) {
+        const size_t pos = resp.find("^HCSQ:");
         if (pos != std::string::npos) {
-            rssi = std::atoi(resp.c_str() + pos + 5);
-            info.signal_quality = rssi == 99 ? "0" : std::to_string(rssi);
+            int report_mode = 0;
+            int report_interval = 0;
+            int rxlev = 99;
+            int rsrq = 255;
+            int rsrp = 255;
+            int snr = 255;
+            char sysmode[16] = {0};
+            int parsed = std::sscanf(resp.c_str() + pos,
+                                     "^HCSQ: %d,%d,\"%15[^\"]\",%d,%d,%d,%d",
+                                     &report_mode, &report_interval,
+                                     sysmode, &rxlev, &rsrq, &rsrp, &snr);
+            if (parsed != 7) {
+                parsed = std::sscanf(resp.c_str() + pos,
+                                     "^HCSQ: \"%15[^\"]\",%d,%d,%d,%d",
+                                     sysmode, &rxlev, &rsrq, &rsrp, &snr);
+            }
+            if ((parsed == 7 || parsed == 5) &&
+                std::strcmp(sysmode, "LTE") == 0 && rsrp >= 0 && rsrp <= 97) {
+                signal_rsrp_dbm = rsrp - 141;
+                signal_detected = true;
+            }
         }
     }
+    info.signal_quality = signal_detected ? std::to_string(signal_rsrp_dbm) : "0";
 
     int registration = -1;
     if (sendCommand("AT+CEREG?", resp, 1500) == RET_OK) {
@@ -985,7 +1006,7 @@ RetCode FourGManager::getSimInfo(::Network::SIM_Info_t &info) {
     else if (info.is_registered) info.status = "已注册未拨号";
     else if (registration == 2) info.status = "正在注册";
     else if (registration == 3) info.status = "注册被拒绝";
-    else if (rssi == 99) info.status = "无信号";
+    else if (!signal_detected) info.status = "无信号";
     else info.status = "未注册";
 
     last_cached_info = info;

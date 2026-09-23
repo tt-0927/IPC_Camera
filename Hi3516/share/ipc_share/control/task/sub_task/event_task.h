@@ -172,11 +172,6 @@ namespace Task
         /* 推送非机动车抓拍信息 */
         TaskSubClass(PushNonMotorVehicleCaptureInfo)
 
-#if CAP_AI_GARBAGE_DETECT
-        /* 垃圾站手动抓图并送垃圾识别 */
-        TaskSubClass(GarbageStationSnapshotDetect)
-#endif
-
         // 翻越围栏
         TaskSubClass(GetFenceClimbingInfo)
         TaskSubClass(SetFenceClimbingInfo)
@@ -205,9 +200,9 @@ namespace Task
         TaskSubClass(GetPedestrianIntrusionInfo)
         TaskSubClass(SetPedestrianIntrusionInfo)
 
-        // 烟火识别
-        TaskSubClass(GetSmokeFireInfo)
-        TaskSubClass(SetSmokeFireInfo)
+        // // 烟火识别
+        // TaskSubClass(GetSmokeFireInfo)
+        // TaskSubClass(SetSmokeFireInfo)
 
         // 道路积水检测
         TaskSubClass(GetRoadPondingInfo)
@@ -277,7 +272,11 @@ namespace Task
         TaskSubClass(GetReflectiveClothingInfo)
         TaskSubClass(SetReflectiveClothingInfo)
 #endif
-
+#if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
+        // 烟火识别
+        TaskSubClass(GetSmokeFireInfo)
+        TaskSubClass(SetSmokeFireInfo)
+#endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_GARBAGE_DETECT
         // 垃圾暴露识别
         TaskSubClass(GetGarbageExposureInfo)
@@ -286,6 +285,8 @@ namespace Task
         // 垃圾满溢识别
         TaskSubClass(GetGarbageOverflowInfo)
         TaskSubClass(SetGarbageOverflowInfo)
+        /* 垃圾站手动抓图并送垃圾识别 */
+        TaskSubClass(GarbageStationSnapshotDetect)
 #endif
 
 #if CAP_AI_PEOPLE_STATISTICS

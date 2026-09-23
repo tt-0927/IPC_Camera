@@ -74,6 +74,9 @@ HiVpss_S **streamVpss_init(HiVpss_S ***pHandle, const std::vector<Video_NS::Vide
                     pVpssChnAttr->nHeight = vstVideoConfig[nVpssChn].stVideoResolution.nHeight;
                     pVpssChnAttr->nMaxWidth = PIXEL_WIDTH_704;
                     pVpssChnAttr->nMaxHeight = PIXEL_HEIGHT_576;
+                    /* 保持低时延（帧直通 VENC，无 luma 统计事件）；OSD 逐字符反色的
+                     * 统计源走 chn2（AI 通道，普通通道 3fps 抽帧），见 overplay_draw.cpp
+                     * osd_query_region_luma 的统计通道探测 */
                     pVpssChnAttr->bLowDelay = TD_TRUE;
                 }
                 else if (nVpssChn == VPSS_CHANNEL_AI) // AI 检测

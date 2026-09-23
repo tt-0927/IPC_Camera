@@ -696,39 +696,39 @@ int ControlManage::tvsdk_get_client_count() const
 }
 
 #if !CAP_IO_EXTERNAL_DDR_00S
-int ControlManage::tvsdk_reserve_for_platform()
-{
-    std::lock_guard<std::mutex> lock(m_mtxTvSdkPlatformExclusive);
+// int ControlManage::tvsdk_reserve_for_platform()
+// {
+//     std::lock_guard<std::mutex> lock(m_mtxTvSdkPlatformExclusive);
 
-    if (!m_pTvSdkServer)
-    {
-        dlog_error("平台申请独占时 TVSDK 服务对象不存在");
-        return ERR;
-    }
+//     if (!m_pTvSdkServer)
+//     {
+//         dlog_error("平台申请独占时 TVSDK 服务对象不存在");
+//         return ERR;
+//     }
 
-    /* 已经停止表示平台此前已取得独占，重复保存平台配置可继续执行。 */
-    if (!m_pTvSdkServer->is_init())
-    {
-        return OK;
-    }
+//     /* 已经停止表示平台此前已取得独占，重复保存平台配置可继续执行。 */
+//     if (!m_pTvSdkServer->is_init())
+//     {
+//         return OK;
+//     }
 
-    const int nClientCount = m_pTvSdkServer->get_client_count();
-    if (nClientCount < 0)
-    {
-        dlog_error("平台连接前获取 TVSDK 客户端数量失败");
-        return ERR;
-    }
-    if (nClientCount > 0)
-    {
-        dlog_warn("拒绝连接平台：当前存在 %d 个 TVSDK 客户端", nClientCount);
-        return ERR;
-    }
+//     const int nClientCount = m_pTvSdkServer->get_client_count();
+//     if (nClientCount < 0)
+//     {
+//         dlog_error("平台连接前获取 TVSDK 客户端数量失败");
+//         return ERR;
+//     }
+//     if (nClientCount > 0)
+//     {
+//         dlog_warn("拒绝连接平台：当前存在 %d 个 TVSDK 客户端", nClientCount);
+//         return ERR;
+//     }
 
-    /* SDK 无接入鉴权回调，只能停止监听来保证平台在线期间新 TVSDK 建连直接失败。 */
-    m_pTvSdkServer->deinit();
-    dlog_info("平台连接已独占接入模式，TVSDK 监听已停止");
-    return OK;
-}
+//     /* SDK 无接入鉴权回调，只能停止监听来保证平台在线期间新 TVSDK 建连直接失败。 */
+//     m_pTvSdkServer->deinit();
+//     dlog_info("平台连接已独占接入模式，TVSDK 监听已停止");
+//     return OK;
+// }
 #endif
 #endif
 
@@ -1080,6 +1080,11 @@ void ControlManage::bind_task(std::shared_ptr<CTaskManage> &pTaskManage)
     pTaskManage->bind<Task::Event::CtrlImageAnalysisStop>(AC_SET_IMAGE_ANALYSIS_STOP);
 #endif
 
+#if CAP_AI_GARBAGE_DETECT
+    /* 垃圾站手动抓图并送垃圾识别 */
+    pTaskManage->bind<Task::Event::GarbageStationSnapshotDetect>(AC_GARBAGE_STATION_SNAPSHOT_DETECT);
+#endif
+
 #ifdef SCENE_INTELLIGENCE
     /**
      * @brief   : 场景智能
@@ -1122,8 +1127,8 @@ void ControlManage::bind_task(std::shared_ptr<CTaskManage> &pTaskManage)
     pTaskManage->bind<Task::Event::GetPedestrianIntrusionInfo>(AC_GET_PEDESTRAN_INTRUSION_INFO);
     pTaskManage->bind<Task::Event::SetPedestrianIntrusionInfo>(AC_SET_PEDESTRAN_INTRUSION_INFO);
 
-    pTaskManage->bind<Task::Event::GetSmokeFireInfo>(AC_GET_SMOKE_FIRE_CFG);
-    pTaskManage->bind<Task::Event::SetSmokeFireInfo>(AC_SET_SMOKE_FIRE_CFG);
+    // pTaskManage->bind<Task::Event::GetSmokeFireInfo>(AC_GET_SMOKE_FIRE_CFG);
+    // pTaskManage->bind<Task::Event::SetSmokeFireInfo>(AC_SET_SMOKE_FIRE_CFG);
 
     pTaskManage->bind<Task::Event::GetRoadPondingInfo>(AC_GET_ROAD_PONDING_CFG);
     pTaskManage->bind<Task::Event::SetRoadPondingInfo>(AC_SET_ROAD_PONDING_CFG);
@@ -1176,7 +1181,10 @@ void ControlManage::bind_task(std::shared_ptr<CTaskManage> &pTaskManage)
     pTaskManage->bind<Task::Event::GetReflectiveClothingInfo>(AC_GET_REFLECTIVE_CLOTHING_CFG);
     pTaskManage->bind<Task::Event::SetReflectiveClothingInfo>(AC_SET_REFLECTIVE_CLOTHING_CFG);
 #endif
-
+#if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
+pTaskManage->bind<Task::Event::GetSmokeFireInfo>(AC_GET_SMOKE_FIRE_CFG);
+pTaskManage->bind<Task::Event::SetSmokeFireInfo>(AC_SET_SMOKE_FIRE_CFG);
+#endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_GARBAGE_DETECT
     /* 垃圾暴露识别 */
     pTaskManage->bind<Task::Event::GetGarbageExposureInfo>(AC_GET_GARBAGE_EXPOSURE_CFG);
@@ -1184,8 +1192,6 @@ void ControlManage::bind_task(std::shared_ptr<CTaskManage> &pTaskManage)
     /* 垃圾满溢识别 */
     pTaskManage->bind<Task::Event::GetGarbageOverflowInfo>(AC_GET_GARBAGE_OVERFLOW_CFG);
     pTaskManage->bind<Task::Event::SetGarbageOverflowInfo>(AC_SET_GARBAGE_OVERFLOW_CFG);
-    /* 垃圾站手动抓图并送垃圾识别 */
-    pTaskManage->bind<Task::Event::GarbageStationSnapshotDetect>(AC_GARBAGE_STATION_SNAPSHOT_DETECT);
 #endif
 
 #if CAP_AI_PEOPLE_STATISTICS

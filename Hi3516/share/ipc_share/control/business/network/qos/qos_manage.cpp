@@ -58,7 +58,7 @@ int CQosManage::set_qos_config(Network::QosConfigInfo_S stQosConfigInfo)
    }
 
     /* 设置管理DSCP （在Web socket实现）*/
-   nRet =  LibWSServer::setQosDscp(stQosConfigInfo.nManageDscp);
+   nRet =  Net::WebSocketServer::set_qos_dscp(stQosConfigInfo.nManageDscp);
    if(nRet !=  OK)
    {
       return nRet;

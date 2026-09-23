@@ -6,7 +6,7 @@ project(${PRO_NAME})
 
 # ipc_share
 include(${IPC_SHARE_PATH}/ipc_share.cmake)
-include(${IPC_SHARE_PATH}/common/utils/sdl/sdl.cmake)
+include(${IPC_SHARE_PATH}/common/utils/osd_font.cmake)
 include(${IPC_SHARE_PATH}/protocols/tvsdk/tvsdk.cmake)
 
 # cam_share
@@ -73,9 +73,42 @@ endforeach()
 
 add_executable (${PRO_NAME} ${MAIN_LIST} ${STREAM_LIST} ${SRC_LIST} ${HI_PIPELINE_LIST})
 
-#连接库
-#查看platform下的库文件cmake
-target_link_libraries(${PROJECT_NAME} 
+# 连接库：默认 smolrtsp；旧实现只在显式 live555 回滚时连接。
+set(PROJECT_RTSP_LINK_LIBS)
+if(IPC_RTSP_BACKEND STREQUAL "smolrtsp")
+    if(NOT IPC_RTSP_LINK_LIBS)
+        message(FATAL_ERROR "smolrtsp 后端未提供 IPC_RTSP_LINK_LIBS")
+    endif()
+    set(PROJECT_RTSP_LINK_LIBS ${IPC_RTSP_LINK_LIBS})
+elseif(IPC_RTSP_BACKEND STREQUAL "live555")
+    set(PROJECT_RTSP_LINK_LIBS libRtspServer)
+else()
+    message(FATAL_ERROR
+        "IPC_RTSP_BACKEND 必须是 smolrtsp 或 live555，当前为：${IPC_RTSP_BACKEND}")
+endif()
+
+# WS 后端链接（IPC_WS_BACKEND 定义见 ipc_share/network/websocket/websocket.cmake）：
+# evws 走平台 libevent 归档（core 含 evws/evhttp 符号，pthreads/openssl 为补充归档；
+# smolrtsp 组合下 core 已随 RTSP 库传递，重复链接无害），lws 走动态库
+if(IPC_WS_BACKEND STREQUAL "evws")
+    set(PROJECT_WS_LINK_LIBS ipc_event_core ipc_event_pthreads ipc_event_openssl)
+else()
+    set(PROJECT_WS_LINK_LIBS libwebsockets)
+endif()
+
+# OSD 字体后端链接（IPC_OSD_FONT_BACKEND 定义见 ipc_share/common/utils/osd_font.cmake）：
+# dotfont 零第三方库（dotfont.c 直接编入）；sdl 走 freetype/SDL2/SDL2_ttf 动态库
+if(IPC_OSD_FONT_BACKEND STREQUAL "dotfont")
+    set(PROJECT_OSD_FONT_LINK_LIBS "")
+elseif(IPC_OSD_FONT_BACKEND STREQUAL "sdl")
+    set(PROJECT_OSD_FONT_LINK_LIBS libfreetype libSDL2 libSDL2_ttf)
+else()
+    message(FATAL_ERROR
+        "IPC_OSD_FONT_BACKEND 必须是 dotfont 或 sdl，当前为：${IPC_OSD_FONT_BACKEND}")
+endif()
+
+# 查看 platform 下的库文件 cmake
+target_link_libraries(${PROJECT_NAME}
     -lpthread
     -latomic
 
@@ -129,7 +162,7 @@ target_link_libraries(${PROJECT_NAME}
 	# third
 	libxml2
     libzlog
-	libRtspServer
+    ${PROJECT_RTSP_LINK_LIBS}
     # libsrt
     libeXosip2
     libosip2
@@ -145,10 +178,8 @@ target_link_libraries(${PROJECT_NAME}
     libsnmp++
     libagent++
     libiconv
-    libwebsockets
-    libfreetype
-    libSDL2
-    libSDL2_ttf
+    ${PROJECT_WS_LINK_LIBS}
+    ${PROJECT_OSD_FONT_LINK_LIBS}
     # libopencv
     # libopencvfont
     # libtwolame

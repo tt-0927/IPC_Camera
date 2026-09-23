@@ -19,15 +19,36 @@ set(HI_CIPHER_PATH  ${ROOT_PATH}/hi_pipeline/cipher)
 # 海思 svp 路径
 set(HI_SVP_PATH  ${ROOT_PATH}/hi_pipeline/svp)
 
+# rtsp 后端版本
+set(IPC_RTSP_BACKEND "live555" CACHE STRING "RTSP 后端：smolrtsp（新）| live555（旧）")
+# websocket 后端版本
+set(IPC_WS_BACKEND "libwebsockets" CACHE STRING "WS 后端：evws（新）| libwebsockets（旧）")
+# OSD 字体后端版本（点阵字库 ≈251KB 替代 SDL2+TTF+simhei.ttf ≈11.8MB，切换定义见 share/ipc_share/common/utils/osd_font.cmake）
+set(IPC_OSD_FONT_BACKEND "sdl" CACHE STRING "OSD 字体后端：dotfont（新）| sdl（旧）")
+
 include(${CMAKE_CURRENT_LIST_DIR}/../ipc_platform/ipc_platform.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/cmake/device_profiles.cmake)
 
 # 引用lib
-include(${IPC_PLATFORM_PATH}/lib/freetype/freetype.cmake)
+# OSD 字体后端：两套后端依赖完全隔离（dotfont 零第三方库；sdl 依赖 freetype/SDL2/SDL2_ttf）
+if(IPC_OSD_FONT_BACKEND STREQUAL "dotfont")
+elseif(IPC_OSD_FONT_BACKEND STREQUAL "sdl")
+    include(${IPC_PLATFORM_PATH}/lib/freetype/freetype.cmake)
+else()
+    message(FATAL_ERROR "IPC_OSD_FONT_BACKEND 必须是 dotfont 或 sdl，当前为：${IPC_OSD_FONT_BACKEND}")
+endif()
 include(${IPC_PLATFORM_PATH}/lib/ss_mpi/ss_mpi.cmake)
 include(${IPC_PLATFORM_PATH}/lib/z/z.cmake)
 include(${IPC_PLATFORM_PATH}/lib/xml2/xml2.cmake)
-include(${IPC_PLATFORM_PATH}/lib/RtspServer/RtspServer.cmake)
+# rtsp 后端版本：两套 RTSP 后端的依赖完全隔离
+if(IPC_RTSP_BACKEND STREQUAL "smolrtsp")
+    include(${IPC_PLATFORM_PATH}/lib/libevent/libevent.cmake)
+    include(${IPC_PLATFORM_PATH}/lib/rtsp_smol/rtsp_smol.cmake)
+elseif(IPC_RTSP_BACKEND STREQUAL "live555")
+    include(${IPC_PLATFORM_PATH}/lib/RtspServer/RtspServer.cmake)
+else()
+    message(FATAL_ERROR "IPC_RTSP_BACKEND 必须是 smolrtsp 或 live555，当前为：${IPC_RTSP_BACKEND}")
+endif()
 include(${IPC_PLATFORM_PATH}/lib/MemoryCheck/MemoryCheck.cmake)
 include(${IPC_PLATFORM_PATH}/lib/sqlite3/sqlite3.cmake)
 include(${IPC_PLATFORM_PATH}/lib/zlog/zlog.cmake)
@@ -45,8 +66,11 @@ include(${IPC_PLATFORM_PATH}/lib/iconv/iconv.cmake)
 include(${IPC_PLATFORM_PATH}/lib/websockets/websockets.cmake)
 # include(${IPC_PLATFORM_PATH}/lib/opencv/opencv.cmake)
 # include(${IPC_PLATFORM_PATH}/lib/opencvfont/opencvfont.cmake)
-include(${IPC_PLATFORM_PATH}/lib/SDL2/SDL2.cmake)
-include(${IPC_PLATFORM_PATH}/lib/SDL2_ttf/SDL2_ttf.cmake)
+# OSD 字体后端为 sdl 时才引入 SDL2/SDL2_ttf（dotfont 后端无第三方依赖）
+if(IPC_OSD_FONT_BACKEND STREQUAL "sdl")
+    include(${IPC_PLATFORM_PATH}/lib/SDL2/SDL2.cmake)
+    include(${IPC_PLATFORM_PATH}/lib/SDL2_ttf/SDL2_ttf.cmake)
+endif()
 include(${IPC_PLATFORM_PATH}/lib/twolame/twolame.cmake)
 include(${IPC_PLATFORM_PATH}/lib/onvif/onvif.cmake)
 include(${IPC_PLATFORM_PATH}/lib/fcgi/fcgi.cmake)
@@ -183,10 +207,13 @@ if(BUILD_VERSION STREQUAL "Debug")
 
     # 添加调试符号
     # 开启调试信息生成
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g -ggdb -fdebug-types-section -fdebug-prefix-map=$(pwd)=.")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -ggdb -fdebug-types-section -fdebug-prefix-map=$(pwd)=.")
+    # set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g -ggdb -fdebug-types-section -fdebug-prefix-map=$(pwd)=.")
+    # set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -ggdb -fdebug-types-section -fdebug-prefix-map=$(pwd)=.")
     # set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g")
     # set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g")
+    
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g -ggdb -O0 -fno-omit-frame-pointer")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -ggdb -O0 -fno-omit-frame-pointer")
 
     message("==========> 当前编译版本: Debug")
 elseif(BUILD_VERSION STREQUAL "RelWithDebInfo")

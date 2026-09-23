@@ -1484,7 +1484,7 @@ namespace Alarm
         unsigned int nSensitivity;
         std::vector<int> aDetectionTarget;  /* 检测目标,DetectionTarget_E */
         /* 默认构造函数 */
-        LoiteringRule() : stRegion(), nTimeThreshold(10), nSensitivity(50)
+        LoiteringRule() : stRegion(), nTimeThreshold(10), nSensitivity(5)
         {
         }
         /**
@@ -3099,69 +3099,7 @@ typedef struct _FaceCompare_S_
     } PedestrianIntrusionDetection_S;
     /************************行人闯入相关 END *******************/
 
-    /************************烟火检测相关 START *******************/
-    /* 烟火规则参数 */
-    typedef struct SmokeFireRule
-    {
-        /* 灵敏度[1,100] */
-        unsigned int nSensitivity = 50;
-        /* 默认构造函数 */
-        SmokeFireRule() : nSensitivity(50)
-        {
-
-        }
-        /* 重载赋值运算符 */
-        SmokeFireRule &operator=(const SmokeFireRule &x)
-        {
-            if (this != &x)
-            {
-                nSensitivity = x.nSensitivity;
-            }
-            return *this;
-        }
-    } SmokeFireRule_S;
-
-    /*  烟火检测配置 */
-    typedef struct _SmokeFireDetection_S_
-    {
-        /* 是否启用 */
-        bool bEnable;
-        /* 烟火规则 */
-        SmokeFireRule_S stRule;
-        /* 布防时间:一周7天，每天可以设置8个时间段 */
-        DefenseTime aAlarmTime;
-        /* 联动 */
-        LinkageList_S stLinkageList;
-        /* 默认构造函数 */
-        _SmokeFireDetection_S_() : bEnable(false), stLinkageList()
-        {
-            aAlarmTime.clear();
-            // aAlarmTime.assign(7, std::vector<Common::SchedTime_S>(1));
-        }
-        /* 重载赋值运算符 */
-        _SmokeFireDetection_S_ &operator=(const _SmokeFireDetection_S_ &x)
-        {
-            if (this != &x)
-            {
-                bEnable = x.bEnable;
-                aAlarmTime = x.aAlarmTime;
-                stRule = x.stRule;
-                stLinkageList = x.stLinkageList;
-            }
-            return *this;
-        }
-
-        /* 静态方法：返回一个带有默认规则的对象 */
-        static _SmokeFireDetection_S_ CreateWithDefaultRule()
-        {
-            _SmokeFireDetection_S_ obj;
-            obj.aAlarmTime.assign(7, std::vector<Common::SchedTime_S>(1));
-            return obj;
-        }
-
-    } SmokeFireDetection_S;
-    /************************烟火检测相关 END *******************/
-
+ 
      /************************明火检测相关 START *******************/
     /* 明火规则参数 */
     typedef struct OpenFlameRule
@@ -4056,8 +3994,10 @@ typedef struct _FaceCompare_S_
     {
         /* 灵敏度[1,100] */
         unsigned int nSensitivity;
+        /* 触发时间阈值(秒)[0,10]，0 表示未配置 */
+        unsigned int nTimeThreshold;
         /* 默认构造函数 */
-        ElectricScooterRule() : nSensitivity(50)
+        ElectricScooterRule() : nSensitivity(50), nTimeThreshold(0)
         {
 
         }
@@ -4067,6 +4007,7 @@ typedef struct _FaceCompare_S_
             if (this != &x)
             {
                 nSensitivity = x.nSensitivity;
+                nTimeThreshold = x.nTimeThreshold;
             }
             return *this;
         }
@@ -4880,6 +4821,70 @@ typedef struct _FaceCompare_S_
         bool bNonMotorVehicleAttribute = false;
     }AttributeDetectSwitch_S;
 
+#endif
+#if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
+   /************************烟火检测相关 START *******************/
+    /* 烟火规则参数 */
+    typedef struct SmokeFireRule
+    {
+        /* 灵敏度[1,100] */
+        unsigned int nSensitivity = 50;
+        /* 默认构造函数 */
+        SmokeFireRule() : nSensitivity(50)
+        {
+
+        }
+        /* 重载赋值运算符 */
+        SmokeFireRule &operator=(const SmokeFireRule &x)
+        {
+            if (this != &x)
+            {
+                nSensitivity = x.nSensitivity;
+            }
+            return *this;
+        }
+    } SmokeFireRule_S;
+
+    /*  烟火检测配置 */
+    typedef struct _SmokeFireDetection_S_
+    {
+        /* 是否启用 */
+        bool bEnable;
+        /* 烟火规则 */
+        SmokeFireRule_S stRule;
+        /* 布防时间:一周7天，每天可以设置8个时间段 */
+        DefenseTime aAlarmTime;
+        /* 联动 */
+        LinkageList_S stLinkageList;
+        /* 默认构造函数 */
+        _SmokeFireDetection_S_() : bEnable(false), stLinkageList()
+        {
+            aAlarmTime.clear();
+            // aAlarmTime.assign(7, std::vector<Common::SchedTime_S>(1));
+        }
+        /* 重载赋值运算符 */
+        _SmokeFireDetection_S_ &operator=(const _SmokeFireDetection_S_ &x)
+        {
+            if (this != &x)
+            {
+                bEnable = x.bEnable;
+                aAlarmTime = x.aAlarmTime;
+                stRule = x.stRule;
+                stLinkageList = x.stLinkageList;
+            }
+            return *this;
+        }
+
+        /* 静态方法：返回一个带有默认规则的对象 */
+        static _SmokeFireDetection_S_ CreateWithDefaultRule()
+        {
+            _SmokeFireDetection_S_ obj;
+            obj.aAlarmTime.assign(7, std::vector<Common::SchedTime_S>(1));
+            return obj;
+        }
+
+    } SmokeFireDetection_S;
+    /************************烟火检测相关 END *******************/
 #endif
 
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_GARBAGE_DETECT

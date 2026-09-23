@@ -31,8 +31,8 @@
 #include "dlog.h"
 #include "action_code.h"
 #include "system_manage.h"
-#include "user_manage.h"
 #include "system_define.h"
+#include "user_manage.h"
 #include "time_manage.h"
 #include "network_define.h"
 #include "alarm_define.h"
@@ -52,6 +52,7 @@
 namespace TvSdkCallbacks
 {
 static CTaskManage *s_taskManage = nullptr;
+
 static int execute_get_result(int actionCode, const std::string &inJson, std::string &outJson);
 static std::string wrap_data_json(const std::string &srcJson);
 
@@ -83,6 +84,13 @@ static NET_COMMON_ECODE_E cb_set_user_password(pNET_UserPasswordInfo_S pInfo)
     if (!Json::get(strResult.c_str(), "Return", nReturn) || nReturn != OK)
     {
         return NET_E_FAILED;
+    }
+
+    /* IPC 用户库更新成功后，同步刷新 TVSDK HTTP 鉴权缓存。 */
+    if (!NET_serverSetUserPassword(pInfo->strUserName, pInfo->strNewPassword))
+    {
+        dlog_error("同步 TVSDK HTTP 鉴权密码失败，用户[%s]", pInfo->strUserName);
+        return NET_E_SET_CFG_FAILED;
     }
     return NET_E_SUCCEED;
 }
@@ -476,6 +484,30 @@ static INT32 tvsdk_rule_max_time(int nActionCode)
 }
 
 /**
+ * @brief   : 根据事件选择灵敏度下限，徘徊侦测按参数对照表要求放宽到 0 起。
+ * @param    {int} nActionCode 设置配置的 IPC 命令号。
+ * @return   {INT32} 该事件允许的最小灵敏度。
+ */
+static INT32 tvsdk_rule_min_sens(int nActionCode)
+{
+    constexpr INT32 TVSDK_RULE_MIN_SENS = 1;
+    constexpr INT32 TVSDK_LOITERING_MIN_SENS = 0;
+    return (nActionCode == AC_SET_LOITERING_DETECT_INFO) ? TVSDK_LOITERING_MIN_SENS : TVSDK_RULE_MIN_SENS;
+}
+
+/**
+ * @brief   : 根据事件取得灵敏度上限，徘徊侦测按参数对照表要求收紧到 10。
+ * @param    {int} nActionCode 设置配置的 IPC 命令号。
+ * @return   {INT32} 允许的最大灵敏度。
+ */
+static INT32 tvsdk_rule_max_sens(int nActionCode)
+{
+    constexpr INT32 TVSDK_RULE_MAX_SENS = 100;
+    constexpr INT32 TVSDK_LOITERING_MAX_SENS = 10;
+    return (nActionCode == AC_SET_LOITERING_DETECT_INFO) ? TVSDK_LOITERING_MAX_SENS : TVSDK_RULE_MAX_SENS;
+}
+
+/**
  * @brief 校验多边形点数和像素坐标，识别全部为零的未配置区域。
  * @param [in] stRule SDK 多边形规则。
  * @return 点数、坐标合法且存在非零点时返回 true，否则返回 false。
@@ -545,20 +577,11 @@ static bool tvsdk_valid_rule_targets(const TRule &stRule)
 template <typename TRule>
 static bool tvsdk_valid_region_parameters(const TRule &stRule, int nActionCode)
 {
-    /*
-     * 点数为 0 表示未配置区域：网页端不显示该规则的时间阈值与灵敏度，
-     * 这两个字段此时无业务意义，跳过校验，
-     * 避免未配置的规则因携带越界旧值被误判为无效并触发回退。
-     */
-    if (stRule.uPointCount == 0)
-    {
-        return true;
-    }
-
     const bool bIgnoreTime = nActionCode == AC_SET_ENTER_REGION_DETECT_INFO ||
                              nActionCode == AC_SET_LEAVE_REGION_DETECT_INFO;
     return tvsdk_valid_polygon(stRule) &&
-           stRule.nSensitivity >= 1 && stRule.nSensitivity <= 100 &&
+           stRule.nSensitivity >= tvsdk_rule_min_sens(nActionCode) &&
+           stRule.nSensitivity <= tvsdk_rule_max_sens(nActionCode) &&
            (bIgnoreTime || (stRule.nTimeThreshold >= tvsdk_rule_min_time(nActionCode) &&
                             stRule.nTimeThreshold <= tvsdk_rule_max_time(nActionCode)));
 }
@@ -641,6 +664,18 @@ static bool tvsdk_valid_line_parameters(const TRule &stRule)
 }
 
 /**
+ * @brief 判断智能警戒线是否为全零坐标的空规则占位。
+ * @param [in] stRule SDK 智能警戒线规则。
+ * @param [out] 无。
+ * @return 四个端点坐标均为零返回 true，否则返回 false。
+ */
+static bool tvsdk_is_empty_smart_line_rule(const NET_SmartLineRule_S &stRule)
+{
+    return stRule.fStartPosX == 0.0F && stRule.fStartPosY == 0.0F &&
+           stRule.fEndPosX == 0.0F && stRule.fEndPosY == 0.0F;
+}
+
+/**
  * @brief 校验越界警戒线、方向和检测目标。
  * @param [in] stRule SDK 越界规则。
  * @param [in] nActionCode 设置命令号，此规则不使用该参数。
@@ -654,13 +689,25 @@ static bool tvsdk_valid_event_rule(const NET_BoundaryPlane_S &stRule, int nActio
 }
 
 /**
- * @brief 校验逆行或违规变道警戒线，逆行仅允许已有单向枚举。
+ * @brief 校验逆行或违规变道警戒线，两类事件均允许全零坐标表示空规则占位。
  * @param [in] stRule SDK 智能警戒线规则。
  * @param [in] nActionCode 设置配置的 IPC 命令号。
- * @return 参数合法返回 true，否则返回 false。
+ * @param [out] 无。
+ * @return 警戒线或两类事件的空规则占位合法返回 true，否则返回 false。
  */
 static bool tvsdk_valid_event_rule(const NET_SmartLineRule_S &stRule, int nActionCode)
 {
+    const bool bSensitivityValid = stRule.nSensitivity >= 1 && stRule.nSensitivity <= 100;
+    const bool bEmptySmartLineRule =
+        (nActionCode == AC_SET_ILLEGAL_LANE_INFO || nActionCode == AC_SET_RETROGRADE_INFO) &&
+        tvsdk_is_empty_smart_line_rule(stRule);
+    if (bEmptySmartLineRule)
+    {
+        return bSensitivityValid &&
+               (nActionCode != AC_SET_RETROGRADE_INFO ||
+                stRule.enCrossDirection == Alarm::A_TO_B || stRule.enCrossDirection == Alarm::B_TO_A);
+    }
+
     return tvsdk_valid_line_parameters(stRule) &&
            (nActionCode != AC_SET_RETROGRADE_INFO ||
             stRule.enCrossDirection == Alarm::A_TO_B || stRule.enCrossDirection == Alarm::B_TO_A);
@@ -1974,7 +2021,8 @@ static NET_COMMON_ECODE_E cb_get_network_cfg(INT32 dwChannelID, LPVOID lpOutBuff
     if (!lpOutBuffer)
         return NET_E_INVALID_PARAM;
 
-    pNET_NetworkCfg_S pOut = (pNET_NetworkCfg_S)lpOutBuffer;
+    pNET_NetworkCfgList_S pOut = static_cast<pNET_NetworkCfgList_S>(lpOutBuffer);
+    std::memset(pOut, 0, sizeof(*pOut));
 
     std::string outJson;
     if (execute_get_result(AC_GET_NETWORK_INFO, "{}", outJson) != 0 || outJson.empty())
@@ -1995,8 +2043,9 @@ static NET_COMMON_ECODE_E cb_get_network_cfg(INT32 dwChannelID, LPVOID lpOutBuff
 
     Network::Info_S stNetInfo{};
     Convert::to_struct(strNetworkJson, stNetInfo);
-    TvSdkConvert::FillNetworkCfg(stNetInfo, *pOut);
-    pOut->uChannel = 0;
+    pOut->uNetworkCount = 1;
+    TvSdkConvert::FillNetworkCfg(stNetInfo, pOut->stNets[0]);
+    pOut->stNets[0].uChannel = 0;
     return NET_E_SUCCEED;
 }
 static NET_COMMON_ECODE_E cb_set_network_cfg(INT32 dwChannelID, LPVOID lpInBuffer)
@@ -2005,16 +2054,54 @@ static NET_COMMON_ECODE_E cb_set_network_cfg(INT32 dwChannelID, LPVOID lpInBuffe
     if (!lpInBuffer)
         return NET_E_INVALID_PARAM;
 
-    pNET_NetworkCfg_S pIn = (pNET_NetworkCfg_S)lpInBuffer;
+    const NET_NetworkCfgList_S *pIn = static_cast<const NET_NetworkCfgList_S *>(lpInBuffer);
+    if (pIn->uNetworkCount != 1)
+    {
+        dlog_error("设置网络配置的网口数量无效：count[%u]，IPC仅支持1个网口",
+                   pIn->uNetworkCount);
+        return NET_E_INVALID_PARAM;
+    }
 
-    Network::Info_S stNetInfo;
-    TvSdkConvert::ToNetworkInfo(*pIn, stNetInfo);
+    Network::Info_S stNetInfo{};
+    TvSdkConvert::ToNetworkInfo(pIn->stNets[0], stNetInfo);
 
-    std::string inJson = Convert::to_string(stNetInfo);
-    Task::Info_S stInfo;
-    stInfo.data = inJson;
-    int nExec = s_taskManage ? s_taskManage->execute(AC_SET_NETWORK_INFO, stInfo) : -1;
-    return (nExec == 0) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
+    /* 同步等待 IPC 网络设置任务返回；任务框架从 Data 节点取业务参数。 */
+    std::string strResultJson;
+    if (execute_get_result(AC_SET_NETWORK_INFO,
+                           wrap_data_json(Convert::to_string(stNetInfo)),
+                           strResultJson) != OK || strResultJson.empty())
+    {
+        dlog_error("TVSDK网络配置设置任务执行失败：action[%d]", AC_SET_NETWORK_INFO);
+        return NET_E_SET_CFG_FAILED;
+    }
+
+    int nReturn = ERR;
+    if (!Json::get(strResultJson.c_str(), "Return", nReturn))
+    {
+        dlog_error("TVSDK网络配置设置任务未返回有效业务结果：%s", strResultJson.c_str());
+        return NET_E_SET_CFG_FAILED;
+    }
+
+    dlog_info("TVSDK网络配置业务返回值：action[%d], ipc_ret[%d]", AC_SET_NETWORK_INFO, nReturn);
+
+    /* OK 表示 IPC 已即时生效，OK_SETNETWORK_AND_REBOOT 表示 IPC 判定需要重启后生效。 */
+    if (nReturn != OK && nReturn != IpcRet_E::OK_SETNETWORK_AND_REBOOT)
+    {
+        dlog_error("TVSDK网络配置设置失败：action[%d], ipc_ret[%d]", AC_SET_NETWORK_INFO, nReturn);
+        return NET_E_SET_CFG_FAILED;
+    }
+
+    /* 配置已保存，启动延时重启；重启由独立线程执行，不影响本次 SDK 响应返回。 */
+    dlog_info("TVSDK网络配置设置成功，准备重启设备：action[%d], ipc_ret[%d]",
+              AC_SET_NETWORK_INFO, nReturn);
+    if (SystemManage::instance()->system_reboot([](int) {}) != OK)
+    {
+        dlog_error("TVSDK网络配置重启任务启动失败：action[%d], ipc_ret[%d]",
+                   AC_SET_NETWORK_INFO, nReturn);
+        return NET_E_SET_CFG_FAILED;
+    }
+
+    return NET_E_SUCCEED;
 }
 
 int apply_discovery_network(const tagNET_PoeNetworkConfig *pConfig)
@@ -2369,6 +2456,7 @@ static NET_COMMON_ECODE_E cb_set_tamper_alarm(INT32 dwChannelID, LPVOID lpInBuff
     /* 解析任务 Return：参数类错误映射为 NET_E_INVALID_PARAM，其它失败映射为设置失败。 */
     return tvsdk_set_event_config(AG_SET_HIDE_ALARM_INFO, Convert::to_string(stCfg));
 }
+
 static NET_COMMON_ECODE_E cb_get_motion_alarm(INT32 dwChannelID, LPVOID lpOutBuffer)
 {
     (void)dwChannelID;
@@ -2431,6 +2519,7 @@ static NET_COMMON_ECODE_E cb_set_motion_alarm(INT32 dwChannelID, LPVOID lpInBuff
 
     /* 复用事件配置设置路径，返回真实业务结果而不是任务入队结果。 */
     return tvsdk_set_event_config(AC_SET_MOTION_DETECT_INFO, Convert::to_string(stCfg));
+
 }
 
 static NET_COMMON_ECODE_E cb_get_cross_line_alarm(INT32 dwChannelID, LPVOID lpOutBuffer)
@@ -2592,7 +2681,8 @@ static NET_COMMON_ECODE_E cb_set_loitering_alarm(INT32 nChannelId, LPVOID pInBuf
         const NET_LoiteringRule_S &stRule = stNormalized.stRule[nIndex];
         const INT32 nPointCapacity = static_cast<INT32>(sizeof(stRule.afPointX) / sizeof(stRule.afPointX[0]));
         if (stRule.uPointCount < 0 || stRule.uPointCount > nPointCapacity ||
-            stRule.nSensitivity < 1 || stRule.nSensitivity > 100 ||
+            stRule.nSensitivity < tvsdk_rule_min_sens(AC_SET_LOITERING_DETECT_INFO) ||
+            stRule.nSensitivity > tvsdk_rule_max_sens(AC_SET_LOITERING_DETECT_INFO) ||
             stRule.nTimeThreshold < tvsdk_rule_min_time(AC_SET_LOITERING_DETECT_INFO) ||
             stRule.nTimeThreshold > tvsdk_rule_max_time(AC_SET_LOITERING_DETECT_INFO))
         {
@@ -2609,7 +2699,6 @@ static NET_COMMON_ECODE_E cb_set_loitering_alarm(INT32 nChannelId, LPVOID pInBuf
             }
         }
     }
-
     const NET_COMMON_ECODE_E enResult = tvsdk_preserve_event_rules(
         nChannelId, stNormalized, AC_SET_LOITERING_DETECT_INFO, cb_get_loitering_alarm);
     if (enResult != NET_E_SUCCEED)
@@ -2788,8 +2877,48 @@ static NET_COMMON_ECODE_E cb_set_crowd_gathering_alarm(INT32 nChannelId, LPVOID 
     TvSdkConvert::ToCrowdGathering(stNormalized, stConfig);
     return tvsdk_set_event_config(AC_SET_CROWD_GATHERING_DETECT_INFO, Convert::to_string(stConfig));
 }
+#if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
+static NET_COMMON_ECODE_E cb_get_smoke_fire_cfg(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    (void)dwChannelID;
+    if (!lpOutBuffer)
+        return NET_E_INVALID_PARAM;
+    pNET_SmokeFireCfg_S pOut = (pNET_SmokeFireCfg_S)lpOutBuffer;
 
+    std::string outJson;
+    std::string strJson;
+    if (execute_get_result(AC_GET_SMOKE_FIRE_CFG, "{}", outJson) != 0 || outJson.empty())
+        return NET_E_GET_CFG_FAILED;
 
+    int nRet = -1;
+    Json::get(outJson.c_str(), "Return", nRet);
+    if (nRet != 0)
+        return NET_E_GET_CFG_FAILED;
+
+    Alarm::SmokeFireDetection_S stCfg;
+    strJson = normalize_data_json(outJson);
+    Convert::to_struct(strJson, stCfg);
+    TvSdkConvert::FillSmokeFireCfg(stCfg, *pOut);
+    pOut->uChannel = 0;
+    return NET_E_SUCCEED;
+}
+
+static NET_COMMON_ECODE_E cb_set_smoke_fire_cfg(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    (void)dwChannelID;
+    if (!lpInBuffer)
+        return NET_E_INVALID_PARAM;
+    const NET_SmokeFireCfg_S *pIn = (const NET_SmokeFireCfg_S *)lpInBuffer;
+
+    Alarm::SmokeFireDetection_S stCfg;
+    TvSdkConvert::ToSmokeFire(*pIn, stCfg);
+    std::string inJson = Convert::to_string(stCfg);
+    Task::Info_S stInfo;
+    stInfo.data = wrap_data_json(inJson);
+    int nExec = s_taskManage ? s_taskManage->execute(AC_SET_SMOKE_FIRE_CFG, stInfo) : -1;
+    return (nExec == 0) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
+}
+#endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_GARBAGE_DETECT
 /* ---------- Get/SetGarbageExposureCfg：AC_GET/SET_GARBAGE_EXPOSURE_DETECT_INFO ---------- */
 static NET_COMMON_ECODE_E cb_get_garbage_exposure_cfg(INT32 dwChannelID, LPVOID lpOutBuffer)
@@ -3992,14 +4121,13 @@ static NET_COMMON_ECODE_E cb_set_retrograde_info(INT32 nChannelId, LPVOID pInBuf
         }
     }
     NET_RetrogradeInfo_S stNormalized = *pConfig;
-    /* 保留逆行的专用方向校验：有效警戒线不能请求双向，空位置仍允许回退。 */
+    /* 保留逆行的专用方向校验：有效警戒线和空规则占位都不能请求双向。 */
     if (stNormalized.uRuleCount >= 0 && stNormalized.uRuleCount <= TVSDK_IPC_RULE_MAX)
     {
         for (INT32 nIndex = 0; nIndex < stNormalized.uRuleCount; ++nIndex)
         {
             const NET_SmartLineRule_S &stRule = stNormalized.stRule[nIndex];
-            if (tvsdk_valid_line_parameters(stRule) &&
-                stRule.enCrossDirection != Alarm::A_TO_B && stRule.enCrossDirection != Alarm::B_TO_A)
+            if (stRule.enCrossDirection != Alarm::A_TO_B && stRule.enCrossDirection != Alarm::B_TO_A)
             {
                 return NET_E_INVALID_PARAM;
             }
@@ -4173,46 +4301,46 @@ static NET_COMMON_ECODE_E cb_set_pedestrian_intrusion_info(INT32 nChannelId, LPV
     return tvsdk_set_event_config(AC_SET_PEDESTRAN_INTRUSION_INFO, Convert::to_string(stConfig));
 }
 
-static NET_COMMON_ECODE_E cb_get_smoke_fire_cfg(INT32 dwChannelID, LPVOID lpOutBuffer)
-{
-    (void)dwChannelID;
-    if (!lpOutBuffer)
-        return NET_E_INVALID_PARAM;
-    pNET_SmokeFireCfg_S pOut = (pNET_SmokeFireCfg_S)lpOutBuffer;
+// static NET_COMMON_ECODE_E cb_get_smoke_fire_cfg(INT32 dwChannelID, LPVOID lpOutBuffer)
+// {
+//     (void)dwChannelID;
+//     if (!lpOutBuffer)
+//         return NET_E_INVALID_PARAM;
+//     pNET_SmokeFireCfg_S pOut = (pNET_SmokeFireCfg_S)lpOutBuffer;
 
-    std::string outJson;
-    std::string strJson;
-    if (execute_get_result(AC_GET_SMOKE_FIRE_CFG, "{}", outJson) != 0 || outJson.empty())
-        return NET_E_GET_CFG_FAILED;
+//     std::string outJson;
+//     std::string strJson;
+//     if (execute_get_result(AC_GET_SMOKE_FIRE_CFG, "{}", outJson) != 0 || outJson.empty())
+//         return NET_E_GET_CFG_FAILED;
 
-    int nRet = -1;
-    Json::get(outJson.c_str(), "Return", nRet);
-    if (nRet != 0)
-        return NET_E_GET_CFG_FAILED;
+//     int nRet = -1;
+//     Json::get(outJson.c_str(), "Return", nRet);
+//     if (nRet != 0)
+//         return NET_E_GET_CFG_FAILED;
 
-    Alarm::SmokeFireDetection_S stCfg;
-    strJson = normalize_data_json(outJson);
-    Convert::to_struct(strJson, stCfg);
-    TvSdkConvert::FillSmokeFireCfg(stCfg, *pOut);
-    pOut->uChannel = 0;
-    return NET_E_SUCCEED;
-}
+//     Alarm::SmokeFireDetection_S stCfg;
+//     strJson = normalize_data_json(outJson);
+//     Convert::to_struct(strJson, stCfg);
+//     TvSdkConvert::FillSmokeFireCfg(stCfg, *pOut);
+//     pOut->uChannel = 0;
+//     return NET_E_SUCCEED;
+// }
 
-static NET_COMMON_ECODE_E cb_set_smoke_fire_cfg(INT32 dwChannelID, LPVOID lpInBuffer)
-{
-    (void)dwChannelID;
-    if (!lpInBuffer)
-        return NET_E_INVALID_PARAM;
-    const NET_SmokeFireCfg_S *pIn = (const NET_SmokeFireCfg_S *)lpInBuffer;
+// static NET_COMMON_ECODE_E cb_set_smoke_fire_cfg(INT32 dwChannelID, LPVOID lpInBuffer)
+// {
+//     (void)dwChannelID;
+//     if (!lpInBuffer)
+//         return NET_E_INVALID_PARAM;
+//     const NET_SmokeFireCfg_S *pIn = (const NET_SmokeFireCfg_S *)lpInBuffer;
 
-    Alarm::SmokeFireDetection_S stCfg;
-    TvSdkConvert::ToSmokeFire(*pIn, stCfg);
-    std::string inJson = Convert::to_string(stCfg);
-    Task::Info_S stInfo;
-    stInfo.data = wrap_data_json(inJson);
-    int nExec = s_taskManage ? s_taskManage->execute(AC_SET_SMOKE_FIRE_CFG, stInfo) : -1;
-    return (nExec == 0) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
-}
+//     Alarm::SmokeFireDetection_S stCfg;
+//     TvSdkConvert::ToSmokeFire(*pIn, stCfg);
+//     std::string inJson = Convert::to_string(stCfg);
+//     Task::Info_S stInfo;
+//     stInfo.data = wrap_data_json(inJson);
+//     int nExec = s_taskManage ? s_taskManage->execute(AC_SET_SMOKE_FIRE_CFG, stInfo) : -1;
+//     return (nExec == 0) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
+// }
 
 static NET_COMMON_ECODE_E cb_get_road_ponding_cfg(INT32 dwChannelID, LPVOID lpOutBuffer)
 {
@@ -5837,19 +5965,43 @@ static NET_COMMON_ECODE_E cb_get_face_capture_info(INT32 dwChannelID, LPVOID lpO
     pOut->uChannel = 0;
     return NET_E_SUCCEED;
 }
+/**
+ * @brief 设置人脸抓拍配置，返回实际业务处理结果。
+ * @param [in] dwChannelID SDK通道号，沿用单通道设备处理方式。
+ * @param [in] lpInBuffer 人脸抓拍配置结构体。
+ * @param [out] 无
+ * @return 设置成功返回NET_E_SUCCEED，参数错误或业务失败返回对应SDK错误。
+ */
 static NET_COMMON_ECODE_E cb_set_face_capture_info(INT32 dwChannelID, LPVOID lpInBuffer)
 {
     (void)dwChannelID;
     if (!lpInBuffer)
+    {
         return NET_E_INVALID_PARAM;
+    }
     const NET_FaceCaptureInfo_S *pIn = (const NET_FaceCaptureInfo_S *)lpInBuffer;
     Alarm::FaceCapture_S stCfg;
     TvSdkConvert::ToFaceCapture(*pIn, stCfg);
-    std::string inJson = Convert::to_string(stCfg);
-    Task::Info_S stInfo;
-    stInfo.data = wrap_data_json(inJson);
-    int nExec = s_taskManage ? s_taskManage->execute(AC_SET_FACE_CAPTURE_INFO, stInfo) : -1;
-    return (nExec == 0) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
+    std::string strResult;
+    if (execute_get_result(AC_SET_FACE_CAPTURE_INFO,
+                           wrap_data_json(Convert::to_string(stCfg)), strResult) != 0)
+    {
+        dlog_error("TVSDK人脸抓拍设置任务执行失败: action[%d]", AC_SET_FACE_CAPTURE_INFO);
+        return NET_E_SET_CFG_FAILED;
+    }
+    int nRet = ERR;
+    if (strResult.empty() || !Json::get(strResult.c_str(), "Return", nRet))
+    {
+        dlog_error("TVSDK人脸抓拍设置任务未返回有效业务结果");
+        return NET_E_SET_CFG_FAILED;
+    }
+    if (nRet != OK)
+    {
+        dlog_warn("TVSDK人脸抓拍设置失败: action[%d], ipc_ret[%d]", AC_SET_FACE_CAPTURE_INFO, nRet);
+        return (nRet == ERR_WEB_PARAM || nRet == ERR_WEB_REGION)
+                   ? NET_E_INVALID_PARAM : NET_E_SET_CFG_FAILED;
+    }
+    return NET_E_SUCCEED;
 }
 
 /* 人脸抓拍叠加配置仍使用原 IPC 任务码，仅将 SDK ABI 迁移为 NET_* 命名。 */
@@ -6296,7 +6448,7 @@ static NET_COMMON_ECODE_E cb_get_target_lib(INT32 dwChannelID, LPVOID lpOutBuffe
     std::vector<Event::FaceLibInfo_S> targetLibs;
     Convert::to_struct(dataJson, targetLibs);
     TvSdkConvert::FillFaceLibList(targetLibs, *static_cast<pNET_FaceLibList_S>(lpOutBuffer));
-    static_cast<pNET_FaceLibList_S>(lpOutBuffer)->uChannel = 0;
+    //static_cast<pNET_FaceLibList_S>(lpOutBuffer)->uChannel = 0;
     return NET_E_SUCCEED;
 #endif
 }
@@ -6390,7 +6542,7 @@ static NET_COMMON_ECODE_E cb_get_face_info(INT32 dwChannelID, LPVOID lpOutBuffer
     std::vector<Event::FaceInfo_S> faceInfos;
     Convert::to_struct(dataJson, faceInfos);
     TvSdkConvert::FillFaceInfoList(faceInfos, *static_cast<pNET_FaceInfoList_S>(lpOutBuffer));
-    static_cast<pNET_FaceInfoList_S>(lpOutBuffer)->uChannel = 0;
+    //static_cast<pNET_FaceInfoList_S>(lpOutBuffer)->uChannel = 0;
     return NET_E_SUCCEED;
 #endif
 }
@@ -6405,6 +6557,7 @@ void register_all()
     NET_serverRegisterGetDeviceBasicInfoCb(cb_get_device_basic_info);
     NET_serverRegisterGetDeviceConfigCb(cb_get_device_cfg);
     NET_serverRegisterSetDeviceConfigCb(cb_set_device_cfg);
+    NET_serverRegisterSetUserPasswordCb(cb_set_user_password);
     NET_serverRegisterGetNtpConfigCb(cb_get_ntp_cfg);
     NET_serverRegisterSetNtpConfigCb(cb_set_ntp_cfg);
     NET_serverRegisterSetSystemTimeCb(cb_set_system_time);
@@ -6452,7 +6605,10 @@ void register_all()
     NET_serverRegisterGetGarbageOverflowConfigCb(cb_get_garbage_overflow_cfg);
     NET_serverRegisterSetGarbageOverflowConfigCb(cb_set_garbage_overflow_cfg);
 #endif
-
+#if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
+    NET_serverRegisterGetSmokeFireConfigCb(cb_get_smoke_fire_cfg);
+    NET_serverRegisterSetSmokeFireConfigCb(cb_set_smoke_fire_cfg);
+#endif
 #ifdef SCENE_INTELLIGENCE
     NET_serverRegisterGetManholeCoverAbnormalConfigCb(cb_get_manhole_cover_abnormal_cfg);
     NET_serverRegisterSetManholeCoverAbnormalConfigCb(cb_set_manhole_cover_abnormal_cfg);
@@ -6505,8 +6661,8 @@ void register_all()
     NET_serverRegisterSetOccupationEmergencyInfoCb(cb_set_occupation_emergency_info);
     NET_serverRegisterGetPedestrianIntrusionInfoCb(cb_get_pedestrian_intrusion_info);
     NET_serverRegisterSetPedestrianIntrusionInfoCb(cb_set_pedestrian_intrusion_info);
-    NET_serverRegisterGetSmokeFireConfigCb(cb_get_smoke_fire_cfg);
-    NET_serverRegisterSetSmokeFireConfigCb(cb_set_smoke_fire_cfg);
+    // NET_serverRegisterGetSmokeFireConfigCb(cb_get_smoke_fire_cfg);
+    // NET_serverRegisterSetSmokeFireConfigCb(cb_set_smoke_fire_cfg);
     NET_serverRegisterGetRoadPondingConfigCb(cb_get_road_ponding_cfg);
     NET_serverRegisterSetRoadPondingConfigCb(cb_set_road_ponding_cfg);
 #endif
@@ -6598,7 +6754,6 @@ void register_all()
     NET_serverRegisterDelFaceInfoCb(cb_del_face_info);
     NET_serverRegisterSetFaceInfoCb(cb_set_face_info);
     NET_serverRegisterGetFaceInfoCb(cb_get_face_info);
-    NET_serverRegisterSetUserPasswordCb(cb_set_user_password);
 }
 
 } // namespace TvSdkCallbacks

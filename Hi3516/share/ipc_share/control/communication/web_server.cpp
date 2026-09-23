@@ -13,7 +13,6 @@
 #include "convert_interface.h"
 #include "action_code.h"
 #include "user_manage.h"
-#include "libwebsockets.h"
 
 namespace
 {

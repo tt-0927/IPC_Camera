@@ -105,6 +105,7 @@ private:
     void handleSnapshotRequest(ot_video_frame_info *pFrameInfo,
                                const std::vector<Inference_NS::BoxData_S> &vBoxDatas);
 
+
 private:
     /* 垃圾检测句柄 */
     Inference_NS::CYoloUltralytics *m_pGarbageDetHandle = nullptr;

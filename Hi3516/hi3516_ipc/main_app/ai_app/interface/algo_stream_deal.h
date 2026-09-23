@@ -33,6 +33,9 @@
 #if CAP_AI_GARBAGE_DETECT
 #include "garbage_detect.hpp"
 #endif
+#if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
+#include "smoke_fire_detect.hpp"
+#endif
 
 class CAlgoStreamDeal : public CSingleton<CAlgoStreamDeal>
 {
@@ -103,7 +106,7 @@ public:
      * @param strPicPath 
      */
     void compare_Face_Retrieval(std::string strPicPath);
-
+ 
 #if CAP_AI_GARBAGE_DETECT
     /**
      * @brief 垃圾站手动抓图并送垃圾识别
@@ -290,7 +293,10 @@ private:
     /* 垃圾检测算法句柄 垃圾暴露、垃圾满溢*/
     std::shared_ptr<CAlgorithm> m_pGarbageAlgo;
 #endif
-
+#if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
+    /* 烟火识别算法句柄 */
+    std::shared_ptr<CAlgorithm> m_pSmokeFireAlgo;
+#endif
     // note 不使用自研模型
     // /* 停车侦测算法句柄 */
     // std::shared_ptr<CAlgorithm> m_pParkAlgo;

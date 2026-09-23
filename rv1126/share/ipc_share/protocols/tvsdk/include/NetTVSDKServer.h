@@ -1117,8 +1117,8 @@ typedef enum tagNETTVCfgCmd
     NET_GET_IMAGECFG                 = 160,              /* 获取图像配置信息,参见#NET_ImageSetting_S  Get image configuration information, see #NET_ImageSetting_S */
     NET_SET_IMAGECFG                 = 161,              /* 设置图像配置信息,参见#NET_ImageSetting_S  Set image configuration information, see #NET_ImageSetting_S */
 
-    NET_GET_NETWORKCFG               = 170,              /* 获取网络配置信息,参见#NET_NetworkCfgList_S  Get network configuration information, see #NET_NetworkCfgList_S */
-    NET_SET_NETWORKCFG               = 171,              /* 设置网络配置信息,参见#NET_NetworkCfgList_S  Set network configuration information, see #NET_NetworkCfgList_S */
+    NET_GET_NETWORKCFG               = 170,              /* 获取网络配置信息,参见#NET_NetworkCfg_S  Get network configuration information, see #NET_NetworkCfg_S */
+    NET_SET_NETWORKCFG               = 171,              /* 设置网络配置信息,参见#NET_NetworkCfg_S  Set network configuration information, see #NET_NetworkCfg_S */
 
     NET_GET_PRIVACYMASKCFG           = 180,              /* 获取隐私遮盖配置信息,参见#NET_PrivacyMaskCfg_S  Get privacy mask configuration information, see #NET_PrivacyMaskCfg_S */
     NET_SET_PRIVACYMASKCFG           = 181,              /* 设置隐私遮盖配置信息,参见#NET_PrivacyMaskCfg_S  Set privacy mask configuration information, see #NET_PrivacyMaskCfg_S */
@@ -4380,7 +4380,7 @@ typedef struct tagNET_LoiteringRule
     INT32       uPointCount;                         /* 区域顶点数量，最多32个 */
     FLOAT       afPointX[32];                        /* 区域顶点X坐标数组 [0.0-1.0] */
     FLOAT       afPointY[32];                        /* 区域顶点Y坐标数组 [0.0-1.0] */
-    INT32       nTimeThreshold;                      /* 行为事件触发时间阈值，判断有效报警的时间[0,10] 单位秒 */
+    INT32       nTimeThreshold;                      /* 行为事件触发时间阈值，判断有效报警的时间[0,100] 单位秒 */
     INT32       nSensitivity;                        /* 灵敏度[1,100] */
     INT32       uDetectionTargetCount;               /* 检测目标数量 */
     INT32       auDetectionTarget[8];                /* 检测目标数组 NET_DETECTION_TARGET_E，最多8个 */

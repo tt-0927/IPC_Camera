@@ -61,7 +61,7 @@ static void helper_convert_to_status(const Event::AlgorithmConfig_S& algo, Event
     status.bTrip = algo.nEnTrip;
     status.bSmoking = algo.nEnSmoking;
     status.bPhoneUsage = algo.nEnPhoneUsage;
-    status.bSmokeFire = algo.nEnSmokeFire;
+    // status.bSmokeFire = algo.nEnSmokeFire;
     status.bOpenFlame = algo.nEnOpenFlame;
     status.bManholeCoverAbnormal = algo.nEnManholeCoverAbnormal;
     status.bBareSoil = algo.nEnBareSoil;
@@ -80,7 +80,9 @@ static void helper_convert_to_status(const Event::AlgorithmConfig_S& algo, Event
     status.bIllegalLaneChange = algo.nEnIllegalLaneChange;
     status.bPlateNumber = algo.nPlateNumber;
     #endif
-
+#if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
+    status.bSmokeFire = algo.nEnSmokeFire;
+#endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_GARBAGE_DETECT
     status.bGarbageExposure = algo.nEnGarbageExposure;
     status.bGarbageOverflow = algo.nEnGarbageOverflow;
@@ -119,7 +121,7 @@ static const char* get_event_type_name(Event::Type_E type) {
 #endif
 
         case Event::Type::FACE_COMPARE: return "FACE_COMPARE";
-
+        case Event::Type::SMOKE_FIRE: return "SMOKE_FIRE";
         default: return "UNKNOWN";
     }
 }
@@ -188,7 +190,7 @@ static int check_analytics_resource(const Event::Type_E enable_type, const bool 
         case Event::Type::NON_MOTOR_VEHICLE_INTRUSION: already_in_target_state = (oldStatus.bNonMotorVehicleIntrusion == bEnable); break;
         case Event::Type::EMERGENCY_LANE_OCCUPANCY: already_in_target_state = (oldStatus.bEmergencyLaneOccupancy == bEnable); break;
         case Event::Type::PEDESTRIAN_INTRUSION: already_in_target_state = (oldStatus.bPedestrianIntrusion == bEnable); break;
-        case Event::Type::SMOKE_FIRE: already_in_target_state = (oldStatus.bSmokeFire == bEnable); break;
+        // case Event::Type::SMOKE_FIRE: already_in_target_state = (oldStatus.bSmokeFire == bEnable); break;
         case Event::Type::ROAD_PONDING: already_in_target_state = (oldStatus.bRoadPonding == bEnable); break;
         case Event::Type::MANHOLE_COVER_ABNORMAL: already_in_target_state = (oldStatus.bManholeCoverAbnormal == bEnable); break;
         case Event::Type::SLEEP_ON_DUTY: already_in_target_state = (oldStatus.bSleepOnDuty == bEnable); break;
@@ -206,6 +208,9 @@ static int check_analytics_resource(const Event::Type_E enable_type, const bool 
         case Event::Type::BARE_SOIL: already_in_target_state = (oldStatus.bBareSoil == bEnable); break;
         case Event::Type::HOLE_PROTECTION_BAR: already_in_target_state = (oldStatus.bHoleProtectionBar == bEnable); break;
         case Event::Type::REFLECTIVE_CLOTHING: already_in_target_state = (oldStatus.bReflectiveClothing == bEnable); break;
+#endif
+#if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
+        case Event::Type::SMOKE_FIRE: already_in_target_state = (oldStatus.bSmokeFire == bEnable); break;
 #endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_GARBAGE_DETECT
         case Event::Type::GARBAGE_EXPOSURE: already_in_target_state = (oldStatus.bGarbageExposure == bEnable); break;
@@ -295,7 +300,7 @@ static int check_analytics_resource(const Event::Type_E enable_type, const bool 
         case Event::Type::NON_MOTOR_VEHICLE_INTRUSION: newStatus.bNonMotorVehicleIntrusion = bEnable; break;
         case Event::Type::EMERGENCY_LANE_OCCUPANCY: newStatus.bEmergencyLaneOccupancy = bEnable; break;
         case Event::Type::PEDESTRIAN_INTRUSION: newStatus.bPedestrianIntrusion = bEnable; break;
-        case Event::Type::SMOKE_FIRE: newStatus.bSmokeFire = bEnable; break;
+        // case Event::Type::SMOKE_FIRE: newStatus.bSmokeFire = bEnable; break;
         case Event::Type::ROAD_PONDING: newStatus.bRoadPonding = bEnable; break;
         case Event::Type::MANHOLE_COVER_ABNORMAL: newStatus.bManholeCoverAbnormal = bEnable; break;
         case Event::Type::SLEEP_ON_DUTY: newStatus.bSleepOnDuty = bEnable; break;
@@ -313,6 +318,9 @@ static int check_analytics_resource(const Event::Type_E enable_type, const bool 
         case Event::Type::BARE_SOIL: newStatus.bBareSoil = bEnable; break;
         case Event::Type::HOLE_PROTECTION_BAR: newStatus.bHoleProtectionBar = bEnable; break;
         case Event::Type::REFLECTIVE_CLOTHING: newStatus.bReflectiveClothing = bEnable; break;
+#endif
+#if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
+        case Event::Type::SMOKE_FIRE: newStatus.bSmokeFire = bEnable; break;
 #endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_GARBAGE_DETECT
         case Event::Type::GARBAGE_EXPOSURE: newStatus.bGarbageExposure = bEnable; break;
@@ -549,11 +557,7 @@ void Task::Event::SetMotionDetectionInfo::handle()
             result(ERR_WEB_PARAM);
             return;
         }
-        /* 未使用的固定槽位是零尺寸矩形，允许存在；仅对实际绘制区域校验边界。 */
-        if (region.stRect.isEmpty())
-        {
-            continue;
-        }
+        /* 坐标有效性判断 */
         if (!region.stRect.IsValid())
         {
             dlog_error("设置移动侦测信息区域绘制异常");
@@ -1194,198 +1198,6 @@ void Task::Event::GetAudioAnomalyCurrentDb::handle()
     result(data);
 }
 
-#if CAP_AI_GARBAGE_DETECT
-/* 事件推送命令与事件链路保持一致（见 event_linkage_action_direct.cpp:41-42） */
-constexpr const char *GARBAGE_SNAPSHOT_ALARM_COMMAND = "NET_TV_EVENT_ALARM";
-constexpr const char *GARBAGE_SNAPSHOT_IMAGE_UPLOAD_COMMAND = "NET_TV_EVENT_IMAGE_UPLOAD";
-
-/**
- * @brief 垃圾站手动抓图并送垃圾识别：报警与图片上传结果均按事件方式推送平台。
- * @author ITC
- * @return 无。识别结果与上传结果经 MQTT /event 主题推送，任务响应仅回执。
- */
-void Task::Event::GarbageStationSnapshotDetect::handle()
-{
-    const long long llBeginMs = TimeUtils_NS::get_currentTimestampMs();
-    dlog_info("垃圾站抓图识别-业务层: 收到抓图识别命令，下发数据[%s]", m_taskData.c_str());
-
-    std::string strAlgoResult;
-    const int nSendRet = CEventManage::instance()->send_algo_controlData(
-        AC_GARBAGE_STATION_SNAPSHOT_DETECT, m_taskData.c_str(), &strAlgoResult);
-    if (nSendRet != 0)
-    {
-        dlog_error("垃圾站抓图识别-业务层: 下发 AI 层失败，返回码[%d]", nSendRet);
-    }
-    dlog_info("垃圾站抓图识别-业务层: AI 层返回，下发码[%d] 耗时[%lld]ms 结果[%s]", nSendRet,
-              TimeUtils_NS::get_currentTimestampMs() - llBeginMs, strAlgoResult.c_str());
-
-    Json::Object *pAlgoJson = Json::init(strAlgoResult);
-    if (!pAlgoJson)
-    {
-        dlog_error("垃圾站抓图识别-业务层: 解析 AI 层结果失败，原始内容[%s]", strAlgoResult.c_str());
-        result("{\"Result\":-1}");
-        return;
-    }
-
-    /* 取出识别与时间信息，后续两条推送共用同一时间戳。 */
-    std::string strImagePath;
-    std::string strTimestamp;
-    std::string strDate;
-    std::string strTime;
-    std::string strStartTime;
-    std::string strEndTime;
-    int nEventType = static_cast<int>(::Event::Type_E::GARBAGE_STATION_SNAPSHOT);
-    int nGarbageOverflow = 0;
-    int nGarbageExposure = 0;
-    Json::get(pAlgoJson, "ImagePath", strImagePath);
-    Json::get(pAlgoJson, "EventType", nEventType);
-    Json::get(pAlgoJson, "GarbageOverflow", nGarbageOverflow);
-    Json::get(pAlgoJson, "GarbageExposure", nGarbageExposure);
-    Json::get(pAlgoJson, "Timestamp", strTimestamp);
-    Json::get(pAlgoJson, "Date", strDate);
-    Json::get(pAlgoJson, "Time", strTime);
-    Json::get(pAlgoJson, "StartTime", strStartTime);
-    Json::get(pAlgoJson, "EndTime", strEndTime);
-    Json::deinit(pAlgoJson);
-
-    const ::Event::Type_E enEventType = static_cast<::Event::Type_E>(nEventType);
-    const std::string strEventName = EventLinkageDict::get_event_name(enEventType);
-    /* 抓拍送垃圾侦测的结果：满溢或暴露任一命中即为 1，两者均未命中为 0。 */
-    const int nGarbageDetected = (nGarbageOverflow != 0 || nGarbageExposure != 0) ? 1 : 0;
-    const int nChannel = 0;
-    const int nEventStatus = 1;
-    /* 报警 RequestId 规则与事件链路一致：event-<EventType>-<Channel>-<Timestamp> */
-    const std::string strAlarmRequestId = "event-" + std::to_string(nEventType) + "-" +
-                                          std::to_string(nChannel) + "-" + strTimestamp;
-
-    /* 第一条：报警消息，字段与正常垃圾事件上报平台的格式一致。 */
-    Json::Object *pAlarmJson = Json::init();
-    if (pAlarmJson)
-    {
-        Json::add(pAlarmJson, "EventType", nEventType);
-        Json::add(pAlarmJson, "EventName", strEventName);
-        Json::add(pAlarmJson, "EventStatus", nEventStatus);
-        Json::add(pAlarmJson, "Channel", nChannel);
-        Json::add(pAlarmJson, "Timestamp", strTimestamp);
-        Json::add(pAlarmJson, "Date", strDate);
-        Json::add(pAlarmJson, "Time", strTime);
-        Json::add(pAlarmJson, "StartTime", strStartTime);
-        Json::add(pAlarmJson, "EndTime", strEndTime);
-
-        const std::string strAlarmData = Json::to_string(pAlarmJson);
-        Json::deinit(pAlarmJson);
-        const int nAlarmRet =
-            CPlatformManager::instance()->publish_event(GARBAGE_SNAPSHOT_ALARM_COMMAND, strAlarmData, strAlarmRequestId);
-        dlog_info("垃圾站抓图识别-业务层: 报警消息推送完成，RequestId[%s] 返回码[%d] 载荷[%s]",
-                  strAlarmRequestId.c_str(), nAlarmRet, strAlarmData.c_str());
-    }
-
-    /* 第二条：图片上传结果，成功或失败都推送。 */
-    CPlatformManager::EventImageUploadResponse stResponse;
-    bool bUploadOk = false;
-    if (!strImagePath.empty())
-    {
-        long long llEventTimestampMs = std::atoll(strTimestamp.c_str());
-        if (llEventTimestampMs <= 0)
-        {
-            llEventTimestampMs = TimeUtils_NS::get_currentTimestampMs();
-        }
-
-        /* 字段构造与正常事件图片上报保持一致（见 event_linkage_action_direct.cpp:423-429）。 */
-        CPlatformManager::EventImageUploadRequest stRequest;
-        stRequest.event_type = nEventType;
-        stRequest.event_name = strEventName;
-        stRequest.channel = nChannel;
-        stRequest.timestamp = llEventTimestampMs;
-        stRequest.image_path = strImagePath;
-        /* 手动抓拍无关联报警事件，RequestId 留空；设备 SN 与文件名由上传接口自动兜底生成。 */
-
-        dlog_info("垃圾站抓图识别-业务层: 开始上传图片至平台，事件类型[%d] 事件名[%s] 时间戳[%lld] 路径[%s]",
-                  nEventType, strEventName.c_str(), llEventTimestampMs, strImagePath.c_str());
-        bUploadOk = CPlatformManager::instance()->upload_event_image(stRequest, stResponse);
-        if (bUploadOk)
-        {
-            dlog_info("垃圾站抓图识别-业务层: 图片上传成功，状态码[%d] 平台文件名[%s] 图片地址[%s]",
-                      stResponse.status_code, stResponse.file_name.c_str(), stResponse.image_url.c_str());
-        }
-        else
-        {
-            dlog_error("垃圾站抓图识别-业务层: 图片上传平台失败，状态码[%d] 说明[%s]", stResponse.status_code,
-                       stResponse.message.c_str());
-        }
-    }
-    else
-    {
-        dlog_warn("垃圾站抓图识别-业务层: 结果中无图片路径，跳过上传");
-    }
-
-    Json::Object *pUploadJson = Json::init();
-    if (pUploadJson)
-    {
-        Json::add(pUploadJson, "EventType", nEventType);
-        Json::add(pUploadJson, "EventName", strEventName);
-        Json::add(pUploadJson, "EventStatus", nEventStatus);
-        Json::add(pUploadJson, "Channel", nChannel);
-        Json::add(pUploadJson, "Timestamp", strTimestamp);
-        Json::add(pUploadJson, "AlarmRequestId", strAlarmRequestId);
-        Json::add(pUploadJson, "UploadStatus", bUploadOk ? 1 : 0);
-        Json::add(pUploadJson, "Date", strDate);
-        Json::add(pUploadJson, "Time", strTime);
-        Json::add(pUploadJson, "StartTime", strStartTime);
-        Json::add(pUploadJson, "EndTime", strEndTime);
-        Json::add(pUploadJson, "ImagePath", stResponse.image_path.empty() ? strImagePath : stResponse.image_path);
-        if (!stResponse.file_name.empty())
-        {
-            Json::add(pUploadJson, "FileName", stResponse.file_name);
-        }
-        Json::add(pUploadJson, "StatusCode", stResponse.status_code);
-        Json::add(pUploadJson, "Message", stResponse.message);
-
-        const std::string strUploadData = Json::to_string(pUploadJson);
-        Json::deinit(pUploadJson);
-        /* RequestId 追加 -image，既能区分报警消息，又能通过 AlarmRequestId 回查原报警。 */
-        const std::string strUploadRequestId = strAlarmRequestId + "-image";
-        const int nUploadRet = CPlatformManager::instance()->publish_event(
-            GARBAGE_SNAPSHOT_IMAGE_UPLOAD_COMMAND, strUploadData, strUploadRequestId);
-        dlog_info("垃圾站抓图识别-业务层: 上传结果推送完成，RequestId[%s] 返回码[%d] 载荷[%s]",
-                  strUploadRequestId.c_str(), nUploadRet, strUploadData.c_str());
-    }
-
-    dlog_info("垃圾站抓图识别-业务层: 处理结束，端到端耗时[%lld]ms 报警RequestId[%s]",
-              TimeUtils_NS::get_currentTimestampMs() - llBeginMs, strAlarmRequestId.c_str());
-
-    /* 任务响应回填事件信息与设备序列号，便于平台直接拼接使用。 */
-    Json::Object *pRespJson = Json::init();
-    if (pRespJson)
-    {
-        Json::add(pRespJson, "Result", 0);
-        /* 抓拍送垃圾侦测的结果：满溢或暴露任一识别到即为 1，均未识别到为 0 */
-        Json::add(pRespJson, "GarbageDetected", nGarbageDetected);
-        /* 垃圾侦测结果：1 表示识别到，0 表示未识别到 */
-        Json::add(pRespJson, "GarbageOverflow", nGarbageOverflow);
-        Json::add(pRespJson, "GarbageExposure", nGarbageExposure);
-        Json::add(pRespJson, "EventType", nEventType);
-        Json::add(pRespJson, "EventName", strEventName);
-        Json::add(pRespJson, "EventStatus", nEventStatus);
-        Json::add(pRespJson, "Channel", nChannel);
-        Json::add(pRespJson, "Timestamp", strTimestamp);
-        Json::add(pRespJson, "Date", strDate);
-        Json::add(pRespJson, "Time", strTime);
-        Json::add(pRespJson, "StartTime", strStartTime);
-        Json::add(pRespJson, "EndTime", strEndTime);
-        Json::add(pRespJson, "device_sn", CPlatformManager::instance()->get_device_sn());
-
-        const std::string strResp = Json::to_string(pRespJson);
-        Json::deinit(pRespJson);
-        result(strResp);
-    }
-    else
-    {
-        result("{\"Result\":0}");
-    }
-}
-#endif
-
 /* 获取场景变更侦测信息 */
 void Task::Event::GetSceneChangeInfo::handle()
 {
@@ -1490,8 +1302,8 @@ void Task::Event::SetLoiteringDetectionInfo::handle()
     }
     for (auto &rule : stInfo.aRule)
     {
-        /* 参数有效性判断 */
-        if (rule.nTimeThreshold < 0 || rule.nTimeThreshold > 100 || rule.nSensitivity < 1 || rule.nSensitivity > 100)
+        /* 参数有效性判断：徘徊侦测灵敏度按参数对照表要求为 0~10 */
+        if (rule.nTimeThreshold < 0 || rule.nTimeThreshold > 10 || rule.nSensitivity < 0 || rule.nSensitivity > 10)
         {
             dlog_error("设置徘徊侦测信息参数错误");
             result(ERR_WEB_PARAM);
@@ -1802,11 +1614,11 @@ void Task::Event::SetFaceCaptureInfo::handle()
     Alarm::FaceCapture_S stInfo;
     Convert::to_struct(m_taskData, stInfo);
     /* 检查智能事件资源冲突 */
-    int ret = check_analytics_resource(::Event::Type::FACE_CAPTURE, stInfo.bEnable);
-    if (ret != 0) {
-        result(ret);
-        return;
-    }
+    // int ret = check_analytics_resource(::Event::Type::FACE_CAPTURE, stInfo.bEnable);
+    // if (ret != 0) {
+    //     result(ret);
+    //     return;
+    // }
     auto &rule = stInfo.stRule;
     /* 参数有效性判断 */
     if (rule.nSensitivity < 1 || rule.nSensitivity > 100)
@@ -1832,14 +1644,27 @@ void Task::Event::SetFaceCaptureInfo::handle()
             return;
         }
     }
-    CEventConfigure::instance()->set_configure(stInfo);
+    /* 规则校验通过后才调整智能事件资源，避免非法配置改变事件启用状态。 */
+    int nRet = check_analytics_resource(::Event::Type::FACE_CAPTURE, stInfo.bEnable);
+    if (nRet != OK)
+    {
+        result(nRet);
+        return;
+    }
+    nRet = CEventConfigure::instance()->set_configure(stInfo);
+    if (nRet != OK)
+    {
+        dlog_error("保存人脸抓拍配置失败: ret[%d]", nRet);
+        result(nRet);
+        return;
+    }
 
     /* 更新事件布防时间 */
     Alarm::EventSchedule_S stEventSchedule;
     stEventSchedule.enEventType = ::Event::Type_E::FACE_CAPTURE;
     stEventSchedule.bStatus = stInfo.bEnable;
     stEventSchedule.defenseTime = stInfo.aAlarmTime;
-    int nRet = CEventConfigure::instance()->set_configure(stEventSchedule);
+    nRet = CEventConfigure::instance()->set_configure(stEventSchedule);
     CEventManage::instance()->update_event_schedule();
     result(nRet);
 }
@@ -3012,29 +2837,29 @@ void Task::Event::SetPedestrianIntrusionInfo::handle()
     result(save_scene_event_config(::Event::Type_E::PEDESTRIAN_INTRUSION, stInfo));
 }
 
-void Task::Event::GetSmokeFireInfo::handle()
-{
-    Alarm::SmokeFireDetection_S stInfo;
-    CEventConfigure::instance()->get_configure(stInfo);
-    result(Convert::to_string(stInfo));
-}
+// void Task::Event::GetSmokeFireInfo::handle()
+// {
+//     Alarm::SmokeFireDetection_S stInfo;
+//     CEventConfigure::instance()->get_configure(stInfo);
+//     result(Convert::to_string(stInfo));
+// }
 
-void Task::Event::SetSmokeFireInfo::handle()
-{
-    Alarm::SmokeFireDetection_S stInfo;
-    Convert::to_struct(m_taskData, stInfo);
+// void Task::Event::SetSmokeFireInfo::handle()
+// {
+//     Alarm::SmokeFireDetection_S stInfo;
+//     Convert::to_struct(m_taskData, stInfo);
    
-    /* 参数有效性判断 */
-    if (stInfo.stRule.nSensitivity < 1 || stInfo.stRule.nSensitivity > 100)
-    {
-        dlog_error("设置烟火识别信息参数错误");
-        result(ERR_WEB_PARAM);
-        return;
-    }
+//     /* 参数有效性判断 */
+//     if (stInfo.stRule.nSensitivity < 1 || stInfo.stRule.nSensitivity > 100)
+//     {
+//         dlog_error("设置烟火识别信息参数错误");
+//         result(ERR_WEB_PARAM);
+//         return;
+//     }
 
-    /* 参数校验完成后，统一保存并同步智能事件总览状态。 */
-    result(save_scene_event_config(::Event::Type_E::SMOKE_FIRE, stInfo));
-}
+//     /* 参数校验完成后，统一保存并同步智能事件总览状态。 */
+//     result(save_scene_event_config(::Event::Type_E::SMOKE_FIRE, stInfo));
+// }
 
 void Task::Event::GetRoadPondingInfo::handle()
 {
@@ -3437,7 +3262,31 @@ void Task::Event::SetReflectiveClothingInfo::handle()
 }
 
 #endif
+#if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
+void Task::Event::GetSmokeFireInfo::handle()
+{
+    Alarm::SmokeFireDetection_S stInfo;
+    CEventConfigure::instance()->get_configure(stInfo);
+    result(Convert::to_string(stInfo));
+}
 
+void Task::Event::SetSmokeFireInfo::handle()
+{
+    Alarm::SmokeFireDetection_S stInfo;
+    Convert::to_struct(m_taskData, stInfo);
+   
+    /* 参数有效性判断 */
+    if (stInfo.stRule.nSensitivity < 1 || stInfo.stRule.nSensitivity > 100)
+    {
+        dlog_error("设置烟火识别信息参数错误");
+        result(ERR_WEB_PARAM);
+        return;
+    }
+
+    /* 参数校验完成后，统一保存并同步智能事件总览状态。 */
+    result(save_scene_event_config(::Event::Type_E::SMOKE_FIRE, stInfo));
+}
+#endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_GARBAGE_DETECT
 void Task::Event::GetGarbageExposureInfo::handle()
 {
@@ -3508,6 +3357,197 @@ void Task::Event::SetGarbageOverflowInfo::handle()
     /* 参数校验完成后，统一保存并同步智能事件总览状态。 */
     result(save_scene_event_config(::Event::Type_E::GARBAGE_OVERFLOW, stInfo));
 }
+/* 事件推送命令与事件链路保持一致（见 event_linkage_action_direct.cpp:41-42） */
+constexpr const char *GARBAGE_SNAPSHOT_ALARM_COMMAND = "NET_TV_EVENT_ALARM";
+constexpr const char *GARBAGE_SNAPSHOT_IMAGE_UPLOAD_COMMAND = "NET_TV_EVENT_IMAGE_UPLOAD";
+
+#if CAP_AI_GARBAGE_DETECT
+/**
+ * @brief 垃圾站手动抓图并送垃圾识别：报警与图片上传结果均按事件方式推送平台。
+ * @author ITC
+ * @return 无。识别结果与上传结果经 MQTT /event 主题推送，任务响应仅回执。
+ */
+void Task::Event::GarbageStationSnapshotDetect::handle()
+{
+    const long long llBeginMs = TimeUtils_NS::get_currentTimestampMs();
+    dlog_info("垃圾站抓图识别-业务层: 收到抓图识别命令，下发数据[%s]", m_taskData.c_str());
+
+    std::string strAlgoResult;
+    const int nSendRet = CEventManage::instance()->send_algo_controlData(
+        AC_GARBAGE_STATION_SNAPSHOT_DETECT, m_taskData.c_str(), &strAlgoResult);
+    if (nSendRet != 0)
+    {
+        dlog_error("垃圾站抓图识别-业务层: 下发 AI 层失败，返回码[%d]", nSendRet);
+    }
+    dlog_info("垃圾站抓图识别-业务层: AI 层返回，下发码[%d] 耗时[%lld]ms 结果[%s]", nSendRet,
+              TimeUtils_NS::get_currentTimestampMs() - llBeginMs, strAlgoResult.c_str());
+
+    Json::Object *pAlgoJson = Json::init(strAlgoResult);
+    if (!pAlgoJson)
+    {
+        dlog_error("垃圾站抓图识别-业务层: 解析 AI 层结果失败，原始内容[%s]", strAlgoResult.c_str());
+        result("{\"Result\":-1}");
+        return;
+    }
+
+    /* 取出识别与时间信息，后续两条推送共用同一时间戳。 */
+    std::string strImagePath;
+    std::string strTimestamp;
+    std::string strDate;
+    std::string strTime;
+    std::string strStartTime;
+    std::string strEndTime;
+    int nEventType = static_cast<int>(::Event::Type_E::GARBAGE_STATION_SNAPSHOT);
+    int nGarbageOverflow = 0;
+    int nGarbageExposure = 0;
+    Json::get(pAlgoJson, "ImagePath", strImagePath);
+    Json::get(pAlgoJson, "EventType", nEventType);
+    Json::get(pAlgoJson, "GarbageOverflow", nGarbageOverflow);
+    Json::get(pAlgoJson, "GarbageExposure", nGarbageExposure);
+    Json::get(pAlgoJson, "Timestamp", strTimestamp);
+    Json::get(pAlgoJson, "Date", strDate);
+    Json::get(pAlgoJson, "Time", strTime);
+    Json::get(pAlgoJson, "StartTime", strStartTime);
+    Json::get(pAlgoJson, "EndTime", strEndTime);
+    Json::deinit(pAlgoJson);
+
+    const ::Event::Type_E enEventType = static_cast<::Event::Type_E>(nEventType);
+    const std::string strEventName = EventLinkageDict::get_event_name(enEventType);
+    /* 抓拍送垃圾侦测的结果：满溢或暴露任一命中即为 1，两者均未命中为 0。 */
+    const int nGarbageDetected = (nGarbageOverflow != 0 || nGarbageExposure != 0) ? 1 : 0;
+    const int nChannel = 0;
+    const int nEventStatus = 1;
+    /* 报警 RequestId 规则与事件链路一致：event-<EventType>-<Channel>-<Timestamp> */
+    const std::string strAlarmRequestId = "event-" + std::to_string(nEventType) + "-" +
+                                          std::to_string(nChannel) + "-" + strTimestamp;
+
+    /* 第一条：报警消息，字段与正常垃圾事件上报平台的格式一致。 */
+    Json::Object *pAlarmJson = Json::init();
+    if (pAlarmJson)
+    {
+        Json::add(pAlarmJson, "EventType", nEventType);
+        Json::add(pAlarmJson, "EventName", strEventName);
+        Json::add(pAlarmJson, "EventStatus", nEventStatus);
+        Json::add(pAlarmJson, "Channel", nChannel);
+        Json::add(pAlarmJson, "Timestamp", strTimestamp);
+        Json::add(pAlarmJson, "Date", strDate);
+        Json::add(pAlarmJson, "Time", strTime);
+        Json::add(pAlarmJson, "StartTime", strStartTime);
+        Json::add(pAlarmJson, "EndTime", strEndTime);
+
+        const std::string strAlarmData = Json::to_string(pAlarmJson);
+        Json::deinit(pAlarmJson);
+        const int nAlarmRet =
+            CPlatformManager::instance()->publish_event(GARBAGE_SNAPSHOT_ALARM_COMMAND, strAlarmData, strAlarmRequestId);
+        dlog_info("垃圾站抓图识别-业务层: 报警消息推送完成，RequestId[%s] 返回码[%d] 载荷[%s]",
+                  strAlarmRequestId.c_str(), nAlarmRet, strAlarmData.c_str());
+    }
+
+    /* 第二条：图片上传结果，成功或失败都推送。 */
+    CPlatformManager::EventImageUploadResponse stResponse;
+    bool bUploadOk = false;
+    if (!strImagePath.empty())
+    {
+        long long llEventTimestampMs = std::atoll(strTimestamp.c_str());
+        if (llEventTimestampMs <= 0)
+        {
+            llEventTimestampMs = TimeUtils_NS::get_currentTimestampMs();
+        }
+
+        /* 字段构造与正常事件图片上报保持一致（见 event_linkage_action_direct.cpp:423-429）。 */
+        CPlatformManager::EventImageUploadRequest stRequest;
+        stRequest.event_type = nEventType;
+        stRequest.event_name = strEventName;
+        stRequest.channel = nChannel;
+        stRequest.timestamp = llEventTimestampMs;
+        stRequest.image_path = strImagePath;
+        /* 手动抓拍无关联报警事件，RequestId 留空；设备 SN 与文件名由上传接口自动兜底生成。 */
+
+        dlog_info("垃圾站抓图识别-业务层: 开始上传图片至平台，事件类型[%d] 事件名[%s] 时间戳[%lld] 路径[%s]",
+                  nEventType, strEventName.c_str(), llEventTimestampMs, strImagePath.c_str());
+        bUploadOk = CPlatformManager::instance()->upload_event_image(stRequest, stResponse);
+        if (bUploadOk)
+        {
+            dlog_info("垃圾站抓图识别-业务层: 图片上传成功，状态码[%d] 平台文件名[%s] 图片地址[%s]",
+                      stResponse.status_code, stResponse.file_name.c_str(), stResponse.image_url.c_str());
+        }
+        else
+        {
+            dlog_error("垃圾站抓图识别-业务层: 图片上传平台失败，状态码[%d] 说明[%s]", stResponse.status_code,
+                       stResponse.message.c_str());
+        }
+    }
+    else
+    {
+        dlog_warn("垃圾站抓图识别-业务层: 结果中无图片路径，跳过上传");
+    }
+
+    Json::Object *pUploadJson = Json::init();
+    if (pUploadJson)
+    {
+        Json::add(pUploadJson, "EventType", nEventType);
+        Json::add(pUploadJson, "EventName", strEventName);
+        Json::add(pUploadJson, "EventStatus", nEventStatus);
+        Json::add(pUploadJson, "Channel", nChannel);
+        Json::add(pUploadJson, "Timestamp", strTimestamp);
+        Json::add(pUploadJson, "AlarmRequestId", strAlarmRequestId);
+        Json::add(pUploadJson, "UploadStatus", bUploadOk ? 1 : 0);
+        Json::add(pUploadJson, "Date", strDate);
+        Json::add(pUploadJson, "Time", strTime);
+        Json::add(pUploadJson, "StartTime", strStartTime);
+        Json::add(pUploadJson, "EndTime", strEndTime);
+        Json::add(pUploadJson, "ImagePath", stResponse.image_path.empty() ? strImagePath : stResponse.image_path);
+        if (!stResponse.file_name.empty())
+        {
+            Json::add(pUploadJson, "FileName", stResponse.file_name);
+        }
+        Json::add(pUploadJson, "StatusCode", stResponse.status_code);
+        Json::add(pUploadJson, "Message", stResponse.message);
+
+        const std::string strUploadData = Json::to_string(pUploadJson);
+        Json::deinit(pUploadJson);
+        /* RequestId 追加 -image，既能区分报警消息，又能通过 AlarmRequestId 回查原报警。 */
+        const std::string strUploadRequestId = strAlarmRequestId + "-image";
+        const int nUploadRet = CPlatformManager::instance()->publish_event(
+            GARBAGE_SNAPSHOT_IMAGE_UPLOAD_COMMAND, strUploadData, strUploadRequestId);
+        dlog_info("垃圾站抓图识别-业务层: 上传结果推送完成，RequestId[%s] 返回码[%d] 载荷[%s]",
+                  strUploadRequestId.c_str(), nUploadRet, strUploadData.c_str());
+    }
+
+    dlog_info("垃圾站抓图识别-业务层: 处理结束，端到端耗时[%lld]ms 报警RequestId[%s]",
+              TimeUtils_NS::get_currentTimestampMs() - llBeginMs, strAlarmRequestId.c_str());
+
+    /* 任务响应回填事件信息与设备序列号，便于平台直接拼接使用。 */
+    Json::Object *pRespJson = Json::init();
+    if (pRespJson)
+    {
+        Json::add(pRespJson, "Result", 0);
+        /* 抓拍送垃圾侦测的结果：满溢或暴露任一识别到即为 1，均未识别到为 0 */
+        Json::add(pRespJson, "GarbageDetected", nGarbageDetected);
+        /* 垃圾侦测结果：1 表示识别到，0 表示未识别到 */
+        Json::add(pRespJson, "GarbageOverflow", nGarbageOverflow);
+        Json::add(pRespJson, "GarbageExposure", nGarbageExposure);
+        Json::add(pRespJson, "EventType", nEventType);
+        Json::add(pRespJson, "EventName", strEventName);
+        Json::add(pRespJson, "EventStatus", nEventStatus);
+        Json::add(pRespJson, "Channel", nChannel);
+        Json::add(pRespJson, "Timestamp", strTimestamp);
+        Json::add(pRespJson, "Date", strDate);
+        Json::add(pRespJson, "Time", strTime);
+        Json::add(pRespJson, "StartTime", strStartTime);
+        Json::add(pRespJson, "EndTime", strEndTime);
+        Json::add(pRespJson, "device_sn", CPlatformManager::instance()->get_device_sn());
+
+        const std::string strResp = Json::to_string(pRespJson);
+        Json::deinit(pRespJson);
+        result(strResp);
+    }
+    else
+    {
+        result("{\"Result\":0}");
+    }
+}
+#endif
 #endif
 
 #if CAP_AI_PEOPLE_STATISTICS

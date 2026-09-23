@@ -3,7 +3,7 @@
  * @Author       : huangjunda
  * @Date         : 2025-06-20 11:05:06
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-07-30 15:14:08
+ * @LastEditTime : 2026-09-16 17:07:55
  * @Description  : 遮挡绘制
  */
 
@@ -15,9 +15,9 @@
 
 CCoverDraw::CCoverDraw()
 {
-    m_bIsRunning = false; /* 运行标志 */
+    m_bIsRunning = false;                                /* 运行标志 */
     m_pVecRgns.resize(RGN_COVER_MAX_NUM * VPSS_CHN_MAX); /* 初始化rgn指针向量 */
-    m_bIsUpdate = true;                  /* rgn是否需要更新 */
+    m_bIsUpdate = true;                                  /* rgn是否需要更新 */
 }
 
 CCoverDraw::~CCoverDraw()
@@ -99,7 +99,7 @@ void CCoverDraw::stop()
 {
     m_bIsRunning = false;
 
-    if(m_thread.joinable())
+    if (m_thread.joinable())
     {
         m_thread.join();
     }
@@ -131,8 +131,8 @@ HiRgnNeedParam_S CCoverDraw::set_rgn(Osd::CoverInfo_S stuCoverInfo, int nChn, ui
     Video_NS::StreamGeometry_S stGeometry;
     int nActualWidth = vstVideoConfig.at(nChn).stVideoResolution.nWidth;
     int nActualHeight = vstVideoConfig.at(nChn).stVideoResolution.nHeight;
-    if (OK == CStreamVideo::instance()->get_stream_geometry(nChn, stGeometry) &&
-        stGeometry.nOutputWidth > 0 && stGeometry.nOutputHeight > 0)
+    if (OK == CStreamVideo::instance()->get_stream_geometry(nChn, stGeometry) && stGeometry.nOutputWidth > 0 &&
+        stGeometry.nOutputHeight > 0)
     {
         nActualWidth = stGeometry.nOutputWidth;
         nActualHeight = stGeometry.nOutputHeight;
@@ -142,7 +142,7 @@ HiRgnNeedParam_S CCoverDraw::set_rgn(Osd::CoverInfo_S stuCoverInfo, int nChn, ui
 
     /* 获取模板参考分辨率宽高 */
     get_reference_size(stuCoverInfo.stuInfo.enRefSize, nReferenceWidth, nReferenceHeight);
-    
+
     /* 句柄号 */
     stuRgnNeedParam.unHandle = unHandle;
 
@@ -150,24 +150,32 @@ HiRgnNeedParam_S CCoverDraw::set_rgn(Osd::CoverInfo_S stuCoverInfo, int nChn, ui
     stuRgnNeedParam.unChnId = nChn;
 
     /* 是否显示 */
-    stuRgnNeedParam.bIsShow = (td_bool)stuCoverInfo.stuInfo.bEnable;
+    stuRgnNeedParam.bIsShow = (td_bool) stuCoverInfo.stuInfo.bEnable;
 
     /* 是否实心 */
-    stuRgnNeedParam.bIsSolid = (td_bool)stuCoverInfo.stuCover.bEnableSolid;
+    stuRgnNeedParam.bIsSolid = (td_bool) stuCoverInfo.stuCover.bEnableSolid;
 
     /* 是否为矩形 */
-    stuRgnNeedParam.bIsRectangle = (td_bool)stuCoverInfo.stuCover.bEnableRectangle;
+    stuRgnNeedParam.bIsRectangle = (td_bool) stuCoverInfo.stuCover.bEnableRectangle;
 
     /* 背景颜色 */
     stuRgnNeedParam.unBgColor = std::stoul(stuCoverInfo.stuCover.strBackColor, NULL, 16); /* 16 表示十六进制 */
 
     /* 模板尺寸需要根据模板坐标等参数进行公式计算 */
-    calculate_template_size(stuCoverInfo.stuCover.stuCoordinate, stuRgnNeedParam.unWidth, stuRgnNeedParam.unHeight, nActualWidth, nActualHeight, nReferenceWidth, nReferenceHeight);
+    calculate_template_size(stuCoverInfo.stuCover.stuCoordinate,
+                            stuRgnNeedParam.unWidth,
+                            stuRgnNeedParam.unHeight,
+                            nActualWidth,
+                            nActualHeight,
+                            nReferenceWidth,
+                            nReferenceHeight);
 
     /* 计算模板坐标 */
     calculate_coordinate(stuCoverInfo.stuCover.stuCoordinate, nActualWidth, nActualHeight, nReferenceWidth, nReferenceHeight);
     // dlog_debug("nActualWidth:%d*%d,%d*%d", nActualWidth, nActualHeight, nReferenceWidth, nReferenceHeight);
-    // dlog_debug("nActualWidth:%d*%d,%d*%d", stuCoverInfo.stuCover.stuCoordinate[Osd::POS_START].nX, stuCoverInfo.stuCover.stuCoordinate[Osd::POS_START].nY, stuCoverInfo.stuCover.stuCoordinate[Osd::POS_END].nX, stuCoverInfo.stuCover.stuCoordinate[Osd::POS_END].nY);
+    // dlog_debug("nActualWidth:%d*%d,%d*%d", stuCoverInfo.stuCover.stuCoordinate[Osd::POS_START].nX,
+    // stuCoverInfo.stuCover.stuCoordinate[Osd::POS_START].nY, stuCoverInfo.stuCover.stuCoordinate[Osd::POS_END].nX,
+    // stuCoverInfo.stuCover.stuCoordinate[Osd::POS_END].nY);
     if (stuCoverInfo.stuCover.bEnableRectangle)
     {
         stuRgnNeedParam.unStartX = stuCoverInfo.stuCover.stuCoordinate.at(Osd::Pos_E::POS_START).nX;
@@ -237,6 +245,8 @@ void CCoverDraw::osd_cover()
             continue;
         }
 
+        bool bMainChanged = false; /* 本轮主码流通道(chn0)的遮挡是否发生实际变更 */
+
         for (size_t i = 0; i < m_pVecRgns.size(); i++)
         {
             if (!m_pVecRgns.at(i))
@@ -247,40 +257,90 @@ void CCoverDraw::osd_cover()
             int nIndex = i / VPSS_CHN_MAX; /* 下标 */
             if (vecCoverInfo.at(nIndex).stuInfo.bEnable)
             {
-                if (!m_pVecRgns.at(i)->bIsShow)
-                {
-                    if (m_pVecRgns.at(i)->mppRgn_attachToChn(m_pVecRgns.at(i)))
-                    {
-                        dlog_error("添加rgn到通道失败");
-                        continue;
-                    }
-                }
                 /* 判断osd信息是否更新 */
                 if (m_bIsUpdate)
                 {
-                    /* 更新rgn */
-                    m_pVecRgns.at(i)->mppRgn_update(m_pVecRgns.at(i), set_rgn(vecCoverInfo.at(nIndex), m_pVecRgns.at(i)->unChnId, m_pVecRgns.at(i)->unHandle));
-                    m_pVecRgns.at(i)->mppRgn_changeRect(m_pVecRgns.at(i), m_pVecRgns.at(i)->unWidth, m_pVecRgns.at(i)->unHeight);
-                    m_pVecRgns.at(i)->mppRgn_changePos(m_pVecRgns.at(i), m_pVecRgns.at(i)->unStartX, m_pVecRgns.at(i)->unStartY);
-                    m_pVecRgns.at(i)->mppRgn_detachFromChn(m_pVecRgns.at(i));
-                    m_pVecRgns.at(i)->mppRgn_attachToChn(m_pVecRgns.at(i));
+                    /* 先计算新参数：与当前一致且处于显示状态时跳过，
+                     * 重复设置也会触发卷绕通道与RGN的冲突，必须拦截 */
+                    const HiRgnNeedParam_S stParam = set_rgn(vecCoverInfo.at(nIndex),
+                                                             m_pVecRgns.at(i)->unChnId,
+                                                             m_pVecRgns.at(i)->unHandle);
+                    if (m_pVecRgns.at(i)->bIsAttached && m_pVecRgns.at(i)->bIsShow && m_pVecRgns.at(i)->unStartX == stParam.unStartX &&
+                        m_pVecRgns.at(i)->unStartY == stParam.unStartY && m_pVecRgns.at(i)->unWidth == stParam.unWidth &&
+                        m_pVecRgns.at(i)->unHeight == stParam.unHeight)
+                    {
+                        continue;
+                    }
+
+                    /* update会覆盖内存中的显隐状态，先保存驱动当前真实显隐 */
+                    const td_bool bWasShow = m_pVecRgns.at(i)->bIsShow;
+                    if (m_pVecRgns.at(i)->unChnId == 0)
+                    {
+                        bMainChanged = true; /* 主码流为卷绕通道，RGN变更后需重建编码通道 */
+                    }
+                    /* 参数变更统一走 隐藏→改参数→显示：
+                     * 实测卷绕通道上遮挡在叠加运行中直接收缩参数（大面积改小）会让
+                     * VENC数秒后停止编码且不可恢复；隐藏期间硬件不叠加该RGN，
+                     * 参数就位后再按新参数从零开始叠加，规避参数突变窗口 */
+                    if (bWasShow && m_pVecRgns.at(i)->mppRgn_showOrHide(m_pVecRgns.at(i), TD_FALSE))
+                    {
+                        dlog_error("隐藏rgn失败");
+                    }
+                    /* 更新rgn内存参数 */
+                    m_pVecRgns.at(i)->mppRgn_update(m_pVecRgns.at(i), stParam);
+                    if (!m_pVecRgns.at(i)->bIsAttached)
+                    {
+                        /* 首次挂载：attach按句柄当前参数一次性写入通道显示属性 */
+                        if (m_pVecRgns.at(i)->mppRgn_attachToChn(m_pVecRgns.at(i)))
+                        {
+                            dlog_error("添加rgn到通道失败");
+                        }
+                    }
+                    else
+                    {
+                        /* 已挂载时只原地更新位置与尺寸，不做摘挂：
+                         * attach/detach会增删通道RGN列表结构，卷绕在线通道行级直送VENC
+                         * 无帧边界同步点，读到增删瞬间的中间状态会导致VENC编码停摆；
+                         * 原地改属性不改变列表结构，硬件按帧读取的始终是完整配置 */
+                        if (m_pVecRgns.at(i)->mppRgn_changeAttr(m_pVecRgns.at(i),
+                                                                m_pVecRgns.at(i)->unStartX,
+                                                                m_pVecRgns.at(i)->unStartY,
+                                                                m_pVecRgns.at(i)->unWidth,
+                                                                m_pVecRgns.at(i)->unHeight))
+                        {
+                            dlog_error("更新rgn位置尺寸失败");
+                        }
+                        /* 此时驱动侧必为隐藏态：参数变更路径是刚才主动隐藏，
+                         * 禁用恢复路径是禁用时隐藏的，统一恢复显示 */
+                        if (m_pVecRgns.at(i)->mppRgn_showOrHide(m_pVecRgns.at(i), TD_TRUE))
+                        {
+                            dlog_error("恢复rgn显示失败");
+                        }
+                    }
                 }
             }
             else if (!vecCoverInfo.at(nIndex).stuInfo.bEnable)
             {
+                /* 禁用只隐藏不摘挂，保持通道RGN列表结构稳定 */
                 if (m_pVecRgns.at(i)->bIsShow)
                 {
-                    if (m_pVecRgns.at(i)->mppRgn_detachFromChn(m_pVecRgns.at(i)))
+                    if (m_pVecRgns.at(i)->mppRgn_showOrHide(m_pVecRgns.at(i), TD_FALSE))
                     {
-                        dlog_error("从通道中撤出rgn失败");
+                        dlog_error("隐藏rgn失败");
                         continue;
+                    }
+                    if (m_pVecRgns.at(i)->unChnId == 0)
+                    {
+                        bMainChanged = true; /* 主码流为卷绕通道，RGN变更后需重建编码通道 */
                     }
                 }
                 /* 判断osd信息是否更新 */
                 if (m_bIsUpdate)
                 {
                     /* 更新rgn */
-                    m_pVecRgns.at(i)->mppRgn_update(m_pVecRgns.at(i), set_rgn(vecCoverInfo.at(nIndex), m_pVecRgns.at(i)->unChnId, m_pVecRgns.at(i)->unHandle));
+                    m_pVecRgns.at(i)->mppRgn_update(
+                        m_pVecRgns.at(i),
+                        set_rgn(vecCoverInfo.at(nIndex), m_pVecRgns.at(i)->unChnId, m_pVecRgns.at(i)->unHandle));
                 }
             }
         }
@@ -288,6 +348,21 @@ void CCoverDraw::osd_cover()
         if (m_bIsUpdate)
         {
             m_bIsUpdate = !m_bIsUpdate;
+        }
+
+        if (bMainChanged)
+        {
+            /* 实测：主码流为卷绕(wrap online)通道时，对VPSS chn0的遮挡RGN做任何
+             * 动态变更（含隐藏-改参数-显示）都会概率性打坏VENC编码状态——
+             * 卷绕send-done出现差帧、码流停止产出且不可自愈（proc表现为
+             * pic queue busy堆积、stream buffer full反复打印）。
+             * RGN参数已就位（挂在VPSS上，不受VENC重建影响），此处按当前配置
+             * 走既有路径重建主码流编码通道恢复出图，断流约1~2秒 */
+            dlog_info("遮挡参数已变更, 重建主码流编码通道");
+            if (OK != CStreamVideo::instance()->restart_encode_channel(0 /* VENC_CHN_MAIN */))
+            {
+                dlog_error("重建主码流编码通道失败");
+            }
         }
 
         /* 休眠200ms */
@@ -337,7 +412,13 @@ void CCoverDraw::get_reference_size(Osd::ReferenceSize_E enReferenceSize, int &n
     return;
 }
 
-void CCoverDraw::calculate_template_size(std::vector<Osd::CoordinateInfo_S> stuCoordinate, uint32_t &unTemplateWidth, uint32_t &unTemplateHeight, int nActualWidth, int nActualHeight, int nReferenceWidth, int nReferenceHeight)
+void CCoverDraw::calculate_template_size(std::vector<Osd::CoordinateInfo_S> stuCoordinate,
+                                         uint32_t &unTemplateWidth,
+                                         uint32_t &unTemplateHeight,
+                                         int nActualWidth,
+                                         int nActualHeight,
+                                         int nReferenceWidth,
+                                         int nReferenceHeight)
 {
     /* 起始坐标和结束坐标 */
     if (Osd::Pos_E::POS_MAX != stuCoordinate.size())
@@ -347,8 +428,12 @@ void CCoverDraw::calculate_template_size(std::vector<Osd::CoordinateInfo_S> stuC
     }
 
     /* 模板长度 = (结束坐标 - 起始坐标) * 实际分辨率长度 / 模板分辨率长度 */
-    unTemplateWidth = ALIGN_UP((stuCoordinate.at(Osd::Pos_E::POS_END).nX - stuCoordinate.at(Osd::Pos_E::POS_START).nX) * nActualWidth / nReferenceWidth, OT_RGN_ALIGN);
-    unTemplateHeight = ALIGN_UP((stuCoordinate.at(Osd::Pos_E::POS_END).nY - stuCoordinate.at(Osd::Pos_E::POS_START).nY) * nActualHeight / nReferenceHeight, OT_RGN_ALIGN);
+    unTemplateWidth = ALIGN_UP(
+        (stuCoordinate.at(Osd::Pos_E::POS_END).nX - stuCoordinate.at(Osd::Pos_E::POS_START).nX) * nActualWidth / nReferenceWidth,
+        OT_RGN_ALIGN);
+    unTemplateHeight = ALIGN_UP(
+        (stuCoordinate.at(Osd::Pos_E::POS_END).nY - stuCoordinate.at(Osd::Pos_E::POS_START).nY) * nActualHeight / nReferenceHeight,
+        OT_RGN_ALIGN);
     if (0 == unTemplateWidth)
     {
         unTemplateWidth = 2; /* 最小宽度 */
@@ -361,14 +446,20 @@ void CCoverDraw::calculate_template_size(std::vector<Osd::CoordinateInfo_S> stuC
     return;
 }
 
-void CCoverDraw::calculate_coordinate(std::vector<Osd::CoordinateInfo_S> &stuCoordinate, int nActualWidth, int nActualHeight, int nReferenceWidth, int nReferenceHeight)
+void CCoverDraw::calculate_coordinate(std::vector<Osd::CoordinateInfo_S> &stuCoordinate,
+                                      int nActualWidth,
+                                      int nActualHeight,
+                                      int nReferenceWidth,
+                                      int nReferenceHeight)
 {
     /* 矩形: 起始坐标和结束坐标 */
     if (Osd::Pos_E::POS_MAX == stuCoordinate.size())
     {
         /* 模板起始坐标 = 起始坐标 * 实际分辨率长度 / 模板分辨率长度 */
-        stuCoordinate.at(Osd::Pos_E::POS_START).nX = ALIGN_UP(stuCoordinate.at(Osd::Pos_E::POS_START).nX * nActualWidth / nReferenceWidth, OT_RGN_ALIGN);
-        stuCoordinate.at(Osd::Pos_E::POS_START).nY = ALIGN_UP(stuCoordinate.at(Osd::Pos_E::POS_START).nY * nActualHeight / nReferenceHeight, OT_RGN_ALIGN);
+        stuCoordinate.at(Osd::Pos_E::POS_START).nX = ALIGN_UP(stuCoordinate.at(Osd::Pos_E::POS_START).nX * nActualWidth / nReferenceWidth,
+                                                              OT_RGN_ALIGN);
+        stuCoordinate.at(Osd::Pos_E::POS_START).nY = ALIGN_UP(stuCoordinate.at(Osd::Pos_E::POS_START).nY * nActualHeight / nReferenceHeight,
+                                                              OT_RGN_ALIGN);
         return;
     }
     /* 四边形: 四个坐标 */

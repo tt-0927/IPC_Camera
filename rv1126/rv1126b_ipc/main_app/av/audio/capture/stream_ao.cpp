@@ -5,7 +5,6 @@
  * @LastEditors  : zhouzr@kfb.cn
  * @LastEditTime : 2026-01-27 10:32:01
  * @Description  : AO 音频流输出
- * @Modification : 2026-09-17 修复输出句柄释放回写及音量调用保护
  */
 
 #include "stream_ao.h"
@@ -65,7 +64,7 @@ RkAo_S *streamAo_init(int enAoDevice, Audio_NS::AudioConfig_S stAudioConfig)
     return pHandle;
 }
 
-int streamAo_uninit(RkAo_S *&pHandle)
+int streamAo_uninit(RkAo_S *pHandle)
 {
     if (pHandle == NULL)
     {
@@ -81,13 +80,12 @@ int streamAo_uninit(RkAo_S *&pHandle)
         return ERR;
     }
     rockitAo_release(pHandle);
-    pHandle = nullptr;
 
     dlog_info("音频流输出去初始化成功");
     return OK;
 }
 
-int streamAo_reboot(RkAo_S *&pHandle, int nAoDevice, const Audio_NS::AudioConfig_S &stAudioConfig)
+int streamAo_reboot(RkAo_S *pHandle, int nAoDevice, const Audio_NS::AudioConfig_S &stAudioConfig)
 {
     if(nAoDevice >= AO_MAX_CHN || nAoDevice < AO_SPEAKER_CHN)
     {
@@ -111,7 +109,7 @@ int streamAo_reboot(RkAo_S *&pHandle, int nAoDevice, const Audio_NS::AudioConfig
         if (pHandle == NULL)
         {
             dlog_error("初始化ao失败");
-            return ERR;
+            return nRet;
         }
     }
     return OK;
@@ -119,7 +117,7 @@ int streamAo_reboot(RkAo_S *&pHandle, int nAoDevice, const Audio_NS::AudioConfig
 
 int streamAo_setVolume(RkAo_S *pHandle, int nVolume)
 {
-    if (pHandle == nullptr || pHandle->rockitAo_set_volume == nullptr)
+    if (pHandle == NULL)
     {
         dlog_error("句柄为空");
         return ERR_PTR_NULL;

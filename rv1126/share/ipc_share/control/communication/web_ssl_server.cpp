@@ -9,7 +9,6 @@
 #include "dlog.h"
 #include "common_define.h"
 #include "action_code.h"
-#include "libwebsockets.h"
 
 int CWebSslServer::init(std::string strCert,std::string strKey)
 {
@@ -100,20 +99,17 @@ void CWebSslServer::deal_message(Net::Message_S& stMessage, Net::UserParam_S &st
     /* 获取登录设备的ip */
     if (stMessage.nActionCode  == AC_LOGIN)
     {
-        char achName[64];
-        struct lws * pLws = (struct lws *)stMessage.pHandle;
         dlog_info("开始获取登录设备的IP");
-       
-        const char *pResult = lws_get_peer_simple(pLws,achName,sizeof(achName));
-        if(pResult)
+
+        if(!stMessage.ip.empty())
         {
-            dlog_info("登录的设备ip：[%s],设备名称[%s]",pResult,achName);
+            dlog_info("登录的设备ip：[%s]", stMessage.ip.c_str());
         }
         else
         {
             dlog_error("获取登录设备ip失败");
         }
-        m_LoginDeviceIp = std::string(pResult);
+        m_LoginDeviceIp = stMessage.ip;
     }
 
     dlog_debug("接收到[%d]消息：%s", stMessage.nActionCode, stMessage.pData);

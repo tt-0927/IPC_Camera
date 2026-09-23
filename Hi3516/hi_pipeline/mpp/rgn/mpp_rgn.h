@@ -3,7 +3,7 @@
  * @Author       : zhouzirui
  * @Date         : 2025-05-08 16:35:40
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-04-01 16:50:14
+ * @LastEditTime : 2026-09-16 17:08:44
  * @Description  : 海思区域模块封装
  */
 
@@ -22,15 +22,15 @@ extern "C"
 #include "ot_common_region.h"
 #include "ss_mpi_region.h"
 
-#define OVERLAY_MIN_HANDLE 0
-#define COVER_MIN_HANDLE 24
-#define COVEREX_MIN_HANDLE 40
-#define LINEEX_MIN_HANDLE 60
-#define CORNER_RECT_MIN_HANDLE 80
+#define OVERLAY_MIN_HANDLE       0
+#define COVER_MIN_HANDLE         24
+#define COVEREX_MIN_HANDLE       40
+#define LINEEX_MIN_HANDLE        60
+#define CORNER_RECT_MIN_HANDLE   80
 #define CORNER_RECTEX_MIN_HANDLE 100
 
-#define REGION_OP_CHN (0x01L << 0)
-#define REGION_OP_DEV (0x01L << 1)
+#define REGION_OP_CHN  (0x01L << 0)
+#define REGION_OP_DEV  (0x01L << 1)
 #define REGION_DESTROY (0x01L << 2)
 
     /* 区域分配要填写的参数 */
@@ -46,8 +46,8 @@ extern "C"
         uint32_t unDevId;   /* 设备ID */
         uint32_t unChnId;   /* 通道ID */
         uint32_t unType;    /* 功能类型 */
-        uint32_t unStartX;  /* 起始坐标X */
-        uint32_t unStartY;  /* 起始坐标Y */
+        int32_t unStartX;   /* 起始坐标X（允许负值，负值表示落在画面外） */
+        int32_t unStartY;   /* 起始坐标Y（允许负值，负值表示落在画面外） */
         uint32_t unFgColor; /* 前景颜色 */
         uint32_t unBgColor; /* 背景颜色 */
         uint32_t unFgAlpha; /* 前景透明度0~255 */
@@ -65,7 +65,7 @@ extern "C"
         /* corner_rect可选参数 */
         td_u32 uHorLen; /* 角框水平线长 */
         td_u32 uVerLen; /* 角框竖直线长 */
-        td_u32 uThick;   /* 角框线宽 [2, 16] */
+        td_u32 uThick;  /* 角框线宽 [2, 16] */
 
     } HiRgnNeedParam_S;
 
@@ -74,23 +74,23 @@ extern "C"
     struct _HiRgn
     {
         /* 必要参数 */
-        td_bool bIsShow;    /* 是否显示 */
+        td_bool bIsShow;     /* 是否显示 */
         td_bool bIsAttached; /* 是否已经绑定到通道 */
-        uint32_t unHandle;  /* 区域句柄 */
-        uint32_t unOpFlag;  /* 操作标志（通道或者设备） */
-        uint32_t unWidth;   /* Rgn宽度 */
-        uint32_t unHeight;  /* Rgn高度 */
-        uint32_t unModId;   /* 模式ID */
-        uint32_t unDevId;   /* 设备ID */
-        uint32_t unChnId;   /* 通道ID */
-        uint32_t unType;    /* 功能类型 */
-        uint32_t unStartX;  /* 起始坐标X */
-        uint32_t unStartY;  /* 起始坐标Y */
-        uint32_t unFgColor; /* 前景颜色 */
-        uint32_t unBgColor; /* 背景颜色 */
-        uint32_t unFgAlpha; /* 前景透明度0~255 */
-        uint32_t unBgAlpha; /* 背景透明度0~255 */
-        uint32_t unLayer;   /* 叠加层数 */
+        uint32_t unHandle;   /* 区域句柄 */
+        uint32_t unOpFlag;   /* 操作标志（通道或者设备） */
+        uint32_t unWidth;    /* Rgn宽度 */
+        uint32_t unHeight;   /* Rgn高度 */
+        uint32_t unModId;    /* 模式ID */
+        uint32_t unDevId;    /* 设备ID */
+        uint32_t unChnId;    /* 通道ID */
+        uint32_t unType;     /* 功能类型 */
+        int32_t unStartX;    /* 起始坐标X（允许负值，负值表示落在画面外） */
+        int32_t unStartY;    /* 起始坐标Y（允许负值，负值表示落在画面外） */
+        uint32_t unFgColor;  /* 前景颜色 */
+        uint32_t unBgColor;  /* 背景颜色 */
+        uint32_t unFgAlpha;  /* 前景透明度0~255 */
+        uint32_t unBgAlpha;  /* 背景透明度0~255 */
+        uint32_t unLayer;    /* 叠加层数 */
         /* overplay可选参数 */
         uint32_t unFontSize;      /* 字体大小 */
         uint32_t unHorMargin;     /* 水平边距 */
@@ -104,7 +104,7 @@ extern "C"
         /* corner_rect可选参数 */
         td_u32 uHorLen; /* 角框水平线长 */
         td_u32 uVerLen; /* 角框竖直线长 */
-        td_u32 uThick;   /* 角框线宽 */
+        td_u32 uThick;  /* 角框线宽 */
 
         /* 功能列表 */
         /* 创建一个RGN
@@ -152,6 +152,17 @@ extern "C"
          * inparam nHeight 高度
          */
         int (*mppRgn_changeRect)(HiRgn_S *pHandle, int nWidth, int nHeight);
+
+        /* 一次性更新区域的位置与尺寸（仅支持 COVER/COVEREX/CORNER_RECT/CORNER_RECTEX）
+         * 对运行中的通道只做一次获取+设置，避免多次驱动调用拉长属性切换窗口。
+         * 注意：OVERLAY 区域宽高变化必须走 mppRgn_changeRect（canvas 重建），本接口不支持。
+         * inparam pHandle 区域句柄
+         * inparam nStartX X方向起始坐标
+         * inparam nStartY Y方向起始坐标
+         * inparam nWidth  长度
+         * inparam nHeight 高度
+         */
+        int (*mppRgn_changeAttr)(HiRgn_S *pHandle, int nStartX, int nStartY, int nWidth, int nHeight);
 
         /* 显示或者隐藏区域
          * inparam pHandle 区域句柄

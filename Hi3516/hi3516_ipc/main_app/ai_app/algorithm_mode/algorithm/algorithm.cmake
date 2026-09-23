@@ -9,6 +9,7 @@ ${CMAKE_CURRENT_LIST_DIR}
     ${CMAKE_CURRENT_LIST_DIR}/audio_detect
     ${CMAKE_CURRENT_LIST_DIR}/face_detect
     ${CMAKE_CURRENT_LIST_DIR}/garbage_detect
+    ${CMAKE_CURRENT_LIST_DIR}/smoke_fire_detect
     ${CMAKE_CURRENT_LIST_DIR}/hide_detect
     ${CMAKE_CURRENT_LIST_DIR}/item_detect
     ${CMAKE_CURRENT_LIST_DIR}/motion_detect
@@ -23,6 +24,7 @@ set (SOURCE_PATH
     ${CMAKE_CURRENT_LIST_DIR}
     ${CMAKE_CURRENT_LIST_DIR}/audio_detect
     ${CMAKE_CURRENT_LIST_DIR}/garbage_detect
+    ${CMAKE_CURRENT_LIST_DIR}/smoke_fire_detect
     ${CMAKE_CURRENT_LIST_DIR}/hide_detect
     ${CMAKE_CURRENT_LIST_DIR}/item_detect
     ${CMAKE_CURRENT_LIST_DIR}/motion_detect

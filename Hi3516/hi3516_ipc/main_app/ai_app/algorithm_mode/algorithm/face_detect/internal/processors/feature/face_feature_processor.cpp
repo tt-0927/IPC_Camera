@@ -1330,119 +1330,6 @@ bool CFaceFeatureProcessor::extractFeatureDirect(const Common::RectInfo_S &stRec
     return true;
 }
 
-// static bool saveCompareImage(const Common::RectInfo_S &stRect,
-//                              ot_video_frame_info *pFrameInfo,
-//                              int nChnId,
-//                              long long llTimestamp,
-//                              CFaceCaptureProcessor &stCaptureProcessor,
-//                              std::vector<std::string> &vecImageFile,
-//                              std::string &strImagePath)
-// {
-//     if (!pFrameInfo)
-//     {
-//         return false;
-//     }
-
-//     const size_t nBeforeSaveCount = vecImageFile.size();
-//     std::vector<Common::RectInfo_S> vstSingleRectInfo{ stRect };
-//     int nRet = stCaptureProcessor.saveFaceImage(vstSingleRectInfo, pFrameInfo, nChnId, vecImageFile, llTimestamp, false);
-
-//     if (nRet != OK || vecImageFile.size() <= nBeforeSaveCount)
-//     {
-//         dlog_error("人脸比对抓拍图片保存失败");
-//         return false;
-//     }
-
-//     strImagePath = vecImageFile[nBeforeSaveCount];
-//     dlog_info("人脸比对抓拍图片保存成功: path[%s], timestamp[%lld]", strImagePath.c_str(), llTimestamp);
-//     return true;
-// }
-
-
-int CFaceFeatureProcessor::saveCompareImage(
-    const Common::RectInfo_S &stRect,
-    ot_video_frame_info *pSrcFrameInfo,
-    int nChnId,
-    long long llTimestamp,
-    CFaceCaptureProcessor &stCaptureProcessor,
-    std::vector<std::string> &vecImageFile,
-    std::string &strImagePath)
-{
-    /* 失败时不允许把一个不存在的路径继续传给事件联动。 */
-    strImagePath.clear();
-
-    if (pSrcFrameInfo == nullptr)
-    {
-        return ERR_PTR_NULL;
-    }
-
-    /*
-     * 必须在任何目录或文件操作之前检查存储状态。该检查只能用于快速失败；
-     * 用户可能在检查后立即拔卡，因此后续每一步仍必须检查实际返回值。
-     */
-    if (CStorageManage::instance()->get_SdCardStatus() != SD_CARD_STATUS_E::NORMAL)
-    {
-        dlog_warn("SD卡不可用，跳过人脸比对图片保存");
-        return ERR;
-    }
-
-    std::string strStoragePath =
-        CCaptureCtrl::instance()->get_date_storage_path();
-
-    if (!CCaptureCtrl::instance()->ensure_directory_exists(strStoragePath))
-    {
-        dlog_error("人脸比对图片目录创建失败: %s", strStoragePath.c_str());
-        return ERR;
-    }
-
-    auto stTime = buildFaceCompareTimeParts(llTimestamp);
-
-    strImagePath =
-        strStoragePath + "/" +
-        stTime.strDateCompact + "_" +
-        stTime.strTimeCompactMs + "_" +
-        std::to_string(
-            static_cast<int>(Event::Type_E::FACE_COMPARE)) +
-        "_face_compare.jpg";
-
-    const int ret =
-        AiAppCommon::encode_video_frame_to_jpeg_file(
-            pSrcFrameInfo,
-            strImagePath);
-
-    if (ret != OK)
-    {
-        dlog_error("人脸比对图片编码失败: %s", strImagePath.c_str());
-        strImagePath.clear();
-        return ERR;
-    }
-
-    /* 只有文件成功生成后才能读取文件大小并写入抓图数据库。 */
-    if (stCaptureProcessor.saveToDatabase(
-            strImagePath, stTime.strDateDash, stTime.strTimeColon, nChnId) != OK)
-    {
-        dlog_error("人脸比对图片写入数据库失败: %s", strImagePath.c_str());
-        strImagePath.clear();
-        return ERR;
-    }
-
-    dlog_info("人脸比对图片保存成功: %s",
-              strImagePath.c_str());
-
-    return OK;
-}
-
-static bool shouldUploadCompareImage(const FaceCompareLinkageOptions_S &stOptions)
-{
-    /*
-     * 平台事件图片上传线程由 UPLOAD_SD_CARD(3) 触发。
-     * 目标图、平台上传和无全景图时的邮件附件共用同一个文件，避免分别编码 JPEG。
-     */
-    return stOptions.bTargetImage ||
-           stOptions.bUploadSdCard ||
-           (stOptions.bEmail && !stOptions.bPanoramaImage);
-}
-
 static void addFaceCompareAttrIfNotEmpty(EventTriggerContext_S &stContext,
                                          const std::string &strKey,
                                          const std::string &strValue)
@@ -1495,6 +1382,9 @@ void CFaceFeatureProcessor::handleCompareLinkage(bool bSuccess,
                                                  FaceFrameImageCache_S &stImageCache,
                                                  std::vector<std::string> &vecImageFile)
 {
+    /* 人脸比对不区分目标图和全景图，SD卡图片统一由通用抓图模块生成。 */
+    (void)stRect;
+    (void)stCaptureProcessor;
     const FaceCompareLinkageOptions_S stOptions = buildLinkageOptions(bSuccess);
     const long long llEventTimestamp = llTimestamp > 0 ? llTimestamp : TimeUtils_NS::get_currentTimestampMs();
     std::string strUploadImagePath;
@@ -1510,15 +1400,8 @@ void CFaceFeatureProcessor::handleCompareLinkage(bool bSuccess,
     }
 
     EventTriggerContext_S stExposureContext;
-    if (bSuccess)
-    {
-        stExposureContext.enEventType = Event::Type_E::FACE_COMPARE_SUCCESS;
-        // saveCompareImage(stRect, pFrameInfo, stCaptureProcessor);
-    }
-    else
-    {
-        stExposureContext.enEventType = Event::Type_E::FACE_COMPARE_FAIL;
-    }
+    stExposureContext.enEventType = bSuccess ? Event::Type_E::FACE_COMPARE_SUCCESS
+                                             : Event::Type_E::FACE_COMPARE_FAIL;
     stExposureContext.mapAttrs["CompareResult"] = bSuccess ? "1" : "0";
     stExposureContext.mapAttrs["CompareResultText"] = bSuccess ? "success" : "fail";
     stExposureContext.mapAttrs["Similarity"] = toPercentString(fSimilarity);
@@ -1527,14 +1410,6 @@ void CFaceFeatureProcessor::handleCompareLinkage(bool bSuccess,
     stExposureContext.mapAttrs["ThresholdFloat"] = toFixedString(fThreshold);
     stExposureContext.mapAttrs["FaceId"] = std::to_string(nFaceId);
 
-    if (bSuccess)
-    {
-        stExposureContext.enEventType = Event::Type_E::FACE_COMPARE_SUCCESS;
-    }
-    else
-    {
-        stExposureContext.enEventType = Event::Type_E::FACE_COMPARE_FAIL;
-    }
     stExposureContext.nChnId = nChnId;
     stExposureContext.llTimestamp = llEventTimestamp;
     if (nFaceId > 0)
@@ -1559,36 +1434,9 @@ void CFaceFeatureProcessor::handleCompareLinkage(bool bSuccess,
         }
     }
 
-    if (shouldUploadCompareImage(stOptions))
-    {
-        if (!stImageCache.strTargetImagePath.empty())
-        {
-            /* 人脸抓拍已为当前帧生成目标图时直接复用。 */
-            strUploadImagePath = stImageCache.strTargetImagePath;
-        }
-        else
-        {
-            /* 单独开启人脸比对时缓存为空，由比对模块自行生成目标图。 */
-            if (saveCompareImage(stRect,
-                                 pFrameInfo,
-                                 nChnId,
-                                 llEventTimestamp,
-                                 stCaptureProcessor,
-                                 vecImageFile,
-                                 strUploadImagePath) == OK)
-            {
-                stImageCache.strTargetImagePath = strUploadImagePath;
-            }
-            else
-            {
-                strUploadImagePath.clear();
-            }
-        }
-    }
-
     /*
-     * 通用抓拍只负责真正配置的全景图。目标图已经由 saveCompareImage() 生成，
-     * 平台上传直接复用 strUploadImagePath，不能为了上传或邮件再次无条件抓图。
+     * 人脸比对不区分目标图和全景图。勾选上传SD卡后只走通用抓图链路，
+     * 并将其首张图片同时提供给平台上传和邮件，避免重复编码JPEG。
      */
     std::string strPanoramaImagePath = stImageCache.strPanoramaImagePath;
     Event::Info_S stEventInfo;
@@ -1611,9 +1459,13 @@ void CFaceFeatureProcessor::handleCompareLinkage(bool bSuccess,
         }
     }
 
-    /* 邮件优先使用全景图；未配置全景图时复用已经生成的目标图。 */
-    const std::string &strEmailImagePath =
-        !strPanoramaImagePath.empty() ? strPanoramaImagePath : strUploadImagePath;
+    if (!strPanoramaImagePath.empty())
+    {
+        strUploadImagePath = strPanoramaImagePath;
+    }
+
+    /* 邮件与平台复用通用抓图模块生成的同一张图片。 */
+    const std::string &strEmailImagePath = strUploadImagePath;
     if (stOptions.bEmail && !strEmailImagePath.empty())
     {
         vecImageFile.emplace_back(strEmailImagePath);

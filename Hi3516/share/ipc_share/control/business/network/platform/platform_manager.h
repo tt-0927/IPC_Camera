@@ -305,7 +305,6 @@ public:
      * @return   {std::string} 设备序列号，取不到时返回空串
      */
     std::string get_device_sn() const;
-
     /**
      * @brief 上报设备信息
      * @param device 设备信息结构体

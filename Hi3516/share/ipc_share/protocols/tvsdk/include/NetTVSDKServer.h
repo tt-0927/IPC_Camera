@@ -1099,7 +1099,8 @@ typedef enum tagNETTVCfgCmd
     NET_GET_NTPCFG                   = 110,              /* 获取NTP参数,参见#NET_SystemNtpInfo_S  Get NTP parameter, see #NET_SystemNtpInfo_S */
     NET_SET_NTPCFG                   = 111,              /* 设置NTP参数,参见#NET_SystemNtpInfo_S  Set NTP parameter, see #NET_SystemNtpInfo_S */
     NET_SET_SYSTEM_TIME              = 112,              /* 设置系统时间，输入 NET_SystemTime_S */
-
+    NET_SET_USEPASSWORD              = 113,              /* 修改用户密码（旧密码校验），输入 NET_UserPasswordInfo_S */
+    
     NET_GET_STREAMCFG                = 120,              /* 获取视频编码参数,参见#NET_VideoEncodeOption_S  Get video encoding parameter, see #NET_VideoEncodeOption_S */
     NET_SET_STREAMCFG                = 121,              /* 设置视频编码参数,参见#NET_VideoEncodeOption_S  Set video encoding parameter, see #NET_VideoEncodeOption_S */
     NET_GET_RTSPURLCFG               = 122,              /* 获取RTSP流地址,参见#NET_RtspUrlInfo_S  Get RTSP URL, see #NET_RtspUrlInfo_S */
@@ -4379,7 +4380,7 @@ typedef struct tagNET_LoiteringRule
     INT32       uPointCount;                         /* 区域顶点数量，最多32个 */
     FLOAT       afPointX[32];                        /* 区域顶点X坐标数组 [0.0-1.0] */
     FLOAT       afPointY[32];                        /* 区域顶点Y坐标数组 [0.0-1.0] */
-    INT32       nTimeThreshold;                      /* 行为事件触发时间阈值，判断有效报警的时间[0,10] 单位秒 */
+    INT32       nTimeThreshold;                      /* 行为事件触发时间阈值，判断有效报警的时间[0,100] 单位秒 */
     INT32       nSensitivity;                        /* 灵敏度[1,100] */
     INT32       uDetectionTargetCount;               /* 检测目标数量 */
     INT32       auDetectionTarget[8];                /* 检测目标数组 NET_DETECTION_TARGET_E，最多8个 */

@@ -8,7 +8,12 @@
 
 #include "WebSocketServer.h"
 
+/* 后端实现同名同签名（IPC_WS_BACKEND 见 websocket.cmake） */
+#if defined(IPC_WS_BACKEND_EVWS)
+#include "EvwsServer.h"
+#else
 #include "LibWSServer.h"
+#endif
 #include "dlog.h"
 #include <cstring>
 #include <unistd.h>
@@ -24,7 +29,11 @@ WebSocketServer::WebSocketServer(Param_S &stParam)
     m_heartbeat.assign(heartbeatMessage.begin(), heartbeatMessage.end());
     m_heartbeat.push_back('\0');
     auto fnMessageCallback = std::bind(static_cast<void(WebSocketServer::*)(Message_S&, UserParam_S&)>(&WebSocketServer::receive), this, std::placeholders::_1, std::placeholders::_2);
+#if defined(IPC_WS_BACKEND_EVWS)
+    m_server = std::make_shared<EvwsServer>(stParam, fnMessageCallback);
+#else
     m_server = std::make_shared<LibWSServer>(stParam, fnMessageCallback);
+#endif
     m_tid = std::thread(std::bind(&WebSocketServer::thr_heartbeat, this));
 }
 WebSocketServer::~WebSocketServer()
@@ -148,6 +157,15 @@ void WebSocketServer::set_file_upload_path(const std::string &strFilePath)
 std::string WebSocketServer::get_upload_fileName()
 {
     return m_server->get_upload_filename();
+}
+
+int WebSocketServer::set_qos_dscp(const int &nDscp)
+{
+#if defined(IPC_WS_BACKEND_EVWS)
+    return EvwsServer::setQosDscp(nDscp);
+#else
+    return LibWSServer::setQosDscp(nDscp);
+#endif
 }
 
 }

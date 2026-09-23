@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <cstddef>
 #include <iostream>
 #include <unordered_map>
 #include <chrono>
@@ -422,4 +423,34 @@ bool cropTargetImageFaceNv12(const char *pNv12Data, int nSrcW, int nSrcH,
                              cv::Mat &targetImage,
                              int nMinSide = 96,
                              int nMaxSide = 640);
-                         
+
+/**
+ * @brief 从带虚拟步幅的 NV12 数据裁剪通用目标图
+ * @param pNv12Data NV12 数据指针
+ * @param nDataSize NV12 缓冲区长度
+ * @param nSrcW 源帧可见宽
+ * @param nSrcH 源帧可见高
+ * @param nVirW 源帧存储行跨度
+ * @param nVirH Y 平面存储高度
+ * @param detectRect 检测坐标系中的目标框
+ * @param detectCoordinateSize 检测框所属坐标系尺寸
+ * @param targetImage 输出目标图（BGR）
+ * @param fMarginX 左右扩展比例
+ * @param fMarginTop 上方扩展比例
+ * @param fMarginBottom 下方扩展比例
+ * @param nMaxSide 输出长边上限；只缩小、不放大
+ * @return true 成功，false 输入无效或裁剪失败
+ */
+bool cropTargetImageNv12(const char *pNv12Data,
+                         std::size_t nDataSize,
+                         int nSrcW,
+                         int nSrcH,
+                         int nVirW,
+                         int nVirH,
+                         const cv::Rect2f &detectRect,
+                         const cv::Size &detectCoordinateSize,
+                         cv::Mat &targetImage,
+                         float fMarginX = 0.0f,
+                         float fMarginTop = 0.0f,
+                         float fMarginBottom = 0.0f,
+                         int nMaxSide = 640);

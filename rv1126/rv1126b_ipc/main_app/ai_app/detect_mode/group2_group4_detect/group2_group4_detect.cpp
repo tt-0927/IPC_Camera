@@ -13,8 +13,10 @@
 #include "storage_manage.h"
 #include "task_publish.h"
 #include "capture_database.h"
+#include "stream_video.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cstring>
 
 #ifdef ENABLE_GAT1400_SRC
@@ -1093,6 +1095,18 @@ void CGroup2_Group4Detect::run()
             std::vector<Group2Detect_NS::Result_S> vecResult;
             std::vector<Group2Detect_NS::Result_S> vecAllResult;
 
+            CloseupFrame_S stPersonCloseupFrame;
+            const CloseupFrame_S *pPersonCloseupFrame = nullptr;
+            /* 仅在行人属性分析到期帧抓取，且必须在检测推理前按 PTS 匹配。 */
+            const bool bPersonAttributeDue = m_bPedestrianAttribute.load() &&
+                                             (m_nFrameCount + 1 > DETECT_FRAME_THRESHOLD);
+            if (bPersonAttributeDue &&
+                CStreamVideo::instance()->acquireCloseupFrame(
+                    stPersonCloseupFrame, stMediaData.u64PTS) == OK)
+            {
+                pPersonCloseupFrame = &stPersonCloseupFrame;
+            }
+
             /* 是否开启人体检测 */
             bool bPersonDetect = false;
             /* 是否开启机动车检测 */
@@ -1702,7 +1716,7 @@ void CGroup2_Group4Detect::run()
                     group4DetectProcess(rgbMat, vecFullSizeResult);
 
                     /* 人、机动车车、非机动车属性分析 */
-                    pnmAttributeAnalysis(rgbMat, vecFullSizeResult);
+                    pnmAttributeAnalysis(rgbMat, vecFullSizeResult, pPersonCloseupFrame);
 
                     if (m_bPedestrianAttribute.load())
                     {
@@ -1758,7 +1772,10 @@ void CGroup2_Group4Detect::run()
     }
 }
 
-int CGroup2_Group4Detect::pnmAttributeAnalysis(cv::Mat &srcData, const std::vector<Group2Detect_NS::Result_S> &vecAllResult)
+int CGroup2_Group4Detect::pnmAttributeAnalysis(
+    cv::Mat &srcData,
+    const std::vector<Group2Detect_NS::Result_S> &vecAllResult,
+    const CloseupFrame_S *pCloseupFrame)
 {
     std::vector<Group2Detect_NS::Result_S> vstPersonResult;
     std::vector<Group2Detect_NS::Result_S> vstMotorVehicleResult;
@@ -1790,7 +1807,7 @@ int CGroup2_Group4Detect::pnmAttributeAnalysis(cv::Mat &srcData, const std::vect
     {
         if (m_bPedestrianAttribute.load())
         {
-            personAttributeAnalysis(srcData, vstPersonResult);
+            personAttributeAnalysis(srcData, vstPersonResult, pCloseupFrame);
             m_vecLastFramePersonResult = vstPersonResult;
         }
         else
@@ -1882,7 +1899,10 @@ static bool isSameTarget(Group2Detect_NS::Result_S stLastFrameResult, Group2Dete
     return false;
 }
 
-int CGroup2_Group4Detect::personAttributeAnalysis(cv::Mat &srcData, std::vector<Group2Detect_NS::Result_S> vecPersonResult)
+int CGroup2_Group4Detect::personAttributeAnalysis(
+    cv::Mat &srcData,
+    std::vector<Group2Detect_NS::Result_S> vecPersonResult,
+    const CloseupFrame_S *pCloseupFrame)
 {
     if (!m_pPersonAttributeHandle)
     {
@@ -1927,7 +1947,16 @@ int CGroup2_Group4Detect::personAttributeAnalysis(cv::Mat &srcData, std::vector<
         //     vecPersonResult[i].fY2 = m_nAiChnHeigh;
         // }
 
-        cv::Rect roi(static_cast<int>(vecPersonResult[i].fX1), static_cast<int>(vecPersonResult[i].fY1), static_cast<int>(vecPersonResult[i].fX2 - vecPersonResult[i].fX1), static_cast<int>(vecPersonResult[i].fY2 - vecPersonResult[i].fY1));
+        const int nLeft = std::max(0, static_cast<int>(std::floor(vecPersonResult[i].fX1)));
+        const int nTop = std::max(0, static_cast<int>(std::floor(vecPersonResult[i].fY1)));
+        const int nRight = std::min(srcData.cols, static_cast<int>(std::ceil(vecPersonResult[i].fX2)));
+        const int nBottom = std::min(srcData.rows, static_cast<int>(std::ceil(vecPersonResult[i].fY2)));
+        if (nRight <= nLeft || nBottom <= nTop)
+        {
+            continue;
+        }
+
+        cv::Rect roi(nLeft, nTop, nRight - nLeft, nBottom - nTop);
         cv::Mat  cropped = srcData(roi).clone();
         // if (access("/test_personAttribute", F_OK) == 0)
         // {
@@ -1948,11 +1977,35 @@ int CGroup2_Group4Detect::personAttributeAnalysis(cv::Mat &srcData, std::vector<
         {
             /* 保存目标小图 */
             Common::Rect_S stRect;
-            stRect.nX                    = (int)vecPersonResult[i].fX1;
-            stRect.nY                    = (int)vecPersonResult[i].fY1;
-            stRect.nWidth                = (int)(vecPersonResult[i].fX2 - vecPersonResult[i].fX1);
-            stRect.nHeight               = (int)(vecPersonResult[i].fY2 - vecPersonResult[i].fY1);
-            std::string strPersonPicture = saveCropImage(srcData, stRect, "Person");
+            stRect.nX = roi.x;
+            stRect.nY = roi.y;
+            stRect.nWidth = roi.width;
+            stRect.nHeight = roi.height;
+
+            cv::Mat personTargetBgr;
+            if (pCloseupFrame && pCloseupFrame->pData)
+            {
+                const cv::Rect2f stPersonRect(
+                    vecPersonResult[i].fX1,
+                    vecPersonResult[i].fY1,
+                    vecPersonResult[i].fX2 - vecPersonResult[i].fX1,
+                    vecPersonResult[i].fY2 - vecPersonResult[i].fY1);
+                cropTargetImageNv12(pCloseupFrame->pData.get(),
+                                    pCloseupFrame->nDataSize,
+                                    pCloseupFrame->nWidth,
+                                    pCloseupFrame->nHeight,
+                                    pCloseupFrame->nVirWidth,
+                                    pCloseupFrame->nVirHeight,
+                                    stPersonRect,
+                                    srcData.size(),
+                                    personTargetBgr);
+            }
+            if (personTargetBgr.empty())
+            {
+                cv::cvtColor(cropped, personTargetBgr, cv::COLOR_RGB2BGR);
+            }
+
+            std::string strPersonPicture = saveTargetImage(personTargetBgr, "Person");
             /* 保存全景大图 */
             std::string strCurrentPicture = saveFullImage(srcData, "Person");
             if (!strPersonPicture.empty() && !strCurrentPicture.empty())
@@ -1964,7 +2017,7 @@ int CGroup2_Group4Detect::personAttributeAnalysis(cv::Mat &srcData, std::vector<
             }
 #ifdef ENABLE_TVSDK_SRC
             /* 行人抓拍信息 TVSDK 二进制直推（内存编码，不依赖 SD 卡） */
-            pushPersonCaptureInfoToTvSdk(srcData, stRect, stOutData.at(0));
+            pushPersonCaptureInfoToTvSdk(srcData, stRect, personTargetBgr, stOutData.at(0));
 #endif
         }
     }
@@ -1972,7 +2025,11 @@ int CGroup2_Group4Detect::personAttributeAnalysis(cv::Mat &srcData, std::vector<
     return 0;
 }
 
-int CGroup2_Group4Detect::motorvehicleAttributeAnalysis(cv::Mat &srcData, cv::Mat &cropped, LicensePlateCognition_NS::Result_S stActualResult)
+int CGroup2_Group4Detect::motorvehicleAttributeAnalysis(
+    cv::Mat              &srcData,
+    cv::Mat              &cropped,
+    const Common::Rect_S &stTargetRect,
+    const std::string    &strLicensePlateNumber)
 {
     if (!m_pMotorVehicleAttributeHandle)
     {
@@ -2012,21 +2069,15 @@ int CGroup2_Group4Detect::motorvehicleAttributeAnalysis(cv::Mat &srcData, cv::Ma
     /* 仅保存车辆图片？/直接保存整张大图 */
     std::string strCurrentPicture = saveFullImage(srcData, "MotorVehicle");
 
-    /* 保存车牌小图 */
-    Common::Rect_S stRect;
-    stRect.nX      = (int)stActualResult.fX;
-    stRect.nY      = (int)stActualResult.fY;
-    stRect.nWidth  = (int)stActualResult.fWidth;
-    stRect.nHeight = (int)stActualResult.fHeight;
-
-    std::string strTargetPicture = saveCropImage(srcData, stRect, "MotorVehicle");
+    /* 有车牌时保存车牌区域，否则保存车辆区域。 */
+    std::string strTargetPicture = saveCropImage(srcData, stTargetRect, "MotorVehicle");
 
     if (stOutData.size() && !strCurrentPicture.empty() && !strTargetPicture.empty())
     {
         /* 截取的是单个机动车进行的属性分析，分析结果正常只有一个 */
         VehicleAttribute_NS::Result_S stVehicleAttributeResult = stOutData.at(0);
 
-        pushMotorvehicleCaptureInfo(strCurrentPicture, strTargetPicture, stActualResult.licensePlateNumber, stVehicleAttributeResult);
+        pushMotorvehicleCaptureInfo(strCurrentPicture, strTargetPicture, strLicensePlateNumber, stVehicleAttributeResult);
 
         return stVehicleAttributeResult.nVehicleType;
     }
@@ -2034,7 +2085,7 @@ int CGroup2_Group4Detect::motorvehicleAttributeAnalysis(cv::Mat &srcData, cv::Ma
     if (stOutData.size())
     {
         /* 机动车抓拍信息 TVSDK 二进制直推（内存编码，不依赖 SD 卡） */
-        pushMotorvehicleCaptureInfoToTvSdk(srcData, stRect, stActualResult.licensePlateNumber, stOutData.at(0));
+        pushMotorvehicleCaptureInfoToTvSdk(srcData, stTargetRect, strLicensePlateNumber, stOutData.at(0));
     }
 #endif
 
@@ -2111,6 +2162,21 @@ int CGroup2_Group4Detect::nonMotorvehicleAttributeAnalysis(cv::Mat &srcData, std
             stRect.nY                    = (int)vecNonMotorvehicleResult[i].fY1;
             stRect.nWidth                = (int)(vecNonMotorvehicleResult[i].fX2 - vecNonMotorvehicleResult[i].fX1);
             stRect.nHeight               = (int)(vecNonMotorvehicleResult[i].fY2 - vecNonMotorvehicleResult[i].fY1);
+
+            /* 非机动车抓拍框重点向上外扩，以保留骑行人的上半身和头部。 */
+            const int nMarginX      = static_cast<int>(stRect.nWidth * 0.15f);
+            const int nMarginTop    = static_cast<int>(stRect.nHeight * 0.75f);
+            const int nMarginBottom = static_cast<int>(stRect.nHeight * 0.10f);
+            const int nLeft         = std::max(0, stRect.nX - nMarginX);
+            const int nTop          = std::max(0, stRect.nY - nMarginTop);
+            const int nRight        = std::min(srcData.cols, stRect.nX + stRect.nWidth + nMarginX);
+            const int nBottom       = std::min(srcData.rows, stRect.nY + stRect.nHeight + nMarginBottom);
+
+            stRect.nX      = nLeft;
+            stRect.nY      = nTop;
+            stRect.nWidth  = nRight - nLeft;
+            stRect.nHeight = nBottom - nTop;
+
             std::string strTargetPicture = saveCropImage(srcData, stRect, "NonMotorvehicle");
             /* 保存全景大图 */
             std::string strCurrentPicture = saveFullImage(srcData, "NonMotorvehicle");
@@ -2220,6 +2286,17 @@ int CGroup2_Group4Detect::licensePlateDetectProcess(cv::Mat &srcData, const std:
         float fWRatio = static_cast<float>(m_nLicensePlateWidth) / fRoiW;
         float fHRatio = static_cast<float>(m_nLicensePlateHeight) / fRoiH;
 
+        /* 默认使用扩展后的车辆区域，识别到车牌后替换为车牌区域。 */
+        Common::Rect_S stAttributeTargetRect;
+        stAttributeTargetRect.nX      = roi.x;
+        stAttributeTargetRect.nY      = roi.y;
+        stAttributeTargetRect.nWidth  = roi.width;
+        stAttributeTargetRect.nHeight = roi.height;
+
+        std::string strAttributeLicensePlateNumber;
+        bool        bHasLicensePlateResult = false;
+        bool        bHasValidLicensePlate  = false;
+
         for (auto &stResult : vOutData)
         {
             LicensePlateCognition_NS::Result_S stActualResult;
@@ -2231,25 +2308,47 @@ int CGroup2_Group4Detect::licensePlateDetectProcess(cv::Mat &srcData, const std:
 
             vecLicensePlateCognitionResult.push_back(stActualResult);
 
-            /* 车辆属性检测 + 降低属性分析频率 */
-            if (bMotorVehicleAttribute && m_nFrameCount > DETECT_FRAME_THRESHOLD)
+            /* 优先使用首个带有效车牌号的结果，否则使用首个车牌框。 */
+            bool bCurrentLicensePlateValid = !stActualResult.licensePlateNumber.empty();
+            if (!bHasLicensePlateResult || (!bHasValidLicensePlate && bCurrentLicensePlateValid))
             {
-                bool bFlag = false;
-                for (auto &stResult : m_vecLastFrameMotorvehicleResult)
+                bHasLicensePlateResult                 = true;
+                strAttributeLicensePlateNumber         = stActualResult.licensePlateNumber;
+                stAttributeTargetRect.nX               = static_cast<int>(stActualResult.fX);
+                stAttributeTargetRect.nY               = static_cast<int>(stActualResult.fY);
+                stAttributeTargetRect.nWidth           = static_cast<int>(stActualResult.fWidth);
+                stAttributeTargetRect.nHeight          = static_cast<int>(stActualResult.fHeight);
+            }
+
+            if (bCurrentLicensePlateValid)
+            {
+                bHasValidLicensePlate = true;
+            }
+        }
+
+        /* 车辆属性每7帧分析一次；有车牌号时按上一周期结果去重。 */
+        if (bMotorVehicleAttribute && m_nFrameCount > DETECT_FRAME_THRESHOLD)
+        {
+            bool bDuplicateLicensePlate = false;
+            if (!strAttributeLicensePlateNumber.empty())
+            {
+                for (const auto &strLastLicensePlateNumber : m_vecLastFrameMotorvehicleResult)
                 {
-                    if (stResult == stActualResult.licensePlateNumber)
+                    if (strLastLicensePlateNumber == strAttributeLicensePlateNumber)
                     {
-                        bFlag = true;
+                        bDuplicateLicensePlate = true;
                         break;
                     }
                 }
-                if (bFlag)
-                {
-                    continue;
-                }
+            }
 
-                /* 把车辆图片进行机动车属性分析 */
-                nLastVehicleType = motorvehicleAttributeAnalysis(srcData, cropped, stActualResult);
+            if (!bDuplicateLicensePlate)
+            {
+                nLastVehicleType = motorvehicleAttributeAnalysis(
+                    srcData,
+                    cropped,
+                    stAttributeTargetRect,
+                    strAttributeLicensePlateNumber);
             }
         }
     }
@@ -2257,9 +2356,17 @@ int CGroup2_Group4Detect::licensePlateDetectProcess(cv::Mat &srcData, const std:
     if (bMotorVehicleAttribute && m_nFrameCount > DETECT_FRAME_THRESHOLD)
     {
         m_vecLastFrameMotorvehicleResult.clear();
-        for (auto &stResult : vOutData)
+        for (const auto &stResult : vecLicensePlateCognitionResult)
         {
-            m_vecLastFrameMotorvehicleResult.push_back(stResult.licensePlateNumber);
+            if (!stResult.licensePlateNumber.empty()
+                && std::find(
+                       m_vecLastFrameMotorvehicleResult.begin(),
+                       m_vecLastFrameMotorvehicleResult.end(),
+                       stResult.licensePlateNumber)
+                    == m_vecLastFrameMotorvehicleResult.end())
+            {
+                m_vecLastFrameMotorvehicleResult.push_back(stResult.licensePlateNumber);
+            }
         }
     }
 
@@ -3776,6 +3883,42 @@ std::string CGroup2_Group4Detect::saveCropImage(cv::Mat image, Common::Rect_S st
     }
 }
 
+std::string CGroup2_Group4Detect::saveTargetImage(
+    const cv::Mat &targetBgr,
+    const std::string &strPicType)
+{
+    if (targetBgr.empty() || SD_CARD_STATUS_E::NORMAL != CStorageManage::instance()->get_SdCardStatus())
+    {
+        return "";
+    }
+
+    const std::string strCurrentDate = TimeUtils_NS::get_currentDate();
+    const std::string strFullPath = std::string(CAPTURE_PATH) + "/" + strCurrentDate;
+
+    struct stat stInfo;
+    if (stat(strFullPath.c_str(), &stInfo) != 0)
+    {
+        const std::string strCmd = "mkdir -p \"" + strFullPath + "\"";
+        if (system(strCmd.c_str()) != 0)
+        {
+            dlog_error("[%s]命令执行失败", strCmd.c_str());
+            return "";
+        }
+    }
+
+    const std::string strFilename = std::string(CAPTURE_PATH) + "/" + strCurrentDate + "/" +
+                                    strCurrentDate + "_" + TimeUtils_NS::get_currentTimeMs() + "_" +
+                                    strPicType + "_" +
+                                    std::to_string(int(Alarm::LinkageType::UPLOAD_TARGET_IMAGE)) + ".jpg";
+    dlog_debug("[目标小图] 保存目标小图[%s]", strFilename.c_str());
+
+    const std::vector<int> vecJpegParams = {
+        cv::IMWRITE_JPEG_QUALITY,
+        JPEG_QUALITY_TARGET
+    };
+    return cv::imwrite(strFilename, targetBgr, vecJpegParams) ? strFilename : "";
+}
+
 static Alarm::PersonAlarmInfo_S buildPersonAlarmInfo(const PresonAttribute_NS::Result_S &stResult)
 {
     Alarm::PersonAlarmInfo_S stPersonAlarmInfo;
@@ -3786,6 +3929,8 @@ static Alarm::PersonAlarmInfo_S buildPersonAlarmInfo(const PresonAttribute_NS::R
     {
         stPersonAlarmInfo.stPersonAlarmAttribute.bBag = true;
     }
+    // 包准确率低，先全置false（待算法优化）
+    stPersonAlarmInfo.stPersonAlarmAttribute.bBag = false;
 
     if (stResult.nAgeLabel == 0)
     {
@@ -4162,7 +4307,11 @@ static void copy_tvsdk_timestamp(const std::string &strTimestamp,
     strDst[sizeof(strDst) - 1] = '\0';
 }
 
-void CGroup2_Group4Detect::pushPersonCaptureInfoToTvSdk(const cv::Mat &srcData, const Common::Rect_S &stRect, const PresonAttribute_NS::Result_S &stResult)
+void CGroup2_Group4Detect::pushPersonCaptureInfoToTvSdk(
+    const cv::Mat &srcData,
+    const Common::Rect_S &stRect,
+    const cv::Mat &targetBgr,
+    const PresonAttribute_NS::Result_S &stResult)
 {
     NET_AlarmCaptureInfo_S stInfo{};
 
@@ -4170,13 +4319,12 @@ void CGroup2_Group4Detect::pushPersonCaptureInfoToTvSdk(const cv::Mat &srcData, 
     std::vector<unsigned char> vecTargetJpeg;
     cv::Rect targetRect(stRect.nX, stRect.nY, stRect.nWidth, stRect.nHeight);
     targetRect &= cv::Rect(0, 0, srcData.cols, srcData.rows);
-    cv::Mat targetMat = targetRect.width > 0 && targetRect.height > 0 ? srcData(targetRect).clone() : cv::Mat();
     if (!encode_capture_image(srcData, true, JPEG_QUALITY_PANORAMA, vecPanoramaJpeg))
     {
         dlog_warn("TVSDK行人抓拍全景图编码失败或超上限");
         return;
     }
-    if (!encode_capture_image(targetMat, true, JPEG_QUALITY_TARGET, vecTargetJpeg))
+    if (!encode_capture_image(targetBgr, false, JPEG_QUALITY_TARGET, vecTargetJpeg))
     {
         dlog_warn("TVSDK行人抓拍特写图编码失败或超上限");
         return;

@@ -64,6 +64,7 @@ void Convert::deal(Json::Object *pRootJson, Osd::Overplay_S &stInfo, bool bOutSt
     convert.field(pRootJson, "BackColor", stInfo.strBackColor);
     convert.field(pRootJson, "FontAlpha", stInfo.nFontAlpha);
     convert.field(pRootJson, "BackAlpha", stInfo.nBackAlpha);
+    convert.field(pRootJson, "FontColorType", (int &)stInfo.enFontColor);
     convert.field(pRootJson, "ElementType", (int &)stInfo.enElementType);
     convert.field(pRootJson, "EnableTimeZone", stInfo.bEnableTimeZone);
     convert.field(pRootJson, "EnableWeek", stInfo.bEnableWeek);

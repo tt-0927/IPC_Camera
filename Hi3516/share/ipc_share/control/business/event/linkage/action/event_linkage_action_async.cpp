@@ -463,10 +463,16 @@ void EventLinkageAsyncAction::execute_audio(const LinkageTask_S &stTask, std::at
     // }
 }
 
+int EventLinkageAsyncAction::get_audio_file_path(std::string &strAudioPath, int &nTimes)
+{
+    return select_audio_file(strAudioPath, nTimes);
+}
+
+/* 根据当前声音报警配置获取报警音频路径，兼容仅需要路径的旧调用。 */
 int EventLinkageAsyncAction::get_audio_file_path(std::string &strAudioPath)
 {
     int nTimes = 0;
-    return select_audio_file(strAudioPath, nTimes);
+    return get_audio_file_path(strAudioPath, nTimes);
 }
 
 std::string EventLinkageAsyncAction::get_playing_audio_path()

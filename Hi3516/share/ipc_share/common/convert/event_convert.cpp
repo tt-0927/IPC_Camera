@@ -193,7 +193,7 @@ void Convert::deal(Json::Object* pRootJson, Event::AlgorithmConfig_S& stInfo, bo
     convert.field(pRootJson, "EnTrip", stInfo.nEnTrip);
     convert.field(pRootJson, "EnSmoking", stInfo.nEnSmoking);
     convert.field(pRootJson, "EnPhoneUsage", stInfo.nEnPhoneUsage);
-    convert.field(pRootJson, "EnSmokeFire", stInfo.nEnSmokeFire);
+    // convert.field(pRootJson, "EnSmokeFire", stInfo.nEnSmokeFire);
     convert.field(pRootJson, "EnOpenFlame", stInfo.nEnOpenFlame);
     convert.field(pRootJson, "EnManholeCoverAbnormal", stInfo.nEnManholeCoverAbnormal);
     convert.field(pRootJson, "EnBareSoil", stInfo.nEnBareSoil);
@@ -218,7 +218,9 @@ void Convert::deal(Json::Object* pRootJson, Event::AlgorithmConfig_S& stInfo, bo
     // ========== 属性识别 ==========
     convert.field(pRootJson, "PlateNumber", stInfo.nPlateNumber);
 #endif
-
+#if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
+convert.field(pRootJson, "EnSmokeFire", stInfo.nEnSmokeFire);
+#endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_GARBAGE_DETECT
     convert.field(pRootJson, "EnGarbageExposure", stInfo.nEnGarbageExposure);
     convert.field(pRootJson, "EnGarbageOverflow", stInfo.nEnGarbageOverflow);
@@ -290,7 +292,7 @@ void Convert::deal(Json::Object* pRootJson, Event::SmartEventEnableStatus_S& stI
     convert.field(pRootJson, "Trip", stInfo.bTrip);
     convert.field(pRootJson, "Smoking", stInfo.bSmoking);
     convert.field(pRootJson, "PhoneUsage", stInfo.bPhoneUsage);
-    convert.field(pRootJson, "SmokeFire", stInfo.bSmokeFire);
+    // convert.field(pRootJson, "SmokeFire", stInfo.bSmokeFire);
     convert.field(pRootJson, "OpenFlame", stInfo.bOpenFlame);
     convert.field(pRootJson, "ManholeCoverAbnormal", stInfo.bManholeCoverAbnormal);
     convert.field(pRootJson, "BareSoil", stInfo.bBareSoil);
@@ -314,6 +316,9 @@ void Convert::deal(Json::Object* pRootJson, Event::SmartEventEnableStatus_S& stI
 
     // ========== 属性识别 ==========
     convert.field(pRootJson, "PlateNumber", stInfo.bPlateNumber);
+#endif
+#if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
+convert.field(pRootJson, "SmokeFire", stInfo.bSmokeFire);
 #endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_GARBAGE_DETECT
     convert.field(pRootJson, "GarbageExposure", stInfo.bGarbageExposure);
