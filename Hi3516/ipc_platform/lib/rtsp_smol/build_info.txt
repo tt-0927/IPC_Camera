@@ -1,0 +1,6 @@
+name=libIpcRtspServer
+revision=90953cb1dd10
+target=arm-v01c02-linux-musleabi
+libevent_sdk=/home/zhouzr/workdir/camera/cam_opensource_library/libevent-openipc/build
+smolrtsp=8ae3b5115f7a77c383080b51cb7fdba1046f862f
+smolrtsp-libevent=b0329b4f8e72ff03f2b674ffdbfdc8553523ddf2

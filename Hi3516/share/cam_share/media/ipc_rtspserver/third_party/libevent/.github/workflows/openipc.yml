@@ -1,0 +1,36 @@
+# Lean CI for the OpenIPC integration branch. This fork carries a small set of
+# patches on top of upstream libevent; the full upstream matrix (build.yml,
+# dozens of OS/arch jobs) is disproportionate for that and — on shared runners —
+# crowds everything else out. So openipc runs one Linux job that builds and
+# exercises the parts this fork actually changes (the WebSocket layer).
+name: openipc
+
+on:
+  push:
+    branches: [openipc]
+  pull_request:
+    branches: [openipc]
+
+permissions: read-all
+
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: deps
+        run: sudo apt-get update && sudo apt-get install -y cmake
+
+      - name: build (static, no TLS, with tests)
+        run: |
+          cmake -S . -B build \
+            -DEVENT__DISABLE_SAMPLES=ON -DEVENT__DISABLE_BENCHMARK=ON \
+            -DEVENT__DISABLE_OPENSSL=ON -DEVENT__DISABLE_MBEDTLS=ON \
+            -DEVENT__LIBRARY_TYPE=STATIC -DCMAKE_BUILD_TYPE=Debug
+          cmake --build build -j"$(nproc)" --target regress
+
+      - name: websocket regression tests
+        run: |
+          ./build/bin/regress \
+            http/ws http/ws_msg_limit http/ws_data_after_close http/ws_early_free

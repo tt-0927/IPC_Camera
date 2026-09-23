@@ -1,0 +1,36 @@
+name: libevent-openipc
+upstream: https://github.com/OpenIPC/libevent
+commit: 694decef35717d8955aa34ba4d2baaaf61c9e4a9
+version: 2.2-alpha-dev
+license: BSD-3-Clause
+source_package: cam_opensource_library/libevent-openipc/libevent-2.2.2-openipc.tar.gz
+source_sha256: d76d5103220ecfe3347d99f40cbab114fbea22d7f0cb9a26edb9bc0d315ee95b
+local_patches: []
+delivery:
+  default: static
+  components:
+    - libevent_core.a
+    - libevent_extra.a
+    - libevent_openssl.a
+    - libevent_pthreads.a
+  rtsp_first_stage: libevent_core.a
+build:
+  library_type: STATIC
+  disable_samples: true
+  disable_tests: true
+  disable_benchmark: true
+  disable_regress: true
+  disable_rpc: true
+  disable_event_tagging: true
+  disable_mm_replacement: true
+  # 2026-09-17 Web 控制通道迁移（lws -> evws）开启：bufferevent_openssl 供 WSS 使用
+  disable_openssl: false
+  disable_mbedtls: true
+  disable_ws: false
+  disable_thread_support: false
+  section_flags: [-ffunction-sections, -fdata-sections]
+  hi3516cv610_extra_cflags: [-DBROKEN_MMAP]
+  # 交叉构建依赖目标平台 OpenSSL SDK，调用方式：
+  #   LIBEVENT_OPENSSL_SDK=<openssl 目录（含 include/、lib/libssl.a、lib/libcrypto.a）>
+  #     ./compile.sh <cross-prefix> --target <target>
+  openssl_sdk_env: LIBEVENT_OPENSSL_SDK
