@@ -4,7 +4,10 @@
 
 #include <atomic>
 #include <chrono>
+#include <condition_variable>
+#include <mutex>
 #include <thread>
+#include <vector>
 
 #include "algorithm.hpp"
 #include "algo_control_deal.h"
@@ -21,6 +24,27 @@ public:
     void recvMediaData(MediaData_S stMediaData) override;
     void setAlgoEnCfg(const Event::AlgorithmConfig &stAlgoConfig) override;
 
+    /**
+     * @brief   : 单帧抓拍检测结果
+     * @note    : 供平台手动抓拍使用，只复用检测能力，不经过报警状态机
+     */
+    struct SnapshotResult_S
+    {
+        std::vector<unsigned char> vecJpeg;           /* 编码后的 JPEG 数据 */
+        std::vector<Common::RectInfo_S> vstRectInfo;  /* 命中的目标框 */
+        bool bSmokeDetected = false;                  /* 是否命中烟雾 */
+        bool bFireDetected = false;                   /* 是否命中火焰 */
+    };
+
+    /**
+     * @brief   : 触发一次单帧抓拍检测
+     * @param    {SnapshotResult_S &} stResult 输出：检测结果与 JPEG 数据
+     * @param    {int} nTimeoutMs 等待超时，毫秒
+     * @return   {bool} true 成功，false 超时或未就绪
+     * @note     : 请求被投递到自身流式线程串行执行，避免与 run() 并发调用推理接口
+     */
+    bool detectOnce(SnapshotResult_S &stResult, int nTimeoutMs = 3000);
+
 private:
     bool init();
     void unInit();
@@ -28,6 +52,23 @@ private:
     void logDiagnostics();
     void processResult(const std::vector<Inference_NS::BoxData_S> &boxes,
                        const SEventProcessContext &context);
+
+    /**
+     * @brief   : 在流式线程内处理一次快照请求
+     * @param    {ot_video_frame_info *} pFrameInfo 当前帧
+     * @param    {const std::vector<Inference_NS::BoxData_S> &} boxes 推理结果
+     * @return   {void}
+     */
+    void handleSnapshotRequest(ot_video_frame_info *pFrameInfo, const std::vector<Inference_NS::BoxData_S> &boxes);
+
+    /**
+     * @brief   : 快照模式下的目标筛选
+     * @param    {const std::vector<Inference_NS::BoxData_S> &} boxes 推理结果
+     * @param    {SnapshotResult_S &} stResult 输出：命中结果
+     * @return   {void}
+     * @note     : 仅按置信度阈值筛选，不判断使能、不走报警状态机
+     */
+    void processSnapshotDetect(const std::vector<Inference_NS::BoxData_S> &boxes, SnapshotResult_S &stResult);
 
     struct DiagnosticStats
     {
@@ -64,6 +105,13 @@ private:
     static constexpr int kWidth = PIXEL_WIDTH_640;
     static constexpr int kHeight = PIXEL_HEIGHT_640;
     ot_video_frame_info m_dstFrameInfo{};
+
+    /* 手动抓拍：请求标志由调用线程置位，结果由流式线程回填，条件变量同步 */
+    std::atomic<bool> m_bSnapshotPending{false};
+    std::mutex m_snapshotMutex;
+    std::condition_variable m_snapshotCv;
+    bool m_bSnapshotDone = false;
+    SnapshotResult_S m_stSnapshotResult;
 };
 
 #endif

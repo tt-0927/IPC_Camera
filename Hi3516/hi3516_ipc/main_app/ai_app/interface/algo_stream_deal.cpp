@@ -706,3 +706,129 @@ void CAlgoStreamDeal::snapshot_garbage_detect(void *pData)
               strImagePath.empty() ? "无" : strImagePath.c_str());
 }
 #endif
+
+#if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
+void CAlgoStreamDeal::snapshot_smoke_fire_detect(void *pData)
+{
+    Json::Object *pRootJson = Json::init();
+    int nResult = -1;
+    std::string strImagePath;
+
+    dlog_info("烟火抓图识别-AI层: 收到抓图识别请求，开始处理");
+
+    do
+    {
+        if (!pRootJson)
+        {
+            dlog_error("烟火抓图识别-AI层: 创建 JSON 失败");
+            break;
+        }
+
+        if (!m_pSmokeFireAlgo)
+        {
+            dlog_error("烟火抓图识别-AI层: 烟火算法实例未创建（烟火识别可能未启用）");
+            break;
+        }
+
+        std::shared_ptr<CSmokeFireDetect> pSmokeFireAlgo = std::dynamic_pointer_cast<CSmokeFireDetect>(m_pSmokeFireAlgo);
+        if (!pSmokeFireAlgo)
+        {
+            dlog_error("烟火抓图识别-AI层: 算法实例类型转换失败");
+            break;
+        }
+
+        /* 单帧检测：请求由算法流式线程串行执行，避免并发调用推理句柄。 */
+        CSmokeFireDetect::SnapshotResult_S stSnapshot;
+        if (!pSmokeFireAlgo->detectOnce(stSnapshot))
+        {
+            dlog_error("烟火抓图识别-AI层: 单帧检测失败（超时或算法未就绪）");
+            break;
+        }
+        dlog_info("烟火抓图识别-AI层: 单帧检测成功，命中框[%d] 烟雾[%d] 火焰[%d] JPEG[%d]字节",
+                  static_cast<int>(stSnapshot.vstRectInfo.size()), stSnapshot.bSmokeDetected ? 1 : 0,
+                  stSnapshot.bFireDetected ? 1 : 0, static_cast<int>(stSnapshot.vecJpeg.size()));
+
+        /* 快照触发时刻即事件触发时间戳：图片命名、上报时间与响应字段统一使用该值。 */
+        const long long llEventTimestampMs = TimeUtils_NS::get_currentTimestampMs();
+        const std::string strTimestamp = std::to_string(llEventTimestampMs);
+        const std::string strDateDash = TimeUtils_NS::timestamp_to_date(llEventTimestampMs);
+        const std::string strTimeColon = TimeUtils_NS::timestamp_to_time(llEventTimestampMs);
+        const std::string strDateTimeDash = strDateDash + " " + strTimeColon;
+        std::string strDateCompact;
+        for (char ch : strDateDash)
+        {
+            if (ch != '-')
+            {
+                strDateCompact += ch;
+            }
+        }
+        std::string strTimeCompactMs;
+        for (char ch : strTimeColon)
+        {
+            if (ch != ':')
+            {
+                strTimeCompactMs += ch;
+            }
+        }
+        /* 补足 3 位毫秒，与事件链路的时间片段格式一致。 */
+        strTimeCompactMs += std::to_string(1000 + static_cast<int>(llEventTimestampMs % 1000)).substr(1);
+
+        /* 复用烟火识别的既有事件类型，平台按 EventType=33 归类。 */
+        const Event::Type_E enEventType = Event::Type_E::SMOKE_FIRE;
+
+        /* 按事件类型落盘，命名与入库与正常烟火事件抓图一致。 */
+        if (!stSnapshot.vecJpeg.empty())
+        {
+            const int nSaveRet = CCaptureCtrl::instance()->save_event_image(
+                stSnapshot.vecJpeg.data(), static_cast<int>(stSnapshot.vecJpeg.size()), enEventType,
+                strDateCompact, strTimeCompactMs, strImagePath);
+            if (nSaveRet < 0)
+            {
+                dlog_error("烟火抓图识别-AI层: 图片落盘失败，事件类型[%d]", static_cast<int>(enEventType));
+            }
+            else
+            {
+                dlog_info("烟火抓图识别-AI层: 图片落盘成功，事件类型[%d] 大小[%d]字节 路径[%s]",
+                          static_cast<int>(enEventType), nSaveRet, strImagePath.c_str());
+            }
+        }
+        else
+        {
+            dlog_warn("烟火抓图识别-AI层: JPEG 数据为空，跳过落盘");
+        }
+
+        Json::add(pRootJson, "SmokeDetected", stSnapshot.bSmokeDetected ? 1 : 0);
+        Json::add(pRootJson, "FireDetected", stSnapshot.bFireDetected ? 1 : 0);
+        Json::add(pRootJson, "ImagePath", strImagePath);
+
+        /* 以下字段与正常事件上报平台的格式保持一致（见 event_linkage_action_direct.cpp:130-152）。 */
+        Json::add(pRootJson, "EventType", static_cast<int>(enEventType));
+        Json::add(pRootJson, "EventStatus", 1);
+        Json::add(pRootJson, "Channel", 0);
+        Json::add(pRootJson, "Timestamp", strTimestamp);
+        Json::add(pRootJson, "Date", strDateCompact);
+        Json::add(pRootJson, "Time", strTimestamp);
+        Json::add(pRootJson, "StartTime", strDateTimeDash);
+        Json::add(pRootJson, "EndTime", strDateTimeDash);
+
+        nResult = 0;
+    } while (false);
+
+    if (pRootJson)
+    {
+        Json::add(pRootJson, "Result", nResult);
+        if (pData != nullptr)
+        {
+            *(static_cast<std::string *>(pData)) = Json::to_string(pRootJson);
+        }
+        Json::deinit(pRootJson);
+    }
+    else if (pData != nullptr)
+    {
+        *(static_cast<std::string *>(pData)) = "{\"Result\":-1}";
+    }
+
+    dlog_info("烟火抓图识别-AI层: 处理结束，结果码[%d] 图片路径[%s]", nResult,
+              strImagePath.empty() ? "无" : strImagePath.c_str());
+}
+#endif

@@ -1118,5 +1118,10 @@ typedef enum
      */
     AC_GARBAGE_STATION_SNAPSHOT_DETECT = 11001,
 
+    /**
+     * @brief 平台手动抓图并送烟火识别
+     */
+    AC_SMOKE_FIRE_SNAPSHOT_DETECT = 11002,
+
 
 } ActionCode_E;

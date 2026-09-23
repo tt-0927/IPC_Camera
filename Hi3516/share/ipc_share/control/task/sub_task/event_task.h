@@ -289,6 +289,11 @@ namespace Task
         TaskSubClass(GarbageStationSnapshotDetect)
 #endif
 
+#if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
+        /* 平台手动抓图并送烟火识别 */
+        TaskSubClass(SmokeFireSnapshotDetect)
+#endif
+
 #if CAP_AI_PEOPLE_STATISTICS
         /* 人流统计 */
         TaskSubClass(GetPeopleFlowStatisticsInfo)

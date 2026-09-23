@@ -70,6 +70,15 @@ void AlgoControlDeal::deal_message(int nCode, std::string strData, void *pData)
         break;
     }
 #endif
+#if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
+    case AC_SMOKE_FIRE_SNAPSHOT_DETECT: /* 烟火抓图识别 */
+    {
+        /* 抓图落盘并做单帧烟火检测，识别结果与图片路径经 pData 回传 */
+        dlog_info("烟火抓图识别-分发层: 收到命令[%d]，转入 AI 层处理", nCode);
+        CAlgoStreamDeal::instance()->snapshot_smoke_fire_detect(pData);
+        break;
+    }
+#endif
 #if CAP_AI_FACE_COMPARE
     case AC_CLEAR_FACE_DATABASE: /* SD卡格式化后清空人脸人员及特征数据 */
     {

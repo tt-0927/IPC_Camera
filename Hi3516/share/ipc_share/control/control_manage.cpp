@@ -1184,6 +1184,8 @@ void ControlManage::bind_task(std::shared_ptr<CTaskManage> &pTaskManage)
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
 pTaskManage->bind<Task::Event::GetSmokeFireInfo>(AC_GET_SMOKE_FIRE_CFG);
 pTaskManage->bind<Task::Event::SetSmokeFireInfo>(AC_SET_SMOKE_FIRE_CFG);
+/* 平台手动抓图并送烟火识别 */
+pTaskManage->bind<Task::Event::SmokeFireSnapshotDetect>(AC_SMOKE_FIRE_SNAPSHOT_DETECT);
 #endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_GARBAGE_DETECT
     /* 垃圾暴露识别 */

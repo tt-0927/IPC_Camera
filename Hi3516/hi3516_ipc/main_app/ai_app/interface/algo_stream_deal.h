@@ -114,6 +114,14 @@ public:
      */
     void snapshot_garbage_detect(void *pData);
 #endif
+
+#if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
+    /**
+     * @brief 平台手动抓图并送烟火识别
+     * @param pData 输出：识别结果与图片路径的 JSON 字符串（std::string*）
+     */
+    void snapshot_smoke_fire_detect(void *pData);
+#endif
  
     /**
      * @brief 配置算法参数

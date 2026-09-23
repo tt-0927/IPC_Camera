@@ -102,7 +102,8 @@ void CSmokeFireDetect::run()
     while (m_bRunning.load())
     {
         logDiagnostics();
-        if (!m_bEnabled.load())
+        /* 手动抓拍请求不受使能开关限制：置位后仍需取帧并推理 */
+        if (!m_bEnabled.load() && !m_bSnapshotPending.load())
         {
             std::this_thread::sleep_for(std::chrono::seconds(1));
             continue;
@@ -112,7 +113,8 @@ void CSmokeFireDetect::run()
             std::this_thread::sleep_for(std::chrono::seconds(1));
             continue;
         }
-        if (!m_dataQueue.pop(mediaData, TIMEOUT_1000_MS) || !mediaData.pVideoFrameInfo || !m_bEnabled.load())
+        if (!m_dataQueue.pop(mediaData, TIMEOUT_1000_MS) || !mediaData.pVideoFrameInfo ||
+            (!m_bEnabled.load() && !m_bSnapshotPending.load()))
         {
             ++m_stats.noFrame;
             continue;
@@ -139,6 +141,11 @@ void CSmokeFireDetect::run()
             continue;
         }
         ++m_stats.inferenceOk;
+        /* 快照请求优先回填结果：不受后续使能复检影响 */
+        if (m_bSnapshotPending.load())
+        {
+            handleSnapshotRequest(frame, boxes);
+        }
         if (!m_bEnabled.load())
         {
             continue;
@@ -286,6 +293,99 @@ void CSmokeFireDetect::processResult(const std::vector<Inference_NS::BoxData_S> 
     if (!alarmActive)
     {
         m_eventStartTimeValid = false;
+    }
+}
+
+bool CSmokeFireDetect::detectOnce(SnapshotResult_S &stResult, int nTimeoutMs)
+{
+    if (!m_bRunning.load())
+    {
+        dlog_error("烟火识别-快照: 算法线程未运行，拒绝抓拍");
+        return false;
+    }
+
+    /* 先复位上一轮结果，再置请求标志，避免与流式线程回填竞争 */
+    {
+        std::lock_guard<std::mutex> lock(m_snapshotMutex);
+        m_bSnapshotDone = false;
+        m_stSnapshotResult = SnapshotResult_S{};
+    }
+    m_bSnapshotPending.store(true);
+
+    std::unique_lock<std::mutex> lock(m_snapshotMutex);
+    const bool bOk = m_snapshotCv.wait_for(lock, std::chrono::milliseconds(nTimeoutMs),
+                                           [this]() { return m_bSnapshotDone; });
+    m_bSnapshotPending.store(false);
+    if (!bOk)
+    {
+        dlog_error("烟火识别-快照: 等待检测结果超时[%d]ms", nTimeoutMs);
+        return false;
+    }
+
+    stResult = m_stSnapshotResult;
+    return true;
+}
+
+void CSmokeFireDetect::handleSnapshotRequest(ot_video_frame_info *pFrameInfo,
+                                             const std::vector<Inference_NS::BoxData_S> &boxes)
+{
+    SnapshotResult_S stResult;
+    processSnapshotDetect(boxes, stResult);
+
+    /* JPEG 编码复用与正常事件相同的接口 */
+    if (pFrameInfo != nullptr)
+    {
+        if (AiAppCommon::encode_video_frame_to_jpeg_memory(pFrameInfo, stResult.vecJpeg) != OK)
+        {
+            dlog_error("烟火识别-快照: JPEG 编码失败，仅返回检测结果");
+            stResult.vecJpeg.clear();
+        }
+    }
+    else
+    {
+        dlog_warn("烟火识别-快照: 帧信息为空，仅返回检测结果");
+    }
+
+    const int nSmoke = stResult.bSmokeDetected ? 1 : 0;
+    const int nFire = stResult.bFireDetected ? 1 : 0;
+    const size_t nRectCount = stResult.vstRectInfo.size();
+    const size_t nJpegSize = stResult.vecJpeg.size();
+
+    {
+        std::lock_guard<std::mutex> lock(m_snapshotMutex);
+        m_stSnapshotResult = std::move(stResult);
+        m_bSnapshotDone = true;
+    }
+    m_snapshotCv.notify_all();
+
+    dlog_info("烟火识别-快照: 检测完成，烟雾[%d] 火焰[%d] 目标框[%zu] JPEG[%zu]字节", nSmoke, nFire, nRectCount,
+              nJpegSize);
+}
+
+void CSmokeFireDetect::processSnapshotDetect(const std::vector<Inference_NS::BoxData_S> &boxes,
+                                             SnapshotResult_S &stResult)
+{
+    /* 手动抓拍仅按置信度阈值筛选：不判断使能，也不经过报警状态机 */
+    const float threshold = 1.0f - m_config.stRule.nSensitivity / 100.0f;
+    for (const auto &box : boxes)
+    {
+        if (box.nLabel != kSmokeLabelId && box.nLabel != kFireLabelId)
+        {
+            continue;
+        }
+        if (box.fConfidence < threshold)
+        {
+            continue;
+        }
+        if (box.nLabel == kSmokeLabelId)
+        {
+            stResult.bSmokeDetected = true;
+        }
+        else
+        {
+            stResult.bFireDetected = true;
+        }
+        add_result_to_vector(box, stResult.vstRectInfo);
     }
 }
 
