@@ -3276,6 +3276,14 @@ void Task::Event::SetGarbageExposureInfo::handle()
         return;
     }
 
+    /* 归一化：Region_S 默认构造为 nPointNum=4 且 aPoint 为空，属不一致状态。
+       无区域绘制能力的网页保存时不下发 Region，会落在此状态，导致下方守卫误判为「已配置区域」。
+       此处统一归一化为空区域语义（nPointNum=0）。 */
+    if (stInfo.stRule.stRegion.aPoint.empty())
+    {
+        stInfo.stRule.stRegion.nPointNum = 0;
+    }
+
     /* 区域校验：未配置允许空区域，配置了则点数与坐标必须合法，防止 Web/action_code 绕过 SDK。 */
     if (stInfo.stRule.stRegion.nPointNum != 0)
     {
