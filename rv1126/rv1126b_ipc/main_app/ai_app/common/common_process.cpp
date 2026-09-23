@@ -410,6 +410,14 @@ void mapUserToAlgo(const Common::Rect_S& userIn,Common::Rect_S& algoOut)
 
 bool is_in_region(const Alarm::Region_S &stRegion, const Common::RectInfo_S &stObject)
 {
+    /* 未配置区域视为不限制区域。
+       rv1126 等无区域绘制能力的网页保存时不下发区域，此时 aPoint 为空；
+       若沿用交点判定逻辑，nCount 恒为 0，函数恒返回 false，会导致事件永不命中。 */
+    if (stRegion.aPoint.empty())
+    {
+        return true;
+    }
+
     Common::PosF_S stResultPoint;
     /* 取检测框的中心点 */
     stResultPoint.fX = (stObject.nX1 + stObject.nX2) / 2.0f;
