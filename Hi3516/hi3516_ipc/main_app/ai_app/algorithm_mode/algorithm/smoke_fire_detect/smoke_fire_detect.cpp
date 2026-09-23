@@ -335,7 +335,12 @@ void CSmokeFireDetect::handleSnapshotRequest(ot_video_frame_info *pFrameInfo,
     /* JPEG 编码复用与正常事件相同的接口 */
     if (pFrameInfo != nullptr)
     {
-        if (AiAppCommon::encode_video_frame_to_jpeg_memory(pFrameInfo, stResult.vecJpeg) != OK)
+        EventTvSdkImage_S stImage;
+        if (AiAppCommon::encode_video_frame_to_jpeg_memory(pFrameInfo, stImage) == OK)
+        {
+            stResult.vecJpeg = stImage.vecJpeg;
+        }
+        else
         {
             dlog_error("烟火识别-快照: JPEG 编码失败，仅返回检测结果");
             stResult.vecJpeg.clear();
