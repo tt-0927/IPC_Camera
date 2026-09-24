@@ -1322,6 +1322,7 @@ typedef enum tagNETTVCfgCmd
     NET_SET_PIR_ALARM_INFO                = 503,           /* 设置 PIR 报警配置 参见NET_PirAlarmInfo_S */
     NET_GET_STORAGE_INFO                  = 504,           /* 获取设备存储信息 参见NET_DeviceStorageInfo_S */
     NET_GET_AUDIO_ANOMALY_CURRENT_DB      = 505,           /* 获取音频异常侦测实时音量 参见NET_AudioAnomalyCurrentDb_S */
+    NET_DEL_FACE_FILE                     = 506,           /* 删除人脸文件 */
 
     NET_GET_REGISTERINFO                  = 520,           /* 获取注册信息 参见NET_RegisterInfo_S */
     NET_SET_REGISTERINFO                  = 521,           /* 设置注册信息 参见NET_RegisterInfo_S */

@@ -254,6 +254,7 @@ static const SdkCommandMap_S g_astCommandMap[] = {
     {"NET_DEL_FACE_INFO",              488, AC_DEL_FACE_INFO,              false, "删除人脸"},
     {"NET_SET_FACE_INFO",              489, AC_SET_FACE_INFO,              false, "修改人脸"},
     {"NET_GET_FACE_INFO",              490, AC_GET_FACE_INFO,              true,  "获取人脸"},
+    {"NET_DEL_FACE_FILE",              506, AC_DEL_FACE_FILE,             false, "删除人脸文件"},
 
     /* ==================== 存储状态 (493) ==================== */
     {"NET_GET_SD_CARD_STATUS",            493, AC_GET_SD_CARD_STATUS,         true,  "获取 SD 卡状态"},
