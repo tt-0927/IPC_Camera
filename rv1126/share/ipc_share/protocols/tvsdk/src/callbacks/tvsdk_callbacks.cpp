@@ -1514,6 +1514,19 @@ static NET_COMMON_ECODE_E cb_set_device_cfg(INT32 dwChannelID, LPVOID lpInBuffer
     return (nRet == 0) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
 }
 
+/**
+ * @brief   : 设置设备基本信息（SDK 结构体入口，对应 NET_SET_DEVICECFG）
+ * @param    {pNET_DeviceBasicInfo_S} pInfo：设备基本信息结构体指针
+ * @return   {NET_COMMON_ECODE_E} 成功返回 NET_E_SUCCEED，其他值失败
+ * @note     : SDK 对 NET_SET_DEVICECFG 提供结构体与命令码两个注册入口，二者载荷一致，
+ *             此处转调命令码入口，避免重复实现；与 GET 侧 cb_get_device_basic_info 写法对称。
+ */
+static NET_COMMON_ECODE_E cb_set_device_basic_info(pNET_DeviceBasicInfo_S pInfo)
+{
+    const INT32 nNoChannelID = 0;
+    return cb_set_device_cfg(nNoChannelID, static_cast<LPVOID>(pInfo));
+}
+
 /* 其余配置仍通过命令码 + JSON 透传，后续若有 SDK 结构体定义，可按上面的方式继续细化 */
 
 static NET_COMMON_ECODE_E get_cfg_by_action(INT32 dwChannelID, int actionCode, LPVOID lpOutBuffer)
@@ -6517,6 +6530,8 @@ void register_all()
     NET_serverRegisterGetDeviceBasicInfoCb(cb_get_device_basic_info);
     NET_serverRegisterGetDeviceConfigCb(cb_get_device_cfg);
     NET_serverRegisterSetDeviceConfigCb(cb_set_device_cfg);
+    /* 结构体形态的设备基本信息设置入口，与 GET 侧成对，缺失时 SDK 返回 NET_E_NOT_SUPPORT */
+    NET_serverRegisterSetDeviceBasicInfoCb(cb_set_device_basic_info);
     NET_serverRegisterSetUserPasswordCb(cb_set_user_password);
     NET_serverRegisterGetNtpConfigCb(cb_get_ntp_cfg);
     NET_serverRegisterSetNtpConfigCb(cb_set_ntp_cfg);
