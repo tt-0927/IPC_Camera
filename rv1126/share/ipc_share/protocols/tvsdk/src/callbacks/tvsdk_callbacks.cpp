@@ -5258,21 +5258,16 @@ static NET_COMMON_ECODE_E cb_get_upgrade_version(INT32 dwChannelID, LPVOID lpOut
     if (!lpOutBuffer)
         return NET_E_INVALID_PARAM;
 
+    /* 本命令语义为「获取设备升级版本信息」，直接取设备当前固件版本。
+       原先经 AC_CHECK_UPGRADE 查询，但该命令的 Task 是「检查是否有新版本」的占位实现，
+       恒返回 ERR_CHECK_UPGRADE(-35)，此处会因 Return 非零而判定失败并返回获取配置失败。 */
     pNET_UpgradeVersion_S pOut = (pNET_UpgradeVersion_S)lpOutBuffer;
-    std::string outJson;
-    if (execute_get_result(AC_CHECK_UPGRADE, "{}", outJson) != 0 || outJson.empty())
-        return NET_E_GET_CFG_FAILED;
-
-    int nRet = -1;
-    Json::get(outJson.c_str(), "Return", nRet);
-    if (nRet != 0)
+    ::System::DeviceInfo_S stDeviceInfo;
+    if (SystemManage::instance()->get_device_info(stDeviceInfo) != 0)
         return NET_E_GET_CFG_FAILED;
 
     ::System::UpgradeVersion_S stCfg;
-    const std::string strJson = normalize_data_json(outJson);
-    if (strJson.empty())
-        return NET_E_GET_CFG_FAILED;
-    Convert::to_struct(strJson, stCfg);
+    stCfg.strVersion = stDeviceInfo.systemVersion;
     TvSdkConvert::FillUpgradeVersion(stCfg, *pOut);
     pOut->uChannel = 0;
     return NET_E_SUCCEED;
