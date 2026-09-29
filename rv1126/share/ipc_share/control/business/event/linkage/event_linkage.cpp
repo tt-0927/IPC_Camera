@@ -237,7 +237,8 @@ int CEventLinkage::get_audio_file_path(std::string &strAudioPath, int &nTimes)
     {
         return ERR;
     }
-    return m_asyncAction->get_audio_file_path(strAudioPath);
+    /* 必须透传 nTimes，否则调用方拿不到配置的报警次数（此前误用单参数版，导致次数恒为 0）。 */
+    return m_asyncAction->get_audio_file_path(strAudioPath, nTimes);
 }
 
 bool CEventLinkage::stop_play_audio()

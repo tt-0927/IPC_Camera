@@ -18,6 +18,7 @@
 #include "isp_configure.h"
 #include "isp_manage.h"
 #include "event_linkage.h"
+#include "event_configure.h"
 
 namespace
 {
@@ -30,6 +31,8 @@ constexpr int kAlarmLightMinDurationSec = 1;
 constexpr int kAlarmLightMaxDurationSec = 300;
 constexpr int kFlashFrequencyMin = static_cast<int>(Alarm::FlashFrequency_E::FLASH_STEADY_ON);
 constexpr int kFlashFrequencyMax = static_cast<int>(Alarm::FlashFrequency_E::FLASH_HIGH_FREQ);
+/* 闪光配置读取失败时的兜底闪烁时长（秒） */
+constexpr int kAlarmLightDefaultDurationSec = 3;
 }
 
 CPreviewManage::CPreviewManage()
@@ -361,13 +364,26 @@ int CPreviewManage::device_control(const Preview::DeviceControl_S &stInfo)
         return ERR;
     }
 
-    int nDurationSec = kAlarmLightMinDurationSec;
-    if (stInfo.nDurationMs > 0)
+    /* 闪光时长与频率以闪光报警配置为准，与事件联动路径保持一致；
+     * TVSDK 传入的 uDurationMs/nParam1 仅用于参数校验，不再决定实际灯光行为。 */
+    Alarm::FlashInfo_S stFlashAlarm;
+    if (CEventConfigure::instance()->get_configure(stFlashAlarm) != OK)
     {
-        nDurationSec = (stInfo.nDurationMs + 999) / 1000;
+        stFlashAlarm.nFlashTime = kAlarmLightDefaultDurationSec;
+        stFlashAlarm.enFalshFrequency = Alarm::FlashFrequency_E::FLASH_MID_FREQ;
     }
 
-    const auto enFrequency = static_cast<Alarm::FlashFrequency_E>(stInfo.nParam1);
+    int nDurationSec = stFlashAlarm.nFlashTime;
+    if (nDurationSec < kAlarmLightMinDurationSec)
+    {
+        nDurationSec = kAlarmLightMinDurationSec;
+    }
+    else if (nDurationSec > kAlarmLightMaxDurationSec)
+    {
+        nDurationSec = kAlarmLightMaxDurationSec;
+    }
+
+    const auto enFrequency = stFlashAlarm.enFalshFrequency;
     std::lock_guard<std::mutex> operationLock(m_alarmLightOperationMutex);
 
     /* lock: 一个 TVSDK 请求仅持有一个 override token；重复 START 先释放旧请求，再申请新配置。 */
