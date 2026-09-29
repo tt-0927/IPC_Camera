@@ -34,10 +34,10 @@ const std::string CatalogRequest::make_manscdp_body()
     nodeCmdType.text().set("Catalog");
 
     auto nodeSN = root.append_child("SN");
-    nodeSN.text().set(std::to_string(_request_sn));
+    nodeSN.text().set(std::to_string(_request_sn).c_str());
 
     auto nodeDeviceID = root.append_child("DeviceID");
-    nodeDeviceID.text().set(_device->GetDeviceID());
+    nodeDeviceID.text().set(_device->GetDeviceID().c_str());
 
     std::ostringstream os;
     doc.print(os);
@@ -60,10 +60,10 @@ const std::string DeviceInfoRequest::make_manscdp_body()
     nodeCmdType.text().set("DeviceInfo");
 
     auto nodeSN = root.append_child("SN");
-    nodeSN.text().set(std::to_string(_request_sn));
+    nodeSN.text().set(std::to_string(_request_sn).c_str());
 
     auto nodeDeviceID = root.append_child("DeviceID");
-    nodeDeviceID.text().set(_device->GetDeviceID());
+    nodeDeviceID.text().set(_device->GetDeviceID().c_str());
     std::ostringstream os;
     doc.print(os);
     auto strGB18030 = ::ToMbcsString(os.str());
@@ -85,10 +85,10 @@ const std::string PresetRequest::make_manscdp_body()
     nodeCmdType.text().set("PresetQuery");
 
     auto nodeSN = root.append_child("SN");
-    nodeSN.text().set(std::to_string(_request_sn));
+    nodeSN.text().set(std::to_string(_request_sn).c_str());
 
     auto nodeDeviceID = root.append_child("DeviceID");
-    nodeDeviceID.text().set(_device->GetDeviceID());
+    nodeDeviceID.text().set(_device->GetDeviceID().c_str());
 
     std::ostringstream os;
     doc.print(os);
@@ -98,7 +98,7 @@ const std::string PresetRequest::make_manscdp_body()
 
 void PresetRequest::InsertPreset(const std::string &preset_id, const std::string &preset_name)
 {
-    _presets.push_back({preset_id, preset_name});
+    _presets.push_back({ preset_id, preset_name });
 }
 
 const std::vector<std::pair<std::string, std::string>> PresetRequest::GetPresetList()
@@ -121,13 +121,13 @@ const std::string PresetCtlRequest::make_manscdp_body()
     nodeCmdType.text().set("DeviceControl");
 
     auto nodeSN = root.append_child("SN");
-    nodeSN.text().set(std::to_string(_request_sn));
+    nodeSN.text().set(std::to_string(_request_sn).c_str());
 
     auto nodeDeviceID = root.append_child("DeviceID");
-    nodeDeviceID.text().set(_channel_id);
+    nodeDeviceID.text().set(_channel_id.c_str());
 
     auto nodePTZCmd = root.append_child("PTZCmd");
-    nodePTZCmd.text().set(PtzCmd::cmdCode(_byte4, _byte5, _byte6, _byte7));
+    nodePTZCmd.text().set(PtzCmd::cmdCode(_byte4, _byte5, _byte6, _byte7).c_str());
 
     auto nodeInfo = root.append_child("Info");
     auto nodeControlPriority = nodeInfo.append_child("ControlPriority");
@@ -154,13 +154,13 @@ const std::string PtzCtlRequest::make_manscdp_body()
     nodeCmdType.text().set("DeviceControl");
 
     auto nodeSN = root.append_child("SN");
-    nodeSN.text().set(std::to_string(_request_sn));
+    nodeSN.text().set(std::to_string(_request_sn).c_str());
 
     auto nodeDeviceID = root.append_child("DeviceID");
-    nodeDeviceID.text().set(_channel_id);
+    nodeDeviceID.text().set(_channel_id.c_str());
 
     auto nodePTZCmd = root.append_child("PTZCmd");
-    nodePTZCmd.text().set(PtzCmd::cmdString(_leftRight, _upDown, _inOut, _moveSpeed, _zoomSpeed));
+    nodePTZCmd.text().set(PtzCmd::cmdString(_leftRight, _upDown, _inOut, _moveSpeed, _zoomSpeed).c_str());
 
     auto nodeInfo = root.append_child("Info");
     auto nodeControlPriority = nodeInfo.append_child("ControlPriority");
@@ -201,13 +201,13 @@ const std::string LensCtlRequest::make_manscdp_body()
     nodeCmdType.text().set("DeviceControl");
 
     auto nodeSN = root.append_child("SN");
-    nodeSN.text().set(std::to_string(_request_sn));
+    nodeSN.text().set(std::to_string(_request_sn).c_str());
 
     auto nodeDeviceID = root.append_child("DeviceID");
-    nodeDeviceID.text().set(_channel_id);
+    nodeDeviceID.text().set(_channel_id.c_str());
 
     auto nodePTZCmd = root.append_child("PTZCmd");
-    nodePTZCmd.text().set(PtzCmd::cmdLens(_iris, _focus, _iris_speed, _focus_speed));
+    nodePTZCmd.text().set(PtzCmd::cmdLens(_iris, _focus, _iris_speed, _focus_speed).c_str());
 
     auto nodeInfo = root.append_child("Info");
     auto nodeControlPriority = nodeInfo.append_child("ControlPriority");
@@ -275,10 +275,10 @@ const std::string AlarmRequest::make_manscdp_body()
     nodeCmdType.text().set("Alarm");
 
     auto nodeSN = root.append_child("SN");
-    nodeSN.text().set(std::to_string(_request_sn));
+    nodeSN.text().set(std::to_string(_request_sn).c_str());
 
     auto nodeDeviceID = root.append_child("DeviceID");
-    nodeDeviceID.text().set(_device->GetDeviceID());
+    nodeDeviceID.text().set(_device->GetDeviceID().c_str());
 
     /* NOTE 默认把1~4级报警全部订阅 */
     auto nodeStartAlarmPriority = root.append_child("StartAlarmPriority");
@@ -308,10 +308,10 @@ const std::string AlarmRequest::make_manscdp_body()
     if (m_stInfo.enStartTime > 0 && m_stInfo.enEndTime > 0)
     {
         auto nodeStartTime = root.append_child("StartTime");
-        nodeStartTime.text().set(::TimeTToISO8601(m_stInfo.enStartTime));
+        nodeStartTime.text().set(::TimeTToISO8601(m_stInfo.enStartTime).c_str());
 
         auto nodeEndTime = root.append_child("EndTime");
-        nodeEndTime.text().set(::TimeTToISO8601(m_stInfo.enEndTime));
+        nodeEndTime.text().set(::TimeTToISO8601(m_stInfo.enEndTime).c_str());
     }
 
     std::ostringstream os;
@@ -335,10 +335,10 @@ const std::string GuardRequest::make_manscdp_body()
     nodeCmdType.text().set("DeviceControl");
 
     auto nodeSN = root.append_child("SN");
-    nodeSN.text().set(std::to_string(_request_sn));
+    nodeSN.text().set(std::to_string(_request_sn).c_str());
 
     auto nodeDeviceID = root.append_child("DeviceID");
-    nodeDeviceID.text().set(_device->GetDeviceID());
+    nodeDeviceID.text().set(_device->GetDeviceID().c_str());
 
     auto nodeGuardCmd = root.append_child("GuardCmd");
     nodeGuardCmd.text().set(m_bIsSetGuard ? "SetGuard" : "ResetGuard");
@@ -364,10 +364,10 @@ const std::string HeartbeatRequest::make_manscdp_body()
     nodeCmdType.text().set("Keepalive");
 
     auto nodeSN = root.append_child("SN");
-    nodeSN.text().set(std::to_string(_request_sn));
+    nodeSN.text().set(std::to_string(_request_sn).c_str());
 
     auto nodeDeviceID = root.append_child("DeviceID");
-    nodeDeviceID.text().set(m_strDeviceID);
+    nodeDeviceID.text().set(m_strDeviceID.c_str());
 
     auto nodeStatus = root.append_child("Status");
     nodeStatus.text().set("OK");
@@ -380,7 +380,6 @@ const std::string HeartbeatRequest::GetDeviceUrl()
 {
     return m_strDeviceUrl;
 }
-
 
 const std::string BasicParamRequest::make_manscdp_body()
 {
@@ -397,15 +396,15 @@ const std::string BasicParamRequest::make_manscdp_body()
     nodeCmdType.text().set("DeviceConfig");
 
     auto nodeSN = root.append_child("SN");
-    nodeSN.text().set(std::to_string(_request_sn));
+    nodeSN.text().set(std::to_string(_request_sn).c_str());
 
     auto nodeDeviceID = root.append_child("DeviceID");
-    nodeDeviceID.text().set(_device->GetDeviceID());
+    nodeDeviceID.text().set(_device->GetDeviceID().c_str());
 
     auto nodeBasicParamConfigCmd = root.append_child("BasicParam");
 
     auto nodeName = nodeBasicParamConfigCmd.append_child("Name");
-    nodeName.text().set(m_tBasicParamInfo.m_szName);
+    nodeName.text().set(m_tBasicParamInfo.m_szName.c_str());
 
     auto nodeExpiration = nodeBasicParamConfigCmd.append_child("Expiration");
     nodeExpiration.text().set(m_tBasicParamInfo.m_nExpiration);
@@ -434,48 +433,48 @@ const std::string OSDConfigRequest::make_manscdp_body()
     return strXml;
 }
 
-int  OSDConfigRequest::SendMessage(bool bNeedCb)
+int OSDConfigRequest::SendMessage(bool bNeedCb)
 {
-     /* 清空队列 */
-     m_dequeMsg.clear();
-     { /* 组装报文 */
+    /* 清空队列 */
+    m_dequeMsg.clear();
+    { /* 组装报文 */
         pugi::xml_document doc;
         auto declaration = doc.append_child(pugi::node_declaration);
         auto attrVersion = declaration.append_attribute("version");
         attrVersion.set_value("1.0");
         auto attrEncoding = declaration.append_attribute("encoding");
         attrEncoding.set_value("GB18030");
-    
+
         auto root = doc.append_child("Control");
-    
+
         auto nodeCmdType = root.append_child("CmdType");
         nodeCmdType.text().set("DeviceConfig");
-    
+
         auto nodeSN = root.append_child("SN");
-        nodeSN.text().set(std::to_string(_request_sn));
-    
+        nodeSN.text().set(std::to_string(_request_sn).c_str());
+
         auto nodeDeviceID = root.append_child("DeviceID");
-        nodeDeviceID.text().set(_device->GetDeviceID());
-    
+        nodeDeviceID.text().set(_device->GetDeviceID().c_str());
+
         auto nodeOSDConfigCmd = root.append_child("OSDConfig");
-    
+
         auto nodeOSDConfigLength = nodeOSDConfigCmd.append_child("Length");
         nodeOSDConfigLength.text().set(m_OSDConfig.m_nLength);
-    
+
         auto nodeOSDConfigWidth = nodeOSDConfigCmd.append_child("Width");
         nodeOSDConfigWidth.text().set(m_OSDConfig.m_nWidth);
-    
+
         auto nodeOSDConfigTimeX = nodeOSDConfigCmd.append_child("TimeX");
         nodeOSDConfigTimeX.text().set(m_OSDConfig.m_nTimeX);
-    
+
         auto nodeOSDConfigTimeY = nodeOSDConfigCmd.append_child("TimeY");
         nodeOSDConfigTimeY.text().set(m_OSDConfig.m_nTimeY);
-    
+
         int SumNum = m_OSDConfig.m_vecItme.size();
         auto nodeOSDConfigSum = nodeOSDConfigCmd.append_child("SumNum");
         nodeOSDConfigSum.text().set(SumNum);
 
-        //显示文字
+        // 显示文字
         auto nodeOSDConfigItem = nodeOSDConfigCmd.append_child("Item");
         auto Text = nodeOSDConfigItem.append_child("Text");
         auto X = nodeOSDConfigItem.append_child("X");
@@ -484,43 +483,43 @@ int  OSDConfigRequest::SendMessage(bool bNeedCb)
         /* 配置数据 */
         for (auto it : m_OSDConfig.m_vecItme)
         {
-            Text.text().set(it.Text);
+            Text.text().set(it.Text.c_str());
             X.text().set(it.X);
             Y.text().set(it.Y);
 
             std::ostringstream os;
             doc.print(os);
             auto strGB18030 = ::ToMbcsString(os.str());
-             /* 存入队列 */
-             m_dequeMsg.push_back(strGB18030);
+            /* 存入队列 */
+            m_dequeMsg.push_back(strGB18030);
         }
-     }
+    }
 
-     while (m_dequeMsg.size() > 0)
-     {
-         /* 调用基类发送流程 */
-         MessageRequest::SendMessage(bNeedCb);
-     }
-     return 0;
+    while (m_dequeMsg.size() > 0)
+    {
+        /* 调用基类发送流程 */
+        MessageRequest::SendMessage(bNeedCb);
+    }
+    return 0;
 }
 
 const std::string SVACEncodeConfigRequest::make_manscdp_body()
 {
-      /* 每次创建Body的时候只提取一个录制计划中的一个时间段的报文 */
-      std::string strXml = "";
-      if (!m_dequeMsg.empty())
-      {
-          strXml = m_dequeMsg.front();
-          m_dequeMsg.pop_front();
-      }
-      return strXml;
+    /* 每次创建Body的时候只提取一个录制计划中的一个时间段的报文 */
+    std::string strXml = "";
+    if (!m_dequeMsg.empty())
+    {
+        strXml = m_dequeMsg.front();
+        m_dequeMsg.pop_front();
+    }
+    return strXml;
 }
 
 int SVACEncodeConfigRequest::SendMessage(bool bNeedCb)
 {
-     /* 清空队列 */
-     m_dequeMsg.clear();
-     { /* 组装报文 */
+    /* 清空队列 */
+    m_dequeMsg.clear();
+    { /* 组装报文 */
         pugi::xml_document doc;
         auto declaration = doc.append_child(pugi::node_declaration);
         auto attrVersion = declaration.append_attribute("version");
@@ -534,10 +533,10 @@ int SVACEncodeConfigRequest::SendMessage(bool bNeedCb)
         nodeCmdType.text().set("DeviceConfig");
 
         auto nodeSN = root.append_child("SN");
-        nodeSN.text().set(std::to_string(_request_sn));
+        nodeSN.text().set(std::to_string(_request_sn).c_str());
 
         auto nodeDeviceID = root.append_child("DeviceID");
-        nodeDeviceID.text().set(_device->GetDeviceID());
+        nodeDeviceID.text().set(_device->GetDeviceID().c_str());
 
         auto nodeSVACEncodeConfigCmd = root.append_child("SVACEncodeConfig");
 
@@ -555,7 +554,6 @@ int SVACEncodeConfigRequest::SendMessage(bool bNeedCb)
         auto TopLeft = nodeItem.append_child("TopLeft");
         auto BottomRight = nodeItem.append_child("BottomRight");
         auto ROIQP = nodeItem.append_child("ROIQP");
-        
 
         // SVCParam
         if (m_tSVACEncodeConfigInfo.tSVCParam.bIsHave)
@@ -569,14 +567,14 @@ int SVACEncodeConfigRequest::SendMessage(bool bNeedCb)
             if (m_tSVACEncodeConfigInfo.tSVCParam.strSSVCRatioValue.length() > 0)
             {
                 auto nodeSSVCRatioValue = nodeSVCParam.append_child("SSVCRatioValue");
-                nodeSSVCRatioValue.text().set(m_tSVACEncodeConfigInfo.tSVCParam.strSSVCRatioValue);
+                nodeSSVCRatioValue.text().set(m_tSVACEncodeConfigInfo.tSVCParam.strSSVCRatioValue.c_str());
             }
             auto nodeSVCSpaceSupportMode = nodeSVCParam.append_child("SVCSpaceSupportMode");
             nodeSVCSpaceSupportMode.text().set(m_tSVACEncodeConfigInfo.tSVCParam.nSVCSpaceSupportMode);
             auto nodeSVCTimeSupportMode = nodeSVCParam.append_child("SVCTimeSupportMode");
             nodeSVCTimeSupportMode.text().set(m_tSVACEncodeConfigInfo.tSVCParam.nSVCTimeSupportMode);
             auto nodeSSVCRatioSupportList = nodeSVCParam.append_child("SSVCRatioSupportList");
-            nodeSSVCRatioSupportList.text().set(m_tSVACEncodeConfigInfo.tSVCParam.strSSVCRatioSupportList);
+            nodeSSVCRatioSupportList.text().set(m_tSVACEncodeConfigInfo.tSVCParam.strSSVCRatioSupportList.c_str());
         }
 
         // SurveillanceParam
@@ -593,7 +591,7 @@ int SVACEncodeConfigRequest::SendMessage(bool bNeedCb)
             nodeGISFlag.text().set(m_tSVACEncodeConfigInfo.tSurveillanceParam.nGISFlag);
         }
 
-        //音频参数
+        // 音频参数
         if (m_tSVACEncodeConfigInfo.tAudioParam.bIsHave)
         {
             auto nodeAudioParam = nodeSVACEncodeConfigCmd.append_child("AudioParam");
@@ -602,7 +600,7 @@ int SVACEncodeConfigRequest::SendMessage(bool bNeedCb)
             nodeTimeFlag.text().set(m_tSVACEncodeConfigInfo.tAudioParam.nAudioRecognitionFlag);
         }
 
-         /* 配置数据 */
+        /* 配置数据 */
         for (auto it : m_tSVACEncodeConfigInfo.tROIParam.vecROIParamItem)
         {
             ROISeq.text().set(it.nROISeq);
@@ -616,15 +614,14 @@ int SVACEncodeConfigRequest::SendMessage(bool bNeedCb)
             /* 存入队列 */
             m_dequeMsg.push_back(strGB18030);
         }
+    }
 
-     }
-
-     while (m_dequeMsg.size() > 0)
-     {
-         /* 调用基类发送流程 */
-         MessageRequest::SendMessage(bNeedCb);
-     }
-     return 0;
+    while (m_dequeMsg.size() > 0)
+    {
+        /* 调用基类发送流程 */
+        MessageRequest::SendMessage(bNeedCb);
+    }
+    return 0;
 }
 
 const std::string SVACDecodeConfigRequest::make_manscdp_body()
@@ -642,10 +639,10 @@ const std::string SVACDecodeConfigRequest::make_manscdp_body()
     nodeCmdType.text().set("DeviceConfig");
 
     auto nodeSN = root.append_child("SN");
-    nodeSN.text().set(std::to_string(_request_sn));
+    nodeSN.text().set(std::to_string(_request_sn).c_str());
 
     auto nodeDeviceID = root.append_child("DeviceID");
-    nodeDeviceID.text().set(_device->GetDeviceID());
+    nodeDeviceID.text().set(_device->GetDeviceID().c_str());
 
     auto nodeSVACDecodeConfigCmd = root.append_child("SVACDecodeConfig");
 
@@ -675,7 +672,6 @@ const std::string SVACDecodeConfigRequest::make_manscdp_body()
         nodeAIShowFlag.text().set(m_tSVACDecodeConfigInfo.tSurveillanceParam.nAIShowFlag);
         auto nodeGISShowFlag = nodeSurveillanceParam.append_child("GISShowFlag");
         nodeGISShowFlag.text().set(m_tSVACDecodeConfigInfo.tSurveillanceParam.nGISShowFlag);
-        
     }
 
     std::ostringstream os;
@@ -698,9 +694,9 @@ const std::string VideoParamAttributeRequest::make_manscdp_body()
 
 int VideoParamAttributeRequest::SendMessage(bool bNeedCb)
 {
-     /* 清空队列 */
-     m_dequeMsg.clear();
-     { /* 组装报文 */
+    /* 清空队列 */
+    m_dequeMsg.clear();
+    { /* 组装报文 */
         pugi::xml_document doc;
         auto declaration = doc.append_child(pugi::node_declaration);
         auto attrVersion = declaration.append_attribute("version");
@@ -714,14 +710,14 @@ int VideoParamAttributeRequest::SendMessage(bool bNeedCb)
         nodeCmdType.text().set("DeviceConfig");
 
         auto nodeSN = root.append_child("SN");
-        nodeSN.text().set(std::to_string(_request_sn));
+        nodeSN.text().set(std::to_string(_request_sn).c_str());
 
         auto nodeDeviceID = root.append_child("DeviceID");
-        nodeDeviceID.text().set(_device->GetDeviceID());
+        nodeDeviceID.text().set(_device->GetDeviceID().c_str());
 
         auto nodeVideoParamAttributeCmd = root.append_child("VideoParamAttribute");
         m_tVideoParAttriConfigInfo.Num = m_tVideoParAttriConfigInfo.vecVideoParAttrItem.size();
-        nodeVideoParamAttributeCmd.append_attribute("Num").set_value(std::to_string(1));
+        nodeVideoParamAttributeCmd.append_attribute("Num").set_value(std::to_string(1).c_str());
 
         auto nodeItem = nodeVideoParamAttributeCmd.append_child("Item");
         auto nodeStreamNumber = nodeItem.append_child("StreamNumber");
@@ -731,15 +727,15 @@ int VideoParamAttributeRequest::SendMessage(bool bNeedCb)
         auto nodeBitRateType = nodeItem.append_child("BitRateType");
         auto nodeVideoBitRate = nodeItem.append_child("VideoBitRate");
 
-        //配置数据
+        // 配置数据
         for (auto it : m_tVideoParAttriConfigInfo.vecVideoParAttrItem)
         {
             nodeStreamNumber.text().set(it.nStreamNumber);
-            nodeVideoFormat.text().set( static_cast<int>(it.enVideoFormat));
-            nodeResolution.text().set( static_cast<int>(it.enResolution));
-            nodeFrameRate.text().set(it.strFrameRate);
-            nodeBitRateType.text().set( static_cast<int>(it.enBitRateType));
-            nodeVideoBitRate.text().set(it.strVideoBitRate);
+            nodeVideoFormat.text().set(static_cast<int>(it.enVideoFormat));
+            nodeResolution.text().set(static_cast<int>(it.enResolution));
+            nodeFrameRate.text().set(it.strFrameRate.c_str());
+            nodeBitRateType.text().set(static_cast<int>(it.enBitRateType));
+            nodeVideoBitRate.text().set(it.strVideoBitRate.c_str());
 
             std::ostringstream os;
             doc.print(os);
@@ -747,14 +743,14 @@ int VideoParamAttributeRequest::SendMessage(bool bNeedCb)
             /* 存入队列 */
             m_dequeMsg.push_back(strGB18030);
         }
-     }
-    
-     while (m_dequeMsg.size() > 0)
-     {
-         /* 调用基类发送流程 */
-         MessageRequest::SendMessage(bNeedCb);
-     }
-     return 0;
+    }
+
+    while (m_dequeMsg.size() > 0)
+    {
+        /* 调用基类发送流程 */
+        MessageRequest::SendMessage(bNeedCb);
+    }
+    return 0;
 }
 
 const std::string VideoRecordPlanRequest::make_manscdp_body()
@@ -788,10 +784,10 @@ int VideoRecordPlanRequest::SendMessage(bool bNeedCb)
 
         /* FIXME 归属同一消息的分不同分片，SN码是否要一致？ */
         auto nodeSN = root.append_child("SN");
-        nodeSN.text().set(std::to_string(_request_sn));
+        nodeSN.text().set(std::to_string(_request_sn).c_str());
 
         auto nodeDeviceID = root.append_child("DeviceID");
-        nodeDeviceID.text().set(_device->GetDeviceID());
+        nodeDeviceID.text().set(_device->GetDeviceID().c_str());
 
         auto nodeData = root.append_child("VideoRecordPlan");
         {
@@ -805,7 +801,7 @@ int VideoRecordPlanRequest::SendMessage(bool bNeedCb)
 
             /* 增加属性描述，每次只发一个录制计划 */
             auto nodeRecordSchedule = nodeData.append_child("RecordSchedule");
-            nodeRecordSchedule.append_attribute("Num").set_value(std::to_string(1));
+            nodeRecordSchedule.append_attribute("Num").set_value(std::to_string(1).c_str());
 
             auto nodeWeekDayNum = nodeRecordSchedule.append_child("WeekDayNum");
 
@@ -813,7 +809,7 @@ int VideoRecordPlanRequest::SendMessage(bool bNeedCb)
 
             /* 增加属性描述，每次只发一个时间段 */
             auto nodeTimeSegment = nodeRecordSchedule.append_child("TimeSegment");
-            nodeTimeSegment.append_attribute("Num").set_value(std::to_string(1));
+            nodeTimeSegment.append_attribute("Num").set_value(std::to_string(1).c_str());
 
             auto nodeStartHour = nodeTimeSegment.append_child("StartHour");
             auto nodeStartMin = nodeTimeSegment.append_child("StartMin");
@@ -873,10 +869,10 @@ const std::string AlarmReportRequest::make_manscdp_body()
     nodeCmdType.text().set("DeviceConfig");
 
     auto nodeSN = root.append_child("SN");
-    nodeSN.text().set(std::to_string(_request_sn));
+    nodeSN.text().set(std::to_string(_request_sn).c_str());
 
     auto nodeDeviceID = root.append_child("DeviceID");
-    nodeDeviceID.text().set(_device->GetDeviceID());
+    nodeDeviceID.text().set(_device->GetDeviceID().c_str());
 
     auto nodeAlarmReportConfigCmd = root.append_child("AlarmReport");
 
@@ -907,10 +903,10 @@ const std::string SnapShotRequest::make_manscdp_body()
     nodeCmdType.text().set("DeviceConfig");
 
     auto nodeSN = root.append_child("SN");
-    nodeSN.text().set(std::to_string(_request_sn));
+    nodeSN.text().set(std::to_string(_request_sn).c_str());
 
     auto nodeDeviceID = root.append_child("DeviceID");
-    nodeDeviceID.text().set(_device->GetDeviceID());
+    nodeDeviceID.text().set(_device->GetDeviceID().c_str());
 
     auto nodeSnapShotConfigCmd = root.append_child("SnapShotConfig");
 
@@ -921,10 +917,10 @@ const std::string SnapShotRequest::make_manscdp_body()
     nodeInterval.text().set(m_tSnapShotConfigInfo.nInterval);
 
     auto nodeUploadURL = nodeSnapShotConfigCmd.append_child("UploadURL");
-    nodeUploadURL.text().set(m_tSnapShotConfigInfo.strUploadURL);
+    nodeUploadURL.text().set(m_tSnapShotConfigInfo.strUploadURL.c_str());
 
     auto nodeSessionID = nodeSnapShotConfigCmd.append_child("SessionID");
-    nodeSessionID.text().set(m_tSnapShotConfigInfo.strSessionID);
+    nodeSessionID.text().set(m_tSnapShotConfigInfo.strSessionID.c_str());
 
     std::ostringstream os;
     doc.print(os);
@@ -947,10 +943,10 @@ const std::string VideoAlarmRecordRequest::make_manscdp_body()
     nodeCmdType.text().set("DeviceConfig");
 
     auto nodeSN = root.append_child("SN");
-    nodeSN.text().set(std::to_string(_request_sn));
+    nodeSN.text().set(std::to_string(_request_sn).c_str());
 
     auto nodeDeviceID = root.append_child("DeviceID");
-    nodeDeviceID.text().set(_device->GetDeviceID());
+    nodeDeviceID.text().set(_device->GetDeviceID().c_str());
 
     auto nodeVideoAlarmRecordCmd = root.append_child("VideoAlarmRecord");
 
@@ -986,9 +982,9 @@ const std::string PictureMaskRequest::make_manscdp_body()
 
 int PictureMaskRequest::SendMessage(bool bNeedCb)
 {
-     /* 清空队列 */
-     m_dequeMsg.clear();
-     { /* 组装报文 */
+    /* 清空队列 */
+    m_dequeMsg.clear();
+    { /* 组装报文 */
         pugi::xml_document doc;
         auto declaration = doc.append_child(pugi::node_declaration);
         auto attrVersion = declaration.append_attribute("version");
@@ -1002,10 +998,10 @@ int PictureMaskRequest::SendMessage(bool bNeedCb)
         nodeCmdType.text().set("DeviceConfig");
 
         auto nodeSN = root.append_child("SN");
-        nodeSN.text().set(std::to_string(_request_sn));
+        nodeSN.text().set(std::to_string(_request_sn).c_str());
 
         auto nodeDeviceID = root.append_child("DeviceID");
-        nodeDeviceID.text().set(_device->GetDeviceID());
+        nodeDeviceID.text().set(_device->GetDeviceID().c_str());
 
         auto nodePictureMaskCmd = root.append_child("PictureMask");
 
@@ -1017,13 +1013,13 @@ int PictureMaskRequest::SendMessage(bool bNeedCb)
         nodeSumNum.text().set(m_tPictureMaskInfo.SumNum);
 
         auto nodeRegionList = nodePictureMaskCmd.append_child("RegionList");
-        nodeRegionList.append_attribute("Num").set_value(std::to_string(1));
+        nodeRegionList.append_attribute("Num").set_value(std::to_string(1).c_str());
 
         auto nodeItem = nodeRegionList.append_child("Item");
         auto nodeSeq = nodeItem.append_child("Seq");
         auto nodePoint = nodeItem.append_child("Point");
 
-        //配置数据
+        // 配置数据
         for (auto it : m_tPictureMaskInfo.vecRegionList)
         {
             nodeSeq.text().set(it.Seq);
@@ -1035,7 +1031,7 @@ int PictureMaskRequest::SendMessage(bool bNeedCb)
             Piont += (std::to_string(it.nrx));
             Piont += ",";
             Piont += (std::to_string(it.nry));
-            nodePoint.text().set(Piont);
+            nodePoint.text().set(Piont.c_str());
 
             std::ostringstream os;
             doc.print(os);
@@ -1043,14 +1039,14 @@ int PictureMaskRequest::SendMessage(bool bNeedCb)
             /* 存入队列 */
             m_dequeMsg.push_back(strGB18030);
         }
-     }
+    }
 
-     while (m_dequeMsg.size() > 0)
-     {
-         /* 调用基类发送流程 */
-         MessageRequest::SendMessage(bNeedCb);
-     }
-     return 0;
+    while (m_dequeMsg.size() > 0)
+    {
+        /* 调用基类发送流程 */
+        MessageRequest::SendMessage(bNeedCb);
+    }
+    return 0;
 }
 
 const std::string FrameMirrorRequest::make_manscdp_body()
@@ -1068,10 +1064,10 @@ const std::string FrameMirrorRequest::make_manscdp_body()
     nodeCmdType.text().set("DeviceConfig");
 
     auto nodeSN = root.append_child("SN");
-    nodeSN.text().set(std::to_string(_request_sn));
+    nodeSN.text().set(std::to_string(_request_sn).c_str());
 
     auto nodeDeviceID = root.append_child("DeviceID");
-    nodeDeviceID.text().set(_device->GetDeviceID());
+    nodeDeviceID.text().set(_device->GetDeviceID().c_str());
 
     auto nodeFrameMirrorConfigCmd = root.append_child("FrameMirror");
     nodeFrameMirrorConfigCmd.text().set(m_tFrameMirrorInfo.nFrameMirror);
@@ -1097,10 +1093,10 @@ const std::string ConfigDownloadRequest::make_manscdp_body()
     nodeCmdType.text().set("ConfigDownload");
 
     auto nodeSN = root.append_child("SN");
-    nodeSN.text().set(std::to_string(_request_sn));
+    nodeSN.text().set(std::to_string(_request_sn).c_str());
 
     auto nodeDeviceID = root.append_child("DeviceID");
-    nodeDeviceID.text().set(_device->GetDeviceID());
+    nodeDeviceID.text().set(_device->GetDeviceID().c_str());
 
     auto nodeOSDConfigCmd = root.append_child("ConfigType");
 
@@ -1179,7 +1175,7 @@ const std::string ConfigDownloadRequest::make_manscdp_body()
         ConfigType += "/";
         ConfigType += "SnapShotConfig";
     }
-    nodeOSDConfigCmd.text().set(ConfigType);
+    nodeOSDConfigCmd.text().set(ConfigType.c_str());
 
     std::ostringstream os;
     doc.print(os);
@@ -1201,10 +1197,10 @@ const std::string CruiseTrackQueryRequest::make_manscdp_body()
     nodeCmdType.text().set("CruiseTrackQuery");
 
     auto nodeSN = root.append_child("SN");
-    nodeSN.text().set(std::to_string(_request_sn));
+    nodeSN.text().set(std::to_string(_request_sn).c_str());
 
     auto nodeDeviceID = root.append_child("DeviceID");
-    nodeDeviceID.text().set(_device->GetDeviceID());
+    nodeDeviceID.text().set(_device->GetDeviceID().c_str());
 
     auto nodeFrameMirrorConfigCmd = root.append_child("Number");
     nodeFrameMirrorConfigCmd.text().set(m_tCruiseTrackInfo.nNumber);
@@ -1230,10 +1226,10 @@ const std::string CruiseTrackListQueryRequest::make_manscdp_body()
     nodeCmdType.text().set("CruiseTrackListQuery");
 
     auto nodeSN = root.append_child("SN");
-    nodeSN.text().set(std::to_string(_request_sn));
+    nodeSN.text().set(std::to_string(_request_sn).c_str());
 
     auto nodeDeviceID = root.append_child("DeviceID");
-    nodeDeviceID.text().set(_device->GetDeviceID());
+    nodeDeviceID.text().set(_device->GetDeviceID().c_str());
 
     std::ostringstream os;
     doc.print(os);
@@ -1256,10 +1252,10 @@ const std::string PresetQueryRequest::make_manscdp_body()
     nodeCmdType.text().set("PresetQuery");
 
     auto nodeSN = root.append_child("SN");
-    nodeSN.text().set(std::to_string(_request_sn));
+    nodeSN.text().set(std::to_string(_request_sn).c_str());
 
     auto nodeDeviceID = root.append_child("DeviceID");
-    nodeDeviceID.text().set(_device->GetDeviceID());
+    nodeDeviceID.text().set(_device->GetDeviceID().c_str());
 
     std::ostringstream os;
     doc.print(os);
@@ -1282,13 +1278,13 @@ const std::string BroadcastRequest::make_manscdp_body()
     nodeCmdType.text().set("Broadcast");
 
     auto nodeSN = root.append_child("SN");
-    nodeSN.text().set(std::to_string(_request_sn));
+    nodeSN.text().set(std::to_string(_request_sn).c_str());
 
     auto nodeSourceID = root.append_child("SourceID");
-    nodeSourceID.text().set(m_tBroadcast.strSourceID);
+    nodeSourceID.text().set(m_tBroadcast.strSourceID.c_str());
 
     auto nodeTargetID = root.append_child("TargetID");
-    nodeTargetID.text().set(m_tBroadcast.strTargetID);
+    nodeTargetID.text().set(m_tBroadcast.strTargetID.c_str());
 
     std::ostringstream os;
     doc.print(os);
@@ -1311,10 +1307,10 @@ const std::string TeleBootRequest::make_manscdp_body()
     nodeCmdType.text().set("DeviceControl");
 
     auto nodeSN = root.append_child("SN");
-    nodeSN.text().set(std::to_string(_request_sn));
+    nodeSN.text().set(std::to_string(_request_sn).c_str());
 
     auto nodeDeviceID = root.append_child("DeviceID");
-    nodeDeviceID.text().set(m_strDeviceID);
+    nodeDeviceID.text().set(m_strDeviceID.c_str());
 
     auto nodePTZCmd = root.append_child("TeleBoot");
     nodePTZCmd.text().set("Boot");
@@ -1340,10 +1336,10 @@ const std::string IFrameRequest::make_manscdp_body()
     nodeCmdType.text().set("DeviceControl");
 
     auto nodeSN = root.append_child("SN");
-    nodeSN.text().set(std::to_string(_request_sn));
+    nodeSN.text().set(std::to_string(_request_sn).c_str());
 
     auto nodeDeviceID = root.append_child("DeviceID");
-    nodeDeviceID.text().set(m_strDeviceID);
+    nodeDeviceID.text().set(m_strDeviceID.c_str());
 
     auto nodePTZCmd = root.append_child("IFrameCmd");
     nodePTZCmd.text().set("Send");
@@ -1369,13 +1365,13 @@ const std::string DragZoomInOutRequest::make_manscdp_body()
     nodeCmdType.text().set("DeviceControl");
 
     auto nodeSN = root.append_child("SN");
-    nodeSN.text().set(std::to_string(_request_sn));
+    nodeSN.text().set(std::to_string(_request_sn).c_str());
 
     auto nodeDeviceID = root.append_child("DeviceID");
-    nodeDeviceID.text().set(_device->GetDeviceID());
+    nodeDeviceID.text().set(_device->GetDeviceID().c_str());
 
     pugi::xml_node nodeDragZoomInCmd;
-    if(m_tDragZoomInfo.bIsZooIn)
+    if (m_tDragZoomInfo.bIsZooIn)
     {
         nodeDragZoomInCmd = root.append_child("DragZoomIn");
     }
@@ -1423,13 +1419,13 @@ const std::string PTZPreciseCtrlRequest::make_manscdp_body()
     nodeCmdType.text().set("DeviceControl");
 
     auto nodeSN = root.append_child("SN");
-    nodeSN.text().set(std::to_string(_request_sn));
+    nodeSN.text().set(std::to_string(_request_sn).c_str());
 
     auto nodeDeviceID = root.append_child("DeviceID");
-    nodeDeviceID.text().set(_device->GetDeviceID());
+    nodeDeviceID.text().set(_device->GetDeviceID().c_str());
 
     auto nodePTZPreciseCtrl = root.append_child("PTZPreciseCtrl");
-    
+
     auto nodePan = nodePTZPreciseCtrl.append_child("Pan");
     nodePan.text().set(m_tPTZPreciseCtrlInfo.dPan);
 
@@ -1460,13 +1456,13 @@ const std::string RecordCmdRequest::make_manscdp_body()
     nodeCmdType.text().set("DeviceControl");
 
     auto nodeSN = root.append_child("SN");
-    nodeSN.text().set(std::to_string(_request_sn));
+    nodeSN.text().set(std::to_string(_request_sn).c_str());
 
     auto nodeDeviceID = root.append_child("DeviceID");
-    nodeDeviceID.text().set(_device->GetDeviceID());
+    nodeDeviceID.text().set(_device->GetDeviceID().c_str());
 
     auto nodeRecordCmd = root.append_child("RecordCmd");
-    if(m_tRecordCmdInfo.bIsRecord)
+    if (m_tRecordCmdInfo.bIsRecord)
     {
         nodeRecordCmd.text().set("Record");
     }
@@ -1474,7 +1470,7 @@ const std::string RecordCmdRequest::make_manscdp_body()
     {
         nodeRecordCmd.text().set("StopRecord");
     }
-    
+
     auto nodeStreamNumber = root.append_child("StreamNumber");
     nodeStreamNumber.text().set(m_tRecordCmdInfo.nStreamNumber);
 
@@ -1499,19 +1495,19 @@ const std::string AlarmCmdRequest::make_manscdp_body()
     nodeCmdType.text().set("DeviceControl");
 
     auto nodeSN = root.append_child("SN");
-    nodeSN.text().set(std::to_string(_request_sn));
+    nodeSN.text().set(std::to_string(_request_sn).c_str());
 
     auto nodeDeviceID = root.append_child("DeviceID");
-    nodeDeviceID.text().set(_device->GetDeviceID());
+    nodeDeviceID.text().set(_device->GetDeviceID().c_str());
 
     auto nodeAlarmCmd = root.append_child("AlarmCmd");
     nodeAlarmCmd.text().set("ResetAlarm");
-    
+
     auto nodeInfo = root.append_child("Info");
     auto nodeAlarmMethod = nodeInfo.append_child("AlarmMethod");
-    nodeAlarmMethod.text().set(m_tAlarmCmdInfo.strAlarmMethod);
+    nodeAlarmMethod.text().set(m_tAlarmCmdInfo.strAlarmMethod.c_str());
     auto nodeAlarmType = nodeInfo.append_child("AlarmType");
-    nodeAlarmType.text().set(m_tAlarmCmdInfo.strAlarmType);
+    nodeAlarmType.text().set(m_tAlarmCmdInfo.strAlarmType.c_str());
 
     std::ostringstream os;
     doc.print(os);
@@ -1534,13 +1530,13 @@ const std::string HomePositionRequest::make_manscdp_body()
     nodeCmdType.text().set("DeviceControl");
 
     auto nodeSN = root.append_child("SN");
-    nodeSN.text().set(std::to_string(_request_sn));
+    nodeSN.text().set(std::to_string(_request_sn).c_str());
 
     auto nodeDeviceID = root.append_child("DeviceID");
-    nodeDeviceID.text().set(_device->GetDeviceID());
+    nodeDeviceID.text().set(_device->GetDeviceID().c_str());
 
     auto nodeHomePosition = root.append_child("HomePosition");
-    
+
     auto nodeEnabled = nodeHomePosition.append_child("Enabled");
     nodeEnabled.text().set(m_tHomePositionInfo.nEnabled);
 
@@ -1571,24 +1567,24 @@ const std::string DeviceUpgradeRequest::make_manscdp_body()
     nodeCmdType.text().set("DeviceControl");
 
     auto nodeSN = root.append_child("SN");
-    nodeSN.text().set(std::to_string(_request_sn));
+    nodeSN.text().set(std::to_string(_request_sn).c_str());
 
     auto nodeDeviceID = root.append_child("DeviceID");
-    nodeDeviceID.text().set(_device->GetDeviceID());
+    nodeDeviceID.text().set(_device->GetDeviceID().c_str());
 
     auto nodeUpgrade = root.append_child("DeviceUpgrade");
-    
+
     auto nodeFirmware = nodeUpgrade.append_child("Firmware");
-    nodeFirmware.text().set(m_tDeviceUpgradeInfo.strFirmware);
+    nodeFirmware.text().set(m_tDeviceUpgradeInfo.strFirmware.c_str());
 
     auto nodeFileURL = nodeUpgrade.append_child("FileURL");
-    nodeFileURL.text().set(m_tDeviceUpgradeInfo.strFileURL);
+    nodeFileURL.text().set(m_tDeviceUpgradeInfo.strFileURL.c_str());
 
     auto nodeManufacturer = nodeUpgrade.append_child("Manufacturer");
-    nodeManufacturer.text().set(m_tDeviceUpgradeInfo.strManufacturer);
+    nodeManufacturer.text().set(m_tDeviceUpgradeInfo.strManufacturer.c_str());
 
     auto nodeSessionID = nodeUpgrade.append_child("SessionID");
-    nodeSessionID.text().set(m_tDeviceUpgradeInfo.strSessionID);
+    nodeSessionID.text().set(m_tDeviceUpgradeInfo.strSessionID.c_str());
 
     std::ostringstream os;
     doc.print(os);
@@ -1611,30 +1607,30 @@ const std::string TargetTrackRequest::make_manscdp_body()
     nodeCmdType.text().set("DeviceControl");
 
     auto nodeSN = root.append_child("SN");
-    nodeSN.text().set(std::to_string(_request_sn));
+    nodeSN.text().set(std::to_string(_request_sn).c_str());
 
     auto nodeDeviceID = root.append_child("DeviceID");
-    nodeDeviceID.text().set(_device->GetDeviceID());
+    nodeDeviceID.text().set(_device->GetDeviceID().c_str());
 
     auto nodeTargetTrack = root.append_child("TargetTrack");
-    if(m_tTargetTrackInfo.TrackType == GB28181::TargetTrackInfo_S::TYPE::AUTO)
+    if (m_tTargetTrackInfo.TrackType == GB28181::TargetTrackInfo_S::TYPE::AUTO)
     {
         nodeTargetTrack.text().set("Auto");
     }
-    else if(m_tTargetTrackInfo.TrackType == GB28181::TargetTrackInfo_S::TYPE::MANUAL)
+    else if (m_tTargetTrackInfo.TrackType == GB28181::TargetTrackInfo_S::TYPE::MANUAL)
     {
         nodeTargetTrack.text().set("Manual");
     }
-    else if(m_tTargetTrackInfo.TrackType == GB28181::TargetTrackInfo_S::TYPE::STOP)
+    else if (m_tTargetTrackInfo.TrackType == GB28181::TargetTrackInfo_S::TYPE::STOP)
     {
         nodeTargetTrack.text().set("Stop");
     }
-    
+
     auto nodeDeviceID2 = root.append_child("DeviceID2");
-    nodeDeviceID2.text().set(m_tTargetTrackInfo.strDeviceID2);
+    nodeDeviceID2.text().set(m_tTargetTrackInfo.strDeviceID2.c_str());
 
     auto nodeTargetArea = root.append_child("TargetArea");
-    
+
     auto nodeLength = nodeTargetArea.append_child("Length");
     nodeLength.text().set(m_tTargetTrackInfo.nLength);
 
@@ -1674,10 +1670,10 @@ const std::string HomePositionQueryRequest::make_manscdp_body()
     nodeCmdType.text().set("HomePositionQuery");
 
     auto nodeSN = root.append_child("SN");
-    nodeSN.text().set(std::to_string(_request_sn));
+    nodeSN.text().set(std::to_string(_request_sn).c_str());
 
     auto nodeDeviceID = root.append_child("DeviceID");
-    nodeDeviceID.text().set(_device->GetDeviceID());
+    nodeDeviceID.text().set(_device->GetDeviceID().c_str());
 
     std::ostringstream os;
     doc.print(os);
@@ -1700,10 +1696,10 @@ const std::string PTZPositionRequest::make_manscdp_body()
     nodeCmdType.text().set("PTZPosition");
 
     auto nodeSN = root.append_child("SN");
-    nodeSN.text().set(std::to_string(_request_sn));
+    nodeSN.text().set(std::to_string(_request_sn).c_str());
 
     auto nodeDeviceID = root.append_child("DeviceID");
-    nodeDeviceID.text().set(_device->GetDeviceID());
+    nodeDeviceID.text().set(_device->GetDeviceID().c_str());
 
     std::ostringstream os;
     doc.print(os);

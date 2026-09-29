@@ -9,7 +9,7 @@
 
 #include "isp_param_orchestrator.h"
 
-#include <variant>
+#include "variant.hpp"
 
 #include "IpcRet.h"
 #include "dlog.h"
@@ -33,7 +33,7 @@ int CIspParamOrchestrator::apply_by_type(ISP::PicConfigureType_E enType)
             dlog_error("读取图像参数失败: %d", nRet);
             return nRet;
         }
-        return m_rstApplier.apply_image(std::get<ISP::ImageParam_S>(stValue));
+        return m_rstApplier.apply_image(mpark::get<ISP::ImageParam_S>(stValue));
     }
 
     case ISP::PicConfigureType_E::EXPOSURE:
@@ -45,7 +45,7 @@ int CIspParamOrchestrator::apply_by_type(ISP::PicConfigureType_E enType)
             dlog_error("读取曝光参数失败: %d", nRet);
             return nRet;
         }
-        return m_rstApplier.apply_exposure(std::get<ISP::ExposureAttr_S>(stValue));
+        return m_rstApplier.apply_exposure(mpark::get<ISP::ExposureAttr_S>(stValue));
     }
 
     case ISP::PicConfigureType_E::BACKLIGHT:
@@ -57,7 +57,7 @@ int CIspParamOrchestrator::apply_by_type(ISP::PicConfigureType_E enType)
             dlog_error("读取背光参数失败: %d", nRet);
             return nRet;
         }
-        return m_rstApplier.apply_backlight(std::get<ISP::BackLightArrt_S>(stValue));
+        return m_rstApplier.apply_backlight(mpark::get<ISP::BackLightArrt_S>(stValue));
     }
 
     case ISP::PicConfigureType_E::AWB:
@@ -69,7 +69,7 @@ int CIspParamOrchestrator::apply_by_type(ISP::PicConfigureType_E enType)
             dlog_error("读取白平衡参数失败: %d", nRet);
             return nRet;
         }
-        return m_rstApplier.apply_awb(std::get<ISP::AwbAttr_S>(stValue));
+        return m_rstApplier.apply_awb(mpark::get<ISP::AwbAttr_S>(stValue));
     }
 
     case ISP::PicConfigureType_E::NR:
@@ -81,7 +81,7 @@ int CIspParamOrchestrator::apply_by_type(ISP::PicConfigureType_E enType)
             dlog_error("读取降噪参数失败: %d", nRet);
             return nRet;
         }
-        return m_rstApplier.apply_nr(std::get<ISP::DnrAttr_S>(stValue));
+        return m_rstApplier.apply_nr(mpark::get<ISP::DnrAttr_S>(stValue));
     }
 
     case ISP::PicConfigureType_E::MIRROR:
@@ -93,7 +93,7 @@ int CIspParamOrchestrator::apply_by_type(ISP::PicConfigureType_E enType)
             dlog_error("读取镜像参数失败: %d", nRet);
             return nRet;
         }
-        const ISP::VideoAdjust_S &stMirror = std::get<ISP::VideoAdjust_S>(stValue);
+        const ISP::VideoAdjust_S &stMirror = mpark::get<ISP::VideoAdjust_S>(stValue);
         /* info: 明确记录本次实际下发值，便于确认场景切换没有退回默认DISABLE。 */
         dlog_info("应用当前镜像配置, mode:%d", static_cast<int>(stMirror.enMirrorMode));
         return m_rstApplier.apply_mirror(stMirror);

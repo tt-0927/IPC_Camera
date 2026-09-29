@@ -179,14 +179,12 @@ int CPeopleFlowProcessor::process(const DetectionBatch_S &stBatch, ProcessorOutp
         }
         ++nFramePersons;
 
-        const TrackKey_S stKey{ stBatch.stMetadata.nChannelId,
-                                static_cast<int>(PEOPLE_FLOW_DEFAULT_RULE_ID),
-                                stObject.optTrackId.value_or(0) };
+        const TrackKey_S stKey{ stBatch.stMetadata.nChannelId, static_cast<int>(PEOPLE_FLOW_DEFAULT_RULE_ID), stObject.ullTrackId };
 
         /* ENDED 目标立即清理轨迹状态，不参与几何计算 */
         if (stObject.enTrackState == TrackState_E::ENDED)
         {
-            if (stObject.optTrackId.has_value())
+            if (stObject.bHasTrackId)
             {
                 m_trackStore.erase(stKey);
             }
@@ -194,7 +192,7 @@ int CPeopleFlowProcessor::process(const DetectionBatch_S &stBatch, ProcessorOutp
         }
 
         /* 无稳定 Track ID 的目标不参与轨迹统计 */
-        if (!stObject.optTrackId.has_value() || stObject.enTrackState == TrackState_E::UNAVAILABLE)
+        if (!stObject.bHasTrackId || stObject.enTrackState == TrackState_E::UNAVAILABLE)
         {
             continue;
         }
@@ -227,7 +225,8 @@ int CPeopleFlowProcessor::process(const DetectionBatch_S &stBatch, ProcessorOutp
         OverlayItem_S stOverlayItem;
         stOverlayItem.enType = stObject.enType;
         stOverlayItem.stRect = stObject.stRect;
-        stOverlayItem.optTrackId = stObject.optTrackId;
+        stOverlayItem.bHasTrackId = stObject.bHasTrackId;
+        stOverlayItem.ullTrackId = stObject.ullTrackId;
         stOutput.vecOverlayItems.emplace_back(std::move(stOverlayItem));
 
         /* 轨迹点：目标框底边中点 */
@@ -269,7 +268,7 @@ int CPeopleFlowProcessor::process(const DetectionBatch_S &stBatch, ProcessorOutp
         const Alarm::CrossDirection_E enLeaveDirection = reverse_direction(enEnterDirection);
 
         ReportTargetDraft_S stTarget;
-        stTarget.ullTrackId = stObject.optTrackId.value_or(0);
+        stTarget.ullTrackId = stObject.ullTrackId;
         stTarget.nDirection = static_cast<int>(enCrossResult);
         stTarget.stRect = stObject.stRect;
 
@@ -305,8 +304,14 @@ int CPeopleFlowProcessor::process(const DetectionBatch_S &stBatch, ProcessorOutp
     if (nFramePersons > 0)
     {
         dlog_info("people_flow 帧诊断: person[%u] active[%u] 几何[%u] 置信度[%u] 区域内[%u] 有轨迹[%u] 进入[%u] 离开[%u]",
-                  nFramePersons, nFrameActive, nFrameValidGeom, nFramePassConf,
-                  nFrameInRegion, nFrameHasHistory, nFrameEnterCount, nFrameLeaveCount);
+                  nFramePersons,
+                  nFrameActive,
+                  nFrameValidGeom,
+                  nFramePassConf,
+                  nFrameInRegion,
+                  nFrameHasHistory,
+                  nFrameEnterCount,
+                  nFrameLeaveCount);
     }
 
     /* 清理超过 5 秒未更新的轨迹状态，TTL 使用 monotonic clock */
@@ -320,7 +325,7 @@ int CPeopleFlowProcessor::process(const DetectionBatch_S &stBatch, ProcessorOutp
         { Event::Type_E::PEOPLE_FLOW_STAY_NORMAL,
          enStayEventType == Event::Type_E::PEOPLE_FLOW_STAY_NORMAL,
          stBatch.stMetadata.nChannelId,
-         static_cast<int>(PEOPLE_FLOW_DEFAULT_RULE_ID),
+                                static_cast<int>(PEOPLE_FLOW_DEFAULT_RULE_ID),
          llWallMs, llMonoMs,
          m_stateStore.enter_count(),
          m_stateStore.leave_count(),

@@ -54,7 +54,7 @@ bool CAiClassRoom::setClassInfo(ClassInfo stClassInfo)
     stopMonitor();
 
     {
-        std::unique_lock<std::shared_mutex> lock(m_mutex);
+        std::unique_lock<std::mutex> lock(m_mutex);
         m_stClassInfo = std::move(stClassInfo);
     }
 
@@ -66,14 +66,14 @@ bool CAiClassRoom::setClassInfo(ClassInfo stClassInfo)
 
 bool CAiClassRoom::getClassInfo(ClassInfo &stClassInfo) const
 {
-    std::shared_lock<std::shared_mutex> lock(m_mutex);
+    std::lock_guard<std::mutex> lock(m_mutex);
     stClassInfo = m_stClassInfo;
     return true;
 }
 
 bool CAiClassRoom::getAttendanceRecord(AttendanceRecord &stRecord) const
 {
-    std::shared_lock<std::shared_mutex> lock(m_mutex);
+    std::lock_guard<std::mutex> lock(m_mutex);
     stRecord.classId = m_stClassInfo.classId;
     stRecord.date    = TimeUtils_NS::get_currentDateWithDash();
     if (!m_bCourseActive.load())
@@ -86,7 +86,7 @@ bool CAiClassRoom::getAttendanceRecord(AttendanceRecord &stRecord) const
 
 bool CAiClassRoom::getStudentBehaviorRecord(StudentBehaviorRecord &stRecord) const
 {
-    std::shared_lock<std::shared_mutex> lock(m_mutex);
+    std::lock_guard<std::mutex> lock(m_mutex);
     stRecord.classId  = m_stClassInfo.classId;
     stRecord.courseId = m_stClassInfo.courses.empty() ? "" : m_stClassInfo.courses[0].id;
     return m_behaviorCalc.getBehaviorTimeline(stRecord.behaviorTimeline);
@@ -94,7 +94,7 @@ bool CAiClassRoom::getStudentBehaviorRecord(StudentBehaviorRecord &stRecord) con
 
 bool CAiClassRoom::getStudentPerformanceRecord(StudentPerformanceRecord &stRecord) const
 {
-    std::shared_lock<std::shared_mutex> lock(m_mutex);
+    std::lock_guard<std::mutex> lock(m_mutex);
     stRecord.classId  = m_stClassInfo.classId;
     stRecord.courseId = m_stClassInfo.courses.empty() ? "" : m_stClassInfo.courses[0].id;
     return m_behaviorCalc.getPerformance(stRecord.performance);
@@ -107,7 +107,7 @@ void CAiClassRoom::monitorThread()
         int64_t nNow = TimeUtils_NS::get_currentTimestampS();
 
         {
-            std::unique_lock<std::shared_mutex> lock(m_mutex);
+            std::unique_lock<std::mutex> lock(m_mutex);
 
             /* 查找当前时间命中的课程（含提前激活窗口） */
             int nHitIdx = -1;
@@ -140,7 +140,12 @@ void CAiClassRoom::monitorThread()
 
         /* 等待下一次轮询，支持提前唤醒以快速退出 */
         std::unique_lock<std::mutex> lock(m_cvMutex);
-        m_cv.wait_for(lock, std::chrono::seconds(MONITOR_INTERVAL_S), [this] { return !m_bRunning.load(); });
+        m_cv.wait_for(lock,
+                      std::chrono::seconds(MONITOR_INTERVAL_S),
+                      [this]
+                      {
+                          return !m_bRunning.load();
+                      });
     }
 }
 
@@ -151,14 +156,20 @@ void CAiClassRoom::activateCourse(const Course &stCourse)
     m_attendanceCalc.reset();
     m_attendanceCalc.setTotal(nTotal);
     m_attendanceCalc.setOnAttendanceCallback(
-        [this](const AttendanceSummary &stRecord) { onAttendanceTriggered(stRecord); });
+        [this](const AttendanceSummary &stRecord)
+        {
+            onAttendanceTriggered(stRecord);
+        });
 
     /* 初始化行为分析计算器 */
     m_behaviorCalc.reset();
     m_behaviorCalc.setTotal(nTotal);
     m_behaviorCalc.setCourseStartTime(stCourse.nStart);
     m_behaviorCalc.setCallback(
-        [this](const BehaviorRecord &stRecord) { onBehaviorTriggered(stRecord); });
+        [this](const BehaviorRecord &stRecord)
+        {
+            onBehaviorTriggered(stRecord);
+        });
 
     m_bCourseActive.store(true);
 

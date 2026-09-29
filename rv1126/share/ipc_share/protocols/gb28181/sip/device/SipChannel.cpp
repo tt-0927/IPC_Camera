@@ -10,6 +10,8 @@
 #include "dlog.h"
 #include "SipUtils.h"
 #include "StreamManager.h"
+
+#include <functional>
 using namespace SIP;
 
 /* 国标媒体流默认唯一标识 */
@@ -320,7 +322,6 @@ bool SIP::Channel::CreateAudioServer(int nPort)
     /* 不管成功与否，必须设置数据回调函数 */
     m_pAudioPlay->setCallback(std::bind(&SIP::Channel::ServerCallback, this, std::placeholders::_1));
     return bRet;
-
 }
 
 void SIP::Channel::ClosePlayAction()
@@ -419,7 +420,7 @@ int SIP::Channel::GetPlayPort() const
 int SIP::Channel::CreatePlayRtp(bool bIsParser, std::string strSSRC)
 {
     /* 如果SSRC未空，则使用默认值 */
-    if(strSSRC.empty())
+    if (strSSRC.empty())
     {
         strSSRC = GB_DEFAULT_SSRC;
     }
@@ -445,9 +446,7 @@ void SIP::Channel::CreateRtpParser(const std::string &strSSRC)
         m_pRtpPlay = nullptr;
     }
     /* NOTE 每次都需重新创建，SSRC和解包情况会不一样 */
-    m_pRtpPlay = std::make_shared<RTP::Parser>(
-        std::stoul(strSSRC),
-        std::bind(&Channel::RtpMediaCallback, this, std::placeholders::_1));
+    m_pRtpPlay = std::make_shared<RTP::Parser>(std::stoul(strSSRC), std::bind(&Channel::RtpMediaCallback, this, std::placeholders::_1));
 }
 
 void SIP::Channel::CreateRtpPacker(const std::string &strSSRC)
@@ -459,8 +458,6 @@ void SIP::Channel::CreateRtpPacker(const std::string &strSSRC)
         m_pRtpPlay = nullptr;
     }
 
-    
-    
     bool bIsTcp = false;
     if (m_pPlay)
     {
@@ -468,10 +465,7 @@ void SIP::Channel::CreateRtpPacker(const std::string &strSSRC)
     }
 
     /* NOTE 每次都需重新创建，SSRC和打包情况会不一样 */
-    m_pRtpPlay = std::make_shared<RTP::Packer>(
-        std::stoul(strSSRC),
-        nVideoFps,
-        bIsTcp);
+    m_pRtpPlay = std::make_shared<RTP::Packer>(std::stoul(strSSRC), nVideoFps, bIsTcp);
     auto pRtpPacker = std::dynamic_pointer_cast<RTP::Packer>(m_pRtpPlay);
     pRtpPacker->setVideoType(::ToPsmStreamIDByVideo(enVideo));
     pRtpPacker->setAudioType(::ToPsmStreamIDByAudio(enAudio.enType));
@@ -506,7 +500,7 @@ void SIP::Channel::ServerCallback(const MediaNetBase::CbData_S &stData)
     else
     {
         /* 送RTP解析 */
-        pRtpParser->parsePacket(stData.pData, stData.nSize,stData.bAudio);
+        pRtpParser->parsePacket(stData.pData, stData.nSize, stData.bAudio);
     }
 }
 
@@ -535,7 +529,7 @@ void SIP::Channel::RtpMediaCallback(const RTP::MediaInfo_S &stInfo)
             UploadInfo();
         }
     }
-    std::shared_lock<std::shared_mutex> lk(m_mutexCbInfo);
+    std::lock_guard<std::mutex> lk(m_mutexCbInfo);
     if (m_stCbInfo.fnMediaUpdate)
     {
         SipMediaCbInfo_S stCbInfo;
@@ -584,7 +578,7 @@ int SIP::Channel::SendPlayData(const char *pData, int nLen)
 
 int SIP::Channel::UpdateMediaStatus(bool bStart)
 {
-    std::shared_lock<std::shared_mutex> lk(m_mutexCbInfo);
+    std::lock_guard<std::mutex> lk(m_mutexCbInfo);
     if (m_stCbInfo.fnMediaStatus)
     {
         SipMediaStatus_S stCbData;
@@ -599,8 +593,7 @@ int SIP::Channel::UpdateMediaStatus(bool bStart)
 
 void SIP::Channel::SetSipDeviceInfo(const SipDeviceInfo_S &devInfo)
 {
-    dlog_info("设置设备信息编码[%d]宽度[%d]高度[%d]帧率[%d]",
-              devInfo.enVideo, devInfo.nWidth, devInfo.nHeight, devInfo.nFps);
+    dlog_info("设置设备信息编码[%d]宽度[%d]高度[%d]帧率[%d]", devInfo.enVideo, devInfo.nWidth, devInfo.nHeight, devInfo.nFps);
     auto pRtpPacker = std::dynamic_pointer_cast<RTP::Packer>(m_pRtpPlay);
     if (enVideo != devInfo.enVideo && pRtpPacker)
     {
@@ -638,7 +631,7 @@ void SIP::Channel::UploadInfo()
 {
     if (m_bIsServer)
     {
-        std::shared_lock<std::shared_mutex> lk(m_mutexCbInfo);
+        std::lock_guard<std::mutex> lk(m_mutexCbInfo);
         if (m_stCbInfo.fnDevUpdate)
         {
             SipDeviceInfo_S device_info;
@@ -662,7 +655,7 @@ SDP::SdpInfo_S SIP::Channel::GetSdpInfo() const
 void SIP::Channel::SetCbInfo(const CbInfo_S &stInfo)
 {
     /* 使用独占锁更新回调数据 */
-    std::unique_lock<std::shared_mutex> lock(m_mutexCbInfo);
+    std::unique_lock<std::mutex> lock(m_mutexCbInfo);
     m_stCbInfo = stInfo;
 }
 
@@ -708,61 +701,63 @@ SipChannelType_E SIP::Channel::GetChannelType()
     return enChannelType;
 }
 
-void SIP::Channel::SetChannelTypeFromId(const std::string& strChannelId)
+void SIP::Channel::SetChannelTypeFromId(const std::string &strChannelId)
 {
-    if (strChannelId.length() < 13) 
+    if (strChannelId.length() < 13)
     {
-       enChannelType = SipChannelType_E::CHANNELTYPE_UNKNOWN;
+        enChannelType = SipChannelType_E::CHANNELTYPE_UNKNOWN;
     }
-     // 提取第11-13位（索引10-12）的子字符串
+    // 提取第11-13位（索引10-12）的子字符串
     std::string strTypeStr = strChannelId.substr(10, 3);
     int nTypeValue = std::stoi(strTypeStr);
 
     dlog_info("=======提取到通道类型字段[%d]=======", nTypeValue);
 
-    if (nTypeValue >= 111 && nTypeValue <= 118) 
+    if (nTypeValue >= 111 && nTypeValue <= 118)
     {
-       enChannelType =  static_cast<SipChannelType_E>(nTypeValue);
+        enChannelType = static_cast<SipChannelType_E>(nTypeValue);
     }
-    else if (nTypeValue == 130) 
+    else if (nTypeValue == 130)
     {
         enChannelType = SipChannelType_E::HYBRID_DISK_RECORDER_IVR_ENCODE;
-    } else if (nTypeValue >= 131 && nTypeValue <= 139) 
+    }
+    else if (nTypeValue >= 131 && nTypeValue <= 139)
     {
         enChannelType = static_cast<SipChannelType_E>(nTypeValue);
-    } 
-    else if (nTypeValue >= 200 && nTypeValue <= 211) 
+    }
+    else if (nTypeValue >= 200 && nTypeValue <= 211)
     {
         enChannelType = static_cast<SipChannelType_E>(nTypeValue);
-    } else if (nTypeValue == 215 || nTypeValue == 216) 
+    }
+    else if (nTypeValue == 215 || nTypeValue == 216)
     {
         enChannelType = static_cast<SipChannelType_E>(nTypeValue);
-    } 
-    else if (nTypeValue >= 300 && nTypeValue <= 343) 
+    }
+    else if (nTypeValue >= 300 && nTypeValue <= 343)
     {
         enChannelType = SipChannelType_E::INDUSTRY_ROLE_USER;
-    } 
-    else if (nTypeValue >= 344 && nTypeValue <= 399) 
+    }
+    else if (nTypeValue >= 344 && nTypeValue <= 399)
     {
         enChannelType = SipChannelType_E::CENTER_USER_EXTEND;
-    } 
-    else if (nTypeValue >= 400 && nTypeValue <= 443) 
+    }
+    else if (nTypeValue >= 400 && nTypeValue <= 443)
     {
         enChannelType = SipChannelType_E::INDUSTRY_ROLE_TERMINAL_USER;
-    } 
-    else if (nTypeValue >= 444 && nTypeValue <= 499) 
+    }
+    else if (nTypeValue >= 444 && nTypeValue <= 499)
     {
         enChannelType = SipChannelType_E::TERMINAL_USER_EXTEND;
-    } 
-    else if (nTypeValue >= 500 && nTypeValue <= 501) 
+    }
+    else if (nTypeValue >= 500 && nTypeValue <= 501)
     {
         enChannelType = static_cast<SipChannelType_E>(nTypeValue);
-    } 
-    else if (nTypeValue >= 502 && nTypeValue <= 599) 
+    }
+    else if (nTypeValue >= 502 && nTypeValue <= 599)
     {
         enChannelType = SipChannelType_E::PLATFORM_EXTERNAL_SERVER_EXTEND;
-    } 
-    else if (nTypeValue >= 600 && nTypeValue <= 999) 
+    }
+    else if (nTypeValue >= 600 && nTypeValue <= 999)
     {
         enChannelType = SipChannelType_E::EXTEND_TYPE;
     }
@@ -773,7 +768,7 @@ void SIP::Channel::GetSipDeviceInfo(SipDeviceInfo_S &devInfo)
 
     if (m_stCbInfo.fnDevUpdate)
     {
-     
+
         m_stCbInfo.fnDevUpdate(devInfo);
     }
 }

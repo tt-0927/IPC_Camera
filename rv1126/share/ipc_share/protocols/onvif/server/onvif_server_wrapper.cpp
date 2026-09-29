@@ -8,16 +8,17 @@
  */
 
 #include "onvif_server_wrapper.h"
+#include "osd_configure.h"
 #include "onvif_server.h"
 #include "rtsp_server.h"
 #include "network_manage.h"
 #include "time_manage.h"
 #include "stream_video.h"
 #include "system_define.h"
-#include "isp_control.h"
 #include "stream_audio.h"
 #include "log_handler.h"
 #include "user_manage.h"
+#include "system_manage.h"
 #include "isp_configure.h"
 #include "isp_manage.h"
 #include "av_configure.h"
@@ -711,7 +712,7 @@ extern "C"
 	{
 		int nOsdSize = 0;
 		std::vector<Osd::OverplayInfo_S> vecOverplayInfo;
-		COsdManage::instance()->get_overplay_info(vecOverplayInfo);
+		COsdConfigure::instance()->get_overplay_info(vecOverplayInfo);
 		for (size_t i = 0; i < vecOverplayInfo.size(); i++)
 		{
 			/* 类型为显示mac和人数的osd不允许用户修改 */
@@ -771,7 +772,7 @@ extern "C"
 		}
 
 		Osd::OsdConfig_S stInfo;
-		COsdManage::instance()->get_osd_config(stInfo);
+		COsdConfigure::instance()->get_osd_config(stInfo);
 		stInfo.init_token();
 		/* OSD名称 */
 		if(stInfo.stOsdNameInfo.bEnable)
@@ -871,7 +872,7 @@ extern "C"
 #if 0
 		/* 获取osd信息 */
 		std::vector<Osd::OverplayInfo_S> vecOverplayInfo;
-		COsdManage::instance()->get_overplay_info(vecOverplayInfo);
+		COsdConfigure::instance()->get_overplay_info(vecOverplayInfo);
 		uint32_t unFontColor;
 		/* 判断是否存在osd信息 */
 		if (!vecOverplayInfo.size())
@@ -1032,7 +1033,7 @@ extern "C"
 		}
 
 		Osd::OsdConfig_S stInfo;
-		COsdManage::instance()->get_osd_config(stInfo);
+		COsdConfigure::instance()->get_osd_config(stInfo);
 		stInfo.init_token();
 		bool bFound = false;
 		if(stInfo.stOsdNameInfo.stOsdAttr.strToken == pToken)
@@ -1112,7 +1113,7 @@ extern "C"
 		
 		if(bFound)
 		{
-			return COsdManage::instance()->set_osd_config(stInfo);
+			return COsdConfigure::instance()->set_osd_config(stInfo);
 		}
 		
 		dlog_error("设置osd失败 没有找到对应的token[%s]",pToken);
@@ -1121,7 +1122,7 @@ extern "C"
 		int nIndex = -1;
 		/* 获取osd信息 */
 		std::vector<Osd::OverplayInfo_S> vecOverplayInfo;
-		COsdManage::instance()->get_overplay_info(vecOverplayInfo);
+		COsdConfigure::instance()->get_overplay_info(vecOverplayInfo);
 		uint32_t unFontColor;
 		char strToken[32] = {0};
 		/* 判断是否存在osd信息 */
@@ -1189,7 +1190,7 @@ extern "C"
 
 		vecOverplayInfo[nIndex].stuInfo.bEnable = pstOsdCfg->bOsdEnable;
 
-		COsdManage::instance()->set_overplay_info(vecOverplayInfo);
+		COsdConfigure::instance()->set_overplay_info(vecOverplayInfo);
 		SystemManage::instance()->set_device_config(stDeviceConfig);
 #endif
 		return 0;
@@ -1204,7 +1205,7 @@ extern "C"
 		}
 
 		Osd::OsdConfig_S stInfo;
-		COsdManage::instance()->get_osd_config(stInfo);
+		COsdConfigure::instance()->get_osd_config(stInfo);
 		stInfo.init_token();
 		bool bFound = false;
 		if(stInfo.stOsdNameInfo.stOsdAttr.strToken == pToken && stInfo.stOsdNameInfo.bEnable)
@@ -1282,7 +1283,7 @@ extern "C"
 				stInfo.stOsdTimeInfo.stOsdAttr.nH = -1;
 				stInfo.stOsdTimeInfo.stOsdAttr.enFontSize = Osd::OSD_FONT_SIZE_E::OSD_FONT_SIZE_ADAPTIVE;
 
-				return COsdManage::instance()->set_osd_config(stInfo);
+				return COsdConfigure::instance()->set_osd_config(stInfo);
 			}	
 			else if(pstOsdCfg->eTextType == E_OSDTYPE_TEXT_NAME)
 			{
@@ -1304,7 +1305,7 @@ extern "C"
 				stInfo.stOsdNameInfo.stOsdAttr.nH = -1;
 				stInfo.stOsdNameInfo.stOsdAttr.enFontSize = Osd::OSD_FONT_SIZE_E::OSD_FONT_SIZE_ADAPTIVE;
 
-				return COsdManage::instance()->set_osd_config(stInfo);
+				return COsdConfigure::instance()->set_osd_config(stInfo);
 			}
 			else
 			{
@@ -1324,7 +1325,7 @@ extern "C"
 					stInfo.stOsdNameInfo.stOsdAttr.nX = stOsdPos.x;
 					stInfo.stOsdNameInfo.stOsdAttr.nY = stOsdPos.y;
 
-					return COsdManage::instance()->set_osd_config(stInfo);
+					return COsdConfigure::instance()->set_osd_config(stInfo);
 				}
 				else
 				{
@@ -1362,7 +1363,7 @@ extern "C"
 								stInfo.vecOsdInfo[i].stOsdAttr.nH = -1;
 								stInfo.vecOsdInfo[i].stOsdAttr.enFontSize = Osd::OSD_FONT_SIZE_E::OSD_FONT_SIZE_ADAPTIVE;
 
-								return COsdManage::instance()->set_osd_config(stInfo);
+								return COsdConfigure::instance()->set_osd_config(stInfo);
 							}
 							else
 							{
@@ -1393,7 +1394,7 @@ extern "C"
 							stInfo.vecOsdInfo[i].stOsdAttr.nH = -1;
 							stInfo.vecOsdInfo[i].stOsdAttr.enFontSize = Osd::OSD_FONT_SIZE_E::OSD_FONT_SIZE_ADAPTIVE;
 
-							return COsdManage::instance()->set_osd_config(stInfo);
+							return COsdConfigure::instance()->set_osd_config(stInfo);
 						}
 					}
 				}
@@ -1413,7 +1414,7 @@ extern "C"
 		}
 
 		Osd::OsdConfig_S stInfo;
-		COsdManage::instance()->get_osd_config(stInfo);
+		COsdConfigure::instance()->get_osd_config(stInfo);
 		stInfo.init_token();
 		bool bFound = false;
 		if(stInfo.stOsdNameInfo.stOsdAttr.strToken == strOsdToken)
@@ -1444,7 +1445,7 @@ extern "C"
 		
 		if(bFound)
 		{
-			return COsdManage::instance()->set_osd_config(stInfo);
+			return COsdConfigure::instance()->set_osd_config(stInfo);
 		}
 		
 		return -1;
@@ -1452,7 +1453,7 @@ extern "C"
 		int nIndex = -1;
 		/* 获取osd信息 */
 		std::vector<Osd::OverplayInfo_S> vecOverplayInfo;
-		COsdManage::instance()->get_overplay_info(vecOverplayInfo);
+		COsdConfigure::instance()->get_overplay_info(vecOverplayInfo);
 		char strToken[32] = {0};
 
 		for (int i = 0; i < vecOverplayInfo.size(); i++)
@@ -1470,7 +1471,7 @@ extern "C"
 			return -1;
 		}
 		vecOverplayInfo[nIndex].stuInfo.bEnable = false;
-		COsdManage::instance()->set_overplay_info(vecOverplayInfo);
+		COsdConfigure::instance()->set_overplay_info(vecOverplayInfo);
 	#endif
 		return 0;
 	}
@@ -2103,9 +2104,9 @@ extern "C"
 		snprintf(pInfo->achSensitivity, sizeof(pInfo->achSensitivity), "%d", stMotionAlarm.stMotionNormalMode.nSensitivity);
 		
 		auto& varRegion = stMotionAlarm.stMotionNormalMode.varRegion;
-		if (std::holds_alternative<AreaGrid>(varRegion))
+		if (mpark::holds_alternative<AreaGrid>(varRegion))
 		{
-			Grid = std::get<AreaGrid>(stMotionAlarm.stMotionNormalMode.varRegion);
+			Grid = mpark::get<AreaGrid>(stMotionAlarm.stMotionNormalMode.varRegion);
 		}
 		/* CELL_MOTION_ROWS:高度 CELL_MOTION_COLUMNS：宽度*/
 		for (int i = 0; i < CELL_MOTION_ROWS; ++i) 

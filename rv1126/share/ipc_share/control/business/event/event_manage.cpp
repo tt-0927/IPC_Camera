@@ -169,9 +169,18 @@ void CEventManage::set_event_type(Event::AlgorithmConfig_S &change, Event::Type_
     case Event::Type::SCENE_CHANGE: /* 场景变更 */
         change.nEnSceneChange = bEnable;
         break;
+#if CAP_AI_FACE_RECOGNITION
+    case Event::Type::FACE_RECOGNITION: /* 人脸识别 */
+        change.nEnFaceRecognition = bEnable;
+        break;
+#else
     case Event::Type::FACE_DETECT: /* 人脸侦测 */
         change.nEnFaceDetect = bEnable;
         break;
+    case Event::Type::FACE_CAPTURE: /* 人脸抓拍 */
+        change.nEnFaceCapture = bEnable;
+        break;
+#endif
     case Event::Type::LOITERING_DETECT: /* 徘徊侦测 */
         change.nEnLoiteringDetect = bEnable;
         break;
@@ -189,9 +198,6 @@ void CEventManage::set_event_type(Event::AlgorithmConfig_S &change, Event::Type_
         break;
     case Event::Type::PET_RECOGNITION: /* 宠物识别 */
         change.nEnPetRecognition = bEnable;
-        break;
-    case Event::Type::FACE_CAPTURE: /* 人脸抓拍 */
-        change.nEnFaceCapture = bEnable;
         break;
     case Event::Type::FACE_COMPARE: /* 人脸比对 */
         change.nEnFaceCompare = bEnable;
@@ -237,9 +243,9 @@ void CEventManage::set_event_type(Event::AlgorithmConfig_S &change, Event::Type_
     case Event::Type::PHONE_USAGE: /* 玩手机识别 */
         change.nEnPhoneUsage = bEnable;
         break;
-    case Event::Type::SMOKE_FIRE: /* 烟火识别 */
-        change.nEnSmokeFire = bEnable;
-        break;
+    // case Event::Type::SMOKE_FIRE: /* 烟火识别 */
+    //     change.nEnSmokeFire = bEnable;
+    //     break;
     case Event::Type::OPEN_FLAME: /* 明火识别 */
         change.nEnOpenFlame = bEnable;
         break;
@@ -291,6 +297,11 @@ void CEventManage::set_event_type(Event::AlgorithmConfig_S &change, Event::Type_
     case Event::Type::PLATE_NUMBER: /* 车牌识别 */
         change.nPlateNumber = bEnable;
         break;
+#endif
+#if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
+case Event::Type::SMOKE_FIRE: /* 烟火识别 */
+change.nEnSmokeFire = bEnable;
+break;
 #endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_GARBAGE_DETECT
     case Event::Type::GARBAGE_EXPOSURE: /* 垃圾暴露识别 */
@@ -389,6 +400,13 @@ void CEventManage::calculate_current_algorithm_state()
         set_event_type(stNewConfig, schedule.enEventType, bShouldEnable);
         // dlog_debug("事件类型: %d, 使能状态: %d, 应开启算法: %d", schedule.enEventType, schedule.bStatus, bShouldEnable);
     }
+
+#if CAP_AI_FACE_RECOGNITION
+    stNewConfig.nEnFaceDetect = 0;
+    stNewConfig.nEnFaceCapture = 0;
+#else
+    stNewConfig.nEnFaceRecognition = 0;
+#endif
 
     /* 更新算法状态快照 */
     {
@@ -542,6 +560,7 @@ void CEventManage::print_algorithm_config_changes(const Event::AlgorithmConfig_S
         {              &Event::AlgorithmConfig_S::nEnAudioAnomaly,       "音频异常侦测" },
         {               &Event::AlgorithmConfig_S::nEnSceneChange,             "场景变更" },
         {                &Event::AlgorithmConfig_S::nEnFaceDetect,             "人脸侦测" },
+        {              &Event::AlgorithmConfig_S::nEnFaceRecognition,             "人脸识别" },
         {           &Event::AlgorithmConfig_S::nEnLoiteringDetect,             "徘徊侦测" },
         {            &Event::AlgorithmConfig_S::nEnCrowdGathering,             "人员聚集" },
         {             &Event::AlgorithmConfig_S::nEnParkingDetect,             "停车侦测" },
@@ -558,7 +577,7 @@ void CEventManage::print_algorithm_config_changes(const Event::AlgorithmConfig_S
         {                      &Event::AlgorithmConfig_S::nEnTrip,             "摔倒识别" },
         {                   &Event::AlgorithmConfig_S::nEnSmoking,             "抽烟识别" },
         {                &Event::AlgorithmConfig_S::nEnPhoneUsage,          "玩手机识别" },
-        {                 &Event::AlgorithmConfig_S::nEnSmokeFire,             "烟火识别" },
+        // {                 &Event::AlgorithmConfig_S::nEnSmokeFire,             "烟火识别" },
         {                 &Event::AlgorithmConfig_S::nEnOpenFlame,             "明火识别" },
         {      &Event::AlgorithmConfig_S::nEnManholeCoverAbnormal,       "井盖异常检测" },
         {                  &Event::AlgorithmConfig_S::nEnBareSoil,       "黄土裸露识别" },
@@ -576,6 +595,9 @@ void CEventManage::print_algorithm_config_changes(const Event::AlgorithmConfig_S
         {            &Event::AlgorithmConfig_S::nEnIllegalParking,             "停车识别" },
         {         &Event::AlgorithmConfig_S::nEnIllegalLaneChange,       "违规变道识别" },
         {                 &Event::AlgorithmConfig_S::nPlateNumber,             "车牌识别" },
+#endif
+#if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
+{                 &Event::AlgorithmConfig_S::nEnSmokeFire,             "烟火识别" },
 #endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_GARBAGE_DETECT
         {           &Event::AlgorithmConfig_S::nEnGarbageExposure,       "垃圾暴露识别" },

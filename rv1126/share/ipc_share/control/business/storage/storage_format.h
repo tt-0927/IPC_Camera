@@ -29,14 +29,15 @@
 #include "storage_manage_define.h"
 
 // 自定义异常类
-class StorageMonitorException : public std::runtime_error 
+class StorageMonitorException : public std::runtime_error
 {
 public:
-    StorageMonitorException(const std::string &message) : std::runtime_error(message) {}
+    StorageMonitorException(const std::string &message) : std::runtime_error(message)
+    {
+    }
 };
 
-
-using DeviceMap     = std::map<std::string, StorageManage_NS::DeviceInfo_S>;
+using DeviceMap = std::map<std::string, StorageManage_NS::DeviceInfo_S>;
 
 class StorageFormat : public CSingleton<StorageFormat>
 {
@@ -46,7 +47,7 @@ private:
 
 public:
     ~StorageFormat();
-    /* 允许 Singleton 访问私有构造函数 */ 
+    /* 允许 Singleton 访问私有构造函数 */
     friend class CSingleton<StorageFormat>;
 
     /**
@@ -72,7 +73,7 @@ public:
      * @return   {int} 成功：0  失败：小于零
      */
     void stop();
-    
+
     /**
      * @brief   : 获取当前已知设备列表
      * @return   {DeviceMap} 当前已知设备列表及信息
@@ -80,7 +81,6 @@ public:
     DeviceMap getDevices();
 
 private:
-    
     /**
      * @brief   : 初始化inotify监控
      * @return   {bool} true 成功, false 失败
@@ -107,38 +107,38 @@ private:
      * @return   {bool} true 成功, false 失败
      */
     bool isRemovableDevice(const std::string &strDevice);
-    
+
     /**
      * @brief   : 获取存储设备大小
-     * @param    {string} &strDevice：设备名称     
+     * @param    {string} &strDevice：设备名称
      * @return   {uint64_t} 成功：返回存储设备大小, 0 失败
      */
     uint64_t getDeviceSize(const std::string &strDevice);
 
     /**
      * @brief   : 获取存储设备型号信息
-     * @param    {string} &strDevice：设备名称     
+     * @param    {string} &strDevice：设备名称
      * @return   {string} 设备型号信息
      */
     std::string getDeviceModel(const std::string &strDevice);
 
     /**
      * @brief   : 获取存储设备序列号
-     * @param    {string} &strDevice：设备名称     
+     * @param    {string} &strDevice：设备名称
      * @return   {string} 设备型号信息
      */
     std::string getDeviceSerial(const std::string &strDevice);
 
     /**
      * @brief   : 检查存储设备是否已格式化
-     * @param    {string} &strDevice：设备名称     
+     * @param    {string} &strDevice：设备名称
      * @return   {string} 设备文件系统信息
      */
     std::string detectFilesystem(const std::string &strDevice);
 
     /**
      * @brief   : 等待存储设备就绪
-     * @param    {string} &strDevice：设备名称     
+     * @param    {string} &strDevice：设备名称
      * @return   {string} 设备文件系统信息
      */
     bool waitForDeviceReady(const std::string &strDevice);
@@ -152,36 +152,36 @@ private:
 
     /**
      * @brief   : 格式化存储卡
-     * @param    {string} &strDevice：设备名称     
+     * @param    {string} &strDevice：设备名称
      * @return   {bool} true 成功, false 失败
      */
     bool formatStorageCard(const std::string &strDevice);
 
     /**
      * @brief   : 检查分区表是否存在
-     * @param    {string} &strDevice：设备名称     
+     * @param    {string} &strDevice：设备名称
      * @return   {bool} true 成功, false 失败
      */
-    bool hasPartitionTable(const std::string& strDevice);
+    bool hasPartitionTable(const std::string &strDevice);
 
     /**
      * @brief   : 自动选择文件系统类型
-     * @param    {uint64_t} size：存储设备大小    
+     * @param    {uint64_t} size：存储设备大小
      * @return   {string} 设备文件系统类型
      */
-    std::string selectFilesystemType(uint64_t size); 
+    std::string selectFilesystemType(uint64_t size);
 
     /**
      * @brief   : 创建分区并格式化
-     * @param    {string} &strDevice：设备名称     
+     * @param    {string} &strDevice：设备名称
      * @return   {bool} true 成功, false 失败
      */
-    bool createPartitionAndFormat(const std::string& strDevice);
+    bool createPartitionAndFormat(const std::string &strDevice);
 
     /**
      * @brief   : 处理新设备
-     * @param    {string} &strDevice：设备名称     
-     * @return 
+     * @param    {string} &strDevice：设备名称
+     * @return
      */
     void processNewDevice(const std::string &strDevice);
 
@@ -193,25 +193,25 @@ private:
 
     /**
      * @brief   : 轮询检查设备变化
-     * @return   
+     * @return
      */
     void pollDevices();
 
     /**
      * @brief   : 监测循环
-     * @return   
+     * @return
      */
     void run();
 
     /**
      * @brief   : 使用inotify监控存储目录（如 /dev）中新设备的创建与删除事件
-     * @return   
+     * @return
      */
     void monitorWithInotify();
 
     /**
      * @brief   : 使用轮询监控存储目录（如 /dev）中新设备的创建与删除事件
-     * @return   
+     * @return
      */
     void monitorWithPolling();
 
@@ -225,12 +225,11 @@ private:
     /* 已知设备的的名字与设备信息映射 */
     DeviceMap m_knownDevices;
     /* 线程运行标志 */
-    std::atomic<bool> m_bRunning = false;
+    std::atomic<bool> m_bRunning{ false };
     /* 检测插拔sd卡线程 */
     std::thread m_monitorThread;
     /* 用于保护共享资源的互斥锁 */
     std::mutex devicesMutex;
-
 };
 
 #endif

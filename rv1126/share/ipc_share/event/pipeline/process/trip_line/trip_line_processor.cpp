@@ -108,11 +108,11 @@ int CTripLineProcessor::process(const DetectionBatch_S &stBatch, ProcessorOutput
         /* ENDED 目标：清理所有关联规则的轨迹状态（等价旧 cleanupLostTargets 的第一层清理） */
         if (stObject.enTrackState == TrackState_E::ENDED)
         {
-            if (stObject.optTrackId.has_value())
+            if (stObject.bHasTrackId)
             {
                 for (const auto &stRule : m_stConfig.vecRules)
                 {
-                    const TripLineTrackKey_S stKey{ nChannelId, stRule.nRuleId, stObject.optTrackId.value() };
+                    const TripLineTrackKey_S stKey{ nChannelId, stRule.nRuleId, stObject.ullTrackId };
                     m_trackStore.erase(stKey);
                 }
             }
@@ -120,7 +120,7 @@ int CTripLineProcessor::process(const DetectionBatch_S &stBatch, ProcessorOutput
         }
 
         /* 无稳定 Track ID 的目标不参与越界判定 */
-        if (!stObject.optTrackId.has_value() || stObject.enTrackState == TrackState_E::UNAVAILABLE)
+        if (!stObject.bHasTrackId || stObject.enTrackState == TrackState_E::UNAVAILABLE)
         {
             continue;
         }
@@ -149,7 +149,7 @@ int CTripLineProcessor::process(const DetectionBatch_S &stBatch, ProcessorOutput
             }
 
             /* 轨迹状态查找或创建 */
-            const TripLineTrackKey_S stKey{ nChannelId, stRule.nRuleId, stObject.optTrackId.value() };
+            const TripLineTrackKey_S stKey{ nChannelId, stRule.nRuleId, stObject.ullTrackId };
             TripLineTrackState_S *pState = m_trackStore.find(stKey);
 
             if (pState == nullptr)
@@ -229,7 +229,8 @@ int CTripLineProcessor::process(const DetectionBatch_S &stBatch, ProcessorOutput
             OverlayItem_S stOverlayItem;
             stOverlayItem.enType = stObject.enType;
             stOverlayItem.stRect = stObject.stRect;
-            stOverlayItem.optTrackId = stObject.optTrackId;
+            stOverlayItem.bHasTrackId = stObject.bHasTrackId;
+            stOverlayItem.ullTrackId = stObject.ullTrackId;
             stOutput.vecOverlayItems.emplace_back(std::move(stOverlayItem));
 
             /* 输出事件条件：enEventType=LINE_CROSSING, bConditionMet=true */
@@ -250,7 +251,7 @@ int CTripLineProcessor::process(const DetectionBatch_S &stBatch, ProcessorOutput
             stCondition.nObjectType = to_neutral_object_type(stObject.enType);
             stCondition.fConfidence = stObject.fConfidence;
             stCondition.stTargetRect = stObject.stRect;
-            stCondition.ullTargetId = stObject.optTrackId.value_or(0U);
+            stCondition.ullTargetId = stObject.ullTrackId;
 
             stOutput.vecEventConditions.emplace_back(std::move(stCondition));
 

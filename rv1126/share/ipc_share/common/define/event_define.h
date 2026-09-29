@@ -48,6 +48,7 @@ namespace Event
 #endif
 
         FACE_COMPARE = 12,         /* 人脸比对 */
+        FACE_RECOGNITION = 13,     /* 人脸识别 */
     } SmartCategory_E;
 
     /* 事件类型枚举 */
@@ -158,6 +159,9 @@ namespace Event
         /* ========== 垃圾站 ========== */
         GARBAGE_STATION_SNAPSHOT = 56, /* 垃圾站手动抓图识别 */
 
+        // ========== 人脸识别 合并侦测、抓拍、属性分析 ==========
+        FACE_RECOGNITION = 57, /* 人脸识别 */
+
         /**
          * @brief   : 事件其他特殊类型
          */
@@ -230,6 +234,7 @@ namespace Event
         case Type::AUDIO_SUDDEN_DROP:
         case Type::SCENE_CHANGE:
         case Type::FACE_DETECT:
+        case Type::FACE_RECOGNITION:
         case Type::LOITERING_DETECT:
         case Type::CROWD_GATHERING:
         case Type::PARKING_DETECT:
@@ -471,6 +476,7 @@ namespace Event
         int nEnAudioAnomaly = 0;     /* 音频异常侦测 */
         int nEnSceneChange = 0;      /* 场景变更 */
         int nEnFaceDetect = 0;       /* 人脸侦测 */
+        int nEnFaceRecognition = 0;     /* 人脸识别 */
         int nEnLoiteringDetect = 0;  /* 徘徊侦测 */
         int nEnCrowdGathering = 0;   /* 人员聚集 */
         int nEnParkingDetect = 0;    /* 停车侦测 */
@@ -507,7 +513,7 @@ namespace Event
         int nEnTrip = 0;            /* 摔倒识别 */
         int nEnSmoking = 0;        /* 抽烟识别 */
         int nEnPhoneUsage = 0;     /* 玩手机识别 */
-        int nEnSmokeFire = 0;      /* 烟火识别 */
+        // int nEnSmokeFire = 0;      /* 烟火识别 */
         int nEnOpenFlame = 0;      /* 明火识别 */
         int nEnManholeCoverAbnormal = 0; /* 井盖异常检测 */
         int nEnBareSoil = 0;       /* 黄土裸露识别 */
@@ -540,7 +546,9 @@ namespace Event
          */
         int nPlateNumber = 0;           /* 车牌识别 */
 #endif
-
+#if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
+        int nEnSmokeFire = 0;      /* 烟火识别 */
+#endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_GARBAGE_DETECT
         int nEnGarbageExposure = 0; /* 垃圾暴露识别 */
         int nEnGarbageOverflow = 0; /* 垃圾满溢识别 */
@@ -616,6 +624,11 @@ namespace Event
          */
         bool bFaceCompare = false; /* 人脸比对 */
 
+        /**
+         * @brief   : 人脸识别
+         */
+        bool bFaceRecognition = false;   /* 人脸识别 */
+
 #ifdef SCENE_INTELLIGENCE
         /**
          * @brief   : 行为监管
@@ -628,7 +641,7 @@ namespace Event
         bool bTrip = false;                                 /* 摔倒识别 */
         bool bSmoking = false;                              /* 抽烟识别 */
         bool bPhoneUsage = false;                           /* 玩手机识别 */
-        bool bSmokeFire = false;                            /* 烟火识别 */
+        // bool bSmokeFire = false;                            /* 烟火识别 */
         bool bOpenFlame = false;                            /* 明火识别 */
         bool bManholeCoverAbnormal = false;                 /* 井盖异常检测 */
         bool bBareSoil = false;                             /* 黄土裸露识别 */
@@ -659,7 +672,9 @@ namespace Event
          */
         bool bPlateNumber = false;                          /* 车牌识别 */
 #endif
-
+#if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
+        bool bSmokeFire = false;                            /* 烟火识别 */
+#endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_GARBAGE_DETECT
         bool bGarbageExposure = false; /* 垃圾暴露识别 */
         bool bGarbageOverflow = false; /* 垃圾满溢识别 */

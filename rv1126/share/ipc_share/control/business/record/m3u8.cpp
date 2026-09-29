@@ -11,7 +11,7 @@
 #include <cmath>
 
 /*定义视频分片时长，秒*/
-#define SLICING_TIME 60
+#define SLICING_TIME                  60
 /* EXTINF解析容忍时长，秒：实际分片需等待关键帧，可能略超过标准分片时长 */
 #define EXTINF_DURATION_TOLERANCE_SEC 10
 
@@ -19,8 +19,7 @@ M3U8::M3U8()
 {
 }
 
-M3U8::M3U8(std::string path)
-    : m_path(path)
+M3U8::M3U8(std::string path) : m_path(path)
 {
     if (!m_path.empty())
     {
@@ -84,7 +83,7 @@ int M3U8::add_ts(Data_S stData)
     std::string line;
     while (std::getline(inFile, line))
     {
-        if (line != "#EXT-X-ENDLIST")  // 忽略 ENDLIST 标记
+        if (line != "#EXT-X-ENDLIST") // 忽略 ENDLIST 标记
         {
             content += line + "\n";
         }
@@ -169,7 +168,7 @@ static std::string trim(const std::string &str)
     }
 
     size_t nStart = 0;
-    size_t nEnd   = str.size() - 1;
+    size_t nEnd = str.size() - 1;
 
     // 移除开头空白
     while (nStart <= nEnd && std::isspace(static_cast<unsigned char>(str[nStart])))
@@ -190,7 +189,7 @@ static std::string trim(const std::string &str)
 std::vector<std::string> M3U8::get_M3u8TsFileName(const std::string &strFilePath)
 {
     std::vector<std::string> strTsFiles;
-    std::ifstream            file(strFilePath.c_str());
+    std::ifstream file(strFilePath.c_str());
     if (!file.is_open())
     {
         dlog_error("无法打开文件:%s", strFilePath.c_str());
@@ -224,15 +223,14 @@ int M3U8::parse_time(const std::string &timeStr)
         return -1;
     }
 
-    if (timeStr[4] != '-' || timeStr[7] != '-' ||
-        timeStr[10] != ' ' || timeStr[13] != ':' || timeStr[16] != ':')
+    if (timeStr[4] != '-' || timeStr[7] != '-' || timeStr[10] != ' ' || timeStr[13] != ':' || timeStr[16] != ':')
     {
         dlog_error("时间格式无效 (应为YYYY-MM-DD HH:MM:SS): %s", timeStr.c_str());
         return -1;
     }
 
     // 直接解析时分秒（忽略年月日，仅计算当天秒数）
-    int hour   = atoi(timeStr.substr(11, 2).c_str());
+    int hour = atoi(timeStr.substr(11, 2).c_str());
     int minute = atoi(timeStr.substr(14, 2).c_str());
     int second = atoi(timeStr.substr(17, 2).c_str());
 
@@ -268,7 +266,7 @@ int M3U8::parse()
     }
 
     file.seekg(0, std::ios::end);
-    size_t file_size = (size_t)file.tellg();
+    size_t file_size = (size_t) file.tellg();
     file.seekg(0, std::ios::beg);
 
     if (file_size == 0)
@@ -281,7 +279,7 @@ int M3U8::parse()
     file.close();
 
     // ================= split lines =================
-    std::vector<std::string_view> lines;
+    std::vector<std::string> lines;
 
     size_t start = 0;
     for (size_t i = 0; i < file_content.size(); ++i)
@@ -290,7 +288,7 @@ int M3U8::parse()
         {
             if (i > start)
             {
-                lines.emplace_back(&file_content[start], i - start);
+                lines.emplace_back(file_content, start, i - start);
             }
 
             start = i + 1;
@@ -299,14 +297,14 @@ int M3U8::parse()
 
     if (start < file_content.size())
     {
-        lines.emplace_back(&file_content[start], file_content.size() - start);
+        lines.emplace_back(file_content, start, file_content.size() - start);
     }
 
     // ================= tags =================
-    const std::string_view PDT_TAG = "#EXT-X-PROGRAM-DATE-TIME:";
-    const std::string_view INF_TAG = "#EXTINF:";
-    const std::string_view ST_TAG  = "#START-TIME:";
-    const std::string_view ET_TAG  = "#END-TIME:";
+    const std::string PDT_TAG = "#EXT-X-PROGRAM-DATE-TIME:";
+    const std::string INF_TAG = "#EXTINF:";
+    const std::string ST_TAG = "#START-TIME:";
+    const std::string ET_TAG = "#END-TIME:";
 
     const size_t PDT_LEN = PDT_TAG.size();
     const size_t INF_LEN = INF_TAG.size();
@@ -371,10 +369,10 @@ int M3U8::parse()
                 continue;
             }
 
-            std::string_view v = line_sv.substr(INF_LEN);
+            std::string v = line_sv.substr(INF_LEN);
 
             size_t comma = v.find(',');
-            if (comma != std::string_view::npos)
+            if (comma != std::string::npos)
             {
                 v = v.substr(0, comma);
             }
@@ -383,8 +381,9 @@ int M3U8::parse()
 
             try
             {
-                duration = std::stof(std::string(v)); 
-            } catch (...)
+                duration = std::stof(v);
+            }
+            catch (...)
             {
                 dlog_error("EXTINF解析失败");
 
@@ -412,7 +411,7 @@ int M3U8::parse()
                 continue;
             }
 
-            m_segmentDurations.push_back((int)duration);
+            m_segmentDurations.push_back((int) duration);
             timePending = false;
             lastSegmentMayBeGapPlaceholder = true;
             invalidExtinfWaitingStartMarker = false;
@@ -529,7 +528,7 @@ int M3U8::parse()
 
         if (m_videoTimes.empty())
         {
-            m_videoTimes.push_back({t, end});
+            m_videoTimes.push_back({ t, end });
             continue;
         }
 
@@ -541,7 +540,7 @@ int M3U8::parse()
         }
         else
         {
-            m_videoTimes.push_back({t, end});
+            m_videoTimes.push_back({ t, end });
         }
     }
 

@@ -9,7 +9,8 @@
 #include <cmath>
 #include <glob.h>
 #include <mntent.h>
-#include <filesystem>
+#include "posix_fs.h"
+#include <cerrno>
 #include "av_configure.h"
 #include <sys/statvfs.h>
 #include <unistd.h>
@@ -29,24 +30,26 @@
 #include "capture_database.h"
 #include "event_database.h"
 #include "event_manage.h"
-// namespace fs = std::filesystem;
+
+#include <algorithm>
+#include <set>
+#include <sstream>
+#include <cstring>
 static void clear_face_database_after_sd_format()
 {
 #if CAP_AI_FACE_COMPARE
     int nAlgoRet = -1;
-    const int nSendRet = CEventManage::instance()->send_algo_controlData(
-        AC_CLEAR_FACE_DATABASE, "{}", &nAlgoRet);
+    const int nSendRet = CEventManage::instance()->send_algo_controlData(AC_CLEAR_FACE_DATABASE, "{}", &nAlgoRet);
     if ((nSendRet != 0) || (nAlgoRet != 0))
     {
-        dlog_error("clear face database after SD format failed, sendRet=%d, algoRet=%d",
-                   nSendRet, nAlgoRet);
+        dlog_error("clear face database after SD format failed, sendRet=%d, algoRet=%d", nSendRet, nAlgoRet);
         return;
     }
     dlog_info("face persons and feature data cleared after SD format");
 #endif
 }
 
-#if CAP_STORAGE_MMCBLK1  // 存储 mmcblk1 路径逻辑
+#if CAP_STORAGE_MMCBLK1 // 存储 mmcblk1 路径逻辑
 
 /* sd卡挂载/卸载脚本 */
 #define SD_CARD_MOUNT_REMOVE_SCRIPT_PATH "/etc/udev/scripts/mount_device"
@@ -70,17 +73,17 @@ static void clear_face_database_after_sd_format()
 constexpr const char *PROC_SELF_MOUNTS_PATH = "/proc/self/mounts";
 
 /* Nginx master 进程 pid 文件完整路径 */
-#define NGINX_PID_FILE_PATH               (THIRD_PATRY_PATH "nginx/logs/nginx.pid")
+#define NGINX_PID_FILE_PATH (THIRD_PATRY_PATH "nginx/logs/nginx.pid")
 
 /* 进行删除录像上限阈值 */
-#define DISK_DEL_RECORD_DEFAULT_VALUE_UP  0.99
+#define DISK_DEL_RECORD_DEFAULT_VALUE_UP 0.99
 
 /* 进行删除抓图上限阈值 */
 #define DISK_DEL_CAPTURE_DEFAULT_VALUE_UP 0.98
 
-#define MAX_DEPTH                         40
+#define MAX_DEPTH 40
 
-#define PROBE_FILE                        ".sd_guardian_probe"
+#define PROBE_FILE ".sd_guardian_probe"
 
 CStorageManage::CStorageManage()
 {
@@ -121,7 +124,9 @@ IpcRet_E CStorageManage::deinit()
 int CStorageManage::init_detect()
 {
     /* 监听 multicast group 1 (kernel) */
-    struct sockaddr_nl nls = {.nl_family = AF_NETLINK, .nl_groups = 1};
+    struct sockaddr_nl nls = {};
+    nls.nl_family = AF_NETLINK;
+    nls.nl_groups = 1;
 
     m_nSock = socket(PF_NETLINK, SOCK_DGRAM, NETLINK_KOBJECT_UEVENT);
     if (m_nSock < 0)
@@ -134,7 +139,7 @@ int CStorageManage::init_detect()
     int flags = fcntl(m_nSock, F_GETFL, 0);
     fcntl(m_nSock, F_SETFL, flags | O_NONBLOCK);
 
-    if (bind(m_nSock, (struct sockaddr *)&nls, sizeof(nls)) < 0)
+    if (bind(m_nSock, (struct sockaddr *) &nls, sizeof(nls)) < 0)
     {
         perror("bind");
         close(m_nSock);
@@ -150,16 +155,16 @@ int CStorageManage::init_detect()
 bool CStorageManage::sd_card_is_exist()
 {
     glob_t globbuf;
-    bool   bStatus = false;
+    bool bStatus = false;
 
     // 使用glob函数更安全地查找设备
     if (glob("/dev/mmcblk[0-9]*", GLOB_NOSORT, NULL, &globbuf) == 0)
     {
         if (globbuf.gl_pathc > 0)
         {
-            bStatus = true;  // 找到SD卡设备
+            bStatus = true; // 找到SD卡设备
         }
-        globfree(&globbuf);  // 释放glob分配的内存
+        globfree(&globbuf); // 释放glob分配的内存
     }
 
     return bStatus;
@@ -171,9 +176,9 @@ bool CStorageManage::sd_card_is_exist()
  */
 bool CStorageManage::sd_card_is_mounted()
 {
-    FILE          *fp;
+    FILE *fp;
     struct mntent *ent;
-    bool           bStatus = false;
+    bool bStatus = false;
 
     // 打开挂载信息文件
     fp = setmntent("/proc/mounts", "r");
@@ -188,7 +193,7 @@ bool CStorageManage::sd_card_is_mounted()
     {
         if (strstr(ent->mnt_fsname, "/dev/mmcblk") != NULL)
         {
-            bStatus = true;  // 找到SD卡挂载点
+            bStatus = true; // 找到SD卡挂载点
             break;
         }
     }
@@ -207,7 +212,7 @@ int CStorageManage::get_fs_size(unsigned long long &llTotalSize, const std::stri
         return -1;
     }
 
-    llTotalSize = (unsigned long long)stVfs.f_blocks * stVfs.f_frsize;
+    llTotalSize = (unsigned long long) stVfs.f_blocks * stVfs.f_frsize;
 
     return 0;
 }
@@ -222,7 +227,7 @@ int CStorageManage::get_fs_usage(unsigned long long &llUseSize, const std::strin
         return -1;
     }
 
-    llUseSize = ((unsigned long long)stVfs.f_blocks - (unsigned long long)stVfs.f_bavail) * stVfs.f_frsize;
+    llUseSize = ((unsigned long long) stVfs.f_blocks - (unsigned long long) stVfs.f_bavail) * stVfs.f_frsize;
 
     return 0;
 }
@@ -340,7 +345,7 @@ void CStorageManage::get_directory_size(int dfd, const char *name, int depth, Di
 int CStorageManage::calculateRecordingTime(float fRecordSpace)
 {
     std::set<Video_NS::VideoConfig_S> stVideoConfigs;
-    Audio_NS::AudioConfig_S           stAudioConfig;
+    Audio_NS::AudioConfig_S stAudioConfig;
 
     CAVConfigure::instance()->get_configure(stVideoConfigs);
 
@@ -366,7 +371,7 @@ int CStorageManage::calculateRecordingTime(float fRecordSpace)
     if (stAudioConfig.bAudioSwitch)
     {
         // 转换单位 bps -> kbps
-        nAudioBitrate = (int)stAudioConfig.enBitRate / 1000;
+        nAudioBitrate = (int) stAudioConfig.enBitRate / 1000;
     }
 
     // 3. 计算总码率（kbps）
@@ -425,25 +430,25 @@ int CStorageManage::calculate_storageManage_param()
 
     Record_NS::RecordDirInfo_S stRecordDirInfo;
     stRecordDirInfo.nChnId = 0;
-    nRet                   = RecordFileDatabase::instance()->get_itemInfo(stRecordDirInfo);
-    m_llRecordDirUseSize   = stRecordDirInfo.nTotalSize;
+    nRet = RecordFileDatabase::instance()->get_itemInfo(stRecordDirInfo);
+    m_llRecordDirUseSize = stRecordDirInfo.nTotalSize;
 
     Capture_NS::CaptureDirInfo_S stCaptureDirInfo;
     stCaptureDirInfo.nChnId = 0;
-    nRet                    = CCaptureDatabase::instance()->get_itemInfo(stCaptureDirInfo);
-    m_llCaptureDirUseSize   = stCaptureDirInfo.nTotalSize;
+    nRet = CCaptureDatabase::instance()->get_itemInfo(stCaptureDirInfo);
+    m_llCaptureDirUseSize = stCaptureDirInfo.nTotalSize;
 
-    #if CAP_AI_FACE_COMPARE
+#if CAP_AI_FACE_COMPARE
     llOtherDirUseSize = llUseSize - m_llRecordDirUseSize - m_llCaptureDirUseSize - m_llFaceDirUseSize;
-    #else
+#else
     llOtherDirUseSize = llUseSize - m_llRecordDirUseSize - m_llCaptureDirUseSize;
-    #endif
+#endif
     /* 计算图片配置空间大小，单位GB */
     float fCaptureSpaceGb;
 
-
-    m_llCaptureSpaceByte = static_cast<long long>((llTotalSize - llOtherDirUseSize) * (m_stStorageManageParam.nCaptureQuotaPercentage / 100.0));
-    fCaptureSpaceGb      = static_cast<float>(m_llCaptureSpaceByte / (1024.0 * 1024 * 1024));
+    m_llCaptureSpaceByte = static_cast<long long>((llTotalSize - llOtherDirUseSize) *
+                                                  (m_stStorageManageParam.nCaptureQuotaPercentage / 100.0));
+    fCaptureSpaceGb = static_cast<float>(m_llCaptureSpaceByte / (1024.0 * 1024 * 1024));
     ss.str("");
     ss.clear();
     ss << std::fixed << std::setprecision(2) << fCaptureSpaceGb;
@@ -453,20 +458,20 @@ int CStorageManage::calculate_storageManage_param()
     float fRecordSpaceGb;
     ss.str("");
     ss.clear();
-//     #if CAP_AI_FACE_COMPARE
+    //     #if CAP_AI_FACE_COMPARE
 
-//     const double fFaceRatio = FACE_QUOTA_PERCENT / 100.0;
+    //     const double fFaceRatio = FACE_QUOTA_PERCENT / 100.0;
 
-//     m_llFaceSpaceByte = static_cast<long long>((llTotalSize - llOtherDirUseSize) * fFaceRatio);
+    //     m_llFaceSpaceByte = static_cast<long long>((llTotalSize - llOtherDirUseSize) * fFaceRatio);
 
-//     m_llRecordSpaceByte = static_cast<long long>((llTotalSize - llOtherDirUseSize) *
-//                           ((m_stStorageManageParam.nRecordQuotaPercentage - FACE_QUOTA_PERCENT) / 100.0));
+    //     m_llRecordSpaceByte = static_cast<long long>((llTotalSize - llOtherDirUseSize) *
+    //                           ((m_stStorageManageParam.nRecordQuotaPercentage - FACE_QUOTA_PERCENT) / 100.0));
 
-
-// #else
-    m_llRecordSpaceByte = static_cast<long long>((llTotalSize - llOtherDirUseSize) * (m_stStorageManageParam.nRecordQuotaPercentage / 100.0));
-// #endif
-    fRecordSpaceGb      = static_cast<float>(m_llRecordSpaceByte / (1024.0 * 1024 * 1024));
+    // #else
+    m_llRecordSpaceByte = static_cast<long long>((llTotalSize - llOtherDirUseSize) *
+                                                 (m_stStorageManageParam.nRecordQuotaPercentage / 100.0));
+    // #endif
+    fRecordSpaceGb = static_cast<float>(m_llRecordSpaceByte / (1024.0 * 1024 * 1024));
     ss << std::fixed << std::setprecision(2) << fRecordSpaceGb;
     m_stStorageManageParam.strRecordSpace = ss.str();
 
@@ -519,8 +524,8 @@ int CStorageManage::update_storageManage_param(StorageManage_NS::StorageManage_S
 
     CStorageManageConfigure::instance()->set_configure(stStorageManageParam);
 
-    m_stStorageManageParam.bEnable                 = stStorageManageParam.bEnable;
-    m_stStorageManageParam.nRecordQuotaPercentage  = stStorageManageParam.nRecordQuotaPercentage;
+    m_stStorageManageParam.bEnable = stStorageManageParam.bEnable;
+    m_stStorageManageParam.nRecordQuotaPercentage = stStorageManageParam.nRecordQuotaPercentage;
     m_stStorageManageParam.nCaptureQuotaPercentage = stStorageManageParam.nCaptureQuotaPercentage;
 
     nRet = calculate_storageManage_param();
@@ -534,8 +539,8 @@ int CStorageManage::get_captureDirUseStatus()
 
     Capture_NS::CaptureDirInfo_S stCaptureDirInfo;
     stCaptureDirInfo.nChnId = 0;
-    int nRet                = OK;
-    nRet                    = CCaptureDatabase::instance()->get_itemInfo(stCaptureDirInfo);
+    int nRet = OK;
+    nRet = CCaptureDatabase::instance()->get_itemInfo(stCaptureDirInfo);
     if (nRet == OK)
     {
         m_llCaptureDirUseSize = stCaptureDirInfo.nTotalSize;
@@ -571,15 +576,10 @@ bool CStorageManage::has_capture_write_space(long long llIncomingSize)
     }
 
     /* 把即将写入的图片也计入判断，禁止普通抓图越过自身配额。 */
-    const long long llCaptureLimit = static_cast<long long>(
-        m_llCaptureSpaceByte * DISK_DEL_CAPTURE_DEFAULT_VALUE_UP);
-    if (llCaptureLimit > 0 &&
-        m_llCaptureDirUseSize + llIncomingSize > llCaptureLimit)
+    const long long llCaptureLimit = static_cast<long long>(m_llCaptureSpaceByte * DISK_DEL_CAPTURE_DEFAULT_VALUE_UP);
+    if (llCaptureLimit > 0 && m_llCaptureDirUseSize + llIncomingSize > llCaptureLimit)
     {
-        dlog_warn("capture quota insufficient, used:%lld incoming:%lld limit:%lld",
-                  m_llCaptureDirUseSize,
-                  llIncomingSize,
-                  llCaptureLimit);
+        dlog_warn("capture quota insufficient, used:%lld incoming:%lld limit:%lld", m_llCaptureDirUseSize, llIncomingSize, llCaptureLimit);
         return false;
     }
 
@@ -590,8 +590,7 @@ bool CStorageManage::has_capture_write_space(long long llIncomingSize)
         return false;
     }
 
-    const unsigned long long ullAvailable =
-        static_cast<unsigned long long>(stVfs.f_bavail) * stVfs.f_frsize;
+    const unsigned long long ullAvailable = static_cast<unsigned long long>(stVfs.f_bavail) * stVfs.f_frsize;
     unsigned long long ullFaceReserve = 0;
 
 #if CAP_AI_FACE_COMPARE
@@ -599,12 +598,9 @@ bool CStorageManage::has_capture_write_space(long long llIncomingSize)
      * 普通抓图不得使用人脸目录尚未使用的配额，保证后续仍可导入人脸图片。
      * 人脸配额按SD卡总容量的 FACE_QUOTA_PERCENT 计算。
      */
-    const unsigned long long ullTotal =
-        static_cast<unsigned long long>(stVfs.f_blocks) * stVfs.f_frsize;
-    const unsigned long long ullFaceQuota =
-        ullTotal * FACE_QUOTA_PERCENT / 100;
-    const unsigned long long ullFaceUsed =
-        m_llFaceDirUseSize > 0 ? static_cast<unsigned long long>(m_llFaceDirUseSize) : 0;
+    const unsigned long long ullTotal = static_cast<unsigned long long>(stVfs.f_blocks) * stVfs.f_frsize;
+    const unsigned long long ullFaceQuota = ullTotal * FACE_QUOTA_PERCENT / 100;
+    const unsigned long long ullFaceUsed = m_llFaceDirUseSize > 0 ? static_cast<unsigned long long>(m_llFaceDirUseSize) : 0;
     ullFaceReserve = ullFaceQuota > ullFaceUsed ? ullFaceQuota - ullFaceUsed : 0;
 #endif
 
@@ -619,7 +615,6 @@ bool CStorageManage::has_capture_write_space(long long llIncomingSize)
 
     return true;
 }
-
 
 int CStorageManage::get_recordDirUseStatus()
 {
@@ -690,14 +685,14 @@ bool CStorageManage::is_sd_event(const char *pBuf, int *add)
 std::string CStorageManage::get_sd_uuid(const std::string &dev)
 {
 
-#if CAP_STORAGE_MMCBLK1  // 存储 mmcblk1 路径逻辑
+#if CAP_STORAGE_MMCBLK1 // 存储 mmcblk1 路径逻辑
     const std::string cmd = "/sbin/blkid -c /dev/null /dev/mmcblk1p1 2>/dev/null | sed -n 's/.*UUID=\"\\([^\"]*\\)\".*/\\1/p'";
 #else
     const std::string cmd = "/sbin/blkid -c /dev/null /dev/mmcblk0p1 2>/dev/null | sed -n 's/.*UUID=\"\\([^\"]*\\)\".*/\\1/p'";
 #endif
 
-    std::array<char, 128>                    buffer;
-    std::string                              strUuid;
+    std::array<char, 128> buffer;
+    std::string strUuid;
     std::unique_ptr<FILE, decltype(&pclose)> pipe(popen(cmd.c_str(), "r"), pclose);
     if (!pipe)
     {
@@ -721,8 +716,7 @@ std::string CStorageManage::get_sd_uuid(const std::string &dev)
 /* 执行指定脚本 */
 static int run_script(const std::string &path, const std::vector<std::string> &args, const std::vector<std::string> &extra_env)
 {
-    namespace fs = std::filesystem;
-    if (!fs::exists(path) || !fs::is_regular_file(path))
+    if (!PosixFs_NS::exists(path) || !PosixFs_NS::is_regular_file(path))
         throw std::runtime_error("run_script: 脚本不存在 " + path);
 
     /* ---------- 1. 构造新的环境表 ---------- */
@@ -745,7 +739,12 @@ static int run_script(const std::string &path, const std::vector<std::string> &a
         std::string key = kv.substr(0, pos);
 
         /* 查找并覆盖 */
-        auto it = std::find_if(new_env.begin(), new_env.end(), [&](const std::string &s) { return s.compare(0, key.size() + 1, key + "=") == 0; });
+        auto it = std::find_if(new_env.begin(),
+                               new_env.end(),
+                               [&](const std::string &s)
+                               {
+                                   return s.compare(0, key.size() + 1, key + "=") == 0;
+                               });
         if (it != new_env.end())
         {
             *it = kv;
@@ -775,7 +774,12 @@ static int run_script(const std::string &path, const std::vector<std::string> &a
 
     /* ---------- 3. spawn ---------- */
     pid_t pid{};
-    int   rc = posix_spawn(&pid, path.c_str(), nullptr, nullptr, const_cast<char *const *>(argv.data()), const_cast<char *const *>(envp.data()));
+    int rc = posix_spawn(&pid,
+                         path.c_str(),
+                         nullptr,
+                         nullptr,
+                         const_cast<char *const *>(argv.data()),
+                         const_cast<char *const *>(envp.data()));
     if (rc != 0)
     {
         throw std::runtime_error("posix_spawn: " + std::string(strerror(rc)));
@@ -798,15 +802,15 @@ SD_CARD_STATUS_E CStorageManage::get_SdCardStatus()
 
 int CStorageManage::update_DatabaseDirUseSize()
 {
-    int                          nRet = 0;
-    Record_NS::RecordDirInfo_S   stRecordDirInfo;
+    int nRet = 0;
+    Record_NS::RecordDirInfo_S stRecordDirInfo;
     Capture_NS::CaptureDirInfo_S stCaptureDirInfo;
 
-    long long llSize       = 0;
+    long long llSize = 0;
     stRecordDirInfo.nChnId = 0;
-    nRet                   = RecordFileDatabase::instance()->get_itemInfo(stRecordDirInfo);
+    nRet = RecordFileDatabase::instance()->get_itemInfo(stRecordDirInfo);
     get_directory_size(llSize, RECORD_PATH);
-    m_llRecordDirUseSize       = llSize;
+    m_llRecordDirUseSize = llSize;
     stRecordDirInfo.nTotalSize = m_llRecordDirUseSize;
     if (nRet < 0)
     {
@@ -818,11 +822,11 @@ int CStorageManage::update_DatabaseDirUseSize()
     }
     dlog_info("录制目录大小 [%lld] byte", m_llRecordDirUseSize);
 
-    llSize                  = 0;
+    llSize = 0;
     stCaptureDirInfo.nChnId = 0;
-    nRet                    = CCaptureDatabase::instance()->get_itemInfo(stCaptureDirInfo);
+    nRet = CCaptureDatabase::instance()->get_itemInfo(stCaptureDirInfo);
     get_directory_size(llSize, CAPTURE_PATH);
-    m_llCaptureDirUseSize       = llSize;
+    m_llCaptureDirUseSize = llSize;
     stCaptureDirInfo.nTotalSize = m_llCaptureDirUseSize;
     if (nRet < 0)
     {
@@ -834,7 +838,7 @@ int CStorageManage::update_DatabaseDirUseSize()
     }
     dlog_info("抓图目录大小 [%lld] byte", m_llCaptureDirUseSize);
 
-    #if CAP_AI_FACE_COMPARE
+#if CAP_AI_FACE_COMPARE
 
     llSize = 0;
 
@@ -844,13 +848,13 @@ int CStorageManage::update_DatabaseDirUseSize()
 
     dlog_info("人脸目录大小 [%lld] byte", m_llFaceDirUseSize);
 
-    #endif
+#endif
     return 0;
 }
 
 #if 0
 static int formatSDCardSyncCaptureDb()
-{
+    {
     CCaptureDatabase::instance()->clear_table(CAPTURE_TABLE_NAME);
     Capture_NS::CaptureDirInfo_S stDirInfo;
 
@@ -865,7 +869,7 @@ static int formatSDCardSyncCaptureDb()
         CCaptureDatabase::instance()->add(stDirInfo);
     }
     else
-    {
+{
         CCaptureDatabase::instance()->update(stDirInfo);
     }
     return 0;
@@ -905,24 +909,13 @@ static bool nginxReload()
 
 static int mkdirIfNotExist(const std::string &path)
 {
-    try
+    if (PosixFs_NS::make_directories(path))
     {
-        fs::create_directories(path); /* 已存在不会报错 */
         dlog_info("creat %s success", path.c_str());
         return 0;
-    } catch (const fs::filesystem_error &e)
-    {
-        dlog_error("mkdir failed: %s, path=%s, ec=%s", e.what(), e.path1().c_str(), e.code().message().c_str());
-        return -1;
-    } catch (const std::exception &e)
-    {
-        dlog_error("mkdir failed: %s, path=%s", e.what(), path.c_str());
-        return -1;
-    } catch (...)
-    {
-        dlog_error("mkdir failed: unknown exception, path=%s", path.c_str());
-        return -1;
     }
+    dlog_error("mkdir failed: errno=%d, path=%s", errno, path.c_str());
+    return -1;
 }
 
 static std::string getDeviceByMountPoint(const std::string &strMountPoint)
@@ -937,7 +930,7 @@ static std::string getDeviceByMountPoint(const std::string &strMountPoint)
     while (std::getline(file, line))
     {
         std::istringstream iss(line);
-        std::string        strDevice, strMount;
+        std::string strDevice, strMount;
 
         if (iss >> strDevice >> strMount)
         {
@@ -953,7 +946,7 @@ static std::string getDeviceByMountPoint(const std::string &strMountPoint)
 
 int CStorageManage::format_sd_card(bool bIsInitSdCard)
 {
-    int nRet        = 0;
+    int nRet = 0;
     int nRetryCount = 0;
     if (!m_stStorageManageParam.bEnable)
     {
@@ -968,13 +961,13 @@ int CStorageManage::format_sd_card(bool bIsInitSdCard)
     }
 
     /* sd卡存在 */
-    if ( (m_SdCardStatus == SD_CARD_STATUS_E::NORMAL) || (sd_card_is_exist() && sd_card_is_mounted()) )
+    if ((m_SdCardStatus == SD_CARD_STATUS_E::NORMAL) || (sd_card_is_exist() && sd_card_is_mounted()))
     {
         CRecordCtrl::instance()->stop_record();
         sleep(2); /* 等待停止录制 */
-        
+
         std::lock_guard<std::mutex> lock(m_mutex);
-        
+
         m_SdCardStatus = SD_CARD_STATUS_E::FORMATING;
         m_stStorageManageParam.clear();
 
@@ -985,8 +978,8 @@ int CStorageManage::format_sd_card(bool bIsInitSdCard)
 
         std::string strDevice = getDeviceByMountPoint(SD_CARD_MOUNT_PATH);
 
-#if CAP_STORAGE_MMCBLK1  // 存储 mmcblk1 路径逻辑
-        nRet = run_script(SD_CARD_MOUNT_REMOVE_SCRIPT_PATH, {strDevice, "remove"}, {});  // 关键环境变量
+#if CAP_STORAGE_MMCBLK1                                                                   // 存储 mmcblk1 路径逻辑
+        nRet = run_script(SD_CARD_MOUNT_REMOVE_SCRIPT_PATH, { strDevice, "remove" }, {}); // 关键环境变量
 #else
         std::string strTmpDevice = strDevice;
 
@@ -994,12 +987,12 @@ int CStorageManage::format_sd_card(bool bIsInitSdCard)
 
         if (pos != std::string::npos)
         {
-            strTmpDevice = strTmpDevice.substr(pos + 1);  // 截取 '/' 之后的部分
+            strTmpDevice = strTmpDevice.substr(pos + 1); // 截取 '/' 之后的部分
         }
 
         std::string strMdev = "MDEV=" + strTmpDevice;
         /* 执行卸载sd卡脚本 */
-        nRet = run_script(SD_CARD_REMOVE_SCRIPT_PATH, {}, {strMdev});  // 关键环境变量
+        nRet = run_script(SD_CARD_REMOVE_SCRIPT_PATH, {}, { strMdev }); // 关键环境变量
 #endif
         if (nRet != 0)
         {
@@ -1012,7 +1005,7 @@ int CStorageManage::format_sd_card(bool bIsInitSdCard)
             usleep(300 * 1000);
 
             std::string strFormatCommand = "mkfs.exfat -n CAM_SD " + strDevice;
-            nRet                         = system(strFormatCommand.c_str());
+            nRet = system(strFormatCommand.c_str());
             if (nRet == 0)
             {
                 dlog_info("sd卡格式化成功");
@@ -1038,12 +1031,12 @@ int CStorageManage::format_sd_card(bool bIsInitSdCard)
             dlog_error("sd卡格式化失败，进行重新挂载");
             sleep(1);
 
-#if CAP_STORAGE_MMCBLK1                                                                   // 存储 mmcblk1 路径逻辑
-            nRet = run_script(SD_CARD_MOUNT_REMOVE_SCRIPT_PATH, {strDevice, "add"}, {});  // 关键环境变量
+#if CAP_STORAGE_MMCBLK1                                                                    // 存储 mmcblk1 路径逻辑
+            nRet = run_script(SD_CARD_MOUNT_REMOVE_SCRIPT_PATH, { strDevice, "add" }, {}); // 关键环境变量
 #else
             // nRet = run_script(SD_CARD_MOUNT_SCRIPT_PATH, {}, {strMdev});
-            std::string strFaceStorage = "ENABLE_FACE_STORAGE=1"; 
-            nRet = run_script(SD_CARD_MOUNT_SCRIPT_PATH, {}, {strMdev, strFaceStorage}); 
+            std::string strFaceStorage = "ENABLE_FACE_STORAGE=1";
+            nRet = run_script(SD_CARD_MOUNT_SCRIPT_PATH, {}, { strMdev, strFaceStorage });
 #endif
             if (nRet == 0)
             {
@@ -1059,18 +1052,18 @@ int CStorageManage::format_sd_card(bool bIsInitSdCard)
 
                         if (nRet == 0)
                         {
-                            #if CAP_AI_FACE_COMPARE
+#if CAP_AI_FACE_COMPARE
                             clear_face_database_after_sd_format();
-                            #endif
+#endif
                             std::string strMkstrRecordPath = SD_CARD_MOUNT_PATH + std::string("/record");
-                            std::string strMkCapturePath   = SD_CARD_MOUNT_PATH + std::string("/capture");
+                            std::string strMkCapturePath = SD_CARD_MOUNT_PATH + std::string("/capture");
                             mkdirIfNotExist(strMkstrRecordPath);
                             mkdirIfNotExist(strMkCapturePath);
-                            #if CAP_AI_FACE_COMPARE
+#if CAP_AI_FACE_COMPARE
                             std::string strMkFacePath = SD_CARD_MOUNT_PATH + std::string("/face");
 
                             mkdirIfNotExist(strMkFacePath);
-                            #endif
+#endif
 
                             CStorageManageConfigure::instance()->set_configure(m_stStorageManageParam);
 
@@ -1127,12 +1120,12 @@ int CStorageManage::format_sd_card(bool bIsInitSdCard)
         {
             usleep(300 * 1000);
 
-#if CAP_STORAGE_MMCBLK1                                                                   // 存储 mmcblk1 路径逻辑
-            nRet = run_script(SD_CARD_MOUNT_REMOVE_SCRIPT_PATH, {strDevice, "add"}, {});  // 关键环境变量
+#if CAP_STORAGE_MMCBLK1                                                                    // 存储 mmcblk1 路径逻辑
+            nRet = run_script(SD_CARD_MOUNT_REMOVE_SCRIPT_PATH, { strDevice, "add" }, {}); // 关键环境变量
 #else
             // nRet = run_script(SD_CARD_MOUNT_SCRIPT_PATH, {}, {strMdev});
-            std::string strFaceStorage = "ENABLE_FACE_STORAGE=1"; 
-            nRet = run_script(SD_CARD_MOUNT_SCRIPT_PATH, {}, {strMdev, strFaceStorage}); 
+            std::string strFaceStorage = "ENABLE_FACE_STORAGE=1";
+            nRet = run_script(SD_CARD_MOUNT_SCRIPT_PATH, {}, { strMdev, strFaceStorage });
 #endif
             if (nRet == 0)
             {
@@ -1156,9 +1149,9 @@ int CStorageManage::format_sd_card(bool bIsInitSdCard)
         {
             if (sd_card_is_exist() && sd_card_is_mounted())
             {
-                #if CAP_AI_FACE_COMPARE
+#if CAP_AI_FACE_COMPARE
                 clear_face_database_after_sd_format();
-                #endif
+#endif
                 CStorageManageConfigure::instance()->set_configure(m_stStorageManageParam);
 
                 /* 插入sd卡初始化存放到sd卡空间的数据库 */
@@ -1203,12 +1196,12 @@ bool CStorageManage::test_write_operation()
             // 明确是只读
             return false;
         }
-        return false;  // 其他错误
+        return false; // 其他错误
     }
 
     // 测试2：写入实际数据
     const char test_pattern[] = "SD_GUARDIAN_PROBE_TEST_12345";
-    ssize_t    written        = write(fd, test_pattern, sizeof(test_pattern));
+    ssize_t written = write(fd, test_pattern, sizeof(test_pattern));
     if (written != sizeof(test_pattern))
     {
         close(fd);
@@ -1233,14 +1226,14 @@ bool CStorageManage::test_write_operation()
         return false;
     }
 
-    char    read_buf[64] = {0};
-    ssize_t n            = read(fd, read_buf, sizeof(read_buf));
+    char read_buf[64] = { 0 };
+    ssize_t n = read(fd, read_buf, sizeof(read_buf));
     close(fd);
     unlink(probe_path.c_str());
 
     if (n != sizeof(test_pattern) || strcmp(read_buf, test_pattern) != 0)
     {
-        return false;  // 数据损坏
+        return false; // 数据损坏
     }
 
     return true;
@@ -1250,7 +1243,9 @@ void CStorageManage::run()
 {
     char buf[4096];
     pthread_setname_np(pthread_self(), "SDFormatRun");
-    struct pollfd pfd = {.fd = m_nSock, .events = POLLIN};
+    struct pollfd pfd = {};
+    pfd.fd = m_nSock;
+    pfd.events = POLLIN;
 
     int nCount = 0;
     /* 检测sd卡连续异常次数 */
@@ -1336,7 +1331,7 @@ void CStorageManage::run()
         if (is_sd_event(buf, &add))
         {
             std::lock_guard<std::mutex> lock(m_mutex);
-            const char                 *dev = strstr(buf, "/block/");
+            const char *dev = strstr(buf, "/block/");
             if (dev)
             {
                 /* 跳过/block/ */

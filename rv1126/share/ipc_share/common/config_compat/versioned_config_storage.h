@@ -9,6 +9,8 @@
 
 #pragma once
 
+#include "cxx_compat.h"
+
 #include <set>
 #include <string>
 #include <fstream>
@@ -51,9 +53,7 @@ inline bool readVersionFromJson(Json::Object *pRootJson, ConfigVersion_S &versio
  * @param    {ConfigVersion_S} &version：版本
  * @param    {std::string} &configType：配置类型
  */
-inline void writeVersionToJson(Json::Object* pRootJson,
-                               const ConfigVersion_S& version,
-                               const std::string& configType)
+inline void writeVersionToJson(Json::Object *pRootJson, const ConfigVersion_S &version, const std::string &configType)
 {
     Json::add(pRootJson, VERSION_KEY, version.toString());
     Json::add(pRootJson, CONFIG_TYPE_KEY, configType);
@@ -63,9 +63,7 @@ inline void writeVersionToJson(Json::Object* pRootJson,
  * @brief   : 版本化配置存储基类
  * @note    : 提供版本检测、迁移、验证的通用逻辑
  */
-template <typename T,
-          typename Migrator = CConfigMigrator<T>,
-          typename Validator = CConfigValidator<T>>
+template <typename T, typename Migrator = CConfigMigrator<T>, typename Validator = CConfigValidator<T>>
 class CVersionedStorageBase
 {
 protected:
@@ -252,12 +250,15 @@ protected:
 
 private:
     /* SFINAE检测CreateWithDefaultRule方法 */
-    template <typename, typename = std::void_t<>>
-    struct hasCreateDefaultRule : std::false_type {};
+    template <typename, typename = CxxCompat_NS::void_t<>>
+    struct hasCreateDefaultRule : std::false_type
+    {
+};
 
     template <typename U>
-    struct hasCreateDefaultRule<U, std::void_t<decltype(U::CreateWithDefaultRule())>>
-        : std::true_type {};
+    struct hasCreateDefaultRule<U, CxxCompat_NS::void_t<decltype(U::CreateWithDefaultRule())>> : std::true_type
+    {
+    };
 
     T getDefaultDataImpl(std::true_type)
     {

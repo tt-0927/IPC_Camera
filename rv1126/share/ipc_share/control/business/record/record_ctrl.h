@@ -158,7 +158,7 @@ public:
     /**
     * @brief  : 获取最后一次录制停止的时间戳
     */
-    const std::string& getLastRecordStopTime() const;
+    const std::string &getLastRecordStopTime() const;
     
 private:
     /**
@@ -193,7 +193,7 @@ private:
     /*人为录制信息*/
     Record_NS::Info_S m_stHumanRecordInfo;
     /*是否停止检测录制计划线程函数*/
-    std::atomic_bool m_bRun = false;
+    std::atomic_bool m_bRun{ false };
     /* 默认录制通道 */
     int m_ChnId = 0;
     /* 当前时间录制计划类型：0当前无录制计划，1定时录制，2事件录制 */

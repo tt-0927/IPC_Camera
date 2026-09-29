@@ -77,14 +77,14 @@ void CBonjourManage::start_bonjour_server(Network::BonjourConfigInfo_S stBonjour
     }
     
     /* 启动代理服务线程 */
-    bonjourThread = std::make_unique<std::thread>(
+    bonjourThread = std::unique_ptr<std::thread>(new std::thread(
         [](const char *hostname, const char *service, int port)
         {
             service_mdns(hostname, service, port);
         },
         m_stInfo.strHostName.c_str(),
         m_stInfo.strServerName.c_str(),
-        m_stInfo.nPort);
+        m_stInfo.nPort));
     bEnableRunning = true;
 }
 

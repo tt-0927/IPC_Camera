@@ -261,6 +261,7 @@ static const SdkCommandMap_S g_astCommandMap[] = {
 
     /* ==================== 垃圾站抓图识别 (500) ==================== */
     {"NET_GARBAGE_STATION_SNAPSHOT_DETECT", 500, AC_GARBAGE_STATION_SNAPSHOT_DETECT, false, "垃圾站抓图识别"},
+    {"NET_SMOKE_FIRE_SNAPSHOT_DETECT", 501, AC_SMOKE_FIRE_SNAPSHOT_DETECT, false, "烟火抓图识别"},
 
 };
 

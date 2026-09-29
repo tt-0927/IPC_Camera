@@ -104,7 +104,8 @@ struct OverlayItem_S
 {
     ObjectType_E enType = ObjectType_E::UNKNOWN; /* 目标类型 */
     NormalizedRect_S stRect;                     /* 归一化矩形 */
-    std::optional<uint64_t> optTrackId;          /* 可选 Track ID */
+    uint64_t ullTrackId = 0;                     /* Track ID，bHasTrackId 为 false 时无意义 */
+    bool bHasTrackId = false;                    /* 是否携带有效 Track ID */
 };
 
 /* 图片请求，通过报告序号与统计报告关联，不使用裸指针 */

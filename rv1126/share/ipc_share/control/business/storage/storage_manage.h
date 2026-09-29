@@ -13,7 +13,7 @@
 #include <spawn.h>
 #include <sys/wait.h>
 #include <stdexcept>
-#include <filesystem>
+#include "posix_fs.h"
 #include <cstring>
 #include <iostream>
 #include <vector>
@@ -38,38 +38,40 @@ typedef enum _SD_CARD_STATUS_E_
 class CStorageManage : public CSingleton<CStorageManage>
 {
     CStorageManage();
+
 public:
     virtual ~CStorageManage();
-   /* 允许 Singleton 访问私有构造函数 */ 
+    /* 允许 Singleton 访问私有构造函数 */
     friend class CSingleton<CStorageManage>;
 
-public: 
-    struct linux_dirent64 {
-        uint64_t       d_ino;
-        int64_t        d_off;
+public:
+    struct linux_dirent64
+    {
+        uint64_t d_ino;
+        int64_t d_off;
         unsigned short d_reclen;
-        unsigned char  d_type;
-        char           d_name[];
+        unsigned char d_type;
+        char d_name[];
     };
 
-    typedef struct 
+    typedef struct
     {
         uint64_t total_bytes;
-        int      errors;
+        int errors;
     } DirInfo_t;
 
-public: 
+public:
     /**
      * @brief 初始化抓图模块
      * @return IpcRet_E <0:失败, >=0:成功
      */
     IpcRet_E init();
-    
+
     /**
      * @brief 线程函数：检测sd卡插入拔出
      */
     void run();
-    
+
     /**
      * @brief 获取sd卡工作状态
      * @return  sd卡状态
@@ -152,19 +154,19 @@ public:
      * @return   {int} 成功：0  失败：小于零
      */
     int update_storageManage_param(StorageManage_NS::StorageManage_S &stStorageManageParam);
-    
+
     /**
      * @brief   : 获取抓图目录使用状态
      * @return   {int} 空间未达到设定大小：0 空间达到设定大小：-1
      */
     int get_captureDirUseStatus();
 
-        /**
+    /**
      * @brief 检查普通抓图写入后是否仍满足抓图配额和人脸图片保留空间
      * @param llIncomingSize 本次准备写入的图片大小，单位字节
      * @return true：允许写入 false：需要先清理普通抓图或停止写入
      */
-     bool has_capture_write_space(long long llIncomingSize);
+    bool has_capture_write_space(long long llIncomingSize);
 
     /**
      * @brief   : 获取录制目录使用状态
@@ -179,15 +181,14 @@ public:
      * @return   {int} 成功：返回0，失败：其他
      */
     int update_DatabaseDirUseSize();
-    
-        /**
+
+    /**
      * @brief   : 格式化sd卡
      * @return   {int} 成功：返回0，失败：其他
      */
     int format_sd_card(bool bIsInitSdCard);
 
 private:
-
     /**
      * @brief   : 判断是否是sd卡事件
      * @param    {const char *buf} buf：检测到事件消息
@@ -201,7 +202,7 @@ private:
      * @param    {const std::string&} dev：sd卡设备节点路径
      * @return   {int} 成功：返回sd卡uuid  失败：返回空
      */
-    std::string get_sd_uuid(const std::string& dev = "/dev/mmcblk0p1");
+    std::string get_sd_uuid(const std::string &dev = "/dev/mmcblk0p1");
 
     /**
      * @brief   : 测试sd卡写数据是否正常
@@ -211,11 +212,11 @@ private:
 
 private:
     /*是否停止检测sd线程函数*/
-    std::atomic_bool m_bRun = false;
+    std::atomic_bool m_bRun{ false };
     /* 当前sd卡状态 */
     SD_CARD_STATUS_E m_SdCardStatus = UNPLUG;
     // /* sd卡uuid */
-    // std::string m_strSdCardUuid; 
+    // std::string m_strSdCardUuid;
     /* netlink 套接字的文件描述符 */
     int m_nSock = -1;
     /* 储存管理参数 */
@@ -229,14 +230,14 @@ private:
     long long m_llCaptureDirUseSize = 0;
     /* 录像已使用空间 */
     long long m_llRecordDirUseSize = 0;
-    
-    #if CAP_AI_FACE_COMPARE
-    #define FACE_CAPTURE_PATH (std::string(SD_CARD_MOUNT_PATH) + "/face")
-    #define FACE_QUOTA_PERCENT 10
+
+#if CAP_AI_FACE_COMPARE
+#define FACE_CAPTURE_PATH  (std::string(SD_CARD_MOUNT_PATH) + "/face")
+#define FACE_QUOTA_PERCENT 10
     /* 人脸目录可用空间 */
     long long m_llFaceSpaceByte = 0;
 
     /* 人脸目录已使用空间 */
     long long m_llFaceDirUseSize = 0;
-    #endif
+#endif
 };

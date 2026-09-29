@@ -8,6 +8,7 @@
  */
 
 #include "system_task.h"
+#include "osd_configure.h"
 
 #include "dlog.h"
 #include "system_convert.h"
@@ -16,7 +17,6 @@
 #include "common_convert.h"
 #include "system_manage.h"
 #include "time_manage.h"
-#include "osd_manage.h"
 #include "ip_filter_manage.h"
 #include "convert_interface.h"
 #include "upgrade_client.h"
@@ -318,9 +318,9 @@ void Task::System::SetDeviceConfig::handle()
     Convert::write_file(DEVICE_CONFIG_FILE, stDeviceConfig);
 
     /* 设置osd共用信息 */
-    if (COsdManage::instance()->m_bInit)
+    if (COsdConfigure::instance()->is_initialized())
     {
-        COsdManage::instance()->set_osd_share_info(stDeviceConfig);
+        COsdConfigure::instance()->set_osd_share_info(stDeviceConfig);
     }
     
     result(OK);
@@ -890,6 +890,16 @@ void Task::System::SetSmartEventEnableStatus::handle()
     /* 从任务数据中解析出新的启用状态 */
     ::Event::SmartEventEnableStatus_S stNewInfo;
     Convert::to_struct(m_taskData, stNewInfo);
+
+#if CAP_AI_SMOKE_FIRE_DETECT && CAP_AI_GARBAGE_DETECT
+    if (stNewInfo.bSmokeFire &&
+        (stNewInfo.bGarbageExposure || stNewInfo.bGarbageOverflow))
+    {
+        dlog_error("烟火识别与垃圾识别不能同时启用");
+        result(-305);
+        return;
+    }
+#endif
 
 #if CAP_SMART_EVENT_PERF_LIMIT // 智能事件性能限制
     // ! /* 性能限制 */

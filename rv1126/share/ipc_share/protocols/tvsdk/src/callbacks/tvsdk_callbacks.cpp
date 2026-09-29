@@ -11,6 +11,7 @@
  */
 
 #include "tvsdk_callbacks.h"
+#include "osd_configure.h"
 
 #include <string>
 #include <algorithm>
@@ -37,7 +38,6 @@
 #include "network_define.h"
 #include "alarm_define.h"
 #include "preview_define.h"
-#include "osd_manage.h"
 #include "preview_manage.h"
 #include "Json.h"
 #include "convert_interface.h"
@@ -1514,19 +1514,6 @@ static NET_COMMON_ECODE_E cb_set_device_cfg(INT32 dwChannelID, LPVOID lpInBuffer
     return (nRet == 0) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
 }
 
-/**
- * @brief   : 设置设备基本信息（SDK 结构体入口，对应 NET_SET_DEVICECFG）
- * @param    {pNET_DeviceBasicInfo_S} pInfo：设备基本信息结构体指针
- * @return   {NET_COMMON_ECODE_E} 成功返回 NET_E_SUCCEED，其他值失败
- * @note     : SDK 对 NET_SET_DEVICECFG 提供结构体与命令码两个注册入口，二者载荷一致，
- *             此处转调命令码入口，避免重复实现；与 GET 侧 cb_get_device_basic_info 写法对称。
- */
-static NET_COMMON_ECODE_E cb_set_device_basic_info(pNET_DeviceBasicInfo_S pInfo)
-{
-    const INT32 nNoChannelID = 0;
-    return cb_set_device_cfg(nNoChannelID, static_cast<LPVOID>(pInfo));
-}
-
 /* 其余配置仍通过命令码 + JSON 透传，后续若有 SDK 结构体定义，可按上面的方式继续细化 */
 
 static NET_COMMON_ECODE_E get_cfg_by_action(INT32 dwChannelID, int actionCode, LPVOID lpOutBuffer)
@@ -2396,7 +2383,7 @@ static NET_COMMON_ECODE_E cb_get_privacy_mask_cfg(INT32 dwChannelID, LPVOID lpOu
     stCfg.clear();
     stCfg.vecCoverAttr.clear();
     Convert::to_struct(strJson, stCfg);
-    TvSdkConvert::FillPrivacyMaskCfg(stCfg, COsdManage::instance()->get_cover_max_area_count(), *pOut);
+    TvSdkConvert::FillPrivacyMaskCfg(stCfg, COsdConfigure::instance()->get_cover_max_area_count(), *pOut);
     pOut->uChannel = 0;
     return NET_E_SUCCEED;
 }
@@ -2408,7 +2395,7 @@ static NET_COMMON_ECODE_E cb_set_privacy_mask_cfg(INT32 dwChannelID, LPVOID lpIn
 
     const NET_PrivacyMaskCfg_S *pIn = (const NET_PrivacyMaskCfg_S *)lpInBuffer;
     Osd::CoverConfig_S stCfg;
-    const size_t maxAreaCount = COsdManage::instance()->get_cover_max_area_count();
+    const size_t maxAreaCount = COsdConfigure::instance()->get_cover_max_area_count();
     if (!TvSdkConvert::ToPrivacyMaskCfg(*pIn, maxAreaCount, stCfg))
     {
         dlog_warn("TVSDK隐私遮盖区域数非法, request:%d, max:%zu", pIn->uAreaCount, maxAreaCount);
@@ -2890,8 +2877,48 @@ static NET_COMMON_ECODE_E cb_set_crowd_gathering_alarm(INT32 nChannelId, LPVOID 
     TvSdkConvert::ToCrowdGathering(stNormalized, stConfig);
     return tvsdk_set_event_config(AC_SET_CROWD_GATHERING_DETECT_INFO, Convert::to_string(stConfig));
 }
+#if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
+static NET_COMMON_ECODE_E cb_get_smoke_fire_cfg(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    (void)dwChannelID;
+    if (!lpOutBuffer)
+        return NET_E_INVALID_PARAM;
+    pNET_SmokeFireCfg_S pOut = (pNET_SmokeFireCfg_S)lpOutBuffer;
 
+    std::string outJson;
+    std::string strJson;
+    if (execute_get_result(AC_GET_SMOKE_FIRE_CFG, "{}", outJson) != 0 || outJson.empty())
+        return NET_E_GET_CFG_FAILED;
 
+    int nRet = -1;
+    Json::get(outJson.c_str(), "Return", nRet);
+    if (nRet != 0)
+        return NET_E_GET_CFG_FAILED;
+
+    Alarm::SmokeFireDetection_S stCfg;
+    strJson = normalize_data_json(outJson);
+    Convert::to_struct(strJson, stCfg);
+    TvSdkConvert::FillSmokeFireCfg(stCfg, *pOut);
+    pOut->uChannel = 0;
+    return NET_E_SUCCEED;
+}
+
+static NET_COMMON_ECODE_E cb_set_smoke_fire_cfg(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    (void)dwChannelID;
+    if (!lpInBuffer)
+        return NET_E_INVALID_PARAM;
+    const NET_SmokeFireCfg_S *pIn = (const NET_SmokeFireCfg_S *)lpInBuffer;
+
+    Alarm::SmokeFireDetection_S stCfg;
+    TvSdkConvert::ToSmokeFire(*pIn, stCfg);
+    std::string inJson = Convert::to_string(stCfg);
+    Task::Info_S stInfo;
+    stInfo.data = wrap_data_json(inJson);
+    int nExec = s_taskManage ? s_taskManage->execute(AC_SET_SMOKE_FIRE_CFG, stInfo) : -1;
+    return (nExec == 0) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
+}
+#endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_GARBAGE_DETECT
 /* ---------- Get/SetGarbageExposureCfg：AC_GET/SET_GARBAGE_EXPOSURE_DETECT_INFO ---------- */
 static NET_COMMON_ECODE_E cb_get_garbage_exposure_cfg(INT32 dwChannelID, LPVOID lpOutBuffer)
@@ -4274,46 +4301,46 @@ static NET_COMMON_ECODE_E cb_set_pedestrian_intrusion_info(INT32 nChannelId, LPV
     return tvsdk_set_event_config(AC_SET_PEDESTRAN_INTRUSION_INFO, Convert::to_string(stConfig));
 }
 
-static NET_COMMON_ECODE_E cb_get_smoke_fire_cfg(INT32 dwChannelID, LPVOID lpOutBuffer)
-{
-    (void)dwChannelID;
-    if (!lpOutBuffer)
-        return NET_E_INVALID_PARAM;
-    pNET_SmokeFireCfg_S pOut = (pNET_SmokeFireCfg_S)lpOutBuffer;
+// static NET_COMMON_ECODE_E cb_get_smoke_fire_cfg(INT32 dwChannelID, LPVOID lpOutBuffer)
+// {
+//     (void)dwChannelID;
+//     if (!lpOutBuffer)
+//         return NET_E_INVALID_PARAM;
+//     pNET_SmokeFireCfg_S pOut = (pNET_SmokeFireCfg_S)lpOutBuffer;
 
-    std::string outJson;
-    std::string strJson;
-    if (execute_get_result(AC_GET_SMOKE_FIRE_CFG, "{}", outJson) != 0 || outJson.empty())
-        return NET_E_GET_CFG_FAILED;
+//     std::string outJson;
+//     std::string strJson;
+//     if (execute_get_result(AC_GET_SMOKE_FIRE_CFG, "{}", outJson) != 0 || outJson.empty())
+//         return NET_E_GET_CFG_FAILED;
 
-    int nRet = -1;
-    Json::get(outJson.c_str(), "Return", nRet);
-    if (nRet != 0)
-        return NET_E_GET_CFG_FAILED;
+//     int nRet = -1;
+//     Json::get(outJson.c_str(), "Return", nRet);
+//     if (nRet != 0)
+//         return NET_E_GET_CFG_FAILED;
 
-    Alarm::SmokeFireDetection_S stCfg;
-    strJson = normalize_data_json(outJson);
-    Convert::to_struct(strJson, stCfg);
-    TvSdkConvert::FillSmokeFireCfg(stCfg, *pOut);
-    pOut->uChannel = 0;
-    return NET_E_SUCCEED;
-}
+//     Alarm::SmokeFireDetection_S stCfg;
+//     strJson = normalize_data_json(outJson);
+//     Convert::to_struct(strJson, stCfg);
+//     TvSdkConvert::FillSmokeFireCfg(stCfg, *pOut);
+//     pOut->uChannel = 0;
+//     return NET_E_SUCCEED;
+// }
 
-static NET_COMMON_ECODE_E cb_set_smoke_fire_cfg(INT32 dwChannelID, LPVOID lpInBuffer)
-{
-    (void)dwChannelID;
-    if (!lpInBuffer)
-        return NET_E_INVALID_PARAM;
-    const NET_SmokeFireCfg_S *pIn = (const NET_SmokeFireCfg_S *)lpInBuffer;
+// static NET_COMMON_ECODE_E cb_set_smoke_fire_cfg(INT32 dwChannelID, LPVOID lpInBuffer)
+// {
+//     (void)dwChannelID;
+//     if (!lpInBuffer)
+//         return NET_E_INVALID_PARAM;
+//     const NET_SmokeFireCfg_S *pIn = (const NET_SmokeFireCfg_S *)lpInBuffer;
 
-    Alarm::SmokeFireDetection_S stCfg;
-    TvSdkConvert::ToSmokeFire(*pIn, stCfg);
-    std::string inJson = Convert::to_string(stCfg);
-    Task::Info_S stInfo;
-    stInfo.data = wrap_data_json(inJson);
-    int nExec = s_taskManage ? s_taskManage->execute(AC_SET_SMOKE_FIRE_CFG, stInfo) : -1;
-    return (nExec == 0) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
-}
+//     Alarm::SmokeFireDetection_S stCfg;
+//     TvSdkConvert::ToSmokeFire(*pIn, stCfg);
+//     std::string inJson = Convert::to_string(stCfg);
+//     Task::Info_S stInfo;
+//     stInfo.data = wrap_data_json(inJson);
+//     int nExec = s_taskManage ? s_taskManage->execute(AC_SET_SMOKE_FIRE_CFG, stInfo) : -1;
+//     return (nExec == 0) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
+// }
 
 static NET_COMMON_ECODE_E cb_get_road_ponding_cfg(INT32 dwChannelID, LPVOID lpOutBuffer)
 {
@@ -6515,6 +6542,53 @@ static NET_COMMON_ECODE_E cb_get_face_info(INT32 dwChannelID, LPVOID lpOutBuffer
 #endif
 }
 
+/*
+ * 获取回放播放地址：把 SDK 的通道与起止时间转成任务入参，
+ * 由任务层按 SD 卡状态与录像分片拼出 HTTP 拉流地址后回填 szUrl。
+ */
+static NET_COMMON_ECODE_E cb_get_replay_url(pNET_ReplayUrlInfo_S pInfo)
+{
+    if (pInfo == nullptr)
+    {
+        return NET_E_NULL_POINT;
+    }
+
+    /* 通道与起止时间由调用方填充 */
+    Replay::Stream::Info_S stReq;
+    stReq.nChnId = pInfo->uChannel;
+    stReq.startTime = pInfo->szStartTime;
+    stReq.endTime = pInfo->szEndTime;
+
+    std::string strOutJson;
+    if (execute_get_result(AC_GET_REPLAY_MEDIA_INFO,
+                           wrap_data_json(Convert::to_string(stReq)),
+                           strOutJson) != 0 ||
+        strOutJson.empty())
+    {
+        return NET_E_GET_CFG_FAILED;
+    }
+
+    int nReturn = -1;
+    Json::get(strOutJson.c_str(), "Return", nReturn);
+    if (nReturn != 0)
+    {
+        return NET_E_GET_CFG_FAILED;
+    }
+
+    /* 任务结果中的 Filename 即拼好的回放地址 */
+    Replay::Stream::Info_S stResp;
+    const std::string strDataJson = normalize_data_json(strOutJson);
+    Convert::to_struct(strDataJson, stResp);
+    if (stResp.filename.empty())
+    {
+        return NET_E_FILE_NO_EXIST;
+    }
+
+    std::strncpy(pInfo->szUrl, stResp.filename.c_str(), sizeof(pInfo->szUrl) - 1);
+    pInfo->szUrl[sizeof(pInfo->szUrl) - 1] = '\0';
+    return NET_E_SUCCEED;
+}
+
 void register_all()
 {
     NET_serverRegisterGetDeviceInfoCb(cb_get_device_info_impl);
@@ -6525,8 +6599,6 @@ void register_all()
     NET_serverRegisterGetDeviceBasicInfoCb(cb_get_device_basic_info);
     NET_serverRegisterGetDeviceConfigCb(cb_get_device_cfg);
     NET_serverRegisterSetDeviceConfigCb(cb_set_device_cfg);
-    /* 结构体形态的设备基本信息设置入口，与 GET 侧成对，缺失时 SDK 返回 NET_E_NOT_SUPPORT */
-    NET_serverRegisterSetDeviceBasicInfoCb(cb_set_device_basic_info);
     NET_serverRegisterSetUserPasswordCb(cb_set_user_password);
     NET_serverRegisterGetNtpConfigCb(cb_get_ntp_cfg);
     NET_serverRegisterSetNtpConfigCb(cb_set_ntp_cfg);
@@ -6575,7 +6647,10 @@ void register_all()
     NET_serverRegisterGetGarbageOverflowConfigCb(cb_get_garbage_overflow_cfg);
     NET_serverRegisterSetGarbageOverflowConfigCb(cb_set_garbage_overflow_cfg);
 #endif
-
+#if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
+    NET_serverRegisterGetSmokeFireConfigCb(cb_get_smoke_fire_cfg);
+    NET_serverRegisterSetSmokeFireConfigCb(cb_set_smoke_fire_cfg);
+#endif
 #ifdef SCENE_INTELLIGENCE
     NET_serverRegisterGetManholeCoverAbnormalConfigCb(cb_get_manhole_cover_abnormal_cfg);
     NET_serverRegisterSetManholeCoverAbnormalConfigCb(cb_set_manhole_cover_abnormal_cfg);
@@ -6628,8 +6703,8 @@ void register_all()
     NET_serverRegisterSetOccupationEmergencyInfoCb(cb_set_occupation_emergency_info);
     NET_serverRegisterGetPedestrianIntrusionInfoCb(cb_get_pedestrian_intrusion_info);
     NET_serverRegisterSetPedestrianIntrusionInfoCb(cb_set_pedestrian_intrusion_info);
-    NET_serverRegisterGetSmokeFireConfigCb(cb_get_smoke_fire_cfg);
-    NET_serverRegisterSetSmokeFireConfigCb(cb_set_smoke_fire_cfg);
+    // NET_serverRegisterGetSmokeFireConfigCb(cb_get_smoke_fire_cfg);
+    // NET_serverRegisterSetSmokeFireConfigCb(cb_set_smoke_fire_cfg);
     NET_serverRegisterGetRoadPondingConfigCb(cb_get_road_ponding_cfg);
     NET_serverRegisterSetRoadPondingConfigCb(cb_set_road_ponding_cfg);
 #endif
@@ -6698,6 +6773,7 @@ void register_all()
     NET_serverRegisterSetTalkbackToStreamCb(cb_set_talkback_to_stream);
     NET_serverRegisterGetTalkbackFromStreamCb(cb_get_talkback_from_stream);
     NET_serverRegisterSetReplayTalkbackCb(cb_set_replay_talkback);
+    NET_serverRegisterGetReplayUrlCb(cb_get_replay_url);
 
     NET_serverRegisterGetAudioConfigCb(cb_get_audio_cfg);
     NET_serverRegisterSetAudioConfigCb(cb_set_audio_cfg);

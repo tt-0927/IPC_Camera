@@ -55,8 +55,7 @@ int CRegionProcessor::apply_config(const RegionConfig_S &stConfig)
             }
             for (size_t j = 0; j < stOld.vecPolygon.size(); ++j)
             {
-                if (stOld.vecPolygon[j].dX != stNew.vecPolygon[j].dX ||
-                    stOld.vecPolygon[j].dY != stNew.vecPolygon[j].dY)
+                if (stOld.vecPolygon[j].dX != stNew.vecPolygon[j].dX || stOld.vecPolygon[j].dY != stNew.vecPolygon[j].dY)
                 {
                     bGeometryChanged = true;
                     break;
@@ -119,12 +118,11 @@ int CRegionProcessor::process(const DetectionBatch_S &stBatch, ProcessorOutput_S
         /* ENDED 目标：清理所有关联规则的状态 */
         if (stObject.enTrackState == TrackState_E::ENDED)
         {
-            if (stObject.optTrackId.has_value())
+            if (stObject.bHasTrackId)
             {
                 for (const auto &stRule : m_stConfig.vecRules)
                 {
-                    const RegionTrackKey_S stKey{ nChannelId, stRule.enEventType, stRule.nRuleId,
-                                                   stObject.optTrackId.value() };
+                    const RegionTrackKey_S stKey{ nChannelId, stRule.enEventType, stRule.nRuleId, stObject.ullTrackId };
                     m_trackStore.erase(stKey);
                 }
             }
@@ -132,7 +130,7 @@ int CRegionProcessor::process(const DetectionBatch_S &stBatch, ProcessorOutput_S
         }
 
         /* 无稳定 Track ID 的目标不参与区域判定 */
-        if (!stObject.optTrackId.has_value() || stObject.enTrackState == TrackState_E::UNAVAILABLE)
+        if (!stObject.bHasTrackId || stObject.enTrackState == TrackState_E::UNAVAILABLE)
         {
             continue;
         }
@@ -168,8 +166,7 @@ int CRegionProcessor::process(const DetectionBatch_S &stBatch, ProcessorOutput_S
             }
 
             /* 获取或创建轨迹状态 */
-            const RegionTrackKey_S stKey{ nChannelId, stRule.enEventType, stRule.nRuleId,
-                                          stObject.optTrackId.value() };
+            const RegionTrackKey_S stKey{ nChannelId, stRule.enEventType, stRule.nRuleId, stObject.ullTrackId };
             RegionTrackState_S *pState = m_trackStore.get_or_create(stKey, llMonoMs);
             if (pState == nullptr)
             {
@@ -265,7 +262,8 @@ int CRegionProcessor::process(const DetectionBatch_S &stBatch, ProcessorOutput_S
             OverlayItem_S stOverlayItem;
             stOverlayItem.enType = stObject.enType;
             stOverlayItem.stRect = stObject.stRect;
-            stOverlayItem.optTrackId = stObject.optTrackId;
+            stOverlayItem.bHasTrackId = stObject.bHasTrackId;
+            stOverlayItem.ullTrackId = stObject.ullTrackId;
             stOutput.vecOverlayItems.emplace_back(std::move(stOverlayItem));
 
             /* 输出事件条件 */
@@ -286,7 +284,7 @@ int CRegionProcessor::process(const DetectionBatch_S &stBatch, ProcessorOutput_S
             stCondition.nObjectType = to_neutral_object_type(stObject.enType);
             stCondition.fConfidence = stObject.fConfidence;
             stCondition.stTargetRect = stObject.stRect;
-            stCondition.ullTargetId = stObject.optTrackId.value_or(0U);
+            stCondition.ullTargetId = stObject.ullTrackId;
 
             stOutput.vecEventConditions.emplace_back(std::move(stCondition));
 

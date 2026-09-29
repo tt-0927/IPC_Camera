@@ -1282,5 +1282,8 @@ pTaskManage->bind<Task::Event::SmokeFireSnapshotDetect>(AC_SMOKE_FIRE_SNAPSHOT_D
     pTaskManage->bind<Task::AI_STUDENT::GetStudentFerformanceInfo>(AC_GET_STUDENT_PERFORMANCE_INFO);
 #endif
 
+    /* 回放播放地址 */
+    pTaskManage->bind<Task::Event::GetReplayMediaInfo>(AC_GET_REPLAY_MEDIA_INFO);
+
     TaskPublish::instance()->set_manage(pTaskManage);
 }

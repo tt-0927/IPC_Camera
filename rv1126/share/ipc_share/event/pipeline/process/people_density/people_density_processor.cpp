@@ -129,7 +129,7 @@ int CPeopleDensityProcessor::process(const DetectionBatch_S &stBatch, ProcessorO
         }
 
         /* 无稳定 Track ID 的目标不参与统计 */
-        if (!stObject.optTrackId.has_value() || stObject.enTrackState == TrackState_E::UNAVAILABLE)
+        if (!stObject.bHasTrackId || stObject.enTrackState == TrackState_E::UNAVAILABLE)
         {
             continue;
         }
@@ -160,12 +160,13 @@ int CPeopleDensityProcessor::process(const DetectionBatch_S &stBatch, ProcessorO
         OverlayItem_S stOverlayItem;
         stOverlayItem.enType = stObject.enType;
         stOverlayItem.stRect = stObject.stRect;
-        stOverlayItem.optTrackId = stObject.optTrackId;
+        stOverlayItem.bHasTrackId = stObject.bHasTrackId;
+        stOverlayItem.ullTrackId = stObject.ullTrackId;
         stOutput.vecOverlayItems.emplace_back(std::move(stOverlayItem));
 
         /* 区域内目标快照：Track ID + 归一化框，上报时由输出适配层反归一化 */
         ReportTargetDraft_S stTarget;
-        stTarget.ullTrackId = stObject.optTrackId.value_or(0);
+        stTarget.ullTrackId = stObject.ullTrackId;
         stTarget.nSnapshotType = PEOPLE_DENSITY_SNAPSHOT_REGION_CURRENT;
         stTarget.nDirection = 0;
         stTarget.stRect = stObject.stRect;
@@ -179,7 +180,10 @@ int CPeopleDensityProcessor::process(const DetectionBatch_S &stBatch, ProcessorO
     if (nFrameHeads > 0)
     {
         dlog_info("people_density 帧诊断: head[%u] active[%u] 置信度[%u] 区域内[%u]",
-                  nFrameHeads, nFrameActive, nFramePassConf, nFrameInRegion);
+                  nFrameHeads,
+                  nFrameActive,
+                  nFramePassConf,
+                  nFrameInRegion);
     }
 
     /* 三级密度报警：仅最高命中等级条件为 true，与旧状态机驱动语义一致 */
@@ -191,21 +195,24 @@ int CPeopleDensityProcessor::process(const DetectionBatch_S &stBatch, ProcessorO
          stBatch.stMetadata.nChannelId,
          static_cast<int>(PEOPLE_DENSITY_DEFAULT_RULE_ID),
          llWallMs, llMonoMs,
-         0, 0, 0, 0,
+         0, 0,
+         0, 0,
          nPeopleCount },
         { Event::Type_E::PEOPLE_DENSITY_MEDIUM,
          enAlarmEventType == Event::Type_E::PEOPLE_DENSITY_MEDIUM,
          stBatch.stMetadata.nChannelId,
          static_cast<int>(PEOPLE_DENSITY_DEFAULT_RULE_ID),
          llWallMs, llMonoMs,
-         0, 0, 0, 0,
+         0, 0,
+         0, 0,
          nPeopleCount },
         { Event::Type_E::PEOPLE_DENSITY_SEVERE,
          enAlarmEventType == Event::Type_E::PEOPLE_DENSITY_SEVERE,
          stBatch.stMetadata.nChannelId,
          static_cast<int>(PEOPLE_DENSITY_DEFAULT_RULE_ID),
          llWallMs, llMonoMs,
-         0, 0, 0, 0,
+         0, 0,
+         0, 0,
          nPeopleCount },
     };
     for (const auto &stCondition : astConditions)
@@ -238,7 +245,9 @@ int CPeopleDensityProcessor::process(const DetectionBatch_S &stBatch, ProcessorO
         stOutput.vecImageRequests.emplace_back(stPanoramaRequest);
 
         dlog_info("people_density 周期上报: 通道[%d] 序号[%u] 当前人数[%u] 平均停留[%u]s",
-                  stBatch.stMetadata.nChannelId, m_nReportSeq, nPeopleCount,
+                  stBatch.stMetadata.nChannelId,
+                  m_nReportSeq,
+                  nPeopleCount,
                   stOutput.vecStatisticsDrafts.back().nAverageStayTimeSec);
 
         reset_stay_accumulator(nPeopleCount);

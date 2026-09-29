@@ -17,7 +17,6 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <cstring>
-#include <filesystem>
 #include <sys/sysinfo.h>
 #include <dirent.h>
 
@@ -56,6 +55,26 @@ SystemManage::SystemManage()
 {
 }
 
+namespace
+{
+
+/* 逐级创建目录（mkdir -p 语义），目录已存在视为成功 */
+void make_directories(const std::string &strPath)
+{
+    std::string strCur;
+    for (size_t i = 0; i < strPath.size(); i++)
+    {
+        strCur.push_back(strPath[i]);
+        if (strPath[i] == '/' && i > 0)
+        {
+            mkdir(strCur.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+        }
+    }
+    mkdir(strPath.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+}
+
+} // namespace
+
 IpcRet_E SystemManage::init()
 {
     System::DeviceInfo_S stDeviceInfo;
@@ -64,7 +83,7 @@ IpcRet_E SystemManage::init()
     System::DeviceConfig_S stDeviceConfig;
     get_device_config(stDeviceConfig);
 
-    std::filesystem::create_directories(CRON_DIR);
+    make_directories(CRON_DIR);
 
     /*初始化默认ssh账号，即网页账号*/
     init_ssh_admin_group();

@@ -3,7 +3,7 @@
  * @Author       : huangjunda
  * @Date         : 2025-03-27 19:38:25
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-07-20 17:13:15
+ * @LastEditTime : 2026-09-23 15:50:09
  * @Description  : 控制事务任务管理
  */
 
@@ -69,9 +69,9 @@
 #ifdef ENABLE_AI_STUDENT
 #include "ai_student_business.hpp"
 #include "ai_student_task.h"
+
+#include <functional>
 #endif
-
-
 
 /* 初始化入口 */
 IpcRet_E ControlManage::init()
@@ -231,7 +231,7 @@ int ControlManage::init_business()
     }
 #endif
 #if CAP_NETWORK_4G
-    nRet = FourGManager::instance()-> init();
+    nRet = FourGManager::instance()->init();
     if (nRet < OK)
     {
         dlog_error("4G管理模块初始化失败：%d", nRet);
@@ -534,7 +534,7 @@ int ControlManage::init_server(std::shared_ptr<CTaskManage> &pTaskManage)
     }
     /* GB28181客户端初始化 */
     nRet = CGB28181::instance()->init();
-    if(nRet < OK)
+    if (nRet < OK)
     {
         dlog_error("GB28181模块初始化失败：%d", nRet);
         return nRet;
@@ -549,7 +549,7 @@ int ControlManage::init_server(std::shared_ptr<CTaskManage> &pTaskManage)
     /* 系统升级客户端初始化 */
     CUpgradeClient::instance()->set_taskManage(pTaskManage);
     nRet = CUpgradeClient::instance()->init();
-    if(nRet < OK)
+    if (nRet < OK)
     {
         dlog_error("系统升级模块初始化失败：%d", nRet);
         return nRet;
@@ -560,12 +560,13 @@ int ControlManage::init_server(std::shared_ptr<CTaskManage> &pTaskManage)
 
     /* 录制控制服务端初始化 */
     CRecordServer::instance()->set_taskManage(pTaskManage);
-    // CRecordServer::instance()->set_statusObserver(std::bind(&SystemManage::notify_programStatus, SystemManage::instance(), std::placeholders::_1, std::placeholders::_2));
+    // CRecordServer::instance()->set_statusObserver(std::bind(&SystemManage::notify_programStatus, SystemManage::instance(),
+    // std::placeholders::_1, std::placeholders::_2));
     CRecordServer::instance()->init();
 
 #ifdef ENABLE_TVSDK_SRC
     /* TVSDK 服务端初始化 */
-    m_pTvSdkServer = std::make_unique<CTvSdkServer>();
+    m_pTvSdkServer = std::unique_ptr<CTvSdkServer>(new CTvSdkServer());
     m_pTvSdkServer->set_taskManage(pTaskManage);
     nRet = m_pTvSdkServer->init();
     if (nRet < OK)
@@ -617,7 +618,7 @@ void ControlManage::deinit_server()
 
     /* 系统升级客户端去初始化 */
     nRet = CUpgradeClient::instance()->deinit();
-    if(nRet < OK)
+    if (nRet < OK)
     {
         dlog_error("系统升级模块去初始化失败：%d", nRet);
     }
@@ -731,7 +732,6 @@ int ControlManage::tvsdk_get_client_count() const
 // }
 #endif
 #endif
-
 
 /* 绑定任务 */
 void ControlManage::bind_task(std::shared_ptr<CTaskManage> &pTaskManage)
@@ -986,6 +986,7 @@ void ControlManage::bind_task(std::shared_ptr<CTaskManage> &pTaskManage)
     pTaskManage->bind<Task::Event::GetPirAlarmInfo>(AC_GET_PIR_ALARM_INFO);
     pTaskManage->bind<Task::Event::SetPirAlarmInfo>(AC_SET_PIR_ALARM_INFO);
 
+#if !defined(CAP_TV3881TJY_EVENT_ALGO) || CAP_TV3881TJY_EVENT_ALGO
     /**
      * @brief   : 周界事件
      */
@@ -1013,9 +1014,6 @@ void ControlManage::bind_task(std::shared_ptr<CTaskManage> &pTaskManage)
     /* 场景变更侦测 */
     pTaskManage->bind<Task::Event::GetSceneChangeInfo>(AC_GET_SCENE_CHANGE_DETECT_INFO);
     pTaskManage->bind<Task::Event::SetSceneChangeInfo>(AC_SET_SCENE_CHANGE_DETECT_INFO);
-    /* 人脸侦测 */
-    pTaskManage->bind<Task::Event::GetFaceDetectionInfo>(AC_GET_FACE_DETECT_INFO);
-    pTaskManage->bind<Task::Event::SetFaceDetectionInfo>(AC_SET_FACE_DETECT_INFO);
     /* 徘徊侦测 */
     pTaskManage->bind<Task::Event::GetLoiteringDetectionInfo>(AC_GET_LOITERING_DETECT_INFO);
     pTaskManage->bind<Task::Event::SetLoiteringDetectionInfo>(AC_SET_LOITERING_DETECT_INFO);
@@ -1034,9 +1032,19 @@ void ControlManage::bind_task(std::shared_ptr<CTaskManage> &pTaskManage)
     /* 宠物识别 */
     pTaskManage->bind<Task::Event::GetPetRecognitionInfo>(AC_GET_PET_RECOGNITION_INFO);
     pTaskManage->bind<Task::Event::SetPetRecognitionInfo>(AC_SET_PET_RECOGNITION_INFO);
-    /* 人脸抓拍 */
+#endif /* CAP_TV3881TJY_EVENT_ALGO */
+
+#if CAP_AI_FACE_RECOGNITION
+    /* 人脸识别 */
+    pTaskManage->bind<Task::Event::GetFaceRecognitionInfo>(AC_GET_FACE_RECOGNITION_INFO);
+    pTaskManage->bind<Task::Event::SetFaceRecognitionInfo>(AC_SET_FACE_RECOGNITION_INFO);
+#else
+    /* 旧人脸能力 */
+    pTaskManage->bind<Task::Event::GetFaceDetectionInfo>(AC_GET_FACE_DETECT_INFO);
+    pTaskManage->bind<Task::Event::SetFaceDetectionInfo>(AC_SET_FACE_DETECT_INFO);
     pTaskManage->bind<Task::Event::GetFaceCaptureInfo>(AC_GET_FACE_CAPTURE_INFO);
     pTaskManage->bind<Task::Event::SetFaceCaptureInfo>(AC_SET_FACE_CAPTURE_INFO);
+#endif
 #if CAP_AI_FACE_COMPARE
     /*人脸比对 */
     pTaskManage->bind<Task::Event::SetFaceCompareInfo>(AC_SET_FACE_COMPARE_INFO);
@@ -1090,6 +1098,7 @@ void ControlManage::bind_task(std::shared_ptr<CTaskManage> &pTaskManage)
      * @brief   : 场景智能
      */
 
+#if !defined(CAP_TV3881TJY_EVENT_ALGO) || CAP_TV3881TJY_EVENT_ALGO
     /* 属性检测开关信息 */
     pTaskManage->bind<Task::Event::SetAttributeInfo>(AC_SET_ATTRIBUTE_DETECT_INFO);
     pTaskManage->bind<Task::Event::GetAttributeInfo>(AC_GET_ATTRIBUTE_DETECT_INFO);
@@ -1127,8 +1136,8 @@ void ControlManage::bind_task(std::shared_ptr<CTaskManage> &pTaskManage)
     pTaskManage->bind<Task::Event::GetPedestrianIntrusionInfo>(AC_GET_PEDESTRAN_INTRUSION_INFO);
     pTaskManage->bind<Task::Event::SetPedestrianIntrusionInfo>(AC_SET_PEDESTRAN_INTRUSION_INFO);
 
-    pTaskManage->bind<Task::Event::GetSmokeFireInfo>(AC_GET_SMOKE_FIRE_CFG);
-    pTaskManage->bind<Task::Event::SetSmokeFireInfo>(AC_SET_SMOKE_FIRE_CFG);
+    // pTaskManage->bind<Task::Event::GetSmokeFireInfo>(AC_GET_SMOKE_FIRE_CFG);
+    // pTaskManage->bind<Task::Event::SetSmokeFireInfo>(AC_SET_SMOKE_FIRE_CFG);
 
     pTaskManage->bind<Task::Event::GetRoadPondingInfo>(AC_GET_ROAD_PONDING_CFG);
     pTaskManage->bind<Task::Event::SetRoadPondingInfo>(AC_SET_ROAD_PONDING_CFG);
@@ -1180,9 +1189,20 @@ void ControlManage::bind_task(std::shared_ptr<CTaskManage> &pTaskManage)
 
     pTaskManage->bind<Task::Event::GetReflectiveClothingInfo>(AC_GET_REFLECTIVE_CLOTHING_CFG);
     pTaskManage->bind<Task::Event::SetReflectiveClothingInfo>(AC_SET_REFLECTIVE_CLOTHING_CFG);
+#endif /* CAP_TV3881TJY_EVENT_ALGO */
 #endif
 
-#if defined(SCENE_INTELLIGENCE) || CAP_AI_GARBAGE_DETECT
+#if (defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT) && (!defined(CAP_TV3881TJY_EVENT_ALGO) || CAP_TV3881TJY_EVENT_ALGO)
+    pTaskManage->bind<Task::Event::GetSmokeFireInfo>(AC_GET_SMOKE_FIRE_CFG);
+    pTaskManage->bind<Task::Event::SetSmokeFireInfo>(AC_SET_SMOKE_FIRE_CFG);
+#endif
+
+#if CAP_AI_SMOKE_FIRE_DETECT
+/* 平台手动抓图并送烟火识别 */
+    pTaskManage->bind<Task::Event::SmokeFireSnapshotDetect>(AC_SMOKE_FIRE_SNAPSHOT_DETECT);
+#endif
+
+#if (defined(SCENE_INTELLIGENCE) || CAP_AI_GARBAGE_DETECT) && (!defined(CAP_TV3881TJY_EVENT_ALGO) || CAP_TV3881TJY_EVENT_ALGO)
     /* 垃圾暴露识别 */
     pTaskManage->bind<Task::Event::GetGarbageExposureInfo>(AC_GET_GARBAGE_EXPOSURE_CFG);
     pTaskManage->bind<Task::Event::SetGarbageExposureInfo>(AC_SET_GARBAGE_EXPOSURE_CFG);
@@ -1212,7 +1232,6 @@ void ControlManage::bind_task(std::shared_ptr<CTaskManage> &pTaskManage)
     /* 回放相关 */
     pTaskManage->bind<Task::Replay::SetLayoutInfo>(AC_SET_REPLAY_LAYOUT_INFO);
     pTaskManage->bind<Task::Replay::SetLayoutInfo>(AC_GET_VIDEO_TIME); /* 跟设置布局用同一个接口 */
-
 
     /* 录制相关 */
     pTaskManage->bind<Task::Record::CtrlRecordInfo>(AC_CONTROL_RECORD_INFO);
@@ -1248,7 +1267,6 @@ void ControlManage::bind_task(std::shared_ptr<CTaskManage> &pTaskManage)
     pTaskManage->bind<Task::StorageManage::FormatSdCard>(AC_INIT_SD_CARD);
     pTaskManage->bind<Task::StorageManage::GetSdCardStatus>(AC_GET_SD_CARD_STATUS);
 
-
     /* 预览配置相关 */
     pTaskManage->bind<Task::Preview::GetPreviewInfo>(AC_GET_PREVIEW_INFO);
     pTaskManage->bind<Task::Preview::SetPreviewInfo>(AC_SET_PREVIEW_INFO);
@@ -1276,6 +1294,10 @@ void ControlManage::bind_task(std::shared_ptr<CTaskManage> &pTaskManage)
     pTaskManage->bind<Task::AI_STUDENT::GetStudentBehaviorInfo>(AC_GET_STUDENT_BEHAVIOR_INFO);
     pTaskManage->bind<Task::AI_STUDENT::GetStudentFerformanceInfo>(AC_GET_STUDENT_PERFORMANCE_INFO);
 #endif
+
+    /* 回放播放地址 */
+    pTaskManage->bind<Task::Event::GetReplayMediaInfo>(AC_GET_REPLAY_MEDIA_INFO);
+
 
     TaskPublish::instance()->set_manage(pTaskManage);
 }

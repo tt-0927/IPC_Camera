@@ -2,8 +2,8 @@
  * @FilePath     : cert_manage.h
  * @Author       : zhouzirui
  * @Date         : 2025-04-09 16:26:31
- * @LastEditors  : zhouzirui
- * @LastEditTime : 2025-04-21 17:05:53
+ * @LastEditors  : zhouzr@kfb.cn
+ * @LastEditTime : 2026-09-23 15:51:54
  * @Description  : 证书管理模块 基于GmSSL X.509
  */
 #pragma once
@@ -14,10 +14,9 @@
 #include <cstring>
 #include <fstream>
 #include <ctime>
-#include <filesystem>
+#include "posix_fs.h"
 
-extern "C"
-{
+extern "C" {
 #include <gmssl/asn1.h>
 #include <gmssl/base64.h>
 #include <gmssl/error.h>
@@ -35,12 +34,12 @@ extern "C"
 
 /*sm2算法私钥解密的密码*/
 #define SM2_PRIVATE_KEY_ENCRYPT_PASSWORD "itc2023"
-//info /*----------------------- 密钥管理 -----------------------*/
+// info /*----------------------- 密钥管理 -----------------------*/
 
 /*证书类型 X509_CERT_TYPE*/
 typedef enum
 {
-    CERT_TYPE_UNKNOWN = -1,  // 未知类型（默认值或错误状态）
+    CERT_TYPE_UNKNOWN = -1, // 未知类型（默认值或错误状态）
     CERT_TYPE_SELF_SIGNED,  // 自签名根证书
     CERT_TYPE_INTERMEDIATE, // 中间证书
     CERT_TYPE_SIGNING,      // 签名证书（终端实体签名用途）
@@ -116,23 +115,21 @@ public:
     int generateCertificate(CertParams_S &stParams);
 
     // 吊销证书
-    int revokeCertificate(const std::string &serial_number,
-                           int reason_code,
-                           std::string &crl_der);
+    int revokeCertificate(const std::string &serial_number, int reason_code, std::string &crl_der);
 
     // 从文件读取对应X.509证书内容
     int readCertificate_from_file();
 
-    //生成证书请求
+    // 生成证书请求
     // int generateCertificate_request();
-    
+
     // 数字签名
     int digitalSignature(const uint8_t *pInputData, size_t szInputLen, uint8_t *pOutData, size_t *pOutLen);
 
 private:
     /*SM2证书密钥*/
     SM2_KEY stSM2Key[CERT_TYPE_MAX];
-    
+
     /*SM2根证书数据*/
     std::string strRootCertDer;
     /*SM2中间证书数据*/
@@ -152,7 +149,7 @@ private:
     int saveCsrToFile(const uint8_t *pData, size_t szLen);
 
     // 保存SM2密钥对
-    int saveKeyPairToFile(CertType_E enCertType,SM2_KEY &stSM2Key);
+    int saveKeyPairToFile(CertType_E enCertType, SM2_KEY &stSM2Key);
 
     /**
      * Base64 编码函数

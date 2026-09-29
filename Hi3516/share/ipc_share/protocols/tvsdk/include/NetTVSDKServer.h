@@ -809,6 +809,7 @@ typedef enum tagNETTVCommonErrCode
     NET_E_NEED_MORE_MEMORY               = 130,          /* 内存分配不足 Insufficient memory allocation */
     NET_E_T2U_CONNECT_FAILED             = 131,          /* T2U连接失败 Failure of T2U connection */
     NET_E_FUNC_IS_INITIALIZING           = 132,          /* 功能正在初始化中 Functions are being initialized */
+    NET_E_NO_SD_CARD                     = 133,          /* SD卡未插入或不可用 SD card not inserted or unavailable */
 
     NET_E_CONNECT_ERROR                  = 200,          /* 创建连接失败  Failed to create connection */
     NET_E_SEND_MSG_ERROR                 = 201,          /* 发送消息失败 Failed to send message */

@@ -8,19 +8,20 @@
  */
 
 #include "find_record_file.h"
+#include "posix_fs.h"
 
 #include <iostream>
 #include <chrono>
 #include <memory>
 #include <fstream>
-#include <filesystem>
 #include <ctime>
 
 #include "dlog.h"
 #include "action_code.h"
 // #include "disk_manage.h"
 
-namespace fs = std::filesystem;
+#include <algorithm>
+
 // 支持自定义格式的时间字符串解析函数
 time_t FindRecordFile::parseTime(const char *timeStr, const char *format)
 {
@@ -35,8 +36,7 @@ time_t FindRecordFile::parseTime(const char *timeStr, const char *format)
 
 std::deque<std::string> FindRecordFile::find(int nChnId, std::string strStartTime, std::string strEndTime)
 {
-    dlog_info("\nChnId:%d strStartTime:%s strEndTime:%s",
-             nChnId, strStartTime.c_str(), strEndTime.c_str());
+    dlog_info("\nChnId:%d strStartTime:%s strEndTime:%s", nChnId, strStartTime.c_str(), strEndTime.c_str());
 
     // time_t nStartDateTime = parseTime(strStartTime.c_str(), "%Y%m%d_%H%M%S");
     // time_t nEndDateTime = parseTime(strEndTime.c_str(), "%Y%m%d_%H%M%S");
@@ -74,32 +74,32 @@ std::deque<std::string> FindRecordFile::find(int nChnId, std::string strStartTim
     return dequeFile;
 }
 
-std::vector<std::string> FindRecordFile::findDirByDate(
-    const std::vector<std::string> &vecDir,
-    int nStartDate,
-    int nEndDate)
+std::vector<std::string> FindRecordFile::findDirByDate(const std::vector<std::string> &vecDir, int nStartDate, int nEndDate)
 {
     std::vector<std::string> vec;
 
     for (int i = 0; i < vecDir.size(); i++)
     {
-        fs::path directory = vecDir.at(i);
+        std::string strDirectory = vecDir.at(i);
 
         dlog_info("查询目录：%s", vecDir.at(i).c_str());
 
-        if (!fs::exists(directory) || !fs::is_directory(directory))
+        if (!PosixFs_NS::exists(strDirectory) || !PosixFs_NS::is_directory(strDirectory))
         {
-            dlog_info("指定路径不存在或不是一个目录：%s", directory.c_str());
+            dlog_info("指定路径不存在或不是一个目录：%s", strDirectory.c_str());
             continue;
         }
 
-        for (const auto &entry : fs::recursive_directory_iterator(directory))
+        std::vector<std::string> vecPaths;
+        PosixFs_NS::recursive_list(strDirectory, vecPaths);
+        for (size_t unIdx = 0; unIdx < vecPaths.size(); unIdx++)
         {
-            if (entry.is_directory())
+            const std::string &strEntryPath = vecPaths[unIdx];
+            if (PosixFs_NS::is_directory(strEntryPath))
             {
-                dlog_info("    目录：%s", entry.path().c_str());
+                dlog_info("    目录：%s", strEntryPath.c_str());
 
-                std::string strPath = entry.path().string();
+                std::string strPath = strEntryPath;
                 std::string strDirName;
                 std::size_t nIndex = std::string::npos;
                 std::size_t nIndexTmp = strPath.find('/');
@@ -171,30 +171,30 @@ static bool naturalSort(const std::string &a, const std::string &b)
     return i == a.size() && j < b.size();
 }
 
-std::deque<std::string> FindRecordFile::findFileByTime(
-    const std::vector<std::string> &vecDir,
-    time_t nStartDateTime,
-    time_t nEndDateTime)
+std::deque<std::string> FindRecordFile::findFileByTime(const std::vector<std::string> &vecDir, time_t nStartDateTime, time_t nEndDateTime)
 {
     std::vector<std::string> vecFile;
 
     for (int i = 0; i < vecDir.size(); i++)
     {
-        fs::path directory = vecDir.at(i);
+        std::string strDirectory = vecDir.at(i);
 
         dlog_info("查询目录：%s", vecDir.at(i).c_str());
 
-        if (!fs::exists(directory) || !fs::is_directory(directory))
+        if (!PosixFs_NS::exists(strDirectory) || !PosixFs_NS::is_directory(strDirectory))
         {
-            dlog_info("指定路径不存在或不是一个目录：%s", directory.c_str());
+            dlog_info("指定路径不存在或不是一个目录：%s", strDirectory.c_str());
             break;
         }
 
-        for (const auto &entry : fs::recursive_directory_iterator(directory))
+        std::vector<std::string> vecPaths;
+        PosixFs_NS::recursive_list(strDirectory, vecPaths);
+        for (size_t unIdx = 0; unIdx < vecPaths.size(); unIdx++)
         {
-            if (entry.is_regular_file())
+            const std::string &strEntryPath = vecPaths[unIdx];
+            if (PosixFs_NS::is_regular_file(strEntryPath))
             {
-                std::string strFileName = entry.path().filename();
+                std::string strFileName = PosixFs_NS::filename(strEntryPath);
                 std::size_t nIndex = strFileName.find(".ts");
 
                 if (nIndex != std::string::npos)
@@ -207,7 +207,7 @@ std::deque<std::string> FindRecordFile::findFileByTime(
 
                         if (nDateTime > 0 && (nDateTime >= nStartDateTime && nDateTime <= nEndDateTime))
                         {
-                            vecFile.push_back(entry.path().string());
+                            vecFile.push_back(strEntryPath);
                         }
                     }
                 }

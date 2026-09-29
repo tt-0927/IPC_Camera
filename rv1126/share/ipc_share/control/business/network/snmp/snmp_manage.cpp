@@ -69,7 +69,7 @@ int CSnmpManage::initializeSnmp(const Network::SnmpConfig_S& stSnmpNewconfig)
             stopSnmpAgent();
         }
         bEnableRunning = true;
-        snmpThread = std::make_unique<std::thread>(&CSnmpManage::startSnmpAgent, this);
+        snmpThread = std::unique_ptr<std::thread>(new std::thread(&CSnmpManage::startSnmpAgent, this));
      /* 关闭snmp代理 */   
     }
     else

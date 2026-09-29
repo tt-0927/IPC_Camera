@@ -3,29 +3,27 @@
  * @Author       : zjc
  * @Date         : 2022-01-02 00:00:00
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-08-13 15:03:25
+ * @LastEditTime : 2026-09-23 15:50:47
  * @Description  : 数据库
  */
 
 #include "DbBase.h"
 #include <iostream>
 #include <ostream>
-#include <filesystem>
+#include "posix_fs.h"
 #include <algorithm>
 #include "SQLite3.hpp"
 using namespace Db;
 
-CDbBase::CDbBase(std::string path, std::string tableName)
-    : m_path(path),
-      m_tableName(tableName)
+CDbBase::CDbBase(std::string path, std::string tableName) : m_path(path), m_tableName(tableName)
 {
     /*目录判断*/
-    std::filesystem::path filePath(path);
-    std::filesystem::path dirPath = filePath.parent_path();
+    std::string filePath(path);
+    std::string dirPath = PosixFs_NS::parent_path(filePath);
     /*检查目录是否存在*/
-    if (std::filesystem::exists(dirPath))
+    if (PosixFs_NS::exists(dirPath))
     {
-        if (!std::filesystem::is_directory(dirPath))
+        if (!PosixFs_NS::is_directory(dirPath))
         {
             dlog_error("错误: %s 不是一个目录", dirPath.c_str());
         }
@@ -33,7 +31,7 @@ CDbBase::CDbBase(std::string path, std::string tableName)
     else
     {
         /*目录不存在，创建*/
-        if (!std::filesystem::create_directories(dirPath))
+        if (!PosixFs_NS::make_directories(dirPath))
         {
             dlog_error("错误: 无法创建目录 %s", dirPath.c_str());
         }
@@ -144,11 +142,11 @@ int CDbBase::add(const Item &item, std::string strTargetTableName)
 
     std::string cmd;
 
-    if(strTargetTableName.empty())
+    if (strTargetTableName.empty())
     {
         cmd = "INSERT INTO " + m_tableName + "(" + key + ")" + "VALUES(" + value + ");";
     }
-    else 
+    else
     {
         cmd = "INSERT INTO " + strTargetTableName + "(" + key + ")" + "VALUES(" + value + ");";
     }
@@ -158,7 +156,7 @@ int CDbBase::add(const Item &item, std::string strTargetTableName)
     {
         return nRet;
     }
-    
+
     return m_sqlite3.get_lastInsertId();
 }
 
@@ -173,18 +171,17 @@ int CDbBase::del(const Item &item)
 int CDbBase::del(const MatchMethods &methods, std::string strTargetTableName)
 {
     std::string cmd;
-    if(strTargetTableName.empty())
+    if (strTargetTableName.empty())
     {
         cmd = "DELETE FROM " + m_tableName + " WHERE " + group_methods(methods) + ";";
     }
-    else 
+    else
     {
         cmd = "DELETE FROM \"" + strTargetTableName + "\" WHERE " + group_methods(methods) + ";";
     }
-    
+
     return m_sqlite3.deal_sql(std::move(cmd.c_str()));
 }
-
 
 int CDbBase::update(const Item &item, const MatchMethods &methods, std::string strTargetTableName)
 {
@@ -193,15 +190,15 @@ int CDbBase::update(const Item &item, const MatchMethods &methods, std::string s
     std::string criteriaGroup = group_methods(methods);
     criteriaGroup += ";";
     std::string cmd;
-    if(strTargetTableName.empty())
+    if (strTargetTableName.empty())
     {
         cmd = "UPDATE " + m_tableName + " SET " + itemGroup + " WHERE " + criteriaGroup;
     }
-    else 
+    else
     {
         cmd = "UPDATE \"" + strTargetTableName + "\" SET " + itemGroup + " WHERE " + criteriaGroup;
     }
-    
+
     return m_sqlite3.deal_sql(std::move(cmd.c_str()));
 }
 
@@ -209,7 +206,7 @@ int CDbBase::find(const MatchMethods &methods, std::vector<Item> &items, std::st
 {
     std::string cmd;
 
-    if(strTargetTableName.empty())
+    if (strTargetTableName.empty())
     {
         if (methods.size() == 0)
         {
@@ -220,7 +217,7 @@ int CDbBase::find(const MatchMethods &methods, std::vector<Item> &items, std::st
             cmd += "SELECT * FROM " + m_tableName + " WHERE " + group_methods(methods) + ";";
         }
     }
-    else 
+    else
     {
         if (methods.size() == 0)
         {
@@ -231,7 +228,6 @@ int CDbBase::find(const MatchMethods &methods, std::vector<Item> &items, std::st
             cmd += "SELECT * FROM \"" + strTargetTableName + "\" WHERE " + group_methods(methods) + ";";
         }
     }
-
 
     char **pBuff = NULL;
     int nRow = 0;
@@ -260,7 +256,7 @@ int CDbBase::find(const MatchMethods &methods, std::vector<Item> &items, std::st
         pBuff = nullptr;
     }
 
-    return  0;
+    return 0;
 }
 
 int CDbBase::find(const std::string cmd, std::vector<Item> &items)
@@ -292,32 +288,32 @@ int CDbBase::find(const std::string cmd, std::vector<Item> &items)
         pBuff = nullptr;
     }
 
-    return  0;
+    return 0;
 }
 
 int CDbBase::get_count(const MatchMethods &methods, int &nCount, const std::string field, std::string strTargetTableName)
 {
     std::string cmd;
-    if(strTargetTableName.empty())
+    if (strTargetTableName.empty())
     {
         if (methods.size() == 0)
         {
-            cmd += "SELECT COUNT("+ field + ") FROM " + m_tableName + ";";
+            cmd += "SELECT COUNT(" + field + ") FROM " + m_tableName + ";";
         }
         else
         {
-            cmd += "SELECT COUNT("+ field + ") FROM " + m_tableName + " WHERE " + group_methods(methods) + ";";
+            cmd += "SELECT COUNT(" + field + ") FROM " + m_tableName + " WHERE " + group_methods(methods) + ";";
         }
     }
-    else 
+    else
     {
         if (methods.size() == 0)
         {
-            cmd += "SELECT COUNT("+ field + ") FROM " + strTargetTableName + ";";
+            cmd += "SELECT COUNT(" + field + ") FROM " + strTargetTableName + ";";
         }
         else
         {
-            cmd += "SELECT COUNT("+ field + ") FROM \"" + strTargetTableName + "\" WHERE " + group_methods(methods) + ";";
+            cmd += "SELECT COUNT(" + field + ") FROM \"" + strTargetTableName + "\" WHERE " + group_methods(methods) + ";";
         }
     }
 
@@ -335,20 +331,19 @@ int CDbBase::get_count(const MatchMethods &methods, int &nCount, const std::stri
     }
     m_sqlite3.release_data(pBuff);
     pBuff = nullptr;
-    return  0;
+    return 0;
 }
-
 
 int CDbBase::get_avg(const std::string field, const MatchMethods &methods, int &nAvg)
 {
     std::string cmd;
     if (methods.size() == 0)
     {
-        cmd += "SELECT AVG("+ field + ") FROM " + m_tableName + ";";
+        cmd += "SELECT AVG(" + field + ") FROM " + m_tableName + ";";
     }
     else
     {
-        cmd += "SELECT AVG("+ field + ") FROM " + m_tableName + " WHERE " + group_methods(methods) + ";";
+        cmd += "SELECT AVG(" + field + ") FROM " + m_tableName + " WHERE " + group_methods(methods) + ";";
     }
     char **pBuff = NULL;
     int nRow = 0;
@@ -360,18 +355,18 @@ int CDbBase::get_avg(const std::string field, const MatchMethods &methods, int &
     }
     nAvg = atoi(pBuff[1]);
     m_sqlite3.release_data(pBuff);
-    return  0;
+    return 0;
 }
 int CDbBase::get_sum(const std::string field, const MatchMethods &methods, int &nSum)
 {
     std::string cmd;
     if (methods.size() == 0)
     {
-        cmd += "SELECT SUM("+ field + ")FROM " + m_tableName + ";";
+        cmd += "SELECT SUM(" + field + ")FROM " + m_tableName + ";";
     }
     else
     {
-        cmd += "SELECT SUM("+ field + ") FROM " + m_tableName + " WHERE " + group_methods(methods) + ";";
+        cmd += "SELECT SUM(" + field + ") FROM " + m_tableName + " WHERE " + group_methods(methods) + ";";
     }
     char **pBuff = NULL;
     int nRow = 0;
@@ -383,7 +378,7 @@ int CDbBase::get_sum(const std::string field, const MatchMethods &methods, int &
     }
     nSum = atoi(pBuff[1]);
     m_sqlite3.release_data(pBuff);
-    return  0;
+    return 0;
 }
 void CDbBase::print(const std::vector<Item> &items)
 {
@@ -433,7 +428,6 @@ std::string CDbBase::group_methods(const MatchMethods &methods)
         if (i.enAndOr == FIND_CRITERION_OR_P && enLastAndOr != FIND_CRITERION_OR_P)
         {
             startP = "(";
-
         }
         else if (i.enAndOr != FIND_CRITERION_OR_P && enLastAndOr == FIND_CRITERION_OR_P)
         {
@@ -453,7 +447,6 @@ std::string CDbBase::to_string(const FieldValue value)
     {
         int nValue = mpark::get<int>(value);
         outValue = std::to_string(nValue);
-
     }
     else if (mpark::holds_alternative<std::string>(value))
     {
@@ -606,7 +599,7 @@ int CDbBase::get_table_data_count(const std::string &tableName)
 
 int CDbBase::del_table(const std::string &tableName)
 {
-    //校验表名不能为空且不含分号
+    // 校验表名不能为空且不含分号
     if (tableName.empty() || tableName.find(';') != std::string::npos)
     {
         dlog_error("非法表名\n");
@@ -629,7 +622,7 @@ int CDbBase::clear_table(const std::string &tableName, bool resetAutoInc)
 
     int nRet = 0;
 
-    /* 1. 清空表数据 */ 
+    /* 1. 清空表数据 */
     std::string sql = "DELETE FROM \"" + tableName + "\";";
     nRet = m_sqlite3.deal_sql(sql);
 
@@ -637,9 +630,9 @@ int CDbBase::clear_table(const std::string &tableName, bool resetAutoInc)
     if (resetAutoInc)
     {
         std::string resetSql = "DELETE FROM sqlite_sequence WHERE name='" + tableName + "';";
-        /* 失败并不致命（可能表没 AUTOINCREMENT） */ 
+        /* 失败并不致命（可能表没 AUTOINCREMENT） */
         m_sqlite3.deal_sql(resetSql);
     }
-        
+
     return nRet;
 }

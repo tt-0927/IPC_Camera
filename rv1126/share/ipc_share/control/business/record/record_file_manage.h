@@ -3,7 +3,7 @@
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2026-04-01 09:01:32
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-06-05 15:52:18
+ * @LastEditTime : 2026-09-23 15:39:35
  * @Description  : 录制文件管理
  */
 
@@ -16,10 +16,8 @@
 #include <map>
 #include "m3u8.h"
 #include "replay_define.h"
-#include <filesystem>
+#include <string>
 #include <atomic>
-
-namespace fs = std::filesystem;
 
 class RecordFileManage : public CSingleton<RecordFileManage>
 {
@@ -120,7 +118,7 @@ public:
      * @return int <0:失败
      */
     int find(Record_NS::TsFind_S stTsFind, Record_NS::TsFileInfo_S &stTsFileInfo);
-    
+
     /**
      * @brief 获取表中有多少条ts文件信息
      * @param stFind 查找条件
@@ -128,7 +126,7 @@ public:
      * @return int <0:失败
      */
     int getTableDataCount(Event::RetrievalCond_S &stCond, std::string strTargetTableName = std::string());
-    
+
     /**
      * @brief 获取表格的分页信息
      * @param stFind 查找条件
@@ -146,13 +144,16 @@ public:
      * @param strTargetTableName 目标表格名字
      * @return int <0:失败
      */
-    int searchByRecordTs(Event::RetrievalCond_S &stCond, std::vector<::Record_NS::TsFileInfo_S> &TsFileInfos, Common::PageInfo_S &stPageInfo, std::string strTargetTableName = std::string());
+    int searchByRecordTs(Event::RetrievalCond_S &stCond,
+                         std::vector<::Record_NS::TsFileInfo_S> &TsFileInfos,
+                         Common::PageInfo_S &stPageInfo,
+                         std::string strTargetTableName = std::string());
 
     /**
      * @brief 视频检索，锁定等相关
-     * @param stEventCond 
-     * @param infos 
-     * @return int 
+     * @param stEventCond
+     * @param infos
+     * @return int
      */
     int retrieval(Record_NS::RetrievalCond_S stEventCond, std::vector<Record_NS::FileInfo_S> &infos);
     int retrieval(Record_NS::RetrievalCond_S stEventCond, std::vector<Record_NS::FileInfo_S> &infos, Common::PageInfo_S &stPageInfo);
@@ -171,7 +172,6 @@ public:
      */
     int get_itemInfo(Record_NS::FileInfo_S &stnfo);
 
-
     // int create_eventVideo(Event::Info_S &stEventInfo);
 
     /**
@@ -187,9 +187,9 @@ public:
     /**
      * @brief 根据通道id获取配额大小 单位GB
      * @param nChnId 通道id
-     * @return double  
+     * @return double
      */
-    double  get_channel_size(std::string strPath);
+    double get_channel_size(std::string strPath);
 
     /**
      * @brief 处理缓存文件
@@ -200,7 +200,7 @@ public:
      * @brief 查找录制目录下对应的日期是否有对应的m3u8文件
      * @param strPath 目录路径
      * @param strPrefix 查找字段
-     * @return std::vector<std::string> 存在对应m3u8的目录 
+     * @return std::vector<std::string> 存在对应m3u8的目录
      */
     std::vector<std::string> findM3u8Dates(const std::string &strPath, const std::string &strPrefix);
 
@@ -208,20 +208,20 @@ public:
      * @brief 循环录制
      */
     int loop_write();
-    
+
     /**
      * @brief 删除符合条件的录制文件目录
      * @param nOldTime 修改系统时间前的时间戳
      * @return int <0:失败
      */
-    int rm_recordDir(const fs::path strRecordBasePath, time_t nTime);
+    int rm_recordDir(const std::string strRecordBasePath, time_t nTime);
 
     /**
      * @brief 删除符合条件的录制ts文件
      * @param nOldTime 修改系统时间前的时间戳
      * @return int <0:失败
      */
-    int rm_recordTsFile(const fs::path strRecordBasePath, time_t nTime);
+    int rm_recordTsFile(const std::string strRecordBasePath, time_t nTime);
 
     /**
      * @brief 删除符合条件的录制ts文件数据库信息
@@ -243,7 +243,7 @@ public:
      * @return int <0:失败
      */
     int truncateM3U8(time_t nTime);
-    
+
     /* 录制文件管理线程 */
     void record_file_manage_thread();
 
@@ -256,7 +256,7 @@ public:
 
     /**
      * @brief 格式化sd卡同步数据库数据
-     * @return 
+     * @return
      */
     int formatSDCardSyncRecordDb();
 
@@ -265,6 +265,7 @@ public:
      * @param    {time_t} nTime：当前时间
      */
     void dealTimeChange(time_t nTime);
+
 private:
     /* ts文件处理 */
     int deal_tsFile(Record_NS::TsFileInfo_S stTsFileInfo);
@@ -274,13 +275,13 @@ private:
 
 private:
     /* 是否停止录制文件管理线程 */
-    std::atomic_bool m_bRun = false;
+    std::atomic_bool m_bRun{ false };
     /* 根据通道id存储连续的ts文件 */
     std::map<int, std::vector<Record_NS::TsFileInfo_S>> m_tsFileInfosMap;
     /* 事件 */
     std::map<EventType_S, EventFile_S> m_eventFileMap;
     std::mutex m_eventMutex;
     /* 循环录制标志位 */
-    std::atomic_bool m_bLoopWriteFlag = false;
+    std::atomic_bool m_bLoopWriteFlag{ false };
     // int parse(std::string m3u8, std::vector<VideoTime_S> videoTimes);
 };

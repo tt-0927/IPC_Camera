@@ -10,11 +10,10 @@
 #include "picture_task.h"
 #include "IpcRet.h"
 #include "dlog.h"
-#include "osd_manage.h"
+#include "osd_configure.h"
 #include "isp_configure.h"
 #include "convert_interface.h"
 #include "isp_manage.h"
-
 
 /// @brief 获取日夜切换参数
 void Task::Pic::GetDayNight::handle()
@@ -43,9 +42,9 @@ void Task::Pic::SetDayNight::handle()
 void Task::Pic::GetImageParam::handle()
 {
     ISP::ImageParam_S stImage;
-    dlog_debug("nBrightness:%u",stImage.nBrightness);
+    dlog_debug("nBrightness:%u", stImage.nBrightness);
     CIspConfigure::instance()->get_configure(stImage);
-    dlog_debug("nBrightness:%u",stImage.nBrightness);
+    dlog_debug("nBrightness:%u", stImage.nBrightness);
     result(Convert::to_string(stImage));
 }
 
@@ -181,7 +180,7 @@ void Task::Pic::SetDefault::handle()
 void Task::Pic::GetOsdConfigParam::handle()
 {
     Osd::OsdConfig_S stOsdConfig;
-    COsdManage::instance()->get_osd_config(stOsdConfig);
+    COsdConfigure::instance()->get_osd_config(stOsdConfig);
     result(Convert::to_string(stOsdConfig));
 }
 
@@ -190,14 +189,14 @@ void Task::Pic::SetOsdConfigParam::handle()
 {
     Osd::OsdConfig_S stOsdConfig;
     Convert::to_struct(m_taskData, stOsdConfig);
-    result(COsdManage::instance()->set_osd_config(stOsdConfig));
+    result(COsdConfigure::instance()->set_osd_config(stOsdConfig));
 }
 
 /* 获取COVER配置 */
 void Task::Pic::GetCoverConfigParam::handle()
 {
     Osd::CoverConfig_S stCoverConfig;
-    COsdManage::instance()->get_cover_config(stCoverConfig);
+    COsdConfigure::instance()->get_cover_config(stCoverConfig);
     result(Convert::to_string(stCoverConfig));
 }
 
@@ -206,5 +205,5 @@ void Task::Pic::SetCoverConfigParam::handle()
 {
     Osd::CoverConfig_S stCoverConfig;
     Convert::to_struct(m_taskData, stCoverConfig);
-    result(COsdManage::instance()->set_cover_config(stCoverConfig));  
+    result(COsdConfigure::instance()->set_cover_config(stCoverConfig));
 }

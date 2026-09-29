@@ -3,7 +3,7 @@
  * @Author       : 梁浩尧 lianghaoyao@kfb.cn
  * @Date         : 2025-11-05 10:38:00
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-08-11 13:43:07
+ * @LastEditTime : 2026-09-28 11:26:05
  * @Description  : 移动侦测
  */
 
@@ -91,7 +91,7 @@ void CMotionDetect::setAlgoParamCfg(const Alarm::MotionDetection_S &stAlgoCfg)
         if(m_stMotionDetCfg.stMotionNormalMode.nRegionType) // 网格
         {
             /* 网格二维向量 */
-            auto &grid = std::get<Alarm::MotionNormalMode_S::AreaGrid>(m_stMotionDetCfg.stMotionNormalMode.varRegion);
+            auto &grid = mpark::get<Alarm::MotionNormalMode_S::AreaGrid>(m_stMotionDetCfg.stMotionNormalMode.varRegion);
             Common::Rect_S stRect;
             /* 转换网格区域至矩形数据结构 */
             convert_gridRegion_to_rect(grid, m_nWidth, m_nHeight, stRect);   

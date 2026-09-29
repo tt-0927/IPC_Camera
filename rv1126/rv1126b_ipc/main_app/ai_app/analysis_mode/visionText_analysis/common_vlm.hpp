@@ -35,8 +35,6 @@
 #include <opencv2/opencv.hpp>
 #include "common_process.h"
 
-namespace fs = std::filesystem;
-
 // 将录像克隆到备份目录,空间不足清理阈值
 //低水位线（300M 触发清理）
 #define MIN_FREE_SPACE_MB 300

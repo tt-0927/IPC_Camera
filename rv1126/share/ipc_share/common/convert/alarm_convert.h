@@ -88,6 +88,9 @@ namespace Convert
     void deal(Json::Object *pRootJson, Alarm::SceneChange_S &stInfo, bool bOutStruct);
     /* 人脸侦测相关 */
     void deal(Json::Object *pRootJson, Alarm::FaceDetection_S &stInfo, bool bOutStruct);
+    /* 人脸识别配置 */
+    void deal(Json::Object *pRootJson, Alarm::FaceRecognitionCaptureRule_S &stInfo, bool bOutStruct);
+    void deal(Json::Object *pRootJson, Alarm::FaceRecognition_S &stInfo, bool bOutStruct);
     /* 徘徊侦测相关 */
     void deal(Json::Object *pRootJson, Alarm::LoiteringRule_S &stInfo, bool bOutStruct);
     void deal(Json::Object *pRootJson, Alarm::LoiteringDetection_S &stInfo, bool bOutStruct);
@@ -163,9 +166,7 @@ namespace Convert
     /* 行人闯入相关 */
     void deal(Json::Object *pRootJson, Alarm::PedestrianIntrusionRule_S &stInfo, bool bOutStruct);
     void deal(Json::Object *pRootJson, Alarm::PedestrianIntrusionDetection_S &stInfo, bool bOutStruct);
-    /* 烟火检测相关 */
-    void deal(Json::Object *pRootJson, Alarm::SmokeFireRule_S &stInfo, bool bOutStruct);
-    void deal(Json::Object *pRootJson, Alarm::SmokeFireDetection_S &stInfo, bool bOutStruct);
+
     /* 明火检测相关 */
     void deal(Json::Object *pRootJson, Alarm::OpenFlameRule_S &stInfo, bool bOutStruct);
     void deal(Json::Object *pRootJson, Alarm::OpenFlameDetection_S &stInfo, bool bOutStruct);
@@ -251,7 +252,11 @@ namespace Convert
     void deal(Json::Object *pRootJson, Alarm::AttributeDetectSwitch_S &stInfo, bool bOutStruct);
 
 #endif
-
+#if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
+    /* 烟火检测相关 */
+    void deal(Json::Object *pRootJson, Alarm::SmokeFireRule_S &stInfo, bool bOutStruct);
+    void deal(Json::Object *pRootJson, Alarm::SmokeFireDetection_S &stInfo, bool bOutStruct);
+    #endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_GARBAGE_DETECT
     /* 垃圾暴露检测相关 */
     void deal(Json::Object *pRootJson, Alarm::GarbageExposureRule_S &stInfo, bool bOutStruct);

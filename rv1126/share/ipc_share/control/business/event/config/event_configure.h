@@ -127,6 +127,9 @@ public:
     /* 人脸侦测配置 */
     int set_configure(const Alarm::FaceDetection_S &alarm);
     int get_configure(Alarm::FaceDetection_S &alarm) const;
+    /* 人脸识别配置 */
+    int set_configure(const Alarm::FaceRecognition_S &alarm);
+    int get_configure(Alarm::FaceRecognition_S &alarm) const;
     /* 徘徊侦测配置 */
     int set_configure(const Alarm::LoiteringDetection_S &alarm);
     int get_configure(Alarm::LoiteringDetection_S &alarm) const;
@@ -194,8 +197,8 @@ public:
     int set_configure(const Alarm::PedestrianIntrusionDetection_S &alarm);
     int get_configure(Alarm::PedestrianIntrusionDetection_S &alarm) const;
 
-    int set_configure(const Alarm::SmokeFireDetection_S &alarm);
-    int get_configure(Alarm::SmokeFireDetection_S &alarm) const;
+    // int set_configure(const Alarm::SmokeFireDetection_S &alarm);
+    // int get_configure(Alarm::SmokeFireDetection_S &alarm) const;
 
     int set_configure(const Alarm::OpenFlameDetection_S &alarm);
     int get_configure(Alarm::OpenFlameDetection_S &alarm) const;
@@ -264,7 +267,10 @@ public:
     int get_configure(Alarm::AttributeDetectSwitch_S &alarm) const;
 
 #endif
-
+#if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
+int set_configure(const Alarm::SmokeFireDetection_S &alarm);
+int get_configure(Alarm::SmokeFireDetection_S &alarm) const;
+#endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_GARBAGE_DETECT
     int set_configure(const Alarm::GarbageExposureDetection_S &alarm);
     int get_configure(Alarm::GarbageExposureDetection_S &alarm) const;
@@ -336,6 +342,8 @@ private:
     ConfigStorage<Alarm::SceneChange_S, StorageType_E::Single> m_sceneChange;
     /* 人脸侦测配置 */
     ConfigStorage<Alarm::FaceDetection_S, StorageType_E::Single> m_faceDetection;
+    /* 人脸识别配置 */
+    ConfigStorage<Alarm::FaceRecognition_S, StorageType_E::Single> m_faceRecognition;
     /* 徘徊侦测配置  */
     ConfigStorage<Alarm::LoiteringDetection_S, StorageType_E::Single> m_loiteringDetection;
     /* 人员聚集侦测配置  */
@@ -385,8 +393,8 @@ private:
     ConfigStorage<Alarm::LeavePostDetection_S, StorageType_E::Single> m_leavePost;
     /* 行人闯入 */
     ConfigStorage<Alarm::PedestrianIntrusionDetection_S, StorageType_E::Single> m_pedestrianIntrusion;
-    /* 烟火识别 */
-    ConfigStorage<Alarm::SmokeFireDetection_S, StorageType_E::Single> m_smokeFire;
+    // /* 烟火识别 */
+    // ConfigStorage<Alarm::SmokeFireDetection_S, StorageType_E::Single> m_smokeFire;
     /* 明火识别 */
     ConfigStorage<Alarm::OpenFlameDetection_S, StorageType_E::Single> m_openFlame;
     /* 道路积水检测 */
@@ -434,7 +442,10 @@ private:
     ConfigStorage<Alarm::AttributeDetectSwitch_S, StorageType_E::Single> m_AttributeDetectSwitch;
 
 #endif
-
+#if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
+ /* 烟火识别 */
+ ConfigStorage<Alarm::SmokeFireDetection_S, StorageType_E::Single> m_smokeFire;
+ #endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_GARBAGE_DETECT
     /* 垃圾暴露检测 */
     ConfigStorage<Alarm::GarbageExposureDetection_S, StorageType_E::Single> m_garbageExposure;

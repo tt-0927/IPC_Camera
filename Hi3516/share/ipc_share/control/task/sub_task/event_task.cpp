@@ -32,6 +32,13 @@
 #include "time_utils.h"
 #endif
 
+/* 回放播放地址：SD 卡状态、本机 IP 与录像文件查找 */
+#include <filesystem>
+#include "storage_manage.h"
+#include "network_manage.h"
+#include "replay_define.h"
+#include "find_record_file.h"
+
 #define ERR_EVENT_RESOURCE_CONFLICT -305
 /**
  * @brief   : 辅助函数：将AlgorithmConfig转换为SmartEventEnableStatus用于资源检查
@@ -3863,3 +3870,151 @@ void Task::Event::SetPeopleDensityDetectionInfo::handle()
     result(nRet);
 }
 #endif
+/* 回放拉流服务的 HTTP 端口，与平台约定一致 */
+constexpr int REPLAY_HTTP_PORT = 18888;
+
+/* 回放 m3u8 文件名中的时间戳格式（如 2026-09-27_000000） */
+constexpr const char *REPLAY_FILE_TIME_FORMAT = "%Y-%m-%d_%H%M%S";
+
+/* 请求起始时间的格式（如 2026-09-27 00:00:00） */
+constexpr const char *REPLAY_REQ_TIME_FORMAT = "%Y-%m-%d %H:%M:%S";
+
+namespace fs = std::filesystem;
+
+/*
+ * 获取回放播放地址：先校验 SD 卡状态，再按请求起始时间定位录像目录，
+ * 挑选不晚于起始时间的最后一个 m3u8 分片，拼成本机 HTTP 拉流地址。
+ * 地址形如 http://<本机IP>:18888/opt/course/record/20260927/2026-09-27_000000.m3u8
+ */
+void Task::Event::GetReplayMediaInfo::handle()
+{
+    /* 解析入参：通道号与起止时间 */
+    Replay::Stream::Info_S stReq;
+    Convert::to_struct(m_taskData, stReq);
+
+    /* SD 卡异常时无录像可回放，直接失败（返回专用错误码，便于平台区分） */
+    if (CStorageManage::instance()->get_SdCardStatus() != SD_CARD_STATUS_E::NORMAL)
+    {
+        dlog_error("获取回放地址失败：SD 卡状态异常");
+        result(ERR_WEB_NO_SD_CARD);
+        return;
+    }
+
+    /* 起始时间形如 "2026-09-27 00:00:00"，前 10 位为日期部分 */
+    if (stReq.startTime.size() < 10)
+    {
+        dlog_error("获取回放地址失败：起始时间非法[%s]", stReq.startTime.c_str());
+        result(ERR_WEB_PARAM);
+        return;
+    }
+
+    /* 录像目录名不含横线，形如 20260927 */
+    const std::string strDate = stReq.startTime.substr(0, 10);
+    std::string strDateCompact;
+    for (const char ch : strDate)
+    {
+        if (ch != '-')
+        {
+            strDateCompact.push_back(ch);
+        }
+    }
+    if (strDateCompact.size() != 8)
+    {
+        dlog_error("获取回放地址失败：日期格式非法[%s]", strDate.c_str());
+        result(ERR_WEB_PARAM);
+        return;
+    }
+
+    const std::string strDir = std::string(RECORD_PATH) + "/" + strDateCompact;
+
+    /* 起始时间戳，用于挑选不晚于它的 m3u8 分片 */
+    FindRecordFile stFileFinder;
+    const time_t nStartTime = stFileFinder.parseTime(stReq.startTime.c_str(), REPLAY_REQ_TIME_FORMAT);
+    if (nStartTime <= 0)
+    {
+        dlog_error("获取回放地址失败：起始时间解析失败[%s]", stReq.startTime.c_str());
+        result(ERR_WEB_PARAM);
+        return;
+    }
+
+    /* 扫描日期目录：优先取不晚于起始时间的最大 m3u8；若起始时间早于当天全部分片，则退化为取最早分片 */
+    std::string strSelectedFile;
+    time_t nSelectedTime = 0;
+    std::string strEarliestFile;
+    time_t nEarliestTime = 0;
+    std::error_code stDirError;
+    for (const auto &stEntry : fs::directory_iterator(strDir, stDirError))
+    {
+        if (!stEntry.is_regular_file())
+        {
+            continue;
+        }
+
+        const std::string strName = stEntry.path().filename().string();
+        constexpr std::size_t nSuffixLen = 5; /* ".m3u8" 长度 */
+        if (strName.size() <= nSuffixLen ||
+            strName.compare(strName.size() - nSuffixLen, nSuffixLen, ".m3u8") != 0)
+        {
+            continue;
+        }
+
+        /* 文件名去掉后缀即为时间戳，如 2026-09-27_000000；先校验格式，避免对非分片文件误报解析失败 */
+        const std::string strStamp = strName.substr(0, strName.size() - nSuffixLen);
+        constexpr std::size_t nStampLen = 17; /* YYYY-MM-DD_HHMMSS */
+        if (strStamp.size() != nStampLen || strStamp[4] != '-' || strStamp[7] != '-' ||
+            strStamp[10] != '_')
+        {
+            continue;
+        }
+
+        const time_t nFileTime = stFileFinder.parseTime(strStamp.c_str(), REPLAY_FILE_TIME_FORMAT);
+        if (nFileTime <= 0)
+        {
+            continue;
+        }
+
+        /* 记录当天最早的分片，供起始时间早于全部分片时兜底 */
+        if (nEarliestTime == 0 || nFileTime < nEarliestTime)
+        {
+            nEarliestTime = nFileTime;
+            strEarliestFile = stEntry.path().string();
+        }
+
+        if (nFileTime <= nStartTime && nFileTime > nSelectedTime)
+        {
+            nSelectedTime = nFileTime;
+            strSelectedFile = stEntry.path().string();
+        }
+    }
+
+    /* 起始时间早于当天首个分片时（如请求 00:00:00 而录像从更晚开始），退化为返回首个分片 */
+    if (strSelectedFile.empty())
+    {
+        strSelectedFile = strEarliestFile;
+    }
+
+    if (strSelectedFile.empty())
+    {
+        dlog_error("获取回放地址失败：目录内无可用录像[%s]", strDir.c_str());
+        result(ERR_WEB_PARAM);
+        return;
+    }
+
+    /* 读取本机 IP，用于拼接拉流地址 */
+    Network::Info_S stNetInfo;
+    if (CNetworkManage::instance()->get_ip_and_dns(stNetInfo) != OK)
+    {
+        dlog_error("获取回放地址失败：读取本机 IP 失败");
+        result(ERR_WEB_NOT_SUPPORT);
+        return;
+    }
+
+    Replay::Stream::Info_S stResp;
+    stResp.nChnId = stReq.nChnId;
+    stResp.startTime = stReq.startTime;
+    stResp.endTime = stReq.endTime;
+    stResp.protocol = "http";
+    stResp.filename = "http://" + stNetInfo.stIp.ipv4Ip + ":" +
+                      std::to_string(REPLAY_HTTP_PORT) + strSelectedFile;
+    result(Convert::to_string(stResp));
+}

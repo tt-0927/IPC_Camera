@@ -41,9 +41,6 @@ struct CRtspServer::Impl
 
 IpcRet_E CRtspServer::buildStreamConfigs(std::vector<ipc_rtsp::StreamConfig> &vStreams, ipc_rtsp::ServerConfig &stServerConfig)
 {
-    const int nMainBitrateKbps = m_vstVideoConfig[RTSP_CHN_MAIN].nBitrateUpperLimit > 0 ? m_vstVideoConfig[RTSP_CHN_MAIN].nBitrateUpperLimit
-                                                                                        : m_vstVideoConfig[RTSP_CHN_MAIN].nAverageBitrate;
-
     vStreams.assign(static_cast<std::size_t>(RTSP_CHN_MAX), ipc_rtsp::StreamConfig{});
     for (int i = 0; i < RTSP_CHN_MAX; ++i)
     {
@@ -74,8 +71,8 @@ IpcRet_E CRtspServer::buildStreamConfigs(std::vector<ipc_rtsp::StreamConfig> &vS
                                                               ? m_unVideoQueueMaxBytes[i]
                                                               : stServerConfig.backpressure.hub_max_video_bytes;
 
-        /* 主码流按码率分档收紧，子码流只受服务级上限约束。 */
-        stStream.max_playing_clients = (i == RTSP_CHN_MAIN) ? rtsp_smol::get_main_client_limit(nMainBitrateKbps) : 0;
+        /* 流级上限主/子码流统一，防单条流被打满；总额由服务级上限约束。 */
+        stStream.max_playing_clients = RTSP_STREAM_MAX_CLIENT;
 
         /*
          * GOP cache（25 号文档 25.4.2 产品初值）：主 4MiB / 子 1MiB，
@@ -378,7 +375,9 @@ int CRtspServer::sendVideoData(int nChannel,
     }
 
     ipc_rtsp::SharedVideoFrame stFrame;
-    stFrame.data = stSharedFrame.pData; /* shared_ptr<uint8_t[]> -> shared_ptr<const uint8_t[]> */
+    /* shared_ptr<uint8_t> -> shared_ptr<const uint8_t>：别名构造共享同一控制块
+     * （引用计数与数组释放策略不变），持有指针退化为首元素指针。 */
+    stFrame.data = std::shared_ptr<const std::uint8_t>(stSharedFrame.pData, stSharedFrame.pData.get());
     stFrame.size = static_cast<std::size_t>(stSharedFrame.nLen);
 
     ipc_rtsp::VideoFrameMeta stMeta;
@@ -438,17 +437,13 @@ int CRtspServer::setVideoConfig(const std::vector<Video_NS::VideoConfig_S> &vstV
         return OK;
     }
 
-    /* 运行中：只更新码流级上限与单帧/队列预算，不重建会话（不踢已有客户端）。 */
-    const int nMainBitrateKbps = m_vstVideoConfig[RTSP_CHN_MAIN].nBitrateUpperLimit > 0 ? m_vstVideoConfig[RTSP_CHN_MAIN].nBitrateUpperLimit
-                                                                                        : m_vstVideoConfig[RTSP_CHN_MAIN].nAverageBitrate;
+    /* 运行中：只更新流级上限与单帧/队列预算，不重建会话（不踢已有客户端）。 */
     std::vector<ipc_rtsp::StreamConfig> vStreams = m_pImpl->streams;
     for (int i = 0; i < RTSP_CHN_MAX; ++i)
     {
         const std::size_t unMaxFrameBytes = Video_NS::calcMaxFrameBytes(m_vstVideoConfig[static_cast<std::size_t>(i)]);
         vStreams[static_cast<std::size_t>(i)].max_frame_bytes = unMaxFrameBytes;
-        vStreams[static_cast<std::size_t>(i)].max_playing_clients = (i == RTSP_CHN_MAIN)
-                                                                        ? rtsp_smol::get_main_client_limit(nMainBitrateKbps)
-                                                                        : 0;
+        vStreams[static_cast<std::size_t>(i)].max_playing_clients = RTSP_STREAM_MAX_CLIENT;
         vStreams[static_cast<std::size_t>(i)].fps = static_cast<int>(m_vstVideoConfig[static_cast<std::size_t>(i)].getFrameRateAsFloat());
         if (vStreams[static_cast<std::size_t>(i)].fps <= 0)
         {
@@ -463,7 +458,7 @@ int CRtspServer::setVideoConfig(const std::vector<Video_NS::VideoConfig_S> &vstV
         return ERR;
     }
     m_pImpl->streams = vStreams;
-    dlog_info("RTSP更新视频配置完成 主码流连接上限:%d", vStreams[RTSP_CHN_MAIN].max_playing_clients);
+    dlog_info("RTSP更新视频配置完成 流级连接上限:%d 服务级总额:%d", RTSP_STREAM_MAX_CLIENT, RTSP_GLOBAL_MAX_CLIENT);
     return OK;
 }
 

@@ -3,11 +3,14 @@
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2025-09-04 19:47:13
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-05-25 15:27:04
+ * @LastEditTime : 2026-09-23 15:32:01
  * @Description  : 事件资源管理
  */
 
 #include "event_resource.h"
+#include <algorithm>
+#include <map>
+#include <set>
 #include "event_manage.h"
 #include "IpcRet.h"
 
@@ -32,10 +35,16 @@ const std::map<Event::Type_E, CEventResource::BoolMemberPtr> CEventResource::m_e
     {Event::Type_E::UNATTENDED_OBJECT, &Event::SmartEventEnableStatus_S::bUnattendedObject},
     {Event::Type_E::OBJECT_REMOVAL, &Event::SmartEventEnableStatus_S::bObjectRemoval},
     /* 目标检测 */
-    {Event::Type_E::FACE_DETECT, &Event::SmartEventEnableStatus_S::bFaceDetect},
     {Event::Type_E::PET_RECOGNITION, &Event::SmartEventEnableStatus_S::bPetRecognition},
-    /* 人脸抓拍 */
+#if CAP_AI_FACE_RECOGNITION
+    /* 人脸识别 */
+    {Event::Type_E::FACE_RECOGNITION, &Event::SmartEventEnableStatus_S::bFaceRecognition},
+#else
+    /* 旧人脸能力 */
+    {Event::Type_E::FACE_DETECT, &Event::SmartEventEnableStatus_S::bFaceDetect},
     {Event::Type_E::FACE_CAPTURE, &Event::SmartEventEnableStatus_S::bFaceCapture},
+#endif
+    /* 人脸比对 */
     {Event::Type_E::FACE_COMPARE, &Event::SmartEventEnableStatus_S::bFaceCompare},
 #ifdef SCENE_INTELLIGENCE
     /* 行为监管 */
@@ -68,6 +77,9 @@ const std::map<Event::Type_E, CEventResource::BoolMemberPtr> CEventResource::m_e
     {Event::Type_E::ILLEGAL_LANE_CHANGE, &Event::SmartEventEnableStatus_S::bIllegalLaneChange},
     /* 属性识别 */
     {Event::Type_E::PLATE_NUMBER, &Event::SmartEventEnableStatus_S::bPlateNumber},
+#endif
+#if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
+    {Event::Type_E::SMOKE_FIRE, &Event::SmartEventEnableStatus_S::bSmokeFire},
 #endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_GARBAGE_DETECT
     /* 垃圾暴露检测 */
@@ -104,11 +116,15 @@ const std::map<Event::Type_E, Event::SmartCategory_E> CEventResource::m_event_to
     {Event::Type_E::UNATTENDED_OBJECT, Event::SmartCategory_E::SCENE_DETECTION},
     {Event::Type_E::OBJECT_REMOVAL, Event::SmartCategory_E::SCENE_DETECTION},
     /* 目标检测 */
-    {Event::Type_E::FACE_DETECT, Event::SmartCategory_E::TARGET_DETECTION},
     {Event::Type_E::PET_RECOGNITION, Event::SmartCategory_E::TARGET_DETECTION},
-    /* 人脸抓拍 */
+#if CAP_AI_FACE_RECOGNITION
+    /* 人脸识别独占资源组 */
+    {Event::Type_E::FACE_RECOGNITION, Event::SmartCategory_E::FACE_RECOGNITION},
+#else
+    /* 旧人脸能力 */
+    {Event::Type_E::FACE_DETECT, Event::SmartCategory_E::TARGET_DETECTION},
     {Event::Type_E::FACE_CAPTURE, Event::SmartCategory_E::FACE_CAPTURE},
-
+#endif
     /* 人脸比对 */
     {Event::Type_E::FACE_COMPARE, Event::SmartCategory_E::FACE_CAPTURE},
 #ifdef SCENE_INTELLIGENCE
@@ -120,7 +136,7 @@ const std::map<Event::Type_E, Event::SmartCategory_E> CEventResource::m_event_to
     {Event::Type_E::FENCE_CLIMBING, Event::SmartCategory_E::BEHAVIOR_MONITORING},
     {Event::Type_E::SMOKING, Event::SmartCategory_E::BEHAVIOR_MONITORING},
     {Event::Type_E::PHONE_USAGE, Event::SmartCategory_E::BEHAVIOR_MONITORING},
-    {Event::Type_E::SMOKE_FIRE, Event::SmartCategory_E::BEHAVIOR_MONITORING},
+    // {Event::Type_E::SMOKE_FIRE, Event::SmartCategory_E::BEHAVIOR_MONITORING},
     {Event::Type_E::OPEN_FLAME, Event::SmartCategory_E::BEHAVIOR_MONITORING},
     {Event::Type_E::MANHOLE_COVER_ABNORMAL, Event::SmartCategory_E::BEHAVIOR_MONITORING},
     {Event::Type_E::BARE_SOIL, Event::SmartCategory_E::BEHAVIOR_MONITORING},
@@ -141,6 +157,9 @@ const std::map<Event::Type_E, Event::SmartCategory_E> CEventResource::m_event_to
     {Event::Type_E::ILLEGAL_LANE_CHANGE, Event::SmartCategory_E::TRAFFIC_BEHAVIOR_MONITORING},
     /* 属性识别 */
     {Event::Type_E::PLATE_NUMBER, Event::SmartCategory_E::ATTRIBUTE_RECOGNITION},
+#endif
+#if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
+    {Event::Type_E::SMOKE_FIRE, Event::SmartCategory_E::BEHAVIOR_MONITORING},
 #endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_GARBAGE_DETECT
     /* 垃圾暴露检测 */    
@@ -204,17 +223,29 @@ const std::map<Event::SmartCategory_E, std::set<Event::Type_E>> CEventResource::
     {
         Event::SmartCategory_E::TARGET_DETECTION,
         {
+#if !CAP_AI_FACE_RECOGNITION
             Event::Type_E::FACE_DETECT,
+#endif
             Event::Type_E::PET_RECOGNITION,
         }
     },
     {
         Event::SmartCategory_E::FACE_CAPTURE,
         {
+#if !CAP_AI_FACE_RECOGNITION
             Event::Type_E::FACE_CAPTURE,
+#endif
             Event::Type_E::FACE_COMPARE,
         }
     },
+#if CAP_AI_FACE_RECOGNITION
+    {
+        Event::SmartCategory_E::FACE_RECOGNITION,
+        {
+            Event::Type_E::FACE_RECOGNITION,
+        }
+    },
+#endif
     {
         Event::SmartCategory_E::BEHAVIOR_MONITORING,
         {
@@ -226,13 +257,16 @@ const std::map<Event::SmartCategory_E, std::set<Event::Type_E>> CEventResource::
             Event::Type_E::FENCE_CLIMBING,
             Event::Type_E::SMOKING,
             Event::Type_E::PHONE_USAGE,
-            Event::Type_E::SMOKE_FIRE,
+            // Event::Type_E::SMOKE_FIRE,
             Event::Type_E::OPEN_FLAME,
             Event::Type_E::MANHOLE_COVER_ABNORMAL,
             Event::Type_E::BARE_SOIL,
             Event::Type_E::HOLE_PROTECTION_BAR,
             Event::Type_E::PEDESTRIAN_INTRUSION,
             Event::Type_E::PERSON_TRIP,
+#endif
+#if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
+            Event::Type_E::SMOKE_FIRE,
 #endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_GARBAGE_DETECT
             Event::Type_E::GARBAGE_EXPOSURE,
@@ -386,11 +420,36 @@ int CEventResource::get_canEventResource_rules(const Event::SmartEventEnableStat
     /* 总是可以启用独立事件 */
     can_enable_set.insert(m_independent_events.begin(), m_independent_events.end());
 
+#if CAP_AI_SMOKE_FIRE_DETECT && CAP_AI_GARBAGE_DETECT
+    /* 两套模型不能同时占用设备的 NPU 推理流。垃圾暴露和满溢共用垃圾模型。 */
+    if (stStatus.bSmokeFire)
+    {
+        can_enable_set.erase(Event::Type_E::GARBAGE_EXPOSURE);
+        can_enable_set.erase(Event::Type_E::GARBAGE_OVERFLOW);
+    }
+    if (stStatus.bGarbageExposure || stStatus.bGarbageOverflow)
+    {
+        can_enable_set.erase(Event::Type_E::SMOKE_FIRE);
+    }
+#endif
+
     /* 从“可以启用”的集合中，移除“已经启用”的事件 */
     for (Event::Type_E enabled_event : enabled_events)
     {
         can_enable_set.erase(enabled_event);
     }
+
+#if CAP_AI_FACE_RECOGNITION
+    /* 人脸识别组与其它资源组互斥，包括已存在多个活动组的异常状态。 */
+    if (active_groups.count(Event::SmartCategory_E::FACE_RECOGNITION) != 0)
+    {
+        can_enable_set.clear();
+    }
+    else if (!active_groups.empty())
+    {
+        can_enable_set.erase(Event::Type_E::FACE_RECOGNITION);
+    }
+#endif
 
     /* 将最终结果（set）转换为输出的vector<int> */
     for (Event::Type_E event_type : can_enable_set)
@@ -398,7 +457,7 @@ int CEventResource::get_canEventResource_rules(const Event::SmartEventEnableStat
         aCanEnableEvent.push_back(event_type);
     }
 #if DEVICE_TV_3852TLW || DEVICE_TV_3852TL4G || DEVICE_TV_3852HL ||DEVICE_TV_3852TL
-    std::set<int> allowSet = {21, 32, 35, 211};
+    std::set<int> allowSet = {21, 32, 35, 211,33};
     aCanEnableEvent.erase(
         std::remove_if(aCanEnableEvent.begin(),
                        aCanEnableEvent.end(),
@@ -488,11 +547,17 @@ void CEventResource::update_event_configurations_on_disable(const Event::SmartEv
         case Event::Type_E::SCENE_CHANGE:       disable_specific_config<Alarm::SceneChange_S>();       break;
         case Event::Type_E::UNATTENDED_OBJECT:  disable_specific_config<Alarm::UnattendedObject_S>();  break;
         case Event::Type_E::OBJECT_REMOVAL:     disable_specific_config<Alarm::ObjectRemoval_S>();     break;
+#if CAP_AI_FACE_RECOGNITION
+        /* 人脸识别 */
+        case Event::Type_E::FACE_RECOGNITION:   disable_specific_config<Alarm::FaceRecognition_S>();   break;
+#else
         /* 目标检测 */
         case Event::Type_E::FACE_DETECT:        disable_specific_config<Alarm::FaceDetection_S>();     break;
-        case Event::Type_E::PET_RECOGNITION:    disable_specific_config<Alarm::PetRecognition_S>();    break;
         /* 人脸抓拍 */
         case Event::Type_E::FACE_CAPTURE:       disable_specific_config<Alarm::FaceCapture_S>();       break;
+#endif
+        /* 目标检测 */
+        case Event::Type_E::PET_RECOGNITION:    disable_specific_config<Alarm::PetRecognition_S>();    break;
         /*人脸比对*/
         case Event::Type_E::FACE_COMPARE:       disable_specific_config<Alarm::FaceCompare_S>();       break;
 #ifdef SCENE_INTELLIGENCE
@@ -504,7 +569,7 @@ void CEventResource::update_event_configurations_on_disable(const Event::SmartEv
         case Event::Type_E::FENCE_CLIMBING:                 disable_specific_config<Alarm::FenceClimbingDetection_S>();      break;
         case Event::Type_E::SMOKING:                        disable_specific_config<Alarm::SmokingDection_S>();      break;
         case Event::Type_E::PHONE_USAGE:                    disable_specific_config<Alarm::PhoneUsageDetection_S>();      break;
-        case Event::Type_E::SMOKE_FIRE:                     disable_specific_config<Alarm::SmokeFireDetection_S>();      break;
+        // case Event::Type_E::SMOKE_FIRE:                     disable_specific_config<Alarm::SmokeFireDetection_S>();      break;
         case Event::Type_E::OPEN_FLAME:                     disable_specific_config<Alarm::OpenFlameDetection_S>();      break;
         case Event::Type_E::MANHOLE_COVER_ABNORMAL:         disable_specific_config<Alarm::ManholeCoverAbnormalDetection_S>();      break;
         case Event::Type_E::BARE_SOIL:                      disable_specific_config<Alarm::BareSoiletDection_S>();      break;
@@ -526,6 +591,9 @@ void CEventResource::update_event_configurations_on_disable(const Event::SmartEv
         case Event::Type_E::ILLEGAL_LANE_CHANGE:            disable_specific_config<Alarm::IllegalLaneChangeDetection_S>();      break;
         /* 属性识别 */
         case Event::Type_E::PLATE_NUMBER:                   disable_specific_config<Alarm::LicensePlateCognitionDetection_S>();      break;
+#endif
+#if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
+        case Event::Type_E::SMOKE_FIRE:                     disable_specific_config<Alarm::SmokeFireDetection_S>();      break;
 #endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_GARBAGE_DETECT
         case Event::Type_E::GARBAGE_EXPOSURE:               disable_specific_config<Alarm::GarbageExposureDetection_S>();      break;

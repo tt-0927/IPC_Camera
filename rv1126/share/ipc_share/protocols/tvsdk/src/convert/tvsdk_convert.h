@@ -171,7 +171,10 @@ void ToReflectiveClothing(const NET_ReflectiveClothingCfg_S &src, Alarm::Reflect
 
 void FillPetRecognitionInfo(const Alarm::PetRecognition_S &src, NET_PetRecognitionInfo_S &dst);
 void ToPetRecognition(const NET_PetRecognitionInfo_S &src, Alarm::PetRecognition_S &dst);
-
+#if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
+void FillSmokeFireCfg(const Alarm::SmokeFireDetection_S &src, NET_SmokeFireCfg_S &dst);
+void ToSmokeFire(const NET_SmokeFireCfg_S &src, Alarm::SmokeFireDetection_S &dst);
+#endif
 #ifdef SCENE_INTELLIGENCE
 void FillClimbFenceInfo(const Alarm::FenceClimbingDetection_S &src, NET_ClimbFenceInfo_S &dst);
 void ToClimbFence(const NET_ClimbFenceInfo_S &src, Alarm::FenceClimbingDetection_S &dst);
@@ -187,8 +190,8 @@ void FillOccupationEmergencyInfo(const Alarm::EmergencyLaneOccupancyDetection_S 
 void ToOccupationEmergency(const NET_OccupationEmergencyInfo_S &src, Alarm::EmergencyLaneOccupancyDetection_S &dst);
 void FillPedestrianIntrusionInfo(const Alarm::PedestrianIntrusionDetection_S &src, NET_PedestrianIntrusionInfo_S &dst);
 void ToPedestrianIntrusion(const NET_PedestrianIntrusionInfo_S &src, Alarm::PedestrianIntrusionDetection_S &dst);
-void FillSmokeFireCfg(const Alarm::SmokeFireDetection_S &src, NET_SmokeFireCfg_S &dst);
-void ToSmokeFire(const NET_SmokeFireCfg_S &src, Alarm::SmokeFireDetection_S &dst);
+// void FillSmokeFireCfg(const Alarm::SmokeFireDetection_S &src, NET_SmokeFireCfg_S &dst);
+// void ToSmokeFire(const NET_SmokeFireCfg_S &src, Alarm::SmokeFireDetection_S &dst);
 void FillRoadPondingCfg(const Alarm::RoadPondingDetection_S &src, NET_RoadPondingCfg_S &dst);
 void ToRoadPonding(const NET_RoadPondingCfg_S &src, Alarm::RoadPondingDetection_S &dst);
 #endif

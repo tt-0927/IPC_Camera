@@ -89,9 +89,6 @@ namespace Task
         /* 场景变更侦测 */
         TaskSubClass(GetSceneChangeInfo)
         TaskSubClass(SetSceneChangeInfo)
-        /* 人脸侦测 */
-        TaskSubClass(GetFaceDetectionInfo)
-        TaskSubClass(SetFaceDetectionInfo)
         /* 徘徊侦测 */
         TaskSubClass(GetLoiteringDetectionInfo)
         TaskSubClass(SetLoiteringDetectionInfo)
@@ -110,14 +107,22 @@ namespace Task
         /* 宠物识别 */
         TaskSubClass(GetPetRecognitionInfo)
         TaskSubClass(SetPetRecognitionInfo)
+#if CAP_AI_FACE_RECOGNITION
+        /* 人脸识别 */
+        TaskSubClass(GetFaceRecognitionInfo)
+        TaskSubClass(SetFaceRecognitionInfo)
+#else
+        /* 旧人脸能力 */
+        TaskSubClass(GetFaceDetectionInfo)
+        TaskSubClass(SetFaceDetectionInfo)
+        TaskSubClass(GetFaceCaptureInfo)
+        TaskSubClass(SetFaceCaptureInfo)
+#endif
 #if CAP_AI_FACE_COMPARE
         /* 人脸比对 */
         TaskSubClass(GetFaceCompareInfo)
         TaskSubClass(SetFaceCompareInfo)
 #endif
-        /* 人脸抓拍 */
-        TaskSubClass(GetFaceCaptureInfo)
-        TaskSubClass(SetFaceCaptureInfo)
         /* 人脸抓拍叠加信息 */
         TaskSubClass(GetFaceCaptureOverlayInfo)
         TaskSubClass(SetFaceCaptureOverlayInfo)
@@ -200,9 +205,9 @@ namespace Task
         TaskSubClass(GetPedestrianIntrusionInfo)
         TaskSubClass(SetPedestrianIntrusionInfo)
 
-        // 烟火识别
-        TaskSubClass(GetSmokeFireInfo)
-        TaskSubClass(SetSmokeFireInfo)
+        // // 烟火识别
+        // TaskSubClass(GetSmokeFireInfo)
+        // TaskSubClass(SetSmokeFireInfo)
 
         // 道路积水检测
         TaskSubClass(GetRoadPondingInfo)
@@ -272,6 +277,16 @@ namespace Task
         TaskSubClass(GetReflectiveClothingInfo)
         TaskSubClass(SetReflectiveClothingInfo)
 #endif
+#if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
+        // 烟火识别
+        TaskSubClass(GetSmokeFireInfo)
+        TaskSubClass(SetSmokeFireInfo)   
+#endif
+
+#if CAP_AI_SMOKE_FIRE_DETECT
+        /* 平台手动抓图并送烟火识别 */
+        TaskSubClass(SmokeFireSnapshotDetect)  
+#endif
 
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_GARBAGE_DETECT
         // 垃圾暴露识别
@@ -294,6 +309,9 @@ namespace Task
         TaskSubClass(GetPeopleDensityDetectionInfo)
         TaskSubClass(SetPeopleDensityDetectionInfo)
 #endif
+
+        /* 回放播放地址（HTTP 方式，供平台拉流回放） */
+        TaskSubClass(GetReplayMediaInfo)
     } /* namespace Event end */
 } /* namespace Task end */
 

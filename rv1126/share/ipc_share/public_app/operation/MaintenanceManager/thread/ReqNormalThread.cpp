@@ -5,15 +5,13 @@
 
 #include "dlog.h"
 
-extern "C"
-{
+extern "C" {
 #include "http_communicate.h"
 }
 
 using namespace MaintenanceNS;
 
-CReqNormalThread::CReqNormalThread()
-    : CMaintenanceThread()
+CReqNormalThread::CReqNormalThread() : CMaintenanceThread()
 {
 }
 
@@ -47,8 +45,7 @@ bool CReqNormalThread::init()
 
 bool CReqNormalThread::isInit()
 {
-    if (!m_strUrl.empty() && !m_strCode.empty() &&
-        m_pNormalPost != nullptr && m_pNormalGet != nullptr)
+    if (!m_strUrl.empty() && !m_strCode.empty() && m_pNormalPost != nullptr && m_pNormalGet != nullptr)
     {
         return true;
     }
@@ -111,7 +108,7 @@ void CReqNormalThread::run()
 
         /* 缩小锁的颗粒度，防止线程休眠时一直锁着 */
         {
-            std::shared_lock<std::shared_mutex> locker(m_mutex);
+            std::unique_lock<std::mutex> locker(m_mutex);
             if (m_queue.size() > 0)
             {
                 HttpRequery stRequery = m_queue.front();
@@ -139,13 +136,13 @@ void CReqNormalThread::run()
 
 void CReqNormalThread::pushBack(MaintenanceNS::HttpRequery &stRequery)
 {
-    std::unique_lock<std::shared_mutex> locker(m_mutex);
+    std::unique_lock<std::mutex> locker(m_mutex);
     m_queue.push_back(stRequery);
 }
 
 void CReqNormalThread::pushFront(HttpRequery &stRequery)
 {
-    std::unique_lock<std::shared_mutex> locker(m_mutex);
+    std::unique_lock<std::mutex> locker(m_mutex);
     /* 如果当前队列头中不是登录请求则添加登录请求进入队列 */
     if (m_queue.size() <= 0 || m_queue.front().enInterface != REQ_LOGIN)
     {
@@ -156,7 +153,7 @@ void CReqNormalThread::pushFront(HttpRequery &stRequery)
 
 void CReqNormalThread::popFron()
 {
-    std::unique_lock<std::shared_mutex> locker(m_mutex);
+    std::unique_lock<std::mutex> locker(m_mutex);
     if (m_queue.size() > 0)
     {
         m_queue.pop_front();
@@ -165,7 +162,7 @@ void CReqNormalThread::popFron()
 
 void CReqNormalThread::clear()
 {
-    std::unique_lock<std::shared_mutex> locker(m_mutex);
+    std::unique_lock<std::mutex> locker(m_mutex);
     m_queue.clear();
 }
 

@@ -16,15 +16,14 @@
 #include <vector>
 #include <algorithm>
 #include <cctype>
-#include <filesystem>
+#include "posix_fs.h"
 #include "alarm_define.h"
 #include "event_configure.h"
 #include "event_manage.h"
 #include "Singleton.h"
 #include "common_process.h"
 
-namespace fs = std::filesystem;
-
+namespace fs = PosixFs_NS;
 
 /*最大记录数量*/
 #define MAX_RECORD_INFO_SIZE 150
@@ -44,7 +43,7 @@ public:
      * @param imagePath 待删除的报警图片完整物理路径
      * @param videoPath 待删除的视频分片（TS文件）完整物理路径
      */
-    void removeRecordFiles(const std::string& imagePath, const std::string& videoPath);
+    void removeRecordFiles(const std::string &imagePath, const std::string &videoPath);
 
     /**
      * @brief 查询文字预设任务（支持智能过滤）
@@ -87,8 +86,7 @@ public:
      * @param stResult 返回的查询结果
      * @return 成功返回0，失败返回错误码
      */
-    int queryRealAlarmPushRecords(const Alarm::RealAlarmPushQueryFilter_S &stFilter,
-                                  Alarm::RealAlarmPushManager_S &stResult);
+    int queryRealAlarmPushRecords(const Alarm::RealAlarmPushQueryFilter_S &stFilter, Alarm::RealAlarmPushManager_S &stResult);
 
     /**
      * @brief 处理实时预警推送记录（统一支持单个和批量处理、删除、忽视操作）
@@ -143,9 +141,7 @@ private:
      * @param strRejectReason 拒绝原因（输出参数）
      * @return 是否通过过滤
      */
-    bool applyFilter(const Alarm::TextPreset_S &task,
-                     const Alarm::TextPresetQueryFilter_S &stFilter,
-                     std::string &strRejectReason);
+    bool applyFilter(const Alarm::TextPreset_S &task, const Alarm::TextPresetQueryFilter_S &stFilter, std::string &strRejectReason);
 
     /**
      * @brief 应用实时预警推送过滤条件
@@ -172,8 +168,7 @@ private:
      * @param strProcessRemark 处理备注
      * @return 处理用户名，如果没有找到则返回"系统"
      */
-    std::string getCurrentProcessUser(const std::vector<::User::OnlineUser_S> &vecOnlineUsers,
-                                      const std::string &strProcessRemark);
+    std::string getCurrentProcessUser(const std::vector<::User::OnlineUser_S> &vecOnlineUsers, const std::string &strProcessRemark);
 
     /**
      * @brief 检查用户是否已经处理过该记录
@@ -181,8 +176,7 @@ private:
      * @param strProcessUser 处理用户
      * @return 如果用户已处理过返回true，否则返回false
      */
-    bool isUserAlreadyProcessed(const std::vector<Alarm::RealAlarmProcessRecord_S> &aProcessRecords,
-                                const std::string &strProcessUser);
+    bool isUserAlreadyProcessed(const std::vector<Alarm::RealAlarmProcessRecord_S> &aProcessRecords, const std::string &strProcessUser);
 
     /**
      * @brief 创建处理记录
@@ -190,8 +184,7 @@ private:
      * @param strProcessRemark 处理备注
      * @return 处理记录结构体
      */
-    Alarm::RealAlarmProcessRecord_S createProcessRecord(const std::string &strProcessUser,
-                                                        const std::string &strProcessRemark);
+    Alarm::RealAlarmProcessRecord_S createProcessRecord(const std::string &strProcessUser, const std::string &strProcessRemark);
 
     /* ================ 智能匹配相关私有方法 ================ */
 

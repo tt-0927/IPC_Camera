@@ -113,7 +113,8 @@ int CFaceProcessor::process(const DetectionBatch_S &stBatch, ProcessorOutput_S &
             OverlayItem_S stOverlayItem;
             stOverlayItem.enType = stObject.enType;
             stOverlayItem.stRect = stObject.stRect;
-            stOverlayItem.optTrackId = stObject.optTrackId;
+            stOverlayItem.bHasTrackId = stObject.bHasTrackId;
+            stOverlayItem.ullTrackId = stObject.ullTrackId;
             stOutput.vecOverlayItems.emplace_back(std::move(stOverlayItem));
         }
     }

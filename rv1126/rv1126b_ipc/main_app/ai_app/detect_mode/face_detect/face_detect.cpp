@@ -1364,7 +1364,8 @@ int CFaceDetect::saveToDatebase(const std::string &strFilename,
 
     try
     {
-        stInfo.nImageSize = std::filesystem::file_size(strFilename);
+        //stInfo.nImageSize = std::filesystem::file_size(strFilename);
+        stInfo.nImageSize = PosixFs_NS::file_size(strFilename);
     } 
     catch (...)  // 文件不存在或错误
     {

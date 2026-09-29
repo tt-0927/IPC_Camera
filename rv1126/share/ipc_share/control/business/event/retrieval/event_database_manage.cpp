@@ -7,12 +7,16 @@
  */
 
 #include "event_database_manage.h"
+#include <algorithm>
 #include "convert_interface.h"
 #include "event_linkage_dict.h"
 #include <iomanip>
 #include <memory>
 #include "log_handler.h"
 #include "path_define.h"
+
+#include <sstream>
+#include <ctime>
 
 using namespace Event;
 using namespace Db;
@@ -27,7 +31,6 @@ void EventDatabaseManage::deinit()
     return;
 }
 
-
 int EventDatabaseManage::add(Info_S stEventInfo)
 {
     // Log::Info_S stLogInfo;
@@ -36,14 +39,15 @@ int EventDatabaseManage::add(Info_S stEventInfo)
     if (stEventInfo.enType == Type::MOTION_DETECT && it != m_motionDetectMap.end())
     {
         auto &stDbdEventInfo = it->second;
-        auto to_time_t = [](const std::string& str) -> std::time_t {
+        auto to_time_t = [](const std::string &str) -> std::time_t
+        {
             std::tm tm{};
             std::stringstream ss(str);
             ss >> std::get_time(&tm, "%Y-%m-%d %H:%M:%S");
-            if (ss.fail()) 
+            if (ss.fail())
             {
                 dlog_error("时间转换失败：%s", str.c_str());
-                
+
                 return static_cast<std::time_t>(-1);
             }
             return std::mktime(&tm);
@@ -97,14 +101,10 @@ int EventDatabaseManage::add(Event::FaceCompareInfo_S stFaceCompareInfo)
     return nRet;
 }
 
-
 // int EventDatabaseManage::add(VehicleInfo_S stVehicleInfo)
 // {
 //     return VehicleDatabase::instance()->add(stVehicleInfo);
 // }
-
-
-
 
 int EventDatabaseManage::del(Info_S stEventInfo)
 {
@@ -113,7 +113,6 @@ int EventDatabaseManage::del(Info_S stEventInfo)
     return EventDatabase::instance()->del(item);
 }
 
-
 // int EventDatabaseManage::del(VehicleInfo_S stVehicleInfo)
 // {
 //     Item item;
@@ -121,19 +120,18 @@ int EventDatabaseManage::del(Info_S stEventInfo)
 //     return VehicleDatabase::instance()->del(item);
 // }
 
-
 int EventDatabaseManage::update(Info_S stEventInfo)
 {
     Item item;
     item.push_back(Element(INFO_CHANNEL_ID, stEventInfo.nChnId));
-    item.push_back(Element(INFO_EVENT_TYPE, (int)stEventInfo.enType));
+    item.push_back(Element(INFO_EVENT_TYPE, (int) stEventInfo.enType));
     item.push_back(Element(INFO_EVENT_DATE, stEventInfo.strDate));
     item.push_back(Element(INFO_EVENT_TIME, stEventInfo.strTime));
     item.push_back(Element(INFO_RECORD_STATRTIME, stEventInfo.strStartTime));
     item.push_back(Element(INFO_RECORD_ENDTIME, stEventInfo.strEndTime));
     item.push_back(Element(INFO_TIMESTAMP, std::to_string(stEventInfo.lTimestamp)));
     item.push_back(Element(INFO_RECORD_LABEL, stEventInfo.strLabel));
-    
+
     if (!stEventInfo.strVideoPath.empty())
     {
         item.push_back(Element(INFO_VIDEO_PATH, stEventInfo.strVideoPath));
@@ -143,12 +141,11 @@ int EventDatabaseManage::update(Info_S stEventInfo)
 
     MatchMethods methods;
     methods.push_back(MatchMethod(Element(INFO_CHANNEL_ID, stEventInfo.nChnId), FIND_CRITERION_EQ, FIND_CRITERION_AND));
-    methods.push_back(MatchMethod(Element(INFO_EVENT_TYPE, (int)stEventInfo.enType), FIND_CRITERION_EQ, FIND_CRITERION_AND));
+    methods.push_back(MatchMethod(Element(INFO_EVENT_TYPE, (int) stEventInfo.enType), FIND_CRITERION_EQ, FIND_CRITERION_AND));
     methods.push_back(MatchMethod(Element(INFO_EVENT_DATE, stEventInfo.strDate), FIND_CRITERION_EQ, FIND_CRITERION_AND));
     methods.push_back(MatchMethod(Element(INFO_EVENT_TIME, stEventInfo.strTime), FIND_CRITERION_EQ));
     return EventDatabase::instance()->update(item, methods);
 }
-
 
 // int EventDatabaseManage::update(VehicleInfo_S stVehicleInfo)
 // {
@@ -165,7 +162,7 @@ int EventDatabaseManage::update(Info_S stEventInfo)
 //     item.push_back(Element(INFO_VIDEO_PATH, stVehicleInfo.stInfo.strVideoPath));
 //     item.push_back(Element(VEHICLE_FIELD_PLATEREGION, (int)stVehicleInfo.enPlateRegion));
 //     item.push_back(Element(VEHICLE_FIELD_PLATESERIAL, stVehicleInfo.strPlateSerial));
-    
+
 //     MatchMethods methods;
 //     methods.push_back(MatchMethod(Element(DB_COMMON_FIELD_ID, stVehicleInfo.stInfo.nId), FIND_CRITERION_EQ));
 //     return VehicleDatabase::instance()->update(item, methods);
@@ -181,7 +178,7 @@ int EventDatabaseManage::get_itemInfo(Event::Info_S &stInfo)
     }
     if (stInfo.enType != Event::Type::UNKNOWN)
     {
-        methods.push_back(MatchMethod(Element(INFO_EVENT_TYPE, (int)stInfo.enType), FIND_CRITERION_EQ, FIND_CRITERION_AND));
+        methods.push_back(MatchMethod(Element(INFO_EVENT_TYPE, (int) stInfo.enType), FIND_CRITERION_EQ, FIND_CRITERION_AND));
     }
     if (!stInfo.strDate.empty())
     {
@@ -211,7 +208,10 @@ int EventDatabaseManage::find(Event::RetrievalCond_S stCond, std::vector<Event::
     return find(stCond, faceCompareInfos, stPageInfo, bAsc);
 }
 
-int EventDatabaseManage::find(Event::RetrievalCond_S stCond, std::vector<Event::FaceCompareInfo_S> &faceCompareInfos, Common::PageInfo_S &stPageInfo, bool bAsc)
+int EventDatabaseManage::find(Event::RetrievalCond_S stCond,
+                              std::vector<Event::FaceCompareInfo_S> &faceCompareInfos,
+                              Common::PageInfo_S &stPageInfo,
+                              bool bAsc)
 {
     MatchMethods methods;
     /* 多id查询 */
@@ -234,7 +234,7 @@ int EventDatabaseManage::find(Event::RetrievalCond_S stCond, std::vector<Event::
         methods.push_back(MatchMethod(Element(INFO_COMP_RESULT, 0), FIND_CRITERION_NE, FIND_CRITERION_AND));
     }
     /* 比对结果：0未比对 1成功 2失败 */
-    else  if (stCond.nCompResult != -1 && stCond.nCompResult != -2)
+    else if (stCond.nCompResult != -1 && stCond.nCompResult != -2)
     {
         methods.push_back(MatchMethod(Element(INFO_COMP_RESULT, stCond.nCompResult), FIND_CRITERION_EQ, FIND_CRITERION_AND));
         /* 比对结果：成功 */
@@ -243,7 +243,7 @@ int EventDatabaseManage::find(Event::RetrievalCond_S stCond, std::vector<Event::
             methods.push_back(MatchMethod(Element(INFO_LIB_FACE_PATH, std::string()), FIND_CRITERION_NE, FIND_CRITERION_AND));
         }
     }
-    
+
     /* 默认升序 */
     if (!bAsc)
     {
@@ -271,9 +271,10 @@ int EventDatabaseManage::find(Event::RetrievalCond_S stCond, std::vector<Event::
         std::string key = "limit";
         methods.push_back(MatchMethod(Element(key, stPageInfo.nPageSize), FIND_CRITERION_NONE, FIND_CRITERION_NONE));
         /* 第几页 */
-        key = "OFFSET" ;
-        methods.push_back(MatchMethod(Element(key, std::to_string(stPageInfo.nPageSize * (stPageInfo.nCurPage - 1))), FIND_CRITERION_NONE, FIND_CRITERION_NONE));
-
+        key = "OFFSET";
+        methods.push_back(MatchMethod(Element(key, std::to_string(stPageInfo.nPageSize * (stPageInfo.nCurPage - 1))),
+                                      FIND_CRITERION_NONE,
+                                      FIND_CRITERION_NONE));
     }
     else
     {
@@ -301,18 +302,23 @@ int EventDatabaseManage::set_rule(Event::RuleInfo_S stRuleInfo)
     /* 读取记录的规则 */  
     std::vector<::Event::RuleInfo_S> dbRuleInfos;
     Convert::read_file(EVENT_RULE_INFOS_CONFIG_FILE, dbRuleInfos);
-    
-    /* 查找 dbRuleInfos 中是否有相同 id 的元素 */
-    auto it = std::find_if(dbRuleInfos.begin(), dbRuleInfos.end(),
-                            [&stRuleInfo](const ::Event::RuleInfo_S& oldInfo) {
-                                /* 匹配通道id、类型 */
-                                return oldInfo.nChnId == stRuleInfo.nChnId && oldInfo.enType == stRuleInfo.enType; 
-                            });
 
-    if (it != dbRuleInfos.end()) {
+    /* 查找 dbRuleInfos 中是否有相同 id 的元素 */
+    auto it = std::find_if(dbRuleInfos.begin(),
+                           dbRuleInfos.end(),
+                           [&stRuleInfo](const ::Event::RuleInfo_S &oldInfo)
+                           {
+                               /* 匹配通道id、类型 */
+                               return oldInfo.nChnId == stRuleInfo.nChnId && oldInfo.enType == stRuleInfo.enType;
+                           });
+
+    if (it != dbRuleInfos.end())
+    {
         /* 如果找到了相同 id 的元素，替换它 */
         *it = stRuleInfo;
-    } else {
+    }
+    else
+    {
         /* 如果没有找到相同 id 的元素，添加新元素 */
         dbRuleInfos.push_back(stRuleInfo);
     }
@@ -322,15 +328,16 @@ int EventDatabaseManage::set_rule(Event::RuleInfo_S stRuleInfo)
 
 std::vector<Event::RuleInfo_S> EventDatabaseManage::get_rule()
 {
-    /* 读取记录的规则 */  
+    /* 读取记录的规则 */
     std::vector<::Event::RuleInfo_S> dbRuleInfos;
     Convert::read_file(EVENT_RULE_INFOS_CONFIG_FILE, dbRuleInfos);
-    dbRuleInfos.erase(std::remove_if(dbRuleInfos.begin(), dbRuleInfos.end(),
-        [](const ::Event::RuleInfo_S& ruleInfo) {
-            return ruleInfo.bEnable == false; // 如果使能字段为 0，则返回 true
-        }),
-        dbRuleInfos.end()
-    );
+    dbRuleInfos.erase(std::remove_if(dbRuleInfos.begin(),
+                                     dbRuleInfos.end(),
+                                     [](const ::Event::RuleInfo_S &ruleInfo)
+                                     {
+                                         return ruleInfo.bEnable == false; // 如果使能字段为 0，则返回 true
+                                     }),
+                      dbRuleInfos.end());
     return dbRuleInfos;
 }
 
@@ -348,7 +355,7 @@ int EventDatabaseManage::del(Event::RetrievalCond_S &stCond, std::string strTarg
         methods.back().enAndOr = FIND_CRITERION_AND;
     }
 
-    if (!stCond.strEndTime.empty()) 
+    if (!stCond.strEndTime.empty())
     {
         methods.push_back(MatchMethod(Element(INFO_RECORD_ENDTIME, stCond.strEndTime), FIND_CRITERION_GE, FIND_CRITERION_AND));
     }
@@ -358,6 +365,6 @@ int EventDatabaseManage::del(Event::RetrievalCond_S &stCond, std::string strTarg
         MatchMethod &lastMethod = methods.back();
         lastMethod.enAndOr = FIND_CRITERION_NONE;
     }
- 
+
     return EventDatabase::instance()->del(methods, strTargetTableName);
 }

@@ -3,7 +3,7 @@
  * @Author       : zhouzirui
  * @Date         : 2025-03-29 10:05:15
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-09-07 10:29:17
+ * @LastEditTime : 2026-09-23 16:03:46
  * @Description  : RTSP服务器
  */
 
@@ -123,14 +123,14 @@ void record_rtsp_frame_size(const RtspFrameSizeStatMedia_E media_type, const int
  * @return  {int} 码率，单位 kbps；配置缺失或非法时返回 0
  * @note    : 使用 nBitrateUpperLimit 的最坏情况预算，不用较低的平均码率放宽限制。
  */
-int get_main_bitrate_kbps(const std::vector<Video_NS::VideoConfig_S>& configs)
+int get_main_bitrate_kbps(const std::vector<Video_NS::VideoConfig_S> &configs)
 {
     if (configs.size() <= static_cast<std::size_t>(RTSP_CHN_MAIN))
     {
         return 0;
     }
 
-    const Video_NS::VideoConfig_S& config = configs[RTSP_CHN_MAIN];
+    const Video_NS::VideoConfig_S &config = configs[RTSP_CHN_MAIN];
     return config.nBitrateUpperLimit > 0 ? config.nBitrateUpperLimit : 0;
 }
 
@@ -160,7 +160,7 @@ int get_main_client_limit(const int nBitrateKbps)
  * @param   {int&} nClientCount：输出当前引用计数
  * @return  {bool} 是否读取成功
  */
-bool read_rtsp_client_count(RtSpServerHandle_t pServerHandle, const char* pStreamName, int& nClientCount)
+bool read_rtsp_client_count(RtSpServerHandle_t pServerHandle, const char *pStreamName, int &nClientCount)
 {
     if (pServerHandle == nullptr || pStreamName == nullptr)
     {
@@ -187,11 +187,11 @@ bool read_rtsp_client_count(RtSpServerHandle_t pServerHandle, const char* pStrea
  * @return true：找到起始码；false：未找到
  * @note 同时支持 00 00 01 和 00 00 00 01；跳过四字节起始码尾部的重复匹配。
  */
-bool find_annexb_start_code(const uint8_t* pData,
+bool find_annexb_start_code(const uint8_t *pData,
                             const int nDataLen,
                             const std::size_t nSearchOffset,
-                            std::size_t& nStartOffset,
-                            std::size_t& nStartCodeLen)
+                            std::size_t &nStartOffset,
+                            std::size_t &nStartCodeLen)
 {
     if (pData == nullptr || nDataLen <= 0)
     {
@@ -281,11 +281,11 @@ bool is_non_key_vcl_nal_header(const Video_NS::VideoCodec_E enVideoCodec, const 
  * @note 扫描只用于判定整包语义，不生成新的数据 buffer，也不拆分原始 pack。
  */
 void scan_annexb_nals(const Video_NS::VideoCodec_E enVideoCodec,
-                      const uint8_t* pData,
+                      const uint8_t *pData,
                       const int nDataLen,
-                      std::size_t& nNalCount,
-                      bool& bHasKeyNal,
-                      bool& bHasNonKeyVclNal)
+                      std::size_t &nNalCount,
+                      bool &bHasKeyNal,
+                      bool &bHasNonKeyVclNal)
 {
     nNalCount = 0U;
     bHasKeyNal = false;
@@ -329,8 +329,7 @@ bool is_parameter_set_type(const Video_NS::VideoCodec_E enVideoCodec, const Vide
 
     if (enVideoCodec == Video_NS::VideoCodec_E::H265)
     {
-        return eType == Video_NS::H265_TYPE_VPS || eType == Video_NS::H265_TYPE_SPS ||
-               eType == Video_NS::H265_TYPE_PPS;
+        return eType == Video_NS::H265_TYPE_VPS || eType == Video_NS::H265_TYPE_SPS || eType == Video_NS::H265_TYPE_PPS;
     }
 
     return false;
@@ -343,8 +342,7 @@ bool is_parameter_set_type(const Video_NS::VideoCodec_E enVideoCodec, const Vide
  * @return true：需要扫描后续 NAL；false：可直接按普通 pack处理
  * @note 普通 P/B 帧不扫描整包，避免高码率路径为每个视频帧增加一次线性遍历。
  */
-bool may_be_composite_prefix_type(const Video_NS::VideoCodec_E enVideoCodec,
-                                  const Video_NS::NalType_E eType)
+bool may_be_composite_prefix_type(const Video_NS::VideoCodec_E enVideoCodec, const Video_NS::NalType_E eType)
 {
     if (is_parameter_set_type(enVideoCodec, eType))
     {
@@ -358,8 +356,7 @@ bool may_be_composite_prefix_type(const Video_NS::VideoCodec_E enVideoCodec,
 
     if (enVideoCodec == Video_NS::VideoCodec_E::H265)
     {
-        return eType == Video_NS::H265_TYPE_AUD || eType == Video_NS::H265_TYPE_SEI ||
-               eType == Video_NS::H265_TYPE_SEI_SUFFIX;
+        return eType == Video_NS::H265_TYPE_AUD || eType == Video_NS::H265_TYPE_SEI || eType == Video_NS::H265_TYPE_SEI_SUFFIX;
     }
 
     return false;
@@ -380,7 +377,7 @@ bool may_be_composite_prefix_type(const Video_NS::VideoCodec_E enVideoCodec,
  */
 int get_rtsp_frame_marker(const Video_NS::VideoCodec_E enVideoCodec,
                           const Video_NS::NalType_E eType,
-                          const uint8_t* pData,
+                          const uint8_t *pData,
                           const int nDataLen)
 {
     if (enVideoCodec == Video_NS::VideoCodec_E::H264 && eType == Video_NS::H264_TYPE_IDR)
@@ -389,8 +386,7 @@ int get_rtsp_frame_marker(const Video_NS::VideoCodec_E enVideoCodec,
     }
 
     if (enVideoCodec == Video_NS::VideoCodec_E::H265 &&
-        (eType == Video_NS::H265_TYPE_IDR_W_RADL || eType == Video_NS::H265_TYPE_IDR_N_LP ||
-         eType == Video_NS::H265_TYPE_CRA))
+        (eType == Video_NS::H265_TYPE_IDR_W_RADL || eType == Video_NS::H265_TYPE_IDR_N_LP || eType == Video_NS::H265_TYPE_CRA))
     {
         return FRAME_MARKER_KEYFRAME;
     }
@@ -430,9 +426,8 @@ int get_rtsp_frame_marker(const Video_NS::VideoCodec_E enVideoCodec,
     if (is_parameter_set_type(enVideoCodec, eType))
     {
         /* 起始码无法扫描时沿用旧版 SPS/VPS 关键 pack 约定，避免兼容历史裸 pack。 */
-        if (nNalCount == 0U &&
-            ((enVideoCodec == Video_NS::VideoCodec_E::H264 && eType == Video_NS::H264_TYPE_SPS) ||
-             (enVideoCodec == Video_NS::VideoCodec_E::H265 && eType == Video_NS::H265_TYPE_VPS)))
+        if (nNalCount == 0U && ((enVideoCodec == Video_NS::VideoCodec_E::H264 && eType == Video_NS::H264_TYPE_SPS) ||
+                                (enVideoCodec == Video_NS::VideoCodec_E::H265 && eType == Video_NS::H265_TYPE_VPS)))
         {
             return FRAME_MARKER_KEYFRAME;
         }
@@ -488,11 +483,7 @@ void CRtspServer::report_queue_recover(QueueDiag_S &stDiag, const char *strType,
          * 丢帧持续时长表示连续入队失败窗口，不能单独等同于socket阻塞；
          * 需要结合RTSP消费线程和系统I/O诊断判断卡顿位置。
          */
-        dlog_warn("RTSP%s队列恢复 chn:%d 本轮丢帧:%d 持续:%lldms",
-                  strType,
-                  nChannel,
-                  stDiag.nDropCount,
-                  llNow - stDiag.llFirstDropMs);
+        dlog_warn("RTSP%s队列恢复 chn:%d 本轮丢帧:%d 持续:%lldms", strType, nChannel, stDiag.nDropCount, llNow - stDiag.llFirstDropMs);
         stDiag.bDropping = false;
         stDiag.nDropCount = 0;
         stDiag.llFirstDropMs = 0;
@@ -507,7 +498,7 @@ void CRtspServer::report_queue_recover(QueueDiag_S &stDiag, const char *strType,
  *       的 SPS/PPS/SEI/IDR 复合 buffer不拆分。H.264/H.265发送完整关键 pack、MJPEG发送
  *       一个完整独立帧后，才结束首帧等待。
  */
-int rtspFrameCall(Fream_Info_t* frame)
+int rtspFrameCall(Fream_Info_t *frame)
 {
     if (frame == nullptr || frame->param == nullptr || frame->data == nullptr)
     {
@@ -515,7 +506,7 @@ int rtspFrameCall(Fream_Info_t* frame)
         return ERR_PARAM_NULL;
     }
 
-    Live_Stream_Info_t* pStreamInfo = static_cast<Live_Stream_Info_t*>(frame->param);
+    Live_Stream_Info_t *pStreamInfo = static_cast<Live_Stream_Info_t *>(frame->param);
 
     if (frame->type == AUDIO_TYPE)
     {
@@ -551,8 +542,7 @@ int rtspFrameCall(Fream_Info_t* frame)
                 auto videoFrame = pStreamInfo->videoQueue->pop();
                 if (videoFrame)
                 {
-                    if (videoFrame->iFrame == FRAME_MARKER_KEYFRAME ||
-                        videoFrame->iFrame == FRAME_MARKER_INDEPENDENT_FRAME)
+                    if (videoFrame->iFrame == FRAME_MARKER_KEYFRAME || videoFrame->iFrame == FRAME_MARKER_INDEPENDENT_FRAME)
                     {
                         /* 关键 pack或MJPEG独立帧都能启动新客户端，整体发送并退出特殊模式。 */
                         memcpy(frame->data, videoFrame->data.get(), videoFrame->frameSize);
@@ -592,8 +582,7 @@ int rtspFrameCall(Fream_Info_t* frame)
                 memcpy(frame->data, videoFrame->data.get(), videoFrame->frameSize);
                 frame->frameSize = videoFrame->frameSize;
                 /* Fream_Info_t只保留0/1兼容语义，独立参数集为0，MJPEG独立帧保持旧版1。 */
-                frame->iFrame = (videoFrame->iFrame == FRAME_MARKER_KEYFRAME ||
-                                 videoFrame->iFrame == FRAME_MARKER_INDEPENDENT_FRAME)
+                frame->iFrame = (videoFrame->iFrame == FRAME_MARKER_KEYFRAME || videoFrame->iFrame == FRAME_MARKER_INDEPENDENT_FRAME)
                                     ? FRAME_MARKER_KEYFRAME
                                     : FRAME_MARKER_NON_KEY;
                 /* videoFrame 在作用域结束时自动释放 */
@@ -625,7 +614,7 @@ int rtspFrameCall(Fream_Info_t* frame)
  *   referenceCount 作为连接数；DESCRIBE 的临时引用可能短暂计入，但不会把附加
  *   Track 的回调次数重复累加，也不会因 SDP 探测把队列误清空。
  */
-int rtspStateCallback(Rtsp_ClientStream_State_t* param)
+int rtspStateCallback(Rtsp_ClientStream_State_t *param)
 {
     if (param == nullptr || param->param == nullptr)
     {
@@ -633,14 +622,14 @@ int rtspStateCallback(Rtsp_ClientStream_State_t* param)
         return ERR_PARAM_NULL;
     }
 
-    CRtspServer* pRtspServer = CRtspServer::instance();
+    CRtspServer *pRtspServer = CRtspServer::instance();
     if (pRtspServer->m_pLiveInfo == nullptr || pRtspServer->m_pLiveInfo->pServerHandle == nullptr)
     {
         dlog_error("RTSP状态回调时服务器未初始化");
         return ERR_UNINIT;
     }
 
-    Live_Stream_Info_t* pStreamInfo = static_cast<Live_Stream_Info_t*>(param->param);
+    Live_Stream_Info_t *pStreamInfo = static_cast<Live_Stream_Info_t *>(param->param);
     int nChannel = -1;
     for (int i = 0; i < RTSP_CHN_MAX; ++i)
     {
@@ -657,16 +646,12 @@ int rtspStateCallback(Rtsp_ClientStream_State_t* param)
     }
 
     const int nMainBitrateKbps = get_main_bitrate_kbps(pRtspServer->getVideoConfig());
-    const int nChannelLimit = nChannel == RTSP_CHN_MAIN
-                                  ? get_main_client_limit(nMainBitrateKbps)
-                                  : RTSP_GLOBAL_MAX_CLIENT;
+    const int nChannelLimit = nChannel == RTSP_CHN_MAIN ? get_main_client_limit(nMainBitrateKbps) : RTSP_GLOBAL_MAX_CLIENT;
     const int nGlobalLimit = RTSP_GLOBAL_MAX_CLIENT;
 
     int nChannelCount = 0;
     int nGlobalCount = 0;
-    bool bChannelCountValid = read_rtsp_client_count(pRtspServer->m_pLiveInfo->pServerHandle,
-                                                     pStreamInfo->streamName,
-                                                     nChannelCount);
+    bool bChannelCountValid = read_rtsp_client_count(pRtspServer->m_pLiveInfo->pServerHandle, pStreamInfo->streamName, nChannelCount);
     bool bGlobalCountValid = bChannelCountValid;
     for (int i = 0; i < RTSP_CHN_MAX; ++i)
     {
@@ -684,8 +669,8 @@ int rtspStateCallback(Rtsp_ClientStream_State_t* param)
 
         int nOtherCount = 0;
         if (!read_rtsp_client_count(pRtspServer->m_pLiveInfo->pServerHandle,
-                                     pRtspServer->m_pLiveInfo->listLive[i]->streamName,
-                                     nOtherCount))
+                                    pRtspServer->m_pLiveInfo->listLive[i]->streamName,
+                                    nOtherCount))
         {
             bGlobalCountValid = false;
             continue;
@@ -716,7 +701,7 @@ int rtspStateCallback(Rtsp_ClientStream_State_t* param)
         const bool bChannelLimitReached = nChannelCount >= nChannelLimit;
         if (bGlobalLimitReached || bChannelLimitReached)
         {
-            const char* strReason = bGlobalLimitReached ? "global_limit" : "channel_limit";
+            const char *strReason = bGlobalLimitReached ? "global_limit" : "channel_limit";
             dlog_warn("RTSP客户端拒绝 stream:%s chn:%d bitrate:%dkbps "
                       "channel:%d/%d total:%d/%d capability:x%d reason:%s",
                       pStreamInfo->streamName,
@@ -745,8 +730,7 @@ int rtspStateCallback(Rtsp_ClientStream_State_t* param)
         pStreamInfo->request = 1;
         pStreamInfo->requestIFrame = 1;
 
-        if (bChannelCountValid && bGlobalCountValid &&
-            (nChannelCount > nChannelLimit || nGlobalCount > nGlobalLimit))
+        if (bChannelCountValid && bGlobalCountValid && (nChannelCount > nChannelLimit || nGlobalCount > nGlobalLimit))
         {
             /*
              * ! 这是旧版 Track START 回调的兼容判断：正式 SETUP 已由库侧
@@ -837,7 +821,7 @@ int rtspStateCallback(Rtsp_ClientStream_State_t* param)
  * @param    {char} *pClientIP 握手连接成功的客户端IP
  * @return   {int} 0：成功 非0：失败
  */
-int handshakeAuth_callback(char* pClientIP)
+int handshakeAuth_callback(char *pClientIP)
 {
     if (pClientIP == NULL)
     {
@@ -904,7 +888,7 @@ IpcRet_E CRtspServer::init()
         dlog_warn("RTSP主码流码率非法，采用默认连接限额");
     }
 
-    m_pLiveInfo = (LIVE_RTSP_S*) calloc(1, sizeof(LIVE_RTSP_S));
+    m_pLiveInfo = (LIVE_RTSP_S *) calloc(1, sizeof(LIVE_RTSP_S));
     if (m_pLiveInfo == NULL)
     {
         dlog_error("rtsp服务器初始化失败,m_pLiveInfo分配内存失败");
@@ -934,7 +918,7 @@ IpcRet_E CRtspServer::init()
     // 两路
     for (int i = 0; i < RTSP_CHN_MAX; i++)
     {
-        m_pLiveInfo->listLive[i] = (Live_Stream_Info_t*) calloc(1, sizeof(Live_Stream_Info_t));
+        m_pLiveInfo->listLive[i] = (Live_Stream_Info_t *) calloc(1, sizeof(Live_Stream_Info_t));
         if (!m_pLiveInfo->listLive[i])
         {
             return ERR_PARAM_NULL;
@@ -956,10 +940,7 @@ IpcRet_E CRtspServer::init()
         memset(&m_stClientInfo[i], 0, sizeof(Rtsp_Create_Info_t));
 
         m_pLiveInfo->listLive[i]->nPort = m_nRtspPort;
-        snprintf(m_pLiveInfo->listLive[i]->ip,
-                 sizeof(m_pLiveInfo->listLive[i]->ip),
-                 "%s",
-                 stNetInfo.stIp.ipv4Ip.c_str());
+        snprintf(m_pLiveInfo->listLive[i]->ip, sizeof(m_pLiveInfo->listLive[i]->ip), "%s", stNetInfo.stIp.ipv4Ip.c_str());
         snprintf(m_pLiveInfo->listLive[i]->achUrl,
                  sizeof(m_pLiveInfo->listLive[i]->achUrl),
                  RTSP_URL_DEFAULT,
@@ -970,9 +951,9 @@ IpcRet_E CRtspServer::init()
         /* 判断是否需要鉴权 */
         if (m_bAuthentication)
         {
-            auto& Url = m_rtspUrlMap[i];
+            auto &Url = m_rtspUrlMap[i];
             Url.resize(128);
-            snprintf(Url.data(),
+            snprintf(&Url[0],
                      Url.size(),
                      RTSP_URL_AUTHENTICATION_DEFAULT,
                      m_strUser.c_str(),
@@ -983,7 +964,7 @@ IpcRet_E CRtspServer::init()
         }
         else
         {
-            auto& Url = m_rtspUrlMap[i];
+            auto &Url = m_rtspUrlMap[i];
             Url = m_pLiveInfo->listLive[i]->achUrl;
         }
 
@@ -1006,11 +987,10 @@ IpcRet_E CRtspServer::init()
 
         strcpy(m_pLiveInfo->listLive[i]->ip, "127.0.0.1");
         /* 创建线程安全的帧队列 */
-        m_pLiveInfo->listLive[i]->videoQueue = std::make_unique<CThreadSafeFrameQueue>(RTSP_VIDEO_QUEUE_DEPTH,
-                                                                                       m_unVideoQueueMaxBytes[i],
-                                                                                       true);
-        m_pLiveInfo->listLive[i]->audioQueue = std::make_unique<CThreadSafeFrameQueue>(RTSP_AUDIO_QUEUE_DEPTH,
-                                                                                       RTSP_AUDIO_QUEUE_MAX_BYTES);
+        m_pLiveInfo->listLive[i]->videoQueue = std::unique_ptr<CThreadSafeFrameQueue>(
+            new CThreadSafeFrameQueue(RTSP_VIDEO_QUEUE_DEPTH, m_unVideoQueueMaxBytes[i], true));
+        m_pLiveInfo->listLive[i]->audioQueue = std::unique_ptr<CThreadSafeFrameQueue>(
+            new CThreadSafeFrameQueue(RTSP_AUDIO_QUEUE_DEPTH, RTSP_AUDIO_QUEUE_MAX_BYTES));
 
         sprintf(m_pLiveInfo->listLive[i]->streamName, "Streaming/Channels/%d", i + 101);
         m_stClientInfo[i].Videoindex = m_pLiveInfo->listLive[i];
@@ -1077,9 +1057,7 @@ IpcRet_E CRtspServer::init()
          * 主码流在8 Mbps/16 Mbps档位分别收紧为2/1路，高配设备整体翻倍。
          */
         const int nMainBitrateKbps = get_main_bitrate_kbps(m_vstVideoConfig);
-        const int nStreamClientLimit = i == RTSP_CHN_MAIN
-                                           ? get_main_client_limit(nMainBitrateKbps)
-                                           : RTSP_GLOBAL_MAX_CLIENT;
+        const int nStreamClientLimit = i == RTSP_CHN_MAIN ? get_main_client_limit(nMainBitrateKbps) : RTSP_GLOBAL_MAX_CLIENT;
         m_stClientInfo[i].param1 = nStreamClientLimit;
         /* memory: OutPacketBuffer按主/子码流分别配置，使用应用层定义的设备相关缓存大小 */
         m_stClientInfo[i].outPacketBufferSize = i == RTSP_CHN_MAIN ? RTSP_APP_MAIN_OUT_PACKET_BUFFER_SIZE
@@ -1102,9 +1080,7 @@ IpcRet_E CRtspServer::init()
          * rtsp_server_create 内部设置上限早于 ServerMediaSession 创建，旧库中该次
          * 设置可能无效；创建完成后再设置一次，兼容实现了 fReferenceMax 的库。
          */
-        if (rtsp_setclient_maxNum(m_pLiveInfo->pServerHandle,
-                                  m_stClientInfo[i].streamName,
-                                  nStreamClientLimit) != OK)
+        if (rtsp_setclient_maxNum(m_pLiveInfo->pServerHandle, m_stClientInfo[i].streamName, nStreamClientLimit) != OK)
         {
             dlog_warn("RTSP流上限未能下发到库 chn:%d limit:%d，封装回调仍会记录超限", i, nStreamClientLimit);
         }
@@ -1172,7 +1148,7 @@ IpcRet_E CRtspServer::reboot()
     return OK;
 }
 
-int CRtspServer::sendVideoData(int nChannel, Video_NS::VideoFrame_S* pVideoFrame)
+int CRtspServer::sendVideoData(int nChannel, Video_NS::VideoFrame_S *pVideoFrame)
 {
     if (!pVideoFrame)
     {
@@ -1198,7 +1174,7 @@ int CRtspServer::sendVideoData(int nChannel,
 #endif
 
     int nRet = OK;
-    Live_Stream_Info_t* pStreamInfo = m_pLiveInfo->listLive[nChannel];
+    Live_Stream_Info_t *pStreamInfo = m_pLiveInfo->listLive[nChannel];
 
     if (pStreamInfo->request == 1)
     {
@@ -1210,12 +1186,12 @@ int CRtspServer::sendVideoData(int nChannel,
         }
 
         /* 创建帧数据（使用智能指针管理内存） */
-        auto frameData = std::make_unique<FrameData>();
+        auto frameData = std::unique_ptr<FrameData>(new FrameData());
         /*
          * memory: 使用 new[] + shared_ptr 显式删除器，绕开 make_shared<unsigned char[]>
          * 在 GCC10/musl 工具链上的数组分配缺陷（实测崩溃），与共享帧构造保持一致。
          */
-        frameData->data = std::shared_ptr<unsigned char[]>(new unsigned char[nDataLen], std::default_delete<unsigned char[]>());
+        frameData->data = std::shared_ptr<unsigned char>(new unsigned char[nDataLen], std::default_delete<unsigned char[]>());
         frameData->type = VIDEO_TYPE;
         frameData->frameSize = nDataLen;
 
@@ -1276,7 +1252,7 @@ int CRtspServer::sendVideoData(int nChannel,
         }
 
         /* 创建帧数据，data 直接持有共享帧的引用（零拷贝，引用计数+1） */
-        auto frameData = std::make_unique<FrameData>();
+        auto frameData = std::unique_ptr<FrameData>(new FrameData());
         frameData->data = stSharedFrame.pData;
         frameData->type = VIDEO_TYPE;
         frameData->frameSize = nDataLen;
@@ -1304,10 +1280,9 @@ int CRtspServer::sendVideoData(int nChannel,
     return nRet;
 }
 
-int CRtspServer::sendAudioData(int nChannel, Audio_NS::AudioFrame_S* pAudioFrame)
+int CRtspServer::sendAudioData(int nChannel, Audio_NS::AudioFrame_S *pAudioFrame)
 {
-    if (!m_bInitFlag.load() || nChannel < 0 || nChannel >= RTSP_CHN_MAX ||
-        !pAudioFrame || !pAudioFrame->pData || pAudioFrame->nLen <= 0 ||
+    if (!m_bInitFlag.load() || nChannel < 0 || nChannel >= RTSP_CHN_MAX || !pAudioFrame || !pAudioFrame->pData || pAudioFrame->nLen <= 0 ||
         m_stClientInfo[nChannel].Audioindex == nullptr) // 通道无音频需求时，送音频数据直接返回
     {
         return ERR;
@@ -1318,7 +1293,7 @@ int CRtspServer::sendAudioData(int nChannel, Audio_NS::AudioFrame_S* pAudioFrame
 #endif
 
     int nRet = OK;
-    Live_Stream_Info_t* pStreamInfo = m_pLiveInfo->listLive[nChannel];
+    Live_Stream_Info_t *pStreamInfo = m_pLiveInfo->listLive[nChannel];
 
     if (pStreamInfo->request == 1)
     {
@@ -1330,9 +1305,9 @@ int CRtspServer::sendAudioData(int nChannel, Audio_NS::AudioFrame_S* pAudioFrame
         }
 
         /* 创建帧数据（使用智能指针管理内存） */
-        auto frameData = std::make_unique<FrameData>();
+        auto frameData = std::unique_ptr<FrameData>(new FrameData());
         /* memory: new[] + shared_ptr 显式删除器，绕开 make_shared 数组缺陷（同视频路径） */
-        frameData->data = std::shared_ptr<unsigned char[]>(new unsigned char[pAudioFrame->nLen], std::default_delete<unsigned char[]>());
+        frameData->data = std::shared_ptr<unsigned char>(new unsigned char[pAudioFrame->nLen], std::default_delete<unsigned char[]>());
         frameData->type = AUDIO_TYPE;
         frameData->frameSize = pAudioFrame->nLen;
 
@@ -1360,18 +1335,15 @@ int CRtspServer::sendAudioData(int nChannel, Audio_NS::AudioFrame_S* pAudioFrame
     return nRet;
 }
 
-int CRtspServer::setVideoConfig(const std::vector<Video_NS::VideoConfig_S>& vstVideoConfig)
+int CRtspServer::setVideoConfig(const std::vector<Video_NS::VideoConfig_S> &vstVideoConfig)
 {
     /*
      * 运行时限额依赖主/子码流配置；异常输入必须保留上一份有效配置，不能让
      * 缺失或零码率回退到低码率档而意外放宽已有的连接上限。
      */
-    if (vstVideoConfig.size() < static_cast<std::size_t>(RTSP_CHN_MAX) ||
-        get_main_bitrate_kbps(vstVideoConfig) <= 0)
+    if (vstVideoConfig.size() < static_cast<std::size_t>(RTSP_CHN_MAX) || get_main_bitrate_kbps(vstVideoConfig) <= 0)
     {
-        dlog_error("RTSP视频配置无效，保留现有限额 size:%zu main_bitrate:%d",
-                   vstVideoConfig.size(),
-                   get_main_bitrate_kbps(vstVideoConfig));
+        dlog_error("RTSP视频配置无效，保留现有限额 size:%zu main_bitrate:%d", vstVideoConfig.size(), get_main_bitrate_kbps(vstVideoConfig));
         return ERR_PARAM;
     }
 
@@ -1401,15 +1373,11 @@ int CRtspServer::setVideoConfig(const std::vector<Video_NS::VideoConfig_S>& vstV
                                  read_rtsp_client_count(m_pLiveInfo->pServerHandle,
                                                         m_stClientInfo[RTSP_CHN_SUB].streamName,
                                                         nCurrentSubCount);
-            if (rtsp_setclient_maxNum(m_pLiveInfo->pServerHandle,
-                                      m_stClientInfo[RTSP_CHN_MAIN].streamName,
-                                      nMainClientLimit) != OK)
+            if (rtsp_setclient_maxNum(m_pLiveInfo->pServerHandle, m_stClientInfo[RTSP_CHN_MAIN].streamName, nMainClientLimit) != OK)
             {
                 dlog_warn("主码流运行时上限下发失败 limit:%d，封装回调仍按新上限检查", nMainClientLimit);
             }
-            if (rtsp_setclient_maxNum(m_pLiveInfo->pServerHandle,
-                                      m_stClientInfo[RTSP_CHN_SUB].streamName,
-                                      RTSP_GLOBAL_MAX_CLIENT) != OK)
+            if (rtsp_setclient_maxNum(m_pLiveInfo->pServerHandle, m_stClientInfo[RTSP_CHN_SUB].streamName, RTSP_GLOBAL_MAX_CLIENT) != OK)
             {
                 dlog_warn("子码流运行时上限下发失败 limit:%d，封装回调仍按新上限检查", RTSP_GLOBAL_MAX_CLIENT);
             }
@@ -1433,13 +1401,13 @@ int CRtspServer::setVideoConfig(const std::vector<Video_NS::VideoConfig_S>& vstV
     return OK;
 }
 
-int CRtspServer::setAudioConfig(const Audio_NS::AudioConfig_S& stAudioConfig)
+int CRtspServer::setAudioConfig(const Audio_NS::AudioConfig_S &stAudioConfig)
 {
     m_stAudioConfig = stAudioConfig;
     return OK;
 }
 
-int CRtspServer::updateNetworkConfig(const Network::Info_S& stInfo)
+int CRtspServer::updateNetworkConfig(const Network::Info_S &stInfo)
 {
     for (int i = 0; i < RTSP_CHN_MAX; i++)
     {
@@ -1454,9 +1422,9 @@ int CRtspServer::updateNetworkConfig(const Network::Info_S& stInfo)
         /* 判断是否需要鉴权 */
         if (m_bAuthentication)
         {
-            auto& Url = m_rtspUrlMap[i];
+            auto &Url = m_rtspUrlMap[i];
             Url.resize(128);
-            snprintf(Url.data(),
+            snprintf(&Url[0],
                      Url.size(),
                      RTSP_URL_AUTHENTICATION_DEFAULT,
                      m_strUser.c_str(),
@@ -1467,7 +1435,7 @@ int CRtspServer::updateNetworkConfig(const Network::Info_S& stInfo)
         }
         else
         {
-            auto& Url = m_rtspUrlMap[i];
+            auto &Url = m_rtspUrlMap[i];
             Url = m_pLiveInfo->listLive[i]->achUrl;
         }
 
@@ -1479,14 +1447,14 @@ int CRtspServer::updateNetworkConfig(const Network::Info_S& stInfo)
     return OK;
 }
 
-int CRtspServer::setPort(const int& nPort)
+int CRtspServer::setPort(const int &nPort)
 {
     m_nRtspPort = nPort;
     reboot();
     return OK;
 }
 
-int CRtspServer::setQosDscp(const int& nDscp)
+int CRtspServer::setQosDscp(const int &nDscp)
 {
     if (QOS_DSCP_MIN <= nDscp && QOS_DSCP_MAX >= nDscp)
     {
@@ -1497,7 +1465,7 @@ int CRtspServer::setQosDscp(const int& nDscp)
     return ERR_PARAM;
 }
 
-char* CRtspServer::getRtspUrl(int nChn, bool bAuth)
+char *CRtspServer::getRtspUrl(int nChn, bool bAuth)
 {
     /* 返回副本而不是内部对象地址，避免解锁后 reboot() 释放/改写内部缓冲区。 */
     thread_local std::string strRtspUrl;
@@ -1525,8 +1493,8 @@ char* CRtspServer::getRtspUrl(int nChn, bool bAuth)
         strRtspUrl.clear();
         dlog_error("Rtsp运行时对象为空 chn:%d liveInfo:%p streamInfo:%p",
                    nChn,
-                   static_cast<void*>(m_pLiveInfo),
-                   m_pLiveInfo == nullptr ? nullptr : static_cast<void*>(m_pLiveInfo->listLive[nChn]));
+                   static_cast<void *>(m_pLiveInfo),
+                   m_pLiveInfo == nullptr ? nullptr : static_cast<void *>(m_pLiveInfo->listLive[nChn]));
         return nullptr;
     }
 
@@ -1534,8 +1502,7 @@ char* CRtspServer::getRtspUrl(int nChn, bool bAuth)
     {
         Network::Info_S stNetInfo;
         CNetworkManage::instance()->get_system_networkInfo(stNetInfo);
-        if (!stNetInfo.stIp.ipv4Ip.empty() && stNetInfo.stIp.ipv4Ip != "0.0.0.0"
-            && stNetInfo.stIp.ipv4Ip != m_strLastIp)
+        if (!stNetInfo.stIp.ipv4Ip.empty() && stNetInfo.stIp.ipv4Ip != "0.0.0.0" && stNetInfo.stIp.ipv4Ip != m_strLastIp)
         {
             m_strLastIp = stNetInfo.stIp.ipv4Ip;
             updateNetworkConfig(stNetInfo);
@@ -1566,10 +1533,10 @@ char* CRtspServer::getRtspUrl(int nChn, bool bAuth)
         }
     }
 
-    return strRtspUrl.empty() ? nullptr : strRtspUrl.data();
+    return strRtspUrl.empty() ? nullptr : &strRtspUrl[0];
 }
 
-int CRtspServer::setRequestIdrCallback(const RequestIdrCallback& callback, void* pUserData)
+int CRtspServer::setRequestIdrCallback(const RequestIdrCallback &callback, void *pUserData)
 {
     if (!callback)
     {
@@ -1597,7 +1564,7 @@ int CRtspServer::triggerRequestIdr(int nChannel)
     /* 获取当前时间 */
     auto now = TimeUtils_NS::get_currentTimestampMs();
     /* 查找该通道上次触发时间（如果不存在，会自动创建并初始化为默认值——零时间点） */
-    auto& lastTime = m_lastIdrRequestTimeMap[nChannel];
+    auto &lastTime = m_lastIdrRequestTimeMap[nChannel];
     /* 计算时间间隔 */
     auto elapsedMs = now - lastTime;
     /* 如果间隔太短，拒绝执行 */
@@ -1610,7 +1577,7 @@ int CRtspServer::triggerRequestIdr(int nChannel)
     if (m_requestIdrCallback)
     {
         /* 判断 StreamVideo 是否初始化完毕，否则调用接口会出现崩溃 */
-        if (*static_cast<bool*>(m_pCallbackUserData) == true)
+        if (*static_cast<bool *>(m_pCallbackUserData) == true)
         {
             m_requestIdrCallback(nChannel, m_pCallbackUserData);
 

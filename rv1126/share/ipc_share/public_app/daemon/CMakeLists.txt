@@ -12,6 +12,7 @@ include(${IPC_SHARE_PATH}/common/timezone/timezone.cmake)
 set (INCLUDE_PATH
     ${CMAKE_CURRENT_LIST_DIR}
     ${IPC_SHARE_PATH}/common/define
+    ${IPC_SHARE_PATH}/common/utils
     ${IPC_SHARE_PATH}/ret
 )
 

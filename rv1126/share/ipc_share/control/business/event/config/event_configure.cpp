@@ -32,6 +32,7 @@ CEventConfigure::CEventConfigure():
       m_audioAnomaly(EVENT_AUDIO_ANOMALY_DETECTION_CONFIG_FILE),
       m_sceneChange(EVENT_SCENE_CHANGE_DETECTION_CONFIG_FILE),
       m_faceDetection(EVENT_FACE_DETECTION_CONFIG_FILE),
+      m_faceRecognition(EVENT_FACE_RECOGNITION_CONFIG_FILE),
       m_loiteringDetection(EVENT_LOITERING_DETECTION_CONFIG_FILE),
       m_crowdGathering(EVENT_CROWD_GATHERING_DETECTION_CONFIG_FILE),
       m_parkingDetection(EVENT_PARKING_DETECTION_CONFIG_FILE),
@@ -55,7 +56,7 @@ CEventConfigure::CEventConfigure():
       m_fenceClimbing(EVENT_FENCE_CLIMBING_INFO_FILE),
       m_leavePost(EVENT_LEAVE_POST_INFO_FILE),
       m_pedestrianIntrusion(EVENT_PEDESTRIAN_INTRUSION_INFO_FILE),
-      m_smokeFire(EVENT_SMOKE_FIRE_INFO_FILE),
+    //   m_smokeFire(EVENT_SMOKE_FIRE_INFO_FILE),
       m_openFlame(EVENT_OPEN_FLAME_INFO_FILE),
       m_roadPonding(EVENT_ROAD_PONDING_INFO_FILE),
       m_manholeCoverAbnormal(EVENT_MANHOLE_COVER_ABNORMAL_INFO_FILE),
@@ -78,6 +79,9 @@ CEventConfigure::CEventConfigure():
       m_emergencyLaneOccupancyDetection(EVENT_EMERGENCY_LANE_OCCUPANCY_INFO_FILE),
       m_nonMotorVehicleIntrusionDetection(EVENT_NON_MOTOR_VEHICLE_INTRUSION_INFO_FILE),
       m_AttributeDetectSwitch(ATTRIBUTE_DETECT_INFO_FILE)
+#endif
+#if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
+, m_smokeFire(EVENT_SMOKE_FIRE_INFO_FILE)
 #endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_GARBAGE_DETECT
       ,
@@ -311,6 +315,16 @@ int CEventConfigure::get_configure(Alarm::FaceDetection_S &alarm) const
     return m_faceDetection.get(alarm);
 }
 
+int CEventConfigure::set_configure(const Alarm::FaceRecognition_S &alarm)
+{
+    return m_faceRecognition.set(alarm);
+}
+
+int CEventConfigure::get_configure(Alarm::FaceRecognition_S &alarm) const
+{
+    return m_faceRecognition.get(alarm);
+}
+
 int CEventConfigure::set_configure(const Alarm::LoiteringDetection_S &alarm)
 {
     return m_loiteringDetection.set(alarm);
@@ -494,15 +508,15 @@ int CEventConfigure::get_configure(Alarm::PedestrianIntrusionDetection_S &alarm)
     return m_pedestrianIntrusion.get(alarm);
 }
 
-int CEventConfigure::set_configure(const Alarm::SmokeFireDetection_S &alarm)
-{
-    return m_smokeFire.set(alarm);
-}
+// int CEventConfigure::set_configure(const Alarm::SmokeFireDetection_S &alarm)
+// {
+//     return m_smokeFire.set(alarm);
+// }
 
-int CEventConfigure::get_configure(Alarm::SmokeFireDetection_S &alarm) const
-{
-    return m_smokeFire.get(alarm);
-}
+// int CEventConfigure::get_configure(Alarm::SmokeFireDetection_S &alarm) const
+// {
+//     return m_smokeFire.get(alarm);
+// }
 
 int CEventConfigure::set_configure(const Alarm::OpenFlameDetection_S &alarm)
 {
@@ -725,7 +739,17 @@ int CEventConfigure::get_configure(Alarm::AttributeDetectSwitch_S &alarm) const
 }
 
 #endif
+#if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
+int CEventConfigure::set_configure(const Alarm::SmokeFireDetection_S &alarm)
+{
+    return m_smokeFire.set(alarm);
+}
 
+int CEventConfigure::get_configure(Alarm::SmokeFireDetection_S &alarm) const
+{
+    return m_smokeFire.get(alarm);
+}
+#endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_GARBAGE_DETECT
 int CEventConfigure::set_configure(const Alarm::GarbageExposureDetection_S &alarm)
 {

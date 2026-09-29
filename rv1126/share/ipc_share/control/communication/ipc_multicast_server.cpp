@@ -1,4 +1,4 @@
-/***
+/**
  * @FilePath     : ipc_multicast_server.cpp
  * @Author       : huangjunda
  * @Date         : 2025-06-23 16:54:33
@@ -9,6 +9,8 @@
 
 #include "ipc_multicast_server.h"
 
+#include <algorithm>
+
 #include <cstring>
 #include "share_define.h"
 #include "system_manage.h"
@@ -18,7 +20,7 @@
 #include "dlog.h"
 #include <arpa/inet.h>
 
-/***
+/**
  * @description : 初始化
  * @author      : huangjunda
  * @return       {IpcRet_E}
@@ -26,14 +28,14 @@
 IpcRet_E CIpcMulticastServer::init()
 {
     /* 获取服务启动时间 */
-    struct timespec stuTime = {0};
+    struct timespec stuTime = { 0 };
     clock_gettime(CLOCK_MONOTONIC, &stuTime);
     m_nStartTime = stuTime.tv_sec;
 
     Network::Info_S stInfo;
     CNetworkManage::instance()->get_system_networkInfo(stInfo);
 
-    m_pHandle = (NetworkMulticast_S *)malloc(sizeof(NetworkMulticast_S));
+    m_pHandle = (NetworkMulticast_S *) malloc(sizeof(NetworkMulticast_S));
     memset(m_pHandle, 0, sizeof(NetworkMulticast_S));
 
     /* 组播接收客户端消息 */
@@ -68,11 +70,11 @@ IpcRet_E CIpcMulticastServer::init()
     return OK;
 }
 
-/***
+/**
  * @description : 去初始化
  * @author      : huangjunda
  * @return       {IpcRet_E}
- */  
+ */
 IpcRet_E CIpcMulticastServer::deinit()
 {
     stop();
@@ -80,13 +82,13 @@ IpcRet_E CIpcMulticastServer::deinit()
     return OK;
 }
 
-/***
+/**
  * @description : 启动服务
  * @author      : huangjunda
  * @param        {char *} pAddress
  * @return       {*}
  */
-void CIpcMulticastServer::start(const char * pAddress)
+void CIpcMulticastServer::start(const char *pAddress)
 {
     if (!m_pHandle->nExit)
     {
@@ -106,10 +108,10 @@ void CIpcMulticastServer::start(const char * pAddress)
         {
             dlog_debug("多播服务器正在运行中，无法重复启动");
         }
-        
+
         return;
     }
-    
+
     strncpy(m_pHandle->amcast_ip, pAddress, LENGTH16);
     m_pHandle->nExit = 0;
     if (0 != os_networkmulticast_init(m_pHandle))
@@ -121,7 +123,7 @@ void CIpcMulticastServer::start(const char * pAddress)
     return;
 }
 
-/***
+/**
  * @description : 停止服务
  * @author      : huangjunda
  * @return       {*}
@@ -133,7 +135,7 @@ void CIpcMulticastServer::stop()
         dlog_debug("多播服务器没有运行，无法停止");
         return;
     }
-    
+
     m_pHandle->nExit = 1;
     if (0 != os_networkmulticast_exit(m_pHandle))
     {
@@ -144,7 +146,7 @@ void CIpcMulticastServer::stop()
     return;
 }
 
-/***
+/**
  * @description : 多播处理
  * @author      : huangjunda
  * @param        {void} *pParam
@@ -152,8 +154,8 @@ void CIpcMulticastServer::stop()
  */
 void *CIpcMulticastServer::multicast_handle(void *pParam)
 {
-    UserRecv_S *pRecvParam = (UserRecv_S *)pParam;
-    CIpcMulticastServer *pThis = (CIpcMulticastServer *)pRecvParam->user;
+    UserRecv_S *pRecvParam = (UserRecv_S *) pParam;
+    CIpcMulticastServer *pThis = (CIpcMulticastServer *) pRecvParam->user;
     COMM_BUFFER *pRecvBuffer = reinterpret_cast<COMM_BUFFER *>(pRecvParam->data);
     // pThis->print_search_params(pParam);
 
@@ -209,7 +211,7 @@ void *CIpcMulticastServer::multicast_handle(void *pParam)
 
 void CIpcMulticastServer::message_response(void *pParam)
 {
-    UserRecv_S *pRecvParam = (UserRecv_S *)pParam;
+    UserRecv_S *pRecvParam = (UserRecv_S *) pParam;
     COMM_BUFFER *pRecvBuffer = reinterpret_cast<COMM_BUFFER *>(pRecvParam->data);
 
     /* 返回头信息 */
@@ -220,7 +222,7 @@ void CIpcMulticastServer::message_response(void *pParam)
     pRecvBuffer->commHead.nErrorCode = ERR_CODE::ERR_SUCCESS;
     // pRecvBuffer->commHead.nCommand == NET_CMD_TYPE::NET_SEARCH_SERVER;
 
-    switch(pRecvBuffer->commHead.nCommand)
+    switch (pRecvBuffer->commHead.nCommand)
     {
     case NET_CMD_TYPE::NET_SEARCH_SERVER:
         pRecvBuffer->commHead.nBufSize = sizeof(SEARCH_SER_INFO);
@@ -233,12 +235,12 @@ void CIpcMulticastServer::message_response(void *pParam)
     /* 消息回复发送两个包 */
     /* 1. 发送单播响应给请求的客户端 */
     m_pHandle->stunque_addr.sin_addr.s_addr = inet_addr(pRecvParam->stNetwork.ip);
-    os_networkunque_send((const char *)pRecvBuffer, pRecvBuffer->commHead.nBufSize + sizeof(COMM_HEAD), m_pHandle);
+    os_networkunque_send((const char *) pRecvBuffer, pRecvBuffer->commHead.nBufSize + sizeof(COMM_HEAD), m_pHandle);
     /* 2. 发送广播响应 */
-    os_networkbroadcast_send((const char *)pRecvBuffer, pRecvBuffer->commHead.nBufSize + sizeof(COMM_HEAD), m_pHandle);
+    os_networkbroadcast_send((const char *) pRecvBuffer, pRecvBuffer->commHead.nBufSize + sizeof(COMM_HEAD), m_pHandle);
 }
 
-/***
+/**
  * @description : 搜索处理
  * @author      : huangjunda
  * @param        {void} *pParam
@@ -246,11 +248,11 @@ void CIpcMulticastServer::message_response(void *pParam)
  */
 void CIpcMulticastServer::search_handle(void *pParam)
 {
-    UserRecv_S *pRecvParam = (UserRecv_S *)pParam;
+    UserRecv_S *pRecvParam = (UserRecv_S *) pParam;
     COMM_BUFFER *pRecvBuffer = reinterpret_cast<COMM_BUFFER *>(pRecvParam->data);
 
     /* 获取当前时间点 */
-    struct timespec stuTime = {0};
+    struct timespec stuTime = { 0 };
     clock_gettime(CLOCK_MONOTONIC, &stuTime);
 
     /* 初始化搜索信息 */
@@ -270,7 +272,7 @@ void CIpcMulticastServer::search_handle(void *pParam)
     CNetworkManage::instance()->get_network_port(stPortConfig);
 
     /* 返回搜索信息 */
-    char achVersion[LENGTH32] = {0};
+    char achVersion[LENGTH32] = { 0 };
     stSearchInfo.nDeviceType = 0x01;
     stSearchInfo.nDeviceId = stDeviceInfo.deviceID;
     strncpy(stSearchInfo.szDevName, stDeviceInfo.deviceName.c_str(), LENGTH64);
@@ -289,10 +291,14 @@ void CIpcMulticastServer::search_handle(void *pParam)
     /* 网络信息 */
     stSearchInfo.ipLocal = inet_addr(stNetworkInfo.stIp.ipv4Ip.c_str());
     /* 处理MAC地址 */
-    sscanf(stNetworkInfo.stIp.physicalAddress.c_str(), "%02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%02hhx",
-           &stSearchInfo.macAddr[0], &stSearchInfo.macAddr[1],
-           &stSearchInfo.macAddr[2], &stSearchInfo.macAddr[3],
-           &stSearchInfo.macAddr[4], &stSearchInfo.macAddr[5]);
+    sscanf(stNetworkInfo.stIp.physicalAddress.c_str(),
+           "%02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%02hhx",
+           &stSearchInfo.macAddr[0],
+           &stSearchInfo.macAddr[1],
+           &stSearchInfo.macAddr[2],
+           &stSearchInfo.macAddr[3],
+           &stSearchInfo.macAddr[4],
+           &stSearchInfo.macAddr[5]);
     stSearchInfo.wPortWeb = stPortConfig.nHttpPort;
     stSearchInfo.wPortListen = 8800;
     stSearchInfo.ipSubMask = inet_addr(stNetworkInfo.stIp.ipv4Mask.c_str());
@@ -308,7 +314,7 @@ void CIpcMulticastServer::search_handle(void *pParam)
     message_response(pParam);
 }
 
-/***
+/**
  * @description : 配置处理
  * @author      : huangjunda
  * @param        {void} *pParam
@@ -316,14 +322,14 @@ void CIpcMulticastServer::search_handle(void *pParam)
  */
 void CIpcMulticastServer::config_handle(void *pParam)
 {
-    UserRecv_S *pRecvParam = (UserRecv_S *)pParam;
+    UserRecv_S *pRecvParam = (UserRecv_S *) pParam;
     COMM_BUFFER *pRecvBuffer = reinterpret_cast<COMM_BUFFER *>(pRecvParam->data);
 
     /* 获取用户信息 */
     User::UserInfo_S stUserInfo;
     stUserInfo.stAccountInfo.account = "admin";
     CUserManage::instance()->get_itemInfo(stUserInfo);
-    
+
     /* 获取本地网络配置 */
     Network::Info_S stNetInfo;
     CNetworkManage::instance()->get_system_networkInfo(stNetInfo);
@@ -333,11 +339,16 @@ void CIpcMulticastServer::config_handle(void *pParam)
     memcpy(&stAcceptConfig, pRecvBuffer->commBuf, sizeof(ACCEPT_CONFIG));
 
     /* 用MAC地址判断客户端是否配置的是本设备 */
-    char achMac[18] = {0};
-    snprintf(achMac, sizeof(achMac), "%02X:%02X:%02X:%02X:%02X:%02X",
-            stAcceptConfig.byMac[0], stAcceptConfig.byMac[1],
-            stAcceptConfig.byMac[2], stAcceptConfig.byMac[3],
-            stAcceptConfig.byMac[4], stAcceptConfig.byMac[5]);
+    char achMac[18] = { 0 };
+    snprintf(achMac,
+             sizeof(achMac),
+             "%02X:%02X:%02X:%02X:%02X:%02X",
+             stAcceptConfig.byMac[0],
+             stAcceptConfig.byMac[1],
+             stAcceptConfig.byMac[2],
+             stAcceptConfig.byMac[3],
+             stAcceptConfig.byMac[4],
+             stAcceptConfig.byMac[5]);
     /* 转换成 std::string 再比较，忽略大小写 */
     std::string strRecvMac = achMac;
     std::string strLocalMac = stNetInfo.stIp.physicalAddress;
@@ -401,7 +412,7 @@ void CIpcMulticastServer::config_handle(void *pParam)
     }
 }
 
-/***
+/**
  * @description : 配置网络处理
  * @author      : huangjunda
  * @param        {void} *pParam
@@ -409,7 +420,7 @@ void CIpcMulticastServer::config_handle(void *pParam)
  */
 void CIpcMulticastServer::config_network_handle(void *pParam)
 {
-    UserRecv_S *pRecvParam = (UserRecv_S *)pParam;
+    UserRecv_S *pRecvParam = (UserRecv_S *) pParam;
     COMM_BUFFER *pRecvBuffer = reinterpret_cast<COMM_BUFFER *>(pRecvParam->data);
 
     /* 网络IP配置 */
@@ -440,7 +451,7 @@ void CIpcMulticastServer::config_network_handle(void *pParam)
     CNetworkManage::instance()->set_system_networkInfo(stNetInfo);
 }
 
-/***
+/**
  * @description : 配置恢复出厂设置处理
  * @author      : huangjunda
  * @param        {void} *pParam
@@ -448,13 +459,16 @@ void CIpcMulticastServer::config_network_handle(void *pParam)
  */
 void CIpcMulticastServer::config_reset_handle(void *pParam)
 {
-    UserRecv_S *pRecvParam = (UserRecv_S *)pParam;
+    UserRecv_S *pRecvParam = (UserRecv_S *) pParam;
     multicast_write_log(pRecvParam->stNetwork.ip, Log::Type_E::OPERATION, Log::Action_E::REMOTE_FACTORY_RESET);
     message_response(pParam);
-    SystemManage::instance()->system_reset_complete([](int nRet) {});
+    SystemManage::instance()->system_reset_complete(
+        [](int nRet)
+        {
+        });
 }
 
-/***
+/**
  * @description : 配置重启处理
  * @author      : huangjunda
  * @param        {void} *pParam
@@ -462,10 +476,13 @@ void CIpcMulticastServer::config_reset_handle(void *pParam)
  */
 void CIpcMulticastServer::config_reboot_handle(void *pParam)
 {
-    UserRecv_S *pRecvParam = (UserRecv_S *)pParam;
+    UserRecv_S *pRecvParam = (UserRecv_S *) pParam;
     multicast_write_log(pRecvParam->stNetwork.ip, Log::Type_E::OPERATION, Log::Action_E::REMOTE_REBOOT);
     message_response(pParam);
-    SystemManage::instance()->system_reboot([](int nRet) {});
+    SystemManage::instance()->system_reboot(
+        [](int nRet)
+        {
+        });
 }
 
 void CIpcMulticastServer::multicast_write_log(char *pIp, int nType, int nAction)
@@ -476,10 +493,10 @@ void CIpcMulticastServer::multicast_write_log(char *pIp, int nType, int nAction)
     stLogInfo.nAction = nAction;
     stLogInfo.host = pIp;
     LogHandler::instance()->write(stLogInfo);
-    dlog_debug("%s:%s", stLogInfo.user.c_str(), to_string((Log::Action_E)stLogInfo.nAction).c_str());
+    dlog_debug("%s:%s", stLogInfo.user.c_str(), to_string((Log::Action_E) stLogInfo.nAction).c_str());
 }
 
-/***
+/**
  * @description : 打印搜索参数
  * @author      : huangjunda
  * @param        {void*} pParam
@@ -487,7 +504,7 @@ void CIpcMulticastServer::multicast_write_log(char *pIp, int nType, int nAction)
  */
 void CIpcMulticastServer::print_search_params(void *pParam)
 {
-    UserRecv_S *pRecvParam = (UserRecv_S *)pParam;
+    UserRecv_S *pRecvParam = (UserRecv_S *) pParam;
     COMM_BUFFER *pRecvBuffer = reinterpret_cast<COMM_BUFFER *>(pRecvParam->data);
     dlog_info("pRecvParam->code: %d", pRecvParam->code);
     dlog_info("pRecvParam->data: %s", pRecvParam->data);
@@ -507,7 +524,7 @@ void CIpcMulticastServer::print_search_params(void *pParam)
     dlog_info("pRecvBuffer->commHead.nErrorCode: %d", pRecvBuffer->commHead.nErrorCode);
     dlog_info("pRecvBuffer->commHead.nBufSize: %d\n", pRecvBuffer->commHead.nBufSize);
 
-    SEARCH_SER_INFO *stSearchInfo = (SEARCH_SER_INFO *)pRecvBuffer->commBuf;
+    SEARCH_SER_INFO *stSearchInfo = (SEARCH_SER_INFO *) pRecvBuffer->commBuf;
     dlog_info("stSearchInfo->nDeviceType: %d", stSearchInfo->nDeviceType);
     dlog_info("stSearchInfo->nDeviceId: %d", stSearchInfo->nDeviceId);
     dlog_info("stSearchInfo->szDevName: %s", stSearchInfo->szDevName);
@@ -527,10 +544,15 @@ void CIpcMulticastServer::print_search_params(void *pParam)
     dlog_info("stSearchInfo->ipLocal: %s", inet_ntoa(addr));
     /* MAC地址格式化为字符串 */
     char achMac[18];
-    snprintf(achMac, sizeof(achMac), "%02X:%02X:%02X:%02X:%02X:%02X",
-            stSearchInfo->macAddr[0], stSearchInfo->macAddr[1],
-            stSearchInfo->macAddr[2], stSearchInfo->macAddr[3],
-            stSearchInfo->macAddr[4], stSearchInfo->macAddr[5]);
+    snprintf(achMac,
+             sizeof(achMac),
+             "%02X:%02X:%02X:%02X:%02X:%02X",
+             stSearchInfo->macAddr[0],
+             stSearchInfo->macAddr[1],
+             stSearchInfo->macAddr[2],
+             stSearchInfo->macAddr[3],
+             stSearchInfo->macAddr[4],
+             stSearchInfo->macAddr[5]);
     dlog_info("stSearchInfo->macAddr: %s", achMac);
     dlog_info("stSearchInfo->wPortWeb: %d", stSearchInfo->wPortWeb);
     dlog_info("stSearchInfo->wPortListen: %d", stSearchInfo->wPortListen);
@@ -551,7 +573,7 @@ void CIpcMulticastServer::print_search_params(void *pParam)
     dlog_info("stSearchInfo->szRes2: %s\n", stSearchInfo->szRes2);
 }
 
-/***
+/**
  * @description : 打印配置参数
  * @author      : huangjunda
  * @param        {void*} pParam
@@ -559,7 +581,7 @@ void CIpcMulticastServer::print_search_params(void *pParam)
  */
 void CIpcMulticastServer::print_config_params(void *pParam)
 {
-    UserRecv_S *pRecvParam = (UserRecv_S *)pParam;
+    UserRecv_S *pRecvParam = (UserRecv_S *) pParam;
     COMM_BUFFER *pRecvBuffer = reinterpret_cast<COMM_BUFFER *>(pRecvParam->data);
     dlog_info("pRecvParam->code: %d", pRecvParam->code);
     dlog_info("pRecvParam->data: %s", pRecvParam->data);
@@ -589,10 +611,15 @@ void CIpcMulticastServer::print_config_params(void *pParam)
     dlog_info("stAcceptConfig.nCommand: %d", stAcceptConfig.nCommand);
     /* MAC地址格式化为字符串 */
     char achMac[18];
-    snprintf(achMac, sizeof(achMac), "%02X:%02X:%02X:%02X:%02X:%02X",
-            stAcceptConfig.byMac[0], stAcceptConfig.byMac[1],
-            stAcceptConfig.byMac[2], stAcceptConfig.byMac[3],
-            stAcceptConfig.byMac[4], stAcceptConfig.byMac[5]);
+    snprintf(achMac,
+             sizeof(achMac),
+             "%02X:%02X:%02X:%02X:%02X:%02X",
+             stAcceptConfig.byMac[0],
+             stAcceptConfig.byMac[1],
+             stAcceptConfig.byMac[2],
+             stAcceptConfig.byMac[3],
+             stAcceptConfig.byMac[4],
+             stAcceptConfig.byMac[5]);
     dlog_info("stAcceptConfig.byMac: %s", achMac);
     dlog_info("stAcceptConfig.res: %s", stAcceptConfig.res);
 
@@ -613,7 +640,7 @@ void CIpcMulticastServer::print_config_params(void *pParam)
     dlog_info("stNetIpConfig.res: %s", stNetIpConfig.res);
 }
 
-/***
+/**
  * @description : 加密字符串
  * @author      : huangjunda
  * @param        {char} *achText
@@ -622,8 +649,8 @@ void CIpcMulticastServer::print_config_params(void *pParam)
 int CIpcMulticastServer::encrypt_string(char *achText)
 {
     const char *pMask;
-    char       achChar;
-    int        nChar;
+    char achChar;
+    int nChar;
 
     pMask = XOR_ENCRYPT;
     nChar = 0;
@@ -633,8 +660,8 @@ int CIpcMulticastServer::encrypt_string(char *achText)
         achChar = *achText ^ *pMask;
 
         /* 不要生成包含换行符或制表符的加密文本 */
-        // if (achChar && !iswspace(achChar)) 
-        if (achChar) 
+        // if (achChar && !iswspace(achChar))
+        if (achChar)
         {
             *achText = achChar;
         }
@@ -645,7 +672,8 @@ int CIpcMulticastServer::encrypt_string(char *achText)
         nChar++;
 
         /* 如果指针位于长度末尾，则对其进行加密掩码 */
-        if (*pMask == '\0') {
+        if (*pMask == '\0')
+        {
             pMask = XOR_ENCRYPT;
         }
     }

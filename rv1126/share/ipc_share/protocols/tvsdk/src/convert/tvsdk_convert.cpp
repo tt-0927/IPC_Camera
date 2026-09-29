@@ -1427,9 +1427,9 @@ void FillMotionAlarmInfo(const Alarm::MotionDetection_S &src, NET_MotionAlarmInf
     // 普通模式区域：筒型(Rect) 或 网格(abyGridArea)
     if (dst.stNormalMode.nRegionType == 0)
     {
-        if (std::holds_alternative<Common::Rect_S>(src.stMotionNormalMode.varRegion))
+        if (mpark::holds_alternative<Common::Rect_S>(src.stMotionNormalMode.varRegion))
         {
-            const Common::Rect_S &r = std::get<Common::Rect_S>(src.stMotionNormalMode.varRegion);
+            const Common::Rect_S &r = mpark::get<Common::Rect_S>(src.stMotionNormalMode.varRegion);
             dst.stNormalMode.nRectLeft = r.nX;
             dst.stNormalMode.nRectTop = r.nY;
             dst.stNormalMode.nRectRight = r.nX + r.nWidth;
@@ -1441,9 +1441,9 @@ void FillMotionAlarmInfo(const Alarm::MotionDetection_S &src, NET_MotionAlarmInf
         // 默认全 0，只有网格中标记为 1 的宏块才置 1
         std::memset(dst.stNormalMode.abyGridArea, 0, sizeof(dst.stNormalMode.abyGridArea));
 
-        if (std::holds_alternative<Alarm::MotionNormalMode_S::AreaGrid>(src.stMotionNormalMode.varRegion))
+        if (mpark::holds_alternative<Alarm::MotionNormalMode_S::AreaGrid>(src.stMotionNormalMode.varRegion))
         {
-            const auto &grid = std::get<Alarm::MotionNormalMode_S::AreaGrid>(src.stMotionNormalMode.varRegion);
+            const auto &grid = mpark::get<Alarm::MotionNormalMode_S::AreaGrid>(src.stMotionNormalMode.varRegion);
             int h = (int)std::min<size_t>(grid.size(), 18);
             int w = 0;
             if (h > 0)
@@ -1488,7 +1488,7 @@ void FillMotionAlarmInfo(const Alarm::MotionDetection_S &src, NET_MotionAlarmInf
         }
     }
     dst.stExpertMode.uRegionCount = 0;
-    for (size_t i = 0; i < src.stMotionExpertMode.vstMotionRegion.size() && i < MOTION_EXPERT_AREA_MAX; ++i)
+    for (size_t i = 0; i < src.stMotionExpertMode.vstMotionRegion.size() && i < 16; ++i)
     {
         const auto &reg = src.stMotionExpertMode.vstMotionRegion[i];
         auto &out = dst.stExpertMode.astRegion[i];
@@ -1503,9 +1503,6 @@ void FillMotionAlarmInfo(const Alarm::MotionDetection_S &src, NET_MotionAlarmInf
         out.nNightSensitivity   = (INT32)reg.nNightSensitivity;
         dst.stExpertMode.uRegionCount++;
     }
-
-    /* 联动：只映射两侧语义明确的报警输出与录像通道，抓拍通道在 IPC 侧无对应数组。 */
-    FillLinkageList(src.stLinkageList, dst.stLinkageList);
 }
 
 void ToMotionDetection(const NET_MotionAlarmInfo_S &src, Alarm::MotionDetection_S &dst)
@@ -2590,7 +2587,26 @@ static void ToSingleRuleAlarmSchedule(const NET_AlarmSchedule_S &src, Alarm::Def
         }
     }
 }
+#if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
+void FillSmokeFireCfg(const Alarm::SmokeFireDetection_S &src, NET_SmokeFireCfg_S &dst)
+{
+    std::memset(&dst, 0, sizeof(dst));
+    dst.bEnable = src.bEnable ? TRUE : FALSE;
+    dst.stRule.nSensitivity = (INT32)src.stRule.nSensitivity;
+    FillSingleRuleAlarmSchedule(src.aAlarmTime, dst.stAlarmSchedule);
+    FillLinkageList(src.stLinkageList, dst.stLinkageList);
+}
 
+void ToSmokeFire(const NET_SmokeFireCfg_S &src, Alarm::SmokeFireDetection_S &dst)
+{
+    dst.bEnable = (src.bEnable == TRUE);
+    dst.stRule.nSensitivity = (unsigned int)src.stRule.nSensitivity;
+    ToSingleRuleAlarmSchedule(src.stAlarmSchedule, dst.aAlarmTime);
+    ToLinkageList(src.stLinkageList, dst.stLinkageList);
+
+    /* 接收区域字段但不使用（IPC业务不处理区域） */
+}
+#endif
 #ifdef SCENE_INTELLIGENCE
 void FillManholeCoverAbnormalCfg(const Alarm::ManholeCoverAbnormalDetection_S &src, NET_ManholeCoverAbnormalCfg_S &dst)
 {
@@ -3242,24 +3258,24 @@ void ToPedestrianIntrusion(const NET_PedestrianIntrusionInfo_S &src, Alarm::Pede
     /* 接收区域字段但不使用（IPC业务不处理区域） */
 }
 
-void FillSmokeFireCfg(const Alarm::SmokeFireDetection_S &src, NET_SmokeFireCfg_S &dst)
-{
-    std::memset(&dst, 0, sizeof(dst));
-    dst.bEnable = src.bEnable ? TRUE : FALSE;
-    dst.stRule.nSensitivity = (INT32)src.stRule.nSensitivity;
-    FillSingleRuleAlarmSchedule(src.aAlarmTime, dst.stAlarmSchedule);
-    FillLinkageList(src.stLinkageList, dst.stLinkageList);
-}
+// void FillSmokeFireCfg(const Alarm::SmokeFireDetection_S &src, NET_SmokeFireCfg_S &dst)
+// {
+//     std::memset(&dst, 0, sizeof(dst));
+//     dst.bEnable = src.bEnable ? TRUE : FALSE;
+//     dst.stRule.nSensitivity = (INT32)src.stRule.nSensitivity;
+//     FillSingleRuleAlarmSchedule(src.aAlarmTime, dst.stAlarmSchedule);
+//     FillLinkageList(src.stLinkageList, dst.stLinkageList);
+// }
 
-void ToSmokeFire(const NET_SmokeFireCfg_S &src, Alarm::SmokeFireDetection_S &dst)
-{
-    dst.bEnable = (src.bEnable == TRUE);
-    dst.stRule.nSensitivity = (unsigned int)src.stRule.nSensitivity;
-    ToSingleRuleAlarmSchedule(src.stAlarmSchedule, dst.aAlarmTime);
-    ToLinkageList(src.stLinkageList, dst.stLinkageList);
+// void ToSmokeFire(const NET_SmokeFireCfg_S &src, Alarm::SmokeFireDetection_S &dst)
+// {
+//     dst.bEnable = (src.bEnable == TRUE);
+//     dst.stRule.nSensitivity = (unsigned int)src.stRule.nSensitivity;
+//     ToSingleRuleAlarmSchedule(src.stAlarmSchedule, dst.aAlarmTime);
+//     ToLinkageList(src.stLinkageList, dst.stLinkageList);
 
-    /* 接收区域字段但不使用（IPC业务不处理区域） */
-}
+//     /* 接收区域字段但不使用（IPC业务不处理区域） */
+// }
 
 void FillRoadPondingCfg(const Alarm::RoadPondingDetection_S &src, NET_RoadPondingCfg_S &dst)
 {

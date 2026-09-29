@@ -3,7 +3,7 @@
  * @Author       : 梁浩尧 lianghaoyao@kfb.cn
  * @Date         : 2025-07-17 17:44:36
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-08-13 15:03:25
+ * @LastEditTime : 2026-09-23 15:25:48
  * @Description  : 抓图计划管理
  */
 
@@ -17,6 +17,8 @@
 #include "capture_define.h"
 #include "event_define.h"
 #include "IpcRet.h"
+
+#include <functional>
 
 /* 获取jpeg编码通道参数回调定义 */
 using GetjpegVencParamCallback = std::function<int(unsigned int &unWidth, unsigned int &unHeight, unsigned int &nUqFactor)>;
@@ -236,7 +238,7 @@ private:
          * @brief   : 清除退出标志，支持模块反初始化后重新初始化
          */
         void reset();
-
+    
     private:
         std::mutex m_mutex;                    /* 保护队列的互斥锁 */
         std::condition_variable m_condition;   /* 队列非空通知 */
@@ -252,7 +254,6 @@ private:
      * @param    {int} nDataLen 数据长度
      * @return   {int} 文件大小（字节），<0 失败
      */
-    
 
     /**
      * @brief   : 抓图
@@ -297,17 +298,16 @@ private:
       /* 串行保护抓图配额检查、旧图清理和新图写入 */
       std::mutex m_storageMutex;
 
-
     /* 用于人脸抓拍文件名的锁 */
     std::mutex m_faceMutex;
     /* 用于人脸抓拍的条件变量 */
     std::condition_variable m_faceCv;
 
     /*是否停止检测抓图计划线程函数*/
-    std::atomic_bool m_bRun = false;
+    std::atomic_bool m_bRun{ false };
 
     /* 抓图落盘工作线程运行标志 */
-    std::atomic_bool m_bWorkerRun = false;
+    std::atomic_bool m_bWorkerRun{ false };
 
     /* 抓图落盘工作线程 */
     std::thread m_captureWorkerThread;

@@ -3,7 +3,7 @@
  * @Author       : zhangjc (zhangjc@kfb.cn)
  * @Date         : 2024-12-14
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-06-04 11:40:43
+ * @LastEditTime : 2026-09-23 15:31:22
  * @Description  : 事件布防调度管理，负责事件布防时间计算与算法开关状态通知
  */
 
@@ -20,9 +20,10 @@
 #include "Singleton.h"
 #include "action_code.h"
 
-extern "C"
-{
+extern "C" {
 #include <unistd.h>
+
+#include <functional>
 }
 
 /* AI 算法控制处理的回调函数类型 */
@@ -131,7 +132,7 @@ private:
     /* AI 算法控制处理的回调 */
     AlgoControlDealCallback m_algoControlDealCallback;
     /* 线程函数运行状态 */
-    std::atomic<bool> m_bRunning = false;
+    std::atomic<bool> m_bRunning{ false };
     /* 线程函数句柄 */
     std::thread m_thread;
     /* 保护共享资源的互斥锁 */

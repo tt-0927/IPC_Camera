@@ -3758,7 +3758,7 @@ int CGroup2_Group4Detect::saveToDatebase(const std::string &strFilename, Event::
     stInfo.enType       = eEventType;
     try
     {
-        stInfo.nImageSize = std::filesystem::file_size(strFilename);
+        stInfo.nImageSize = PosixFs_NS::file_size(strFilename);
     } catch (...)  // 文件不存在或错误
     {
         dlog_warn("文件不存在");

@@ -107,6 +107,7 @@ typedef enum IpcRet_E
     ERR_REPEAT_LOGIN_IP             = -304, /* 同一IP已登录，禁止重复登录 */
     ERR_WEB_INTERCOM                = -305, /* 内部通讯异常，例如：对讲已开启，重复开启；对讲已停止，重复停止 */
     ERR_WEB_NOT_SUPPORT             = -306, /* 不支持此功能 */
+    ERR_WEB_NO_SD_CARD              = -307, /* SD卡未插入或不可用 */
 
     ERR_CREATE_CERT_REQUEST         = -320, /* 创建国标证书失败，未设置国标28181 SIP用户认证ID */
 } IpcRet_E;

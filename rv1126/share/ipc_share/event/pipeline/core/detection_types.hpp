@@ -92,6 +92,12 @@ struct FrameSize_S
 {
     uint32_t nWidth = 0;  /* 宽度 */
     uint32_t nHeight = 0; /* 高度 */
+
+    /* C++11 基线下带默认成员初始化器的结构体不是聚合，提供构造函数支持花括号初始化 */
+    FrameSize_S() = default;
+    FrameSize_S(uint32_t nW, uint32_t nH) : nWidth(nW), nHeight(nH)
+{
+    }
 };
 
 /* 归一化矩形，相对原生结果坐标分辨率归一化到 [0,1] */
@@ -110,7 +116,8 @@ struct DetectionObject_S
     float fConfidence = 0.0F;                              /* 置信度 [0,1] */
     bool bHasGeometry = false;                             /* 是否携带有效几何，ENDED 目标允许无几何 */
     NormalizedRect_S stRect;                               /* 归一化矩形 */
-    std::optional<uint64_t> optTrackId;                    /* 可选 Track ID，0 仍是合法值 */
+    uint64_t ullTrackId = 0;                               /* Track ID，bHasTrackId 为 false 时无意义 */
+    bool bHasTrackId = false;                              /* 是否携带有效 Track ID，0 仍是合法值 */
     TrackState_E enTrackState = TrackState_E::UNAVAILABLE; /* 跟踪状态 */
 };
 

@@ -391,6 +391,12 @@ typedef enum
     /* 设置人脸比对配置 */
     AC_SET_FACE_COMPARE_INFO = 2528,
     AC_GET_FACE_COMPARE_INFO = 2529,
+
+    /* 获取人脸识别配置 */
+    AC_GET_FACE_RECOGNITION_INFO = 2530,
+    /* 设置人脸识别配置 */
+    AC_SET_FACE_RECOGNITION_INFO = 2531,
+
     /**
     * @brief   : 场景智能分析
     */
@@ -1118,5 +1124,9 @@ typedef enum
      */
     AC_GARBAGE_STATION_SNAPSHOT_DETECT = 11001,
 
+    /**
+     * @brief 平台手动抓图并送烟火识别
+     */
+    AC_SMOKE_FIRE_SNAPSHOT_DETECT = 11002,
 
 } ActionCode_E;

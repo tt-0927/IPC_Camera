@@ -132,18 +132,4 @@ ipc_rtsp::NalUnitType to_nal_type(Video_NS::VideoCodec_E codec, Video_NS::NalTyp
     return ipc_rtsp::NalUnitType::Other;
 }
 
-int get_main_client_limit(int bitrate_kbps)
-{
-    int limit = RTSP_MAIN_CLIENT_LIMIT_DEFAULT;
-    if (bitrate_kbps >= RTSP_MAIN_BITRATE_THRESHOLD_16M)
-    {
-        limit = RTSP_MAIN_CLIENT_LIMIT_16M;
-    }
-    else if (bitrate_kbps >= RTSP_MAIN_BITRATE_THRESHOLD_8M)
-    {
-        limit = RTSP_MAIN_CLIENT_LIMIT_8M;
-    }
-    return limit * RTSP_CLIENT_CAPACITY_MULTIPLIER;
-}
-
 } // namespace rtsp_smol

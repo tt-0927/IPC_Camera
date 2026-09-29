@@ -303,6 +303,9 @@ namespace Task
         TaskSubClass(GetPeopleDensityDetectionInfo)
         TaskSubClass(SetPeopleDensityDetectionInfo)
 #endif
+
+        /* 回放播放地址（HTTP 方式，供平台拉流回放） */
+        TaskSubClass(GetReplayMediaInfo)
     } /* namespace Event end */
 } /* namespace Task end */
 

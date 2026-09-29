@@ -254,6 +254,13 @@ int EventLinkageResolver::load_default_linkage_list(Event::Type_E enEventType, A
         stLinkageList = alarm.stLinkageList;
         break;
     }
+    case Event::Type_E::FACE_RECOGNITION:
+    {
+        Alarm::FaceRecognition_S alarm;
+        CEventConfigure::instance()->get_configure(alarm);
+        stLinkageList = alarm.stLinkageList;
+        break;
+    }
     case Event::Type_E::LOITERING_DETECT:
     {
         Alarm::LoiteringDetection_S alarm;
@@ -384,13 +391,13 @@ int EventLinkageResolver::load_default_linkage_list(Event::Type_E enEventType, A
         stLinkageList = alarm.stLinkageList;
         break;
     }
-    case Event::Type_E::SMOKE_FIRE:
-    {
-        Alarm::SmokeFireDetection_S alarm;
-        CEventConfigure::instance()->get_configure(alarm);
-        stLinkageList = alarm.stLinkageList;
-        break;
-    }
+    // case Event::Type_E::SMOKE_FIRE:
+    // {
+    //     Alarm::SmokeFireDetection_S alarm;
+    //     CEventConfigure::instance()->get_configure(alarm);
+    //     stLinkageList = alarm.stLinkageList;
+    //     break;
+    // }
     case Event::Type_E::OPEN_FLAME:
     {
         Alarm::OpenFlameDetection_S alarm;
@@ -517,6 +524,15 @@ int EventLinkageResolver::load_default_linkage_list(Event::Type_E enEventType, A
         stLinkageList = alarm.stLinkageList;
         break;
     }
+#endif
+#if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
+case Event::Type_E::SMOKE_FIRE:
+{
+    Alarm::SmokeFireDetection_S alarm;
+    CEventConfigure::instance()->get_configure(alarm);
+    stLinkageList = alarm.stLinkageList;
+    break;
+}
 #endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_GARBAGE_DETECT
     case Event::Type_E::GARBAGE_EXPOSURE:

@@ -241,6 +241,7 @@ UINT32 get_ai_object_alarm_type(Event::Type_E enEventType)
     case Event::Type_E::LOITERING_DETECT:             return NET_ALARM_LOITERING;
     case Event::Type_E::PARKING_DETECT:               return NET_ALARM_PARKING_DETECT;
     case Event::Type_E::FACE_DETECT:                  return NET_ALARM_FACE_DETECT;
+    case Event::Type_E::FACE_RECOGNITION:             return NET_ALARM_FACE_DETECT;
     case Event::Type_E::FACE_CAPTURE:                 return NET_ALARM_FACE_CAPTURE;
     case Event::Type_E::CROWD_GATHERING:              return NET_ALARM_CROWD_GATHERING;
     case Event::Type_E::SLEEP_ON_DUTY:                return NET_ALARM_SLEEP_ON_DUTY;
@@ -784,6 +785,8 @@ std::string EventLinkageDict::get_event_name(Event::Type_E enType)
         return "场景变更";
     case Event::Type_E::FACE_DETECT:
         return "人脸侦测";
+    case Event::Type_E::FACE_RECOGNITION:
+        return "人脸识别";
     case Event::Type_E::LOITERING_DETECT:
         return "徘徊侦测";
     case Event::Type_E::CROWD_GATHERING:
@@ -817,8 +820,8 @@ std::string EventLinkageDict::get_event_name(Event::Type_E enType)
         return "抽烟识别";
     case Event::Type_E::PHONE_USAGE:
         return "玩手机识别";
-    case Event::Type_E::SMOKE_FIRE:
-        return "烟火识别";
+    // case Event::Type_E::SMOKE_FIRE:
+    //     return "烟火识别";
     case Event::Type_E::OPEN_FLAME:
         return "明火识别";
     case Event::Type_E::MANHOLE_COVER_ABNORMAL:
@@ -855,6 +858,10 @@ std::string EventLinkageDict::get_event_name(Event::Type_E enType)
         return "违规变道识别";
     case Event::Type_E::PLATE_NUMBER:
         return "车牌识别";
+#endif
+#if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
+    case Event::Type_E::SMOKE_FIRE:
+        return "烟火识别";
 #endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_GARBAGE_DETECT
     case Event::Type_E::GARBAGE_EXPOSURE:

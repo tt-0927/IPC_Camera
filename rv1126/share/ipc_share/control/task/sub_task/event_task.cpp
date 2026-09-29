@@ -3,7 +3,7 @@
  * @Author       : huangjunda
  * @Date         : 2025-04-29 09:54:27
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-06-04 11:40:24
+ * @LastEditTime : 2026-09-23 15:44:29
  * @Description  : 事件任务
  * @修改记录     : 2026-09-08，Codex，逆行识别仅允许两个单向方向。
  */
@@ -32,6 +32,13 @@
 #include "time_utils.h"
 #endif
 
+/* 回放播放地址：SD 卡状态、本机 IP 与录像文件查找 */
+#include <filesystem>
+#include "storage_manage.h"
+#include "network_manage.h"
+#include "replay_define.h"
+#include "find_record_file.h"
+
 #define ERR_EVENT_RESOURCE_CONFLICT -305
 /**
  * @brief   : 辅助函数：将AlgorithmConfig转换为SmartEventEnableStatus用于资源检查
@@ -48,9 +55,13 @@ static void helper_convert_to_status(const Event::AlgorithmConfig_S& algo, Event
     status.bSceneChange = algo.nEnSceneChange;
     status.bUnattendedObject = algo.nEnUnattendedObject;
     status.bObjectRemoval = algo.nEnObjectRemoval;
+#if CAP_AI_FACE_RECOGNITION
+    status.bFaceRecognition = algo.nEnFaceRecognition;
+#else
     status.bFaceDetect = algo.nEnFaceDetect;
-    status.bPetRecognition = algo.nEnPetRecognition;
     status.bFaceCapture = algo.nEnFaceCapture;
+#endif
+    status.bPetRecognition = algo.nEnPetRecognition;
     status.bFaceCompare = algo.nEnFaceCompare;
     #ifdef SCENE_INTELLIGENCE
     status.bSleepOnDuty = algo.nEnSleepOnDuty;
@@ -61,7 +72,7 @@ static void helper_convert_to_status(const Event::AlgorithmConfig_S& algo, Event
     status.bTrip = algo.nEnTrip;
     status.bSmoking = algo.nEnSmoking;
     status.bPhoneUsage = algo.nEnPhoneUsage;
-    status.bSmokeFire = algo.nEnSmokeFire;
+    // status.bSmokeFire = algo.nEnSmokeFire;
     status.bOpenFlame = algo.nEnOpenFlame;
     status.bManholeCoverAbnormal = algo.nEnManholeCoverAbnormal;
     status.bBareSoil = algo.nEnBareSoil;
@@ -80,7 +91,9 @@ static void helper_convert_to_status(const Event::AlgorithmConfig_S& algo, Event
     status.bIllegalLaneChange = algo.nEnIllegalLaneChange;
     status.bPlateNumber = algo.nPlateNumber;
     #endif
-
+#if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
+    status.bSmokeFire = algo.nEnSmokeFire;
+#endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_GARBAGE_DETECT
     status.bGarbageExposure = algo.nEnGarbageExposure;
     status.bGarbageOverflow = algo.nEnGarbageOverflow;
@@ -109,6 +122,7 @@ static const char* get_event_type_name(Event::Type_E type) {
         case Event::Type::UNATTENDED_OBJECT: return "UNATTENDED_OBJECT";
         case Event::Type::OBJECT_REMOVAL: return "OBJECT_REMOVAL";
         case Event::Type::FACE_DETECT: return "FACE_DETECT";
+        case Event::Type::FACE_RECOGNITION: return "FACE_RECOGNITION";
         case Event::Type::PET_RECOGNITION: return "PET_RECOGNITION";
         case Event::Type::FACE_LIB: return "FACE_LIB";
         case Event::Type::FACE_CAPTURE: return "FACE_CAPTURE";
@@ -119,7 +133,7 @@ static const char* get_event_type_name(Event::Type_E type) {
 #endif
 
         case Event::Type::FACE_COMPARE: return "FACE_COMPARE";
-
+        case Event::Type::SMOKE_FIRE: return "SMOKE_FIRE";
         default: return "UNKNOWN";
     }
 }
@@ -188,7 +202,7 @@ static int check_analytics_resource(const Event::Type_E enable_type, const bool 
         case Event::Type::NON_MOTOR_VEHICLE_INTRUSION: already_in_target_state = (oldStatus.bNonMotorVehicleIntrusion == bEnable); break;
         case Event::Type::EMERGENCY_LANE_OCCUPANCY: already_in_target_state = (oldStatus.bEmergencyLaneOccupancy == bEnable); break;
         case Event::Type::PEDESTRIAN_INTRUSION: already_in_target_state = (oldStatus.bPedestrianIntrusion == bEnable); break;
-        case Event::Type::SMOKE_FIRE: already_in_target_state = (oldStatus.bSmokeFire == bEnable); break;
+        // case Event::Type::SMOKE_FIRE: already_in_target_state = (oldStatus.bSmokeFire == bEnable); break;
         case Event::Type::ROAD_PONDING: already_in_target_state = (oldStatus.bRoadPonding == bEnable); break;
         case Event::Type::MANHOLE_COVER_ABNORMAL: already_in_target_state = (oldStatus.bManholeCoverAbnormal == bEnable); break;
         case Event::Type::SLEEP_ON_DUTY: already_in_target_state = (oldStatus.bSleepOnDuty == bEnable); break;
@@ -207,6 +221,9 @@ static int check_analytics_resource(const Event::Type_E enable_type, const bool 
         case Event::Type::HOLE_PROTECTION_BAR: already_in_target_state = (oldStatus.bHoleProtectionBar == bEnable); break;
         case Event::Type::REFLECTIVE_CLOTHING: already_in_target_state = (oldStatus.bReflectiveClothing == bEnable); break;
 #endif
+#if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
+        case Event::Type::SMOKE_FIRE: already_in_target_state = (oldStatus.bSmokeFire == bEnable); break;
+#endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_GARBAGE_DETECT
         case Event::Type::GARBAGE_EXPOSURE: already_in_target_state = (oldStatus.bGarbageExposure == bEnable); break;
         case Event::Type::GARBAGE_OVERFLOW: already_in_target_state = (oldStatus.bGarbageOverflow == bEnable); break;
@@ -223,6 +240,7 @@ static int check_analytics_resource(const Event::Type_E enable_type, const bool 
         case Event::Type::UNATTENDED_OBJECT: already_in_target_state = (oldStatus.bUnattendedObject == bEnable); break;
         case Event::Type::OBJECT_REMOVAL: already_in_target_state = (oldStatus.bObjectRemoval == bEnable); break;
         case Event::Type::FACE_DETECT: already_in_target_state = (oldStatus.bFaceDetect == bEnable); break;
+        case Event::Type::FACE_RECOGNITION: already_in_target_state = (oldStatus.bFaceRecognition == bEnable); break;
         case Event::Type::PET_RECOGNITION: already_in_target_state = (oldStatus.bPetRecognition == bEnable); break;
         case Event::Type::FACE_LIB: already_in_target_state = (oldStatus.bFaceLib == bEnable); break;
         case Event::Type::FACE_CAPTURE: already_in_target_state = (oldStatus.bFaceCapture == bEnable); break;
@@ -295,7 +313,7 @@ static int check_analytics_resource(const Event::Type_E enable_type, const bool 
         case Event::Type::NON_MOTOR_VEHICLE_INTRUSION: newStatus.bNonMotorVehicleIntrusion = bEnable; break;
         case Event::Type::EMERGENCY_LANE_OCCUPANCY: newStatus.bEmergencyLaneOccupancy = bEnable; break;
         case Event::Type::PEDESTRIAN_INTRUSION: newStatus.bPedestrianIntrusion = bEnable; break;
-        case Event::Type::SMOKE_FIRE: newStatus.bSmokeFire = bEnable; break;
+        // case Event::Type::SMOKE_FIRE: newStatus.bSmokeFire = bEnable; break;
         case Event::Type::ROAD_PONDING: newStatus.bRoadPonding = bEnable; break;
         case Event::Type::MANHOLE_COVER_ABNORMAL: newStatus.bManholeCoverAbnormal = bEnable; break;
         case Event::Type::SLEEP_ON_DUTY: newStatus.bSleepOnDuty = bEnable; break;
@@ -314,6 +332,9 @@ static int check_analytics_resource(const Event::Type_E enable_type, const bool 
         case Event::Type::HOLE_PROTECTION_BAR: newStatus.bHoleProtectionBar = bEnable; break;
         case Event::Type::REFLECTIVE_CLOTHING: newStatus.bReflectiveClothing = bEnable; break;
 #endif
+#if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
+        case Event::Type::SMOKE_FIRE: newStatus.bSmokeFire = bEnable; break;
+#endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_GARBAGE_DETECT
         case Event::Type::GARBAGE_EXPOSURE: newStatus.bGarbageExposure = bEnable; break;
         case Event::Type::GARBAGE_OVERFLOW: newStatus.bGarbageOverflow = bEnable; break;
@@ -330,6 +351,7 @@ static int check_analytics_resource(const Event::Type_E enable_type, const bool 
         case Event::Type::UNATTENDED_OBJECT: newStatus.bUnattendedObject = bEnable; break;
         case Event::Type::OBJECT_REMOVAL: newStatus.bObjectRemoval = bEnable; break;
         case Event::Type::FACE_DETECT: newStatus.bFaceDetect = bEnable; break;
+        case Event::Type::FACE_RECOGNITION: newStatus.bFaceRecognition = bEnable; break;
         case Event::Type::PET_RECOGNITION: newStatus.bPetRecognition = bEnable; break;
         case Event::Type::FACE_LIB: newStatus.bFaceLib = bEnable; break;
         case Event::Type::FACE_CAPTURE: newStatus.bFaceCapture = bEnable; break;
@@ -472,14 +494,14 @@ void Task::Event::SetMotionDetectionInfo::handle()
     /* 普通模式区域参数有效性判断 */
     if (stInfo.stMotionNormalMode.nRegionType)
     {
-        if (!std::holds_alternative<Alarm::MotionNormalMode_S::AreaGrid>(stInfo.stMotionNormalMode.varRegion))
+        if (!mpark::holds_alternative<Alarm::MotionNormalMode_S::AreaGrid>(stInfo.stMotionNormalMode.varRegion))
         {
             dlog_error("设置移动侦测网格区域参数错误");
             result(ERR_WEB_PARAM);
             return;
         }
 
-        auto &grid = std::get<Alarm::MotionNormalMode_S::AreaGrid>(stInfo.stMotionNormalMode.varRegion);
+        auto &grid = mpark::get<Alarm::MotionNormalMode_S::AreaGrid>(stInfo.stMotionNormalMode.varRegion);
         if (grid.size() < GRID_HEIGHT_DEFAULT)
         {
             dlog_error("设置移动侦测信息参数错误");
@@ -501,14 +523,14 @@ void Task::Event::SetMotionDetectionInfo::handle()
     }
     else
     {
-        if (!std::holds_alternative<Common::Rect_S>(stInfo.stMotionNormalMode.varRegion))
+        if (!mpark::holds_alternative<Common::Rect_S>(stInfo.stMotionNormalMode.varRegion))
         {
             dlog_error("设置移动侦测矩形区域参数错误");
             result(ERR_WEB_PARAM);
             return;
         }
 
-        const auto &rect = std::get<Common::Rect_S>(stInfo.stMotionNormalMode.varRegion);
+        const auto &rect = mpark::get<Common::Rect_S>(stInfo.stMotionNormalMode.varRegion);
         if (!rect.IsValid() || rect.isEmpty())
         {
             dlog_error("设置移动侦测信息区域绘制异常");
@@ -1228,6 +1250,113 @@ void Task::Event::SetSceneChangeInfo::handle()
     result(nRet);
 }
 
+#if CAP_AI_FACE_RECOGNITION
+/* 获取人脸识别配置 */
+void Task::Event::GetFaceRecognitionInfo::handle()
+{
+    Alarm::FaceRecognition_S stInfo;
+    int nRet = CEventConfigure::instance()->get_configure(stInfo);
+    if (nRet != OK)
+    {
+        result(nRet);
+        return;
+    }
+    result(Convert::to_string(stInfo));
+}
+
+/* 设置人脸识别配置 */
+void Task::Event::SetFaceRecognitionInfo::handle()
+{
+    Alarm::FaceRecognition_S stInfo;
+    Convert::to_struct(m_taskData, stInfo);
+
+    if (stInfo.nSensitivity < 1 || stInfo.nSensitivity > 100 || stInfo.aAlarmTime.size() != 7)
+    {
+        result(ERR_WEB_PARAM);
+        return;
+    }
+    if (!stInfo.stRegion.IsValid())
+    {
+        result(ERR_WEB_REGION);
+        return;
+    }
+    for (const auto &region : stInfo.stCaptureRule.vstShieldedRegion)
+    {
+        if (!region.IsValid())
+        {
+            result(ERR_WEB_REGION);
+            return;
+        }
+    }
+
+    const ::Event::Type_E enEventType = ::Event::Type_E::FACE_RECOGNITION;
+    ::Event::SmartEventEnableStatus_S stStatus;
+    int nRet = CEventConfigure::instance()->get_configure(stStatus);
+    if (nRet != OK)
+    {
+        result(nRet);
+        return;
+    }
+    std::vector<::Event::Type_E> aEnabledEvents;
+    CEventResource::instance()->enableStatus_convertArray(stStatus, aEnabledEvents);
+    if (stInfo.bEnable &&
+        std::any_of(aEnabledEvents.begin(), aEnabledEvents.end(),
+                    [enEventType](::Event::Type_E enEnabledType)
+                    {
+                        return enEnabledType != enEventType;
+                    }))
+    {
+        result(ERR_EVENT_RESOURCE_CONFLICT);
+        return;
+    }
+
+    nRet = check_analytics_resource(enEventType, stInfo.bEnable, true);
+    if (nRet != OK)
+    {
+        result(nRet);
+        return;
+    }
+
+    Alarm::FaceRecognition_S stPrevious;
+    nRet = CEventConfigure::instance()->get_configure(stPrevious);
+    if (nRet != OK)
+    {
+        result(nRet);
+        return;
+    }
+    Alarm::EventSchedule_S stPreviousSchedule;
+    stPreviousSchedule.enEventType = enEventType;
+    if (CEventConfigure::instance()->get_configure(stPreviousSchedule) != OK)
+    {
+        stPreviousSchedule.bStatus = stPrevious.bEnable;
+        stPreviousSchedule.defenseTime = stPrevious.aAlarmTime;
+    }
+
+    nRet = CEventConfigure::instance()->set_configure(stInfo);
+    if (nRet != OK)
+    {
+        result(nRet);
+        return;
+    }
+
+    Alarm::EventSchedule_S stEventSchedule;
+    stEventSchedule.enEventType = enEventType;
+    stEventSchedule.bStatus = stInfo.bEnable;
+    stEventSchedule.defenseTime = stInfo.aAlarmTime;
+    nRet = CEventConfigure::instance()->set_configure(stEventSchedule);
+    if (nRet == OK)
+    {
+        nRet = check_analytics_resource(enEventType, stInfo.bEnable, false, true);
+    }
+    if (nRet != OK)
+    {
+        CEventConfigure::instance()->set_configure(stPrevious);
+        CEventConfigure::instance()->set_configure(stPreviousSchedule);
+    }
+    CEventManage::instance()->update_event_schedule();
+    result(nRet);
+}
+#else
 /* 获取人脸侦测信息 */
 void Task::Event::GetFaceDetectionInfo::handle()
 {
@@ -1272,6 +1401,76 @@ void Task::Event::SetFaceDetectionInfo::handle()
     CEventManage::instance()->update_event_schedule();
     result(nRet);
 }
+
+/* 获取人脸抓拍信息 */
+void Task::Event::GetFaceCaptureInfo::handle()
+{
+    Alarm::FaceCapture_S stInfo;
+    CEventConfigure::instance()->get_configure(stInfo);
+    result(Convert::to_string(stInfo));
+}
+
+/* 设置人脸抓拍信息 */
+void Task::Event::SetFaceCaptureInfo::handle()
+{
+    Alarm::FaceCapture_S stInfo;
+    Convert::to_struct(m_taskData, stInfo);
+    /* 检查智能事件资源冲突 */
+    // int ret = check_analytics_resource(::Event::Type::FACE_CAPTURE, stInfo.bEnable);
+    // if (ret != 0) {
+    //     result(ret);
+    //     return;
+    // }
+    auto &rule = stInfo.stRule;
+    /* 参数有效性判断 */
+    if (rule.nSensitivity < 1 || rule.nSensitivity > 100)
+    {
+        dlog_error("设置人脸抓拍信息参数错误");
+        result(ERR_WEB_PARAM);
+        return;
+    }
+    /* 坐标有效性判断 */
+    if (!rule.stRegion.IsValid())
+    {
+        dlog_error("设置人脸抓拍信息的区域绘制异常");
+        result(ERR_WEB_REGION);
+        return;
+    }
+    for (auto &region : rule.vstShieldedRegion)
+    {
+        /* 坐标有效性判断 */
+        if (!region.IsValid())
+        {
+            dlog_error("设置人脸抓拍信息的区域绘制异常");
+            result(ERR_WEB_REGION);
+            return;
+        }
+    }
+    /* 规则校验通过后才调整智能事件资源，避免非法配置改变事件启用状态。 */
+    int nRet = check_analytics_resource(::Event::Type::FACE_CAPTURE, stInfo.bEnable);
+    if (nRet != OK)
+    {
+        result(nRet);
+        return;
+    }
+    nRet = CEventConfigure::instance()->set_configure(stInfo);
+    if (nRet != OK)
+    {
+        dlog_error("保存人脸抓拍配置失败: ret[%d]", nRet);
+        result(nRet);
+        return;
+    }
+
+    /* 更新事件布防时间 */
+    Alarm::EventSchedule_S stEventSchedule;
+    stEventSchedule.enEventType = ::Event::Type_E::FACE_CAPTURE;
+    stEventSchedule.bStatus = stInfo.bEnable;
+    stEventSchedule.defenseTime = stInfo.aAlarmTime;
+    nRet = CEventConfigure::instance()->set_configure(stEventSchedule);
+    CEventManage::instance()->update_event_schedule();
+    result(nRet);
+}
+#endif
 
 /* 获取徘徊侦测信息 */
 void Task::Event::GetLoiteringDetectionInfo::handle()
@@ -1591,75 +1790,6 @@ void Task::Event::SetFaceCompareInfo::handle()
 }
 
 #endif
-
-/* 获取人脸抓拍信息 */
-void Task::Event::GetFaceCaptureInfo::handle()
-{
-    Alarm::FaceCapture_S stInfo;
-    CEventConfigure::instance()->get_configure(stInfo);
-    result(Convert::to_string(stInfo));
-}
-
-/* 设置人脸抓拍信息 */
-void Task::Event::SetFaceCaptureInfo::handle()
-{
-    Alarm::FaceCapture_S stInfo;
-    Convert::to_struct(m_taskData, stInfo);
-    /* 检查智能事件资源冲突 */
-    // int ret = check_analytics_resource(::Event::Type::FACE_CAPTURE, stInfo.bEnable);
-    // if (ret != 0) {
-    //     result(ret);
-    //     return;
-    // }
-    auto &rule = stInfo.stRule;
-    /* 参数有效性判断 */
-    if (rule.nSensitivity < 1 || rule.nSensitivity > 100)
-    {
-        dlog_error("设置人脸抓拍信息参数错误");
-        result(ERR_WEB_PARAM);
-        return;
-    }
-    /* 坐标有效性判断 */
-    if (!rule.stRegion.IsValid())
-    {
-        dlog_error("设置人脸抓拍信息的区域绘制异常");
-        result(ERR_WEB_REGION);
-        return;
-    }
-    for (auto &region : rule.vstShieldedRegion)
-    {
-        /* 坐标有效性判断 */
-        if (!region.IsValid())
-        {
-            dlog_error("设置人脸抓拍信息的区域绘制异常");
-            result(ERR_WEB_REGION);
-            return;
-        }
-    }
-    /* 规则校验通过后才调整智能事件资源，避免非法配置改变事件启用状态。 */
-    int nRet = check_analytics_resource(::Event::Type::FACE_CAPTURE, stInfo.bEnable);
-    if (nRet != OK)
-    {
-        result(nRet);
-        return;
-    }
-    nRet = CEventConfigure::instance()->set_configure(stInfo);
-    if (nRet != OK)
-    {
-        dlog_error("保存人脸抓拍配置失败: ret[%d]", nRet);
-        result(nRet);
-        return;
-    }
-
-    /* 更新事件布防时间 */
-    Alarm::EventSchedule_S stEventSchedule;
-    stEventSchedule.enEventType = ::Event::Type_E::FACE_CAPTURE;
-    stEventSchedule.bStatus = stInfo.bEnable;
-    stEventSchedule.defenseTime = stInfo.aAlarmTime;
-    nRet = CEventConfigure::instance()->set_configure(stEventSchedule);
-    CEventManage::instance()->update_event_schedule();
-    result(nRet);
-}
 
 /* 获取人脸抓拍叠加信息 */
 void Task::Event::GetFaceCaptureOverlayInfo::handle()
@@ -2482,6 +2612,8 @@ void Task::Event::SetRealAlarmPushInfo::handle()
 #endif
 
 #ifdef SCENE_INTELLIGENCE
+
+#if !defined(CAP_TV3881TJY_EVENT_ALGO) || CAP_TV3881TJY_EVENT_ALGO
 void Task::Event::PushFaceCaptureInfo::handle()
 {
 
@@ -2829,29 +2961,29 @@ void Task::Event::SetPedestrianIntrusionInfo::handle()
     result(save_scene_event_config(::Event::Type_E::PEDESTRIAN_INTRUSION, stInfo));
 }
 
-void Task::Event::GetSmokeFireInfo::handle()
-{
-    Alarm::SmokeFireDetection_S stInfo;
-    CEventConfigure::instance()->get_configure(stInfo);
-    result(Convert::to_string(stInfo));
-}
+// void Task::Event::GetSmokeFireInfo::handle()
+// {
+//     Alarm::SmokeFireDetection_S stInfo;
+//     CEventConfigure::instance()->get_configure(stInfo);
+//     result(Convert::to_string(stInfo));
+// }
 
-void Task::Event::SetSmokeFireInfo::handle()
-{
-    Alarm::SmokeFireDetection_S stInfo;
-    Convert::to_struct(m_taskData, stInfo);
+// void Task::Event::SetSmokeFireInfo::handle()
+// {
+//     Alarm::SmokeFireDetection_S stInfo;
+//     Convert::to_struct(m_taskData, stInfo);
    
-    /* 参数有效性判断 */
-    if (stInfo.stRule.nSensitivity < 1 || stInfo.stRule.nSensitivity > 100)
-    {
-        dlog_error("设置烟火识别信息参数错误");
-        result(ERR_WEB_PARAM);
-        return;
-    }
+//     /* 参数有效性判断 */
+//     if (stInfo.stRule.nSensitivity < 1 || stInfo.stRule.nSensitivity > 100)
+//     {
+//         dlog_error("设置烟火识别信息参数错误");
+//         result(ERR_WEB_PARAM);
+//         return;
+//     }
 
-    /* 参数校验完成后，统一保存并同步智能事件总览状态。 */
-    result(save_scene_event_config(::Event::Type_E::SMOKE_FIRE, stInfo));
-}
+//     /* 参数校验完成后，统一保存并同步智能事件总览状态。 */
+//     result(save_scene_event_config(::Event::Type_E::SMOKE_FIRE, stInfo));
+// }
 
 void Task::Event::GetRoadPondingInfo::handle()
 {
@@ -3252,10 +3384,36 @@ void Task::Event::SetReflectiveClothingInfo::handle()
     /* 参数校验完成后，统一保存并同步智能事件总览状态。 */
     result(save_scene_event_config(::Event::Type_E::REFLECTIVE_CLOTHING, stInfo));
 }
-
+#endif /* CAP_TV3881TJY_EVENT_ALGO：事件算法命令处理实现 结束 */
 #endif
 
-#if defined(SCENE_INTELLIGENCE) || CAP_AI_GARBAGE_DETECT
+#if (defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT) && (!defined(CAP_TV3881TJY_EVENT_ALGO) || CAP_TV3881TJY_EVENT_ALGO)
+void Task::Event::GetSmokeFireInfo::handle()
+{
+    Alarm::SmokeFireDetection_S stInfo;
+    CEventConfigure::instance()->get_configure(stInfo);
+    result(Convert::to_string(stInfo));
+}
+
+void Task::Event::SetSmokeFireInfo::handle()
+{
+    Alarm::SmokeFireDetection_S stInfo;
+    Convert::to_struct(m_taskData, stInfo);
+   
+    /* 参数有效性判断 */
+    if (stInfo.stRule.nSensitivity < 1 || stInfo.stRule.nSensitivity > 100)
+    {
+        dlog_error("设置烟火识别信息参数错误");
+        result(ERR_WEB_PARAM);
+        return;
+    }
+
+    /* 参数校验完成后，统一保存并同步智能事件总览状态。 */
+    result(save_scene_event_config(::Event::Type_E::SMOKE_FIRE, stInfo));
+}
+#endif
+
+#if (defined(SCENE_INTELLIGENCE) || CAP_AI_GARBAGE_DETECT) && (!defined(CAP_TV3881TJY_EVENT_ALGO) || CAP_TV3881TJY_EVENT_ALGO)
 void Task::Event::GetGarbageExposureInfo::handle()
 {
     Alarm::GarbageExposureDetection_S stInfo;
@@ -3526,6 +3684,198 @@ void Task::Event::GarbageStationSnapshotDetect::handle()
 #endif
 #endif
 
+#if CAP_AI_SMOKE_FIRE_DETECT
+/* 事件推送命令与事件链路保持一致（见 event_linkage_action_direct.cpp:41-42） */
+constexpr const char *SMOKE_FIRE_SNAPSHOT_ALARM_COMMAND = "NET_TV_EVENT_ALARM";
+constexpr const char *SMOKE_FIRE_SNAPSHOT_IMAGE_UPLOAD_COMMAND = "NET_TV_EVENT_IMAGE_UPLOAD";
+
+/**
+ * @brief 平台手动抓图并送烟火识别：报警与图片上传结果均按事件方式推送平台。
+ * @author ITC
+ * @return 无。识别结果与上传结果经 MQTT /event 主题推送，任务响应回执并回填事件信息。
+ */
+void Task::Event::SmokeFireSnapshotDetect::handle()
+{
+    const long long llBeginMs = TimeUtils_NS::get_currentTimestampMs();
+    dlog_info("烟火抓图识别-业务层: 收到抓图识别命令，下发数据[%s]", m_taskData.c_str());
+
+    std::string strAlgoResult;
+    const int nSendRet = CEventManage::instance()->send_algo_controlData(
+        AC_SMOKE_FIRE_SNAPSHOT_DETECT, m_taskData.c_str(), &strAlgoResult);
+    if (nSendRet != 0)
+    {
+        dlog_error("烟火抓图识别-业务层: 下发 AI 层失败，返回码[%d]", nSendRet);
+    }
+    dlog_info("烟火抓图识别-业务层: AI 层返回，下发码[%d] 耗时[%lld]ms 结果[%s]", nSendRet,
+              TimeUtils_NS::get_currentTimestampMs() - llBeginMs, strAlgoResult.c_str());
+
+    Json::Object *pAlgoJson = Json::init(strAlgoResult);
+    if (!pAlgoJson)
+    {
+        dlog_error("烟火抓图识别-业务层: 解析 AI 层结果失败，原始内容[%s]", strAlgoResult.c_str());
+        result("{\"Result\":-1}");
+        return;
+    }
+
+    /* 取出识别与时间信息，后续两条推送共用同一时间戳。 */
+    std::string strImagePath;
+    std::string strTimestamp;
+    std::string strDate;
+    std::string strTime;
+    std::string strStartTime;
+    std::string strEndTime;
+    int nEventType = static_cast<int>(::Event::Type_E::SMOKE_FIRE);
+    int nSmokeDetected = 0;
+    int nFireDetected = 0;
+    Json::get(pAlgoJson, "ImagePath", strImagePath);
+    Json::get(pAlgoJson, "EventType", nEventType);
+    Json::get(pAlgoJson, "SmokeDetected", nSmokeDetected);
+    Json::get(pAlgoJson, "FireDetected", nFireDetected);
+    Json::get(pAlgoJson, "Timestamp", strTimestamp);
+    Json::get(pAlgoJson, "Date", strDate);
+    Json::get(pAlgoJson, "Time", strTime);
+    Json::get(pAlgoJson, "StartTime", strStartTime);
+    Json::get(pAlgoJson, "EndTime", strEndTime);
+    Json::deinit(pAlgoJson);
+
+    const ::Event::Type_E enEventType = static_cast<::Event::Type_E>(nEventType);
+    const std::string strEventName = EventLinkageDict::get_event_name(enEventType);
+    /* 抓拍送烟火侦测的结果：烟雾或火焰任一识别到即为 1，两者均未识别到为 0。 */
+    const int nSmokeFireDetected = (nSmokeDetected != 0 || nFireDetected != 0) ? 1 : 0;
+    const int nChannel = 0;
+    const int nEventStatus = 1;
+    /* 报警 RequestId 规则与事件链路一致：event-<EventType>-<Channel>-<Timestamp> */
+    const std::string strAlarmRequestId = "event-" + std::to_string(nEventType) + "-" +
+                                          std::to_string(nChannel) + "-" + strTimestamp;
+
+    /* 第一条：报警消息，字段与正常烟火事件上报平台的格式一致。 */
+    Json::Object *pAlarmJson = Json::init();
+    if (pAlarmJson)
+    {
+        Json::add(pAlarmJson, "EventType", nEventType);
+        Json::add(pAlarmJson, "EventName", strEventName);
+        Json::add(pAlarmJson, "EventStatus", nEventStatus);
+        Json::add(pAlarmJson, "Channel", nChannel);
+        Json::add(pAlarmJson, "Timestamp", strTimestamp);
+        Json::add(pAlarmJson, "Date", strDate);
+        Json::add(pAlarmJson, "Time", strTime);
+        Json::add(pAlarmJson, "StartTime", strStartTime);
+        Json::add(pAlarmJson, "EndTime", strEndTime);
+
+        const std::string strAlarmData = Json::to_string(pAlarmJson);
+        Json::deinit(pAlarmJson);
+        const int nAlarmRet = CPlatformManager::instance()->publish_event(SMOKE_FIRE_SNAPSHOT_ALARM_COMMAND, strAlarmData,
+                                                                         strAlarmRequestId);
+        dlog_info("烟火抓图识别-业务层: 报警消息推送完成，RequestId[%s] 返回码[%d] 载荷[%s]",
+                  strAlarmRequestId.c_str(), nAlarmRet, strAlarmData.c_str());
+    }
+
+    /* 第二条：图片上传结果，成功或失败都推送。 */
+    CPlatformManager::EventImageUploadResponse stResponse;
+    bool bUploadOk = false;
+    if (!strImagePath.empty())
+    {
+        long long llEventTimestampMs = std::atoll(strTimestamp.c_str());
+        if (llEventTimestampMs <= 0)
+        {
+            llEventTimestampMs = TimeUtils_NS::get_currentTimestampMs();
+        }
+
+        /* 字段构造与正常事件图片上报保持一致（见 event_linkage_action_direct.cpp:423-429）。 */
+        CPlatformManager::EventImageUploadRequest stRequest;
+        stRequest.event_type = nEventType;
+        stRequest.event_name = strEventName;
+        stRequest.channel = nChannel;
+        stRequest.timestamp = llEventTimestampMs;
+        stRequest.image_path = strImagePath;
+        /* 手动抓拍无关联报警事件，RequestId 留空；设备 SN 与文件名由上传接口自动兜底生成。 */
+
+        dlog_info("烟火抓图识别-业务层: 开始上传图片至平台，事件类型[%d] 事件名[%s] 时间戳[%lld] 路径[%s]",
+                  nEventType, strEventName.c_str(), llEventTimestampMs, strImagePath.c_str());
+        bUploadOk = CPlatformManager::instance()->upload_event_image(stRequest, stResponse);
+        if (bUploadOk)
+        {
+            dlog_info("烟火抓图识别-业务层: 图片上传成功，状态码[%d] 平台文件名[%s] 图片地址[%s]",
+                      stResponse.status_code, stResponse.file_name.c_str(), stResponse.image_url.c_str());
+        }
+        else
+        {
+            dlog_error("烟火抓图识别-业务层: 图片上传平台失败，状态码[%d] 说明[%s]", stResponse.status_code,
+                       stResponse.message.c_str());
+        }
+    }
+    else
+    {
+        dlog_warn("烟火抓图识别-业务层: 结果中无图片路径，跳过上传");
+    }
+
+    Json::Object *pUploadJson = Json::init();
+    if (pUploadJson)
+    {
+        Json::add(pUploadJson, "EventType", nEventType);
+        Json::add(pUploadJson, "EventName", strEventName);
+        Json::add(pUploadJson, "EventStatus", nEventStatus);
+        Json::add(pUploadJson, "Channel", nChannel);
+        Json::add(pUploadJson, "Timestamp", strTimestamp);
+        Json::add(pUploadJson, "AlarmRequestId", strAlarmRequestId);
+        Json::add(pUploadJson, "UploadStatus", bUploadOk ? 1 : 0);
+        Json::add(pUploadJson, "Date", strDate);
+        Json::add(pUploadJson, "Time", strTime);
+        Json::add(pUploadJson, "StartTime", strStartTime);
+        Json::add(pUploadJson, "EndTime", strEndTime);
+        Json::add(pUploadJson, "ImagePath", stResponse.image_path.empty() ? strImagePath : stResponse.image_path);
+        if (!stResponse.file_name.empty())
+        {
+            Json::add(pUploadJson, "FileName", stResponse.file_name);
+        }
+        Json::add(pUploadJson, "StatusCode", stResponse.status_code);
+        Json::add(pUploadJson, "Message", stResponse.message);
+
+        const std::string strUploadData = Json::to_string(pUploadJson);
+        Json::deinit(pUploadJson);
+        /* RequestId 追加 -image，既能区分报警消息，又能通过 AlarmRequestId 回查原报警。 */
+        const std::string strUploadRequestId = strAlarmRequestId + "-image";
+        const int nUploadRet = CPlatformManager::instance()->publish_event(
+            SMOKE_FIRE_SNAPSHOT_IMAGE_UPLOAD_COMMAND, strUploadData, strUploadRequestId);
+        dlog_info("烟火抓图识别-业务层: 上传结果推送完成，RequestId[%s] 返回码[%d] 载荷[%s]",
+                  strUploadRequestId.c_str(), nUploadRet, strUploadData.c_str());
+    }
+
+    dlog_info("烟火抓图识别-业务层: 处理结束，端到端耗时[%lld]ms 报警RequestId[%s]",
+              TimeUtils_NS::get_currentTimestampMs() - llBeginMs, strAlarmRequestId.c_str());
+
+    /* 任务响应回填事件信息与设备序列号，便于平台直接拼接使用。 */
+    Json::Object *pRespJson = Json::init();
+    if (pRespJson)
+    {
+        Json::add(pRespJson, "Result", 0);
+        /* 抓拍送烟火侦测的结果：烟雾或火焰任一识别到即为 1，均未识别到为 0 */
+        Json::add(pRespJson, "SmokeFireDetected", nSmokeFireDetected);
+        /* 细分结果：1 表示识别到，0 表示未识别到 */
+        Json::add(pRespJson, "SmokeDetected", nSmokeDetected);
+        Json::add(pRespJson, "FireDetected", nFireDetected);
+        Json::add(pRespJson, "EventType", nEventType);
+        Json::add(pRespJson, "EventName", strEventName);
+        Json::add(pRespJson, "EventStatus", nEventStatus);
+        Json::add(pRespJson, "Channel", nChannel);
+        Json::add(pRespJson, "Timestamp", strTimestamp);
+        Json::add(pRespJson, "Date", strDate);
+        Json::add(pRespJson, "Time", strTime);
+        Json::add(pRespJson, "StartTime", strStartTime);
+        Json::add(pRespJson, "EndTime", strEndTime);
+        Json::add(pRespJson, "device_sn", CPlatformManager::instance()->get_device_sn());
+
+        const std::string strResp = Json::to_string(pRespJson);
+        Json::deinit(pRespJson);
+        result(strResp);
+    }
+    else
+    {
+        result("{\"Result\":0}");
+    }
+}
+#endif
+
 #if CAP_AI_PEOPLE_STATISTICS
 /* 获取人流统计信息 */
 void Task::Event::GetPeopleFlowStatisticsInfo::handle()
@@ -3647,3 +3997,151 @@ void Task::Event::SetPeopleDensityDetectionInfo::handle()
     result(nRet);
 }
 #endif
+/* 回放拉流服务的 HTTP 端口，与平台约定一致 */
+constexpr int REPLAY_HTTP_PORT = 18888;
+
+/* 回放 m3u8 文件名中的时间戳格式（如 2026-09-27_000000） */
+constexpr const char *REPLAY_FILE_TIME_FORMAT = "%Y-%m-%d_%H%M%S";
+
+/* 请求起始时间的格式（如 2026-09-27 00:00:00） */
+constexpr const char *REPLAY_REQ_TIME_FORMAT = "%Y-%m-%d %H:%M:%S";
+
+namespace fs = std::filesystem;
+
+/*
+ * 获取回放播放地址：先校验 SD 卡状态，再按请求起始时间定位录像目录，
+ * 挑选不晚于起始时间的最后一个 m3u8 分片，拼成本机 HTTP 拉流地址。
+ * 地址形如 http://<本机IP>:18888/opt/course/record/20260927/2026-09-27_000000.m3u8
+ */
+void Task::Event::GetReplayMediaInfo::handle()
+{
+    /* 解析入参：通道号与起止时间 */
+    Replay::Stream::Info_S stReq;
+    Convert::to_struct(m_taskData, stReq);
+
+    /* SD 卡异常时无录像可回放，直接失败（返回专用错误码，便于平台区分） */
+    if (CStorageManage::instance()->get_SdCardStatus() != SD_CARD_STATUS_E::NORMAL)
+    {
+        dlog_error("获取回放地址失败：SD 卡状态异常");
+        result(ERR_WEB_NO_SD_CARD);
+        return;
+    }
+
+    /* 起始时间形如 "2026-09-27 00:00:00"，前 10 位为日期部分 */
+    if (stReq.startTime.size() < 10)
+    {
+        dlog_error("获取回放地址失败：起始时间非法[%s]", stReq.startTime.c_str());
+        result(ERR_WEB_PARAM);
+        return;
+    }
+
+    /* 录像目录名不含横线，形如 20260927 */
+    const std::string strDate = stReq.startTime.substr(0, 10);
+    std::string strDateCompact;
+    for (const char ch : strDate)
+    {
+        if (ch != '-')
+        {
+            strDateCompact.push_back(ch);
+        }
+    }
+    if (strDateCompact.size() != 8)
+    {
+        dlog_error("获取回放地址失败：日期格式非法[%s]", strDate.c_str());
+        result(ERR_WEB_PARAM);
+        return;
+    }
+
+    const std::string strDir = std::string(RECORD_PATH) + "/" + strDateCompact;
+
+    /* 起始时间戳，用于挑选不晚于它的 m3u8 分片 */
+    FindRecordFile stFileFinder;
+    const time_t nStartTime = stFileFinder.parseTime(stReq.startTime.c_str(), REPLAY_REQ_TIME_FORMAT);
+    if (nStartTime <= 0)
+    {
+        dlog_error("获取回放地址失败：起始时间解析失败[%s]", stReq.startTime.c_str());
+        result(ERR_WEB_PARAM);
+        return;
+    }
+
+    /* 扫描日期目录：优先取不晚于起始时间的最大 m3u8；若起始时间早于当天全部分片，则退化为取最早分片 */
+    std::string strSelectedFile;
+    time_t nSelectedTime = 0;
+    std::string strEarliestFile;
+    time_t nEarliestTime = 0;
+    std::error_code stDirError;
+    for (const auto &stEntry : fs::directory_iterator(strDir, stDirError))
+    {
+        if (!stEntry.is_regular_file())
+        {
+            continue;
+        }
+
+        const std::string strName = stEntry.path().filename().string();
+        constexpr std::size_t nSuffixLen = 5; /* ".m3u8" 长度 */
+        if (strName.size() <= nSuffixLen ||
+            strName.compare(strName.size() - nSuffixLen, nSuffixLen, ".m3u8") != 0)
+        {
+            continue;
+        }
+
+        /* 文件名去掉后缀即为时间戳，如 2026-09-27_000000；先校验格式，避免对非分片文件误报解析失败 */
+        const std::string strStamp = strName.substr(0, strName.size() - nSuffixLen);
+        constexpr std::size_t nStampLen = 17; /* YYYY-MM-DD_HHMMSS */
+        if (strStamp.size() != nStampLen || strStamp[4] != '-' || strStamp[7] != '-' ||
+            strStamp[10] != '_')
+        {
+            continue;
+        }
+
+        const time_t nFileTime = stFileFinder.parseTime(strStamp.c_str(), REPLAY_FILE_TIME_FORMAT);
+        if (nFileTime <= 0)
+        {
+            continue;
+        }
+
+        /* 记录当天最早的分片，供起始时间早于全部分片时兜底 */
+        if (nEarliestTime == 0 || nFileTime < nEarliestTime)
+        {
+            nEarliestTime = nFileTime;
+            strEarliestFile = stEntry.path().string();
+        }
+
+        if (nFileTime <= nStartTime && nFileTime > nSelectedTime)
+        {
+            nSelectedTime = nFileTime;
+            strSelectedFile = stEntry.path().string();
+        }
+    }
+
+    /* 起始时间早于当天首个分片时（如请求 00:00:00 而录像从更晚开始），退化为返回首个分片 */
+    if (strSelectedFile.empty())
+    {
+        strSelectedFile = strEarliestFile;
+    }
+
+    if (strSelectedFile.empty())
+    {
+        dlog_error("获取回放地址失败：目录内无可用录像[%s]", strDir.c_str());
+        result(ERR_WEB_PARAM);
+        return;
+    }
+
+    /* 读取本机 IP，用于拼接拉流地址 */
+    Network::Info_S stNetInfo;
+    if (CNetworkManage::instance()->get_ip_and_dns(stNetInfo) != OK)
+    {
+        dlog_error("获取回放地址失败：读取本机 IP 失败");
+        result(ERR_WEB_NOT_SUPPORT);
+        return;
+    }
+
+    Replay::Stream::Info_S stResp;
+    stResp.nChnId = stReq.nChnId;
+    stResp.startTime = stReq.startTime;
+    stResp.endTime = stReq.endTime;
+    stResp.protocol = "http";
+    stResp.filename = "http://" + stNetInfo.stIp.ipv4Ip + ":" +
+                      std::to_string(REPLAY_HTTP_PORT) + strSelectedFile;
+    result(Convert::to_string(stResp));
+}

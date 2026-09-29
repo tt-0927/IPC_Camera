@@ -153,6 +153,8 @@
 #define EVENT_SCENE_CHANGE_DETECTION_CONFIG_FILE        USER_DATA_PATH "event_scene_change_detection.json"
 /* 人脸侦测 */
 #define EVENT_FACE_DETECTION_CONFIG_FILE                USER_DATA_PATH "event_face_detection.json"
+/* 人脸识别配置 */
+#define EVENT_FACE_RECOGNITION_CONFIG_FILE                USER_DATA_PATH "event_face_recognition.json"
 /* 徘徊侦测 */
 #define EVENT_LOITERING_DETECTION_CONFIG_FILE           USER_DATA_PATH "event_loitering_detection.json"
 /* 人员聚集侦测 */
@@ -449,6 +451,8 @@
 #define AI_PARKING_DETECTION_CONFIG_FILE    DESIGN_DATA_PATH "ai_parking_detection.json"
 /* 垃圾检测 */
 #define AI_GARBAGE_DETECTION_CONFIG_FILE    DESIGN_DATA_PATH "ai_garbage_detection.json"
+/* 烟火识别 */
+#define AI_SMOKE_FIRE_DETECTION_CONFIG_FILE DESIGN_DATA_PATH "aiRknnConfig.json"
 /* rknn模型 */
 #define AI_RKNN_DETECTION_CONFIG_FILE    DESIGN_DATA_PATH "ai_rknn_detect.json"
 /* rkllm模型 */

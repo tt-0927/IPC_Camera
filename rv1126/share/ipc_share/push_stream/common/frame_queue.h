@@ -3,7 +3,7 @@
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2026-06-10 11:18:41
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-09-03 18:43:30
+ * @LastEditTime : 2026-09-23 16:03:25
  * @Description  : 线程安全的帧队列（RTSP/RTMP公共组件）
  */
 
@@ -20,10 +20,10 @@
 
 /* 队列默认大小 */
 #ifndef MAX_VIDEO_FRAME
-    #define MAX_VIDEO_FRAME (4)
+#define MAX_VIDEO_FRAME (4)
 #endif
 #ifndef MAX_AUDIO_FRAME
-    #define MAX_AUDIO_FRAME (4)
+#define MAX_AUDIO_FRAME (4)
 #endif
 
 /**
@@ -43,10 +43,10 @@ enum FrameType_E
  */
 enum FrameMarker_E
 {
-    FRAME_MARKER_UNKNOWN = -1,       /* 无法从当前输入确认帧类型 */
-    FRAME_MARKER_NON_KEY = 0,        /* 普通P/B帧或其他非关键NAL */
-    FRAME_MARKER_KEYFRAME = 1,       /* 可作为解码起点的完整关键 pack */
-    FRAME_MARKER_PARAMETER_SET = 2,  /* 输入本身是独立的SPS/PPS/VPS pack */
+    FRAME_MARKER_UNKNOWN = -1,          /* 无法从当前输入确认帧类型 */
+    FRAME_MARKER_NON_KEY = 0,           /* 普通P/B帧或其他非关键NAL */
+    FRAME_MARKER_KEYFRAME = 1,          /* 可作为解码起点的完整关键 pack */
+    FRAME_MARKER_PARAMETER_SET = 2,     /* 输入本身是独立的SPS/PPS/VPS pack */
     FRAME_MARKER_INDEPENDENT_FRAME = 3, /* 可独立解码但不参与GOP保护的完整帧，如MJPEG */
 };
 
@@ -56,7 +56,7 @@ enum FrameMarker_E
 struct FrameData
 {
     /* 共享数据指针：既支持独立拷贝入队，也支持多消费者共享同一副本 */
-    std::shared_ptr<unsigned char[]> data;
+    std::shared_ptr<unsigned char> data;
     int frameSize = 0; /* 帧大小 */
     int type = 0;      /* 帧类型：VIDEO_TYPE 或 AUDIO_TYPE */
     /* -1未知，0普通 pack，1关键 pack，2独立参数集，3独立帧；保留int兼容既有调用方。 */
@@ -66,10 +66,10 @@ struct FrameData
     ~FrameData() = default;
 
     /* 允许拷贝（浅拷贝共享 data），也允许移动 */
-    FrameData(const FrameData&) = default;
-    FrameData& operator=(const FrameData&) = default;
-    FrameData(FrameData&&) = default;
-    FrameData& operator=(FrameData&&) = default;
+    FrameData(const FrameData &) = default;
+    FrameData &operator=(const FrameData &) = default;
+    FrameData(FrameData &&) = default;
+    FrameData &operator=(FrameData &&) = default;
 };
 
 /**
@@ -108,17 +108,15 @@ public:
      * @param   {bool} bDropOldestForKeyframe：满队列时是否淘汰最老非保护帧
      * @note    : 现有RTMP调用只传maxSize，保持原有行为；RTSP显式开启GOP感知策略。
      */
-    explicit CThreadSafeFrameQueue(std::size_t maxSize = 4,
-                                   std::size_t maxBytes = 0,
-                                   bool bDropOldestForKeyframe = false)
+    explicit CThreadSafeFrameQueue(std::size_t maxSize = 4, std::size_t maxBytes = 0, bool bDropOldestForKeyframe = false)
         : m_maxSize(maxSize), m_maxBytes(maxBytes), m_bDropOldestForKeyframe(bDropOldestForKeyframe)
     {
     }
     ~CThreadSafeFrameQueue() = default;
 
     /* 禁止拷贝和移动 */
-    CThreadSafeFrameQueue(const CThreadSafeFrameQueue&) = delete;
-    CThreadSafeFrameQueue& operator=(const CThreadSafeFrameQueue&) = delete;
+    CThreadSafeFrameQueue(const CThreadSafeFrameQueue &) = delete;
+    CThreadSafeFrameQueue &operator=(const CThreadSafeFrameQueue &) = delete;
 
     /**
      * @brief 入队（移动语义）
@@ -193,12 +191,20 @@ public:
         std::unique_lock<std::mutex> lock(m_mutex);
         if (nTimeoutMs < 0)
         {
-            m_cv.wait(lock, [this]() { return !m_queue.empty() || m_bStop; });
+            m_cv.wait(lock,
+                      [this]()
+                      {
+                          return !m_queue.empty() || m_bStop;
+                      });
         }
         else
         {
-            m_cv.wait_for(lock, std::chrono::milliseconds(nTimeoutMs),
-                          [this]() { return !m_queue.empty() || m_bStop; });
+            m_cv.wait_for(lock,
+                          std::chrono::milliseconds(nTimeoutMs),
+                          [this]()
+                          {
+                              return !m_queue.empty() || m_bStop;
+                          });
         }
         if (m_queue.empty())
         {
@@ -327,9 +333,7 @@ private:
      */
     static bool is_protected_frame(const FrameData *pFrame)
     {
-        return pFrame != nullptr &&
-               (pFrame->iFrame == FRAME_MARKER_KEYFRAME ||
-                pFrame->iFrame == FRAME_MARKER_PARAMETER_SET);
+        return pFrame != nullptr && (pFrame->iFrame == FRAME_MARKER_KEYFRAME || pFrame->iFrame == FRAME_MARKER_PARAMETER_SET);
     }
 
     /**
@@ -412,8 +416,7 @@ private:
             }
 
             /* 新的关键 pack/独立参数集可替换过时参数集，避免保护项堆满后阻塞新的IDR。 */
-            if ((pFrame != nullptr &&
-                 (pFrame->iFrame == FRAME_MARKER_KEYFRAME || is_parameter_set(pFrame))) &&
+            if ((pFrame != nullptr && (pFrame->iFrame == FRAME_MARKER_KEYFRAME || is_parameter_set(pFrame))) &&
                 discard_oldest_parameter_set())
             {
                 continue;
