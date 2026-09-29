@@ -432,8 +432,15 @@ int CPreviewManage::device_control(const Preview::DeviceControl_S &stInfo)
             nAudioTimes = 1;
             dlog_warn("TVSDK声光报警次数无效，使用默认播放次数: times[%d]", nAudioTimes);
         }
-        CEventLinkage::instance()->play_audio(strAudioPath, nAudioTimes);
-        dlog_info("TVSDK声光报警音频已启动: path[%s], times[%d]", strAudioPath.c_str(), nAudioTimes);
+        /* 异步投递：音频由 worker 线程播放，任务立即返回，避免阻塞 HTTP 响应。 */
+        if (CEventLinkage::instance()->play_audio_async())
+        {
+            dlog_info("TVSDK声光报警音频已异步投递: path[%s], times[%d]", strAudioPath.c_str(), nAudioTimes);
+        }
+        else
+        {
+            dlog_warn("TVSDK声光报警音频投递失败: path[%s], times[%d]", strAudioPath.c_str(), nAudioTimes);
+        }
     }
     else
     {

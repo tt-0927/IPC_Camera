@@ -69,6 +69,14 @@ public:
      */
     void play_audio(std::string strAudioPath, int nTimes);
 
+    /**
+     * @brief   : 异步播放当前声音报警配置的音频
+     * @details : 构造声音联动任务投递到 worker 队列后立即返回，音频由 worker 线程播放，
+     *            调用方无需等待播放完成；音频路径与次数由 worker 线程从声音报警配置读取。
+     * @return  {bool} true：投递成功 false：联动未初始化
+     */
+    bool play_audio_async();
+
     int get_audio_file_path(std::string &strAudioPath, int &nTimes);
 
     /**
