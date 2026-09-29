@@ -583,6 +583,13 @@ int CStreamVideo::setVideoConfig(Video_NS::VideoConfig_S &stVideoConfig)
         if(nRet != OK)
         {
             dlog_error("重新启动RTSP服务器失败");
+            /* 上方已执行 OSD 去初始化，而后续重建流程在此处不会被执行，
+               必须回滚 OSD 初始化，否则直接返回失败会留下 OSD 未初始化的不一致状态，
+               进而导致后续流水线操作异常。 */
+            if (COsdManage::instance()->init() != OK)
+            {
+                dlog_error("重新启动RTSP服务器失败后回滚OSD初始化失败");
+            }
             return ERR;
         }
     }
