@@ -656,10 +656,15 @@ static bool tvsdk_valid_line_parameters(const TRule &stRule)
 {
     const Common::PosF_S stStart(stRule.fStartPosX, stRule.fStartPosY);
     const Common::PosF_S stEnd(stRule.fEndPosX, stRule.fEndPosY);
+    /* 四个端点坐标全零表示用户清空了区域：规则本身已配置，仅区域未绘制。
+       此时不要求起终点不重合，否则该规则会被判为无效并触发整条回退，
+       连带灵敏度、方向与检测目标一并丢失。 */
+    const bool bClearedRegion = (stStart.fX == 0.0F && stStart.fY == 0.0F &&
+                                 stEnd.fX == 0.0F && stEnd.fY == 0.0F);
     return std::isfinite(stStart.fX) && std::isfinite(stStart.fY) &&
            std::isfinite(stEnd.fX) && std::isfinite(stEnd.fY) &&
            stStart.IsValid() && stEnd.IsValid() &&
-           (stStart.fX != stEnd.fX || stStart.fY != stEnd.fY) &&
+           (bClearedRegion || stStart.fX != stEnd.fX || stStart.fY != stEnd.fY) &&
            stRule.nSensitivity >= 1 && stRule.nSensitivity <= 100;
 }
 
@@ -791,6 +796,9 @@ static NET_COMMON_ECODE_E tvsdk_preserve_event_rules(INT32 nChannelId, TConfig &
     }
     TConfig stPrevious = {};
     bool bPreviousLoaded = false;
+    /* 只要存在参数无效的规则即视为本次设置失败，避免静默成功误导调用方。
+       无效规则本身仍按下方逻辑回退为旧值或默认空规则，保证留存配置始终可用。 */
+    NET_COMMON_ECODE_E enResult = NET_E_SUCCEED;
     for (INT32 nIndex = 0; nIndex < stConfig.uRuleCount; ++nIndex)
     {
         if (tvsdk_valid_event_rule(aRules[nIndex], nActionCode))
@@ -816,8 +824,9 @@ static NET_COMMON_ECODE_E tvsdk_preserve_event_rules(INT32 nChannelId, TConfig &
             tvsdk_default_event_rule(aRules[nIndex], nActionCode);
         }
         dlog_warn("TVSDK 事件[%d]规则[%d]参数无效，保留原位置并回退旧值或默认空规则", nActionCode, nIndex);
+        enResult = NET_E_INVALID_PARAM;
     }
-    return NET_E_SUCCEED;
+    return enResult;
 }
 
 /*
