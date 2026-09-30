@@ -4210,6 +4210,21 @@ typedef NET_AlarmSchedule_S* pNET_AlarmSchedule_S;
  * @struct tagNET_LinkageList
  * @brief 联动配置列表 Linkage configuration list
  */
+/**
+ * @struct tagNET_TraditionLinkage
+ * @brief 常规联动配置（邮件/上传/声音/闪光等非通道类动作）
+ * @note  IPC 等设备使用；NVR 侧可忽略该字段。预留 byRes 便于后续扩展。
+ */
+typedef struct tagNET_TraditionLinkage
+{
+    BOOL        bSendEmail;                          /* 邮件联动 */
+    BOOL        bUploadToCenter;                     /* 上传中心 */
+    BOOL        bUploadSdCard;                       /* 上传SD卡 */
+    BOOL        bSound;                              /* 声音联动 */
+    BOOL        bFlashingLight;                      /* 闪光报警灯 */
+    BYTE        byRes[64];                           /* 保留字段，便于后续扩展 */
+} NET_TraditionLinkage_S, *pNET_TraditionLinkage_S;
+
 typedef struct tagNET_LinkageList
 {
     INT32       uAlarmOutputCount;                   /* 报警输出数量 */
@@ -4218,7 +4233,8 @@ typedef struct tagNET_LinkageList
     INT32       auRecordChannel[NET_CHANNEL_MAX]; /* 录像通道号数组 */
     INT32       uSnapshotChannelCount;               /* 抓拍通道数量 */
     INT32       auSnapshotChannel[NET_CHANNEL_MAX]; /* 抓拍通道号数组 */
-    BYTE        byRes[256];                         /* 保留字段 */
+    NET_TraditionLinkage_S stTradition;             /* 常规联动配置 */
+    BYTE        byRes[256 - sizeof(NET_TraditionLinkage_S)]; /* 保留字段，随新增字段相应缩小 */
 } NET_LinkageList_S;
 
 /*

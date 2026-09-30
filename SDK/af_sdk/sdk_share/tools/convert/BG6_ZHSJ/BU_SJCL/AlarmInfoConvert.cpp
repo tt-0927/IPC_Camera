@@ -1205,6 +1205,24 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_LinkageList_S& stInfo, bool b
         convert.field_array(pRootJson, "SnapshotChannel", stInfo.auSnapshotChannel,
                            stInfo.uSnapshotChannelCount, NET_CHANNEL_MAX);
     }
+
+    /* 常规联动（邮件/上传中心/上传SD卡/声音/闪光报警灯） */
+    convert.structure(pRootJson, "Tradition", stInfo.stTradition);
+}
+
+void SDKConvert::deal(Json::Object* pRootJson, NET_TraditionLinkage_S& stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+
+    SDKConvert::CSDKConvert convert(bOutStruct);
+    convert.field(pRootJson, "SendEmail", stInfo.bSendEmail);
+    convert.field(pRootJson, "UploadToCenter", stInfo.bUploadToCenter);
+    convert.field(pRootJson, "UploadSdCard", stInfo.bUploadSdCard);
+    convert.field(pRootJson, "Sound", stInfo.bSound);
+    convert.field(pRootJson, "FlashingLight", stInfo.bFlashingLight);
 }
 
 
