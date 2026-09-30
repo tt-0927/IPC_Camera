@@ -28,6 +28,46 @@ namespace
         return std::find(values.begin(), values.end(), target) != values.end();
     }
 
+    /* 判断采样率是否为枚举内的合法取值。枚举值即实际采样率，故逐项比对。 */
+    bool is_valid_audio_sample_rate(int nSampleRate)
+    {
+        switch (static_cast<Audio_NS::AudioSamprate_E>(nSampleRate))
+        {
+        case Audio_NS::AudioSamprate_E::AUDIO_SAMPRATE_8000:
+        case Audio_NS::AudioSamprate_E::AUDIO_SAMPRATE_11025:
+        case Audio_NS::AudioSamprate_E::AUDIO_SAMPRATE_12000:
+        case Audio_NS::AudioSamprate_E::AUDIO_SAMPRATE_16000:
+        case Audio_NS::AudioSamprate_E::AUDIO_SAMPRATE_22050:
+        case Audio_NS::AudioSamprate_E::AUDIO_SAMPRATE_24000:
+        case Audio_NS::AudioSamprate_E::AUDIO_SAMPRATE_32000:
+        case Audio_NS::AudioSamprate_E::AUDIO_SAMPRATE_44100:
+        case Audio_NS::AudioSamprate_E::AUDIO_SAMPRATE_48000:
+        case Audio_NS::AudioSamprate_E::AUDIO_SAMPRATE_64000:
+        case Audio_NS::AudioSamprate_E::AUDIO_SAMPRATE_96000:
+            return true;
+        default:
+            return false;
+        }
+    }
+
+    /* 判断码率是否为枚举内的合法取值。枚举值即实际码率，故逐项比对。 */
+    bool is_valid_audio_bit_rate(int nBitRate)
+    {
+        switch (static_cast<Audio_NS::AudioBitrate_E>(nBitRate))
+        {
+        case Audio_NS::AudioBitrate_E::AUDIO_BITRATE_16K:
+        case Audio_NS::AudioBitrate_E::AUDIO_BITRATE_32K:
+        case Audio_NS::AudioBitrate_E::AUDIO_BITRATE_48K:
+        case Audio_NS::AudioBitrate_E::AUDIO_BITRATE_64K:
+        case Audio_NS::AudioBitrate_E::AUDIO_BITRATE_96K:
+        case Audio_NS::AudioBitrate_E::AUDIO_BITRATE_128K:
+        case Audio_NS::AudioBitrate_E::AUDIO_BITRATE_256K:
+            return true;
+        default:
+            return false;
+        }
+    }
+
     /*
      * 范围匹配规则：
      * 1) 范围未启用时直接放行；
@@ -512,6 +552,21 @@ bool CAVConfigure::is_audio_config_supported(const Audio_NS::AudioConfig_S &data
     const std::string strFormat = Audio_NS::audioFormat_toString(data.enFormat);
     const int nSampleRate = static_cast<int>(data.enSampRate);
     const int nBitRate = static_cast<int>(data.enBitRate);
+
+    /* 采样率与码率必须是枚举内的合法取值，此处先做与格式无关的合法性校验。
+       下发方可能传入 0 等未填充值，若放行会写入配置，导致音频模块以非法采样率
+       初始化失败。该校验必须位于下方的格式分支放行之前，保证任何格式都会执行。 */
+    if (!is_valid_audio_sample_rate(nSampleRate))
+    {
+        dlog_error("音频采样率[%d]非法", nSampleRate);
+        return false;
+    }
+
+    if (!is_valid_audio_bit_rate(nBitRate))
+    {
+        dlog_error("音频码率[%d]非法", nBitRate);
+        return false;
+    }
 
     if (!contains_value(stAudioCapabilitySet.aInputTypes, strInputType))
     {
