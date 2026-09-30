@@ -33,7 +33,7 @@
 #endif
 
 /* 回放播放地址：SD 卡状态、本机 IP 与录像文件查找 */
-#include <filesystem>
+#include "posix_fs.h"
 #include "storage_manage.h"
 #include "network_manage.h"
 #include "replay_define.h"
@@ -4006,7 +4006,6 @@ constexpr const char *REPLAY_FILE_TIME_FORMAT = "%Y-%m-%d_%H%M%S";
 /* 请求起始时间的格式（如 2026-09-27 00:00:00） */
 constexpr const char *REPLAY_REQ_TIME_FORMAT = "%Y-%m-%d %H:%M:%S";
 
-namespace fs = std::filesystem;
 
 /*
  * 获取回放播放地址：先校验 SD 卡状态，再按请求起始时间定位录像目录，
@@ -4069,15 +4068,16 @@ void Task::Event::GetReplayMediaInfo::handle()
     time_t nSelectedTime = 0;
     std::string strEarliestFile;
     time_t nEarliestTime = 0;
-    std::error_code stDirError;
-    for (const auto &stEntry : fs::directory_iterator(strDir, stDirError))
+    std::vector<std::string> vecEntryNames;
+    PosixFs_NS::list_dir(strDir, vecEntryNames);
+    for (const auto &strName : vecEntryNames)
     {
-        if (!stEntry.is_regular_file())
+        const std::string strFullPath = strDir + "/" + strName;
+        if (!PosixFs_NS::is_regular_file(strFullPath))
         {
             continue;
         }
 
-        const std::string strName = stEntry.path().filename().string();
         constexpr std::size_t nSuffixLen = 5; /* ".m3u8" 长度 */
         if (strName.size() <= nSuffixLen ||
             strName.compare(strName.size() - nSuffixLen, nSuffixLen, ".m3u8") != 0)
@@ -4104,13 +4104,13 @@ void Task::Event::GetReplayMediaInfo::handle()
         if (nEarliestTime == 0 || nFileTime < nEarliestTime)
         {
             nEarliestTime = nFileTime;
-            strEarliestFile = stEntry.path().string();
+            strEarliestFile = strFullPath;
         }
 
         if (nFileTime <= nStartTime && nFileTime > nSelectedTime)
         {
             nSelectedTime = nFileTime;
-            strSelectedFile = stEntry.path().string();
+            strSelectedFile = strFullPath;
         }
     }
 
