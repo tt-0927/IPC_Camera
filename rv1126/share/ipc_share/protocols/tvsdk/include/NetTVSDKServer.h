@@ -1,3 +1,10 @@
+/**
+ * @FileName     : NetTVSDKServer.h
+ * @Date         : 原始创建日期未记录
+ * @Author       : ITC
+ * @Description  : IPC 使用的 TVSDK 服务端公共接口与二进制结构定义。
+ * @Change       : 2026-10-08 补齐注册信息查询和设置接口，集中定义存储快照并保持 C/C++ 兼容。
+ */
 #ifndef NETTVSDK_H
 #define NETTVSDK_H
 
@@ -2456,6 +2463,60 @@ typedef struct tagNET_DeviceStorageInfo
  * @brief 设备存储信息结构体指针类型
  */
 typedef NET_DeviceStorageInfo_S* pNET_DeviceStorageInfo_S;
+
+/**
+ * @brief TVSDK 适配层单次查询获得的存储快照。
+ * @note 仅用于本地转换，不作为 SDK 回调缓冲区，不改变 NET_DeviceStorageInfo_S 的布局。
+ *       使用固定长度字符数组和六十四位容量，兼容 C/C++ 公共头文件。
+ */
+typedef struct tagDeviceStorageSnapshot
+{
+    /* 调用方先清零，再填写数量及状态：零正常、负一异常、一无卡、二格式化、三初始化。 */
+    INT32 nDiskCount;
+    INT32 nDiskStatus;
+    /* 容量单位为字节。 */
+    UINT64 uTotalBytes;
+    UINT64 uAvailableBytes;
+    UINT64 uUsedBytes;
+    /* 文件系统名称，必须以空字符结尾。 */
+    CHAR strFileType[NET_LEN_32];
+} DeviceStorageSnapshot_S;
+
+/**
+ * @brief 注册有效期类型，数值与 SDK 公共头文件保持一致。
+ */
+typedef enum tagNET_ActivationTime
+{
+    NET_AT_ONE_WEEK = 0,
+    NET_AT_ONE_MONTH = 1,
+    NET_AT_TWO_MONTH = 2,
+    NET_AT_THREE_MONTH = 3,
+    NET_AT_HALF_YEAR = 4,
+    NET_AT_FOREVER = 5,
+    NET_AT_NULL = -1
+} NET_ActivationTime_E;
+
+/**
+ * @brief 设备注册信息，对应 NET_GET_REGISTERINFO 和 NET_SET_REGISTERINFO。
+ * @note 字段顺序、长度和预留空间必须与 SDK 的 NET_RegisterInfo_S 保持一致。
+ *       设置时只使用 strRegisterEg，其他字段由设备校验注册码后生成，不接受直接覆盖。
+ */
+typedef struct tagNET_RegisterInfo
+{
+    /* IPC 单通道设备固定为零。 */
+    UINT32 uChannel;
+    /* 机器码、注册码和注册时间。 */
+    CHAR strMachinSn[NET_LEN_64];
+    CHAR strRegisterEg[NET_LEN_64];
+    CHAR strStartTime[NET_LEN_64];
+    /* 剩余可用时长，单位为分钟。 */
+    INT64 nUsableTimer;
+    /* 注册有效期类型。IPC 已过期状态保留业务数值负二。 */
+    NET_ActivationTime_E enActionTime;
+    BYTE byReserved[32];
+} NET_RegisterInfo_S;
+
+typedef NET_RegisterInfo_S* pNET_RegisterInfo_S;
 
 
 /**
@@ -6584,6 +6645,22 @@ typedef NET_COMMON_ECODE_E (*NET_CB_SetDevConfig)(INT32 dwChannelID,
  */
 typedef NET_COMMON_ECODE_E (*NET_CB_GetDevConfigByCommand)(INT32 dwChannelID, LPVOID lpOutBuffer);
 typedef NET_COMMON_ECODE_E (*NET_CB_SetDevConfigByCommand)(INT32 dwChannelID, LPVOID lpInBuffer);
+
+/**
+ * @brief 注册设备注册信息查询回调，处理 NET_GET_REGISTERINFO。
+ * @param [in] pCb 获取 NET_RegisterInfo_S 的回调函数。
+ * @param [out] 无。
+ * @return 注册成功返回 TRUE，失败返回 FALSE。
+ */
+NET_API BOOL STDCALL NET_serverRegisterGetRegisterInfoCb(NET_CB_GetDevConfigByCommand pCb);
+
+/**
+ * @brief 注册设备注册码设置回调，处理 NET_SET_REGISTERINFO。
+ * @param [in] pCb 接收 NET_RegisterInfo_S 并校验 strRegisterEg 的回调函数。
+ * @param [out] 无。
+ * @return 注册成功返回 TRUE，失败返回 FALSE。
+ */
+NET_API BOOL STDCALL NET_serverRegisterSetRegisterInfoCb(NET_CB_SetDevConfigByCommand pCb);
 
 /**
  * @brief 获取RTSP流地址回调类型 (NET_GET_RTSPURLCFG)

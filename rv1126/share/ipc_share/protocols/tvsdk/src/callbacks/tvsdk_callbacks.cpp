@@ -8,9 +8,13 @@
  * @Change       : 2026-09-08 越界设置保留规则数量和索引，无效参数保留旧值，由事件总开关控制
  * @Change       : 2026-09-08 人员聚集保留规则数量及位置，无效规则回退旧值并返回实际任务结果
  * @Change       : 2026-09-08 统一十六类智能事件的规则回退和业务结果返回，校验 IPC 数量上限
+ * @Change       : 2026-10-08 补齐 520 查询、521 注册码设置及 504 存储信息查询回调。
+ * @Change       : 2026-10-08 提前声明注册配置转换重载，修复 521 设置回调的模板实例化错误。
  */
 
 #include "tvsdk_callbacks.h"
+/* 必须先声明注册转换重载，再包含可能间接定义 Convert 模板的业务头文件。 */
+#include "register_convert.h"
 #include "osd_configure.h"
 
 #include <string>
@@ -26,6 +30,12 @@
 #include <cmath>
 #include <memory>
 #include <mutex>
+#include <sstream>
+#include <limits>
+#include <cerrno>
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <sys/statvfs.h>
 
 #include "task_manage.h"
 #include "task.h"
@@ -48,6 +58,8 @@
 #include "convert/tvsdk_convert.h"
 #include "rtsp_server.h"
 #include "upgrade_client.h"
+#include "register_manage.h"
+#include "storage_manage.h"
 
 namespace TvSdkCallbacks
 {
@@ -1776,6 +1788,231 @@ static NET_COMMON_ECODE_E cb_get_sd_card_status(INT32 nChannelId, LPVOID pOutBuf
     pSdCardStatus->nStatus = nStatus;
     pSdCardStatus->bReady = bReady ? TRUE : FALSE;
     pSdCardStatus->uChannel = 0;
+    return NET_E_SUCCEED;
+}
+
+/**
+ * @brief 查询设备注册信息，复用注册管理器带锁的快照接口。
+ * @param [in] nChannelId 设备级查询，不参与通道筛选。
+ * @param [out] pOutBuffer 接收 NET_RegisterInfo_S 的缓冲区。
+ * @return 成功返回 NET_E_SUCCEED，参数或业务查询失败返回对应错误码。
+ */
+static NET_COMMON_ECODE_E cb_get_register_info(INT32 nChannelId, LPVOID pOutBuffer)
+{
+    (void)nChannelId;
+    if (pOutBuffer == nullptr)
+    {
+        return NET_E_INVALID_PARAM;
+    }
+
+    NET_RegisterInfo_S *pInfo = static_cast<NET_RegisterInfo_S *>(pOutBuffer);
+    *pInfo = {};
+    Register::RegisterInfo_S stRegisterInfo{};
+    /* 仅在管理器内部复制时持锁，字段转换和返回日志不持有业务锁。 */
+    const IpcRet_E enRet = CRegisterManage::instance()->get_register_info(stRegisterInfo);
+    if (enRet != OK)
+    {
+        dlog_error("TVSDK获取注册信息失败: command[%d], ret[%d]", NET_GET_REGISTERINFO, enRet);
+        return NET_E_GET_CFG_FAILED;
+    }
+    TvSdkConvert::FillRegisterInfo(stRegisterInfo, *pInfo);
+    /* 注册码属于设备授权信息，不写入查询日志。 */
+    dlog_info("TVSDK获取注册信息成功: command[%d], action_time[%d], usable_minutes[%lld]",
+              NET_GET_REGISTERINFO, static_cast<int>(pInfo->enActionTime),
+              static_cast<long long>(pInfo->nUsableTimer));
+    return NET_E_SUCCEED;
+}
+
+/**
+ * @brief 设置设备注册码，复用网页的注册任务进行校验、生成有效期并保存配置。
+ * @param [in] nChannelId 设备级操作，不参与通道筛选。
+ * @param [in] pInBuffer NET_RegisterInfo_S 请求；只有注册码参与设置。
+ * @param [out] 无。
+ * @return 校验和保存成功返回 NET_E_SUCCEED，参数错误返回 NET_E_INVALID_PARAM，其他失败返回 NET_E_SET_CFG_FAILED。
+ */
+static NET_COMMON_ECODE_E cb_set_register_info(INT32 nChannelId, LPVOID pInBuffer)
+{
+    (void)nChannelId;
+    if (pInBuffer == nullptr)
+    {
+        return NET_E_INVALID_PARAM;
+    }
+
+    const NET_RegisterInfo_S *pInfo = static_cast<const NET_RegisterInfo_S *>(pInBuffer);
+    Register::ConfigRegisterEg_S stConfig{};
+    if (!TvSdkConvert::ToRegisterConfig(*pInfo, stConfig))
+    {
+        return NET_E_INVALID_PARAM;
+    }
+
+    /* 不直接写授权文件；复用网页任务及注册管理器的校验、锁和保存流程。 */
+    std::string strResultJson;
+    if (execute_get_result(AC_SET_REGISTRATION_CODE, wrap_data_json(Convert::to_string(stConfig)),
+                           strResultJson) != OK)
+    {
+        dlog_error("TVSDK设置注册码任务执行失败: command[%d]", NET_SET_REGISTERINFO);
+        return NET_E_SET_CFG_FAILED;
+    }
+
+    int nBusinessRet = ERR;
+    if (strResultJson.empty() || !Json::get(strResultJson.c_str(), "Return", nBusinessRet))
+    {
+        dlog_error("TVSDK设置注册码任务未返回有效结果: command[%d]", NET_SET_REGISTERINFO);
+        return NET_E_SET_CFG_FAILED;
+    }
+    /* 只打印结果，不重复记录注册码；重复授权和已永久激活不冒充设置成功。 */
+    if (nBusinessRet != OK)
+    {
+        dlog_error("TVSDK设置注册码失败: command[%d], ret[%d]", NET_SET_REGISTERINFO, nBusinessRet);
+        if ((nBusinessRet == ERR_REGISTER_FAULT) || (nBusinessRet == ERR_REGISTER_CODE_FAULT) ||
+            (nBusinessRet == ERR_REGISTER_MACHINE_FAULT))
+        {
+            return NET_E_INVALID_PARAM;
+        }
+        return NET_E_SET_CFG_FAILED;
+    }
+    dlog_info("TVSDK设置注册码成功: command[%d]", NET_SET_REGISTERINFO);
+    return NET_E_SUCCEED;
+}
+
+/**
+ * @brief 查找业务 SD 卡目录的实际块设备和文件系统，避免把根文件系统当作 SD 卡。
+ * @param [in] 无。
+ * @param [out] strDevice SD 卡挂载设备路径。
+ * @param [out] strFileType 挂载文件系统类型。
+ * @return 找到返回 true；未挂载或读取失败返回 false，由调用方报告查询失败。
+ */
+static bool tvsdk_get_sd_mount_info(std::string &strDevice, std::string &strFileType)
+{
+    strDevice.clear();
+    strFileType.clear();
+    /* 使用各请求独立的流对象，避免非重入的挂载表接口共享静态缓冲区。 */
+    std::ifstream stMounts("/proc/self/mounts");
+    if (!stMounts.is_open())
+    {
+        return false;
+    }
+    std::string strLine;
+    while (std::getline(stMounts, strLine))
+    {
+        std::istringstream stLine(strLine);
+        std::string strMountDevice;
+        std::string strMountPoint;
+        std::string strMountType;
+        if (!(stLine >> strMountDevice >> strMountPoint >> strMountType))
+        {
+            continue;
+        }
+        if ((strMountPoint == SD_CARD_MOUNT_PATH) && (strMountDevice.find("/dev/mmcblk") == 0))
+        {
+            strDevice = strMountDevice;
+            strFileType = strMountType;
+            return true;
+        }
+    }
+    return false;
+}
+
+/**
+ * @brief 将当前 SD 卡作为设备存储返回，容量来自同一挂载目录描述符。
+ * @param [in] 无。
+ * @param [out] pInfo SDK 设备存储信息，设备级通道号固定为零。
+ * @return 查询成功返回 NET_E_SUCCEED，参数、挂载或容量读取失败返回对应错误码。
+ */
+static NET_COMMON_ECODE_E cb_get_device_storage_info(pNET_DeviceStorageInfo_S pInfo)
+{
+    if (pInfo == nullptr)
+    {
+        return NET_E_INVALID_PARAM;
+    }
+    *pInfo = {};
+    static constexpr INT32 TVSDK_STORAGE_STATUS_NORMAL = 0;
+    static constexpr INT32 TVSDK_STORAGE_STATUS_ERROR = -1;
+    static constexpr INT32 TVSDK_STORAGE_STATUS_UNPLUGGED = 1;
+    static constexpr INT32 TVSDK_STORAGE_STATUS_FORMATTING = 2;
+    static constexpr INT32 TVSDK_STORAGE_STATUS_INITIALIZING = 3;
+
+    DeviceStorageSnapshot_S stSnapshot{};
+    const SD_CARD_STATUS_E enStatus = CStorageManage::instance()->get_SdCardStatus();
+    stSnapshot.nDiskCount = (enStatus == UNPLUG) ? 0 : 1;
+    /* 504 正常状态为零；493 的正常状态为三，两者不能直接照搬。 */
+    switch (enStatus)
+    {
+        case NORMAL:
+            stSnapshot.nDiskStatus = TVSDK_STORAGE_STATUS_NORMAL;
+            break;
+        case UNPLUG:
+            stSnapshot.nDiskStatus = TVSDK_STORAGE_STATUS_UNPLUGGED;
+            break;
+        case FORMATING:
+            stSnapshot.nDiskStatus = TVSDK_STORAGE_STATUS_FORMATTING;
+            break;
+        case INSERT:
+            stSnapshot.nDiskStatus = TVSDK_STORAGE_STATUS_INITIALIZING;
+            break;
+        case WRITE_ERROR:
+            stSnapshot.nDiskStatus = TVSDK_STORAGE_STATUS_ERROR;
+            break;
+        default:
+            dlog_error("TVSDK获取存储信息失败: SD卡状态无效[%d]", static_cast<int>(enStatus));
+            return NET_E_GET_CFG_FAILED;
+    }
+
+    /* 未就绪状态只返回真实状态和零容量，不读取尚未挂载或格式化中的目录。 */
+    if (enStatus == NORMAL)
+    {
+        std::string strDevice;
+        std::string strFileType;
+        if (!tvsdk_get_sd_mount_info(strDevice, strFileType))
+        {
+            dlog_error("TVSDK获取存储信息失败: SD卡未挂载到[%s]", SD_CARD_MOUNT_PATH);
+            return NET_E_GET_CFG_FAILED;
+        }
+        std::snprintf(stSnapshot.strFileType, sizeof(stSnapshot.strFileType), "%s", strFileType.c_str());
+
+        /* 复用已有描述符封装，所有返回分支都会自动关闭文件描述符。 */
+        StorageManage_NS::FileDescriptor stDirectory(open(SD_CARD_MOUNT_PATH,
+                                                        O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW));
+        struct stat stDeviceStat{};
+        struct stat stDirectoryStat{};
+        struct statvfs stCapacity{};
+        if ((stDirectory.get() < 0) || (stat(strDevice.c_str(), &stDeviceStat) != 0) ||
+            (fstat(stDirectory.get(), &stDirectoryStat) != 0))
+        {
+            dlog_error("TVSDK获取存储信息失败: 无法读取挂载设备[%s], errno[%d]", strDevice.c_str(), errno);
+            return NET_E_GET_CFG_FAILED;
+        }
+        /* 校验目录所在设备，防止检查挂载表后发生卸载而误读根分区容量。 */
+        if (!S_ISBLK(stDeviceStat.st_mode) || (stDirectoryStat.st_dev != stDeviceStat.st_rdev))
+        {
+            dlog_error("TVSDK获取存储信息失败: 挂载目录与SD卡设备不一致[%s]", strDevice.c_str());
+            return NET_E_GET_CFG_FAILED;
+        }
+        if (fstatvfs(stDirectory.get(), &stCapacity) != 0)
+        {
+            dlog_error("TVSDK获取存储容量失败: device[%s], errno[%d]", strDevice.c_str(), errno);
+            return NET_E_GET_CFG_FAILED;
+        }
+
+        const unsigned long long uBlockBytes = (stCapacity.f_frsize != 0) ? stCapacity.f_frsize : stCapacity.f_bsize;
+        const unsigned long long uTotalBlocks = stCapacity.f_blocks;
+        const unsigned long long uAvailableBlocks = std::min<unsigned long long>(stCapacity.f_bavail, uTotalBlocks);
+        if ((uBlockBytes == 0) || (uTotalBlocks == 0) ||
+            (uTotalBlocks > (std::numeric_limits<unsigned long long>::max() / uBlockBytes)))
+        {
+            dlog_error("TVSDK获取存储容量失败: 文件系统块大小或数量无效");
+            return NET_E_GET_CFG_FAILED;
+        }
+        /* 使用六十四位乘法，避免三十二位设备查询大容量 SD 卡时溢出。 */
+        stSnapshot.uTotalBytes = uTotalBlocks * uBlockBytes;
+        stSnapshot.uAvailableBytes = uAvailableBlocks * uBlockBytes;
+        stSnapshot.uUsedBytes = stSnapshot.uTotalBytes - stSnapshot.uAvailableBytes;
+    }
+
+    TvSdkConvert::FillDeviceStorageInfo(stSnapshot, *pInfo);
+    dlog_info("TVSDK获取存储信息成功: command[%d], count[%d], status[%d], total[%s], available[%s], filesystem[%s]",
+              NET_GET_STORAGE_INFO, pInfo->nHardDiskCount, pInfo->nHardDiskStatus,
+              pInfo->strDiskTotal, pInfo->strDiskAvailable, pInfo->strDiskFileType);
     return NET_E_SUCCEED;
 }
 
@@ -6606,6 +6843,18 @@ void register_all()
     NET_serverRegisterGetAudioEncodeCapCb(cb_get_audio_encode_cap);
     NET_serverRegisterGetOsdCapCb(cb_get_osd_cap);
     NET_serverRegisterGetDeviceBasicInfoCb(cb_get_device_basic_info);
+    if (!NET_serverRegisterGetDeviceStorageInfoCb(cb_get_device_storage_info))
+    {
+        dlog_error("TVSDK注册设备存储信息回调失败: command[%d]", NET_GET_STORAGE_INFO);
+    }
+    if (!NET_serverRegisterGetRegisterInfoCb(cb_get_register_info))
+    {
+        dlog_error("TVSDK注册设备注册信息回调失败: command[%d]", NET_GET_REGISTERINFO);
+    }
+    if (!NET_serverRegisterSetRegisterInfoCb(cb_set_register_info))
+    {
+        dlog_error("TVSDK注册设备注册码设置回调失败: command[%d]", NET_SET_REGISTERINFO);
+    }
     NET_serverRegisterGetDeviceConfigCb(cb_get_device_cfg);
     NET_serverRegisterSetDeviceConfigCb(cb_set_device_cfg);
     NET_serverRegisterSetUserPasswordCb(cb_set_user_password);

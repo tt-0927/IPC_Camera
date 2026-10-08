@@ -4,6 +4,7 @@
  * @FileName     : tvsdk_convert.cpp
  * @Author       : ITC
  * @Date         : 2026-09-08
+ * @Change       : 2026-10-08 增加注册信息查询和注册码设置转换，存储快照使用公共结构。
  * @Change       : 2026-09-08 越界保留全部规则参数，使用事件总开关并同步联动配置
  * @Change       : 2026-09-08 补齐人员聚集联动配置的设置和获取转换
  * @Change       : 2026-09-08 补齐入侵、徘徊、停车、物品遗留和拿取、进入和离开区域的联动转换
@@ -662,6 +663,66 @@ void FillDeviceBasicInfo(const ::System::DeviceInfo_S &src, NET_DeviceBasicInfo_
     strncpy(dst.strFirmwareVersion, src.systemVersion.c_str(), sizeof(dst.strFirmwareVersion) - 1);
     strncpy(dst.strDeviceName, src.deviceName.c_str(), sizeof(dst.strDeviceName) - 1);
     strncpy(dst.strManufacturer, src.strUnitTpye.c_str(), sizeof(dst.strManufacturer) - 1);
+}
+
+/**
+ * @brief 将 IPC 注册快照完整映射到 SDK，保留未注册和已过期状态。
+ * @param [in] stSource IPC 注册信息。
+ * @param [out] stDestination SDK 注册信息。
+ * @return 无。
+ */
+void FillRegisterInfo(const Register::RegisterInfo_S &stSource, NET_RegisterInfo_S &stDestination)
+{
+    std::memset(&stDestination, 0, sizeof(stDestination));
+    copy_alarm_string(stSource.strMachinSn, stDestination.strMachinSn, sizeof(stDestination.strMachinSn));
+    copy_alarm_string(stSource.strRegisterEg, stDestination.strRegisterEg, sizeof(stDestination.strRegisterEg));
+    copy_alarm_string(stSource.strStartTime, stDestination.strStartTime, sizeof(stDestination.strStartTime));
+    stDestination.nUsableTimer = stSource.lnLifeTimer;
+    /* 两端正常有效期枚举一致；IPC 的已过期数值负二按原值返回，不冒充未注册。 */
+    stDestination.enActionTime = static_cast<NET_ActivationTime_E>(stSource.enActionTime);
+}
+
+/**
+ * @brief 有界提取注册码，由注册业务负责真实性及有效期校验。
+ * @param [in] stSource SDK 注册信息，只有注册码为可写字段。
+ * @param [out] stDestination IPC 注册码配置。
+ * @return 有效的非空字符串返回 true，空字符串或未终止字符串返回 false。
+ */
+bool ToRegisterConfig(const NET_RegisterInfo_S &stSource, Register::ConfigRegisterEg_S &stDestination)
+{
+    stDestination = {};
+    const char *pEnd = static_cast<const char *>(std::memchr(stSource.strRegisterEg, '\0',
+                                                          sizeof(stSource.strRegisterEg)));
+    if ((pEnd == nullptr) || (pEnd == stSource.strRegisterEg))
+    {
+        return false;
+    }
+    stDestination.strRegisterEg.assign(stSource.strRegisterEg,
+                                      static_cast<std::size_t>(pEnd - stSource.strRegisterEg));
+    return true;
+}
+
+/**
+ * @brief 将存储快照转为 SDK 数据，统一容量格式并清零预留字段。
+ * @param [in] stSource 当前 SD 卡存储快照。
+ * @param [out] stDestination SDK 设备存储信息。
+ * @return 无。
+ */
+void FillDeviceStorageInfo(const DeviceStorageSnapshot_S &stSource,
+                          NET_DeviceStorageInfo_S &stDestination)
+{
+    static constexpr double TVSDK_STORAGE_BYTES_PER_GB = 1024.0 * 1024.0 * 1024.0;
+    std::memset(&stDestination, 0, sizeof(stDestination));
+    stDestination.nHardDiskCount = stSource.nDiskCount;
+    stDestination.nHardDiskStatus = stSource.nDiskStatus;
+    std::snprintf(stDestination.strDiskTotal, sizeof(stDestination.strDiskTotal), "%.2fGB",
+                  static_cast<double>(stSource.uTotalBytes) / TVSDK_STORAGE_BYTES_PER_GB);
+    std::snprintf(stDestination.strDiskAvailable, sizeof(stDestination.strDiskAvailable), "%.2fGB",
+                  static_cast<double>(stSource.uAvailableBytes) / TVSDK_STORAGE_BYTES_PER_GB);
+    std::snprintf(stDestination.strDiskUsedSpace, sizeof(stDestination.strDiskUsedSpace), "%.2fGB",
+                  static_cast<double>(stSource.uUsedBytes) / TVSDK_STORAGE_BYTES_PER_GB);
+    std::snprintf(stDestination.strDiskFileType, sizeof(stDestination.strDiskFileType), "%.*s",
+                  static_cast<int>(sizeof(stDestination.strDiskFileType) - 1), stSource.strFileType);
 }
 
 void ToDeviceInfo(const NET_DeviceBasicInfo_S &src, ::System::DeviceInfo_S &dst)
