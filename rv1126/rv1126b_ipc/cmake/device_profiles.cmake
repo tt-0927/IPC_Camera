@@ -62,6 +62,10 @@
 #   使用: rv1126b_ipc/ipc.cmake, share/ipc_share/public_app/record/CMakeLists.txt
 # - CAP_AI_USE_SIMPLE_JSON: AI 使用 simple Json 头
 #   使用: share/ai_share/AiModules/Inference/Hisilicon/CVInferenceHISI.hpp
+# - CAP_AI_FACE_RECOGNITION: 人脸能力模式
+#   使用: share/ipc_share/control/business/event/event_resource.cpp,
+#         share/ipc_share/control/task/sub_task/event_task.cpp,
+#         rv1126b_ipc/main_app/ai_app/interface/algo_stream_deal.cpp
 # - CAP_EXHIBITION_OSD_PANEL: 展会版左上角 AI 汇总面板能力
 #   使用: rv1126b_ipc/main_app/ai_app/common/common_process.cpp,
 #         rv1126b_ipc/main_app/av/video/process/osd/osd_manage.cpp,
@@ -120,6 +124,7 @@ set(DEVICE_PROFILE_TV_3881T_DEFINES
     CAP_RECORD_NEEDS_CAM_SHARE_INCLUDE=1  # record 额外 include（ipc.cmake / record/CMakeLists.txt）
     CAP_RECORD_LINK_FDK_AAC=1             # record 链接 fdk-aac（ipc.cmake / record/CMakeLists.txt）
     CAP_AI_USE_SIMPLE_JSON=0              # AI Json 头选择（CVInferenceHISI.hpp）
+    CAP_AI_FACE_RECOGNITION=1             # 使用新人脸识别
     CAP_EXHIBITION_OSD_PANEL=1            # 展会版AI左上角汇总面板能力
     CAP_PROCESS_LOG_SWITCH=0              # stream/record/operation等进程的日志开关（目前只输出error级别）
     CAP_NETWORK_TELNET_SERVICE=0         # telnet 服务能力；发布版本不启动 telnetd
@@ -171,6 +176,7 @@ set(DEVICE_PROFILE_TV_3882TI_DEFINES
     CAP_RECORD_NEEDS_CAM_SHARE_INCLUDE=1
     CAP_RECORD_LINK_FDK_AAC=1
     CAP_AI_USE_SIMPLE_JSON=0
+    CAP_AI_FACE_RECOGNITION=1            # 使用新人脸识别
     CAP_NETWORK_TELNET_SERVICE=0
     CAP_NETWORK_FTP_SERVICE=0
     CAP_PROCESS_LOG_SWITCH=0   

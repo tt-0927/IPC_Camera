@@ -4811,16 +4811,6 @@ typedef struct _FaceCompare_S_
         }
     }MotorvehicleAlarmInfo_S;
 
-    /* *********************** 机动车抓拍报警上报信息 *********************** */
-
-    typedef struct _AttributeDetectSwitch_
-    {
-        bool bFaceAttribute = false;
-        bool bPedestrianAttribute = false;
-        bool bMotorVehicleAttribute = false;
-        bool bNonMotorVehicleAttribute = false;
-    }AttributeDetectSwitch_S;
-
 #endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
    /************************烟火检测相关 START *******************/
@@ -5354,5 +5344,77 @@ typedef struct _FaceCompare_S_
         }
     } FaceRecognition_S;
     /************************ 人脸识别相关 END ************************/
+
+    /************************ 属性识别相关 ************************/
+    /* 行人识别 */
+    typedef struct _PersonDetection_S_ {
+        bool bEnable = false;                       /* 行人识别功能总开关 */
+
+        /**** 公共配置 ****/
+        unsigned int nSensitivity = 50;             /* 灵敏度[1,100] */
+        Region_S stRegion;                          /* 规则区域定义 多边形框 */
+        std::vector<std::vector<Common::SchedTime_S>> aAlarmTime;   /* 布防时间:一周7天，每天可以设置8个时间段 */
+        LinkageList_S stLinkageList;                /* 联动 */
+
+        static _PersonDetection_S_ CreateWithDefaultRule()
+        {
+            _PersonDetection_S_ obj;
+            obj.stRegion = Region_S::CreateWithDefaultRule(4);
+            obj.stRegion.aPoint[0] = {0.0f, 0.0f};
+            obj.stRegion.aPoint[1] = {0.0f, 1080.0f};
+            obj.stRegion.aPoint[2] = {1920.0f, 1080.0f};
+            obj.stRegion.aPoint[3] = {1920.0f, 0.0f};
+            obj.aAlarmTime.assign(7, std::vector<Common::SchedTime_S>(1));
+            return obj;
+        }
+    } PersonDetection_S;
+
+    /* 机动车识别 */
+    typedef struct _MotorVehicleDetection_S_ {
+        bool bEnable = false;                       /* 机动车识别功能总开关 */
+
+        /**** 公共配置 ****/
+        unsigned int nSensitivity = 50;             /* 灵敏度[1,100] */
+        Region_S stRegion;                          /* 规则区域定义 多边形框 */
+        std::vector<std::vector<Common::SchedTime_S>> aAlarmTime;   /* 布防时间:一周7天，每天可以设置8个时间段 */
+        LinkageList_S stLinkageList;                /* 联动 */
+
+        static _MotorVehicleDetection_S_ CreateWithDefaultRule()
+        {
+            _MotorVehicleDetection_S_ obj;
+            obj.stRegion = Region_S::CreateWithDefaultRule(4);
+            obj.stRegion.aPoint[0] = {0.0f, 0.0f};
+            obj.stRegion.aPoint[1] = {0.0f, 1080.0f};
+            obj.stRegion.aPoint[2] = {1920.0f, 1080.0f};
+            obj.stRegion.aPoint[3] = {1920.0f, 0.0f};
+            obj.aAlarmTime.assign(7, std::vector<Common::SchedTime_S>(1));
+            return obj;
+        }
+    } MotorVehicleDetection_S;
+
+    /* 非机动车识别 */
+    typedef struct _NonMotorVehicleDetection_S_ {
+        bool bEnable = false;                       /* 非机动车识别功能总开关 */
+
+        /**** 公共配置 ****/
+        unsigned int nSensitivity = 50;             /* 灵敏度[1,100] */
+        Region_S stRegion;                          /* 规则区域定义 多边形框 */
+        std::vector<std::vector<Common::SchedTime_S>> aAlarmTime;   /* 布防时间:一周7天，每天可以设置8个时间段 */
+        LinkageList_S stLinkageList;                /* 联动 */
+
+        static _NonMotorVehicleDetection_S_ CreateWithDefaultRule()
+        {
+            _NonMotorVehicleDetection_S_ obj;
+            obj.stRegion = Region_S::CreateWithDefaultRule(4);
+            obj.stRegion.aPoint[0] = {0.0f, 0.0f};
+            obj.stRegion.aPoint[1] = {0.0f, 1080.0f};
+            obj.stRegion.aPoint[2] = {1920.0f, 1080.0f};
+            obj.stRegion.aPoint[3] = {1920.0f, 0.0f};
+            obj.aAlarmTime.assign(7, std::vector<Common::SchedTime_S>(1));
+            return obj;
+        }
+    } NonMotorVehicleDetection_S;
+
+    /************************ 属性识别相关 END ************************/
 
 }; // namespace Alarm

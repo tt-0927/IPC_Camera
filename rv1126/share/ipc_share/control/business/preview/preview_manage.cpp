@@ -32,7 +32,7 @@ constexpr int kAlarmLightMaxDurationSec = 300;
 constexpr int kFlashFrequencyMin = static_cast<int>(Alarm::FlashFrequency_E::FLASH_STEADY_ON);
 constexpr int kFlashFrequencyMax = static_cast<int>(Alarm::FlashFrequency_E::FLASH_HIGH_FREQ);
 /* 闪光配置读取失败时的兜底闪烁时长（秒） */
-constexpr int kAlarmLightDefaultDurationSec = 3;
+constexpr int kAlarmLightDefaultDurationSec = 1;
 }
 
 CPreviewManage::CPreviewManage()

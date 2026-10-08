@@ -4,7 +4,6 @@
  * @FileName     : tvsdk_convert.cpp
  * @Author       : ITC
  * @Date         : 2026-09-08
- * @Change       : 2026-10-08 增加注册信息查询和注册码设置转换，存储快照使用公共结构。
  * @Change       : 2026-09-08 越界保留全部规则参数，使用事件总开关并同步联动配置
  * @Change       : 2026-09-08 补齐人员聚集联动配置的设置和获取转换
  * @Change       : 2026-09-08 补齐入侵、徘徊、停车、物品遗留和拿取、进入和离开区域的联动转换
@@ -195,10 +194,19 @@ static void FillLinkageList(const Alarm::LinkageList_S &src, NET_LinkageList_S &
     }
 
     /*
-     * 新版 NET_LinkageList_S 只承载报警输出、录像和抓拍通道。
-     * 历史 SDK 把常规联动类型复用到抓拍通道字段，既不符合新版语义，也会把类型值误当成通道号，
-     * 因此这里不再写入该类数据。
+     * 常规联动（邮件/上传中心/上传SD卡/声音/闪光报警灯）由 NET_TraditionLinkage_S 承载，
+     * 这里把 IPC 的 tradition 类型列表折算为各项开关。
      */
+    const std::vector<int> &vecTradition = src.tradition;
+    const auto bHasTradition = [&vecTradition](Alarm::LinkageType_E enType) {
+        return std::find(vecTradition.begin(), vecTradition.end(),
+                         static_cast<int>(enType)) != vecTradition.end();
+    };
+    dst.stTradition.bSendEmail      = bHasTradition(Alarm::LinkageType_E::SEND_EMAIL) ? TRUE : FALSE;
+    dst.stTradition.bUploadToCenter = bHasTradition(Alarm::LinkageType_E::UPLOAD_TOCENTER) ? TRUE : FALSE;
+    dst.stTradition.bUploadSdCard   = bHasTradition(Alarm::LinkageType_E::UPLOAD_SD_CARD) ? TRUE : FALSE;
+    dst.stTradition.bSound          = bHasTradition(Alarm::LinkageType_E::SOUND) ? TRUE : FALSE;
+    dst.stTradition.bFlashingLight  = bHasTradition(Alarm::LinkageType_E::FLASHING_LIGHT_ALARM) ? TRUE : FALSE;
 }
 
 void ToLinkageList(const NET_LinkageList_S &src, Alarm::LinkageList_S &dst)
@@ -219,7 +227,12 @@ void ToLinkageList(const NET_LinkageList_S &src, Alarm::LinkageList_S &dst)
         dst.recordChn.push_back((int)src.auRecordChannel[i]);
     }
 
-    /* 新版协议没有常规联动类型字段，不能从抓拍通道反推声音、邮件等动作。 */
+    /* 常规联动：把各项开关还原为 tradition 类型列表。 */
+    if (src.stTradition.bSendEmail)      dst.tradition.push_back((int)Alarm::LinkageType_E::SEND_EMAIL);
+    if (src.stTradition.bUploadToCenter) dst.tradition.push_back((int)Alarm::LinkageType_E::UPLOAD_TOCENTER);
+    if (src.stTradition.bUploadSdCard)   dst.tradition.push_back((int)Alarm::LinkageType_E::UPLOAD_SD_CARD);
+    if (src.stTradition.bSound)          dst.tradition.push_back((int)Alarm::LinkageType_E::SOUND);
+    if (src.stTradition.bFlashingLight)  dst.tradition.push_back((int)Alarm::LinkageType_E::FLASHING_LIGHT_ALARM);
 }
 
 /*
@@ -1564,6 +1577,8 @@ void FillMotionAlarmInfo(const Alarm::MotionDetection_S &src, NET_MotionAlarmInf
         out.nNightSensitivity   = (INT32)reg.nNightSensitivity;
         dst.stExpertMode.uRegionCount++;
     }
+
+    FillLinkageList(src.stLinkageList, dst.stLinkageList);
 }
 
 void ToMotionDetection(const NET_MotionAlarmInfo_S &src, Alarm::MotionDetection_S &dst)
@@ -2036,6 +2051,8 @@ void FillTamperAlarmInfo(const Alarm::HideAlarm_S &src, NET_TamperAlarmInfo_S &d
             }
         }
     }
+
+    FillLinkageList(src.stLinkageList, dst.stLinkageList);
 }
 
 void ToHideAlarm(const NET_TamperAlarmInfo_S &src, Alarm::HideAlarm_S &dst)
@@ -2062,6 +2079,8 @@ void ToHideAlarm(const NET_TamperAlarmInfo_S &src, Alarm::HideAlarm_S &dst)
             ToSchedTime(src.stAlarmSchedule.astTimeSection[day][seg], dst.aAlarmTime[day][seg]);
         }
     }
+
+    ToLinkageList(src.stLinkageList, dst.stLinkageList);
 }
 
 // --------- CrossLine (IPC BoundaryDetection_S <-> SDK NET_CrossLineAlarmInfo_S) ---------
@@ -2400,6 +2419,8 @@ void FillSceneChangeAlarmInfo(const Alarm::SceneChange_S &src, NET_SceneChangeAl
             }
         }
     }
+
+    FillLinkageList(src.stLinkageList, dst.stLinkageList);
 }
 
 void ToSceneChange(const NET_SceneChangeAlarmInfo_S &src, Alarm::SceneChange_S &dst)
@@ -2421,6 +2442,8 @@ void ToSceneChange(const NET_SceneChangeAlarmInfo_S &src, Alarm::SceneChange_S &
             ToSchedTime(src.stAlarmSchedule.astTimeSection[day][seg], dst.aAlarmTime[day][seg]);
         }
     }
+
+    ToLinkageList(src.stLinkageList, dst.stLinkageList);
 }
 
 // --------- CrowdGathering (IPC CrowdGathering_S <-> SDK NET_CrowdGatheringAlarmInfo_S) ---------
@@ -3387,6 +3410,8 @@ void FillAudioAnomalyAlarmInfo(const Alarm::AudioAnomaly_S &src, NET_AudioAnomal
             }
         }
     }
+
+    FillLinkageList(src.stLinkageList, dst.stLinkageList);
 }
 
 void ToAudioAnomaly(const NET_AudioAnomalyAlarmInfo_S &src, Alarm::AudioAnomaly_S &dst)
@@ -3413,6 +3438,8 @@ void ToAudioAnomaly(const NET_AudioAnomalyAlarmInfo_S &src, Alarm::AudioAnomaly_
             ToSchedTime(src.stAlarmSchedule.astTimeSection[day][seg], dst.aAlarmTime[day][seg]);
         }
     }
+
+    ToLinkageList(src.stLinkageList, dst.stLinkageList);
 }
 
 #if CAP_AI_PEOPLE_STATISTICS
@@ -4408,6 +4435,8 @@ void TvSdkConvert::FillFaceCaptureInfo(const Alarm::FaceCapture_S &src, NET_Face
             }
         }
     }
+
+    FillLinkageList(src.stLinkageList, dst.stLinkageList);
 }
 
 void TvSdkConvert::ToFaceCapture(const NET_FaceCaptureInfo_S &src, Alarm::FaceCapture_S &dst)
@@ -4470,6 +4499,8 @@ void TvSdkConvert::ToFaceCapture(const NET_FaceCaptureInfo_S &src, Alarm::FaceCa
             ToSchedTime(src.stAlarmSchedule.astTimeSection[day][seg], dst.aAlarmTime[day][seg]);
         }
     }
+
+    ToLinkageList(src.stLinkageList, dst.stLinkageList);
 }
 
 void TvSdkConvert::FillFaceCaptureOverlayInfo(const Alarm::OverlayInfo_S &src,

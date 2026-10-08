@@ -222,9 +222,8 @@ namespace Common
          * @param    {float} fMaxX x轴最大值
          * @param    {float} fMaxY Y轴最大值
          * @return   {bool} true：有效 false：无效
-         * @note     : 默认上限对应设备支持的最大分辨率 2880x1620；调用方未显式传入时按此判定。
          */
-        bool IsValid(float fMaxX = 2880.0f, float fMaxY = 1620.0f) const
+        bool IsValid(float fMaxX = 1920.0f, float fMaxY = 1080.0f) const
         {
             if (fX < 0.0f || fY < 0.0f || fX > fMaxX || fY > fMaxY)
             {

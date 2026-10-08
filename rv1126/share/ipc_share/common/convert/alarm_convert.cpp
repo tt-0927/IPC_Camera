@@ -668,6 +668,54 @@ void Convert::deal(Json::Object *pRootJson, Alarm::FaceRecognition_S &stInfo, bo
     convert.structure(pRootJson, "CaptureRule", stInfo.stCaptureRule);
 }
 
+/* 行人识别配置 */
+void Convert::deal(Json::Object *pRootJson, Alarm::PersonDetection_S &stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+
+    Convert::CConvert convert(bOutStruct);
+    convert.field(pRootJson, "Enable", stInfo.bEnable);
+    convert.field(pRootJson, "Sensitivity", stInfo.nSensitivity);
+    convert.structure(pRootJson, "Region", stInfo.stRegion);
+    convert.structure(pRootJson, stInfo.aAlarmTime);
+    convert.structure(pRootJson, "LinkageMode", stInfo.stLinkageList);
+}
+
+/* 机动车识别配置 */
+void Convert::deal(Json::Object *pRootJson, Alarm::MotorVehicleDetection_S &stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+
+    Convert::CConvert convert(bOutStruct);
+    convert.field(pRootJson, "Enable", stInfo.bEnable);
+    convert.field(pRootJson, "Sensitivity", stInfo.nSensitivity);
+    convert.structure(pRootJson, "Region", stInfo.stRegion);
+    convert.structure(pRootJson, stInfo.aAlarmTime);
+    convert.structure(pRootJson, "LinkageMode", stInfo.stLinkageList);
+}
+
+/* 非机动车识别配置 */
+void Convert::deal(Json::Object *pRootJson, Alarm::NonMotorVehicleDetection_S &stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+
+    Convert::CConvert convert(bOutStruct);
+    convert.field(pRootJson, "Enable", stInfo.bEnable);
+    convert.field(pRootJson, "Sensitivity", stInfo.nSensitivity);
+    convert.structure(pRootJson, "Region", stInfo.stRegion);
+    convert.structure(pRootJson, stInfo.aAlarmTime);
+    convert.structure(pRootJson, "LinkageMode", stInfo.stLinkageList);
+}
+
 /* 徘徊侦测相关 */
 /**
  * @brief 完整转换智能事件单条规则，保留现有时间阈值和检测目标字段。
@@ -1986,20 +2034,6 @@ void Convert::deal(Json::Object *pRootJson, Alarm::NonMotorvehicleAlarmInfo_S &s
     convert.field(pRootJson, "CurrentPicture", stInfo.strCurrentPicture);
     convert.field(pRootJson, "TimeStamp", stInfo.strTimeStamp);  
     convert.field(pRootJson, "IsDownLoad", stInfo.bIsDownLoad); 
-}
-
-void Convert::deal(Json::Object *pRootJson, Alarm::AttributeDetectSwitch_S &stInfo, bool bOutStruct)
-{
-    if (!pRootJson)
-    {
-        return;
-    }
-
-    Convert::CConvert convert(bOutStruct);
-    convert.field(pRootJson, "MotorVehicleAttribute", stInfo.bMotorVehicleAttribute);
-    convert.field(pRootJson, "NonMotorVehicleAttribute", stInfo.bNonMotorVehicleAttribute);
-    convert.field(pRootJson, "FaceAttribute", stInfo.bFaceAttribute);
-    convert.field(pRootJson, "PedestrianAttribute", stInfo.bPedestrianAttribute);
 }
 
 #endif

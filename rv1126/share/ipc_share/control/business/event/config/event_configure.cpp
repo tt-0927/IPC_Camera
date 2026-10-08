@@ -33,6 +33,9 @@ CEventConfigure::CEventConfigure():
       m_sceneChange(EVENT_SCENE_CHANGE_DETECTION_CONFIG_FILE),
       m_faceDetection(EVENT_FACE_DETECTION_CONFIG_FILE),
       m_faceRecognition(EVENT_FACE_RECOGNITION_CONFIG_FILE),
+      m_personDetection(EVENT_PERSON_DETECTION_CONFIG_FILE),
+      m_motorVehicleDetection(EVENT_MOTOR_VEHICLE_DETECTION_CONFIG_FILE),
+      m_nonMotorVehicleDetection(EVENT_NON_MOTOR_VEHICLE_DETECTION_CONFIG_FILE),
       m_loiteringDetection(EVENT_LOITERING_DETECTION_CONFIG_FILE),
       m_crowdGathering(EVENT_CROWD_GATHERING_DETECTION_CONFIG_FILE),
       m_parkingDetection(EVENT_PARKING_DETECTION_CONFIG_FILE),
@@ -77,8 +80,7 @@ CEventConfigure::CEventConfigure():
       m_illegalLaneChangeDetection(EVENT_ILLEGAL_LANE_CHANGE_INFO_FILE),
       m_congestionDetection(EVENT_CONGESTION_INFO_FILE),
       m_emergencyLaneOccupancyDetection(EVENT_EMERGENCY_LANE_OCCUPANCY_INFO_FILE),
-      m_nonMotorVehicleIntrusionDetection(EVENT_NON_MOTOR_VEHICLE_INTRUSION_INFO_FILE),
-      m_AttributeDetectSwitch(ATTRIBUTE_DETECT_INFO_FILE)
+      m_nonMotorVehicleIntrusionDetection(EVENT_NON_MOTOR_VEHICLE_INTRUSION_INFO_FILE)
 #endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
 , m_smokeFire(EVENT_SMOKE_FIRE_INFO_FILE)
@@ -323,6 +325,36 @@ int CEventConfigure::set_configure(const Alarm::FaceRecognition_S &alarm)
 int CEventConfigure::get_configure(Alarm::FaceRecognition_S &alarm) const
 {
     return m_faceRecognition.get(alarm);
+}
+
+int CEventConfigure::set_configure(const Alarm::PersonDetection_S &alarm)
+{
+    return m_personDetection.set(alarm);
+}
+
+int CEventConfigure::get_configure(Alarm::PersonDetection_S &alarm) const
+{
+    return m_personDetection.get(alarm);
+}
+
+int CEventConfigure::set_configure(const Alarm::MotorVehicleDetection_S &alarm)
+{
+    return m_motorVehicleDetection.set(alarm);
+}
+
+int CEventConfigure::get_configure(Alarm::MotorVehicleDetection_S &alarm) const
+{
+    return m_motorVehicleDetection.get(alarm);
+}
+
+int CEventConfigure::set_configure(const Alarm::NonMotorVehicleDetection_S &alarm)
+{
+    return m_nonMotorVehicleDetection.set(alarm);
+}
+
+int CEventConfigure::get_configure(Alarm::NonMotorVehicleDetection_S &alarm) const
+{
+    return m_nonMotorVehicleDetection.get(alarm);
 }
 
 int CEventConfigure::set_configure(const Alarm::LoiteringDetection_S &alarm)
@@ -726,16 +758,6 @@ int CEventConfigure::set_configure(const Alarm::NonMotorVehicleIntrusionDetectio
 int CEventConfigure::get_configure(Alarm::NonMotorVehicleIntrusionDetection_S &alarm) const
 {
     return m_nonMotorVehicleIntrusionDetection.get(alarm);
-}
-
-int CEventConfigure::set_configure(const Alarm::AttributeDetectSwitch_S &alarm)
-{
-    return m_AttributeDetectSwitch.set(alarm);
-}
-
-int CEventConfigure::get_configure(Alarm::AttributeDetectSwitch_S &alarm) const
-{
-    return m_AttributeDetectSwitch.get(alarm);
 }
 
 #endif

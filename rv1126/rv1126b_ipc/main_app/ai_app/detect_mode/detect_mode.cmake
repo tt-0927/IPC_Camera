@@ -7,6 +7,7 @@ set (INCLUDE_PATH
     ${CMAKE_CURRENT_LIST_DIR}/hide_detect
     ${CMAKE_CURRENT_LIST_DIR}/object_detect
     ${CMAKE_CURRENT_LIST_DIR}/face_detect
+    ${CMAKE_CURRENT_LIST_DIR}/face_recognition
     ${CMAKE_CURRENT_LIST_DIR}/scene_change_detect
     ${CMAKE_CURRENT_LIST_DIR}/pet_recognition
     ${CMAKE_CURRENT_LIST_DIR}/audio_detect
@@ -40,6 +41,7 @@ set (SOURCE_PATH
     ${CMAKE_CURRENT_LIST_DIR}/hide_detect
     ${CMAKE_CURRENT_LIST_DIR}/object_detect
     ${CMAKE_CURRENT_LIST_DIR}/face_detect
+    ${CMAKE_CURRENT_LIST_DIR}/face_recognition
     ${CMAKE_CURRENT_LIST_DIR}/scene_change_detect
     ${CMAKE_CURRENT_LIST_DIR}/pet_recognition
     ${CMAKE_CURRENT_LIST_DIR}/audio_detect

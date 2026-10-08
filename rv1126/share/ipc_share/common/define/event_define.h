@@ -49,6 +49,9 @@ namespace Event
 
         FACE_COMPARE = 12,         /* 人脸比对 */
         FACE_RECOGNITION = 13,     /* 人脸识别 */
+#ifdef SCENE_INTELLIGENCE
+        SMART_RECOGNITION = 14,    /* 智能识别（行人/机动车/非机动车属性） */
+#endif
     } SmartCategory_E;
 
     /* 事件类型枚举 */
@@ -274,6 +277,9 @@ namespace Event
         case Type::ILLEGAL_PARKING:
         case Type::ILLEGAL_LANE_CHANGE:
         case Type::PLATE_NUMBER:
+        case Type::PEDESTRIAN_ATTRIBUTE:
+        case Type::MOTORVEHICLE_ATTRIBUTE:
+        case Type::NONMOTORVEHICLE_ATTRIBUTE:
         case Type::PERSON_TRIP:
 #if CAP_AI_PEOPLE_STATISTICS
         case Type::PEOPLE_FLOW_STATISTICS:
@@ -544,7 +550,10 @@ namespace Event
          /**
          * @brief   : 属性识别
          */
-        int nPlateNumber = 0;           /* 车牌识别 */
+        int nPlateNumber = 0;                  /* 车牌识别 */
+        int nEnPedestrianAttribute = 0;        /* 行人识别 */
+        int nEnMotorVehicleAttribute = 0;      /* 机动车识别 */
+        int nEnNonMotorVehicleAttribute = 0;   /* 非机动车识别 */
 #endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
         int nEnSmokeFire = 0;      /* 烟火识别 */
@@ -671,6 +680,9 @@ namespace Event
          * @brief   : 属性识别
          */
         bool bPlateNumber = false;                          /* 车牌识别 */
+        bool bPedestrianAttribute = false;                  /* 行人属性识别 */
+        bool bMotorVehicleAttribute = false;                /* 机动车属性识别 */
+        bool bNonMotorVehicleAttribute = false;             /* 非机动车属性识别 */
 #endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
         bool bSmokeFire = false;                            /* 烟火识别 */

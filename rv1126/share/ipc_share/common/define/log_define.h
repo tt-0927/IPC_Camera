@@ -11,6 +11,7 @@
 
 #include <string>
 
+#include "alarm_define.h"
 #include "event_define.h"
 
 namespace Log
@@ -199,6 +200,20 @@ namespace Log
         PEOPLE_DENSITY_MEDIUM_STOP = 1292,     /**< 人员密度检测-中度报警结束 */
         PEOPLE_DENSITY_SEVERE_START = 1293,    /**< 人员密度检测-严重报警开始 */
         PEOPLE_DENSITY_SEVERE_STOP = 1294,     /**< 人员密度检测-严重报警结束 */
+#endif
+
+#ifdef SCENE_INTELLIGENCE
+        // ========== 属性识别 ==========
+        PERSON_DETECTION_START              = 1295, /**< 行人识别开始 */
+        PERSON_DETECTION_STOP               = 1296, /**< 行人识别结束 */
+        MOTORVEHICLE_DETECTION_START        = 1297, /**< 机动车识别开始 */
+        MOTORVEHICLE_DETECTION_STOP         = 1298, /**< 机动车识别结束 */
+        NONMOTORVEHICLE_DETECTION_START     = 1299, /**< 非机动车识别开始 */
+        NONMOTORVEHICLE_DETECTION_STOP      = 1300, /**< 非机动车识别结束 */
+#endif
+#if CAP_AI_FACE_RECOGNITION
+        FACE_RECOGNITION_START              = 1301, /**< 人脸识别开始 */
+        FACE_RECOGNITION_STOP               = 1302, /**< 人脸识别结束 */
 #endif
 
         /* 剩余部分报警日志需实现后在这里添加 */
@@ -693,6 +708,12 @@ namespace Log
             /* 属性识别 */
         case Event::Type::PLATE_NUMBER:
             return bStart ? PLATE_NUMBER_START : PLATE_NUMBER_STOP;
+        case Event::Type::PEDESTRIAN_ATTRIBUTE:
+            return bStart ? PERSON_DETECTION_START : PERSON_DETECTION_STOP;
+        case Event::Type::MOTORVEHICLE_ATTRIBUTE:
+            return bStart ? MOTORVEHICLE_DETECTION_START : MOTORVEHICLE_DETECTION_STOP;
+        case Event::Type::NONMOTORVEHICLE_ATTRIBUTE:
+            return bStart ? NONMOTORVEHICLE_DETECTION_START : NONMOTORVEHICLE_DETECTION_STOP;
 #endif
 #ifdef SCENE_INTELLIGENT_ANALYSIS
         /* 场景智能分析 */
@@ -734,6 +755,10 @@ namespace Log
             return bStart ? PEOPLE_DENSITY_MEDIUM_START : PEOPLE_DENSITY_MEDIUM_STOP;
         case Event::Type::PEOPLE_DENSITY_SEVERE:
             return bStart ? PEOPLE_DENSITY_SEVERE_START : PEOPLE_DENSITY_SEVERE_STOP;
+#endif
+#if CAP_AI_FACE_RECOGNITION
+        case Event::Type::FACE_RECOGNITION:
+            return bStart ? FACE_RECOGNITION_START : FACE_RECOGNITION_STOP;
 #endif
         default:
             return UNDEFINED;
@@ -847,6 +872,12 @@ namespace Log
         /*属性识别*/
         case PLATE_NUMBER_START:                    return "车牌识别开始";
         case PLATE_NUMBER_STOP:                     return "车牌识别结束";
+        case PERSON_DETECTION_START:                return "行人识别开始";
+        case PERSON_DETECTION_STOP:                 return "行人识别结束";
+        case MOTORVEHICLE_DETECTION_START:          return "机动车识别开始";
+        case MOTORVEHICLE_DETECTION_STOP:           return "机动车识别结束";
+        case NONMOTORVEHICLE_DETECTION_START:       return "非机动车识别开始";
+        case NONMOTORVEHICLE_DETECTION_STOP:        return "非机动车识别结束";
 #endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
         case SMOKE_FIRE_START:        return "烟火识别开始";
@@ -886,6 +917,11 @@ namespace Log
 #ifdef SCENE_INTELLIGENT_ANALYSIS
         /*大模型场景智能分析*/
         case TEXT_PRESET_ALARM:                    return "AI文字预设任务符合条件";
+#endif
+
+#if CAP_AI_FACE_RECOGNITION
+        case FACE_RECOGNITION_START: return "人脸识别开始";
+        case FACE_RECOGNITION_STOP: return "人脸识别结束";
 #endif
         /* 剩余部分报警日志需实现后在这里添加 */
         /* --------------------报警日志类型-------------------- */

@@ -858,6 +858,12 @@ std::string EventLinkageDict::get_event_name(Event::Type_E enType)
         return "违规变道识别";
     case Event::Type_E::PLATE_NUMBER:
         return "车牌识别";
+    case Event::Type_E::PEDESTRIAN_ATTRIBUTE:
+        return "行人属性识别";
+    case Event::Type_E::MOTORVEHICLE_ATTRIBUTE:
+        return "机动车属性识别";
+    case Event::Type_E::NONMOTORVEHICLE_ATTRIBUTE:
+        return "非机动车属性识别";
 #endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
     case Event::Type_E::SMOKE_FIRE:

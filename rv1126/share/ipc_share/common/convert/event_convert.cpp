@@ -218,6 +218,9 @@ void Convert::deal(Json::Object* pRootJson, Event::AlgorithmConfig_S& stInfo, bo
     
     // ========== 属性识别 ==========
     convert.field(pRootJson, "PlateNumber", stInfo.nPlateNumber);
+    convert.field(pRootJson, "EnPedestrianAttribute", stInfo.nEnPedestrianAttribute);
+    convert.field(pRootJson, "EnMotorVehicleAttribute", stInfo.nEnMotorVehicleAttribute);
+    convert.field(pRootJson, "EnNonMotorVehicleAttribute", stInfo.nEnNonMotorVehicleAttribute);
 #endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
 convert.field(pRootJson, "EnSmokeFire", stInfo.nEnSmokeFire);
@@ -318,6 +321,9 @@ void Convert::deal(Json::Object* pRootJson, Event::SmartEventEnableStatus_S& stI
 
     // ========== 属性识别 ==========
     convert.field(pRootJson, "PlateNumber", stInfo.bPlateNumber);
+    convert.field(pRootJson, "PedestrianAttribute", stInfo.bPedestrianAttribute);
+    convert.field(pRootJson, "MotorVehicleAttribute", stInfo.bMotorVehicleAttribute);
+    convert.field(pRootJson, "NonMotorVehicleAttribute", stInfo.bNonMotorVehicleAttribute);
 #endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
 convert.field(pRootJson, "SmokeFire", stInfo.bSmokeFire);

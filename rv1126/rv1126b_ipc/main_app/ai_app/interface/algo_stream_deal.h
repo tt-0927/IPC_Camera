@@ -209,8 +209,13 @@ private:
     std::shared_ptr<CAlgorithm> m_pPetAlgo;
     /* 音频异常侦测算法句柄*/
     std::shared_ptr<CAlgorithm> m_pAudioAlgo;
-    /* 人脸检测句柄 */
+#if CAP_AI_FACE_RECOGNITION
+    /* 人脸识别句柄 */
+    std::shared_ptr<CAlgorithm> m_pFaceRecognitionAlgo;
+#else
+    /* 旧人脸侦测、抓拍和属性分析句柄 */
     std::shared_ptr<CAlgorithm> m_pFaceDetectAlgo;
+#endif
 
     /**
     * @brief   : 场景智能分析事件

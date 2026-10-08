@@ -77,6 +77,9 @@ const std::map<Event::Type_E, CEventResource::BoolMemberPtr> CEventResource::m_e
     {Event::Type_E::ILLEGAL_LANE_CHANGE, &Event::SmartEventEnableStatus_S::bIllegalLaneChange},
     /* 属性识别 */
     {Event::Type_E::PLATE_NUMBER, &Event::SmartEventEnableStatus_S::bPlateNumber},
+    {Event::Type_E::PEDESTRIAN_ATTRIBUTE, &Event::SmartEventEnableStatus_S::bPedestrianAttribute},
+    {Event::Type_E::MOTORVEHICLE_ATTRIBUTE, &Event::SmartEventEnableStatus_S::bMotorVehicleAttribute},
+    {Event::Type_E::NONMOTORVEHICLE_ATTRIBUTE, &Event::SmartEventEnableStatus_S::bNonMotorVehicleAttribute},
 #endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
     {Event::Type_E::SMOKE_FIRE, &Event::SmartEventEnableStatus_S::bSmokeFire},
@@ -157,6 +160,10 @@ const std::map<Event::Type_E, Event::SmartCategory_E> CEventResource::m_event_to
     {Event::Type_E::ILLEGAL_LANE_CHANGE, Event::SmartCategory_E::TRAFFIC_BEHAVIOR_MONITORING},
     /* 属性识别 */
     {Event::Type_E::PLATE_NUMBER, Event::SmartCategory_E::ATTRIBUTE_RECOGNITION},
+    /* 智能识别：3 个属性模型与 group2/4 检测共用，与车牌分离 */
+    {Event::Type_E::PEDESTRIAN_ATTRIBUTE, Event::SmartCategory_E::SMART_RECOGNITION},
+    {Event::Type_E::MOTORVEHICLE_ATTRIBUTE, Event::SmartCategory_E::SMART_RECOGNITION},
+    {Event::Type_E::NONMOTORVEHICLE_ATTRIBUTE, Event::SmartCategory_E::SMART_RECOGNITION},
 #endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
     {Event::Type_E::SMOKE_FIRE, Event::SmartCategory_E::BEHAVIOR_MONITORING},
@@ -188,6 +195,12 @@ const std::map<Event::SmartCategory_E, std::set<Event::SmartCategory_E>> CEventR
 #if CAP_AI_PEOPLE_STATISTICS
     {Event::SmartCategory_E::FACE_CAPTURE, {Event::SmartCategory_E::PEOPLE_STATISTICS}},
     {Event::SmartCategory_E::PEOPLE_STATISTICS, {Event::SmartCategory_E::FACE_CAPTURE}},
+#endif
+#if defined(SCENE_INTELLIGENCE) && CAP_AI_FACE_RECOGNITION
+    /* 人脸识别与智能识别（3 个属性识别）模型互不重叠，允许同时启用。
+       注意：白名单按组放行且必须双向登记，新增条目时避免经"并集"间接放行未登记的组 */
+    {Event::SmartCategory_E::FACE_RECOGNITION, {Event::SmartCategory_E::SMART_RECOGNITION}},
+    {Event::SmartCategory_E::SMART_RECOGNITION, {Event::SmartCategory_E::FACE_RECOGNITION}},
 #endif
 };
 
@@ -300,6 +313,15 @@ const std::map<Event::SmartCategory_E, std::set<Event::Type_E>> CEventResource::
         Event::SmartCategory_E::ATTRIBUTE_RECOGNITION,
         {
             Event::Type_E::PLATE_NUMBER,
+        }
+    },
+    /* 智能识别：模型资源为 group2/4 检测 + 3 个属性模型，与人脸识别模型包互不重叠 */
+    {
+        Event::SmartCategory_E::SMART_RECOGNITION,
+        {
+            Event::Type_E::PEDESTRIAN_ATTRIBUTE,
+            Event::Type_E::MOTORVEHICLE_ATTRIBUTE,
+            Event::Type_E::NONMOTORVEHICLE_ATTRIBUTE,
         }
     },
 #endif
@@ -440,14 +462,50 @@ int CEventResource::get_canEventResource_rules(const Event::SmartEventEnableStat
     }
 
 #if CAP_AI_FACE_RECOGNITION
-    /* 人脸识别组与其它资源组互斥，包括已存在多个活动组的异常状态。 */
+    /* 人脸识别组默认与其它资源组互斥，仅白名单兼容组（智能识别）可同时启用；
+       同时保留对已存在多个活动组异常状态的防御 */
     if (active_groups.count(Event::SmartCategory_E::FACE_RECOGNITION) != 0)
     {
-        can_enable_set.clear();
+        /* 人脸识别组激活：只保留本组及白名单兼容组的事件，其余清除 */
+        std::set<Event::SmartCategory_E> keepGroups = {Event::SmartCategory_E::FACE_RECOGNITION};
+        auto faceCompatIt = m_compatible_groups.find(Event::SmartCategory_E::FACE_RECOGNITION);
+        if (faceCompatIt != m_compatible_groups.end())
+        {
+            keepGroups.insert(faceCompatIt->second.begin(), faceCompatIt->second.end());
+        }
+
+        for (const auto &group_pair : m_group_events)
+        {
+            if (keepGroups.count(group_pair.first) == 0)
+            {
+                for (const auto event_type : group_pair.second)
+                {
+                    can_enable_set.erase(event_type);
+                }
+            }
+        }
     }
     else if (!active_groups.empty())
     {
-        can_enable_set.erase(Event::Type_E::FACE_RECOGNITION);
+        /* 其它组激活：所有激活组均在人脸识别白名单内，才允许再启用人脸识别 */
+        auto faceCompatIt = m_compatible_groups.find(Event::SmartCategory_E::FACE_RECOGNITION);
+        bool bAllCompatible = (faceCompatIt != m_compatible_groups.end());
+        if (bAllCompatible)
+        {
+            for (const auto &active_group : active_groups)
+            {
+                if (faceCompatIt->second.count(active_group) == 0)
+                {
+                    bAllCompatible = false;
+                    break;
+                }
+            }
+        }
+
+        if (!bAllCompatible)
+        {
+            can_enable_set.erase(Event::Type_E::FACE_RECOGNITION);
+        }
     }
 #endif
 
@@ -591,6 +649,9 @@ void CEventResource::update_event_configurations_on_disable(const Event::SmartEv
         case Event::Type_E::ILLEGAL_LANE_CHANGE:            disable_specific_config<Alarm::IllegalLaneChangeDetection_S>();      break;
         /* 属性识别 */
         case Event::Type_E::PLATE_NUMBER:                   disable_specific_config<Alarm::LicensePlateCognitionDetection_S>();      break;
+        case Event::Type_E::PEDESTRIAN_ATTRIBUTE:           disable_specific_config<Alarm::PersonDetection_S>();      break;
+        case Event::Type_E::MOTORVEHICLE_ATTRIBUTE:         disable_specific_config<Alarm::MotorVehicleDetection_S>();      break;
+        case Event::Type_E::NONMOTORVEHICLE_ATTRIBUTE:      disable_specific_config<Alarm::NonMotorVehicleDetection_S>();      break;
 #endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
         case Event::Type_E::SMOKE_FIRE:                     disable_specific_config<Alarm::SmokeFireDetection_S>();      break;

@@ -8,15 +8,11 @@
  * @Change       : 2026-09-08 越界设置保留规则数量和索引，无效参数保留旧值，由事件总开关控制
  * @Change       : 2026-09-08 人员聚集保留规则数量及位置，无效规则回退旧值并返回实际任务结果
  * @Change       : 2026-09-08 统一十六类智能事件的规则回退和业务结果返回，校验 IPC 数量上限
- * @Change       : 2026-10-08 补齐 520 查询、521 注册码设置及 504 存储信息查询回调。
- * @Change       : 2026-10-08 提前声明注册配置转换重载，修复 521 设置回调的模板实例化错误。
- * @Change       : 2026-10-08 增加 PIR 设置回调入口与获取回填后的结构布局及七天布防时间日志。
  */
 
 #include "tvsdk_callbacks.h"
-/* 必须先声明注册转换重载，再包含可能间接定义 Convert 模板的业务头文件。 */
-#include "register_convert.h"
 #include "osd_configure.h"
+#include "register_convert.h"
 
 #include <string>
 #include <algorithm>
@@ -838,9 +834,8 @@ static NET_COMMON_ECODE_E tvsdk_preserve_event_rules(INT32 nChannelId, TConfig &
             tvsdk_default_event_rule(aRules[nIndex], nActionCode);
         }
         dlog_warn("TVSDK 事件[%d]规则[%d]参数无效，保留原位置并回退旧值或默认空规则", nActionCode, nIndex);
-        enResult = NET_E_INVALID_PARAM;
     }
-    return enResult;
+    return NET_E_SUCCEED;
 }
 
 /*

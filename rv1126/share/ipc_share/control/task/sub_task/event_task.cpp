@@ -90,6 +90,9 @@ static void helper_convert_to_status(const Event::AlgorithmConfig_S& algo, Event
     status.bIllegalParking = algo.nEnIllegalParking;
     status.bIllegalLaneChange = algo.nEnIllegalLaneChange;
     status.bPlateNumber = algo.nPlateNumber;
+    status.bPedestrianAttribute = algo.nEnPedestrianAttribute;
+    status.bMotorVehicleAttribute = algo.nEnMotorVehicleAttribute;
+    status.bNonMotorVehicleAttribute = algo.nEnNonMotorVehicleAttribute;
     #endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
     status.bSmokeFire = algo.nEnSmokeFire;
@@ -126,6 +129,12 @@ static const char* get_event_type_name(Event::Type_E type) {
         case Event::Type::PET_RECOGNITION: return "PET_RECOGNITION";
         case Event::Type::FACE_LIB: return "FACE_LIB";
         case Event::Type::FACE_CAPTURE: return "FACE_CAPTURE";
+
+#ifdef SCENE_INTELLIGENCE
+        case Event::Type::PEDESTRIAN_ATTRIBUTE: return "PEDESTRIAN_ATTRIBUTE";
+        case Event::Type::MOTORVEHICLE_ATTRIBUTE: return "MOTORVEHICLE_ATTRIBUTE";
+        case Event::Type::NONMOTORVEHICLE_ATTRIBUTE: return "NONMOTORVEHICLE_ATTRIBUTE";
+#endif
 
 #if CAP_AI_PEOPLE_STATISTICS
         case Event::Type::PEOPLE_FLOW_STATISTICS: return "PEOPLE_FLOW_STATISTICS";
@@ -211,6 +220,9 @@ static int check_analytics_resource(const Event::Type_E enable_type, const bool 
         case Event::Type::CONSTRUCTION_OCCUPY_ROAD: already_in_target_state = (oldStatus.bConstructionOccupyRoad == bEnable); break;
         case Event::Type::CONGESTION: already_in_target_state = (oldStatus.bCongestion == bEnable); break;
         case Event::Type::PLATE_NUMBER: already_in_target_state = (oldStatus.bPlateNumber == bEnable); break;
+        case Event::Type::PEDESTRIAN_ATTRIBUTE: already_in_target_state = (oldStatus.bPedestrianAttribute == bEnable); break;
+        case Event::Type::MOTORVEHICLE_ATTRIBUTE: already_in_target_state = (oldStatus.bMotorVehicleAttribute == bEnable); break;
+        case Event::Type::NONMOTORVEHICLE_ATTRIBUTE: already_in_target_state = (oldStatus.bNonMotorVehicleAttribute == bEnable); break;
         case Event::Type::HIGH_ALTITUDE_SEATBELT: already_in_target_state = (oldStatus.bHighAltitudeSeatbelt == bEnable); break;
         case Event::Type::SAFETY_HELMET: already_in_target_state = (oldStatus.bSafetyHelmet == bEnable); break;
         case Event::Type::PERSON_TRIP: already_in_target_state = (oldStatus.bTrip == bEnable); break;
@@ -322,6 +334,9 @@ static int check_analytics_resource(const Event::Type_E enable_type, const bool 
         case Event::Type::CONSTRUCTION_OCCUPY_ROAD: newStatus.bConstructionOccupyRoad = bEnable; break;
         case Event::Type::CONGESTION: newStatus.bCongestion = bEnable; break;
         case Event::Type::PLATE_NUMBER: newStatus.bPlateNumber = bEnable; break;
+        case Event::Type::PEDESTRIAN_ATTRIBUTE: newStatus.bPedestrianAttribute = bEnable; break;
+        case Event::Type::MOTORVEHICLE_ATTRIBUTE: newStatus.bMotorVehicleAttribute = bEnable; break;
+        case Event::Type::NONMOTORVEHICLE_ATTRIBUTE: newStatus.bNonMotorVehicleAttribute = bEnable; break;
         case Event::Type::HIGH_ALTITUDE_SEATBELT: newStatus.bHighAltitudeSeatbelt = bEnable; break;
         case Event::Type::SAFETY_HELMET: newStatus.bSafetyHelmet = bEnable; break;
         case Event::Type::PERSON_TRIP: newStatus.bTrip = bEnable; break;
@@ -1295,18 +1310,6 @@ void Task::Event::SetFaceRecognitionInfo::handle()
     if (nRet != OK)
     {
         result(nRet);
-        return;
-    }
-    std::vector<::Event::Type_E> aEnabledEvents;
-    CEventResource::instance()->enableStatus_convertArray(stStatus, aEnabledEvents);
-    if (stInfo.bEnable &&
-        std::any_of(aEnabledEvents.begin(), aEnabledEvents.end(),
-                    [enEventType](::Event::Type_E enEnabledType)
-                    {
-                        return enEnabledType != enEventType;
-                    }))
-    {
-        result(ERR_EVENT_RESOURCE_CONFLICT);
         return;
     }
 
@@ -2639,21 +2642,103 @@ void Task::Event::PushNonMotorVehicleCaptureInfo::handle()
 
 }
 
-void Task::Event::SetAttributeInfo::handle()
+void Task::Event::GetPersonDetectionInfo::handle()
 {
-    Alarm::AttributeDetectSwitch_S stInfo;
-    Convert::to_struct(m_taskData, stInfo);
-
-    int nRet = CEventConfigure::instance()->set_configure(stInfo);
-    CEventManage::instance()->update_event_schedule();
-    result(nRet);
+    Alarm::PersonDetection_S stInfo;
+    int nRet = CEventConfigure::instance()->get_configure(stInfo);
+    if (nRet != OK)
+    {
+        result(nRet);
+        return;
+    }
+    result(Convert::to_string(stInfo));
 }
 
-void Task::Event::GetAttributeInfo::handle()
+void Task::Event::SetPersonDetectionInfo::handle()
 {
-    Alarm::AttributeDetectSwitch_S stInfo;
-    CEventConfigure::instance()->get_configure(stInfo);
+    Alarm::PersonDetection_S stInfo;
+    Convert::to_struct(m_taskData, stInfo);
+
+    if (stInfo.nSensitivity < 1 || stInfo.nSensitivity > 100 || stInfo.aAlarmTime.size() != 7)
+    {
+        dlog_error("设置行人识别信息参数错误");
+        result(ERR_WEB_PARAM);
+        return;
+    }
+    if (!stInfo.stRegion.IsValid())
+    {
+        dlog_error("设置行人识别信息的区域绘制异常");
+        result(ERR_WEB_REGION);
+        return;
+    }
+
+    result(save_scene_event_config(::Event::Type_E::PEDESTRIAN_ATTRIBUTE, stInfo));
+}
+
+void Task::Event::GetMotorVehicleDetectionInfo::handle()
+{
+    Alarm::MotorVehicleDetection_S stInfo;
+    int nRet = CEventConfigure::instance()->get_configure(stInfo);
+    if (nRet != OK)
+    {
+        result(nRet);
+        return;
+    }
     result(Convert::to_string(stInfo));
+}
+
+void Task::Event::SetMotorVehicleDetectionInfo::handle()
+{
+    Alarm::MotorVehicleDetection_S stInfo;
+    Convert::to_struct(m_taskData, stInfo);
+
+    if (stInfo.nSensitivity < 1 || stInfo.nSensitivity > 100 || stInfo.aAlarmTime.size() != 7)
+    {
+        dlog_error("设置机动车识别信息参数错误");
+        result(ERR_WEB_PARAM);
+        return;
+    }
+    if (!stInfo.stRegion.IsValid())
+    {
+        dlog_error("设置机动车识别信息的区域绘制异常");
+        result(ERR_WEB_REGION);
+        return;
+    }
+
+    result(save_scene_event_config(::Event::Type_E::MOTORVEHICLE_ATTRIBUTE, stInfo));
+}
+
+void Task::Event::GetNonMotorVehicleDetectionInfo::handle()
+{
+    Alarm::NonMotorVehicleDetection_S stInfo;
+    int nRet = CEventConfigure::instance()->get_configure(stInfo);
+    if (nRet != OK)
+    {
+        result(nRet);
+        return;
+    }
+    result(Convert::to_string(stInfo));
+}
+
+void Task::Event::SetNonMotorVehicleDetectionInfo::handle()
+{
+    Alarm::NonMotorVehicleDetection_S stInfo;
+    Convert::to_struct(m_taskData, stInfo);
+
+    if (stInfo.nSensitivity < 1 || stInfo.nSensitivity > 100 || stInfo.aAlarmTime.size() != 7)
+    {
+        dlog_error("设置非机动车识别信息参数错误");
+        result(ERR_WEB_PARAM);
+        return;
+    }
+    if (!stInfo.stRegion.IsValid())
+    {
+        dlog_error("设置非机动车识别信息的区域绘制异常");
+        result(ERR_WEB_REGION);
+        return;
+    }
+
+    result(save_scene_event_config(::Event::Type_E::NONMOTORVEHICLE_ATTRIBUTE, stInfo));
 }
 
 void Task::Event::GetFenceClimbingInfo::handle()
@@ -4005,7 +4090,6 @@ constexpr const char *REPLAY_FILE_TIME_FORMAT = "%Y-%m-%d_%H%M%S";
 
 /* 请求起始时间的格式（如 2026-09-27 00:00:00） */
 constexpr const char *REPLAY_REQ_TIME_FORMAT = "%Y-%m-%d %H:%M:%S";
-
 
 /*
  * 获取回放播放地址：先校验 SD 卡状态，再按请求起始时间定位录像目录，

@@ -162,9 +162,15 @@ namespace Task
         * @brief   : 场景智能
         */
 
-        /* 预览页面智能属性识别开关信息 */
-        TaskSubClass(SetAttributeInfo)
-        TaskSubClass(GetAttributeInfo)
+        /* 行人识别配置 */
+        TaskSubClass(GetPersonDetectionInfo)
+        TaskSubClass(SetPersonDetectionInfo)
+        /* 机动车识别配置 */
+        TaskSubClass(GetMotorVehicleDetectionInfo)
+        TaskSubClass(SetMotorVehicleDetectionInfo)
+        /* 非机动车识别配置 */
+        TaskSubClass(GetNonMotorVehicleDetectionInfo)
+        TaskSubClass(SetNonMotorVehicleDetectionInfo)
 
         /* 推送人脸抓拍信息 */
         TaskSubClass(PushFaceCaptureInfo)

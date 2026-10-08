@@ -53,6 +53,7 @@ static const Event::Type_E TARGET_DETECTION_EVENT_MAP[] = {
     ::Event::Type_E::PET_RECOGNITION,
     ::Event::Type_E::GARBAGE_EXPOSURE,
     ::Event::Type_E::GARBAGE_OVERFLOW,
+    ::Event::Type_E::FACE_RECOGNITION,
     #if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
     ::Event::Type_E::SMOKE_FIRE,
     #endif
@@ -105,6 +106,9 @@ static const Event::Type_E TRAFFIC_BEHAVIOR_MONITORING_EVENT_MAP[] = {
 /* 属性识别事件 */
 static const Event::Type_E ATTRIBUTE_RECOGNITION_EVENT_MAP[] = {
     ::Event::Type_E::PLATE_NUMBER,
+    ::Event::Type_E::PEDESTRIAN_ATTRIBUTE,
+    ::Event::Type_E::MOTORVEHICLE_ATTRIBUTE,
+    ::Event::Type_E::NONMOTORVEHICLE_ATTRIBUTE
 };
 
 /* 设置回放布局信息 */

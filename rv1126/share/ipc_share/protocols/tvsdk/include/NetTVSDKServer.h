@@ -1,10 +1,3 @@
-/**
- * @FileName     : NetTVSDKServer.h
- * @Date         : 原始创建日期未记录
- * @Author       : ITC
- * @Description  : IPC 使用的 TVSDK 服务端公共接口与二进制结构定义。
- * @Change       : 2026-10-08 补齐注册信息查询和设置接口，集中定义存储快照并保持 C/C++ 兼容。
- */
 #ifndef NETTVSDK_H
 #define NETTVSDK_H
 
@@ -2487,13 +2480,13 @@ typedef struct tagDeviceStorageSnapshot
  */
 typedef enum tagNET_ActivationTime
 {
-    NET_AT_ONE_WEEK = 0,
-    NET_AT_ONE_MONTH = 1,
-    NET_AT_TWO_MONTH = 2,
-    NET_AT_THREE_MONTH = 3,
-    NET_AT_HALF_YEAR = 4,
-    NET_AT_FOREVER = 5,
-    NET_AT_NULL = -1
+    NET_AT_ONE_WEEK    = 0,  /* 一周   */
+    NET_AT_ONE_MONTH   = 1,  /* 一月   */
+    NET_AT_TWO_MONTH   = 2,  /* 两月   */
+    NET_AT_THREE_MONTH = 3,  /* 三月   */
+    NET_AT_HALF_YEAR   = 4,  /* 半年   */
+    NET_AT_FOREVER     = 5,  /* 永久   */
+    NET_AT_NULL        = -1, /* 未注册/激活 */
 } NET_ActivationTime_E;
 
 /**
@@ -2503,21 +2496,16 @@ typedef enum tagNET_ActivationTime
  */
 typedef struct tagNET_RegisterInfo
 {
-    /* IPC 单通道设备固定为零。 */
-    UINT32 uChannel;
-    /* 机器码、注册码和注册时间。 */
-    CHAR strMachinSn[NET_LEN_64];
-    CHAR strRegisterEg[NET_LEN_64];
-    CHAR strStartTime[NET_LEN_64];
-    /* 剩余可用时长，单位为分钟。 */
-    INT64 nUsableTimer;
-    /* 注册有效期类型。IPC 已过期状态保留业务数值负二。 */
-    NET_ActivationTime_E enActionTime;
+    UINT32 uChannel;                        /* IPC 单通道设备固定为零。 */
+    CHAR strMachinSn[NET_LEN_64];           /* 机器码 */
+    CHAR strRegisterEg[NET_LEN_64];         /* 注册码 */
+    CHAR strStartTime[NET_LEN_64];          /* 注册时间 */
+    INT64 nUsableTimer;                     /* 剩余可用时长，单位为分钟。 */
+    NET_ActivationTime_E enActionTime;      /* 注册有效期类型。IPC 已过期状态保留业务数值负二。 */
     BYTE byReserved[32];
 } NET_RegisterInfo_S;
 
 typedef NET_RegisterInfo_S* pNET_RegisterInfo_S;
-
 
 /**
  * @brief 系统时间/NTP校时配置结构体
@@ -3808,7 +3796,7 @@ typedef struct tagNET_SchedTime
     INT32       nStartMinute;                       /* 开始分钟 [0-59] */
     INT32       nEndHour;                           /* 结束小时 [0-23] */
     INT32       nEndMinute;                         /* 结束分钟 [0-59] */
-    BYTE        byRes[16];                          /* 保留字段 */
+    BYTE        byRes[32];                          /* 保留字段 */
 }NET_SchedTime_S;
 
 typedef NET_SchedTime_S* pNET_SchedTime_S;
@@ -3831,6 +3819,21 @@ typedef struct tagNET_AlarmSchedule
 typedef NET_AlarmSchedule_S* pNET_AlarmSchedule_S;
 
 /**
+ * @struct tagNET_TraditionLinkage
+ * @brief 常规联动配置（邮件/上传/声音/闪光等非通道类动作）
+ * @note  IPC 等设备使用；NVR 侧可忽略该字段。预留 byRes 便于后续扩展。
+ */
+typedef struct tagNET_TraditionLinkage
+{
+    BOOL        bSendEmail;                          /* 邮件联动 */
+    BOOL        bUploadToCenter;                     /* 上传中心 */
+    BOOL        bUploadSdCard;                       /* 上传SD卡 */
+    BOOL        bSound;                              /* 声音联动 */
+    BOOL        bFlashingLight;                      /* 闪光报警灯 */
+    BYTE        byRes[64];                           /* 保留字段，便于后续扩展 */
+} NET_TraditionLinkage_S, *pNET_TraditionLinkage_S;
+
+/**
  * @struct tagNET_LinkageList
  * @brief 联动配置列表 Linkage configuration list
  */
@@ -3842,7 +3845,8 @@ typedef struct tagNET_LinkageList
     INT32       auRecordChannel[NET_CHANNEL_MAX]; /* 录像通道号数组 */
     INT32       uSnapshotChannelCount;               /* 抓拍通道数量 */
     INT32       auSnapshotChannel[NET_CHANNEL_MAX]; /* 抓拍通道号数组 */
-    BYTE        byRes[256];                         /* 保留字段 */
+    NET_TraditionLinkage_S stTradition;             /* 常规联动配置 */
+    BYTE        byRes[256]; /* 保留字段，随新增字段相应缩小 */
 } NET_LinkageList_S;
 
 /*

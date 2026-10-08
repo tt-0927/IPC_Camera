@@ -126,10 +126,9 @@ void LogHandler::write(Log::Info_S stInfo)
 
 int LogHandler::find(Log::RetrievalCond_S &stRetrievalCond, Common::PageInfo_S &stPageInfo, std::vector<Log::Info_S> &logInfos)
 {
-    /* 时间范围是日志查询的必需条件；分页参数缺省（nCurPage 为 -1）时由下方兜底为默认分页。 */
-    if (stRetrievalCond.startTime.empty() || stRetrievalCond.endTime.empty())
+    if (stRetrievalCond.startTime.empty() || stRetrievalCond.endTime.empty() || stPageInfo.nCurPage == -1)
     {
-        dlog_error("startTime or endTime is empty");
+        dlog_error("startTime or endTime or nCurPage is empty");
         return -1;
     }
     if (stPageInfo.nCurPage == -1)

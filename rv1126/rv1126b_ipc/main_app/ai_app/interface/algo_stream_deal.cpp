@@ -11,7 +11,11 @@
 #include "motion_detect.hpp"
 #include "hide_detect.hpp"
 #include "object_detect.hpp"
+#if CAP_AI_FACE_RECOGNITION
+#include "face_recognition.hpp"
+#else
 #include "face_detect.hpp"
+#endif
 #include "scene_change_detect.hpp"
 #include "pet_recognition.hpp"
 #include "audio_detect.hpp"
@@ -69,7 +73,11 @@ void CAlgoStreamDeal::deinit()
     algos.emplace_back(std::move(m_pSceneChangeAlgo));
     algos.emplace_back(std::move(m_pPetAlgo));
     algos.emplace_back(std::move(m_pAudioAlgo));
+#if CAP_AI_FACE_RECOGNITION
+    algos.emplace_back(std::move(m_pFaceRecognitionAlgo));
+#else
     algos.emplace_back(std::move(m_pFaceDetectAlgo));
+#endif
 
 #if 0
      algos.emplace_back(std::move(m_pPersonDetectAlgo));
@@ -147,10 +155,10 @@ void CAlgoStreamDeal::bindRecvFunc(Event::AlgorithmConfig &stAlgoConfig)
         return;
     }
 
-    
-    Alarm::AttributeDetectSwitch_S stAttributeDetectSwitch;
-
-    CEventConfigure::instance()->get_configure(stAttributeDetectSwitch);
+#if !CAP_AI_FACE_RECOGNITION
+    Alarm::FaceRecognition_S stFaceRecognitionConfig;
+    CEventConfigure::instance()->get_configure(stFaceRecognitionConfig);
+#endif
 
     /* 配置项和算法对象的映射 */
     std::vector<std::pair<bool, std::shared_ptr<CAlgorithm>>> algoBindings =
@@ -170,8 +178,8 @@ void CAlgoStreamDeal::bindRecvFunc(Event::AlgorithmConfig &stAlgoConfig)
                  stAlgoConfig.nEnLoiteringDetect || stAlgoConfig.nEnFenceClimbing || stAlgoConfig.nEnLeavePost || stAlgoConfig.nEnPedestrianIntrusion || stAlgoConfig.nEnCrowdGathering || stAlgoConfig.nEnPersonFallDown ||
                  stAlgoConfig.nEnEmergencyLaneOccupancy || stAlgoConfig.nEnNonMotorVehicleIntrusion || stAlgoConfig.nEnElectricVehicleInElevator ||
                  stAlgoConfig.nEnReverseDirection || stAlgoConfig.nEnCongestion || stAlgoConfig.nEnIllegalParking || stAlgoConfig.nEnParkingDetect || stAlgoConfig.nEnIllegalLaneChange ||
-                 stAlgoConfig.nEnSmoking || stAlgoConfig.nEnSleepOnDuty || stAlgoConfig.nEnPhoneUsage || stAlgoConfig.nEnTrip || stAlgoConfig.nPlateNumber || 
-                 stAttributeDetectSwitch.bPedestrianAttribute || stAttributeDetectSwitch.bMotorVehicleAttribute || stAttributeDetectSwitch.bNonMotorVehicleAttribute,
+                 stAlgoConfig.nEnSmoking || stAlgoConfig.nEnSleepOnDuty || stAlgoConfig.nEnPhoneUsage || stAlgoConfig.nEnTrip || stAlgoConfig.nPlateNumber ||
+                 stAlgoConfig.nEnPedestrianAttribute || stAlgoConfig.nEnMotorVehicleAttribute || stAlgoConfig.nEnNonMotorVehicleAttribute,
              m_pGroup2AndGroup4Algo},
             /* smoke(烟雾)、fire(火焰)、Overflow(垃圾满溢)、expose(垃圾暴露)、Complete(井盖完好)、Damaged(井盖破损)、Lost(井盖丢失)、Uncovered(未盖井盖)、BreakoutOfOuterEdge(井盖外边沿破损)、WaterAccumulation(道路积水) */
             {stAlgoConfig.nEnSmokeFire || stAlgoConfig.nEnOpenFlame || stAlgoConfig.nEnGarbageExposure || stAlgoConfig.nEnGarbageOverflow || stAlgoConfig.nEnManholeCoverAbnormal || stAlgoConfig.nEnRoadPonding, m_pGroup3Algo},
@@ -187,8 +195,13 @@ void CAlgoStreamDeal::bindRecvFunc(Event::AlgorithmConfig &stAlgoConfig)
             {stAlgoConfig.nEnSceneChange, m_pSceneChangeAlgo},
             /* 宠物识别检测 */
             {stAlgoConfig.nEnPetRecognition, m_pPetAlgo},
-            /* 人脸检测 */
-            {stAlgoConfig.nEnFaceCapture || stAlgoConfig.nEnFaceDetect || stAttributeDetectSwitch.bFaceAttribute, m_pFaceDetectAlgo},
+#if CAP_AI_FACE_RECOGNITION
+            /* 人脸识别 */
+            {stAlgoConfig.nEnFaceRecognition, m_pFaceRecognitionAlgo},
+#else
+            /* 旧人脸侦测、抓拍和属性分析 */
+            {stAlgoConfig.nEnFaceCapture || stAlgoConfig.nEnFaceDetect || stFaceRecognitionConfig.bAttributeAnalysisEnable, m_pFaceDetectAlgo},
+#endif
 
 #if 0
          /* 行人检测相关 */
@@ -257,9 +270,10 @@ void CAlgoStreamDeal::manageAlgorithmInstances(const Event::AlgorithmConfig &stA
 {
     int bIsNew = 0;
 
-    Alarm::AttributeDetectSwitch_S stAttributeDetectSwitch;
-    /* 获取属性识别开关信息 */
-    CEventConfigure::instance()->get_configure(stAttributeDetectSwitch);
+#if !CAP_AI_FACE_RECOGNITION
+    Alarm::FaceRecognition_S stFaceRecognitionConfig;
+    CEventConfigure::instance()->get_configure(stFaceRecognitionConfig);
+#endif
 
 #ifdef DEVICE_TV_3882TI
     /* 场景智能分析算法 */
@@ -288,8 +302,8 @@ void CAlgoStreamDeal::manageAlgorithmInstances(const Event::AlgorithmConfig &stA
                                         stAlgoConfig.nEnCrowdGathering || stAlgoConfig.nEnPersonFallDown || stAlgoConfig.nEnEmergencyLaneOccupancy ||
                                         stAlgoConfig.nEnNonMotorVehicleIntrusion || stAlgoConfig.nEnElectricVehicleInElevator || stAlgoConfig.nEnReverseDirection ||
                                         stAlgoConfig.nEnCongestion || stAlgoConfig.nEnIllegalParking || stAlgoConfig.nEnParkingDetect || stAlgoConfig.nEnIllegalLaneChange ||
-                                        stAlgoConfig.nEnSmoking || stAlgoConfig.nEnSleepOnDuty || stAlgoConfig.nEnPhoneUsage || stAlgoConfig.nEnTrip || stAlgoConfig.nPlateNumber || 
-                                        stAttributeDetectSwitch.bPedestrianAttribute || stAttributeDetectSwitch.bMotorVehicleAttribute || stAttributeDetectSwitch.bNonMotorVehicleAttribute, 
+                                        stAlgoConfig.nEnSmoking || stAlgoConfig.nEnSleepOnDuty || stAlgoConfig.nEnPhoneUsage || stAlgoConfig.nEnTrip || stAlgoConfig.nPlateNumber ||
+                                        stAlgoConfig.nEnPedestrianAttribute || stAlgoConfig.nEnMotorVehicleAttribute || stAlgoConfig.nEnNonMotorVehicleAttribute,
                                     [this]() { return std::static_pointer_cast<CAlgorithm>(std::make_shared<CGroup2_Group4Detect>()); });
 
     /* group3：smoke(烟雾)、fire(火焰)、Overflow(垃圾满溢)、expose(垃圾暴露)、井盖异常、WaterAccumulation(道路积水) */
@@ -302,10 +316,17 @@ void CAlgoStreamDeal::manageAlgorithmInstances(const Event::AlgorithmConfig &stA
                                     stAlgoConfig.nEnHoleProtectionBar || stAlgoConfig.nEnConstructionOccupyRoad,
                                     [this]() { return std::static_pointer_cast<CAlgorithm>(std::make_shared<CGroup5Detect>()); });
 
-    /* 人脸检测算法 */
+#if CAP_AI_FACE_RECOGNITION
+    /* 人脸识别算法 */
+    bIsNew += manageSingleAlgorithm(m_pFaceRecognitionAlgo,
+                                    stAlgoConfig.nEnFaceRecognition,
+                                    []() { return std::static_pointer_cast<CAlgorithm>(std::make_shared<CFaceRecognition>()); });
+#else
+    /* 旧人脸侦测、抓拍和属性分析算法 */
     bIsNew += manageSingleAlgorithm(m_pFaceDetectAlgo,
-                                    stAlgoConfig.nEnFaceCapture || stAlgoConfig.nEnFaceDetect || stAttributeDetectSwitch.bFaceAttribute,
+                                    stAlgoConfig.nEnFaceCapture || stAlgoConfig.nEnFaceDetect || stFaceRecognitionConfig.bAttributeAnalysisEnable,
                                     [this]() { return std::static_pointer_cast<CAlgorithm>(std::make_shared<CFaceDetect>()); });
+#endif
 
     // /* 车牌识别检测算法 */
     // bIsNew += manageSingleAlgorithm(m_pLicensePlateCognitionDetectAlgo, stAlgoConfig.nPlateNumber, []() {
@@ -468,7 +489,11 @@ void CAlgoStreamDeal::set_Algo_EnConfig(Event::AlgorithmConfig &stAlgoConfig)
         m_pGroup2AndGroup4Algo,
         m_pGroup3Algo,
         m_pGroup5Algo,
+#if CAP_AI_FACE_RECOGNITION
+        m_pFaceRecognitionAlgo,
+#else
         m_pFaceDetectAlgo,
+#endif
         // m_pLicensePlateCognitionDetectAlgo,
         m_pSceneChangeAlgo,
         m_pPetAlgo,

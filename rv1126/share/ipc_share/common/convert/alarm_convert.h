@@ -91,6 +91,10 @@ namespace Convert
     /* 人脸识别配置 */
     void deal(Json::Object *pRootJson, Alarm::FaceRecognitionCaptureRule_S &stInfo, bool bOutStruct);
     void deal(Json::Object *pRootJson, Alarm::FaceRecognition_S &stInfo, bool bOutStruct);
+    /* 属性识别配置 */
+    void deal(Json::Object *pRootJson, Alarm::PersonDetection_S &stInfo, bool bOutStruct);
+    void deal(Json::Object *pRootJson, Alarm::MotorVehicleDetection_S &stInfo, bool bOutStruct);
+    void deal(Json::Object *pRootJson, Alarm::NonMotorVehicleDetection_S &stInfo, bool bOutStruct);
     /* 徘徊侦测相关 */
     void deal(Json::Object *pRootJson, Alarm::LoiteringRule_S &stInfo, bool bOutStruct);
     void deal(Json::Object *pRootJson, Alarm::LoiteringDetection_S &stInfo, bool bOutStruct);
@@ -247,9 +251,6 @@ namespace Convert
     /* 非机动车属性信息推送相关 */
     void deal(Json::Object *pRootJson, Alarm::NonMotorvehicleAlarmAttribute_S &stInfo, bool bOutStruct);
     void deal(Json::Object *pRootJson, Alarm::NonMotorvehicleAlarmInfo_S &stInfo, bool bOutStruct);
-
-    /* 属性识别开关 */
-    void deal(Json::Object *pRootJson, Alarm::AttributeDetectSwitch_S &stInfo, bool bOutStruct);
 
 #endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT

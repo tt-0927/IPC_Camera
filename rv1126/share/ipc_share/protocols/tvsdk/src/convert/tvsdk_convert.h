@@ -1,10 +1,3 @@
-/**
- * @FileName     : tvsdk_convert.h
- * @Date         : 原始创建日期未记录
- * @Author       : ITC
- * @Description  : IPC 业务数据与 TVSDK 公共结构之间的字段转换。
- * @Change       : 2026-10-08 增加注册信息双向转换，存储快照改用公共头文件定义。
- */
 #pragma once
 
 #include "system_define.h"

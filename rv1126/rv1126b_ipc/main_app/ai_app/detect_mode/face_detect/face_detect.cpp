@@ -337,9 +337,9 @@ void CFaceDetect::setAlgoEnCfg(const Event::AlgorithmConfig &stAlgoConfig)
         setAlgoParamCfg(stInfo);
 	}
     
-    Alarm::AttributeDetectSwitch_S stAttributeDetectSwitch;
-    CEventConfigure::instance()->get_configure(stAttributeDetectSwitch);
-    m_bFaceAttribute.store(stAttributeDetectSwitch.bFaceAttribute);
+    Alarm::FaceRecognition_S stFaceRecognitionConfig;
+    CEventConfigure::instance()->get_configure(stFaceRecognitionConfig);
+    m_bFaceAttribute.store(stFaceRecognitionConfig.bAttributeAnalysisEnable);
     
 }
 

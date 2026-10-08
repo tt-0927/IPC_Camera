@@ -191,6 +191,24 @@ class CGroup2_Group4Detect : public CAlgorithm {
     void setAlgoParamCfg(const Alarm::LicensePlateCognitionDetection_S &stAlgoCfg, Event::Type_E enType = Event::Type_E::CONSTRUCTION_OCCUPY_ROAD);
 
     /**
+     * @brief   : 更新行人属性识别参数
+     * @param    {PersonDetection_S} &stAlgoCfg：行人属性识别
+     */
+    void setAlgoParamCfg(const Alarm::PersonDetection_S &stAlgoCfg, Event::Type_E enType = Event::Type_E::PEDESTRIAN_ATTRIBUTE);
+
+    /**
+     * @brief   : 更新机动车属性识别参数
+     * @param    {MotorVehicleDetection_S} &stAlgoCfg：机动车属性识别
+     */
+    void setAlgoParamCfg(const Alarm::MotorVehicleDetection_S &stAlgoCfg, Event::Type_E enType = Event::Type_E::MOTORVEHICLE_ATTRIBUTE);
+
+    /**
+     * @brief   : 更新非机动车属性识别参数
+     * @param    {NonMotorVehicleDetection_S} &stAlgoCfg：非机动车属性识别
+     */
+    void setAlgoParamCfg(const Alarm::NonMotorVehicleDetection_S &stAlgoCfg, Event::Type_E enType = Event::Type_E::NONMOTORVEHICLE_ATTRIBUTE);
+
+    /**
      * @brief 灵敏度转置信度（反向映射：灵敏度越高，置信度越低）
      * @param sensitivity 输入灵敏度（范围：1~100，超出会被 clamp 到该范围）
      * @param minConfidence 最低置信度（默认 0.1f，float 类型）
@@ -572,13 +590,6 @@ class CGroup2_Group4Detect : public CAlgorithm {
     /* 数据获取线程 */
     std::thread m_thread;
 
-    /* 是否开启人脸属性分析 */
-    std::atomic<bool> m_bPedestrianAttribute;
-    /* 是否开启机动车属性分析 */
-    std::atomic<bool> m_bMotorVehicleAttribute;
-    /* 是否开启非机动车属性分析 */
-    std::atomic<bool> m_bNonMotorVehicleAttribute;
-
     /* 规则区域 */
     std::vector<PMNMDetectRuleInfo_S> m_vstRuleInfo;
     /* 检测频率控制 */
@@ -638,6 +649,13 @@ class CGroup2_Group4Detect : public CAlgorithm {
     /* 车牌识别配置 */
     Alarm::LicensePlateCognitionDetection_S m_stAlgoLicensePlateCognitionCfg;
 
+    /* 行人属性识别配置 */
+    Alarm::PersonDetection_S m_stPersonAttributeCfg;
+    /* 机动车属性识别配置 */
+    Alarm::MotorVehicleDetection_S m_stMotorVehicleAttributeCfg;
+    /* 非机动车属性识别配置 */
+    Alarm::NonMotorVehicleDetection_S m_stNonMotorVehicleAttributeCfg;
+
     /* 规则配置 */
     std::vector<PMNMDetectRuleInfo_S> m_vstCrossRule;
     std::vector<PMNMDetectRuleInfo_S> m_vstIntruRule;
@@ -687,6 +705,9 @@ class CGroup2_Group4Detect : public CAlgorithm {
 
     /* 报警状态管理 */
     CAlarmStateMachine m_LicensePlateStateMachine;
+    CAlarmStateMachine m_PedestrianAttributeStateMachine;
+    CAlarmStateMachine m_MotorVehicleAttributeStateMachine;
+    CAlarmStateMachine m_NonMotorVehicleAttributeStateMachine;
 
 #ifdef ENABLE_GAT1400_SRC
     /* 上传gat1400平台状态管理 */

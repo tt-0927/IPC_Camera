@@ -1099,9 +1099,15 @@ void ControlManage::bind_task(std::shared_ptr<CTaskManage> &pTaskManage)
      */
 
 #if !defined(CAP_TV3881TJY_EVENT_ALGO) || CAP_TV3881TJY_EVENT_ALGO
-    /* 属性检测开关信息 */
-    pTaskManage->bind<Task::Event::SetAttributeInfo>(AC_SET_ATTRIBUTE_DETECT_INFO);
-    pTaskManage->bind<Task::Event::GetAttributeInfo>(AC_GET_ATTRIBUTE_DETECT_INFO);
+    /* 行人识别配置 */
+    pTaskManage->bind<Task::Event::GetPersonDetectionInfo>(AC_GET_PERSON_DETECTION_INFO);
+    pTaskManage->bind<Task::Event::SetPersonDetectionInfo>(AC_SET_PERSON_DETECTION_INFO);
+    /* 机动车识别配置 */
+    pTaskManage->bind<Task::Event::GetMotorVehicleDetectionInfo>(AC_GET_MOTOR_VEHICLE_DETECTION_INFO);
+    pTaskManage->bind<Task::Event::SetMotorVehicleDetectionInfo>(AC_SET_MOTOR_VEHICLE_DETECTION_INFO);
+    /* 非机动车识别配置 */
+    pTaskManage->bind<Task::Event::GetNonMotorVehicleDetectionInfo>(AC_GET_NON_MOTOR_VEHICLE_DETECTION_INFO);
+    pTaskManage->bind<Task::Event::SetNonMotorVehicleDetectionInfo>(AC_SET_NON_MOTOR_VEHICLE_DETECTION_INFO);
 
     /* 推送人脸抓拍信息 */
     pTaskManage->bind<Task::Event::PushFaceCaptureInfo>(AC_PUSH_FACE_CAPTURE_INFO);

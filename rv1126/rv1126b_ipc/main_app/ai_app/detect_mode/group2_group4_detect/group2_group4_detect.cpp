@@ -234,7 +234,7 @@ void CGroup2_Group4Detect::recvMediaData(MediaData_S stMediaData)
         !m_stAlgoNonMotorVehicleIntrusionCfg.bEnable && !m_stAlgoElectricScooterCfg.bEnable && !m_stDrivingAgainstTrafficDetectionCfg.bEnable && !m_stAlgoIllegalLaneChangeDetectionCfg.bEnable &&
         !m_stAlgoCongestionDetectionCfg.bEnable && !m_stAlgoParkingDetectionCfg.bEnable && !m_stLoiteringCfg.bEnable && !m_stFenceClimbingCfg.bEnable && !m_stLeavePostCfg.bEnable && !m_stAlgoLicensePlateCognitionCfg.bEnable &&
         !m_stPedestrianIntrusionCfg.bEnable && !m_stCrowdGatheringDetCfg.bEnable && !m_stAlgoSmokingCfg.bEnable && !m_stAlgoSleepOnDutyCfg.bEnable && !m_stPhoneUsageCfg.bEnable && !m_stAlgoTripCfg.bEnable &&
-        !m_bPedestrianAttribute.load() && !m_bMotorVehicleAttribute.load() && !m_bNonMotorVehicleAttribute.load())
+        !m_stPersonAttributeCfg.bEnable && !m_stMotorVehicleAttributeCfg.bEnable && !m_stNonMotorVehicleAttributeCfg.bEnable)
     {
         dlog_debug("ai_app: 机动车、行人、非机动车/模型组合4/车牌检测模型-开关未启用");
         return;
@@ -280,6 +280,9 @@ void CGroup2_Group4Detect::setAlgoEnCfg(const Event::AlgorithmConfig &stAlgoConf
     m_stAlgoTripCfg.bEnable        = stAlgoConfig.nEnTrip;
 
     m_stAlgoLicensePlateCognitionCfg.bEnable = stAlgoConfig.nPlateNumber;
+    m_stPersonAttributeCfg.bEnable = stAlgoConfig.nEnPedestrianAttribute;
+    m_stMotorVehicleAttributeCfg.bEnable = stAlgoConfig.nEnMotorVehicleAttribute;
+    m_stNonMotorVehicleAttributeCfg.bEnable = stAlgoConfig.nEnNonMotorVehicleAttribute;
 
     if (m_stAlgoCrossCfg.bEnable)
     {
@@ -435,11 +438,24 @@ void CGroup2_Group4Detect::setAlgoEnCfg(const Event::AlgorithmConfig &stAlgoConf
         setAlgoParamCfg(stInfo);
     }
 
-    Alarm::AttributeDetectSwitch_S stAttributeDetectSwitch;
-    CEventConfigure::instance()->get_configure(stAttributeDetectSwitch);
-    m_bPedestrianAttribute.store(stAttributeDetectSwitch.bPedestrianAttribute);
-    m_bMotorVehicleAttribute.store(stAttributeDetectSwitch.bMotorVehicleAttribute);
-    m_bNonMotorVehicleAttribute.store(stAttributeDetectSwitch.bNonMotorVehicleAttribute);
+    if (m_stPersonAttributeCfg.bEnable)
+    {
+        Alarm::PersonDetection_S stInfo;
+        CEventConfigure::instance()->get_configure(stInfo);
+        setAlgoParamCfg(stInfo);
+    }
+    if (m_stMotorVehicleAttributeCfg.bEnable)
+    {
+        Alarm::MotorVehicleDetection_S stInfo;
+        CEventConfigure::instance()->get_configure(stInfo);
+        setAlgoParamCfg(stInfo);
+    }
+    if (m_stNonMotorVehicleAttributeCfg.bEnable)
+    {
+        Alarm::NonMotorVehicleDetection_S stInfo;
+        CEventConfigure::instance()->get_configure(stInfo);
+        setAlgoParamCfg(stInfo);
+    }
 
     return;
 }
@@ -605,6 +621,24 @@ void CGroup2_Group4Detect::setAlgoParamCfg(const Alarm::LicensePlateCognitionDet
     dlog_debug("ai_app: 设置车牌识别检测参数");
     m_stAlgoLicensePlateCognitionCfg = stAlgoCfg;
     return;
+}
+
+void CGroup2_Group4Detect::setAlgoParamCfg(const Alarm::PersonDetection_S &stAlgoCfg, Event::Type_E enType)
+{
+    dlog_debug("ai_app: 设置行人属性识别参数");
+    m_stPersonAttributeCfg = stAlgoCfg;
+}
+
+void CGroup2_Group4Detect::setAlgoParamCfg(const Alarm::MotorVehicleDetection_S &stAlgoCfg, Event::Type_E enType)
+{
+    dlog_debug("ai_app: 设置机动车属性识别参数");
+    m_stMotorVehicleAttributeCfg = stAlgoCfg;
+}
+
+void CGroup2_Group4Detect::setAlgoParamCfg(const Alarm::NonMotorVehicleDetection_S &stAlgoCfg, Event::Type_E enType)
+{
+    dlog_debug("ai_app: 设置非机动车属性识别参数");
+    m_stNonMotorVehicleAttributeCfg = stAlgoCfg;
 }
 
 float CGroup2_Group4Detect::sensitivityToConfidence(int sensitivity, float minConfidence, float maxConfidence)
@@ -1008,7 +1042,7 @@ void CGroup2_Group4Detect::run()
             m_stAlgoNonMotorVehicleIntrusionCfg.bEnable || m_stAlgoElectricScooterCfg.bEnable || m_stDrivingAgainstTrafficDetectionCfg.bEnable || m_stAlgoIllegalLaneChangeDetectionCfg.bEnable ||
             m_stAlgoCongestionDetectionCfg.bEnable || m_stAlgoParkingDetectionCfg.bEnable || m_stLoiteringCfg.bEnable || m_stFenceClimbingCfg.bEnable || m_stLeavePostCfg.bEnable ||
             m_stPedestrianIntrusionCfg.bEnable || m_stCrowdGatheringDetCfg.bEnable || m_stAlgoSmokingCfg.bEnable || m_stPhoneUsageCfg.bEnable || m_stAlgoLicensePlateCognitionCfg.bEnable ||
-            m_bPedestrianAttribute.load() || m_bMotorVehicleAttribute.load() || m_bNonMotorVehicleAttribute.load())
+            m_stPersonAttributeCfg.bEnable || m_stMotorVehicleAttributeCfg.bEnable || m_stNonMotorVehicleAttributeCfg.bEnable)
         {
             if (!m_pGroup2Handle)
             {
@@ -1050,7 +1084,7 @@ void CGroup2_Group4Detect::run()
             unInitGroup4();
         }
 
-        if (m_stAlgoLicensePlateCognitionCfg.bEnable || m_bMotorVehicleAttribute.load())
+        if (m_stAlgoLicensePlateCognitionCfg.bEnable || m_stMotorVehicleAttributeCfg.bEnable)
         {
             if (!m_pLicensePlateHandle)
             {
@@ -1098,7 +1132,7 @@ void CGroup2_Group4Detect::run()
             CloseupFrame_S stPersonCloseupFrame;
             const CloseupFrame_S *pPersonCloseupFrame = nullptr;
             /* 仅在行人属性分析到期帧抓取，且必须在检测推理前按 PTS 匹配。 */
-            const bool bPersonAttributeDue = m_bPedestrianAttribute.load() &&
+            const bool bPersonAttributeDue = m_stPersonAttributeCfg.bEnable &&
                                              (m_nFrameCount + 1 > DETECT_FRAME_THRESHOLD);
             if (bPersonAttributeDue &&
                 CStreamVideo::instance()->acquireCloseupFrame(
@@ -1718,15 +1752,15 @@ void CGroup2_Group4Detect::run()
                     /* 人、机动车车、非机动车属性分析 */
                     pnmAttributeAnalysis(rgbMat, vecFullSizeResult, pPersonCloseupFrame);
 
-                    if (m_bPedestrianAttribute.load())
+                    if (m_stPersonAttributeCfg.bEnable)
                     {
                         bPersonDetect = true;
                     }
-                    if (m_bMotorVehicleAttribute.load())
+                    if (m_stMotorVehicleAttributeCfg.bEnable)
                     {
                         bMotorVehicle = true;
                     }
-                    if (m_bNonMotorVehicleAttribute.load())
+                    if (m_stNonMotorVehicleAttributeCfg.bEnable)
                     {
                         bNonMotorVehicle = true;
                     }
@@ -1781,20 +1815,50 @@ int CGroup2_Group4Detect::pnmAttributeAnalysis(
     std::vector<Group2Detect_NS::Result_S> vstMotorVehicleResult;
     std::vector<Group2Detect_NS::Result_S> vstNonMotorVehicleResult;
 
-    for (auto &stResult : vecAllResult)
+    const bool bPedestrianAttribute = m_stPersonAttributeCfg.bEnable;
+    const bool bMotorVehicleAttribute = m_stMotorVehicleAttributeCfg.bEnable;
+    const bool bNonMotorVehicleAttribute = m_stNonMotorVehicleAttributeCfg.bEnable;
+    const float fPersonThreshold = sensitivityToConfidence(m_stPersonAttributeCfg.nSensitivity);
+    const float fMotorVehicleThreshold = sensitivityToConfidence(m_stMotorVehicleAttributeCfg.nSensitivity);
+    const float fNonMotorVehicleThreshold = sensitivityToConfidence(m_stNonMotorVehicleAttributeCfg.nSensitivity);
+    bool bMotorVehicleAttributeDetected = false;
+
+    for (const auto &stResult : vecAllResult)
     {
         // dlog_debug("置信度：[%f]  ID：[%d]", stResult.fBoxConfidence, stResult.nID);
 
+        Common::RectInfo_S stRectInfo;
+        stRectInfo.nX1 = static_cast<int>(stResult.fX1);
+        stRectInfo.nY1 = static_cast<int>(stResult.fY1);
+        stRectInfo.nX2 = static_cast<int>(stResult.fX2);
+        stRectInfo.nY2 = static_cast<int>(stResult.fY2);
+
         /* 种类ID: 0-人 1-机动车 2-非机动车 */
-        if (stResult.nID == 0 && stResult.fBoxConfidence >= 0.6)
+        if (stResult.nID == 0 && bPedestrianAttribute &&
+            stResult.fBoxConfidence >= fPersonThreshold &&
+            is_in_region(m_stPersonAttributeCfg.stRegion, stRectInfo))
         {
             vstPersonResult.push_back(stResult);
         }
-        else if (stResult.nID == 1 && stResult.fBoxConfidence >= 0.6)
+        else if (stResult.nID == 1)
         {
-            vstMotorVehicleResult.push_back(stResult);
+            const bool bPlateCandidate = m_stAlgoLicensePlateCognitionCfg.bEnable &&
+                                         stResult.fBoxConfidence >= 0.6F;
+            const bool bAttributeCandidate = bMotorVehicleAttribute &&
+                                             stResult.fBoxConfidence >= fMotorVehicleThreshold &&
+                                             is_in_region(m_stMotorVehicleAttributeCfg.stRegion, stRectInfo);
+            if (bAttributeCandidate)
+            {
+                bMotorVehicleAttributeDetected = true;
+            }
+            if (bPlateCandidate || bAttributeCandidate)
+            {
+                vstMotorVehicleResult.push_back(stResult);
+            }
         }
-        else if (stResult.nID == 2 && stResult.fBoxConfidence >= 0.6)
+        else if (stResult.nID == 2 && bNonMotorVehicleAttribute &&
+                 stResult.fBoxConfidence >= fNonMotorVehicleThreshold &&
+                 is_in_region(m_stNonMotorVehicleAttributeCfg.stRegion, stRectInfo))
         {
             vstNonMotorVehicleResult.push_back(stResult);
         }
@@ -1805,7 +1869,7 @@ int CGroup2_Group4Detect::pnmAttributeAnalysis(
     /* 降低属性分析频率 */
     if (m_nFrameCount > DETECT_FRAME_THRESHOLD)
     {
-        if (m_bPedestrianAttribute.load())
+        if (bPedestrianAttribute)
         {
             personAttributeAnalysis(srcData, vstPersonResult, pCloseupFrame);
             m_vecLastFramePersonResult = vstPersonResult;
@@ -1815,7 +1879,7 @@ int CGroup2_Group4Detect::pnmAttributeAnalysis(
             unInitPersonAttribute();
         }
 
-        if (m_bNonMotorVehicleAttribute.load())
+        if (bNonMotorVehicleAttribute)
         {
             nonMotorvehicleAttributeAnalysis(srcData, vstNonMotorVehicleResult);
             m_vecLastFrameNonMotorvehicleResult = vstNonMotorVehicleResult;
@@ -1826,10 +1890,10 @@ int CGroup2_Group4Detect::pnmAttributeAnalysis(
         }
     }
 
-    if (m_stAlgoLicensePlateCognitionCfg.bEnable || m_bMotorVehicleAttribute.load())
+    if (m_stAlgoLicensePlateCognitionCfg.bEnable || bMotorVehicleAttribute)
     {
         /* 车牌检测 + 车辆属性识别 */
-        licensePlateDetectProcess(srcData, vstMotorVehicleResult, m_bMotorVehicleAttribute.load());
+        licensePlateDetectProcess(srcData, vstMotorVehicleResult, bMotorVehicleAttribute);
     }
     else
     {
@@ -1840,6 +1904,28 @@ int CGroup2_Group4Detect::pnmAttributeAnalysis(
     {
         m_nFrameCount = 0;
     }
+
+    const long long llTimestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
+                                      std::chrono::system_clock::now().time_since_epoch())
+                                      .count();
+
+    EventTriggerContext_S stPedestrianAttributeContext;
+    stPedestrianAttributeContext.enEventType = Event::Type_E::PEDESTRIAN_ATTRIBUTE;
+    stPedestrianAttributeContext.nChnId = m_nChannelId;
+    stPedestrianAttributeContext.llTimestamp = llTimestamp;
+    m_PedestrianAttributeStateMachine.handleAlarmState(!vstPersonResult.empty(), stPedestrianAttributeContext);
+
+    EventTriggerContext_S stMotorVehicleAttributeContext;
+    stMotorVehicleAttributeContext.enEventType = Event::Type_E::MOTORVEHICLE_ATTRIBUTE;
+    stMotorVehicleAttributeContext.nChnId = m_nChannelId;
+    stMotorVehicleAttributeContext.llTimestamp = llTimestamp;
+    m_MotorVehicleAttributeStateMachine.handleAlarmState(bMotorVehicleAttributeDetected, stMotorVehicleAttributeContext);
+
+    EventTriggerContext_S stNonMotorVehicleAttributeContext;
+    stNonMotorVehicleAttributeContext.enEventType = Event::Type_E::NONMOTORVEHICLE_ATTRIBUTE;
+    stNonMotorVehicleAttributeContext.nChnId = m_nChannelId;
+    stNonMotorVehicleAttributeContext.llTimestamp = llTimestamp;
+    m_NonMotorVehicleAttributeStateMachine.handleAlarmState(!vstNonMotorVehicleResult.empty(), stNonMotorVehicleAttributeContext);
 
     return 0;
 }
@@ -2212,6 +2298,7 @@ int CGroup2_Group4Detect::licensePlateDetectProcess(cv::Mat &srcData, const std:
 
     /* 所有的车牌检测结果 */
     std::vector<LicensePlateCognition_NS::Result_S> vecLicensePlateCognitionResult;
+    std::vector<std::string> vecCurrentMotorvehicleResult;
     int nLastVehicleType = 0;
 
     stInData.stParam.fBoxThreshold = sensitivityToConfidence(m_stAlgoLicensePlateCognitionCfg.stRule.nSensitivity);
@@ -2229,6 +2316,15 @@ int CGroup2_Group4Detect::licensePlateDetectProcess(cv::Mat &srcData, const std:
 
     for (unsigned int i = 0; i < vecVehicleResult.size(); i++)
     {
+        Common::RectInfo_S stVehicleRect;
+        stVehicleRect.nX1 = static_cast<int>(vstResult[i].fX1);
+        stVehicleRect.nY1 = static_cast<int>(vstResult[i].fY1);
+        stVehicleRect.nX2 = static_cast<int>(vstResult[i].fX2);
+        stVehicleRect.nY2 = static_cast<int>(vstResult[i].fY2);
+        const bool bCurrentMotorVehicleAttribute = bMotorVehicleAttribute &&
+                                                   vstResult[i].fBoxConfidence >= sensitivityToConfidence(m_stMotorVehicleAttributeCfg.nSensitivity) &&
+                                                   is_in_region(m_stMotorVehicleAttributeCfg.stRegion, stVehicleRect);
+
         vecVehicleResult[i].fX1 /= 1.25;
         vecVehicleResult[i].fY1 /= 1.25;
 
@@ -2327,7 +2423,7 @@ int CGroup2_Group4Detect::licensePlateDetectProcess(cv::Mat &srcData, const std:
         }
 
         /* 车辆属性每7帧分析一次；有车牌号时按上一周期结果去重。 */
-        if (bMotorVehicleAttribute && m_nFrameCount > DETECT_FRAME_THRESHOLD)
+        if (bCurrentMotorVehicleAttribute && m_nFrameCount > DETECT_FRAME_THRESHOLD)
         {
             bool bDuplicateLicensePlate = false;
             if (!strAttributeLicensePlateNumber.empty())
@@ -2350,24 +2446,20 @@ int CGroup2_Group4Detect::licensePlateDetectProcess(cv::Mat &srcData, const std:
                     stAttributeTargetRect,
                     strAttributeLicensePlateNumber);
             }
+
+            if (!strAttributeLicensePlateNumber.empty() &&
+                std::find(vecCurrentMotorvehicleResult.begin(),
+                          vecCurrentMotorvehicleResult.end(),
+                          strAttributeLicensePlateNumber) == vecCurrentMotorvehicleResult.end())
+            {
+                vecCurrentMotorvehicleResult.push_back(strAttributeLicensePlateNumber);
+            }
         }
     }
 
     if (bMotorVehicleAttribute && m_nFrameCount > DETECT_FRAME_THRESHOLD)
     {
-        m_vecLastFrameMotorvehicleResult.clear();
-        for (const auto &stResult : vecLicensePlateCognitionResult)
-        {
-            if (!stResult.licensePlateNumber.empty()
-                && std::find(
-                       m_vecLastFrameMotorvehicleResult.begin(),
-                       m_vecLastFrameMotorvehicleResult.end(),
-                       stResult.licensePlateNumber)
-                    == m_vecLastFrameMotorvehicleResult.end())
-            {
-                m_vecLastFrameMotorvehicleResult.push_back(stResult.licensePlateNumber);
-            }
-        }
+        m_vecLastFrameMotorvehicleResult = std::move(vecCurrentMotorvehicleResult);
     }
 
     /* 车牌识别动态分析 */
@@ -3647,44 +3739,39 @@ int CGroup2_Group4Detect::dynamicAnalysis(const std::vector<Group2Detect_NS::Res
     const float fWRatio = static_cast<float>(m_nWidth) / nSourceWidth;
     const float fHRatio = static_cast<float>(m_nHeight) / nSourceHeight;
 
-    for (auto &stResult : vecAllResult)
+    for (const auto &stResult : vecAllResult)
     {
-        Common::RectInfo_S stRectInfo;
-        stRectInfo.nX1 = static_cast<int>(stResult.fX1 * fWRatio);
-        stRectInfo.nY1 = static_cast<int>(stResult.fY1 * fHRatio);
-        stRectInfo.nX2 = static_cast<int>(stResult.fX2 * fWRatio);
-        stRectInfo.nY2 = static_cast<int>(stResult.fY2 * fHRatio);
+        Common::RectInfo_S stSourceRect;
+        stSourceRect.nX1 = static_cast<int>(stResult.fX1);
+        stSourceRect.nY1 = static_cast<int>(stResult.fY1);
+        stSourceRect.nX2 = static_cast<int>(stResult.fX2);
+        stSourceRect.nY2 = static_cast<int>(stResult.fY2);
 
-        if(stResult.fBoxConfidence < 0.5)
+        bool bShowResult = false;
+        if (bPersonDetect && stResult.nID == 0)
         {
-            continue;
+            bShowResult = stResult.fBoxConfidence >= sensitivityToConfidence(m_stPersonAttributeCfg.nSensitivity) &&
+                          is_in_region(m_stPersonAttributeCfg.stRegion, stSourceRect);
+        }
+        else if (bMotorVehicle && stResult.nID == 1)
+        {
+            bShowResult = stResult.fBoxConfidence >= sensitivityToConfidence(m_stMotorVehicleAttributeCfg.nSensitivity) &&
+                          is_in_region(m_stMotorVehicleAttributeCfg.stRegion, stSourceRect);
+        }
+        else if (bNonMotorVehicle && stResult.nID == 2)
+        {
+            bShowResult = stResult.fBoxConfidence >= sensitivityToConfidence(m_stNonMotorVehicleAttributeCfg.nSensitivity) &&
+                          is_in_region(m_stNonMotorVehicleAttributeCfg.stRegion, stSourceRect);
         }
 
-        if (bPersonDetect)
+        if (bShowResult)
         {
-            /* 0-人 1-机动车 2-非机动车 */
-            if (stResult.nID == 0)
-            {
-                vstRectInfo.push_back(stRectInfo);
-                continue;
-            }
-        }
-
-        if (bMotorVehicle)
-        {
-            if (stResult.nID == 1)
-            {
-                vstRectInfo.push_back(stRectInfo);
-                continue;
-            }
-        }
-
-        if (bNonMotorVehicle)
-        {
-            if (stResult.nID == 2)
-            {
-                vstRectInfo.push_back(stRectInfo);
-            }
+            Common::RectInfo_S stRectInfo;
+            stRectInfo.nX1 = static_cast<int>(stResult.fX1 * fWRatio);
+            stRectInfo.nY1 = static_cast<int>(stResult.fY1 * fHRatio);
+            stRectInfo.nX2 = static_cast<int>(stResult.fX2 * fWRatio);
+            stRectInfo.nY2 = static_cast<int>(stResult.fY2 * fHRatio);
+            vstRectInfo.push_back(stRectInfo);
         }
     }
 

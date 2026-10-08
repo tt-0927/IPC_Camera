@@ -76,7 +76,7 @@ public:
      * @return  {bool} true：投递成功 false：联动未初始化
      */
     bool play_audio_async();
-
+    
     int get_audio_file_path(std::string &strAudioPath, int &nTimes);
 
     /**
