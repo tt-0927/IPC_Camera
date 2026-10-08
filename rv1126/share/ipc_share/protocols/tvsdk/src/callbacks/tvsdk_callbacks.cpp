@@ -10,6 +10,7 @@
  * @Change       : 2026-09-08 统一十六类智能事件的规则回退和业务结果返回，校验 IPC 数量上限
  * @Change       : 2026-10-08 补齐 520 查询、521 注册码设置及 504 存储信息查询回调。
  * @Change       : 2026-10-08 提前声明注册配置转换重载，修复 521 设置回调的模板实例化错误。
+ * @Change       : 2026-10-08 增加 PIR 设置回调入口与获取回填后的结构布局及七天布防时间日志。
  */
 
 #include "tvsdk_callbacks.h"
@@ -20,6 +21,7 @@
 #include <string>
 #include <algorithm>
 #include <cstring>
+#include <cstddef>
 #include <set>
 #include <vector>
 #include <fstream>
@@ -5345,6 +5347,44 @@ static NET_COMMON_ECODE_E cb_set_flashing_light_alarm_info(INT32 nChannelId, LPV
 }
 
 /**
+ * @brief 汇总当前编译单元的 PIR 结构布局及七天布防时间，只读访问配置。
+ * @param [in] stInfo 当前请求对应的 PIR 配置。
+ * @param [out] 无。
+ * @return 返回诊断文本，时间段读取数量限制在实际数组容量内。
+ */
+static std::string build_pir_schedule_diagnostic(const NET_PirAlarmInfo_S& stInfo)
+{
+    const NET_AlarmSchedule_S& stSchedule = stInfo.stAlarmSchedule;
+    const size_t uDayCount = sizeof(stSchedule.astTimeSection) / sizeof(stSchedule.astTimeSection[0]);
+    const size_t uSectionMax = sizeof(stSchedule.astTimeSection[0]) / sizeof(stSchedule.astTimeSection[0][0]);
+    /* 使用请求内的局部缓冲区汇总数据，避免逐天日志被限流或与其他请求交错。 */
+    std::ostringstream stText;
+    stText << "config=" << static_cast<const void*>(&stInfo)
+           << " pir_size=" << sizeof(NET_PirAlarmInfo_S)
+           << " sched_size=" << sizeof(NET_AlarmSchedule_S)
+           << " time_size=" << sizeof(NET_SchedTime_S)
+           << " day_stride=" << sizeof(stSchedule.astTimeSection[0])
+           << " days=" << uDayCount << " sections=" << uSectionMax
+           << " sched_offset=" << offsetof(NET_PirAlarmInfo_S, stAlarmSchedule)
+           << " array_offset=" << offsetof(NET_AlarmSchedule_S, astTimeSection)
+           << " end_hour_offset=" << offsetof(NET_SchedTime_S, nEndHour);
+    for (size_t uDay = 0; uDay < uDayCount; ++uDay)
+    {
+        const INT32 nRawCount = stSchedule.uTimeSectionCount[uDay];
+        const INT32 nReadCount = std::max<INT32>(0, std::min<INT32>(nRawCount, static_cast<INT32>(uSectionMax)));
+        stText << " | day=" << uDay << " count=" << nRawCount;
+        for (INT32 nSection = 0; nSection < nReadCount; ++nSection)
+        {
+            const NET_SchedTime_S& stTime = stSchedule.astTimeSection[uDay][nSection];
+            stText << " section=" << nSection
+                   << " time=" << stTime.nStartHour << ':' << stTime.nStartMinute
+                   << "->" << stTime.nEndHour << ':' << stTime.nEndMinute;
+        }
+    }
+    return stText.str();
+}
+
+/**
  * @brief 获取 IPC 的 PIR 告警配置。
  * @author ITC
  * @param [in] nChannelId 设备通道标识，本配置为设备级配置，不参与查询。
@@ -5371,6 +5411,9 @@ static NET_COMMON_ECODE_E cb_get_pir_alarm_info(INT32 nChannelId, LPVOID pOutBuf
     Alarm::PirAlarmInfo_S stAlarmInfo;
     Convert::to_struct(strDataJson, stAlarmInfo);
     TvSdkConvert::FillPirAlarmInfo(stAlarmInfo, *pOutput);
+    /* 获取缓冲区回填完成后才读取数据，避免在回调入口打印未初始化输出。 */
+    const std::string strDiagnostic = build_pir_schedule_diagnostic(*pOutput);
+    dlog_info("[PIR-SCHED][IPC_GET_READY] channel=%d %s", nChannelId, strDiagnostic.c_str());
     //pOutput->uChannel = 0;
     return NET_E_SUCCEED;
 }
@@ -5391,6 +5434,9 @@ static NET_COMMON_ECODE_E cb_set_pir_alarm_info(INT32 nChannelId, LPVOID pInBuff
     }
 
     const pNET_PirAlarmInfo_S pInput = static_cast<pNET_PirAlarmInfo_S>(pInBuffer);
+    /* 在校验和 IPC 数据转换之前记录 SDK 原始输入，不改变设置结果。 */
+    const std::string strDiagnostic = build_pir_schedule_diagnostic(*pInput);
+    dlog_info("[PIR-SCHED][IPC_SET_ENTRY] channel=%d %s", nChannelId, strDiagnostic.c_str());
     if (!is_valid_pir_alarm_info(*pInput))
     {
         return NET_E_INVALID_PARAM;

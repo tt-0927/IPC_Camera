@@ -537,7 +537,7 @@ extern "C" {
 /* 告警周布防时间表中的最小小时值。 */
 #define NET_ALARM_SCHEDULE_HOUR_MIN             0
 /* 告警周布防时间表中的最大小时值。 */
-#define NET_ALARM_SCHEDULE_HOUR_MAX             23
+#define NET_ALARM_SCHEDULE_HOUR_MAX             24
 /* 告警周布防时间表中的最小分钟值。 */
 #define NET_ALARM_SCHEDULE_MINUTE_MIN           0
 /* 告警周布防时间表中的最大分钟值。 */
