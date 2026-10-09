@@ -5,6 +5,7 @@
  * @LastEditors  : zhouzr@kfb.cn
  * @LastEditTime : 2026-08-13 18:12:04
  * @Description  : 事件联动字典与协议映射基础实现
+ * @Change       : 2026-10-09 新人脸识别事件沿用人脸抓拍告警命令，兼容 NVR 的 0x3002 监听。
  */
 
 #include "event_linkage_dict.h"
@@ -231,17 +232,19 @@ UINT32 get_exception_alarm_type(Event::Type_E enEventType)
 
 /**
  * @brief   : 获取 AI 目标事件对应的 TVSDK 告警命令
- * @param    {Event::Type_E} enEventType 事件类型
+ * @param [in] enEventType IPC 内部事件类型。
+ * @param [out] 无。
  * @return   {UINT32} TVSDK 告警命令，0 表示不支持
  */
-UINT32 get_ai_object_alarm_type(Event::Type_E enEventType)
+static UINT32 get_ai_object_alarm_type(Event::Type_E enEventType)
 {
     switch (enEventType)
     {
     case Event::Type_E::LOITERING_DETECT:             return NET_ALARM_LOITERING;
     case Event::Type_E::PARKING_DETECT:               return NET_ALARM_PARKING_DETECT;
     case Event::Type_E::FACE_DETECT:                  return NET_ALARM_FACE_DETECT;
-    case Event::Type_E::FACE_RECOGNITION:             return NET_ALARM_FACE_DETECT;
+    /* 新配置仍使用 AI 目标告警结构，仅映射为 NVR 识别的旧人脸抓拍命令；独立 0x6102 推送不变。 */
+    case Event::Type_E::FACE_RECOGNITION:             return NET_ALARM_FACE_CAPTURE;
     case Event::Type_E::FACE_CAPTURE:                 return NET_ALARM_FACE_CAPTURE;
     case Event::Type_E::CROWD_GATHERING:              return NET_ALARM_CROWD_GATHERING;
     case Event::Type_E::SLEEP_ON_DUTY:                return NET_ALARM_SLEEP_ON_DUTY;

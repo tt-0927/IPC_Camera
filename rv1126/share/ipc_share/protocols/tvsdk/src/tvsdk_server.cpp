@@ -5,6 +5,7 @@
  * @LastEditors  : zhouzr@kfb.cn
  * @LastEditTime : 2026-08-19 16:47:18
  * @Description  : TVSDK 服务端封装实现，对接 NetTVSDKServer.h C 接口；能力集通过 control_manage 命令码获取
+ * @Change       : 2026-10-09 修正统计告警分类掩码，避免将抓拍消息误判为统计结构。
  */
 
 #include "tvsdk_server.h"
@@ -532,6 +533,15 @@ void CTvSdkServer::subscribe_record_download_progress()
     m_pRecordDownloadSubscribeManage = m_pTaskManage.get();
 }
 
+/**
+ * @brief 按告警类别打印负载诊断，并同步提交告警到 SDK。
+ * @param [in] pAlarmer 设备信息，为空时复制启动期缓存。
+ * @param [in] lCommand 告警命令，统计类和抓拍类按高字节区分。
+ * @param [in] pAlarmInfo 调用方持有的告警负载，须在 SDK 调用返回前保持有效。
+ * @param [in] dwBufLen 告警结构的字节长度，不包含指针所指图片的长度。
+ * @param [out] 无。
+ * @return SDK 推送成功返回 OK，未初始化、输入无效或推送失败返回 -1。
+ */
 int CTvSdkServer::push_alarm(const void *pAlarmer, int lCommand, const void *pAlarmInfo, int dwBufLen)
 {
     if (!m_bInit || !pAlarmInfo || dwBufLen <= 0)
@@ -578,7 +588,8 @@ int CTvSdkServer::push_alarm(const void *pAlarmer, int lCommand, const void *pAl
                       sizeof(NET_AlarmBasicInfo_S));
         }
     }
-    else if ((lCommand & 0xF000) == NET_ALARM_BASE_STATISTICS)
+    /* 必须按高字节区分统计类 0x6000 和抓拍类 0x6100，避免误读负载和错误的大小告警。 */
+    else if ((lCommand & 0xFF00) == NET_ALARM_BASE_STATISTICS)
     {
         dlog_info("[统计推送诊断] push_alarm 进入TVSDK层: cmd[0x%x] buf_len[%d] expect_size[%zu]", lCommand, dwBufLen,
                   sizeof(NET_AlarmStatisticsInfo_S));

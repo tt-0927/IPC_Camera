@@ -4,6 +4,7 @@
  * @Date 原始创建日期未记录
  * @Author ITC
  * @Change 2026-10-09 沿用旧算法的 SDK 组包与告警接口，补齐合并人脸配置的抓拍推送。
+ * @Change 2026-10-09 补齐人脸识别事件的目标小图负载，保持小图与告警目标框一致。
  */
 
 #pragma once
@@ -317,9 +318,12 @@ private:
                               FaceAttribute_NS::Result_S &stAttributeResult);
 
     /**
-     * @brief 处理统一人脸识别事件
+     * @brief 处理统一人脸识别事件，按联动选项附加全景图和同一目标的小图。
+     * @param [in,out] stContext 当前帧配置和检测结果，按需准备目标小图。
+     * @param [out] 无。
+     * @return 无，图片处理失败不阻断事件状态处理。
      */
-    void processFaceRecognitionEvent(const FrameContext_S &stContext);
+    void processFaceRecognitionEvent(FrameContext_S &stContext);
 
     /**
      * @brief 检测线程入口

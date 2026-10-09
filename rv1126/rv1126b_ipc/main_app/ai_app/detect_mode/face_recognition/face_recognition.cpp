@@ -4,6 +4,7 @@
  * @Date 原始创建日期未记录
  * @Author ITC
  * @Change 2026-10-09 沿用旧算法的 SDK 组包与告警接口，补齐合并人脸配置的抓拍推送。
+ * @Change 2026-10-09 补齐人脸识别事件的目标小图负载，保持小图与告警目标框一致。
  */
 
 #include "face_recognition.hpp"
@@ -1778,10 +1779,16 @@ void CFaceRecognition::outputOsd(const FrameContext_S &stContext)
         vstAcceptedRect);
 }
 
+/**
+ * @brief 在算法工作线程组装人脸识别事件，按联动选项附加全景图和同一目标的小图。
+ * @param [in,out] stContext 当前帧配置和检测结果，按需复用或准备最佳目标的 BGR 小图。
+ * @param [out] 无，图片由事件上下文的容器持有，不向异步联动传递临时图片指针。
+ * @return 无，小图处理失败仅记录日志，不中断全景图及事件状态处理。
+ */
 void CFaceRecognition::processFaceRecognitionEvent(
-    const FrameContext_S &stContext)
+    FrameContext_S &stContext)
 {
-    const TargetResult_S *pBestTarget = getBestTarget(stContext);
+    TargetResult_S *pBestTarget = getBestTarget(stContext);
 
     EventTriggerContext_S stEventContext;
     stEventContext.enEventType = Event::Type_E::FACE_RECOGNITION;
@@ -1850,6 +1857,36 @@ void CFaceRecognition::processFaceRecognitionEvent(
                 stContext.stPanoramaImage.stImage,
                 stEventContext.stPanoramaImage,
                 JPEG_QUALITY_PANORAMA);
+        }
+
+        /* 只附加当前告警目标的小图，禁止使用其他人脸的小图匹配当前目标框。 */
+        const bool bAttachTarget =
+            pBestTarget->bCaptureTriggered &&
+            std::find(vstLinkage.begin(), vstLinkage.end(),
+                      static_cast<int>(Alarm::UPLOAD_TARGET_IMAGE)) != vstLinkage.end();
+        if (bAttachTarget)
+        {
+            try
+            {
+                EventTvSdkImage_S stTargetImage{};
+                if (ensureTargetImage(stContext, *pBestTarget) &&
+                    encode_mat_to_tvsdk_image(pBestTarget->stTargetImage.stImage,
+                                             stTargetImage, JPEG_QUALITY_TARGET, false) &&
+                    !stTargetImage.vecJpeg.empty())
+                {
+                    stEventContext.stTargetImage = std::move(stTargetImage);
+                }
+                else
+                {
+                    dlog_warn("人脸识别事件目标小图准备或编码失败: channel[%d], target[%d]",
+                              stContext.nChannelId, stContext.nBestTargetIndex);
+                }
+            }
+            catch (const cv::Exception &stException)
+            {
+                dlog_warn("人脸识别事件目标小图处理异常: channel[%d], target[%d], reason[%s]",
+                          stContext.nChannelId, stContext.nBestTargetIndex, stException.what());
+            }
         }
     }
 
