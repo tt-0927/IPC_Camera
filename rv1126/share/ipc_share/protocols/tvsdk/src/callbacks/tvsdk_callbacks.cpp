@@ -9,6 +9,7 @@
  * @Change       : 2026-09-08 人员聚集保留规则数量及位置，无效规则回退旧值并返回实际任务结果
  * @Change       : 2026-09-08 统一十六类智能事件的规则回退和业务结果返回，校验 IPC 数量上限
  * @Change       : 2026-10-08 按能力宏适配 246/247，合并人脸配置并保留旧版任务分支。
+ * @Change       : 2026-10-09 日夜定时配置校验起止顺序和当天上限，设置回调返回实际业务结果。
  */
 
 #include "tvsdk_callbacks.h"
@@ -925,7 +926,12 @@ static bool tvsdk_valid_elevator_region_points(UINT32 uPointCount, const FLOAT a
     return true;
 }
 
-/* 校验日夜切换参数的枚举值、时间字段和亮度范围。 */
+/**
+ * @brief 校验日夜切换参数，定时模式仅允许当天严格递增的时间区间。
+ * @param [in] stConfig SDK 日夜配置，毫秒参与顺序比较，最大时刻为 23:59:59.000。
+ * @param [out] 无。
+ * @return 参数合法返回 true，越界、定时起止相同或倒序返回 false。
+ */
 static bool is_valid_daynight_config(const NET_DayNightInfo_S &stConfig)
 {
     const auto bValidTime = [](INT32 nHour, INT32 nMinute, INT32 nSecond, INT32 nMilliSecond)
@@ -934,9 +940,25 @@ static bool is_valid_daynight_config(const NET_DayNightInfo_S &stConfig)
                nSecond >= 0 && nSecond <= 59 && nMilliSecond >= 0 && nMilliSecond <= 999;
     };
     const bool bTimingMode = (stConfig.enDayNightMode == NET_DAYNIGHT_MODE_TIMING);
+    if (bTimingMode)
+    {
+        if (!bValidTime(stConfig.nBeginHour, stConfig.nBeginMinute, stConfig.nBeginSecond, stConfig.nBeginMilliSec) ||
+            !bValidTime(stConfig.nEndHour, stConfig.nEndMinute, stConfig.nEndSecond, stConfig.nEndMilliSec))
+        {
+            return false;
+        }
+        /* 字段范围校验后换算当天毫秒数，严格按接口要求限制到 23:59:59。 */
+        constexpr INT32 TVSDK_DAYNIGHT_MAX_TIME_MS = ((23 * 60 + 59) * 60 + 59) * 1000;
+        const INT32 nBeginTimeMs = ((stConfig.nBeginHour * 60 + stConfig.nBeginMinute) * 60 +
+                                   stConfig.nBeginSecond) * 1000 + stConfig.nBeginMilliSec;
+        const INT32 nEndTimeMs = ((stConfig.nEndHour * 60 + stConfig.nEndMinute) * 60 +
+                                 stConfig.nEndSecond) * 1000 + stConfig.nEndMilliSec;
+        if (nBeginTimeMs >= nEndTimeMs || nEndTimeMs > TVSDK_DAYNIGHT_MAX_TIME_MS)
+        {
+            return false;
+        }
+    }
     return stConfig.enDayNightMode >= NET_DAYNIGHT_MODE_DAY && stConfig.enDayNightMode <= NET_DAYNIGHT_MODE_TIMING &&
-           (!bTimingMode || (bValidTime(stConfig.nBeginHour, stConfig.nBeginMinute, stConfig.nBeginSecond, stConfig.nBeginMilliSec) &&
-                             bValidTime(stConfig.nEndHour, stConfig.nEndMinute, stConfig.nEndSecond, stConfig.nEndMilliSec))) &&
            stConfig.nSensitivityLevel >= 1 && stConfig.nSensitivityLevel <= 7 &&
            stConfig.nFilterTime >= 5 && stConfig.nFilterTime <= 120 &&
            stConfig.enLightMode >= NET_LIGHT_BRIGHT_MANUAL && stConfig.enLightMode <= NET_LIGHT_BRIGHT_AUTO &&
@@ -5784,11 +5806,20 @@ static NET_COMMON_ECODE_E cb_get_daynight_info(INT32 dwChannelID, LPVOID lpOutBu
     return NET_E_SUCCEED;
 }
 
+/**
+ * @brief 设置日夜转换配置，等待 IPC 业务结果，禁止将任务入队成功误报为保存成功。
+ * @param [in] dwChannelID SDK 通道号，当前设备使用单通道配置。
+ * @param [in] lpInBuffer NET_DayNightInfo_S 配置指针。
+ * @param [out] 无。
+ * @return 保存成功返回 NET_E_SUCCEED，参数非法返回 NET_E_INVALID_PARAM，其余失败返回 NET_E_SET_CFG_FAILED。
+ */
 static NET_COMMON_ECODE_E cb_set_daynight_info(INT32 dwChannelID, LPVOID lpInBuffer)
 {
     (void)dwChannelID;
     if (!lpInBuffer)
+    {
         return NET_E_INVALID_PARAM;
+    }
     
     const NET_DayNightInfo_S *pIn = (const NET_DayNightInfo_S *)lpInBuffer;
     if (!is_valid_daynight_config(*pIn))
@@ -5797,11 +5828,22 @@ static NET_COMMON_ECODE_E cb_set_daynight_info(INT32 dwChannelID, LPVOID lpInBuf
     }
     ISP::DayNightAttr_S stCfg;
     TvSdkConvert::ToDayNightAttr(*pIn, stCfg);
-    std::string inJson = Convert::to_string(stCfg);
-    Task::Info_S stInfo;
-    stInfo.data = wrap_data_json(Convert::to_string(stCfg));
-    int nExec = s_taskManage ? s_taskManage->execute(AC_SET_DAY_NIGHT_INFO, stInfo) : -1;
-    return (nExec == 0) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
+    std::string strResultJson = {};
+    if (execute_get_result(AC_SET_DAY_NIGHT_INFO, wrap_data_json(Convert::to_string(stCfg)), strResultJson) != OK ||
+        strResultJson.empty())
+    {
+        return NET_E_SET_CFG_FAILED;
+    }
+    int nResult = -1;
+    if (!Json::get(strResultJson.c_str(), "Return", nResult))
+    {
+        return NET_E_SET_CFG_FAILED;
+    }
+    if (nResult == ERR_PARAM || nResult == ERR_WEB_PARAM)
+    {
+        return NET_E_INVALID_PARAM;
+    }
+    return (nResult == OK) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
 }
 
 static NET_COMMON_ECODE_E cb_get_backlight_info(INT32 dwChannelID, LPVOID lpOutBuffer)
