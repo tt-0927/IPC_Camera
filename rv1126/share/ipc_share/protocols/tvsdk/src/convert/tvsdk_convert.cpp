@@ -5,6 +5,8 @@
  * @Author       : ITC
  * @Date         : 2026-09-08
  * @Change       : 2026-10-08 兼容合并后的人脸识别配置，保留旧协议未暴露的功能开关。
+ * @Change       : 2026-10-09 安全服务查询将 SSH 开始时间的日期时间分隔符统一为空格。
+ * @Change       : 2026-10-09 安全服务设置仅转换可写配置，保留 IPC 当前 SSH 运行状态。
  * @Change       : 2026-09-08 越界保留全部规则参数，使用事件总开关并同步联动配置
  * @Change       : 2026-09-08 补齐人员聚集联动配置的设置和获取转换
  * @Change       : 2026-09-08 补齐入侵、徘徊、停车、物品遗留和拿取、进入和离开区域的联动转换
@@ -1677,6 +1679,12 @@ void ToMotionDetection(const NET_MotionAlarmInfo_S &src, Alarm::MotionDetection_
 }
 
 /* ---------- 安全服务与日志（465-472） ---------- */
+/**
+ * 功能：将 IPC 安全服务配置转换为 SDK 配置，SSH 开始时间按空格分隔格式输出。
+ * param [in] src：IPC 安全服务配置，兼容已有的带 T 或空格的开始时间。
+ * param [out] dst：SDK 安全服务配置，空时间保持为空。
+ * return：无。
+ */
 void FillSecurityServicesInfo(const ::System::SecurityServices_S &src,
                               NET_SecurityServicesInfo_S &dst)
 {
@@ -1691,10 +1699,23 @@ void FillSecurityServicesInfo(const ::System::SecurityServices_S &src,
     dst.stSshAdmin.nSshPort = src.stSshAdmin.nSshPort;
     copy_alarm_string(src.stSshAdmin.strSshStartTime, dst.stSshAdmin.szSshStartTime,
                       sizeof(dst.stSshAdmin.szSshStartTime));
+    /* 仅修改展示分隔符，避免改变系统时间接口及内部 SSH 计时语义。 */
+    static constexpr size_t SECURITY_SSH_DATE_TIME_SEPARATOR_INDEX = 10;
+    if (src.stSshAdmin.strSshStartTime.size() > SECURITY_SSH_DATE_TIME_SEPARATOR_INDEX &&
+        dst.stSshAdmin.szSshStartTime[SECURITY_SSH_DATE_TIME_SEPARATOR_INDEX] == 'T')
+    {
+        dst.stSshAdmin.szSshStartTime[SECURITY_SSH_DATE_TIME_SEPARATOR_INDEX] = ' ';
+    }
     copy_alarm_string(src.stSshAdmin.strSshCountdown, dst.stSshAdmin.szSshCountdown,
                       sizeof(dst.stSshAdmin.szSshCountdown));
 }
 
+/**
+ * 功能：将 SDK 安全服务可写参数转换为 IPC 配置，忽略客户端提供的 SSH 只读状态。
+ * param [in] src：SDK 安全服务配置，启动时间和倒计时不参与设置。
+ * param [in,out] dst：由调用方预先读取的 IPC 当前配置，保留其中的 SSH 启动时间和倒计时。
+ * return：无。
+ */
 void ToSecurityServicesInfo(const NET_SecurityServicesInfo_S &src,
                             ::System::SecurityServices_S &dst)
 {
@@ -1706,10 +1727,7 @@ void ToSecurityServicesInfo(const NET_SecurityServicesInfo_S &src,
     dst.stPwdPolicy.bAllowLowLevelPwdLogin = (src.stPwdPolicy.bAllowLowLevelPwdLogin == TRUE);
     dst.stSshAdmin.bSshEnable = (src.stSshAdmin.bSshEnable == TRUE);
     dst.stSshAdmin.nSshPort = src.stSshAdmin.nSshPort;
-    dst.stSshAdmin.strSshStartTime = read_alarm_string(src.stSshAdmin.szSshStartTime,
-                                                        sizeof(src.stSshAdmin.szSshStartTime));
-    dst.stSshAdmin.strSshCountdown = read_alarm_string(src.stSshAdmin.szSshCountdown,
-                                                        sizeof(src.stSshAdmin.szSshCountdown));
+    /* SSH 运行状态由 IPC 业务维护，不能用客户端输入或默认值覆盖当前状态。 */
 }
 
 void FillSshCountdownInfo(const ::System::SshCountdown_S &src,

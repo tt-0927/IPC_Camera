@@ -1,3 +1,11 @@
+/**
+ * 文件名：NetTVSDKServer.h
+ * 创建日期：原始创建日期未记录。
+ * 作者：原作者未记录，本次修改为 Codex。
+ * 功能：定义 TVSDK 服务端公共协议类型、参数范围和接口。
+ * 修改记录：2026-10-09，增加安全服务登录锁定参数的范围宏。
+ * 修改记录：2026-10-09，明确 SSH 启动时间和倒计时为只读状态，设置时忽略客户端输入。
+ */
 #ifndef NETTVSDK_H
 #define NETTVSDK_H
 
@@ -524,6 +532,13 @@ extern "C" {
 #define NET_MAX_ENV_PARAM_NUM                       2               /* 最大环境参数数量 */
 #define NET_MAX_SCENE_TYPE_NUM                      16              /* 最大支持的场景类型数量 */
 #define NET_MAX_ENV_TYPE_NUM                        2               /* 最大支持的环境类型数量 */
+
+/* 安全服务登录锁定的验证间隔，单位为分钟，与网页允许范围保持一致。 */
+#define NET_SECURITY_LOGIN_CHECK_INTERVAL_MIN_MINUTES    (1)
+#define NET_SECURITY_LOGIN_CHECK_INTERVAL_MAX_MINUTES    (1440)
+/* 安全服务登录锁定的最大连续错误次数范围。 */
+#define NET_SECURITY_LOGIN_MAX_ERROR_TIMES_MIN           (3)
+#define NET_SECURITY_LOGIN_MAX_ERROR_TIMES_MAX           (20)
 
 /* 告警周布防时间表包含的天数。 */
 #define NET_ALARM_SCHEDULE_DAY_COUNT            7
@@ -2613,7 +2628,9 @@ typedef struct tagNET_SshAdminInfo
 {
     BOOL    bSshEnable;
     INT32   nSshPort;
+    /* 只读：由 IPC 记录的 SSH 启动时间，查询格式为 YYYY-MM-DD HH:mm:ss，设置时忽略。 */
     CHAR    szSshStartTime[NET_LEN_64];
+    /* 只读：查询返回的 SSH 倒计时，格式为 HH:mm:ss；设置时忽略，实时值通过 467 命令查询。 */
     CHAR    szSshCountdown[NET_LEN_64];
     BYTE    byRes[64];
 } NET_SshAdminInfo_S;

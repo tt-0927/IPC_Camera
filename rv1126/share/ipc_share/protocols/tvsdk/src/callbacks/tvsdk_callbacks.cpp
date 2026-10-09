@@ -10,6 +10,8 @@
  * @Change       : 2026-09-08 统一十六类智能事件的规则回退和业务结果返回，校验 IPC 数量上限
  * @Change       : 2026-10-08 按能力宏适配 246/247，合并人脸配置并保留旧版任务分支。
  * @Change       : 2026-10-09 日夜定时配置校验起止顺序和当天上限，设置回调返回实际业务结果。
+ * @Change       : 2026-10-09 安全服务设置在布尔转换前校验开关和登录锁定范围，并返回业务错误。
+ * @Change       : 2026-10-09 安全服务设置读取并保留 IPC 当前 SSH 状态，忽略客户端只读字段。
  */
 
 #include "tvsdk_callbacks.h"
@@ -6436,19 +6438,63 @@ static NET_COMMON_ECODE_E cb_get_security_services_info(INT32 dwChannelID, LPVOI
     return NET_E_SUCCEED;
 }
 
+/**
+ * 功能：校验安全服务可写参数，保留 IPC 当前 SSH 只读状态，并返回实际设置结果。
+ * param [in] dwChannelID：协议通道号，当前安全服务配置为设备级配置。
+ * param [in] lpInBuffer：NET_SecurityServicesInfo_S 配置指针，开关仅允许 FALSE 或 TRUE，SSH 时间状态忽略。
+ * param [out]：无。
+ * return：成功返回 NET_E_SUCCEED，非法参数返回 NET_E_INVALID_PARAM，任务失败返回 NET_E_SET_CFG_FAILED。
+ */
 static NET_COMMON_ECODE_E cb_set_security_services_info(INT32 dwChannelID, LPVOID lpInBuffer)
 {
     (void)dwChannelID;
     if (!lpInBuffer)
+    {
         return NET_E_INVALID_PARAM;
+    }
 
-    System::SecurityServices_S stConfig;
-    TvSdkConvert::ToSecurityServicesInfo(
-        *static_cast<const NET_SecurityServicesInfo_S *>(lpInBuffer), stConfig);
-    return execute_action_expect_success(AC_SET_SECURITY_SERVICES_INFO,
-                                         wrap_data_json(Convert::to_string(stConfig))) == 0
-               ? NET_E_SUCCEED
-               : NET_E_SET_CFG_FAILED;
+    const NET_SecurityServicesInfo_S &stInput =
+        *static_cast<const NET_SecurityServicesInfo_S *>(lpInBuffer);
+    /* SDK 开关为整数，必须在转换为 IPC bool 前拒绝非法值，避免被静默转换成禁用。 */
+    if ((stInput.stLoginLock.bIllegalLoginEnable != FALSE && stInput.stLoginLock.bIllegalLoginEnable != TRUE) ||
+        (stInput.stPwdPolicy.bPwdSecurityLevelEnable != FALSE && stInput.stPwdPolicy.bPwdSecurityLevelEnable != TRUE) ||
+        (stInput.stPwdPolicy.bAllowLowLevelPwdLogin != FALSE && stInput.stPwdPolicy.bAllowLowLevelPwdLogin != TRUE) ||
+        (stInput.stSshAdmin.bSshEnable != FALSE && stInput.stSshAdmin.bSshEnable != TRUE) ||
+        stInput.stLoginLock.nCheckInterval < NET_SECURITY_LOGIN_CHECK_INTERVAL_MIN_MINUTES ||
+        stInput.stLoginLock.nCheckInterval > NET_SECURITY_LOGIN_CHECK_INTERVAL_MAX_MINUTES ||
+        stInput.stLoginLock.nMaxErrorTimes < NET_SECURITY_LOGIN_MAX_ERROR_TIMES_MIN ||
+        stInput.stLoginLock.nMaxErrorTimes > NET_SECURITY_LOGIN_MAX_ERROR_TIMES_MAX)
+    {
+        dlog_warn("TVSDK安全服务设置参数无效: interval[%d], max_error_times[%d]",
+                  stInput.stLoginLock.nCheckInterval, stInput.stLoginLock.nMaxErrorTimes);
+        return NET_E_INVALID_PARAM;
+    }
+
+    /* 必须先读取当前状态，避免 SSH 已运行时因默认空时间覆盖真实启动时间。 */
+    std::string strCurrentJson;
+    if (!execute_get_success_data(AC_GET_SECURITY_SERVICES_INFO, "{}", strCurrentJson))
+    {
+        return NET_E_SET_CFG_FAILED;
+    }
+    System::SecurityServices_S stConfig{};
+    Convert::to_struct(strCurrentJson, stConfig);
+    TvSdkConvert::ToSecurityServicesInfo(stInput, stConfig);
+    std::string strResult;
+    if (execute_get_result(AC_SET_SECURITY_SERVICES_INFO,
+                           wrap_data_json(Convert::to_string(stConfig)), strResult) != 0)
+    {
+        return NET_E_SET_CFG_FAILED;
+    }
+    int nResult = ERR;
+    if (strResult.empty() || !Json::get(strResult.c_str(), "Return", nResult))
+    {
+        return NET_E_SET_CFG_FAILED;
+    }
+    if (nResult == ERR_PARAM || nResult == ERR_WEB_PARAM)
+    {
+        return NET_E_INVALID_PARAM;
+    }
+    return (nResult == OK) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
 }
 
 static NET_COMMON_ECODE_E cb_get_ssh_countdown(INT32 dwChannelID, LPVOID lpOutBuffer)
