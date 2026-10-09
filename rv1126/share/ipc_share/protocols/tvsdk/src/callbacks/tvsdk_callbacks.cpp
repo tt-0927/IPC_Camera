@@ -8,6 +8,7 @@
  * @Change       : 2026-09-08 越界设置保留规则数量和索引，无效参数保留旧值，由事件总开关控制
  * @Change       : 2026-09-08 人员聚集保留规则数量及位置，无效规则回退旧值并返回实际任务结果
  * @Change       : 2026-09-08 统一十六类智能事件的规则回退和业务结果返回，校验 IPC 数量上限
+ * @Change       : 2026-10-08 按能力宏适配 246/247，合并人脸配置并保留旧版任务分支。
  */
 
 #include "tvsdk_callbacks.h"
@@ -6224,31 +6225,48 @@ static NET_COMMON_ECODE_E cb_set_leave_region_alarm(INT32 nChannelId, LPVOID pIn
     return tvsdk_set_event_config(AC_SET_LEAVE_REGION_DETECT_INFO, Convert::to_string(stConfig));
 }
 
+/**
+ * @brief 获取旧版人脸抓拍配置，新人脸能力使用合并配置作为唯一数据源。
+ * @param [in] dwChannelID SDK 通道号，沿用 IPC 单通道处理方式。
+ * @param [out] lpOutBuffer TVSDK 人脸抓拍结构体。
+ * @return 成功返回 NET_E_SUCCEED，空缓冲区或任务失败返回对应错误。
+ */
 static NET_COMMON_ECODE_E cb_get_face_capture_info(INT32 dwChannelID, LPVOID lpOutBuffer)
 {
     (void)dwChannelID;
     if (!lpOutBuffer)
+    {
         return NET_E_INVALID_PARAM;
-    pNET_FaceCaptureInfo_S pOut = (pNET_FaceCaptureInfo_S)lpOutBuffer;
+    }
+    NET_FaceCaptureInfo_S *pOut = static_cast<NET_FaceCaptureInfo_S *>(lpOutBuffer);
 
-    std::string outJson;
+#if CAP_AI_FACE_RECOGNITION
+    const int nGetActionCode = AC_GET_FACE_RECOGNITION_INFO;
+#else
+    const int nGetActionCode = AC_GET_FACE_CAPTURE_INFO;
+#endif
     std::string strJson;
-    if (execute_get_result(AC_GET_FACE_CAPTURE_INFO, "{}", outJson) != 0 || outJson.empty())
+    if (!execute_get_success_data(nGetActionCode, "{}", strJson))
+    {
         return NET_E_GET_CFG_FAILED;
-    int nRet = -1;
-    Json::get(outJson.c_str(), "Return", nRet);
-    if (nRet != 0)
-        return NET_E_GET_CFG_FAILED;
-
-    Alarm::FaceCapture_S stCfg;
-    strJson = normalize_data_json(outJson);
-    Convert::to_struct(strJson, stCfg);
-    TvSdkConvert::FillFaceCaptureInfo(stCfg, *pOut);
+    }
+#if CAP_AI_FACE_RECOGNITION
+    Alarm::FaceRecognition_S stFaceRecognitionConfig;
+    Convert::to_struct(strJson, stFaceRecognitionConfig);
+    TvSdkConvert::FillFaceCaptureInfo(stFaceRecognitionConfig, *pOut);
+    dlog_info("TVSDK人脸抓拍获取: action[%d], enable[%d], capture[%d], attribute[%d], dynamic[%d]",
+              nGetActionCode, stFaceRecognitionConfig.bEnable, stFaceRecognitionConfig.bCaptureEnable,
+              stFaceRecognitionConfig.bAttributeAnalysisEnable, stFaceRecognitionConfig.bDynamicAnalysisEnable);
+#else
+    Alarm::FaceCapture_S stCaptureConfig;
+    Convert::to_struct(strJson, stCaptureConfig);
+    TvSdkConvert::FillFaceCaptureInfo(stCaptureConfig, *pOut);
+#endif
     pOut->uChannel = 0;
     return NET_E_SUCCEED;
 }
 /**
- * @brief 设置人脸抓拍配置，返回实际业务处理结果。
+ * @brief 设置旧版人脸抓拍配置，新人脸能力先读取当前配置并保留协议未暴露的开关。
  * @param [in] dwChannelID SDK通道号，沿用单通道设备处理方式。
  * @param [in] lpInBuffer 人脸抓拍配置结构体。
  * @param [out] 无
@@ -6261,14 +6279,31 @@ static NET_COMMON_ECODE_E cb_set_face_capture_info(INT32 dwChannelID, LPVOID lpI
     {
         return NET_E_INVALID_PARAM;
     }
-    const NET_FaceCaptureInfo_S *pIn = (const NET_FaceCaptureInfo_S *)lpInBuffer;
-    Alarm::FaceCapture_S stCfg;
-    TvSdkConvert::ToFaceCapture(*pIn, stCfg);
-    std::string strResult;
-    if (execute_get_result(AC_SET_FACE_CAPTURE_INFO,
-                           wrap_data_json(Convert::to_string(stCfg)), strResult) != 0)
+    const NET_FaceCaptureInfo_S *pIn = static_cast<const NET_FaceCaptureInfo_S *>(lpInBuffer);
+#if CAP_AI_FACE_RECOGNITION
+    const int nSetActionCode = AC_SET_FACE_RECOGNITION_INFO;
+    std::string strCurrentJson;
+    if (!execute_get_success_data(AC_GET_FACE_RECOGNITION_INFO, "{}", strCurrentJson))
     {
-        dlog_error("TVSDK人脸抓拍设置任务执行失败: action[%d]", AC_SET_FACE_CAPTURE_INFO);
+        dlog_error("TVSDK人脸抓拍设置前获取合并人脸配置失败");
+        return NET_E_GET_CFG_FAILED;
+    }
+    Alarm::FaceRecognition_S stCurrentConfig;
+    Convert::to_struct(strCurrentJson, stCurrentConfig);
+    Alarm::FaceRecognition_S stUpdatedConfig;
+    /* 沿用同步配置任务的读改写路径，不自动启用总开关，也不改变网页专属的分析开关。 */
+    TvSdkConvert::ToFaceRecognition(*pIn, stCurrentConfig, stUpdatedConfig);
+    const std::string strConfigJson = Convert::to_string(stUpdatedConfig);
+#else
+    const int nSetActionCode = AC_SET_FACE_CAPTURE_INFO;
+    Alarm::FaceCapture_S stCaptureConfig;
+    TvSdkConvert::ToFaceCapture(*pIn, stCaptureConfig);
+    const std::string strConfigJson = Convert::to_string(stCaptureConfig);
+#endif
+    std::string strResult;
+    if (execute_get_result(nSetActionCode, wrap_data_json(strConfigJson), strResult) != 0)
+    {
+        dlog_error("TVSDK人脸抓拍设置任务执行失败: action[%d]", nSetActionCode);
         return NET_E_SET_CFG_FAILED;
     }
     int nRet = ERR;
@@ -6279,10 +6314,15 @@ static NET_COMMON_ECODE_E cb_set_face_capture_info(INT32 dwChannelID, LPVOID lpI
     }
     if (nRet != OK)
     {
-        dlog_warn("TVSDK人脸抓拍设置失败: action[%d], ipc_ret[%d]", AC_SET_FACE_CAPTURE_INFO, nRet);
+        dlog_warn("TVSDK人脸抓拍设置失败: action[%d], ipc_ret[%d]", nSetActionCode, nRet);
         return (nRet == ERR_WEB_PARAM || nRet == ERR_WEB_REGION)
                    ? NET_E_INVALID_PARAM : NET_E_SET_CFG_FAILED;
     }
+#if CAP_AI_FACE_RECOGNITION
+    dlog_info("TVSDK人脸抓拍设置成功: action[%d], enable[%d], capture[%d], attribute[%d], dynamic[%d]",
+              nSetActionCode, stUpdatedConfig.bEnable, stUpdatedConfig.bCaptureEnable,
+              stUpdatedConfig.bAttributeAnalysisEnable, stUpdatedConfig.bDynamicAnalysisEnable);
+#endif
     return NET_E_SUCCEED;
 }
 

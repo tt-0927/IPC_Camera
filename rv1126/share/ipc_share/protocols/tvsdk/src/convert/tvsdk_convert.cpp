@@ -4,6 +4,7 @@
  * @FileName     : tvsdk_convert.cpp
  * @Author       : ITC
  * @Date         : 2026-09-08
+ * @Change       : 2026-10-08 兼容合并后的人脸识别配置，保留旧协议未暴露的功能开关。
  * @Change       : 2026-09-08 越界保留全部规则参数，使用事件总开关并同步联动配置
  * @Change       : 2026-09-08 补齐人员聚集联动配置的设置和获取转换
  * @Change       : 2026-09-08 补齐入侵、徘徊、停车、物品遗留和拿取、进入和离开区域的联动转换
@@ -4501,6 +4502,60 @@ void TvSdkConvert::ToFaceCapture(const NET_FaceCaptureInfo_S &src, Alarm::FaceCa
     }
 
     ToLinkageList(src.stLinkageList, dst.stLinkageList);
+}
+
+/**
+ * @brief 将合并后的人脸识别配置投影为旧版人脸抓拍配置，复用原有字段转换。
+ * @param [in] stSource IPC 人脸识别配置，抓拍开关与总开关独立。
+ * @param [out] stDestination TVSDK 人脸抓拍配置。
+ * @return 无。
+ */
+void TvSdkConvert::FillFaceCaptureInfo(const Alarm::FaceRecognition_S &stSource,
+                                       NET_FaceCaptureInfo_S &stDestination)
+{
+    Alarm::FaceCapture_S stCaptureConfig;
+    stCaptureConfig.bEnable = stSource.bCaptureEnable;
+    stCaptureConfig.stRule.nSensitivity = stSource.nSensitivity;
+    stCaptureConfig.stRule.stRegion = stSource.stRegion;
+    stCaptureConfig.stRule.vstShieldedRegion = stSource.stCaptureRule.vstShieldedRegion;
+    stCaptureConfig.stRule.stMinIpdRect = stSource.stCaptureRule.stMinIpdRect;
+    stCaptureConfig.stRule.nMinWidth = stSource.stCaptureRule.nMinWidth;
+    stCaptureConfig.stRule.nMinHeight = stSource.stCaptureRule.nMinHeight;
+    stCaptureConfig.stRule.nMaxWidth = stSource.stCaptureRule.nMaxWidth;
+    stCaptureConfig.stRule.nMaxHeight = stSource.stCaptureRule.nMaxHeight;
+    stCaptureConfig.stRule.nInterval = stSource.stCaptureRule.nInterval;
+    stCaptureConfig.aAlarmTime = stSource.aAlarmTime;
+    stCaptureConfig.stLinkageList = stSource.stLinkageList;
+    FillFaceCaptureInfo(stCaptureConfig, stDestination);
+}
+
+/**
+ * @brief 将旧版人脸抓拍设置字段合并到当前人脸识别配置。
+ * @param [in] stSource TVSDK 人脸抓拍配置。
+ * @param [in] stCurrent 当前 IPC 配置，总开关、属性分析和动态分析开关均保持不变。
+ * @param [out] stDestination 更新后的配置，不执行持久化或资源调度。
+ * @return 无。
+ */
+void TvSdkConvert::ToFaceRecognition(const NET_FaceCaptureInfo_S &stSource,
+                                     const Alarm::FaceRecognition_S &stCurrent,
+                                     Alarm::FaceRecognition_S &stDestination)
+{
+    Alarm::FaceCapture_S stCaptureConfig;
+    ToFaceCapture(stSource, stCaptureConfig);
+
+    stDestination = stCurrent;
+    stDestination.bCaptureEnable = stCaptureConfig.bEnable;
+    stDestination.nSensitivity = stCaptureConfig.stRule.nSensitivity;
+    stDestination.stRegion = stCaptureConfig.stRule.stRegion;
+    stDestination.stCaptureRule.vstShieldedRegion = stCaptureConfig.stRule.vstShieldedRegion;
+    stDestination.stCaptureRule.stMinIpdRect = stCaptureConfig.stRule.stMinIpdRect;
+    stDestination.stCaptureRule.nMinWidth = stCaptureConfig.stRule.nMinWidth;
+    stDestination.stCaptureRule.nMinHeight = stCaptureConfig.stRule.nMinHeight;
+    stDestination.stCaptureRule.nMaxWidth = stCaptureConfig.stRule.nMaxWidth;
+    stDestination.stCaptureRule.nMaxHeight = stCaptureConfig.stRule.nMaxHeight;
+    stDestination.stCaptureRule.nInterval = stCaptureConfig.stRule.nInterval;
+    stDestination.aAlarmTime = stCaptureConfig.aAlarmTime;
+    stDestination.stLinkageList = stCaptureConfig.stLinkageList;
 }
 
 void TvSdkConvert::FillFaceCaptureOverlayInfo(const Alarm::OverlayInfo_S &src,

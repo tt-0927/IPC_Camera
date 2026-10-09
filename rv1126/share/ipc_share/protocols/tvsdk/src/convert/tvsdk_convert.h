@@ -1,3 +1,10 @@
+/**
+ * @FileName     : tvsdk_convert.h
+ * @Date         : 原始创建日期未记录
+ * @Author       : ITC
+ * @Description  : IPC 与 TVSDK 结构体转换声明。
+ * @Change       : 2026-10-08 兼容合并后的人脸识别配置与旧版人脸抓拍接口。
+ */
 #pragma once
 
 #include "system_define.h"
@@ -388,6 +395,27 @@ void ToAudioConfig(const NET_AudioCfg_S &src, Audio_NS::AudioConfig_S &dst);
 
 void FillFaceCaptureInfo(const Alarm::FaceCapture_S &src, NET_FaceCaptureInfo_S &dst);
 void ToFaceCapture(const NET_FaceCaptureInfo_S &src, Alarm::FaceCapture_S &dst);
+
+/**
+ * @brief 将合并后的人脸识别配置转换为旧版 TVSDK 人脸抓拍配置。
+ * @param [in] stSource IPC 人脸识别配置。
+ * @param [out] stDestination TVSDK 人脸抓拍配置。
+ * @return 无。
+ */
+void FillFaceCaptureInfo(const Alarm::FaceRecognition_S &stSource,
+                         NET_FaceCaptureInfo_S &stDestination);
+
+/**
+ * @brief 将旧版 TVSDK 人脸抓拍配置合并回人脸识别配置。
+ * @param [in] stSource TVSDK 人脸抓拍配置。
+ * @param [in] stCurrent 当前 IPC 人脸识别配置，用于保留新增字段。
+ * @param [out] stDestination 更新后的人脸识别配置。
+ * @return 无。
+ */
+void ToFaceRecognition(const NET_FaceCaptureInfo_S &stSource,
+                       const Alarm::FaceRecognition_S &stCurrent,
+                       Alarm::FaceRecognition_S &stDestination);
+
 void FillFaceCaptureOverlayInfo(const Alarm::OverlayInfo_S &src,
                                 NET_FaceCaptureOverlayInfo_S &dst);
 void ToFaceCaptureOverlayInfo(const NET_FaceCaptureOverlayInfo_S &src,
