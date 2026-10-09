@@ -6,6 +6,7 @@
  * @LastEditTime : 2026-09-23 15:44:29
  * @Description  : 事件任务
  * @修改记录     : 2026-09-08，Codex，逆行识别仅允许两个单向方向。
+ * @修改记录     : 2026-10-09，Codex，新旧人脸抓拍设置均校验间隔为 1～10 秒。
  */
 
 #include "event_task.h"
@@ -40,6 +41,11 @@
 #include "find_record_file.h"
 
 #define ERR_EVENT_RESOURCE_CONFLICT -305
+
+/* 人脸抓拍间隔采用实际秒数，范围与网页下拉选项保持一致。 */
+static constexpr int EVENT_FACE_CAPTURE_INTERVAL_MIN_SECONDS = 1;
+static constexpr int EVENT_FACE_CAPTURE_INTERVAL_MAX_SECONDS = 10;
+
 /**
  * @brief   : 辅助函数：将AlgorithmConfig转换为SmartEventEnableStatus用于资源检查
  */
@@ -1279,11 +1285,24 @@ void Task::Event::GetFaceRecognitionInfo::handle()
     result(Convert::to_string(stInfo));
 }
 
-/* 设置人脸识别配置 */
+/**
+ * 功能：校验并保存合并人脸配置，非法抓拍间隔在修改资源和配置前拒绝。
+ * param [in]：无，配置从任务成员 m_taskData 读取。
+ * param [out]：无，处理结果通过 result 返回。
+ * return：无返回值，抓拍间隔超出 1～10 秒时返回 ERR_WEB_PARAM。
+ */
 void Task::Event::SetFaceRecognitionInfo::handle()
 {
     Alarm::FaceRecognition_S stInfo;
     Convert::to_struct(m_taskData, stInfo);
+
+    if (stInfo.stCaptureRule.nInterval < EVENT_FACE_CAPTURE_INTERVAL_MIN_SECONDS ||
+        stInfo.stCaptureRule.nInterval > EVENT_FACE_CAPTURE_INTERVAL_MAX_SECONDS)
+    {
+        dlog_error("设置人脸识别抓拍间隔超出范围[1,10]秒: interval[%d]", stInfo.stCaptureRule.nInterval);
+        result(ERR_WEB_PARAM);
+        return;
+    }
 
     if (stInfo.nSensitivity < 1 || stInfo.nSensitivity > 100 || stInfo.aAlarmTime.size() != 7)
     {
@@ -1413,11 +1432,23 @@ void Task::Event::GetFaceCaptureInfo::handle()
     result(Convert::to_string(stInfo));
 }
 
-/* 设置人脸抓拍信息 */
+/**
+ * 功能：校验并保存旧人脸抓拍配置，非法抓拍间隔在修改资源和配置前拒绝。
+ * param [in]：无，配置从任务成员 m_taskData 读取。
+ * param [out]：无，处理结果通过 result 返回。
+ * return：无返回值，抓拍间隔超出 1～10 秒时返回 ERR_WEB_PARAM。
+ */
 void Task::Event::SetFaceCaptureInfo::handle()
 {
     Alarm::FaceCapture_S stInfo;
     Convert::to_struct(m_taskData, stInfo);
+    if (stInfo.stRule.nInterval < EVENT_FACE_CAPTURE_INTERVAL_MIN_SECONDS ||
+        stInfo.stRule.nInterval > EVENT_FACE_CAPTURE_INTERVAL_MAX_SECONDS)
+    {
+        dlog_error("设置人脸抓拍间隔超出范围[1,10]秒: interval[%d]", stInfo.stRule.nInterval);
+        result(ERR_WEB_PARAM);
+        return;
+    }
     /* 检查智能事件资源冲突 */
     // int ret = check_analytics_resource(::Event::Type::FACE_CAPTURE, stInfo.bEnable);
     // if (ret != 0) {
