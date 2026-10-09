@@ -1,6 +1,9 @@
 /**
  * @file face_recognition.cpp
  * @brief 人脸识别算法运行模块
+ * @Date 原始创建日期未记录
+ * @Author ITC
+ * @Change 2026-10-09 沿用旧算法的 SDK 组包与告警接口，补齐合并人脸配置的抓拍推送。
  */
 
 #include "face_recognition.hpp"
@@ -15,6 +18,11 @@
 #include "task_publish.h"
 #include "time_utils.h"
 
+#ifdef ENABLE_TVSDK_SRC
+#include "control_manage.h"
+#include "NetTVSDKServer.h"
+#endif
+
 #ifdef ENABLE_GAT1400_SRC
 #include "gat1400.h"
 #endif
@@ -22,6 +30,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <cstring>
 #include <filesystem>
 #include <limits>
 #include <string>
@@ -42,6 +51,76 @@ constexpr float FACE_CLOSEUP_MARGIN_TOP = 0.8F;
 constexpr float FACE_CLOSEUP_MARGIN_BOTTOM = 1.5F;
 constexpr int FACE_CLOSEUP_MIN_SIDE = 96;
 constexpr int FACE_CLOSEUP_MAX_SIDE = 640;
+
+#ifdef ENABLE_TVSDK_SRC
+constexpr int FACE_CAPTURE_REGION_POINT_COUNT = 4;
+constexpr float FACE_CAPTURE_REGION_SCALE = 100.0F;
+
+/**
+ * @brief 按输入颜色格式编码抓拍图片，并校验 SDK 协议允许的图片长度。
+ * @param [in] stImage RGB 全景图或 BGR 目标图。
+ * @param [in] nQuality JPEG 编码质量。
+ * @param [in] bInputRgb 输入是否为 RGB，目标小图必须为 false。
+ * @param [out] stEncodedImage 持有 JPEG 内存的图片对象。
+ * @return JPEG 非空且未超限返回 true，编码失败或异常返回 false。
+ */
+static bool face_recognition_encode_capture_image(const cv::Mat &stImage,
+                                                   int nQuality,
+                                                   bool bInputRgb,
+                                                   EventTvSdkImage_S &stEncodedImage)
+{
+    try
+    {
+        if (!encode_mat_to_tvsdk_image(stImage, stEncodedImage, nQuality, bInputRgb))
+        {
+            return false;
+        }
+    }
+    catch (const cv::Exception &stException)
+    {
+        dlog_warn("人脸抓拍编码异常: %s", stException.what());
+        return false;
+    }
+    return !stEncodedImage.vecJpeg.empty() &&
+           stEncodedImage.vecJpeg.size() <= static_cast<size_t>(NET_PIC_DATA_MAX_LEN);
+}
+
+/**
+ * @brief 将检测目标框裁剪到全景边界，拒绝无效浮点值和退化区域。
+ * @param [in] stResult 当前帧人脸检测结果，坐标与全景一致。
+ * @param [in] stImageSize 全景尺寸。
+ * @param [out] stCropRect 全景像素目标框，不等同于缩放或扩边后的 JPEG 尺寸。
+ * @return 存在有效目标区域返回 true，否则返回 false。
+ */
+static bool face_recognition_get_capture_rect(const FaceDetect_NS::Result_S &stResult,
+                                              const cv::Size &stImageSize,
+                                              cv::Rect &stCropRect)
+{
+    if (stImageSize.width <= 0 || stImageSize.height <= 0 ||
+        !std::isfinite(stResult.fX1) || !std::isfinite(stResult.fY1) ||
+        !std::isfinite(stResult.fX2) || !std::isfinite(stResult.fY2) ||
+        stResult.fX2 <= stResult.fX1 || stResult.fY2 <= stResult.fY1)
+    {
+        return false;
+    }
+    const double dLeft = std::max(0.0, static_cast<double>(stResult.fX1));
+    const double dTop = std::max(0.0, static_cast<double>(stResult.fY1));
+    const double dRight = std::min(static_cast<double>(stImageSize.width),
+                                   static_cast<double>(stResult.fX2));
+    const double dBottom = std::min(static_cast<double>(stImageSize.height),
+                                    static_cast<double>(stResult.fY2));
+    if (dRight <= dLeft || dBottom <= dTop)
+    {
+        return false;
+    }
+    const int nLeft = static_cast<int>(std::floor(dLeft));
+    const int nTop = static_cast<int>(std::floor(dTop));
+    const int nRight = static_cast<int>(std::ceil(dRight));
+    const int nBottom = static_cast<int>(std::ceil(dBottom));
+    stCropRect = cv::Rect(nLeft, nTop, nRight - nLeft, nBottom - nTop);
+    return true;
+}
+#endif
 
 cv::Scalar parseOverlayColor(const std::string &strColor)
 {
@@ -1394,6 +1473,144 @@ void CFaceRecognition::processAttributeResult(FrameContext_S &stContext)
     }
 }
 
+#ifdef ENABLE_TVSDK_SRC
+/**
+ * @brief 沿用旧人脸抓拍协议直接组包，通过统一告警接口同步提交到 SDK。
+ * @param [in,out] stContext 当前帧配置、检测和属性结果，按需准备 BGR 目标图。
+ * @param [out] 无。
+ * @return 无，单个目标失败不阻断其余目标或网页、GAT1400 输出。
+ */
+void CFaceRecognition::processTvSdkCaptureResult(FrameContext_S &stContext)
+{
+    if (!m_bEnabled.load() || !stContext.stConfig.bEnable ||
+        !stContext.stConfig.bCaptureEnable || stContext.stPanoramaImage.stImage.empty())
+    {
+        return;
+    }
+    const bool bHasTriggeredTarget = std::any_of(
+        stContext.vstTargets.begin(), stContext.vstTargets.end(),
+        [](const TargetResult_S &stTarget) { return stTarget.bCaptureTriggered; });
+    if (!bHasTriggeredTarget)
+    {
+        return;
+    }
+
+    /* 算法工作线程每帧只编码一次全景，局部容器保持到所有同步推送完成。 */
+    EventTvSdkImage_S stPanoramaImage{};
+    if (!face_recognition_encode_capture_image(stContext.stPanoramaImage.stImage,
+                                               JPEG_QUALITY_PANORAMA, true, stPanoramaImage))
+    {
+        dlog_warn("人脸抓拍全景图编码失败或超限: channel[%d]", stContext.nChannelId);
+        return;
+    }
+    const cv::Size stPanoramaSize = stContext.stPanoramaImage.stImage.size();
+    const std::string strTimestamp = TimeUtils_NS::get_currentDateAndTimeNoT();
+    for (size_t nTargetIndex = 0; nTargetIndex < stContext.vstTargets.size(); ++nTargetIndex)
+    {
+        TargetResult_S &stTarget = stContext.vstTargets[nTargetIndex];
+        if (!stTarget.bCaptureTriggered)
+        {
+            continue;
+        }
+        cv::Rect stCropRect{};
+        if (!face_recognition_get_capture_rect(stTarget.stDetectResult, stPanoramaSize, stCropRect))
+        {
+            dlog_warn("人脸抓拍目标框无效: target[%zu]", nTargetIndex);
+            continue;
+        }
+        try
+        {
+            if (!ensureTargetImage(stContext, stTarget))
+            {
+                dlog_warn("人脸抓拍目标图准备失败: target[%zu]", nTargetIndex);
+                continue;
+            }
+        }
+        catch (const cv::Exception &stException)
+        {
+            dlog_warn("人脸抓拍目标图准备异常: target[%zu], reason[%s]",
+                      nTargetIndex, stException.what());
+            continue;
+        }
+        EventTvSdkImage_S stTargetImage{};
+        if (!face_recognition_encode_capture_image(stTarget.stTargetImage.stImage,
+                                                   JPEG_QUALITY_TARGET, false, stTargetImage))
+        {
+            dlog_warn("人脸抓拍目标图编码失败或超限: target[%zu]", nTargetIndex);
+            continue;
+        }
+
+        NET_AlarmCaptureInfo_S stInfo{};
+        stInfo.uAlarmType = NET_ALARM_CAPTURE_FACE;
+        stInfo.uCaptureType = NET_CAPTURE_TYPE_FACE;
+        stInfo.uChannel = static_cast<UINT32>(std::max(0, stContext.nChannelId));
+        stInfo.llTimestampMs = stContext.llTimestamp;
+        stInfo.uPanoramaWidth = static_cast<UINT32>(stPanoramaSize.width);
+        stInfo.uPanoramaHeight = static_cast<UINT32>(stPanoramaSize.height);
+        stInfo.stPanoramaImg.pData = stPanoramaImage.vecJpeg.data();
+        stInfo.stPanoramaImg.uDataLen = static_cast<UINT32>(stPanoramaImage.vecJpeg.size());
+        stInfo.uCropCount = 1;
+        NET_CropImage_S &stCropImage = stInfo.stCropImages[0];
+        stCropImage.uCropX = static_cast<UINT32>(stCropRect.x);
+        stCropImage.uCropY = static_cast<UINT32>(stCropRect.y);
+        stCropImage.uCropWidth = static_cast<UINT32>(stCropRect.width);
+        stCropImage.uCropHeight = static_cast<UINT32>(stCropRect.height);
+        stCropImage.uTargetType = NET_CAPTURE_TYPE_FACE;
+        stCropImage.fConfidence = std::isfinite(stTarget.stDetectResult.fBoxConfidence)
+                                     ? std::clamp(stTarget.stDetectResult.fBoxConfidence, 0.0F, 1.0F)
+                                     : 0.0F;
+        stCropImage.nTrackID = -1;
+        stCropImage.stImage.pData = stTargetImage.vecJpeg.data();
+        stCropImage.stImage.uDataLen = static_cast<UINT32>(stTargetImage.vecJpeg.size());
+
+        const bool bAttributeReady = stContext.stConfig.bAttributeAnalysisEnable && stTarget.bAttributeReady;
+        /* 旧协议没有属性有效位；未分析时保持零值，不伪造属性结果。 */
+        if (bAttributeReady)
+        {
+            const FaceAttribute_NS::Result_S &stAttribute = stTarget.stAttributeResult;
+            stInfo.stExtraInfo.bMale = stAttribute.bIsMale ? TRUE : FALSE;
+            stInfo.stExtraInfo.nAgeLabel = stAttribute.nAgeLabel;
+            stInfo.stExtraInfo.bGlasses = stAttribute.bIsGlasses ? TRUE : FALSE;
+            stInfo.stExtraInfo.bBeard = stAttribute.bIsBeard ? TRUE : FALSE;
+            stInfo.stExtraInfo.bMask = stAttribute.bIsMask ? TRUE : FALSE;
+            stInfo.stExtraInfo.nEmotionLabel = stAttribute.nEmotionLabel;
+        }
+        const float fLeft = stCropRect.x * FACE_CAPTURE_REGION_SCALE / stPanoramaSize.width;
+        const float fTop = stCropRect.y * FACE_CAPTURE_REGION_SCALE / stPanoramaSize.height;
+        const float fRight = (stCropRect.x + stCropRect.width) * FACE_CAPTURE_REGION_SCALE / stPanoramaSize.width;
+        const float fBottom = (stCropRect.y + stCropRect.height) * FACE_CAPTURE_REGION_SCALE / stPanoramaSize.height;
+        NET_CapturePolygon_S &stRegion = stInfo.stExtraInfo.stTargetRegion;
+        stRegion.uPointCount = FACE_CAPTURE_REGION_POINT_COUNT;
+        stRegion.afPointX[0] = fLeft;
+        stRegion.afPointY[0] = fTop;
+        stRegion.afPointX[1] = fRight;
+        stRegion.afPointY[1] = fTop;
+        stRegion.afPointX[2] = fRight;
+        stRegion.afPointY[2] = fBottom;
+        stRegion.afPointX[3] = fLeft;
+        stRegion.afPointY[3] = fBottom;
+        std::strncpy(stInfo.stExtraInfo.strTimestamp, strTimestamp.c_str(),
+                     sizeof(stInfo.stExtraInfo.strTimestamp) - 1);
+
+        /* SDK 在返回前完成图片序列化；后续发送队列持有 JSON，不持有这些局部图片指针。 */
+        const int nRet = ControlManage::instance()->tvsdk_push_alarm(
+            NET_ALARM_CAPTURE_FACE, &stInfo, static_cast<int>(sizeof(stInfo)));
+        if (nRet < 0)
+        {
+            dlog_warn("TVSDK人脸抓拍推送失败: target[%zu], ret[%d]", nTargetIndex, nRet);
+        }
+        else
+        {
+            dlog_info("TVSDK人脸抓拍推送成功: cmd[0x%x], channel[%u], target[%zu], "
+                      "time[%lld], panorama[%u], face[%u], attribute_ready[%d]",
+                      NET_ALARM_CAPTURE_FACE, stInfo.uChannel, nTargetIndex,
+                      static_cast<long long>(stInfo.llTimestampMs), stInfo.stPanoramaImg.uDataLen,
+                      stCropImage.stImage.uDataLen, bAttributeReady);
+        }
+    }
+}
+#endif
+
 void CFaceRecognition::processGat1400Result(FrameContext_S &stContext)
 {
 #ifdef ENABLE_GAT1400_SRC
@@ -1646,6 +1863,9 @@ void CFaceRecognition::processBusinessOutput(FrameContext_S &stContext)
     outputOsd(stContext);
     processCaptureResult(stContext);
     processAttributeResult(stContext);
+#ifdef ENABLE_TVSDK_SRC
+    processTvSdkCaptureResult(stContext);
+#endif
     processGat1400Result(stContext);
     processFaceRecognitionEvent(stContext);
 }

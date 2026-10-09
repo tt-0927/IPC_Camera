@@ -1,6 +1,9 @@
 /**
  * @file face_recognition.hpp
  * @brief 人脸识别算法运行模块
+ * @Date 原始创建日期未记录
+ * @Author ITC
+ * @Change 2026-10-09 沿用旧算法的 SDK 组包与告警接口，补齐合并人脸配置的抓拍推送。
  */
 
 #pragma once
@@ -176,6 +179,16 @@ private:
      * @brief 输出人脸属性分析结果
      */
     void processAttributeResult(FrameContext_S &stContext);
+
+#ifdef ENABLE_TVSDK_SRC
+    /**
+     * @brief 在算法工作线程同步发送本帧触发的人脸抓拍，每个目标独立携带属性。
+     * @param [in,out] stContext 当前帧配置与结果，按需生成目标小图，不要求图片落盘。
+     * @param [out] 无。
+     * @return 无，编码及推送失败记录日志，不影响其他输出链路。
+     */
+    void processTvSdkCaptureResult(FrameContext_S &stContext);
+#endif
 
     /**
      * @brief 输出 GAT1400 人脸结果
