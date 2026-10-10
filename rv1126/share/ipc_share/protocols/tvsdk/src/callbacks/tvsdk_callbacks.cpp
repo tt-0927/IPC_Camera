@@ -9,6 +9,8 @@
  * @Change       : 2026-09-08 人员聚集保留规则数量及位置，无效规则回退旧值并返回实际任务结果
  * @Change       : 2026-09-08 统一十六类智能事件的规则回退和业务结果返回，校验 IPC 数量上限
  * @Change       : 2026-10-08 按能力宏适配 246/247，合并人脸配置并保留旧版任务分支。
+ * @Change       : 2026-10-10，报警输入预读现有配置并返回业务结果，普通联动开关严格校验。
+ * @Change       : 2026-10-10，497/499 的业务范围在设备回调校验，补充时间关系、字符串及通道编号检查。
  */
 
 #include "tvsdk_callbacks.h"
@@ -1622,9 +1624,10 @@ static bool is_valid_alarm_schedule(const NET_AlarmSchedule_S& stSchedule)
 }
 
 /**
- * @brief 校验联动列表的元素数量是否在固定数组容量范围内。
+ * @brief 校验联动列表数量、有效目标编号及五项普通联动开关。
  * @author ITC
  * @param [in] stLinkageList 待校验的联动列表。
+ * @param [out] 无。
  * @return 合法返回 true，否则返回 false。
  */
 static bool is_valid_alarm_linkage(const NET_LinkageList_S& stLinkageList)
@@ -1639,7 +1642,36 @@ static bool is_valid_alarm_linkage(const NET_LinkageList_S& stLinkageList)
         return false;
     }
 
-    return true;
+    for (INT32 nIndex = 0; nIndex < stLinkageList.uAlarmOutputCount; ++nIndex)
+    {
+        if (stLinkageList.auAlarmOutput[nIndex] < 0 ||
+            stLinkageList.auAlarmOutput[nIndex] >= NET_MAX_ALARM_OUT_NUM)
+        {
+            return false;
+        }
+    }
+    for (INT32 nIndex = 0; nIndex < stLinkageList.uRecordChannelCount; ++nIndex)
+    {
+        if (stLinkageList.auRecordChannel[nIndex] < 0 ||
+            stLinkageList.auRecordChannel[nIndex] >= NET_CHANNEL_MAX)
+        {
+            return false;
+        }
+    }
+    for (INT32 nIndex = 0; nIndex < stLinkageList.uSnapshotChannelCount; ++nIndex)
+    {
+        if (stLinkageList.auSnapshotChannel[nIndex] < 0 ||
+            stLinkageList.auSnapshotChannel[nIndex] >= NET_CHANNEL_MAX)
+        {
+            return false;
+        }
+    }
+    const NET_TraditionLinkage_S& stTradition = stLinkageList.stTradition;
+    return is_valid_sdk_bool(stTradition.bSendEmail) &&
+           is_valid_sdk_bool(stTradition.bUploadToCenter) &&
+           is_valid_sdk_bool(stTradition.bUploadSdCard) &&
+           is_valid_sdk_bool(stTradition.bSound) &&
+           is_valid_sdk_bool(stTradition.bFlashingLight);
 }
 
 /**
@@ -1685,36 +1717,96 @@ static bool is_valid_audible_alarm_info(const NET_AudibleAlarmInfo_S& stInfo)
 }
 
 /**
- * @brief 校验 SDK 传入的一路报警输入配置。
- * @author ITC
- * @param [in] stInfo 待校验的报警输入配置。
- * @return 合法返回 true，否则返回 false。
+ * 功能：校验报警输入输出的有效时间段关系，允许结束点为 24:00。
+ * param [in] stSchedule：待校验的时间表。
+ * param [out]：无。
+ * return：时分合法且每段开始早于结束时返回 true。
+ */
+static bool is_valid_alarm_io_schedule(const NET_AlarmSchedule_S& stSchedule)
+{
+    if (!is_valid_alarm_schedule(stSchedule))
+    {
+        return false;
+    }
+    for (INT32 nDay = 0; nDay < NET_ALARM_SCHEDULE_DAY_COUNT; ++nDay)
+    {
+        for (INT32 nSection = 0; nSection < stSchedule.uTimeSectionCount[nDay]; ++nSection)
+        {
+            const NET_SchedTime_S& stTime = stSchedule.astTimeSection[nDay][nSection];
+            if (stTime.nStartHour >= NET_ALARM_SCHEDULE_HOUR_MAX ||
+                (stTime.nEndHour == NET_ALARM_SCHEDULE_HOUR_MAX && stTime.nEndMinute != 0) ||
+                stTime.nStartHour > stTime.nEndHour ||
+                (stTime.nStartHour == stTime.nEndHour && stTime.nStartMinute >= stTime.nEndMinute))
+            {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+/**
+ * 功能：校验报警输入输出的复制目标编号，先检查数量再访问固定数组。
+ * param [in] nCount：复制目标数量。
+ * param [in] aCopyTo：复制目标编号数组。
+ * param [in] nChannelCapacity：对应输入或输出通道编号上限。
+ * param [out]：无。
+ * return：数量和有效元素均合法时返回 true。
+ */
+static bool is_valid_alarm_io_copy_to(INT32 nCount,
+                                      const INT32 (&aCopyTo)[NET_ALARM_COPY_TO_MAX_NUM],
+                                      INT32 nChannelCapacity)
+{
+    if (!is_valid_alarm_copy_to_count(nCount))
+    {
+        return false;
+    }
+    for (INT32 nIndex = 0; nIndex < nCount; ++nIndex)
+    {
+        if (aCopyTo[nIndex] < 0 || aCopyTo[nIndex] >= nChannelCapacity)
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+/**
+ * 功能：在设备回调内校验报警输入业务参数，防止非法值进入 IPC 转换。
+ * param [in] stInfo：待校验的一路报警输入结构。
+ * param [out]：无。
+ * return：全部合法返回 true，否则返回 false。
  */
 static bool is_valid_alarm_input_info(const NET_AlarmInputInfo_S& stInfo)
 {
     return stInfo.nAlarmNumber >= 0 && stInfo.nAlarmNumber < NET_MAX_ALARM_IN_NUM &&
+           std::memchr(stInfo.strAlarmAddress, '\0', sizeof(stInfo.strAlarmAddress)) != nullptr &&
+           std::memchr(stInfo.strAlarmName, '\0', sizeof(stInfo.strAlarmName)) != nullptr &&
            is_valid_sdk_bool(stInfo.bNormallyOpen) &&
            (stInfo.nDealType == NET_ALARM_INPUT_DEAL_TYPE_DISABLED ||
             stInfo.nDealType == NET_ALARM_INPUT_DEAL_TYPE_ENABLED) &&
-           is_valid_alarm_schedule(stInfo.stAlarmSchedule) &&
+           is_valid_alarm_io_schedule(stInfo.stAlarmSchedule) &&
            is_valid_alarm_linkage(stInfo.stLinkageList) &&
-           is_valid_alarm_copy_to_count(stInfo.nCopyToCount);
+           is_valid_alarm_io_copy_to(stInfo.nCopyToCount, stInfo.anCopyTo, NET_MAX_ALARM_IN_NUM);
 }
 
 /**
  * @brief 校验 SDK 传入的一路报警输出配置。
  * @author ITC
  * @param [in] stInfo 待校验的报警输出配置。
+ * @param [out] 无。
  * @return 合法返回 true，否则返回 false。
  */
 static bool is_valid_alarm_output_info(const NET_AlarmOutputInfo_S& stInfo)
 {
     return stInfo.nAlarmNumber >= 0 && stInfo.nAlarmNumber < NET_MAX_ALARM_OUT_NUM &&
+           std::memchr(stInfo.strAlarmAddress, '\0', sizeof(stInfo.strAlarmAddress)) != nullptr &&
+           std::memchr(stInfo.strAlarmName, '\0', sizeof(stInfo.strAlarmName)) != nullptr &&
            stInfo.nDelayTime >= 0 &&
            stInfo.enState >= NET_ALARM_OUTPUT_STATE_OFF &&
            stInfo.enState <= NET_ALARM_OUTPUT_STATE_HUMAN_ON &&
-           is_valid_alarm_schedule(stInfo.stAlarmSchedule) &&
-           is_valid_alarm_copy_to_count(stInfo.nCopyToCount);
+           is_valid_alarm_io_schedule(stInfo.stAlarmSchedule) &&
+           is_valid_alarm_io_copy_to(stInfo.nCopyToCount, stInfo.anCopyTo, NET_MAX_ALARM_OUT_NUM);
 }
 
 /**
@@ -5225,7 +5317,7 @@ static NET_COMMON_ECODE_E cb_get_alarm_input_info(INT32 nChannelId, LPVOID pOutB
  * @author ITC
  * @param [in] nChannelId 设备通道标识，本配置为设备级配置，不参与设置。
  * @param [in] pInBuffer 指向 NET_AlarmInputInfo_S 配置的输入缓冲区。
- * @return 成功返回 NET_E_SUCCEED，否则返回相应错误码。
+ * @return 保存成功返回 NET_E_SUCCEED，参数错误返回 NET_E_INVALID_PARAM，不支持返回 NET_E_NOT_SUPPORT，其余失败返回 NET_E_SET_CFG_FAILED。
  */
 static NET_COMMON_ECODE_E cb_set_alarm_input_info(INT32 nChannelId, LPVOID pInBuffer)
 {
@@ -5241,10 +5333,45 @@ static NET_COMMON_ECODE_E cb_set_alarm_input_info(INT32 nChannelId, LPVOID pInBu
         return NET_E_INVALID_PARAM;
     }
 
-    Alarm::IoInputInfo_S stAlarmInput;
+    /* 预读对应通道，仅覆盖 SDK 暴露字段，保留全景图、目标图等 IPC 私有联动。 */
+    std::string strCurrentJson;
+    if (get_alarm_config_data(AC_GET_ALARM_INPUT_INFO, strCurrentJson) != NET_E_SUCCEED)
+    {
+        return NET_E_SET_CFG_FAILED;
+    }
+    std::set<Alarm::IoInputInfo_S> stCurrentInputs;
+    Convert::to_struct(strCurrentJson, stCurrentInputs);
+    const auto itCurrent = std::find_if(stCurrentInputs.begin(), stCurrentInputs.end(),
+        [pInput](const Alarm::IoInputInfo_S& stInput)
+        {
+            return stInput.nIoNumer == pInput->nAlarmNumber;
+        });
+    if (itCurrent == stCurrentInputs.end())
+    {
+        return NET_E_INVALID_PARAM;
+    }
+    Alarm::IoInputInfo_S stAlarmInput = *itCurrent;
     TvSdkConvert::ToAlarmInputInfo(*pInput, stAlarmInput);
     std::string strDataJson = Convert::to_string(stAlarmInput);
-    return set_alarm_config_data(AC_SET_ALARM_INPUT_INFO, strDataJson);
+    std::string strResult;
+    if (execute_get_result(AC_SET_ALARM_INPUT_INFO, wrap_data_json(strDataJson), strResult) != OK)
+    {
+        return NET_E_SET_CFG_FAILED;
+    }
+    int nResult = ERR;
+    if (strResult.empty() || !Json::get(strResult.c_str(), "Return", nResult))
+    {
+        return NET_E_SET_CFG_FAILED;
+    }
+    if (nResult == ERR_PARAM || nResult == ERR_WEB_PARAM)
+    {
+        return NET_E_INVALID_PARAM;
+    }
+    if (nResult == ERR_WEB_NOT_SUPPORT)
+    {
+        return NET_E_NOT_SUPPORT;
+    }
+    return nResult == OK ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
 }
 
 /**

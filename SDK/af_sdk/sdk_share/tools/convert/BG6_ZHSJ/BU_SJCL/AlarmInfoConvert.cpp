@@ -1,3 +1,10 @@
+/*
+ * 文件名：AlarmInfoConvert.cpp
+ * 作者：ITC
+ * 日期：2026-10-10
+ * 功能：SDK 报警配置及事件数据的 JSON 转换。
+ * 修改记录：2026-10-10，移除临时结构布局编译期断言，保持转换逻辑不变。
+ */
 // 禁用 Windows 的 min/max 宏
 #define NOMINMAX
 // 然后才是您的兼容性代码
@@ -953,7 +960,6 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_AudibleAlarmInfo_S& stInfo, b
     }
     Json::add(pRootJson, "CustomAudios", pArray);
 }
-
 
 /**
  * @brief 在 JSON 与 SDK 单路报警输入配置之间转换。

@@ -10,6 +10,7 @@
  * 1. 声明 AlarmInfoConvert 模块对外接口和数据类型
  * 2. 定义模块依赖的常量、回调或辅助类型
  * 3. 为调用方提供明确且稳定的编译期契约
+ * 修改记录：2026-10-09，报警输入输出继续使用 deal 转换，设置入口结构检查与设备业务校验分别处理。
  */
 #ifndef NETSDK_ALARM_INFO_CONVERT_H
 #define NETSDK_ALARM_INFO_CONVERT_H

@@ -5,6 +5,7 @@
  * @Author       : ITC
  * @Date         : 2026-09-08
  * @Change       : 2026-10-08 兼容合并后的人脸识别配置，保留旧协议未暴露的功能开关。
+ * @Change       : 2026-10-10，锁定编译机 SDK 布局，普通联动只替换协议支持的五项动作。
  * @Change       : 2026-09-08 越界保留全部规则参数，使用事件总开关并同步联动配置
  * @Change       : 2026-09-08 补齐人员聚集联动配置的设置和获取转换
  * @Change       : 2026-09-08 补齐入侵、徘徊、停车、物品遗留和拿取、进入和离开区域的联动转换
@@ -13,6 +14,7 @@
 #include "tvsdk_convert.h"
 
 #include <algorithm>
+#include <cstddef>
 #include <cstdio>
 #include <cstring>
 #include <vector>
@@ -22,6 +24,14 @@
 #include "dlog.h"
 namespace TvSdkConvert
 {
+/* 以编译机 SDK 源头为准，禁止再次混用上一版发布头的结构布局。 */
+static_assert(sizeof(NET_SchedTime_S) == 48, "SDK 时间段布局不一致");
+static_assert(sizeof(NET_AlarmSchedule_S) == 2780, "SDK 布防结构布局不一致");
+static_assert(sizeof(NET_TraditionLinkage_S) == 84, "SDK 普通联动布局不一致");
+static_assert(sizeof(NET_LinkageList_S) == 4704, "SDK 联动列表布局不一致");
+static_assert(offsetof(NET_LinkageList_S, stTradition) == 4364, "SDK 普通联动偏移不一致");
+static_assert(sizeof(NET_AlarmInputInfo_S) == 7948, "SDK 报警输入布局不一致");
+static_assert(sizeof(NET_AlarmOutputInfo_S) == 3244, "SDK 报警输出布局不一致");
 static constexpr size_t kOsdCustomSlotCount = 4;
 
 /*
@@ -210,11 +220,16 @@ static void FillLinkageList(const Alarm::LinkageList_S &src, NET_LinkageList_S &
     dst.stTradition.bFlashingLight  = bHasTradition(Alarm::LinkageType_E::FLASHING_LIGHT_ALARM) ? TRUE : FALSE;
 }
 
+/**
+ * 功能：更新 SDK 通道及五项普通联动，不清空协议未覆盖的 IPC 动作。
+ * param [in] src：已经校验的 SDK 联动配置。
+ * param [in,out] dst：IPC 当前联动配置，调用方须预读需保留的动作。
+ * return：无，五项全零表示明确关闭这五项动作。
+ */
 void ToLinkageList(const NET_LinkageList_S &src, Alarm::LinkageList_S &dst)
 {
     dst.alarmOutput.clear();
     dst.recordChn.clear();
-    dst.tradition.clear();
 
     /* 报警输出。 */
     for (INT32 i = 0; i < src.uAlarmOutputCount && i < NET_MAX_ALARM_OUT_NUM; ++i)
@@ -228,12 +243,33 @@ void ToLinkageList(const NET_LinkageList_S &src, Alarm::LinkageList_S &dst)
         dst.recordChn.push_back((int)src.auRecordChannel[i]);
     }
 
-    /* 常规联动：把各项开关还原为 tradition 类型列表。 */
-    if (src.stTradition.bSendEmail)      dst.tradition.push_back((int)Alarm::LinkageType_E::SEND_EMAIL);
-    if (src.stTradition.bUploadToCenter) dst.tradition.push_back((int)Alarm::LinkageType_E::UPLOAD_TOCENTER);
-    if (src.stTradition.bUploadSdCard)   dst.tradition.push_back((int)Alarm::LinkageType_E::UPLOAD_SD_CARD);
-    if (src.stTradition.bSound)          dst.tradition.push_back((int)Alarm::LinkageType_E::SOUND);
-    if (src.stTradition.bFlashingLight)  dst.tradition.push_back((int)Alarm::LinkageType_E::FLASHING_LIGHT_ALARM);
+    const int aTypes[] = {static_cast<int>(Alarm::LinkageType_E::SEND_EMAIL),
+        static_cast<int>(Alarm::LinkageType_E::UPLOAD_TOCENTER),
+        static_cast<int>(Alarm::LinkageType_E::UPLOAD_SD_CARD),
+        static_cast<int>(Alarm::LinkageType_E::SOUND),
+        static_cast<int>(Alarm::LinkageType_E::FLASHING_LIGHT_ALARM)};
+    const BOOL aFlags[] = {src.stTradition.bSendEmail, src.stTradition.bUploadToCenter,
+        src.stTradition.bUploadSdCard, src.stTradition.bSound, src.stTradition.bFlashingLight};
+    /* 只替换明确支持的动作，不影响上传全景图、上传目标图等其他联动。 */
+    dst.tradition.erase(std::remove_if(dst.tradition.begin(), dst.tradition.end(),
+        [&aTypes](int nType)
+        {
+            for (const int nSupportedType : aTypes)
+            {
+                if (nType == nSupportedType)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }), dst.tradition.end());
+    for (size_t uIndex = 0; uIndex < sizeof(aTypes) / sizeof(aTypes[0]); ++uIndex)
+    {
+        if (aFlags[uIndex] == TRUE)
+        {
+            dst.tradition.push_back(aTypes[uIndex]);
+        }
+    }
 }
 
 /*
