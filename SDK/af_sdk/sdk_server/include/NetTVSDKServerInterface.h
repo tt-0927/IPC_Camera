@@ -39,7 +39,7 @@ NET_API BOOL STDCALL NET_serverCleanup(void);
 
 /**
  * @brief 设置日志
- * @param [IN] dwLogLevel   日志的等级（默认为0）：0-表示关闭日志，1-表示只输出ERROR错误日志，2-输出ERROR错误信息和DEBUG调试信息，3-输出ERROR错误信息、DEBUG调试信息和INFO普通信息等所有信息
+ * @param [IN] dwLogLevel   日志输出等级（spdlog 阈值语义：消息等级 >= 设定值才输出，故数值越大输出越少）：0-TRACE 全量(trace/debug/info/warn/error 都输出，最详细)，1-DEBUG(debug 及以上)，2-INFO(info 及以上)，3-WARN(仅 warn/error)，4-ERROR(仅 error)。注意：无“关闭日志”档，0 不是关闭而是最详细的全量输出
  * @param [IN] strLogDir    日志路径
  * @param [IN] nLogFileSize 日志文件大小(单位：字节)
  * @param [IN] dwLogFileNum 日志文件个数
@@ -89,6 +89,46 @@ NET_API BOOL STDCALL NET_serverPushAlarmInfo(IN NET_Alarmer_S *pAlarmer,
  * @return TRUE表示成功,其他表示失败 TRUE means success, and any other value means failure.
  */
 NET_API BOOL STDCALL NET_serverPushChannelStatusInfo(IN NET_ChannelInfo_S *pChannelInfo);
+
+/**
+ * @brief 推送人脸抓拍信息
+ * @param [IN] pAlarmer 告警设备信息
+ * @param [IN] pCaptureInfo 人脸抓拍信息
+ * @return TRUE 表示推送请求已提交，FALSE 表示参数或服务状态异常
+ */
+NET_API BOOL STDCALL NET_serverPushFaceCaptureInfo(
+    IN NET_Alarmer_S *pAlarmer,
+    IN NET_FaceCapturePushInfo_S *pCaptureInfo);
+
+/**
+ * @brief 推送行人抓拍信息
+ * @param [IN] pAlarmer 告警设备信息
+ * @param [IN] pCaptureInfo 行人抓拍信息
+ * @return TRUE 表示推送请求已提交，FALSE 表示参数或服务状态异常
+ */
+NET_API BOOL STDCALL NET_serverPushPersonCaptureInfo(
+    IN NET_Alarmer_S *pAlarmer,
+    IN NET_PersonCapturePushInfo_S *pCaptureInfo);
+
+/**
+ * @brief 推送机动车抓拍信息
+ * @param [IN] pAlarmer 告警设备信息
+ * @param [IN] pCaptureInfo 机动车抓拍信息
+ * @return TRUE 表示推送请求已提交，FALSE 表示参数或服务状态异常
+ */
+NET_API BOOL STDCALL NET_serverPushMotorvehicleCaptureInfo(
+    IN NET_Alarmer_S *pAlarmer,
+    IN NET_MotorvehicleCapturePushInfo_S *pCaptureInfo);
+
+/**
+ * @brief 推送非机动车抓拍信息
+ * @param [IN] pAlarmer 告警设备信息
+ * @param [IN] pCaptureInfo 非机动车抓拍信息
+ * @return TRUE 表示推送请求已提交，FALSE 表示参数或服务状态异常
+ */
+NET_API BOOL STDCALL NET_serverPushNonMotorvehicleCaptureInfo(
+    IN NET_Alarmer_S *pAlarmer,
+    IN NET_NonMotorvehicleCapturePushInfo_S *pCaptureInfo);
 
 /* 注册设备信息获取回调（NVR规模/能力数量：通道数/报警端口数等，BG6_ZHSJ/BU_SJCL专用） */
 NET_API BOOL STDCALL NET_serverRegisterGetDeviceInfoCb(NET_COMMON_ECODE_E (*CB)(pNET_DeviceInfo_S pInfo));
@@ -287,6 +327,43 @@ typedef NET_COMMON_ECODE_E (*NET_CB_ControlReplay)(pNET_ReplayCtrlInfo_S pInfo);
 typedef NET_COMMON_ECODE_E (*NET_CB_GetReplayRecordList)(pNET_ReplayRecordList_S pInfo);
 
 /**
+ * @brief 分页查询真实录像文件回调类型
+ * @note pInfo->pResults 由服务端 SDK 按请求页大小分配，回调填充最多 nResultCapacity 条，
+ *       并返回 nResultCount、stPage.nDataTotal、stPage.nPageTotal、stPage.bHasMore
+ */
+typedef NET_COMMON_ECODE_E (*NET_CB_QueryRecordFiles)(LPNET_RECORD_FILE_QUERY_S pInfo);
+
+/**
+ * @brief JPEG 抓图回调类型
+ * @note 宿主将 JPEG 数据写入 pOutBuffer，并通过 pdwOutSize 返回实际长度。
+ *       若 dwOutBufferSize 不够，回调应返回 NET_E_NOT_ENOUGH_BUFFER
+ */
+typedef NET_COMMON_ECODE_E (*NET_CB_CaptureJPEG)(INT32 dwChannelID,
+                                                  INT32 dwWidth,
+                                                  INT32 dwHeight,
+                                                  INT32 dwImageQuality,
+                                                  LPVOID pOutBuffer,
+                                                  INT32 dwOutBufferSize,
+                                                  LPINT32 pdwOutSize);
+
+/**
+ * @brief 获取录像文件完整路径回调类型
+ * @param [IN]  dwChannelID  通道 ID
+ * @param [IN]  szDate       录像日期（如 "2026-08-24"）
+ * @param [IN]  dwStartTime  开始时间（秒数，当天 0 点起）
+ * @param [IN]  dwEndTime    结束时间（秒数，当天 0 点起）
+ * @param [OUT] szFilePath   输出完整文件路径
+ * @param [IN]  dwPathSize   szFilePath 缓冲区大小
+ * @return NET_E_SUCCEED 成功，其他值失败
+ */
+typedef NET_COMMON_ECODE_E (*NET_CB_GetRecordFilePath)(INT32 dwChannelID,
+                                                        const char* szDate,
+                                                        INT32 dwStartTime,
+                                                        INT32 dwEndTime,
+                                                        char* szFilePath,
+                                                        INT32 dwPathSize);
+
+/**
  * @brief 注册通用配置获取回调（所有命令码统一处理）
  * @param [IN] pCb 回调函数指针
  * @return TRUE表示成功,其他表示失败
@@ -471,10 +548,29 @@ NET_API BOOL STDCALL NET_serverRegisterGetPirAlarmInfoCb(NET_CB_GetDevConfigByCo
  * @return 注册成功返回 TRUE；回调函数为空或重复注册时返回 FALSE。
  */
 NET_API BOOL STDCALL NET_serverRegisterSetPirAlarmInfoCb(NET_CB_SetDevConfigByCommand pCb);
+
+/* ===== 录像查询/抓图/路径 ===== */
+NET_API BOOL STDCALL NET_serverRegisterQueryRecordFilesCb(NET_CB_QueryRecordFiles pCb);
+NET_API BOOL STDCALL NET_serverRegisterCaptureJPEGCb(NET_CB_CaptureJPEG pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetRecordFilePathCb(NET_CB_GetRecordFilePath pCb);
+
+/* ===== 报警联动/通道列表/抓拍叠加 ===== */
+NET_API BOOL STDCALL NET_serverRegisterTriggerSoundLightAlarmCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetChannelListCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetFaceCaptureOverlayInfoCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetFaceCaptureOverlayInfoCb(NET_CB_SetDevConfigByCommand pCb);
+
 NET_API BOOL STDCALL NET_serverRegisterGetRecordAdvancedParamCb(NET_CB_GetDevConfigByCommand pCb);
 NET_API BOOL STDCALL NET_serverRegisterSetRecordAdvancedParamCb(NET_CB_SetDevConfigByCommand pCb);
 NET_API BOOL STDCALL NET_serverRegisterFindRecordFileInfoCb(NET_CB_GetDevConfigByCommand pCb);
 NET_API BOOL STDCALL NET_serverRegisterDownloadRecordFileCb(NET_CB_SetDevConfigByCommand pCb);
+
+/* ===== 抓图（580）与录像锁定（581~583） ===== */
+NET_API BOOL STDCALL NET_serverRegisterGetCapturePictureCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterLockRecordFileCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterUnlockRecordFileCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetRecordLockStatusCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterForceKeyFrameCb(NET_CB_GetDevConfigByCommand pCb);
 NET_API BOOL STDCALL NET_serverRegisterGetPrivacyMaskConfigCb(NET_CB_GetDevConfigByCommand pCb);
 NET_API BOOL STDCALL NET_serverRegisterSetPrivacyMaskConfigCb(NET_CB_SetDevConfigByCommand pCb);
 

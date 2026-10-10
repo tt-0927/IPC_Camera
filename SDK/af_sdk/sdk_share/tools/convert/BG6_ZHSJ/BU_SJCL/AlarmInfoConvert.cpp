@@ -1,10 +1,3 @@
-/**
- * @FileName     : AlarmInfoConvert.cpp
- * @Date         : 原始创建日期未记录
- * @Author       : ITC
- * @Description  : SDK 告警配置与 JSON 数据转换。
- * @Change       : 2026-10-08 增加 PIR 转换完成后的结构布局与七天布防时间诊断日志。
- */
 // 禁用 Windows 的 min/max 宏
 #define NOMINMAX
 // 然后才是您的兼容性代码
@@ -19,10 +12,8 @@
 #include "AlarmInfoConvert.h"
 #include "Base64Util.h"
 #include "SDKConvert.h"
-#include "NetSdkLog.h"
 
 #include <algorithm>
-#include <cstddef>
 #include <vector>
 #include <sstream>
 #include <iomanip>
@@ -30,44 +21,6 @@
 #include <string>
 #include <limits>
 #include <new>
-
-/**
- * @brief 汇总当前编译单元的 PIR 结构布局及七天布防时间，只读访问配置。
- * @param [in] stInfo 当前请求对应的 PIR 配置。
- * @param [out] 无。
- * @return 返回诊断文本，时间段读取数量限制在实际数组容量内。
- */
-static std::string build_pir_schedule_diagnostic(const NET_PirAlarmInfo_S& stInfo)
-{
-    const NET_AlarmSchedule_S& stSchedule = stInfo.stAlarmSchedule;
-    const size_t uDayCount = sizeof(stSchedule.astTimeSection) / sizeof(stSchedule.astTimeSection[0]);
-    const size_t uSectionMax = sizeof(stSchedule.astTimeSection[0]) / sizeof(stSchedule.astTimeSection[0][0]);
-    /* 使用请求内的局部缓冲区汇总数据，避免逐天日志被限流或与其他请求交错。 */
-    std::ostringstream stText;
-    stText << "config=" << static_cast<const void*>(&stInfo)
-           << " pir_size=" << sizeof(NET_PirAlarmInfo_S)
-           << " sched_size=" << sizeof(NET_AlarmSchedule_S)
-           << " time_size=" << sizeof(NET_SchedTime_S)
-           << " day_stride=" << sizeof(stSchedule.astTimeSection[0])
-           << " days=" << uDayCount << " sections=" << uSectionMax
-           << " sched_offset=" << offsetof(NET_PirAlarmInfo_S, stAlarmSchedule)
-           << " array_offset=" << offsetof(NET_AlarmSchedule_S, astTimeSection)
-           << " end_hour_offset=" << offsetof(NET_SchedTime_S, nEndHour);
-    for (size_t uDay = 0; uDay < uDayCount; ++uDay)
-    {
-        const INT32 nRawCount = stSchedule.uTimeSectionCount[uDay];
-        const INT32 nReadCount = std::max<INT32>(0, std::min<INT32>(nRawCount, static_cast<INT32>(uSectionMax)));
-        stText << " | day=" << uDay << " count=" << nRawCount;
-        for (INT32 nSection = 0; nSection < nReadCount; ++nSection)
-        {
-            const NET_SchedTime_S& stTime = stSchedule.astTimeSection[uDay][nSection];
-            stText << " section=" << nSection
-                   << " time=" << stTime.nStartHour << ':' << stTime.nStartMinute
-                   << "->" << stTime.nEndHour << ':' << stTime.nEndMinute;
-        }
-    }
-    return stText.str();
-}
 
 /*
  * 功能：转换检测目标，全选在 JSON 中使用 [0]，数量表示具体目标种类数。
@@ -1216,10 +1169,6 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_PirAlarmInfo_S& stInfo, bool 
     AlarmCopyToConvertParam_S stCopyToConvertParam = {
         "CopyTo", stInfo.nCopyToCount, stInfo.anCopyTo, NET_ALARM_COPY_TO_MAX_NUM, bOutStruct};
     deal_alarm_copy_to(pRootJson, stCopyToConvertParam);
-    /* 在完整配置转换后记录数据，不修改字段或公共结构布局。 */
-    const std::string strDiagnostic = build_pir_schedule_diagnostic(stInfo);
-    NETSDK_LOG_MESSAGE_INFO("[PIR-SCHED][%s] %s",
-                           bOutStruct ? "SDK_SET_DONE" : "SDK_GET_DONE", strDiagnostic.c_str());
 }
 
 
@@ -1256,6 +1205,24 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_LinkageList_S& stInfo, bool b
         convert.field_array(pRootJson, "SnapshotChannel", stInfo.auSnapshotChannel,
                            stInfo.uSnapshotChannelCount, NET_CHANNEL_MAX);
     }
+
+    /* 常规联动（邮件/上传中心/上传SD卡/声音/闪光报警灯） */
+    convert.structure(pRootJson, "Tradition", stInfo.stTradition);
+}
+
+void SDKConvert::deal(Json::Object* pRootJson, NET_TraditionLinkage_S& stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+
+    SDKConvert::CSDKConvert convert(bOutStruct);
+    convert.field(pRootJson, "SendEmail", stInfo.bSendEmail);
+    convert.field(pRootJson, "UploadToCenter", stInfo.bUploadToCenter);
+    convert.field(pRootJson, "UploadSdCard", stInfo.bUploadSdCard);
+    convert.field(pRootJson, "Sound", stInfo.bSound);
+    convert.field(pRootJson, "FlashingLight", stInfo.bFlashingLight);
 }
 
 

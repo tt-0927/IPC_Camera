@@ -34,4 +34,5 @@ public:
     std::string GetReplayUrl(const std::string& req_data, const std::string& url_param);
     std::string ControlReplay(const std::string& req_data, const std::string& url_param);
     std::string GetReplayRecordList(const std::string& req_data, const std::string& url_param);
+    std::string QueryRecordFiles(const std::string& req_data, const std::string& url_param);
 };

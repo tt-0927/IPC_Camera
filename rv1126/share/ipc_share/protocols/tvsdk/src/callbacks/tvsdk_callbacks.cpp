@@ -9,9 +9,6 @@
  * @Change       : 2026-09-08 人员聚集保留规则数量及位置，无效规则回退旧值并返回实际任务结果
  * @Change       : 2026-09-08 统一十六类智能事件的规则回退和业务结果返回，校验 IPC 数量上限
  * @Change       : 2026-10-08 按能力宏适配 246/247，合并人脸配置并保留旧版任务分支。
- * @Change       : 2026-10-09 日夜定时配置校验起止顺序和当天上限，设置回调返回实际业务结果。
- * @Change       : 2026-10-09 安全服务设置在布尔转换前校验开关和登录锁定范围，并返回业务错误。
- * @Change       : 2026-10-09 安全服务设置读取并保留 IPC 当前 SSH 状态，忽略客户端只读字段。
  */
 
 #include "tvsdk_callbacks.h"
@@ -5286,7 +5283,7 @@ static NET_COMMON_ECODE_E cb_get_alarm_output_info(INT32 nChannelId, LPVOID pOut
  * @author ITC
  * @param [in] nChannelId 设备通道标识，本配置为设备级配置，不参与设置。
  * @param [in] pInBuffer 指向 NET_AlarmOutputInfo_S 配置的输入缓冲区。
- * @return 成功返回 NET_E_SUCCEED，否则返回相应错误码。
+ * @return IPC 保存成功返回 NET_E_SUCCEED，参数错误返回 NET_E_INVALID_PARAM，不支持返回 NET_E_NOT_SUPPORT，其余失败返回 NET_E_SET_CFG_FAILED。
  */
 static NET_COMMON_ECODE_E cb_set_alarm_output_info(INT32 nChannelId, LPVOID pInBuffer)
 {
@@ -5302,10 +5299,28 @@ static NET_COMMON_ECODE_E cb_set_alarm_output_info(INT32 nChannelId, LPVOID pInB
         return NET_E_INVALID_PARAM;
     }
 
-    Alarm::IoOutputInfo_S stAlarmOutput;
+    Alarm::IoOutputInfo_S stAlarmOutput{};
     TvSdkConvert::ToAlarmOutputInfo(*pInput, stAlarmOutput);
     std::string strDataJson = Convert::to_string(stAlarmOutput);
-    return set_alarm_config_data(AC_SET_ALARM_OUTPUT_INFO, strDataJson);
+    std::string strResult;
+    if (execute_get_result(AC_SET_ALARM_OUTPUT_INFO, wrap_data_json(strDataJson), strResult) != OK)
+    {
+        return NET_E_SET_CFG_FAILED;
+    }
+    int nResult = ERR;
+    if (strResult.empty() || !Json::get(strResult.c_str(), "Return", nResult))
+    {
+        return NET_E_SET_CFG_FAILED;
+    }
+    if (nResult == ERR_PARAM || nResult == ERR_WEB_PARAM)
+    {
+        return NET_E_INVALID_PARAM;
+    }
+    if (nResult == ERR_WEB_NOT_SUPPORT)
+    {
+        return NET_E_NOT_SUPPORT;
+    }
+    return nResult == OK ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
 }
 
 /**

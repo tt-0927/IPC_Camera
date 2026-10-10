@@ -80,6 +80,7 @@ namespace SDKConvert
     void deal(Json::Object* pRootJson, NET_PedestrianIntrusionInfo_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_SmokeFireCfg_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_RoadPondingCfg_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_FaceCaptureOverlayInfo_S& stInfo, bool bOutStruct);
 
     void deal(Json::Object* pRootJson, NET_DeviceStatusInfo_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_ChannelNameInfo_S& stInfo, bool bOutStruct);
@@ -87,4 +88,9 @@ namespace SDKConvert
     void deal(Json::Object* pRootJson, NET_TransparentData_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_SerialPortParam_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_SerialData_S& stInfo, bool bOutStruct);
+
+    /* 抓图 / 录像锁定 / 强制I帧（对应命令码 580~584，通用 Get/Set 通道走 deal） */
+    void deal(Json::Object* pRootJson, NET_CapturePictureInfo_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_RecordLockInfo_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_ForceKeyFrameInfo_S& stInfo, bool bOutStruct);
 }

@@ -1,3 +1,10 @@
+/*
+ * 文件名：NetTVSDKServer.h
+ * 创建日期：原始创建日期未记录。
+ * 作者：ITC
+ * 功能：SDK 发布接口和公共协议类型定义，由公共头与接口头合并生成。
+ * 修改记录：2026-10-09，恢复常规联动成员并缩减预留区，保持原有二进制布局。
+ */
 #ifndef NETTVSDK_H
 #define NETTVSDK_H
 
@@ -4206,6 +4213,30 @@ typedef struct tagNET_AlarmSchedule
  */
 typedef NET_AlarmSchedule_S* pNET_AlarmSchedule_S;
 
+/* 常规联动有效标记位于其内部预留区前四字节，区分未下发与明确关闭全部动作。 */
+#define NET_TRADITION_LINKAGE_MARKER "TRL1"
+#define NET_TRADITION_LINKAGE_MARKER_SIZE 4
+
+/**
+ * @struct tagNET_TraditionLinkage
+ * @brief 常规联动配置，占用 SDK 原联动预留区的前 84 字节。
+ */
+typedef struct tagNET_TraditionLinkage
+{
+    /* 发送邮件。 */
+    BOOL bSendEmail;
+    /* 上传报警中心。 */
+    BOOL bUploadToCenter;
+    /* 上传存储卡。 */
+    BOOL bUploadSdCard;
+    /* 声音报警。 */
+    BOOL bSound;
+    /* 闪光报警灯。 */
+    BOOL bFlashingLight;
+    /* 前四字节为有效标记，其余字节继续保留。 */
+    BYTE byRes[64];
+} NET_TraditionLinkage_S, *pNET_TraditionLinkage_S;
+
 /**
  * @struct tagNET_LinkageList
  * @brief 联动配置列表 Linkage configuration list
@@ -4218,7 +4249,9 @@ typedef struct tagNET_LinkageList
     INT32       auRecordChannel[NET_CHANNEL_MAX]; /* 录像通道号数组 */
     INT32       uSnapshotChannelCount;               /* 抓拍通道数量 */
     INT32       auSnapshotChannel[NET_CHANNEL_MAX]; /* 抓拍通道号数组 */
-    BYTE        byRes[256];                         /* 保留字段 */
+    /* 消耗原预留区，后续字段偏移及结构总大小仍与 SDK 保持一致。 */
+    NET_TraditionLinkage_S stTradition;
+    BYTE        byRes[256 - sizeof(NET_TraditionLinkage_S)];
 } NET_LinkageList_S;
 
 /*

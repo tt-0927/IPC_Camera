@@ -45,6 +45,10 @@ namespace SDKConvert
     void deal(Json::Object* pRootJson, NET_ReplayRecordTime_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_ReplayRecordList_S& stInfo, bool bOutStruct);
 
+    /* 分页录像查询（含指针结果数组，pResults 不序列化本体，仅转 Infos 数组） */
+    void deal(Json::Object* pRootJson, NET_RecordFilePage_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_RecordFileQuery_S& stInfo, bool bOutStruct);
+
     void deal(Json::Object* pRootJson, NET_RtspUrlInfo_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_RecordFrameStreamCond_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_RecordFrameStreamInfo_S& stInfo, bool bOutStruct);

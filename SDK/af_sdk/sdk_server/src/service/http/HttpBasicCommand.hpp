@@ -23,6 +23,21 @@
 
 using namespace tvsdk;
 
+/**
+ * @brief 当前HTTP请求的客户端IP上下文（线程局部）
+ * @note httplib在请求线程内同步执行handler，业务层可在处理链路中取用对端真实IP（remote_addr）；
+ *       每次请求进入handler时覆盖写入，仅在请求处理链路内取值有效，不跨线程传递。
+ */
+namespace SdkHttpContext
+{
+    /* 单一访问点：inline函数内的thread_local，保证跨编译单元唯一 */
+    inline std::string& client_ip()
+    {
+        thread_local std::string tls_clientIp;
+        return tls_clientIp;
+    }
+}
+
 class CHttpBasicCommand
 {
 public:
@@ -35,6 +50,9 @@ public:
             {
                 return;
             }
+
+            /* 记录当前请求的对端IP，供业务层（如回放点播者IP）在同步处理链路内取用 */
+            SdkHttpContext::client_ip() = req.remote_addr;
 
             try
             {
@@ -94,6 +112,9 @@ public:
 
             /* 3. 刷新会话活跃时间 */
             session->UpdateLastActive();
+
+            /* 记录当前请求的对端IP，供业务层（如回放点播者IP）在同步处理链路内取用 */
+            SdkHttpContext::client_ip() = req.remote_addr;
 
             try
             {

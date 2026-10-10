@@ -306,7 +306,7 @@ NET_API BOOL STDCALL NET_serverRegisterSetStreamConfigCb(NET_CB_SetDevConfigByCo
 
 /**
  * @brief 注册获取网络参数配置的回调函数
- * @param [in] pCb 用于填充 NET_NetworkCfg_S 的回调函数
+ * @param [in] pCb 用于填充 NET_NetworkCfgList_S 的回调函数
  * @return 注册成功返回 TRUE；回调函数非法或已注册时返回 FALSE
  */
 NET_API BOOL STDCALL NET_serverRegisterGetNetworkConfigCb(NET_CB_GetDevConfigByCommand pCb)
@@ -316,7 +316,7 @@ NET_API BOOL STDCALL NET_serverRegisterGetNetworkConfigCb(NET_CB_GetDevConfigByC
 
 /**
  * @brief 注册设置网络参数配置的回调函数
- * @param [in] pCb 用于读取 NET_NetworkCfg_S 的回调函数
+ * @param [in] pCb 用于读取 NET_NetworkCfgList_S 的回调函数
  * @return 注册成功返回 TRUE；回调函数非法或已注册时返回 FALSE
  */
 NET_API BOOL STDCALL NET_serverRegisterSetNetworkConfigCb(NET_CB_SetDevConfigByCommand pCb)

@@ -592,6 +592,7 @@ void deal(Json::Object* pRootJson, NET_ReplayCtrlInfo_S& stInfo, bool bOutStruct
     convert.field(pRootJson, "StartTime", stInfo.szStartTime);
     convert.field(pRootJson, "EndTime", stInfo.szEndTime);
     convert.field(pRootJson, "Url", stInfo.szUrl);
+    convert.field(pRootJson, "UserIp", stInfo.szUserIp);
 }
 
 
@@ -882,6 +883,78 @@ void deal(Json::Object* pRootJson, NET_ChannelList_S& stInfo, bool bOutStruct)
             channels.push_back(stInfo.stChannels[i]);
         }
         convert.structure(pRootJson, "Channels", channels);
+    }
+}
+
+/* ===================== 分页录像查询 =====================
+ * NET_RecordFileQuery_S 含指针结果数组 pResults，注释明确"绝不序列化到网络"，
+ * 故 deal 只转 stFind/stPage/统计字段，结果数组按 Infos 项逐条转 deal(NET_RecordFindResult_S)。
+ * 仿旧 SDK DeviceInfoConvert.cpp:1158 实现。 */
+void deal(Json::Object* pRootJson, NET_RecordFilePage_S& stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+    SDKConvert::CSDKConvert convert(bOutStruct);
+    convert.field(pRootJson, "CurPage", stInfo.nCurPage);
+    convert.field(pRootJson, "PageSize", stInfo.nPageSize);
+    convert.field(pRootJson, "DataTotal", stInfo.nDataTotal);
+    convert.field(pRootJson, "PageTotal", stInfo.nPageTotal);
+    convert.field(pRootJson, "HasMore", stInfo.bHasMore);
+}
+
+void deal(Json::Object* pRootJson, NET_RecordFileQuery_S& stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+    SDKConvert::CSDKConvert convert(bOutStruct);
+    convert.structure(pRootJson, "Find", stInfo.stFind);
+    convert.structure(pRootJson, "Page", stInfo.stPage);
+    convert.field(pRootJson, "ResultCount", stInfo.nResultCount);
+
+    if (bOutStruct)
+    {
+        Json::Object* pArray = Json::get(pRootJson, "Infos");
+        const INT32 nSize = pArray ? Json::Array::size(pArray) : 0;
+        const INT32 nCount = (std::min)(nSize, stInfo.nResultCapacity);
+        if (stInfo.pResults && nCount > 0)
+        {
+            for (INT32 i = 0; i < nCount; ++i)
+            {
+                Json::Object* pItem = Json::Array::get(pArray, i);
+                if (pItem)
+                {
+                    deal(pItem, stInfo.pResults[i], true);
+                }
+            }
+            stInfo.nResultCount = nCount;
+        }
+        else
+        {
+            stInfo.nResultCount = 0;
+        }
+    }
+    else
+    {
+        Json::Object* pArray = Json::Array::init();
+        if (!pArray)
+        {
+            return;
+        }
+        const INT32 nCount = (std::min)(stInfo.nResultCount, stInfo.nResultCapacity);
+        for (INT32 i = 0; stInfo.pResults && i < nCount; ++i)
+        {
+            Json::Object* pItem = Json::init();
+            if (pItem)
+            {
+                deal(pItem, stInfo.pResults[i], false);
+                Json::Array::add(pArray, pItem);
+            }
+        }
+        Json::add(pRootJson, "Infos", pArray);
     }
 }
 

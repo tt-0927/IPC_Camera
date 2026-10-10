@@ -12,6 +12,7 @@
 #include "BG6_ZHSJ/BU_SJGZ/IpcInfoConvert.h"
 #include "BG6_ZHSJ/BU_SJCL/AlarmInfoConvert.h"
 #include "BG6_ZHSJ/BU_SJCL/RecordInfoConvert.h"
+#include "BG6_ZHSJ/BU_SJLB/RecordInfoConvert.h"
 #include "BG6_ZHSJ/BU_SJCL/NvrInfoConvert.h"
 #include "DeviceInfoConvert.h"
 

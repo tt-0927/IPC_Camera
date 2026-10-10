@@ -54,8 +54,8 @@ CCommonDomain::CCommonDomain()
     /* 设备基本信息（仅 strDeviceName 可写，走设备回调） */
     m_setTable[NET_SET_DEVICECFG] = &CCommonDomain::HandleSetDeviceBasicInfo;
 
-    /* 修改用户密码 （旧密码校验，走设备回调） */
-    m_setTable[NET_SET_USEPASSWORD] = &CCommonDomain::HandleSetUserPassword;
+    /* 修改用户密码（旧密码校验，走设备回调） */
+    m_setTable[NET_SET_USERPASSWORD] = &CCommonDomain::HandleSetUserPassword;
 
     /* NTP/网络/安全服务/音频 */
     m_setTable[NET_SET_NTPCFG]                 = &CCommonDomain::TemplatedSet<NET_SystemNtpInfo_S>;
@@ -140,7 +140,9 @@ std::string CCommonDomain::HandleSetDeviceBasicInfo(INT32 nChannelId, INT32 nCom
     return SDKConvert::to_respString((NET_COMMON_ECODE_E)nRespCode, nCommand);
 }
 
-std::string CCommonDomain::HandleSetUserPassword(INT32 nChannelId, INT32 nCommand, const std::string &req_data, const std::string &url_param)
+std::string CCommonDomain::HandleSetUserPassword(INT32 nChannelId, INT32 nCommand,
+                                                 const std::string& req_data,
+                                                 const std::string& url_param)
 {
     (void)nChannelId;
     (void)url_param;

@@ -129,6 +129,7 @@ typedef struct tagSessionMessage
 #define NET_API_PATH_REPLAY_GET_RECORD_LIST "/TVAPI/V1.0/Replay/GetRecordList" /* 获取回放录像时间段 */
 #define NET_API_PATH_RECORD_FRAME_STREAM_START "/TVAPI/V1.0/RecordFrameStream/Start" /* 启动录像帧TCP流 */
 #define NET_API_PATH_RECORD_FRAME_STREAM_STOP  "/TVAPI/V1.0/RecordFrameStream/Stop"  /* 停止录像帧TCP流 */
+#define NET_API_PATH_RECORD_QUERY_FILES        "/TVAPI/V1.0/Record/QueryFiles"        /* 分页查询真实录像文件 */
 
 #define NET_API_URL_REPLAY_GET_URL() \
     (std::string(NET_API_PATH_REPLAY_GET_URL))
@@ -145,6 +146,40 @@ typedef struct tagSessionMessage
 #define NET_API_URL_RECORD_FRAME_STREAM_STOP() \
     (std::string(NET_API_PATH_RECORD_FRAME_STREAM_STOP))
 
+#define NET_API_URL_RECORD_QUERY_FILES() \
+    (std::string(NET_API_PATH_RECORD_QUERY_FILES))
+
+/********************************** 	录像下载接口URL宏定义 	***************************/
+/*
+ * 录像下载不经过 TVAPI/V1.0 网关，而是直连设备 control 进程的独立 HTTP 下载端口
+ * NET_DOWNLOAD_HTTP_PORT(50001)，因此路由常量单独定义。
+ *
+ * 两条链路的区别：
+ *   /download/replay/     ：网页/同步下载，全网共用单一共享命名管道，并发会互相打断；
+ *   /download/sdk-replay/ ：SDK 异步下载，按 taskId 建立独立管道
+ *                           (/tmp/sdk_download_<taskId>.pipe)，可精确停止且互不干扰。
+ * 只有携带 taskId 的请求才走独立管道，taskId 字符集必须是 [A-Za-z0-9_-]（设备端做白名单校验）。
+ */
+#define NET_API_PATH_RECORD_DOWNLOAD       "/download/replay/"        /* 同步/网页下载（全局共享管道） */
+#define NET_API_PATH_SDK_RECORD_DOWNLOAD   "/download/sdk-replay/"    /* SDK异步下载（按taskId独立管道） */
+
+#define NET_DOWNLOAD_HTTP_PORT             50001                      /* 设备 control 进程 HTTP 下载端口 */
+
+/* 同步下载URL生成宏：不携带 taskId，走全局共享管道。
+ * startTime/endTime 格式为 "YYYYMMDD_HHMMSS"（由调用方按日期+秒数换算）。 */
+#define NET_API_URL_RECORD_DOWNLOAD(chn, startTime, endTime) \
+    (std::string(NET_API_PATH_RECORD_DOWNLOAD) + \
+     "?id=" + std::to_string(chn) + \
+     "&startTime=" + std::string(startTime) + \
+     "&endTime=" + std::string(endTime))
+
+/* SDK异步下载URL生成宏：必须携带 taskId，设备端据此建立独立管道并支持按任务精确停止。 */
+#define NET_API_URL_SDK_RECORD_DOWNLOAD(chn, startTime, endTime, taskId) \
+    (std::string(NET_API_PATH_SDK_RECORD_DOWNLOAD) + \
+     "?id=" + std::to_string(chn) + \
+     "&startTime=" + std::string(startTime) + \
+     "&endTime=" + std::string(endTime) + \
+     "&taskId=" + std::string(taskId))
 
 /********************************** 	事件通用接口URL宏定义 	***************************/
 #define NET_API_PATH_EVENT_SUBSCRIBE  		                  "/TVAPI/V1.0/Event/Subscribe"	          /* 订阅报警事件 */

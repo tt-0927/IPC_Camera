@@ -353,7 +353,7 @@ void sendCommandExamples(const std::string &strDeviceBaseUrl)
         "Name": "张三",
         "PhoneNum": "13800000000",
         "PicPath": "/opt/cam/face/zhangsan.jpg",
-        "BinPath": "",
+
         "PicType": "jpg",
         "PicSize": 102400,
         "PicDate": "2026-05-14 10:00:00",
@@ -455,7 +455,7 @@ bool handleMenuChoice(const std::string &strDeviceBaseUrl, const std::string &st
     else if (strChoice == "6")
     {
         const std::string strBody = R"({
-            "LibId_old": "员工库",
+            "LibId": "员工库",
             "LibId_new": "员工库-修改"
         })";
         printHttpResult("修改目标库",
@@ -473,7 +473,7 @@ bool handleMenuChoice(const std::string &strDeviceBaseUrl, const std::string &st
             "Name": "张三",
             "PhoneNum": "13800000000",
             "PicPath": "/opt/cam/face/zhangsan.jpg",
-            "BinPath": "",
+
             "PicType": "jpg",
             "PicSize": 102400,
             "PicDate": "2026-05-14 10:00:00",

@@ -359,6 +359,12 @@ void CRouteModule::RegisterVideoRoutes()
                                  GetReplayRecordList);
     m_nRouteCount++;
 
+    NETSDK_REGISTER_ROUTE_URL_SINGLETON(NET_API_PATH_RECORD_QUERY_FILES,
+                                 HttpMethod_E::POST,
+                                 CPlaybackBusiness,
+                                 QueryRecordFiles);
+    m_nRouteCount++;
+
     NETSDK_REGISTER_ROUTE_URL_SINGLETON(NET_API_PATH_RECORD_FRAME_STREAM_START,
                                  HttpMethod_E::POST,
                                  CRecordFrameBusiness,
@@ -402,6 +408,9 @@ void CRouteModule::RegisterUpgradeRoutes()
                 DrainUploadBody(contentReader, req.remote_addr, rawFilename);
                 return;
             }
+
+            /* 记录当前请求的对端IP，供业务层在同步处理链路内取用 */
+            SdkHttpContext::client_ip() = req.remote_addr;
 
             try {
                 if (!req.has_param(NET_API_PARAM_FILENAME)) {

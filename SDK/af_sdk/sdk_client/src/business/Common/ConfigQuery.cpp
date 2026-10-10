@@ -166,11 +166,17 @@ BOOL CConfigQuery::GetDevConfig(LPVOID lpUserID, INT32 dwChannelID, INT32 dwComm
         case NET_FROM_STREAM_TALKBACK:   return GetDevConfig_Impl<NET_TalkbackStreamInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
         case NET_GET_FACECAPTUREINFO:    return GetDevConfig_Impl<NET_FaceCaptureInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
         case NET_GET_TARGET_LIB:         return GetDevConfig_Impl<NET_FaceLibList_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
-        case NET_GET_FACE_INFO:          return GetDevConfig_Impl<NET_FaceInfoList_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_GET_FACE_INFO:          return GetDevConfig_Impl<NET_FaceInfoList_S, true>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
         case NET_GET_DEVICE_STATUS:      return GetDevConfig_Impl<NET_DeviceStatusInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
         case NET_GET_CHANNEL_NAME:       return GetDevConfig_Impl<NET_ChannelNameInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
         case NET_GET_SERIAL_PORT_PARAM:  return GetDevConfig_Impl<NET_SerialPortParam_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
         case NET_GET_VOICECOM_AUDIO_CFG: return GetDevConfig_Impl<NET_VoiceComAudioCfg_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_CONTROL_PRESET_BIT:     return GetDevConfig_Impl<NET_PresetBitInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        /* 580 设备端抓图 / 584 强制I帧：服务端 SJCL 域已实现（SjclDomain m_getTable + 设备侧
+         * NvrSdkServer::GetCapturePicture / ForceKeyFrame），此前客户端漏登记这两个命令，
+         * 请求还没出客户端就被这里判成 112(NET_E_CMD_NOT_SUPPORT)。补齐后 580/584 才能下发。 */
+        case NET_GET_CAPTURE_PICTURE:    return GetDevConfig_Impl<NET_CapturePictureInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_FORCE_KEY_FRAME:        return GetDevConfig_Impl<NET_ForceKeyFrameInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
         default:
             CErrorManage::instance()->SetLastError(NET_E_CMD_NOT_SUPPORT);
             return FALSE;
@@ -188,7 +194,7 @@ BOOL CConfigQuery::SetDevConfig(LPVOID lpUserID, INT32 dwChannelID, INT32 dwComm
     switch (dwCommand)
     {
         case NET_SET_DEVICECFG:          return SetDevConfig_Impl<NET_DeviceBasicInfo_S>(lpUserID, dwChannelID, dwCommand, lpInBuffer, dwInBufferSize, pdwBytesReturned);
-        case NET_SET_USEPASSWORD:
+        case NET_SET_USERPASSWORD:
         {
             BOOL bResult = SetDevConfig_Impl<NET_UserPasswordInfo_S>(lpUserID, dwChannelID, dwCommand,
                                                                     lpInBuffer, dwInBufferSize,
@@ -312,6 +318,8 @@ BOOL CConfigQuery::SetDevConfig(LPVOID lpUserID, INT32 dwChannelID, INT32 dwComm
         case NET_SEND_SERIAL_DATA:          return SetDevConfig_Impl<NET_SerialData_S>(lpUserID, dwChannelID, dwCommand, lpInBuffer, dwInBufferSize, pdwBytesReturned);
         case NET_SEND_RS232_DATA:           return SetDevConfig_Impl<NET_SerialData_S>(lpUserID, dwChannelID, dwCommand, lpInBuffer, dwInBufferSize, pdwBytesReturned);
         case NET_SEND_SERIAL_DIRECT_DATA:   return SetDevConfig_Impl<NET_SerialData_S>(lpUserID, dwChannelID, dwCommand, lpInBuffer, dwInBufferSize, pdwBytesReturned);
+        case NET_CONTROL_CAMERA:         return SetDevConfig_Impl<NET_CameraControlInfo_S>(lpUserID, dwChannelID, dwCommand, lpInBuffer, dwInBufferSize, pdwBytesReturned);
+        case NET_CONTROL_PRESET_BIT:     return SetDevConfig_Impl<NET_PresetBitCtrl_S>(lpUserID, dwChannelID, dwCommand, lpInBuffer, dwInBufferSize, pdwBytesReturned);
         default:
             CErrorManage::instance()->SetLastError(NET_E_CMD_NOT_SUPPORT);
             return FALSE;

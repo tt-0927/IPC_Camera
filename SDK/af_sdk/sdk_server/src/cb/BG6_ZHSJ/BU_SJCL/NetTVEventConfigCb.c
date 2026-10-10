@@ -1103,3 +1103,78 @@ NET_API BOOL STDCALL NET_serverRegisterSetRoadPondingConfigCb(NET_CB_SetDevConfi
 {
     return registerSetCmdCb(NET_SET_ROAD_PONDING_CFG, pCb);
 }
+
+/* ===================== 报警联动/通道列表/抓拍叠加 ===================== */
+
+/**
+ * @brief 注册触发声光报警联动的回调函数
+ * @param [in] pCb 用于执行声光报警联动控制的回调函数
+ * @return 注册成功返回 TRUE；回调函数非法或已注册时返回 FALSE
+ */
+NET_API BOOL STDCALL NET_serverRegisterTriggerSoundLightAlarmCb(NET_CB_SetDevConfigByCommand pCb)
+{
+    return registerSetCmdCb(NET_TRIGGER_SOUND_LIGHT_ALARM, pCb);
+}
+
+/**
+ * @brief 注册获取通道列表的回调函数
+ * @param [in] pCb 用于填充通道列表的回调函数
+ * @return 注册成功返回 TRUE；回调函数非法或已注册时返回 FALSE
+ */
+NET_API BOOL STDCALL NET_serverRegisterGetChannelListCb(NET_CB_GetDevConfigByCommand pCb)
+{
+    return registerGetCmdCb(NET_GET_CHANNEL_LIST, pCb);
+}
+
+/**
+ * @brief 注册获取人脸抓拍图片叠加配置的回调函数
+ * @param [in] pCb 用于填充 NET_FaceCaptureOverlayInfo_S 的回调函数
+ * @return 注册成功返回 TRUE；回调函数非法或已注册时返回 FALSE
+ */
+NET_API BOOL STDCALL NET_serverRegisterGetFaceCaptureOverlayInfoCb(NET_CB_GetDevConfigByCommand pCb)
+{
+    return registerGetCmdCb(NET_GET_FACECAPTUREOVERLAYINFO, pCb);
+}
+
+/**
+ * @brief 注册设置人脸抓拍图片叠加配置的回调函数
+ * @param [in] pCb 用于读取 NET_FaceCaptureOverlayInfo_S 的回调函数
+ * @return 注册成功返回 TRUE；回调函数非法或已注册时返回 FALSE
+ */
+NET_API BOOL STDCALL NET_serverRegisterSetFaceCaptureOverlayInfoCb(NET_CB_SetDevConfigByCommand pCb)
+{
+    return registerSetCmdCb(NET_SET_FACECAPTUREOVERLAYINFO, pCb);
+}
+
+/**
+ * @brief 注册设备端抓图的回调函数
+ * @param [in] pCb 用于填充 NET_CapturePictureInfo_S 的回调函数
+ * @return 注册成功返回 TRUE；回调函数非法或已注册时返回 FALSE
+ * @note 对应海康 CLIENT_SnapPictureEx / 大华"设备端抓图"，是**远程抓图**（需要设备支持）；
+ *       与海康 CLIENT_CapturePicture 那种对已解码画面截图的**本地抓图**不同，后者不需要设备参与。
+ */
+NET_API BOOL STDCALL NET_serverRegisterGetCapturePictureCb(NET_CB_GetDevConfigByCommand pCb)
+{
+    return registerGetCmdCb(NET_GET_CAPTURE_PICTURE, pCb);
+}
+
+/**
+ * @brief 注册查询录像锁定状态的回调函数
+ * @param [in] pCb 用于填充 NET_RecordLockInfo_S 的回调函数
+ * @return 注册成功返回 TRUE；回调函数非法或已注册时返回 FALSE
+ */
+NET_API BOOL STDCALL NET_serverRegisterGetRecordLockStatusCb(NET_CB_GetDevConfigByCommand pCb)
+{
+    return registerGetCmdCb(NET_GET_RECORD_LOCK_STATUS, pCb);
+}
+
+/**
+ * @brief 注册强制I帧的回调函数
+ * @param [in] pCb 用于填充 NET_ForceKeyFrameInfo_S 的回调函数
+ * @return 注册成功返回 TRUE；回调函数非法或已注册时返回 FALSE
+ * @note 语义对齐海康 NET_DVR_MakeKeyFrame：请求编码器立即产生关键帧，并回填该通道流地址。
+ */
+NET_API BOOL STDCALL NET_serverRegisterForceKeyFrameCb(NET_CB_GetDevConfigByCommand pCb)
+{
+    return registerGetCmdCb(NET_FORCE_KEY_FRAME, pCb);
+}

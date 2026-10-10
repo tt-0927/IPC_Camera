@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SDK Client 测试台</title>
+<style>
+:root{
+  --bg:#0d1117;--panel:#161b22;--panel2:#1c2128;--border:#30363d;
+  --text:#e6edf3;--muted:#8b949e;--accent:#4f8cff;
+  --green:#3fb950;--red:#f85149;--yellow:#d29922;--cyan:#39c5cf;
+  --mono:"Cascadia Code","Fira Code",Consolas,"Courier New",monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%}
+body{font-family:"Microsoft YaHei","PingFang SC",system-ui,sans-serif;background:var(--bg);color:var(--text);display:flex;flex-direction:column;overflow:hidden}
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-thumb{background:#30363d;border-radius:4px}
+::-webkit-scrollbar-thumb:hover{background:#484f58}
+::-webkit-scrollbar-track{background:transparent}
+/* ===== 顶栏 ===== */
+.topbar{height:46px;display:flex;align-items:center;gap:10px;padding:0 14px;background:var(--panel);border-bottom:1px solid var(--border);flex-shrink:0}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green);flex-shrink:0}
+.dot.dead{background:var(--red);box-shadow:0 0 6px var(--red)}
+.topbar h1{font-size:14px;font-weight:600;letter-spacing:.5px;white-space:nowrap}
+.topbar .sub{font-size:11px;color:var(--muted);white-space:nowrap}
+.spacer{flex:1}
+.badge{font-size:11px;padding:2px 10px;border-radius:10px;border:1px solid var(--border);color:var(--muted);white-space:nowrap}
+.badge.busy{color:var(--yellow);border-color:var(--yellow)}
+.badge.dead{color:var(--red);border-color:var(--red)}
+.qbtn{font-size:11px;padding:3px 10px;border-radius:5px;border:1px solid #6e3030;background:#2d1113;color:#ff8b87;cursor:pointer;white-space:nowrap}
+.qbtn:hover{background:#4a1719;border-color:var(--red)}
+/* ===== 主体 ===== */
+.mainbody{flex:1;display:flex;min-height:0}
+/* ===== 左侧命令面板 ===== */
+.panel{width:392px;min-width:300px;display:flex;flex-direction:column;border-right:1px solid var(--border);background:var(--panel);flex-shrink:0}
+.searchbar{display:flex;gap:6px;padding:10px 10px 6px}
+.searchbar input{flex:1;background:#0d1117;border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:6px;font-size:13px;outline:none}
+.searchbar input:focus{border-color:var(--accent)}
+.searchbar input::placeholder{color:#484f58}
+.paneltools{display:flex;align-items:center;gap:10px;padding:0 10px 8px;font-size:11px;color:var(--muted)}
+.paneltools a{color:var(--accent);cursor:pointer;text-decoration:none}
+.paneltools a:hover{text-decoration:underline}
+.paneltools .stat{margin-left:auto;font-family:var(--mono)}
+.groups{flex:1;overflow-y:auto;padding:0 10px 10px}
+.groups.locked .mbtn{pointer-events:none;opacity:.45}
+/* 分组卡片 */
+.group{margin-bottom:8px;border:1px solid var(--border);border-radius:6px;background:var(--panel2);overflow:hidden}
+.gtitle{display:flex;align-items:center;gap:8px;padding:7px 10px;cursor:pointer;user-select:none;font-size:12px;font-weight:600}
+.gtitle:hover{background:#21262d}
+.gtitle .bar{width:3px;height:13px;border-radius:2px;flex-shrink:0}
+.gtitle .cnt{font-size:10px;color:var(--muted);font-weight:400;font-family:var(--mono)}
+.gtitle .arr{margin-left:auto;color:var(--muted);transition:transform .15s;font-size:10px}
+.group.closed .arr{transform:rotate(-90deg)}
+.group.closed .gbtns{display:none}
+.gbtns{display:flex;flex-wrap:wrap;gap:5px;padding:8px 9px 9px;border-top:1px solid var(--border)}
+/* 命令按钮 */
+.mbtn{display:inline-flex;align-items:center;gap:6px;padding:4px 8px;background:#0d1117;color:var(--text);border:1px solid var(--border);border-radius:5px;cursor:pointer;font-size:12px;transition:border-color .12s,background .12s;white-space:nowrap}
+.mbtn:hover{border-color:var(--accent);background:#20263a}
+.mbtn:active{border-color:var(--accent);background:#27324d}
+.mbtn .num{font-family:var(--mono);font-size:10.5px;color:var(--muted);background:#161b22;padding:0 4px;border-radius:3px;min-width:24px;text-align:center}
+.mbtn:hover .num{color:var(--accent)}
+.mbtn.danger{border-color:#5c2b2b}
+.mbtn.danger .num{color:#c97777}
+.mbtn.danger:hover{border-color:var(--red);background:#251317}
+/* 高亮命令按钮 (黄色标识, 如综合流程测试) */
+.mbtn.hl{border-color:var(--yellow);background:#2a2410;color:#f0c674}
+.mbtn.hl .num{color:var(--yellow);background:#3a3115}
+.mbtn.hl:hover{border-color:#f0c674;background:#3a3115}
+/* ===== 右侧终端区 ===== */
+.right{flex:1;display:flex;flex-direction:column;min-width:0;min-height:0}
+.term-head{display:flex;align-items:center;gap:10px;padding:6px 14px;background:var(--panel);border-bottom:1px solid var(--border);font-size:11px;color:var(--muted);flex-shrink:0}
+.term-head .tt{font-weight:600;color:var(--text);font-size:12px}
+.term-head .tbtn{font-size:11px;padding:2px 10px;border-radius:5px;border:1px solid var(--border);background:var(--panel2);color:var(--muted);cursor:pointer}
+.term-head .tbtn:hover{color:var(--text);border-color:var(--accent)}
+.term-head .tbtn.on{color:var(--green);border-color:var(--green)}
+.terminal{flex:1;overflow-y:auto;padding:10px 14px;background:#010409;font-family:var(--mono);font-size:12.5px;line-height:1.5;white-space:pre-wrap;word-break:break-all;color:#c9d1d9}
+.terminal .ln-user{color:var(--cyan)}
+.terminal .ln-ok{color:var(--green)}
+.terminal .ln-err{color:var(--red)}
+.terminal .ln-sep{color:var(--yellow)}
+.terminal .ln-sys{color:#79c0ff}
+/* ===== 错误信息栏 ===== */
+.errbar{display:none;align-items:center;gap:8px;padding:6px 14px;background:#2d1113;border-bottom:1px solid #5c2b2b;font-size:12px;flex-shrink:0}
+.errbar.show{display:flex}
+.errbar .errtag{color:var(--red);font-weight:600;white-space:nowrap}
+.errbar .errcode{color:#ff8b87;font-family:var(--mono);white-space:nowrap}
+.errbar .errmsg{color:#ffa198;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.errbar .errclose{background:none;border:none;color:#ff8b87;cursor:pointer;font-size:14px;padding:0 4px;flex-shrink:0}
+.errbar .errclose:hover{color:#fff}
+/* ===== 底部输入栏 ===== */
+.inputbar{display:flex;gap:6px;padding:8px 14px;border-top:1px solid var(--border);background:var(--panel);flex-shrink:0}
+.inputbar input{flex:1;background:#0d1117;border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:6px;font-size:13px;font-family:var(--mono);outline:none}
+.inputbar input:focus{border-color:var(--accent)}
+.ibtn{padding:6px 14px;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;background:#1f6feb;color:#fff;white-space:nowrap}
+.ibtn:hover{background:#388bfd}
+.ibtn.gray{background:#30363d;color:var(--text);font-weight:400}
+.ibtn.gray:hover{background:#484f58}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <span class="dot" id="aliveDot"></span>
+  <h1>SDK Client 测试台</h1>
+  <span class="sub">嵌入式 HTTP 服务器</span>
+  <span class="spacer"></span>
+  <span class="badge" id="busyBadge">空闲</span>
+  <button class="qbtn" onclick="exitDemo()">退出程序</button>
+</div>
+<div class="mainbody">
+  <div class="panel">
+    <div class="searchbar">
+      <input id="search" placeholder="搜索命令: 编号或名称, 如 87 / 曝光" oninput="filterCmds()">
+    </div>
+    <div class="paneltools">
+      <a onclick="setAllGroups(false)">全部展开</a>
+      <a onclick="setAllGroups(true)">全部收起</a>
+      <span class="stat" id="stat"></span>
+    </div>
+    <div class="groups" id="groups"></div>
+  </div>
+  <div class="right">
+    <div class="term-head">
+      <span class="tt">终端输出</span>
+      <span class="spacer"></span>
+      <button class="tbtn on" id="autoBtn" onclick="toggleAuto()">自动滚动: 开</button>
+      <button class="tbtn" onclick="clearTerm()">清屏</button>
+    </div>
+    <div class="errbar" id="errbar">
+      <span class="errtag">&#x26A0; 错误</span>
+      <span class="errcode" id="errcode"></span>
+      <span class="errmsg" id="errmsg"></span>
+      <button class="errclose" onclick="clearErr()" title="关闭">&#x2715;</button>
+    </div>
+    <div class="terminal" id="term"></div>
+    <div class="inputbar">
+      <input id="ci" placeholder="参数输入 (回车=发送, ↑↓=历史, quit=中止, clear=清屏)">
+      <button class="ibtn" onclick="sendInput()">发送</button>
+      <button class="ibtn gray" onclick="quickInput('quit')">quit</button>
+      <button class="ibtn gray" onclick="quickInput('clear')">clear</button>
+    </div>
+  </div>
+</div>
+<script>
+/* ===================== 命令分类定义 =====================
+ * 按功能域分组, 覆盖 0~146 全部有效命令 (0=显示菜单)
+ * c: 分组色条颜色  danger: 组内含高危命令需二次确认
+ * ======================================================== */
+const G=[
+{t:"基础与SDK",c:"#8b949e",i:[[0,"显示菜单"],[1,"初始化SDK"],[2,"清理SDK"],[3,"SDK版本"],[4,"最后错误码"],[5,"连接超时"],[6,"接收超时"],[7,"日志设置"],[8,"异常回调"]]},
+{t:"设备与会话",c:"#4f8cff",i:[[9,"登录"],[10,"登出"],[11,"自动重连"],[13,"上传文件"],[300,"综合流程测试"]]},
+{t:"能力集",c:"#39c5cf",i:[[105,"系统能力总表"],[18,"视频编码能力"],[19,"音频能力"],[20,"OSD能力"]]},
+{t:"设备控制",c:"#f85149",danger:1,i:[[17,"设备控制"],[205,"设置升级"],[209,"云台控制"],[210,"查询预置位"],[211,"设置预置位"],[106,"远程重启"],[107,"远程关机"],[108,"格式化硬盘"],[110,"恢复默认"],[212,"外部设备控制"]]},
+{t:"系统与网络",c:"#a371f7",i:[[28,"NTP查询"],[29,"NTP设置"],[146,"设置系统时间"],[113,"网络查询"],[42,"网络设置"]]},
+{t:"用户与设备管理",c:"#f85149",danger:1,i:[[12,"设备发现"],[21,"设备信息"],[109,"设备状态"],[23,"存储信息"],[27,"RTSP地址"],[22,"通道列表"],[111,"查询通道名称"],[112,"设置通道名称"],[203,"修改用户密码"],[204,"获取升级状态"],[206,"获取升级版本"]]},
+{t:"报警监听与联动",c:"#f85149",i:[[14,"报警监听"],[15,"停止监听"],[16,"通道状态回调"]]},
+{t:"音频与对讲",c:"#d29922",i:[[26,"音频配置查询"],[84,"音频设置"],[85,"对讲音频查询"],[86,"对讲音频设置"],[34,"语音对讲"],[213,"对讲状态设置"],[214,"设置对讲输出"],[215,"获取对讲源"],[216,"回放对讲"]]},
+{t:"预览与抓图",c:"#ff7b72",i:[[71,"预览信息查询"],[72,"预览信息设置"],[73,"抓图计划查询"],[74,"抓图计划设置"],[75,"抓图参数查询"],[76,"抓图参数设置"],[36,"流编码查询"],[37,"流编码设置"],[218,"抓图(JPEG)"]]},
+{t:"录像与回放",c:"#f0883e",i:[[25,"录像状态"],[31,"回放地址"],[32,"回放控制"],[33,"录像帧流"],[35,"分页查询录像文件"],[61,"录像计划查询"],[62,"录像计划设置"],[63,"录像高级参数查询"],[64,"录像高级参数设置"],[68,"异步下载录像文件"],[221,"下载任务进度"],[222,"停止下载任务"]]},
+{t:"IPC相关参数",c:"#d2a8ff",i:[[87,"曝光查询"],[88,"曝光设置"],[89,"日夜转换查询"],[90,"日夜转换设置"],[91,"背光查询"],[92,"背光设置"],[93,"降噪查询"],[94,"降噪设置"],[95,"白平衡查询"],[96,"白平衡设置"],[43,"隐私遮盖查询"],[44,"隐私遮盖设置"],[38,"OSD配置查询"],[39,"OSD配置设置"],[40,"图像查询"],[41,"图像设置"],[45,"声音报警查询"],[46,"声音报警设置"],[47,"报警输入查询"],[48,"报警输入设置"],[49,"报警输出查询"],[50,"报警输出设置"],[51,"闪光报警查询"],[52,"闪光报警设置"],[53,"PIR报警查询"],[54,"PIR报警设置"],[69,"音频异常查询"],[70,"音频异常设置"],[223,"音频实时音量"],[220,"声光报警联动"]]},
+{t:"AI智能事件配置",c:"#f85149",i:[[122,"移动侦测查询"],[123,"移动侦测设置"],[124,"遮挡查询"],[125,"遮挡设置"],[126,"越界查询"],[127,"越界设置"],[128,"入侵查询"],[129,"入侵设置"],[130,"进入区域查询"],[131,"进入区域设置"],[132,"离开区域查询"],[133,"离开区域设置"],[134,"徘徊查询"],[135,"徘徊设置"],[136,"场景变更查询"],[137,"场景变更设置"],[138,"人员聚集查询"],[139,"人员聚集设置"],[140,"停车查询"],[141,"停车设置"],[142,"物品遗留查询"],[143,"物品遗留设置"],[144,"物品拿取查询"],[145,"物品拿取设置"],[77,"人脸抓拍查询"],[78,"人脸抓拍设置"],[79,"人脸比对设置"],[80,"人流统计查询"],[81,"人流统计设置"],[82,"人员密度查询"],[83,"人员密度设置"]]},
+{t:"扩展AI事件配置",c:"#f85149",i:[[147,"垃圾满溢查询"],[148,"垃圾满溢设置"],[149,"井盖异常查询"],[150,"井盖异常设置"],[151,"睡岗查询"],[152,"睡岗设置"],[153,"电瓶车进电梯查询"],[154,"电瓶车进电梯设置"],[155,"人员倒地查询"],[156,"人员倒地设置"],[157,"施工占道查询"],[158,"施工占道设置"],[159,"拥堵查询"],[160,"拥堵设置"],[161,"车牌识别查询"],[162,"车牌识别设置"],[163,"高空安全带查询"],[164,"高空安全带设置"],[165,"安全帽查询"],[166,"安全帽设置"],[167,"摔倒查询"],[168,"摔倒设置"],[169,"玩手机查询"],[170,"玩手机设置"],[171,"明火查询"],[172,"明火设置"],[173,"黄土裸露查询"],[174,"黄土裸露设置"],[175,"洞口防护栏查询"],[176,"洞口防护栏设置"],[177,"反光衣查询"],[178,"反光衣设置"],[179,"宠物识别查询"],[180,"宠物识别设置"],[181,"翻越围栏查询"],[182,"翻越围栏设置"],[183,"离岗查询"],[184,"离岗设置"],[185,"违规变道查询"],[186,"违规变道设置"],[187,"逆行查询"],[188,"逆行设置"],[189,"非机动车闯入查询"],[190,"非机动车闯入设置"],[191,"应急车道占用查询"],[192,"应急车道占用设置"],[193,"行人闯入查询"],[194,"行人闯入设置"],[195,"烟火查询"],[196,"烟火设置"],[197,"道路积水查询"],[198,"道路积水设置"],[199,"人脸抓拍叠加查询"],[200,"人脸抓拍叠加设置"],[201,"垃圾暴露查询"],[202,"垃圾暴露设置"]]},
+{t:"人脸库管理",c:"#56d364",i:[[97,"添加目标库"],[98,"删除目标库"],[99,"修改目标库"],[100,"获取目标库"],[101,"添加人脸"],[102,"删除人脸"],[103,"修改人脸"],[104,"获取人脸"]]},
+{t:"串口与日志",c:"#39c5cf",i:[[115,"建立透明通道"],[116,"断开透明通道"],[117,"发送通道数据"],[118,"查询串口参数"],[119,"发送串口数据"],[120,"直接发送232"],[121,"直接发送串口"],[58,"日志服务器查询"],[59,"日志服务器设置"],[60,"测试日志服务器"],[65,"查找日志"],[66,"导出日志"],[55,"安全服务查询"],[56,"安全服务设置"],[57,"SSH倒计时"]]},
+];
+/* 高危命令: 改网络/重启/关机/格式化/恢复默认, 执行前二次确认 */
+const DANGER=new Set([42,106,107,108,110]);
+/* 高亮命令: 如综合流程测试, 按钮以黄色标识 */
+const HILITE=new Set([300]);
+const TOTAL=G.reduce((s,g)=>s+g.i.length,0);
+/* 需要 JSON 输入的命令集合 (Web 模式通过 stdin 管道读取一行 JSON):
+ *  自定义直传(JSON)命令: 17/27/29/30/31/32/33/104/107/108/112/115/116/117/119/120/121/146
+ *  直写 Set(人脸库/人脸): 97/98/99/101/102/103
+ *  云台控制(直传): 209  预置位控制(直传): 211
+ *  通用 Set(先取配置再 JSON 修改): 37/39/41/42/44/46/48/50/52/54/56/59/60/62/64/68/69/70/72/74/76/78/79/81/83/86/88/90/92/94/96
+ *  AI 智能事件设置: 123/125/127/129/131/133/135/137/139/141/143/145
+ *  扩展AI事件设置: 148/150/152/154/156/158/160/162/164/166/168/170/172/174/176/178/180/182/184/186/188/190/192/194/196/198
+ *  人脸叠加/垃圾暴露设置: 200/202  用户与设备管理: 203/205 */
+const NEEDS_INPUT=new Set([17,27,29,31,32,33,35,37,39,41,42,44,46,48,50,52,54,56,59,60,
+  62,64,69,70,72,74,76,78,79,81,83,86,88,90,92,94,96,97,98,99,101,102,103,104,107,108,
+  112,115,116,117,119,120,121,123,125,127,129,131,133,135,137,139,141,143,145,146,
+  148,150,152,154,156,158,160,162,164,166,168,170,172,174,176,178,180,182,184,186,188,190,192,194,196,198,200,202,203,205,
+  209,211]);
+/* 上述命令中, 已知 JSON 字段结构的给出可一键发送/参考的示例 (其余命令终端会先打印当前配置供参考) */
+const EXAMPLE={
+  17:'{"channel":0,"controlType":1,"command":1,"speed":3}',
+  27:'{"Channel":0,"StreamIndex":1}',
+  29:'{"Address":"ntp.aliyun.com","Port":123,"SyncInterval":60,"IsEnableNTPSync":1,"DateTime":"2026-09-16 10:00:00"}',
+  30:'{"Channel":0,"Date":"2026-09-01"}',
+  31:'{"Channel":0,"StartTime":"2026-09-01 00:00:00","EndTime":"2026-09-01 23:59:59"}',
+  32:'{"CtrlType":1,"Channel":0,"StartTime":"2026-09-01 00:00:00","EndTime":"2026-09-01 23:59:59"}',
+  33:'{"channel":0,"startTime":"2026-09-01 00:00:00","endTime":"2026-09-01 23:59:59"}',
+  35:'{"Find":{"ChnId":0,"StartTime":"2026-09-18 00:00:00","EndTime":"2026-09-18 23:59:59"},"Page":{"CurPage":1}}',
+  97:'{"LibId":"1111"}',
+  98:'{"LibId":"1111"}',
+  99:'{"LibId":"1111","LibId_new":"2222"}',
+  101:'{"LibId":"1111","Id":1,"Name":"张三","PhoneNum":"13800138000","PicPath":"face/1.jpg"}',
+  102:'{"LibId":"1111","IdCount":1,"Ids":[1]}',
+  103:'{"LibId":"1111","Id":1,"Name":"张三","PhoneNum":"13800138000","PicPath":"face/1.jpg"}',
+  104:'{"LibId":"1111"}',
+  107:'{"nDelaySeconds":0}',
+  108:'{"nDiskIndex":-1,"nFormatType":0}',
+  112:'{"uChannel":0,"szChannelName":"通道1"}',
+  115:'{"nChannelIndex":0,"nSerialPortIndex":0,"nBaudRate":9600}',
+  116:'{"nChannelIndex":0}',
+  117:'{"nChannelIndex":0}',
+  119:'{"nPortIndex":0}',
+  120:'{"nPortIndex":0}',
+  121:'{"nPortIndex":0}',
+  146:'{"DateTime":"2026-09-15 10:00:00"}',
+  42:'{"NetworkCount":1,"Networks":[{"NetName":"eth0","MTU":1500,"IPv4DHCP":0,"IPv4Address":"192.168.1.64","IPv4GateWay":"192.168.1.1","IPv4SubnetMask":"255.255.255.0"}]}',
+  110:'{"nResetType":2}',
+  209:'{"ID":0,"Type":1,"Speed":50,"Num":0}',
+  211:'{"Type":0,"CameraId":0,"PresetNum":1,"Name":"Preset1"}'
+};
+
+/* ===================== 状态 ===================== */
+let pos=0,timer=null,autoScroll=true,stickBottom=true;
+let inputHist=[],histIdx=-1;
+let pendingCmd=null;  /* 高危命令回车确认暂存 */
+const LS_KEY="sdkdemo.collapsed";
+
+/* ===================== 构建命令面板 ===================== */
+function buildUI(){
+  let h="";
+  for(let gi=0;gi<G.length;gi++){
+    const g=G[gi];
+    h+='<div class="group" id="grp'+gi+'">'
+      +'<div class="gtitle" onclick="toggleGroup('+gi+')">'
+      +'<span class="bar" style="background:'+g.c+'"></span>'
+      +'<span>'+g.t+'</span><span class="cnt">'+g.i.length+'</span>'
+      +'<span class="arr">&#9662;</span></div>'
+      +'<div class="gbtns">';
+    for(const[n,l]of g.i){
+      const ex=EXAMPLE[n];
+      h+='<button class="mbtn'+(DANGER.has(n)?" danger":"")+(HILITE.has(n)?" hl":"")+'" data-n="'+n+'" data-l="'+l+'"'
+        +(ex?' title="示例: '+ex.replace(/"/g,"&quot;")+'"':"")
+        +' onclick="cmd('+n+')">'
+        +'<span class="num">'+n+'</span><span>'+l+'</span>'
+        +'</button>';
+    }
+    h+='</div></div>';
+  }
+  document.getElementById("groups").innerHTML=h;
+  restoreCollapse();
+  updateStat(TOTAL);
+}
+/* 折叠状态存 localStorage */
+function toggleGroup(gi){
+  const el=document.getElementById("grp"+gi);
+  el.classList.toggle("closed");
+  saveCollapse();
+}
+function setAllGroups(closed){
+  for(let gi=0;gi<G.length;gi++)
+    document.getElementById("grp"+gi).classList.toggle("closed",closed);
+  saveCollapse();
+}
+function saveCollapse(){
+  const st=[];
+  for(let gi=0;gi<G.length;gi++)
+    if(document.getElementById("grp"+gi).classList.contains("closed"))st.push(gi);
+  try{localStorage.setItem(LS_KEY,JSON.stringify(st));}catch(e){}
+}
+function restoreCollapse(){
+  let st=[];
+  try{st=JSON.parse(localStorage.getItem(LS_KEY)||"[]");}catch(e){}
+  st.forEach(gi=>{
+    const el=document.getElementById("grp"+gi);
+    if(el)el.classList.add("closed");
+  });
+}
+/* ===================== 搜索过滤 ===================== */
+function filterCmds(){
+  const q=document.getElementById("search").value.trim().toLowerCase();
+  const btns=document.querySelectorAll(".mbtn");
+  let shown=0;
+  btns.forEach(b=>{
+    const hit=!q||b.dataset.n.indexOf(q)>=0||b.dataset.l.toLowerCase().indexOf(q)>=0;
+    b.style.display=hit?"":"none";
+    if(hit)shown++;
+  });
+  /* 有搜索词时: 展开含匹配项的分组并显示; 无搜索词时: 恢复折叠状态 */
+  const searching=q.length>0;
+  for(let gi=0;gi<G.length;gi++){
+    const el=document.getElementById("grp"+gi);
+    const any=[...el.querySelectorAll(".mbtn")].some(b=>b.style.display!=="none");
+    el.style.display=any?"":"none";
+    if(searching)el.classList.remove("closed");
+  }
+  if(!searching)restoreCollapse();
+  updateStat(shown);
+}
+function updateStat(n){
+  document.getElementById("stat").textContent=n+"/"+TOTAL+" 项";
+}
+/* ===================== 命令执行 ===================== */
+async function cmd(n){
+  followBottom();
+  if(DANGER.has(n)){
+    pendingCmd=n;
+    appendLine("⚠ 命令 "+n+" 为高危操作, 回车确认执行 (或输入 quit 取消)\n","ln-sep");
+    /* 高危且需 JSON 输入的命令(如42网络设置/110恢复默认): 仍预填示例,
+     * 确认执行后会阻塞等待终端输入, 示例保留在输入框供下一步直接回车发送 */
+    if(EXAMPLE[n]){
+      const ci=document.getElementById("ci");
+      ci.value=EXAMPLE[n];
+      ci.focus();
+      appendLine("ℹ 已预填示例 JSON, 回车确认执行; 终端等待输入时, 可修改后再次回车发送:\n  "+EXAMPLE[n]+"\n","ln-sys");
+    }
+    return;
+  }
+  appendLine("> 命令: "+n+"\n","ln-user");
+  const r=await fetch("/api/cmd",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({cmd:n})});
+  const d=await r.json();
+  if(d.busy){appendLine("> "+d.msg+"\n","ln-sys");return;}
+  /* 需要 JSON 输入的命令: 有示例则预填到输入框并聚焦, 无示例则提示等待终端打印当前配置后填入 */
+  if(EXAMPLE[n]){
+    const ci=document.getElementById("ci");
+    ci.value=EXAMPLE[n];
+    ci.focus();
+    appendLine("ℹ 命令 "+n+" 需要 JSON 输入, 已预填示例, 直接回车发送或改为实际值:\n  "+EXAMPLE[n]+"\n","ln-sys");
+  }else if(NEEDS_INPUT.has(n)){
+    document.getElementById("ci").focus();
+    appendLine("ℹ 命令 "+n+" 需要 JSON 输入, 待终端打印「等待输入Json数据」后, 在下方输入框填入 JSON 并回车 (空行=默认值)\n","ln-sys");
+  }
+  startPoll();
+}
+async function exitDemo(){
+  await fetch("/api/cmd",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({cmd:999})});
+  appendLine("> 已发送退出命令 (999)\n","ln-sys");
+}
+/* ===================== 参数输入 ===================== */
+/* 主动发送(回车/发送按钮)代表用户想看到最新输出: 恢复贴底并立即滚到底部
+ * (仍尊重"自动滚动"总开关; 用户上翻导致 stickBottom=false 的状态由此解除) */
+function followBottom(){
+  if(!autoScroll)return;
+  stickBottom=true;
+  const el=document.getElementById("term");
+  el.scrollTop=el.scrollHeight;
+}
+async function sendInput(){
+  const el=document.getElementById("ci"),v=el.value;
+  pushHist(v);
+  followBottom();
+  /* 高危命令确认: 如果有暂存的高危命令, 回车=执行, quit=取消 */
+  if(pendingCmd!==null){
+    if(v.trim()==="quit"){
+      appendLine("> 已取消命令 "+pendingCmd+"\n","ln-sys");
+      pendingCmd=null;
+      el.value="";
+      return;
+    }
+    const n=pendingCmd;
+    pendingCmd=null;
+    appendLine("> 确认执行命令: "+n+"\n","ln-user");
+    const r=await fetch("/api/cmd",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({cmd:n})});
+    const d=await r.json();
+    if(d.busy){appendLine("> "+d.msg+"\n","ln-sys");return;}
+    startPoll();
+    /* 带 JSON 示例的高危命令(42/107/110等)确认后保留输入框, 供终端「等待输入Json数据」时直接回车发送;
+     * 无示例的高危命令确认后清空输入框, 避免残留历史文本 */
+    if(!EXAMPLE[n]) el.value="";
+    return;
+  }
+  el.value="";
+  await postInput(v);
+}
+async function quickInput(v){
+  pushHist(v);
+  followBottom();
+  await postInput(v);
+}
+async function postInput(v){
+  appendLine("> 输入: "+(v===""?"(空行, 使用默认值)":v)+"\n","ln-user");
+  await fetch("/api/input",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text:v})});
+  startPoll();
+}
+function pushHist(v){
+  if(!v)return;
+  if(inputHist[inputHist.length-1]!==v)inputHist.push(v);
+  if(inputHist.length>50)inputHist.shift();
+  histIdx=inputHist.length;
+}
+/* 键盘事件: 回车发送(焦点在终端等非编辑区域同样生效), 输入框内上下键回溯历史 */
+document.addEventListener("keydown",e=>{
+  const tag=e.target.tagName,inCi=e.target.id==="ci";
+  if(e.key==="Enter"){
+    /* 中文输入法组词(isComposing/keyCode 229)过程中的回车只确认候选词, 不发送 */
+    if(e.isComposing||e.keyCode===229)return;
+    /* 搜索框等其他可编辑控件的回车不触发命令; 按钮/链接保留原生回车激活, 避免重复发送 */
+    const editable=tag==="INPUT"||tag==="TEXTAREA"||tag==="SELECT"||e.target.isContentEditable;
+    if((editable&&!inCi)||tag==="BUTTON"||tag==="A")return;
+    e.preventDefault();
+    if(!inCi)document.getElementById("ci").focus();
+    sendInput();
+  }else if(inCi&&e.key==="ArrowUp"){
+    if(histIdx>0){histIdx--;e.target.value=inputHist[histIdx]||"";}
+    e.preventDefault();
+  }else if(inCi&&e.key==="ArrowDown"){
+    if(histIdx<inputHist.length-1){histIdx++;e.target.value=inputHist[histIdx]||"";}
+    else{histIdx=inputHist.length;e.target.value="";}
+    e.preventDefault();
+  }
+});
+/* ===================== 输出轮询 ===================== */
+function startPoll(){if(!timer)timer=setInterval(poll,400);}
+async function poll(){
+  try{
+    const r=await fetch("/api/output?pos="+pos);
+    const d=await r.json();
+    if(d.data){
+      const ci=d.data.indexOf("[CLEAR]");
+      if(ci>=0){
+        document.getElementById("term").innerHTML="";
+        const after=d.data.substring(ci+7);
+        if(after)appendText(after);
+      }else{
+        appendText(d.data);
+      }
+    }
+    pos=d.pos;
+  }catch(e){}
+}
+/* ===================== 终端渲染 ===================== */
+function esc(s){
+  return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+}
+/* 常见 SDK 错误码中文描述 */
+const ERR_MAP={
+  "-1":"操作失败","3":"用户未授权","5":"用户不存在/密码错误",
+  "102":"参数无效","104":"句柄无效","112":"命令不支持",
+  "113":"设备/通道不支持","114":"超时","115":"消息不匹配",
+  "200":"创建连接失败","201":"发送消息失败","202":"解析响应失败",
+  "203":"功能未实现","204":"JSON解析错误"
+};
+function lineClass(s){
+  if(s.indexOf("> ")===0)return"ln-user";
+  if(s.indexOf("---")===0)return"ln-sep";
+  if(s.indexOf("失败")>=0)return"ln-err";
+  if(s.indexOf("成功")>=0)return"ln-ok";
+  if(s.indexOf("已就绪")>=0||s.indexOf("用法")>=0)return"ln-sys";
+  return"";
+}
+/* 检测输出中的错误并更新错误栏 */
+function detectError(s){
+  var m=s.match(/Error=(-?\d+).*Msg=(.+)/);
+  if(!m) m=s.match(/error=(-?\d+)/i);
+  if(m){
+    var code=m[1],msg=m[2]||ERR_MAP[code]||"";
+    var desc=ERR_MAP[code]||"";
+    document.getElementById("errcode").textContent="Error="+code+(desc?" ("+desc+")":"");
+    document.getElementById("errmsg").textContent=msg||desc||"操作失败";
+    document.getElementById("errbar").classList.add("show");
+  }else if(s.indexOf("失败")>=0&&s.indexOf("Error=")<0){
+    document.getElementById("errcode").textContent="";
+    document.getElementById("errmsg").textContent=s.trim();
+    document.getElementById("errbar").classList.add("show");
+  }
+}
+function clearErr(){
+  document.getElementById("errbar").classList.remove("show");
+}
+/* 增量文本按行着色追加; 行数超限裁剪头部防卡顿 */
+function appendText(t){
+  const lines=t.split("\n");
+  let html="";
+  for(let i=0;i<lines.length;i++){
+    const ln=lines[i];
+    if(i<lines.length-1){
+      const cls=lineClass(ln);
+      html+=cls?('<span class="'+cls+'">'+esc(ln)+"</span>\n"):esc(ln)+"\n";
+      if(cls==="ln-err")detectError(ln);
+    }else if(ln)html+=esc(ln);
+  }
+  appendHtml(html);
+}
+function appendLine(t,cls){
+  appendHtml('<span class="'+cls+'">'+esc(t)+"</span>");
+}
+function appendHtml(html){
+  const el=document.getElementById("term");
+  const div=document.createElement("div");
+  div.innerHTML=html;
+  while(div.firstChild)el.appendChild(div.firstChild);
+  /* 限制最大行数: 超出 4000 行裁掉头部 800 行 */
+  while(el.childNodes.length>4000)el.removeChild(el.firstChild);
+  if(autoScroll&&stickBottom)el.scrollTop=el.scrollHeight;
+}
+/* 滚动贴底检测: 用户上滚时暂停自动滚动, 滚回底部恢复 */
+document.getElementById("term").addEventListener("scroll",function(){
+  const el=this;
+  stickBottom=el.scrollHeight-el.scrollTop-el.clientHeight<40;
+});
+function toggleAuto(){
+  autoScroll=!autoScroll;
+  const b=document.getElementById("autoBtn");
+  b.textContent="自动滚动: "+(autoScroll?"开":"关");
+  b.classList.toggle("on",autoScroll);
+  if(autoScroll){
+    stickBottom=true;
+    const el=document.getElementById("term");
+    el.scrollTop=el.scrollHeight;
+  }
+}
+function clearTerm(){
+  document.getElementById("term").innerHTML="";
+  appendLine("> 已清空显示 (输出缓冲区位置不变)\n","ln-sys");
+}
+/* ===================== 状态轮询 (busy/存活) ===================== */
+function setBusy(b){
+  const el=document.getElementById("busyBadge");
+  el.textContent=b?"测试中":"空闲";
+  el.className="badge"+(b?" busy":"");
+  document.getElementById("groups").classList.toggle("locked",b);
+}
+function setAlive(a){
+  document.getElementById("aliveDot").classList.toggle("dead",!a);
+}
+setInterval(async()=>{
+  try{
+    const r=await fetch("/api/status");
+    const d=await r.json();
+    setBusy(!!d.busy);
+    setAlive(true);
+  }catch(e){setAlive(false);}
+},1000);
+/* ===================== 启动 ===================== */
+buildUI();
+appendLine("SDK Client 测试台已就绪\n","ln-sys");
+appendLine("共 "+TOTAL+" 项命令, 按功能分为 "+G.length+" 组; 左侧搜索框可按编号/名称过滤\n点击后输入框会自动预填示例(有示例时)或提示填法\n参数输入框: 命令等待输入时提交(JSON 或通道号数字, 空行=默认值); quit=中止当前测试, clear=清屏, ↑↓=历史\n","ln-sys");
+startPoll();
+</script>
+</body>
+</html>

@@ -97,6 +97,62 @@ NET_API BOOL STDCALL NET_serverPushChannelStatusInfo(IN NET_ChannelInfo_S *pChan
 	return g_pServerImpl->DoPushChannelStatusInfo(pChannelInfo);
 }
 
+NET_API BOOL STDCALL NET_serverPushFaceCaptureInfo(
+    IN NET_Alarmer_S *pAlarmer,
+    IN NET_FaceCapturePushInfo_S *pCaptureInfo)
+{
+    if (!pAlarmer || !pCaptureInfo)
+    {
+        return FALSE;
+    }
+    return NET_serverPushAlarmInfo(pAlarmer,
+                                   NET_PUSH_FACE_CAPTURE_INFO,
+                                   pCaptureInfo,
+                                   (INT32)sizeof(*pCaptureInfo));
+}
+
+NET_API BOOL STDCALL NET_serverPushPersonCaptureInfo(
+    IN NET_Alarmer_S *pAlarmer,
+    IN NET_PersonCapturePushInfo_S *pCaptureInfo)
+{
+    if (!pAlarmer || !pCaptureInfo)
+    {
+        return FALSE;
+    }
+    return NET_serverPushAlarmInfo(pAlarmer,
+                                   NET_PUSH_PERSON_CAPTURE_INFO,
+                                   pCaptureInfo,
+                                   (INT32)sizeof(*pCaptureInfo));
+}
+
+NET_API BOOL STDCALL NET_serverPushMotorvehicleCaptureInfo(
+    IN NET_Alarmer_S *pAlarmer,
+    IN NET_MotorvehicleCapturePushInfo_S *pCaptureInfo)
+{
+    if (!pAlarmer || !pCaptureInfo)
+    {
+        return FALSE;
+    }
+    return NET_serverPushAlarmInfo(pAlarmer,
+                                   NET_PUSH_MOTORVEHICLE_CAPTURE_INFO,
+                                   pCaptureInfo,
+                                   (INT32)sizeof(*pCaptureInfo));
+}
+
+NET_API BOOL STDCALL NET_serverPushNonMotorvehicleCaptureInfo(
+    IN NET_Alarmer_S *pAlarmer,
+    IN NET_NonMotorvehicleCapturePushInfo_S *pCaptureInfo)
+{
+    if (!pAlarmer || !pCaptureInfo)
+    {
+        return FALSE;
+    }
+    return NET_serverPushAlarmInfo(pAlarmer,
+                                   NET_PUSH_NONMOTORVEHICLE_CAPTURE_INFO,
+                                   pCaptureInfo,
+                                   (INT32)sizeof(*pCaptureInfo));
+}
+
 NET_API BOOL STDCALL
 NET_serverRegisterSetNetworkCb(IN NET_CB_SetNetwork cbFunc)
 {

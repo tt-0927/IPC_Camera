@@ -27,6 +27,8 @@
 #include <thread>
 #include <chrono>
 #include <vector>
+#include <string>
+#include <mutex>
 #include "NetSdkLog.h"
 #include "NetTVSDKClientInterface.h"
 
@@ -35,10 +37,10 @@
 #define MAX_LOG_FILES (10)
 
 /* 服务端配置（与服务端 Demo 保持一致） */
-#define SERVER_IP   "127.0.0.1"
-#define SERVER_PORT 9888
+#define SERVER_IP   "172.16.25.233"
+#define SERVER_PORT 9019
 #define USERNAME    "admin"
-#define PASSWORD    "sj2@2025"
+#define PASSWORD    "itc20232024"
 /* 当前IPC能力只开放前4个自定义OSD槽位，结构体数组长度仍按SDK ABI保留。 */
 #define DEMO_OSD_CUSTOM_MAX_NUM NET_OSD_CUSTOM_MAX_NUM
 #define DEMO_OSD_STRUCT_SLOT_NUM NET_OSD_TYPE_MAX_NUM
@@ -62,6 +64,25 @@ static char g_password[64] = PASSWORD;
 /* 全局用户句柄 */
 static LPVOID g_lpUserID = NULL;
 static char g_szReplaySessionId[NET_REPLAY_SESSION_ID_LEN] = {0};
+
+/*
+ * demo 只保存 SDK 返回的下载句柄，用于查询进度和停止指定下载。
+ * 设备端 taskId 始终由 SDK 私有生成；任务结束后由监控线程自动回收句柄。
+ */
+struct DemoDownloadTask
+{
+    int id = 0;
+    LPVOID handle = NULL;
+    int channelId = 0;
+    std::string date;
+    int startTime = 0;
+    int endTime = 0;
+    std::string savePath;
+};
+
+static std::mutex g_downloadTaskMutex;
+static std::vector<DemoDownloadTask> g_downloadTasks;
+static int g_nextDownloadTaskId = 1;
 
 /* NVR control 内部平台点播命令码，客户端通过 NET_clientControlReplay 触发服务端转发 */
 #define DEMO_AC_PLATFORM_PLAY 3213
@@ -315,6 +336,17 @@ static void PrintMenu()
     printf("182 - 获取 PIR 报警配置 (NET_GET_PIR_ALARM_INFO)\n");
     printf("183 - 设置 PIR 报警配置 (NET_SET_PIR_ALARM_INFO)\n");
     printf("184 - 获取音频异常侦测实时音量 (NET_GET_AUDIO_ANOMALY_CURRENT_DB)\n");
+    printf("186 - 获取人脸抓拍叠加配置 (NET_GET_FACECAPTUREOVERLAYINFO)\n");
+    printf("187 - 设置人脸抓拍叠加配置 (NET_SET_FACECAPTUREOVERLAYINFO)\n");
+    printf("188 - 触发声光报警联动 (NET_TRIGGER_SOUND_LIGHT_ALARM)\n");
+    printf("190 - 分页查询真实录像文件 (NET_clientQueryRecordFiles，无48条上限)\n");
+    printf("191 - 同步下载录像文件 (NET_clientDownloadRecordFile，阻塞至完成)\n");
+    printf("192 - 启动异步下载任务 (NET_clientStartDownloadRecordFile，返回后自动后台回收)\n");
+    printf("193 - 并发异步下载测试 (同时启动两个独立任务)\n");
+    printf("194 - 查看正在下载的任务/进度 (NET_clientGetDownloadRecordFileStatus)\n");
+    printf("195 - 停止最近启动的异步下载任务 (NET_clientCancelDownloadRecordFile，无需输入任务ID)\n");
+    printf("580 - 设备端抓图 (NET_GET_CAPTURE_PICTURE，返回JPEG/BMP)\n");
+    printf("584 - 强制I帧并返回流地址 (NET_FORCE_KEY_FRAME)\n");
     printf("3213 - 平台点播回放控制类型 (自定义选择 1~8)\n");
     printf("3214 - 平台点播暂停播放 (NET_SET_REPLAY_CTRL/PAUSE)\n");
     printf("3215 - 平台点播恢复播放 (NET_SET_REPLAY_CTRL/RESUME)\n");
@@ -364,19 +396,24 @@ static void PrintDeviceBasicInfo(const NET_DeviceBasicInfo_S* pInfo)
     printf("=================================\n");
 }
 
-static void PrintNetworkCfg(const NET_NetworkCfg_S* pCfg)
+static void PrintNetworkCfg(const NET_NetworkCfgList_S* pList)
 {
-    if (!pCfg)
+    if (!pList)
     {
         return;
     }
 
-    printf("\n[Client] ===== 网络配置信息 =====\n");
-    printf("  MTU          : %d\n", pCfg->uMTU);
-    printf("  IPv4DHCP     : %s\n", pCfg->bIPv4DHCP ? "ON" : "OFF");
-    printf("  IPv4Address  : %s\n", pCfg->szIpv4Address);
-    printf("  IPv4Gateway  : %s\n", pCfg->szIPv4GateWay);
-    printf("  IPv4Subnet   : %s\n", pCfg->szIPv4SubnetMask);
+    printf("\n[Client] ===== 网络配置信息 (count=%u) =====\n", pList->uNetworkCount);
+    for (UINT32 i = 0; i < pList->uNetworkCount && i < NET_MAX_NET_NUM; ++i)
+    {
+        const NET_NetworkCfg_S* pCfg = &pList->stNets[i];
+        printf("  ---- [%u] NetName : %s ----\n", i, pCfg->szNetName);
+        printf("  MTU          : %d\n", pCfg->uMTU);
+        printf("  IPv4DHCP     : %s\n", pCfg->bIPv4DHCP ? "ON" : "OFF");
+        printf("  IPv4Address  : %s\n", pCfg->szIpv4Address);
+        printf("  IPv4Gateway  : %s\n", pCfg->szIPv4GateWay);
+        printf("  IPv4Subnet   : %s\n", pCfg->szIPv4SubnetMask);
+    }
     printf("=================================\n");
 }
 
@@ -1234,7 +1271,7 @@ static void DoSetDeviceCfg()
 /* 获取网络配置 */
 static void DoGetNetworkCfg()
 {
-    NET_NetworkCfg_S stCfg;
+    NET_NetworkCfgList_S stCfg;
     memset(&stCfg, 0, sizeof(stCfg));
 
     INT32 dwBytesReturned = 0;
@@ -1263,10 +1300,10 @@ static void DoGetNetworkCfg()
 /* 设置网络配置（使用示例数据） */
 static void DoSetNetworkCfg()
 {
-    NET_NetworkCfg_S stCfg;
+    NET_NetworkCfgList_S stCfg;
     memset(&stCfg, 0, sizeof(stCfg));
 
-    /* 同样先获取一次当前配置 */
+    /* 先获取当前配置：SetNetworkCfg 严格按网卡名匹配，需保留设备实际网卡名 */
     INT32 dwBytesReturned = 0;
     BOOL bRetGet = NET_clientGetDevConfig(
         g_lpUserID,
@@ -1277,20 +1314,20 @@ static void DoSetNetworkCfg()
         &dwBytesReturned
     );
 
-    if (!bRetGet)
+    if (!bRetGet || stCfg.uNetworkCount == 0)
     {
-        printf("[Client] 预获取网络配置失败，直接使用默认示例数据进行设置. Error=%d\n", NET_clientGetLastError());
-        memset(&stCfg, 0, sizeof(stCfg));
+        printf("[Client] 预获取网络配置失败，无法获取网卡名称，取消设置. Error=%d\n", NET_clientGetLastError());
+        return;
     }
 
-    /* 修改为 Demo 值 */
-    stCfg.uMTU     = 1400;
-    stCfg.bIPv4DHCP = 0;
-    strncpy(stCfg.szIpv4Address,   "192.168.1.150", sizeof(stCfg.szIpv4Address) - 1);
-    strncpy(stCfg.szIPv4GateWay,   "192.168.1.1",   sizeof(stCfg.szIPv4GateWay) - 1);
-    strncpy(stCfg.szIPv4SubnetMask,"255.255.255.0", sizeof(stCfg.szIPv4SubnetMask) - 1);
+    /* 修改第一个网卡为 Demo 值（网卡名保持设备实际值不变） */
+    stCfg.stNets[0].uMTU     = 1400;
+    stCfg.stNets[0].bIPv4DHCP = 0;
+    strncpy(stCfg.stNets[0].szIpv4Address,   "192.168.1.150", sizeof(stCfg.stNets[0].szIpv4Address) - 1);
+    strncpy(stCfg.stNets[0].szIPv4GateWay,   "192.168.1.1",   sizeof(stCfg.stNets[0].szIPv4GateWay) - 1);
+    strncpy(stCfg.stNets[0].szIPv4SubnetMask,"255.255.255.0", sizeof(stCfg.stNets[0].szIPv4SubnetMask) - 1);
 
-    printf("[Client] 调用 NET_clientSetDevConfig 设置网络配置(示例值)...\n");
+    printf("[Client] 调用 NET_clientSetDevConfig 设置网络配置(示例值, NetName=%s)...\n", stCfg.stNets[0].szNetName);
     INT32 dwBytesReturnedSet = 0;
     BOOL bRet = NET_clientSetDevConfig(
         g_lpUserID,
@@ -2336,6 +2373,18 @@ static void DoSetRecordAdvancedParam()
     }
 }
 
+/* 交互输入辅助函数（本文件靠后定义），此处前向声明以便复用：
+ * 它们基于 fgets，空输入保留默认值，比 scanf 更适合"直接回车用默认"的测试流程。 */
+static void FlushInputLine();
+static void ReadTextWithDefault(const char* prompt, char* buffer, size_t bufferSize, const char* defaultValue);
+static int ReadIntWithDefault(const char* prompt, int defaultValue);
+
+/* 录像文件检索条件：设备侧把 StartTime/EndTime、Date、Year(+Month) 当作三组【互斥】条件，
+ * 只接受其中一组；同时下发会被判为非法检索条件 —— 3588 侧日志表现为
+ * "invalid record datetime range"，客户端只看到 ret=102 Invalid parameter。
+ * 因此这里按"查询模式"只填一组，与 sdk_old demo 的 FillDemoRecordFindCond 行为一致。
+ * 各分支默认值取本机今天，直接回车即可验证（注意设备时区与本机不一致时，
+ * 检索区间要按设备当前时间来填，否则会查到空）。 */
 static void FillDemoRecordFindCond(NET_RecordFileList_S* pInfo)
 {
     if (!pInfo)
@@ -2344,13 +2393,61 @@ static void FillDemoRecordFindCond(NET_RecordFileList_S* pInfo)
     }
 
     memset(pInfo, 0, sizeof(*pInfo));
-    pInfo->stFind.nChnId = 0;
+
+    char szToday[32] = {0};
+    char szTodayDate[16] = {0};
+    FormatLocalDateTime(szToday, sizeof(szToday));
+    if (strlen(szToday) >= 10)
+    {
+        snprintf(szTodayDate, sizeof(szTodayDate), "%.10s", szToday);
+    }
+
+    /* 通道号可自定义：直接回车 = 0（走接口默认通道）。NVR 若点位从 1 起，这里
+     * 输入 1/2/... 即按该通道检索，不受 0 的限制。 */
+    pInfo->stFind.nChnId = ReadIntWithDefault("[Client] 请输入检索通道号(回车=0 使用接口通道；NVR 点位一般从1起)", 0);
     pInfo->stFind.nType = 0;
-    strncpy(pInfo->stFind.szYear, "2026", sizeof(pInfo->stFind.szYear) - 1);
-    strncpy(pInfo->stFind.szMonth, "05", sizeof(pInfo->stFind.szMonth) - 1);
-    strncpy(pInfo->stFind.szDate, "2026-05-06", sizeof(pInfo->stFind.szDate) - 1);
-    strncpy(pInfo->stFind.szStartTime, "2026-05-06 00:00:00", sizeof(pInfo->stFind.szStartTime) - 1);
-    strncpy(pInfo->stFind.szEndTime, "2026-05-06 23:59:59", sizeof(pInfo->stFind.szEndTime) - 1);
+
+    const int nMode = ReadIntWithDefault(
+        "[Client] 查询模式(1=时间段 2=单日 3=整月 4=整年)", 2);
+
+    if (nMode == 1)
+    {
+        char szStartText[32] = {0};
+        char szEndText[32] = {0};
+        snprintf(szStartText, sizeof(szStartText), "%s 00:00:00", szTodayDate);
+        snprintf(szEndText, sizeof(szEndText), "%s 23:59:59", szTodayDate);
+        ReadTextWithDefault("[Client] 开始时间(YYYY-MM-DD HH:MM:SS)",
+                            szStartText, sizeof(szStartText), szStartText);
+        ReadTextWithDefault("[Client] 结束时间(YYYY-MM-DD HH:MM:SS)",
+                            szEndText, sizeof(szEndText), szEndText);
+        strncpy(pInfo->stFind.szStartTime, szStartText, sizeof(pInfo->stFind.szStartTime) - 1);
+        strncpy(pInfo->stFind.szEndTime, szEndText, sizeof(pInfo->stFind.szEndTime) - 1);
+    }
+    else if (nMode == 3)
+    {
+        char szYear[8] = {0};
+        char szMonth[8] = {0};
+        snprintf(szYear, sizeof(szYear), "%.4s", szTodayDate);
+        snprintf(szMonth, sizeof(szMonth), "%.2s", szTodayDate + 5);
+        ReadTextWithDefault("[Client] 年份(YYYY)", szYear, sizeof(szYear), szYear);
+        ReadTextWithDefault("[Client] 月份(M 或 MM)", szMonth, sizeof(szMonth), szMonth);
+        strncpy(pInfo->stFind.szYear, szYear, sizeof(pInfo->stFind.szYear) - 1);
+        strncpy(pInfo->stFind.szMonth, szMonth, sizeof(pInfo->stFind.szMonth) - 1);
+    }
+    else if (nMode == 4)
+    {
+        char szYear[8] = {0};
+        snprintf(szYear, sizeof(szYear), "%.4s", szTodayDate);
+        ReadTextWithDefault("[Client] 年份(YYYY)", szYear, sizeof(szYear), szYear);
+        strncpy(pInfo->stFind.szYear, szYear, sizeof(pInfo->stFind.szYear) - 1);
+    }
+    else
+    {
+        char szDate[16] = {0};
+        strncpy(szDate, szTodayDate, sizeof(szDate) - 1);
+        ReadTextWithDefault("[Client] 日期(YYYY-MM-DD)", szDate, sizeof(szDate), szDate);
+        strncpy(pInfo->stFind.szDate, szDate, sizeof(pInfo->stFind.szDate) - 1);
+    }
 }
 
 static void DoFindRecordFileInfo()
@@ -2377,6 +2474,244 @@ static void DoFindRecordFileInfo()
     else
     {
         printf("[Client] 查找录像文件失败! Error=%d\n", NET_clientGetLastError());
+    }
+}
+
+/* 分页查询真实录像文件（190，走 NET_clientQueryRecordFiles，无48条上限）。
+ * 检索条件由 FillDemoRecordFindCond 按【单一模式】采集 —— 三组条件互斥，
+ * 不能像旧版本那样把 Date/Year/Month/StartTime/EndTime 一起下发（会被设备判 102）。 */
+static void DoQueryRecordFiles()
+{
+    NET_RecordFileQuery_S stQuery;
+    NET_RecordFindResult_S astResults[16];
+    memset(&stQuery, 0, sizeof(stQuery));
+    memset(astResults, 0, sizeof(astResults));
+
+    NET_RecordFileList_S stLegacy;
+    memset(&stLegacy, 0, sizeof(stLegacy));
+    FillDemoRecordFindCond(&stLegacy);
+    stQuery.stFind = stLegacy.stFind;
+
+    stQuery.stPage.nCurPage = ReadIntWithDefault("[Client] 请输入页码(从1开始)", 1);
+    if (stQuery.stPage.nCurPage <= 0)
+    {
+        stQuery.stPage.nCurPage = 1;
+    }
+    stQuery.stPage.nPageSize = (INT32)(sizeof(astResults) / sizeof(astResults[0]));
+    stQuery.pResults = astResults;
+    stQuery.nResultCapacity = (INT32)(sizeof(astResults) / sizeof(astResults[0]));
+
+    printf("[Client] 调用 NET_clientQueryRecordFiles, channel=%d, year=%s month=%s date=%s start=%s end=%s, page=%d, size=%d\n",
+           stQuery.stFind.nChnId,
+           stQuery.stFind.szYear, stQuery.stFind.szMonth, stQuery.stFind.szDate,
+           stQuery.stFind.szStartTime, stQuery.stFind.szEndTime,
+           stQuery.stPage.nCurPage, stQuery.stPage.nPageSize);
+
+    INT32 dwBytesReturned = 0;
+    BOOL bRet = NET_clientQueryRecordFiles(g_lpUserID, &stQuery, &dwBytesReturned);
+    if (!bRet)
+    {
+        printf("[Client] 分页查询失败! Error=%d\n", NET_clientGetLastError());
+        return;
+    }
+
+    printf("[Client] 分页查询成功! ResultCount=%d, DataTotal=%d, PageTotal=%d, HasMore=%d\n",
+           stQuery.nResultCount, stQuery.stPage.nDataTotal,
+           stQuery.stPage.nPageTotal, stQuery.stPage.bHasMore);
+
+    for (INT32 i = 0; i < stQuery.nResultCount; ++i)
+    {
+        NET_RecordFindResult_S* pItem = &stQuery.pResults[i];
+        printf("  [%d] ChnId=%d, FileName=%s, VideoTimeCount=%d",
+               i, pItem->nChnId, pItem->szFilename, pItem->nVideoTimeCount);
+        if (pItem->nVideoTimeCount > 0)
+        {
+            printf(", firstSeg: start=%d end=%d",
+                   pItem->astVideoTimes[0].nStartTime,
+                   pItem->astVideoTimes[0].nEndTime);
+        }
+        printf("\n");
+    }
+}
+
+/* 设备端抓图（580，走 NET_clientGetDevConfig command=NET_GET_CAPTURE_PICTURE）。
+ * 通用接口：enPicFormat 区分 JPEG/BMP，enOutputType 区分 内存/设备落盘。
+ * 本 demo 默认 JPEG + 内存返回，图片落盘到 /tmp/sdk_capture.jpg。 */
+static void DoGetCapturePicture()
+{
+    NET_CapturePictureInfo_S stInfo;
+    memset(&stInfo, 0, sizeof(stInfo));
+    stInfo.nChannel = 1;
+    stInfo.nStreamType = NET_CUSTOM_STREAM_MAIN;
+    stInfo.nPicFormat = NET_CAPTURE_PICTURE_FORMAT_JPEG;
+    stInfo.nOutputType = NET_CAPTURE_OUTPUT_MEMORY;
+    strncpy(stInfo.szFilePath, "/tmp/sdk_capture.jpg", sizeof(stInfo.szFilePath) - 1);
+
+    INT32 dwBytesReturned = 0;
+    printf("[Client] 调用 NET_clientGetDevConfig 抓图, channel=1, JPEG, 内存返回...\n");
+    BOOL bRet = NET_clientGetDevConfig(
+        g_lpUserID,
+        1,
+        NET_GET_CAPTURE_PICTURE,
+        &stInfo,
+        (INT32)sizeof(stInfo),
+        &dwBytesReturned
+    );
+
+    if (!bRet)
+    {
+        printf("[Client] 抓图失败! Error=%d\n", NET_clientGetLastError());
+        return;
+    }
+
+    printf("[Client] 抓图成功! PicLen=%u, FilePath=%s\n",
+           stInfo.uPicLen, stInfo.szFilePath);
+    if (stInfo.uPicLen > 0 && stInfo.abyPicData[0] != 0)
+    {
+        printf("[Client] 图片数据首字节: 0x%02X (JPEG应为 0xFF)\n",
+               stInfo.abyPicData[0]);
+        /* 落盘便于查看 */
+        FILE* fp = fopen(stInfo.szFilePath, "wb");
+        if (fp)
+        {
+            fwrite(stInfo.abyPicData, 1, stInfo.uPicLen, fp);
+            fclose(fp);
+            printf("[Client] 图片已落盘: %s\n", stInfo.szFilePath);
+        }
+    }
+}
+
+/* 强制I帧并返回流地址（584，走 NET_clientGetDevConfig command=NET_FORCE_KEY_FRAME）。
+ * nResult: 0=已触发 1=设备不支持 -1=失败；szStreamUrl 回填该通道流地址。 */
+static void DoForceKeyFrame()
+{
+    NET_ForceKeyFrameInfo_S stInfo;
+    memset(&stInfo, 0, sizeof(stInfo));
+    stInfo.nChannel = 1;
+    stInfo.nStreamType = NET_CUSTOM_STREAM_MAIN;
+
+    INT32 dwBytesReturned = 0;
+    printf("[Client] 调用 NET_clientGetDevConfig 强制I帧, channel=1, 主码流...\n");
+    BOOL bRet = NET_clientGetDevConfig(
+        g_lpUserID,
+        1,
+        NET_FORCE_KEY_FRAME,
+        &stInfo,
+        (INT32)sizeof(stInfo),
+        &dwBytesReturned
+    );
+
+    if (!bRet)
+    {
+        printf("[Client] 强制I帧失败! Error=%d\n", NET_clientGetLastError());
+        return;
+    }
+
+    const char* pszResult = (stInfo.nResult == 0) ? "已触发" :
+                            (stInfo.nResult == 1) ? "设备不支持" : "失败";
+    printf("[Client] 强制I帧结果: %s (nResult=%d)\n", pszResult, stInfo.nResult);
+    if (stInfo.szStreamUrl[0] != '\0')
+    {
+        printf("[Client] 流地址: %s\n", stInfo.szStreamUrl);
+    }
+}
+
+/* 获取人脸抓拍叠加配置（186，走 NET_clientGetDevConfig command=NET_GET_FACECAPTUREOVERLAYINFO）。 */
+static void DoGetFaceCaptureOverlayInfo()
+{
+    NET_FaceCaptureOverlayInfo_S stInfo;
+    memset(&stInfo, 0, sizeof(stInfo));
+
+    INT32 dwBytesReturned = 0;
+    printf("[Client] 调用 NET_clientGetDevConfig 获取人脸抓拍叠加配置, channel=1...\n");
+    BOOL bRet = NET_clientGetDevConfig(
+        g_lpUserID,
+        1,
+        NET_GET_FACECAPTUREOVERLAYINFO,
+        &stInfo,
+        (INT32)sizeof(stInfo),
+        &dwBytesReturned
+    );
+
+    if (!bRet)
+    {
+        printf("[Client] 获取人脸抓拍叠加配置失败! Error=%d\n", NET_clientGetLastError());
+        return;
+    }
+
+    printf("[Client] ===== 人脸抓拍叠加配置 =====\n");
+    printf("  DeviceID            : %d\n", stInfo.nDeviceID);
+    printf("  MonitoryPointInfo   : %s\n", stInfo.strMonitoryPointInfo);
+    printf("  OverlayDeviceID     : %d\n", stInfo.bOverlayDeviceID);
+    printf("  OverlayCaptureTime  : %d\n", stInfo.bOverlayCaptureTime);
+    printf("  OverlayMonitoryInfo : %d\n", stInfo.bOverlayMonitoryPointInfo);
+    printf("  FontColor           : %d\n", stInfo.enFontColor);
+    printf("  FontColorRGB        : %s\n", stInfo.strFontColor);
+}
+
+/* 设置人脸抓拍叠加配置（187，走 NET_clientSetDevConfig command=NET_SET_FACECAPTUREOVERLAYINFO）。 */
+static void DoSetFaceCaptureOverlayInfo()
+{
+    NET_FaceCaptureOverlayInfo_S stInfo;
+    memset(&stInfo, 0, sizeof(stInfo));
+    stInfo.nDeviceID = 1;
+    strncpy(stInfo.strMonitoryPointInfo, "Demo-MonitoryPoint", sizeof(stInfo.strMonitoryPointInfo) - 1);
+    stInfo.bOverlayDeviceID = 1;
+    stInfo.bOverlayCaptureTime = 1;
+    stInfo.bOverlayMonitoryPointInfo = 1;
+    stInfo.enFontColor = NET_OSD_COLOR_WHITE;
+
+    INT32 dwBytesReturned = 0;
+    printf("[Client] 调用 NET_clientSetDevConfig 设置人脸抓拍叠加配置, channel=1...\n");
+    BOOL bRet = NET_clientSetDevConfig(
+        g_lpUserID,
+        1,
+        NET_SET_FACECAPTUREOVERLAYINFO,
+        &stInfo,
+        (INT32)sizeof(stInfo),
+        &dwBytesReturned
+    );
+
+    if (bRet)
+    {
+        printf("[Client] 设置人脸抓拍叠加配置成功!\n");
+    }
+    else
+    {
+        printf("[Client] 设置人脸抓拍叠加配置失败! Error=%d\n", NET_clientGetLastError());
+    }
+}
+
+/* 触发声光报警联动（188，走 NET_clientSetDevConfig command=NET_TRIGGER_SOUND_LIGHT_ALARM）。
+ * 注意：本接口只按本次请求携带的联动列表模拟触发，不修改设备长期配置。 */
+static void DoTriggerSoundLightAlarm()
+{
+    NET_SoundLightAlarmTrigger_S stInfo;
+    memset(&stInfo, 0, sizeof(stInfo));
+    /* 本次手动触发使用的联动列表：报警输出 1 路 + 录像 1 路 */
+    stInfo.stLinkageList.uAlarmOutputCount = 1;
+    stInfo.stLinkageList.auAlarmOutput[0] = 1;
+    stInfo.stLinkageList.uRecordChannelCount = 1;
+    stInfo.stLinkageList.auRecordChannel[0] = 1;
+
+    INT32 dwBytesReturned = 0;
+    printf("[Client] 调用 NET_clientSetDevConfig 触发声光报警, channel=1...\n");
+    BOOL bRet = NET_clientSetDevConfig(
+        g_lpUserID,
+        1,
+        NET_TRIGGER_SOUND_LIGHT_ALARM,
+        &stInfo,
+        (INT32)sizeof(stInfo),
+        &dwBytesReturned
+    );
+
+    if (bRet)
+    {
+        printf("[Client] 触发声光报警成功!\n");
+    }
+    else
+    {
+        printf("[Client] 触发声光报警失败! Error=%d\n", NET_clientGetLastError());
     }
 }
 
@@ -8107,8 +8442,14 @@ static void ReadTextWithDefault(const char* prompt, char* buffer, size_t bufferS
     printf("%s[%s]: ", prompt, buffer);
     if (!fgets(line, sizeof(line), stdin))
     {
+        printf("\n");
         return;
     }
+
+    /* 终端不回显（串口/重定向/部分 ssh 客户端）时，回车不会产生换行，
+     * 下一句提示会直接接在同一行，看起来像"没等你输入就跳到下一问"。
+     * 这里统一补一个换行，保证每问独占一行。 */
+    printf("\n");
 
     TrimLineEnd(line);
     if (line[0] != '\0')
@@ -8136,6 +8477,413 @@ static float ReadFloatWithDefault(const char* prompt, float defaultValue)
     return (float)atof(inputText);
 }
 
+/* ==================== 录像下载（191~195） ====================
+ * 191 同步下载；192 异步启动；193 并发测试；194 查看进度；195 停止最近任务。
+ * demo 只持有 SDK 返回的任务句柄，设备端 taskId 完全由 SDK 内部管理。
+ * 进度统一由 194 按需查询（NET_clientGetDownloadRecordFileStatus），
+ * 因此启动异步任务时进度回调传 NULL，避免工作线程刷屏。
+ */
+
+static BOOL StartDemoAsyncDownload(int channelId, const char* date, int startTime,
+                                   int endTime, const char* savePath, LPVOID* task)
+{
+    return NET_clientStartDownloadRecordFile(g_lpUserID, channelId, date, startTime, endTime,
+                                             savePath, NULL, NULL, task);
+}
+
+/* 读一行非空输入；去除行尾并将结果写入 buffer。 */
+static BOOL ReadDownloadLine(const char* prompt, char* buffer, size_t bufferSize)
+{
+    if (!buffer || bufferSize == 0)
+    {
+        return FALSE;
+    }
+    printf("%s", prompt);
+    if (!fgets(buffer, (int)bufferSize, stdin))
+    {
+        return FALSE;
+    }
+    TrimLineEnd(buffer);
+    if (buffer[0] == '\0')
+    {
+        printf("[Client] 输入不能为空。\n");
+        return FALSE;
+    }
+    return TRUE;
+}
+
+/* 支持 "HH:MM:SS" 与 "0~86399 秒" 两种写法。 */
+static BOOL ParseDownloadTime(const char* text, int* seconds)
+{
+    if (!text || !seconds || text[0] == '\0')
+    {
+        return FALSE;
+    }
+
+    int hour = 0;
+    int minute = 0;
+    int second = 0;
+    char extra = '\0';
+    if (sscanf(text, "%d:%d:%d%c", &hour, &minute, &second, &extra) == 3)
+    {
+        if (hour < 0 || hour > 23 || minute < 0 || minute > 59 ||
+            second < 0 || second > 59)
+        {
+            return FALSE;
+        }
+        *seconds = hour * 3600 + minute * 60 + second;
+        return TRUE;
+    }
+
+    char* end = NULL;
+    long value = strtol(text, &end, 10);
+    if (end == text || *end != '\0' || value < 0 || value > 86399)
+    {
+        return FALSE;
+    }
+    *seconds = (int)value;
+    return TRUE;
+}
+
+/* 读取一串下载参数（191/192 共用）：通道号、日期、起止时间、保存路径。 */
+static BOOL ReadDownloadParams(int* channelId, char* date, size_t dateSize,
+                               int* startTime, int* endTime, char* savePath, size_t pathSize)
+{
+    char line[512] = {0};
+    char startText[32] = {0};
+    char endText[32] = {0};
+
+    FlushInputLine();
+    if (!ReadDownloadLine("通道ID(由190查询返回的ChnId): ", line, sizeof(line))) return FALSE;
+    int channel = atoi(line);
+    if (channel < 0)
+    {
+        printf("[Client] 通道ID无效，请输入非负整数。\n");
+        return FALSE;
+    }
+    *channelId = channel;
+
+    if (!ReadDownloadLine("日期(YYYY-MM-DD，例如2026-09-02): ", date, dateSize)) return FALSE;
+    if (!ReadDownloadLine("开始时间(HH:MM:SS或秒，例如00:00:00): ", startText, sizeof(startText))) return FALSE;
+    if (!ReadDownloadLine("结束时间(HH:MM:SS或秒，例如23:00:00): ", endText, sizeof(endText))) return FALSE;
+    if (!ParseDownloadTime(startText, startTime) || !ParseDownloadTime(endText, endTime) ||
+        *endTime <= *startTime)
+    {
+        printf("[Client] 时间范围无效：格式应为HH:MM:SS或0~86399秒，且结束时间必须晚于开始时间。\n");
+        return FALSE;
+    }
+    if (!ReadDownloadLine("本地保存完整路径(例如/root/2026-0907.mkv): ", savePath, pathSize)) return FALSE;
+    return TRUE;
+}
+
+static const char* DemoDownloadStatusName(INT32 status)
+{
+    switch (status)
+    {
+        case NET_DOWNLOAD_TASK_CREATED:   return "CREATED";
+        case NET_DOWNLOAD_TASK_RUNNING:   return "RUNNING";
+        case NET_DOWNLOAD_TASK_SUCCEEDED: return "SUCCEEDED";
+        case NET_DOWNLOAD_TASK_FAILED:    return "FAILED";
+        case NET_DOWNLOAD_TASK_CANCELED:  return "CANCELED";
+        default: return "UNKNOWN";
+    }
+}
+
+static BOOL QueryDemoDownloadTask(const DemoDownloadTask& demoTask, BOOL printResult)
+{
+    INT32 status = NET_DOWNLOAD_TASK_FAILED;
+    UINT64 downloaded = 0;
+    UINT64 total = 0;
+    INT32 taskError = NET_E_SUCCEED;
+    BOOL statusOk = NET_clientGetDownloadRecordFileStatus(
+        demoTask.handle, &status, &downloaded, &total);
+    BOOL errorOk = NET_clientGetDownloadRecordFileError(demoTask.handle, &taskError);
+    if (!statusOk || !errorOk)
+    {
+        if (printResult)
+        {
+            printf("[Client] 查询任务#%d失败，error=%d\n",
+                   demoTask.id, NET_clientGetLastError());
+        }
+        return FALSE;
+    }
+    if (printResult)
+    {
+        double percent = total > 0 ? (double)downloaded * 100.0 / (double)total : 0.0;
+        /* 总量在下载结束前可能只是按时长估算，完成前不显示100%，避免误导。 */
+        if (percent > 99.9 && status != NET_DOWNLOAD_TASK_SUCCEEDED)
+        {
+            percent = 99.9;
+        }
+        printf("[Client] task#%d [%s] ch=%d %llu/%llu bytes (%.1f%%), error=%d, file=%s\n",
+               demoTask.id, DemoDownloadStatusName(status), demoTask.channelId,
+               (unsigned long long)downloaded, (unsigned long long)total, percent,
+               taskError, demoTask.savePath.c_str());
+    }
+    return TRUE;
+}
+
+/* 191：同步下载（阻塞，直到下载成功/失败） */
+static void DoSyncDownloadRecordFile()
+{
+    int    channelId = 0;
+    char   date[32] = {0};
+    int    startTime = 0;
+    int    endTime = 0;
+    char   savePath[512] = {0};
+
+    if (!ReadDownloadParams(&channelId, date, sizeof(date), &startTime, &endTime,
+                            savePath, sizeof(savePath)))
+    {
+        return;
+    }
+
+    printf("[Client] 同步下载中，请等待... (channel=%d, %s [%d-%d], save=%s)\n",
+           channelId, date, startTime, endTime, savePath);
+    if (NET_clientDownloadRecordFile(g_lpUserID, channelId, date, startTime, endTime,
+                                     savePath, NULL, NULL))
+    {
+        printf("[Client] 同步下载成功：%s\n", savePath);
+    }
+    else
+    {
+        printf("[Client] 同步下载失败，error=%d\n", NET_clientGetLastError());
+    }
+}
+
+/* 192：异步启动下载，随后返回主菜单；195 可停止最近启动的任务 */
+static void DoDownloadRecordFileAsync()
+{
+    int  channelId = 0;
+    char date[32] = {0};
+    int  startTime = 0;
+    int  endTime = 0;
+    char savePath[512] = {0};
+
+    printf("[Client] 启动异步下载：本命令只负责启动，随后返回主菜单；\n");
+    printf("[Client] 返回主菜单后输入194查看进度，输入195停止最近启动的任务。\n");
+    if (!ReadDownloadParams(&channelId, date, sizeof(date), &startTime, &endTime,
+                            savePath, sizeof(savePath)))
+    {
+        return;
+    }
+
+    LPVOID taskHandle = NULL;
+    if (!StartDemoAsyncDownload(channelId, date, startTime, endTime, savePath, &taskHandle))
+    {
+        printf("[Client] 异步下载启动失败，error=%d\n", NET_clientGetLastError());
+        return;
+    }
+
+    DemoDownloadTask demoTask;
+    {
+        std::lock_guard<std::mutex> lock(g_downloadTaskMutex);
+        demoTask.id = g_nextDownloadTaskId++;
+        demoTask.handle = taskHandle;
+        demoTask.channelId = channelId;
+        demoTask.date = date;
+        demoTask.startTime = startTime;
+        demoTask.endTime = endTime;
+        demoTask.savePath = savePath;
+        g_downloadTasks.push_back(demoTask);
+    }
+    printf("[Client] 异步任务已启动：下载#%d。现在返回主菜单。\n", demoTask.id);
+    printf("[Client] 不需要输入任何任务ID；输入194查看进度，输入195停止最近启动的任务。\n");
+
+    const int demoTaskId = demoTask.id;
+    /* 正常结束、失败或取消后统一由后台线程回收SDK句柄；调用方无需再执行release。 */
+    std::thread([demoTaskId, taskHandle]() {
+        const BOOL waited = NET_clientWaitDownloadRecordFile(taskHandle, 0xFFFFFFFFU);
+        INT32 status = NET_DOWNLOAD_TASK_FAILED;
+        INT32 taskError = NET_E_TRANSFILE_FAIL;
+        if (waited)
+        {
+            NET_clientGetDownloadRecordFileStatus(taskHandle, &status, NULL, NULL);
+            NET_clientGetDownloadRecordFileError(taskHandle, &taskError);
+        }
+
+        std::lock_guard<std::mutex> lock(g_downloadTaskMutex);
+        for (std::vector<DemoDownloadTask>::iterator it = g_downloadTasks.begin();
+             it != g_downloadTasks.end(); ++it)
+        {
+            if (it->id != demoTaskId || it->handle != taskHandle)
+            {
+                continue;
+            }
+            NET_clientReleaseDownloadRecordFile(taskHandle);
+            printf("[Client] 下载#%d已结束：%s，error=%d；SDK句柄已自动回收。\n",
+                   demoTaskId, waited ? DemoDownloadStatusName(status) : "WAIT_FAILED", taskError);
+            g_downloadTasks.erase(it);
+            fflush(stdout);
+            return;
+        }
+    }).detach();
+    fflush(stdout);
+}
+
+/* 194：查看当前被 demo 持有的全部下载任务及进度 */
+static void DoListDemoDownloadTasks()
+{
+    std::lock_guard<std::mutex> lock(g_downloadTaskMutex);
+    if (g_downloadTasks.empty())
+    {
+        printf("[Client] 当前没有被demo持有的异步下载任务。\n");
+        return;
+    }
+    std::vector<DemoDownloadTask> tasks = g_downloadTasks;
+    for (size_t i = 0; i < tasks.size(); ++i)
+    {
+        QueryDemoDownloadTask(tasks[i], TRUE);
+    }
+}
+
+/* 195：停止最近启动的异步下载任务，SDK 资源由监控线程回收 */
+static void DoCancelDemoDownloadTask()
+{
+    FlushInputLine();
+
+    /*
+     * demo 不再要求用户输入SDK内部taskId或demo编号。
+     * 直接选择当前列表中最后启动且仍被demo持有的任务，避免把设备端taskId、
+     * 句柄地址或历史任务编号误当成取消参数。
+     */
+    int taskId = 0;
+    LPVOID taskHandle = NULL;
+    {
+        std::lock_guard<std::mutex> lock(g_downloadTaskMutex);
+        if (!g_downloadTasks.empty())
+        {
+            DemoDownloadTask& task = g_downloadTasks.back();
+            taskId = task.id;
+            taskHandle = task.handle;
+        }
+    }
+    if (!taskHandle)
+    {
+        printf("[Client] 当前没有可停止的异步下载任务。\n");
+        return;
+    }
+
+    /* 由启动时创建的监控线程独占等待与释放该句柄；此处只发停止请求，
+     * 防止 Stop 与监控线程同时访问同一裸句柄。 */
+    if (!NET_clientCancelDownloadRecordFile(taskHandle))
+    {
+        printf("[Client] 最近启动的下载#%d停止请求失败，error=%d。\n",
+               taskId, NET_clientGetLastError());
+        return;
+    }
+    printf("[Client] 最近启动的下载#%d已提交停止请求；结束后SDK资源会自动回收。\n", taskId);
+}
+
+/* 193：并发异步下载测试，验证 SDK 客户端任务的相互独立性 */
+static void DoConcurrentDownloadTest()
+{
+    char date[32] = {0};
+    char path1[512] = {0};
+    char path2[512] = {0};
+    int  channel1 = 0;
+    int  channel2 = 0;
+    int  startTime = 0;
+    int  endTime = 0;
+
+    FlushInputLine();
+    printf("[Client] 请依次输入: channel1 channel2 日期 开始秒 结束秒 path1 path2\n");
+    if (scanf("%d %d %31s %d %d %511s %511s", &channel1, &channel2, date,
+              &startTime, &endTime, path1, path2) != 7)
+    {
+        FlushInputLine();
+        printf("[Client] 输入格式错误。\n");
+        return;
+    }
+    if (channel1 < 0 || channel2 < 0 || startTime < 0 || endTime <= startTime)
+    {
+        printf("[Client] 通道或时间范围无效。\n");
+        FlushInputLine();
+        return;
+    }
+
+    LPVOID task1 = NULL;
+    LPVOID task2 = NULL;
+    if (!StartDemoAsyncDownload(channel1, date, startTime, endTime, path1, &task1))
+    {
+        printf("[Client] task1 启动失败，error=%d\n", NET_clientGetLastError());
+    }
+    if (!StartDemoAsyncDownload(channel2, date, startTime, endTime, path2, &task2))
+    {
+        printf("[Client] task2 启动失败，error=%d\n", NET_clientGetLastError());
+    }
+    if (!task1 && !task2)
+    {
+        printf("[Client] 没有任务被成功启动。\n");
+        return;
+    }
+
+    printf("[Client] 两个SDK任务已分别启动。输入1取消task1，输入2取消task2，其他值不取消：");
+    int cancelTask = 0;
+    if (scanf("%d", &cancelTask) != 1)
+    {
+        FlushInputLine();
+        cancelTask = 0;
+    }
+    LPVOID cancelHandle = (cancelTask == 1) ? task1 :
+                          (cancelTask == 2) ? task2 : NULL;
+    if (cancelHandle && !NET_clientCancelDownloadRecordFile(cancelHandle))
+    {
+        printf("[Client] 取消 task%d 失败，error=%d\n", cancelTask, NET_clientGetLastError());
+    }
+
+    if (task1 && !NET_clientWaitDownloadRecordFile(task1, 0xFFFFFFFFU))
+    {
+        printf("[Client] 等待 task1 失败，error=%d\n", NET_clientGetLastError());
+    }
+    if (task2 && !NET_clientWaitDownloadRecordFile(task2, 0xFFFFFFFFU))
+    {
+        printf("[Client] 等待 task2 失败，error=%d\n", NET_clientGetLastError());
+    }
+
+    for (int i = 0; i < 2; ++i)
+    {
+        LPVOID task = (i == 0) ? task1 : task2;
+        const char* name = (i == 0) ? "task1" : "task2";
+        if (!task) continue;
+        INT32 status = NET_DOWNLOAD_TASK_FAILED;
+        UINT64 downloaded = 0;
+        UINT64 total = 0;
+        INT32 taskError = NET_E_SUCCEED;
+        if (!NET_clientGetDownloadRecordFileStatus(task, &status, &downloaded, &total))
+        {
+            printf("[Client] 查询 %s 状态失败，error=%d\n", name, NET_clientGetLastError());
+        }
+        if (!NET_clientGetDownloadRecordFileError(task, &taskError))
+        {
+            printf("[Client] 查询 %s 错误码失败，error=%d\n", name, NET_clientGetLastError());
+        }
+        printf("[Client] %s 结束: status=%d(%s), error=%d, %.2f MB / %.2f MB\n", name,
+               status, DemoDownloadStatusName(status), taskError,
+               (double)downloaded / (1024.0 * 1024.0),
+               (double)total / (1024.0 * 1024.0));
+        if (!NET_clientReleaseDownloadRecordFile(task))
+        {
+            printf("[Client] 释放 %s 失败，error=%d\n", name, NET_clientGetLastError());
+        }
+    }
+    printf("[Client] 并发SDK任务测试结束。\n");
+    printf("[Client] 该测试验证的是SDK客户端任务独立性；设备端同一通道仍互斥(HTTP 409)。\n");
+}
+
+/* 退出前统一回收仍被 demo 持有的下载任务 */
+static void CleanupDemoDownloadTasks()
+{
+    std::lock_guard<std::mutex> lock(g_downloadTaskMutex);
+    for (size_t i = 0; i < g_downloadTasks.size(); ++i)
+    {
+        NET_clientCancelDownloadRecordFile(g_downloadTasks[i].handle);
+        NET_clientWaitDownloadRecordFile(g_downloadTasks[i].handle, 0xFFFFFFFFU);
+        NET_clientReleaseDownloadRecordFile(g_downloadTasks[i].handle);
+    }
+    g_downloadTasks.clear();
+}
+
 
 static void DoControlReplayStart()
 {
@@ -8150,7 +8898,9 @@ static void DoControlReplayStart()
 
     FlushInputLine();
     printf("[Client] 平台点播默认走普通录像全天，直接回车使用默认值。\n");
-    nChannel = ReadIntWithDefault("[Client] 请输入点播通道号", nChannel);
+    /* 通道号语义与 sdk_old/6860 一致：0 合法（<0 才判非法参数）。NVR 实际点位通常从 1 起，
+     * 想点播某路录像请填该路通道号；填 0 时设备端按接口通道处理。 */
+    nChannel = ReadIntWithDefault("[Client] 请输入点播通道号(>=0，NVR 点位一般从1起)", nChannel);
     ReadTextWithDefault("[Client] 请输入点播日期(YYYY-MM-DD)", szDate, sizeof(szDate), szDate);
     ReadTextWithDefault("[Client] 请输入开始时间(HH:MM:SS)", szStartClock, sizeof(szStartClock), szStartClock);
     ReadTextWithDefault("[Client] 请输入结束时间(HH:MM:SS)", szEndClock, sizeof(szEndClock), szEndClock);
@@ -8163,8 +8913,11 @@ static void DoControlReplayStart()
     snprintf(stInfo.szEndTime, sizeof(stInfo.szEndTime), "%s %s", szDate, szEndClock);
 
     INT32 dwBytesReturned = 0;
-    printf("[Client] Calling NET_clientControlReplay START, server will forward AC_PLATFORM_PLAY(%d)...\n",
-           DEMO_AC_PLATFORM_PLAY);
+    /* 实际链路：客户端 POST /TVAPI/V1.0/Replay/Control →
+     * 设备侧 NvrSdkServer::ControlReplay → 转发 AC_SET_REPLAY_LAYOUT_INFO 给录像模块。
+     * （旧 demo 里写的 AC_PLATFORM_PLAY(3213) 是 6860 时代叫法，3588 已不使用。） */
+    printf("[Client] Calling NET_clientControlReplay START (uCtrlType=%d), 设备侧将转发 AC_SET_REPLAY_LAYOUT_INFO...\n",
+           stInfo.uCtrlType);
     BOOL bRet = NET_clientControlReplay(g_lpUserID, &stInfo, &dwBytesReturned);
 
     if (bRet)
@@ -8819,7 +9572,6 @@ static void FillDemoFaceInfo(NET_FaceInfo_S* pInfo, INT32 nId, const char* szNam
     strncpy(pInfo->szName, szName, sizeof(pInfo->szName) - 1);
     strncpy(pInfo->szPhoneNum, "13800000001", sizeof(pInfo->szPhoneNum) - 1);
     strncpy(pInfo->szPicPath, "/tmp/demo_face.jpg", sizeof(pInfo->szPicPath) - 1);
-    strncpy(pInfo->szBinPath, "/tmp/demo_face.bin", sizeof(pInfo->szBinPath) - 1);
     strncpy(pInfo->szPicType, "jpg", sizeof(pInfo->szPicType) - 1);
     pInfo->nPicSize = 2048;
     strncpy(pInfo->szPicDate, "2026-05-07 11:00:00", sizeof(pInfo->szPicDate) - 1);
@@ -8834,14 +9586,13 @@ static void PrintFaceInfo(const NET_FaceInfo_S* pInfo, INT32 nIndex)
         return;
     }
 
-    printf("  Face[%d] Id=%d, LibId=%s, Name=%s, Phone=%s, PicPath=%s, BinPath=%s, ModelState=%d, RatingLevel=%d\n",
+    printf("  Face[%d] Id=%d, LibId=%s, Name=%s, Phone=%s, PicPath=%s, ModelState=%d, RatingLevel=%d\n",
            nIndex,
            pInfo->nId,
            pInfo->szFaceLibName,
            pInfo->szName,
            pInfo->szPhoneNum,
            pInfo->szPicPath,
-           pInfo->szBinPath,
            pInfo->nModelState,
            pInfo->nRatingLevel);
 }
@@ -9513,6 +10264,39 @@ static void ProcessCommand(int cmd)
         case 184:
             ConfigDemoGetAudioAnomalyCurrentDb();
             break;
+        case 186:
+            DoGetFaceCaptureOverlayInfo();
+            break;
+        case 187:
+            DoSetFaceCaptureOverlayInfo();
+            break;
+        case 188:
+            DoTriggerSoundLightAlarm();
+            break;
+        case 190:
+            DoQueryRecordFiles();
+            break;
+        case 191:
+            DoSyncDownloadRecordFile();
+            break;
+        case 192:
+            DoDownloadRecordFileAsync();
+            break;
+        case 193:
+            DoConcurrentDownloadTest();
+            break;
+        case 194:
+            DoListDemoDownloadTasks();
+            break;
+        case 195:
+            DoCancelDemoDownloadTask();
+            break;
+        case 580:
+            DoGetCapturePicture();
+            break;
+        case 584:
+            DoForceKeyFrame();
+            break;
         case DEMO_REPLAY_PAUSE_CMD:
             DoControlReplayPause();
             break;
@@ -9593,6 +10377,7 @@ int main(int argc, char* argv[])
     }
 
     /* 登出与清理 */
+    CleanupDemoDownloadTasks();
     if (g_lpUserID)
     {
         NET_clientLogout(g_lpUserID);

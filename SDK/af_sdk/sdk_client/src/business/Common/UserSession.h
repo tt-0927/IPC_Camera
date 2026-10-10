@@ -170,7 +170,7 @@ public:
      * @return 成功返回 true，参数无效返回 false
      */
     bool UpdateCredentials(const std::string& strUsername, const std::string& strPassword);
-
+    
     /**
  * @author tianl (tianl@kfb.cn)
      * @brief 获取设备主机地址

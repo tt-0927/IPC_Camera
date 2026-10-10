@@ -34,6 +34,19 @@ int executeControlReplayCb(pNET_ReplayCtrlInfo_S pInfo);
 /* NVR独有：执行获取回放录像时间段列表回调；供PlaybackBusiness等调用 */
 int executeGetReplayRecordListCb(pNET_ReplayRecordList_S pInfo);
 
+/* NVR独有：执行分页录像文件查询回调；供RouteModule调用 */
+int executeQueryRecordFilesCb(LPNET_RECORD_FILE_QUERY_S pInfo);
+
+/* NVR独有：执行JPEG抓图回调；供RouteModule调用 */
+int executeCaptureJPEGCb(INT32 dwChannelID, INT32 dwWidth, INT32 dwHeight,
+                         INT32 dwImageQuality, LPVOID pOutBuffer,
+                         INT32 dwOutBufferSize, LPINT32 pdwOutSize);
+
+/* NVR独有：执行获取录像文件完整路径回调；供RouteModule调用 */
+int executeGetRecordFilePathCb(INT32 dwChannelID, const char* szDate,
+                               INT32 dwStartTime, INT32 dwEndTime,
+                               char* szFilePath, INT32 dwPathSize);
+
 #ifdef __cplusplus
 }
 #endif

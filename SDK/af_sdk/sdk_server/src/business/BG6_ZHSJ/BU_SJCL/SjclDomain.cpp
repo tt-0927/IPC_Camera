@@ -12,6 +12,213 @@
 #include "SjclDomain.h"
 #include "NvrBusiness.h"
 
+#include <cmath>
+#include <limits>
+#include <memory>
+
+/**
+ * 功能：校验 JSON 数值为指定范围的整数，拒绝字符串、小数和溢出值。
+ * param [in] pValue：待校验的 JSON 节点。
+ * param [in] nMin：最小合法值。
+ * param [in] nMax：最大合法值。
+ * param [out]：无。
+ * return：合法返回 true，否则返回 false。
+ */
+static bool sjcl_is_alarm_integer(const Json::Object* pValue, int nMin, int nMax)
+{
+    return cJSON_IsNumber(pValue) && std::isfinite(pValue->valuedouble) &&
+           pValue->valuedouble >= nMin && pValue->valuedouble <= nMax &&
+           std::floor(pValue->valuedouble) == pValue->valuedouble;
+}
+
+/**
+ * 功能：按协议字段名精确查找节点，避免错误大小写被默认为空配置。
+ * param [in] pObject：JSON 对象。
+ * param [in] pKey：协议字段名。
+ * param [out]：无。
+ * return：字段节点；不存在时返回空指针，所有权仍属于原对象。
+ */
+static const Json::Object* sjcl_alarm_field(const Json::Object* pObject, const char* pKey)
+{
+    return cJSON_GetObjectItemCaseSensitive(pObject, pKey);
+}
+
+/**
+ * 功能：校验字符串字段存在且可完整存入协议缓冲区，允许显式空字符串。
+ * param [in] pObject：JSON 对象。
+ * param [in] pKey：协议字段名。
+ * param [in] nCapacity：包含字符串结束符的缓冲区容量。
+ * param [out]：无。
+ * return：合法返回 true，否则返回 false。
+ */
+static bool sjcl_is_alarm_string(const Json::Object* pObject, const char* pKey, size_t nCapacity)
+{
+    const Json::Object* pValue = sjcl_alarm_field(pObject, pKey);
+    return cJSON_IsString(pValue) && pValue->valuestring &&
+           std::strlen(pValue->valuestring) < nCapacity;
+}
+
+/**
+ * 功能：校验七天布防时间的字段类型、数量与时间段内容，允许七天全部为空。
+ * param [in] pSchedule：布防时间 JSON 对象。
+ * param [out]：无。
+ * return：合法返回 true，否则返回 false。
+ */
+static bool sjcl_is_alarm_schedule(const Json::Object* pSchedule)
+{
+    const Json::Object* pCounts = sjcl_alarm_field(pSchedule, "TimeSectionCount");
+    const Json::Object* pSections = sjcl_alarm_field(pSchedule, "TimeSections");
+    if (!cJSON_IsObject(pSchedule) || !cJSON_IsObject(pCounts) || !cJSON_IsObject(pSections) ||
+        cJSON_GetArraySize(pCounts) != NET_ALARM_SCHEDULE_DAY_COUNT)
+    {
+        return false;
+    }
+    int nPresentDays = 0;
+    for (int nDay = 0; nDay < NET_ALARM_SCHEDULE_DAY_COUNT; ++nDay)
+    {
+        const std::string strDay = std::to_string(nDay);
+        const Json::Object* pCount = sjcl_alarm_field(pCounts, strDay.c_str());
+        if (!sjcl_is_alarm_integer(pCount, 0, NET_PLAN_SECTION_NUM))
+        {
+            return false;
+        }
+        const int nCount = static_cast<int>(pCount->valuedouble);
+        const Json::Object* pDay = sjcl_alarm_field(pSections, strDay.c_str());
+        /* 数量为零时可省略当天对象，但不能携带未声明的时间段。 */
+        if (!pDay && nCount == 0)
+        {
+            continue;
+        }
+        if (!cJSON_IsObject(pDay) || cJSON_GetArraySize(pDay) != nCount)
+        {
+            return false;
+        }
+        ++nPresentDays;
+        for (int nSection = 0; nSection < nCount; ++nSection)
+        {
+            const std::string strSection = std::to_string(nSection);
+            const Json::Object* pTime = sjcl_alarm_field(pDay, strSection.c_str());
+            if (!cJSON_IsObject(pTime) ||
+                !sjcl_is_alarm_integer(sjcl_alarm_field(pTime, "StartHour"), NET_ALARM_SCHEDULE_HOUR_MIN, NET_ALARM_SCHEDULE_HOUR_MAX) ||
+                !sjcl_is_alarm_integer(sjcl_alarm_field(pTime, "EndHour"), NET_ALARM_SCHEDULE_HOUR_MIN, NET_ALARM_SCHEDULE_HOUR_MAX) ||
+                !sjcl_is_alarm_integer(sjcl_alarm_field(pTime, "StartMinute"), NET_ALARM_SCHEDULE_MINUTE_MIN, NET_ALARM_SCHEDULE_MINUTE_MAX) ||
+                !sjcl_is_alarm_integer(sjcl_alarm_field(pTime, "EndMinute"), NET_ALARM_SCHEDULE_MINUTE_MIN, NET_ALARM_SCHEDULE_MINUTE_MAX))
+            {
+                return false;
+            }
+        }
+    }
+    return cJSON_GetArraySize(pSections) == nPresentDays;
+}
+
+/**
+ * 功能：校验数量与通道数组长度一致，拒绝非法元素及截断数组。
+ * param [in] pObject：联动 JSON 对象。
+ * param [in] pCountKey：数量字段名。
+ * param [in] pArrayKey：数组字段名。
+ * param [in] nCapacity：数组最大容量及通道编号上限。
+ * param [out]：无。
+ * return：合法返回 true，否则返回 false。
+ */
+static bool sjcl_is_alarm_channels(const Json::Object* pObject, const char* pCountKey,
+                                   const char* pArrayKey, int nCapacity)
+{
+    const Json::Object* pCount = sjcl_alarm_field(pObject, pCountKey);
+    const Json::Object* pArray = sjcl_alarm_field(pObject, pArrayKey);
+    if (!sjcl_is_alarm_integer(pCount, 0, nCapacity) || !cJSON_IsArray(pArray) ||
+        cJSON_GetArraySize(pArray) != static_cast<int>(pCount->valuedouble))
+    {
+        return false;
+    }
+    for (const Json::Object* pItem = pArray->child; pItem; pItem = pItem->next)
+    {
+        if (!sjcl_is_alarm_integer(pItem, 0, nCapacity - 1))
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+/**
+ * 功能：校验单路报警设置必需字段，拒绝 GET 列表包装和缺失字段导致的默认覆盖。
+ * param [in] pRoot：请求根对象。
+ * param [in] nCommand：497 报警输入或 499 报警输出命令。
+ * param [out]：无。
+ * return：合法返回 true，否则返回 false。
+ */
+static bool sjcl_is_alarm_io_request(const Json::Object* pRoot, INT32 nCommand)
+{
+    const bool bInput = nCommand == NET_SET_ALARM_INPUT_INFO;
+    const int nCapacity = bInput ? NET_MAX_ALARM_IN_NUM : NET_MAX_ALARM_OUT_NUM;
+    if ((nCommand != NET_SET_ALARM_INPUT_INFO && nCommand != NET_SET_ALARM_OUTPUT_INFO) ||
+        !cJSON_IsObject(pRoot) || sjcl_alarm_field(pRoot, "AlarmInputs") ||
+        sjcl_alarm_field(pRoot, "AlarmOutputs") || sjcl_alarm_field(pRoot, "AlarmInputCount") ||
+        sjcl_alarm_field(pRoot, "AlarmOutputCount") ||
+        !sjcl_is_alarm_integer(sjcl_alarm_field(pRoot, "AlarmNumber"), 0, nCapacity - 1) ||
+        !sjcl_is_alarm_string(pRoot, "AlarmAddress", NET_ALARM_ADDRESS_LEN) ||
+        !sjcl_is_alarm_string(pRoot, "AlarmName", NET_ALARM_NAME_LEN) ||
+        !sjcl_is_alarm_schedule(sjcl_alarm_field(pRoot, "AlarmSchedule")))
+    {
+        return false;
+    }
+    const Json::Object* pCopyTo = sjcl_alarm_field(pRoot, "CopyTo");
+    if (pCopyTo)
+    {
+        if (!cJSON_IsArray(pCopyTo) || cJSON_GetArraySize(pCopyTo) > NET_ALARM_COPY_TO_MAX_NUM)
+        {
+            return false;
+        }
+        for (const Json::Object* pItem = pCopyTo->child; pItem; pItem = pItem->next)
+        {
+            if (!sjcl_is_alarm_integer(pItem, 0, nCapacity - 1))
+            {
+                return false;
+            }
+        }
+    }
+    if (bInput)
+    {
+        const Json::Object* pLinkage = sjcl_alarm_field(pRoot, "LinkageList");
+        return sjcl_is_alarm_integer(sjcl_alarm_field(pRoot, "NormallyOpen"), FALSE, TRUE) &&
+               sjcl_is_alarm_integer(sjcl_alarm_field(pRoot, "DealType"), NET_ALARM_INPUT_DEAL_TYPE_DISABLED, NET_ALARM_INPUT_DEAL_TYPE_ENABLED) &&
+               cJSON_IsObject(pLinkage) &&
+               sjcl_is_alarm_channels(pLinkage, "AlarmOutputCount", "AlarmOutput", NET_MAX_ALARM_OUT_NUM) &&
+               sjcl_is_alarm_channels(pLinkage, "RecordChannelCount", "RecordChannel", NET_CHANNEL_MAX) &&
+               sjcl_is_alarm_channels(pLinkage, "SnapshotChannelCount", "SnapshotChannel", NET_CHANNEL_MAX);
+    }
+    return sjcl_is_alarm_integer(sjcl_alarm_field(pRoot, "DelayTime"), 0, (std::numeric_limits<INT32>::max)()) &&
+           sjcl_is_alarm_integer(sjcl_alarm_field(pRoot, "State"), NET_ALARM_OUTPUT_STATE_OFF, NET_ALARM_OUTPUT_STATE_HUMAN_ON);
+}
+
+/**
+ * 功能：校验并设置一路报警配置，任何 JSON 校验失败均不调用 IPC 回调。
+ * param [in] nChannelId：设备通道标识。
+ * param [in] nCommand：报警输入或输出设置命令。
+ * param [in] strRequest：单路配置 JSON 请求体。
+ * param [in] strUrlParam：URL 参数，当前不参与配置解析。
+ * param [out]：无。
+ * return：包含实际设置结果或无效参数错误的响应 JSON。
+ */
+template<typename TConfig>
+static std::string sjcl_set_alarm_io(INT32 nChannelId, INT32 nCommand,
+                                     const std::string& strRequest, const std::string& strUrlParam)
+{
+    (void)strUrlParam;
+    /* JSON 对象由当前请求独占，自动释放；不持锁执行设备回调。 */
+    std::unique_ptr<Json::Object, decltype(&cJSON_Delete)> pRoot(Json::init(strRequest), &cJSON_Delete);
+    if (!sjcl_is_alarm_io_request(pRoot.get(), nCommand))
+    {
+        NETSDK_LOG_MESSAGE_WARN("报警设置 JSON 无效，要求完整单路配置: cmd=%d", nCommand);
+        return SDKConvert::to_respString(NET_E_INVALID_PARAM, nCommand);
+    }
+    TConfig stConfig{};
+    SDKConvert::deal(pRoot.get(), stConfig, true);
+    const NET_COMMON_ECODE_E enResult = static_cast<NET_COMMON_ECODE_E>(
+        executeSetDevConfigCb(nChannelId, nCommand, &stConfig));
+    return SDKConvert::to_respString(enResult, nCommand);
+}
+
 CSjclDomain::CSjclDomain()
 {
     /* ==================================================================
@@ -45,6 +252,8 @@ CSjclDomain::CSjclDomain()
     m_getTable[NET_GET_AUDIOANOMALYALARM]        = &CSjclDomain::TemplatedGet<NET_AudioAnomalyAlarmInfo_S>;
     m_getTable[NET_GET_AUDIO_ANOMALY_CURRENT_DB] = &CSjclDomain::TemplatedGet<NET_AudioAnomalyCurrentDb_S>;
     m_getTable[NET_GET_AUDIBLE_ALARM_INFO]      = &CSjclDomain::TemplatedGet<NET_AudibleAlarmInfo_S>;
+    m_setTable[NET_SET_ALARM_INPUT_INFO]         = &sjcl_set_alarm_io<NET_AlarmInputInfo_S>;
+    m_setTable[NET_SET_ALARM_OUTPUT_INFO]        = &sjcl_set_alarm_io<NET_AlarmOutputInfo_S>;
     m_getTable[NET_GET_ALARM_INPUT_INFO]         = &CSjclDomain::TemplatedGet<NET_AlarmInputInfoList_S>;
     m_getTable[NET_GET_ALARM_OUTPUT_INFO]        = &CSjclDomain::TemplatedGet<NET_AlarmOutputInfoList_S>;
     m_getTable[NET_GET_FLASHING_LIGHT_ALARM_INFO]= &CSjclDomain::TemplatedGet<NET_FlashingLightAlarmInfo_S>;
@@ -106,6 +315,11 @@ CSjclDomain::CSjclDomain()
         return CNvrBusiness::instance()->HandleGetRtspUrl(ch, cmd, req_data);
     };
 
+    /* ===== 抓图 / 录像锁定 / 强制I帧（580~584，通用 Get 通道） ===== */
+    m_getTable[NET_GET_CAPTURE_PICTURE]     = &CSjclDomain::TemplatedGet<NET_CapturePictureInfo_S>;
+    m_getTable[NET_GET_RECORD_LOCK_STATUS]  = &CSjclDomain::TemplatedGet<NET_RecordLockInfo_S>;
+    m_getTable[NET_FORCE_KEY_FRAME]         = &CSjclDomain::TemplatedGet<NET_ForceKeyFrameInfo_S>;
+
     /* ==================================================================
      * Set 命令注册
      * ================================================================== */
@@ -115,6 +329,10 @@ CSjclDomain::CSjclDomain()
     m_setTable[NET_SET_RECORD_SCHEDULE]       = &CSjclDomain::TemplatedSet<NET_RecordSchedule_S>;
     m_setTable[NET_SET_RECORD_ADVANCED_PARAM] = &CSjclDomain::TemplatedSet<NET_RecordAdvancedParam_S>;
     m_setTable[NET_DOWNLOAD_RECORD_FILE]      = &CSjclDomain::TemplatedSet<NET_RecordDownloadList_S>;
+
+    /* ===== 录像锁定/解锁（581/582，通用 Set 通道） ===== */
+    m_setTable[NET_LOCK_RECORD_FILE]           = &CSjclDomain::TemplatedSet<NET_RecordLockInfo_S>;
+    m_setTable[NET_UNLOCK_RECORD_FILE]         = &CSjclDomain::TemplatedSet<NET_RecordLockInfo_S>;
 
     /* ===== 传统报警 ===== */
     m_setTable[NET_SET_TAMPERALARM]              = &CSjclDomain::TemplatedSet<NET_TamperAlarmInfo_S>;

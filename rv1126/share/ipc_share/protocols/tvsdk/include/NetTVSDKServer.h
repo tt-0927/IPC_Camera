@@ -1,11 +1,3 @@
-/**
- * 文件名：NetTVSDKServer.h
- * 创建日期：原始创建日期未记录。
- * 作者：原作者未记录，本次修改为 Codex。
- * 功能：定义 TVSDK 服务端公共协议类型、参数范围和接口。
- * 修改记录：2026-10-09，增加安全服务登录锁定参数的范围宏。
- * 修改记录：2026-10-09，明确 SSH 启动时间和倒计时为只读状态，设置时忽略客户端输入。
- */
 #ifndef NETTVSDK_H
 #define NETTVSDK_H
 
@@ -2628,10 +2620,8 @@ typedef struct tagNET_SshAdminInfo
 {
     BOOL    bSshEnable;
     INT32   nSshPort;
-    /* 只读：由 IPC 记录的 SSH 启动时间，查询格式为 YYYY-MM-DD HH:mm:ss，设置时忽略。 */
-    CHAR    szSshStartTime[NET_LEN_64];
-    /* 只读：查询返回的 SSH 倒计时，格式为 HH:mm:ss；设置时忽略，实时值通过 467 命令查询。 */
-    CHAR    szSshCountdown[NET_LEN_64];
+    CHAR    szSshStartTime[NET_LEN_64];             /* 只读：由 IPC 记录的 SSH 启动时间，查询格式为 YYYY-MM-DD HH:mm:ss，设置时忽略。 */
+    CHAR    szSshCountdown[NET_LEN_64];             /* 只读：查询返回的 SSH 倒计时，格式为 HH:mm:ss；设置时忽略，实时值通过 467 命令查询。 */
     BYTE    byRes[64];
 } NET_SshAdminInfo_S;
 

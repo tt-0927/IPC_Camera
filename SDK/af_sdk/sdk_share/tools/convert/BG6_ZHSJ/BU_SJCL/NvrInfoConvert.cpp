@@ -9,7 +9,8 @@
  */
 
 #include "NvrInfoConvert.h"
-#include "AlarmInfoConvert.h"   
+#include "AlarmInfoConvert.h"
+#include "Base64Util.h"
 #include "SDKConvert.h"
 
 #include <algorithm>
@@ -408,7 +409,8 @@ void deal(Json::Object* pRootJson, NET_FaceLibInfo_S& stInfo, bool bOutStruct)
     }
 
     SDKConvert::CSDKConvert convert(bOutStruct);
-    convert.field(pRootJson, "LibId", stInfo.szFaceLibName);
+    convert.field(pRootJson, "LibId", stInfo.szFaceLibName);          /* 原名(添加/删除/修改共用, Add/Del 使用) */
+    convert.field(pRootJson, "LibId_new", stInfo.szFaceLibNameNew);   /* 修改目标库(重命名)新名 */
     convert.field(pRootJson, "TotalFace", stInfo.nTotalFace);
     convert.field(pRootJson, "NormalNum", stInfo.nNormalNum);
     convert.field(pRootJson, "AbnormalNum", stInfo.nAbnormalNum);
@@ -522,7 +524,6 @@ void deal(Json::Object* pRootJson, NET_FaceInfo_S& stInfo, bool bOutStruct)
     convert.field(pRootJson, "Name", stInfo.szName);
     convert.field(pRootJson, "PhoneNum", stInfo.szPhoneNum);
     convert.field(pRootJson, "PicPath", stInfo.szPicPath);
-    convert.field(pRootJson, "BinPath", stInfo.szBinPath);
     convert.field(pRootJson, "PicType", stInfo.szPicType);
     convert.field(pRootJson, "PicSize", stInfo.nPicSize);
     convert.field(pRootJson, "PicDate", stInfo.szPicDate);
@@ -539,6 +540,7 @@ void deal(Json::Object* pRootJson, NET_FaceInfoList_S& stInfo, bool bOutStruct)
     }
 
     SDKConvert::CSDKConvert convert(bOutStruct);
+    convert.field(pRootJson, "LibId", stInfo.szFaceLibName);
     convert.field(pRootJson, "FaceInfoCount", stInfo.nFaceInfoCount);
     if (bOutStruct)
     {
@@ -1369,8 +1371,24 @@ void deal(Json::Object* pRootJson, NET_RoadPondingCfg_S& stInfo, bool bOutStruct
     convert.structure(pRootJson, "Rule", stInfo.stRule);
     convert.structure(pRootJson, "AlarmSchedule", stInfo.stAlarmSchedule);
     convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
-    
-    /* 转换 NVR 通道和道路积水检测区域字段，兼容 IPC 返回的默认全屏区域。 */
+}
+
+
+void deal(Json::Object* pRootJson, NET_FaceCaptureOverlayInfo_S& stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+
+    SDKConvert::CSDKConvert convert(bOutStruct);
+    convert.field(pRootJson, "DeviceID", stInfo.nDeviceID);
+    convert.field(pRootJson, "MonitoryPointInfo", stInfo.strMonitoryPointInfo);
+    convert.field(pRootJson, "OverlayDeviceID", stInfo.bOverlayDeviceID);
+    convert.field(pRootJson, "OverlayCaptureTime", stInfo.bOverlayCaptureTime);
+    convert.field(pRootJson, "OverlayMonitoryPointInfo", stInfo.bOverlayMonitoryPointInfo);
+    convert.field(pRootJson, "FontColor", stInfo.enFontColor);
+    convert.field(pRootJson, "FontColorStr", stInfo.strFontColor);
 }
 
 
@@ -1385,9 +1403,30 @@ void deal(Json::Object* pRootJson, NET_DeviceStatusInfo_S& stInfo, bool bOutStru
     SDKConvert::CSDKConvert convert(bOutStruct);
     convert.field(pRootJson, "nCpuUsage", stInfo.nCpuUsage);
     convert.field(pRootJson, "nMemoryUsage", stInfo.nMemoryUsage);
-    convert.field(pRootJson, "nUptime", stInfo.nUptime);
-    convert.field(pRootJson, "nTemperature", stInfo.nTemperature);
     convert.field(pRootJson, "nDiskCount", stInfo.nDiskCount);
+    convert.field(pRootJson, "nAbnormalDiskCount", stInfo.nAbnormalDiskCount);
+    convert.field(pRootJson, "nChannelCount", stInfo.nChannelCount);
+    convert.field(pRootJson, "nOnlineChannelCount", stInfo.nOnlineChannelCount);
+    convert.field(pRootJson, "nNetworkCount", stInfo.nNetworkCount);
+    
+    /* nNetworkStatus 数组序列化 */
+    if (bOutStruct)
+    {
+        std::vector<int> vec;
+        Json::Object* pArr = Json::get(pRootJson, "nNetworkStatus");
+        if (pArr) Json::Array::get(pArr, vec);
+        for (int i = 0; i < 4; ++i)
+            stInfo.nNetworkStatus[i] = (i < (int)vec.size()) ? vec[i] : 0;
+    }
+    else
+    {
+        Json::Object* pArr = Json::Array::init();
+        for (int i = 0; i < stInfo.nNetworkCount && i < 4; ++i)
+            Json::Array::add(pArr, stInfo.nNetworkStatus[i]);
+        Json::add(pRootJson, "nNetworkStatus", pArr);
+    }
+    
+    convert.field(pRootJson, "nRecordStatus", stInfo.nRecordStatus);
 }
 
 void deal(Json::Object* pRootJson, NET_ChannelNameInfo_S& stInfo, bool bOutStruct)
@@ -1422,6 +1461,26 @@ void deal(Json::Object* pRootJson, NET_TransparentData_S& stInfo, bool bOutStruc
     SDKConvert::CSDKConvert convert(bOutStruct);
     convert.field(pRootJson, "nChannelIndex", stInfo.nChannelIndex);
     convert.field(pRootJson, "uDataLen", stInfo.uDataLen);
+    /* byData 按字符串往返 */
+    if (bOutStruct)
+    {
+        std::string strData;
+        if (Json::get(pRootJson, "byData", strData))
+        {
+            size_t copyLen = (std::min)(strData.size(), sizeof(stInfo.byData));
+            std::memcpy(stInfo.byData, strData.c_str(), copyLen);
+            stInfo.uDataLen = static_cast<UINT32>(copyLen);
+        }
+    }
+    else
+    {
+        UINT32 dataLen = (std::min)(stInfo.uDataLen, static_cast<UINT32>(sizeof(stInfo.byData)));
+        if (dataLen > 0)
+        {
+            std::string strData(reinterpret_cast<const char*>(stInfo.byData), dataLen);
+            Json::add(pRootJson, "byData", strData);
+        }
+    }
 }
 
 void deal(Json::Object* pRootJson, NET_SerialPortParam_S& stInfo, bool bOutStruct)
@@ -1448,6 +1507,132 @@ void deal(Json::Object* pRootJson, NET_SerialData_S& stInfo, bool bOutStruct)
     SDKConvert::CSDKConvert convert(bOutStruct);
     convert.field(pRootJson, "nPortIndex", stInfo.nPortIndex);
     convert.field(pRootJson, "uDataLen", stInfo.uDataLen);
+    /* byData 按字符串往返 */
+    if (bOutStruct)
+    {
+        std::string strData;
+        if (Json::get(pRootJson, "byData", strData))
+        {
+            size_t copyLen = (std::min)(strData.size(), sizeof(stInfo.byData));
+            std::memcpy(stInfo.byData, strData.c_str(), copyLen);
+            stInfo.uDataLen = static_cast<UINT32>(copyLen);
+        }
+    }
+    else
+    {
+        UINT32 dataLen = (std::min)(stInfo.uDataLen, static_cast<UINT32>(sizeof(stInfo.byData)));
+        if (dataLen > 0)
+        {
+            std::string strData(reinterpret_cast<const char*>(stInfo.byData), dataLen);
+            Json::add(pRootJson, "byData", strData);
+        }
+    }
+}
+
+/* ===================== 抓图 / 录像锁定 / 强制I帧（580~584） ============================== */
+
+/* 抓图图片数据按 Base64 编码往返：固定 1MB 数组 + 实际长度字段。
+ * 输出（结构→JSON）只编码实际长度范围内的字节，避免传输 1MB 空数据。
+ * 输入（JSON→结构）按 Base64 解码后拷贝，长度截断到数组容量。 */
+static void CapturePicBase64Field(Json::Object* pRootJson,
+                                  const std::string& key,
+                                  BYTE (&arr)[NET_PIC_DATA_MAX_LEN],
+                                  UINT32& len,
+                                  bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+
+    if (bOutStruct)
+    {
+        len = 0;
+        std::string b64;
+        if (Json::get(pRootJson, key, b64) && !b64.empty())
+        {
+            std::vector<unsigned char> decoded;
+            if (SDKConvert::Base64Decode(b64, decoded))
+            {
+                size_t copyLen = (std::min)(decoded.size(),
+                                            static_cast<size_t>(NET_PIC_DATA_MAX_LEN));
+                if (copyLen > 0)
+                {
+                    std::memcpy(arr, decoded.data(), copyLen);
+                }
+                len = static_cast<UINT32>(copyLen);
+            }
+        }
+        return;
+    }
+
+    UINT32 imageLen = len;
+    if (imageLen > static_cast<UINT32>(NET_PIC_DATA_MAX_LEN))
+    {
+        imageLen = static_cast<UINT32>(NET_PIC_DATA_MAX_LEN);
+    }
+    if (imageLen > 0)
+    {
+        std::string b64 = SDKConvert::Base64Encode(
+            reinterpret_cast<const unsigned char*>(arr),
+            static_cast<size_t>(imageLen));
+        Json::add(pRootJson, key, b64);
+    }
+}
+
+void deal(Json::Object* pRootJson, NET_CapturePictureInfo_S& stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+    SDKConvert::CSDKConvert convert(bOutStruct);
+    convert.field(pRootJson, "Channel", stInfo.nChannel);
+    convert.field(pRootJson, "StreamType", stInfo.nStreamType);
+    convert.field(pRootJson, "PicFormat", stInfo.nPicFormat);
+    convert.field(pRootJson, "OutputType", stInfo.nOutputType);
+    convert.field(pRootJson, "ImageQuality", stInfo.nImageQuality);
+    convert.field(pRootJson, "FilePath", stInfo.szFilePath);
+    /* 图片数据最后处理：依赖 uPicLen，且只在内存输出模式下有效 */
+    if (!bOutStruct && stInfo.nOutputType == NET_CAPTURE_OUTPUT_MEMORY)
+    {
+        CapturePicBase64Field(pRootJson, "PicDataBase64",
+                              stInfo.abyPicData, stInfo.uPicLen, bOutStruct);
+    }
+    else if (bOutStruct)
+    {
+        CapturePicBase64Field(pRootJson, "PicDataBase64",
+                              stInfo.abyPicData, stInfo.uPicLen, bOutStruct);
+    }
+    convert.field(pRootJson, "PicLen", stInfo.uPicLen);
+}
+
+void deal(Json::Object* pRootJson, NET_RecordLockInfo_S& stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+    SDKConvert::CSDKConvert convert(bOutStruct);
+    convert.field(pRootJson, "Channel", stInfo.nChannel);
+    convert.field(pRootJson, "StartTime", stInfo.szStartTime);
+    convert.field(pRootJson, "EndTime", stInfo.szEndTime);
+    convert.field(pRootJson, "FileName", stInfo.szFileName);
+    convert.field(pRootJson, "LockStatus", stInfo.nLockStatus);
+}
+
+void deal(Json::Object* pRootJson, NET_ForceKeyFrameInfo_S& stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+    SDKConvert::CSDKConvert convert(bOutStruct);
+    convert.field(pRootJson, "Channel", stInfo.nChannel);
+    convert.field(pRootJson, "StreamType", stInfo.nStreamType);
+    convert.field(pRootJson, "StreamId", stInfo.szStreamId);
+    convert.field(pRootJson, "Result", stInfo.nResult);
+    convert.field(pRootJson, "StreamUrl", stInfo.szStreamUrl);
 }
 
 }

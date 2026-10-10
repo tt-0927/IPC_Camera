@@ -43,7 +43,7 @@ NET_API BOOL NET_STDCALL NET_clientCleanup(void);
 /**
  * @author tianl (tianl@kfb.cn)
  * @brief 设置日志
- * @param [in] dwLogLevel   日志的等级（默认为0）：0-表示关闭日志，1-表示只输出ERROR错误日志，2-输出ERROR错误信息和DEBUG调试信息，3-输出ERROR错误信息、DEBUG调试信息和INFO普通信息等所有信息
+ * @param [in] dwLogLevel   日志输出等级（spdlog 阈值语义：消息等级 >= 设定值才输出，故数值越大输出越少）：0-TRACE 全量(trace/debug/info/warn/error 都输出，最详细)，1-DEBUG(debug 及以上)，2-INFO(info 及以上)，3-WARN(仅 warn/error)，4-ERROR(仅 error)。注意：无“关闭日志”档，0 不是关闭而是最详细的全量输出
  * @param [in] strLogDir    日志路径
  * @param [in] dwLogFileSize 日志文件大小(单位：字节)
  * @param [in] dwLogFileNum 日志文件个数
@@ -251,6 +251,180 @@ NET_API BOOL NET_STDCALL NET_clientGetReplayRecordList(NET_IN    LPVOID lpUserID
                                                    NET_OUT   INT32 *pdwBytesReturned);
 
 /**
+* @brief 分页查询真实录像文件
+* @param [in]     lpUserID          用户登录句柄
+* @param [in,out]  pstQuery          检索条件+分页（nCurPage 从1起，nPageSize 上限
+*                                    NET_RECORD_QUERY_PAGE_MAX_NUM，pResults 调用方分配数组）
+* @param [out]    pdwBytesReturned  实际返回的数据长度指针，可为NULL
+* @return TRUE表示成功，其他表示失败
+* @note 对应服务端 NET_API_PATH_RECORD_QUERY_FILES，服务端按页回调
+*       NET_serverRegisterQueryRecordFilesCb 注册的回调。
+* @note 检索条件三组【互斥】：StartTime/EndTime、Date、Year(+Month) 只能填一组。
+*       本接口会在发送前按 时间段 > 单日 > 整月 > 整年 的优先级自动裁剪多余的组，
+*       因此调用方即使把已知字段一次填满也不会被设备判为非法参数（102）。
+*/
+NET_API BOOL NET_STDCALL NET_clientQueryRecordFiles(NET_IN    LPVOID lpUserID,
+                                                NET_INOUT pNET_RecordFileQuery_S pstQuery,
+                                                NET_OUT   INT32 *pdwBytesReturned);
+
+/************************************************************************/
+/*                    录像下载 Record Download                            */
+/************************************************************************/
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 录像下载进度回调
+ * @param [in] dwDownloadedBytes 已下载字节数
+ * @param [in] dwTotalBytes      总字节数；chunked 传输时通常是 SDK 按时长估算值，不一定是真实总量
+ * @param [in] lpUserData        用户数据，由下载接口传入
+ * @note  dwTotalBytes 仅用于进度展示，不能作为下载完成条件；
+ *        下载真正成功结束时，回调会把已下载量与总量都置为最终字节数。
+ */
+typedef void (NET_STDCALL *NET_DownloadProgressCb)(NET_IN UINT64 dwDownloadedBytes,
+                                                   NET_IN UINT64 dwTotalBytes,
+                                                   NET_IN LPVOID lpUserData);
+
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 下载任务状态
+ */
+typedef enum NET_DOWNLOAD_TASK_STATUS_E
+{
+    NET_DOWNLOAD_TASK_CREATED   = 0,    /* 已创建，尚未开始传输 */
+    NET_DOWNLOAD_TASK_RUNNING   = 1,    /* 传输中 */
+    NET_DOWNLOAD_TASK_SUCCEEDED = 2,    /* 已成功结束 */
+    NET_DOWNLOAD_TASK_FAILED    = 3,    /* 已失败结束 */
+    NET_DOWNLOAD_TASK_CANCELED  = 4     /* 已被取消 */
+} NET_DOWNLOAD_TASK_STATUS_E;
+
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 下载录像文件到本地（同步接口，阻塞至下载结束）
+ * @param [in] lpUserID     用户登录句柄
+ * @param [in] nChannelID   通道ID（与 NET_clientQueryRecordFiles 返回的 nChnId 一致，从 1 开始）
+ * @param [in] szDate       录像日期（如 "2026-08-24"，取自查询结果）
+ * @param [in] nStartTime   开始时间（秒数，当天0点起，取自查询结果）
+ * @param [in] nEndTime     结束时间（秒数，当天0点起，取自查询结果）
+ * @param [in] szSavePath   本地保存路径（含文件名，例如 "D:/record/20260824.mkv"）
+ * @param [in] cbProgress   下载进度回调，可为NULL
+ * @param [in] lpUserData   进度回调用户数据
+ * @return TRUE 表示下载成功；FALSE 表示失败，可调用 NET_clientGetLastError 获取错误码
+ * @note  同步下载走 /download/replay/ 全局共享管道，多客户端并发同一设备会互相干扰；
+ *        需要并发或需要中途停止的场景请改用 NET_clientStartDownloadRecordFile。
+ *        保存路径后缀决定封装格式（mkv/mp4/mov/ts，默认 mkv）。
+ */
+NET_API BOOL NET_STDCALL NET_clientDownloadRecordFile(NET_IN LPVOID lpUserID,
+                                                      NET_IN INT32 nChannelID,
+                                                      NET_IN const CHAR* szDate,
+                                                      NET_IN INT32 nStartTime,
+                                                      NET_IN INT32 nEndTime,
+                                                      NET_IN const CHAR* szSavePath,
+                                                      NET_IN NET_DownloadProgressCb cbProgress,
+                                                      NET_IN LPVOID lpUserData);
+
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 异步启动录像下载
+ * @param [in]  lpUserID    用户登录句柄
+ * @param [in]  nChannelID  通道ID
+ * @param [in]  szDate      录像日期（如 "2026-08-24"）
+ * @param [in]  nStartTime  开始时间（秒数，当天0点起）
+ * @param [in]  nEndTime    结束时间（秒数，当天0点起）
+ * @param [in]  szSavePath  本地保存路径（含文件名）
+ * @param [in]  cbProgress  下载进度回调，可为NULL
+ * @param [in]  lpUserData  进度回调用户数据
+ * @param [out] phTask      输出下载任务句柄，成功时非NULL
+ * @return TRUE 表示任务已创建并开始下载；FALSE 表示失败
+ * @note  参数与SDK状态在创建线程前校验，避免"启动成功"后才发现参数错误。
+ *        任务句柄仅用于查询进度或停止指定下载，设备端 taskId 完全由SDK内部管理；
+ *        推荐使用 NET_clientStopDownloadRecordFile 停止并自动回收。
+ */
+NET_API BOOL NET_STDCALL NET_clientStartDownloadRecordFile(NET_IN  LPVOID lpUserID,
+                                                           NET_IN  INT32 nChannelID,
+                                                           NET_IN  const CHAR* szDate,
+                                                           NET_IN  INT32 nStartTime,
+                                                           NET_IN  INT32 nEndTime,
+                                                           NET_IN  const CHAR* szSavePath,
+                                                           NET_IN  NET_DownloadProgressCb cbProgress,
+                                                           NET_IN  LPVOID lpUserData,
+                                                           NET_OUT LPVOID* phTask);
+
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 请求取消指定的客户端下载任务
+ * @param [in] hTask 下载任务句柄
+ * @return TRUE 表示取消请求已被本地接受；FALSE 表示句柄无效
+ * @note  仅取消该任务自身的HTTP连接，不影响其它客户端任务。
+ *        返回TRUE只代表取消请求已受理，仍应等待/释放句柄（或使用
+ *        NET_clientStopDownloadRecordFile 一步完成停止与回收）。
+ */
+NET_API BOOL NET_STDCALL NET_clientCancelDownloadRecordFile(NET_IN LPVOID hTask);
+
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 获取指定下载任务的状态与进度快照
+ * @param [in]  hTask                下载任务句柄
+ * @param [out] pnStatus             任务状态，参见 NET_DOWNLOAD_TASK_STATUS_E，可为NULL
+ * @param [out] pdwDownloadedBytes   已下载字节数，可为NULL
+ * @param [out] pdwTotalBytes        总字节数（估算/最终值），可为NULL
+ * @return TRUE 表示查询成功；FALSE 表示句柄无效
+ */
+NET_API BOOL NET_STDCALL NET_clientGetDownloadRecordFileStatus(NET_IN  LPVOID hTask,
+                                                                NET_OUT INT32* pnStatus,
+                                                                NET_OUT UINT64* pdwDownloadedBytes,
+                                                                NET_OUT UINT64* pdwTotalBytes);
+
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 等待下载任务结束
+ * @param [in] hTask       下载任务句柄
+ * @param [in] dwTimeoutMs 超时毫秒数；0 表示立即返回，0xFFFFFFFF 表示一直等待
+ * @return TRUE 表示在超时前任务已结束；FALSE 表示超时或句柄无效
+ */
+NET_API BOOL NET_STDCALL NET_clientWaitDownloadRecordFile(NET_IN LPVOID hTask,
+                                                          NET_IN UINT32 dwTimeoutMs);
+
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 获取指定下载任务结束时记录的SDK错误码
+ * @param [in]  hTask        下载任务句柄
+ * @param [out] pnErrorCode  错误码，参见 NET_COMMON_ECODE_E
+ * @return TRUE 表示查询成功；FALSE 表示句柄或输出参数无效
+ * @note  任务运行中返回当前已记录的错误码。
+ */
+NET_API BOOL NET_STDCALL NET_clientGetDownloadRecordFileError(NET_IN  LPVOID hTask,
+                                                              NET_OUT INT32* pnErrorCode);
+
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 释放下载任务句柄
+ * @param [in] hTask 下载任务句柄
+ * @return TRUE 表示释放成功；FALSE 表示句柄无效或在任务自身线程中调用
+ * @note  若任务仍在运行，会先等待任务结束再释放。
+ *        兼容接口：新代码请优先使用 NET_clientStopDownloadRecordFile。
+ */
+NET_API BOOL NET_STDCALL NET_clientReleaseDownloadRecordFile(NET_IN LPVOID hTask);
+
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 停止指定录像下载并自动回收SDK资源
+ * @param [in,out] phTask 指向 NET_clientStartDownloadRecordFile 返回句柄的地址；
+ *                        成功后会被置为NULL，调用方不得再使用旧值
+ * @return TRUE 表示停止并释放成功；FALSE 表示句柄无效或取消失败
+ * @note  推荐的新代码只使用"启动、查询进度、停止"三步；设备端任务标识完全由SDK内部管理。
+ */
+NET_API BOOL NET_STDCALL NET_clientStopDownloadRecordFile(NET_INOUT LPVOID* phTask);
+
+/**
+ * @author tianl (tianl@kfb.cn)
+ * @brief 取消并释放录像下载任务
+ * @param [in,out] phTask 指向任务句柄的地址；成功后会被置为NULL
+ * @return TRUE 表示成功；FALSE 表示句柄无效或取消/释放失败
+ * @note  该接口是消费式接口，成功返回后不得继续使用原任务句柄；
+ *        内部会先发送设备端停止请求，再等待下载线程退出并释放任务资源。
+ */
+NET_API BOOL NET_STDCALL NET_clientCancelAndReleaseDownloadRecordFile(NET_INOUT LPVOID* phTask);
+
+/**
 * 获取设备能力集 Obtain device capability
 * @param [in]   lpUserID                用户登录句柄 User login ID
 * @param [in]   dwChannelID             通道号 Channel ID
@@ -300,17 +474,15 @@ NET_API BOOL NET_STDCALL NET_clientSetDevConfig(NET_IN  LPVOID  lpUserID,
                                                                 NET_INOUT LPVOID  lpOutBuffer,
                                                                 NET_OUT   INT32   dwOutBufferSize,
                                                                 NET_OUT   INT32   *pdwBytesReturned);
-
 /**
- * @brief 修改用户密码
- * @param [in]  lpUserID     用户登录句柄
- * @param [in]  pstInfo      用户密码信息
- * @param [out] 无
- * @return TRUE表示成功,其他表示失败
- * @note 失败时可调用 NET_clientGetLastError() 获取错误码
+ * @brief 修改用户密码（需旧密码校验） Modify user password (old password verification required)
+ * @param [in] lpUserID 用户登录句柄 User login ID
+ * @param [in] pstInfo  修改密码参数 Modify password parameters, see #NET_UserPasswordInfo_S
+ * @return TRUE表示成功,其他表示失败 NET_TRUE means success, and any other value means failure.
+ * @note  失败时可调用 NET_clientGetLastError() 获取错误码
  */
-NET_API BOOL NET_STDCALL Net_clientSetUserPassword(NET_IN LPVOID lpUserID,
-                                                   NET_IN pNET_UserPasswordInfo_S pstInfo);
+NET_API BOOL NET_STDCALL NET_clientSetUserPassword(NET_IN LPVOID lpUserID,
+                                                                NET_IN pNET_UserPasswordInfo_S pstInfo);
 /************************************************************************/
 /*                    设备发现 Device Discovery                           */
 /************************************************************************/
@@ -447,3 +619,4 @@ NET_clientStopVoiceCom(NET_IN LPVOID lpUserID);
 #endif
 
 #endif
+

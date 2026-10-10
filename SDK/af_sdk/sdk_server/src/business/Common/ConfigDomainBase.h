@@ -129,8 +129,8 @@ protected:
         T_CFG stCfg;
         memset(&stCfg, 0, sizeof(T_CFG));
 
-        /* 仅视频码流配置需要从请求体读取 nId，其他配置保持原有获取流程。 */
-        if (nCommand == NET_GET_STREAMCFG && !req_data.empty())
+        /* 仅视频码流配置需要从请求体读取 nId，人脸查询需要从请求体读取 LibId，其他配置保持原有获取流程。 */
+        if ((nCommand == NET_GET_STREAMCFG || nCommand == NET_GET_FACE_INFO) && !req_data.empty())
         {
             Json::Object* pRoot = Json::init(req_data);
             if (pRoot)

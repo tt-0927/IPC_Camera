@@ -5,7 +5,6 @@
  * @LastEditors  : huangjunda
  * @LastEditTime : 2025-03-28 10:30:01
  * @Description  :
- * @修改记录     : 2026-10-09，Codex，补充登录锁定参数范围说明，校验宏定义于 NetTVSDKServer.h。
  */
 
 #pragma once
@@ -532,8 +531,8 @@ namespace System
     typedef struct _LoginLock_S_
     {
         bool bIllegalLoginEnable = false;                   /* 是否启用非法登录锁定 */
-        int nCheckInterval = 30;                            /* 验证时间间隔 1～1440 分钟 */
-        int nMaxErrorTimes = 5;                             /* 最大连续错误次数 3～20 次 */
+        int nCheckInterval = 30;                            /* 验证时间间隔 1-1440（分钟） 输入0，该功能无效*/
+        int nMaxErrorTimes = 5;                             /* 最大连续错误次数 */
         LockDuration_E nLockDuration = LOCK_DURATION_5_MIN; /* 账号锁定时长（分钟） */
     } LoginLock_S;
 

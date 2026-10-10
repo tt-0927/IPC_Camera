@@ -97,11 +97,12 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_NetworkCfg_S& stInfo, bool bO
     }
 
     SDKConvert::CSDKConvert convert(bOutStruct);
-    convert.field(pRootJson, "MTU", stInfo.uMTU);
+    convert.field(pRootJson, "NetName", stInfo.szNetName);
     convert.field(pRootJson, "IPv4DHCP", stInfo.bIPv4DHCP);
     convert.field(pRootJson, "IPv4Address", stInfo.szIpv4Address);
     convert.field(pRootJson, "IPv4GateWay", stInfo.szIPv4GateWay);
     convert.field(pRootJson, "IPv4SubnetMask", stInfo.szIPv4SubnetMask);
+    convert.field(pRootJson, "MTU", stInfo.uMTU);
 }
 
 

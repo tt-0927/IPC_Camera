@@ -618,19 +618,19 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_SysCapability_S& stInfo, bool
     }
     SDKConvert::CSDKConvert convert(bOutStruct);
 
-    convert.field(pRootJson, "VideoEncode",       (int&)stInfo.bVideoEncodeAbility);
-    convert.field(pRootJson, "Osd",               (int&)stInfo.bOsdAbility);
-    convert.field(pRootJson, "Smart",             (int&)stInfo.bSmartAbility);
-    convert.field(pRootJson, "ImageParam",        (int&)stInfo.bImageParamAbility);
-    convert.field(pRootJson, "Audio",             (int&)stInfo.bAudioAbility);
-    convert.field(pRootJson, "ChannelAlarm",      (int&)stInfo.bChannelAlarmAbility);
-    convert.field(pRootJson, "UserManage",        (int&)stInfo.bUserManageAbility);
-    convert.field(pRootJson, "Media",             (int&)stInfo.bMediaAbility);
-    convert.field(pRootJson, "Update",            (int&)stInfo.bUpdateAbility);
-    convert.field(pRootJson, "IOAlarm",           (int&)stInfo.bIOAlarmAbility);
-    convert.field(pRootJson, "DiskFormat",        (int&)stInfo.bDiskFormatAbility);
-    convert.field(pRootJson, "TWSearch",          (int&)stInfo.bTWSearchAbility);
-    convert.field(pRootJson, "TargetRecognition", (int&)stInfo.bTargetRecognitionAbility);
+    convert.field(pRootJson, "SupportedVideoEncode",       (int&)stInfo.bVideoEncodeAbility);
+    convert.field(pRootJson, "SupportedOsd",               (int&)stInfo.bOsdAbility);
+    convert.field(pRootJson, "SupportedSmart",             (int&)stInfo.bSmartAbility);
+    convert.field(pRootJson, "SupportedImageParam",        (int&)stInfo.bImageParamAbility);
+    convert.field(pRootJson, "SupportedAudio",             (int&)stInfo.bAudioAbility);
+    convert.field(pRootJson, "SupportedChannelAlarm",      (int&)stInfo.bChannelAlarmAbility);
+    convert.field(pRootJson, "SupportedUserManage",        (int&)stInfo.bUserManageAbility);
+    convert.field(pRootJson, "SupportedMedia",             (int&)stInfo.bMediaAbility);
+    convert.field(pRootJson, "SupportedUpdate",            (int&)stInfo.bUpdateAbility);
+    convert.field(pRootJson, "SupportedIOAlarm",           (int&)stInfo.bIOAlarmAbility);
+    convert.field(pRootJson, "SupportedDiskFormat",        (int&)stInfo.bDiskFormatAbility);
+    convert.field(pRootJson, "SupportedTWSearch",          (int&)stInfo.bTWSearchAbility);
+    convert.field(pRootJson, "SupportedTargetRecognition", (int&)stInfo.bTargetRecognitionAbility);
 }
 
 /* ==================== 从 DeviceInfoConvert 搬运: 视频/图像参数配置 ==================== */
@@ -755,8 +755,6 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_VideoOsdCfg_S& stInfo, bool b
         snprintf(szKey, sizeof(szKey), "OsdInfo%02d_Token", i);
         convert.field(pRootJson, szKey, stInfo.OsdInfo[i].stOsdAttr.strToken);
     }
-
-    /* byRes 为保留字段，不做转换 */
 
 #undef CONVERT_ENUM_FIELD
 }

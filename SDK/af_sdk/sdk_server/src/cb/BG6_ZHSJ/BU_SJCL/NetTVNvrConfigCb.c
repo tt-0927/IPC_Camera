@@ -30,6 +30,9 @@ typedef struct tagNETTVNvrCbTable
     NET_CB_GetReplayUrl        cbGetReplayUrl;          /* 回放URL获取回调 */
     NET_CB_ControlReplay       cbControlReplay;         /* 回放控制回调 */
     NET_CB_GetReplayRecordList cbGetReplayRecordList;   /* 回放录像列表获取回调 */
+    NET_CB_QueryRecordFiles    cbQueryRecordFiles;      /* 分页录像文件查询回调 */
+    NET_CB_CaptureJPEG         cbCaptureJPEG;           /* JPEG抓图回调 */
+    NET_CB_GetRecordFilePath   cbGetRecordFilePath;     /* 录像文件完整路径获取回调 */
 } NET_NVR_CB_TABLE_S;
 
 static NET_NVR_CB_TABLE_S g_stNvrCbTable = {0};  /* NVR独有配置回调表实例 */
@@ -298,6 +301,28 @@ NET_API BOOL STDCALL NET_serverRegisterDownloadRecordFileCb(NET_CB_SetDevConfigB
     return registerSetCmdCb(NET_DOWNLOAD_RECORD_FILE, pCb);
 }
 
+/**
+ * @brief 注册锁定录像文件的回调函数
+ * @param [in] pCb 用于读取 NET_RecordLockInfo_S 的回调函数
+ * @return 注册成功返回 TRUE；回调函数非法或已注册时返回 FALSE
+ * @note 锁定后的录像不会被循环覆盖。设备侧能力受限于实际录像管理实现，
+ *       若设备仅支持事件级锁定（事件录像不被覆盖），本回调应返回未支持。
+ */
+NET_API BOOL STDCALL NET_serverRegisterLockRecordFileCb(NET_CB_SetDevConfigByCommand pCb)
+{
+    return registerSetCmdCb(NET_LOCK_RECORD_FILE, pCb);
+}
+
+/**
+ * @brief 注册解锁录像文件的回调函数
+ * @param [in] pCb 用于读取 NET_RecordLockInfo_S 的回调函数
+ * @return 注册成功返回 TRUE；回调函数非法或已注册时返回 FALSE
+ */
+NET_API BOOL STDCALL NET_serverRegisterUnlockRecordFileCb(NET_CB_SetDevConfigByCommand pCb)
+{
+    return registerSetCmdCb(NET_UNLOCK_RECORD_FILE, pCb);
+}
+
 /* ===================== 预览信息（NVR独有） ===================== */
 
 /**
@@ -399,4 +424,129 @@ NET_API BOOL STDCALL NET_serverRegisterControlRecordInfoCb(NET_CB_SetDevConfigBy
 NET_API BOOL STDCALL NET_serverRegisterGetRecordStatusCb(NET_CB_GetDevConfigByCommand pCb)
 {
     return registerGetCmdCb(NET_GET_RECORD_STATUS, pCb);
+}
+
+/* ===================== 分页录像文件查询（NVR独有） ===================== */
+
+/**
+ * @brief 注册分页查询真实录像文件的回调函数
+ * @param [in] pCb 用于填充 NET_RECORD_FILE_QUERY_S 的回调函数
+ * @return 注册成功返回 TRUE；回调函数非法或已注册时返回 FALSE
+ */
+NET_API BOOL STDCALL NET_serverRegisterQueryRecordFilesCb(NET_CB_QueryRecordFiles pCb)
+{
+    if (pCb == NULL)
+    {
+        return FALSE;
+    }
+
+    if (g_stNvrCbTable.cbQueryRecordFiles != NULL)
+    {
+        return FALSE;
+    }
+
+    g_stNvrCbTable.cbQueryRecordFiles = pCb;
+    return TRUE;
+}
+
+/**
+ * @brief 执行分页录像文件查询回调
+ * @param [INOUT] pInfo 查询条件及结果
+ * @return NET_E_SUCCEED 成功，其他值失败
+ */
+int executeQueryRecordFilesCb(LPNET_RECORD_FILE_QUERY_S pInfo)
+{
+    if (pInfo == NULL)
+    {
+        return NET_E_INVALID_PARAM;
+    }
+
+    if (g_stNvrCbTable.cbQueryRecordFiles != NULL)
+    {
+        return g_stNvrCbTable.cbQueryRecordFiles(pInfo);
+    }
+
+    return NET_E_NOT_SUPPORT;
+}
+
+/* ===================== JPEG抓图（NVR独有） ===================== */
+
+/**
+ * @brief 注册JPEG抓图回调函数
+ * @param [in] pCb 根据通道号获取JPEG图片数据的回调函数
+ * @return 注册成功返回 TRUE；回调函数非法或已注册时返回 FALSE
+ */
+NET_API BOOL STDCALL NET_serverRegisterCaptureJPEGCb(NET_CB_CaptureJPEG pCb)
+{
+    if (pCb == NULL)
+    {
+        return FALSE;
+    }
+
+    if (g_stNvrCbTable.cbCaptureJPEG != NULL)
+    {
+        return FALSE;
+    }
+
+    g_stNvrCbTable.cbCaptureJPEG = pCb;
+    return TRUE;
+}
+
+/**
+ * @brief 执行JPEG抓图回调
+ * @return NET_E_SUCCEED 成功，其他值失败
+ */
+int executeCaptureJPEGCb(INT32 dwChannelID, INT32 dwWidth, INT32 dwHeight,
+                         INT32 dwImageQuality, LPVOID pOutBuffer,
+                         INT32 dwOutBufferSize, LPINT32 pdwOutSize)
+{
+    if (g_stNvrCbTable.cbCaptureJPEG != NULL)
+    {
+        return g_stNvrCbTable.cbCaptureJPEG(dwChannelID, dwWidth, dwHeight,
+                                            dwImageQuality, pOutBuffer,
+                                            dwOutBufferSize, pdwOutSize);
+    }
+
+    return NET_E_NOT_SUPPORT;
+}
+
+/* ===================== 录像文件完整路径获取（NVR独有） ===================== */
+
+/**
+ * @brief 注册获取录像文件完整路径的回调函数
+ * @param [in] pCb 根据通道/日期/时间返回录像文件路径的回调函数
+ * @return 注册成功返回 TRUE；回调函数非法或已注册时返回 FALSE
+ */
+NET_API BOOL STDCALL NET_serverRegisterGetRecordFilePathCb(NET_CB_GetRecordFilePath pCb)
+{
+    if (pCb == NULL)
+    {
+        return FALSE;
+    }
+
+    if (g_stNvrCbTable.cbGetRecordFilePath != NULL)
+    {
+        return FALSE;
+    }
+
+    g_stNvrCbTable.cbGetRecordFilePath = pCb;
+    return TRUE;
+}
+
+/**
+ * @brief 执行获取录像文件完整路径回调
+ * @return NET_E_SUCCEED 成功，其他值失败
+ */
+int executeGetRecordFilePathCb(INT32 dwChannelID, const char* szDate,
+                               INT32 dwStartTime, INT32 dwEndTime,
+                               char* szFilePath, INT32 dwPathSize)
+{
+    if (g_stNvrCbTable.cbGetRecordFilePath != NULL)
+    {
+        return g_stNvrCbTable.cbGetRecordFilePath(dwChannelID, szDate,
+                                                  dwStartTime, dwEndTime,
+                                                  szFilePath, dwPathSize);
+    }
+
+    return NET_E_NOT_SUPPORT;
 }

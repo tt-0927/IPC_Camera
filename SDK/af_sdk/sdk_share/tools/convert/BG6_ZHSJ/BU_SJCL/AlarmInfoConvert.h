@@ -45,6 +45,8 @@ namespace SDKConvert
     void deal(Json::Object* pRootJson, NET_LeaveRegionAlarmInfo_S& stInfo, bool bOutStruct);
 
     void deal(Json::Object* pRootJson, NET_LinkageList_S& stInfo, bool bOutStruct);
+    /* 摄像机常规联动（邮件/上传中心/上传SD卡/声音/闪光报警灯） */
+    void deal(Json::Object* pRootJson, NET_TraditionLinkage_S& stInfo, bool bOutStruct);
 
     /* 移动侦测相关 */
     void deal(Json::Object* pRootJson, NET_MotionRegion_S& stInfo, bool bOutStruct);

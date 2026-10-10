@@ -132,7 +132,7 @@ static void ConfigureByArgs(int argc, char* argv[])
 
 static NET_DeviceBasicInfo_S g_stDeviceBasicInfo;
 static NET_DeviceStorageInfo_S g_stDeviceStorageInfo;
-static NET_NetworkCfg_S   g_stNetworkCfg;
+static NET_NetworkCfgList_S g_stNetworkCfg;
 static NET_SystemNtpInfo_S   g_stSystemNtpCfg;
 static NET_VideoEncodeOption_S g_stStreamCfg;
 static NET_AudioCfg_S        g_stAudioCfg;
@@ -655,11 +655,13 @@ static void InitDefaultConfig(void)
     strncpy(g_stDeviceStorageInfo.strDiskFileType,    "ext4",  sizeof(g_stDeviceStorageInfo.strDiskFileType) - 1);
 
     /* 网络配置默认值 */
-    g_stNetworkCfg.uMTU     = 1500;
-    g_stNetworkCfg.bIPv4DHCP = 0; /* 0-手动配置，1-DHCP */
-    strncpy(g_stNetworkCfg.szIpv4Address,   "192.168.1.100", sizeof(g_stNetworkCfg.szIpv4Address) - 1);
-    strncpy(g_stNetworkCfg.szIPv4GateWay,   "192.168.1.1",   sizeof(g_stNetworkCfg.szIPv4GateWay) - 1);
-    strncpy(g_stNetworkCfg.szIPv4SubnetMask,"255.255.255.0", sizeof(g_stNetworkCfg.szIPv4SubnetMask) - 1);
+    g_stNetworkCfg.uNetworkCount = 1;
+    g_stNetworkCfg.stNets[0].uMTU     = 1500;
+    g_stNetworkCfg.stNets[0].bIPv4DHCP = 0; /* 0-手动配置，1-DHCP */
+    strncpy(g_stNetworkCfg.stNets[0].szNetName,       "eth0",         sizeof(g_stNetworkCfg.stNets[0].szNetName) - 1);
+    strncpy(g_stNetworkCfg.stNets[0].szIpv4Address,   "192.168.1.100", sizeof(g_stNetworkCfg.stNets[0].szIpv4Address) - 1);
+    strncpy(g_stNetworkCfg.stNets[0].szIPv4GateWay,   "192.168.1.1",   sizeof(g_stNetworkCfg.stNets[0].szIPv4GateWay) - 1);
+    strncpy(g_stNetworkCfg.stNets[0].szIPv4SubnetMask,"255.255.255.0", sizeof(g_stNetworkCfg.stNets[0].szIPv4SubnetMask) - 1);
 
     /* 系统校时配置默认值 */
     g_stSystemNtpCfg.enTimeZone = 8;
@@ -1354,9 +1356,6 @@ static void InitDefaultConfig(void)
     strncpy(g_stFaceInfoList.astFaceInfos[0].szPicPath,
             "/tmp/demo_person.jpg",
             sizeof(g_stFaceInfoList.astFaceInfos[0].szPicPath) - 1);
-    strncpy(g_stFaceInfoList.astFaceInfos[0].szBinPath,
-            "/tmp/demo_person.bin",
-            sizeof(g_stFaceInfoList.astFaceInfos[0].szBinPath) - 1);
     strncpy(g_stFaceInfoList.astFaceInfos[0].szPicType,
             "jpg",
             sizeof(g_stFaceInfoList.astFaceInfos[0].szPicType) - 1);
@@ -1706,13 +1705,18 @@ static NET_COMMON_ECODE_E MyGetNetworkCfgCb(INT32 dwChannelID, LPVOID lpOutBuffe
         return NET_E_INVALID_PARAM;
     }
 
-    pNET_NetworkCfg_S pOut = (pNET_NetworkCfg_S)lpOutBuffer;
+    pNET_NetworkCfgList_S pOut = (pNET_NetworkCfgList_S)lpOutBuffer;
     *pOut = g_stNetworkCfg;
 
     printf("[ConfigServerDemo] GetNetworkCfg callback, Channel=%d\n", dwChannelID);
-    printf("  IPv4Address=%s\n", g_stNetworkCfg.szIpv4Address);
-    printf("  IPv4Gateway=%s\n", g_stNetworkCfg.szIPv4GateWay);
-    printf("  IPv4SubnetMask=%s\n", g_stNetworkCfg.szIPv4SubnetMask);
+    printf("  NetworkCount=%u\n", g_stNetworkCfg.uNetworkCount);
+    if (g_stNetworkCfg.uNetworkCount > 0)
+    {
+        printf("  NetName=%s\n", g_stNetworkCfg.stNets[0].szNetName);
+        printf("  IPv4Address=%s\n", g_stNetworkCfg.stNets[0].szIpv4Address);
+        printf("  IPv4Gateway=%s\n", g_stNetworkCfg.stNets[0].szIPv4GateWay);
+        printf("  IPv4SubnetMask=%s\n", g_stNetworkCfg.stNets[0].szIPv4SubnetMask);
+    }
 
     return NET_E_SUCCEED;
 }
@@ -1727,13 +1731,18 @@ static NET_COMMON_ECODE_E MySetNetworkCfgCb(INT32 dwChannelID, LPVOID lpInBuffer
         return NET_E_INVALID_PARAM;
     }
 
-    pNET_NetworkCfg_S pIn = (pNET_NetworkCfg_S)lpInBuffer;
+    pNET_NetworkCfgList_S pIn = (pNET_NetworkCfgList_S)lpInBuffer;
     g_stNetworkCfg = *pIn;
 
     printf("[ConfigServerDemo] SetNetworkCfg callback, Channel=%d\n", dwChannelID);
-    printf("  New IPv4Address=%s\n", g_stNetworkCfg.szIpv4Address);
-    printf("  New IPv4Gateway=%s\n", g_stNetworkCfg.szIPv4GateWay);
-    printf("  New IPv4SubnetMask=%s\n", g_stNetworkCfg.szIPv4SubnetMask);
+    printf("  NetworkCount=%u\n", g_stNetworkCfg.uNetworkCount);
+    if (g_stNetworkCfg.uNetworkCount > 0)
+    {
+        printf("  New NetName=%s\n", g_stNetworkCfg.stNets[0].szNetName);
+        printf("  New IPv4Address=%s\n", g_stNetworkCfg.stNets[0].szIpv4Address);
+        printf("  New IPv4Gateway=%s\n", g_stNetworkCfg.stNets[0].szIPv4GateWay);
+        printf("  New IPv4SubnetMask=%s\n", g_stNetworkCfg.stNets[0].szIPv4SubnetMask);
+    }
 
     return NET_E_SUCCEED;
 }

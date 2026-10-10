@@ -50,7 +50,7 @@ static bool IsDeviceLevelCommand(INT32 nCommand)
         case NET_GET_NTPCFG:
         case NET_SET_NTPCFG:
         case NET_SET_SYSTEM_TIME:
-        case NET_SET_USEPASSWORD:
+        case NET_SET_USERPASSWORD:
         case NET_GET_UPGRADESTATUS:
         case NET_GET_UPGRADEVERSION:
         case NET_SET_UPGRADE:
@@ -74,6 +74,11 @@ static bool IsDeviceLevelCommand(INT32 nCommand)
 
         /* ===== RTSP流地址 ===== */
         case NET_GET_RTSPURLCFG:
+
+        /* ===== 录像高级参数/下载 ===== */
+        case NET_GET_RECORD_ADVANCED_PARAM:
+        case NET_SET_RECORD_ADVANCED_PARAM:
+        case NET_DOWNLOAD_RECORD_FILE:
 
         /* ===== 人脸库/人脸信息 ===== */
         case NET_GET_TARGET_LIB:

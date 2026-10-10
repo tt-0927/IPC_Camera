@@ -1,10 +1,6 @@
 /**
  * @file face_recognition.hpp
  * @brief 人脸识别算法运行模块
- * @Date 原始创建日期未记录
- * @Author ITC
- * @Change 2026-10-09 沿用旧算法的 SDK 组包与告警接口，补齐合并人脸配置的抓拍推送。
- * @Change 2026-10-09 补齐人脸识别事件的目标小图负载，保持小图与告警目标框一致。
  */
 
 #pragma once

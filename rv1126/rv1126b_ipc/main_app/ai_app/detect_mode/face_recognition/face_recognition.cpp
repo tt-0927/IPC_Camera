@@ -1901,7 +1901,7 @@ void CFaceRecognition::processBusinessOutput(FrameContext_S &stContext)
     processCaptureResult(stContext);
     processAttributeResult(stContext);
 #ifdef ENABLE_TVSDK_SRC
-    processTvSdkCaptureResult(stContext);
+    //processTvSdkCaptureResult(stContext);
 #endif
     processGat1400Result(stContext);
     processFaceRecognitionEvent(stContext);
