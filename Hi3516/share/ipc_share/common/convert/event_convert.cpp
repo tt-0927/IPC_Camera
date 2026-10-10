@@ -167,6 +167,7 @@ void Convert::deal(Json::Object* pRootJson, Event::AlgorithmConfig_S& stInfo, bo
     convert.field(pRootJson, "EnAudioAnomaly", stInfo.nEnAudioAnomaly);
     convert.field(pRootJson, "EnSceneChange", stInfo.nEnSceneChange);
     convert.field(pRootJson, "EnFaceDetect", stInfo.nEnFaceDetect);
+    convert.field(pRootJson, "EnFaceRecognition", stInfo.nEnFaceRecognition);
     convert.field(pRootJson, "EnLoiteringDetect", stInfo.nEnLoiteringDetect);
     convert.field(pRootJson, "EnCrowdGathering", stInfo.nEnCrowdGathering);
     convert.field(pRootJson, "EnParkingDetect", stInfo.nEnParkingDetect);
@@ -217,6 +218,9 @@ void Convert::deal(Json::Object* pRootJson, Event::AlgorithmConfig_S& stInfo, bo
     
     // ========== 属性识别 ==========
     convert.field(pRootJson, "PlateNumber", stInfo.nPlateNumber);
+    convert.field(pRootJson, "EnPedestrianAttribute", stInfo.nEnPedestrianAttribute);
+    convert.field(pRootJson, "EnMotorVehicleAttribute", stInfo.nEnMotorVehicleAttribute);
+    convert.field(pRootJson, "EnNonMotorVehicleAttribute", stInfo.nEnNonMotorVehicleAttribute);
 #endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
 convert.field(pRootJson, "EnSmokeFire", stInfo.nEnSmokeFire);
@@ -279,6 +283,7 @@ void Convert::deal(Json::Object* pRootJson, Event::SmartEventEnableStatus_S& stI
     convert.field(pRootJson, "UnattendedObject", stInfo.bUnattendedObject);
     convert.field(pRootJson, "ObjectRemoval", stInfo.bObjectRemoval);
     convert.field(pRootJson, "FaceDetect", stInfo.bFaceDetect);
+    convert.field(pRootJson, "FaceRecognition", stInfo.bFaceRecognition);
     convert.field(pRootJson, "PetRecognition", stInfo.bPetRecognition);
     convert.field(pRootJson, "FaceCapture", stInfo.bFaceCapture);
     convert.field(pRootJson, "FaceCompare", stInfo.bFaceCompare);
@@ -316,6 +321,9 @@ void Convert::deal(Json::Object* pRootJson, Event::SmartEventEnableStatus_S& stI
 
     // ========== 属性识别 ==========
     convert.field(pRootJson, "PlateNumber", stInfo.bPlateNumber);
+    convert.field(pRootJson, "PedestrianAttribute", stInfo.bPedestrianAttribute);
+    convert.field(pRootJson, "MotorVehicleAttribute", stInfo.bMotorVehicleAttribute);
+    convert.field(pRootJson, "NonMotorVehicleAttribute", stInfo.bNonMotorVehicleAttribute);
 #endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
 convert.field(pRootJson, "SmokeFire", stInfo.bSmokeFire);

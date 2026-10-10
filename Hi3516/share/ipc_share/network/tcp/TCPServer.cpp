@@ -11,22 +11,19 @@
 namespace Net
 {
 
-TCPServer::TCPServer(Param_S &stParam)
-    : m_stParam(stParam)
-    , m_bExit(false)
+TCPServer::TCPServer(Param_S &stParam) : m_stParam(stParam), m_bExit(false)
 {
     m_server = std::make_shared<AsioTCPServer>(stParam.stInitParam.nPort);
-   
 
     // 设置回调函数，用于处理连接、断开和错误
     Callback callback;
     callback.set_connectObserver(std::bind(&TCPServer::deal_connect, this, std::placeholders::_1));
     callback.set_closeObserver(std::bind(&TCPServer::deal_disconnect, this, std::placeholders::_1));
     callback.set_errorObserver(std::bind(&TCPServer::deal_error, this, std::placeholders::_1));
-        
+
     // 将回调函数设置到服务器并启动服务器
     m_server->set_callback(callback);
-    m_server->start(); 
+    m_server->start();
 
     // 初始化心跳相关设置
     m_heartbeat = std::make_shared<Heartbeat>(this, stParam.stInitParam.nHeartbeatInterval);
@@ -42,10 +39,9 @@ TCPServer::~TCPServer()
     m_tid.join();
 }
 
-
 int TCPServer::send(const Message_S stMessage)
 {
-    if (!m_server) 
+    if (!m_server)
     {
         return -1;
     }
@@ -54,7 +50,8 @@ int TCPServer::send(const Message_S stMessage)
     stHead.nDataLength = stMessage.nDataLength;
     std::vector<void *> disconnectSession;
     /* 发送数据 */
-    auto send_data = [this, &stHead, &stMessage, &disconnectSession](void *pHandle) {
+    auto send_data = [this, &stHead, &stMessage, &disconnectSession](void *pHandle)
+    {
         /* 发数据头 */
         int nRet = m_server->send(&stHead, sizeof(stHead), pHandle);
         if (nRet < 0)
@@ -87,10 +84,10 @@ int TCPServer::send(const Message_S stMessage)
     if (stMessage.pHandle == nullptr)
     {
         std::lock_guard<std::mutex> lock(m_mutex);
-            /* 发给所有客户端 */
+        /* 发给所有客户端 */
         for (auto it = m_sessions.begin(); it != m_sessions.end(); ++it)
         {
-            nRet = send_data(*it);    
+            nRet = send_data(*it);
         }
         if (m_sessions.size() == 0)
         {
@@ -101,8 +98,8 @@ int TCPServer::send(const Message_S stMessage)
     else
     {
         std::lock_guard<std::mutex> lock(m_mutex);
-            /* 发给指定客户端 */
-        nRet = send_data(stMessage.pHandle);   
+        /* 发给指定客户端 */
+        nRet = send_data(stMessage.pHandle);
     }
     /* 清理掉已断开的客户端 */
     for (auto it = disconnectSession.begin(); it != disconnectSession.end(); ++it)
@@ -131,7 +128,7 @@ void TCPServer::heartbeat_status(bool bStatus)
 {
 }
 
-void TCPServer::receive(TcpAdapter* pSession)
+void TCPServer::receive(TcpAdapter *pSession)
 {
     while (true)
     {
@@ -139,10 +136,13 @@ void TCPServer::receive(TcpAdapter* pSession)
         int nRecvLen = pSession->receive(&stHead, sizeof(Net::MessageHead_S));
         if (nRecvLen != sizeof(Net::MessageHead_S))
         {
-            dlog_error("%d 数据头长度错误nRecvLen %d sizeof(Net::MessageHead_S) %d", m_stParam.stInitParam.nPort, nRecvLen, sizeof(Net::MessageHead_S));
+            dlog_error("%d 数据头长度错误nRecvLen %d sizeof(Net::MessageHead_S) %d",
+                       m_stParam.stInitParam.nPort,
+                       nRecvLen,
+                       sizeof(Net::MessageHead_S));
             return;
         }
-        auto pData = std::shared_ptr<char[]>(new char[stHead.nDataLength]);
+        auto pData = std::shared_ptr<char>(new char[stHead.nDataLength]);
         if (pData == nullptr)
         {
             dlog_error("Memory allocation failed");
@@ -170,9 +170,9 @@ void TCPServer::throw_status(int nStatus, void *pHandle)
 {
     Net::Message_S stMessage;
     stMessage.nActionCode = m_stParam.stInitParam.nStatusCode;
-    stMessage.pData       = &nStatus;
+    stMessage.pData = &nStatus;
     stMessage.nDataLength = sizeof(nStatus);
-    stMessage.pHandle     = pHandle;
+    stMessage.pHandle = pHandle;
 
     Net::UserParam_S stUserParam;
     if (m_stParam.stInitParam.callbackMap.find(m_stParam.stInitParam.nStatusCode) != m_stParam.stInitParam.callbackMap.end())
@@ -186,7 +186,7 @@ void TCPServer::throw_status(int nStatus, void *pHandle)
 }
 void TCPServer::receive(Message_S &stMessage, UserParam_S &stUserParam)
 {
-    if (m_stParam.stInitParam.callbackMap.find(stMessage.nActionCode)  == m_stParam.stInitParam.callbackMap.end())
+    if (m_stParam.stInitParam.callbackMap.find(stMessage.nActionCode) == m_stParam.stInitParam.callbackMap.end())
     {
         if (m_stParam.stInitParam.fnDefaultCallback == nullptr)
         {
@@ -208,23 +208,22 @@ void TCPServer::deal_data(const void *pData, int nDataLen)
 {
 }
 
-
 /**
  * @brief 处理新的 TCP 连接
- * 
+ *
  * @param pHandle 连接句柄
  */
 void TCPServer::deal_connect(void *pHandle)
 {
-    {    
+    {
         std::lock_guard<std::mutex> lock(m_mutex);
-        TcpAdapter* pSession = static_cast<TcpAdapter*>(pHandle);
+        TcpAdapter *pSession = static_cast<TcpAdapter *>(pHandle);
         m_sessions.insert(pSession);
         std::thread thr(
-            [this, pSession]() {
-                receive(pSession);   // 接收数据
-                }
-            );
+            [this, pSession]()
+            {
+                receive(pSession); // 接收数据
+            });
         thr.detach();
     }
     throw_status(Net::STATUS_SUCCESS, pHandle);
@@ -232,7 +231,7 @@ void TCPServer::deal_connect(void *pHandle)
 
 /**
  * @brief 处理断开连接的逻辑
- * 
+ *
  * @param pHandle 处理句柄
  */
 void TCPServer::deal_disconnect(void *pHandle)
@@ -241,19 +240,19 @@ void TCPServer::deal_disconnect(void *pHandle)
     {
         return;
     }
-    TcpAdapter* pSession = static_cast<TcpAdapter*>(pHandle);
+    TcpAdapter *pSession = static_cast<TcpAdapter *>(pHandle);
     pSession->stop();
-    {    
+    {
         std::lock_guard<std::mutex> lock(m_mutex);
         m_sessions.erase(pSession);
     }
-     
+
     throw_status(Net::STATUS_DISCONNECT, pHandle);
 }
- 
+
 /**
  * @brief 处理错误信息
- * 
+ *
  * @param nError 错误代码
  */
 void TCPServer::deal_error(int nError)

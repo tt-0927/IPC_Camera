@@ -35,8 +35,7 @@ public:
      * @param [string] 登录密码
      * @param [bool] 是否将当前请求插入队列头
      */
-    void requeryLogin(const std::string &strUser, const std::string &strPwd,
-                      const bool &isPushFront = false);
+    void requeryLogin(const std::string &strUser, const std::string &strPwd, const bool &isPushFront = false);
 
 protected:
     /**
@@ -107,7 +106,7 @@ private:
     /* 双向队列 */
     std::deque<MaintenanceNS::HttpRequery> m_queue;
     /* 双向队列会使用到的读写锁 */
-    std::shared_mutex m_mutex;
+    std::mutex m_mutex;
 
     /* 请求路径 */
     std::string m_strUrl;

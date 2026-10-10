@@ -883,8 +883,8 @@ User::LogErrorInfo_S CUserManage::get_logErrorInfo(std::string strAccount)
     // 查找 Map 中的记录
     std::lock_guard<std::mutex> lock(m_mutex);
 
-    User::LogErrorInfo_S stIpInfo = {0};
-    User::LogErrorInfo_S stUserInfo = {0};
+    User::LogErrorInfo_S stIpInfo;
+    User::LogErrorInfo_S stUserInfo;
     bool bIpExists = false;
     bool bUserExists = false;
 

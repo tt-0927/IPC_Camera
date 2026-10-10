@@ -3,14 +3,14 @@
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2025-07-17 17:25:12
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-06-04 10:50:38
+ * @LastEditTime : 2026-09-23 15:12:38
  * @Description  : 报警配置参数数据结构
  */
 
 #pragma once
 #include "common_define.h"
 #include <vector>
-#include <variant>
+#include "variant.hpp"
 #include <chrono>
 #include <random>
 #include <string>
@@ -496,7 +496,7 @@ namespace Alarm
          * 最多仅有22个单位的宽度，18个单位的高度，即数组18x22
          * 标记为1的小宏块即为移动侦测区域
          */
-        std::variant<Common::Rect_S, AreaGrid> varRegion;
+        mpark::variant<Common::Rect_S, AreaGrid> varRegion;
 
         /* 默认构造函数 */
         _MotionNormalMode_S_() : nSensitivity(60)
@@ -1484,7 +1484,7 @@ namespace Alarm
         unsigned int nSensitivity;
         std::vector<int> aDetectionTarget;  /* 检测目标,DetectionTarget_E */
         /* 默认构造函数 */
-        LoiteringRule() : stRegion(), nTimeThreshold(10), nSensitivity(5)
+        LoiteringRule() : stRegion(), nTimeThreshold(10), nSensitivity(50)
         {
         }
         /**
@@ -4811,16 +4811,6 @@ typedef struct _FaceCompare_S_
         }
     }MotorvehicleAlarmInfo_S;
 
-    /* *********************** 机动车抓拍报警上报信息 *********************** */
-
-    typedef struct _AttributeDetectSwitch_
-    {
-        bool bFaceAttribute = false;
-        bool bPedestrianAttribute = false;
-        bool bMotorVehicleAttribute = false;
-        bool bNonMotorVehicleAttribute = false;
-    }AttributeDetectSwitch_S;
-
 #endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
    /************************烟火检测相关 START *******************/
@@ -5286,5 +5276,145 @@ typedef struct _FaceCompare_S_
     } PeopleDensityDetection_S;
     /************************ 人数统计相关 END ************************/
 #endif
+
+    /************************ 人脸识别相关 合并侦测、抓拍、属性分析 ************************/
+    typedef struct _FaceRecognitionCaptureRule_S_
+    {
+        int nInterval;                           /* 抓拍间隔 */
+        int nMinWidth;                           /* 最小瞳距宽度 */
+        int nMinHeight;                          /* 最小瞳距高度 */
+        int nMaxWidth;                           /* 最大瞳距宽度 */
+        int nMaxHeight;                          /* 最大瞳距高度 */
+        Common::Rect_S stMinIpdRect;             /* 最小瞳距区域定义 矩形框 */
+        std::vector<Region_S> vstShieldedRegion; /* 屏蔽区域区域定义 多边形框 默认4个 */
+        /* 默认构造函数 */
+        _FaceRecognitionCaptureRule_S_() :
+            nInterval(3),
+            nMinWidth(30),
+            nMinHeight(30),
+            nMaxWidth(225),
+            nMaxHeight(225),
+            stMinIpdRect()
+        {
+            vstShieldedRegion.clear();
+        }
+        /* 重载赋值运算符 */
+        _FaceRecognitionCaptureRule_S_ &operator=(const _FaceRecognitionCaptureRule_S_ &x)
+        {
+            if (this != &x)
+            {
+                vstShieldedRegion = x.vstShieldedRegion;
+                stMinIpdRect = x.stMinIpdRect;
+                nMinWidth = x.nMinWidth;
+                nMinHeight = x.nMinHeight;
+                nMaxWidth = x.nMaxWidth;
+                nMaxHeight = x.nMaxHeight;
+                nInterval = x.nInterval;
+            }
+            return *this;
+        }
+    } FaceRecognitionCaptureRule_S;
+
+    typedef struct _FaceRecognition_S_ {
+        bool bEnable = false;                       /* 人脸功能总开关 */
+        bool bCaptureEnable = false;                /* 启用人脸抓拍 */
+        bool bAttributeAnalysisEnable = false;      /* 启用属性分析 */
+        bool bDynamicAnalysisEnable = false;        /* 启用动态分析 */
+
+        /**** 公共配置 ****/
+        unsigned int nSensitivity = 50;             /* 灵敏度[1,100] */
+        Region_S stRegion;                          /* 规则区域定义 多边形框 */
+        std::vector<std::vector<Common::SchedTime_S>> aAlarmTime;   /* 布防时间:一周7天，每天可以设置8个时间段 */
+        LinkageList_S stLinkageList;                /* 联动 */
+
+        /**** 人脸抓拍配置 ****/
+        FaceRecognitionCaptureRule_S stCaptureRule;          /* 人脸抓拍规则（启用人脸抓拍生效） */
+
+        /* 返回带有默认检测区域、布防时间和屏蔽区域的配置 */
+        static _FaceRecognition_S_ CreateWithDefaultRule()
+        {
+            _FaceRecognition_S_ obj;
+            obj.stRegion = Region_S::CreateWithDefaultRule(4);
+            obj.aAlarmTime.assign(7, std::vector<Common::SchedTime_S>(1));
+            for (size_t i = 0; i < 4; ++i)
+            {
+                obj.stCaptureRule.vstShieldedRegion.emplace_back(Region_S::CreateWithDefaultRule(4));
+            }
+            return obj;
+        }
+    } FaceRecognition_S;
+    /************************ 人脸识别相关 END ************************/
+
+    /************************ 属性识别相关 ************************/
+    /* 行人识别 */
+    typedef struct _PersonDetection_S_ {
+        bool bEnable = false;                       /* 行人识别功能总开关 */
+
+        /**** 公共配置 ****/
+        unsigned int nSensitivity = 50;             /* 灵敏度[1,100] */
+        Region_S stRegion;                          /* 规则区域定义 多边形框 */
+        std::vector<std::vector<Common::SchedTime_S>> aAlarmTime;   /* 布防时间:一周7天，每天可以设置8个时间段 */
+        LinkageList_S stLinkageList;                /* 联动 */
+
+        static _PersonDetection_S_ CreateWithDefaultRule()
+        {
+            _PersonDetection_S_ obj;
+            obj.stRegion = Region_S::CreateWithDefaultRule(4);
+            obj.stRegion.aPoint[0] = {0.0f, 0.0f};
+            obj.stRegion.aPoint[1] = {0.0f, 1080.0f};
+            obj.stRegion.aPoint[2] = {1920.0f, 1080.0f};
+            obj.stRegion.aPoint[3] = {1920.0f, 0.0f};
+            obj.aAlarmTime.assign(7, std::vector<Common::SchedTime_S>(1));
+            return obj;
+        }
+    } PersonDetection_S;
+
+    /* 机动车识别 */
+    typedef struct _MotorVehicleDetection_S_ {
+        bool bEnable = false;                       /* 机动车识别功能总开关 */
+
+        /**** 公共配置 ****/
+        unsigned int nSensitivity = 50;             /* 灵敏度[1,100] */
+        Region_S stRegion;                          /* 规则区域定义 多边形框 */
+        std::vector<std::vector<Common::SchedTime_S>> aAlarmTime;   /* 布防时间:一周7天，每天可以设置8个时间段 */
+        LinkageList_S stLinkageList;                /* 联动 */
+
+        static _MotorVehicleDetection_S_ CreateWithDefaultRule()
+        {
+            _MotorVehicleDetection_S_ obj;
+            obj.stRegion = Region_S::CreateWithDefaultRule(4);
+            obj.stRegion.aPoint[0] = {0.0f, 0.0f};
+            obj.stRegion.aPoint[1] = {0.0f, 1080.0f};
+            obj.stRegion.aPoint[2] = {1920.0f, 1080.0f};
+            obj.stRegion.aPoint[3] = {1920.0f, 0.0f};
+            obj.aAlarmTime.assign(7, std::vector<Common::SchedTime_S>(1));
+            return obj;
+        }
+    } MotorVehicleDetection_S;
+
+    /* 非机动车识别 */
+    typedef struct _NonMotorVehicleDetection_S_ {
+        bool bEnable = false;                       /* 非机动车识别功能总开关 */
+
+        /**** 公共配置 ****/
+        unsigned int nSensitivity = 50;             /* 灵敏度[1,100] */
+        Region_S stRegion;                          /* 规则区域定义 多边形框 */
+        std::vector<std::vector<Common::SchedTime_S>> aAlarmTime;   /* 布防时间:一周7天，每天可以设置8个时间段 */
+        LinkageList_S stLinkageList;                /* 联动 */
+
+        static _NonMotorVehicleDetection_S_ CreateWithDefaultRule()
+        {
+            _NonMotorVehicleDetection_S_ obj;
+            obj.stRegion = Region_S::CreateWithDefaultRule(4);
+            obj.stRegion.aPoint[0] = {0.0f, 0.0f};
+            obj.stRegion.aPoint[1] = {0.0f, 1080.0f};
+            obj.stRegion.aPoint[2] = {1920.0f, 1080.0f};
+            obj.stRegion.aPoint[3] = {1920.0f, 0.0f};
+            obj.aAlarmTime.assign(7, std::vector<Common::SchedTime_S>(1));
+            return obj;
+        }
+    } NonMotorVehicleDetection_S;
+
+    /************************ 属性识别相关 END ************************/
 
 }; // namespace Alarm

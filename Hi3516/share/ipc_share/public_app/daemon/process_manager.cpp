@@ -3,14 +3,14 @@
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2025-09-05 16:05:04
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-03-02 16:33:13
+ * @LastEditTime : 2026-09-23 15:59:33
  * @Description  : 进程管理器
  */
 
 #include "process_manager.h"
 #include "dlog.h"
 
-#include <filesystem>
+#include "posix_fs.h"
 #include <fstream>
 #include <thread>
 #include <chrono>
@@ -21,10 +21,7 @@
 #include <cerrno>
 #include <cstring>
 
-namespace fs = std::filesystem;
-
-CProcessManager::CProcessManager(std::string strPidDir) :
-    m_strPidDir(std::move(strPidDir))
+CProcessManager::CProcessManager(std::string strPidDir) : m_strPidDir(std::move(strPidDir))
 {
 }
 
@@ -103,7 +100,7 @@ void CProcessManager::initial_startup_sequence()
 
 std::string CProcessManager::get_pid_file_path(const std::string &strProcessName) const
 {
-    return fs::path(m_strPidDir) / (strProcessName + ".pid");
+    return m_strPidDir + "/" + strProcessName + ".pid";
 }
 
 pid_t CProcessManager::find_process_by_name(const std::string &strProcessName)
@@ -184,12 +181,12 @@ void CProcessManager::start_process(const ProcessInfo_S &stProc)
     if (stProc.strName == "stream")
     {
         dlog_info("启动stream进程，检查crond进程...");
-        
+
         // 检查crond进程是否在运行
         if (is_process_running("crond"))
         {
             dlog_warn("检测到crond进程正在运行，尝试结束...");
-            
+
             // 找到crond的PID
             pid_t crond_pid = find_process_by_name("crond");
             if (crond_pid > 0)
@@ -197,7 +194,7 @@ void CProcessManager::start_process(const ProcessInfo_S &stProc)
                 if (kill(crond_pid, SIGTERM) == 0)
                 {
                     dlog_info("已发送SIGTERM信号给crond进程(PID: %d)", crond_pid);
-                    
+
                     // 等待最多3秒让进程结束
                     for (int i = 0; i < 30; i++)
                     {
@@ -207,7 +204,7 @@ void CProcessManager::start_process(const ProcessInfo_S &stProc)
                             dlog_info("crond进程已结束");
                             break;
                         }
-                        
+
                         if (i == 15) // 1.5秒后如果还没结束，尝试强制结束
                         {
                             dlog_warn("crond进程未响应，尝试强制结束");
@@ -217,8 +214,7 @@ void CProcessManager::start_process(const ProcessInfo_S &stProc)
                 }
                 else
                 {
-                    dlog_error("无法发送信号给crond进程(PID: %d): %s", 
-                              crond_pid, strerror(errno));
+                    dlog_error("无法发送信号给crond进程(PID: %d): %s", crond_pid, strerror(errno));
                 }
             }
         }

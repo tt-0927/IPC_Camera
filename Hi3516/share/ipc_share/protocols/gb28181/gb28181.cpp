@@ -8,6 +8,7 @@
  */
 
 #include "gb28181.hpp"
+#include "osd_configure.h"
 #include "dlog.h"
 #include "video_define.h"
 #include "stream_video.h"
@@ -634,7 +635,7 @@ void CGB28181::fn_gbOSDConfig(GB28181::OSDConfig_S &stOSDConfig,SipCbResult_S &s
     if(!stOSDConfig.bIsSet)
     {
         dlog_debug("[GB28181]获取通道[%d]OSD配置",stOSDConfig.nIndex);
-	    nRet = COsdManage::instance()->get_overplay_info(vecOverplayInfo);
+	    nRet = COsdConfigure::instance()->get_overplay_info(vecOverplayInfo);
         if(nRet != ERR)
         {
             stOSDConfig.strResult = "ERROR";
@@ -766,7 +767,7 @@ void CGB28181::fn_gbOSDConfig(GB28181::OSDConfig_S &stOSDConfig,SipCbResult_S &s
             vecOverplayInfo.push_back(stWordInfo);
         }
 
-        nRet = COsdManage::instance()->set_overplay_info(vecOverplayInfo);
+        nRet = COsdConfigure::instance()->set_overplay_info(vecOverplayInfo);
         if(nRet != 0)
         {
             stOSDConfig.strResult = "ERROR";

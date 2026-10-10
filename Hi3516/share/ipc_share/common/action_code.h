@@ -391,6 +391,12 @@ typedef enum
     /* 设置人脸比对配置 */
     AC_SET_FACE_COMPARE_INFO = 2528,
     AC_GET_FACE_COMPARE_INFO = 2529,
+
+    /* 获取人脸识别配置 */
+    AC_GET_FACE_RECOGNITION_INFO = 2530,
+    /* 设置人脸识别配置 */
+    AC_SET_FACE_RECOGNITION_INFO = 2531,
+
     /**
     * @brief   : 场景智能分析
     */
@@ -540,10 +546,18 @@ typedef enum
     /* 设置人员密度检测配置 */
     AC_SET_PEOPLE_DENSITY_DETECTION_INFO = 2758,
 
-    /* 设置属性识别 */
-    AC_SET_ATTRIBUTE_DETECT_INFO = 2798,
-    /* 获取属性识别 */
-    AC_GET_ATTRIBUTE_DETECT_INFO = 2799,
+    /* 获取行人识别配置 */
+    AC_GET_PERSON_DETECTION_INFO = 2792,
+    /* 设置行人识别配置 */
+    AC_SET_PERSON_DETECTION_INFO = 2793,
+    /* 获取机动车识别配置 */
+    AC_GET_MOTOR_VEHICLE_DETECTION_INFO = 2794,
+    /* 设置机动车识别配置 */
+    AC_SET_MOTOR_VEHICLE_DETECTION_INFO = 2795,
+    /* 获取非机动车识别配置 */
+    AC_GET_NON_MOTOR_VEHICLE_DETECTION_INFO = 2796,
+    /* 设置非机动车识别配置 */
+    AC_SET_NON_MOTOR_VEHICLE_DETECTION_INFO = 2797,
 
     /**
      * @brief 预览相关
@@ -1122,6 +1136,5 @@ typedef enum
      * @brief 平台手动抓图并送烟火识别
      */
     AC_SMOKE_FIRE_SNAPSHOT_DETECT = 11002,
-
 
 } ActionCode_E;

@@ -231,13 +231,29 @@ void CEventLinkage::play_audio(std::string strAudioPath, int nTimes)
     m_asyncAction->play_audio(strAudioPath, nTimes, m_worker->getRunningFlag(LinkageType_E::SOUND));
 }
 
+bool CEventLinkage::play_audio_async()
+{
+    if (!m_bInited && init() != OK)
+    {
+        return false;
+    }
+
+    /* 仅需联动类型：音频路径与播放次数由 worker 线程内的 execute_audio 从声音报警配置读取；
+     * 事件类型保持默认 UNKNOWN，避免命中人脸比对专用音频分支。 */
+    LinkageTask_S stTask;
+    stTask.enLinkageType = LinkageType_E::SOUND;
+    m_worker->pushTask(stTask);
+    return true;
+}
+
 int CEventLinkage::get_audio_file_path(std::string &strAudioPath, int &nTimes)
 {
     if (!m_bInited && init() != OK)
     {
         return ERR;
     }
-    return m_asyncAction->get_audio_file_path(strAudioPath);
+    /* 必须透传 nTimes，否则调用方拿不到配置的报警次数（此前误用单参数版，导致次数恒为 0）。 */
+    return m_asyncAction->get_audio_file_path(strAudioPath, nTimes);
 }
 
 bool CEventLinkage::stop_play_audio()

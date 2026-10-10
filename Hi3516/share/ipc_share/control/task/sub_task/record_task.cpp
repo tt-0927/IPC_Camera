@@ -3,11 +3,12 @@
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2025-06-23 16:00:04
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2025-12-23 16:25:51
+ * @LastEditTime : 2026-09-23 15:45:07
  * @Description  : 录制任务
  */
 
 #include "record_define.h"
+#include "posix_fs.h"
 #include "event_manage.h"
 
 #include "record_task.h"
@@ -28,27 +29,29 @@
 #include <iostream>
 #include <string>
 
+#include <algorithm>
+
 /* 查找指定字符串前的一个字符 */
-static bool isCharBeforeExtension(const std::string& filename, char targetChar) 
+static bool isCharBeforeExtension(const std::string &filename, char targetChar)
 {
     // 查找 ".m3u8" 扩展名位置
     size_t extPos = filename.find(".m3u8");
-    
+
     // 检查扩展名是否存在且不在起始位置
-    if (extPos == std::string::npos) 
+    if (extPos == std::string::npos)
     {
         return false;
     }
-    
+
     // 确保扩展名前至少有一个字符
-    if (extPos == 0) 
+    if (extPos == 0)
     {
         return false;
     }
-    
+
     // 获取扩展名前一个字符
     char charBeforeExt = filename[extPos - 1];
-    
+
     return (charBeforeExt == targetChar);
 }
 
@@ -65,11 +68,11 @@ void Task::Record::NoticeRecordFileInfo::handle()
     ::Record_NS::FileInfo_S stFileInfo;
     int nRet = 0;
     Convert::to_struct(m_taskData, stFileInfo);
-    if(isCharBeforeExtension(stFileInfo.filename, '_'))
+    if (isCharBeforeExtension(stFileInfo.filename, '_'))
     {
         CRecordCtrl::instance()->set_eventM3u8Path(stFileInfo.path, stFileInfo.filename);
     }
-    else 
+    else
     {
         nRet = RecordFileManage::instance()->add(stFileInfo);
     }
@@ -92,7 +95,7 @@ void Task::Record::SetRecordFileInfo::handle()
 void Task::Record::FindRecordFileInfo::handle()
 {
     /* sd卡异常以及录制ts文件信息数据库不存在都返回空数据 */
-    if(!(std::filesystem::exists(RECORD_DATABASE_PATH)) || (CStorageManage::instance()->get_SdCardStatus() != SD_CARD_STATUS_E::NORMAL))
+    if (!(PosixFs_NS::exists(RECORD_DATABASE_PATH)) || (CStorageManage::instance()->get_SdCardStatus() != SD_CARD_STATUS_E::NORMAL))
     {
         std::string retrievalResult = "{\"reason\":\"record data is empty.\"}";
         result(retrievalResult, -1);
@@ -115,16 +118,16 @@ void Task::Record::FindRecordFileInfo::handle()
     Record_NS::FindResult_S stFindResult;
     stFindResult.nChnId = 0;
 
-    if(!infos.size())
+    if (!infos.size())
     {
         stFindResult.dates = vecResult;
         infos.push_back(stFindResult);
     }
-    else 
+    else
     {
-        for(auto &Result : vecResult)
+        for (auto &Result : vecResult)
         {
-            if(infos.size())
+            if (infos.size())
             {
                 /* 摄像机为单通道 0，把所有获取到的日期加入到从数据库中查找到的结果，保证数据库未记录但实际有录制的情况也能查询到 */
                 infos[0].dates.push_back(Result);
@@ -148,7 +151,7 @@ void Task::Record::NoticeRecordTsFileInfo::handle()
     ::Record_NS::TsFileInfo_S stTsFileInfo;
     Convert::to_struct(m_taskData, stTsFileInfo);
     int nRet = -1;
-    if(!stTsFileInfo.filename.empty())
+    if (!stTsFileInfo.filename.empty())
     {
         std::string strDate = TimeUtils_NS::get_currentDate();
         // CStorageManage::instance()->accumulateRecordSize(stTsFileInfo.path, stTsFileInfo.nSize, strDate);
@@ -157,23 +160,23 @@ void Task::Record::NoticeRecordTsFileInfo::handle()
         stDirInfo.nChnId = stTsFileInfo.nChnId;
         nRet = RecordFileDatabase::instance()->get_itemInfo(stDirInfo);
 
-        stDirInfo.nTotalSize += (long long)stTsFileInfo.nSize;
+        stDirInfo.nTotalSize += (long long) stTsFileInfo.nSize;
         stDirInfo.nCount++;
 
-        if(nRet < 0)
+        if (nRet < 0)
         {
             RecordFileDatabase::instance()->add(stDirInfo);
         }
-        else 
+        else
         {
             RecordFileDatabase::instance()->update(stDirInfo);
         }
 
         /* 转为k为单位 */
-        stTsFileInfo.nSize /= 1024; 
-        nRet = RecordFileManage::instance()->add(stTsFileInfo); 
+        stTsFileInfo.nSize /= 1024;
+        nRet = RecordFileManage::instance()->add(stTsFileInfo);
     }
-    
+
     result(nRet);
 }
 /*通知录制异常*/
@@ -198,7 +201,8 @@ void Task::Record::SetHumanRecord::handle()
     Convert::to_struct(m_taskData, stInfo);
     ::Record_NS::Info_S stOldInfo;
     CRecordCtrl::instance()->get_humanRecord(stOldInfo);
-    if (stOldInfo.nRecordStatus == ::Record_NS::Status_E::RECORD_OPERATION && stInfo.nRecordStatus == ::Record_NS::Status_E::RECORD_OPERATION)
+    if (stOldInfo.nRecordStatus == ::Record_NS::Status_E::RECORD_OPERATION &&
+        stInfo.nRecordStatus == ::Record_NS::Status_E::RECORD_OPERATION)
     {
         dlog_error("正在录制，不能同时开两个录制任务");
         result(-1);
@@ -213,12 +217,12 @@ void Task::Record::DownloadRecordFile::handle()
 {
     std::vector<::Record_NS::DownloadInfo_S> downloadInfos;
     Convert::to_struct(m_taskData, downloadInfos);
-    
+
     std::vector<::Record_NS::DownloadProgress_S> downloadProgress;
     for (auto &stDownloadInfo : downloadInfos)
     {
-        std::string outFilename = "D" + std::to_string(stDownloadInfo.nChnId + 1) + "_cut_" 
-            + stDownloadInfo.startTime + "_" + stDownloadInfo.endTime + ".ts";
+        std::string outFilename = "D" + std::to_string(stDownloadInfo.nChnId + 1) + "_cut_" + stDownloadInfo.startTime + "_" +
+                                  stDownloadInfo.endTime + ".ts";
         ::Record_NS::DownloadProgress_S stDownloadProgress;
         stDownloadProgress.filename = outFilename;
         stDownloadProgress.nProgress = -1;
@@ -237,7 +241,7 @@ void Task::Record::DownloadRecordFile::handle()
             downloadProgress.back().nProgress = -1;
             continue;
         }
-        
+
         stDownloadInfo.path += outFilename;
         dlog_error("找到录像文件 %d", files.size());
         /* lamba表达式，使用线程执行 */
@@ -265,7 +269,7 @@ void Task::Record::DownloadRecordFile::handle()
                 ifs.close();
                 int nProgress = (i + 1) * 100 / files.size();
                 if (nProgress != stDownloadProgress.nProgress)
-                {   
+                {
                     stDownloadProgress.nProgress = nProgress;
                     TaskPublish::instance()->message(AC_NOTICE_DOWNLOAD_RECORD_PROGRESS, Convert::to_string(stDownloadProgress));
                 }
@@ -293,7 +297,6 @@ void Task::Record::DownloadRecordFile::handle()
         return;
     }
     result(Convert::to_string(downloadProgress));
-    
 }
 
 /*通知下载录制文件进度*/

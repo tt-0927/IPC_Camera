@@ -56,7 +56,7 @@ Connection::Connection(ServerImpl *server, EventLoop *loop, int fd, std::string 
     session_.last_activity_ms = now_ms_;
     stats_.disconnect_reason = DisconnectReason::Unknown;
 
-    controller_ = std::make_unique<Controller>(this);
+    controller_ = std::unique_ptr<Controller>(new Controller(this));
     auth_.nonce.Rotate();
 }
 
@@ -725,8 +725,8 @@ Result Connection::StartPlaying(StreamId stream, int track_index)
 
     if (!track->subscriber)
     {
-        track->subscriber = std::make_unique<Subscriber>(hub->backpressure().client_max_pending_frames,
-                                                         hub->backpressure().client_max_pending_bytes);
+        track->subscriber = std::unique_ptr<Subscriber>(new Subscriber(hub->backpressure().client_max_pending_frames,
+                                                         hub->backpressure().client_max_pending_bytes));
     }
     if (!track->subscriber_registered)
     {

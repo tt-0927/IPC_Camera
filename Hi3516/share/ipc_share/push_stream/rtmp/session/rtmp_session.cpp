@@ -3,7 +3,7 @@
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2026-05-13 08:55:30
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-08-20 16:00:23
+ * @LastEditTime : 2026-09-23 16:03:32
  * @Description  : RTMP单路推流会话实现
  */
 
@@ -120,8 +120,8 @@ int CRtmpSession::init()
     /* 初始化帧队列（在锁保护下） */
     {
         std::lock_guard<std::mutex> lockQueue(m_mutexQueue);
-        m_videoQueue = std::make_unique<CThreadSafeFrameQueue>(MAX_VIDEO_FRAME);
-        m_audioQueue = std::make_unique<CThreadSafeFrameQueue>(MAX_AUDIO_FRAME);
+        m_videoQueue = std::unique_ptr<CThreadSafeFrameQueue>(new CThreadSafeFrameQueue(MAX_VIDEO_FRAME));
+        m_audioQueue = std::unique_ptr<CThreadSafeFrameQueue>(new CThreadSafeFrameQueue(MAX_AUDIO_FRAME));
     }
 
     /* 队列准备完毕后再发布连接状态，避免媒体线程看到已连接但队列尚未创建。 */
@@ -205,9 +205,7 @@ int CRtmpSession::send_video_frame(Video_NS::VideoFrame_S *pVideoFrame)
     return send_video_frame(pVideoFrame->pData, pVideoFrame->nLen, pVideoFrame->eType);
 }
 
-int CRtmpSession::send_video_frame(const uint8_t *pData,
-                                   int nDataLen,
-                                   Video_NS::NalType_E eType)
+int CRtmpSession::send_video_frame(const uint8_t *pData, int nDataLen, Video_NS::NalType_E eType)
 {
     if (!pData || nDataLen <= 0)
     {
@@ -221,10 +219,8 @@ int CRtmpSession::send_video_frame(const uint8_t *pData,
         return ERR;
     }
 
-    const bool bIsMarkedKeyFrame = eType == Video_NS::H264_TYPE_IDR ||
-                                   eType == Video_NS::H265_TYPE_IDR_W_RADL ||
-                                   eType == Video_NS::H265_TYPE_IDR_N_LP ||
-                                   eType == Video_NS::H265_TYPE_CRA;
+    const bool bIsMarkedKeyFrame = eType == Video_NS::H264_TYPE_IDR || eType == Video_NS::H265_TYPE_IDR_W_RADL ||
+                                   eType == Video_NS::H265_TYPE_IDR_N_LP || eType == Video_NS::H265_TYPE_CRA;
 
     /*
      * perf: 队列容量确认后才申请并复制完整编码帧。弱网满队列时直接丢帧，
@@ -248,14 +244,12 @@ int CRtmpSession::send_video_frame(const uint8_t *pData,
 
     std::unique_ptr<FrameData> pFrameData(new FrameData());
     /* memory: new[] + shared_ptr 显式删除器，绕开 make_shared 数组缺陷（同 RTSP 路径） */
-    pFrameData->data = std::shared_ptr<unsigned char[]>(
-        new unsigned char[nDataLen],
-        std::default_delete<unsigned char[]>());
+    pFrameData->data = std::shared_ptr<unsigned char>(new unsigned char[nDataLen], std::default_delete<unsigned char[]>());
     pFrameData->type = FRAME_TYPE_VIDEO;
     pFrameData->frameSize = nDataLen;
     /*
      * perf: 编码器未标注NAL类型时延后到发送线程解析，队列满时无需扫描整帧。
-    * iFrame=-1 表示未知，1表示明确关键帧，0表示明确非关键帧。
+     * iFrame=-1 表示未知，1表示明确关键帧，0表示明确非关键帧。
      */
     pFrameData->iFrame = bIsMarkedKeyFrame ? 1 : -1;
     /* memory: 仅在RTMP有界队列入队前复制一次，不保存VENC原始指针。 */
@@ -343,9 +337,7 @@ int CRtmpSession::send_audio_frame(Audio_NS::AudioFrame_S *pAudioFrame)
 
     std::unique_ptr<FrameData> pFrameData(new FrameData());
     /* memory: new[] + shared_ptr 显式删除器，绕开 make_shared 数组缺陷（同视频路径） */
-    pFrameData->data = std::shared_ptr<unsigned char[]>(
-        new unsigned char[pAudioFrame->nLen],
-        std::default_delete<unsigned char[]>());
+    pFrameData->data = std::shared_ptr<unsigned char>(new unsigned char[pAudioFrame->nLen], std::default_delete<unsigned char[]>());
     pFrameData->type = FRAME_TYPE_AUDIO;
     pFrameData->frameSize = pAudioFrame->nLen;
     std::memcpy(pFrameData->data.get(), pAudioFrame->pData, pAudioFrame->nLen);
@@ -361,16 +353,14 @@ int CRtmpSession::init_video_stream(const uint8_t *pData, int nLen, Video_NS::Vi
     std::vector<uint8_t> vExtradata;
     if (enVideoCodec == Video_NS::VideoCodec_E::H264)
     {
-        if (!RtmpVideo_NS::extract_h264_parameter_sets(pData, nLen, stSets) ||
-            !RtmpVideo_NS::build_avc_extradata(stSets, vExtradata))
+        if (!RtmpVideo_NS::extract_h264_parameter_sets(pData, nLen, stSets) || !RtmpVideo_NS::build_avc_extradata(stSets, vExtradata))
         {
             return ERR;
         }
     }
     else if (enVideoCodec == Video_NS::VideoCodec_E::H265)
     {
-        if (!RtmpVideo_NS::extract_h265_parameter_sets(pData, nLen, stSets) ||
-            !RtmpVideo_NS::build_hevc_extradata(stSets, vExtradata))
+        if (!RtmpVideo_NS::extract_h265_parameter_sets(pData, nLen, stSets) || !RtmpVideo_NS::build_hevc_extradata(stSets, vExtradata))
         {
             return ERR;
         }
@@ -461,9 +451,7 @@ int CRtmpSession::try_write_header()
 
         /* 音频链路异常不能阻塞视频出流，超时后固定为纯视频会话。 */
         m_bAudioDisabled.store(true);
-        dlog_warn("RTMP等待音频超时，降级为纯视频推流，通道=%d, timeout=%lldms",
-                  m_nChannel,
-                  static_cast<long long>(AUDIO_WAIT_TIMEOUT_MS));
+        dlog_warn("RTMP等待音频超时，降级为纯视频推流，通道=%d, timeout=%lldms", m_nChannel, static_cast<long long>(AUDIO_WAIT_TIMEOUT_MS));
     }
     if (!m_bAudioReady && !need_audio_stream())
     {
@@ -524,9 +512,8 @@ void CRtmpSession::send_loop()
                                std::chrono::milliseconds(RTMP_SEND_LOOP_WAKE_INTERVAL_MS),
                                [this]()
                                {
-                                   return m_bStopSend.load() ||
-                                          (m_bConnected.load() && ((m_videoQueue && !m_videoQueue->empty()) ||
-                                                                   (m_audioQueue && !m_audioQueue->empty())));
+                                   return m_bStopSend.load() || (m_bConnected.load() && ((m_videoQueue && !m_videoQueue->empty()) ||
+                                                                                         (m_audioQueue && !m_audioQueue->empty())));
                                });
 
             if (m_bStopSend.load())
@@ -603,8 +590,7 @@ int CRtmpSession::process_video_frame(std::unique_ptr<FrameData> pFrameData)
     uint8_t *pData = pFrameData->data.get();
     int nLen = pFrameData->frameSize;
     const bool bIsKeyFrame = pFrameData->iFrame == 1 ||
-                             (pFrameData->iFrame < 0 &&
-                              RtmpVideo_NS::has_key_frame_nal(pData, nLen, m_stVideoConfig.enVideoCodec));
+                             (pFrameData->iFrame < 0 && RtmpVideo_NS::has_key_frame_nal(pData, nLen, m_stVideoConfig.enVideoCodec));
     Video_NS::VideoCodec_E enVideoCodec = m_stVideoConfig.enVideoCodec;
 
     if (!m_bVideoReady)
@@ -688,14 +674,13 @@ int CRtmpSession::process_video_frame(std::unique_ptr<FrameData> pFrameData)
     const int64_t nFlushCostMs = flush_if_due(bIsKeyFrame);
     if (nWriteCostMs >= RTMP_WRITE_BLOCK_WARN_MS || nFlushCostMs >= RTMP_WRITE_BLOCK_WARN_MS)
     {
-        dlog_warn(
-            "RTMP视频写包耗时偏高，通道=%d, len=%d, pkt_size=%d, key=%d, write_cost=%lldms, flush_cost=%lldms",
-            m_nChannel,
-            nLen,
-            pkt.size,
-            bIsKeyFrame ? 1 : 0,
-            static_cast<long long>(nWriteCostMs),
-            static_cast<long long>(nFlushCostMs));
+        dlog_warn("RTMP视频写包耗时偏高，通道=%d, len=%d, pkt_size=%d, key=%d, write_cost=%lldms, flush_cost=%lldms",
+                  m_nChannel,
+                  nLen,
+                  pkt.size,
+                  bIsKeyFrame ? 1 : 0,
+                  static_cast<long long>(nWriteCostMs),
+                  static_cast<long long>(nFlushCostMs));
     }
     return OK;
 }

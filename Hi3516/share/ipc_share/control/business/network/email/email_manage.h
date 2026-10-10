@@ -1,4 +1,4 @@
-/*** 
+/***
  * @FilePath     : email_manage.h
  * @Author       : tianl (tianl@kfb.cn)
  * @Date         : 2024-10-14 17:37:08
@@ -15,10 +15,10 @@
 #include <thread>
 #include <chrono>
 #include <atomic>
-#include <variant>
+#include "variant.hpp"
 #include <queue>
 #include <condition_variable>
-#include <functional> 
+#include <functional>
 
 #include "CSmtp.h"
 #include "Singleton.h"
@@ -27,13 +27,13 @@
 
 #define TEST_SUBJECT "IPC Email test message"                                       /* 测试邮件标题 */
 #define TEST_MESSAGE "This e-mail is used to test whether your SMTP settings work." /* 测试邮件消息 */
-#define TEST_FILE "/root/tianl/test.png"                                            /* 测试发送的邮件图片附件 */
-#define XMAILER "The Bat! (v3.02) Professional"                                     /* smtp版本 */
+#define TEST_FILE    "/root/tianl/test.png"                                         /* 测试发送的邮件图片附件 */
+#define XMAILER      "The Bat! (v3.02) Professional"                                /* smtp版本 */
 
 /**
- * @brief 使用 std::variant 来支持多种类型的参数
+ * @brief 使用 mpark::variant（C++11 兼容实现）来支持多种类型的参数
  */
-using EmailVariant = std::variant<Network::EmailInfo_S, Network::EmailUser_S, Network::EmailEventInfo_S>;
+using EmailVariant = mpark::variant<Network::EmailInfo_S, Network::EmailUser_S, Network::EmailEventInfo_S>;
 
 /**
  * @brief 邮件类，主要用于发送邮件
@@ -52,9 +52,9 @@ public:
      */
     IpcRet_E init();
     /**
-    * @brief 邮件去初始化
-    * @return IpcRet_E
-    */
+     * @brief 邮件去初始化
+     * @return IpcRet_E
+     */
     IpcRet_E deinit();
 
     /**
@@ -70,7 +70,7 @@ public:
     /**
      * @brief 发送测试邮件
      */
-    int SendTestEmail(const Network::EmailUser_S &stTestRecipient,std::function<void( int)> result);
+    int SendTestEmail(const Network::EmailUser_S &stTestRecipient, std::function<void(int)> result);
     /**
      * @brief 开启定时发送邮件线程
      * @param nCaptureTimeInterval
@@ -85,22 +85,23 @@ public:
      * @param stEventInfo 事件信息
      */
     int SendEventEmail(const Network::EmailEventInfo_S &stEventInfo);
+
 private:
     /// @brief 邮件信息
     Network::EmailInfo_S m_EmInfo;
     /// @brief 用于发送邮件的线程
     std::unique_ptr<std::thread> SendThread;
     /// @brief 线程停止标志
-    std::atomic<bool> bEnStopThread = false;
+    std::atomic<bool> bEnStopThread{ false };
     /**
      * @brief 配置文件
      */
     std::string m_configFile;
-     /* 用于标记是否正在测试 */
+    /* 用于标记是否正在测试 */
     std::atomic<bool> m_bTesting;
 
     std::atomic<bool> m_running;
-     /* 事件邮件触发队列 */
+    /* 事件邮件触发队列 */
     std::mutex m_emailQueueMutex;
     std::queue<Network::EmailEventInfo_S> m_emailEventQueue;
     std::condition_variable m_emailCond;

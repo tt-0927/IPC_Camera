@@ -241,7 +241,7 @@ Result ServerImpl::Configure(const ServerConfig &config, const std::vector<Strea
         {
             continue;
         }
-        hubs_[index] = std::make_unique<FrameHub>(stream.id, stream, config_.backpressure);
+        hubs_[index] = std::unique_ptr<FrameHub>(new FrameHub(stream.id, stream, config_.backpressure));
         WarnGopBudgetIfUnderflow(index, stream);
     }
     return Result::Ok();
@@ -746,7 +746,7 @@ void ServerImpl::OnAccept(int fd, const std::string &peer_ip, std::uint16_t peer
         return;
     }
 
-    auto connection = std::make_unique<Connection>(this, &loop_, fd, peer_ip, peer_port);
+    std::unique_ptr<Connection> connection(new Connection(this, &loop_, fd, peer_ip, peer_port));
     const Result started = connection->Start();
     if (!started.ok())
     {
@@ -808,20 +808,37 @@ void ServerImpl::ReapRetiredConnections()
     }
 }
 
-int ServerImpl::PlayingClientCount() const
+int ServerImpl::PlayingStreamCount() const
 {
     int count = 0;
     for (const auto &entry : connections_)
     {
-        if (entry.second && entry.second->session().any_playing())
+        const Connection *connection = entry.second.get();
+        if (connection == nullptr)
         {
-            ++count;
+            continue;
+        }
+        bool playing[kStreamCount] = {};
+        for (const TrackRuntime &track : connection->session().tracks())
+        {
+            const int index = StreamIndex(track.stream);
+            if (track.playing && index >= 0)
+            {
+                playing[index] = true;
+            }
+        }
+        for (int i = 0; i < kStreamCount; ++i)
+        {
+            if (playing[i])
+            {
+                ++count;
+            }
         }
     }
     return count;
 }
 
-int ServerImpl::PlayingTrackCount(StreamId id) const
+int ServerImpl::PlayingClientCount(StreamId id) const
 {
     int count = 0;
     for (const auto &entry : connections_)
@@ -836,6 +853,7 @@ int ServerImpl::PlayingTrackCount(StreamId id) const
             if (track.playing && track.stream == id)
             {
                 ++count;
+                break;
             }
         }
     }

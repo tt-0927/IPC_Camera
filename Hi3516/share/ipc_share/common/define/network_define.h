@@ -182,14 +182,21 @@ namespace Network
     /**
      * @brief 端口映射信息
      */
-    typedef struct
+    struct PortMap_S
     {
-        int         nPortType     = 0;         /* 端口类型：0 Http 1 Rtsp 2 Https 3 Server 4 PlatformCmd 5 PlatformData */
-        int         nExternPort   = 0;         /* 外部端口 */
-        std::string externIp      = "0.0.0.0"; /* 外部IP */
-        int         nInternalPort = 0;         /* 内部端口 */
-        int         nStatus       = 0;         /* 状态 */
-    } PortMap_S;
+        int nPortType = 0;                /* 端口类型：0 Http 1 Rtsp 2 Https 3 Server 4 PlatformCmd 5 PlatformData */
+        int nExternPort = 0;              /* 外部端口 */
+        std::string externIp = "0.0.0.0"; /* 外部IP */
+        int nInternalPort = 0;            /* 内部端口 */
+        int nStatus = 0;                  /* 状态 */
+
+        /* C++11 基线下带默认成员初始化器的结构体不是聚合，提供构造函数支持花括号初始化 */
+        PortMap_S() = default;
+        PortMap_S(int nType, int nExtern, const std::string &strIp, int nInternal, int nSt)
+            : nPortType(nType), nExternPort(nExtern), externIp(strIp), nInternalPort(nInternal), nStatus(nSt)
+        {
+        }
+    };
 
     /**
      * @brief 端口映射配置
@@ -313,7 +320,7 @@ namespace Network
         std::string alarmInputId;          /* 报警输入编码id */
         std::string chnId;                 /* 视频通道编码id */
         std::string whiteList;             /* 允许名单，ip */
-    }EncodingId_S;
+    } EncodingId_S;
 
     /**
      * @brief gb28181客户端配置
@@ -413,7 +420,7 @@ namespace Network
     {
         bool bEnOnvif      = true; /* 是否启用Onvif */
         int nOnvifAuthMode = 0;    /* onvif认证模式 */
-    }OnvifConfigInfo_S;
+    } OnvifConfigInfo_S;
 
     /**
      * @brief upnp配置信息
@@ -446,7 +453,7 @@ namespace Network
         int         nPort;              /* 监听端口 */
     } BonjourConfigInfo_S;
 
-    //info /*--------------------- 国际证书管理（国密）---------------------*/
+    // info /*--------------------- 国际证书管理（国密）---------------------*/
 
     /* 国密证书持有者网络类型 */
     typedef enum class _GmCertNetworkType_
@@ -552,7 +559,7 @@ namespace Network
         EAP_PEAP,     // WPA企业版 (PEAP)
         EAP_TLS,      // WPA企业版 (TLS)
         EAP_TTLS,
-        WPA3_PERSONAL //WPA3加密
+        WPA3_PERSONAL // WPA3加密
     };
 
     // WEP 密钥配置结构
@@ -605,8 +612,8 @@ namespace Network
         std::string interface_name;
         // 构造函数初始化默认值
         _WifiStaConncet_S_()
-            : mode(WifiSecurityMode::OPEN), pairwise("CCMP"), wep_key_len(128), wep_is_hex(false), auth_alg("OPEN"),
-              peap_version("0"), eapol_version("2"), eap_anonymous_identity(""), eap_ttls_phase2("PAP"), // 默认设为 PAP
+        : mode(WifiSecurityMode::OPEN), pairwise("CCMP"), wep_key_len(128), wep_is_hex(false), auth_alg("OPEN"), peap_version("0"),
+          eapol_version("2"), eap_anonymous_identity(""), eap_ttls_phase2("PAP"), // 默认设为 PAP
               ctrl_interface("/var/run/wpa_supplicant"), interface_name("wlan0")
         {
         }
@@ -684,8 +691,8 @@ namespace Network
 
         // 构造函数：提供默认初始化值，防止空数据导致崩溃
         Network_4G_Config_t()
-            : enabled(false),apn(""), username(""), password(""), call_number("*99#"), mtu(1500), auth_mode(AUTH_NONE), network_mode(NET_AUTO),
-              dial_mode(DIAL_AUTO)
+            : enabled(false), apn(""), username(""), password(""), call_number("*99#"), mtu(1500), auth_mode(AUTH_NONE),
+              network_mode(NET_AUTO), dial_mode(DIAL_AUTO)
         {
         }
     } Network_4G_Config_t;
@@ -698,11 +705,11 @@ namespace Network
         std::string encryptionType;  // 加密类型
         std::string password;        // 密码
         std::string confirmPassword; // 确认密码
-        _HotspotConfig_()
-            : enabled(false), ssid(""), securityMode("WPA2-personal"), encryptionType(""), password(""), confirmPassword("")
+        _HotspotConfig_() : enabled(false), ssid(""), securityMode("WPA2-personal"), encryptionType(""), password(""), confirmPassword("")
         {
         }
-        void clear() {
+        void clear()
+        {
             *this = _HotspotConfig_(); // 复用默认构造函数逻辑
         }
     } HotspotConfig;
@@ -735,22 +742,22 @@ namespace Network
         bool Custom;           /* 是否自定义 */
 
         _Platform_Info_t_()
-            : server_ip("183.129.224.253"), server_port(4910), rtmp_port(4920), mqtt_port(1884), user("admin"),
-              password("Aa@135791"), enable(false), Custom(false)
+            : server_ip("183.129.224.253"), server_port(4910), rtmp_port(4920), mqtt_port(1884), user("admin"), password("Aa@135791"),
+              enable(false), Custom(false)
         {
         }
     } Platform_Info_t;
 
     typedef struct _Platform_Store_Info_t_
     {
-        std::string access_token;//服务器地址
-        std::string user;//账号
-        std::string password;//密码
+        std::string access_token; // 服务器地址
+        std::string user;         // 账号
+        std::string password;     // 密码
 
         _Platform_Store_Info_t_() : access_token(""), user("admin"), password("Aa@135791")
         {
         }
-    }Platform_Store_Info_t;
+    } Platform_Store_Info_t;
 
     typedef struct LoginInfo
     {

@@ -142,6 +142,39 @@ struct SceneDrcPolicy_S
     SceneDrcAdjustment_S stNightIr;    /* 夜晚红外Scene应用后的DRC策略 */
 };
 
+/* 单个运行场景的3DNR mdy[]/tfy[]/nrc0_mode参数覆盖策略。 */
+struct NrxAdjustment_S
+{
+    bool bOverride;          /* true：覆盖3DNR参数，false：保留MPP Scene/IQ默认值 */
+    unsigned int nMdy0Math0; /* N1级 mdy[0].math0 */
+    unsigned int nMdy0Math1; /* N1级 mdy[0].math1 */
+    unsigned int nMdy1Math0; /* N2级 mdy[1].math0 */
+    unsigned int nMdy1Math1; /* N2级 mdy[1].math1 */
+
+    /* tfy[0] 时域滤波参数 */
+    unsigned int nTfy0Tfs0;
+    unsigned int nTfy0Tfs1;
+    unsigned int nTfy0Tfs2;
+    unsigned int nTfy0Tfr0[6];
+
+    /* tfy[1] 时域滤波参数 */
+    unsigned int nTfy1Tfs0;
+    unsigned int nTfy1Tfs1;
+    unsigned int nTfy1Tfs2;
+    unsigned int nTfy1Tfr0[6];
+
+    /* nrc0_mode */
+    unsigned int nNrc0Mode;
+};
+
+/* 三个内部运行场景的3DNR mdy[]覆盖策略。 */
+struct NrxPolicy_S
+{
+    NrxAdjustment_S stDay;        /* 白天Scene应用后的NRX策略 */
+    NrxAdjustment_S stNightWhite; /* 夜晚白光Scene应用后的NRX策略 */
+    NrxAdjustment_S stNightIr;    /* 夜晚红外Scene应用后的NRX策略 */
+};
+
 /* Hi3516参数映射与运行策略快照，由配置加载器一次创建，device层只读。 */
 struct Hi3516TuningProfile_S
 {
@@ -168,6 +201,9 @@ struct Hi3516TuningProfile_S
     /* Scene生效后的DRC覆盖策略。 */
     SceneDrcPolicy_S stSceneDrc;
 
+    /* 三个运行场景的3DNR mdy[]覆盖策略。 */
+    NrxPolicy_S stNrx;
+
     /* 镜像策略。 */
     MirrorPolicy_S stMirror;
 
@@ -179,7 +215,7 @@ struct Hi3516TuningProfile_S
     Hi3516TuningProfile_S()
         : nSensorType(-1), stSceneParamMappings{}, stExposureCompensation{}, bUseCmosGamma(false), pGammaDay(nullptr),
           pGammaIr(nullptr), stDayNightThresh{}, nDaySceneIndex(0), nNightWhiteSceneIndex(0), nNightIrSceneIndex(1), stSceneDrc{},
-          stMirror{}
+          stNrx{}, stMirror{}
     {
     }
 };

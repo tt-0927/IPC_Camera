@@ -9,6 +9,8 @@
 
 #pragma once
 
+#include "cxx_compat.h"
+
 #include <set>
 #include <utility>
 #include <type_traits>
@@ -145,14 +147,14 @@ private:
     T m_data;
     std::string m_filePath;
 
-    /* 使用 std::void_t 进行 SFINAE 检测 (C++14 compatible) */
-    template <typename, typename = std::void_t<>>
+    /* 使用 CxxCompat_NS::void_t 进行 SFINAE 检测 (C++14 compatible) */
+    template <typename, typename = CxxCompat_NS::void_t<>>
     struct has_create_default_rule : std::false_type
     {
     };
 
     template <typename U>
-    struct has_create_default_rule<U, std::void_t<decltype(U::CreateWithDefaultRule())>> : std::true_type
+    struct has_create_default_rule<U, CxxCompat_NS::void_t<decltype(U::CreateWithDefaultRule())>> : std::true_type
     {
     };
 
@@ -174,16 +176,14 @@ private:
     }
 
     /* 检测类型是否同时有 aRule 和 CreateWithDefaultRule */
-    template <typename, typename = std::void_t<>>
+    template <typename, typename = CxxCompat_NS::void_t<>>
     struct has_rule_and_default : std::false_type
     {
     };
 
     template <typename U>
-    struct has_rule_and_default<U, std::void_t<
-        decltype(U::CreateWithDefaultRule()),
-        decltype(std::declval<U>().aRule.empty())
-    >> : std::true_type
+    struct has_rule_and_default<U, CxxCompat_NS::void_t<decltype(U::CreateWithDefaultRule()), decltype(std::declval<U>().aRule.empty())>>
+        : std::true_type
     {
     };
 

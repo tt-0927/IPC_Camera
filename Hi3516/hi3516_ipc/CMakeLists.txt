@@ -12,7 +12,7 @@ project(ipc)
 # add_compile_definitions(ENABLE_CRASH_DIAGNOSTICS=1)
 
 add_subdirectory(main_app)
-add_subdirectory(cgi-enc)
+# add_subdirectory(cgi-enc)
 add_subdirectory(
     ${IPC_SHARE_PATH}/public_app/daemon
     ${CMAKE_BINARY_DIR}/daemon)
@@ -22,7 +22,7 @@ add_subdirectory(
 add_subdirectory(
     ${IPC_SHARE_PATH}/public_app/record
     ${CMAKE_BINARY_DIR}/record)
-add_subdirectory(system_monitor)
+# add_subdirectory(system_monitor)
 add_subdirectory(upgrade)
 # example
 # add_subdirectory(sample_aidetect)

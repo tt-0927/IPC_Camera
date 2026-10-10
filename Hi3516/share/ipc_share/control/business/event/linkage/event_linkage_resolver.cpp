@@ -254,6 +254,13 @@ int EventLinkageResolver::load_default_linkage_list(Event::Type_E enEventType, A
         stLinkageList = alarm.stLinkageList;
         break;
     }
+    case Event::Type_E::FACE_RECOGNITION:
+    {
+        Alarm::FaceRecognition_S alarm;
+        CEventConfigure::instance()->get_configure(alarm);
+        stLinkageList = alarm.stLinkageList;
+        break;
+    }
     case Event::Type_E::LOITERING_DETECT:
     {
         Alarm::LoiteringDetection_S alarm;
@@ -513,6 +520,27 @@ int EventLinkageResolver::load_default_linkage_list(Event::Type_E enEventType, A
     case Event::Type_E::PLATE_NUMBER:
     {
         Alarm::LicensePlateCognitionDetection_S alarm;
+        CEventConfigure::instance()->get_configure(alarm);
+        stLinkageList = alarm.stLinkageList;
+        break;
+    }
+    case Event::Type_E::PEDESTRIAN_ATTRIBUTE:
+    {
+        Alarm::PersonDetection_S alarm;
+        CEventConfigure::instance()->get_configure(alarm);
+        stLinkageList = alarm.stLinkageList;
+        break;
+    }
+    case Event::Type_E::MOTORVEHICLE_ATTRIBUTE:
+    {
+        Alarm::MotorVehicleDetection_S alarm;
+        CEventConfigure::instance()->get_configure(alarm);
+        stLinkageList = alarm.stLinkageList;
+        break;
+    }
+    case Event::Type_E::NONMOTORVEHICLE_ATTRIBUTE:
+    {
+        Alarm::NonMotorVehicleDetection_S alarm;
         CEventConfigure::instance()->get_configure(alarm);
         stLinkageList = alarm.stLinkageList;
         break;

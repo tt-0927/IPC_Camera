@@ -24,19 +24,19 @@ static constexpr int64_t BEHAVIOR_THRESHOLD_SECOND_S = 10;
 
 void CBehaviorCalculator::setTotal(int nTotal)
 {
-    std::unique_lock<std::shared_mutex> lock(m_mutex);
+    std::unique_lock<std::mutex> lock(m_mutex);
     m_nTotal = nTotal;
 }
 
 void CBehaviorCalculator::setCourseStartTime(int64_t nStartTime)
 {
-    std::unique_lock<std::shared_mutex> lock(m_mutex);
+    std::unique_lock<std::mutex> lock(m_mutex);
     m_nCourseStartTime = nStartTime;
 }
 
 void CBehaviorCalculator::setCallback(BehaviorCallback callback)
 {
-    std::unique_lock<std::shared_mutex> lock(m_mutex);
+    std::unique_lock<std::mutex> lock(m_mutex);
     m_callback = std::move(callback);
 }
 
@@ -45,7 +45,7 @@ bool CBehaviorCalculator::handle(const std::vector<StudentBehavior_NS::Behavior_
     if (nCount < 0)
         return false;
 
-    std::unique_lock<std::shared_mutex> lock(m_mutex);
+    std::unique_lock<std::mutex> lock(m_mutex);
     int64_t                             nNow = TimeUtils_NS::get_currentTimestampS();
 
     /* 判定当前帧主导行为 */
@@ -81,26 +81,22 @@ bool CBehaviorCalculator::handle(const std::vector<StudentBehavior_NS::Behavior_
 
 bool CBehaviorCalculator::getBehaviorTimeline(std::vector<BehaviorRecord> &vRecords) const
 {
-    std::shared_lock<std::shared_mutex> lock(m_mutex);
+    std::lock_guard<std::mutex> lock(m_mutex);
     vRecords = m_vTimeline;
     return true;
 }
 
 bool CBehaviorCalculator::getPerformance(StudentPerformance &stOut) const
 {
-    std::shared_lock<std::shared_mutex> lock(m_mutex);
+    std::lock_guard<std::mutex> lock(m_mutex);
     /* TODO: 基于 m_vTimeline 和 m_mapDurationAccum 计算课堂表现，待后续实现 */
-    stOut = StudentPerformance{
-        78,
-        "学生专注度均值为78",
-        "学生注意力涣散时间未发生于本课堂",
-        "学生情绪较低落未发生于本课堂"};
+    stOut = StudentPerformance{ 78, "学生专注度均值为78", "学生注意力涣散时间未发生于本课堂", "学生情绪较低落未发生于本课堂" };
     return true;
 }
 
 void CBehaviorCalculator::reset()
 {
-    std::unique_lock<std::shared_mutex> lock(m_mutex);
+    std::unique_lock<std::mutex> lock(m_mutex);
     m_nCurrentDominant = -1;
     m_mapBehaviorState.clear();
     m_vTimeline.clear();
@@ -175,7 +171,7 @@ std::string CBehaviorCalculator::calcElapsedTime(int64_t nNow) const
     int nMinutes = static_cast<int>((nElapsed % 3600) / 60);
     int nSeconds = static_cast<int>(nElapsed % 60);
 
-    char achBuf[16] = {0};
+    char achBuf[16] = { 0 };
     snprintf(achBuf, sizeof(achBuf), "%02d:%02d:%02d", nHours, nMinutes, nSeconds);
     return std::string(achBuf);
 }

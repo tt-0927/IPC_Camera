@@ -9,6 +9,11 @@ include(${IPC_SHARE_PATH}/ipc_share.cmake)
 include(${IPC_SHARE_PATH}/common/utils/osd_font.cmake)
 include(${IPC_SHARE_PATH}/protocols/tvsdk/tvsdk.cmake)
 
+# AI 检测结果标准化与事件分发 Pipeline，ai_app 消费；
+# 曾由 control/business/event/event.cmake 顺带引入，现由业务工程显式引入，
+# 使不使用该模块的型号（工具链不支持 C++17）不参与编译
+include(${IPC_SHARE_PATH}/event/event.cmake)
+
 # cam_share
 include(${CAM_SHARE_PATH}/include/include.cmake)
 include(${CAM_SHARE_PATH}/data/frontEncode/frontEncode.cmake)
@@ -62,7 +67,7 @@ execute_process(
     OUTPUT_VARIABLE dirs_list
 )
 
-message(${dirs_list})
+# message(${dirs_list})
 string(REPLACE "\n" ";" dirs_list ${dirs_list})
 
 # 添加所有源文件与头文件

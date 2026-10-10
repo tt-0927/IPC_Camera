@@ -33,6 +33,7 @@ const std::map<Event::Type_E, int> g_event_priority_map = {
     {Event::Type_E::AUDIO_SUDDEN_DROP, 12}, /* 音量骤降事件 */
     {     Event::Type_E::SCENE_CHANGE, 13}, /* 场景变更事件 */
     {      Event::Type_E::FACE_DETECT, 14}, /* 人脸检测事件 */
+    {Event::Type_E::FACE_RECOGNITION, 22}, /* 人脸识别事件 */
     { Event::Type_E::LOITERING_DETECT, 15}, /* 徘徊检测事件 */
     {  Event::Type_E::CROWD_GATHERING, 16}, /* 人群聚集事件 */
     {   Event::Type_E::PARKING_DETECT, 17}, /* 违停检测事件 */

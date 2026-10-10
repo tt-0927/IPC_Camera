@@ -78,9 +78,7 @@ float normalizeFaceCompareThreshold(float fThreshold)
 }
 
 #ifdef ENABLE_TVSDK_SRC
-bool loadJpegFileToEventImage(const std::string &strPath,
-                              ot_video_frame_info *pFrameInfo,
-                              EventTvSdkImage_S &stImage)
+bool loadJpegFileToEventImage(const std::string &strPath, ot_video_frame_info *pFrameInfo, EventTvSdkImage_S &stImage)
 {
     if (strPath.empty() || pFrameInfo == nullptr)
     {
@@ -113,7 +111,6 @@ bool loadJpegFileToEventImage(const std::string &strPath,
 }
 #endif
 
-
 struct FaceCompareTimeParts_S
 {
     std::string strDateCompact;
@@ -129,11 +126,9 @@ FaceCompareTimeParts_S buildFaceCompareTimeParts(long long llTimestamp)
         llTimestamp = TimeUtils_NS::get_currentTimestampMs();
     }
 
-    const std::time_t seconds =
-        static_cast<std::time_t>(llTimestamp / 1000);
+    const std::time_t seconds = static_cast<std::time_t>(llTimestamp / 1000);
 
-    const int millis =
-        static_cast<int>(llTimestamp % 1000);
+    const int millis = static_cast<int>(llTimestamp % 1000);
 
     struct tm tmValue;
     localtime_r(&seconds, &tmValue);
@@ -154,10 +149,7 @@ FaceCompareTimeParts_S buildFaceCompareTimeParts(long long llTimestamp)
 
     {
         std::ostringstream oss;
-        oss << std::put_time(&tmValue, "%H%M%S")
-            << std::setw(3)
-            << std::setfill('0')
-            << millis;
+        oss << std::put_time(&tmValue, "%H%M%S") << std::setw(3) << std::setfill('0') << millis;
 
         stParts.strTimeCompactMs = oss.str();
     }
@@ -170,7 +162,6 @@ FaceCompareTimeParts_S buildFaceCompareTimeParts(long long llTimestamp)
 
     return stParts;
 }
-
 
 }
 
@@ -281,12 +272,10 @@ void CFaceFeatureProcessor::processCompare(SFaceProcessContext &stContext,
                 return lhs.fConfidence < rhs.fConfidence;
             }
 
-            const long long llLeftArea =
-                static_cast<long long>(std::max(0, lhs.stRect.nX2 - lhs.stRect.nX1)) *
-                static_cast<long long>(std::max(0, lhs.stRect.nY2 - lhs.stRect.nY1));
-            const long long llRightArea =
-                static_cast<long long>(std::max(0, rhs.stRect.nX2 - rhs.stRect.nX1)) *
-                static_cast<long long>(std::max(0, rhs.stRect.nY2 - rhs.stRect.nY1));
+            const long long llLeftArea = static_cast<long long>(std::max(0, lhs.stRect.nX2 - lhs.stRect.nX1)) *
+                                         static_cast<long long>(std::max(0, lhs.stRect.nY2 - lhs.stRect.nY1));
+            const long long llRightArea = static_cast<long long>(std::max(0, rhs.stRect.nX2 - rhs.stRect.nX1)) *
+                                          static_cast<long long>(std::max(0, rhs.stRect.nY2 - rhs.stRect.nY1));
             return llLeftArea < llRightArea;
         });
 
@@ -294,51 +283,52 @@ void CFaceFeatureProcessor::processCompare(SFaceProcessContext &stContext,
     {
         do
         {
-        const auto &faceInfo = *stBestFaceIt;
-        /* 当前目标提取到的特征向量 */
-        std::vector<float> vecFeature;
-        // if (!extractFeatureDirect(rect, stContext.pFrameInfo, *stContext.pDetectWorker, vecFeature))
-        if (!extractFeatureDirect(faceInfo.stRect,faceInfo.vPoints, stContext.pFrameInfo, *stContext.pDetectWorker, vecFeature))
-        {
-            dlog_error("特征提取失败 !");
-            break;
-        }
+            const auto &faceInfo = *stBestFaceIt;
+            /* 当前目标提取到的特征向量 */
+            std::vector<float> vecFeature;
+            // if (!extractFeatureDirect(rect, stContext.pFrameInfo, *stContext.pDetectWorker, vecFeature))
+            if (!extractFeatureDirect(faceInfo.stRect, faceInfo.vPoints, stContext.pFrameInfo, *stContext.pDetectWorker, vecFeature))
+            {
+                dlog_error("特征提取失败 !");
+                break;
+            }
 
-        /* 当前目标比对结果 */
-        int nFaceLibId = -1;
-        float fSimilarity = 0.0f;
-        FaceManage::AIFaceManage::instance()->comparisonFaceLib(vecFeature, nFaceLibId, fSimilarity);
-        Alarm::FaceCompare_S stInfo;
-        CEventConfigure::instance()->get_configure(stInfo);
-        const float fThreshold = normalizeFaceCompareThreshold(stInfo.TargetLibInfos.Similarity);
-        fSimilarity+=0.3;//数据超过70%
-        const bool bCompareSuccess = fSimilarity >= fThreshold;
-        dlog_info("人脸比对结果: id=%d 相似度=%.3f 阈值=%.3f result=%s",
-                  nFaceLibId,
-                  fSimilarity,
-                  fThreshold,
-                  bCompareSuccess ? "success" : "fail");
+            /* 当前目标比对结果 */
+            int nFaceLibId = -1;
+            float fSimilarity = 0.0f;
+            FaceManage::AIFaceManage::instance()->comparisonFaceLib(vecFeature, nFaceLibId, fSimilarity);
+            Alarm::FaceCompare_S stInfo;
+            CEventConfigure::instance()->get_configure(stInfo);
+            const float fThreshold = normalizeFaceCompareThreshold(stInfo.TargetLibInfos.Similarity);
+            fSimilarity += 0.3; // 数据超过70%
+            const bool bCompareSuccess = fSimilarity >= fThreshold;
+            dlog_info("人脸比对结果: id=%d 相似度=%.3f 阈值=%.3f result=%s",
+                      nFaceLibId,
+                      fSimilarity,
+                      fThreshold,
+                      bCompareSuccess ? "success" : "fail");
 
-        // handleCompareLinkage(bCompareSuccess,
-        //                      rect,
-        // dlog_info("比对成功: id=%d 相似度=%.3f 相似度阈值 = %.3f", nFaceLibId, fSimilarity,stInfo.TargetLibInfos.Similarity);
-        handleCompareLinkage(fSimilarity >= stInfo.TargetLibInfos.Similarity,
-                            //  rect,
-                             faceInfo.stRect,
-                             stContext.pFrameInfo,
-                             stContext.nChnId,
-                             llBaseTimestamp,
-                             nFaceLibId,
-                             fSimilarity,
-                             fThreshold,
-                             stCaptureProcessor,
-                             stContext.stImageCache,
-                             vecImageFile);
-        if (bCompareSuccess)
-        {
-            bFaceCompare = true;
+            // handleCompareLinkage(bCompareSuccess,
+            //                      rect,
+            // dlog_info("比对成功: id=%d 相似度=%.3f 相似度阈值 = %.3f", nFaceLibId, fSimilarity,stInfo.TargetLibInfos.Similarity);
+            handleCompareLinkage(fSimilarity >= stInfo.TargetLibInfos.Similarity,
+                                 //  rect,
+                                 faceInfo.stRect,
+                                 stContext.pFrameInfo,
+                                 stContext.nChnId,
+                                 llBaseTimestamp,
+                                 nFaceLibId,
+                                 fSimilarity,
+                                 fThreshold,
+                                 stCaptureProcessor,
+                                 stContext.stImageCache,
+                                 vecImageFile);
+            if (bCompareSuccess)
+            {
+                bFaceCompare = true;
+            }
         }
-        } while (false);
+        while (false);
     }
     EventTriggerContext_S stExposureContext;
 
@@ -392,9 +382,9 @@ static void copyFrameToCenter(ot_video_frame_info *src, ot_video_frame_info *dst
     }
 }
 int CFaceFeatureProcessor::addFaceLibGroup(FaceDataDB_NS::FaceLibsInfo_S &stFaceLibData,
-                                            CFaceDetectWorker &detectWorker,
-                                            int nWidth,
-                                            int nHeight)
+                                           CFaceDetectWorker &detectWorker,
+                                           int nWidth,
+                                           int nHeight)
 {
     dlog_info("=== [FaceLib] 开始添加人脸库 ===");
 
@@ -434,16 +424,12 @@ int CFaceFeatureProcessor::addFaceLibGroup(FaceDataDB_NS::FaceLibsInfo_S &stFace
         return false;
     }
 
-    file.read(reinterpret_cast<char *>(stSrc.video_frame.virt_addr[0]),
-              static_cast<std::streamsize>(nv21Size));
+    file.read(reinterpret_cast<char *>(stSrc.video_frame.virt_addr[0]), static_cast<std::streamsize>(nv21Size));
     const size_t nReadSize = static_cast<size_t>(file.gcount());
     file.close();
     if (nReadSize != nv21Size)
     {
-        dlog_error("读取NV21大小不匹配: path[%s] expect[%zu] actual[%zu] 。",
-                   stFaceLibData.BinPath.c_str(),
-                   nv21Size,
-                   nReadSize);
+        dlog_error("读取NV21大小不匹配: path[%s] expect[%zu] actual[%zu] 。", stFaceLibData.BinPath.c_str(), nv21Size, nReadSize);
         mppVgs_destroy_video_frame_info(&stSrc);
         return false;
     }
@@ -453,7 +439,6 @@ int CFaceFeatureProcessor::addFaceLibGroup(FaceDataDB_NS::FaceLibsInfo_S &stFace
      */
     constexpr int DETECT_WIDTH = PIXEL_WIDTH_640;
     constexpr int DETECT_HEIGHT = PIXEL_HEIGHT_640;
-
 
     // float scale = 1.0f;
 
@@ -491,7 +476,7 @@ int CFaceFeatureProcessor::addFaceLibGroup(FaceDataDB_NS::FaceLibsInfo_S &stFace
         pDet = &stDet;
 
         // {
-        //     static int fileIndex = 0; 
+        //     static int fileIndex = 0;
         //     std::string fileName = "/tmp/feature_input_112x112_" + std::to_string(fileIndex++) + ".bin";
         //     std::ofstream out(fileName, std::ios::binary);
 
@@ -701,16 +686,16 @@ int CFaceFeatureProcessor::addFaceLibGroup(FaceDataDB_NS::FaceLibsInfo_S &stFace
 
         return ERR_DETECT_NO_FACES;
     }
-// int facecount = 0;
-// for(auto it :vDet)
-// {
-//     if(it.nLabel == 2)
-//     {
-        
-//         facecount++;
-//     }
-// }
-// printResult(vDet);
+    // int facecount = 0;
+    // for(auto it :vDet)
+    // {
+    //     if(it.nLabel == 2)
+    //     {
+
+    //         facecount++;
+    //     }
+    // }
+    // printResult(vDet);
     /*
      * 多人脸
      */
@@ -734,7 +719,7 @@ int CFaceFeatureProcessor::addFaceLibGroup(FaceDataDB_NS::FaceLibsInfo_S &stFace
      */
     auto best = *std::max_element(vDet.begin(),
                                   vDet.end(),
-                                  [](auto &a, auto &b)
+                                  [](const Inference_NS::BoxData_S &a, const Inference_NS::BoxData_S &b)
                                   {
                                       return a.fConfidence < b.fConfidence;
                                   });
@@ -1028,7 +1013,7 @@ int CFaceFeatureProcessor::addFaceLibGroup(FaceDataDB_NS::FaceLibsInfo_S &stFace
     int nFaceLibId = -1;
     float fSimilarity = 0.0f;
     FaceManage::AIFaceManage::instance()->comparisonFaceLib(vecFeature, nFaceLibId, fSimilarity);
-    if(fSimilarity > 0.5)
+    if (fSimilarity > 0.5)
     {
         dlog_error("已经添加过该人脸");
         return ERR_ADD_DUPLICATE_FACE;
@@ -1090,7 +1075,7 @@ bool CFaceFeatureProcessor::extractFeature(const Common::RectInfo_S &stRect,
     // if (!prepareFace160Frame(stRect, pFrameInfo, pFrameInfo->video_frame.width, pFrameInfo->video_frame.height, stFaceFrame))
     // if (!prepareFace160Frame(stRect,vPoints, pFrameInfo, pFrameInfo->video_frame.width, pFrameInfo->video_frame.height, stFaceFrame))
     if (!prepareFace160Frame(stRect,
-                            //  vPoints,
+                             //  vPoints,
                              pFrameInfo,
                              PIXEL_WIDTH_640,
                              PIXEL_HEIGHT_640, // 硬编码或定义为宏 DETECT_WIDTH/HEIGHT
@@ -1102,7 +1087,7 @@ bool CFaceFeatureProcessor::extractFeature(const Common::RectInfo_S &stRect,
     }
 
     // {
-    //     static int fileIndex = 0; 
+    //     static int fileIndex = 0;
     //     std::string fileName = "/tmp/face_112x112_" + std::to_string(fileIndex++) + ".bin";
 
     //     std::ofstream out(fileName, std::ios::binary);
@@ -1129,7 +1114,6 @@ bool CFaceFeatureProcessor::extractFeature(const Common::RectInfo_S &stRect,
 
     //      return false;
     //  }
-
 
     /*
      * 提交特征任务
@@ -1209,13 +1193,13 @@ bool CFaceFeatureProcessor::extractFeatureDirect(const Common::RectInfo_S &stRec
     // if (!prepareFace160Frame(stRect, pFrameInfo, pFrameInfo->video_frame.width, pFrameInfo->video_frame.height, stFaceFrame))
     // if (!prepareFace160Frame(stRect,vPoints, pFrameInfo, pFrameInfo->video_frame.width, pFrameInfo->video_frame.height, stFaceFrame))
     if (!prepareFace160Frame(stRect,
-        // vPoints,
-        pFrameInfo,
-        PIXEL_WIDTH_640,
-        PIXEL_HEIGHT_640, // 硬编码或定义为宏 DETECT_WIDTH/HEIGHT
-        pFrameInfo->video_frame.width,
-        pFrameInfo->video_frame.height,
-        stFaceFrame))
+                             // vPoints,
+                             pFrameInfo,
+                             PIXEL_WIDTH_640,
+                             PIXEL_HEIGHT_640, // 硬编码或定义为宏 DETECT_WIDTH/HEIGHT
+                             pFrameInfo->video_frame.width,
+                             pFrameInfo->video_frame.height,
+                             stFaceFrame))
     {
         dlog_error("prepareFace160Frame失败");
 
@@ -1231,7 +1215,7 @@ bool CFaceFeatureProcessor::extractFeatureDirect(const Common::RectInfo_S &stRec
     //     int height = 112;
 
     //     size_t nv21Size = width * height * 3 / 2;
-    //     static int fileIndex = 0; 
+    //     static int fileIndex = 0;
     //     std::string fileName = "/tmp/feature_input_112x112_" + std::to_string(fileIndex++) + ".bin";
     //     std::ofstream out(fileName, std::ios::binary);
 
@@ -1255,7 +1239,6 @@ bool CFaceFeatureProcessor::extractFeatureDirect(const Common::RectInfo_S &stRec
     // }
 
     Inference_NS::InputData_S stInputData;
-
 
     std::vector<Inference_NS::ClsData_S> vClsDatas;
 
@@ -1330,9 +1313,7 @@ bool CFaceFeatureProcessor::extractFeatureDirect(const Common::RectInfo_S &stRec
     return true;
 }
 
-static void addFaceCompareAttrIfNotEmpty(EventTriggerContext_S &stContext,
-                                         const std::string &strKey,
-                                         const std::string &strValue)
+static void addFaceCompareAttrIfNotEmpty(EventTriggerContext_S &stContext, const std::string &strKey, const std::string &strValue)
 {
     if (!strValue.empty())
     {
@@ -1383,8 +1364,8 @@ void CFaceFeatureProcessor::handleCompareLinkage(bool bSuccess,
                                                  std::vector<std::string> &vecImageFile)
 {
     /* 人脸比对不区分目标图和全景图，SD卡图片统一由通用抓图模块生成。 */
-    (void)stRect;
-    (void)stCaptureProcessor;
+    (void) stRect;
+    (void) stCaptureProcessor;
     const FaceCompareLinkageOptions_S stOptions = buildLinkageOptions(bSuccess);
     const long long llEventTimestamp = llTimestamp > 0 ? llTimestamp : TimeUtils_NS::get_currentTimestampMs();
     std::string strUploadImagePath;
@@ -1400,8 +1381,7 @@ void CFaceFeatureProcessor::handleCompareLinkage(bool bSuccess,
     }
 
     EventTriggerContext_S stExposureContext;
-    stExposureContext.enEventType = bSuccess ? Event::Type_E::FACE_COMPARE_SUCCESS
-                                             : Event::Type_E::FACE_COMPARE_FAIL;
+    stExposureContext.enEventType = bSuccess ? Event::Type_E::FACE_COMPARE_SUCCESS : Event::Type_E::FACE_COMPARE_FAIL;
     stExposureContext.mapAttrs["CompareResult"] = bSuccess ? "1" : "0";
     stExposureContext.mapAttrs["CompareResultText"] = bSuccess ? "success" : "fail";
     stExposureContext.mapAttrs["Similarity"] = toPercentString(fSimilarity);
@@ -1471,23 +1451,16 @@ void CFaceFeatureProcessor::handleCompareLinkage(bool bSuccess,
         vecImageFile.emplace_back(strEmailImagePath);
     }
 
-    fillFaceCompareAttrs(stExposureContext,
-                         bSuccess,
-                         nFaceId,
-                         fSimilarity,
-                         fThreshold,
-                         strUploadImagePath,
-                         stMatchedFaceInfo);
+    fillFaceCompareAttrs(stExposureContext, bSuccess, nFaceId, fSimilarity, fThreshold, strUploadImagePath, stMatchedFaceInfo);
 #ifdef ENABLE_TVSDK_SRC
     /* perf: 有TVSDK客户端订阅时才软件编码全景图，无订阅者或冷却期跳过编码 */
     if (bSuccess && m_alarmStateMachine.canStartAlarm() && pFrameInfo != nullptr && AiAppCommon::tvsdk_event_image_required())
     {
         auto pPayload = std::make_shared<EventTvSdkPayload_S>();
         pPayload->enType = get_tvsdk_payload_type(stExposureContext.enEventType);
-        const bool bImageReady =
-            (!stImageCache.strPanoramaImagePath.empty() &&
-             loadJpegFileToEventImage(stImageCache.strPanoramaImagePath, pFrameInfo, pPayload->stPanoramaImage)) ||
-            (AiAppCommon::encode_video_frame_to_jpeg_memory(pFrameInfo, pPayload->stPanoramaImage) == OK);
+        const bool bImageReady = (!stImageCache.strPanoramaImagePath.empty() &&
+                                  loadJpegFileToEventImage(stImageCache.strPanoramaImagePath, pFrameInfo, pPayload->stPanoramaImage)) ||
+                                 (AiAppCommon::encode_video_frame_to_jpeg_memory(pFrameInfo, pPayload->stPanoramaImage) == OK);
         if (bImageReady)
         {
             stExposureContext.pTvSdkPayload = pPayload;
@@ -1500,14 +1473,15 @@ void CFaceFeatureProcessor::handleCompareLinkage(bool bSuccess,
     if (stOptions.bEmail)
     {
         Network::EmailEventInfo_S stEmailInfo;
-        
 
-        std::string compareResult; 
-        if(bSuccess)
+        std::string compareResult;
+        if (bSuccess)
         {
             stEmailInfo.strSubject = "人脸比对成功";
             compareResult = "人脸比对成功";
-        }else {
+        }
+        else
+        {
             stEmailInfo.strSubject = "人脸比对失败";
             compareResult = "人脸比对失败";
         }
@@ -1609,38 +1583,37 @@ bool CFaceFeatureProcessor::convertYuvToFloat160(ot_video_frame_info &stFrame, s
 //     return true;
 // }
 
-
 // face_feature_processor.cpp
 
-bool CFaceFeatureProcessor::prepareFace160Frame(
-    const Common::RectInfo_S &rect, 
-    // const std::vector<Inference_NS::Point_S> &vPoints,
-    ot_video_frame_info *pSrcFrameInfo, 
-    int nDetWidth,   // 检测分辨率宽
-    int nDetHeight,  // 检测分辨率高
-    int nOrigWidth,  // 原图宽
-    int nOrigHeight, // 原图高
-    ot_video_frame_info &stDstFrameInfo) const 
+bool CFaceFeatureProcessor::prepareFace160Frame(const Common::RectInfo_S &rect,
+                                                // const std::vector<Inference_NS::Point_S> &vPoints,
+                                                ot_video_frame_info *pSrcFrameInfo,
+                                                int nDetWidth,   // 检测分辨率宽
+                                                int nDetHeight,  // 检测分辨率高
+                                                int nOrigWidth,  // 原图宽
+                                                int nOrigHeight, // 原图高
+                                                ot_video_frame_info &stDstFrameInfo) const
 {
     // 1. 坐标映射计算 (核心新增逻辑)
     // 如果检测分辨率和原图分辨率不一致，则进行映射
     Common::RectInfo_S faceRectOnOrig = rect;
-    
-    if (nDetWidth != nOrigWidth || nDetHeight != nOrigHeight) {
+
+    if (nDetWidth != nOrigWidth || nDetHeight != nOrigHeight)
+    {
         const float rw = static_cast<float>(nOrigWidth) / nDetWidth;
         const float rh = static_cast<float>(nOrigHeight) / nDetHeight;
-        
+
         faceRectOnOrig.nX1 = static_cast<int>(rect.nX1 * rw);
         faceRectOnOrig.nY1 = static_cast<int>(rect.nY1 * rh);
         faceRectOnOrig.nX2 = static_cast<int>(rect.nX2 * rw);
         faceRectOnOrig.nY2 = static_cast<int>(rect.nY2 * rh);
-        
+
         // dlog_info("坐标映射: 检测框[%d,%d,%d,%d] -> 原图框[%d,%d,%d,%d]",
         //            rect.nX1, rect.nY1, rect.nX2, rect.nY2,
         //            faceRectOnOrig.nX1, faceRectOnOrig.nY1, faceRectOnOrig.nX2, faceRectOnOrig.nY2);
     }
     // 如果一致，则直接使用传入的 rect
-// dlog_info("原图宽高 nOrigWidth： %d,nOrigHeight : %d",nOrigWidth,nOrigHeight)
+    // dlog_info("原图宽高 nOrigWidth： %d,nOrigHeight : %d",nOrigWidth,nOrigHeight)
     // 2. 放大框选区域 (保留上下文)
     // 注意：这里操作的是 faceRectOnOrig，即原图上的框
     convert_region_ratio(faceRectOnOrig, FACE_REGION_SCALE_RATIO, nOrigWidth, nOrigHeight);
@@ -1652,7 +1625,8 @@ bool CFaceFeatureProcessor::prepareFace160Frame(
     faceRectOnOrig.nY2 = ALIGN_BACK(faceRectOnOrig.nY2, 4);
 
     // 4. 边界检查
-    if (faceRectOnOrig.nX2 <= faceRectOnOrig.nX1 || faceRectOnOrig.nY2 <= faceRectOnOrig.nY1) {
+    if (faceRectOnOrig.nX2 <= faceRectOnOrig.nX1 || faceRectOnOrig.nY2 <= faceRectOnOrig.nY1)
+    {
         dlog_error("映射后裁剪区域无效");
         return false;
     }
@@ -1662,7 +1636,8 @@ bool CFaceFeatureProcessor::prepareFace160Frame(
     unsigned int cropW = faceRectOnOrig.nX2 - faceRectOnOrig.nX1;
     unsigned int cropH = faceRectOnOrig.nY2 - faceRectOnOrig.nY1;
 
-    if (TD_SUCCESS != mppVgs_create_video_frame_info(cropW, cropH, OT_PIXEL_FORMAT_YVU_SEMIPLANAR_420, &stCropFrame)) {
+    if (TD_SUCCESS != mppVgs_create_video_frame_info(cropW, cropH, OT_PIXEL_FORMAT_YVU_SEMIPLANAR_420, &stCropFrame))
+    {
         return false;
     }
 
@@ -1672,23 +1647,24 @@ bool CFaceFeatureProcessor::prepareFace160Frame(
     stRect.width = cropW;
     stRect.height = cropH;
 
-    if (TD_SUCCESS != mppVgs_crop(pSrcFrameInfo, &stCropFrame, &stRect)) {
-        mppVgs_destroy_video_frame_info(&stCropFrame);
-        return false;
-    }
-
-    // 6. 执行缩放 (112x112)
-    if (TD_SUCCESS != mppVgs_create_video_frame_info(
-        FACE_FEATURE_INPUT_WIDTH, 
-        FACE_FEATURE_INPUT_HEIGHT, 
-        OT_PIXEL_FORMAT_YVU_SEMIPLANAR_420, 
-        &stDstFrameInfo)) 
+    if (TD_SUCCESS != mppVgs_crop(pSrcFrameInfo, &stCropFrame, &stRect))
     {
         mppVgs_destroy_video_frame_info(&stCropFrame);
         return false;
     }
 
-    if (TD_SUCCESS != mppVgs_scale(&stCropFrame, &stDstFrameInfo)) {
+    // 6. 执行缩放 (112x112)
+    if (TD_SUCCESS != mppVgs_create_video_frame_info(FACE_FEATURE_INPUT_WIDTH,
+                                                     FACE_FEATURE_INPUT_HEIGHT,
+                                                     OT_PIXEL_FORMAT_YVU_SEMIPLANAR_420,
+                                                     &stDstFrameInfo))
+    {
+        mppVgs_destroy_video_frame_info(&stCropFrame);
+        return false;
+    }
+
+    if (TD_SUCCESS != mppVgs_scale(&stCropFrame, &stDstFrameInfo))
+    {
         mppVgs_destroy_video_frame_info(&stCropFrame);
         mppVgs_destroy_video_frame_info(&stDstFrameInfo);
         return false;
@@ -1697,7 +1673,6 @@ bool CFaceFeatureProcessor::prepareFace160Frame(
     mppVgs_destroy_video_frame_info(&stCropFrame);
     return true;
 }
-
 
 uint16_t CFaceFeatureProcessor::float32ToFloat16(float value) const
 {
@@ -1737,7 +1712,8 @@ uint16_t CFaceFeatureProcessor::float32ToFloat16(float value) const
 
 // bool CFaceFeatureProcessor::collectCompareTargets(const std::vector<Inference_NS::PointData_S> &vPointDatas,
 //                                                   std::vector<Common::RectInfo_S> &vstRectInfo)
-bool CFaceFeatureProcessor::collectCompareTargets(const std::vector<Inference_NS::BoxData_S> &vPointDatas, std::vector<FaceAlignInfo_S> &vFaceInfos)
+bool CFaceFeatureProcessor::collectCompareTargets(const std::vector<Inference_NS::BoxData_S> &vPointDatas,
+                                                  std::vector<FaceAlignInfo_S> &vFaceInfos)
 {
     // vstRectInfo.clear();
     vFaceInfos.clear();
@@ -1794,7 +1770,6 @@ bool CFaceFeatureProcessor::collectCompareTargets(const std::vector<Inference_NS
         //     continue;
         // }
 
-
         FaceAlignInfo_S stFaceInfo;
         stFaceInfo.stRect.nX1 = pointData.stBoxs.nX1;
         stFaceInfo.stRect.nY1 = pointData.stBoxs.nY1;
@@ -1805,13 +1780,12 @@ bool CFaceFeatureProcessor::collectCompareTargets(const std::vector<Inference_NS
 
         stFaceInfo.fConfidence = pointData.fConfidence;
         vFaceInfos.emplace_back(stFaceInfo);
-              dlog_debug("[人脸比对] 有效目标 "
+        dlog_debug("[人脸比对] 有效目标 "
                    "confidence=%.3f "
-                   
+
                    "rect=[%d,%d,%d,%d]",
 
                    pointData.fConfidence,
-                   
 
                    stFaceInfo.stRect.nX1,
                    stFaceInfo.stRect.nY1,
@@ -1819,20 +1793,20 @@ bool CFaceFeatureProcessor::collectCompareTargets(const std::vector<Inference_NS
                    stFaceInfo.stRect.nY2);
     }
     return !vFaceInfos.empty();
-        /*
-         * 转RectInfo
-         */
-        // Common::RectInfo_S stRect;
+    /*
+     * 转RectInfo
+     */
+    // Common::RectInfo_S stRect;
 
-        // stRect.nX1 = pointData.stBoxs.nX1;
+    // stRect.nX1 = pointData.stBoxs.nX1;
 
-        // stRect.nY1 = pointData.stBoxs.nY1;
+    // stRect.nY1 = pointData.stBoxs.nY1;
 
-        // stRect.nX2 = pointData.stBoxs.nX2;
+    // stRect.nX2 = pointData.stBoxs.nX2;
 
-        // stRect.nY2 = pointData.stBoxs.nY2;
+    // stRect.nY2 = pointData.stBoxs.nY2;
 
-        // vstRectInfo.emplace_back(stRect);
+    // vstRectInfo.emplace_back(stRect);
 
     //     dlog_debug("[人脸比对] 有效目标 "
     //                "confidence=%.3f "

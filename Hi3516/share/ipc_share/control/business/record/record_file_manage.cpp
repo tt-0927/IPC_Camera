@@ -3,7 +3,7 @@
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2026-06-03 16:31:46
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-08-07 13:56:56
+ * @LastEditTime : 2026-09-23 15:39:23
  * @Description  : 录制文件管理
  */
 
@@ -20,8 +20,12 @@
 #include <cmath>
 #include <sys/time.h>
 #include <sys/stat.h>
-#include <optional>
 
+#include <unistd.h>
+
+#include <cerrno>
+
+#include "posix_fs.h"
 #include "event_manage.h"
 #include "log_handler.h"
 #include "event_database_manage.h"
@@ -31,8 +35,11 @@
 #include "event_linkage.h"
 #include "event_define.h"
 
-using namespace Db;
+#include <algorithm>
+#include <map>
+#include <cstring>
 
+using namespace Db;
 
 int RecordFileManage::init()
 {
@@ -66,19 +73,19 @@ int RecordFileManage::add(Record_NS::TsFileInfo_S stTsFileInfo)
     {
         Event::Info_S stEventInfo;
         CRecordCtrl::instance()->get_event_record(stEventInfo);
-        stTsFileInfo.nType = (int)stEventInfo.enType;
+        stTsFileInfo.nType = (int) stEventInfo.enType;
 
         std::string date_str;
         date_str = TimeUtils_NS::get_currentDate();
         std::string strFullPath = stTsFileInfo.path + "/normal_" + date_str + ".m3u8";
         CRecordCtrl::instance()->set_event_ts_info(stTsFileInfo.nSize, strFullPath);
     }
-    else 
+    else
     {
-        stTsFileInfo.nType = nVideoType; 
+        stTsFileInfo.nType = nVideoType;
     }
 
-    std::lock_guard<std::mutex> lock(m_eventMutex); 
+    std::lock_guard<std::mutex> lock(m_eventMutex);
     return RecordFileDatabase::instance()->add(stTsFileInfo);
 }
 
@@ -104,34 +111,33 @@ int RecordFileManage::del(Event::RetrievalCond_S &stCond, std::string strTargetT
         }
         methods.back().enAndOr = FIND_CRITERION_AND;
     }
-    if(strTargetTableName == RECORD_FILE_TABLE_NAME)
+    if (strTargetTableName == RECORD_FILE_TABLE_NAME)
     {
         /* 表record_file_manage的字段create_time格式为 2025-09-12 18:25:33 */
-        if (!stCond.strTime.empty()) 
+        if (!stCond.strTime.empty())
         {
             methods.push_back(MatchMethod(Element(RECORD_FILE_FIELD_CREATE_TIME, stCond.strTime), FIND_CRITERION_GE, FIND_CRITERION_AND));
         }
-        if(!stCond.strFilename.empty())
+        if (!stCond.strFilename.empty())
         {
             methods.push_back(MatchMethod(Element(RECORD_FILE_FIELD_FILENAME, stCond.strFilename), FIND_CRITERION_NE, FIND_CRITERION_AND));
         }
     }
-    else 
+    else
     {
         /* 其他录制ts文件表的字段create_time格式为 18:25:33 */
-        if (!stCond.strTime.empty()) 
+        if (!stCond.strTime.empty())
         {
             methods.push_back(MatchMethod(Element(RECORD_FILE_FIELD_CREATE_TIME, stCond.strTime), FIND_CRITERION_GE, FIND_CRITERION_AND));
         }
     }
-
 
     if (methods.size() != 0)
     {
         MatchMethod &lastMethod = methods.back();
         lastMethod.enAndOr = FIND_CRITERION_NONE;
     }
- 
+
     return RecordFileDatabase::instance()->del(methods, strTargetTableName);
 }
 
@@ -172,7 +178,7 @@ int RecordFileManage::update(Record_NS::TsFileInfo_S stTsFileInfo, std::string s
     return RecordFileDatabase::instance()->update(item, methods, strTargetTableName);
 }
 
-int RecordFileManage::find(Record_NS::Find_S stFind, std::vector<Record_NS::FileInfo_S>& infos)
+int RecordFileManage::find(Record_NS::Find_S stFind, std::vector<Record_NS::FileInfo_S> &infos)
 {
     MatchMethods methods;
     if (stFind.nChnId >= 0)
@@ -185,12 +191,12 @@ int RecordFileManage::find(Record_NS::Find_S stFind, std::vector<Record_NS::File
     }
     if (!stFind.year.empty())
     {
-        std::string key= "strftime('%Y'," + std::string(RECORD_FILE_FIELD_CREATE_TIME) + ")";
+        std::string key = "strftime('%Y'," + std::string(RECORD_FILE_FIELD_CREATE_TIME) + ")";
         methods.push_back(MatchMethod(Element(key, stFind.year), FIND_CRITERION_EQ, FIND_CRITERION_AND));
     }
     if (!stFind.month.empty())
     {
-        std::string key= "strftime('%m'," + std::string(RECORD_FILE_FIELD_CREATE_TIME) + ")";
+        std::string key = "strftime('%m'," + std::string(RECORD_FILE_FIELD_CREATE_TIME) + ")";
         methods.push_back(MatchMethod(Element(key, stFind.month), FIND_CRITERION_EQ, FIND_CRITERION_AND));
     }
     if (!stFind.date.empty())
@@ -211,7 +217,7 @@ int RecordFileManage::find(Record_NS::Find_S stFind, std::vector<Record_NS::File
     {
         methods.push_back(MatchMethod(Element(RECORD_FILE_FIELD_CREATE_TIME, stFind.startTime), FIND_CRITERION_EQ, FIND_CRITERION_AND));
     }
-    
+
     if (!stFind.endTime.empty())
     {
         methods.push_back(MatchMethod(Element(RECORD_FILE_FIELD_MODIFY_TIME, stFind.endTime), FIND_CRITERION_EQ, FIND_CRITERION_AND));
@@ -235,20 +241,20 @@ int RecordFileManage::find(Record_NS::Find_S stFind, std::vector<Record_NS::Find
     for (auto &info : infos)
     {
         info.createTime.resize(strlen("2024-10-30")); // 调整日期格式长度
-        auto& result = groupedResults[info.nChnId];   // 获取当前 ChnId 的记录
-        result.nChnId = info.nChnId;                 // 更新 ChnId
-        result.dates.push_back(info.createTime);     // 添加日期
+        auto &result = groupedResults[info.nChnId];   // 获取当前 ChnId 的记录
+        result.nChnId = info.nChnId;                  // 更新 ChnId
+        result.dates.push_back(info.createTime);      // 添加日期
 
         /* 按日期搜索才返回录制文件 */
         if (!stFind.date.empty())
         {
             result.filename = info.path + "/" + info.filename;
         }
-    }    
+    }
     // 将 map 中的结果转移到输出容器
-    for (const auto& [chnId, result] : groupedResults)
+    for (const auto &stGroupedItem : groupedResults)
     {
-        outInfos.push_back(result);
+        outInfos.push_back(stGroupedItem.second);
     }
     return 0;
 }
@@ -262,38 +268,29 @@ int RecordFileManage::find(Record_NS::TsFind_S stTsFind, Record_NS::TsFileInfo_S
     /* 查询录制文件 */
     if (stTsFind.nId < 0)
     {
-        cmd = "select * from \"" + stTsFind.date + 
-            "\" where "  +  
-            std::string(RECORD_FILE_FIELD_CHN_ID) + " = '" + std::to_string(stTsFind.nChnId) + 
-            "' and " + 
-            std::string(RECORD_FILE_FIELD_CREATE_TIME) + " <= '" + stTsFind.date + ' ' +  stTsFind.time + 
-            "' and "
-            "time(" + std::string(RECORD_FILE_FIELD_CREATE_TIME) + ", '+10 seconds') > '" + stTsFind.time + 
-            "' order by "+ std::string(RECORD_FILE_FIELD_CREATE_TIME) +" asc limit 1;";
+        cmd = "select * from \"" + stTsFind.date + "\" where " + std::string(RECORD_FILE_FIELD_CHN_ID) + " = '" +
+              std::to_string(stTsFind.nChnId) + "' and " + std::string(RECORD_FILE_FIELD_CREATE_TIME) + " <= '" + stTsFind.date + ' ' +
+              stTsFind.time +
+              "' and "
+              "time(" +
+              std::string(RECORD_FILE_FIELD_CREATE_TIME) + ", '+10 seconds') > '" + stTsFind.time + "' order by " +
+              std::string(RECORD_FILE_FIELD_CREATE_TIME) + " asc limit 1;";
     }
     else
     {
         if (stTsFind.nType == -1)
         {
-            cmd = "select * from \"" + stTsFind.date + 
-                "\" where "  +  
-                std::string(DB_COMMON_FIELD_ID) + " < '" + std::to_string(stTsFind.nId) + 
-                "' and " +
-                std::string(RECORD_FILE_FIELD_CHN_ID) + " = '" + std::to_string(stTsFind.nChnId) +
-                 "' and " +
-                std::string(RECORD_FILE_FIELD_FILE_INDEX) + " = '" + std::to_string(stTsFind.nIndex) +
-                "' order by "+ std::string(DB_COMMON_FIELD_ID) +" desc limit 1;";
+            cmd = "select * from \"" + stTsFind.date + "\" where " + std::string(DB_COMMON_FIELD_ID) + " < '" +
+                  std::to_string(stTsFind.nId) + "' and " + std::string(RECORD_FILE_FIELD_CHN_ID) + " = '" +
+                  std::to_string(stTsFind.nChnId) + "' and " + std::string(RECORD_FILE_FIELD_FILE_INDEX) + " = '" +
+                  std::to_string(stTsFind.nIndex) + "' order by " + std::string(DB_COMMON_FIELD_ID) + " desc limit 1;";
         }
         else if (stTsFind.nType == 1)
         {
-            cmd = "select * from \"" + stTsFind.date + 
-                "\" where "  +  
-                std::string(DB_COMMON_FIELD_ID) + " > '" + std::to_string(stTsFind.nId) + 
-                "' and " +
-                std::string(RECORD_FILE_FIELD_CHN_ID) + " = '" + std::to_string(stTsFind.nChnId) +
-                 "' and " +
-                std::string(RECORD_FILE_FIELD_FILE_INDEX) + " = '" + std::to_string(stTsFind.nIndex) +
-                "' order by "+ std::string(DB_COMMON_FIELD_ID) +" asc limit 1;";
+            cmd = "select * from \"" + stTsFind.date + "\" where " + std::string(DB_COMMON_FIELD_ID) + " > '" +
+                  std::to_string(stTsFind.nId) + "' and " + std::string(RECORD_FILE_FIELD_CHN_ID) + " = '" +
+                  std::to_string(stTsFind.nChnId) + "' and " + std::string(RECORD_FILE_FIELD_FILE_INDEX) + " = '" +
+                  std::to_string(stTsFind.nIndex) + "' order by " + std::string(DB_COMMON_FIELD_ID) + " asc limit 1;";
         }
     }
     std::lock_guard<std::mutex> lock(m_eventMutex);
@@ -327,7 +324,7 @@ int RecordFileManage::getTableDataCount(Event::RetrievalCond_S &stCond, std::str
         methods.push_back(MatchMethod(Element(RECORD_FILE_FIELD_CREATE_TIME, stCond.strStartTime), FIND_CRITERION_GE, FIND_CRITERION_AND));
     }
     /* 结束时间 */
-    if (!stCond.strEndTime.empty()) 
+    if (!stCond.strEndTime.empty())
     {
         methods.push_back(MatchMethod(Element(RECORD_FILE_FIELD_CREATE_TIME, stCond.strEndTime), FIND_CRITERION_IE, FIND_CRITERION_AND));
     }
@@ -335,12 +332,12 @@ int RecordFileManage::getTableDataCount(Event::RetrievalCond_S &stCond, std::str
     if (stCond.nVideoType == 1)
     {
         /* 数据库中录制文件类型：-1为普通的定时录制文件，其他为各事件类型录制文件 */
-        methods.push_back(MatchMethod(Element(RECORD_FILE_FIELD_TYPE, (int)Event::Type::UNKNOWN), FIND_CRITERION_EQ, FIND_CRITERION_AND));
+        methods.push_back(MatchMethod(Element(RECORD_FILE_FIELD_TYPE, (int) Event::Type::UNKNOWN), FIND_CRITERION_EQ, FIND_CRITERION_AND));
     }
     else if (stCond.nVideoType == 2)
     {
         /* 数据库中录制文件类型：-1为普通的定时录制文件，其他为各事件类型录制文件 */
-        methods.push_back(MatchMethod(Element(RECORD_FILE_FIELD_TYPE, (int)Event::Type::UNKNOWN), FIND_CRITERION_NE, FIND_CRITERION_AND));
+        methods.push_back(MatchMethod(Element(RECORD_FILE_FIELD_TYPE, (int) Event::Type::UNKNOWN), FIND_CRITERION_NE, FIND_CRITERION_AND));
     }
 
     /* 结束条件 */
@@ -374,7 +371,7 @@ int RecordFileManage::getTablePageInfo(Event::RetrievalCond_S &stCond, Common::P
         methods.push_back(MatchMethod(Element(RECORD_FILE_FIELD_CREATE_TIME, stCond.strStartTime), FIND_CRITERION_GE, FIND_CRITERION_AND));
     }
     /* 结束时间 */
-    if (!stCond.strEndTime.empty()) 
+    if (!stCond.strEndTime.empty())
     {
         methods.push_back(MatchMethod(Element(RECORD_FILE_FIELD_CREATE_TIME, stCond.strEndTime), FIND_CRITERION_IE, FIND_CRITERION_AND));
     }
@@ -382,12 +379,12 @@ int RecordFileManage::getTablePageInfo(Event::RetrievalCond_S &stCond, Common::P
     if (stCond.nVideoType == 1)
     {
         /* 数据库中录制文件类型：-1为普通的定时录制文件，其他为各事件类型录制文件 */
-        methods.push_back(MatchMethod(Element(RECORD_FILE_FIELD_TYPE, (int)Event::Type::UNKNOWN), FIND_CRITERION_EQ, FIND_CRITERION_AND));
+        methods.push_back(MatchMethod(Element(RECORD_FILE_FIELD_TYPE, (int) Event::Type::UNKNOWN), FIND_CRITERION_EQ, FIND_CRITERION_AND));
     }
     else if (stCond.nVideoType == 2)
     {
         /* 数据库中录制文件类型：-1为普通的定时录制文件，其他为各事件类型录制文件 */
-        methods.push_back(MatchMethod(Element(RECORD_FILE_FIELD_TYPE, (int)Event::Type::UNKNOWN), FIND_CRITERION_NE, FIND_CRITERION_AND));
+        methods.push_back(MatchMethod(Element(RECORD_FILE_FIELD_TYPE, (int) Event::Type::UNKNOWN), FIND_CRITERION_NE, FIND_CRITERION_AND));
     }
 
     /* 结束条件 */
@@ -423,7 +420,10 @@ int RecordFileManage::getTablePageInfo(Event::RetrievalCond_S &stCond, Common::P
 }
 
 /* ts文件检索 */
-int RecordFileManage::searchByRecordTs(Event::RetrievalCond_S &stCond, std::vector<::Record_NS::TsFileInfo_S> &TsFileInfos, Common::PageInfo_S &stPageInfo, std::string strTargetTableName)
+int RecordFileManage::searchByRecordTs(Event::RetrievalCond_S &stCond,
+                                       std::vector<::Record_NS::TsFileInfo_S> &TsFileInfos,
+                                       Common::PageInfo_S &stPageInfo,
+                                       std::string strTargetTableName)
 {
     MatchMethods methods;
 
@@ -442,7 +442,7 @@ int RecordFileManage::searchByRecordTs(Event::RetrievalCond_S &stCond, std::vect
         methods.push_back(MatchMethod(Element(RECORD_FILE_FIELD_CREATE_TIME, stCond.strStartTime), FIND_CRITERION_GE, FIND_CRITERION_AND));
     }
 
-    if (!stCond.strEndTime.empty()) 
+    if (!stCond.strEndTime.empty())
     {
         methods.push_back(MatchMethod(Element(RECORD_FILE_FIELD_CREATE_TIME, stCond.strEndTime), FIND_CRITERION_IE, FIND_CRITERION_AND));
     }
@@ -450,12 +450,12 @@ int RecordFileManage::searchByRecordTs(Event::RetrievalCond_S &stCond, std::vect
     if (stCond.nVideoType == 1)
     {
         /* 数据库中录制文件类型：-1为普通的定时录制文件，其他为各事件类型录制文件 */
-        methods.push_back(MatchMethod(Element(RECORD_FILE_FIELD_TYPE, (int)Event::Type::UNKNOWN), FIND_CRITERION_EQ, FIND_CRITERION_AND));
+        methods.push_back(MatchMethod(Element(RECORD_FILE_FIELD_TYPE, (int) Event::Type::UNKNOWN), FIND_CRITERION_EQ, FIND_CRITERION_AND));
     }
     else if (stCond.nVideoType == 2)
     {
         /* 数据库中录制文件类型：-1为普通的定时录制文件，其他为各事件类型录制文件 */
-        methods.push_back(MatchMethod(Element(RECORD_FILE_FIELD_TYPE, (int)Event::Type::UNKNOWN), FIND_CRITERION_NE, FIND_CRITERION_AND));
+        methods.push_back(MatchMethod(Element(RECORD_FILE_FIELD_TYPE, (int) Event::Type::UNKNOWN), FIND_CRITERION_NE, FIND_CRITERION_AND));
     }
 
     /* 带页数 */
@@ -463,7 +463,7 @@ int RecordFileManage::searchByRecordTs(Event::RetrievalCond_S &stCond, std::vect
     {
         MatchMethod &lastMethod = methods.back();
         lastMethod.enAndOr = FIND_CRITERION_NONE;
-        
+
         /* 总个数, 要放在前面 */
         int nCount = -1;
         RecordFileDatabase::instance()->get_subDataCount(methods, nCount, DB_COMMON_FIELD_ID, strTargetTableName);
@@ -479,8 +479,10 @@ int RecordFileManage::searchByRecordTs(Event::RetrievalCond_S &stCond, std::vect
         key = "limit";
         methods.push_back(MatchMethod(Element(key, stPageInfo.nPageSize), FIND_CRITERION_NONE, FIND_CRITERION_NONE));
         /* 第几页 */
-        key = "OFFSET" ;
-        methods.push_back(MatchMethod(Element(key, std::to_string(stPageInfo.nPageSize * (stPageInfo.nCurPage - 1))), FIND_CRITERION_NONE, FIND_CRITERION_NONE));
+        key = "OFFSET";
+        methods.push_back(MatchMethod(Element(key, std::to_string(stPageInfo.nPageSize * (stPageInfo.nCurPage - 1))),
+                                      FIND_CRITERION_NONE,
+                                      FIND_CRITERION_NONE));
     }
     else
     {
@@ -498,8 +500,9 @@ int RecordFileManage::searchByRecordTs(Event::RetrievalCond_S &stCond, std::vect
         MatchMethod &lastMethod = methods.back();
         lastMethod.enAndOr = FIND_CRITERION_NONE;
     }
- 
-    return RecordFileDatabase::instance()->find(methods, TsFileInfos, strTargetTableName);;
+
+    return RecordFileDatabase::instance()->find(methods, TsFileInfos, strTargetTableName);
+    ;
 }
 
 int RecordFileManage::retrieval(Record_NS::RetrievalCond_S stEventCond, std::vector<Record_NS::FileInfo_S> &infos)
@@ -508,7 +511,9 @@ int RecordFileManage::retrieval(Record_NS::RetrievalCond_S stEventCond, std::vec
     return retrieval(stEventCond, infos, stPageInfo);
 }
 
-int RecordFileManage::retrieval(Record_NS::RetrievalCond_S stEventCond, std::vector<Record_NS::FileInfo_S> &infos, Common::PageInfo_S &stPageInfo)
+int RecordFileManage::retrieval(Record_NS::RetrievalCond_S stEventCond,
+                                std::vector<Record_NS::FileInfo_S> &infos,
+                                Common::PageInfo_S &stPageInfo)
 {
     MatchMethods methods;
     std::lock_guard<std::mutex> lock(m_eventMutex);
@@ -528,26 +533,26 @@ int RecordFileManage::retrieval(Record_NS::RetrievalCond_S stEventCond, std::vec
     /* 开始日期 */
     if (!stEventCond.strStartDate.empty())
     {
-        std::string key= "strftime('%Y-%m-%d'," + std::string(RECORD_FILE_FIELD_CREATE_TIME) + ")";
-        methods.push_back(MatchMethod(Element(key, stEventCond.strStartDate), FIND_CRITERION_GE, FIND_CRITERION_AND)); 
+        std::string key = "strftime('%Y-%m-%d'," + std::string(RECORD_FILE_FIELD_CREATE_TIME) + ")";
+        methods.push_back(MatchMethod(Element(key, stEventCond.strStartDate), FIND_CRITERION_GE, FIND_CRITERION_AND));
     }
     /* 结束日期 */
     if (!stEventCond.strEndDate.empty())
     {
-        std::string key= "strftime('%Y-%m-%d'," + std::string(RECORD_FILE_FIELD_MODIFY_TIME) + ")";
-        methods.push_back(MatchMethod(Element(key, stEventCond.strEndDate), FIND_CRITERION_IE, FIND_CRITERION_AND)); 
+        std::string key = "strftime('%Y-%m-%d'," + std::string(RECORD_FILE_FIELD_MODIFY_TIME) + ")";
+        methods.push_back(MatchMethod(Element(key, stEventCond.strEndDate), FIND_CRITERION_IE, FIND_CRITERION_AND));
     }
     /* 查询加锁视频 */
     if (stEventCond.nIsLock != -1)
     {
-        methods.push_back(MatchMethod(Element(RECORD_FILE_FIELD_IS_LOCK, stEventCond.nIsLock), FIND_CRITERION_EQ, FIND_CRITERION_AND)); 
+        methods.push_back(MatchMethod(Element(RECORD_FILE_FIELD_IS_LOCK, stEventCond.nIsLock), FIND_CRITERION_EQ, FIND_CRITERION_AND));
     }
     /* 带页数 */
     if (stPageInfo.nCurPage != -1)
     {
         MatchMethod &lastMethod = methods.back();
         lastMethod.enAndOr = FIND_CRITERION_NONE;
-        
+
         /* 总个数, 要放在前面 */
         int nCount = -1;
         RecordFileDatabase::instance()->get_count(methods, nCount, DB_COMMON_FIELD_ID);
@@ -563,8 +568,10 @@ int RecordFileManage::retrieval(Record_NS::RetrievalCond_S stEventCond, std::vec
         key = "limit";
         methods.push_back(MatchMethod(Element(key, stPageInfo.nPageSize), FIND_CRITERION_NONE, FIND_CRITERION_NONE));
         /* 第几页 */
-        key = "OFFSET" ;
-        methods.push_back(MatchMethod(Element(key, std::to_string(stPageInfo.nPageSize * (stPageInfo.nCurPage - 1))), FIND_CRITERION_NONE, FIND_CRITERION_NONE));
+        key = "OFFSET";
+        methods.push_back(MatchMethod(Element(key, std::to_string(stPageInfo.nPageSize * (stPageInfo.nCurPage - 1))),
+                                      FIND_CRITERION_NONE,
+                                      FIND_CRITERION_NONE));
     }
     else
     {
@@ -638,9 +645,9 @@ int RecordFileManage::deal_tsFile(Record_NS::TsFileInfo_S stTsFileInfo)
     /* 判断是否连续 */
     if (tsFileInfos.back().nIndex + 1 == stTsFileInfo.nIndex)
     {
-        if (tsFileInfos.back().nSize * tsFileInfos.size() < 1024*1024) 
+        if (tsFileInfos.back().nSize * tsFileInfos.size() < 1024 * 1024)
         {
-            if(CRecordCtrl::instance()->is_newDay())
+            if (CRecordCtrl::instance()->is_newDay())
             {
                 /*日期变更*/
                 CRecordCtrl::instance()->update_recordDate();
@@ -660,7 +667,7 @@ int RecordFileManage::deal_tsFile(Record_NS::TsFileInfo_S stTsFileInfo)
     }
     /* 不连续或着自动分片，将记录组装成m3u8，再重新记录 */
     merge_video(tsFileInfos);
-    
+
     /* 清除记录，重新记录 */
     tsFileInfos.clear();
     /* 添加记录 */
@@ -711,11 +718,11 @@ void RecordFileManage::merge_video(std::vector<Record_NS::TsFileInfo_S> &tsFileI
 int RecordFileManage::deal_eventFile(Record_NS::TsFileInfo_S stTsFileInfo, int &nVideoType)
 {
     int nRet = CEventLinkage::instance()->get_EventInfoMapSize();
-    if(nRet != 0 || CRecordCtrl::instance()->get_RecordScheduleType() == 2)
+    if (nRet != 0 || CRecordCtrl::instance()->get_RecordScheduleType() == 2)
     {
         nVideoType = 1; /* 事件类型视频 */
     }
-    CEventLinkage::instance()->remove_EndedEvents(); 
+    CEventLinkage::instance()->remove_EndedEvents();
     return 0;
 }
 
@@ -723,7 +730,7 @@ int RecordFileManage::deal_eventFile(Record_NS::TsFileInfo_S stTsFileInfo, int &
 int RecordFileManage::deal_eventFile(Record_NS::TsFileInfo_S stTsFileInfo, int &nEventType)
 {
     std::lock_guard<std::mutex> lock(m_eventMutex);
-
+            
     /* 遍历事件 */
     for (auto it = m_eventFileMap.begin(); it != m_eventFileMap.end();)
     {
@@ -750,7 +757,7 @@ int RecordFileManage::deal_eventFile(Record_NS::TsFileInfo_S stTsFileInfo, int &
             
             stEventFile.m3u8 = new M3U8(filename);
             stEventFile.stEventInfo.strVideoPath = filename;
-            
+                
             stEventFile.stEventInfo.strEndTime = stTsFileInfo.modifyTime;
             /* 更新事件 */
             EventDatabaseManage::instance()->update(stEventFile.stEventInfo);
@@ -763,7 +770,7 @@ int RecordFileManage::deal_eventFile(Record_NS::TsFileInfo_S stTsFileInfo, int &
             {
                 /* TODO:如果事件时间为在此分片内，需要重新添加新事件 */
                 dlog_warn("视频分段，事件结束");
-                
+
                 Log::Info_S stLogInfo;
                 stLogInfo.startTime = stEventFile.stEventInfo.strStartTime;
                 stLogInfo.nType = Log::Type::ALARM;
@@ -788,7 +795,7 @@ int RecordFileManage::deal_eventFile(Record_NS::TsFileInfo_S stTsFileInfo, int &
         stEventFile.m3u8->add_ts(stData);
         /* 记录事件类型更新到记录ts文件的数据库中 */
         nEventType = (int)stEventFile.stEventInfo.enType;
-
+            
         stEventFile.stEventInfo.nVideoSize += stTsFileInfo.nSize;
         /* 判断事件是否结束 */
         std::string eventTime = stEventFile.stEventInfo.strDate + " " + stEventFile.stEventInfo.strTime;
@@ -799,7 +806,7 @@ int RecordFileManage::deal_eventFile(Record_NS::TsFileInfo_S stTsFileInfo, int &
                 delete stEventFile.m3u8;
                 stEventFile.m3u8 = nullptr;
             }
-            
+
             Log::Info_S stLogInfo;
             stLogInfo.startTime = stEventFile.stEventInfo.strStartTime;
             stLogInfo.nType = Log::Type::ALARM;
@@ -821,34 +828,34 @@ int RecordFileManage::deal_eventFile(Record_NS::TsFileInfo_S stTsFileInfo, int &
 #endif
 
 /* 根据ts文件名转化为录制的日期(数据库中的表名) */
-std::string tsFilenameconvertDate(const std::string& strTSFilename) 
+std::string tsFilenameconvertDate(const std::string &strTSFilename)
 {
     /* 20250826_101730.ts 转换为 2025-08-26 */
     if (strTSFilename.length() == 0)
     {
         return std::string();
     }
-    
+
     std::string datePart = strTSFilename.substr(0, 8);
-    
-    try 
+
+    try
     {
         int year = stoi(datePart.substr(0, 4));
         int month = stoi(datePart.substr(4, 2));
         int day = stoi(datePart.substr(6, 2));
-        
+
         // 创建一个日期对象
         tm date = {};
         date.tm_year = year - 1900; // tm_year是从1900开始的年数
         date.tm_mon = month - 1;    // tm_mon是0-11
         date.tm_mday = day;
-        
+
         // 格式化输出
         char buffer[11];
         strftime(buffer, sizeof(buffer), "%Y-%m-%d", &date);
         return std::string(buffer);
-    } 
-    catch (...) 
+    }
+    catch (...)
     {
         return std::string();
     }
@@ -862,14 +869,14 @@ int RecordFileManage::create_eventVideo(Event::Info_S &stEventInfo)
     stEventType.nChnId = stEventInfo.nChnId;
     stEventType.nType = int(stEventInfo.enType);
     stEventType.nUniqueId = stEventInfo.nId;
-
+        
     std::lock_guard<std::mutex> lock(m_eventMutex);
     /* 拿出对应通道的ts文件 */
     std::vector<Record_NS::TsFileInfo_S> &tsFileInfos = m_tsFileInfosMap[stEventInfo.nChnId];
     if (tsFileInfos.size() == 0)
     {
         dlog_warn("事件[%d-%d]无ts文件", stEventInfo.nChnId, stEventInfo.enType);
-        
+
         Log::Info_S stLogInfo;
         stLogInfo.startTime = stEventInfo.strStartTime;
         stLogInfo.nType = Log::Type::ALARM;
@@ -944,10 +951,10 @@ int RecordFileManage::create_eventVideo(Event::Info_S &stEventInfo)
 }
 #endif
 
-static long getFileSize(const std::string& filename) 
+static long getFileSize(const std::string &filename)
 {
     struct stat fileStat;
-    if (stat(filename.c_str(), &fileStat) != 0) 
+    if (stat(filename.c_str(), &fileStat) != 0)
     {
         dlog_error("get ts file size error");
         return -1;
@@ -958,7 +965,7 @@ static long getFileSize(const std::string& filename)
 int RecordFileManage::add_eventVideo(std::string &strM3u8Path, std::string &strM3u8FileName, Event::Info_S &stEventInfo)
 {
     M3U8 m3u8;
-    long lTsTotalSize = 0; 
+    long lTsTotalSize = 0;
     long nSize = 0;
     std::string strFullM3u8Path = strM3u8Path + "/" + strM3u8FileName;
     std::lock_guard<std::mutex> lock(m_eventMutex);
@@ -967,11 +974,11 @@ int RecordFileManage::add_eventVideo(std::string &strM3u8Path, std::string &strM
     std::vector<std::string> strTsFiles = m3u8.get_M3u8TsFileName(strFullM3u8Path);
 
     /* 计算m3u8文件中ts文件的总大小 */
-    for (const auto& strTsFile : strTsFiles) 
+    for (const auto &strTsFile : strTsFiles)
     {
         std::string strFullTsPath = strM3u8Path + "/" + strTsFile;
         nSize = getFileSize(strFullTsPath);
-        if(nSize > 0)
+        if (nSize > 0)
         {
             lTsTotalSize += nSize;
         }
@@ -992,7 +999,7 @@ int RecordFileManage::create_temporaryVideo(const std::string filename, int nChn
     /* 拿出对应通道的ts文件 */
     if (m_tsFileInfosMap.find(nChnId) == m_tsFileInfosMap.end())
     {
-        return -1; 
+        return -1;
     }
     std::vector<Record_NS::TsFileInfo_S> &tsFileInfos = m_tsFileInfosMap[nChnId];
     if (tsFileInfos.size() == 0)
@@ -1014,40 +1021,39 @@ int RecordFileManage::create_temporaryVideo(const std::string filename, int nChn
     return 0;
 }
 
-
-double  RecordFileManage::get_channel_size(std::string strPath) 
+double RecordFileManage::get_channel_size(std::string strPath)
 {
-    if(strPath.empty())
+    if (strPath.empty())
     {
         return 0.00;
     }
 
-    //dlog_info("获取通道路径：%s的已用容量",strPath.c_str());
-    std::string strCommand = "du -sh " + strPath + " 2>/dev/null"; 
+    // dlog_info("获取通道路径：%s的已用容量",strPath.c_str());
+    std::string strCommand = "du -sh " + strPath + " 2>/dev/null";
     std::array<char, 128> buffer;
     std::string strResult;
 
     std::unique_ptr<FILE, decltype(&pclose)> pipe(popen(strCommand.c_str(), "r"), pclose);
-    if (!pipe) 
+    if (!pipe)
     {
         dlog_error("pipe失败");
         return 0.00;
     }
 
-    while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr) 
+    while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr)
     {
         strResult += buffer.data();
     }
-    //dlog_info("du -sh获取到的数据：%s",strResult.c_str());
+    // dlog_info("du -sh获取到的数据：%s",strResult.c_str());
 
-    std::regex regex(R"((\d+(\.\d+)?)([KMGTP]))");  
+    std::regex regex(R"((\d+(\.\d+)?)([KMGTP]))");
     std::smatch match;
     std::string strSizeStr;
 
     if (std::regex_search(strResult, match, regex))
     {
         strSizeStr = match[1].str() + match[3].str();
-        dlog_info("du -sh提取数值部分：%s",strSizeStr.c_str());
+        dlog_info("du -sh提取数值部分：%s", strSizeStr.c_str());
     }
     else
     {
@@ -1058,20 +1064,20 @@ double  RecordFileManage::get_channel_size(std::string strPath)
     char unit = std::toupper(strSizeStr.back());
     /* 提取数值部分 */
     double dSizeValue = std::stod(strSizeStr.substr(0, strSizeStr.size() - 1));
-    dlog_info("数值部分提取：%s 单位：%c",std::to_string(dSizeValue).c_str(),unit);
-    switch (unit) 
+    dlog_info("数值部分提取：%s 单位：%c", std::to_string(dSizeValue).c_str(), unit);
+    switch (unit)
     {
-        case 'K': 
-            return std::round(dSizeValue / (1024 * 1024) * 100.0) / 100.0;   // KB 转 GB
-        case 'M': 
-             return std::round(dSizeValue / 1024 * 100.0) / 100.0;           // MB 转 GB     
-        case 'G': 
-            return std::round(dSizeValue * 100.0) / 100.0;                   // GB
-        case 'T': 
-            return std::round(dSizeValue * 1024 * 100.0) / 100.0;            // TB 转 GB
-        default : return 0.00;
+    case 'K':
+        return std::round(dSizeValue / (1024 * 1024) * 100.0) / 100.0; // KB 转 GB
+    case 'M':
+        return std::round(dSizeValue / 1024 * 100.0) / 100.0; // MB 转 GB
+    case 'G':
+        return std::round(dSizeValue * 100.0) / 100.0; // GB
+    case 'T':
+        return std::round(dSizeValue * 1024 * 100.0) / 100.0; // TB 转 GB
+    default:
+        return 0.00;
     }
-
 }
 
 /* 去除字符串两端空白 */
@@ -1087,7 +1093,8 @@ static std::string trim(const std::string &str)
     do
     {
         end--;
-    } while (std::distance(start, end) > 0 && std::isspace(*end));
+    }
+    while (std::distance(start, end) > 0 && std::isspace(*end));
 
     return std::string(start, end + 1);
 }
@@ -1095,47 +1102,50 @@ static std::string trim(const std::string &str)
 std::vector<std::string> RecordFileManage::findM3u8Dates(const std::string &strPath, const std::string &strPrefix)
 {
     std::vector<std::string> vecResult;
-    std::error_code          ec;
 
-    fs::directory_iterator it(strPath, ec);
-    if (ec)
+    std::vector<std::string> vecNames;
+    if (!PosixFs_NS::list_dir(strPath, vecNames))
     {
         dlog_error("opendir %s", strPath.c_str());
         return vecResult;
     }
 
-    for (const auto &entry : it)
+    for (size_t unIdx = 0; unIdx < vecNames.size(); unIdx++)
     {
-        if (!entry.is_directory())
+        const std::string &strFilename = vecNames[unIdx];
+        if (!PosixFs_NS::is_directory(strPath + "/" + strFilename))
         {
             continue;
         }
-            
-        const auto strFilename = entry.path().filename().string();
+
         if (strFilename.size() != 8)
         {
             continue;
         }
-            
-        if (!std::all_of(strFilename.begin(), strFilename.end(), [](unsigned char c) { return std::isdigit(c); }))
-        {
-            continue;
-        }
-            
-        auto m3u8 = entry.path() / (strPrefix + "_" + strFilename + ".m3u8");
 
-        if (!fs::exists(m3u8))
+        if (!std::all_of(strFilename.begin(),
+                         strFilename.end(),
+                         [](unsigned char c)
+                         {
+                             return std::isdigit(c);
+                         }))
         {
             continue;
         }
-            
+
+        const std::string strM3u8 = strPath + "/" + strPrefix + "_" + strFilename + ".m3u8";
+
+        if (!PosixFs_NS::exists(strM3u8))
+        {
+            continue;
+        }
+
         vecResult.emplace_back(strFilename.substr(0, 4) + "-" + strFilename.substr(4, 2) + "-" + strFilename.substr(6, 2));
     }
 
     std::sort(vecResult.begin(), vecResult.end());
     return vecResult;
 }
-
 
 /* 删除ts文件时同步修改对应的m3u8文件 */
 static int deal_oldest_segments(const std::string inputFile)
@@ -1246,49 +1256,45 @@ static int deal_oldest_segments(const std::string inputFile)
     return 0;
 }
 
-/* 从录制目录中过滤出日期最旧的一个 */
-static std::optional<std::string> getOldestDateDir(const fs::path &root, std::string *err = nullptr)
+/* 从录制目录中过滤出日期最旧的一个；找到返回 true 并写入 strOldestDir */
+static bool getOldestDateDir(const std::string &strRoot, std::string &strOldestDir)
 {
-    try
+    std::vector<std::string> vecNames;
+    if (!PosixFs_NS::list_dir(strRoot, vecNames))
     {
-        std::optional<std::string> minDir;
-        for (const auto &entry : fs::directory_iterator(root))
-        {
-            if (!entry.is_directory())
-            {
-                continue;
-            }
-
-            const std::string name = entry.path().filename().string();
-            if (name.length() != 8 || !std::all_of(name.begin(), name.end(), ::isdigit))
-            {
-                continue;
-            }
-
-            if (!minDir || name < *minDir)
-            {
-                minDir = name;
-            }
-        }
-        return minDir;
-    } catch (const fs::filesystem_error &ex)
-    {
-        if (err)
-        {
-            *err = ex.what();
-        }
-        return std::nullopt;
+        return false;
     }
+
+    bool bFound = false;
+    for (size_t unIdx = 0; unIdx < vecNames.size(); unIdx++)
+    {
+        const std::string &strName = vecNames[unIdx];
+        if (strName.length() != 8 || strName.find_first_not_of("0123456789") != std::string::npos)
+        {
+            continue;
+        }
+        if (!PosixFs_NS::is_directory(strRoot + "/" + strName))
+        {
+            continue;
+        }
+
+        if (!bFound || strName < strOldestDir)
+        {
+            strOldestDir = strName;
+            bFound = true;
+        }
+    }
+    return bFound;
 }
 
 /* 获取一个较小的日期 */
-static std::string compare_date(const std::string& strDate1, const std::string& strDate2)
+static std::string compare_date(const std::string &strDate1, const std::string &strDate2)
 {
-    auto to_time_t = [](const std::string& s) -> std::time_t
+    auto to_time_t = [](const std::string &s) -> std::time_t
     {
         std::tm tm = {};
         tm.tm_year = std::stoi(s.substr(0, 4)) - 1900;
-        tm.tm_mon  = std::stoi(s.substr(4, 2)) - 1;
+        tm.tm_mon = std::stoi(s.substr(4, 2)) - 1;
         tm.tm_mday = std::stoi(s.substr(6, 2));
         tm.tm_hour = tm.tm_min = tm.tm_sec = 0;
         tm.tm_isdst = -1;
@@ -1321,21 +1327,16 @@ int RecordFileManage::loop_write()
 
     std::lock_guard<std::mutex> lock(m_eventMutex);
 
-    fs::path  strPath = RECORD_PATH;
-    std::string err;
+    const std::string strPath = RECORD_PATH;
+    std::string strOldestDir;
 
     /* 从录制目录中过滤出日期最旧的一个目录 */
-    auto oldestDir = getOldestDateDir(strPath, &err);
-    
-    if (oldestDir)
+    if (!getOldestDateDir(strPath, strOldestDir))
     {
-        strRecordDateDirName = *oldestDir;
-    }
-    else
-    {
-        std::cerr << "failed: "  << (err.empty() ? "no valid dir" : err) << '\n';
+        std::cerr << "failed: no valid dir" << '\n';
         return -1;
     }
+    strRecordDateDirName = strOldestDir;
 
     /* 获取当天日期 */
     std::time_t now = std::time(nullptr);
@@ -1346,10 +1347,10 @@ int RecordFileManage::loop_write()
     std::string strCurrentDate = oss.str();
 
     strRecordDbName = strRecordDateDirName;
-    strRecordDbName.insert(4, "-").insert(7, "-");   // 20251010 -> 2025-10-10
-  
+    strRecordDbName.insert(4, "-").insert(7, "-"); // 20251010 -> 2025-10-10
+
     /* 比较最旧的录制目录是否是当天的录制目录 */
-    if(strRecordDbName == strCurrentDate)
+    if (strRecordDbName == strCurrentDate)
     {
         CRecordCtrl::instance()->stop_record();
         dlog_info("停止录制");
@@ -1359,7 +1360,7 @@ int RecordFileManage::loop_write()
 
     /* 获取数据库所有表名 */
     strTables = RecordFileDatabase::instance()->get_all_tables();
-    if(strTables.size() <= 2)
+    if (strTables.size() <= 2)
     {
         dlog_error("没有查询到录制文件表格");
         // return -1;
@@ -1367,39 +1368,40 @@ int RecordFileManage::loop_write()
 
     strTables.erase(std::remove(strTables.begin(), strTables.end(), RECORD_FILE_TABLE_NAME), strTables.end());
     strTables.erase(std::remove(strTables.begin(), strTables.end(), RECORD_DIR_INFO_TABLE_NAME), strTables.end());
-    
+
     std::vector<std::string> strDeleteTables;
-    for (const auto& table : strTables) 
+    for (const auto &table : strTables)
     {
         std::string strCleaned = table;
 
         strCleaned.erase(std::remove(strCleaned.begin(), strCleaned.end(), '-'), strCleaned.end());
 
-        if (compare_date(strRecordDateDirName, strCleaned) == strCleaned) 
+        if (compare_date(strRecordDateDirName, strCleaned) == strCleaned)
         {
             strDeleteTables.push_back(table);
         }
     }
 
-    /* 删除录制文件数据库中符合条件的录制文件表格 */ 
-    for (const auto& table : strDeleteTables) 
+    /* 删除录制文件数据库中符合条件的录制文件表格 */
+    for (const auto &table : strDeleteTables)
     {
         nCount += RecordFileDatabase::instance()->get_table_data_count(table);
-        if(strCurrentDate != table)
+        if (strCurrentDate != table)
         {
             RecordFileDatabase::instance()->del_table(table);
         }
-        else 
+        else
         {
             RecordFileDatabase::instance()->clear_table(table);
         }
     }
 
-    /* 删除录制文件数据库管理表格中符合条件的数据 */  
+    /* 删除录制文件数据库管理表格中符合条件的数据 */
     MatchMethods recordMethods;
     Event::RetrievalCond_S stRecordCond;
     stRecordCond.strTime = strRecordDbName + " " + "23:59:59";
-    recordMethods.push_back(MatchMethod(Element(RECORD_FILE_FIELD_CREATE_TIME, stRecordCond.strTime), FIND_CRITERION_IE, FIND_CRITERION_AND));
+    recordMethods.push_back(
+        MatchMethod(Element(RECORD_FILE_FIELD_CREATE_TIME, stRecordCond.strTime), FIND_CRITERION_IE, FIND_CRITERION_AND));
     if (recordMethods.size() != 0)
     {
         MatchMethod &lastMethod = recordMethods.back();
@@ -1411,15 +1413,17 @@ int RecordFileManage::loop_write()
     MatchMethods eventMethods;
     Event::RetrievalCond_S stEventCond;
 
-    if(strRecordDbName == strCurrentDate)
+    if (strRecordDbName == strCurrentDate)
     {
         stEventCond.strStartTime = TimeUtils_NS::get_currentDateAndFormat("%Y-%m-%d %H:%M:%S");
-        eventMethods.push_back(MatchMethod(Element(Event::INFO_RECORD_STATRTIME, stEventCond.strStartTime), FIND_CRITERION_IE, FIND_CRITERION_AND));
+        eventMethods.push_back(
+            MatchMethod(Element(Event::INFO_RECORD_STATRTIME, stEventCond.strStartTime), FIND_CRITERION_IE, FIND_CRITERION_AND));
     }
-    else 
+    else
     {
         stEventCond.strStartDate = TimeUtils_NS::get_currentDateAndFormat("%Y%m%d");
-        eventMethods.push_back(MatchMethod(Element(Event::INFO_EVENT_DATE, stEventCond.strStartDate), FIND_CRITERION_IE, FIND_CRITERION_AND));
+        eventMethods.push_back(
+            MatchMethod(Element(Event::INFO_EVENT_DATE, stEventCond.strStartDate), FIND_CRITERION_IE, FIND_CRITERION_AND));
     }
 
     if (eventMethods.size() != 0)
@@ -1433,18 +1437,18 @@ int RecordFileManage::loop_write()
     std::string strSourcePath = std::string(RECORD_PATH) + "/" + strRecordDateDirName;
     std::string strTrashDirPath = std::string(RECORD_PATH) + "/.trash";
     std::string strTmpDirPath = strTrashDirPath + "/" + strRecordDateDirName;
-    char strBuf[128] = {0};
+    char strBuf[128] = { 0 };
     long long llDirSize = 0;
 
     /* 获取要删除的目录的大小 */
     std::string strDuCmd = "du -sb \"" + strSourcePath + "\"";
-    FILE* pipe = popen(strDuCmd.c_str(), "r");
+    FILE *pipe = popen(strDuCmd.c_str(), "r");
     if (pipe)
     {
-        if (fgets(strBuf, sizeof(strBuf), pipe) != nullptr) 
+        if (fgets(strBuf, sizeof(strBuf), pipe) != nullptr)
         {
             llDirSize = std::atoll(strBuf);
-        }        
+        }
         pclose(pipe);
     }
 
@@ -1455,18 +1459,18 @@ int RecordFileManage::loop_write()
     /* 移动目录 */
     std::string strMvCmd = "mv \"" + strSourcePath + "\" \"" + strTmpDirPath + "\"";
     int mvStatus = std::system(strMvCmd.c_str());
-    if (WIFEXITED(mvStatus) && WEXITSTATUS(mvStatus) == 0) 
+    if (WIFEXITED(mvStatus) && WEXITSTATUS(mvStatus) == 0)
     {
         dlog_info("Moved to trash: [%s]", strMvCmd.c_str());
 
         /* 删除旧录制目录 */
         std::string strRmCmd = "ionice -c3 rm -rf \"" + strTmpDirPath + "\"";
         nRet = std::system(strRmCmd.c_str());
-        if (nRet == 0) 
+        if (nRet == 0)
         {
             dlog_info("deleted success [%s]", strRmCmd.c_str());
         }
-        else 
+        else
         {
             dlog_error("failed to delete %s, code %d", strRmCmd.c_str(), nRet);
         }
@@ -1480,227 +1484,232 @@ int RecordFileManage::loop_write()
         stDirInfo.nCount -= nCount;
 
         RecordFileDatabase::instance()->update(stDirInfo);
-    } 
-    else 
+    }
+    else
     {
         dlog_error("Failed to move to trash: [%s]", strMvCmd.c_str());
         nRet = -1;
     }
 
     /* 比较最旧的录制目录是否是当天的录制目录 */
-    if(strRecordDbName == strCurrentDate)
+    if (strRecordDbName == strCurrentDate)
     {
         /* 恢复录制 */
         CRecordCtrl::instance()->start_record();
         dlog_info("恢复录制");
     }
-    
+
     return nRet;
 }
 
-int RecordFileManage::rm_recordDir(const fs::path strRecordBasePath, time_t nTime)
+int RecordFileManage::rm_recordDir(const std::string strRecordBasePath, time_t nTime)
 {
     dlog_info("同步删除相关录制目录");
-    char strTimeDateBuf[32] = {0};
+    char strTimeDateBuf[32] = { 0 };
     std::tm tmBuf{};
 
     localtime_r(&nTime, &tmBuf);
     std::strftime(strTimeDateBuf, sizeof(strTimeDateBuf), "%Y%m%d_%H%M%S", &tmBuf);
-    
+
     /* 得到 20250923_104053格式时间字符串 */
     std::string baseDateTime = strTimeDateBuf;
 
     /* 提取出20250923目录名字 */
     std::string strDate = baseDateTime.substr(0, baseDateTime.find('_'));
 
-    if (strDate.size() != 8 || strDate.find_first_not_of("0123456789") != std::string::npos) 
+    if (strDate.size() != 8 || strDate.find_first_not_of("0123456789") != std::string::npos)
     {
         dlog_error("无效的日期格式");
         return -1;
     }
 
-    try 
     {
-        #if 0
+#if 0
         for (const auto& entry : fs::directory_iterator(strRecordBasePath)) 
-        {
-            if (!entry.is_directory())
-            {
+    {
+        if (!entry.is_directory())
+    {
                 continue;
-            } 
+    }
             const std::string name = entry.path().filename().string();
             if (name.size() != 8)
-            {
+        {
                 continue;
-            }
+            } 
             if (name <= strDate)
             {
                 /* 只会删除 strDate > name */
                 continue;
             }
-             
+
             if (name.find_first_not_of("0123456789") != std::string::npos) 
             {
                 continue;
             }
-            
+
             dlog_info("removing %s", entry.path().c_str());
             fs::remove_all(entry.path());
-        }
-        #endif
+            }
+#endif
 
-        fs::path trash = fs::path(strRecordBasePath) / ".trash";
-        fs::create_directories(trash);
-        /* 记录移动过去的目录 */ 
-        std::vector<fs::path> movedDirs;          
+        const std::string strTrashDir = strRecordBasePath + "/.trash";
+        PosixFs_NS::make_directories(strTrashDir);
+        /* 记录移动过去的目录 */
+        std::vector<std::string> vecMovedDirs;
 
-        for (const auto& entry : fs::directory_iterator(strRecordBasePath))
+        std::vector<std::string> vecNames;
+        PosixFs_NS::list_dir(strRecordBasePath, vecNames);
+        for (size_t unIdx = 0; unIdx < vecNames.size(); unIdx++)
         {
-            if (!entry.is_directory())
+            const std::string &strName = vecNames[unIdx];
+            const std::string strSrcDir = strRecordBasePath + "/" + strName;
+            if (!PosixFs_NS::is_directory(strSrcDir))
             {
                 continue;
-            } 
+            }
 
-            const std::string name = entry.path().filename().string();
-            if (name.size() != 8)
+            if (strName.size() != 8)
             {
                 continue;
-            } 
-            if (name <= strDate) 
+            }
+            if (strName <= strDate)
             {
                 /* 只会删除 strDate > name */
                 continue;
             }
-            if (name.find_first_not_of("0123456789") != std::string::npos) continue;
+            if (strName.find_first_not_of("0123456789") != std::string::npos)
+                continue;
 
-            fs::path dst = trash / name;
-            try
+            const std::string strDst = strTrashDir + "/" + strName;
+            if (PosixFs_NS::rename_path(strSrcDir, strDst))
             {
-                fs::rename(entry.path(), dst);
-                movedDirs.push_back(dst);
-                dlog_info("moved %s -> trash", entry.path().c_str());
+                vecMovedDirs.push_back(strDst);
+                dlog_info("moved %s -> trash", strSrcDir.c_str());
             }
-            catch (const fs::filesystem_error& ex)
+            else
             {
-                dlog_error("move %s failed: %s", entry.path().c_str(), ex.what());
+                dlog_error("move %s failed: errno=%d", strSrcDir.c_str(), errno);
             }
         }
 
         /* 后台慢删（单线程+低优先级） */
-        if (!movedDirs.empty())
+        if (!vecMovedDirs.empty())
         {
-            std::thread([trash]{ 
-                ::nice(19);  /* CPU 最低 */
-                for (fs::directory_iterator it(trash), end; it != end; ++it) 
+            std::thread(
+                [strTrashDir]
                 {
-                    if (!it->is_directory())
+                    ::nice(19); /* CPU 最低 */
+                    std::vector<std::string> vecTrashNames;
+                    PosixFs_NS::list_dir(strTrashDir, vecTrashNames);
+                    for (size_t unIdx = 0; unIdx < vecTrashNames.size(); unIdx++)
                     {
-                        continue;
-                    }
-                    
-                    std::string cmd = "ionice -c3 rm -rf " + it->path().string();
-                    
-                    int rc = std::system(cmd.c_str());
-                    
-                    if (rc == 0)
-                    {
-                        dlog_info("deleted %s", it->path().c_str());
-                    }
-                    else
-                    {
-                        dlog_error("failed to delete %s, code %d", it->path().c_str(), rc);
-                    }
-                    std::this_thread::sleep_for(std::chrono::milliseconds(50));
-                }
-            }).detach();
-        }
+                        const std::string strEntry = strTrashDir + "/" + vecTrashNames[unIdx];
+                        if (!PosixFs_NS::is_directory(strEntry))
+                        {
+                            continue;
+                        }
 
-    } 
-    catch (const fs::filesystem_error& e) 
-    {
-        dlog_error("rm_recordDir error:%s", e.what());
-        return -1;
+                        std::string cmd = "ionice -c3 rm -rf " + strEntry;
+
+                        int rc = std::system(cmd.c_str());
+
+                        if (rc == 0)
+                        {
+                            dlog_info("deleted %s", strEntry.c_str());
+                        }
+                        else
+                        {
+                            dlog_error("failed to delete %s, code %d", strEntry.c_str(), rc);
+                        }
+                        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+                    }
+                })
+                .detach();
+        }
     }
 
     return 0;
 }
 
-int RecordFileManage::rm_recordTsFile(const fs::path strRecordBasePath, time_t nTime) 
+int RecordFileManage::rm_recordTsFile(const std::string strRecordBasePath, time_t nTime)
 {
     dlog_info("同步删除相关ts录制文件");
-    char strTimeDateBuf[32] = {0};
+    char strTimeDateBuf[32] = { 0 };
     std::tm tmBuf{};
 
     localtime_r(&nTime, &tmBuf);
     std::strftime(strTimeDateBuf, sizeof(strTimeDateBuf), "%Y%m%d_%H%M%S", &tmBuf);
-    
+
     /* 得到 20250923_104053格式时间字符串 */
     std::string baseDateTime = strTimeDateBuf;
 
     /* 提取出20250923目录名字 */
     std::string strDate = baseDateTime.substr(0, baseDateTime.find('_'));
     /* 拼接出 /opt/course/record/20250923 录制路径*/
-    std::string strRecordFullPath = strRecordBasePath.string() + "/" + strDate;
+    std::string strRecordFullPath = strRecordBasePath + "/" + strDate;
 
-    if(!std::filesystem::exists(strRecordFullPath) || !std::filesystem::is_directory(strRecordFullPath))
+    if (!PosixFs_NS::exists(strRecordFullPath) || !PosixFs_NS::is_directory(strRecordFullPath))
     {
         dlog_info("目录%s不存在", strRecordFullPath.c_str());
         return 0;
     }
 
-    try 
     {
-        uint64_t totalSize  = 0;   // 目录总大小
-        uint64_t deleteSize = 0;   // 已删大小
-        uint64_t leftSize   = 0;   // 剩余大小
+        uint64_t totalSize = 0;  // 目录总大小
+        uint64_t deleteSize = 0; // 已删大小
+        uint64_t leftSize = 0;   // 剩余大小
         int deleteCount = 0;
         int totalCount = 0;
         // std::vector<fs::path> batch;
         // batch.reserve(100);
-        
+
         dlog_debug("开始清理目录：%s", strRecordFullPath.c_str());
         dlog_debug("从时间[%s]开始删除", baseDateTime.c_str());
 
-        // time_t start_time = time(NULL);       
+        // time_t start_time = time(NULL);
 
-        for (const auto& entry : fs::directory_iterator(strRecordFullPath)) 
+        std::vector<std::string> vecFileNames;
+        PosixFs_NS::list_dir(strRecordFullPath, vecFileNames);
+        for (size_t unIdx = 0; unIdx < vecFileNames.size(); unIdx++)
         {
-            if (!entry.is_regular_file()) continue;
-            
-            std::string filename = entry.path().filename().string();
-            uint64_t  fileSize   = entry.file_size();
+            const std::string strEntryPath = strRecordFullPath + "/" + vecFileNames[unIdx];
+            if (!PosixFs_NS::is_regular_file(strEntryPath))
+                continue;
+
+            std::string filename = vecFileNames[unIdx];
+            const int64_t llFileSize = PosixFs_NS::file_size(strEntryPath);
+            uint64_t fileSize = (llFileSize > 0) ? static_cast<uint64_t>(llFileSize) : 0;
             totalSize += fileSize;
             totalCount++;
 
             /* 检查是否是.ts文件且符合命名格式 */
-            if (filename.length() == 18 && filename.substr(filename.length() - 3) == ".ts") 
+            if (filename.length() == 18 && filename.substr(filename.length() - 3) == ".ts")
             {
                 /* 提取日期时间部分（去掉.ts扩展名） */
                 std::string fileDateTime = filename.substr(0, 15);
-                
-                /* 比较日期时间 */ 
-                if (fileDateTime >= baseDateTime) 
+
+                /* 比较日期时间 */
+                if (fileDateTime >= baseDateTime)
                 {
-                    fs::remove(entry.path());
+                    PosixFs_NS::remove(strEntryPath);
                     // usleep(1000);
                     deleteCount++;
-                    deleteSize += fileSize;     /* 累加删除大小 */
+                    deleteSize += fileSize; /* 累加删除大小 */
 
                     // batch.push_back(entry.path());
-                    
                 }
                 usleep(1000);
             }
 
-            // if (batch.size() == 100) 
+            // if (batch.size() == 100)
             // {
             //     std::string cmd = "rm -f";
             //     for (auto& p : batch)
             //     {
             //         cmd += " " + p.string();
             //     }
-            //     /* 一次性删 100 个 */ 
-            //     std::system(cmd.c_str());  
+            //     /* 一次性删 100 个 */
+            //     std::system(cmd.c_str());
             //     batch.clear();
             //     dlog_debug("cmd:%s", cmd.c_str());
             //     /* sleep 10ms 避免cpu占用过高 */
@@ -1711,18 +1720,18 @@ int RecordFileManage::rm_recordTsFile(const fs::path strRecordBasePath, time_t n
         // if(batch.size() > 0)
         // {
         //     std::string cmd = "rm -f";
-        //     for (auto& p : batch) 
+        //     for (auto& p : batch)
         //     {
         //         cmd += " " + p.string();
         //     }
         //     std::system(cmd.c_str());
         //     dlog_debug("cmd:%s", cmd.c_str());
         // }
-        leftSize = totalSize - deleteSize;      // 得到剩余大小
+        leftSize = totalSize - deleteSize; // 得到剩余大小
 
         // dlog_debug(" ============= 删除完成,耗时 %lld s ============= ", time(NULL) - start_time);
         dlog_info("删除相关录制文件完成，删除了%d/%d个文件", deleteCount, totalCount);
-        
+
         // /* 把删除的的ts文件的大小更新到记录目录信息的文件里面 */
         Record_NS::RecordDirInfo_S stRecordDirInfo;
         long long llSize = 0;
@@ -1730,47 +1739,44 @@ int RecordFileManage::rm_recordTsFile(const fs::path strRecordBasePath, time_t n
         CStorageManage::instance()->get_directory_size(llSize, RECORD_PATH);
         int nRet = RecordFileDatabase::instance()->get_itemInfo(stRecordDirInfo);
         stRecordDirInfo.nTotalSize = llSize;
-        if(nRet < 0)
+        if (nRet < 0)
         {
             RecordFileDatabase::instance()->add(stRecordDirInfo);
         }
-        else 
+        else
         {
             RecordFileDatabase::instance()->update(stRecordDirInfo);
         }
 
         /* 只要找到一个 .ts 文件就立即返回 */
-        fs::path dir{strRecordFullPath};
         bool bExitTsFile = false;
-        for (const auto& e : fs::directory_iterator(dir))
+        std::vector<std::string> vecCheckNames;
+        PosixFs_NS::list_dir(strRecordFullPath, vecCheckNames);
+        for (size_t unIdx = 0; unIdx < vecCheckNames.size(); unIdx++)
         {
-            if (e.is_regular_file() && e.path().extension() == ".ts")
-            {   
+            if (PosixFs_NS::is_regular_file(strRecordFullPath + "/" + vecCheckNames[unIdx]) &&
+                PosixFs_NS::extension(vecCheckNames[unIdx]) == ".ts")
+            {
                 bExitTsFile = true;
                 break;
-            }   
+            }
         }
         /* 如果这个目录不存在ts文件了，则进行删除 */
-        if(!bExitTsFile)
+        if (!bExitTsFile)
         {
             /* 没有 .ts 文件：先切到父目录再删，避免占用当前工作目录 */
-            fs::path parent = dir.parent_path();
-            if (!parent.empty()) 
+            const std::string strParent = PosixFs_NS::parent_path(strRecordFullPath);
+            if (!strParent.empty())
             {
-                fs::current_path(parent);
+                chdir(strParent.c_str());
             }
-            
-            /* 递归删除（目录已空） */ 
-            fs::remove_all(dir); 
-            dlog_debug("当前目录%s没有ts文件了，进行删除", strRecordFullPath.c_str()); 
+
+            /* 递归删除（目录已空） */
+            PosixFs_NS::remove_all(strRecordFullPath);
+            dlog_debug("当前目录%s没有ts文件了，进行删除", strRecordFullPath.c_str());
         }
-    } 
-    catch (const fs::filesystem_error& e) 
-    {
-        dlog_error("rm_RecordTsFile error:%s", e.what());
-        return -1;
     }
-    
+
     return 0;
 }
 
@@ -1782,7 +1788,7 @@ int RecordFileManage::del_recordfilemanageDbInfo(time_t nTime)
 
     Event::RetrievalCond_S stCond;
 
-    char strTimeDateBuf[32] = {0};
+    char strTimeDateBuf[32] = { 0 };
     std::tm tmBuf{};
 
     localtime_r(&nTime, &tmBuf);
@@ -1790,7 +1796,7 @@ int RecordFileManage::del_recordfilemanageDbInfo(time_t nTime)
 
     std::string datetime = strTimeDateBuf;
     size_t spacePos = datetime.find(' ');
-    if (spacePos == std::string::npos) 
+    if (spacePos == std::string::npos)
     {
         return -1;
     }
@@ -1799,32 +1805,31 @@ int RecordFileManage::del_recordfilemanageDbInfo(time_t nTime)
 
     /* 获取数据库所有表名 */
     strTables = RecordFileDatabase::instance()->get_all_tables();
-    if(strTables.size() < 2)
+    if (strTables.size() < 2)
     {
-        dlog_error("没有查询到录制文件表格")
-        return -1;
+        dlog_error("没有查询到录制文件表格") return -1;
     }
     /* 排序（升序） */
     std::sort(strTables.begin(), strTables.end());
 
     /* 遍历并比较 */
-    for(unsigned int i = 0; i < strTables.size(); i++)
+    for (unsigned int i = 0; i < strTables.size(); i++)
     {
-        const auto& table = strTables.at(i);
-        if ( (table > strTargetTable) && (table != RECORD_FILE_TABLE_NAME) && (table != RECORD_DIR_INFO_TABLE_NAME) )
+        const auto &table = strTables.at(i);
+        if ((table > strTargetTable) && (table != RECORD_FILE_TABLE_NAME) && (table != RECORD_DIR_INFO_TABLE_NAME))
         {
             // std::cout << "表名比 " << strTargetTable << " 大: " << table << std::endl;
             RecordFileDatabase::instance()->del_table(table);
-        } 
+        }
     }
 
-    if (spacePos != std::string::npos && spacePos + 1 < datetime.length()) 
+    if (spacePos != std::string::npos && spacePos + 1 < datetime.length())
     {
         /* 返回空格后的所有内容 */
         stCond.strTime = datetime.substr(spacePos + 1);
     }
 
-    if(!stCond.strTime.empty())
+    if (!stCond.strTime.empty())
     {
         RecordFileManage::instance()->del(stCond, strTargetTable);
     }
@@ -1836,7 +1841,7 @@ int RecordFileManage::del_eventmanageDbInfo(time_t nTime)
 {
     dlog_info("同步删除相关eventmanage表格");
     Event::RetrievalCond_S stCond;
-    char strTimeDateBuf[32] = {0};
+    char strTimeDateBuf[32] = { 0 };
     std::tm tmBuf{};
 
     localtime_r(&nTime, &tmBuf);
@@ -1848,36 +1853,34 @@ int RecordFileManage::del_eventmanageDbInfo(time_t nTime)
     return 0;
 }
 
-static std::time_t fastParseTime(const std::string& line) 
+static std::time_t fastParseTime(const std::string &line)
 {
     size_t lastColon = line.rfind(':');
-    if (lastColon == std::string::npos || lastColon < 19) 
+    if (lastColon == std::string::npos || lastColon < 19)
     {
         return 0;
     }
 
     // 尝试定位到日期开始处 (YYYY-MM-DD)，格式固定，截取最后 19 位
-    const char* p = line.c_str() + line.length() - 19;
-    
+    const char *p = line.c_str() + line.length() - 19;
+
     // 基本校验：检查是否为数字
-    if (!isdigit(p[0])) 
+    if (!isdigit(p[0]))
     {
         // 如果最后 19 位不是时间，尝试寻找空格后的内容
         size_t spacePos = line.rfind(' ');
-        if (spacePos != std::string::npos && line.length() - spacePos >= 9) 
+        if (spacePos != std::string::npos && line.length() - spacePos >= 9)
         {
             p = line.c_str() + spacePos - 10; // 指向日期开始
-        } 
-        else 
+        }
+        else
         {
             return 0;
         }
     }
 
-    struct tm tm = {0};
-    if (sscanf(p, "%4d-%2d-%2d%*c%2d:%2d:%2d", 
-               &tm.tm_year, &tm.tm_mon, &tm.tm_mday, 
-               &tm.tm_hour, &tm.tm_min, &tm.tm_sec) == 6) 
+    struct tm tm = { 0 };
+    if (sscanf(p, "%4d-%2d-%2d%*c%2d:%2d:%2d", &tm.tm_year, &tm.tm_mon, &tm.tm_mday, &tm.tm_hour, &tm.tm_min, &tm.tm_sec) == 6)
     {
         tm.tm_year -= 1900;
         tm.tm_mon -= 1;
@@ -1888,12 +1891,11 @@ static std::time_t fastParseTime(const std::string& line)
     return 0;
 }
 
-int RecordFileManage::truncateM3U8(time_t nTime) 
+int RecordFileManage::truncateM3U8(time_t nTime)
 {
-    dlog_info("同步m3u8文件")
-    fs::path filePath; 
+    dlog_info("同步m3u8文件") std::string strFilePath;
 
-    char strTimeDateBuf[32] = {0};
+    char strTimeDateBuf[32] = { 0 };
     std::tm tmBuf{};
 
     localtime_r(&nTime, &tmBuf);
@@ -1907,57 +1909,58 @@ int RecordFileManage::truncateM3U8(time_t nTime)
 
     /* 从2025-09-20得到如下格式日期：20250920 */
     strDate.erase(std::remove(strDate.begin(), strDate.end(), '-'), strDate.end());
-    
-    /* 拼接出完整的m3u8路径，如：/opt/course/record/20250920/normal_20250920.m3u8 */
-    filePath = std::string(RECORD_PATH) + "/" + strDate  + "/normal_" + strDate + ".m3u8";
 
-    std::ifstream in(filePath, std::ios::in);
-    if (!in.is_open()) 
+    /* 拼接出完整的m3u8路径，如：/opt/course/record/20250920/normal_20250920.m3u8 */
+    strFilePath = std::string(RECORD_PATH) + "/" + strDate + "/normal_" + strDate + ".m3u8";
+
+    std::ifstream in(strFilePath, std::ios::in);
+    if (!in.is_open())
     {
         return -1;
     }
 
     // 创建临时文件，直接边读边写
-    std::string tmpPath = filePath.string() + ".tmp";
+    std::string tmpPath = strFilePath + ".tmp";
     std::ofstream out(tmpPath, std::ios::out | std::ios::trunc);
-    if (!out.is_open()) 
+    if (!out.is_open())
     {
         return -1;
     }
 
     std::string line;
     // 缓存上一行，处理 EXTINF 和 DATE-TIME 的关联性
-    std::string lastLine; 
+    std::string lastLine;
     bool stopCollect = false;
     bool seenEndList = false;
     const std::string TAG_DATE_TIME = "#EXT-X-PROGRAM-DATE-TIME:";
 
-    while (std::getline(in, line)) 
+    while (std::getline(in, line))
     {
         // 移除换行符
-        if (!line.empty() && line.back() == '\r') line.pop_back();
+        if (!line.empty() && line.back() == '\r')
+            line.pop_back();
 
-        if (!stopCollect) 
+        if (!stopCollect)
         {
-            if (line.compare(0, TAG_DATE_TIME.length(), TAG_DATE_TIME) == 0) 
+            if (line.compare(0, TAG_DATE_TIME.length(), TAG_DATE_TIME) == 0)
             {
                 time_t rowTime = fastParseTime(line);
-                if (rowTime > nTime) 
+                if (rowTime > nTime)
                 {
                     stopCollect = true;
                 }
             }
-            
-            if (!stopCollect) 
+
+            if (!stopCollect)
             {
                 out << line << "\n";
             }
         }
 
         // 停止收集，寻找结束标签
-        if (stopCollect) 
+        if (stopCollect)
         {
-            if (line.find("#EXT-X-ENDLIST") != std::string::npos) 
+            if (line.find("#EXT-X-ENDLIST") != std::string::npos)
             {
                 out << "#EXT-X-ENDLIST\n";
                 seenEndList = true;
@@ -1967,7 +1970,7 @@ int RecordFileManage::truncateM3U8(time_t nTime)
     }
 
     // 强制补齐结束标签，防止文件损坏
-    if (!seenEndList && stopCollect) 
+    if (!seenEndList && stopCollect)
     {
         out << "#EXT-X-ENDLIST\n";
     }
@@ -1976,12 +1979,10 @@ int RecordFileManage::truncateM3U8(time_t nTime)
     out.close();
 
     // 原子替换
-    std::error_code ec;
-    fs::rename(tmpPath, filePath, ec);
-    if (ec) 
+    if (!PosixFs_NS::rename_path(tmpPath, strFilePath))
     {
-        dlog_error("Rename failed: %s", ec.message().c_str());
-        fs::remove(tmpPath, ec);
+        dlog_error("Rename failed: errno=%d", errno);
+        PosixFs_NS::remove(tmpPath);
         return -1;
     }
 
@@ -1991,7 +1992,7 @@ int RecordFileManage::truncateM3U8(time_t nTime)
 static int del_recordFileManageTableInfo(time_t nTime)
 {
     dlog_info("同步删除record_file_manage表格");
-    char out[32] = {0};
+    char out[32] = { 0 };
     std::tm tmBuf{};
 
     localtime_r(&nTime, &tmBuf);
@@ -2009,45 +2010,32 @@ static int del_recordFileManageTableInfo(time_t nTime)
 /**
  * @brief 安全删除.trash目录，使用低I/O优先级避免影响系统性能
  */
-static int del_trashDirectory() 
+static int del_trashDirectory()
 {
     std::string strTrashDirPath = std::string(RECORD_PATH) + "/.trash";
-    
-    try 
+
+    if (!PosixFs_NS::exists(strTrashDirPath))
     {
-        if (!fs::exists(strTrashDirPath)) 
-        {
-            dlog_error("目录不存在: %s",strTrashDirPath.c_str());
-            return -1;
-        }
-    } 
-    catch (const fs::filesystem_error& e) 
-    {
-        const char* msg = e.what();
-        if (msg) 
-        {
-            dlog_error("检查目录时发生错误: %s", msg);
-        }
-        
+        dlog_error("目录不存在: %s", strTrashDirPath.c_str());
         return -1;
     }
-    
-    dlog_info("正在删除目录: %s",strTrashDirPath.c_str());
-    
+
+    dlog_info("正在删除目录: %s", strTrashDirPath.c_str());
+
     std::stringstream cmd;
     cmd << "ionice -c3 rm -rf '" << strTrashDirPath << "'";
-    
+
     // 执行删除命令
     int result = system(cmd.str().c_str());
-    
-    if (result == 0) 
+
+    if (result == 0)
     {
         dlog_info("目录删除成功: ", strTrashDirPath.c_str());
         return 0;
-    } 
-    else 
+    }
+    else
     {
-        dlog_error("删除目录失败%s - 返回值:%d ",strTrashDirPath.c_str(),result);
+        dlog_error("删除目录失败%s - 返回值:%d ", strTrashDirPath.c_str(), result);
         return -1;
     }
 }
@@ -2059,10 +2047,9 @@ int RecordFileManage::formatSDCardSyncRecordDb()
     int nRet = 0;
     /* 获取数据库所有表名 */
     strTables = RecordFileDatabase::instance()->get_all_tables();
-    if(strTables.size() < 2)
+    if (strTables.size() < 2)
     {
-        dlog_error("没有查询到录制文件表格")
-        return -1;
+        dlog_error("没有查询到录制文件表格") return -1;
     }
     /* 排序（升序） */
     std::sort(strTables.begin(), strTables.end());
@@ -2076,14 +2063,14 @@ int RecordFileManage::formatSDCardSyncRecordDb()
     std::string strCurDate = oss.str();
 
     /* 遍历并比较 */
-    for(unsigned int i = 0; i < strTables.size(); i++)
+    for (unsigned int i = 0; i < strTables.size(); i++)
     {
-        const auto& table = strTables.at(i);
-        if ( (table != RECORD_FILE_TABLE_NAME) && (table != RECORD_DIR_INFO_TABLE_NAME) && (strCurDate != table))
+        const auto &table = strTables.at(i);
+        if ((table != RECORD_FILE_TABLE_NAME) && (table != RECORD_DIR_INFO_TABLE_NAME) && (strCurDate != table))
         {
             RecordFileDatabase::instance()->del_table(table);
         }
-        if(strCurDate == table)
+        if (strCurDate == table)
         {
             RecordFileDatabase::instance()->clear_table(strCurDate);
         }
@@ -2098,16 +2085,16 @@ int RecordFileManage::formatSDCardSyncRecordDb()
     stDirInfo.nTotalSize = 0;
     stDirInfo.nCount = 0;
 
-    if(nRet < 0)
+    if (nRet < 0)
     {
         RecordFileDatabase::instance()->add(stDirInfo);
     }
-    else 
+    else
     {
         RecordFileDatabase::instance()->update(stDirInfo);
     }
 
-   EventDatabase::instance()->clear_table(EVENT_TABLE_NAME);
+    EventDatabase::instance()->clear_table(EVENT_TABLE_NAME);
 
     return 0;
 }
@@ -2129,38 +2116,38 @@ void RecordFileManage::dealTimeChange(time_t nTime)
     /* 删除录制的目录 */
     rm_recordDir(RECORD_PATH, nTime);
 
-    return ;
+    return;
 }
 
 void RecordFileManage::setLoopWrite(bool bLoopWrite)
 {
     m_bLoopWriteFlag.store(bLoopWrite, std::memory_order_release);
-    return ;
-} 
+    return;
+}
 
 void RecordFileManage::record_file_manage_thread()
 {
     pthread_setname_np(pthread_self(), "RecordFile");
     /* info: 正常校时由时间模块同步重建录制，避免轮询检测与统一通知链路重复清理文件。 */
-    while(m_bRun.load(std::memory_order_acquire))
+    while (m_bRun.load(std::memory_order_acquire))
     {
-        if(m_bLoopWriteFlag)
+        if (m_bLoopWriteFlag)
         {
             int success = del_trashDirectory();
-            if(success == 0)  //删除成功
+            if (success == 0) // 删除成功
             {
-                //更新记录的录制目录大小 
+                // 更新记录的录制目录大小
                 Record_NS::RecordDirInfo_S stRecordDirInfo;
                 long long llSize = 0;
                 stRecordDirInfo.nChnId = 0;
                 CStorageManage::instance()->get_directory_size(llSize, RECORD_PATH);
                 int nRet = RecordFileDatabase::instance()->get_itemInfo(stRecordDirInfo);
                 stRecordDirInfo.nTotalSize = llSize;
-                if(nRet < 0)
+                if (nRet < 0)
                 {
                     RecordFileDatabase::instance()->add(stRecordDirInfo);
                 }
-                else 
+                else
                 {
                     RecordFileDatabase::instance()->update(stRecordDirInfo);
                 }
@@ -2171,11 +2158,11 @@ void RecordFileManage::record_file_manage_thread()
                 dlog_info("进入循环录制");
                 loop_write();
             }
-            
+
             m_bLoopWriteFlag.store(false, std::memory_order_release);
         }
-        
+
         usleep(500 * 1000);
     }
-    return ;
+    return;
 }

@@ -89,9 +89,6 @@ namespace Task
         /* 场景变更侦测 */
         TaskSubClass(GetSceneChangeInfo)
         TaskSubClass(SetSceneChangeInfo)
-        /* 人脸侦测 */
-        TaskSubClass(GetFaceDetectionInfo)
-        TaskSubClass(SetFaceDetectionInfo)
         /* 徘徊侦测 */
         TaskSubClass(GetLoiteringDetectionInfo)
         TaskSubClass(SetLoiteringDetectionInfo)
@@ -110,14 +107,22 @@ namespace Task
         /* 宠物识别 */
         TaskSubClass(GetPetRecognitionInfo)
         TaskSubClass(SetPetRecognitionInfo)
+#if CAP_AI_FACE_RECOGNITION
+        /* 人脸识别 */
+        TaskSubClass(GetFaceRecognitionInfo)
+        TaskSubClass(SetFaceRecognitionInfo)
+#else
+        /* 旧人脸能力 */
+        TaskSubClass(GetFaceDetectionInfo)
+        TaskSubClass(SetFaceDetectionInfo)
+        TaskSubClass(GetFaceCaptureInfo)
+        TaskSubClass(SetFaceCaptureInfo)
+#endif
 #if CAP_AI_FACE_COMPARE
         /* 人脸比对 */
         TaskSubClass(GetFaceCompareInfo)
         TaskSubClass(SetFaceCompareInfo)
 #endif
-        /* 人脸抓拍 */
-        TaskSubClass(GetFaceCaptureInfo)
-        TaskSubClass(SetFaceCaptureInfo)
         /* 人脸抓拍叠加信息 */
         TaskSubClass(GetFaceCaptureOverlayInfo)
         TaskSubClass(SetFaceCaptureOverlayInfo)
@@ -157,9 +162,15 @@ namespace Task
         * @brief   : 场景智能
         */
 
-        /* 预览页面智能属性识别开关信息 */
-        TaskSubClass(SetAttributeInfo)
-        TaskSubClass(GetAttributeInfo)
+        /* 行人识别配置 */
+        TaskSubClass(GetPersonDetectionInfo)
+        TaskSubClass(SetPersonDetectionInfo)
+        /* 机动车识别配置 */
+        TaskSubClass(GetMotorVehicleDetectionInfo)
+        TaskSubClass(SetMotorVehicleDetectionInfo)
+        /* 非机动车识别配置 */
+        TaskSubClass(GetNonMotorVehicleDetectionInfo)
+        TaskSubClass(SetNonMotorVehicleDetectionInfo)
 
         /* 推送人脸抓拍信息 */
         TaskSubClass(PushFaceCaptureInfo)
@@ -275,8 +286,14 @@ namespace Task
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
         // 烟火识别
         TaskSubClass(GetSmokeFireInfo)
-        TaskSubClass(SetSmokeFireInfo)
+        TaskSubClass(SetSmokeFireInfo)   
 #endif
+
+#if CAP_AI_SMOKE_FIRE_DETECT
+        /* 平台手动抓图并送烟火识别 */
+        TaskSubClass(SmokeFireSnapshotDetect)  
+#endif
+
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_GARBAGE_DETECT
         // 垃圾暴露识别
         TaskSubClass(GetGarbageExposureInfo)
@@ -287,11 +304,6 @@ namespace Task
         TaskSubClass(SetGarbageOverflowInfo)
         /* 垃圾站手动抓图并送垃圾识别 */
         TaskSubClass(GarbageStationSnapshotDetect)
-#endif
-
-#if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
-        /* 平台手动抓图并送烟火识别 */
-        TaskSubClass(SmokeFireSnapshotDetect)
 #endif
 
 #if CAP_AI_PEOPLE_STATISTICS

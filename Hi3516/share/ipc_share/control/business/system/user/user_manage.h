@@ -11,6 +11,7 @@
 
 #include "user_define.h"
 #include "register_define.h"
+#include <unordered_map>
 #include <vector>
 #include "Singleton.h"
 #include "IpcRet.h"

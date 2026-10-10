@@ -29,7 +29,6 @@
 #include "IOBase.h"
 #include "UDSServer.h"
 
-
 class CStreamServer : public CSingleton<CStreamServer>
 {
     CStreamServer() = default;
@@ -178,27 +177,27 @@ private:
 
     /**
      * @brief   : 将共享媒体帧引用入队（零拷贝）
-     * @param   {shared_ptr<uint8_t[]>} &pSharedData：共享数据 buffer
+     * @param   {shared_ptr<uint8_t>} &pSharedData：共享数据 buffer
      * @param   {int} nLen：编码数据长度
      * @param   {int} nActionCode：录制协议命令码
      * @return  : 0 表示入队成功，非0表示未入队
      * @note    : 入队不复制数据，仅增加 shared_ptr 引用计数。
      */
-    int enqueue_media_data(const std::shared_ptr<std::uint8_t[]> &pSharedData, int nLen, int nActionCode);
+    int enqueue_media_data(const std::shared_ptr<std::uint8_t> &pSharedData, int nLen, int nActionCode);
 
     /**
      * @brief   : 录制媒体入队公共实现（拷贝路径与共享路径二选一）
      * @param   {void*} pData：拷贝路径数据指针，共享路径传 nullptr
      * @param   {int} nLen：拷贝路径数据长度，共享路径传 0
      * @param   {int} nActionCode：录制协议命令码
-     * @param   {shared_ptr<uint8_t[]>} &pSharedData：共享路径数据 buffer，拷贝路径传 nullptr
+     * @param   {shared_ptr<uint8_t>} &pSharedData：共享路径数据 buffer，拷贝路径传 nullptr
      * @param   {int} nSharedLen：共享路径数据长度，拷贝路径传 0
      * @return  : 0 表示入队成功，非0表示未入队
      */
     int enqueue_media_data_impl(const void *pData,
                                 int nLen,
                                 int nActionCode,
-                                const std::shared_ptr<std::uint8_t[]> &pSharedData,
+                                const std::shared_ptr<std::uint8_t> &pSharedData,
                                 int nSharedLen);
 
     /**
@@ -222,7 +221,7 @@ private:
     {
         int nActionCode = 0;
         std::vector<std::uint8_t> vecData;
-        std::shared_ptr<std::uint8_t[]> pSharedData; /* 共享帧数据 */
+        std::shared_ptr<std::uint8_t> pSharedData; /* 共享帧数据 */
         int nSharedLen = 0;                           /* 共享帧长度 */
     };
 
@@ -231,7 +230,7 @@ private:
     /*心跳字符串*/
     std::string m_heartbeat;
     /*客户端是否连接*/
-    std::atomic_bool m_bConnect = false;
+    std::atomic_bool m_bConnect{ false };
     /* lock: 保护录制进程接入回调的注册和读取 */
     std::mutex m_mtxRecordConnectedCallback;
     /* 录制进程重连后补发当前媒体配置的回调 */
@@ -239,18 +238,18 @@ private:
     /* lock: 串行化控制消息与媒体消息，避免同一 UDS 会话的头/体交叉 */
     std::mutex m_mtxIoSend;
     /* 录制进程已完成连接后的配置同步，可以接收媒体帧 */
-    std::atomic_bool m_bRecordReady = false;
+    std::atomic_bool m_bRecordReady{ false };
     /* 录制媒体发送线程运行标志 */
-    std::atomic_bool m_bMediaWorkerRunning = false;
+    std::atomic_bool m_bMediaWorkerRunning{ false };
     /* lock: 保护录制媒体队列和字节计数 */
     std::mutex m_mtxMediaQueue;
     std::condition_variable m_cvMediaQueue;
     std::deque<RecordMediaTask_S> m_mediaQueue;
     std::thread m_mediaSendThread;
     /* 录制媒体单帧最大字节上限，按平均码率动态计算，避免高码率大I帧被固定上限击穿。 */
-    std::atomic<std::size_t> m_nMediaMaxFrameBytes{512U * 1024U};
+    std::atomic<std::size_t> m_nMediaMaxFrameBytes{ 512U * 1024U };
     /* 录制媒体队列总字节上限，按单帧上限放大，容纳多帧积压。 */
-    std::atomic<std::size_t> m_nMediaQueueMaxBytes{512U * 1024U};
+    std::atomic<std::size_t> m_nMediaQueueMaxBytes{ 512U * 1024U };
     /* 队列当前占用的媒体字节数，避免仅按帧数估算内存 */
     std::size_t m_nMediaQueueBytes = 0;
     /* 正在同步写入UDS的媒体副本，队列字节数不包含这部分内存。 */

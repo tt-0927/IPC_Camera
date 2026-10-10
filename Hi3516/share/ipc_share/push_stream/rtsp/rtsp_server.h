@@ -3,7 +3,7 @@
  * @Author       : zhouzirui
  * @Date         : 2025-03-29 10:05:19
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-09-04 09:17:19
+ * @LastEditTime : 2026-09-23 16:53:35
  * @Description  : RTSP服务器
  */
 #pragma once
@@ -21,6 +21,7 @@
 #include <stdexcept>
 #include <map>
 #include <functional>
+#include <unordered_map>
 #include "dlog.h"
 #include "IpcRet.h"
 #include "video_define.h"

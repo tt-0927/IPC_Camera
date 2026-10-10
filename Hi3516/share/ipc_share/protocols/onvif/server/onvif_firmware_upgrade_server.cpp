@@ -8,13 +8,13 @@
  */
 
 #include "onvif_firmware_upgrade_server.h"
+#include "osd_configure.h"
 #include "upgrade_client.h"
 #include "action_code.h"
 #include "system_convert.h"
 #include "convert_interface.h"
 #include "share_define.h"
 #include "user_manage.h"
-#include "osd_manage.h"
 #include "osd_convert.h"
 
 int COnvifFirmwareUpgradeServer::init()
@@ -64,7 +64,7 @@ int COnvifFirmwareUpgradeServer::init()
 
                      dlog_debug("收到获取遮盖配置请求");
                      Osd::CoverConfig_S stCoverConfig;
-                     if (COsdManage::instance()->get_cover_config(stCoverConfig) != 0)
+                     if (COsdConfigure::instance()->get_cover_config(stCoverConfig) != 0)
                      {
                          res.status = 500;
                          res.set_content("Failed to get cover config", "text/plain");
@@ -98,7 +98,7 @@ int COnvifFirmwareUpgradeServer::init()
                      Osd::CoverConfig_S stCoverConfig;
                      Convert::to_struct(req.body, stCoverConfig);
 
-                     const size_t maxAreaCount = COsdManage::instance()->get_cover_max_area_count();
+                     const size_t maxAreaCount = COsdConfigure::instance()->get_cover_max_area_count();
                      if (stCoverConfig.vecCoverAttr.size() > maxAreaCount)
                      {
                          dlog_warn("遮盖区域数超出平台能力, request:%zu, max:%zu",
@@ -108,7 +108,7 @@ int COnvifFirmwareUpgradeServer::init()
                          return;
                      }
 
-                     if (COsdManage::instance()->set_cover_config(stCoverConfig) != 0)
+                     if (COsdConfigure::instance()->set_cover_config(stCoverConfig) != 0)
                      {
                          res.status = 500;
                          res.set_content("Failed to set cover config", "text/plain");

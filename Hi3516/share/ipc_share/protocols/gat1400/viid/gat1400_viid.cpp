@@ -66,7 +66,7 @@ int security_viid::sys_register(const char* ip, int port, const char* deviceId,
     string msg = security_message_factory::makeRegisterMessage(deviceId);
 
     Headers headers = get_common_req_header(deviceId);
-    m_Client = std::make_unique<Client>(ip, port);
+    m_Client = std::unique_ptr<Client>(new Client(ip, port));
     m_Client->set_keep_alive(bKeepAlive);
 #ifdef CPPHTTPLIB_OPENSSL_SUPPORT
     m_Client->set_digest_auth(username, password);

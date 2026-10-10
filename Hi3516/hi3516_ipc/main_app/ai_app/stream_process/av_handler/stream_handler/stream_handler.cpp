@@ -171,9 +171,8 @@ void CStreamHandler::recvDataProcess(const void *pData, int nLength, int nWidth,
         return;
     }
 
-    const size_t nFrameCapacity =
-        static_cast<size_t>(pFrameInfo->video_frame.stride[0]) * nHeight +
-        static_cast<size_t>(pFrameInfo->video_frame.stride[1]) * nHeight / 2;
+    const size_t nFrameCapacity = static_cast<size_t>(pFrameInfo->video_frame.stride[0]) * nHeight +
+                                  static_cast<size_t>(pFrameInfo->video_frame.stride[1]) * nHeight / 2;
     if (static_cast<size_t>(nLength) > nFrameCapacity)
     {
         dlog_error("视频帧数据超出VB容量: data=%d, capacity=%zu", nLength, nFrameCapacity);
@@ -219,7 +218,7 @@ void CStreamHandler::recvDataProcess(const void *pData, int nLength)
     stRecvData.enType = MediaDataType_E::AUDIO_DATA;
     stRecvData.stMediaParam.enBitWidth = OT_AUDIO_BIT_WIDTH_16;
 
-    stRecvData.pData = std::shared_ptr<char[]>(new char[stRecvData.nSize]);
+    stRecvData.pData = std::shared_ptr<char>(new char[stRecvData.nSize]);
     if (NULL == stRecvData.pData || NULL == stRecvData.pData.get())
     {
         dlog_error("创建智能指针失败");

@@ -18,20 +18,8 @@ LibWSServer::LibWSServer(Net::Param_S &stParam, Net::MessageCallback fnMessageCa
     : m_stParam(stParam), m_fnMessageCallback(fnMessageCallback)
 {
     struct lws_protocols protocols[] = {
-        {"http-only",
-         callback,
-         0,
-         102400,
-         0,
-         this,
-         102400},
-        {"file-upload",
-         file_upload_callback,
-         0,
-         102400,
-         0,
-         this,
-         102400},
+        {   "http-only",             callback, 0, 102400, 0, this, 102400 },
+        { "file-upload", file_upload_callback, 0, 102400, 0, this, 102400 },
         LWS_PROTOCOL_LIST_TERM,
     };
     struct lws_context_creation_info stInfo;
@@ -42,7 +30,7 @@ LibWSServer::LibWSServer(Net::Param_S &stParam, Net::MessageCallback fnMessageCa
     stInfo.vhost_name = "localhost";
     stInfo.options = LWS_SERVER_OPTION_HTTP_HEADERS_SECURITY_BEST_PRACTICES_ENFORCE;
     /* 开启ssl连接 */
-    if(m_stParam.stInitParam.bEnssl && !m_stParam.stInitParam.strCert.empty() && !m_stParam.stInitParam.strKey.empty())
+    if (m_stParam.stInitParam.bEnssl && !m_stParam.stInitParam.strCert.empty() && !m_stParam.stInitParam.strKey.empty())
     {
         dlog_info("websocket服务器开启ssl连接");
         stInfo.ssl_cert_filepath = m_stParam.stInitParam.strCert.c_str();
@@ -75,11 +63,11 @@ int LibWSServer::send(const Net::Message_S stMessage)
         return -1;
     }
     int nRet = 0;
-    std::shared_ptr<char[]> pSendData = std::shared_ptr<char[]>(new char[stMessage.nDataLength + LWS_PRE]);
+    std::shared_ptr<char> pSendData = std::shared_ptr<char>(new char[stMessage.nDataLength + LWS_PRE]);
     memset(pSendData.get(), 0, stMessage.nDataLength + LWS_PRE);
     memcpy(pSendData.get() + LWS_PRE, stMessage.pData, stMessage.nDataLength);
 
-    struct lws *pWsi = (stMessage.pHandle) ? (struct lws *)stMessage.pHandle : nullptr;
+    struct lws *pWsi = (stMessage.pHandle) ? (struct lws *) stMessage.pHandle : nullptr;
     std::lock_guard<std::mutex> lock(m_mutex);
     for (VhostHandleInfo_S *pVhostDataInfo : m_connections)
     {
@@ -87,29 +75,28 @@ int LibWSServer::send(const Net::Message_S stMessage)
         {
             continue;
         }
-        
+
         for (ClientInfo_S *pClientInfo : pVhostDataInfo->clientInfos)
         {
             if (pWsi && pClientInfo->pWsi != pWsi)
             {
                 continue;
             }
-            
+
             MsgInfo_S stInfo;
             stInfo.pData = pSendData;
             stInfo.nLen = stMessage.nDataLength;
             std::lock_guard<std::mutex> lock(pClientInfo->mutex);
             pClientInfo->listMsgInfo.push_back(stInfo);
-    
+
             /* 通知可写 */
             nRet = lws_callback_on_writable(pClientInfo->pWsi);
-            if (pWsi)  // 如果是指定的 pWsi，找到后就可以跳出循环
+            if (pWsi) // 如果是指定的 pWsi，找到后就可以跳出循环
             {
                 break;
             }
         }
     }
-
 
     return nRet;
 }
@@ -124,23 +111,18 @@ void LibWSServer::run()
     }
 }
 /* 通讯回调函数 */
-int LibWSServer::callback(
-    struct lws *pWsi,
-    lws_callback_reasons enReason,
-    void *pUser,
-    void *pIn,
-    size_t nLen)
+int LibWSServer::callback(struct lws *pWsi, lws_callback_reasons enReason, void *pUser, void *pIn, size_t nLen)
 {
     /* 非0，会主动断开连接 */
     int nRet = 0;
 
-    VhostHandleInfo_S *pVhostDataInfo = (VhostHandleInfo_S *)lws_protocol_vh_priv_get(lws_get_vhost(pWsi), lws_get_protocol(pWsi));
+    VhostHandleInfo_S *pVhostDataInfo = (VhostHandleInfo_S *) lws_protocol_vh_priv_get(lws_get_vhost(pWsi), lws_get_protocol(pWsi));
 
     switch (enReason)
     {
     case LWS_CALLBACK_SERVER_NEW_CLIENT_INSTANTIATED:
     {
-        dlog_info("WebSocket服务器收到新的客户端连接请求，协议为[%s]",pVhostDataInfo->pProtocol->name);
+        dlog_info("WebSocket服务器收到新的客户端连接请求，协议为[%s]", pVhostDataInfo->pProtocol->name);
         break;
     }
     /* LWS初始化一个新的协议触发 */
@@ -149,7 +131,9 @@ int LibWSServer::callback(
         LibWSServer *pInstance = nullptr;
 
         /* 创建该协议的句柄数据 */
-        pVhostDataInfo = (VhostHandleInfo_S *)lws_protocol_vh_priv_zalloc(lws_get_vhost(pWsi), lws_get_protocol(pWsi), sizeof(VhostHandleInfo_S));
+        pVhostDataInfo = (VhostHandleInfo_S *) lws_protocol_vh_priv_zalloc(lws_get_vhost(pWsi),
+                                                                           lws_get_protocol(pWsi),
+                                                                           sizeof(VhostHandleInfo_S));
         if (pVhostDataInfo)
         {
             pVhostDataInfo->pContext = lws_get_context(pWsi);
@@ -159,7 +143,7 @@ int LibWSServer::callback(
 
             if (pVhostDataInfo->pProtocol)
             {
-                pInstance = (LibWSServer *)pVhostDataInfo->pProtocol->user;
+                pInstance = (LibWSServer *) pVhostDataInfo->pProtocol->user;
                 if (pInstance)
                 {
                     std::lock_guard<std::mutex> lock(pInstance->m_mutex);
@@ -183,7 +167,7 @@ int LibWSServer::callback(
         {
             break;
         }
-        LibWSServer *pInstance = (LibWSServer *)pVhostDataInfo->pProtocol->user;
+        LibWSServer *pInstance = (LibWSServer *) pVhostDataInfo->pProtocol->user;
         if (pInstance)
         {
             std::lock_guard<std::mutex> lock(pInstance->m_mutex);
@@ -215,11 +199,11 @@ int LibWSServer::callback(
             pClientInfo->listMsgInfo.clear();
             pClientInfo->vectorRecvBuf.clear();
             pVhostDataInfo->clientInfos.insert(pClientInfo);
-            
+
             /* 获取用户自定义参数 */
             if (pVhostDataInfo->pProtocol)
             {
-                pInstance = (LibWSServer *)pVhostDataInfo->pProtocol->user;
+                pInstance = (LibWSServer *) pVhostDataInfo->pProtocol->user;
 
                 if (pVhostDataInfo->pProtocol->name)
                 {
@@ -233,15 +217,16 @@ int LibWSServer::callback(
 
             int client_fd = lws_get_socket_fd(pWsi);
 
-            int manageDscpValue = nManageDscp; 
+            int manageDscpValue = nManageDscp;
 
             // 设置 DSCP
-            if (client_fd >= 0) {
-                 int tos = manageDscpValue << 2;
-                 setsockopt(client_fd, IPPROTO_IP, IP_TOS, (char *)&tos, sizeof(tos));
-                 dlog_info("设置管理DSCP,网页socket[%d] DSCP to %d (TOS: %d)\n", client_fd, manageDscpValue, tos);
+            if (client_fd >= 0)
+            {
+                int tos = manageDscpValue << 2;
+                setsockopt(client_fd, IPPROTO_IP, IP_TOS, (char *) &tos, sizeof(tos));
+                dlog_info("设置管理DSCP,网页socket[%d] DSCP to %d (TOS: %d)\n", client_fd, manageDscpValue, tos);
             }
- 
+
             int nStatus = Net::STATUS_SUCCESS;
             Net::Message_S stMessage;
             stMessage.nActionCode = pInstance->m_stParam.stInitParam.nStatusCode;
@@ -249,7 +234,7 @@ int LibWSServer::callback(
             stMessage.nDataLength = sizeof(nStatus);
             stMessage.pHandle = pWsi;
             stMessage.ip.resize(100);
-            lws_get_peer_simple(pWsi, stMessage.ip.data(), stMessage.ip.size());
+            lws_get_peer_simple(pWsi, &stMessage.ip[0], stMessage.ip.size());
             /* 修正字符串实际长度 */
             stMessage.ip.resize(strlen(stMessage.ip.c_str()));
 
@@ -267,7 +252,7 @@ int LibWSServer::callback(
         {
             break;
         }
-        pInstance = (LibWSServer *)pVhostDataInfo->pProtocol->user;
+        pInstance = (LibWSServer *) pVhostDataInfo->pProtocol->user;
         if (pInstance)
         {
             std::lock_guard<std::mutex> lock(pInstance->m_mutex);
@@ -281,7 +266,7 @@ int LibWSServer::callback(
                 if (pClientInfo->pWsi == pWsi)
                 {
                     it = pVhostDataInfo->clientInfos.erase(it);
-                    dlog_info("客户端[%p]断开连接\n",pWsi);
+                    dlog_info("客户端[%p]断开连接\n", pWsi);
 
                     delete pClientInfo;
                     pClientInfo = nullptr;
@@ -295,7 +280,7 @@ int LibWSServer::callback(
             /* 获取用户自定义参数 */
             if (pVhostDataInfo->pProtocol)
             {
-                pInstance = (LibWSServer *)pVhostDataInfo->pProtocol->user;
+                pInstance = (LibWSServer *) pVhostDataInfo->pProtocol->user;
 
                 if (pVhostDataInfo->pProtocol->name)
                 {
@@ -313,7 +298,7 @@ int LibWSServer::callback(
             stMessage.nDataLength = sizeof(nStatus);
             stMessage.pHandle = pWsi;
             stMessage.ip.resize(100);
-            lws_get_peer_simple(pWsi, stMessage.ip.data(), stMessage.ip.size());
+            lws_get_peer_simple(pWsi, &stMessage.ip[0], stMessage.ip.size());
             /* 修正字符串实际长度 */
             stMessage.ip.resize(strlen(stMessage.ip.c_str()));
             if (pInstance->m_fnMessageCallback)
@@ -348,8 +333,8 @@ int LibWSServer::callback(
                     // dlog_info("[%p]发送数据[%p]：\n%s\n", pClientInfo->pWsi, stMsgInfo.pData.get(), pchSendData + LWS_PRE);
 
                     /* 注意，我们已经在有效负载中允许了LWS_PRE */
-                    int nWrite = lws_write(pWsi, ((unsigned char *)pchSendData) + LWS_PRE, stMsgInfo.nLen, LWS_WRITE_TEXT);
-                    if (nWrite < (int)stMsgInfo.nLen)
+                    int nWrite = lws_write(pWsi, ((unsigned char *) pchSendData) + LWS_PRE, stMsgInfo.nLen, LWS_WRITE_TEXT);
+                    if (nWrite < (int) stMsgInfo.nLen)
                     {
                         lwsl_err("向客户端[%p]发送数据-失败\n", pWsi);
                     }
@@ -394,30 +379,29 @@ int LibWSServer::callback(
                         /*确保字符串结束符*/
                         pClientInfo->vectorRecvBuf.push_back('\0');
                         LibWSServer *pInstance = nullptr;
-                        
+
                         if (pVhostDataInfo)
                         {
                             if (pVhostDataInfo->pProtocol)
                             {
-                                pInstance = (LibWSServer *)pVhostDataInfo->pProtocol->user;
+                                pInstance = (LibWSServer *) pVhostDataInfo->pProtocol->user;
                             }
                         }
-                        
+
                         if (pInstance)
                         {
-                        
+
                             Net::Message_S stMessage;
                             stMessage.pData = pClientInfo->vectorRecvBuf.data();
                             stMessage.nDataLength = pClientInfo->vectorRecvBuf.size();
                             stMessage.pHandle = pClientInfo->pWsi;
                             stMessage.ip.resize(100);
-                            lws_get_peer_simple(pWsi, stMessage.ip.data(), stMessage.ip.size());
+                            lws_get_peer_simple(pWsi, &stMessage.ip[0], stMessage.ip.size());
                             /* 修正字符串实际长度 */
                             stMessage.ip.resize(strlen(stMessage.ip.c_str()));
                             if (pInstance->m_fnMessageCallback)
                                 pInstance->m_fnMessageCallback(stMessage, pInstance->m_stParam.stUserParam);
                         }
-                        
 
                         /* 清空缓存，为下一次接收准备 */
                         pClientInfo->vectorRecvBuf.clear();
@@ -440,33 +424,33 @@ int LibWSServer::callback(
     return nRet;
 }
 
-static std::string extractJsonValue(const std::string& jsonStr, const std::string& key) {
+static std::string extractJsonValue(const std::string &jsonStr, const std::string &key)
+{
     std::string searchKey = "\"" + key + "\"";
     size_t keyPos = jsonStr.find(searchKey);
-    if (keyPos == std::string::npos) return ""; // 没找到 key
+    if (keyPos == std::string::npos)
+        return ""; // 没找到 key
 
     // 找到 key 后，向后寻找第一个冒号 ':'
     size_t colonPos = jsonStr.find(':', keyPos + searchKey.length());
-    if (colonPos == std::string::npos) return ""; // 没找到冒号
+    if (colonPos == std::string::npos)
+        return ""; // 没找到冒号
 
     // 从冒号向后寻找第一个双引号 '"' (这就是值的开始)
     size_t valueStart = jsonStr.find('"', colonPos + 1);
-    if (valueStart == std::string::npos) return ""; // 没找到值的起始引号
+    if (valueStart == std::string::npos)
+        return ""; // 没找到值的起始引号
 
     // 从值的起始引号向后寻找下一个双引号 '"' (这就是值的结束)
     size_t valueEnd = jsonStr.find('"', valueStart + 1);
-    if (valueEnd == std::string::npos) return ""; // 没找到值的结束引号
+    if (valueEnd == std::string::npos)
+        return ""; // 没找到值的结束引号
 
     // 截取并返回两个引号之间的内容
     return jsonStr.substr(valueStart + 1, valueEnd - valueStart - 1);
 }
 
-int LibWSServer::file_upload_callback(
-    struct lws *pWsi,
-    lws_callback_reasons enReason,
-    void *pUser,
-    void *pIn,
-    size_t nLen)
+int LibWSServer::file_upload_callback(struct lws *pWsi, lws_callback_reasons enReason, void *pUser, void *pIn, size_t nLen)
 {
     int nRet = 0;
     auto lwsProtocol = lws_get_protocol(pWsi);
@@ -475,21 +459,23 @@ int LibWSServer::file_upload_callback(
         dlog_error("lwsProtocol [%p].", lwsProtocol);
         return -1;
     }
-    LibWSServer *pWsServer= (LibWSServer *)lwsProtocol->user;
+    LibWSServer *pWsServer = (LibWSServer *) lwsProtocol->user;
     if (!pWsServer)
     {
         dlog_error("pWsServer [%p].", pWsServer);
         return -1;
     }
-    switch (enReason) {
+    switch (enReason)
+    {
     /* WebSocket连接成功建立后触发 */
-    case LWS_CALLBACK_ESTABLISHED: {
+    case LWS_CALLBACK_ESTABLISHED:
+    {
         // 文件上传连接建立
         dlog_info("File transfer connection established [%p].", pWsi);
-        /* 设置文件上传的路径 */
-        #if !CAP_AI_FACE_COMPARE
+/* 设置文件上传的路径 */
+#if !CAP_AI_FACE_COMPARE
         pWsServer->m_wsUpload.set_file_path(m_filePath);
-        #endif
+#endif
         pWsServer->m_wsUpload.parse_param(pWsi);
         break;
     }
@@ -500,13 +486,13 @@ int LibWSServer::file_upload_callback(
         {
             break;
         }
-        std::string progress =  pWsServer->m_wsUpload.get_progressStr(pWsi);
+        std::string progress = pWsServer->m_wsUpload.get_progressStr(pWsi);
         /* 不能直接传智能指针进去lws_write() */
         char *pchSendData = new char[progress.size() + LWS_PRE];
-        memset(pchSendData, 0, progress.size()+ LWS_PRE);
+        memset(pchSendData, 0, progress.size() + LWS_PRE);
         memcpy(pchSendData + LWS_PRE, progress.data(), progress.size());
-        int nWrite = lws_write(pWsi, ((unsigned char *)pchSendData) + LWS_PRE, progress.size(), LWS_WRITE_TEXT);
-        if (nWrite < (int)progress.size())
+        int nWrite = lws_write(pWsi, ((unsigned char *) pchSendData) + LWS_PRE, progress.size(), LWS_WRITE_TEXT);
+        if (nWrite < (int) progress.size())
         {
             lwsl_err("向客户端[%p]发送数据-失败\n", pWsi);
         }
@@ -515,7 +501,8 @@ int LibWSServer::file_upload_callback(
         break;
     }
     /* WebSocket连接接收到数据时触发 */
-    case LWS_CALLBACK_RECEIVE: {
+    case LWS_CALLBACK_RECEIVE:
+    {
         if (nullptr == pIn || nLen <= 0 || nullptr == pWsi)
         {
             break;
@@ -524,25 +511,28 @@ int LibWSServer::file_upload_callback(
         // 判断消息是否结束
         if (!lws_frame_is_binary(pWsi))
         {
-            std::string data(reinterpret_cast<const char*>(pIn), nLen);
+            std::string data(reinterpret_cast<const char *>(pIn), nLen);
             pWsServer->m_wsUpload.store_param(pWsi, data);
             if (lws_remaining_packet_payload(pWsi) != 0)
             {
                 break;
             }
             std::string param = pWsServer->m_wsUpload.get_param(pWsi);
-            #if CAP_AI_FACE_COMPARE
-            std::string fileType = extractJsonValue(param, "type");//将人脸图片存到sd卡
+#if CAP_AI_FACE_COMPARE
+            std::string fileType = extractJsonValue(param, "type"); // 将人脸图片存到sd卡
             dlog_info("解析到的文件类型 fileType: [%s]", fileType.c_str());
-        
-            if (fileType == "image") {
+
+            if (fileType == "image")
+            {
                 pWsServer->m_wsUpload.set_file_path(m_imagePath);
                 dlog_info("设置为图片上传路径: %s", m_imagePath.c_str());
-            } else {
+            }
+            else
+            {
                 pWsServer->m_wsUpload.set_file_path(m_filePath);
                 dlog_info("设置为通用上传路径: %s", m_filePath.c_str());
             }
-            #endif
+#endif
             pWsServer->m_wsUpload.del_param(pWsi);
             pWsServer->m_wsUpload.parse_param(pWsi, param.c_str(), param.length());
             Net::Message_S stMessage;
@@ -550,7 +540,7 @@ int LibWSServer::file_upload_callback(
             stMessage.nDataLength = param.length();
             stMessage.pHandle = pWsi;
             stMessage.ip.resize(100);
-            lws_get_peer_simple(pWsi, stMessage.ip.data(), stMessage.ip.size());
+            lws_get_peer_simple(pWsi, &stMessage.ip[0], stMessage.ip.size());
             /* 修正字符串实际长度 */
             stMessage.ip.resize(strlen(stMessage.ip.c_str()));
             if (pWsServer->m_fnMessageCallback)
@@ -559,7 +549,7 @@ int LibWSServer::file_upload_callback(
         }
         else
         {
-            int nRet = pWsServer->m_wsUpload.write_data(pWsi, reinterpret_cast<const char*>(pIn), nLen);
+            int nRet = pWsServer->m_wsUpload.write_data(pWsi, reinterpret_cast<const char *>(pIn), nLen);
             if (lws_remaining_packet_payload(pWsi) != 0)
             {
                 break;
@@ -573,7 +563,8 @@ int LibWSServer::file_upload_callback(
         }
         break;
     }
-    case LWS_CALLBACK_CLOSED: {
+    case LWS_CALLBACK_CLOSED:
+    {
         pWsServer->m_wsUpload.erase(pWsi);
         dlog_info("Connection closed\n");
         break;
@@ -584,7 +575,6 @@ int LibWSServer::file_upload_callback(
 
     return nRet;
 }
-
 
 void LibWSServer::disconnect()
 {
@@ -598,8 +588,8 @@ void LibWSServer::disconnect()
 
     if (m_pContext)
     {
-        //std::lock_guard<std::mutex> lock(m_mutex);
-        /* 断开所有客户端连接 */ 
+        // std::lock_guard<std::mutex> lock(m_mutex);
+        /* 断开所有客户端连接 */
         for (auto pVhostDataInfo : m_connections)
         {
             if (pVhostDataInfo)
@@ -609,7 +599,7 @@ void LibWSServer::disconnect()
                     if (pClientInfo)
                     {
                         lws_callback_on_writable(pClientInfo->pWsi);
-                        lws_close_reason(pClientInfo->pWsi, LWS_CLOSE_STATUS_NORMAL, (unsigned char *)"Normal closure", 13);
+                        lws_close_reason(pClientInfo->pWsi, LWS_CLOSE_STATUS_NORMAL, (unsigned char *) "Normal closure", 13);
                     }
                 }
                 pVhostDataInfo->clientInfos.clear();
@@ -619,8 +609,6 @@ void LibWSServer::disconnect()
         lws_context_destroy(m_pContext);
         m_pContext = nullptr;
     }
-
-
 }
 
 void LibWSServer::set_file_upload_path(const std::string &strFilePath)
@@ -633,10 +621,9 @@ std::string LibWSServer::get_upload_filename()
     return m_uploadfFileName;
 }
 
-
 int LibWSServer::setQosDscp(const int &nDscp)
 {
-    if (QOS_DSCP_MIN <= nDscp &&  QOS_DSCP_MAX >= nDscp)
+    if (QOS_DSCP_MIN <= nDscp && QOS_DSCP_MAX >= nDscp)
     {
         LibWSServer::nManageDscp = nDscp;
         return OK;

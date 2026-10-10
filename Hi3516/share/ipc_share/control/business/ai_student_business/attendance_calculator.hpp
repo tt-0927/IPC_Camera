@@ -4,7 +4,8 @@
  * @LastEditors: lianghy lianghy@kfb.cn
  * @LastEditTime: 2026-04-17 10:50:48
  * @FilePath: /1126/share/ipc_share/control/business/ai_student_business/attendance_calculator.hpp
- * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
+ * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置:
+ * https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
 /***
  * @FilePath     : attendance_calculator.hpp
@@ -24,9 +25,11 @@
 #include <string>
 #include <vector>
 
-namespace AiStudentBusiness_NS {
+namespace AiStudentBusiness_NS
+{
 
-class CAttendanceCalculator {
+class CAttendanceCalculator
+{
 public:
     using AttendanceCallback = std::function<void(const AttendanceSummary &)>;
 
@@ -77,7 +80,7 @@ private:
     int calcEarlyLeave() const;
 
 private:
-    mutable std::shared_mutex m_mutex;
+    mutable std::mutex m_mutex;
 
     /* 应到总人数，由外部通过 setTotal 注入 */
     int m_nTotal = 0;

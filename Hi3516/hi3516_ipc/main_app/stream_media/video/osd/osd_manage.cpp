@@ -9,6 +9,7 @@
 
 #include "osd_manage.h"
 
+#include <cmath>
 #include "time_manage.h"
 #include "network_manage.h"
 #include "path_define.h"
@@ -22,25 +23,102 @@
 
 namespace
 {
-bool normalize_cover_config(Osd::CoverConfig_S &stConfig)
+/**
+ * @brief   : 估算文本渲染宽度（用于OSD宽度自适应）
+ * @param    {const std::string&} text：文本内容
+ * @param    {int} fontSize：字体大小（基准64）
+ * @return   {int} 估算宽度（像素）
+ * @note    : 按字符类别经验值累加，仅用于 nW<0 时的自适应兜底
+ */
+int GetCalibratedTextWidth(const std::string &text, int fontSize)
 {
-    bool bChanged = false;
-    if (stConfig.vecCoverAttr.size() > RGN_COVER_MAX_NUM)
+    float ratio = fontSize / 64.0f;
+    float totalWidth = 15.0f;
+
+    size_t len = text.length();
+
+    for (size_t i = 0; i < len; ++i)
     {
-        stConfig.vecCoverAttr.resize(RGN_COVER_MAX_NUM);
-        bChanged = true;
+        unsigned char c = (unsigned char) text[i];
+        float charPx = 0.0f;
+
+        if (c == ' ')
+        {
+            charPx = 6.0f; // 空格
+        }
+        else if (c >= '0' && c <= '9')
+        {
+            // 数字：由数据推导，严格等于 11
+            charPx = 11.0f;
+        }
+        else if (c >= 'a' && c <= 'z')
+        {
+            // 小写字母
+            if (c == 'i' || c == 'l')
+            {
+                charPx = 6.0f; // 极窄
+            }
+            else if (c == 'j' || c == 't')
+            {
+                charPx = 8.0f;
+            }
+            else if (c == 'm')
+            {
+                charPx = 15.0f; // 宽 (m)
+            }
+            else if (c == 'w')
+            {
+                charPx = 14.0f; // 宽 (w)
+            }
+            else
+            {
+                charPx = 10.5f; // 普通 (a, b, d, e, r...)
+            }
+        }
+        else if (c >= 'A' && c <= 'Z')
+        {
+            // 大写字母
+            if (c == 'I')
+            {
+                charPx = 6.0f; // 极窄
+            }
+            else if (c == 'M' || c == 'W')
+            {
+                charPx = 15.0f; // 宽
+            }
+            else
+            {
+                charPx = 11.5f; // 普通 (P, C, B...)
+            }
+        }
+        else if (c > 127)
+        {
+            // 中文 (UTF-8)
+            // 假设中文比数字宽一倍左右
+            charPx = 22.0f;
+            if (i + 2 < len)
+            {
+                i += 2; // 跳过后续字节
+            }
+        }
+        else
+        {
+            // 标点符号
+            if (c == '.' || c == ',' || c == ':' || c == ';')
+            {
+                charPx = 6.0f;
+            }
+            else
+            {
+                charPx = 10.0f;
+            }
+        }
+
+        // 累加 (应用字号缩放)
+        totalWidth += charPx * ratio;
     }
 
-    while (stConfig.vecCoverAttr.size() < RGN_COVER_MAX_NUM)
-    {
-        Osd::CoverAttribute_S stAttr;
-        stAttr.clear();
-        stAttr.nId = static_cast<int>(stConfig.vecCoverAttr.size()) + 1;
-        stAttr.strName += std::to_string(stAttr.nId);
-        stConfig.vecCoverAttr.push_back(stAttr);
-        bChanged = true;
-    }
-    return bChanged;
+    return (int) std::ceil(totalWidth);
 }
 
 bool normalize_cover_info(std::vector<Osd::CoverInfo_S> &vecCoverInfo)
@@ -77,11 +155,7 @@ uint64_t get_steady_time_ms()
 #endif
 } // namespace
 
-COsdManage::COsdManage() : m_bInit(false),
-                           m_strOsdConfigFile(OSD_CONFIG_FILE),
-                           m_strCoverConfigFile(COVER_CONFIG_FILE),
-                           m_strOverplayFile(OSD_OVERPLAY_CONFIG_FILE),
-                           m_strCoverFile(OSD_COVER_CONFIG_FILE)
+COsdManage::COsdManage() : m_bInit(false), m_strOverplayFile(OSD_OVERPLAY_CONFIG_FILE), m_strCoverFile(OSD_COVER_CONFIG_FILE)
 {
 #if CAP_EXHIBITION_OSD_PANEL
     m_unPanelVersion = 0;
@@ -93,86 +167,26 @@ COsdManage::~COsdManage()
 {
 }
 
-int GetCalibratedTextWidth(const std::string& text, int fontSize) 
-{
-
-    float ratio = fontSize / 64.0f;
-    float totalWidth = 15.0f; 
-
-    size_t len = text.length();
-
-    for (size_t i = 0; i < len; ++i) {
-        unsigned char c = (unsigned char)text[i];
-        float charPx = 0.0f;
-
-        
-        if (c == ' ') {
-            charPx = 6.0f; // 空格
-        }
-        else if (c >= '0' && c <= '9') {
-            // 数字：由数据推导，严格等于 11
-            charPx = 11.0f; 
-        }
-        else if (c >= 'a' && c <= 'z') {
-            // 小写字母
-            if (c == 'i' || c == 'l') charPx = 6.0f;       // 极窄
-            else if (c == 'j' || c == 't') charPx = 8.0f;
-            else if (c == 'm') charPx = 15.0f;             // 宽 (m)
-            else if (c == 'w') charPx = 14.0f;             // 宽 (w)
-            else charPx = 10.5f;                           // 普通 (a, b, d, e, r...)
-        }
-        else if (c >= 'A' && c <= 'Z') {
-            // 大写字母
-            if (c == 'I') charPx = 6.0f;                   // 极窄
-            else if (c == 'M' || c == 'W') charPx = 15.0f; // 宽
-            else charPx = 11.5f;                           // 普通 (P, C, B...)
-        }
-        else if (c > 127) {
-            // 中文 (UTF-8)
-            // 假设中文比数字宽一倍左右
-            charPx = 22.0f; 
-            if (i + 2 < len) i += 2; // 跳过后续字节
-        }
-        else {
-            // 标点符号
-            if (c == '.' || c == ',' || c == ':' || c == ';') charPx = 6.0f;
-            else charPx = 10.0f;
-        }
-
-        // 累加 (应用字号缩放)
-        totalWidth += charPx * ratio;
-    }
-
-    return (int)std::ceil(totalWidth);
-}
 IpcRet_E COsdManage::init()
 {
-    if (Convert::read_file(m_strOsdConfigFile, m_stOsdConfig))
+    /* 注册配置应用接口后初始化共享层OSD/Cover配置（含区域数量按平台能力收敛） */
+    if (OK != COsdConfigure::instance()->setOsdConfigApplier(this))
     {
-        dlog_error("没有找到osd_config.json文件, 重新创建");
-        m_stOsdConfig.clear();
-        Convert::write_file(m_strOsdConfigFile, m_stOsdConfig);
+        dlog_error("注册OSD配置应用接口失败");
+        return ERR;
     }
-    
-    if (Convert::read_file(m_strCoverConfigFile, m_stCoverConfig))
+
+    if (OK != COsdConfigure::instance()->init())
     {
-        dlog_error("没有找到cover_config.json文件, 重新创建");
-        m_stCoverConfig.bEnable = false;
-        m_stCoverConfig.vecCoverAttr.clear();
-        normalize_cover_config(m_stCoverConfig);
-        Convert::write_file(m_strCoverConfigFile, m_stCoverConfig);
-    }
-    else if (normalize_cover_config(m_stCoverConfig))
-    {
-        /* 旧版本可能保存多个区域，启动时按本平台能力裁剪并持久化。 */
-        Convert::write_file(m_strCoverConfigFile, m_stCoverConfig);
+        dlog_error("初始化OSD配置失败");
+        return ERR;
     }
 
     if (Convert::read_file(m_strOverplayFile, m_vecOverplayInfo))
     {
         dlog_error("没有找到overplay.json文件, 重新创建");
         m_vecOverplayInfo.clear();
-        
+
         for (int i = 0; i < OT_RGN_VENC_MAX_OVERLAY_NUM; i++)
         {
             Osd::OverplayInfo_S stOverplayInfo;
@@ -187,7 +201,7 @@ IpcRet_E COsdManage::init()
                 stOverplayInfo.stuInfo.strName = "People";
                 stOverplayInfo.stuOverplay.bEnableFlicker = true;
                 stOverplayInfo.stuOverplay.enElementType = Osd::ElementType_E::ELEMENT_TYPE_PEOPLE;
-                stOverplayInfo.stuOverplay.nFontSize = 3;   /* 边框大小 */
+                stOverplayInfo.stuOverplay.nFontSize = 3;             /* 边框大小 */
                 stOverplayInfo.stuOverplay.strFontColor = "0x00ff00"; /* 绿色方框 */
             }
             else if (i == Osd::ElementType_E::ELEMENT_TYPE_TIME)
@@ -210,8 +224,7 @@ IpcRet_E COsdManage::init()
     {
         if (info.stuOverplay.enFontColor < Osd::OSD_COLOR_BLACK || info.stuOverplay.enFontColor > Osd::OSD_COLOR_AUTO_BLACK_WHITE)
         {
-            info.stuOverplay.enFontColor =
-                ("0xFFFFFF" == info.stuOverplay.strFontColor) ? Osd::OSD_COLOR_WHITE : Osd::OSD_COLOR_BLACK;
+            info.stuOverplay.enFontColor = ("0xFFFFFF" == info.stuOverplay.strFontColor) ? Osd::OSD_COLOR_WHITE : Osd::OSD_COLOR_BLACK;
         }
     }
 
@@ -264,6 +277,9 @@ IpcRet_E COsdManage::deinit()
 {
     m_bInit.store(false);
 
+    /* 清理共享层配置应用接口，避免悬挂引用 */
+    COsdConfigure::instance()->clearOsdConfigApplier(this);
+
     if (CCoverDraw::instance()->deinit())
     {
         return ERR;
@@ -284,119 +300,134 @@ IpcRet_E COsdManage::deinit()
 
 IpcRet_E COsdManage::get_osd_config(Osd::OsdConfig_S &stInfo)
 {
-    std::lock_guard<std::mutex> lock(m_mutex);
-    stInfo = m_stOsdConfig;
-
-    return OK;
+    return COsdConfigure::instance()->get_osd_config(stInfo);
 }
 
 IpcRet_E COsdManage::set_osd_config(Osd::OsdConfig_S stInfo)
 {
-    std::vector<Osd::OverplayInfo_S> vecInfo;
+    return COsdConfigure::instance()->set_osd_config(stInfo);
+}
+
+IpcRet_E COsdManage::get_overplay_info(std::vector<Osd::OverplayInfo_S> &vecInfo)
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
     vecInfo = m_vecOverplayInfo;
-    stInfo.stOsdNameInfo.strName.reserve(100);
-    for (size_t i = 0; i < vecInfo.size(); i++)
-    {
-        std::lock_guard<std::mutex> lock(m_mutex);
-        if(vecInfo[i].stuOverplay.enElementType == Osd::ElementType_E::ELEMENT_TYPE_PEOPLE)
-        {
-            // note AI 动态分析专用 网页设置，避免影响 AI
-            continue;
-        }
-
-        if (vecInfo.at(i).stuOverplay.enElementType == Osd::ElementType_E::ELEMENT_TYPE_CUSTOMIZE)
-        {
-            /* 字符叠加元素在Osd::OsdConfig_S stInfo中的索引 */
-            int nOsdInfoIndex = i - 2;
-            /* 四个字符叠加在 overplay 的[2,5] 元素种类 enElementType 为 ELEMENT_TYPE_CUSTOMIZE */
-            if (stInfo.vecOsdInfo.at(nOsdInfoIndex).strName.size() > OSD_NAME_LENGTH_LIMIT)
-            {
-                dlog_error("字符叠加 ID:[%d] 字符串名称:[%s] 参数错误",
-                           stInfo.vecOsdInfo[nOsdInfoIndex].nId,
-                           stInfo.vecOsdInfo[nOsdInfoIndex].strName.c_str());
-                return ERR_PARAM;
-            }
-
-            if(stInfo.vecOsdInfo.at(nOsdInfoIndex).stOsdAttr.nW < 0)
-            {
-                int width = GetCalibratedTextWidth(stInfo.vecOsdInfo.at(nOsdInfoIndex).strName,64);
-                dlog_debug("Custom osdInfo: str = %s,GetCalibratedTextWidth = %d",stInfo.vecOsdInfo.at(nOsdInfoIndex).strName.c_str(),width);
-                stInfo.vecOsdInfo.at(nOsdInfoIndex).stOsdAttr.nW  = width;
-            }
-
-            vecInfo.at(i).stuInfo.bEnable = stInfo.vecOsdInfo.at(nOsdInfoIndex).bEnable;
-            vecInfo.at(i).stuOverplay.strCustomize = stInfo.vecOsdInfo.at(nOsdInfoIndex).strName;
-            if (OK != set_osd_attr(stInfo.vecOsdInfo.at(nOsdInfoIndex).stOsdAttr, vecInfo.at(i).stuOverplay))
-            {
-                return ERR;
-            }
-        }
-        else if (vecInfo.at(i).stuOverplay.enElementType == Osd::ElementType_E::ELEMENT_TYPE_TIME)
-        {
-            /* 显示时间、日期 ID 7 */
-            vecInfo.at(i).stuInfo.bEnable = stInfo.stOsdTimeInfo.bEnable;
-            vecInfo.at(i).stuOverplay.bEnableWeek = stInfo.stOsdTimeInfo.bEnableWeek;
-            
-            switch (stInfo.stOsdTimeInfo.enTimeFormat)
-            {
-            case Osd::OSD_TIME_FORMAT_E::OSD_TIME_FORMAT_24:
-                vecInfo.at(i).stuOverplay.bEnablePeriod = false;
-                break;
-            case Osd::OSD_TIME_FORMAT_E::OSD_TIME_FORMAT_12:
-                vecInfo.at(i).stuOverplay.bEnablePeriod = true;
-                break;
-            default:
-                dlog_error("Osd时间制式设置错误");
-                return ERR;
-            }
-            if(stInfo.stOsdTimeInfo.stOsdAttr.nW < 0)
-            {
-                /* 小于0表示自动宽度，由运行时根据真实文本长度自适应 */
-                stInfo.stOsdTimeInfo.stOsdAttr.nW = -1;
-            }
-            if (OK != set_osd_attr(stInfo.stOsdTimeInfo.stOsdAttr, vecInfo.at(i).stuOverplay))
-            {
-                return ERR;
-            }
-        }
-        else if (vecInfo.at(i).stuOverplay.enElementType == Osd::ElementType_E::ELEMENT_TYPE_NAME)
-        {
-            /* 通道名称 ID 8 */
-            if(stInfo.stOsdNameInfo.strName.size() > OSD_NAME_LENGTH_LIMIT)
-            {
-                dlog_error("通道名称:[%s] 参数错误", stInfo.vecOsdInfo[i].strName.c_str());
-                return ERR_PARAM;
-            }
-            vecInfo.at(i).stuInfo.bEnable = stInfo.stOsdNameInfo.bEnable;
-            vecInfo.at(i).stuInfo.strName = stInfo.stOsdNameInfo.strName;
-            if(stInfo.stOsdNameInfo.stOsdAttr.nW < 0)
-            {
-                int width = GetCalibratedTextWidth(stInfo.stOsdNameInfo.strName,64);
-                dlog_debug("Name osdInfo: str = %s,GetCalibratedTextWidth = %d",stInfo.stOsdNameInfo.strName.c_str(),width);
-                stInfo.stOsdNameInfo.stOsdAttr.nW = width;
-            }
-            if (OK != set_osd_attr(stInfo.stOsdNameInfo.stOsdAttr, vecInfo.at(i).stuOverplay))
-            {
-                return ERR;
-            }
-        }
-    }
-    
-    if (Convert::write_file(m_strOsdConfigFile, stInfo))
-    {
-        dlog_error("写入osd_config.json文件失败");
-        return ERR;
-    }
-    m_stOsdConfig.clear();
-    m_stOsdConfig = stInfo;
-
-    set_overplay_info(vecInfo);
 
     return OK;
 }
 
-IpcRet_E COsdManage::set_osd_attr(Osd::OsdAttribute_S stOsdAttr, Osd::Overplay_S &stOverplay)
+IpcRet_E COsdManage::set_overplay_info(std::vector<Osd::OverplayInfo_S> vecInfo)
 {
+    std::lock_guard<std::mutex> lock(m_mutex);
+    if (Convert::write_file(m_strOverplayFile, vecInfo))
+    {
+        dlog_error("写入osd_overplay.json文件失败");
+        return ERR;
+    }
+    m_vecOverplayInfo.clear();
+    m_vecOverplayInfo = vecInfo;
+    COverplayDraw::instance()->set_update_flag(true);
+
+    return OK;
+}
+
+IpcRet_E COsdManage::apply_overplay_info(const std::vector<Osd::OverplayInfo_S> &vecInfo)
+{
+    return set_overplay_info(vecInfo);
+}
+
+IpcRet_E COsdManage::get_cover_config(Osd::CoverConfig_S &stInfo)
+{
+    return COsdConfigure::instance()->get_cover_config(stInfo);
+}
+
+std::size_t COsdManage::get_cover_max_area_count() const
+{
+    return RGN_COVER_MAX_NUM;
+}
+
+IpcRet_E COsdManage::set_cover_config(Osd::CoverConfig_S stInfo)
+{
+    return COsdConfigure::instance()->set_cover_config(stInfo);
+}
+
+IpcRet_E COsdManage::get_cover_info(std::vector<Osd::CoverInfo_S> &vecInfo)
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    vecInfo = m_vecCoverInfo;
+
+    return OK;
+}
+
+IpcRet_E COsdManage::set_cover_info(std::vector<Osd::CoverInfo_S> vecInfo, bool bIsWriteFile)
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    if (bIsWriteFile)
+    {
+        if (Convert::write_file(m_strCoverFile, vecInfo))
+        {
+            dlog_error("写入osd_cover.json文件失败");
+            return ERR;
+        }
+    }
+    m_vecCoverInfo.clear();
+    m_vecCoverInfo = vecInfo;
+    CCoverDraw::instance()->set_update_flag(true);
+
+    return OK;
+}
+
+IpcRet_E COsdManage::apply_cover_info(const std::vector<Osd::CoverInfo_S> &vecInfo)
+{
+    return set_cover_info(vecInfo);
+}
+
+// IpcRet_E COsdManage::set_ai_cover_info(std::vector<Osd::CoverInfo_S> vecInfo)
+// {
+//     OS_mutexLock(&m_stuMutex);
+//     m_vecCoverInfo.clear();
+//     m_vecCoverInfo = vecInfo;
+//     OS_mutexUnlock(&m_stuMutex);
+
+//     CCoverDraw::instance()->set_update_flag(true);
+
+//     return OK;
+// }
+
+IpcRet_E COsdManage::get_osd_share_info(Osd::ShareInfo_S &stuShareInfo)
+{
+    return COsdConfigure::instance()->get_osd_share_info(stuShareInfo);
+}
+
+IpcRet_E COsdManage::set_osd_share_info(System::DeviceConfig_S stDeviceConfig)
+{
+    return COsdConfigure::instance()->set_osd_share_info(stDeviceConfig);
+}
+
+IpcRet_E COsdManage::adapt_osd_attr(Osd::ElementType_E enType,
+                                    const std::string &strText,
+                                    Osd::OsdAttribute_S &stOsdAttr,
+                                    Osd::Overplay_S &stOverplay)
+{
+    /* nW<0 表示宽度自适应：字符叠加/通道名称按文本估算宽度，时间由运行时自适应 */
+    if (enType == Osd::ElementType_E::ELEMENT_TYPE_CUSTOMIZE || enType == Osd::ElementType_E::ELEMENT_TYPE_NAME)
+    {
+        if (stOsdAttr.nW < 0)
+        {
+            int width = GetCalibratedTextWidth(strText, 64);
+            dlog_debug("OsdType:%d str = %s,GetCalibratedTextWidth = %d", enType, strText.c_str(), width);
+            stOsdAttr.nW = width;
+        }
+    }
+    else if (enType == Osd::ElementType_E::ELEMENT_TYPE_TIME)
+    {
+        if (stOsdAttr.nW < 0)
+        {
+            /* 小于0表示自动宽度，由运行时根据真实文本长度自适应 */
+            stOsdAttr.nW = -1;
+        }
+    }
+
     stOverplay.nHorMargin = stOsdAttr.nX;
     stOverplay.nVerMargin = stOsdAttr.nY;
 
@@ -475,239 +506,39 @@ IpcRet_E COsdManage::set_osd_attr(Osd::OsdAttribute_S stOsdAttr, Osd::Overplay_S
     return OK;
 }
 
-IpcRet_E COsdManage::get_overplay_info(std::vector<Osd::OverplayInfo_S> &vecInfo)
+IpcRet_E COsdManage::cover_attr_to_info(const Osd::CoverAttribute_S &stAttr, Osd::CoverInfo_S &stInfo)
 {
-    std::lock_guard<std::mutex> lock(m_mutex);
-    vecInfo = m_vecOverplayInfo;
-
-    return OK;
-}
-
-IpcRet_E COsdManage::set_overplay_info(std::vector<Osd::OverplayInfo_S> &vecInfo)
-{
-    std::lock_guard<std::mutex> lock(m_mutex);
-    if (Convert::write_file(m_strOverplayFile, vecInfo))
+    switch (stAttr.enColor)
     {
-        dlog_error("写入osd_overplay.json文件失败");
-        return ERR;
-    }
-    m_vecOverplayInfo.clear();
-    m_vecOverplayInfo = vecInfo;
-    COverplayDraw::instance()->set_update_flag(true);
-
-    return OK;
-}
-
-IpcRet_E COsdManage::get_cover_config(Osd::CoverConfig_S &stInfo)
-{
-    std::lock_guard<std::mutex> lock(m_mutex);
-    stInfo = m_stCoverConfig;
-    normalize_cover_config(stInfo);
-    return OK;
-}
-
-std::size_t COsdManage::get_cover_max_area_count() const
-{
-    return RGN_COVER_MAX_NUM;
-}
-
-IpcRet_E COsdManage::set_cover_config(Osd::CoverConfig_S stInfo)
-{
-    if (stInfo.vecCoverAttr.size() > get_cover_max_area_count())
-    {
-        dlog_warn("隐私遮盖区域数超出平台能力, request:%zu, max:%zu",
-                  stInfo.vecCoverAttr.size(), get_cover_max_area_count());
-        return ERR_PARAM;
-    }
-
-    /* 禁用时允许省略区域数组，内部补齐为固定的单区域配置。 */
-    normalize_cover_config(stInfo);
-    
-    std::vector<Osd::CoverInfo_S> vecInfo;
-    vecInfo = m_vecCoverInfo;
-    for (size_t i = 0; vecInfo.size() > i; i++)
-    {
-        std::lock_guard<std::mutex> lock(m_mutex);
-        if (!stInfo.bEnable)
+    case Osd::OSD_COLOR_E::OSD_COLOR_BLACK:
+        stInfo.stuCover.strBackColor = "0x000000";
+        break;
+    case Osd::OSD_COLOR_E::OSD_COLOR_WHITE:
+        stInfo.stuCover.strBackColor = "0xFFFFFF";
+        break;
+    case Osd::OSD_COLOR_E::OSD_COLOR_CUSTOMIZE:
+        stInfo.stuCover.strBackColor = stAttr.strColor;
+        if (stInfo.stuCover.strBackColor.size() > 0 && stInfo.stuCover.strBackColor[0] == '#')
         {
-            vecInfo.at(i).stuInfo.bEnable = stInfo.bEnable;
+            stInfo.stuCover.strBackColor.replace(0, 1, "0x"); // 替换 '#' 为 '0x'
         }
-        else
-        {
-            vecInfo.at(i).stuInfo.bEnable = stInfo.vecCoverAttr.at(i).bEnable;
-        }
-
-        vecInfo.at(i).stuInfo.strName = stInfo.vecCoverAttr.at(i).strName;
-
-        switch (stInfo.vecCoverAttr.at(i).enColor)
-        {
-        case Osd::OSD_COLOR_E::OSD_COLOR_BLACK:
-            vecInfo.at(i).stuCover.strBackColor = "0x000000";
-            break;
-        case Osd::OSD_COLOR_E::OSD_COLOR_WHITE:
-            vecInfo.at(i).stuCover.strBackColor = "0xFFFFFF";
-            break;
-        case Osd::OSD_COLOR_E::OSD_COLOR_CUSTOMIZE:
-            vecInfo.at(i).stuCover.strBackColor = stInfo.vecCoverAttr.at(i).strColor;
-            if (vecInfo.at(i).stuCover.strBackColor.size() > 0 && vecInfo.at(i).stuCover.strBackColor[0] == '#')
-            {
-                vecInfo.at(i).stuCover.strBackColor.replace(0, 1, "0x"); // 替换 '#' 为 '0x'
-            }
-            break;
-        default:
-            dlog_error("Cover颜色设置错误");
-            return ERR;
-        }
-        
-        vecInfo.at(i).stuCover.stuCoordinate.at(Osd::POS_START).nX = stInfo.vecCoverAttr.at(i).nX;
-        vecInfo.at(i).stuCover.stuCoordinate.at(Osd::POS_START).nY = stInfo.vecCoverAttr.at(i).nY;
-        vecInfo.at(i).stuCover.stuCoordinate.at(Osd::POS_END).nX = stInfo.vecCoverAttr.at(i).nX + stInfo.vecCoverAttr.at(i).nWidth;
-        vecInfo.at(i).stuCover.stuCoordinate.at(Osd::POS_END).nY = stInfo.vecCoverAttr.at(i).nY + stInfo.vecCoverAttr.at(i).nHeight;
-    }
-    
-    if (Convert::write_file(m_strCoverConfigFile, stInfo))
-    {
-        dlog_error("写入cover_config.json文件失败");
-        return ERR;
-    }
-    m_stCoverConfig.clear();
-    m_stCoverConfig = stInfo;
-
-    set_cover_info(vecInfo);
-
-    return OK;
-}
-
-IpcRet_E COsdManage::get_cover_info(std::vector<Osd::CoverInfo_S> &vecInfo)
-{
-    std::lock_guard<std::mutex> lock(m_mutex);
-    vecInfo = m_vecCoverInfo;
-
-    return OK;
-}
-
-IpcRet_E COsdManage::set_cover_info(std::vector<Osd::CoverInfo_S> vecInfo, bool bIsWriteFile)
-{
-    std::lock_guard<std::mutex> lock(m_mutex);
-    if (bIsWriteFile)
-    {
-        if (Convert::write_file(m_strCoverFile, vecInfo))
-        {
-            dlog_error("写入osd_cover.json文件失败");
-            return ERR;
-        }
-    }
-    m_vecCoverInfo.clear();
-    m_vecCoverInfo = vecInfo;
-    CCoverDraw::instance()->set_update_flag(true);
-
-    return OK;
-}
-
-// IpcRet_E COsdManage::set_ai_cover_info(std::vector<Osd::CoverInfo_S> vecInfo)
-// {
-//     OS_mutexLock(&m_stuMutex);
-//     m_vecCoverInfo.clear();
-//     m_vecCoverInfo = vecInfo;
-//     OS_mutexUnlock(&m_stuMutex);
-
-//     CCoverDraw::instance()->set_update_flag(true);
-
-//     return OK;
-// }
-
-IpcRet_E COsdManage::get_osd_share_info(Osd::ShareInfo_S &stuShareInfo)
-{
-    std::lock_guard<std::mutex> lock(m_mutex);
-    System::DeviceConfig_S stDeviceConfig;
-    SystemManage::instance()->get_device_config(stDeviceConfig);
-    
-    m_stuShareInfo.stuTimeInfo.strZone = CTimeManage::instance()->get_current_zone(stDeviceConfig.enTimeZone);
-    
-    switch (m_stOsdConfig.stOsdTimeInfo.enDateFormat)
-    {
-    case Osd::OSD_DATE_FORMAT_E::ENGLISH_YYYY_MM_DD:
-        m_stuShareInfo.stuTimeInfo.strWeek = CTimeManage::instance()->get_current_week(System::Language_E::ENGLISH);
-        m_stuShareInfo.stuTimeInfo.strTime = CTimeManage::instance()->get_current_time(System::Language_E::ENGLISH, System::DateFormat_E::YYYY_MM_DD);
-        m_stuShareInfo.stuTimeInfo.strTime12 = CTimeManage::instance()->get_current_time12(System::Language_E::ENGLISH, System::DateFormat_E::YYYY_MM_DD);
         break;
-    case Osd::OSD_DATE_FORMAT_E::ENGLISH_MM_DD_YYYY:
-        m_stuShareInfo.stuTimeInfo.strWeek = CTimeManage::instance()->get_current_week(System::Language_E::ENGLISH);
-        m_stuShareInfo.stuTimeInfo.strTime = CTimeManage::instance()->get_current_time(System::Language_E::ENGLISH, System::DateFormat_E::MM_DD_YYYY);
-        m_stuShareInfo.stuTimeInfo.strTime12 = CTimeManage::instance()->get_current_time12(System::Language_E::ENGLISH, System::DateFormat_E::MM_DD_YYYY);
-        break;
-    case Osd::OSD_DATE_FORMAT_E::ENGLISH_DD_MM_YYYY:
-        m_stuShareInfo.stuTimeInfo.strWeek = CTimeManage::instance()->get_current_week(System::Language_E::ENGLISH);
-        m_stuShareInfo.stuTimeInfo.strTime = CTimeManage::instance()->get_current_time(System::Language_E::ENGLISH, System::DateFormat_E::DD_MM_YYYY);
-        m_stuShareInfo.stuTimeInfo.strTime12 = CTimeManage::instance()->get_current_time12(System::Language_E::ENGLISH, System::DateFormat_E::DD_MM_YYYY);
-        break;
-    case Osd::OSD_DATE_FORMAT_E::CHINESE_YYYYMMDD:
-        m_stuShareInfo.stuTimeInfo.strWeek = CTimeManage::instance()->get_current_week(System::Language_E::SIMP_CHINESE);
-        m_stuShareInfo.stuTimeInfo.strTime = CTimeManage::instance()->get_current_time(System::Language_E::SIMP_CHINESE, System::DateFormat_E::YYYYMMDD);
-        m_stuShareInfo.stuTimeInfo.strTime12 = CTimeManage::instance()->get_current_time12(System::Language_E::SIMP_CHINESE, System::DateFormat_E::YYYYMMDD);
-        break;
-    case Osd::OSD_DATE_FORMAT_E::CHINESE_MMDDYYYY:
-        m_stuShareInfo.stuTimeInfo.strWeek = CTimeManage::instance()->get_current_week(System::Language_E::SIMP_CHINESE);
-        m_stuShareInfo.stuTimeInfo.strTime = CTimeManage::instance()->get_current_time(System::Language_E::SIMP_CHINESE, System::DateFormat_E::MMDDYYYY);
-        m_stuShareInfo.stuTimeInfo.strTime12 = CTimeManage::instance()->get_current_time12(System::Language_E::SIMP_CHINESE, System::DateFormat_E::MMDDYYYY);
-        break;
-    case Osd::OSD_DATE_FORMAT_E::CHINESE_DDMMYYYY:
-        m_stuShareInfo.stuTimeInfo.strWeek = CTimeManage::instance()->get_current_week(System::Language_E::SIMP_CHINESE);
-        m_stuShareInfo.stuTimeInfo.strTime = CTimeManage::instance()->get_current_time(System::Language_E::SIMP_CHINESE, System::DateFormat_E::DDMMYYYY);
-        m_stuShareInfo.stuTimeInfo.strTime12 = CTimeManage::instance()->get_current_time12(System::Language_E::SIMP_CHINESE, System::DateFormat_E::DDMMYYYY);
-        break;
-    case Osd::OSD_DATE_FORMAT_E::ENGLISH_YYYYMMDD:
-        m_stuShareInfo.stuTimeInfo.strWeek = CTimeManage::instance()->get_current_week(System::Language_E::ENGLISH);
-        m_stuShareInfo.stuTimeInfo.strTime = CTimeManage::instance()->get_current_time(System::Language_E::ENGLISH, System::DateFormat_E::YYYYMMDD);
-        m_stuShareInfo.stuTimeInfo.strTime12 = CTimeManage::instance()->get_current_time12(System::Language_E::ENGLISH, System::DateFormat_E::YYYYMMDD);
-        break;
-    case Osd::OSD_DATE_FORMAT_E::ENGLISH_MMDDYYYY:
-        m_stuShareInfo.stuTimeInfo.strWeek = CTimeManage::instance()->get_current_week(System::Language_E::ENGLISH);
-        m_stuShareInfo.stuTimeInfo.strTime = CTimeManage::instance()->get_current_time(System::Language_E::ENGLISH, System::DateFormat_E::MMDDYYYY);
-        m_stuShareInfo.stuTimeInfo.strTime12 = CTimeManage::instance()->get_current_time12(System::Language_E::ENGLISH, System::DateFormat_E::MMDDYYYY);
-        break;
-    case Osd::OSD_DATE_FORMAT_E::ENGLISH_DDMMYYYY:
-        m_stuShareInfo.stuTimeInfo.strWeek = CTimeManage::instance()->get_current_week(System::Language_E::ENGLISH);
-        m_stuShareInfo.stuTimeInfo.strTime = CTimeManage::instance()->get_current_time(System::Language_E::ENGLISH, System::DateFormat_E::DDMMYYYY);
-        m_stuShareInfo.stuTimeInfo.strTime12 = CTimeManage::instance()->get_current_time12(System::Language_E::ENGLISH, System::DateFormat_E::DDMMYYYY);
-        break;
-    
     default:
-        break;
+        dlog_error("Cover颜色设置错误");
+        return ERR;
     }
 
-    stuShareInfo = m_stuShareInfo;
+    stInfo.stuCover.stuCoordinate.at(Osd::POS_START).nX = stAttr.nX;
+    stInfo.stuCover.stuCoordinate.at(Osd::POS_START).nY = stAttr.nY;
+    stInfo.stuCover.stuCoordinate.at(Osd::POS_END).nX = stAttr.nX + stAttr.nWidth;
+    stInfo.stuCover.stuCoordinate.at(Osd::POS_END).nY = stAttr.nY + stAttr.nHeight;
 
     return OK;
 }
 
-IpcRet_E COsdManage::set_osd_share_info(System::DeviceConfig_S stDeviceConfig)
+void COsdManage::refresh_overplay()
 {
-    std::lock_guard<std::mutex> lock(m_mutex);
-
-    Network::Info_S stNetInfo;
-    CNetworkManage::instance()->get_system_networkInfo(stNetInfo);
-    m_stuShareInfo.strIp = stNetInfo.stIp.ipv4Ip;
-
-    if (System::Language_E::SIMP_CHINESE == stDeviceConfig.enLanguage)
-    {
-        m_stuShareInfo.strPeople = CN_PEOPLE_TIPS;
-        m_stuShareInfo.strMac = CN_MAC_TIPS;
-        m_stuShareInfo.strPreset = CN_PRESET_TIPS;
-    }
-    else if (System::Language_E::ENGLISH == stDeviceConfig.enLanguage)
-    {
-        m_stuShareInfo.strPeople = EN_PEOPLE_TIPS;
-        m_stuShareInfo.strMac = EN_MAC_TIPS;
-        m_stuShareInfo.strPreset = EN_PRESET_TIPS;
-    }
-    m_stuShareInfo.stuTimeInfo.strZone = CTimeManage::instance()->get_current_zone(stDeviceConfig.enTimeZone);
-    m_stuShareInfo.stuTimeInfo.strWeek = CTimeManage::instance()->get_current_week(stDeviceConfig.enLanguage);
-    m_stuShareInfo.stuTimeInfo.strTime = CTimeManage::instance()->get_current_time(stDeviceConfig.enLanguage, stDeviceConfig.enDateFormat);
-    m_stuShareInfo.stuTimeInfo.strTime12 = CTimeManage::instance()->get_current_time12(stDeviceConfig.enLanguage, stDeviceConfig.enDateFormat);
     COverplayDraw::instance()->set_update_flag(true);
-
-    return OK;
 }
 
 IpcRet_E COsdManage::get_overplay_capture_info(std::vector<Osd::OverplayInfo_S> &vecInfo)
@@ -729,13 +560,14 @@ IpcRet_E COsdManage::set_overplay_capture_info(std::vector<Osd::OverplayInfo_S> 
 
 IpcRet_E COsdManage::send_detection_result(const int nWidth, const int nHeight, const std::vector<Common::RectInfo_S> &vstRectInfo)
 {
-    if(!m_bInit)
+    if (!m_bInit)
     {
         return ERR_UNINIT;
     }
 
     /* 更新 */
-    // COverplayDraw::instance()->update_ai_result(nWidth, nHeight, vstRectInfo, m_vecOverplayInfo[Osd::ElementType_E::ELEMENT_TYPE_PEOPLE]);
+    // COverplayDraw::instance()->update_ai_result(nWidth, nHeight, vstRectInfo,
+    // m_vecOverplayInfo[Osd::ElementType_E::ELEMENT_TYPE_PEOPLE]);
     CCornerRectDraw::instance()->update_ai_result(nWidth, nHeight, vstRectInfo);
     return OK;
 }
@@ -780,9 +612,7 @@ IpcRet_E COsdManage::send_panel_result(const OsdPanel::PanelFrame_S &stPanelFram
  * @param    {uint64_t &} unUpdateTimeMs：输出的更新时间戳
  * @return   {IpcRet_E} 0：成功 小于零：失败
  */
-IpcRet_E COsdManage::get_panel_result(OsdPanel::PanelFrame_S &stPanelFrame,
-                                      uint64_t &unVersion,
-                                      uint64_t &unUpdateTimeMs)
+IpcRet_E COsdManage::get_panel_result(OsdPanel::PanelFrame_S &stPanelFrame, uint64_t &unVersion, uint64_t &unUpdateTimeMs)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
     stPanelFrame = m_stPanelFrame;

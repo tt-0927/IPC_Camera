@@ -7,6 +7,7 @@
  * @Description  : GB28181的SDP媒体信息
  */
 #include "MediaSdp.h"
+#include <algorithm>
 #include "ExternSip.h"
 #include "MediaRtp.h"
 #include "dlog.h"
@@ -143,7 +144,7 @@ SdpInfo_S SDP::parseSdp(const std::string &sdp)
                     {
                         stSdp.enSessionType = Session_E::Download;
                     }
-                    if(strSessionName == "Talk")
+                    if (strSessionName == "Talk")
                     {
                         stSdp.enSessionType = Session_E::Talk;
                     }
@@ -156,16 +157,12 @@ SdpInfo_S SDP::parseSdp(const std::string &sdp)
                     if (!strStartTime.empty() && !strEndTime.empty())
                     {
 #if SIP_SDP_DEBUG
-                        dlog_debug("识别到字段t的开始时间[%s],结束时间[%s]",
-                                   strStartTime.c_str(),
-                                   strEndTime.c_str());
+                        dlog_debug("识别到字段t的开始时间[%s],结束时间[%s]", strStartTime.c_str(), strEndTime.c_str());
 #endif
                         SafeStr2Num(strStartTime, stSdp.nStartTime);
                         SafeStr2Num(strEndTime, stSdp.nEndTime);
 #if SIP_SDP_DEBUG
-                        dlog_debug("字段t转换后的开始时间[%lld],结束时间[%lld]",
-                                   stSdp.nStartTime,
-                                   stSdp.nEndTime);
+                        dlog_debug("字段t转换后的开始时间[%lld],结束时间[%lld]", stSdp.nStartTime, stSdp.nEndTime);
 #endif
                     }
                 }
@@ -175,10 +172,10 @@ SdpInfo_S SDP::parseSdp(const std::string &sdp)
                 if (pVideo && pVideoConnection)
                 {
                     /* 读取payload的优先级顺序 */
-                    auto pVideoPayload = (const osip_list_t *)(&pVideo->m_payloads);
+                    auto pVideoPayload = (const osip_list_t *) (&pVideo->m_payloads);
                     for (int i = 0; i < osip_list_size(pVideoPayload); i++)
                     {
-                        auto pPayload = (char *)osip_list_get(pVideoPayload, i);
+                        auto pPayload = (char *) osip_list_get(pVideoPayload, i);
                         if (pPayload)
                         {
 #if SIP_SDP_DEBUG
@@ -198,17 +195,16 @@ SdpInfo_S SDP::parseSdp(const std::string &sdp)
                     stSdp.stVideoConn.bHaveConnection = true;
                     stSdp.stVideoConn.strIP = pVideoConnection->c_addr;
                     stSdp.stVideoConn.bIsIPV6 = std::string(pVideoConnection->c_addrtype).find("6") != std::string::npos;
-                    stSdp.mediaType = AV_VIDEO;  //add by longll
-                    auto pVidoeAttr = (const osip_list_t *)(&pVideo->a_attributes);
+                    stSdp.mediaType = AV_VIDEO; // add by longll
+                    auto pVidoeAttr = (const osip_list_t *) (&pVideo->a_attributes);
                     /* 解析rtpmap,格式:[a=rtpmap:96 PS/90000] */
                     for (int i = 0; i < osip_list_size(pVidoeAttr); i++)
                     {
-                        auto pAttr = (sdp_attribute *)osip_list_get(pVidoeAttr, i);
+                        auto pAttr = (sdp_attribute *) osip_list_get(pVidoeAttr, i);
                         if (pAttr)
                         {
 #if SIP_SDP_DEBUG
-                            dlog_debug("识别到a字段[%s][%s]",
-                                       pAttr->a_att_field, pAttr->a_att_value);
+                            dlog_debug("识别到a字段[%s][%s]", pAttr->a_att_field, pAttr->a_att_value);
 #endif
                             if (std::string(pAttr->a_att_field).find("rtpmap") != std::string::npos)
                             {
@@ -260,10 +256,10 @@ SdpInfo_S SDP::parseSdp(const std::string &sdp)
                 if (pAudio && pAudioConnection)
                 {
                     /* 读取payload的优先级顺序 */
-                    auto pAudioPayload = (const osip_list_t *)(&pAudio->m_payloads);
+                    auto pAudioPayload = (const osip_list_t *) (&pAudio->m_payloads);
                     for (int i = 0; i < osip_list_size(pAudioPayload); i++)
                     {
-                        auto pPayload = (char *)osip_list_get(pAudioPayload, i);
+                        auto pPayload = (char *) osip_list_get(pAudioPayload, i);
                         if (pPayload)
                         {
 #if SIP_SDP_DEBUG
@@ -282,19 +278,18 @@ SdpInfo_S SDP::parseSdp(const std::string &sdp)
                     stSdp.stAudioConn.bIsTcp = std::string(pAudio->m_proto).find("TCP") != std::string::npos;
                     stSdp.stAudioConn.bHaveConnection = true;
                     stSdp.stAudioConn.strIP = sdp_message_o_addr_get(pSdpMsg);
-                    stSdp.stAudioConn.nPort = atoi(sdp_message_m_port_get(pSdpMsg, 0)); 
+                    stSdp.stAudioConn.nPort = atoi(sdp_message_m_port_get(pSdpMsg, 0));
                     stSdp.stAudioConn.bIsIPV6 = std::string(pAudioConnection->c_addrtype).find("6") != std::string::npos;
-                    stSdp.mediaType = AV_AUDIO;  //add by longll
-                    auto pAudioAttr = (const osip_list_t *)(&pAudio->a_attributes);
+                    stSdp.mediaType = AV_AUDIO; // add by longll
+                    auto pAudioAttr = (const osip_list_t *) (&pAudio->a_attributes);
                     /* 解析rtpmap,格式:[a=rtpmap:96 PS/90000] */
                     for (int i = 0; i < osip_list_size(pAudioAttr); i++)
                     {
-                        auto pAttr = (sdp_attribute *)osip_list_get(pAudioAttr, i);
+                        auto pAttr = (sdp_attribute *) osip_list_get(pAudioAttr, i);
                         if (pAttr)
                         {
 #if SIP_SDP_DEBUG
-                            dlog_debug("识别到a字段[%s][%s]",
-                                       pAttr->a_att_field, pAttr->a_att_value);
+                            dlog_debug("识别到a字段[%s][%s]", pAttr->a_att_field, pAttr->a_att_value);
 #endif
                             if (std::string(pAttr->a_att_field).find("rtpmap") != std::string::npos)
                             {
@@ -353,9 +348,7 @@ SdpInfo_S SDP::parseSdp(const std::string &sdp)
     return stSdp;
 }
 
-std::string SIP::SDP::negotiateSdp(
-    const SdpInfo_S &remoteSdp,
-    SdpNegotiate_S &negInfo)
+std::string SIP::SDP::negotiateSdp(const SdpInfo_S &remoteSdp, SdpNegotiate_S &negInfo)
 {
 
     /* 记录PS的Rtpmap */
@@ -398,8 +391,8 @@ std::string SIP::SDP::negotiateSdp(
     }
     else if (Session_E::Talk == remoteSdp.enSessionType)
     {
-         /* 语音对讲--兼容GB28181-2016版 */
-         ss << "s=Talk\r\n";
+        /* 语音对讲--兼容GB28181-2016版 */
+        ss << "s=Talk\r\n";
     }
     else if (Session_E::Playback == remoteSdp.enSessionType)
     {
@@ -443,7 +436,8 @@ std::string SIP::SDP::negotiateSdp(
     ss << "a=connection:new\r\n"; /* 开启新连接，不复用旧连接 */
     if (nPsPayload)
     {
-        ss << "a=rtpmap:" << nPsPayload << " " << remoteSdp.mapVideo.at(nPsPayload).strCodecName << "/" << remoteSdp.mapVideo.at(nPsPayload).nClockRate << "\r\n";
+        ss << "a=rtpmap:" << nPsPayload << " " << remoteSdp.mapVideo.at(nPsPayload).strCodecName << "/"
+           << remoteSdp.mapVideo.at(nPsPayload).nClockRate << "\r\n";
     }
     ss << "y=" << remoteSdp.strSSRC << "\r\n";
     { /* 固定格式：f=v/编码格式/分辨率/帧率/码率类型/码率大小a/编码格式/码率大小/采样率 */
@@ -490,7 +484,7 @@ std::string SIP::SDP::negotiateSdp(
                 {
                     ss << negInfo.stVideo.nBitRate;
                 }
-                //ss << "/";
+                // ss << "/";
             }
         }
 
@@ -524,10 +518,8 @@ std::string SIP::SDP::negotiateSdp(
     return ss.str();
 }
 
-//add by longll
-std::string negotiateSdpaudio(
-    const SdpInfo_S &remoteSdp,
-    SdpNegotiate_S &negInfo)
+// add by longll
+std::string negotiateSdpaudio(const SdpInfo_S &remoteSdp, SdpNegotiate_S &negInfo)
 {
 
     /* 记录PS的Rtpmap */
@@ -581,8 +573,8 @@ std::string negotiateSdpaudio(
     }
     else if (Session_E::Talk == remoteSdp.enSessionType)
     {
-         /* 语音对讲--兼容GB28181-2016版 */
-         ss << "s=Talk\r\n";
+        /* 语音对讲--兼容GB28181-2016版 */
+        ss << "s=Talk\r\n";
     }
     else if (Session_E::Playback == remoteSdp.enSessionType)
     {
@@ -598,8 +590,8 @@ std::string negotiateSdpaudio(
     /* 历史回放的会话类型会用到此字段，实时点播默认给0即可 */
     ss << "t=" << negInfo.nStartTime << " " << negInfo.nEndTime << "\r\n";
     /* NOTE RTP/AVP为默认UDP协议，TCP/RTP/AVP为TCP协议，只采用PS封装格式 */
-    
-    if(remoteSdp.mediaType == AV_VIDEO)
+
+    if (remoteSdp.mediaType == AV_VIDEO)
     { /* 拼接视频字段 */
         ss << "m=video ";
         ss << negInfo.nPort << " "; /* 保留这个空格 */
@@ -613,7 +605,7 @@ std::string negotiateSdpaudio(
         /* 更新协商后的SDP */
         negInfo.stVideo.nPayload = nPsPayload;
     }
-    else if(remoteSdp.mediaType == AV_AUDIO)
+    else if (remoteSdp.mediaType == AV_AUDIO)
     {
         ss << "m=audio ";
         ss << negInfo.nPort << " "; /* 保留这个空格 */
@@ -642,16 +634,18 @@ std::string negotiateSdpaudio(
     ss << "a=connection:new\r\n"; /* 开启新连接，不复用旧连接 */
     if (nPsPayload)
     {
-        //ss << "a=rtpmap:" << nPsPayload << " " << remoteSdp.mapVideo.at(nPsPayload).strCodecName << "/" << remoteSdp.mapVideo.at(nPsPayload).nClockRate << "\r\n";
-        if(remoteSdp.mediaType == AV_VIDEO)
+        // ss << "a=rtpmap:" << nPsPayload << " " << remoteSdp.mapVideo.at(nPsPayload).strCodecName << "/" <<
+        // remoteSdp.mapVideo.at(nPsPayload).nClockRate << "\r\n";
+        if (remoteSdp.mediaType == AV_VIDEO)
         {
-            ss << "a=rtpmap:" << nPsPayload << " " << remoteSdp.mapVideo.at(nPsPayload).strCodecName << "/" << remoteSdp.mapVideo.at(nPsPayload).nClockRate << "\r\n";
+            ss << "a=rtpmap:" << nPsPayload << " " << remoteSdp.mapVideo.at(nPsPayload).strCodecName << "/"
+               << remoteSdp.mapVideo.at(nPsPayload).nClockRate << "\r\n";
         }
-        else if(remoteSdp.mediaType == AV_AUDIO)
+        else if (remoteSdp.mediaType == AV_AUDIO)
         {
-            ss << "a=rtpmap:" << nPsPayload << " " << remoteSdp.mapAudio.at(nPsPayload).strCodecName << "/" << remoteSdp.mapAudio.at(nPsPayload).nClockRate << "\r\n";
+            ss << "a=rtpmap:" << nPsPayload << " " << remoteSdp.mapAudio.at(nPsPayload).strCodecName << "/"
+               << remoteSdp.mapAudio.at(nPsPayload).nClockRate << "\r\n";
         }
-       
     }
     ss << "y=" << remoteSdp.strSSRC << "\r\n";
     { /* 固定格式：f=v/编码格式/分辨率/帧率/码率类型/码率大小a/编码格式/码率大小/采样率 */
@@ -698,7 +692,7 @@ std::string negotiateSdpaudio(
                 {
                     ss << negInfo.stVideo.nBitRate;
                 }
-                //ss << "/";
+                // ss << "/";
             }
         }
 
@@ -742,8 +736,7 @@ VideoType_E ToSdpVideoType(const std::string &strInput)
     int nVideoType = 0;
     if (SafeStr2Num(strInput, nVideoType))
     {
-        if (nVideoType >= VideoType_E::VT_MPEG4 &&
-            nVideoType <= VideoType_E::VT_H265)
+        if (nVideoType >= VideoType_E::VT_MPEG4 && nVideoType <= VideoType_E::VT_H265)
         {
             enRet = static_cast<VideoType_E>(nVideoType);
         }
@@ -766,8 +759,7 @@ VideoResolution_E ToSdpVideoResolution(const std::string &strInput)
     int nVideoResolution = 0;
     if (SafeStr2Num(strInput, nVideoResolution))
     {
-        if (nVideoResolution >= VideoResolution_E::VR_QCIF &&
-            nVideoResolution <= VideoResolution_E::VR_1080PI)
+        if (nVideoResolution >= VideoResolution_E::VR_QCIF && nVideoResolution <= VideoResolution_E::VR_1080PI)
         {
             enRet = static_cast<VideoResolution_E>(nVideoResolution);
         }
@@ -810,8 +802,7 @@ AudioType_E ToSdpAudioType(const std::string &strInput)
     int nAudioType = 0;
     if (SafeStr2Num(strInput, nAudioType))
     {
-        if (nAudioType >= AudioType_E::AT_G711 &&
-            nAudioType <= AudioType_E::AT_AAC)
+        if (nAudioType >= AudioType_E::AT_G711 && nAudioType <= AudioType_E::AT_AAC)
         {
             enRet = static_cast<AudioType_E>(nAudioType);
         }
@@ -829,8 +820,7 @@ AudioBit_E ToSdpAudioBit(const std::string &strInput)
     int nAudioBit = 0;
     if (SafeStr2Num(strInput, nAudioBit))
     {
-        if (nAudioBit >= AudioBit_E::AB_5_3 &&
-            nAudioBit <= AudioBit_E::AB_48_61)
+        if (nAudioBit >= AudioBit_E::AB_5_3 && nAudioBit <= AudioBit_E::AB_48_61)
         {
             enRet = static_cast<AudioBit_E>(nAudioBit);
         }
@@ -848,8 +838,7 @@ AudioSampleRate_E ToSdpAudioSampleRate(const std::string &strInput)
     int nAudioSampleRate = 0;
     if (SafeStr2Num(strInput, nAudioSampleRate))
     {
-        if (nAudioSampleRate >= AudioSampleRate_E::AS_8 &&
-            nAudioSampleRate <= AudioSampleRate_E::AS_38_4)
+        if (nAudioSampleRate >= AudioSampleRate_E::AS_8 && nAudioSampleRate <= AudioSampleRate_E::AS_38_4)
         {
             enRet = static_cast<AudioSampleRate_E>(nAudioSampleRate);
         }

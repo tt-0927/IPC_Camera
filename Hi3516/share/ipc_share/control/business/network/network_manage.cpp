@@ -10,7 +10,6 @@
 #include "network_manage.h"
 #include <string>
 #include <iostream>
-#include <filesystem>
 #include <fstream>
 #include <sstream>
 #include <algorithm>
@@ -1813,7 +1812,8 @@ int CNetworkManage::check_carrier_link(const std::string &strInterfaceName)
 	}
 
 	struct ifreq ifr;
-	struct ethtool_value eval = {.cmd = ETHTOOL_GLINK};
+	struct ethtool_value eval = {};
+	eval.cmd = ETHTOOL_GLINK;
 	strncpy(ifr.ifr_name, strInterfaceName.c_str(), IFNAMSIZ);
 	ifr.ifr_data = (char *)&eval;
 

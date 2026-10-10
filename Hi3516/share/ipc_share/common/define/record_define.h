@@ -3,7 +3,7 @@
  * @Author       : zhangjc (zhangjc@kfb.cn)
  * @Date         : 2024-10-29
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-01-07 14:36:44
+ * @LastEditTime : 2026-09-23 15:16:08
  * @Description  : 录制配置信息
  */
 
@@ -114,8 +114,8 @@ namespace Record_NS
 		/* 是否为I帧 */
 		bool bIFrame = 0;
 		/* 媒体数据智能指针 */
-		std::shared_ptr<char[]> pData = nullptr;
-	} MediaData_S;
+        std::shared_ptr<char> pData = nullptr;
+    } MediaData_S;
 
 	typedef struct _FileInfo_S_
 	{
@@ -178,15 +178,21 @@ namespace Record_NS
         int nChnId = -1;                     /* 通道号 */
         int nCount = 0;                      /* ts文件总数 */
         long long nTotalSize = 0;            /* ts文件总大小 */
-    }RecordDirInfo_S;
+    } RecordDirInfo_S;
 
-	typedef struct _VideoTime_S_
+    typedef struct _VideoTime_S_
 	{
 		int nStartTime = 0;
 		int nEndTime = 24 * 60 * 60;
-	} VideoTime_S;
 
-	typedef struct _Find_S_
+    /* C++11 基线下带默认成员初始化器的结构体不是聚合，提供构造函数支持花括号初始化 */
+        _VideoTime_S_() = default;
+        _VideoTime_S_(int nStart, int nEnd) : nStartTime(nStart), nEndTime(nEnd)
+        {
+        }
+    } VideoTime_S;
+
+    typedef struct _Find_S_
 	{
 		/* 录制通道 */
 		int nChnId = -1;
@@ -262,7 +268,7 @@ namespace Record_NS
 		Sunday
 	} DayOfWeek_E;
 
-	/* 预录时间枚举 */
+    /* 预录时间枚举 */
 	typedef enum
 	{
 		RECORD_PRE_TIME_0_SEC   = 0,
@@ -274,8 +280,8 @@ namespace Record_NS
 		RECORD_PRE_TIME_30_SEC  = 30,
 		RECORD_PRE_TIME_UNLIMITED = 999
 	} RecordPreTime_E;
-	
-	/* 录像延时枚举 */
+
+    /* 录像延时枚举 */
 	typedef enum
 	{
 		RECORD_DELAY_TIME_5_SEC  = 5,
@@ -313,12 +319,12 @@ namespace Record_NS
 	/**
 	 * @brief 录制计划
 	 */
-	typedef struct _Schedule_S_
-	{
-		/* 是否开启录制 */
-		bool bEnable;
-		/* 录制计划, 周一到周天, 7天*/
-		std::vector<DaySchedule_S> daySchedules;
+    typedef struct _Schedule_S_
+    {
+        /* 是否开启录制 */
+        bool bEnable;
+        /* 录制计划, 周一到周天, 7天*/
+        std::vector<DaySchedule_S> daySchedules;
 
         /* 默认构造函数 */
         _Schedule_S_() : bEnable(true)
@@ -327,17 +333,17 @@ namespace Record_NS
         }
 
         void init_weekSchedule()
-		{
-			daySchedules.resize(7);
-			for (int i = 0; i < 7; i++)
-			{
-				daySchedules[i].enDayOfWeek = static_cast<DayOfWeek_E>(i + 1);
-				daySchedules[i].recordTimes.resize(1);
-				daySchedules[i].recordTimes[0].nType = 1;
-				daySchedules[i].recordTimes[0].nStartTime = 0;
-				daySchedules[i].recordTimes[0].nEndTime = 24 * 60 * 60;
-			}
-		}
+        {
+            daySchedules.resize(7);
+            for (int i = 0; i < 7; i++)
+            {
+                daySchedules[i].enDayOfWeek = static_cast<DayOfWeek_E>(i + 1);
+                daySchedules[i].recordTimes.resize(1);
+                daySchedules[i].recordTimes[0].nType = 1;
+                daySchedules[i].recordTimes[0].nStartTime = 0;
+                daySchedules[i].recordTimes[0].nEndTime = 24 * 60 * 60;
+            }
+        }
 
         /* 静态方法：返回一个带有默认规则的对象 */
         static _Schedule_S_ CreateWithDefaultRule()
@@ -346,10 +352,9 @@ namespace Record_NS
             obj.init_weekSchedule();
             return obj;
         }
-
     } Schedule_S;
 
-	/**
+    /**
 	 * @brief 高级录制参数
 	 */
 	typedef struct AdvancedParam
@@ -392,22 +397,22 @@ namespace Record_NS
 	 */
 	typedef struct OtherInfo
 	{
-		bool bLoopWrite = true; /* 录像循环录制 */
-		bool bSaveSmartInfo = true; /* 智能信息，存下来后回放要显示 */
-		bool bSaveAlarmInfo = true; /* 报警信息 */
-		bool bSavePic = true; /* 是否保存图片，抓拍除外 */
-	} OtherInfo_S;
+        bool bLoopWrite = true;     /* 录像循环录制 */
+        bool bSaveSmartInfo = true; /* 智能信息，存下来后回放要显示 */
+        bool bSaveAlarmInfo = true; /* 报警信息 */
+        bool bSavePic = true;       /* 是否保存图片，抓拍除外 */
+    } OtherInfo_S;
 
-	/**
-	 * @brief 录制状态
-	 */
-	typedef struct RecordStatusInfo
-	{
-		// int nChnId = -1;
-		Record_NS::Status_E enStatus;
-	} RecordStatusInfo_S;
-	
-	/**
+    /**
+     * @brief 录制状态
+     */
+    typedef struct RecordStatusInfo
+    {
+        // int nChnId = -1;
+        Record_NS::Status_E enStatus;
+    } RecordStatusInfo_S;
+
+    /**
 	 * @brief 录像下载
 	 */
 	typedef struct DownloadInfo

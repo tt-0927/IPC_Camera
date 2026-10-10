@@ -8,6 +8,7 @@
  */
 
 #include "face_capture_processor.hpp"
+#include "posix_fs.h"
 
 #include <algorithm>
 #include <ctime>
@@ -93,9 +94,7 @@ Event::Info_S build_face_capture_event_info(int nChnId, long long llTimestamp)
     return stEventInfo;
 }
 
-EventTriggerContext_S build_face_capture_event_context(int nChnId,
-                                                       long long llTimestamp,
-                                                       const std::string &strCaptureImagePath)
+EventTriggerContext_S build_face_capture_event_context(int nChnId, long long llTimestamp, const std::string &strCaptureImagePath)
 {
     EventTriggerContext_S stContext;
     stContext.enEventType = Event::Type_E::FACE_CAPTURE;
@@ -195,12 +194,10 @@ void CFaceCaptureProcessor::process(SFaceProcessContext &stContext, std::vector<
                 {
                     return lhs.fConfidence < rhs.fConfidence;
                 }
-                const long long llLeftArea =
-                    static_cast<long long>(std::max(0, lhs.stRect.nX2 - lhs.stRect.nX1)) *
-                    static_cast<long long>(std::max(0, lhs.stRect.nY2 - lhs.stRect.nY1));
-                const long long llRightArea =
-                    static_cast<long long>(std::max(0, rhs.stRect.nX2 - rhs.stRect.nX1)) *
-                    static_cast<long long>(std::max(0, rhs.stRect.nY2 - rhs.stRect.nY1));
+                const long long llLeftArea = static_cast<long long>(std::max(0, lhs.stRect.nX2 - lhs.stRect.nX1)) *
+                                             static_cast<long long>(std::max(0, lhs.stRect.nY2 - lhs.stRect.nY1));
+                const long long llRightArea = static_cast<long long>(std::max(0, rhs.stRect.nX2 - rhs.stRect.nX1)) *
+                                              static_cast<long long>(std::max(0, rhs.stRect.nY2 - rhs.stRect.nY1));
                 return llLeftArea < llRightArea;
             });
         const FaceCaptureTarget_S stBestTarget = *stBestIt;
@@ -212,11 +209,7 @@ void CFaceCaptureProcessor::process(SFaceProcessContext &stContext, std::vector<
     {
         vecBestRectInfo.emplace_back(vecFaceCaptureTargets.front().stRect);
     }
-    handleLinkage(bFaceCaptureAlarm,
-                  vecFaceCaptureTargets,
-                  vecBestRectInfo,
-                  stContext,
-                  vecImageFile);
+    handleLinkage(bFaceCaptureAlarm, vecFaceCaptureTargets, vecBestRectInfo, stContext, vecImageFile);
 }
 
 bool CFaceCaptureProcessor::collectTargets(std::vector<Inference_NS::BoxData_S> &vPointDatas,
@@ -286,10 +279,10 @@ bool CFaceCaptureProcessor::collectTargets(std::vector<Inference_NS::BoxData_S> 
             continue;
         }
 
-     if (pointData.fConfidence < fSensitivityThreshold)
+        if (pointData.fConfidence < fSensitivityThreshold)
         {
             continue;
-        }   
+        }
 
         /* 当前目标双眼瞳距，vPoints[0] 与 vPoints[1] 分别对应两只眼睛关键点 */
         // const int nIpd = pointData.vPoints[1].nX - pointData.vPoints[0].nX;
@@ -297,21 +290,21 @@ bool CFaceCaptureProcessor::collectTargets(std::vector<Inference_NS::BoxData_S> 
         // {
         //     continue;
         // }
-      /* 算法未返回眼部关键点，以人脸框宽度的 70% 估算瞳距 */
-      const int nFaceWidth = std::max(0, pointData.stBoxs.nX2 - pointData.stBoxs.nX1);
-      const int nEstimatedIpd = nFaceWidth * ESTIMATED_IPD_RATIO_PERCENT / 100;
-      if (nEstimatedIpd < nMinIpd)
-      {
-          continue;
-      }
+        /* 算法未返回眼部关键点，以人脸框宽度的 70% 估算瞳距 */
+        const int nFaceWidth = std::max(0, pointData.stBoxs.nX2 - pointData.stBoxs.nX1);
+        const int nEstimatedIpd = nFaceWidth * ESTIMATED_IPD_RATIO_PERCENT / 100;
+        if (nEstimatedIpd < nMinIpd)
+        {
+            continue;
+        }
 
         bIsAlarm = true;
         dlog_debug("[人脸抓拍] 灵敏度[%.3f] > 阈值[%.3f] 瞳距 [%d] > [%d]",
-                  pointData.fConfidence,
-                  fSensitivityThreshold,
-                //   nIpd,
-                nEstimatedIpd,
-                  nMinIpd);
+                   pointData.fConfidence,
+                   fSensitivityThreshold,
+                   //   nIpd,
+                   nEstimatedIpd,
+                   nMinIpd);
         // dlog_info("[人脸抓拍][原图框] X1=%d Y1=%d X2=%d Y2=%d W=%d H=%d Confidence=%.3f",
         //           pointData.stBoxs.nX1,
         //           pointData.stBoxs.nY1,
@@ -371,17 +364,16 @@ int CFaceCaptureProcessor::saveFaceImage(std::vector<Common::RectInfo_S> vstRect
         rect.nY1 = ALIGN_BACK(rect.nY1, 4);
         // rect.nX2 = ALIGN_BACK(rect.nX2, 16);
         // rect.nY2 = ALIGN_BACK(rect.nY2, 4);
-         /* 右下角向外对齐，避免 1.5 倍扩框在 VGS 对齐时被重新缩小。 */
-         rect.nX2 = std::min(ALIGN_UP(rect.nX2, 16), static_cast<int>(pSrcFrameInfo->video_frame.width));
-         rect.nY2 = std::min(ALIGN_UP(rect.nY2, 4), static_cast<int>(pSrcFrameInfo->video_frame.height));
+        /* 右下角向外对齐，避免 1.5 倍扩框在 VGS 对齐时被重新缩小。 */
+        rect.nX2 = std::min(ALIGN_UP(rect.nX2, 16), static_cast<int>(pSrcFrameInfo->video_frame.width));
+        rect.nY2 = std::min(ALIGN_UP(rect.nY2, 4), static_cast<int>(pSrcFrameInfo->video_frame.height));
 
         /* 裁剪后目标小图宽高 */
         const unsigned int unDstWidth = rect.nX2 - rect.nX1;
         const unsigned int unDstHeight = rect.nY2 - rect.nY1;
         /* 当前目标小图裁剪帧 */
         ot_video_frame_info stDstFrameInfo;
-        if (TD_SUCCESS !=
-            mppVgs_create_video_frame_info(unDstWidth, unDstHeight, OT_PIXEL_FORMAT_YVU_SEMIPLANAR_420, &stDstFrameInfo))
+        if (TD_SUCCESS != mppVgs_create_video_frame_info(unDstWidth, unDstHeight, OT_PIXEL_FORMAT_YVU_SEMIPLANAR_420, &stDstFrameInfo))
         {
             continue;
         }
@@ -410,11 +402,9 @@ int CFaceCaptureProcessor::saveFaceImage(std::vector<Common::RectInfo_S> vstRect
 
         /* 当前抓图日期和时间由同一时间戳生成，保证文件名、数据库、MQTT和HTTP表单能互相对应 */
         const FaceCaptureTimeParts_S stTimeParts = build_face_capture_time_parts(llTimestamp);
-        std::string strFilename = strStoragePath + "/" + stTimeParts.strDateCompact + "_" +
-                                  stTimeParts.strTimeCompactMs + "_" +
+        std::string strFilename = strStoragePath + "/" + stTimeParts.strDateCompact + "_" + stTimeParts.strTimeCompactMs + "_" +
                                   std::to_string(static_cast<int>(Event::Type_E::FACE_CAPTURE)) + "_" +
-                                  std::to_string(int(Alarm::LinkageType::UPLOAD_TARGET_IMAGE)) + "_" + std::to_string(i + 1) +
-                                  ".jpg";
+                                  std::to_string(int(Alarm::LinkageType::UPLOAD_TARGET_IMAGE)) + "_" + std::to_string(i + 1) + ".jpg";
 
         if (AiAppCommon::encode_video_frame_to_jpeg_file(&stDstFrameInfo, strFilename) != OK)
         {
@@ -506,8 +496,7 @@ void CFaceCaptureProcessor::handleLinkage(bool bAlarm,
      * 目标图、平台上传及无全景图时的邮件附件共用同一文件。
      * 两项功能同时开启时复用缓存；任一功能单独开启时缓存为空并自行生成。
      */
-    const bool bNeedTargetImage = stOptions.bTargetImage ||
-                                  (stOptions.bUploadSdCard && strUploadImagePath.empty()) ||
+    const bool bNeedTargetImage = stOptions.bTargetImage || (stOptions.bUploadSdCard && strUploadImagePath.empty()) ||
                                   (stOptions.bEmail && strUploadImagePath.empty());
     if (bNeedTargetImage)
     {
@@ -543,10 +532,8 @@ void CFaceCaptureProcessor::handleLinkage(bool bAlarm,
             }
             return buildSdkPanoramaImage(pFrame, vecJpeg);
         },
-        [this, &stContext](const Common::RectInfo_S &stRectInfo,
-                           ot_video_frame_info *pFrame,
-                           size_t nIndex,
-                           std::vector<unsigned char> &vecJpeg)
+        [this,
+         &stContext](const Common::RectInfo_S &stRectInfo, ot_video_frame_info *pFrame, size_t nIndex, std::vector<unsigned char> &vecJpeg)
         {
             if (!stContext.stImageCache.strTargetImagePath.empty())
             {
@@ -559,10 +546,9 @@ void CFaceCaptureProcessor::handleLinkage(bool bAlarm,
     {
         /* 邮件只携带一张图片，优先全景图，否则复用目标图。 */
         vecImageFile.clear();
-        const std::string &strEmailImagePath =
-            !stContext.stImageCache.strPanoramaImagePath.empty()
-                ? stContext.stImageCache.strPanoramaImagePath
-                : stContext.stImageCache.strTargetImagePath;
+        const std::string &strEmailImagePath = !stContext.stImageCache.strPanoramaImagePath.empty()
+                                                   ? stContext.stImageCache.strPanoramaImagePath
+                                                   : stContext.stImageCache.strTargetImagePath;
         if (!strEmailImagePath.empty())
         {
             vecImageFile.emplace_back(strEmailImagePath);
@@ -652,11 +638,7 @@ int CFaceCaptureProcessor::encodeFaceTargetImageToFile(const Common::RectInfo_S 
 
     if (stFaceRect.nX2 <= stFaceRect.nX1 || stFaceRect.nY2 <= stFaceRect.nY1)
     {
-        dlog_warn("人脸抓拍 SDK 图片编码跳过，目标框无效 [%d,%d,%d,%d]",
-                  stFaceRect.nX1,
-                  stFaceRect.nY1,
-                  stFaceRect.nX2,
-                  stFaceRect.nY2);
+        dlog_warn("人脸抓拍 SDK 图片编码跳过，目标框无效 [%d,%d,%d,%d]", stFaceRect.nX1, stFaceRect.nY1, stFaceRect.nX2, stFaceRect.nY2);
         return ERR;
     }
 
@@ -665,8 +647,7 @@ int CFaceCaptureProcessor::encodeFaceTargetImageToFile(const Common::RectInfo_S 
     const unsigned int unDstHeight = stFaceRect.nY2 - stFaceRect.nY1;
     /* 裁剪后的视频帧，编码完成后必须销毁 */
     ot_video_frame_info stDstFrameInfo;
-    if (TD_SUCCESS !=
-        mppVgs_create_video_frame_info(unDstWidth, unDstHeight, OT_PIXEL_FORMAT_YVU_SEMIPLANAR_420, &stDstFrameInfo))
+    if (TD_SUCCESS != mppVgs_create_video_frame_info(unDstWidth, unDstHeight, OT_PIXEL_FORMAT_YVU_SEMIPLANAR_420, &stDstFrameInfo))
     {
         return ERR;
     }
@@ -715,8 +696,7 @@ bool CFaceCaptureProcessor::loadJpegFile(const std::string &strFilename, std::ve
 
 std::string CFaceCaptureProcessor::buildTempFilePath(const std::string &strImageType, size_t nIndex) const
 {
-    return "/tmp/face_capture_sdk_" + strImageType + "_" + TimeUtils_NS::get_currentTimeMs() + "_" + std::to_string(nIndex) +
-           ".jpg";
+    return "/tmp/face_capture_sdk_" + strImageType + "_" + TimeUtils_NS::get_currentTimeMs() + "_" + std::to_string(nIndex) + ".jpg";
 }
 
 int CFaceCaptureProcessor::saveToDatabase(const std::string &strFilename,
@@ -724,15 +704,11 @@ int CFaceCaptureProcessor::saveToDatabase(const std::string &strFilename,
                                           const std::string &strCurrentTime,
                                           int nChnId)
 {
-    /* 使用不抛异常的filesystem接口，拔卡或文件消失时只结束本次保存。 */
-    std::error_code stFileError;
-    const auto nImageSize = std::filesystem::file_size(strFilename, stFileError);
-    if (stFileError || nImageSize == 0)
+    /* 拔卡或文件消失时 file_size 返回 -1，只结束本次保存。 */
+    const int64_t llImageSize = PosixFs_NS::file_size(strFilename);
+    if (llImageSize <= 0)
     {
-        dlog_error("人脸图片无效: %s, size=%llu, error=%s",
-                   strFilename.c_str(),
-                   static_cast<unsigned long long>(nImageSize),
-                   stFileError ? stFileError.message().c_str() : "empty file");
+        dlog_error("人脸图片无效: %s, size=%lld", strFilename.c_str(), static_cast<long long>(llImageSize));
         return ERR;
     }
 
@@ -753,7 +729,7 @@ int CFaceCaptureProcessor::saveToDatabase(const std::string &strFilename,
     Capture_NS::CaptureInfo_S stInfo;
     stInfo.nChnId = nChnId < 0 ? 0 : nChnId;
     stInfo.strImagePath = strFilename;
-    stInfo.nImageSize = nImageSize;
+    stInfo.nImageSize = static_cast<int>(llImageSize);
     stInfo.strStartTime = strCurrentDate + " " + strCurrentTime;
     stInfo.strEndTime = stInfo.strStartTime;
     // stInfo.enType = Event::Type_E::FACE_CAPTURE;

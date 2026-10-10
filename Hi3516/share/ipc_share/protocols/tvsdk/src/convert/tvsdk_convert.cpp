@@ -4,6 +4,7 @@
  * @FileName     : tvsdk_convert.cpp
  * @Author       : ITC
  * @Date         : 2026-09-08
+ * @Change       : 2026-10-08 兼容合并后的人脸识别配置，保留旧协议未暴露的功能开关。
  * @Change       : 2026-09-08 越界保留全部规则参数，使用事件总开关并同步联动配置
  * @Change       : 2026-09-08 补齐人员聚集联动配置的设置和获取转换
  * @Change       : 2026-09-08 补齐入侵、徘徊、停车、物品遗留和拿取、进入和离开区域的联动转换
@@ -194,10 +195,19 @@ static void FillLinkageList(const Alarm::LinkageList_S &src, NET_LinkageList_S &
     }
 
     /*
-     * 新版 NET_LinkageList_S 只承载报警输出、录像和抓拍通道。
-     * 历史 SDK 把常规联动类型复用到抓拍通道字段，既不符合新版语义，也会把类型值误当成通道号，
-     * 因此这里不再写入该类数据。
+     * 常规联动（邮件/上传中心/上传SD卡/声音/闪光报警灯）由 NET_TraditionLinkage_S 承载，
+     * 这里把 IPC 的 tradition 类型列表折算为各项开关。
      */
+    const std::vector<int> &vecTradition = src.tradition;
+    const auto bHasTradition = [&vecTradition](Alarm::LinkageType_E enType) {
+        return std::find(vecTradition.begin(), vecTradition.end(),
+                         static_cast<int>(enType)) != vecTradition.end();
+    };
+    dst.stTradition.bSendEmail      = bHasTradition(Alarm::LinkageType_E::SEND_EMAIL) ? TRUE : FALSE;
+    dst.stTradition.bUploadToCenter = bHasTradition(Alarm::LinkageType_E::UPLOAD_TOCENTER) ? TRUE : FALSE;
+    dst.stTradition.bUploadSdCard   = bHasTradition(Alarm::LinkageType_E::UPLOAD_SD_CARD) ? TRUE : FALSE;
+    dst.stTradition.bSound          = bHasTradition(Alarm::LinkageType_E::SOUND) ? TRUE : FALSE;
+    dst.stTradition.bFlashingLight  = bHasTradition(Alarm::LinkageType_E::FLASHING_LIGHT_ALARM) ? TRUE : FALSE;
 }
 
 void ToLinkageList(const NET_LinkageList_S &src, Alarm::LinkageList_S &dst)
@@ -218,7 +228,12 @@ void ToLinkageList(const NET_LinkageList_S &src, Alarm::LinkageList_S &dst)
         dst.recordChn.push_back((int)src.auRecordChannel[i]);
     }
 
-    /* 新版协议没有常规联动类型字段，不能从抓拍通道反推声音、邮件等动作。 */
+    /* 常规联动：把各项开关还原为 tradition 类型列表。 */
+    if (src.stTradition.bSendEmail)      dst.tradition.push_back((int)Alarm::LinkageType_E::SEND_EMAIL);
+    if (src.stTradition.bUploadToCenter) dst.tradition.push_back((int)Alarm::LinkageType_E::UPLOAD_TOCENTER);
+    if (src.stTradition.bUploadSdCard)   dst.tradition.push_back((int)Alarm::LinkageType_E::UPLOAD_SD_CARD);
+    if (src.stTradition.bSound)          dst.tradition.push_back((int)Alarm::LinkageType_E::SOUND);
+    if (src.stTradition.bFlashingLight)  dst.tradition.push_back((int)Alarm::LinkageType_E::FLASHING_LIGHT_ALARM);
 }
 
 /*
@@ -662,6 +677,66 @@ void FillDeviceBasicInfo(const ::System::DeviceInfo_S &src, NET_DeviceBasicInfo_
     strncpy(dst.strFirmwareVersion, src.systemVersion.c_str(), sizeof(dst.strFirmwareVersion) - 1);
     strncpy(dst.strDeviceName, src.deviceName.c_str(), sizeof(dst.strDeviceName) - 1);
     strncpy(dst.strManufacturer, src.strUnitTpye.c_str(), sizeof(dst.strManufacturer) - 1);
+}
+
+/**
+ * @brief 将 IPC 注册快照完整映射到 SDK，保留未注册和已过期状态。
+ * @param [in] stSource IPC 注册信息。
+ * @param [out] stDestination SDK 注册信息。
+ * @return 无。
+ */
+void FillRegisterInfo(const Register::RegisterInfo_S &stSource, NET_RegisterInfo_S &stDestination)
+{
+    std::memset(&stDestination, 0, sizeof(stDestination));
+    copy_alarm_string(stSource.strMachinSn, stDestination.strMachinSn, sizeof(stDestination.strMachinSn));
+    copy_alarm_string(stSource.strRegisterEg, stDestination.strRegisterEg, sizeof(stDestination.strRegisterEg));
+    copy_alarm_string(stSource.strStartTime, stDestination.strStartTime, sizeof(stDestination.strStartTime));
+    stDestination.nUsableTimer = stSource.lnLifeTimer;
+    /* 两端正常有效期枚举一致；IPC 的已过期数值负二按原值返回，不冒充未注册。 */
+    stDestination.enActionTime = static_cast<NET_ActivationTime_E>(stSource.enActionTime);
+}
+
+/**
+ * @brief 有界提取注册码，由注册业务负责真实性及有效期校验。
+ * @param [in] stSource SDK 注册信息，只有注册码为可写字段。
+ * @param [out] stDestination IPC 注册码配置。
+ * @return 有效的非空字符串返回 true，空字符串或未终止字符串返回 false。
+ */
+bool ToRegisterConfig(const NET_RegisterInfo_S &stSource, Register::ConfigRegisterEg_S &stDestination)
+{
+    stDestination = {};
+    const char *pEnd = static_cast<const char *>(std::memchr(stSource.strRegisterEg, '\0',
+                                                          sizeof(stSource.strRegisterEg)));
+    if ((pEnd == nullptr) || (pEnd == stSource.strRegisterEg))
+    {
+        return false;
+    }
+    stDestination.strRegisterEg.assign(stSource.strRegisterEg,
+                                      static_cast<std::size_t>(pEnd - stSource.strRegisterEg));
+    return true;
+}
+
+/**
+ * @brief 将存储快照转为 SDK 数据，统一容量格式并清零预留字段。
+ * @param [in] stSource 当前 SD 卡存储快照。
+ * @param [out] stDestination SDK 设备存储信息。
+ * @return 无。
+ */
+void FillDeviceStorageInfo(const DeviceStorageSnapshot_S &stSource,
+                          NET_DeviceStorageInfo_S &stDestination)
+{
+    static constexpr double TVSDK_STORAGE_BYTES_PER_GB = 1024.0 * 1024.0 * 1024.0;
+    std::memset(&stDestination, 0, sizeof(stDestination));
+    stDestination.nHardDiskCount = stSource.nDiskCount;
+    stDestination.nHardDiskStatus = stSource.nDiskStatus;
+    std::snprintf(stDestination.strDiskTotal, sizeof(stDestination.strDiskTotal), "%.2fGB",
+                  static_cast<double>(stSource.uTotalBytes) / TVSDK_STORAGE_BYTES_PER_GB);
+    std::snprintf(stDestination.strDiskAvailable, sizeof(stDestination.strDiskAvailable), "%.2fGB",
+                  static_cast<double>(stSource.uAvailableBytes) / TVSDK_STORAGE_BYTES_PER_GB);
+    std::snprintf(stDestination.strDiskUsedSpace, sizeof(stDestination.strDiskUsedSpace), "%.2fGB",
+                  static_cast<double>(stSource.uUsedBytes) / TVSDK_STORAGE_BYTES_PER_GB);
+    std::snprintf(stDestination.strDiskFileType, sizeof(stDestination.strDiskFileType), "%.*s",
+                  static_cast<int>(sizeof(stDestination.strDiskFileType) - 1), stSource.strFileType);
 }
 
 void ToDeviceInfo(const NET_DeviceBasicInfo_S &src, ::System::DeviceInfo_S &dst)
@@ -1427,9 +1502,9 @@ void FillMotionAlarmInfo(const Alarm::MotionDetection_S &src, NET_MotionAlarmInf
     // 普通模式区域：筒型(Rect) 或 网格(abyGridArea)
     if (dst.stNormalMode.nRegionType == 0)
     {
-        if (std::holds_alternative<Common::Rect_S>(src.stMotionNormalMode.varRegion))
+        if (mpark::holds_alternative<Common::Rect_S>(src.stMotionNormalMode.varRegion))
         {
-            const Common::Rect_S &r = std::get<Common::Rect_S>(src.stMotionNormalMode.varRegion);
+            const Common::Rect_S &r = mpark::get<Common::Rect_S>(src.stMotionNormalMode.varRegion);
             dst.stNormalMode.nRectLeft = r.nX;
             dst.stNormalMode.nRectTop = r.nY;
             dst.stNormalMode.nRectRight = r.nX + r.nWidth;
@@ -1441,9 +1516,9 @@ void FillMotionAlarmInfo(const Alarm::MotionDetection_S &src, NET_MotionAlarmInf
         // 默认全 0，只有网格中标记为 1 的宏块才置 1
         std::memset(dst.stNormalMode.abyGridArea, 0, sizeof(dst.stNormalMode.abyGridArea));
 
-        if (std::holds_alternative<Alarm::MotionNormalMode_S::AreaGrid>(src.stMotionNormalMode.varRegion))
+        if (mpark::holds_alternative<Alarm::MotionNormalMode_S::AreaGrid>(src.stMotionNormalMode.varRegion))
         {
-            const auto &grid = std::get<Alarm::MotionNormalMode_S::AreaGrid>(src.stMotionNormalMode.varRegion);
+            const auto &grid = mpark::get<Alarm::MotionNormalMode_S::AreaGrid>(src.stMotionNormalMode.varRegion);
             int h = (int)std::min<size_t>(grid.size(), 18);
             int w = 0;
             if (h > 0)
@@ -1488,7 +1563,7 @@ void FillMotionAlarmInfo(const Alarm::MotionDetection_S &src, NET_MotionAlarmInf
         }
     }
     dst.stExpertMode.uRegionCount = 0;
-    for (size_t i = 0; i < src.stMotionExpertMode.vstMotionRegion.size() && i < MOTION_EXPERT_AREA_MAX; ++i)
+    for (size_t i = 0; i < src.stMotionExpertMode.vstMotionRegion.size() && i < 16; ++i)
     {
         const auto &reg = src.stMotionExpertMode.vstMotionRegion[i];
         auto &out = dst.stExpertMode.astRegion[i];
@@ -1504,7 +1579,6 @@ void FillMotionAlarmInfo(const Alarm::MotionDetection_S &src, NET_MotionAlarmInf
         dst.stExpertMode.uRegionCount++;
     }
 
-    /* 联动：只映射两侧语义明确的报警输出与录像通道，抓拍通道在 IPC 侧无对应数组。 */
     FillLinkageList(src.stLinkageList, dst.stLinkageList);
 }
 
@@ -1603,6 +1677,12 @@ void ToMotionDetection(const NET_MotionAlarmInfo_S &src, Alarm::MotionDetection_
 }
 
 /* ---------- 安全服务与日志（465-472） ---------- */
+/**
+ * 功能：将 IPC 安全服务配置转换为 SDK 配置，SSH 开始时间按空格分隔格式输出。
+ * param [in] src：IPC 安全服务配置，兼容已有的带 T 或空格的开始时间。
+ * param [out] dst：SDK 安全服务配置，空时间保持为空。
+ * return：无。
+ */
 void FillSecurityServicesInfo(const ::System::SecurityServices_S &src,
                               NET_SecurityServicesInfo_S &dst)
 {
@@ -1617,10 +1697,23 @@ void FillSecurityServicesInfo(const ::System::SecurityServices_S &src,
     dst.stSshAdmin.nSshPort = src.stSshAdmin.nSshPort;
     copy_alarm_string(src.stSshAdmin.strSshStartTime, dst.stSshAdmin.szSshStartTime,
                       sizeof(dst.stSshAdmin.szSshStartTime));
+    /* 仅修改展示分隔符，避免改变系统时间接口及内部 SSH 计时语义。 */
+    static constexpr size_t SECURITY_SSH_DATE_TIME_SEPARATOR_INDEX = 10;
+    if (src.stSshAdmin.strSshStartTime.size() > SECURITY_SSH_DATE_TIME_SEPARATOR_INDEX &&
+        dst.stSshAdmin.szSshStartTime[SECURITY_SSH_DATE_TIME_SEPARATOR_INDEX] == 'T')
+    {
+        dst.stSshAdmin.szSshStartTime[SECURITY_SSH_DATE_TIME_SEPARATOR_INDEX] = ' ';
+    }
     copy_alarm_string(src.stSshAdmin.strSshCountdown, dst.stSshAdmin.szSshCountdown,
                       sizeof(dst.stSshAdmin.szSshCountdown));
 }
 
+/**
+ * 功能：将 SDK 安全服务可写参数转换为 IPC 配置，忽略客户端提供的 SSH 只读状态。
+ * param [in] src：SDK 安全服务配置，启动时间和倒计时不参与设置。
+ * param [in,out] dst：由调用方预先读取的 IPC 当前配置，保留其中的 SSH 启动时间和倒计时。
+ * return：无。
+ */
 void ToSecurityServicesInfo(const NET_SecurityServicesInfo_S &src,
                             ::System::SecurityServices_S &dst)
 {
@@ -1632,10 +1725,7 @@ void ToSecurityServicesInfo(const NET_SecurityServicesInfo_S &src,
     dst.stPwdPolicy.bAllowLowLevelPwdLogin = (src.stPwdPolicy.bAllowLowLevelPwdLogin == TRUE);
     dst.stSshAdmin.bSshEnable = (src.stSshAdmin.bSshEnable == TRUE);
     dst.stSshAdmin.nSshPort = src.stSshAdmin.nSshPort;
-    dst.stSshAdmin.strSshStartTime = read_alarm_string(src.stSshAdmin.szSshStartTime,
-                                                        sizeof(src.stSshAdmin.szSshStartTime));
-    dst.stSshAdmin.strSshCountdown = read_alarm_string(src.stSshAdmin.szSshCountdown,
-                                                        sizeof(src.stSshAdmin.szSshCountdown));
+    /* SSH 运行状态由 IPC 业务维护，不能用客户端输入或默认值覆盖当前状态。 */
 }
 
 void FillSshCountdownInfo(const ::System::SshCountdown_S &src,
@@ -1978,6 +2068,8 @@ void FillTamperAlarmInfo(const Alarm::HideAlarm_S &src, NET_TamperAlarmInfo_S &d
             }
         }
     }
+
+    FillLinkageList(src.stLinkageList, dst.stLinkageList);
 }
 
 void ToHideAlarm(const NET_TamperAlarmInfo_S &src, Alarm::HideAlarm_S &dst)
@@ -2004,6 +2096,8 @@ void ToHideAlarm(const NET_TamperAlarmInfo_S &src, Alarm::HideAlarm_S &dst)
             ToSchedTime(src.stAlarmSchedule.astTimeSection[day][seg], dst.aAlarmTime[day][seg]);
         }
     }
+
+    ToLinkageList(src.stLinkageList, dst.stLinkageList);
 }
 
 // --------- CrossLine (IPC BoundaryDetection_S <-> SDK NET_CrossLineAlarmInfo_S) ---------
@@ -2342,6 +2436,8 @@ void FillSceneChangeAlarmInfo(const Alarm::SceneChange_S &src, NET_SceneChangeAl
             }
         }
     }
+
+    FillLinkageList(src.stLinkageList, dst.stLinkageList);
 }
 
 void ToSceneChange(const NET_SceneChangeAlarmInfo_S &src, Alarm::SceneChange_S &dst)
@@ -2363,6 +2459,8 @@ void ToSceneChange(const NET_SceneChangeAlarmInfo_S &src, Alarm::SceneChange_S &
             ToSchedTime(src.stAlarmSchedule.astTimeSection[day][seg], dst.aAlarmTime[day][seg]);
         }
     }
+
+    ToLinkageList(src.stLinkageList, dst.stLinkageList);
 }
 
 // --------- CrowdGathering (IPC CrowdGathering_S <-> SDK NET_CrowdGatheringAlarmInfo_S) ---------
@@ -3329,6 +3427,8 @@ void FillAudioAnomalyAlarmInfo(const Alarm::AudioAnomaly_S &src, NET_AudioAnomal
             }
         }
     }
+
+    FillLinkageList(src.stLinkageList, dst.stLinkageList);
 }
 
 void ToAudioAnomaly(const NET_AudioAnomalyAlarmInfo_S &src, Alarm::AudioAnomaly_S &dst)
@@ -3355,6 +3455,8 @@ void ToAudioAnomaly(const NET_AudioAnomalyAlarmInfo_S &src, Alarm::AudioAnomaly_
             ToSchedTime(src.stAlarmSchedule.astTimeSection[day][seg], dst.aAlarmTime[day][seg]);
         }
     }
+
+    ToLinkageList(src.stLinkageList, dst.stLinkageList);
 }
 
 #if CAP_AI_PEOPLE_STATISTICS
@@ -4350,6 +4452,8 @@ void TvSdkConvert::FillFaceCaptureInfo(const Alarm::FaceCapture_S &src, NET_Face
             }
         }
     }
+
+    FillLinkageList(src.stLinkageList, dst.stLinkageList);
 }
 
 void TvSdkConvert::ToFaceCapture(const NET_FaceCaptureInfo_S &src, Alarm::FaceCapture_S &dst)
@@ -4412,6 +4516,62 @@ void TvSdkConvert::ToFaceCapture(const NET_FaceCaptureInfo_S &src, Alarm::FaceCa
             ToSchedTime(src.stAlarmSchedule.astTimeSection[day][seg], dst.aAlarmTime[day][seg]);
         }
     }
+
+    ToLinkageList(src.stLinkageList, dst.stLinkageList);
+}
+
+/**
+ * @brief 将合并后的人脸识别配置投影为旧版人脸抓拍配置，复用原有字段转换。
+ * @param [in] stSource IPC 人脸识别配置，抓拍开关与总开关独立。
+ * @param [out] stDestination TVSDK 人脸抓拍配置。
+ * @return 无。
+ */
+void TvSdkConvert::FillFaceCaptureInfo(const Alarm::FaceRecognition_S &stSource,
+                                       NET_FaceCaptureInfo_S &stDestination)
+{
+    Alarm::FaceCapture_S stCaptureConfig;
+    stCaptureConfig.bEnable = stSource.bCaptureEnable;
+    stCaptureConfig.stRule.nSensitivity = stSource.nSensitivity;
+    stCaptureConfig.stRule.stRegion = stSource.stRegion;
+    stCaptureConfig.stRule.vstShieldedRegion = stSource.stCaptureRule.vstShieldedRegion;
+    stCaptureConfig.stRule.stMinIpdRect = stSource.stCaptureRule.stMinIpdRect;
+    stCaptureConfig.stRule.nMinWidth = stSource.stCaptureRule.nMinWidth;
+    stCaptureConfig.stRule.nMinHeight = stSource.stCaptureRule.nMinHeight;
+    stCaptureConfig.stRule.nMaxWidth = stSource.stCaptureRule.nMaxWidth;
+    stCaptureConfig.stRule.nMaxHeight = stSource.stCaptureRule.nMaxHeight;
+    stCaptureConfig.stRule.nInterval = stSource.stCaptureRule.nInterval;
+    stCaptureConfig.aAlarmTime = stSource.aAlarmTime;
+    stCaptureConfig.stLinkageList = stSource.stLinkageList;
+    FillFaceCaptureInfo(stCaptureConfig, stDestination);
+}
+
+/**
+ * @brief 将旧版人脸抓拍设置字段合并到当前人脸识别配置。
+ * @param [in] stSource TVSDK 人脸抓拍配置。
+ * @param [in] stCurrent 当前 IPC 配置，总开关、属性分析和动态分析开关均保持不变。
+ * @param [out] stDestination 更新后的配置，不执行持久化或资源调度。
+ * @return 无。
+ */
+void TvSdkConvert::ToFaceRecognition(const NET_FaceCaptureInfo_S &stSource,
+                                     const Alarm::FaceRecognition_S &stCurrent,
+                                     Alarm::FaceRecognition_S &stDestination)
+{
+    Alarm::FaceCapture_S stCaptureConfig;
+    ToFaceCapture(stSource, stCaptureConfig);
+
+    stDestination = stCurrent;
+    stDestination.bCaptureEnable = stCaptureConfig.bEnable;
+    stDestination.nSensitivity = stCaptureConfig.stRule.nSensitivity;
+    stDestination.stRegion = stCaptureConfig.stRule.stRegion;
+    stDestination.stCaptureRule.vstShieldedRegion = stCaptureConfig.stRule.vstShieldedRegion;
+    stDestination.stCaptureRule.stMinIpdRect = stCaptureConfig.stRule.stMinIpdRect;
+    stDestination.stCaptureRule.nMinWidth = stCaptureConfig.stRule.nMinWidth;
+    stDestination.stCaptureRule.nMinHeight = stCaptureConfig.stRule.nMinHeight;
+    stDestination.stCaptureRule.nMaxWidth = stCaptureConfig.stRule.nMaxWidth;
+    stDestination.stCaptureRule.nMaxHeight = stCaptureConfig.stRule.nMaxHeight;
+    stDestination.stCaptureRule.nInterval = stCaptureConfig.stRule.nInterval;
+    stDestination.aAlarmTime = stCaptureConfig.aAlarmTime;
+    stDestination.stLinkageList = stCaptureConfig.stLinkageList;
 }
 
 void TvSdkConvert::FillFaceCaptureOverlayInfo(const Alarm::OverlayInfo_S &src,

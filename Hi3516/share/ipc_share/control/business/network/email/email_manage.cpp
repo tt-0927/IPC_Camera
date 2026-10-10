@@ -3,7 +3,7 @@
  * @Author       : tianl (tianl@kfb.cn)
  * @Date         : 2024-10-14 17:37:08
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2025-11-25 20:03:24
+ * @LastEditTime : 2026-09-23 15:34:54
  * @Description  : 邮件类实现
  */
 
@@ -13,9 +13,9 @@
 #include "convert_interface.h"
 #include "path_define.h"
 
-CEmailManage::CEmailManage()
-    : m_configFile(EMAIL_CONFIG_FILE),
-    m_bTesting(false)
+#include <functional>
+
+CEmailManage::CEmailManage() : m_configFile(EMAIL_CONFIG_FILE), m_bTesting(false)
 {
     m_running = true;
     m_emailEventThread = std::thread(&CEmailManage::process_emailQueue, this);
@@ -36,9 +36,9 @@ IpcRet_E CEmailManage::deinit()
     // StopSending();
     m_running = false;
 
-    m_emailCond.notify_all();  
-        
-    if (m_emailEventThread.joinable()) 
+    m_emailCond.notify_all();
+
+    if (m_emailEventThread.joinable())
     {
         m_emailEventThread.join();
     }
@@ -47,52 +47,55 @@ IpcRet_E CEmailManage::deinit()
 
 void CEmailManage::process_emailQueue()
 {
-    while (m_running) 
+    while (m_running)
     {
         Network::EmailEventInfo_S stEmail;
-       {
+        {
             std::unique_lock<std::mutex> lock(m_emailQueueMutex);
-            m_emailCond.wait(lock, [this]() 
-            {
-                return !m_emailEventQueue.empty() || !m_running;
-            });
+            m_emailCond.wait(lock,
+                             [this]()
+                             {
+                                 return !m_emailEventQueue.empty() || !m_running;
+                             });
 
-            if (!m_running) 
+            if (!m_running)
             {
                 break;
             }
-            stEmail = std::move(m_emailEventQueue.front()); 
+            stEmail = std::move(m_emailEventQueue.front());
             m_emailEventQueue.pop();
         }
 
         SendEventEmail(stEmail);
-    } 
+    }
 }
 
 /* 根据传入的参数处理邮件 */
 int CEmailManage::HandleEmail(const EmailVariant &emailRequest)
 {
     int nRet;
-    std::visit([this, &nRet](auto &&arg)
-               {
-        using T = std::decay_t<decltype(arg)>;
-        /* 设置邮件相关信息 */
-        if constexpr (std::is_same_v<T, Network::EmailInfo_S>) {
-            dlog_info("设置邮件信息");
-            nRet = SetEmailInfo(arg);
-        /* 事件触发邮件发送 */
-        } else if constexpr (std::is_same_v<T, Network::EmailEventInfo_S>) {
-             dlog_info("处理事件触发邮件");
-             {
-                std::lock_guard<std::mutex> lock(m_emailQueueMutex); 
-                m_emailEventQueue.push(arg);
-            }
-            m_emailCond.notify_one();
-            nRet = 0;
-        } else {
-            dlog_error("未知的邮件处理类型");
-            nRet = -1;
-        } }, emailRequest);
+    /* 设置邮件相关信息 */
+    if (mpark::holds_alternative<Network::EmailInfo_S>(emailRequest))
+    {
+        dlog_info("设置邮件信息");
+        nRet = SetEmailInfo(mpark::get<Network::EmailInfo_S>(emailRequest));
+    }
+    /* 事件触发邮件发送 */
+    else if (mpark::holds_alternative<Network::EmailEventInfo_S>(emailRequest))
+    {
+        dlog_info("处理事件触发邮件");
+        {
+            std::lock_guard<std::mutex> lock(m_emailQueueMutex);
+            m_emailEventQueue.push(mpark::get<Network::EmailEventInfo_S>(emailRequest));
+        }
+        m_emailCond.notify_one();
+        nRet = 0;
+    }
+    else
+    {
+        dlog_error("未知的邮件处理类型");
+        nRet = -1;
+    }
     return nRet;
 }
 
@@ -176,7 +179,7 @@ int CEmailManage::SetEmailInfo(const Network::EmailInfo_S &stNewEmInfo)
 }
 
 /* 发送测试邮件 */
-int CEmailManage::SendTestEmail(const Network::EmailUser_S &stTestRecipient,std::function<void( int)> result)
+int CEmailManage::SendTestEmail(const Network::EmailUser_S &stTestRecipient, std::function<void(int)> result)
 {
     /* 检查是否已经在测试中 */
     bool bExpected = false;
@@ -187,19 +190,19 @@ int CEmailManage::SendTestEmail(const Network::EmailUser_S &stTestRecipient,std:
         return -1;
     }
 
-    auto thrRun = [this](Network::EmailUser_S stTestRecipient,std::function<void(int)> result)
+    auto thrRun = [this](Network::EmailUser_S stTestRecipient, std::function<void(int)> result)
     {
         CSmtp stSmtp;
         int nRet;
-        /* 是否开启服务器认证 */ 
+        /* 是否开启服务器认证 */
         if (m_EmInfo.bEnServerAuthentication)
         {
-            
+
             if (!m_EmInfo.strUserName.empty() && !m_EmInfo.strPassword.empty())
             {
                 stSmtp.SetLogin(m_EmInfo.strUserName.c_str());
                 stSmtp.SetPassword(m_EmInfo.strPassword.c_str());
-                dlog_info("认证的SMTP服务器用户名：%s，密码：%s",m_EmInfo.strUserName.c_str(),m_EmInfo.strPassword.c_str());
+                dlog_info("认证的SMTP服务器用户名：%s，密码：%s", m_EmInfo.strUserName.c_str(), m_EmInfo.strPassword.c_str());
             }
             else
             {
@@ -208,22 +211,21 @@ int CEmailManage::SendTestEmail(const Network::EmailUser_S &stTestRecipient,std:
             }
             if ((m_EmInfo.stServer.nPort > 0) && !m_EmInfo.stServer.strAddress.empty())
             {
-                stSmtp.SetSMTPServer(m_EmInfo.stServer.strAddress.c_str(),m_EmInfo.stServer.nPort, m_EmInfo.bEnServerAuthentication);
-                dlog_info("发送的SMTP服务器端口号：%d，服务器地址：%s",m_EmInfo.stServer.nPort,m_EmInfo.stServer.strAddress.c_str());
+                stSmtp.SetSMTPServer(m_EmInfo.stServer.strAddress.c_str(), m_EmInfo.stServer.nPort, m_EmInfo.bEnServerAuthentication);
+                dlog_info("发送的SMTP服务器端口号：%d，服务器地址：%s", m_EmInfo.stServer.nPort, m_EmInfo.stServer.strAddress.c_str());
             }
             else
             {
                 dlog_error("未设置发送的SMTP服务器！");
                 nRet = -1;
             }
-                
         }
         else
         {
             if ((m_EmInfo.stServer.nPort > 0) && !m_EmInfo.stServer.strAddress.empty())
             {
-                stSmtp.SetSMTPServer(m_EmInfo.stServer.strAddress.c_str(),m_EmInfo.stServer.nPort, m_EmInfo.bEnServerAuthentication);
-                dlog_info("发送的SMTP服务器端口号：%d，服务器地址：%s",m_EmInfo.stServer.nPort,m_EmInfo.stServer.strAddress.c_str());
+                stSmtp.SetSMTPServer(m_EmInfo.stServer.strAddress.c_str(), m_EmInfo.stServer.nPort, m_EmInfo.bEnServerAuthentication);
+                dlog_info("发送的SMTP服务器端口号：%d，服务器地址：%s", m_EmInfo.stServer.nPort, m_EmInfo.stServer.strAddress.c_str());
             }
             else
             {
@@ -231,15 +233,14 @@ int CEmailManage::SendTestEmail(const Network::EmailUser_S &stTestRecipient,std:
                 nRet = -1;
             }
         }
-    
 
-        /* 是否开启TLS认证 */ 
+        /* 是否开启TLS认证 */
         if (m_EmInfo.bTlsEnable)
         {
             dlog_info("使用加密");
             stSmtp.SetSecurityType(USE_SSL);
-        } 
-        else 
+        }
+        else
         {
             dlog_info("不使用加密");
             stSmtp.SetSecurityType(NO_SECURITY);
@@ -250,7 +251,9 @@ int CEmailManage::SendTestEmail(const Network::EmailUser_S &stTestRecipient,std:
         {
             stSmtp.SetSenderName(m_EmInfo.stSender.strName.c_str());
             stSmtp.SetSenderMail(m_EmInfo.stSender.strAddress.c_str());
-            dlog_info("测试邮件设置发件人名字：%s，发件人地址：%s",m_EmInfo.stSender.strName.c_str(),m_EmInfo.stSender.strAddress.c_str());
+            dlog_info("测试邮件设置发件人名字：%s，发件人地址：%s",
+                      m_EmInfo.stSender.strName.c_str(),
+                      m_EmInfo.stSender.strAddress.c_str());
         }
         else
         {
@@ -263,26 +266,26 @@ int CEmailManage::SendTestEmail(const Network::EmailUser_S &stTestRecipient,std:
         if (!stTestRecipient.strAddress.empty() && !stTestRecipient.strName.empty())
         {
             stSmtp.AddRecipient(stTestRecipient.strAddress.c_str(), stTestRecipient.strName.c_str());
-            dlog_info("测试邮件设置收件人名字：%s，收件人地址：%s",stTestRecipient.strName.c_str(),stTestRecipient.strAddress.c_str());
+            dlog_info("测试邮件设置收件人名字：%s，收件人地址：%s", stTestRecipient.strName.c_str(), stTestRecipient.strAddress.c_str());
         }
         else
         {
             dlog_error("测试邮件设置收件人失败");
             nRet = -1;
         }
-        
+
         /* 设置邮件标题 */
         stSmtp.SetSubject(TEST_SUBJECT);
-        /* 设置邮件优先级 */ 
+        /* 设置邮件优先级 */
         stSmtp.SetXPriority(XPRIORITY_NORMAL);
         stSmtp.SetXMailer(XMAILER);
 
-        /* 邮件消息 */ 
+        /* 邮件消息 */
         stSmtp.AddMsgLine(TEST_MESSAGE);
 
         dlog_info("开始发送测试邮件");
-        /* 发送邮件 */ 
-        if ( !stSmtp.Send())
+        /* 发送邮件 */
+        if (!stSmtp.Send())
         {
             dlog_error("测试邮件发送失败");
             stSmtp.ClearMessage();
@@ -293,14 +296,14 @@ int CEmailManage::SendTestEmail(const Network::EmailUser_S &stTestRecipient,std:
             nRet = 0;
             dlog_info("测试邮件发送成功");
         }
-        
+
         stSmtp.ClearMessage();
         stSmtp.DisconnectRemoteServer();
         m_bTesting.store(false);
-		result(nRet);
+        result(nRet);
     };
-    std::thread thr(thrRun,stTestRecipient, result);
-   	thr.detach();
+    std::thread thr(thrRun, stTestRecipient, result);
+    thr.detach();
 
     return 0;
 }
@@ -365,7 +368,9 @@ int CEmailManage::SendEventEmail(const Network::EmailEventInfo_S &stEventInfo)
     {
         stSmtp.SetSenderName(m_EmInfo.stSender.strName.c_str());
         stSmtp.SetSenderMail(m_EmInfo.stSender.strAddress.c_str());
-        dlog_info("事件触发邮件设置发件人名字：%s，发件人地址：%s", m_EmInfo.stSender.strName.c_str(), m_EmInfo.stSender.strAddress.c_str());
+        dlog_info("事件触发邮件设置发件人名字：%s，发件人地址：%s",
+                  m_EmInfo.stSender.strName.c_str(),
+                  m_EmInfo.stSender.strAddress.c_str());
     }
     else
     {
@@ -420,7 +425,7 @@ int CEmailManage::SendEventEmail(const Network::EmailEventInfo_S &stEventInfo)
     stSmtp.SetXMailer(XMAILER);
 
     stSmtp.SetCharSet("UTF-8");
-    
+
     dlog_info("开始发送事件邮件");
     /* 发送邮件 */
     if (!stSmtp.Send())
@@ -451,7 +456,7 @@ void CEmailManage::SendEmailPeriodically(int nCaptureTimeInterval)
 /* 启动线程，定时发送邮件 */
 void CEmailManage::StartSending(int nCaptureTimeInterval)
 {
-    SendThread = std::make_unique<std::thread>(&CEmailManage::SendEmailPeriodically, this, nCaptureTimeInterval);
+    SendThread = std::unique_ptr<std::thread>(new std::thread(&CEmailManage::SendEmailPeriodically, this, nCaptureTimeInterval));
 }
 
 /* 停止发送邮件 */

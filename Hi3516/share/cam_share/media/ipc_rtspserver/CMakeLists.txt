@@ -2,7 +2,7 @@
 # ipc_rtspserver：面向 IPC 的轻量 RTSP Server 库
 #
 # 独立可构建（主机 PoC / 单元测试），也可被父工程 add_subdirectory 复用。
-# 协议核心为 vendored 的 OpenIPC/smolrtsp（C99），本库为 C++17。
+# 协议核心为 vendored 的 OpenIPC/smolrtsp（C99），本库为 C++11（多平台工具链最低公分母）。
 # 详细设计见 docs/smolrtsp_rtspserver_docs/19~23。
 # -----------------------------------------------------------------------------
 cmake_minimum_required(VERSION 3.16)
@@ -10,6 +10,13 @@ cmake_minimum_required(VERSION 3.16)
 project(ipc_rtspserver LANGUAGES C CXX)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
+
+# CMake < 3.18（如 Ubuntu 20.04 自带的 3.16）没有内置 CheckLinkerFlag 模块，
+# vendored libevent 的 AddLinkerFlags.cmake 却无条件 include 它；垫片见
+# cmake/compat/CheckLinkerFlag.cmake。>= 3.18 时优先命中内置模块，行为不变。
+if(CMAKE_VERSION VERSION_LESS 3.18)
+    set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake/compat" ${CMAKE_MODULE_PATH})
+endif()
 
 include(IpcRtspServerOptions)
 include(SmolrtspOffline)
@@ -127,7 +134,7 @@ target_include_directories(ipc_rtspserver
         "${CMAKE_CURRENT_SOURCE_DIR}/src"
         "${IPC_RTSP_GENERATED_DIR}")
 
-target_compile_features(ipc_rtspserver PRIVATE cxx_std_17)
+target_compile_features(ipc_rtspserver PRIVATE cxx_std_11)
 set_target_properties(ipc_rtspserver PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 # libevent 用 PUBLIC：`net/event_loop.h` 会包含 `<event2/util.h>`，静态库的链接依赖

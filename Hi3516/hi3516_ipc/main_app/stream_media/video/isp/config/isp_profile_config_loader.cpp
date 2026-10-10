@@ -56,6 +56,14 @@ constexpr int HLC_TOLERANCE_MAX = 4;
 constexpr int AWB_GAIN_MAX = 0xFFF;
 /* 3DNR强度字段采用8位无符号数。 */
 constexpr int NR_VALUE_MAX = 255;
+/* 3DNR mdy[].math0字段采用10位无符号数，上限999。 */
+constexpr int NRX_MDY_MATH0_MAX = 999;
+/* 3DNR tfy[].tfs0/tfs1/tfs2字段采用4位无符号数，上限15。 */
+constexpr int NRX_TFY_TFS_MAX = 15;
+/* 3DNR tfy[].tfr0[i]字段采用5位无符号数，上限31。 */
+constexpr int NRX_TFY_TFR0_MAX = 31;
+/* 3DNR nrc0_mode字段采用1位，上限1。 */
+constexpr int NRX_NRC0_MODE_MAX = 1;
 /* MPP曝光时间枚举对应固定16级补偿表。 */
 constexpr size_t EXPOSURE_COMPENSATION_COUNT = 16;
 
@@ -688,6 +696,229 @@ int read_daynight_threshold(const CIniReader &stReader,
 }
 
 /**
+ * @brief   : 读取逗号分隔的6个无符号整数到数组
+ * @param    {const CIniReader &} stReader：配置解析器
+ * @param    {const std::string &} strSection：配置段
+ * @param    {const std::string &} strKey：配置项
+ * @param    {unsigned int *} pValues：输出数组（6个）
+ * @param    {int} nMax：单项上限
+ * @param    {std::string &} strValidationReason：业务校验失败的具体规则
+ * @return   {int} OK：成功，非OK：字段缺失或非法
+ */
+int read_nrx_uint6_array(const CIniReader &stReader,
+                         const std::string &strSection,
+                         const std::string &strKey,
+                         unsigned int *pValues,
+                         int nMax,
+                         std::string &strValidationReason)
+{
+    std::string strValues;
+    int nRet = stReader.get_string(strSection, strKey, strValues);
+    if (nRet != OK)
+    {
+        return nRet;
+    }
+
+    std::stringstream stStream(strValues);
+    std::string strItem;
+    size_t nIndex = 0;
+    while (std::getline(stStream, strItem, ','))
+    {
+        if (nIndex >= 6)
+        {
+            strValidationReason = strKey + "必须恰好包含6项";
+            return ERR_PARAM;
+        }
+        std::stringstream stValueStream(strItem);
+        int nValue = 0;
+        stValueStream >> nValue;
+        stValueStream >> std::ws;
+        if (stValueStream.fail() || !stValueStream.eof() || nValue < 0 || nValue > nMax)
+        {
+            strValidationReason = strKey + "第" + std::to_string(nIndex + 1) + "项必须是0~" +
+                                  std::to_string(nMax) + "的整数";
+            return ERR_PARAM;
+        }
+        pValues[nIndex++] = static_cast<unsigned int>(nValue);
+    }
+    if (nIndex != 6)
+    {
+        strValidationReason = strKey + "必须恰好包含6项";
+        return ERR_PARAM;
+    }
+    return OK;
+}
+
+/**
+ * @brief   : 读取单个运行场景的3DNR mdy[]/tfy[]/nrc0_mode覆盖策略
+ * @param    {const CIniReader &} stReader：运行策略解析器
+ * @param    {const std::string &} strSection：NRX配置段
+ * @param    {NrxAdjustment_S &} stAdjustment：输出策略
+ * @param    {std::string &} strValidationReason：业务校验失败的具体规则
+ * @return   {int} OK：成功，非OK：字段缺失或非法
+ */
+int read_nrx_adjustment(const CIniReader &stReader,
+                            const std::string &strSection,
+                            NrxAdjustment_S &stAdjustment,
+                            std::string &strValidationReason)
+{
+    int nValue = 0;
+    int nRet = stReader.get_bool(strSection, "override", stAdjustment.bOverride);
+    if (nRet != OK)
+    {
+        return nRet;
+    }
+    /* mdy[0] */
+    nRet = stReader.get_int(strSection, "mdy0_math0", nValue);
+    if (nRet != OK)
+    {
+        return nRet;
+    }
+    if (nValue < 0 || nValue > NRX_MDY_MATH0_MAX)
+    {
+        strValidationReason = "mdy0_math0必须位于0~" + std::to_string(NRX_MDY_MATH0_MAX);
+        return ERR_PARAM;
+    }
+    stAdjustment.nMdy0Math0 = static_cast<unsigned int>(nValue);
+    nRet = stReader.get_int(strSection, "mdy0_math1", nValue);
+    if (nRet != OK)
+    {
+        return nRet;
+    }
+    if (nValue < 0 || nValue > NRX_MDY_MATH0_MAX)
+    {
+        strValidationReason = "mdy0_math1必须位于0~" + std::to_string(NRX_MDY_MATH0_MAX);
+        return ERR_PARAM;
+    }
+    stAdjustment.nMdy0Math1 = static_cast<unsigned int>(nValue);
+    /* mdy[1] */
+    nRet = stReader.get_int(strSection, "mdy1_math0", nValue);
+    if (nRet != OK)
+    {
+        return nRet;
+    }
+    if (nValue < 0 || nValue > NRX_MDY_MATH0_MAX)
+    {
+        strValidationReason = "mdy1_math0必须位于0~" + std::to_string(NRX_MDY_MATH0_MAX);
+        return ERR_PARAM;
+    }
+    stAdjustment.nMdy1Math0 = static_cast<unsigned int>(nValue);
+    nRet = stReader.get_int(strSection, "mdy1_math1", nValue);
+    if (nRet != OK)
+    {
+        return nRet;
+    }
+    if (nValue < 0 || nValue > NRX_MDY_MATH0_MAX)
+    {
+        strValidationReason = "mdy1_math1必须位于0~" + std::to_string(NRX_MDY_MATH0_MAX);
+        return ERR_PARAM;
+    }
+    stAdjustment.nMdy1Math1 = static_cast<unsigned int>(nValue);
+
+    /* tfy[0] */
+    nRet = stReader.get_int(strSection, "tfy0_tfs0", nValue);
+    if (nRet != OK)
+    {
+        return nRet;
+    }
+    if (nValue < 0 || nValue > NRX_TFY_TFS_MAX)
+    {
+        strValidationReason = "tfy0_tfs0必须位于0~" + std::to_string(NRX_TFY_TFS_MAX);
+        return ERR_PARAM;
+    }
+    stAdjustment.nTfy0Tfs0 = static_cast<unsigned int>(nValue);
+
+    nRet = stReader.get_int(strSection, "tfy0_tfs1", nValue);
+    if (nRet != OK)
+    {
+        return nRet;
+    }
+    if (nValue < 0 || nValue > NRX_TFY_TFS_MAX)
+    {
+        strValidationReason = "tfy0_tfs1必须位于0~" + std::to_string(NRX_TFY_TFS_MAX);
+        return ERR_PARAM;
+    }
+    stAdjustment.nTfy0Tfs1 = static_cast<unsigned int>(nValue);
+
+    nRet = stReader.get_int(strSection, "tfy0_tfs2", nValue);
+    if (nRet != OK)
+    {
+        return nRet;
+    }
+    if (nValue < 0 || nValue > NRX_TFY_TFS_MAX)
+    {
+        strValidationReason = "tfy0_tfs2必须位于0~" + std::to_string(NRX_TFY_TFS_MAX);
+        return ERR_PARAM;
+    }
+    stAdjustment.nTfy0Tfs2 = static_cast<unsigned int>(nValue);
+
+    nRet = read_nrx_uint6_array(stReader, strSection, "tfy0_tfr0",
+                                stAdjustment.nTfy0Tfr0, NRX_TFY_TFR0_MAX, strValidationReason);
+    if (nRet != OK)
+    {
+        return nRet;
+    }
+
+    /* tfy[1] */
+    nRet = stReader.get_int(strSection, "tfy1_tfs0", nValue);
+    if (nRet != OK)
+    {
+        return nRet;
+    }
+    if (nValue < 0 || nValue > NRX_TFY_TFS_MAX)
+    {
+        strValidationReason = "tfy1_tfs0必须位于0~" + std::to_string(NRX_TFY_TFS_MAX);
+        return ERR_PARAM;
+    }
+    stAdjustment.nTfy1Tfs0 = static_cast<unsigned int>(nValue);
+
+    nRet = stReader.get_int(strSection, "tfy1_tfs1", nValue);
+    if (nRet != OK)
+    {
+        return nRet;
+    }
+    if (nValue < 0 || nValue > NRX_TFY_TFS_MAX)
+    {
+        strValidationReason = "tfy1_tfs1必须位于0~" + std::to_string(NRX_TFY_TFS_MAX);
+        return ERR_PARAM;
+    }
+    stAdjustment.nTfy1Tfs1 = static_cast<unsigned int>(nValue);
+
+    nRet = stReader.get_int(strSection, "tfy1_tfs2", nValue);
+    if (nRet != OK)
+    {
+        return nRet;
+    }
+    if (nValue < 0 || nValue > NRX_TFY_TFS_MAX)
+    {
+        strValidationReason = "tfy1_tfs2必须位于0~" + std::to_string(NRX_TFY_TFS_MAX);
+        return ERR_PARAM;
+    }
+    stAdjustment.nTfy1Tfs2 = static_cast<unsigned int>(nValue);
+
+    nRet = read_nrx_uint6_array(stReader, strSection, "tfy1_tfr0",
+                                stAdjustment.nTfy1Tfr0, NRX_TFY_TFR0_MAX, strValidationReason);
+    if (nRet != OK)
+    {
+        return nRet;
+    }
+
+    /* nrc0_mode */
+    nRet = stReader.get_int(strSection, "nrc0_mode", nValue);
+    if (nRet != OK)
+    {
+        return nRet;
+    }
+    if (nValue < 0 || nValue > NRX_NRC0_MODE_MAX)
+    {
+        strValidationReason = "nrc0_mode必须位于0~" + std::to_string(NRX_NRC0_MODE_MAX);
+        return ERR_PARAM;
+    }
+    stAdjustment.nNrc0Mode = static_cast<unsigned int>(nValue);
+    return OK;
+}
+
+/**
  * @brief   : 读取单个运行场景的DRC覆盖策略
  * @param    {const CIniReader &} stReader：运行策略解析器
  * @param    {const std::string &} strSection：DRC配置段
@@ -824,6 +1055,37 @@ int load_runtime_policy(const std::string &strFilePath,
     if (nRet != OK)
     {
         return report_field_error(strFilePath, strMountSection + ".ceiling", stReader, nRet);
+    }
+    /* NRX mdy[]覆盖策略按day/night_white/night_ir分别读取，缺失段默认不覆盖。 */
+    const std::string strNrxDaySection = resolve_device_section(stReader, "nrx.day", strDeviceType);
+    if (stReader.has_section(strNrxDaySection))
+    {
+        strValidationReason.clear();
+        nRet = read_nrx_adjustment(stReader, strNrxDaySection, stProfile.stNrx.stDay, strValidationReason);
+        if (nRet != OK)
+        {
+            return report_field_error(strFilePath, strNrxDaySection, stReader, nRet, strValidationReason);
+        }
+    }
+    const std::string strNrxNightWhiteSection = resolve_device_section(stReader, "nrx.night_white", strDeviceType);
+    if (stReader.has_section(strNrxNightWhiteSection))
+    {
+        strValidationReason.clear();
+        nRet = read_nrx_adjustment(stReader, strNrxNightWhiteSection, stProfile.stNrx.stNightWhite, strValidationReason);
+        if (nRet != OK)
+        {
+            return report_field_error(strFilePath, strNrxNightWhiteSection, stReader, nRet, strValidationReason);
+        }
+    }
+    const std::string strNrxNightIrSection = resolve_device_section(stReader, "nrx.night_ir", strDeviceType);
+    if (stReader.has_section(strNrxNightIrSection))
+    {
+        strValidationReason.clear();
+        nRet = read_nrx_adjustment(stReader, strNrxNightIrSection, stProfile.stNrx.stNightIr, strValidationReason);
+        if (nRet != OK)
+        {
+            return report_field_error(strFilePath, strNrxNightIrSection, stReader, nRet, strValidationReason);
+        }
     }
     return OK;
 }

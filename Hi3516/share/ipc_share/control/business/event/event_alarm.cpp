@@ -1,4 +1,4 @@
-/*** 
+/***
  * @FilePath     : event_alarm.cpp
  * @Author       : cyc
  * @Date         : 2025-08-18 16:10:35
@@ -8,8 +8,11 @@
  */
 
 #include <sys/stat.h>
+#include <algorithm>
 #include <unistd.h>
-#include <filesystem>
+#include <cerrno>
+
+#include "posix_fs.h"
 #include <vector>
 #include "event_alarm.h"
 #include "event_configure.h"
@@ -17,78 +20,79 @@
 #include "event_linkage.h"
 #include "IpcRet.h"
 
+#include <map>
+#include <set>
+
 namespace
 {
-    /* 自定义音频播放串行化锁 */
-    static std::mutex g_playMutex;
-    /* 自定义音频播放运行标志 */                 
-    static std::atomic<bool> g_playRunning{false};
+/* 自定义音频播放串行化锁 */
+static std::mutex g_playMutex;
+/* 自定义音频播放运行标志 */
+static std::atomic<bool> g_playRunning{ false };
 
-    /**
-     * @brief   : 是否支持警报IO
-     * @return   {bool} true:支持 false:不支持
-     */
-    inline bool is_alarm_io_supported()
-    {
+/**
+ * @brief   : 是否支持警报IO
+ * @return   {bool} true:支持 false:不支持
+ */
+inline bool is_alarm_io_supported()
+{
 #if CAP_ALARM_IO // 报警IO能力
-        return true;
+    return true;
 #else
-        return false;
+    return false;
 #endif
-    }
+}
 } // namespace
 
 CEventAlarm::CEventAlarm()
 {
-
 }
 
 CEventAlarm::~CEventAlarm()
 {
-    
 }
 
 int CEventAlarm::set_alarm(Alarm::IoInputInfo_S &stIOInputInfo)
 {
-   if (!is_alarm_io_supported())
-   {
-       dlog_error("当前设备不支持报警输出配置");
-       return ERR_WEB_NOT_SUPPORT;
-   }
+    if (!is_alarm_io_supported())
+    {
+        dlog_error("当前设备不支持报警输出配置");
+        return ERR_WEB_NOT_SUPPORT;
+    }
 
-   // 处理需要复制的IO输入信息
-   for (auto i : stIOInputInfo.copyTo)
-   {
-       Alarm::IoInputInfo_S stCopyInfo;
-       stCopyInfo.nIoNumer = i;
-       // 获取复制信息的当前配置
-       CEventConfigure::instance()->get_configure(stCopyInfo);
-       // 更新复制信息的配置
-       stCopyInfo.bNormallyOpen = stIOInputInfo.bNormallyOpen;
-       stCopyInfo.nDealType = stIOInputInfo.nDealType;
-       stCopyInfo.stLinkageList = stIOInputInfo.stLinkageList;
-       stCopyInfo.aAlarmTime = stIOInputInfo.aAlarmTime;
-       // 设置复制信息的新的配置
-       CEventConfigure::instance()->set_configure(stCopyInfo);
-       dlog_debug("AlarmIOInputInfo copy to %d", i);
-   }
-   // 清空复制列表
-   stIOInputInfo.copyTo.clear();
-   // 设置原始IO输入信息的配置
-   CEventConfigure::instance()->set_configure(stIOInputInfo);
-   std::map<int, bool> stListenMap;
-   std::set<Alarm::IoInputInfo_S> ioInputInfos;
-   // 获取所有IO输入信息
-   CEventConfigure::instance()->get_configure(ioInputInfos);
-   // 收集需要启用的IO输入编号
-   for (auto &stIOInputInfo : ioInputInfos)
-   {
-        dlog_debug("stIOInputInfo.bNormallyOpen:%u",stIOInputInfo.bNormallyOpen);
-        stListenMap[stIOInputInfo.nIoNumer] = stIOInputInfo.bNormallyOpen;  
-   }
-   // 启用收集到的IO输入编号
-   SystemManage::instance()->enable_ioInputNumber(stListenMap);
-   return 0;
+    // 处理需要复制的IO输入信息
+    for (auto i : stIOInputInfo.copyTo)
+    {
+        Alarm::IoInputInfo_S stCopyInfo;
+        stCopyInfo.nIoNumer = i;
+        // 获取复制信息的当前配置
+        CEventConfigure::instance()->get_configure(stCopyInfo);
+        // 更新复制信息的配置
+        stCopyInfo.bNormallyOpen = stIOInputInfo.bNormallyOpen;
+        stCopyInfo.nDealType = stIOInputInfo.nDealType;
+        stCopyInfo.stLinkageList = stIOInputInfo.stLinkageList;
+        stCopyInfo.aAlarmTime = stIOInputInfo.aAlarmTime;
+        // 设置复制信息的新的配置
+        CEventConfigure::instance()->set_configure(stCopyInfo);
+        dlog_debug("AlarmIOInputInfo copy to %d", i);
+    }
+    // 清空复制列表
+    stIOInputInfo.copyTo.clear();
+    // 设置原始IO输入信息的配置
+    CEventConfigure::instance()->set_configure(stIOInputInfo);
+    std::map<int, bool> stListenMap;
+    std::set<Alarm::IoInputInfo_S> ioInputInfos;
+    // 获取所有IO输入信息
+    CEventConfigure::instance()->get_configure(ioInputInfos);
+    // 收集需要启用的IO输入编号
+    for (auto &stIOInputInfo : ioInputInfos)
+    {
+        dlog_debug("stIOInputInfo.bNormallyOpen:%u", stIOInputInfo.bNormallyOpen);
+        stListenMap[stIOInputInfo.nIoNumer] = stIOInputInfo.bNormallyOpen;
+    }
+    // 启用收集到的IO输入编号
+    SystemManage::instance()->enable_ioInputNumber(stListenMap);
+    return 0;
 }
 
 int CEventAlarm::set_alarm(std::set<Alarm::IoInputInfo_S> &ioInputInfos)
@@ -127,37 +131,39 @@ int CEventAlarm::get_alarm(std::set<Alarm::IoInputInfo_S> &ioInputInfos)
         return ERR_WEB_NOT_SUPPORT;
     }
 
-    /* 从事件配置实例中获取IO输入信息集合 */ 
+    /* 从事件配置实例中获取IO输入信息集合 */
     CEventConfigure::instance()->get_configure(ioInputInfos);
 
     /* 确保有完整的GPIO_INPUT_COUNT个报警输入配置 */
     if (ioInputInfos.size() < GPIO_INPUT_COUNT)
     {
         dlog_info("初始化报警输入配置，当前数量: %zu，需要: %d", ioInputInfos.size(), GPIO_INPUT_COUNT);
-        
+
         for (int i = 0; i < GPIO_INPUT_COUNT; i++)
         {
             /* 检查是否已存在该ID的配置 */
-            auto it = std::find_if(ioInputInfos.begin(), ioInputInfos.end(),
-                [i](const Alarm::IoInputInfo_S& info) {
-                    return info.nIoNumer == i;
-                });
-            
+            auto it = std::find_if(ioInputInfos.begin(),
+                                   ioInputInfos.end(),
+                                   [i](const Alarm::IoInputInfo_S &info)
+                                   {
+                                       return info.nIoNumer == i;
+                                   });
+
             if (it == ioInputInfos.end())
             {
                 /* 不存在则创建新的配置 */
                 Alarm::IoInputInfo_S stIOInputInfo;
                 stIOInputInfo.nIoNumer = i;
                 stIOInputInfo.ioName = "报警输入" + std::to_string(i + 1);
-                
+
                 /* 初始化7天的布防时间（默认为空） */
                 stIOInputInfo.aAlarmTime.clear();
                 stIOInputInfo.aAlarmTime.assign(WEEK_DAYS, std::vector<Common::SchedTime_S>(1));
-                
+
                 /* 设置并保存新配置 */
                 CEventConfigure::instance()->set_configure(stIOInputInfo);
                 ioInputInfos.insert(stIOInputInfo);
-                
+
                 dlog_info("创建报警输入 %d 的默认配置", i);
             }
         }
@@ -168,14 +174,14 @@ int CEventAlarm::get_alarm(std::set<Alarm::IoInputInfo_S> &ioInputInfos)
     for (const auto &info : ioInputInfos)
     {
         Alarm::IoInputInfo_S updatedInfo = info;
-        
+
         /* 确保布防时间有7天 */
         if (updatedInfo.aAlarmTime.size() < WEEK_DAYS)
         {
             updatedInfo.aAlarmTime.resize(WEEK_DAYS);
             dlog_info("修正报警输入 %d 的布防时间配置", updatedInfo.nIoNumer);
         }
-        
+
         updatedInfos.insert(updatedInfo);
     }
 
@@ -183,7 +189,7 @@ int CEventAlarm::get_alarm(std::set<Alarm::IoInputInfo_S> &ioInputInfos)
     return 0;
 }
 
-int CEventAlarm::get_alarm(std::set<Alarm::IoOutputInfo_S>& ioOutputInfos)
+int CEventAlarm::get_alarm(std::set<Alarm::IoOutputInfo_S> &ioOutputInfos)
 {
     if (!is_alarm_io_supported())
     {
@@ -204,7 +210,7 @@ int CEventAlarm::get_alarm(std::set<Alarm::IoOutputInfo_S>& ioOutputInfos)
             /* 检查是否已存在该ID的配置 */
             auto it = std::find_if(ioOutputInfos.begin(),
                                    ioOutputInfos.end(),
-                                   [i](const Alarm::IoOutputInfo_S& info)
+                                   [i](const Alarm::IoOutputInfo_S &info)
                                    {
                                        return info.nIoNumer == i;
                                    });
@@ -231,7 +237,7 @@ int CEventAlarm::get_alarm(std::set<Alarm::IoOutputInfo_S>& ioOutputInfos)
 
     /* 获取当前硬件状态并验证每个配置的布防时间完整性 */
     std::set<Alarm::IoOutputInfo_S> updatedInfos;
-    for (const auto& stIOOutputInfo : ioOutputInfos)
+    for (const auto &stIOOutputInfo : ioOutputInfos)
     {
         Alarm::IoOutputInfo_S updatedInfo = stIOOutputInfo;
 
@@ -288,30 +294,30 @@ int CEventAlarm::set_alarm(Alarm::IoOutputInfo_S &stIOOutputInfo)
             dlog_warn("跳过无效的复制目标ID: %d", targetId);
             continue;
         }
-        
+
         if (targetId == stIOOutputInfo.nIoNumer)
         {
             dlog_warn("跳过自我复制: %d", targetId);
             continue;
         }
-        
+
         Alarm::IoOutputInfo_S stCopyInfo;
         stCopyInfo.nIoNumer = targetId;
-        
+
         /* 获取复制目标的当前配置 */
         CEventConfigure::instance()->get_configure(stCopyInfo);
-        
+
         /* 更新复制目标的配置，保持ID和名称不变 */
         std::string originalName = stCopyInfo.ioName;
         stCopyInfo.nDelayTime = stIOOutputInfo.nDelayTime;
         stCopyInfo.aAlarmTime = stIOOutputInfo.aAlarmTime;
-        
+
         /* 如果原始名称为空，则使用默认名称 */
         if (originalName.empty())
         {
             stCopyInfo.ioName = "报警输出" + std::to_string(targetId + 1);
         }
-        
+
         /* 设置复制目标的新配置 */
         CEventConfigure::instance()->set_configure(stCopyInfo);
         dlog_info("报警输出 %d 的配置已复制到 %d", stIOOutputInfo.nIoNumer, targetId);
@@ -331,10 +337,10 @@ int CEventAlarm::set_alarm(Alarm::IoOutputInfo_S &stIOOutputInfo)
         CGpioCtrl::instance()->alarm_output_off(stIOOutputInfo.nIoNumer);
         dlog_info("手动关闭报警输出 %d", stIOOutputInfo.nIoNumer);
     }
-    dlog_info("报警输出 %d 配置更新完成，延时: %ds，状态: %d", 
-                stIOOutputInfo.nIoNumer, 
-                stIOOutputInfo.nDelayTime,
-                (int)stIOOutputInfo.enState);
+    dlog_info("报警输出 %d 配置更新完成，延时: %ds，状态: %d",
+              stIOOutputInfo.nIoNumer,
+              stIOOutputInfo.nDelayTime,
+              (int) stIOOutputInfo.enState);
     return 0;
 }
 
@@ -354,10 +360,10 @@ int CEventAlarm::set_alarm(std::set<Alarm::IoOutputInfo_S> &ioOutputInfos)
             dlog_warn("跳过无效的报警输出号: %d", stIOOutputInfo.nIoNumer);
             continue;
         }
-        
+
         /* 设置配置 */
         CEventConfigure::instance()->set_configure(stIOOutputInfo);
-        
+
         /* 处理硬件状态控制 */
         if (stIOOutputInfo.enState == Alarm::IoOutputState_E::HUMAN_ON)
         {
@@ -367,7 +373,6 @@ int CEventAlarm::set_alarm(std::set<Alarm::IoOutputInfo_S> &ioOutputInfos)
         {
             CGpioCtrl::instance()->alarm_output_off(stIOOutputInfo.nIoNumer);
         }
-        
     }
     return 0;
 }
@@ -379,30 +384,30 @@ int CEventAlarm::set_alarm(std::set<Alarm::IoOutputInfo_S> &ioOutputInfos)
  */
 int CEventAlarm::edit_audioAlarmCustom_info(const Alarm::CustomOperation_S &stCustomOperation)
 {
-    dlog_info("edit_audioAlarmCustom_info: type=%d, name=%s, path=%s", 
-            (int)stCustomOperation.enCustomType, 
-            stCustomOperation.strName.c_str(), 
-            stCustomOperation.strPath.c_str());
+    dlog_info("edit_audioAlarmCustom_info: type=%d, name=%s, path=%s",
+              (int) stCustomOperation.enCustomType,
+              stCustomOperation.strName.c_str(),
+              stCustomOperation.strPath.c_str());
 
     switch (stCustomOperation.enCustomType)
     {
-        case Alarm::CustomOperationType_E::CUSTOM_EDIT:
-        {
-            return HandleCustomEdit(stCustomOperation);
-        }
-        case Alarm::CustomOperationType_E::CUSTOM_PLAY:
-        {
-            return HandleCustomPlay(stCustomOperation);
-        }
-        case Alarm::CustomOperationType_E::CUSTOM_DEL:
-        {
-            return HandleCustomDelete(stCustomOperation);
-        }
-        default:
-        {
-            dlog_error("未知的自定义操作类型: %d", (int)stCustomOperation.enCustomType);
-            return ERR;
-        }
+    case Alarm::CustomOperationType_E::CUSTOM_EDIT:
+    {
+        return HandleCustomEdit(stCustomOperation);
+    }
+    case Alarm::CustomOperationType_E::CUSTOM_PLAY:
+    {
+        return HandleCustomPlay(stCustomOperation);
+    }
+    case Alarm::CustomOperationType_E::CUSTOM_DEL:
+    {
+        return HandleCustomDelete(stCustomOperation);
+    }
+    default:
+    {
+        dlog_error("未知的自定义操作类型: %d", (int) stCustomOperation.enCustomType);
+        return ERR;
+    }
     }
 }
 
@@ -507,58 +512,54 @@ int CEventAlarm::set_audioAlarmCustom_info(const Alarm::CustomOperation_S &stCus
     return OK;
 }
 
- /**
-  * @brief 处理自定义音频编辑操作
-  * @param stCustomOperation 自定义操作信息
-  * @return 0：成功 非0：失败
-  */
- int CEventAlarm::HandleCustomEdit(const Alarm::CustomOperation_S &stCustomOperation)
- {
-     /* 获取当前声音报警配置 */ 
-     Alarm::SoundOutputAlarm_S stSoundAlarm;
-     if (CEventConfigure::instance()->get_configure(stSoundAlarm) != 0)
-     {
-         dlog_error("获取声音报警配置失败");
-         return ERR;
-     }
-     /* 根据路径查找匹配的自定义音频并修改名称 */ 
-     bool bFound = false;
-     for (auto &customAudio : stSoundAlarm.aCustomAudio)
-     {
-         if (customAudio.strPath == stCustomOperation.strPath)
-         {
-             customAudio.strCustomeName = stCustomOperation.strName;
-             bFound = true;
-             dlog_info("编辑自定义音频名称: 路径=%s, 新名称=%s", 
-                       stCustomOperation.strPath.c_str(), 
-                       stCustomOperation.strName.c_str());
-             break;
-         }
-     }
-     if (!bFound)
-     {
-         dlog_error("未找到匹配的自定义音频文件: %s", stCustomOperation.strPath.c_str());
-         return ERR;
-     }
-     /* 保存更新后的配置 */ 
-     if (CEventConfigure::instance()->set_configure(stSoundAlarm) != 0)
-     {
-         dlog_error("保存声音报警配置失败");
-         return ERR;
-     }
-     return OK;
- }
- 
- /**
-  * @brief 处理自定义音频播放操作
-  * @param stCustomOperation 自定义操作信息
-  * @return 0：成功 非0：失败
-  */
+/**
+ * @brief 处理自定义音频编辑操作
+ * @param stCustomOperation 自定义操作信息
+ * @return 0：成功 非0：失败
+ */
+int CEventAlarm::HandleCustomEdit(const Alarm::CustomOperation_S &stCustomOperation)
+{
+    /* 获取当前声音报警配置 */
+    Alarm::SoundOutputAlarm_S stSoundAlarm;
+    if (CEventConfigure::instance()->get_configure(stSoundAlarm) != 0)
+    {
+        dlog_error("获取声音报警配置失败");
+        return ERR;
+    }
+    /* 根据路径查找匹配的自定义音频并修改名称 */
+    bool bFound = false;
+    for (auto &customAudio : stSoundAlarm.aCustomAudio)
+    {
+        if (customAudio.strPath == stCustomOperation.strPath)
+        {
+            customAudio.strCustomeName = stCustomOperation.strName;
+            bFound = true;
+            dlog_info("编辑自定义音频名称: 路径=%s, 新名称=%s", stCustomOperation.strPath.c_str(), stCustomOperation.strName.c_str());
+            break;
+        }
+    }
+    if (!bFound)
+    {
+        dlog_error("未找到匹配的自定义音频文件: %s", stCustomOperation.strPath.c_str());
+        return ERR;
+    }
+    /* 保存更新后的配置 */
+    if (CEventConfigure::instance()->set_configure(stSoundAlarm) != 0)
+    {
+        dlog_error("保存声音报警配置失败");
+        return ERR;
+    }
+    return OK;
+}
+
+/**
+ * @brief 处理自定义音频播放操作
+ * @param stCustomOperation 自定义操作信息
+ * @return 0：成功 非0：失败
+ */
 int CEventAlarm::HandleCustomPlay(const Alarm::CustomOperation_S &stCustomOperation)
 {
-    dlog_info("播放自定义音频: 路径=%s, 名称=%s",
-            stCustomOperation.strPath.c_str(),
-            stCustomOperation.strName.c_str());
+    dlog_info("播放自定义音频: 路径=%s, 名称=%s", stCustomOperation.strPath.c_str(), stCustomOperation.strName.c_str());
 
     std::lock_guard<std::mutex> lock(g_playMutex);
     if (g_playRunning.load())
@@ -568,105 +569,102 @@ int CEventAlarm::HandleCustomPlay(const Alarm::CustomOperation_S &stCustomOperat
     }
     g_playRunning.store(true);
 
-    std::thread([stCustomOperation]() {
-        CEventLinkage::instance()->play_audio(stCustomOperation.strPath.c_str(), 1);
-        g_playRunning.store(false);
-    }).detach();
+    std::thread(
+        [stCustomOperation]()
+        {
+            CEventLinkage::instance()->play_audio(stCustomOperation.strPath.c_str(), 1);
+            g_playRunning.store(false);
+        })
+        .detach();
 
     return OK;
 }
 
- /**
-  * @brief 处理自定义音频删除操作
-  * @param stCustomOperation 自定义操作信息
-  * @return 0：成功 非0：失败
-  */
- int CEventAlarm::HandleCustomDelete(const Alarm::CustomOperation_S &stCustomOperation)
- {
-     /* 从配置中删除对应项 */ 
-     Alarm::SoundOutputAlarm_S stSoundAlarm;
-     if (CEventConfigure::instance()->get_configure(stSoundAlarm) != 0)
-     {
-         dlog_error("获取声音报警配置失败");
-         return ERR;
-     }
-     /* 查找并删除匹配的自定义音频项 */ 
-     auto it = std::remove_if(stSoundAlarm.aCustomAudio.begin(), 
+/**
+ * @brief 处理自定义音频删除操作
+ * @param stCustomOperation 自定义操作信息
+ * @return 0：成功 非0：失败
+ */
+int CEventAlarm::HandleCustomDelete(const Alarm::CustomOperation_S &stCustomOperation)
+{
+    /* 从配置中删除对应项 */
+    Alarm::SoundOutputAlarm_S stSoundAlarm;
+    if (CEventConfigure::instance()->get_configure(stSoundAlarm) != 0)
+    {
+        dlog_error("获取声音报警配置失败");
+        return ERR;
+    }
+    /* 查找并删除匹配的自定义音频项 */
+    auto it = std::remove_if(stSoundAlarm.aCustomAudio.begin(),
                              stSoundAlarm.aCustomAudio.end(),
-                             [&stCustomOperation](const Alarm::CustomAudio_S &audio) {
+                             [&stCustomOperation](const Alarm::CustomAudio_S &audio)
+                             {
                                  return audio.strPath == stCustomOperation.strPath;
                              });
-     
-     if (it != stSoundAlarm.aCustomAudio.end())
-     {
-         stSoundAlarm.aCustomAudio.erase(it, stSoundAlarm.aCustomAudio.end());
-         dlog_info("从配置中删除自定义音频: %s", stCustomOperation.strPath.c_str());
-     }
-     else
-     {
-         dlog_warn("配置中未找到要删除的自定义音频: %s", stCustomOperation.strPath.c_str());
-     }
-     /* 保存更新后的配置 */ 
-     if (CEventConfigure::instance()->set_configure(stSoundAlarm) != 0)
-     {
-         dlog_error("保存声音报警配置失败");
-         return ERR;
-     }
-     /* 删除实际文件 */ 
-     if (!stCustomOperation.strPath.empty())
-     {
-         try
-         {
-             if (std::filesystem::exists(stCustomOperation.strPath))
-             {
-                 if (std::filesystem::remove(stCustomOperation.strPath))
-                 {
-                     dlog_info("成功删除音频文件: %s", stCustomOperation.strPath.c_str());
-                 }
-                 else
-                 {
-                     dlog_error("删除音频文件失败: %s", stCustomOperation.strPath.c_str());
-                     return ERR;
-                 }
-             }
-             else
-             {
-                 dlog_warn("要删除的音频文件不存在: %s", stCustomOperation.strPath.c_str());
-             }
-         }
-         catch (const std::filesystem::filesystem_error& ex)
-         {
-             dlog_error("删除文件时发生异常: %s, 文件: %s", ex.what(), stCustomOperation.strPath.c_str());
-             return ERR;
-         }
-     }
-     return OK;
- }
+
+    if (it != stSoundAlarm.aCustomAudio.end())
+    {
+        stSoundAlarm.aCustomAudio.erase(it, stSoundAlarm.aCustomAudio.end());
+        dlog_info("从配置中删除自定义音频: %s", stCustomOperation.strPath.c_str());
+    }
+    else
+    {
+        dlog_warn("配置中未找到要删除的自定义音频: %s", stCustomOperation.strPath.c_str());
+    }
+    /* 保存更新后的配置 */
+    if (CEventConfigure::instance()->set_configure(stSoundAlarm) != 0)
+    {
+        dlog_error("保存声音报警配置失败");
+        return ERR;
+    }
+    /* 删除实际文件 */
+    if (!stCustomOperation.strPath.empty())
+    {
+        {
+            if (PosixFs_NS::exists(stCustomOperation.strPath))
+            {
+                if (PosixFs_NS::remove(stCustomOperation.strPath))
+                {
+                    dlog_info("成功删除音频文件: %s", stCustomOperation.strPath.c_str());
+                }
+                else
+                {
+                    dlog_error("删除音频文件失败: %s", stCustomOperation.strPath.c_str());
+                    return ERR;
+                }
+            }
+            else
+            {
+                dlog_warn("要删除的音频文件不存在: %s", stCustomOperation.strPath.c_str());
+            }
+        }
+    }
+    return OK;
+}
 /**
  * @brief 获取自定义音频信息列表
  * @param customAudioList 自定义音频列表
  * @return 0：成功 非0：失败
  */
- int CEventAlarm::get_audioAlarmCustom_info(std::vector<Alarm::CustomAudio_S> &customAudioList)
- {
-     // 获取当前声音报警配置
-     Alarm::SoundOutputAlarm_S stSoundAlarm;
-     if (CEventConfigure::instance()->get_configure(stSoundAlarm) != 0)
-     {
-         dlog_error("获取声音报警配置失败");
-         return ERR;
-     }
-     /* 清空输出列表 */ 
-     customAudioList.clear();
-     /* 使用copy_if算法筛选有名称的自定义音频 */ 
-     std::copy_if(stSoundAlarm.aCustomAudio.begin(), 
-                  stSoundAlarm.aCustomAudio.end(),
-                  std::back_inserter(customAudioList),
-                  [](const Alarm::CustomAudio_S &audio) {
-                      return !audio.strCustomeName.empty();
-                  });
-     dlog_info("获取有效自定义音频列表，总共 %zu 个，有效 %zu 个", 
-               stSoundAlarm.aCustomAudio.size(), 
-               customAudioList.size());
-     return OK;
- }
+int CEventAlarm::get_audioAlarmCustom_info(std::vector<Alarm::CustomAudio_S> &customAudioList)
+{
+    // 获取当前声音报警配置
+    Alarm::SoundOutputAlarm_S stSoundAlarm;
+    if (CEventConfigure::instance()->get_configure(stSoundAlarm) != 0)
+    {
+        dlog_error("获取声音报警配置失败");
+        return ERR;
+    }
+    /* 清空输出列表 */
+    customAudioList.clear();
+    /* 使用copy_if算法筛选有名称的自定义音频 */
+    std::copy_if(stSoundAlarm.aCustomAudio.begin(),
+                 stSoundAlarm.aCustomAudio.end(),
+                 std::back_inserter(customAudioList),
+                 [](const Alarm::CustomAudio_S &audio)
+                 {
+                     return !audio.strCustomeName.empty();
+                 });
+    dlog_info("获取有效自定义音频列表，总共 %zu 个，有效 %zu 个", stSoundAlarm.aCustomAudio.size(), customAudioList.size());
+    return OK;
+}

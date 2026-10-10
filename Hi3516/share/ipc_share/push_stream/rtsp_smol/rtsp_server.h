@@ -46,36 +46,26 @@
 
 /*
  * 连接上限默认值定义在 custom_define.h，业务编译时可通过能力宏覆盖；
- * 这里只按设备和码率计算当前生效值。首个 SETUP 前由库侧做准入，
+ * 这里只按设备能力计算当前生效值（不随码率变化）。首个 SETUP 前由库侧做准入，
  * 超限时保留已有连接并返回 453。
  */
 #ifndef CAP_RTSP_HIGH_CONCURRENCY
 #define CAP_RTSP_HIGH_CONCURRENCY 0
 #endif
 #ifndef RTSP_DEFAULT_GLOBAL_MAX_CLIENT
-#define RTSP_DEFAULT_GLOBAL_MAX_CLIENT 4
+/* 服务级总额对齐业界主流 IPC 的并发取流规格（海康典型 6 路，主/子码流合计）。 */
+#define RTSP_DEFAULT_GLOBAL_MAX_CLIENT 6
 #endif
 #ifndef RTSP_DEFAULT_STREAM_MAX_CLIENT
 #define RTSP_DEFAULT_STREAM_MAX_CLIENT 4
 #endif
-#ifndef RTSP_MAIN_CLIENT_LIMIT_8M
-#define RTSP_MAIN_CLIENT_LIMIT_8M 2
-#endif
-#ifndef RTSP_MAIN_CLIENT_LIMIT_16M
-#define RTSP_MAIN_CLIENT_LIMIT_16M 1
-#endif
 
-/* 每通道最大客户端数量（兼容既有 Rtsp_Create_Info_t 参数语义）。 */
-#define MAX_CLIENT_NUM RTSP_DEFAULT_STREAM_MAX_CLIENT
-
-/* 设备能力等级乘数：TV-3881T/TV-3882TI 由能力宏提升到 8 路总额。 */
+/* 设备能力等级乘数：TV-3881T/TV-3882TI 由能力宏翻倍（总额 6→12 路）。 */
 constexpr int RTSP_CLIENT_CAPACITY_MULTIPLIER = CAP_RTSP_HIGH_CONCURRENCY ? 2 : 1;
+/* 服务级总额：全设备同时 PLAY 的客户端数，主/子码流合计。 */
 constexpr int RTSP_GLOBAL_MAX_CLIENT = RTSP_DEFAULT_GLOBAL_MAX_CLIENT * RTSP_CLIENT_CAPACITY_MULTIPLIER;
-
-/* 主码流码率档位（配置单位 kbps）：低于 8 Mbps 为默认，8 Mbps/16 Mbps 收紧。 */
-constexpr int RTSP_MAIN_BITRATE_THRESHOLD_8M = 8192;
-constexpr int RTSP_MAIN_BITRATE_THRESHOLD_16M = 16384;
-constexpr int RTSP_MAIN_CLIENT_LIMIT_DEFAULT = RTSP_DEFAULT_STREAM_MAX_CLIENT;
+/* 流级上限：主/子码流统一的单流护栏，防单条流被打满。 */
+constexpr int RTSP_STREAM_MAX_CLIENT = RTSP_DEFAULT_STREAM_MAX_CLIENT * RTSP_CLIENT_CAPACITY_MULTIPLIER;
 
 /*
  * 背压预算采用"积压时长"判定（与 ZLMediaKit/gst-rtsp-server 同口径，见

@@ -116,15 +116,15 @@ IpcRet_E CStreamVideo::init()
     int nRet = OK;
 
     /*初始化通道处理器策略*/
-    m_channelHandlers[VENC_CHN_MAIN] = std::make_unique<CMainChannelHandler>(this);
-    m_channelHandlers[VENC_CHN_SUB] = std::make_unique<CSubChannelHandler>(this);
-    m_channelHandlers[VENC_CHN_JPEG] = std::make_unique<CJpegChannelHandler>();
+    m_channelHandlers[VENC_CHN_MAIN] = std::unique_ptr<CMainChannelHandler>(new CMainChannelHandler(this));
+    m_channelHandlers[VENC_CHN_SUB] = std::unique_ptr<CSubChannelHandler>(new CSubChannelHandler(this));
+    m_channelHandlers[VENC_CHN_JPEG] = std::unique_ptr<CJpegChannelHandler>(new CJpegChannelHandler());
 
     /*初始化NAL解析器策略*/
-    m_nalParsers[Video_NS::VideoCodec_E::H264] = std::make_unique<CH264NalParser>();
-    m_nalParsers[Video_NS::VideoCodec_E::H265] = std::make_unique<CH265NalParser>();
-    m_nalParsers[Video_NS::VideoCodec_E::SVAC3] = std::make_unique<CSvac3NalParser>();
-    m_nalParsers[Video_NS::VideoCodec_E::MJPEG] = std::make_unique<CMjpegParser>();
+    m_nalParsers[Video_NS::VideoCodec_E::H264] = std::unique_ptr<CH264NalParser>(new CH264NalParser());
+    m_nalParsers[Video_NS::VideoCodec_E::H265] = std::unique_ptr<CH265NalParser>(new CH265NalParser());
+    m_nalParsers[Video_NS::VideoCodec_E::SVAC3] = std::unique_ptr<CSvac3NalParser>(new CSvac3NalParser());
+    m_nalParsers[Video_NS::VideoCodec_E::MJPEG] = std::unique_ptr<CMjpegParser>(new CMjpegParser());
 
     /*初始化与各模块的回调绑定*/
     initCallbackBinding();
@@ -1155,7 +1155,7 @@ void CStreamVideo::get_vencStream(int param)
                                  * 数组分配缺陷（实测直接崩溃）；数据由取流线程持有，
                                  * 最后一个下游释放后回收。
                                  */
-                                std::shared_ptr<uint8_t[]> pShared(new uint8_t[nDataLen], std::default_delete<uint8_t[]>());
+                                std::shared_ptr<uint8_t> pShared(new uint8_t[nDataLen], std::default_delete<uint8_t[]>());
                                 std::memcpy(pShared.get(), pData, nDataLen);
                                 stFrameView.stSharedFrame.pData = std::move(pShared);
                                 stFrameView.stSharedFrame.nLen = nDataLen;

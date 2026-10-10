@@ -67,9 +67,9 @@ private:
     std::string m_strDeviceCode;
 
     /* 是否需要读取过滤列表的标志 */
-    std::atomic<bool> m_bIsReadFilterFileFlag = false;
+    std::atomic<bool> m_bIsReadFilterFileFlag{ false };
     /* 是否要读取本地记录文件的标志 */
-    std::atomic<bool> m_bIsReadRecordFileFlag = false;
+    std::atomic<bool> m_bIsReadRecordFileFlag{ false };
 
     /* 记录文件路径，不包含文件名称 */
     std::string m_strRecordFilePath;

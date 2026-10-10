@@ -2,7 +2,7 @@
  * @Author       : EasonLu
  * @Date         : 2025-04-21 09:11:48
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-06-24 09:00:38
+ * @LastEditTime : 2026-09-23 15:55:28
  * @FilePath     : SubscribeEvent.cpp
  * @Description  : 订阅事件
  */
@@ -17,7 +17,9 @@
 #include <thread>
 #include <vector>
 
-#define SUBSCRIBE_EVENT_DEBUG 1
+#include <functional>
+
+#define SUBSCRIBE_EVENT_DEBUG    1
 /* 使用Notify消息发送 */
 #define SUBSCRIBE_SEND_BY_NOTIFY 1
 
@@ -26,15 +28,14 @@
 #define SUBSCRIBE_NOTIFY_GAP 250 /* 使用Notity方法的发送间隔 */
 #endif
 /* 启动发送线程的等待时间（单位：毫秒） */
-#define SUBSCRIBE_SEND_WAIT_TIME 1000
+#define SUBSCRIBE_SEND_WAIT_TIME    1000
 /* 最大报警消息缓存数——存在没有网络的情况 */
-#define SUBSCRIBE_ALARM_MAX 500
+#define SUBSCRIBE_ALARM_MAX         500
 /* 报警消息重发时间间隔（单位：毫秒） */
 #define SUBSCRIBE_ALARM_RESEND_TIME 1000
 
 using namespace SIP;
-SIP::SubscribeEvent::SubscribeEvent()
-    : m_queAlarm(SUBSCRIBE_ALARM_MAX)
+SIP::SubscribeEvent::SubscribeEvent() : m_queAlarm(SUBSCRIBE_ALARM_MAX)
 {
 }
 SIP::SubscribeEvent::~SubscribeEvent()
@@ -71,7 +72,8 @@ bool SIP::SubscribeEvent::Handle(const SipEvent::Ptr &e)
                m_header.cmd_category,
                m_header.cmd_type,
                nExpires,
-               m_header.strCmdType.c_str(),e->m_pEvent->did);
+               m_header.strCmdType.c_str(),
+               e->m_pEvent->did);
     dlog_debug("SN[%s]", m_header.strSN.c_str());
     dlog_debug("DevID[%s]", m_header.strDevID.c_str());
 #endif
@@ -138,13 +140,10 @@ int SIP::SubscribeEvent::NotifyCatalog()
     std::lock_guard<std::mutex> lock(m_mutexCatalog);
     /* lock: reset 会同步停止并 join 旧线程，确保同一时刻只有一个目录通知任务。 */
     m_pThrCatalog.reset();
-    m_pThrCatalog = std::make_unique<BlockThread>(
-        std::bind(&SubscribeEvent::thrNotifyCatalog, this),
-        std::chrono::milliseconds(SUBSCRIBE_SEND_WAIT_TIME),
-        true);
+    m_pThrCatalog = std::unique_ptr<BlockThread>(
+        new BlockThread(std::bind(&SubscribeEvent::thrNotifyCatalog, this), std::chrono::milliseconds(SUBSCRIBE_SEND_WAIT_TIME), true));
     m_pThrCatalog->start();
-    dlog_info("创建目录通知线程成功，将在[%d]毫秒后进行发送",
-              SUBSCRIBE_SEND_WAIT_TIME);
+    dlog_info("创建目录通知线程成功，将在[%d]毫秒后进行发送", SUBSCRIBE_SEND_WAIT_TIME);
     return OK;
 }
 
@@ -203,9 +202,7 @@ int SIP::SubscribeEvent::Clear()
     return 0;
 }
 
-int SIP::SubscribeEvent::SendNotify(
-    const Data_S &stSubData,
-    const std::string &strBody)
+int SIP::SubscribeEvent::SendNotify(const Data_S &stSubData, const std::string &strBody)
 {
     if (nullptr == stSubData.pClient)
     {
@@ -221,12 +218,7 @@ int SIP::SubscribeEvent::SendNotify(
     /* FIXME 偶尔会构建Notify消息失败，返回-3或-6，状态不对或找不到订阅消息 */
 #if SUBSCRIBE_SEND_BY_NOTIFY
     osip_message_t *notify = nullptr;
-    int nRet = eXosip_insubscription_build_notify(
-        pContext,
-        stSubData.nSubscribeID,
-        EXOSIP_SUBCRSTATE_ACTIVE,
-        0,
-        &notify);
+    int nRet = eXosip_insubscription_build_notify(pContext, stSubData.nSubscribeID, EXOSIP_SUBCRSTATE_ACTIVE, 0, &notify);
     if (notify != nullptr)
     {
         /* 数据体 */
@@ -244,13 +236,12 @@ int SIP::SubscribeEvent::SendNotify(
 #else
     /* 直接发送Message方法 */
     osip_message_t *message = nullptr;
-    int nRet = eXosip_message_build_request(
-        pContext,
-        &message,
-        "Message",
-        stSubData.strFromUri.c_str(),
-        stSubData.strToUri.c_str(),
-        nullptr);
+    int nRet = eXosip_message_build_request(pContext,
+                                            &message,
+                                            "Message",
+                                            stSubData.strFromUri.c_str(),
+                                            stSubData.strToUri.c_str(),
+                                            nullptr);
     if (message != nullptr)
     {
         osip_message_set_content_type(message, "Application/MANSCDP+xml");
@@ -301,17 +292,17 @@ void SIP::SubscribeEvent::thrNotifyCatalog()
         nodeCmdType.text().set("Catalog");
 
         auto nodeSN = root.append_child("SN");
-        nodeSN.text().set(stSubData.strSN);
+        nodeSN.text().set(stSubData.strSN.c_str());
 
         auto nodeDeviceID = root.append_child("DeviceID");
-        nodeDeviceID.text().set(stSubData.strDevID);
+        nodeDeviceID.text().set(stSubData.strDevID.c_str());
 
         auto nodeSumNum = root.append_child("SumNum");
-        nodeSumNum.text().set(std::to_string(nChnTotal));
+        nodeSumNum.text().set(std::to_string(nChnTotal).c_str());
 
         /* 每次发送一个通道信息 */
         auto nodeDevList = root.append_child("DeviceList");
-        nodeDevList.append_attribute("Num").set_value(std::to_string(1));
+        nodeDevList.append_attribute("Num").set_value(std::to_string(1).c_str());
 
         auto nodeItem = nodeDevList.append_child("Item");
         nodeItem.append_child("DeviceID");
@@ -329,18 +320,18 @@ void SIP::SubscribeEvent::thrNotifyCatalog()
 
         for (auto &item : vecChnList)
         {
-            nodeItem.child("DeviceID").text().set(item->strChannelID);
-            nodeItem.child("Name").text().set(item->strName);
-            nodeItem.child("Manufacturer").text().set(item->strManufacturer);
-            nodeItem.child("Model").text().set(item->strModel);
-            nodeItem.child("Owner").text().set(item->strOwner);
-            nodeItem.child("CivilCode").text().set(item->strCivilCode);
-            nodeItem.child("Address").text().set(item->strAddress);
-            nodeItem.child("Parental").text().set(item->strParental);
-            nodeItem.child("ParentID").text().set(item->strParentID);
-            nodeItem.child("RegisterWay").text().set(item->strRegisterWay);
-            nodeItem.child("Secrecy").text().set(item->strSecrecy);
-            nodeItem.child("Status").text().set(item->strStatus);
+            nodeItem.child("DeviceID").text().set(item->strChannelID.c_str());
+            nodeItem.child("Name").text().set(item->strName.c_str());
+            nodeItem.child("Manufacturer").text().set(item->strManufacturer.c_str());
+            nodeItem.child("Model").text().set(item->strModel.c_str());
+            nodeItem.child("Owner").text().set(item->strOwner.c_str());
+            nodeItem.child("CivilCode").text().set(item->strCivilCode.c_str());
+            nodeItem.child("Address").text().set(item->strAddress.c_str());
+            nodeItem.child("Parental").text().set(item->strParental.c_str());
+            nodeItem.child("ParentID").text().set(item->strParentID.c_str());
+            nodeItem.child("RegisterWay").text().set(item->strRegisterWay.c_str());
+            nodeItem.child("Secrecy").text().set(item->strSecrecy.c_str());
+            nodeItem.child("Status").text().set(item->strStatus.c_str());
             std::ostringstream os;
             stNewDoc.save(os);
             auto strGB18030 = ::ToMbcsString(os.str());
@@ -357,7 +348,7 @@ void SIP::SubscribeEvent::thrNotifyCatalog()
 
 void SIP::SubscribeEvent::thrNotifyAlarm()
 {
-	pthread_setname_np(pthread_self(), "SIPNotifyAlarm");
+    pthread_setname_np(pthread_self(), "SIPNotifyAlarm");
 
     dlog_info("开始处理上抛报警事件");
     while (m_bThrRun.load())
@@ -395,11 +386,16 @@ bool SIP::SubscribeEvent::GetSubData(int enCmdType, Data_S &stSubData)
     }
     /* 计算是否过了订阅有效期 */
     auto nCurrentTime = time(nullptr);
-    auto nElapsedTime = nCurrentTime - pFind->second.nStartTime;  // 已经过去的时间
-    auto nLeftTime = pFind->second.nExpires - nElapsedTime;       // 剩余时间
+    auto nElapsedTime = nCurrentTime - pFind->second.nStartTime; // 已经过去的时间
+    auto nLeftTime = pFind->second.nExpires - nElapsedTime;      // 剩余时间
 
     dlog_debug("订阅类型[%d] 当前时间[%ld] 开始时间[%ld] 已过去[%ld]秒 订阅时长[%d]秒 剩余[%ld]秒",
-               enCmdType, nCurrentTime, pFind->second.nStartTime, nElapsedTime, pFind->second.nExpires, nLeftTime);
+               enCmdType,
+               nCurrentTime,
+               pFind->second.nStartTime,
+               nElapsedTime,
+               pFind->second.nExpires,
+               nLeftTime);
 
     if (nLeftTime <= 0)
     {
@@ -415,10 +411,7 @@ bool SIP::SubscribeEvent::GetSubData(int enCmdType, Data_S &stSubData)
         return false;
     }
     /* 订阅未过期，更新数据 */
-    dlog_info("订阅类型[%d][%s]的Notify通知，剩余有效期[%ld]秒",
-              enCmdType,
-              pFind->second.strCmdType.c_str(),
-              nLeftTime);
+    dlog_info("订阅类型[%d][%s]的Notify通知，剩余有效期[%ld]秒", enCmdType, pFind->second.strCmdType.c_str(), nLeftTime);
     stSubData = pFind->second;
     return true;
 }
@@ -448,10 +441,10 @@ int SIP::SubscribeEvent::SendAlarmMsg(GB28181::AlarmInfo_S &stInfo)
         nodeCmdType.text().set("Alarm");
 
         auto nodeSN = root.append_child("SN");
-        nodeSN.text().set(stSubData.strSN);
+        nodeSN.text().set(stSubData.strSN.c_str());
 
         auto nodeDeviceID = root.append_child("DeviceID");
-        nodeDeviceID.text().set(m_header.strDevID);
+        nodeDeviceID.text().set(m_header.strDevID.c_str());
 
         auto nodeAlarmPriority = root.append_child("AlarmPriority");
         nodeAlarmPriority.text().set(stInfo.enPriority);
@@ -460,7 +453,7 @@ int SIP::SubscribeEvent::SendAlarmMsg(GB28181::AlarmInfo_S &stInfo)
         nodeAlarmMethod.text().set(stInfo.enMethod);
 
         auto nodeAlarmTime = root.append_child("AlarmTime");
-        nodeAlarmTime.text().set(::TimeTToISO8601(stInfo.nTime));
+        nodeAlarmTime.text().set(::TimeTToISO8601(stInfo.nTime).c_str());
 
         { /* Info节点 */
             auto info = root.append_child("Info");
@@ -483,17 +476,13 @@ int SIP::SubscribeEvent::SendAlarmMsg(GB28181::AlarmInfo_S &stInfo)
     return SendNotify(stSubData, strXml);
 }
 
-int SIP::SubscribeEvent::HandleResponse(
-    const SipEvent::Ptr &e,
-    const manscdp_msgbody_header_t &header,
-    bool bIsSupport)
+int SIP::SubscribeEvent::HandleResponse(const SipEvent::Ptr &e, const manscdp_msgbody_header_t &header, bool bIsSupport)
 {
     /* 构建并发送响应 */
     osip_message_t *answer = nullptr;
     /* 返回的消息值均为200 */
     int status = bIsSupport ? SIP_OK : SIP_FORBIDDEN;
-    eXosip_insubscription_build_answer(
-        e->m_pContext, e->m_pEvent->tid, status, &answer);
+    eXosip_insubscription_build_answer(e->m_pContext, e->m_pEvent->tid, status, &answer);
 
     if (answer != nullptr)
     {
@@ -509,13 +498,13 @@ int SIP::SubscribeEvent::HandleResponse(
             auto root = stNewDoc.append_child("Response");
 
             auto nodeCmdType = root.append_child("CmdType");
-            nodeCmdType.text().set(m_header.strCmdType);
+            nodeCmdType.text().set(m_header.strCmdType.c_str());
 
             auto nodeSN = root.append_child("SN");
-            nodeSN.text().set(m_header.strSN);
+            nodeSN.text().set(m_header.strSN.c_str());
 
             auto nodeDeviceID = root.append_child("DeviceID");
-            nodeDeviceID.text().set(m_header.strDevID);
+            nodeDeviceID.text().set(m_header.strDevID.c_str());
 
             auto nodeResult = root.append_child("Result");
             nodeResult.text().set(bIsSupport ? "OK" : "ERROR");
@@ -528,8 +517,7 @@ int SIP::SubscribeEvent::HandleResponse(
             osip_message_set_body(answer, strBody.c_str(), strBody.length());
         }
         eXosip_lock(e->m_pContext);
-        eXosip_insubscription_send_answer(
-            e->m_pContext, e->m_pEvent->tid, status, answer);
+        eXosip_insubscription_send_answer(e->m_pContext, e->m_pEvent->tid, status, answer);
         eXosip_unlock(e->m_pContext);
     }
     return 0;

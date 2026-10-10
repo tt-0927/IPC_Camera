@@ -36,6 +36,30 @@ typedef struct _SPeopleHeadProcessContext_
 #endif
     /* 当前检测帧指针，周期统计需要编码全景图时使用 */
     ot_video_frame_info *pFrameInfo = nullptr;
+
+    /* C++11 基线下带默认成员初始化器的结构体不是聚合，提供构造函数支持花括号初始化；
+     * pstPanelFrame 仅在启用展会面板能力时参与构造 */
+    _SPeopleHeadProcessContext_(std::vector<Inference_NS::BoxData_S> &vBoxDatas_,
+                                std::vector<Common::RectInfo_S> &vstRectInfo_,
+                                int nWidth_,
+                                int nHeight_,
+                                long long llNowMs_,
+                                int nChnId_
+#if CAP_EXHIBITION_OSD_PANEL
+                                ,
+                                OsdPanel::PanelFrame_S *pstPanelFrame_ = nullptr
+#endif
+                                ,
+                                ot_video_frame_info *pFrameInfo_ = nullptr)
+        : vBoxDatas(vBoxDatas_), vstRectInfo(vstRectInfo_), nWidth(nWidth_), nHeight(nHeight_), llNowMs(llNowMs_), nChnId(nChnId_)
+#if CAP_EXHIBITION_OSD_PANEL
+          ,
+          pstPanelFrame(pstPanelFrame_)
+#endif
+          ,
+          pFrameInfo(pFrameInfo_)
+    {
+    }
 } SPeopleHeadProcessContext;
 } // namespace PeopleHeadDetectInternal
 

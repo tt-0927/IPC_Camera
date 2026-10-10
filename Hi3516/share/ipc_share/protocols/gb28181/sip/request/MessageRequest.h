@@ -31,8 +31,8 @@ namespace SIP
         uint64_t _request_sn;
         /* 需要分次发送数据时，保存发送的分片数据 */
         std::deque<std::string> m_dequeMsg;
-        /* 全局序列号 */
-        static std::atomic_uint64_t _sn;       
+        /* 全局序列号；gcc 6.5/uclibc 无 atomic_uint64_t 别名，用模板形式 */
+        static std::atomic<uint64_t> _sn;
     private:
         std::string format_xml(const std::string &xml);
     };

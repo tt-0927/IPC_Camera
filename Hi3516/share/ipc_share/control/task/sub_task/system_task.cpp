@@ -8,6 +8,7 @@
  */
 
 #include "system_task.h"
+#include "osd_configure.h"
 
 #include "dlog.h"
 #include "system_convert.h"
@@ -16,7 +17,6 @@
 #include "common_convert.h"
 #include "system_manage.h"
 #include "time_manage.h"
-#include "osd_manage.h"
 #include "ip_filter_manage.h"
 #include "convert_interface.h"
 #include "upgrade_client.h"
@@ -318,9 +318,9 @@ void Task::System::SetDeviceConfig::handle()
     Convert::write_file(DEVICE_CONFIG_FILE, stDeviceConfig);
 
     /* 设置osd共用信息 */
-    if (COsdManage::instance()->m_bInit)
+    if (COsdConfigure::instance()->is_initialized())
     {
-        COsdManage::instance()->set_osd_share_info(stDeviceConfig);
+        COsdConfigure::instance()->set_osd_share_info(stDeviceConfig);
     }
     
     result(OK);

@@ -488,10 +488,10 @@ int MessageEvent::SendUploadSnapShotFinish(GB28181::UploadSnapShotFiniInfo_S &In
     nodeSN.text().set(Info.nSN);
 
     auto nodeDeviceID = rootRet.append_child("DeviceID");
-    nodeDeviceID.text().set(Info.strID);
+    nodeDeviceID.text().set(Info.strID.c_str());
 
     auto nodeSessionID = rootRet.append_child("SessionID");
-    nodeSessionID.text().set(Info.strSessionID);
+    nodeSessionID.text().set(Info.strSessionID.c_str());
 
     auto nodeSnapShotList = rootRet.append_child("SnapShotList");
 
@@ -503,7 +503,7 @@ int MessageEvent::SendUploadSnapShotFinish(GB28181::UploadSnapShotFiniInfo_S &In
     {
         for (auto Item : Info.vecSnapShotList)
         {
-            nodeSnapShotList.child("SnapShotFileID").text().set(Item.strSnapShotFileID);
+            nodeSnapShotList.child("SnapShotFileID").text().set(Item.strSnapShotFileID.c_str());
             std::ostringstream os;
             stNewDoc.save(os);
             auto strGB18030 = ::ToMbcsString(os.str());
@@ -884,16 +884,16 @@ bool DeviceCtrlEvent::HandleGuardCmd(const SipEvent::Ptr &e)
     auto rootRet = stNewDoc.append_child("Response");
 
     auto nodeCmdType = rootRet.append_child("CmdType");
-    nodeCmdType.text().set(m_header.strCmdType);
+    nodeCmdType.text().set(m_header.strCmdType.c_str());
 
     auto nodeSN = rootRet.append_child("SN");
     nodeSN.text().set(nSN);
 
     auto nodeDeviceID = rootRet.append_child("DeviceID");
-    nodeDeviceID.text().set(strID);
+    nodeDeviceID.text().set(strID.c_str());
 
     auto nodeSumNum = rootRet.append_child("Result");
-    nodeSumNum.text().set(std::to_string(0));
+    nodeSumNum.text().set(std::to_string(0).c_str());
 
     std::ostringstream os;
     stNewDoc.save(os);
@@ -2033,16 +2033,16 @@ bool DeviceCtrlEvent::ResponeControlResult(const SipEvent::Ptr &e, uint64_t nSN,
     auto rootRet = stNewDoc.append_child("Response");
 
     auto nodeCmdType = rootRet.append_child("CmdType");
-    nodeCmdType.text().set(strCmdType);
+    nodeCmdType.text().set(strCmdType.c_str());
 
     auto nodeSN = rootRet.append_child("SN");
     nodeSN.text().set(nSN);
 
     auto nodeDeviceID = rootRet.append_child("DeviceID");
-    nodeDeviceID.text().set(strDeviceID);
+    nodeDeviceID.text().set(strDeviceID.c_str());
 
     auto nodeResult = rootRet.append_child("Result");
-    nodeResult.text().set(strResult);
+    nodeResult.text().set(strResult.c_str());
 
     std::ostringstream os;
     stNewDoc.save(os);
@@ -3406,13 +3406,13 @@ bool BroadcastEvent::HandleRequest(const SipEvent::Ptr &e)
     auto rootRet = stNewDoc.append_child("Response");
 
     auto nodeCmdType = rootRet.append_child("CmdType");
-    nodeCmdType.text().set(m_header.strCmdType);
+    nodeCmdType.text().set(m_header.strCmdType.c_str());
 
     auto nodeSN = rootRet.append_child("SN");
     nodeSN.text().set(nSN);
 
     auto nodeDeviceID = rootRet.append_child("DeviceID");
-    nodeDeviceID.text().set(strTargetID);
+    nodeDeviceID.text().set(strTargetID.c_str());
 
     auto nodeResult = rootRet.append_child("Result");
 
@@ -3464,7 +3464,7 @@ bool BroadcastEvent::HandleRequest(const SipEvent::Ptr &e)
         }
     }
 
-    nodeResult.text().set(tBroadcast.strResult);
+    nodeResult.text().set(tBroadcast.strResult.c_str());
     std::ostringstream os;
     stNewDoc.save(os);
     auto strGB18030 = ::ToMbcsString(os.str());

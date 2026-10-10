@@ -20,6 +20,9 @@
 #include "ss_mpi_ae.h"
 #include "ss_mpi_isp.h"
 
+/* C++11 基线下 static constexpr 成员被 ODR-use 时需要类外定义（C++17 起隐式 inline） */
+constexpr std::chrono::milliseconds CDayNightController::THREAD_SLEEP_INTERVAL;
+
 using namespace ISP;
 
 namespace
@@ -70,7 +73,7 @@ bool CDayNightController::start()
     m_nLastCollectErrorCode = OK;
     try
     {
-        m_workerThread = std::make_unique<std::thread>(&CDayNightController::workerThread, this);
+        m_workerThread = std::unique_ptr<std::thread>(new std::thread(&CDayNightController::workerThread, this));
     }
     catch (const std::exception &stError)
     {
@@ -306,8 +309,7 @@ bool CDayNightController::is_night_to_day_condition_met(const ObservationSample_
     return false;
 }
 
-CDayNightController::ObservationEvent_S CDayNightController::update_observation_candidate_locked(bool bConditionMet,
-                                                                                                 bool bTargetNight)
+CDayNightController::ObservationEvent_S CDayNightController::update_observation_candidate_locked(bool bConditionMet, bool bTargetNight)
 {
     ObservationEvent_S stEvent;
     const bool bAcceptedNight = m_isNight.load();

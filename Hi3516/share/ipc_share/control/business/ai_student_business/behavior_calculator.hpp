@@ -19,7 +19,8 @@
 #include <functional>
 #include <shared_mutex>
 
-namespace AiStudentBusiness_NS {
+namespace AiStudentBusiness_NS
+{
 
 /* 单个行为类型的持续状态 */
 struct BehaviorState_S
@@ -41,7 +42,8 @@ struct BehaviorCnt_S
     int nLyingOnDeskCnt = 0; /* 趴桌人数统计 */
 };
 
-class CBehaviorCalculator {
+class CBehaviorCalculator
+{
   public:
     using BehaviorCallback = std::function<void(const BehaviorRecord &)>;
 
@@ -107,9 +109,7 @@ class CBehaviorCalculator {
      * @param [in] : nCount     当前帧学生人数
      * @return     : 主导行为类型，无有效行为时返回 -1
      */
-    int detectDominantBehavior(
-        const std::vector<StudentBehavior_NS::Behavior_S> &vBehaviors,
-        int                                                nCount) const;
+    int detectDominantBehavior(const std::vector<StudentBehavior_NS::Behavior_S> &vBehaviors, int nCount) const;
 
     /**
      * @brief      : 计算课程开始到指定时刻的经过时间字符串。
@@ -184,7 +184,7 @@ class CBehaviorCalculator {
     bool isDiscussion(const BehaviorCnt_S &stCnt, int nPresentCount) const;
 
   private:
-    mutable std::shared_mutex m_mutex;
+    mutable std::mutex m_mutex;
 
     /* 班级应到总人数 */
     int m_nTotal = 0;
@@ -204,6 +204,6 @@ class CBehaviorCalculator {
     std::map<PlatformBehaviorType_E, int64_t> m_mapDurationAccum;
 };
 
-}  // namespace AiStudentBusiness_NS
+} // namespace AiStudentBusiness_NS
 
 #endif

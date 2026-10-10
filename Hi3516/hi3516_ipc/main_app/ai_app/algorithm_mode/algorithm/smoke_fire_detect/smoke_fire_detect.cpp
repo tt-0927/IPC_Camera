@@ -32,10 +32,19 @@ CSmokeFireDetect::~CSmokeFireDetect()
 void CSmokeFireDetect::recvMediaData(MediaData_S stMediaData)
 {
     m_receivedFrames.fetch_add(1, std::memory_order_relaxed);
-    if (m_bEnabled.load() && m_recvManager.handleEvent(stMediaData.stMediaParam.nChannel))
+    /* 快照请求即使发生在详细开关切换期间，也必须允许下一帧进入队列。 */
+    if ((m_bEnabled.load() || m_bSnapshotPending.load()) &&
+        m_recvManager.handleEvent(stMediaData.stMediaParam.nChannel))
     {
+        QueuedFrame_S stQueuedFrame;
+        stQueuedFrame.stMediaData = stMediaData;
+        if (m_bSnapshotPending.load(std::memory_order_acquire))
+        {
+            stQueuedFrame.ullSnapshotRequestId =
+                m_activeSnapshotRequestId.load(std::memory_order_acquire);
+        }
         m_queuedFrames.fetch_add(1, std::memory_order_relaxed);
-        m_dataQueue.pushOrReplace(stMediaData);
+        m_dataQueue.pushOrReplace(stQueuedFrame);
     }
 }
 
@@ -98,10 +107,11 @@ void CSmokeFireDetect::unInit()
 void CSmokeFireDetect::run()
 {
     pthread_setname_np(pthread_self(), "SmokeFireDetect");
-    MediaData_S mediaData;
+    QueuedFrame_S stQueuedFrame;
     while (m_bRunning.load())
     {
         logDiagnostics();
+        
         /* 手动抓拍请求不受使能开关限制：置位后仍需取帧并推理 */
         if (!m_bEnabled.load() && !m_bSnapshotPending.load())
         {
@@ -113,14 +123,26 @@ void CSmokeFireDetect::run()
             std::this_thread::sleep_for(std::chrono::seconds(1));
             continue;
         }
-        if (!m_dataQueue.pop(mediaData, TIMEOUT_1000_MS) || !mediaData.pVideoFrameInfo ||
+        if (!m_dataQueue.pop(stQueuedFrame, TIMEOUT_1000_MS) ||
+            !stQueuedFrame.stMediaData.pVideoFrameInfo ||
             (!m_bEnabled.load() && !m_bSnapshotPending.load()))
         {
             ++m_stats.noFrame;
             continue;
         }
 
+        MediaData_S &mediaData = stQueuedFrame.stMediaData;
         ot_video_frame_info *frame = mediaData.pVideoFrameInfo.get();
+        const unsigned long long ullSnapshotRequestId = stQueuedFrame.ullSnapshotRequestId;
+        const bool bSnapshotFrame = ullSnapshotRequestId != 0 &&
+            ullSnapshotRequestId == m_activeSnapshotRequestId.load(std::memory_order_acquire);
+        if (bSnapshotFrame)
+        {
+            dlog_info("烟火识别-快照: 取得命令后的实时帧，源尺寸[%dx%d] stride[%u,%u] 像素格式[%d]，模型输入[%dx%d]",
+                      mediaData.stMediaParam.nVideoWidth, mediaData.stMediaParam.nVideoHeight,
+                      frame->video_frame.stride[0], frame->video_frame.stride[1],
+                      static_cast<int>(frame->video_frame.pixel_format), kWidth, kHeight);
+        }
         if (mediaData.stMediaParam.nVideoWidth != kWidth || mediaData.stMediaParam.nVideoHeight != kHeight)
         {
             if (TD_SUCCESS != mppVgs_scale(frame, &m_dstFrameInfo))
@@ -142,9 +164,10 @@ void CSmokeFireDetect::run()
         }
         ++m_stats.inferenceOk;
         /* 快照请求优先回填结果：不受后续使能复检影响 */
-        if (m_bSnapshotPending.load())
+        if (bSnapshotFrame &&
+            m_bSnapshotPending.exchange(false, std::memory_order_acq_rel))
         {
-            handleSnapshotRequest(frame, boxes);
+            handleSnapshotRequest(frame, boxes, ullSnapshotRequestId);
         }
         if (!m_bEnabled.load())
         {
@@ -298,24 +321,37 @@ void CSmokeFireDetect::processResult(const std::vector<Inference_NS::BoxData_S> 
 
 bool CSmokeFireDetect::detectOnce(SnapshotResult_S &stResult, int nTimeoutMs)
 {
+    /* 单个算法实例只有一个快照结果槽，多个请求必须串行处理。 */
+    std::unique_lock<std::mutex> requestLock(m_snapshotRequestMutex);
     if (!m_bRunning.load())
     {
         dlog_error("烟火识别-快照: 算法线程未运行，拒绝抓拍");
         return false;
     }
 
-    /* 先复位上一轮结果，再置请求标志，避免与流式线程回填竞争 */
+    /* 丢弃请求前积压的帧，确保快照分析的是命令到达后的新画面。 */
+    m_dataQueue.clear();
+
+    /* 先复位上一轮结果，再置请求标志，避免与流式线程回填竞争。 */
     {
         std::lock_guard<std::mutex> lock(m_snapshotMutex);
         m_bSnapshotDone = false;
+        m_completedSnapshotRequestId = 0;
         m_stSnapshotResult = SnapshotResult_S{};
     }
-    m_bSnapshotPending.store(true);
+    const unsigned long long ullRequestId =
+        m_snapshotRequestSerial.fetch_add(1, std::memory_order_relaxed) + 1;
+    m_activeSnapshotRequestId.store(ullRequestId, std::memory_order_release);
+    m_bSnapshotPending.store(true, std::memory_order_release);
+    dlog_info("烟火识别-快照: 请求[%llu]等待命令到达后的新视频帧", ullRequestId);
 
     std::unique_lock<std::mutex> lock(m_snapshotMutex);
     const bool bOk = m_snapshotCv.wait_for(lock, std::chrono::milliseconds(nTimeoutMs),
-                                           [this]() { return m_bSnapshotDone; });
-    m_bSnapshotPending.store(false);
+                                           [this, ullRequestId]() {
+                                               return m_bSnapshotDone &&
+                                                   m_completedSnapshotRequestId == ullRequestId;
+                                           });
+    m_bSnapshotPending.store(false, std::memory_order_release);
     if (!bOk)
     {
         dlog_error("烟火识别-快照: 等待检测结果超时[%d]ms", nTimeoutMs);
@@ -327,7 +363,8 @@ bool CSmokeFireDetect::detectOnce(SnapshotResult_S &stResult, int nTimeoutMs)
 }
 
 void CSmokeFireDetect::handleSnapshotRequest(ot_video_frame_info *pFrameInfo,
-                                             const std::vector<Inference_NS::BoxData_S> &boxes)
+                                             const std::vector<Inference_NS::BoxData_S> &boxes,
+                                             unsigned long long ullRequestId)
 {
     SnapshotResult_S stResult;
     processSnapshotDetect(boxes, stResult);
@@ -338,7 +375,7 @@ void CSmokeFireDetect::handleSnapshotRequest(ot_video_frame_info *pFrameInfo,
         EventTvSdkImage_S stImage;
         if (AiAppCommon::encode_video_frame_to_jpeg_memory(pFrameInfo, stImage) == OK)
         {
-            stResult.vecJpeg = stImage.vecJpeg;
+            stResult.vecJpeg = stImage.vecJpeg;      /* 编码成功后再取成员回填 */
         }
         else
         {
@@ -355,32 +392,44 @@ void CSmokeFireDetect::handleSnapshotRequest(ot_video_frame_info *pFrameInfo,
     const int nFire = stResult.bFireDetected ? 1 : 0;
     const size_t nRectCount = stResult.vstRectInfo.size();
     const size_t nJpegSize = stResult.vecJpeg.size();
+    const unsigned int nRawBoxCount = stResult.nRawBoxCount;
+    const float fMaxTargetConfidence = stResult.fMaxTargetConfidence;
+    const float fThreshold = stResult.fThreshold;
 
     {
         std::lock_guard<std::mutex> lock(m_snapshotMutex);
         m_stSnapshotResult = std::move(stResult);
+        m_completedSnapshotRequestId = ullRequestId;
         m_bSnapshotDone = true;
     }
     m_snapshotCv.notify_all();
 
-    dlog_info("烟火识别-快照: 检测完成，烟雾[%d] 火焰[%d] 目标框[%zu] JPEG[%zu]字节", nSmoke, nFire, nRectCount,
-              nJpegSize);
+    dlog_info("烟火识别-快照: 请求[%llu]检测完成，原始框[%u] 烟雾[%d] 火焰[%d] 命中框[%zu] "
+              "目标最高置信度[%.3f] 快照额外阈值[%.3f] 输入[%dx%d] JPEG[%zu]字节",
+              ullRequestId, nRawBoxCount, nSmoke, nFire, nRectCount,
+              fMaxTargetConfidence, fThreshold,
+              kWidth, kHeight, nJpegSize);
 }
 
 void CSmokeFireDetect::processSnapshotDetect(const std::vector<Inference_NS::BoxData_S> &boxes,
                                              SnapshotResult_S &stResult)
 {
-    /* 手动抓拍仅按置信度阈值筛选：不判断使能，也不经过报警状态机 */
-    const float threshold = 1.0f - m_config.stRule.nSensitivity / 100.0f;
+    /*
+     * boxes 已经经过模型配置中的 confidence 阈值筛选。手动抓拍与垃圾抓拍保持一致，
+     * 不再叠加实时事件的灵敏度阈值，避免单帧候选框被重复过滤。
+     */
+    const float threshold = 0.0f;
+    stResult.nRawBoxCount = static_cast<unsigned int>(boxes.size());
+    stResult.fThreshold = threshold;
     for (const auto &box : boxes)
     {
         if (box.nLabel != kSmokeLabelId && box.nLabel != kFireLabelId)
         {
             continue;
         }
-        if (box.fConfidence < threshold)
+        if (box.fConfidence > stResult.fMaxTargetConfidence)
         {
-            continue;
+            stResult.fMaxTargetConfidence = box.fConfidence;
         }
         if (box.nLabel == kSmokeLabelId)
         {

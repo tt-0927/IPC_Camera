@@ -7,13 +7,43 @@
  * @Description: CA证书相关操作
  */
 
-#include <filesystem>
+#include <dirent.h>
+#include <sys/stat.h>
+#include <unistd.h>
+
+#include <cstdio>
+#include <string>
+
 #include "ca_manage.h"
 #include "dlog.h"
 #include "ca_file_database.h"
 #include "IpcRet.h"
 
-namespace fs = std::filesystem;
+#include <algorithm>
+#include <sstream>
+#include <cstring>
+#include <ctime>
+
+namespace
+{
+
+/* 判断路径是否为常规文件 */
+bool is_regular_file(const std::string &strPath)
+{
+    struct stat stFile;
+    return (stat(strPath.c_str(), &stFile) == 0) && S_ISREG(stFile.st_mode);
+}
+
+/* 取文件名后缀（含 '.'），无后缀返回空串 */
+std::string file_extension(const std::string &strPath)
+{
+    const size_t unSlashPos = strPath.rfind('/');
+    const std::string strName = (unSlashPos == std::string::npos) ? strPath : strPath.substr(unSlashPos + 1);
+    const size_t unDotPos = strName.rfind('.');
+    return (unDotPos == std::string::npos) ? std::string() : strName.substr(unDotPos);
+}
+
+} // namespace
 
 CCaManage::CCaManage()
 {
@@ -225,8 +255,13 @@ int CCaManage::generateCsr(const Network::CertApplyInfo_S &stApplyInfo)
 
     if (!stApplyInfo.strC.empty())
     {
-        if (X509_NAME_add_entry_by_txt(pName, "C", MBSTRING_ASC,
-                                       reinterpret_cast<const unsigned char *>(stApplyInfo.strC.c_str()), -1, -1, 0) != 1)
+        if (X509_NAME_add_entry_by_txt(pName,
+                                       "C",
+                                       MBSTRING_ASC,
+                                       reinterpret_cast<const unsigned char *>(stApplyInfo.strC.c_str()),
+                                       -1,
+                                       -1,
+                                       0) != 1)
         {
             dlog_error("向X509_NAME添加国家名称失败");
             X509_NAME_free(pName);
@@ -237,8 +272,13 @@ int CCaManage::generateCsr(const Network::CertApplyInfo_S &stApplyInfo)
 
     if (!stApplyInfo.strST.empty())
     {
-        if (X509_NAME_add_entry_by_txt(pName, "ST", MBSTRING_ASC,
-                                       reinterpret_cast<const unsigned char *>(stApplyInfo.strST.c_str()), -1, -1, 0) != 1)
+        if (X509_NAME_add_entry_by_txt(pName,
+                                       "ST",
+                                       MBSTRING_ASC,
+                                       reinterpret_cast<const unsigned char *>(stApplyInfo.strST.c_str()),
+                                       -1,
+                                       -1,
+                                       0) != 1)
         {
             dlog_error("向X509_NAME添加状态名称失败");
             X509_NAME_free(pName);
@@ -249,8 +289,13 @@ int CCaManage::generateCsr(const Network::CertApplyInfo_S &stApplyInfo)
 
     if (!stApplyInfo.strL.empty())
     {
-        if (X509_NAME_add_entry_by_txt(pName, "L", MBSTRING_ASC,
-                                       reinterpret_cast<const unsigned char *>(stApplyInfo.strL.c_str()), -1, -1, 0) != 1)
+        if (X509_NAME_add_entry_by_txt(pName,
+                                       "L",
+                                       MBSTRING_ASC,
+                                       reinterpret_cast<const unsigned char *>(stApplyInfo.strL.c_str()),
+                                       -1,
+                                       -1,
+                                       0) != 1)
         {
             dlog_error("向X509_NAME添加地区名称失败");
             X509_NAME_free(pName);
@@ -261,8 +306,13 @@ int CCaManage::generateCsr(const Network::CertApplyInfo_S &stApplyInfo)
 
     if (!stApplyInfo.strO.empty())
     {
-        if (X509_NAME_add_entry_by_txt(pName, "O", MBSTRING_ASC,
-                                       reinterpret_cast<const unsigned char *>(stApplyInfo.strO.c_str()), -1, -1, 0) != 1)
+        if (X509_NAME_add_entry_by_txt(pName,
+                                       "O",
+                                       MBSTRING_ASC,
+                                       reinterpret_cast<const unsigned char *>(stApplyInfo.strO.c_str()),
+                                       -1,
+                                       -1,
+                                       0) != 1)
         {
             dlog_error("向X509_NAME添加组织名称失败");
             X509_NAME_free(pName);
@@ -273,8 +323,13 @@ int CCaManage::generateCsr(const Network::CertApplyInfo_S &stApplyInfo)
 
     if (!stApplyInfo.strOU.empty())
     {
-        if (X509_NAME_add_entry_by_txt(pName, "OU", MBSTRING_ASC,
-                                       reinterpret_cast<const unsigned char *>(stApplyInfo.strOU.c_str()), -1, -1, 0) != 1)
+        if (X509_NAME_add_entry_by_txt(pName,
+                                       "OU",
+                                       MBSTRING_ASC,
+                                       reinterpret_cast<const unsigned char *>(stApplyInfo.strOU.c_str()),
+                                       -1,
+                                       -1,
+                                       0) != 1)
         {
             dlog_error("向X509_NAME添加组织单元名称失败");
             X509_NAME_free(pName);
@@ -285,8 +340,13 @@ int CCaManage::generateCsr(const Network::CertApplyInfo_S &stApplyInfo)
 
     if (!stApplyInfo.strCN.empty())
     {
-        if (X509_NAME_add_entry_by_txt(pName, "CN", MBSTRING_ASC,
-                                       reinterpret_cast<const unsigned char *>(stApplyInfo.strCN.c_str()), -1, -1, 0) != 1)
+        if (X509_NAME_add_entry_by_txt(pName,
+                                       "CN",
+                                       MBSTRING_ASC,
+                                       reinterpret_cast<const unsigned char *>(stApplyInfo.strCN.c_str()),
+                                       -1,
+                                       -1,
+                                       0) != 1)
         {
             dlog_error("向X509_NAME添加通用名称失败");
             X509_NAME_free(pName);
@@ -297,8 +357,13 @@ int CCaManage::generateCsr(const Network::CertApplyInfo_S &stApplyInfo)
 
     if (!stApplyInfo.strEmail.empty())
     {
-        if (X509_NAME_add_entry_by_txt(pName, "emailAddress", MBSTRING_ASC,
-                                       reinterpret_cast<const unsigned char *>(stApplyInfo.strEmail.c_str()), -1, -1, 0) != 1)
+        if (X509_NAME_add_entry_by_txt(pName,
+                                       "emailAddress",
+                                       MBSTRING_ASC,
+                                       reinterpret_cast<const unsigned char *>(stApplyInfo.strEmail.c_str()),
+                                       -1,
+                                       -1,
+                                       0) != 1)
         {
             dlog_error("向X509_NAME添加邮件地址失败");
             X509_NAME_free(pName);
@@ -430,8 +495,13 @@ int CCaManage::generateCertificate(const Network::CertApplyInfo_S &stApplyInfo, 
     /* 设置主题名称的各项字段 */
     if (!stApplyInfo.strC.empty())
     {
-        if (X509_NAME_add_entry_by_txt(pName, "C", MBSTRING_ASC,
-                                       reinterpret_cast<const unsigned char *>(stApplyInfo.strC.c_str()), -1, -1, 0) != 1)
+        if (X509_NAME_add_entry_by_txt(pName,
+                                       "C",
+                                       MBSTRING_ASC,
+                                       reinterpret_cast<const unsigned char *>(stApplyInfo.strC.c_str()),
+                                       -1,
+                                       -1,
+                                       0) != 1)
         {
             dlog_error("向X509 name添加国家名称(C)失败");
             X509_NAME_free(pName);
@@ -444,8 +514,13 @@ int CCaManage::generateCertificate(const Network::CertApplyInfo_S &stApplyInfo, 
 
     if (!stApplyInfo.strST.empty())
     {
-        if (X509_NAME_add_entry_by_txt(pName, "ST", MBSTRING_ASC,
-                                       reinterpret_cast<const unsigned char *>(stApplyInfo.strST.c_str()), -1, -1, 0) != 1)
+        if (X509_NAME_add_entry_by_txt(pName,
+                                       "ST",
+                                       MBSTRING_ASC,
+                                       reinterpret_cast<const unsigned char *>(stApplyInfo.strST.c_str()),
+                                       -1,
+                                       -1,
+                                       0) != 1)
         {
             dlog_error("向X509 name添加状态名（ST）失败");
             X509_NAME_free(pName);
@@ -458,8 +533,13 @@ int CCaManage::generateCertificate(const Network::CertApplyInfo_S &stApplyInfo, 
 
     if (!stApplyInfo.strL.empty())
     {
-        if (X509_NAME_add_entry_by_txt(pName, "L", MBSTRING_ASC,
-                                       reinterpret_cast<const unsigned char *>(stApplyInfo.strL.c_str()), -1, -1, 0) != 1)
+        if (X509_NAME_add_entry_by_txt(pName,
+                                       "L",
+                                       MBSTRING_ASC,
+                                       reinterpret_cast<const unsigned char *>(stApplyInfo.strL.c_str()),
+                                       -1,
+                                       -1,
+                                       0) != 1)
         {
             dlog_error("向X509 name添加位置名称(L)失败");
             X509_NAME_free(pName);
@@ -472,8 +552,13 @@ int CCaManage::generateCertificate(const Network::CertApplyInfo_S &stApplyInfo, 
 
     if (!stApplyInfo.strO.empty())
     {
-        if (X509_NAME_add_entry_by_txt(pName, "O", MBSTRING_ASC,
-                                       reinterpret_cast<const unsigned char *>(stApplyInfo.strO.c_str()), -1, -1, 0) != 1)
+        if (X509_NAME_add_entry_by_txt(pName,
+                                       "O",
+                                       MBSTRING_ASC,
+                                       reinterpret_cast<const unsigned char *>(stApplyInfo.strO.c_str()),
+                                       -1,
+                                       -1,
+                                       0) != 1)
         {
             dlog_error("向X509_NAME添加组织名(O)失败");
             X509_NAME_free(pName);
@@ -486,8 +571,13 @@ int CCaManage::generateCertificate(const Network::CertApplyInfo_S &stApplyInfo, 
 
     if (!stApplyInfo.strOU.empty())
     {
-        if (X509_NAME_add_entry_by_txt(pName, "OU", MBSTRING_ASC,
-                                       reinterpret_cast<const unsigned char *>(stApplyInfo.strOU.c_str()), -1, -1, 0) != 1)
+        if (X509_NAME_add_entry_by_txt(pName,
+                                       "OU",
+                                       MBSTRING_ASC,
+                                       reinterpret_cast<const unsigned char *>(stApplyInfo.strOU.c_str()),
+                                       -1,
+                                       -1,
+                                       0) != 1)
         {
             dlog_error("X509_NAME添加OU失败");
             X509_NAME_free(pName);
@@ -500,8 +590,13 @@ int CCaManage::generateCertificate(const Network::CertApplyInfo_S &stApplyInfo, 
 
     if (!stApplyInfo.strCN.empty())
     {
-        if (X509_NAME_add_entry_by_txt(pName, "CN", MBSTRING_ASC,
-                                       reinterpret_cast<const unsigned char *>(stApplyInfo.strCN.c_str()), -1, -1, 0) != 1)
+        if (X509_NAME_add_entry_by_txt(pName,
+                                       "CN",
+                                       MBSTRING_ASC,
+                                       reinterpret_cast<const unsigned char *>(stApplyInfo.strCN.c_str()),
+                                       -1,
+                                       -1,
+                                       0) != 1)
         {
             dlog_error("向X509 name添加CN失败");
             X509_NAME_free(pName);
@@ -514,8 +609,13 @@ int CCaManage::generateCertificate(const Network::CertApplyInfo_S &stApplyInfo, 
 
     if (!stApplyInfo.strEmail.empty())
     {
-        if (X509_NAME_add_entry_by_txt(pName, "emailAddress", MBSTRING_ASC,
-                                       reinterpret_cast<const unsigned char *>(stApplyInfo.strEmail.c_str()), -1, -1, 0) != 1)
+        if (X509_NAME_add_entry_by_txt(pName,
+                                       "emailAddress",
+                                       MBSTRING_ASC,
+                                       reinterpret_cast<const unsigned char *>(stApplyInfo.strEmail.c_str()),
+                                       -1,
+                                       -1,
+                                       0) != 1)
         {
             dlog_error("向X509 NAME添加电子邮件地址失败");
             X509_NAME_free(pName);
@@ -640,8 +740,8 @@ int CCaManage::generateCertificate(const Network::CertApplyInfo_S &stApplyInfo, 
     X509_EXTENSION_free(ext_bc);
 
     /* 固定的 DNS 名称和 IP 地址 */
-    const std::vector<std::string> fixed_dns_names = {"127.0.0.1", "[::1]"};
-    const std::vector<std::string> fixed_ip_addresses = {"127.0.0.1", "::1"};
+    const std::vector<std::string> fixed_dns_names = { "127.0.0.1", "[::1]" };
+    const std::vector<std::string> fixed_ip_addresses = { "127.0.0.1", "::1" };
 
     /* 创建 SAN 扩展字符串 */
     std::string strSan;
@@ -742,11 +842,7 @@ std::string CCaManage::convertASN1TimeToLocal(const ASN1_TIME *pTime)
     }
 
     char buffer[32] = {};
-    if (std::strftime(
-            buffer,
-            sizeof(buffer),
-            "%Y-%m-%d %H:%M:%S",
-            &localTm) == 0)
+    if (std::strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", &localTm) == 0)
     {
         return "";
     }
@@ -1237,19 +1333,19 @@ int CCaManage::getCertificateInfo(const std::string &strCertFilePath, Network::C
     return 0;
 }
 
-bool CCaManage::isCertificateDevice(const std::string& strCertPath) 
+bool CCaManage::isCertificateDevice(const std::string &strCertPath)
 {
-    FILE* fp = fopen(strCertPath.c_str(), "rb");
+    FILE *fp = fopen(strCertPath.c_str(), "rb");
     if (!fp)
     {
         dlog_error("打开证书文件失败");
         return false;
-    } 
+    }
 
-    X509* cert = PEM_read_X509(fp, nullptr, nullptr, nullptr);
+    X509 *cert = PEM_read_X509(fp, nullptr, nullptr, nullptr);
     fclose(fp);
-    
-    if (cert) 
+
+    if (cert)
     {
         dlog_info("设备证书验证成功");
         X509_free(cert);
@@ -1259,38 +1355,39 @@ bool CCaManage::isCertificateDevice(const std::string& strCertPath)
     return false;
 }
 
-int CCaManage::CheckCertExpired(const std::string& strCertPath)
+int CCaManage::CheckCertExpired(const std::string &strCertPath)
 {
-    BIO* bio = nullptr;
-    X509* cert = nullptr;
-    int result = -1;  // 默认返回 -1（过期或错误）
+    BIO *bio = nullptr;
+    X509 *cert = nullptr;
+    int result = -1; // 默认返回 -1（过期或错误）
 
     // 1. 打开证书文件
     bio = BIO_new_file(strCertPath.c_str(), "r");
-    if (!bio) {
-        return -1;  // 文件打开失败
+    if (!bio)
+    {
+        return -1; // 文件打开失败
     }
 
     // 2. 解析证书
     cert = PEM_read_bio_X509(bio, nullptr, nullptr, nullptr);
-    if (cert) {  // 仅当证书解析成功时处理有效期
-        const ASN1_TIME* not_before = X509_get0_notBefore(cert);
-        const ASN1_TIME* not_after = X509_get0_notAfter(cert);
+    if (cert)
+    { // 仅当证书解析成功时处理有效期
+        const ASN1_TIME *not_before = X509_get0_notBefore(cert);
+        const ASN1_TIME *not_after = X509_get0_notAfter(cert);
 
         // 3. 转换为 tm 结构（UTC 时间）
         struct tm tm_not_before = {}, tm_not_after = {};
-        if (ASN1_TIME_to_tm(not_before, &tm_not_before) &&
-            ASN1_TIME_to_tm(not_after, &tm_not_after)) 
-            {
+        if (ASN1_TIME_to_tm(not_before, &tm_not_before) && ASN1_TIME_to_tm(not_after, &tm_not_after))
+        {
 
             // 4. 获取当前 UTC 时间
             time_t t_now = time(nullptr);
             struct tm tm_current;
-            #if defined(_WIN32)
+#if defined(_WIN32)
             gmtime_s(&tm_current, &t_now);
-            #else
+#else
             gmtime_r(&t_now, &tm_current);
-            #endif
+#endif
 
             // 5. 转换为 time_t 进行比较
             time_t t_not_before = timegm(&tm_not_before);
@@ -1298,10 +1395,10 @@ int CCaManage::CheckCertExpired(const std::string& strCertPath)
             time_t t_current = timegm(&tm_current);
 
             // 6. 判断是否在有效期内
-            if (t_current >= t_not_before && t_current <= t_not_after) 
+            if (t_current >= t_not_before && t_current <= t_not_after)
             {
                 dlog_info("证书在有效期");
-                result = 0;  // 有效期内
+                result = 0; // 有效期内
             }
         }
     }
@@ -1313,154 +1410,183 @@ int CCaManage::CheckCertExpired(const std::string& strCertPath)
 }
 
 int CCaManage::dealUploadDeviceCert()
- {
-    const fs::path upload_dir = UPLOAD_PATH;
-    const fs::path cert_dir = CA_REQ_PATH;
+{
+    const std::string strUploadDir = UPLOAD_PATH;
+    const std::string strCertDir = CA_REQ_PATH;
     int nRet;
 
-    /* 清空上传目录文件 */ 
-    //fs::remove_all(upload_dir);
+    /* 清空上传目录文件 */
+    // clear_directory(strUploadDir);
+
+    DIR *pDir = opendir(strUploadDir.c_str());
+    if (pDir == nullptr)
+    {
+        dlog_error("打开上传目录失败:%s", strUploadDir.c_str());
+        return -1;
+    }
 
     /*  查找第一个有效证书文件 */
-    for (const auto& entry : fs::directory_iterator(upload_dir)) 
+    struct dirent *pEntry = nullptr;
+    while ((pEntry = readdir(pDir)) != nullptr)
     {
-        if (entry.is_regular_file()) 
+        const std::string strName = pEntry->d_name;
+        if (strName == "." || strName == "..")
         {
-            
-            //dlog_info("证书后缀：%s",entry.path().extension().string().c_str());
-            if (entry.path().extension() == ".cer" || entry.path().extension() == ".pem" || entry.path().extension() == ".crt" || entry.path().extension() == ".key" || entry.path().extension() == ".der") 
+            continue;
+        }
+        const std::string strSrcPath = strUploadDir + "/" + strName;
+        if (!is_regular_file(strSrcPath))
+        {
+            continue;
+        }
+
+        const std::string strExt = file_extension(strName);
+        if (strExt == ".cer" || strExt == ".pem" || strExt == ".crt" || strExt == ".key" || strExt == ".der")
+        {
+            if (isCertificateDevice(strSrcPath))
             {
-                const auto& src_path = entry.path();
+                dlog_info("找到设备ca证书:%s", strSrcPath.c_str());
 
-                if (isCertificateDevice(src_path)) 
+                if (CheckCertExpired(strSrcPath) != 0)
                 {
-                    dlog_info("找到设备ca证书:%s",src_path.c_str());
+                    dlog_error("证书:%s 已过期或无效", strSrcPath.c_str());
+                    unlink(strSrcPath.c_str());
+                    closedir(pDir);
+                    return IpcRet_E::ERR_CERT_EXPIRE;
+                }
 
-                    if(CheckCertExpired(src_path) != 0)
-                    {
-                        dlog_error("证书:%s 已过期或无效",src_path.c_str());
-                        fs::remove(src_path);
-                       return IpcRet_E::ERR_CERT_EXPIRE;
-                    }
+                /* 请求密钥和上传的请求证书是否匹配 */
+                if (compareCertKey(strSrcPath, CA_REQ_KEY) != 0)
+                {
+                    dlog_error("上传的证书：%s 和请求密钥不匹配 删除证书", strSrcPath.c_str());
+                    unlink(strSrcPath.c_str());
+                    closedir(pDir);
+                    return IpcRet_E::ERR_CERT_MATCH_KEY;
+                }
 
-                    /* 请求密钥和上传的请求证书是否匹配 */
-                    if(compareCertKey(src_path, CA_REQ_KEY) != 0)
+                const std::string strDestPath = strCertDir + "/" + strName;
+                if (access(strDestPath.c_str(), F_OK) != 0)
+                {
+                    /* 重命名 */
+                    rename(strSrcPath.c_str(), strDestPath.c_str());
+                    Network::CertFileInfo_S stCertFileInfo;
+                    stCertFileInfo.strPath = strDestPath;
+                    /* 安装设备证书 */
+                    nRet = installDeviceCert(stCertFileInfo);
+                    if (nRet < 0)
                     {
-                        dlog_error("上传的证书：%s 和请求密钥不匹配 删除证书",src_path.c_str());
-                        fs::remove(src_path);
-                        return IpcRet_E::ERR_CERT_MATCH_KEY;
+                        /* 删除文件 */
+                        dlog_error("安装证书失败,删除文件:%s", strDestPath.c_str());
+                        unlink(strDestPath.c_str());
                     }
-
-                    std::string new_filename = src_path.filename().string();
-                    fs::path dest_path = cert_dir / new_filename;
-                    if (!fs::exists(dest_path))
-                    {
-                        /* 重命名 */
-                        fs::rename(src_path, dest_path);
-                        Network::CertFileInfo_S stCertFileInfo;
-                        stCertFileInfo.strPath = dest_path;
-                        /* 安装设备证书 */
-                        nRet = installDeviceCert(stCertFileInfo);
-                        if(nRet < 0)
-                        {
-                            /* 删除文件 */
-                            dlog_error("安装证书失败,删除文件:%s",dest_path.c_str());
-                            fs::remove(dest_path);
-                        }
-                        return nRet;
-                    }
-                    else
-                    {
-                        dlog_error("安装证书失败,证书已存在！删除文件:%s",src_path.c_str());
-                        fs::remove(src_path);
-                        return IpcRet_E::ERR_CERT_EXIST;
-                    }
-                    
+                    closedir(pDir);
+                    return nRet;
                 }
                 else
                 {
-                    dlog_error("证书格式不正确,删除文件:%s",entry.path().c_str());
-                    /* 删除证书 */
-                    fs::remove(entry.path());
-                    return IpcRet_E::ERR_CERT_FORMAT;
+                    dlog_error("安装证书失败,证书已存在！删除文件:%s", strSrcPath.c_str());
+                    unlink(strSrcPath.c_str());
+                    closedir(pDir);
+                    return IpcRet_E::ERR_CERT_EXIST;
                 }
             }
-           
+            else
+            {
+                dlog_error("证书格式不正确,删除文件:%s", strSrcPath.c_str());
+                /* 删除证书 */
+                unlink(strSrcPath.c_str());
+                closedir(pDir);
+                return IpcRet_E::ERR_CERT_FORMAT;
+            }
         }
-        
     }
+    closedir(pDir);
     return -1;
- }
+}
 
 int CCaManage::dealUploadCaCert()
- {
-    const fs::path upload_dir = UPLOAD_PATH;
-    const fs::path cert_dir = CA_UPLOAD_TRUST_PATH;
+{
+    const std::string strUploadDir = UPLOAD_PATH;
+    const std::string strCertDir = CA_UPLOAD_TRUST_PATH;
     int nRet;
 
-    /* 清空上传目录文件 */ 
-    //fs::remove_all(upload_dir);
+    /* 清空上传目录文件 */
+    // clear_directory(strUploadDir);
+
+    DIR *pDir = opendir(strUploadDir.c_str());
+    if (pDir == nullptr)
+    {
+        dlog_error("打开上传目录失败:%s", strUploadDir.c_str());
+        return -1;
+    }
 
     /*  查找第一个有效证书文件 */
-    for (const auto& entry : fs::directory_iterator(upload_dir)) 
+    struct dirent *pEntry = nullptr;
+    while ((pEntry = readdir(pDir)) != nullptr)
     {
-        if (entry.is_regular_file()) 
+        const std::string strName = pEntry->d_name;
+        if (strName == "." || strName == "..")
         {
-            
-            //dlog_info("证书后缀：%s",entry.path().extension().string().c_str());
-            if (entry.path().extension() == ".cer" || entry.path().extension() == ".pem" || entry.path().extension() == ".crt" || entry.path().extension() == ".key" || entry.path().extension() == ".der") 
+            continue;
+        }
+        const std::string strSrcPath = strUploadDir + "/" + strName;
+        if (!is_regular_file(strSrcPath))
+        {
+            continue;
+        }
+
+        const std::string strExt = file_extension(strName);
+        if (strExt == ".cer" || strExt == ".pem" || strExt == ".crt" || strExt == ".key" || strExt == ".der")
+        {
+            if (isCertificateCA(strSrcPath))
             {
-                const auto& src_path = entry.path();
+                dlog_info("找到受信任ca证书:%s", strSrcPath.c_str());
 
-                if (isCertificateCA(src_path)) 
+                if (CheckCertExpired(strSrcPath) != 0)
                 {
-                    dlog_info("找到受信任ca证书:%s",src_path.c_str());
+                    dlog_error("证书:%s 已过期或无效", strSrcPath.c_str());
+                    unlink(strSrcPath.c_str());
+                    closedir(pDir);
+                    return IpcRet_E::ERR_CERT_EXPIRE;
+                }
 
-                    if(CheckCertExpired(src_path) != 0)
+                const std::string strDestPath = strCertDir + "/" + strName;
+                if (access(strDestPath.c_str(), F_OK) != 0)
+                {
+                    /* 重命名 */
+                    rename(strSrcPath.c_str(), strDestPath.c_str());
+                    Network::CertFileInfo_S stCertFileInfo;
+                    stCertFileInfo.strPath = strDestPath;
+                    /* 安装受信任证书 */
+                    nRet = installTrustCert(stCertFileInfo);
+                    if (nRet < 0)
                     {
-                        dlog_error("证书:%s 已过期或无效",src_path.c_str());
-                        fs::remove(src_path);
-                       return IpcRet_E::ERR_CERT_EXPIRE;
+                        /* 删除文件 */
+                        dlog_error("安装证书失败,删除文件:%s", strDestPath.c_str());
+                        unlink(strDestPath.c_str());
                     }
-
-                    std::string new_filename = src_path.filename().string();
-                    fs::path dest_path = cert_dir / new_filename;
-                    if (!fs::exists(dest_path))
-                    {
-                        /* 重命名 */
-                        fs::rename(src_path, dest_path);
-                        Network::CertFileInfo_S stCertFileInfo;
-                        stCertFileInfo.strPath = dest_path;
-                        /* 安装受信任证书 */
-                        nRet = installTrustCert(stCertFileInfo);
-                        if(nRet < 0)
-                        {
-                            /* 删除文件 */
-                            dlog_error("安装证书失败,删除文件:%s",dest_path.c_str());
-                            fs::remove(dest_path);
-                        }
-                        //dlog_info("安装CA证书：%s 成功",dest_path.c_str());
-                        return nRet;
-                    }
-                    else
-                    {
-                        dlog_error("安装证书失败,证书已存在!删除文件:%s",src_path.c_str()); 
-                        fs::remove(src_path);
-                        return IpcRet_E::ERR_CERT_EXIST;
-                    }
-                    
+                    // dlog_info("安装CA证书：%s 成功", strDestPath.c_str());
+                    closedir(pDir);
+                    return nRet;
                 }
                 else
                 {
-                    dlog_error("证书格式不正确,删除文件:%s",entry.path().c_str());
-                    /* 删除证书 */
-                    fs::remove(entry.path());
-                    return IpcRet_E::ERR_CERT_FORMAT;
+                    dlog_error("安装证书失败,证书已存在!删除文件:%s", strSrcPath.c_str());
+                    unlink(strSrcPath.c_str());
+                    closedir(pDir);
+                    return IpcRet_E::ERR_CERT_EXIST;
                 }
             }
-           
+            else
+            {
+                dlog_error("证书格式不正确,删除文件:%s", strSrcPath.c_str());
+                /* 删除证书 */
+                unlink(strSrcPath.c_str());
+                closedir(pDir);
+                return IpcRet_E::ERR_CERT_FORMAT;
+            }
         }
-        
     }
+    closedir(pDir);
     return -1;
- }
+}

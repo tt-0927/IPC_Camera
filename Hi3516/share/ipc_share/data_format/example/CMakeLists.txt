@@ -11,7 +11,7 @@ set(CMAKE_C_COMPILER ${C_COMPILER})
 set(CMAKE_CXX_COMPILER ${CXX_COMPILER})
 
 set(CMAKE_C_FLAGS "-Wall -g")
-set(CMAKE_CXX_FLAGS "-Wall -std=c++17 -g")
+set(CMAKE_CXX_FLAGS "-Wall -std=c++11 -g")
 
 
 include(${CMAKE_CURRENT_LIST_DIR}/../json/json.cmake)

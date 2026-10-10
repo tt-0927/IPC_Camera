@@ -28,234 +28,230 @@
 /** 定义命名空间 SIP */
 namespace SIP
 {
-    /**
-     * @brief 媒体流服务器类，支持 TCP 和 UDP
-     */
-    class MediaServer : public MediaNetBase,
-                        public std::enable_shared_from_this<MediaServer>
+/**
+ * @brief 媒体流服务器类，支持 TCP 和 UDP
+ */
+class MediaServer : public MediaNetBase, public std::enable_shared_from_this<MediaServer>
+{
+public:
+    typedef std::shared_ptr<MediaServer> Ptr;
+
+    struct ClientInfo
     {
-    public:
-        typedef std::shared_ptr<MediaServer> Ptr;
-
-        struct ClientInfo
+        std::string strIP;
+        int nPort;
+        int nSocket = 0;
+        /* 重载赋值运算符 */
+        ClientInfo &operator=(const ClientInfo &rhs)
         {
-            std::string strIP;
-            int nPort;
-            int nSocket = 0;
-            /* 重载赋值运算符 */
-            ClientInfo &operator=(const ClientInfo &rhs)
+            if (this != &rhs)
             {
-                if (this != &rhs)
-                {
-                    strIP = rhs.strIP;
-                    nPort = rhs.nPort;
-                    nSocket = rhs.nSocket;
-                }
-                return *this;
+                strIP = rhs.strIP;
+                nPort = rhs.nPort;
+                nSocket = rhs.nSocket;
             }
-            /* 重载等于运算符 */
-            bool operator==(const ClientInfo &rhs) const
-            {
-                return strIP == rhs.strIP && nPort == rhs.nPort;
-            }
-        };
-
-        struct ClientInfoHash
-        {
-            size_t operator()(const ClientInfo &client) const
-            {
-                return std::hash<std::string>{}(client.strIP) ^
-                       (std::hash<int>{}(client.nPort) << 1);
-            }
-        };
-
-        /**
-         * @brief 构造函数
-         */
-        MediaServer()
-            : m_setAllowTargets(), m_setClients()
-        {
-            /** 初始化 TCP 监听标志 */
-            m_bUseTcp = false;
-            /** 初始化 UDP 监听标志 */
-            m_bUseUdp = false;
-            dlog_info("[MediaServer]构造服务器");
+            return *this;
         }
-
-        /**
-         * @brief 初始化服务器，启动监听
-         * @param
-         * @param enType 监听的协议类型
-         * @return 是否成功启动监听
-         */
-        bool init(int nPort, Protocol enType)
+        /* 重载等于运算符 */
+        bool operator==(const ClientInfo &rhs) const
         {
-            m_nLocalPort = nPort;
-            m_bThreadRunning = true;
-            /** 监听状态标志，初始化为 true */
-            bool success = true;
-            /** 如果协议类型包含 TCP，则启动 TCP 监听 */
-            if (enType == ALL || enType == TCP)
-            {
-                m_bUseTcp = true;
-                success &= startTCPListener();
-            }
-            /** 如果协议类型包含 UDP，则启动 UDP 监听 */
-            if (enType == ALL || enType == UDP)
-            {
-                m_bUseUdp = true;
-                success &= startUDPListener();
-            }
-            /** 如果启动监听失败，则设置端口号为 -1 */
-            if (!success)
-            {
-                m_nLocalPort = -1;
-                m_bThreadRunning = false;
-            }
-
-            m_bRunning = success;
-            dlog_info("[MediaServer]初始化服务器，端口[%d]协议类型[%d]监听状态[%d]",
-                      m_nLocalPort, enType, success);
-            /** 返回监听状态 */
-            return success;
+            return strIP == rhs.strIP && nPort == rhs.nPort;
         }
+    };
 
-        /**
-         * @brief 反初始化服务器，关闭所有监听
-         */
-        virtual void deinit() override
+    struct ClientInfoHash
+    {
+        size_t operator()(const ClientInfo &client) const
         {
+            return std::hash<std::string>{}(client.strIP) ^ (std::hash<int>{}(client.nPort) << 1);
+        }
+    };
+
+    /**
+     * @brief 构造函数
+     */
+    MediaServer() : m_setAllowTargets(), m_setClients()
+    {
+        /** 初始化 TCP 监听标志 */
+        m_bUseTcp = false;
+        /** 初始化 UDP 监听标志 */
+        m_bUseUdp = false;
+        dlog_info("[MediaServer]构造服务器");
+    }
+
+    /**
+     * @brief 初始化服务器，启动监听
+     * @param
+     * @param enType 监听的协议类型
+     * @return 是否成功启动监听
+     */
+    bool init(int nPort, Protocol enType)
+    {
+        m_nLocalPort = nPort;
+        m_bThreadRunning = true;
+        /** 监听状态标志，初始化为 true */
+        bool success = true;
+        /** 如果协议类型包含 TCP，则启动 TCP 监听 */
+        if (enType == ALL || enType == TCP)
+        {
+            m_bUseTcp = true;
+            success &= startTCPListener();
+        }
+        /** 如果协议类型包含 UDP，则启动 UDP 监听 */
+        if (enType == ALL || enType == UDP)
+        {
+            m_bUseUdp = true;
+            success &= startUDPListener();
+        }
+        /** 如果启动监听失败，则设置端口号为 -1 */
+        if (!success)
+        {
+            m_nLocalPort = -1;
             m_bThreadRunning = false;
-            /** 如果 TCP 监听已启用，则关闭 TCP 套接字 */
-            if (m_bUseTcp && m_nTcpSock > 0)
+        }
+
+        m_bRunning = success;
+        dlog_info("[MediaServer]初始化服务器，端口[%d]协议类型[%d]监听状态[%d]", m_nLocalPort, enType, success);
+        /** 返回监听状态 */
+        return success;
+    }
+
+    /**
+     * @brief 反初始化服务器，关闭所有监听
+     */
+    virtual void deinit() override
+    {
+        m_bThreadRunning = false;
+        /** 如果 TCP 监听已启用，则关闭 TCP 套接字 */
+        if (m_bUseTcp && m_nTcpSock > 0)
+        {
+            close(m_nTcpSock);
+            m_nTcpSock = -1;
+            m_bUseTcp = false;
+        }
+        /** 如果 UDP 监听已启用，则关闭 UDP 套接字 */
+        if (m_bUseUdp && m_nUdpSock > 0)
+        {
+            close(m_nUdpSock);
+            m_nUdpSock = -1;
+            m_bUseUdp = false;
+        }
+        m_setAllowTargets.clear();
+        m_setClients.clear();
+        dlog_info("[MediaServer]反初始化，端口[%d]协议类型[%d]", m_nLocalPort, m_bUseTcp ? TCP : UDP);
+    }
+
+    /**
+     * @brief 析构函数，自动关闭所有监听
+     */
+    ~MediaServer()
+    {
+        /** 调用 deinit() 确保资源释放 */
+        deinit();
+        dlog_info("[MediaServer]析构服务器");
+    }
+
+    /**
+     * @brief  设置白名单
+     * @param  [string] &strAllowIP 白名单的IP
+     * @param  [int] nPort 白名单的端口
+     * @return [*]
+     * @author EasonLu
+     * @note   最好在init前调用，init时直接开始监听
+     */
+    void addAllowTarget(const std::string &strAllowIP, int nPort)
+    {
+        ClientInfo stClient;
+        stClient.strIP = strAllowIP;
+        stClient.nPort = nPort;
+        m_setAllowTargets.insert(stClient);
+        dlog_info("[MediaServer] 添加白名单:[%s:%d]", strAllowIP.c_str(), nPort);
+    }
+
+    /**
+     * @brief  TCP服务端发送数据
+     * @param  [char] *pData 发送数据
+     * @param  [size_t] nSize  数据长度
+     * @return [*]
+     * @author EasonLu
+     * @note   设置白名单则只发送白名单，否则发送所有
+     */
+    virtual int sendData(const char *pData, size_t nSize) override
+    {
+        if (m_nTcpSock < 0)
+        {
+            return -1;
+        }
+        if (nullptr == pData || nSize <= 0)
+        {
+            return -1;
+        }
+
+        for (auto &&client : m_setClients)
+        {
+            if (client.nSocket > 0)
+            {
+                /* 设置参数MSG_NOSIGNAL,防止被服务器重置连接后继续发送数据引起SIGPIPE */
+                send(client.nSocket, pData, nSize, MSG_NOSIGNAL);
+            }
+        }
+        return 0;
+    }
+
+private:
+    /* 线程运行标记位 */
+    std::atomic_bool m_bThreadRunning{ false };
+
+    /* 连接白名单 */
+    std::unordered_set<ClientInfo, ClientInfoHash> m_setAllowTargets;
+    /* 连接名单 */
+    std::unordered_set<ClientInfo, ClientInfoHash> m_setClients;
+
+    /**
+     * @brief 启动 TCP 监听
+     * @return 是否成功启动 TCP 监听
+     */
+    bool startTCPListener()
+    {
+        /** 创建 TCP 套接字 */
+        m_nTcpSock = socket(AF_INET, SOCK_STREAM, 0);
+        if (m_nTcpSock < 0)
+        {
+            dlog_error("[MediaServer] 创建TCP套接字失败");
+            return false;
+        }
+        /** 设置 TCP 监听地址 */
+        sockaddr_in addr{};
+        addr.sin_family = AF_INET;
+        addr.sin_addr.s_addr = INADDR_ANY;
+        addr.sin_port = htons(m_nLocalPort);
+        /** 绑定 TCP 套接字 */
+        if (bind(m_nTcpSock, (struct sockaddr *) &addr, sizeof(addr)) < 0)
+        {
+            dlog_error("[MediaServer] 绑定TCP端口失败");
+            return false;
+        }
+        /** 开始 TCP 监听 */
+        if (listen(m_nTcpSock, 5) < 0)
+        {
+            dlog_error("[MediaServer] TCP监听端口[%d]失败", m_nLocalPort);
+            if (m_nTcpSock >= 0)
             {
                 close(m_nTcpSock);
                 m_nTcpSock = -1;
-                m_bUseTcp = false;
             }
-            /** 如果 UDP 监听已启用，则关闭 UDP 套接字 */
-            if (m_bUseUdp && m_nUdpSock > 0)
-            {
-                close(m_nUdpSock);
-                m_nUdpSock = -1;
-                m_bUseUdp = false;
-            }
-            m_setAllowTargets.clear();
-            m_setClients.clear();
-            dlog_info("[MediaServer]反初始化，端口[%d]协议类型[%d]",
-                      m_nLocalPort, m_bUseTcp ? TCP : UDP);
+            return false;
         }
-
-        /**
-         * @brief 析构函数，自动关闭所有监听
-         */
-        ~MediaServer()
-        {
-            /** 调用 deinit() 确保资源释放 */
-            deinit();
-            dlog_info("[MediaServer]析构服务器");
-        }
-
-        /**
-         * @brief  设置白名单
-         * @param  [string] &strAllowIP 白名单的IP
-         * @param  [int] nPort 白名单的端口
-         * @return [*]
-         * @author EasonLu
-         * @note   最好在init前调用，init时直接开始监听
-         */
-        void addAllowTarget(const std::string &strAllowIP, int nPort)
-        {
-            ClientInfo stClient;
-            stClient.strIP = strAllowIP;
-            stClient.nPort = nPort;
-            m_setAllowTargets.insert(stClient);
-            dlog_info("[MediaServer] 添加白名单:[%s:%d]", strAllowIP.c_str(), nPort);
-        }
-
-        /**
-         * @brief  TCP服务端发送数据
-         * @param  [char] *pData 发送数据
-         * @param  [size_t] nSize  数据长度
-         * @return [*]
-         * @author EasonLu
-         * @note   设置白名单则只发送白名单，否则发送所有
-         */
-        virtual int sendData(const char *pData, size_t nSize) override
-        {
-            if (m_nTcpSock < 0)
+        /** 创建 TCP 监听线程 */
+        std::thread(
+            [this]()
             {
-                return -1;
-            }
-            if (nullptr == pData || nSize <= 0)
-            {
-                return -1;
-            }
-
-            for (auto &&client : m_setClients)
-            {
-                if (client.nSocket > 0)
-                {
-                    /* 设置参数MSG_NOSIGNAL,防止被服务器重置连接后继续发送数据引起SIGPIPE */
-                    send(client.nSocket, pData, nSize, MSG_NOSIGNAL);
-                }
-            }
-            return 0;
-        }
-
-    private:
-        /* 线程运行标记位 */
-        std::atomic_bool m_bThreadRunning = false;
-
-        /* 连接白名单 */
-        std::unordered_set<ClientInfo, ClientInfoHash> m_setAllowTargets;
-        /* 连接名单 */
-        std::unordered_set<ClientInfo, ClientInfoHash> m_setClients;
-
-        /**
-         * @brief 启动 TCP 监听
-         * @return 是否成功启动 TCP 监听
-         */
-        bool startTCPListener()
-        {
-            /** 创建 TCP 套接字 */
-            m_nTcpSock = socket(AF_INET, SOCK_STREAM, 0);
-            if (m_nTcpSock < 0)
-            {
-                dlog_error("[MediaServer] 创建TCP套接字失败");
-                return false;
-            }
-            /** 设置 TCP 监听地址 */
-            sockaddr_in addr{};
-            addr.sin_family = AF_INET;
-            addr.sin_addr.s_addr = INADDR_ANY;
-            addr.sin_port = htons(m_nLocalPort);
-            /** 绑定 TCP 套接字 */
-            if (bind(m_nTcpSock, (struct sockaddr *)&addr, sizeof(addr)) < 0)
-            {
-                dlog_error("[MediaServer] 绑定TCP端口失败");
-                return false;
-            }
-            /** 开始 TCP 监听 */
-            if (listen(m_nTcpSock, 5) < 0)
-            {
-                dlog_error("[MediaServer] TCP监听端口[%d]失败", m_nLocalPort);
-                if (m_nTcpSock >= 0)
-                {
-                    close(m_nTcpSock);
-                    m_nTcpSock = -1;
-                }
-                return false;
-            }
-            /** 创建 TCP 监听线程 */
-            std::thread([this]()
-                        {
                 dlog_info("[MediaServer] 开启TCP监听[%d]", m_nLocalPort);
                 while (m_bThreadRunning)
                 {
                     sockaddr_in clientAddr{};
                     socklen_t clientLen = sizeof(clientAddr);
-                    int clientSock = accept(m_nTcpSock, (struct sockaddr *)&clientAddr, &clientLen);
+                    int clientSock = accept(m_nTcpSock, (struct sockaddr *) &clientAddr, &clientLen);
                     if (clientSock < 0)
                     {
                         dlog_warn("[MediaServer] TCP接受连接失败");
@@ -273,75 +269,74 @@ namespace SIP
                         {
                             close(clientSock);
                             /* 不在白名单中 */
-                            dlog_warn("[MediaServer] 连接 [%s:%d] 不在白名单中",
-                                        stInClient.strIP.c_str(), stInClient.nPort);
+                            dlog_warn("[MediaServer] 连接 [%s:%d] 不在白名单中", stInClient.strIP.c_str(), stInClient.nPort);
                             continue;
                         }
                     }
 
-                    dlog_info("[MediaServer] 新TCP连接[%s:%d]",
-                                stInClient.strIP.c_str(), stInClient.nPort);
+                    dlog_info("[MediaServer] 新TCP连接[%s:%d]", stInClient.strIP.c_str(), stInClient.nPort);
                     /* 记录连接 */
                     m_setClients.insert(stInClient);
-                    std::thread([this, clientSock, clientAddr]() {
-                        std::vector<char> buffer(m_nTcpRecvBuffSize);
-                        while (m_bThreadRunning)
+                    std::thread(
+                        [this, clientSock, clientAddr]()
                         {
-                            buffer.resize(m_nTcpRecvBuffSize);
-                            ssize_t len = read(clientSock, buffer.data(), buffer.size());
-                            if (len <= 0)
-                                break;
-                            if (m_fnCallback)
+                            std::vector<char> buffer(m_nTcpRecvBuffSize);
+                            while (m_bThreadRunning)
                             {
-                                std::lock_guard<std::mutex> lock(m_mutexCallback);
-                                m_fnCallback({
-                                    inet_ntoa(clientAddr.sin_addr),
-                                    buffer.data(),
-                                    (size_t)len,
-                                    true,
-                                    true});
+                                buffer.resize(m_nTcpRecvBuffSize);
+                                ssize_t len = read(clientSock, buffer.data(), buffer.size());
+                                if (len <= 0)
+                                    break;
+                                if (m_fnCallback)
+                                {
+                                    std::lock_guard<std::mutex> lock(m_mutexCallback);
+                                    m_fnCallback(
+                                        CbData_S{ inet_ntoa(clientAddr.sin_addr), buffer.data(), static_cast<size_t>(len), true, true });
+                                }
                             }
-                        }
-                        close(clientSock);
-                    }).detach();
+                            close(clientSock);
+                        })
+                        .detach();
                 }
-                dlog_info("[MediaServer] 关闭TCP监听[%d]", m_nLocalPort); })
-                .detach();
-            return true;
-        }
+                dlog_info("[MediaServer] 关闭TCP监听[%d]", m_nLocalPort);
+            })
+            .detach();
+        return true;
+    }
 
-        /**
-         * @brief 启动 UDP 监听
-         * @return 是否成功启动 UDP 监听
-         */
-        bool startUDPListener()
+    /**
+     * @brief 启动 UDP 监听
+     * @return 是否成功启动 UDP 监听
+     */
+    bool startUDPListener()
+    {
+        /** 创建 UDP 套接字 */
+        m_nUdpSock = socket(AF_INET, SOCK_DGRAM, 0);
+        if (m_nUdpSock < 0)
         {
-            /** 创建 UDP 套接字 */
-            m_nUdpSock = socket(AF_INET, SOCK_DGRAM, 0);
-            if (m_nUdpSock < 0)
+            dlog_error("[MediaServer] 创建UDP套接字失败");
+            return false;
+        }
+        /** 设置 UDP 监听地址 */
+        sockaddr_in addr{};
+        addr.sin_family = AF_INET;
+        addr.sin_addr.s_addr = INADDR_ANY;
+        addr.sin_port = htons(m_nLocalPort);
+        /** 绑定 UDP 套接字 */
+        if (bind(m_nUdpSock, (struct sockaddr *) &addr, sizeof(addr)) < 0)
+        {
+            dlog_error("[MediaServer] 绑定UDP端口[%d]失败", m_nLocalPort);
+            if (m_nUdpSock >= 0)
             {
-                dlog_error("[MediaServer] 创建UDP套接字失败");
-                return false;
+                close(m_nUdpSock);
+                m_nUdpSock = -1;
             }
-            /** 设置 UDP 监听地址 */
-            sockaddr_in addr{};
-            addr.sin_family = AF_INET;
-            addr.sin_addr.s_addr = INADDR_ANY;
-            addr.sin_port = htons(m_nLocalPort);
-            /** 绑定 UDP 套接字 */
-            if (bind(m_nUdpSock, (struct sockaddr *)&addr, sizeof(addr)) < 0)
+            return false;
+        }
+        /** 创建 UDP 监听线程 */
+        std::thread(
+            [this]()
             {
-                dlog_error("[MediaServer] 绑定UDP端口[%d]失败", m_nLocalPort);
-                if (m_nUdpSock >= 0)
-                {
-                    close(m_nUdpSock);
-                    m_nUdpSock = -1;
-                }
-                return false;
-            }
-            /** 创建 UDP 监听线程 */
-            std::thread([this]()
-                        {
                 dlog_info("[MediaServer] 开启UDP监听端口[%d]", m_nLocalPort);
                 std::vector<char> buffer(m_nUdpRecvBuffSize);
                 sockaddr_in clientAddr{};
@@ -349,22 +344,18 @@ namespace SIP
                 while (m_bThreadRunning)
                 {
                     buffer.resize(m_nUdpRecvBuffSize);
-                    ssize_t len = recvfrom(m_nUdpSock, buffer.data(), buffer.size(), 0, (struct sockaddr *)&clientAddr, &clientLen);
+                    ssize_t len = recvfrom(m_nUdpSock, buffer.data(), buffer.size(), 0, (struct sockaddr *) &clientAddr, &clientLen);
                     if (len > 0 && m_fnCallback)
                     {
                         std::lock_guard<std::mutex> lock(m_mutexCallback);
-                        m_fnCallback({
-                                inet_ntoa(clientAddr.sin_addr),
-                                buffer.data(),
-                                (size_t)len,
-                                false,
-                                true,
-                                true});
+                        m_fnCallback(
+                            CbData_S{ inet_ntoa(clientAddr.sin_addr), buffer.data(), static_cast<size_t>(len), false, true, true });
                     }
                 }
-                dlog_info("[MediaServer] 关闭UDP监听[%d]", m_nLocalPort); })
-                .detach();
-            return true;
-        }
-    };
+                dlog_info("[MediaServer] 关闭UDP监听[%d]", m_nLocalPort);
+            })
+            .detach();
+        return true;
+    }
+};
 }

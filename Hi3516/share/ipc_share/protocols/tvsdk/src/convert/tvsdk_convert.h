@@ -1,3 +1,10 @@
+/**
+ * @FileName     : tvsdk_convert.h
+ * @Date         : 原始创建日期未记录
+ * @Author       : ITC
+ * @Description  : IPC 与 TVSDK 结构体转换声明。
+ * @Change       : 2026-10-08 兼容合并后的人脸识别配置与旧版人脸抓拍接口。
+ */
 #pragma once
 
 #include "system_define.h"
@@ -9,9 +16,11 @@
 #include "isp_define.h"
 #include "log_define.h"
 #include "record_define.h"
+#include "register_define.h"
 
 #include "NetTVSDKServer.h"
 #include <set>
+#include <string>
 #include <vector>
 /**
  * @brief IPC <-> TVSDK 结构体转换
@@ -20,6 +29,31 @@
  */
 namespace TvSdkConvert
 {
+/**
+ * @brief 将 IPC 注册信息快照转换为 SDK 注册信息。
+ * @param [in] stSource IPC 注册模块提供的完整快照。
+ * @param [out] stDestination SDK 注册信息，包含安全截断且终止的字符串。
+ * @return 无。
+ */
+void FillRegisterInfo(const Register::RegisterInfo_S &stSource, NET_RegisterInfo_S &stDestination);
+
+/**
+ * @brief 提取 SDK 请求中的注册码，不接受覆盖设备生成的授权字段。
+ * @param [in] stSource SDK 注册请求。
+ * @param [out] stDestination IPC 注册码配置；无效输入时清空注册码。
+ * @return 非空且在固定缓冲区内终止的注册码返回 true，其他输入返回 false。
+ */
+bool ToRegisterConfig(const NET_RegisterInfo_S &stSource, Register::ConfigRegisterEg_S &stDestination);
+
+/**
+ * @brief 将 SD 卡存储快照转换为 SDK 存储信息。
+ * @param [in] stSource SD 卡状态、字节容量和文件系统类型。
+ * @param [out] stDestination SDK 存储信息，容量使用二进制换算的 GB 字符串。
+ * @return 无。
+ */
+void FillDeviceStorageInfo(const DeviceStorageSnapshot_S &stSource,
+                          NET_DeviceStorageInfo_S &stDestination);
+
 void FillDeviceInfo(const ::System::DeviceInfo_S &src, NET_DeviceInfo_S &dst);
 
 void FillDeviceBasicInfo(const ::System::DeviceInfo_S &src, NET_DeviceBasicInfo_S &dst);
@@ -361,6 +395,27 @@ void ToAudioConfig(const NET_AudioCfg_S &src, Audio_NS::AudioConfig_S &dst);
 
 void FillFaceCaptureInfo(const Alarm::FaceCapture_S &src, NET_FaceCaptureInfo_S &dst);
 void ToFaceCapture(const NET_FaceCaptureInfo_S &src, Alarm::FaceCapture_S &dst);
+
+/**
+ * @brief 将合并后的人脸识别配置转换为旧版 TVSDK 人脸抓拍配置。
+ * @param [in] stSource IPC 人脸识别配置。
+ * @param [out] stDestination TVSDK 人脸抓拍配置。
+ * @return 无。
+ */
+void FillFaceCaptureInfo(const Alarm::FaceRecognition_S &stSource,
+                         NET_FaceCaptureInfo_S &stDestination);
+
+/**
+ * @brief 将旧版 TVSDK 人脸抓拍配置合并回人脸识别配置。
+ * @param [in] stSource TVSDK 人脸抓拍配置。
+ * @param [in] stCurrent 当前 IPC 人脸识别配置，用于保留新增字段。
+ * @param [out] stDestination 更新后的人脸识别配置。
+ * @return 无。
+ */
+void ToFaceRecognition(const NET_FaceCaptureInfo_S &stSource,
+                       const Alarm::FaceRecognition_S &stCurrent,
+                       Alarm::FaceRecognition_S &stDestination);
+
 void FillFaceCaptureOverlayInfo(const Alarm::OverlayInfo_S &src,
                                 NET_FaceCaptureOverlayInfo_S &dst);
 void ToFaceCaptureOverlayInfo(const NET_FaceCaptureOverlayInfo_S &src,

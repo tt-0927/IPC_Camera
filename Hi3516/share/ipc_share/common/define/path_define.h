@@ -153,6 +153,14 @@
 #define EVENT_SCENE_CHANGE_DETECTION_CONFIG_FILE        USER_DATA_PATH "event_scene_change_detection.json"
 /* 人脸侦测 */
 #define EVENT_FACE_DETECTION_CONFIG_FILE                USER_DATA_PATH "event_face_detection.json"
+/* 人脸识别配置 */
+#define EVENT_FACE_RECOGNITION_CONFIG_FILE                USER_DATA_PATH "event_face_recognition.json"
+/* 行人识别配置 */
+#define EVENT_PERSON_DETECTION_CONFIG_FILE                 USER_DATA_PATH "event_person_detection.json"
+/* 机动车识别配置 */
+#define EVENT_MOTOR_VEHICLE_DETECTION_CONFIG_FILE          USER_DATA_PATH "event_motor_vehicle_detection.json"
+/* 非机动车识别配置 */
+#define EVENT_NON_MOTOR_VEHICLE_DETECTION_CONFIG_FILE      USER_DATA_PATH "event_non_motor_vehicle_detection.json"
 /* 徘徊侦测 */
 #define EVENT_LOITERING_DETECTION_CONFIG_FILE           USER_DATA_PATH "event_loitering_detection.json"
 /* 人员聚集侦测 */
@@ -258,9 +266,6 @@
 #define EVENT_EMERGENCY_LANE_OCCUPANCY_INFO_FILE  USER_DATA_PATH "event_emergency_lane_occupancy_info.json"
 /* 非机动车闯入识别检测 */
 #define EVENT_NON_MOTOR_VEHICLE_INTRUSION_INFO_FILE  USER_DATA_PATH "event_nonmotor_vehicle_intrusion_info.json"
-
-/* 属性识别检测 */
-#define ATTRIBUTE_DETECT_INFO_FILE  USER_DATA_PATH "attribute_detect_info.json"
 
 /* 人流统计 */
 #define EVENT_PEOPLE_FLOW_STATISTICS_CONFIG_FILE        USER_DATA_PATH "event_people_flow_statistics.json"

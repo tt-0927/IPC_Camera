@@ -3,7 +3,7 @@
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2025-07-17 17:25:12
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-06-04 10:52:47
+ * @LastEditTime : 2026-09-23 15:08:35
  * @Description  : 报警配置数据的转换
  * @FileName     : alarm_convert.cpp
  * @Change       : 2026-09-08 补齐已有智能规则的检测目标和时间阈值，避免保存及回显时丢失
@@ -16,6 +16,9 @@
 #include "Json.h"
 #include <iostream>
 
+#include <algorithm>
+#include <set>
+
 /* 联动方式相关 */
 void Convert::deal(Json::Object *pRootJson, Alarm::LinkageType_E &enLinkageType, bool bOutStruct)
 {
@@ -25,7 +28,7 @@ void Convert::deal(Json::Object *pRootJson, Alarm::LinkageType_E &enLinkageType,
     }
 
     Convert::CConvert convert(bOutStruct);
-    convert.field(pRootJson, "LinkageType", (int &)enLinkageType);
+    convert.field(pRootJson, "LinkageType", (int &) enLinkageType);
 }
 
 void Convert::deal(Json::Object *pRootJson, Alarm::LinkageList_S &stLinkageList, bool bOutStruct)
@@ -113,13 +116,13 @@ void Convert::deal(Json::Object *pRootJson, Alarm::MotionNormalMode_S &stInfo, b
     convert.field(pRootJson, "RegionType", stInfo.nRegionType);
     if (bOutStruct)
     {
-        if(stInfo.nRegionType)
+        if (stInfo.nRegionType)
         {
-            if (!std::holds_alternative<Alarm::MotionNormalMode_S::AreaGrid>(stInfo.varRegion))
+            if (!mpark::holds_alternative<Alarm::MotionNormalMode_S::AreaGrid>(stInfo.varRegion))
             {
                 stInfo.varRegion = Alarm::MotionNormalMode_S::AreaGrid();
             }
-            auto &grid = std::get<Alarm::MotionNormalMode_S::AreaGrid>(stInfo.varRegion);
+            auto &grid = mpark::get<Alarm::MotionNormalMode_S::AreaGrid>(stInfo.varRegion);
             Json::Object *pArray = Json::get(pRootJson, "Region");
             if (nullptr != pArray)
             {
@@ -146,23 +149,23 @@ void Convert::deal(Json::Object *pRootJson, Alarm::MotionNormalMode_S &stInfo, b
         }
         else
         {
-            if (!std::holds_alternative<Common::Rect_S>(stInfo.varRegion))
+            if (!mpark::holds_alternative<Common::Rect_S>(stInfo.varRegion))
             {
                 stInfo.varRegion = Common::Rect_S();
             }
-            auto &rect = std::get<Common::Rect_S>(stInfo.varRegion);
+            auto &rect = mpark::get<Common::Rect_S>(stInfo.varRegion);
             convert.structure(pRootJson, "Region", rect);
         }
     }
     else
     {
-        if(stInfo.nRegionType)
+        if (stInfo.nRegionType)
         {
-            if (!std::holds_alternative<Alarm::MotionNormalMode_S::AreaGrid>(stInfo.varRegion))
+            if (!mpark::holds_alternative<Alarm::MotionNormalMode_S::AreaGrid>(stInfo.varRegion))
             {
                 stInfo.varRegion = Alarm::MotionNormalMode_S::AreaGrid();
             }
-            auto &grid = std::get<Alarm::MotionNormalMode_S::AreaGrid>(stInfo.varRegion);
+            auto &grid = mpark::get<Alarm::MotionNormalMode_S::AreaGrid>(stInfo.varRegion);
             auto pArray = Json::Array::init();
             for (auto pVec : grid)
             {
@@ -173,7 +176,7 @@ void Convert::deal(Json::Object *pRootJson, Alarm::MotionNormalMode_S &stInfo, b
                 }
                 for (auto pItem : pVec)
                 {
-                    Json::Array::add(pArrayItem, (int &)pItem);
+                    Json::Array::add(pArrayItem, (int &) pItem);
                 }
                 Json::Array::add(pArray, pArrayItem);
             }
@@ -181,11 +184,11 @@ void Convert::deal(Json::Object *pRootJson, Alarm::MotionNormalMode_S &stInfo, b
         }
         else
         {
-            if (!std::holds_alternative<Common::Rect_S>(stInfo.varRegion))
+            if (!mpark::holds_alternative<Common::Rect_S>(stInfo.varRegion))
             {
                 stInfo.varRegion = Common::Rect_S();
             }
-            auto &rect = std::get<Common::Rect_S>(stInfo.varRegion);
+            auto &rect = mpark::get<Common::Rect_S>(stInfo.varRegion);
             convert.structure(pRootJson, "Region", rect);
         }
     }
@@ -202,7 +205,7 @@ void Convert::deal(Json::Object *pRootJson, Alarm::MotionDetection_S &stInfo, bo
 
     convert.field(pRootJson, "Enable", stInfo.bEnable);
     convert.field(pRootJson, "DynamicAnalysisEnable", stInfo.bDynamicAnalysisEnable);
-    convert.field(pRootJson, "Mode", (int &)stInfo.enMode);
+    convert.field(pRootJson, "Mode", (int &) stInfo.enMode);
     convert.structure(pRootJson, "MotionNormalMode", stInfo.stMotionNormalMode);
     convert.structure(pRootJson, "MotionExpertMode", stInfo.stMotionExpertMode);
     convert.structure(pRootJson, stInfo.aAlarmTime);
@@ -238,12 +241,8 @@ void Convert::deal(Json::Object *pRootJson, Alarm::MotionDetection_S &stInfo, bo
     }
 }
 
-
 /* 遮挡报警相关 */
-void Convert::deal(
-    Json::Object *pRootJson,
-    Alarm::HideAlarm_S &stInfo,
-    bool bOutStruct)
+void Convert::deal(Json::Object *pRootJson, Alarm::HideAlarm_S &stInfo, bool bOutStruct)
 {
     if (!pRootJson)
     {
@@ -260,7 +259,7 @@ void Convert::deal(
 }
 
 /* 异常报警相关 */
-void Convert::deal(Json::Object* pRootJson, Alarm::AbnormalDetection_S &stAbnormalDetection, bool bOutStruct)
+void Convert::deal(Json::Object *pRootJson, Alarm::AbnormalDetection_S &stAbnormalDetection, bool bOutStruct)
 {
 	if (!pRootJson)
 	{
@@ -272,7 +271,7 @@ void Convert::deal(Json::Object* pRootJson, Alarm::AbnormalDetection_S &stAbnorm
     convert.structure(pRootJson, "LinkageMode", stAbnormalDetection.stLinkageList);
 }
 
-void Convert::deal(Json::Object* pRootJson, std::set<Alarm::AbnormalDetection_S> &abnormalDetection, bool bOutStruct)
+void Convert::deal(Json::Object *pRootJson, std::set<Alarm::AbnormalDetection_S> &abnormalDetection, bool bOutStruct)
 {
 	if (!pRootJson)
 	{
@@ -284,7 +283,7 @@ void Convert::deal(Json::Object* pRootJson, std::set<Alarm::AbnormalDetection_S>
 }
 
 /* 声音报警输出相关 */
-void Convert::deal(Json::Object* pRootJson, std::vector<Alarm::CustomAudio_S> &stInfo, bool bOutStruct)
+void Convert::deal(Json::Object *pRootJson, std::vector<Alarm::CustomAudio_S> &stInfo, bool bOutStruct)
 {
     if (!pRootJson)
 	{
@@ -293,10 +292,9 @@ void Convert::deal(Json::Object* pRootJson, std::vector<Alarm::CustomAudio_S> &s
 
 	Convert::CConvert convert(bOutStruct);
     convert.structure(pRootJson, "customAudio", stInfo);
-
 }
 
-void Convert::deal(Json::Object* pRootJson, Alarm::CustomAudio_S &stInfo, bool bOutStruct)
+void Convert::deal(Json::Object *pRootJson, Alarm::CustomAudio_S &stInfo, bool bOutStruct)
 {
     if (!pRootJson)
 	{
@@ -307,10 +305,9 @@ void Convert::deal(Json::Object* pRootJson, Alarm::CustomAudio_S &stInfo, bool b
     convert.field(pRootJson, "enable", stInfo.bChoose);
     convert.field(pRootJson, "customeName", stInfo.strCustomeName);
     convert.field(pRootJson, "path", stInfo.strPath);
-
 }
 
-void Convert::deal(Json::Object* pRootJson, std::vector<Alarm::CustomOperation_S> &stInfo, bool bOutStruct)
+void Convert::deal(Json::Object *pRootJson, std::vector<Alarm::CustomOperation_S> &stInfo, bool bOutStruct)
 {
     if (!pRootJson)
 	{
@@ -321,7 +318,7 @@ void Convert::deal(Json::Object* pRootJson, std::vector<Alarm::CustomOperation_S
     convert.structure(pRootJson, "CustomOperation", stInfo);
 }
 
-void Convert::deal(Json::Object* pRootJson, Alarm::CustomOperation_S &stInfo, bool bOutStruct)
+void Convert::deal(Json::Object *pRootJson, Alarm::CustomOperation_S &stInfo, bool bOutStruct)
 {
     if (!pRootJson)
 	{
@@ -330,13 +327,13 @@ void Convert::deal(Json::Object* pRootJson, Alarm::CustomOperation_S &stInfo, bo
 
 	Convert::CConvert convert(bOutStruct);
     convert.field(pRootJson, "enable", stInfo.nEnable);
-    convert.field(pRootJson, "Type", (int &)stInfo.enCustomType);
+    convert.field(pRootJson, "Type", (int &) stInfo.enCustomType);
     convert.field(pRootJson, "customeName", stInfo.strName);
     convert.field(pRootJson, "fileName", stInfo.strFileName);
     convert.field(pRootJson, "path", stInfo.strPath);
 }
 
-void Convert::deal(Json::Object* pRootJson, Alarm::SoundOutputAlarm_S &stInfo, bool bOutStruct)
+void Convert::deal(Json::Object *pRootJson, Alarm::SoundOutputAlarm_S &stInfo, bool bOutStruct)
 {
 	if (!pRootJson)
 	{
@@ -344,16 +341,15 @@ void Convert::deal(Json::Object* pRootJson, Alarm::SoundOutputAlarm_S &stInfo, b
 	}
 
 	Convert::CConvert convert(bOutStruct);
-	convert.field(pRootJson, "SoundType", (int &)stInfo.enSoundType);
-    convert.field(pRootJson, "AlertSound", (int &)stInfo.enAlertSound);
+    convert.field(pRootJson, "SoundType", (int &) stInfo.enSoundType);
+    convert.field(pRootJson, "AlertSound", (int &) stInfo.enAlertSound);
     convert.field(pRootJson, "Times", stInfo.nTimes);
     convert.structure(pRootJson, stInfo.aCustomAudio);
     convert.structure(pRootJson, stInfo.aAlarmTime);
 }
 
-
 /* 报警输入相关 */
-void Convert::deal(Json::Object* pRootJson, Alarm::IoInputInfo_S &stIoInputInfo, bool bOutStruct)
+void Convert::deal(Json::Object *pRootJson, Alarm::IoInputInfo_S &stIoInputInfo, bool bOutStruct)
 {
 	if (!pRootJson)
 	{
@@ -370,7 +366,7 @@ void Convert::deal(Json::Object* pRootJson, Alarm::IoInputInfo_S &stIoInputInfo,
 	convert.structure(pRootJson, stIoInputInfo.aAlarmTime);
 	convert.field(pRootJson, "CopyTo", stIoInputInfo.copyTo);
 }
-void Convert::deal(Json::Object* pRootJson, std::set<Alarm::IoInputInfo_S> &stIostIoInputInfoInputInfo, bool bOutStruct)
+void Convert::deal(Json::Object *pRootJson, std::set<Alarm::IoInputInfo_S> &stIostIoInputInfoInputInfo, bool bOutStruct)
 {
 	if (!pRootJson)
 	{
@@ -381,9 +377,8 @@ void Convert::deal(Json::Object* pRootJson, std::set<Alarm::IoInputInfo_S> &stIo
 	convert.structure(pRootJson, "AlarmInputInfos", stIostIoInputInfoInputInfo);
 }
 
-
 /* 报警输出相关 */
-void Convert::deal(Json::Object* pRootJson, Alarm::IoOutputInfo_S &stIoOutputInfo, bool bOutStruct)
+void Convert::deal(Json::Object *pRootJson, Alarm::IoOutputInfo_S &stIoOutputInfo, bool bOutStruct)
 {
        if (!pRootJson)
        {
@@ -395,11 +390,11 @@ void Convert::deal(Json::Object* pRootJson, Alarm::IoOutputInfo_S &stIoOutputInf
        convert.field(pRootJson, "AlarmAddr", stIoOutputInfo.ioAddr);
        convert.field(pRootJson, "AlarmName", stIoOutputInfo.ioName);
        convert.field(pRootJson, "DelayTime", stIoOutputInfo.nDelayTime);
-       convert.field(pRootJson, "State", (int &)stIoOutputInfo.enState);
+    convert.field(pRootJson, "State", (int &) stIoOutputInfo.enState);
        convert.structure(pRootJson, stIoOutputInfo.aAlarmTime);
        convert.field(pRootJson, "CopyTo", stIoOutputInfo.copyTo);
 }
-void Convert::deal(Json::Object* pRootJson, std::set<Alarm::IoOutputInfo_S> &stIoOutputInfo, bool bOutStruct)
+void Convert::deal(Json::Object *pRootJson, std::set<Alarm::IoOutputInfo_S> &stIoOutputInfo, bool bOutStruct)
 {
        if (!pRootJson)
        {
@@ -418,7 +413,7 @@ void Convert::deal(Json::Object *pRootJson, Alarm::FlashInfo_S &stInfo, bool bOu
     }
     Convert::CConvert convert(bOutStruct);
     convert.field(pRootJson, "FlashTime", stInfo.nFlashTime);
-    convert.field(pRootJson, "FalshFrequency",  (int &)stInfo.enFalshFrequency);
+    convert.field(pRootJson, "FalshFrequency", (int &) stInfo.enFalshFrequency);
     convert.structure(pRootJson, stInfo.aAlarmTime);
     convert.field(pRootJson, "CopyTo", stInfo.copyTo);
 }
@@ -443,10 +438,7 @@ void Convert::deal(Json::Object *pRootJson, Alarm::PirAlarmInfo_S &stInfo, bool 
  */
 
  /* 越界事件相关 */
- void Convert::deal(
-    Json::Object *pRootJson,
-    Alarm::BoundaryPlane_S &stInfo,
-    bool bOutStruct)
+void Convert::deal(Json::Object *pRootJson, Alarm::BoundaryPlane_S &stInfo, bool bOutStruct)
 {
     if (!pRootJson)
     {
@@ -456,15 +448,11 @@ void Convert::deal(Json::Object *pRootJson, Alarm::PirAlarmInfo_S &stInfo, bool 
     Convert::CConvert convert(bOutStruct);
     convert.structure(pRootJson, "StartPoint", stInfo.stStartPos);
     convert.structure(pRootJson, "EndPoint", stInfo.stEndPos);
-    convert.field(pRootJson, "CrossDirection", (int &)stInfo.enCrossDirection);
+    convert.field(pRootJson, "CrossDirection", (int &) stInfo.enCrossDirection);
     convert.field(pRootJson, "Sensitivity", stInfo.nSensitivity);
     convert.field(pRootJson, "DetectionTarget", stInfo.aDetectionTarget);
-
 }
-void Convert::deal(
-    Json::Object *pRootJson,
-    std::vector<Alarm::BoundaryPlane_S> &stInfo,
-    bool bOutStruct)
+void Convert::deal(Json::Object *pRootJson, std::vector<Alarm::BoundaryPlane_S> &stInfo, bool bOutStruct)
 {
     if (!pRootJson)
     {
@@ -475,10 +463,7 @@ void Convert::deal(
     convert.structure(pRootJson, stInfo);
 }
 
-void Convert::deal(
-    Json::Object *pRootJson,
-    Alarm::BoundaryDetection_S &stInfo,
-    bool bOutStruct)
+void Convert::deal(Json::Object *pRootJson, Alarm::BoundaryDetection_S &stInfo, bool bOutStruct)
 {
     if (!pRootJson)
     {
@@ -493,10 +478,7 @@ void Convert::deal(
 }
 
 /* 区域入侵相关 */
-void Convert::deal(
-    Json::Object *pRootJson,
-    Alarm::Intrusion_S &stInfo,
-    bool bOutStruct)
+void Convert::deal(Json::Object *pRootJson, Alarm::Intrusion_S &stInfo, bool bOutStruct)
 {
     if (!pRootJson)
     {
@@ -506,13 +488,10 @@ void Convert::deal(
     convert.structure(pRootJson, "Region", stInfo.stRegion);
     convert.field(pRootJson, "Duration", stInfo.nTimeThreshold);
     convert.field(pRootJson, "Sensitivity", stInfo.nSensitivity);
-    convert.field(pRootJson,"DetectionTarget",stInfo.aDetectionTarget);
+    convert.field(pRootJson, "DetectionTarget", stInfo.aDetectionTarget);
 }
 
-void Convert::deal(
-    Json::Object *pRootJson,
-    std::vector<Alarm::Intrusion_S> &stInfo,
-    bool bOutStruct)
+void Convert::deal(Json::Object *pRootJson, std::vector<Alarm::Intrusion_S> &stInfo, bool bOutStruct)
 {
     if (!pRootJson)
     {
@@ -522,10 +501,7 @@ void Convert::deal(
     convert.structure(pRootJson, stInfo);
 }
 
-void Convert::deal(
-    Json::Object *pRootJson,
-    Alarm::FieldDetection_S &stInfo,
-    bool bOutStruct)
+void Convert::deal(Json::Object *pRootJson, Alarm::FieldDetection_S &stInfo, bool bOutStruct)
 {
     if (!pRootJson)
     {
@@ -533,7 +509,7 @@ void Convert::deal(
     }
     Convert::CConvert convert(bOutStruct);
     convert.field(pRootJson, "Enable", stInfo.bEnable);  
-    convert.structure(pRootJson, "Rule",stInfo.aRule);
+    convert.structure(pRootJson, "Rule", stInfo.aRule);
     convert.structure(pRootJson, stInfo.aAlarmTime);
     convert.structure(pRootJson, "LinkageMode", stInfo.stLinkageList);
 }
@@ -547,10 +523,7 @@ void Convert::deal(
  * @param [in] bOutStruct 为 true 时读取 JSON，否则输出 JSON。
  * @return 无。
  */
-void Convert::deal(
-    Json::Object *pRootJson,
-    Alarm::EnterExitIntrusion_S &stInfo,
-    bool bOutStruct)
+void Convert::deal(Json::Object *pRootJson, Alarm::EnterExitIntrusion_S &stInfo, bool bOutStruct)
 {
     if (!pRootJson)
     {
@@ -562,10 +535,7 @@ void Convert::deal(
     convert.field(pRootJson, "DetectionTarget", stInfo.aDetectionTarget);
 }
 
-void Convert::deal(
-    Json::Object *pRootJson,
-    std::vector<Alarm::EnterExitIntrusion_S> &stInfo,
-    bool bOutStruct)
+void Convert::deal(Json::Object *pRootJson, std::vector<Alarm::EnterExitIntrusion_S> &stInfo, bool bOutStruct)
 {
     if (!pRootJson)
     {
@@ -575,10 +545,7 @@ void Convert::deal(
     convert.structure(pRootJson, stInfo);
 }
 
-void Convert::deal(
-    Json::Object *pRootJson,
-    Alarm::EntranceDetection_S &stInfo,
-    bool bOutStruct)
+void Convert::deal(Json::Object *pRootJson, Alarm::EntranceDetection_S &stInfo, bool bOutStruct)
 {
     if (!pRootJson)
     {
@@ -593,10 +560,7 @@ void Convert::deal(
 }
 
 /* 离开区域相关 */
-void Convert::deal(
-    Json::Object *pRootJson,
-    Alarm::ExitingDetection_S &stInfo,
-    bool bOutStruct)
+void Convert::deal(Json::Object *pRootJson, Alarm::ExitingDetection_S &stInfo, bool bOutStruct)
 {
     if (!pRootJson)
     {
@@ -660,6 +624,92 @@ void Convert::deal(Json::Object *pRootJson, Alarm::FaceDetection_S &stInfo, bool
 	Convert::CConvert convert(bOutStruct);
     convert.field(pRootJson, "Enable", stInfo.bEnable);
     convert.field(pRootJson, "DynamicAnalysisEnable", stInfo.bDynamicAnalysisEnable);
+    convert.field(pRootJson, "Sensitivity", stInfo.nSensitivity);
+    convert.structure(pRootJson, "Region", stInfo.stRegion);
+    convert.structure(pRootJson, stInfo.aAlarmTime);
+    convert.structure(pRootJson, "LinkageMode", stInfo.stLinkageList);
+}
+
+/* 人脸抓拍规则 */
+void Convert::deal(Json::Object *pRootJson, Alarm::FaceRecognitionCaptureRule_S &stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+
+    Convert::CConvert convert(bOutStruct);
+    convert.field(pRootJson, "Interval", stInfo.nInterval);
+    convert.field(pRootJson, "MinWidth", stInfo.nMinWidth);
+    convert.field(pRootJson, "MinHeight", stInfo.nMinHeight);
+    convert.field(pRootJson, "MaxWidth", stInfo.nMaxWidth);
+    convert.field(pRootJson, "MaxHeight", stInfo.nMaxHeight);
+    convert.structure(pRootJson, "MinIpdRect", stInfo.stMinIpdRect);
+    convert.structure(pRootJson, "ShieldedRegion", stInfo.vstShieldedRegion);
+}
+
+/* 人脸识别配置 */
+void Convert::deal(Json::Object *pRootJson, Alarm::FaceRecognition_S &stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+
+    Convert::CConvert convert(bOutStruct);
+    convert.field(pRootJson, "Enable", stInfo.bEnable);
+    convert.field(pRootJson, "CaptureEnable", stInfo.bCaptureEnable);
+    convert.field(pRootJson, "AttributeAnalysisEnable", stInfo.bAttributeAnalysisEnable);
+    convert.field(pRootJson, "DynamicAnalysisEnable", stInfo.bDynamicAnalysisEnable);
+    convert.field(pRootJson, "Sensitivity", stInfo.nSensitivity);
+    convert.structure(pRootJson, "Region", stInfo.stRegion);
+    convert.structure(pRootJson, stInfo.aAlarmTime);
+    convert.structure(pRootJson, "LinkageMode", stInfo.stLinkageList);
+    convert.structure(pRootJson, "CaptureRule", stInfo.stCaptureRule);
+}
+
+/* 行人识别配置 */
+void Convert::deal(Json::Object *pRootJson, Alarm::PersonDetection_S &stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+
+    Convert::CConvert convert(bOutStruct);
+    convert.field(pRootJson, "Enable", stInfo.bEnable);
+    convert.field(pRootJson, "Sensitivity", stInfo.nSensitivity);
+    convert.structure(pRootJson, "Region", stInfo.stRegion);
+    convert.structure(pRootJson, stInfo.aAlarmTime);
+    convert.structure(pRootJson, "LinkageMode", stInfo.stLinkageList);
+}
+
+/* 机动车识别配置 */
+void Convert::deal(Json::Object *pRootJson, Alarm::MotorVehicleDetection_S &stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+
+    Convert::CConvert convert(bOutStruct);
+    convert.field(pRootJson, "Enable", stInfo.bEnable);
+    convert.field(pRootJson, "Sensitivity", stInfo.nSensitivity);
+    convert.structure(pRootJson, "Region", stInfo.stRegion);
+    convert.structure(pRootJson, stInfo.aAlarmTime);
+    convert.structure(pRootJson, "LinkageMode", stInfo.stLinkageList);
+}
+
+/* 非机动车识别配置 */
+void Convert::deal(Json::Object *pRootJson, Alarm::NonMotorVehicleDetection_S &stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+
+    Convert::CConvert convert(bOutStruct);
+    convert.field(pRootJson, "Enable", stInfo.bEnable);
     convert.field(pRootJson, "Sensitivity", stInfo.nSensitivity);
     convert.structure(pRootJson, "Region", stInfo.stRegion);
     convert.structure(pRootJson, stInfo.aAlarmTime);
@@ -839,7 +889,6 @@ void Convert::deal(Json::Object *pRootJson, Alarm::TargetLibInfos_S &TargetLibIn
     Convert::CConvert convert(bOutStruct);
     convert.field(pRootJson, "LibId", TargetLibInfos.LibId);
     convert.field(pRootJson, "Similarity", TargetLibInfos.Similarity);
-    
 }
 /*人脸比对*/
 void Convert::deal(Json::Object *pRootJson, Alarm::FaceCompare_S &stInfo, bool bOutStruct)
@@ -852,7 +901,7 @@ void Convert::deal(Json::Object *pRootJson, Alarm::FaceCompare_S &stInfo, bool b
     Convert::CConvert convert(bOutStruct);
     convert.field(pRootJson, "Enable", stInfo.bEnable);
     convert.structure(pRootJson, stInfo.aAlarmTime);
-    convert.structure(pRootJson,"TargetLibInfos", stInfo.TargetLibInfos);
+    convert.structure(pRootJson, "TargetLibInfos", stInfo.TargetLibInfos);
     convert.structure(pRootJson, "LinkageSuccessMode", stInfo.stLinkageListSuccess);
     convert.structure(pRootJson, "LinkageFailMode", stInfo.stLinkageListFail);
 }
@@ -890,7 +939,7 @@ void Convert::deal(Json::Object *pRootJson, Alarm::FaceCapture_S &stInfo, bool b
     convert.structure(pRootJson, stInfo.aAlarmTime);
     convert.structure(pRootJson, "LinkageMode", stInfo.stLinkageList);
 }
-
+    
 void Convert::deal(Json::Object *pRootJson, Alarm::OverlayInfo_S &stInfo, bool bOutStruct)
 {
     if (!pRootJson)
@@ -904,10 +953,9 @@ void Convert::deal(Json::Object *pRootJson, Alarm::OverlayInfo_S &stInfo, bool b
     convert.field(pRootJson, "OverlayDeviceID", stInfo.bOverlayDeviceID);
     convert.field(pRootJson, "OverlayCaptureTime", stInfo.bOverlayCaptureTime);
     convert.field(pRootJson, "OverlayMonitoryPointInfo", stInfo.bOverlayMonitoryPointInfo);
-    convert.field(pRootJson, "EnFontColor", (int &)stInfo.enFontColor);
+    convert.field(pRootJson, "EnFontColor", (int &) stInfo.enFontColor);
     convert.field(pRootJson, "StrFontColor", stInfo.strFontColor);
 }
-
 
 void Convert::deal(Json::Object *pRootJson, Alarm::FaceAlarmAttribute_S &stInfo, bool bOutStruct)
 {
@@ -958,7 +1006,6 @@ void Convert::deal(Json::Object *pRootJson, Alarm::LLMAISceneAnalysis_S &stInfo,
     convert.field(pRootJson, "Enable", stInfo.bEnable);
     convert.field(pRootJson, "NewDialogue", stInfo.bNewDialogue);
     convert.field(pRootJson, "AnalysisStop", stInfo.bAnalysisStop);
-
 }
 
 /* 画面分析相关 */
@@ -1036,7 +1083,7 @@ void Convert::deal(Json::Object *pRootJson, Alarm::AnalysisAllRecordIndexItem_S 
     convert.field(pRootJson, "Current_session_index", stInfo.current_session_index);
     convert.field(pRootJson, "Operateindex", stInfo.Operateindex);
     convert.field(pRootJson, "Operatesubindex", stInfo.Operatesubindex);
-    convert.field(pRootJson, "AnalysisRecordOperate", (int &)stInfo.enAnalysisRecordOperate);
+    convert.field(pRootJson, "AnalysisRecordOperate", (int &) stInfo.enAnalysisRecordOperate);
     convert.field(pRootJson, "SearchKeyword", stInfo.SearchKeyword);
     convert.field(pRootJson, "DelKeyID", stInfo.DelKeyID);
     convert.field(pRootJson, "PageSize", stInfo.nPageSize);
@@ -1059,12 +1106,11 @@ void Convert::deal(Json::Object *pRootJson, Alarm::LLMImageAnalysis_S &stInfo, b
     convert.field(pRootJson, "AnalysisStop", stInfo.bAnalysisStop);
     convert.field(pRootJson, "ScreenshotEnable", stInfo.bScreenshotEnable);
     convert.field(pRootJson, "ScheduleEnable", stInfo.bScheduleEnable);
-    convert.field(pRootJson, "AnalysisScheduleMode", (int &)stInfo.enAnalysisScheduleMode);
+    convert.field(pRootJson, "AnalysisScheduleMode", (int &) stInfo.enAnalysisScheduleMode);
     convert.structure(pRootJson, "RepeatedAnalysis", stInfo.stRepeatedConfig);
     convert.structure(pRootJson, "IntervalAnalysis", stInfo.stIntervalConfig);
     convert.field(pRootJson, "AnalysisInputText", stInfo.strAnalysisInputText);
     convert.field(pRootJson, "AnalysisInputImagePath", stInfo.strAnalysisInputImagePath);
-
 }
 
 /* 文字预设任务相关 */
@@ -1075,15 +1121,15 @@ void Convert::deal(Json::Object *pRootJson, Alarm::TextPreset_S &stInfo, bool bO
         return;
     }
     Convert::CConvert convert(bOutStruct);
-    convert.field(pRootJson, "OperateType", (int &)stInfo.enOperationType);
+    convert.field(pRootJson, "OperateType", (int &) stInfo.enOperationType);
     convert.field(pRootJson, "TaskId", stInfo.strTaskId);
     convert.field(pRootJson, "Enable", stInfo.bEnable);
     convert.field(pRootJson, "TaskName", stInfo.strTaskName);
-    convert.field(pRootJson, "TextPresetTaskStatus", (int &)stInfo.enTaskPresetDealStatus);
+    convert.field(pRootJson, "TextPresetTaskStatus", (int &) stInfo.enTaskPresetDealStatus);
     convert.structure(pRootJson, "Rect", stInfo.stRect);
     convert.field(pRootJson, "UserObjectName", stInfo.strObjectName);
     convert.field(pRootJson, "UserConditionName", stInfo.strConditionName);
-    convert.field(pRootJson, "DetectFrequency", (int &)stInfo.enDetectFrequency);
+    convert.field(pRootJson, "DetectFrequency", (int &) stInfo.enDetectFrequency);
     convert.structure(pRootJson, stInfo.aAlarmTime);
     convert.structure(pRootJson, "LinkageMode", stInfo.stLinkageList);
 }
@@ -1098,7 +1144,7 @@ void Convert::deal(Json::Object *pRootJson, Alarm::TextPresetQueryFilter_S &stIn
     convert.field(pRootJson, "TaskName", stInfo.strTaskNameFilter);
     convert.field(pRootJson, "UserObjectName", stInfo.strObjectNameFilter);
     convert.field(pRootJson, "UserConditionName", stInfo.strConditionNameFilter);
-    convert.field(pRootJson, "TextPresetTaskStatus", (int &)stInfo.enTaskStatusFilter);
+    convert.field(pRootJson, "TextPresetTaskStatus", (int &) stInfo.enTaskStatusFilter);
 }
 
 void Convert::deal(Json::Object *pRootJson, std::vector<Alarm::TextPreset_S> &stInfo, bool bOutStruct)
@@ -1134,7 +1180,6 @@ void Convert::deal(Json::Object *pRootJson, Alarm::RealAlarmPushTime_S &stInfo, 
     convert.structure(pRootJson, "Time", stInfo.stTime);
 }
 
-
 void Convert::deal(Json::Object *pRootJson, Alarm::RealAlarmProcessRecord_S &stInfo, bool bOutStruct)
 {
     if (!pRootJson)
@@ -1164,12 +1209,12 @@ void Convert::deal(Json::Object *pRootJson, Alarm::RealAlarmPushRecord_S &stInfo
         return;
     }
     Convert::CConvert convert(bOutStruct);
-    convert.field(pRootJson, "OperateType", (int &)stInfo.enOperationType);
+    convert.field(pRootJson, "OperateType", (int &) stInfo.enOperationType);
     convert.field(pRootJson, "TaskId", stInfo.strTaskId);
     convert.field(pRootJson, "TaskName", stInfo.strTaskName);
     convert.field(pRootJson, "UserObjectName", stInfo.strObjectName);
     convert.field(pRootJson, "UserConditionName", stInfo.strConditionName);
-    convert.field(pRootJson, "DealStatus", (int &)stInfo.enDealStatus);
+    convert.field(pRootJson, "DealStatus", (int &) stInfo.enDealStatus);
     convert.structure(pRootJson, "AlarmTime", stInfo.stAlarmTime);
     convert.field(pRootJson, "Description", stInfo.strDescription);
     convert.field(pRootJson, "ImagePath", stInfo.strImagePath);
@@ -1212,7 +1257,7 @@ void Convert::deal(Json::Object *pRootJson, Alarm::RealAlarmPushQueryFilter_S &s
     convert.field(pRootJson, "TaskName", stInfo.strTaskNameFilter);
     convert.field(pRootJson, "UserObjectName", stInfo.strObjectNameFilter);
     convert.field(pRootJson, "UserConditionName", stInfo.strConditionNameFilter);
-    convert.field(pRootJson, "DealStatus", (int &)stInfo.enDealStatusFilter);
+    convert.field(pRootJson, "DealStatus", (int &) stInfo.enDealStatusFilter);
     convert.structure(pRootJson, "StartTime", stInfo.stStartTime);
     convert.structure(pRootJson, "EndTime", stInfo.stEndTime);
     convert.field(pRootJson, "PageSize", stInfo.nPageSize);
@@ -1227,7 +1272,7 @@ void Convert::deal(Json::Object *pRootJson, Alarm::RealAlarmPushBatchRequest_S &
         return;
     }
     Convert::CConvert convert(bOutStruct);
-    convert.field(pRootJson, "OperateType", (int &)stInfo.enOperationType);
+    convert.field(pRootJson, "OperateType", (int &) stInfo.enOperationType);
     convert.field(pRootJson, "TaskId", stInfo.aTaskIds);
     convert.field(pRootJson, "ProcessRemark", stInfo.strProcessRemark);
     convert.field(pRootJson, "AutoLatestAlarm", stInfo.bAutoLaestAlarm);
@@ -1395,7 +1440,7 @@ void Convert::deal(Json::Object *pRootJson, Alarm::ManholeCoverAbnormalRule_S &s
     Convert::CConvert convert(bOutStruct);
     convert.field(pRootJson, "Sensitivity", stInfo.nSensitivity);
 }
- 
+
 void Convert::deal(Json::Object *pRootJson, Alarm::ManholeCoverAbnormalDetection_S &stInfo, bool bOutStruct)
 {
     if (!pRootJson)
@@ -1419,7 +1464,7 @@ void Convert::deal(Json::Object *pRootJson, Alarm::SleepOnDutyRule_S &stInfo, bo
     Convert::CConvert convert(bOutStruct);
     convert.field(pRootJson, "Sensitivity", stInfo.nSensitivity);
 }
- 
+
 void Convert::deal(Json::Object *pRootJson, Alarm::SleepOnDutyDetection_S &stInfo, bool bOutStruct)
 {
     if (!pRootJson)
@@ -1443,7 +1488,7 @@ void Convert::deal(Json::Object *pRootJson, Alarm::TripRule_S &stInfo, bool bOut
     Convert::CConvert convert(bOutStruct);
     convert.field(pRootJson, "Sensitivity", stInfo.nSensitivity);
 }
- 
+
 void Convert::deal(Json::Object *pRootJson, Alarm::TripDetection_S &stInfo, bool bOutStruct)
 {
     if (!pRootJson)
@@ -1467,14 +1512,14 @@ void Convert::deal(Json::Object *pRootJson, Alarm::PhoneUsageRule_S &stInfo, boo
     Convert::CConvert convert(bOutStruct);
     convert.field(pRootJson, "Sensitivity", stInfo.nSensitivity);
 }
- 
+
 void Convert::deal(Json::Object *pRootJson, Alarm::PhoneUsageDetection_S &stInfo, bool bOutStruct)
 {
     if (!pRootJson)
     {
         return;
     }
-
+ 
     Convert::CConvert convert(bOutStruct);
     convert.field(pRootJson, "Enable", stInfo.bEnable);
     convert.structure(pRootJson, "Rule", stInfo.stRule);
@@ -1491,21 +1536,20 @@ void Convert::deal(Json::Object *pRootJson, Alarm::PersonFallDownRule_S &stInfo,
     Convert::CConvert convert(bOutStruct);
     convert.field(pRootJson, "Sensitivity", stInfo.nSensitivity);
 }
- 
+
 void Convert::deal(Json::Object *pRootJson, Alarm::PersonFallDownDetection_S &stInfo, bool bOutStruct)
 {
     if (!pRootJson)
     {
         return;
     }
-
+ 
     Convert::CConvert convert(bOutStruct);
     convert.field(pRootJson, "Enable", stInfo.bEnable);
     convert.structure(pRootJson, "Rule", stInfo.stRule);
     convert.structure(pRootJson, stInfo.aAlarmTime);
     convert.structure(pRootJson, "LinkageMode", stInfo.stLinkageList);
 }
-
 
 void Convert::deal(Json::Object *pRootJson, Alarm::HighAltitudeSeatbeltRule_S &stInfo, bool bOutStruct)
 {
@@ -1523,7 +1567,7 @@ void Convert::deal(Json::Object *pRootJson, Alarm::HighAltitudeSeatbeltDetection
     {
         return;
     }
-
+ 
     Convert::CConvert convert(bOutStruct);
     convert.field(pRootJson, "Enable", stInfo.bEnable);
     convert.structure(pRootJson, "Rule", stInfo.stRule);
@@ -1547,7 +1591,7 @@ void Convert::deal(Json::Object *pRootJson, Alarm::LicensePlateCognitionDetectio
     {
         return;
     }
-
+ 
     Convert::CConvert convert(bOutStruct);
     convert.field(pRootJson, "Enable", stInfo.bEnable);
     convert.structure(pRootJson, "Rule", stInfo.stRule);
@@ -1564,14 +1608,14 @@ void Convert::deal(Json::Object *pRootJson, Alarm::BareSoilRule_S &stInfo, bool 
     Convert::CConvert convert(bOutStruct);
     convert.field(pRootJson, "Sensitivity", stInfo.nSensitivity);
 }
- 
+
 void Convert::deal(Json::Object *pRootJson, Alarm::BareSoiletDection_S &stInfo, bool bOutStruct)
 {
     if (!pRootJson)
     {
         return;
     }
-
+ 
     Convert::CConvert convert(bOutStruct);
     convert.field(pRootJson, "Enable", stInfo.bEnable);
     convert.structure(pRootJson, "Rule", stInfo.stRule);
@@ -1650,7 +1694,7 @@ void Convert::deal(Json::Object *pRootJson, Alarm::ReflectiveClothingDection_S &
     convert.structure(pRootJson, stInfo.aAlarmTime);
     convert.structure(pRootJson, "LinkageMode", stInfo.stLinkageList);
 }
-
+ 
 void Convert::deal(Json::Object *pRootJson, Alarm::SmokingRule_S &stInfo, bool bOutStruct)
 {
     if (!pRootJson)
@@ -1735,10 +1779,9 @@ void Convert::deal(Json::Object *pRootJson, Alarm::ElectricScooterDetection_S &s
     Convert::CConvert convert(bOutStruct);
     convert.structure(pRootJson, "StartPoint", stInfo.stStartPos);
     convert.structure(pRootJson, "EndPoint", stInfo.stEndPos);
-    convert.field(pRootJson, "CrossDirection", (int &)stInfo.enCrossDirection);
+    convert.field(pRootJson, "CrossDirection", (int &) stInfo.enCrossDirection);
     convert.field(pRootJson, "Sensitivity", stInfo.nSensitivity);
     // convert.field(pRootJson, "DetectionTarget", stInfo.aDetectionTarget);
-
 }
 void Convert::deal(Json::Object *pRootJson, std::vector<Alarm::DrivingAgainstTrafficRule_S> &stInfo, bool bOutStruct)
 {
@@ -1815,7 +1858,6 @@ void Convert::deal(Json::Object *pRootJson, Alarm::CongestionDetection_S &stInfo
     // convert.field(pRootJson, "CrossDirection", (int &)stInfo.enCrossDirection);
     convert.field(pRootJson, "Sensitivity", stInfo.nSensitivity);
     // convert.field(pRootJson, "DetectionTarget", stInfo.aDetectionTarget);
-
 }
 void Convert::deal(Json::Object *pRootJson, std::vector<Alarm::IllegalLaneChangeRule_S> &stInfo, bool bOutStruct)
 {
@@ -1917,8 +1959,8 @@ void Convert::deal(Json::Object *pRootJson, Alarm::PersonAlarmAttribute_S &stInf
     Convert::CConvert convert(bOutStruct);
     convert.field(pRootJson, "IsMale", stInfo.bIsMale);
     convert.field(pRootJson, "AgeLabel", stInfo.nAgeLabel);
-    convert.field(pRootJson, "BottomColorLabel", (int &)stInfo.eBottomColorLabel);
-    convert.field(pRootJson, "TopColorLabel", (int &)stInfo.eTopColorLabel);
+    convert.field(pRootJson, "BottomColorLabel", (int &) stInfo.eBottomColorLabel);
+    convert.field(pRootJson, "TopColorLabel", (int &) stInfo.eTopColorLabel);
     convert.field(pRootJson, "IsBag", stInfo.bBag);
 }
 
@@ -1945,8 +1987,8 @@ void Convert::deal(Json::Object *pRootJson, Alarm::MotorvehicleAlarmAttribute_S 
     }
 
     Convert::CConvert convert(bOutStruct);
-    convert.field(pRootJson, "VehicleType", (int &)stInfo.eVehicleType);
-    convert.field(pRootJson, "VehicleColor", (int &)stInfo.eVehicleColor);
+    convert.field(pRootJson, "VehicleType", (int &) stInfo.eVehicleType);
+    convert.field(pRootJson, "VehicleColor", (int &) stInfo.eVehicleColor);
     convert.field(pRootJson, "VehicleBrand", stInfo.strVehicleBrand);
 }
 
@@ -1975,8 +2017,8 @@ void Convert::deal(Json::Object *pRootJson, Alarm::NonMotorvehicleAlarmAttribute
     }
 
     Convert::CConvert convert(bOutStruct);
-    convert.field(pRootJson, "NonMotorizedVehicleType", (int &)stInfo.eNonMotorizedVehicleType);
-    convert.field(pRootJson, "NonMotorizedVehicleColor", (int &)stInfo.eNonMotorizedVehicleColor);
+    convert.field(pRootJson, "NonMotorizedVehicleType", (int &) stInfo.eNonMotorizedVehicleType);
+    convert.field(pRootJson, "NonMotorizedVehicleColor", (int &) stInfo.eNonMotorizedVehicleColor);
 }
 
 void Convert::deal(Json::Object *pRootJson, Alarm::NonMotorvehicleAlarmInfo_S &stInfo, bool bOutStruct)
@@ -1992,20 +2034,6 @@ void Convert::deal(Json::Object *pRootJson, Alarm::NonMotorvehicleAlarmInfo_S &s
     convert.field(pRootJson, "CurrentPicture", stInfo.strCurrentPicture);
     convert.field(pRootJson, "TimeStamp", stInfo.strTimeStamp);  
     convert.field(pRootJson, "IsDownLoad", stInfo.bIsDownLoad); 
-}
-
-void Convert::deal(Json::Object *pRootJson, Alarm::AttributeDetectSwitch_S &stInfo, bool bOutStruct)
-{
-    if (!pRootJson)
-    {
-        return;
-    }
-
-    Convert::CConvert convert(bOutStruct);
-    convert.field(pRootJson, "MotorVehicleAttribute", stInfo.bMotorVehicleAttribute);
-    convert.field(pRootJson, "NonMotorVehicleAttribute", stInfo.bNonMotorVehicleAttribute);
-    convert.field(pRootJson, "FaceAttribute", stInfo.bFaceAttribute);
-    convert.field(pRootJson, "PedestrianAttribute", stInfo.bPedestrianAttribute);
 }
 
 #endif
@@ -2236,7 +2264,7 @@ void Convert::deal(Json::Object *pRootJson, Alarm::Region_S &stInfo, bool bOutSt
     convert.structure(pRootJson, "Points", stInfo.aPoint);
 }
 
-void Convert::deal(Json::Object* pRootJson, Alarm::EventSchedule_S &stSchedule, bool bOutStruct)
+void Convert::deal(Json::Object *pRootJson, Alarm::EventSchedule_S &stSchedule, bool bOutStruct)
 {
 	if (!pRootJson)
 	{
@@ -2249,7 +2277,7 @@ void Convert::deal(Json::Object* pRootJson, Alarm::EventSchedule_S &stSchedule, 
     convert.structure(pRootJson, stSchedule.defenseTime);
 }
 
-void Convert::deal(Json::Object* pRootJson, std::set<Alarm::EventSchedule_S> &stSchedule, bool bOutStruct)
+void Convert::deal(Json::Object *pRootJson, std::set<Alarm::EventSchedule_S> &stSchedule, bool bOutStruct)
 {
 	if (!pRootJson)
 	{
@@ -2260,7 +2288,7 @@ void Convert::deal(Json::Object* pRootJson, std::set<Alarm::EventSchedule_S> &st
 	convert.structure(pRootJson, "EventSchedule", stSchedule);
 }
 
-void Convert::deal(Json::Object* pRootJson, Alarm::VideoLostDetection_S &stVideoLostDetection, bool bOutStruct)
+void Convert::deal(Json::Object *pRootJson, Alarm::VideoLostDetection_S &stVideoLostDetection, bool bOutStruct)
 {
 	if (!pRootJson)
 	{
@@ -2274,7 +2302,7 @@ void Convert::deal(Json::Object* pRootJson, Alarm::VideoLostDetection_S &stVideo
     convert.structure(pRootJson, "LinkageMode", stVideoLostDetection.stLinkageList);
 }
 
-void Convert::deal(Json::Object* pRootJson, std::set<Alarm::VideoLostDetection_S> &videoLostDetection, bool bOutStruct)
+void Convert::deal(Json::Object *pRootJson, std::set<Alarm::VideoLostDetection_S> &videoLostDetection, bool bOutStruct)
 {
 	if (!pRootJson)
 	{

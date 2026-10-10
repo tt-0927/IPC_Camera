@@ -9,6 +9,8 @@
 
 #pragma once
 
+#include "cxx_compat.h"
+
 #include <set>
 #include <fstream>
 #include <sstream>
@@ -174,8 +176,7 @@ private:
         if (fileVersion < currentVersion)
         {
             /* 执行迁移 */
-            ConfigCompat_NS::MigrateResult_E migrateResult =
-                Migrator::migrate(pRootJson, fileVersion, currentVersion);
+            ConfigCompat_NS::MigrateResult_E migrateResult = Migrator::migrate(pRootJson, fileVersion, currentVersion);
             if (migrateResult != ConfigCompat_NS::MigrateResult_E::FAILED)
             {
                 needRewrite = true;
@@ -223,9 +224,7 @@ private:
         }
 
         /* 写入版本信息 */
-        ConfigCompat_NS::writeVersionToJson(pRootJson,
-                                         Migrator::getCurrentVersion(),
-                                         Migrator::getConfigType());
+        ConfigCompat_NS::writeVersionToJson(pRootJson, Migrator::getCurrentVersion(), Migrator::getConfigType());
 
         /* 使用现有Convert框架序列化数据 */
         Convert::CConvert convert(false);
@@ -351,12 +350,15 @@ private:
     std::string m_filePath;
 
     /* SFINAE检测CreateWithDefaultRule方法 */
-    template <typename, typename = std::void_t<>>
-    struct hasCreateDefaultRule : std::false_type {};
+    template <typename, typename = CxxCompat_NS::void_t<>>
+    struct hasCreateDefaultRule : std::false_type
+    {
+};
 
     template <typename U>
-    struct hasCreateDefaultRule<U, std::void_t<decltype(U::CreateWithDefaultRule())>>
-        : std::true_type {};
+    struct hasCreateDefaultRule<U, CxxCompat_NS::void_t<decltype(U::CreateWithDefaultRule())>> : std::true_type
+    {
+    };
 
     void initializeDefault()
     {
@@ -369,7 +371,7 @@ private:
     }
 
     void initializeDefaultImpl(std::false_type)
-    {
+        {
         m_data = T{};
     }
 
@@ -378,7 +380,7 @@ private:
      * @return   {bool} true：加载成功，false：加载失败
      */
     bool loadFromFile()
-    {
+        {
         std::ifstream file(m_filePath, std::ios::binary | std::ios::ate);
         if (!file.is_open())
         {
@@ -400,7 +402,7 @@ private:
         std::string jsonData = buffer.str();
         Json::Object *pRootJson = Json::init(jsonData);
         if (!pRootJson)
-        {
+            {
             return false;
         }
 
@@ -412,10 +414,9 @@ private:
         bool needRewrite = false;
         if (fileVersion < currentVersion)
         {
-            ConfigCompat_NS::MigrateResult_E migrateResult =
-                Migrator::migrate(pRootJson, fileVersion, currentVersion);
+            ConfigCompat_NS::MigrateResult_E migrateResult = Migrator::migrate(pRootJson, fileVersion, currentVersion);
             if (migrateResult == ConfigCompat_NS::MigrateResult_E::FAILED)
-            {
+        {
                 Json::deinit(pRootJson);
                 return false;
             }
@@ -433,7 +434,7 @@ private:
             return false;
         }
         if (result.enOverallResult == ConfigCompat_NS::ValidateResult_E::FIXED)
-        {
+    {
             needRewrite = true;
         }
 
@@ -449,16 +450,14 @@ private:
      * @brief   : 保存配置到文件
      */
     void saveToFile()
-    {
+        {
         Json::Object *pRootJson = Json::init();
         if (!pRootJson)
-        {
+            {
             return;
         }
 
-        ConfigCompat_NS::writeVersionToJson(pRootJson,
-                                         Migrator::getCurrentVersion(),
-                                         Migrator::getConfigType());
+        ConfigCompat_NS::writeVersionToJson(pRootJson, Migrator::getCurrentVersion(), Migrator::getConfigType());
 
         /* 序列化数据 */
         Convert::CConvert convert(false);
@@ -469,10 +468,10 @@ private:
         Json::deinit(pRootJson);
 
         std::string tmpPath = m_filePath + ".tmp";
-        {
+            {
             std::ofstream file(tmpPath, std::ios::out | std::ios::binary | std::ios::trunc);
             if (!file.is_open())
-            {
+        {
                 return;
             }
             file << jsonData << std::endl;

@@ -50,7 +50,7 @@ protected:
     /* 线程指针 */
     std::thread *m_pThread = nullptr;
     /* 是否正在运行的标志 */
-    std::atomic<bool> m_bIsRunFlag = false;
+    std::atomic<bool> m_bIsRunFlag{ false };
 };
 
 #endif // MAINTENANCETHREAD_H

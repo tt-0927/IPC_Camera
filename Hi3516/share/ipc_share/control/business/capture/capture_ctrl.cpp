@@ -3,7 +3,7 @@
  * @Author       : 梁浩尧 lianghaoyao@kfb.cn
  * @Date         : 2025-07-17 17:44:26
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-08-13 15:03:25
+ * @LastEditTime : 2026-09-23 15:24:22
  * @Description  : 抓图计划管理
  */
 
@@ -12,15 +12,17 @@
 #include <thread>
 #include <sys/time.h>
 #include <ctime>
-#include <filesystem>
 #include "capture_ctrl.h"
+#include <cerrno>
+
+#include "posix_fs.h"
 #include "capture_configure.h"
 #include "capture_database.h"
 #include "storage_manage.h"
 #include "time_utils.h"
 #include <regex>
 
-namespace fs = std::filesystem;
+#include <cstring>
 
 // #define VENC_CHN_JPEG 2
 #define DELETE_FILE_TIME_THRESHOLD 60 /* 10分钟 */
@@ -33,13 +35,11 @@ namespace fs = std::filesystem;
  */
 static unsigned long long time_unit_conversion(Capture_NS::TimeUnit_E eTimeUnit, unsigned int uInterval);
 
-CCaptureCtrl::CCaptureCtrl()
-    : m_taskQueue(CAPTURE_QUEUE_MAX_SIZE)
+CCaptureCtrl::CCaptureCtrl() : m_taskQueue(CAPTURE_QUEUE_MAX_SIZE)
 {
 }
 
-CCaptureCtrl::CCaptureTaskQueue::CCaptureTaskQueue(int nMaxSize)
-    : m_nMaxSize(nMaxSize)
+CCaptureCtrl::CCaptureTaskQueue::CCaptureTaskQueue(int nMaxSize) : m_nMaxSize(nMaxSize)
 {
 }
 
@@ -338,7 +338,8 @@ int CCaptureCtrl::set_event_capture(bool bEventEnded, const Event::Info_S &stEve
     {
         /* 判断当前发生该事件类型比上一次发生该事件类型的时间间隔是否大于等于用户设定的抓图时间间隔 */
         unsigned long long ullCurrentTime = TimeUtils_NS::get_currentTimestampMs();
-        if (ullCurrentTime - it->second.ullLastTriggerTime >= ullInterval || enEventType == Event::Type_E::FACE_CAPTURE|| enEventType == Event::Type_E::FACE_COMPARE)
+        if (ullCurrentTime - it->second.ullLastTriggerTime >= ullInterval || enEventType == Event::Type_E::FACE_CAPTURE ||
+            enEventType == Event::Type_E::FACE_COMPARE)
         {
             /* 重新开始抓图 */
             it->second.bCaptureFlag = true;
@@ -513,9 +514,7 @@ void CCaptureCtrl::process_capture_task(unsigned char *pData, int nDataLen)
                      * 已完成数量保留到真正的 set_event_capture(true) 事件结束路径清理；
                      * bCaptureFlag=false 已足以阻止后续JPEG继续生成事件图片。
                      */
-                    dlog_info("事件[%d]抓图数量达到设定值[%u]，停止抓图.",
-                              (int) snap.enType,
-                              unMaxCaptureNumber);
+                    dlog_info("事件[%d]抓图数量达到设定值[%u]，停止抓图.", (int) snap.enType, unMaxCaptureNumber);
                 }
 
                 vecActiveEvents.push_back(snap);
@@ -525,9 +524,8 @@ void CCaptureCtrl::process_capture_task(unsigned char *pData, int nDataLen)
         /* 判断定时抓图 */
         if (m_TimingCaptureFlag)
         {
-            ullTimingInterval = time_unit_conversion(
-                m_captureParams.stCaptureTimingConfig.stTimeInterval.enTimeUnit,
-                m_captureParams.stCaptureTimingConfig.stTimeInterval.unInterval);
+            ullTimingInterval = time_unit_conversion(m_captureParams.stCaptureTimingConfig.stTimeInterval.enTimeUnit,
+                                                     m_captureParams.stCaptureTimingConfig.stTimeInterval.unInterval);
 
             // note 将间隔时间降低50ms，允许误差50ms，避免1999 >= 2000这种情况
             if (ullTimingInterval >= 50)
@@ -549,10 +547,13 @@ void CCaptureCtrl::process_capture_task(unsigned char *pData, int nDataLen)
     std::vector<std::pair<EventCaptureSnapshot, std::string>> vecEventResults;
     for (const auto &snap : vecActiveEvents)
     {
-        std::string strFilePath = capture_image(
-            Capture_NS::CaptureType_E::EVENT_CAPTURE, pData, nDataLen,
-            snap.stEventInfo, snap.unCaptureCount, snap.enType);
-        vecEventResults.push_back({snap, strFilePath});
+        std::string strFilePath = capture_image(Capture_NS::CaptureType_E::EVENT_CAPTURE,
+                                                pData,
+                                                nDataLen,
+                                                snap.stEventInfo,
+                                                snap.unCaptureCount,
+                                                snap.enType);
+        vecEventResults.push_back({ snap, strFilePath });
     }
 
     if (bDoTimingCapture)
@@ -601,8 +602,7 @@ void CCaptureCtrl::process_capture_task(unsigned char *pData, int nDataLen)
                 stState.stEventInfo.strVideoPath = strFilePath;
 
                 /* 人脸抓拍：更新文件名并通知等待线程 */
-                if (snap.enType == Event::Type_E::FACE_CAPTURE ||
-                    snap.enType == Event::Type_E::FACE_COMPARE)
+                if (snap.enType == Event::Type_E::FACE_CAPTURE || snap.enType == Event::Type_E::FACE_COMPARE)
                 {
                     {
                         std::lock_guard<std::mutex> faceLock(m_faceMutex);
@@ -704,8 +704,7 @@ bool CCaptureCtrl::ensure_directory_exists(const std::string &path)
         /* 目录不存在，创建目录 */
         if (mkdir(path.c_str(), 0755) != 0)
         {
-            dlog_error("创建目录失败: %s, errno=%d, error=%s",
-                path.c_str(), errno, strerror(errno));
+            dlog_error("创建目录失败: %s, errno=%d, error=%s", path.c_str(), errno, strerror(errno));
             return false;
         }
         dlog_info("创建目录成功: %s", path.c_str());
@@ -810,7 +809,6 @@ std::string CCaptureCtrl::capture_image(Capture_NS::CaptureType_E eCaptureType,
         }
     }
     // dlog_info("循环覆盖清理完成，共执行 %d 批，当前图片大小:%d", nCleanupBatches, nDataLen);
-
 
     /* 获取按日期分类的存储路径 */
     std::string strStoragePath = get_date_storage_path();
@@ -954,9 +952,8 @@ int CCaptureCtrl::save_event_image(unsigned char *pData, int nDataLen, const Eve
         return -1;
     }
 
-    std::error_code stErrorCode;
-    const auto nFileSize = std::filesystem::file_size(strFilePath, stErrorCode);
-    if (stErrorCode)
+    const auto nFileSize = PosixFs_NS::file_size(strFilePath);
+    if (nFileSize < 0)
     {
         dlog_error("垃圾站抓图识别-落盘层: 落盘后读取大小失败[%s]", strFilePath.c_str());
         return -1;
@@ -1002,8 +999,7 @@ int CCaptureCtrl::delete_old_images()
 
     /* 限制查询数量为 BATCH_DELETE_COUNT */
     std::string strLimitKey = "limit";
-    methods.push_back(
-        Db::MatchMethod(Db::Element(strLimitKey, BATCH_DELETE_COUNT), Db::FIND_CRITERION_NONE, Db::FIND_CRITERION_NONE));
+    methods.push_back(Db::MatchMethod(Db::Element(strLimitKey, BATCH_DELETE_COUNT), Db::FIND_CRITERION_NONE, Db::FIND_CRITERION_NONE));
 
     /* 查询最旧的图片记录（已在数据库层面排序和限制数量） */
     std::vector<Capture_NS::CaptureInfo_S> vOldImages;
@@ -1036,10 +1032,7 @@ int CCaptureCtrl::delete_old_images()
 
         /* 按路径精确删除对应记录，不能按时间范围误删未成功删除的图片。 */
         MatchMethods delMethods;
-        delMethods.push_back(
-            MatchMethod(Element(INFO_CAPTURE_PATH, stInfo.strImagePath),
-                        FIND_CRITERION_EQ,
-                        FIND_CRITERION_NONE));
+        delMethods.push_back(MatchMethod(Element(INFO_CAPTURE_PATH, stInfo.strImagePath), FIND_CRITERION_EQ, FIND_CRITERION_NONE));
         nRet = CCaptureDatabase::instance()->del(delMethods, CAPTURE_TABLE_NAME);
         if (nRet < 0)
         {
@@ -1122,12 +1115,12 @@ time_t strToTimestamp(const std::string &timeStr)
 /* 遍历目录并比较时间 */
 static void checkFilesBySuffix(const std::string &strDirPath, const std::string &strSuffix)
 {
-    if (!std::filesystem::exists(strDirPath))
+    if (!PosixFs_NS::exists(strDirPath))
     {
         return; // 不存在
     }
 
-    if (!std::filesystem::is_directory(strDirPath))
+    if (!PosixFs_NS::is_directory(strDirPath))
     {
         return; // 存在但不是目录（是文件等）
     }
@@ -1136,17 +1129,19 @@ static void checkFilesBySuffix(const std::string &strDirPath, const std::string 
 
     time_t now = time(nullptr);
 
-    for (const auto &entry : fs::directory_iterator(strDirPath))
+    std::vector<std::string> vecNames;
+    PosixFs_NS::list_dir(strDirPath, vecNames);
+    for (size_t unIdx = 0; unIdx < vecNames.size(); unIdx++)
     {
-        if (!entry.is_regular_file())
+        if (!PosixFs_NS::is_regular_file(strDirPath + "/" + vecNames[unIdx]))
         {
             continue;
         }
 
-        std::string filename = entry.path().filename().string();
+        const std::string &filename = vecNames[unIdx];
 
         /* 判断后缀 */
-        if (entry.path().extension() != strSuffix)
+        if (PosixFs_NS::extension(filename) != strSuffix)
         {
             continue;
         }
@@ -1163,13 +1158,11 @@ static void checkFilesBySuffix(const std::string &strDirPath, const std::string 
 
             if (lDiff >= DELETE_FILE_TIME_THRESHOLD)
             {
-                /* 安全修复：使用 std::filesystem::remove 替代 system("rm -rf ...")，
+                /* 安全修复：直接调用 POSIX unlink 替代 system("rm -rf ...")，
                  * 避免命令注入风险，同时减少嵌入式环境下创建子进程的开销 */
-                std::error_code ec;
-                fs::remove(strDirPath + "/" + filename, ec);
-                if (ec)
+                if (!PosixFs_NS::remove(strDirPath + "/" + filename))
                 {
-                    dlog_error("删除过期文件失败: %s, error: %s", filename.c_str(), ec.message().c_str());
+                    dlog_error("删除过期文件失败: %s, errno: %d", filename.c_str(), errno);
                 }
                 else
                 {
@@ -1225,7 +1218,7 @@ void CCaptureCtrl::run()
             }
 
             /* 检查下载压缩包文件 */
-            fs::path strDirPath = std::string(CAPTURE_PATH) + "/tmp";
+            std::string strDirPath = std::string(CAPTURE_PATH) + "/tmp";
             checkFilesBySuffix(strDirPath, ".tgz");
         }
 

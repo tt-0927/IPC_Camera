@@ -23,8 +23,8 @@ CConfigManager::~CConfigManager()
 }
 
 /**
-* @brief   : 初始化所有配置
-*/
+ * @brief   : 初始化所有配置
+ */
 int CConfigManager::init()
 {
     /* 初始化视频配置 */
@@ -56,7 +56,8 @@ int CConfigManager::initVideoConfig()
     }
 
     /* 创建视频配置模块，并注入策略 */
-    m_pVideoConfigModule = std::make_unique<CConfigModule<VecVideoConfig>>(VIDEO_CONFIG_FILE, std::move(videoStrategy));
+    m_pVideoConfigModule = std::unique_ptr<CConfigModule<VecVideoConfig>>(
+        new CConfigModule<VecVideoConfig>(VIDEO_CONFIG_FILE, std::move(videoStrategy)));
 
     /* 初始化模块 */
     return m_pVideoConfigModule->init();
@@ -73,7 +74,8 @@ int CConfigManager::initSystemConfig()
     }
 
     /* 创建设备信息模块，并注入策略 */
-    m_pDeviceInfoConfigModule = std::make_unique<CConfigModule<System::DeviceInfo_S>>(DEVICE_INFO_CONFIG_FILE, std::move(videoStrategy));
+    m_pDeviceInfoConfigModule = std::unique_ptr<CConfigModule<System::DeviceInfo_S>>(
+        new CConfigModule<System::DeviceInfo_S>(DEVICE_INFO_CONFIG_FILE, std::move(videoStrategy)));
 
     /* 初始化模块 */
     return m_pDeviceInfoConfigModule->init();

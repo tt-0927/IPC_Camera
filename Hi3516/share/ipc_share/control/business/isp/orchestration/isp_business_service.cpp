@@ -3,19 +3,21 @@
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2026-07-13 15:01:25
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-07-22 10:20:06
+ * @LastEditTime : 2026-09-23 15:34:20
  * @Description  : 共享ISP业务服务实现
  */
 
 #include "isp_business_service.h"
 
-#include <variant>
+#include "variant.hpp"
 #include <type_traits>
 
 #include "IpcRet.h"
 #include "dlog.h"
 #include "isp_param_policy.h"
 #include "peripheral_manage.h"
+
+#include <functional>
 
 namespace
 {
@@ -60,8 +62,8 @@ CIspBusinessService::CIspBusinessService(const IspPlatformAdapters_S &stAdapters
                                          const IspSchedulerClock_S &stSchedulerClock,
                                          const IspDayNightClock_S &stDayNightClock,
                                          const ISP::IspCapabilityProfile_S &stProfile)
-    : m_stProfile(stProfile), m_stTiming(stTiming), m_stIspRepository(),
-      m_stParamOrchestrator(m_stIspRepository, stAdapters.stParameter), m_stSceneOrchestrator(stAdapters.stScene), m_stArbiter(),
+    : m_stProfile(stProfile), m_stTiming(stTiming), m_stIspRepository(), m_stParamOrchestrator(m_stIspRepository, stAdapters.stParameter),
+      m_stSceneOrchestrator(stAdapters.stScene), m_stArbiter(),
       m_stReconciler(stAdapters.stScene, m_stParamOrchestrator, stAdapters.stPeripheral, m_stTiming),
       m_stModeController(stAdapters.stDetector,
                          stDayNightClock,
@@ -192,7 +194,7 @@ int CIspBusinessService::init()
         return nRet;
     }
 
-    nRet = m_stModeController.init(std::get<ISP::DayNightAttr_S>(stDayNightValue));
+    nRet = m_stModeController.init(mpark::get<ISP::DayNightAttr_S>(stDayNightValue));
     if (nRet != OK)
     {
         dlog_error("共享ISP日夜控制器初始化失败: %d", nRet);
@@ -208,7 +210,7 @@ int CIspBusinessService::init()
     nRet = m_stIspRepository.load(stScheduleValue);
     if (nRet == OK)
     {
-        m_stScheduler.update(std::get<ISP::SceneSchedule_S>(stScheduleValue));
+        m_stScheduler.update(mpark::get<ISP::SceneSchedule_S>(stScheduleValue));
     }
     m_stScheduler.start();
 
@@ -255,7 +257,7 @@ int CIspBusinessService::update_param(ISP::PicConfigureType_E enType)
         int nRet = m_stIspRepository.load(stValue);
         if (nRet != OK)
             return nRet;
-        return m_stModeController.update_config(std::get<ISP::DayNightAttr_S>(stValue));
+        return m_stModeController.update_config(mpark::get<ISP::DayNightAttr_S>(stValue));
     }
 
     if (enType == ISP::PicConfigureType_E::SCENE)
@@ -300,7 +302,7 @@ int CIspBusinessService::on_schedule_changed()
     int nRet = m_stIspRepository.load(stValue);
     if (nRet != OK)
         return nRet;
-    return m_stScheduler.update(std::get<ISP::SceneSchedule_S>(stValue));
+    return m_stScheduler.update(mpark::get<ISP::SceneSchedule_S>(stValue));
 }
 
 int CIspBusinessService::validate_image_param(ISP::ImageParam_S &stConfig)
@@ -327,49 +329,44 @@ int CIspBusinessService::apply_config(const ISP::IspConfigValue_T &stConfig)
     }
 
     /* variant 类型本身就是命令域；此处只负责路由，不重复读取调用方刚持久化的值。 */
-    return std::visit(
-        [this](const auto &stValue) -> int
-        {
-            /* T 保留编译期实际类型，使 if constexpr 不会实例化无关分支。 */
-            using T = std::decay_t<decltype(stValue)>;
-            if constexpr (std::is_same_v<T, ISP::ImageParam_S>)
-            {
-                return m_stParamOrchestrator.apply_by_type(ISP::PicConfigureType_E::IAMGE);
-            }
-            else if constexpr (std::is_same_v<T, ISP::ExposureAttr_S>)
-            {
-                return m_stParamOrchestrator.apply_by_type(ISP::PicConfigureType_E::EXPOSURE);
-            }
-            else if constexpr (std::is_same_v<T, ISP::BackLightArrt_S>)
-            {
-                return m_stParamOrchestrator.apply_by_type(ISP::PicConfigureType_E::BACKLIGHT);
-            }
-            else if constexpr (std::is_same_v<T, ISP::AwbAttr_S>)
-            {
-                return m_stParamOrchestrator.apply_by_type(ISP::PicConfigureType_E::AWB);
-            }
-            else if constexpr (std::is_same_v<T, ISP::DnrAttr_S>)
-            {
-                return m_stParamOrchestrator.apply_by_type(ISP::PicConfigureType_E::NR);
-            }
-            else if constexpr (std::is_same_v<T, ISP::VideoAdjust_S>)
-            {
-                return m_stParamOrchestrator.apply_by_type(ISP::PicConfigureType_E::MIRROR);
-            }
-            else if constexpr (std::is_same_v<T, ISP::DayNightAttr_S>)
-            {
-                return m_stModeController.update_config(stValue);
-            }
-            else if constexpr (std::is_same_v<T, ISP::SceneType_E>)
-            {
-                return apply_user_config_scene(stValue);
-            }
-            else if constexpr (std::is_same_v<T, ISP::SceneSchedule_S>)
-            {
-                return m_stScheduler.update(stValue);
-            }
-        },
-        stConfig);
+    if (mpark::holds_alternative<ISP::ImageParam_S>(stConfig))
+    {
+        return m_stParamOrchestrator.apply_by_type(ISP::PicConfigureType_E::IAMGE);
+    }
+    if (mpark::holds_alternative<ISP::ExposureAttr_S>(stConfig))
+    {
+        return m_stParamOrchestrator.apply_by_type(ISP::PicConfigureType_E::EXPOSURE);
+    }
+    if (mpark::holds_alternative<ISP::BackLightArrt_S>(stConfig))
+    {
+        return m_stParamOrchestrator.apply_by_type(ISP::PicConfigureType_E::BACKLIGHT);
+    }
+    if (mpark::holds_alternative<ISP::AwbAttr_S>(stConfig))
+    {
+        return m_stParamOrchestrator.apply_by_type(ISP::PicConfigureType_E::AWB);
+    }
+    if (mpark::holds_alternative<ISP::DnrAttr_S>(stConfig))
+    {
+        return m_stParamOrchestrator.apply_by_type(ISP::PicConfigureType_E::NR);
+    }
+    if (mpark::holds_alternative<ISP::VideoAdjust_S>(stConfig))
+    {
+        return m_stParamOrchestrator.apply_by_type(ISP::PicConfigureType_E::MIRROR);
+    }
+    if (mpark::holds_alternative<ISP::DayNightAttr_S>(stConfig))
+    {
+        return m_stModeController.update_config(mpark::get<ISP::DayNightAttr_S>(stConfig));
+    }
+    if (mpark::holds_alternative<ISP::SceneType_E>(stConfig))
+    {
+        return apply_user_config_scene(mpark::get<ISP::SceneType_E>(stConfig));
+    }
+    if (mpark::holds_alternative<ISP::SceneSchedule_S>(stConfig))
+    {
+        return m_stScheduler.update(mpark::get<ISP::SceneSchedule_S>(stConfig));
+    }
+    dlog_error("未知的ISP配置域类型");
+    return ERR;
 }
 
 int CIspBusinessService::reconcile_all()
@@ -394,7 +391,7 @@ int CIspBusinessService::reconcile_all()
     nRet = m_stIspRepository.load(stDayNightValue);
     if (nRet == OK)
     {
-        nRet = m_stModeController.update_config(std::get<ISP::DayNightAttr_S>(stDayNightValue));
+        nRet = m_stModeController.update_config(mpark::get<ISP::DayNightAttr_S>(stDayNightValue));
         if (nRet != OK)
         {
             return nRet;
@@ -579,16 +576,12 @@ int CIspBusinessService::apply_config_scene_transition(const ISP::IspRuntimeTarg
     }
 
     /* ! 日夜控制器可能已提交部分新请求；先恢复场景来源，再恢复旧日夜设置，确保回调使用旧设置。 */
-    dlog_error("配置场景日夜策略更新失败, config_scene:%d, ret:%d, 恢复原场景",
-               static_cast<int>(stNewTarget.enConfigScene),
-               nRet);
+    dlog_error("配置场景日夜策略更新失败, config_scene:%d, ret:%d, 恢复原场景", static_cast<int>(stNewTarget.enConfigScene), nRet);
     fnRollbackIntent();
     int nRestoreRet = m_stModeController.update_config(stOldSceneParams.stDayNightAttr);
     if (nRestoreRet != OK)
     {
-        dlog_error("恢复原配置场景日夜策略失败, config_scene:%d, ret:%d",
-                   static_cast<int>(stOldTarget.enConfigScene),
-                   nRestoreRet);
+        dlog_error("恢复原配置场景日夜策略失败, config_scene:%d, ret:%d", static_cast<int>(stOldTarget.enConfigScene), nRestoreRet);
     }
     submit_to_reconciler();
     return nRet;

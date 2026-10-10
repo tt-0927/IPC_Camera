@@ -3,7 +3,7 @@
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2025-06-30 13:57:26
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-08-20 17:30:00
+ * @LastEditTime : 2026-09-23 15:42:27
  * @Description  : 录制送流、配置服务端
  */
 
@@ -22,7 +22,6 @@
 #include "action_code.h"
 #include "libavcodec/codec_id.h"
 #include "libavutil/samplefmt.h"
-#include "algo_detect.h"
 
 namespace
 {
@@ -35,9 +34,7 @@ constexpr long long RECORD_MEDIA_SEND_WARN_MS = 100;
 
 long long get_steady_timestamp_ms()
 {
-    return std::chrono::duration_cast<std::chrono::milliseconds>(
-               std::chrono::steady_clock::now().time_since_epoch())
-        .count();
+    return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
 }
 } // namespace
 
@@ -170,7 +167,7 @@ void CStreamServer::deal_heartbeat(Net::Message_S &stMessage, Net::UserParam_S &
 
 void CStreamServer::deal_status(Net::Message_S &stMessage, Net::UserParam_S &stUserParam)
 {
-    int nStatus = *(const int *)stMessage.pData;
+    int nStatus = *(const int *) stMessage.pData;
     if (nStatus == Net::STATUS_SUCCESS)
     {
         m_bConnect.store(true, std::memory_order_release);
@@ -225,7 +222,7 @@ void CStreamServer::deal_message(Net::Message_S &stMessage, Net::UserParam_S &st
 {
     // int nRetCode = 0;
 
-    dlog_info("接收到[%d]消息：%s", stMessage.nActionCode, (char *)stMessage.pData);
+    dlog_info("接收到[%d]消息：%s", stMessage.nActionCode, (char *) stMessage.pData);
 
     /* 接收到的数据 */
     // std::string strMsgData(static_cast<const char*>(stMessage.pData));
@@ -367,9 +364,7 @@ int CStreamServer::enqueue_media_data(const void *pData, int nLen, int nActionCo
     return enqueue_media_data_impl(pData, nLen, nActionCode, nullptr, 0);
 }
 
-int CStreamServer::enqueue_media_data(const std::shared_ptr<std::uint8_t[]> &pSharedData,
-                                      int nLen,
-                                      int nActionCode)
+int CStreamServer::enqueue_media_data(const std::shared_ptr<std::uint8_t> &pSharedData, int nLen, int nActionCode)
 {
     return enqueue_media_data_impl(nullptr, 0, nActionCode, pSharedData, nLen);
 }
@@ -377,7 +372,7 @@ int CStreamServer::enqueue_media_data(const std::shared_ptr<std::uint8_t[]> &pSh
 int CStreamServer::enqueue_media_data_impl(const void *pData,
                                            int nLen,
                                            int nActionCode,
-                                           const std::shared_ptr<std::uint8_t[]> &pSharedData,
+                                           const std::shared_ptr<std::uint8_t> &pSharedData,
                                            int nSharedLen)
 {
     /* 共享路径与拷贝路径必居其一 */
@@ -393,8 +388,7 @@ int CStreamServer::enqueue_media_data_impl(const void *pData,
 
     const std::size_t nDataSize = static_cast<std::size_t>(bSharedPath ? nSharedLen : nLen);
 
-    if (!m_bMediaWorkerRunning.load(std::memory_order_acquire) ||
-        !m_bConnect.load(std::memory_order_acquire) ||
+    if (!m_bMediaWorkerRunning.load(std::memory_order_acquire) || !m_bConnect.load(std::memory_order_acquire) ||
         !m_bRecordReady.load(std::memory_order_acquire))
     {
         return ERR;
@@ -411,8 +405,7 @@ int CStreamServer::enqueue_media_data_impl(const void *pData,
             ++m_ullDroppedMediaFrames;
             m_ullDroppedMediaBytes += nDataSize;
             const long long llNowMs = get_steady_timestamp_ms();
-            if (m_llLastMediaDropLogMs == 0 ||
-                llNowMs - m_llLastMediaDropLogMs >= RECORD_MEDIA_DROP_LOG_INTERVAL_MS)
+            if (m_llLastMediaDropLogMs == 0 || llNowMs - m_llLastMediaDropLogMs >= RECORD_MEDIA_DROP_LOG_INTERVAL_MS)
             {
                 m_llLastMediaDropLogMs = llNowMs;
                 bLogDrop = true;
@@ -460,8 +453,7 @@ int CStreamServer::enqueue_media_data_impl(const void *pData,
     {
         /* lock: 队列满时立即丢弃当前录制副本，绝不等待消费端追赶。 */
         std::lock_guard<std::mutex> lock(m_mtxMediaQueue);
-        if (!m_bMediaWorkerRunning.load(std::memory_order_relaxed) ||
-            !m_bConnect.load(std::memory_order_relaxed) ||
+        if (!m_bMediaWorkerRunning.load(std::memory_order_relaxed) || !m_bConnect.load(std::memory_order_relaxed) ||
             !m_bRecordReady.load(std::memory_order_relaxed))
         {
             return ERR;
@@ -474,8 +466,7 @@ int CStreamServer::enqueue_media_data_impl(const void *pData,
             ++m_ullDroppedMediaFrames;
             m_ullDroppedMediaBytes += nDataSize;
             const long long llNowMs = get_steady_timestamp_ms();
-            if (m_llLastMediaDropLogMs == 0 ||
-                llNowMs - m_llLastMediaDropLogMs >= RECORD_MEDIA_DROP_LOG_INTERVAL_MS)
+            if (m_llLastMediaDropLogMs == 0 || llNowMs - m_llLastMediaDropLogMs >= RECORD_MEDIA_DROP_LOG_INTERVAL_MS)
             {
                 m_llLastMediaDropLogMs = llNowMs;
                 bLogDrop = true;
@@ -518,9 +509,11 @@ void CStreamServer::media_send_loop()
         std::size_t nTaskSize = 0;
         {
             std::unique_lock<std::mutex> lock(m_mtxMediaQueue);
-            m_cvMediaQueue.wait(lock, [this]() {
-                return !m_mediaQueue.empty() || !m_bMediaWorkerRunning.load(std::memory_order_acquire);
-            });
+            m_cvMediaQueue.wait(lock,
+                                [this]()
+                                {
+                                    return !m_mediaQueue.empty() || !m_bMediaWorkerRunning.load(std::memory_order_acquire);
+                                });
 
             if (m_mediaQueue.empty())
             {
@@ -533,24 +526,17 @@ void CStreamServer::media_send_loop()
 
             stTask = std::move(m_mediaQueue.front());
             /* 共享路径与独立拷贝路径二选一取数 */
-            nTaskSize = stTask.pSharedData
-                            ? static_cast<std::size_t>(stTask.nSharedLen)
-                            : stTask.vecData.size();
-            m_nMediaQueueBytes = nTaskSize > m_nMediaQueueBytes
-                                     ? 0
-                                     : m_nMediaQueueBytes - nTaskSize;
+            nTaskSize = stTask.pSharedData ? static_cast<std::size_t>(stTask.nSharedLen) : stTask.vecData.size();
+            m_nMediaQueueBytes = nTaskSize > m_nMediaQueueBytes ? 0 : m_nMediaQueueBytes - nTaskSize;
             m_mediaQueue.pop_front();
             m_nMediaInFlightBytes += nTaskSize;
         }
 
-        if (!m_bConnect.load(std::memory_order_acquire) ||
-            !m_bRecordReady.load(std::memory_order_acquire))
+        if (!m_bConnect.load(std::memory_order_acquire) || !m_bRecordReady.load(std::memory_order_acquire))
         {
             {
                 std::lock_guard<std::mutex> lock(m_mtxMediaQueue);
-                m_nMediaInFlightBytes = nTaskSize > m_nMediaInFlightBytes
-                                            ? 0
-                                            : m_nMediaInFlightBytes - nTaskSize;
+                m_nMediaInFlightBytes = nTaskSize > m_nMediaInFlightBytes ? 0 : m_nMediaInFlightBytes - nTaskSize;
             }
             continue;
         }
@@ -558,15 +544,11 @@ void CStreamServer::media_send_loop()
         /* stTask 在本次同步 send 返回前保持存活，满足 UDS send 的指针生命周期要求。 */
         uint8_t *pTaskData = stTask.pSharedData ? stTask.pSharedData.get() : stTask.vecData.data();
         const long long llSendStartMs = get_steady_timestamp_ms();
-        const int nRet = send(pTaskData,
-                              static_cast<int>(nTaskSize),
-                              stTask.nActionCode);
+        const int nRet = send(pTaskData, static_cast<int>(nTaskSize), stTask.nActionCode);
         const long long llSendCostMs = get_steady_timestamp_ms() - llSendStartMs;
         {
             std::lock_guard<std::mutex> lock(m_mtxMediaQueue);
-            m_nMediaInFlightBytes = nTaskSize > m_nMediaInFlightBytes
-                                        ? 0
-                                        : m_nMediaInFlightBytes - nTaskSize;
+            m_nMediaInFlightBytes = nTaskSize > m_nMediaInFlightBytes ? 0 : m_nMediaInFlightBytes - nTaskSize;
         }
         if (llSendCostMs >= RECORD_MEDIA_SEND_WARN_MS)
         {
@@ -575,8 +557,7 @@ void CStreamServer::media_send_loop()
             {
                 std::lock_guard<std::mutex> lock(m_mtxMediaQueue);
                 const long long llNowMs = get_steady_timestamp_ms();
-                if (m_llLastMediaSendWarnMs == 0 ||
-                    llNowMs - m_llLastMediaSendWarnMs >= RECORD_MEDIA_DROP_LOG_INTERVAL_MS)
+                if (m_llLastMediaSendWarnMs == 0 || llNowMs - m_llLastMediaSendWarnMs >= RECORD_MEDIA_DROP_LOG_INTERVAL_MS)
                 {
                     m_llLastMediaSendWarnMs = llNowMs;
                     bLogWarn = true;
@@ -610,9 +591,7 @@ void CStreamServer::clear_media_queue()
         for (const RecordMediaTask_S &stTask : m_mediaQueue)
         {
             ++m_ullDroppedMediaFrames;
-            m_ullDroppedMediaBytes += stTask.pSharedData
-                                          ? static_cast<std::size_t>(stTask.nSharedLen)
-                                          : stTask.vecData.size();
+            m_ullDroppedMediaBytes += stTask.pSharedData ? static_cast<std::size_t>(stTask.nSharedLen) : stTask.vecData.size();
         }
         m_mediaQueue.clear();
         m_nMediaQueueBytes = 0;

@@ -8,6 +8,7 @@
 
 #include <regex>
 #include "retrieval_task.h"
+#include "posix_fs.h"
 #include "event_convert.h"
 #include "record_convert.h"
 #include "alarm_convert.h"
@@ -29,6 +30,10 @@
 #include "storage_manage.h"
 #include "time_utils.h"
 #include <dirent.h>
+
+#include <algorithm>
+#include <sstream>
+#include <ctime>
 
 /**
  * @brief 日期格式验证 "2024-01-01"
@@ -68,7 +73,7 @@ static bool isValidDateTime(const std::string &datetime)
     }
 
     // 2. 尝试解析为时间结构
-    std::tm            tm = {};
+    std::tm tm = {};
     std::istringstream ss(datetime);
     ss >> std::get_time(&tm, "%Y-%m-%d %H:%M:%S");
 
@@ -118,11 +123,11 @@ static bool isValidDateTime(const std::string &datetime)
 
     // 5. 验证具体日期的有效性（考虑月份天数和闰年）
     // 各月天数（1月=索引0）
-    const int daysInMonth[] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+    const int daysInMonth[] = { 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
 
     // 处理闰年（能被4整除但不能被100整除，或者能被400整除）
     bool isLeapYear = (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0);
-    int  maxDay     = daysInMonth[tm.tm_mon];
+    int maxDay = daysInMonth[tm.tm_mon];
 
     // 二月闰年处理
     if (tm.tm_mon == 1 && isLeapYear)
@@ -155,7 +160,7 @@ static std::string addSeconds(const std::string &timeStr, int add)
     }
 
     int total = h * 3600 + m * 60 + s + add;
-    total     = ((total % 86400) + 86400) % 86400;
+    total = ((total % 86400) + 86400) % 86400;
 
     char buf[9];
     snprintf(buf, sizeof(buf), "%02d:%02d:%02d", total / 3600, (total % 3600) / 60, total % 60);
@@ -184,12 +189,12 @@ static void calculateAndPrintDays(const std::string &start_date, const std::stri
 
     // 转换为time_t类型
     std::time_t time_start = std::mktime(&tm_start);
-    std::time_t time_end   = std::mktime(&tm_end);
+    std::time_t time_end = std::mktime(&tm_end);
 
     // 计算天数差
     const int seconds_per_day = 60 * 60 * 24;
-    double    difference      = std::difftime(time_end, time_start);
-    int       days            = static_cast<int>(difference / seconds_per_day);
+    double difference = std::difftime(time_end, time_start);
+    int days = static_cast<int>(difference / seconds_per_day);
 
     // 打印天数差
     // std::cout << "从 " << start_date << " 到 " << end_date << " 共有 " << days << " 天" << std::endl;
@@ -200,7 +205,7 @@ static void calculateAndPrintDays(const std::string &start_date, const std::stri
     {
         // 计算当前日期
         std::time_t current_time = time_start + (i * seconds_per_day);
-        std::tm    *current_tm   = std::localtime(&current_time);
+        std::tm *current_tm = std::localtime(&current_time);
 
         // 格式化为字符串
         char buffer[11];
@@ -219,8 +224,7 @@ static void calculateAndPrintDays(const std::string &start_date, const std::stri
     }
 
     // 打印日期统计
-    std::cout << std::endl
-              << "总共 " << days + 1 << " 天" << std::endl;
+    std::cout << std::endl << "总共 " << days + 1 << " 天" << std::endl;
 }
 
 /**
@@ -228,15 +232,15 @@ static void calculateAndPrintDays(const std::string &start_date, const std::stri
  */
 void Task::Retrieval::SearchByRecordType::handle()
 {
-    ::Common::PageInfo_S         stPageInfo; /* 页数据信息 */
+    ::Common::PageInfo_S stPageInfo; /* 页数据信息 */
     ::Record_NS::RetrievalCond_S stRecordCond = {};
-    ::Event::RetrievalCond_S     stEventCond  = {};
+    ::Event::RetrievalCond_S stEventCond = {};
     Convert::to_struct(m_taskData, stRecordCond, stPageInfo, stEventCond);
 
     /* 默认获取分段文件 */
     stRecordCond.nType = 1;
     std::vector<::Record_NS::FileInfo_S> infos;
-    int                                  nRet = RecordFileManage::instance()->retrieval(stRecordCond, infos, stPageInfo);
+    int nRet = RecordFileManage::instance()->retrieval(stRecordCond, infos, stPageInfo);
     if (nRet < 0)
     {
         result(nRet);
@@ -253,8 +257,8 @@ void Task::Retrieval::SearchByRecordTS::handle()
 {
     SD_CARD_STATUS_E eSdCardStatus = CStorageManage::instance()->get_SdCardStatus();
     /* sd卡异常以及录制ts文件信息数据库不存在都返回空数据 */
-    if (!(std::filesystem::exists(RECORD_DATABASE_PATH)) || 
-         (eSdCardStatus != SD_CARD_STATUS_E::NORMAL && eSdCardStatus != SD_CARD_STATUS_E::WRITE_ERROR))
+    if (!(PosixFs_NS::exists(RECORD_DATABASE_PATH)) ||
+        (eSdCardStatus != SD_CARD_STATUS_E::NORMAL && eSdCardStatus != SD_CARD_STATUS_E::WRITE_ERROR))
     {
         std::string retrievalResult = "{\"reason\":\"record data is empty.\"}";
         result(retrievalResult, -1);
@@ -262,8 +266,8 @@ void Task::Retrieval::SearchByRecordTS::handle()
     }
 
     ::Event::RetrievalCond_S stEventCond = {};
-    ::Common::PageInfo_S     stPageInfo;
-    int                      nRet = 0;
+    ::Common::PageInfo_S stPageInfo;
+    int nRet = 0;
 
     Convert::to_struct(m_taskData, stEventCond, stPageInfo);
 
@@ -315,7 +319,7 @@ void Task::Retrieval::SearchByRecordTS::handle()
     int nTotalTsDataCount = 0;
     /* 根据设置的条件计算得出的总页数 */
     int nTotalTsPage = 0;
-    int nIndex       = -1;
+    int nIndex = -1;
 
     calculateAndPrintDays(stEventCond.strStartDate, stEventCond.strEndDate, outDates);
 
@@ -324,11 +328,11 @@ void Task::Retrieval::SearchByRecordTS::handle()
         stEventConds.push_back(stEventCond);
 
         stEventConds.at(i).strStartDate = outDates.at(i);
-        stEventConds.at(i).strEndDate   = outDates.at(i);
+        stEventConds.at(i).strEndDate = outDates.at(i);
 
         /* 第一天的查找的strStartTime与设置的一样，最后一天的strEndTime与设置的一样，其余时间为查找全天 */
         stEventConds.at(i).strStartTime = "00:00:00";
-        stEventConds.at(i).strEndTime   = "23:59:59";
+        stEventConds.at(i).strEndTime = "23:59:59";
         if (i == 0)
         {
             stEventConds.at(i).strStartTime = stEventCond.strStartTime;
@@ -369,11 +373,14 @@ void Task::Retrieval::SearchByRecordTS::handle()
 
     if (nIndex >= 0)
     {
-        stPageInfos.at(nIndex).nCurPage  = stPageInfos.at(nIndex).nPageTotal - (stComparePageInfo.nPageTotal - stPageInfo.nCurPage);
+        stPageInfos.at(nIndex).nCurPage = stPageInfos.at(nIndex).nPageTotal - (stComparePageInfo.nPageTotal - stPageInfo.nCurPage);
         stPageInfos.at(nIndex).nPageSize = stPageInfo.nPageSize;
 
         /* 查找对应的表格对应的位置获取到数据ts信息TsFileInfos */
-        nRet = RecordFileManage::instance()->searchByRecordTs(stEventConds.at(nIndex), TsFileInfos, stPageInfos.at(nIndex), outDates.at(nIndex));
+        nRet = RecordFileManage::instance()->searchByRecordTs(stEventConds.at(nIndex),
+                                                              TsFileInfos,
+                                                              stPageInfos.at(nIndex),
+                                                              outDates.at(nIndex));
     }
 
     if (nRet < 0)
@@ -415,14 +422,14 @@ void Task::Event::SearchByEventType::handle()
         result(retrievalResult, -1);
         return;
     }
-
+    
     if (!isValidDate(stEventCond.strStartDate) || !isValidDate(stEventCond.strEndDate))
     {
         std::string retrievalResult = "{\"reason\":\"The date format is error.\"}";
         result(retrievalResult, -1);
         return;
     }
-    
+
     /* 目标对比事件检索 */
     std::vector<::Event::Info_S> EventInfos;
     if (stEventCond.enType == ::Event::Type::TARGET_COMPARE)
@@ -432,7 +439,7 @@ void Task::Event::SearchByEventType::handle()
         /* 根据事件类型检索，获取事件id */
         EventSearch::instance()->searchByEventType(stEventCond, eventInfos, stPageInfo);
         stEventCond.nChnIds.clear();
-
+        
         
         /* 更新事件id为检索id */
         for (auto &stEventInfo : eventInfos)
@@ -442,8 +449,8 @@ void Task::Event::SearchByEventType::handle()
         /* 查找出人脸数据 */
         std::vector<::Event::FaceCompareInfo_S> faceCompareInfos;
         EventManage::instance()->find(stEventCond, faceCompareInfos, stPageInfo);
-        
     
+        
         std::vector<::Event::Info_S> outEventInfos;
         for (auto &stFaceCompareInfo : faceCompareInfos)
         {
@@ -457,11 +464,11 @@ void Task::Event::SearchByEventType::handle()
                 }
             }
         }
-        
+    
         result(Convert::to_string(outEventInfos, stPageInfo));
         return;
     }
-    
+        
     int nRet = EventSearch::instance()->searchByEventType(stEventCond, EventInfos, stPageInfo);
     if (nRet < 0)
     {
@@ -482,7 +489,7 @@ void Task::Event::SearchByEventType::handle()
         {
             stCond.videoBingIds.push_back(eventInfo.nId);
         }
-        
+                
         std::vector<::Event::Info_S> bindEventInfos;
         EventSearch::instance()->searchByEventType(stCond, bindEventInfos);
         for (auto &eventInfo : EventInfos)
@@ -496,7 +503,7 @@ void Task::Event::SearchByEventType::handle()
                     stBindVideo.strVideoPath = bindEventInfo.strVideoPath;
                     eventInfo.bindVideos.push_back(stBindVideo);
                 }
-                
+
                 // 排序，根据 nChnId 升序
                 std::sort(eventInfo.bindVideos.begin(), eventInfo.bindVideos.end(), 
                     [](const ::Event::BindVideo_S& a, const ::Event::BindVideo_S& b) {
@@ -518,8 +525,8 @@ void Task::Retrieval::SearchByImageType::handle()
 {
     SD_CARD_STATUS_E eSdCardStatus = CStorageManage::instance()->get_SdCardStatus();
     /* sd卡异常以及图片信息数据库不存在都返回空数据 */
-    if (!(std::filesystem::exists(CAPTURE_DATABASE_PATH)) || 
-         (eSdCardStatus != SD_CARD_STATUS_E::NORMAL && eSdCardStatus != SD_CARD_STATUS_E::WRITE_ERROR))
+    if (!(PosixFs_NS::exists(CAPTURE_DATABASE_PATH)) ||
+        (eSdCardStatus != SD_CARD_STATUS_E::NORMAL && eSdCardStatus != SD_CARD_STATUS_E::WRITE_ERROR))
     {
         std::string retrievalResult = "{\"reason\":\"Capture data is empty or sd card is no exsit\"}";
         result(retrievalResult, -2);
@@ -527,7 +534,7 @@ void Task::Retrieval::SearchByImageType::handle()
     }
 
     ::Event::RetrievalCond_S stEventCond = {};
-    ::Common::PageInfo_S     stPageInfo;
+    ::Common::PageInfo_S stPageInfo;
     Convert::to_struct(m_taskData, stEventCond, stPageInfo);
 
     if (stEventCond.nChnIds.size() == 0)
@@ -672,8 +679,8 @@ void Task::Retrieval::DownloadImageFileInfo::handle()
 {
     SD_CARD_STATUS_E eSdCardStatus = CStorageManage::instance()->get_SdCardStatus();
     /* sd卡异常以及图片信息数据库不存在都不允许下载 */
-    if (!(std::filesystem::exists(CAPTURE_DATABASE_PATH)) || 
-         (eSdCardStatus != SD_CARD_STATUS_E::NORMAL && eSdCardStatus != SD_CARD_STATUS_E::WRITE_ERROR))
+    if (!(PosixFs_NS::exists(CAPTURE_DATABASE_PATH)) ||
+        (eSdCardStatus != SD_CARD_STATUS_E::NORMAL && eSdCardStatus != SD_CARD_STATUS_E::WRITE_ERROR))
     {
         std::string retrievalResult = "{\"reason\":\"Capture data is empty.\"}";
         result(retrievalResult, -1);
@@ -683,14 +690,16 @@ void Task::Retrieval::DownloadImageFileInfo::handle()
     std::vector<Capture_NS::CaptureInfo_S> stCaptureInfos;
     Convert::to_struct(m_taskData, stCaptureInfos);
 
-    fs::path tmpDir = std::string(CAPTURE_PATH) + "/tmp";
+    std::string strTmpDir = std::string(CAPTURE_PATH) + "/tmp";
 
-    if (fs::exists(tmpDir))
+    if (PosixFs_NS::exists(strTmpDir))
     {
         // // 目录存在 -> 清空里面的文件
-        // for (auto &entry : fs::directory_iterator(tmpDir))
+        // std::vector<std::string> vecTmpNames;
+        // PosixFs_NS::list_dir(strTmpDir, vecTmpNames);
+        // for (size_t i = 0; i < vecTmpNames.size(); i++)
         // {
-        //     fs::remove_all(entry.path());
+        //     PosixFs_NS::remove_all(strTmpDir + "/" + vecTmpNames[i]);
         // }
 
         // dlog_info("directory exists, cleaned [%s]", tmpDir.c_str())
@@ -698,9 +707,9 @@ void Task::Retrieval::DownloadImageFileInfo::handle()
     else
     {
         // 不存在 -> 创建
-        fs::create_directories(tmpDir);
+        PosixFs_NS::make_directories(strTmpDir);
 
-        dlog_info("directory created [%s]", tmpDir.c_str());
+        dlog_info("directory created [%s]", strTmpDir.c_str());
     }
 
     std::string strCpyImgFileName;
@@ -709,7 +718,7 @@ void Task::Retrieval::DownloadImageFileInfo::handle()
     {
         strCpyImgFileName += stCaptureInfo.strImagePath + " ";
     }
-    std::string strCmd = "cp " + strCpyImgFileName + std::string(tmpDir);
+    std::string strCmd = "cp " + strCpyImgFileName + strTmpDir;
 
     int nRet = system(strCmd.c_str());
 
@@ -719,9 +728,10 @@ void Task::Retrieval::DownloadImageFileInfo::handle()
         result(std::string(), -1);
     }
 
-    std::string strTarFile = tmpDir.string() + std::string("/") + TimeUtils_NS::get_currentDateAndFormat("%Y%m%d") + "_" + TimeUtils_NS::get_currentTimeAndFormat("%H%M%S") + ".tgz";
+    std::string strTarFile = strTmpDir + std::string("/") + TimeUtils_NS::get_currentDateAndFormat("%Y%m%d") + "_" +
+                             TimeUtils_NS::get_currentTimeAndFormat("%H%M%S") + ".tgz";
 
-    createTarAndRemove(tmpDir, strTarFile);
+    createTarAndRemove(strTmpDir, strTarFile);
 
     std::string retrievalResult = "{\"Path\": \"" + strTarFile + "\"}";
     result(retrievalResult, nRet);
@@ -782,7 +792,7 @@ void Task::Retrieval::SearchByTime::handle()
     }
 
     std::vector<::Event::Info_S> EventInfos;
-    int                          nRet = EventSearch::instance()->searchByTime(stEventCond.strStartTime, stEventCond.strEndTime, EventInfos);
+    int nRet = EventSearch::instance()->searchByTime(stEventCond.strStartTime, stEventCond.strEndTime, EventInfos);
     if (nRet < 0)
     {
         result(std::string(), nRet);
@@ -803,7 +813,7 @@ void Task::Retrieval::SearchByVehicle::handle()
     Convert::to_struct(m_taskData, stEventCond);
     ::Event::RetrievalCond_S stEventCond1;
     stEventCond1.bEnQuickEntry = true;
-    auto str                   = Convert::to_string(stEventCond1);
+    auto str = Convert::to_string(stEventCond1);
     // QuickEntry::instance()->deal(stEventCond, m_nActionCode, m_taskData);
 
     if (stEventCond.strStartDate == "" || stEventCond.strEndDate == "")
@@ -819,7 +829,7 @@ void Task::Retrieval::SearchByVehicle::handle()
     }
 
     std::vector<::Event::VehicleInfo_S> VehicleInfos;
-    int                                 nRet = EventSearch::instance()->searchByVehicle(stEventCond, VehicleInfos);
+    int nRet = EventSearch::instance()->searchByVehicle(stEventCond, VehicleInfos);
     if (nRet < 0)
     {
         result(std::string(), nRet);

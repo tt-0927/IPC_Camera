@@ -6,19 +6,19 @@ StreamManager *StreamManager::m_pInstance = nullptr;
 std::mutex StreamManager::m_mtx;
 void StreamManager::AddStream(MediaStream::Ptr stream)
 {
-    std::scoped_lock<std::mutex> lock(_mutex);
+    std::lock_guard<std::mutex> lock(_mutex);
     _streams[stream->GetStreamID()] = stream;
 }
 
 void StreamManager::RemoveStream(const std::string &id)
 {
-    std::scoped_lock<std::mutex> lock(_mutex);
+    std::lock_guard<std::mutex> lock(_mutex);
     _streams.erase(id);
 }
 
 MediaStream::Ptr StreamManager::GetStream(const std::string &id)
 {
-    std::scoped_lock<std::mutex> lock(_mutex);
+    std::lock_guard<std::mutex> lock(_mutex);
     auto iter = _streams.find(id);
     if (iter != _streams.end())
     {
@@ -29,7 +29,7 @@ MediaStream::Ptr StreamManager::GetStream(const std::string &id)
 
 MediaStream::Ptr StreamManager::GetStreamByCallID(int id)
 {
-    std::scoped_lock<std::mutex> lock(_mutex);
+    std::lock_guard<std::mutex> lock(_mutex);
     for (auto &&s : _streams)
     {
         if (s.second->GetType() == STREAM_TYPE_GB)
@@ -79,7 +79,7 @@ MediaStream::Ptr StreamManager::MakeStream(const std::string &stream_id, const s
 
     if (stream)
     {
-        std::scoped_lock<std::mutex> lock(_mutex);
+        std::lock_guard<std::mutex> lock(_mutex);
         _streams[stream->GetStreamID()] = stream;
     }
     return stream;
@@ -87,6 +87,6 @@ MediaStream::Ptr StreamManager::MakeStream(const std::string &stream_id, const s
 
 void StreamManager::ClearStreams()
 {
-    std::scoped_lock<std::mutex> lock(_mutex);
+    std::lock_guard<std::mutex> lock(_mutex);
     _streams.clear();
 }

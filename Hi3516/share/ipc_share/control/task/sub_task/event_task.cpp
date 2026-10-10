@@ -3,7 +3,7 @@
  * @Author       : huangjunda
  * @Date         : 2025-04-29 09:54:27
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-06-04 11:40:24
+ * @LastEditTime : 2026-09-23 15:44:29
  * @Description  : 事件任务
  * @修改记录     : 2026-09-08，Codex，逆行识别仅允许两个单向方向。
  */
@@ -33,13 +33,18 @@
 #endif
 
 /* 回放播放地址：SD 卡状态、本机 IP 与录像文件查找 */
-#include <filesystem>
+#include "posix_fs.h"
 #include "storage_manage.h"
 #include "network_manage.h"
 #include "replay_define.h"
 #include "find_record_file.h"
 
 #define ERR_EVENT_RESOURCE_CONFLICT -305
+
+/* 人脸抓拍间隔采用实际秒数，范围与网页下拉选项保持一致。 */
+static constexpr int EVENT_FACE_CAPTURE_INTERVAL_MIN_SECONDS = 1;
+static constexpr int EVENT_FACE_CAPTURE_INTERVAL_MAX_SECONDS = 10;
+
 /**
  * @brief   : 辅助函数：将AlgorithmConfig转换为SmartEventEnableStatus用于资源检查
  */
@@ -55,9 +60,13 @@ static void helper_convert_to_status(const Event::AlgorithmConfig_S& algo, Event
     status.bSceneChange = algo.nEnSceneChange;
     status.bUnattendedObject = algo.nEnUnattendedObject;
     status.bObjectRemoval = algo.nEnObjectRemoval;
+#if CAP_AI_FACE_RECOGNITION
+    status.bFaceRecognition = algo.nEnFaceRecognition;
+#else
     status.bFaceDetect = algo.nEnFaceDetect;
-    status.bPetRecognition = algo.nEnPetRecognition;
     status.bFaceCapture = algo.nEnFaceCapture;
+#endif
+    status.bPetRecognition = algo.nEnPetRecognition;
     status.bFaceCompare = algo.nEnFaceCompare;
     #ifdef SCENE_INTELLIGENCE
     status.bSleepOnDuty = algo.nEnSleepOnDuty;
@@ -86,6 +95,9 @@ static void helper_convert_to_status(const Event::AlgorithmConfig_S& algo, Event
     status.bIllegalParking = algo.nEnIllegalParking;
     status.bIllegalLaneChange = algo.nEnIllegalLaneChange;
     status.bPlateNumber = algo.nPlateNumber;
+    status.bPedestrianAttribute = algo.nEnPedestrianAttribute;
+    status.bMotorVehicleAttribute = algo.nEnMotorVehicleAttribute;
+    status.bNonMotorVehicleAttribute = algo.nEnNonMotorVehicleAttribute;
     #endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
     status.bSmokeFire = algo.nEnSmokeFire;
@@ -118,9 +130,16 @@ static const char* get_event_type_name(Event::Type_E type) {
         case Event::Type::UNATTENDED_OBJECT: return "UNATTENDED_OBJECT";
         case Event::Type::OBJECT_REMOVAL: return "OBJECT_REMOVAL";
         case Event::Type::FACE_DETECT: return "FACE_DETECT";
+        case Event::Type::FACE_RECOGNITION: return "FACE_RECOGNITION";
         case Event::Type::PET_RECOGNITION: return "PET_RECOGNITION";
         case Event::Type::FACE_LIB: return "FACE_LIB";
         case Event::Type::FACE_CAPTURE: return "FACE_CAPTURE";
+
+#ifdef SCENE_INTELLIGENCE
+        case Event::Type::PEDESTRIAN_ATTRIBUTE: return "PEDESTRIAN_ATTRIBUTE";
+        case Event::Type::MOTORVEHICLE_ATTRIBUTE: return "MOTORVEHICLE_ATTRIBUTE";
+        case Event::Type::NONMOTORVEHICLE_ATTRIBUTE: return "NONMOTORVEHICLE_ATTRIBUTE";
+#endif
 
 #if CAP_AI_PEOPLE_STATISTICS
         case Event::Type::PEOPLE_FLOW_STATISTICS: return "PEOPLE_FLOW_STATISTICS";
@@ -206,6 +225,9 @@ static int check_analytics_resource(const Event::Type_E enable_type, const bool 
         case Event::Type::CONSTRUCTION_OCCUPY_ROAD: already_in_target_state = (oldStatus.bConstructionOccupyRoad == bEnable); break;
         case Event::Type::CONGESTION: already_in_target_state = (oldStatus.bCongestion == bEnable); break;
         case Event::Type::PLATE_NUMBER: already_in_target_state = (oldStatus.bPlateNumber == bEnable); break;
+        case Event::Type::PEDESTRIAN_ATTRIBUTE: already_in_target_state = (oldStatus.bPedestrianAttribute == bEnable); break;
+        case Event::Type::MOTORVEHICLE_ATTRIBUTE: already_in_target_state = (oldStatus.bMotorVehicleAttribute == bEnable); break;
+        case Event::Type::NONMOTORVEHICLE_ATTRIBUTE: already_in_target_state = (oldStatus.bNonMotorVehicleAttribute == bEnable); break;
         case Event::Type::HIGH_ALTITUDE_SEATBELT: already_in_target_state = (oldStatus.bHighAltitudeSeatbelt == bEnable); break;
         case Event::Type::SAFETY_HELMET: already_in_target_state = (oldStatus.bSafetyHelmet == bEnable); break;
         case Event::Type::PERSON_TRIP: already_in_target_state = (oldStatus.bTrip == bEnable); break;
@@ -235,6 +257,7 @@ static int check_analytics_resource(const Event::Type_E enable_type, const bool 
         case Event::Type::UNATTENDED_OBJECT: already_in_target_state = (oldStatus.bUnattendedObject == bEnable); break;
         case Event::Type::OBJECT_REMOVAL: already_in_target_state = (oldStatus.bObjectRemoval == bEnable); break;
         case Event::Type::FACE_DETECT: already_in_target_state = (oldStatus.bFaceDetect == bEnable); break;
+        case Event::Type::FACE_RECOGNITION: already_in_target_state = (oldStatus.bFaceRecognition == bEnable); break;
         case Event::Type::PET_RECOGNITION: already_in_target_state = (oldStatus.bPetRecognition == bEnable); break;
         case Event::Type::FACE_LIB: already_in_target_state = (oldStatus.bFaceLib == bEnable); break;
         case Event::Type::FACE_CAPTURE: already_in_target_state = (oldStatus.bFaceCapture == bEnable); break;
@@ -316,6 +339,9 @@ static int check_analytics_resource(const Event::Type_E enable_type, const bool 
         case Event::Type::CONSTRUCTION_OCCUPY_ROAD: newStatus.bConstructionOccupyRoad = bEnable; break;
         case Event::Type::CONGESTION: newStatus.bCongestion = bEnable; break;
         case Event::Type::PLATE_NUMBER: newStatus.bPlateNumber = bEnable; break;
+        case Event::Type::PEDESTRIAN_ATTRIBUTE: newStatus.bPedestrianAttribute = bEnable; break;
+        case Event::Type::MOTORVEHICLE_ATTRIBUTE: newStatus.bMotorVehicleAttribute = bEnable; break;
+        case Event::Type::NONMOTORVEHICLE_ATTRIBUTE: newStatus.bNonMotorVehicleAttribute = bEnable; break;
         case Event::Type::HIGH_ALTITUDE_SEATBELT: newStatus.bHighAltitudeSeatbelt = bEnable; break;
         case Event::Type::SAFETY_HELMET: newStatus.bSafetyHelmet = bEnable; break;
         case Event::Type::PERSON_TRIP: newStatus.bTrip = bEnable; break;
@@ -345,6 +371,7 @@ static int check_analytics_resource(const Event::Type_E enable_type, const bool 
         case Event::Type::UNATTENDED_OBJECT: newStatus.bUnattendedObject = bEnable; break;
         case Event::Type::OBJECT_REMOVAL: newStatus.bObjectRemoval = bEnable; break;
         case Event::Type::FACE_DETECT: newStatus.bFaceDetect = bEnable; break;
+        case Event::Type::FACE_RECOGNITION: newStatus.bFaceRecognition = bEnable; break;
         case Event::Type::PET_RECOGNITION: newStatus.bPetRecognition = bEnable; break;
         case Event::Type::FACE_LIB: newStatus.bFaceLib = bEnable; break;
         case Event::Type::FACE_CAPTURE: newStatus.bFaceCapture = bEnable; break;
@@ -487,14 +514,14 @@ void Task::Event::SetMotionDetectionInfo::handle()
     /* 普通模式区域参数有效性判断 */
     if (stInfo.stMotionNormalMode.nRegionType)
     {
-        if (!std::holds_alternative<Alarm::MotionNormalMode_S::AreaGrid>(stInfo.stMotionNormalMode.varRegion))
+        if (!mpark::holds_alternative<Alarm::MotionNormalMode_S::AreaGrid>(stInfo.stMotionNormalMode.varRegion))
         {
             dlog_error("设置移动侦测网格区域参数错误");
             result(ERR_WEB_PARAM);
             return;
         }
 
-        auto &grid = std::get<Alarm::MotionNormalMode_S::AreaGrid>(stInfo.stMotionNormalMode.varRegion);
+        auto &grid = mpark::get<Alarm::MotionNormalMode_S::AreaGrid>(stInfo.stMotionNormalMode.varRegion);
         if (grid.size() < GRID_HEIGHT_DEFAULT)
         {
             dlog_error("设置移动侦测信息参数错误");
@@ -516,14 +543,14 @@ void Task::Event::SetMotionDetectionInfo::handle()
     }
     else
     {
-        if (!std::holds_alternative<Common::Rect_S>(stInfo.stMotionNormalMode.varRegion))
+        if (!mpark::holds_alternative<Common::Rect_S>(stInfo.stMotionNormalMode.varRegion))
         {
             dlog_error("设置移动侦测矩形区域参数错误");
             result(ERR_WEB_PARAM);
             return;
         }
 
-        const auto &rect = std::get<Common::Rect_S>(stInfo.stMotionNormalMode.varRegion);
+        const auto &rect = mpark::get<Common::Rect_S>(stInfo.stMotionNormalMode.varRegion);
         if (!rect.IsValid() || rect.isEmpty())
         {
             dlog_error("设置移动侦测信息区域绘制异常");
@@ -1243,6 +1270,114 @@ void Task::Event::SetSceneChangeInfo::handle()
     result(nRet);
 }
 
+#if CAP_AI_FACE_RECOGNITION
+/* 获取人脸识别配置 */
+void Task::Event::GetFaceRecognitionInfo::handle()
+{
+    Alarm::FaceRecognition_S stInfo;
+    int nRet = CEventConfigure::instance()->get_configure(stInfo);
+    if (nRet != OK)
+    {
+        result(nRet);
+        return;
+    }
+    result(Convert::to_string(stInfo));
+}
+
+/**
+ * 功能：校验并保存合并人脸配置，非法抓拍间隔在修改资源和配置前拒绝。
+ * param [in]：无，配置从任务成员 m_taskData 读取。
+ * param [out]：无，处理结果通过 result 返回。
+ * return：无返回值，抓拍间隔超出 1～10 秒时返回 ERR_WEB_PARAM。
+ */
+void Task::Event::SetFaceRecognitionInfo::handle()
+{
+    Alarm::FaceRecognition_S stInfo;
+    Convert::to_struct(m_taskData, stInfo);
+
+    if (stInfo.stCaptureRule.nInterval < EVENT_FACE_CAPTURE_INTERVAL_MIN_SECONDS ||
+        stInfo.stCaptureRule.nInterval > EVENT_FACE_CAPTURE_INTERVAL_MAX_SECONDS)
+    {
+        dlog_error("设置人脸识别抓拍间隔超出范围[1,10]秒: interval[%d]", stInfo.stCaptureRule.nInterval);
+        result(ERR_WEB_PARAM);
+        return;
+    }
+
+    if (stInfo.nSensitivity < 1 || stInfo.nSensitivity > 100 || stInfo.aAlarmTime.size() != 7)
+    {
+        result(ERR_WEB_PARAM);
+        return;
+    }
+    if (!stInfo.stRegion.IsValid())
+    {
+        result(ERR_WEB_REGION);
+        return;
+    }
+    for (const auto &region : stInfo.stCaptureRule.vstShieldedRegion)
+    {
+        if (!region.IsValid())
+        {
+            result(ERR_WEB_REGION);
+            return;
+        }
+    }
+
+    const ::Event::Type_E enEventType = ::Event::Type_E::FACE_RECOGNITION;
+    ::Event::SmartEventEnableStatus_S stStatus;
+    int nRet = CEventConfigure::instance()->get_configure(stStatus);
+    if (nRet != OK)
+    {
+        result(nRet);
+        return;
+    }
+
+    nRet = check_analytics_resource(enEventType, stInfo.bEnable, true);
+    if (nRet != OK)
+    {
+        result(nRet);
+        return;
+    }
+
+    Alarm::FaceRecognition_S stPrevious;
+    nRet = CEventConfigure::instance()->get_configure(stPrevious);
+    if (nRet != OK)
+    {
+        result(nRet);
+        return;
+    }
+    Alarm::EventSchedule_S stPreviousSchedule;
+    stPreviousSchedule.enEventType = enEventType;
+    if (CEventConfigure::instance()->get_configure(stPreviousSchedule) != OK)
+    {
+        stPreviousSchedule.bStatus = stPrevious.bEnable;
+        stPreviousSchedule.defenseTime = stPrevious.aAlarmTime;
+    }
+
+    nRet = CEventConfigure::instance()->set_configure(stInfo);
+    if (nRet != OK)
+    {
+        result(nRet);
+        return;
+    }
+
+    Alarm::EventSchedule_S stEventSchedule;
+    stEventSchedule.enEventType = enEventType;
+    stEventSchedule.bStatus = stInfo.bEnable;
+    stEventSchedule.defenseTime = stInfo.aAlarmTime;
+    nRet = CEventConfigure::instance()->set_configure(stEventSchedule);
+    if (nRet == OK)
+    {
+        nRet = check_analytics_resource(enEventType, stInfo.bEnable, false, true);
+    }
+    if (nRet != OK)
+    {
+        CEventConfigure::instance()->set_configure(stPrevious);
+        CEventConfigure::instance()->set_configure(stPreviousSchedule);
+    }
+    CEventManage::instance()->update_event_schedule();
+    result(nRet);
+}
+#else
 /* 获取人脸侦测信息 */
 void Task::Event::GetFaceDetectionInfo::handle()
 {
@@ -1287,6 +1422,88 @@ void Task::Event::SetFaceDetectionInfo::handle()
     CEventManage::instance()->update_event_schedule();
     result(nRet);
 }
+
+/* 获取人脸抓拍信息 */
+void Task::Event::GetFaceCaptureInfo::handle()
+{
+    Alarm::FaceCapture_S stInfo;
+    CEventConfigure::instance()->get_configure(stInfo);
+    result(Convert::to_string(stInfo));
+}
+
+/**
+ * 功能：校验并保存旧人脸抓拍配置，非法抓拍间隔在修改资源和配置前拒绝。
+ * param [in]：无，配置从任务成员 m_taskData 读取。
+ * param [out]：无，处理结果通过 result 返回。
+ * return：无返回值，抓拍间隔超出 1～10 秒时返回 ERR_WEB_PARAM。
+ */
+void Task::Event::SetFaceCaptureInfo::handle()
+{
+    Alarm::FaceCapture_S stInfo;
+    Convert::to_struct(m_taskData, stInfo);
+    if (stInfo.stRule.nInterval < EVENT_FACE_CAPTURE_INTERVAL_MIN_SECONDS ||
+        stInfo.stRule.nInterval > EVENT_FACE_CAPTURE_INTERVAL_MAX_SECONDS)
+    {
+        dlog_error("设置人脸抓拍间隔超出范围[1,10]秒: interval[%d]", stInfo.stRule.nInterval);
+        result(ERR_WEB_PARAM);
+        return;
+    }
+    /* 检查智能事件资源冲突 */
+    // int ret = check_analytics_resource(::Event::Type::FACE_CAPTURE, stInfo.bEnable);
+    // if (ret != 0) {
+    //     result(ret);
+    //     return;
+    // }
+    auto &rule = stInfo.stRule;
+    /* 参数有效性判断 */
+    if (rule.nSensitivity < 1 || rule.nSensitivity > 100)
+    {
+        dlog_error("设置人脸抓拍信息参数错误");
+        result(ERR_WEB_PARAM);
+        return;
+    }
+    /* 坐标有效性判断 */
+    if (!rule.stRegion.IsValid())
+    {
+        dlog_error("设置人脸抓拍信息的区域绘制异常");
+        result(ERR_WEB_REGION);
+        return;
+    }
+    for (auto &region : rule.vstShieldedRegion)
+    {
+        /* 坐标有效性判断 */
+        if (!region.IsValid())
+        {
+            dlog_error("设置人脸抓拍信息的区域绘制异常");
+            result(ERR_WEB_REGION);
+            return;
+        }
+    }
+    /* 规则校验通过后才调整智能事件资源，避免非法配置改变事件启用状态。 */
+    int nRet = check_analytics_resource(::Event::Type::FACE_CAPTURE, stInfo.bEnable);
+    if (nRet != OK)
+    {
+        result(nRet);
+        return;
+    }
+    nRet = CEventConfigure::instance()->set_configure(stInfo);
+    if (nRet != OK)
+    {
+        dlog_error("保存人脸抓拍配置失败: ret[%d]", nRet);
+        result(nRet);
+        return;
+    }
+
+    /* 更新事件布防时间 */
+    Alarm::EventSchedule_S stEventSchedule;
+    stEventSchedule.enEventType = ::Event::Type_E::FACE_CAPTURE;
+    stEventSchedule.bStatus = stInfo.bEnable;
+    stEventSchedule.defenseTime = stInfo.aAlarmTime;
+    nRet = CEventConfigure::instance()->set_configure(stEventSchedule);
+    CEventManage::instance()->update_event_schedule();
+    result(nRet);
+}
+#endif
 
 /* 获取徘徊侦测信息 */
 void Task::Event::GetLoiteringDetectionInfo::handle()
@@ -1606,75 +1823,6 @@ void Task::Event::SetFaceCompareInfo::handle()
 }
 
 #endif
-
-/* 获取人脸抓拍信息 */
-void Task::Event::GetFaceCaptureInfo::handle()
-{
-    Alarm::FaceCapture_S stInfo;
-    CEventConfigure::instance()->get_configure(stInfo);
-    result(Convert::to_string(stInfo));
-}
-
-/* 设置人脸抓拍信息 */
-void Task::Event::SetFaceCaptureInfo::handle()
-{
-    Alarm::FaceCapture_S stInfo;
-    Convert::to_struct(m_taskData, stInfo);
-    /* 检查智能事件资源冲突 */
-    // int ret = check_analytics_resource(::Event::Type::FACE_CAPTURE, stInfo.bEnable);
-    // if (ret != 0) {
-    //     result(ret);
-    //     return;
-    // }
-    auto &rule = stInfo.stRule;
-    /* 参数有效性判断 */
-    if (rule.nSensitivity < 1 || rule.nSensitivity > 100)
-    {
-        dlog_error("设置人脸抓拍信息参数错误");
-        result(ERR_WEB_PARAM);
-        return;
-    }
-    /* 坐标有效性判断 */
-    if (!rule.stRegion.IsValid())
-    {
-        dlog_error("设置人脸抓拍信息的区域绘制异常");
-        result(ERR_WEB_REGION);
-        return;
-    }
-    for (auto &region : rule.vstShieldedRegion)
-    {
-        /* 坐标有效性判断 */
-        if (!region.IsValid())
-        {
-            dlog_error("设置人脸抓拍信息的区域绘制异常");
-            result(ERR_WEB_REGION);
-            return;
-        }
-    }
-    /* 规则校验通过后才调整智能事件资源，避免非法配置改变事件启用状态。 */
-    int nRet = check_analytics_resource(::Event::Type::FACE_CAPTURE, stInfo.bEnable);
-    if (nRet != OK)
-    {
-        result(nRet);
-        return;
-    }
-    nRet = CEventConfigure::instance()->set_configure(stInfo);
-    if (nRet != OK)
-    {
-        dlog_error("保存人脸抓拍配置失败: ret[%d]", nRet);
-        result(nRet);
-        return;
-    }
-
-    /* 更新事件布防时间 */
-    Alarm::EventSchedule_S stEventSchedule;
-    stEventSchedule.enEventType = ::Event::Type_E::FACE_CAPTURE;
-    stEventSchedule.bStatus = stInfo.bEnable;
-    stEventSchedule.defenseTime = stInfo.aAlarmTime;
-    nRet = CEventConfigure::instance()->set_configure(stEventSchedule);
-    CEventManage::instance()->update_event_schedule();
-    result(nRet);
-}
 
 /* 获取人脸抓拍叠加信息 */
 void Task::Event::GetFaceCaptureOverlayInfo::handle()
@@ -2497,6 +2645,8 @@ void Task::Event::SetRealAlarmPushInfo::handle()
 #endif
 
 #ifdef SCENE_INTELLIGENCE
+
+#if !defined(CAP_TV3881TJY_EVENT_ALGO) || CAP_TV3881TJY_EVENT_ALGO
 void Task::Event::PushFaceCaptureInfo::handle()
 {
 
@@ -2522,21 +2672,103 @@ void Task::Event::PushNonMotorVehicleCaptureInfo::handle()
 
 }
 
-void Task::Event::SetAttributeInfo::handle()
+void Task::Event::GetPersonDetectionInfo::handle()
 {
-    Alarm::AttributeDetectSwitch_S stInfo;
-    Convert::to_struct(m_taskData, stInfo);
-
-    int nRet = CEventConfigure::instance()->set_configure(stInfo);
-    CEventManage::instance()->update_event_schedule();
-    result(nRet);
+    Alarm::PersonDetection_S stInfo;
+    int nRet = CEventConfigure::instance()->get_configure(stInfo);
+    if (nRet != OK)
+    {
+        result(nRet);
+        return;
+    }
+    result(Convert::to_string(stInfo));
 }
 
-void Task::Event::GetAttributeInfo::handle()
+void Task::Event::SetPersonDetectionInfo::handle()
 {
-    Alarm::AttributeDetectSwitch_S stInfo;
-    CEventConfigure::instance()->get_configure(stInfo);
+    Alarm::PersonDetection_S stInfo;
+    Convert::to_struct(m_taskData, stInfo);
+
+    if (stInfo.nSensitivity < 1 || stInfo.nSensitivity > 100 || stInfo.aAlarmTime.size() != 7)
+    {
+        dlog_error("设置行人识别信息参数错误");
+        result(ERR_WEB_PARAM);
+        return;
+    }
+    if (!stInfo.stRegion.IsValid())
+    {
+        dlog_error("设置行人识别信息的区域绘制异常");
+        result(ERR_WEB_REGION);
+        return;
+    }
+
+    result(save_scene_event_config(::Event::Type_E::PEDESTRIAN_ATTRIBUTE, stInfo));
+}
+
+void Task::Event::GetMotorVehicleDetectionInfo::handle()
+{
+    Alarm::MotorVehicleDetection_S stInfo;
+    int nRet = CEventConfigure::instance()->get_configure(stInfo);
+    if (nRet != OK)
+    {
+        result(nRet);
+        return;
+    }
     result(Convert::to_string(stInfo));
+}
+
+void Task::Event::SetMotorVehicleDetectionInfo::handle()
+{
+    Alarm::MotorVehicleDetection_S stInfo;
+    Convert::to_struct(m_taskData, stInfo);
+
+    if (stInfo.nSensitivity < 1 || stInfo.nSensitivity > 100 || stInfo.aAlarmTime.size() != 7)
+    {
+        dlog_error("设置机动车识别信息参数错误");
+        result(ERR_WEB_PARAM);
+        return;
+    }
+    if (!stInfo.stRegion.IsValid())
+    {
+        dlog_error("设置机动车识别信息的区域绘制异常");
+        result(ERR_WEB_REGION);
+        return;
+    }
+
+    result(save_scene_event_config(::Event::Type_E::MOTORVEHICLE_ATTRIBUTE, stInfo));
+}
+
+void Task::Event::GetNonMotorVehicleDetectionInfo::handle()
+{
+    Alarm::NonMotorVehicleDetection_S stInfo;
+    int nRet = CEventConfigure::instance()->get_configure(stInfo);
+    if (nRet != OK)
+    {
+        result(nRet);
+        return;
+    }
+    result(Convert::to_string(stInfo));
+}
+
+void Task::Event::SetNonMotorVehicleDetectionInfo::handle()
+{
+    Alarm::NonMotorVehicleDetection_S stInfo;
+    Convert::to_struct(m_taskData, stInfo);
+
+    if (stInfo.nSensitivity < 1 || stInfo.nSensitivity > 100 || stInfo.aAlarmTime.size() != 7)
+    {
+        dlog_error("设置非机动车识别信息参数错误");
+        result(ERR_WEB_PARAM);
+        return;
+    }
+    if (!stInfo.stRegion.IsValid())
+    {
+        dlog_error("设置非机动车识别信息的区域绘制异常");
+        result(ERR_WEB_REGION);
+        return;
+    }
+
+    result(save_scene_event_config(::Event::Type_E::NONMOTORVEHICLE_ATTRIBUTE, stInfo));
 }
 
 void Task::Event::GetFenceClimbingInfo::handle()
@@ -3267,9 +3499,10 @@ void Task::Event::SetReflectiveClothingInfo::handle()
     /* 参数校验完成后，统一保存并同步智能事件总览状态。 */
     result(save_scene_event_config(::Event::Type_E::REFLECTIVE_CLOTHING, stInfo));
 }
-
+#endif /* CAP_TV3881TJY_EVENT_ALGO：事件算法命令处理实现 结束 */
 #endif
-#if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
+
+#if (defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT) && (!defined(CAP_TV3881TJY_EVENT_ALGO) || CAP_TV3881TJY_EVENT_ALGO)
 void Task::Event::GetSmokeFireInfo::handle()
 {
     Alarm::SmokeFireDetection_S stInfo;
@@ -3294,7 +3527,8 @@ void Task::Event::SetSmokeFireInfo::handle()
     result(save_scene_event_config(::Event::Type_E::SMOKE_FIRE, stInfo));
 }
 #endif
-#if defined(SCENE_INTELLIGENCE) || CAP_AI_GARBAGE_DETECT
+
+#if (defined(SCENE_INTELLIGENCE) || CAP_AI_GARBAGE_DETECT) && (!defined(CAP_TV3881TJY_EVENT_ALGO) || CAP_TV3881TJY_EVENT_ALGO)
 void Task::Event::GetGarbageExposureInfo::handle()
 {
     Alarm::GarbageExposureDetection_S stInfo;
@@ -3313,6 +3547,14 @@ void Task::Event::SetGarbageExposureInfo::handle()
         dlog_error("设置垃圾暴露检测信息参数错误");
         result(ERR_WEB_PARAM);
         return;
+    }
+
+    /* 归一化：Region_S 默认构造为 nPointNum=4 且 aPoint 为空，属不一致状态。
+       无区域绘制能力的网页保存时不下发 Region，会落在此状态，导致下方守卫误判为「已配置区域」。
+       此处统一归一化为空区域语义（nPointNum=0）。 */
+    if (stInfo.stRule.stRegion.aPoint.empty())
+    {
+        stInfo.stRule.stRegion.nPointNum = 0;
     }
 
     /* 区域校验：未配置允许空区域，配置了则点数与坐标必须合法，防止 Web/action_code 绕过 SDK。 */
@@ -3557,7 +3799,7 @@ void Task::Event::GarbageStationSnapshotDetect::handle()
 #endif
 #endif
 
-#if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
+#if CAP_AI_SMOKE_FIRE_DETECT
 /* 事件推送命令与事件链路保持一致（见 event_linkage_action_direct.cpp:41-42） */
 constexpr const char *SMOKE_FIRE_SNAPSHOT_ALARM_COMMAND = "NET_TV_EVENT_ALARM";
 constexpr const char *SMOKE_FIRE_SNAPSHOT_IMAGE_UPLOAD_COMMAND = "NET_TV_EVENT_IMAGE_UPLOAD";
@@ -3879,8 +4121,6 @@ constexpr const char *REPLAY_FILE_TIME_FORMAT = "%Y-%m-%d_%H%M%S";
 /* 请求起始时间的格式（如 2026-09-27 00:00:00） */
 constexpr const char *REPLAY_REQ_TIME_FORMAT = "%Y-%m-%d %H:%M:%S";
 
-namespace fs = std::filesystem;
-
 /*
  * 获取回放播放地址：先校验 SD 卡状态，再按请求起始时间定位录像目录，
  * 挑选不晚于起始时间的最后一个 m3u8 分片，拼成本机 HTTP 拉流地址。
@@ -3942,15 +4182,16 @@ void Task::Event::GetReplayMediaInfo::handle()
     time_t nSelectedTime = 0;
     std::string strEarliestFile;
     time_t nEarliestTime = 0;
-    std::error_code stDirError;
-    for (const auto &stEntry : fs::directory_iterator(strDir, stDirError))
+    std::vector<std::string> vecEntryNames;
+    PosixFs_NS::list_dir(strDir, vecEntryNames);
+    for (const auto &strName : vecEntryNames)
     {
-        if (!stEntry.is_regular_file())
+        const std::string strFullPath = strDir + "/" + strName;
+        if (!PosixFs_NS::is_regular_file(strFullPath))
         {
             continue;
         }
 
-        const std::string strName = stEntry.path().filename().string();
         constexpr std::size_t nSuffixLen = 5; /* ".m3u8" 长度 */
         if (strName.size() <= nSuffixLen ||
             strName.compare(strName.size() - nSuffixLen, nSuffixLen, ".m3u8") != 0)
@@ -3977,13 +4218,13 @@ void Task::Event::GetReplayMediaInfo::handle()
         if (nEarliestTime == 0 || nFileTime < nEarliestTime)
         {
             nEarliestTime = nFileTime;
-            strEarliestFile = stEntry.path().string();
+            strEarliestFile = strFullPath;
         }
 
         if (nFileTime <= nStartTime && nFileTime > nSelectedTime)
         {
             nSelectedTime = nFileTime;
-            strSelectedFile = stEntry.path().string();
+            strSelectedFile = strFullPath;
         }
     }
 

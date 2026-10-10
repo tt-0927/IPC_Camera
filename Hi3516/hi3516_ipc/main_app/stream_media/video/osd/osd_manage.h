@@ -17,6 +17,7 @@
 #include <atomic>
 #include <mutex>
 #include "osd_define.h"
+#include "osd_configure.h"
 #include "system_manage.h"
 #include "Singleton.h"
 #include "IpcRet.h"
@@ -25,15 +26,11 @@
 #include "osd_panel_result.hpp"
 #endif
 
-extern "C"
-{
-    #include "svp_md.h"
+extern "C" {
+#include "svp_md.h"
 }
 
-/* OSD名称长度限制 */
-#define OSD_NAME_LENGTH_LIMIT 100
-
-class COsdManage : public CSingleton<COsdManage>
+class COsdManage : public CSingleton<COsdManage>, public IOsdConfigApplier
 {
     COsdManage();
 
@@ -61,6 +58,7 @@ public:
      * @author      : huangjunda
      * @param        {Osd::OsdConfig_S} &stInfo
      * @return       {IpcRet_E}
+     * @note         : 转发共享层 COsdConfigure，保留旧接口兼容未迁移调用方
      */
     IpcRet_E get_osd_config(Osd::OsdConfig_S &stInfo);
 
@@ -69,17 +67,9 @@ public:
      * @author      : huangjunda
      * @param        {Osd::OsdConfig_S} stInfo
      * @return       {IpcRet_E}
+     * @note         : 转发共享层 COsdConfigure，保留旧接口兼容未迁移调用方
      */
     IpcRet_E set_osd_config(Osd::OsdConfig_S stInfo);
-
-    /***
-     * @description : 设置osd状态
-     * @author      : huangjunda
-     * @param        {Osd::OsdAttribute_S} stOsdAttr
-     * @param        {Osd::Overplay_S} &stOverplay
-     * @return       {IpcRet_E}
-     */
-    IpcRet_E set_osd_attr(Osd::OsdAttribute_S stOsdAttr, Osd::Overplay_S &stOverplay);
 
     /***
      * @description : 获取overplay信息
@@ -87,7 +77,7 @@ public:
      * @param        {vector<Osd::OverplayInfo_S>} &vecInfo
      * @return       {IpcRet_E}
      */
-    IpcRet_E get_overplay_info(std::vector<Osd::OverplayInfo_S> &vecInfo);
+    IpcRet_E get_overplay_info(std::vector<Osd::OverplayInfo_S> &vecInfo) override;
 
     /***
      * @description : 设置overplay信息
@@ -95,13 +85,21 @@ public:
      * @param        {vector<Osd::OverplayInfo_S>} vecInfo
      * @return       {IpcRet_E}
      */
-    IpcRet_E set_overplay_info(std::vector<Osd::OverplayInfo_S> &vecInfo);
+    IpcRet_E set_overplay_info(std::vector<Osd::OverplayInfo_S> vecInfo);
+
+    /**
+     * @brief   : 应用overplay信息（IOsdConfigApplier接口，供共享层配置转换下发）
+     * @param    {vector<Osd::OverplayInfo_S>} &vecInfo：overplay信息
+     * @return   {IpcRet_E} 0：成功 小于零：失败
+     */
+    IpcRet_E apply_overplay_info(const std::vector<Osd::OverplayInfo_S> &vecInfo) override;
 
     /***
      * @description : 获取cover配置信息
      * @author      : huangjunda
      * @param        {Osd::CoverConfig_S} &stInfo
      * @return       {IpcRet_E}
+     * @note         : 转发共享层 COsdConfigure，保留旧接口兼容未迁移调用方
      */
     IpcRet_E get_cover_config(Osd::CoverConfig_S &stInfo);
 
@@ -110,12 +108,13 @@ public:
      *
      * 网页、ONVIF 和 TVSDK 应以该数量收敛配置，避免返回底层无法渲染的区域。
      */
-    std::size_t get_cover_max_area_count() const;
-    
+    std::size_t get_cover_max_area_count() const override;
+
     /**
-     * @brief   : 设置cover配置信息 
+     * @brief   : 设置cover配置信息
      * @param    {Osd::CoverConfig_S} stInfo
      * @return   {IpcRet_E}
+     * @note     : 转发共享层 COsdConfigure，保留旧接口兼容未迁移调用方
      */
     IpcRet_E set_cover_config(Osd::CoverConfig_S stInfo);
 
@@ -125,10 +124,45 @@ public:
      * @param        {vector<Osd::CoverInfo_S>} &vecInfo
      * @return       {IpcRet_E}
      */
-    IpcRet_E get_cover_info(std::vector<Osd::CoverInfo_S> &vecInfo);
+    IpcRet_E get_cover_info(std::vector<Osd::CoverInfo_S> &vecInfo) override;
 
     /**
-     * @brief   : 设置cover信息 
+     * @brief   : 应用cover信息（IOsdConfigApplier接口，供共享层配置转换下发）
+     * @param    {vector<Osd::CoverInfo_S>} &vecInfo：cover信息
+     * @return   {IpcRet_E} 0：成功 小于零：失败
+     */
+    IpcRet_E apply_cover_info(const std::vector<Osd::CoverInfo_S> &vecInfo) override;
+
+    /**
+     * @brief   : OSD状态信息转换为Overplay渲染参数（IOsdConfigApplier平台差异钩子）
+     * @param    {Osd::ElementType_E} enType：元素种类
+     * @param    {std::string} &strText：元素文本
+     * @param    {Osd::OsdAttribute_S} &stOsdAttr：OSD状态信息（nW自适应后随配置持久化）
+     * @param    {Osd::Overplay_S} &stOverplay：Overplay渲染参数
+     * @return   {IpcRet_E} 0：成功 小于零：失败
+     * @note     : 海思平台透传宽高、支持"黑白自动"反色，nW<0时按文本估算宽度
+     */
+    IpcRet_E adapt_osd_attr(Osd::ElementType_E enType,
+                            const std::string &strText,
+                            Osd::OsdAttribute_S &stOsdAttr,
+                            Osd::Overplay_S &stOverplay) override;
+
+    /**
+     * @brief   : Cover配置单区域映射为Cover渲染信息（IOsdConfigApplier平台差异钩子）
+     * @param    {Osd::CoverAttribute_S} &stAttr：Cover区域配置
+     * @param    {Osd::CoverInfo_S} &stInfo：Cover渲染信息
+     * @return   {IpcRet_E} 0：成功 小于零：失败
+     * @note     : 海思平台颜色串为RGB格式
+     */
+    IpcRet_E cover_attr_to_info(const Osd::CoverAttribute_S &stAttr, Osd::CoverInfo_S &stInfo) override;
+
+    /**
+     * @brief   : 通知OSD共用信息更新，触发Overplay渲染刷新（IOsdConfigApplier接口）
+     */
+    void refresh_overplay() override;
+
+    /**
+     * @brief   : 设置cover信息
      * @param    {vector<Osd::CoverInfo_S>} vecInfo：Cover信息组
      * @param    {bool} bIsWriteFile：是否将配置写入文件
      * @return   {IpcRet_E} 0：成功 小于零：失败
@@ -140,6 +174,7 @@ public:
      * @author      : huangjunda
      * @param        {ShareInfo_S} &stuShareInfo
      * @return       {IpcRet_E}
+     * @note         : 转发共享层 COsdConfigure，保留旧接口兼容未迁移调用方
      */
     IpcRet_E get_osd_share_info(Osd::ShareInfo_S &stuShareInfo);
 
@@ -148,6 +183,7 @@ public:
      * @author      : huangjunda
      * @param        {DeviceConfig_S} stDeviceConfig
      * @return       {IpcRet_E}
+     * @note         : 转发共享层 COsdConfigure，保留旧接口兼容未迁移调用方
      */
     IpcRet_E set_osd_share_info(System::DeviceConfig_S stDeviceConfig);
 
@@ -189,9 +225,7 @@ public:
      * @param    {uint64_t} &unUpdateTimeMs：更新时间戳
      * @return   {IpcRet_E} 0：成功 小于零：失败
      */
-    IpcRet_E get_panel_result(OsdPanel::PanelFrame_S &stPanelFrame,
-                              uint64_t &unVersion,
-                              uint64_t &unUpdateTimeMs);
+    IpcRet_E get_panel_result(OsdPanel::PanelFrame_S &stPanelFrame, uint64_t &unVersion, uint64_t &unUpdateTimeMs);
 #endif
 
     /***
@@ -217,15 +251,10 @@ public:
 
     std::atomic<bool> m_bInit; /* 初始化标志 */
 private:
-    std::string m_strOsdConfigFile;                            /* osd配置文件 */
-    std::string m_strCoverConfigFile;                          /* cover配置文件 */
     std::string m_strOverplayFile;                             /* overplay文件 */
     std::string m_strCoverFile;                                /* cover文件 */
-    Osd::OsdConfig_S m_stOsdConfig;                            /* osd配置信息 */
-    Osd::CoverConfig_S m_stCoverConfig;                        /* cover配置信息 */
     std::vector<Osd::OverplayInfo_S> m_vecOverplayInfo;        /* overplay信息 */
     std::vector<Osd::CoverInfo_S> m_vecCoverInfo;              /* cover信息 */
-    Osd::ShareInfo_S m_stuShareInfo;                           /* osd共用元素信息 */
     std::vector<Osd::OverplayInfo_S> m_vecOverplayCaptureInfo; /* osd人脸抓拍叠加信息元素信息 */
 
 #if CAP_EXHIBITION_OSD_PANEL

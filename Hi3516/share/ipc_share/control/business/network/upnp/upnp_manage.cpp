@@ -8,7 +8,7 @@
  */
 
 #include <algorithm>
-#include <filesystem>
+#include <sys/stat.h>
 #include <ostream>
 #include <iostream>
 #include <sys/socket.h>
@@ -22,9 +22,7 @@
 #include "convert_interface.h"
 #include "path_define.h"
 
-CUpnpManage::CUpnpManage()
-    : m_upnpFile(UPNP_CONFIG_FILE),
-      m_portFile(PORT_CONFIG_FILE)
+CUpnpManage::CUpnpManage() : m_upnpFile(UPNP_CONFIG_FILE), m_portFile(PORT_CONFIG_FILE)
 {
 }
 
@@ -34,8 +32,8 @@ CUpnpManage::~CUpnpManage()
 
 bool CUpnpManage::file_exists(const std::string &strFilename)
 {
-    namespace fs = std::filesystem;
-    return fs::exists(strFilename) && fs::is_regular_file(strFilename);
+    struct stat stFile;
+    return (stat(strFilename.c_str(), &stFile) == 0) && S_ISREG(stFile.st_mode);
 }
 
 /* 静态函数-完成命令回调 */
@@ -68,36 +66,30 @@ void CUpnpManage::print_status()
     std::cout << "\n端口映射配置：" << std::endl;
     for (const auto &port : m_currentConfig.portMap)
     {
-        std::cout << "类型:" << port.nPortType
-                  << " 外埠:" << port.nExternPort
-                  << "->内埠:" << port.nInternalPort
-                  << " 状态:" << (port.nStatus ? "已映射" : "未映射")
-                  << " 外部IP:" << port.externIp << std::endl;
+        std::cout << "类型:" << port.nPortType << " 外埠:" << port.nExternPort << "->内埠:" << port.nInternalPort
+                  << " 状态:" << (port.nStatus ? "已映射" : "未映射") << " 外部IP:" << port.externIp << std::endl;
     }
 
     // 打印设备列表
     if (!m_mapdevices.empty())
     {
         std::cout << "\n已发现设备：" << std::endl;
-        for (const auto &[udn, device] : m_mapdevices)
+        for (const auto &stDeviceItem : m_mapdevices)
         {
-            std::cout << "UDN: " << udn
-                      << "\n  服务类型: " << device.strServiceType
-                      << "\n  控制地址: " << device.strControlURL
-                      << "\n"
+            std::cout << "UDN: " << stDeviceItem.first << "\n  服务类型: " << stDeviceItem.second.strServiceType
+                      << "\n  控制地址: " << stDeviceItem.second.strControlURL << "\n"
                       << std::endl;
         }
     }
-    std::cout << "============================\n"
-              << std::endl;
+    std::cout << "============================\n" << std::endl;
 }
 
 int CUpnpManage::init()
 {
     /* 内部端口 */
-    int nHttpPort, nRtspPort, nHttpsPort, nServerPort,nWebServerPort;
+    int nHttpPort, nRtspPort, nHttpsPort, nServerPort, nWebServerPort;
     /* 外部映射端口 */
-    int nEHttpPort, nERtspPort, nEHttpsPort, nEServerPort,nEWebServerPort;
+    int nEHttpPort, nERtspPort, nEHttpsPort, nEServerPort, nEWebServerPort;
     Network::PortConfig_S stPortConfig;
     if (!file_exists(m_upnpFile))
     {
@@ -174,16 +166,24 @@ int CUpnpManage::init()
         nWebServerPort = stPortConfig.nWebServerPort;
     }
     dlog_info("初始化映射端口 http(%d->%d) rtsp(%d->%d) https(%d->%d) server(%d->%d) web_server(%d->%d)",
-              nHttpPort, nEHttpPort, nRtspPort, nERtspPort, nHttpsPort, nEHttpsPort, nServerPort, nEServerPort,nWebServerPort, nEWebServerPort);
+              nHttpPort,
+              nEHttpPort,
+              nRtspPort,
+              nERtspPort,
+              nHttpsPort,
+              nEHttpsPort,
+              nServerPort,
+              nEServerPort,
+              nWebServerPort,
+              nEWebServerPort);
     /* 初始化默认端口映射项 */
-    m_currentConfig.portMap =
-        {
-            {Network::HTTP_PORT_TYPE, nEHttpPort, UPNP_EMTPY_IP, nHttpPort, 0},
-            {Network::RTSP_PORT_TYPE, nERtspPort, UPNP_EMTPY_IP, nRtspPort, 0},
-            {Network::HTTPS_PORT_TYPE, nEHttpsPort, UPNP_EMTPY_IP, nHttpsPort, 0},
-            {Network::SERVER_PORT_TYPE, nEServerPort, UPNP_EMTPY_IP, nServerPort, 0},
-            {Network::WEB_SERVER_PORT_TYPE, nEWebServerPort, UPNP_EMTPY_IP, nWebServerPort, 0}
-        };
+    m_currentConfig.portMap = {
+        {       Network::HTTP_PORT_TYPE,      nEHttpPort, UPNP_EMTPY_IP,      nHttpPort, 0 },
+        {       Network::RTSP_PORT_TYPE,      nERtspPort, UPNP_EMTPY_IP,      nRtspPort, 0 },
+        {      Network::HTTPS_PORT_TYPE,     nEHttpsPort, UPNP_EMTPY_IP,     nHttpsPort, 0 },
+        {     Network::SERVER_PORT_TYPE,    nEServerPort, UPNP_EMTPY_IP,    nServerPort, 0 },
+        { Network::WEB_SERVER_PORT_TYPE, nEWebServerPort, UPNP_EMTPY_IP, nWebServerPort, 0 }
+    };
     int nRet = 0;
     if (m_currentConfig.bEnablePortMap)
     {
@@ -348,18 +348,18 @@ int CUpnpManage::get_port_map(Network::PortMapConfig_S &stPortMapConfig)
     /* 发送搜索命令 */
     if (m_currentConfig.bEnablePortMap)
     {
-        if(m_handle == -1)
+        if (m_handle == -1)
         {
             if (0 == init_upnp())
             {
                 search_device(UPNP_TIMEOUT);
             }
         }
-        else if(m_handle != -1 && m_upnpStaus == OPENED)
+        else if (m_handle != -1 && m_upnpStaus == OPENED)
         {
             search_device(UPNP_TIMEOUT);
         }
-        else 
+        else
         {
             dlog_info("upnp正在去初始化");
         }
@@ -389,7 +389,7 @@ int CUpnpManage::get_port_map(Network::PortMapConfig_S &stPortMapConfig)
 
 int CUpnpManage::init_upnp()
 {
-    if(m_upnpStaus != CLOSED)
+    if (m_upnpStaus != CLOSED)
     {
         dlog_error("upnp已经初始化或正在去初始化");
         return -1;
@@ -403,7 +403,7 @@ int CUpnpManage::init_upnp()
         return -1;
     }
     /* 注册控制点 */
-    nRet = UpnpRegisterClient((Upnp_FunPtr)event_callback, this, &m_handle);
+    nRet = UpnpRegisterClient((Upnp_FunPtr) event_callback, this, &m_handle);
     if (nRet != UPNP_E_SUCCESS)
     {
         dlog_error("客户端注册失败 (错误码: %d)", nRet);
@@ -429,12 +429,12 @@ void CUpnpManage::deinit_thread()
         m_upnpStaus = CLOSED;
         dlog_info("UPnP资源已释放");
     }
-    return ;
+    return;
 }
 
 int CUpnpManage::deinit()
 {
-    if(m_upnpStaus == OPENED)
+    if (m_upnpStaus == OPENED)
     {
         std::thread tid(&CUpnpManage::deinit_thread, CSingleton<CUpnpManage>::instance());
         tid.detach();
@@ -447,8 +447,11 @@ void CUpnpManage::start_search()
     if (!m_loop)
     {
         m_loop = true;
-        m_worker = std::thread([this]
-                               { search_device(3); });
+        m_worker = std::thread(
+            [this]
+            {
+                search_device(3);
+            });
     }
 }
 
@@ -511,20 +514,27 @@ int CUpnpManage::add_port_mapping(Network::PortMap_S stPortMap)
     std::string strDescription = (descIt != PORT_TYPE_DESCRIPTION.end()) ? descIt->second : "Custom Service";
 
     /* 添加端口映射xml参数 */
-    const char *pParams[] =
-        {
-            "NewRemoteHost", "",
-            "NewExternalPort", std::to_string(stPortMap.nExternPort).c_str(),
-            "NewProtocol", UPNP_PROTOCOL,
-            "NewInternalPort", std::to_string(stPortMap.nInternalPort).c_str(),
-            "NewInternalClient", strDeviceIp.c_str(),
-            "NewEnabled", UPNP_ENABLE,
-            "NewPortMappingDescription", strDescription.c_str(),
-            "NewLeaseDuration", UPNP_LEASE};
+    const char *pParams[] = { "NewRemoteHost",
+                              "",
+                              "NewExternalPort",
+                              std::to_string(stPortMap.nExternPort).c_str(),
+                              "NewProtocol",
+                              UPNP_PROTOCOL,
+                              "NewInternalPort",
+                              std::to_string(stPortMap.nInternalPort).c_str(),
+                              "NewInternalClient",
+                              strDeviceIp.c_str(),
+                              "NewEnabled",
+                              UPNP_ENABLE,
+                              "NewPortMappingDescription",
+                              strDescription.c_str(),
+                              "NewLeaseDuration",
+                              UPNP_LEASE };
 
     for (size_t i = 0; i < sizeof(pParams) / sizeof(pParams[0]); i += 2)
     {
-        if (UpnpAddToAction(&pAction, "AddPortMapping", device->second.strServiceType.c_str(), pParams[i], pParams[i + 1]) != UPNP_E_SUCCESS)
+        if (UpnpAddToAction(&pAction, "AddPortMapping", device->second.strServiceType.c_str(), pParams[i], pParams[i + 1]) !=
+            UPNP_E_SUCCESS)
         {
             dlog_error("添加upnp映射命令失败");
             ixmlDocument_free(pAction);
@@ -567,15 +577,13 @@ int CUpnpManage::remove_port_mapping(Network::PortMap_S stPortMap)
         return -1;
     }
     /* 删除端口映射xml参数 */
-    const char *pParams[] =
-        {
-            "NewRemoteHost", "",
-            "NewExternalPort", std::to_string(stPortMap.nExternPort).c_str(),
-            "NewProtocol", UPNP_PROTOCOL};
+    const char *pParams[] = { "NewRemoteHost", "",           "NewExternalPort", std::to_string(stPortMap.nExternPort).c_str(),
+                              "NewProtocol",   UPNP_PROTOCOL };
 
     for (size_t i = 0; i < sizeof(pParams) / sizeof(pParams[0]); i += 2)
     {
-        if (UpnpAddToAction(&pAction, "DeletePortMapping", device->second.strServiceType.c_str(), pParams[i], pParams[i + 1]) != UPNP_E_SUCCESS)
+        if (UpnpAddToAction(&pAction, "DeletePortMapping", device->second.strServiceType.c_str(), pParams[i], pParams[i + 1]) !=
+            UPNP_E_SUCCESS)
         {
             dlog_error("添加删除upnp映射命令失败");
             ixmlDocument_free(pAction);
@@ -601,16 +609,16 @@ int CUpnpManage::remove_port_mapping(Network::PortMap_S stPortMap)
 
 void CUpnpManage::process_action_complete(const void *pAction, Network::PortMap_S &stPortMap)
 {
-    const UpnpActionComplete *pUpnpAction = (const UpnpActionComplete *)pAction;
+    const UpnpActionComplete *pUpnpAction = (const UpnpActionComplete *) pAction;
     int errCode = UpnpActionComplete_get_ErrCode(pUpnpAction);
     if (errCode != UPNP_E_SUCCESS)
     {
-        dlog_error("=========命令返回失败 错误码：%d 描述：%s========",
-                   errCode, UpnpGetErrorMessage(errCode));
+        dlog_error("=========命令返回失败 错误码：%d 描述：%s========", errCode, UpnpGetErrorMessage(errCode));
 
         /* 获取控制地址 */
         const char *ctrlUrl = UpnpActionComplete_get_CtrlUrl_cstr(pUpnpAction);
-        if (ctrlUrl) dlog_error("控制地址: %s", ctrlUrl);
+        if (ctrlUrl)
+            dlog_error("控制地址: %s", ctrlUrl);
 
         /* 获取 ActionRequest */
         IXML_Document *req = UpnpActionComplete_get_ActionRequest(pUpnpAction);
@@ -618,18 +626,18 @@ void CUpnpManage::process_action_complete(const void *pAction, Network::PortMap_
         {
             DOMString pReqStr = ixmlDocumenttoString(req);
             dlog_error("错误请求：%s", pReqStr);
-            if(pReqStr)
+            if (pReqStr)
             {
                 ixmlFreeDOMString(pReqStr);
             }
-        } 
+        }
         /* 获取 ActionResult */
         IXML_Document *res = UpnpActionComplete_get_ActionResult(pUpnpAction);
         if (res)
         {
             DOMString pResStr = ixmlDocumenttoString(res);
             dlog_error("错误响应：%s", pResStr);
-            if(pResStr)
+            if (pResStr)
             {
                 ixmlFreeDOMString(pResStr);
             }
@@ -658,15 +666,15 @@ void CUpnpManage::process_action_complete(const void *pAction, Network::PortMap_
     /* 处理获取IP响应 */
     if (strstr(pResponseStr, "NewExternalIPAddress"))
     {
-        std::string strExternIp = get_xml_nodeValue((void *)pResponse, "NewExternalIPAddress");
+        std::string strExternIp = get_xml_nodeValue((void *) pResponse, "NewExternalIPAddress");
         dlog_debug("获取到外部ip：%s", strExternIp.c_str());
         m_externalIP = strExternIp;
     }
     /* 处理端口检测响应 */
     else if (strstr(pResponseStr, "GetSpecificPortMappingEntry"))
     {
-        std::string strEnable = get_xml_nodeValue((void *)pResponse, "NewEnabled");
-        std::string strInternalPort = get_xml_nodeValue((void *)pResponse, "NewInternalPort");
+        std::string strEnable = get_xml_nodeValue((void *) pResponse, "NewEnabled");
+        std::string strInternalPort = get_xml_nodeValue((void *) pResponse, "NewInternalPort");
         if (strEnable == UPNP_ENABLE)
         {
             dlog_info("内部端口:%s 已经映射", strInternalPort.c_str());
@@ -709,11 +717,10 @@ void CUpnpManage::process_action_complete(const void *pAction, Network::PortMap_
             }
         }
     }
-    if(pResponseStr)
+    if (pResponseStr)
     {
         ixmlFreeDOMString(pResponseStr);
     }
-
 }
 
 void CUpnpManage::handle_event(int stEventType, void *pEvent)
@@ -745,7 +752,7 @@ void CUpnpManage::handle_event(int stEventType, void *pEvent)
 
 void CUpnpManage::process_discovery_event(void *pDiscovery)
 {
-    const UpnpDiscovery *pUpnpDiscovery = (const UpnpDiscovery *)pDiscovery;
+    const UpnpDiscovery *pUpnpDiscovery = (const UpnpDiscovery *) pDiscovery;
     // dlog_info("发现设备:%s 类型:%s 设备OS：%s", pDiscovery->DeviceId, pDiscovery->DeviceType,pDiscovery->Os);
     const char *pLocation = UpnpDiscovery_get_Location_cstr(pUpnpDiscovery);
     IXML_Document *pDoc = nullptr;
@@ -759,7 +766,7 @@ void CUpnpManage::process_discovery_event(void *pDiscovery)
 
     Network::UpnpConfigInfo_S stDevice;
     /* 添加设备 */
-    if (parse_device_description((void *)pDoc, stDevice) == 0)
+    if (parse_device_description((void *) pDoc, stDevice) == 0)
     {
         if (stDevice.strUdn.empty())
         {
@@ -808,7 +815,7 @@ void CUpnpManage::process_discovery_event(void *pDiscovery)
         }
     }
 EXIT:
-    if (pDocStr) 
+    if (pDocStr)
     {
         ixmlFreeDOMString(pDocStr);
     }
@@ -817,12 +824,12 @@ EXIT:
         ixmlDocument_free(pDoc);
     }
 
-    return ;
+    return;
 }
 
 void CUpnpManage::process_byebye_event(void *pDiscovery)
 {
-    const UpnpDiscovery *pUpnpDiscovery = (const UpnpDiscovery *)pDiscovery;
+    const UpnpDiscovery *pUpnpDiscovery = (const UpnpDiscovery *) pDiscovery;
 
     dlog_info("设备离线:%s 类型:%s ", UpnpDiscovery_get_DeviceID_cstr(pUpnpDiscovery), UpnpDiscovery_get_DeviceType_cstr(pUpnpDiscovery));
 
@@ -859,15 +866,15 @@ void CUpnpManage::process_byebye_event(void *pDiscovery)
 /* 解析设备xml数据 */
 int CUpnpManage::parse_device_description(void *pDoc, Network::UpnpConfigInfo_S &stDevice)
 {
-    IXML_Document *pIxmlDoc = (IXML_Document *)pDoc;
+    IXML_Document *pIxmlDoc = (IXML_Document *) pDoc;
     /* 获取upnp可映射设备类型 */
-    stDevice.strServiceType = get_xml_nodeValue((void *)pIxmlDoc, "serviceType");
+    stDevice.strServiceType = get_xml_nodeValue((void *) pIxmlDoc, "serviceType");
     if (stDevice.strServiceType == UPNP_WANPPPC_SERVICE || stDevice.strServiceType == UPNP_WANIPC_SERVICE)
     {
         // dlog_info("获取到支持upnp的设备类型；%s",stDevice.strServiceType.c_str());
 
-        std::string strPresentationURL = get_xml_nodeValue((void *)pIxmlDoc, "presentationURL");
-        std::string strControlURL = get_xml_nodeValue((void *)pIxmlDoc, "controlURL");
+        std::string strPresentationURL = get_xml_nodeValue((void *) pIxmlDoc, "presentationURL");
+        std::string strControlURL = get_xml_nodeValue((void *) pIxmlDoc, "controlURL");
         /* 获取控制地址 */
         stDevice.strControlURL = strControlURL;
         if (stDevice.strControlURL.empty())
@@ -877,7 +884,7 @@ int CUpnpManage::parse_device_description(void *pDoc, Network::UpnpConfigInfo_S 
         }
 
         /* 获取唯一标识符 */
-        stDevice.strUdn = get_xml_nodeValue((void *)pIxmlDoc, "UDN");
+        stDevice.strUdn = get_xml_nodeValue((void *) pIxmlDoc, "UDN");
         if (stDevice.strUdn.empty())
         {
             dlog_error("设备【%s】唯一标识符获取失败", stDevice.strServiceType.c_str());
@@ -888,7 +895,8 @@ int CUpnpManage::parse_device_description(void *pDoc, Network::UpnpConfigInfo_S 
         // std::string strSCPDURL = strPresentationURL + get_xml_nodeValue((void *)pIxmlDoc,"SCPDURL");
         //
         // IXML_Document* pIxmlDoc = nullptr;
-        ////dlog_info("成功解析upnp设备信息 设备服务类型【%s】 控制链接【%s】唯一标识符【%s】",stDevice.strServiceType.c_str(),stDevice.strControlURL.c_str(),stDevice.strUdn.c_str());
+        ////dlog_info("成功解析upnp设备信息 设备服务类型【%s】
+        ///控制链接【%s】唯一标识符【%s】",stDevice.strServiceType.c_str(),stDevice.strControlURL.c_str(),stDevice.strUdn.c_str());
         //
         // if (UpnpDownloadXmlDoc(strSCPDURL.c_str(), &pIxmlDoc) == UPNP_E_SUCCESS)
         //{
@@ -905,7 +913,7 @@ int CUpnpManage::parse_device_description(void *pDoc, Network::UpnpConfigInfo_S 
 
 std::string CUpnpManage::get_xml_nodeValue(void *pDoc, std::string strNode)
 {
-    IXML_Document *pIxmlDoc = (IXML_Document *)pDoc;
+    IXML_Document *pIxmlDoc = (IXML_Document *) pDoc;
     IXML_NodeList *pNodeList;
     IXML_Node *pNode;
     IXML_Node *pChNode;
@@ -934,7 +942,7 @@ std::string CUpnpManage::get_xml_nodeValue(void *pDoc, std::string strNode)
         goto EXIT;
     }
     /* 取出一个节点值 */
-    pChStr = (char *)ixmlNode_getNodeValue(pChNode);
+    pChStr = (char *) ixmlNode_getNodeValue(pChNode);
     if (pChStr == NULL)
     {
         dlog_error("pChStr节点数据获取失败");
@@ -998,24 +1006,14 @@ void CUpnpManage::check_portMapping_status(int nExternalPort)
 
     auto device = m_mapdevices.begin();
 
-    IXML_Document *pAction = UpnpMakeAction("GetSpecificPortMappingEntry",
-                                            device->second.strServiceType.c_str(),
-                                            0, nullptr);
+    IXML_Document *pAction = UpnpMakeAction("GetSpecificPortMappingEntry", device->second.strServiceType.c_str(), 0, nullptr);
     ;
 
-    const char *pParams[] =
-        {
-            "NewRemoteHost", "",
-            "NewExternalPort", std::to_string(nExternalPort).c_str(),
-            "NewProtocol", UPNP_PROTOCOL};
+    const char *pParams[] = { "NewRemoteHost", "", "NewExternalPort", std::to_string(nExternalPort).c_str(), "NewProtocol", UPNP_PROTOCOL };
 
     for (size_t i = 0; i < sizeof(pParams) / sizeof(pParams[0]); i += 2)
     {
-        UpnpAddToAction(&pAction,
-                        "GetSpecificPortMappingEntry",
-                        device->second.strServiceType.c_str(),
-                        pParams[i],
-                        pParams[i + 1]);
+        UpnpAddToAction(&pAction, "GetSpecificPortMappingEntry", device->second.strServiceType.c_str(), pParams[i], pParams[i + 1]);
     }
 
     int nRet = UpnpSendActionAsync(m_handle,
@@ -1050,7 +1048,7 @@ int CUpnpManage::parse_sockaddr(const struct sockaddr_storage *pAddr, char *pIp,
     case AF_INET:
     {
         /* IPv4 地址处理 */
-        struct sockaddr_in *ipv4 = (struct sockaddr_in *)pAddr;
+        struct sockaddr_in *ipv4 = (struct sockaddr_in *) pAddr;
 
         /* 将二进制 IP 转换为字符串 */
         if (inet_ntop(AF_INET, &(ipv4->sin_addr), pIp, INET_ADDRSTRLEN) == NULL)
@@ -1067,7 +1065,7 @@ int CUpnpManage::parse_sockaddr(const struct sockaddr_storage *pAddr, char *pIp,
     case AF_INET6:
     {
         /* IPv6 地址处理 */
-        struct sockaddr_in6 *ipv6 = (struct sockaddr_in6 *)pAddr;
+        struct sockaddr_in6 *ipv6 = (struct sockaddr_in6 *) pAddr;
 
         /* 将二进制 IPv6 转换为字符串（如 "2001:db8::1"） */
         if (inet_ntop(AF_INET6, &(ipv6->sin6_addr), pIp, INET6_ADDRSTRLEN) == NULL)

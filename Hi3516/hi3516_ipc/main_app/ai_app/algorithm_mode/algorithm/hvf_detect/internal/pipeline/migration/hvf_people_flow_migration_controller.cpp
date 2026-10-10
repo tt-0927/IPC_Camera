@@ -36,11 +36,12 @@ int64_t get_monotonic_timestamp_ms()
 CHVFPeopleFlowMigrationController::CHVFPeopleFlowMigrationController()
 {
 #if CAP_AI_PEOPLE_FLOW_PIPELINE
-    m_pOutputExecutor = std::make_unique<CHVFPeopleFlowOutputExecutor>();
+    m_pOutputExecutor = std::unique_ptr<CHVFPeopleFlowOutputExecutor>(new CHVFPeopleFlowOutputExecutor());
     m_pOutputExecutor->set_image_provider(&m_imageProvider);
 
     /* 处理器所有权移交给 Dispatcher，本类保留访问指针 */
-    auto pProcessor = std::make_unique<AiPipeline_NS::PeopleFlow_NS::CPeopleFlowProcessor>();
+    auto pProcessor = std::unique_ptr<AiPipeline_NS::PeopleFlow_NS::CPeopleFlowProcessor>(
+        new AiPipeline_NS::PeopleFlow_NS::CPeopleFlowProcessor());
     m_pPeopleFlowProcessor = pProcessor.get();
     m_dispatcher.register_processor(std::move(pProcessor));
 #endif
@@ -68,7 +69,7 @@ void CHVFPeopleFlowMigrationController::set_model_input_size(const AiPipeline_NS
     }
 
     /* 模型重启后尺寸可能变化，重建 Converter 以刷新坐标合同 */
-    m_pConverter = std::make_unique<CHisiHvfResultConverter>(m_enCoordinateSource, m_stModelInputSize);
+    m_pConverter = std::unique_ptr<CHisiHvfResultConverter>(new CHisiHvfResultConverter(m_enCoordinateSource, m_stModelInputSize));
     m_bNewPipelineReady = true;
     dlog_info("人流统计新链路就绪：模型输入[%ux%u] 原生结果坐标模式[%d]",
               m_stModelInputSize.nWidth,

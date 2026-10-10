@@ -3,7 +3,7 @@
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2026-07-13 14:47:02
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-07-16 11:30:00
+ * @LastEditTime : 2026-09-23 15:34:07
  * @Description  : 共享ISP场景计划调度器，只提交计划意图
  */
 
@@ -23,9 +23,17 @@
 struct IspSchedulerTime_S
 {
     /* 本地月份，范围1-12 */
-    int nMonth{1};
+    int nMonth;
     /* 自当天零点开始的秒数，范围0-86399 */
-    int nDaySeconds{0};
+    int nDaySeconds;
+
+    /* C++11 基线下带默认成员初始化器的类不是聚合，用构造函数承载默认值 */
+    IspSchedulerTime_S() : nMonth(1), nDaySeconds(0)
+    {
+    }
+    IspSchedulerTime_S(int nMonth_, int nDaySeconds_) : nMonth(nMonth_), nDaySeconds(nDaySeconds_)
+    {
+    }
 };
 
 /**
@@ -56,9 +64,7 @@ public:
      * @param    {const ISP::IspCapabilityProfile_S&} stProfile：能力画像
      * @param    {ScheduleIntentCallback} fnCallback：意图提交回调
      */
-    CIspSceneScheduler(const IspSchedulerClock_S &stClock,
-                       const ISP::IspCapabilityProfile_S &stProfile,
-                       ScheduleIntentCallback fnCallback);
+    CIspSceneScheduler(const IspSchedulerClock_S &stClock, const ISP::IspCapabilityProfile_S &stProfile, ScheduleIntentCallback fnCallback);
     ~CIspSceneScheduler();
 
     /**

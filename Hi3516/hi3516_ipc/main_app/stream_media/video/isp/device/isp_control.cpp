@@ -25,6 +25,13 @@
 #include "isp_scene.h"
 #include "stream_video.h"
 
+/* C++11 基线无 std::clamp，按 [lo, hi] 收紧取值 */
+template <typename T>
+static T clamp_value(const T &tValue, const T &tLo, const T &tHi)
+{
+    return (tValue < tLo) ? tLo : ((tHi < tValue) ? tHi : tValue);
+}
+
 using namespace ISP;
 
 namespace
@@ -100,7 +107,7 @@ void apply_nr_levels(ot_3dnr_param &stNrAttr, const DnrAttr_S &stDnrInfo, const 
 unsigned int map_user_to_system(unsigned int nUserValue, unsigned int nSystemMin, unsigned int nSystemMax, int nUserOffset)
 {
     const unsigned int nClampedUser = std::min(nUserValue, static_cast<unsigned int>(ISP_USER_VALUE_MAX));
-    const int nAdjustedUser = std::clamp(static_cast<int>(nClampedUser) + nUserOffset, ISP_USER_VALUE_MIN, ISP_USER_VALUE_MAX);
+    const int nAdjustedUser = clamp_value(static_cast<int>(nClampedUser) + nUserOffset, ISP_USER_VALUE_MIN, ISP_USER_VALUE_MAX);
     const uint64_t u64Range = static_cast<uint64_t>(nSystemMax - nSystemMin);
     return nSystemMin + static_cast<unsigned int>((static_cast<uint64_t>(nAdjustedUser) * u64Range) / ISP_USER_VALUE_MAX);
 }
@@ -115,11 +122,11 @@ unsigned int map_user_to_system(unsigned int nUserValue, unsigned int nSystemMin
  */
 unsigned int map_system_to_user(unsigned int nSystemValue, unsigned int nSystemMin, unsigned int nSystemMax, int nUserOffset)
 {
-    const unsigned int nClampedSystem = std::clamp(nSystemValue, nSystemMin, nSystemMax);
+    const unsigned int nClampedSystem = clamp_value(nSystemValue, nSystemMin, nSystemMax);
     const uint64_t u64Range = static_cast<uint64_t>(nSystemMax - nSystemMin);
     const uint64_t u64Relative = static_cast<uint64_t>(nClampedSystem - nSystemMin);
     const int nMappedUser = static_cast<int>((u64Relative * ISP_USER_VALUE_MAX) / u64Range) - nUserOffset;
-    return static_cast<unsigned int>(std::clamp(nMappedUser, ISP_USER_VALUE_MIN, ISP_USER_VALUE_MAX));
+    return static_cast<unsigned int>(clamp_value(nMappedUser, ISP_USER_VALUE_MIN, ISP_USER_VALUE_MAX));
 }
 
 /**
@@ -673,8 +680,7 @@ int CIspControl::set_hls_attr(const HlsAttr_S &stHlsAttr)
     if (stHlsAttr.bEnable)
     {
         /* 网页等级为有符号值，必须先限制范围，避免负值转换为无符号大数。 */
-        const unsigned int nUserLevel = static_cast<unsigned int>(
-            std::clamp(stHlsAttr.nHlsLevel, ISP_USER_VALUE_MIN, ISP_USER_VALUE_MAX));
+        const unsigned int nUserLevel = static_cast<unsigned int>(clamp_value(stHlsAttr.nHlsLevel, ISP_USER_VALUE_MIN, ISP_USER_VALUE_MAX));
         const unsigned int nRange = stProfile.nSystemMax - stProfile.nSystemMin;
         tolerance = stProfile.nSystemMax - (nUserLevel * nRange) / ISP_USER_VALUE_MAX;
     }

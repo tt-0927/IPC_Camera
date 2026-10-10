@@ -114,7 +114,7 @@ public:
      */
     void snapshot_garbage_detect(void *pData);
 #endif
-
+ 
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
     /**
      * @brief 平台手动抓图并送烟火识别

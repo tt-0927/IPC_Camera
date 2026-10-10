@@ -9,7 +9,7 @@
 
 #pragma once
 
-#include <variant>
+#include "variant.hpp"
 
 #include "isp_define.h"
 
@@ -20,7 +20,7 @@ namespace ISP
  * @brief 固定命令配置的统一variant类型。
  * @note  涵盖九类固定命令配置，供command service统一校验、持久化和应用。
  */
-using IspConfigValue_T = std::variant<SceneType_E,
+using IspConfigValue_T = mpark::variant<SceneType_E,
                                       ImageParam_S,
                                       ExposureAttr_S,
                                       DayNightAttr_S,

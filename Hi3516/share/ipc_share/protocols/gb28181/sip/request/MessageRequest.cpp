@@ -20,10 +20,9 @@
 #include <sstream>
 using namespace SIP;
 
-std::atomic_uint64_t MessageRequest::_sn = 0;
+std::atomic<uint64_t> MessageRequest::_sn{ 0 };
 
-MessageRequest::MessageRequest(eXosip_t *ctx, Device::Ptr device, REQUEST_MESSAGE_TYPE type)
-    : BaseRequest(ctx, device, type)
+MessageRequest::MessageRequest(eXosip_t *ctx, Device::Ptr device, REQUEST_MESSAGE_TYPE type) : BaseRequest(ctx, device, type)
 {
     _request_sn = _sn++;
 }
@@ -37,7 +36,7 @@ int MessageRequest::SendMessage(bool needcb)
     if (m_pContext)
     {
         std::string from_uri;
-        if(!GetDeviceUrl().empty())
+        if (!GetDeviceUrl().empty())
         {
             from_uri = GetDeviceUrl();
         }
@@ -50,8 +49,7 @@ int MessageRequest::SendMessage(bool needcb)
         dlog_debug("to_uri: %s", to_uri.c_str());
         if (from_uri.empty() || to_uri.empty())
         {
-            dlog_error("URI为空 from_uri: %s to_uri: %s",
-                       from_uri.c_str(), to_uri.c_str());
+            dlog_error("URI为空 from_uri: %s to_uri: %s", from_uri.c_str(), to_uri.c_str());
             return -1;
         }
         osip_message_t *msg = nullptr;
@@ -165,13 +163,13 @@ const std::string SIP::InviteRequest::make_sdp_body()
     ss << "c=IN IP4 " << m_stRequestParam.strLocalIP << "\r\n";
     ss << "t=" << m_stRequestParam.nStartTime << " " << m_stRequestParam.nEndTime << "\r\n";
     /* NOTE RTP/AVP为默认UDP协议，TCP/RTP/AVP为TCP协议，只采用PS封装格式 */
-    ss << "m=video " << m_stRequestParam.nLocalPort << " ";/* 保留空格 */
+    ss << "m=video " << m_stRequestParam.nLocalPort << " "; /* 保留空格 */
     if (m_stRequestParam.bUsingTcp)
     {
         ss << "TCP/";
     }
 
-    ss <<"RTP/AVP 96\r\n";
+    ss << "RTP/AVP 96\r\n";
     ss << "a=recvonly\r\n"; /* 仅接收，不发送数据 */
     if (m_stRequestParam.bUsingTcp && m_stRequestParam.bTcpActive)
     {
@@ -194,28 +192,20 @@ int InviteRequest::SendCall(bool needcb)
 {
 
     osip_message_t *msg = nullptr;
-    auto nRet = eXosip_call_build_initial_invite(
-        m_pContext,
-        &msg,
-        m_stRequestParam.strToUri.c_str(),
-        m_stRequestParam.strFromUri.c_str(),
-        m_stRequestParam.strRoute.c_str(),
-        m_stRequestParam.strSubject.c_str());
+    auto nRet = eXosip_call_build_initial_invite(m_pContext,
+                                                 &msg,
+                                                 m_stRequestParam.strToUri.c_str(),
+                                                 m_stRequestParam.strFromUri.c_str(),
+                                                 m_stRequestParam.strRoute.c_str(),
+                                                 m_stRequestParam.strSubject.c_str());
     if (nRet != OSIP_SUCCESS)
     {
         dlog_error("构建INVITE请求失败，错误值为: [%d]", nRet);
         return -1;
     }
 
-    _ssrc_info = std::make_shared<SSRCInfo>(
-        m_stRequestParam.nLocalPort,
-        m_stRequestParam.strSSRC,
-        m_stRequestParam.strStreamID);
-    auto session = std::make_shared<CallSession>(
-        m_pContext,
-        "rtp",
-        m_stRequestParam.strStreamID,
-        _ssrc_info);
+    _ssrc_info = std::make_shared<SSRCInfo>(m_stRequestParam.nLocalPort, m_stRequestParam.strSSRC, m_stRequestParam.strStreamID);
+    auto session = std::make_shared<CallSession>(m_pContext, "rtp", m_stRequestParam.strStreamID, _ssrc_info);
     StreamManager::instance()->AddStream(session);
 
     auto sdp_body = make_sdp_body();
@@ -243,7 +233,7 @@ int InviteRequest::SendCall(bool needcb)
             BaseRequest::Ptr request = shared_from_this();
             RequestPool::instance()->AddRequest(request_id, request);
         }
-    }    
+    }
 
     return 0;
 }
@@ -252,28 +242,20 @@ int InviteAudioRequest::SendCall(bool needcb)
 {
 
     osip_message_t *msg = nullptr;
-    auto nRet = eXosip_call_build_initial_invite(
-        m_pContext,
-        &msg,
-        m_stRequestParam.strToUri.c_str(),
-        m_stRequestParam.strFromUri.c_str(),
-        m_stRequestParam.strRoute.c_str(),
-        m_stRequestParam.strSubject.c_str());
+    auto nRet = eXosip_call_build_initial_invite(m_pContext,
+                                                 &msg,
+                                                 m_stRequestParam.strToUri.c_str(),
+                                                 m_stRequestParam.strFromUri.c_str(),
+                                                 m_stRequestParam.strRoute.c_str(),
+                                                 m_stRequestParam.strSubject.c_str());
     if (nRet != OSIP_SUCCESS)
     {
         dlog_error("构建INVITE请求失败，错误值为: [%d]", nRet);
         return -1;
     }
 
-    _ssrc_info = std::make_shared<SSRCInfo>(
-        m_stRequestParam.nLocalPort,
-        m_stRequestParam.strSSRC,
-        m_stRequestParam.strStreamID);
-    auto session = std::make_shared<CallSession>(
-        m_pContext,
-        "rtp",
-        m_stRequestParam.strStreamID,
-        _ssrc_info);
+    _ssrc_info = std::make_shared<SSRCInfo>(m_stRequestParam.nLocalPort, m_stRequestParam.strSSRC, m_stRequestParam.strStreamID);
+    auto session = std::make_shared<CallSession>(m_pContext, "rtp", m_stRequestParam.strStreamID, _ssrc_info);
     StreamManager::instance()->AddStream(session);
 
     auto sdp_body = make_sdp_body();
@@ -301,7 +283,7 @@ int InviteAudioRequest::SendCall(bool needcb)
             BaseRequest::Ptr request = shared_from_this();
             RequestPool::instance()->AddRequest(request_id, request);
         }
-    }    
+    }
 
     return 0;
 }
@@ -348,17 +330,17 @@ const std::string SIP::InviteAudioRequest::make_sdp_body()
     ss << "c=IN IP4 " << m_stRequestParam.strLocalIP << "\r\n";
     ss << "t=" << m_stRequestParam.nStartTime << " " << m_stRequestParam.nEndTime << "\r\n";
     /* NOTE RTP/AVP为默认UDP协议，TCP/RTP/AVP为TCP协议，只采用PS封装格式 */
-    ss << "m=audio " << m_stRequestParam.nLocalPort << " ";/* 保留空格 */
+    ss << "m=audio " << m_stRequestParam.nLocalPort << " "; /* 保留空格 */
     if (m_stRequestParam.bUsingTcp)
     {
         ss << "TCP/";
     }
 
-    ss <<"RTP/AVP 8 96\r\n";
+    ss << "RTP/AVP 8 96\r\n";
     ss << "a=recvonly\r\n"; /* 仅接收，不发送数据 */
     ss << "a=rtpmap:8 PCMA/8000\r\n";
     ss << "a=rtpmap:96 PS/90000\r\n";
-    //ss << "a=rtpmap:97 MPEG4/90000\r\n";
+    // ss << "a=rtpmap:97 MPEG4/90000\r\n";
     // ss << "a=rtpmap:98 H264/90000\r\n";
     // ss << "a=rtpmap:99 H265/90000\r\n";
     ss << "y=" << m_stRequestParam.strSSRC << "\r\n";

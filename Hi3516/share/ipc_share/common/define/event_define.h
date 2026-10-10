@@ -48,6 +48,10 @@ namespace Event
 #endif
 
         FACE_COMPARE = 12,         /* 人脸比对 */
+        FACE_RECOGNITION = 13,     /* 人脸识别 */
+#ifdef SCENE_INTELLIGENCE
+        SMART_RECOGNITION = 14,    /* 智能识别（行人/机动车/非机动车属性） */
+#endif
     } SmartCategory_E;
 
     /* 事件类型枚举 */
@@ -158,6 +162,13 @@ namespace Event
         /* ========== 垃圾站 ========== */
         GARBAGE_STATION_SNAPSHOT = 56, /* 垃圾站手动抓图识别 */
 
+        // ========== 人脸识别 合并侦测、抓拍、属性分析 ==========
+        FACE_RECOGNITION = 57, /* 人脸识别 */
+
+        // ========== 平安校园相关事件 ==========
+        CHANNEL_OCCUPATION = 58,    /* 通道占用 */
+        FACEEXPRESSION = 59,        /* 面部情绪分析 */
+
         /**
          * @brief   : 事件其他特殊类型
          */
@@ -230,6 +241,7 @@ namespace Event
         case Type::AUDIO_SUDDEN_DROP:
         case Type::SCENE_CHANGE:
         case Type::FACE_DETECT:
+        case Type::FACE_RECOGNITION:
         case Type::LOITERING_DETECT:
         case Type::CROWD_GATHERING:
         case Type::PARKING_DETECT:
@@ -269,6 +281,9 @@ namespace Event
         case Type::ILLEGAL_PARKING:
         case Type::ILLEGAL_LANE_CHANGE:
         case Type::PLATE_NUMBER:
+        case Type::PEDESTRIAN_ATTRIBUTE:
+        case Type::MOTORVEHICLE_ATTRIBUTE:
+        case Type::NONMOTORVEHICLE_ATTRIBUTE:
         case Type::PERSON_TRIP:
 #if CAP_AI_PEOPLE_STATISTICS
         case Type::PEOPLE_FLOW_STATISTICS:
@@ -471,6 +486,7 @@ namespace Event
         int nEnAudioAnomaly = 0;     /* 音频异常侦测 */
         int nEnSceneChange = 0;      /* 场景变更 */
         int nEnFaceDetect = 0;       /* 人脸侦测 */
+        int nEnFaceRecognition = 0;     /* 人脸识别 */
         int nEnLoiteringDetect = 0;  /* 徘徊侦测 */
         int nEnCrowdGathering = 0;   /* 人员聚集 */
         int nEnParkingDetect = 0;    /* 停车侦测 */
@@ -535,10 +551,19 @@ namespace Event
 
 
 
-         /**
+        /**
          * @brief   : 属性识别
          */
-        int nPlateNumber = 0;           /* 车牌识别 */
+        int nPlateNumber = 0;                  /* 车牌识别 */
+        int nEnPedestrianAttribute = 0;        /* 行人识别 */
+        int nEnMotorVehicleAttribute = 0;      /* 机动车识别 */
+        int nEnNonMotorVehicleAttribute = 0;   /* 非机动车识别 */
+
+        /**
+         * @brief   : 平安校园相关
+         */
+        int nChannelOccupation = 0;             /* 通道占用 */
+        int nFaceExpression = 0;                /* 面部情绪分析 */
 #endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
         int nEnSmokeFire = 0;      /* 烟火识别 */
@@ -618,6 +643,11 @@ namespace Event
          */
         bool bFaceCompare = false; /* 人脸比对 */
 
+        /**
+         * @brief   : 人脸识别
+         */
+        bool bFaceRecognition = false;   /* 人脸识别 */
+
 #ifdef SCENE_INTELLIGENCE
         /**
          * @brief   : 行为监管
@@ -660,6 +690,9 @@ namespace Event
          * @brief   : 属性识别
          */
         bool bPlateNumber = false;                          /* 车牌识别 */
+        bool bPedestrianAttribute = false;                  /* 行人属性识别 */
+        bool bMotorVehicleAttribute = false;                /* 机动车属性识别 */
+        bool bNonMotorVehicleAttribute = false;             /* 非机动车属性识别 */
 #endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
         bool bSmokeFire = false;                            /* 烟火识别 */

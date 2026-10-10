@@ -8,15 +8,22 @@
  */
 
 #include "motion_detect.hpp"
+#include "variant.hpp"
 #include "isp_control.h"
 #include "isp_dayNight.h"
 #include "video_frame_jpeg_encoder.hpp"
 
+/* C++11 基线无 std::clamp，按 [lo, hi] 收紧取值 */
+template <typename T>
+static T clamp_value(const T &tValue, const T &tLo, const T &tHi)
+{
+    return (tValue < tLo) ? tLo : ((tHi < tValue) ? tHi : tValue);
+}
+
 /* 数据队列 */
 #define QUEUE_MAX (2)
 
-CMotionDetect::CMotionDetect()
-    : m_dateQueue(QUEUE_MAX)
+CMotionDetect::CMotionDetect() : m_dateQueue(QUEUE_MAX)
 {
     /* 默认侦测区域 */
     m_stRect.nX = 0;
@@ -87,11 +94,11 @@ void CMotionDetect::setAlgoParamCfg(const Alarm::MotionDetection_S &stAlgoCfg)
 
     m_stMotionDetCfg = stAlgoCfg;
 
-    if(m_stMotionDetCfg.enMode == Alarm::MotionType_E::MOTION_NORMAL) // 普通模式
+    if (m_stMotionDetCfg.enMode == Alarm::MotionType_E::MOTION_NORMAL) // 普通模式
     {
-        if(m_stMotionDetCfg.stMotionNormalMode.nRegionType) // 网格
+        if (m_stMotionDetCfg.stMotionNormalMode.nRegionType) // 网格
         {
-            if (!std::holds_alternative<Alarm::MotionNormalMode_S::AreaGrid>(m_stMotionDetCfg.stMotionNormalMode.varRegion))
+            if (!mpark::holds_alternative<Alarm::MotionNormalMode_S::AreaGrid>(m_stMotionDetCfg.stMotionNormalMode.varRegion))
             {
                 dlog_error("[移动侦测] 网格区域类型与配置数据不匹配");
                 m_stMotionDetCfg.bEnable = false;
@@ -100,7 +107,7 @@ void CMotionDetect::setAlgoParamCfg(const Alarm::MotionDetection_S &stAlgoCfg)
             }
 
             /* 网格二维向量 */
-            auto &grid = std::get<Alarm::MotionNormalMode_S::AreaGrid>(m_stMotionDetCfg.stMotionNormalMode.varRegion);
+            auto &grid = mpark::get<Alarm::MotionNormalMode_S::AreaGrid>(m_stMotionDetCfg.stMotionNormalMode.varRegion);
             if (grid.size() < GRID_HEIGHT_DEFAULT)
             {
                 dlog_error("[移动侦测] 网格区域行数错误");
@@ -129,7 +136,7 @@ void CMotionDetect::setAlgoParamCfg(const Alarm::MotionDetection_S &stAlgoCfg)
             stRect.nHeight = ALIGN_BACK(stRect.nHeight, 4);
             dlog_debug("[移动侦测] : m_stRect: [%d,%d][%d,%d]", m_stRect.nX, m_stRect.nY, m_stRect.nWidth, m_stRect.nHeight);
             dlog_debug("[移动侦测] :   stRect: [%d,%d][%d,%d]", stRect.nX, stRect.nY, stRect.nWidth, stRect.nHeight);
-            if(stRect.nWidth == 0 || stRect.nHeight == 0)
+            if (stRect.nWidth == 0 || stRect.nHeight == 0)
             {
                 /* 未正确设置区域，不使能侦测 */
                 dlog_error("[移动侦测] 网格区域未选中有效宏块，不使能侦测");
@@ -140,7 +147,7 @@ void CMotionDetect::setAlgoParamCfg(const Alarm::MotionDetection_S &stAlgoCfg)
 
             m_bIsDraw = true;
             /* 如果改变了侦测区域的宽高，就重启 */
-            if(stRect.nWidth != m_stRect.nWidth || stRect.nHeight != m_stRect.nHeight)
+            if (stRect.nWidth != m_stRect.nWidth || stRect.nHeight != m_stRect.nHeight)
             {
                 bReboot = true;
             }
@@ -148,7 +155,7 @@ void CMotionDetect::setAlgoParamCfg(const Alarm::MotionDetection_S &stAlgoCfg)
         }
         else // 矩形
         {
-            if (!std::holds_alternative<Common::Rect_S>(m_stMotionDetCfg.stMotionNormalMode.varRegion))
+            if (!mpark::holds_alternative<Common::Rect_S>(m_stMotionDetCfg.stMotionNormalMode.varRegion))
             {
                 dlog_error("[移动侦测] 矩形区域类型与配置数据不匹配");
                 m_stMotionDetCfg.bEnable = false;
@@ -156,7 +163,7 @@ void CMotionDetect::setAlgoParamCfg(const Alarm::MotionDetection_S &stAlgoCfg)
                 goto reboot;
             }
 
-            Common::Rect_S stRect = std::get<Common::Rect_S>(m_stMotionDetCfg.stMotionNormalMode.varRegion);
+            Common::Rect_S stRect = mpark::get<Common::Rect_S>(m_stMotionDetCfg.stMotionNormalMode.varRegion);
             if (!stRect.ConvertResolution(PIXEL_WIDTH_1920, PIXEL_HEIGHT_1080, m_nWidth, m_nHeight))
             {
                 m_stMotionDetCfg.bEnable = false;
@@ -171,7 +178,7 @@ void CMotionDetect::setAlgoParamCfg(const Alarm::MotionDetection_S &stAlgoCfg)
             stRect.nHeight = ALIGN_BACK(stRect.nHeight, 4);
             dlog_debug("[移动侦测] : m_stRect: [%d,%d][%d,%d]", m_stRect.nX, m_stRect.nY, m_stRect.nWidth, m_stRect.nHeight);
             dlog_debug("[移动侦测] :   stRect: [%d,%d][%d,%d]", stRect.nX, stRect.nY, stRect.nWidth, stRect.nHeight);
-            if(stRect.nWidth == 0 || stRect.nHeight == 0)
+            if (stRect.nWidth == 0 || stRect.nHeight == 0)
             {
                 /* 未正确设置区域，不使能侦测 */
                 dlog_error("[移动侦测] 矩形区域为空，不使能侦测");
@@ -182,14 +189,14 @@ void CMotionDetect::setAlgoParamCfg(const Alarm::MotionDetection_S &stAlgoCfg)
 
             m_bIsDraw = true;
             /* 如果改变了侦测区域的宽高，就重启 */
-            if(stRect.nWidth != m_stRect.nWidth || stRect.nHeight != m_stRect.nHeight)
+            if (stRect.nWidth != m_stRect.nWidth || stRect.nHeight != m_stRect.nHeight)
             {
                 bReboot = true;
             }
             m_stRect = stRect;
         }
     }
-    else if(m_stMotionDetCfg.enMode == Alarm::MotionType_E::MOTION_EXPERT) // 专家模式
+    else if (m_stMotionDetCfg.enMode == Alarm::MotionType_E::MOTION_EXPERT) // 专家模式
     {
         m_stRect.nX = 0;
         m_stRect.nY = 0;
@@ -236,12 +243,12 @@ bool CMotionDetect::init()
         m_pMotionDetHandle = svpMd_alloc(stNeedParam);
         if (m_pMotionDetHandle)
         {
-            /* 调整Sad阈值，使移动侦测更灵敏 */
-            #if CAP_IO_EXTERNAL_DDR_00S
+/* 调整Sad阈值，使移动侦测更灵敏 */
+#if CAP_IO_EXTERNAL_DDR_00S
             m_pMotionDetHandle->stExParam.u16SadThreshold = 35;
-            #else
+#else
             m_pMotionDetHandle->stExParam.u16SadThreshold = 25;
-            #endif
+#endif
             if (TD_SUCCESS == m_pMotionDetHandle->svpMd_init(m_pMotionDetHandle))
             {
                 dlog_info("移动侦测初始化成功");
@@ -262,7 +269,7 @@ bool CMotionDetect::init()
                 m_bScaleFrameCreated = true;
 
                 /* 判断是否需要裁剪源视频 */
-                if(m_nWidth != m_stRect.nWidth || m_nHeight != m_stRect.nHeight)
+                if (m_nWidth != m_stRect.nWidth || m_nHeight != m_stRect.nHeight)
                 {
                     m_bIsCrop = true;
                     memset_s(&m_stDstFrameInfo, sizeof(ot_video_frame_info), 0, sizeof(ot_video_frame_info));
@@ -327,11 +334,11 @@ bool CMotionDetect::reboot()
 {
     std::lock_guard<std::mutex> lock(m_mutex);
 
-    if(!unInit())
+    if (!unInit())
     {
         return false;
     }
-    if(!init())
+    if (!init())
     {
         return false;
     }
@@ -373,7 +380,7 @@ void CMotionDetect::run()
         }
 
         /* 阻塞获取 */
-        if(!m_dateQueue.pop(stMediaData, TIMEOUT_1000_MS) || stMediaData.pVideoFrameInfo == nullptr)
+        if (!m_dateQueue.pop(stMediaData, TIMEOUT_1000_MS) || stMediaData.pVideoFrameInfo == nullptr)
         {
             continue;
         }
@@ -387,26 +394,23 @@ void CMotionDetect::run()
             dlog_error("原始数据帧为空");
             continue;
         }
-       /*
+        /*
          * 先按实际输入帧尺寸缩放到算法坐标系，再按配置区域裁剪。
          * 旧逻辑只比较算法尺寸和区域尺寸，全屏区域时会把 1920x1080
          * 原始帧直接送入只接受 1024x576 的 MD 句柄。
          */
-         ot_video_frame_info *pPreparedFrameInfo = pSrcFrameInfo;
-         const int nSrcWidth = pSrcFrameInfo->video_frame.width;
-         const int nSrcHeight = pSrcFrameInfo->video_frame.height;
-         if (nSrcWidth != m_nWidth || nSrcHeight != m_nHeight)
-         {
-             if (!m_bScaleFrameCreated ||
-                 TD_SUCCESS != mppVgs_scale(pSrcFrameInfo, &m_stScaleFrameInfo))
-             {
-                 dlog_error("移动侦测缩放失败: [%d,%d] -> [%d,%d]",
-                            nSrcWidth, nSrcHeight, m_nWidth, m_nHeight);
-                 continue;
-             }
-             pPreparedFrameInfo = &m_stScaleFrameInfo;
-         }
- 
+        ot_video_frame_info *pPreparedFrameInfo = pSrcFrameInfo;
+        const int nSrcWidth = pSrcFrameInfo->video_frame.width;
+        const int nSrcHeight = pSrcFrameInfo->video_frame.height;
+        if (nSrcWidth != m_nWidth || nSrcHeight != m_nHeight)
+        {
+            if (!m_bScaleFrameCreated || TD_SUCCESS != mppVgs_scale(pSrcFrameInfo, &m_stScaleFrameInfo))
+            {
+                dlog_error("移动侦测缩放失败: [%d,%d] -> [%d,%d]", nSrcWidth, nSrcHeight, m_nWidth, m_nHeight);
+                continue;
+            }
+            pPreparedFrameInfo = &m_stScaleFrameInfo;
+        }
 
         /* 视频帧指针，执行需要送算法的视频帧 */
         // ot_video_frame_info *pFrameInfo = pSrcFrameInfo;
@@ -445,12 +449,12 @@ void CMotionDetect::run()
             {
                 if (m_stMotionDetCfg.bEnable)
                 {
-                    if(m_stMotionDetCfg.enMode == 0)    /* 普通模式 */
+                    if (m_stMotionDetCfg.enMode == 0) /* 普通模式 */
                     {
                         /* 调用普通模式处理函数 */
                         processNormalMode(stRectInfo, stCtx);
                     }
-                    else if(m_stMotionDetCfg.enMode == 1)   /* 专家模式 */
+                    else if (m_stMotionDetCfg.enMode == 1) /* 专家模式 */
                     {
                         /* 调用专家模式处理函数 */
                         processExpertMode(stRectInfo, stCtx);
@@ -480,8 +484,12 @@ bool CMotionDetect::isDaytime() const
         /*自当天开始的秒数*/
         int nCurrentTime = TimeUtils_NS::getSecondsSinceStartOfDay();
         /* 将开始时间和结束时间转换为秒 */
-        int nStartTime = m_stMotionDetCfg.stMotionExpertMode.stDayTime.stStart.nHour * 3600 + m_stMotionDetCfg.stMotionExpertMode.stDayTime.stStart.nMinute * 60 + m_stMotionDetCfg.stMotionExpertMode.stDayTime.stStart.nSecond;
-        int nEndTime = m_stMotionDetCfg.stMotionExpertMode.stDayTime.stStop.nHour * 3600 + m_stMotionDetCfg.stMotionExpertMode.stDayTime.stStop.nMinute * 60 + m_stMotionDetCfg.stMotionExpertMode.stDayTime.stStop.nSecond;
+        int nStartTime = m_stMotionDetCfg.stMotionExpertMode.stDayTime.stStart.nHour * 3600 +
+                         m_stMotionDetCfg.stMotionExpertMode.stDayTime.stStart.nMinute * 60 +
+                         m_stMotionDetCfg.stMotionExpertMode.stDayTime.stStart.nSecond;
+        int nEndTime = m_stMotionDetCfg.stMotionExpertMode.stDayTime.stStop.nHour * 3600 +
+                       m_stMotionDetCfg.stMotionExpertMode.stDayTime.stStop.nMinute * 60 +
+                       m_stMotionDetCfg.stMotionExpertMode.stDayTime.stStop.nSecond;
 
         return (nCurrentTime >= nStartTime && nCurrentTime <= nEndTime);
     }
@@ -489,21 +497,18 @@ bool CMotionDetect::isDaytime() const
     return false;
 }
 
-float CMotionDetect::sensitivityToThreshold(int nSensitivity,
-                                            float fMinThreshold,
-                                            float fMaxThreshold) const
+float CMotionDetect::sensitivityToThreshold(int nSensitivity, float fMinThreshold, float fMaxThreshold) const
 {
-    int nClampedSens = std::clamp(nSensitivity, 0, 100);
+    int nClampedSens = clamp_value(nSensitivity, 0, 100);
 
     if (nClampedSens == 0)
     {
         return 1.0f;
     }
 
-    float fThreshold =
-        fMaxThreshold - nClampedSens * (fMaxThreshold - fMinThreshold) / 100.0f;
+    float fThreshold = fMaxThreshold - nClampedSens * (fMaxThreshold - fMinThreshold) / 100.0f;
 
-    return std::clamp(fThreshold, fMinThreshold, fMaxThreshold);
+    return clamp_value(fThreshold, fMinThreshold, fMaxThreshold);
 }
 
 int CMotionDetect::calculateOverlapArea(const Common::Rect_S &rect1, const Common::Rect_S &rect2) const
@@ -539,8 +544,7 @@ Common::Rect_S CMotionDetect::convertToRect(const ot_sample_svp_rect &rect) cons
     return result;
 }
 
-void CMotionDetect::processNormalMode(ot_sample_svp_rect_info &stRectInfo,
-                                      const SEventProcessContext &stCtx)
+void CMotionDetect::processNormalMode(ot_sample_svp_rect_info &stRectInfo, const SEventProcessContext &stCtx)
 {
     /* 处理检测到的矩形区域 */
     if (m_bIsCrop) /* 判断是否需要换算结果坐标至算法默认分辨率 */
@@ -591,8 +595,7 @@ void CMotionDetect::processNormalMode(ot_sample_svp_rect_info &stRectInfo,
     stContext.llTimestamp = stCtx.llTimestamp;
 #ifdef ENABLE_TVSDK_SRC
     /* perf: 有TVSDK客户端订阅时才软件编码全景图，无订阅者跳过编码 */
-    if (bIsAlarm && m_motionAlarmStateMachine.canStartAlarm() && stCtx.pFrameInfo != nullptr &&
-        AiAppCommon::tvsdk_event_image_required())
+    if (bIsAlarm && m_motionAlarmStateMachine.canStartAlarm() && stCtx.pFrameInfo != nullptr && AiAppCommon::tvsdk_event_image_required())
     {
         auto pPayload = std::make_shared<EventTvSdkPayload_S>();
         pPayload->enType = get_tvsdk_payload_type(stContext.enEventType);
@@ -605,8 +608,7 @@ void CMotionDetect::processNormalMode(ot_sample_svp_rect_info &stRectInfo,
     m_motionAlarmStateMachine.handleAlarmState(bIsAlarm, stContext);
 }
 
-void CMotionDetect::processExpertMode(ot_sample_svp_rect_info &stRectInfo,
-                                      const SEventProcessContext &stCtx)
+void CMotionDetect::processExpertMode(ot_sample_svp_rect_info &stRectInfo, const SEventProcessContext &stCtx)
 {
     /* 打印输出数据 */
     if (!access("testPrint", F_OK))

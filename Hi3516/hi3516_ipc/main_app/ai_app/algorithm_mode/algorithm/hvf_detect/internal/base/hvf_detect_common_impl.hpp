@@ -3,7 +3,7 @@
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2026-03-26 16:20:00
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-03-28 10:39:00
+ * @LastEditTime : 2026-09-23 16:17:13
  * @Description  : HVF 公共模板实现
  */
 
@@ -114,6 +114,24 @@ void reset_panel_enter_time_array(double (&dEnterTimeArray)[MaxRegions][SVP_AIDE
 }
 #endif
 
+namespace Detail
+{
+
+/* 仅 Intrusion_S 规则携带检测目标类型过滤；其余规则类型直接放行（C++11 无 if constexpr，用 tag 分发） */
+template <typename RuleType>
+bool target_match_if_intrusion(const RuleType &stRule, const ot_aidetect_class &enClassType, std::true_type)
+{
+    return is_target_match(stRule.aDetectionTarget, enClassType);
+}
+
+template <typename RuleType>
+bool target_match_if_intrusion(const RuleType &, const ot_aidetect_class &, std::false_type)
+{
+    return true;
+}
+
+} // namespace Detail
+
 template <typename RuleType, size_t MaxRegions>
 bool process_region_detection(const ot_aidetect_object_of_one_class *pstObjectClass,
                               const std::vector<RuleType> &aRules,
@@ -163,12 +181,11 @@ bool process_region_detection(const ot_aidetect_object_of_one_class *pstObjectCl
                 /* 当前目标是否位于区域内 */
                 const bool bInRegion = is_in_region(stRule.stRegion, stObject);
 
-                if constexpr (std::is_same_v<RuleType, Alarm::Intrusion_S>)
+                if (!Detail::target_match_if_intrusion(stRule,
+                                                       pstObjectClass->class_type,
+                                                       typename std::is_same<RuleType, Alarm::Intrusion_S>::type()))
                 {
-                    if (!is_target_match(stRule.aDetectionTarget, pstObjectClass->class_type))
-                    {
-                        continue;
-                    }
+                    continue;
                 }
 
                 if (!Detail::is_confidence_matched(stRule, stObject))

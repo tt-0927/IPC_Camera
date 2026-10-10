@@ -289,8 +289,8 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}  -Wno-psabi")
 set(CMAKE_C_STANDARD 11)
 # 如果编译器不支持则直接报错（而非降级）
 set(CMAKE_C_STANDARD_REQUIRED ON)
-# 设置 C++ 标准为 C++17
-set(CMAKE_CXX_STANDARD 17)
+# 设置 C++ 标准为 C++11（多平台工具链最低公分母，富瀚 gcc 6.5 不支持 C++17 库特性）
+set(CMAKE_CXX_STANDARD 11)
 # 如果编译器不支持则直接报错（而非降级）
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # 禁用编译器专属扩展（如 GNU 的 -std=gnu++11）

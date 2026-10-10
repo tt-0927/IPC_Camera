@@ -49,8 +49,22 @@ typedef struct _SFaceProcessContext_
     /* 当前帧处理时间戳，单位毫秒；用于事件、抓拍文件名和上传表单保持一致 */
     long long llTimestamp = 0;
     /* NPU 推理互斥锁，特征模型切换上下文时使用 */
-    CFaceDetectWorker* pDetectWorker = nullptr;
+    CFaceDetectWorker *pDetectWorker = nullptr;
     /* 当前帧抓拍/比对共享的图片路径，避免对同一帧重复编码 */
     FaceFrameImageCache_S stImageCache;
+
+    /* C++11 基线下带默认成员初始化器的结构体不是聚合，提供构造函数支持花括号初始化 */
+    _SFaceProcessContext_(std::vector<Inference_NS::BoxData_S> &vPointDatas_,
+                          std::vector<Common::RectInfo_S> &vstRectInfo_,
+                          ot_video_frame_info *pFrameInfo_,
+                          int nWidth_,
+                          int nHeight_,
+                          int nChnId_,
+                          long long llTimestamp_,
+                          CFaceDetectWorker *pDetectWorker_)
+        : vPointDatas(vPointDatas_), vstRectInfo(vstRectInfo_), pFrameInfo(pFrameInfo_), nWidth(nWidth_), nHeight(nHeight_),
+          nChnId(nChnId_), llTimestamp(llTimestamp_), pDetectWorker(pDetectWorker_)
+    {
+    }
 } SFaceProcessContext;
 } // namespace FaceDetectInternal

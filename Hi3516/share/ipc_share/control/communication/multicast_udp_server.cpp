@@ -3,11 +3,12 @@
  * @Author       : huangjunda
  * @Date         : 2025-03-28 17:23:18
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2025-11-18 16:33:39
+ * @LastEditTime : 2026-09-23 15:42:19
  * @Description  : 多播 UDP 服务器
  */
 
 #include "multicast_udp_server.h"
+#include <algorithm>
 
 void *CMulticastUdpServer::multicast_sendLoop()
 {
@@ -41,15 +42,14 @@ IpcRet_E CMulticastUdpServer::init()
     }
     else
     {
-        dlog_error("组播打开设备uuid文件失败")
-        return ERR;
+        dlog_error("组播打开设备uuid文件失败") return ERR;
     }
-    
+
     /* 获取服务启动时间 */
     clock_gettime(CLOCK_MONOTONIC, &stuTime);
     m_nStartTime = stuTime.tv_sec;
 
-    m_stuMulticastHandle = (NetworkMulticast_S *)malloc(sizeof(NetworkMulticast_S));
+    m_stuMulticastHandle = (NetworkMulticast_S *) malloc(sizeof(NetworkMulticast_S));
     memset(m_stuMulticastHandle, 0, sizeof(NetworkMulticast_S));
     m_stuMulticastHandle->entype = MULTICAST;
     strncpy(m_stuMulticastHandle->amcast_ip, MULIT_ADDR_DEFAULT, LENGTH16);
@@ -85,8 +85,8 @@ IpcRet_E CMulticastUdpServer::deinit()
 
 void *CMulticastUdpServer::network_multicast_handle(void *pParam)
 {
-    UserRecv_S *pRecvParam = (UserRecv_S *)pParam;
-    CMulticastUdpServer *pThis = (CMulticastUdpServer *)pRecvParam->user;
+    UserRecv_S *pRecvParam = (UserRecv_S *) pParam;
+    CMulticastUdpServer *pThis = (CMulticastUdpServer *) pRecvParam->user;
     std::string strData(pRecvParam->data);
 
     /* 搜索 */
@@ -110,10 +110,10 @@ void *CMulticastUdpServer::network_multicast_handle(void *pParam)
 
 void CMulticastUdpServer::search_response(void *pParam)
 {
-    UserRecv_S *pRecvParam = (UserRecv_S *)pParam;
+    UserRecv_S *pRecvParam = (UserRecv_S *) pParam;
     char *pClientId = NULL;
-    char achMsg[LENGTH512] = {0};
-    struct timespec stuTime = {.tv_sec = 0, .tv_nsec = 0};
+    char achMsg[LENGTH512] = { 0 };
+    struct timespec stuTime = { 0, 0 };
     ::Network::Info_S stInfo;
 
     /* 获取网卡信息 */
@@ -123,31 +123,41 @@ void CMulticastUdpServer::search_response(void *pParam)
     /* 获取当前时间点 */
     clock_gettime(CLOCK_MONOTONIC, &stuTime);
 
-    snprintf(achMsg, sizeof(achMsg), MULTICAST_ANSWER_SEARCH, SYSTEM_VERSION, DEVICE_CODE, pClientId,
-             m_strUuid.c_str(), (long int)(stuTime.tv_sec - m_nStartTime), stInfo.stIp.bEnableDhcp ? 1 : 0,
-             stInfo.stIp.ipv4Ip.c_str(), stInfo.stIp.ipv4Mask.c_str(), stInfo.stIp.ipv4Gateway.c_str(),
-             stInfo.stIp.physicalAddress.c_str(), stInfo.stDns.main.c_str());
+    snprintf(achMsg,
+             sizeof(achMsg),
+             MULTICAST_ANSWER_SEARCH,
+             SYSTEM_VERSION,
+             DEVICE_CODE,
+             pClientId,
+             m_strUuid.c_str(),
+             (long int) (stuTime.tv_sec - m_nStartTime),
+             stInfo.stIp.bEnableDhcp ? 1 : 0,
+             stInfo.stIp.ipv4Ip.c_str(),
+             stInfo.stIp.ipv4Mask.c_str(),
+             stInfo.stIp.ipv4Gateway.c_str(),
+             stInfo.stIp.physicalAddress.c_str(),
+             stInfo.stDns.main.c_str());
     dlog_info("%s", achMsg);
     os_networkmulticast_send(achMsg, strlen(achMsg), this->m_stuMulticastHandle);
 }
 
 void CMulticastUdpServer::config_response(void *pParam)
 {
-    UserRecv_S *pRecvParam = (UserRecv_S *)pParam;
+    UserRecv_S *pRecvParam = (UserRecv_S *) pParam;
     std::string strData(pRecvParam->data);
     ::Network::Info_S stInfo;
-    char achOldIp[LENGTH16]   = {0};
-    char achNewIp[LENGTH16]   = {0};
-    char achMask[LENGTH16]    = {0};
-    char achGateway[LENGTH16] = {0};
-    char achDns[LENGTH16]     = {0};
-    int  nDhcp                =  0;
+    char achOldIp[LENGTH16] = { 0 };
+    char achNewIp[LENGTH16] = { 0 };
+    char achMask[LENGTH16] = { 0 };
+    char achGateway[LENGTH16] = { 0 };
+    char achDns[LENGTH16] = { 0 };
+    int nDhcp = 0;
 
     /* 获取网卡信息 */
     CNetworkManage::instance()->get_system_networkInfo(stInfo);
 
     /* 获取当前搜索工具要修改的IP */
-    if (false == xml_get_charNode1("/CONFIGNET/oldIP/", achOldIp, (char *)strData.c_str(), sizeof(achOldIp)))
+    if (false == xml_get_charNode1("/CONFIGNET/oldIP/", achOldIp, (char *) strData.c_str(), sizeof(achOldIp)))
     {
         dlog_error("获取搜索工具配置IP信息失败");
         return;
@@ -160,7 +170,7 @@ void CMulticastUdpServer::config_response(void *pParam)
     }
 
     /* 获取当前搜索工具设置的DHCP */
-    if (false == xml_get_intNode1("/CONFIGNET/DHCP/", &nDhcp, (char *)strData.c_str()))
+    if (false == xml_get_intNode1("/CONFIGNET/DHCP/", &nDhcp, (char *) strData.c_str()))
     {
         dlog_error("获取搜索工具配置DHCP信息失败");
         return;
@@ -169,14 +179,14 @@ void CMulticastUdpServer::config_response(void *pParam)
     /* 获取返回字段信息 */
     if (0 == nDhcp)
     {
-        xml_get_charNode1("/CONFIGNET/newIP/", achNewIp, (char *)strData.c_str(), sizeof(achNewIp));
-        xml_get_charNode1("/CONFIGNET/gateway/", achGateway, (char *)strData.c_str(), sizeof(achGateway));
-        
+        xml_get_charNode1("/CONFIGNET/newIP/", achNewIp, (char *) strData.c_str(), sizeof(achNewIp));
+        xml_get_charNode1("/CONFIGNET/gateway/", achGateway, (char *) strData.c_str(), sizeof(achGateway));
+
         stInfo.stIp.ipv4Ip = achNewIp;
         stInfo.stIp.ipv4Gateway = achGateway;
     }
-    xml_get_charNode1("/CONFIGNET/mask/", achMask, (char *)strData.c_str(), sizeof(achMask));
-    xml_get_charNode1("/CONFIGNET/DNS/", achDns, (char *)strData.c_str(), sizeof(achDns));
+    xml_get_charNode1("/CONFIGNET/mask/", achMask, (char *) strData.c_str(), sizeof(achMask));
+    xml_get_charNode1("/CONFIGNET/DNS/", achDns, (char *) strData.c_str(), sizeof(achDns));
     stInfo.stIp.ipv4Mask = achMask;
     stInfo.stDns.main = achDns;
     stInfo.stIp.bEnableDhcp = nDhcp ? true : false;
@@ -187,12 +197,12 @@ void CMulticastUdpServer::config_response(void *pParam)
 
 void CMulticastUdpServer::reboot_response(void *pParam)
 {
-    UserRecv_S *pRecvParam = (UserRecv_S *)pParam;
+    UserRecv_S *pRecvParam = (UserRecv_S *) pParam;
     std::string strData(pRecvParam->data);
-    char achDeviceId[LENGTH64] = {0};
+    char achDeviceId[LENGTH64] = { 0 };
 
     /* 获取当前搜索工具返回的摄像机UUID */
-    if (false == xml_get_charNode1("/CAMERA_REBOOT/DeviceID/", achDeviceId, (char *)strData.c_str(), sizeof(achDeviceId)))
+    if (false == xml_get_charNode1("/CAMERA_REBOOT/DeviceID/", achDeviceId, (char *) strData.c_str(), sizeof(achDeviceId)))
     {
         dlog_error("获取搜索工具摄像机UUID信息失败");
         return;
@@ -203,8 +213,11 @@ void CMulticastUdpServer::reboot_response(void *pParam)
     {
         return;
     }
-    
+
     /* 直接生效,不需要重启 */
     // dlog_debug("组播搜索工具配置摄像机网络信息直接生效,不需要重启");
-    SystemManage::instance()->system_reboot([](int nRet) {});
+    SystemManage::instance()->system_reboot(
+        [](int nRet)
+        {
+        });
 }

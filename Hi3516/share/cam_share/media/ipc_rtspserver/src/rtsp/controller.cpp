@@ -344,17 +344,19 @@ void Controller::HandleSetup()
         return;
     }
 
-    /* 准入：服务级与码流级播放上限（新连接才校验，已有播放中的连接不受影响）。 */
+    /* 准入：服务级与码流级播放上限（新连接才校验，已有播放中的连接不受影响）。
+     * 计数口径与业界一致（MediaMTX/ZLMediaKit 的 session 级读者数）：
+     * 复合流客户端的音视频轨只计 1；同一连接拉主+子码流按 2 条流计入总额。 */
     const bool already_playing = connection_->session().any_playing();
-    const int playing_total = server.PlayingClientCount();
-    const int playing_stream = server.PlayingTrackCount(stream);
+    const int playing_total = server.PlayingStreamCount();
+    const int playing_stream = server.PlayingClientCount(stream);
     const int stream_limit = hub->config().max_playing_clients;
     const bool global_limit_reached = !already_playing && playing_total >= server.config().max_playing_clients;
     const bool stream_limit_reached = stream_limit > 0 && playing_stream >= stream_limit;
     if (global_limit_reached || stream_limit_reached)
     {
         IPC_RTSP_LOGW(kTag,
-                      "拒绝新客户端 client:%s stream:%d 服务级:%d/%d 码流级:%d/%d reason:%s",
+                      "拒绝新客户端 client:%s stream:%d 总流数:%d/%d 流级客户端:%d/%d reason:%s",
                       connection_->peer_ip().c_str(),
                       static_cast<int>(stream),
                       playing_total,

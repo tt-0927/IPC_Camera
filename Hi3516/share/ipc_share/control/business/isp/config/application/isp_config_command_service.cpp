@@ -3,13 +3,13 @@
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2026-07-13 12:24:26
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-07-20 17:48:54
+ * @LastEditTime : 2026-09-23 15:32:54
  * @Description  : ISP固定命令配置应用事务服务实现
  */
 
 #include "isp_config_command_service.h"
 
-#include <variant>
+#include "variant.hpp"
 #include <type_traits>
 
 #include "IpcRet.h"
@@ -17,8 +17,7 @@
 #include "isp_param_policy.h"
 #include "isp_scene_schedule_policy.h"
 
-CIspConfigCommandService::CIspConfigCommandService(IIspConfigRepository &stRepository,
-                                                   ISP::IIspBusinessService &stBusinessService)
+CIspConfigCommandService::CIspConfigCommandService(IIspConfigRepository &stRepository, ISP::IIspBusinessService &stBusinessService)
     : m_rstRepository(stRepository), m_rstBusinessService(stBusinessService)
 {
 }
@@ -115,49 +114,44 @@ int CIspConfigCommandService::set_config(ISP::IspConfigValue_T stNewValue)
 int CIspConfigCommandService::normalize(ISP::IspConfigValue_T &stValue, const ISP::IspCapabilityProfile_S &stProfile) const
 {
     /* 按 variant 的具体配置域选择策略，策略可在原对象上裁剪默认值或范围。 */
-    return std::visit(
-        [&stProfile](auto &stConfig) -> int
-        {
-            /* T 是编译期类型标签，避免将不同配置结构交给错误的策略函数。 */
-            using T = std::decay_t<decltype(stConfig)>;
-            if constexpr (std::is_same_v<T, ISP::ImageParam_S>)
-            {
-                return IspParamPolicy_NS::normalize_image_param(stConfig, stProfile);
-            }
-            else if constexpr (std::is_same_v<T, ISP::ExposureAttr_S>)
-            {
-                return IspParamPolicy_NS::normalize_exposure(stConfig, stProfile);
-            }
-            else if constexpr (std::is_same_v<T, ISP::DayNightAttr_S>)
-            {
-                return IspParamPolicy_NS::normalize_daynight(stConfig, stProfile);
-            }
-            else if constexpr (std::is_same_v<T, ISP::BackLightArrt_S>)
-            {
-                return IspParamPolicy_NS::normalize_backlight(stConfig, stProfile);
-            }
-            else if constexpr (std::is_same_v<T, ISP::AwbAttr_S>)
-            {
-                return IspParamPolicy_NS::normalize_awb(stConfig, stProfile);
-            }
-            else if constexpr (std::is_same_v<T, ISP::DnrAttr_S>)
-            {
-                return IspParamPolicy_NS::normalize_nr(stConfig, stProfile);
-            }
-            else if constexpr (std::is_same_v<T, ISP::VideoAdjust_S>)
-            {
-                return IspParamPolicy_NS::normalize_mirror(stConfig, stProfile);
-            }
-            else if constexpr (std::is_same_v<T, ISP::SceneType_E>)
-            {
-                return IspParamPolicy_NS::normalize_scene(stConfig, stProfile);
-            }
-            else if constexpr (std::is_same_v<T, ISP::SceneSchedule_S>)
-            {
-                return IspSceneSchedulePolicy_NS::normalize_scene_schedule(stConfig, stProfile);
-            }
-        },
-        stValue);
+    if (mpark::holds_alternative<ISP::ImageParam_S>(stValue))
+    {
+        return IspParamPolicy_NS::normalize_image_param(mpark::get<ISP::ImageParam_S>(stValue), stProfile);
+    }
+    if (mpark::holds_alternative<ISP::ExposureAttr_S>(stValue))
+    {
+        return IspParamPolicy_NS::normalize_exposure(mpark::get<ISP::ExposureAttr_S>(stValue), stProfile);
+    }
+    if (mpark::holds_alternative<ISP::DayNightAttr_S>(stValue))
+    {
+        return IspParamPolicy_NS::normalize_daynight(mpark::get<ISP::DayNightAttr_S>(stValue), stProfile);
+    }
+    if (mpark::holds_alternative<ISP::BackLightArrt_S>(stValue))
+    {
+        return IspParamPolicy_NS::normalize_backlight(mpark::get<ISP::BackLightArrt_S>(stValue), stProfile);
+    }
+    if (mpark::holds_alternative<ISP::AwbAttr_S>(stValue))
+    {
+        return IspParamPolicy_NS::normalize_awb(mpark::get<ISP::AwbAttr_S>(stValue), stProfile);
+    }
+    if (mpark::holds_alternative<ISP::DnrAttr_S>(stValue))
+    {
+        return IspParamPolicy_NS::normalize_nr(mpark::get<ISP::DnrAttr_S>(stValue), stProfile);
+    }
+    if (mpark::holds_alternative<ISP::VideoAdjust_S>(stValue))
+    {
+        return IspParamPolicy_NS::normalize_mirror(mpark::get<ISP::VideoAdjust_S>(stValue), stProfile);
+    }
+    if (mpark::holds_alternative<ISP::SceneType_E>(stValue))
+    {
+        return IspParamPolicy_NS::normalize_scene(mpark::get<ISP::SceneType_E>(stValue), stProfile);
+    }
+    if (mpark::holds_alternative<ISP::SceneSchedule_S>(stValue))
+    {
+        return IspSceneSchedulePolicy_NS::normalize_scene_schedule(mpark::get<ISP::SceneSchedule_S>(stValue), stProfile);
+    }
+    dlog_error("未知的ISP配置域类型");
+    return ERR;
 }
 
 int CIspConfigCommandService::restore_after_apply_failure(const ISP::IspConfigValue_T &stOldValue, int nOriginalRet)
@@ -194,12 +188,12 @@ int CIspConfigCommandService::restore_default_config()
     ISP::VideoAdjust_S stOldMirror;
     ISP::IspConfigValue_T stOldMirrorVariant = stOldMirror;
     nRet = m_rstRepository.load(stOldMirrorVariant);
-    if (nRet != OK || !std::holds_alternative<ISP::VideoAdjust_S>(stOldMirrorVariant))
+    if (nRet != OK || !mpark::holds_alternative<ISP::VideoAdjust_S>(stOldMirrorVariant))
     {
         dlog_error("恢复默认读取旧镜像快照失败: %d", nRet);
         return (nRet == OK) ? ERR : nRet;
     }
-    stOldMirror = std::get<ISP::VideoAdjust_S>(stOldMirrorVariant);
+    stOldMirror = mpark::get<ISP::VideoAdjust_S>(stOldMirrorVariant);
 
     /* step2: 恢复当前场景槽默认配置。 */
     nRet = m_rstRepository.restore_defaults();

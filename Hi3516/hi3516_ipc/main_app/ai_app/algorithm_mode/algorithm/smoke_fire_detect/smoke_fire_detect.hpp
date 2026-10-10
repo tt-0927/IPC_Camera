@@ -34,6 +34,9 @@ public:
         std::vector<Common::RectInfo_S> vstRectInfo;  /* 命中的目标框 */
         bool bSmokeDetected = false;                  /* 是否命中烟雾 */
         bool bFireDetected = false;                   /* 是否命中火焰 */
+        unsigned int nRawBoxCount = 0;                /* 模型后处理返回的原始框数 */
+        float fMaxTargetConfidence = 0.0f;            /* 烟雾/火焰最高置信度 */
+        float fThreshold = 0.0f;                      /* 本次快照使用的业务阈值 */
     };
 
     /**
@@ -43,7 +46,7 @@ public:
      * @return   {bool} true 成功，false 超时或未就绪
      * @note     : 请求被投递到自身流式线程串行执行，避免与 run() 并发调用推理接口
      */
-    bool detectOnce(SnapshotResult_S &stResult, int nTimeoutMs = 3000);
+    bool detectOnce(SnapshotResult_S &stResult, int nTimeoutMs = 8000);
 
 private:
     bool init();
@@ -52,14 +55,15 @@ private:
     void logDiagnostics();
     void processResult(const std::vector<Inference_NS::BoxData_S> &boxes,
                        const SEventProcessContext &context);
-
     /**
      * @brief   : 在流式线程内处理一次快照请求
      * @param    {ot_video_frame_info *} pFrameInfo 当前帧
      * @param    {const std::vector<Inference_NS::BoxData_S> &} boxes 推理结果
      * @return   {void}
      */
-    void handleSnapshotRequest(ot_video_frame_info *pFrameInfo, const std::vector<Inference_NS::BoxData_S> &boxes);
+    void handleSnapshotRequest(ot_video_frame_info *pFrameInfo,
+                               const std::vector<Inference_NS::BoxData_S> &boxes,
+                               unsigned long long ullRequestId);
 
     /**
      * @brief   : 快照模式下的目标筛选
@@ -88,8 +92,14 @@ private:
         float threshold = 0.0f;
     };
 
+    struct QueuedFrame_S
+    {
+        MediaData_S stMediaData;
+        unsigned long long ullSnapshotRequestId = 0;
+    };
+
     Inference_NS::CYoloUltralytics *m_pDetectHandle = nullptr;
-    BQ_NS::CBlockingQueue<MediaData_S> m_dataQueue{2};
+    BQ_NS::CBlockingQueue<QueuedFrame_S> m_dataQueue{2};
     std::atomic<bool> m_bRunning{true};
     std::atomic<bool> m_bEnabled{false};
     std::atomic<unsigned int> m_receivedFrames{0};
@@ -108,9 +118,13 @@ private:
 
     /* 手动抓拍：请求标志由调用线程置位，结果由流式线程回填，条件变量同步 */
     std::atomic<bool> m_bSnapshotPending{false};
+    std::atomic<unsigned long long> m_snapshotRequestSerial{0};
+    std::atomic<unsigned long long> m_activeSnapshotRequestId{0};
+    std::mutex m_snapshotRequestMutex; /* 串行化多个平台快照请求 */
     std::mutex m_snapshotMutex;
     std::condition_variable m_snapshotCv;
     bool m_bSnapshotDone = false;
+    unsigned long long m_completedSnapshotRequestId = 0;
     SnapshotResult_S m_stSnapshotResult;
 };
 

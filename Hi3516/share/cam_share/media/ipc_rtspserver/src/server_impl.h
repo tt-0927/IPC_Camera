@@ -285,19 +285,22 @@ public:
     void NoteConnectionClosed(Connection *connection);
 
     /**
-     * 当前正在播放的客户端数（按连接计）。
+     * 当前正在播放的流数（"总取流路数"口径，与 MediaMTX/ZLMediaKit 的
+     * session 级读者统计一致）。
      *
-     * @return 至少一条 track 在播的连接数
+     * @return 每连接按其正在播放的不同码流数累计：单流客户端计 1；
+     *         同一连接同时拉主+子码流计 2；复合流（音视频同码流）仍计 1
      */
-    int PlayingClientCount() const;
+    int PlayingStreamCount() const;
 
     /**
-     * 指定码流上正在播放的 track 数。
+     * 指定码流上正在播放的客户端数。
      *
      * @param id 码流标识
-     * @return 该码流上 playing 状态的 track 数
+     * @return 该码流上存在 playing 状态 track 的连接数；
+     *         复合流客户端的音视频轨只计 1
      */
-    int PlayingTrackCount(StreamId id) const;
+    int PlayingClientCount(StreamId id) const;
 
     /**
      * 按全局限频请求编码器立即产出 IDR：命中限频窗口或 MJPEG 流时跳过；

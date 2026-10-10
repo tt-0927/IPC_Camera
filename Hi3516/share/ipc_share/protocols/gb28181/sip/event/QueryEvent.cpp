@@ -87,25 +87,25 @@ bool SIP::QueryEvent::HandleDeviceInfo(const SipEvent::Ptr &e)
     nodeCmdType.text().set("DeviceInfo");
 
     auto nodeSN = root.append_child("SN");
-    nodeSN.text().set(m_header.strSN);
+    nodeSN.text().set(m_header.strSN.c_str());
 
     auto nodeDeviceID = root.append_child("DeviceID");
-    nodeDeviceID.text().set(m_header.strDevID);
+    nodeDeviceID.text().set(m_header.strDevID.c_str());
 
     auto nodeResult = root.append_child("Result");
     nodeResult.text().set("OK");
 
     auto nodeDeviceName = root.append_child("DeviceName");
-    nodeDeviceName.text().set(stLocalInfo.strDevName);
+    nodeDeviceName.text().set(stLocalInfo.strDevName.c_str());
 
     auto nodeManufacturer = root.append_child("Manufacturer");
-    nodeManufacturer.text().set(stLocalInfo.strManufacturer);
+    nodeManufacturer.text().set(stLocalInfo.strManufacturer.c_str());
 
     auto nodeModel = root.append_child("Model");
-    nodeModel.text().set(stLocalInfo.strModel);
+    nodeModel.text().set(stLocalInfo.strModel.c_str());
 
     auto nodeFirmware = root.append_child("Firmware");
-    nodeFirmware.text().set(stLocalInfo.strFirmware);
+    nodeFirmware.text().set(stLocalInfo.strFirmware.c_str());
 
     auto nodeChnNum = root.append_child("Channel");
     nodeChnNum.text().set(1);
@@ -134,10 +134,10 @@ bool SIP::QueryEvent::HandleDeviceStatus(const SipEvent::Ptr &e)
     nodeCmdType.text().set("DeviceStatus");
 
     auto nodeSN = root.append_child("SN");
-    nodeSN.text().set(m_header.strSN);
+    nodeSN.text().set(m_header.strSN.c_str());
 
     auto nodeDeviceID = root.append_child("DeviceID");
-    nodeDeviceID.text().set(m_header.strDevID);
+    nodeDeviceID.text().set(m_header.strDevID.c_str());
 
     auto nodeResult = root.append_child("Result");
     nodeResult.text().set("OK");
@@ -147,13 +147,13 @@ bool SIP::QueryEvent::HandleDeviceStatus(const SipEvent::Ptr &e)
 
     auto nodeStatus = root.append_child("Status");
     nodeStatus.text().set("OK");
- 
-    std::string deviceTime = CTimeManage::instance()->get_device_time();
-    dlog_info("deviceTime:%s",deviceTime.c_str());
-    auto nodeDeviceTime = root.append_child("DeviceTime");
-    nodeDeviceTime.text().set(deviceTime);
 
-     /* 后期加上报警状态 */
+    std::string deviceTime = CTimeManage::instance()->get_device_time();
+    dlog_info("deviceTime:%s", deviceTime.c_str());
+    auto nodeDeviceTime = root.append_child("DeviceTime");
+    nodeDeviceTime.text().set(deviceTime.c_str());
+
+    /* 后期加上报警状态 */
     auto nodeAlarmstatus = root.append_child("Alarmstatus");
     nodeAlarmstatus.text().set(0);
 
@@ -202,20 +202,20 @@ bool SIP::QueryEvent::HandleCatalog(const SipEvent::Ptr &e)
     auto root = stNewDoc.append_child("Response");
 
     auto nodeCmdType = root.append_child("CmdType");
-    nodeCmdType.text().set(m_header.strCmdType);
+    nodeCmdType.text().set(m_header.strCmdType.c_str());
 
     auto nodeSN = root.append_child("SN");
-    nodeSN.text().set(m_header.strSN);
+    nodeSN.text().set(m_header.strSN.c_str());
 
     auto nodeDeviceID = root.append_child("DeviceID");
-    nodeDeviceID.text().set(m_header.strDevID);
+    nodeDeviceID.text().set(m_header.strDevID.c_str());
 
     auto nodeSumNum = root.append_child("SumNum");
-    nodeSumNum.text().set(std::to_string(nChnTotal));
+    nodeSumNum.text().set(std::to_string(nChnTotal).c_str());
 
     /* 每次发送一个通道信息 */
     auto nodeDevList = root.append_child("DeviceList");
-    nodeDevList.append_attribute("Num").set_value(std::to_string(1));
+    nodeDevList.append_attribute("Num").set_value(std::to_string(1).c_str());
 
     auto nodeItem = nodeDevList.append_child("Item");
     nodeItem.append_child("DeviceID");
@@ -233,18 +233,18 @@ bool SIP::QueryEvent::HandleCatalog(const SipEvent::Ptr &e)
 
     for (auto &item : vecChnList)
     {
-        nodeItem.child("DeviceID").text().set(item->strChannelID);
-        nodeItem.child("Name").text().set(item->strName);
-        nodeItem.child("Manufacturer").text().set(item->strManufacturer);
-        nodeItem.child("Model").text().set(item->strModel);
-        nodeItem.child("Owner").text().set(item->strOwner);
-        nodeItem.child("CivilCode").text().set(item->strCivilCode);
-        nodeItem.child("Address").text().set(item->strAddress);
-        nodeItem.child("Parental").text().set(item->strParental);
-        nodeItem.child("ParentID").text().set(item->strParentID);
-        nodeItem.child("RegisterWay").text().set(item->strRegisterWay);
-        nodeItem.child("Secrecy").text().set(item->strSecrecy);
-        nodeItem.child("Status").text().set(item->strStatus);
+        nodeItem.child("DeviceID").text().set(item->strChannelID.c_str());
+        nodeItem.child("Name").text().set(item->strName.c_str());
+        nodeItem.child("Manufacturer").text().set(item->strManufacturer.c_str());
+        nodeItem.child("Model").text().set(item->strModel.c_str());
+        nodeItem.child("Owner").text().set(item->strOwner.c_str());
+        nodeItem.child("CivilCode").text().set(item->strCivilCode.c_str());
+        nodeItem.child("Address").text().set(item->strAddress.c_str());
+        nodeItem.child("Parental").text().set(item->strParental.c_str());
+        nodeItem.child("ParentID").text().set(item->strParentID.c_str());
+        nodeItem.child("RegisterWay").text().set(item->strRegisterWay.c_str());
+        nodeItem.child("Secrecy").text().set(item->strSecrecy.c_str());
+        nodeItem.child("Status").text().set(item->strStatus.c_str());
         std::ostringstream os;
         stNewDoc.save(os);
         auto strGB18030 = ::ToMbcsString(os.str());
@@ -295,14 +295,10 @@ bool SIP::QueryEvent::HandleRecordInfo(const SipEvent::Ptr &e)
         strEndTime = nodeEndTime.text().as_string();
     }
 #if QUERY_EVENT_DEBUG
-    dlog_info("[录制文件查询]SN:[%s]",
-              m_header.strSN.c_str());
-    dlog_info("[录制文件查询]通道ID:[%s]",
-              m_header.strDevID.c_str());
-    dlog_info("[录制文件查询]开始时间:[%s]",
-              strStartTime.c_str());
-    dlog_info("[录制文件查询]结束时间:[%s]",
-              strEndTime.c_str());
+    dlog_info("[录制文件查询]SN:[%s]", m_header.strSN.c_str());
+    dlog_info("[录制文件查询]通道ID:[%s]", m_header.strDevID.c_str());
+    dlog_info("[录制文件查询]开始时间:[%s]", strStartTime.c_str());
+    dlog_info("[录制文件查询]结束时间:[%s]", strEndTime.c_str());
 #endif
 
     { /* 配合上层实现业务功能 */
@@ -327,8 +323,7 @@ bool SIP::QueryEvent::HandleRecordInfo(const SipEvent::Ptr &e)
             fnCb(stCondition, stResult);
         }
 #if QUERY_EVENT_DEBUG
-        dlog_debug("[录制文件查询]查询通道号[%d]结果[%d]",
-                   pChn->nIndex, stResult.nResult);
+        dlog_debug("[录制文件查询]查询通道号[%d]结果[%d]", pChn->nIndex, stResult.nResult);
         if (stResult.nResult > 0)
         {
             for (auto &item : stResult.vecResult)
@@ -352,19 +347,19 @@ bool SIP::QueryEvent::HandleRecordInfo(const SipEvent::Ptr &e)
             auto root = stNewDoc.append_child("Response");
 
             auto nodeCmdType = root.append_child("CmdType");
-            nodeCmdType.text().set(m_header.strCmdType);
+            nodeCmdType.text().set(m_header.strCmdType.c_str());
 
             auto nodeSN = root.append_child("SN");
-            nodeSN.text().set(m_header.strSN);
+            nodeSN.text().set(m_header.strSN.c_str());
 
             auto nodeDeviceID = root.append_child("DeviceID");
-            nodeDeviceID.text().set(m_header.strDevID);
+            nodeDeviceID.text().set(m_header.strDevID.c_str());
 
             auto nodeName = root.append_child("Name");
-            nodeName.text().set(pChn->strName);
+            nodeName.text().set(pChn->strName.c_str());
 
             auto nodeSumNum = root.append_child("SumNum");
-            nodeSumNum.text().set(std::to_string(stResult.nResult));
+            nodeSumNum.text().set(std::to_string(stResult.nResult).c_str());
             /* 没数据也发一个消息 */
             if (stResult.nResult == 0)
             {
@@ -378,15 +373,15 @@ bool SIP::QueryEvent::HandleRecordInfo(const SipEvent::Ptr &e)
             /* 每次发送一个文件信息 */
             auto nodeRecList = root.append_child("RecordList");
 
-            nodeRecList.append_attribute("Num").set_value(std::to_string(1));
+            nodeRecList.append_attribute("Num").set_value(std::to_string(1).c_str());
 
             /* 先设置好字段——固定字段的可以先填写数据 */
             auto nodeItem = nodeRecList.append_child("Item");
             nodeItem.append_child("DeviceID");
-            nodeItem.child("DeviceID").text().set(m_header.strDevID);
+            nodeItem.child("DeviceID").text().set(m_header.strDevID.c_str());
 
             nodeItem.append_child("Name");
-            nodeItem.child("Name").text().set(pChn->strName);
+            nodeItem.child("Name").text().set(pChn->strName.c_str());
 
             nodeItem.append_child("FilePath");
             nodeItem.append_child("StartTime");
@@ -411,11 +406,11 @@ bool SIP::QueryEvent::HandleRecordInfo(const SipEvent::Ptr &e)
 #endif
                 /* 拼接FilePath */
                 auto strFilePath = std::to_string(lStartTime) + "_" + std::to_string(lEndTime);
-                nodeItem.child("FilePath").text().set(strFilePath);
-                nodeItem.child("StartTime").text().set(itemStartTime);
-                nodeItem.child("EndTime").text().set(itemEndTime);
+                nodeItem.child("FilePath").text().set(strFilePath.c_str());
+                nodeItem.child("StartTime").text().set(itemStartTime.c_str());
+                nodeItem.child("EndTime").text().set(itemEndTime.c_str());
                 /* FIXME 暂定都是公开 */
-                nodeItem.child("Secrecy").text().set(std::to_string(0));
+                nodeItem.child("Secrecy").text().set(std::to_string(0).c_str());
                 /* FIXME 暂定都是计划录制 */
                 nodeItem.child("Type").text().set("time");
                 std::ostringstream os;
@@ -428,9 +423,13 @@ bool SIP::QueryEvent::HandleRecordInfo(const SipEvent::Ptr &e)
     return true;
 }
 
-bool SIP::QueryEvent::ResponeControlResult(const SipEvent::Ptr &e, uint64_t nSN, std::string strCmdType, std::string strDeviceID, std::string strResult)
+bool SIP::QueryEvent::ResponeControlResult(const SipEvent::Ptr &e,
+                                           uint64_t nSN,
+                                           std::string strCmdType,
+                                           std::string strDeviceID,
+                                           std::string strResult)
 {
-    //拼接返回报文
+    // 拼接返回报文
     pugi::xml_document stNewDoc;
 
     auto declaration = stNewDoc.append_child(pugi::node_declaration);
@@ -442,16 +441,16 @@ bool SIP::QueryEvent::ResponeControlResult(const SipEvent::Ptr &e, uint64_t nSN,
     auto rootRet = stNewDoc.append_child("Response");
 
     auto nodeCmdType = rootRet.append_child("CmdType");
-    nodeCmdType.text().set(strCmdType);
+    nodeCmdType.text().set(strCmdType.c_str());
 
     auto nodeSN = rootRet.append_child("SN");
     nodeSN.text().set(nSN);
 
     auto nodeDeviceID = rootRet.append_child("DeviceID");
-    nodeDeviceID.text().set(strDeviceID);
+    nodeDeviceID.text().set(strDeviceID.c_str());
 
     auto nodeResult = rootRet.append_child("Result");
-    nodeResult.text().set(strResult);
+    nodeResult.text().set(strResult.c_str());
 
     std::ostringstream os;
     stNewDoc.save(os);
@@ -465,116 +464,116 @@ bool SIP::QueryEvent::HandleConfigDownload(const SipEvent::Ptr &e)
 {
     ParseHeader(e);
     auto root = m_doc.first_child();
-    
+
     auto configTypeNode = root.child("ConfigType");
     if (configTypeNode)
     {
         std::string strValue = configTypeNode.text().as_string();
-        dlog_info("======configTypeValue===%s==",strValue.c_str());
-        if(strValue == "BasicParam")
+        dlog_info("======configTypeValue===%s==", strValue.c_str());
+        if (strValue == "BasicParam")
         {
             return HandleBasicParamRequest(e);
         }
-        else if(strValue == "VideoParamOpt")
+        else if (strValue == "VideoParamOpt")
         {
             return HandleVideoParOptRequest(e);
         }
-        else if(strValue == "SVACEncodeConfig")
+        else if (strValue == "SVACEncodeConfig")
         {
             return HandleSVACEnConfRequest(e);
         }
-        else if(strValue == "SVACDncodeConfig")
+        else if (strValue == "SVACDncodeConfig")
         {
             return HandleSVACDeConfRequest(e);
         }
-        else if(strValue == "VideoParamAttribute")
+        else if (strValue == "VideoParamAttribute")
         {
             return HandleVideoParAttrRequst(e);
         }
-        else if(strValue == "VideoRecordPlan")
+        else if (strValue == "VideoRecordPlan")
         {
             return HandleVideoRecPlanRequst(e);
         }
-        else if(strValue == "VideoAlarmRecord")
+        else if (strValue == "VideoAlarmRecord")
         {
             return HandleVideoAlarmRequest(e);
         }
-        else if(strValue == "PictureMask")
+        else if (strValue == "PictureMask")
         {
             return HandlePictureMaskRequst(e);
         }
-        else if(strValue == "FrameMirror")
+        else if (strValue == "FrameMirror")
         {
             return HandleFrameMirrorRequst(e);
         }
-        else if(strValue == "AlarmReport")
+        else if (strValue == "AlarmReport")
         {
             return HandleAlarmReportRequst(e);
         }
-        else if(strValue == "OSDConfig")
+        else if (strValue == "OSDConfig")
         {
             return HandleOSDConfigRequest(e);
         }
-        else if(strValue == "SnapShotConfig")
+        else if (strValue == "SnapShotConfig")
         {
             return HandleSnapShotConfig(e);
         }
     }
 
-    //if(!root.child("BasicParam").empty())
+    // if(!root.child("BasicParam").empty())
     //{
     //    dlog_info("======HandleBasicParamReques=====");
     //    return HandleBasicParamRequest(e);
-    //}
-    //else if(!root.child("VideoParamOpt").empty())
+    // }
+    // else if(!root.child("VideoParamOpt").empty())
     //{
     //    return HandleVideoParOptRequest(e);
-    //}
-    //else if(!root.child("SVACEncodeConfig").empty())
+    // }
+    // else if(!root.child("SVACEncodeConfig").empty())
     //{
     //    return HandleSVACEnConfRequest(e);
-    //}
-    //else if(!root.child("SVACDncodeConfig").empty())
+    // }
+    // else if(!root.child("SVACDncodeConfig").empty())
     //{
     //    return HandleSVACDeConfRequest(e);
-    //}
-    //else if(!root.child("VideoParamAttribute").empty())
+    // }
+    // else if(!root.child("VideoParamAttribute").empty())
     //{
     //    return HandleVideoParAttrRequst(e);
-    //}
-    //else if(!root.child("VideoRecordPlan").empty())
+    // }
+    // else if(!root.child("VideoRecordPlan").empty())
     //{
     //    return HandleVideoRecPlanRequst(e);
-    //}
-    //else if(!root.child("VideoAlarmRecord").empty())
+    // }
+    // else if(!root.child("VideoAlarmRecord").empty())
     //{
     //    return HandleVideoAlarmRequest(e);
-    //}
-    //else if(!root.child("PictureMask").empty())
+    // }
+    // else if(!root.child("PictureMask").empty())
     //{
     //    return HandlePictureMaskRequst(e);
-    //}
-    //else if(!root.child("FrameMirror").empty())
+    // }
+    // else if(!root.child("FrameMirror").empty())
     //{
     //    return HandleFrameMirrorRequst(e);
-    //}
-    //else if(!root.child("AlarmReport").empty())
+    // }
+    // else if(!root.child("AlarmReport").empty())
     //{
     //    return HandleAlarmReportRequst(e);
-    //}
-    //else if(!root.child("OSDConfig").empty())
+    // }
+    // else if(!root.child("OSDConfig").empty())
     //{
     //    return HandleOSDConfigRequest(e);
-    //}
-    //else if(!root.child("SnapShotConfig").empty())
+    // }
+    // else if(!root.child("SnapShotConfig").empty())
     //{
     //    return HandleSnapShotConfig(e);
-    //}
+    // }
     dlog_info("=============null==========");
     return true;
 }
 
-bool  SIP::QueryEvent::HandleBasicParamRequest(const SipEvent::Ptr &e)
+bool SIP::QueryEvent::HandleBasicParamRequest(const SipEvent::Ptr &e)
 {
     ParseHeader(e);
     GB28181::BasicParamInfo_S tBasicParam;
@@ -587,35 +586,35 @@ bool  SIP::QueryEvent::HandleBasicParamRequest(const SipEvent::Ptr &e)
     std::string strID = root.child("DeviceID").text().as_string();
     tBasicParam.strID = strID;
     /* 只获取当前设备----注释掉通道 */
-    //auto pClient = dynamic_cast<SipClient *>(e->m_pNetBase);
-    //if (pClient == nullptr)
+    // auto pClient = dynamic_cast<SipClient *>(e->m_pNetBase);
+    // if (pClient == nullptr)
     //{
     //    ResponeControlResult(e, nSN, m_header.strCmdType, strID, "ERROR");
     //    dlog_warn("客户端实例为空，无法获取客户端的通道信息");
     //    return false;
-    //}
-    //auto pChn = pClient->GetChannelByID(strID);
-    //if (nullptr == pChn)
+    // }
+    // auto pChn = pClient->GetChannelByID(strID);
+    // if (nullptr == pChn)
     //{
     //    ResponeControlResult(e, nSN, m_header.strCmdType, strID, "ERROR");
     //    dlog_warn("没有找到通道[%s] 默认当前设备", m_header.strDevID.c_str());
     //    pChn->nIndex = -1;
-    //}
+    // }
     /*上级根据通道号赋值，下级设置成-1*/
     tBasicParam.nIndex = -1;
     /*true-设备配置设置，false-设备配置获取*/
     tBasicParam.bIsSet = false;
 
     /*TODO 设备配置上层回调*/
-     /* 配合上层实现业务功能 */
-     SipCbResult_S stResult;
-     {
+    /* 配合上层实现业务功能 */
+    SipCbResult_S stResult;
+    {
         auto fnCb = ::SipModule::instance()->GetBasicParamCb();
         if (fnCb)
         {
             fnCb(tBasicParam, stResult);
         }
-     }
+    }
 
     /* 拼接返回报文 */
     pugi::xml_document stNewDoc;
@@ -629,23 +628,23 @@ bool  SIP::QueryEvent::HandleBasicParamRequest(const SipEvent::Ptr &e)
     auto rootRet = stNewDoc.append_child("Response");
 
     auto nodeCmdType = rootRet.append_child("CmdType");
-    nodeCmdType.text().set(m_header.strCmdType);
+    nodeCmdType.text().set(m_header.strCmdType.c_str());
 
     auto nodeSN = rootRet.append_child("SN");
     nodeSN.text().set(nSN);
 
     auto nodeDeviceID = rootRet.append_child("DeviceID");
-    nodeDeviceID.text().set(strID);
+    nodeDeviceID.text().set(strID.c_str());
 
     auto nodeResult = rootRet.append_child("Result");
-    nodeResult.text().set(tBasicParam.strResult);
+    nodeResult.text().set(tBasicParam.strResult.c_str());
 
-    if(stResult.nResult == 0)
+    if (stResult.nResult == 0)
     {
         auto nodeBasic = rootRet.append_child("BasicParam");
 
         auto nodeName = nodeBasic.append_child("Name");
-        nodeName.text().set(tBasicParam.m_szName);
+        nodeName.text().set(tBasicParam.m_szName.c_str());
         auto nodeExpiration = nodeBasic.append_child("Expiration");
         nodeExpiration.text().set(tBasicParam.m_nExpiration);
         auto nodeInterval = nodeBasic.append_child("HeartBeatInterval");
@@ -722,26 +721,25 @@ bool SIP::QueryEvent::HandleVideoParOptRequest(const SipEvent::Ptr &e)
     auto rootRet = stNewDoc.append_child("Response");
 
     auto nodeCmdType = rootRet.append_child("CmdType");
-    nodeCmdType.text().set(m_header.strCmdType);
+    nodeCmdType.text().set(m_header.strCmdType.c_str());
 
     auto nodeSN = rootRet.append_child("SN");
     nodeSN.text().set(nSN);
 
     auto nodeDeviceID = rootRet.append_child("DeviceID");
-    nodeDeviceID.text().set(strID);
+    nodeDeviceID.text().set(strID.c_str());
 
     auto nodeResult = rootRet.append_child("Result");
-    nodeResult.text().set(tParamOpt.strResult);
+    nodeResult.text().set(tParamOpt.strResult.c_str());
 
-    if(stResult.nResult == 0)
+    if (stResult.nResult == 0)
     {
         auto nodeParOpt = rootRet.append_child("VideoParamOpt");
 
         auto nodeSpeed = nodeParOpt.append_child("DownloadSpeed");
-        nodeSpeed.text().set(tParamOpt.strDownloadSpeed);
+        nodeSpeed.text().set(tParamOpt.strDownloadSpeed.c_str());
         auto nodeResolution = nodeParOpt.append_child("Resolution");
-        nodeResolution.text().set(tParamOpt.strResolution);
-
+        nodeResolution.text().set(tParamOpt.strResolution.c_str());
     }
     else
     {
@@ -755,7 +753,6 @@ bool SIP::QueryEvent::HandleVideoParOptRequest(const SipEvent::Ptr &e)
     SendMessageWithCallID(e, strGB18030);
 
     return true;
-
 }
 
 bool SIP::QueryEvent::HandleSVACEnConfRequest(const SipEvent::Ptr &e)
@@ -813,95 +810,93 @@ bool SIP::QueryEvent::HandleSVACEnConfRequest(const SipEvent::Ptr &e)
     auto rootRet = stNewDoc.append_child("Response");
 
     auto nodeCmdType = rootRet.append_child("CmdType");
-    nodeCmdType.text().set(m_header.strCmdType);
+    nodeCmdType.text().set(m_header.strCmdType.c_str());
 
     auto nodeSN = rootRet.append_child("SN");
     nodeSN.text().set(nSN);
 
     auto nodeDeviceID = rootRet.append_child("DeviceID");
-    nodeDeviceID.text().set(strID);
+    nodeDeviceID.text().set(strID.c_str());
 
     auto nodeResult = rootRet.append_child("Result");
-    nodeResult.text().set(tSVACEn.strResult);
+    nodeResult.text().set(tSVACEn.strResult.c_str());
 
-    if(stResult.nResult == 0)
+    if (stResult.nResult == 0)
     {
         auto nodeSVACEn = rootRet.append_child("SVACEncodeConfig");
 
-        //感兴趣区域参数
+        // 感兴趣区域参数
         auto nodeROI = nodeSVACEn.append_child("ROIParam");
-        //区域开关
+        // 区域开关
         auto nodeROIFlag = nodeROI.append_child("ROIFlag");
         nodeROIFlag.text().set(tSVACEn.tROIParam.nROIFlag);
-        //区域数量 
-        auto nodeROINumber= nodeROI.append_child("ROINumber");
+        // 区域数量
+        auto nodeROINumber = nodeROI.append_child("ROINumber");
         nodeROINumber.text().set(tSVACEn.tROIParam.nROINumber);
 
-        //感兴趣区域
+        // 感兴趣区域
         auto nodeItem = nodeROI.append_child("Item");
         nodeItem.append_child("ROISeq");
         nodeItem.append_child("TopLeft");
         nodeItem.append_child("BottomRight");
         nodeItem.append_child("ROIQP");
 
-        
-        
-        //SVC参数
+        // SVC参数
         {
-            if(tSVACEn.tSVCParam.bIsHave)
+            if (tSVACEn.tSVCParam.bIsHave)
             {
                 auto nodeSVC = nodeSVACEn.append_child("SVCParam");
 
-                //空域编码方式
+                // 空域编码方式
                 auto SVCSpaceDomainMode = nodeSVC.append_child("SVCSpaceDomainMode");
-                SVCSpaceDomainMode.text().set( tSVACEn.tSVCParam.nSVCSpaceDomainMode);
-                //时域编码方式
+                SVCSpaceDomainMode.text().set(tSVACEn.tSVCParam.nSVCSpaceDomainMode);
+                // 时域编码方式
                 auto SVCTimeDomainMode = nodeSVC.append_child("SVCTimeDomainMode");
                 SVCTimeDomainMode.text().set(tSVACEn.tSVCParam.nSVCTimeDomainMode);
-                //比例值
+                // 比例值
                 auto SSVCRatioValue = nodeSVC.append_child("SSVCRatioValue");
-                SSVCRatioValue.text().set(tSVACEn.tSVCParam.strSSVCRatioValue);
-                //空域编码能力
+                SSVCRatioValue.text().set(tSVACEn.tSVCParam.strSSVCRatioValue.c_str());
+                // 空域编码能力
                 auto SVCSpaceSupportMode = nodeSVC.append_child("SVCSpaceSupportMode");
                 SVCSpaceSupportMode.text().set(tSVACEn.tSVCParam.nSVCSpaceSupportMode);
-                //时域编码能力
+                // 时域编码能力
                 auto SVCTimeSupportMode = nodeSVC.append_child("SVCTimeSupportMode");
                 SVCTimeSupportMode.text().set(tSVACEn.tSVCParam.nSVCTimeSupportMode);
 
-                //比例能力
+                // 比例能力
                 auto SSVCRatioSupportList = nodeSVC.append_child("SSVCRatioSupportList");
-                SSVCRatioSupportList.text().set(tSVACEn.tSVCParam.strSSVCRatioSupportList);
+                SSVCRatioSupportList.text().set(tSVACEn.tSVCParam.strSSVCRatioSupportList.c_str());
             }
         }
-        //监控专用信息参数
+        // 监控专用信息参数
         {
-            if(tSVACEn.tSurveillanceParam.isHave)
+            if (tSVACEn.tSurveillanceParam.isHave)
             {
                 auto nodeSurveillance = nodeSVACEn.append_child("SurveillanceParam");
 
-                //时间信息开关
+                // 时间信息开关
                 auto TimeFlag = nodeSurveillance.append_child("TimeFlag");
                 TimeFlag.text().set(tSVACEn.tSurveillanceParam.nTimeFlag);
                 auto OSDFlag = nodeSurveillance.append_child("OSDFlag");
-                OSDFlag.text().set(tSVACEn.tSurveillanceParam.nOSDFlag);  
+                OSDFlag.text().set(tSVACEn.tSurveillanceParam.nOSDFlag);
                 auto AIFlag = nodeSurveillance.append_child("AIFlag");
                 AIFlag.text().set(tSVACEn.tSurveillanceParam.nAIFlag);
                 auto GISFlag = nodeSurveillance.append_child("GISFlag");
                 GISFlag.text().set(tSVACEn.tSurveillanceParam.nGISFlag);
             }
         }
-        //音频参数
+        // 音频参数
         {
-            if(tSVACEn.tAudioParam.bIsHave)
+            if (tSVACEn.tAudioParam.bIsHave)
             {
                 auto nodeAudio = nodeSVACEn.append_child("AudioParam");
-                //时间信息开关
+                // 时间信息开关
                 auto Flag = nodeAudio.append_child("AudioRecognitionFlag");
                 Flag.text().set(tSVACEn.tAudioParam.nAudioRecognitionFlag);
             }
         }
 
-        if(tSVACEn.tROIParam.vecROIParamItem.size() > 0)
+        if (tSVACEn.tROIParam.vecROIParamItem.size() > 0)
         {
             for (auto &Item : tSVACEn.tROIParam.vecROIParamItem)
             {
@@ -909,7 +904,7 @@ bool SIP::QueryEvent::HandleSVACEnConfRequest(const SipEvent::Ptr &e)
                 nodeItem.child("TopLeft").text().set(Item.nTopLeft);
                 nodeItem.child("BottomRight").text().set(Item.nBottomRight);
                 nodeItem.child("ROIQP").text().set(Item.nROIQP);
-    
+
                 std::ostringstream os;
                 stNewDoc.save(os);
                 auto strGB18030 = ::ToMbcsString(os.str());
@@ -946,7 +941,7 @@ bool SIP::QueryEvent::HandleSVACDeConfRequest(const SipEvent::Ptr &e)
     /* 设备Id */
     std::string strID = root.child("DeviceID").text().as_string();
     tSVACDe.strID = strID;
-   
+
     auto pClient = dynamic_cast<SipClient *>(e->m_pNetBase);
     if (pClient == nullptr)
     {
@@ -988,49 +983,49 @@ bool SIP::QueryEvent::HandleSVACDeConfRequest(const SipEvent::Ptr &e)
     auto rootRet = stNewDoc.append_child("Response");
 
     auto nodeCmdType = rootRet.append_child("CmdType");
-    nodeCmdType.text().set(m_header.strCmdType);
+    nodeCmdType.text().set(m_header.strCmdType.c_str());
 
     auto nodeSN = rootRet.append_child("SN");
     nodeSN.text().set(nSN);
 
     auto nodeDeviceID = rootRet.append_child("DeviceID");
-    nodeDeviceID.text().set(strID);
+    nodeDeviceID.text().set(strID.c_str());
 
     auto nodeResult = rootRet.append_child("Result");
-    nodeResult.text().set(tSVACDe.strResult);
+    nodeResult.text().set(tSVACDe.strResult.c_str());
 
-    if(stResult.nResult == 0)
+    if (stResult.nResult == 0)
     {
         auto nodeSVACEn = rootRet.append_child("SVACDecodeConfig");
 
-        //SVC参数
+        // SVC参数
         {
-            if(tSVACDe.tSVCParam.bIsHave)
+            if (tSVACDe.tSVCParam.bIsHave)
             {
                 auto nodeSVC = nodeSVACEn.append_child("SVCParam");
-    
-                //空域编码方式
+
+                // 空域编码方式
                 auto SVCSTMMode = nodeSVC.append_child("SVCSTMMode");
                 SVCSTMMode.text().set(tSVACDe.tSVCParam.nSVCSTMMode);
-                //空域编码能力
+                // 空域编码能力
                 auto SVCSpaceSupportMode = nodeSVC.append_child("SVCSpaceSupportMode");
                 SVCSpaceSupportMode.text().set(tSVACDe.tSVCParam.nSVCSpaceSupportMode);
-                //时域编码能力
+                // 时域编码能力
                 auto SVCTimeSupportMode = nodeSVC.append_child("SVCTimeSupportMode");
                 SVCTimeSupportMode.text().set(tSVACDe.tSVCParam.nSVCTimeSupportMode);
             }
         }
-        //监控专用信息参数
+        // 监控专用信息参数
         {
-            if(tSVACDe.tSurveillanceParam.isHave)
+            if (tSVACDe.tSurveillanceParam.isHave)
             {
                 auto nodeSurveillance = nodeSVACEn.append_child("SurveillanceParam");
-    
-                //时间信息开关
+
+                // 时间信息开关
                 auto TimeShowFlag = nodeSurveillance.append_child("TimeShowFlag");
                 TimeShowFlag.text().set(tSVACDe.tSurveillanceParam.nAIShowFlag);
                 auto OSDShowFlag = nodeSurveillance.append_child("OSDShowFlag");
-                OSDShowFlag.text().set(tSVACDe.tSurveillanceParam.nOSDShowFlag);  
+                OSDShowFlag.text().set(tSVACDe.tSurveillanceParam.nOSDShowFlag);
                 auto AIShowFlag = nodeSurveillance.append_child("AIShowFlag");
                 AIShowFlag.text().set(tSVACDe.tSurveillanceParam.nAIShowFlag);
                 auto GISShowFlag = nodeSurveillance.append_child("GISShowFlag");
@@ -1049,7 +1044,6 @@ bool SIP::QueryEvent::HandleSVACDeConfRequest(const SipEvent::Ptr &e)
         dlog_warn("回调操作执行失败[%d]", stResult.nResult);
     }
 
-    
     return true;
 }
 
@@ -1108,21 +1102,21 @@ bool SIP::QueryEvent::HandleVideoParAttrRequst(const SipEvent::Ptr &e)
     auto rootRet = stNewDoc.append_child("Response");
 
     auto nodeCmdType = rootRet.append_child("CmdType");
-    nodeCmdType.text().set(m_header.strCmdType);
+    nodeCmdType.text().set(m_header.strCmdType.c_str());
 
     auto nodeSN = rootRet.append_child("SN");
     nodeSN.text().set(nSN);
 
     auto nodeDeviceID = rootRet.append_child("DeviceID");
-    nodeDeviceID.text().set(strID);
+    nodeDeviceID.text().set(strID.c_str());
 
     auto nodeResult = rootRet.append_child("Result");
-    nodeResult.text().set(tAttribute.strResult);
+    nodeResult.text().set(tAttribute.strResult.c_str());
 
-    if(stResult.nResult == 0)
+    if (stResult.nResult == 0)
     {
         auto nodeAttribute = rootRet.append_child("VideoParamAttribute");
-        nodeAttribute.append_attribute("Num").set_value(std::to_string(2));
+        nodeAttribute.append_attribute("Num").set_value(std::to_string(2).c_str());
 
         auto nodeItem0 = nodeAttribute.append_child("Item");
         nodeItem0.append_child("StreamNumber");
@@ -1140,39 +1134,39 @@ bool SIP::QueryEvent::HandleVideoParAttrRequst(const SipEvent::Ptr &e)
         nodeItem1.append_child("BitRateType");
         nodeItem1.append_child("VideoBitRate");
 
-        if(tAttribute.vecVideoParAttrItem.size() > 0)
+        if (tAttribute.vecVideoParAttrItem.size() > 0)
         {
             for (auto &Item : tAttribute.vecVideoParAttrItem)
             {
-                if(Item.nStreamNumber == 0)
+                if (Item.nStreamNumber == 0)
                 {
-                    //码流编号
+                    // 码流编号
                     nodeItem0.child("StreamNumber").text().set(Item.nStreamNumber);
-                    //视频编码格式
-                    nodeItem0.child("VideoFormat").text().set( static_cast<int>(Item.enVideoFormat));
-                    //分辨率
-                    nodeItem0.child("Resolution").text().set( static_cast<int>(Item.enResolution));
-                    //帧率
-                    nodeItem0.child("FrameRate").text().set(Item.strFrameRate);
-                    //码率类型
-                    nodeItem0.child("BitRateType").text().set( static_cast<int>(Item.enBitRateType));
-                    //视频码率
-                    nodeItem0.child("VideoBitRate").text().set(Item.strVideoBitRate);
+                    // 视频编码格式
+                    nodeItem0.child("VideoFormat").text().set(static_cast<int>(Item.enVideoFormat));
+                    // 分辨率
+                    nodeItem0.child("Resolution").text().set(static_cast<int>(Item.enResolution));
+                    // 帧率
+                    nodeItem0.child("FrameRate").text().set(Item.strFrameRate.c_str());
+                    // 码率类型
+                    nodeItem0.child("BitRateType").text().set(static_cast<int>(Item.enBitRateType));
+                    // 视频码率
+                    nodeItem0.child("VideoBitRate").text().set(Item.strVideoBitRate.c_str());
                 }
                 else
                 {
-                     //码流编号
+                    // 码流编号
                     nodeItem1.child("StreamNumber").text().set(Item.nStreamNumber);
-                    //视频编码格式
-                    nodeItem1.child("VideoFormat").text().set( static_cast<int>(Item.enVideoFormat));
-                    //分辨率
-                    nodeItem1.child("Resolution").text().set( static_cast<int>(Item.enResolution));
-                    //帧率
-                    nodeItem1.child("FrameRate").text().set(Item.strFrameRate);
-                    //码率类型
-                    nodeItem1.child("BitRateType").text().set( static_cast<int>(Item.enBitRateType));
-                    //视频码率
-                    nodeItem1.child("VideoBitRate").text().set(Item.strVideoBitRate);
+                    // 视频编码格式
+                    nodeItem1.child("VideoFormat").text().set(static_cast<int>(Item.enVideoFormat));
+                    // 分辨率
+                    nodeItem1.child("Resolution").text().set(static_cast<int>(Item.enResolution));
+                    // 帧率
+                    nodeItem1.child("FrameRate").text().set(Item.strFrameRate.c_str());
+                    // 码率类型
+                    nodeItem1.child("BitRateType").text().set(static_cast<int>(Item.enBitRateType));
+                    // 视频码率
+                    nodeItem1.child("VideoBitRate").text().set(Item.strVideoBitRate.c_str());
                 }
             }
             std::ostringstream os;
@@ -1252,18 +1246,18 @@ bool SIP::QueryEvent::HandleVideoRecPlanRequst(const SipEvent::Ptr &e)
     auto rootRet = stNewDoc.append_child("Response");
 
     auto nodeCmdType = rootRet.append_child("CmdType");
-    nodeCmdType.text().set(m_header.strCmdType);
+    nodeCmdType.text().set(m_header.strCmdType.c_str());
 
     auto nodeSN = rootRet.append_child("SN");
     nodeSN.text().set(nSN);
 
     auto nodeDeviceID = rootRet.append_child("DeviceID");
-    nodeDeviceID.text().set(strID);
+    nodeDeviceID.text().set(strID.c_str());
 
     auto nodeResult = rootRet.append_child("Result");
-    nodeResult.text().set(tRecordPlan.strResult);
+    nodeResult.text().set(tRecordPlan.strResult.c_str());
 
-    if(stResult.nResult == 0)
+    if (stResult.nResult == 0)
     {
         auto node = rootRet.append_child("VideoRecordPlan");
 
@@ -1271,30 +1265,30 @@ bool SIP::QueryEvent::HandleVideoRecPlanRequst(const SipEvent::Ptr &e)
         auto nodeEnable = node.append_child("RecordEnable");
         nodeEnable.text().set(tRecordPlan.nRecordEnable);
         /*录像计划总天数*/
-        auto nodeSum= node.append_child("RecordScheduleSumNum");
+        auto nodeSum = node.append_child("RecordScheduleSumNum");
         nodeSum.text().set(tRecordPlan.nRecordScheduleSumNum);
         /*码流类型*/
-        auto nodeStreamNumber = node.append_child("StreamNumber");  
+        auto nodeStreamNumber = node.append_child("StreamNumber");
         nodeStreamNumber.text().set(tRecordPlan.nStreamNumber);
 
         for (auto ScheduleItem : tRecordPlan.vecRecordSchedule)
         {
-            //每一天的计划
+            // 每一天的计划
             auto nodeSchedItem = node.append_child("RecordSchedule");
             nodeSchedItem.append_child("WeekDayNum");
             nodeSchedItem.append_child("TimeSegmentSumNum");
             auto nodeItem = nodeSchedItem.append_child("TimeSegment");
 
-            //周几
+            // 周几
             nodeSchedItem.child("WeekDayNum").text().set(ScheduleItem.second.nWeekDayNum);
-            //每天录像计划时间段总数
+            // 每天录像计划时间段总数
             nodeSchedItem.child("TimeSegmentSumNum").text().set(ScheduleItem.second.nTimeSegmentSumNum);
 
-            if(ScheduleItem.second.vecTimeSegment.size() > 0)
+            if (ScheduleItem.second.vecTimeSegment.size() > 0)
             {
                 for (auto SegmentItem : ScheduleItem.second.vecTimeSegment)
                 {
-                     nodeItem.append_child("StartHour");
+                    nodeItem.append_child("StartHour");
                     nodeItem.append_child("StartMin");
                     nodeItem.append_child("StartSec");
                     nodeItem.append_child("StopHour");
@@ -1316,7 +1310,7 @@ bool SIP::QueryEvent::HandleVideoRecPlanRequst(const SipEvent::Ptr &e)
             }
         }
 
-        //发送
+        // 发送
         std::ostringstream os;
         stNewDoc.save(os);
         auto strGB18030 = ::ToMbcsString(os.str());
@@ -1386,25 +1380,25 @@ bool SIP::QueryEvent::HandleVideoAlarmRequest(const SipEvent::Ptr &e)
     auto rootRet = stNewDoc.append_child("Response");
 
     auto nodeCmdType = rootRet.append_child("CmdType");
-    nodeCmdType.text().set(m_header.strCmdType);
+    nodeCmdType.text().set(m_header.strCmdType.c_str());
 
     auto nodeSN = rootRet.append_child("SN");
     nodeSN.text().set(nSN);
 
     auto nodeDeviceID = rootRet.append_child("DeviceID");
-    nodeDeviceID.text().set(strID);
+    nodeDeviceID.text().set(strID.c_str());
 
     auto nodeResult = rootRet.append_child("Result");
-    nodeResult.text().set(tAlarmRecord.strResult);
+    nodeResult.text().set(tAlarmRecord.strResult.c_str());
 
-    if(stResult.nResult == 0)
+    if (stResult.nResult == 0)
     {
         auto node = rootRet.append_child("VideoAlarmRecord");
 
         auto nodedEnable = node.append_child("RecordEnable");
         nodedEnable.text().set(tAlarmRecord.nRecordEnable);
 
-        auto nodeRecord= node.append_child("RecordTime");
+        auto nodeRecord = node.append_child("RecordTime");
         nodeRecord.text().set(tAlarmRecord.nRecordTime);
 
         auto nodePre = node.append_child("PreRecordTime");
@@ -1482,18 +1476,18 @@ bool SIP::QueryEvent::HandlePictureMaskRequst(const SipEvent::Ptr &e)
     auto rootRet = stNewDoc.append_child("Response");
 
     auto nodeCmdType = rootRet.append_child("CmdType");
-    nodeCmdType.text().set(m_header.strCmdType);
+    nodeCmdType.text().set(m_header.strCmdType.c_str());
 
     auto nodeSN = rootRet.append_child("SN");
     nodeSN.text().set(nSN);
 
     auto nodeDeviceID = rootRet.append_child("DeviceID");
-    nodeDeviceID.text().set(strID);
+    nodeDeviceID.text().set(strID.c_str());
 
     auto nodeResult = rootRet.append_child("Result");
-    nodeResult.text().set(tPictureMask.strResult);
+    nodeResult.text().set(tPictureMask.strResult.c_str());
 
-    if(stResult.nResult == 0)
+    if (stResult.nResult == 0)
     {
         auto node = rootRet.append_child("PictureMask");
 
@@ -1508,12 +1502,12 @@ bool SIP::QueryEvent::HandlePictureMaskRequst(const SipEvent::Ptr &e)
         nodeItem.append_child("Seq");
         nodeItem.append_child("Piont");
 
-        //区域列表
+        // 区域列表
         for (auto &Item : tPictureMask.vecRegionList)
         {
-            //区域编号
+            // 区域编号
             nodeItem.child("Seq").text().set(Item.Seq);
-            //区域左上角
+            // 区域左上角
             std::string Piont = "";
             Piont += Item.nlx;
             Piont += ",";
@@ -1522,7 +1516,7 @@ bool SIP::QueryEvent::HandlePictureMaskRequst(const SipEvent::Ptr &e)
             Piont += Item.nrx;
             Piont += ",";
             Piont += Item.nry;
-            nodeItem.child("Piont").text().set(Piont);
+            nodeItem.child("Piont").text().set(Piont.c_str());
 
             std::ostringstream os;
             stNewDoc.save(os);
@@ -1582,7 +1576,6 @@ bool SIP::QueryEvent::HandleFrameMirrorRequst(const SipEvent::Ptr &e)
         }
     }
 
-
     /* 拼接返回报文 */
     pugi::xml_document stNewDoc;
 
@@ -1595,20 +1588,20 @@ bool SIP::QueryEvent::HandleFrameMirrorRequst(const SipEvent::Ptr &e)
     auto rootRet = stNewDoc.append_child("Response");
 
     auto nodeCmdType = rootRet.append_child("CmdType");
-    nodeCmdType.text().set(m_header.strCmdType);
+    nodeCmdType.text().set(m_header.strCmdType.c_str());
 
     auto nodeSN = rootRet.append_child("SN");
     nodeSN.text().set(nSN);
 
     auto nodeDeviceID = rootRet.append_child("DeviceID");
-    nodeDeviceID.text().set(strID);
+    nodeDeviceID.text().set(strID.c_str());
 
     auto nodeResult = rootRet.append_child("Result");
-    nodeResult.text().set(Mirror.strResult);
+    nodeResult.text().set(Mirror.strResult.c_str());
 
-    if(stResult.nResult == 0)
+    if (stResult.nResult == 0)
     {
-         /*0-不启用镜像，1-水平镜像，2-上下镜像，3-中心镜像*/
+        /*0-不启用镜像，1-水平镜像，2-上下镜像，3-中心镜像*/
         auto node = rootRet.append_child("FrameMirror");
         node.text().set(Mirror.nFrameMirror);
 
@@ -1681,18 +1674,18 @@ bool SIP::QueryEvent::HandleAlarmReportRequst(const SipEvent::Ptr &e)
     auto rootRet = stNewDoc.append_child("Response");
 
     auto nodeCmdType = rootRet.append_child("CmdType");
-    nodeCmdType.text().set(m_header.strCmdType);
+    nodeCmdType.text().set(m_header.strCmdType.c_str());
 
     auto nodeSN = rootRet.append_child("SN");
     nodeSN.text().set(nSN);
 
     auto nodeDeviceID = rootRet.append_child("DeviceID");
-    nodeDeviceID.text().set(strID);
+    nodeDeviceID.text().set(strID.c_str());
 
     auto nodeResult = rootRet.append_child("Result");
-    nodeResult.text().set(AlarmRepor.strResult);
+    nodeResult.text().set(AlarmRepor.strResult.c_str());
 
-    if(stResult.nResult == 0)
+    if (stResult.nResult == 0)
     {
         auto node = rootRet.append_child("AlarmReport");
 
@@ -1729,7 +1722,7 @@ bool SIP::QueryEvent::HandleOSDConfigRequest(const SipEvent::Ptr &e)
     /* 设备Id */
     std::string strID = root.child("DeviceID").text().as_string();
     OSD.strID = strID;
-    
+
     auto pClient = dynamic_cast<SipClient *>(e->m_pNetBase);
     if (pClient == nullptr)
     {
@@ -1771,18 +1764,18 @@ bool SIP::QueryEvent::HandleOSDConfigRequest(const SipEvent::Ptr &e)
     auto rootRet = stNewDoc.append_child("Response");
 
     auto nodeCmdType = rootRet.append_child("CmdType");
-    nodeCmdType.text().set(m_header.strCmdType);
+    nodeCmdType.text().set(m_header.strCmdType.c_str());
 
     auto nodeSN = rootRet.append_child("SN");
     nodeSN.text().set(nSN);
 
     auto nodeDeviceID = rootRet.append_child("DeviceID");
-    nodeDeviceID.text().set(strID);
+    nodeDeviceID.text().set(strID.c_str());
 
     auto nodeResult = rootRet.append_child("Result");
-    nodeResult.text().set(OSD.strResult);
+    nodeResult.text().set(OSD.strResult.c_str());
 
-    if(stResult.nResult == 0)
+    if (stResult.nResult == 0)
     {
         auto node = rootRet.append_child("OSDConfig");
 
@@ -1807,11 +1800,10 @@ bool SIP::QueryEvent::HandleOSDConfigRequest(const SipEvent::Ptr &e)
         auto nodeTextE = node.append_child("TextEnable");
         nodeTextE.text().set(OSD.m_nTextEnable);
 
-        auto nodeSum= node.append_child("SumNum");
-        nodeSum.text().set(OSD.m_SumNum );
+        auto nodeSum = node.append_child("SumNum");
+        nodeSum.text().set(OSD.m_SumNum);
 
-        
-        if(OSD.m_vecItme.size() > 0)
+        if (OSD.m_vecItme.size() > 0)
         {
             auto nodeItem = node.append_child("Item");
             nodeItem.append_child("Text");
@@ -1820,16 +1812,16 @@ bool SIP::QueryEvent::HandleOSDConfigRequest(const SipEvent::Ptr &e)
 
             for (auto Item : OSD.m_vecItme)
             {
-                nodeItem.child("Text").text().set(Item.Text);
+                nodeItem.child("Text").text().set(Item.Text.c_str());
                 nodeItem.child("X").text().set(Item.X);
                 nodeItem.child("Y").text().set(Item.Y);
             }
         }
 
-            std::ostringstream os;
-            stNewDoc.save(os);
-            auto strGB18030 = ::ToMbcsString(os.str());
-            SendMessageWithCallID(e, strGB18030);
+        std::ostringstream os;
+        stNewDoc.save(os);
+        auto strGB18030 = ::ToMbcsString(os.str());
+        SendMessageWithCallID(e, strGB18030);
     }
     else
     {
@@ -1895,18 +1887,18 @@ bool SIP::QueryEvent::HandleSnapShotConfig(const SipEvent::Ptr &e)
     auto rootRet = stNewDoc.append_child("Response");
 
     auto nodeCmdType = rootRet.append_child("CmdType");
-    nodeCmdType.text().set(m_header.strCmdType);
+    nodeCmdType.text().set(m_header.strCmdType.c_str());
 
     auto nodeSN = rootRet.append_child("SN");
     nodeSN.text().set(nSN);
 
     auto nodeDeviceID = rootRet.append_child("DeviceID");
-    nodeDeviceID.text().set(strID);
+    nodeDeviceID.text().set(strID.c_str());
 
     auto nodeResult = rootRet.append_child("Result");
-    nodeResult.text().set(Snap.strResult);
+    nodeResult.text().set(Snap.strResult.c_str());
 
-    if(stResult.nResult == 0)
+    if (stResult.nResult == 0)
     {
         auto node = rootRet.append_child("SnapShotConfig");
 
@@ -1917,10 +1909,10 @@ bool SIP::QueryEvent::HandleSnapShotConfig(const SipEvent::Ptr &e)
         nodeInter.text().set(Snap.nInterval);
 
         auto nodeURL = node.child("UploadURL");
-        nodeURL.text().set(Snap.strUploadURL);
+        nodeURL.text().set(Snap.strUploadURL.c_str());
 
-        auto nodeID  = node.child("SessionID");
-        nodeID.text().set(Snap.strSessionID);
+        auto nodeID = node.child("SessionID");
+        nodeID.text().set(Snap.strSessionID.c_str());
 
         std::ostringstream os;
         stNewDoc.save(os);
@@ -1932,10 +1924,10 @@ bool SIP::QueryEvent::HandleSnapShotConfig(const SipEvent::Ptr &e)
         gettimeofday(&tv, nullptr);
         SnapShotInfo_S stInfo;
         stInfo.e = e;
-         /* 记录当前时间的秒数 */
+        /* 记录当前时间的秒数 */
         stInfo.nTime = tv.tv_sec;
         /* 记录图像抓拍请求 */
-        if(m_pSnapSnapShot)
+        if (m_pSnapSnapShot)
         {
             m_pSnapSnapShot->insert(std::make_pair(Snap.strSessionID, stInfo));
         }
@@ -1965,7 +1957,7 @@ bool SIP::QueryEvent::HandleCruiseTrackQuery(const SipEvent::Ptr &e)
 
     /*拼接返回的报文*/
     pugi::xml_document stNewDoc;
-    
+
     auto declaration = stNewDoc.append_child(pugi::node_declaration);
     auto attrVersion = declaration.append_attribute("version");
     attrVersion.set_value("1.0");
@@ -1975,23 +1967,22 @@ bool SIP::QueryEvent::HandleCruiseTrackQuery(const SipEvent::Ptr &e)
     auto rootRet = stNewDoc.append_child("Response");
 
     auto nodeCmdType = rootRet.append_child("CmdType");
-    nodeCmdType.text().set(m_header.strCmdType);
+    nodeCmdType.text().set(m_header.strCmdType.c_str());
 
     auto nodeSN = rootRet.append_child("SN");
     nodeSN.text().set(nSN);
 
     auto nodeDeviceID = rootRet.append_child("DeviceID");
-    nodeDeviceID.text().set(strID);
+    nodeDeviceID.text().set(strID.c_str());
 
     auto nodeNumber = rootRet.append_child("Number");
     nodeNumber.text().set(tCruiseTrack.nNumber);
 
     auto nodeName = rootRet.append_child("Name");
-    nodeName.text().set(tCruiseTrack.strName);
+    nodeName.text().set(tCruiseTrack.strName.c_str());
 
     auto nodeSumNum = rootRet.append_child("SumNum");
     nodeSumNum.text().set(0);
-    
 
     auto pClient = dynamic_cast<SipClient *>(e->m_pNetBase);
     if (pClient == nullptr)
@@ -2026,21 +2017,20 @@ bool SIP::QueryEvent::HandleCruiseTrackQuery(const SipEvent::Ptr &e)
         }
     }
 
-
-    if(stResult.nResult == 0)
+    if (stResult.nResult == 0)
     {
-        if(tCruiseTrack.vecCruisePointList.size() > 0)
+        if (tCruiseTrack.vecCruisePointList.size() > 0)
         {
             nodeSumNum.text().set(tCruiseTrack.nSumNum);
 
             auto node = rootRet.append_child("CruisePointList");
-            node.append_attribute("Num").set_value(std::to_string(1));
+            node.append_attribute("Num").set_value(std::to_string(1).c_str());
 
             auto nodePoint = node.append_child("CruisePoint");
 
             nodePoint.append_child("PresetIndex");
             nodePoint.append_child("StayTime");
-            nodePoint.append_child("Speed");    
+            nodePoint.append_child("Speed");
 
             for (auto Item : tCruiseTrack.vecCruisePointList)
             {
@@ -2089,28 +2079,28 @@ bool SIP::QueryEvent::HandleCruiseTrackListQuery(const SipEvent::Ptr &e)
     std::string strID = root.child("DeviceID").text().as_string();
     tCruiseTrack.strID = strID;
 
-     /*拼接返回的报文*/
-     pugi::xml_document stNewDoc;
+    /*拼接返回的报文*/
+    pugi::xml_document stNewDoc;
 
-     auto declaration = stNewDoc.append_child(pugi::node_declaration);
-     auto attrVersion = declaration.append_attribute("version");
-     attrVersion.set_value("1.0");
-     auto attrEncoding = declaration.append_attribute("encoding");
-     attrEncoding.set_value("GB18030");
- 
-     auto rootRet = stNewDoc.append_child("Response");
- 
-     auto nodeCmdType = rootRet.append_child("CmdType");
-     nodeCmdType.text().set(m_header.strCmdType);
- 
-     auto nodeSN = rootRet.append_child("SN");
-     nodeSN.text().set(nSN);
- 
-     auto nodeDeviceID = rootRet.append_child("DeviceID");
-     nodeDeviceID.text().set(strID);
- 
-     auto nodeSumNum = rootRet.append_child("SumNum");
-     nodeSumNum.text().set(0);
+    auto declaration = stNewDoc.append_child(pugi::node_declaration);
+    auto attrVersion = declaration.append_attribute("version");
+    attrVersion.set_value("1.0");
+    auto attrEncoding = declaration.append_attribute("encoding");
+    attrEncoding.set_value("GB18030");
+
+    auto rootRet = stNewDoc.append_child("Response");
+
+    auto nodeCmdType = rootRet.append_child("CmdType");
+    nodeCmdType.text().set(m_header.strCmdType.c_str());
+
+    auto nodeSN = rootRet.append_child("SN");
+    nodeSN.text().set(nSN);
+
+    auto nodeDeviceID = rootRet.append_child("DeviceID");
+    nodeDeviceID.text().set(strID.c_str());
+
+    auto nodeSumNum = rootRet.append_child("SumNum");
+    nodeSumNum.text().set(0);
 
     auto pClient = dynamic_cast<SipClient *>(e->m_pNetBase);
     if (pClient == nullptr)
@@ -2145,15 +2135,14 @@ bool SIP::QueryEvent::HandleCruiseTrackListQuery(const SipEvent::Ptr &e)
         }
     }
 
-
-    if(stResult.nResult == 0)
+    if (stResult.nResult == 0)
     {
-        if(tCruiseTrack.vecCruiseTracktList.size())
+        if (tCruiseTrack.vecCruiseTracktList.size())
         {
             nodeSumNum.text().set(tCruiseTrack.nSumNum);
 
             auto node = rootRet.append_child("CruiseTrackList");
-            node.append_attribute("Num").set_value(std::to_string(1));
+            node.append_attribute("Num").set_value(std::to_string(1).c_str());
 
             auto nodeCruiseTrack = node.append_child("CruiseTrack");
 
@@ -2165,7 +2154,7 @@ bool SIP::QueryEvent::HandleCruiseTrackListQuery(const SipEvent::Ptr &e)
                 /*轨迹编号*/
                 nodeCruiseTrack.child("Number").text().set(Item.nNumber);
                 /*轨迹名称*/
-                nodeCruiseTrack.child("Name").text().set(Item.strName);
+                nodeCruiseTrack.child("Name").text().set(Item.strName.c_str());
 
                 std::ostringstream os;
                 stNewDoc.save(os);
@@ -2208,7 +2197,7 @@ bool SIP::QueryEvent::HandlePresetQuery(const SipEvent::Ptr &e)
     /* 设备Id */
     std::string strID;
     auto nodeDevice = root.child("DeviceID");
-    if(!nodeDevice.empty())
+    if (!nodeDevice.empty())
     {
         strID = nodeDevice.text().as_string();
     }
@@ -2226,13 +2215,13 @@ bool SIP::QueryEvent::HandlePresetQuery(const SipEvent::Ptr &e)
     auto rootRet = stNewDoc.append_child("Response");
 
     auto nodeCmdType = rootRet.append_child("CmdType");
-    nodeCmdType.text().set(m_header.strCmdType);
+    nodeCmdType.text().set(m_header.strCmdType.c_str());
 
     auto nodeSN = rootRet.append_child("SN");
     nodeSN.text().set(nSN);
 
     auto nodeDeviceID = rootRet.append_child("DeviceID");
-    nodeDeviceID.text().set(strID);
+    nodeDeviceID.text().set(strID.c_str());
 
     auto nodeSumNum = rootRet.append_child("SumNum");
     nodeSumNum.text().set(0);
@@ -2270,7 +2259,7 @@ bool SIP::QueryEvent::HandlePresetQuery(const SipEvent::Ptr &e)
         }
     }
 
-#if 0  //DEBUG
+#if 0 // DEBUG
     int i=1;
     for(i; i<2; i++)
     {
@@ -2282,27 +2271,27 @@ bool SIP::QueryEvent::HandlePresetQuery(const SipEvent::Ptr &e)
     nodeSumNum.text().set(Preset.vecPresetList.size());
 #endif
 
-    if(stResult.nResult == 0)
+    if (stResult.nResult == 0)
     {
-        //nodeSumNum.text().set(Preset.nSumNum);
+        // nodeSumNum.text().set(Preset.nSumNum);
 
         auto node = rootRet.append_child("PresetList");
 
-        if(Preset.vecPresetList.size() > 0)
+        if (Preset.vecPresetList.size() > 0)
         {
-#if 0   //分开发
+#if 0 // 分开发
             auto nodeItme = node.append_child("Itme");
 
             nodeItme.append_child("PresetID");
             nodeItme.append_child("PresetName");
 
-            node.append_attribute("Num").set_value(std::to_string(1));
+            node.append_attribute("Num").set_value(std::to_string(1).c_str());
             for (auto Item : Preset.vecPresetList)
             {
-     
+
                 nodeItme.child("PresetID").text().set(Item.strPresetID);
                 nodeItme.child("PresetName").text().set(Item.strPresetName);
-    
+
                 std::ostringstream os;
                 stNewDoc.save(os);
                 auto strGB18030 = ::ToMbcsString(os.str());
@@ -2310,24 +2299,23 @@ bool SIP::QueryEvent::HandlePresetQuery(const SipEvent::Ptr &e)
             }
 #endif
 
-#if 1   //全部发
-            node.append_attribute("Num").set_value(std::to_string(Preset.vecPresetList.size()));
+#if 1 // 全部发
+            node.append_attribute("Num").set_value(std::to_string(Preset.vecPresetList.size()).c_str());
             for (auto Item : Preset.vecPresetList)
             {
                 auto nodeItme = node.append_child("Itme");
                 nodeItme.append_child("PresetID");
                 nodeItme.append_child("PresetName");
                 /*轨迹编号*/
-                nodeItme.child("PresetID").text().set(Item.strPresetID);
+                nodeItme.child("PresetID").text().set(Item.strPresetID.c_str());
                 /*轨迹名称*/
-                nodeItme.child("PresetName").text().set(Item.strPresetName);
+                nodeItme.child("PresetName").text().set(Item.strPresetName.c_str());
             }
             std::ostringstream os;
             stNewDoc.save(os);
             auto strGB18030 = ::ToMbcsString(os.str());
             SendMessageWithCallID(e, strGB18030);
 #endif
-
         }
         else
         {
@@ -2350,7 +2338,6 @@ bool SIP::QueryEvent::HandlePresetQuery(const SipEvent::Ptr &e)
     return true;
 }
 
-
 bool SIP::QueryEvent::HandleHomePositionQuery(const SipEvent::Ptr &e)
 {
     ParseHeader(e);
@@ -2364,13 +2351,12 @@ bool SIP::QueryEvent::HandleHomePositionQuery(const SipEvent::Ptr &e)
     /* 设备Id */
     std::string strID;
     auto nodeDevice = root.child("DeviceID");
-    if(!nodeDevice.empty())
+    if (!nodeDevice.empty())
     {
         strID = nodeDevice.text().as_string();
     }
     tHomePosition.strID = strID;
 
-    
     /* 拼接返回报文 */
     pugi::xml_document stNewDoc;
 
@@ -2383,13 +2369,13 @@ bool SIP::QueryEvent::HandleHomePositionQuery(const SipEvent::Ptr &e)
     auto rootRet = stNewDoc.append_child("Response");
 
     auto nodeCmdType = rootRet.append_child("CmdType");
-    nodeCmdType.text().set(m_header.strCmdType);
+    nodeCmdType.text().set(m_header.strCmdType.c_str());
 
     auto nodeSN = rootRet.append_child("SN");
     nodeSN.text().set(nSN);
 
     auto nodeDeviceID = rootRet.append_child("DeviceID");
-    nodeDeviceID.text().set(strID);
+    nodeDeviceID.text().set(strID.c_str());
 
     auto pClient = dynamic_cast<SipClient *>(e->m_pNetBase);
     if (pClient == nullptr)
@@ -2426,7 +2412,7 @@ bool SIP::QueryEvent::HandleHomePositionQuery(const SipEvent::Ptr &e)
         }
     }
 
-    if(stResult.nResult == 0)
+    if (stResult.nResult == 0)
     {
         auto node = rootRet.append_child("HomePosition");
 
@@ -2461,7 +2447,7 @@ bool SIP::QueryEvent::HandlePTZPosition(const SipEvent::Ptr &e)
     ParseHeader(e);
 
     GB28181::PTZPositionInfo_S tPTZPosition;
-    memset(&tPTZPosition,0,sizeof(tPTZPosition));
+    memset(&tPTZPosition, 0, sizeof(tPTZPosition));
 
     auto root = m_doc.first_child();
     /*序列号*/
@@ -2470,12 +2456,11 @@ bool SIP::QueryEvent::HandlePTZPosition(const SipEvent::Ptr &e)
 
     std::string strID;
     auto nodeDevice = root.child("DeviceID");
-    if(!nodeDevice.empty())
+    if (!nodeDevice.empty())
     {
         strID = nodeDevice.text().as_string();
     }
     tPTZPosition.strID = strID;
-
 
     /* 拼接返回报文 */
     pugi::xml_document stNewDoc;
@@ -2489,13 +2474,13 @@ bool SIP::QueryEvent::HandlePTZPosition(const SipEvent::Ptr &e)
     auto rootRet = stNewDoc.append_child("Response");
 
     auto nodeCmdType = rootRet.append_child("CmdType");
-    nodeCmdType.text().set(m_header.strCmdType);
+    nodeCmdType.text().set(m_header.strCmdType.c_str());
 
     auto nodeSN = rootRet.append_child("SN");
     nodeSN.text().set(nSN);
 
     auto nodeDeviceID = rootRet.append_child("DeviceID");
-    nodeDeviceID.text().set(strID);
+    nodeDeviceID.text().set(strID.c_str());
 
     auto pClient = dynamic_cast<SipClient *>(e->m_pNetBase);
     if (pClient == nullptr)
@@ -2531,7 +2516,7 @@ bool SIP::QueryEvent::HandlePTZPosition(const SipEvent::Ptr &e)
         }
     }
 
-    if(stResult.nResult == 0)
+    if (stResult.nResult == 0)
     {
         auto nodePan = rootRet.append_child("Pan");
         nodePan.text().set(tPTZPosition.dPan);
@@ -2568,7 +2553,7 @@ bool SIP::QueryEvent::HandlePTZPosition(const SipEvent::Ptr &e)
     return true;
 }
 
-bool SIP::QueryEvent::SetSnapShotMap(std::map<std::string, SnapShotInfo_S> & map)
+bool SIP::QueryEvent::SetSnapShotMap(std::map<std::string, SnapShotInfo_S> &map)
 {
     m_pSnapSnapShot = &map;
     return true;

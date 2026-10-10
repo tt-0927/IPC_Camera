@@ -8,13 +8,19 @@
  * @Change       : 2026-09-08 越界设置保留规则数量和索引，无效参数保留旧值，由事件总开关控制
  * @Change       : 2026-09-08 人员聚集保留规则数量及位置，无效规则回退旧值并返回实际任务结果
  * @Change       : 2026-09-08 统一十六类智能事件的规则回退和业务结果返回，校验 IPC 数量上限
+ * @Change       : 2026-10-08 按能力宏适配 246/247，合并人脸配置并保留旧版任务分支。
+ * @Change       : 2026-10-10，报警输入预读现有配置并返回业务结果，普通联动开关严格校验。
+ * @Change       : 2026-10-10，497/499 的业务范围在设备回调校验，补充时间关系、字符串及通道编号检查。
  */
 
 #include "tvsdk_callbacks.h"
+#include "osd_configure.h"
+#include "register_convert.h"
 
 #include <string>
 #include <algorithm>
 #include <cstring>
+#include <cstddef>
 #include <set>
 #include <vector>
 #include <fstream>
@@ -25,6 +31,12 @@
 #include <cmath>
 #include <memory>
 #include <mutex>
+#include <sstream>
+#include <limits>
+#include <cerrno>
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <sys/statvfs.h>
 
 #include "task_manage.h"
 #include "task.h"
@@ -37,7 +49,6 @@
 #include "network_define.h"
 #include "alarm_define.h"
 #include "preview_define.h"
-#include "osd_manage.h"
 #include "preview_manage.h"
 #include "Json.h"
 #include "convert_interface.h"
@@ -48,6 +59,8 @@
 #include "convert/tvsdk_convert.h"
 #include "rtsp_server.h"
 #include "upgrade_client.h"
+#include "register_manage.h"
+#include "storage_manage.h"
 
 namespace TvSdkCallbacks
 {
@@ -656,10 +669,15 @@ static bool tvsdk_valid_line_parameters(const TRule &stRule)
 {
     const Common::PosF_S stStart(stRule.fStartPosX, stRule.fStartPosY);
     const Common::PosF_S stEnd(stRule.fEndPosX, stRule.fEndPosY);
+    /* 四个端点坐标全零表示用户清空了区域：规则本身已配置，仅区域未绘制。
+       此时不要求起终点不重合，否则该规则会被判为无效并触发整条回退，
+       连带灵敏度、方向与检测目标一并丢失。 */
+    const bool bClearedRegion = (stStart.fX == 0.0F && stStart.fY == 0.0F &&
+                                 stEnd.fX == 0.0F && stEnd.fY == 0.0F);
     return std::isfinite(stStart.fX) && std::isfinite(stStart.fY) &&
            std::isfinite(stEnd.fX) && std::isfinite(stEnd.fY) &&
            stStart.IsValid() && stEnd.IsValid() &&
-           (stStart.fX != stEnd.fX || stStart.fY != stEnd.fY) &&
+           (bClearedRegion || stStart.fX != stEnd.fX || stStart.fY != stEnd.fY) &&
            stRule.nSensitivity >= 1 && stRule.nSensitivity <= 100;
 }
 
@@ -791,6 +809,9 @@ static NET_COMMON_ECODE_E tvsdk_preserve_event_rules(INT32 nChannelId, TConfig &
     }
     TConfig stPrevious = {};
     bool bPreviousLoaded = false;
+    /* 只要存在参数无效的规则即视为本次设置失败，避免静默成功误导调用方。
+       无效规则本身仍按下方逻辑回退为旧值或默认空规则，保证留存配置始终可用。 */
+    NET_COMMON_ECODE_E enResult = NET_E_SUCCEED;
     for (INT32 nIndex = 0; nIndex < stConfig.uRuleCount; ++nIndex)
     {
         if (tvsdk_valid_event_rule(aRules[nIndex], nActionCode))
@@ -906,7 +927,12 @@ static bool tvsdk_valid_elevator_region_points(UINT32 uPointCount, const FLOAT a
     return true;
 }
 
-/* 校验日夜切换参数的枚举值、时间字段和亮度范围。 */
+/**
+ * @brief 校验日夜切换参数，定时模式仅允许当天严格递增的时间区间。
+ * @param [in] stConfig SDK 日夜配置，毫秒参与顺序比较，最大时刻为 23:59:59.000。
+ * @param [out] 无。
+ * @return 参数合法返回 true，越界、定时起止相同或倒序返回 false。
+ */
 static bool is_valid_daynight_config(const NET_DayNightInfo_S &stConfig)
 {
     const auto bValidTime = [](INT32 nHour, INT32 nMinute, INT32 nSecond, INT32 nMilliSecond)
@@ -915,9 +941,25 @@ static bool is_valid_daynight_config(const NET_DayNightInfo_S &stConfig)
                nSecond >= 0 && nSecond <= 59 && nMilliSecond >= 0 && nMilliSecond <= 999;
     };
     const bool bTimingMode = (stConfig.enDayNightMode == NET_DAYNIGHT_MODE_TIMING);
+    if (bTimingMode)
+    {
+        if (!bValidTime(stConfig.nBeginHour, stConfig.nBeginMinute, stConfig.nBeginSecond, stConfig.nBeginMilliSec) ||
+            !bValidTime(stConfig.nEndHour, stConfig.nEndMinute, stConfig.nEndSecond, stConfig.nEndMilliSec))
+        {
+            return false;
+        }
+        /* 字段范围校验后换算当天毫秒数，严格按接口要求限制到 23:59:59。 */
+        constexpr INT32 TVSDK_DAYNIGHT_MAX_TIME_MS = ((23 * 60 + 59) * 60 + 59) * 1000;
+        const INT32 nBeginTimeMs = ((stConfig.nBeginHour * 60 + stConfig.nBeginMinute) * 60 +
+                                   stConfig.nBeginSecond) * 1000 + stConfig.nBeginMilliSec;
+        const INT32 nEndTimeMs = ((stConfig.nEndHour * 60 + stConfig.nEndMinute) * 60 +
+                                 stConfig.nEndSecond) * 1000 + stConfig.nEndMilliSec;
+        if (nBeginTimeMs >= nEndTimeMs || nEndTimeMs > TVSDK_DAYNIGHT_MAX_TIME_MS)
+        {
+            return false;
+        }
+    }
     return stConfig.enDayNightMode >= NET_DAYNIGHT_MODE_DAY && stConfig.enDayNightMode <= NET_DAYNIGHT_MODE_TIMING &&
-           (!bTimingMode || (bValidTime(stConfig.nBeginHour, stConfig.nBeginMinute, stConfig.nBeginSecond, stConfig.nBeginMilliSec) &&
-                             bValidTime(stConfig.nEndHour, stConfig.nEndMinute, stConfig.nEndSecond, stConfig.nEndMilliSec))) &&
            stConfig.nSensitivityLevel >= 1 && stConfig.nSensitivityLevel <= 7 &&
            stConfig.nFilterTime >= 5 && stConfig.nFilterTime <= 120 &&
            stConfig.enLightMode >= NET_LIGHT_BRIGHT_MANUAL && stConfig.enLightMode <= NET_LIGHT_BRIGHT_AUTO &&
@@ -1582,9 +1624,10 @@ static bool is_valid_alarm_schedule(const NET_AlarmSchedule_S& stSchedule)
 }
 
 /**
- * @brief 校验联动列表的元素数量是否在固定数组容量范围内。
+ * @brief 校验联动列表数量、有效目标编号及五项普通联动开关。
  * @author ITC
  * @param [in] stLinkageList 待校验的联动列表。
+ * @param [out] 无。
  * @return 合法返回 true，否则返回 false。
  */
 static bool is_valid_alarm_linkage(const NET_LinkageList_S& stLinkageList)
@@ -1599,7 +1642,36 @@ static bool is_valid_alarm_linkage(const NET_LinkageList_S& stLinkageList)
         return false;
     }
 
-    return true;
+    for (INT32 nIndex = 0; nIndex < stLinkageList.uAlarmOutputCount; ++nIndex)
+    {
+        if (stLinkageList.auAlarmOutput[nIndex] < 0 ||
+            stLinkageList.auAlarmOutput[nIndex] >= NET_MAX_ALARM_OUT_NUM)
+        {
+            return false;
+        }
+    }
+    for (INT32 nIndex = 0; nIndex < stLinkageList.uRecordChannelCount; ++nIndex)
+    {
+        if (stLinkageList.auRecordChannel[nIndex] < 0 ||
+            stLinkageList.auRecordChannel[nIndex] >= NET_CHANNEL_MAX)
+        {
+            return false;
+        }
+    }
+    for (INT32 nIndex = 0; nIndex < stLinkageList.uSnapshotChannelCount; ++nIndex)
+    {
+        if (stLinkageList.auSnapshotChannel[nIndex] < 0 ||
+            stLinkageList.auSnapshotChannel[nIndex] >= NET_CHANNEL_MAX)
+        {
+            return false;
+        }
+    }
+    const NET_TraditionLinkage_S& stTradition = stLinkageList.stTradition;
+    return is_valid_sdk_bool(stTradition.bSendEmail) &&
+           is_valid_sdk_bool(stTradition.bUploadToCenter) &&
+           is_valid_sdk_bool(stTradition.bUploadSdCard) &&
+           is_valid_sdk_bool(stTradition.bSound) &&
+           is_valid_sdk_bool(stTradition.bFlashingLight);
 }
 
 /**
@@ -1645,36 +1717,96 @@ static bool is_valid_audible_alarm_info(const NET_AudibleAlarmInfo_S& stInfo)
 }
 
 /**
- * @brief 校验 SDK 传入的一路报警输入配置。
- * @author ITC
- * @param [in] stInfo 待校验的报警输入配置。
- * @return 合法返回 true，否则返回 false。
+ * 功能：校验报警输入输出的有效时间段关系，允许结束点为 24:00。
+ * param [in] stSchedule：待校验的时间表。
+ * param [out]：无。
+ * return：时分合法且每段开始早于结束时返回 true。
+ */
+static bool is_valid_alarm_io_schedule(const NET_AlarmSchedule_S& stSchedule)
+{
+    if (!is_valid_alarm_schedule(stSchedule))
+    {
+        return false;
+    }
+    for (INT32 nDay = 0; nDay < NET_ALARM_SCHEDULE_DAY_COUNT; ++nDay)
+    {
+        for (INT32 nSection = 0; nSection < stSchedule.uTimeSectionCount[nDay]; ++nSection)
+        {
+            const NET_SchedTime_S& stTime = stSchedule.astTimeSection[nDay][nSection];
+            if (stTime.nStartHour >= NET_ALARM_SCHEDULE_HOUR_MAX ||
+                (stTime.nEndHour == NET_ALARM_SCHEDULE_HOUR_MAX && stTime.nEndMinute != 0) ||
+                stTime.nStartHour > stTime.nEndHour ||
+                (stTime.nStartHour == stTime.nEndHour && stTime.nStartMinute >= stTime.nEndMinute))
+            {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+/**
+ * 功能：校验报警输入输出的复制目标编号，先检查数量再访问固定数组。
+ * param [in] nCount：复制目标数量。
+ * param [in] aCopyTo：复制目标编号数组。
+ * param [in] nChannelCapacity：对应输入或输出通道编号上限。
+ * param [out]：无。
+ * return：数量和有效元素均合法时返回 true。
+ */
+static bool is_valid_alarm_io_copy_to(INT32 nCount,
+                                      const INT32 (&aCopyTo)[NET_ALARM_COPY_TO_MAX_NUM],
+                                      INT32 nChannelCapacity)
+{
+    if (!is_valid_alarm_copy_to_count(nCount))
+    {
+        return false;
+    }
+    for (INT32 nIndex = 0; nIndex < nCount; ++nIndex)
+    {
+        if (aCopyTo[nIndex] < 0 || aCopyTo[nIndex] >= nChannelCapacity)
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+/**
+ * 功能：在设备回调内校验报警输入业务参数，防止非法值进入 IPC 转换。
+ * param [in] stInfo：待校验的一路报警输入结构。
+ * param [out]：无。
+ * return：全部合法返回 true，否则返回 false。
  */
 static bool is_valid_alarm_input_info(const NET_AlarmInputInfo_S& stInfo)
 {
     return stInfo.nAlarmNumber >= 0 && stInfo.nAlarmNumber < NET_MAX_ALARM_IN_NUM &&
+           std::memchr(stInfo.strAlarmAddress, '\0', sizeof(stInfo.strAlarmAddress)) != nullptr &&
+           std::memchr(stInfo.strAlarmName, '\0', sizeof(stInfo.strAlarmName)) != nullptr &&
            is_valid_sdk_bool(stInfo.bNormallyOpen) &&
            (stInfo.nDealType == NET_ALARM_INPUT_DEAL_TYPE_DISABLED ||
             stInfo.nDealType == NET_ALARM_INPUT_DEAL_TYPE_ENABLED) &&
-           is_valid_alarm_schedule(stInfo.stAlarmSchedule) &&
+           is_valid_alarm_io_schedule(stInfo.stAlarmSchedule) &&
            is_valid_alarm_linkage(stInfo.stLinkageList) &&
-           is_valid_alarm_copy_to_count(stInfo.nCopyToCount);
+           is_valid_alarm_io_copy_to(stInfo.nCopyToCount, stInfo.anCopyTo, NET_MAX_ALARM_IN_NUM);
 }
 
 /**
  * @brief 校验 SDK 传入的一路报警输出配置。
  * @author ITC
  * @param [in] stInfo 待校验的报警输出配置。
+ * @param [out] 无。
  * @return 合法返回 true，否则返回 false。
  */
 static bool is_valid_alarm_output_info(const NET_AlarmOutputInfo_S& stInfo)
 {
     return stInfo.nAlarmNumber >= 0 && stInfo.nAlarmNumber < NET_MAX_ALARM_OUT_NUM &&
+           std::memchr(stInfo.strAlarmAddress, '\0', sizeof(stInfo.strAlarmAddress)) != nullptr &&
+           std::memchr(stInfo.strAlarmName, '\0', sizeof(stInfo.strAlarmName)) != nullptr &&
            stInfo.nDelayTime >= 0 &&
            stInfo.enState >= NET_ALARM_OUTPUT_STATE_OFF &&
            stInfo.enState <= NET_ALARM_OUTPUT_STATE_HUMAN_ON &&
-           is_valid_alarm_schedule(stInfo.stAlarmSchedule) &&
-           is_valid_alarm_copy_to_count(stInfo.nCopyToCount);
+           is_valid_alarm_io_schedule(stInfo.stAlarmSchedule) &&
+           is_valid_alarm_io_copy_to(stInfo.nCopyToCount, stInfo.anCopyTo, NET_MAX_ALARM_OUT_NUM);
 }
 
 /**
@@ -1767,6 +1899,231 @@ static NET_COMMON_ECODE_E cb_get_sd_card_status(INT32 nChannelId, LPVOID pOutBuf
     pSdCardStatus->nStatus = nStatus;
     pSdCardStatus->bReady = bReady ? TRUE : FALSE;
     pSdCardStatus->uChannel = 0;
+    return NET_E_SUCCEED;
+}
+
+/**
+ * @brief 查询设备注册信息，复用注册管理器带锁的快照接口。
+ * @param [in] nChannelId 设备级查询，不参与通道筛选。
+ * @param [out] pOutBuffer 接收 NET_RegisterInfo_S 的缓冲区。
+ * @return 成功返回 NET_E_SUCCEED，参数或业务查询失败返回对应错误码。
+ */
+static NET_COMMON_ECODE_E cb_get_register_info(INT32 nChannelId, LPVOID pOutBuffer)
+{
+    (void)nChannelId;
+    if (pOutBuffer == nullptr)
+    {
+        return NET_E_INVALID_PARAM;
+    }
+
+    NET_RegisterInfo_S *pInfo = static_cast<NET_RegisterInfo_S *>(pOutBuffer);
+    *pInfo = {};
+    Register::RegisterInfo_S stRegisterInfo{};
+    /* 仅在管理器内部复制时持锁，字段转换和返回日志不持有业务锁。 */
+    const IpcRet_E enRet = CRegisterManage::instance()->get_register_info(stRegisterInfo);
+    if (enRet != OK)
+    {
+        dlog_error("TVSDK获取注册信息失败: command[%d], ret[%d]", NET_GET_REGISTERINFO, enRet);
+        return NET_E_GET_CFG_FAILED;
+    }
+    TvSdkConvert::FillRegisterInfo(stRegisterInfo, *pInfo);
+    /* 注册码属于设备授权信息，不写入查询日志。 */
+    dlog_info("TVSDK获取注册信息成功: command[%d], action_time[%d], usable_minutes[%lld]",
+              NET_GET_REGISTERINFO, static_cast<int>(pInfo->enActionTime),
+              static_cast<long long>(pInfo->nUsableTimer));
+    return NET_E_SUCCEED;
+}
+
+/**
+ * @brief 设置设备注册码，复用网页的注册任务进行校验、生成有效期并保存配置。
+ * @param [in] nChannelId 设备级操作，不参与通道筛选。
+ * @param [in] pInBuffer NET_RegisterInfo_S 请求；只有注册码参与设置。
+ * @param [out] 无。
+ * @return 校验和保存成功返回 NET_E_SUCCEED，参数错误返回 NET_E_INVALID_PARAM，其他失败返回 NET_E_SET_CFG_FAILED。
+ */
+static NET_COMMON_ECODE_E cb_set_register_info(INT32 nChannelId, LPVOID pInBuffer)
+{
+    (void)nChannelId;
+    if (pInBuffer == nullptr)
+    {
+        return NET_E_INVALID_PARAM;
+    }
+
+    const NET_RegisterInfo_S *pInfo = static_cast<const NET_RegisterInfo_S *>(pInBuffer);
+    Register::ConfigRegisterEg_S stConfig{};
+    if (!TvSdkConvert::ToRegisterConfig(*pInfo, stConfig))
+    {
+        return NET_E_INVALID_PARAM;
+    }
+
+    /* 不直接写授权文件；复用网页任务及注册管理器的校验、锁和保存流程。 */
+    std::string strResultJson;
+    if (execute_get_result(AC_SET_REGISTRATION_CODE, wrap_data_json(Convert::to_string(stConfig)),
+                           strResultJson) != OK)
+    {
+        dlog_error("TVSDK设置注册码任务执行失败: command[%d]", NET_SET_REGISTERINFO);
+        return NET_E_SET_CFG_FAILED;
+    }
+
+    int nBusinessRet = ERR;
+    if (strResultJson.empty() || !Json::get(strResultJson.c_str(), "Return", nBusinessRet))
+    {
+        dlog_error("TVSDK设置注册码任务未返回有效结果: command[%d]", NET_SET_REGISTERINFO);
+        return NET_E_SET_CFG_FAILED;
+    }
+    /* 只打印结果，不重复记录注册码；重复授权和已永久激活不冒充设置成功。 */
+    if (nBusinessRet != OK)
+    {
+        dlog_error("TVSDK设置注册码失败: command[%d], ret[%d]", NET_SET_REGISTERINFO, nBusinessRet);
+        if ((nBusinessRet == ERR_REGISTER_FAULT) || (nBusinessRet == ERR_REGISTER_CODE_FAULT) ||
+            (nBusinessRet == ERR_REGISTER_MACHINE_FAULT))
+        {
+            return NET_E_INVALID_PARAM;
+        }
+        return NET_E_SET_CFG_FAILED;
+    }
+    dlog_info("TVSDK设置注册码成功: command[%d]", NET_SET_REGISTERINFO);
+    return NET_E_SUCCEED;
+}
+
+/**
+ * @brief 查找业务 SD 卡目录的实际块设备和文件系统，避免把根文件系统当作 SD 卡。
+ * @param [in] 无。
+ * @param [out] strDevice SD 卡挂载设备路径。
+ * @param [out] strFileType 挂载文件系统类型。
+ * @return 找到返回 true；未挂载或读取失败返回 false，由调用方报告查询失败。
+ */
+static bool tvsdk_get_sd_mount_info(std::string &strDevice, std::string &strFileType)
+{
+    strDevice.clear();
+    strFileType.clear();
+    /* 使用各请求独立的流对象，避免非重入的挂载表接口共享静态缓冲区。 */
+    std::ifstream stMounts("/proc/self/mounts");
+    if (!stMounts.is_open())
+    {
+        return false;
+    }
+    std::string strLine;
+    while (std::getline(stMounts, strLine))
+    {
+        std::istringstream stLine(strLine);
+        std::string strMountDevice;
+        std::string strMountPoint;
+        std::string strMountType;
+        if (!(stLine >> strMountDevice >> strMountPoint >> strMountType))
+        {
+            continue;
+        }
+        if ((strMountPoint == SD_CARD_MOUNT_PATH) && (strMountDevice.find("/dev/mmcblk") == 0))
+        {
+            strDevice = strMountDevice;
+            strFileType = strMountType;
+            return true;
+        }
+    }
+    return false;
+}
+
+/**
+ * @brief 将当前 SD 卡作为设备存储返回，容量来自同一挂载目录描述符。
+ * @param [in] 无。
+ * @param [out] pInfo SDK 设备存储信息，设备级通道号固定为零。
+ * @return 查询成功返回 NET_E_SUCCEED，参数、挂载或容量读取失败返回对应错误码。
+ */
+static NET_COMMON_ECODE_E cb_get_device_storage_info(pNET_DeviceStorageInfo_S pInfo)
+{
+    if (pInfo == nullptr)
+    {
+        return NET_E_INVALID_PARAM;
+    }
+    *pInfo = {};
+    static constexpr INT32 TVSDK_STORAGE_STATUS_NORMAL = 0;
+    static constexpr INT32 TVSDK_STORAGE_STATUS_ERROR = -1;
+    static constexpr INT32 TVSDK_STORAGE_STATUS_UNPLUGGED = 1;
+    static constexpr INT32 TVSDK_STORAGE_STATUS_FORMATTING = 2;
+    static constexpr INT32 TVSDK_STORAGE_STATUS_INITIALIZING = 3;
+
+    DeviceStorageSnapshot_S stSnapshot{};
+    const SD_CARD_STATUS_E enStatus = CStorageManage::instance()->get_SdCardStatus();
+    stSnapshot.nDiskCount = (enStatus == UNPLUG) ? 0 : 1;
+    /* 504 正常状态为零；493 的正常状态为三，两者不能直接照搬。 */
+    switch (enStatus)
+    {
+        case NORMAL:
+            stSnapshot.nDiskStatus = TVSDK_STORAGE_STATUS_NORMAL;
+            break;
+        case UNPLUG:
+            stSnapshot.nDiskStatus = TVSDK_STORAGE_STATUS_UNPLUGGED;
+            break;
+        case FORMATING:
+            stSnapshot.nDiskStatus = TVSDK_STORAGE_STATUS_FORMATTING;
+            break;
+        case INSERT:
+            stSnapshot.nDiskStatus = TVSDK_STORAGE_STATUS_INITIALIZING;
+            break;
+        case WRITE_ERROR:
+            stSnapshot.nDiskStatus = TVSDK_STORAGE_STATUS_ERROR;
+            break;
+        default:
+            dlog_error("TVSDK获取存储信息失败: SD卡状态无效[%d]", static_cast<int>(enStatus));
+            return NET_E_GET_CFG_FAILED;
+    }
+
+    /* 未就绪状态只返回真实状态和零容量，不读取尚未挂载或格式化中的目录。 */
+    if (enStatus == NORMAL)
+    {
+        std::string strDevice;
+        std::string strFileType;
+        if (!tvsdk_get_sd_mount_info(strDevice, strFileType))
+        {
+            dlog_error("TVSDK获取存储信息失败: SD卡未挂载到[%s]", SD_CARD_MOUNT_PATH);
+            return NET_E_GET_CFG_FAILED;
+        }
+        std::snprintf(stSnapshot.strFileType, sizeof(stSnapshot.strFileType), "%s", strFileType.c_str());
+
+        /* 复用已有描述符封装，所有返回分支都会自动关闭文件描述符。 */
+        StorageManage_NS::FileDescriptor stDirectory(open(SD_CARD_MOUNT_PATH,
+                                                        O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW));
+        struct stat stDeviceStat{};
+        struct stat stDirectoryStat{};
+        struct statvfs stCapacity{};
+        if ((stDirectory.get() < 0) || (stat(strDevice.c_str(), &stDeviceStat) != 0) ||
+            (fstat(stDirectory.get(), &stDirectoryStat) != 0))
+        {
+            dlog_error("TVSDK获取存储信息失败: 无法读取挂载设备[%s], errno[%d]", strDevice.c_str(), errno);
+            return NET_E_GET_CFG_FAILED;
+        }
+        /* 校验目录所在设备，防止检查挂载表后发生卸载而误读根分区容量。 */
+        if (!S_ISBLK(stDeviceStat.st_mode) || (stDirectoryStat.st_dev != stDeviceStat.st_rdev))
+        {
+            dlog_error("TVSDK获取存储信息失败: 挂载目录与SD卡设备不一致[%s]", strDevice.c_str());
+            return NET_E_GET_CFG_FAILED;
+        }
+        if (fstatvfs(stDirectory.get(), &stCapacity) != 0)
+        {
+            dlog_error("TVSDK获取存储容量失败: device[%s], errno[%d]", strDevice.c_str(), errno);
+            return NET_E_GET_CFG_FAILED;
+        }
+
+        const unsigned long long uBlockBytes = (stCapacity.f_frsize != 0) ? stCapacity.f_frsize : stCapacity.f_bsize;
+        const unsigned long long uTotalBlocks = stCapacity.f_blocks;
+        const unsigned long long uAvailableBlocks = std::min<unsigned long long>(stCapacity.f_bavail, uTotalBlocks);
+        if ((uBlockBytes == 0) || (uTotalBlocks == 0) ||
+            (uTotalBlocks > (std::numeric_limits<unsigned long long>::max() / uBlockBytes)))
+        {
+            dlog_error("TVSDK获取存储容量失败: 文件系统块大小或数量无效");
+            return NET_E_GET_CFG_FAILED;
+        }
+        /* 使用六十四位乘法，避免三十二位设备查询大容量 SD 卡时溢出。 */
+        stSnapshot.uTotalBytes = uTotalBlocks * uBlockBytes;
+        stSnapshot.uAvailableBytes = uAvailableBlocks * uBlockBytes;
+        stSnapshot.uUsedBytes = stSnapshot.uTotalBytes - stSnapshot.uAvailableBytes;
+    }
+
+    TvSdkConvert::FillDeviceStorageInfo(stSnapshot, *pInfo);
+    dlog_info("TVSDK获取存储信息成功: command[%d], count[%d], status[%d], total[%s], available[%s], filesystem[%s]",
+              NET_GET_STORAGE_INFO, pInfo->nHardDiskCount, pInfo->nHardDiskStatus,
+              pInfo->strDiskTotal, pInfo->strDiskAvailable, pInfo->strDiskFileType);
     return NET_E_SUCCEED;
 }
 
@@ -2383,7 +2740,7 @@ static NET_COMMON_ECODE_E cb_get_privacy_mask_cfg(INT32 dwChannelID, LPVOID lpOu
     stCfg.clear();
     stCfg.vecCoverAttr.clear();
     Convert::to_struct(strJson, stCfg);
-    TvSdkConvert::FillPrivacyMaskCfg(stCfg, COsdManage::instance()->get_cover_max_area_count(), *pOut);
+    TvSdkConvert::FillPrivacyMaskCfg(stCfg, COsdConfigure::instance()->get_cover_max_area_count(), *pOut);
     pOut->uChannel = 0;
     return NET_E_SUCCEED;
 }
@@ -2395,7 +2752,7 @@ static NET_COMMON_ECODE_E cb_set_privacy_mask_cfg(INT32 dwChannelID, LPVOID lpIn
 
     const NET_PrivacyMaskCfg_S *pIn = (const NET_PrivacyMaskCfg_S *)lpInBuffer;
     Osd::CoverConfig_S stCfg;
-    const size_t maxAreaCount = COsdManage::instance()->get_cover_max_area_count();
+    const size_t maxAreaCount = COsdConfigure::instance()->get_cover_max_area_count();
     if (!TvSdkConvert::ToPrivacyMaskCfg(*pIn, maxAreaCount, stCfg))
     {
         dlog_warn("TVSDK隐私遮盖区域数非法, request:%d, max:%zu", pIn->uAreaCount, maxAreaCount);
@@ -4960,7 +5317,7 @@ static NET_COMMON_ECODE_E cb_get_alarm_input_info(INT32 nChannelId, LPVOID pOutB
  * @author ITC
  * @param [in] nChannelId 设备通道标识，本配置为设备级配置，不参与设置。
  * @param [in] pInBuffer 指向 NET_AlarmInputInfo_S 配置的输入缓冲区。
- * @return 成功返回 NET_E_SUCCEED，否则返回相应错误码。
+ * @return 保存成功返回 NET_E_SUCCEED，参数错误返回 NET_E_INVALID_PARAM，不支持返回 NET_E_NOT_SUPPORT，其余失败返回 NET_E_SET_CFG_FAILED。
  */
 static NET_COMMON_ECODE_E cb_set_alarm_input_info(INT32 nChannelId, LPVOID pInBuffer)
 {
@@ -4976,10 +5333,45 @@ static NET_COMMON_ECODE_E cb_set_alarm_input_info(INT32 nChannelId, LPVOID pInBu
         return NET_E_INVALID_PARAM;
     }
 
-    Alarm::IoInputInfo_S stAlarmInput;
+    /* 预读对应通道，仅覆盖 SDK 暴露字段，保留全景图、目标图等 IPC 私有联动。 */
+    std::string strCurrentJson;
+    if (get_alarm_config_data(AC_GET_ALARM_INPUT_INFO, strCurrentJson) != NET_E_SUCCEED)
+    {
+        return NET_E_SET_CFG_FAILED;
+    }
+    std::set<Alarm::IoInputInfo_S> stCurrentInputs;
+    Convert::to_struct(strCurrentJson, stCurrentInputs);
+    const auto itCurrent = std::find_if(stCurrentInputs.begin(), stCurrentInputs.end(),
+        [pInput](const Alarm::IoInputInfo_S& stInput)
+        {
+            return stInput.nIoNumer == pInput->nAlarmNumber;
+        });
+    if (itCurrent == stCurrentInputs.end())
+    {
+        return NET_E_INVALID_PARAM;
+    }
+    Alarm::IoInputInfo_S stAlarmInput = *itCurrent;
     TvSdkConvert::ToAlarmInputInfo(*pInput, stAlarmInput);
     std::string strDataJson = Convert::to_string(stAlarmInput);
-    return set_alarm_config_data(AC_SET_ALARM_INPUT_INFO, strDataJson);
+    std::string strResult;
+    if (execute_get_result(AC_SET_ALARM_INPUT_INFO, wrap_data_json(strDataJson), strResult) != OK)
+    {
+        return NET_E_SET_CFG_FAILED;
+    }
+    int nResult = ERR;
+    if (strResult.empty() || !Json::get(strResult.c_str(), "Return", nResult))
+    {
+        return NET_E_SET_CFG_FAILED;
+    }
+    if (nResult == ERR_PARAM || nResult == ERR_WEB_PARAM)
+    {
+        return NET_E_INVALID_PARAM;
+    }
+    if (nResult == ERR_WEB_NOT_SUPPORT)
+    {
+        return NET_E_NOT_SUPPORT;
+    }
+    return nResult == OK ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
 }
 
 /**
@@ -5018,7 +5410,7 @@ static NET_COMMON_ECODE_E cb_get_alarm_output_info(INT32 nChannelId, LPVOID pOut
  * @author ITC
  * @param [in] nChannelId 设备通道标识，本配置为设备级配置，不参与设置。
  * @param [in] pInBuffer 指向 NET_AlarmOutputInfo_S 配置的输入缓冲区。
- * @return 成功返回 NET_E_SUCCEED，否则返回相应错误码。
+ * @return IPC 保存成功返回 NET_E_SUCCEED，参数错误返回 NET_E_INVALID_PARAM，不支持返回 NET_E_NOT_SUPPORT，其余失败返回 NET_E_SET_CFG_FAILED。
  */
 static NET_COMMON_ECODE_E cb_set_alarm_output_info(INT32 nChannelId, LPVOID pInBuffer)
 {
@@ -5034,10 +5426,28 @@ static NET_COMMON_ECODE_E cb_set_alarm_output_info(INT32 nChannelId, LPVOID pInB
         return NET_E_INVALID_PARAM;
     }
 
-    Alarm::IoOutputInfo_S stAlarmOutput;
+    Alarm::IoOutputInfo_S stAlarmOutput{};
     TvSdkConvert::ToAlarmOutputInfo(*pInput, stAlarmOutput);
     std::string strDataJson = Convert::to_string(stAlarmOutput);
-    return set_alarm_config_data(AC_SET_ALARM_OUTPUT_INFO, strDataJson);
+    std::string strResult;
+    if (execute_get_result(AC_SET_ALARM_OUTPUT_INFO, wrap_data_json(strDataJson), strResult) != OK)
+    {
+        return NET_E_SET_CFG_FAILED;
+    }
+    int nResult = ERR;
+    if (strResult.empty() || !Json::get(strResult.c_str(), "Return", nResult))
+    {
+        return NET_E_SET_CFG_FAILED;
+    }
+    if (nResult == ERR_PARAM || nResult == ERR_WEB_PARAM)
+    {
+        return NET_E_INVALID_PARAM;
+    }
+    if (nResult == ERR_WEB_NOT_SUPPORT)
+    {
+        return NET_E_NOT_SUPPORT;
+    }
+    return nResult == OK ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
 }
 
 /**
@@ -5099,6 +5509,44 @@ static NET_COMMON_ECODE_E cb_set_flashing_light_alarm_info(INT32 nChannelId, LPV
 }
 
 /**
+ * @brief 汇总当前编译单元的 PIR 结构布局及七天布防时间，只读访问配置。
+ * @param [in] stInfo 当前请求对应的 PIR 配置。
+ * @param [out] 无。
+ * @return 返回诊断文本，时间段读取数量限制在实际数组容量内。
+ */
+static std::string build_pir_schedule_diagnostic(const NET_PirAlarmInfo_S& stInfo)
+{
+    const NET_AlarmSchedule_S& stSchedule = stInfo.stAlarmSchedule;
+    const size_t uDayCount = sizeof(stSchedule.astTimeSection) / sizeof(stSchedule.astTimeSection[0]);
+    const size_t uSectionMax = sizeof(stSchedule.astTimeSection[0]) / sizeof(stSchedule.astTimeSection[0][0]);
+    /* 使用请求内的局部缓冲区汇总数据，避免逐天日志被限流或与其他请求交错。 */
+    std::ostringstream stText;
+    stText << "config=" << static_cast<const void*>(&stInfo)
+           << " pir_size=" << sizeof(NET_PirAlarmInfo_S)
+           << " sched_size=" << sizeof(NET_AlarmSchedule_S)
+           << " time_size=" << sizeof(NET_SchedTime_S)
+           << " day_stride=" << sizeof(stSchedule.astTimeSection[0])
+           << " days=" << uDayCount << " sections=" << uSectionMax
+           << " sched_offset=" << offsetof(NET_PirAlarmInfo_S, stAlarmSchedule)
+           << " array_offset=" << offsetof(NET_AlarmSchedule_S, astTimeSection)
+           << " end_hour_offset=" << offsetof(NET_SchedTime_S, nEndHour);
+    for (size_t uDay = 0; uDay < uDayCount; ++uDay)
+    {
+        const INT32 nRawCount = stSchedule.uTimeSectionCount[uDay];
+        const INT32 nReadCount = std::max<INT32>(0, std::min<INT32>(nRawCount, static_cast<INT32>(uSectionMax)));
+        stText << " | day=" << uDay << " count=" << nRawCount;
+        for (INT32 nSection = 0; nSection < nReadCount; ++nSection)
+        {
+            const NET_SchedTime_S& stTime = stSchedule.astTimeSection[uDay][nSection];
+            stText << " section=" << nSection
+                   << " time=" << stTime.nStartHour << ':' << stTime.nStartMinute
+                   << "->" << stTime.nEndHour << ':' << stTime.nEndMinute;
+        }
+    }
+    return stText.str();
+}
+
+/**
  * @brief 获取 IPC 的 PIR 告警配置。
  * @author ITC
  * @param [in] nChannelId 设备通道标识，本配置为设备级配置，不参与查询。
@@ -5125,6 +5573,9 @@ static NET_COMMON_ECODE_E cb_get_pir_alarm_info(INT32 nChannelId, LPVOID pOutBuf
     Alarm::PirAlarmInfo_S stAlarmInfo;
     Convert::to_struct(strDataJson, stAlarmInfo);
     TvSdkConvert::FillPirAlarmInfo(stAlarmInfo, *pOutput);
+    /* 获取缓冲区回填完成后才读取数据，避免在回调入口打印未初始化输出。 */
+    const std::string strDiagnostic = build_pir_schedule_diagnostic(*pOutput);
+    dlog_info("[PIR-SCHED][IPC_GET_READY] channel=%d %s", nChannelId, strDiagnostic.c_str());
     //pOutput->uChannel = 0;
     return NET_E_SUCCEED;
 }
@@ -5145,6 +5596,9 @@ static NET_COMMON_ECODE_E cb_set_pir_alarm_info(INT32 nChannelId, LPVOID pInBuff
     }
 
     const pNET_PirAlarmInfo_S pInput = static_cast<pNET_PirAlarmInfo_S>(pInBuffer);
+    /* 在校验和 IPC 数据转换之前记录 SDK 原始输入，不改变设置结果。 */
+    const std::string strDiagnostic = build_pir_schedule_diagnostic(*pInput);
+    dlog_info("[PIR-SCHED][IPC_SET_ENTRY] channel=%d %s", nChannelId, strDiagnostic.c_str());
     if (!is_valid_pir_alarm_info(*pInput))
     {
         return NET_E_INVALID_PARAM;
@@ -5285,21 +5739,16 @@ static NET_COMMON_ECODE_E cb_get_upgrade_version(INT32 dwChannelID, LPVOID lpOut
     if (!lpOutBuffer)
         return NET_E_INVALID_PARAM;
 
+    /* 本命令语义为「获取设备升级版本信息」，直接取设备当前固件版本。
+       原先经 AC_CHECK_UPGRADE 查询，但该命令的 Task 是「检查是否有新版本」的占位实现，
+       恒返回 ERR_CHECK_UPGRADE(-35)，此处会因 Return 非零而判定失败并返回获取配置失败。 */
     pNET_UpgradeVersion_S pOut = (pNET_UpgradeVersion_S)lpOutBuffer;
-    std::string outJson;
-    if (execute_get_result(AC_CHECK_UPGRADE, "{}", outJson) != 0 || outJson.empty())
-        return NET_E_GET_CFG_FAILED;
-
-    int nRet = -1;
-    Json::get(outJson.c_str(), "Return", nRet);
-    if (nRet != 0)
+    ::System::DeviceInfo_S stDeviceInfo;
+    if (SystemManage::instance()->get_device_info(stDeviceInfo) != 0)
         return NET_E_GET_CFG_FAILED;
 
     ::System::UpgradeVersion_S stCfg;
-    const std::string strJson = normalize_data_json(outJson);
-    if (strJson.empty())
-        return NET_E_GET_CFG_FAILED;
-    Convert::to_struct(strJson, stCfg);
+    stCfg.strVersion = stDeviceInfo.systemVersion;
     TvSdkConvert::FillUpgradeVersion(stCfg, *pOut);
     pOut->uChannel = 0;
     return NET_E_SUCCEED;
@@ -5501,11 +5950,20 @@ static NET_COMMON_ECODE_E cb_get_daynight_info(INT32 dwChannelID, LPVOID lpOutBu
     return NET_E_SUCCEED;
 }
 
+/**
+ * @brief 设置日夜转换配置，等待 IPC 业务结果，禁止将任务入队成功误报为保存成功。
+ * @param [in] dwChannelID SDK 通道号，当前设备使用单通道配置。
+ * @param [in] lpInBuffer NET_DayNightInfo_S 配置指针。
+ * @param [out] 无。
+ * @return 保存成功返回 NET_E_SUCCEED，参数非法返回 NET_E_INVALID_PARAM，其余失败返回 NET_E_SET_CFG_FAILED。
+ */
 static NET_COMMON_ECODE_E cb_set_daynight_info(INT32 dwChannelID, LPVOID lpInBuffer)
 {
     (void)dwChannelID;
     if (!lpInBuffer)
+    {
         return NET_E_INVALID_PARAM;
+    }
     
     const NET_DayNightInfo_S *pIn = (const NET_DayNightInfo_S *)lpInBuffer;
     if (!is_valid_daynight_config(*pIn))
@@ -5514,11 +5972,22 @@ static NET_COMMON_ECODE_E cb_set_daynight_info(INT32 dwChannelID, LPVOID lpInBuf
     }
     ISP::DayNightAttr_S stCfg;
     TvSdkConvert::ToDayNightAttr(*pIn, stCfg);
-    std::string inJson = Convert::to_string(stCfg);
-    Task::Info_S stInfo;
-    stInfo.data = wrap_data_json(Convert::to_string(stCfg));
-    int nExec = s_taskManage ? s_taskManage->execute(AC_SET_DAY_NIGHT_INFO, stInfo) : -1;
-    return (nExec == 0) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
+    std::string strResultJson = {};
+    if (execute_get_result(AC_SET_DAY_NIGHT_INFO, wrap_data_json(Convert::to_string(stCfg)), strResultJson) != OK ||
+        strResultJson.empty())
+    {
+        return NET_E_SET_CFG_FAILED;
+    }
+    int nResult = -1;
+    if (!Json::get(strResultJson.c_str(), "Return", nResult))
+    {
+        return NET_E_SET_CFG_FAILED;
+    }
+    if (nResult == ERR_PARAM || nResult == ERR_WEB_PARAM)
+    {
+        return NET_E_INVALID_PARAM;
+    }
+    return (nResult == OK) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
 }
 
 static NET_COMMON_ECODE_E cb_get_backlight_info(INT32 dwChannelID, LPVOID lpOutBuffer)
@@ -5942,31 +6411,48 @@ static NET_COMMON_ECODE_E cb_set_leave_region_alarm(INT32 nChannelId, LPVOID pIn
     return tvsdk_set_event_config(AC_SET_LEAVE_REGION_DETECT_INFO, Convert::to_string(stConfig));
 }
 
+/**
+ * @brief 获取旧版人脸抓拍配置，新人脸能力使用合并配置作为唯一数据源。
+ * @param [in] dwChannelID SDK 通道号，沿用 IPC 单通道处理方式。
+ * @param [out] lpOutBuffer TVSDK 人脸抓拍结构体。
+ * @return 成功返回 NET_E_SUCCEED，空缓冲区或任务失败返回对应错误。
+ */
 static NET_COMMON_ECODE_E cb_get_face_capture_info(INT32 dwChannelID, LPVOID lpOutBuffer)
 {
     (void)dwChannelID;
     if (!lpOutBuffer)
+    {
         return NET_E_INVALID_PARAM;
-    pNET_FaceCaptureInfo_S pOut = (pNET_FaceCaptureInfo_S)lpOutBuffer;
+    }
+    NET_FaceCaptureInfo_S *pOut = static_cast<NET_FaceCaptureInfo_S *>(lpOutBuffer);
 
-    std::string outJson;
+#if CAP_AI_FACE_RECOGNITION
+    const int nGetActionCode = AC_GET_FACE_RECOGNITION_INFO;
+#else
+    const int nGetActionCode = AC_GET_FACE_CAPTURE_INFO;
+#endif
     std::string strJson;
-    if (execute_get_result(AC_GET_FACE_CAPTURE_INFO, "{}", outJson) != 0 || outJson.empty())
+    if (!execute_get_success_data(nGetActionCode, "{}", strJson))
+    {
         return NET_E_GET_CFG_FAILED;
-    int nRet = -1;
-    Json::get(outJson.c_str(), "Return", nRet);
-    if (nRet != 0)
-        return NET_E_GET_CFG_FAILED;
-
-    Alarm::FaceCapture_S stCfg;
-    strJson = normalize_data_json(outJson);
-    Convert::to_struct(strJson, stCfg);
-    TvSdkConvert::FillFaceCaptureInfo(stCfg, *pOut);
+    }
+#if CAP_AI_FACE_RECOGNITION
+    Alarm::FaceRecognition_S stFaceRecognitionConfig;
+    Convert::to_struct(strJson, stFaceRecognitionConfig);
+    TvSdkConvert::FillFaceCaptureInfo(stFaceRecognitionConfig, *pOut);
+    dlog_info("TVSDK人脸抓拍获取: action[%d], enable[%d], capture[%d], attribute[%d], dynamic[%d]",
+              nGetActionCode, stFaceRecognitionConfig.bEnable, stFaceRecognitionConfig.bCaptureEnable,
+              stFaceRecognitionConfig.bAttributeAnalysisEnable, stFaceRecognitionConfig.bDynamicAnalysisEnable);
+#else
+    Alarm::FaceCapture_S stCaptureConfig;
+    Convert::to_struct(strJson, stCaptureConfig);
+    TvSdkConvert::FillFaceCaptureInfo(stCaptureConfig, *pOut);
+#endif
     pOut->uChannel = 0;
     return NET_E_SUCCEED;
 }
 /**
- * @brief 设置人脸抓拍配置，返回实际业务处理结果。
+ * @brief 设置旧版人脸抓拍配置，新人脸能力先读取当前配置并保留协议未暴露的开关。
  * @param [in] dwChannelID SDK通道号，沿用单通道设备处理方式。
  * @param [in] lpInBuffer 人脸抓拍配置结构体。
  * @param [out] 无
@@ -5979,14 +6465,31 @@ static NET_COMMON_ECODE_E cb_set_face_capture_info(INT32 dwChannelID, LPVOID lpI
     {
         return NET_E_INVALID_PARAM;
     }
-    const NET_FaceCaptureInfo_S *pIn = (const NET_FaceCaptureInfo_S *)lpInBuffer;
-    Alarm::FaceCapture_S stCfg;
-    TvSdkConvert::ToFaceCapture(*pIn, stCfg);
-    std::string strResult;
-    if (execute_get_result(AC_SET_FACE_CAPTURE_INFO,
-                           wrap_data_json(Convert::to_string(stCfg)), strResult) != 0)
+    const NET_FaceCaptureInfo_S *pIn = static_cast<const NET_FaceCaptureInfo_S *>(lpInBuffer);
+#if CAP_AI_FACE_RECOGNITION
+    const int nSetActionCode = AC_SET_FACE_RECOGNITION_INFO;
+    std::string strCurrentJson;
+    if (!execute_get_success_data(AC_GET_FACE_RECOGNITION_INFO, "{}", strCurrentJson))
     {
-        dlog_error("TVSDK人脸抓拍设置任务执行失败: action[%d]", AC_SET_FACE_CAPTURE_INFO);
+        dlog_error("TVSDK人脸抓拍设置前获取合并人脸配置失败");
+        return NET_E_GET_CFG_FAILED;
+    }
+    Alarm::FaceRecognition_S stCurrentConfig;
+    Convert::to_struct(strCurrentJson, stCurrentConfig);
+    Alarm::FaceRecognition_S stUpdatedConfig;
+    /* 沿用同步配置任务的读改写路径，不自动启用总开关，也不改变网页专属的分析开关。 */
+    TvSdkConvert::ToFaceRecognition(*pIn, stCurrentConfig, stUpdatedConfig);
+    const std::string strConfigJson = Convert::to_string(stUpdatedConfig);
+#else
+    const int nSetActionCode = AC_SET_FACE_CAPTURE_INFO;
+    Alarm::FaceCapture_S stCaptureConfig;
+    TvSdkConvert::ToFaceCapture(*pIn, stCaptureConfig);
+    const std::string strConfigJson = Convert::to_string(stCaptureConfig);
+#endif
+    std::string strResult;
+    if (execute_get_result(nSetActionCode, wrap_data_json(strConfigJson), strResult) != 0)
+    {
+        dlog_error("TVSDK人脸抓拍设置任务执行失败: action[%d]", nSetActionCode);
         return NET_E_SET_CFG_FAILED;
     }
     int nRet = ERR;
@@ -5997,10 +6500,15 @@ static NET_COMMON_ECODE_E cb_set_face_capture_info(INT32 dwChannelID, LPVOID lpI
     }
     if (nRet != OK)
     {
-        dlog_warn("TVSDK人脸抓拍设置失败: action[%d], ipc_ret[%d]", AC_SET_FACE_CAPTURE_INFO, nRet);
+        dlog_warn("TVSDK人脸抓拍设置失败: action[%d], ipc_ret[%d]", nSetActionCode, nRet);
         return (nRet == ERR_WEB_PARAM || nRet == ERR_WEB_REGION)
                    ? NET_E_INVALID_PARAM : NET_E_SET_CFG_FAILED;
     }
+#if CAP_AI_FACE_RECOGNITION
+    dlog_info("TVSDK人脸抓拍设置成功: action[%d], enable[%d], capture[%d], attribute[%d], dynamic[%d]",
+              nSetActionCode, stUpdatedConfig.bEnable, stUpdatedConfig.bCaptureEnable,
+              stUpdatedConfig.bAttributeAnalysisEnable, stUpdatedConfig.bDynamicAnalysisEnable);
+#endif
     return NET_E_SUCCEED;
 }
 
@@ -6072,19 +6580,63 @@ static NET_COMMON_ECODE_E cb_get_security_services_info(INT32 dwChannelID, LPVOI
     return NET_E_SUCCEED;
 }
 
+/**
+ * 功能：校验安全服务可写参数，保留 IPC 当前 SSH 只读状态，并返回实际设置结果。
+ * param [in] dwChannelID：协议通道号，当前安全服务配置为设备级配置。
+ * param [in] lpInBuffer：NET_SecurityServicesInfo_S 配置指针，开关仅允许 FALSE 或 TRUE，SSH 时间状态忽略。
+ * param [out]：无。
+ * return：成功返回 NET_E_SUCCEED，非法参数返回 NET_E_INVALID_PARAM，任务失败返回 NET_E_SET_CFG_FAILED。
+ */
 static NET_COMMON_ECODE_E cb_set_security_services_info(INT32 dwChannelID, LPVOID lpInBuffer)
 {
     (void)dwChannelID;
     if (!lpInBuffer)
+    {
         return NET_E_INVALID_PARAM;
+    }
 
-    System::SecurityServices_S stConfig;
-    TvSdkConvert::ToSecurityServicesInfo(
-        *static_cast<const NET_SecurityServicesInfo_S *>(lpInBuffer), stConfig);
-    return execute_action_expect_success(AC_SET_SECURITY_SERVICES_INFO,
-                                         wrap_data_json(Convert::to_string(stConfig))) == 0
-               ? NET_E_SUCCEED
-               : NET_E_SET_CFG_FAILED;
+    const NET_SecurityServicesInfo_S &stInput =
+        *static_cast<const NET_SecurityServicesInfo_S *>(lpInBuffer);
+    /* SDK 开关为整数，必须在转换为 IPC bool 前拒绝非法值，避免被静默转换成禁用。 */
+    if ((stInput.stLoginLock.bIllegalLoginEnable != FALSE && stInput.stLoginLock.bIllegalLoginEnable != TRUE) ||
+        (stInput.stPwdPolicy.bPwdSecurityLevelEnable != FALSE && stInput.stPwdPolicy.bPwdSecurityLevelEnable != TRUE) ||
+        (stInput.stPwdPolicy.bAllowLowLevelPwdLogin != FALSE && stInput.stPwdPolicy.bAllowLowLevelPwdLogin != TRUE) ||
+        (stInput.stSshAdmin.bSshEnable != FALSE && stInput.stSshAdmin.bSshEnable != TRUE) ||
+        stInput.stLoginLock.nCheckInterval < NET_SECURITY_LOGIN_CHECK_INTERVAL_MIN_MINUTES ||
+        stInput.stLoginLock.nCheckInterval > NET_SECURITY_LOGIN_CHECK_INTERVAL_MAX_MINUTES ||
+        stInput.stLoginLock.nMaxErrorTimes < NET_SECURITY_LOGIN_MAX_ERROR_TIMES_MIN ||
+        stInput.stLoginLock.nMaxErrorTimes > NET_SECURITY_LOGIN_MAX_ERROR_TIMES_MAX)
+    {
+        dlog_warn("TVSDK安全服务设置参数无效: interval[%d], max_error_times[%d]",
+                  stInput.stLoginLock.nCheckInterval, stInput.stLoginLock.nMaxErrorTimes);
+        return NET_E_INVALID_PARAM;
+    }
+
+    /* 必须先读取当前状态，避免 SSH 已运行时因默认空时间覆盖真实启动时间。 */
+    std::string strCurrentJson;
+    if (!execute_get_success_data(AC_GET_SECURITY_SERVICES_INFO, "{}", strCurrentJson))
+    {
+        return NET_E_SET_CFG_FAILED;
+    }
+    System::SecurityServices_S stConfig{};
+    Convert::to_struct(strCurrentJson, stConfig);
+    TvSdkConvert::ToSecurityServicesInfo(stInput, stConfig);
+    std::string strResult;
+    if (execute_get_result(AC_SET_SECURITY_SERVICES_INFO,
+                           wrap_data_json(Convert::to_string(stConfig)), strResult) != 0)
+    {
+        return NET_E_SET_CFG_FAILED;
+    }
+    int nResult = ERR;
+    if (strResult.empty() || !Json::get(strResult.c_str(), "Return", nResult))
+    {
+        return NET_E_SET_CFG_FAILED;
+    }
+    if (nResult == ERR_PARAM || nResult == ERR_WEB_PARAM)
+    {
+        return NET_E_INVALID_PARAM;
+    }
+    return (nResult == OK) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
 }
 
 static NET_COMMON_ECODE_E cb_get_ssh_countdown(INT32 dwChannelID, LPVOID lpOutBuffer)
@@ -6577,11 +7129,6 @@ static NET_COMMON_ECODE_E cb_get_replay_url(pNET_ReplayUrlInfo_S pInfo)
     Json::get(strOutJson.c_str(), "Return", nReturn);
     if (nReturn != 0)
     {
-        /* SD 卡异常单独映射，便于平台区分提示 */
-        if (nReturn == ERR_WEB_NO_SD_CARD)
-        {
-            return NET_E_NO_SD_CARD;
-        }
         return NET_E_GET_CFG_FAILED;
     }
 
@@ -6607,6 +7154,18 @@ void register_all()
     NET_serverRegisterGetAudioEncodeCapCb(cb_get_audio_encode_cap);
     NET_serverRegisterGetOsdCapCb(cb_get_osd_cap);
     NET_serverRegisterGetDeviceBasicInfoCb(cb_get_device_basic_info);
+    if (!NET_serverRegisterGetDeviceStorageInfoCb(cb_get_device_storage_info))
+    {
+        dlog_error("TVSDK注册设备存储信息回调失败: command[%d]", NET_GET_STORAGE_INFO);
+    }
+    if (!NET_serverRegisterGetRegisterInfoCb(cb_get_register_info))
+    {
+        dlog_error("TVSDK注册设备注册信息回调失败: command[%d]", NET_GET_REGISTERINFO);
+    }
+    if (!NET_serverRegisterSetRegisterInfoCb(cb_set_register_info))
+    {
+        dlog_error("TVSDK注册设备注册码设置回调失败: command[%d]", NET_SET_REGISTERINFO);
+    }
     NET_serverRegisterGetDeviceConfigCb(cb_get_device_cfg);
     NET_serverRegisterSetDeviceConfigCb(cb_set_device_cfg);
     NET_serverRegisterSetUserPasswordCb(cb_set_user_password);

@@ -3,7 +3,7 @@
  * @Author       : zhouzirui
  * @Date         : 2025-03-21 10:55:08
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-08-20 17:30:00
+ * @LastEditTime : 2026-09-23 15:17:14
  * @Description  : 视频定义
  */
 #pragma once
@@ -802,8 +802,8 @@ namespace Video_NS
      */
     typedef struct
     {
-        std::shared_ptr<uint8_t[]> pData; /* 共享数据 buffer */
-        int nLen = 0;                     /* 数据长度 */
+        std::shared_ptr<uint8_t> pData; /* 共享数据 buffer */
+        int nLen = 0;                   /* 数据长度 */
     } SharedMediaFrame_S;
 
     /* 视频感兴趣区域结构 */

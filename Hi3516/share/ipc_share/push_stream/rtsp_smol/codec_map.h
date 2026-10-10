@@ -7,7 +7,6 @@
  *   - 视频/音频编码枚举映射
  *   - NAL 类型映射（H264/H265 两套）
  *   - RTP 动态负载类型分配
- *   - 主码流按码率分档的连接上限策略
  *
  * 新增编码格式或调整 PT 分配只改本模块；类实现不依赖这里的细节。
  */
@@ -37,8 +36,5 @@ uint8_t audio_payload_type(ipc_rtsp::AudioCodec codec);
 
 /** 把产品的首个 NAL 类型映射为库的 NAL 分类（用于首帧策略与关键帧判定）。 */
 ipc_rtsp::NalUnitType to_nal_type(Video_NS::VideoCodec_E codec, Video_NS::NalType_E type);
-
-/** 主码流按码率分档的连接上限（与 live555 实现保持一致的策略）。 */
-int get_main_client_limit(int bitrate_kbps);
 
 } // namespace rtsp_smol

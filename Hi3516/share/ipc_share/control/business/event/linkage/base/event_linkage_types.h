@@ -99,6 +99,7 @@ inline EventTvSdkPayloadType_E get_tvsdk_payload_type(Event::Type_E enEventType)
 
     /* AI 检测类事件 */
     case Event::Type_E::FACE_DETECT:
+    case Event::Type_E::FACE_RECOGNITION:
     case Event::Type_E::FACE_CAPTURE:
     case Event::Type_E::PET_RECOGNITION:
     case Event::Type_E::LOITERING_DETECT:

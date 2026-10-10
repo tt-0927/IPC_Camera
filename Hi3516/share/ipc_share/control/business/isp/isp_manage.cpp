@@ -79,7 +79,7 @@ int CIspManage::set_business_service(ISP::IIspBusinessService *pService)
     /* service注册成功后构造命令服务，typed API通过命令服务统一执行事务。 */
     if (!m_pstCommandService)
     {
-        m_pstCommandService = std::make_unique<CIspConfigCommandService>(m_stIspRepository, *pService);
+        m_pstCommandService = std::unique_ptr<CIspConfigCommandService>(new CIspConfigCommandService(m_stIspRepository, *pService));
     }
     return OK;
 }

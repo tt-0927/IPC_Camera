@@ -37,13 +37,13 @@ typedef struct _MediaParam_
 
     void clear()
     {
-        nVideoWidth    = 0;
-        nVideoHeight   = 0;
-        dFrameRate     = 0.0;
-        enPixelFormat  = OT_PIXEL_FORMAT_BUTT;
-        nSampleRate    = 0;
-        nChannel       = 0;
-        enBitWidth     = OT_AUDIO_BIT_WIDTH_BUTT;
+        nVideoWidth = 0;
+        nVideoHeight = 0;
+        dFrameRate = 0.0;
+        enPixelFormat = OT_PIXEL_FORMAT_BUTT;
+        nSampleRate = 0;
+        nChannel = 0;
+        enBitWidth = OT_AUDIO_BIT_WIDTH_BUTT;
     }
 
     _MediaParam_()
@@ -69,30 +69,30 @@ typedef struct _MediaParam_
 /* 媒体信息 */
 typedef struct _MediaData_
 {
-    MediaDataType_E enType;        /* 数据类型 */
-    int64_t         nSize;         /* 数据大小 */
+    MediaDataType_E enType; /* 数据类型 */
+    int64_t nSize;          /* 数据大小 */
 
     /**
-        * @brief   : 媒体数据智能指针
-        * @note    : 不再持有数据的拷贝，
-        *            而是直接持有原始的 ot_video_frame_info 智能指针，
-        *            通过自定义删除器来管理其生命周期，实现零拷贝
-        */
+     * @brief   : 媒体数据智能指针
+     * @note    : 不再持有数据的拷贝，
+     *            而是直接持有原始的 ot_video_frame_info 智能指针，
+     *            通过自定义删除器来管理其生命周期，实现零拷贝
+     */
     std::shared_ptr<ot_video_frame_info> pVideoFrameInfo;
     /**
-        * @brief   : 媒体数据智能指针
-        * @note    : 不再持有数据的拷贝，
-        *            而是直接持有原始的 ot_audio_frame 智能指针，
-        *            通过自定义删除器来管理其生命周期，实现零拷贝
-        */
+     * @brief   : 媒体数据智能指针
+     * @note    : 不再持有数据的拷贝，
+     *            而是直接持有原始的 ot_audio_frame 智能指针，
+     *            通过自定义删除器来管理其生命周期，实现零拷贝
+     */
     std::shared_ptr<ot_audio_frame> pAudioFrame;
-    std::shared_ptr<char[]> pData; /* 媒体数据智能指针 */
+    std::shared_ptr<char> pData; /* 媒体数据智能指针 */
     MediaParam_S stMediaParam;   /* 媒体编码信息 */
 
     void clear()
     {
-        enType  = VIDEO_DATA;
-        nSize   = 0;
+        enType = VIDEO_DATA;
+        nSize = 0;
         pVideoFrameInfo.reset();
         pAudioFrame.reset();
         stMediaParam.clear();

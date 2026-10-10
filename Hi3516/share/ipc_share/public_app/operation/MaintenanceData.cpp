@@ -1,6 +1,7 @@
 #include "MaintenanceData.h"
 #include <iostream>
 #include <fstream>
+#include <sstream>
 #include <string>
 #include <stdint.h>
 #include <string.h>
@@ -11,8 +12,7 @@
 
 #include "dlog.h"
 
-extern "C"
-{
+extern "C" {
 #include "share_define.h"
 #include "edukit_network.h"
 }
@@ -50,7 +50,7 @@ CMaintenanceData *CMaintenanceData::getInstance()
 
 bool CMaintenanceData::init(const std::string &strConfigPath)
 {
-    std::unique_lock<std::shared_mutex> locker(m_configMutex);
+    std::unique_lock<std::mutex> locker(m_configMutex);
     m_strConfigFilePath = strConfigPath;
     m_bIsInit = parseConfigFile();
     if (m_bIsInit)
@@ -62,7 +62,7 @@ bool CMaintenanceData::init(const std::string &strConfigPath)
 
 bool CMaintenanceData::init(std::string &strConfigureJson)
 {
-    std::unique_lock<std::shared_mutex> locker(m_configMutex);
+    std::unique_lock<std::mutex> locker(m_configMutex);
     m_bIsInit = parseConfigByJson(strConfigureJson);
     return m_bIsInit;
 }
@@ -87,49 +87,49 @@ bool CMaintenanceData::isInit()
 
 MaintenanceManagerConf CMaintenanceData::getConfig()
 {
-    std::shared_lock<std::shared_mutex> locker(m_configMutex);
+    std::lock_guard<std::mutex> locker(m_configMutex);
     return m_stConfig;
 }
 
 std::string CMaintenanceData::getRequeryUrl()
 {
-    std::shared_lock<std::shared_mutex> locker(m_configMutex);
+    std::lock_guard<std::mutex> locker(m_configMutex);
     return m_stConfig.strUrl;
 }
 
 void CMaintenanceData::setDeviceCode(std::string strDeviceCode)
 {
-    std::unique_lock<std::shared_mutex> locker(m_configMutex);
+    std::unique_lock<std::mutex> locker(m_configMutex);
     m_stConfig.strDeviceCode = strDeviceCode;
 }
 
 std::string CMaintenanceData::getDeviceCode()
 {
-    std::shared_lock<std::shared_mutex> locker(m_configMutex);
+    std::lock_guard<std::mutex> locker(m_configMutex);
     return m_stConfig.strDeviceCode;
 }
 
 void CMaintenanceData::setProjectCode(std::string strProjectCode)
 {
-    std::unique_lock<std::shared_mutex> locker(m_configMutex);
+    std::unique_lock<std::mutex> locker(m_configMutex);
     m_stConfig.strCode = strProjectCode;
 }
 
 std::string CMaintenanceData::getProjectCode()
 {
-    std::shared_lock<std::shared_mutex> locker(m_configMutex);
+    std::lock_guard<std::mutex> locker(m_configMutex);
     return m_stConfig.strCode;
 }
 
 std::vector<std::string> CMaintenanceData::getFilesPath()
 {
-    std::shared_lock<std::shared_mutex> locker(m_configMutex);
+    std::lock_guard<std::mutex> locker(m_configMutex);
     return m_stConfig.vecPaths;
 }
 
 std::string CMaintenanceData::getRecordFilePath()
 {
-    std::shared_lock<std::shared_mutex> locker(m_configMutex);
+    std::lock_guard<std::mutex> locker(m_configMutex);
     return m_stConfig.strRecordFilePath;
 }
 
@@ -145,25 +145,25 @@ std::string CMaintenanceData::getCurDateBySeparatorIs_()
 
 void CMaintenanceData::setLoginStatus(bool bStatus)
 {
-    std::unique_lock<std::shared_mutex> locker(m_loginMutex);
+    std::unique_lock<std::mutex> locker(m_loginMutex);
     m_bIsLogin = bStatus;
 }
 
 bool CMaintenanceData::getLoginStatus()
 {
-    std::shared_lock<std::shared_mutex> locker(m_loginMutex);
+    std::lock_guard<std::mutex> locker(m_loginMutex);
     return m_bIsLogin;
 }
 
 void CMaintenanceData::setToken(const std::string &strToken)
 {
-    std::unique_lock<std::shared_mutex> locker(m_tokenMutex);
+    std::unique_lock<std::mutex> locker(m_tokenMutex);
     m_strToken = strToken;
 }
 
 void CMaintenanceData::setApiTokenFile(const std::string &strFilePath)
 {
-    std::unique_lock<std::shared_mutex> locker(m_tokenMutex);
+    std::unique_lock<std::mutex> locker(m_tokenMutex);
     std::string strFile = strFilePath;
     /* 从文件中读取Token并覆盖 */
     std::string strTokenTmp = readFile(strFile);
@@ -183,19 +183,19 @@ void CMaintenanceData::setApiTokenFile(const std::string &strFilePath)
 
 std::string CMaintenanceData::getToken()
 {
-    std::shared_lock<std::shared_mutex> locker(m_tokenMutex);
+    std::lock_guard<std::mutex> locker(m_tokenMutex);
     return m_strToken;
 }
 
 void CMaintenanceData::setProjectID(const int &nID)
 {
-    std::unique_lock<std::shared_mutex> locker(m_projectIDMutex);
+    std::unique_lock<std::mutex> locker(m_projectIDMutex);
     m_nProjectID = nID;
 }
 
 int CMaintenanceData::getProjectID()
 {
-    std::shared_lock<std::shared_mutex> locker(m_projectIDMutex);
+    std::lock_guard<std::mutex> locker(m_projectIDMutex);
     return m_nProjectID;
 }
 
@@ -208,7 +208,7 @@ void CMaintenanceData::nextDate()
 
     /* 将历史记录里面记录的 */
     {
-        std::shared_lock<std::shared_mutex> locker(m_recordMutex);
+        std::lock_guard<std::mutex> locker(m_recordMutex);
         for (std::size_t i = 0; i < m_vecRecord.size(); i++)
         {
             setDates.insert(m_vecRecord.at(i).stFileInfo.strFileDate);
@@ -217,12 +217,15 @@ void CMaintenanceData::nextDate()
 
     /* 检查map */
     {
-        std::shared_lock<std::shared_mutex> locker(m_uploadRecordMutex);
+        std::lock_guard<std::mutex> locker(m_uploadRecordMutex);
         std::map<std::string, RecordInfo>::iterator ite = m_mapUploadRecord.begin();
         for (; ite != m_mapUploadRecord.end(); ite++)
         {
             RecordInfo stInfo = ite->second;
-            dlog_info("record:%s status:%d date:%s", stInfo.stFileInfo.strIdentifier.c_str(), stInfo.enUploadStatus, stInfo.stFileInfo.strFileDate.c_str());
+            dlog_info("record:%s status:%d date:%s",
+                      stInfo.stFileInfo.strIdentifier.c_str(),
+                      stInfo.enUploadStatus,
+                      stInfo.stFileInfo.strFileDate.c_str());
             if (stInfo.enUploadStatus != UPLOADED)
             {
                 bIsAllUpload = false;
@@ -237,7 +240,7 @@ void CMaintenanceData::nextDate()
         m_strRecordJson.clear();
 
         {
-            std::unique_lock<std::shared_mutex> locker(m_uploadRecordMutex);
+            std::unique_lock<std::mutex> locker(m_uploadRecordMutex);
             m_mapUploadRecord.clear();
         }
         /* 已经全部上传完成了，写出 */
@@ -258,7 +261,7 @@ void CMaintenanceData::changedRecordUploadStatus(const std::string &strIdentifie
 {
     bool isAllUpload = true;
     {
-        std::unique_lock<std::shared_mutex> locker(m_uploadRecordMutex);
+        std::unique_lock<std::mutex> locker(m_uploadRecordMutex);
         std::map<std::string, RecordInfo>::iterator ite = m_mapUploadRecord.begin();
         for (; ite != m_mapUploadRecord.end(); ite++)
         {
@@ -273,7 +276,7 @@ void CMaintenanceData::changedRecordUploadStatus(const std::string &strIdentifie
                 {
                     /* 添加进入记录列表 */
                     {
-                        std::unique_lock<std::shared_mutex> locker(m_recordMutex);
+                        std::unique_lock<std::mutex> locker(m_recordMutex);
                         m_vecRecord.push_back(stInfo);
                     }
                     /* 写出记录至记录文件 */
@@ -311,7 +314,7 @@ void CMaintenanceData::printfAllContainers()
     //   dlog_debug( "---start printf filter infos!");
     /* 打印过滤文件信息 */
     {
-        std::shared_lock<std::shared_mutex> locker(m_filterMutex);
+        std::lock_guard<std::mutex> locker(m_filterMutex);
         for (std::size_t i = 0; i < m_vecFilter.size(); i++)
         {
             dlog_debug("No.%ld:%s", i + 1, m_vecFilter.at(i).c_str());
@@ -321,32 +324,32 @@ void CMaintenanceData::printfAllContainers()
     dlog_debug("---start printf record infos!");
     /* 打印历史记录信息 */
     {
-        std::shared_lock<std::shared_mutex> locker(m_recordMutex);
+        std::lock_guard<std::mutex> locker(m_recordMutex);
         for (std::size_t i = 0; i < m_vecRecord.size(); i++)
         {
             RecordInfo stInfo = m_vecRecord.at(i);
             dlog_debug("No.%ld:\n    file:%s/%s\n    upload status:%d",
-                      i + 1,
-                      stInfo.stFileInfo.strFilePath.c_str(),
-                      stInfo.stFileInfo.strFileName.c_str(),
-                      stInfo.enUploadStatus);
+                       i + 1,
+                       stInfo.stFileInfo.strFilePath.c_str(),
+                       stInfo.stFileInfo.strFileName.c_str(),
+                       stInfo.enUploadStatus);
         }
     }
 
     dlog_debug("---start printf map record infos!");
     /* 打印map记录信息 */
     {
-        std::shared_lock<std::shared_mutex> locker(m_uploadRecordMutex);
+        std::lock_guard<std::mutex> locker(m_uploadRecordMutex);
         int i = 0;
         std::map<std::string, RecordInfo>::iterator ite = m_mapUploadRecord.begin();
         for (; ite != m_mapUploadRecord.end(); ite++)
         {
             RecordInfo stInfo = ite->second;
             dlog_debug("No.%d:\n    file:%s/%s\n    upload status:%d",
-                      i + 1,
-                      stInfo.stFileInfo.strFilePath.c_str(),
-                      stInfo.stFileInfo.strFileName.c_str(),
-                      stInfo.enUploadStatus);
+                       i + 1,
+                       stInfo.stFileInfo.strFilePath.c_str(),
+                       stInfo.stFileInfo.strFileName.c_str(),
+                       stInfo.enUploadStatus);
             i++;
         }
     }
@@ -357,16 +360,15 @@ void CMaintenanceData::setFileInfoCheckRecord(FileInfo &stFileInfo)
 {
     /* 检查是否存在map中 */
     {
-        std::shared_lock<std::shared_mutex> locker(m_uploadRecordMutex);
-        if (m_mapUploadRecord.find(stFileInfo.strIdentifier) !=
-            m_mapUploadRecord.end())
+        std::lock_guard<std::mutex> locker(m_uploadRecordMutex);
+        if (m_mapUploadRecord.find(stFileInfo.strIdentifier) != m_mapUploadRecord.end())
         {
             return;
         }
     }
     /* 检查是否存在历史记录中 */
     {
-        std::shared_lock<std::shared_mutex> locker(m_recordMutex);
+        std::lock_guard<std::mutex> locker(m_recordMutex);
         for (std::size_t i = 0; i < m_vecRecord.size(); i++)
         {
             if (m_vecRecord.at(i).stFileInfo.strIdentifier.compare(stFileInfo.strIdentifier) == 0)
@@ -376,16 +378,16 @@ void CMaintenanceData::setFileInfoCheckRecord(FileInfo &stFileInfo)
         }
     }
     /* 都不存在，那么加入到map中 */
-    std::unique_lock<std::shared_mutex> locker(m_uploadRecordMutex);
+    std::unique_lock<std::mutex> locker(m_uploadRecordMutex);
     RecordInfo stRecordInfo;
     stRecordInfo.stFileInfo = stFileInfo;
     stRecordInfo.enUploadStatus = UPLOAD_NOT;
-    m_mapUploadRecord.insert({stFileInfo.strIdentifier, stRecordInfo});
+    m_mapUploadRecord.insert({ stFileInfo.strIdentifier, stRecordInfo });
 }
 
 RecordInfo CMaintenanceData::getNeedUploadFile()
 {
-    std::unique_lock<std::shared_mutex> locker(m_uploadRecordMutex);
+    std::unique_lock<std::mutex> locker(m_uploadRecordMutex);
     std::map<std::string, RecordInfo>::iterator ite = m_mapUploadRecord.begin();
     for (; ite != m_mapUploadRecord.end(); ite++)
     {
@@ -419,7 +421,7 @@ bool CMaintenanceData::createDirectory(const std::string &strPath)
     {
         return -1;
     }
-    char tmpDirPath[MAX_PATH_LEN] = {0};
+    char tmpDirPath[MAX_PATH_LEN] = { 0 };
     for (uint32_t i = 0; i < dirPathLen; ++i)
     {
         tmpDirPath[i] = strPath[i];
@@ -459,13 +461,13 @@ std::vector<RecordInfo> CMaintenanceData::getRecordInfos(bool bReParse)
 {
     if (bReParse)
     {
-        std::unique_lock<std::shared_mutex> locker(m_recordMutex);
+        std::unique_lock<std::mutex> locker(m_recordMutex);
         parseRecordFile();
         return m_vecRecord;
     }
     else
     {
-        std::shared_lock<std::shared_mutex> locker(m_recordMutex);
+        std::lock_guard<std::mutex> locker(m_recordMutex);
         return m_vecRecord;
     }
 }
@@ -474,13 +476,13 @@ std::vector<std::string> CMaintenanceData::getFilterInfos(bool bReParse)
 {
     if (bReParse)
     {
-        std::unique_lock<std::shared_mutex> locker(m_filterMutex);
+        std::unique_lock<std::mutex> locker(m_filterMutex);
         parseFilterFile();
         return m_vecFilter;
     }
     else
     {
-        std::shared_lock<std::shared_mutex> locker(m_filterMutex);
+        std::lock_guard<std::mutex> locker(m_filterMutex);
         return m_vecFilter;
     }
 }
@@ -518,8 +520,7 @@ bool CMaintenanceData::parseConfigFile()
     if (strJson.length() > 0)
     {
         m_stConfig = m_cParse.parseConfig(strJson);
-        if (!m_stConfig.strUrl.empty() &&
-            !m_stConfig.strCode.empty() && m_stConfig.vecUploadFile.size() > 0)
+        if (!m_stConfig.strUrl.empty() && !m_stConfig.strCode.empty() && m_stConfig.vecUploadFile.size() > 0)
         {
             return true;
         }
@@ -533,8 +534,7 @@ bool CMaintenanceData::parseConfigByJson(std::string strConfigureJson)
     if (strConfigureJson.length() > 0)
     {
         m_stConfig = m_cParse.parseConfig(strConfigureJson);
-        if (!m_stConfig.strUrl.empty() && !m_stConfig.strDeviceCode.empty() &&
-            !m_stConfig.strRecordFilePath.empty() &&
+        if (!m_stConfig.strUrl.empty() && !m_stConfig.strDeviceCode.empty() && !m_stConfig.strRecordFilePath.empty() &&
             !m_stConfig.strCode.empty() && m_stConfig.vecUploadFile.size() > 0)
         {
             return true;

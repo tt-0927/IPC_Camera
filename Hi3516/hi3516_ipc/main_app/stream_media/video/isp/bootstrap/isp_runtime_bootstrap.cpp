@@ -82,7 +82,7 @@ int CHi3516IspRuntimeBootstrap::init()
     CDayNightController::instance()->set_tuning_profile(&m_stTuningProfile);
 
     /* step3: 先创建独立设备驱动，再将非拥有引用传给平台适配器。 */
-    m_pFillLightDriver = std::make_unique<CFillLightDriver>(m_stFillLightProfile);
+    m_pFillLightDriver = std::unique_ptr<CFillLightDriver>(new CFillLightDriver(m_stFillLightProfile));
     nRet = m_pFillLightDriver->init();
     if (nRet != OK)
     {
@@ -90,12 +90,12 @@ int CHi3516IspRuntimeBootstrap::init()
         reset_platform_objects();
         return nRet;
     }
-    m_pIrCutDriver = std::make_unique<CIrCutDriver>(m_stIrCutProfile);
+    m_pIrCutDriver = std::unique_ptr<CIrCutDriver>(new CIrCutDriver(m_stIrCutProfile));
 
-    m_pParamApplier = std::make_unique<CIspParameterApplierHi3516>();
-    m_pSceneProvider = std::make_unique<CIspSceneProviderHi3516>(m_stTuningProfile);
-    m_pDetector = std::make_unique<CIspDayNightDetectorHi3516>();
-    m_pPeripheral = std::make_unique<CIspPeripheralController>(*m_pFillLightDriver, *m_pIrCutDriver);
+    m_pParamApplier = std::unique_ptr<CIspParameterApplierHi3516>(new CIspParameterApplierHi3516());
+    m_pSceneProvider = std::unique_ptr<CIspSceneProviderHi3516>(new CIspSceneProviderHi3516(m_stTuningProfile));
+    m_pDetector = std::unique_ptr<CIspDayNightDetectorHi3516>(new CIspDayNightDetectorHi3516());
+    m_pPeripheral = std::unique_ptr<CIspPeripheralController>(new CIspPeripheralController(*m_pFillLightDriver, *m_pIrCutDriver));
 
     /* 将四个非拥有引用传给共享层；启动器必须在共享服务销毁后才能销毁它们。 */
     IspPlatformAdapters_S stAdapters{ *m_pParamApplier, *m_pSceneProvider, *m_pDetector, *m_pPeripheral };
@@ -120,8 +120,7 @@ int CHi3516IspRuntimeBootstrap::init()
             dlog_error("读取场景计划本地时间失败");
             return IspSchedulerTime_S{};
         }
-        return IspSchedulerTime_S{ stLocalTime.tm_mon + 1,
-                                   stLocalTime.tm_hour * 3600 + stLocalTime.tm_min * 60 + stLocalTime.tm_sec };
+        return IspSchedulerTime_S{ stLocalTime.tm_mon + 1, stLocalTime.tm_hour * 3600 + stLocalTime.tm_min * 60 + stLocalTime.tm_sec };
     };
     /* TIME 日夜模式只需要当天秒数，继续使用公共时间工具。 */
     auto fnGetDaySeconds = []() -> int
@@ -134,11 +133,8 @@ int CHi3516IspRuntimeBootstrap::init()
     IspDayNightClock_S stDayNightClock{ fnGetDaySeconds };
 
     /* step5: 构造共享业务服务 */
-    m_pSharedService = std::make_unique<CIspBusinessService>(stAdapters,
-                                                             stTiming,
-                                                             stSchedulerClock,
-                                                             stDayNightClock,
-                                                             m_stProfile);
+    m_pSharedService = std::unique_ptr<CIspBusinessService>(
+        new CIspBusinessService(stAdapters, stTiming, stSchedulerClock, stDayNightClock, m_stProfile));
 
     /* step6: 先注册非拥有服务指针，CIspManage 才能创建依赖该服务的命令事务对象。 */
     nRet = CIspManage::instance()->set_business_service(m_pSharedService.get());

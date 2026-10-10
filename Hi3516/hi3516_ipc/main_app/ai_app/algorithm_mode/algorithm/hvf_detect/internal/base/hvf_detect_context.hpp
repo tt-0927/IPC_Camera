@@ -39,5 +39,29 @@ typedef struct _SHVFProcessContext_
     long long llTimestamp = 0;
     /* 当前帧视频帧指针，用于事件报警时编码触发帧图片 */
     ot_video_frame_info *pFrameInfo = nullptr;
+
+    /* C++11 基线下带默认成员初始化器的结构体不是聚合，提供构造函数支持花括号初始化；
+     * pstPanelFrame 仅在启用展会面板能力时参与构造 */
+    _SHVFProcessContext_(ot_aidetect_result_array &stResult_,
+                         std::vector<Common::RectInfo_S> &vstRectInfo_,
+                         int nWidth_,
+                         int nHeight_
+#if CAP_EXHIBITION_OSD_PANEL
+                         ,
+                         OsdPanel::PanelFrame_S *pstPanelFrame_ = nullptr
+#endif
+                         ,
+                         int nChnId_ = 0,
+                         long long llTimestamp_ = 0,
+                         ot_video_frame_info *pFrameInfo_ = nullptr)
+        : stResult(stResult_), vstRectInfo(vstRectInfo_), nWidth(nWidth_), nHeight(nHeight_)
+#if CAP_EXHIBITION_OSD_PANEL
+          ,
+          pstPanelFrame(pstPanelFrame_)
+#endif
+          ,
+          nChnId(nChnId_), llTimestamp(llTimestamp_), pFrameInfo(pFrameInfo_)
+    {
+    }
 } SHVFProcessContext;
 } // namespace HVFDetectInternal

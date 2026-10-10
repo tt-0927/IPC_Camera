@@ -14,6 +14,9 @@
 #include "gmssl/gmssl.h"
 #include "path_define.h"
 #include "get_time.h"
+#include "posix_fs.h"
+
+#include <cstring>
 
 /*国密证书序列号长度默认16字节(至少8字节（64位），X.509最大为20字节）推荐16字节（128位）*/
 #define SM_CERT_SERIAL_LENGTH_DEFAULT (16)
@@ -157,8 +160,7 @@ int CCertManage::generateCSR(CertParams_S &stParams, std::string &strCsrDer)
     // stParams.stCertSubjectInfo.pKey = &stSM2Key[CERT_TYPE_SIGNING];
     stParams.stCertSubjectInfo.pKey = &stSM2Key[stParams.enCertType];
     /*设置证书主体名称*/
-    dlog_check_return(setIssuerSubjectName(stParams.stCertSubjectInfo, aSubjectName, &szSubjectNameLen, sizeof(aSubjectName)),
-                      OK);
+    dlog_check_return(setIssuerSubjectName(stParams.stCertSubjectInfo, aSubjectName, &szSubjectNameLen, sizeof(aSubjectName)), OK);
 
     //! 签名者ID 后续设置为企业标识符，而非默认值。在SM2签名中，iD参与生成Z值（哈希中间值），使签名只能被特定标识符对应的公钥验证
     std::string strSignerId = SM2_DEFAULT_ID;
@@ -218,13 +220,11 @@ int CCertManage::generateCertificate(CertParams_S &stParams)
     /*设置证书颁发者名称*/
     dlog_check_return(setIssuerSubjectName(stParams.stCertIssuerInfo, aIssuerName, &szIssuerNameLen, sizeof(aIssuerName)), OK);
     /*设置证书主体名称*/
-    dlog_check_return(setIssuerSubjectName(stParams.stCertSubjectInfo, aSubjectName, &szSubjectNameLen, sizeof(aSubjectName)),
-                      OK);
+    dlog_check_return(setIssuerSubjectName(stParams.stCertSubjectInfo, aSubjectName, &szSubjectNameLen, sizeof(aSubjectName)), OK);
     /*添加扩展项*/
     /*添加基本约束扩展 限制CA证书能签发的下级证书链深度*/
-    dlog_check_return(
-        x509_exts_add_basic_constraints(aExts, &szExtsLen, sizeof(aExts), X509_critical, stParams.bIsCa, stParams.nPathLen),
-        TRUE);
+    dlog_check_return(x509_exts_add_basic_constraints(aExts, &szExtsLen, sizeof(aExts), X509_critical, stParams.bIsCa, stParams.nPathLen),
+                      TRUE);
     /*添加密钥用法扩展 允许签发终端证书、允许签发子CRL（可选，根据CA策略）等*/
     dlog_check_return(x509_exts_add_key_usage(aExts, &szExtsLen, sizeof(aExts), X509_critical, stParams.nKeyUsage), TRUE);
 
@@ -369,13 +369,9 @@ int CCertManage::readCertificate_from_file()
 
     /*存储证书数据至缓冲区*/
     strSigningCertDer.assign(reinterpret_cast<char *>(aCertBuf), szCertLen);
-    dlog_check_return(x509_cert_print(stderr,
-                                      0,
-                                      4,
-                                      "签名证书",
-                                      reinterpret_cast<const uint8_t *>(strSigningCertDer.c_str()),
-                                      strSigningCertDer.size()),
-                      TRUE);
+    dlog_check_return(
+        x509_cert_print(stderr, 0, 4, "签名证书", reinterpret_cast<const uint8_t *>(strSigningCertDer.c_str()), strSigningCertDer.size()),
+        TRUE);
 
     return OK;
 }
@@ -456,14 +452,14 @@ int CCertManage::saveCertToFile(CertType_E enCertType, const uint8_t *pData, siz
     }
 
     /*获取文件所在的文件夹路径*/
-    std::filesystem::path folderPath = std::filesystem::path(strFilePath).parent_path();
+    std::string strFolderPath = PosixFs_NS::parent_path(strFilePath);
 
     /*检查文件夹是否存在，如果不存在则创建*/
-    if (!std::filesystem::exists(folderPath))
+    if (!PosixFs_NS::exists(strFolderPath))
     {
-        if (!std::filesystem::create_directories(folderPath))
+        if (!PosixFs_NS::make_directories(strFolderPath))
         {
-            dlog_error("创建文件夹 %s 失败", folderPath.string().c_str());
+            dlog_error("创建文件夹 %s 失败", strFolderPath.c_str());
             return ERR;
         }
     }
@@ -504,14 +500,14 @@ int CCertManage::saveCsrToFile(const uint8_t *pData, size_t szLen)
     dlog_debug("time:%s", strFilePath.c_str());
 
     /*获取文件所在的文件夹路径*/
-    std::filesystem::path folderPath = std::filesystem::path(strFilePath).parent_path();
+    std::string strFolderPath = PosixFs_NS::parent_path(strFilePath);
 
     /*检查文件夹是否存在，如果不存在则创建*/
-    if (!std::filesystem::exists(folderPath))
+    if (!PosixFs_NS::exists(strFolderPath))
     {
-        if (!std::filesystem::create_directories(folderPath))
+        if (!PosixFs_NS::make_directories(strFolderPath))
         {
-            dlog_error("创建文件夹 %s 失败", folderPath.string().c_str());
+            dlog_error("创建文件夹 %s 失败", strFolderPath.c_str());
             return ERR;
         }
     }
@@ -566,13 +562,13 @@ int CCertManage::saveKeyPairToFile(CertType_E enCertType, SM2_KEY &stSM2Key)
     }
 
     /*获取文件所在的文件夹路径*/
-    std::filesystem::path folderPath = std::filesystem::path(strFilePath).parent_path();
+    std::string strFolderPath = PosixFs_NS::parent_path(strFilePath);
     /*检查文件夹是否存在，如果不存在则创建*/
-    if (!std::filesystem::exists(folderPath))
+    if (!PosixFs_NS::exists(strFolderPath))
     {
-        if (!std::filesystem::create_directories(folderPath))
+        if (!PosixFs_NS::make_directories(strFolderPath))
         {
-            dlog_error("创建文件夹 %s 失败", folderPath.string().c_str());
+            dlog_error("创建文件夹 %s 失败", strFolderPath.c_str());
             return ERR;
         }
     }

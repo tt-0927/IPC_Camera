@@ -35,26 +35,27 @@ int64_t get_monotonic_timestamp_ms()
 
 CHVFEventMigrationController::CHVFEventMigrationController()
 {
-    m_pOutputExecutor = std::make_unique<CHVFEventOutputExecutor>();
+    m_pOutputExecutor = std::unique_ptr<CHVFEventOutputExecutor>(new CHVFEventOutputExecutor());
     m_pOutputExecutor->set_image_provider(&m_imageProvider);
 
     /* 处理器所有权移交给 Dispatcher，本类保留访问指针 */
-    auto pRegionProcessor = std::make_unique<AiPipeline_NS::Region_NS::CRegionProcessor>();
+    auto pRegionProcessor = std::unique_ptr<AiPipeline_NS::Region_NS::CRegionProcessor>(new AiPipeline_NS::Region_NS::CRegionProcessor());
     m_pRegionProcessor = pRegionProcessor.get();
     m_dispatcher.register_processor(std::move(pRegionProcessor));
 
     /* 越界处理器注册，nOrder 排在 Region 之后 */
-    auto pTripLineProcessor = std::make_unique<AiPipeline_NS::TripLine_NS::CTripLineProcessor>();
+    auto pTripLineProcessor = std::unique_ptr<AiPipeline_NS::TripLine_NS::CTripLineProcessor>(
+        new AiPipeline_NS::TripLine_NS::CTripLineProcessor());
     m_pTripLineProcessor = pTripLineProcessor.get();
     m_dispatcher.register_processor(std::move(pTripLineProcessor));
 
     /* 驻留处理器注册（徘徊/停车），nOrder 排在 TripLine 之后 */
-    auto pDwellProcessor = std::make_unique<AiPipeline_NS::Dwell_NS::CDwellProcessor>();
+    auto pDwellProcessor = std::unique_ptr<AiPipeline_NS::Dwell_NS::CDwellProcessor>(new AiPipeline_NS::Dwell_NS::CDwellProcessor());
     m_pDwellProcessor = pDwellProcessor.get();
     m_dispatcher.register_processor(std::move(pDwellProcessor));
 
     /* 人脸侦测处理器注册，nOrder 排在 Dwell 之后 */
-    auto pFaceProcessor = std::make_unique<AiPipeline_NS::Face_NS::CFaceProcessor>();
+    auto pFaceProcessor = std::unique_ptr<AiPipeline_NS::Face_NS::CFaceProcessor>(new AiPipeline_NS::Face_NS::CFaceProcessor());
     m_pFaceProcessor = pFaceProcessor.get();
     m_dispatcher.register_processor(std::move(pFaceProcessor));
 }
@@ -80,7 +81,7 @@ void CHVFEventMigrationController::set_model_input_size(const AiPipeline_NS::Fra
     }
 
     /* 模型重启后尺寸可能变化，重建 Converter 以刷新坐标合同 */
-    m_pConverter = std::make_unique<CHisiHvfResultConverter>(m_enCoordinateSource, m_stModelInputSize);
+    m_pConverter = std::unique_ptr<CHisiHvfResultConverter>(new CHisiHvfResultConverter(m_enCoordinateSource, m_stModelInputSize));
     m_bNewPipelineReady = true;
     dlog_info("HVF 事件新链路就绪：模型输入[%ux%u] 原生结果坐标模式[%d]",
               m_stModelInputSize.nWidth,
@@ -105,12 +106,9 @@ void CHVFEventMigrationController::apply_intrusion_config(const Alarm::FieldDete
     rebuild_and_apply_region_config();
 
     /* 更新总使能（含越界、徘徊、停车） */
-    m_bEnabled = (m_bIntrusionAlgoEnabled && m_stIntrusionConfig.bEnable) ||
-                 (m_bEntranceAlgoEnabled && m_stEntranceConfig.bEnable) ||
-                 (m_bExitAlgoEnabled && m_stExitConfig.bEnable) ||
-                 (m_bBoundaryAlgoEnabled && m_stBoundaryConfig.bEnable) ||
-                 (m_bLoiteringAlgoEnabled && m_stLoiteringConfig.bEnable) ||
-                 (m_bParkingAlgoEnabled && m_stParkingConfig.bEnable) ||
+    m_bEnabled = (m_bIntrusionAlgoEnabled && m_stIntrusionConfig.bEnable) || (m_bEntranceAlgoEnabled && m_stEntranceConfig.bEnable) ||
+                 (m_bExitAlgoEnabled && m_stExitConfig.bEnable) || (m_bBoundaryAlgoEnabled && m_stBoundaryConfig.bEnable) ||
+                 (m_bLoiteringAlgoEnabled && m_stLoiteringConfig.bEnable) || (m_bParkingAlgoEnabled && m_stParkingConfig.bEnable) ||
                  (m_bFaceAlgoEnabled && m_stFaceConfig.bEnable);
 
     /* 仅在本事件使能态翻转时打 info，其他情况静默 */
@@ -136,12 +134,9 @@ void CHVFEventMigrationController::apply_entrance_config(const Alarm::EntranceDe
 
     rebuild_and_apply_region_config();
 
-    m_bEnabled = (m_bIntrusionAlgoEnabled && m_stIntrusionConfig.bEnable) ||
-                 (m_bEntranceAlgoEnabled && m_stEntranceConfig.bEnable) ||
-                 (m_bExitAlgoEnabled && m_stExitConfig.bEnable) ||
-                 (m_bBoundaryAlgoEnabled && m_stBoundaryConfig.bEnable) ||
-                 (m_bLoiteringAlgoEnabled && m_stLoiteringConfig.bEnable) ||
-                 (m_bParkingAlgoEnabled && m_stParkingConfig.bEnable) ||
+    m_bEnabled = (m_bIntrusionAlgoEnabled && m_stIntrusionConfig.bEnable) || (m_bEntranceAlgoEnabled && m_stEntranceConfig.bEnable) ||
+                 (m_bExitAlgoEnabled && m_stExitConfig.bEnable) || (m_bBoundaryAlgoEnabled && m_stBoundaryConfig.bEnable) ||
+                 (m_bLoiteringAlgoEnabled && m_stLoiteringConfig.bEnable) || (m_bParkingAlgoEnabled && m_stParkingConfig.bEnable) ||
                  (m_bFaceAlgoEnabled && m_stFaceConfig.bEnable);
 
     /* 仅在本事件使能态翻转时打 info，其他情况静默 */
@@ -166,12 +161,9 @@ void CHVFEventMigrationController::apply_exit_config(const Alarm::ExitingDetecti
 
     rebuild_and_apply_region_config();
 
-    m_bEnabled = (m_bIntrusionAlgoEnabled && m_stIntrusionConfig.bEnable) ||
-                 (m_bEntranceAlgoEnabled && m_stEntranceConfig.bEnable) ||
-                 (m_bExitAlgoEnabled && m_stExitConfig.bEnable) ||
-                 (m_bBoundaryAlgoEnabled && m_stBoundaryConfig.bEnable) ||
-                 (m_bLoiteringAlgoEnabled && m_stLoiteringConfig.bEnable) ||
-                 (m_bParkingAlgoEnabled && m_stParkingConfig.bEnable) ||
+    m_bEnabled = (m_bIntrusionAlgoEnabled && m_stIntrusionConfig.bEnable) || (m_bEntranceAlgoEnabled && m_stEntranceConfig.bEnable) ||
+                 (m_bExitAlgoEnabled && m_stExitConfig.bEnable) || (m_bBoundaryAlgoEnabled && m_stBoundaryConfig.bEnable) ||
+                 (m_bLoiteringAlgoEnabled && m_stLoiteringConfig.bEnable) || (m_bParkingAlgoEnabled && m_stParkingConfig.bEnable) ||
                  (m_bFaceAlgoEnabled && m_stFaceConfig.bEnable);
 
     /* 仅在本事件使能态翻转时打 info，其他情况静默 */
@@ -196,12 +188,9 @@ void CHVFEventMigrationController::update_intrusion_parameters(const Alarm::Fiel
     dlog_debug("====================");
     rebuild_and_apply_region_config();
 
-    m_bEnabled = (m_bIntrusionAlgoEnabled && m_stIntrusionConfig.bEnable) ||
-                 (m_bEntranceAlgoEnabled && m_stEntranceConfig.bEnable) ||
-                 (m_bExitAlgoEnabled && m_stExitConfig.bEnable) ||
-                 (m_bBoundaryAlgoEnabled && m_stBoundaryConfig.bEnable) ||
-                 (m_bLoiteringAlgoEnabled && m_stLoiteringConfig.bEnable) ||
-                 (m_bParkingAlgoEnabled && m_stParkingConfig.bEnable) ||
+    m_bEnabled = (m_bIntrusionAlgoEnabled && m_stIntrusionConfig.bEnable) || (m_bEntranceAlgoEnabled && m_stEntranceConfig.bEnable) ||
+                 (m_bExitAlgoEnabled && m_stExitConfig.bEnable) || (m_bBoundaryAlgoEnabled && m_stBoundaryConfig.bEnable) ||
+                 (m_bLoiteringAlgoEnabled && m_stLoiteringConfig.bEnable) || (m_bParkingAlgoEnabled && m_stParkingConfig.bEnable) ||
                  (m_bFaceAlgoEnabled && m_stFaceConfig.bEnable);
 
     /* 仅在使能态翻转时打 info，其他情况静默 */
@@ -226,12 +215,9 @@ void CHVFEventMigrationController::update_entrance_parameters(const Alarm::Entra
 
     rebuild_and_apply_region_config();
 
-    m_bEnabled = (m_bIntrusionAlgoEnabled && m_stIntrusionConfig.bEnable) ||
-                 (m_bEntranceAlgoEnabled && m_stEntranceConfig.bEnable) ||
-                 (m_bExitAlgoEnabled && m_stExitConfig.bEnable) ||
-                 (m_bBoundaryAlgoEnabled && m_stBoundaryConfig.bEnable) ||
-                 (m_bLoiteringAlgoEnabled && m_stLoiteringConfig.bEnable) ||
-                 (m_bParkingAlgoEnabled && m_stParkingConfig.bEnable) ||
+    m_bEnabled = (m_bIntrusionAlgoEnabled && m_stIntrusionConfig.bEnable) || (m_bEntranceAlgoEnabled && m_stEntranceConfig.bEnable) ||
+                 (m_bExitAlgoEnabled && m_stExitConfig.bEnable) || (m_bBoundaryAlgoEnabled && m_stBoundaryConfig.bEnable) ||
+                 (m_bLoiteringAlgoEnabled && m_stLoiteringConfig.bEnable) || (m_bParkingAlgoEnabled && m_stParkingConfig.bEnable) ||
                  (m_bFaceAlgoEnabled && m_stFaceConfig.bEnable);
 
     /* 仅在使能态翻转时打 info，其他情况静默 */
@@ -256,12 +242,9 @@ void CHVFEventMigrationController::update_exit_parameters(const Alarm::ExitingDe
 
     rebuild_and_apply_region_config();
 
-    m_bEnabled = (m_bIntrusionAlgoEnabled && m_stIntrusionConfig.bEnable) ||
-                 (m_bEntranceAlgoEnabled && m_stEntranceConfig.bEnable) ||
-                 (m_bExitAlgoEnabled && m_stExitConfig.bEnable) ||
-                 (m_bBoundaryAlgoEnabled && m_stBoundaryConfig.bEnable) ||
-                 (m_bLoiteringAlgoEnabled && m_stLoiteringConfig.bEnable) ||
-                 (m_bParkingAlgoEnabled && m_stParkingConfig.bEnable) ||
+    m_bEnabled = (m_bIntrusionAlgoEnabled && m_stIntrusionConfig.bEnable) || (m_bEntranceAlgoEnabled && m_stEntranceConfig.bEnable) ||
+                 (m_bExitAlgoEnabled && m_stExitConfig.bEnable) || (m_bBoundaryAlgoEnabled && m_stBoundaryConfig.bEnable) ||
+                 (m_bLoiteringAlgoEnabled && m_stLoiteringConfig.bEnable) || (m_bParkingAlgoEnabled && m_stParkingConfig.bEnable) ||
                  (m_bFaceAlgoEnabled && m_stFaceConfig.bEnable);
 
     /* 仅在使能态翻转时打 info，其他情况静默 */
@@ -289,12 +272,9 @@ void CHVFEventMigrationController::apply_boundary_config(const Alarm::BoundaryDe
     rebuild_and_apply_trip_line_config();
 
     /* 更新总使能 */
-    m_bEnabled = (m_bIntrusionAlgoEnabled && m_stIntrusionConfig.bEnable) ||
-                 (m_bEntranceAlgoEnabled && m_stEntranceConfig.bEnable) ||
-                 (m_bExitAlgoEnabled && m_stExitConfig.bEnable) ||
-                 (m_bBoundaryAlgoEnabled && m_stBoundaryConfig.bEnable) ||
-                 (m_bLoiteringAlgoEnabled && m_stLoiteringConfig.bEnable) ||
-                 (m_bParkingAlgoEnabled && m_stParkingConfig.bEnable) ||
+    m_bEnabled = (m_bIntrusionAlgoEnabled && m_stIntrusionConfig.bEnable) || (m_bEntranceAlgoEnabled && m_stEntranceConfig.bEnable) ||
+                 (m_bExitAlgoEnabled && m_stExitConfig.bEnable) || (m_bBoundaryAlgoEnabled && m_stBoundaryConfig.bEnable) ||
+                 (m_bLoiteringAlgoEnabled && m_stLoiteringConfig.bEnable) || (m_bParkingAlgoEnabled && m_stParkingConfig.bEnable) ||
                  (m_bFaceAlgoEnabled && m_stFaceConfig.bEnable);
 
     /* 仅在本事件使能态翻转时打 info，其他情况静默 */
@@ -318,12 +298,9 @@ void CHVFEventMigrationController::update_boundary_parameters(const Alarm::Bound
 
     rebuild_and_apply_trip_line_config();
 
-    m_bEnabled = (m_bIntrusionAlgoEnabled && m_stIntrusionConfig.bEnable) ||
-                 (m_bEntranceAlgoEnabled && m_stEntranceConfig.bEnable) ||
-                 (m_bExitAlgoEnabled && m_stExitConfig.bEnable) ||
-                 (m_bBoundaryAlgoEnabled && m_stBoundaryConfig.bEnable) ||
-                 (m_bLoiteringAlgoEnabled && m_stLoiteringConfig.bEnable) ||
-                 (m_bParkingAlgoEnabled && m_stParkingConfig.bEnable) ||
+    m_bEnabled = (m_bIntrusionAlgoEnabled && m_stIntrusionConfig.bEnable) || (m_bEntranceAlgoEnabled && m_stEntranceConfig.bEnable) ||
+                 (m_bExitAlgoEnabled && m_stExitConfig.bEnable) || (m_bBoundaryAlgoEnabled && m_stBoundaryConfig.bEnable) ||
+                 (m_bLoiteringAlgoEnabled && m_stLoiteringConfig.bEnable) || (m_bParkingAlgoEnabled && m_stParkingConfig.bEnable) ||
                  (m_bFaceAlgoEnabled && m_stFaceConfig.bEnable);
 
     /* 仅在使能态翻转时打 info，其他情况静默 */
@@ -377,9 +354,8 @@ int CHVFEventMigrationController::process(ot_aidetect_result_array &stResult,
     };
 
     /* perf: 新链路处理：单次转换 + 单次分发 */
-    if (m_bNewPipelineReady && m_pConverter != nullptr && m_pRegionProcessor != nullptr &&
-        m_pTripLineProcessor != nullptr && m_pDwellProcessor != nullptr && m_pFaceProcessor != nullptr &&
-        m_pOutputExecutor != nullptr)
+    if (m_bNewPipelineReady && m_pConverter != nullptr && m_pRegionProcessor != nullptr && m_pTripLineProcessor != nullptr &&
+        m_pDwellProcessor != nullptr && m_pFaceProcessor != nullptr && m_pOutputExecutor != nullptr)
     {
         AiPipeline_NS::FrameMetadata_S stMetaBase;
         stMetaBase.nChannelId = nChnId;
@@ -497,12 +473,9 @@ void CHVFEventMigrationController::rebuild_and_apply_region_config()
 
     /* 仅当某事件既使能又配置了至少一条非占位规则时,才视为有效启用
      * 全 (0,0) 占位规则归类为"未配置"而非"无效",避免误报"配置无效"warn */
-    const bool bIntrusionEffective = (m_bIntrusionAlgoEnabled && m_stIntrusionConfig.bEnable &&
-                                      !is_all_placeholder(m_stIntrusionConfig));
-    const bool bEntranceEffective = (m_bEntranceAlgoEnabled && m_stEntranceConfig.bEnable &&
-                                     !is_all_placeholder(m_stEntranceConfig));
-    const bool bExitEffective = (m_bExitAlgoEnabled && m_stExitConfig.bEnable &&
-                                 !is_all_placeholder(m_stExitConfig));
+    const bool bIntrusionEffective = (m_bIntrusionAlgoEnabled && m_stIntrusionConfig.bEnable && !is_all_placeholder(m_stIntrusionConfig));
+    const bool bEntranceEffective = (m_bEntranceAlgoEnabled && m_stEntranceConfig.bEnable && !is_all_placeholder(m_stEntranceConfig));
+    const bool bExitEffective = (m_bExitAlgoEnabled && m_stExitConfig.bEnable && !is_all_placeholder(m_stExitConfig));
     stRawConfig.bEnabled = bIntrusionEffective || bEntranceEffective || bExitEffective;
 
     if (bIntrusionEffective)
@@ -698,8 +671,7 @@ bool CHVFEventMigrationController::is_all_placeholder(const Alarm::BoundaryDetec
 {
     for (const auto &stRule : stConfig.aRule)
     {
-        if (stRule.stStartPos.fX != 0.0F || stRule.stStartPos.fY != 0.0F ||
-            stRule.stEndPos.fX != 0.0F || stRule.stEndPos.fY != 0.0F)
+        if (stRule.stStartPos.fX != 0.0F || stRule.stStartPos.fY != 0.0F || stRule.stEndPos.fX != 0.0F || stRule.stEndPos.fY != 0.0F)
         {
             return false;
         }
@@ -742,8 +714,7 @@ void CHVFEventMigrationController::rebuild_and_apply_trip_line_config()
     AiPipeline_NS::TripLine_NS::RawTripLineConfig_S stRawConfig;
 
     /* 仅当越界事件既使能又配置了至少一条非占位规则时,才视为有效启用 */
-    const bool bBoundaryEffective = (m_bBoundaryAlgoEnabled && m_stBoundaryConfig.bEnable &&
-                                     !is_all_placeholder(m_stBoundaryConfig));
+    const bool bBoundaryEffective = (m_bBoundaryAlgoEnabled && m_stBoundaryConfig.bEnable && !is_all_placeholder(m_stBoundaryConfig));
     stRawConfig.bEnabled = bBoundaryEffective;
 
     if (bBoundaryEffective)
@@ -832,12 +803,9 @@ void CHVFEventMigrationController::apply_loitering_config(const Alarm::Loitering
     rebuild_and_apply_dwell_config();
 
     /* 更新总使能 */
-    m_bEnabled = (m_bIntrusionAlgoEnabled && m_stIntrusionConfig.bEnable) ||
-                 (m_bEntranceAlgoEnabled && m_stEntranceConfig.bEnable) ||
-                 (m_bExitAlgoEnabled && m_stExitConfig.bEnable) ||
-                 (m_bBoundaryAlgoEnabled && m_stBoundaryConfig.bEnable) ||
-                 (m_bLoiteringAlgoEnabled && m_stLoiteringConfig.bEnable) ||
-                 (m_bParkingAlgoEnabled && m_stParkingConfig.bEnable) ||
+    m_bEnabled = (m_bIntrusionAlgoEnabled && m_stIntrusionConfig.bEnable) || (m_bEntranceAlgoEnabled && m_stEntranceConfig.bEnable) ||
+                 (m_bExitAlgoEnabled && m_stExitConfig.bEnable) || (m_bBoundaryAlgoEnabled && m_stBoundaryConfig.bEnable) ||
+                 (m_bLoiteringAlgoEnabled && m_stLoiteringConfig.bEnable) || (m_bParkingAlgoEnabled && m_stParkingConfig.bEnable) ||
                  (m_bFaceAlgoEnabled && m_stFaceConfig.bEnable);
 
     /* 仅在本事件使能态翻转时打 info，其他情况静默 */
@@ -864,12 +832,9 @@ void CHVFEventMigrationController::apply_parking_config(const Alarm::ParkingDete
     rebuild_and_apply_dwell_config();
 
     /* 更新总使能 */
-    m_bEnabled = (m_bIntrusionAlgoEnabled && m_stIntrusionConfig.bEnable) ||
-                 (m_bEntranceAlgoEnabled && m_stEntranceConfig.bEnable) ||
-                 (m_bExitAlgoEnabled && m_stExitConfig.bEnable) ||
-                 (m_bBoundaryAlgoEnabled && m_stBoundaryConfig.bEnable) ||
-                 (m_bLoiteringAlgoEnabled && m_stLoiteringConfig.bEnable) ||
-                 (m_bParkingAlgoEnabled && m_stParkingConfig.bEnable) ||
+    m_bEnabled = (m_bIntrusionAlgoEnabled && m_stIntrusionConfig.bEnable) || (m_bEntranceAlgoEnabled && m_stEntranceConfig.bEnable) ||
+                 (m_bExitAlgoEnabled && m_stExitConfig.bEnable) || (m_bBoundaryAlgoEnabled && m_stBoundaryConfig.bEnable) ||
+                 (m_bLoiteringAlgoEnabled && m_stLoiteringConfig.bEnable) || (m_bParkingAlgoEnabled && m_stParkingConfig.bEnable) ||
                  (m_bFaceAlgoEnabled && m_stFaceConfig.bEnable);
 
     /* 仅在本事件使能态翻转时打 info，其他情况静默 */
@@ -893,12 +858,9 @@ void CHVFEventMigrationController::update_loitering_parameters(const Alarm::Loit
 
     rebuild_and_apply_dwell_config();
 
-    m_bEnabled = (m_bIntrusionAlgoEnabled && m_stIntrusionConfig.bEnable) ||
-                 (m_bEntranceAlgoEnabled && m_stEntranceConfig.bEnable) ||
-                 (m_bExitAlgoEnabled && m_stExitConfig.bEnable) ||
-                 (m_bBoundaryAlgoEnabled && m_stBoundaryConfig.bEnable) ||
-                 (m_bLoiteringAlgoEnabled && m_stLoiteringConfig.bEnable) ||
-                 (m_bParkingAlgoEnabled && m_stParkingConfig.bEnable) ||
+    m_bEnabled = (m_bIntrusionAlgoEnabled && m_stIntrusionConfig.bEnable) || (m_bEntranceAlgoEnabled && m_stEntranceConfig.bEnable) ||
+                 (m_bExitAlgoEnabled && m_stExitConfig.bEnable) || (m_bBoundaryAlgoEnabled && m_stBoundaryConfig.bEnable) ||
+                 (m_bLoiteringAlgoEnabled && m_stLoiteringConfig.bEnable) || (m_bParkingAlgoEnabled && m_stParkingConfig.bEnable) ||
                  (m_bFaceAlgoEnabled && m_stFaceConfig.bEnable);
 
     /* 仅在使能态翻转时打 info，其他情况静默 */
@@ -923,12 +885,9 @@ void CHVFEventMigrationController::update_parking_parameters(const Alarm::Parkin
 
     rebuild_and_apply_dwell_config();
 
-    m_bEnabled = (m_bIntrusionAlgoEnabled && m_stIntrusionConfig.bEnable) ||
-                 (m_bEntranceAlgoEnabled && m_stEntranceConfig.bEnable) ||
-                 (m_bExitAlgoEnabled && m_stExitConfig.bEnable) ||
-                 (m_bBoundaryAlgoEnabled && m_stBoundaryConfig.bEnable) ||
-                 (m_bLoiteringAlgoEnabled && m_stLoiteringConfig.bEnable) ||
-                 (m_bParkingAlgoEnabled && m_stParkingConfig.bEnable) ||
+    m_bEnabled = (m_bIntrusionAlgoEnabled && m_stIntrusionConfig.bEnable) || (m_bEntranceAlgoEnabled && m_stEntranceConfig.bEnable) ||
+                 (m_bExitAlgoEnabled && m_stExitConfig.bEnable) || (m_bBoundaryAlgoEnabled && m_stBoundaryConfig.bEnable) ||
+                 (m_bLoiteringAlgoEnabled && m_stLoiteringConfig.bEnable) || (m_bParkingAlgoEnabled && m_stParkingConfig.bEnable) ||
                  (m_bFaceAlgoEnabled && m_stFaceConfig.bEnable);
 
     /* 仅在使能态翻转时打 info，其他情况静默 */
@@ -951,10 +910,8 @@ void CHVFEventMigrationController::rebuild_and_apply_dwell_config()
     AiPipeline_NS::Dwell_NS::RawDwellConfig_S stRawConfig;
 
     /* 仅当某事件既使能又配置了至少一条非占位规则时,才视为有效启用 */
-    const bool bLoiteringEffective = (m_bLoiteringAlgoEnabled && m_stLoiteringConfig.bEnable &&
-                                      !is_all_placeholder(m_stLoiteringConfig));
-    const bool bParkingEffective = (m_bParkingAlgoEnabled && m_stParkingConfig.bEnable &&
-                                    !is_all_placeholder(m_stParkingConfig));
+    const bool bLoiteringEffective = (m_bLoiteringAlgoEnabled && m_stLoiteringConfig.bEnable && !is_all_placeholder(m_stLoiteringConfig));
+    const bool bParkingEffective = (m_bParkingAlgoEnabled && m_stParkingConfig.bEnable && !is_all_placeholder(m_stParkingConfig));
     stRawConfig.bEnabled = bLoiteringEffective || bParkingEffective;
 
     if (bLoiteringEffective)
@@ -984,7 +941,7 @@ void CHVFEventMigrationController::rebuild_and_apply_dwell_config()
 }
 
 void CHVFEventMigrationController::convert_loitering_rules(const Alarm::LoiteringDetection_S &stSrc,
-                                                          std::vector<AiPipeline_NS::Dwell_NS::RawDwellRule_S> &vecOut) const
+                                                           std::vector<AiPipeline_NS::Dwell_NS::RawDwellRule_S> &vecOut) const
 {
     int nRuleId = 0;
     for (const auto &stRule : stSrc.aRule)
@@ -1006,7 +963,7 @@ void CHVFEventMigrationController::convert_loitering_rules(const Alarm::Loiterin
 }
 
 void CHVFEventMigrationController::convert_parking_rules(const Alarm::ParkingDetection_S &stSrc,
-                                                        std::vector<AiPipeline_NS::Dwell_NS::RawDwellRule_S> &vecOut) const
+                                                         std::vector<AiPipeline_NS::Dwell_NS::RawDwellRule_S> &vecOut) const
 {
     int nRuleId = 0;
     for (const auto &stRule : stSrc.aRule)
@@ -1043,12 +1000,9 @@ void CHVFEventMigrationController::apply_face_config(const Alarm::FaceDetection_
     rebuild_and_apply_face_config();
 
     /* 更新总使能（含所有事件） */
-    m_bEnabled = (m_bIntrusionAlgoEnabled && m_stIntrusionConfig.bEnable) ||
-                 (m_bEntranceAlgoEnabled && m_stEntranceConfig.bEnable) ||
-                 (m_bExitAlgoEnabled && m_stExitConfig.bEnable) ||
-                 (m_bBoundaryAlgoEnabled && m_stBoundaryConfig.bEnable) ||
-                 (m_bLoiteringAlgoEnabled && m_stLoiteringConfig.bEnable) ||
-                 (m_bParkingAlgoEnabled && m_stParkingConfig.bEnable) ||
+    m_bEnabled = (m_bIntrusionAlgoEnabled && m_stIntrusionConfig.bEnable) || (m_bEntranceAlgoEnabled && m_stEntranceConfig.bEnable) ||
+                 (m_bExitAlgoEnabled && m_stExitConfig.bEnable) || (m_bBoundaryAlgoEnabled && m_stBoundaryConfig.bEnable) ||
+                 (m_bLoiteringAlgoEnabled && m_stLoiteringConfig.bEnable) || (m_bParkingAlgoEnabled && m_stParkingConfig.bEnable) ||
                  (m_bFaceAlgoEnabled && m_stFaceConfig.bEnable);
 
     /* 仅在本事件使能态翻转时打 info，其他情况静默 */
@@ -1072,12 +1026,9 @@ void CHVFEventMigrationController::update_face_parameters(const Alarm::FaceDetec
 
     rebuild_and_apply_face_config();
 
-    m_bEnabled = (m_bIntrusionAlgoEnabled && m_stIntrusionConfig.bEnable) ||
-                 (m_bEntranceAlgoEnabled && m_stEntranceConfig.bEnable) ||
-                 (m_bExitAlgoEnabled && m_stExitConfig.bEnable) ||
-                 (m_bBoundaryAlgoEnabled && m_stBoundaryConfig.bEnable) ||
-                 (m_bLoiteringAlgoEnabled && m_stLoiteringConfig.bEnable) ||
-                 (m_bParkingAlgoEnabled && m_stParkingConfig.bEnable) ||
+    m_bEnabled = (m_bIntrusionAlgoEnabled && m_stIntrusionConfig.bEnable) || (m_bEntranceAlgoEnabled && m_stEntranceConfig.bEnable) ||
+                 (m_bExitAlgoEnabled && m_stExitConfig.bEnable) || (m_bBoundaryAlgoEnabled && m_stBoundaryConfig.bEnable) ||
+                 (m_bLoiteringAlgoEnabled && m_stLoiteringConfig.bEnable) || (m_bParkingAlgoEnabled && m_stParkingConfig.bEnable) ||
                  (m_bFaceAlgoEnabled && m_stFaceConfig.bEnable);
 
     /* 仅在使能态翻转时打 info，其他情况静默 */
@@ -1136,7 +1087,6 @@ void CHVFEventMigrationController::rebuild_and_apply_face_config()
     {
         m_pOutputExecutor->reset_face();
     }
-
 }
 
 } // namespace HVFDetectInternal

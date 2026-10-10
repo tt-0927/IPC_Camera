@@ -3,7 +3,7 @@
  * @Author       : 严泽辉 (yanzeh@kfb.cn)
  * @Date         : 2024-10-11 17:21:30
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-07-27 09:25:49
+ * @LastEditTime : 2026-09-23 15:38:03
  * @Description  : 预览管理
  */
 
@@ -62,35 +62,35 @@ public:
      */
     int get_collect_audio_info(Preview::CollectAudioInfo_S &stInfo);
 
-    /*** 
+    /**
      * @description : 添加对象停用方法
      * @author      : huangjunda
      * @return       {*}
      */
     void deactivate();
 
-    /*** 
+    /**
      * @description : 设置对讲信息
      * @author      : huangjunda
      * @param        {IntercomInfo_S} &stInfo
      * @return       {*}
-     */    
+     */
     int set_intercom_info(Preview::IntercomInfo_S stInfo);
 
-    /*** 
+    /**
      * @description : 设置广播信息
      * @author      : huangjunda
      * @param        {BroadcastInfo_S} &stInfo
      * @return       {*}
-     */    
+     */
     int set_broadcast_info(Preview::BroadcastInfo_S stInfo);
 
-    /*** 
+    /**
      * @description : 设置蜂鸣器报警
      * @author      : huangjunda
      * @param        {BeepAlarm_S} &stInfo
      * @return       {*}
-     */    
+     */
     int set_beep_alarm(Preview::BeepAlarm_S stInfo);
 
     /**
@@ -114,15 +114,14 @@ public:
     std::string get_intercom_ip();
 
 private:
- 
-    /*** 
+    /**
      * @description : 回调接收到的音频
      * @author      : cyc
      * @param        {uint8_t*} pData
      * @param        {size_t} length
      * @return       {*}
-     */    
-    void audioDataCallback(const uint8_t* pData, size_t length);
+     */
+    void audioDataCallback(const uint8_t *pData, size_t length);
 
     /**
      * @brief 定时线程主循环
@@ -131,7 +130,7 @@ private:
     void alarm_light_timer_loop();
 
     /**
-     * @brief 启动或刷新计时器 
+     * @brief 启动或刷新计时器
      * @note 递增 m_alarmLightTimerGeneration、设置截止时间、标记 Armed=true，并唤醒定时线程。每次新的 START 都会覆盖旧的倒计时。
      */
     void arm_alarm_light_timer(int nDurationSec);
@@ -149,23 +148,25 @@ private:
     int stop_alarm_light_output();
 
 private:
-    Preview::PreviewInfo_S m_stPreviewInfo;                                                       /* 预览信息 */
-    Audio_NS::AudioFormat_E enCurFormat = Audio_NS::AudioFormat_E::G711A;                         /* 当前音频格式 */
-    std::unique_ptr<RtpAudioReceiver> m_intercomReceiver = std::make_unique<RtpAudioReceiver>();  /* 对讲 */
-    std::unique_ptr<RtpAudioReceiver> m_broadcastReceiver = std::make_unique<RtpAudioReceiver>(); /* 广播 */
+    Preview::PreviewInfo_S m_stPreviewInfo;                               /* 预览信息 */
+    Audio_NS::AudioFormat_E enCurFormat = Audio_NS::AudioFormat_E::G711A; /* 当前音频格式 */
+    std::unique_ptr<RtpAudioReceiver> m_intercomReceiver = std::unique_ptr<RtpAudioReceiver>(new RtpAudioReceiver());  /* 对讲 */
+    std::unique_ptr<RtpAudioReceiver> m_broadcastReceiver = std::unique_ptr<RtpAudioReceiver>(new RtpAudioReceiver()); /* 广播 */
     /* 语音通讯状态 */
     bool m_bIntercomStatus = false;
     /* 语音通讯Ip */
     std::string m_strIp;
 
-    std::mutex m_alarmLightOperationMutex;                          /* 串行化硬件操作。保证 GPIO、闪光灯的开启、停止、自动停止不会同时执行。 */
-    std::mutex m_alarmLightTimerMutex;                              /* 仅保护定时器状态，如截止时间、是否已启用、代次号。避免与硬件操作锁混用。 */
-    std::condition_variable m_alarmLightTimerCv;                    /* 定时线程等待超时时使用；收到新的 START、STOP 或退出时立即唤醒，不必傻等到原超时点。 */
-    std::thread m_alarmLightTimerThread;                            /* 常驻定时线程，负责等待 dwDurationMs 到期后自动关闭声光。避免每次控制都创建 detached 线程 */
-    std::chrono::steady_clock::time_point m_alarmLightDeadline;     /* 当前声光报警的自动停止时间点，使用 steady_clock，不会受系统校时/NTP 修改影响。 */
-    uint64_t m_alarmLightTimerGeneration = 0;                       /* 定时器版本号。每次 START 或 STOP 都递增；旧定时任务发现版本不一致就失效，不能关闭新报警。 */
+    std::mutex m_alarmLightOperationMutex; /* 串行化硬件操作。保证 GPIO、闪光灯的开启、停止、自动停止不会同时执行。 */
+    std::mutex m_alarmLightTimerMutex; /* 仅保护定时器状态，如截止时间、是否已启用、代次号。避免与硬件操作锁混用。 */
+    std::condition_variable m_alarmLightTimerCv; /* 定时线程等待超时时使用；收到新的 START、STOP 或退出时立即唤醒，不必傻等到原超时点。 */
+    std::thread m_alarmLightTimerThread; /* 常驻定时线程，负责等待 dwDurationMs 到期后自动关闭声光。避免每次控制都创建 detached 线程 */
+    std::chrono::steady_clock::time_point
+        m_alarmLightDeadline; /* 当前声光报警的自动停止时间点，使用 steady_clock，不会受系统校时/NTP 修改影响。 */
+    uint64_t
+        m_alarmLightTimerGeneration = 0; /* 定时器版本号。每次 START 或 STOP 都递增；旧定时任务发现版本不一致就失效，不能关闭新报警。 */
     uint64_t m_u64AlarmLightOverrideToken = 0; /* 当前 TVSDK 灯光抢占编号。仅由 m_alarmLightOperationMutex 保护，STOP
                                                   和超时必须使用该编号释放对应请求。 */
-    bool m_alarmLightTimerArmed = false;                            /* 当前是否存在有效的自动停止任务。 */
-    bool m_alarmLightTimerExit = false;                             /* deinit 或析构时通知定时线程退出，并配合 join() 保证不会留下后台线程。 */
+    bool m_alarmLightTimerArmed = false;       /* 当前是否存在有效的自动停止任务。 */
+    bool m_alarmLightTimerExit = false; /* deinit 或析构时通知定时线程退出，并配合 join() 保证不会留下后台线程。 */
 };

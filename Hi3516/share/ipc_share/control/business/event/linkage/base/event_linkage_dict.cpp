@@ -241,6 +241,7 @@ UINT32 get_ai_object_alarm_type(Event::Type_E enEventType)
     case Event::Type_E::LOITERING_DETECT:             return NET_ALARM_LOITERING;
     case Event::Type_E::PARKING_DETECT:               return NET_ALARM_PARKING_DETECT;
     case Event::Type_E::FACE_DETECT:                  return NET_ALARM_FACE_DETECT;
+    case Event::Type_E::FACE_RECOGNITION:             return NET_ALARM_FACE_CAPTURE;
     case Event::Type_E::FACE_CAPTURE:                 return NET_ALARM_FACE_CAPTURE;
     case Event::Type_E::CROWD_GATHERING:              return NET_ALARM_CROWD_GATHERING;
     case Event::Type_E::SLEEP_ON_DUTY:                return NET_ALARM_SLEEP_ON_DUTY;
@@ -784,6 +785,8 @@ std::string EventLinkageDict::get_event_name(Event::Type_E enType)
         return "场景变更";
     case Event::Type_E::FACE_DETECT:
         return "人脸侦测";
+    case Event::Type_E::FACE_RECOGNITION:
+        return "人脸识别";
     case Event::Type_E::LOITERING_DETECT:
         return "徘徊侦测";
     case Event::Type_E::CROWD_GATHERING:
@@ -855,6 +858,12 @@ std::string EventLinkageDict::get_event_name(Event::Type_E enType)
         return "违规变道识别";
     case Event::Type_E::PLATE_NUMBER:
         return "车牌识别";
+    case Event::Type_E::PEDESTRIAN_ATTRIBUTE:
+        return "行人属性识别";
+    case Event::Type_E::MOTORVEHICLE_ATTRIBUTE:
+        return "机动车属性识别";
+    case Event::Type_E::NONMOTORVEHICLE_ATTRIBUTE:
+        return "非机动车属性识别";
 #endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
     case Event::Type_E::SMOKE_FIRE:

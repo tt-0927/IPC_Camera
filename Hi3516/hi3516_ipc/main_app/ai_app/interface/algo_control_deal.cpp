@@ -3,17 +3,17 @@
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2025-06-06 16:02:10
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-04-23 09:42:11
+ * @LastEditTime : 2026-09-23 16:28:14
  * @Description  : aiapp->control通讯客户端
  */
 
 #include "algo_control_deal.h"
+#include "posix_fs.h"
 #include "algo_stream_deal.h"
 #include "face_manage.h"
 #include "action_code.h"
 
-#include <filesystem>
-namespace fs = std::filesystem;
+namespace fs = PosixFs_NS;
 void AlgoControlDeal::deal_message(int nCode, std::string strData, void *pData)
 {
     dlog_debug("AI_APP: 接收到[%d]消息：%s", nCode, strData.c_str());
@@ -33,7 +33,7 @@ void AlgoControlDeal::deal_message(int nCode, std::string strData, void *pData)
         Event::AlgorithmConfig stAlgoConfig;
         Convert::to_struct(strData, stAlgoConfig);
         // CEventConfigure::instance()->get_configure(stAlgoConfig);
-        //if (stAlgoConfig.nEnFaceFea && !stAlgoConfig.nEnFaceDet) { stAlgoConfig.nEnFaceFea = 0; }
+        // if (stAlgoConfig.nEnFaceFea && !stAlgoConfig.nEnFaceDet) { stAlgoConfig.nEnFaceFea = 0; }
 
         CAlgoStreamDeal::instance()->set_Algo_EnConfig(stAlgoConfig);
         strData.clear();
@@ -41,7 +41,7 @@ void AlgoControlDeal::deal_message(int nCode, std::string strData, void *pData)
     }
     case AC_GET_AUDIO_ANOMALY_DETECT_CURRENT_DB: /* 获取音频异常侦测实时音量 */
     {
-        if(pData != nullptr)
+        if (pData != nullptr)
         {
             float fDb = CAlgoStreamDeal::instance()->getCurrentDb();
             memcpy_s(pData, sizeof(float), &fDb, sizeof(float));
@@ -89,9 +89,10 @@ void AlgoControlDeal::deal_message(int nCode, std::string strData, void *pData)
         }
         break;
     }
-    case AC_ADD_FACE_INFO:                    /* 添加名单组成员 */
+    case AC_ADD_FACE_INFO: /* 添加名单组成员 */
     {
-        FaceLibsInfo_S stFaceList; stFaceList.clear();
+        FaceLibsInfo_S stFaceList;
+        stFaceList.clear();
         int nRet;
         std::string hashId;
         Json::get(pJsonData, "LibId", stFaceList.strFaceLibName);
@@ -111,52 +112,47 @@ void AlgoControlDeal::deal_message(int nCode, std::string strData, void *pData)
         if (pData != nullptr)
         {
             std::string strDataRet;
-            std::string* pOutString = (std::string*)pData;
+            std::string *pOutString = (std::string *) pData;
             Event::AddFaceInfoResult Result;
             Result.hashId = hashId;
             Result.nRet = nRet;
             strDataRet = Convert::to_string(Result);
             *pOutString = strDataRet;
 
-            dlog_debug("添加名单组成员 %d",nRet);
+            dlog_debug("添加名单组成员 %d", nRet);
         }
-        
-        
+
         break;
     }
-    case AC_DEL_FACE_INFO:           /* 删除名单组成员 */
+    case AC_DEL_FACE_INFO: /* 删除名单组成员 */
     {
-        Json::Object* idsArray = Json::get(pJsonData, "Ids");
-        
-        std::vector<int> ids; 
+        Json::Object *idsArray = Json::get(pJsonData, "Ids");
+
+        std::vector<int> ids;
         if (Json::Array::get(idsArray, ids))
         {
-            for (const int& id : ids)
+            for (const int &id : ids)
             {
                 FaceLibsInfo_S stFaceList;
-                
-                FaceManage::AIFaceManage::instance()->searchFaceInfoById(id,stFaceList);
+
+                FaceManage::AIFaceManage::instance()->searchFaceInfoById(id, stFaceList);
                 FaceManage::AIFaceManage::instance()->delFaceLibInfo(id);
                 dlog_info("读取到的 strPicPath: [%s]", stFaceList.strPicPath.empty() ? "(空)" : stFaceList.strPicPath.c_str());
                 dlog_info("读取到的 BinPath:    [%s]", stFaceList.BinPath.empty() ? "(空)" : stFaceList.BinPath.c_str());
-                if (!stFaceList.strPicPath.empty()) {
-                    try {
-                        if (fs::exists(stFaceList.strPicPath) && fs::is_regular_file(stFaceList.strPicPath)) {
-                            fs::remove(stFaceList.strPicPath);
-                            dlog_info("成功删除图片文件: %s", stFaceList.strPicPath.c_str());
-                        }
-                    } catch (const fs::filesystem_error& e) {
-                        dlog_error("删除图片文件失败: %s, 错误: %s", stFaceList.strPicPath.c_str(), e.what());
+                if (!stFaceList.strPicPath.empty())
+                {
+                    if (fs::exists(stFaceList.strPicPath) && fs::is_regular_file(stFaceList.strPicPath))
+                    {
+                        fs::remove(stFaceList.strPicPath);
+                        dlog_info("成功删除图片文件: %s", stFaceList.strPicPath.c_str());
                     }
                 }
-                if (!stFaceList.BinPath.empty()) {
-                    try {
-                        if (fs::exists(stFaceList.BinPath) && fs::is_regular_file(stFaceList.BinPath)) {
-                            fs::remove(stFaceList.BinPath);
-                            dlog_info("成功删除二进制文件: %s", stFaceList.BinPath.c_str());
-                        }
-                    } catch (const fs::filesystem_error& e) {
-                        dlog_error("删除二进制文件失败: %s, 错误: %s", stFaceList.BinPath.c_str(), e.what());
+                if (!stFaceList.BinPath.empty())
+                {
+                    if (fs::exists(stFaceList.BinPath) && fs::is_regular_file(stFaceList.BinPath))
+                    {
+                        fs::remove(stFaceList.BinPath);
+                        dlog_info("成功删除二进制文件: %s", stFaceList.BinPath.c_str());
                     }
                 }
             }

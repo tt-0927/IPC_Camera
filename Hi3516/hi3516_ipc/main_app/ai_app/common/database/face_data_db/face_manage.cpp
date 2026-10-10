@@ -9,56 +9,52 @@
 
 #include "face_manage.h"
 #include <unistd.h>
+#include <cerrno>
+
+#include "posix_fs.h"
 #include <algorithm>
 #include <cctype>
-#include <filesystem>
 #include <unordered_set>
 
 using namespace Event;
 using namespace FaceDataDB_NS;
 using namespace FaceManage;
 
-
-AIFaceManage::AIFaceManage()
-    :m_SnapInfodb(), m_FaceInfodb(), m_FaceVectordb("/opt/cam/db/FaceSqlite.db")//, m_FaceVectordb()
+AIFaceManage::AIFaceManage() : m_SnapInfodb(), m_FaceInfodb(), m_FaceVectordb("/opt/cam/db/FaceSqlite.db") //, m_FaceVectordb()
 {
     // m_FaceVectordb.load();
 }
-
 
 AIFaceManage::~AIFaceManage()
 {
     // m_FaceVectordb.save();
 }
 
-
 /**
  * @brief 新增名单库人脸信息
- * @param stInfo 
- * @return int 
+ * @param stInfo
+ * @return int
  */
 int AIFaceManage::addFaceLibInfo(FaceLibsInfo_S &stInfo)
 {
     int nRet = m_FaceInfodb.insertData(stInfo);
-    
-    dlog_debug("ai_app: \033[34m %s:%d 添加本地名单库 [%d]... \033[m\n",__func__,__LINE__,stInfo.nId);
-    
+
+    dlog_debug("ai_app: \033[34m %s:%d 添加本地名单库 [%d]... \033[m\n", __func__, __LINE__, stInfo.nId);
+
     return nRet;
 }
 
-
 /**
  * @brief 删除名单库人脸信息
- * @param nId 
- * @return int 
+ * @param nId
+ * @return int
  */
 int AIFaceManage::delFaceLibInfo(int nId)
 {
     int nRet = m_FaceInfodb.deleteData(nId);
 
-    dlog_debug("ai_app: \033[34m %s:%d 删除本地名单库 [%d]... \033[m\n",__func__,__LINE__,nId);
+    dlog_debug("ai_app: \033[34m %s:%d 删除本地名单库 [%d]... \033[m\n", __func__, __LINE__, nId);
 
-    
     return 0;
 }
 
@@ -75,11 +71,42 @@ int AIFaceManage::clearFaceLibData()
     return OK;
 }
 
+namespace
+{
+
+/* 人脸库根目录（孤立文件清理的范围边界） */
+const char *const kFaceDirectory = "/opt/course/face";
+
+/* 轻量路径规范化：折叠多余 '/' 与 '.' 段（不做磁盘解析），保证与库中路径可比 */
+std::string normalize_path(const std::string &strPath)
+{
+    std::string strResult;
+    std::string strSeg;
+    const size_t unLen = strPath.size();
+    for (size_t i = 0; i <= unLen; i++)
+    {
+        if (i == unLen || strPath[i] == '/')
+        {
+            if (strSeg == "." || strSeg.empty())
+            {
+                strSeg.clear();
+                continue;
+            }
+            strResult += "/" + strSeg;
+            strSeg.clear();
+        }
+        else
+        {
+            strSeg.push_back(strPath[i]);
+        }
+    }
+    return strResult.empty() ? "/" : strResult;
+}
+
+} // namespace
+
 int AIFaceManage::cleanupOrphanFaceFiles()
 {
-    namespace fs = std::filesystem;
-    static const fs::path kFaceDirectory("/opt/course/face");
-
     std::list<FaceLibsInfo_S> listFaceInfo;
     const int nQueryRet = m_FaceInfodb.getAllData(listFaceInfo);
     if (nQueryRet != OK)
@@ -93,68 +120,56 @@ int AIFaceManage::cleanupOrphanFaceFiles()
     {
         if (!stInfo.strPicPath.empty())
         {
-            referencedPaths.insert(fs::path(stInfo.strPicPath).lexically_normal().string());
+            referencedPaths.insert(normalize_path(stInfo.strPicPath));
         }
         if (!stInfo.BinPath.empty())
         {
-            referencedPaths.insert(fs::path(stInfo.BinPath).lexically_normal().string());
+            referencedPaths.insert(normalize_path(stInfo.BinPath));
         }
     }
 
-    std::error_code ec;
-    if (!fs::exists(kFaceDirectory, ec))
+    if (!PosixFs_NS::exists(kFaceDirectory))
     {
-        if (ec)
-        {
-            dlog_error("ai_app: check face directory failed, path=%s, error=%s",
-                       kFaceDirectory.string().c_str(), ec.message().c_str());
-            return ERR;
-        }
         return OK;
     }
 
     int nDeletedCount = 0;
     int nFailedCount = 0;
-    fs::directory_iterator iter(kFaceDirectory, ec);
-    fs::directory_iterator end;
-    if (ec)
+    std::vector<std::string> vecNames;
+    if (!PosixFs_NS::list_dir(kFaceDirectory, vecNames))
     {
-        dlog_error("ai_app: open face directory failed, path=%s, error=%s",
-                   kFaceDirectory.string().c_str(), ec.message().c_str());
+        dlog_error("ai_app: open face directory failed, path=%s", kFaceDirectory);
         return ERR;
     }
 
-    for (; iter != end; iter.increment(ec))
+    for (size_t i = 0; i < vecNames.size(); i++)
     {
-        if (ec)
-        {
-            dlog_error("ai_app: iterate face directory failed, error=%s", ec.message().c_str());
-            return ERR;
-        }
-
-        std::error_code fileEc;
-        if (!iter->is_regular_file(fileEc) || fileEc)
+        if (!PosixFs_NS::is_regular_file(std::string(kFaceDirectory) + "/" + vecNames[i]))
         {
             continue;
         }
 
-        std::string strExtension = iter->path().extension().string();
-        std::transform(strExtension.begin(), strExtension.end(), strExtension.begin(),
-                       [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
-        if (strExtension != ".jpg" && strExtension != ".jpeg" &&
-            strExtension != ".png" && strExtension != ".bmp" &&
+        std::string strExtension = PosixFs_NS::extension(vecNames[i]);
+        std::transform(strExtension.begin(),
+                       strExtension.end(),
+                       strExtension.begin(),
+                       [](unsigned char ch)
+                       {
+                           return static_cast<char>(std::tolower(ch));
+                       });
+        if (strExtension != ".jpg" && strExtension != ".jpeg" && strExtension != ".png" && strExtension != ".bmp" &&
             strExtension != ".bin" && strExtension != ".tmpart")
         {
             continue;
         }
 
-        const std::string strFilePath = iter->path().lexically_normal().string();
-        if (referencedPaths.find(strFilePath) != referencedPaths.end())
+        const std::string strFilePath = std::string(kFaceDirectory) + "/" + vecNames[i];
+        if (referencedPaths.find(normalize_path(strFilePath)) != referencedPaths.end())
         {
             continue;
         }
 
-        if (fs::remove(iter->path(), fileEc))
+        if (PosixFs_NS::remove(strFilePath))
         {
             ++nDeletedCount;
             dlog_info("ai_app: removed orphan face file: %s", strFilePath.c_str());
@@ -162,37 +177,37 @@ int AIFaceManage::cleanupOrphanFaceFiles()
         else
         {
             ++nFailedCount;
-            dlog_error("ai_app: remove orphan face file failed, path=%s, error=%s",
-                       strFilePath.c_str(), fileEc.message().c_str());
+            dlog_error("ai_app: remove orphan face file failed, path=%s, errno=%d", strFilePath.c_str(), errno);
         }
     }
 
     dlog_info("ai_app: orphan face file cleanup finished, referenced=%zu deleted=%d failed=%d",
-              referencedPaths.size(), nDeletedCount, nFailedCount);
+              referencedPaths.size(),
+              nDeletedCount,
+              nFailedCount);
     return nFailedCount == 0 ? OK : ERR;
 }
 
 /**
  * @brief 更新名单库人脸信息
- * @param nId 
- * @param stInfo 
- * @return int 
+ * @param nId
+ * @param stInfo
+ * @return int
  */
 int AIFaceManage::updateFaceLibInfo(int nId, FaceLibsInfo_S stInfo)
 {
     int nRet = m_FaceInfodb.updateData(nId, stInfo);
 
-    dlog_debug("ai_app: \033[34m %s:%d 更新本地名单库 [%d]... \033[m\n",__func__,__LINE__,nId);
-    
+    dlog_debug("ai_app: \033[34m %s:%d 更新本地名单库 [%d]... \033[m\n", __func__, __LINE__, nId);
+
     return 0;
 }
 
-
 /**
  * @brief 通过ID查找名单组人脸信息
- * @param nId 
- * @param stInfo 
- * @return int 
+ * @param nId
+ * @param stInfo
+ * @return int
  */
 int AIFaceManage::searchFaceInfoById(int nId, FaceLibsInfo_S &stInfo)
 {
@@ -200,12 +215,11 @@ int AIFaceManage::searchFaceInfoById(int nId, FaceLibsInfo_S &stInfo)
     return 0;
 }
 
-
 /**
  * @brief 通过ID查找人脸信息
- * @param nId 
- * @param stInfo 
- * @return int 
+ * @param nId
+ * @param stInfo
+ * @return int
  */
 int AIFaceManage::searchFaceInfoById(int nId, SnapFaceInfo_S &stInfo)
 {
@@ -213,9 +227,8 @@ int AIFaceManage::searchFaceInfoById(int nId, SnapFaceInfo_S &stInfo)
     return 0;
 }
 
-
 /* 根据表名查找人脸信息 */
-int AIFaceManage::searchFaceInfoByTable(std::string strTabName, std::list<FaceLibsInfo_S>& listOutInfo)
+int AIFaceManage::searchFaceInfoByTable(std::string strTabName, std::list<FaceLibsInfo_S> &listOutInfo)
 {
     // int nRet = m_FaceInfodb.searchDataByTable(strTabName, listOutInfo);
 
@@ -235,9 +248,9 @@ int AIFaceManage::searchFaceInfoByTable(std::string strTabName, std::list<FaceLi
     //     stFaceInfo.nRatingLevel = OutInfo.nRatingLevel;
     //     listFaceInfo.push_back(stFaceInfo);
     // }
-    
+
     // dlog_debug("ai_app: \033[34m %s:%d 表名查询表 [%s : %ld] \033[m\n",__func__,__LINE__,strTabName.c_str(), listOutInfo.size());
-    
+
     // std::string strData;
     // if (nRet != 0)
     // {
@@ -247,18 +260,17 @@ int AIFaceManage::searchFaceInfoByTable(std::string strTabName, std::list<FaceLi
     // {
     //     strData = Convert::to_string(listFaceInfo);
     // }
-    
+
     // SendResToControl(strData, AC_GET_FACE_INFO, nRet);
-    
+
     return 0;
 }
 
-
 /*  根据条件查询人脸信息 */
-int AIFaceManage::searchFaceInfoByCond(Event::FaceFind_S stFaceFind, std::list<FaceLibsInfo_S>& listOutInfo)
+int AIFaceManage::searchFaceInfoByCond(Event::FaceFind_S stFaceFind, std::list<FaceLibsInfo_S> &listOutInfo)
 {
     int nRet = m_FaceInfodb.search_combined_data(stFaceFind, listOutInfo);
-    
+
     // std::vector<Event::FaceInfo_S> listFaceInfo;
     // for (const auto& OutInfo : listOutInfo)
     // {
@@ -275,8 +287,12 @@ int AIFaceManage::searchFaceInfoByCond(Event::FaceFind_S stFaceFind, std::list<F
     //     stFaceInfo.nRatingLevel = OutInfo.nRatingLevel;
     //     listFaceInfo.push_back(stFaceInfo);
     // }
-    
-    dlog_debug("ai_app: \033[34m %s:%d 条件查询表 [%s : %ld] \033[m\n",__func__,__LINE__,stFaceFind.strFaceLibName.c_str(), listOutInfo.size());
+
+    dlog_debug("ai_app: \033[34m %s:%d 条件查询表 [%s : %ld] \033[m\n",
+               __func__,
+               __LINE__,
+               stFaceFind.strFaceLibName.c_str(),
+               listOutInfo.size());
 
     // std::string strData;
     // if (nRet != 0)
@@ -287,53 +303,50 @@ int AIFaceManage::searchFaceInfoByCond(Event::FaceFind_S stFaceFind, std::list<F
     // {
     //     strData = Convert::to_string(listFaceInfo);
     // }
-    
+
     // SendResToControl(strData, AC_GET_FACE_INFO, nRet);
-    
+
     return nRet;
 }
-
 
 /* 创建名单组表 */
 int AIFaceManage::creatFaceTable(std::string strTabName)
 {
     int nRet = m_FaceInfodb.check_creat_table(strTabName);
 
-    dlog_debug("ai_app: \033[34m %s:%d 添加表 [%s] \033[m\n",__func__,__LINE__,strTabName.c_str());
+    dlog_debug("ai_app: \033[34m %s:%d 添加表 [%s] \033[m\n", __func__, __LINE__, strTabName.c_str());
     std::string strData;
     if (nRet != 0)
     {
         strData = "{\"result\": \"Failed to add face list.\" }";
     }
     // SendResToControl(strData, AC_ADD_TARGET_LIB, nRet);
-    
+
     return nRet;
 }
-
 
 /* 删除名单组表 */
 int AIFaceManage::deleteFaceTable(std::string strTabName)
 {
     int nRet = m_FaceInfodb.deleteTable(strTabName);
-    
-    dlog_debug("ai_app: \033[34m %s:%d 删除表 [%s] \033[m\n",__func__,__LINE__,strTabName.c_str());
+
+    dlog_debug("ai_app: \033[34m %s:%d 删除表 [%s] \033[m\n", __func__, __LINE__, strTabName.c_str());
     std::string strData;
     if (nRet != 0)
     {
         strData = "{\"result\": \"Failed to delete face list.\" }";
     }
     // SendResToControl(strData, AC_DEL_TARGET_LIB, nRet);
-    
+
     return 0;
 }
-
 
 /* 修改名单组表名 */
 int AIFaceManage::renameFaceTable(std::string oldTabName, std::string newTabName)
 {
     int nRet = m_FaceInfodb.renameTable(oldTabName, newTabName);
-    
-    dlog_debug("ai_app: \033[34m %s:%d 重命名表 [%s  %s] \033[m\n",__func__,__LINE__,oldTabName.c_str(),newTabName.c_str());
+
+    dlog_debug("ai_app: \033[34m %s:%d 重命名表 [%s  %s] \033[m\n", __func__, __LINE__, oldTabName.c_str(), newTabName.c_str());
     std::string strData;
     if (nRet != 0)
     {
@@ -344,16 +357,15 @@ int AIFaceManage::renameFaceTable(std::string oldTabName, std::string newTabName
     return 0;
 }
 
-
 /* 获取名单组信息 */
-int AIFaceManage::getTableReport(std::vector<Event::FaceLibInfo_S>& listTableReport)
+int AIFaceManage::getTableReport(std::vector<Event::FaceLibInfo_S> &listTableReport)
 {
     int nRet = m_FaceInfodb.get_table_report(listTableReport);
-    dlog_debug("ai_app: \033[34m %s:%d \033[m\n",__func__,__LINE__);
+    dlog_debug("ai_app: \033[34m %s:%d \033[m\n", __func__, __LINE__);
     if (nRet != 0)
     {
         dlog_error("数据库查询失败，返回码: %d，直接返回，避免后续崩溃", nRet);
-        return nRet; 
+        return nRet;
     }
     if (listTableReport.empty())
     {
@@ -362,13 +374,10 @@ int AIFaceManage::getTableReport(std::vector<Event::FaceLibInfo_S>& listTableRep
     }
     if (access("testPrint", F_OK) == 0)
     {
-        for (const auto& report : listTableReport)
+        for (const auto &report : listTableReport)
         {
-            std::cout << "表名: " << report.strFaceLibName
-                    << ", 总记录数: " << report.nTotalFace
-                    << ", 正常记录数: " << report.nNormalNum
-                    << ", 异常记录数: " << report.nAbnormalNum << std::endl;
-        
+            std::cout << "表名: " << report.strFaceLibName << ", 总记录数: " << report.nTotalFace << ", 正常记录数: " << report.nNormalNum
+                      << ", 异常记录数: " << report.nAbnormalNum << std::endl;
         }
     }
 
@@ -381,19 +390,18 @@ int AIFaceManage::getTableReport(std::vector<Event::FaceLibInfo_S>& listTableRep
     // {
     //     strData = Convert::to_string(listTableReport);
     // }
-    
+
     // SendResToControl(strData, AC_GET_TARGET_LIB, nRet);
-    
+
     return 0;
 }
 
-
 /**
  * @brief 新增抓拍人脸信息，同步向量数据库
- * @param stInfo 
- * @return int 
+ * @param stInfo
+ * @return int
  */
-int AIFaceManage::addSnapFace(SnapFaceInfo_S stInfo, int& nFaceLibId, float &fSimilarity)
+int AIFaceManage::addSnapFace(SnapFaceInfo_S stInfo, int &nFaceLibId, float &fSimilarity)
 {
     /* 比对本地名单库 */
     int nRet = comparisonFaceLib(stInfo.vfData, nFaceLibId, fSimilarity);
@@ -402,15 +410,14 @@ int AIFaceManage::addSnapFace(SnapFaceInfo_S stInfo, int& nFaceLibId, float &fSi
 
     // m_FaceVectordb.addFaceVector(stInfo.nId, stInfo.vfData);
     // m_FaceVectordb.save();
-    
+
     return nRet;
 }
 
-
 /**
  * @brief 删除抓拍人脸信息，同步向量数据库
- * @param nId 
- * @return int 
+ * @param nId
+ * @return int
  */
 int AIFaceManage::delSnapFace(int nId)
 {
@@ -418,16 +425,15 @@ int AIFaceManage::delSnapFace(int nId)
 
     // m_FaceVectordb.removeFaceVector(nId);
     // m_FaceVectordb.save();
-    
+
     return 0;
 }
 
-
 /**
  * @brief 更新抓拍人脸信息，同步向量数据库
- * @param nId 
- * @param stInfo 
- * @return int 
+ * @param nId
+ * @param stInfo
+ * @return int
  */
 int AIFaceManage::updateSnapFace(int nId, SnapFaceInfo_S stInfo)
 {
@@ -436,50 +442,53 @@ int AIFaceManage::updateSnapFace(int nId, SnapFaceInfo_S stInfo)
     // m_FaceVectordb.removeFaceVector(nId);
     // m_FaceVectordb.addFaceVector(nId, stInfo.vfData);
     // m_FaceVectordb.save();
-    
+
     return 0;
 }
-
 
 /**
  * @brief 全局向量库比对
  * @param vfData 输入比对人脸信息
  * @param nFaceLibId 输出比对结果人脸信息
  */
-bool AIFaceManage::comparisonNormalize(const std::vector<float>& vfData, std::vector<int64_t>& vIndices, std::vector<float>& vfSimilarity)
+bool AIFaceManage::comparisonNormalize(const std::vector<float> &vfData, std::vector<int64_t> &vIndices, std::vector<float> &vfSimilarity)
 {
     dlog_debug("============");
     auto best = m_FaceVectordb.matchFromAllTables(vfData);
-    if(best.id < 0 )
+    if (best.id < 0)
     {
         std::cout << "没找到相似的" << std::endl;
         return false;
-    }else{
+    }
+    else
+    {
         std::cout << "所有表格中的最佳匹配项:\n";
-        std::cout << "Table: " << best.tableName << ", ID: " << best.id << ", Name: " << best.name << ", Similarity: " << best.similarity << std::endl;
+        std::cout << "Table: " << best.tableName << ", ID: " << best.id << ", Name: " << best.name << ", Similarity: " << best.similarity
+                  << std::endl;
     }
     // SearchResult_S stSearchRes;
-    
+
     /* 调用 searchNormalize 函数进行人脸数据的归一化搜索 */
     // if (m_FaceVectordb.searchNormalize(vfData, stSearchRes))
     // {
     //     dlog_debug("ai_app: \033[34m %s:%d count = %ld \033[m\n",__func__,__LINE__,stSearchRes.vIndices.size());
-        
+
     //     if (stSearchRes.vIndices.size() <= 0)
     //     {
     //         std::cout << "没找到相似的" << std::endl;
     //         return false;
     //     }
-        
+
     //     for (int i = 0; i < (int)stSearchRes.vIndices.size(); i++)
     //     {
     //         if (stSearchRes.vDistances[i] > FACE_SIMILARITY_THRESHOLD)
     //         {
     //             if (access("testPrint", F_OK) == 0)
     //             {
-    //                 std::cout << i << ": 全局向量库: 最相似的是: " << stSearchRes.vIndices[i] << "; 距离: " << stSearchRes.vDistances[i] << std::endl;
+    //                 std::cout << i << ": 全局向量库: 最相似的是: " << stSearchRes.vIndices[i] << "; 距离: " << stSearchRes.vDistances[i]
+    //                 << std::endl;
     //             }
-                
+
     //             vIndices.push_back(stSearchRes.vIndices[i]);
     //             vfSimilarity.push_back(stSearchRes.vDistances[i]);
     //         }
@@ -490,12 +499,11 @@ bool AIFaceManage::comparisonNormalize(const std::vector<float>& vfData, std::ve
     //     std::cout << "没找到相似的" << std::endl;
     //     return false;
     // }
-    
+
     return true;
 }
 
-
-bool AIFaceManage::comparisonFaceLib(const std::vector<float>& vfData, int& nFaceLibId, float &fSimilarity)
+bool AIFaceManage::comparisonFaceLib(const std::vector<float> &vfData, int &nFaceLibId, float &fSimilarity)
 {
     FaceLibsInfo_S stMatchedInfo;
     const bool bMatched = comparisonFaceLib(vfData, stMatchedInfo, fSimilarity);
@@ -509,10 +517,10 @@ bool AIFaceManage::comparisonFaceLib(const std::vector<float>& vfData, int& nFac
  * @param stMatchedInfo 输出最佳匹配的人脸信息
  * @param fSimilarity 输出最佳相似度
  */
-bool AIFaceManage::comparisonFaceLib(const std::vector<float>& vfData, FaceLibsInfo_S &stMatchedInfo, float &fSimilarity)
+bool AIFaceManage::comparisonFaceLib(const std::vector<float> &vfData, FaceLibsInfo_S &stMatchedInfo, float &fSimilarity)
 {
     /* 最佳匹配的人脸信息 */
-    FaceLibsInfo_S stInfo {};
+    FaceLibsInfo_S stInfo{};
 
     /* 临时相似度存储 */
     float flastSimilarity = 0;
@@ -528,14 +536,14 @@ bool AIFaceManage::comparisonFaceLib(const std::vector<float>& vfData, FaceLibsI
     // }
     // std::cout << std::endl;
 
-    for (const auto& libInfo : libAllInfo)
+    for (const auto &libInfo : libAllInfo)
     {
         if (libInfo.vfData.empty())
         {
             continue;
         }
         flastSimilarity = cosine_similarity(vfData, libInfo.vfData);
-        
+
         /* 取出最高相似度的人脸信息 */
         if (flastSimilarity > fSimilarity)
         {
@@ -554,11 +562,11 @@ bool AIFaceManage::comparisonFaceLib(const std::vector<float>& vfData, FaceLibsI
     // } else {
     //     std::cout << ">>> 库中未找到有效匹配向量" << std::endl;
     // }
-    
+
     std::cout << "本地名单库: 最相似的是: " << stInfo.nId << "; 距离: " << fSimilarity << std::endl;
-    
+
     stMatchedInfo = stInfo;
-    
+
     if (fSimilarity > FACE_SIMILARITY_THRESHOLD)
     {
         return true;
@@ -567,12 +575,11 @@ bool AIFaceManage::comparisonFaceLib(const std::vector<float>& vfData, FaceLibsI
     return false;
 }
 
-
 /**
  * @brief 余弦相似度计算
- * @return float 
+ * @return float
  */
-float AIFaceManage::cosine_similarity(const std::vector<float>& A, const std::vector<float>& B)
+float AIFaceManage::cosine_similarity(const std::vector<float> &A, const std::vector<float> &B)
 {
     if (A.size() != B.size())
     {

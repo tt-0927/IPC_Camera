@@ -578,7 +578,7 @@ int CTvSdkServer::push_alarm(const void *pAlarmer, int lCommand, const void *pAl
                       sizeof(NET_AlarmBasicInfo_S));
         }
     }
-    else if ((lCommand & 0xF000) == NET_ALARM_BASE_STATISTICS)
+    else if ((lCommand & 0xFF00) == NET_ALARM_BASE_STATISTICS)
     {
         dlog_info("[统计推送诊断] push_alarm 进入TVSDK层: cmd[0x%x] buf_len[%d] expect_size[%zu]", lCommand, dwBufLen,
                   sizeof(NET_AlarmStatisticsInfo_S));

@@ -525,12 +525,19 @@ extern "C" {
 #define NET_MAX_SCENE_TYPE_NUM                      16              /* 最大支持的场景类型数量 */
 #define NET_MAX_ENV_TYPE_NUM                        2               /* 最大支持的环境类型数量 */
 
+/* 安全服务登录锁定的验证间隔，单位为分钟，与网页允许范围保持一致。 */
+#define NET_SECURITY_LOGIN_CHECK_INTERVAL_MIN_MINUTES    (1)
+#define NET_SECURITY_LOGIN_CHECK_INTERVAL_MAX_MINUTES    (1440)
+/* 安全服务登录锁定的最大连续错误次数范围。 */
+#define NET_SECURITY_LOGIN_MAX_ERROR_TIMES_MIN           (3)
+#define NET_SECURITY_LOGIN_MAX_ERROR_TIMES_MAX           (20)
+
 /* 告警周布防时间表包含的天数。 */
 #define NET_ALARM_SCHEDULE_DAY_COUNT            7
 /* 告警周布防时间表中的最小小时值。 */
 #define NET_ALARM_SCHEDULE_HOUR_MIN             0
 /* 告警周布防时间表中的最大小时值。 */
-#define NET_ALARM_SCHEDULE_HOUR_MAX             23
+#define NET_ALARM_SCHEDULE_HOUR_MAX             24
 /* 告警周布防时间表中的最小分钟值。 */
 #define NET_ALARM_SCHEDULE_MINUTE_MIN           0
 /* 告警周布防时间表中的最大分钟值。 */
@@ -2457,6 +2464,55 @@ typedef struct tagNET_DeviceStorageInfo
  */
 typedef NET_DeviceStorageInfo_S* pNET_DeviceStorageInfo_S;
 
+/**
+ * @brief TVSDK 适配层单次查询获得的存储快照。
+ * @note 仅用于本地转换，不作为 SDK 回调缓冲区，不改变 NET_DeviceStorageInfo_S 的布局。
+ *       使用固定长度字符数组和六十四位容量，兼容 C/C++ 公共头文件。
+ */
+typedef struct tagDeviceStorageSnapshot
+{
+    /* 调用方先清零，再填写数量及状态：零正常、负一异常、一无卡、二格式化、三初始化。 */
+    INT32 nDiskCount;
+    INT32 nDiskStatus;
+    /* 容量单位为字节。 */
+    UINT64 uTotalBytes;
+    UINT64 uAvailableBytes;
+    UINT64 uUsedBytes;
+    /* 文件系统名称，必须以空字符结尾。 */
+    CHAR strFileType[NET_LEN_32];
+} DeviceStorageSnapshot_S;
+
+/**
+ * @brief 注册有效期类型，数值与 SDK 公共头文件保持一致。
+ */
+typedef enum tagNET_ActivationTime
+{
+    NET_AT_ONE_WEEK    = 0,  /* 一周   */
+    NET_AT_ONE_MONTH   = 1,  /* 一月   */
+    NET_AT_TWO_MONTH   = 2,  /* 两月   */
+    NET_AT_THREE_MONTH = 3,  /* 三月   */
+    NET_AT_HALF_YEAR   = 4,  /* 半年   */
+    NET_AT_FOREVER     = 5,  /* 永久   */
+    NET_AT_NULL        = -1, /* 未注册/激活 */
+} NET_ActivationTime_E;
+
+/**
+ * @brief 设备注册信息，对应 NET_GET_REGISTERINFO 和 NET_SET_REGISTERINFO。
+ * @note 字段顺序、长度和预留空间必须与 SDK 的 NET_RegisterInfo_S 保持一致。
+ *       设置时只使用 strRegisterEg，其他字段由设备校验注册码后生成，不接受直接覆盖。
+ */
+typedef struct tagNET_RegisterInfo
+{
+    UINT32 uChannel;                        /* IPC 单通道设备固定为零。 */
+    CHAR strMachinSn[NET_LEN_64];           /* 机器码 */
+    CHAR strRegisterEg[NET_LEN_64];         /* 注册码 */
+    CHAR strStartTime[NET_LEN_64];          /* 注册时间 */
+    INT64 nUsableTimer;                     /* 剩余可用时长，单位为分钟。 */
+    NET_ActivationTime_E enActionTime;      /* 注册有效期类型。IPC 已过期状态保留业务数值负二。 */
+    BYTE byReserved[32];
+} NET_RegisterInfo_S;
+
+typedef NET_RegisterInfo_S* pNET_RegisterInfo_S;
 
 /**
  * @brief 系统时间/NTP校时配置结构体
@@ -2564,8 +2620,8 @@ typedef struct tagNET_SshAdminInfo
 {
     BOOL    bSshEnable;
     INT32   nSshPort;
-    CHAR    szSshStartTime[NET_LEN_64];
-    CHAR    szSshCountdown[NET_LEN_64];
+    CHAR    szSshStartTime[NET_LEN_64];             /* 只读：由 IPC 记录的 SSH 启动时间，查询格式为 YYYY-MM-DD HH:mm:ss，设置时忽略。 */
+    CHAR    szSshCountdown[NET_LEN_64];             /* 只读：查询返回的 SSH 倒计时，格式为 HH:mm:ss；设置时忽略，实时值通过 467 命令查询。 */
     BYTE    byRes[64];
 } NET_SshAdminInfo_S;
 
@@ -3747,7 +3803,7 @@ typedef struct tagNET_SchedTime
     INT32       nStartMinute;                       /* 开始分钟 [0-59] */
     INT32       nEndHour;                           /* 结束小时 [0-23] */
     INT32       nEndMinute;                         /* 结束分钟 [0-59] */
-    BYTE        byRes[16];                          /* 保留字段 */
+    BYTE        byRes[32];                          /* 保留字段 */
 }NET_SchedTime_S;
 
 typedef NET_SchedTime_S* pNET_SchedTime_S;
@@ -3770,6 +3826,21 @@ typedef struct tagNET_AlarmSchedule
 typedef NET_AlarmSchedule_S* pNET_AlarmSchedule_S;
 
 /**
+ * @struct tagNET_TraditionLinkage
+ * @brief 常规联动配置（邮件/上传/声音/闪光等非通道类动作）
+ * @note  IPC 等设备使用；NVR 侧可忽略该字段。预留 byRes 便于后续扩展。
+ */
+typedef struct tagNET_TraditionLinkage
+{
+    BOOL        bSendEmail;                          /* 邮件联动 */
+    BOOL        bUploadToCenter;                     /* 上传中心 */
+    BOOL        bUploadSdCard;                       /* 上传SD卡 */
+    BOOL        bSound;                              /* 声音联动 */
+    BOOL        bFlashingLight;                      /* 闪光报警灯 */
+    BYTE        byRes[64];                           /* 保留字段，便于后续扩展 */
+} NET_TraditionLinkage_S, *pNET_TraditionLinkage_S;
+
+/**
  * @struct tagNET_LinkageList
  * @brief 联动配置列表 Linkage configuration list
  */
@@ -3781,7 +3852,8 @@ typedef struct tagNET_LinkageList
     INT32       auRecordChannel[NET_CHANNEL_MAX]; /* 录像通道号数组 */
     INT32       uSnapshotChannelCount;               /* 抓拍通道数量 */
     INT32       auSnapshotChannel[NET_CHANNEL_MAX]; /* 抓拍通道号数组 */
-    BYTE        byRes[256];                         /* 保留字段 */
+    NET_TraditionLinkage_S stTradition;             /* 常规联动配置 */
+    BYTE        byRes[256]; /* 保留字段，随新增字段相应缩小 */
 } NET_LinkageList_S;
 
 /*
@@ -6584,6 +6656,22 @@ typedef NET_COMMON_ECODE_E (*NET_CB_SetDevConfig)(INT32 dwChannelID,
  */
 typedef NET_COMMON_ECODE_E (*NET_CB_GetDevConfigByCommand)(INT32 dwChannelID, LPVOID lpOutBuffer);
 typedef NET_COMMON_ECODE_E (*NET_CB_SetDevConfigByCommand)(INT32 dwChannelID, LPVOID lpInBuffer);
+
+/**
+ * @brief 注册设备注册信息查询回调，处理 NET_GET_REGISTERINFO。
+ * @param [in] pCb 获取 NET_RegisterInfo_S 的回调函数。
+ * @param [out] 无。
+ * @return 注册成功返回 TRUE，失败返回 FALSE。
+ */
+NET_API BOOL STDCALL NET_serverRegisterGetRegisterInfoCb(NET_CB_GetDevConfigByCommand pCb);
+
+/**
+ * @brief 注册设备注册码设置回调，处理 NET_SET_REGISTERINFO。
+ * @param [in] pCb 接收 NET_RegisterInfo_S 并校验 strRegisterEg 的回调函数。
+ * @param [out] 无。
+ * @return 注册成功返回 TRUE，失败返回 FALSE。
+ */
+NET_API BOOL STDCALL NET_serverRegisterSetRegisterInfoCb(NET_CB_SetDevConfigByCommand pCb);
 
 /**
  * @brief 获取RTSP流地址回调类型 (NET_GET_RTSPURLCFG)

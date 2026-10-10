@@ -127,6 +127,18 @@ public:
     /* 人脸侦测配置 */
     int set_configure(const Alarm::FaceDetection_S &alarm);
     int get_configure(Alarm::FaceDetection_S &alarm) const;
+    /* 人脸识别配置 */
+    int set_configure(const Alarm::FaceRecognition_S &alarm);
+    int get_configure(Alarm::FaceRecognition_S &alarm) const;
+    /* 行人识别配置 */
+    int set_configure(const Alarm::PersonDetection_S &alarm);
+    int get_configure(Alarm::PersonDetection_S &alarm) const;
+    /* 机动车识别配置 */
+    int set_configure(const Alarm::MotorVehicleDetection_S &alarm);
+    int get_configure(Alarm::MotorVehicleDetection_S &alarm) const;
+    /* 非机动车识别配置 */
+    int set_configure(const Alarm::NonMotorVehicleDetection_S &alarm);
+    int get_configure(Alarm::NonMotorVehicleDetection_S &alarm) const;
     /* 徘徊侦测配置 */
     int set_configure(const Alarm::LoiteringDetection_S &alarm);
     int get_configure(Alarm::LoiteringDetection_S &alarm) const;
@@ -260,9 +272,6 @@ public:
     int set_configure(const Alarm::NonMotorVehicleIntrusionDetection_S &alarm);
     int get_configure(Alarm::NonMotorVehicleIntrusionDetection_S &alarm) const;
 
-    int set_configure(const Alarm::AttributeDetectSwitch_S &alarm);
-    int get_configure(Alarm::AttributeDetectSwitch_S &alarm) const;
-
 #endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
 int set_configure(const Alarm::SmokeFireDetection_S &alarm);
@@ -339,6 +348,14 @@ private:
     ConfigStorage<Alarm::SceneChange_S, StorageType_E::Single> m_sceneChange;
     /* 人脸侦测配置 */
     ConfigStorage<Alarm::FaceDetection_S, StorageType_E::Single> m_faceDetection;
+    /* 人脸识别配置 */
+    ConfigStorage<Alarm::FaceRecognition_S, StorageType_E::Single> m_faceRecognition;
+    /* 行人识别配置 */
+    ConfigStorage<Alarm::PersonDetection_S, StorageType_E::Single> m_personDetection;
+    /* 机动车识别配置 */
+    ConfigStorage<Alarm::MotorVehicleDetection_S, StorageType_E::Single> m_motorVehicleDetection;
+    /* 非机动车识别配置 */
+    ConfigStorage<Alarm::NonMotorVehicleDetection_S, StorageType_E::Single> m_nonMotorVehicleDetection;
     /* 徘徊侦测配置  */
     ConfigStorage<Alarm::LoiteringDetection_S, StorageType_E::Single> m_loiteringDetection;
     /* 人员聚集侦测配置  */
@@ -433,9 +450,6 @@ private:
     /* 非机动车闯入识别检测 */
     ConfigStorage<Alarm::NonMotorVehicleIntrusionDetection_S, StorageType_E::Single> m_nonMotorVehicleIntrusionDetection;
     
-    /* 属性识别检测 */
-    ConfigStorage<Alarm::AttributeDetectSwitch_S, StorageType_E::Single> m_AttributeDetectSwitch;
-
 #endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
  /* 烟火识别 */

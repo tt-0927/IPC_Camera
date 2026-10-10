@@ -12,6 +12,7 @@
 #include "dlog.h"
 #include "isp_define.h"
 #include "ss_mpi_isp.h"
+#include "ss_mpi_vi.h"
 #include "ot_mpi_ae.h"
 #include "ot_scene.h"
 #include <cstring>
@@ -74,6 +75,93 @@ int apply_scene_drc_adjustment(ISP::IspRuntimeScene_E enRuntimeScene, const Scen
         dlog_error("设置ISP DRC覆盖策略失败, 场景:%d, ret:%d", static_cast<int>(enRuntimeScene), nRet);
         return ERR;
     }
+    return OK;
+}
+
+/**
+ * @brief   : 按运行场景覆盖3DNR mdy[]/tfy[]/nrc0_mode参数
+ * @param    {ISP::IspRuntimeScene_E} enRuntimeScene：内部运行场景
+ * @param    {const NrxPolicy_S &} stNrx：三场景NRX覆盖策略
+ * @return   {int} OK：成功，ERR：失败
+ * @note    : 仅当配置启用覆盖时生效；未配置覆盖的场景直接返回OK
+ */
+int apply_scene_nrx_adjustment(ISP::IspRuntimeScene_E enRuntimeScene, const NrxPolicy_S &stNrx)
+{
+    const NrxAdjustment_S *pAdjustment = nullptr;
+    switch (enRuntimeScene)
+    {
+    case ISP::IspRuntimeScene_E::DAY:
+        pAdjustment = &stNrx.stDay;
+        break;
+    case ISP::IspRuntimeScene_E::NIGHT_WHITE:
+        pAdjustment = &stNrx.stNightWhite;
+        break;
+    case ISP::IspRuntimeScene_E::NIGHT_IR:
+    case ISP::IspRuntimeScene_E::NIGHT_LIGHT_OFF:
+    case ISP::IspRuntimeScene_E::NIGHT_SMART:
+        pAdjustment = &stNrx.stNightIr;
+        break;
+    default:
+        return OK;
+    }
+
+    if (pAdjustment == nullptr || !pAdjustment->bOverride)
+    {
+        return OK;
+    }
+
+    /* 读取当前3DNR参数，修改mdy[]/tfy[]/nrc0_mode后回写。 */
+    ot_3dnr_param stNrxAttr;
+    stNrxAttr.nr_version = OT_NR_V2;
+    stNrxAttr.nr_norm_param_v2.op_mode = OT_OP_MODE_MANUAL;
+    int nRet = ss_mpi_vi_get_pipe_3dnr_param(ISP_SCENE_VI_PIPE, &stNrxAttr);
+    if (nRet != OK)
+    {
+        dlog_error("获取VI pipe 3DNR参数失败, ret:%d", nRet);
+        return ERR;
+    }
+
+    /* mdy[] */
+    stNrxAttr.nr_norm_param_v2.nr_manual.nr_param.mdy[0].math0 = pAdjustment->nMdy0Math0;
+    stNrxAttr.nr_norm_param_v2.nr_manual.nr_param.mdy[0].math1 = pAdjustment->nMdy0Math1;
+    stNrxAttr.nr_norm_param_v2.nr_manual.nr_param.mdy[1].math0 = pAdjustment->nMdy1Math0;
+    stNrxAttr.nr_norm_param_v2.nr_manual.nr_param.mdy[1].math1 = pAdjustment->nMdy1Math1;
+
+    /* tfy[0] */
+    stNrxAttr.nr_norm_param_v2.nr_manual.nr_param.tfy[0].tfs0 = pAdjustment->nTfy0Tfs0;
+    stNrxAttr.nr_norm_param_v2.nr_manual.nr_param.tfy[0].tfs1 = pAdjustment->nTfy0Tfs1;
+    stNrxAttr.nr_norm_param_v2.nr_manual.nr_param.tfy[0].tfs2 = pAdjustment->nTfy0Tfs2;
+    for (int i = 0; i < 6; ++i)
+    {
+        stNrxAttr.nr_norm_param_v2.nr_manual.nr_param.tfy[0].tfr0[i] = pAdjustment->nTfy0Tfr0[i];
+    }
+
+    /* tfy[1] */
+    stNrxAttr.nr_norm_param_v2.nr_manual.nr_param.tfy[1].tfs0 = pAdjustment->nTfy1Tfs0;
+    stNrxAttr.nr_norm_param_v2.nr_manual.nr_param.tfy[1].tfs1 = pAdjustment->nTfy1Tfs1;
+    stNrxAttr.nr_norm_param_v2.nr_manual.nr_param.tfy[1].tfs2 = pAdjustment->nTfy1Tfs2;
+    for (int i = 0; i < 6; ++i)
+    {
+        stNrxAttr.nr_norm_param_v2.nr_manual.nr_param.tfy[1].tfr0[i] = pAdjustment->nTfy1Tfr0[i];
+    }
+
+    /* nrc0_mode */
+    stNrxAttr.nr_norm_param_v2.nr_manual.nr_param.nrc0_mode = pAdjustment->nNrc0Mode;
+
+    nRet = ss_mpi_vi_set_pipe_3dnr_param(ISP_SCENE_VI_PIPE, &stNrxAttr);
+    if (nRet != OK)
+    {
+        dlog_error("设置VI pipe 3DNR参数失败, 场景:%d, ret:%d", static_cast<int>(enRuntimeScene), nRet);
+        return ERR;
+    }
+
+    dlog_info("场景%d 3DNR已覆盖: mdy[0].math0=%u math1=%u, mdy[1].math0=%u math1=%u, "
+              "tfy[0].tfs0=%u tfs1=%u tfs2=%u, tfy[1].tfs0=%u tfs1=%u tfs2=%u, nrc0_mode=%u",
+              static_cast<int>(enRuntimeScene),
+              pAdjustment->nMdy0Math0, pAdjustment->nMdy0Math1, pAdjustment->nMdy1Math0, pAdjustment->nMdy1Math1,
+              pAdjustment->nTfy0Tfs0, pAdjustment->nTfy0Tfs1, pAdjustment->nTfy0Tfs2,
+              pAdjustment->nTfy1Tfs0, pAdjustment->nTfy1Tfs1, pAdjustment->nTfy1Tfs2,
+              pAdjustment->nNrc0Mode);
     return OK;
 }
 } // 匿名命名空间
@@ -167,6 +255,13 @@ int CSceneParamManager::scene_set_mode(ISP::IspRuntimeScene_E enRuntimeScene, co
     if (nRet != OK)
     {
         dlog_error("应用ISP场景DRC修正失败, runtime_scene:%d, 索引:%d, ret:%d", static_cast<int>(enRuntimeScene), nIndex, nRet);
+        return ERR;
+    }
+
+    nRet = apply_scene_nrx_adjustment(enRuntimeScene, stProfile.stNrx);
+    if (nRet != OK)
+    {
+        dlog_error("应用ISP场景NRX修正失败, runtime_scene:%d, ret:%d", static_cast<int>(enRuntimeScene), nRet);
         return ERR;
     }
 

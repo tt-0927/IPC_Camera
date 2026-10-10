@@ -38,7 +38,8 @@ static float CosineSimilarity(const float *vec1, const float *vec2, int size)
 }
 /******************************************************************************************************************************/
 
-static std::vector<Student> FaceFeatureCompare(std::vector<AiStudentBusiness_NS::FaceInfo_t> &vecFaceeatures, std::vector<Student> stStudentsInfo)
+static std::vector<Student> FaceFeatureCompare(std::vector<AiStudentBusiness_NS::FaceInfo_t> &vecFaceeatures,
+                                               std::vector<Student> stStudentsInfo)
 {
     std::vector<Student> stAttendanceStusInfo;
     if (vecFaceeatures.empty() || stStudentsInfo.empty())
@@ -51,19 +52,21 @@ static std::vector<Student> FaceFeatureCompare(std::vector<AiStudentBusiness_NS:
     /* vecFaceeatures模型检测到的人脸特征 */
     for (auto &vecFaceeature : vecFaceeatures)
     {
-        float   fMaxSimilarity = 0.0;
+        float fMaxSimilarity = 0.0;
         Student stAttendanceStuInfo;
 
         /* stStudentInfo.vecFaceFeature 配置文件记录的人脸特征 */
         for (auto &stStudentInfo : stStudentsInfo)
         // for (unsigned int i = 0; i < stStudentsInfo.size(); i++)
         {
-            float fSimilarity = CosineSimilarity(vecFaceeature.vecFaceFeatureData.data(), stStudentInfo.vecFaceFeature.data(), vecFaceeature.vecFaceFeatureData.size());
+            float fSimilarity = CosineSimilarity(vecFaceeature.vecFaceFeatureData.data(),
+                                                 stStudentInfo.vecFaceFeature.data(),
+                                                 vecFaceeature.vecFaceFeatureData.size());
             if (fMaxSimilarity < fSimilarity)
             {
                 /* 记录人脸库中相似度最高的学生 */
                 stAttendanceStuInfo = stStudentInfo;
-                fMaxSimilarity      = fSimilarity;
+                fMaxSimilarity = fSimilarity;
                 // nIndex              = i;
             }
         }
@@ -71,7 +74,7 @@ static std::vector<Student> FaceFeatureCompare(std::vector<AiStudentBusiness_NS:
         if (fMaxSimilarity > 0.35)
         {
             vecFaceeature.fSimilarity = fMaxSimilarity;
-            vecFaceeature.strStuName  = stAttendanceStuInfo.name;
+            vecFaceeature.strStuName = stAttendanceStuInfo.name;
             stAttendanceStusInfo.push_back(stAttendanceStuInfo);
         }
     }
@@ -81,7 +84,7 @@ static std::vector<Student> FaceFeatureCompare(std::vector<AiStudentBusiness_NS:
 
 void CAttendanceCalculator::setTotal(int nTotal)
 {
-    std::unique_lock<std::shared_mutex> lock(m_mutex);
+    std::unique_lock<std::mutex> lock(m_mutex);
     m_nTotal = nTotal;
     refreshSummary();
 }
@@ -94,8 +97,8 @@ bool CAttendanceCalculator::addSample(std::vector<AiStudentBusiness_NS::FaceInfo
         return false;
 
     /* 进行人脸比对，得到班级里面的出勤人数 */
-    std::vector<Student>                stAttendanceStusInfo = FaceFeatureCompare(vecFaceeatures, stStudentsInfo);
-    std::unique_lock<std::shared_mutex> lock(m_mutex);
+    std::vector<Student> stAttendanceStusInfo = FaceFeatureCompare(vecFaceeatures, stStudentsInfo);
+    std::unique_lock<std::mutex> lock(m_mutex);
     nCount = stAttendanceStusInfo.size();
     /* 记录实际从模型得到的总人数 */
     m_mapHumanCount[nCount]++;
@@ -121,30 +124,30 @@ bool CAttendanceCalculator::addSample(std::vector<AiStudentBusiness_NS::FaceInfo
 
 bool CAttendanceCalculator::getSummary(AttendanceSummary &stOut) const
 {
-    std::shared_lock<std::shared_mutex> lock(m_mutex);
+    std::lock_guard<std::mutex> lock(m_mutex);
     stOut = m_stCachedSummary;
     return true;
 }
 
 void CAttendanceCalculator::reset()
 {
-    std::unique_lock<std::shared_mutex> lock(m_mutex);
+    std::unique_lock<std::mutex> lock(m_mutex);
     m_mapHumanCount.clear();
     m_mapFrameStudentInfo.clear();
-    m_nSampleCount    = 0;
+    m_nSampleCount = 0;
     m_stCachedSummary = AttendanceSummary{};
-    m_fnNotify        = nullptr;
+    m_fnNotify = nullptr;
 }
 
 void CAttendanceCalculator::refreshSummary()
 {
-    m_stCachedSummary.total   = m_nTotal;
+    m_stCachedSummary.total = m_nTotal;
     m_stCachedSummary.present = calcPresent();
     // m_stCachedSummary.present    = std::min(m_stCachedSummary.present, m_stCachedSummary.total);    /* 暂时 */
-    m_stCachedSummary.absent     = calcAbsent();
-    m_stCachedSummary.late       = calcLate();
+    m_stCachedSummary.absent = calcAbsent();
+    m_stCachedSummary.late = calcLate();
     m_stCachedSummary.earlyLeave = calcEarlyLeave();
-    m_stCachedSummary.leave      = 0;
+    m_stCachedSummary.leave = 0;
     // m_stCachedSummary.expectedAttendance = m_stCachedSummary.total - m_stCachedSummary.leave; /* 应到人数 = 总人数 - 请假人数 */
 
     /*debug*/
@@ -163,21 +166,21 @@ int CAttendanceCalculator::calcPresent() const
     std::unordered_map<size_t, int> countMap;
 
     // 1. 统计每种 size 出现次数
-    for (const auto &[frameId, vec] : m_mapFrameStudentInfo)
+    for (const auto &stFrameItem : m_mapFrameStudentInfo)
     {
-        countMap[vec.size()]++;
+        countMap[stFrameItem.second.size()]++;
     }
 
     // 2. 找出现次数最多的 size
     size_t bestSize = 0;
-    int    maxCount = 0;
+    int maxCount = 0;
 
-    for (const auto &[size, count] : countMap)
+    for (const auto &stCountItem : countMap)
     {
-        if (count > maxCount)
+        if (stCountItem.second > maxCount)
         {
-            maxCount = count;
-            bestSize = size;
+            maxCount = stCountItem.second;
+            bestSize = stCountItem.first;
         }
     }
 
@@ -189,11 +192,11 @@ int CAttendanceCalculator::calcPresent() const
 
     size_t maxSize = 0;
 
-    for (const auto &[frameId, vec] : m_mapFrameStudentInfo)
+    for (const auto &stFrameItem : m_mapFrameStudentInfo)
     {
-        if (vec.size() > maxSize)
+        if (stFrameItem.second.size() > maxSize)
         {
-            maxSize = vec.size();
+            maxSize = stFrameItem.second.size();
         }
     }
 

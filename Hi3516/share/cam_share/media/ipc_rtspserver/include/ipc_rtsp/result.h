@@ -44,6 +44,10 @@ struct Result
     /* 系统调用 errno；仅 IoError 等系统调用失败场景有效，其余为 0。 */
     int sys_errno = 0;
 
+    /* C++11 严格模式下带默认成员初始化器的结构体不是聚合，提供构造函数支持花括号初始化 */
+    Result() = default;
+    Result(Status code_, int sys_errno_ = 0) : code(code_), sys_errno(sys_errno_) {}
+
     /**
      * 构造成功结果。
      *

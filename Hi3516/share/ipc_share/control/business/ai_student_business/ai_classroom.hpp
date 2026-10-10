@@ -18,12 +18,14 @@
 #include <condition_variable>
 #include <shared_mutex>
 
-namespace AiStudentBusiness_NS {
+namespace AiStudentBusiness_NS
+{
 
 /* 考勤提前激活时间（秒），课程开始前该时间即启用考勤分析 */
 static constexpr int64_t COURSE_PRE_START_S = 5 * 60;
 
-class CAiClassRoom {
+class CAiClassRoom
+{
 public:
     CAiClassRoom() = default;
     ~CAiClassRoom();
@@ -129,23 +131,23 @@ private:
     void onAttendanceTriggered(const AttendanceSummary stRecord);
 
 private:
-    mutable std::shared_mutex m_mutex;
-    ClassInfo                 m_stClassInfo;
+    mutable std::mutex m_mutex;
+    ClassInfo m_stClassInfo;
 
     CAttendanceCalculator m_attendanceCalc;
-    CBehaviorCalculator   m_behaviorCalc;
+    CBehaviorCalculator m_behaviorCalc;
 
     /* 课程监控线程 */
-    std::thread             m_thMonitor;
-    std::atomic<bool>       m_bRunning{false};
-    std::mutex              m_cvMutex;
+    std::thread m_thMonitor;
+    std::atomic<bool> m_bRunning{ false };
+    std::mutex m_cvMutex;
     std::condition_variable m_cv;
 
     /* 当前课程激活状态 */
-    std::atomic<bool> m_bCourseActive{false};
-    int               m_nActiveCourseIdx = -1;
+    std::atomic<bool> m_bCourseActive{ false };
+    int m_nActiveCourseIdx = -1;
 };
 
 } // namespace AiStudentBusiness_NS
- 
+
 #endif

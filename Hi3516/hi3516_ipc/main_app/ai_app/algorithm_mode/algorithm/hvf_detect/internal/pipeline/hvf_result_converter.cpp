@@ -15,6 +15,8 @@
 #include "dlog.h"
 #include "normalized_geometry.hpp"
 
+#include <algorithm>
+
 namespace
 {
 /**
@@ -141,7 +143,8 @@ int CHisiHvfResultConverter::convert(const ot_aidetect_result_array &stResult,
             stDstObject.enType = enObjectType;
             stDstObject.fConfidence = stObject.detect_confidence;
             stDstObject.enTrackState = map_track_status(stObject.track_status);
-            stDstObject.optTrackId = stObject.track_id;
+            stDstObject.ullTrackId = stObject.track_id;
+            stDstObject.bHasTrackId = true;
 
             /* DIE 目标坐标退化为零矩形，不参与几何计算，但保留 Track ID 供状态清理 */
             if (stDstObject.enTrackState == AiPipeline_NS::TrackState_E::ENDED)
