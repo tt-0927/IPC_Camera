@@ -5965,6 +5965,54 @@ static NET_COMMON_ECODE_E cb_get_capture_param_info(INT32 dwChannelID, LPVOID lp
 /* --------------------------- 设置抓图参数信息 --------------------------- */
 
 /*
+ * @brief 读取设备当前抓图参数，供设置前比对只读字段。
+ * @author Codex
+ * @param [out] stOut 接收当前抓图参数。
+ * @return 成功返回 NET_E_SUCCEED，否则返回相应错误码。
+ */
+static NET_COMMON_ECODE_E get_current_capture_param(NET_CaptureParamInfo_S &stOut)
+{
+    std::string outJson;
+    if (execute_get_result(AC_GET_CAPTURE_PARAM_INFO, "{}", outJson) != 0 || outJson.empty())
+    {
+        return NET_E_GET_CFG_FAILED;
+    }
+
+    int nRet = -1;
+    if (!Json::get(outJson.c_str(), "Return", nRet) || nRet != 0)
+    {
+        return NET_E_GET_CFG_FAILED;
+    }
+
+    Capture_NS::CaptureParam_S stCfg;
+    const std::string strJson = normalize_data_json(outJson);
+    if (strJson.empty())
+    {
+        return NET_E_GET_CFG_FAILED;
+    }
+    Convert::to_struct(strJson, stCfg);
+    TvSdkConvert::FillCaptureParam(stCfg, stOut);
+    stOut.uChannel = 0;
+    return NET_E_SUCCEED;
+}
+
+/*
+ * @brief 比对 SDK 传入与设备当前的只读抓图字段。
+ * @author Codex
+ * @param [in] stIn SDK 传入的抓图配置。
+ * @param [in] stCurrent 设备当前抓图配置。
+ * @return 只读字段（图片格式/分辨率/图片质量）完全一致返回 true，否则返回 false。
+ */
+static bool is_capture_readonly_fields_unchanged(const NET_CaptureConfig_S &stIn,
+                                                 const NET_CaptureConfig_S &stCurrent)
+{
+    return stIn.enPictureFormat == stCurrent.enPictureFormat &&
+           stIn.nWidth == stCurrent.nWidth &&
+           stIn.nHeight == stCurrent.nHeight &&
+           stIn.enImageQuality == stCurrent.enImageQuality;
+}
+
+/*
  * @brief 校验抓图参数并等待任务的真实设置结果。
  * @author Codex
  * @param [in] dwChannelID 请求通道号，IPC 不使用该字段。
@@ -5986,6 +6034,23 @@ static NET_COMMON_ECODE_E cb_set_capture_param_info(INT32 dwChannelID, LPVOID lp
     {
         return NET_E_INVALID_PARAM;
     }
+
+    /* 图片格式、分辨率与图片质量由设备侧固定，不接受 SDK 修改：
+     * 与设备当前值不一致时直接拒绝，避免 NVR 覆盖设备侧参数。 */
+    NET_CaptureParamInfo_S stCurrent = {};
+    const NET_COMMON_ECODE_E enCurrentRet = get_current_capture_param(stCurrent);
+    if (enCurrentRet != NET_E_SUCCEED)
+    {
+        dlog_warn("TVSDK设置抓图参数前读取当前配置失败: ret[%d]", enCurrentRet);
+        return enCurrentRet;
+    }
+    if (!is_capture_readonly_fields_unchanged(pIn->stCaptureTimingConfig, stCurrent.stCaptureTimingConfig) ||
+        !is_capture_readonly_fields_unchanged(pIn->stCaptureEventConfig, stCurrent.stCaptureEventConfig))
+    {
+        dlog_warn("TVSDK设置抓图参数被拒绝：图片格式/分辨率/图片质量不允许修改");
+        return NET_E_INVALID_PARAM;
+    }
+
     Capture_NS::CaptureParam_S stCfg = {};
     TvSdkConvert::ToCaptureParam(*pIn, stCfg);
 
