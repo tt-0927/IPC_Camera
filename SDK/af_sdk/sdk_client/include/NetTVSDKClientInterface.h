@@ -504,6 +504,23 @@ NET_clientUploadFile(NET_IN LPVOID   lpUserID,
                   NET_IN const CHAR* szRemoteName);
 
 /**
+ * @author ITC
+ * @brief 上传声音报警自定义音频文件到设备
+ * @details 文件先落盘到设备上传目录；随后需再调用 NET_clientSetDevConfig 并传入
+ *          NET_ADD_AUDIBLE_ALARM_CUSTOM_INFO 命令码，把该文件注册为自定义音频。
+ * @param [in]  lpUserID     用户登录句柄
+ * @param [in]  szFilePath   本地音频文件路径
+ * @param [in]  szRemoteName 上传到设备的文件名，长度不超过
+ *                           NET_ALARM_CUSTOM_AUDIO_FILE_NAME_LEN；归档到配置目录后的
+ *                           完整路径必须能放入 NET_ALARM_CUSTOM_AUDIO_PATH_LEN
+ * @return NET_TRUE 成功，NET_FALSE 失败（调用 NET_clientGetLastError() 获取错误码）
+ */
+NET_API BOOL NET_STDCALL
+NET_clientUploadAlarmAudio(NET_IN LPVOID   lpUserID,
+                           NET_IN const CHAR* szFilePath,
+                           NET_IN const CHAR* szRemoteName);
+
+/**
  * @author tianl (tianl@kfb.cn)
  * @brief 搜索局域网内设备（UDP 组播）
  * @param [in]  szInterfaceIP 网卡 IP 地址，传 NULL 使用默认网卡

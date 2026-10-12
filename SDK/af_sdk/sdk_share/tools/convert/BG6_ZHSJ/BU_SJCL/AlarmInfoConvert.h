@@ -127,6 +127,26 @@ namespace SDKConvert
     void deal(Json::Object* pRootJson, NET_AudibleAlarmInfo_S& stInfo, bool bOutStruct);
 
     /**
+     * @brief 在 JSON 与 SDK 声音告警自定义音频管理请求之间转换。
+     * @author ITC
+     * @param [in,out] pRootJson 根据 bOutStruct 作为源或目标 JSON 对象。
+     * @param [in,out] stInfo 根据 bOutStruct 作为源或目标自定义音频管理请求结构体。
+     * @param [in] bOutStruct 为 TRUE 时将 JSON 解析到结构体；为 FALSE 时将结构体序列化到 JSON。
+     * @return 无。
+     */
+    void deal(Json::Object* pRootJson, NET_AudibleAlarmCustomOperation_S& stInfo, bool bOutStruct);
+
+    /**
+     * @brief 在 JSON 与 SDK 声音告警自定义音频列表之间转换。
+     * @author ITC
+     * @param [in,out] pRootJson 根据 bOutStruct 作为源或目标 JSON 对象。
+     * @param [in,out] stInfo 根据 bOutStruct 作为源或目标自定义音频列表结构体。
+     * @param [in] bOutStruct 为 TRUE 时将 JSON 解析到结构体；为 FALSE 时将结构体序列化到 JSON。
+     * @return 无。
+     */
+    void deal(Json::Object* pRootJson, NET_AudibleAlarmCustomAudioList_S& stInfo, bool bOutStruct);
+
+    /**
      * @brief 在 JSON 与 SDK 单路报警输入配置之间转换。
      * @author ITC
      * @param [in,out] pRootJson 根据 bOutStruct 作为源或目标 JSON 对象。

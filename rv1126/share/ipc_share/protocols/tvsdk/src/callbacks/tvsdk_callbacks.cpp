@@ -1716,6 +1716,53 @@ static bool is_valid_audible_alarm_info(const NET_AudibleAlarmInfo_S& stInfo)
     return true;
 }
 
+/* 自定义音频归档目录的路径长度，用于校验文件名长度是否会使 strPath 溢出。 */
+static constexpr size_t TVSDK_CUSTOM_AUDIO_ARCHIVE_DIR_LEN = sizeof(CUSTOM_AUDIO_CONFIG_PATH) - 1;
+/* 自定义音频文件名允许的最大长度，保证归档后完整路径能放入 NET_ALARM_CUSTOM_AUDIO_PATH_LEN。 */
+static constexpr size_t TVSDK_CUSTOM_AUDIO_FILE_NAME_MAX_LEN =
+    NET_ALARM_CUSTOM_AUDIO_PATH_LEN - TVSDK_CUSTOM_AUDIO_ARCHIVE_DIR_LEN - 1;
+
+/**
+ * @brief 校验 SDK 传入的声音告警自定义音频编辑请求。
+ * @author ITC
+ * @param [in] stInfo 待校验的自定义音频编辑请求。
+ * @return 合法返回 true，否则返回 false。
+ */
+static bool is_valid_audible_alarm_custom_edit_info(const NET_AudibleAlarmCustomOperation_S& stInfo)
+{
+    if (stInfo.enCustomType < NET_AUDIBLE_ALARM_CUSTOM_OP_EDIT ||
+        stInfo.enCustomType > NET_AUDIBLE_ALARM_CUSTOM_OP_DELETE ||
+        !is_valid_sdk_bool(stInfo.nEnable))
+    {
+        return false;
+    }
+
+    return true;
+}
+
+/**
+ * @brief 校验 SDK 传入的声音告警自定义音频新增请求。
+ * @author ITC
+ * @param [in] stInfo 待校验的自定义音频新增请求。
+ * @return 合法返回 true，否则返回 false。
+ */
+static bool is_valid_audible_alarm_custom_add_info(const NET_AudibleAlarmCustomOperation_S& stInfo)
+{
+    if (!is_valid_sdk_bool(stInfo.nEnable))
+    {
+        return false;
+    }
+
+    /* 新增操作必须携带已上传的文件名，且归档后的完整路径要能放入 strPath。 */
+    const size_t nFileNameLen = strnlen(stInfo.strFileName, sizeof(stInfo.strFileName));
+    if (nFileNameLen == 0 || nFileNameLen > TVSDK_CUSTOM_AUDIO_FILE_NAME_MAX_LEN)
+    {
+        return false;
+    }
+
+    return true;
+}
+
 /**
  * 功能：校验报警输入输出的有效时间段关系，允许结束点为 24:00。
  * param [in] stSchedule：待校验的时间表。
@@ -5282,6 +5329,92 @@ static NET_COMMON_ECODE_E cb_set_audible_alarm_info(INT32 nChannelId, LPVOID pIn
 }
 
 /**
+ * @brief 获取 IPC 的声音告警自定义音频列表。
+ * @author ITC
+ * @param [in] nChannelId 设备通道标识，本配置为设备级配置，不参与查询。
+ * @param [out] pOutBuffer 用于接收 NET_AudibleAlarmCustomAudioList_S 的缓冲区。
+ * @return 成功返回 NET_E_SUCCEED，否则返回相应错误码。
+ */
+static NET_COMMON_ECODE_E cb_get_audible_alarm_custom_info(INT32 nChannelId, LPVOID pOutBuffer)
+{
+    (void)nChannelId;
+    if (!pOutBuffer)
+    {
+        return NET_E_NULL_POINT;
+    }
+
+    pNET_AudibleAlarmCustomAudioList_S pOutput = static_cast<pNET_AudibleAlarmCustomAudioList_S>(pOutBuffer);
+    std::memset(pOutput, 0, sizeof(*pOutput));
+
+    std::string strDataJson;
+    const NET_COMMON_ECODE_E enResult = get_alarm_config_data(AC_GET_AUDIO_CUSTOM_INFO, strDataJson);
+    if (enResult != NET_E_SUCCEED)
+    {
+        return enResult;
+    }
+
+    std::vector<Alarm::CustomAudio_S> stAudioList;
+    Convert::to_struct(strDataJson, stAudioList);
+    TvSdkConvert::FillAudibleAlarmCustomList(stAudioList, *pOutput);
+    return NET_E_SUCCEED;
+}
+
+/**
+ * @brief 编辑、试听、删除 IPC 的声音告警自定义音频。
+ * @author ITC
+ * @param [in] nChannelId 设备通道标识，本配置为设备级配置，不参与设置。
+ * @param [in] pInBuffer 指向 NET_AudibleAlarmCustomOperation_S 的输入缓冲区。
+ * @return 成功返回 NET_E_SUCCEED，否则返回相应错误码。
+ */
+static NET_COMMON_ECODE_E cb_edit_audible_alarm_custom_info(INT32 nChannelId, LPVOID pInBuffer)
+{
+    (void)nChannelId;
+    if (!pInBuffer)
+    {
+        return NET_E_NULL_POINT;
+    }
+
+    const pNET_AudibleAlarmCustomOperation_S pInput = static_cast<pNET_AudibleAlarmCustomOperation_S>(pInBuffer);
+    if (!is_valid_audible_alarm_custom_edit_info(*pInput))
+    {
+        return NET_E_INVALID_PARAM;
+    }
+
+    Alarm::CustomOperation_S stOperation;
+    TvSdkConvert::ToAudibleAlarmCustomOperation(*pInput, stOperation);
+    const std::string strDataJson = Convert::to_string(stOperation);
+    return set_alarm_config_data(AC_EDIT_AUDIO_CUSTOM_INFO, strDataJson);
+}
+
+/**
+ * @brief 新增 IPC 的声音告警自定义音频。
+ * @details 由 IPC 业务把已上传的文件从上传目录归档到配置目录，并写入声音告警配置。
+ * @author ITC
+ * @param [in] nChannelId 设备通道标识，本配置为设备级配置，不参与设置。
+ * @param [in] pInBuffer 指向 NET_AudibleAlarmCustomOperation_S 的输入缓冲区。
+ * @return 成功返回 NET_E_SUCCEED，否则返回相应错误码。
+ */
+static NET_COMMON_ECODE_E cb_add_audible_alarm_custom_info(INT32 nChannelId, LPVOID pInBuffer)
+{
+    (void)nChannelId;
+    if (!pInBuffer)
+    {
+        return NET_E_NULL_POINT;
+    }
+
+    const pNET_AudibleAlarmCustomOperation_S pInput = static_cast<pNET_AudibleAlarmCustomOperation_S>(pInBuffer);
+    if (!is_valid_audible_alarm_custom_add_info(*pInput))
+    {
+        return NET_E_INVALID_PARAM;
+    }
+
+    Alarm::CustomOperation_S stOperation;
+    TvSdkConvert::ToAudibleAlarmCustomOperation(*pInput, stOperation);
+    const std::string strDataJson = Convert::to_string(stOperation);
+    return set_alarm_config_data(AC_SET_AUDIO_CUSTOM_INFO, strDataJson);
+}
+
+/**
  * @brief 获取 IPC 的全部报警输入配置。
  * @author ITC
  * @param [in] nChannelId 设备通道标识，本配置为设备级配置，不参与查询。
@@ -7296,6 +7429,9 @@ void register_all()
 
     NET_serverRegisterGetAudibleAlarmInfoCb(cb_get_audible_alarm_info);
     NET_serverRegisterSetAudibleAlarmInfoCb(cb_set_audible_alarm_info);
+    NET_serverRegisterGetAudibleAlarmCustomInfoCb(cb_get_audible_alarm_custom_info);
+    NET_serverRegisterEditAudibleAlarmCustomInfoCb(cb_edit_audible_alarm_custom_info);
+    NET_serverRegisterAddAudibleAlarmCustomInfoCb(cb_add_audible_alarm_custom_info);
     NET_serverRegisterGetAlarmInputInfoCb(cb_get_alarm_input_info);
     NET_serverRegisterSetAlarmInputInfoCb(cb_set_alarm_input_info);
     NET_serverRegisterGetAlarmOutputInfoCb(cb_get_alarm_output_info);

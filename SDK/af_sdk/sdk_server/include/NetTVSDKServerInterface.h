@@ -485,6 +485,30 @@ NET_API BOOL STDCALL NET_serverRegisterGetAudibleAlarmInfoCb(NET_CB_GetDevConfig
  */
 NET_API BOOL STDCALL NET_serverRegisterSetAudibleAlarmInfoCb(NET_CB_SetDevConfigByCommand pCb);
 /*
+ * 功能描述：注册获取声音报警自定义音频列表的回调函数。
+ * 作者：ITC
+ * @param [in] pCb 用于填写 NET_AudibleAlarmCustomAudioList_S 输出数据的回调函数。
+ * @param [out] 无。注册成功后，回调函数将保存到内部配置回调表。
+ * @return 注册成功返回 TRUE；回调函数为空或重复注册时返回 FALSE。
+ */
+NET_API BOOL STDCALL NET_serverRegisterGetAudibleAlarmCustomInfoCb(NET_CB_GetDevConfigByCommand pCb);
+/*
+ * 功能描述：注册编辑、试听、删除声音报警自定义音频的回调函数。
+ * 作者：ITC
+ * @param [in] pCb 用于处理 NET_AudibleAlarmCustomOperation_S 输入数据的回调函数。
+ * @param [out] 无。注册成功后，回调函数将保存到内部配置回调表。
+ * @return 注册成功返回 TRUE；回调函数为空或重复注册时返回 FALSE。
+ */
+NET_API BOOL STDCALL NET_serverRegisterEditAudibleAlarmCustomInfoCb(NET_CB_SetDevConfigByCommand pCb);
+/*
+ * 功能描述：注册新增声音报警自定义音频的回调函数。
+ * 作者：ITC
+ * @param [in] pCb 用于处理 NET_AudibleAlarmCustomOperation_S 输入数据的回调函数。
+ * @param [out] 无。注册成功后，回调函数将保存到内部配置回调表。
+ * @return 注册成功返回 TRUE；回调函数为空或重复注册时返回 FALSE。
+ */
+NET_API BOOL STDCALL NET_serverRegisterAddAudibleAlarmCustomInfoCb(NET_CB_SetDevConfigByCommand pCb);
+/*
  * 功能描述：注册获取报警输入配置的回调函数。
  * 作者：ITC
  * @param [in] pCb 用于填写 NET_AlarmInputInfoList_S 输出数据的回调函数。

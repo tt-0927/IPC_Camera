@@ -101,6 +101,7 @@ BOOL CConfigQuery::GetDevConfig(LPVOID lpUserID, INT32 dwChannelID, INT32 dwComm
         case NET_GET_SD_CARD_STATUS:     return GetDevConfig_Impl<NET_SdCardStatus_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
         case NET_GET_AUDIO_ANOMALY_CURRENT_DB: return GetDevConfig_Impl<NET_AudioAnomalyCurrentDb_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
         case NET_GET_AUDIBLE_ALARM_INFO: return GetDevConfig_Impl<NET_AudibleAlarmInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_GET_AUDIBLE_ALARM_CUSTOM_INFO: return GetDevConfig_Impl<NET_AudibleAlarmCustomAudioList_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
         case NET_GET_ALARM_INPUT_INFO:   return GetDevConfig_Impl<NET_AlarmInputInfoList_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
         case NET_GET_ALARM_OUTPUT_INFO:  return GetDevConfig_Impl<NET_AlarmOutputInfoList_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
         case NET_GET_FLASHING_LIGHT_ALARM_INFO: return GetDevConfig_Impl<NET_FlashingLightAlarmInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
@@ -278,6 +279,8 @@ BOOL CConfigQuery::SetDevConfig(LPVOID lpUserID, INT32 dwChannelID, INT32 dwComm
         case NET_SET_UNATTENDEDOBJECTALARM: return SetDevConfig_Impl<NET_UnattendedObjectAlarmInfo_S>(lpUserID, dwChannelID, dwCommand, lpInBuffer, dwInBufferSize, pdwBytesReturned);
         case NET_SET_OBJECTREMOVALALARM: return SetDevConfig_Impl<NET_ObjectRemovalAlarmInfo_S>(lpUserID, dwChannelID, dwCommand, lpInBuffer, dwInBufferSize, pdwBytesReturned);
         case NET_SET_AUDIBLE_ALARM_INFO: return SetDevConfig_Impl<NET_AudibleAlarmInfo_S>(lpUserID, dwChannelID, dwCommand, lpInBuffer, dwInBufferSize, pdwBytesReturned);
+        case NET_EDIT_AUDIBLE_ALARM_CUSTOM_INFO: return SetDevConfig_Impl<NET_AudibleAlarmCustomOperation_S>(lpUserID, dwChannelID, dwCommand, lpInBuffer, dwInBufferSize, pdwBytesReturned);
+        case NET_ADD_AUDIBLE_ALARM_CUSTOM_INFO: return SetDevConfig_Impl<NET_AudibleAlarmCustomOperation_S>(lpUserID, dwChannelID, dwCommand, lpInBuffer, dwInBufferSize, pdwBytesReturned);
         case NET_SET_ALARM_INPUT_INFO:   return SetDevConfig_Impl<NET_AlarmInputInfo_S>(lpUserID, dwChannelID, dwCommand, lpInBuffer, dwInBufferSize, pdwBytesReturned);
         case NET_SET_ALARM_OUTPUT_INFO:  return SetDevConfig_Impl<NET_AlarmOutputInfo_S>(lpUserID, dwChannelID, dwCommand, lpInBuffer, dwInBufferSize, pdwBytesReturned);
         case NET_SET_FLASHING_LIGHT_ALARM_INFO: return SetDevConfig_Impl<NET_FlashingLightAlarmInfo_S>(lpUserID, dwChannelID, dwCommand, lpInBuffer, dwInBufferSize, pdwBytesReturned);

@@ -83,6 +83,7 @@ typedef struct tagSessionMessage
 #define NET_API_PATH_DEVICE_SET_DEV_CONFIG "/TVAPI/V1.0/Device/SetDevConfig"  /* 设置设备配置 */
 #define NET_API_PATH_DEVICE_CONTROL        "/TVAPI/V1.0/DeviceControl"        /* 设备硬件控制 */
 #define NET_API_PATH_UPGRADE_UPLOAD        "/TVAPI/V1.0/Upgrade/Upload"       /* 上传升级包 */
+#define NET_API_PATH_ALARM_AUDIO_UPLOAD    "/TVAPI/V1.0/Alarm/AudioUpload"    /* 上传声音报警自定义音频 */
 
 /********************************** 	URL参数名宏定义 	***************************/
 #define NET_API_PARAM_CHANNEL				"channel"		/* 通道号参数 */
@@ -121,6 +122,11 @@ typedef struct tagSessionMessage
 /* 升级包上传URL生成宏 */
 #define NET_API_URL_UPGRADE_UPLOAD(filename) \
     (std::string(NET_API_PATH_UPGRADE_UPLOAD) + \
+     "?" NET_API_PARAM_FILENAME "=" + std::string(filename))
+
+/* 声音报警自定义音频上传URL生成宏 */
+#define NET_API_URL_ALARM_AUDIO_UPLOAD(filename) \
+    (std::string(NET_API_PATH_ALARM_AUDIO_UPLOAD) + \
      "?" NET_API_PARAM_FILENAME "=" + std::string(filename))
 
 /********************************** 	视频通用接口URL宏定义 	***************************/

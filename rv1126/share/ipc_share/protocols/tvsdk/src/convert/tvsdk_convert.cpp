@@ -496,6 +496,49 @@ void ToAudibleAlarm(const NET_AudibleAlarmInfo_S& stSource,
 }
 
 /**
+ * @brief 将 SDK 声音告警自定义音频管理请求转换为 IPC 结构体。
+ * @author ITC
+ * @param [in] stSource SDK 声音告警自定义音频管理请求。
+ * @param [out] stDestination 转换后的 IPC 自定义音频操作。
+ * @return 无。
+ */
+void ToAudibleAlarmCustomOperation(const NET_AudibleAlarmCustomOperation_S& stSource,
+                                   Alarm::CustomOperation_S& stDestination)
+{
+    /* SDK 侧字段与枚举均按 IPC CustomOperation_S / CustomOperationType_E 对应定义，
+       此处只做类型转换，不做语义翻译。enCustomType 的取值范围由调用方回调负责校验。 */
+    stDestination.nEnable = (stSource.nEnable == TRUE);
+    stDestination.enCustomType = static_cast<Alarm::CustomOperationType_E>(stSource.enCustomType);
+    stDestination.strFileName = read_alarm_string(stSource.strFileName, sizeof(stSource.strFileName));
+    stDestination.strName = read_alarm_string(stSource.strName, sizeof(stSource.strName));
+    stDestination.strPath = read_alarm_string(stSource.strPath, sizeof(stSource.strPath));
+}
+
+/**
+ * @brief 将 IPC 自定义音频列表转换为 SDK 结构体。
+ * @author ITC
+ * @param [in] stSource IPC 自定义音频列表。
+ * @param [out] stDestination 转换后的 SDK 自定义音频列表。
+ * @return 无。
+ */
+void FillAudibleAlarmCustomList(const std::vector<Alarm::CustomAudio_S>& stSource,
+                                NET_AudibleAlarmCustomAudioList_S& stDestination)
+{
+    std::memset(&stDestination, 0, sizeof(stDestination));
+    stDestination.nAudioCount = static_cast<INT32>(std::min(stSource.size(),
+        static_cast<size_t>(NET_AUDIBLE_ALARM_CUSTOM_AUDIO_MAX_NUM)));
+    for (INT32 nIndex = 0; nIndex < stDestination.nAudioCount; ++nIndex)
+    {
+        const Alarm::CustomAudio_S& stAudio = stSource[static_cast<size_t>(nIndex)];
+        stDestination.astAudios[nIndex].bSelected = stAudio.bChoose ? TRUE : FALSE;
+        copy_alarm_string(stAudio.strCustomeName, stDestination.astAudios[nIndex].strName,
+                          sizeof(stDestination.astAudios[nIndex].strName));
+        copy_alarm_string(stAudio.strPath, stDestination.astAudios[nIndex].strPath,
+                          sizeof(stDestination.astAudios[nIndex].strPath));
+    }
+}
+
+/**
  * @brief 将 IPC 一路报警输入配置转换为 SDK 结构体。
  * @author ITC
  * @param [in] stSource IPC 报警输入配置。

@@ -45,6 +45,36 @@ NET_API BOOL STDCALL NET_serverRegisterSetAudibleAlarmInfoCb(NET_CB_SetDevConfig
 }
 
 /**
+ * @brief 注册获取声音告警自定义音频列表的回调函数
+ * @param [in] pCb 用于填充 NET_AudibleAlarmCustomAudioList_S 的回调函数
+ * @return 注册成功返回 TRUE；回调函数非法或已注册时返回 FALSE
+ */
+NET_API BOOL STDCALL NET_serverRegisterGetAudibleAlarmCustomInfoCb(NET_CB_GetDevConfigByCommand pCb)
+{
+    return registerGetCmdCb(NET_GET_AUDIBLE_ALARM_CUSTOM_INFO, pCb);
+}
+
+/**
+ * @brief 注册编辑、试听、删除声音告警自定义音频的回调函数
+ * @param [in] pCb 用于读取 NET_AudibleAlarmCustomOperation_S 的回调函数
+ * @return 注册成功返回 TRUE；回调函数非法或已注册时返回 FALSE
+ */
+NET_API BOOL STDCALL NET_serverRegisterEditAudibleAlarmCustomInfoCb(NET_CB_SetDevConfigByCommand pCb)
+{
+    return registerSetCmdCb(NET_EDIT_AUDIBLE_ALARM_CUSTOM_INFO, pCb);
+}
+
+/**
+ * @brief 注册新增声音告警自定义音频的回调函数
+ * @param [in] pCb 用于读取 NET_AudibleAlarmCustomOperation_S 的回调函数
+ * @return 注册成功返回 TRUE；回调函数非法或已注册时返回 FALSE
+ */
+NET_API BOOL STDCALL NET_serverRegisterAddAudibleAlarmCustomInfoCb(NET_CB_SetDevConfigByCommand pCb)
+{
+    return registerSetCmdCb(NET_ADD_AUDIBLE_ALARM_CUSTOM_INFO, pCb);
+}
+
+/**
  * @brief 注册获取报警输入配置集合的回调函数
  * @param [in] pCb 用于填充 NET_AlarmInputInfoList_S 的回调函数
  * @return 注册成功返回 TRUE；回调函数非法或已注册时返回 FALSE

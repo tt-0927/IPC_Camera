@@ -105,5 +105,12 @@ private:
      */
     void RegisterUpgradeRoutes();
 
+    /**
+     * 注册声音报警相关路由
+     * @details 注册声音报警自定义音频上传路由（PUT方法，直接处理二进制数据），
+     *          复用升级包上传的落盘逻辑，但不写升级标记文件。
+     */
+    void RegisterAlarmRoutes();
+
     size_t m_nRouteCount; /* 已注册路由计数 */
 };

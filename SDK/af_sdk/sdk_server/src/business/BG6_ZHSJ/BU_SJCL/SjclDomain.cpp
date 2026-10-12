@@ -48,6 +48,7 @@ CSjclDomain::CSjclDomain()
     m_getTable[NET_GET_AUDIOANOMALYALARM]        = &CSjclDomain::TemplatedGet<NET_AudioAnomalyAlarmInfo_S>;
     m_getTable[NET_GET_AUDIO_ANOMALY_CURRENT_DB] = &CSjclDomain::TemplatedGet<NET_AudioAnomalyCurrentDb_S>;
     m_getTable[NET_GET_AUDIBLE_ALARM_INFO]      = &CSjclDomain::TemplatedGet<NET_AudibleAlarmInfo_S>;
+    m_getTable[NET_GET_AUDIBLE_ALARM_CUSTOM_INFO] = &CSjclDomain::TemplatedGet<NET_AudibleAlarmCustomAudioList_S>;
     m_getTable[NET_GET_FLASHING_LIGHT_ALARM_INFO]= &CSjclDomain::TemplatedGet<NET_FlashingLightAlarmInfo_S>;
     m_getTable[NET_GET_PIR_ALARM_INFO]          = &CSjclDomain::TemplatedGet<NET_PirAlarmInfo_S>;
 
@@ -147,6 +148,8 @@ CSjclDomain::CSjclDomain()
     m_setTable[NET_SET_OBJECTREMOVALALARM]       = &CSjclDomain::TemplatedSet<NET_ObjectRemovalAlarmInfo_S>;
     m_setTable[NET_SET_AUDIOANOMALYALARM]        = &CSjclDomain::TemplatedSet<NET_AudioAnomalyAlarmInfo_S>;
     m_setTable[NET_SET_AUDIBLE_ALARM_INFO]       = &CSjclDomain::TemplatedSet<NET_AudibleAlarmInfo_S>;
+    m_setTable[NET_EDIT_AUDIBLE_ALARM_CUSTOM_INFO]= &CSjclDomain::TemplatedSet<NET_AudibleAlarmCustomOperation_S>;
+    m_setTable[NET_ADD_AUDIBLE_ALARM_CUSTOM_INFO] = &CSjclDomain::TemplatedSet<NET_AudibleAlarmCustomOperation_S>;
     m_setTable[NET_SET_FLASHING_LIGHT_ALARM_INFO]= &CSjclDomain::TemplatedSet<NET_FlashingLightAlarmInfo_S>;
     m_setTable[NET_SET_PIR_ALARM_INFO]           = &CSjclDomain::TemplatedSet<NET_PirAlarmInfo_S>;
 

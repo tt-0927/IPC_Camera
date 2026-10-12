@@ -1534,6 +1534,25 @@ NET_clientUploadFile(IN LPVOID   lpUserID,
         lpUserID, "PUT", url, std::string(szFilePath), ignoreResp);
 }
 
+/**
+ * @brief 上传声音报警自定义音频文件到设备
+ */
+NET_API BOOL STDCALL
+NET_clientUploadAlarmAudio(IN LPVOID lpUserID,
+                           IN const CHAR* szFilePath,
+                           IN const CHAR* szRemoteName)
+{
+    if (!lpUserID || !szFilePath || !szRemoteName) {
+        CErrorManage::instance()->SetLastError(NET_E_INVALID_PARAM);
+        return FALSE;
+    }
+
+    std::string ignoreResp;
+    return CCommandExecutor::instance()->ExecuteUpload(
+        lpUserID, "PUT", NET_API_URL_ALARM_AUDIO_UPLOAD(szRemoteName),
+        std::string(szFilePath), ignoreResp);
+}
+
 /* ==================== 录像帧流（委托 RecordFrameHub） ==================== */
 
 /**

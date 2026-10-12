@@ -566,6 +566,10 @@ extern "C"{
 #define NET_ALARM_CUSTOM_AUDIO_NAME_LEN        64
 /* 自定义音频文件路径字符串的最大长度。 */
 #define NET_ALARM_CUSTOM_AUDIO_PATH_LEN        64
+/* 自定义音频上传文件名字符串的最大长度。 */
+#define NET_ALARM_CUSTOM_AUDIO_FILE_NAME_LEN   64
+/* 自定义音频文件允许的最大字节数，取 20 兆字节。 */
+#define NET_ALARM_CUSTOM_AUDIO_FILE_MAX_SIZE   (20 * 1024 * 1024)
 /* 报警配置可关联的最大复制目标数量。 */
 #define NET_ALARM_COPY_TO_MAX_NUM              64
 /* 报警配置结构体中保留字段的字节长度。 */
@@ -1343,6 +1347,10 @@ typedef enum tagNETTVCfgCmd
     NET_SET_PIR_ALARM_INFO                = 503,    /* 设置 PIR 报警配置, 参见 #NET_PirAlarmInfo_S */
     NET_GET_STORAGE_INFO                  = 504,    /* 获取设备存储信息, 参见 #NET_DeviceStorageInfo_S */
     NET_GET_AUDIO_ANOMALY_CURRENT_DB      = 505,    /* 获取音频异常侦测实时音量, 参见 #NET_AudioAnomalyCurrentDb_S */
+    /* 506 已被 IPC 侧 NET_DEL_FACE_FILE 占用，此处从 507 起分配，避免两侧命令码冲突。 */
+    NET_GET_AUDIBLE_ALARM_CUSTOM_INFO     = 507,    /* 获取声音报警自定义音频列表, 参见 #NET_AudibleAlarmCustomAudioList_S, 对应 IPC AC_GET_AUDIO_CUSTOM_INFO */
+    NET_EDIT_AUDIBLE_ALARM_CUSTOM_INFO    = 508,    /* 编辑/试听/删除自定义音频, 参见 #NET_AudibleAlarmCustomOperation_S, 对应 IPC AC_EDIT_AUDIO_CUSTOM_INFO */
+    NET_ADD_AUDIBLE_ALARM_CUSTOM_INFO     = 509,    /* 新增自定义音频, 参见 #NET_AudibleAlarmCustomOperation_S, 对应 IPC AC_SET_AUDIO_CUSTOM_INFO */
 
     NET_GET_REGISTERINFO                  = 520,    /* 获取注册信息, 参见 #NET_RegisterInfo_S */
     NET_SET_REGISTERINFO                  = 521,    /* 设置注册信息, 参见 #NET_RegisterInfo_S */
@@ -4575,6 +4583,19 @@ typedef enum tagNETAudibleAlarmAlertSound
 } NET_AudibleAlarmAlertSound_EN;
 
 /*
+ * 描述：声音报警自定义音频的管理操作类型，与 IPC 侧 Alarm::CustomOperationType_E 逐值对应。
+ */
+typedef enum tagNETAudibleAlarmCustomOpType
+{
+    /* 编辑自定义音频名称，对应 IPC CustomOperationType_E::CUSTOM_EDIT。 */
+    NET_AUDIBLE_ALARM_CUSTOM_OP_EDIT   = 0,
+    /* 在设备端试听自定义音频，对应 IPC CustomOperationType_E::CUSTOM_PLAY。 */
+    NET_AUDIBLE_ALARM_CUSTOM_OP_PLAY   = 1,
+    /* 删除自定义音频并删除设备端文件，对应 IPC CustomOperationType_E::CUSTOM_DEL。 */
+    NET_AUDIBLE_ALARM_CUSTOM_OP_DELETE = 2
+} NET_AudibleAlarmCustomOpType_EN;
+
+/*
  * 描述：报警输出通道的控制状态。
  */
 typedef enum tagNETAlarmOutputState
@@ -4639,6 +4660,38 @@ typedef struct tagNETAudibleAlarmInfo
     /* 保留字段，调用方应置零。 */
     BYTE                          byReserved[NET_ALARM_CONFIG_RESERVED_LEN];
 } NET_AudibleAlarmInfo_S, *pNET_AudibleAlarmInfo_S;
+
+/*
+ * 描述：声音报警自定义音频的管理请求，与 IPC 侧 Alarm::CustomOperation_S 逐字段对应。
+ */
+typedef struct tagNETAudibleAlarmCustomOperation
+{
+    /* 是否选择该文件，对应 IPC CustomOperation_S::nEnable。 */
+    BOOL  nEnable;
+    /* 自定义操作类型，对应 IPC CustomOperation_S::enCustomType，取值见 NET_AudibleAlarmCustomOpType_EN。 */
+    INT32 enCustomType;
+    /* 上传到设备端的文件名，对应 IPC CustomOperation_S::strFileName，新增操作必填。 */
+    CHAR  strFileName[NET_ALARM_CUSTOM_AUDIO_FILE_NAME_LEN];
+    /* 自定义名称，对应 IPC CustomOperation_S::strName。 */
+    CHAR  strName[NET_ALARM_CUSTOM_AUDIO_NAME_LEN];
+    /* 自定义音频在设备端的完整路径，对应 IPC CustomOperation_S::strPath，编辑、试听和删除操作必填。 */
+    CHAR  strPath[NET_ALARM_CUSTOM_AUDIO_PATH_LEN];
+    /* 保留字段，调用方应置零。 */
+    BYTE  byReserved[NET_ALARM_CONFIG_RESERVED_LEN];
+} NET_AudibleAlarmCustomOperation_S, *pNET_AudibleAlarmCustomOperation_S;
+
+/*
+ * 描述：声音报警自定义音频列表。
+ */
+typedef struct tagNETAudibleAlarmCustomAudioList
+{
+    /* 有效自定义音频数量。 */
+    INT32                         nAudioCount;
+    /* 自定义音频列表。 */
+    NET_AudibleAlarmCustomAudio_S astAudios[NET_AUDIBLE_ALARM_CUSTOM_AUDIO_MAX_NUM];
+    /* 保留字段，调用方应置零。 */
+    BYTE                          byReserved[NET_ALARM_CONFIG_RESERVED_LEN];
+} NET_AudibleAlarmCustomAudioList_S, *pNET_AudibleAlarmCustomAudioList_S;
 
 /*
  * 描述：单个报警输入通道的配置。

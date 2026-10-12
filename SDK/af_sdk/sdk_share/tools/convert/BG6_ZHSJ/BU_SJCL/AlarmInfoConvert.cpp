@@ -962,6 +962,82 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_AudibleAlarmInfo_S& stInfo, b
 }
 
 /**
+ * @brief 在 JSON 与 SDK 声音告警自定义音频管理请求之间转换。
+ * @author ITC
+ * @param [in,out] pRootJson 根据 bOutStruct 作为源或目标 JSON 对象。
+ * @param [in,out] stInfo 根据 bOutStruct 作为源或目标自定义音频管理请求结构体。
+ * @param [in] bOutStruct 为 TRUE 时将 JSON 解析到结构体；为 FALSE 时将结构体序列化到 JSON。
+ * @return 无。
+ */
+void SDKConvert::deal(Json::Object* pRootJson, NET_AudibleAlarmCustomOperation_S& stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+
+    SDKConvert::CSDKConvert stConvert(bOutStruct);
+    stConvert.field(pRootJson, "Enable", stInfo.nEnable);
+    stConvert.field(pRootJson, "CustomType", stInfo.enCustomType);
+    stConvert.field(pRootJson, "FileName", stInfo.strFileName);
+    stConvert.field(pRootJson, "Name", stInfo.strName);
+    stConvert.field(pRootJson, "Path", stInfo.strPath);
+}
+
+/**
+ * @brief 在 JSON 与 SDK 声音告警自定义音频列表之间转换。
+ * @author ITC
+ * @param [in,out] pRootJson 根据 bOutStruct 作为源或目标 JSON 对象。
+ * @param [in,out] stInfo 根据 bOutStruct 作为源或目标自定义音频列表结构体。
+ * @param [in] bOutStruct 为 TRUE 时将 JSON 解析到结构体；为 FALSE 时将结构体序列化到 JSON。
+ * @return 无。
+ */
+void SDKConvert::deal(Json::Object* pRootJson, NET_AudibleAlarmCustomAudioList_S& stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+
+    SDKConvert::CSDKConvert stConvert(bOutStruct);
+
+    if (bOutStruct)
+    {
+        Json::Object* pArray = Json::get(pRootJson, "Audios");
+        const INT32 nArrayCount = pArray ? (INT32)Json::Array::size(pArray) : 0;
+        stInfo.nAudioCount = clamp_alarm_config_count(nArrayCount, NET_AUDIBLE_ALARM_CUSTOM_AUDIO_MAX_NUM);
+        for (INT32 nIndex = 0; nIndex < stInfo.nAudioCount; ++nIndex)
+        {
+            Json::Object* pItem = Json::Array::get(pArray, nIndex);
+            if (pItem)
+            {
+                deal(pItem, stInfo.astAudios[nIndex], bOutStruct);
+            }
+        }
+        return;
+    }
+
+    stInfo.nAudioCount = clamp_alarm_config_count(stInfo.nAudioCount, NET_AUDIBLE_ALARM_CUSTOM_AUDIO_MAX_NUM);
+    stConvert.field(pRootJson, "AudioCount", stInfo.nAudioCount);
+    Json::Object* pArray = Json::Array::init();
+    if (!pArray)
+    {
+        return;
+    }
+    for (INT32 nIndex = 0; nIndex < stInfo.nAudioCount; ++nIndex)
+    {
+        Json::Object* pItem = Json::init();
+        if (!pItem)
+        {
+            continue;
+        }
+        deal(pItem, stInfo.astAudios[nIndex], bOutStruct);
+        Json::Array::add(pArray, pItem);
+    }
+    Json::add(pRootJson, "Audios", pArray);
+}
+
+/**
  * @brief 在 JSON 与 SDK 单路报警输入配置之间转换。
  * @author ITC
  * @param [in,out] pRootJson 根据 bOutStruct 作为源或目标 JSON 对象。

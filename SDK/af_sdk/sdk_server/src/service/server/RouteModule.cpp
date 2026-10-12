@@ -39,6 +39,8 @@ namespace
 {
 /* 上传目录路径 */
 constexpr const char* kUploadDir = "/opt/course/upload/";
+/* 上传目录的父目录路径，所有上传端点均在其之下 */
+constexpr const char* kUploadParentDir = "/opt/course/";
 /* 最后升级文件标记路径 */
 constexpr const char* kLastUpgradeFile = "/opt/course/upload/.tvsdk_last_upgrade";
 /* 上传进度日志记录间隔（8MB） */
@@ -216,6 +218,158 @@ bool UpdateLastUpgradeFile(const std::string& filePath)
     }
     return false;
 }
+
+/**
+ * 处理二进制文件上传请求
+ * @details 升级包与声音报警自定义音频共用同一套落盘流程：鉴权、目录确保、
+ *          流式写入 .part 临时文件、完整收完后改名到正式文件。
+ *          两个端点仅在目标目录和是否写升级标记文件上不同。
+ * @param [in] req HTTP请求对象
+ * @param [in,out] res HTTP响应对象
+ * @param [in] contentReader 请求体流式读取器
+ * @param [in] targetDir 目标落盘目录，必须以斜杠结尾
+ * @param [in] bWriteUpgradeMarker 是否写升级标记文件
+ * @return 无
+ */
+void HandleBinaryUpload(const httplib::Request& req, httplib::Response& res,
+                        const httplib::ContentReader& contentReader,
+                        const std::string& targetDir, bool bWriteUpgradeMarker)
+{
+    const std::string contentLength = req.has_header("Content-Length") ?
+        req.get_header_value("Content-Length") : "";
+    const std::string rawFilename = req.has_param(NET_API_PARAM_FILENAME) ?
+        req.get_param_value(NET_API_PARAM_FILENAME) : "";
+    NETSDK_LOG_MESSAGE_INFO("[TVSDK][Upload] request: client=%s, path=%s, filename=%s, content_length=%s",
+                  req.remote_addr.c_str(), req.path.c_str(), rawFilename.c_str(),
+                  contentLength.c_str());
+
+    /* 鉴权 */
+    if (!CHttpAuthHandler::instance()->handle_authentication(req, res)) {
+        /* ContentReader 路由进入 handler 时 body 尚未读取；Digest 首包返回 401 前要排空 body，避免上传连接异常断开。 */
+        DrainUploadBody(contentReader, req.remote_addr, rawFilename);
+        return;
+    }
+
+    /* 记录当前请求的对端IP，供业务层在同步处理链路内取用 */
+    SdkHttpContext::client_ip() = req.remote_addr;
+
+    try {
+        if (!req.has_param(NET_API_PARAM_FILENAME)) {
+            NETSDK_LOG_MESSAGE_WARN("[TVSDK][Upload] missing filename: client=%s", req.remote_addr.c_str());
+            SetSdkJsonResponse(res, NET_E_INVALID_PARAM);
+            return;
+        }
+
+        /* 从query参数获取文件名；允许纯文件名或带上传目录前缀的完整路径 */
+        const std::string filename = NormalizeUploadFileNameParam(rawFilename);
+        if (filename.empty()) {
+            NETSDK_LOG_MESSAGE_WARN("[TVSDK][Upload] invalid filename: client=%s, filename=%s",
+                          req.remote_addr.c_str(), rawFilename.c_str());
+            SetSdkJsonResponse(res, NET_E_INVALID_PARAM);
+            return;
+        }
+
+        /* 确保父目录与目标目录存在，两个上传端点均位于 /opt/course/ 之下 */
+        errno = 0;
+        if (!EnsureDir(kUploadParentDir)) {
+            const int err = errno;
+            NETSDK_LOG_MESSAGE_ERROR("[TVSDK][Upload] ensure dir failed: path=%s, errno=%d(%s)",
+                           kUploadParentDir, err, std::strerror(err));
+            SetSdkJsonResponse(res, NET_E_SYSCALL_FALIED);
+            return;
+        }
+        errno = 0;
+        if (!EnsureDir(targetDir.c_str())) {
+            const int err = errno;
+            NETSDK_LOG_MESSAGE_ERROR("[TVSDK][Upload] ensure dir failed: path=%s, errno=%d(%s)",
+                           targetDir.c_str(), err, std::strerror(err));
+            SetSdkJsonResponse(res, NET_E_SYSCALL_FALIED);
+            return;
+        }
+
+        /* 流式写入临时文件，完整收完后再切到正式文件，避免断传半包被误用 */
+        const std::string filePath = targetDir + filename;
+        const std::string tempPath = filePath + ".part";
+        errno = 0;
+        std::ofstream outFile(tempPath, std::ios::binary | std::ios::trunc);
+        if (!outFile.is_open()) {
+            const int err = errno;
+            NETSDK_LOG_MESSAGE_ERROR("[TVSDK][Upload] open temp file failed: path=%s, errno=%d(%s)",
+                           tempPath.c_str(), err, std::strerror(err));
+            SetSdkJsonResponse(res, NET_E_FILE_NO_EXIST);
+            return;
+        }
+
+        NETSDK_LOG_MESSAGE_INFO("[TVSDK][Upload] receiving body: temp=%s, final=%s",
+                      tempPath.c_str(), filePath.c_str());
+        size_t writtenSize = 0;
+        size_t nextLogSize = kUploadProgressLogStep;
+        errno = 0;
+        const bool readOk = contentReader([&outFile, &writtenSize, &nextLogSize, &tempPath](const char* data, size_t dataLength) -> bool {
+            if (!data || dataLength == 0) {
+                return true;
+            }
+            outFile.write(data, static_cast<std::streamsize>(dataLength));
+            if (!outFile) {
+                NETSDK_LOG_MESSAGE_ERROR("[TVSDK][Upload] write chunk failed: temp=%s, written=%zu, chunk=%zu",
+                               tempPath.c_str(), writtenSize, dataLength);
+                return false;
+            }
+            writtenSize += dataLength;
+            if (writtenSize >= nextLogSize) {
+                NETSDK_LOG_MESSAGE_INFO("[TVSDK][Upload] receiving body: temp=%s, written=%zu",
+                              tempPath.c_str(), writtenSize);
+                nextLogSize += kUploadProgressLogStep;
+            }
+            return true;
+        });
+        outFile.close();
+
+        if (!readOk || !outFile) {
+            const int err = errno;
+            NETSDK_LOG_MESSAGE_ERROR("[TVSDK][Upload] body read/write failed: temp=%s, read_ok=%d, written=%zu, fail=%d, bad=%d, errno=%d(%s)",
+                           tempPath.c_str(), readOk ? 1 : 0, writtenSize,
+                           outFile.fail() ? 1 : 0, outFile.bad() ? 1 : 0,
+                           err, std::strerror(err));
+            std::remove(tempPath.c_str());
+            SetSdkJsonResponse(res, NET_E_SYSCALL_FALIED);
+            return;
+        }
+
+        if (writtenSize == 0) {
+            NETSDK_LOG_MESSAGE_WARN("[TVSDK][Upload] empty body: temp=%s", tempPath.c_str());
+            std::remove(tempPath.c_str());
+            SetSdkJsonResponse(res, NET_E_INVALID_PARAM);
+            return;
+        }
+
+        std::remove(filePath.c_str());
+        errno = 0;
+        if (std::rename(tempPath.c_str(), filePath.c_str()) != 0) {
+            const int err = errno;
+            NETSDK_LOG_MESSAGE_ERROR("[TVSDK][Upload] rename failed: temp=%s, final=%s, errno=%d(%s)",
+                           tempPath.c_str(), filePath.c_str(), err, std::strerror(err));
+            std::remove(tempPath.c_str());
+            SetSdkJsonResponse(res, NET_E_SYSCALL_FALIED);
+            return;
+        }
+
+        NETSDK_LOG_MESSAGE_INFO("[TVSDK][Upload] file uploaded: %s (%zu bytes)", filePath.c_str(), writtenSize);
+
+        /* 仅升级端点写标记文件；自定义音频上传不得污染升级链路 */
+        if (bWriteUpgradeMarker && !UpdateLastUpgradeFile(filePath)) {
+            NETSDK_LOG_MESSAGE_ERROR("[TVSDK][Upload] update last upgrade marker failed: marker=%s, file=%s",
+                           kLastUpgradeFile, filePath.c_str());
+            SetSdkJsonResponse(res, NET_E_SYSCALL_FALIED);
+            return;
+        }
+
+        SetSdkJsonResponse(res, NET_E_SUCCEED);
+    } catch (const std::exception& e) {
+        NETSDK_LOG_MESSAGE_ERROR("[TVSDK][Upload] exception: %s", e.what());
+        SetSdkJsonResponse(res, NET_E_FAILED);
+    }
+}
 }
 
 /**
@@ -252,6 +406,7 @@ BOOL CRouteModule::RegisterAllRoutes()
     RegisterDeviceControlRoutes();
     RegisterVideoRoutes();
     RegisterUpgradeRoutes();
+    RegisterAlarmRoutes();
 
     NETSDK_LOG_MESSAGE_INFO("Successfully registered %zu routes", m_nRouteCount);
     return TRUE;
@@ -388,148 +543,39 @@ void CRouteModule::RegisterUpgradeRoutes()
 {
     NETSDK_LOG_MESSAGE_DEBUG("Registering upgrade routes...");
 
-    // 固件上传端点: PUT /TVAPI/V1.0/Upgrade/Upload?filename=xxx
-    // 直接注册原始handler, 不走MakeHttpCallbackHandler(因为body是二进制非JSON)
+    /* 固件上传端点: PUT /TVAPI/V1.0/Upgrade/Upload?filename=xxx
+       直接注册原始handler, 不走MakeHttpCallbackHandler(因为body是二进制非JSON) */
     CRouteRegistry::registerRoute(
         NET_API_PATH_UPGRADE_UPLOAD,
         HttpMethod_E::PUT,
         [](const httplib::Request& req, httplib::Response& res, const httplib::ContentReader& contentReader) {
-            const std::string contentLength = req.has_header("Content-Length") ?
-                req.get_header_value("Content-Length") : "";
-            const std::string rawFilename = req.has_param(NET_API_PARAM_FILENAME) ?
-                req.get_param_value(NET_API_PARAM_FILENAME) : "";
-            NETSDK_LOG_MESSAGE_INFO("[TVSDK][Upload] request: client=%s, path=%s, filename=%s, content_length=%s",
-                          req.remote_addr.c_str(), req.path.c_str(), rawFilename.c_str(),
-                          contentLength.c_str());
-
-            /* 鉴权 */
-            if (!CHttpAuthHandler::instance()->handle_authentication(req, res)) {
-                // ContentReader 路由进入 handler 时 body 尚未读取；Digest 首包返回 401 前要排空 body，避免上传连接异常断开。
-                DrainUploadBody(contentReader, req.remote_addr, rawFilename);
-                return;
-            }
-
-            /* 记录当前请求的对端IP，供业务层在同步处理链路内取用 */
-            SdkHttpContext::client_ip() = req.remote_addr;
-
-            try {
-                if (!req.has_param(NET_API_PARAM_FILENAME)) {
-                    NETSDK_LOG_MESSAGE_WARN("[TVSDK][Upload] missing filename: client=%s", req.remote_addr.c_str());
-                    SetSdkJsonResponse(res, NET_E_INVALID_PARAM);
-                    return;
-                }
-
-                // 从query参数获取文件名；允许纯文件名或 /opt/course/upload/<filename>
-                const std::string filename = NormalizeUploadFileNameParam(rawFilename);
-                if (filename.empty()) {
-                    NETSDK_LOG_MESSAGE_WARN("[TVSDK][Upload] invalid filename: client=%s, filename=%s",
-                                  req.remote_addr.c_str(), rawFilename.c_str());
-                    SetSdkJsonResponse(res, NET_E_INVALID_PARAM);
-                    return;
-                }
-
-                // 确保目录存在
-                errno = 0;
-                if (!EnsureDir("/opt/course/")) {
-                    const int err = errno;
-                    NETSDK_LOG_MESSAGE_ERROR("[TVSDK][Upload] ensure dir failed: path=/opt/course/, errno=%d(%s)",
-                                   err, std::strerror(err));
-                    SetSdkJsonResponse(res, NET_E_SYSCALL_FALIED);
-                    return;
-                }
-                errno = 0;
-                if (!EnsureDir(kUploadDir)) {
-                    const int err = errno;
-                    NETSDK_LOG_MESSAGE_ERROR("[TVSDK][Upload] ensure dir failed: path=%s, errno=%d(%s)",
-                                   kUploadDir, err, std::strerror(err));
-                    SetSdkJsonResponse(res, NET_E_SYSCALL_FALIED);
-                    return;
-                }
-
-                // 流式写入固件临时文件，完整收完后再切到正式文件，避免断传半包被误用
-                const std::string filePath = std::string(kUploadDir) + filename;
-                const std::string tempPath = filePath + ".part";
-                errno = 0;
-                std::ofstream outFile(tempPath, std::ios::binary | std::ios::trunc);
-                if (!outFile.is_open()) {
-                    const int err = errno;
-                    NETSDK_LOG_MESSAGE_ERROR("[TVSDK][Upload] open temp file failed: path=%s, errno=%d(%s)",
-                                   tempPath.c_str(), err, std::strerror(err));
-                    SetSdkJsonResponse(res, NET_E_FILE_NO_EXIST);
-                    return;
-                }
-
-                NETSDK_LOG_MESSAGE_INFO("[TVSDK][Upload] receiving body: temp=%s, final=%s",
-                              tempPath.c_str(), filePath.c_str());
-                size_t writtenSize = 0;
-                size_t nextLogSize = kUploadProgressLogStep;
-                errno = 0;
-                const bool readOk = contentReader([&outFile, &writtenSize, &nextLogSize, &tempPath](const char* data, size_t dataLength) -> bool {
-                    if (!data || dataLength == 0) {
-                        return true;
-                    }
-                    outFile.write(data, static_cast<std::streamsize>(dataLength));
-                    if (!outFile) {
-                        NETSDK_LOG_MESSAGE_ERROR("[TVSDK][Upload] write chunk failed: temp=%s, written=%zu, chunk=%zu",
-                                       tempPath.c_str(), writtenSize, dataLength);
-                        return false;
-                    }
-                    writtenSize += dataLength;
-                    if (writtenSize >= nextLogSize) {
-                        NETSDK_LOG_MESSAGE_INFO("[TVSDK][Upload] receiving body: temp=%s, written=%zu",
-                                      tempPath.c_str(), writtenSize);
-                        nextLogSize += kUploadProgressLogStep;
-                    }
-                    return true;
-                });
-                outFile.close();
-
-                if (!readOk || !outFile) {
-                    const int err = errno;
-                    NETSDK_LOG_MESSAGE_ERROR("[TVSDK][Upload] body read/write failed: temp=%s, read_ok=%d, written=%zu, fail=%d, bad=%d, errno=%d(%s)",
-                                   tempPath.c_str(), readOk ? 1 : 0, writtenSize,
-                                   outFile.fail() ? 1 : 0, outFile.bad() ? 1 : 0,
-                                   err, std::strerror(err));
-                    std::remove(tempPath.c_str());
-                    SetSdkJsonResponse(res, NET_E_SYSCALL_FALIED);
-                    return;
-                }
-
-                if (writtenSize == 0) {
-                    NETSDK_LOG_MESSAGE_WARN("[TVSDK][Upload] empty body: temp=%s", tempPath.c_str());
-                    std::remove(tempPath.c_str());
-                    SetSdkJsonResponse(res, NET_E_INVALID_PARAM);
-                    return;
-                }
-
-                std::remove(filePath.c_str());
-                errno = 0;
-                if (std::rename(tempPath.c_str(), filePath.c_str()) != 0) {
-                    const int err = errno;
-                    NETSDK_LOG_MESSAGE_ERROR("[TVSDK][Upload] rename failed: temp=%s, final=%s, errno=%d(%s)",
-                                   tempPath.c_str(), filePath.c_str(), err, std::strerror(err));
-                    std::remove(tempPath.c_str());
-                    SetSdkJsonResponse(res, NET_E_SYSCALL_FALIED);
-                    return;
-                }
-
-                NETSDK_LOG_MESSAGE_INFO("Firmware uploaded: %s (%zu bytes)", filePath.c_str(), writtenSize);
-                if (!UpdateLastUpgradeFile(filePath)) {
-                    NETSDK_LOG_MESSAGE_ERROR("[TVSDK][Upload] update last upgrade marker failed: marker=%s, file=%s",
-                                   kLastUpgradeFile, filePath.c_str());
-                    SetSdkJsonResponse(res, NET_E_SYSCALL_FALIED);
-                    return;
-                }
-
-                SetSdkJsonResponse(res, NET_E_SUCCEED);
-            } catch (const std::exception& e) {
-                NETSDK_LOG_MESSAGE_ERROR("[TVSDK][Upload] exception: %s", e.what());
-                SetSdkJsonResponse(res, NET_E_FAILED);
-            }
+            HandleBinaryUpload(req, res, contentReader, kUploadDir, true);
         });
     m_nRouteCount++;
 
     NETSDK_LOG_MESSAGE_DEBUG("Upgrade routes registered");
+}
+
+/**
+ * 注册声音报警相关路由
+ * @details 注册声音报警自定义音频上传路由（PUT方法，直接处理二进制数据），
+ *          复用升级包上传的落盘逻辑，但不写升级标记文件，避免污染升级链路。
+ */
+void CRouteModule::RegisterAlarmRoutes()
+{
+    NETSDK_LOG_MESSAGE_DEBUG("Registering alarm routes...");
+
+    /* 自定义音频上传端点: PUT /TVAPI/V1.0/Alarm/AudioUpload?filename=xxx
+       直接注册原始handler, 不走MakeHttpCallbackHandler(因为body是二进制非JSON) */
+    CRouteRegistry::registerRoute(
+        NET_API_PATH_ALARM_AUDIO_UPLOAD,
+        HttpMethod_E::PUT,
+        [](const httplib::Request& req, httplib::Response& res, const httplib::ContentReader& contentReader) {
+            HandleBinaryUpload(req, res, contentReader, kUploadDir, false);
+        });
+    m_nRouteCount++;
+
+    NETSDK_LOG_MESSAGE_DEBUG("Alarm routes registered");
 }
 
 /**
