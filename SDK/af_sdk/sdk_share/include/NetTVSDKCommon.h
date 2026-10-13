@@ -3100,6 +3100,28 @@ typedef struct tagNET_PageInfo
 
 typedef NET_PageInfo_S* pNET_PageInfo_S;
 
+/*
+ * 描述：账号锁定时长，与 IPC 侧 System::LockDuration_E 逐值对应。
+ */
+typedef enum tagNETLockDuration
+{
+    /* 锁定 5 分钟，对应 IPC LockDuration_E::LOCK_DURATION_5_MIN。 */
+    NET_LOCK_DURATION_5_MIN   = 0,
+    /* 锁定 30 分钟，对应 IPC LockDuration_E::LOCK_DURATION_30_MIN。 */
+    NET_LOCK_DURATION_30_MIN  = 1,
+    /* 锁定 60 分钟，对应 IPC LockDuration_E::LOCK_DURATION_60_MIN。 */
+    NET_LOCK_DURATION_60_MIN  = 2,
+    /* 锁定 1 天，对应 IPC LockDuration_E::LOCK_DURATION_1_DAY。 */
+    NET_LOCK_DURATION_1_DAY   = 3,
+    /* 锁定 5 天，对应 IPC LockDuration_E::LOCK_DURATION_5_DAY。 */
+    NET_LOCK_DURATION_5_DAY   = 4
+} NET_LockDuration_EN;
+
+/* 账号锁定时长允许的最小值，对应 IPC LockDuration_E::LOCK_DURATION_5_MIN。 */
+#define NET_LOCK_DURATION_MIN   NET_LOCK_DURATION_5_MIN
+/* 账号锁定时长允许的最大值，对应 IPC LockDuration_E::LOCK_DURATION_5_DAY。 */
+#define NET_LOCK_DURATION_MAX   NET_LOCK_DURATION_5_DAY
+
 /**
  * @struct tagNETTVLoginLockInfo
  * @brief 登录锁定信息
@@ -3109,6 +3131,7 @@ typedef struct tagNET_LoginLockInfo
     BOOL  bIllegalLoginEnable;
     INT32 nCheckInterval;
     INT32 nMaxErrorTimes;
+    /* 账号锁定时长，取值见 NET_LockDuration_EN，必须落在 [NET_LOCK_DURATION_MIN, NET_LOCK_DURATION_MAX] 内。 */
     INT32 nLockDuration;
     BYTE  byReserved[64];
 } NET_LoginLockInfo_S;

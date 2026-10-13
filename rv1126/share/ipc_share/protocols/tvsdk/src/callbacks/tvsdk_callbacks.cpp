@@ -6795,7 +6795,8 @@ static NET_COMMON_ECODE_E cb_set_security_services_info(INT32 dwChannelID, LPVOI
 
     const NET_SecurityServicesInfo_S &stInput =
         *static_cast<const NET_SecurityServicesInfo_S *>(lpInBuffer);
-    /* SDK 开关为整数，必须在转换为 IPC bool 前拒绝非法值，避免被静默转换成禁用。 */
+    /* SDK 开关为整数，必须在转换为 IPC bool 前拒绝非法值，避免被静默转换成禁用。
+       锁定时长在 IPC 侧是 LockDuration_E 枚举，越界值会使解锁时间计算落空并导致账号锁定失效。 */
     if ((stInput.stLoginLock.bIllegalLoginEnable != FALSE && stInput.stLoginLock.bIllegalLoginEnable != TRUE) ||
         (stInput.stPwdPolicy.bPwdSecurityLevelEnable != FALSE && stInput.stPwdPolicy.bPwdSecurityLevelEnable != TRUE) ||
         (stInput.stPwdPolicy.bAllowLowLevelPwdLogin != FALSE && stInput.stPwdPolicy.bAllowLowLevelPwdLogin != TRUE) ||
@@ -6803,10 +6804,13 @@ static NET_COMMON_ECODE_E cb_set_security_services_info(INT32 dwChannelID, LPVOI
         stInput.stLoginLock.nCheckInterval < NET_SECURITY_LOGIN_CHECK_INTERVAL_MIN_MINUTES ||
         stInput.stLoginLock.nCheckInterval > NET_SECURITY_LOGIN_CHECK_INTERVAL_MAX_MINUTES ||
         stInput.stLoginLock.nMaxErrorTimes < NET_SECURITY_LOGIN_MAX_ERROR_TIMES_MIN ||
-        stInput.stLoginLock.nMaxErrorTimes > NET_SECURITY_LOGIN_MAX_ERROR_TIMES_MAX)
+        stInput.stLoginLock.nMaxErrorTimes > NET_SECURITY_LOGIN_MAX_ERROR_TIMES_MAX ||
+        stInput.stLoginLock.nLockDuration < NET_LOCK_DURATION_MIN ||
+        stInput.stLoginLock.nLockDuration > NET_LOCK_DURATION_MAX)
     {
-        dlog_warn("TVSDK安全服务设置参数无效: interval[%d], max_error_times[%d]",
-                  stInput.stLoginLock.nCheckInterval, stInput.stLoginLock.nMaxErrorTimes);
+        dlog_warn("TVSDK安全服务设置参数无效: interval[%d], max_error_times[%d], lock_duration[%d]",
+                  stInput.stLoginLock.nCheckInterval, stInput.stLoginLock.nMaxErrorTimes,
+                  stInput.stLoginLock.nLockDuration);
         return NET_E_INVALID_PARAM;
     }
 
