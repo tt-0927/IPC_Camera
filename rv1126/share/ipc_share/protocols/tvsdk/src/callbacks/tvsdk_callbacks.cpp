@@ -837,8 +837,9 @@ static NET_COMMON_ECODE_E tvsdk_preserve_event_rules(INT32 nChannelId, TConfig &
             tvsdk_default_event_rule(aRules[nIndex], nActionCode);
         }
         dlog_warn("TVSDK 事件[%d]规则[%d]参数无效，保留原位置并回退旧值或默认空规则", nActionCode, nIndex);
+        enResult = NET_E_INVALID_PARAM;
     }
-    return NET_E_SUCCEED;
+    return enResult;
 }
 
 /*
@@ -1614,7 +1615,8 @@ static bool is_valid_alarm_schedule(const NET_AlarmSchedule_S& stSchedule)
                 stTime.nStartMinute < NET_ALARM_SCHEDULE_MINUTE_MIN ||
                 stTime.nStartMinute > NET_ALARM_SCHEDULE_MINUTE_MAX ||
                 stTime.nEndMinute < NET_ALARM_SCHEDULE_MINUTE_MIN ||
-                stTime.nEndMinute > NET_ALARM_SCHEDULE_MINUTE_MAX)
+                stTime.nEndMinute > NET_ALARM_SCHEDULE_MINUTE_MAX ||
+                (stTime.nEndHour == NET_ALARM_SCHEDULE_HOUR_MAX && stTime.nEndMinute != 0))
             {
                 return false;
             }
@@ -1783,7 +1785,7 @@ static bool is_valid_alarm_io_schedule(const NET_AlarmSchedule_S& stSchedule)
             if (stTime.nStartHour >= NET_ALARM_SCHEDULE_HOUR_MAX ||
                 (stTime.nEndHour == NET_ALARM_SCHEDULE_HOUR_MAX && stTime.nEndMinute != 0) ||
                 stTime.nStartHour > stTime.nEndHour ||
-                (stTime.nStartHour == stTime.nEndHour && stTime.nStartMinute >= stTime.nEndMinute))
+                (stTime.nStartHour == stTime.nEndHour && stTime.nStartMinute > stTime.nEndMinute))
             {
                 return false;
             }
