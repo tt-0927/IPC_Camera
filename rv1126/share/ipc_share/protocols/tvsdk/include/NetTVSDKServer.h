@@ -2450,6 +2450,23 @@ typedef struct tagNET_DeviceBasicInfo
 typedef NET_DeviceBasicInfo_S* pNET_DeviceBasicInfo_S;
 
 /**
+ * @struct tagNET_StorageManage
+ * @brief 轻存储管理信息（配额分配与分类占用）
+ * @note  IPC 等设备使用；NVR 侧可忽略该字段。容量字符串单位 GB，保留两位小数。
+ */
+typedef struct tagNET_StorageManage
+{
+    CHAR    strCaptureSpace[NET_LEN_16];             /* 图片容量，单位GB */
+    CHAR    strCaptureRemainingSpace[NET_LEN_16];    /* 图片剩余空间，单位GB */
+    CHAR    strRecordSpace[NET_LEN_16];              /* 录像容量，单位GB */
+    CHAR    strRecordRemainingSpace[NET_LEN_16];     /* 录像剩余空间，单位GB */
+    INT32   nCaptureQuotaPercentage;                 /* 抓图配额百分比 */
+    INT32   nRecordQuotaPercentage;                  /* 录像配额百分比 */
+    INT32   nStorageTime;                            /* 存储时间，单位天 */
+    BYTE    byReserved[32];                          /* 保留字段，便于后续扩展 */
+} NET_StorageManage_S, *pNET_StorageManage_S;
+
+/**
  * @brief 设备存储信息结构体（NVR/录播等有硬盘的设备专用）
  * @note  只有具备存储能力的设备才需要实现此结构体回调。
  *        编码器、矩阵等无存储设备返回不支持即可。
@@ -2463,7 +2480,8 @@ typedef struct tagNET_DeviceStorageInfo
     CHAR    strDiskAvailable[NET_LEN_32];           /* 硬盘可用空间 */
     CHAR    strDiskUsedSpace[NET_LEN_32];           /* 硬盘已用空间 */
     CHAR    strDiskFileType[NET_LEN_32];            /* 硬盘文件系统类型 */
-    BYTE    byReserved[128];                        /* 预留字段 */
+    NET_StorageManage_S stStorageManage;             /* 轻存储管理信息 */
+    BYTE    byReserved[128 - sizeof(NET_StorageManage_S)]; /* 预留字段，随新增字段相应缩小 */
 } NET_DeviceStorageInfo_S;
 
 /**
@@ -2487,6 +2505,14 @@ typedef struct tagDeviceStorageSnapshot
     UINT64 uUsedBytes;
     /* 文件系统名称，必须以空字符结尾。 */
     CHAR strFileType[NET_LEN_32];
+    /* 轻存储配额与分类占用：容量为 GB 字符串（两位小数），与网页「轻存储」口径保持一致。 */
+    CHAR strCaptureSpace[NET_LEN_16];
+    CHAR strCaptureRemainingSpace[NET_LEN_16];
+    CHAR strRecordSpace[NET_LEN_16];
+    CHAR strRecordRemainingSpace[NET_LEN_16];
+    INT32 nCaptureQuotaPercentage;
+    INT32 nRecordQuotaPercentage;
+    INT32 nStorageTime;
 } DeviceStorageSnapshot_S;
 
 /**

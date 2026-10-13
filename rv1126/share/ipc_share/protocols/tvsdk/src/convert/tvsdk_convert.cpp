@@ -816,6 +816,27 @@ void FillDeviceStorageInfo(const DeviceStorageSnapshot_S &stSource,
                   static_cast<double>(stSource.uUsedBytes) / TVSDK_STORAGE_BYTES_PER_GB);
     std::snprintf(stDestination.strDiskFileType, sizeof(stDestination.strDiskFileType), "%.*s",
                   static_cast<int>(sizeof(stDestination.strDiskFileType) - 1), stSource.strFileType);
+
+    /* 轻存储配额与分类占用：容量字符串按 GB 原样透传，保证与网页「轻存储」页数值一致。 */
+    std::snprintf(stDestination.stStorageManage.strCaptureSpace,
+                  sizeof(stDestination.stStorageManage.strCaptureSpace), "%.*s",
+                  static_cast<int>(sizeof(stDestination.stStorageManage.strCaptureSpace) - 1),
+                  stSource.strCaptureSpace);
+    std::snprintf(stDestination.stStorageManage.strCaptureRemainingSpace,
+                  sizeof(stDestination.stStorageManage.strCaptureRemainingSpace), "%.*s",
+                  static_cast<int>(sizeof(stDestination.stStorageManage.strCaptureRemainingSpace) - 1),
+                  stSource.strCaptureRemainingSpace);
+    std::snprintf(stDestination.stStorageManage.strRecordSpace,
+                  sizeof(stDestination.stStorageManage.strRecordSpace), "%.*s",
+                  static_cast<int>(sizeof(stDestination.stStorageManage.strRecordSpace) - 1),
+                  stSource.strRecordSpace);
+    std::snprintf(stDestination.stStorageManage.strRecordRemainingSpace,
+                  sizeof(stDestination.stStorageManage.strRecordRemainingSpace), "%.*s",
+                  static_cast<int>(sizeof(stDestination.stStorageManage.strRecordRemainingSpace) - 1),
+                  stSource.strRecordRemainingSpace);
+    stDestination.stStorageManage.nCaptureQuotaPercentage = stSource.nCaptureQuotaPercentage;
+    stDestination.stStorageManage.nRecordQuotaPercentage = stSource.nRecordQuotaPercentage;
+    stDestination.stStorageManage.nStorageTime = stSource.nStorageTime;
 }
 
 void ToDeviceInfo(const NET_DeviceBasicInfo_S &src, ::System::DeviceInfo_S &dst)

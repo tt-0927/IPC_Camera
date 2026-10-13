@@ -54,6 +54,26 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_DeviceStorageInfo_S& stInfo, 
     convert.field(pRootJson, "DiskAvailable", stInfo.strDiskAvailable);
     convert.field(pRootJson, "DiskUsedSpace", stInfo.strDiskUsedSpace);
     convert.field(pRootJson, "DiskFileType", stInfo.strDiskFileType);
+    /* 轻存储管理信息（配额分配与分类占用） */
+    convert.structure(pRootJson, "StorageManage", stInfo.stStorageManage);
+}
+
+
+void SDKConvert::deal(Json::Object* pRootJson, NET_StorageManage_S& stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+
+    SDKConvert::CSDKConvert convert(bOutStruct);
+    convert.field(pRootJson, "CaptureSpace", stInfo.strCaptureSpace);
+    convert.field(pRootJson, "CaptureRemainingSpace", stInfo.strCaptureRemainingSpace);
+    convert.field(pRootJson, "RecordSpace", stInfo.strRecordSpace);
+    convert.field(pRootJson, "RecordRemainingSpace", stInfo.strRecordRemainingSpace);
+    convert.field(pRootJson, "CaptureQuotaPercentage", stInfo.nCaptureQuotaPercentage);
+    convert.field(pRootJson, "RecordQuotaPercentage", stInfo.nRecordQuotaPercentage);
+    convert.field(pRootJson, "StorageTime", stInfo.nStorageTime);
 }
 
 

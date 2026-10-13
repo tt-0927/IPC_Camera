@@ -36,6 +36,8 @@ namespace SDKConvert
     void deal(Json::Object* pRootJson, NET_DeviceInfo_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_DeviceBasicInfo_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_DeviceStorageInfo_S& stInfo, bool bOutStruct);
+    /* 轻存储管理信息（配额分配与分类占用） */
+    void deal(Json::Object* pRootJson, NET_StorageManage_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_SystemNtpInfo_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_SystemTime_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_UserPasswordInfo_S& stInfo, bool bOutStruct);

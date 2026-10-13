@@ -2167,6 +2167,27 @@ static NET_COMMON_ECODE_E cb_get_device_storage_info(pNET_DeviceStorageInfo_S pI
         stSnapshot.uTotalBytes = uTotalBlocks * uBlockBytes;
         stSnapshot.uAvailableBytes = uAvailableBlocks * uBlockBytes;
         stSnapshot.uUsedBytes = stSnapshot.uTotalBytes - stSnapshot.uAvailableBytes;
+
+        /* 轻存储配额与分类占用：复用存储管理模块的同一口径，保证与网页「轻存储」页数值一致。 */
+        StorageManage_NS::StorageManage_S stStorageManage;
+        if (CStorageManage::instance()->get_storageManage_param(stStorageManage) == 0)
+        {
+            std::snprintf(stSnapshot.strCaptureSpace, sizeof(stSnapshot.strCaptureSpace), "%s",
+                          stStorageManage.strCaptureSpace.c_str());
+            std::snprintf(stSnapshot.strCaptureRemainingSpace, sizeof(stSnapshot.strCaptureRemainingSpace), "%s",
+                          stStorageManage.strCaptureRemainingSpace.c_str());
+            std::snprintf(stSnapshot.strRecordSpace, sizeof(stSnapshot.strRecordSpace), "%s",
+                          stStorageManage.strRecordSpace.c_str());
+            std::snprintf(stSnapshot.strRecordRemainingSpace, sizeof(stSnapshot.strRecordRemainingSpace), "%s",
+                          stStorageManage.strRecordRemainingSpace.c_str());
+            stSnapshot.nCaptureQuotaPercentage = stStorageManage.nCaptureQuotaPercentage;
+            stSnapshot.nRecordQuotaPercentage = stStorageManage.nRecordQuotaPercentage;
+            stSnapshot.nStorageTime = stStorageManage.nStorageTime;
+        }
+        else
+        {
+            dlog_warn("TVSDK获取存储信息: 读取轻存储配额失败，分类容量返回空值");
+        }
     }
 
     TvSdkConvert::FillDeviceStorageInfo(stSnapshot, *pInfo);
