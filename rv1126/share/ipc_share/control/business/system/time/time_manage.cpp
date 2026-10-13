@@ -10,6 +10,7 @@
 #include <iostream>
 #include <fstream>
 #include <iomanip>
+#include <unistd.h>
 
 #include "time_manage.h"
 #include "get_time.h"
@@ -291,7 +292,11 @@ void CTimeManage::rebuild_recording_after_time_change(const SystemTimeChangeInfo
 
     dlog_info("系统时间变化重建录制, source:%s", get_time_change_source_name(stChangeInfo.enSource));
     CRecordCtrl::instance()->stop_record();
-    sleep(1);
+    /* 等待录制线程停止写入：停止命令经 socket 异步下发（CRecordServer::send），
+       record 进程不返回停止确认，只能按经验延时等待。录制控制线程每轮固定
+       usleep(100ms) 后才会响应停止标志，300ms 可覆盖其响应与当前分片收尾。
+       注意：该延时为经验值，若 record 进程繁忙仍可能存在残余竞态。 */
+    usleep(300 * 1000);
     RecordFileManage::instance()->dealTimeChange(stChangeInfo.nNewTime);
 }
 
