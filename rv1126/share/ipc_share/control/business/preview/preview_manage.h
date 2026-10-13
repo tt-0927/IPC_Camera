@@ -143,9 +143,12 @@ private:
 
     /**
      * @brief 执行硬件停止
-     * @note 关闭 GPIO 报警输出、释放白光临时抢占，由 ISP reconciler 恢复原有补光配置。手动 STOP 和超时停止共用它，确保行为一致。
+     * @note 关闭 GPIO 报警输出、释放白光临时抢占，由 ISP reconciler 恢复原有补光配置。
+     * @param [in] bStopAudio 是否同时停止声音联动：手动 STOP 与设备退出传 true；
+     *            自动超时停止传 false，让报警音频按配置的播放次数完整播完。
+     * @return 成功返回 OK，失败返回相应错误码。
      */
-    int stop_alarm_light_output();
+    int stop_alarm_light_output(bool bStopAudio = true);
 
 private:
     Preview::PreviewInfo_S m_stPreviewInfo;                               /* 预览信息 */

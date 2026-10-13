@@ -480,6 +480,12 @@ std::string EventLinkageAsyncAction::get_playing_audio_path()
     std::lock_guard<std::mutex> lock(m_audioPathMutex);
     return m_strPlayingAudioPath;
 }
+
+void EventLinkageAsyncAction::clear_playing_audio_path()
+{
+    std::lock_guard<std::mutex> lock(m_audioPathMutex);
+    m_strPlayingAudioPath.clear();
+}
 void EventLinkageAsyncAction::execute_warning_light(std::atomic<bool> &bRunningFlag)
 {
     pthread_setname_np(pthread_self(), "EventLinkLight");

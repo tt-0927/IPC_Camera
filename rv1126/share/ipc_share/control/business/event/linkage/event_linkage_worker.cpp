@@ -181,6 +181,13 @@ std::atomic<bool> &EventLinkageWorker::getRunningFlag(LinkageType_E enLinkageTyp
     return m_linkageRunningFlags[enLinkageType];
 }
 
+void EventLinkageWorker::clear_running_registration(LinkageType_E enLinkageType)
+{
+    std::lock_guard<std::mutex> lock(m_currentLinkageMutex);
+    m_currentLinkages.erase(enLinkageType);
+    m_linkagePriorities[enLinkageType].store(INT_MAX);
+}
+
 void EventLinkageWorker::task_loop()
 {
     pthread_setname_np(pthread_self(), "EventLinkTask");

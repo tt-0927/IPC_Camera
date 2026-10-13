@@ -55,6 +55,14 @@ public:
      */
     std::string get_playing_audio_path();
 
+    /**
+     * @brief   : 清空"正在播放"的音频路径记录
+     * @details : 供抢占场景使用。旧任务被打断后仍需时间走完退出流程，其路径记录此时尚未清空，
+     *            会让 worker 的"同音频去重"把紧接着投递的新任务误判为重复而丢弃，故需主动清空。
+     * @return  无
+     */
+    void clear_playing_audio_path();
+
 private:
     /**
      * @brief   : 执行邮件联动

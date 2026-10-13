@@ -86,6 +86,14 @@ public:
     bool stop_play_audio();
 
     /**
+     * @brief   : 抢占正在播放的告警语音，供新触发的声光联动使用
+     * @details : 仅当确有语音在播放时才打断，避免无谓的日志与状态变更；
+     *            打断后由调用方紧接着投递新的语音任务。
+     * @return  {bool} true：成功打断正在播放的语音 false：当前无语音播放或 worker 未初始化
+     */
+    bool preempt_play_audio();
+
+    /**
      * @brief   : 清理已经结束的事件
      */
     void remove_EndedEvents();
