@@ -1007,6 +1007,21 @@ static bool is_valid_video_codec(INT32 enVideoCodec)
     return enVideoCodec >= NET_VIDEO_CODE_H264 && enVideoCodec <= NET_VIDEO_CODE_MPEG4;
 }
 
+/*
+ * @brief 校验码率类型是否受支持。
+ * @author Codex
+ * @param [in] enBitrateType SDK 传入的码率类型，取值参见 NET_BITRATE_TYPE_E。
+ * @return 仅 CBR/VBR 返回 true，其余取值返回 false。
+ */
+static bool is_valid_bitrate_type(INT32 enBitrateType)
+{
+    /*
+     * 设备侧共享转换层（Convert::deal 处理 VideoConfig_S）的内部 JSON 仅承载 CBR/VBR 两种字符串，
+     * 其余取值会被静默降级为 CBR。此处明确拒绝，避免平台设置成功但实际未生效。
+     */
+    return enBitrateType == NET_BITRATE_TYPE_CBR || enBitrateType == NET_BITRATE_TYPE_VBR;
+}
+
 static NET_COMMON_ECODE_E validate_set_stream_cfg(const NET_VideoEncodeOption_S &cfg)
 {
     if (!is_valid_live_stream_id(cfg.nId))
@@ -1024,6 +1039,12 @@ static NET_COMMON_ECODE_E validate_set_stream_cfg(const NET_VideoEncodeOption_S 
     if (!is_valid_video_codec(cfg.enVideoCodec))
     {
         dlog_warn("TVSDK设置视频编码参数失败: 非法视频编码[%d]", cfg.enVideoCodec);
+        return NET_E_INVALID_PARAM;
+    }
+
+    if (!is_valid_bitrate_type(cfg.enBitrateType))
+    {
+        dlog_warn("TVSDK设置视频编码参数失败: 不支持的码率类型[%d], 仅支持0-CBR/2-VBR", cfg.enBitrateType);
         return NET_E_INVALID_PARAM;
     }
 

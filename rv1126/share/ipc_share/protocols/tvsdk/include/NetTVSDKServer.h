@@ -1574,6 +1574,25 @@ typedef enum tagNETTVVideoCodeType
 }NET_VIDEO_CODE_TYPE_E;
 
 /**
+ * @enum tagNETTVBitrateType
+ * @brief 码率类型 枚举定义  Bitrate type Enumeration definition
+ * @note  取值与设备侧 Video_NS::BitrateType_E 保持一致。
+ * @attention 无 None
+ */
+typedef enum tagNETTVBitrateType
+{
+    NET_BITRATE_TYPE_CBR     = 0,          /* 固定比特率 */
+    NET_BITRATE_TYPE_ABR     = 1,          /* 恒定平均目标码率码控算法 */
+    NET_BITRATE_TYPE_VBR     = 2,          /* 可变比特率 */
+    NET_BITRATE_TYPE_AVBR    = 3,          /* 自适应可变比特率 */
+    NET_BITRATE_TYPE_QVBR    = 4,          /* 基于主观图像质量的可变比特率 */
+    NET_BITRATE_TYPE_CVBR    = 5,          /* 以VBR为基础，设置了瞬时、短期与长期码率的限制 */
+    NET_BITRATE_TYPE_FIXQP   = 6,          /* 固定QP值 */
+    NET_BITRATE_TYPE_QPMAP   = 7,          /* 自由决定码控的策略 */
+    NET_BITRATE_TYPE_INVALID
+}NET_BITRATE_TYPE_E;
+
+/**
  * @enum tagNET_AudioInputType
  * @brief 音频输入类型 枚举定义 Audio input type Enumeration definition
  * @attention 无 None
@@ -5602,7 +5621,7 @@ typedef struct tagNET_VideoEncodeOption
     INT32                       nId;                                                /* 视频码流ID 0-主码流 1-子码流 2-JPEG */
     INT32                       enVideoType;                                       /* 视频类型 0-复合流 1-视频流 */
     NET_VideoResolution_S   stVideoResolution;                                 /* 视频分辨率 */
-    INT32                       enBitrateType;                                     /* 码率类型 */
+    INT32                       enBitrateType;                                     /* 码率类型 NET_BITRATE_TYPE_E */
     INT32                       enImageQuality;                                    /* 图像质量 */
     INT32                       enFrameRate;                                       /* 视频帧率fps */
     INT32                       nBitrateUpperLimit;                                /* 码率上限kbps */
