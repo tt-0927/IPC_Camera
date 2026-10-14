@@ -71,9 +71,11 @@ CUserSession::CUserSession(LPUSER_HANDLE userHand, const std::string& host, int 
             return;
         }
         std::lock_guard<std::mutex> lock(m_stReconnectMutex);
-        if (!m_bReconnecting) {
+        /* m_bStopped 为真时不得再创建重连线程，避免关闭过程中线程复活 */
+        if (!m_bReconnecting && !m_bStopped) {
             m_bReconnecting = true;
             m_nReconnectDelay = 1;
+            std::lock_guard<std::mutex> stThreadLock(m_stThreadLifecycleMutex);
             if (m_stReconnectThread.joinable()) m_stReconnectThread.detach();
             m_stReconnectThread = std::thread(&CUserSession::ReconnectLoop, this);
         }
@@ -186,6 +188,11 @@ bool CUserSession::ConnectAndLogin()
  */
 void CUserSession::StartHeartbeat()
 {
+    if (m_bStopped) {
+        NETSDK_LOG_MESSAGE_WARN("[DIAG-SESSION] User-%p StartHeartbeat called but session stopped, session=%s",
+                      m_hUser, m_strSessionId.c_str());
+        return;
+    }
     if (m_bRunning) {
         NETSDK_LOG_MESSAGE_WARN("[DIAG-SESSION] User-%p StartHeartbeat called but already running, session=%s",
                       m_hUser, m_strSessionId.c_str());
@@ -195,65 +202,74 @@ void CUserSession::StartHeartbeat()
     NETSDK_LOG_MESSAGE_INFO("[DIAG-SESSION] User-%p Starting HeartbeatLoop thread, session=%s", m_hUser, m_strSessionId.c_str());
     /* m_stSseThread = std::thread(&CUserSession::SseLoop, this); */
 
+    std::lock_guard<std::mutex> stThreadLock(m_stThreadLifecycleMutex);
     m_stHeartbeatThread = std::thread(&CUserSession::HeartbeatLoop, this);
+}
+
+/**
+ * @brief   : 回收线程对象：非当前线程则 join，否则 detach。
+ * @param [in,out] stThread 待回收的线程对象，回收后不可再使用。
+ * @return  无
+ * @note 必须在未持有 m_stThreadLifecycleMutex 的情况下调用。
+ */
+void CUserSession::ReapThread(std::thread &stThread)
+{
+    if (!stThread.joinable())
+    {
+        return;
+    }
+
+    if (std::this_thread::get_id() == stThread.get_id())
+    {
+        stThread.detach();
+    }
+    else
+    {
+        stThread.join();
+    }
 }
 
 /**
  * @author tianl (tianl@kfb.cn)
  * @brief 停止会话
- * @details 停止所有线程（心跳、SSE、重连），关闭客户端连接，停止报警管理器，设置离线状态
+ * @details 停止所有线程（心跳、SSE、重连），关闭客户端连接，停止报警管理器，设置离线状态。
+ *          本函数幂等且线程安全：并发调用会被串行化，重复调用直接返回。
  */
 void CUserSession::Stop()
 {
-    bool expected = true;
-    if (m_bRunning.compare_exchange_strong(expected, false))
+    std::lock_guard<std::mutex> stStopLock(m_stStopMutex);
+
+    /* 幂等：Logout() 与析构都会调用 Stop()，重复调用直接返回 */
+    if (m_bStopped.exchange(true))
     {
-        NETSDK_LOG_MESSAGE_INFO("[DIAG-SESSION] User-%p Stopping session", m_hUser);
-        if (m_pSseClient) m_pSseClient->stop();
-        /* 中断正在进行的命令请求，加速 ReconnectLoop 退出 */
-        {
-            std::lock_guard<std::mutex> lock(m_stCommandMutex);
-            if (m_pCommandClient) m_pCommandClient->stop();
-        }
+        return;
     }
 
-    /* 停止重连线程 */
+    /* 先置终态与运行标志，阻止并发路径再创建重连/心跳线程 */
+    m_bRunning = false;
     m_bReconnecting = false;
-    if (m_stReconnectThread.joinable())
+
+    NETSDK_LOG_MESSAGE_INFO("[DIAG-SESSION] User-%p Stopping session", m_hUser);
+    if (m_pSseClient) m_pSseClient->stop();
+    /* 中断正在进行的命令请求，加速 ReconnectLoop 退出 */
     {
-        if (std::this_thread::get_id() != m_stReconnectThread.get_id())
-        {
-            m_stReconnectThread.join();
-        }
-        else
-        {
-            m_stReconnectThread.detach();
-        }
+        std::lock_guard<std::mutex> lock(m_stCommandMutex);
+        if (m_pCommandClient) m_pCommandClient->stop();
+    }
+    /* 锁内移出线程对象、锁外回收：持锁 join 会与线程自身争锁而死锁 */
+    std::thread stReconnectThread;
+    std::thread stSseThread;
+    std::thread stHeartbeatThread;
+    {
+        std::lock_guard<std::mutex> lock(m_stThreadLifecycleMutex);
+        stReconnectThread = std::move(m_stReconnectThread);
+        stSseThread       = std::move(m_stSseThread);
+        stHeartbeatThread = std::move(m_stHeartbeatThread);
     }
 
-    if (m_stSseThread.joinable())
-    {
-        if (std::this_thread::get_id() != m_stSseThread.get_id())
-        {
-            m_stSseThread.join();
-        }
-        else
-        {
-            m_stSseThread.detach();
-        }
-    }
-
-    if (m_stHeartbeatThread.joinable())
-    {
-        if (std::this_thread::get_id() != m_stHeartbeatThread.get_id())
-        {
-            m_stHeartbeatThread.join();
-        }
-        else
-        {
-            m_stHeartbeatThread.detach();
-        }
-    }
+    ReapThread(stReconnectThread);
+    ReapThread(stSseThread);
+    ReapThread(stHeartbeatThread);
 
     m_bOnline = false;
 
@@ -333,11 +349,12 @@ void CUserSession::SseLoop()
 
             /* 启动异步重连线程（只启动一次） */
             std::lock_guard<std::mutex> lock(m_stReconnectMutex);
-            if (!m_bReconnecting)
+            if (!m_bReconnecting && !m_bStopped)
             {
                 m_bReconnecting = true;
                 m_nReconnectDelay = 1; /* 重置重连延迟 */
                 /* 赋值前必须先 detach 旧线程，否则 joinable 时赋值会 std::terminate */
+                std::lock_guard<std::mutex> stThreadLock(m_stThreadLifecycleMutex);
                 if (m_stReconnectThread.joinable()) m_stReconnectThread.detach();
                 m_stReconnectThread = std::thread(&CUserSession::ReconnectLoop, this);
                 NETSDK_LOG_MESSAGE_INFO("[DIAG-SESSION] User-%p ReconnectLoop thread started from SseLoop", m_hUser);
@@ -414,11 +431,12 @@ void CUserSession::HeartbeatLoop()
 
                 /* 启动异步重连线程（只启动一次） */
                 std::lock_guard<std::mutex> lock(m_stReconnectMutex);
-                if (!m_bReconnecting)
+                if (!m_bReconnecting && !m_bStopped)
                 {
                     m_bReconnecting = true;
                     m_nReconnectDelay = 1; /* 重置重连延迟 */
                     /* 赋值前必须先 detach 旧线程，否则 joinable 时赋值会 std::terminate */
+                    std::lock_guard<std::mutex> stThreadLock(m_stThreadLifecycleMutex);
                     if (m_stReconnectThread.joinable()) m_stReconnectThread.detach();
                     m_stReconnectThread = std::thread(&CUserSession::ReconnectLoop, this);
                     NETSDK_LOG_MESSAGE_INFO("[DIAG-SESSION] User-%p ReconnectLoop thread started from HeartbeatLoop", m_hUser);
@@ -451,12 +469,14 @@ void CUserSession::ReconnectLoop()
     m_bRunning = false;
 
     /* 等待心跳线程退出，避免与重连线程竞争 */
-    if (m_stHeartbeatThread.joinable())
+    /* 锁内移出、锁外回收：避免与 Stop() 并发操作同一 std::thread 对象 */
     {
-        if (std::this_thread::get_id() != m_stHeartbeatThread.get_id())
-            m_stHeartbeatThread.join();
-        else
-            m_stHeartbeatThread.detach();
+        std::thread stOldHeartbeatThread;
+        {
+            std::lock_guard<std::mutex> lock(m_stThreadLifecycleMutex);
+            stOldHeartbeatThread = std::move(m_stHeartbeatThread);
+        }
+        ReapThread(stOldHeartbeatThread);
     }
     NETSDK_LOG_MESSAGE_INFO("[DIAG-SESSION] User-%p Heartbeat thread stopped for reconnect", m_hUser);
 
@@ -466,7 +486,7 @@ void CUserSession::ReconnectLoop()
         NETSDK_LOG_MESSAGE_INFO("[DIAG-SESSION] User-%p AlarmLoop stopped for reconnect", m_hUser);
     }
 
-    while (m_bReconnecting)
+    while (m_bReconnecting && !m_bStopped)
     {
         /* 等待重连延迟（指数退避） */
         int delay = m_nReconnectDelay.load();
@@ -523,8 +543,16 @@ void CUserSession::ReconnectLoop()
         {
             NETSDK_LOG_MESSAGE_INFO("[DIAG-SESSION] User-%p Reconnect SUCCESS, new sessionId=%s", m_hUser, m_strSessionId.c_str());
             m_bOnline = true;
-            m_bReconnecting = false;
             m_nReconnectDelay = 1; /* 重置延迟 */
+
+            /* 会话已进入终态（Stop() 已执行）：不再重启任何线程，直接退出，
+             * 否则会在关闭过程中把心跳/报警线程"复活" */
+            if (m_bStopped)
+            {
+                NETSDK_LOG_MESSAGE_INFO("[DIAG-SESSION] User-%p session stopped, skip restarting threads", m_hUser);
+                m_bReconnecting = false;
+                break;
+            }
 
             /* 重连成功后立即更新 AlarmManager 的 sessionId */
             /* AlarmLoop 如果正在连接就用老 session，断线后下次循环会自动拶取新 session */
@@ -533,26 +561,31 @@ void CUserSession::ReconnectLoop()
                 NETSDK_LOG_MESSAGE_INFO("[DIAG-SESSION] User-%p AlarmManager sessionId updated to %s", m_hUser, m_strSessionId.c_str());
             }
 
-            /* 重启心跳线程 */
-            /* 注意：HeartbeatLoop 已经 break 退出，线程已结束但仍 joinable，需先 join 再重启 */
-            if (m_stHeartbeatThread.joinable())
+            /* 重启心跳线程：先锁内移出旧线程、锁外回收，再锁内赋新值 */
+            /* 注意：HeartbeatLoop 已 break 退出，线程已结束但仍 joinable，需先回收再重启 */
             {
-                if (std::this_thread::get_id() != m_stHeartbeatThread.get_id())
-                    m_stHeartbeatThread.join();
-                else
-                    m_stHeartbeatThread.detach();
+                std::thread stOldHeartbeatThread;
+                {
+                    std::lock_guard<std::mutex> lock(m_stThreadLifecycleMutex);
+                    stOldHeartbeatThread = std::move(m_stHeartbeatThread);
+                }
+                ReapThread(stOldHeartbeatThread);
             }
             m_bRunning = true;  /* 重连成功，恢复 m_bRunning 再启动心跳 */
-            m_stHeartbeatThread = std::thread(&CUserSession::HeartbeatLoop, this);
+            {
+                std::lock_guard<std::mutex> lock(m_stThreadLifecycleMutex);
+                m_stHeartbeatThread = std::thread(&CUserSession::HeartbeatLoop, this);
+            }
             NETSDK_LOG_MESSAGE_INFO("[DIAG-SESSION] User-%p Heartbeat thread restarted after reconnect", m_hUser);
 
-            /* 重启 SSE 线程（SseLoop 已退出，join 后重启） */
-            if (m_stSseThread.joinable())
+            /* SSE 线程当前未启用（SseLoop 未启动），此处只做回收：锁内移出、锁外回收 */
             {
-                if (std::this_thread::get_id() != m_stSseThread.get_id())
-                    m_stSseThread.join();
-                else
-                    m_stSseThread.detach();
+                std::thread stOldSseThread;
+                {
+                    std::lock_guard<std::mutex> lock(m_stThreadLifecycleMutex);
+                    stOldSseThread = std::move(m_stSseThread);
+                }
+                ReapThread(stOldSseThread);
             }
             /* SSE 功能已由 AlarmManager 替代，不重启 SseLoop */
             /* m_stSseThread = std::thread(&CUserSession::SseLoop, this); */
@@ -577,6 +610,9 @@ void CUserSession::ReconnectLoop()
                 }
             }
 
+            /* 循环体全部执行完再清标志：确保其它线程看到 !m_bReconnecting 时，
+             * 本线程已不再触碰任何线程成员 */
+            m_bReconnecting = false;
             break;
         }
         else
@@ -736,11 +772,14 @@ bool CUserSession::SendRequest(const CommandRequest_S& req, std::string& outResp
             /* 触发重连（如果还没有在重连） */
             {
                 std::lock_guard<std::mutex> rlock(m_stReconnectMutex);
-                if (!m_bReconnecting)
+                /* m_bStopped 为真时不得再创建重连线程：Stop() 会先把 m_bReconnecting 置 false，
+                 * 若此处不判终态，就会把 Stop() 正在 join 的线程 detach 掉并重建 */
+                if (!m_bReconnecting && !m_bStopped)
                 {
                     m_bReconnecting = true;
                     m_bOnline = false;
                     m_nReconnectDelay = 1;
+                    std::lock_guard<std::mutex> stThreadLock(m_stThreadLifecycleMutex);
                     if (m_stReconnectThread.joinable()) m_stReconnectThread.detach();
                     m_stReconnectThread = std::thread(&CUserSession::ReconnectLoop, this);
                 }

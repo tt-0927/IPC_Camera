@@ -197,6 +197,15 @@ private:
  * @author tianl (tianl@kfb.cn)
      * @brief SSE长连接循环线程函数（备用心跳方式）
      */
+    /**
+     * @brief   : 回收线程对象：非当前线程则 join，否则 detach。
+     * @param [in,out] stThread 待回收的线程对象，回收后不可再使用。
+     * @return  无
+     * @note 必须在未持有 m_stThreadLifecycleMutex 的情况下调用，
+     *        否则会与线程自身争锁导致死锁。
+     */
+    static void ReapThread(std::thread &stThread);
+
     void SseLoop();
 
     /**
@@ -254,6 +263,18 @@ private:
     std::atomic<int> m_nReconnectDelay{1};       /* 当前重连延迟（秒） */
     std::thread m_stReconnectThread;              /* 重连线程 */
     std::mutex m_stReconnectMutex;                /* 重连互斥锁 */
+
+    /* 线程生命周期锁：统一保护 m_stSseThread / m_stHeartbeatThread / m_stReconnectThread
+     * 的创建、join、detach 与赋值。std::thread 对象本身非线程安全，并发 join/detach/赋值
+     * 属未定义行为，曾导致 pthread_join 内部 SIGSEGV。
+     * 约定：本锁始终为最内层锁，持锁期间不得再获取其它锁。 */
+    std::mutex m_stThreadLifecycleMutex;
+
+    /* 串行化并发 Stop()，并为其提供幂等语义 */
+    std::mutex m_stStopMutex;
+
+    /* 终态标志：Stop() 置位后不再允许创建重连/心跳线程，避免关闭过程中线程复活 */
+    std::atomic<bool> m_bStopped{false};
 
     /* Alarm members */
     std::shared_ptr<CAlarmListener> m_pAlarmManager;
