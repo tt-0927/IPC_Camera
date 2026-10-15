@@ -25,7 +25,15 @@ RkAo_S *streamAo_init(int enAoDevice, Audio_NS::AudioConfig_S stAudioConfig)
     stNeedParam.enSampleRate = AUDIO_SAMPLE_RATE_16000;
     stNeedParam.enSoundMode = AUDIO_SOUND_MODE_MONO;
     stNeedParam.u32FrameNum = FRAME_NUM_DEFAULT;
-    stNeedParam.u32PointNumPerFrame = 2048;
+    /*
+     * 每帧采样点数。原值 2048（@16kHz 即 128ms/帧）过大：AO 设备缓冲深度为
+     * u32FrameNum × u32PointNumPerFrame，4 × 2048 采样 = 512ms，直接抬高了
+     * 对讲、广播等实时音频的播放延迟。
+     * 改为 320（@16kHz 即 20ms/帧）后缓冲降为 4 × 20ms = 80ms，且与对讲 PCM
+     * 20ms 一帧的发送节拍正好一一对应（640 字节/帧），无需额外聚合。
+     * 取值须在 RK 允许集合内：80/160/240/320/480/1024/2048（见 rk_comm_aio.h）。
+     */
+    stNeedParam.u32PointNumPerFrame = 320;
     stNeedParam.nChnNum = 1;
     stNeedParam.bResampleEnable = RK_FALSE;
     stNeedParam.enResampleRate = (AUDIO_SAMPLE_RATE_E)stAudioConfig.enSampRate;
