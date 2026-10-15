@@ -497,27 +497,27 @@ static INT32 tvsdk_rule_max_time(int nActionCode)
 }
 
 /**
- * @brief   : 根据事件选择灵敏度下限，徘徊侦测按参数对照表要求放宽到 0 起。
- * @param    {int} nActionCode 设置配置的 IPC 命令号。
+ * @brief   : 根据事件选择灵敏度下限。
+ * @param    {int} nActionCode 设置配置的 IPC 命令号；当前各事件取值一致，保留参数以匹配调用点。
  * @return   {INT32} 该事件允许的最小灵敏度。
  */
 static INT32 tvsdk_rule_min_sens(int nActionCode)
 {
+    (void)nActionCode;
     constexpr INT32 TVSDK_RULE_MIN_SENS = 1;
-    constexpr INT32 TVSDK_LOITERING_MIN_SENS = 0;
-    return (nActionCode == AC_SET_LOITERING_DETECT_INFO) ? TVSDK_LOITERING_MIN_SENS : TVSDK_RULE_MIN_SENS;
+    return TVSDK_RULE_MIN_SENS;
 }
 
 /**
- * @brief   : 根据事件取得灵敏度上限，徘徊侦测按参数对照表要求收紧到 10。
- * @param    {int} nActionCode 设置配置的 IPC 命令号。
+ * @brief   : 根据事件取得灵敏度上限。
+ * @param    {int} nActionCode 设置配置的 IPC 命令号；当前各事件取值一致，保留参数以匹配调用点。
  * @return   {INT32} 允许的最大灵敏度。
  */
 static INT32 tvsdk_rule_max_sens(int nActionCode)
 {
+    (void)nActionCode;
     constexpr INT32 TVSDK_RULE_MAX_SENS = 100;
-    constexpr INT32 TVSDK_LOITERING_MAX_SENS = 10;
-    return (nActionCode == AC_SET_LOITERING_DETECT_INFO) ? TVSDK_LOITERING_MAX_SENS : TVSDK_RULE_MAX_SENS;
+    return TVSDK_RULE_MAX_SENS;
 }
 
 /**
