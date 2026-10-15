@@ -26,14 +26,16 @@ RkAo_S *streamAo_init(int enAoDevice, Audio_NS::AudioConfig_S stAudioConfig)
     stNeedParam.enSoundMode = AUDIO_SOUND_MODE_MONO;
     stNeedParam.u32FrameNum = FRAME_NUM_DEFAULT;
     /*
-     * 每帧采样点数。原值 2048（@16kHz 即 128ms/帧）过大：AO 设备缓冲深度为
-     * u32FrameNum × u32PointNumPerFrame，4 × 2048 采样 = 512ms，直接抬高了
-     * 对讲、广播等实时音频的播放延迟。
-     * 改为 320（@16kHz 即 20ms/帧）后缓冲降为 4 × 20ms = 80ms，且与对讲 PCM
-     * 20ms 一帧的发送节拍正好一一对应（640 字节/帧），无需额外聚合。
-     * 取值须在 RK 允许集合内：80/160/240/320/480/1024/2048（见 rk_comm_aio.h）。
+     * 每帧采样点数，当前固定 2048，勿缩小。
+     * 实测（2026-10-15）：改为 320（@16kHz 即 20ms/帧）后，AO 设备总缓冲降为
+     * u32FrameNum × 320 = 80ms，rockitAo_send_pcmData 的 RK_MPI_SYS_CreateMB
+     * 随即持续失败并打印 "failed to allocate mpi buffer"（MB 池耗尽）；且因
+     * rockit_ao.c 的 CHECK_API_RETURN 在失败时提前返回、跳过 RK_MPI_MB_ReleaseMB，
+     * 泄漏的 MB 无法回收，故障不会自愈。改回 2048 后日志消失。
+     * 该值同时决定 AO 通道的帧周转率，不只是缓冲深度，故不可按"越小延迟越低"来调。
+     * 如需继续压低对讲延迟，请改用 u32FrameNum（帧数）等其它手段。
      */
-    stNeedParam.u32PointNumPerFrame = 320;
+    stNeedParam.u32PointNumPerFrame = 2048;
     stNeedParam.nChnNum = 1;
     stNeedParam.bResampleEnable = RK_FALSE;
     stNeedParam.enResampleRate = (AUDIO_SAMPLE_RATE_E)stAudioConfig.enSampRate;
