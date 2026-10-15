@@ -24,7 +24,18 @@ RkAo_S *streamAo_init(int enAoDevice, Audio_NS::AudioConfig_S stAudioConfig)
     /*默认录音格式为16KHz*/
     stNeedParam.enSampleRate = AUDIO_SAMPLE_RATE_16000;
     stNeedParam.enSoundMode = AUDIO_SOUND_MODE_MONO;
-    stNeedParam.u32FrameNum = FRAME_NUM_DEFAULT;
+    /*
+     * AO 缓冲帧数。总缓冲深度 = u32FrameNum × u32PointNumPerFrame。
+     * 实测（2026-10-15）对讲下行帧的到达间隔最大抖动约 90ms，故缓冲须留足余量：
+     *   4 帧 × 2048 采样 = 512ms（原取值，播放延迟偏大）
+     *   2 帧 × 2048 采样 = 256ms（现值，仍为 90ms 抖动的 2.8 倍，安全）
+     * 降延迟只能动本值（帧数），不要改小 u32PointNumPerFrame —— 实测取 320
+     * 时总缓冲仅 80ms，扛不住抖动导致 ALSA 欠载，进而触发 AO 通道错误与 MB 泄漏
+     * （详见下方 u32PointNumPerFrame 处注释）。
+     * 此处不使用 FRAME_NUM_DEFAULT，避免影响 AI 采集侧的帧数取值。
+     */
+    constexpr uint32_t kAoFrameNum = 2;
+    stNeedParam.u32FrameNum = kAoFrameNum;
     /*
      * 每帧采样点数，当前固定 2048，勿缩小。
      * 实测（2026-10-15）：改为 320（@16kHz 即 20ms/帧）后，AO 设备总缓冲降为

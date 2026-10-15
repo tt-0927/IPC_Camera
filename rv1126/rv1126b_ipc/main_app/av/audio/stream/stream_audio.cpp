@@ -447,6 +447,76 @@ int CStreamAudio::deinit_ff_encode()
     return OK;
 }
 
+/*
+ * 对讲下行诊断：单独统计 rockitAo_send_pcmData 的阻塞耗时。
+ * 该调用超时值为 -1（阻塞），因此耗时接近或超过一个帧长即说明 AO 通道已被填满、
+ * 正在反压收帧线程，AO 缓冲就是延迟瓶颈；耗时接近 0 则数据立即进入 AO，延迟来自
+ * AO 内部缓冲与驱动队列，需从硬件侧继续排查。
+ * 注：本函数只由 SDK 收帧线程经 setAoSpeakInfo 同步调用，故计数变量无需加锁。
+ */
+constexpr uint64_t kAoSendDiagWindowMs = 1000;
+
+uint64_t g_aoSendDiagWindowStartMs = 0;   /* 当前统计窗口起点 */
+uint64_t g_aoSendDiagFrames = 0;          /* 窗口内送帧次数 */
+uint64_t g_aoSendDiagCostSumMs = 0;       /* 阻塞耗时累计 */
+uint64_t g_aoSendDiagCostMaxMs = 0;       /* 阻塞耗时最大值 */
+uint64_t g_aoSendDiagBusySum = 0;         /* 窗口内 AO 通道缓冲占用帧数累计 */
+uint64_t g_aoSendDiagBusyMax = 0;         /* 窗口内 AO 通道缓冲占用帧数峰值 */
+
+/**
+ * @brief   : 记录一次 AO 送帧的阻塞耗时与通道缓冲占用，并按固定窗口汇总打印。
+ * @param    {uint64_t} nNowMs 本次送帧结束时刻（毫秒）。
+ * @param    {uint64_t} nCostMs 本次送帧阻塞耗时（毫秒）。
+ * @param    {uint64_t} nBusyFrames 送帧后 AO 通道缓冲占用帧数（查询失败时为 0）。
+ * @return   无
+ */
+void ao_send_diag(uint64_t nNowMs, uint64_t nCostMs, uint64_t nBusyFrames)
+{
+    g_aoSendDiagFrames++;
+    g_aoSendDiagCostSumMs += nCostMs;
+    if (nCostMs > g_aoSendDiagCostMaxMs)
+    {
+        g_aoSendDiagCostMaxMs = nCostMs;
+    }
+    g_aoSendDiagBusySum += nBusyFrames;
+    if (nBusyFrames > g_aoSendDiagBusyMax)
+    {
+        g_aoSendDiagBusyMax = nBusyFrames;
+    }
+
+    if (g_aoSendDiagWindowStartMs == 0)
+    {
+        g_aoSendDiagWindowStartMs = nNowMs;
+        return;
+    }
+
+    const uint64_t nWindowMs = nNowMs - g_aoSendDiagWindowStartMs;
+    if (nWindowMs < kAoSendDiagWindowMs)
+    {
+        return;
+    }
+
+    /*
+     * 缓冲水位(均/峰)即 AO 通道内已排队待播的帧数，乘以单帧时长
+     * （u32PointNumPerFrame 采样 @16kHz，当前 2048 采样 = 128ms）即为
+     * 「数据进入 AO 到被硬件取走」的排队时长，是 AO 侧实际缓冲延迟的直接依据。
+     */
+    dlog_info("对讲AO送帧诊断: 窗口%llums 送帧%llu 次 阻塞耗时(均%llums/最大%llums) 缓冲水位(均%llu/峰%llu)",
+              static_cast<unsigned long long>(nWindowMs),
+              static_cast<unsigned long long>(g_aoSendDiagFrames),
+              static_cast<unsigned long long>((g_aoSendDiagFrames > 0) ? (g_aoSendDiagCostSumMs / g_aoSendDiagFrames) : 0),
+              static_cast<unsigned long long>(g_aoSendDiagCostMaxMs),
+              static_cast<unsigned long long>((g_aoSendDiagFrames > 0) ? (g_aoSendDiagBusySum / g_aoSendDiagFrames) : 0),
+              static_cast<unsigned long long>(g_aoSendDiagBusyMax));
+
+    g_aoSendDiagWindowStartMs = nNowMs;
+    g_aoSendDiagFrames = 0;
+    g_aoSendDiagCostSumMs = 0;
+    g_aoSendDiagCostMaxMs = 0;
+    g_aoSendDiagBusySum = 0;
+    g_aoSendDiagBusyMax = 0;
+}
+
 int CStreamAudio::sendAudio_to_Adec(Audio_NS::AoInfo_S stAoInfo)
 {
     if (stAoInfo.pData == NULL)
@@ -552,7 +622,24 @@ int CStreamAudio::sendAudio_to_Adec(Audio_NS::AoInfo_S stAoInfo)
     }
 
     /*组音频帧，送数据至ao功放*/
+    const uint64_t nAoSendStartMs = getSteadyTimeMS();
     m_pAoHandle[AO_SPEAKER_CHN]->rockitAo_send_pcmData(m_pAoHandle[AO_SPEAKER_CHN], AO_SPEAKER_CHN, pTalkbackData, unTalkbackDataSize, -1);
+    const uint64_t nAoSendEndMs = getSteadyTimeMS();
+
+    /*
+     * 查询 AO 通道缓冲占用帧数，用于量化播放侧的实际缓冲延迟。
+     * 该值乘单帧时长（u32PointNumPerFrame 采样 @16kHz）即数据在 AO 内排队待播的时长；
+     * 查询失败时按 0 计，不影响送帧与阻塞耗时统计。
+     */
+    uint64_t nAoBusyFrames = 0;
+    AO_CHN_STATE_S stAoChnStat = {};
+    if (m_pAoHandle[AO_SPEAKER_CHN]->rockitAo_get_chnStat(
+            m_pAoHandle[AO_SPEAKER_CHN], AO_SPEAKER_CHN, &stAoChnStat) == RK_SUCCESS)
+    {
+        nAoBusyFrames = stAoChnStat.u32ChnBusyNum;
+    }
+
+    ao_send_diag(nAoSendEndMs, nAoSendEndMs - nAoSendStartMs, nAoBusyFrames);
 
     return OK;
 }

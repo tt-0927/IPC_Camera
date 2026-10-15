@@ -264,8 +264,14 @@ private:
     std::atomic<bool>     m_paEnable{false};
 
     // info /*----------------------- 功放延时开启 -----------------------*/
-    /*功放启动延时常量（毫秒）：等待 Codec 偏置电压稳定后再开启功放，消除开头噗声*/
-    static constexpr uint64_t PA_DELAY_ALARM_MS    = 300;  /* 声音联动报警音延时 */
+    /*
+     * 功放启动延时常量（毫秒）：等待 Codec 偏置电压稳定后再开启功放，消除开头噗声。
+     * 注意该常量同时作用于声音联动报警音与对讲：对讲的 AoInfo_S.enSource 未显式赋值，
+     * 保持默认值 AO_SOURCE_ALARM，故走本常量而非 PA_DELAY_REALTIME_MS。
+     * 2026-10-15 实验：由 300 下调至 150，用于验证开头噗声是否复现（原 300 系经验值，无实测依据）。
+     * 若复现噗声需回调；若 150 无噗声可继续下探。
+     */
+    static constexpr uint64_t PA_DELAY_ALARM_MS    = 150;  /* 声音联动报警音延时（实验值，原 300）*/
     static constexpr uint64_t PA_DELAY_REALTIME_MS = 500;  /* 对讲/广播实时流延时 */
     /*当前使用的延时值（根据音频来源动态切换）*/
     uint64_t              m_paDelayMs{PA_DELAY_ALARM_MS};

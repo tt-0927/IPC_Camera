@@ -9,6 +9,8 @@
 
 #include "preview_manage.h"
 
+#include <chrono>
+
 #include "dlog.h"
 
 #include "GbDefine.h"
@@ -33,6 +35,16 @@ constexpr int kFlashFrequencyMin = static_cast<int>(Alarm::FlashFrequency_E::FLA
 constexpr int kFlashFrequencyMax = static_cast<int>(Alarm::FlashFrequency_E::FLASH_HIGH_FREQ);
 /* 闪光配置读取失败时的兜底闪烁时长（秒） */
 constexpr int kAlarmLightDefaultDurationSec = 1;
+
+/**
+ * @brief   : 取单调时钟毫秒值，用于对讲建立耗时诊断。
+ * @return   {uint64_t} 自 steady_clock 起点的毫秒数。
+ */
+static uint64_t intercom_diag_now_ms()
+{
+    return static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::steady_clock::now().time_since_epoch()).count());
+}
 }
 
 CPreviewManage::CPreviewManage()
@@ -187,20 +199,47 @@ int CPreviewManage::set_intercom_info(Preview::IntercomInfo_S stInfo)
 {
 	if(stInfo.bEnable)
 	{
+		/*
+		 * 对讲建立耗时诊断（临时埋点）：定位「开始对讲 → 对讲开启」之间约 1s 的耗时去向。
+		 * 使用单调时钟分段计时，不依赖日志时间戳——实测日志时间戳精度不足以支撑毫秒级判断。
+		 * 定位完成后应与其它诊断代码一并移除。
+		 */
+		const uint64_t nDiagEnterMs = intercom_diag_now_ms();
+
 		dlog_debug("开始对讲");
+		const uint64_t nDiagLogMs = intercom_diag_now_ms();
+
         /* 停止事件联动中声音联动 */
-        if (!CEventLinkage::instance()->stop_play_audio())
+        const bool bStopPlaying = CEventLinkage::instance()->stop_play_audio();
+        const uint64_t nDiagStopMs = intercom_diag_now_ms();
+        /*
+         * stop_play_audio() 返回 true 表示原本正在播放联动音频且已请求停止，
+         * 此时需等待播放线程收尾；返回 false 表示本来就没有在播放，无需等待。
+         * 原实现误写成 !bStopPlaying，导致无音频在播时也白等 200ms（实测 201ms 中占 200ms）。
+         */
+        if (bStopPlaying)
         {
             /* 如果正在联动，关闭后睡眠一会 */
             usleep(200 * 1000);
         }
+        const uint64_t nDiagSleepMs = intercom_diag_now_ms();
 
         m_bIntercomStatus = true;
 		m_strIp = stInfo.strLocalIp;
+        const uint64_t nDiagAssignMs = intercom_diag_now_ms();
 
         if (stInfo.strSdp == kTvSdkVoiceComSdp && stInfo.strUrl.empty())
         {
             dlog_info("TVSDK VoiceCom对讲开启, 跳过RTP接收器初始化");
+            const uint64_t nDiagEndMs = intercom_diag_now_ms();
+            dlog_info("对讲建立耗时诊断: 入口→首日志=%llums 停止联动=%llums(返回%d) 睡眠=%llums 赋值=%llums 尾日志=%llums 合计=%llums",
+                      static_cast<unsigned long long>(nDiagLogMs - nDiagEnterMs),
+                      static_cast<unsigned long long>(nDiagStopMs - nDiagLogMs),
+                      bStopPlaying ? 1 : 0,
+                      static_cast<unsigned long long>(nDiagSleepMs - nDiagStopMs),
+                      static_cast<unsigned long long>(nDiagAssignMs - nDiagSleepMs),
+                      static_cast<unsigned long long>(nDiagEndMs - nDiagAssignMs),
+                      static_cast<unsigned long long>(nDiagEndMs - nDiagEnterMs));
             return OK;
         }
 
@@ -255,9 +294,14 @@ int CPreviewManage::set_broadcast_info(Preview::BroadcastInfo_S stInfo)
 {
 	if(stInfo.bEnable)
 	{
-		dlog_debug("开始广播");
+        dlog_debug("开始广播");
         /* 停止事件联动中声音联动 */
-        if (!CEventLinkage::instance()->stop_play_audio())
+        /*
+         * stop_play_audio() 返回 true 表示原本正在播放联动音频且已请求停止，
+         * 此时需等待播放线程收尾；返回 false 表示本来就没有在播放，无需等待。
+         * 原实现误写成 !stop_play_audio()，导致无音频在播时也白等 200ms。
+         */
+        if (CEventLinkage::instance()->stop_play_audio())
         {
             /* 如果正在联动，关闭后睡眠一会 */
             usleep(200 * 1000);
