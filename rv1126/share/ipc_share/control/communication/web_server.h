@@ -152,11 +152,13 @@ private:
      */
     void handleUserOffline(const int userId, const std::string &ip);
 
+#if CAP_AUDIO_OUTPUT
     /**
      * @brief   : 用户下线后，关闭对讲/广播任务
      * @param    {string} &ip 下线用户的IP地址
      */
     void closeAudio(const std::string &ip);
+#endif
 
 private:
     std::shared_ptr<Net::IOBase> m_pHandler = nullptr;

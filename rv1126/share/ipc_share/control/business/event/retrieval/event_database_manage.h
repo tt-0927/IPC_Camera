@@ -7,6 +7,10 @@
  */
 
 #pragma once
+
+/* 本地 SD 存储能力裁剪：能力关闭（IPC_CAP_LOCAL_STORAGE=0）时本文件整体不参与编译 */
+#if CAP_LOCAL_STORAGE
+
 #include "event_database.h"
 #include "event_define.h"
 // #include "VehicleDatabase.h"
@@ -99,3 +103,5 @@ private:
     /* 移动侦测事件, 最新事件记录 */
     std::map<int, Event::Info_S> m_motionDetectMap;
 };
+
+#endif /* CAP_LOCAL_STORAGE */

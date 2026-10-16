@@ -372,7 +372,7 @@ int AIFaceManage::getTableReport(std::vector<Event::FaceLibInfo_S> &listTableRep
         dlog_debug("数据库查询成功，但没有数据");
         return 0;
     }
-    if (access("testPrint", F_OK) == 0)
+    if (access("/opt/cam/bin/testPrint", F_OK) == 0)
     {
         for (const auto &report : listTableReport)
         {
@@ -483,7 +483,7 @@ bool AIFaceManage::comparisonNormalize(const std::vector<float> &vfData, std::ve
     //     {
     //         if (stSearchRes.vDistances[i] > FACE_SIMILARITY_THRESHOLD)
     //         {
-    //             if (access("testPrint", F_OK) == 0)
+    //             if (access("/opt/cam/bin/testPrint", F_OK) == 0)
     //             {
     //                 std::cout << i << ": 全局向量库: 最相似的是: " << stSearchRes.vIndices[i] << "; 距离: " << stSearchRes.vDistances[i]
     //                 << std::endl;

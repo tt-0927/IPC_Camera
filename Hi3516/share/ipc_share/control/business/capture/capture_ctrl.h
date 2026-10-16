@@ -7,6 +7,9 @@
  * @Description  : 抓图计划管理
  */
 
+/* 本地 SD 存储能力裁剪：能力关闭（IPC_CAP_LOCAL_STORAGE=0）时本文件整体不参与编译 */
+#if CAP_LOCAL_STORAGE
+
 #include <map>
 #include <condition_variable>
 #include <queue>
@@ -339,3 +342,5 @@ private:
     /* 人脸抓拍当前图片文件名 */
     std::string m_strFaceCaptureFile;
 };
+
+#endif /* CAP_LOCAL_STORAGE */

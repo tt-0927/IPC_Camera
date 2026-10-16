@@ -349,9 +349,12 @@ void CGB28181::fn_gbGetLocalInfo(SipLocalInfo_S &stInfo)
 
 void CGB28181::fn_gbMediaUpdate(const SipMediaCbInfo_S &stInfo)
 {
+    /* 无音频输出能力：平台下发的语音广播数据无处播放，直接丢弃。
+       视频分支不受影响（本回调只处理音频数据）。 */
+#if CAP_AUDIO_OUTPUT
     Audio_NS::AoInfo_S stAoInfo;
     stAoInfo.nChannel = 0;
-    stAoInfo.pData = (uint8_t *)stInfo.pData;
+    stAoInfo.pData = (uint8_t *) stInfo.pData;
     stAoInfo.nLen = stInfo.nLen;
     stAoInfo.enAudioFormat = Audio_NS::AudioFormat_E::G711A;
 #if CAP_EVENT_AUDIO_PLAYBACK_V2
@@ -359,6 +362,9 @@ void CGB28181::fn_gbMediaUpdate(const SipMediaCbInfo_S &stInfo)
 #endif
     /* 接收到的广播数据发送到解码端 */
     CAVConfigure::instance()->setAoSpeakInfo(stAoInfo);
+#else
+    (void) stInfo;
+#endif
 }
 
 void CGB28181::fn_gbMediaStatus(const SipMediaStatus_S &stInfo)

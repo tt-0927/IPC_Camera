@@ -15,6 +15,9 @@
 
 #include "TCPServer.h"
 #include "UDSServer.h"
+#if CAP_BLUETOOTH
+#include "bluetooth/ble_gatt_server.h"
+#endif
 
 extern "C"
 {
@@ -123,6 +126,64 @@ void OperationServer::deal_message(
     /* TODO 异步处理消息 */
     switch (stMessage.nActionCode)
     {
+#if CAP_BLUETOOTH
+    case AC_CONNECT_WIFI_STA:
+    {
+        bool success = false;
+        Json::Object *root = Json::init(data);
+        if (root)
+        {
+            Json::get(root, "success", success);
+            Json::deinit(root);
+        }
+        BleProvisioning::BleGattServer::instance().onExternalCommandResult(
+            BleProvisioning::CMD_WIFI_CONNECT, success,
+            success ? "wifi_connected" : "wifi_connect_failed");
+        break;
+    }
+    case AC_PLATFORM_CONN:
+    {
+        bool success = false;
+        Json::Object *root = Json::init(data);
+        if (root)
+        {
+            Json::get(root, "connection_status", success);
+            Json::deinit(root);
+        }
+        BleProvisioning::BleGattServer::instance().onExternalCommandResult(
+            BleProvisioning::CMD_PLATFORM_CONNECT, success,
+            success ? "platform_connected" : "platform_connect_failed");
+        break;
+    }
+    case AC_PLATFORM_GETINFO:
+    {
+        bool connected = false;
+        Json::Object *root = Json::init(data);
+        if (root)
+        {
+            Json::get(root, "connection_status", connected);
+            Json::deinit(root);
+        }
+        BleProvisioning::BleGattServer::instance().onExternalCommandResult(
+            BleProvisioning::CMD_PLATFORM_GET_STATUS, connected,
+            connected ? "platform_connected" : "platform_offline");
+        break;
+    }
+    case AC_SCAN_WIFI_STA:
+    {
+        bool success = false;
+        Json::Object *root = Json::init(data);
+        if (root)
+        {
+            success = Json::get(root, "list") != NULL;
+            Json::deinit(root);
+        }
+        BleProvisioning::BleGattServer::instance().onExternalCommandResult(
+            BleProvisioning::CMD_WIFI_SCAN, success,
+            success ? data : "wifi_scan_failed");
+        break;
+    }
+#endif
     /* 测试服务器 */
     case AC_TEST_LOG_SERVER:
     {

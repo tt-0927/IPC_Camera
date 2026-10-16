@@ -60,7 +60,10 @@
 #include "rtsp_server.h"
 #include "upgrade_client.h"
 #include "register_manage.h"
+#if CAP_LOCAL_STORAGE
+/* 本地 SD 存储链路：SD 卡状态查询，能力关闭时状态固定按无卡上报 */
 #include "storage_manage.h"
+#endif
 
 namespace TvSdkCallbacks
 {
@@ -497,27 +500,27 @@ static INT32 tvsdk_rule_max_time(int nActionCode)
 }
 
 /**
- * @brief   : 根据事件选择灵敏度下限，徘徊侦测按参数对照表要求放宽到 0 起。
- * @param    {int} nActionCode 设置配置的 IPC 命令号。
+ * @brief   : 根据事件选择灵敏度下限。
+ * @param    {int} nActionCode 设置配置的 IPC 命令号；当前各事件取值一致，保留参数以匹配调用点。
  * @return   {INT32} 该事件允许的最小灵敏度。
  */
 static INT32 tvsdk_rule_min_sens(int nActionCode)
 {
+    (void)nActionCode;
     constexpr INT32 TVSDK_RULE_MIN_SENS = 1;
-    constexpr INT32 TVSDK_LOITERING_MIN_SENS = 0;
-    return (nActionCode == AC_SET_LOITERING_DETECT_INFO) ? TVSDK_LOITERING_MIN_SENS : TVSDK_RULE_MIN_SENS;
+    return TVSDK_RULE_MIN_SENS;
 }
 
 /**
- * @brief   : 根据事件取得灵敏度上限，徘徊侦测按参数对照表要求收紧到 10。
- * @param    {int} nActionCode 设置配置的 IPC 命令号。
+ * @brief   : 根据事件取得灵敏度上限。
+ * @param    {int} nActionCode 设置配置的 IPC 命令号；当前各事件取值一致，保留参数以匹配调用点。
  * @return   {INT32} 允许的最大灵敏度。
  */
 static INT32 tvsdk_rule_max_sens(int nActionCode)
 {
+    (void)nActionCode;
     constexpr INT32 TVSDK_RULE_MAX_SENS = 100;
-    constexpr INT32 TVSDK_LOITERING_MAX_SENS = 10;
-    return (nActionCode == AC_SET_LOITERING_DETECT_INFO) ? TVSDK_LOITERING_MAX_SENS : TVSDK_RULE_MAX_SENS;
+    return TVSDK_RULE_MAX_SENS;
 }
 
 /**
@@ -837,8 +840,9 @@ static NET_COMMON_ECODE_E tvsdk_preserve_event_rules(INT32 nChannelId, TConfig &
             tvsdk_default_event_rule(aRules[nIndex], nActionCode);
         }
         dlog_warn("TVSDK 事件[%d]规则[%d]参数无效，保留原位置并回退旧值或默认空规则", nActionCode, nIndex);
+        enResult = NET_E_INVALID_PARAM;
     }
-    return NET_E_SUCCEED;
+    return enResult;
 }
 
 /*
@@ -1006,6 +1010,21 @@ static bool is_valid_video_codec(INT32 enVideoCodec)
     return enVideoCodec >= NET_VIDEO_CODE_H264 && enVideoCodec <= NET_VIDEO_CODE_MPEG4;
 }
 
+/*
+ * @brief 校验码率类型是否受支持。
+ * @author Codex
+ * @param [in] enBitrateType SDK 传入的码率类型，取值参见 NET_BITRATE_TYPE_E。
+ * @return 仅 CBR/VBR 返回 true，其余取值返回 false。
+ */
+static bool is_valid_bitrate_type(INT32 enBitrateType)
+{
+    /*
+     * 设备侧共享转换层（Convert::deal 处理 VideoConfig_S）的内部 JSON 仅承载 CBR/VBR 两种字符串，
+     * 其余取值会被静默降级为 CBR。此处明确拒绝，避免平台设置成功但实际未生效。
+     */
+    return enBitrateType == NET_BITRATE_TYPE_CBR || enBitrateType == NET_BITRATE_TYPE_VBR;
+}
+
 static NET_COMMON_ECODE_E validate_set_stream_cfg(const NET_VideoEncodeOption_S &cfg)
 {
     if (!is_valid_live_stream_id(cfg.nId))
@@ -1023,6 +1042,12 @@ static NET_COMMON_ECODE_E validate_set_stream_cfg(const NET_VideoEncodeOption_S 
     if (!is_valid_video_codec(cfg.enVideoCodec))
     {
         dlog_warn("TVSDK设置视频编码参数失败: 非法视频编码[%d]", cfg.enVideoCodec);
+        return NET_E_INVALID_PARAM;
+    }
+
+    if (!is_valid_bitrate_type(cfg.enBitrateType))
+    {
+        dlog_warn("TVSDK设置视频编码参数失败: 不支持的码率类型[%d], 仅支持0-CBR/2-VBR", cfg.enBitrateType);
         return NET_E_INVALID_PARAM;
     }
 
@@ -1614,7 +1639,8 @@ static bool is_valid_alarm_schedule(const NET_AlarmSchedule_S& stSchedule)
                 stTime.nStartMinute < NET_ALARM_SCHEDULE_MINUTE_MIN ||
                 stTime.nStartMinute > NET_ALARM_SCHEDULE_MINUTE_MAX ||
                 stTime.nEndMinute < NET_ALARM_SCHEDULE_MINUTE_MIN ||
-                stTime.nEndMinute > NET_ALARM_SCHEDULE_MINUTE_MAX)
+                stTime.nEndMinute > NET_ALARM_SCHEDULE_MINUTE_MAX ||
+                (stTime.nEndHour == NET_ALARM_SCHEDULE_HOUR_MAX && stTime.nEndMinute != 0))
             {
                 return false;
             }
@@ -1716,6 +1742,53 @@ static bool is_valid_audible_alarm_info(const NET_AudibleAlarmInfo_S& stInfo)
     return true;
 }
 
+/* 自定义音频归档目录的路径长度，用于校验文件名长度是否会使 strPath 溢出。 */
+static constexpr size_t TVSDK_CUSTOM_AUDIO_ARCHIVE_DIR_LEN = sizeof(CUSTOM_AUDIO_CONFIG_PATH) - 1;
+/* 自定义音频文件名允许的最大长度，保证归档后完整路径能放入 NET_ALARM_CUSTOM_AUDIO_PATH_LEN。 */
+static constexpr size_t TVSDK_CUSTOM_AUDIO_FILE_NAME_MAX_LEN =
+    NET_ALARM_CUSTOM_AUDIO_PATH_LEN - TVSDK_CUSTOM_AUDIO_ARCHIVE_DIR_LEN - 1;
+
+/**
+ * @brief 校验 SDK 传入的声音告警自定义音频编辑请求。
+ * @author ITC
+ * @param [in] stInfo 待校验的自定义音频编辑请求。
+ * @return 合法返回 true，否则返回 false。
+ */
+static bool is_valid_audible_alarm_custom_edit_info(const NET_AudibleAlarmCustomOperation_S& stInfo)
+{
+    if (stInfo.enCustomType < NET_AUDIBLE_ALARM_CUSTOM_OP_EDIT ||
+        stInfo.enCustomType > NET_AUDIBLE_ALARM_CUSTOM_OP_DELETE ||
+        !is_valid_sdk_bool(stInfo.nEnable))
+    {
+        return false;
+    }
+
+    return true;
+}
+
+/**
+ * @brief 校验 SDK 传入的声音告警自定义音频新增请求。
+ * @author ITC
+ * @param [in] stInfo 待校验的自定义音频新增请求。
+ * @return 合法返回 true，否则返回 false。
+ */
+static bool is_valid_audible_alarm_custom_add_info(const NET_AudibleAlarmCustomOperation_S& stInfo)
+{
+    if (!is_valid_sdk_bool(stInfo.nEnable))
+    {
+        return false;
+    }
+
+    /* 新增操作必须携带已上传的文件名，且归档后的完整路径要能放入 strPath。 */
+    const size_t nFileNameLen = strnlen(stInfo.strFileName, sizeof(stInfo.strFileName));
+    if (nFileNameLen == 0 || nFileNameLen > TVSDK_CUSTOM_AUDIO_FILE_NAME_MAX_LEN)
+    {
+        return false;
+    }
+
+    return true;
+}
+
 /**
  * 功能：校验报警输入输出的有效时间段关系，允许结束点为 24:00。
  * param [in] stSchedule：待校验的时间表。
@@ -1736,7 +1809,7 @@ static bool is_valid_alarm_io_schedule(const NET_AlarmSchedule_S& stSchedule)
             if (stTime.nStartHour >= NET_ALARM_SCHEDULE_HOUR_MAX ||
                 (stTime.nEndHour == NET_ALARM_SCHEDULE_HOUR_MAX && stTime.nEndMinute != 0) ||
                 stTime.nStartHour > stTime.nEndHour ||
-                (stTime.nStartHour == stTime.nEndHour && stTime.nStartMinute >= stTime.nEndMinute))
+                (stTime.nStartHour == stTime.nEndHour && stTime.nStartMinute > stTime.nEndMinute))
             {
                 return false;
             }
@@ -1857,6 +1930,13 @@ static NET_COMMON_ECODE_E cb_get_sd_card_status(INT32 nChannelId, LPVOID pOutBuf
     pNET_SdCardStatus_S pSdCardStatus = static_cast<pNET_SdCardStatus_S>(pOutBuffer);
     *pSdCardStatus = {};
 
+#if !CAP_LOCAL_STORAGE
+    /* 本地存储已裁剪：设备无 SD 卡槽，状态固定按无卡上报。 */
+    pSdCardStatus->nStatus = NET_SD_CARD_STATUS_UNPLUGGED;
+    pSdCardStatus->bReady = FALSE;
+    pSdCardStatus->uChannel = 0;
+    return NET_E_SUCCEED;
+#else
     std::string strOutJson;
     if (execute_get_result(AC_GET_SD_CARD_STATUS, "{}", strOutJson) != 0 || strOutJson.empty())
     {
@@ -1900,6 +1980,7 @@ static NET_COMMON_ECODE_E cb_get_sd_card_status(INT32 nChannelId, LPVOID pOutBuf
     pSdCardStatus->bReady = bReady ? TRUE : FALSE;
     pSdCardStatus->uChannel = 0;
     return NET_E_SUCCEED;
+#endif /* CAP_LOCAL_STORAGE */
 }
 
 /**
@@ -1993,6 +2074,7 @@ static NET_COMMON_ECODE_E cb_set_register_info(INT32 nChannelId, LPVOID pInBuffe
  * @param [out] strFileType 挂载文件系统类型。
  * @return 找到返回 true；未挂载或读取失败返回 false，由调用方报告查询失败。
  */
+#if CAP_LOCAL_STORAGE
 static bool tvsdk_get_sd_mount_info(std::string &strDevice, std::string &strFileType)
 {
     strDevice.clear();
@@ -2023,6 +2105,7 @@ static bool tvsdk_get_sd_mount_info(std::string &strDevice, std::string &strFile
     }
     return false;
 }
+#endif /* CAP_LOCAL_STORAGE：/proc/mounts 枚举仅宏开侧使用，宏关侧无卡可枚举 */
 
 /**
  * @brief 将当前 SD 卡作为设备存储返回，容量来自同一挂载目录描述符。
@@ -2037,13 +2120,16 @@ static NET_COMMON_ECODE_E cb_get_device_storage_info(pNET_DeviceStorageInfo_S pI
         return NET_E_INVALID_PARAM;
     }
     *pInfo = {};
+    static constexpr INT32 TVSDK_STORAGE_STATUS_UNPLUGGED = 1;
+#if CAP_LOCAL_STORAGE
     static constexpr INT32 TVSDK_STORAGE_STATUS_NORMAL = 0;
     static constexpr INT32 TVSDK_STORAGE_STATUS_ERROR = -1;
-    static constexpr INT32 TVSDK_STORAGE_STATUS_UNPLUGGED = 1;
     static constexpr INT32 TVSDK_STORAGE_STATUS_FORMATTING = 2;
     static constexpr INT32 TVSDK_STORAGE_STATUS_INITIALIZING = 3;
+#endif
 
     DeviceStorageSnapshot_S stSnapshot{};
+#if CAP_LOCAL_STORAGE
     const SD_CARD_STATUS_E enStatus = CStorageManage::instance()->get_SdCardStatus();
     stSnapshot.nDiskCount = (enStatus == UNPLUG) ? 0 : 1;
     /* 504 正常状态为零；493 的正常状态为三，两者不能直接照搬。 */
@@ -2118,7 +2204,33 @@ static NET_COMMON_ECODE_E cb_get_device_storage_info(pNET_DeviceStorageInfo_S pI
         stSnapshot.uTotalBytes = uTotalBlocks * uBlockBytes;
         stSnapshot.uAvailableBytes = uAvailableBlocks * uBlockBytes;
         stSnapshot.uUsedBytes = stSnapshot.uTotalBytes - stSnapshot.uAvailableBytes;
+
+        /* 轻存储配额与分类占用：复用存储管理模块的同一口径，保证与网页「轻存储」页数值一致。 */
+        StorageManage_NS::StorageManage_S stStorageManage;
+        if (CStorageManage::instance()->get_storageManage_param(stStorageManage) == 0)
+        {
+            std::snprintf(stSnapshot.strCaptureSpace, sizeof(stSnapshot.strCaptureSpace), "%s",
+                          stStorageManage.strCaptureSpace.c_str());
+            std::snprintf(stSnapshot.strCaptureRemainingSpace, sizeof(stSnapshot.strCaptureRemainingSpace), "%s",
+                          stStorageManage.strCaptureRemainingSpace.c_str());
+            std::snprintf(stSnapshot.strRecordSpace, sizeof(stSnapshot.strRecordSpace), "%s",
+                          stStorageManage.strRecordSpace.c_str());
+            std::snprintf(stSnapshot.strRecordRemainingSpace, sizeof(stSnapshot.strRecordRemainingSpace), "%s",
+                          stStorageManage.strRecordRemainingSpace.c_str());
+            stSnapshot.nCaptureQuotaPercentage = stStorageManage.nCaptureQuotaPercentage;
+            stSnapshot.nRecordQuotaPercentage = stStorageManage.nRecordQuotaPercentage;
+            stSnapshot.nStorageTime = stStorageManage.nStorageTime;
+        }
+        else
+        {
+            dlog_warn("TVSDK获取存储信息: 读取轻存储配额失败，分类容量返回空值");
+        }
     }
+#else
+    /* 本地存储已裁剪：设备无 SD 卡槽，固定按无卡上报（无磁盘、零容量）。 */
+    stSnapshot.nDiskCount = 0;
+    stSnapshot.nDiskStatus = TVSDK_STORAGE_STATUS_UNPLUGGED;
+#endif
 
     TvSdkConvert::FillDeviceStorageInfo(stSnapshot, *pInfo);
     dlog_info("TVSDK获取存储信息成功: command[%d], count[%d], status[%d], total[%s], available[%s], filesystem[%s]",
@@ -5282,6 +5394,92 @@ static NET_COMMON_ECODE_E cb_set_audible_alarm_info(INT32 nChannelId, LPVOID pIn
 }
 
 /**
+ * @brief 获取 IPC 的声音告警自定义音频列表。
+ * @author ITC
+ * @param [in] nChannelId 设备通道标识，本配置为设备级配置，不参与查询。
+ * @param [out] pOutBuffer 用于接收 NET_AudibleAlarmCustomAudioList_S 的缓冲区。
+ * @return 成功返回 NET_E_SUCCEED，否则返回相应错误码。
+ */
+static NET_COMMON_ECODE_E cb_get_audible_alarm_custom_info(INT32 nChannelId, LPVOID pOutBuffer)
+{
+    (void)nChannelId;
+    if (!pOutBuffer)
+    {
+        return NET_E_NULL_POINT;
+    }
+
+    pNET_AudibleAlarmCustomAudioList_S pOutput = static_cast<pNET_AudibleAlarmCustomAudioList_S>(pOutBuffer);
+    std::memset(pOutput, 0, sizeof(*pOutput));
+
+    std::string strDataJson;
+    const NET_COMMON_ECODE_E enResult = get_alarm_config_data(AC_GET_AUDIO_CUSTOM_INFO, strDataJson);
+    if (enResult != NET_E_SUCCEED)
+    {
+        return enResult;
+    }
+
+    std::vector<Alarm::CustomAudio_S> stAudioList;
+    Convert::to_struct(strDataJson, stAudioList);
+    TvSdkConvert::FillAudibleAlarmCustomList(stAudioList, *pOutput);
+    return NET_E_SUCCEED;
+}
+
+/**
+ * @brief 编辑、试听、删除 IPC 的声音告警自定义音频。
+ * @author ITC
+ * @param [in] nChannelId 设备通道标识，本配置为设备级配置，不参与设置。
+ * @param [in] pInBuffer 指向 NET_AudibleAlarmCustomOperation_S 的输入缓冲区。
+ * @return 成功返回 NET_E_SUCCEED，否则返回相应错误码。
+ */
+static NET_COMMON_ECODE_E cb_edit_audible_alarm_custom_info(INT32 nChannelId, LPVOID pInBuffer)
+{
+    (void)nChannelId;
+    if (!pInBuffer)
+    {
+        return NET_E_NULL_POINT;
+    }
+
+    const pNET_AudibleAlarmCustomOperation_S pInput = static_cast<pNET_AudibleAlarmCustomOperation_S>(pInBuffer);
+    if (!is_valid_audible_alarm_custom_edit_info(*pInput))
+    {
+        return NET_E_INVALID_PARAM;
+    }
+
+    Alarm::CustomOperation_S stOperation;
+    TvSdkConvert::ToAudibleAlarmCustomOperation(*pInput, stOperation);
+    const std::string strDataJson = Convert::to_string(stOperation);
+    return set_alarm_config_data(AC_EDIT_AUDIO_CUSTOM_INFO, strDataJson);
+}
+
+/**
+ * @brief 新增 IPC 的声音告警自定义音频。
+ * @details 由 IPC 业务把已上传的文件从上传目录归档到配置目录，并写入声音告警配置。
+ * @author ITC
+ * @param [in] nChannelId 设备通道标识，本配置为设备级配置，不参与设置。
+ * @param [in] pInBuffer 指向 NET_AudibleAlarmCustomOperation_S 的输入缓冲区。
+ * @return 成功返回 NET_E_SUCCEED，否则返回相应错误码。
+ */
+static NET_COMMON_ECODE_E cb_add_audible_alarm_custom_info(INT32 nChannelId, LPVOID pInBuffer)
+{
+    (void)nChannelId;
+    if (!pInBuffer)
+    {
+        return NET_E_NULL_POINT;
+    }
+
+    const pNET_AudibleAlarmCustomOperation_S pInput = static_cast<pNET_AudibleAlarmCustomOperation_S>(pInBuffer);
+    if (!is_valid_audible_alarm_custom_add_info(*pInput))
+    {
+        return NET_E_INVALID_PARAM;
+    }
+
+    Alarm::CustomOperation_S stOperation;
+    TvSdkConvert::ToAudibleAlarmCustomOperation(*pInput, stOperation);
+    const std::string strDataJson = Convert::to_string(stOperation);
+    return set_alarm_config_data(AC_SET_AUDIO_CUSTOM_INFO, strDataJson);
+}
+
+/**
  * @brief 获取 IPC 的全部报警输入配置。
  * @author ITC
  * @param [in] nChannelId 设备通道标识，本配置为设备级配置，不参与查询。
@@ -5832,6 +6030,54 @@ static NET_COMMON_ECODE_E cb_get_capture_param_info(INT32 dwChannelID, LPVOID lp
 /* --------------------------- 设置抓图参数信息 --------------------------- */
 
 /*
+ * @brief 读取设备当前抓图参数，供设置前比对只读字段。
+ * @author Codex
+ * @param [out] stOut 接收当前抓图参数。
+ * @return 成功返回 NET_E_SUCCEED，否则返回相应错误码。
+ */
+static NET_COMMON_ECODE_E get_current_capture_param(NET_CaptureParamInfo_S &stOut)
+{
+    std::string outJson;
+    if (execute_get_result(AC_GET_CAPTURE_PARAM_INFO, "{}", outJson) != 0 || outJson.empty())
+    {
+        return NET_E_GET_CFG_FAILED;
+    }
+
+    int nRet = -1;
+    if (!Json::get(outJson.c_str(), "Return", nRet) || nRet != 0)
+    {
+        return NET_E_GET_CFG_FAILED;
+    }
+
+    Capture_NS::CaptureParam_S stCfg;
+    const std::string strJson = normalize_data_json(outJson);
+    if (strJson.empty())
+    {
+        return NET_E_GET_CFG_FAILED;
+    }
+    Convert::to_struct(strJson, stCfg);
+    TvSdkConvert::FillCaptureParam(stCfg, stOut);
+    stOut.uChannel = 0;
+    return NET_E_SUCCEED;
+}
+
+/*
+ * @brief 比对 SDK 传入与设备当前的只读抓图字段。
+ * @author Codex
+ * @param [in] stIn SDK 传入的抓图配置。
+ * @param [in] stCurrent 设备当前抓图配置。
+ * @return 只读字段（图片格式/分辨率/图片质量）完全一致返回 true，否则返回 false。
+ */
+static bool is_capture_readonly_fields_unchanged(const NET_CaptureConfig_S &stIn,
+                                                 const NET_CaptureConfig_S &stCurrent)
+{
+    return stIn.enPictureFormat == stCurrent.enPictureFormat &&
+           stIn.nWidth == stCurrent.nWidth &&
+           stIn.nHeight == stCurrent.nHeight &&
+           stIn.enImageQuality == stCurrent.enImageQuality;
+}
+
+/*
  * @brief 校验抓图参数并等待任务的真实设置结果。
  * @author Codex
  * @param [in] dwChannelID 请求通道号，IPC 不使用该字段。
@@ -5853,6 +6099,23 @@ static NET_COMMON_ECODE_E cb_set_capture_param_info(INT32 dwChannelID, LPVOID lp
     {
         return NET_E_INVALID_PARAM;
     }
+
+    /* 图片格式、分辨率与图片质量由设备侧固定，不接受 SDK 修改：
+     * 与设备当前值不一致时直接拒绝，避免 NVR 覆盖设备侧参数。 */
+    NET_CaptureParamInfo_S stCurrent = {};
+    const NET_COMMON_ECODE_E enCurrentRet = get_current_capture_param(stCurrent);
+    if (enCurrentRet != NET_E_SUCCEED)
+    {
+        dlog_warn("TVSDK设置抓图参数前读取当前配置失败: ret[%d]", enCurrentRet);
+        return enCurrentRet;
+    }
+    if (!is_capture_readonly_fields_unchanged(pIn->stCaptureTimingConfig, stCurrent.stCaptureTimingConfig) ||
+        !is_capture_readonly_fields_unchanged(pIn->stCaptureEventConfig, stCurrent.stCaptureEventConfig))
+    {
+        dlog_warn("TVSDK设置抓图参数被拒绝：图片格式/分辨率/图片质量不允许修改");
+        return NET_E_INVALID_PARAM;
+    }
+
     Capture_NS::CaptureParam_S stCfg = {};
     TvSdkConvert::ToCaptureParam(*pIn, stCfg);
 
@@ -6114,6 +6377,7 @@ static NET_COMMON_ECODE_E cb_set_whitebalance_info(INT32 dwChannelID, LPVOID lpI
     return (nExec == 0) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
 }
 
+#if CAP_AUDIO_OUTPUT
 static NET_COMMON_ECODE_E cb_set_talkback_state(INT32 dwChannelID, LPVOID lpInBuffer)
 {
     (void)dwChannelID;
@@ -6198,6 +6462,7 @@ static NET_COMMON_ECODE_E cb_set_replay_talkback(INT32 dwChannelID, LPVOID lpInB
     return (nExec == 0) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
 }
 
+#endif /* CAP_AUDIO_OUTPUT */
 /*-----------------------------------获取/设置音频配置-------------------------------------*/
 static NET_COMMON_ECODE_E cb_get_audio_cfg(INT32 dwChannelID, LPVOID lpOutBuffer)
 {
@@ -6597,7 +6862,8 @@ static NET_COMMON_ECODE_E cb_set_security_services_info(INT32 dwChannelID, LPVOI
 
     const NET_SecurityServicesInfo_S &stInput =
         *static_cast<const NET_SecurityServicesInfo_S *>(lpInBuffer);
-    /* SDK 开关为整数，必须在转换为 IPC bool 前拒绝非法值，避免被静默转换成禁用。 */
+    /* SDK 开关为整数，必须在转换为 IPC bool 前拒绝非法值，避免被静默转换成禁用。
+       锁定时长在 IPC 侧是 LockDuration_E 枚举，越界值会使解锁时间计算落空并导致账号锁定失效。 */
     if ((stInput.stLoginLock.bIllegalLoginEnable != FALSE && stInput.stLoginLock.bIllegalLoginEnable != TRUE) ||
         (stInput.stPwdPolicy.bPwdSecurityLevelEnable != FALSE && stInput.stPwdPolicy.bPwdSecurityLevelEnable != TRUE) ||
         (stInput.stPwdPolicy.bAllowLowLevelPwdLogin != FALSE && stInput.stPwdPolicy.bAllowLowLevelPwdLogin != TRUE) ||
@@ -6605,10 +6871,13 @@ static NET_COMMON_ECODE_E cb_set_security_services_info(INT32 dwChannelID, LPVOI
         stInput.stLoginLock.nCheckInterval < NET_SECURITY_LOGIN_CHECK_INTERVAL_MIN_MINUTES ||
         stInput.stLoginLock.nCheckInterval > NET_SECURITY_LOGIN_CHECK_INTERVAL_MAX_MINUTES ||
         stInput.stLoginLock.nMaxErrorTimes < NET_SECURITY_LOGIN_MAX_ERROR_TIMES_MIN ||
-        stInput.stLoginLock.nMaxErrorTimes > NET_SECURITY_LOGIN_MAX_ERROR_TIMES_MAX)
+        stInput.stLoginLock.nMaxErrorTimes > NET_SECURITY_LOGIN_MAX_ERROR_TIMES_MAX ||
+        stInput.stLoginLock.nLockDuration < NET_LOCK_DURATION_MIN ||
+        stInput.stLoginLock.nLockDuration > NET_LOCK_DURATION_MAX)
     {
-        dlog_warn("TVSDK安全服务设置参数无效: interval[%d], max_error_times[%d]",
-                  stInput.stLoginLock.nCheckInterval, stInput.stLoginLock.nMaxErrorTimes);
+        dlog_warn("TVSDK安全服务设置参数无效: interval[%d], max_error_times[%d], lock_duration[%d]",
+                  stInput.stLoginLock.nCheckInterval, stInput.stLoginLock.nMaxErrorTimes,
+                  stInput.stLoginLock.nLockDuration);
         return NET_E_INVALID_PARAM;
     }
 
@@ -7296,6 +7565,9 @@ void register_all()
 
     NET_serverRegisterGetAudibleAlarmInfoCb(cb_get_audible_alarm_info);
     NET_serverRegisterSetAudibleAlarmInfoCb(cb_set_audible_alarm_info);
+    NET_serverRegisterGetAudibleAlarmCustomInfoCb(cb_get_audible_alarm_custom_info);
+    NET_serverRegisterEditAudibleAlarmCustomInfoCb(cb_edit_audible_alarm_custom_info);
+    NET_serverRegisterAddAudibleAlarmCustomInfoCb(cb_add_audible_alarm_custom_info);
     NET_serverRegisterGetAlarmInputInfoCb(cb_get_alarm_input_info);
     NET_serverRegisterSetAlarmInputInfoCb(cb_set_alarm_input_info);
     NET_serverRegisterGetAlarmOutputInfoCb(cb_get_alarm_output_info);
@@ -7338,10 +7610,12 @@ void register_all()
     NET_serverRegisterGetWhiteBalanceInfoCb(cb_get_whitebalance_info);
     NET_serverRegisterSetWhiteBalanceInfoCb(cb_set_whitebalance_info);
     
+#if CAP_AUDIO_OUTPUT
     NET_serverRegisterSetTalkbackStateCb(cb_set_talkback_state);
     NET_serverRegisterSetTalkbackToStreamCb(cb_set_talkback_to_stream);
     NET_serverRegisterGetTalkbackFromStreamCb(cb_get_talkback_from_stream);
     NET_serverRegisterSetReplayTalkbackCb(cb_set_replay_talkback);
+#endif /* CAP_AUDIO_OUTPUT */
     NET_serverRegisterGetReplayUrlCb(cb_get_replay_url);
 
     NET_serverRegisterGetAudioConfigCb(cb_get_audio_cfg);

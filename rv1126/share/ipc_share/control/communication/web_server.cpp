@@ -272,8 +272,10 @@ void CWebServer::deal_message(Net::Message_S& stMessage, Net::UserParam_S &stUse
             {
                 /* 移除当前句柄对应的在线用户ID */
                 deleteUserIdForConnection(stMessage.pHandle, stUserInfo.stAccountInfo.stOnlineUser.nOnlineUserId);
+#if CAP_AUDIO_OUTPUT
                 /* 关闭对讲/广播 */
                 closeAudio(stMessage.ip);
+#endif
             }
         }
     }
@@ -345,8 +347,10 @@ void CWebServer::cleanupThreadFunc()
                 dlog_info("用户 %d (IP:%s) 的重连宽限期已过，执行下线", it->userId, it->ip.c_str());
                 /* 处理用户下线 */
                 handleUserOffline(it->userId, it->ip);
+#if CAP_AUDIO_OUTPUT
                 /* 关闭对讲/广播 */
                 closeAudio(it->ip);
+#endif
                 /* 从待清理列表中移除 */
                 it = m_vecPendingCleanup.erase(it);
             }
@@ -392,8 +396,10 @@ void CWebServer::removeConnection(void* pHandle)
     if (disconnectedConn.userId == 0)
     {
         dlog_debug("未登录的连接断开，无需处理");
+#if CAP_AUDIO_OUTPUT
         /* 强制关闭对讲/广播，不管当前IP是否开启，后续对讲/广播 task 中进行判断ip */
         closeAudio(disconnectedConn.ip);
+#endif
         return;
     }
 
@@ -559,6 +565,7 @@ void CWebServer::handleUserOffline(const int userId, const std::string& ip)
     dlog_info("已触发用户下线任务 userId:%d, ip:%s", userId, ip.c_str());
 }
 
+#if CAP_AUDIO_OUTPUT
 void CWebServer::closeAudio(const std::string &ip)
 {
     /* 关闭对讲 */
@@ -612,3 +619,4 @@ void CWebServer::closeAudio(const std::string &ip)
 
     dlog_info("已触发关闭对讲/广播任务 ip:%s", ip.c_str());
 }
+#endif

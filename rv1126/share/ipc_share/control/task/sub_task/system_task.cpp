@@ -3,7 +3,7 @@
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2026-04-23 17:04:24
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-07-27 09:00:04
+ * @LastEditTime : 2026-10-13 14:28:35
  * @Description  : 系统相关任务
  */
 
@@ -28,7 +28,6 @@
 #include "base_define.h"
 #include "peripheral_manage.h"
 #include "time_utils.h"
-#include "record_ctrl.h"
 
 #include <cerrno>
 #include <cstring>

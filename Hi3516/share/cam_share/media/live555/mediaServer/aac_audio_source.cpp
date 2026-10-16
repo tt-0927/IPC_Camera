@@ -37,7 +37,8 @@ aacAudioSource::createNew(UsageEnvironment &env, Audio_Source_Info_t &aac_sourec
 			break;
 		}
 
-		// 设置默认profile（AAC LC = 1，对应ADTS中的0）
+		/* profile 按 ADTS 头的档位编号：0=Main、1=LC、2=SSR、3=LTP；
+		 * 编码器固定输出 AAC LC，这里取 1 */
 		u_int8_t profile = 1; // AAC LC
 
 		// 设置默认通道配置（单声道）
@@ -73,7 +74,9 @@ aacAudioSource ::aacAudioSource(UsageEnvironment &env, u_int8_t profile,
 
 	m_aacRate = (1 * 1000 * 1000) / fuSecsPerFrame;
 	unsigned char audioSpecificConfig[2];
-	u_int8_t const audioObjectType = profile;
+	/* SDP 的 AudioSpecificConfig 用 MPEG-4 audioObjectType 编号：1=Main、2=LC。
+	 * ADTS 档位与 AOT 恒差 1，必须换算，否则 AAC LC 码流会被声明成 AAC Main */
+	u_int8_t const audioObjectType = profile + 1;
 
 	audioSpecificConfig[0] = (audioObjectType << 3) | (samplingFrequencyIndex >> 1);
 	audioSpecificConfig[1] = ((samplingFrequencyIndex & 0x01) << 7) | (channelConfiguration << 3);

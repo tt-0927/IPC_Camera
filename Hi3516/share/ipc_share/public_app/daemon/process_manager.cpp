@@ -52,6 +52,8 @@ bool CProcessManager::init_processes()
             4000,
             "/opt/cam/bin"
         },
+#if CAP_LOCAL_STORAGE
+        /* record 录制进程：能力关闭时不构建二进制，守护表也不拉起（避免重启风暴） */
         {
             "record",
             "/opt/cam/bin/record",
@@ -59,6 +61,7 @@ bool CProcessManager::init_processes()
             100,
             "/opt/cam/bin"
         },
+#endif
         {
             "nginx",
             "/opt/cam/third-party/nginx/sbin/nginx",

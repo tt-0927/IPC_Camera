@@ -28,20 +28,17 @@
 #include "YoloUltralytics_rpn.hpp"
 #include "event_alarm/statistics/event_statistics_reporter.hpp"
 
-extern "C"
-{
-    #include "mpp_vgs.h"
+extern "C" {
+#include "mpp_vgs.h"
 }
 
 /* 事件结束事件阈值 x秒 （事件触发后，超过阈值时间未再次触发事件，则视为事件结束） */
-#define EVENT_END_TIME_THRESHOLD (3)
+#define EVENT_END_TIME_THRESHOLD           (3)
 /* 事件两次开始之间的最小间隔（秒），默认10秒 */
 #define EVENT_MIN_TRIGGER_INTERVAL_SECONDS (10)
 /* 事件冷却期时长（秒），需扣除结束判定阈值，保证整体触发间隔约为10秒 */
-#define EVENT_COOLDOWN_SECONDS                                                                                      \
-    ((EVENT_MIN_TRIGGER_INTERVAL_SECONDS > EVENT_END_TIME_THRESHOLD) ?                                               \
-         (EVENT_MIN_TRIGGER_INTERVAL_SECONDS - EVENT_END_TIME_THRESHOLD) :                                           \
-         0)
+#define EVENT_COOLDOWN_SECONDS                                                                                                             \
+    ((EVENT_MIN_TRIGGER_INTERVAL_SECONDS > EVENT_END_TIME_THRESHOLD) ? (EVENT_MIN_TRIGGER_INTERVAL_SECONDS - EVENT_END_TIME_THRESHOLD) : 0)
 /* 移动侦测单次事件最长持续时间，超时后强制结束以允许下一轮联动 */
 #define MOTION_EVENT_MAX_DURATION_SECONDS (60)
 
@@ -68,12 +65,14 @@ struct SEventProcessContext
     long long llTimestamp = 0;
     /* 当前帧视频帧指针，用于事件报警时编码触发帧图片，无视频帧时为 nullptr（如音频检测） */
     ot_video_frame_info *pFrameInfo = nullptr;
+    /* 原始全分辨率帧（未经算法缩放/裁剪），供 TVSDK 全景图走 VENC 硬编码（帧须等于编码通道尺寸）；
+       pFrameInfo 为算法分辨率帧时必填，两者相同时可不填 */
+    ot_video_frame_info *pSrcFrameInfo = nullptr;
 };
 
 class CAlgorithm
 {
 public:
-
     CAlgorithm()
     {
     }
@@ -94,23 +93,26 @@ public:
      * @brief 更新算法配置参数
      * @param stAlgoConfig
      */
-    virtual void setAlgoEnCfg(const Event::AlgorithmConfig &stAlgoConfig) {}
+    virtual void setAlgoEnCfg(const Event::AlgorithmConfig &stAlgoConfig)
+    {
+    }
 
     /**
      * @brief 更新检测划线数据
      * @param stRuleInfo
      */
-    virtual void changeRuleInfos(const Event::RuleInfo &stRuleInfo, bool bNeedClear) {}
+    virtual void changeRuleInfos(const Event::RuleInfo &stRuleInfo, bool bNeedClear)
+    {
+    }
 
     /**
      * @brief   : 注入事件统计上报器
      * @param    {std::shared_ptr<EventStatistics_NS::IEventStatisticsReporter>} &pReporter：上报器
      * @return   {void}
      */
-    virtual void setEventStatisticsReporter(
-        const std::shared_ptr<EventStatistics_NS::IEventStatisticsReporter> &pReporter)
+    virtual void setEventStatisticsReporter(const std::shared_ptr<EventStatistics_NS::IEventStatisticsReporter> &pReporter)
     {
-        (void)pReporter;
+        (void) pReporter;
     }
 
     /**
@@ -120,7 +122,7 @@ public:
      */
     virtual int handleRuntimeCommand(const RuntimeCommand_S &stCommand)
     {
-        (void)stCommand;
+        (void) stCommand;
         return ERR;
     }
 
@@ -128,13 +130,19 @@ public:
      * @brief 添加人脸名单库
      * @param stFaceLibData
      */
-    virtual int addFaceLibGroup(FaceDataDB_NS::FaceLibsInfo_S &stFaceLibData) { return 0; }
+    virtual int addFaceLibGroup(FaceDataDB_NS::FaceLibsInfo_S &stFaceLibData)
+    {
+        return 0;
+    }
 
     /**
      * @brief 人员检索人脸比对
      * @param strPicPath
      */
-    virtual bool faceRetrieval(std::string strPicPath) { return 0; }
+    virtual bool faceRetrieval(std::string strPicPath)
+    {
+        return 0;
+    }
 
     /**
      * @brief 两张人脸相似度比对
@@ -142,7 +150,10 @@ public:
      * @param strPicPath2
      * @return float
      */
-    virtual float facesCompared(std::string strPicPath1, std::string strPicPath2) { return 0; }
+    virtual float facesCompared(std::string strPicPath1, std::string strPicPath2)
+    {
+        return 0;
+    }
 
     /**
      * @brief 更新算法配置参数
@@ -155,8 +166,10 @@ public:
      * @note    : 音频异常侦测
      * @return   {float} 当前音量(dB)
      */
-    virtual float getCurrentDb() const { return 0.0f; }
-
+    virtual float getCurrentDb() const
+    {
+        return 0.0f;
+    }
 };
 
 class TVTimer
@@ -201,8 +214,12 @@ public:
     }
 
 private:
-    struct timeval tv_start{};
-    struct timeval tv_end{};
+    struct timeval tv_start
+    {
+    };
+    struct timeval tv_end
+    {
+    };
     bool running = false;
 };
 
@@ -294,15 +311,12 @@ public:
             else
             {
                 const auto activeElapsed = std::chrono::duration_cast<std::chrono::seconds>(now - m_alarmStartTimestamp);
-                if ((stContext.enEventType == Event::Type_E::MOTION_DETECT || 
-                    stContext.enEventType == Event::Type_E::OCCLUSION_DETECT ||
-                    stContext.enEventType == Event::Type_E:: GARBAGE_OVERFLOW ||
-                    stContext.enEventType == Event::Type_E:: GARBAGE_EXPOSURE ||
-                    stContext.enEventType == Event::Type_E::SMOKE_FIRE) &&
+                if ((stContext.enEventType == Event::Type_E::MOTION_DETECT || stContext.enEventType == Event::Type_E::OCCLUSION_DETECT ||
+                     stContext.enEventType == Event::Type_E::GARBAGE_OVERFLOW || stContext.enEventType == Event::Type_E::GARBAGE_EXPOSURE ||
+                     stContext.enEventType == Event::Type_E::SMOKE_FIRE) &&
                     activeElapsed.count() >= MOTION_EVENT_MAX_DURATION_SECONDS)
                 {
-                    dlog_info("移动侦测事件持续[%lld]秒，达到单次事件上限，强制结束",
-                              static_cast<long long>(activeElapsed.count()));
+                    dlog_info("移动侦测事件持续[%lld]秒，达到单次事件上限，强制结束", static_cast<long long>(activeElapsed.count()));
                     endAlarmImmediately(stContext);
                     return m_bIsAlarmActive;
                 }
@@ -508,7 +522,7 @@ private:
 
     /* 当前事件开始时间，用于限制单次移动侦测事件最长持续 60 秒 */
     std::chrono::steady_clock::time_point m_alarmStartTimestamp;
-    
+
     /* 上次事件结束的时间点 */
     std::chrono::steady_clock::time_point m_lastAlarmEndTimestamp;
 

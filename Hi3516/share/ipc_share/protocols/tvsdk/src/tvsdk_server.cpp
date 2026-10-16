@@ -37,21 +37,24 @@ namespace
 {
 const char *kDefaultDiscoveryInterface = "eth0";
 const char *kDefaultDiscoveryManufacturer = "ITC";
-const char *kVoiceComNvrRecvDumpPath = "/tmp/tvsdk_voicecom_nvr_recv.pcm";
 constexpr UINT32 kVoiceComPort = 9006;
+#if CAP_AUDIO_OUTPUT
+const char *kVoiceComNvrRecvDumpPath = "/tmp/tvsdk_voicecom_nvr_recv.pcm";
 constexpr int kNetTvAudioFormatG711U = 1;
 constexpr int kNetTvAudioFormatG711A = 2;
-constexpr int kNetTvAudioFormatPcm = 6;
 constexpr std::size_t kVoiceComNvrRecvDumpMaxBytes = 5 * 1024 * 1024;
+FILE *g_voiceComNvrRecvDumpFp = nullptr;
+std::size_t g_voiceComNvrRecvDumpBytes = 0;
+#endif
+constexpr int kNetTvAudioFormatPcm = 6;
 UINT32 g_discoveryHttpPort = IN_CONTROL_SDK_PROT;
 std::string g_discoveryInterface = kDefaultDiscoveryInterface;
 NET_DiscoveryDeviceInfo_S g_cachedDiscoveryInfo;
 std::chrono::steady_clock::time_point g_cachedDiscoveryInfoTime;
 bool g_hasCachedDiscoveryInfo = false;
-FILE *g_voiceComNvrRecvDumpFp = nullptr;
-std::size_t g_voiceComNvrRecvDumpBytes = 0;
 constexpr auto kDiscoveryInfoCacheTtl = std::chrono::seconds(30);
 
+#if CAP_AUDIO_OUTPUT
 void fill_default_voice_com_audio_param(NET_VoiceComAudioParam_S &audioParam)
 {
     std::memset(&audioParam, 0, sizeof(audioParam));
@@ -129,10 +132,104 @@ void close_voice_com_nvr_audio_dump()
 }
 
 
+/*
+ * 对讲下行（NVR→IPC）诊断统计。
+ * 目的：定位对讲延迟。本回调由 SDK 收帧线程同步调用，其后经 setAoSpeakInfo 直达
+ * AO 送帧，整条链路同线程同步，因此这里测得的"处理耗时"即"收帧到进 AO"的耗时，
+ * 而"到达间隔"反映 NVR 与网络的发送节奏。
+ * 判读：到达间隔稳定在帧长附近且最大间隔小 → NVR 与网络无积压，延迟在 AO 侧；
+ *       到达间隔呈突发（短时间连到多帧后长时间静默）→ NVR 侧或 TCP 存在缓冲；
+ *       处理耗时接近或超过帧长 → AO 通道被填满并反压收帧线程，AO 缓冲是瓶颈。
+ * 注：本回调只在 SDK 收帧线程上执行，故以下计数变量无需加锁。
+ */
+constexpr uint64_t kVoiceComPlayDiagWindowMs = 1000;
+
+uint64_t g_voiceComPlayDiagWindowStartMs = 0;   /* 当前统计窗口起点 */
+uint64_t g_voiceComPlayDiagFrames = 0;          /* 窗口内到达帧数 */
+uint64_t g_voiceComPlayDiagBytes = 0;           /* 窗口内到达字节数 */
+uint64_t g_voiceComPlayDiagLastArriveMs = 0;    /* 上一帧到达时刻 */
+uint64_t g_voiceComPlayDiagGapSumMs = 0;        /* 相邻帧到达间隔累计 */
+uint64_t g_voiceComPlayDiagGapMaxMs = 0;        /* 相邻帧到达间隔最大值 */
+uint64_t g_voiceComPlayDiagCostSumMs = 0;       /* 单帧处理耗时累计 */
+uint64_t g_voiceComPlayDiagCostMaxMs = 0;       /* 单帧处理耗时最大值 */
+
+/**
+ * @brief   : 取单调时钟毫秒值，用于对讲链路耗时统计。
+ * @return   {uint64_t} 自 steady_clock 起点的毫秒数。
+ */
+uint64_t voice_com_diag_now_ms()
+{
+    return static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::steady_clock::now().time_since_epoch()).count());
+}
+
+/**
+ * @brief   : 记录一帧 VoiceCom 音频的到达时刻与处理耗时，并按固定窗口汇总打印。
+ * @param    {uint64_t} nArriveMs 本帧到达时刻（毫秒）。
+ * @param    {uint64_t} nCostMs 本帧处理耗时（毫秒）。
+ * @param    {unsigned int} nSize 本帧字节数。
+ * @return   无
+ */
+void voice_com_play_diag(uint64_t nArriveMs, uint64_t nCostMs, unsigned int nSize)
+{
+    g_voiceComPlayDiagFrames++;
+    g_voiceComPlayDiagBytes += nSize;
+    g_voiceComPlayDiagCostSumMs += nCostMs;
+    if (nCostMs > g_voiceComPlayDiagCostMaxMs)
+    {
+        g_voiceComPlayDiagCostMaxMs = nCostMs;
+    }
+
+    if (g_voiceComPlayDiagLastArriveMs != 0)
+    {
+        const uint64_t nGapMs = nArriveMs - g_voiceComPlayDiagLastArriveMs;
+        g_voiceComPlayDiagGapSumMs += nGapMs;
+        if (nGapMs > g_voiceComPlayDiagGapMaxMs)
+        {
+            g_voiceComPlayDiagGapMaxMs = nGapMs;
+        }
+    }
+    g_voiceComPlayDiagLastArriveMs = nArriveMs;
+
+    if (g_voiceComPlayDiagWindowStartMs == 0)
+    {
+        g_voiceComPlayDiagWindowStartMs = nArriveMs;
+        return;
+    }
+
+    const uint64_t nWindowMs = nArriveMs - g_voiceComPlayDiagWindowStartMs;
+    if (nWindowMs < kVoiceComPlayDiagWindowMs)
+    {
+        return;
+    }
+
+    const uint64_t nFrames = g_voiceComPlayDiagFrames;
+    dlog_info("VoiceCom下行诊断: 窗口%llums 帧数%llu 字节%llu 到达间隔(均%llums/最大%llums) 处理耗时(均%llums/最大%llums)",
+              static_cast<unsigned long long>(nWindowMs),
+              static_cast<unsigned long long>(nFrames),
+              static_cast<unsigned long long>(g_voiceComPlayDiagBytes),
+              static_cast<unsigned long long>((nFrames > 1) ? (g_voiceComPlayDiagGapSumMs / (nFrames - 1)) : 0),
+              static_cast<unsigned long long>(g_voiceComPlayDiagGapMaxMs),
+              static_cast<unsigned long long>((nFrames > 0) ? (g_voiceComPlayDiagCostSumMs / nFrames) : 0),
+              static_cast<unsigned long long>(g_voiceComPlayDiagCostMaxMs));
+
+    g_voiceComPlayDiagWindowStartMs = nArriveMs;
+    g_voiceComPlayDiagFrames = 0;
+    g_voiceComPlayDiagBytes = 0;
+    g_voiceComPlayDiagGapSumMs = 0;
+    g_voiceComPlayDiagGapMaxMs = 0;
+    g_voiceComPlayDiagCostSumMs = 0;
+    g_voiceComPlayDiagCostMaxMs = 0;
+}
+
+
 void STDCALL cb_voice_com_play(const char *data, unsigned int size)
 {
     if (!data || size == 0)
         return;
+
+    const uint64_t nArriveMs = voice_com_diag_now_ms();
+
 
     dump_voice_com_nvr_audio(data, size);
 
@@ -155,7 +252,10 @@ void STDCALL cb_voice_com_play(const char *data, unsigned int size)
     stAoInfo.nLen = size;
     stAoInfo.enAudioFormat = voice_com_format_to_ipc(audioParam.enFormat);
     CAVConfigure::instance()->setAoSpeakInfo(stAoInfo);
+
+    voice_com_play_diag(nArriveMs, voice_com_diag_now_ms() - nArriveMs, size);
 }
+#endif
 
 INT32 STDCALL cb_voice_com_capture(const NET_VoiceComAudioParam_S *pstAudioParam,
                                    CHAR *pBuffer,
@@ -208,11 +308,17 @@ INT32 STDCALL cb_voice_com_capture(const NET_VoiceComAudioParam_S *pstAudioParam
 
 void start_voice_com_server()
 {
+    /* 下行播放回调随音频输出能力裁剪；上行采集回调与 VoiceCom 服务保留
+       （NVR 听现场声只依赖拾音，不依赖喇叭） */
+#if CAP_AUDIO_OUTPUT
     if (!NET_serverRegisterVoiceComPlayCb(cb_voice_com_play))
     {
         dlog_warn("TVSDK VoiceCom register play callback failed");
     }
     else if (!NET_serverRegisterVoiceComCaptureCb(cb_voice_com_capture, nullptr))
+#else
+    if (!NET_serverRegisterVoiceComCaptureCb(cb_voice_com_capture, nullptr))
+#endif
     {
         dlog_warn("TVSDK VoiceCom register capture callback failed");
     }
@@ -228,7 +334,9 @@ void start_voice_com_server()
 
 void stop_voice_com_server()
 {
+#if CAP_AUDIO_OUTPUT
     close_voice_com_nvr_audio_dump();
+#endif
     CVoiceComCaptureSource::instance()->clear();
     NET_serverStopVoiceComServer();
 }

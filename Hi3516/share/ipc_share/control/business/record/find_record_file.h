@@ -9,6 +9,9 @@
 
 #pragma once
 
+/* 本地 SD 存储能力裁剪：能力关闭（IPC_CAP_LOCAL_STORAGE=0）时本文件整体不参与编译 */
+#if CAP_LOCAL_STORAGE
+
 #include <iostream>
 #include <thread>
 #include <mutex>
@@ -40,5 +43,6 @@ public:
      * @return std::deque<std::string> 
      */
     std::deque<std::string>  findFileByTime(const std::vector<std::string> &vecDir, time_t nStartDateTime, time_t nEndDateTime);
-
 };
+
+#endif /* CAP_LOCAL_STORAGE */

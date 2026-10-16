@@ -3,7 +3,7 @@
  * @Author       : zhouzirui
  * @Date         : 2025-03-21 10:29:00
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-08-21 15:37:21
+ * @LastEditTime : 2026-10-10 11:29:22
  * @Description  : VPSS 视频处理
  */
 
@@ -75,7 +75,7 @@ HiVpss_S **streamVpss_init(HiVpss_S ***pHandle, const std::vector<Video_NS::Vide
                     pVpssChnAttr->nMaxWidth = PIXEL_WIDTH_704;
                     pVpssChnAttr->nMaxHeight = PIXEL_HEIGHT_576;
                     /* 保持低时延（帧直通 VENC，无 luma 统计事件）；OSD 逐字符反色的
-                     * 统计源走 chn2（AI 通道，普通通道 3fps 抽帧），见 overplay_draw.cpp
+                     * 统计源走 chn2（AI 通道，普通通道 10fps 抽帧），见 overplay_draw.cpp
                      * osd_query_region_luma 的统计通道探测 */
                     pVpssChnAttr->bLowDelay = TD_TRUE;
                 }
@@ -88,7 +88,11 @@ HiVpss_S **streamVpss_init(HiVpss_S ***pHandle, const std::vector<Video_NS::Vide
                     pVpssChnAttr->nMaxHeight = PIXEL_HEIGHT_1080;
                     pVpssChnAttr->nDepth = 6;
                     pVpssChnAttr->nSrcFrameRate = 30;
-                    pVpssChnAttr->nDstFrameRate = 3;
+                    /* AI 通道供帧 5fps：喂帧每帧临时建 3MB VB 池，10fps 时人脸在场
+                     * 并发 3~4 块超过 MMZ 碎片容量会申请失败丢帧；降到 5fps 后并发
+                     * 减半不再失败。检测消费最快 333ms（人脸），5fps 供帧仍高于
+                     * 消费节拍，算法节流门限不受影响 */
+                    pVpssChnAttr->nDstFrameRate = 5;
 #else
                     // pVpssChnAttr->nWidth = PIXEL_WIDTH_1024;
                     // pVpssChnAttr->nHeight = PIXEL_HEIGHT_576;
@@ -100,7 +104,8 @@ HiVpss_S **streamVpss_init(HiVpss_S ***pHandle, const std::vector<Video_NS::Vide
                     pVpssChnAttr->nMaxHeight = PIXEL_HEIGHT_1080;
                     pVpssChnAttr->nDepth = 2;
                     pVpssChnAttr->nSrcFrameRate = 30;
-                    pVpssChnAttr->nDstFrameRate = 3;
+                    /* 同上 */
+                    pVpssChnAttr->nDstFrameRate = 5;
 #endif
                 }
             }

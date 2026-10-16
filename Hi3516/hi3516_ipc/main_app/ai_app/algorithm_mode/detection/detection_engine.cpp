@@ -442,7 +442,7 @@ ot_video_frame_info *CFramePreparer::acquire_buffer(
     }
 
     /* 懒创建：缓冲按 (宽,高) 维度复用，避免 MD/OD 区域尺寸交替时每帧重建 VB */
-    auto pFrameInfo = std::make_unique<ot_video_frame_info>();
+    std::unique_ptr<ot_video_frame_info> pFrameInfo(new ot_video_frame_info());
     memset_s(pFrameInfo.get(), sizeof(ot_video_frame_info), 0, sizeof(ot_video_frame_info));
     if (TD_SUCCESS != mppVgs_create_video_frame_info(nWidth, nHeight,
                                                      OT_PIXEL_FORMAT_YVU_SEMIPLANAR_420,

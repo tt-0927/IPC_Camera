@@ -145,6 +145,9 @@ public:
     /* 人员聚集侦测配置 */
     int set_configure(const Alarm::CrowdGathering_S &alarm);
     int get_configure(Alarm::CrowdGathering_S &alarm) const;
+    /* 排队拥挤侦测配置 */
+    int set_configure(const Alarm::QueueCrowdingDetection_S &alarm);
+    int get_configure(Alarm::QueueCrowdingDetection_S &alarm) const;
     /* 停车侦测配置 */
     int set_configure(const Alarm::ParkingDetection_S &alarm);
     int get_configure(Alarm::ParkingDetection_S &alarm) const;
@@ -293,6 +296,33 @@ int get_configure(Alarm::SmokeFireDetection_S &alarm) const;
     int get_configure(Alarm::PeopleDensityDetection_S &alarm) const;
 #endif
 
+#ifdef SCENE_INTELLIGENCE
+    /**
+     *  @brief   :  平安校园
+     */
+    /* 通道占用检测配置 */
+    int set_configure(const Alarm::ChannelOccupation_S &alarm);
+    int get_configure(Alarm::ChannelOccupation_S &alarm) const;
+    /* 攀爬识别检测配置 */
+    int set_configure(const Alarm::ClimbDetection_S &alarm);
+    int get_configure(Alarm::ClimbDetection_S &alarm) const;
+    /* 危险区域靠近检测配置 */
+    int set_configure(const Alarm::DangerZoneApproach_S &alarm);
+    int get_configure(Alarm::DangerZoneApproach_S &alarm) const;
+    /* 长时间滞留配置 */
+    int set_configure(const Alarm::LongTimeStayDetection_S &alarm);
+    int get_configure(Alarm::LongTimeStayDetection_S &alarm) const;
+    /* 危险区域滞留配置 */
+    int set_configure(const Alarm::DangerZoneStayDetection_S &alarm);
+    int get_configure(Alarm::DangerZoneStayDetection_S &alarm) const;
+    /* 重点区域异常滞留配置 */
+    int set_configure(const Alarm::KeyAreaAbnormalStayDetection_S &alarm);
+    int get_configure(Alarm::KeyAreaAbnormalStayDetection_S &alarm) const;
+    /* 天台滞留配置 */
+    int set_configure(const Alarm::RooftopStayDetection_S &alarm);
+    int get_configure(Alarm::RooftopStayDetection_S &alarm) const;
+#endif
+
 private:
     /* 算法配置 */
     ConfigStorage<Event::AlgorithmConfig_S, StorageType_E::Single> m_algorithmConfig;
@@ -360,6 +390,8 @@ private:
     ConfigStorage<Alarm::LoiteringDetection_S, StorageType_E::Single> m_loiteringDetection;
     /* 人员聚集侦测配置  */
     ConfigStorage<Alarm::CrowdGathering_S, StorageType_E::Single> m_crowdGathering;
+    /* 排队拥挤侦测配置  */
+    ConfigStorage<Alarm::QueueCrowdingDetection_S, StorageType_E::Single> m_queueCrowding;
     /* 停车侦测配置 */
     ConfigStorage<Alarm::ParkingDetection_S, StorageType_E::Single> m_parkingDetection;
     /* 物品遗留侦测配置 */
@@ -467,6 +499,26 @@ private:
     ConfigStorage<Alarm::PeopleFlowStatistics_S, StorageType_E::Single> m_peopleFlowStatistics;
     /* 人员密度检测配置 */
     ConfigStorage<Alarm::PeopleDensityDetection_S, StorageType_E::Single> m_peopleDensityDetection;
+#endif
+
+#ifdef SCENE_INTELLIGENCE
+    /**
+     *  @brief   :  平安校园
+     */
+    /* 通道占用检测配置 */
+    ConfigStorage<Alarm::ChannelOccupation_S, StorageType_E::Single> m_channelOccupation;
+    /* 攀爬识别检测配置 */
+    ConfigStorage<Alarm::ClimbDetection_S, StorageType_E::Single> m_climbDetection;
+    /* 危险区域靠近检测配置 */
+    ConfigStorage<Alarm::DangerZoneApproach_S, StorageType_E::Single> m_dangerZoneApproach;
+    /* 长时间滞留配置 */
+    ConfigStorage<Alarm::LongTimeStayDetection_S, StorageType_E::Single> m_longTimeStay;
+    /* 危险区域滞留配置 */
+    ConfigStorage<Alarm::DangerZoneStayDetection_S, StorageType_E::Single> m_dangerZoneStay;
+    /* 重点区域异常滞留配置 */
+    ConfigStorage<Alarm::KeyAreaAbnormalStayDetection_S, StorageType_E::Single> m_keyAreaAbnormalStay;
+    /* 天台滞留配置 */
+    ConfigStorage<Alarm::RooftopStayDetection_S, StorageType_E::Single> m_rooftopStay;
 #endif
 
 };

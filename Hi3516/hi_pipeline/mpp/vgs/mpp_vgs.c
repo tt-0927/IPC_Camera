@@ -10,7 +10,7 @@
 #include "mpp_vgs.h"
 
 /**
- * @brief   : 
+ * @brief   :
  * @param    {ot_vb_calc_cfg} *vb_cal_config：视频图像帧各部分数据大小配置信息结构体指针
  * @param    {ot_pic_buf_attr} *buf_attr：图片属性指针
  * @param    {ot_vb_blk} vb_blk：缓存块句柄
@@ -18,7 +18,12 @@
  * @param    {td_phys_addr_t} phys_addr：图像数据物理地址
  * @param    {ot_video_frame_info} *frame_info：视频图像帧信息结构体指针
  */
-static void mpp_vgs_set_frame_info(const ot_vb_calc_cfg *vb_cal_config, const ot_pic_buf_attr *buf_attr, const ot_vb_blk vb_blk, td_void *pVirtAddr, td_phys_addr_t phys_addr, ot_video_frame_info *frame_info)
+static void mpp_vgs_set_frame_info(const ot_vb_calc_cfg *vb_cal_config,
+                                   const ot_pic_buf_attr *buf_attr,
+                                   const ot_vb_blk vb_blk,
+                                   td_void *pVirtAddr,
+                                   td_phys_addr_t phys_addr,
+                                   ot_video_frame_info *frame_info)
 {
     frame_info->mod_id = OT_ID_VGS;
     // frame_info->pool_id = ss_mpi_vb_handle_to_pool_id(vb_blk);
@@ -80,7 +85,8 @@ int mppVgs_create_video_frame_info(td_u32 u32Width, td_u32 u32Height, ot_pixel_f
     stBufAttr.video_format = OT_VIDEO_FORMAT_LINEAR;
 
     ot_common_get_pic_buf_cfg(&stBufAttr, &calc_cfg);
-    // mpi_vgs_log("%d %d %d %d %d %d %d", calc_cfg.head_stride, calc_cfg.head_y_size, calc_cfg.head_size, calc_cfg.main_stride, calc_cfg.main_y_size, calc_cfg.main_size, calc_cfg.vb_size);
+    // mpi_vgs_log("%d %d %d %d %d %d %d", calc_cfg.head_stride, calc_cfg.head_y_size, calc_cfg.head_size, calc_cfg.main_stride,
+    // calc_cfg.main_y_size, calc_cfg.main_size, calc_cfg.vb_size);
 
     vb_pool_cfg.blk_size = calc_cfg.vb_size;
     vb_pool_cfg.blk_cnt = 1;
@@ -161,7 +167,7 @@ int mppVgs_destroy_video_frame_info(ot_video_frame_info *pFrameInfo)
         nStepRet = ss_mpi_sys_munmap(pFrameInfo->video_frame.header_virt_addr[0], calc_cfg.vb_size);
         if (nStepRet != TD_SUCCESS)
         {
-            mpi_vgs_log("取消虚拟地址映射失败: 0x%08X", (unsigned int)nStepRet);
+            mpi_vgs_log("取消虚拟地址映射失败: 0x%08X", (unsigned int) nStepRet);
             nRet = nStepRet;
         }
         pFrameInfo->video_frame.header_virt_addr[0] = TD_NULL;
@@ -177,7 +183,7 @@ int mppVgs_destroy_video_frame_info(ot_video_frame_info *pFrameInfo)
         nStepRet = ss_mpi_vb_release_blk(vb_blk);
         if (nStepRet != TD_SUCCESS)
         {
-            mpi_vgs_log("释放VB块失败: 0x%08X", (unsigned int)nStepRet);
+            mpi_vgs_log("释放VB块失败: 0x%08X", (unsigned int) nStepRet);
             nRet = nStepRet;
         }
     }
@@ -188,7 +194,7 @@ int mppVgs_destroy_video_frame_info(ot_video_frame_info *pFrameInfo)
         nStepRet = ss_mpi_vb_destroy_pool(pFrameInfo->pool_id);
         if (nStepRet != TD_SUCCESS)
         {
-            mpi_vgs_log("销毁VB池失败: 0x%08X", (unsigned int)nStepRet);
+            mpi_vgs_log("销毁VB池失败: 0x%08X", (unsigned int) nStepRet);
             nRet = nStepRet;
         }
         else
@@ -213,7 +219,8 @@ int mppVgs_crop(ot_video_frame_info *pSrcFrame, ot_video_frame_info *pDstFrame, 
     }
 
     /* 检查裁剪区域参数合法性 宽高和坐标必须2对齐，裁剪区域宽高不能小于6 */
-    if ((pstCropRect->x % 2 != 0) || (pstCropRect->y % 2 != 0) || (pstCropRect->width % 2 != 0) || (pstCropRect->height % 2 != 0) || (pstCropRect->width < 6) || (pstCropRect->height < 6))
+    if ((pstCropRect->x % 2 != 0) || (pstCropRect->y % 2 != 0) || (pstCropRect->width % 2 != 0) || (pstCropRect->height % 2 != 0) ||
+        (pstCropRect->width < 6) || (pstCropRect->height < 6))
     {
         mpi_vgs_log("裁剪参数必须是 2 的倍数且大小 >= 6");
         return TD_FAILURE;
@@ -288,8 +295,8 @@ int mppVgs_scale(ot_video_frame_info *pSrcFrame, ot_video_frame_info *pDstFrame)
     {
         mpi_vgs_log("mpi_vgs_add_scale_task failed, ret:0x%x, in_phys:0x%llx out_phys:0x%llx out_wh:%ux%u",
                     nRet,
-                    (unsigned long long)pSrcFrame->video_frame.phys_addr[0],
-                    (unsigned long long)pDstFrame->video_frame.phys_addr[0],
+                    (unsigned long long) pSrcFrame->video_frame.phys_addr[0],
+                    (unsigned long long) pDstFrame->video_frame.phys_addr[0],
                     pDstFrame->video_frame.width,
                     pDstFrame->video_frame.height);
         CHECK_API_RETURN(ss_mpi_vgs_cancel_job(handle));
@@ -300,6 +307,70 @@ int mppVgs_scale(ot_video_frame_info *pSrcFrame, ot_video_frame_info *pDstFrame)
     if (ss_mpi_vgs_end_job(handle) != TD_SUCCESS)
     {
         CHECK_API_RETURN(ss_mpi_vgs_cancel_job(handle));
+    }
+
+    return TD_SUCCESS;
+}
+
+int mppVgs_luma(ot_video_frame_info *pSrcFrame, const ot_rect *pstLumaRects, td_u32 u32Count, td_u64 *pu64LumaSum)
+{
+    ot_vgs_handle handle = -1;
+    ot_vgs_task_attr task_attr;
+    td_u32 i;
+
+    if (pSrcFrame == NULL || pstLumaRects == NULL || pu64LumaSum == NULL)
+    {
+        mpi_vgs_log("无效的输入参数");
+        return TD_FAILURE;
+    }
+    if (u32Count == 0 || u32Count > 100)
+    {
+        mpi_vgs_log("亮度统计区域数量 %u 超出范围 [1,100]", u32Count);
+        return TD_FAILURE;
+    }
+
+    /* 区域合法性：起点与宽高2对齐、尺寸[6x6,4096x4096]、必须整块落在输入图像内 */
+    for (i = 0; i < u32Count; i++)
+    {
+        const ot_rect *pstR = &pstLumaRects[i];
+        if ((pstR->x < 0) || (pstR->y < 0) || (pstR->x % 2 != 0) || (pstR->y % 2 != 0) || (pstR->width % 2 != 0) ||
+            (pstR->height % 2 != 0) || (pstR->width < 6) || (pstR->height < 6) ||
+            ((td_s64) pstR->x + pstR->width > (td_s64) pSrcFrame->video_frame.width) ||
+            ((td_s64) pstR->y + pstR->height > (td_s64) pSrcFrame->video_frame.height))
+        {
+            mpi_vgs_log("亮度统计区域 %u 参数非法 (x:%d y:%d w:%u h:%u 帧宽高:%ux%u)",
+                        i,
+                        pstR->x,
+                        pstR->y,
+                        pstR->width,
+                        pstR->height,
+                        pSrcFrame->video_frame.width,
+                        pSrcFrame->video_frame.height);
+            return TD_FAILURE;
+        }
+    }
+
+    /* 启动一个job */
+    CHECK_API_RETURN(ss_mpi_vgs_begin_job(&handle));
+
+    /* 亮度任务只读输入图：只需配置输入帧，输出属性VGS不检查（开发参考10.3.7） */
+    memset(&task_attr, 0, sizeof(task_attr));
+    memcpy(&task_attr.img_in, pSrcFrame, sizeof(ot_video_frame_info));
+
+    /* 添加批量获取亮度和任务 */
+    td_s32 nRet = ss_mpi_vgs_add_luma_task(handle, &task_attr, pstLumaRects, u32Count, pu64LumaSum);
+    if (nRet != TD_SUCCESS)
+    {
+        mpi_vgs_log("mpi_vgs_add_luma_task failed, ret:0x%x, count:%u", nRet, u32Count);
+        CHECK_API_RETURN(ss_mpi_vgs_cancel_job(handle));
+        return nRet;
+    }
+
+    /* 提交并等待完成，返回后亮度总和已写出 */
+    if (ss_mpi_vgs_end_job(handle) != TD_SUCCESS)
+    {
+        CHECK_API_RETURN(ss_mpi_vgs_cancel_job(handle));
+        return TD_FAILURE;
     }
 
     return TD_SUCCESS;

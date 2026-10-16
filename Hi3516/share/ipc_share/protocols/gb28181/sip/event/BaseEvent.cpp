@@ -11,7 +11,9 @@
 #include "SipClient.h"
 #include "SipUtils.h"
 #include "XmlParser.h"
+#if CAP_GB35114
 #include "gm.h"
+#endif
 #include <cstring>
 #include <sstream>
 
@@ -132,12 +134,14 @@ int SIP::BaseEvent::SendMessageWithCallID(
     }
     /* 直接克隆原先请求的Call-ID */
     osip_call_id_clone(pOldCallID, &message->call_id);
-    
+
     /* gb35114构建控制信令 Date、Note字段 必须在更改Call-ID之后 */
+#if CAP_GB35114
     if (OK != CGm::instance()->gm_build_control_signaling_note(message, Body.c_str()))
     {
         dlog_error("gb35114构建控制信令 Date、Note字段失败");
     }
+#endif
 
     eXosip_lock(e->m_pContext);
     int ret = eXosip_message_send_request(e->m_pContext, message);

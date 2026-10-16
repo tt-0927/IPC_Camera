@@ -8,6 +8,9 @@
  */
 #pragma once
 
+/* 本地 SD 存储能力裁剪：能力关闭（IPC_CAP_LOCAL_STORAGE=0）时本文件整体不参与编译 */
+#if CAP_LOCAL_STORAGE
+
 #include "task_sub_class.h"
 
 namespace Task
@@ -19,4 +22,6 @@ namespace Task
         TaskSubClass(FormatSdCard)
         TaskSubClass(GetSdCardStatus);
     } /* namespace Storage end */
-} /* namespace Task end */
+    } /* namespace Task end */
+
+#endif /* CAP_LOCAL_STORAGE */

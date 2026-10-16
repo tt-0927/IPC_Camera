@@ -316,8 +316,37 @@ namespace Task
         TaskSubClass(SetPeopleDensityDetectionInfo)
 #endif
 
+#if CAP_LOCAL_STORAGE
         /* 回放播放地址（HTTP 方式，供平台拉流回放） */
         TaskSubClass(GetReplayMediaInfo)
+#endif
+
+#ifdef SCENE_INTELLIGENCE
+        /**
+        * @brief   : 平安校园
+        */
+        /* 通道占用检测 */
+        TaskSubClass(GetChannelOccupationInfo)
+        TaskSubClass(SetChannelOccupationInfo)
+        /* 攀爬识别检测 */
+        TaskSubClass(GetClimbDetectionInfo)
+        TaskSubClass(SetClimbDetectionInfo)
+        /* 危险区域靠近检测 */
+        TaskSubClass(GetDangerZoneApproachInfo)
+        TaskSubClass(SetDangerZoneApproachInfo)
+        /* 长时间滞留 */
+        TaskSubClass(GetLongTimeStayInfo)
+        TaskSubClass(SetLongTimeStayInfo)
+        /* 危险区域滞留 */
+        TaskSubClass(GetDangerZoneStayInfo)
+        TaskSubClass(SetDangerZoneStayInfo)
+        /* 重点区域异常滞留 */
+        TaskSubClass(GetKeyAreaAbnormalStayInfo)
+        TaskSubClass(SetKeyAreaAbnormalStayInfo)
+        /* 天台滞留 */
+        TaskSubClass(GetRooftopStayInfo)
+        TaskSubClass(SetRooftopStayInfo)
+#endif
     } /* namespace Event end */
 } /* namespace Task end */
 

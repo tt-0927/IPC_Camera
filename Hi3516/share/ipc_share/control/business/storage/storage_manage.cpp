@@ -6,6 +6,10 @@
  * @FilePath: /hisi/share/ipc_share/control/business/storage/storage_manage.cpp
  * @Description: 存储管理
  */
+
+/* 本地 SD 存储能力裁剪：能力关闭（IPC_CAP_LOCAL_STORAGE=0）时本文件整体不参与编译 */
+#if CAP_LOCAL_STORAGE
+
 #include <cmath>
 #include <glob.h>
 #include <mntent.h>
@@ -1393,3 +1397,5 @@ void CStorageManage::run()
         }
     }
 }
+
+#endif /* CAP_LOCAL_STORAGE */

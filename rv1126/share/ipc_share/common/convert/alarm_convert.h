@@ -101,6 +101,9 @@ namespace Convert
     /* 人员聚集侦测相关 */
     void deal(Json::Object *pRootJson, Alarm::CrowdGatheringRule_S &stInfo, bool bOutStruct);
     void deal(Json::Object *pRootJson, Alarm::CrowdGathering_S &stInfo, bool bOutStruct);
+    /* 排队拥挤侦测相关 */
+    void deal(Json::Object *pRootJson, Alarm::QueueCrowdingRule_S &stInfo, bool bOutStruct);
+    void deal(Json::Object *pRootJson, Alarm::QueueCrowdingDetection_S &stInfo, bool bOutStruct);
     /* 停车侦测相关 */
     void deal(Json::Object *pRootJson, Alarm::ParkingRule_S &stInfo, bool bOutStruct);
     void deal(Json::Object *pRootJson, Alarm::ParkingDetection_S &stInfo, bool bOutStruct);
@@ -302,5 +305,28 @@ namespace Convert
     void deal(Json::Object* pRootJson, std::set<Alarm::EventSchedule_S> &stSchedule, bool bOutStruct);
     void deal(Json::Object* pRootJson, Alarm::VideoLostDetection_S &stVideoLostDetection, bool bOutStruct);
     void deal(Json::Object* pRootJson, std::set<Alarm::VideoLostDetection_S> &videoLostDetection, bool bOutStruct);
-    
+
+#ifdef SCENE_INTELLIGENCE
+    /* 通道占用检测相关 */
+    void deal(Json::Object *pRootJson, Alarm::ChannelOccupation_S &stInfo, bool bOutStruct);
+    /* 攀爬识别检测相关 */
+    void deal(Json::Object *pRootJson, Alarm::ClimbDetectionRule_S &stInfo, bool bOutStruct);
+    void deal(Json::Object *pRootJson, Alarm::ClimbDetection_S &stInfo, bool bOutStruct);
+    /* 危险区域靠近检测相关 */
+    void deal(Json::Object *pRootJson, Alarm::DangerZoneApproachRule_S &stInfo, bool bOutStruct);
+    void deal(Json::Object *pRootJson, Alarm::DangerZoneApproach_S &stInfo, bool bOutStruct);
+    /* 长时间滞留相关 */
+    void deal(Json::Object *pRootJson, Alarm::LongTimeStayRule_S &stInfo, bool bOutStruct);
+    void deal(Json::Object *pRootJson, Alarm::LongTimeStayDetection_S &stInfo, bool bOutStruct);
+    /* 危险区域滞留相关 */
+    void deal(Json::Object *pRootJson, Alarm::DangerZoneStayRule_S &stInfo, bool bOutStruct);
+    void deal(Json::Object *pRootJson, Alarm::DangerZoneStayDetection_S &stInfo, bool bOutStruct);
+    /* 重点区域异常滞留相关 */
+    void deal(Json::Object *pRootJson, Alarm::KeyAreaAbnormalStayRule_S &stInfo, bool bOutStruct);
+    void deal(Json::Object *pRootJson, Alarm::KeyAreaAbnormalStayDetection_S &stInfo, bool bOutStruct);
+    /* 天台滞留相关 */
+    void deal(Json::Object *pRootJson, Alarm::RooftopStayRule_S &stInfo, bool bOutStruct);
+    void deal(Json::Object *pRootJson, Alarm::RooftopStayDetection_S &stInfo, bool bOutStruct);
+#endif
+
 }; // namespace Convert

@@ -142,7 +142,7 @@ void CPeopleHeadCrowdGatheringProcessor::process(SPeopleHeadProcessContext &stCo
 
             ++nPeopleInRegion;
             add_result_to_vector(stBoxData, stContext.vstRectInfo);
-            if (!access("testPrint", F_OK))
+            if (!access("/opt/cam/bin/testPrint", F_OK))
             {
                 dlog_debug("人员聚集侦测-区域[%zu]: 检测到人头: 置信度=%.2f, 位置=(%d,%d,%d,%d)",
                            nRuleIndex,

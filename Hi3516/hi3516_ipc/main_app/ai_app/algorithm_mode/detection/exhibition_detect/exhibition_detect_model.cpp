@@ -44,26 +44,27 @@ const DetectionModelDescriptor_S CExhibitionDetectModel::ms_stDescriptor = {
 CExhibitionDetectModel::CExhibitionDetectModel()
 {
     /* 组装新链路：输出执行器 + 帧图片 Provider + 共享人流统计处理器（所有权归 Dispatcher） */
-    m_pOutputExecutor = std::make_unique<HVFDetectInternal::CHVFPeopleFlowOutputExecutor>();
+    m_pOutputExecutor = std::unique_ptr<HVFDetectInternal::CHVFPeopleFlowOutputExecutor>(new HVFDetectInternal::CHVFPeopleFlowOutputExecutor());
     m_pOutputExecutor->set_image_provider(&m_imageProvider);
 
-    auto pProcessor = std::make_unique<AiPipeline_NS::PeopleFlow_NS::CPeopleFlowProcessor>();
+    std::unique_ptr<AiPipeline_NS::PeopleFlow_NS::CPeopleFlowProcessor> pProcessor(new AiPipeline_NS::PeopleFlow_NS::CPeopleFlowProcessor());
     m_pPeopleFlowProcessor = pProcessor.get();
     m_dispatcher.register_processor(std::move(pProcessor));
 
 #if CAP_AI_PEOPLE_DENSITY_PIPELINE
     /* 人员密度：共享密度处理器（所有权归 Dispatcher）+ 密度输出执行器（共用帧图片 Provider） */
-    auto pDensityProcessor = std::make_unique<AiPipeline_NS::PeopleDensity_NS::CPeopleDensityProcessor>();
+    std::unique_ptr<AiPipeline_NS::PeopleDensity_NS::CPeopleDensityProcessor> pDensityProcessor(
+        new AiPipeline_NS::PeopleDensity_NS::CPeopleDensityProcessor());
     m_pDensityProcessor = pDensityProcessor.get();
     m_dispatcher.register_processor(std::move(pDensityProcessor));
 
-    m_pDensityExecutor = std::make_unique<CExhibitionDensityOutputExecutor>();
+    m_pDensityExecutor = std::unique_ptr<CExhibitionDensityOutputExecutor>(new CExhibitionDensityOutputExecutor());
     m_pDensityExecutor->set_image_provider(&m_imageProvider);
 #endif
 
     /* 推理引擎：展馆模型用 YOLO；海思 HiAiDetect 引擎（CHiAiDetectInferenceEngine）
      * 预留，迁移时切换 */
-    m_pInferenceEngine = std::make_unique<CYoloInferenceEngine>();
+    m_pInferenceEngine = std::unique_ptr<CYoloInferenceEngine>(new CYoloInferenceEngine());
 }
 
 CExhibitionDetectModel::~CExhibitionDetectModel()

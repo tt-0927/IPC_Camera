@@ -7,6 +7,9 @@
  * @Description  : 录制通讯服务端
  */
 
+/* 本地 SD 存储能力裁剪：能力关闭（IPC_CAP_LOCAL_STORAGE=0）时本文件整体不参与编译 */
+#if CAP_LOCAL_STORAGE
+
 #include "record_server.h"
 #include "dlog.h"
 #include "action_code.h"
@@ -142,3 +145,5 @@ void CRecordServer::set_statusObserver(Common::StatusCallback observer)
 {
     m_statusObserver = observer;
 }
+
+#endif /* CAP_LOCAL_STORAGE */

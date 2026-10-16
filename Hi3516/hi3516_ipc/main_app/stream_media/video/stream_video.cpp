@@ -183,7 +183,8 @@ IpcRet_E CStreamVideo::init()
 
     /*初始化VENC*/
     const auto &roiConfigs = m_configManager.getVideoRoiConfigs();
-    for (int i = 0; i < VENC_CHN_MAX; i++)
+    /* 只初始化常驻绑定通道（MAIN/SUB/JPEG），JPEG_USER 由编码服务按需懒初始化 */
+    for (int i = 0; i < VENC_CHN_PERSISTENT_CNT; i++)
     {
         if (i != VENC_CHN_JPEG)
         {
@@ -1233,6 +1234,10 @@ void CStreamVideo::get_vpssStream()
         while (true == m_bVpssFlag[nChannel].load(std::memory_order_acquire))
         {
             memset(&stFrameInfo, 0, sizeof(ot_video_frame_info));
+            /* AI 帧节拍打点（毫秒）：与 [人脸检测] 推理打点同开关，用于定位有效检测间隔 */
+            const long long llLoopStartMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+                                                std::chrono::steady_clock::now().time_since_epoch())
+                                                .count();
             /*获取编码码流*/
             nRet = pHandle->mppVpss_get_chnFrame(pHandle, VPSS_CHANNEL_AI, &stFrameInfo, -1);
             if (nRet != OK)
@@ -1240,6 +1245,9 @@ void CStreamVideo::get_vpssStream()
                 dlog_info("vpss %d error %x", nChannel, nRet);
                 continue;
             }
+            const long long llGotMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+                                          std::chrono::steady_clock::now().time_since_epoch())
+                                          .count();
 
             /* lock: AI帧分发路径内部均为线程安全队列，无需全局串行化 */
             // dlog_info("vpss %d ret %x", nChannel, nRet);
@@ -1269,6 +1277,15 @@ void CStreamVideo::get_vpssStream()
             }
             /*释放码流缓存*/
             pHandle->mppVpss_release_chnFrame(pHandle, VPSS_CHANNEL_AI, &stFrameInfo);
+
+            /* AI 帧节拍打点：等待=通道出帧间隔（VPSS 帧率控制 dst=3fps 应约 333ms），处理=取帧后到释放的分发耗时 */
+            const long long llLoopEndMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+                                              std::chrono::steady_clock::now().time_since_epoch())
+                                              .count();
+            if (!access("/opt/cam/bin/testPrint", F_OK))
+            {
+                dlog_info("[AI取帧] ts=%lldms 等待=%lldms 处理=%lldms", llGotMs, llGotMs - llLoopStartMs, llLoopEndMs - llGotMs);
+            }
 
             /* 主动放弃CPU */
             usleep(1000);

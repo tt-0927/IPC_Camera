@@ -19,7 +19,10 @@
 #include "face_detect_context.hpp"
 #include "face_detect_worker.hpp"
 #include "face_capture_processor.hpp"
-#include "./face_detect_worker/face_detect_worker.hpp"
+/* 此处原有一条与上重复的 "./face_detect_worker/face_detect_worker.hpp"：
+ * ./ 前缀引号包含固定按包含者目录解析，永远命中 Legacy 头文件，会使统一
+ * 检测层的同名头接管（detection.cmake BEFORE 路径）在同一编译单元内
+ * 类重定义；两条 include 在 Legacy 下本就包含同一文件，删除无语义变化。 */
 
 
 enum FaceLibAddErrorCode

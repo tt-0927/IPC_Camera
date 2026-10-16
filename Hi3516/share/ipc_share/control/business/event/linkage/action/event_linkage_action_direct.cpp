@@ -21,13 +21,16 @@
 #include <thread>
 #endif
 
+#if CAP_LOCAL_STORAGE
+/* 本地 SD 存储链路：抓图/录制/事件检索，能力关闭时整体退出编译 */
 #include "capture_ctrl.h"
 #include "capture_database.h"
 #include "event_database_manage.h"
+#include "record_ctrl.h"
+#endif
 #include "av_configure.h"
 #include "event_linkage_dict.h"
 #include "log_handler.h"
-#include "record_ctrl.h"
 #include "SipModule.h"
 
 #if CAP_GARBAGE_STATION_PLATFORM
@@ -289,6 +292,7 @@ void publish_event_image_upload_result(const ResolvedLinkagePlan_S &stPlan,
  * @return   {bool} true：找到图片 false：未找到
  * @note    : 用于人脸抓拍等由 AI 算法层自行保存图片、不走通用抓图系统的事件
  */
+#if CAP_LOCAL_STORAGE
 static bool query_latest_capture_image(Event::Type_E enEventType, std::string &strImagePath)
 {
     /* Element 是 std::pair<string, variant<int, string>>，用构造函数初始化 */
@@ -304,6 +308,7 @@ static bool query_latest_capture_image(Event::Type_E enEventType, std::string &s
     strImagePath = vecInfos.back().strImagePath;
     return !strImagePath.empty();
 }
+#endif
 
 static bool get_context_capture_image_path(const EventTriggerContext_S &stContext, std::string &strImagePath)
 {
@@ -352,6 +357,7 @@ void upload_event_image_async(ResolvedLinkagePlan_S stPlan, std::string strAlarm
      */
     else if (stPlan.stContext.enEventType == Event::Type_E::FACE_CAPTURE)
     {
+#if CAP_LOCAL_STORAGE
         const auto start = std::chrono::steady_clock::now();
         while (true)
         {
@@ -374,6 +380,12 @@ void upload_event_image_async(ResolvedLinkagePlan_S stPlan, std::string strAlarm
 
             std::this_thread::sleep_for(std::chrono::milliseconds(EVENT_IMAGE_WAIT_INTERVAL_MS));
         }
+#else
+        /* 本地存储已裁剪：抓图数据库不参与编译，直接快速失败（等同无卡设备查不到图） */
+        CPlatformManager::EventImageUploadResponse stResponse;
+        publish_event_image_upload_result(stPlan, strAlarmRequestId, stResponse, false, "local storage disabled");
+        return;
+#endif
     }
     else if (is_face_compare_event(stPlan.stContext.enEventType))
     {
@@ -384,6 +396,7 @@ void upload_event_image_async(ResolvedLinkagePlan_S stPlan, std::string strAlarm
     }
     else
     {
+#if CAP_LOCAL_STORAGE
         /* 通用事件：轮询等待通用抓图系统完成首张图片 */
         const auto start = std::chrono::steady_clock::now();
         while (true)
@@ -407,6 +420,13 @@ void upload_event_image_async(ResolvedLinkagePlan_S stPlan, std::string strAlarm
 
             std::this_thread::sleep_for(std::chrono::milliseconds(EVENT_IMAGE_WAIT_INTERVAL_MS));
         }
+#else
+        /* 本地存储已裁剪：通用抓图系统不在，不再等待落盘，直接快速失败 */
+        CPlatformManager::EventImageUploadResponse stResponse;
+        publish_event_image_upload_result(stPlan, strAlarmRequestId, stResponse, false, "local storage disabled");
+        dlog_warn("本地存储已裁剪，事件抓图上传快速失败: eventType[%d]", static_cast<int>(stPlan.stContext.enEventType));
+        return;
+#endif
     }
 
     /*
@@ -437,6 +457,7 @@ void upload_event_image_async(ResolvedLinkagePlan_S stPlan, std::string strAlarm
 
 int EventLinkageDirectAction::deal_record(const ResolvedLinkagePlan_S &stPlan, const Event::EventState_S &stEventState)
 {
+#if CAP_LOCAL_STORAGE
     // 检查当前视频编码格式是否支持录制
     std::set<Video_NS::VideoConfig_S> stVideoConfigSet;
     if (CAVConfigure::instance()->get_configure(stVideoConfigSet) == OK)
@@ -472,13 +493,25 @@ int EventLinkageDirectAction::deal_record(const ResolvedLinkagePlan_S &stPlan, c
     }
 
     return OK;
+#else
+    (void) stPlan;
+    (void) stEventState;
+    /* 本地存储已裁剪：无录像系统，联动录制快速失败（与无卡现状一致，无录像文件） */
+    return OK;
+#endif
 }
 
 int EventLinkageDirectAction::deal_capture_image(const ResolvedLinkagePlan_S &stPlan)
 {
+#if CAP_LOCAL_STORAGE
     dlog_info("抓图联动");
     CCaptureCtrl::instance()->set_event_capture(stPlan.stContext.bEventEnded, stPlan.stEventInfo);
     return OK;
+#else
+    (void) stPlan;
+    /* 本地存储已裁剪：无抓图落盘系统，联动抓图快速失败（与无卡现状一致，无图可传） */
+    return OK;
+#endif
 }
 
 int EventLinkageDirectAction::deal_upload(const ResolvedLinkagePlan_S &stPlan)
@@ -600,6 +633,7 @@ int EventLinkageDirectAction::write_log(const Event::Info_S &stEventInfo, bool b
     return OK;
 }
 
+#if CAP_LOCAL_STORAGE
 int EventLinkageDirectAction::create_event_video(const Event::EventState_S &stEventState)
 {
     Event::Info_S stEventInfo = stEventState.stEventInfo;
@@ -651,3 +685,4 @@ int EventLinkageDirectAction::create_event_video(const Event::EventState_S &stEv
 
     return OK;
 }
+#endif /* CAP_LOCAL_STORAGE */

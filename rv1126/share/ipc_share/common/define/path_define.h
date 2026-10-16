@@ -165,6 +165,8 @@
 #define EVENT_LOITERING_DETECTION_CONFIG_FILE           USER_DATA_PATH "event_loitering_detection.json"
 /* 人员聚集侦测 */
 #define EVENT_CROWD_GATHERING_DETECTION_CONFIG_FILE     USER_DATA_PATH "event_crowd_gathering_detection.json"
+/* 排队拥挤侦测 */
+#define EVENT_QUEUE_CROWDING_DETECTION_CONFIG_FILE      USER_DATA_PATH "event_queue_crowding_detection.json"
 /* 停车侦测 */
 #define EVENT_PARKING_DETECTION_CONFIG_FILE             USER_DATA_PATH "event_parking_detection.json"
 /* 物品遗留侦测 */
@@ -266,6 +268,20 @@
 #define EVENT_EMERGENCY_LANE_OCCUPANCY_INFO_FILE  USER_DATA_PATH "event_emergency_lane_occupancy_info.json"
 /* 非机动车闯入识别检测 */
 #define EVENT_NON_MOTOR_VEHICLE_INTRUSION_INFO_FILE  USER_DATA_PATH "event_nonmotor_vehicle_intrusion_info.json"
+/* 通道占用检测 */
+#define EVENT_CHANNEL_OCCUPATION_INFO_FILE           USER_DATA_PATH "event_channel_occupation_info.json"
+/* 攀爬识别检测 */
+#define EVENT_CLIMB_DETECTION_INFO_FILE              USER_DATA_PATH "event_climb_detection_info.json"
+/* 危险区域靠近检测 */
+#define EVENT_DANGER_ZONE_APPROACH_INFO_FILE         USER_DATA_PATH "event_danger_zone_approach_info.json"
+/* 长时间滞留 */
+#define EVENT_LONG_TIME_STAY_INFO_FILE               USER_DATA_PATH "event_long_time_stay_info.json"
+/* 危险区域滞留 */
+#define EVENT_DANGER_ZONE_STAY_INFO_FILE             USER_DATA_PATH "event_danger_zone_stay_info.json"
+/* 重点区域异常滞留 */
+#define EVENT_KEY_AREA_ABNORMAL_STAY_INFO_FILE       USER_DATA_PATH "event_key_area_abnormal_stay_info.json"
+/* 天台滞留 */
+#define EVENT_ROOFTOP_STAY_INFO_FILE                 USER_DATA_PATH "event_rooftop_stay_info.json"
 
 /* 人流统计 */
 #define EVENT_PEOPLE_FLOW_STATISTICS_CONFIG_FILE        USER_DATA_PATH "event_people_flow_statistics.json"

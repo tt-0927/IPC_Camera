@@ -62,6 +62,7 @@ public:
      */
     void get_event(Event::Info_S &stEvent);
 
+#if CAP_AUDIO_OUTPUT
     /**
      * @brief   : 直接播放音频
      * @param    {std::string} strAudioPath 音频路径
@@ -76,7 +77,7 @@ public:
      * @return  {bool} true：投递成功 false：联动未初始化
      */
     bool play_audio_async();
-    
+
     int get_audio_file_path(std::string &strAudioPath, int &nTimes);
 
     /**
@@ -84,6 +85,7 @@ public:
      * @return   {bool} true：已停止或原本未播放 false：worker 未初始化
      */
     bool stop_play_audio();
+#endif
 
     /**
      * @brief   : 抢占正在播放的告警语音，供新触发的声光联动使用

@@ -10,6 +10,14 @@
 #include "algo_stream_deal.h"
 
 #include "algo_statistics_event_publisher.hpp"
+#if CAP_UNIFIED_DETECTION
+/* 名单库入库服务（统一检测层画像的入库实现，头文件路径由 detection.cmake 提供） */
+#include "library/face_library_service.hpp"
+#endif
+#if CAP_UNIFIED_DETECTION
+/* 人脸出图 JPEG 硬编码服务：全关时释放通道（约4MB MMZ），下次出图自动重建 */
+#include "jpeg_encode_service.hpp"
+#endif
 #if CAP_AI_GARBAGE_DETECT
 #include "capture_ctrl.h"
 #include "time_utils.h"
@@ -41,6 +49,8 @@ void CAlgoStreamDeal::deinit()
 
     /* 统一存储需要释放的句柄 */
     std::vector<std::shared_ptr<CAlgorithm>> algos;
+    algos.emplace_back(std::move(m_pDetectionEngine));
+    algos.emplace_back(std::move(m_pFaceEngine));
     algos.emplace_back(std::move(m_pMotionAlgo));
     algos.emplace_back(std::move(m_pHideAlgo));
     algos.emplace_back(std::move(m_pAudioAlgo));
@@ -126,36 +136,47 @@ void CAlgoStreamDeal::bindRecvFunc(Event::AlgorithmConfig &stAlgoConfig)
     }
 
     /* 视频 配置项和算法对象的映射 */
-    std::vector<std::pair<bool, std::shared_ptr<CAlgorithm>>> videoAlgoBindings =
-    {
-        {stAlgoConfig.nEnMotionDetect, m_pMotionAlgo},
-        {stAlgoConfig.nEnOcclusionDetect, m_pHideAlgo},
-        {stAlgoConfig.nEnSceneChange, m_pSceneChangeAlgo},
-        {stAlgoConfig.nEnFaceDetect || stAlgoConfig.nEnLoiteringDetect || stAlgoConfig.nEnParkingDetect || stAlgoConfig.nEnLineCrossing||stAlgoConfig.nEnIntrusion || stAlgoConfig.nEnEnterRegion || stAlgoConfig.nEnLeaveRegion
+    std::vector<std::pair<bool, std::shared_ptr<CAlgorithm>>> videoAlgoBindings = {
+#if CAP_UNIFIED_DETECTION
+        /* 统一检测引擎（MD/OD 模型）：开关与 manageAlgorithmInstances 中保持一致（已注册模型的开关之或） */
+        {                       stAlgoConfig.nEnMotionDetect || stAlgoConfig.nEnOcclusionDetect,m_pDetectionEngine                                                                                                },
+#else
+        { stAlgoConfig.nEnMotionDetect, m_pMotionAlgo },
+        { stAlgoConfig.nEnOcclusionDetect, m_pHideAlgo },
+#endif
+        {                                                           stAlgoConfig.nEnSceneChange, m_pSceneChangeAlgo },
+        {                                                                                 stAlgoConfig.nEnFaceDetect || stAlgoConfig.nEnLoiteringDetect || stAlgoConfig.nEnParkingDetect || stAlgoConfig.nEnLineCrossing ||
+                                                                                 stAlgoConfig.nEnIntrusion || stAlgoConfig.nEnEnterRegion || stAlgoConfig.nEnLeaveRegion
 #if CAP_AI_PEOPLE_STATISTICS
-         || stAlgoConfig.nEnPeopleFlowStatistics
+                                                                                 || stAlgoConfig.nEnPeopleFlowStatistics
 #endif
 #if CAP_AI_PEOPLE_DENSITY_V2
-         || stAlgoConfig.nEnPeopleDensityDetection
+                                                                                 || stAlgoConfig.nEnPeopleDensityDetection
 #endif
-         , m_pHVFAlgo},
-        {stAlgoConfig.nEnCrowdGathering
+          ,
+         m_pHVFAlgo                                                                                                },
+        {                                                                                 stAlgoConfig.nEnCrowdGathering
 #if CAP_AI_PEOPLE_DENSITY_LEGACY
-         || stAlgoConfig.nEnPeopleDensityDetection
+                                                                                 || stAlgoConfig.nEnPeopleDensityDetection
 #endif
-         , m_pPeopleHeadAlgo},
-        {stAlgoConfig.nEnUnattendedObject || stAlgoConfig.nEnObjectRemoval, m_pItemAlgo},
-        {stAlgoConfig.nEnPetRecognition, m_pPetAlgo},
-        {stAlgoConfig.nEnFaceCapture || stAlgoConfig.nEnFaceLib ||stAlgoConfig.nEnFaceCompare, m_pFaceAlgo},
+          ,
+         m_pPeopleHeadAlgo                                                                                         },
+        {                     stAlgoConfig.nEnUnattendedObject || stAlgoConfig.nEnObjectRemoval,        m_pItemAlgo },
+        {                                                        stAlgoConfig.nEnPetRecognition,         m_pPetAlgo },
+#if CAP_UNIFIED_DETECTION
+        { stAlgoConfig.nEnFaceCapture || stAlgoConfig.nEnFaceLib || stAlgoConfig.nEnFaceCompare,      m_pFaceEngine },
+#else
+        { stAlgoConfig.nEnFaceCapture || stAlgoConfig.nEnFaceLib || stAlgoConfig.nEnFaceCompare, m_pFaceAlgo },
+#endif
 #if CAP_AI_GARBAGE_DETECT
-        {stAlgoConfig.nEnGarbageExposure || stAlgoConfig.nEnGarbageOverflow, m_pGarbageAlgo},
+        {                    stAlgoConfig.nEnGarbageExposure || stAlgoConfig.nEnGarbageOverflow,     m_pGarbageAlgo },
 #endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
-        {stAlgoConfig.nEnSmokeFire, m_pSmokeFireAlgo},
+        {                                                             stAlgoConfig.nEnSmokeFire,   m_pSmokeFireAlgo },
 #endif
     };
 
-    for (const auto& videoBinding : videoAlgoBindings)
+    for (const auto &videoBinding : videoAlgoBindings)
     {
         if (videoBinding.first && videoBinding.second)
         {
@@ -165,12 +186,11 @@ void CAlgoStreamDeal::bindRecvFunc(Event::AlgorithmConfig &stAlgoConfig)
     }
 
     /* 音频 配置项和算法对象的映射 */
-    std::vector<std::pair<bool, std::shared_ptr<CAlgorithm>>> audioAlgoBindings =
-    {
-        {stAlgoConfig.nEnAudioAnomaly, m_pAudioAlgo},
+    std::vector<std::pair<bool, std::shared_ptr<CAlgorithm>>> audioAlgoBindings = {
+        { stAlgoConfig.nEnAudioAnomaly, m_pAudioAlgo },
     };
 
-    for (const auto& audioBinding : audioAlgoBindings)
+    for (const auto &audioBinding : audioAlgoBindings)
     {
         if (audioBinding.first && audioBinding.second)
         {
@@ -180,41 +200,68 @@ void CAlgoStreamDeal::bindRecvFunc(Event::AlgorithmConfig &stAlgoConfig)
     }
 }
 
-void CAlgoStreamDeal::manageAlgorithmInstances(const Event::AlgorithmConfig& stAlgoConfig)
+void CAlgoStreamDeal::manageAlgorithmInstances(const Event::AlgorithmConfig &stAlgoConfig)
 {
     int bIsNew = 0;
 
-    /* 移动侦测算法 */
-    bIsNew += manageSingleAlgorithm(m_pMotionAlgo, stAlgoConfig.nEnMotionDetect,
+#if CAP_UNIFIED_DETECTION
+    /*
+     * 统一检测引擎：承载 MD/OD 模型，替代 Legacy 单类实现。
+     * 引擎开关 = 已注册模型的开关之或（未注册模型的开关不参与，避免空引擎收帧）；
+     * register_model 必须在 start 前完成，manageSingleAlgorithm 无二次钩子，creator 内一并完成。
+     */
+    const bool bUnifiedEngineEnabled = stAlgoConfig.nEnMotionDetect || stAlgoConfig.nEnOcclusionDetect;
+    bIsNew += manageSingleAlgorithm(m_pDetectionEngine,
+                                    bUnifiedEngineEnabled,
+                                    []() -> std::shared_ptr<CAlgorithm>
+                                    {
+                                        auto pEngine = std::make_shared<CUnifiedDetectionEngine>();
+                                        pEngine->register_model(std::unique_ptr<CMotionDetectModel>(new CMotionDetectModel()));
+                                        pEngine->register_model(std::unique_ptr<CHideDetectModel>(new CHideDetectModel()));
+                                        pEngine->start();
+                                        return std::static_pointer_cast<CAlgorithm>(pEngine);
+                                    });
+#endif
+#if !CAP_UNIFIED_DETECTION
+    /* 移动侦测算法（Legacy 路径，统一检测宏启用时编译剔除防双跑） */
+    bIsNew += manageSingleAlgorithm(m_pMotionAlgo,
+                                    stAlgoConfig.nEnMotionDetect,
                                     []() -> std::shared_ptr<CAlgorithm>
                                     {
                                         return std::static_pointer_cast<CAlgorithm>(std::make_shared<CMotionDetect>());
                                     });
-    /* 遮挡侦测算法 */
-    bIsNew += manageSingleAlgorithm(m_pHideAlgo, stAlgoConfig.nEnOcclusionDetect,
+    /* 遮挡侦测算法（Legacy 路径，统一检测宏启用时编译剔除防双跑） */
+    bIsNew += manageSingleAlgorithm(m_pHideAlgo,
+                                    stAlgoConfig.nEnOcclusionDetect,
                                     []()
                                     {
                                         return std::static_pointer_cast<CAlgorithm>(std::make_shared<CHideDetect>());
                                     });
+#endif
     /* 音频异常侦测算法 */
-    bIsNew += manageSingleAlgorithm(m_pAudioAlgo, stAlgoConfig.nEnAudioAnomaly,
+    bIsNew += manageSingleAlgorithm(m_pAudioAlgo,
+                                    stAlgoConfig.nEnAudioAnomaly,
                                     []()
                                     {
                                         return std::static_pointer_cast<CAlgorithm>(std::make_shared<CAudioDetect>());
                                     });
     /* 场景变更侦测算法 */
-    bIsNew += manageSingleAlgorithm(m_pSceneChangeAlgo, stAlgoConfig.nEnSceneChange,
+    bIsNew += manageSingleAlgorithm(m_pSceneChangeAlgo,
+                                    stAlgoConfig.nEnSceneChange,
                                     []()
                                     {
                                         return std::static_pointer_cast<CAlgorithm>(std::make_shared<CSceneChangeDetect>());
                                     });
     /* 脸人车侦测算法 */
-    bIsNew += manageSingleAlgorithm(m_pHVFAlgo, stAlgoConfig.nEnFaceDetect || stAlgoConfig.nEnLoiteringDetect || stAlgoConfig.nEnParkingDetect ||stAlgoConfig.nEnLineCrossing || stAlgoConfig.nEnIntrusion || stAlgoConfig.nEnEnterRegion || stAlgoConfig.nEnLeaveRegion
+    bIsNew += manageSingleAlgorithm(m_pHVFAlgo,
+                                    stAlgoConfig.nEnFaceDetect || stAlgoConfig.nEnLoiteringDetect || stAlgoConfig.nEnParkingDetect ||
+                                        stAlgoConfig.nEnLineCrossing || stAlgoConfig.nEnIntrusion || stAlgoConfig.nEnEnterRegion ||
+                                        stAlgoConfig.nEnLeaveRegion
 #if CAP_AI_PEOPLE_STATISTICS
-                                    || stAlgoConfig.nEnPeopleFlowStatistics
+                                        || stAlgoConfig.nEnPeopleFlowStatistics
 #endif
 #if CAP_AI_PEOPLE_DENSITY_V2
-                                    || stAlgoConfig.nEnPeopleDensityDetection
+                                        || stAlgoConfig.nEnPeopleDensityDetection
 #endif
                                     ,
                                     []() -> std::shared_ptr<CAlgorithm>
@@ -222,9 +269,10 @@ void CAlgoStreamDeal::manageAlgorithmInstances(const Event::AlgorithmConfig& stA
                                         return std::static_pointer_cast<CAlgorithm>(std::make_shared<CHVFDetect>());
                                     });
     /* 人头检测算法 */
-    bIsNew += manageSingleAlgorithm(m_pPeopleHeadAlgo, stAlgoConfig.nEnCrowdGathering
+    bIsNew += manageSingleAlgorithm(m_pPeopleHeadAlgo,
+                                    stAlgoConfig.nEnCrowdGathering
 #if CAP_AI_PEOPLE_DENSITY_LEGACY
-                                    || stAlgoConfig.nEnPeopleDensityDetection
+                                        || stAlgoConfig.nEnPeopleDensityDetection
 #endif
                                     ,
                                     []() -> std::shared_ptr<CAlgorithm>
@@ -232,33 +280,57 @@ void CAlgoStreamDeal::manageAlgorithmInstances(const Event::AlgorithmConfig& stA
                                         return std::static_pointer_cast<CAlgorithm>(std::make_shared<CPeopleHeadDetect>());
                                     });
     /* 物品侦测算法 */
-    bIsNew += manageSingleAlgorithm(m_pItemAlgo, stAlgoConfig.nEnUnattendedObject || stAlgoConfig.nEnObjectRemoval,
+    bIsNew += manageSingleAlgorithm(m_pItemAlgo,
+                                    stAlgoConfig.nEnUnattendedObject || stAlgoConfig.nEnObjectRemoval,
                                     []() -> std::shared_ptr<CAlgorithm>
                                     {
                                         return std::static_pointer_cast<CAlgorithm>(std::make_shared<CItemDetect>());
                                     });
     /* 宠物识别算法 */
-    bIsNew += manageSingleAlgorithm(m_pPetAlgo, stAlgoConfig.nEnPetRecognition,
+    bIsNew += manageSingleAlgorithm(m_pPetAlgo,
+                                    stAlgoConfig.nEnPetRecognition,
                                     []() -> std::shared_ptr<CAlgorithm>
                                     {
                                         return std::static_pointer_cast<CAlgorithm>(std::make_shared<CPetRecognition>());
                                     });
-    /* 人脸检测算法 */
-    bIsNew += manageSingleAlgorithm(m_pFaceAlgo, stAlgoConfig.nEnFaceCapture ||stAlgoConfig.nEnFaceLib ||stAlgoConfig.nEnFaceCompare,
+#if CAP_UNIFIED_DETECTION
+    /*
+     * 人脸统一检测引擎：独立实例承载（YOLO/ArcFace 推理耗时长，不与 MD/OD 共享 Worker）。
+     * 名单库入库仍走 Legacy 临时实例路径（add_Facelib_Groups），不经此引擎。
+     * 存活条件不含 nEnFaceLib：名单库开关（下发字段 EnFaceFea）建库后常开，计入会让
+     * "关闭抓拍和比对"后引擎仍存活、双模型常驻不卸载（约15兆NPU内存不释放）。
+     * 名单库自身不需要常驻引擎：入库用临时 worker，比对由 nEnFaceCompare 单独承载。
+     */
+    bIsNew += manageSingleAlgorithm(m_pFaceEngine,
+                                    stAlgoConfig.nEnFaceCapture || stAlgoConfig.nEnFaceCompare,
+                                    []() -> std::shared_ptr<CAlgorithm>
+                                    {
+                                        auto pEngine = std::make_shared<CUnifiedDetectionEngine>();
+                                        pEngine->register_model(std::unique_ptr<CFaceDetectModel>(new CFaceDetectModel()));
+                                        pEngine->start();
+                                        return std::static_pointer_cast<CAlgorithm>(pEngine);
+                                    });
+#else
+    /* 人脸检测算法（Legacy 路径，统一检测宏启用时编译剔除防双跑；名单库入库临时实例不受此开关影响） */
+    bIsNew += manageSingleAlgorithm(m_pFaceAlgo,
+                                    stAlgoConfig.nEnFaceCapture || stAlgoConfig.nEnFaceLib || stAlgoConfig.nEnFaceCompare,
                                     []() -> std::shared_ptr<CAlgorithm>
                                     {
                                         return std::static_pointer_cast<CAlgorithm>(std::make_shared<CFaceDetect>());
                                     });
+#endif
 #if CAP_AI_GARBAGE_DETECT
     /* 垃圾检测算法 */
-    bIsNew += manageSingleAlgorithm(m_pGarbageAlgo, stAlgoConfig.nEnGarbageExposure || stAlgoConfig.nEnGarbageOverflow,
+    bIsNew += manageSingleAlgorithm(m_pGarbageAlgo,
+                                    stAlgoConfig.nEnGarbageExposure || stAlgoConfig.nEnGarbageOverflow,
                                     []() -> std::shared_ptr<CAlgorithm>
                                     {
                                         return std::static_pointer_cast<CAlgorithm>(std::make_shared<CGarbageDetect>());
                                     });
 #endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
-    bIsNew += manageSingleAlgorithm(m_pSmokeFireAlgo, stAlgoConfig.nEnSmokeFire,
+    bIsNew += manageSingleAlgorithm(m_pSmokeFireAlgo,
+                                    stAlgoConfig.nEnSmokeFire,
                                     []() -> std::shared_ptr<CAlgorithm>
                                     {
                                         return std::make_shared<CSmokeFireDetect>();
@@ -271,7 +343,9 @@ void CAlgoStreamDeal::manageAlgorithmInstances(const Event::AlgorithmConfig& stA
     }
 }
 
-bool CAlgoStreamDeal::manageSingleAlgorithm(std::shared_ptr<CAlgorithm> &algo, bool bEnabled, std::function<std::shared_ptr<CAlgorithm>()> creator)
+bool CAlgoStreamDeal::manageSingleAlgorithm(std::shared_ptr<CAlgorithm> &algo,
+                                            bool bEnabled,
+                                            std::function<std::shared_ptr<CAlgorithm>()> creator)
 {
     if (bEnabled)
     {
@@ -318,8 +392,7 @@ void CAlgoStreamDeal::applyAlgorithmConfig(Event::AlgorithmConfig &stAlgoConfig)
     Event::AlgorithmConfig effectiveConfig = stAlgoConfig;
 #if CAP_AI_SMOKE_FIRE_DETECT && CAP_AI_GARBAGE_DETECT
     /* 兼容升级前已保存的冲突状态：运行时以垃圾识别为优先。 */
-    if (effectiveConfig.nEnSmokeFire &&
-        (effectiveConfig.nEnGarbageExposure || effectiveConfig.nEnGarbageOverflow))
+    if (effectiveConfig.nEnSmokeFire && (effectiveConfig.nEnGarbageExposure || effectiveConfig.nEnGarbageOverflow))
     {
         dlog_error("AI_APP: 烟火识别与垃圾识别同时启用，暂停烟火识别");
         effectiveConfig.nEnSmokeFire = 0;
@@ -335,25 +408,48 @@ void CAlgoStreamDeal::applyAlgorithmConfig(Event::AlgorithmConfig &stAlgoConfig)
     /* 根据配置管理算法实例 */
 #if CAP_AI_SMOKE_FIRE_DETECT && CAP_AI_GARBAGE_DETECT
     /* 从烟火切换到垃圾时，先等待烟火线程退出并释放模型。 */
-    if ((effectiveConfig.nEnGarbageExposure || effectiveConfig.nEnGarbageOverflow) &&
-        m_pSmokeFireAlgo)
+    if ((effectiveConfig.nEnGarbageExposure || effectiveConfig.nEnGarbageOverflow) && m_pSmokeFireAlgo)
     {
         m_pSmokeFireAlgo.reset();
     }
 #endif
     manageAlgorithmInstances(effectiveConfig);
 
+#if CAP_UNIFIED_DETECTION
+    /*
+     * 人脸出图 JPEG 编码通道随人脸算法全关释放：通道码流池约 4MB 常驻 MMZ，
+     * 只在出图瞬间用到；任一抓拍/比对开启则保留（出图还要用，重建虽毫秒级
+     * 但无必要）。名单库不入条件：入库不出图，只开名单库时通道也释放。
+     */
+    if (!effectiveConfig.nEnFaceCapture && !effectiveConfig.nEnFaceCompare)
+    {
+        AiAppCommon::CJpegEncodeService::instance()->releaseChannel();
+    }
+#endif
+
     /* 重新绑定回调函数 */
     bindRecvFunc(effectiveConfig);
 
     /* 通知 Algorithm 更新参数 */
-    std::vector<std::shared_ptr<CAlgorithm>> algos = {
-        m_pMotionAlgo, m_pHideAlgo, m_pAudioAlgo, m_pSceneChangeAlgo, m_pHVFAlgo, m_pPeopleHeadAlgo, m_pItemAlgo, m_pPetAlgo, m_pFaceAlgo
+    std::vector<std::shared_ptr<CAlgorithm>> algos = { m_pDetectionEngine,
+                                                       m_pFaceEngine,
+                                                       m_pMotionAlgo,
+                                                       m_pHideAlgo,
+                                                       m_pAudioAlgo,
+                                                       m_pSceneChangeAlgo,
+                                                       m_pHVFAlgo,
+                                                       m_pPeopleHeadAlgo,
+                                                       m_pItemAlgo,
+                                                       m_pPetAlgo,
+                                                       m_pFaceEngine,
+                                                       m_pFaceAlgo
 #if CAP_AI_GARBAGE_DETECT
-        , m_pGarbageAlgo
+                                                       ,
+                                                       m_pGarbageAlgo
 #endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
-        , m_pSmokeFireAlgo
+                                                       ,
+                                                       m_pSmokeFireAlgo
 #endif
     };
 
@@ -423,13 +519,24 @@ int CAlgoStreamDeal::endFaceLibExclusive()
 #endif
 int CAlgoStreamDeal::dispatchRuntimeCommand(const RuntimeCommand_S &stCommand)
 {
-    std::vector<std::shared_ptr<CAlgorithm>> algos = {
-        m_pMotionAlgo, m_pHideAlgo, m_pAudioAlgo, m_pSceneChangeAlgo, m_pHVFAlgo, m_pPeopleHeadAlgo, m_pItemAlgo, m_pPetAlgo, m_pFaceAlgo
+    std::vector<std::shared_ptr<CAlgorithm>> algos = { m_pDetectionEngine,
+                                                       m_pMotionAlgo,
+                                                       m_pHideAlgo,
+                                                       m_pAudioAlgo,
+                                                       m_pSceneChangeAlgo,
+                                                       m_pHVFAlgo,
+                                                       m_pPeopleHeadAlgo,
+                                                       m_pItemAlgo,
+                                                       m_pPetAlgo,
+                                                       m_pFaceEngine,
+                                                       m_pFaceAlgo
 #if CAP_AI_GARBAGE_DETECT
-        , m_pGarbageAlgo
+                                                       ,
+                                                       m_pGarbageAlgo
 #endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
-        , m_pSmokeFireAlgo
+                                                       ,
+                                                       m_pSmokeFireAlgo
 #endif
     };
 
@@ -481,14 +588,20 @@ void CAlgoStreamDeal::runOnce()
     }
 
     s_bHasRun = true;
+#if !CAP_UNIFIED_DETECTION
+    /*
+     * Legacy 常驻人脸实例预热：统一检测宏启用时人脸由引擎承载
+     * （manageAlgorithmInstances 按开关创建），此处不再无条件创建，防双跑双模型驻留。
+     */
     if (!m_pFaceAlgo)
     {
 
         m_pFaceAlgo = std::static_pointer_cast<CAlgorithm>(std::make_shared<CFaceDetect>());
     }
-    else{
-
+    else
+    {
     }
+#endif
 }
 #if CAP_AI_FACE_COMPARE
 /**
@@ -497,31 +610,50 @@ void CAlgoStreamDeal::runOnce()
  */
 int CAlgoStreamDeal::add_Facelib_Groups(FaceDataDB_NS::FaceLibsInfo_S &stFaceLibData)
 {
-        // int nRet;
-        // /* 通知 Algorithm 人脸检测 */
+    // int nRet;
+    // /* 通知 Algorithm 人脸检测 */
 
-        // sleep(1);
-        // if (m_pFaceAlgo)
-        // {
-        //     nRet = m_pFaceAlgo.get()->addFaceLibGroup(stFaceLibData);
-        // }else {
-        // }
+    // sleep(1);
+    // if (m_pFaceAlgo)
+    // {
+    //     nRet = m_pFaceAlgo.get()->addFaceLibGroup(stFaceLibData);
+    // }else {
+    // }
 
-        std::lock_guard<std::mutex> faceLibAddLock(m_faceLibAddMutex);
-        int nRet = ERR;
-         /*
+    std::lock_guard<std::mutex> faceLibAddLock(m_faceLibAddMutex);
+    int nRet = ERR;
+    /*
      * 低内存设备添加名单库时独占AI资源。这里只改变实际运行状态，不修改
      * 用户保存的算法配置；入库结束后恢复独占期间收到的最新配置。
      */
-     const int nSuspendRet = beginFaceLibExclusive();
-     if (nSuspendRet != FACE_LIB_ADD_OK)
-     {
-         return nSuspendRet;
-     }
- 
-     /*
-      * 暂停常驻算法之后创建一次性人脸实例。CFaceDetect::addFaceLibGroup内部
-      * 使用YOLO/ArcFace低内存互斥模式，任务完成后先销毁临时实例再恢复算法。
+    const int nSuspendRet = beginFaceLibExclusive();
+    if (nSuspendRet != FACE_LIB_ADD_OK)
+    {
+        return nSuspendRet;
+    }
+
+#if CAP_UNIFIED_DETECTION
+    /*
+     * 统一检测层画像：改接名单库服务（library/face_library_service）。服务内部
+     * 自建临时轻量 Worker（YOLO/ArcFace 低内存互斥模式）完成单图建模，
+     * enrollFromImage 返回前即销毁临时模型，先于下方恢复常驻算法。
+     */
+    try
+    {
+        dlog_info("AI_APP: 名单库入库转入统一检测层名单库服务");
+        FaceChain_NS::CFaceLibraryService stFaceLibService;
+        nRet = stFaceLibService.enrollFromImage(stFaceLibData);
+    }
+    catch (...)
+    {
+        dlog_error("AI_APP: 名单库入库服务执行时发生异常，本次入库按失败处理");
+        nRet = ERR_FACE_ALGO_CREATE_FAILED;
+    }
+#else
+    /*
+     * Legacy 画像（检测层未编译，如 TL4G/TLW）：保留临时 CFaceDetect 实例路径。
+     * CFaceDetect::addFaceLibGroup 内部使用YOLO/ArcFace低内存互斥模式，任务
+     * 完成后先销毁临时实例再恢复算法。
      */
     std::shared_ptr<CAlgorithm> pFaceAlgo;
     try
@@ -538,17 +670,16 @@ int CAlgoStreamDeal::add_Facelib_Groups(FaceDataDB_NS::FaceLibsInfo_S &stFaceLib
             nRet = pFaceAlgo->addFaceLibGroup(stFaceLibData);
         }
     }
-    // if (!pFaceAlgo)
     catch (...)
-    { 
+    {
         dlog_error("AI_APP: 名单库临时人脸算法执行时发生异常");
         nRet = ERR_FACE_ALGO_CREATE_FAILED;
     }
 
-    // if (!pFaceAlgo)
     /* 必须先析构临时模型，再恢复其他算法，避免模型同时驻留。 */
     pFaceAlgo.reset();
-    dlog_info("AI_APP: 名单库临时人脸算法实例已释放，准备恢复原算法.");
+#endif
+    dlog_info("AI_APP: 名单库临时模型已释放，准备恢复原算法.");
     const int nRestoreRet = endFaceLibExclusive();
     if (nRet == FACE_LIB_ADD_OK && nRestoreRet != FACE_LIB_ADD_OK)
     {
@@ -558,8 +689,7 @@ int CAlgoStreamDeal::add_Facelib_Groups(FaceDataDB_NS::FaceLibsInfo_S &stFaceLib
     }
     else if (nRestoreRet != FACE_LIB_ADD_OK)
     {
-        dlog_error("AI_APP: 人脸添加失败且原算法恢复失败, addRet[%d] restoreRet[%d]",
-                   nRet, nRestoreRet);
+        dlog_error("AI_APP: 人脸添加失败且原算法恢复失败, addRet[%d] restoreRet[%d]", nRet, nRestoreRet);
     }
     // nRet = pFaceAlgo->addFaceLibGroup(stFaceLibData);
     return nRet;
@@ -568,16 +698,16 @@ int CAlgoStreamDeal::add_Facelib_Groups(FaceDataDB_NS::FaceLibsInfo_S &stFaceLib
  * @brief 人员检索人脸比对
  * @param strPicPath
  */
- void CAlgoStreamDeal::compare_Face_Retrieval(std::string strPicPath)
- {
+void CAlgoStreamDeal::compare_Face_Retrieval(std::string strPicPath)
+{
 
-     {
-         /* 通知 Algorithm 人脸比对 */
-         m_pFaceAlgo.get()->faceRetrieval(strPicPath);
-     }
+    {
+        /* 通知 Algorithm 人脸比对 */
+        m_pFaceAlgo.get()->faceRetrieval(strPicPath);
+    }
 
-     return;
- }
+    return;
+}
 #endif
 
 #if CAP_AI_GARBAGE_DETECT
@@ -619,7 +749,8 @@ void CAlgoStreamDeal::snapshot_garbage_detect(void *pData)
         }
         dlog_info("垃圾站抓图识别-AI层: 单帧检测成功，命中框[%d] 满溢[%d] 暴露[%d] JPEG[%d]字节",
                   static_cast<int>(stSnapshot.vstRectInfo.size()),
-                  stSnapshot.bGarbageOverflow ? 1 : 0, stSnapshot.bGarbageExposure ? 1 : 0,
+                  stSnapshot.bGarbageOverflow ? 1 : 0,
+                  stSnapshot.bGarbageExposure ? 1 : 0,
                   static_cast<int>(stSnapshot.vecJpeg.size()));
 
         /* 快照触发时刻即事件触发时间戳：图片命名、上报时间与响应字段统一使用该值。 */
@@ -653,9 +784,12 @@ void CAlgoStreamDeal::snapshot_garbage_detect(void *pData)
         /* 按命中的事件类型落盘，命名与入库与正常垃圾事件抓图一致。 */
         if (!stSnapshot.vecJpeg.empty())
         {
-            const int nSaveRet = CCaptureCtrl::instance()->save_event_image(
-                stSnapshot.vecJpeg.data(), static_cast<int>(stSnapshot.vecJpeg.size()), enEventType,
-                strDateCompact, strTimeCompactMs, strImagePath);
+            const int nSaveRet = CCaptureCtrl::instance()->save_event_image(stSnapshot.vecJpeg.data(),
+                                                                            static_cast<int>(stSnapshot.vecJpeg.size()),
+                                                                            enEventType,
+                                                                            strDateCompact,
+                                                                            strTimeCompactMs,
+                                                                            strImagePath);
             if (nSaveRet < 0)
             {
                 dlog_error("垃圾站抓图识别-AI层: 图片落盘失败，事件类型[%d]", static_cast<int>(enEventType));
@@ -663,7 +797,9 @@ void CAlgoStreamDeal::snapshot_garbage_detect(void *pData)
             else
             {
                 dlog_info("垃圾站抓图识别-AI层: 图片落盘成功，事件类型[%d] 大小[%d]字节 路径[%s]",
-                          static_cast<int>(enEventType), nSaveRet, strImagePath.c_str());
+                          static_cast<int>(enEventType),
+                          nSaveRet,
+                          strImagePath.c_str());
             }
         }
         else
@@ -686,7 +822,8 @@ void CAlgoStreamDeal::snapshot_garbage_detect(void *pData)
         Json::add(pRootJson, "EndTime", strDateTimeDash);
 
         nResult = 0;
-    } while (false);
+    }
+    while (false);
 
     if (pRootJson)
     {
@@ -702,8 +839,7 @@ void CAlgoStreamDeal::snapshot_garbage_detect(void *pData)
         *(static_cast<std::string *>(pData)) = "{\"Result\":-1}";
     }
 
-    dlog_info("垃圾站抓图识别-AI层: 处理结束，结果码[%d] 图片路径[%s]", nResult,
-              strImagePath.empty() ? "无" : strImagePath.c_str());
+    dlog_info("垃圾站抓图识别-AI层: 处理结束，结果码[%d] 图片路径[%s]", nResult, strImagePath.empty() ? "无" : strImagePath.c_str());
 }
 #endif
 
@@ -745,8 +881,10 @@ void CAlgoStreamDeal::snapshot_smoke_fire_detect(void *pData)
             break;
         }
         dlog_info("烟火抓图识别-AI层: 单帧检测成功，命中框[%d] 烟雾[%d] 火焰[%d] JPEG[%d]字节",
-                  static_cast<int>(stSnapshot.vstRectInfo.size()), stSnapshot.bSmokeDetected ? 1 : 0,
-                  stSnapshot.bFireDetected ? 1 : 0, static_cast<int>(stSnapshot.vecJpeg.size()));
+                  static_cast<int>(stSnapshot.vstRectInfo.size()),
+                  stSnapshot.bSmokeDetected ? 1 : 0,
+                  stSnapshot.bFireDetected ? 1 : 0,
+                  static_cast<int>(stSnapshot.vecJpeg.size()));
 
         /* 快照触发时刻即事件触发时间戳：图片命名、上报时间与响应字段统一使用该值。 */
         const long long llEventTimestampMs = TimeUtils_NS::get_currentTimestampMs();
@@ -779,9 +917,12 @@ void CAlgoStreamDeal::snapshot_smoke_fire_detect(void *pData)
         /* 按事件类型落盘，命名与入库与正常烟火事件抓图一致。 */
         if (!stSnapshot.vecJpeg.empty())
         {
-            const int nSaveRet = CCaptureCtrl::instance()->save_event_image(
-                stSnapshot.vecJpeg.data(), static_cast<int>(stSnapshot.vecJpeg.size()), enEventType,
-                strDateCompact, strTimeCompactMs, strImagePath);
+            const int nSaveRet = CCaptureCtrl::instance()->save_event_image(stSnapshot.vecJpeg.data(),
+                                                                            static_cast<int>(stSnapshot.vecJpeg.size()),
+                                                                            enEventType,
+                                                                            strDateCompact,
+                                                                            strTimeCompactMs,
+                                                                            strImagePath);
             if (nSaveRet < 0)
             {
                 dlog_error("烟火抓图识别-AI层: 图片落盘失败，事件类型[%d]", static_cast<int>(enEventType));
@@ -789,7 +930,9 @@ void CAlgoStreamDeal::snapshot_smoke_fire_detect(void *pData)
             else
             {
                 dlog_info("烟火抓图识别-AI层: 图片落盘成功，事件类型[%d] 大小[%d]字节 路径[%s]",
-                          static_cast<int>(enEventType), nSaveRet, strImagePath.c_str());
+                          static_cast<int>(enEventType),
+                          nSaveRet,
+                          strImagePath.c_str());
             }
         }
         else
@@ -812,7 +955,8 @@ void CAlgoStreamDeal::snapshot_smoke_fire_detect(void *pData)
         Json::add(pRootJson, "EndTime", strDateTimeDash);
 
         nResult = 0;
-    } while (false);
+    }
+    while (false);
 
     if (pRootJson)
     {
@@ -828,7 +972,6 @@ void CAlgoStreamDeal::snapshot_smoke_fire_detect(void *pData)
         *(static_cast<std::string *>(pData)) = "{\"Result\":-1}";
     }
 
-    dlog_info("烟火抓图识别-AI层: 处理结束，结果码[%d] 图片路径[%s]", nResult,
-              strImagePath.empty() ? "无" : strImagePath.c_str());
+    dlog_info("烟火抓图识别-AI层: 处理结束，结果码[%d] 图片路径[%s]", nResult, strImagePath.empty() ? "无" : strImagePath.c_str());
 }
 #endif

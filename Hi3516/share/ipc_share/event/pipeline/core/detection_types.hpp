@@ -10,7 +10,6 @@
 #pragma once
 
 #include <cstdint>
-#include <optional>
 #include <vector>
 
 namespace AiPipeline_NS
@@ -96,7 +95,7 @@ struct FrameSize_S
     /* C++11 基线下带默认成员初始化器的结构体不是聚合，提供构造函数支持花括号初始化 */
     FrameSize_S() = default;
     FrameSize_S(uint32_t nW, uint32_t nH) : nWidth(nW), nHeight(nH)
-{
+    {
     }
 };
 

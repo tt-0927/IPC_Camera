@@ -6,6 +6,9 @@
  * @brief 检索数据库管理：提供检索相关接口
  */
 
+/* 本地 SD 存储能力裁剪：能力关闭（IPC_CAP_LOCAL_STORAGE=0）时本文件整体不参与编译 */
+#if CAP_LOCAL_STORAGE
+
 #include "event_search.h"
 #include "event_configure.h"
 #include "event_resource.h"
@@ -362,3 +365,5 @@ int EventSearch::searchByRecordType(Event::RetrievalCond_S &stCond, std::vector<
 
     return EventDatabase::instance()->find(methods, EventInfos);
 }
+
+#endif /* CAP_LOCAL_STORAGE */

@@ -563,6 +563,8 @@ int SIP::Device::PlayAudio(bool bStart)
 		}
 	}
 
+	/* 无音频输出能力：不创建语音广播接收链路，也不向上级回邀音频会话 */
+#if CAP_AUDIO_OUTPUT
 	/* 开启通道的数据接收 */
 	pChn->CreateServer();
 	pChn->CreatePlayRtp(true, pChn->GetDefaultSSRC());
@@ -586,6 +588,6 @@ int SIP::Device::PlayAudio(bool bStart)
 	/* 发送INVITE请求 */
 	auto request = std::make_shared<InviteAudioRequest>(exosip_context, stInvParam);
 	request->SendCall();
+#endif
 	return 0;
 }
-

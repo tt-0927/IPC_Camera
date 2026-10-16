@@ -33,6 +33,15 @@
 #if CAP_AI_GARBAGE_DETECT
 #include "garbage_detect.hpp"
 #endif
+/* 统一检测层总开关：MD/OD/人脸一并由引擎承载（MD/OD 迁移自 Legacy 单类实现） */
+#if CAP_UNIFIED_DETECTION
+#include "detection_engine.hpp"
+#include "motion_detect/motion_detect_model.hpp"
+#include "hide_detect/hide_detect_model.hpp"
+/* 人脸独立引擎实例承载（推理耗时长，不与 MD/OD 共享 Worker） */
+#include "face_detect/face_detect_model.hpp"
+#endif
+
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
 #include "smoke_fire_detect.hpp"
 #endif
@@ -40,6 +49,7 @@
 class CAlgoStreamDeal : public CSingleton<CAlgoStreamDeal>
 {
     CAlgoStreamDeal() = default;
+
 public:
     ~CAlgoStreamDeal() = default;
 
@@ -55,7 +65,7 @@ public:
      * @brief   : 算法音视频流数据处理去初始化
      */
     void deinit();
-    
+
     /**
      * @brief   : 处理stream传过来的数据
      * @param    {ot_video_frame_info} *pFrameInfo 视频图像帧信息
@@ -91,22 +101,22 @@ public:
 
     /**
      * @brief 算法配置更新
-     * @param stAlgoConfig 
+     * @param stAlgoConfig
      */
     void set_Algo_EnConfig(Event::AlgorithmConfig &stAlgoConfig);
-    
+
     /**
      * @brief 添加人脸名单库
-     * @param stFaceLibData 
+     * @param stFaceLibData
      */
-     int add_Facelib_Groups(FaceDataDB_NS::FaceLibsInfo_S &stFaceLibData);
+    int add_Facelib_Groups(FaceDataDB_NS::FaceLibsInfo_S &stFaceLibData);
 
-      /**
+    /**
      * @brief 人员检索人脸比对
-     * @param strPicPath 
+     * @param strPicPath
      */
     void compare_Face_Retrieval(std::string strPicPath);
- 
+
 #if CAP_AI_GARBAGE_DETECT
     /**
      * @brief 垃圾站手动抓图并送垃圾识别
@@ -114,7 +124,7 @@ public:
      */
     void snapshot_garbage_detect(void *pData);
 #endif
- 
+
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
     /**
      * @brief 平台手动抓图并送烟火识别
@@ -122,10 +132,10 @@ public:
      */
     void snapshot_smoke_fire_detect(void *pData);
 #endif
- 
+
     /**
      * @brief 配置算法参数
-     * @param stAlgoCfg 
+     * @param stAlgoCfg
      */
     // void set_Algo_ParamConfig(Alarm::TargetDetection_S &stAlgoCfg);
 
@@ -229,17 +239,17 @@ private:
     /**
      * @brief 将配置应用到实际运行的算法实例，不修改用户期望配置
      */
-     void applyAlgorithmConfig(Event::AlgorithmConfig &stAlgoConfig);
+    void applyAlgorithmConfig(Event::AlgorithmConfig &stAlgoConfig);
 
-     /**
-      * @brief 为名单库入库临时独占AI资源并暂停其他算法
-      */
-     int beginFaceLibExclusive();
- 
-     /**
-      * @brief 结束名单库资源独占，恢复最新的用户期望配置
-      */
-     int endFaceLibExclusive();
+    /**
+     * @brief 为名单库入库临时独占AI资源并暂停其他算法
+     */
+    int beginFaceLibExclusive();
+
+    /**
+     * @brief 结束名单库资源独占，恢复最新的用户期望配置
+     */
+    int endFaceLibExclusive();
     /**
      * @brief   : 初始化事件统计上报器
      * @return   {void}
@@ -252,12 +262,14 @@ private:
     void runOnce();
 
 private:
-    //info /*----------------------- 模块句柄 -----------------------*/
+    // info /*----------------------- 模块句柄 -----------------------*/
     /*音视频流处理句柄*/
     std::shared_ptr<CAVHandler> m_StreamHandler;
     /**
      * @brief   : 普通事件
      */
+    /* 统一检测引擎句柄（MD/OD 等模型共用，宏均关闭时恒为空） */
+    std::shared_ptr<CAlgorithm> m_pDetectionEngine;
     /* 移动侦测算法句柄 */
     std::shared_ptr<CAlgorithm> m_pMotionAlgo;
     /* 遮挡侦测算法句柄 */
@@ -267,8 +279,8 @@ private:
      */
 
     /**
-    * @brief   : Smart事件
-    */
+     * @brief   : Smart事件
+     */
     /* 音频异常侦测算法句柄 */
     std::shared_ptr<CAlgorithm> m_pAudioAlgo;
     /* 场景变更侦测算法句柄 */
@@ -285,6 +297,8 @@ private:
     std::shared_ptr<CAlgorithm> m_pPetAlgo;
     /* 人脸侦测算法句柄 人脸抓拍*/
     std::shared_ptr<CAlgorithm> m_pFaceAlgo;
+    /* 人脸统一检测引擎句柄（FACE 宏启用时替代 m_pFaceAlgo，独立 Worker） */
+    std::shared_ptr<CAlgorithm> m_pFaceEngine;
     /* 保护算法配置更新与名单库入库对 m_pFaceAlgo 的并发访问。 */
     std::mutex m_faceAlgoMutex;
     /* 低内存设备一次只允许执行一个名单库入库任务。 */
@@ -308,5 +322,5 @@ private:
     // note 不使用自研模型
     // /* 停车侦测算法句柄 */
     // std::shared_ptr<CAlgorithm> m_pParkAlgo;
-    //info /*----------------------- 参数变量 -----------------------*/
+    // info /*----------------------- 参数变量 -----------------------*/
 };

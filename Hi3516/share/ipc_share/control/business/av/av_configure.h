@@ -261,6 +261,7 @@ public:
      */
     int get_configure(Audio_NS::AudioCapabilitySet_S &data) const;
 
+#if CAP_AUDIO_OUTPUT
     /**
      * @brief 对讲数据回调
      * @param callback 配置回调函数
@@ -286,6 +287,7 @@ public:
      * @return   {int} 0：成功 非0：失败
      */
     int setAudioAoSampleRate(const Audio_NS::AudioSamprate_E enSampRate) const;
+#endif
 
 #if CAP_EVENT_AUDIO_PLAYBACK_V2
     /**
@@ -319,6 +321,7 @@ public:
     void setMuteAudioOutputCallback(const MuteAudioOutputCallback &callback);
     // #endif
 #endif
+#if CAP_AUDIO_OUTPUT
     /**
      * @brief   : 设置 AO 排空等待回调
      * @param    {WaitAoDrainedCallback} &callback
@@ -333,6 +336,7 @@ public:
      * @return   {int} 0：已完全排空，非0：超时或错误
      */
     int waitAoDrained(int nChn, int nTimeoutMs) const;
+#endif
 
 private:
     /**
@@ -361,10 +365,12 @@ private:
     IAVVideoConfigApplier *m_pVideoConfigApplier;
     /* AV 音频配置应用接口 */
     IAVAudioConfigApplier *m_pAudioConfigApplier;
+#if CAP_AUDIO_OUTPUT
     /*音频对讲更新回调*/
     AudioSpeakCallback m_setAoSpeakCallback;
     /* 设置音频模块AO采样率回调 */
     SetAudioAoSampleRateCallback m_setAudioAoSampleRateCallback;
+#endif
 
 #if CAP_EVENT_AUDIO_PLAYBACK_V2
     std::function<void()> m_setAudioAoIdleCallback;
@@ -375,8 +381,10 @@ private:
     /* 静音功放输出回调，V1/V2播放路径共用 */
     MuteAudioOutputCallback m_muteAudioOutputCallback;
 #endif
+#if CAP_AUDIO_OUTPUT
     /* 等待 AO 通道缓冲区完全排空回调 */
     WaitAoDrainedCallback m_waitAoDrainedCallback;
+#endif
     /* 记录被强制修改前的I帧间隔值 */
     int m_nOriginalIFrameInterval;
     /* 标记I帧间隔是否被强制修改过 */

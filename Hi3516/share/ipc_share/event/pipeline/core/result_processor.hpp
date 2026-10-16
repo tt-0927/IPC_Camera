@@ -25,7 +25,16 @@ struct ProcessorDescriptor_S
     int nOrder = 0;                      /* 固定分发顺序，越小越先执行 */
 };
 
-/* AI 事件处理器抽象接口，所有事件后处理统一实现该合同 */
+/*
+ * AI 事件处理器抽象接口，所有事件后处理统一实现该合同
+ *
+ * 线程契约（组合根负责保证，处理器自身无锁）：
+ * - process() 经 CResultDispatcher::dispatch 在平台检测回调线程同步串行调用，
+ *   处理器的帧间状态（跟踪桶、驻留计时等）无需加锁，处理器内不做阻塞 I/O；
+ * - 处理器的配置接口（apply_config/reset 等）在平台配置线程调用，与检测回调
+ *   线程不同；组合根必须持同一把锁把配置调用与 dispatch 串行化（先例：
+ *   CHVFEventMigrationController::m_mutex、CExhibitionDetectModel::m_pipelineMutex）。
+ */
 class IResultProcessor
 {
 public:
@@ -46,7 +55,8 @@ public:
      * @param    {const DetectionBatch_S &} stBatch：标准检测批次，只读
      * @param    {ProcessorOutput_S &} stOutput：类型化输出收集器
      * @return   {int} OK：成功，非 OK：失败（输出不会被提交）
-     * @note    : 处理器必须遵守“先校验、后修改状态”，失败返回不得留下半更新状态
+     * @note    : 处理器必须遵守“先校验、后修改状态”，失败返回不得留下半更新状态；
+     *            在平台检测回调线程同步调用（线程契约见类注释）
      */
     virtual int process(const DetectionBatch_S &stBatch, ProcessorOutput_S &stOutput) = 0;
 };

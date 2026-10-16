@@ -9,6 +9,7 @@
 
 #include "event_linkage_dict.h"
 
+#include "event_define.h"
 #include "time_utils.h"
 
 #ifdef ENABLE_TVSDK_SRC
@@ -864,6 +865,20 @@ std::string EventLinkageDict::get_event_name(Event::Type_E enType)
         return "机动车属性识别";
     case Event::Type_E::NONMOTORVEHICLE_ATTRIBUTE:
         return "非机动车属性识别";
+    case Event::Type_E::CHANNEL_OCCUPATION:
+        return "通道占用";
+    case Event::Type_E::CLIMB_DETECTION:
+        return "攀爬识别";
+    case Event::Type_E::DANGER_ZONE_APPROACH:
+        return "危险区域靠近";
+    case Event::Type_E::LONG_TIME_STAY:
+        return "长时间滞留";
+    case Event::Type_E::DANGER_ZONE_STAY:
+        return "危险区域滞留";
+    case Event::Type_E::KEY_AREA_ABNORMAL_STAY:
+        return "重点区域异常滞留";
+    case Event::Type_E::ROOFTOP_STAY:
+        return "天台滞留";
 #endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
     case Event::Type_E::SMOKE_FIRE:

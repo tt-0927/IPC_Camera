@@ -85,6 +85,41 @@ namespace Alarm
 #define CROWD_GATHERING_DETECT_REGION_DEFAULT (4)
 #endif
 
+#ifndef QUEUE_CROWDING_DETECT_REGION_DEFAULT
+/* 排队拥挤侦测支持区域上限 */
+#define QUEUE_CROWDING_DETECT_REGION_DEFAULT (4)
+#endif
+
+#ifndef CLIMB_DETECTION_REGION_DEFAULT
+/* 攀爬识别支持区域上限 */
+#define CLIMB_DETECTION_REGION_DEFAULT (4)
+#endif
+
+#ifndef DANGER_ZONE_APPROACH_REGION_DEFAULT
+/* 危险区域靠近支持区域上限 */
+#define DANGER_ZONE_APPROACH_REGION_DEFAULT (4)
+#endif
+
+#ifndef LONG_TIME_STAY_REGION_DEFAULT
+/* 长时间滞留支持区域上限 */
+#define LONG_TIME_STAY_REGION_DEFAULT (4)
+#endif
+
+#ifndef DANGER_ZONE_STAY_REGION_DEFAULT
+/* 危险区域滞留支持区域上限 */
+#define DANGER_ZONE_STAY_REGION_DEFAULT (4)
+#endif
+
+#ifndef KEY_AREA_ABNORMAL_STAY_REGION_DEFAULT
+/* 重点区域异常滞留支持区域上限 */
+#define KEY_AREA_ABNORMAL_STAY_REGION_DEFAULT (4)
+#endif
+
+#ifndef ROOFTOP_STAY_REGION_DEFAULT
+/* 天台滞留支持区域上限 */
+#define ROOFTOP_STAY_REGION_DEFAULT (1)
+#endif
+
 #ifndef PARKING_DETECT_REGION_DEFAULT
 /* 停车侦测支持区域上限 */
 #define PARKING_DETECT_REGION_DEFAULT (4)
@@ -1484,7 +1519,7 @@ namespace Alarm
         unsigned int nSensitivity;
         std::vector<int> aDetectionTarget;  /* 检测目标,DetectionTarget_E */
         /* 默认构造函数 */
-        LoiteringRule() : stRegion(), nTimeThreshold(10), nSensitivity(50)
+        LoiteringRule() : stRegion(), nTimeThreshold(5), nSensitivity(5)
         {
         }
         /**
@@ -1629,6 +1664,81 @@ namespace Alarm
         }
     } CrowdGathering_S;
     /************************ 人员聚集侦测相关 END ************************/
+
+    /************************ 排队拥挤侦测相关 ************************/
+    /* 排队拥挤侦测规则参数 */
+    typedef struct _QueueCrowdingRule_S_
+    {
+        Region_S stRegion;         /* 区域定义 */
+        unsigned int nSensitivity; /* 灵敏度[1,100] */
+
+        /* 默认构造函数 */
+        _QueueCrowdingRule_S_() : stRegion(), nSensitivity(50)
+        {
+        }
+        /* 重载赋值运算符 */
+        _QueueCrowdingRule_S_ &operator=(const _QueueCrowdingRule_S_ &x)
+        {
+            if (this != &x)
+            {
+                stRegion = x.stRegion;
+                nSensitivity = x.nSensitivity;
+            }
+            return *this;
+        }
+    } QueueCrowdingRule_S;
+
+    /* 排队拥挤侦测配置 */
+    typedef struct _QueueCrowdingDetection_S_
+    {
+        bool bEnable; /* 是否启用 */
+        /* 布防时间:一周7天，每天可以设置8个时间段 */
+        std::vector<std::vector<Common::SchedTime_S>> aAlarmTime;
+        /* 排队拥挤检测规则，最多设置4个 QUEUE_CROWDING_DETECT_REGION_DEFAULT */
+        std::vector<QueueCrowdingRule_S> aRule;
+        /* 联动 */
+        LinkageList_S stLinkageList;
+
+        /* 默认构造函数 */
+        _QueueCrowdingDetection_S_() : bEnable(0), stLinkageList()
+        {
+            aAlarmTime.clear();
+            aRule.clear();
+        }
+        /* 重载赋值运算符 */
+        _QueueCrowdingDetection_S_ &operator=(const _QueueCrowdingDetection_S_ &x)
+        {
+            if (this != &x)
+            {
+                bEnable = x.bEnable;
+                aAlarmTime = x.aAlarmTime;
+                aRule = x.aRule;
+                stLinkageList = x.stLinkageList;
+            }
+            return *this;
+        }
+
+        /* 静态方法：返回一个带有默认规则的对象 */
+        static _QueueCrowdingDetection_S_ CreateWithDefaultRule()
+        {
+            _QueueCrowdingDetection_S_ obj;
+            for (size_t i = 0; i < QUEUE_CROWDING_DETECT_REGION_DEFAULT; ++i)
+            {
+                QueueCrowdingRule_S defRegion;
+                defRegion.stRegion.nPointNum = QUEUE_CROWDING_DETECT_REGION_DEFAULT;
+                for (size_t j = 0; j < defRegion.stRegion.nPointNum; ++j)
+                {
+                    Common::PosF_S defPoint;
+                    defRegion.stRegion.aPoint.push_back(defPoint);
+                }
+                defRegion.nSensitivity = 50;
+                obj.aRule.push_back(defRegion);
+            }
+            obj.aAlarmTime.assign(7, std::vector<Common::SchedTime_S>(1));
+            return obj;
+        }
+    } QueueCrowdingDetection_S;
+    /************************ 排队拥挤侦测相关 END ************************/
 
     /************************ 停车侦测相关 ************************/
     /* 停车侦测规则参数 */
@@ -5416,5 +5526,456 @@ typedef struct _FaceCompare_S_
     } NonMotorVehicleDetection_S;
 
     /************************ 属性识别相关 END ************************/
+
+#ifdef SCENE_INTELLIGENCE
+    /************************ 平安校园相关 START *******************/
+    /* 通道占用检测配置 */
+    typedef struct _ChannelOccupation_S_ {
+        bool bEnable = false;                      /* 通道占用功能总开关 */
+
+        unsigned int nSensitivity = 1;             /* 灵敏度 0-低 1-中 2-高 */
+        Region_S stRegion;                         /* 通道检测区域定义 1920x1080基准 空区域表示整幅画面参与检测 */
+        std::vector<std::vector<Common::SchedTime_S>> aAlarmTime;   /* 布防时间:一周7天，每天可以设置8个时间段 */
+        LinkageList_S stLinkageList;               /* 联动 */
+
+        static _ChannelOccupation_S_ CreateWithDefaultRule()
+        {
+            _ChannelOccupation_S_ obj;
+            obj.stRegion = Region_S::CreateWithDefaultRule(4);
+            obj.stRegion.aPoint[0] = {0.0f, 0.0f};
+            obj.stRegion.aPoint[1] = {0.0f, 1080.0f};
+            obj.stRegion.aPoint[2] = {1920.0f, 1080.0f};
+            obj.stRegion.aPoint[3] = {1920.0f, 0.0f};
+            obj.aAlarmTime.assign(7, std::vector<Common::SchedTime_S>(1));
+            return obj;
+        }
+    } ChannelOccupation_S;
+
+    /* 攀爬识别检测规则参数 */
+    typedef struct _ClimbDetectionRule_S_
+    {
+        Region_S stRegion;         /* 区域定义 */
+        unsigned int nSensitivity; /* 灵敏度[1,100] */
+
+        /* 默认构造函数 */
+        _ClimbDetectionRule_S_() : stRegion(), nSensitivity(50)
+        {
+        }
+        /* 重载赋值运算符 */
+        _ClimbDetectionRule_S_ &operator=(const _ClimbDetectionRule_S_ &x)
+        {
+            if (this != &x)
+            {
+                stRegion = x.stRegion;
+                nSensitivity = x.nSensitivity;
+            }
+            return *this;
+        }
+    } ClimbDetectionRule_S;
+
+    /* 攀爬识别检测配置 */
+    typedef struct _ClimbDetection_S_
+    {
+        bool bEnable; /* 是否启用 */
+        /* 布防时间:一周7天，每天可以设置8个时间段 */
+        std::vector<std::vector<Common::SchedTime_S>> aAlarmTime;
+        /* 攀爬识别检测规则，最多设置4个 CLIMB_DETECTION_REGION_DEFAULT */
+        std::vector<ClimbDetectionRule_S> aRule;
+        /* 联动 */
+        LinkageList_S stLinkageList;
+
+        /* 默认构造函数 */
+        _ClimbDetection_S_() : bEnable(0), stLinkageList()
+        {
+            aAlarmTime.clear();
+            aRule.clear();
+        }
+        /* 重载赋值运算符 */
+        _ClimbDetection_S_ &operator=(const _ClimbDetection_S_ &x)
+        {
+            if (this != &x)
+            {
+                bEnable = x.bEnable;
+                aAlarmTime = x.aAlarmTime;
+                aRule = x.aRule;
+                stLinkageList = x.stLinkageList;
+            }
+            return *this;
+        }
+
+        /* 静态方法：返回一个带有默认规则的对象 */
+        static _ClimbDetection_S_ CreateWithDefaultRule()
+        {
+            _ClimbDetection_S_ obj;
+            for (size_t i = 0; i < CLIMB_DETECTION_REGION_DEFAULT; ++i)
+            {
+                ClimbDetectionRule_S defRegion;
+                defRegion.stRegion.nPointNum = CLIMB_DETECTION_REGION_DEFAULT;
+                for (size_t j = 0; j < defRegion.stRegion.nPointNum; ++j)
+                {
+                    Common::PosF_S defPoint;
+                    defRegion.stRegion.aPoint.push_back(defPoint);
+                }
+                defRegion.nSensitivity = 50;
+                obj.aRule.push_back(defRegion);
+            }
+            obj.aAlarmTime.assign(7, std::vector<Common::SchedTime_S>(1));
+            return obj;
+        }
+    } ClimbDetection_S;
+
+    /* 危险区域靠近检测规则参数 */
+    typedef struct _DangerZoneApproachRule_S_
+    {
+        Region_S stRegion;           /* 区域定义 */
+        unsigned int nSensitivity;   /* 灵敏度[1,100] */
+        unsigned int nTimeThreshold; /* 停留时长阈值，目标在区域内停留达到该时长触发报警[0,10]单位（秒） */
+
+        /* 默认构造函数 */
+        _DangerZoneApproachRule_S_() : stRegion(), nSensitivity(50), nTimeThreshold(10)
+        {
+        }
+        /* 重载赋值运算符 */
+        _DangerZoneApproachRule_S_ &operator=(const _DangerZoneApproachRule_S_ &x)
+        {
+            if (this != &x)
+            {
+                stRegion = x.stRegion;
+                nSensitivity = x.nSensitivity;
+                nTimeThreshold = x.nTimeThreshold;
+            }
+            return *this;
+        }
+    } DangerZoneApproachRule_S;
+
+    /* 危险区域靠近检测配置 */
+    typedef struct _DangerZoneApproach_S_
+    {
+        bool bEnable; /* 是否启用 */
+        /* 布防时间:一周7天，每天可以设置8个时间段 */
+        std::vector<std::vector<Common::SchedTime_S>> aAlarmTime;
+        /* 危险区域靠近检测规则，最多设置4个 DANGER_ZONE_APPROACH_REGION_DEFAULT */
+        std::vector<DangerZoneApproachRule_S> aRule;
+        /* 联动 */
+        LinkageList_S stLinkageList;
+
+        /* 默认构造函数 */
+        _DangerZoneApproach_S_() : bEnable(0), stLinkageList()
+        {
+            aAlarmTime.clear();
+            aRule.clear();
+        }
+        /* 重载赋值运算符 */
+        _DangerZoneApproach_S_ &operator=(const _DangerZoneApproach_S_ &x)
+        {
+            if (this != &x)
+            {
+                bEnable = x.bEnable;
+                aAlarmTime = x.aAlarmTime;
+                aRule = x.aRule;
+                stLinkageList = x.stLinkageList;
+            }
+            return *this;
+        }
+
+        /* 静态方法：返回一个带有默认规则的对象 */
+        static _DangerZoneApproach_S_ CreateWithDefaultRule()
+        {
+            _DangerZoneApproach_S_ obj;
+            for (size_t i = 0; i < DANGER_ZONE_APPROACH_REGION_DEFAULT; ++i)
+            {
+                DangerZoneApproachRule_S defRegion;
+                defRegion.stRegion.nPointNum = DANGER_ZONE_APPROACH_REGION_DEFAULT;
+                for (size_t j = 0; j < defRegion.stRegion.nPointNum; ++j)
+                {
+                    Common::PosF_S defPoint;
+                    defRegion.stRegion.aPoint.push_back(defPoint);
+                }
+                defRegion.nSensitivity = 50;
+                defRegion.nTimeThreshold = 10;
+                obj.aRule.push_back(defRegion);
+            }
+            obj.aAlarmTime.assign(7, std::vector<Common::SchedTime_S>(1));
+            return obj;
+        }
+    } DangerZoneApproach_S;
+
+    /* 长时间滞留规则参数 */
+    typedef struct _LongTimeStayRule_S_
+    {
+        Region_S stRegion;           /* 区域定义 */
+        unsigned int nSensitivity;   /* 灵敏度[1,100] */
+        unsigned int nTimeThreshold; /* 行为事件触发时间阈值，判断有效报警的时间[0,100]单位（秒） */
+
+        /* 默认构造函数 */
+        _LongTimeStayRule_S_() : stRegion(), nSensitivity(50), nTimeThreshold(10)
+        {
+        }
+        /* 重载赋值运算符 */
+        _LongTimeStayRule_S_ &operator=(const _LongTimeStayRule_S_ &x)
+        {
+            if (this != &x)
+            {
+                stRegion = x.stRegion;
+                nSensitivity = x.nSensitivity;
+                nTimeThreshold = x.nTimeThreshold;
+            }
+            return *this;
+        }
+    } LongTimeStayRule_S;
+
+    /* 长时间滞留配置 */
+    typedef struct _LongTimeStayDetection_S_
+    {
+        bool bEnable; /* 是否启用 */
+        /* 布防时间:一周7天，每天可以设置8个时间段 */
+        std::vector<std::vector<Common::SchedTime_S>> aAlarmTime;
+        /* 长时间滞留规则，最多设置4个 LONG_TIME_STAY_REGION_DEFAULT */
+        std::vector<LongTimeStayRule_S> aRule;
+        /* 联动 */
+        LinkageList_S stLinkageList;
+
+        /* 默认构造函数 */
+        _LongTimeStayDetection_S_() : bEnable(0), stLinkageList()
+        {
+            aAlarmTime.clear();
+            aRule.clear();
+        }
+        /* 重载赋值运算符 */
+        _LongTimeStayDetection_S_ &operator=(const _LongTimeStayDetection_S_ &x)
+        {
+            if (this != &x)
+            {
+                bEnable = x.bEnable;
+                aAlarmTime = x.aAlarmTime;
+                aRule = x.aRule;
+                stLinkageList = x.stLinkageList;
+            }
+            return *this;
+        }
+
+        /* 静态方法：返回一个带有默认规则的对象 */
+        static _LongTimeStayDetection_S_ CreateWithDefaultRule()
+        {
+            _LongTimeStayDetection_S_ obj;
+            for (size_t i = 0; i < LONG_TIME_STAY_REGION_DEFAULT; ++i)
+            {
+                LongTimeStayRule_S defRegion;
+                defRegion.stRegion = Region_S::CreateWithDefaultRule(4);
+                obj.aRule.push_back(defRegion);
+            }
+            obj.aAlarmTime.assign(7, std::vector<Common::SchedTime_S>(1));
+            return obj;
+        }
+    } LongTimeStayDetection_S;
+
+    /* 危险区域滞留规则参数 */
+    typedef struct _DangerZoneStayRule_S_
+    {
+        Region_S stRegion;           /* 区域定义 */
+        unsigned int nSensitivity;   /* 灵敏度[1,100] */
+        unsigned int nTimeThreshold; /* 行为事件触发时间阈值，判断有效报警的时间[0,100]单位（秒） */
+
+        /* 默认构造函数 */
+        _DangerZoneStayRule_S_() : stRegion(), nSensitivity(50), nTimeThreshold(10)
+        {
+        }
+        /* 重载赋值运算符 */
+        _DangerZoneStayRule_S_ &operator=(const _DangerZoneStayRule_S_ &x)
+        {
+            if (this != &x)
+            {
+                stRegion = x.stRegion;
+                nSensitivity = x.nSensitivity;
+                nTimeThreshold = x.nTimeThreshold;
+            }
+            return *this;
+        }
+    } DangerZoneStayRule_S;
+
+    /* 危险区域滞留配置 */
+    typedef struct _DangerZoneStayDetection_S_
+    {
+        bool bEnable; /* 是否启用 */
+        /* 布防时间:一周7天，每天可以设置8个时间段 */
+        std::vector<std::vector<Common::SchedTime_S>> aAlarmTime;
+        /* 危险区域滞留规则，最多设置4个 DANGER_ZONE_STAY_REGION_DEFAULT */
+        std::vector<DangerZoneStayRule_S> aRule;
+        /* 联动 */
+        LinkageList_S stLinkageList;
+
+        /* 默认构造函数 */
+        _DangerZoneStayDetection_S_() : bEnable(0), stLinkageList()
+        {
+            aAlarmTime.clear();
+            aRule.clear();
+        }
+        /* 重载赋值运算符 */
+        _DangerZoneStayDetection_S_ &operator=(const _DangerZoneStayDetection_S_ &x)
+        {
+            if (this != &x)
+            {
+                bEnable = x.bEnable;
+                aAlarmTime = x.aAlarmTime;
+                aRule = x.aRule;
+                stLinkageList = x.stLinkageList;
+            }
+            return *this;
+        }
+
+        /* 静态方法：返回一个带有默认规则的对象 */
+        static _DangerZoneStayDetection_S_ CreateWithDefaultRule()
+        {
+            _DangerZoneStayDetection_S_ obj;
+            for (size_t i = 0; i < DANGER_ZONE_STAY_REGION_DEFAULT; ++i)
+            {
+                DangerZoneStayRule_S defRegion;
+                defRegion.stRegion = Region_S::CreateWithDefaultRule(4);
+                obj.aRule.push_back(defRegion);
+            }
+            obj.aAlarmTime.assign(7, std::vector<Common::SchedTime_S>(1));
+            return obj;
+        }
+    } DangerZoneStayDetection_S;
+
+    /* 重点区域异常滞留规则参数 */
+    typedef struct _KeyAreaAbnormalStayRule_S_
+    {
+        Region_S stRegion;           /* 区域定义 */
+        unsigned int nSensitivity;   /* 灵敏度[1,100] */
+        unsigned int nTimeThreshold; /* 行为事件触发时间阈值，判断有效报警的时间[0,100]单位（秒） */
+
+        /* 默认构造函数 */
+        _KeyAreaAbnormalStayRule_S_() : stRegion(), nSensitivity(50), nTimeThreshold(10)
+        {
+        }
+        /* 重载赋值运算符 */
+        _KeyAreaAbnormalStayRule_S_ &operator=(const _KeyAreaAbnormalStayRule_S_ &x)
+        {
+            if (this != &x)
+            {
+                stRegion = x.stRegion;
+                nSensitivity = x.nSensitivity;
+                nTimeThreshold = x.nTimeThreshold;
+            }
+            return *this;
+        }
+    } KeyAreaAbnormalStayRule_S;
+
+    /* 重点区域异常滞留配置 */
+    typedef struct _KeyAreaAbnormalStayDetection_S_
+    {
+        bool bEnable; /* 是否启用 */
+        /* 布防时间:一周7天，每天可以设置8个时间段 */
+        std::vector<std::vector<Common::SchedTime_S>> aAlarmTime;
+        /* 重点区域异常滞留规则，最多设置4个 KEY_AREA_ABNORMAL_STAY_REGION_DEFAULT */
+        std::vector<KeyAreaAbnormalStayRule_S> aRule;
+        /* 联动 */
+        LinkageList_S stLinkageList;
+
+        /* 默认构造函数 */
+        _KeyAreaAbnormalStayDetection_S_() : bEnable(0), stLinkageList()
+        {
+            aAlarmTime.clear();
+            aRule.clear();
+        }
+        /* 重载赋值运算符 */
+        _KeyAreaAbnormalStayDetection_S_ &operator=(const _KeyAreaAbnormalStayDetection_S_ &x)
+        {
+            if (this != &x)
+            {
+                bEnable = x.bEnable;
+                aAlarmTime = x.aAlarmTime;
+                aRule = x.aRule;
+                stLinkageList = x.stLinkageList;
+            }
+            return *this;
+        }
+
+        /* 静态方法：返回一个带有默认规则的对象 */
+        static _KeyAreaAbnormalStayDetection_S_ CreateWithDefaultRule()
+        {
+            _KeyAreaAbnormalStayDetection_S_ obj;
+            for (size_t i = 0; i < KEY_AREA_ABNORMAL_STAY_REGION_DEFAULT; ++i)
+            {
+                KeyAreaAbnormalStayRule_S defRegion;
+                defRegion.stRegion = Region_S::CreateWithDefaultRule(4);
+                obj.aRule.push_back(defRegion);
+            }
+            obj.aAlarmTime.assign(7, std::vector<Common::SchedTime_S>(1));
+            return obj;
+        }
+    } KeyAreaAbnormalStayDetection_S;
+
+    /* 天台滞留规则参数 */
+    typedef struct _RooftopStayRule_S_
+    {
+        Region_S stRegion;           /* 区域定义 */
+        unsigned int nSensitivity;   /* 灵敏度[1,100] */
+        unsigned int nTimeThreshold; /* 行为事件触发时间阈值，判断有效报警的时间[0,100]单位（秒） */
+
+        /* 默认构造函数 */
+        _RooftopStayRule_S_() : stRegion(), nSensitivity(50), nTimeThreshold(10)
+        {
+        }
+        /* 重载赋值运算符 */
+        _RooftopStayRule_S_ &operator=(const _RooftopStayRule_S_ &x)
+        {
+            if (this != &x)
+            {
+                stRegion = x.stRegion;
+                nSensitivity = x.nSensitivity;
+                nTimeThreshold = x.nTimeThreshold;
+            }
+            return *this;
+        }
+    } RooftopStayRule_S;
+
+    /* 天台滞留配置 */
+    typedef struct _RooftopStayDetection_S_
+    {
+        bool bEnable; /* 是否启用 */
+        /* 布防时间:一周7天，每天可以设置8个时间段 */
+        std::vector<std::vector<Common::SchedTime_S>> aAlarmTime;
+        /* 天台滞留规则，最多设置1个 ROOFTOP_STAY_REGION_DEFAULT */
+        std::vector<RooftopStayRule_S> aRule;
+        /* 联动 */
+        LinkageList_S stLinkageList;
+
+        /* 默认构造函数 */
+        _RooftopStayDetection_S_() : bEnable(0), stLinkageList()
+        {
+            aAlarmTime.clear();
+            aRule.clear();
+        }
+        /* 重载赋值运算符 */
+        _RooftopStayDetection_S_ &operator=(const _RooftopStayDetection_S_ &x)
+        {
+            if (this != &x)
+            {
+                bEnable = x.bEnable;
+                aAlarmTime = x.aAlarmTime;
+                aRule = x.aRule;
+                stLinkageList = x.stLinkageList;
+            }
+            return *this;
+        }
+
+        /* 静态方法：返回一个带有默认规则的对象 */
+        static _RooftopStayDetection_S_ CreateWithDefaultRule()
+        {
+            _RooftopStayDetection_S_ obj;
+            for (size_t i = 0; i < ROOFTOP_STAY_REGION_DEFAULT; ++i)
+            {
+                RooftopStayRule_S defRegion;
+                defRegion.stRegion = Region_S::CreateWithDefaultRule(4);
+                obj.aRule.push_back(defRegion);
+            }
+            obj.aAlarmTime.assign(7, std::vector<Common::SchedTime_S>(1));
+            return obj;
+        }
+    } RooftopStayDetection_S;
+    /************************ 平安校园相关 END ************************/
+#endif /* SCENE_INTELLIGENCE */
 
 }; // namespace Alarm

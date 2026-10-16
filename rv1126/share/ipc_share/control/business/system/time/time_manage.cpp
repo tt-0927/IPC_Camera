@@ -21,8 +21,11 @@
 #include "convert_interface.h"
 #include "path_define.h"
 #include "timezone_runtime.h"
+#if CAP_LOCAL_STORAGE
+/* 本地 SD 存储链路：时间跳变后停录并重建录像索引，能力关闭时无录制系统 */
 #include "record_ctrl.h"
 #include "record_file_manage.h"
+#endif
 #include "rtsp_server.h"
 
 namespace
@@ -273,6 +276,7 @@ void CTimeManage::clear_time_change_callback()
     m_fnTimeChangeCallback = TimeChangeCallback{};
 }
 
+#if CAP_LOCAL_STORAGE
 bool CTimeManage::need_rebuild_recording(const SystemTimeChangeInfo_S &stChangeInfo) const
 {
     constexpr std::time_t RECORD_TIME_JUMP_THRESHOLD_SEC = 10;
@@ -299,6 +303,7 @@ void CTimeManage::rebuild_recording_after_time_change(const SystemTimeChangeInfo
     usleep(300 * 1000);
     RecordFileManage::instance()->dealTimeChange(stChangeInfo.nNewTime);
 }
+#endif /* CAP_LOCAL_STORAGE */
 
 IpcRet_E CTimeManage::notify_system_time_changed(const SystemTimeChangeInfo_S &stChangeInfo)
 {
@@ -323,10 +328,12 @@ IpcRet_E CTimeManage::notify_system_time_changed(const SystemTimeChangeInfo_S &s
         enFinalRet = ERR;
     }
 
+#if CAP_LOCAL_STORAGE
     if (need_rebuild_recording(stChangeInfo))
     {
         rebuild_recording_after_time_change(stChangeInfo);
     }
+#endif
 
     const int nRtspRet = CRtspServer::instance()->reset_lastIdrRequestTime();
     if (nRtspRet != OK)

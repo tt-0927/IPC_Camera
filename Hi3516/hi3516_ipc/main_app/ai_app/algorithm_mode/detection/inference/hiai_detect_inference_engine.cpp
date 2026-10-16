@@ -169,7 +169,8 @@ int CHiAiDetectInferenceEngine::infer(const ot_video_frame_info *pPreparedFrame,
             /* HiAiDetect 无 label_name，类别 ID 直接使用海思类别枚举值（模型适配器再做语义映射） */
             stBox.nClassId = static_cast<int>(stOneClass.class_type);
             stBox.fConfidence = stObject.detect_confidence;
-            stBox.optTrackId = static_cast<uint64_t>(stObject.track_id);
+            stBox.bHasTrackId = true;
+            stBox.unTrackId = static_cast<uint64_t>(stObject.track_id);
             stBox.enTrackState = map_track_status(stObject.track_status);
 
             /* DIE 目标坐标退化为零矩形，不参与几何计算，但保留 Track ID 供状态清理

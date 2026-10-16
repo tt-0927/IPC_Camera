@@ -14,12 +14,12 @@
 #include "video_define.h"
 
 const DetectionModelDescriptor_S CHideDetectModel::ms_stDescriptor = {
-    "HideDetect",            /* 模型名 */
-    PIXEL_WIDTH_1024,        /* 算法输入分辨率宽 */
-    PIXEL_HEIGHT_576,        /* 算法输入分辨率高 */
-    true,                    /* 需要按配置区域裁剪 */
-    1,                       /* 同帧执行顺序（在移动侦测之后） */
-    2000                     /* 启动延时：与 LEGACY sleep(2) 防初始化过快一致 */
+    "HideDetect",     /* 模型名 */
+    PIXEL_WIDTH_1024, /* 算法输入分辨率宽 */
+    PIXEL_HEIGHT_576, /* 算法输入分辨率高 */
+    true,             /* 需要按配置区域裁剪 */
+    1,                /* 同帧执行顺序（在移动侦测之后） */
+    2000              /* 启动延时：与 LEGACY sleep(2) 防初始化过快一致 */
 };
 
 const DetectionModelDescriptor_S &CHideDetectModel::descriptor() const
@@ -43,8 +43,7 @@ bool CHideDetectModel::shouldProcess(int nChannelId)
     return !m_bNeedReinit.load();
 }
 
-int CHideDetectModel::process(const ot_video_frame_info *pPreparedFrame,
-                                   const MediaData_S &stMediaData)
+int CHideDetectModel::process(const ot_video_frame_info *pPreparedFrame, const MediaData_S &stMediaData)
 {
     /* 仅 Worker 线程调用 */
     if (pPreparedFrame == nullptr || m_pHideDetHandle == nullptr)
@@ -62,10 +61,11 @@ int CHideDetectModel::process(const ot_video_frame_info *pPreparedFrame,
     stCtx.nChnId = stMediaData.stMediaParam.nChannel;
     stCtx.llTimestamp = TimeUtils_NS::get_currentTimestampMs();
     stCtx.pFrameInfo = const_cast<ot_video_frame_info *>(pPreparedFrame);
+    /* 原始全分辨率帧：事件图在原始帧上整帧/抠图硬编码（与移动侦测模型一致） */
+    stCtx.pSrcFrameInfo = stMediaData.pVideoFrameInfo.get();
 
     /* 送分析（与 LEGACY run() 语义一致：sendFrame 返回遮挡数量） */
-    int nHideNum = m_pHideDetHandle->svpOd_sendFrame(m_pHideDetHandle,
-                                                     const_cast<ot_video_frame_info *>(pPreparedFrame));
+    int nHideNum = m_pHideDetHandle->svpOd_sendFrame(m_pHideDetHandle, const_cast<ot_video_frame_info *>(pPreparedFrame));
     /* 遮挡侦测后处理（阈值判断 + 报警状态机） */
     m_logic.process_result(nHideNum, stCtx);
     return OK;

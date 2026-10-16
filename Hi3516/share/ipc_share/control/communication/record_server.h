@@ -9,6 +9,9 @@
 
 #pragma once
 
+/* 本地 SD 存储能力裁剪：能力关闭（IPC_CAP_LOCAL_STORAGE=0）时本文件整体不参与编译 */
+#if CAP_LOCAL_STORAGE
+
 #include "task_manage.h"
 #include "Singleton.h"
 #include "IpcRet.h"
@@ -104,3 +107,5 @@ private:
     /*公共状态回调*/
     Common::StatusCallback m_statusObserver;
 };
+
+#endif /* CAP_LOCAL_STORAGE */

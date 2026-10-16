@@ -3,7 +3,7 @@
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2026-06-22 17:41:46
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-08-04 10:51:45
+ * @LastEditTime : 2026-10-13 14:31:03
  * @Description  : 网络配置任务
  */
 
@@ -26,7 +26,12 @@
 #include "hostapd_manager.h"
 #include "platform_manager.h"
 #include "av_configure.h"
+#if CAP_LOCAL_STORAGE
 #include "storage_manage.h"
+#else
+/* 存储参数结构体定义在兼容层 storage_manage_define.h，宏关侧用默认空值上报 */
+#include "storage_manage_define.h"
+#endif
 // #include "SipModule.h"
 // #include "SipType.h"
 #include "path_define.h"
@@ -35,6 +40,8 @@
 #include "ipc_multicast_server.h"
 #include "platform_manager.h"
 #include "control_manage.h"
+#include <algorithm>
+#include <map>
 namespace
 {
 /*
@@ -82,7 +89,9 @@ static bool normalize_network_task_json(const std::string &strSourceJson,
 #include "rtsp_server.h"
 #include "web_server.h"
 #include "log_handler.h"
+#if CAP_GB35114
 #include "gm_cert_manage.h"
+#endif
 #include "onvif_server.h"
 #ifdef ENABLE_GAT1400_SRC
 #include "gat1400.h"
@@ -96,8 +105,10 @@ static bool normalize_network_task_json(const std::string &strSourceJson,
 #include <cstring>
 #include <sys/stat.h>
 
-namespace {
+namespace
+{
 
+#if CAP_GB35114
 /* 国密证书网页上传临时目录兼容路径 */
 constexpr const char *GM_CERT_UPLOAD_DIR = "/opt/course/upload";
 
@@ -239,6 +250,7 @@ int reset_gm_crl_configure()
     stCrlInfo.strPath = GM_CA_TRUST_CRL;
     return CGmCertConfigure::instance()->set_configure(stCrlInfo);
 }
+#endif
 
 }
 #if CAP_GARBAGE_STATION_PLATFORM
@@ -770,9 +782,10 @@ void Task::Network::SetBonjourInfo::handle()
     ::Network::BonjourConfigInfo_S stBonjourInfo;
     Convert::to_struct(m_taskData, stBonjourInfo);
     int nRet = Convert::write_file(BONJOUR_CONFIG_FILE, stBonjourInfo);
-    result(nRet);  
+    result(nRet);
 }
 
+#if CAP_GB35114
 /**
  * @brief   : 国际证书管理（国密）
  */
@@ -1030,8 +1043,7 @@ exit:
     CGmCertConfigure::instance()->get_configure(astInfo);
     result(Convert::to_string(astInfo), nRet);
 }
-
-
+#endif
 
 void Task::Network::SetNetworkService::handle()
 {
@@ -1060,6 +1072,75 @@ void Task::Network::GetWifiStaInfo::handle()
     ::Network::WifiStaInfo_S stInfo;
     get_wifi_config(stInfo);
     result(Convert::to_string(stInfo));
+}
+
+void Task::Network::ScanWifiSta::handle()
+{
+    CWifiManager *wifiManager = CWifiManager::instance();
+    if (wifiManager->init() < OK)
+    {
+        dlog_error("BLE WiFi扫描失败：WiFi管理模块初始化失败");
+        result(-1);
+        return;
+    }
+
+    std::vector<WifiInfo> scanResults = wifiManager->scanWifi();
+    /* 相同SSID和加密方式只保留信号最强的一项，避免多AP占满BLE响应。 */
+    std::map<std::string, WifiInfo> strongest;
+    for (const WifiInfo &wifi : scanResults)
+    {
+        if (wifi.ssid.empty())
+            continue;
+        const std::string key = wifi.ssid + "\n" + wifi.security_type;
+        std::map<std::string, WifiInfo>::iterator it = strongest.find(key);
+        if (it == strongest.end() || wifi.signal_level > it->second.signal_level)
+            strongest[key] = wifi;
+    }
+
+    std::vector<WifiInfo> filtered;
+    for (std::map<std::string, WifiInfo>::const_iterator it = strongest.begin();
+         it != strongest.end(); ++it)
+        filtered.push_back(it->second);
+    std::sort(filtered.begin(), filtered.end(),
+              [](const WifiInfo &left, const WifiInfo &right) {
+                  return left.signal_level > right.signal_level;
+              });
+
+    cJSON *root = cJSON_CreateObject();
+    cJSON *list = cJSON_CreateArray();
+    if (!root || !list)
+    {
+        cJSON_Delete(root);
+        cJSON_Delete(list);
+        result(-1);
+        return;
+    }
+
+    const std::size_t maxResults = 6; /* 即使SSID需要转义，也要保证返回帧小于1024字节。 */
+    const std::size_t count = std::min(filtered.size(), maxResults);
+    for (std::size_t i = 0; i < count; ++i)
+    {
+        cJSON *item = cJSON_CreateObject();
+        if (!item)
+            continue;
+        cJSON_AddStringToObject(item, "ssid", filtered[i].ssid.c_str());
+        cJSON_AddStringToObject(item, "security", filtered[i].security_type.c_str());
+        cJSON_AddItemToArray(list, item);
+    }
+    cJSON_AddNumberToObject(root, "count", static_cast<double>(count));
+    cJSON_AddBoolToObject(root, "truncated", filtered.size() > count);
+    cJSON_AddItemToObject(root, "list", list);
+
+    char *json = cJSON_PrintUnformatted(root);
+    if (!json)
+    {
+        cJSON_Delete(root);
+        result(-1);
+        return;
+    }
+    result(json);
+    cJSON_free(json);
+    cJSON_Delete(root);
 }
 
 void Task::Network::SetWifiStaInfo::handle()
@@ -1514,9 +1595,11 @@ void Task::Network::storePlatformDevices::handle()
         /* 仅判断第一码流 */
         stVideoConfig.nId = 0;
         CAVConfigure::instance()->get_configure(stVideoConfig);
-        
+
+#if CAP_LOCAL_STORAGE
         CStorageManage::instance()->get_storageManage_param(stStorageManageParam);
-        
+#endif
+
         // req.sn =  std::to_string(stDeviceInfo.deviceID);
         req.sn =  stDeviceInfo.serialNumber;
         req.name = stDeviceInfo.deviceName;

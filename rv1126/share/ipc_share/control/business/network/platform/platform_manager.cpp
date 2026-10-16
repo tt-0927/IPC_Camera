@@ -24,7 +24,12 @@
 #include "rtsp_server.h"
 #include "av_configure.h"
 #include "network_manage.h"
+#if CAP_LOCAL_STORAGE
 #include "storage_manage.h"
+#else
+/* 存储参数结构体定义在兼容层 storage_manage_define.h，宏关侧用默认空值上报 */
+#include "storage_manage_define.h"
+#endif
 #include "user_manage.h"
 #include "IpcRet.h"
 #include "dlog.h"
@@ -1823,7 +1828,9 @@ bool CPlatformManager::register_current_device(const std::string &strToken,
 
     stVideoConfig.nId = 0;
     CAVConfigure::instance()->get_configure(stVideoConfig);
+#if CAP_LOCAL_STORAGE
     CStorageManage::instance()->get_storageManage_param(stStorageManageParam);
+#endif
 
     CPlatformManager::StoreDevice req;
     CPlatformManager::StoreResponse resp;

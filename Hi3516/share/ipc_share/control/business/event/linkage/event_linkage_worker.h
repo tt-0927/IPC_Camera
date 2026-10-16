@@ -58,6 +58,16 @@ public:
      */
     std::atomic<bool> &getRunningFlag(LinkageType_E enLinkageType);
 
+    /**
+     * @brief   : 清除指定联动类型的运行态登记
+     * @details : 供抢占场景使用。旧任务被打断后仍需走完退出流程，其登记残留会让新任务
+     *            被"同类联动正在执行且优先级不更高"的冲突判断丢弃，故抢占时一并清除。
+     * @param    {LinkageType_E} enLinkageType 联动类型
+     * @return   无
+     */
+    void clear_running_registration(LinkageType_E enLinkageType);
+
+
 private:
     /**
      * @brief   : 工作线程主循环

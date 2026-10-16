@@ -215,7 +215,7 @@ bool process_region_detection(const ot_aidetect_object_of_one_class *pstObjectCl
                                                                              enEventType,
                                                                              0));
 #endif
-                    if (!access("testPrint", F_OK))
+                    if (!access("/opt/cam/bin/testPrint", F_OK))
                     {
                         dlog_debug("目标 ID: %u (内部索引: %d) 进入%s区域 %zu",
                                    stObject.track_id,
@@ -236,7 +236,7 @@ bool process_region_detection(const ot_aidetect_object_of_one_class *pstObjectCl
                         pdPanelEnterTime[j][nInternalIndex] = 0;
                     }
 #endif
-                    if (!access("testPrint", F_OK))
+                    if (!access("/opt/cam/bin/testPrint", F_OK))
                     {
                         dlog_debug("目标 ID: %u (内部索引: %d) 离开%s区域 %zu",
                                    stObject.track_id,
@@ -430,7 +430,7 @@ bool process_region_enter_exit_detection(const ot_aidetect_object_of_one_class *
                     }
                     else if (bLeaveEdge)
                     {
-                        if (!access("testPrint", F_OK))
+                        if (!access("/opt/cam/bin/testPrint", F_OK))
                         {
                             dlog_debug("目标 ID: %u (内部索引: %d) 离开区域[%zu]",
                                        stObject.track_id,
@@ -479,7 +479,7 @@ bool process_region_enter_exit_detection(const ot_aidetect_object_of_one_class *
                     }
                     else if (bEnterEdge)
                     {
-                        if (!access("testPrint", F_OK))
+                        if (!access("/opt/cam/bin/testPrint", F_OK))
                         {
                             dlog_debug("目标 ID: %u (内部索引: %d) 进入区域[%zu]",
                                        stObject.track_id,

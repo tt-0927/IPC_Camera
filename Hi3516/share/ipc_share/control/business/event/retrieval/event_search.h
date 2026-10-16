@@ -8,6 +8,9 @@
 
 #pragma once
 
+/* 本地 SD 存储能力裁剪：能力关闭（IPC_CAP_LOCAL_STORAGE=0）时本文件整体不参与编译 */
+#if CAP_LOCAL_STORAGE
+
 // #include "VehicleDatabase.h"
 #include "capture_define.h"
 #include "capture_database.h"
@@ -90,3 +93,5 @@ public:
      */
     int searchByRecordType(Event::RetrievalCond_S &stCond, std::vector<Event::Info_S> &EventInfos);
 };
+
+#endif /* CAP_LOCAL_STORAGE */

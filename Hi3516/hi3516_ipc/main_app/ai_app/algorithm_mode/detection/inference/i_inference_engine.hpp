@@ -24,8 +24,11 @@ struct DetectionBox_S
     float fConfidence = 0.0F; /* 置信度 [0,1] */
     int nX1 = 0, nY1 = 0;     /* 左上角 */
     int nX2 = 0, nY2 = 0;     /* 右下角 */
-    /* 可选 Track ID：HVF 引擎填充；YOLO 引擎不填（由模型适配器用跟踪器补充） */
-    std::optional<uint64_t> optTrackId;
+    /* 可选 Track ID：HVF 引擎填充（bHasTrackId=true 时 unTrackId 有效）；
+     * YOLO 引擎不填（由模型适配器用跟踪器补充）。
+     * C++11 无 std::optional，用 bool+值成员对替代 */
+    bool bHasTrackId = false;
+    uint64_t unTrackId = 0;
     /* 可选 Track 生命周期：HVF 引擎填充（STARTED/TRACKED/ENDED）；YOLO 引擎不填 */
     AiPipeline_NS::TrackState_E enTrackState = AiPipeline_NS::TrackState_E::UNAVAILABLE;
 };

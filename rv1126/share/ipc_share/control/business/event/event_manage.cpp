@@ -187,6 +187,9 @@ void CEventManage::set_event_type(Event::AlgorithmConfig_S &change, Event::Type_
     case Event::Type::CROWD_GATHERING: /* 人员聚集 */
         change.nEnCrowdGathering = bEnable;
         break;
+    case Event::Type::QUEUE_CROWDING: /* 排队拥挤 */
+        change.nEnQueueCrowding = bEnable;
+        break;
     case Event::Type::PARKING_DETECT: /* 停车侦测 */
         change.nEnParkingDetect = bEnable;
         break;
@@ -305,6 +308,27 @@ void CEventManage::set_event_type(Event::AlgorithmConfig_S &change, Event::Type_
         break;
     case Event::Type::NONMOTORVEHICLE_ATTRIBUTE: /* 非机动车识别 */
         change.nEnNonMotorVehicleAttribute = bEnable;
+        break;
+    case Event::Type::CHANNEL_OCCUPATION: /* 通道占用检测 */
+        change.nChannelOccupation = bEnable;
+        break;
+    case Event::Type::CLIMB_DETECTION: /* 攀爬识别检测 */
+        change.nClimbDetection = bEnable;
+        break;
+    case Event::Type::DANGER_ZONE_APPROACH: /* 危险区域靠近检测 */
+        change.nDangerZoneApproach = bEnable;
+        break;
+    case Event::Type::LONG_TIME_STAY: /* 长时间滞留 */
+        change.nLongTimeStay = bEnable;
+        break;
+    case Event::Type::DANGER_ZONE_STAY: /* 危险区域滞留 */
+        change.nDangerZoneStay = bEnable;
+        break;
+    case Event::Type::KEY_AREA_ABNORMAL_STAY: /* 重点区域异常滞留 */
+        change.nKeyAreaAbnormalStay = bEnable;
+        break;
+    case Event::Type::ROOFTOP_STAY: /* 天台滞留 */
+        change.nRooftopStay = bEnable;
         break;
 #endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
@@ -607,6 +631,13 @@ void CEventManage::print_algorithm_config_changes(const Event::AlgorithmConfig_S
         {       &Event::AlgorithmConfig_S::nEnPedestrianAttribute,             "行人识别" },
         {     &Event::AlgorithmConfig_S::nEnMotorVehicleAttribute,           "机动车识别" },
         {  &Event::AlgorithmConfig_S::nEnNonMotorVehicleAttribute,        "非机动车识别" },
+        {           &Event::AlgorithmConfig_S::nChannelOccupation,       "通道占用检测" },
+        {             &Event::AlgorithmConfig_S::nClimbDetection,         "攀爬识别检测" },
+        {       &Event::AlgorithmConfig_S::nDangerZoneApproach,   "危险区域靠近检测" },
+        {            &Event::AlgorithmConfig_S::nLongTimeStay,       "长时间滞留" },
+        {          &Event::AlgorithmConfig_S::nDangerZoneStay,     "危险区域滞留" },
+        {     &Event::AlgorithmConfig_S::nKeyAreaAbnormalStay, "重点区域异常滞留" },
+        {             &Event::AlgorithmConfig_S::nRooftopStay,         "天台滞留" },
 #endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
 {                 &Event::AlgorithmConfig_S::nEnSmokeFire,             "烟火识别" },

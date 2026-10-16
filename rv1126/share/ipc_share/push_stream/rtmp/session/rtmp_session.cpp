@@ -115,7 +115,7 @@ int CRtmpSession::init()
     m_nAudioPts = 0;
     m_nAudioWaitStartMs = 0;
     m_nLastFlushMs = 0;
-    m_vH265Mp4Data.clear();
+    m_vMp4Data.clear();
 
     /* 初始化帧队列（在锁保护下） */
     {
@@ -624,26 +624,19 @@ int CRtmpSession::process_video_frame(std::unique_ptr<FrameData> pFrameData)
         dlog_info("RTMP收到关键帧，开始发送视频，通道=%d", m_nChannel);
     }
 
-    if (enVideoCodec == Video_NS::VideoCodec_E::H265)
+    /*
+     * fix: extradata 为 avcC/hvcC（首字节1）时 flv muxer 不做 AnnexB 转换、包数据原样写入，
+     * 因此 H.264/H.265 都必须在业务层转成 4 字节长度前缀，否则 FLV tag 内是起始码、播放端解不出。
+     */
+    if (!RtmpFlv_NS::annexb_to_mp4(pData, nLen, m_vMp4Data))
     {
-        if (!RtmpFlv_NS::annexb_to_mp4(pData, nLen, m_vH265Mp4Data))
-        {
-            dlog_error("H.265视频帧AnnexB转MP4失败，通道=%d", m_nChannel);
-            return ERR;
-        }
+        dlog_error("视频帧AnnexB转MP4失败，通道=%d, codec=%d", m_nChannel, static_cast<int>(enVideoCodec));
+        return ERR;
     }
 
     AVPacket pkt = { 0 };
-    if (enVideoCodec == Video_NS::VideoCodec_E::H265)
-    {
-        pkt.data = m_vH265Mp4Data.data();
-        pkt.size = static_cast<int>(m_vH265Mp4Data.size());
-    }
-    else
-    {
-        pkt.data = pData;
-        pkt.size = nLen;
-    }
+    pkt.data = m_vMp4Data.data();
+    pkt.size = static_cast<int>(m_vMp4Data.size());
     pkt.stream_index = m_stream_context.video_stream_index();
     if (bIsKeyFrame)
     {

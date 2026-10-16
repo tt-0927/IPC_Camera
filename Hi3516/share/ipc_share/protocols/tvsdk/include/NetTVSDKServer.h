@@ -532,6 +532,11 @@ extern "C" {
 #define NET_SECURITY_LOGIN_MAX_ERROR_TIMES_MIN           (3)
 #define NET_SECURITY_LOGIN_MAX_ERROR_TIMES_MAX           (20)
 
+/* 账号锁定时长允许的最小值，对应 IPC LockDuration_E::LOCK_DURATION_5_MIN。 */
+#define NET_LOCK_DURATION_MIN   NET_LOCK_DURATION_5_MIN
+/* 账号锁定时长允许的最大值，对应 IPC LockDuration_E::LOCK_DURATION_5_DAY。 */
+#define NET_LOCK_DURATION_MAX   NET_LOCK_DURATION_5_DAY
+
 /* 告警周布防时间表包含的天数。 */
 #define NET_ALARM_SCHEDULE_DAY_COUNT            7
 /* 告警周布防时间表中的最小小时值。 */
@@ -564,6 +569,10 @@ extern "C" {
 #define NET_ALARM_CUSTOM_AUDIO_NAME_LEN        64
 /* 自定义音频文件路径字符串的最大长度。 */
 #define NET_ALARM_CUSTOM_AUDIO_PATH_LEN        64
+/* 自定义音频上传文件名字符串的最大长度。 */
+#define NET_ALARM_CUSTOM_AUDIO_FILE_NAME_LEN   64
+/* 自定义音频文件允许的最大字节数，取 20 兆字节。 */
+#define NET_ALARM_CUSTOM_AUDIO_FILE_MAX_SIZE   (20 * 1024 * 1024)
 /* 报警配置可关联的最大复制目标数量。 */
 #define NET_ALARM_COPY_TO_MAX_NUM              64
 /* 报警配置结构体中保留字段的字节长度。 */
@@ -1307,6 +1316,9 @@ typedef enum tagNETTVCfgCmd
     NET_GET_STORAGE_INFO                  = 504,           /* 获取设备存储信息 参见NET_DeviceStorageInfo_S */
     NET_GET_AUDIO_ANOMALY_CURRENT_DB      = 505,           /* 获取音频异常侦测实时音量 参见NET_AudioAnomalyCurrentDb_S */
     NET_DEL_FACE_FILE                     = 506,           /* 删除人脸文件 */
+    NET_GET_AUDIBLE_ALARM_CUSTOM_INFO     = 507,           /* 获取声音报警自定义音频列表 参见NET_AudibleAlarmCustomAudioList_S 对应AC_GET_AUDIO_CUSTOM_INFO */
+    NET_EDIT_AUDIBLE_ALARM_CUSTOM_INFO    = 508,           /* 编辑/试听/删除自定义音频 参见NET_AudibleAlarmCustomOperation_S 对应AC_EDIT_AUDIO_CUSTOM_INFO */
+    NET_ADD_AUDIBLE_ALARM_CUSTOM_INFO     = 509,           /* 新增自定义音频 参见NET_AudibleAlarmCustomOperation_S 对应AC_SET_AUDIO_CUSTOM_INFO */
 
     NET_GET_REGISTERINFO                  = 520,           /* 获取注册信息 参见NET_RegisterInfo_S */
     NET_SET_REGISTERINFO                  = 521,           /* 设置注册信息 参见NET_RegisterInfo_S */
@@ -1565,6 +1577,25 @@ typedef enum tagNETTVVideoCodeType
     NET_VIDEO_CODE_MPEG4     = 5,          /* MPEG4 */
     NET_VIDEO_CODE_INVALID
 }NET_VIDEO_CODE_TYPE_E;
+
+/**
+ * @enum tagNETTVBitrateType
+ * @brief 码率类型 枚举定义  Bitrate type Enumeration definition
+ * @note  取值与设备侧 Video_NS::BitrateType_E 保持一致。
+ * @attention 无 None
+ */
+typedef enum tagNETTVBitrateType
+{
+    NET_BITRATE_TYPE_CBR     = 0,          /* 固定比特率 */
+    NET_BITRATE_TYPE_ABR     = 1,          /* 恒定平均目标码率码控算法 */
+    NET_BITRATE_TYPE_VBR     = 2,          /* 可变比特率 */
+    NET_BITRATE_TYPE_AVBR    = 3,          /* 自适应可变比特率 */
+    NET_BITRATE_TYPE_QVBR    = 4,          /* 基于主观图像质量的可变比特率 */
+    NET_BITRATE_TYPE_CVBR    = 5,          /* 以VBR为基础，设置了瞬时、短期与长期码率的限制 */
+    NET_BITRATE_TYPE_FIXQP   = 6,          /* 固定QP值 */
+    NET_BITRATE_TYPE_QPMAP   = 7,          /* 自由决定码控的策略 */
+    NET_BITRATE_TYPE_INVALID
+}NET_BITRATE_TYPE_E;
 
 /**
  * @enum tagNET_AudioInputType
@@ -2033,6 +2064,23 @@ typedef enum tagNETTVPopulationAlarmSeverity
     NET_POPULATION_ALARM_SEVERE = 2              /* 严重报警 */
 } NET_POPULATION_ALARM_SEVERITY_E;
 
+/*
+ * 描述：账号锁定时长，与 IPC 侧 System::LockDuration_E 逐值对应。
+ */
+typedef enum tagNETLockDuration
+{
+    /* 锁定 5 分钟，对应 IPC LockDuration_E::LOCK_DURATION_5_MIN。 */
+    NET_LOCK_DURATION_5_MIN   = 0,
+    /* 锁定 30 分钟，对应 IPC LockDuration_E::LOCK_DURATION_30_MIN。 */
+    NET_LOCK_DURATION_30_MIN  = 1,
+    /* 锁定 60 分钟，对应 IPC LockDuration_E::LOCK_DURATION_60_MIN。 */
+    NET_LOCK_DURATION_60_MIN  = 2,
+    /* 锁定 1 天，对应 IPC LockDuration_E::LOCK_DURATION_1_DAY。 */
+    NET_LOCK_DURATION_1_DAY   = 3,
+    /* 锁定 5 天，对应 IPC LockDuration_E::LOCK_DURATION_5_DAY。 */
+    NET_LOCK_DURATION_5_DAY   = 4
+} NET_LockDuration_EN;
+
 /* END************* 枚举值  Enumeration value *************************** */
 
 
@@ -2443,6 +2491,23 @@ typedef struct tagNET_DeviceBasicInfo
 typedef NET_DeviceBasicInfo_S* pNET_DeviceBasicInfo_S;
 
 /**
+ * @struct tagNET_StorageManage
+ * @brief 轻存储管理信息（配额分配与分类占用）
+ * @note  IPC 等设备使用；NVR 侧可忽略该字段。容量字符串单位 GB，保留两位小数。
+ */
+typedef struct tagNET_StorageManage
+{
+    CHAR    strCaptureSpace[NET_LEN_16];             /* 图片容量，单位GB */
+    CHAR    strCaptureRemainingSpace[NET_LEN_16];    /* 图片剩余空间，单位GB */
+    CHAR    strRecordSpace[NET_LEN_16];              /* 录像容量，单位GB */
+    CHAR    strRecordRemainingSpace[NET_LEN_16];     /* 录像剩余空间，单位GB */
+    INT32   nCaptureQuotaPercentage;                 /* 抓图配额百分比 */
+    INT32   nRecordQuotaPercentage;                  /* 录像配额百分比 */
+    INT32   nStorageTime;                            /* 存储时间，单位天 */
+    BYTE    byReserved[32];                          /* 保留字段，便于后续扩展 */
+} NET_StorageManage_S, *pNET_StorageManage_S;
+
+/**
  * @brief 设备存储信息结构体（NVR/录播等有硬盘的设备专用）
  * @note  只有具备存储能力的设备才需要实现此结构体回调。
  *        编码器、矩阵等无存储设备返回不支持即可。
@@ -2456,7 +2521,8 @@ typedef struct tagNET_DeviceStorageInfo
     CHAR    strDiskAvailable[NET_LEN_32];           /* 硬盘可用空间 */
     CHAR    strDiskUsedSpace[NET_LEN_32];           /* 硬盘已用空间 */
     CHAR    strDiskFileType[NET_LEN_32];            /* 硬盘文件系统类型 */
-    BYTE    byReserved[128];                        /* 预留字段 */
+    NET_StorageManage_S stStorageManage;             /* 轻存储管理信息 */
+    BYTE    byReserved[128]; /* 预留字段，随新增字段相应缩小 */
 } NET_DeviceStorageInfo_S;
 
 /**
@@ -2480,6 +2546,14 @@ typedef struct tagDeviceStorageSnapshot
     UINT64 uUsedBytes;
     /* 文件系统名称，必须以空字符结尾。 */
     CHAR strFileType[NET_LEN_32];
+    /* 轻存储配额与分类占用：容量为 GB 字符串（两位小数），与网页「轻存储」口径保持一致。 */
+    CHAR strCaptureSpace[NET_LEN_16];
+    CHAR strCaptureRemainingSpace[NET_LEN_16];
+    CHAR strRecordSpace[NET_LEN_16];
+    CHAR strRecordRemainingSpace[NET_LEN_16];
+    INT32 nCaptureQuotaPercentage;
+    INT32 nRecordQuotaPercentage;
+    INT32 nStorageTime;
 } DeviceStorageSnapshot_S;
 
 /**
@@ -3899,6 +3973,19 @@ typedef enum tagNETAudibleAlarmAlertSound
 } NET_AudibleAlarmAlertSound_EN;
 
 /*
+ * 描述：声音报警自定义音频的管理操作类型，与 IPC 侧 Alarm::CustomOperationType_E 逐值对应。
+ */
+typedef enum tagNETAudibleAlarmCustomOpType
+{
+    /* 编辑自定义音频名称，对应 IPC CustomOperationType_E::CUSTOM_EDIT。 */
+    NET_AUDIBLE_ALARM_CUSTOM_OP_EDIT   = 0,
+    /* 在设备端试听自定义音频，对应 IPC CustomOperationType_E::CUSTOM_PLAY。 */
+    NET_AUDIBLE_ALARM_CUSTOM_OP_PLAY   = 1,
+    /* 删除自定义音频并删除设备端文件，对应 IPC CustomOperationType_E::CUSTOM_DEL。 */
+    NET_AUDIBLE_ALARM_CUSTOM_OP_DELETE = 2
+} NET_AudibleAlarmCustomOpType_EN;
+
+/*
  * 描述：报警输出通道的控制状态。
  */
 typedef enum tagNETAlarmOutputState
@@ -3963,6 +4050,38 @@ typedef struct tagNETAudibleAlarmInfo
     /* 保留字段，调用方应置零。 */
     BYTE abyReserved[NET_ALARM_CONFIG_RESERVED_LEN];
 } NET_AudibleAlarmInfo_S, *pNET_AudibleAlarmInfo_S;
+
+/*
+ * 描述：声音报警自定义音频的管理请求，与 IPC 侧 Alarm::CustomOperation_S 逐字段对应。
+ */
+typedef struct tagNETAudibleAlarmCustomOperation
+{
+    /* 是否选择该文件，对应 IPC CustomOperation_S::nEnable。 */
+    BOOL  nEnable;
+    /* 自定义操作类型，对应 IPC CustomOperation_S::enCustomType，取值见 NET_AudibleAlarmCustomOpType_EN。 */
+    INT32 enCustomType;
+    /* 上传到设备端的文件名，对应 IPC CustomOperation_S::strFileName，新增操作必填。 */
+    CHAR  strFileName[NET_ALARM_CUSTOM_AUDIO_FILE_NAME_LEN];
+    /* 自定义名称，对应 IPC CustomOperation_S::strName。 */
+    CHAR  strName[NET_ALARM_CUSTOM_AUDIO_NAME_LEN];
+    /* 自定义音频在设备端的完整路径，对应 IPC CustomOperation_S::strPath，编辑、试听和删除操作必填。 */
+    CHAR  strPath[NET_ALARM_CUSTOM_AUDIO_PATH_LEN];
+    /* 保留字段，调用方应置零。 */
+    BYTE  abyReserved[NET_ALARM_CONFIG_RESERVED_LEN];
+} NET_AudibleAlarmCustomOperation_S, *pNET_AudibleAlarmCustomOperation_S;
+
+/*
+ * 描述：声音报警自定义音频列表。
+ */
+typedef struct tagNETAudibleAlarmCustomAudioList
+{
+    /* 有效自定义音频数量。 */
+    INT32                         nAudioCount;
+    /* 自定义音频列表。 */
+    NET_AudibleAlarmCustomAudio_S astAudios[NET_AUDIBLE_ALARM_CUSTOM_AUDIO_MAX_NUM];
+    /* 保留字段，调用方应置零。 */
+    BYTE                          abyReserved[NET_ALARM_CONFIG_RESERVED_LEN];
+} NET_AudibleAlarmCustomAudioList_S, *pNET_AudibleAlarmCustomAudioList_S;
 
 /*
  * 描述：单个报警输入通道的配置。
@@ -6794,6 +6913,30 @@ NET_API BOOL STDCALL NET_serverRegisterGetAudibleAlarmInfoCb(NET_CB_GetDevConfig
  * @return 注册成功返回 TRUE；回调函数为空或重复注册时返回 FALSE。
  */
 NET_API BOOL STDCALL NET_serverRegisterSetAudibleAlarmInfoCb(NET_CB_SetDevConfigByCommand pCb);
+/*
+ * 功能描述：注册获取声音报警自定义音频列表的回调函数。
+ * 作者：ITC
+ * @param [in] pCb 用于填写 NET_AudibleAlarmCustomAudioList_S 输出数据的回调函数。
+ * @param [out] 无。注册成功后，回调函数将保存到内部配置回调表。
+ * @return 注册成功返回 TRUE；回调函数为空或重复注册时返回 FALSE。
+ */
+NET_API BOOL STDCALL NET_serverRegisterGetAudibleAlarmCustomInfoCb(NET_CB_GetDevConfigByCommand pCb);
+/*
+ * 功能描述：注册编辑、试听、删除声音报警自定义音频的回调函数。
+ * 作者：ITC
+ * @param [in] pCb 用于处理 NET_AudibleAlarmCustomOperation_S 输入数据的回调函数。
+ * @param [out] 无。注册成功后，回调函数将保存到内部配置回调表。
+ * @return 注册成功返回 TRUE；回调函数为空或重复注册时返回 FALSE。
+ */
+NET_API BOOL STDCALL NET_serverRegisterEditAudibleAlarmCustomInfoCb(NET_CB_SetDevConfigByCommand pCb);
+/*
+ * 功能描述：注册新增声音报警自定义音频的回调函数。
+ * 作者：ITC
+ * @param [in] pCb 用于处理 NET_AudibleAlarmCustomOperation_S 输入数据的回调函数。
+ * @param [out] 无。注册成功后，回调函数将保存到内部配置回调表。
+ * @return 注册成功返回 TRUE；回调函数为空或重复注册时返回 FALSE。
+ */
+NET_API BOOL STDCALL NET_serverRegisterAddAudibleAlarmCustomInfoCb(NET_CB_SetDevConfigByCommand pCb);
 /*
  * 功能描述：注册获取报警输入配置的回调函数。
  * 作者：ITC

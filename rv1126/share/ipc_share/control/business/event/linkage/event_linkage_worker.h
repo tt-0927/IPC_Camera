@@ -67,6 +67,7 @@ public:
      */
     void clear_running_registration(LinkageType_E enLinkageType);
 
+
 private:
     /**
      * @brief   : 工作线程主循环

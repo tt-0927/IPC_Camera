@@ -69,6 +69,7 @@ public:
      */
     void deactivate();
 
+#if CAP_AUDIO_OUTPUT
     /**
      * @description : 设置对讲信息
      * @author      : huangjunda
@@ -84,6 +85,7 @@ public:
      * @return       {*}
      */
     int set_broadcast_info(Preview::BroadcastInfo_S stInfo);
+#endif
 
     /**
      * @description : 设置蜂鸣器报警
@@ -99,6 +101,7 @@ public:
      */
     int device_control(const Preview::DeviceControl_S &stInfo);
 
+#if CAP_AUDIO_OUTPUT
     /**
      * @brief   : 获取语音通讯状态
      * @note    : 用于判断是否在对讲中
@@ -112,8 +115,10 @@ public:
      * @return   {string} Ip
      */
     std::string get_intercom_ip();
+#endif
 
 private:
+#if CAP_AUDIO_OUTPUT
     /**
      * @description : 回调接收到的音频
      * @author      : cyc
@@ -122,6 +127,7 @@ private:
      * @return       {*}
      */
     void audioDataCallback(const uint8_t *pData, size_t length);
+#endif
 
     /**
      * @brief 定时线程主循环
@@ -143,19 +149,24 @@ private:
 
     /**
      * @brief 执行硬件停止
-     * @note 关闭 GPIO 报警输出、释放白光临时抢占，由 ISP reconciler 恢复原有补光配置。手动 STOP 和超时停止共用它，确保行为一致。
+     * @note 关闭 GPIO 报警输出、释放白光临时抢占，由 ISP reconciler 恢复原有补光配置。
+     * @param [in] bStopAudio 是否同时停止声音联动：手动 STOP 与设备退出传 true；
+     *            自动超时停止传 false，让报警音频按配置的播放次数完整播完。
+     * @return 成功返回 OK，失败返回相应错误码。
      */
-    int stop_alarm_light_output();
+    int stop_alarm_light_output(bool bStopAudio = true);
 
 private:
     Preview::PreviewInfo_S m_stPreviewInfo;                               /* 预览信息 */
     Audio_NS::AudioFormat_E enCurFormat = Audio_NS::AudioFormat_E::G711A; /* 当前音频格式 */
+#if CAP_AUDIO_OUTPUT
     std::unique_ptr<RtpAudioReceiver> m_intercomReceiver = std::unique_ptr<RtpAudioReceiver>(new RtpAudioReceiver());  /* 对讲 */
     std::unique_ptr<RtpAudioReceiver> m_broadcastReceiver = std::unique_ptr<RtpAudioReceiver>(new RtpAudioReceiver()); /* 广播 */
     /* 语音通讯状态 */
     bool m_bIntercomStatus = false;
     /* 语音通讯Ip */
     std::string m_strIp;
+#endif
 
     std::mutex m_alarmLightOperationMutex; /* 串行化硬件操作。保证 GPIO、闪光灯的开启、停止、自动停止不会同时执行。 */
     std::mutex m_alarmLightTimerMutex; /* 仅保护定时器状态，如截止时间、是否已启用、代次号。避免与硬件操作锁混用。 */

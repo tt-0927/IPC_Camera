@@ -60,7 +60,10 @@
 #include "rtsp_server.h"
 #include "upgrade_client.h"
 #include "register_manage.h"
+#if CAP_LOCAL_STORAGE
+/* 本地 SD 存储链路：SD 卡状态查询，能力关闭时状态固定按无卡上报 */
 #include "storage_manage.h"
+#endif
 
 namespace TvSdkCallbacks
 {
@@ -1927,6 +1930,13 @@ static NET_COMMON_ECODE_E cb_get_sd_card_status(INT32 nChannelId, LPVOID pOutBuf
     pNET_SdCardStatus_S pSdCardStatus = static_cast<pNET_SdCardStatus_S>(pOutBuffer);
     *pSdCardStatus = {};
 
+#if !CAP_LOCAL_STORAGE
+    /* 本地存储已裁剪：设备无 SD 卡槽，状态固定按无卡上报。 */
+    pSdCardStatus->nStatus = NET_SD_CARD_STATUS_UNPLUGGED;
+    pSdCardStatus->bReady = FALSE;
+    pSdCardStatus->uChannel = 0;
+    return NET_E_SUCCEED;
+#else
     std::string strOutJson;
     if (execute_get_result(AC_GET_SD_CARD_STATUS, "{}", strOutJson) != 0 || strOutJson.empty())
     {
@@ -1970,6 +1980,7 @@ static NET_COMMON_ECODE_E cb_get_sd_card_status(INT32 nChannelId, LPVOID pOutBuf
     pSdCardStatus->bReady = bReady ? TRUE : FALSE;
     pSdCardStatus->uChannel = 0;
     return NET_E_SUCCEED;
+#endif /* CAP_LOCAL_STORAGE */
 }
 
 /**
@@ -2063,6 +2074,7 @@ static NET_COMMON_ECODE_E cb_set_register_info(INT32 nChannelId, LPVOID pInBuffe
  * @param [out] strFileType 挂载文件系统类型。
  * @return 找到返回 true；未挂载或读取失败返回 false，由调用方报告查询失败。
  */
+#if CAP_LOCAL_STORAGE
 static bool tvsdk_get_sd_mount_info(std::string &strDevice, std::string &strFileType)
 {
     strDevice.clear();
@@ -2093,6 +2105,7 @@ static bool tvsdk_get_sd_mount_info(std::string &strDevice, std::string &strFile
     }
     return false;
 }
+#endif /* CAP_LOCAL_STORAGE：/proc/mounts 枚举仅宏开侧使用，宏关侧无卡可枚举 */
 
 /**
  * @brief 将当前 SD 卡作为设备存储返回，容量来自同一挂载目录描述符。
@@ -2107,13 +2120,16 @@ static NET_COMMON_ECODE_E cb_get_device_storage_info(pNET_DeviceStorageInfo_S pI
         return NET_E_INVALID_PARAM;
     }
     *pInfo = {};
+    static constexpr INT32 TVSDK_STORAGE_STATUS_UNPLUGGED = 1;
+#if CAP_LOCAL_STORAGE
     static constexpr INT32 TVSDK_STORAGE_STATUS_NORMAL = 0;
     static constexpr INT32 TVSDK_STORAGE_STATUS_ERROR = -1;
-    static constexpr INT32 TVSDK_STORAGE_STATUS_UNPLUGGED = 1;
     static constexpr INT32 TVSDK_STORAGE_STATUS_FORMATTING = 2;
     static constexpr INT32 TVSDK_STORAGE_STATUS_INITIALIZING = 3;
+#endif
 
     DeviceStorageSnapshot_S stSnapshot{};
+#if CAP_LOCAL_STORAGE
     const SD_CARD_STATUS_E enStatus = CStorageManage::instance()->get_SdCardStatus();
     stSnapshot.nDiskCount = (enStatus == UNPLUG) ? 0 : 1;
     /* 504 正常状态为零；493 的正常状态为三，两者不能直接照搬。 */
@@ -2210,6 +2226,11 @@ static NET_COMMON_ECODE_E cb_get_device_storage_info(pNET_DeviceStorageInfo_S pI
             dlog_warn("TVSDK获取存储信息: 读取轻存储配额失败，分类容量返回空值");
         }
     }
+#else
+    /* 本地存储已裁剪：设备无 SD 卡槽，固定按无卡上报（无磁盘、零容量）。 */
+    stSnapshot.nDiskCount = 0;
+    stSnapshot.nDiskStatus = TVSDK_STORAGE_STATUS_UNPLUGGED;
+#endif
 
     TvSdkConvert::FillDeviceStorageInfo(stSnapshot, *pInfo);
     dlog_info("TVSDK获取存储信息成功: command[%d], count[%d], status[%d], total[%s], available[%s], filesystem[%s]",
@@ -6356,6 +6377,7 @@ static NET_COMMON_ECODE_E cb_set_whitebalance_info(INT32 dwChannelID, LPVOID lpI
     return (nExec == 0) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
 }
 
+#if CAP_AUDIO_OUTPUT
 static NET_COMMON_ECODE_E cb_set_talkback_state(INT32 dwChannelID, LPVOID lpInBuffer)
 {
     (void)dwChannelID;
@@ -6440,6 +6462,7 @@ static NET_COMMON_ECODE_E cb_set_replay_talkback(INT32 dwChannelID, LPVOID lpInB
     return (nExec == 0) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
 }
 
+#endif /* CAP_AUDIO_OUTPUT */
 /*-----------------------------------获取/设置音频配置-------------------------------------*/
 static NET_COMMON_ECODE_E cb_get_audio_cfg(INT32 dwChannelID, LPVOID lpOutBuffer)
 {
@@ -7587,10 +7610,12 @@ void register_all()
     NET_serverRegisterGetWhiteBalanceInfoCb(cb_get_whitebalance_info);
     NET_serverRegisterSetWhiteBalanceInfoCb(cb_set_whitebalance_info);
     
+#if CAP_AUDIO_OUTPUT
     NET_serverRegisterSetTalkbackStateCb(cb_set_talkback_state);
     NET_serverRegisterSetTalkbackToStreamCb(cb_set_talkback_to_stream);
     NET_serverRegisterGetTalkbackFromStreamCb(cb_get_talkback_from_stream);
     NET_serverRegisterSetReplayTalkbackCb(cb_set_replay_talkback);
+#endif /* CAP_AUDIO_OUTPUT */
     NET_serverRegisterGetReplayUrlCb(cb_get_replay_url);
 
     NET_serverRegisterGetAudioConfigCb(cb_get_audio_cfg);

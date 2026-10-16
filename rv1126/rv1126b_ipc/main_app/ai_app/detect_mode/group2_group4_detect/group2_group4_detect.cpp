@@ -17,6 +17,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
 #include <cstring>
 
 #ifdef ENABLE_GAT1400_SRC
@@ -1815,6 +1816,12 @@ int CGroup2_Group4Detect::pnmAttributeAnalysis(
     std::vector<Group2Detect_NS::Result_S> vstMotorVehicleResult;
     std::vector<Group2Detect_NS::Result_S> vstNonMotorVehicleResult;
 
+    /* 单帧大图信息：日期、时间戳同刻取出，本帧所有大图小图共用 */
+    FrameCapture_S stFrameCapture;
+    stFrameCapture.mat          = srcData;
+    stFrameCapture.strDate      = TimeUtils_NS::get_currentDate();
+    stFrameCapture.strTimestamp = TimeUtils_NS::get_currentTimeMs();
+
     const bool bPedestrianAttribute = m_stPersonAttributeCfg.bEnable;
     const bool bMotorVehicleAttribute = m_stMotorVehicleAttributeCfg.bEnable;
     const bool bNonMotorVehicleAttribute = m_stNonMotorVehicleAttributeCfg.bEnable;
@@ -1871,7 +1878,7 @@ int CGroup2_Group4Detect::pnmAttributeAnalysis(
     {
         if (bPedestrianAttribute)
         {
-            personAttributeAnalysis(srcData, vstPersonResult, pCloseupFrame);
+            personAttributeAnalysis(srcData, vstPersonResult, pCloseupFrame, stFrameCapture);
             m_vecLastFramePersonResult = vstPersonResult;
         }
         else
@@ -1881,7 +1888,7 @@ int CGroup2_Group4Detect::pnmAttributeAnalysis(
 
         if (bNonMotorVehicleAttribute)
         {
-            nonMotorvehicleAttributeAnalysis(srcData, vstNonMotorVehicleResult);
+            nonMotorvehicleAttributeAnalysis(srcData, vstNonMotorVehicleResult, stFrameCapture);
             m_vecLastFrameNonMotorvehicleResult = vstNonMotorVehicleResult;
         }
         else
@@ -1893,7 +1900,7 @@ int CGroup2_Group4Detect::pnmAttributeAnalysis(
     if (m_stAlgoLicensePlateCognitionCfg.bEnable || bMotorVehicleAttribute)
     {
         /* 车牌检测 + 车辆属性识别 */
-        licensePlateDetectProcess(srcData, vstMotorVehicleResult, bMotorVehicleAttribute);
+        licensePlateDetectProcess(srcData, vstMotorVehicleResult, bMotorVehicleAttribute, stFrameCapture);
     }
     else
     {
@@ -1988,7 +1995,8 @@ static bool isSameTarget(Group2Detect_NS::Result_S stLastFrameResult, Group2Dete
 int CGroup2_Group4Detect::personAttributeAnalysis(
     cv::Mat &srcData,
     std::vector<Group2Detect_NS::Result_S> vecPersonResult,
-    const CloseupFrame_S *pCloseupFrame)
+    const CloseupFrame_S *pCloseupFrame,
+    FrameCapture_S &stFrameCapture)
 {
     if (!m_pPersonAttributeHandle)
     {
@@ -1998,6 +2006,9 @@ int CGroup2_Group4Detect::personAttributeAnalysis(
             return -1;
         }
     }
+
+    /* 同一大图下的目标小图序号，文件名格式化为 %02d */
+    int nSeq = 1;
 
     for (unsigned int i = 0; i < vecPersonResult.size(); i++)
     {
@@ -2091,15 +2102,24 @@ int CGroup2_Group4Detect::personAttributeAnalysis(
                 cv::cvtColor(cropped, personTargetBgr, cv::COLOR_RGB2BGR);
             }
 
-            std::string strPersonPicture = saveTargetImage(personTargetBgr, "Person");
-            /* 保存全景大图 */
-            std::string strCurrentPicture = saveFullImage(srcData, "Person");
-            if (!strPersonPicture.empty() && !strCurrentPicture.empty())
+            /* 保存全景大图：整帧只保存一次 */
+            const std::string strFullPicture = ensureFrameFullImage(stFrameCapture);
+            /* 保存目标小图 */
+            std::string strPersonPicture;
+            if (!strFullPicture.empty())
+            {
+                strPersonPicture = saveTargetImage(personTargetBgr, "Person", stFrameCapture.strTimestamp, nSeq);
+                if (!strPersonPicture.empty())
+                {
+                    ++nSeq;
+                }
+            }
+            if (!strPersonPicture.empty())
             {
                 /* 截取的是单个行人进行的行人属性分析，分析结果只有一个 */
                 PresonAttribute_NS::Result_S stResult = stOutData.at(0);
                 /* 行人抓拍信息推送 */
-                pushPersonCaptureInfo(strCurrentPicture, strPersonPicture, stResult);
+                pushPersonCaptureInfo(strFullPicture, strPersonPicture, stResult);
             }
 #ifdef ENABLE_TVSDK_SRC
             /* 行人抓拍信息 TVSDK 二进制直推（内存编码，不依赖 SD 卡） */
@@ -2115,7 +2135,8 @@ int CGroup2_Group4Detect::motorvehicleAttributeAnalysis(
     cv::Mat              &srcData,
     cv::Mat              &cropped,
     const Common::Rect_S &stTargetRect,
-    const std::string    &strLicensePlateNumber)
+    const std::string    &strLicensePlateNumber,
+    FrameCapture_S       &stFrameCapture)
 {
     if (!m_pMotorVehicleAttributeHandle)
     {
@@ -2152,11 +2173,15 @@ int CGroup2_Group4Detect::motorvehicleAttributeAnalysis(
         return -1;
     }
 
-    /* 仅保存车辆图片？/直接保存整张大图 */
-    std::string strCurrentPicture = saveFullImage(srcData, "MotorVehicle");
+    /* 保存全景大图：整帧只保存一次 */
+    const std::string strCurrentPicture = ensureFrameFullImage(stFrameCapture);
 
     /* 有车牌时保存车牌区域，否则保存车辆区域。 */
-    std::string strTargetPicture = saveCropImage(srcData, stTargetRect, "MotorVehicle");
+    std::string strTargetPicture;
+    if (!strCurrentPicture.empty())
+    {
+        strTargetPicture = saveCropImage(srcData, stTargetRect, "MotorVehicle", stFrameCapture.strTimestamp, 1);
+    }
 
     if (stOutData.size() && !strCurrentPicture.empty() && !strTargetPicture.empty())
     {
@@ -2178,7 +2203,7 @@ int CGroup2_Group4Detect::motorvehicleAttributeAnalysis(
     return 0;
 }
 
-int CGroup2_Group4Detect::nonMotorvehicleAttributeAnalysis(cv::Mat &srcData, std::vector<Group2Detect_NS::Result_S> vecNonMotorvehicleResult)
+int CGroup2_Group4Detect::nonMotorvehicleAttributeAnalysis(cv::Mat &srcData, std::vector<Group2Detect_NS::Result_S> vecNonMotorvehicleResult, FrameCapture_S &stFrameCapture)
 {
     if (!m_pNonMotorizedAttributeHandle)
     {
@@ -2188,6 +2213,10 @@ int CGroup2_Group4Detect::nonMotorvehicleAttributeAnalysis(cv::Mat &srcData, std
             return -1;
         }
     }
+
+    /* 同一大图下的目标小图序号，文件名格式化为 %02d */
+    int nSeq = 1;
+
     for (unsigned int i = 0; i < vecNonMotorvehicleResult.size(); i++)
     {
         bool bFlag = false;
@@ -2263,16 +2292,25 @@ int CGroup2_Group4Detect::nonMotorvehicleAttributeAnalysis(cv::Mat &srcData, std
             stRect.nWidth  = nRight - nLeft;
             stRect.nHeight = nBottom - nTop;
 
-            std::string strTargetPicture = saveCropImage(srcData, stRect, "NonMotorvehicle");
-            /* 保存全景大图 */
-            std::string strCurrentPicture = saveFullImage(srcData, "NonMotorvehicle");
+            /* 保存全景大图：整帧只保存一次 */
+            const std::string strFullPicture = ensureFrameFullImage(stFrameCapture);
+            /* 保存目标小图 */
+            std::string strTargetPicture;
+            if (!strFullPicture.empty())
+            {
+                strTargetPicture = saveCropImage(srcData, stRect, "NonMotorvehicle", stFrameCapture.strTimestamp, nSeq);
+                if (!strTargetPicture.empty())
+                {
+                    ++nSeq;
+                }
+            }
 
-            if (!strCurrentPicture.empty() && !strTargetPicture.empty())
+            if (!strTargetPicture.empty())
             {
                 /* 截取的是单个非机动车进行的属性分析，分析结果只有一个 */
                 NonMotorizedAttribute_NS::Result_S stResult = stOutData.at(0);
                 /* 非机动车抓拍信息推送 */
-                pushNonMotorvehicleCaptureInfo(strCurrentPicture, strTargetPicture, stResult);
+                pushNonMotorvehicleCaptureInfo(strFullPicture, strTargetPicture, stResult);
             }
 #ifdef ENABLE_TVSDK_SRC
             /* 非机动车抓拍信息 TVSDK 二进制直推（内存编码，不依赖 SD 卡） */
@@ -2284,7 +2322,7 @@ int CGroup2_Group4Detect::nonMotorvehicleAttributeAnalysis(cv::Mat &srcData, std
     return 0;
 }
 
-int CGroup2_Group4Detect::licensePlateDetectProcess(cv::Mat &srcData, const std::vector<Group2Detect_NS::Result_S> &vstResult, bool bMotorVehicleAttribute)
+int CGroup2_Group4Detect::licensePlateDetectProcess(cv::Mat &srcData, const std::vector<Group2Detect_NS::Result_S> &vstResult, bool bMotorVehicleAttribute, FrameCapture_S &stFrameCapture)
 {
     if (!m_stAlgoLicensePlateCognitionCfg.bEnable && !bMotorVehicleAttribute)
     {
@@ -2444,7 +2482,8 @@ int CGroup2_Group4Detect::licensePlateDetectProcess(cv::Mat &srcData, const std:
                     srcData,
                     cropped,
                     stAttributeTargetRect,
-                    strAttributeLicensePlateNumber);
+                    strAttributeLicensePlateNumber,
+                    stFrameCapture);
             }
 
             if (!strAttributeLicensePlateNumber.empty() &&
@@ -3877,14 +3916,25 @@ int CGroup2_Group4Detect::saveToDatebase(const std::string &strFilename, Event::
     return 0;
 }
 
-std::string CGroup2_Group4Detect::saveFullImage(cv::Mat image, std::string strPicType)
+std::string CGroup2_Group4Detect::ensureFrameFullImage(FrameCapture_S &stFrameCapture)
+{
+    if (stFrameCapture.strFullPath.empty())
+    {
+        /* 大图为整帧共享，文件名图片类型固定为 PMN（人/机动车/非机动车） */
+        stFrameCapture.strFullPath = saveFullImage(
+            stFrameCapture.mat, "PMN", stFrameCapture.strDate, stFrameCapture.strTimestamp);
+    }
+    return stFrameCapture.strFullPath;
+}
+
+std::string CGroup2_Group4Detect::saveFullImage(cv::Mat image, const std::string &strPicType, const std::string &strDate, const std::string &strTimestamp)
 {
     if (image.empty() || SD_CARD_STATUS_E::NORMAL != CStorageManage::instance()->get_SdCardStatus())
     {
         return "";
     }
 
-    std::string strCurrentDate = TimeUtils_NS::get_currentDate();
+    const std::string &strCurrentDate = strDate;
 
     std::string fullPath = std::string(CAPTURE_PATH) + "/" + strCurrentDate;
 
@@ -3905,10 +3955,9 @@ std::string CGroup2_Group4Detect::saveFullImage(cv::Mat image, std::string strPi
     cv::cvtColor(image, outImage, cv::COLOR_RGB2BGR);
     // /* 添加叠加数据 */
     // addFaceOverlayInfo(image);
-    /* 抓图路径 + 日期（YYYYMMDD）+ 时间（HHMMSS）+ 事件类型 + 计数值.jpg */
+    /* 抓图路径 + 日期（YYYYMMDD）+ 时间（HHMMSSmmm，调用方传入，与小图一致）+ 图片类型 + 联动类型.jpg */
     std::string strFilename = std::string(CAPTURE_PATH) + "/" + strCurrentDate + "/" + strCurrentDate + "_" +
-                              TimeUtils_NS::get_currentTimeMs() + "_" +
-                              //   std::to_string(static_cast<int>(Event::Type_E::PLATE_NUMBER)) + "_" +
+                              strTimestamp + "_" +
                               strPicType + "_" +
                               std::to_string(int(Alarm::LinkageType::UPLOAD_PANORAMIC_IMAGE)) + ".jpg";
     dlog_debug("全景大图] 保存全景大图[%s]", strFilename.c_str());
@@ -3923,7 +3972,7 @@ std::string CGroup2_Group4Detect::saveFullImage(cv::Mat image, std::string strPi
     }
 }
 
-std::string CGroup2_Group4Detect::saveCropImage(cv::Mat image, Common::Rect_S stRect, std::string strPicType)
+std::string CGroup2_Group4Detect::saveCropImage(cv::Mat image, Common::Rect_S stRect, const std::string &strPicType, const std::string &strTimestamp, int nSeq)
 {
     if (image.empty() || SD_CARD_STATUS_E::NORMAL != CStorageManage::instance()->get_SdCardStatus())
     {
@@ -3947,11 +3996,12 @@ std::string CGroup2_Group4Detect::saveCropImage(cv::Mat image, Common::Rect_S st
             return "";
         }
     }
-    /* 抓图路径 + 日期（YYYYMMDD）+ 时间（HHMMSS）+ 事件类型 + 计数值.jpg */
+    /* 抓图路径 + 日期（YYYYMMDD）+ 时间（HHMMSSmmm，调用方传入，与大图一致）+ 图片类型 + 序号 + 联动类型.jpg */
+    char szSeq[8] = {0};
+    snprintf(szSeq, sizeof(szSeq), "%02d", nSeq);
     std::string strFilename = std::string(CAPTURE_PATH) + "/" + strCurrentDate + "/" + strCurrentDate + "_" +
-                              TimeUtils_NS::get_currentTimeMs() + "_" +
-                              //   std::to_string(static_cast<int>(Event::Type_E::FACE_CAPTURE)) + "_" +
-                              strPicType + "_" +
+                              strTimestamp + "_" +
+                              strPicType + szSeq + "_" +
                               std::to_string(int(Alarm::LinkageType::UPLOAD_TARGET_IMAGE)) + ".jpg";
     dlog_debug("[目标小图] 保存目标小图[%s]", strFilename.c_str());
     cv::Mat  outImage;
@@ -3972,7 +4022,9 @@ std::string CGroup2_Group4Detect::saveCropImage(cv::Mat image, Common::Rect_S st
 
 std::string CGroup2_Group4Detect::saveTargetImage(
     const cv::Mat &targetBgr,
-    const std::string &strPicType)
+    const std::string &strPicType,
+    const std::string &strTimestamp,
+    int nSeq)
 {
     if (targetBgr.empty() || SD_CARD_STATUS_E::NORMAL != CStorageManage::instance()->get_SdCardStatus())
     {
@@ -3993,9 +4045,12 @@ std::string CGroup2_Group4Detect::saveTargetImage(
         }
     }
 
+    /* 抓图路径 + 日期（YYYYMMDD）+ 时间（HHMMSSmmm，调用方传入，与大图一致）+ 图片类型 + 序号 + 联动类型.jpg */
+    char szSeq[8] = {0};
+    snprintf(szSeq, sizeof(szSeq), "%02d", nSeq);
     const std::string strFilename = std::string(CAPTURE_PATH) + "/" + strCurrentDate + "/" +
-                                    strCurrentDate + "_" + TimeUtils_NS::get_currentTimeMs() + "_" +
-                                    strPicType + "_" +
+                                    strCurrentDate + "_" + strTimestamp + "_" +
+                                    strPicType + szSeq + "_" +
                                     std::to_string(int(Alarm::LinkageType::UPLOAD_TARGET_IMAGE)) + ".jpg";
     dlog_debug("[目标小图] 保存目标小图[%s]", strFilename.c_str());
 

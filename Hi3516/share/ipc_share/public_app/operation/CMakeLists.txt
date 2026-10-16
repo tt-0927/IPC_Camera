@@ -58,6 +58,10 @@ set (LOCAL_LIBS
     libz
 )
 
+if(IPC_CAP_BLUETOOTH)
+    list(APPEND LOCAL_LIBS libble_gdbus)
+endif()
+
 # 过滤
 set(GREP_TEXT "demo")
 
@@ -71,6 +75,11 @@ string(REPLACE "\n" ";" dirs_list ${dirs_list})
 
 # 添加所有源文件与头文件
 foreach(item ${dirs_list})
+    # 蓝牙源码只在能力开启时参与编译，确保普通型号和
+    # ENABLE_BLUETOOTH=0 的 TLW/TL4G 不依赖 GLib/GIO。
+    if(item MATCHES "/bluetooth$" AND NOT IPC_CAP_BLUETOOTH)
+        continue()
+    endif()
     include_directories (${item})
     aux_source_directory (${item} SRC_LIST)
 endforeach()

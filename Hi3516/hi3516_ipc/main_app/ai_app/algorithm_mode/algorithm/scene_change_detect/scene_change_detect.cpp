@@ -239,7 +239,7 @@ void CSceneChangeDetect::run()
 void CSceneChangeDetect::processSceneChangeMode(ot_sample_svp_rect_info &stRectInfo, const SEventProcessContext &stCtx)
 {
     /* 处理检测到的矩形区域 */
-    if (!access("testPrint", F_OK))
+    if (!access("/opt/cam/bin/testPrint", F_OK))
     {
         /* 打印输出数据 */
         printResult(stRectInfo);
@@ -253,7 +253,7 @@ void CSceneChangeDetect::processSceneChangeMode(ot_sample_svp_rect_info &stRectI
     if (stRectInfo.sensitivity > fSensitivityThreshold)
     {
         bIsAlarm = true;
-        if (!access("testPrint", F_OK))
+        if (!access("/opt/cam/bin/testPrint", F_OK))
         {
             dlog_debug("[场景变更侦测] 灵敏度: %f > %f", stRectInfo.sensitivity, fSensitivityThreshold);
             /* 发送结果至OSD模块，进行框选显示 */

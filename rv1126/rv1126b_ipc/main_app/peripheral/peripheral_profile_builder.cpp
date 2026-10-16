@@ -5,7 +5,6 @@
  * @LastEditors  : zhouzr@kfb.cn
  * @LastEditTime : 2026-08-11 13:43:07
  * @Description  : RV1126B外设板级画像构建实现
- * @Change       : 2026-10-12，将白光切换稳定等待由100毫秒调整为20毫秒，保留互斥关断顺序。
  */
 
 #include "peripheral_profile_builder.h"
@@ -42,7 +41,7 @@ void build_fill_light_profile(FillLightProfile_S &stProfile)
     stProfile.stWhite.nDutyOffset = WHITE_LIGHT_DUTY_OFFSET;
     stProfile.stWhite.nDutyStep = WHITE_LIGHT_DUTY_STEP;
     stProfile.stWhite.nDutyMax = WHITE_LIGHT_DUTY_MAX;
-    /* 切换白光前等待20毫秒，保留PWM输出和灯珠驱动的稳定窗口。 */
+    /* info: 切换白光前等待20毫秒，给PWM输出和灯珠驱动留下稳定时间。 */
     stProfile.nMutualExclusionSettleMs = 20U;
 }
 } // namespace

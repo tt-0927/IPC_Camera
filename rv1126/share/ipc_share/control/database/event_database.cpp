@@ -7,6 +7,9 @@
  * @Description: 事件数据库
  */
 
+/* 本地 SD 存储能力裁剪：能力关闭（IPC_CAP_LOCAL_STORAGE=0）时本文件整体不参与编译 */
+#if CAP_LOCAL_STORAGE
+
 #include "event_database.h"
 
 using namespace Event;
@@ -276,3 +279,5 @@ int EventDatabase::clear_table(const std::string &tableName, bool resetAutoInc)
     std::unique_lock<std::mutex> lock(m_mutex);
     return m_eventDb.clear_table(tableName);
 }
+
+#endif /* CAP_LOCAL_STORAGE */

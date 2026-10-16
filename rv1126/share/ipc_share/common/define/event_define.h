@@ -51,6 +51,7 @@ namespace Event
         FACE_RECOGNITION = 13,     /* 人脸识别 */
 #ifdef SCENE_INTELLIGENCE
         SMART_RECOGNITION = 14,    /* 智能识别（行人/机动车/非机动车属性） */
+        SAFE_CAMPUS = 15,          /* 平安校园（临时） */
 #endif
     } SmartCategory_E;
 
@@ -164,6 +165,17 @@ namespace Event
 
         // ========== 人脸识别 合并侦测、抓拍、属性分析 ==========
         FACE_RECOGNITION = 57, /* 人脸识别 */
+
+        // ========== 平安校园相关事件 ==========
+        CHANNEL_OCCUPATION = 58,    /* 通道占用 */
+        FACEEXPRESSION = 59,        /* 面部情绪分析 */
+        QUEUE_CROWDING = 60,   /* 排队拥挤检测 */
+        CLIMB_DETECTION = 61,       /* 攀爬识别 */
+        DANGER_ZONE_APPROACH = 62,  /* 危险区域靠近 */
+        LONG_TIME_STAY = 63,           /* 长时间滞留 */
+        DANGER_ZONE_STAY = 64,         /* 危险区域滞留 */
+        KEY_AREA_ABNORMAL_STAY = 65,   /* 重点区域异常滞留 */
+        ROOFTOP_STAY = 66,             /* 天台滞留 */
 
         /**
          * @brief   : 事件其他特殊类型
@@ -281,6 +293,15 @@ namespace Event
         case Type::MOTORVEHICLE_ATTRIBUTE:
         case Type::NONMOTORVEHICLE_ATTRIBUTE:
         case Type::PERSON_TRIP:
+        case Type::CHANNEL_OCCUPATION:
+        case Type::FACEEXPRESSION:
+        case Type::QUEUE_CROWDING:
+        case Type::CLIMB_DETECTION:
+        case Type::DANGER_ZONE_APPROACH:
+        case Type::LONG_TIME_STAY:
+        case Type::DANGER_ZONE_STAY:
+        case Type::KEY_AREA_ABNORMAL_STAY:
+        case Type::ROOFTOP_STAY:
 #if CAP_AI_PEOPLE_STATISTICS
         case Type::PEOPLE_FLOW_STATISTICS:
         case Type::PEOPLE_DENSITY_DETECTION:
@@ -486,6 +507,7 @@ namespace Event
         int nEnLoiteringDetect = 0;  /* 徘徊侦测 */
         int nEnCrowdGathering = 0;   /* 人员聚集 */
         int nEnParkingDetect = 0;    /* 停车侦测 */
+        int nEnQueueCrowding = 0;    /* 排队拥挤检测 */
         int nEnUnattendedObject = 0; /* 物品遗留 */
         int nEnObjectRemoval = 0;    /* 物品拿取 */
         int nEnPetRecognition = 0;   /* 宠物识别 */
@@ -547,13 +569,25 @@ namespace Event
 
 
 
-         /**
+        /**
          * @brief   : 属性识别
          */
         int nPlateNumber = 0;                  /* 车牌识别 */
         int nEnPedestrianAttribute = 0;        /* 行人识别 */
         int nEnMotorVehicleAttribute = 0;      /* 机动车识别 */
         int nEnNonMotorVehicleAttribute = 0;   /* 非机动车识别 */
+
+        /**
+         * @brief   : 平安校园相关
+         */
+        int nChannelOccupation = 0;             /* 通道占用 */
+        int nClimbDetection = 0;                /* 攀爬识别 */
+        int nDangerZoneApproach = 0;            /* 危险区域靠近 */
+        int nFaceExpression = 0;                /* 面部情绪分析 */
+        int nLongTimeStay = 0;                  /* 长时间滞留 */
+        int nDangerZoneStay = 0;                /* 危险区域滞留 */
+        int nKeyAreaAbnormalStay = 0;           /* 重点区域异常滞留 */
+        int nRooftopStay = 0;                   /* 天台滞留 */
 #endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
         int nEnSmokeFire = 0;      /* 烟火识别 */
@@ -609,6 +643,7 @@ namespace Event
         bool bLoiteringDetect = false; /* 徘徊侦测 */
         bool bCrowdGathering = false;  /* 人员聚集 */
         bool bParkingDetect = false;   /* 停车侦测 */
+        bool bQueueCrowding = false;   /* 排队拥挤检测 */
 
         /**
          * @brief   : 场景检测
@@ -683,6 +718,17 @@ namespace Event
         bool bPedestrianAttribute = false;                  /* 行人属性识别 */
         bool bMotorVehicleAttribute = false;                /* 机动车属性识别 */
         bool bNonMotorVehicleAttribute = false;             /* 非机动车属性识别 */
+
+        /**
+         * @brief   : 平安校园
+         */
+        bool bChannelOccupation = false;                    /* 通道占用 */
+        bool bClimbDetection = false;                       /* 攀爬识别 */
+        bool bDangerZoneApproach = false;                   /* 危险区域靠近 */
+        bool bLongTimeStay = false;                         /* 长时间滞留 */
+        bool bDangerZoneStay = false;                       /* 危险区域滞留 */
+        bool bKeyAreaAbnormalStay = false;                  /* 重点区域异常滞留 */
+        bool bRooftopStay = false;                          /* 天台滞留 */
 #endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
         bool bSmokeFire = false;                            /* 烟火识别 */

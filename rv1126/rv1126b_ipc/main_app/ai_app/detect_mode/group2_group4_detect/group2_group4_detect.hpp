@@ -52,6 +52,17 @@ class CGroup2_Group4Detect : public CAlgorithm {
     } TrafficRuleInfo_S;
 
     /**
+     * @brief 单帧抓拍大图信息：同帧人/车/非车属性分析共享，大图整帧只保存一次
+     */
+    typedef struct FrameCapture
+    {
+        cv::Mat     mat;         /* 原始大图（浅拷贝，与帧缓冲共享引用计数） */
+        std::string strDate;      /* YYYYMMDD，与时间戳同刻取出 */
+        std::string strTimestamp; /* HHMMSSmmm */
+        std::string strFullPath;  /* 全景大图落盘路径；空 = 尚未保存或保存失败 */
+    } FrameCapture_S;
+
+    /**
      * @brief   : 接受媒体数据
      * @param    {MediaData_S} stMediaData：媒体数据
      */
@@ -357,12 +368,14 @@ class CGroup2_Group4Detect : public CAlgorithm {
      * @brief 行人属性分析
      * @param srcData 图片数据
      * @param vecAllResult 行人识别结果
+     * @param stFrameCapture 单帧大图信息（同帧共享）
      * @return [*] 成功：0 失败：其他
      * @note
      */
     int personAttributeAnalysis(cv::Mat &srcData,
                                 std::vector<Group2Detect_NS::Result_S> vstResult,
-                                const CloseupFrame_S *pCloseupFrame);
+                                const CloseupFrame_S *pCloseupFrame,
+                                FrameCapture_S &stFrameCapture);
 
     /**
      * @brief 机动车属性分析
@@ -377,26 +390,29 @@ class CGroup2_Group4Detect : public CAlgorithm {
         cv::Mat              &srcData,
         cv::Mat              &cropped,
         const Common::Rect_S &stTargetRect,
-        const std::string    &strLicensePlateNumber);
+        const std::string    &strLicensePlateNumber,
+        FrameCapture_S       &stFrameCapture);
 
     /**
      * @brief 非机动车属性分析
      * @param srcData 图片数据
      * @param vecAllResult 非机动车识别结果
+     * @param stFrameCapture 单帧大图信息（同帧共享）
      * @return [*] 成功：0 失败：其他
      * @note
      */
-    int nonMotorvehicleAttributeAnalysis(cv::Mat &srcData, std::vector<Group2Detect_NS::Result_S> vecNonMotorvehicleResult);
+    int nonMotorvehicleAttributeAnalysis(cv::Mat &srcData, std::vector<Group2Detect_NS::Result_S> vecNonMotorvehicleResult, FrameCapture_S &stFrameCapture);
 
     /**
      * @brief 车牌识别
      * @param srcData 图片数据
      * @param vstResult 车辆识别结果
      * @param bMotorVehicle 是否开启车辆属性识别
+     * @param stFrameCapture 单帧大图信息（同帧共享）
      * @return [*] 成功：0 失败：其他
      * @note
      */
-    int licensePlateDetectProcess(cv::Mat &srcData, const std::vector<Group2Detect_NS::Result_S> &vstResult, bool bMotorVehicleAttribute);
+    int licensePlateDetectProcess(cv::Mat &srcData, const std::vector<Group2Detect_NS::Result_S> &vstResult, bool bMotorVehicleAttribute, FrameCapture_S &stFrameCapture);
 
     /**
      * @brief 模型组合4识别
@@ -458,26 +474,41 @@ class CGroup2_Group4Detect : public CAlgorithm {
     int saveToDatebase(const std::string &strFilename, Event::Type_E eEventType);
 
     /**
+     * @brief 保存全景大图（整帧一次，文件名图片类型固定为 PMN）
+     * @param stFrameCapture 单帧大图信息
+     * @return 全景大图路径，失败为空
+     */
+    std::string ensureFrameFullImage(FrameCapture_S &stFrameCapture);
+
+    /**
      * @brief 保存全景大图
      * @param image 图片数据
      * @param strPicType 图片类型
+     * @param strDate 日期（YYYYMMDD），与时间戳同刻取出
+     * @param strTimestamp 时间戳（HHMMSSmmm），由调用方生成，与大图对应的目标小图保持一致
      * @return 全景大图路径
      */
-    std::string saveFullImage(cv::Mat image, std::string strPicType);
+    std::string saveFullImage(cv::Mat image, const std::string &strPicType, const std::string &strDate, const std::string &strTimestamp);
 
     /**
      * @brief 保存目标小图
      * @param image 图片数据
      * @param stRect 目标坐标
      * @param strPicType 图片类型
+     * @param strTimestamp 时间戳（HHMMSSmmm），与同一大图保持一致
+     * @param nSeq 同一大图下的目标小图序号（从 1 开始，文件名格式化为 %02d）
      * @return 目标小图路径
      */
-    std::string saveCropImage(cv::Mat image, Common::Rect_S stRect, std::string strPicType);
+    std::string saveCropImage(cv::Mat image, Common::Rect_S stRect, const std::string &strPicType, const std::string &strTimestamp, int nSeq);
 
     /**
      * @brief 保存已经裁剪并转换为 BGR 的目标小图
+     * @param targetBgr 已裁剪的 BGR 图片数据
+     * @param strPicType 图片类型
+     * @param strTimestamp 时间戳（HHMMSSmmm），与同一大图保持一致
+     * @param nSeq 同一大图下的目标小图序号（从 1 开始，文件名格式化为 %02d）
      */
-    std::string saveTargetImage(const cv::Mat &targetBgr, const std::string &strPicType);
+    std::string saveTargetImage(const cv::Mat &targetBgr, const std::string &strPicType, const std::string &strTimestamp, int nSeq);
 
     /**
      * @brief 行人抓拍信息推送

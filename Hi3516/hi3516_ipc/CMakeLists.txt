@@ -26,6 +26,7 @@ add_subdirectory(
 add_subdirectory(upgrade)
 # example
 # add_subdirectory(sample_aidetect)
+add_subdirectory(test_venc_batch_crop)
 # message(STATUS "ROOT_PATH = ${ROOT_PATH}")
 # add_subdirectory(
 #     ${ROOT_PATH}/share/ipc_share/encrypt/gb35114/gmssl/example

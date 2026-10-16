@@ -18,7 +18,10 @@
 #include <unistd.h>
 #include "Json.h"
 #include "record_define.h"
+#if CAP_LOCAL_STORAGE
+/* 录制控制面：能力关闭时无 record 进程接入，record_ctrl 仅在宏开侧使用 */
 #include "record_ctrl.h"
+#endif
 #include "action_code.h"
 #include "libavcodec/codec_id.h"
 #include "libavutil/samplefmt.h"
@@ -172,7 +175,9 @@ void CStreamServer::deal_status(Net::Message_S &stMessage, Net::UserParam_S &stU
     {
         m_bConnect.store(true, std::memory_order_release);
         m_bRecordReady.store(false, std::memory_order_release);
+#if CAP_LOCAL_STORAGE
         CRecordCtrl::instance()->set_record_process_status(true);
+#endif
         dlog_info("record客户端已接入");
 
         /* 录制AAC通道独立于网页/RTSP音频配置，接入时始终先同步实际编码参数。 */
@@ -212,7 +217,9 @@ void CStreamServer::deal_status(Net::Message_S &stMessage, Net::UserParam_S &stU
     {
         m_bRecordReady.store(false, std::memory_order_release);
         m_bConnect.store(false, std::memory_order_release);
+#if CAP_LOCAL_STORAGE
         CRecordCtrl::instance()->set_record_process_status(false);
+#endif
         clear_media_queue();
         dlog_info("record客户端已断开");
     }

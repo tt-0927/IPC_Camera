@@ -438,6 +438,8 @@ void CMotionDetect::run()
         stCtx.nChnId = stMediaData.stMediaParam.nChannel;
         stCtx.llTimestamp = TimeUtils_NS::get_currentTimestampMs();
         stCtx.pFrameInfo = pFrameInfo;
+        /* 原始 1080p 帧供 TVSDK 全景图走 VENC 硬编码（pFrameInfo 是缩放后的算法分辨率帧） */
+        stCtx.pSrcFrameInfo = pSrcFrameInfo;
 
         ot_svp_dst_mem_info *pResult = NULL;
         ot_sample_svp_rect_info stRectInfo;
@@ -562,7 +564,7 @@ void CMotionDetect::processNormalMode(ot_sample_svp_rect_info &stRectInfo, const
         }
     }
     /* 打印输出数据 */
-    if (!access("testPrint", F_OK))
+    if (!access("/opt/cam/bin/testPrint", F_OK))
     {
         printResult(stRectInfo);
     }
@@ -576,7 +578,7 @@ void CMotionDetect::processNormalMode(ot_sample_svp_rect_info &stRectInfo, const
     if (stRectInfo.sensitivity > fSensitivityThreshold)
     {
         bIsAlarm = true;
-        if (!access("testPrint", F_OK))
+        if (!access("/opt/cam/bin/testPrint", F_OK))
         {
             dlog_debug("[移动侦测] 灵敏度: %f > %f", stRectInfo.sensitivity, fSensitivityThreshold);
         }
@@ -594,12 +596,15 @@ void CMotionDetect::processNormalMode(ot_sample_svp_rect_info &stRectInfo, const
     stContext.nChnId = stCtx.nChnId;
     stContext.llTimestamp = stCtx.llTimestamp;
 #ifdef ENABLE_TVSDK_SRC
-    /* perf: 有TVSDK客户端订阅时才软件编码全景图，无订阅者跳过编码 */
-    if (bIsAlarm && m_motionAlarmStateMachine.canStartAlarm() && stCtx.pFrameInfo != nullptr && AiAppCommon::tvsdk_event_image_required())
+    /* perf: 有TVSDK客户端订阅时才编码全景图，无订阅者跳过编码 */
+    if (bIsAlarm && m_motionAlarmStateMachine.canStartAlarm() && (stCtx.pSrcFrameInfo != nullptr || stCtx.pFrameInfo != nullptr) &&
+        AiAppCommon::tvsdk_event_image_required())
     {
         auto pPayload = std::make_shared<EventTvSdkPayload_S>();
         pPayload->enType = get_tvsdk_payload_type(stContext.enEventType);
-        if (AiAppCommon::encode_video_frame_to_jpeg_memory(stCtx.pFrameInfo, pPayload->stPanoramaImage) == OK)
+        /* 全景图优先用原始全分辨率帧（VENC 硬编码要求帧等于通道尺寸） */
+        ot_video_frame_info *pEncodeFrame = (stCtx.pSrcFrameInfo != nullptr) ? stCtx.pSrcFrameInfo : stCtx.pFrameInfo;
+        if (AiAppCommon::encode_video_frame_to_jpeg_memory(pEncodeFrame, pPayload->stPanoramaImage) == OK)
         {
             stContext.pTvSdkPayload = pPayload;
         }
@@ -611,7 +616,7 @@ void CMotionDetect::processNormalMode(ot_sample_svp_rect_info &stRectInfo, const
 void CMotionDetect::processExpertMode(ot_sample_svp_rect_info &stRectInfo, const SEventProcessContext &stCtx)
 {
     /* 打印输出数据 */
-    if (!access("testPrint", F_OK))
+    if (!access("/opt/cam/bin/testPrint", F_OK))
     {
         printResult(stRectInfo);
     }
@@ -717,13 +722,15 @@ void CMotionDetect::processExpertMode(ot_sample_svp_rect_info &stRectInfo, const
     stContext.nChnId = stCtx.nChnId;
     stContext.llTimestamp = stCtx.llTimestamp;
 #ifdef ENABLE_TVSDK_SRC
-    /* perf: 有TVSDK客户端订阅时才软件编码全景图，无订阅者跳过编码 */
-    if (anyRegionTriggered && m_motionAlarmStateMachine.canStartAlarm() && stCtx.pFrameInfo != nullptr &&
-        AiAppCommon::tvsdk_event_image_required())
+    /* perf: 有TVSDK客户端订阅时才编码全景图，无订阅者跳过编码 */
+    if (anyRegionTriggered && m_motionAlarmStateMachine.canStartAlarm() &&
+        (stCtx.pSrcFrameInfo != nullptr || stCtx.pFrameInfo != nullptr) && AiAppCommon::tvsdk_event_image_required())
     {
         auto pPayload = std::make_shared<EventTvSdkPayload_S>();
         pPayload->enType = get_tvsdk_payload_type(stContext.enEventType);
-        if (AiAppCommon::encode_video_frame_to_jpeg_memory(stCtx.pFrameInfo, pPayload->stPanoramaImage) == OK)
+        /* 全景图优先用原始全分辨率帧（VENC 硬编码要求帧等于通道尺寸） */
+        ot_video_frame_info *pEncodeFrame = (stCtx.pSrcFrameInfo != nullptr) ? stCtx.pSrcFrameInfo : stCtx.pFrameInfo;
+        if (AiAppCommon::encode_video_frame_to_jpeg_memory(pEncodeFrame, pPayload->stPanoramaImage) == OK)
         {
             stContext.pTvSdkPayload = pPayload;
         }

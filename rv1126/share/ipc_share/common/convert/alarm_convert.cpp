@@ -779,6 +779,33 @@ void Convert::deal(Json::Object *pRootJson, Alarm::CrowdGathering_S &stInfo, boo
     convert.structure(pRootJson, "LinkageMode", stInfo.stLinkageList);
 }
 
+/* 排队拥挤侦测相关 */
+void Convert::deal(Json::Object *pRootJson, Alarm::QueueCrowdingRule_S &stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+
+    Convert::CConvert convert(bOutStruct);
+    convert.structure(pRootJson, "Region", stInfo.stRegion);
+    convert.field(pRootJson, "Sensitivity", stInfo.nSensitivity);
+}
+
+void Convert::deal(Json::Object *pRootJson, Alarm::QueueCrowdingDetection_S &stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+
+    Convert::CConvert convert(bOutStruct);
+    convert.field(pRootJson, "Enable", stInfo.bEnable);
+    convert.structure(pRootJson, "Rule", stInfo.aRule);
+    convert.structure(pRootJson, stInfo.aAlarmTime);
+    convert.structure(pRootJson, "LinkageMode", stInfo.stLinkageList);
+}
+
 /* 停车侦测相关 */
 void Convert::deal(Json::Object *pRootJson, Alarm::ParkingRule_S &stInfo, bool bOutStruct)
 {
@@ -1931,7 +1958,6 @@ void Convert::deal(Json::Object *pRootJson, Alarm::NonMotorVehicleIntrusionRule_
     Convert::CConvert convert(bOutStruct);
     convert.field(pRootJson, "Sensitivity", stInfo.nSensitivity);
     convert.field(pRootJson, "TimeThreshold", stInfo.nTimeThreshold);
-    convert.field(pRootJson, "DetectionTarget", stInfo.aDetectionTarget);
     convert.structure(pRootJson, "Region", stInfo.stRegion);
 }
 
@@ -2312,3 +2338,188 @@ void Convert::deal(Json::Object *pRootJson, std::set<Alarm::VideoLostDetection_S
 	Convert::CConvert convert(bOutStruct);
 	convert.structure(pRootJson, "AlarmOutputInfos", videoLostDetection);
 }
+
+#ifdef SCENE_INTELLIGENCE
+/* 通道占用检测相关 */
+void Convert::deal(Json::Object *pRootJson, Alarm::ChannelOccupation_S &stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+
+    Convert::CConvert convert(bOutStruct);
+    convert.field(pRootJson, "Enable", stInfo.bEnable);
+    convert.field(pRootJson, "Sensitivity", stInfo.nSensitivity);
+    convert.structure(pRootJson, "Region", stInfo.stRegion);
+    convert.structure(pRootJson, stInfo.aAlarmTime);
+    convert.structure(pRootJson, "LinkageMode", stInfo.stLinkageList);
+}
+
+/* 攀爬识别检测相关 */
+void Convert::deal(Json::Object *pRootJson, Alarm::ClimbDetectionRule_S &stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+
+    Convert::CConvert convert(bOutStruct);
+    convert.structure(pRootJson, "Region", stInfo.stRegion);
+    convert.field(pRootJson, "Sensitivity", stInfo.nSensitivity);
+}
+
+void Convert::deal(Json::Object *pRootJson, Alarm::ClimbDetection_S &stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+
+    Convert::CConvert convert(bOutStruct);
+    convert.field(pRootJson, "Enable", stInfo.bEnable);
+    convert.structure(pRootJson, "Rule", stInfo.aRule);
+    convert.structure(pRootJson, stInfo.aAlarmTime);
+    convert.structure(pRootJson, "LinkageMode", stInfo.stLinkageList);
+}
+
+/* 危险区域靠近检测相关 */
+void Convert::deal(Json::Object *pRootJson, Alarm::DangerZoneApproachRule_S &stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+
+    Convert::CConvert convert(bOutStruct);
+    convert.structure(pRootJson, "Region", stInfo.stRegion);
+    convert.field(pRootJson, "Sensitivity", stInfo.nSensitivity);
+    convert.field(pRootJson, "TimeThreshold", stInfo.nTimeThreshold);
+}
+
+void Convert::deal(Json::Object *pRootJson, Alarm::DangerZoneApproach_S &stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+
+    Convert::CConvert convert(bOutStruct);
+    convert.field(pRootJson, "Enable", stInfo.bEnable);
+    convert.structure(pRootJson, "Rule", stInfo.aRule);
+    convert.structure(pRootJson, stInfo.aAlarmTime);
+    convert.structure(pRootJson, "LinkageMode", stInfo.stLinkageList);
+}
+
+/* 长时间滞留相关 */
+void Convert::deal(Json::Object *pRootJson, Alarm::LongTimeStayRule_S &stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+
+    Convert::CConvert convert(bOutStruct);
+    convert.structure(pRootJson, "Region", stInfo.stRegion);
+    convert.field(pRootJson, "Sensitivity", stInfo.nSensitivity);
+    convert.field(pRootJson, "TimeThreshold", stInfo.nTimeThreshold);
+}
+
+void Convert::deal(Json::Object *pRootJson, Alarm::LongTimeStayDetection_S &stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+
+    Convert::CConvert convert(bOutStruct);
+    convert.field(pRootJson, "Enable", stInfo.bEnable);
+    convert.structure(pRootJson, "Rule", stInfo.aRule);
+    convert.structure(pRootJson, stInfo.aAlarmTime);
+    convert.structure(pRootJson, "LinkageMode", stInfo.stLinkageList);
+}
+
+/* 危险区域滞留相关 */
+void Convert::deal(Json::Object *pRootJson, Alarm::DangerZoneStayRule_S &stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+
+    Convert::CConvert convert(bOutStruct);
+    convert.structure(pRootJson, "Region", stInfo.stRegion);
+    convert.field(pRootJson, "Sensitivity", stInfo.nSensitivity);
+    convert.field(pRootJson, "TimeThreshold", stInfo.nTimeThreshold);
+}
+
+void Convert::deal(Json::Object *pRootJson, Alarm::DangerZoneStayDetection_S &stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+
+    Convert::CConvert convert(bOutStruct);
+    convert.field(pRootJson, "Enable", stInfo.bEnable);
+    convert.structure(pRootJson, "Rule", stInfo.aRule);
+    convert.structure(pRootJson, stInfo.aAlarmTime);
+    convert.structure(pRootJson, "LinkageMode", stInfo.stLinkageList);
+}
+
+/* 重点区域异常滞留相关 */
+void Convert::deal(Json::Object *pRootJson, Alarm::KeyAreaAbnormalStayRule_S &stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+
+    Convert::CConvert convert(bOutStruct);
+    convert.structure(pRootJson, "Region", stInfo.stRegion);
+    convert.field(pRootJson, "Sensitivity", stInfo.nSensitivity);
+    convert.field(pRootJson, "TimeThreshold", stInfo.nTimeThreshold);
+}
+
+void Convert::deal(Json::Object *pRootJson, Alarm::KeyAreaAbnormalStayDetection_S &stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+
+    Convert::CConvert convert(bOutStruct);
+    convert.field(pRootJson, "Enable", stInfo.bEnable);
+    convert.structure(pRootJson, "Rule", stInfo.aRule);
+    convert.structure(pRootJson, stInfo.aAlarmTime);
+    convert.structure(pRootJson, "LinkageMode", stInfo.stLinkageList);
+}
+
+/* 天台滞留相关 */
+void Convert::deal(Json::Object *pRootJson, Alarm::RooftopStayRule_S &stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+
+    Convert::CConvert convert(bOutStruct);
+    convert.structure(pRootJson, "Region", stInfo.stRegion);
+    convert.field(pRootJson, "Sensitivity", stInfo.nSensitivity);
+    convert.field(pRootJson, "TimeThreshold", stInfo.nTimeThreshold);
+}
+
+void Convert::deal(Json::Object *pRootJson, Alarm::RooftopStayDetection_S &stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+
+    Convert::CConvert convert(bOutStruct);
+    convert.field(pRootJson, "Enable", stInfo.bEnable);
+    convert.structure(pRootJson, "Rule", stInfo.aRule);
+    convert.structure(pRootJson, stInfo.aAlarmTime);
+    convert.structure(pRootJson, "LinkageMode", stInfo.stLinkageList);
+}
+#endif

@@ -19,9 +19,11 @@ void CAVConfigure::fill_default_audio_capability_set(Audio_NS::AudioCapabilitySe
     data.aInputTypes.push_back("LineIn");
 #endif
 
+#if CAP_AUDIO_OUTPUT
     data.aOutputTypes.push_back("Speaker");
 #if CAP_AUDIO_OUTPUT_LINEOUT
     data.aOutputTypes.push_back("LineOut");
+#endif
 #endif
 
     /* 同步维护 aFormats 与 aFormatDetail，确保格式与详细约束一一对应 */

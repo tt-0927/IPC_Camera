@@ -13,6 +13,9 @@
 
 namespace
 {
+/* 警戒线跟踪超时（毫秒）：目标距上次更新超过该时长视为离开，重置跟踪状态 */
+constexpr double BOUNDARY_TRACK_TIMEOUT_MS = 5000.0;
+
 /**
  * @brief   : 判断目标是否可用于越界轨迹计算
  * @param    {const ot_aidetect_object &} stObject：算法目标
@@ -100,7 +103,7 @@ bool process_boundary_detection(
                     stTrackStatus.stLastPosition = stCurrentPos;
                     stTrackStatus.dLastUpdateTime = dCurrentTime;
                     stTrackStatus.bAlarmed = false;
-                    if (!access("testPrint", F_OK))
+                    if (!access("/opt/cam/bin/testPrint", F_OK))
                     {
                         dlog_debug("开始跟踪目标 ID: %u (内部索引: %d) 在警戒线 %zu", stObject.track_id, nInternalIndex, j + 1);
                     }
@@ -164,14 +167,18 @@ bool process_boundary_detection(
             for (int k = 0; k < indexManager.getMaxTargets(); ++k)
             {
                 BoundaryTrackStatus_S &stTrackStatus = stStatusArray[j][k];
-                if (!stTrackStatus.bIsTracking || (dCurrentTime - stTrackStatus.dLastUpdateTime) <= 5000)
+                if (!stTrackStatus.bIsTracking || (dCurrentTime - stTrackStatus.dLastUpdateTime) <= BOUNDARY_TRACK_TIMEOUT_MS)
                 {
                     continue;
                 }
 
-                if (!access("testPrint", F_OK))
+                if (!access("/opt/cam/bin/testPrint", F_OK))
                 {
-                    dlog_debug("目标(内部索引: %d)在警戒线 %zu 超时，重置跟踪状态", k, j + 1);
+                    dlog_debug("目标(内部索引: %d)在警戒线 %zu 距上次更新 %.0f ms 超过阈值 %.0f ms，重置跟踪状态",
+                               k,
+                               j + 1,
+                               dCurrentTime - stTrackStatus.dLastUpdateTime,
+                               BOUNDARY_TRACK_TIMEOUT_MS);
                 }
                 stTrackStatus.reset();
             }

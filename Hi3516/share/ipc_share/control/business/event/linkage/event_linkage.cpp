@@ -3,7 +3,7 @@
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2025-07-30 14:18:19
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-07-01 14:34:30
+ * @LastEditTime : 2026-10-14 16:46:40
  * @Description  : 事件联动门面层实现
  */
 
@@ -221,6 +221,7 @@ void CEventLinkage::get_event(Event::Info_S &stEvent)
     stEvent = m_stEventInfo;
 }
 
+#if CAP_AUDIO_OUTPUT
 void CEventLinkage::play_audio(std::string strAudioPath, int nTimes)
 {
     if (!m_bInited && init() != OK)
@@ -266,6 +267,33 @@ bool CEventLinkage::stop_play_audio()
     dlog_info("停止声音联动");
     return m_worker->stopTask(LinkageType_E::SOUND);
 }
+
+bool CEventLinkage::preempt_play_audio()
+{
+    if (!m_worker)
+    {
+        return false;
+    }
+
+    /* stopTask 返回 false 表示当前没有语音在播，此时无需打断，也不打日志。 */
+    if (!m_worker->stopTask(LinkageType_E::SOUND))
+    {
+        return false;
+    }
+
+    /* 旧任务被打断后仍需时间走完退出流程，其"正在播放"的路径记录与运行态登记此时尚未清理：
+     * 路径记录会让 worker 的"同音频去重"误判新任务重复，运行态登记会让新任务被
+     * "同类联动正在执行且优先级不更高"的判断丢弃，故两者一并清除。 */
+    if (m_asyncAction)
+    {
+        m_asyncAction->clear_playing_audio_path();
+    }
+    m_worker->clear_running_registration(LinkageType_E::SOUND);
+
+    dlog_info("声光报警新触发，打断上一段告警语音");
+    return true;
+}
+#endif
 
 void CEventLinkage::remove_EndedEvents()
 {

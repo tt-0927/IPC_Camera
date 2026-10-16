@@ -184,7 +184,7 @@ void CAudioDetect::processAudioAnomaly(char *pData, int nLength, const SEventPro
     /* 转换为分贝 */
     float fCurrentDB = audio_processing_convertRMSToDecibel(fRMS, m_nBitsPerSample);
 
-    if (!access("testPrint", F_OK))
+    if (!access("/opt/cam/bin/testPrint", F_OK))
     {
         dlog_debug("当前RMS:[%f],音量:[%f]db", fRMS, fCurrentDB);
     }

@@ -7,6 +7,9 @@
  * @Description  : 录制文件管理
  */
 
+/* 本地 SD 存储能力裁剪：能力关闭（IPC_CAP_LOCAL_STORAGE=0）时本文件整体不参与编译 */
+#if CAP_LOCAL_STORAGE
+
 #include "record_file_manage.h"
 
 #include "IpcRet.h"
@@ -2166,3 +2169,5 @@ void RecordFileManage::record_file_manage_thread()
     }
     return;
 }
+
+#endif /* CAP_LOCAL_STORAGE */

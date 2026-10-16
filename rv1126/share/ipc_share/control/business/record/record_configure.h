@@ -7,6 +7,9 @@
  * @Description  : 录制配置
  */
 
+/* 本地 SD 存储能力裁剪：能力关闭（IPC_CAP_LOCAL_STORAGE=0）时本文件整体不参与编译 */
+#if CAP_LOCAL_STORAGE
+
 #include "Singleton.h"
 #include "config_storage.h"
 #include "record_define.h"
@@ -34,3 +37,5 @@ private:
     /*录制计划配置*/
     VersionedConfigStorage<Record_NS::Schedule_S, VersionedStorageType_E::Single> m_schedule;
 };
+
+#endif /* CAP_LOCAL_STORAGE */

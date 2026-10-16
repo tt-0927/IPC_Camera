@@ -3,7 +3,7 @@
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2025-09-11 21:15:53
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-07-27 09:34:00
+ * @LastEditTime : 2026-10-14 16:45:32
  * @Description  : 预览管理
  */
 
@@ -24,7 +24,9 @@
 
 namespace
 {
+#if CAP_AUDIO_OUTPUT
 const char *kTvSdkVoiceComSdp = "tvsdk_voicecom";
+#endif
 constexpr int kTvSdkAlarmLightControlType = 2;
 constexpr int kTvSdkAlarmLightStart = 1;
 constexpr int kTvSdkAlarmLightStop = 2;
@@ -180,6 +182,7 @@ int CPreviewManage::get_collect_audio_info(Preview::CollectAudioInfo_S &stInfo)
 	return OK;
 }
 
+#if CAP_AUDIO_OUTPUT
 /* 回调接收到的音频 */
 void CPreviewManage::audioDataCallback(const uint8_t* pData, size_t length) 
 {
@@ -354,6 +357,7 @@ int CPreviewManage::set_broadcast_info(Preview::BroadcastInfo_S stInfo)
 
 	return OK;
 }
+#endif
 
 /* 设置蜂鸣器报警信息 */
 int CPreviewManage::set_beep_alarm(Preview::BeepAlarm_S stInfo)
@@ -465,6 +469,7 @@ int CPreviewManage::device_control(const Preview::DeviceControl_S &stInfo)
     /* 先成功申请硬件抢占，再启动计时，避免启动失败后遗留无效的自动停止任务。 */
     arm_alarm_light_timer(nDurationSec);
     CGpioCtrl::instance()->alarm_output_on(0);
+#if CAP_AUDIO_OUTPUT
     std::string strAudioPath;
     int nAudioTimes = 0;
     const int nAudioConfigRet = CEventLinkage::instance()->get_audio_file_path(strAudioPath, nAudioTimes);
@@ -476,6 +481,9 @@ int CPreviewManage::device_control(const Preview::DeviceControl_S &stInfo)
             nAudioTimes = 1;
             dlog_warn("TVSDK声光报警次数无效，使用默认播放次数: times[%d]", nAudioTimes);
         }
+        /* 新触发的声光联动抢占上一段语音：先打断仍在播放的告警音，再投递新的，
+         * 确保播报的是最新告警内容，而不是排队等前一段播完。 */
+        CEventLinkage::instance()->preempt_play_audio();
         /* 异步投递：音频由 worker 线程播放，任务立即返回，避免阻塞 HTTP 响应。 */
         if (CEventLinkage::instance()->play_audio_async())
         {
@@ -491,6 +499,7 @@ int CPreviewManage::device_control(const Preview::DeviceControl_S &stInfo)
         dlog_warn("TVSDK声光报警未启动音频: config_ret[%d], path[%s], times[%d]",
                   nAudioConfigRet, strAudioPath.c_str(), nAudioTimes);
     }
+#endif
     dlog_info("TVSDK声光报警已开启: channel[%d], duration[%d]s, frequency[%d]",
               stInfo.nChannelId,
               nDurationSec,
@@ -516,12 +525,19 @@ void CPreviewManage::cancel_alarm_light_timer()
     m_alarmLightTimerCv.notify_all();
 }
 
-int CPreviewManage::stop_alarm_light_output()
+int CPreviewManage::stop_alarm_light_output(bool bStopAudio)
 {
 #if CAP_ALARM_IO
     CGpioCtrl::instance()->alarm_output_off(0);
 #endif
-    CEventLinkage::instance()->stop_play_audio();
+#if CAP_AUDIO_OUTPUT
+    /* 自动超时停止只收灯光与报警输出，不打断仍在播放的报警音频，
+     * 音频按声音报警配置的播放次数自行播完，避免语音被截断。 */
+    if (bStopAudio)
+    {
+        CEventLinkage::instance()->stop_play_audio();
+    }
+#endif
 
     if (m_u64AlarmLightOverrideToken == 0)
     {
@@ -584,12 +600,13 @@ void CPreviewManage::alarm_light_timer_loop()
 
         if (bNeedStop)
         {
-            dlog_info("TVSDK声光报警时间到，自动停止");
-            stop_alarm_light_output();
+            dlog_info("TVSDK声光报警时间到，自动停止(仅收灯光，音频按配置播完)");
+            stop_alarm_light_output(false);
         }
     }
 }
 
+#if CAP_AUDIO_OUTPUT
 bool CPreviewManage::get_intercom_status()
 {
     return m_bIntercomStatus;
@@ -599,3 +616,4 @@ std::string CPreviewManage::get_intercom_ip()
 {
 	return m_strIp;
 }
+#endif

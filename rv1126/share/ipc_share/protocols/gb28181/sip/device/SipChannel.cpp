@@ -298,6 +298,7 @@ void SIP::Channel::CallCloseAction()
     enAudio = SipAudioInfo_S();
 }
 
+#if CAP_AUDIO_OUTPUT
 bool SIP::Channel::CreateAudioServer(int nPort)
 {
     bool bRet = false;
@@ -323,6 +324,7 @@ bool SIP::Channel::CreateAudioServer(int nPort)
     m_pAudioPlay->setCallback(std::bind(&SIP::Channel::ServerCallback, this, std::placeholders::_1));
     return bRet;
 }
+#endif
 
 void SIP::Channel::ClosePlayAction()
 {

@@ -137,7 +137,9 @@ public:
     void ServerCallback(const MediaNetBase::CbData_S &stData);
     void RtpMediaCallback(const RTP::MediaInfo_S &stInfo);
 
+#if CAP_AUDIO_OUTPUT
     bool CreateAudioServer(int nPort);
+#endif
 
     /**
      * @brief	发送裸媒体数据
@@ -193,8 +195,10 @@ private:
     /* NOTE 点播和通道强绑定 */
     /* 点播——不管是客户端还是服务器，均只有一路点播 */
     MediaNetBase::Ptr m_pPlay = nullptr;
+#if CAP_AUDIO_OUTPUT
     /* 语音播放 */
     MediaNetBase::Ptr m_pAudioPlay = nullptr;
+#endif
     /* 点播的RTP处理 */
     RTP::Base::Ptr m_pRtpPlay = nullptr;
     std::mutex m_mutexPlayRtp;

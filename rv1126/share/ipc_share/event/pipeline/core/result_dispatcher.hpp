@@ -45,7 +45,8 @@ public:
      * @param    {const DetectionBatch_S &} stBatch：标准检测批次，只读
      * @param    {ProcessorOutput_S &} stOutput：帧总输出收集器
      * @return   {int} OK：全部处理器成功或失败被隔离，ERR_PARAM：批次元数据非法
-     * @note    : 单个处理器失败只丢弃其临时输出，不阻断其他处理器
+     * @note    : 单个处理器失败只丢弃其临时输出，不阻断其他处理器；
+     *            分发器内部无锁，单线程串行契约见 IResultProcessor
      */
     int dispatch(const DetectionBatch_S &stBatch, ProcessorOutput_S &stOutput);
 

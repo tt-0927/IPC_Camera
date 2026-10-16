@@ -3470,7 +3470,8 @@ bool BroadcastEvent::HandleRequest(const SipEvent::Ptr &e)
     auto strGB18030 = ::ToMbcsString(os.str());
     SendMessageWithCallID(e, strGB18030);
 
-     //发起invite请求
+    // 发起invite请求
+#if CAP_AUDIO_OUTPUT
     {
         InviteAudioRequest::InviteParam stInvParam;
 
@@ -3492,11 +3493,12 @@ bool BroadcastEvent::HandleRequest(const SipEvent::Ptr &e)
         /* 点播的请求 */
         stInvParam.enType = InviteAudioRequest::InviteType::Play;
         stInvParam.bUsingTcp = false;
-    
+
         /* 发送INVITE请求 */
         auto request = std::make_shared<InviteAudioRequest>(e->m_pContext, stInvParam);
         request->SendCall();
     }
- 
+#endif
+
     return true;
 }

@@ -208,8 +208,8 @@ private:
     int64_t m_nAudioFrameDurationMs = 64;
     /* 上次强制刷新输出缓冲的时间点（毫秒） */
     int64_t m_nLastFlushMs = 0;
-    /* H.265 AnnexB转MP4复用缓存，仅发送线程访问 */
-    std::vector<uint8_t> m_vH265Mp4Data;
+    /* 视频帧AnnexB转MP4复用缓存，H.264/H.265共用，仅发送线程访问 */
+    std::vector<uint8_t> m_vMp4Data;
 
     /* 视频帧队列 */
     std::unique_ptr<CThreadSafeFrameQueue> m_videoQueue;

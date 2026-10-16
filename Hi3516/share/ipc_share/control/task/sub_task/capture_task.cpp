@@ -7,6 +7,9 @@
  * @Description  : 抓图任务
  */
 
+/* 本地 SD 存储能力裁剪：能力关闭（IPC_CAP_LOCAL_STORAGE=0）时本文件整体不参与编译 */
+#if CAP_LOCAL_STORAGE
+
 #include "capture_task.h"
 #include "convert_interface.h"
 #include "action_code.h"
@@ -69,3 +72,5 @@ void Task::Capture::SetCaptureParamInfo::handle()
     }
     result(nRet);
 }
+
+#endif /* CAP_LOCAL_STORAGE */

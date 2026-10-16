@@ -10,7 +10,6 @@
 #pragma once
 
 #include <cstdint>
-#include <optional>
 #include <vector>
 
 #include "detection_types.hpp"
@@ -30,21 +29,21 @@ struct ReportTargetDraft_S
 /* 统计报告草稿，对应现有 EventStatistics_NS::Report_S 的共享前结构 */
 struct StatisticsReportDraft_S
 {
-    int nChannelId = 0;                          /* 通道号 */
-    int nRuleId = 0;                             /* 规则 ID */
-    int64_t llTimestampMs = 0;                   /* wall clock 毫秒时间戳 */
-    uint32_t nReportSeq = 0;                     /* 递增上报序号 */
-    int nStatisticsType = 0;                     /* 统计类型，与 EventStatistics_NS::StatisticsType_E 对齐，默认 UNKNOWN 按人流统计兼容处理 */
-    uint32_t nEnterCount = 0;                    /* 累计进入人数 */
-    uint32_t nLeaveCount = 0;                    /* 累计离开人数 */
-    uint32_t nTotalCount = 0;                    /* 累计通行总人数 */
-    uint32_t nCurrentStayCount = 0;              /* 当前滞留人数 */
-    uint32_t nCurrentPeopleCount = 0;            /* 当前区域内人数，人员密度使用 */
-    uint32_t nAverageStayTimeSec = 0;            /* 平均停留时间（秒），人员密度使用 */
+    int nChannelId = 0;        /* 通道号 */
+    int nRuleId = 0;           /* 规则 ID */
+    int64_t llTimestampMs = 0; /* wall clock 毫秒时间戳 */
+    uint32_t nReportSeq = 0;   /* 递增上报序号 */
+    int nStatisticsType = 0; /* 统计类型，与 EventStatistics_NS::StatisticsType_E 对齐，默认 UNKNOWN 按人流统计兼容处理 */
+    uint32_t nEnterCount = 0;                                /* 累计进入人数 */
+    uint32_t nLeaveCount = 0;                                /* 累计离开人数 */
+    uint32_t nTotalCount = 0;                                /* 累计通行总人数 */
+    uint32_t nCurrentStayCount = 0;                          /* 当前滞留人数 */
+    uint32_t nCurrentPeopleCount = 0;                        /* 当前区域内人数，人员密度使用 */
+    uint32_t nAverageStayTimeSec = 0;                        /* 平均停留时间（秒），人员密度使用 */
     Event::Type_E enAlarmEventType = Event::Type_E::UNKNOWN; /* 当前人数命中的报警等级事件，人员密度使用 */
-    std::vector<ReportTargetDraft_S> vecTargets; /* 本报告涉及的目标快照 */
-    bool bForceReport = false;                   /* 是否跨线强制上报 */
-    bool bNeedPanorama = false;                  /* 是否需要全景图 */
+    std::vector<ReportTargetDraft_S> vecTargets;             /* 本报告涉及的目标快照 */
+    bool bForceReport = false;                               /* 是否跨线强制上报 */
+    bool bNeedPanorama = false;                              /* 是否需要全景图 */
 };
 
 /* 事件条件，平台输出适配层据此驱动联动状态机 */
@@ -111,8 +110,8 @@ struct OverlayItem_S
 /* 图片请求，通过报告序号与统计报告关联，不使用裸指针 */
 struct ImageRequest_S
 {
-    uint32_t nReportSeq = 0;     /* 关联的报告序号 */
-    int nStatisticsType = 0;     /* 统计类型，与 EventStatistics_NS::StatisticsType_E 对齐，默认 UNKNOWN 按人流统计兼容处理 */
+    uint32_t nReportSeq = 0; /* 关联的报告序号 */
+    int nStatisticsType = 0; /* 统计类型，与 EventStatistics_NS::StatisticsType_E 对齐，默认 UNKNOWN 按人流统计兼容处理 */
     bool bPanorama = false;      /* true：全景图 false：目标图 */
     NormalizedRect_S stCropRect; /* 归一化裁剪框，全景图忽略 */
     int nOrder = 0;              /* 请求顺序，目标图按序消费 */

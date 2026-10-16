@@ -6,6 +6,9 @@
  * @brief 检索数据库管理：提供增删改相关接口
  */
 
+/* 本地 SD 存储能力裁剪：能力关闭（IPC_CAP_LOCAL_STORAGE=0）时本文件整体不参与编译 */
+#if CAP_LOCAL_STORAGE
+
 #include "event_database_manage.h"
 #include <algorithm>
 #include "convert_interface.h"
@@ -368,3 +371,5 @@ int EventDatabaseManage::del(Event::RetrievalCond_S &stCond, std::string strTarg
 
     return EventDatabase::instance()->del(methods, strTargetTableName);
 }
+
+#endif /* CAP_LOCAL_STORAGE */

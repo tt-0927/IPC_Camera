@@ -14,12 +14,12 @@
 #include "video_define.h"
 
 const DetectionModelDescriptor_S CMotionDetectModel::ms_stDescriptor = {
-    "MotionDetect",          /* 模型名 */
-    PIXEL_WIDTH_1024,        /* 算法输入分辨率宽 */
-    PIXEL_HEIGHT_576,        /* 算法输入分辨率高 */
-    true,                    /* 需要按配置区域裁剪 */
-    0,                       /* 同帧执行顺序 */
-    4000                     /* 启动延时：与 LEGACY sleep(4) 防首次误报一致 */
+    "MotionDetect",   /* 模型名 */
+    PIXEL_WIDTH_1024, /* 算法输入分辨率宽 */
+    PIXEL_HEIGHT_576, /* 算法输入分辨率高 */
+    true,             /* 需要按配置区域裁剪 */
+    0,                /* 同帧执行顺序 */
+    4000              /* 启动延时：与 LEGACY sleep(4) 防首次误报一致 */
 };
 
 const DetectionModelDescriptor_S &CMotionDetectModel::descriptor() const
@@ -44,8 +44,7 @@ bool CMotionDetectModel::shouldProcess(int nChannelId)
     return !m_bNeedReinit.load();
 }
 
-int CMotionDetectModel::process(const ot_video_frame_info *pPreparedFrame,
-                                const MediaData_S &stMediaData)
+int CMotionDetectModel::process(const ot_video_frame_info *pPreparedFrame, const MediaData_S &stMediaData)
 {
     /* 仅 Worker 线程调用 */
     if (pPreparedFrame == nullptr || m_pMotionDetHandle == nullptr)
@@ -63,6 +62,8 @@ int CMotionDetectModel::process(const ot_video_frame_info *pPreparedFrame,
     stCtx.nChnId = stMediaData.stMediaParam.nChannel;
     stCtx.llTimestamp = TimeUtils_NS::get_currentTimestampMs();
     stCtx.pFrameInfo = const_cast<ot_video_frame_info *>(pPreparedFrame);
+    /* 原始全分辨率帧供 TVSDK 全景图走 VENC 硬编码（pFrameInfo 为缩放后的算法分辨率帧） */
+    stCtx.pSrcFrameInfo = stMediaData.pVideoFrameInfo.get();
 
     ot_svp_dst_mem_info *pResult = nullptr;
     ot_sample_svp_rect_info stRectInfo;

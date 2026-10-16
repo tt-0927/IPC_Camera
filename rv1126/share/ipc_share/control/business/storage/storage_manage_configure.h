@@ -8,6 +8,9 @@
  */
 #pragma once
 
+/* 本地 SD 存储能力裁剪：能力关闭（IPC_CAP_LOCAL_STORAGE=0）时本文件整体不参与编译 */
+#if CAP_LOCAL_STORAGE
+
 #include "storage_manage_define.h"
 #include "storage_manage_convert.h"
 #include "Singleton.h"
@@ -38,3 +41,5 @@ private:
     /* 存储管理参数 */
     ConfigStorage<StorageManage_NS::StorageManage_S, StorageType_E::Single> m_storageManageParam;
 };
+
+#endif /* CAP_LOCAL_STORAGE */

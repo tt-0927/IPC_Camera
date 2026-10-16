@@ -13,7 +13,9 @@
 #include "SSRC_Config.h"
 #include "RtpServer.h"
 #include "dlog.h"
+#if CAP_GB35114
 #include "gm.h"
+#endif
 
 using namespace SIP;
 
@@ -90,8 +92,12 @@ void SipModule::StartClient(SipClientInfo_S stInfo, bool bEnableGm)
     {
         m_stClient.Stop();
     }
-    /* 设置国标35114使能状态 */
+    /* 设置国标35114使能状态（宏关闭时本地无国密实现，仅保留形参兼容调用方） */
+#if CAP_GB35114
     CGm::instance()->setGmEnable(bEnableGm);
+#else
+    (void) bEnableGm;
+#endif
     m_stClient.Init(stInfo);
     m_stClient.Start();
     m_stClient.UpdateCbInfo(m_stCbInfo);

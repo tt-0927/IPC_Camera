@@ -38,6 +38,16 @@ static const unsigned int CLOSEUP_GRAB_MIN_INTERVAL_MS = 200;
  * 抓取反而引入全景/特写时间差, 直接回退1080p同帧裁剪保证同步 */
 static const float CLOSEUP_GRAB_MIN_MAIN_FPS = 5.0f;
 
+/* 收流单帧上限的码率对齐（share 层 calcMaxFrameBytes 的产品侧补偿 ) */
+static Video_NS::VideoConfig_S streamCapAdjusted(Video_NS::VideoConfig_S stCfg)
+{
+    if (stCfg.nBitrateUpperLimit > stCfg.nAverageBitrate)
+    {
+        stCfg.nAverageBitrate = stCfg.nBitrateUpperLimit;
+    }
+    return stCfg;
+}
+
 /*NALU的起始码长度偏移*/
 static int find_nalu_offset(const uint8_t *p, int len)
 {
@@ -344,6 +354,21 @@ int CStreamVideo::initStream()
         }
     }
 
+    std::vector<Video_NS::VideoConfig_S> vecBootCapCfgs;
+    vecBootCapCfgs.reserve(m_configManager.getVideoConfigs().size());
+    for (const auto &stCfg : m_configManager.getVideoConfigs())
+    {
+        vecBootCapCfgs.push_back(streamCapAdjusted(stCfg));
+    }
+    CRtspServer::instance()->setVideoConfig(vecBootCapCfgs);
+#if CAP_RECORD_USE_MAIN_STREAM
+    CStreamServer::instance()->sendVideoConfig(
+        streamCapAdjusted(m_configManager.getVideoConfigs().at(VENC_CHN_MAIN)));
+#else
+    CStreamServer::instance()->sendVideoConfig(
+        streamCapAdjusted(m_configManager.getVideoConfigs().at(VENC_CHN_SUB)));
+#endif
+
     dlog_info("流媒体视频初始化成功");
     return OK;
 }
@@ -568,14 +593,20 @@ int CStreamVideo::setVideoConfig(Video_NS::VideoConfig_S &stVideoConfig)
     if (nId == VENC_CHN_SUB)
 #endif
     {
-        nRet = CStreamServer::instance()->sendVideoConfig(stVideoConfig);
+        nRet = CStreamServer::instance()->sendVideoConfig(streamCapAdjusted(stVideoConfig));
         if(nRet != OK)
         {
             dlog_error("更新视频配置,同步录制进程失败");
         }
     }
 
-    CRtspServer::instance()->setVideoConfig(m_configManager.getVideoConfigs());
+    std::vector<Video_NS::VideoConfig_S> vecCapCfgs;
+    vecCapCfgs.reserve(m_configManager.getVideoConfigs().size());
+    for (const auto &stCfg : m_configManager.getVideoConfigs())
+    {
+        vecCapCfgs.push_back(streamCapAdjusted(stCfg));
+    }
+    CRtspServer::instance()->setVideoConfig(vecCapCfgs);
     if (bIsResetRtsp)
     {
         /* 重新启动RTSP服务器 */

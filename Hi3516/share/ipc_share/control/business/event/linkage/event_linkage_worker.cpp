@@ -181,6 +181,13 @@ std::atomic<bool> &EventLinkageWorker::getRunningFlag(LinkageType_E enLinkageTyp
     return m_linkageRunningFlags[enLinkageType];
 }
 
+void EventLinkageWorker::clear_running_registration(LinkageType_E enLinkageType)
+{
+    std::lock_guard<std::mutex> lock(m_currentLinkageMutex);
+    m_currentLinkages.erase(enLinkageType);
+    m_linkagePriorities[enLinkageType].store(INT_MAX);
+}
+
 void EventLinkageWorker::task_loop()
 {
     pthread_setname_np(pthread_self(), "EventLinkTask");
@@ -359,6 +366,7 @@ bool EventLinkageWorker::is_task_expired(const LinkageTask_S &stTask) const
 
 bool EventLinkageWorker::handle_running_task_conflict(const LinkageTask_S &stTask)
 {
+#if CAP_AUDIO_OUTPUT
     /* 人脸比对成功使用专用音频，不能用通用报警音路径参与“同音频”去重。 */
     const bool bUseDedicatedFaceAudio = stTask.stContext.enEventType == Event::Type_E::FACE_COMPARE_SUCCESS;
     if (stTask.enLinkageType == LinkageType_E::SOUND)
@@ -375,6 +383,7 @@ bool EventLinkageWorker::handle_running_task_conflict(const LinkageTask_S &stTas
             }
         }
     }
+#endif
 
     if (check_and_interrupt(stTask.enLinkageType, stTask.nPriority))
     {

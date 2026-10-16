@@ -43,6 +43,10 @@ public:
         std::chrono::steady_clock::time_point timestamp;
         /* 算法结果类型*/
         AlgorithmType algorithmType;
+        /* 本条结果的有效期（毫秒）：到期后合并线程清除对应 OSD 框。
+           强节流的跟踪型算法（如人脸 3s 一检）传节流间隔+余量，
+           使跟踪框在检测间隔内持续显示 */
+        int validTimeMs = 450;
 
         DetectionCache() : nWidth(0), nHeight(0), timestamp(std::chrono::steady_clock::now()), algorithmType(ALGORITHM_OSD)
         {
@@ -72,7 +76,11 @@ public:
      * @param    {int} nHeight：框对应的分辨率高
      * @param    {vector<Common::RectInfo_S>} &vstRectInfo：检测结果框数据
      */
-    void addDetectionResult(AlgorithmType algorithmType, int nWidth, int nHeight, const std::vector<Common::RectInfo_S> &vstRectInfo);
+    void addDetectionResult(AlgorithmType algorithmType,
+                            int nWidth,
+                            int nHeight,
+                            const std::vector<Common::RectInfo_S> &vstRectInfo,
+                            int validTimeMs = 450);
 
 private:
     /**

@@ -18,10 +18,14 @@ namespace Task
         TaskSubClass(GetPreviewInfo);
         TaskSubClass(SetPreviewInfo);
         TaskSubClass(GetCollectAudioInfo);
+#if CAP_AUDIO_OUTPUT
         TaskSubClass(SetIntercomInfo);
         TaskSubClass(SetBroadcastInfo);
+#endif
         TaskSubClass(SetBeepAlarm);
+#if CAP_AUDIO_OUTPUT
         TaskSubClass(GetIntercomAndBroadcastStatus);
+#endif
         TaskSubClass(DeviceControl);
     } // namespace Preview
 

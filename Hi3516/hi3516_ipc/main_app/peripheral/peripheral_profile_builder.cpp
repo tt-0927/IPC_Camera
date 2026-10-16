@@ -67,7 +67,7 @@ void build_fill_light_profile(FillLightProfile_S &stProfile)
 #endif
 #endif
     /* 切换通道前预留电气稳定窗口，防止灯珠驱动在交替导通时产生电源冲击。 */
-    stProfile.nMutualExclusionSettleMs = 100U;
+    stProfile.nMutualExclusionSettleMs = 20U;
 }
 
 /**

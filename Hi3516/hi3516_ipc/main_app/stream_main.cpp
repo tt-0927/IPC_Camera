@@ -3,11 +3,13 @@
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2025-03-19 08:57:03
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-08-20 16:07:17
- * @Description  : 主程序入口 
+ * @LastEditTime : 2026-10-10 10:30:01
+ * @Description  : 主程序入口
  */
 
 #include <atomic>
+#include <dirent.h>
+#include <exception>
 #include <fcntl.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -30,24 +32,6 @@
 #include "crypto_init.h"
 // #include "stream_performance_service.h"
 // #include "event_manage.h"
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 /* 日志记录单个日志文件的最大大小 */
 #define MAX_LOG_SIZE  (1 * 1024 * 1024) // 1MB
@@ -95,7 +79,8 @@ static char *appendDec(char *pOut, const char *pEnd, unsigned int nValue)
     {
         szDigits[nCount++] = static_cast<char>('0' + nValue % 10U);
         nValue /= 10U;
-    } while (nValue != 0 && nCount < sizeof(szDigits));
+    }
+    while (nValue != 0 && nCount < sizeof(szDigits));
 
     while (nCount > 0 && pOut < pEnd)
     {
@@ -142,8 +127,7 @@ static void crashHandler(int nSigno, siginfo_t *pInfo, void *pContext)
     const ucontext_t *pUc = static_cast<const ucontext_t *>(pContext);
     if (pUc != nullptr)
     {
-        const ArmSignalContext *pArmContext =
-            reinterpret_cast<const ArmSignalContext *>(&pUc->uc_mcontext);
+        const ArmSignalContext *pArmContext = reinterpret_cast<const ArmSignalContext *>(&pUc->uc_mcontext);
         nPc = static_cast<uintptr_t>(pArmContext->arm_pc);
         nLr = static_cast<uintptr_t>(pArmContext->arm_lr);
         nSp = static_cast<uintptr_t>(pArmContext->arm_sp);
@@ -198,8 +182,8 @@ static void crashHandler(int nSigno, siginfo_t *pInfo, void *pContext)
 
     if (g_nCrashLogFd >= 0)
     {
-        (void)write(g_nCrashLogFd, szLine, nLength);
-        (void)write(g_nCrashLogFd, szRawContext, nRawLength);
+        (void) write(g_nCrashLogFd, szLine, nLength);
+        (void) write(g_nCrashLogFd, szRawContext, nRawLength);
         /*
          * PC/LR 可能落在启用 ASLR 的共享库中。崩溃时把本进程映射一并写入，
          * 后续才能由“绝对地址 - 映射起始地址 + 文件偏移”得到库内地址。
@@ -208,34 +192,37 @@ static void crashHandler(int nSigno, siginfo_t *pInfo, void *pContext)
         {
             static const char kMapsBegin[] = "STREAM_MAPS_BEGIN\n";
             static const char kMapsEnd[] = "STREAM_MAPS_END\n";
-            (void)write(g_nCrashLogFd, kMapsBegin, sizeof(kMapsBegin) - 1U);
+            (void) write(g_nCrashLogFd, kMapsBegin, sizeof(kMapsBegin) - 1U);
             char szMaps[512];
             ssize_t nRead = 0;
             while ((nRead = read(g_nProcMapsFd, szMaps, sizeof(szMaps))) > 0)
             {
-                (void)write(g_nCrashLogFd, szMaps, static_cast<size_t>(nRead));
+                (void) write(g_nCrashLogFd, szMaps, static_cast<size_t>(nRead));
             }
-            (void)write(g_nCrashLogFd, kMapsEnd, sizeof(kMapsEnd) - 1U);
+            (void) write(g_nCrashLogFd, kMapsEnd, sizeof(kMapsEnd) - 1U);
         }
-        (void)fsync(g_nCrashLogFd);
+        (void) fsync(g_nCrashLogFd);
     }
-    (void)write(STDERR_FILENO, szLine, nLength);
-    (void)write(STDERR_FILENO, szRawContext, nRawLength);
+    (void) write(STDERR_FILENO, szLine, nLength);
+    (void) write(STDERR_FILENO, szRawContext, nRawLength);
 
     /* SA_RESETHAND 已恢复默认动作；重新发送同一信号，仍可按系统配置生成 core。 */
-    (void)kill(getpid(), nSigno);
+    (void) kill(getpid(), nSigno);
 }
 #endif
 /* 退出信号回调函数 */
 static void exitHandler(int nSigno)
 {
-    if(SIGINT == nSigno || SIGTERM == nSigno)
+    if (SIGINT == nSigno || SIGTERM == nSigno)
     {
+        /* 信号上下文仅允许异步信号安全调用，write 直打确认信号送达（Ctrl+C 概率性不响应排查） */
+        const char szMsg[] = "[signal] 收到退出信号，开始退出流程\n";
+        (void) write(STDERR_FILENO, szMsg, sizeof(szMsg) - 1);
         g_bExit.store(true);
     }
 }
 
-/* 初始化信号处理 */ 
+/* 初始化信号处理 */
 void initSignals()
 {
 #if ENABLE_CRASH_DIAGNOSTICS
@@ -256,7 +243,7 @@ void initSignals()
     sigaction(SIGBUS, &stCrashAction, nullptr);
     sigaction(SIGABRT, &stCrashAction, nullptr);
 #endif
-    /* 忽略管道破裂信号 */ 
+    /* 忽略管道破裂信号 */
     signal(SIGPIPE, SIG_IGN);
     signal(SIGINT, exitHandler);
     signal(SIGTERM, exitHandler);
@@ -267,7 +254,7 @@ void initSignals()
     pthread_sigmask(SIG_BLOCK, &sigset, NULL);
 }
 
-/* 初始化所有模块 */ 
+/* 初始化所有模块 */
 bool initModules()
 {
     int nRet = OK;
@@ -307,7 +294,7 @@ bool initModules()
 
     /* 初始化视频流 */
     nRet = CStreamVideo::instance()->init();
-    if(nRet < OK)
+    if (nRet < OK)
     {
         dlog_error("视频模块初始化失败：%d", nRet);
         goto exit_stream_video;
@@ -315,7 +302,7 @@ bool initModules()
 
     /* 初始化音频流 */
     nRet = CStreamAudio::instance()->init();
-    if(nRet < OK)
+    if (nRet < OK)
     {
         dlog_error("音频模块初始化失败：%d", nRet);
         goto exit_stream_audio;
@@ -337,9 +324,6 @@ bool initModules()
         goto exit_control_manage;
     }
 
-
-
-
     /* 事件管理初始化 */
     // nRet = CEventManage::instance()->init();
     // if (nRet < OK)
@@ -351,7 +335,7 @@ bool initModules()
     dlog_trace("初始化所有模块成功");
     return true;
 
-// exit_event_manage:
+    // exit_event_manage:
     /* 去初始化事件管理 */
     // nRet = CEventManage::instance()->deinit();
     // if (nRet < OK)
@@ -375,14 +359,14 @@ exit_push_stream:
 exit_stream_audio:
     /* 去初始化音频流 */
     nRet = CStreamAudio::instance()->deinit();
-    if(nRet < OK)
+    if (nRet < OK)
     {
         dlog_error("音频模块去初始化失败：%d", nRet);
     }
 exit_stream_video:
     /* 去初始化视频流 */
     nRet = CStreamVideo::instance()->deinit();
-    if(nRet < OK)
+    if (nRet < OK)
     {
         dlog_error("视频模块去初始化失败：%d", nRet);
     }
@@ -393,7 +377,7 @@ exit_crypto_init:
     {
         dlog_error("密码学模块去初始化失败：%d", nRet);
     }
-// exit_stream_performance:
+    // exit_stream_performance:
     /* 停止观测线程，避免退出期间继续读取已释放的模块状态。 */
     // nRet = CStreamPerformanceService::instance()->deinit();
     // if (nRet < OK)
@@ -424,7 +408,7 @@ void deinitModules()
     //     dlog_error("去初始化线程性能观测服务失败：%d", nRet);
     // }
 
-    //note:需提前停止，否则会统计出现占用为0情况，影响平均结果
+    // note:需提前停止，否则会统计出现占用为0情况，影响平均结果
     /* 停止监控并输出平均结果 */
     // nRet = perfMonitor_uninit();
     // if (nRet < OK)
@@ -440,21 +424,24 @@ void deinitModules()
     // }
 
     /* 控制管理模块去初始化 */
+    dlog_info("退出流程：开始反初始化控制管理模块");
     nRet = ControlManage::instance()->deinit();
     if (nRet < OK)
     {
         dlog_error("控制管理模块去初始化失败：%d", nRet);
     }
 
-    //note:需提前音视频模块停止，否则会出现外部请求卡死问题
+    // note:需提前音视频模块停止，否则会出现外部请求卡死问题
     /* 去初始化推流模块 */
+    dlog_info("退出流程：开始反初始化推流模块");
     nRet = CPushStream::instance()->deinit();
-    if(nRet < OK)
+    if (nRet < OK)
     {
         dlog_error("推流模块去初始化失败：%d", nRet);
     }
 
     /* 去初始化音频流 */
+    dlog_info("退出流程：开始反初始化音频模块");
     nRet = CStreamAudio::instance()->deinit();
     if (nRet < OK)
     {
@@ -462,24 +449,74 @@ void deinitModules()
     }
 
     /* 去初始化视频流 */
+    dlog_info("退出流程：开始反初始化视频模块");
     nRet = CStreamVideo::instance()->deinit();
-    if(nRet < OK)
+    if (nRet < OK)
     {
         dlog_error("视频模块去初始化失败：%d", nRet);
     }
 
     /* 去初始化密码学模块 */
+    dlog_info("退出流程：开始反初始化密码学模块");
     nRet = CCryptoInit::instance()->deinit();
     if (nRet < OK)
     {
         dlog_error("密码学模块去初始化失败：%d", nRet);
     }
-
 }
 
-int main(int argc,char *argv[])
+/* terminate 线程转储诊断已停用（根因修复后暂留备查，需要时去掉 #if 0 恢复） */
+#if 0
+/*
+ * terminate 诊断：进程退出阶段若有 joinable 线程残留（如 Ctrl+C 后 Aborted），
+ * 默认 terminate 只打一行且无线程现场。此处枚举 /proc/self/task 打印存活线程名，
+ * 用于定位未收口的线程；仅用底层文件接口，避开可能已析构的日志设施。
+ */
+static void dumpThreadsOnTerminate()
 {
-    /* 初始化信号处理 */ 
+    fprintf(stderr, "\n[terminate] 残留存活线程：\n");
+    DIR *pDir = opendir("/proc/self/task");
+    if (pDir == nullptr)
+    {
+        fprintf(stderr, "[terminate] 枚举 /proc/self/task 失败\n");
+        abort();
+    }
+    struct dirent *pEntry = nullptr;
+    char szPath[96];
+    char szName[64];
+    while ((pEntry = readdir(pDir)) != nullptr)
+    {
+        if (pEntry->d_name[0] == '.')
+        {
+            continue;
+        }
+        snprintf(szPath, sizeof(szPath), "/proc/self/task/%s/comm", pEntry->d_name);
+        const int nFd = open(szPath, O_RDONLY);
+        if (nFd < 0)
+        {
+            continue;
+        }
+        const ssize_t nRead = read(nFd, szName, sizeof(szName) - 1);
+        close(nFd);
+        if (nRead <= 0)
+        {
+            continue;
+        }
+        szName[nRead] = '\0';
+        fprintf(stderr, "[terminate]   tid=%s %s", pEntry->d_name, szName);
+    }
+    closedir(pDir);
+    fprintf(stderr, "[terminate] 线程转储完成\n");
+    abort();
+}
+#endif
+
+int main(int argc, char *argv[])
+{
+    /* terminate 时转储残留线程的诊断已停用，需要时恢复 dumpThreadsOnTerminate 并取消下一行注释 */
+    // std::set_terminate(dumpThreadsOnTerminate);
+
+    /* 初始化信号处理 */
     initSignals();
 
     /* 初始化日志 */
@@ -497,8 +534,9 @@ int main(int argc,char *argv[])
     setLogLevel(LOG_TRACE);
 #endif
 
-    /* 设置日志限流：同一调用点至少间隔1000ms才允许再次输出，防止高频日志阻塞业务线程 */
-    setLogThrottleInterval(1000);
+    /* 日志限流已停用：开启后同一调用点 1 秒内的重复日志会被整条丢弃且不打印任何提示，排查时会误以为代码没执行到 */
+    /* 若现场出现高频刷屏日志，恢复下一行即可 */
+    // setLogThrottleInterval(1000);
     /* 启动日志级别文件监控，支持运行时通过文件切换日志级别 */
     /* 写入 info/debug/trace/warn/error 到该文件即可动态切换，setLogLevel 也会同步写入该文件 */
     startLogLevelMonitor(STREAM_LOG_LEVEL_PATH);
@@ -508,24 +546,24 @@ int main(int argc,char *argv[])
     /* 初始化进程时区运行时，保证后续线程继承正确的 SIGHUP 屏蔽状态 */
     TimezoneRuntime_NS::init_timezone_runtime("stream");
 
-    /* 初始化所有模块 */ 
+    /* 初始化所有模块 */
     if (!initModules())
     {
         return ERR;
     }
 
     /* 主循环 */
-    while(!g_bExit.load())
-	{
-		sleep(1);
-	}
+    while (!g_bExit.load())
+    {
+        sleep(1);
+    }
 
-    /* 去初始化所有模块 */ 
+    /* 去初始化所有模块 */
     deinitModules();
 
     dlog_trace("主程序退出");
-    
-    /* 去初始化日志 */ 
+
+    /* 去初始化日志 */
     // uninitLog();
 
     return OK;

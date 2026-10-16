@@ -545,6 +545,55 @@ int EventLinkageResolver::load_default_linkage_list(Event::Type_E enEventType, A
         stLinkageList = alarm.stLinkageList;
         break;
     }
+    case Event::Type_E::CHANNEL_OCCUPATION:
+    {
+        Alarm::ChannelOccupation_S alarm;
+        CEventConfigure::instance()->get_configure(alarm);
+        stLinkageList = alarm.stLinkageList;
+        break;
+    }
+    case Event::Type_E::CLIMB_DETECTION:
+    {
+        Alarm::ClimbDetection_S alarm;
+        CEventConfigure::instance()->get_configure(alarm);
+        stLinkageList = alarm.stLinkageList;
+        break;
+    }
+    case Event::Type_E::DANGER_ZONE_APPROACH:
+    {
+        Alarm::DangerZoneApproach_S alarm;
+        CEventConfigure::instance()->get_configure(alarm);
+        stLinkageList = alarm.stLinkageList;
+        break;
+    }
+    case Event::Type_E::LONG_TIME_STAY:
+    {
+        Alarm::LongTimeStayDetection_S alarm;
+        CEventConfigure::instance()->get_configure(alarm);
+        stLinkageList = alarm.stLinkageList;
+        break;
+    }
+    case Event::Type_E::DANGER_ZONE_STAY:
+    {
+        Alarm::DangerZoneStayDetection_S alarm;
+        CEventConfigure::instance()->get_configure(alarm);
+        stLinkageList = alarm.stLinkageList;
+        break;
+    }
+    case Event::Type_E::KEY_AREA_ABNORMAL_STAY:
+    {
+        Alarm::KeyAreaAbnormalStayDetection_S alarm;
+        CEventConfigure::instance()->get_configure(alarm);
+        stLinkageList = alarm.stLinkageList;
+        break;
+    }
+    case Event::Type_E::ROOFTOP_STAY:
+    {
+        Alarm::RooftopStayDetection_S alarm;
+        CEventConfigure::instance()->get_configure(alarm);
+        stLinkageList = alarm.stLinkageList;
+        break;
+    }
 #endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
 case Event::Type_E::SMOKE_FIRE:

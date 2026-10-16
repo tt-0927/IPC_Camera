@@ -46,7 +46,7 @@ list(FILTER SOURCE_LIST EXCLUDE REGEX "ot_audio_opus_adp\\.c$")
 list(FILTER INCLUDE_PATH EXCLUDE REGEX "ot_audio_mp3_adp\\.h$")
 list(FILTER INCLUDE_PATH EXCLUDE REGEX "ot_audio_opus_adp\\.h$")
 
-message(${SOURCE_LIST})
+# message(${SOURCE_LIST})
 # 添加头文件
 foreach(item ${INCLUDE_PATH})
     include_directories (${item}) 

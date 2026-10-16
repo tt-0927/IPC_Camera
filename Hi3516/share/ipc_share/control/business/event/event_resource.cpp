@@ -80,6 +80,14 @@ const std::map<Event::Type_E, CEventResource::BoolMemberPtr> CEventResource::m_e
     {Event::Type_E::PEDESTRIAN_ATTRIBUTE, &Event::SmartEventEnableStatus_S::bPedestrianAttribute},
     {Event::Type_E::MOTORVEHICLE_ATTRIBUTE, &Event::SmartEventEnableStatus_S::bMotorVehicleAttribute},
     {Event::Type_E::NONMOTORVEHICLE_ATTRIBUTE, &Event::SmartEventEnableStatus_S::bNonMotorVehicleAttribute},
+    /* 平安校园 */
+    {Event::Type_E::CHANNEL_OCCUPATION, &Event::SmartEventEnableStatus_S::bChannelOccupation},
+    {Event::Type_E::CLIMB_DETECTION, &Event::SmartEventEnableStatus_S::bClimbDetection},
+    {Event::Type_E::DANGER_ZONE_APPROACH, &Event::SmartEventEnableStatus_S::bDangerZoneApproach},
+    {Event::Type_E::LONG_TIME_STAY, &Event::SmartEventEnableStatus_S::bLongTimeStay},
+    {Event::Type_E::DANGER_ZONE_STAY, &Event::SmartEventEnableStatus_S::bDangerZoneStay},
+    {Event::Type_E::KEY_AREA_ABNORMAL_STAY, &Event::SmartEventEnableStatus_S::bKeyAreaAbnormalStay},
+    {Event::Type_E::ROOFTOP_STAY, &Event::SmartEventEnableStatus_S::bRooftopStay},
 #endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
     {Event::Type_E::SMOKE_FIRE, &Event::SmartEventEnableStatus_S::bSmokeFire},
@@ -164,6 +172,14 @@ const std::map<Event::Type_E, Event::SmartCategory_E> CEventResource::m_event_to
     {Event::Type_E::PEDESTRIAN_ATTRIBUTE, Event::SmartCategory_E::SMART_RECOGNITION},
     {Event::Type_E::MOTORVEHICLE_ATTRIBUTE, Event::SmartCategory_E::SMART_RECOGNITION},
     {Event::Type_E::NONMOTORVEHICLE_ATTRIBUTE, Event::SmartCategory_E::SMART_RECOGNITION},
+    /* 平安校园 */
+    {Event::Type_E::CHANNEL_OCCUPATION, Event::SmartCategory_E::SAFE_CAMPUS},
+    {Event::Type_E::CLIMB_DETECTION, Event::SmartCategory_E::SAFE_CAMPUS},
+    {Event::Type_E::DANGER_ZONE_APPROACH, Event::SmartCategory_E::SAFE_CAMPUS},
+    {Event::Type_E::LONG_TIME_STAY, Event::SmartCategory_E::SAFE_CAMPUS},
+    {Event::Type_E::DANGER_ZONE_STAY, Event::SmartCategory_E::SAFE_CAMPUS},
+    {Event::Type_E::KEY_AREA_ABNORMAL_STAY, Event::SmartCategory_E::SAFE_CAMPUS},
+    {Event::Type_E::ROOFTOP_STAY, Event::SmartCategory_E::SAFE_CAMPUS},
 #endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
     {Event::Type_E::SMOKE_FIRE, Event::SmartCategory_E::BEHAVIOR_MONITORING},
@@ -339,6 +355,21 @@ const std::map<Event::SmartCategory_E, std::set<Event::Type_E>> CEventResource::
         Event::SmartCategory_E::SCENE_ANALYSIS,
         {
             Event::Type_E::AI_SCENE_ANALYSIS,
+        }
+    },
+#endif
+#ifdef SCENE_INTELLIGENCE
+    /* 平安校园：后续平安校园相关事件临时统一归入本组 与其他组互斥 */
+    {
+        Event::SmartCategory_E::SAFE_CAMPUS,
+        {
+            Event::Type_E::CHANNEL_OCCUPATION,
+            Event::Type_E::CLIMB_DETECTION,
+            Event::Type_E::DANGER_ZONE_APPROACH,
+            Event::Type_E::LONG_TIME_STAY,
+            Event::Type_E::DANGER_ZONE_STAY,
+            Event::Type_E::KEY_AREA_ABNORMAL_STAY,
+            Event::Type_E::ROOFTOP_STAY,
         }
     },
 #endif
@@ -652,6 +683,14 @@ void CEventResource::update_event_configurations_on_disable(const Event::SmartEv
         case Event::Type_E::PEDESTRIAN_ATTRIBUTE:           disable_specific_config<Alarm::PersonDetection_S>();      break;
         case Event::Type_E::MOTORVEHICLE_ATTRIBUTE:         disable_specific_config<Alarm::MotorVehicleDetection_S>();      break;
         case Event::Type_E::NONMOTORVEHICLE_ATTRIBUTE:      disable_specific_config<Alarm::NonMotorVehicleDetection_S>();      break;
+        /* 平安校园 */
+        case Event::Type_E::CHANNEL_OCCUPATION:             disable_specific_config<Alarm::ChannelOccupation_S>();      break;
+        case Event::Type_E::CLIMB_DETECTION:                disable_specific_config<Alarm::ClimbDetection_S>();      break;
+        case Event::Type_E::DANGER_ZONE_APPROACH:           disable_specific_config<Alarm::DangerZoneApproach_S>();      break;
+        case Event::Type_E::LONG_TIME_STAY:                 disable_specific_config<Alarm::LongTimeStayDetection_S>();      break;
+        case Event::Type_E::DANGER_ZONE_STAY:               disable_specific_config<Alarm::DangerZoneStayDetection_S>();      break;
+        case Event::Type_E::KEY_AREA_ABNORMAL_STAY:         disable_specific_config<Alarm::KeyAreaAbnormalStayDetection_S>();      break;
+        case Event::Type_E::ROOFTOP_STAY:                   disable_specific_config<Alarm::RooftopStayDetection_S>();      break;
 #endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
         case Event::Type_E::SMOKE_FIRE:                     disable_specific_config<Alarm::SmokeFireDetection_S>();      break;

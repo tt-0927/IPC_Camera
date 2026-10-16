@@ -32,7 +32,12 @@ typedef enum
     VENC_CHN_MAIN = 0,
     VENC_CHN_SUB,
     VENC_CHN_JPEG,
+    /* 用户态 JPEG 按需编码通道（不绑定 VPSS，batch_crop 全景/抠图共用，见 CJpegEncodeService）。
+       不参与常驻通道初始化/取流线程/OSD 遍历，生命周期由编码服务自管 */
+    VENC_CHN_JPEG_USER,
     VENC_CHN_MAX,
+    /* 常驻绑定通道数（MAIN/SUB/JPEG），供初始化与遍历循环做上界 */
+    VENC_CHN_PERSISTENT_CNT = VENC_CHN_JPEG + 1,
 }VENC_CHN_E;
 
 /**

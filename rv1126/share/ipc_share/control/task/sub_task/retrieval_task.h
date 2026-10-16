@@ -6,6 +6,10 @@
  * @FilePath: /hisi/share/ipc_share/control/task/sub_task/retrieval_task.h
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
+
+/* 本地 SD 存储能力裁剪：能力关闭（IPC_CAP_LOCAL_STORAGE=0）时本文件整体不参与编译 */
+#if CAP_LOCAL_STORAGE
+
 /**
  * @file retrieval_task.h
  * @author xiejh (xiejh@kfb.cn)
@@ -35,3 +39,5 @@ namespace Task
         TaskSubClass(DelNormalEvent)
     } /* namespace Event end */
 } /* namespace Task end */
+
+#endif /* CAP_LOCAL_STORAGE */

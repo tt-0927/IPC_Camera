@@ -21,8 +21,11 @@
 #include "wifi_manage.h" 
 #include "platform_manager.h"
 #include "rtsp_server.h"
+#if CAP_LOCAL_STORAGE
+/* 本地 SD 存储链路：重启前停录停抓，能力关闭时无录制/抓图系统可停 */
 #include "record_ctrl.h"
 #include "capture_ctrl.h"
+#endif
 namespace {
 const char* WIFI_SUPPLICANT_LOG_PATH = "/tmp/wpa_supplicant_wifi.log";
 const std::streamoff WIFI_SUPPLICANT_LOG_MAX_SIZE = 256 * 1024;
@@ -1753,8 +1756,10 @@ bool CWifiManager::setWifiEnhancedMode(bool bEnableBoost) {
     set_wifi_config(stInfo);
     auto thrRun = []()
     {
+#if CAP_LOCAL_STORAGE
         CCaptureCtrl::instance()->stop_capture();
         CRecordCtrl::instance()->stop_record();
+#endif
         /* 延时2秒重启 */
         std::this_thread::sleep_for(std::chrono::seconds(2));  
         system("sync;reboot");

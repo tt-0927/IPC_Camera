@@ -7,6 +7,9 @@
  * @Description  : 录制配置
  */
 
+/* 本地 SD 存储能力裁剪：能力关闭（IPC_CAP_LOCAL_STORAGE=0）时本文件整体不参与编译 */
+#if CAP_LOCAL_STORAGE
+
 #include "record_configure.h"
 #include "path_define.h"
 
@@ -39,3 +42,5 @@ int RecordConfigure::get_configure(Record_NS::Schedule_S &data) const
 {
     return m_schedule.get(data);
 }
+
+#endif /* CAP_LOCAL_STORAGE */

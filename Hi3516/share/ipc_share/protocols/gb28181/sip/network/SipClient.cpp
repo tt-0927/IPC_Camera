@@ -13,7 +13,9 @@
 #include "MethodRequest.h"
 #include "dlog.h"
 #include "SipUtils.h"
+#if CAP_GB35114
 #include "gm.h"
+#endif
 #include <iomanip>
 #include <iostream>
 #include <sstream>
@@ -300,10 +302,12 @@ int SIP::SipClient::on_message_new(const SipEvent::Ptr &e)
               exosip_event->request->status_code);
 
     /*gb35114控制信令响应分析,分析GB35114 Date、Note字段*/
+#if CAP_GB35114
     if (OK != CGm::instance()->gm_analyzing_control_signaling(exosip_event))
     {
         dlog_error("gb35114控制信令响应分析,分析GB35114 Date、Note字段失败");
     }
+#endif
 
     if (MSG_IS_REGISTER(exosip_event->request))
     {
@@ -342,10 +346,12 @@ int SIP::SipClient::on_registration_success(const SipEvent::Ptr &e)
         if (nExpires > 0)
         {
             /*gb35114注册请求的服务端二次响应分析*/
+#if CAP_GB35114
             if (OK != CGm::instance()->gm_analyzing_second_response(e->m_pEvent))
             {
                 dlog_error("gb35114注册请求的服务端二次响应分析,分析GB35114 Securityinfo字段失败");
             }
+#endif
 
             /* NOTE 可校验注册的服务器和返回消息的服务器一致 */
             StartHeartbeatThr();
@@ -508,6 +514,7 @@ int SIP::SipClient::on_registration_failure(const SipEvent::Ptr &e)
 
         /*构建gb35114第一次注册authorization授权字段*/
         eXosip_lock(m_pSipContext);
+#if CAP_GB35114
         const int nGmRet = CGm::instance()->gm_build_first_register(pRegisterMsg);
         if (OK != nGmRet)
         {
@@ -517,6 +524,7 @@ int SIP::SipClient::on_registration_failure(const SipEvent::Ptr &e)
             ScheduleRegisterRetry("构建GB35114首次注册认证字段失败");
             return -1;
         }
+#endif
 
         /* 发送注册信息 */
         auto ret = eXosip_register_send_register(m_pSipContext, m_nRegisterID, pRegisterMsg);
@@ -580,7 +588,12 @@ int SIP::SipClient::on_registration_failure(const SipEvent::Ptr &e)
 
         const std::string strAuthType = www_authenticate_header->auth_type;
         const bool bIsGb35114Challenge = (strAuthType == "Unidirection" || strAuthType == "Bidirection");
-        if (bIsGb35114Challenge && !CGm::instance()->isGmEnable())
+        /* 宏关闭时本地永不启用国密，平台下发国密挑战同样需要进入退避 */
+        if (bIsGb35114Challenge
+#if CAP_GB35114
+            && !CGm::instance()->isGmEnable()
+#endif
+        )
         {
             eXosip_unlock(m_pSipContext);
             /*
@@ -661,6 +674,7 @@ int SIP::SipClient::on_registration_failure(const SipEvent::Ptr &e)
         }
 
         /* 构建gb35114第二次注册authorization授权字段 */
+#if CAP_GB35114
         if (OK != CGm::instance()->gm_build_second_register(e->m_pEvent->response, pRegisterMsg, m_stClientInfo))
         {
             osip_message_free(pRegisterMsg);
@@ -677,6 +691,7 @@ int SIP::SipClient::on_registration_failure(const SipEvent::Ptr &e)
             ScheduleRegisterRetry("GB35114认证挑战字段无效");
             return -1;
         }
+#endif
 
         /* 发送注册信息 */
         nRet = eXosip_register_send_register(m_pSipContext, m_nRegisterID, pRegisterMsg);
@@ -837,6 +852,7 @@ void SipClient::Register(bool bLogin)
     }
 
     /*构建gb35114第一次注册authorization授权字段*/
+#if CAP_GB35114
     const int nGmRet = CGm::instance()->gm_build_first_register(pRegisterMsg);
     if (OK != nGmRet)
     {
@@ -849,6 +865,7 @@ void SipClient::Register(bool bLogin)
         }
         return;
     }
+#endif
 
     /* 发送注册信息 */
     auto ret = eXosip_register_send_register(m_pSipContext, m_nRegisterID, pRegisterMsg);

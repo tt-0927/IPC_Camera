@@ -26,6 +26,7 @@ public:
      */
     void execute(const LinkageTask_S &stTask, std::atomic<bool> &bRunningFlag);
 
+#if CAP_AUDIO_OUTPUT
     /**
      * @brief   : 播放音频
      * @param    {std::string} strAudioPath 音频文件路径
@@ -54,6 +55,7 @@ public:
      * @return   {std::string} 正在播放的音频文件路径，未播放则返回空字符串
      */
     std::string get_playing_audio_path();
+#endif
 
     /**
      * @brief   : 清空"正在播放"的音频路径记录
@@ -97,6 +99,7 @@ private:
      */
     void execute_log(const LinkageTask_S &stTask);
 
+#if CAP_AUDIO_OUTPUT
     /**
      * @brief   : 根据配置选择音频文件
      * @param    {std::string} &strAudioPath 输出音频路径
@@ -104,14 +107,19 @@ private:
      * @return   {int} 0：成功 非0：失败
      */
     int select_audio_file(std::string &strAudioPath, int &nTimes);
+#endif
 
 private:
-   /* 扬声器播放生命周期互斥锁：从首帧到静音/关闭功放只允许一个播放线程进入。 */
-   std::mutex m_audioPlaybackMutex;
+#if CAP_AUDIO_OUTPUT
+    /* 扬声器播放生命周期互斥锁：从首帧到静音/关闭功放只允许一个播放线程进入。 */
+    std::mutex m_audioPlaybackMutex;
+#endif
     /* 灯光抢占生命周期互斥锁：旧token释放后，新闪灯任务才允许申请override。 */
     std::mutex m_lightOverrideMutex;
+#if CAP_AUDIO_OUTPUT
     /* 当前播放的音频路径 */
     std::string m_strPlayingAudioPath;
     /* 音频路径互斥锁 */
     std::mutex m_audioPathMutex;
+#endif
 };

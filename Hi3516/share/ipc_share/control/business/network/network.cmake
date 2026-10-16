@@ -4,7 +4,10 @@
 include(${CMAKE_CURRENT_LIST_DIR}/bonjour/bonjour.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/ddns/ddns.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/email/email.cmake)
-include(${CMAKE_CURRENT_LIST_DIR}/gm_cert/gm_cert.cmake)
+# 国密证书管理随 GB35114 能力裁剪（兜底与 CAP_GB35114 宏导出见 gb28181.cmake，此处只判不兜）
+if(IPC_CAP_GB35114)
+    include(${CMAKE_CURRENT_LIST_DIR}/gm_cert/gm_cert.cmake)
+endif()
 include(${CMAKE_CURRENT_LIST_DIR}/https/https.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/pppoe/pppoe.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/qos/qos.cmake)

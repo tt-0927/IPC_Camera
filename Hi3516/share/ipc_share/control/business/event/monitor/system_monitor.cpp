@@ -76,12 +76,15 @@ CSystemMonitor::SystemStatus CSystemMonitor::get_current_status()
 {
     SystemStatus status;
 
+#if CAP_LOCAL_STORAGE
     /* SD卡挂载、读写状态和空间阈值统一折算为磁盘异常标志。 */
     status.diskErrorFlag = check_sd_error("/mnt");
     if (status.diskErrorFlag == false)
     {
         status.diskErrorFlag = check_disk_usage("/mnt", status.diskUsage);
     }
+#endif
+    /* 本地存储已裁剪时 diskErrorFlag 保持 false：无 SD 卡设备，无磁盘异常事件 */
 
     /* 事件异常检测只需要链路状态，避免主动ping外网带来的阻塞和误报。 */
     status.networkConnected = check_link_by_carrier(SYSFS_NET_CARRIER);
@@ -95,6 +98,7 @@ CSystemMonitor::SystemStatus CSystemMonitor::get_current_status()
     return status;
 }
 
+#if CAP_LOCAL_STORAGE
 bool CSystemMonitor::is_sd_card_exist()
 {
     glob_t globbuf;
@@ -190,6 +194,7 @@ bool CSystemMonitor::check_disk_usage(const std::string &path, double &usage)
 
     return false;
 }
+#endif /* CAP_LOCAL_STORAGE：SD 探测/挂载检查/容量检查随本地存储一起裁剪 */
 
 bool CSystemMonitor::check_network_connection()
 {

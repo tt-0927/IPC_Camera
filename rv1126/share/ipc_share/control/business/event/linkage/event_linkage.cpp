@@ -3,7 +3,7 @@
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2025-07-30 14:18:19
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-07-01 14:34:30
+ * @LastEditTime : 2026-10-14 16:46:40
  * @Description  : 事件联动门面层实现
  */
 
@@ -221,6 +221,7 @@ void CEventLinkage::get_event(Event::Info_S &stEvent)
     stEvent = m_stEventInfo;
 }
 
+#if CAP_AUDIO_OUTPUT
 void CEventLinkage::play_audio(std::string strAudioPath, int nTimes)
 {
     if (!m_bInited && init() != OK)
@@ -292,6 +293,7 @@ bool CEventLinkage::preempt_play_audio()
     dlog_info("声光报警新触发，打断上一段告警语音");
     return true;
 }
+#endif
 
 void CEventLinkage::remove_EndedEvents()
 {

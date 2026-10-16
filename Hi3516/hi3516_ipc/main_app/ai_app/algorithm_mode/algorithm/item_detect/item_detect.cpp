@@ -391,7 +391,7 @@ void CItemDetect::run()
             /* 获取检测结果 */
             if (m_pItemDetHandle->svpLd_getResult(m_pItemDetHandle, stResults, SVP_LD_MAX_REGION_NUM) == TD_SUCCESS)
             {
-                if (!access("testPrint", F_OK))
+                if (!access("/opt/cam/bin/testPrint", F_OK))
                 {
                     /* 打印输出数据 */
                     m_pItemDetHandle->svpLd_printResult(m_pItemDetHandle);
@@ -560,7 +560,7 @@ bool CItemDetect::processUnattendedObjectDetect(HiLdRegionResult_S *pstResult,
                 triggerState.bTriggering = true;
                 triggerState.llTriggerStartTime = llCurrentTime;
                 s_bOsdRegion = false;
-                if (!access("testPrint", F_OK))
+                if (!access("/opt/cam/bin/testPrint", F_OK))
                 {
                     dlog_debug("物品遗留侦测-区域[%d] 开始触发，灵敏度 %d <= %d",
                                i,
@@ -611,7 +611,7 @@ bool CItemDetect::processUnattendedObjectDetect(HiLdRegionResult_S *pstResult,
                 }
                 else if (llTriggerDuration >= llTimeThreshold + 5)
                 {
-                    if (!access("testPrint", F_OK))
+                    if (!access("/opt/cam/bin/testPrint", F_OK))
                     {
                         dlog_debug("物品遗留侦测-区域[%d] 连续触发，持续了 %lld 秒 >（ 时间阈值 %d + 5 秒）,进行强制停止触发", i,
                                    llTriggerDuration, rule.nTimeThreshold);
@@ -627,7 +627,7 @@ bool CItemDetect::processUnattendedObjectDetect(HiLdRegionResult_S *pstResult,
                     triggerState.llTriggerStartTime = 0;
                     s_bOsdRegion = false;
                 }
-                else if (!access("testPrint", F_OK))
+                else if (!access("/opt/cam/bin/testPrint", F_OK))
                 {
                     dlog_debug("物品遗留侦测-区域[%d] 持续触发中，已触发 %lld 秒 / %d 秒，灵敏度 %d <= %d",
                                i,
@@ -645,7 +645,7 @@ bool CItemDetect::processUnattendedObjectDetect(HiLdRegionResult_S *pstResult,
             {
                 /* 之前在触发中，现在中断了，重置状态 */
                 long long llTriggerDuration = llCurrentTime - triggerState.llTriggerStartTime;
-                if (!access("testPrint", F_OK))
+                if (!access("/opt/cam/bin/testPrint", F_OK))
                 {
                     dlog_debug("物品遗留侦测-区域[%d] 触发中断，持续了 %lld 秒（ 时间阈值 %d 秒）",
                                i,
@@ -774,7 +774,7 @@ bool CItemDetect::processObjectRemovalDetect(HiLdRegionResult_S *pstResult,
                 triggerState.bTriggering = true;
                 triggerState.llTriggerStartTime = llCurrentTime;
                 s_bOsdRegion = false;
-                if (!access("testPrint", F_OK))
+                if (!access("/opt/cam/bin/testPrint", F_OK))
                 {
                     dlog_debug("物品拿取侦测-区域[%d] 开始触发，灵敏度 %d <= %d", i, result.u32Sensitivity, rule.nSensitivity);
                 }
@@ -822,7 +822,7 @@ bool CItemDetect::processObjectRemovalDetect(HiLdRegionResult_S *pstResult,
                 }
                 else if (llTriggerDuration >= llTimeThreshold + 5)
                 {
-                    if (!access("testPrint", F_OK))
+                    if (!access("/opt/cam/bin/testPrint", F_OK))
                     {
                         dlog_debug(
                             "物品拿取侦测-区域[%d] 连续触发，持续了 %lld 秒 >（ 时间阈值 %d + 5 秒）,进行强制停止触发",
@@ -841,7 +841,7 @@ bool CItemDetect::processObjectRemovalDetect(HiLdRegionResult_S *pstResult,
                     triggerState.llTriggerStartTime = 0;
                     s_bOsdRegion = false;
                 }
-                else if (!access("testPrint", F_OK))
+                else if (!access("/opt/cam/bin/testPrint", F_OK))
                 {
                     dlog_debug("物拿取侦测-区域[%d] 持续触发中，已触发 %lld 秒 / %d 秒，灵敏度 %d <= %d",
                                i,
@@ -859,7 +859,7 @@ bool CItemDetect::processObjectRemovalDetect(HiLdRegionResult_S *pstResult,
             {
                 /* 之前在触发中，现在中断了，重置状态 */
                 long long llTriggerDuration = llCurrentTime - triggerState.llTriggerStartTime;
-                if (!access("testPrint", F_OK))
+                if (!access("/opt/cam/bin/testPrint", F_OK))
                 {
                     dlog_debug("物品拿取侦测-区域[%d] 触发中断，持续了 %lld 秒（ 时间阈值 %d 秒）",
                                i,
@@ -1147,7 +1147,7 @@ void CItemDetect::run()
             // note 调试用 动态分析显示
             if (m_stUnattendedObjectDetCfg.bEnable || m_stObjectRemovalDetCfg.bEnable) 
             {
-                if (!access("testPrint", F_OK) && !vstRectInfo.empty())
+                if (!access("/opt/cam/bin/testPrint", F_OK) && !vstRectInfo.empty())
                 {
                     /* 发送结果至OSD模块，进行框选显示 */
                     send_detectionResult_to_osd(m_nWidth, m_nHeight, vstRectInfo);

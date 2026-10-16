@@ -3,7 +3,7 @@
  * @Author       : huangjunda
  * @Date         : 2025-04-29 09:54:27
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-09-23 15:44:29
+ * @LastEditTime : 2026-10-13 14:29:53
  * @Description  : 事件任务
  * @修改记录     : 2026-09-08，Codex，逆行识别仅允许两个单向方向。
  */
@@ -32,12 +32,14 @@
 #include "time_utils.h"
 #endif
 
+#if CAP_LOCAL_STORAGE
 /* 回放播放地址：SD 卡状态、本机 IP 与录像文件查找 */
 #include "posix_fs.h"
 #include "storage_manage.h"
 #include "network_manage.h"
 #include "replay_define.h"
 #include "find_record_file.h"
+#endif
 
 #define ERR_EVENT_RESOURCE_CONFLICT -305
 
@@ -98,6 +100,13 @@ static void helper_convert_to_status(const Event::AlgorithmConfig_S& algo, Event
     status.bPedestrianAttribute = algo.nEnPedestrianAttribute;
     status.bMotorVehicleAttribute = algo.nEnMotorVehicleAttribute;
     status.bNonMotorVehicleAttribute = algo.nEnNonMotorVehicleAttribute;
+    status.bChannelOccupation = algo.nChannelOccupation;
+    status.bClimbDetection = algo.nClimbDetection;
+    status.bDangerZoneApproach = algo.nDangerZoneApproach;
+    status.bLongTimeStay = algo.nLongTimeStay;
+    status.bDangerZoneStay = algo.nDangerZoneStay;
+    status.bKeyAreaAbnormalStay = algo.nKeyAreaAbnormalStay;
+    status.bRooftopStay = algo.nRooftopStay;
     #endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
     status.bSmokeFire = algo.nEnSmokeFire;
@@ -148,6 +157,9 @@ static const char* get_event_type_name(Event::Type_E type) {
 
         case Event::Type::FACE_COMPARE: return "FACE_COMPARE";
         case Event::Type::SMOKE_FIRE: return "SMOKE_FIRE";
+        case Event::Type::CHANNEL_OCCUPATION: return "CHANNEL_OCCUPATION";
+        case Event::Type::CLIMB_DETECTION: return "CLIMB_DETECTION";
+        case Event::Type::DANGER_ZONE_APPROACH: return "DANGER_ZONE_APPROACH";
         default: return "UNKNOWN";
     }
 }
@@ -237,6 +249,13 @@ static int check_analytics_resource(const Event::Type_E enable_type, const bool 
         case Event::Type::BARE_SOIL: already_in_target_state = (oldStatus.bBareSoil == bEnable); break;
         case Event::Type::HOLE_PROTECTION_BAR: already_in_target_state = (oldStatus.bHoleProtectionBar == bEnable); break;
         case Event::Type::REFLECTIVE_CLOTHING: already_in_target_state = (oldStatus.bReflectiveClothing == bEnable); break;
+        case Event::Type::CHANNEL_OCCUPATION: already_in_target_state = (oldStatus.bChannelOccupation == bEnable); break;
+        case Event::Type::CLIMB_DETECTION: already_in_target_state = (oldStatus.bClimbDetection == bEnable); break;
+        case Event::Type::DANGER_ZONE_APPROACH: already_in_target_state = (oldStatus.bDangerZoneApproach == bEnable); break;
+        case Event::Type::LONG_TIME_STAY: already_in_target_state = (oldStatus.bLongTimeStay == bEnable); break;
+        case Event::Type::DANGER_ZONE_STAY: already_in_target_state = (oldStatus.bDangerZoneStay == bEnable); break;
+        case Event::Type::KEY_AREA_ABNORMAL_STAY: already_in_target_state = (oldStatus.bKeyAreaAbnormalStay == bEnable); break;
+        case Event::Type::ROOFTOP_STAY: already_in_target_state = (oldStatus.bRooftopStay == bEnable); break;
 #endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
         case Event::Type::SMOKE_FIRE: already_in_target_state = (oldStatus.bSmokeFire == bEnable); break;
@@ -351,6 +370,13 @@ static int check_analytics_resource(const Event::Type_E enable_type, const bool 
         case Event::Type::BARE_SOIL: newStatus.bBareSoil = bEnable; break;
         case Event::Type::HOLE_PROTECTION_BAR: newStatus.bHoleProtectionBar = bEnable; break;
         case Event::Type::REFLECTIVE_CLOTHING: newStatus.bReflectiveClothing = bEnable; break;
+        case Event::Type::CHANNEL_OCCUPATION: newStatus.bChannelOccupation = bEnable; break;
+        case Event::Type::CLIMB_DETECTION: newStatus.bClimbDetection = bEnable; break;
+        case Event::Type::DANGER_ZONE_APPROACH: newStatus.bDangerZoneApproach = bEnable; break;
+        case Event::Type::LONG_TIME_STAY: newStatus.bLongTimeStay = bEnable; break;
+        case Event::Type::DANGER_ZONE_STAY: newStatus.bDangerZoneStay = bEnable; break;
+        case Event::Type::KEY_AREA_ABNORMAL_STAY: newStatus.bKeyAreaAbnormalStay = bEnable; break;
+        case Event::Type::ROOFTOP_STAY: newStatus.bRooftopStay = bEnable; break;
 #endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
         case Event::Type::SMOKE_FIRE: newStatus.bSmokeFire = bEnable; break;
@@ -1526,8 +1552,8 @@ void Task::Event::SetLoiteringDetectionInfo::handle()
     }
     for (auto &rule : stInfo.aRule)
     {
-        /* 参数有效性判断：徘徊侦测灵敏度按参数对照表要求为 0~10 */
-        if (rule.nTimeThreshold < 0 || rule.nTimeThreshold > 10 || rule.nSensitivity < 0 || rule.nSensitivity > 10)
+        /* 参数有效性判断：灵敏度 1~100;时间阈值（秒）0~10 */
+        if (rule.nTimeThreshold < 0 || rule.nTimeThreshold > 10 || rule.nSensitivity < 1 || rule.nSensitivity > 100)
         {
             dlog_error("设置徘徊侦测信息参数错误");
             result(ERR_WEB_PARAM);
@@ -4112,6 +4138,7 @@ void Task::Event::SetPeopleDensityDetectionInfo::handle()
     result(nRet);
 }
 #endif
+#if CAP_LOCAL_STORAGE
 /* 回放拉流服务的 HTTP 端口，与平台约定一致 */
 constexpr int REPLAY_HTTP_PORT = 18888;
 
@@ -4259,3 +4286,248 @@ void Task::Event::GetReplayMediaInfo::handle()
                       std::to_string(REPLAY_HTTP_PORT) + strSelectedFile;
     result(Convert::to_string(stResp));
 }
+#endif /* CAP_LOCAL_STORAGE */
+
+#ifdef SCENE_INTELLIGENCE
+/* 获取通道占用检测信息 */
+void Task::Event::GetChannelOccupationInfo::handle()
+{
+    Alarm::ChannelOccupation_S stInfo;
+    CEventConfigure::instance()->get_configure(stInfo);
+    result(Convert::to_string(stInfo));
+}
+
+/* 设置通道占用检测信息 */
+void Task::Event::SetChannelOccupationInfo::handle()
+{
+    Alarm::ChannelOccupation_S stInfo;
+    Convert::to_struct(m_taskData, stInfo);
+
+    /* 参数有效性判断 灵敏度 0-低 1-中 2-高 */
+    if (stInfo.nSensitivity > 2)
+    {
+        dlog_error("设置通道占用检测信息参数错误");
+        result(ERR_WEB_PARAM);
+        return;
+    }
+    /* 坐标有效性判断 */
+    if (!stInfo.stRegion.IsValid())
+    {
+        dlog_error("设置通道占用检测信息的区域绘制异常");
+        result(ERR_WEB_REGION);
+        return;
+    }
+    /* 参数校验完成后，统一保存并同步智能事件总览状态。 */
+    result(save_scene_event_config(::Event::Type_E::CHANNEL_OCCUPATION, stInfo));
+}
+
+/* 获取攀爬识别检测信息 */
+void Task::Event::GetClimbDetectionInfo::handle()
+{
+    Alarm::ClimbDetection_S stInfo;
+    CEventConfigure::instance()->get_configure(stInfo);
+    result(Convert::to_string(stInfo));
+}
+
+/* 设置攀爬识别检测信息 */
+void Task::Event::SetClimbDetectionInfo::handle()
+{
+    Alarm::ClimbDetection_S stInfo;
+    Convert::to_struct(m_taskData, stInfo);
+
+    for (auto &rule : stInfo.aRule)
+    {
+        /* 参数有效性判断 灵敏度[1,100] */
+        if (rule.nSensitivity < 1 || rule.nSensitivity > 100)
+        {
+            dlog_error("设置攀爬识别检测信息参数错误");
+            result(ERR_WEB_PARAM);
+            return;
+        }
+        /* 坐标有效性判断 */
+        if (!rule.stRegion.IsValid())
+        {
+            dlog_error("设置攀爬识别检测信息的区域绘制异常");
+            result(ERR_WEB_REGION);
+            return;
+        }
+    }
+    /* 参数校验完成后，统一保存并同步智能事件总览状态。 */
+    result(save_scene_event_config(::Event::Type_E::CLIMB_DETECTION, stInfo));
+}
+
+/* 获取危险区域靠近检测信息 */
+void Task::Event::GetDangerZoneApproachInfo::handle()
+{
+    Alarm::DangerZoneApproach_S stInfo;
+    CEventConfigure::instance()->get_configure(stInfo);
+    result(Convert::to_string(stInfo));
+}
+
+/* 设置危险区域靠近检测信息 */
+void Task::Event::SetDangerZoneApproachInfo::handle()
+{
+    Alarm::DangerZoneApproach_S stInfo;
+    Convert::to_struct(m_taskData, stInfo);
+
+    for (auto &rule : stInfo.aRule)
+    {
+        /* 参数有效性判断 灵敏度[1,100] 停留时长[0,10]秒 */
+        if (rule.nSensitivity < 1 || rule.nSensitivity > 100 || rule.nTimeThreshold > 10)
+        {
+            dlog_error("设置危险区域靠近检测信息参数错误");
+            result(ERR_WEB_PARAM);
+            return;
+        }
+        /* 坐标有效性判断 */
+        if (!rule.stRegion.IsValid())
+        {
+            dlog_error("设置危险区域靠近检测信息的区域绘制异常");
+            result(ERR_WEB_REGION);
+            return;
+        }
+    }
+    /* 参数校验完成后，统一保存并同步智能事件总览状态。 */
+    result(save_scene_event_config(::Event::Type_E::DANGER_ZONE_APPROACH, stInfo));
+}
+
+/* 获取长时间滞留信息 */
+void Task::Event::GetLongTimeStayInfo::handle()
+{
+    Alarm::LongTimeStayDetection_S stInfo;
+    CEventConfigure::instance()->get_configure(stInfo);
+    result(Convert::to_string(stInfo));
+}
+
+/* 设置长时间滞留信息 */
+void Task::Event::SetLongTimeStayInfo::handle()
+{
+    Alarm::LongTimeStayDetection_S stInfo;
+    Convert::to_struct(m_taskData, stInfo);
+
+    for (auto &rule : stInfo.aRule)
+    {
+        /* 参数有效性判断 灵敏度[1,100] 事件阈值[0,100] */
+        if (rule.nSensitivity < 1 || rule.nSensitivity > 100 || rule.nTimeThreshold > 100)
+        {
+            dlog_error("设置长时间滞留信息参数错误");
+            result(ERR_WEB_PARAM);
+            return;
+        }
+        /* 坐标有效性判断 */
+        if (!rule.stRegion.IsValid())
+        {
+            dlog_error("设置长时间滞留信息的区域绘制异常");
+            result(ERR_WEB_REGION);
+            return;
+        }
+    }
+    /* 参数校验完成后，统一保存并同步智能事件总览状态。 */
+    result(save_scene_event_config(::Event::Type_E::LONG_TIME_STAY, stInfo));
+}
+
+/* 获取危险区域滞留信息 */
+void Task::Event::GetDangerZoneStayInfo::handle()
+{
+    Alarm::DangerZoneStayDetection_S stInfo;
+    CEventConfigure::instance()->get_configure(stInfo);
+    result(Convert::to_string(stInfo));
+}
+
+/* 设置危险区域滞留信息 */
+void Task::Event::SetDangerZoneStayInfo::handle()
+{
+    Alarm::DangerZoneStayDetection_S stInfo;
+    Convert::to_struct(m_taskData, stInfo);
+
+    for (auto &rule : stInfo.aRule)
+    {
+        /* 参数有效性判断 灵敏度[1,100] 事件阈值[0,100] */
+        if (rule.nSensitivity < 1 || rule.nSensitivity > 100 || rule.nTimeThreshold > 100)
+        {
+            dlog_error("设置危险区域滞留信息参数错误");
+            result(ERR_WEB_PARAM);
+            return;
+        }
+        /* 坐标有效性判断 */
+        if (!rule.stRegion.IsValid())
+        {
+            dlog_error("设置危险区域滞留信息的区域绘制异常");
+            result(ERR_WEB_REGION);
+            return;
+        }
+    }
+    /* 参数校验完成后，统一保存并同步智能事件总览状态。 */
+    result(save_scene_event_config(::Event::Type_E::DANGER_ZONE_STAY, stInfo));
+}
+
+/* 获取重点区域异常滞留信息 */
+void Task::Event::GetKeyAreaAbnormalStayInfo::handle()
+{
+    Alarm::KeyAreaAbnormalStayDetection_S stInfo;
+    CEventConfigure::instance()->get_configure(stInfo);
+    result(Convert::to_string(stInfo));
+}
+
+/* 设置重点区域异常滞留信息 */
+void Task::Event::SetKeyAreaAbnormalStayInfo::handle()
+{
+    Alarm::KeyAreaAbnormalStayDetection_S stInfo;
+    Convert::to_struct(m_taskData, stInfo);
+
+    for (auto &rule : stInfo.aRule)
+    {
+        /* 参数有效性判断 灵敏度[1,100] 事件阈值[0,100] */
+        if (rule.nSensitivity < 1 || rule.nSensitivity > 100 || rule.nTimeThreshold > 100)
+        {
+            dlog_error("设置重点区域异常滞留信息参数错误");
+            result(ERR_WEB_PARAM);
+            return;
+        }
+        /* 坐标有效性判断 */
+        if (!rule.stRegion.IsValid())
+        {
+            dlog_error("设置重点区域异常滞留信息的区域绘制异常");
+            result(ERR_WEB_REGION);
+            return;
+        }
+    }
+    /* 参数校验完成后，统一保存并同步智能事件总览状态。 */
+    result(save_scene_event_config(::Event::Type_E::KEY_AREA_ABNORMAL_STAY, stInfo));
+}
+
+/* 获取天台滞留信息 */
+void Task::Event::GetRooftopStayInfo::handle()
+{
+    Alarm::RooftopStayDetection_S stInfo;
+    CEventConfigure::instance()->get_configure(stInfo);
+    result(Convert::to_string(stInfo));
+}
+
+/* 设置天台滞留信息 */
+void Task::Event::SetRooftopStayInfo::handle()
+{
+    Alarm::RooftopStayDetection_S stInfo;
+    Convert::to_struct(m_taskData, stInfo);
+
+    for (auto &rule : stInfo.aRule)
+    {
+        /* 参数有效性判断 灵敏度[1,100] 事件阈值[0,100] */
+        if (rule.nSensitivity < 1 || rule.nSensitivity > 100 || rule.nTimeThreshold > 100)
+        {
+            dlog_error("设置天台滞留信息参数错误");
+            result(ERR_WEB_PARAM);
+            return;
+        }
+        /* 坐标有效性判断 */
+        if (!rule.stRegion.IsValid())
+        {
+            dlog_error("设置天台滞留信息的区域绘制异常");
+            result(ERR_WEB_REGION);
+            return;
+        }
+    }
+    /* 参数校验完成后，统一保存并同步智能事件总览状态。 */
+    result(save_scene_event_config(::Event::Type_E::ROOFTOP_STAY, stInfo));
+}
+#endif

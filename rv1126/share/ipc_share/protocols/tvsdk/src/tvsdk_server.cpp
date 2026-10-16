@@ -37,21 +37,24 @@ namespace
 {
 const char *kDefaultDiscoveryInterface = "eth0";
 const char *kDefaultDiscoveryManufacturer = "ITC";
-const char *kVoiceComNvrRecvDumpPath = "/tmp/tvsdk_voicecom_nvr_recv.pcm";
 constexpr UINT32 kVoiceComPort = 9006;
+#if CAP_AUDIO_OUTPUT
+const char *kVoiceComNvrRecvDumpPath = "/tmp/tvsdk_voicecom_nvr_recv.pcm";
 constexpr int kNetTvAudioFormatG711U = 1;
 constexpr int kNetTvAudioFormatG711A = 2;
-constexpr int kNetTvAudioFormatPcm = 6;
 constexpr std::size_t kVoiceComNvrRecvDumpMaxBytes = 5 * 1024 * 1024;
+FILE *g_voiceComNvrRecvDumpFp = nullptr;
+std::size_t g_voiceComNvrRecvDumpBytes = 0;
+#endif
+constexpr int kNetTvAudioFormatPcm = 6;
 UINT32 g_discoveryHttpPort = IN_CONTROL_SDK_PROT;
 std::string g_discoveryInterface = kDefaultDiscoveryInterface;
 NET_DiscoveryDeviceInfo_S g_cachedDiscoveryInfo;
 std::chrono::steady_clock::time_point g_cachedDiscoveryInfoTime;
 bool g_hasCachedDiscoveryInfo = false;
-FILE *g_voiceComNvrRecvDumpFp = nullptr;
-std::size_t g_voiceComNvrRecvDumpBytes = 0;
 constexpr auto kDiscoveryInfoCacheTtl = std::chrono::seconds(30);
 
+#if CAP_AUDIO_OUTPUT
 void fill_default_voice_com_audio_param(NET_VoiceComAudioParam_S &audioParam)
 {
     std::memset(&audioParam, 0, sizeof(audioParam));
@@ -219,12 +222,14 @@ void voice_com_play_diag(uint64_t nArriveMs, uint64_t nCostMs, unsigned int nSiz
     g_voiceComPlayDiagCostMaxMs = 0;
 }
 
+
 void STDCALL cb_voice_com_play(const char *data, unsigned int size)
 {
     if (!data || size == 0)
         return;
 
     const uint64_t nArriveMs = voice_com_diag_now_ms();
+
 
     dump_voice_com_nvr_audio(data, size);
 
@@ -250,6 +255,7 @@ void STDCALL cb_voice_com_play(const char *data, unsigned int size)
 
     voice_com_play_diag(nArriveMs, voice_com_diag_now_ms() - nArriveMs, size);
 }
+#endif
 
 INT32 STDCALL cb_voice_com_capture(const NET_VoiceComAudioParam_S *pstAudioParam,
                                    CHAR *pBuffer,
@@ -302,11 +308,17 @@ INT32 STDCALL cb_voice_com_capture(const NET_VoiceComAudioParam_S *pstAudioParam
 
 void start_voice_com_server()
 {
+    /* 下行播放回调随音频输出能力裁剪；上行采集回调与 VoiceCom 服务保留
+       （NVR 听现场声只依赖拾音，不依赖喇叭） */
+#if CAP_AUDIO_OUTPUT
     if (!NET_serverRegisterVoiceComPlayCb(cb_voice_com_play))
     {
         dlog_warn("TVSDK VoiceCom register play callback failed");
     }
     else if (!NET_serverRegisterVoiceComCaptureCb(cb_voice_com_capture, nullptr))
+#else
+    if (!NET_serverRegisterVoiceComCaptureCb(cb_voice_com_capture, nullptr))
+#endif
     {
         dlog_warn("TVSDK VoiceCom register capture callback failed");
     }
@@ -322,7 +334,9 @@ void start_voice_com_server()
 
 void stop_voice_com_server()
 {
+#if CAP_AUDIO_OUTPUT
     close_voice_com_nvr_audio_dump();
+#endif
     CVoiceComCaptureSource::instance()->clear();
     NET_serverStopVoiceComServer();
 }

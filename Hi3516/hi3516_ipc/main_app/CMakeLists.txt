@@ -10,8 +10,8 @@ include(${IPC_SHARE_PATH}/common/utils/osd_font.cmake)
 include(${IPC_SHARE_PATH}/protocols/tvsdk/tvsdk.cmake)
 
 # AI 检测结果标准化与事件分发 Pipeline，ai_app 消费；
-# 曾由 control/business/event/event.cmake 顺带引入，现由业务工程显式引入，
-# 使不使用该模块的型号（工具链不支持 C++17）不参与编译
+# 曾由 control/business/event/event.cmake 顺带引入，现由业务工程显式引入。
+# 模块按 C++11 基线编写，型号启用由画像宏 CAP_UNIFIED_EVENT_PIPELINE 控制（0 时编译为空）
 include(${IPC_SHARE_PATH}/event/event.cmake)
 
 # cam_share

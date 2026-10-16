@@ -36,6 +36,7 @@ void Task::Preview::GetCollectAudioInfo::handle()
     result(Convert::to_string(stCollectAudioInfo));
 }
 
+#if CAP_AUDIO_OUTPUT
 /* 设置对讲信息 */
 void Task::Preview::SetIntercomInfo::handle()
 {
@@ -133,6 +134,7 @@ void Task::Preview::SetBroadcastInfo::handle()
 
     result(nRet);
 }
+#endif
 
 /* 设置蜂鸣器报警 */
 void Task::Preview::SetBeepAlarm::handle()
@@ -152,6 +154,7 @@ void Task::Preview::DeviceControl::handle()
     result(CPreviewManage::instance()->device_control(stControl));
 }
 
+#if CAP_AUDIO_OUTPUT
 /* 获取对讲/广播状态 */
 void Task::Preview::GetIntercomAndBroadcastStatus::handle()
 {
@@ -166,3 +169,4 @@ void Task::Preview::GetIntercomAndBroadcastStatus::handle()
     Json::deinit(pJsonData);
     result(data);
 }
+#endif

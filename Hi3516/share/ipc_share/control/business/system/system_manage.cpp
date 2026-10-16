@@ -41,8 +41,11 @@
 #include "event_linkage.h"
 #include "event_alarm.h"
 #include "gpio_ctrl.h"
+#if CAP_LOCAL_STORAGE
+/* 本地 SD 存储链路：重启前停录停抓，能力关闭时无录制/抓图系统可停 */
 #include "record_ctrl.h"
 #include "capture_ctrl.h"
+#endif
 #if CAP_SYSTEM_REBOOT_MUTE // 系统重启静音处理
 #include "stream_ao.h"
 #endif
@@ -253,11 +256,13 @@ int SystemManage::system_reboot(std::function<void(int)> result)
 {
     auto thrRun = [](std::function<void(int)> result)
     {
+#if CAP_LOCAL_STORAGE
         CCaptureCtrl::instance()->stop_capture();
         CRecordCtrl::instance()->stop_record();
+#endif
         result(IpcRet_E::OK_SYSTEM_REBOOT);
         /* 延时2秒重启 */
-        std::this_thread::sleep_for(std::chrono::seconds(2));  
+        std::this_thread::sleep_for(std::chrono::seconds(2));
 #if CAP_SYSTEM_REBOOT_MUTE // 系统重启静音处理
         /* 静音，防止重启喇叭异响 */
         CStreamAo::instance()->update_audioOutputType(Audio_NS::AudioOutputType_E::MUTE);

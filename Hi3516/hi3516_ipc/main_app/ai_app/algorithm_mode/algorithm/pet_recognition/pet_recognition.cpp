@@ -209,7 +209,7 @@ void CPetRecognition::run()
         if (m_pPetDetHandle->svpAiDetect_sendFrame(m_pPetDetHandle, &pFrameInfo->video_frame) == TD_SUCCESS)
         {
             /* 打印输出数据 */
-            if (!access("testPrint", F_OK))
+            if (!access("/opt/cam/bin/testPrint", F_OK))
             {
                 m_pPetDetHandle->svpAiDetect_printResult(&m_pPetDetHandle->stResult);
             }

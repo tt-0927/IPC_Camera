@@ -25,10 +25,12 @@
 
 namespace
 {
+#if CAP_AUDIO_OUTPUT
 /* 自定义音频播放串行化锁 */
 static std::mutex g_playMutex;
 /* 自定义音频播放运行标志 */
 static std::atomic<bool> g_playRunning{ false };
+#endif
 
 /**
  * @brief   : 是否支持警报IO
@@ -561,6 +563,7 @@ int CEventAlarm::HandleCustomPlay(const Alarm::CustomOperation_S &stCustomOperat
 {
     dlog_info("播放自定义音频: 路径=%s, 名称=%s", stCustomOperation.strPath.c_str(), stCustomOperation.strName.c_str());
 
+#if CAP_AUDIO_OUTPUT
     std::lock_guard<std::mutex> lock(g_playMutex);
     if (g_playRunning.load())
     {
@@ -576,6 +579,10 @@ int CEventAlarm::HandleCustomPlay(const Alarm::CustomOperation_S &stCustomOperat
             g_playRunning.store(false);
         })
         .detach();
+#else
+    /* 无音频输出能力：自定义报警音试听快速失败，不创建播放线程 */
+    dlog_warn("当前设备无音频输出能力，自定义音频试听不可用");
+#endif
 
     return OK;
 }

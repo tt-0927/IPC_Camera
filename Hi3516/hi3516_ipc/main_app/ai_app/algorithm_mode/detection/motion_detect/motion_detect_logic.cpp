@@ -18,6 +18,16 @@
 #include "time_utils.h"
 #include "video_frame_jpeg_encoder.hpp"
 
+namespace
+{
+/* C++11 无 std::clamp，文件内模板替代（AGENTS.md 基线要求） */
+template <typename T>
+const T &clamp_value(const T &value, const T &low, const T &high)
+{
+    return value < low ? low : (high < value ? high : value);
+}
+} // namespace
+
 CMotionDetectLogic::CMotionDetectLogic()
 {
     /* 默认侦测区域（与 LEGACY 构造函数一致） */
@@ -47,7 +57,7 @@ bool CMotionDetectLogic::apply_config(const Alarm::MotionDetection_S &stAlgoCfg)
     {
         if (m_stMotionDetCfg.stMotionNormalMode.nRegionType) /* 网格 */
         {
-            if (!std::holds_alternative<Alarm::MotionNormalMode_S::AreaGrid>(m_stMotionDetCfg.stMotionNormalMode.varRegion))
+            if (!mpark::holds_alternative<Alarm::MotionNormalMode_S::AreaGrid>(m_stMotionDetCfg.stMotionNormalMode.varRegion))
             {
                 dlog_error("[移动侦测] 网格区域类型与配置数据不匹配");
                 m_stMotionDetCfg.bEnable = false;
@@ -56,7 +66,7 @@ bool CMotionDetectLogic::apply_config(const Alarm::MotionDetection_S &stAlgoCfg)
             }
 
             /* 网格二维向量 */
-            auto &grid = std::get<Alarm::MotionNormalMode_S::AreaGrid>(m_stMotionDetCfg.stMotionNormalMode.varRegion);
+            auto &grid = mpark::get<Alarm::MotionNormalMode_S::AreaGrid>(m_stMotionDetCfg.stMotionNormalMode.varRegion);
             if (grid.size() < GRID_HEIGHT_DEFAULT)
             {
                 dlog_error("[移动侦测] 网格区域行数错误");
@@ -104,7 +114,7 @@ bool CMotionDetectLogic::apply_config(const Alarm::MotionDetection_S &stAlgoCfg)
         }
         else /* 矩形 */
         {
-            if (!std::holds_alternative<Common::Rect_S>(m_stMotionDetCfg.stMotionNormalMode.varRegion))
+            if (!mpark::holds_alternative<Common::Rect_S>(m_stMotionDetCfg.stMotionNormalMode.varRegion))
             {
                 dlog_error("[移动侦测] 矩形区域类型与配置数据不匹配");
                 m_stMotionDetCfg.bEnable = false;
@@ -112,7 +122,7 @@ bool CMotionDetectLogic::apply_config(const Alarm::MotionDetection_S &stAlgoCfg)
                 return bReboot;
             }
 
-            Common::Rect_S stRect = std::get<Common::Rect_S>(m_stMotionDetCfg.stMotionNormalMode.varRegion);
+            Common::Rect_S stRect = mpark::get<Common::Rect_S>(m_stMotionDetCfg.stMotionNormalMode.varRegion);
             if (!stRect.ConvertResolution(PIXEL_WIDTH_1920, PIXEL_HEIGHT_1080, m_nWidth, m_nHeight))
             {
                 m_stMotionDetCfg.bEnable = false;
@@ -205,8 +215,7 @@ bool CMotionDetectLogic::is_crop() const
     return is_crop_unlocked();
 }
 
-void CMotionDetectLogic::process_result(ot_sample_svp_rect_info &stRectInfo,
-                                        const SEventProcessContext &stCtx)
+void CMotionDetectLogic::process_result(ot_sample_svp_rect_info &stRectInfo, const SEventProcessContext &stCtx)
 {
     std::lock_guard<std::mutex> lock(m_configMutex);
     /* 语义与 LEGACY run() 一致：使能时按模式分发处理 */
@@ -243,8 +252,12 @@ bool CMotionDetectLogic::is_daytime_unlocked() const
         /*自当天开始的秒数*/
         int nCurrentTime = TimeUtils_NS::getSecondsSinceStartOfDay();
         /* 将开始时间和结束时间转换为秒 */
-        int nStartTime = m_stMotionDetCfg.stMotionExpertMode.stDayTime.stStart.nHour * 3600 + m_stMotionDetCfg.stMotionExpertMode.stDayTime.stStart.nMinute * 60 + m_stMotionDetCfg.stMotionExpertMode.stDayTime.stStart.nSecond;
-        int nEndTime = m_stMotionDetCfg.stMotionExpertMode.stDayTime.stStop.nHour * 3600 + m_stMotionDetCfg.stMotionExpertMode.stDayTime.stStop.nMinute * 60 + m_stMotionDetCfg.stMotionExpertMode.stDayTime.stStop.nSecond;
+        int nStartTime = m_stMotionDetCfg.stMotionExpertMode.stDayTime.stStart.nHour * 3600 +
+                         m_stMotionDetCfg.stMotionExpertMode.stDayTime.stStart.nMinute * 60 +
+                         m_stMotionDetCfg.stMotionExpertMode.stDayTime.stStart.nSecond;
+        int nEndTime = m_stMotionDetCfg.stMotionExpertMode.stDayTime.stStop.nHour * 3600 +
+                       m_stMotionDetCfg.stMotionExpertMode.stDayTime.stStop.nMinute * 60 +
+                       m_stMotionDetCfg.stMotionExpertMode.stDayTime.stStop.nSecond;
 
         return (nCurrentTime >= nStartTime && nCurrentTime <= nEndTime);
     }
@@ -252,26 +265,21 @@ bool CMotionDetectLogic::is_daytime_unlocked() const
     return false;
 }
 
-float CMotionDetectLogic::sensitivity_to_threshold_unlocked(
-    int nSensitivity,
-    float fMinThreshold,
-    float fMaxThreshold) const
+float CMotionDetectLogic::sensitivity_to_threshold_unlocked(int nSensitivity, float fMinThreshold, float fMaxThreshold) const
 {
-    int nClampedSens = std::clamp(nSensitivity, 0, 100);
+    int nClampedSens = clamp_value(nSensitivity, 0, 100);
 
     if (nClampedSens == 0)
     {
         return 1.0f;
     }
 
-    float fThreshold =
-        fMaxThreshold - nClampedSens * (fMaxThreshold - fMinThreshold) / 100.0f;
+    float fThreshold = fMaxThreshold - nClampedSens * (fMaxThreshold - fMinThreshold) / 100.0f;
 
-    return std::clamp(fThreshold, fMinThreshold, fMaxThreshold);
+    return clamp_value(fThreshold, fMinThreshold, fMaxThreshold);
 }
 
-int CMotionDetectLogic::calculate_overlap_area_unlocked(const Common::Rect_S &rect1,
-                                                        const Common::Rect_S &rect2) const
+int CMotionDetectLogic::calculate_overlap_area_unlocked(const Common::Rect_S &rect1, const Common::Rect_S &rect2) const
 {
     int left = std::max(rect1.nX, rect2.nX);
     int top = std::max(rect1.nY, rect2.nY);
@@ -304,8 +312,7 @@ Common::Rect_S CMotionDetectLogic::convert_to_rect_unlocked(const ot_sample_svp_
     return result;
 }
 
-void CMotionDetectLogic::process_normal_mode_unlocked(ot_sample_svp_rect_info &stRectInfo,
-                                                      const SEventProcessContext &stCtx)
+void CMotionDetectLogic::process_normal_mode_unlocked(ot_sample_svp_rect_info &stRectInfo, const SEventProcessContext &stCtx)
 {
     /* 处理检测到的矩形区域 */
     if (is_crop_unlocked()) /* 判断是否需要换算结果坐标至算法默认分辨率 */
@@ -323,7 +330,7 @@ void CMotionDetectLogic::process_normal_mode_unlocked(ot_sample_svp_rect_info &s
         }
     }
     /* 打印输出数据 */
-    if (!access("testPrint", F_OK))
+    if (!access("/opt/cam/bin/testPrint", F_OK))
     {
         printResult(stRectInfo);
     }
@@ -332,13 +339,12 @@ void CMotionDetectLogic::process_normal_mode_unlocked(ot_sample_svp_rect_info &s
     bool bIsAlarm = false;
 
     /* 灵敏度判断：将用户配置的灵敏度反向映射为触发阈值 */
-    float fSensitivityThreshold =
-        sensitivity_to_threshold_unlocked(m_stMotionDetCfg.stMotionNormalMode.nSensitivity);
+    float fSensitivityThreshold = sensitivity_to_threshold_unlocked(m_stMotionDetCfg.stMotionNormalMode.nSensitivity);
     /*  检查是否满足报警触发条件 */
     if (stRectInfo.sensitivity > fSensitivityThreshold)
     {
         bIsAlarm = true;
-        if (!access("testPrint", F_OK))
+        if (!access("/opt/cam/bin/testPrint", F_OK))
         {
             dlog_debug("[移动侦测] 灵敏度: %f > %f", stRectInfo.sensitivity, fSensitivityThreshold);
         }
@@ -356,13 +362,19 @@ void CMotionDetectLogic::process_normal_mode_unlocked(ot_sample_svp_rect_info &s
     stContext.nChnId = stCtx.nChnId;
     stContext.llTimestamp = stCtx.llTimestamp;
 #ifdef ENABLE_TVSDK_SRC
-    /* perf: 有TVSDK客户端订阅时才软件编码全景图，无订阅者跳过编码 */
-    if (bIsAlarm && m_motionAlarmStateMachine.canStartAlarm() && stCtx.pFrameInfo != nullptr &&
+    /* perf: 有TVSDK客户端订阅时才编码全景图，无订阅者跳过编码 */
+    if (bIsAlarm && m_motionAlarmStateMachine.canStartAlarm() && (stCtx.pSrcFrameInfo != nullptr || stCtx.pFrameInfo != nullptr) &&
         AiAppCommon::tvsdk_event_image_required())
     {
         auto pPayload = std::make_shared<EventTvSdkPayload_S>();
         pPayload->enType = get_tvsdk_payload_type(stContext.enEventType);
-        if (AiAppCommon::encode_video_frame_to_jpeg_memory(stCtx.pFrameInfo, pPayload->stPanoramaImage) == OK)
+        /* 区域覆盖全屏出 1920x1080 整帧，局部区域在原始帧上硬编码抠图 */
+        if (AiAppCommon::encode_event_image_to_jpeg_memory(stCtx.pSrcFrameInfo,
+                                                           stCtx.pFrameInfo,
+                                                           m_stRect,
+                                                           m_nWidth,
+                                                           m_nHeight,
+                                                           pPayload->stPanoramaImage) == OK)
         {
             stContext.pTvSdkPayload = pPayload;
         }
@@ -371,11 +383,10 @@ void CMotionDetectLogic::process_normal_mode_unlocked(ot_sample_svp_rect_info &s
     m_motionAlarmStateMachine.handleAlarmState(bIsAlarm, stContext);
 }
 
-void CMotionDetectLogic::process_expert_mode_unlocked(ot_sample_svp_rect_info &stRectInfo,
-                                                      const SEventProcessContext &stCtx)
+void CMotionDetectLogic::process_expert_mode_unlocked(ot_sample_svp_rect_info &stRectInfo, const SEventProcessContext &stCtx)
 {
     /* 打印输出数据 */
-    if (!access("testPrint", F_OK))
+    if (!access("/opt/cam/bin/testPrint", F_OK))
     {
         printResult(stRectInfo);
     }
@@ -481,13 +492,19 @@ void CMotionDetectLogic::process_expert_mode_unlocked(ot_sample_svp_rect_info &s
     stContext.nChnId = stCtx.nChnId;
     stContext.llTimestamp = stCtx.llTimestamp;
 #ifdef ENABLE_TVSDK_SRC
-    /* perf: 有TVSDK客户端订阅时才软件编码全景图，无订阅者跳过编码 */
-    if (anyRegionTriggered && m_motionAlarmStateMachine.canStartAlarm() && stCtx.pFrameInfo != nullptr &&
-        AiAppCommon::tvsdk_event_image_required())
+    /* perf: 有TVSDK客户端订阅时才编码全景图，无订阅者跳过编码 */
+    if (anyRegionTriggered && m_motionAlarmStateMachine.canStartAlarm() &&
+        (stCtx.pSrcFrameInfo != nullptr || stCtx.pFrameInfo != nullptr) && AiAppCommon::tvsdk_event_image_required())
     {
         auto pPayload = std::make_shared<EventTvSdkPayload_S>();
         pPayload->enType = get_tvsdk_payload_type(stContext.enEventType);
-        if (AiAppCommon::encode_video_frame_to_jpeg_memory(stCtx.pFrameInfo, pPayload->stPanoramaImage) == OK)
+        /* 专家模式检测区域为全屏：原始帧 1920x1080 整帧硬编码 */
+        if (AiAppCommon::encode_event_image_to_jpeg_memory(stCtx.pSrcFrameInfo,
+                                                           stCtx.pFrameInfo,
+                                                           m_stRect,
+                                                           m_nWidth,
+                                                           m_nHeight,
+                                                           pPayload->stPanoramaImage) == OK)
         {
             stContext.pTvSdkPayload = pPayload;
         }

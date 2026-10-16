@@ -100,9 +100,13 @@ CAVConfigure::CAVConfigure()
 {
     m_setVideoConfigCallback = nullptr;
     m_setAudioConfigCallback = nullptr;
+#if CAP_AUDIO_OUTPUT
     m_setAoSpeakCallback = nullptr;
+#endif
     m_setVideoRoiConfigCallback = nullptr;
+#if CAP_AUDIO_OUTPUT
     m_waitAoDrainedCallback = nullptr;
+#endif
     m_pVideoConfigApplier = nullptr;
     m_pAudioConfigApplier = nullptr;
     m_nOriginalIFrameInterval = DEFAULTE_GOP;
@@ -110,10 +114,13 @@ CAVConfigure::CAVConfigure()
 
     Audio_NS::AudioCapabilitySet_S stAudioCapabilitySet;
     m_audioCapabilitySet.get(stAudioCapabilitySet);
+    /* 无音频输出能力时不校验 aOutputTypes：允许为空且不触发默认回填，
+       避免把 Speaker 塞回能力集 */
     if (stAudioCapabilitySet.aInputTypes.empty() ||
+#if CAP_AUDIO_OUTPUT
         stAudioCapabilitySet.aOutputTypes.empty() ||
-        stAudioCapabilitySet.aFormats.empty() ||
-        stAudioCapabilitySet.aFormatDetail.empty())
+#endif
+        stAudioCapabilitySet.aFormats.empty() || stAudioCapabilitySet.aFormatDetail.empty())
     {
         fill_default_audio_capability_set(stAudioCapabilitySet);
         m_audioCapabilitySet.set(stAudioCapabilitySet);
@@ -428,6 +435,7 @@ int CAVConfigure::get_configure(Audio_NS::AudioCapabilitySet_S &data) const
     return m_audioCapabilitySet.get(data);
 }
 
+#if CAP_AUDIO_OUTPUT
 void CAVConfigure::setAoSpeakCallback(const AudioSpeakCallback &callback)
 {
     m_setAoSpeakCallback = callback;
@@ -440,6 +448,7 @@ void CAVConfigure::setAoSpeakInfo(const Audio_NS::AoInfo_S &data) const
         m_setAoSpeakCallback(data);
     }
 }
+#endif
 
 #if CAP_EVENT_AUDIO_PLAYBACK_V2
 void CAVConfigure::setAudioAoIdleCallback(const std::function<void()> &callback)
@@ -482,6 +491,7 @@ void CAVConfigure::setMuteAudioOutputCallback(const MuteAudioOutputCallback &cal
 }
 #endif
 
+#if CAP_AUDIO_OUTPUT
 int CAVConfigure::setAudioAoSampleRateCallback(const SetAudioAoSampleRateCallback &callback)
 {
     if (!callback)
@@ -535,20 +545,26 @@ int CAVConfigure::waitAoDrained(int nChn, int nTimeoutMs) const
     }
     return m_waitAoDrainedCallback(nChn, nTimeoutMs);
 }
+#endif
 
 bool CAVConfigure::is_audio_config_supported(const Audio_NS::AudioConfig_S &data) const
 {
     Audio_NS::AudioCapabilitySet_S stAudioCapabilitySet;
     m_audioCapabilitySet.get(stAudioCapabilitySet);
+    /* 无音频输出能力时不校验 aOutputTypes：允许为空且不触发默认回填 */
     if (stAudioCapabilitySet.aInputTypes.empty() ||
+#if CAP_AUDIO_OUTPUT
         stAudioCapabilitySet.aOutputTypes.empty() ||
+#endif
         stAudioCapabilitySet.aFormats.empty())
     {
         fill_default_audio_capability_set(stAudioCapabilitySet);
     }
 
     const std::string strInputType = Audio_NS::audioInputType_toString(data.enInputType);
+#if CAP_AUDIO_OUTPUT
     const std::string strOutputType = Audio_NS::audioOutputType_toString(data.enOutputType);
+#endif
     const std::string strFormat = Audio_NS::audioFormat_toString(data.enFormat);
     const int nSampleRate = static_cast<int>(data.enSampRate);
     const int nBitRate = static_cast<int>(data.enBitRate);
@@ -574,11 +590,13 @@ bool CAVConfigure::is_audio_config_supported(const Audio_NS::AudioConfig_S &data
         return false;
     }
 
+#if CAP_AUDIO_OUTPUT
     if (!contains_value(stAudioCapabilitySet.aOutputTypes, strOutputType))
     {
         dlog_error("音频输出类型[%s]不受支持", strOutputType.c_str());
         return false;
     }
+#endif
 
     if (!contains_value(stAudioCapabilitySet.aFormats, strFormat))
     {

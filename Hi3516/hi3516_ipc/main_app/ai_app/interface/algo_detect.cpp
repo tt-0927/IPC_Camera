@@ -9,6 +9,7 @@
 
 #include "algo_detect.h"
 #include "algo_stream_deal.h"
+#include "result_manager.hpp"
 #include "algo_control_deal.h"
 #include "event_manage.h"
 #include "IpcRet.h"
@@ -16,9 +17,9 @@
 int algo_detect_init()
 {
     int nRet = OK;
-    
+
     nRet = CAlgoStreamDeal::instance()->init();
-    
+
     if (nRet < OK)
     {
         dlog_error("AI_APP: 算法检测初始化失败");
@@ -39,6 +40,12 @@ int algo_detect_init()
 int algo_detect_deinit()
 {
     CAlgoStreamDeal::instance()->deinit();
+    /*
+     * 停止算法检测结果合并线程（OSD 结果管理器）：单例静态析构时线程仍
+     * joinable 会触发 terminate（Ctrl+C 退出 Aborted 的根因，存量问题），
+     * 退出链在此显式停线程并 join。
+     */
+    CResultManager::instance()->uninit();
     dlog_info("AI_APP: 算法检测去初始化成功");
     return OK;
 }
@@ -70,11 +77,13 @@ void algo_send_audioStreamData(const void *pData, int nLength)
 
 void algo_send_controlData(int nCode, const char *strData, void *pData)
 {
-    if(strData == nullptr)
+    if (strData == nullptr)
     {
         std::string stringData("{}");
-        AlgoControlDeal::instance()->deal_message(nCode, stringData, pData);    
-    }else{
+        AlgoControlDeal::instance()->deal_message(nCode, stringData, pData);
+    }
+    else
+    {
         std::string stringData(strData);
         AlgoControlDeal::instance()->deal_message(nCode, stringData, pData);
     }

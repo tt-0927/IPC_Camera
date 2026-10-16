@@ -532,6 +532,11 @@ extern "C" {
 #define NET_SECURITY_LOGIN_MAX_ERROR_TIMES_MIN           (3)
 #define NET_SECURITY_LOGIN_MAX_ERROR_TIMES_MAX           (20)
 
+/* 账号锁定时长允许的最小值，对应 IPC LockDuration_E::LOCK_DURATION_5_MIN。 */
+#define NET_LOCK_DURATION_MIN   NET_LOCK_DURATION_5_MIN
+/* 账号锁定时长允许的最大值，对应 IPC LockDuration_E::LOCK_DURATION_5_DAY。 */
+#define NET_LOCK_DURATION_MAX   NET_LOCK_DURATION_5_DAY
+
 /* 告警周布防时间表包含的天数。 */
 #define NET_ALARM_SCHEDULE_DAY_COUNT            7
 /* 告警周布防时间表中的最小小时值。 */
@@ -2059,6 +2064,23 @@ typedef enum tagNETTVPopulationAlarmSeverity
     NET_POPULATION_ALARM_SEVERE = 2              /* 严重报警 */
 } NET_POPULATION_ALARM_SEVERITY_E;
 
+/*
+ * 描述：账号锁定时长，与 IPC 侧 System::LockDuration_E 逐值对应。
+ */
+typedef enum tagNETLockDuration
+{
+    /* 锁定 5 分钟，对应 IPC LockDuration_E::LOCK_DURATION_5_MIN。 */
+    NET_LOCK_DURATION_5_MIN   = 0,
+    /* 锁定 30 分钟，对应 IPC LockDuration_E::LOCK_DURATION_30_MIN。 */
+    NET_LOCK_DURATION_30_MIN  = 1,
+    /* 锁定 60 分钟，对应 IPC LockDuration_E::LOCK_DURATION_60_MIN。 */
+    NET_LOCK_DURATION_60_MIN  = 2,
+    /* 锁定 1 天，对应 IPC LockDuration_E::LOCK_DURATION_1_DAY。 */
+    NET_LOCK_DURATION_1_DAY   = 3,
+    /* 锁定 5 天，对应 IPC LockDuration_E::LOCK_DURATION_5_DAY。 */
+    NET_LOCK_DURATION_5_DAY   = 4
+} NET_LockDuration_EN;
+
 /* END************* 枚举值  Enumeration value *************************** */
 
 
@@ -2500,7 +2522,7 @@ typedef struct tagNET_DeviceStorageInfo
     CHAR    strDiskUsedSpace[NET_LEN_32];           /* 硬盘已用空间 */
     CHAR    strDiskFileType[NET_LEN_32];            /* 硬盘文件系统类型 */
     NET_StorageManage_S stStorageManage;             /* 轻存储管理信息 */
-    BYTE    byReserved[128 - sizeof(NET_StorageManage_S)]; /* 预留字段，随新增字段相应缩小 */
+    BYTE    byReserved[128]; /* 预留字段，随新增字段相应缩小 */
 } NET_DeviceStorageInfo_S;
 
 /**
@@ -2636,28 +2658,6 @@ typedef struct tagNET_PageInfo
 
 typedef NET_PageInfo_S* pNET_PageInfo_S;
 
-/*
- * 描述：账号锁定时长，与 IPC 侧 System::LockDuration_E 逐值对应。
- */
-typedef enum tagNETLockDuration
-{
-    /* 锁定 5 分钟，对应 IPC LockDuration_E::LOCK_DURATION_5_MIN。 */
-    NET_LOCK_DURATION_5_MIN   = 0,
-    /* 锁定 30 分钟，对应 IPC LockDuration_E::LOCK_DURATION_30_MIN。 */
-    NET_LOCK_DURATION_30_MIN  = 1,
-    /* 锁定 60 分钟，对应 IPC LockDuration_E::LOCK_DURATION_60_MIN。 */
-    NET_LOCK_DURATION_60_MIN  = 2,
-    /* 锁定 1 天，对应 IPC LockDuration_E::LOCK_DURATION_1_DAY。 */
-    NET_LOCK_DURATION_1_DAY   = 3,
-    /* 锁定 5 天，对应 IPC LockDuration_E::LOCK_DURATION_5_DAY。 */
-    NET_LOCK_DURATION_5_DAY   = 4
-} NET_LockDuration_EN;
-
-/* 账号锁定时长允许的最小值，对应 IPC LockDuration_E::LOCK_DURATION_5_MIN。 */
-#define NET_LOCK_DURATION_MIN   NET_LOCK_DURATION_5_MIN
-/* 账号锁定时长允许的最大值，对应 IPC LockDuration_E::LOCK_DURATION_5_DAY。 */
-#define NET_LOCK_DURATION_MAX   NET_LOCK_DURATION_5_DAY
-
 /**
  * @struct tagNETTVLoginLockInfo
  * @brief 登录锁定信息
@@ -2667,7 +2667,6 @@ typedef struct tagNET_LoginLockInfo
     BOOL    bIllegalLoginEnable;
     INT32   nCheckInterval;
     INT32   nMaxErrorTimes;
-    /* 账号锁定时长，取值见 NET_LockDuration_EN，必须落在 [NET_LOCK_DURATION_MIN, NET_LOCK_DURATION_MAX] 内。 */
     INT32   nLockDuration;
     BYTE    byRes[64];
 } NET_LoginLockInfo_S;
@@ -5621,7 +5620,7 @@ typedef struct tagNET_VideoEncodeOption
     INT32                       nId;                                                /* 视频码流ID 0-主码流 1-子码流 2-JPEG */
     INT32                       enVideoType;                                       /* 视频类型 0-复合流 1-视频流 */
     NET_VideoResolution_S   stVideoResolution;                                 /* 视频分辨率 */
-    INT32                       enBitrateType;                                     /* 码率类型 NET_BITRATE_TYPE_E */
+    INT32                       enBitrateType;                                     /* 码率类型 */
     INT32                       enImageQuality;                                    /* 图像质量 */
     INT32                       enFrameRate;                                       /* 视频帧率fps */
     INT32                       nBitrateUpperLimit;                                /* 码率上限kbps */

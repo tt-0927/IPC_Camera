@@ -24,10 +24,10 @@ enum class EOcclusionSens : int
 
 /* 遮挡报警阈值（与 LEGACY hide_detect.hpp 定义一致） */
 static const int nOcclusionThreshold[static_cast<int>(EOcclusionSens::COUNT)] = {
-64,  /* OFF */
-20,  /* LOW */
-17,  /* MID */
-15   /* HIGH */
+    64, /* OFF */
+    20, /* LOW */
+    17, /* MID */
+    15  /* HIGH */
 };
 
 CHideDetectLogic::CHideDetectLogic()
@@ -122,13 +122,19 @@ bool CHideDetectLogic::process_result(int nHideResult, const SEventProcessContex
     stContext.nChnId = stCtx.nChnId;
     stContext.llTimestamp = stCtx.llTimestamp;
 #ifdef ENABLE_TVSDK_SRC
-    /* perf: 有TVSDK客户端订阅时才软件编码全景图，无订阅者或冷却期跳过编码 */
-    if (bIsAlarm && m_hideAlarmStateMachine.canStartAlarm() && stCtx.pFrameInfo != nullptr &&
+    /* perf: 有TVSDK客户端订阅时才编码全景图，无订阅者或冷却期跳过编码 */
+    if (bIsAlarm && m_hideAlarmStateMachine.canStartAlarm() && (stCtx.pSrcFrameInfo != nullptr || stCtx.pFrameInfo != nullptr) &&
         AiAppCommon::tvsdk_event_image_required())
     {
         auto pPayload = std::make_shared<EventTvSdkPayload_S>();
         pPayload->enType = get_tvsdk_payload_type(stContext.enEventType);
-        if (AiAppCommon::encode_video_frame_to_jpeg_memory(stCtx.pFrameInfo, pPayload->stPanoramaImage) == OK)
+        /* 区域覆盖全屏出 1920x1080 整帧，局部区域在原始帧上硬编码抠图 */
+        if (AiAppCommon::encode_event_image_to_jpeg_memory(stCtx.pSrcFrameInfo,
+                                                           stCtx.pFrameInfo,
+                                                           m_stRect,
+                                                           m_nWidth,
+                                                           m_nHeight,
+                                                           pPayload->stPanoramaImage) == OK)
         {
             stContext.pTvSdkPayload = pPayload;
         }

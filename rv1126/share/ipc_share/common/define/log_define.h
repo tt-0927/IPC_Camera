@@ -216,6 +216,24 @@ namespace Log
         FACE_RECOGNITION_STOP               = 1302, /**< 人脸识别结束 */
 #endif
 
+#ifdef SCENE_INTELLIGENCE
+        // ========== 平安校园 ==========
+        CHANNEL_OCCUPATION_START            = 1303, /**< 通道占用识别开始 */
+        CHANNEL_OCCUPATION_STOP             = 1304, /**< 通道占用识别结束 */
+        CLIMB_DETECTION_START               = 1305, /**< 攀爬识别开始 */
+        CLIMB_DETECTION_STOP                = 1306, /**< 攀爬识别结束 */
+        DANGER_ZONE_APPROACH_START          = 1307, /**< 危险区域靠近开始 */
+        DANGER_ZONE_APPROACH_STOP           = 1308, /**< 危险区域靠近结束 */
+        LONG_TIME_STAY_START                = 1309, /**< 长时间滞留开始 */
+        LONG_TIME_STAY_STOP                 = 1310, /**< 长时间滞留结束 */
+        DANGER_ZONE_STAY_START              = 1311, /**< 危险区域滞留开始 */
+        DANGER_ZONE_STAY_STOP               = 1312, /**< 危险区域滞留结束 */
+        KEY_AREA_ABNORMAL_STAY_START        = 1313, /**< 重点区域异常滞留开始 */
+        KEY_AREA_ABNORMAL_STAY_STOP         = 1314, /**< 重点区域异常滞留结束 */
+        ROOFTOP_STAY_START                  = 1315, /**< 天台滞留开始 */
+        ROOFTOP_STAY_STOP                   = 1316, /**< 天台滞留结束 */
+#endif
+
         /* 剩余部分报警日志需实现后在这里添加 */
         /* --------------------报警日志类型(1000~1999)-------------------- */
 
@@ -760,6 +778,23 @@ namespace Log
         case Event::Type::FACE_RECOGNITION:
             return bStart ? FACE_RECOGNITION_START : FACE_RECOGNITION_STOP;
 #endif
+#ifdef SCENE_INTELLIGENCE
+        /* 平安校园 */
+        case Event::Type::CHANNEL_OCCUPATION:
+            return bStart ? CHANNEL_OCCUPATION_START : CHANNEL_OCCUPATION_STOP;
+        case Event::Type::CLIMB_DETECTION:
+            return bStart ? CLIMB_DETECTION_START : CLIMB_DETECTION_STOP;
+        case Event::Type::DANGER_ZONE_APPROACH:
+            return bStart ? DANGER_ZONE_APPROACH_START : DANGER_ZONE_APPROACH_STOP;
+        case Event::Type::LONG_TIME_STAY:
+            return bStart ? LONG_TIME_STAY_START : LONG_TIME_STAY_STOP;
+        case Event::Type::DANGER_ZONE_STAY:
+            return bStart ? DANGER_ZONE_STAY_START : DANGER_ZONE_STAY_STOP;
+        case Event::Type::KEY_AREA_ABNORMAL_STAY:
+            return bStart ? KEY_AREA_ABNORMAL_STAY_START : KEY_AREA_ABNORMAL_STAY_STOP;
+        case Event::Type::ROOFTOP_STAY:
+            return bStart ? ROOFTOP_STAY_START : ROOFTOP_STAY_STOP;
+#endif
         default:
             return UNDEFINED;
         }
@@ -922,6 +957,23 @@ namespace Log
 #if CAP_AI_FACE_RECOGNITION
         case FACE_RECOGNITION_START: return "人脸识别开始";
         case FACE_RECOGNITION_STOP: return "人脸识别结束";
+#endif
+#ifdef SCENE_INTELLIGENCE
+        /*平安校园*/
+        case CHANNEL_OCCUPATION_START:       return "通道占用识别开始";
+        case CHANNEL_OCCUPATION_STOP:        return "通道占用识别结束";
+        case CLIMB_DETECTION_START:          return "攀爬识别开始";
+        case CLIMB_DETECTION_STOP:           return "攀爬识别结束";
+        case DANGER_ZONE_APPROACH_START:     return "危险区域靠近开始";
+        case DANGER_ZONE_APPROACH_STOP:      return "危险区域靠近结束";
+        case LONG_TIME_STAY_START:           return "长时间滞留开始";
+        case LONG_TIME_STAY_STOP:            return "长时间滞留结束";
+        case DANGER_ZONE_STAY_START:         return "危险区域滞留开始";
+        case DANGER_ZONE_STAY_STOP:          return "危险区域滞留结束";
+        case KEY_AREA_ABNORMAL_STAY_START:   return "重点区域异常滞留开始";
+        case KEY_AREA_ABNORMAL_STAY_STOP:    return "重点区域异常滞留结束";
+        case ROOFTOP_STAY_START:             return "天台滞留开始";
+        case ROOFTOP_STAY_STOP:              return "天台滞留结束";
 #endif
         /* 剩余部分报警日志需实现后在这里添加 */
         /* --------------------报警日志类型-------------------- */

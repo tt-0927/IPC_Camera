@@ -560,6 +560,38 @@ typedef enum
     AC_SET_NON_MOTOR_VEHICLE_DETECTION_INFO = 2797,
 
     /**
+     * @brief 平安校园
+     */
+    /* 获取通道占用检测配置 */
+    AC_GET_CHANNEL_OCCUPATION_INFO = 2798,
+    /* 设置通道占用检测配置 */
+    AC_SET_CHANNEL_OCCUPATION_INFO = 2799,
+    /* 获取攀爬识别检测配置 */
+    AC_GET_CLIMB_DETECTION_INFO = 2800,
+    /* 设置攀爬识别检测配置 */
+    AC_SET_CLIMB_DETECTION_INFO = 2801,
+    /* 获取危险区域靠近检测配置 */
+    AC_GET_DANGER_ZONE_APPROACH_INFO = 2802,
+    /* 设置危险区域靠近检测配置 */
+    AC_SET_DANGER_ZONE_APPROACH_INFO = 2803,
+    /* 获取长时间滞留配置 */
+    AC_GET_LONG_TIME_STAY_INFO = 2804,
+    /* 设置长时间滞留配置 */
+    AC_SET_LONG_TIME_STAY_INFO = 2805,
+    /* 获取危险区域滞留配置 */
+    AC_GET_DANGER_ZONE_STAY_INFO = 2806,
+    /* 设置危险区域滞留配置 */
+    AC_SET_DANGER_ZONE_STAY_INFO = 2807,
+    /* 获取重点区域异常滞留配置 */
+    AC_GET_KEY_AREA_ABNORMAL_STAY_INFO = 2808,
+    /* 设置重点区域异常滞留配置 */
+    AC_SET_KEY_AREA_ABNORMAL_STAY_INFO = 2809,
+    /* 获取天台滞留配置 */
+    AC_GET_ROOFTOP_STAY_INFO = 2810,
+    /* 设置天台滞留配置 */
+    AC_SET_ROOFTOP_STAY_INFO = 2811,
+
+    /**
      * @brief 预览相关
      */
     /// @brief 获取预览信息
@@ -879,6 +911,7 @@ typedef enum
     AC_DISCONNECT_WIFI_STA = 6071,
     AC_SET_CONFIG_WIFI_IPV4 = 6083,
     AC_GET_CONFIG_WIFI_IPV4 = 6084,
+    AC_SCAN_WIFI_STA = 6085,
 
     /// @brief 4G配置
     AC_GET_4G_INFO = 6072,

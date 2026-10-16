@@ -6,6 +6,10 @@
  * @FilePath: /hisi/share/ipc_share/control/task/sub_task/storage_manage_task.cpp
  * @Description: 存储管理任务
  */
+
+/* 本地 SD 存储能力裁剪：能力关闭（IPC_CAP_LOCAL_STORAGE=0）时本文件整体不参与编译 */
+#if CAP_LOCAL_STORAGE
+
 #include "storage_manage_task.h"
 #include "storage_manage.h"
 #include "convert_interface.h"
@@ -74,3 +78,5 @@ void Task::StorageManage::GetSdCardStatus::handle()
 
     result(Convert::to_string(stSdCardStatus), 0);
 }
+
+#endif /* CAP_LOCAL_STORAGE */

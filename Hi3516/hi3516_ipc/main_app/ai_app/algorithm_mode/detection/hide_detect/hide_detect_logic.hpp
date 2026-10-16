@@ -76,7 +76,9 @@ public:
      * @param    {int} nHideResult：遮挡检测结果值
      * @param    {const SEventProcessContext} &stCtx：事件处理上下文
      * @return   {bool} 是否有报警
-     * @note    : 语义与 LEGACY CHideDetect::processHideDetect 完全一致
+     * @note    : 阈值判断与报警状态机语义与 LEGACY 一致；事件图编码为行为增强——
+     *            全屏区域出 1920x1080 整帧、局部区域在原始帧上硬编码抠图
+     *            （LEGACY 为算法分辨率帧软编码）
      */
     bool process_result(int nHideResult, const SEventProcessContext &stCtx);
 

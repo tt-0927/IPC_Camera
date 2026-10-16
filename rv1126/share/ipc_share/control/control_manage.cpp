@@ -3,7 +3,7 @@
  * @Author       : huangjunda
  * @Date         : 2025-03-27 19:38:25
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-09-23 15:50:09
+ * @LastEditTime : 2026-10-13 14:32:02
  * @Description  : 控制事务任务管理
  */
 
@@ -43,20 +43,25 @@
 #include "upgrade_client.h"
 #include "gb28181.hpp"
 #include "onvif_server.h"
+#if CAP_LOCAL_STORAGE
 #include "record_server.h"
+#endif
 #include "stream_server.h"
 #include "web_server.h"
 #include "web_ssl_server.h"
 
 #include "action_code.h"
 #include "path_define.h"
+#if CAP_LOCAL_STORAGE
+/* 本地 SD 存储链路头文件：能力关闭时对应模块整体退出编译 */
 #include "retrieval_task.h"
 #include "replay_task.h"
 #include "storage_manage_task.h"
-#include "isp_manage.h"
 #include "record_ctrl.h"
 #include "capture_ctrl.h"
 #include "storage_manage.h"
+#endif
+#include "isp_manage.h"
 #include "onvif_firmware_upgrade_server.h"
 #include "event_abnormal_detector.h"
 #ifdef ENABLE_GAT1400_SRC
@@ -302,6 +307,7 @@ int ControlManage::init_business()
     {
         dlog_error("图像模块初始化失败：%d", nRet);
     }
+#if CAP_LOCAL_STORAGE
     /* 存储管理初始化 */
     nRet = CStorageManage::instance()->init();
     if (nRet < OK)
@@ -320,6 +326,7 @@ int ControlManage::init_business()
     {
         dlog_error("抓图模块初始化失败：%d", nRet);
     }
+#endif
     /* 异常报警检测初始化，启动检测线程并加载已持久化的联动配置 */
     nRet = CAbnormalDetector::instance()->init();
     if (nRet < OK)
@@ -356,12 +363,13 @@ void ControlManage::deinit_business()
     {
         dlog_error("onvif http固件升级服务去初始化失败：%d", nRet);
     }
+#if CAP_LOCAL_STORAGE
     /* 抓图去初始化 */
     nRet = CCaptureCtrl::instance()->deinit();
     if (nRet < OK)
     {
         dlog_error("抓图模块去初始化失败：%d", nRet);
-    } 
+    }
     /* lock: 先注销统一时间通知并等待已开始的通知完成，避免录制数据库销毁后仍被校时线程清理。 */
     CTimeManage::instance()->clear_time_change_callback();
     /* 录制去初始化 */
@@ -369,13 +377,14 @@ void ControlManage::deinit_business()
     if (nRet < OK)
     {
         dlog_error("录制模块去初始化失败：%d", nRet);
-    } 
+    }
     /* 存储管理去初始化 */
     nRet = CStorageManage::instance()->deinit();
     if (nRet < OK)
     {
         dlog_error("存储管理模块去初始化失败：%d", nRet);
     }
+#endif
     /* 图像去初始化 */
     nRet = CIspManage::instance()->deinit();
     if (nRet < OK)
@@ -558,11 +567,13 @@ int ControlManage::init_server(std::shared_ptr<CTaskManage> &pTaskManage)
     /* 送数据至录制的服务端初始化 */
     CStreamServer::instance()->init();
 
+#if CAP_LOCAL_STORAGE
     /* 录制控制服务端初始化 */
     CRecordServer::instance()->set_taskManage(pTaskManage);
     // CRecordServer::instance()->set_statusObserver(std::bind(&SystemManage::notify_programStatus, SystemManage::instance(),
     // std::placeholders::_1, std::placeholders::_2));
     CRecordServer::instance()->init();
+#endif
 
 #ifdef ENABLE_TVSDK_SRC
     /* TVSDK 服务端初始化 */
@@ -863,6 +874,7 @@ void ControlManage::bind_task(std::shared_ptr<CTaskManage> &pTaskManage)
     pTaskManage->bind<Task::Network::SetBonjourInfo>(AC_SET_BONJOUR_INFO);
 
     /* 国标证书管理 */
+#if CAP_GB35114
     pTaskManage->bind<Task::Network::GmCreateCertRequestFile>(AC_GM_CREATE_CERT_REQUEST_FILE);
     pTaskManage->bind<Task::Network::GmUploadCaCert>(AC_GM_UPLOAD_CA_CERT);
     pTaskManage->bind<Task::Network::GmUploadPlatformCert>(AC_GM_UPLOAD_PLATFORM_CERT);
@@ -870,6 +882,7 @@ void ControlManage::bind_task(std::shared_ptr<CTaskManage> &pTaskManage)
     pTaskManage->bind<Task::Network::GmUploadCrlFile>(AC_GM_UPLOAD_CRL_FILE);
     pTaskManage->bind<Task::Network::GmGetCertInfo>(AC_GM_GET_CERT_INFO);
     pTaskManage->bind<Task::Network::GmDeleteCertFile>(AC_GM_DELETE_CERT_FILE);
+#endif
 
     pTaskManage->bind<Task::Network::SetNetworkService>(AC_SET_NETWORK_SERVICE);
     pTaskManage->bind<Task::Network::GetNetworkService>(AC_GET_NETWORK_SERVICE);
@@ -882,6 +895,7 @@ void ControlManage::bind_task(std::shared_ptr<CTaskManage> &pTaskManage)
     pTaskManage->bind<Task::Network::DisconnectWifiSta>(AC_DISCONNECT_WIFI_STA);
     pTaskManage->bind<Task::Network::SetConfigWifiIpv4>(AC_SET_CONFIG_WIFI_IPV4);
     pTaskManage->bind<Task::Network::GetConfigWifiIpv4>(AC_GET_CONFIG_WIFI_IPV4);
+    pTaskManage->bind<Task::Network::ScanWifiSta>(AC_SCAN_WIFI_STA);
     #endif
 
     #if CAP_NETWORK_4G
@@ -1227,9 +1241,10 @@ void ControlManage::bind_task(std::shared_ptr<CTaskManage> &pTaskManage)
     pTaskManage->bind<Task::Event::SetPeopleDensityDetectionInfo>(AC_SET_PEOPLE_DENSITY_DETECTION_INFO);
 #endif
 
+#if CAP_LOCAL_STORAGE
     /* 数据检索相关 */
     pTaskManage->bind<Task::Retrieval::SearchByRecordType>(AC_SEARCH_BY_RECORD_TYPE);
-    pTaskManage->bind<Task::Retrieval::SearchByImageType>(AC_SEARCH_BY_IMAGE); 
+    pTaskManage->bind<Task::Retrieval::SearchByImageType>(AC_SEARCH_BY_IMAGE);
     pTaskManage->bind<Task::Retrieval::SearchByRecordTS>(AC_SEARCH_BY_RECORD_TS_TYPE);
 
     /* 图片下载 */
@@ -1272,15 +1287,20 @@ void ControlManage::bind_task(std::shared_ptr<CTaskManage> &pTaskManage)
     pTaskManage->bind<Task::StorageManage::SetStorageManageInfo>(AC_SET_STORAGE_MANAGE_INFO);
     pTaskManage->bind<Task::StorageManage::FormatSdCard>(AC_INIT_SD_CARD);
     pTaskManage->bind<Task::StorageManage::GetSdCardStatus>(AC_GET_SD_CARD_STATUS);
+#endif
 
     /* 预览配置相关 */
     pTaskManage->bind<Task::Preview::GetPreviewInfo>(AC_GET_PREVIEW_INFO);
     pTaskManage->bind<Task::Preview::SetPreviewInfo>(AC_SET_PREVIEW_INFO);
     pTaskManage->bind<Task::Preview::GetCollectAudioInfo>(AC_GET_COLLECT_AUDIO_INFO);
+#if CAP_AUDIO_OUTPUT
     pTaskManage->bind<Task::Preview::SetIntercomInfo>(AC_SET_INTERCOM_INFO);
     pTaskManage->bind<Task::Preview::SetBroadcastInfo>(AC_SET_BROADCAST_INFO);
+#endif
     pTaskManage->bind<Task::Preview::SetBeepAlarm>(AC_SET_BEEP_ALARM);
+#if CAP_AUDIO_OUTPUT
     pTaskManage->bind<Task::Preview::GetIntercomAndBroadcastStatus>(AC_GET_INTERCOM_AND_BROADCAST_STATUS);
+#endif
     pTaskManage->bind<Task::Preview::DeviceControl>(AC_DEVICE_CONTROL);
 
     /* 设备激活相关 */
@@ -1301,9 +1321,34 @@ void ControlManage::bind_task(std::shared_ptr<CTaskManage> &pTaskManage)
     pTaskManage->bind<Task::AI_STUDENT::GetStudentFerformanceInfo>(AC_GET_STUDENT_PERFORMANCE_INFO);
 #endif
 
+#if CAP_LOCAL_STORAGE
     /* 回放播放地址 */
     pTaskManage->bind<Task::Event::GetReplayMediaInfo>(AC_GET_REPLAY_MEDIA_INFO);
+#endif
 
+#ifdef SCENE_INTELLIGENCE
+    /* 通道占用检测 */
+    pTaskManage->bind<Task::Event::GetChannelOccupationInfo>(AC_GET_CHANNEL_OCCUPATION_INFO);
+    pTaskManage->bind<Task::Event::SetChannelOccupationInfo>(AC_SET_CHANNEL_OCCUPATION_INFO);
+    /* 攀爬识别检测 */
+    pTaskManage->bind<Task::Event::GetClimbDetectionInfo>(AC_GET_CLIMB_DETECTION_INFO);
+    pTaskManage->bind<Task::Event::SetClimbDetectionInfo>(AC_SET_CLIMB_DETECTION_INFO);
+    /* 危险区域靠近检测 */
+    pTaskManage->bind<Task::Event::GetDangerZoneApproachInfo>(AC_GET_DANGER_ZONE_APPROACH_INFO);
+    pTaskManage->bind<Task::Event::SetDangerZoneApproachInfo>(AC_SET_DANGER_ZONE_APPROACH_INFO);
+    /* 长时间滞留 */
+    pTaskManage->bind<Task::Event::GetLongTimeStayInfo>(AC_GET_LONG_TIME_STAY_INFO);
+    pTaskManage->bind<Task::Event::SetLongTimeStayInfo>(AC_SET_LONG_TIME_STAY_INFO);
+    /* 危险区域滞留 */
+    pTaskManage->bind<Task::Event::GetDangerZoneStayInfo>(AC_GET_DANGER_ZONE_STAY_INFO);
+    pTaskManage->bind<Task::Event::SetDangerZoneStayInfo>(AC_SET_DANGER_ZONE_STAY_INFO);
+    /* 重点区域异常滞留 */
+    pTaskManage->bind<Task::Event::GetKeyAreaAbnormalStayInfo>(AC_GET_KEY_AREA_ABNORMAL_STAY_INFO);
+    pTaskManage->bind<Task::Event::SetKeyAreaAbnormalStayInfo>(AC_SET_KEY_AREA_ABNORMAL_STAY_INFO);
+    /* 天台滞留 */
+    pTaskManage->bind<Task::Event::GetRooftopStayInfo>(AC_GET_ROOFTOP_STAY_INFO);
+    pTaskManage->bind<Task::Event::SetRooftopStayInfo>(AC_SET_ROOFTOP_STAY_INFO);
+#endif
 
     TaskPublish::instance()->set_manage(pTaskManage);
 }

@@ -50,12 +50,16 @@ void CResultManager::uninit()
     }
 }
 
-void CResultManager::addDetectionResult(AlgorithmType algorithmType, int nWidth, int nHeight, const std::vector<Common::RectInfo_S> &vstRectInfo)
+void CResultManager::addDetectionResult(AlgorithmType algorithmType,
+                                        int nWidth,
+                                        int nHeight,
+                                        const std::vector<Common::RectInfo_S> &vstRectInfo,
+                                        int validTimeMs)
 {
     std::lock_guard<std::mutex> lock(m_cacheMutex);
 
     /* 获取对应算法类型的缓存列表 */
-    auto& cacheList = m_resultCache[algorithmType];
+    auto &cacheList = m_resultCache[algorithmType];
 
     /* 创建新的缓存结构 */
     DetectionCache cache;
@@ -64,6 +68,7 @@ void CResultManager::addDetectionResult(AlgorithmType algorithmType, int nWidth,
     cache.vstRectInfo = vstRectInfo;
     cache.timestamp = std::chrono::steady_clock::now();
     cache.algorithmType = algorithmType;
+    cache.validTimeMs = validTimeMs > 0 ? validTimeMs : RESULT_VALID_TIME_MS;
 
     /* 添加到列表末尾 */
     cacheList.push_back(cache);
@@ -119,7 +124,7 @@ std::vector<Common::RectInfo_S> CResultManager::mergeValidResults(int &outWidth,
     /* 遍历所有缓存的结果 */
     for (auto typeIt = m_resultCache.begin(); typeIt != m_resultCache.end(); ++typeIt)
     {
-        auto& cacheList = typeIt->second;
+        auto &cacheList = typeIt->second;
         /* 遍历该算法类型的所有缓存，移除过期的 */
         for (auto cacheIt = cacheList.begin(); cacheIt != cacheList.end();)
         {
@@ -155,7 +160,7 @@ bool CResultManager::isResultValid(const DetectionCache &cache)
 {
     auto now = std::chrono::steady_clock::now();
     auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - cache.timestamp).count();
-    return elapsed <= RESULT_VALID_TIME_MS;
+    return elapsed <= cache.validTimeMs;
 }
 
 std::vector<Common::RectInfo_S> CResultManager::removeDuplicateRects(const std::vector<Common::RectInfo_S> &rects)

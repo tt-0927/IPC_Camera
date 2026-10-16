@@ -509,7 +509,7 @@ static const ot_isp_nr_attr g_cmos_bayer_nr = {
                     64, /* sfm6_strength */
                     64, /* sfm7_strength */
                     100, /* sth */
-                    0, /* tss */
+                    64, /* tss */
                     128, /* fine_str */
                     50, /* coring_wgt */
                     0,  /* coring_mot_ratio */
@@ -2557,7 +2557,7 @@ static const ot_isp_drc_attr g_cmos_drc = {
     0,
     /* shoot_reduction_en */
     1,
-#if  DEVICE_TV_3852TL4G || DEVICE_TV_3852TLW
+
 /* op_type */
     OT_OP_MODE_MANUAL,
     /* manual_attr */
@@ -2603,53 +2603,6 @@ static const ot_isp_drc_attr g_cmos_drc = {
         /* bcnr_strength */
         3,
     }
-#else
-    /* op_type */
-    OT_OP_MODE_MANUAL,
-    /* manual_attr */
-    {
-        /* manual_strength */
-        100,
-    },
-    /* auto_attr */
-    {
-        /* auto_strength */
-        512,
-        /* auto_strength_max */
-        1023,
-        /* auto_strength_min */
-        512,
-    },
-    /* asymmetry_curve */
-    {
-        /* asymmetry */
-        6,
-        /* second_pole */
-        200,
-        /* stretch */
-        40,
-        /* compress */
-        170
-    },
-    /* auto_curve */
-    {
-        /* brightness */
-        8,
-        /* contrast */
-        8,
-        /* tolerance */
-        6,
-    },
-    /* bcnr_attr */
-    {
-        /* bcnr_en */
-        0,
-        /* bcnr_detail_restore */
-        {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-        /* bcnr_strength */
-        3,
-    }
-#endif
 };
 
 static const ot_isp_drc_attr g_cmos_drc_wdr = {
@@ -2730,7 +2683,7 @@ static const ot_isp_drc_attr g_cmos_drc_wdr = {
     4,
     /* shoot_reduction_en */
     1,
-#if  DEVICE_TV_3852TL4G || DEVICE_TV_3852TLW
+
     /* op_type */
     OT_OP_MODE_MANUAL,
     /* manual_attr */
@@ -2776,53 +2729,6 @@ static const ot_isp_drc_attr g_cmos_drc_wdr = {
         /* bcnr_strength */
         3,
     }
-#else
-    /* op_type */
-    OT_OP_MODE_AUTO,
-    /* manual_attr */
-    {
-        /* manual_strength */
-        1023,
-    },
-    /* auto_attr */
-    {
-        /* auto_strength */
-        1023,
-        /* auto_strength_max */
-        1023,
-        /* auto_strength_min */
-        256,
-    },
-    /* asymmetry_curve */
-    {
-        /* asymmetry */
-        6,
-        /* second_pole */
-        200,
-        /* stretch */
-        40,
-        /* compress */
-        170
-    },
-    /* auto_curve */
-    {
-        /* brightness */
-        8,
-        /* contrast */
-        8,
-        /* tolerance */
-        6,
-    },
-    /* bcnr_attr */
-    {
-        /* bcnr_en */
-        0,
-        /* bcnr_detail_restore */
-        {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-        /* bcnr_strength */
-        3,
-    }
-#endif
 };
 
 #ifdef CONFIG_OT_ISP_CA_SUPPORT

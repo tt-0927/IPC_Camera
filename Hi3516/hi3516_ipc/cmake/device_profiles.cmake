@@ -72,6 +72,11 @@
 #         share/ipc_share/common/define/event_define.h,
 #         share/ipc_share/control/business/event,
 #         share/ipc_share/control/task/sub_task/event_task.cpp
+# - CAP_UNIFIED_DETECTION: 统一检测层新链路总开关（由 IPC_CAP_UNIFIED_DETECTION 转换），
+#   =0 全部算法走 Legacy，检测层源文件不编译进固件；=1 MD/OD/FACE 一并切换新链路并编译检测层。
+#   展馆模型（CAP_AI_EXHIBITION_PEOPLE_FLOW）在此基础上二级门控：总开关=1 且展馆宏=1 才编译。
+#   使用: hi3516_ipc/main_app/ai_app/algorithm_mode/detection/,
+#         hi3516_ipc/main_app/ai_app/interface/algo_stream_deal.cpp/.h
 # - CAP_AI_PEOPLE_DENSITY_LEGACY: 旧版人员密度检测能力，使用 people_head_detect 人头模型
 #   使用: hi3516_ipc/main_app/ai_app/algorithm_mode/algorithm/people_head_detect
 # - CAP_AI_PEOPLE_DENSITY_V2: 新版人员密度检测能力，使用 hvf_detect 人形模型
@@ -82,7 +87,7 @@
 #         hi3516_ipc/main_app/ai_app/algorithm_mode/detection/exhibition_detect
 # - CAP_UNIFIED_EVENT_PIPELINE: 全局事件链路（新事件结构）总开关（由 IPC_CAP_UNIFIED_EVENT_PIPELINE 转换），
 #   =0 事件走旧事件结构或 per-event 宏控制；=1 事件走新事件结构（Converter->Dispatcher->Processor->OutputExecutor）。
-#   跨算法类的迁移总开关，渐进替代 CAP_AI_PEOPLE_FLOW_PIPELINE / CAP_UNIFIED_DETECTION_MD/OD /
+#   跨算法类的迁移总开关，渐进替代 CAP_AI_PEOPLE_FLOW_PIPELINE /
 #   CAP_AI_EXHIBITION_PEOPLE_FLOW / CAP_AI_PEOPLE_DENSITY_PIPELINE 等 per-event 宏，最终移除旧框架。
 #   使用: hi3516_ipc/main_app/ai_app（事件处理迁移引用点，随迁移子任务逐步接入）,
 #         share/ipc_share/event/pipeline
@@ -97,6 +102,8 @@
 # - CAP_NETWORK_4G: 4G 网络能力
 #   使用: （预留，暂未实现）
 # - CAP_NETWORK_WIFI: WIFI 网络能力
+# - CAP_BLUETOOTH: 蓝牙/GATT 配网能力（由 IPC_CAP_BLUETOOTH 转换）
+#   仅 TV-3852TL4G、TV-3852TLW 开启
 #   使用: （预留，暂未实现）
 # - CAP_RECORD_USE_MAIN_STREAM: 录制使用主码流（默认0=子码流，1=主码流）
 #   使用: hi3516_ipc/main_app/stream_media/video/venc_channel_handler.cpp,
@@ -188,8 +195,7 @@ set(DEVICE_PROFILE_TV_3852T_CMAKE_VARS
     IPC_CAP_EXHIBITION_OSD_PANEL=0           # 展会版AI左上角汇总面板能力
     IPC_CAP_RTMP_PUSH=0                      # RTMP 推流能力
     IPC_CAP_AI_PEOPLE_FLOW_PIPELINE=0        # 人流统计新框架迁移管线（0=Legacy，1=New）
-    IPC_CAP_UNIFIED_DETECTION_MD=0           # 移动侦测统一检测层迁移（0=Legacy，1=New）
-    IPC_CAP_UNIFIED_DETECTION_OD=0           # 遮挡侦测统一检测层迁移（0=Legacy，1=New）
+    IPC_CAP_UNIFIED_DETECTION=0            # 统一检测层新链路总开关（0=Legacy 全走旧链路，1=MD/OD/FACE 一并切新链路）
     IPC_CAP_AI_EXHIBITION_PEOPLE_FLOW=0      # 展馆人流统计自研模型（0=HVF，1=展馆YOLO）
     IPC_CAP_AI_PEOPLE_DENSITY_PIPELINE=0     # 人员密度新框架迁移（0=HVF V2，1=展馆YOLO head）
     IPC_CAP_UNIFIED_EVENT_PIPELINE=0         # 全局事件链路（新事件结构）总开关（0=Legacy，1=New）
@@ -245,8 +251,7 @@ set(DEVICE_PROFILE_TV_3852H_CMAKE_VARS
     IPC_CAP_RECORD_LINK_FDK_AAC=0
     IPC_CAP_RTMP_PUSH=0                      # RTMP 推流能力
     IPC_CAP_AI_PEOPLE_FLOW_PIPELINE=0        # 人流统计新框架迁移管线（0=Legacy，1=New）
-    IPC_CAP_UNIFIED_DETECTION_MD=0           # 移动侦测统一检测层迁移（0=Legacy，1=New）
-    IPC_CAP_UNIFIED_DETECTION_OD=0           # 遮挡侦测统一检测层迁移（0=Legacy，1=New）
+    IPC_CAP_UNIFIED_DETECTION=0            # 统一检测层新链路总开关（0=Legacy 全走旧链路，1=MD/OD/FACE 一并切新链路）
     IPC_CAP_AI_EXHIBITION_PEOPLE_FLOW=0      # 展馆人流统计自研模型（0=HVF，1=展馆YOLO）
     IPC_CAP_AI_PEOPLE_DENSITY_PIPELINE=0     # 人员密度新框架迁移（0=HVF V2，1=展馆YOLO head）
     IPC_CAP_UNIFIED_EVENT_PIPELINE=0         # 全局事件链路（新事件结构）总开关（0=Legacy，1=New）
@@ -313,8 +318,7 @@ set(DEVICE_PROFILE_TV_3852TL_CMAKE_VARS
     IPC_CAP_EXHIBITION_OSD_PANEL=0           # 展会版AI左上角汇总面板能力
     IPC_CAP_RTMP_PUSH=0                      # RTMP 推流能力
     IPC_CAP_AI_PEOPLE_FLOW_PIPELINE=0        # 人流统计新框架迁移管线（0=Legacy，1=New）
-    IPC_CAP_UNIFIED_DETECTION_MD=0           # 移动侦测统一检测层迁移（0=Legacy，1=New）
-    IPC_CAP_UNIFIED_DETECTION_OD=0           # 遮挡侦测统一检测层迁移（0=Legacy，1=New）
+    IPC_CAP_UNIFIED_DETECTION=0             # 统一检测层新链路总开关（0=Legacy 全走旧链路，1=MD/OD/FACE 一并切新链路）
     IPC_CAP_AI_EXHIBITION_PEOPLE_FLOW=0      # 展馆人流统计自研模型（0=HVF，1=展馆YOLO）
     IPC_CAP_AI_PEOPLE_DENSITY_PIPELINE=0     # 人员密度新框架迁移（0=HVF V2，1=展馆YOLO head）
     IPC_CAP_UNIFIED_EVENT_PIPELINE=0         # 全局事件链路（新事件结构）总开关（0=Legacy，1=New）
@@ -373,8 +377,7 @@ set(DEVICE_PROFILE_TV_3852HL_CMAKE_VARS
     IPC_CAP_RECORD_LINK_FDK_AAC=0
     IPC_CAP_RTMP_PUSH=0                      # RTMP 推流能力
     IPC_CAP_AI_PEOPLE_FLOW_PIPELINE=0        # 人流统计新框架迁移管线（0=Legacy，1=New）
-    IPC_CAP_UNIFIED_DETECTION_MD=0           # 移动侦测统一检测层迁移（0=Legacy，1=New）
-    IPC_CAP_UNIFIED_DETECTION_OD=0           # 遮挡侦测统一检测层迁移（0=Legacy，1=New）
+    IPC_CAP_UNIFIED_DETECTION=0             # 统一检测层新链路总开关（0=Legacy 全走旧链路，1=MD/OD/FACE 一并切新链路）
     IPC_CAP_AI_EXHIBITION_PEOPLE_FLOW=0      # 展馆人流统计自研模型（0=HVF，1=展馆YOLO）
     IPC_CAP_AI_PEOPLE_DENSITY_PIPELINE=0     # 人员密度新框架迁移（0=HVF V2，1=展馆YOLO head）
     IPC_CAP_UNIFIED_EVENT_PIPELINE=0         # 全局事件链路（新事件结构）总开关（0=Legacy，1=New）
@@ -432,13 +435,13 @@ set(DEVICE_PROFILE_TV_3852TL4G_DEFINES
     CAP_RTMP_PUSH=1                      # RTMP 推流能力
 )
 set(DEVICE_PROFILE_TV_3852TL4G_CMAKE_VARS
+    IPC_CAP_BLUETOOTH=1                      # 蓝牙/GATT 配网能力
     IPC_CAP_RECORD_NEEDS_CAM_SHARE_INCLUDE=0
     IPC_CAP_RECORD_LINK_FDK_AAC=0
     IPC_CAP_EXHIBITION_OSD_PANEL=0           # 展会版AI左上角汇总面板能力
     IPC_CAP_RTMP_PUSH=1                      # RTMP 推流能力
     IPC_CAP_AI_PEOPLE_FLOW_PIPELINE=0        # 人流统计新框架迁移管线（0=Legacy，1=New）
-    IPC_CAP_UNIFIED_DETECTION_MD=0           # 移动侦测统一检测层迁移（0=Legacy，1=New）
-    IPC_CAP_UNIFIED_DETECTION_OD=0           # 遮挡侦测统一检测层迁移（0=Legacy，1=New）
+    IPC_CAP_UNIFIED_DETECTION=0            # 统一检测层新链路总开关（0=Legacy 全走旧链路，1=MD/OD/FACE 一并切新链路）
     IPC_CAP_AI_EXHIBITION_PEOPLE_FLOW=0      # 展馆人流统计自研模型（0=HVF，1=展馆YOLO）
     IPC_CAP_AI_PEOPLE_DENSITY_PIPELINE=0     # 人员密度新框架迁移（0=HVF V2，1=展馆YOLO head）
     IPC_CAP_UNIFIED_EVENT_PIPELINE=0         # 全局事件链路（新事件结构）总开关（0=Legacy，1=New）
@@ -496,13 +499,13 @@ set(DEVICE_PROFILE_TV_3852TLW_DEFINES
     CAP_RTMP_PUSH=1                      # RTMP 推流能力
 )
 set(DEVICE_PROFILE_TV_3852TLW_CMAKE_VARS
+    IPC_CAP_BLUETOOTH=1                      # 蓝牙/GATT 配网能力（0=不编译且不打包蓝牙依赖）
     IPC_CAP_RECORD_NEEDS_CAM_SHARE_INCLUDE=0
     IPC_CAP_RECORD_LINK_FDK_AAC=0
     IPC_CAP_EXHIBITION_OSD_PANEL=0           # 展会版AI左上角汇总面板能力
     IPC_CAP_RTMP_PUSH=1                      # RTMP 推流能力
     IPC_CAP_AI_PEOPLE_FLOW_PIPELINE=0        # 人流统计新框架迁移管线（0=Legacy，1=New）
-    IPC_CAP_UNIFIED_DETECTION_MD=0           # 移动侦测统一检测层迁移（0=Legacy，1=New）
-    IPC_CAP_UNIFIED_DETECTION_OD=0           # 遮挡侦测统一检测层迁移（0=Legacy，1=New）
+    IPC_CAP_UNIFIED_DETECTION=0            # 统一检测层新链路总开关（0=Legacy 全走旧链路，1=MD/OD/FACE 一并切新链路）
     IPC_CAP_AI_EXHIBITION_PEOPLE_FLOW=0      # 展馆人流统计自研模型（0=HVF，1=展馆YOLO）
     IPC_CAP_AI_PEOPLE_DENSITY_PIPELINE=0     # 人员密度新框架迁移（0=HVF V2，1=展馆YOLO head）
     IPC_CAP_UNIFIED_EVENT_PIPELINE=0         # 全局事件链路（新事件结构）总开关（0=Legacy，1=New）
@@ -561,18 +564,106 @@ set(DEVICE_PROFILE_TV_3852HZT_CMAKE_VARS
     IPC_CAP_EXHIBITION_OSD_PANEL=0           # 展会版AI左上角汇总面板能力
     IPC_CAP_RTMP_PUSH=0                      # RTMP 推流能力
     IPC_CAP_AI_PEOPLE_FLOW_PIPELINE=1        # 人流统计新框架迁移管线（0=Legacy，1=New）
-    IPC_CAP_UNIFIED_DETECTION_MD=1           # 移动侦测统一检测层迁移（0=Legacy，1=New）
-    IPC_CAP_UNIFIED_DETECTION_OD=1           # 遮挡侦测统一检测层迁移（0=Legacy，1=New）
+    IPC_CAP_UNIFIED_DETECTION=1             # 统一检测层新链路总开关（0=Legacy 全走旧链路，1=MD/OD/FACE 一并切新链路）
     IPC_CAP_AI_EXHIBITION_PEOPLE_FLOW=1      # 展馆人流统计自研模型（0=HVF，1=展馆YOLO）
     IPC_CAP_AI_PEOPLE_DENSITY_PIPELINE=1     # 人员密度新框架迁移（0=HVF V2，1=展馆YOLO head）
     IPC_CAP_UNIFIED_EVENT_PIPELINE=1         # 全局事件链路（新事件结构）总开关（0=Legacy，1=New）
 )
 
-function(apply_device_profile device_type)
+# 画像能力宏校验并下发编译定义（IPC_CAP_* -> CAP_*）。
+# 供 apply_device_profile 末尾调用：此时画像变量已 set 到调用者作用域（macro 无独立作用域）。
+# 新增画像能力宏时在此追加校验与下发，ipc.cmake 不再需要同步修改。
+macro(validate_and_export_caps)
+    # 蓝牙/GATT 配网能力
+    # 唯一配置入口是 DEVICE_PROFILE_*_CMAKE_VARS 中的 IPC_CAP_BLUETOOTH。
+    # 未显式声明的型号默认关闭；缓存值同时供固件打包脚本读取。
+    if(NOT DEFINED IPC_CAP_BLUETOOTH)
+        set(IPC_CAP_BLUETOOTH 0)
+    endif()
+    if(NOT IPC_CAP_BLUETOOTH EQUAL 0 AND NOT IPC_CAP_BLUETOOTH EQUAL 1)
+        message(FATAL_ERROR "IPC_CAP_BLUETOOTH 取值非法: ${IPC_CAP_BLUETOOTH}，只允许 0/1")
+    endif()
+    set(IPC_CAP_BLUETOOTH "${IPC_CAP_BLUETOOTH}" CACHE INTERNAL
+        "Whether Bluetooth/GATT provisioning is compiled and packaged" FORCE)
+    add_compile_definitions(CAP_BLUETOOTH=${IPC_CAP_BLUETOOTH})
+    message(STATUS "IPC_CAP_BLUETOOTH = ${IPC_CAP_BLUETOOTH}")
+
+    # 仅启用蓝牙时创建 GDBus/GLib 链接目标。关闭时 operation 不产生
+    # 对 libgio/libglib 等共享库的 NEEDED 依赖，打包脚本也读取到缓存值0。
+    if(IPC_CAP_BLUETOOTH)
+        include(${IPC_PLATFORM_PATH}/lib/ble/ble.cmake)
+    endif()
+
+    # 人流统计新框架迁移能力
+    # 组合规则：PIPELINE=0 => LEGACY（只运行旧处理器）；PIPELINE=1 => NEW（只运行新框架）
+    if(NOT DEFINED IPC_CAP_AI_PEOPLE_FLOW_PIPELINE)
+        message(FATAL_ERROR "IPC_CAP_AI_PEOPLE_FLOW_PIPELINE 未在设备画像 DEVICE_PROFILE_*_CMAKE_VARS 中定义，请检查 device_profiles.cmake")
+    endif()
+    if(NOT IPC_CAP_AI_PEOPLE_FLOW_PIPELINE EQUAL 0 AND NOT IPC_CAP_AI_PEOPLE_FLOW_PIPELINE EQUAL 1)
+        message(FATAL_ERROR "IPC_CAP_AI_PEOPLE_FLOW_PIPELINE 取值非法: ${IPC_CAP_AI_PEOPLE_FLOW_PIPELINE}，只允许 0/1")
+    endif()
+    add_compile_definitions(CAP_AI_PEOPLE_FLOW_PIPELINE=${IPC_CAP_AI_PEOPLE_FLOW_PIPELINE})
+
+    # 统一检测层新链路总开关
+    # 语义：=0 全部算法走 Legacy（检测层不编译进固件）；=1 MD/OD/FACE 一并切换新链路并编译统一检测层
+    if(NOT DEFINED IPC_CAP_UNIFIED_DETECTION)
+        message(FATAL_ERROR "IPC_CAP_UNIFIED_DETECTION 未在设备画像 DEVICE_PROFILE_*_CMAKE_VARS 中定义，请检查 device_profiles.cmake")
+    endif()
+    if(NOT IPC_CAP_UNIFIED_DETECTION EQUAL 0 AND NOT IPC_CAP_UNIFIED_DETECTION EQUAL 1)
+        message(FATAL_ERROR "IPC_CAP_UNIFIED_DETECTION 取值非法: ${IPC_CAP_UNIFIED_DETECTION}，只允许 0/1")
+    endif()
+    add_compile_definitions(CAP_UNIFIED_DETECTION=${IPC_CAP_UNIFIED_DETECTION})
+
+    # 展馆人流统计自研模型
+    # 语义：=0 人流统计走 HVF（现状）；=1 展馆 YOLO 模型接入统一检测层并编译关闭 HVF 人流统计
+    # 两级门控：展馆代码仅在统一检测层总开关开启（IPC_CAP_UNIFIED_DETECTION=1）时编译
+    if(NOT DEFINED IPC_CAP_AI_EXHIBITION_PEOPLE_FLOW)
+        message(FATAL_ERROR "IPC_CAP_AI_EXHIBITION_PEOPLE_FLOW 未在设备画像 DEVICE_PROFILE_*_CMAKE_VARS 中定义，请检查 device_profiles.cmake")
+    endif()
+    if(NOT IPC_CAP_AI_EXHIBITION_PEOPLE_FLOW EQUAL 0 AND NOT IPC_CAP_AI_EXHIBITION_PEOPLE_FLOW EQUAL 1)
+        message(FATAL_ERROR "IPC_CAP_AI_EXHIBITION_PEOPLE_FLOW 取值非法: ${IPC_CAP_AI_EXHIBITION_PEOPLE_FLOW}，只允许 0/1")
+    endif()
+    if(IPC_CAP_AI_EXHIBITION_PEOPLE_FLOW EQUAL 1 AND NOT IPC_CAP_UNIFIED_DETECTION EQUAL 1)
+        message(FATAL_ERROR "IPC_CAP_AI_EXHIBITION_PEOPLE_FLOW=1 要求 IPC_CAP_UNIFIED_DETECTION=1，请检查设备画像配置")
+    endif()
+    add_compile_definitions(CAP_AI_EXHIBITION_PEOPLE_FLOW=${IPC_CAP_AI_EXHIBITION_PEOPLE_FLOW})
+
+    # 人员密度新框架迁移
+    # 语义：=0 人员密度走 HVF V2（现状）；=1 展馆 YOLO 模型 head 类接入共享 pipeline 并编译关闭 HVF 密度链路
+    if(NOT DEFINED IPC_CAP_AI_PEOPLE_DENSITY_PIPELINE)
+        message(FATAL_ERROR "IPC_CAP_AI_PEOPLE_DENSITY_PIPELINE 未在设备画像 DEVICE_PROFILE_*_CMAKE_VARS 中定义，请检查 device_profiles.cmake")
+    endif()
+    if(NOT IPC_CAP_AI_PEOPLE_DENSITY_PIPELINE EQUAL 0 AND NOT IPC_CAP_AI_PEOPLE_DENSITY_PIPELINE EQUAL 1)
+        message(FATAL_ERROR "IPC_CAP_AI_PEOPLE_DENSITY_PIPELINE 取值非法: ${IPC_CAP_AI_PEOPLE_DENSITY_PIPELINE}，只允许 0/1")
+    endif()
+    if(IPC_CAP_AI_PEOPLE_DENSITY_PIPELINE EQUAL 1 AND NOT IPC_CAP_AI_EXHIBITION_PEOPLE_FLOW EQUAL 1)
+        message(FATAL_ERROR "IPC_CAP_AI_PEOPLE_DENSITY_PIPELINE=1 要求 IPC_CAP_AI_EXHIBITION_PEOPLE_FLOW=1，请检查设备画像配置")
+    endif()
+    add_compile_definitions(CAP_AI_PEOPLE_DENSITY_PIPELINE=${IPC_CAP_AI_PEOPLE_DENSITY_PIPELINE})
+
+    # 全局事件链路（新事件结构）总开关
+    # 语义：=0 事件走旧事件结构或 per-event 宏控制；=1 事件走新事件结构（AiPipeline_NS）
+    # 渐进替代：跨算法类的迁移总开关，最终替代 IPC_CAP_AI_PEOPLE_FLOW_PIPELINE 等 5 个 per-event 宏
+    if(NOT DEFINED IPC_CAP_UNIFIED_EVENT_PIPELINE)
+        message(FATAL_ERROR "IPC_CAP_UNIFIED_EVENT_PIPELINE 未在设备画像 DEVICE_PROFILE_*_CMAKE_VARS 中定义，请检查 device_profiles.cmake")
+    endif()
+    if(NOT IPC_CAP_UNIFIED_EVENT_PIPELINE EQUAL 0 AND NOT IPC_CAP_UNIFIED_EVENT_PIPELINE EQUAL 1)
+        message(FATAL_ERROR "IPC_CAP_UNIFIED_EVENT_PIPELINE 取值非法: ${IPC_CAP_UNIFIED_EVENT_PIPELINE}，只允许 0/1")
+    endif()
+    add_compile_definitions(CAP_UNIFIED_EVENT_PIPELINE=${IPC_CAP_UNIFIED_EVENT_PIPELINE})
+endmacro()
+
+# macro（无独立作用域）：画像变量 set 到调用者作用域，末尾的校验可直接读取，
+# add_compile_definitions 作用于调用者目录及以下，全局生效。
+# 注意：macro 参数不是变量（function 才是），比较须用 "${device_type}" 展开
+macro(apply_device_profile device_type)
+    # 每次应用画像都先恢复蓝牙默认值，避免复用构建目录切换型号时继承
+    # 上一个蓝牙型号写入 CMakeCache 的 IPC_CAP_BLUETOOTH=1。
+    set(IPC_CAP_BLUETOOTH 0)
     set(_matched FALSE)
     foreach(_key IN LISTS DEVICE_PROFILE_KEYS)
         set(_expect_type "${DEVICE_PROFILE_${_key}_DEVICE_TYPE}")
-        if(device_type STREQUAL _expect_type)
+        if("${device_type}" STREQUAL "${_expect_type}")
             set(_defines ${DEVICE_PROFILE_${_key}_DEFINES})
             add_compile_definitions(${_defines})
 
@@ -580,7 +671,7 @@ function(apply_device_profile device_type)
                 string(REPLACE "=" ";" _kv "${_item}")
                 list(GET _kv 0 _name)
                 list(GET _kv 1 _value)
-                set(${_name} ${_value} PARENT_SCOPE)
+                set(${_name} ${_value})
             endforeach()
 
             set(_matched TRUE)
@@ -592,4 +683,7 @@ function(apply_device_profile device_type)
     if(NOT _matched)
         message(FATAL_ERROR "Unsupported DEVICE_TYPE: ${device_type}")
     endif()
-endfunction()
+
+    # 画像能力宏校验 + 编译下发（画像声明、校验、下发内聚本文件）
+    validate_and_export_caps()
+endmacro()

@@ -958,7 +958,7 @@ std::string CUserManage::addErrorTime(const std::string &strTime,::System::LockD
         time += 1440 * 60;       // 1 天 = 24*60*60 秒
         break;
     case ::System::LOCK_DURATION_5_DAY:
-        time = 5 * 1440 * 60;      // 5 天 = 24*60*60*5 秒
+        time += 5 * 1440 * 60;     /* 5 天 = 5 * 1440 分钟 * 60 秒 */
         break;
     }
 

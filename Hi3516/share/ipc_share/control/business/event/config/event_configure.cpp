@@ -38,6 +38,7 @@ CEventConfigure::CEventConfigure():
       m_nonMotorVehicleDetection(EVENT_NON_MOTOR_VEHICLE_DETECTION_CONFIG_FILE),
       m_loiteringDetection(EVENT_LOITERING_DETECTION_CONFIG_FILE),
       m_crowdGathering(EVENT_CROWD_GATHERING_DETECTION_CONFIG_FILE),
+      m_queueCrowding(EVENT_QUEUE_CROWDING_DETECTION_CONFIG_FILE),
       m_parkingDetection(EVENT_PARKING_DETECTION_CONFIG_FILE),
       m_unattendedObject(EVENT_UNATTENDED_OBJECT_DETECTION_CONFIG_FILE),
       m_objectRemoval(EVENT_OBJECT_REMOVAL_DETECTION_CONFIG_FILE),
@@ -94,6 +95,16 @@ CEventConfigure::CEventConfigure():
       ,
       m_peopleFlowStatistics(EVENT_PEOPLE_FLOW_STATISTICS_CONFIG_FILE),
       m_peopleDensityDetection(EVENT_PEOPLE_DENSITY_DETECTION_CONFIG_FILE)
+#endif
+#ifdef SCENE_INTELLIGENCE
+      ,
+      m_channelOccupation(EVENT_CHANNEL_OCCUPATION_INFO_FILE),
+      m_climbDetection(EVENT_CLIMB_DETECTION_INFO_FILE),
+      m_dangerZoneApproach(EVENT_DANGER_ZONE_APPROACH_INFO_FILE),
+      m_longTimeStay(EVENT_LONG_TIME_STAY_INFO_FILE),
+      m_dangerZoneStay(EVENT_DANGER_ZONE_STAY_INFO_FILE),
+      m_keyAreaAbnormalStay(EVENT_KEY_AREA_ABNORMAL_STAY_INFO_FILE),
+      m_rooftopStay(EVENT_ROOFTOP_STAY_INFO_FILE)
 #endif
 {
 }
@@ -375,6 +386,16 @@ int CEventConfigure::set_configure(const Alarm::CrowdGathering_S &alarm)
 int CEventConfigure::get_configure(Alarm::CrowdGathering_S &alarm) const
 {
     return m_crowdGathering.get(alarm);
+}
+
+int CEventConfigure::set_configure(const Alarm::QueueCrowdingDetection_S &alarm)
+{
+    return m_queueCrowding.set(alarm);
+}
+
+int CEventConfigure::get_configure(Alarm::QueueCrowdingDetection_S &alarm) const
+{
+    return m_queueCrowding.get(alarm);
 }
 
 int CEventConfigure::set_configure(const Alarm::ParkingDetection_S &alarm)
@@ -813,5 +834,77 @@ int CEventConfigure::set_configure(const Alarm::PeopleDensityDetection_S &alarm)
 int CEventConfigure::get_configure(Alarm::PeopleDensityDetection_S &alarm) const
 {
     return m_peopleDensityDetection.get(alarm);
+}
+#endif
+
+#ifdef SCENE_INTELLIGENCE
+int CEventConfigure::set_configure(const Alarm::ChannelOccupation_S &alarm)
+{
+    return m_channelOccupation.set(alarm);
+}
+
+int CEventConfigure::get_configure(Alarm::ChannelOccupation_S &alarm) const
+{
+    return m_channelOccupation.get(alarm);
+}
+
+int CEventConfigure::set_configure(const Alarm::ClimbDetection_S &alarm)
+{
+    return m_climbDetection.set(alarm);
+}
+
+int CEventConfigure::get_configure(Alarm::ClimbDetection_S &alarm) const
+{
+    return m_climbDetection.get(alarm);
+}
+
+int CEventConfigure::set_configure(const Alarm::DangerZoneApproach_S &alarm)
+{
+    return m_dangerZoneApproach.set(alarm);
+}
+
+int CEventConfigure::get_configure(Alarm::DangerZoneApproach_S &alarm) const
+{
+    return m_dangerZoneApproach.get(alarm);
+}
+
+int CEventConfigure::set_configure(const Alarm::LongTimeStayDetection_S &alarm)
+{
+    return m_longTimeStay.set(alarm);
+}
+
+int CEventConfigure::get_configure(Alarm::LongTimeStayDetection_S &alarm) const
+{
+    return m_longTimeStay.get(alarm);
+}
+
+int CEventConfigure::set_configure(const Alarm::DangerZoneStayDetection_S &alarm)
+{
+    return m_dangerZoneStay.set(alarm);
+}
+
+int CEventConfigure::get_configure(Alarm::DangerZoneStayDetection_S &alarm) const
+{
+    return m_dangerZoneStay.get(alarm);
+}
+
+int CEventConfigure::set_configure(const Alarm::KeyAreaAbnormalStayDetection_S &alarm)
+{
+    return m_keyAreaAbnormalStay.set(alarm);
+}
+
+int CEventConfigure::get_configure(Alarm::KeyAreaAbnormalStayDetection_S &alarm) const
+{
+    return m_keyAreaAbnormalStay.get(alarm);
+}
+
+int CEventConfigure::set_configure(const Alarm::RooftopStayDetection_S &alarm)
+{
+    return m_rooftopStay.set(alarm);
+}
+
+int CEventConfigure::get_configure(Alarm::RooftopStayDetection_S &alarm) const
+{
+    return m_rooftopStay.get(alarm);
 }
 #endif

@@ -15,6 +15,10 @@
 #include "operation_communicate.h"
 #include "timezone_runtime.h"
 #include "path_define.h"
+#if CAP_BLUETOOTH
+#include "bluetooth/ble_gatt_server.h"
+#include "action_code.h"
+#endif
 
 /* 日志记录单个日志文件的最大大小 */
 #define MAX_LOG_SIZE  (1 * 512 * 1024) // 512KB
@@ -84,11 +88,41 @@ int main(int argc, char const *argv[])
 
     communicate_init();
 
+#if CAP_BLUETOOTH
+    /* D-Bus 与 bluetoothd 已由 S81appinit 先行启动。蓝牙初始化失败不影响运维主业务。 */
+    BleProvisioning::BleGattServer &bleServer = BleProvisioning::BleGattServer::instance();
+    bleServer.setExternalCommandSender([](uint16_t command, const std::string &payload) -> int {
+        int actionCode = 0;
+        if (command == BleProvisioning::CMD_WIFI_CONNECT)
+            actionCode = AC_CONNECT_WIFI_STA;
+        else if (command == BleProvisioning::CMD_PLATFORM_CONNECT)
+            actionCode = AC_PLATFORM_CONN;
+        else if (command == BleProvisioning::CMD_PLATFORM_GET_STATUS)
+            actionCode = AC_PLATFORM_GETINFO;
+        else if (command == BleProvisioning::CMD_WIFI_SCAN)
+            actionCode = AC_SCAN_WIFI_STA;
+        else
+            return -1;
+
+        std::string message = payload.empty() ? "{}" : payload;
+        OperationServer::instance()->fill_head(message, actionCode);
+        return OperationServer::instance()->send(message, actionCode);
+    });
+    if (!bleServer.start())
+    {
+        dlog_error("BLE GATT 配网服务启动失败");
+    }
+#endif
+
     while (!g_bExit)
     {
         /* 休眠1秒 */
         std::this_thread::sleep_for(std::chrono::seconds(1));
     }
+
+#if CAP_BLUETOOTH
+    BleProvisioning::BleGattServer::instance().stop();
+#endif
 
     dlog_trace("运维程序退出");
 

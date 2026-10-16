@@ -132,9 +132,13 @@ int CallEvent::HandleSuperiorResponseSuccess(const SipEvent::Ptr e)
         return -3;
     }
     { /* 通过解析SDP报文上抛数据 */
-        int nPort = (channel->GetPlayPort()+2);
+#if CAP_AUDIO_OUTPUT
+        int nPort = (channel->GetPlayPort() + 2);
+#endif
         auto stSdpInfo = ::SDP::parseSdp(std::string(body->body, body->length));
+#if CAP_AUDIO_OUTPUT
         channel->CreateAudioServer(nPort);
+#endif
         channel->CreatePlayRtp(true, stSdpInfo.strSSRC);
     }
 

@@ -33,6 +33,20 @@ extern "C"
 /* 检测模型描述 */
 struct DetectionModelDescriptor_S
 {
+    /* C++11：成员带默认初始化器后不是聚合，补构造函数支持各模型的
+     * 花括号六参初始化（ms_stDescriptor = {...}） */
+    DetectionModelDescriptor_S() = default;
+    DetectionModelDescriptor_S(const char *pName_, uint32_t nInputWidth_, uint32_t nInputHeight_, bool bNeedCrop_, int nOrder_,
+                               uint32_t nStartupDelayMs_)
+        : pName(pName_),
+          nInputWidth(nInputWidth_),
+          nInputHeight(nInputHeight_),
+          bNeedCrop(bNeedCrop_),
+          nOrder(nOrder_),
+          nStartupDelayMs(nStartupDelayMs_)
+    {
+    }
+
     /* 模型名，日志与诊断用 */
     const char *pName = nullptr;
     /* 模型输入分辨率（MD/OD 为 1024×576） */

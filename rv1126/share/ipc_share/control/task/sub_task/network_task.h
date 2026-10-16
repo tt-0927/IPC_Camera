@@ -64,6 +64,7 @@ namespace Task
         TaskSubClass(GetBonjourInfo)
         TaskSubClass(SetBonjourInfo)
 
+#if CAP_GB35114
         /**
          * @brief   : 国际证书管理（国密）
          */
@@ -74,6 +75,7 @@ namespace Task
         TaskSubClass(GmUploadCrlFile)
         TaskSubClass(GmGetCertInfo)
         TaskSubClass(GmDeleteCertFile)
+#endif
 
         TaskSubClass(SetNetworkService)
         TaskSubClass(GetNetworkService)
@@ -88,6 +90,7 @@ namespace Task
         TaskSubClass(DisconnectWifiSta)
         TaskSubClass(SetConfigWifiIpv4)
         TaskSubClass(GetConfigWifiIpv4)
+        TaskSubClass(ScanWifiSta)
 #endif
 
 #if CAP_NETWORK_4G

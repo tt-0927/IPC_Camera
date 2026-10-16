@@ -6,6 +6,10 @@
  * @FilePath: /hisi/share/ipc_share/control/database/capture_database.cpp
  * @Description: 抓图信息数据库
  */
+
+/* 本地 SD 存储能力裁剪：能力关闭（IPC_CAP_LOCAL_STORAGE=0）时本文件整体不参与编译 */
+#if CAP_LOCAL_STORAGE
+
 #include "capture_database.h"
 
 using namespace Db;
@@ -277,3 +281,5 @@ int CCaptureDatabase::clear_table(const std::string &tableName, bool resetAutoIn
     std::unique_lock<std::mutex> lock(m_mutex);
     return m_database.clear_table(tableName);
 }
+
+#endif /* CAP_LOCAL_STORAGE */

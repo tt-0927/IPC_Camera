@@ -3,7 +3,7 @@
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2026-04-15 16:29:58
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-07-17 13:40:47
+ * @LastEditTime : 2026-10-14 16:47:08
  * @Description  : 事件联动异步动作执行器实现
  */
 
@@ -20,7 +20,10 @@
 #include <unistd.h>
 
 #include "av_configure.h"
+#if CAP_LOCAL_STORAGE
+/* 本地 SD 存储链路：抓图参数与首图状态，能力关闭时整体退出编译 */
 #include "capture_ctrl.h"
+#endif
 #include "email_manage.h"
 #include "event_configure.h"
 #include "event_linkage_dict.h"
@@ -31,7 +34,8 @@
 #include "preview_manage.h"
 #include "time_utils.h"
 
-/* 音频块大小，每次读取的长度 */
+/* 音频块大小，每次读取的长度（音频输出裁剪后无播放路径，一并门控） */
+#if CAP_AUDIO_OUTPUT
 #if CAP_EVENT_AUDIO_PLAYBACK_V2
 #define AUDIO_CHUNK_SIZE 2048
 #else
@@ -40,6 +44,7 @@
 
 /* 总淡入淡出步数 */
 #define TOTAL_FADE_STEPS (2)
+#endif
 
 void EventLinkageAsyncAction::execute(const LinkageTask_S &stTask, std::atomic<bool> &bRunningFlag)
 {
@@ -75,9 +80,8 @@ void EventLinkageAsyncAction::execute(const LinkageTask_S &stTask, std::atomic<b
     }
 }
 
-void EventLinkageAsyncAction::play_audio(const std::string &strAudioPath,
-                                         int nTimes,
-                                         std::atomic<bool> &bRunningFlag)
+#if CAP_AUDIO_OUTPUT
+void EventLinkageAsyncAction::play_audio(const std::string &strAudioPath, int nTimes, std::atomic<bool> &bRunningFlag)
 {
 
 
@@ -375,6 +379,7 @@ void EventLinkageAsyncAction::play_audio(const std::string &strAudioPath,
         m_strPlayingAudioPath.clear();
     }
 }
+#endif
 
 void EventLinkageAsyncAction::execute_email(const LinkageTask_S &stTask, std::atomic<bool> &bRunningFlag)
 {
@@ -387,6 +392,7 @@ void EventLinkageAsyncAction::execute_email(const LinkageTask_S &stTask, std::at
                              "日期: " + stTask.stEventInfo.strDate + "\n" +
                              "时间: " + stTask.stEventInfo.strTime;
 
+#if CAP_LOCAL_STORAGE
     Capture_NS::CaptureParam_S stCaptureParams;
     CCaptureCtrl::instance()->get_captureParam(stCaptureParams);
     if (stTask.bUploadSdCard && stCaptureParams.stCaptureEventConfig.bEnable)
@@ -414,6 +420,7 @@ void EventLinkageAsyncAction::execute_email(const LinkageTask_S &stTask, std::at
             std::this_thread::sleep_for(std::chrono::milliseconds(CHECK_INTERVAL_MS));
         }
     }
+#endif /* CAP_LOCAL_STORAGE：本地存储已裁剪时不等待抓图落盘，邮件直接无图发送 */
 
     if (bRunningFlag.load())
     {
@@ -423,7 +430,9 @@ void EventLinkageAsyncAction::execute_email(const LinkageTask_S &stTask, std::at
 
 void EventLinkageAsyncAction::execute_audio(const LinkageTask_S &stTask, std::atomic<bool> &bRunningFlag)
 {
-    (void)stTask;
+    (void) stTask;
+    (void) bRunningFlag;
+#if CAP_AUDIO_OUTPUT
     pthread_setname_np(pthread_self(), "EventLinkAudio");
 
     /* 对讲占用音频输出时，不再叠加声音联动，避免互相干扰 */
@@ -461,8 +470,13 @@ void EventLinkageAsyncAction::execute_audio(const LinkageTask_S &stTask, std::at
     //     std::lock_guard<std::mutex> lock(m_audioPathMutex);
     //     m_strPlayingAudioPath.clear();
     // }
+#else
+    /* 无音频输出能力：声音联动快速失败，不读配置不读 wav */
+    dlog_info("当前设备无音频输出能力，跳过声音联动");
+#endif
 }
 
+#if CAP_AUDIO_OUTPUT
 int EventLinkageAsyncAction::get_audio_file_path(std::string &strAudioPath, int &nTimes)
 {
     return select_audio_file(strAudioPath, nTimes);
@@ -486,6 +500,9 @@ void EventLinkageAsyncAction::clear_playing_audio_path()
     std::lock_guard<std::mutex> lock(m_audioPathMutex);
     m_strPlayingAudioPath.clear();
 }
+
+#endif
+
 void EventLinkageAsyncAction::execute_warning_light(std::atomic<bool> &bRunningFlag)
 {
     pthread_setname_np(pthread_self(), "EventLinkLight");
@@ -644,6 +661,7 @@ void EventLinkageAsyncAction::execute_log(const LinkageTask_S &stTask)
     COnvifSubscriptionManager::instance()->pushEventToAll(stTask.stContext.enEventType, !stTask.stContext.bEventEnded);
 }
 
+#if CAP_AUDIO_OUTPUT
 int EventLinkageAsyncAction::select_audio_file(std::string &strAudioPath, int &nTimes)
 {
     Alarm::SoundOutputAlarm_S stSoundInfo;
@@ -719,3 +737,4 @@ int EventLinkageAsyncAction::select_audio_file(std::string &strAudioPath, int &n
 
     return OK;
 }
+#endif

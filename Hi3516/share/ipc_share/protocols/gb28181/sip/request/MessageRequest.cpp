@@ -16,7 +16,9 @@
 #include "SipServer.h"
 #include "StreamManager.h"
 #include "pugixml.hpp"
+#if CAP_GB35114
 #include "gm.h"
+#endif
 #include <sstream>
 using namespace SIP;
 
@@ -67,10 +69,12 @@ int MessageRequest::SendMessage(bool needcb)
         osip_message_set_content_type(msg, "Application/MANSCDP+xml");
 
         /*gb35114构建控制信令 Date、Note字段*/
+#if CAP_GB35114
         if (OK != CGm::instance()->gm_build_control_signaling_note(msg, body.c_str()))
         {
             dlog_error("gb35114构建控制信令 Date、Note字段失败");
         }
+#endif
 
         eXosip_lock(m_pContext);
         ret = eXosip_message_send_request(m_pContext, msg);

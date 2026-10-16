@@ -54,6 +54,11 @@ typedef struct _SFaceProcessContext_
     FaceFrameImageCache_S stImageCache;
 
     /* C++11 基线下带默认成员初始化器的结构体不是聚合，提供构造函数支持花括号初始化 */
+    /* 两参重载：比对适配层只绑定空载体引用，其余成员默认值由调用点逐项赋值 */
+    _SFaceProcessContext_(std::vector<Inference_NS::BoxData_S> &vPointDatas_, std::vector<Common::RectInfo_S> &vstRectInfo_)
+        : vPointDatas(vPointDatas_), vstRectInfo(vstRectInfo_)
+    {
+    }
     _SFaceProcessContext_(std::vector<Inference_NS::BoxData_S> &vPointDatas_,
                           std::vector<Common::RectInfo_S> &vstRectInfo_,
                           ot_video_frame_info *pFrameInfo_,

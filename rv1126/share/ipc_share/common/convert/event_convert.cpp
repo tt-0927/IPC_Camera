@@ -171,6 +171,7 @@ void Convert::deal(Json::Object* pRootJson, Event::AlgorithmConfig_S& stInfo, bo
     convert.field(pRootJson, "EnLoiteringDetect", stInfo.nEnLoiteringDetect);
     convert.field(pRootJson, "EnCrowdGathering", stInfo.nEnCrowdGathering);
     convert.field(pRootJson, "EnParkingDetect", stInfo.nEnParkingDetect);
+    convert.field(pRootJson, "EnQueueCrowding", stInfo.nEnQueueCrowding);
     convert.field(pRootJson, "EnUnattendedObject", stInfo.nEnUnattendedObject);
     convert.field(pRootJson, "EnObjectRemoval", stInfo.nEnObjectRemoval);
     convert.field(pRootJson, "EnPetRecognition", stInfo.nEnPetRecognition);
@@ -221,6 +222,15 @@ void Convert::deal(Json::Object* pRootJson, Event::AlgorithmConfig_S& stInfo, bo
     convert.field(pRootJson, "EnPedestrianAttribute", stInfo.nEnPedestrianAttribute);
     convert.field(pRootJson, "EnMotorVehicleAttribute", stInfo.nEnMotorVehicleAttribute);
     convert.field(pRootJson, "EnNonMotorVehicleAttribute", stInfo.nEnNonMotorVehicleAttribute);
+
+    // ========== 平安校园相关 ==========
+    convert.field(pRootJson, "ChannelOccupation", stInfo.nChannelOccupation);
+    convert.field(pRootJson, "ClimbDetection", stInfo.nClimbDetection);
+    convert.field(pRootJson, "DangerZoneApproach", stInfo.nDangerZoneApproach);
+    convert.field(pRootJson, "LongTimeStay", stInfo.nLongTimeStay);
+    convert.field(pRootJson, "DangerZoneStay", stInfo.nDangerZoneStay);
+    convert.field(pRootJson, "KeyAreaAbnormalStay", stInfo.nKeyAreaAbnormalStay);
+    convert.field(pRootJson, "RooftopStay", stInfo.nRooftopStay);
 #endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
 convert.field(pRootJson, "EnSmokeFire", stInfo.nEnSmokeFire);
@@ -324,6 +334,15 @@ void Convert::deal(Json::Object* pRootJson, Event::SmartEventEnableStatus_S& stI
     convert.field(pRootJson, "PedestrianAttribute", stInfo.bPedestrianAttribute);
     convert.field(pRootJson, "MotorVehicleAttribute", stInfo.bMotorVehicleAttribute);
     convert.field(pRootJson, "NonMotorVehicleAttribute", stInfo.bNonMotorVehicleAttribute);
+
+    // ========== 平安校园相关 ==========
+    convert.field(pRootJson, "ChannelOccupation", stInfo.bChannelOccupation);
+    convert.field(pRootJson, "ClimbDetection", stInfo.bClimbDetection);
+    convert.field(pRootJson, "DangerZoneApproach", stInfo.bDangerZoneApproach);
+    convert.field(pRootJson, "LongTimeStay", stInfo.bLongTimeStay);
+    convert.field(pRootJson, "DangerZoneStay", stInfo.bDangerZoneStay);
+    convert.field(pRootJson, "KeyAreaAbnormalStay", stInfo.bKeyAreaAbnormalStay);
+    convert.field(pRootJson, "RooftopStay", stInfo.bRooftopStay);
 #endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
 convert.field(pRootJson, "SmokeFire", stInfo.bSmokeFire);
