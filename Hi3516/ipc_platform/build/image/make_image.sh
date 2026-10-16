@@ -296,7 +296,26 @@ esac
 # ==============================
 # 准备升级文件
 # ==============================
-copy_third_party_libs "$LIB_PATH" "${UPGRADE_PATH}${RUN_PATH}/lib"
+IMAGE_LIB_PATH="${UPGRADE_PATH}${RUN_PATH}/lib"
+
+# make_image.sh 会复用 make_packet.sh 生成的 upgradefile。切换设备型号打包时，
+# 仅排除某个源目录并不会删除目标目录中上一次构建遗留的库（例如 BLE/GLib）。
+# 因此在重新收集本型号依赖库前，只清理 /opt/cam/lib 暂存目录，避免旧型号库
+# 被随后整体合并进 rootfs；upgradefile 中的应用、配置和模型保持不变。
+case "$IMAGE_LIB_PATH" in
+"${PROJECT_ROOT_PATH}/output/packet/upgradefile${RUN_PATH}/lib") : ;;
+*)
+    error "固件依赖库暂存路径异常，拒绝清理: $IMAGE_LIB_PATH"
+    exit 1
+    ;;
+esac
+
+info "清理烧录固件依赖库暂存目录: $IMAGE_LIB_PATH"
+rm -rf "$IMAGE_LIB_PATH"
+mkdir -p "$IMAGE_LIB_PATH"
+
+copy_third_party_libs "$LIB_PATH" "$IMAGE_LIB_PATH"
+copy_ble_runtime "$UPGRADE_PATH"
 
 # 删除特定库
 if [[ -f "${UPGRADE_PATH}${RUN_PATH}/lib/libvqe_record.so" ]]; then
@@ -307,7 +326,9 @@ fi
 # Strip 符号表
 if compgen -G "${UPGRADE_PATH}${RUN_PATH}/lib/*" >/dev/null 2>&1; then
     info "正在 strip 依赖库..."
-    "$STRIP_TOOL" --strip-all "${UPGRADE_PATH}${RUN_PATH}/lib/"*
+    # "$STRIP_TOOL" --strip-all "${UPGRADE_PATH}${RUN_PATH}/lib/"*
+    strip_shared_libraries "$STRIP_TOOL" "${UPGRADE_PATH}${RUN_PATH}/lib"
+    deduplicate_shared_libraries "${UPGRADE_PATH}${RUN_PATH}/lib"
 fi
 
 # 拷贝插件和字体

@@ -156,6 +156,55 @@ fi
 
 # 国密 SM2 私钥由业务代码通过 CCryptoManager 生成，避免脚本 gmssl 与 OpenSSL Provider 私钥格式不兼容
 
+# 蓝牙型号会由打包脚本安装 D-Bus/BlueZ 运行环境。必须先启动系统总线，
+# 再启动 bluetoothd，operation 才能通过 GDBus 注册广播和 GATT 服务。
+# 非蓝牙型号没有这些可执行文件，会直接跳过，不影响原有启动流程。
+start_bluetooth_services() {
+    if [ ! -x /usr/bin/dbus-daemon ] || [ ! -x /usr/libexec/bluetooth/bluetoothd ]; then
+        echo "[Bluetooth] 未安装 D-Bus/BlueZ 运行环境，跳过蓝牙服务"
+        return 0
+    fi
+
+    mkdir -p /run/dbus /var/run/dbus
+
+    if [ ! -s /etc/machine-id ] && [ -x /usr/bin/dbus-uuidgen ]; then
+        /usr/bin/dbus-uuidgen --ensure=/etc/machine-id || {
+            echo "[Bluetooth] 生成 D-Bus machine-id 失败" >&2
+            return 1
+        }
+    fi
+
+    if ! pidof dbus-daemon >/dev/null 2>&1; then
+        /usr/bin/dbus-daemon --system || {
+            echo "[Bluetooth] dbus-daemon 启动失败" >&2
+            return 1
+        }
+    fi
+
+    if [ ! -S /run/dbus/system_bus_socket ]; then
+        echo "[Bluetooth] D-Bus system bus socket 不存在" >&2
+        return 1
+    fi
+
+    # 本交叉编译版本的 GLib 默认可能查找 /var/run/dbus/system_bus_socket，
+    # 而目标系统的 dbus-daemon 实际监听 /run/dbus/system_bus_socket。
+    # 显式传递地址，确保后续 bluetoothd 和 operation 使用同一条系统总线。
+    export DBUS_SYSTEM_BUS_ADDRESS=unix:path=/run/dbus/system_bus_socket
+
+    if ! pidof bluetoothd >/dev/null 2>&1; then
+        /usr/libexec/bluetooth/bluetoothd >/tmp/bluetoothd.log 2>&1 &
+        sleep 1
+    fi
+
+    if pidof bluetoothd >/dev/null 2>&1; then
+        echo "[Bluetooth] dbus-daemon 和 bluetoothd 启动成功"
+        return 0
+    fi
+
+    echo "[Bluetooth] bluetoothd 启动失败，日志: /tmp/bluetoothd.log" >&2
+    return 1
+}
+
 # 修改权限
 chmod 770 -R /opt/cam
 chmod 770 -R /opt/course
@@ -165,6 +214,9 @@ chmod 777 /lib
 
 # 升级程序
 /opt/cam/bin/upgrade &
+
+# 蓝牙服务失败不应阻止摄像机核心业务启动。
+start_bluetooth_services || true
 
 # 运维程序
 /opt/cam/bin/operation &

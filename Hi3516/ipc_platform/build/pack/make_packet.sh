@@ -367,6 +367,11 @@ copy_config_files() {
                 info "跳过特征点提取配置: $filename"
                 continue
             fi
+            # 排除烟火识别提取配置（非垃圾站型号不需要）
+            if [[ "$filename" == "aiRknnConfig.json" ]]; then
+                info "跳过烟火识别提取配置: $filename"
+                continue
+            fi
             # 排除展会检测配置（非HZT型号不需要）
             if [[ "$filename" == "ai_exhibition.json" ]]; then
                 info "跳过展会检测配置: $filename"
@@ -389,6 +394,11 @@ copy_config_files() {
         local mobileface_config="${CONFIG_PATH}/design_data/ai_mobileface.json"
         if [ -f "$mobileface_config" ]; then
             info "当前型号 $DEVICE_TYPE 为垃圾站型号，拷贝特征点提取配置..."
+            cp -a "$mobileface_config" "${UPGRADE_PATH}/${RUN_PATH}"/.config/design_data/
+        fi
+        local mobileface_config="${CONFIG_PATH}/design_data/aiRknnConfig.json"
+        if [ -f "$mobileface_config" ]; then
+            info "当前型号 $DEVICE_TYPE 为垃圾站型号，拷贝烟火识别配置..."
             cp -a "$mobileface_config" "${UPGRADE_PATH}/${RUN_PATH}"/.config/design_data/
         fi
     fi
@@ -457,7 +467,13 @@ copy_lib_files() {
     # 拷贝所有依赖库到lib目录
     copy_third_party_libs "${LIB_PATH}" "${UPGRADE_PATH}/${RUN_PATH}"/lib
     # 移除符号表、调试信息
-    /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/bin/arm-v01c02-linux-musleabi-strip --strip-all "${UPGRADE_PATH}/${RUN_PATH}"/lib/*
+    # /opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/bin/arm-v01c02-linux-musleabi-strip --strip-all "${UPGRADE_PATH}/${RUN_PATH}"/lib/*
+
+    local strip_tool="/opt/hisi-linux/x86-arm/arm-v01c02-linux-musleabi-gcc/bin/arm-v01c02-linux-musleabi-strip"
+    strip_shared_libraries "$strip_tool" "${UPGRADE_PATH}/${RUN_PATH}/lib"
+    deduplicate_shared_libraries "${UPGRADE_PATH}/${RUN_PATH}/lib"
+    # 蓝牙运行程序安装到 upgradefile 根目录下的 /usr、/etc，不能放到 /opt/cam。
+    copy_ble_runtime "${UPGRADE_PATH}"
 }
 
 # ============================================================
@@ -495,6 +511,10 @@ copy_model_files() {
                 info "跳过特征点提取模型: $filename"
                 continue
             fi
+            if [[ "$filename" =~ FirePerson ]]; then
+                info "跳过烟火识别模型: $filename"
+                continue
+            fi
             # 排除展会检测模型（非HZT型号不需要）
             if [[ "$filename" =~ exhibition ]]; then
                 info "跳过展会检测模型: $filename"
@@ -520,6 +540,10 @@ copy_model_files() {
                 fi
                 if [[ "$filename" =~ mobileface ]]; then
                     info "拷贝特征点提取模型: $filename"
+                    cp -a "$model_file" "${UPGRADE_PATH}/${RUN_PATH}"/model/
+                fi
+                if [[ "$filename" =~ FirePerson ]]; then
+                    info "拷贝烟火识别模型: $filename"
                     cp -a "$model_file" "${UPGRADE_PATH}/${RUN_PATH}"/model/
                 fi
             fi

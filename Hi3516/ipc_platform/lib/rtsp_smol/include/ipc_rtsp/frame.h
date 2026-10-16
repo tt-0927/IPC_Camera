@@ -53,8 +53,12 @@ struct VideoFrameView
 /** 共享视频帧（引用计数 buffer）。 */
 struct SharedVideoFrame
 {
-    /* memory: 共享拥有（引用计数）；库内有订阅者时共享这一份 payload，不再复制。 */
-    std::shared_ptr<const std::uint8_t[]> data;
+    /* memory: 共享拥有（引用计数）；库内有订阅者时共享这一份 payload，不再复制。
+     * 指向 new[] 数组首元素，释放走数组 deleter。用标量 shared_ptr 而非
+     * shared_ptr<T[]>：后者的数组式支持在 gcc 6.5（富瀚工具链）下不完整
+     * （get() 返回 (*)[]、无 operator[]）。构造请用别名构造或数组 deleter，
+     * 参考.push_stream/rtsp_smol/rtsp_server.cpp 的入帧适配。 */
+    std::shared_ptr<const std::uint8_t> data;
     /* 帧字节数。 */
     std::size_t size = 0;
 };
