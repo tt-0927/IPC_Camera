@@ -310,35 +310,6 @@ static int mppAo_setVolume(HiAo_S *pHandle, int nVolume)
     return TD_SUCCESS;
 }
 
-/**
- * @brief   : 查询 AO 通道忙帧数（缓冲区内已排队待播的帧数）
- * @author  : 小猪
- * @date    : 2026-10-15
- * @param    {HiAo_S} *pHandle：句柄
- * @param    {int} nChn：通道号
- * @param    {uint32_t} *pu32BusyNum：忙帧数输出指针
- * @return   {int} 0：成功，-1：失败
- * @note     用于对讲延迟诊断：忙帧数 × 单帧时长即 AO 通道内排队待播的时长。
- */
-static int mppAo_queryChnBusyNum(HiAo_S *pHandle, int nChn, uint32_t *pu32BusyNum)
-{
-    if (NULL == pHandle || NULL == pu32BusyNum)
-    {
-        return TD_FAILURE;
-    }
-
-    ot_ao_chn_state stState;
-    memset(&stState, 0, sizeof(stState));
-    td_s32 nRet = ss_mpi_ao_query_chn_status(pHandle->stNeedParam.nDevId, nChn, &stState);
-    if (nRet != TD_SUCCESS)
-    {
-        return TD_FAILURE;
-    }
-
-    *pu32BusyNum = stState.chn_busy_num;
-    return TD_SUCCESS;
-}
-
 HiAo_S *mppAo_alloc(HiAoNeedParam_S stNeedParam)
 {
     HiAo_S *pHandle = (HiAo_S *)malloc(sizeof(HiAo_S));

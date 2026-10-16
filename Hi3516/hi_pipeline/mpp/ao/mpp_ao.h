@@ -96,17 +96,6 @@ struct _HiAo_S
      * @return   {int} 0：成功排空，-1：超时或错误
      */
     int (*mppAo_waitDrained)(HiAo_S *pHandle, int nChn, int nTimeoutMs);
-
-    /**
-     * @brief   : 查询 AO 通道忙帧数（缓冲区内已排队待播的帧数）
-     * @param    {HiAo_S} *pHandle：句柄
-     * @param    {int} nChn：通道号
-     * @param    {uint32_t} *pu32BusyNum：忙帧数输出指针
-     * @return   {int} 0：成功，-1：失败（句柄或指针无效、查询接口报错）
-     * @note     忙帧数 × 单帧时长（u32PointNumPerFrame 采样 @采样率）即数据在
-     *           AO 通道内排队待播的时长，是 AO 侧实际缓冲延迟的直接依据。
-     */
-    int (*mppAo_queryChnBusyNum)(HiAo_S *pHandle, int nChn, uint32_t *pu32BusyNum);
 };
 
 /**

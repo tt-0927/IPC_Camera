@@ -51,110 +51,6 @@ namespace
         return OK;
     }
 
-    /*
-     * 对讲 AO 送帧诊断。日志关键字与 rv1126 侧（其 stream_audio.cpp 的
-     * ao_send_diag）保持一致，便于双平台日志统一检索比对。
-     * 差异一：Hi3516 的 sendAudio_to_Adec 可被 TVSDK 对讲线程、GB28181 对讲线程、
-     * 事件联动异步线程等多个来源调用，故计数一律用原子变量；relaxed 序即可——
-     * 仅做统计汇总，不承担线程间同步语义。
-     * 差异二：Hi3516 送帧为非阻塞（超时 0），AO 缓冲满时立即返回失败并丢帧，
-     * 不会反压调用线程，因此重点是失败次数与忙帧水位，而非阻塞耗时。
-     * 缓冲水位(忙帧数 均/峰) 即 AO 通道内已排队待播的帧数，乘以单帧时长
-     * （PCM 时 256 采样 @16kHz = 16ms）即为数据在 AO 内排队待播的时长。
-     */
-    constexpr uint64_t kAoSendDiagWindowMs = 1000;
-
-    std::atomic<uint64_t> g_nAoSendDiagWindowStartMs{0};   /* 当前统计窗口起点 */
-    std::atomic<uint64_t> g_nAoSendDiagFrames{0};          /* 窗口内送帧次数 */
-    std::atomic<uint64_t> g_nAoSendDiagFail{0};             /* 窗口内送帧失败次数（AO 满，帧被丢弃） */
-    std::atomic<uint64_t> g_nAoSendDiagCostSumMs{0};        /* 送帧耗时累计 */
-    std::atomic<uint64_t> g_nAoSendDiagCostMaxMs{0};        /* 送帧耗时最大值 */
-    std::atomic<uint64_t> g_nAoSendDiagBusySum{0};          /* 窗口内 AO 通道忙帧数累计 */
-    std::atomic<uint64_t> g_nAoSendDiagBusyMax{0};          /* 窗口内 AO 通道忙帧数峰值 */
-
-    /**
-     * @brief   : 取单调时钟毫秒值，用于 AO 送帧诊断计时。
-     * @return   {uint64_t} 自 steady_clock 起点的毫秒数。
-     */
-    static uint64_t ao_send_diag_now_ms()
-    {
-        return static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(
-            std::chrono::steady_clock::now().time_since_epoch()).count());
-    }
-
-    /**
-     * @brief   : 记录一次 AO 送帧的结果，并按固定窗口汇总打印。
-     * @param    {uint64_t} nCostMs 本次送帧耗时（毫秒）。
-     * @param    {bool} bFail 本次送帧是否失败（AO 缓冲满，帧被丢弃）。
-     * @param    {uint64_t} nBusyNum 送帧后 AO 通道忙帧数（查询失败时为 0）。
-     * @return   无
-     */
-    static void ao_send_diag(uint64_t nCostMs, bool bFail, uint64_t nBusyNum)
-    {
-        const uint64_t nNowMs = ao_send_diag_now_ms();
-
-        g_nAoSendDiagFrames.fetch_add(1, std::memory_order_relaxed);
-        g_nAoSendDiagCostSumMs.fetch_add(nCostMs, std::memory_order_relaxed);
-        g_nAoSendDiagBusySum.fetch_add(nBusyNum, std::memory_order_relaxed);
-        if (bFail)
-        {
-            g_nAoSendDiagFail.fetch_add(1, std::memory_order_relaxed);
-        }
-
-        uint64_t nExpectedCostMax = g_nAoSendDiagCostMaxMs.load(std::memory_order_relaxed);
-        while (nCostMs > nExpectedCostMax &&
-               !g_nAoSendDiagCostMaxMs.compare_exchange_weak(
-                   nExpectedCostMax, nCostMs, std::memory_order_relaxed))
-        {
-            /* 循环重试由 compare_exchange_weak 自身完成，无额外操作 */
-        }
-
-        uint64_t nExpectedBusyMax = g_nAoSendDiagBusyMax.load(std::memory_order_relaxed);
-        while (nBusyNum > nExpectedBusyMax &&
-               !g_nAoSendDiagBusyMax.compare_exchange_weak(
-                   nExpectedBusyMax, nBusyNum, std::memory_order_relaxed))
-        {
-            /* 循环重试由 compare_exchange_weak 自身完成，无额外操作 */
-        }
-
-        uint64_t nWindowStartMs = g_nAoSendDiagWindowStartMs.load(std::memory_order_relaxed);
-        if (nWindowStartMs == 0)
-        {
-            g_nAoSendDiagWindowStartMs.compare_exchange_strong(
-                nWindowStartMs, nNowMs, std::memory_order_relaxed);
-            return;
-        }
-
-        const uint64_t nWindowMs = nNowMs - nWindowStartMs;
-        if (nWindowMs < kAoSendDiagWindowMs)
-        {
-            return;
-        }
-
-        /*
-         * 抢窗口：CAS 成功的线程负责本窗口的汇总打印与计数清零，
-         * 避免多来源并发时同一窗口重复打印。
-         */
-        if (!g_nAoSendDiagWindowStartMs.compare_exchange_strong(
-                nWindowStartMs, nNowMs, std::memory_order_relaxed))
-        {
-            return;
-        }
-
-        const uint64_t nFrames = g_nAoSendDiagFrames.exchange(0, std::memory_order_relaxed);
-        const uint64_t nFails = g_nAoSendDiagFail.exchange(0, std::memory_order_relaxed);
-        const uint64_t nCostSumMs = g_nAoSendDiagCostSumMs.exchange(0, std::memory_order_relaxed);
-        const uint64_t nBusySum = g_nAoSendDiagBusySum.exchange(0, std::memory_order_relaxed);
-
-        dlog_info("对讲AO送帧诊断: 窗口%llums 送帧%llu次 失败%llu次 送帧耗时(均%llums/最大%llums) 缓冲水位(均%llu/峰%llu)",
-                  static_cast<unsigned long long>(nWindowMs),
-                  static_cast<unsigned long long>(nFrames),
-                  static_cast<unsigned long long>(nFails),
-                  static_cast<unsigned long long>((nFrames > 0) ? (nCostSumMs / nFrames) : 0),
-                  static_cast<unsigned long long>(g_nAoSendDiagCostMaxMs.exchange(0, std::memory_order_relaxed)),
-                  static_cast<unsigned long long>((nFrames > 0) ? (nBusySum / nFrames) : 0),
-                  static_cast<unsigned long long>(g_nAoSendDiagBusyMax.exchange(0, std::memory_order_relaxed)));
-    }
 } // namespace
 
 CStreamAudio* CStreamAudio::m_self = NULL;
@@ -501,25 +397,20 @@ int CStreamAudio::sendAudio_to_Adec(const Audio_NS::AoInfo_S &stAoInfo)
     /*
      * 送帧为非阻塞（超时 0）：AO 缓冲满时立即返回失败、本帧被丢弃。
      * 原实现未检查返回值，AO 满帧时会静默丢帧无任何感知，故此处记录失败并计数。
+     * 句柄判空与 waitAoDrained 保持一致，避免音频初始化失败时解引用空指针。
      */
-    const uint64_t nAoSendStartMs = ao_send_diag_now_ms();
-    const int nSendRet = m_pAoHandle[stAoInfo.nChannel]->mppAo_sendFrame(
-        m_pAoHandle[stAoInfo.nChannel], stAoInfo.nChannel, &stFrame, 0);
-    const uint64_t nAoSendCostMs = ao_send_diag_now_ms() - nAoSendStartMs;
+    HiAo_S *pAoHandle = m_pAoHandle[stAoInfo.nChannel];
+    int nSendRet = TD_FAILURE;
+    if (pAoHandle != nullptr)
+    {
+        nSendRet = pAoHandle->mppAo_sendFrame(pAoHandle, stAoInfo.nChannel, &stFrame, 0);
+    }
 
-    /*
-     * 查询 AO 通道忙帧数，用于量化播放侧的实际缓冲延迟。
-     * 忙帧数 × 单帧时长（PCM 时 256 采样 @16kHz = 16ms）即数据在 AO 内
-     * 排队待播的时长；查询失败时按 0 计，不影响送帧与失败次数统计。
-     */
-    uint32_t unAoBusyNum = 0;
-    const bool bBusyQueryOk = (TD_SUCCESS == m_pAoHandle[stAoInfo.nChannel]->mppAo_queryChnBusyNum(
-        m_pAoHandle[stAoInfo.nChannel], stAoInfo.nChannel, &unAoBusyNum));
-
-    ao_send_diag(nAoSendCostMs, (TD_SUCCESS != nSendRet),
-                 bBusyQueryOk ? static_cast<uint64_t>(unAoBusyNum) : 0);
-
-    if (TD_SUCCESS != nSendRet)
+    if (pAoHandle == nullptr)
+    {
+        dlog_error("AO送帧失败: 通道%d 句柄为空（音频输出未初始化）", stAoInfo.nChannel);
+    }
+    else if (TD_SUCCESS != nSendRet)
     {
         dlog_warn("AO送帧失败(对讲/联动音频) ret=0x%08x 通道%d 帧长%u字节（AO缓冲满，本帧已丢弃）",
                   static_cast<unsigned int>(nSendRet),
@@ -896,11 +787,21 @@ void CStreamAudio::deal_aiFrame_thr(int param)
                     /* 音量调整 */
                     volume_adjust(reinterpret_cast<int8_t *>(stFrame.virt_addr[0]), stFrame.len);
                     
-                    // NVR测按PCM参数建立VoiceCom后，TVSDK captrue 回调会该缓存区帧发送
+                    /* NVR 侧按 PCM 参数建立 VoiceCom 后，TVSDK capture 回调会从该缓冲区取帧发送 */
                     CVoiceComCaptureSource::instance()->push_pcm_frame(stFrame.virt_addr[0], stFrame.len);
 
-                    /* 送 AENC 模块 */
-                    m_pAencHandle[nChannel]->mppAenc_sendFrame(m_pAencHandle[nChannel], &stFrame);
+                    /*
+                     * 送 AENC 模块。原实现未检查返回值，送帧失败时无任何感知，此处补上。
+                     */
+                    const int nAencRet = m_pAencHandle[nChannel]->mppAenc_sendFrame(
+                        m_pAencHandle[nChannel], &stFrame);
+                    if (TD_SUCCESS != nAencRet)
+                    {
+                        dlog_warn("AENC送帧失败 ret=0x%08x 通道%d 帧长%u字节",
+                                  static_cast<unsigned int>(nAencRet),
+                                  nChannel,
+                                  static_cast<unsigned int>(stFrame.len));
+                    }
 
                     /* 发送数据到 AI_APP */
                     algo_send_audioStreamData(stFrame.virt_addr[0], stFrame.len);
