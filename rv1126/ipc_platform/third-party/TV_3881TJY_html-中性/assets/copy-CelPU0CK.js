@@ -1,0 +1,1 @@
+import{C as s}from"./clipboard-CMlwyOni.js";import{E as e}from"./element-plus-CKJIAC2w.js";const t=t=>{if(!t)return void e.warning("复制内容不能为空");const o=document.createElement("button"),r=new s(o,{text:()=>"string"==typeof t?t:""});r.on("success",s=>{e.success("复制成功"),r.destroy()}),r.on("error",s=>{e.success("复制失败，请重试"),r.destroy()}),o.click()};export{t as u};
