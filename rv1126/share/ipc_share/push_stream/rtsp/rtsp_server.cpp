@@ -1605,6 +1605,11 @@ int CRtspServer::reset_lastIdrRequestTime()
     return OK;
 }
 
+/* 当前未启用：本函数经 rtsp_getclient_info 获取客户端 IP，但 cam_share 侧的
+   fClientInfo[i].ip 从未被填充（只被 rtsp_getclient_info 读取、无任何代码写入），
+   返回的 IP 为空或未初始化内存，close_connection 无法命中任何客户端。
+   待 cam_share 修复 IP 填充，或将 RTSPServer::closeSocketsRTSP() 暴露后，
+   再由校时路径调用。 */
 int CRtspServer::closeAllClients()
 {
     std::lock_guard<std::mutex> lock(m_mutexCtrl);

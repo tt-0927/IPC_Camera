@@ -346,10 +346,9 @@ public:
     /**
      * @brief   : 关闭所有 RTSP 客户端连接
      * @return   {int} 0：成功 非0：失败
-     * @note    : 用于系统时间跳变后强制客户端重新加入。时间跳变会使 live555 依据
-     *           墙钟生成的 RTP 时间戳倒退，客户端易判定异常并停止接收，导致音视频
-     *           队列积压与断流；重新加入时 live555 会重置 RTP 序列号与时间戳基准，
-     *           使客户端按新起点重新同步。
+     * @note    : 【当前未启用】cam_share 的 rtsp_getclient_info 返回的 IP 未被填充
+     *           （fClientInfo 只被读取、无任何代码写入），实际无法关闭任何客户端。
+     *           待 cam_share 侧修复后，再由校时路径调用。
      */
     int closeAllClients();
 

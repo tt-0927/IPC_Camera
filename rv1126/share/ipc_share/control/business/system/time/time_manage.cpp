@@ -342,16 +342,6 @@ IpcRet_E CTimeManage::notify_system_time_changed(const SystemTimeChangeInfo_S &s
         enFinalRet = ERR;
     }
 
-    /* 时间跳变会使 live555 依据墙钟生成的 RTP 时间戳倒退，客户端易判定异常并停止接收，
-       导致音视频队列积压与断流。此处主动关闭所有客户端，使其走重新加入流程，
-       由 live555 重置 RTP 序列号与时间戳基准，从而快速恢复。关闭失败不置失败标志：
-       校时本身已生效，该动作属补救性质。 */
-    const int nCloseRet = CRtspServer::instance()->closeAllClients();
-    if (nCloseRet != OK)
-    {
-        dlog_error("系统时间变化后关闭RTSP客户端失败, ret:%d", nCloseRet);
-    }
-
     const int nRet = m_fnTimeChangeCallback(stChangeInfo);
     if (nRet != OK)
     {
