@@ -85,8 +85,11 @@ case "$DEVICE_TYPE" in
     TV-3881T)
         FIRMWARE_BASE_PATH="$FIRMWARE_3881T_BASE_PATH"
         ;;
+    TV-3881TJY)
+        FIRMWARE_BASE_PATH="$FIRMWARE_3881T_BASE_PATH"
+        ;;
     *)
-        error "不支持的设备类型: $DEVICE_TYPE（仅支持 TV-3882TI / TV-3881T）"
+        error "不支持的设备类型: $DEVICE_TYPE（仅支持 TV-3882TI / TV-3881T / TV-3881TJY）"
         ;;
 esac
 

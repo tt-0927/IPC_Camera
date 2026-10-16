@@ -4,7 +4,7 @@
  # @Author       : zhouzr@kfb.cn
  # @Date         : 2025-06-12 10:59:07
  # @LastEditors: leiyy leiyy@kfb.cn
- # @LastEditTime: 2026-06-15 17:22:02
+ # @LastEditTime: 2026-10-09 15:03:02
  # @Description  : 编译升级包脚本
 ###
 
@@ -130,6 +130,8 @@ if [ "${DEVICE_TYPE}" == "TV-3881T" ]; then
     UPGRADE_ID_INDEX=881
 elif [ "${DEVICE_TYPE}" == "TV-3882TI" ]; then
     UPGRADE_ID_INDEX=882
+elif [ "${DEVICE_TYPE}" == "TV-3881TJY" ]; then
+    UPGRADE_ID_INDEX=81J
 fi
 
 # 删除临时文件
@@ -144,6 +146,8 @@ CONFIG_PATH=${ENVIRONMENT_PATH}/config
 CERT_PATH=${ENVIRONMENT_PATH}/cert
 # 模型路径
 MODEL_PATH=${ENVIRONMENT_PATH}/model
+# TV-3881TJY模型路径
+TV_3881TJY_MODEL_PATH=${ENVIRONMENT_PATH}/TV_3881TJY_model
 # 系统路径
 SYSTEM_PATH=${ENVIRONMENT_PATH}/system
 # 脚本路径
@@ -162,13 +166,21 @@ RUN_PATH=/opt/cam
 # 网页程序路径
 info "拷贝网页文件"
 info "当前项目类型: ${PROJECT_TYPE}"
-# 网页程序路径
+# 网页程序路径（TV-3881TJY 使用专用网页）
 case "$PROJECT_TYPE" in
     itc)
-        WEB_PATH=${THIRD_PARTY_PATH}/html
+        if [ "${DEVICE_TYPE}" == "TV-3881TJY" ]; then
+            WEB_PATH=${THIRD_PARTY_PATH}/TV_3881TJY_html
+        else
+            WEB_PATH=${THIRD_PARTY_PATH}/html
+        fi
         ;;
     中性)
-        WEB_PATH=${THIRD_PARTY_PATH}/html-中性
+        if [ "${DEVICE_TYPE}" == "TV-3881TJY" ]; then
+            WEB_PATH=${THIRD_PARTY_PATH}/TV_3881TJY_html-中性
+        else
+            WEB_PATH=${THIRD_PARTY_PATH}/html-中性
+        fi
         ;;
     *)
         error "不支持的项目类型: ${PROJECT_TYPE}，支持的类型: itc, 中性"
@@ -246,7 +258,6 @@ copy_app_files() {
 
     #拷贝NetTVSDK库
     cp -a ${LIB_PATH}/NetTVSDK/lib/*  ${UPGRADE_PATH}/${RUN_PATH}/lib
-    cp -a ${LIB_PATH}/RtspServer/lib/* ${UPGRADE_PATH}/${RUN_PATH}/lib
 
 # ******************************************************************************************************************************#
 
@@ -318,6 +329,8 @@ copy_app_files() {
         cp -a ${IQ_PATH}/sc831hai_default_default.json ${UPGRADE_PATH}/etc/iqfiles
     elif [ "$DEVICE_TYPE" == "TV-3881T" ]; then
         cp -a ${IQ_PATH}/sc850sl_default_default.json ${UPGRADE_PATH}/etc/iqfiles
+    elif [ "$DEVICE_TYPE" == "TV-3881TJY" ]; then
+        cp -a ${IQ_PATH}/sc850sl_default_default.json ${UPGRADE_PATH}/etc/iqfiles
     else
         PROJECT_MK=""
         error "设备型号异常: $DEVICE_TYPE" $LINENO
@@ -344,6 +357,8 @@ copy_model_files() {
         cp -a ${MODEL_PATH}/*LicensePlateRec* ${UPGRADE_PATH}/${RUN_PATH}/model/
         cp -a ${MODEL_PATH}/*group* ${UPGRADE_PATH}/${RUN_PATH}/model/
         cp -a ${MODEL_PATH}/*Attribute* ${UPGRADE_PATH}/${RUN_PATH}/model/
+        elif [ "${DEVICE_TYPE}" == "TV-3881TJY" ]; then
+        cp -a ${TV_3881TJY_MODEL_PATH}/* ${UPGRADE_PATH}/${RUN_PATH}/model/
         elif [ "${DEVICE_TYPE}" == "TV-3882TI" ]; then
         cp -a ${MODEL_PATH}/*Detect* ${UPGRADE_PATH}/${RUN_PATH}/model/
         cp -a ${MODEL_PATH}/*Face* ${UPGRADE_PATH}/${RUN_PATH}/model/

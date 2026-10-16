@@ -1,0 +1,29 @@
+{
+    "version": "v1.0.1",
+    "model": "Yolov8n",
+    "notes": "烟雾、火焰、行人检测模型",
+    "model_path": "/opt/cam/model/RV1126B_FirePersonDetect_yolov8n_640x640_V1.0.rknn",
+    "pre_process": {
+        "size": [
+            640,
+            640
+        ],
+        "channel": 3,
+        "type": "rgb",
+        "mean": [0,0,0],
+        "std": [255,255,255],
+        "padding": 0
+    },
+    "inference": {
+        "framework": "rv1126b"
+    },
+    "post_precess": {
+        "confidence": 0.25,
+        "nms": 0.25,
+        "label_name": [
+            "smoke",
+            "fire",
+            "Person"
+        ]
+    }
+}
