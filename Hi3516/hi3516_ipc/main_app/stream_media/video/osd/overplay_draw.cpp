@@ -2425,6 +2425,27 @@ int COverplayDraw::algha_percentage_to_rgb(uint32_t nAlpha)
     return (100 - nAlpha) * 255 / 100;
 }
 
+/**
+ * @brief   : 关闭闪烁后恢复 OSD 区域显示
+ * @param   {HiRgn_S} *pHandle：OSD 区域句柄
+ * @param   {Osd::OverplayInfo_S} &stOverplayInfo：OSD 配置
+ * @return  {void}
+ * @note    : 闪烁线程可能在上一次刷新时隐藏了该区域；关闭闪烁后不能依赖
+ *            bIsShow 的旧状态，需在绘制入口显式恢复显示。
+ */
+static void ensure_visible_without_flicker(HiRgn_S *pHandle, const Osd::OverplayInfo_S &stOverplayInfo)
+{
+    if (NULL == pHandle || !stOverplayInfo.stuInfo.bEnable || stOverplayInfo.stuOverplay.bEnableFlicker)
+    {
+        return;
+    }
+
+    if (pHandle->mppRgn_showOrHide(pHandle, TD_TRUE))
+    {
+        dlog_error("关闭闪烁后恢复OSD显示失败, handle:%u", pHandle->unHandle);
+    }
+}
+
 #if defined(IPC_OSD_FONT_BACKEND_DOTFONT)
 /* 用点阵字库（dotfont）绘制，ARGB4444 直出 RGN */
 void COverplayDraw::draw_text(HiRgn_S *pHandle, Osd::OverplayInfo_S stuOverplayInfo, const char *pText)
@@ -2437,6 +2458,8 @@ void COverplayDraw::draw_text(HiRgn_S *pHandle, Osd::OverplayInfo_S stuOverplayI
         }
         return;
     }
+
+    ensure_visible_without_flicker(pHandle, stuOverplayInfo);
 
     if (NULL == g_pstOsdDotFont16)
     {
@@ -2547,6 +2570,8 @@ void COverplayDraw::draw_text(HiRgn_S *pHandle, Osd::OverplayInfo_S stuOverplayI
         }
         return;
     }
+
+    ensure_visible_without_flicker(pHandle, stuOverplayInfo);
 
     /* 确定像素格式 */
     Uint32 u32PixelFormat = SDL_PIXELFORMAT_ARGB4444;

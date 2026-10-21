@@ -1186,6 +1186,27 @@ int COverlayDraw::algha_percentage_to_rgb(uint32_t nAlpha)
     return (100 - nAlpha) * 255 / 100;
 }
 
+/**
+ * @brief   : 关闭闪烁后恢复 OSD 区域显示
+ * @param   {RkRgn_S} *pHandle：OSD 区域句柄
+ * @param   {Osd::OverplayInfo_S} &stOverplayInfo：OSD 配置
+ * @return  {void}
+ * @note    : 闪烁线程可能在上一次刷新时隐藏了该区域；关闭闪烁后不能依赖
+ *            bIsShow（RV1126 的 showOrHide 不同步软件状态），需显式恢复显示。
+ */
+static void ensure_visible_without_flicker(RkRgn_S *pHandle, const Osd::OverplayInfo_S &stOverplayInfo)
+{
+    if (NULL == pHandle || !stOverplayInfo.stuInfo.bEnable || stOverplayInfo.stuOverplay.bEnableFlicker)
+    {
+        return;
+    }
+
+    if (pHandle->rockitRgn_showOrHide(pHandle, RK_TRUE))
+    {
+        dlog_error("关闭闪烁后恢复OSD显示失败, handle:%u", pHandle->unHandle);
+    }
+}
+
 #if 1
 /* 用freetype + sdl + sdl_ttf库来画 */
 void COverlayDraw::draw_text(RkRgn_S *pHandle, Osd::OverplayInfo_S stuOverplayInfo, const char *pText)
@@ -1202,6 +1223,8 @@ void COverlayDraw::draw_text(RkRgn_S *pHandle, Osd::OverplayInfo_S stuOverplayIn
         pHandle->rockitRgn_clearPicture(pHandle);
         return;
     }
+
+    ensure_visible_without_flicker(pHandle, stuOverplayInfo);
 
      static unsigned int OldStartX[MAX_OSD_OVERLAY_NUM * VPSS_CHN_MAX]={0}, OldStartY[MAX_OSD_OVERLAY_NUM * VPSS_CHN_MAX]={0};
 
