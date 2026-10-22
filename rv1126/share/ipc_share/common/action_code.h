@@ -590,6 +590,34 @@ typedef enum
     AC_GET_ROOFTOP_STAY_INFO = 2810,
     /* 设置天台滞留配置 */
     AC_SET_ROOFTOP_STAY_INFO = 2811,
+    /* 获取排队拥堵检测配置 */
+    AC_GET_QUEUE_CROWDING_INFO = 2812,
+    /* 设置排队拥堵检测配置 */
+    AC_SET_QUEUE_CROWDING_INFO = 2813,
+    /* 获取明火离人识别配置 */
+    AC_GET_OPEN_FLAME_LEAVE_CFG = 2814,
+    /* 设置明火离人识别配置 */
+    AC_SET_OPEN_FLAME_LEAVE_CFG = 2815,
+    /* 获取后厨无关人员进入配置 */
+    AC_GET_KITCHEN_UNRELATED_PERSON_ENTRY_INFO = 2816,
+    /* 设置后厨无关人员进入配置 */
+    AC_SET_KITCHEN_UNRELATED_PERSON_ENTRY_INFO = 2817,
+    /* 获取门禁异常通行配置 */
+    AC_GET_ACCESS_CONTROL_ABNORMAL_PASSAGE_INFO = 2818,
+    /* 设置门禁异常通行配置 */
+    AC_SET_ACCESS_CONTROL_ABNORMAL_PASSAGE_INFO = 2819,
+    /* 获取社交关系分析配置 */
+    AC_GET_SOCIAL_RELATIONSHIP_ANALYSIS_INFO = 2820,
+    /* 设置社交关系分析配置 */
+    AC_SET_SOCIAL_RELATIONSHIP_ANALYSIS_INFO = 2821,
+    /* 获取后厨穿戴规范配置 */
+    AC_GET_KITCHEN_CLOTHING_COMPLIANCE_INFO = 2822,
+    /* 设置后厨穿戴规范配置 */
+    AC_SET_KITCHEN_CLOTHING_COMPLIANCE_INFO = 2823,
+    /* 获取消防设施异常配置 */
+    AC_GET_FIRE_EQUIPMENT_ABNORMAL_CFG = 2824,
+    /* 设置消防设施异常配置 */
+    AC_SET_FIRE_EQUIPMENT_ABNORMAL_CFG = 2825,
 
     /**
      * @brief 预览相关

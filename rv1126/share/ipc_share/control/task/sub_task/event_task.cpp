@@ -57,6 +57,7 @@ static void helper_convert_to_status(const Event::AlgorithmConfig_S& algo, Event
     status.bLeaveRegion = algo.nEnLeaveRegion;
     status.bLoiteringDetect = algo.nEnLoiteringDetect;
     status.bCrowdGathering = algo.nEnCrowdGathering;
+    status.bQueueCrowding = algo.nEnQueueCrowding;
     status.bParkingDetect = algo.nEnParkingDetect;
     status.bAudioAnomaly = algo.nEnAudioAnomaly;
     status.bSceneChange = algo.nEnSceneChange;
@@ -107,6 +108,10 @@ static void helper_convert_to_status(const Event::AlgorithmConfig_S& algo, Event
     status.bDangerZoneStay = algo.nDangerZoneStay;
     status.bKeyAreaAbnormalStay = algo.nKeyAreaAbnormalStay;
     status.bRooftopStay = algo.nRooftopStay;
+    status.bKitchenUnrelatedPersonEntry = algo.nKitchenUnrelatedPersonEntry;
+    status.bAccessControlAbnormalPassage = algo.nAccessControlAbnormalPassage;
+    status.bSocialRelationshipAnalysis = algo.nSocialRelationshipAnalysis;
+    status.bKitchenClothingCompliance = algo.nKitchenClothingCompliance;
     #endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
     status.bSmokeFire = algo.nEnSmokeFire;
@@ -133,6 +138,7 @@ static const char* get_event_type_name(Event::Type_E type) {
         case Event::Type::LEAVE_REGION: return "LEAVE_REGION";
         case Event::Type::LOITERING_DETECT: return "LOITERING_DETECT";
         case Event::Type::CROWD_GATHERING: return "CROWD_GATHERING";
+        case Event::Type::QUEUE_CROWDING: return "QUEUE_CROWDING";
         case Event::Type::PARKING_DETECT: return "PARKING_DETECT";
         case Event::Type::AUDIO_ANOMALY: return "AUDIO_ANOMALY";
         case Event::Type::SCENE_CHANGE: return "SCENE_CHANGE";
@@ -160,6 +166,10 @@ static const char* get_event_type_name(Event::Type_E type) {
         case Event::Type::CHANNEL_OCCUPATION: return "CHANNEL_OCCUPATION";
         case Event::Type::CLIMB_DETECTION: return "CLIMB_DETECTION";
         case Event::Type::DANGER_ZONE_APPROACH: return "DANGER_ZONE_APPROACH";
+        case Event::Type::KITCHEN_UNRELATED_PERSON_ENTRY: return "KITCHEN_UNRELATED_PERSON_ENTRY";
+        case Event::Type::ACCESS_CONTROL_ABNORMAL_PASSAGE: return "ACCESS_CONTROL_ABNORMAL_PASSAGE";
+        case Event::Type::SOCIAL_RELATIONSHIP_ANALYSIS: return "SOCIAL_RELATIONSHIP_ANALYSIS";
+        case Event::Type::KITCHEN_CLOTHING_COMPLIANCE: return "KITCHEN_CLOTHING_COMPLIANCE";
         default: return "UNKNOWN";
     }
 }
@@ -256,6 +266,10 @@ static int check_analytics_resource(const Event::Type_E enable_type, const bool 
         case Event::Type::DANGER_ZONE_STAY: already_in_target_state = (oldStatus.bDangerZoneStay == bEnable); break;
         case Event::Type::KEY_AREA_ABNORMAL_STAY: already_in_target_state = (oldStatus.bKeyAreaAbnormalStay == bEnable); break;
         case Event::Type::ROOFTOP_STAY: already_in_target_state = (oldStatus.bRooftopStay == bEnable); break;
+        case Event::Type::KITCHEN_UNRELATED_PERSON_ENTRY: already_in_target_state = (oldStatus.bKitchenUnrelatedPersonEntry == bEnable); break;
+        case Event::Type::ACCESS_CONTROL_ABNORMAL_PASSAGE: already_in_target_state = (oldStatus.bAccessControlAbnormalPassage == bEnable); break;
+        case Event::Type::SOCIAL_RELATIONSHIP_ANALYSIS: already_in_target_state = (oldStatus.bSocialRelationshipAnalysis == bEnable); break;
+        case Event::Type::KITCHEN_CLOTHING_COMPLIANCE: already_in_target_state = (oldStatus.bKitchenClothingCompliance == bEnable); break;
 #endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
         case Event::Type::SMOKE_FIRE: already_in_target_state = (oldStatus.bSmokeFire == bEnable); break;
@@ -270,6 +284,7 @@ static int check_analytics_resource(const Event::Type_E enable_type, const bool 
         case Event::Type::LEAVE_REGION: already_in_target_state = (oldStatus.bLeaveRegion == bEnable); break;
         case Event::Type::LOITERING_DETECT: already_in_target_state = (oldStatus.bLoiteringDetect == bEnable); break;
         case Event::Type::CROWD_GATHERING: already_in_target_state = (oldStatus.bCrowdGathering == bEnable); break;
+        case Event::Type::QUEUE_CROWDING: already_in_target_state = (oldStatus.bQueueCrowding == bEnable); break;
         case Event::Type::PARKING_DETECT: already_in_target_state = (oldStatus.bParkingDetect == bEnable); break;
         case Event::Type::AUDIO_ANOMALY: already_in_target_state = (oldStatus.bAudioAnomaly == bEnable); break;
         case Event::Type::SCENE_CHANGE: already_in_target_state = (oldStatus.bSceneChange == bEnable); break;
@@ -377,6 +392,10 @@ static int check_analytics_resource(const Event::Type_E enable_type, const bool 
         case Event::Type::DANGER_ZONE_STAY: newStatus.bDangerZoneStay = bEnable; break;
         case Event::Type::KEY_AREA_ABNORMAL_STAY: newStatus.bKeyAreaAbnormalStay = bEnable; break;
         case Event::Type::ROOFTOP_STAY: newStatus.bRooftopStay = bEnable; break;
+        case Event::Type::KITCHEN_UNRELATED_PERSON_ENTRY: newStatus.bKitchenUnrelatedPersonEntry = bEnable; break;
+        case Event::Type::ACCESS_CONTROL_ABNORMAL_PASSAGE: newStatus.bAccessControlAbnormalPassage = bEnable; break;
+        case Event::Type::SOCIAL_RELATIONSHIP_ANALYSIS: newStatus.bSocialRelationshipAnalysis = bEnable; break;
+        case Event::Type::KITCHEN_CLOTHING_COMPLIANCE: newStatus.bKitchenClothingCompliance = bEnable; break;
 #endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
         case Event::Type::SMOKE_FIRE: newStatus.bSmokeFire = bEnable; break;
@@ -391,6 +410,7 @@ static int check_analytics_resource(const Event::Type_E enable_type, const bool 
         case Event::Type::LEAVE_REGION: newStatus.bLeaveRegion = bEnable; break;
         case Event::Type::LOITERING_DETECT: newStatus.bLoiteringDetect = bEnable; break;
         case Event::Type::CROWD_GATHERING: newStatus.bCrowdGathering = bEnable; break;
+        case Event::Type::QUEUE_CROWDING: newStatus.bQueueCrowding = bEnable; break;
         case Event::Type::PARKING_DETECT: newStatus.bParkingDetect = bEnable; break;
         case Event::Type::AUDIO_ANOMALY: newStatus.bAudioAnomaly = bEnable; break;
         case Event::Type::SCENE_CHANGE: newStatus.bSceneChange = bEnable; break;
@@ -3291,6 +3311,40 @@ void Task::Event::SetCongestionInfo::handle()
     result(save_scene_event_config(::Event::Type_E::CONGESTION, stInfo));
 }
 
+void Task::Event::GetQueueCrowdingInfo::handle()
+{
+    Alarm::QueueCrowdingDetection_S stInfo;
+    CEventConfigure::instance()->get_configure(stInfo);
+    result(Convert::to_string(stInfo));
+}
+
+void Task::Event::SetQueueCrowdingInfo::handle()
+{
+    Alarm::QueueCrowdingDetection_S stInfo;
+    Convert::to_struct(m_taskData, stInfo);
+
+    for (auto &rule : stInfo.aRule)
+    {
+        /* 参数有效性判断 灵敏度[1,100] */
+        if (rule.nSensitivity < 1 || rule.nSensitivity > 100)
+        {
+            dlog_error("设置排队拥堵检测信息参数错误");
+            result(ERR_WEB_PARAM);
+            return;
+        }
+        /* 坐标有效性判断 */
+        if (!rule.stRegion.IsValid())
+        {
+            dlog_error("设置排队拥堵检测信息的区域绘制异常");
+            result(ERR_WEB_REGION);
+            return;
+        }
+    }
+
+    /* 参数校验完成后，统一保存并同步智能事件总览状态。 */
+    result(save_scene_event_config(::Event::Type_E::QUEUE_CROWDING, stInfo));
+}
+
 void Task::Event::GetLicensePlateRecognitionInfo::handle()
 {
     Alarm::LicensePlateCognitionDetection_S stInfo;
@@ -4510,24 +4564,205 @@ void Task::Event::SetRooftopStayInfo::handle()
     Alarm::RooftopStayDetection_S stInfo;
     Convert::to_struct(m_taskData, stInfo);
 
-    for (auto &rule : stInfo.aRule)
+    /* 参数有效性判断 灵敏度[1,100] 时间阈值[0,100]秒 */
+    if (stInfo.stRule.nSensitivity < 1 || stInfo.stRule.nSensitivity > 100 ||
+        stInfo.stRule.nTimeThreshold > 100)
     {
-        /* 参数有效性判断 灵敏度[1,100] 事件阈值[0,100] */
-        if (rule.nSensitivity < 1 || rule.nSensitivity > 100 || rule.nTimeThreshold > 100)
+        dlog_error("设置天台滞留信息参数错误");
+        result(ERR_WEB_PARAM);
+        return;
+    }
+    /* 坐标有效性判断 */
+    if (!stInfo.stRule.stRegion.IsValid())
+    {
+        dlog_error("设置天台滞留信息的区域绘制异常");
+        result(ERR_WEB_REGION);
+        return;
+    }
+    /* 参数校验完成后，统一保存并同步智能事件总览状态。 */
+    result(save_scene_event_config(::Event::Type_E::ROOFTOP_STAY, stInfo));
+}
+
+/* 获取明火离人信息 */
+void Task::Event::GetOpenFlameLeaveInfo::handle()
+{
+    Alarm::OpenFlameLeaveDetection_S stInfo;
+    CEventConfigure::instance()->get_configure(stInfo);
+    result(Convert::to_string(stInfo));
+}
+
+/* 设置明火离人信息 */
+void Task::Event::SetOpenFlameLeaveInfo::handle()
+{
+    Alarm::OpenFlameLeaveDetection_S stInfo;
+    Convert::to_struct(m_taskData, stInfo);
+
+    /* 参数有效性判断 灵敏度[1,100] 时间阈值[0,100]秒 */
+    if (stInfo.stRule.nSensitivity < 1 || stInfo.stRule.nSensitivity > 100 ||
+        stInfo.stRule.nTimeThreshold > 100)
+    {
+        dlog_error("设置明火离人识别信息参数错误");
+        result(ERR_WEB_PARAM);
+        return;
+    }
+    /* 坐标有效性判断 */
+    if (!stInfo.stRule.stRegion.IsValid())
+    {
+        dlog_error("设置明火离人识别信息的区域绘制异常");
+        result(ERR_WEB_REGION);
+        return;
+    }
+    /* 参数校验完成后，统一保存并同步智能事件总览状态。 */
+    result(save_scene_event_config(::Event::Type_E::OPEN_FLAME_LEAVE, stInfo));
+}
+
+/* 获取消防设施异常信息 */
+void Task::Event::GetFireEquipmentAbnormalInfo::handle()
+{
+    Alarm::FireEquipmentAbnormalDetection_S stInfo;
+    CEventConfigure::instance()->get_configure(stInfo);
+    result(Convert::to_string(stInfo));
+}
+
+/* 设置消防设施异常信息 */
+void Task::Event::SetFireEquipmentAbnormalInfo::handle()
+{
+    Alarm::FireEquipmentAbnormalDetection_S stInfo;
+    Convert::to_struct(m_taskData, stInfo);
+
+    /* 参数有效性判断 灵敏度[1,100] 时间阈值[0,100]秒 */
+    for (size_t i = 0; i < stInfo.aRule.size(); i++)
+    {
+        if (stInfo.aRule[i].nSensitivity < 1 || stInfo.aRule[i].nSensitivity > 100 ||
+            stInfo.aRule[i].nTimeThreshold > 100)
         {
-            dlog_error("设置天台滞留信息参数错误");
+            dlog_error("设置消防设施异常信息参数错误，规则[%zu]", i);
             result(ERR_WEB_PARAM);
             return;
         }
         /* 坐标有效性判断 */
-        if (!rule.stRegion.IsValid())
+        if (!stInfo.aRule[i].stRegion.IsValid())
         {
-            dlog_error("设置天台滞留信息的区域绘制异常");
+            dlog_error("设置消防设施异常信息的区域绘制异常，规则[%zu]", i);
             result(ERR_WEB_REGION);
             return;
         }
     }
     /* 参数校验完成后，统一保存并同步智能事件总览状态。 */
-    result(save_scene_event_config(::Event::Type_E::ROOFTOP_STAY, stInfo));
+    result(save_scene_event_config(::Event::Type_E::FIRE_EQUIPMENT_ABNORMAL, stInfo));
+}
+
+/* 获取后厨无关人员进入信息 */
+void Task::Event::GetKitchenUnrelatedPersonEntryInfo::handle()
+{
+    Alarm::KitchenUnrelatedPersonEntry_S stInfo;
+    CEventConfigure::instance()->get_configure(stInfo);
+    result(Convert::to_string(stInfo));
+}
+
+/* 设置后厨无关人员进入信息 */
+void Task::Event::SetKitchenUnrelatedPersonEntryInfo::handle()
+{
+    Alarm::KitchenUnrelatedPersonEntry_S stInfo;
+    Convert::to_struct(m_taskData, stInfo);
+
+    /* 参数有效性判断 灵敏度[1,100] */
+    if (stInfo.stRule.nSensitivity < 1 || stInfo.stRule.nSensitivity > 100)
+    {
+        dlog_error("设置后厨无关人员进入信息参数错误");
+        result(ERR_WEB_PARAM);
+        return;
+    }
+    /* 参数校验完成后，统一保存并同步智能事件总览状态。 */
+    result(save_scene_event_config(::Event::Type_E::KITCHEN_UNRELATED_PERSON_ENTRY, stInfo));
+}
+
+/* 获取门禁异常通行信息 */
+void Task::Event::GetAccessControlAbnormalPassageInfo::handle()
+{
+    Alarm::AccessControlAbnormalPassage_S stInfo;
+    CEventConfigure::instance()->get_configure(stInfo);
+    result(Convert::to_string(stInfo));
+}
+
+/* 设置门禁异常通行信息 */
+void Task::Event::SetAccessControlAbnormalPassageInfo::handle()
+{
+    Alarm::AccessControlAbnormalPassage_S stInfo;
+    Convert::to_struct(m_taskData, stInfo);
+
+    /* 参数有效性判断 灵敏度[1,100] */
+    if (stInfo.stRule.nSensitivity < 1 || stInfo.stRule.nSensitivity > 100)
+    {
+        dlog_error("设置门禁异常通行信息参数错误");
+        result(ERR_WEB_PARAM);
+        return;
+    }
+    /* 坐标有效性判断 */
+    if (!stInfo.stRule.stRegion.IsValid())
+    {
+        dlog_error("设置门禁异常通行信息的区域绘制异常");
+        result(ERR_WEB_REGION);
+        return;
+    }
+    /* 参数校验完成后，统一保存并同步智能事件总览状态。 */
+    result(save_scene_event_config(::Event::Type_E::ACCESS_CONTROL_ABNORMAL_PASSAGE, stInfo));
+}
+
+/* 获取社交关系分析信息 */
+void Task::Event::GetSocialRelationshipAnalysisInfo::handle()
+{
+    Alarm::SocialRelationshipAnalysis_S stInfo;
+    CEventConfigure::instance()->get_configure(stInfo);
+    result(Convert::to_string(stInfo));
+}
+
+/* 设置社交关系分析信息 */
+void Task::Event::SetSocialRelationshipAnalysisInfo::handle()
+{
+    Alarm::SocialRelationshipAnalysis_S stInfo;
+    Convert::to_struct(m_taskData, stInfo);
+
+    /* 参数有效性判断 灵敏度[1,100] */
+    if (stInfo.stRule.nSensitivity < 1 || stInfo.stRule.nSensitivity > 100)
+    {
+        dlog_error("设置社交关系分析信息参数错误");
+        result(ERR_WEB_PARAM);
+        return;
+    }
+    /* 参数校验完成后，统一保存并同步智能事件总览状态。 */
+    result(save_scene_event_config(::Event::Type_E::SOCIAL_RELATIONSHIP_ANALYSIS, stInfo));
+}
+
+/* 获取后厨穿戴规范信息 */
+void Task::Event::GetKitchenClothingComplianceInfo::handle()
+{
+    Alarm::KitchenClothingCompliance_S stInfo;
+    CEventConfigure::instance()->get_configure(stInfo);
+    result(Convert::to_string(stInfo));
+}
+
+/* 设置后厨穿戴规范信息 */
+void Task::Event::SetKitchenClothingComplianceInfo::handle()
+{
+    Alarm::KitchenClothingCompliance_S stInfo;
+    Convert::to_struct(m_taskData, stInfo);
+
+    /* 参数有效性判断 灵敏度[1,100] */
+    if (stInfo.stRule.nSensitivity < 1 || stInfo.stRule.nSensitivity > 100)
+    {
+        dlog_error("设置后厨穿戴规范信息参数错误");
+        result(ERR_WEB_PARAM);
+        return;
+    }
+    /* 坐标有效性判断 */
+    if (!stInfo.stRule.stRegion.IsValid())
+    {
+        dlog_error("设置后厨穿戴规范信息的区域绘制异常");
+        result(ERR_WEB_REGION);
+        return;
+    }
+    /* 参数校验完成后，统一保存并同步智能事件总览状态。 */
+    result(save_scene_event_config(::Event::Type_E::KITCHEN_CLOTHING_COMPLIANCE, stInfo));
 }
 #endif

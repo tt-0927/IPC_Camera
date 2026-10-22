@@ -346,6 +346,27 @@ namespace Task
         /* 天台滞留 */
         TaskSubClass(GetRooftopStayInfo)
         TaskSubClass(SetRooftopStayInfo)
+        /* 明火离人识别 */
+        TaskSubClass(GetOpenFlameLeaveInfo)
+        TaskSubClass(SetOpenFlameLeaveInfo)
+        /* 消防设施异常 */
+        TaskSubClass(GetFireEquipmentAbnormalInfo)
+        TaskSubClass(SetFireEquipmentAbnormalInfo)
+        /* 排队拥堵检测 */
+        TaskSubClass(GetQueueCrowdingInfo)
+        TaskSubClass(SetQueueCrowdingInfo)
+        /* 后厨无关人员进入 */
+        TaskSubClass(GetKitchenUnrelatedPersonEntryInfo)
+        TaskSubClass(SetKitchenUnrelatedPersonEntryInfo)
+        /* 门禁异常通行 */
+        TaskSubClass(GetAccessControlAbnormalPassageInfo)
+        TaskSubClass(SetAccessControlAbnormalPassageInfo)
+        /* 社交关系分析 */
+        TaskSubClass(GetSocialRelationshipAnalysisInfo)
+        TaskSubClass(SetSocialRelationshipAnalysisInfo)
+        /* 后厨穿戴规范 */
+        TaskSubClass(GetKitchenClothingComplianceInfo)
+        TaskSubClass(SetKitchenClothingComplianceInfo)
 #endif
     } /* namespace Event end */
 } /* namespace Task end */

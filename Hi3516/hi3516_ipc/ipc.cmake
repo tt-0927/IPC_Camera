@@ -10,7 +10,7 @@ set(CAM_SHARE_PATH   ${SHARE_PATH}/cam_share)
 set(IPC_SHARE_PATH   ${SHARE_PATH}/ipc_share)
 # AI共享库路径
 set(AI_SHARE_PATH   ${SHARE_PATH}/ai_share)
-# 海思api封装仓库路径
+# 海思api封装仓库路径s
 set(HI_PIPELINE_PATH  ${ROOT_PATH}/hi_pipeline)
 # 海思mpp路径
 set(HI_MPP_PATH  ${ROOT_PATH}/hi_pipeline/mpp)
@@ -20,7 +20,7 @@ set(HI_CIPHER_PATH  ${ROOT_PATH}/hi_pipeline/cipher)
 set(HI_SVP_PATH  ${ROOT_PATH}/hi_pipeline/svp)
 
 # rtsp 后端版本
-set(IPC_RTSP_BACKEND "live555" CACHE STRING "RTSP 后端：smolrtsp（新）| live555（旧）")
+set(IPC_RTSP_BACKEND "smolrtsp" CACHE STRING "RTSP 后端：smolrtsp（新）| live555（旧）")
 # websocket 后端版本
 set(IPC_WS_BACKEND "libwebsockets" CACHE STRING "WS 后端：evws（新）| libwebsockets（旧）")
 # OSD 字体后端版本（点阵字库 ≈251KB 替代 SDL2+TTF+simhei.ttf ≈11.8MB，切换定义见 share/ipc_share/common/utils/osd_font.cmake）

@@ -1581,6 +1581,45 @@ static NET_COMMON_ECODE_E cb_set_device_cfg(INT32 dwChannelID, LPVOID lpInBuffer
     return (nRet == 0) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
 }
 
+/**
+ * @brief 设置设备基本信息专用回调适配。
+ * @details 将按命令注册的设备信息设置逻辑适配到 NET_SET_DEVICECFG 专用回调，
+ *          保证 SDK 的通用域和 IPC 的回调注册方式保持兼容。
+ *          仅应用可写的设备名称，型号/序列号/固件版本等身份字段保持只读。
+ * @param [in] pInfo 设备基本信息结构体指针，仅 strDeviceName 生效。
+ * @return NET_E_SUCCEED 表示设置成功，其他值表示设置失败。
+ */
+static NET_COMMON_ECODE_E cb_set_device_basic_info(pNET_DeviceBasicInfo_S pInfo)
+{
+    if (!pInfo)
+        return NET_E_INVALID_PARAM;
+
+    /* 定长数组可能无终止符，设备名为空时拒绝，避免把设备名清空。 */
+    const std::size_t nNameLen = strnlen(pInfo->strDeviceName, sizeof(pInfo->strDeviceName));
+    if (nNameLen == 0 || nNameLen >= sizeof(pInfo->strDeviceName))
+        return NET_E_INVALID_PARAM;
+
+    ::System::DeviceInfo_S stDeviceInfo{};
+    if (SystemManage::instance()->get_device_info(stDeviceInfo) != 0)
+    {
+        dlog_error("TVSDK设置设备基本信息失败: 读取当前设备信息失败");
+        return NET_E_GET_CFG_FAILED;
+    }
+
+    /* 只写设备名称，其余身份字段由 get_device_info 依据编译期信息生成，不接受 SDK 回写。 */
+    stDeviceInfo.deviceName.assign(pInfo->strDeviceName, nNameLen);
+
+    const int nRet = SystemManage::instance()->set_device_info(stDeviceInfo);
+    if (nRet != 0)
+    {
+        dlog_error("TVSDK设置设备基本信息失败: 保存设备信息失败, ret=%d", nRet);
+        return NET_E_SET_CFG_FAILED;
+    }
+
+    dlog_info("TVSDK设置设备基本信息成功: 设备名长度=%zu", nNameLen);
+    return NET_E_SUCCEED;
+}
+
 /* 其余配置仍通过命令码 + JSON 透传，后续若有 SDK 结构体定义，可按上面的方式继续细化 */
 
 static NET_COMMON_ECODE_E get_cfg_by_action(INT32 dwChannelID, int actionCode, LPVOID lpOutBuffer)
@@ -7470,6 +7509,12 @@ void register_all()
     }
     NET_serverRegisterGetDeviceConfigCb(cb_get_device_cfg);
     NET_serverRegisterSetDeviceConfigCb(cb_set_device_cfg);
+    /* 注册命令101使用的设备基本信息设置专用回调。 */
+    if (!NET_serverRegisterSetDeviceBasicInfoCb(cb_set_device_basic_info))
+    {
+        dlog_error("TVSDK注册设备基本信息设置回调失败: command[%d]",
+                   NET_SET_DEVICECFG);
+    }
     NET_serverRegisterSetUserPasswordCb(cb_set_user_password);
     NET_serverRegisterGetNtpConfigCb(cb_get_ntp_cfg);
     NET_serverRegisterSetNtpConfigCb(cb_set_ntp_cfg);

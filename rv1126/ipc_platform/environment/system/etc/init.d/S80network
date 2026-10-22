@@ -1,0 +1,33 @@
+###
+ # @FilePath     : S80network
+ # @Author       : huangjunda
+ # @Date         : 2025-06-17 13:58:15
+ # @LastEditors  : cyc
+ # @LastEditTime : 2025-10-22 10:17:10
+ # @Description  : 网络启动脚本
+### 
+#!/bin/sh
+
+case "$1" in
+  start)
+    ifconfig eth0 hw ether 42:4C:45:00:00:00
+    ifconfig eth0 mtu 1500
+    ifconfig lo 127.0.0.1
+    #eth0 dhcp-close
+    ifconfig eth0 192.168.1.168 netmask 255.255.255.0
+    route add default gw 192.168.1.254 eth0
+    ifconfig eth0 up
+    /opt/cam/tools/ethtool -s eth0 speed 100 duplex full
+
+    #telnetd &
+    #uftpd -o "ftp=21 tftp=69 writable" /
+    ;;
+  stop)
+    ifconfig eth0 down
+    ;;
+  *)
+    $0 start
+    ;;
+esac
+
+exit 0

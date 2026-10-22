@@ -344,15 +344,6 @@ public:
     int reset_lastIdrRequestTime();
 
     /**
-     * @brief   : 关闭所有 RTSP 客户端连接
-     * @return   {int} 0：成功 非0：失败
-     * @note    : 【当前未启用】cam_share 的 rtsp_getclient_info 返回的 IP 未被填充
-     *           （fClientInfo 只被读取、无任何代码写入），实际无法关闭任何客户端。
-     *           待 cam_share 侧修复后，再由校时路径调用。
-     */
-    int closeAllClients();
-
-    /**
      * @brief   : 更新用户信息（账号、密码）
      * @param    {string} strUser 账号
      * @param    {string} strPwd 密码

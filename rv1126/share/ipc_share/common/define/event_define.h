@@ -168,7 +168,7 @@ namespace Event
 
         // ========== 平安校园相关事件 ==========
         CHANNEL_OCCUPATION = 58,    /* 通道占用 */
-        FACEEXPRESSION = 59,        /* 面部情绪分析 */
+        KITCHEN_CLOTHING_COMPLIANCE = 59,      /* 后厨穿戴规范 */
         QUEUE_CROWDING = 60,   /* 排队拥挤检测 */
         CLIMB_DETECTION = 61,       /* 攀爬识别 */
         DANGER_ZONE_APPROACH = 62,  /* 危险区域靠近 */
@@ -176,6 +176,11 @@ namespace Event
         DANGER_ZONE_STAY = 64,         /* 危险区域滞留 */
         KEY_AREA_ABNORMAL_STAY = 65,   /* 重点区域异常滞留 */
         ROOFTOP_STAY = 66,             /* 天台滞留 */
+        OPEN_FLAME_LEAVE = 67,         /* 明火离人识别 */
+        KITCHEN_UNRELATED_PERSON_ENTRY = 68,   /* 后厨无关人员进入 */
+        FIRE_EQUIPMENT_ABNORMAL = 69,          /* 消防设施异常 */
+        ACCESS_CONTROL_ABNORMAL_PASSAGE = 70,  /* 门禁异常通行 */
+        SOCIAL_RELATIONSHIP_ANALYSIS = 71,     /* 社交关系分析 */
 
         /**
          * @brief   : 事件其他特殊类型
@@ -294,7 +299,6 @@ namespace Event
         case Type::NONMOTORVEHICLE_ATTRIBUTE:
         case Type::PERSON_TRIP:
         case Type::CHANNEL_OCCUPATION:
-        case Type::FACEEXPRESSION:
         case Type::QUEUE_CROWDING:
         case Type::CLIMB_DETECTION:
         case Type::DANGER_ZONE_APPROACH:
@@ -302,6 +306,12 @@ namespace Event
         case Type::DANGER_ZONE_STAY:
         case Type::KEY_AREA_ABNORMAL_STAY:
         case Type::ROOFTOP_STAY:
+        case Type::OPEN_FLAME_LEAVE:
+        case Type::KITCHEN_UNRELATED_PERSON_ENTRY:
+        case Type::ACCESS_CONTROL_ABNORMAL_PASSAGE:
+        case Type::SOCIAL_RELATIONSHIP_ANALYSIS:
+        case Type::FIRE_EQUIPMENT_ABNORMAL:
+        case Type::KITCHEN_CLOTHING_COMPLIANCE:
 #if CAP_AI_PEOPLE_STATISTICS
         case Type::PEOPLE_FLOW_STATISTICS:
         case Type::PEOPLE_DENSITY_DETECTION:
@@ -583,11 +593,16 @@ namespace Event
         int nChannelOccupation = 0;             /* 通道占用 */
         int nClimbDetection = 0;                /* 攀爬识别 */
         int nDangerZoneApproach = 0;            /* 危险区域靠近 */
-        int nFaceExpression = 0;                /* 面部情绪分析 */
         int nLongTimeStay = 0;                  /* 长时间滞留 */
         int nDangerZoneStay = 0;                /* 危险区域滞留 */
         int nKeyAreaAbnormalStay = 0;           /* 重点区域异常滞留 */
         int nRooftopStay = 0;                   /* 天台滞留 */
+        int nEnOpenFlameLeave = 0;              /* 明火离人识别 */
+        int nKitchenUnrelatedPersonEntry = 0;   /* 后厨无关人员进入 */
+        int nAccessControlAbnormalPassage = 0;  /* 门禁异常通行 */
+        int nSocialRelationshipAnalysis = 0;    /* 社交关系分析 */
+        int nKitchenClothingCompliance = 0;     /* 后厨穿戴规范 */
+        int nEnFireEquipmentAbnormal = 0;      /* 消防设施异常 */
 #endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
         int nEnSmokeFire = 0;      /* 烟火识别 */
@@ -729,6 +744,12 @@ namespace Event
         bool bDangerZoneStay = false;                       /* 危险区域滞留 */
         bool bKeyAreaAbnormalStay = false;                  /* 重点区域异常滞留 */
         bool bRooftopStay = false;                          /* 天台滞留 */
+        bool bOpenFlameLeave = false;                       /* 明火离人识别 */
+        bool bFireEquipmentAbnormal = false;                /* 消防设施异常 */
+        bool bKitchenUnrelatedPersonEntry = false;          /* 后厨无关人员进入 */
+        bool bAccessControlAbnormalPassage = false;         /* 门禁异常通行 */
+        bool bSocialRelationshipAnalysis = false;           /* 社交关系分析 */
+        bool bKitchenClothingCompliance = false;            /* 后厨穿戴规范 */
 #endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
         bool bSmokeFire = false;                            /* 烟火识别 */

@@ -113,6 +113,7 @@ inline EventTvSdkPayloadType_E get_tvsdk_payload_type(Event::Type_E enEventType)
     case Event::Type_E::PHONE_USAGE:
     case Event::Type_E::SMOKE_FIRE:
     case Event::Type_E::OPEN_FLAME:
+    case Event::Type_E::OPEN_FLAME_LEAVE:
     case Event::Type_E::MANHOLE_COVER_ABNORMAL:
     case Event::Type_E::BARE_SOIL:
     case Event::Type_E::HOLE_PROTECTION_BAR:
@@ -135,6 +136,7 @@ inline EventTvSdkPayloadType_E get_tvsdk_payload_type(Event::Type_E enEventType)
     case Event::Type_E::AUDIO_ANOMALY:
     case Event::Type_E::AUDIO_SUDDEN_RISE:
     case Event::Type_E::AUDIO_SUDDEN_DROP:
+    case Event::Type_E::FIRE_EQUIPMENT_ABNORMAL:
         return EventTvSdkPayloadType_E::AI_OBJECT;
 
     /* 车牌识别类事件 */

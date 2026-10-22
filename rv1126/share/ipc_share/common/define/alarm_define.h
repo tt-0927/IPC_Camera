@@ -115,11 +115,6 @@ namespace Alarm
 #define KEY_AREA_ABNORMAL_STAY_REGION_DEFAULT (4)
 #endif
 
-#ifndef ROOFTOP_STAY_REGION_DEFAULT
-/* 天台滞留支持区域上限 */
-#define ROOFTOP_STAY_REGION_DEFAULT (1)
-#endif
-
 #ifndef PARKING_DETECT_REGION_DEFAULT
 /* 停车侦测支持区域上限 */
 #define PARKING_DETECT_REGION_DEFAULT (4)
@@ -5430,6 +5425,7 @@ typedef struct _FaceCompare_S_
         bool bCaptureEnable = false;                /* 启用人脸抓拍 */
         bool bAttributeAnalysisEnable = false;      /* 启用属性分析 */
         bool bDynamicAnalysisEnable = false;        /* 启用动态分析 */
+        bool bFaceExpressionEnable = false;         /* 启用面部情绪分析 */
 
         /**** 公共配置 ****/
         unsigned int nSensitivity = 50;             /* 灵敏度[1,100] */
@@ -5937,8 +5933,8 @@ typedef struct _FaceCompare_S_
         bool bEnable; /* 是否启用 */
         /* 布防时间:一周7天，每天可以设置8个时间段 */
         std::vector<std::vector<Common::SchedTime_S>> aAlarmTime;
-        /* 天台滞留规则，最多设置1个 ROOFTOP_STAY_REGION_DEFAULT */
-        std::vector<RooftopStayRule_S> aRule;
+        /* 天台滞留规则，单区域 */
+        RooftopStayRule_S stRule;
         /* 联动 */
         LinkageList_S stLinkageList;
 
@@ -5946,7 +5942,6 @@ typedef struct _FaceCompare_S_
         _RooftopStayDetection_S_() : bEnable(0), stLinkageList()
         {
             aAlarmTime.clear();
-            aRule.clear();
         }
         /* 重载赋值运算符 */
         _RooftopStayDetection_S_ &operator=(const _RooftopStayDetection_S_ &x)
@@ -5955,7 +5950,7 @@ typedef struct _FaceCompare_S_
             {
                 bEnable = x.bEnable;
                 aAlarmTime = x.aAlarmTime;
-                aRule = x.aRule;
+                stRule = x.stRule;
                 stLinkageList = x.stLinkageList;
             }
             return *this;
@@ -5965,16 +5960,384 @@ typedef struct _FaceCompare_S_
         static _RooftopStayDetection_S_ CreateWithDefaultRule()
         {
             _RooftopStayDetection_S_ obj;
-            for (size_t i = 0; i < ROOFTOP_STAY_REGION_DEFAULT; ++i)
-            {
-                RooftopStayRule_S defRegion;
-                defRegion.stRegion = Region_S::CreateWithDefaultRule(4);
-                obj.aRule.push_back(defRegion);
-            }
+            obj.stRule.stRegion = Region_S::CreateWithDefaultRule(4);
             obj.aAlarmTime.assign(7, std::vector<Common::SchedTime_S>(1));
             return obj;
         }
     } RooftopStayDetection_S;
+
+    /************************ 明火离人检测相关 START *******************/
+    /* 明火离人规则参数 */
+    typedef struct OpenFlameLeaveRule
+    {
+        /* 区域定义（单区域） */
+        Region_S stRegion;
+        /* 灵敏度[1,100] */
+        unsigned int nSensitivity;
+        /* 行为事件触发时间阈值，明火持续且区域内无人[0,100]单位（秒） */
+        unsigned int nTimeThreshold;
+        /* 默认构造函数 */
+        OpenFlameLeaveRule() : stRegion(), nSensitivity(50), nTimeThreshold(10)
+        {
+        }
+        /* 重载赋值运算符 */
+        OpenFlameLeaveRule &operator=(const OpenFlameLeaveRule &x)
+        {
+            if (this != &x)
+            {
+                stRegion = x.stRegion;
+                nSensitivity = x.nSensitivity;
+                nTimeThreshold = x.nTimeThreshold;
+            }
+            return *this;
+        }
+    } OpenFlameLeaveRule_S;
+
+    /* 明火离人检测配置 */
+    typedef struct _OpenFlameLeaveDetection_S_
+    {
+        /* 是否启用 */
+        bool bEnable;
+        /* 明火离人规则（单区域） */
+        OpenFlameLeaveRule_S stRule;
+        /* 布防时间:一周7天，每天可以设置8个时间段 */
+        DefenseTime aAlarmTime;
+        /* 联动 */
+        LinkageList_S stLinkageList;
+        /* 默认构造函数 */
+        _OpenFlameLeaveDetection_S_() : bEnable(false), stLinkageList()
+        {
+            aAlarmTime.clear();
+        }
+        /* 重载赋值运算符 */
+        _OpenFlameLeaveDetection_S_ &operator=(const _OpenFlameLeaveDetection_S_ &x)
+        {
+            if (this != &x)
+            {
+                bEnable = x.bEnable;
+                aAlarmTime = x.aAlarmTime;
+                stLinkageList = x.stLinkageList;
+                stRule = x.stRule;
+            }
+            return *this;
+        }
+
+        /* 静态方法：返回一个带有默认规则的对象 */
+        static _OpenFlameLeaveDetection_S_ CreateWithDefaultRule()
+        {
+            _OpenFlameLeaveDetection_S_ obj;
+            obj.stRule.stRegion = Region_S::CreateWithDefaultRule(4);
+            obj.aAlarmTime.assign(7, std::vector<Common::SchedTime_S>(1));
+            return obj;
+        }
+
+    } OpenFlameLeaveDetection_S;
+    /************************ 明火离人检测相关 END *******************/
+
+    /* 后厨无关人员进入规则参数 */
+    typedef struct _KitchenUnrelatedPersonEntryRule_S_
+    {
+        unsigned int nSensitivity; /* 灵敏度[1,100] */
+
+        /* 默认构造函数 */
+        _KitchenUnrelatedPersonEntryRule_S_() : nSensitivity(50)
+        {
+        }
+        /* 重载赋值运算符 */
+        _KitchenUnrelatedPersonEntryRule_S_ &operator=(const _KitchenUnrelatedPersonEntryRule_S_ &x)
+        {
+            if (this != &x)
+            {
+                nSensitivity = x.nSensitivity;
+            }
+            return *this;
+        }
+    } KitchenUnrelatedPersonEntryRule_S;
+
+    /* 后厨无关人员进入配置 */
+    typedef struct _KitchenUnrelatedPersonEntry_S_
+    {
+        bool bEnable; /* 是否启用 */
+        /* 后厨无关人员进入规则 */
+        KitchenUnrelatedPersonEntryRule_S stRule;
+        /* 布防时间:一周7天，每天可以设置8个时间段 */
+        DefenseTime aAlarmTime;
+        /* 联动 */
+        LinkageList_S stLinkageList;
+        /* 默认构造函数 */
+        _KitchenUnrelatedPersonEntry_S_() : bEnable(false), stLinkageList()
+        {
+            aAlarmTime.clear();
+        }
+        /* 重载赋值运算符 */
+        _KitchenUnrelatedPersonEntry_S_ &operator=(const _KitchenUnrelatedPersonEntry_S_ &x)
+        {
+            if (this != &x)
+            {
+                bEnable = x.bEnable;
+                stRule = x.stRule;
+                aAlarmTime = x.aAlarmTime;
+                stLinkageList = x.stLinkageList;
+            }
+            return *this;
+        }
+
+        /* 静态方法：返回一个带有默认规则的对象 */
+        static _KitchenUnrelatedPersonEntry_S_ CreateWithDefaultRule()
+        {
+            _KitchenUnrelatedPersonEntry_S_ obj;
+            obj.aAlarmTime.assign(7, std::vector<Common::SchedTime_S>(1));
+            return obj;
+        }
+    } KitchenUnrelatedPersonEntry_S;
+
+    /* 门禁异常通行规则参数 */
+    typedef struct _AccessControlAbnormalPassageRule_S_
+    {
+        Region_S stRegion;         /* 区域定义 空区域表示整幅画面参与检测 */
+        unsigned int nSensitivity; /* 灵敏度[1,100] */
+
+        /* 默认构造函数 */
+        _AccessControlAbnormalPassageRule_S_() : stRegion(), nSensitivity(50)
+        {
+        }
+        /* 重载赋值运算符 */
+        _AccessControlAbnormalPassageRule_S_ &operator=(const _AccessControlAbnormalPassageRule_S_ &x)
+        {
+            if (this != &x)
+            {
+                stRegion = x.stRegion;
+                nSensitivity = x.nSensitivity;
+            }
+            return *this;
+        }
+    } AccessControlAbnormalPassageRule_S;
+
+    /* 门禁异常通行配置 */
+    typedef struct _AccessControlAbnormalPassage_S_
+    {
+        bool bEnable; /* 是否启用 */
+        /* 门禁异常通行规则（单区域） */
+        AccessControlAbnormalPassageRule_S stRule;
+        /* 布防时间:一周7天，每天可以设置8个时间段 */
+        DefenseTime aAlarmTime;
+        /* 联动 */
+        LinkageList_S stLinkageList;
+        /* 默认构造函数 */
+        _AccessControlAbnormalPassage_S_() : bEnable(false), stLinkageList()
+        {
+            aAlarmTime.clear();
+        }
+        /* 重载赋值运算符 */
+        _AccessControlAbnormalPassage_S_ &operator=(const _AccessControlAbnormalPassage_S_ &x)
+        {
+            if (this != &x)
+            {
+                bEnable = x.bEnable;
+                stRule = x.stRule;
+                aAlarmTime = x.aAlarmTime;
+                stLinkageList = x.stLinkageList;
+            }
+            return *this;
+        }
+
+        /* 静态方法：返回一个带有默认规则的对象 */
+        static _AccessControlAbnormalPassage_S_ CreateWithDefaultRule()
+        {
+            _AccessControlAbnormalPassage_S_ obj;
+            obj.stRule.stRegion = Region_S::CreateWithDefaultRule(4);
+            obj.aAlarmTime.assign(7, std::vector<Common::SchedTime_S>(1));
+            return obj;
+        }
+    } AccessControlAbnormalPassage_S;
+
+    /* 社交关系分析规则参数 */
+    typedef struct _SocialRelationshipAnalysisRule_S_
+    {
+        unsigned int nSensitivity; /* 灵敏度[1,100] */
+
+        /* 默认构造函数 */
+        _SocialRelationshipAnalysisRule_S_() : nSensitivity(50)
+        {
+        }
+        /* 重载赋值运算符 */
+        _SocialRelationshipAnalysisRule_S_ &operator=(const _SocialRelationshipAnalysisRule_S_ &x)
+        {
+            if (this != &x)
+            {
+                nSensitivity = x.nSensitivity;
+            }
+            return *this;
+        }
+    } SocialRelationshipAnalysisRule_S;
+
+    /* 社交关系分析配置 */
+    typedef struct _SocialRelationshipAnalysis_S_
+    {
+        bool bEnable; /* 是否启用 */
+        /* 社交关系分析规则 */
+        SocialRelationshipAnalysisRule_S stRule;
+        /* 布防时间:一周7天，每天可以设置8个时间段 */
+        DefenseTime aAlarmTime;
+        /* 联动 */
+        LinkageList_S stLinkageList;
+        /* 默认构造函数 */
+        _SocialRelationshipAnalysis_S_() : bEnable(false), stLinkageList()
+        {
+            aAlarmTime.clear();
+        }
+        /* 重载赋值运算符 */
+        _SocialRelationshipAnalysis_S_ &operator=(const _SocialRelationshipAnalysis_S_ &x)
+        {
+            if (this != &x)
+            {
+                bEnable = x.bEnable;
+                stRule = x.stRule;
+                aAlarmTime = x.aAlarmTime;
+                stLinkageList = x.stLinkageList;
+            }
+            return *this;
+        }
+
+        /* 静态方法：返回一个带有默认规则的对象 */
+        static _SocialRelationshipAnalysis_S_ CreateWithDefaultRule()
+        {
+            _SocialRelationshipAnalysis_S_ obj;
+            obj.aAlarmTime.assign(7, std::vector<Common::SchedTime_S>(1));
+            return obj;
+        }
+    } SocialRelationshipAnalysis_S;
+
+    /* 后厨穿戴规范规则参数 */
+    typedef struct _KitchenClothingComplianceRule_S_
+    {
+        Region_S stRegion;         /* 区域定义 空区域表示整幅画面参与检测 */
+        unsigned int nSensitivity; /* 灵敏度[1,100] */
+
+        /* 默认构造函数 */
+        _KitchenClothingComplianceRule_S_() : stRegion(), nSensitivity(50)
+        {
+        }
+        /* 重载赋值运算符 */
+        _KitchenClothingComplianceRule_S_ &operator=(const _KitchenClothingComplianceRule_S_ &x)
+        {
+            if (this != &x)
+            {
+                stRegion = x.stRegion;
+                nSensitivity = x.nSensitivity;
+            }
+            return *this;
+        }
+    } KitchenClothingComplianceRule_S;
+
+    /* 后厨穿戴规范配置 */
+    typedef struct _KitchenClothingCompliance_S_
+    {
+        bool bEnable; /* 是否启用 */
+        /* 后厨穿戴规范规则（单区域） */
+        KitchenClothingComplianceRule_S stRule;
+        /* 布防时间:一周7天，每天可以设置8个时间段 */
+        DefenseTime aAlarmTime;
+        /* 联动 */
+        LinkageList_S stLinkageList;
+        /* 默认构造函数 */
+        _KitchenClothingCompliance_S_() : bEnable(false), stLinkageList()
+        {
+            aAlarmTime.clear();
+        }
+        /* 重载赋值运算符 */
+        _KitchenClothingCompliance_S_ &operator=(const _KitchenClothingCompliance_S_ &x)
+        {
+            if (this != &x)
+            {
+                bEnable = x.bEnable;
+                stRule = x.stRule;
+                aAlarmTime = x.aAlarmTime;
+                stLinkageList = x.stLinkageList;
+            }
+            return *this;
+        }
+
+        /* 静态方法：返回一个带有默认规则的对象 */
+        static _KitchenClothingCompliance_S_ CreateWithDefaultRule()
+        {
+            _KitchenClothingCompliance_S_ obj;
+            obj.stRule.stRegion = Region_S::CreateWithDefaultRule(4);
+            obj.aAlarmTime.assign(7, std::vector<Common::SchedTime_S>(1));
+            return obj;
+        }
+    } KitchenClothingCompliance_S;
+
+    /************************ 后厨穿戴规范 END ************************/
+
+    /* 消防设施异常规则参数 */
+    typedef struct _FireEquipmentAbnormalRule_S_
+    {
+        Region_S stRegion;           /* 区域定义 */
+        unsigned int nSensitivity;   /* 灵敏度[1,100] */
+        unsigned int nTimeThreshold; /* 行为事件触发时间阈值，判断有效报警的时间[0,100]单位（秒） */
+
+        /* 默认构造函数 */
+        _FireEquipmentAbnormalRule_S_() : stRegion(), nSensitivity(50), nTimeThreshold(5)
+        {
+        }
+        /* 重载赋值运算符 */
+        _FireEquipmentAbnormalRule_S_ &operator=(const _FireEquipmentAbnormalRule_S_ &x)
+        {
+            if (this != &x)
+            {
+                stRegion = x.stRegion;
+                nSensitivity = x.nSensitivity;
+                nTimeThreshold = x.nTimeThreshold;
+            }
+            return *this;
+        }
+    } FireEquipmentAbnormalRule_S;
+
+    /* 消防设施异常配置 */
+    typedef struct _FireEquipmentAbnormalDetection_S_
+    {
+        bool bEnable; /* 是否启用 */
+        /* 布防时间:一周7天，每天可以设置8个时间段 */
+        std::vector<std::vector<Common::SchedTime_S>> aAlarmTime;
+        /* 消防设施异常规则，最多设置4个 */
+        std::vector<FireEquipmentAbnormalRule_S> aRule;
+        /* 联动 */
+        LinkageList_S stLinkageList;
+
+        /* 默认构造函数 */
+        _FireEquipmentAbnormalDetection_S_() : bEnable(false), stLinkageList()
+        {
+            aAlarmTime.clear();
+            aRule.clear();
+        }
+        /* 重载赋值运算符 */
+        _FireEquipmentAbnormalDetection_S_ &operator=(const _FireEquipmentAbnormalDetection_S_ &x)
+        {
+            if (this != &x)
+            {
+                bEnable = x.bEnable;
+                aAlarmTime = x.aAlarmTime;
+                stLinkageList = x.stLinkageList;
+                aRule = x.aRule;
+            }
+            return *this;
+        }
+
+        /* 静态方法：返回一个带有默认规则的对象 */
+        static _FireEquipmentAbnormalDetection_S_ CreateWithDefaultRule()
+        {
+            _FireEquipmentAbnormalDetection_S_ obj;
+            FireEquipmentAbnormalRule_S defRegion;
+            defRegion.stRegion = Region_S::CreateWithDefaultRule(4);
+            obj.aRule.push_back(defRegion);
+            obj.aAlarmTime.assign(7, std::vector<Common::SchedTime_S>(1));
+            return obj;
+        }
+    } FireEquipmentAbnormalDetection_S;
+
+    /************************ 消防设施异常 END ************************/
+    
     /************************ 平安校园相关 END ************************/
 #endif /* SCENE_INTELLIGENCE */
 

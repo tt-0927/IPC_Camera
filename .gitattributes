@@ -1,6 +1,5 @@
 # 统一按 LF 存储与检出（远端约定 LF；编译机为 Linux）
 * text=auto eol=lf
-
 # Files exceeding GitHub's normal Git object size limit are stored through Git LFS.
 rv1126/ipc_platform/environment/model/internvl3-1b-instruct_w8a8_rv1126b.rkllm filter=lfs diff=lfs merge=lfs -text
 rv1126/ipc_platform/environment/model/internvl3-2b_vision_rv1126b_v122.rknn filter=lfs diff=lfs merge=lfs -text
@@ -41,3 +40,12 @@ SDK/af_sdk/af_sdk/build/environment/**/aarch64-linux-gnu/** filter=lfs diff=lfs 
 SDK/af_sdk/af_sdk/build/environment/**/arm-linux-gnueabihf/** filter=lfs diff=lfs merge=lfs -text
 SDK/af_sdk/af_sdk/build/environment/third-party/**/*.3 filter=lfs diff=lfs merge=lfs -text
 SDK/af_sdk/af_sdk/build/environment/third-party/**/*.lib filter=lfs diff=lfs merge=lfs -text
+Hi3516/share/ai_share/AiModules/** filter=lfs diff=lfs merge=lfs -text
+Hi3516/share/ai_share/AlgorithmModule/** filter=lfs diff=lfs merge=lfs -text
+rv1126/share/ai_share/AiAlgorithm/** filter=lfs diff=lfs merge=lfs -text
+rv1126/share/ai_share/AlgorithmModule/** filter=lfs diff=lfs merge=lfs -text
+rv1126/share/ai_share/opencv4.5.5/** filter=lfs diff=lfs merge=lfs -text
+Hi3516/share/ai_share/AiAlgorithm/** filter=lfs diff=lfs merge=lfs -text
+Hi3516/share/ai_share/opencv4.5.5/** filter=lfs diff=lfs merge=lfs -text
+rv1126/share/ai_share/AiModules/** filter=lfs diff=lfs merge=lfs -text
+rv1126/ipc_platform/environment/TV_3881TJY_model/** filter=lfs diff=lfs merge=lfs -text

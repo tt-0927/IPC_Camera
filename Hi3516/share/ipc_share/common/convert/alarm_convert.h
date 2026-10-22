@@ -177,6 +177,12 @@ namespace Convert
     /* 明火检测相关 */
     void deal(Json::Object *pRootJson, Alarm::OpenFlameRule_S &stInfo, bool bOutStruct);
     void deal(Json::Object *pRootJson, Alarm::OpenFlameDetection_S &stInfo, bool bOutStruct);
+    /* 明火离人检测相关 */
+    void deal(Json::Object *pRootJson, Alarm::OpenFlameLeaveRule_S &stInfo, bool bOutStruct);
+    void deal(Json::Object *pRootJson, Alarm::OpenFlameLeaveDetection_S &stInfo, bool bOutStruct);
+    /* 消防设施异常检测相关 */
+    void deal(Json::Object *pRootJson, Alarm::FireEquipmentAbnormalRule_S &stInfo, bool bOutStruct);
+    void deal(Json::Object *pRootJson, Alarm::FireEquipmentAbnormalDetection_S &stInfo, bool bOutStruct);
     /* 道路积水检测相关 */
     void deal(Json::Object *pRootJson, Alarm::RoadPondingRule_S &stInfo, bool bOutStruct);
     void deal(Json::Object *pRootJson, Alarm::RoadPondingDetection_S &stInfo, bool bOutStruct);
@@ -327,6 +333,18 @@ namespace Convert
     /* 天台滞留相关 */
     void deal(Json::Object *pRootJson, Alarm::RooftopStayRule_S &stInfo, bool bOutStruct);
     void deal(Json::Object *pRootJson, Alarm::RooftopStayDetection_S &stInfo, bool bOutStruct);
+    /* 后厨无关人员进入相关 */
+    void deal(Json::Object *pRootJson, Alarm::KitchenUnrelatedPersonEntryRule_S &stInfo, bool bOutStruct);
+    void deal(Json::Object *pRootJson, Alarm::KitchenUnrelatedPersonEntry_S &stInfo, bool bOutStruct);
+    /* 门禁异常通行相关 */
+    void deal(Json::Object *pRootJson, Alarm::AccessControlAbnormalPassageRule_S &stInfo, bool bOutStruct);
+    void deal(Json::Object *pRootJson, Alarm::AccessControlAbnormalPassage_S &stInfo, bool bOutStruct);
+    /* 社交关系分析相关 */
+    void deal(Json::Object *pRootJson, Alarm::SocialRelationshipAnalysisRule_S &stInfo, bool bOutStruct);
+    void deal(Json::Object *pRootJson, Alarm::SocialRelationshipAnalysis_S &stInfo, bool bOutStruct);
+    /* 后厨穿戴规范相关 */
+    void deal(Json::Object *pRootJson, Alarm::KitchenClothingComplianceRule_S &stInfo, bool bOutStruct);
+    void deal(Json::Object *pRootJson, Alarm::KitchenClothingCompliance_S &stInfo, bool bOutStruct);
 #endif
 
 }; // namespace Convert

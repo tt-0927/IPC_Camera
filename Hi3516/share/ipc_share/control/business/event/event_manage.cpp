@@ -330,6 +330,24 @@ void CEventManage::set_event_type(Event::AlgorithmConfig_S &change, Event::Type_
     case Event::Type::ROOFTOP_STAY: /* 天台滞留 */
         change.nRooftopStay = bEnable;
         break;
+    case Event::Type::OPEN_FLAME_LEAVE: /* 明火离人识别 */
+        change.nEnOpenFlameLeave = bEnable;
+        break;
+    case Event::Type::KITCHEN_UNRELATED_PERSON_ENTRY: /* 后厨无关人员进入 */
+        change.nKitchenUnrelatedPersonEntry = bEnable;
+        break;
+    case Event::Type::ACCESS_CONTROL_ABNORMAL_PASSAGE: /* 门禁异常通行 */
+        change.nAccessControlAbnormalPassage = bEnable;
+        break;
+    case Event::Type::SOCIAL_RELATIONSHIP_ANALYSIS: /* 社交关系分析 */
+        change.nSocialRelationshipAnalysis = bEnable;
+        break;
+    case Event::Type::KITCHEN_CLOTHING_COMPLIANCE: /* 后厨穿戴规范 */
+        change.nKitchenClothingCompliance = bEnable;
+        break;
+    case Event::Type::FIRE_EQUIPMENT_ABNORMAL: /* 消防设施异常 */
+        change.nEnFireEquipmentAbnormal = bEnable;
+        break;
 #endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
 case Event::Type::SMOKE_FIRE: /* 烟火识别 */
@@ -638,6 +656,7 @@ void CEventManage::print_algorithm_config_changes(const Event::AlgorithmConfig_S
         {          &Event::AlgorithmConfig_S::nDangerZoneStay,     "危险区域滞留" },
         {     &Event::AlgorithmConfig_S::nKeyAreaAbnormalStay, "重点区域异常滞留" },
         {             &Event::AlgorithmConfig_S::nRooftopStay,         "天台滞留" },
+        {           &Event::AlgorithmConfig_S::nEnOpenFlameLeave,           "明火离人识别" },
 #endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
 {                 &Event::AlgorithmConfig_S::nEnSmokeFire,             "烟火识别" },

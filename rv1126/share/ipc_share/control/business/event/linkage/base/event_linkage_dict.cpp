@@ -879,6 +879,18 @@ std::string EventLinkageDict::get_event_name(Event::Type_E enType)
         return "重点区域异常滞留";
     case Event::Type_E::ROOFTOP_STAY:
         return "天台滞留";
+    case Event::Type_E::OPEN_FLAME_LEAVE:
+        return "明火离人识别";
+    case Event::Type_E::FIRE_EQUIPMENT_ABNORMAL:
+        return "消防设施异常";
+    case Event::Type_E::KITCHEN_UNRELATED_PERSON_ENTRY:
+        return "后厨无关人员进入";
+    case Event::Type_E::ACCESS_CONTROL_ABNORMAL_PASSAGE:
+        return "门禁异常通行";
+    case Event::Type_E::SOCIAL_RELATIONSHIP_ANALYSIS:
+        return "社交关系分析";
+    case Event::Type_E::KITCHEN_CLOTHING_COMPLIANCE:
+        return "后厨穿戴规范";
 #endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
     case Event::Type_E::SMOKE_FIRE:

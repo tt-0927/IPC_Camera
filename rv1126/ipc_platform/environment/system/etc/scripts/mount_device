@@ -1,0 +1,177 @@
+#!/bin/sh
+
+# 配置参数
+LOG_DEVICE="/dev/console"  # 日志输出位置
+MOUNT_PATH="/mnt"          # 固定挂载路径
+DEVICE="$1"                # 设备节点 (如 /dev/mmcblk1p1)
+
+# 使用环境变量获取动作类型
+ACTION="$ACTION"
+if [ -z "$ACTION" ]; then
+    # 如果环境变量不存在，尝试从参数获取
+    ACTION="$2"
+fi
+
+if [ ! -d $MOUNT_PATH ]; then
+	mkdir -p $MOUNT_PATH
+fi
+
+echo "tf card insert " >${LOG_DEVICE}
+
+# 创建软链接的函数（复用逻辑） 仅在挂载成功后执行
+create_symlinks() {
+    if [ ! -d "$MOUNT_PATH/record" ]; then
+        mkdir "$MOUNT_PATH/record"
+    fi
+    if [ ! -d "$MOUNT_PATH/capture" ]; then
+        mkdir "$MOUNT_PATH/capture"
+    fi
+
+    # 删除 /opt/course 下名为 capture 或 record 的任何类型文件/目录
+    for name in capture record; do
+        [ -e "/opt/course/$name" ] && rm -rf "/opt/course/$name"
+    done
+    
+    # 检查并创建record软链接
+    if [ -d "$MOUNT_PATH/record" ] && [ ! -L "/opt/course/record" ]; then
+		if ln -s "$MOUNT_PATH/record" "/opt/course/record"; then
+            echo "创建 record 符号链接成功" >${LOG_DEVICE}
+        else
+            echo "创建 record 符号链接失败" >${LOG_DEVICE}
+        fi
+    fi
+    # 检查并创建capture软链接
+    if [ -d "$MOUNT_PATH/capture" ] && [ ! -L "/opt/course/capture" ]; then
+			if ln -s "$MOUNT_PATH/capture" "/opt/course/capture"; then
+            echo "创建 capture 符号链接成功" >${LOG_DEVICE}
+        else
+            echo "创建 capture 符号链接失败" >${LOG_DEVICE}
+        fi
+    fi
+}
+
+# 删除软链接的函数（复用逻辑） 仅在卸载成功后执行
+remove_symlinks() {
+    # 检查并删除record软链接
+    if [ -L "/opt/course/record" ]; then
+        if rm "/opt/course/record"; then
+            echo "成功移除 record 符号链" >${LOG_DEVICE}
+        else
+            echo "错误: 移除符号链接 record 失败" >${LOG_DEVICE}
+        fi
+    fi
+    # 检查并删除capture软链接
+    if [ -L "/opt/course/capture" ]; then
+        if rm "/opt/course/capture"; then
+            echo "成功移除 capture 符号链" >${LOG_DEVICE}
+        else
+            echo "错误: 移除符号链接 capture 失败" >${LOG_DEVICE}
+        fi
+    fi
+
+    # 删除 /mnt 下名为 capture 或 record 的任何类型文件/目录
+    for name in capture record; do
+        [ -e "/mnt/$name" ] && rm -rf "/mnt/$name"
+    done
+}
+
+case "$ACTION" in
+    add)
+        echo "SD card detected" > $LOG_DEVICE
+        
+        # 确保挂载目录存在
+        mkdir -p $MOUNT_PATH
+
+        # 删除 /mnt 下名为 capture 或 record 的任何类型文件/目录
+        for name in capture record; do
+            [ -e "/mnt/$name" ] && rm -rf "/mnt/$name"
+        done
+        
+        # 使用blkid检测文件系统类型
+        FS_TYPE=$(blkid $DEVICE | awk -F 'TYPE="' '{print $2}' | awk -F '"' '{print $1}')
+        
+        # 根据文件系统类型挂载
+        case "$FS_TYPE" in
+            ntfs)
+                echo "Mounting as NTFS" > $LOG_DEVICE
+                if ntfs-3g -o iocharset=utf8 $DEVICE $MOUNT_PATH; then
+                    echo "NTFS mount successful" > $LOG_DEVICE
+                    create_symlinks
+                else
+                    echo "NTFS mount failed" > $LOG_DEVICE
+                fi
+                ;;
+            exfat)
+                echo "Mounting as exFAT" > $LOG_DEVICE
+                if mount -t exfat -o iocharset=utf8 $DEVICE $MOUNT_PATH; then
+                    echo "exFAT mount successful" > $LOG_DEVICE
+                    create_symlinks
+                else
+                    echo "exFAT mount failed" > $LOG_DEVICE
+                fi
+                ;;
+            vfat|fat32)
+                echo "Mounting as FAT" > $LOG_DEVICE
+                if mount -t vfat -o iocharset=utf8 $DEVICE $MOUNT_PATH; then
+                    echo "FAT mount successful" > $LOG_DEVICE
+                    create_symlinks
+                else
+                    echo "FAT mount failed" > $LOG_DEVICE
+                fi
+                ;;
+            *)
+                echo "Unknown filesystem: $FS_TYPE" > $LOG_DEVICE
+                echo "Trying vfat mount..." > $LOG_DEVICE
+                if mount -t vfat -o iocharset=utf8 $DEVICE $MOUNT_PATH; then
+                    echo "vfat mount successful" > $LOG_DEVICE
+                    create_symlinks
+                else
+                    echo "vfat mount failed, trying exfat..." > $LOG_DEVICE
+                    if mount -t exfat -o iocharset=utf8 $DEVICE $MOUNT_PATH; then
+                        echo "exfat mount successful" > $LOG_DEVICE
+                        create_symlinks
+                    else
+                        echo "exfat mount failed, trying ntfs..." > $LOG_DEVICE
+                        if ntfs-3g -o iocharset=utf8 $DEVICE $MOUNT_PATH; then
+                            echo "ntfs mount successful" > $LOG_DEVICE
+                            create_symlinks
+                        else
+                            echo "All mount attempts failed" > $LOG_DEVICE
+                            rmdir $MOUNT_PATH 2>/dev/null  # 清理空目录
+                        fi
+                    fi
+                fi
+                ;;
+        esac
+        ;;
+        
+    remove)
+        echo "SD card being removed" > $LOG_DEVICE
+        
+        # 检查挂载点
+        if grep -q "$MOUNT_PATH" /proc/mounts; then
+            echo "Unmounting $MOUNT_PATH" > $LOG_DEVICE
+            if umount $MOUNT_PATH; then
+                echo "Successfully unmounted" > $LOG_DEVICE
+                remove_symlinks
+                rmdir $MOUNT_PATH
+            else
+                echo "Forcing unmount" > $LOG_DEVICE
+                umount -l $MOUNT_PATH
+                for i in 1 2 3 4 5 6 7 8 9 10; do
+                    grep -q "$MOUNT_PATH" /proc/mounts || break
+                    umount -l $MOUNT_PATH 2>/dev/null  # 懒卸载
+                    sleep 0.3
+                done
+            fi
+        else
+            echo "No mount point found" > $LOG_DEVICE
+        fi
+        ;;
+        
+    *)
+        echo "Unknown action: $ACTION" > $LOG_DEVICE
+        ;;
+esac
+
+exit 0

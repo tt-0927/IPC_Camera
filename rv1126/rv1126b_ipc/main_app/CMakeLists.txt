@@ -129,6 +129,20 @@ endforeach()
 
 add_executable (${PRO_NAME} ${MAIN_LIST} ${STREAM_LIST} ${SRC_LIST} ${SOURCE_PATH})
 
+# 连接库：默认 smolrtsp；旧实现只在显式 live555 回滚时连接。
+set(PROJECT_RTSP_LINK_LIBS)
+if(IPC_RTSP_BACKEND STREQUAL "smolrtsp")
+    if(NOT IPC_RTSP_LINK_LIBS)
+        message(FATAL_ERROR "smolrtsp 后端未提供 IPC_RTSP_LINK_LIBS")
+    endif()
+    set(PROJECT_RTSP_LINK_LIBS ${IPC_RTSP_LINK_LIBS})
+elseif(IPC_RTSP_BACKEND STREQUAL "live555")
+    set(PROJECT_RTSP_LINK_LIBS libRtspServer)
+else()
+    message(FATAL_ERROR
+        "IPC_RTSP_BACKEND 必须是 smolrtsp 或 live555，当前为：${IPC_RTSP_BACKEND}")
+endif()
+
 #连接库
 #查看platform下的库文件cmake
 target_link_libraries(${PROJECT_NAME} 
@@ -158,7 +172,7 @@ target_link_libraries(${PROJECT_NAME}
     libupnp
     libsnmp++
     libagent++
-    libRtspServer
+    ${PROJECT_RTSP_LINK_LIBS}
     # libtwolame
     libonvif
     # libgmssl

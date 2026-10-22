@@ -1,0 +1,8 @@
+{
+    "version": "v1.0",
+    "model": "ImageFeature",
+    "notes": "视觉模型",
+    "model_path": "/opt/cam/model/internvl3-1B-Instruct_vision_rv1126b.rknn",
+    "core_num": 1
+}
+

@@ -22,3 +22,9 @@ tools/apifox/
 # 固件编译产物体积过大（单个 rootfs 镜像可达数百 MB），超出 GitHub 单文件 100MB 上限，不入库
 rv1126/rv1126b_1t_firmware/
 rv1126/rv1126b_2ti_firmware/
+
+# ==================== 本地密钥与挂载点 ====================
+# 证书私钥仅保留在编译机/设备，不入库
+rv1126/ipc_platform/environment/cert/
+# 空挂载点
+rv1126/bind

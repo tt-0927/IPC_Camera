@@ -232,6 +232,20 @@ namespace Log
         KEY_AREA_ABNORMAL_STAY_STOP         = 1314, /**< 重点区域异常滞留结束 */
         ROOFTOP_STAY_START                  = 1315, /**< 天台滞留开始 */
         ROOFTOP_STAY_STOP                   = 1316, /**< 天台滞留结束 */
+        OPEN_FLAME_LEAVE_START              = 1317, /**< 明火离人识别开始 */
+        OPEN_FLAME_LEAVE_STOP               = 1318, /**< 明火离人识别结束 */
+        QUEUE_CROWDING_START                = 1319, /**< 排队拥堵识别开始 */
+        QUEUE_CROWDING_STOP                 = 1320, /**< 排队拥堵识别结束 */
+        KITCHEN_UNRELATED_PERSON_ENTRY_START  = 1321, /**< 后厨无关人员进入开始 */
+        KITCHEN_UNRELATED_PERSON_ENTRY_STOP   = 1322, /**< 后厨无关人员进入结束 */
+        ACCESS_CONTROL_ABNORMAL_PASSAGE_START = 1323, /**< 门禁异常通行开始 */
+        ACCESS_CONTROL_ABNORMAL_PASSAGE_STOP  = 1324, /**< 门禁异常通行结束 */
+        SOCIAL_RELATIONSHIP_ANALYSIS_START    = 1325, /**< 社交关系分析开始 */
+        SOCIAL_RELATIONSHIP_ANALYSIS_STOP     = 1326, /**< 社交关系分析结束 */
+        KITCHEN_CLOTHING_COMPLIANCE_START     = 1327, /**< 后厨穿戴规范开始 */
+        KITCHEN_CLOTHING_COMPLIANCE_STOP      = 1328, /**< 后厨穿戴规范结束 */
+        FIRE_EQUIPMENT_ABNORMAL_START       = 1329, /**< 消防设施异常开始 */
+        FIRE_EQUIPMENT_ABNORMAL_STOP        = 1330, /**< 消防设施异常结束 */
 #endif
 
         /* 剩余部分报警日志需实现后在这里添加 */
@@ -794,6 +808,20 @@ namespace Log
             return bStart ? KEY_AREA_ABNORMAL_STAY_START : KEY_AREA_ABNORMAL_STAY_STOP;
         case Event::Type::ROOFTOP_STAY:
             return bStart ? ROOFTOP_STAY_START : ROOFTOP_STAY_STOP;
+        case Event::Type::OPEN_FLAME_LEAVE:
+            return bStart ? OPEN_FLAME_LEAVE_START : OPEN_FLAME_LEAVE_STOP;
+        case Event::Type::FIRE_EQUIPMENT_ABNORMAL:
+            return bStart ? FIRE_EQUIPMENT_ABNORMAL_START : FIRE_EQUIPMENT_ABNORMAL_STOP;
+        case Event::Type::QUEUE_CROWDING:
+            return bStart ? QUEUE_CROWDING_START : QUEUE_CROWDING_STOP;
+        case Event::Type::KITCHEN_UNRELATED_PERSON_ENTRY:
+            return bStart ? KITCHEN_UNRELATED_PERSON_ENTRY_START : KITCHEN_UNRELATED_PERSON_ENTRY_STOP;
+        case Event::Type::ACCESS_CONTROL_ABNORMAL_PASSAGE:
+            return bStart ? ACCESS_CONTROL_ABNORMAL_PASSAGE_START : ACCESS_CONTROL_ABNORMAL_PASSAGE_STOP;
+        case Event::Type::SOCIAL_RELATIONSHIP_ANALYSIS:
+            return bStart ? SOCIAL_RELATIONSHIP_ANALYSIS_START : SOCIAL_RELATIONSHIP_ANALYSIS_STOP;
+        case Event::Type::KITCHEN_CLOTHING_COMPLIANCE:
+            return bStart ? KITCHEN_CLOTHING_COMPLIANCE_START : KITCHEN_CLOTHING_COMPLIANCE_STOP;
 #endif
         default:
             return UNDEFINED;
@@ -974,6 +1002,20 @@ namespace Log
         case KEY_AREA_ABNORMAL_STAY_STOP:    return "重点区域异常滞留结束";
         case ROOFTOP_STAY_START:             return "天台滞留开始";
         case ROOFTOP_STAY_STOP:              return "天台滞留结束";
+        case OPEN_FLAME_LEAVE_START:         return "明火离人识别开始";
+        case OPEN_FLAME_LEAVE_STOP:          return "明火离人识别结束";
+        case FIRE_EQUIPMENT_ABNORMAL_START:  return "消防设施异常开始";
+        case FIRE_EQUIPMENT_ABNORMAL_STOP:   return "消防设施异常结束";
+        case QUEUE_CROWDING_START:           return "排队拥堵识别开始";
+        case QUEUE_CROWDING_STOP:            return "排队拥堵识别结束";
+        case KITCHEN_UNRELATED_PERSON_ENTRY_START:  return "后厨无关人员进入开始";
+        case KITCHEN_UNRELATED_PERSON_ENTRY_STOP:   return "后厨无关人员进入结束";
+        case ACCESS_CONTROL_ABNORMAL_PASSAGE_START: return "门禁异常通行开始";
+        case ACCESS_CONTROL_ABNORMAL_PASSAGE_STOP:  return "门禁异常通行结束";
+        case SOCIAL_RELATIONSHIP_ANALYSIS_START:    return "社交关系分析开始";
+        case SOCIAL_RELATIONSHIP_ANALYSIS_STOP:     return "社交关系分析结束";
+        case KITCHEN_CLOTHING_COMPLIANCE_START:     return "后厨穿戴规范开始";
+        case KITCHEN_CLOTHING_COMPLIANCE_STOP:      return "后厨穿戴规范结束";
 #endif
         /* 剩余部分报警日志需实现后在这里添加 */
         /* --------------------报警日志类型-------------------- */

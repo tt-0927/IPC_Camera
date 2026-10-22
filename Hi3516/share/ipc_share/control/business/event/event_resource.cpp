@@ -28,6 +28,7 @@ const std::map<Event::Type_E, CEventResource::BoolMemberPtr> CEventResource::m_e
     /* 行为分析 */
     {Event::Type_E::LOITERING_DETECT, &Event::SmartEventEnableStatus_S::bLoiteringDetect},
     {Event::Type_E::CROWD_GATHERING, &Event::SmartEventEnableStatus_S::bCrowdGathering},
+    {Event::Type_E::QUEUE_CROWDING, &Event::SmartEventEnableStatus_S::bQueueCrowding},
     {Event::Type_E::PARKING_DETECT, &Event::SmartEventEnableStatus_S::bParkingDetect},
     /* 场景检测 */
     {Event::Type_E::AUDIO_ANOMALY, &Event::SmartEventEnableStatus_S::bAudioAnomaly},
@@ -88,6 +89,12 @@ const std::map<Event::Type_E, CEventResource::BoolMemberPtr> CEventResource::m_e
     {Event::Type_E::DANGER_ZONE_STAY, &Event::SmartEventEnableStatus_S::bDangerZoneStay},
     {Event::Type_E::KEY_AREA_ABNORMAL_STAY, &Event::SmartEventEnableStatus_S::bKeyAreaAbnormalStay},
     {Event::Type_E::ROOFTOP_STAY, &Event::SmartEventEnableStatus_S::bRooftopStay},
+    {Event::Type_E::OPEN_FLAME_LEAVE, &Event::SmartEventEnableStatus_S::bOpenFlameLeave},
+    {Event::Type_E::FIRE_EQUIPMENT_ABNORMAL, &Event::SmartEventEnableStatus_S::bFireEquipmentAbnormal},
+    {Event::Type_E::KITCHEN_UNRELATED_PERSON_ENTRY, &Event::SmartEventEnableStatus_S::bKitchenUnrelatedPersonEntry},
+    {Event::Type_E::ACCESS_CONTROL_ABNORMAL_PASSAGE, &Event::SmartEventEnableStatus_S::bAccessControlAbnormalPassage},
+    {Event::Type_E::SOCIAL_RELATIONSHIP_ANALYSIS, &Event::SmartEventEnableStatus_S::bSocialRelationshipAnalysis},
+    {Event::Type_E::KITCHEN_CLOTHING_COMPLIANCE, &Event::SmartEventEnableStatus_S::bKitchenClothingCompliance},
 #endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
     {Event::Type_E::SMOKE_FIRE, &Event::SmartEventEnableStatus_S::bSmokeFire},
@@ -120,6 +127,7 @@ const std::map<Event::Type_E, Event::SmartCategory_E> CEventResource::m_event_to
     /* 行为分析 */
     {Event::Type_E::LOITERING_DETECT, Event::SmartCategory_E::BEHAVIOURAL_ANALYSIS},
     {Event::Type_E::CROWD_GATHERING, Event::SmartCategory_E::BEHAVIOURAL_ANALYSIS},
+    {Event::Type_E::QUEUE_CROWDING, Event::SmartCategory_E::BEHAVIOURAL_ANALYSIS},
     {Event::Type_E::PARKING_DETECT, Event::SmartCategory_E::BEHAVIOURAL_ANALYSIS},
     /* 场景检测 */
     {Event::Type_E::AUDIO_ANOMALY, Event::SmartCategory_E::SCENE_DETECTION},
@@ -180,6 +188,12 @@ const std::map<Event::Type_E, Event::SmartCategory_E> CEventResource::m_event_to
     {Event::Type_E::DANGER_ZONE_STAY, Event::SmartCategory_E::SAFE_CAMPUS},
     {Event::Type_E::KEY_AREA_ABNORMAL_STAY, Event::SmartCategory_E::SAFE_CAMPUS},
     {Event::Type_E::ROOFTOP_STAY, Event::SmartCategory_E::SAFE_CAMPUS},
+    {Event::Type_E::OPEN_FLAME_LEAVE, Event::SmartCategory_E::SAFE_CAMPUS},
+    {Event::Type_E::FIRE_EQUIPMENT_ABNORMAL, Event::SmartCategory_E::SAFE_CAMPUS},
+    {Event::Type_E::KITCHEN_UNRELATED_PERSON_ENTRY, Event::SmartCategory_E::SAFE_CAMPUS},
+    {Event::Type_E::ACCESS_CONTROL_ABNORMAL_PASSAGE, Event::SmartCategory_E::SAFE_CAMPUS},
+    {Event::Type_E::SOCIAL_RELATIONSHIP_ANALYSIS, Event::SmartCategory_E::SAFE_CAMPUS},
+    {Event::Type_E::KITCHEN_CLOTHING_COMPLIANCE, Event::SmartCategory_E::SAFE_CAMPUS},
 #endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
     {Event::Type_E::SMOKE_FIRE, Event::SmartCategory_E::BEHAVIOR_MONITORING},
@@ -232,10 +246,11 @@ const std::map<Event::SmartCategory_E, std::set<Event::Type_E>> CEventResource::
         }
     },
     {
-        Event::SmartCategory_E::BEHAVIOURAL_ANALYSIS, 
+        Event::SmartCategory_E::BEHAVIOURAL_ANALYSIS,
         {
             Event::Type_E::LOITERING_DETECT,
             Event::Type_E::CROWD_GATHERING,
+            Event::Type_E::QUEUE_CROWDING,
             Event::Type_E::PARKING_DETECT,
 
         }
@@ -370,6 +385,12 @@ const std::map<Event::SmartCategory_E, std::set<Event::Type_E>> CEventResource::
             Event::Type_E::DANGER_ZONE_STAY,
             Event::Type_E::KEY_AREA_ABNORMAL_STAY,
             Event::Type_E::ROOFTOP_STAY,
+            Event::Type_E::OPEN_FLAME_LEAVE,
+            Event::Type_E::FIRE_EQUIPMENT_ABNORMAL,
+            Event::Type_E::KITCHEN_UNRELATED_PERSON_ENTRY,
+            Event::Type_E::ACCESS_CONTROL_ABNORMAL_PASSAGE,
+            Event::Type_E::SOCIAL_RELATIONSHIP_ANALYSIS,
+            Event::Type_E::KITCHEN_CLOTHING_COMPLIANCE,
         }
     },
 #endif
@@ -630,6 +651,7 @@ void CEventResource::update_event_configurations_on_disable(const Event::SmartEv
         /* 行为分析 */
         case Event::Type_E::LOITERING_DETECT:   disable_specific_config<Alarm::LoiteringDetection_S>(); break;
         case Event::Type_E::CROWD_GATHERING:    disable_specific_config<Alarm::CrowdGathering_S>();     break;
+        case Event::Type_E::QUEUE_CROWDING:     disable_specific_config<Alarm::QueueCrowdingDetection_S>(); break;
         case Event::Type_E::PARKING_DETECT:     disable_specific_config<Alarm::ParkingDetection_S>();   break;
         /* 场景检测 */
         case Event::Type_E::AUDIO_ANOMALY:      disable_specific_config<Alarm::AudioAnomaly_S>();      break;
@@ -691,6 +713,12 @@ void CEventResource::update_event_configurations_on_disable(const Event::SmartEv
         case Event::Type_E::DANGER_ZONE_STAY:               disable_specific_config<Alarm::DangerZoneStayDetection_S>();      break;
         case Event::Type_E::KEY_AREA_ABNORMAL_STAY:         disable_specific_config<Alarm::KeyAreaAbnormalStayDetection_S>();      break;
         case Event::Type_E::ROOFTOP_STAY:                   disable_specific_config<Alarm::RooftopStayDetection_S>();      break;
+        case Event::Type_E::OPEN_FLAME_LEAVE:               disable_specific_config<Alarm::OpenFlameLeaveDetection_S>();  break;
+        case Event::Type_E::FIRE_EQUIPMENT_ABNORMAL:        disable_specific_config<Alarm::FireEquipmentAbnormalDetection_S>();  break;
+        case Event::Type_E::KITCHEN_UNRELATED_PERSON_ENTRY: disable_specific_config<Alarm::KitchenUnrelatedPersonEntry_S>(); break;
+        case Event::Type_E::ACCESS_CONTROL_ABNORMAL_PASSAGE: disable_specific_config<Alarm::AccessControlAbnormalPassage_S>(); break;
+        case Event::Type_E::SOCIAL_RELATIONSHIP_ANALYSIS:   disable_specific_config<Alarm::SocialRelationshipAnalysis_S>(); break;
+        case Event::Type_E::KITCHEN_CLOTHING_COMPLIANCE:    disable_specific_config<Alarm::KitchenClothingCompliance_S>(); break;
 #endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
         case Event::Type_E::SMOKE_FIRE:                     disable_specific_config<Alarm::SmokeFireDetection_S>();      break;

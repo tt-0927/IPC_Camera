@@ -282,6 +282,18 @@
 #define EVENT_KEY_AREA_ABNORMAL_STAY_INFO_FILE       USER_DATA_PATH "event_key_area_abnormal_stay_info.json"
 /* 天台滞留 */
 #define EVENT_ROOFTOP_STAY_INFO_FILE                 USER_DATA_PATH "event_rooftop_stay_info.json"
+/* 明火离人识别 */
+#define EVENT_OPEN_FLAME_LEAVE_INFO_FILE             USER_DATA_PATH "event_open_flame_leave_info.json"
+/* 后厨无关人员进入 */
+#define EVENT_KITCHEN_UNRELATED_PERSON_ENTRY_INFO_FILE  USER_DATA_PATH "event_kitchen_unrelated_person_entry_info.json"
+/* 门禁异常通行 */
+#define EVENT_ACCESS_CONTROL_ABNORMAL_PASSAGE_INFO_FILE USER_DATA_PATH "event_access_control_abnormal_passage_info.json"
+/* 社交关系分析 */
+#define EVENT_SOCIAL_RELATIONSHIP_ANALYSIS_INFO_FILE     USER_DATA_PATH "event_social_relationship_analysis_info.json"
+/* 后厨穿戴规范 */
+#define EVENT_KITCHEN_CLOTHING_COMPLIANCE_INFO_FILE      USER_DATA_PATH "event_kitchen_clothing_compliance_info.json"
+/* 消防设施异常 */
+#define EVENT_FIRE_EQUIPMENT_ABNORMAL_INFO_FILE      USER_DATA_PATH "event_fire_equipment_abnormal_info.json"
 
 /* 人流统计 */
 #define EVENT_PEOPLE_FLOW_STATISTICS_CONFIG_FILE        USER_DATA_PATH "event_people_flow_statistics.json"

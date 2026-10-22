@@ -2571,8 +2571,6 @@ void COverplayDraw::draw_text(HiRgn_S *pHandle, Osd::OverplayInfo_S stuOverplayI
         return;
     }
 
-    ensure_visible_without_flicker(pHandle, stuOverplayInfo);
-
     /* 确定像素格式 */
     Uint32 u32PixelFormat = SDL_PIXELFORMAT_ARGB4444;
 

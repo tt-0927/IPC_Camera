@@ -215,6 +215,9 @@ public:
     int set_configure(const Alarm::OpenFlameDetection_S &alarm);
     int get_configure(Alarm::OpenFlameDetection_S &alarm) const;
 
+    int set_configure(const Alarm::OpenFlameLeaveDetection_S &alarm);
+    int get_configure(Alarm::OpenFlameLeaveDetection_S &alarm) const;
+
     int set_configure(const Alarm::RoadPondingDetection_S &alarm);
     int get_configure(Alarm::RoadPondingDetection_S &alarm) const;
 
@@ -321,6 +324,21 @@ int get_configure(Alarm::SmokeFireDetection_S &alarm) const;
     /* 天台滞留配置 */
     int set_configure(const Alarm::RooftopStayDetection_S &alarm);
     int get_configure(Alarm::RooftopStayDetection_S &alarm) const;
+    /* 后厨无关人员进入配置 */
+    int set_configure(const Alarm::KitchenUnrelatedPersonEntry_S &alarm);
+    int get_configure(Alarm::KitchenUnrelatedPersonEntry_S &alarm) const;
+    /* 门禁异常通行配置 */
+    int set_configure(const Alarm::AccessControlAbnormalPassage_S &alarm);
+    int get_configure(Alarm::AccessControlAbnormalPassage_S &alarm) const;
+    /* 社交关系分析配置 */
+    int set_configure(const Alarm::SocialRelationshipAnalysis_S &alarm);
+    int get_configure(Alarm::SocialRelationshipAnalysis_S &alarm) const;
+    /* 后厨穿戴规范配置 */
+    int set_configure(const Alarm::KitchenClothingCompliance_S &alarm);
+    int get_configure(Alarm::KitchenClothingCompliance_S &alarm) const;
+    /* 消防设施异常配置 */
+    int set_configure(const Alarm::FireEquipmentAbnormalDetection_S &alarm);
+    int get_configure(Alarm::FireEquipmentAbnormalDetection_S &alarm) const;
 #endif
 
 private:
@@ -441,6 +459,8 @@ private:
     // ConfigStorage<Alarm::SmokeFireDetection_S, StorageType_E::Single> m_smokeFire;
     /* 明火识别 */
     ConfigStorage<Alarm::OpenFlameDetection_S, StorageType_E::Single> m_openFlame;
+    /* 明火离人识别 */
+    ConfigStorage<Alarm::OpenFlameLeaveDetection_S, StorageType_E::Single> m_openFlameLeave;
     /* 道路积水检测 */
     ConfigStorage<Alarm::RoadPondingDetection_S, StorageType_E::Single> m_roadPonding;
     /* 井盖异常检测 */
@@ -519,6 +539,16 @@ private:
     ConfigStorage<Alarm::KeyAreaAbnormalStayDetection_S, StorageType_E::Single> m_keyAreaAbnormalStay;
     /* 天台滞留配置 */
     ConfigStorage<Alarm::RooftopStayDetection_S, StorageType_E::Single> m_rooftopStay;
+    /* 后厨无关人员进入配置 */
+    ConfigStorage<Alarm::KitchenUnrelatedPersonEntry_S, StorageType_E::Single> m_kitchenUnrelatedPersonEntry;
+    /* 门禁异常通行配置 */
+    ConfigStorage<Alarm::AccessControlAbnormalPassage_S, StorageType_E::Single> m_accessControlAbnormalPassage;
+    /* 社交关系分析配置 */
+    ConfigStorage<Alarm::SocialRelationshipAnalysis_S, StorageType_E::Single> m_socialRelationshipAnalysis;
+    /* 后厨穿戴规范配置 */
+    ConfigStorage<Alarm::KitchenClothingCompliance_S, StorageType_E::Single> m_kitchenClothingCompliance;
+    /* 消防设施异常配置 */
+    ConfigStorage<Alarm::FireEquipmentAbnormalDetection_S, StorageType_E::Single> m_fireEquipmentAbnormal;
 #endif
 
 };

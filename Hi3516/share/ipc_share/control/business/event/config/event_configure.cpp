@@ -62,6 +62,7 @@ CEventConfigure::CEventConfigure():
       m_pedestrianIntrusion(EVENT_PEDESTRIAN_INTRUSION_INFO_FILE),
     //   m_smokeFire(EVENT_SMOKE_FIRE_INFO_FILE),
       m_openFlame(EVENT_OPEN_FLAME_INFO_FILE),
+      m_openFlameLeave(EVENT_OPEN_FLAME_LEAVE_INFO_FILE),
       m_roadPonding(EVENT_ROAD_PONDING_INFO_FILE),
       m_manholeCoverAbnormal(EVENT_MANHOLE_COVER_ABNORMAL_INFO_FILE),
       m_SleepOnDuty(EVENT_SLEEP_ON_DUTY_INFO_FILE),
@@ -104,7 +105,12 @@ CEventConfigure::CEventConfigure():
       m_longTimeStay(EVENT_LONG_TIME_STAY_INFO_FILE),
       m_dangerZoneStay(EVENT_DANGER_ZONE_STAY_INFO_FILE),
       m_keyAreaAbnormalStay(EVENT_KEY_AREA_ABNORMAL_STAY_INFO_FILE),
-      m_rooftopStay(EVENT_ROOFTOP_STAY_INFO_FILE)
+      m_rooftopStay(EVENT_ROOFTOP_STAY_INFO_FILE),
+      m_kitchenUnrelatedPersonEntry(EVENT_KITCHEN_UNRELATED_PERSON_ENTRY_INFO_FILE),
+      m_accessControlAbnormalPassage(EVENT_ACCESS_CONTROL_ABNORMAL_PASSAGE_INFO_FILE),
+      m_socialRelationshipAnalysis(EVENT_SOCIAL_RELATIONSHIP_ANALYSIS_INFO_FILE),
+      m_kitchenClothingCompliance(EVENT_KITCHEN_CLOTHING_COMPLIANCE_INFO_FILE),
+      m_fireEquipmentAbnormal(EVENT_FIRE_EQUIPMENT_ABNORMAL_INFO_FILE)
 #endif
 {
 }
@@ -581,6 +587,16 @@ int CEventConfigure::get_configure(Alarm::OpenFlameDetection_S &alarm) const
     return m_openFlame.get(alarm);
 }
 
+int CEventConfigure::set_configure(const Alarm::OpenFlameLeaveDetection_S &alarm)
+{
+    return m_openFlameLeave.set(alarm);
+}
+
+int CEventConfigure::get_configure(Alarm::OpenFlameLeaveDetection_S &alarm) const
+{
+    return m_openFlameLeave.get(alarm);
+}
+
 int CEventConfigure::set_configure(const Alarm::RoadPondingDetection_S &alarm)
 {
     return m_roadPonding.set(alarm);
@@ -906,5 +922,55 @@ int CEventConfigure::set_configure(const Alarm::RooftopStayDetection_S &alarm)
 int CEventConfigure::get_configure(Alarm::RooftopStayDetection_S &alarm) const
 {
     return m_rooftopStay.get(alarm);
+}
+
+int CEventConfigure::set_configure(const Alarm::KitchenUnrelatedPersonEntry_S &alarm)
+{
+    return m_kitchenUnrelatedPersonEntry.set(alarm);
+}
+
+int CEventConfigure::get_configure(Alarm::KitchenUnrelatedPersonEntry_S &alarm) const
+{
+    return m_kitchenUnrelatedPersonEntry.get(alarm);
+}
+
+int CEventConfigure::set_configure(const Alarm::AccessControlAbnormalPassage_S &alarm)
+{
+    return m_accessControlAbnormalPassage.set(alarm);
+}
+
+int CEventConfigure::get_configure(Alarm::AccessControlAbnormalPassage_S &alarm) const
+{
+    return m_accessControlAbnormalPassage.get(alarm);
+}
+
+int CEventConfigure::set_configure(const Alarm::SocialRelationshipAnalysis_S &alarm)
+{
+    return m_socialRelationshipAnalysis.set(alarm);
+}
+
+int CEventConfigure::get_configure(Alarm::SocialRelationshipAnalysis_S &alarm) const
+{
+    return m_socialRelationshipAnalysis.get(alarm);
+}
+
+int CEventConfigure::set_configure(const Alarm::KitchenClothingCompliance_S &alarm)
+{
+    return m_kitchenClothingCompliance.set(alarm);
+}
+
+int CEventConfigure::get_configure(Alarm::KitchenClothingCompliance_S &alarm) const
+{
+    return m_kitchenClothingCompliance.get(alarm);
+}
+
+int CEventConfigure::set_configure(const Alarm::FireEquipmentAbnormalDetection_S &alarm)
+{
+    return m_fireEquipmentAbnormal.set(alarm);
+}
+
+int CEventConfigure::get_configure(Alarm::FireEquipmentAbnormalDetection_S &alarm) const
+{
+    return m_fireEquipmentAbnormal.get(alarm);
 }
 #endif

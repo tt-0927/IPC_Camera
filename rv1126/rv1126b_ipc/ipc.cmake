@@ -16,6 +16,10 @@ set(RK_PIPELINE_PATH  ${ROOT_PATH}/rk_pipeline)
 set(CMAKE_TEMP_PATH       ${ROOT_PATH}/output/cmake_temp)
 # sdk路径
 set(AFSDK_PATH        ${ROOT_PATH}/../af_sdk)
+
+# rtsp 后端版本
+set(IPC_RTSP_BACKEND "smolrtsp" CACHE STRING "RTSP 后端:smolrtsp(新)| live555(旧)")
+
 # 引用cmake
 include(${IPC_PLATFORM_PATH}/ipc_platform.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/cmake/device_profiles.cmake)
@@ -23,7 +27,15 @@ include(${CMAKE_CURRENT_LIST_DIR}/cmake/device_profiles.cmake)
 # 引用lib
 include(${IPC_PLATFORM_PATH}/lib/rk_mpi/rk_mpi.cmake)
 include(${IPC_PLATFORM_PATH}/lib/xml2/xml2.cmake)
-include(${IPC_PLATFORM_PATH}/lib/RtspServer/RtspServer.cmake)
+# rtsp 后端版本：两套 RTSP 后端的依赖完全隔离
+if(IPC_RTSP_BACKEND STREQUAL "smolrtsp")
+    include(${IPC_PLATFORM_PATH}/lib/libevent/libevent.cmake)
+    include(${IPC_PLATFORM_PATH}/lib/rtsp_smol/rtsp_smol.cmake)
+elseif(IPC_RTSP_BACKEND STREQUAL "live555")
+    include(${IPC_PLATFORM_PATH}/lib/RtspServer/RtspServer.cmake)
+else()
+    message(FATAL_ERROR "IPC_RTSP_BACKEND 必须是 smolrtsp 或 live555，当前为：${IPC_RTSP_BACKEND}")
+endif()
 include(${IPC_PLATFORM_PATH}/lib/MemoryCheck/MemoryCheck.cmake)
 include(${IPC_PLATFORM_PATH}/lib/sqlite3/sqlite3.cmake)
 include(${IPC_PLATFORM_PATH}/lib/zlog/zlog.cmake)

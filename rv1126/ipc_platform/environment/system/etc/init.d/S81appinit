@@ -1,0 +1,149 @@
+#!/bin/sh
+
+# 设置环境变量
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/cam/lib
+export PATH=$PATH:/opt/cam/tools
+
+LOG_DEVICE="/dev/console"
+MOUNT_PATH="/mnt"
+
+# 设置系统时区，必须在同步RTC与启动业务进程前完成
+if [ -f /opt/cam/shell/set_timezone.sh ]; then
+    /opt/cam/shell/set_timezone.sh
+fi
+
+# 同步硬件时间，必须在程序起来前，RTC统一按UTC保存
+hwclock -s -u
+
+#减小线程栈空间
+ulimit -s 3072   # 设3MB
+
+echo 0e > /sys/class/net/eth0/queues/rx-0/rps_cpus
+echo 32768 > /sys/class/net/eth0/queues/rx-0/rps_flow_cnt
+
+# 设置发送缓冲区最大768KB (默认通常128KB)
+sysctl -w net.core.wmem_max=786432
+# 设置默认发送缓冲区512KB
+sysctl -w net.core.wmem_default=524288
+
+# CPU 温控的第一级触发阈值温度设置为80
+echo 80000 > /sys/class/thermal/thermal_zone0/trip_point_0_temp
+# CPU 温控的第二级触发阈值温度设置为90
+echo 90000 > /sys/class/thermal/thermal_zone0/trip_point_1_temp
+
+# 获取所有IpcComponents-V*.exe文件（版本排序）
+file_list=$(find /opt/cam/third-party/ -type f -name "IpcComponents-V*.exe" 2>/dev/null | awk -F/ 'NF==5' | sort -V)
+
+# 计数器初始化
+count=0
+last_file=""
+
+# 遍历文件，保留最后一个
+for file in $file_list; do
+    count=$((count + 1))
+    if [ -n "$last_file" ]; then
+       echo "删除旧文件: $last_file"
+        rm -f "$last_file"
+    fi
+   last_file="$file"
+done
+
+# 创建软链接
+if [ -n "$last_file" ]; then
+    echo "使用最新文件: $last_file"
+   rm -f /opt/cam/third-party/IpcComponents.exe
+    ln -s "$last_file" /opt/cam/third-party/IpcComponents.exe
+fi
+
+
+#在/var/www/html下，创建/opt相关目录的软链接
+#用于网页资源访问
+if [ ! -d "/var/www/html/opt" ]; then
+    echo "ln opt"
+    ln -s /opt /var/www/html/opt
+fi
+
+# 国密 SM2 私钥由业务代码通过 CCryptoManager 生成，避免脚本 gmssl 与 OpenSSL Provider 私钥格式不兼容
+
+# 检查挂载点是否有效
+check_mount_point() {
+    if mount | grep -q "$MOUNT_PATH"; then
+        echo "检测到 $MOUNT_PATH 已挂载" >${LOG_DEVICE}
+        return 0
+    else
+        echo "$MOUNT_PATH 未挂载" >${LOG_DEVICE}
+        return 1
+    fi
+}
+
+
+# 创建软链接的函数（复用逻辑） 仅在挂载成功后执行
+create_symlinks() {
+    if [ ! -d "$MOUNT_PATH/record" ]; then
+        mkdir "$MOUNT_PATH/record"
+    fi
+    if [ ! -d "$MOUNT_PATH/capture" ]; then
+        mkdir "$MOUNT_PATH/capture"
+    fi
+    
+    # 删除 /opt/course 下名为 capture 或 record 的任何类型文件/目录
+    for name in capture record; do
+        [ -e "/opt/course/$name" ] && rm -rf "/opt/course/$name"
+    done
+    
+    # 检查并创建record软链接
+    if [ -d "$MOUNT_PATH/record" ] && [ ! -L "/opt/course/record" ]; then
+		if ln -s "$MOUNT_PATH/record" "/opt/course/record"; then
+            echo "创建 record 符号链接成功" >${LOG_DEVICE}
+        else
+            echo "创建 record 符号链接失败" >${LOG_DEVICE}
+        fi
+    fi
+    # 检查并创建capture软链接
+    if [ -d "$MOUNT_PATH/capture" ] && [ ! -L "/opt/course/capture" ]; then
+			if ln -s "$MOUNT_PATH/capture" "/opt/course/capture"; then
+            echo "创建 capture 符号链接成功" >${LOG_DEVICE}
+        else
+            echo "创建 capture 符号链接失败" >${LOG_DEVICE}
+        fi
+    fi
+}
+
+ # 检查挂载点
+if check_mount_point; then
+        echo "TF卡已挂载，创建符号链接" >${LOG_DEVICE}
+        if create_symlinks; then
+            echo "后期符号链接创建完成" >${LOG_DEVICE}
+        else
+            echo "后期符号链接创建失败" >${LOG_DEVICE}
+        fi
+    else
+        echo "TF卡未挂载，跳过符号链接创建" >${LOG_DEVICE}
+fi
+
+
+chmod 777 -R /opt/cam
+chmod 777 -R /opt/course
+
+
+# 升级程序
+/opt/cam/bin/upgrade &
+
+# 运维程序
+/opt/cam/bin/operation &
+
+# 主控程序
+sleep 2
+/opt/cam/bin/stream &
+
+# 录制程序
+sleep 2
+echo 0 > /sys/class/pwm/pwmchip1/pwm0/enable
+#echo 0 > /sys/class/pwm/pwmchip1/unexport
+sleep 2
+/opt/cam/bin/record &
+
+# 所有程序启动后启动守护进程
+/opt/cam/bin/daemon &
+
+

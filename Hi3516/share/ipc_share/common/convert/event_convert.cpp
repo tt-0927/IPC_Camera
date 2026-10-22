@@ -231,7 +231,13 @@ void Convert::deal(Json::Object* pRootJson, Event::AlgorithmConfig_S& stInfo, bo
     convert.field(pRootJson, "DangerZoneStay", stInfo.nDangerZoneStay);
     convert.field(pRootJson, "KeyAreaAbnormalStay", stInfo.nKeyAreaAbnormalStay);
     convert.field(pRootJson, "RooftopStay", stInfo.nRooftopStay);
-#endif
+    convert.field(pRootJson, "EnOpenFlameLeave", stInfo.nEnOpenFlameLeave);
+    convert.field(pRootJson, "KitchenUnrelatedPersonEntry", stInfo.nKitchenUnrelatedPersonEntry);
+    convert.field(pRootJson, "AccessControlAbnormalPassage", stInfo.nAccessControlAbnormalPassage);
+    convert.field(pRootJson, "SocialRelationshipAnalysis", stInfo.nSocialRelationshipAnalysis);
+    convert.field(pRootJson, "KitchenClothingCompliance", stInfo.nKitchenClothingCompliance);
+    convert.field(pRootJson, "EnFireEquipmentAbnormal", stInfo.nEnFireEquipmentAbnormal);
+    #endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
 convert.field(pRootJson, "EnSmokeFire", stInfo.nEnSmokeFire);
 #endif
@@ -287,6 +293,7 @@ void Convert::deal(Json::Object* pRootJson, Event::SmartEventEnableStatus_S& stI
     convert.field(pRootJson, "LeaveRegion", stInfo.bLeaveRegion);
     convert.field(pRootJson, "LoiteringDetect", stInfo.bLoiteringDetect);
     convert.field(pRootJson, "CrowdGathering", stInfo.bCrowdGathering);
+    convert.field(pRootJson, "QueueCrowding", stInfo.bQueueCrowding);
     convert.field(pRootJson, "ParkingDetect", stInfo.bParkingDetect);
     convert.field(pRootJson, "AudioAnomaly", stInfo.bAudioAnomaly);
     convert.field(pRootJson, "SceneChange", stInfo.bSceneChange);
@@ -343,6 +350,11 @@ void Convert::deal(Json::Object* pRootJson, Event::SmartEventEnableStatus_S& stI
     convert.field(pRootJson, "DangerZoneStay", stInfo.bDangerZoneStay);
     convert.field(pRootJson, "KeyAreaAbnormalStay", stInfo.bKeyAreaAbnormalStay);
     convert.field(pRootJson, "RooftopStay", stInfo.bRooftopStay);
+    convert.field(pRootJson, "OpenFlameLeave", stInfo.bOpenFlameLeave);
+    convert.field(pRootJson, "KitchenUnrelatedPersonEntry", stInfo.bKitchenUnrelatedPersonEntry);
+    convert.field(pRootJson, "AccessControlAbnormalPassage", stInfo.bAccessControlAbnormalPassage);
+    convert.field(pRootJson, "SocialRelationshipAnalysis", stInfo.bSocialRelationshipAnalysis);
+    convert.field(pRootJson, "KitchenClothingCompliance", stInfo.bKitchenClothingCompliance);
 #endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
 convert.field(pRootJson, "SmokeFire", stInfo.bSmokeFire);

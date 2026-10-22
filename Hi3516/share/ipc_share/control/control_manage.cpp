@@ -1348,6 +1348,27 @@ void ControlManage::bind_task(std::shared_ptr<CTaskManage> &pTaskManage)
     /* 天台滞留 */
     pTaskManage->bind<Task::Event::GetRooftopStayInfo>(AC_GET_ROOFTOP_STAY_INFO);
     pTaskManage->bind<Task::Event::SetRooftopStayInfo>(AC_SET_ROOFTOP_STAY_INFO);
+    /* 明火离人识别 */
+    pTaskManage->bind<Task::Event::GetOpenFlameLeaveInfo>(AC_GET_OPEN_FLAME_LEAVE_CFG);
+    pTaskManage->bind<Task::Event::SetOpenFlameLeaveInfo>(AC_SET_OPEN_FLAME_LEAVE_CFG);
+    /* 排队拥堵检测 */
+    pTaskManage->bind<Task::Event::GetQueueCrowdingInfo>(AC_GET_QUEUE_CROWDING_INFO);
+    pTaskManage->bind<Task::Event::SetQueueCrowdingInfo>(AC_SET_QUEUE_CROWDING_INFO);
+    /* 后厨无关人员进入 */
+    pTaskManage->bind<Task::Event::GetKitchenUnrelatedPersonEntryInfo>(AC_GET_KITCHEN_UNRELATED_PERSON_ENTRY_INFO);
+    pTaskManage->bind<Task::Event::SetKitchenUnrelatedPersonEntryInfo>(AC_SET_KITCHEN_UNRELATED_PERSON_ENTRY_INFO);
+    /* 门禁异常通行 */
+    pTaskManage->bind<Task::Event::GetAccessControlAbnormalPassageInfo>(AC_GET_ACCESS_CONTROL_ABNORMAL_PASSAGE_INFO);
+    pTaskManage->bind<Task::Event::SetAccessControlAbnormalPassageInfo>(AC_SET_ACCESS_CONTROL_ABNORMAL_PASSAGE_INFO);
+    /* 社交关系分析 */
+    pTaskManage->bind<Task::Event::GetSocialRelationshipAnalysisInfo>(AC_GET_SOCIAL_RELATIONSHIP_ANALYSIS_INFO);
+    pTaskManage->bind<Task::Event::SetSocialRelationshipAnalysisInfo>(AC_SET_SOCIAL_RELATIONSHIP_ANALYSIS_INFO);
+    /* 后厨穿戴规范 */
+    pTaskManage->bind<Task::Event::GetKitchenClothingComplianceInfo>(AC_GET_KITCHEN_CLOTHING_COMPLIANCE_INFO);
+    pTaskManage->bind<Task::Event::SetKitchenClothingComplianceInfo>(AC_SET_KITCHEN_CLOTHING_COMPLIANCE_INFO);
+    /* 消防设施异常 */
+    pTaskManage->bind<Task::Event::GetFireEquipmentAbnormalInfo>(AC_GET_FIRE_EQUIPMENT_ABNORMAL_CFG);
+    pTaskManage->bind<Task::Event::SetFireEquipmentAbnormalInfo>(AC_SET_FIRE_EQUIPMENT_ABNORMAL_CFG);
 #endif
 
     TaskPublish::instance()->set_manage(pTaskManage);

@@ -405,6 +405,20 @@ int EventLinkageResolver::load_default_linkage_list(Event::Type_E enEventType, A
         stLinkageList = alarm.stLinkageList;
         break;
     }
+    case Event::Type_E::OPEN_FLAME_LEAVE:
+    {
+        Alarm::OpenFlameLeaveDetection_S alarm;
+        CEventConfigure::instance()->get_configure(alarm);
+        stLinkageList = alarm.stLinkageList;
+        break;
+    }
+    case Event::Type_E::FIRE_EQUIPMENT_ABNORMAL:
+    {
+        Alarm::FireEquipmentAbnormalDetection_S alarm;
+        CEventConfigure::instance()->get_configure(alarm);
+        stLinkageList = alarm.stLinkageList;
+        break;
+    }
     case Event::Type_E::MANHOLE_COVER_ABNORMAL:
     {
         Alarm::ManholeCoverAbnormalDetection_S alarm;
@@ -590,6 +604,34 @@ int EventLinkageResolver::load_default_linkage_list(Event::Type_E enEventType, A
     case Event::Type_E::ROOFTOP_STAY:
     {
         Alarm::RooftopStayDetection_S alarm;
+        CEventConfigure::instance()->get_configure(alarm);
+        stLinkageList = alarm.stLinkageList;
+        break;
+    }
+    case Event::Type_E::KITCHEN_UNRELATED_PERSON_ENTRY:
+    {
+        Alarm::KitchenUnrelatedPersonEntry_S alarm;
+        CEventConfigure::instance()->get_configure(alarm);
+        stLinkageList = alarm.stLinkageList;
+        break;
+    }
+    case Event::Type_E::ACCESS_CONTROL_ABNORMAL_PASSAGE:
+    {
+        Alarm::AccessControlAbnormalPassage_S alarm;
+        CEventConfigure::instance()->get_configure(alarm);
+        stLinkageList = alarm.stLinkageList;
+        break;
+    }
+    case Event::Type_E::SOCIAL_RELATIONSHIP_ANALYSIS:
+    {
+        Alarm::SocialRelationshipAnalysis_S alarm;
+        CEventConfigure::instance()->get_configure(alarm);
+        stLinkageList = alarm.stLinkageList;
+        break;
+    }
+    case Event::Type_E::KITCHEN_CLOTHING_COMPLIANCE:
+    {
+        Alarm::KitchenClothingCompliance_S alarm;
         CEventConfigure::instance()->get_configure(alarm);
         stLinkageList = alarm.stLinkageList;
         break;

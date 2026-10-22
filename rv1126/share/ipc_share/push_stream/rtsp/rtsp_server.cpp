@@ -1605,48 +1605,6 @@ int CRtspServer::reset_lastIdrRequestTime()
     return OK;
 }
 
-/* 当前未启用：本函数经 rtsp_getclient_info 获取客户端 IP，但 cam_share 侧的
-   fClientInfo[i].ip 从未被填充（只被 rtsp_getclient_info 读取、无任何代码写入），
-   返回的 IP 为空或未初始化内存，close_connection 无法命中任何客户端。
-   待 cam_share 修复 IP 填充，或将 RTSPServer::closeSocketsRTSP() 暴露后，
-   再由校时路径调用。 */
-int CRtspServer::closeAllClients()
-{
-    std::lock_guard<std::mutex> lock(m_mutexCtrl);
-    if (m_pLiveInfo == nullptr || m_pLiveInfo->pServerHandle == nullptr)
-    {
-        return ERR;
-    }
-
-    /* 遍历各码流通道，取该流的全部客户端 IP 并逐个关闭 */
-    for (int nIndex = 0; nIndex < RTSP_CHN_MAX; ++nIndex)
-    {
-        if (m_pLiveInfo->listLive[nIndex] == nullptr)
-        {
-            continue;
-        }
-
-        Rtsp_Client_Info_t stClientInfo{};
-        if (rtsp_getclient_info(m_pLiveInfo->pServerHandle,
-                                m_pLiveInfo->listLive[nIndex]->streamName,
-                                &stClientInfo) != OK)
-        {
-            continue;
-        }
-
-        /* 以 IP 数组容量作为上限，避免客户端数量字段异常时越界 */
-        const int nIpCapacity = static_cast<int>(sizeof(stClientInfo.ip) / sizeof(stClientInfo.ip[0]));
-        const int nCloseCount = (stClientInfo.nNumClient > 0 && stClientInfo.nNumClient <= nIpCapacity)
-                                    ? stClientInfo.nNumClient
-                                    : 0;
-        for (int nClient = 0; nClient < nCloseCount; ++nClient)
-        {
-            close_connection(m_pLiveInfo->pServerHandle, stClientInfo.ip[nClient]);
-        }
-    }
-    return OK;
-}
-
 int CRtspServer::update_userInfo(std::string strUser, std::string strPwd, bool bReboot)
 {
     if (strUser.empty() || strPwd.empty())

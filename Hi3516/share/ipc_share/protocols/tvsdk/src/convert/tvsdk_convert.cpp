@@ -3314,6 +3314,7 @@ void FillNonmotorVehicleIntrusionInfo(const Alarm::NonMotorVehicleIntrusionDetec
         FillPolygonPoints(r.stRegion, out.uPointCount, out.afPointX, out.afPointY);
         out.nSensitivity = (INT32)r.nSensitivity;
         out.nTimeThreshold = (INT32)r.nTimeThreshold;
+        //FillDetectionTargets(r.aDetectionTarget, out.uDetectionTargetCount, out.auDetectionTarget);
         dst.uRuleCount++;
     }
     FillSingleRuleAlarmSchedule(src.aAlarmTime, dst.stAlarmSchedule);
@@ -3331,6 +3332,7 @@ void ToNonmotorVehicleIntrusion(const NET_NonmotorVehicleIntrusionInfo_S &src, A
         ToRegionFromPolygon(r.uPointCount, r.afPointX, r.afPointY, out.stRegion);
         out.nSensitivity = (unsigned int)r.nSensitivity;
         out.nTimeThreshold = (unsigned int)r.nTimeThreshold;
+        //ToDetectionTargets(r.auDetectionTarget, r.uDetectionTargetCount, out.aDetectionTarget);
         dst.aRule.push_back(out);
     }
     ToSingleRuleAlarmSchedule(src.stAlarmSchedule, dst.aAlarmTime);

@@ -661,6 +661,7 @@ void Convert::deal(Json::Object *pRootJson, Alarm::FaceRecognition_S &stInfo, bo
     convert.field(pRootJson, "CaptureEnable", stInfo.bCaptureEnable);
     convert.field(pRootJson, "AttributeAnalysisEnable", stInfo.bAttributeAnalysisEnable);
     convert.field(pRootJson, "DynamicAnalysisEnable", stInfo.bDynamicAnalysisEnable);
+    convert.field(pRootJson, "FaceExpressionEnable", stInfo.bFaceExpressionEnable);
     convert.field(pRootJson, "Sensitivity", stInfo.nSensitivity);
     convert.structure(pRootJson, "Region", stInfo.stRegion);
     convert.structure(pRootJson, stInfo.aAlarmTime);
@@ -1421,6 +1422,32 @@ void Convert::deal(Json::Object *pRootJson, Alarm::OpenFlameRule_S &stInfo, bool
 }
 
 void Convert::deal(Json::Object *pRootJson, Alarm::OpenFlameDetection_S &stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+
+    Convert::CConvert convert(bOutStruct);
+    convert.field(pRootJson, "Enable", stInfo.bEnable);
+    convert.structure(pRootJson, "Rule", stInfo.stRule);
+    convert.structure(pRootJson, stInfo.aAlarmTime);
+    convert.structure(pRootJson, "LinkageMode", stInfo.stLinkageList);
+}
+
+void Convert::deal(Json::Object *pRootJson, Alarm::OpenFlameLeaveRule_S &stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+    Convert::CConvert convert(bOutStruct);
+    convert.field(pRootJson, "Sensitivity", stInfo.nSensitivity);
+    convert.field(pRootJson, "TimeThreshold", stInfo.nTimeThreshold);
+    convert.structure(pRootJson, "Region", stInfo.stRegion);
+}
+
+void Convert::deal(Json::Object *pRootJson, Alarm::OpenFlameLeaveDetection_S &stInfo, bool bOutStruct)
 {
     if (!pRootJson)
     {
@@ -2518,8 +2545,139 @@ void Convert::deal(Json::Object *pRootJson, Alarm::RooftopStayDetection_S &stInf
 
     Convert::CConvert convert(bOutStruct);
     convert.field(pRootJson, "Enable", stInfo.bEnable);
+    convert.structure(pRootJson, "Rule", stInfo.stRule);
+    convert.structure(pRootJson, stInfo.aAlarmTime);
+    convert.structure(pRootJson, "LinkageMode", stInfo.stLinkageList);
+}
+
+void Convert::deal(Json::Object *pRootJson, Alarm::KitchenUnrelatedPersonEntryRule_S &stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+
+    Convert::CConvert convert(bOutStruct);
+    convert.field(pRootJson, "Sensitivity", stInfo.nSensitivity);
+}
+
+void Convert::deal(Json::Object *pRootJson, Alarm::KitchenUnrelatedPersonEntry_S &stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+
+    Convert::CConvert convert(bOutStruct);
+    convert.field(pRootJson, "Enable", stInfo.bEnable);
+    convert.structure(pRootJson, "Rule", stInfo.stRule);
+    convert.structure(pRootJson, stInfo.aAlarmTime);
+    convert.structure(pRootJson, "LinkageMode", stInfo.stLinkageList);
+}
+
+void Convert::deal(Json::Object *pRootJson, Alarm::AccessControlAbnormalPassageRule_S &stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+
+    Convert::CConvert convert(bOutStruct);
+    convert.structure(pRootJson, "Region", stInfo.stRegion);
+    convert.field(pRootJson, "Sensitivity", stInfo.nSensitivity);
+}
+
+void Convert::deal(Json::Object *pRootJson, Alarm::AccessControlAbnormalPassage_S &stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+
+    Convert::CConvert convert(bOutStruct);
+    convert.field(pRootJson, "Enable", stInfo.bEnable);
+    convert.structure(pRootJson, "Rule", stInfo.stRule);
+    convert.structure(pRootJson, stInfo.aAlarmTime);
+    convert.structure(pRootJson, "LinkageMode", stInfo.stLinkageList);
+}
+
+void Convert::deal(Json::Object *pRootJson, Alarm::SocialRelationshipAnalysisRule_S &stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+
+    Convert::CConvert convert(bOutStruct);
+    convert.field(pRootJson, "Sensitivity", stInfo.nSensitivity);
+}
+
+void Convert::deal(Json::Object *pRootJson, Alarm::SocialRelationshipAnalysis_S &stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+
+    Convert::CConvert convert(bOutStruct);
+    convert.field(pRootJson, "Enable", stInfo.bEnable);
+    convert.structure(pRootJson, "Rule", stInfo.stRule);
+    convert.structure(pRootJson, stInfo.aAlarmTime);
+    convert.structure(pRootJson, "LinkageMode", stInfo.stLinkageList);
+}
+
+void Convert::deal(Json::Object *pRootJson, Alarm::KitchenClothingComplianceRule_S &stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+
+    Convert::CConvert convert(bOutStruct);
+    convert.structure(pRootJson, "Region", stInfo.stRegion);
+    convert.field(pRootJson, "Sensitivity", stInfo.nSensitivity);
+}
+
+void Convert::deal(Json::Object *pRootJson, Alarm::KitchenClothingCompliance_S &stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+
+    Convert::CConvert convert(bOutStruct);
+    convert.field(pRootJson, "Enable", stInfo.bEnable);
+    convert.structure(pRootJson, "Rule", stInfo.stRule);
+    convert.structure(pRootJson, stInfo.aAlarmTime);
+    convert.structure(pRootJson, "LinkageMode", stInfo.stLinkageList);
+}
+
+/* 消防设施异常相关 */
+void Convert::deal(Json::Object *pRootJson, Alarm::FireEquipmentAbnormalRule_S &stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+
+    Convert::CConvert convert(bOutStruct);
+    convert.structure(pRootJson, "Region", stInfo.stRegion);
+    convert.field(pRootJson, "Sensitivity", stInfo.nSensitivity);
+    convert.field(pRootJson, "TimeThreshold", stInfo.nTimeThreshold);
+}
+
+void Convert::deal(Json::Object *pRootJson, Alarm::FireEquipmentAbnormalDetection_S &stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+
+    Convert::CConvert convert(bOutStruct);
+    convert.field(pRootJson, "Enable", stInfo.bEnable);
     convert.structure(pRootJson, "Rule", stInfo.aRule);
     convert.structure(pRootJson, stInfo.aAlarmTime);
     convert.structure(pRootJson, "LinkageMode", stInfo.stLinkageList);
 }
+
 #endif
