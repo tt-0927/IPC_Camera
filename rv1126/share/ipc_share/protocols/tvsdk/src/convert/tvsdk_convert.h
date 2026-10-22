@@ -228,6 +228,22 @@ void ToPedestrianIntrusion(const NET_PedestrianIntrusionInfo_S &src, Alarm::Pede
 // void ToSmokeFire(const NET_SmokeFireCfg_S &src, Alarm::SmokeFireDetection_S &dst);
 void FillRoadPondingCfg(const Alarm::RoadPondingDetection_S &src, NET_RoadPondingCfg_S &dst);
 void ToRoadPonding(const NET_RoadPondingCfg_S &src, Alarm::RoadPondingDetection_S &dst);
+
+/* 平安校园：通道占用/攀爬/滞留类事件 */
+void FillChannelOccupationInfo(const Alarm::ChannelOccupation_S &src, NET_ChannelOccupationInfo_S &dst);
+void ToChannelOccupation(const NET_ChannelOccupationInfo_S &src, Alarm::ChannelOccupation_S &dst);
+void FillClimbDetectionInfo(const Alarm::ClimbDetection_S &src, NET_ClimbDetectionInfo_S &dst);
+void ToClimbDetection(const NET_ClimbDetectionInfo_S &src, Alarm::ClimbDetection_S &dst);
+void FillDangerZoneApproachInfo(const Alarm::DangerZoneApproach_S &src, NET_DangerZoneApproachInfo_S &dst);
+void ToDangerZoneApproach(const NET_DangerZoneApproachInfo_S &src, Alarm::DangerZoneApproach_S &dst);
+void FillLongTimeStayInfo(const Alarm::LongTimeStayDetection_S &src, NET_LongTimeStayInfo_S &dst);
+void ToLongTimeStay(const NET_LongTimeStayInfo_S &src, Alarm::LongTimeStayDetection_S &dst);
+void FillDangerZoneStayInfo(const Alarm::DangerZoneStayDetection_S &src, NET_DangerZoneStayInfo_S &dst);
+void ToDangerZoneStay(const NET_DangerZoneStayInfo_S &src, Alarm::DangerZoneStayDetection_S &dst);
+void FillKeyAreaAbnormalStayInfo(const Alarm::KeyAreaAbnormalStayDetection_S &src, NET_KeyAreaAbnormalStayInfo_S &dst);
+void ToKeyAreaAbnormalStay(const NET_KeyAreaAbnormalStayInfo_S &src, Alarm::KeyAreaAbnormalStayDetection_S &dst);
+void FillOpenFlameLeaveInfo(const Alarm::OpenFlameLeaveDetection_S &src, NET_OpenFlameLeaveInfo_S &dst);
+void ToOpenFlameLeave(const NET_OpenFlameLeaveInfo_S &src, Alarm::OpenFlameLeaveDetection_S &dst);
 #endif
 
 #if CAP_AI_PEOPLE_STATISTICS

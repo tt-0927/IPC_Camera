@@ -3461,6 +3461,237 @@ void ToRoadPonding(const NET_RoadPondingCfg_S &src, Alarm::RoadPondingDetection_
     ToLinkageList(src.stLinkageList, dst.stLinkageList);
 }
 
+/* ---- 平安校园：通道占用（单区域 + 三档灵敏度） ---- */
+void FillChannelOccupationInfo(const Alarm::ChannelOccupation_S &src, NET_ChannelOccupationInfo_S &dst)
+{
+    std::memset(&dst, 0, sizeof(dst));
+    dst.bEnable = src.bEnable ? TRUE : FALSE;
+    dst.nSensitivity = (INT32)src.nSensitivity;
+    FillPolygonPoints(src.stRegion, dst.stRegion.uPointCount, dst.stRegion.afPointX, dst.stRegion.afPointY);
+    FillSingleRuleAlarmSchedule(src.aAlarmTime, dst.stAlarmSchedule);
+    FillLinkageList(src.stLinkageList, dst.stLinkageList);
+}
+
+void ToChannelOccupation(const NET_ChannelOccupationInfo_S &src, Alarm::ChannelOccupation_S &dst)
+{
+    dst.bEnable = (src.bEnable == TRUE);
+    dst.nSensitivity = (unsigned int)src.nSensitivity;
+    ToRegionFromPolygon(src.stRegion.uPointCount, src.stRegion.afPointX, src.stRegion.afPointY, dst.stRegion);
+    ToSingleRuleAlarmSchedule(src.stAlarmSchedule, dst.aAlarmTime);
+    ToLinkageList(src.stLinkageList, dst.stLinkageList);
+}
+
+/* ---- 平安校园：多区域规则事件 ---- */
+void FillClimbDetectionInfo(const Alarm::ClimbDetection_S &src, NET_ClimbDetectionInfo_S &dst)
+{
+    std::memset(&dst, 0, sizeof(dst));
+    dst.bEnable = src.bEnable ? TRUE : FALSE;
+    dst.uRuleCount = 0;
+    const size_t unCount = std::min<size_t>(src.aRule.size(), 4);
+    for (size_t i = 0; i < unCount; ++i)
+    {
+        const auto &r = src.aRule[i];
+        NET_SmartRegionRule_S &out = dst.stRule[i];
+        std::memset(&out, 0, sizeof(out));
+        out.bEnable = TRUE;
+        FillPolygonPoints(r.stRegion, out.uPointCount, out.afPointX, out.afPointY);
+        out.nSensitivity = (INT32)r.nSensitivity;
+        dst.uRuleCount++;
+    }
+    FillSingleRuleAlarmSchedule(src.aAlarmTime, dst.stAlarmSchedule);
+    FillLinkageList(src.stLinkageList, dst.stLinkageList);
+}
+
+void ToClimbDetection(const NET_ClimbDetectionInfo_S &src, Alarm::ClimbDetection_S &dst)
+{
+    dst.bEnable = (src.bEnable == TRUE);
+    dst.aRule.clear();
+    for (INT32 i = 0; i < src.uRuleCount && i < 4; ++i)
+    {
+        const NET_SmartRegionRule_S &r = src.stRule[i];
+        Alarm::ClimbDetectionRule_S out;
+        ToRegionFromPolygon(r.uPointCount, r.afPointX, r.afPointY, out.stRegion);
+        out.nSensitivity = (unsigned int)r.nSensitivity;
+        dst.aRule.push_back(out);
+    }
+    ToSingleRuleAlarmSchedule(src.stAlarmSchedule, dst.aAlarmTime);
+    ToLinkageList(src.stLinkageList, dst.stLinkageList);
+}
+
+void FillDangerZoneApproachInfo(const Alarm::DangerZoneApproach_S &src, NET_DangerZoneApproachInfo_S &dst)
+{
+    std::memset(&dst, 0, sizeof(dst));
+    dst.bEnable = src.bEnable ? TRUE : FALSE;
+    dst.uRuleCount = 0;
+    const size_t unCount = std::min<size_t>(src.aRule.size(), 4);
+    for (size_t i = 0; i < unCount; ++i)
+    {
+        const auto &r = src.aRule[i];
+        NET_SmartRegionRule_S &out = dst.stRule[i];
+        std::memset(&out, 0, sizeof(out));
+        out.bEnable = TRUE;
+        FillPolygonPoints(r.stRegion, out.uPointCount, out.afPointX, out.afPointY);
+        out.nSensitivity = (INT32)r.nSensitivity;
+        out.nTimeThreshold = (INT32)r.nTimeThreshold;
+        dst.uRuleCount++;
+    }
+    FillSingleRuleAlarmSchedule(src.aAlarmTime, dst.stAlarmSchedule);
+    FillLinkageList(src.stLinkageList, dst.stLinkageList);
+}
+
+void ToDangerZoneApproach(const NET_DangerZoneApproachInfo_S &src, Alarm::DangerZoneApproach_S &dst)
+{
+    dst.bEnable = (src.bEnable == TRUE);
+    dst.aRule.clear();
+    for (INT32 i = 0; i < src.uRuleCount && i < 4; ++i)
+    {
+        const NET_SmartRegionRule_S &r = src.stRule[i];
+        Alarm::DangerZoneApproachRule_S out;
+        ToRegionFromPolygon(r.uPointCount, r.afPointX, r.afPointY, out.stRegion);
+        out.nSensitivity = (unsigned int)r.nSensitivity;
+        out.nTimeThreshold = (unsigned int)r.nTimeThreshold;
+        dst.aRule.push_back(out);
+    }
+    ToSingleRuleAlarmSchedule(src.stAlarmSchedule, dst.aAlarmTime);
+    ToLinkageList(src.stLinkageList, dst.stLinkageList);
+}
+
+void FillLongTimeStayInfo(const Alarm::LongTimeStayDetection_S &src, NET_LongTimeStayInfo_S &dst)
+{
+    std::memset(&dst, 0, sizeof(dst));
+    dst.bEnable = src.bEnable ? TRUE : FALSE;
+    dst.uRuleCount = 0;
+    const size_t unCount = std::min<size_t>(src.aRule.size(), 4);
+    for (size_t i = 0; i < unCount; ++i)
+    {
+        const auto &r = src.aRule[i];
+        NET_SmartRegionRule_S &out = dst.stRule[i];
+        std::memset(&out, 0, sizeof(out));
+        out.bEnable = TRUE;
+        FillPolygonPoints(r.stRegion, out.uPointCount, out.afPointX, out.afPointY);
+        out.nSensitivity = (INT32)r.nSensitivity;
+        out.nTimeThreshold = (INT32)r.nTimeThreshold;
+        dst.uRuleCount++;
+    }
+    FillSingleRuleAlarmSchedule(src.aAlarmTime, dst.stAlarmSchedule);
+    FillLinkageList(src.stLinkageList, dst.stLinkageList);
+}
+
+void ToLongTimeStay(const NET_LongTimeStayInfo_S &src, Alarm::LongTimeStayDetection_S &dst)
+{
+    dst.bEnable = (src.bEnable == TRUE);
+    dst.aRule.clear();
+    for (INT32 i = 0; i < src.uRuleCount && i < 4; ++i)
+    {
+        const NET_SmartRegionRule_S &r = src.stRule[i];
+        Alarm::LongTimeStayRule_S out;
+        ToRegionFromPolygon(r.uPointCount, r.afPointX, r.afPointY, out.stRegion);
+        out.nSensitivity = (unsigned int)r.nSensitivity;
+        out.nTimeThreshold = (unsigned int)r.nTimeThreshold;
+        dst.aRule.push_back(out);
+    }
+    ToSingleRuleAlarmSchedule(src.stAlarmSchedule, dst.aAlarmTime);
+    ToLinkageList(src.stLinkageList, dst.stLinkageList);
+}
+
+void FillDangerZoneStayInfo(const Alarm::DangerZoneStayDetection_S &src, NET_DangerZoneStayInfo_S &dst)
+{
+    std::memset(&dst, 0, sizeof(dst));
+    dst.bEnable = src.bEnable ? TRUE : FALSE;
+    dst.uRuleCount = 0;
+    const size_t unCount = std::min<size_t>(src.aRule.size(), 4);
+    for (size_t i = 0; i < unCount; ++i)
+    {
+        const auto &r = src.aRule[i];
+        NET_SmartRegionRule_S &out = dst.stRule[i];
+        std::memset(&out, 0, sizeof(out));
+        out.bEnable = TRUE;
+        FillPolygonPoints(r.stRegion, out.uPointCount, out.afPointX, out.afPointY);
+        out.nSensitivity = (INT32)r.nSensitivity;
+        out.nTimeThreshold = (INT32)r.nTimeThreshold;
+        dst.uRuleCount++;
+    }
+    FillSingleRuleAlarmSchedule(src.aAlarmTime, dst.stAlarmSchedule);
+    FillLinkageList(src.stLinkageList, dst.stLinkageList);
+}
+
+void ToDangerZoneStay(const NET_DangerZoneStayInfo_S &src, Alarm::DangerZoneStayDetection_S &dst)
+{
+    dst.bEnable = (src.bEnable == TRUE);
+    dst.aRule.clear();
+    for (INT32 i = 0; i < src.uRuleCount && i < 4; ++i)
+    {
+        const NET_SmartRegionRule_S &r = src.stRule[i];
+        Alarm::DangerZoneStayRule_S out;
+        ToRegionFromPolygon(r.uPointCount, r.afPointX, r.afPointY, out.stRegion);
+        out.nSensitivity = (unsigned int)r.nSensitivity;
+        out.nTimeThreshold = (unsigned int)r.nTimeThreshold;
+        dst.aRule.push_back(out);
+    }
+    ToSingleRuleAlarmSchedule(src.stAlarmSchedule, dst.aAlarmTime);
+    ToLinkageList(src.stLinkageList, dst.stLinkageList);
+}
+
+void FillKeyAreaAbnormalStayInfo(const Alarm::KeyAreaAbnormalStayDetection_S &src, NET_KeyAreaAbnormalStayInfo_S &dst)
+{
+    std::memset(&dst, 0, sizeof(dst));
+    dst.bEnable = src.bEnable ? TRUE : FALSE;
+    dst.uRuleCount = 0;
+    const size_t unCount = std::min<size_t>(src.aRule.size(), 4);
+    for (size_t i = 0; i < unCount; ++i)
+    {
+        const auto &r = src.aRule[i];
+        NET_SmartRegionRule_S &out = dst.stRule[i];
+        std::memset(&out, 0, sizeof(out));
+        out.bEnable = TRUE;
+        FillPolygonPoints(r.stRegion, out.uPointCount, out.afPointX, out.afPointY);
+        out.nSensitivity = (INT32)r.nSensitivity;
+        out.nTimeThreshold = (INT32)r.nTimeThreshold;
+        dst.uRuleCount++;
+    }
+    FillSingleRuleAlarmSchedule(src.aAlarmTime, dst.stAlarmSchedule);
+    FillLinkageList(src.stLinkageList, dst.stLinkageList);
+}
+
+void ToKeyAreaAbnormalStay(const NET_KeyAreaAbnormalStayInfo_S &src, Alarm::KeyAreaAbnormalStayDetection_S &dst)
+{
+    dst.bEnable = (src.bEnable == TRUE);
+    dst.aRule.clear();
+    for (INT32 i = 0; i < src.uRuleCount && i < 4; ++i)
+    {
+        const NET_SmartRegionRule_S &r = src.stRule[i];
+        Alarm::KeyAreaAbnormalStayRule_S out;
+        ToRegionFromPolygon(r.uPointCount, r.afPointX, r.afPointY, out.stRegion);
+        out.nSensitivity = (unsigned int)r.nSensitivity;
+        out.nTimeThreshold = (unsigned int)r.nTimeThreshold;
+        dst.aRule.push_back(out);
+    }
+    ToSingleRuleAlarmSchedule(src.stAlarmSchedule, dst.aAlarmTime);
+    ToLinkageList(src.stLinkageList, dst.stLinkageList);
+}
+
+/* ---- 平安校园：明火离人（单区域规则） ---- */
+void FillOpenFlameLeaveInfo(const Alarm::OpenFlameLeaveDetection_S &src, NET_OpenFlameLeaveInfo_S &dst)
+{
+    std::memset(&dst, 0, sizeof(dst));
+    dst.bEnable = src.bEnable ? TRUE : FALSE;
+    dst.stRule.bEnable = TRUE;
+    FillPolygonPoints(src.stRule.stRegion, dst.stRule.uPointCount, dst.stRule.afPointX, dst.stRule.afPointY);
+    dst.stRule.nSensitivity = (INT32)src.stRule.nSensitivity;
+    dst.stRule.nTimeThreshold = (INT32)src.stRule.nTimeThreshold;
+    FillSingleRuleAlarmSchedule(src.aAlarmTime, dst.stAlarmSchedule);
+    FillLinkageList(src.stLinkageList, dst.stLinkageList);
+}
+
+void ToOpenFlameLeave(const NET_OpenFlameLeaveInfo_S &src, Alarm::OpenFlameLeaveDetection_S &dst)
+{
+    dst.bEnable = (src.bEnable == TRUE);
+    ToRegionFromPolygon(src.stRule.uPointCount, src.stRule.afPointX, src.stRule.afPointY, dst.stRule.stRegion);
+    dst.stRule.nSensitivity = (unsigned int)src.stRule.nSensitivity;
+    dst.stRule.nTimeThreshold = (unsigned int)src.stRule.nTimeThreshold;
+    ToSingleRuleAlarmSchedule(src.stAlarmSchedule, dst.aAlarmTime);
+    ToLinkageList(src.stLinkageList, dst.stLinkageList);
+}
 
 #endif
 

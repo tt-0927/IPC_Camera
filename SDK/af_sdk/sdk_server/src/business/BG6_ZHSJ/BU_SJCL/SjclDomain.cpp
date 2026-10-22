@@ -96,6 +96,15 @@ CSjclDomain::CSjclDomain()
     m_getTable[NET_GET_SMOKE_FIRE_CFG]                    = &CSjclDomain::TemplatedGet<NET_SmokeFireCfg_S>;
     m_getTable[NET_GET_ROAD_PONDING_CFG]                  = &CSjclDomain::TemplatedGet<NET_RoadPondingCfg_S>;
 
+    /* ===== 平安校园智能事件（对齐 IPC 2798~2815） ===== */
+    m_getTable[NET_GET_CHANNEL_OCCUPATION_INFO]      = &CSjclDomain::TemplatedGet<NET_ChannelOccupationInfo_S>;
+    m_getTable[NET_GET_CLIMB_DETECTION_INFO]         = &CSjclDomain::TemplatedGet<NET_ClimbDetectionInfo_S>;
+    m_getTable[NET_GET_DANGER_ZONE_APPROACH_INFO]    = &CSjclDomain::TemplatedGet<NET_DangerZoneApproachInfo_S>;
+    m_getTable[NET_GET_LONG_TIME_STAY_INFO]          = &CSjclDomain::TemplatedGet<NET_LongTimeStayInfo_S>;
+    m_getTable[NET_GET_DANGER_ZONE_STAY_INFO]        = &CSjclDomain::TemplatedGet<NET_DangerZoneStayInfo_S>;
+    m_getTable[NET_GET_KEY_AREA_ABNORMAL_STAY_INFO]  = &CSjclDomain::TemplatedGet<NET_KeyAreaAbnormalStayInfo_S>;
+    m_getTable[NET_GET_OPEN_FLAME_LEAVE_INFO]        = &CSjclDomain::TemplatedGet<NET_OpenFlameLeaveInfo_S>;
+
     /* ===== 设备状态/串口参数 ===== */
     m_getTable[NET_GET_DEVICE_STATUS]     = &CSjclDomain::TemplatedGet<NET_DeviceStatusInfo_S>;
     m_getTable[NET_GET_CHANNEL_NAME]      = &CSjclDomain::TemplatedGet<NET_ChannelNameInfo_S>;
@@ -210,6 +219,15 @@ CSjclDomain::CSjclDomain()
     m_setTable[NET_SET_PEDESTRIAN_INTRUSION_INFO]         = &CSjclDomain::TemplatedSet<NET_PedestrianIntrusionInfo_S>;
     m_setTable[NET_SET_SMOKE_FIRE_CFG]                    = &CSjclDomain::TemplatedSet<NET_SmokeFireCfg_S>;
     m_setTable[NET_SET_ROAD_PONDING_CFG]                  = &CSjclDomain::TemplatedSet<NET_RoadPondingCfg_S>;
+
+    /* ===== 平安校园智能事件（对齐 IPC 2798~2815） ===== */
+    m_setTable[NET_SET_CHANNEL_OCCUPATION_INFO]      = &CSjclDomain::TemplatedSet<NET_ChannelOccupationInfo_S>;
+    m_setTable[NET_SET_CLIMB_DETECTION_INFO]         = &CSjclDomain::TemplatedSet<NET_ClimbDetectionInfo_S>;
+    m_setTable[NET_SET_DANGER_ZONE_APPROACH_INFO]    = &CSjclDomain::TemplatedSet<NET_DangerZoneApproachInfo_S>;
+    m_setTable[NET_SET_LONG_TIME_STAY_INFO]          = &CSjclDomain::TemplatedSet<NET_LongTimeStayInfo_S>;
+    m_setTable[NET_SET_DANGER_ZONE_STAY_INFO]        = &CSjclDomain::TemplatedSet<NET_DangerZoneStayInfo_S>;
+    m_setTable[NET_SET_KEY_AREA_ABNORMAL_STAY_INFO]  = &CSjclDomain::TemplatedSet<NET_KeyAreaAbnormalStayInfo_S>;
+    m_setTable[NET_SET_OPEN_FLAME_LEAVE_INFO]        = &CSjclDomain::TemplatedSet<NET_OpenFlameLeaveInfo_S>;
 
     /* ===== 通道名称 ===== */
     m_setTable[NET_SET_CHANNEL_NAME] = &CSjclDomain::TemplatedSet<NET_ChannelNameInfo_S>;

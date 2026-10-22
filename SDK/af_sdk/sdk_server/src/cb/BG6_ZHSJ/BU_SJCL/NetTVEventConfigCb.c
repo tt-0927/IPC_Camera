@@ -1208,3 +1208,145 @@ NET_API BOOL STDCALL NET_serverRegisterForceKeyFrameCb(NET_CB_GetDevConfigByComm
 {
     return registerGetCmdCb(NET_FORCE_KEY_FRAME, pCb);
 }
+
+/* ===================== 平安校园智能事件（600~613） ===================== */
+
+/**
+ * @brief 注册获取通道占用配置的回调函数
+ * @param [in] pCb 用于填充 NET_ChannelOccupationInfo_S 的回调函数
+ * @return 注册成功返回 TRUE；回调函数非法或已注册时返回 FALSE
+ */
+NET_API BOOL STDCALL NET_serverRegisterGetChannelOccupationInfoCb(NET_CB_GetDevConfigByCommand pCb)
+{
+    return registerGetCmdCb(NET_GET_CHANNEL_OCCUPATION_INFO, pCb);
+}
+
+/**
+ * @brief 注册设置通道占用配置的回调函数
+ * @param [in] pCb 用于读取 NET_ChannelOccupationInfo_S 的回调函数
+ * @return 注册成功返回 TRUE；回调函数非法或已注册时返回 FALSE
+ */
+NET_API BOOL STDCALL NET_serverRegisterSetChannelOccupationInfoCb(NET_CB_SetDevConfigByCommand pCb)
+{
+    return registerSetCmdCb(NET_SET_CHANNEL_OCCUPATION_INFO, pCb);
+}
+
+/**
+ * @brief 注册获取攀爬识别配置的回调函数
+ * @param [in] pCb 用于填充 NET_ClimbDetectionInfo_S 的回调函数
+ * @return 注册成功返回 TRUE；回调函数非法或已注册时返回 FALSE
+ */
+NET_API BOOL STDCALL NET_serverRegisterGetClimbDetectionInfoCb(NET_CB_GetDevConfigByCommand pCb)
+{
+    return registerGetCmdCb(NET_GET_CLIMB_DETECTION_INFO, pCb);
+}
+
+/**
+ * @brief 注册设置攀爬识别配置的回调函数
+ * @param [in] pCb 用于读取 NET_ClimbDetectionInfo_S 的回调函数
+ * @return 注册成功返回 TRUE；回调函数非法或已注册时返回 FALSE
+ */
+NET_API BOOL STDCALL NET_serverRegisterSetClimbDetectionInfoCb(NET_CB_SetDevConfigByCommand pCb)
+{
+    return registerSetCmdCb(NET_SET_CLIMB_DETECTION_INFO, pCb);
+}
+
+/**
+ * @brief 注册获取危险区域靠近配置的回调函数
+ * @param [in] pCb 用于填充 NET_DangerZoneApproachInfo_S 的回调函数
+ * @return 注册成功返回 TRUE；回调函数非法或已注册时返回 FALSE
+ */
+NET_API BOOL STDCALL NET_serverRegisterGetDangerZoneApproachInfoCb(NET_CB_GetDevConfigByCommand pCb)
+{
+    return registerGetCmdCb(NET_GET_DANGER_ZONE_APPROACH_INFO, pCb);
+}
+
+/**
+ * @brief 注册设置危险区域靠近配置的回调函数
+ * @param [in] pCb 用于读取 NET_DangerZoneApproachInfo_S 的回调函数
+ * @return 注册成功返回 TRUE；回调函数非法或已注册时返回 FALSE
+ */
+NET_API BOOL STDCALL NET_serverRegisterSetDangerZoneApproachInfoCb(NET_CB_SetDevConfigByCommand pCb)
+{
+    return registerSetCmdCb(NET_SET_DANGER_ZONE_APPROACH_INFO, pCb);
+}
+
+/**
+ * @brief 注册获取长时间滞留配置的回调函数
+ * @param [in] pCb 用于填充 NET_LongTimeStayInfo_S 的回调函数
+ * @return 注册成功返回 TRUE；回调函数非法或已注册时返回 FALSE
+ */
+NET_API BOOL STDCALL NET_serverRegisterGetLongTimeStayInfoCb(NET_CB_GetDevConfigByCommand pCb)
+{
+    return registerGetCmdCb(NET_GET_LONG_TIME_STAY_INFO, pCb);
+}
+
+/**
+ * @brief 注册设置长时间滞留配置的回调函数
+ * @param [in] pCb 用于读取 NET_LongTimeStayInfo_S 的回调函数
+ * @return 注册成功返回 TRUE；回调函数非法或已注册时返回 FALSE
+ */
+NET_API BOOL STDCALL NET_serverRegisterSetLongTimeStayInfoCb(NET_CB_SetDevConfigByCommand pCb)
+{
+    return registerSetCmdCb(NET_SET_LONG_TIME_STAY_INFO, pCb);
+}
+
+/**
+ * @brief 注册获取危险区域滞留配置的回调函数
+ * @param [in] pCb 用于填充 NET_DangerZoneStayInfo_S 的回调函数
+ * @return 注册成功返回 TRUE；回调函数非法或已注册时返回 FALSE
+ */
+NET_API BOOL STDCALL NET_serverRegisterGetDangerZoneStayInfoCb(NET_CB_GetDevConfigByCommand pCb)
+{
+    return registerGetCmdCb(NET_GET_DANGER_ZONE_STAY_INFO, pCb);
+}
+
+/**
+ * @brief 注册设置危险区域滞留配置的回调函数
+ * @param [in] pCb 用于读取 NET_DangerZoneStayInfo_S 的回调函数
+ * @return 注册成功返回 TRUE；回调函数非法或已注册时返回 FALSE
+ */
+NET_API BOOL STDCALL NET_serverRegisterSetDangerZoneStayInfoCb(NET_CB_SetDevConfigByCommand pCb)
+{
+    return registerSetCmdCb(NET_SET_DANGER_ZONE_STAY_INFO, pCb);
+}
+
+/**
+ * @brief 注册获取重点区域异常滞留配置的回调函数
+ * @param [in] pCb 用于填充 NET_KeyAreaAbnormalStayInfo_S 的回调函数
+ * @return 注册成功返回 TRUE；回调函数非法或已注册时返回 FALSE
+ */
+NET_API BOOL STDCALL NET_serverRegisterGetKeyAreaAbnormalStayInfoCb(NET_CB_GetDevConfigByCommand pCb)
+{
+    return registerGetCmdCb(NET_GET_KEY_AREA_ABNORMAL_STAY_INFO, pCb);
+}
+
+/**
+ * @brief 注册设置重点区域异常滞留配置的回调函数
+ * @param [in] pCb 用于读取 NET_KeyAreaAbnormalStayInfo_S 的回调函数
+ * @return 注册成功返回 TRUE；回调函数非法或已注册时返回 FALSE
+ */
+NET_API BOOL STDCALL NET_serverRegisterSetKeyAreaAbnormalStayInfoCb(NET_CB_SetDevConfigByCommand pCb)
+{
+    return registerSetCmdCb(NET_SET_KEY_AREA_ABNORMAL_STAY_INFO, pCb);
+}
+
+/**
+ * @brief 注册获取明火离人配置的回调函数
+ * @param [in] pCb 用于填充 NET_OpenFlameLeaveInfo_S 的回调函数
+ * @return 注册成功返回 TRUE；回调函数非法或已注册时返回 FALSE
+ */
+NET_API BOOL STDCALL NET_serverRegisterGetOpenFlameLeaveInfoCb(NET_CB_GetDevConfigByCommand pCb)
+{
+    return registerGetCmdCb(NET_GET_OPEN_FLAME_LEAVE_INFO, pCb);
+}
+
+/**
+ * @brief 注册设置明火离人配置的回调函数
+ * @param [in] pCb 用于读取 NET_OpenFlameLeaveInfo_S 的回调函数
+ * @return 注册成功返回 TRUE；回调函数非法或已注册时返回 FALSE
+ */
+NET_API BOOL STDCALL NET_serverRegisterSetOpenFlameLeaveInfoCb(NET_CB_SetDevConfigByCommand pCb)
+{
+    return registerSetCmdCb(NET_SET_OPEN_FLAME_LEAVE_INFO, pCb);
+}

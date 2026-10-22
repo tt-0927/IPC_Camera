@@ -496,7 +496,11 @@ static INT32 tvsdk_rule_min_time(int nActionCode)
  */
 static INT32 tvsdk_rule_max_time(int nActionCode)
 {
-    return nActionCode == AC_SET_LOITERING_DETECT_INFO ? 10 : 100;
+    /* 危险区域靠近的停留阈值上限为 10 秒（与网页/IPC 语义一致），其余事件上限 100 秒。 */
+    return (nActionCode == AC_SET_LOITERING_DETECT_INFO ||
+            nActionCode == AC_SET_DANGER_ZONE_APPROACH_INFO)
+               ? 10
+               : 100;
 }
 
 /**
@@ -644,10 +648,12 @@ static bool tvsdk_valid_event_rule(const NET_LoiteringRule_S &stRule, int nActio
  */
 static bool tvsdk_valid_event_rule(const NET_SmartRegionRule_S &stRule, int nActionCode)
 {
-    const bool bIsClimbFence = nActionCode == AC_SET_CLIMB_FENCE_INFO;
+    /* 翻越围栏与攀爬识别没有时间阈值字段，跳过阈值校验。 */
+    const bool bIgnoreTime = nActionCode == AC_SET_CLIMB_FENCE_INFO ||
+                             nActionCode == AC_SET_CLIMB_DETECTION_INFO;
     return tvsdk_valid_polygon(stRule) && stRule.nSensitivity >= 1 && stRule.nSensitivity <= 100 &&
-           (bIsClimbFence || (stRule.nTimeThreshold >= tvsdk_rule_min_time(nActionCode) &&
-                              stRule.nTimeThreshold <= tvsdk_rule_max_time(nActionCode)));
+           (bIgnoreTime || (stRule.nTimeThreshold >= tvsdk_rule_min_time(nActionCode) &&
+                            stRule.nTimeThreshold <= tvsdk_rule_max_time(nActionCode)));
 }
 
 /**
@@ -4902,6 +4908,394 @@ static NET_COMMON_ECODE_E cb_set_road_ponding_cfg(INT32 dwChannelID, LPVOID lpIn
     int nExec = s_taskManage ? s_taskManage->execute(AC_SET_ROAD_PONDING_CFG, stInfo) : -1;
     return (nExec == 0) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
 }
+
+/* ===================== 平安校园事件（2798~2815） ===================== */
+
+/* ---------- 通道占用：AC_GET/SET_CHANNEL_OCCUPATION_INFO ---------- */
+static NET_COMMON_ECODE_E cb_get_channel_occupation_info(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    (void)dwChannelID;
+    if (!lpOutBuffer)
+        return NET_E_INVALID_PARAM;
+    pNET_ChannelOccupationInfo_S pOut = (pNET_ChannelOccupationInfo_S)lpOutBuffer;
+
+    std::string outJson;
+    std::string strJson;
+    if (execute_get_result(AC_GET_CHANNEL_OCCUPATION_INFO, "{}", outJson) != 0 || outJson.empty())
+        return NET_E_GET_CFG_FAILED;
+
+    int nRet = -1;
+    Json::get(outJson.c_str(), "Return", nRet);
+    if (nRet != 0)
+        return NET_E_GET_CFG_FAILED;
+
+    Alarm::ChannelOccupation_S stCfg;
+    strJson = normalize_data_json(outJson);
+    Convert::to_struct(strJson, stCfg);
+    TvSdkConvert::FillChannelOccupationInfo(stCfg, *pOut);
+    pOut->uChannel = 0;
+    return NET_E_SUCCEED;
+}
+
+static NET_COMMON_ECODE_E cb_set_channel_occupation_info(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    (void)dwChannelID;
+    if (!lpInBuffer)
+        return NET_E_INVALID_PARAM;
+    const NET_ChannelOccupationInfo_S *pIn = (const NET_ChannelOccupationInfo_S *)lpInBuffer;
+
+    /* 通道占用为单区域配置，IPC 要求区域至少三个有效点，灵敏度仅支持 0/1/2 三档。 */
+    if ((pIn->bEnable != 0 && pIn->bEnable != 1) ||
+        pIn->nSensitivity < 0 || pIn->nSensitivity > 2 ||
+        pIn->stRegion.uPointCount < 3 ||
+        !tvsdk_valid_polygon(pIn->stRegion) ||
+        !tvsdk_valid_alarm_schedule(pIn->stAlarmSchedule) ||
+        !tvsdk_valid_linkage_list(pIn->stLinkageList))
+    {
+        dlog_warn("TVSDK 通道占用参数非法: enable[%d] sensitivity[%d] points[%d]",
+                  static_cast<int>(pIn->bEnable), pIn->nSensitivity, pIn->stRegion.uPointCount);
+        return NET_E_INVALID_PARAM;
+    }
+
+    Alarm::ChannelOccupation_S stCfg = {};
+    TvSdkConvert::ToChannelOccupation(*pIn, stCfg);
+    return tvsdk_set_event_config(AC_SET_CHANNEL_OCCUPATION_INFO, Convert::to_string(stCfg));
+}
+
+/* ---------- 攀爬识别：AC_GET/SET_CLIMB_DETECTION_INFO ---------- */
+static NET_COMMON_ECODE_E cb_get_climb_detection_info(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    (void)dwChannelID;
+    if (!lpOutBuffer)
+        return NET_E_INVALID_PARAM;
+    pNET_ClimbDetectionInfo_S pOut = (pNET_ClimbDetectionInfo_S)lpOutBuffer;
+
+    std::string outJson;
+    std::string strJson;
+    if (execute_get_result(AC_GET_CLIMB_DETECTION_INFO, "{}", outJson) != 0 || outJson.empty())
+        return NET_E_GET_CFG_FAILED;
+
+    int nRet = -1;
+    Json::get(outJson.c_str(), "Return", nRet);
+    if (nRet != 0)
+        return NET_E_GET_CFG_FAILED;
+
+    Alarm::ClimbDetection_S stCfg;
+    strJson = normalize_data_json(outJson);
+    Convert::to_struct(strJson, stCfg);
+    TvSdkConvert::FillClimbDetectionInfo(stCfg, *pOut);
+    pOut->uChannel = 0;
+    return NET_E_SUCCEED;
+}
+
+static NET_COMMON_ECODE_E cb_set_climb_detection_info(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    (void)dwChannelID;
+    if (!lpInBuffer)
+        return NET_E_INVALID_PARAM;
+    const NET_ClimbDetectionInfo_S *pIn = (const NET_ClimbDetectionInfo_S *)lpInBuffer;
+    NET_ClimbDetectionInfo_S stNormalized = *pIn;
+
+    if ((stNormalized.bEnable != 0 && stNormalized.bEnable != 1) ||
+        stNormalized.uRuleCount < 0 || stNormalized.uRuleCount > TVSDK_IPC_RULE_MAX ||
+        !tvsdk_valid_alarm_schedule(stNormalized.stAlarmSchedule) ||
+        !tvsdk_valid_linkage_list(stNormalized.stLinkageList))
+    {
+        dlog_warn("TVSDK 攀爬识别参数非法: enable[%d] rules[%d]",
+                  static_cast<int>(stNormalized.bEnable), stNormalized.uRuleCount);
+        return NET_E_INVALID_PARAM;
+    }
+    /* IPC 侧对每条攀爬规则要求至少三个有效点，与网页校验一致。 */
+    for (INT32 nIndex = 0; nIndex < stNormalized.uRuleCount; ++nIndex)
+    {
+        if (stNormalized.stRule[nIndex].uPointCount < 3)
+        {
+            dlog_warn("TVSDK 攀爬识别规则[%d]区域点数不足: points[%d]",
+                      nIndex, stNormalized.stRule[nIndex].uPointCount);
+            return NET_E_INVALID_PARAM;
+        }
+    }
+
+    const NET_COMMON_ECODE_E enResult = tvsdk_preserve_event_rules(
+        dwChannelID, stNormalized, AC_SET_CLIMB_DETECTION_INFO, cb_get_climb_detection_info);
+    if (enResult != NET_E_SUCCEED)
+        return enResult;
+
+    /* 攀爬识别无时间阈值，统一清零后再转换。 */
+    for (INT32 nIndex = 0; nIndex < stNormalized.uRuleCount; ++nIndex)
+    {
+        stNormalized.stRule[nIndex].nTimeThreshold = 0;
+    }
+    Alarm::ClimbDetection_S stCfg = {};
+    TvSdkConvert::ToClimbDetection(stNormalized, stCfg);
+    return tvsdk_set_event_config(AC_SET_CLIMB_DETECTION_INFO, Convert::to_string(stCfg));
+}
+
+/* ---------- 危险区域靠近：AC_GET/SET_DANGER_ZONE_APPROACH_INFO ---------- */
+static NET_COMMON_ECODE_E cb_get_danger_zone_approach_info(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    (void)dwChannelID;
+    if (!lpOutBuffer)
+        return NET_E_INVALID_PARAM;
+    pNET_DangerZoneApproachInfo_S pOut = (pNET_DangerZoneApproachInfo_S)lpOutBuffer;
+
+    std::string outJson;
+    std::string strJson;
+    if (execute_get_result(AC_GET_DANGER_ZONE_APPROACH_INFO, "{}", outJson) != 0 || outJson.empty())
+        return NET_E_GET_CFG_FAILED;
+
+    int nRet = -1;
+    Json::get(outJson.c_str(), "Return", nRet);
+    if (nRet != 0)
+        return NET_E_GET_CFG_FAILED;
+
+    Alarm::DangerZoneApproach_S stCfg;
+    strJson = normalize_data_json(outJson);
+    Convert::to_struct(strJson, stCfg);
+    TvSdkConvert::FillDangerZoneApproachInfo(stCfg, *pOut);
+    pOut->uChannel = 0;
+    return NET_E_SUCCEED;
+}
+
+static NET_COMMON_ECODE_E cb_set_danger_zone_approach_info(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    (void)dwChannelID;
+    if (!lpInBuffer)
+        return NET_E_INVALID_PARAM;
+    const NET_DangerZoneApproachInfo_S *pIn = (const NET_DangerZoneApproachInfo_S *)lpInBuffer;
+    NET_DangerZoneApproachInfo_S stNormalized = *pIn;
+
+    if ((stNormalized.bEnable != 0 && stNormalized.bEnable != 1) ||
+        stNormalized.uRuleCount < 0 || stNormalized.uRuleCount > TVSDK_IPC_RULE_MAX ||
+        !tvsdk_valid_alarm_schedule(stNormalized.stAlarmSchedule) ||
+        !tvsdk_valid_linkage_list(stNormalized.stLinkageList))
+    {
+        dlog_warn("TVSDK 危险区域靠近参数非法: enable[%d] rules[%d]",
+                  static_cast<int>(stNormalized.bEnable), stNormalized.uRuleCount);
+        return NET_E_INVALID_PARAM;
+    }
+
+    const NET_COMMON_ECODE_E enResult = tvsdk_preserve_event_rules(
+        dwChannelID, stNormalized, AC_SET_DANGER_ZONE_APPROACH_INFO, cb_get_danger_zone_approach_info);
+    if (enResult != NET_E_SUCCEED)
+        return enResult;
+
+    Alarm::DangerZoneApproach_S stCfg = {};
+    TvSdkConvert::ToDangerZoneApproach(stNormalized, stCfg);
+    return tvsdk_set_event_config(AC_SET_DANGER_ZONE_APPROACH_INFO, Convert::to_string(stCfg));
+}
+
+/* ---------- 长时间滞留：AC_GET/SET_LONG_TIME_STAY_INFO ---------- */
+static NET_COMMON_ECODE_E cb_get_long_time_stay_info(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    (void)dwChannelID;
+    if (!lpOutBuffer)
+        return NET_E_INVALID_PARAM;
+    pNET_LongTimeStayInfo_S pOut = (pNET_LongTimeStayInfo_S)lpOutBuffer;
+
+    std::string outJson;
+    std::string strJson;
+    if (execute_get_result(AC_GET_LONG_TIME_STAY_INFO, "{}", outJson) != 0 || outJson.empty())
+        return NET_E_GET_CFG_FAILED;
+
+    int nRet = -1;
+    Json::get(outJson.c_str(), "Return", nRet);
+    if (nRet != 0)
+        return NET_E_GET_CFG_FAILED;
+
+    Alarm::LongTimeStayDetection_S stCfg;
+    strJson = normalize_data_json(outJson);
+    Convert::to_struct(strJson, stCfg);
+    TvSdkConvert::FillLongTimeStayInfo(stCfg, *pOut);
+    pOut->uChannel = 0;
+    return NET_E_SUCCEED;
+}
+
+static NET_COMMON_ECODE_E cb_set_long_time_stay_info(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    (void)dwChannelID;
+    if (!lpInBuffer)
+        return NET_E_INVALID_PARAM;
+    const NET_LongTimeStayInfo_S *pIn = (const NET_LongTimeStayInfo_S *)lpInBuffer;
+    NET_LongTimeStayInfo_S stNormalized = *pIn;
+
+    if ((stNormalized.bEnable != 0 && stNormalized.bEnable != 1) ||
+        stNormalized.uRuleCount < 0 || stNormalized.uRuleCount > TVSDK_IPC_RULE_MAX ||
+        !tvsdk_valid_alarm_schedule(stNormalized.stAlarmSchedule) ||
+        !tvsdk_valid_linkage_list(stNormalized.stLinkageList))
+    {
+        dlog_warn("TVSDK 长时间滞留参数非法: enable[%d] rules[%d]",
+                  static_cast<int>(stNormalized.bEnable), stNormalized.uRuleCount);
+        return NET_E_INVALID_PARAM;
+    }
+
+    const NET_COMMON_ECODE_E enResult = tvsdk_preserve_event_rules(
+        dwChannelID, stNormalized, AC_SET_LONG_TIME_STAY_INFO, cb_get_long_time_stay_info);
+    if (enResult != NET_E_SUCCEED)
+        return enResult;
+
+    Alarm::LongTimeStayDetection_S stCfg = {};
+    TvSdkConvert::ToLongTimeStay(stNormalized, stCfg);
+    return tvsdk_set_event_config(AC_SET_LONG_TIME_STAY_INFO, Convert::to_string(stCfg));
+}
+
+/* ---------- 危险区域滞留：AC_GET/SET_DANGER_ZONE_STAY_INFO ---------- */
+static NET_COMMON_ECODE_E cb_get_danger_zone_stay_info(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    (void)dwChannelID;
+    if (!lpOutBuffer)
+        return NET_E_INVALID_PARAM;
+    pNET_DangerZoneStayInfo_S pOut = (pNET_DangerZoneStayInfo_S)lpOutBuffer;
+
+    std::string outJson;
+    std::string strJson;
+    if (execute_get_result(AC_GET_DANGER_ZONE_STAY_INFO, "{}", outJson) != 0 || outJson.empty())
+        return NET_E_GET_CFG_FAILED;
+
+    int nRet = -1;
+    Json::get(outJson.c_str(), "Return", nRet);
+    if (nRet != 0)
+        return NET_E_GET_CFG_FAILED;
+
+    Alarm::DangerZoneStayDetection_S stCfg;
+    strJson = normalize_data_json(outJson);
+    Convert::to_struct(strJson, stCfg);
+    TvSdkConvert::FillDangerZoneStayInfo(stCfg, *pOut);
+    pOut->uChannel = 0;
+    return NET_E_SUCCEED;
+}
+
+static NET_COMMON_ECODE_E cb_set_danger_zone_stay_info(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    (void)dwChannelID;
+    if (!lpInBuffer)
+        return NET_E_INVALID_PARAM;
+    const NET_DangerZoneStayInfo_S *pIn = (const NET_DangerZoneStayInfo_S *)lpInBuffer;
+    NET_DangerZoneStayInfo_S stNormalized = *pIn;
+
+    if ((stNormalized.bEnable != 0 && stNormalized.bEnable != 1) ||
+        stNormalized.uRuleCount < 0 || stNormalized.uRuleCount > TVSDK_IPC_RULE_MAX ||
+        !tvsdk_valid_alarm_schedule(stNormalized.stAlarmSchedule) ||
+        !tvsdk_valid_linkage_list(stNormalized.stLinkageList))
+    {
+        dlog_warn("TVSDK 危险区域滞留参数非法: enable[%d] rules[%d]",
+                  static_cast<int>(stNormalized.bEnable), stNormalized.uRuleCount);
+        return NET_E_INVALID_PARAM;
+    }
+
+    const NET_COMMON_ECODE_E enResult = tvsdk_preserve_event_rules(
+        dwChannelID, stNormalized, AC_SET_DANGER_ZONE_STAY_INFO, cb_get_danger_zone_stay_info);
+    if (enResult != NET_E_SUCCEED)
+        return enResult;
+
+    Alarm::DangerZoneStayDetection_S stCfg = {};
+    TvSdkConvert::ToDangerZoneStay(stNormalized, stCfg);
+    return tvsdk_set_event_config(AC_SET_DANGER_ZONE_STAY_INFO, Convert::to_string(stCfg));
+}
+
+/* ---------- 重点区域异常滞留：AC_GET/SET_KEY_AREA_ABNORMAL_STAY_INFO ---------- */
+static NET_COMMON_ECODE_E cb_get_key_area_abnormal_stay_info(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    (void)dwChannelID;
+    if (!lpOutBuffer)
+        return NET_E_INVALID_PARAM;
+    pNET_KeyAreaAbnormalStayInfo_S pOut = (pNET_KeyAreaAbnormalStayInfo_S)lpOutBuffer;
+
+    std::string outJson;
+    std::string strJson;
+    if (execute_get_result(AC_GET_KEY_AREA_ABNORMAL_STAY_INFO, "{}", outJson) != 0 || outJson.empty())
+        return NET_E_GET_CFG_FAILED;
+
+    int nRet = -1;
+    Json::get(outJson.c_str(), "Return", nRet);
+    if (nRet != 0)
+        return NET_E_GET_CFG_FAILED;
+
+    Alarm::KeyAreaAbnormalStayDetection_S stCfg;
+    strJson = normalize_data_json(outJson);
+    Convert::to_struct(strJson, stCfg);
+    TvSdkConvert::FillKeyAreaAbnormalStayInfo(stCfg, *pOut);
+    pOut->uChannel = 0;
+    return NET_E_SUCCEED;
+}
+
+static NET_COMMON_ECODE_E cb_set_key_area_abnormal_stay_info(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    (void)dwChannelID;
+    if (!lpInBuffer)
+        return NET_E_INVALID_PARAM;
+    const NET_KeyAreaAbnormalStayInfo_S *pIn = (const NET_KeyAreaAbnormalStayInfo_S *)lpInBuffer;
+    NET_KeyAreaAbnormalStayInfo_S stNormalized = *pIn;
+
+    if ((stNormalized.bEnable != 0 && stNormalized.bEnable != 1) ||
+        stNormalized.uRuleCount < 0 || stNormalized.uRuleCount > TVSDK_IPC_RULE_MAX ||
+        !tvsdk_valid_alarm_schedule(stNormalized.stAlarmSchedule) ||
+        !tvsdk_valid_linkage_list(stNormalized.stLinkageList))
+    {
+        dlog_warn("TVSDK 重点区域异常滞留参数非法: enable[%d] rules[%d]",
+                  static_cast<int>(stNormalized.bEnable), stNormalized.uRuleCount);
+        return NET_E_INVALID_PARAM;
+    }
+
+    const NET_COMMON_ECODE_E enResult = tvsdk_preserve_event_rules(
+        dwChannelID, stNormalized, AC_SET_KEY_AREA_ABNORMAL_STAY_INFO, cb_get_key_area_abnormal_stay_info);
+    if (enResult != NET_E_SUCCEED)
+        return enResult;
+
+    Alarm::KeyAreaAbnormalStayDetection_S stCfg = {};
+    TvSdkConvert::ToKeyAreaAbnormalStay(stNormalized, stCfg);
+    return tvsdk_set_event_config(AC_SET_KEY_AREA_ABNORMAL_STAY_INFO, Convert::to_string(stCfg));
+}
+
+/* ---------- 明火离人：AC_GET/SET_OPEN_FLAME_LEAVE_CFG ---------- */
+static NET_COMMON_ECODE_E cb_get_open_flame_leave_info(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    (void)dwChannelID;
+    if (!lpOutBuffer)
+        return NET_E_INVALID_PARAM;
+    pNET_OpenFlameLeaveInfo_S pOut = (pNET_OpenFlameLeaveInfo_S)lpOutBuffer;
+
+    std::string outJson;
+    std::string strJson;
+    if (execute_get_result(AC_GET_OPEN_FLAME_LEAVE_CFG, "{}", outJson) != 0 || outJson.empty())
+        return NET_E_GET_CFG_FAILED;
+
+    int nRet = -1;
+    Json::get(outJson.c_str(), "Return", nRet);
+    if (nRet != 0)
+        return NET_E_GET_CFG_FAILED;
+
+    Alarm::OpenFlameLeaveDetection_S stCfg;
+    strJson = normalize_data_json(outJson);
+    Convert::to_struct(strJson, stCfg);
+    TvSdkConvert::FillOpenFlameLeaveInfo(stCfg, *pOut);
+    pOut->uChannel = 0;
+    return NET_E_SUCCEED;
+}
+
+static NET_COMMON_ECODE_E cb_set_open_flame_leave_info(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    (void)dwChannelID;
+    if (!lpInBuffer)
+        return NET_E_INVALID_PARAM;
+    const NET_OpenFlameLeaveInfo_S *pIn = (const NET_OpenFlameLeaveInfo_S *)lpInBuffer;
+
+    /* 开关、规则区域、灵敏度、时间阈值、布防与联动全部校验通过后才写配置。 */
+    if ((pIn->bEnable != 0 && pIn->bEnable != 1) ||
+        !tvsdk_valid_event_rule(pIn->stRule, AC_SET_OPEN_FLAME_LEAVE_CFG) ||
+        !tvsdk_valid_alarm_schedule(pIn->stAlarmSchedule) ||
+        !tvsdk_valid_linkage_list(pIn->stLinkageList))
+    {
+        dlog_warn("TVSDK 明火离人参数非法: enable[%d] sensitivity[%d] time[%d] points[%d]",
+                  static_cast<int>(pIn->bEnable), pIn->stRule.nSensitivity,
+                  pIn->stRule.nTimeThreshold, pIn->stRule.uPointCount);
+        return NET_E_INVALID_PARAM;
+    }
+
+    Alarm::OpenFlameLeaveDetection_S stCfg = {};
+    TvSdkConvert::ToOpenFlameLeave(*pIn, stCfg);
+    return tvsdk_set_event_config(AC_SET_OPEN_FLAME_LEAVE_CFG, Convert::to_string(stCfg));
+}
 #endif
 
 #if CAP_AI_PEOPLE_STATISTICS
@@ -7590,6 +7984,22 @@ void register_all()
     // NET_serverRegisterSetSmokeFireConfigCb(cb_set_smoke_fire_cfg);
     NET_serverRegisterGetRoadPondingConfigCb(cb_get_road_ponding_cfg);
     NET_serverRegisterSetRoadPondingConfigCb(cb_set_road_ponding_cfg);
+
+    /* 平安校园事件（SDK 命令码 600~613 / IPC 2798~2815） */
+    NET_serverRegisterGetChannelOccupationInfoCb(cb_get_channel_occupation_info);
+    NET_serverRegisterSetChannelOccupationInfoCb(cb_set_channel_occupation_info);
+    NET_serverRegisterGetClimbDetectionInfoCb(cb_get_climb_detection_info);
+    NET_serverRegisterSetClimbDetectionInfoCb(cb_set_climb_detection_info);
+    NET_serverRegisterGetDangerZoneApproachInfoCb(cb_get_danger_zone_approach_info);
+    NET_serverRegisterSetDangerZoneApproachInfoCb(cb_set_danger_zone_approach_info);
+    NET_serverRegisterGetLongTimeStayInfoCb(cb_get_long_time_stay_info);
+    NET_serverRegisterSetLongTimeStayInfoCb(cb_set_long_time_stay_info);
+    NET_serverRegisterGetDangerZoneStayInfoCb(cb_get_danger_zone_stay_info);
+    NET_serverRegisterSetDangerZoneStayInfoCb(cb_set_danger_zone_stay_info);
+    NET_serverRegisterGetKeyAreaAbnormalStayInfoCb(cb_get_key_area_abnormal_stay_info);
+    NET_serverRegisterSetKeyAreaAbnormalStayInfoCb(cb_set_key_area_abnormal_stay_info);
+    NET_serverRegisterGetOpenFlameLeaveInfoCb(cb_get_open_flame_leave_info);
+    NET_serverRegisterSetOpenFlameLeaveInfoCb(cb_set_open_flame_leave_info);
 #endif
 
 #if CAP_AI_PEOPLE_STATISTICS

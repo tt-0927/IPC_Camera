@@ -534,6 +534,13 @@ extern "C"{
 #define NET_MAX_SCENE_TYPE_NUM                      16              /* 最大支持的场景类型数量 */
 #define NET_MAX_ENV_TYPE_NUM                        2               /* 最大支持的环境类型数量 */
 
+/* 安全服务登录锁定的验证间隔，单位为分钟，与网页允许范围保持一致。 */
+#define NET_SECURITY_LOGIN_CHECK_INTERVAL_MIN_MINUTES    (1)
+#define NET_SECURITY_LOGIN_CHECK_INTERVAL_MAX_MINUTES    (1440)
+/* 安全服务登录锁定的最大连续错误次数范围。 */
+#define NET_SECURITY_LOGIN_MAX_ERROR_TIMES_MIN           (3)
+#define NET_SECURITY_LOGIN_MAX_ERROR_TIMES_MAX           (20)
+
 /* 告警周布防时间表包含的天数。 */
 #define NET_ALARM_SCHEDULE_DAY_COUNT            7
 /* 告警周布防时间表中的最小小时值。 */
@@ -823,6 +830,7 @@ typedef enum tagNETTVCommonErrCode
     NET_E_NEED_MORE_MEMORY               = 130, /* 内存分配不足 Insufficient memory allocation */
     NET_E_T2U_CONNECT_FAILED             = 131, /* T2U连接失败 Failure of T2U connection */
     NET_E_FUNC_IS_INITIALIZING           = 132, /* 功能正在初始化中 Functions are being initialized */
+    NET_E_NO_SD_CARD                     = 133, /* SD卡未插入或不可用 SD card not inserted or unavailable */
 
     NET_E_CONNECT_ERROR                  = 200, /* 创建连接失败  Failed to create connection */
     NET_E_SEND_MSG_ERROR                 = 201, /* 发送消息失败 Failed to send message */
@@ -1140,6 +1148,7 @@ typedef enum tagNETTVCfgCmd
     NET_SET_NTPCFG                   = 111,         /* 设置NTP参数, 参见 #NET_SystemNtpInfo_S */
     NET_SET_SYSTEM_TIME              = 112,         /* 设置系统时间, 参见 #NET_SystemTime_S */
     NET_SET_USERPASSWORD             = 113,         /* 修改用户密码（旧密码校验），输入 NET_UserPasswordInfo_S */
+    NET_SET_USEPASSWORD              = 113,         /* 修改用户密码（历史别名，输入 NET_UserPasswordInfo_S） */
     
     NET_GET_STREAMCFG                = 120,         /* 获取视频编码参数, 参见 #NET_VideoEncodeOption_S */
     NET_SET_STREAMCFG                = 121,         /* 设置视频编码参数, 参见 #NET_VideoEncodeOption_S */
@@ -1407,6 +1416,22 @@ typedef enum tagNETTVCfgCmd
     NET_UNLOCK_RECORD_FILE                = 582,    /* 解锁录像文件（按文件）, 参见 #NET_RecordLockInfo_S */
     NET_GET_RECORD_LOCK_STATUS            = 583,    /* 查询录像锁定状态, 参见 #NET_RecordLockInfo_S */
     NET_FORCE_KEY_FRAME                   = 584,    /* 强制I帧并返回流地址, 参见 #NET_ForceKeyFrameInfo_S */
+
+    /* ---- 600~613：平安校园智能事件配置（对齐 IPC 2798~2815） ---- */
+    NET_GET_CHANNEL_OCCUPATION_INFO       = 600,    /* 获取通道占用配置, 参见 #NET_ChannelOccupationInfo_S */
+    NET_SET_CHANNEL_OCCUPATION_INFO       = 601,    /* 设置通道占用配置, 参见 #NET_ChannelOccupationInfo_S */
+    NET_GET_CLIMB_DETECTION_INFO          = 602,    /* 获取攀爬识别配置, 参见 #NET_ClimbDetectionInfo_S */
+    NET_SET_CLIMB_DETECTION_INFO          = 603,    /* 设置攀爬识别配置, 参见 #NET_ClimbDetectionInfo_S */
+    NET_GET_DANGER_ZONE_APPROACH_INFO     = 604,    /* 获取危险区域靠近配置, 参见 #NET_DangerZoneApproachInfo_S */
+    NET_SET_DANGER_ZONE_APPROACH_INFO     = 605,    /* 设置危险区域靠近配置, 参见 #NET_DangerZoneApproachInfo_S */
+    NET_GET_LONG_TIME_STAY_INFO           = 606,    /* 获取长时间滞留配置, 参见 #NET_LongTimeStayInfo_S */
+    NET_SET_LONG_TIME_STAY_INFO           = 607,    /* 设置长时间滞留配置, 参见 #NET_LongTimeStayInfo_S */
+    NET_GET_DANGER_ZONE_STAY_INFO         = 608,    /* 获取危险区域滞留配置, 参见 #NET_DangerZoneStayInfo_S */
+    NET_SET_DANGER_ZONE_STAY_INFO         = 609,    /* 设置危险区域滞留配置, 参见 #NET_DangerZoneStayInfo_S */
+    NET_GET_KEY_AREA_ABNORMAL_STAY_INFO   = 610,    /* 获取重点区域异常滞留配置, 参见 #NET_KeyAreaAbnormalStayInfo_S */
+    NET_SET_KEY_AREA_ABNORMAL_STAY_INFO   = 611,    /* 设置重点区域异常滞留配置, 参见 #NET_KeyAreaAbnormalStayInfo_S */
+    NET_GET_OPEN_FLAME_LEAVE_INFO         = 612,    /* 获取明火离人配置, 参见 #NET_OpenFlameLeaveInfo_S */
+    NET_SET_OPEN_FLAME_LEAVE_INFO         = 613,    /* 设置明火离人配置, 参见 #NET_OpenFlameLeaveInfo_S */
 
     NET_CFG_INVALID                       = 0xFFFF  /* 无效值 */
 
@@ -5932,6 +5957,134 @@ typedef struct tagNET_PedestrianIntrusionInfo
 }NET_PedestrianIntrusionInfo_S;
 
 typedef NET_PedestrianIntrusionInfo_S* pNET_PedestrianIntrusionInfo_S;
+
+/**
+ * @struct tagNET_ChannelOccupationInfo
+ * @brief 通道占用检测配置信息 Channel occupation detection configuration
+ * @note 用于NET_GET_CHANNEL_OCCUPATION_INFO/NET_SET_CHANNEL_OCCUPATION_INFO
+ * @note 灵敏度为三档：0-低 1-中 2-高；区域点数为0表示整幅画面参与检测
+ */
+typedef struct tagNET_ChannelOccupationInfo
+{
+    UINT32              uChannel;        /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
+    BOOL                bEnable;         /* 是否启用 0-不启用 1-启用 */
+    INT32               nSensitivity;    /* 灵敏度 0-低 1-中 2-高 */
+    NET_SmartRegion_S   stRegion;        /* 通道检测区域，点数为0表示整幅画面 */
+    NET_AlarmSchedule_S stAlarmSchedule; /* 布防时间 */
+    NET_LinkageList_S   stLinkageList;   /* 联动配置 */
+    BYTE                byReserved[256]; /* 保留字段 */
+}NET_ChannelOccupationInfo_S;
+
+typedef NET_ChannelOccupationInfo_S* pNET_ChannelOccupationInfo_S;
+
+/**
+ * @struct tagNET_ClimbDetectionInfo
+ * @brief 攀爬识别配置信息 Climb detection configuration
+ * @note 用于NET_GET_CLIMB_DETECTION_INFO/NET_SET_CLIMB_DETECTION_INFO
+ * @note 攀爬识别无时间阈值，nTimeThreshold 保留但忽略
+ */
+typedef struct tagNET_ClimbDetectionInfo
+{
+    UINT32                uChannel;        /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
+    BOOL                  bEnable;         /* 是否启用 0-不启用 1-启用 */
+    INT32                 uRuleCount;      /* 规则数量，最多4个 */
+    NET_SmartRegionRule_S stRule[4];       /* 攀爬识别规则，最多4个 */
+    NET_AlarmSchedule_S   stAlarmSchedule; /* 布防时间 */
+    NET_LinkageList_S     stLinkageList;   /* 联动配置 */
+    BYTE                  byReserved[256]; /* 保留字段 */
+}NET_ClimbDetectionInfo_S;
+
+typedef NET_ClimbDetectionInfo_S* pNET_ClimbDetectionInfo_S;
+
+/**
+ * @struct tagNET_DangerZoneApproachInfo
+ * @brief 危险区域靠近检测配置信息 Danger zone approach detection configuration
+ * @note 用于NET_GET_DANGER_ZONE_APPROACH_INFO/NET_SET_DANGER_ZONE_APPROACH_INFO
+ */
+typedef struct tagNET_DangerZoneApproachInfo
+{
+    UINT32                uChannel;        /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
+    BOOL                  bEnable;         /* 是否启用 0-不启用 1-启用 */
+    INT32                 uRuleCount;      /* 规则数量，最多4个 */
+    NET_SmartRegionRule_S stRule[4];       /* 危险区域靠近规则，最多4个 */
+    NET_AlarmSchedule_S   stAlarmSchedule; /* 布防时间 */
+    NET_LinkageList_S     stLinkageList;   /* 联动配置 */
+    BYTE                  byReserved[256]; /* 保留字段 */
+}NET_DangerZoneApproachInfo_S;
+
+typedef NET_DangerZoneApproachInfo_S* pNET_DangerZoneApproachInfo_S;
+
+/**
+ * @struct tagNET_LongTimeStayInfo
+ * @brief 长时间滞留检测配置信息 Long time stay detection configuration
+ * @note 用于NET_GET_LONG_TIME_STAY_INFO/NET_SET_LONG_TIME_STAY_INFO
+ */
+typedef struct tagNET_LongTimeStayInfo
+{
+    UINT32                uChannel;        /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
+    BOOL                  bEnable;         /* 是否启用 0-不启用 1-启用 */
+    INT32                 uRuleCount;      /* 规则数量，最多4个 */
+    NET_SmartRegionRule_S stRule[4];       /* 长时间滞留规则，最多4个 */
+    NET_AlarmSchedule_S   stAlarmSchedule; /* 布防时间 */
+    NET_LinkageList_S     stLinkageList;   /* 联动配置 */
+    BYTE                  byReserved[256]; /* 保留字段 */
+}NET_LongTimeStayInfo_S;
+
+typedef NET_LongTimeStayInfo_S* pNET_LongTimeStayInfo_S;
+
+/**
+ * @struct tagNET_DangerZoneStayInfo
+ * @brief 危险区域滞留检测配置信息 Danger zone stay detection configuration
+ * @note 用于NET_GET_DANGER_ZONE_STAY_INFO/NET_SET_DANGER_ZONE_STAY_INFO
+ */
+typedef struct tagNET_DangerZoneStayInfo
+{
+    UINT32                uChannel;        /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
+    BOOL                  bEnable;         /* 是否启用 0-不启用 1-启用 */
+    INT32                 uRuleCount;      /* 规则数量，最多4个 */
+    NET_SmartRegionRule_S stRule[4];       /* 危险区域滞留规则，最多4个 */
+    NET_AlarmSchedule_S   stAlarmSchedule; /* 布防时间 */
+    NET_LinkageList_S     stLinkageList;   /* 联动配置 */
+    BYTE                  byReserved[256]; /* 保留字段 */
+}NET_DangerZoneStayInfo_S;
+
+typedef NET_DangerZoneStayInfo_S* pNET_DangerZoneStayInfo_S;
+
+/**
+ * @struct tagNET_KeyAreaAbnormalStayInfo
+ * @brief 重点区域异常滞留配置信息 Key area abnormal stay detection configuration
+ * @note 用于NET_GET_KEY_AREA_ABNORMAL_STAY_INFO/NET_SET_KEY_AREA_ABNORMAL_STAY_INFO
+ */
+typedef struct tagNET_KeyAreaAbnormalStayInfo
+{
+    UINT32                uChannel;        /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
+    BOOL                  bEnable;         /* 是否启用 0-不启用 1-启用 */
+    INT32                 uRuleCount;      /* 规则数量，最多4个 */
+    NET_SmartRegionRule_S stRule[4];       /* 重点区域异常滞留规则，最多4个 */
+    NET_AlarmSchedule_S   stAlarmSchedule; /* 布防时间 */
+    NET_LinkageList_S     stLinkageList;   /* 联动配置 */
+    BYTE                  byReserved[256]; /* 保留字段 */
+}NET_KeyAreaAbnormalStayInfo_S;
+
+typedef NET_KeyAreaAbnormalStayInfo_S* pNET_KeyAreaAbnormalStayInfo_S;
+
+/**
+ * @struct tagNET_OpenFlameLeaveInfo
+ * @brief 明火离人检测配置信息 Open flame leave detection configuration
+ * @note 用于NET_GET_OPEN_FLAME_LEAVE_INFO/NET_SET_OPEN_FLAME_LEAVE_INFO
+ * @note 单区域规则，与明火识别(NET_OpenFlameCfg_S)为不同事件
+ */
+typedef struct tagNET_OpenFlameLeaveInfo
+{
+    UINT32                uChannel;        /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
+    BOOL                  bEnable;         /* 是否启用 0-不启用 1-启用 */
+    NET_SmartRegionRule_S stRule;          /* 明火离人规则（单区域） */
+    NET_AlarmSchedule_S   stAlarmSchedule; /* 布防时间 */
+    NET_LinkageList_S     stLinkageList;   /* 联动配置 */
+    BYTE                  byReserved[256]; /* 保留字段 */
+}NET_OpenFlameLeaveInfo_S;
+
+typedef NET_OpenFlameLeaveInfo_S* pNET_OpenFlameLeaveInfo_S;
 
 /**
  * @struct tagNET_SmokeFireCfg

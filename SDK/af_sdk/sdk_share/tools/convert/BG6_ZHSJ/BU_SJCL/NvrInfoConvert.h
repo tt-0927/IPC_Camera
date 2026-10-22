@@ -78,6 +78,13 @@ namespace SDKConvert
     void deal(Json::Object* pRootJson, NET_NonmotorVehicleIntrusionInfo_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_OccupationEmergencyInfo_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_PedestrianIntrusionInfo_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_ChannelOccupationInfo_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_ClimbDetectionInfo_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_DangerZoneApproachInfo_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_LongTimeStayInfo_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_DangerZoneStayInfo_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_KeyAreaAbnormalStayInfo_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_OpenFlameLeaveInfo_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_SmokeFireCfg_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_RoadPondingCfg_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_FaceCaptureOverlayInfo_S& stInfo, bool bOutStruct);

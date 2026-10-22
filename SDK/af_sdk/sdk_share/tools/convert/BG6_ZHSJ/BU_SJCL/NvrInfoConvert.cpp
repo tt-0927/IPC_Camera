@@ -1635,4 +1635,268 @@ void deal(Json::Object* pRootJson, NET_ForceKeyFrameInfo_S& stInfo, bool bOutStr
     convert.field(pRootJson, "StreamUrl", stInfo.szStreamUrl);
 }
 
+/* ---- 平安校园：单区域 + 三档灵敏度事件 ---- */
+void deal(Json::Object* pRootJson, NET_ChannelOccupationInfo_S& stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+
+    SDKConvert::CSDKConvert convert(bOutStruct);
+    convert.field(pRootJson, "Channel", stInfo.uChannel);
+    convert.field(pRootJson, "Enable", stInfo.bEnable);
+    convert.field(pRootJson, "Sensitivity", stInfo.nSensitivity);
+    convert.structure(pRootJson, "Region", stInfo.stRegion);
+    convert.structure(pRootJson, "AlarmSchedule", stInfo.stAlarmSchedule);
+    convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
+}
+
+/* ---- 平安校园：多区域规则事件（RuleCount + Rules[0..3]） ---- */
+void deal(Json::Object* pRootJson, NET_ClimbDetectionInfo_S& stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+
+    SDKConvert::CSDKConvert convert(bOutStruct);
+    convert.field(pRootJson, "Channel", stInfo.uChannel);
+    convert.field(pRootJson, "Enable", stInfo.bEnable);
+    convert.field(pRootJson, "RuleCount", stInfo.uRuleCount);
+    if (bOutStruct)
+    {
+        Json::Object* pRules = Json::get(pRootJson, "Rules");
+        if (pRules)
+        {
+            int count = stInfo.uRuleCount;
+            if (count > 4) count = 4;
+            for (int i = 0; i < count; i++)
+            {
+                std::string key = std::to_string(i);
+                Json::Object* pRule = Json::get(pRules, key);
+                if (pRule)
+                {
+                    deal(pRule, stInfo.stRule[i], bOutStruct);
+                }
+            }
+        }
+    }
+    else
+    {
+        Json::Object* pRules = Json::init();
+        int count = stInfo.uRuleCount;
+        if (count > 4) count = 4;
+        for (int i = 0; i < count; i++)
+        {
+            Json::Object* pRule = Json::init();
+            deal(pRule, stInfo.stRule[i], bOutStruct);
+            Json::add(pRules, std::to_string(i).c_str(), pRule);
+        }
+        Json::add(pRootJson, "Rules", pRules);
+    }
+    convert.structure(pRootJson, "AlarmSchedule", stInfo.stAlarmSchedule);
+    convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
+}
+
+void deal(Json::Object* pRootJson, NET_DangerZoneApproachInfo_S& stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+
+    SDKConvert::CSDKConvert convert(bOutStruct);
+    convert.field(pRootJson, "Channel", stInfo.uChannel);
+    convert.field(pRootJson, "Enable", stInfo.bEnable);
+    convert.field(pRootJson, "RuleCount", stInfo.uRuleCount);
+    if (bOutStruct)
+    {
+        Json::Object* pRules = Json::get(pRootJson, "Rules");
+        if (pRules)
+        {
+            int count = stInfo.uRuleCount;
+            if (count > 4) count = 4;
+            for (int i = 0; i < count; i++)
+            {
+                std::string key = std::to_string(i);
+                Json::Object* pRule = Json::get(pRules, key);
+                if (pRule)
+                {
+                    deal(pRule, stInfo.stRule[i], bOutStruct);
+                }
+            }
+        }
+    }
+    else
+    {
+        Json::Object* pRules = Json::init();
+        int count = stInfo.uRuleCount;
+        if (count > 4) count = 4;
+        for (int i = 0; i < count; i++)
+        {
+            Json::Object* pRule = Json::init();
+            deal(pRule, stInfo.stRule[i], bOutStruct);
+            Json::add(pRules, std::to_string(i).c_str(), pRule);
+        }
+        Json::add(pRootJson, "Rules", pRules);
+    }
+    convert.structure(pRootJson, "AlarmSchedule", stInfo.stAlarmSchedule);
+    convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
+}
+
+void deal(Json::Object* pRootJson, NET_LongTimeStayInfo_S& stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+
+    SDKConvert::CSDKConvert convert(bOutStruct);
+    convert.field(pRootJson, "Channel", stInfo.uChannel);
+    convert.field(pRootJson, "Enable", stInfo.bEnable);
+    convert.field(pRootJson, "RuleCount", stInfo.uRuleCount);
+    if (bOutStruct)
+    {
+        Json::Object* pRules = Json::get(pRootJson, "Rules");
+        if (pRules)
+        {
+            int count = stInfo.uRuleCount;
+            if (count > 4) count = 4;
+            for (int i = 0; i < count; i++)
+            {
+                std::string key = std::to_string(i);
+                Json::Object* pRule = Json::get(pRules, key);
+                if (pRule)
+                {
+                    deal(pRule, stInfo.stRule[i], bOutStruct);
+                }
+            }
+        }
+    }
+    else
+    {
+        Json::Object* pRules = Json::init();
+        int count = stInfo.uRuleCount;
+        if (count > 4) count = 4;
+        for (int i = 0; i < count; i++)
+        {
+            Json::Object* pRule = Json::init();
+            deal(pRule, stInfo.stRule[i], bOutStruct);
+            Json::add(pRules, std::to_string(i).c_str(), pRule);
+        }
+        Json::add(pRootJson, "Rules", pRules);
+    }
+    convert.structure(pRootJson, "AlarmSchedule", stInfo.stAlarmSchedule);
+    convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
+}
+
+void deal(Json::Object* pRootJson, NET_DangerZoneStayInfo_S& stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+
+    SDKConvert::CSDKConvert convert(bOutStruct);
+    convert.field(pRootJson, "Channel", stInfo.uChannel);
+    convert.field(pRootJson, "Enable", stInfo.bEnable);
+    convert.field(pRootJson, "RuleCount", stInfo.uRuleCount);
+    if (bOutStruct)
+    {
+        Json::Object* pRules = Json::get(pRootJson, "Rules");
+        if (pRules)
+        {
+            int count = stInfo.uRuleCount;
+            if (count > 4) count = 4;
+            for (int i = 0; i < count; i++)
+            {
+                std::string key = std::to_string(i);
+                Json::Object* pRule = Json::get(pRules, key);
+                if (pRule)
+                {
+                    deal(pRule, stInfo.stRule[i], bOutStruct);
+                }
+            }
+        }
+    }
+    else
+    {
+        Json::Object* pRules = Json::init();
+        int count = stInfo.uRuleCount;
+        if (count > 4) count = 4;
+        for (int i = 0; i < count; i++)
+        {
+            Json::Object* pRule = Json::init();
+            deal(pRule, stInfo.stRule[i], bOutStruct);
+            Json::add(pRules, std::to_string(i).c_str(), pRule);
+        }
+        Json::add(pRootJson, "Rules", pRules);
+    }
+    convert.structure(pRootJson, "AlarmSchedule", stInfo.stAlarmSchedule);
+    convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
+}
+
+void deal(Json::Object* pRootJson, NET_KeyAreaAbnormalStayInfo_S& stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+
+    SDKConvert::CSDKConvert convert(bOutStruct);
+    convert.field(pRootJson, "Channel", stInfo.uChannel);
+    convert.field(pRootJson, "Enable", stInfo.bEnable);
+    convert.field(pRootJson, "RuleCount", stInfo.uRuleCount);
+    if (bOutStruct)
+    {
+        Json::Object* pRules = Json::get(pRootJson, "Rules");
+        if (pRules)
+        {
+            int count = stInfo.uRuleCount;
+            if (count > 4) count = 4;
+            for (int i = 0; i < count; i++)
+            {
+                std::string key = std::to_string(i);
+                Json::Object* pRule = Json::get(pRules, key);
+                if (pRule)
+                {
+                    deal(pRule, stInfo.stRule[i], bOutStruct);
+                }
+            }
+        }
+    }
+    else
+    {
+        Json::Object* pRules = Json::init();
+        int count = stInfo.uRuleCount;
+        if (count > 4) count = 4;
+        for (int i = 0; i < count; i++)
+        {
+            Json::Object* pRule = Json::init();
+            deal(pRule, stInfo.stRule[i], bOutStruct);
+            Json::add(pRules, std::to_string(i).c_str(), pRule);
+        }
+        Json::add(pRootJson, "Rules", pRules);
+    }
+    convert.structure(pRootJson, "AlarmSchedule", stInfo.stAlarmSchedule);
+    convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
+}
+
+/* ---- 平安校园：单区域规则事件 ---- */
+void deal(Json::Object* pRootJson, NET_OpenFlameLeaveInfo_S& stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+
+    SDKConvert::CSDKConvert convert(bOutStruct);
+    convert.field(pRootJson, "Channel", stInfo.uChannel);
+    convert.field(pRootJson, "Enable", stInfo.bEnable);
+    convert.structure(pRootJson, "Rule", stInfo.stRule);
+    convert.structure(pRootJson, "AlarmSchedule", stInfo.stAlarmSchedule);
+    convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
+}
+
 }
