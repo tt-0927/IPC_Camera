@@ -1,0 +1,121 @@
+
+
+/*
+ * @FilePath: MJPEG_FRAME_SOURCE.cpp
+ * @Author: yangwenyao
+ * @Date: 2023-01-03 14:08:38
+ * @LastEditors: zhouzr@kfb.cn
+ * @LastEditTime: 2026-08-14 10:48:49
+ * @Descripttion: h265 rtp source
+ */
+#include "mpeg_frame_source.h"
+MJPEG_FRAME_SOURCE::MJPEG_FRAME_SOURCE(UsageEnvironment & env, Video_Source_Info_t& souceInfo):
+FramedSource(env)
+{
+	memcpy(&m_stSourceInfo, &souceInfo, sizeof(Video_Source_Info_t));
+
+	m_toDelay = 100;
+	fFrameSize = 0;
+	m_stStatus.param = NULL;
+	m_pToken = nullptr;  /* 初始化为 nullptr，避免析构时使用未初始化的值 */
+}
+MJPEG_FRAME_SOURCE::~MJPEG_FRAME_SOURCE(void)
+{
+	/* 仅在 m_pToken 有效时才取消调度任务，避免使用未初始化的值 */
+	if(m_pToken != nullptr)
+	{
+		envir().taskScheduler().unscheduleDelayedTask(m_pToken);
+		m_pToken = nullptr;
+	}
+	if(m_stSourceInfo.clientFun)
+	{
+		m_stStatus.param = m_stSourceInfo.videoindex;
+		m_stStatus.status = RTSPCLIENT_STOP;
+		m_stSourceInfo.clientFun(&m_stStatus);
+	}
+}
+
+int MJPEG_FRAME_SOURCE::set_videostate_callback()
+{
+	if(m_stStatus.param == NULL)
+	{
+		if(m_stSourceInfo.clientFun)
+		{
+			m_stStatus.param = m_stSourceInfo.videoindex;
+			m_stStatus.status = RTSPCLIENT_START;
+			m_stSourceInfo.clientFun(&m_stStatus);
+		}
+	}
+	return 0;
+}
+int MJPEG_FRAME_SOURCE::server_inputData(unsigned char* pData, int nDataLen)
+{
+	return 1;
+}
+
+void MJPEG_FRAME_SOURCE::doGetNextFrame()
+{
+
+	m_pToken = envir().taskScheduler().scheduleDelayedTask(m_toDelay, getNextFrame, this);
+}
+
+unsigned int MJPEG_FRAME_SOURCE::maxFrameSize() const
+{
+  unsigned int nSize = m_stSourceInfo.outPacketBufferSize == 0
+                           ? REV_BUF_SIZE
+                           : m_stSourceInfo.outPacketBufferSize;
+  /* StreamParser::BANK_SIZE 固定为 3000000，maxFrameSize 必须小于该值，
+     否则 ensureValidBytes1 会触发 internalError 崩溃 */
+  if (nSize > REV_BUF_SIZE)
+  {
+    nSize = REV_BUF_SIZE;
+  }
+  return nSize;
+}
+
+void MJPEG_FRAME_SOURCE::getNextFrame(void * ptr)
+{
+	MJPEG_FRAME_SOURCE * pVideosource = (MJPEG_FRAME_SOURCE *)ptr;
+	if(pVideosource == NULL)
+	{
+		printf("getNextFrame is NULL\n");
+		return;
+	}
+	pVideosource->getNextFrame1();
+}
+
+void MJPEG_FRAME_SOURCE::getNextFrame1()
+{
+	struct timeval oldPresentationTime=fPresentationTime;
+	if(m_stSourceInfo.dataGetfun)
+	{
+		/*第一次连接上需要通知上层，通知一次即可*/
+		set_videostate_callback();
+		m_stFrame.frameSize = 0;
+		m_stFrame.data = fTo;
+		m_stFrame.type = VIDEO_TYPE;
+		m_stFrame.param = m_stSourceInfo.videoindex;
+		m_stSourceInfo.dataGetfun(&m_stFrame);
+		if(m_stFrame.frameSize > 4)
+		{
+			fFrameSize = m_stFrame.frameSize;
+		}
+		else
+		{
+			m_toDelay = 100;
+			fFrameSize = 0;
+			doGetNextFrame();
+			return;
+		}
+	}
+	
+	m_toDelay = -1;
+	if ( ((fPresentationTime.tv_sec==0)&&(fPresentationTime.tv_usec==0))
+			||((oldPresentationTime.tv_sec==fPresentationTime.tv_sec)
+				&&(oldPresentationTime.tv_usec==fPresentationTime.tv_usec)) ) {
+		gettimeofday(&fPresentationTime, NULL);
+	}
+	//printf("m_stFrame.videolistsize:%d\n", m_stFrame.videolistsize);
+
+	FramedSource::afterGetting(this);
+}
