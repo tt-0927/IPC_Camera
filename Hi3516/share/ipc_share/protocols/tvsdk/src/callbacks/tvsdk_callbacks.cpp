@@ -5982,6 +5982,33 @@ static NET_COMMON_ECODE_E cb_get_capture_plan_info(INT32 dwChannelID, LPVOID lpO
 
 /* --------------------------- 设置抓图计划信息 --------------------------- */
 
+/*
+ * @brief 校验抓图计划的时间段是否合法。
+ * @param [in] stPlan SDK 传入的抓图计划。
+ * @return 每个已配置时间段的开始时间均早于结束时间时返回 true。
+ */
+static bool is_valid_capture_plan(const NET_CapturePlanInfo_S &stPlan)
+{
+    for (size_t i = 0; i < NET_PLAN_DAY_NUM_AWEEK; ++i)
+    {
+        const NET_CaptureDaySchedule_S &stDay = stPlan.astDaySchedules[i];
+        size_t unTimeCount = stDay.udwTimeCount;
+        if (unTimeCount > NET_PLAN_TIME_SECTION_NUM_ADAY)
+        {
+            unTimeCount = NET_PLAN_TIME_SECTION_NUM_ADAY;
+        }
+
+        for (size_t j = 0; j < unTimeCount; ++j)
+        {
+            if (stDay.astTimes[j].nStartTime >= stDay.astTimes[j].nEndTime)
+            {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
 static NET_COMMON_ECODE_E cb_set_capture_plan_info(INT32 dwChannelID, LPVOID lpInBuffer)
 {
     (void)dwChannelID;
@@ -5989,6 +6016,12 @@ static NET_COMMON_ECODE_E cb_set_capture_plan_info(INT32 dwChannelID, LPVOID lpI
         return NET_E_INVALID_PARAM;
 
     const NET_CapturePlanInfo_S *pIn = (const NET_CapturePlanInfo_S *)lpInBuffer;
+    if (!is_valid_capture_plan(*pIn))
+    {
+        dlog_warn("TVSDK设置抓图计划被拒绝：开始时间必须小于结束时间");
+        return NET_E_INVALID_PARAM;
+    }
+
     Capture_NS::CapturePlan_S stCfg;
     TvSdkConvert::ToCapturePlan(*pIn, stCfg);
 
