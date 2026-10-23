@@ -30,6 +30,12 @@ file(GLOB_RECURSE LIB_SRC
     "${SDK_SHARE_PATH}/*.cpp"
 )
 
+# RecordFrameHub/VoiceComHub 在 Common 与 BG6_ZHSJ/BU_SJCL 下各有一份内容完全相同的
+# 实现，GLOB_RECURSE 会把两份都编入，导致共享库链接时 multiple definition。
+# 保留 Common 版本（业务无关的公共实现），排除 BU_SJCL 下的重复副本。
+list(FILTER LIB_SRC EXCLUDE REGEX
+    "/business/BG6_ZHSJ/BU_SJCL/(RecordFrameHub|VoiceComHub)\\.cpp$")
+
 # 收集头文件（用于依赖追踪，修改头文件时触发重新编译）
 file(GLOB_RECURSE LIB_HEADERS
     "${SDK_CLIENT_PATH}/include/*.h"

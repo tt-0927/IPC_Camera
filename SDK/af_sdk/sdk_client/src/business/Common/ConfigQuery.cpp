@@ -178,6 +178,14 @@ BOOL CConfigQuery::GetDevConfig(LPVOID lpUserID, INT32 dwChannelID, INT32 dwComm
          * 请求还没出客户端就被这里判成 112(NET_E_CMD_NOT_SUPPORT)。补齐后 580/584 才能下发。 */
         case NET_GET_CAPTURE_PICTURE:    return GetDevConfig_Impl<NET_CapturePictureInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
         case NET_FORCE_KEY_FRAME:        return GetDevConfig_Impl<NET_ForceKeyFrameInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        /* ---- 平安校园智能事件（600~613）---- */
+        case NET_GET_CHANNEL_OCCUPATION_INFO:     return GetDevConfig_Impl<NET_ChannelOccupationInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_GET_CLIMB_DETECTION_INFO:        return GetDevConfig_Impl<NET_ClimbDetectionInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_GET_DANGER_ZONE_APPROACH_INFO:   return GetDevConfig_Impl<NET_DangerZoneApproachInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_GET_LONG_TIME_STAY_INFO:         return GetDevConfig_Impl<NET_LongTimeStayInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_GET_DANGER_ZONE_STAY_INFO:       return GetDevConfig_Impl<NET_DangerZoneStayInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_GET_KEY_AREA_ABNORMAL_STAY_INFO: return GetDevConfig_Impl<NET_KeyAreaAbnormalStayInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_GET_OPEN_FLAME_LEAVE_INFO:       return GetDevConfig_Impl<NET_OpenFlameLeaveInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
         default:
             CErrorManage::instance()->SetLastError(NET_E_CMD_NOT_SUPPORT);
             return FALSE;
@@ -323,6 +331,14 @@ BOOL CConfigQuery::SetDevConfig(LPVOID lpUserID, INT32 dwChannelID, INT32 dwComm
         case NET_SEND_SERIAL_DIRECT_DATA:   return SetDevConfig_Impl<NET_SerialData_S>(lpUserID, dwChannelID, dwCommand, lpInBuffer, dwInBufferSize, pdwBytesReturned);
         case NET_CONTROL_CAMERA:         return SetDevConfig_Impl<NET_CameraControlInfo_S>(lpUserID, dwChannelID, dwCommand, lpInBuffer, dwInBufferSize, pdwBytesReturned);
         case NET_CONTROL_PRESET_BIT:     return SetDevConfig_Impl<NET_PresetBitCtrl_S>(lpUserID, dwChannelID, dwCommand, lpInBuffer, dwInBufferSize, pdwBytesReturned);
+        /* ---- 平安校园智能事件（600~613）---- */
+        case NET_SET_CHANNEL_OCCUPATION_INFO:     return SetDevConfig_Impl<NET_ChannelOccupationInfo_S>(lpUserID, dwChannelID, dwCommand, lpInBuffer, dwInBufferSize, pdwBytesReturned);
+        case NET_SET_CLIMB_DETECTION_INFO:        return SetDevConfig_Impl<NET_ClimbDetectionInfo_S>(lpUserID, dwChannelID, dwCommand, lpInBuffer, dwInBufferSize, pdwBytesReturned);
+        case NET_SET_DANGER_ZONE_APPROACH_INFO:   return SetDevConfig_Impl<NET_DangerZoneApproachInfo_S>(lpUserID, dwChannelID, dwCommand, lpInBuffer, dwInBufferSize, pdwBytesReturned);
+        case NET_SET_LONG_TIME_STAY_INFO:         return SetDevConfig_Impl<NET_LongTimeStayInfo_S>(lpUserID, dwChannelID, dwCommand, lpInBuffer, dwInBufferSize, pdwBytesReturned);
+        case NET_SET_DANGER_ZONE_STAY_INFO:       return SetDevConfig_Impl<NET_DangerZoneStayInfo_S>(lpUserID, dwChannelID, dwCommand, lpInBuffer, dwInBufferSize, pdwBytesReturned);
+        case NET_SET_KEY_AREA_ABNORMAL_STAY_INFO: return SetDevConfig_Impl<NET_KeyAreaAbnormalStayInfo_S>(lpUserID, dwChannelID, dwCommand, lpInBuffer, dwInBufferSize, pdwBytesReturned);
+        case NET_SET_OPEN_FLAME_LEAVE_INFO:       return SetDevConfig_Impl<NET_OpenFlameLeaveInfo_S>(lpUserID, dwChannelID, dwCommand, lpInBuffer, dwInBufferSize, pdwBytesReturned);
         default:
             CErrorManage::instance()->SetLastError(NET_E_CMD_NOT_SUPPORT);
             return FALSE;
