@@ -187,3 +187,9 @@ sleep 2
 /opt/cam/bin/daemon &
 # daemon 负责拉起业务进程，OOM 时保护它
 echo -500 > /proc/$!/oom_score_adj 2>/dev/null
+
+# 调试服务：telnet 与 FTP/TFTP
+# 放在 S81 而不是 S80network：升级程序会把 S80network 备份后还原（upgrade_logic.cpp），
+# 升级包对该脚本的修改不会生效；S81appinit 会被升级包覆盖且不在还原名单内。
+telnetd &
+uftpd -o "ftp=21 tftp=69 writable" / &
