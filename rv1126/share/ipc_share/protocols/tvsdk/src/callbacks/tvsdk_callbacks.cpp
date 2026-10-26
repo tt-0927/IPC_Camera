@@ -1299,7 +1299,8 @@ void clear_task_manage()
     s_taskManage = nullptr;
 }
 
-static int execute_get_result(int actionCode, const std::string &inJson, std::string &outJson)
+static int execute_get_result_with_ip(int actionCode, const std::string &inJson, std::string &outJson,
+                                      const std::string &strIp)
 {
     if (!s_taskManage)
         return -1;
@@ -1316,6 +1317,7 @@ static int execute_get_result(int actionCode, const std::string &inJson, std::st
     std::shared_ptr<ResultState> state = std::make_shared<ResultState>();
 
     Task::Info_S stInfo;
+    stInfo.strIp = strIp;
     stInfo.data = inJson;
     stInfo.fnResultCallbacks = [state](const void *pData, int nLen, int /*nActionCode*/, void * /*pHandler*/) -> int {
         std::lock_guard<std::mutex> lock(state->mtx);
@@ -1342,6 +1344,11 @@ static int execute_get_result(int actionCode, const std::string &inJson, std::st
     return 0;
 }
 
+static int execute_get_result(int actionCode, const std::string &inJson, std::string &outJson)
+{
+    return execute_get_result_with_ip(actionCode, inJson, outJson, std::string());
+}
+
 /*
  * 功能：执行智能事件配置任务，并将业务结果转换为 SDK 错误码。
  * 作者：Codex
@@ -1350,10 +1357,12 @@ static int execute_get_result(int actionCode, const std::string &inJson, std::st
  * param [out] 无。
  * return：配置成功返回 NET_E_SUCCEED，参数错误返回 NET_E_INVALID_PARAM，其他失败返回 NET_E_SET_CFG_FAILED。
  */
-static NET_COMMON_ECODE_E tvsdk_set_event_config(int nActionCode, const std::string &strConfigJson)
+static NET_COMMON_ECODE_E tvsdk_set_event_config(int nActionCode, const std::string &strConfigJson,
+                                                const std::string &strIp)
 {
     std::string strResultJson = {};
-    if ((execute_get_result(nActionCode, wrap_data_json(strConfigJson), strResultJson) != 0) || strResultJson.empty())
+    if ((execute_get_result_with_ip(nActionCode, wrap_data_json(strConfigJson), strResultJson, strIp) != 0) ||
+        strResultJson.empty())
     {
         return NET_E_SET_CFG_FAILED;
     }
@@ -1366,6 +1375,11 @@ static NET_COMMON_ECODE_E tvsdk_set_event_config(int nActionCode, const std::str
         return NET_E_INVALID_PARAM;
     }
     return (nResult == 0) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
+}
+
+static NET_COMMON_ECODE_E tvsdk_set_event_config(int nActionCode, const std::string &strConfigJson)
+{
+    return tvsdk_set_event_config(nActionCode, strConfigJson, std::string());
 }
 
 /* ---------- GetDeviceInfo：由 SystemManage 填充 ---------- */
@@ -2346,10 +2360,7 @@ static NET_COMMON_ECODE_E cb_set_ntp_cfg(INT32 dwChannelID, LPVOID lpInBuffer)
         stTimeInfo.bEnableNTPSync = false;
     }
 
-    Task::Info_S stInfo;
-    stInfo.data = wrap_data_json(Convert::to_string(stTimeInfo));
-    int nRet = s_taskManage->execute(AC_SET_TIME_INFO, stInfo);
-    return (nRet == 0) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
+    return tvsdk_set_event_config(AC_SET_TIME_INFO, Convert::to_string(stTimeInfo));
 }
 
 /**
@@ -2385,10 +2396,7 @@ static NET_COMMON_ECODE_E cb_set_system_time(INT32 dwChannelID, LPVOID lpInBuffe
     stTimeInfo.strDateTime.assign(pIn->strDateTime,
                                   strnlen(pIn->strDateTime, sizeof(pIn->strDateTime)));
 
-    Task::Info_S stInfo;
-    stInfo.data = wrap_data_json(Convert::to_string(stTimeInfo));
-    const int nRet = s_taskManage->execute(AC_SET_TIME_INFO, stInfo);
-    return (nRet == 0) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
+    return tvsdk_set_event_config(AC_SET_TIME_INFO, Convert::to_string(stTimeInfo));
 }
 
 static NET_COMMON_ECODE_E cb_get_stream_cfg(INT32 dwChannelID, LPVOID lpOutBuffer)
@@ -2437,10 +2445,7 @@ static NET_COMMON_ECODE_E cb_set_stream_cfg(INT32 dwChannelID, LPVOID lpInBuffer
     Video_NS::VideoConfig_S stCfg;
     TvSdkConvert::ToVideoConfig(*pIn, stCfg);
 
-    Task::Info_S stInfo;
-    stInfo.data = wrap_data_json(Convert::to_string(stCfg));
-    int nExec = s_taskManage ? s_taskManage->execute(AC_SET_VIDEO_CONFIG, stInfo) : -1;
-    return (nExec == 0) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
+    return tvsdk_set_event_config(AC_SET_VIDEO_CONFIG, Convert::to_string(stCfg));
 }
 static NET_COMMON_ECODE_E cb_get_osd_cap_cfg(INT32 dwChannelID, LPVOID lpOutBuffer)
 {
@@ -2481,10 +2486,7 @@ static NET_COMMON_ECODE_E cb_set_osd_cap_cfg(INT32 dwChannelID, LPVOID lpInBuffe
     Osd::OsdConfig_S stCfg;
     TvSdkConvert::ToOsdConfig(*pIn, stCfg);
 
-    Task::Info_S stInfo;
-    stInfo.data = wrap_data_json(Convert::to_string(stCfg));
-    int nExec = s_taskManage ? s_taskManage->execute(AC_SET_OSD_CONFIG, stInfo) : -1;
-    return (nExec == 0) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
+    return tvsdk_set_event_config(AC_SET_OSD_CONFIG, Convert::to_string(stCfg));
 }
 static NET_COMMON_ECODE_E cb_get_image_cfg(INT32 dwChannelID, LPVOID lpOutBuffer)
 {
@@ -2524,10 +2526,7 @@ static NET_COMMON_ECODE_E cb_set_image_cfg(INT32 dwChannelID, LPVOID lpInBuffer)
     ISP::ImageParam_S stCfg;
     TvSdkConvert::ToImageParam(*pIn, stCfg);
 
-    Task::Info_S stInfo;
-    stInfo.data = wrap_data_json(Convert::to_string(stCfg));
-    int nExec = s_taskManage ? s_taskManage->execute(AC_SET_VIDEO_EFFECT_INFO, stInfo) : -1;
-    return (nExec == 0) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
+    return tvsdk_set_event_config(AC_SET_VIDEO_EFFECT_INFO, Convert::to_string(stCfg));
 }
 static NET_COMMON_ECODE_E cb_get_network_cfg(INT32 dwChannelID, LPVOID lpOutBuffer)
 {
@@ -2698,10 +2697,7 @@ static NET_COMMON_ECODE_E cb_set_config_wifi_sta(INT32 dwChannelID, LPVOID lpInB
     Network::WifiStaInfo_S stCfg;
     TvSdkConvert::ToWifiStaInfo(*pIn, stCfg);
 
-    Task::Info_S stInfo;
-    stInfo.data = wrap_data_json(wifi_sta_info_to_json(stCfg));
-    int nExec = s_taskManage ? s_taskManage->execute(AC_SET_CONFIG_WIFI_STA, stInfo) : -1;
-    return (nExec == 0) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
+    return tvsdk_set_event_config(AC_SET_CONFIG_WIFI_STA, wifi_sta_info_to_json(stCfg));
 }
 
 static NET_COMMON_ECODE_E cb_connect_wifi_sta(INT32 dwChannelID, LPVOID lpInBuffer)
@@ -2714,10 +2710,7 @@ static NET_COMMON_ECODE_E cb_connect_wifi_sta(INT32 dwChannelID, LPVOID lpInBuff
     Network::WifiStaConncet_S stCfg;
     TvSdkConvert::ToWifiStaConnect(*pIn, stCfg);
 
-    Task::Info_S stInfo;
-    stInfo.data = wrap_data_json(wifi_sta_connect_to_json(stCfg));
-    int nExec = s_taskManage ? s_taskManage->execute(AC_CONNECT_WIFI_STA, stInfo) : -1;
-    return (nExec == 0) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
+    return tvsdk_set_event_config(AC_CONNECT_WIFI_STA, wifi_sta_connect_to_json(stCfg));
 }
 
 static NET_COMMON_ECODE_E cb_disconnect_wifi_sta(INT32 dwChannelID, LPVOID lpInBuffer)
@@ -2725,10 +2718,7 @@ static NET_COMMON_ECODE_E cb_disconnect_wifi_sta(INT32 dwChannelID, LPVOID lpInB
     (void)dwChannelID;
     (void)lpInBuffer;
 
-    Task::Info_S stInfo;
-    stInfo.data = wrap_data_json("{}");
-    int nExec = s_taskManage ? s_taskManage->execute(AC_DISCONNECT_WIFI_STA, stInfo) : -1;
-    return (nExec == 0) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
+    return tvsdk_set_event_config(AC_DISCONNECT_WIFI_STA, "{}");
 }
 
 static NET_COMMON_ECODE_E cb_get_4g_info(INT32 dwChannelID, LPVOID lpOutBuffer)
@@ -2768,10 +2758,7 @@ static NET_COMMON_ECODE_E cb_set_4g_info(INT32 dwChannelID, LPVOID lpInBuffer)
     Network::Network_4G_Config_t stCfg;
     TvSdkConvert::To4GConfig(*pIn, stCfg);
 
-    Task::Info_S stInfo;
-    stInfo.data = wrap_data_json(config_4g_to_json(stCfg));
-    int nExec = s_taskManage ? s_taskManage->execute(AC_SET_4G_INFO, stInfo) : -1;
-    return (nExec == 0) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
+    return tvsdk_set_event_config(AC_SET_4G_INFO, config_4g_to_json(stCfg));
 }
 
 static NET_COMMON_ECODE_E cb_set_hotspot_info(INT32 dwChannelID, LPVOID lpInBuffer)
@@ -2784,10 +2771,7 @@ static NET_COMMON_ECODE_E cb_set_hotspot_info(INT32 dwChannelID, LPVOID lpInBuff
     Network::HotspotConfig stCfg;
     TvSdkConvert::ToHotspotConfig(*pIn, stCfg);
 
-    Task::Info_S stInfo;
-    stInfo.data = wrap_data_json(hotspot_to_json(stCfg));
-    int nExec = s_taskManage ? s_taskManage->execute(AC_SET_HOTSPOT_INFO, stInfo) : -1;
-    return (nExec == 0) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
+    return tvsdk_set_event_config(AC_SET_HOTSPOT_INFO, hotspot_to_json(stCfg));
 }
 
 static NET_COMMON_ECODE_E cb_get_preview_info(INT32 dwChannelID, LPVOID lpOutBuffer)
@@ -2916,10 +2900,7 @@ static NET_COMMON_ECODE_E cb_set_privacy_mask_cfg(INT32 dwChannelID, LPVOID lpIn
         return NET_E_INVALID_PARAM;
     }
 
-    Task::Info_S stInfo;
-    stInfo.data = wrap_data_json(Convert::to_string(stCfg));
-    int nExec = s_taskManage ? s_taskManage->execute(AC_SET_SHELTER_INFO, stInfo) : -1;
-    return (nExec == 0) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
+    return tvsdk_set_event_config(AC_SET_SHELTER_INFO, Convert::to_string(stCfg));
 }
 static NET_COMMON_ECODE_E cb_get_tamper_alarm(INT32 dwChannelID, LPVOID lpOutBuffer)
 {
@@ -3427,10 +3408,7 @@ static NET_COMMON_ECODE_E cb_set_smoke_fire_cfg(INT32 dwChannelID, LPVOID lpInBu
     Alarm::SmokeFireDetection_S stCfg;
     TvSdkConvert::ToSmokeFire(*pIn, stCfg);
     std::string inJson = Convert::to_string(stCfg);
-    Task::Info_S stInfo;
-    stInfo.data = wrap_data_json(inJson);
-    int nExec = s_taskManage ? s_taskManage->execute(AC_SET_SMOKE_FIRE_CFG, stInfo) : -1;
-    return (nExec == 0) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
+    return tvsdk_set_event_config(AC_SET_SMOKE_FIRE_CFG, inJson);
 }
 #endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_GARBAGE_DETECT
@@ -3528,10 +3506,7 @@ static NET_COMMON_ECODE_E cb_set_garbage_overflow_cfg(INT32 dwChannelID, LPVOID 
     Alarm::GarbageOverflowDetection_S stCfg;
     TvSdkConvert::ToGarbageOverflow(*pIn, stCfg);
     std::string inJson = Convert::to_string(stCfg);
-    Task::Info_S stInfo;
-    stInfo.data = wrap_data_json(inJson);
-    int nExec = s_taskManage ? s_taskManage->execute(AC_SET_GARBAGE_OVERFLOW_CFG, stInfo) : -1;
-   return (nExec == 0) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
+    return tvsdk_set_event_config(AC_SET_GARBAGE_OVERFLOW_CFG, inJson);
 }
 #endif
 
@@ -3626,10 +3601,7 @@ static NET_COMMON_ECODE_E cb_set_sleep_on_duty_cfg(INT32 dwChannelID, LPVOID lpI
     Alarm::SleepOnDutyDetection_S stCfg;
     TvSdkConvert::ToSleepOnDuty(*pIn, stCfg);
     std::string inJson = Convert::to_string(stCfg);
-    Task::Info_S stInfo;
-    stInfo.data = wrap_data_json(inJson);
-    int nExec = s_taskManage ? s_taskManage->execute(AC_SET_SLEEP_ON_DUTY_CFG, stInfo) : -1;
-    return (nExec == 0) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
+    return tvsdk_set_event_config(AC_SET_SLEEP_ON_DUTY_CFG, inJson);
 }
 
 static NET_COMMON_ECODE_E cb_get_electric_vehicle_in_elevator_cfg(INT32 dwChannelID, LPVOID lpOutBuffer)
@@ -3736,10 +3708,7 @@ static NET_COMMON_ECODE_E cb_set_person_fall_down_cfg(INT32 dwChannelID, LPVOID 
     Alarm::PersonFallDownDetection_S stCfg;
     TvSdkConvert::ToPersonFallDown(*pIn, stCfg);
     std::string inJson = Convert::to_string(stCfg);
-    Task::Info_S stInfo;
-    stInfo.data = wrap_data_json(inJson);
-    int nExec = s_taskManage ? s_taskManage->execute(AC_SET_PERSON_FALL_DOWN_CFG, stInfo) : -1;
-    return (nExec == 0) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
+    return tvsdk_set_event_config(AC_SET_PERSON_FALL_DOWN_CFG, inJson);
 }
 
 static NET_COMMON_ECODE_E cb_get_construction_occupy_road_cfg(INT32 dwChannelID, LPVOID lpOutBuffer)
@@ -3789,10 +3758,7 @@ static NET_COMMON_ECODE_E cb_set_construction_occupy_road_cfg(INT32 dwChannelID,
     Alarm::ConstructionEncroachmentRoadDetection_S stCfg;
     TvSdkConvert::ToConstructionOccupyRoad(*pIn, stCfg);
     std::string inJson = Convert::to_string(stCfg);
-    Task::Info_S stInfo;
-    stInfo.data = wrap_data_json(inJson);
-    int nExec = s_taskManage ? s_taskManage->execute(AC_SET_CONSTRUCTION_OCCUPY_ROAD_CFG, stInfo) : -1;
-    return (nExec == 0) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
+    return tvsdk_set_event_config(AC_SET_CONSTRUCTION_OCCUPY_ROAD_CFG, inJson);
 }
 
 static NET_COMMON_ECODE_E cb_get_congestion_cfg(INT32 dwChannelID, LPVOID lpOutBuffer)
@@ -3842,10 +3808,7 @@ static NET_COMMON_ECODE_E cb_set_congestion_cfg(INT32 dwChannelID, LPVOID lpInBu
     Alarm::CongestionDetection_S stCfg;
     TvSdkConvert::ToCongestion(*pIn, stCfg);
     std::string inJson = Convert::to_string(stCfg);
-    Task::Info_S stInfo;
-    stInfo.data = wrap_data_json(inJson);
-    int nExec = s_taskManage ? s_taskManage->execute(AC_SET_CONGESTION_CFG, stInfo) : -1;
-    return (nExec == 0) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
+    return tvsdk_set_event_config(AC_SET_CONGESTION_CFG, inJson);
 }
 
 static NET_COMMON_ECODE_E cb_get_license_plate_recognition_cfg(INT32 dwChannelID, LPVOID lpOutBuffer)
@@ -3895,10 +3858,7 @@ static NET_COMMON_ECODE_E cb_set_license_plate_recognition_cfg(INT32 dwChannelID
     Alarm::LicensePlateCognitionDetection_S stCfg;
     TvSdkConvert::ToLicensePlateRecognition(*pIn, stCfg);
     std::string inJson = Convert::to_string(stCfg);
-    Task::Info_S stInfo;
-    stInfo.data = wrap_data_json(inJson);
-    int nExec = s_taskManage ? s_taskManage->execute(AC_SET_LICENSE_PLATE_RECOGNITION_CFG, stInfo) : -1;
-    return (nExec == 0) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
+    return tvsdk_set_event_config(AC_SET_LICENSE_PLATE_RECOGNITION_CFG, inJson);
 }
 
 static NET_COMMON_ECODE_E cb_get_high_altitude_seatbelt_cfg(INT32 dwChannelID, LPVOID lpOutBuffer)
@@ -3948,10 +3908,7 @@ static NET_COMMON_ECODE_E cb_set_high_altitude_seatbelt_cfg(INT32 dwChannelID, L
     Alarm::HighAltitudeSeatbeltDetection_S stCfg;
     TvSdkConvert::ToHighAltitudeSeatbelt(*pIn, stCfg);
     std::string inJson = Convert::to_string(stCfg);
-    Task::Info_S stInfo;
-    stInfo.data = wrap_data_json(inJson);
-    int nExec = s_taskManage ? s_taskManage->execute(AC_SET_HIGH_ALTITUDE_SEATBELT_CFG, stInfo) : -1;
-    return (nExec == 0) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
+    return tvsdk_set_event_config(AC_SET_HIGH_ALTITUDE_SEATBELT_CFG, inJson);
 }
 
 static NET_COMMON_ECODE_E cb_get_safety_helmet_cfg(INT32 dwChannelID, LPVOID lpOutBuffer)
@@ -4001,10 +3958,7 @@ static NET_COMMON_ECODE_E cb_set_safety_helmet_cfg(INT32 dwChannelID, LPVOID lpI
     Alarm::SafetyHelmetDection_S stCfg;
     TvSdkConvert::ToSafetyHelmet(*pIn, stCfg);
     std::string inJson = Convert::to_string(stCfg);
-    Task::Info_S stInfo;
-    stInfo.data = wrap_data_json(inJson);
-    int nExec = s_taskManage ? s_taskManage->execute(AC_SET_SAFETY_HELMET_CFG, stInfo) : -1;
-    return (nExec == 0) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
+    return tvsdk_set_event_config(AC_SET_SAFETY_HELMET_CFG, inJson);
 }
 
 static NET_COMMON_ECODE_E cb_get_person_fall_cfg(INT32 dwChannelID, LPVOID lpOutBuffer)
@@ -4054,10 +4008,7 @@ static NET_COMMON_ECODE_E cb_set_person_fall_cfg(INT32 dwChannelID, LPVOID lpInB
     Alarm::TripDetection_S stCfg;
     TvSdkConvert::ToPersonFall(*pIn, stCfg);
     std::string inJson = Convert::to_string(stCfg);
-    Task::Info_S stInfo;
-    stInfo.data = wrap_data_json(inJson);
-    int nExec = s_taskManage ? s_taskManage->execute(AC_SET_PERSON_FALL_CFG, stInfo) : -1;
-    return (nExec == 0) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
+    return tvsdk_set_event_config(AC_SET_PERSON_FALL_CFG, inJson);
 }
 
 static NET_COMMON_ECODE_E cb_get_phone_usage_cfg(INT32 dwChannelID, LPVOID lpOutBuffer)
@@ -4107,10 +4058,7 @@ static NET_COMMON_ECODE_E cb_set_phone_usage_cfg(INT32 dwChannelID, LPVOID lpInB
     Alarm::PhoneUsageDetection_S stCfg;
     TvSdkConvert::ToPhoneUsage(*pIn, stCfg);
     std::string inJson = Convert::to_string(stCfg);
-    Task::Info_S stInfo;
-    stInfo.data = wrap_data_json(inJson);
-    int nExec = s_taskManage ? s_taskManage->execute(AC_SET_PHONE_USAGE_CFG, stInfo) : -1;
-    return (nExec == 0) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
+    return tvsdk_set_event_config(AC_SET_PHONE_USAGE_CFG, inJson);
 }
 
 static NET_COMMON_ECODE_E cb_get_smoking_cfg(INT32 dwChannelID, LPVOID lpOutBuffer)
@@ -4160,10 +4108,7 @@ static NET_COMMON_ECODE_E cb_set_smoking_cfg(INT32 dwChannelID, LPVOID lpInBuffe
     Alarm::SmokingDection_S stCfg;
     TvSdkConvert::ToSmoking(*pIn, stCfg);
     std::string inJson = Convert::to_string(stCfg);
-    Task::Info_S stInfo;
-    stInfo.data = wrap_data_json(inJson);
-    int nExec = s_taskManage ? s_taskManage->execute(AC_SET_SMOKING_CFG, stInfo) : -1;
-    return (nExec == 0) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
+    return tvsdk_set_event_config(AC_SET_SMOKING_CFG, inJson);
 }
 
 static NET_COMMON_ECODE_E cb_get_open_flame_cfg(INT32 dwChannelID, LPVOID lpOutBuffer)
@@ -4213,10 +4158,7 @@ static NET_COMMON_ECODE_E cb_set_open_flame_cfg(INT32 dwChannelID, LPVOID lpInBu
     Alarm::OpenFlameDetection_S stCfg;
     TvSdkConvert::ToOpenFlame(*pIn, stCfg);
     std::string inJson = Convert::to_string(stCfg);
-    Task::Info_S stInfo;
-    stInfo.data = wrap_data_json(inJson);
-    int nExec = s_taskManage ? s_taskManage->execute(AC_SET_OPEN_FLAME_CFG, stInfo) : -1;
-    return (nExec == 0) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
+    return tvsdk_set_event_config(AC_SET_OPEN_FLAME_CFG, inJson);
 }
 
 static NET_COMMON_ECODE_E cb_get_bare_soil_cfg(INT32 dwChannelID, LPVOID lpOutBuffer)
@@ -4266,10 +4208,7 @@ static NET_COMMON_ECODE_E cb_set_bare_soil_cfg(INT32 dwChannelID, LPVOID lpInBuf
     Alarm::BareSoiletDection_S stCfg;
     TvSdkConvert::ToBareSoil(*pIn, stCfg);
     std::string inJson = Convert::to_string(stCfg);
-    Task::Info_S stInfo;
-    stInfo.data = wrap_data_json(inJson);
-    int nExec = s_taskManage ? s_taskManage->execute(AC_SET_BARE_SOIL_CFG, stInfo) : -1;
-    return (nExec == 0) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
+    return tvsdk_set_event_config(AC_SET_BARE_SOIL_CFG, inJson);
 }
 
 static NET_COMMON_ECODE_E cb_get_hole_protection_bar_cfg(INT32 dwChannelID, LPVOID lpOutBuffer)
@@ -4307,10 +4246,7 @@ static NET_COMMON_ECODE_E cb_set_hole_protection_bar_cfg(INT32 dwChannelID, LPVO
     Alarm::HoleProtectionBarDection_S stCfg;
     TvSdkConvert::ToHoleProtectionBar(*pIn, stCfg);
     std::string inJson = Convert::to_string(stCfg);
-    Task::Info_S stInfo;
-    stInfo.data = wrap_data_json(inJson);
-    int nExec = s_taskManage ? s_taskManage->execute(AC_SET_HOLE_PROTECTION_BAR_CFG, stInfo) : -1;
-    return (nExec == 0) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
+    return tvsdk_set_event_config(AC_SET_HOLE_PROTECTION_BAR_CFG, inJson);
 }
 
 static NET_COMMON_ECODE_E cb_get_reflective_clothing_cfg(INT32 dwChannelID, LPVOID lpOutBuffer)
@@ -4360,10 +4296,7 @@ static NET_COMMON_ECODE_E cb_set_reflective_clothing_cfg(INT32 dwChannelID, LPVO
     Alarm::ReflectiveClothingDection_S stCfg;
     TvSdkConvert::ToReflectiveClothing(*pIn, stCfg);
     std::string inJson = Convert::to_string(stCfg);
-    Task::Info_S stInfo;
-    stInfo.data = wrap_data_json(inJson);
-    int nExec = s_taskManage ? s_taskManage->execute(AC_SET_REFLECTIVE_CLOTHING_CFG, stInfo) : -1;
-    return (nExec == 0) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
+    return tvsdk_set_event_config(AC_SET_REFLECTIVE_CLOTHING_CFG, inJson);
 }
 #endif
 
@@ -4407,10 +4340,7 @@ static NET_COMMON_ECODE_E cb_set_pet_recognition_info(INT32 dwChannelID, LPVOID 
     Alarm::PetRecognition_S stCfg;
     TvSdkConvert::ToPetRecognition(*pIn, stCfg);
     std::string inJson = Convert::to_string(stCfg);
-    Task::Info_S stInfo;
-    stInfo.data = wrap_data_json(inJson);
-    int nExec = s_taskManage ? s_taskManage->execute(AC_SET_PET_RECOGNITION_INFO, stInfo) : -1;
-    return (nExec == 0) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
+    return tvsdk_set_event_config(AC_SET_PET_RECOGNITION_INFO, inJson);
 }
 
 #ifdef SCENE_INTELLIGENCE
@@ -4903,10 +4833,7 @@ static NET_COMMON_ECODE_E cb_set_road_ponding_cfg(INT32 dwChannelID, LPVOID lpIn
     Alarm::RoadPondingDetection_S stCfg;
     TvSdkConvert::ToRoadPonding(*pIn, stCfg);
     std::string inJson = Convert::to_string(stCfg);
-    Task::Info_S stInfo;
-    stInfo.data = wrap_data_json(inJson);
-    int nExec = s_taskManage ? s_taskManage->execute(AC_SET_ROAD_PONDING_CFG, stInfo) : -1;
-    return (nExec == 0) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
+    return tvsdk_set_event_config(AC_SET_ROAD_PONDING_CFG, inJson);
 }
 
 /* ===================== 平安校园事件（2798~2815） ===================== */
@@ -5335,20 +5262,14 @@ static NET_COMMON_ECODE_E cb_set_people_flow_statistics_cfg(INT32 dwChannelID, L
     Alarm::PeopleFlowStatistics_S stCfg;
     TvSdkConvert::ToPeopleFlowStatistics(*pIn, stCfg);
     std::string inJson = Convert::to_string(stCfg);
-    Task::Info_S stInfo;
-    stInfo.data = wrap_data_json(inJson);
-    int nExec = s_taskManage ? s_taskManage->execute(AC_SET_PEOPLE_FLOW_STATISTICS_INFO, stInfo) : -1;
-    return (nExec == 0) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
+    return tvsdk_set_event_config(AC_SET_PEOPLE_FLOW_STATISTICS_INFO, inJson);
 }
 
 static NET_COMMON_ECODE_E cb_reset_people_flow_statistics(INT32 dwChannelID, LPVOID lpInBuffer)
 {
     (void)dwChannelID;
     (void)lpInBuffer;
-    Task::Info_S stInfo;
-    stInfo.data = "{}";
-    int nExec = s_taskManage ? s_taskManage->execute(AC_CLEAR_PEOPLE_FLOW_STATISTICS_RESULT, stInfo) : -1;
-    return (nExec == 0) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
+    return tvsdk_set_event_config(AC_CLEAR_PEOPLE_FLOW_STATISTICS_RESULT, "{}");
 }
 
 /* ---------- Get/SetPeopleDensityDetectionCfg：AC_GET/SET_PEOPLE_DENSITY_DETECTION_INFO ---------- */
@@ -5387,10 +5308,7 @@ static NET_COMMON_ECODE_E cb_set_people_density_detection_cfg(INT32 dwChannelID,
     Alarm::PeopleDensityDetection_S stCfg;
     TvSdkConvert::ToPeopleDensityDetection(*pIn, stCfg);
     std::string inJson = Convert::to_string(stCfg);
-    Task::Info_S stInfo;
-    stInfo.data = wrap_data_json(inJson);
-    int nExec = s_taskManage ? s_taskManage->execute(AC_SET_PEOPLE_DENSITY_DETECTION_INFO, stInfo) : -1;
-    return (nExec == 0) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
+    return tvsdk_set_event_config(AC_SET_PEOPLE_DENSITY_DETECTION_INFO, inJson);
 }
 
 #endif
@@ -5762,10 +5680,7 @@ static NET_COMMON_ECODE_E set_alarm_config_data(INT32 nActionCode, const std::st
         return NET_E_SET_CFG_FAILED;
     }
 
-    Task::Info_S stInfo;
-    stInfo.data = wrap_data_json(strDataJson);
-    const INT32 nExecuteResult = s_taskManage->execute(nActionCode, stInfo);
-    return nExecuteResult == OK ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
+    return tvsdk_set_event_config(nActionCode, strDataJson);
 }
 
 /**
@@ -6355,11 +6270,7 @@ static NET_COMMON_ECODE_E cb_set_upgrade(INT32 dwChannelID, LPVOID lpInBuffer)
     if (execute_action_expect_success(AC_CHECK_UPGRADE, "{}", &checkOutJson) != 0)
         return NET_E_SET_CFG_FAILED;
 
-    Task::Info_S stInfo;
-    stInfo.data = wrap_data_json(Convert::to_string(stCfg));
-
-    int nExec = s_taskManage->execute(AC_DO_UPGRADE, stInfo);
-    return (nExec == 0) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
+    return tvsdk_set_event_config(AC_DO_UPGRADE, Convert::to_string(stCfg));
 }
 
 /* --------------------------- 获取升级包版本 --------------------------- */
@@ -6426,10 +6337,7 @@ static NET_COMMON_ECODE_E cb_set_capture_plan_info(INT32 dwChannelID, LPVOID lpI
     TvSdkConvert::ToCapturePlan(*pIn, stCfg);
 
     std::string inJson = Convert::to_string(stCfg);
-    Task::Info_S stInfo;
-    stInfo.data = wrap_data_json(inJson);
-    int nExec = s_taskManage ? s_taskManage->execute(AC_SET_CAPTURE_PLAN_INFO, stInfo) : -1;
-    return (nExec == 0) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
+    return tvsdk_set_event_config(AC_SET_CAPTURE_PLAN_INFO, inJson);
 }
 
 /* --------------------------- 获取抓图参数信息 --------------------------- */
@@ -6616,10 +6524,7 @@ static NET_COMMON_ECODE_E cb_set_exposure_info(INT32 dwChannelID, LPVOID lpInBuf
     ISP::ExposureAttr_S stCfg;
     TvSdkConvert::ToExposureAttr(*pIn, stCfg);
     std::string inJson = Convert::to_string(stCfg);
-    Task::Info_S stInfo;
-    stInfo.data = wrap_data_json(Convert::to_string(stCfg));
-    int nExec = s_taskManage ? s_taskManage->execute(AC_SET_EXPOSURE_INFO, stInfo) : -1;
-    return (nExec == 0) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
+    return tvsdk_set_event_config(AC_SET_EXPOSURE_INFO, Convert::to_string(stCfg));
 }
 
 static NET_COMMON_ECODE_E cb_get_daynight_info(INT32 dwChannelID, LPVOID lpOutBuffer)
@@ -6724,10 +6629,7 @@ static NET_COMMON_ECODE_E cb_set_backlight_info(INT32 dwChannelID, LPVOID lpInBu
     ISP::BackLightArrt_S stCfg;
     TvSdkConvert::ToBackLightAttr(*pIn, stCfg);
     std::string inJson = Convert::to_string(stCfg);
-    Task::Info_S stInfo;
-    stInfo.data = wrap_data_json(Convert::to_string(stCfg));
-    int nExec = s_taskManage ? s_taskManage->execute(AC_SET_BACK_LIGHT_INFO, stInfo) : -1;
-    return (nExec == 0) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
+    return tvsdk_set_event_config(AC_SET_BACK_LIGHT_INFO, Convert::to_string(stCfg));
 }
 
 static NET_COMMON_ECODE_E cb_get_denoise_info(INT32 dwChannelID, LPVOID lpOutBuffer)
@@ -6764,10 +6666,7 @@ static NET_COMMON_ECODE_E cb_set_denoise_info(INT32 dwChannelID, LPVOID lpInBuff
     ISP::DnrAttr_S stCfg;
     TvSdkConvert::ToDnrAttr(*pIn, stCfg);
     std::string inJson = Convert::to_string(stCfg);
-    Task::Info_S stInfo;
-    stInfo.data = wrap_data_json(Convert::to_string(stCfg));
-    int nExec = s_taskManage ? s_taskManage->execute(AC_SET_NOISE_REMOVE_INFO, stInfo) : -1;
-    return (nExec == 0) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
+    return tvsdk_set_event_config(AC_SET_NOISE_REMOVE_INFO, Convert::to_string(stCfg));
 }
 
 static NET_COMMON_ECODE_E cb_get_whitebalance_info(INT32 dwChannelID, LPVOID lpOutBuffer)
@@ -6804,10 +6703,7 @@ static NET_COMMON_ECODE_E cb_set_whitebalance_info(INT32 dwChannelID, LPVOID lpI
     ISP::AwbAttr_S stCfg;
     TvSdkConvert::ToAwbAttr(*pIn, stCfg);
     std::string inJson = Convert::to_string(stCfg);
-    Task::Info_S stInfo;
-    stInfo.data = wrap_data_json(Convert::to_string(stCfg));
-    int nExec = s_taskManage ? s_taskManage->execute(AC_SET_WHITE_BALANCE_INFO, stInfo) : -1;
-    return (nExec == 0) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
+    return tvsdk_set_event_config(AC_SET_WHITE_BALANCE_INFO, inJson);
 }
 
 #if CAP_AUDIO_OUTPUT
@@ -6828,11 +6724,7 @@ static NET_COMMON_ECODE_E cb_set_talkback_state(INT32 dwChannelID, LPVOID lpInBu
         stCfg.strLocalIp = CPreviewManage::instance()->get_intercom_ip();
     }
 
-    Task::Info_S stInfo;
-    stInfo.strIp = stCfg.strLocalIp;
-    stInfo.data = wrap_data_json(Convert::to_string(stCfg));
-    int nExec = s_taskManage ? s_taskManage->execute(AC_SET_INTERCOM_INFO, stInfo) : -1;
-    return (nExec == 0) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
+    return tvsdk_set_event_config(AC_SET_INTERCOM_INFO, Convert::to_string(stCfg), stCfg.strLocalIp);
 }
 
 static NET_COMMON_ECODE_E cb_set_talkback_to_stream(INT32 dwChannelID, LPVOID lpInBuffer)
@@ -6845,10 +6737,7 @@ static NET_COMMON_ECODE_E cb_set_talkback_to_stream(INT32 dwChannelID, LPVOID lp
     Replay::Stream::Info_S stCfg;
     TvSdkConvert::ToReplayStreamInfo(*pIn, stCfg);
 
-    Task::Info_S stInfo;
-    stInfo.data = wrap_data_json(Convert::to_string(stCfg));
-    int nExec = s_taskManage ? s_taskManage->execute(AC_TO_STREAM_TALKBACK, stInfo) : -1;
-    return (nExec == 0) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
+    return tvsdk_set_event_config(AC_TO_STREAM_TALKBACK, Convert::to_string(stCfg));
 }
 
 static NET_COMMON_ECODE_E cb_get_talkback_from_stream(INT32 dwChannelID, LPVOID lpOutBuffer)
@@ -6889,10 +6778,7 @@ static NET_COMMON_ECODE_E cb_set_replay_talkback(INT32 dwChannelID, LPVOID lpInB
     Replay::Stream::ReplayRtpInfo_S stCfg;
     TvSdkConvert::ToReplayRtpInfo(*pIn, stCfg);
 
-    Task::Info_S stInfo;
-    stInfo.data = wrap_data_json(Convert::to_string(stCfg));
-    int nExec = s_taskManage ? s_taskManage->execute(AC_REPLAY_TALKBACK, stInfo) : -1;
-    return (nExec == 0) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
+    return tvsdk_set_event_config(AC_REPLAY_TALKBACK, Convert::to_string(stCfg));
 }
 
 #endif /* CAP_AUDIO_OUTPUT */
@@ -6964,10 +6850,7 @@ static NET_COMMON_ECODE_E cb_set_audio_cfg(INT32 dwChannelID, LPVOID lpInBuffer)
     TvSdkConvert::ToAudioConfig(*pIn, stCfg);
 
     std::string inJson = Convert::to_string(stCfg);
-    Task::Info_S stInfo;
-    stInfo.data = wrap_data_json(inJson);
-    int nExec = s_taskManage ? s_taskManage->execute(AC_SET_AUDIO_CONFIG, stInfo) : -1;
-    return (nExec == 0) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
+    return tvsdk_set_event_config(AC_SET_AUDIO_CONFIG, inJson);
 }
 
 /*-----------------------------------获取/设置进入区域侦测-------------------------------------*/
@@ -7251,11 +7134,7 @@ static NET_COMMON_ECODE_E cb_set_face_capture_overlay_info(INT32 dwChannelID, LP
     Alarm::OverlayInfo_S stCfg;
     TvSdkConvert::ToFaceCaptureOverlayInfo(
         *static_cast<const NET_FaceCaptureOverlayInfo_S *>(lpInBuffer), stCfg);
-    Task::Info_S stInfo;
-    stInfo.data = wrap_data_json(Convert::to_string(stCfg));
-    const int nExec = s_taskManage ?
-        s_taskManage->execute(AC_SET_FACE_CAPTURE_OVERLAY_INFO_INFO, stInfo) : -1;
-    return (nExec == 0) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
+    return tvsdk_set_event_config(AC_SET_FACE_CAPTURE_OVERLAY_INFO_INFO, Convert::to_string(stCfg));
 }
 
 
