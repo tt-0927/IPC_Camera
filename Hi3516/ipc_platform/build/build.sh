@@ -283,70 +283,79 @@ fi
 if [ "$DEVICE_MODE" = true ]; then
     set_device_type "$DEVICE_TYPE"
 
+    # 设备型号写入校验：型号文件未正确落盘时直接退出，避免后续步骤在同一命令中被静默跳过
+    if [ ! -f "$LOCAL_DEVICE_FILE" ] || [ "$(cat "$LOCAL_DEVICE_FILE")" != "$DEVICE_TYPE" ]; then
+        error "设备型号写入失败：$LOCAL_DEVICE_FILE"
+        exit 1
+    fi
+
     # 切换 hi3516cv610 固件分支
     # TV-3852TL4G、TV-3852TLW 使用对应分支，其他型号统一使用 TV-3852T 分支
+    # 注意：仅当固件目录自身是 git 仓库时才切换分支。否则 git 会向上找到父仓库（IPC_Camera），
+    #      导致误切整个项目的主仓库分支；切换过程中的失败只告警，不阻断后续编译参数写入。
     FIRMWARE_PATH="${PROJECT_ROOT_PATH}/hi3516cv610"
-    if [[ -d "$FIRMWARE_PATH" ]]; then
-        info "检查固件分支..."
-        cd "$FIRMWARE_PATH"
+    if [ -e "$FIRMWARE_PATH/.git" ]; then
+        # 放入子 shell 并关闭 errexit：分支切换与编译参数设置互不牵连，且不会污染当前工作目录
+        (
+            set +e
+            info "检查固件分支..."
 
-        # 确定目标分支
-        case "$DEVICE_TYPE" in
-        TV-3852TL4G)
-            TARGET_BRANCH="TV-3852TL4G-00S"
-            ;;
-        TV-3852TLW)
-            TARGET_BRANCH="TV-3852TLW-00S"
-            ;;
-        TV-3852TL)
-            TARGET_BRANCH="TV-3852TL"
-            ;;
-        TV-3852HL)
-            TARGET_BRANCH="TV-3852TL"
-            ;;
-        *)
-            TARGET_BRANCH="TV-3852T"
-            ;;
-        esac
-
-        # 获取远程源名称（取第一个）
-        REMOTE_NAME=$(git remote | head -n1)
-        if [[ -z "$REMOTE_NAME" ]]; then
-            error "hi3516cv610 仓库未配置远程源"
-        fi
-
-        # 获取当前分支名
-        CURRENT_BRANCH=$(git symbolic-ref --short HEAD 2>/dev/null || echo "")
-
-        if [[ "$CURRENT_BRANCH" != "$TARGET_BRANCH" ]]; then
-            info "当前分支为 '$CURRENT_BRANCH'，需要切换到 '$TARGET_BRANCH'"
-
-            # 检查本地分支是否存在
-            if ! git show-ref --verify --quiet "refs/heads/${TARGET_BRANCH}"; then
-                info "本地分支 '$TARGET_BRANCH' 不存在，从远程创建..."
-
-                # 检查远程分支是否存在
-                if ! git show-ref --verify --quiet "refs/remotes/${REMOTE_NAME}/${TARGET_BRANCH}"; then
-                    error "远程分支 '${REMOTE_NAME}/${TARGET_BRANCH}' 不存在，请先在固件仓库创建"
-                fi
-
-                # 创建本地分支并跟踪远程分支
-                git branch --track "$TARGET_BRANCH" "${REMOTE_NAME}/${TARGET_BRANCH}"
-                info "已创建本地分支 '$TARGET_BRANCH' 并跟踪 '${REMOTE_NAME}/${TARGET_BRANCH}'"
+            # 硬校验：git 解析出的仓库顶层必须就是固件目录本身，
+            # 否则说明 git 向上回退到了父仓库（IPC_Camera），此时绝不能执行任何切换动作
+            FIRMWARE_ROOT=$(git -C "$FIRMWARE_PATH" rev-parse --show-toplevel 2>/dev/null)
+            FIRMWARE_REAL=$(cd "$FIRMWARE_PATH" && pwd -P)
+            if [ "$FIRMWARE_ROOT" != "$FIRMWARE_REAL" ]; then
+                warn "固件目录不是独立 git 仓库（git 顶层：${FIRMWARE_ROOT:-无}），跳过分支切换"
+                exit 0
             fi
 
-            # 切换分支并拉取最新代码
-            git checkout "$TARGET_BRANCH"
-            git pull
-            info "已切换到分支 '$TARGET_BRANCH' 并更新代码"
-        else
-            info "当前已在分支 '$TARGET_BRANCH' 上，拉取最新代码..."
-            git pull
-        fi
+            # 确定目标分支
+            case "$DEVICE_TYPE" in
+            TV-3852TL4G)
+                TARGET_BRANCH="TV-3852TL4G-00S"
+                ;;
+            TV-3852TLW)
+                TARGET_BRANCH="TV-3852TLW-00S"
+                ;;
+            TV-3852TL)
+                TARGET_BRANCH="TV-3852TL"
+                ;;
+            TV-3852HL)
+                TARGET_BRANCH="TV-3852TL"
+                ;;
+            *)
+                TARGET_BRANCH="TV-3852T"
+                ;;
+            esac
 
-        cd "$PROJECT_ROOT_PATH"
+            REMOTE_NAME=$(git -C "$FIRMWARE_PATH" remote | head -n1)
+            CURRENT_BRANCH=$(git -C "$FIRMWARE_PATH" symbolic-ref --short HEAD 2>/dev/null)
+
+            if [ -z "$REMOTE_NAME" ]; then
+                warn "固件仓库未配置远程源，跳过分支切换（当前分支：${CURRENT_BRANCH:-未知}）"
+            elif [ "$CURRENT_BRANCH" = "$TARGET_BRANCH" ]; then
+                info "当前已在分支 '$TARGET_BRANCH' 上，拉取最新代码..."
+                git -C "$FIRMWARE_PATH" pull || warn "固件仓库拉取失败，忽略并继续"
+            elif git -C "$FIRMWARE_PATH" show-ref --verify --quiet "refs/remotes/${REMOTE_NAME}/${TARGET_BRANCH}"; then
+                info "当前分支为 '${CURRENT_BRANCH:-未知}'，切换到 '$TARGET_BRANCH'"
+                if ! git -C "$FIRMWARE_PATH" show-ref --verify --quiet "refs/heads/${TARGET_BRANCH}"; then
+                    git -C "$FIRMWARE_PATH" branch --track "$TARGET_BRANCH" "${REMOTE_NAME}/${TARGET_BRANCH}" \
+                        || warn "创建本地分支 '$TARGET_BRANCH' 失败，忽略并继续"
+                fi
+                if git -C "$FIRMWARE_PATH" checkout "$TARGET_BRANCH"; then
+                    git -C "$FIRMWARE_PATH" pull || warn "固件仓库拉取失败，忽略并继续"
+                    info "已切换到分支 '$TARGET_BRANCH' 并更新代码"
+                else
+                    warn "切换固件分支 '$TARGET_BRANCH' 失败，忽略并继续"
+                fi
+            else
+                warn "远程分支 '${REMOTE_NAME}/${TARGET_BRANCH}' 不存在，跳过分支切换"
+            fi
+
+            exit 0
+        )
     else
-        warn "固件目录不存在: $FIRMWARE_PATH，跳过分支切换"
+        warn "固件目录不是 git 仓库: $FIRMWARE_PATH，跳过分支切换"
     fi
 
     DID_SET=true
@@ -355,12 +364,22 @@ fi
 # 生成镜头型号
 if [ "$SENSOR_MODE" = true ]; then
     set_sensor_type "$SENSOR_TYPE"
+    # 镜头型号写入校验
+    if [ ! -f "$LOCAL_SENSOR_FILE" ] || [ "$(cat "$LOCAL_SENSOR_FILE")" != "$SENSOR_TYPE" ]; then
+        error "镜头型号写入失败：$LOCAL_SENSOR_FILE"
+        exit 1
+    fi
     DID_SET=true
 fi
 
 # 生成项目类型
 if [ "$PROJECT_MODE" = true ]; then
     set_project_type "$PROJECT_TYPE"
+    # 项目类型写入校验
+    if [ ! -f "$LOCAL_PROJECT_FILE" ] || [ "$(cat "$LOCAL_PROJECT_FILE")" != "$PROJECT_TYPE" ]; then
+        error "项目类型写入失败：$LOCAL_PROJECT_FILE"
+        exit 1
+    fi
     DID_SET=true
 fi
 

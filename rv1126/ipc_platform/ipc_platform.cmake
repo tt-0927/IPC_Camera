@@ -5,7 +5,8 @@ set(PLATFORM_SOC "rv1126b")
 set(CMAKE_SYSTEM_NAME Linux)
 set(CMAKE_SYSTEM_PROCESSOR arm)
 
-set(SDK_PATH           /home/itc/workdir/rockchip/rv1126b_1.1.0/RV1126B_Linux_IPC_SDK)
+# 本机以 Code/tools 下的工具链副本替代编译机 SDK 路径，仅需 tools/linux/toolchain 子目录
+set(SDK_PATH           /home/jatin/Code/tools/rk-sdk)
 #set(SDK_LIBRARY_DIR    ${SDK_PATH}/output/out/media_out/lib)
 set(SDK_LIBRARY_DIR    ${SDK_PATH}/project/app/out/lib)
 set(TOOLCHAIN_DIR      ${SDK_PATH}/tools/linux/toolchain/arm-rockchip1240-linux-gnueabihf)
