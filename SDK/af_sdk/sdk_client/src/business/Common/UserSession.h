@@ -21,6 +21,7 @@
 #include <mutex>
 #include <memory>
 #include <iostream>
+#include <condition_variable>
 
 #include "NetTVSDKClientInterface.h"
 #include "BG6_ZHSJ/BU_SJCL/AlarmListener.h"
@@ -216,6 +217,20 @@ private:
     void HeartbeatLoop();
 
     /**
+     * @brief   : 重建心跳专用 HTTP 客户端
+     * @note 心跳不再与业务命令共用 m_pCommandClient / m_stCommandMutex，
+     *       使 Stop() 可以直接 stop() 打断在飞的 KeepLive，而不必等读超时结束。
+     */
+    void RebuildHeartbeatClient();
+
+    /**
+     * @brief   : 主动通知服务端注销（尽力而为）
+     * @note 服务端 /Basic/Logout 仅按 session_id 删除会话记录。不通知时服务端要等到
+     *       SESSION_TIMEOUT_SEC(300s) 才清理，期间同一 NVR 会残留多条会话。
+     */
+    void NotifyServerLogout();
+
+    /**
  * @author tianl (tianl@kfb.cn)
      * @brief 报警监听由AlarmListener管理
      */
@@ -239,8 +254,11 @@ private:
     /* 对端设备类型（NET_DEVICE_TYPE_E）。用 atomic 是因为心跳/重连线程与业务线程可能并发读写 */
     std::atomic<INT32> m_nDeviceType{NET_DTYPE_UNKNOWN};
 
-    /* 命令发送锁 (保护 CmdClient 串行发送) */
-    std::mutex m_stCommandMutex;
+    /* 命令发送锁 (保护 CmdClient 串行发送)
+     * 用 timed_mutex：Stop() 只做有界尝试（try_lock_for），不再被一条读超时
+     * 长达 60s 的在飞命令无限期挡住；取锁失败时跳过 stop()，由 SendRequest
+     * 持有的 shared_ptr 保证会话与客户端在请求结束前不被释放。 */
+    std::timed_mutex m_stCommandMutex;
 
     std::thread m_stSseThread;
     std::thread m_stHeartbeatThread;
@@ -254,6 +272,11 @@ private:
      */
     std::unique_ptr<httplib::Client> m_pCommandClient; /* 短连接：发命令 */
     std::unique_ptr<httplib::Client> m_pSseClient; /* 长连接：SSE心跳 */
+
+    /* 心跳专用客户端：请求期间不持 m_stCommandMutex，Stop() 可直接 stop() 打断。
+     * 用 shared_ptr 是因为 HeartbeatLoop 取快照后即在锁外发请求。 */
+    std::mutex m_stHeartbeatClientMutex;
+    std::shared_ptr<httplib::Client> m_pHeartbeatClient;
 
     OnSessionLostCallback m_fnSessionLostCallback;        /* 会话断开 回调处理 */
 
@@ -275,6 +298,11 @@ private:
 
     /* 终态标志：Stop() 置位后不再允许创建重连/心跳线程，避免关闭过程中线程复活 */
     std::atomic<bool> m_bStopped{false};
+
+    /* 等待基元：心跳周期与重连退避用它等待，Stop()/重连置标志后 notify 立即唤醒，
+     * 使 join 不再受 1 秒切片的睡眠相位影响（登出路径耗时的主要来源）。 */
+    std::mutex m_stRunWaitMutex;
+    std::condition_variable m_cvRunWait;
 
     /* Alarm members */
     std::shared_ptr<CAlarmListener> m_pAlarmManager;

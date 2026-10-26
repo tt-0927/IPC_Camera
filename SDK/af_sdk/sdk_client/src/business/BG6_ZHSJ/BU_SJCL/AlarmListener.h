@@ -21,11 +21,12 @@
 #include <chrono>
 #include <memory>
 #include <functional>
+#include <condition_variable>
 #include "NetTVSDKClientInterface.h"
 
 using namespace tvsdk;
 
-class CAlarmListener
+class CAlarmListener : public std::enable_shared_from_this<CAlarmListener>
 {
 public:
     CAlarmListener(const std::string& host, int port, const std::string& user, const std::string& pass);
@@ -138,6 +139,17 @@ private:
     std::atomic<bool> m_bHealthMonitorRunning{false};
     std::atomic<int> m_nReconnectCount{0};     /* 连接尝试次数（用于诊断） */
     std::atomic<bool> m_bAlarmLoopExited{false}; /* AlarmLoop 退出标记：用于 Stop() 判断是否可以安全 join */
+
+    /* 会话过期回调开关：Stop() 置 false，StartListen() 置 true。
+     * 防止监听线程在会话对象（回调捕获的是 CUserSession 裸 this）已销毁后仍回调。 */
+    std::atomic<bool> m_bSessionExpiredCbEnabled{true};
+
+    /* 等待基元：健康监控周期、重连退避、AlarmLoop 退出通知共用；
+     * Stop() 置标志后 notify，使 join 不再依赖 1 秒/100 毫秒轮询的相位。 */
+    std::mutex m_stWaitMutex;
+    std::condition_variable m_cvHealth;
+    std::condition_variable m_cvLoopWait;
+    std::condition_variable m_cvExit;
 
     /* 健康监控恢复限流：防止无限循环恢复导致线程泄露 */
     static constexpr int kMaxRecoveriesPerWindow = 5;  /* 5分钟内最多恢复5次 */

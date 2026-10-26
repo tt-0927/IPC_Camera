@@ -143,7 +143,10 @@ NET_API LPVOID NET_STDCALL NET_clientLogin(NET_IN pNET_DeviceLoginInfo_S pstDevL
 * 用户注销  User logout
 * @param [in] lpUserID    用户登录句柄 User login ID
 * @return TRUE表示成功,其他表示失败 NET_TRUE means success, and any other value means failure.
-* @note
+* @note 本接口会同步收尾心跳、报警监听线程，并向设备发送一次注销请求（短超时）。
+*       禁止在报警回调（NET_AlarmCallBack）线程内调用：该路径只能 detach 监听线程，
+*       请在回调中投递到业务线程后再调用。
+*       Do NOT call it from inside NET_AlarmCallBack; dispatch to your own thread first.
 */
 NET_API BOOL NET_STDCALL NET_clientLogout(NET_IN LPVOID lpUserID);
 

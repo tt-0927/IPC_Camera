@@ -42,6 +42,7 @@ CUserSession::CUserSession(LPUSER_HANDLE userHand, const std::string& host, int 
     : m_hUser(userHand), m_strHost(host), m_nPort(port),
       m_strUsername(user), m_strPassword(pass),
       m_nHeartbeatInterval(std::min(hbInterval, 60)), m_nMaxRetry(std::max(maxRetry, 1)),
+      m_nConnectionTimeout(connectTimeout), m_nReceiveTimeout(receiveTimeout),
       m_fnSessionLostCallback(callback)
 {
     m_pCommandClient = std::make_unique<httplib::Client>(m_strHost, m_nPort);
@@ -106,7 +107,7 @@ bool CUserSession::UpdateCredentials(const std::string& strUsername, const std::
     }
 
     {
-        std::lock_guard<std::mutex> stLock(m_stCommandMutex);
+        std::lock_guard<std::timed_mutex> stLock(m_stCommandMutex);
         m_strUsername = strUsername;
         m_strPassword = strPassword;
         if (m_pCommandClient)
@@ -122,6 +123,13 @@ bool CUserSession::UpdateCredentials(const std::string& strUsername, const std::
     if (m_pAlarmManager)
     {
         m_pAlarmManager->UpdateCredentials(strUsername, strPassword);
+    }
+
+    /* 心跳客户端独立重建：避免在请求进行中修改其鉴权字段造成数据竞争；
+     * 未启动心跳时由 StartHeartbeat() 负责创建。 */
+    if (m_bRunning)
+    {
+        RebuildHeartbeatClient();
     }
 
     NETSDK_LOG_MESSAGE_INFO("[DIAG-SESSION] User-%p HTTP credentials updated for user=%s",
@@ -182,6 +190,64 @@ bool CUserSession::ConnectAndLogin()
 }
 
 /**
+ * @brief   : 重建心跳专用 HTTP 客户端
+ * @note 心跳与业务命令分离后，Stop() 可以直接 stop() 心跳连接打断在飞的 KeepLive，
+ *       不再需要抢 m_stCommandMutex（该锁可能被一条读超时 60s 的命令长期占用）。
+ */
+void CUserSession::RebuildHeartbeatClient()
+{
+    auto pClient = std::make_shared<httplib::Client>(m_strHost, m_nPort);
+    pClient->set_digest_auth(m_strUsername.c_str(), m_strPassword.c_str());
+    pClient->set_keep_alive(true);
+    pClient->set_connection_timeout(m_nConnectionTimeout);
+    /* 心跳只做保活探测：读超时收紧到 5 秒，坏链路上也不会长期占住一次请求 */
+    pClient->set_read_timeout(std::min(m_nReceiveTimeout, 5));
+
+    std::lock_guard<std::mutex> stLock(m_stHeartbeatClientMutex);
+    m_pHeartbeatClient = std::move(pClient);
+}
+
+/**
+ * @brief   : 主动通知服务端注销（尽力而为）
+ * @note 用独立的短超时客户端，避免影响登出耗时：正常链路约 1~3ms，
+ *       最坏（连接+读取各 300ms）也不会超过 600ms，且仅在会话仍在线时尝试。
+ */
+void CUserSession::NotifyServerLogout()
+{
+    if (m_strSessionId.empty())
+    {
+        return;
+    }
+
+    if (!m_bOnline)
+    {
+        NETSDK_LOG_MESSAGE_INFO("[DIAG-SESSION] User-%p offline, skip server logout notify, session=%s",
+                                m_hUser, m_strSessionId.c_str());
+        return;
+    }
+
+    httplib::Client stClient(m_strHost, m_nPort);
+    stClient.set_digest_auth(m_strUsername.c_str(), m_strPassword.c_str());
+    stClient.set_keep_alive(false);
+    stClient.set_connection_timeout(0, 300 * 1000); /* 300ms */
+    stClient.set_read_timeout(0, 300 * 1000);       /* 300ms */
+
+    const std::string strUrl = std::string(NET_API_PATH_BASIC_LOGOUT) + "?session_id=" + m_strSessionId;
+    auto stRes = stClient.Post(strUrl.c_str());
+
+    if (stRes && stRes->status == NET_HTTP_RESP_CODE_SUCCESS)
+    {
+        NETSDK_LOG_MESSAGE_INFO("[DIAG-SESSION] User-%p server logout notified, session=%s, respCode=%d",
+                                m_hUser, m_strSessionId.c_str(), SDKConvert::get_respCode(stRes->body));
+    }
+    else
+    {
+        NETSDK_LOG_MESSAGE_WARN("[DIAG-SESSION] User-%p server logout notify failed, session=%s, http=%d",
+                                m_hUser, m_strSessionId.c_str(), stRes ? stRes->status : -1);
+    }
+}
+
+/**
  * @author tianl (tianl@kfb.cn)
  * @brief 启动心跳线程
  * @details 设置运行标志为true，启动心跳循环线程，定时发送心跳包检测连接状态
@@ -201,6 +267,9 @@ void CUserSession::StartHeartbeat()
     m_bRunning = true;
     NETSDK_LOG_MESSAGE_INFO("[DIAG-SESSION] User-%p Starting HeartbeatLoop thread, session=%s", m_hUser, m_strSessionId.c_str());
     /* m_stSseThread = std::thread(&CUserSession::SseLoop, this); */
+
+    /* 心跳使用独立客户端，避免与业务命令争抢 m_stCommandMutex */
+    RebuildHeartbeatClient();
 
     std::lock_guard<std::mutex> stThreadLock(m_stThreadLifecycleMutex);
     m_stHeartbeatThread = std::thread(&CUserSession::HeartbeatLoop, this);
@@ -248,13 +317,36 @@ void CUserSession::Stop()
     /* 先置终态与运行标志，阻止并发路径再创建重连/心跳线程 */
     m_bRunning = false;
     m_bReconnecting = false;
+    /* 立即唤醒在心跳周期/重连退避上等待的线程，使下方 join 不必等满 1 秒切片 */
+    m_cvRunWait.notify_all();
 
     NETSDK_LOG_MESSAGE_INFO("[DIAG-SESSION] User-%p Stopping session", m_hUser);
-    if (m_pSseClient) m_pSseClient->stop();
-    /* 中断正在进行的命令请求，加速 ReconnectLoop 退出 */
+
+    /* 心跳客户端独立于命令客户端：直接 stop() 即可打断在飞的 KeepLive，
+     * 无需等待可能被长命令占用的 m_stCommandMutex。 */
     {
-        std::lock_guard<std::mutex> lock(m_stCommandMutex);
-        if (m_pCommandClient) m_pCommandClient->stop();
+        std::lock_guard<std::mutex> lock(m_stHeartbeatClientMutex);
+        if (m_pHeartbeatClient) m_pHeartbeatClient->stop();
+    }
+
+    /* 尽力通知服务端注销，避免会话滞留到 SESSION_TIMEOUT_SEC(300s) 才被清理 */
+    NotifyServerLogout();
+
+    if (m_pSseClient) m_pSseClient->stop();
+    /* 中断正在进行的命令请求，加速 ReconnectLoop 退出。
+     * 只做有界等待：若有命令正在执行（持锁发请求），跳过 stop() 直接返回，
+     * 避免登出被 read_timeout 拖住；该请求由自身持有的 shared_ptr 保证生命周期。 */
+    {
+        std::unique_lock<std::timed_mutex> lock(m_stCommandMutex, std::defer_lock);
+        if (lock.try_lock_for(std::chrono::milliseconds(50)))
+        {
+            if (m_pCommandClient) m_pCommandClient->stop();
+        }
+        else
+        {
+            NETSDK_LOG_MESSAGE_WARN("[DIAG-SESSION] User-%p command in flight at stop, skip abort (bounded by read_timeout=%ds)",
+                                    m_hUser, m_nReceiveTimeout);
+        }
     }
     /* 锁内移出线程对象、锁外回收：持锁 join 会与线程自身争锁而死锁 */
     std::thread stReconnectThread;
@@ -380,19 +472,29 @@ void CUserSession::HeartbeatLoop()
 
     while (m_bRunning)
     {
-        for (int i = 0; i < m_nHeartbeatInterval; ++i)
+        /* 等待一个心跳周期；Stop() 或重连置 m_bRunning=false 后 notify 立即唤醒，
+         * 避免登出时 join 必须等满当前 1 秒切片。 */
         {
-            if (!m_bRunning) break;
-            std::this_thread::sleep_for(std::chrono::seconds(1));
+            std::unique_lock<std::mutex> stWaitLock(m_stRunWaitMutex);
+            m_cvRunWait.wait_for(stWaitLock, std::chrono::seconds(m_nHeartbeatInterval),
+                                 [this]() { return !m_bRunning.load(); });
         }
         if (!m_bRunning) break;
 
         std::string url = "/TVAPI/V1.0/Basic/KeepLive?session_id=" + m_strSessionId;
         httplib::Result res;
 
+        /* 心跳客户端取快照后在锁外发请求：Stop() 只需 stop() 该客户端即可打断在飞的 KeepLive，
+         * 不会被 m_stCommandMutex 上的长时间命令请求挡住。 */
+        std::shared_ptr<httplib::Client> pHeartbeatClient;
         {
-            std::lock_guard<std::mutex> lock(m_stCommandMutex);
-            res = m_pCommandClient->Get(url.c_str());
+            std::lock_guard<std::mutex> lock(m_stHeartbeatClientMutex);
+            pHeartbeatClient = m_pHeartbeatClient;
+        }
+
+        if (pHeartbeatClient)
+        {
+            res = pHeartbeatClient->Get(url.c_str());
         }
 
         if (res && res->status == NET_HTTP_RESP_CODE_SUCCESS)
@@ -467,6 +569,8 @@ void CUserSession::ReconnectLoop()
     /* 通知心跳线程退出：设 m_bRunning=false 让 HeartbeatLoop 跳出 while 循环， */
     /* 否则 join() 会永远阻塞等待心跳线程结束 */
     m_bRunning = false;
+    /* 唤醒正在心跳周期上等待的线程，使其立即退出而不是等满一个周期 */
+    m_cvRunWait.notify_all();
 
     /* 等待心跳线程退出，避免与重连线程竞争 */
     /* 锁内移出、锁外回收：避免与 Stop() 并发操作同一 std::thread 对象 */
@@ -493,9 +597,12 @@ void CUserSession::ReconnectLoop()
         NETSDK_LOG_MESSAGE_INFO("[DIAG-SESSION] User-%p Reconnect attempt in %d seconds (delay=%d, max=30)",
                       m_hUser, delay, m_nReconnectDelay.load());
 
-        for (int i = 0; i < delay && m_bReconnecting; ++i)
+        /* 指数退避等待；Stop() 置 m_bReconnecting=false 后 notify 立即唤醒，
+         * 避免登出时 join 重连线程要等满当前 1 秒切片。 */
         {
-            std::this_thread::sleep_for(std::chrono::seconds(1));
+            std::unique_lock<std::mutex> stWaitLock(m_stRunWaitMutex);
+            m_cvRunWait.wait_for(stWaitLock, std::chrono::seconds(delay),
+                                 [this]() { return !m_bReconnecting.load(); });
         }
 
         if (!m_bReconnecting)
@@ -508,7 +615,7 @@ void CUserSession::ReconnectLoop()
 
         /* 重建 m_pCommandClient，防止旧连接 keep-alive 状态失效导致 Status: -1 */
         {
-            std::lock_guard<std::mutex> lock(m_stCommandMutex);
+            std::lock_guard<std::timed_mutex> lock(m_stCommandMutex);
             m_pCommandClient = std::make_unique<httplib::Client>(m_strHost, m_nPort);
             m_pCommandClient->set_digest_auth(m_strUsername.c_str(), m_strPassword.c_str());
             m_pCommandClient->set_connection_timeout(5);  /* 重连时使用固定超时 */
@@ -572,6 +679,8 @@ void CUserSession::ReconnectLoop()
                 ReapThread(stOldHeartbeatThread);
             }
             m_bRunning = true;  /* 重连成功，恢复 m_bRunning 再启动心跳 */
+            /* 新会话使用新的心跳客户端，避免复用旧连接残留的 keep-alive 状态 */
+            RebuildHeartbeatClient();
             {
                 std::lock_guard<std::mutex> lock(m_stThreadLifecycleMutex);
                 m_stHeartbeatThread = std::thread(&CUserSession::HeartbeatLoop, this);
@@ -639,6 +748,25 @@ void CUserSession::ReconnectLoop()
  */
 bool CUserSession::SendRequest(const CommandRequest_S& req, std::string& outRespBody)
 {
+        /* 延长生命周期到请求结束：Stop() 不再阻塞等待在飞命令，会话可能已被
+         * SessionManager 摘除，必须保证 this（含 m_pCommandClient）在此期间有效。 */
+        std::shared_ptr<CUserSession> pSelf;
+        try
+        {
+            pSelf = shared_from_this();
+        }
+        catch (const std::bad_weak_ptr &)
+        {
+            /* 非 shared_ptr 管理时退化为依赖调用方持有引用 */
+        }
+
+        /* 已登出的会话不再接受新命令，避免 Stop() 之后继续使用命令客户端 */
+        if (m_bStopped)
+        {
+            CErrorManage::instance()->SetLastError(NET_E_SEND_MSG_ERROR);
+            return false;
+        }
+
         /* 如果正在重连，等待重连完成（最多等 30 秒），实现海康式的透明重连 */
         /* 调用方无需关心连接状态，SDK 内部保证命令在重连成功后发送 */
         if (m_bReconnecting)
@@ -664,7 +792,7 @@ bool CUserSession::SendRequest(const CommandRequest_S& req, std::string& outResp
             return false;
         }
 
-        std::lock_guard<std::mutex> lock(m_stCommandMutex); /* 串行保护 */
+        std::lock_guard<std::timed_mutex> lock(m_stCommandMutex); /* 串行保护 */
 
         /* 处理 URL 参数拼接 */
         std::string finalUrl = req.url;

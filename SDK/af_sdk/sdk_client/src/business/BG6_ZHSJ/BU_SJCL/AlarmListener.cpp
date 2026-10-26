@@ -223,6 +223,8 @@ bool CAlarmListener::StartListen(void* userHandle, const std::string& sessionId)
     m_hUser = userHandle;
     m_strSessionId = sessionId;
     m_bRunning = true;
+    /* 与 Stop() 的关闭动作配对：重新启用会话过期回调 */
+    m_bSessionExpiredCbEnabled = true;
 
     // 赋值前 m_stThread 已经被 Stop() 中 join/detach 处理完毕，安全赋值
     m_stThread = std::thread(&CAlarmListener::AlarmLoop, this);
@@ -249,9 +251,26 @@ bool CAlarmListener::StartListen(void* userHandle, const std::string& sessionId)
 void CAlarmListener::Stop()
 {
     m_bRunning = false;
+    /* 先关回调开关：Stop() 可能由登出线程调用，随后 CUserSession 就可能被销毁，
+     * 监听线程不得再回调会话对象（回调捕获的是 CUserSession 裸 this）。 */
+    m_bSessionExpiredCbEnabled = false;
+
+    /* P2：先打断长连接。原顺序是"先 join 健康监控、再 stop 客户端"，
+     * 导致 AlarmLoop 在整个健康监控收尾期间仍阻塞在 recv 上。 */
+    // 在锁内调用 m_pClient->stop() 并释放成员引用，防止与 AlarmLoop 重建 m_pClient 并发
+    {
+        std::lock_guard<std::mutex> lk(m_stClientMutex);
+        if (m_pClient) m_pClient->stop();
+        m_pClient.reset();  // 释放成员引用，旧 AlarmLoop 持有的 localClient 仍保持对象存活
+    }
+
+    /* P0：唤醒 AlarmLoop 重连退避等待，避免 Stop 还要等满 500ms */
+    m_cvLoopWait.notify_all();
 
     // 先停健康监控线程
     if (m_bHealthMonitorRunning.exchange(false)) {
+        /* P0：唤醒健康监控的周期等待，join 立即返回 */
+        m_cvHealth.notify_all();
         if (m_stHealthMonitorThread.joinable()) {
             if (std::this_thread::get_id() != m_stHealthMonitorThread.get_id())
                 m_stHealthMonitorThread.join();
@@ -260,16 +279,9 @@ void CAlarmListener::Stop()
         }
     }
 
-    // 在锁内调用 m_pClient->stop() 并释放成员引用，防止与 AlarmLoop 重建 m_pClient 并发
-    {
-        std::lock_guard<std::mutex> lk(m_stClientMutex);
-        if (m_pClient) m_pClient->stop();
-        m_pClient.reset();  // 释放成员引用，旧 AlarmLoop 持有的 localClient 仍保持对象存活
-    }
-
     // 使用 m_bAlarmLoopExited 标志 + 超时来安全关闭 AlarmLoop 线程
-    // 在此平台 read_timeout 和 m_pClient->stop() 均无法中断阻塞的 recv()，
-    // 如果 AlarmLoop 卡在 recv() 中，直接 join 会永久阻塞
+    // 在此平台 read_timeout 无法中断阻塞的 recv()，m_pClient->stop() 不一定能及时生效，
+    // 因此保留 3 秒兜底；但正常情况下由 AlarmLoop 退出时 notify，无需轮询等待。
     if (m_stThread.joinable())
     {
         if (std::this_thread::get_id() == m_stThread.get_id())
@@ -278,14 +290,12 @@ void CAlarmListener::Stop()
         }
         else
         {
-            // 等待 AlarmLoop 自然退出（最多 3 秒）
+            // 等待 AlarmLoop 自然退出（最多 3 秒，事件驱动）
             bool exited = false;
-            for (int i = 0; i < 30; ++i) {
-                if (m_bAlarmLoopExited.load()) {
-                    exited = true;
-                    break;
-                }
-                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            {
+                std::unique_lock<std::mutex> lk(m_stWaitMutex);
+                exited = m_cvExit.wait_for(lk, std::chrono::seconds(3),
+                                           [this]() { return m_bAlarmLoopExited.load(); });
             }
 
             if (exited) {
@@ -312,6 +322,18 @@ void CAlarmListener::AlarmLoop()
 {
     std::string boundary;
     std::string buffer;
+
+    /* 自持：Stop() 可能在报警回调线程内执行，随后 CUserSession 就可能被销毁；
+     * 本线程必须保证监听器对象活到 AlarmLoop 返回，否则后续成员访问即 UAF。 */
+    std::shared_ptr<CAlarmListener> pSelf;
+    try
+    {
+        pSelf = shared_from_this();
+    }
+    catch (const std::bad_weak_ptr &)
+    {
+        /* 非 shared_ptr 管理时退化为原行为（依赖调用方保证生命周期） */
+    }
 
     // 返回 false 表示当前 AlarmListen 应断开（例如客户端停止）。
     auto dispatch_alarm = [&](const std::string& jsonBody) -> bool {
@@ -758,7 +780,7 @@ void CAlarmListener::AlarmLoop()
                               "hb=%d, alarms=%d, triggering re-login",
                               m_hUser, (long long)connDuration,
                               m_nReceivedHeartbeatCount.load(), m_nReceivedAlarmCount.load());
-                if (m_fnSessionExpiredCallback) m_fnSessionExpiredCallback();
+                if (m_bSessionExpiredCbEnabled.load() && m_fnSessionExpiredCallback) m_fnSessionExpiredCallback();
                 break; // 退出循环，由上层重新登录后重启 AlarmListen
             }
             // 其他 HTTP 错误（500/503 等）
@@ -783,7 +805,7 @@ void CAlarmListener::AlarmLoop()
                               "conn=%llds, hb=%d, alarms=%d, session=%s, triggering re-login",
                               m_hUser, (long long)connDuration,
                               m_nReceivedHeartbeatCount.load(), m_nReceivedAlarmCount.load(), currentSessionIdLog.c_str());
-                if (m_fnSessionExpiredCallback) m_fnSessionExpiredCallback();
+                if (m_bSessionExpiredCbEnabled.load() && m_fnSessionExpiredCallback) m_fnSessionExpiredCallback();
                 break; // 退出循环，由上层重新登录后重启 AlarmListen
             }
 
@@ -797,10 +819,16 @@ void CAlarmListener::AlarmLoop()
         buffer.clear();
         boundary.clear();
 
-        // 统一等 0.5 秒再重连
-        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+        // 统一等 0.5 秒再重连；Stop() 置 m_bRunning=false 后 notify 立即唤醒
+        {
+            std::unique_lock<std::mutex> lk(m_stWaitMutex);
+            m_cvLoopWait.wait_for(lk, std::chrono::milliseconds(500),
+                                  [this]() { return !m_bRunning.load(); });
+        }
     }
     m_bAlarmLoopExited = true;
+    /* 通知 Stop()：AlarmLoop 已退出，可直接 join */
+    m_cvExit.notify_all();
     NETSDK_LOG_MESSAGE_INFO("[DIAG-ALARM] User-%p AlarmLoop EXIT: totalLoops=%d, totalReconnects=%d",
                   m_hUser, loopCount, m_nReconnectCount.load());
 }
@@ -817,8 +845,11 @@ void CAlarmListener::HealthMonitorLoop()
                   m_hUser);
 
     while (m_bHealthMonitorRunning.load()) {
-        for (int i = 0; i < 5 && m_bHealthMonitorRunning.load(); ++i) {
-            std::this_thread::sleep_for(std::chrono::seconds(1));
+        /* 等待一个监控周期（5 秒）；Stop() 置标志后 notify 立即退出，不再按 1 秒切片轮询 */
+        {
+            std::unique_lock<std::mutex> lk(m_stWaitMutex);
+            m_cvHealth.wait_for(lk, std::chrono::seconds(5),
+                                [this]() { return !m_bHealthMonitorRunning.load(); });
         }
         if (!m_bHealthMonitorRunning.load()) break;
 
