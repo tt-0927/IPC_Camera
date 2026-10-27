@@ -661,6 +661,10 @@ extern "C"{
 #define NET_ALARM_LEAVE_REGION       (NET_ALARM_BASE_RULE + 0x04)  // 离开区域
 #define NET_ALARM_OBJECT_REMOVAL     (NET_ALARM_BASE_RULE + 0x05)  // 物品拿取
 #define NET_ALARM_UNATTENDED_OBJECT  (NET_ALARM_BASE_RULE + 0x06)  // 物品遗留
+/* 平安校园：网页端归入“周界事件”，沿用规则类载荷 NET_AlarmRuleInfo_S */
+#define NET_ALARM_KEY_AREA_ABNORMAL_STAY (NET_ALARM_BASE_RULE + 0x07) // 重点区域异常滞留
+#define NET_ALARM_DANGER_ZONE_STAY       (NET_ALARM_BASE_RULE + 0x08) // 危险区域滞留
+#define NET_ALARM_DANGER_ZONE_APPROACH   (NET_ALARM_BASE_RULE + 0x09) // 危险区域靠近
 
 /**
  * @brief Smart/AI 行为分析 (0x3000 - 0x3FFF)
@@ -713,6 +717,11 @@ extern "C"{
 #define NET_ALARM_ILLEGAL_LANE_CHANGE  (NET_ALARM_BASE_AI + 0x37)    // 违法变道识别
 #define NET_ALARM_SCENE_CHANGE         (NET_ALARM_BASE_AI + 0x38)    // 场景变更识别
 #define NET_ALARM_OPEN_FLAME           (NET_ALARM_BASE_AI + 0x39)    // 明火识别
+/* 平安校园：行为监管 / 行为分析 / 环境与设施异常，沿用 AI 目标类载荷 NET_AlarmAiObjectInfo_S */
+#define NET_ALARM_CLIMB_DETECTION      (NET_ALARM_BASE_AI + 0x3A)    // 攀爬识别
+#define NET_ALARM_OPEN_FLAME_LEAVE     (NET_ALARM_BASE_AI + 0x3B)    // 明火离人识别
+#define NET_ALARM_LONG_TIME_STAY       (NET_ALARM_BASE_AI + 0x3C)    // 长时间滞留
+#define NET_ALARM_CHANNEL_OCCUPATION   (NET_ALARM_BASE_AI + 0x3D)    // 通道占用
 
 
 // > 音频智能

@@ -208,6 +208,10 @@ UINT32 get_rule_alarm_type(Event::Type_E enEventType)
     case Event::Type_E::LEAVE_REGION:      return NET_ALARM_LEAVE_REGION;
     case Event::Type_E::OBJECT_REMOVAL:    return NET_ALARM_OBJECT_REMOVAL;
     case Event::Type_E::UNATTENDED_OBJECT: return NET_ALARM_UNATTENDED_OBJECT;
+    /* 平安校园：周界事件，与越界/入侵同走规则类载荷（含 ruleID/区域框/全景图） */
+    case Event::Type_E::KEY_AREA_ABNORMAL_STAY: return NET_ALARM_KEY_AREA_ABNORMAL_STAY;
+    case Event::Type_E::DANGER_ZONE_STAY:       return NET_ALARM_DANGER_ZONE_STAY;
+    case Event::Type_E::DANGER_ZONE_APPROACH:   return NET_ALARM_DANGER_ZONE_APPROACH;
     default:                               return 0;
     }
 }
@@ -241,6 +245,8 @@ UINT32 get_ai_object_alarm_type(Event::Type_E enEventType)
     {
     case Event::Type_E::LOITERING_DETECT:             return NET_ALARM_LOITERING;
     case Event::Type_E::PARKING_DETECT:               return NET_ALARM_PARKING_DETECT;
+    /* 平安校园：行为分析（网页端“长时间滞留”与徘徊/停车同组） */
+    case Event::Type_E::LONG_TIME_STAY:               return NET_ALARM_LONG_TIME_STAY;
     case Event::Type_E::FACE_DETECT:                  return NET_ALARM_FACE_DETECT;
     case Event::Type_E::FACE_RECOGNITION:             return NET_ALARM_FACE_CAPTURE;
     case Event::Type_E::FACE_CAPTURE:                 return NET_ALARM_FACE_CAPTURE;
@@ -249,11 +255,17 @@ UINT32 get_ai_object_alarm_type(Event::Type_E enEventType)
     case Event::Type_E::LEAVE_POST:                   return NET_ALARM_LEAVE_POST;
     case Event::Type_E::PERSON_FALL_DOWN:             return NET_ALARM_PERSON_FALL;
     case Event::Type_E::FENCE_CLIMBING:               return NET_ALARM_FENCE_CLIMBING;
+    /* 平安校园：行为监管（攀爬识别与翻越围栏同类） */
+    case Event::Type_E::CLIMB_DETECTION:              return NET_ALARM_CLIMB_DETECTION;
     case Event::Type_E::SMOKING:                      return NET_ALARM_SMOKING;
     case Event::Type_E::PHONE_USAGE:                  return NET_ALARM_PHONE_USAGE;
     case Event::Type_E::SMOKE_FIRE:                   return NET_ALARM_SMOKE_FIRE;
     case Event::Type_E::OPEN_FLAME:                   return NET_ALARM_OPEN_FLAME;
+    /* 平安校园：行为监管（明火离人与明火识别同类） */
+    case Event::Type_E::OPEN_FLAME_LEAVE:             return NET_ALARM_OPEN_FLAME_LEAVE;
     case Event::Type_E::MANHOLE_COVER_ABNORMAL:       return NET_ALARM_MANHOLE_COVER_ABNORMAL;
+    /* 平安校园：环境与设施异常（通道占用与井盖/垃圾等环境类同组） */
+    case Event::Type_E::CHANNEL_OCCUPATION:           return NET_ALARM_CHANNEL_OCCUPATION;
     case Event::Type_E::BARE_SOIL:                    return NET_ALARM_BARE_SOIL;
     case Event::Type_E::HOLE_PROTECTION_BAR:          return NET_ALARM_HOLE_PROTECTION_BAR;
     case Event::Type_E::PEDESTRIAN_INTRUSION:         return NET_ALARM_PEDESTRIAN_INTRUSION;
