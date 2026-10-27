@@ -243,7 +243,6 @@ void EventLinkageWorker::task_loop()
          * 在第一条播放完后又继续播报。
          */
          bool bSoundTaskStarting = false;
-         int nStartingSoundPriority = INT_MAX;
          if (stTask.enLinkageType == LinkageType_E::SOUND && !is_task_running(LinkageType_E::SOUND))
          {
              std::lock_guard<std::mutex> lock(m_currentLinkageMutex);
@@ -251,37 +250,7 @@ void EventLinkageWorker::task_loop()
              if (itCurrent != m_currentLinkages.end())
              {
                  bSoundTaskStarting = true;
-                 nStartingSoundPriority = itCurrent->second.nPriority;
              }
-         }
- 
-         if (bSoundTaskStarting && stTask.nPriority < nStartingSoundPriority)
-         {
-             /*
-              * 高优先级人脸比对到达时，给已登记的抓拍声音最多500ms完成启动置位。
-              * 置位后走正常抢占；若旧任务自行退出，则新任务直接执行。
-              */
-             constexpr int SOUND_START_WAIT_STEP_MS = 10;
-             constexpr int SOUND_START_WAIT_MAX_MS = 500;
-             int nWaitMs = 0;
-             while (!is_task_running(LinkageType_E::SOUND) && nWaitMs < SOUND_START_WAIT_MAX_MS)
-             {
-                 bool bStillStarting = false;
-                 {
-                     std::lock_guard<std::mutex> lock(m_currentLinkageMutex);
-                     bStillStarting = m_currentLinkages.count(LinkageType_E::SOUND) > 0;
-                 }
-                 if (!bStillStarting)
-                 {
-                     break;
-                 }
-                 std::this_thread::sleep_for(std::chrono::milliseconds(SOUND_START_WAIT_STEP_MS));
-                 nWaitMs += SOUND_START_WAIT_STEP_MS;
-             }
- 
-             std::lock_guard<std::mutex> lock(m_currentLinkageMutex);
-             bSoundTaskStarting = m_currentLinkages.count(LinkageType_E::SOUND) > 0 &&
-                                  !is_task_running(LinkageType_E::SOUND);
          }
  
          /* 同类联动若正在执行，或声光任务仍处于异步启动窗口，先处理冲突。 */
@@ -366,24 +335,16 @@ bool EventLinkageWorker::is_task_expired(const LinkageTask_S &stTask) const
 
 bool EventLinkageWorker::handle_running_task_conflict(const LinkageTask_S &stTask)
 {
-#if CAP_AUDIO_OUTPUT
-    /* 人脸比对成功使用专用音频，不能用通用报警音路径参与“同音频”去重。 */
-    const bool bUseDedicatedFaceAudio = stTask.stContext.enEventType == Event::Type_E::FACE_COMPARE_SUCCESS;
+    /* 声音联动改为“先到先播完”：只要已有 SOUND 正在播报（或已登记、处于启动窗口），
+     * 新到的 SOUND 任务一律丢弃——不按优先级抢占，也不做同音频合并。
+     * 原实现允许高优先级抢占，会让先到的告警永远播不完。 */
     if (stTask.enLinkageType == LinkageType_E::SOUND)
     {
-        std::string strNewAudioPath;
-        // if (m_asyncAction.get_audio_file_path(strNewAudioPath) == OK)
-        if (!bUseDedicatedFaceAudio && m_asyncAction.get_audio_file_path(strNewAudioPath) == OK)
-        {
-            const std::string strPlayingAudio = m_asyncAction.get_playing_audio_path();
-            if (strPlayingAudio == strNewAudioPath)
-            {
-                dlog_info("新声音联动任务与当前播放的音频相同(%s)，执行合并去重，直接丢弃", strNewAudioPath.c_str());
-                return false;
-            }
-        }
+        dlog_info("声音联动正在播报，丢弃新任务 - 事件: %s, 优先级: %d",
+                  EventLinkageDict::get_event_name(stTask.stContext.enEventType).c_str(),
+                  stTask.nPriority);
+        return false;
     }
-#endif
 
     if (check_and_interrupt(stTask.enLinkageType, stTask.nPriority))
     {

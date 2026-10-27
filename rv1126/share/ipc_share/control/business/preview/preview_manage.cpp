@@ -481,10 +481,8 @@ int CPreviewManage::device_control(const Preview::DeviceControl_S &stInfo)
             nAudioTimes = 1;
             dlog_warn("TVSDK声光报警次数无效，使用默认播放次数: times[%d]", nAudioTimes);
         }
-        /* 新触发的声光联动抢占上一段语音：先打断仍在播放的告警音，再投递新的，
-         * 确保播报的是最新告警内容，而不是排队等前一段播完。 */
-        CEventLinkage::instance()->preempt_play_audio();
-        /* 异步投递：音频由 worker 线程播放，任务立即返回，避免阻塞 HTTP 响应。 */
+        /* 声音联动改为“先到先播完”：忙时不打断、由 worker 判忙丢弃，
+         * 保证先到的告警完整播报；灯光与 GPIO 仍按本次 START 生效。 */
         if (CEventLinkage::instance()->play_audio_async())
         {
             dlog_info("TVSDK声光报警音频已异步投递: path[%s], times[%d]", strAudioPath.c_str(), nAudioTimes);
