@@ -244,6 +244,28 @@ static bool is_valid_upgrade_path(const std::string &path)
     return true;
 }
 
+/* 把绝对路径归一成上传目录下的相对名：DoUpgrade::handle() 会自行拼接 UPLOAD_PATH，
+ * 若这里仍传绝对路径，最终会拼成 UPLOAD_PATH + 绝对路径（同一前缀出现两次）。
+ * 同时只接受上传目录内的路径，避免拼接后越界访问其它目录。 */
+static bool to_upload_relative_path(const std::string &absPath, std::string &relPath)
+{
+    const std::string strUploadPrefix = UPLOAD_PATH;        /* /opt/course/upload/ */
+    const std::string strCoursePrefix = kDefaultUpgradeDir; /* /opt/course/ */
+
+    if (absPath.rfind(strUploadPrefix, 0) == 0)
+        relPath = absPath.substr(strUploadPrefix.size());
+    else if (absPath.rfind(strCoursePrefix, 0) == 0)
+        relPath = absPath.substr(strCoursePrefix.size());
+    else
+        return false;
+
+    /* 拒绝空名与目录上跳，保证最终仍落在上传目录内 */
+    if (relPath.empty() || relPath.find("..") != std::string::npos)
+        return false;
+
+    return true;
+}
+
 static std::string normalize_upgrade_local_path(const std::string &srcPath)
 {
     if (srcPath.empty())
@@ -6260,16 +6282,21 @@ static NET_COMMON_ECODE_E cb_set_upgrade(INT32 dwChannelID, LPVOID lpInBuffer)
         return NET_E_INVALID_PARAM;
     }
 
-    std::string wrappedJson = wrap_data_json(Convert::to_string(stCfg));
-    dlog_info("[TVSDK][Upgrade] recv local-path=%s", stCfg.strUpgradePath.c_str());
+    const std::string strLocalPath = stCfg.strUpgradePath;
+    std::string strRelativePath;
+    if (!to_upload_relative_path(strLocalPath, strRelativePath))
+    {
+        dlog_warn("[TVSDK][Upgrade] path outside upload dir, reject: %s", strLocalPath.c_str());
+        return NET_E_INVALID_PARAM;
+    }
+    stCfg.strUpgradePath = strRelativePath;
+    dlog_info("[TVSDK][Upgrade] recv local-path=%s, exec-name=%s",
+              strLocalPath.c_str(), stCfg.strUpgradePath.c_str());
 
-    if (execute_action_expect_success(AC_SET_UPGRADE, wrappedJson, nullptr) != 0)
-        return NET_E_SET_CFG_FAILED;
-
-    std::string checkOutJson;
-    if (execute_action_expect_success(AC_CHECK_UPGRADE, "{}", &checkOutJson) != 0)
-        return NET_E_SET_CFG_FAILED;
-
+    /* AC_SET_UPGRADE / AC_CHECK_UPGRADE 在 IPC 侧是恒返回错误的占位实现
+     * （Task 内直接 result(ERR_IMPORT_UPGRADE / ERR_CHECK_UPGRADE)），
+     * 这里不再经过它们，直接走与 Web / ONVIF / MQTT 网关相同的 AC_DO_UPGRADE 通路。
+     * 包合法性（包头 id / MD5）由升级进程在扫描阶段校验，结果通过 GetUpgradeStatus 返回。 */
     return tvsdk_set_event_config(AC_DO_UPGRADE, Convert::to_string(stCfg));
 }
 
